@@ -1,3 +1,393 @@
-# New wrapper for backwards compatibility
-cd /etc/rc.d
-[ -f pupCDfunctions -a -r pupCDfunctions ] && . pupCDfunctions
+#!/bin/sh
+#Barry Kauler 2007 www.puppylinux.com
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#created for v3.01, oct 2007.
+#v555 updated with DISTRO_FILE_PREFIX.
+#w478 update.
+#w482 use xorriso instead of cdrtools/cdrkit if installed,
+#w482 variables CDRECORD and MKISOFS are exported by
+# /etc/rc.d/rc.shutdown and /usr/sbin/savesession-dvd.
+#w482 replace -pad in cdrecord with padsize=300k.
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:42:47·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+KERNELVER=`uname -r` #w478
+SP_CHARS='~!@#$%^&*()_+`-={}|[]:"<>?;,./\'"'"  #"geany
+substP1=`echo "$SP_CHARS" | sed -r 'sA\.AA;sA(.)A\\\\\1Ag'`
+KERNELSUBVER=`echo -n "${KERNELVER%%[$substP1]*}" |cut -f3 -d '.'`
+
+#w478 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR=`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`
+#KERNEL3CHARS=`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`
+KERNEL3CHARS=`echo -n "${KERNELVER%%[$substP1]*}" | sed 's%[[:alpha:][:punct:]]%%g' |rev |cut -c 1-3|rev`
+ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+
+DEVCONSOLE="/dev/console" #when X not running
+PSINFO=`ps`
+[ "`echo "$PSINFO" | grep ' X :0'`" != "" ] && DEVCONSOLE="/dev/tty" #running in rxvt.
+
+#**SUBFUNCTIONS
+waittrayclosed_func() {
+ CDDRV="$1"
+
+ if [ "`cddetect -d${CDDRV} | grep '^tray open!'`" != "" ];then #v2.22
+  echo -e "\\033[1;31mThe media tray appears to be open." >$DEVCONSOLE #31=red
+  echo -en "Please close tray then press ENTER key:\\033[0;39m " >$DEVCONSOLE
+  read waitaenter
+ fi
+ echo -e "\\033[1;34mIF STOPPED LONG TIME AT THIS MSG, MAKE SURE TRAY IS CLOSED THEN PRESS ENTER KEY:\\033[0;39m " >$DEVCONSOLE #34=blue
+}
+
+f4pFN=/etc/rc.d/functions4puppy
+get_lineno_f4p(){
+    if [ "$1" ] ; then
+    echo `grep -n -w -m1 "$1" "$f4pFN" |cut -f1 -d':'`
+    else
+    echo 'UNKNOWN'
+    fi
+}
+
+continue_func_f4p(){
+echo -n "OK, just before
+$1
+Press any key to continue .." >$DEVCONSOLE
+read -t 30 -n1 CONT_KEY
+}
+#**SUBFUNCTIONS
+
+#**MAIN
+multisavefunc() {
+
+ [ "$SAVEPART" ] || return 1
+
+ #save session to folder on multisession CD/DVD.
+ [ "$CDRECORD" = "" ] && CDRECORD='cdrecord' #w482 precaution.
+ [ "$MKISOFS" = "" ] && MKISOFS='mkisofs' #w482 precaution.
+ export MKISOFS
+
+ touch -c /.badfolders #update modifytime, so will get saved. badlist, see init script.
+
+ MSPATTERN="/dev/$SAVEPART " #v2.22
+
+ if [ "`mount | grep "$MSPATTERN"`" != "" ];then
+  echo "'/dev/$SAVEPART' mounted, must unmount it..."
+  fuser -k -m /dev/$SAVEPART
+  sync
+  umount /dev/$SAVEPART 2> /dev/null
+ fi
+ CDR="/dev/$SAVEPART"
+
+ if [ "`mount | grep "${CDR} "`" != "" ];then #v3.01
+  [ "$VERBOSE" ] && continue_func_f4p "Mount failure"
+  dialog --msgbox "The drive '$CDR' could not be unmounted,
+so current session cannot be saved to it.
+This can happen if PC has insufficient RAM to
+copy all files off the CD, or an X application
+is still using the CD and cannot be killed.
+
+Press ENTER key..." 0 0 >$DEVCONSOLE
+  [ "$DEBUG" ] || clear >$DEVCONSOLE
+  return
+ fi
+
+
+ HDRCDR="$CDR" #w482
+ [ "$VERBOSE" ] && continue_func_f4p "Insert CD/DVD"
+ dialog --yes-label "SAVE" --no-label "NO SAVE" --yesno "Please insert the Puppy live-CD/DVD media that you booted from, into the same CD/DVD drive that you booted from -- this is '/dev/$SAVEPART' and it must be a burner drive!
+
+Insert CD/DVD media now, then press ENTER key to save session...
+Or, press TAB then ENTER to not save session..." 0 0 >$DEVCONSOLE
+ if [ ! $? -eq 0 ];then
+  eject $CDR
+  [ "$VERBOSE" ] && continue_func_f4p "Wish not to save"
+  dialog --msgbox "Have not saved session to live-CD/DVD.
+Remove CD/DVD media if you wish.
+Do not press close button on drive.
+Press ENTER key to close drive tray" 0 0 >$DEVCONSOLE
+  eject -t $CDR
+  sleep 1
+  [ "$DEBUG" ] || clear >$DEVCONSOLE
+  waittrayclosed_func $CDR #v2.16
+  return
+ fi
+
+ [ "$DEBUG" ] || clear >$DEVCONSOLE
+ if [ "`cddetect -d${CDR} | grep '^no disc!'`" != "" ];then #v2.22
+  echo -e "\\033[1;31mIt seems that the media is not inserted." >$DEVCONSOLE #31=red
+  echo -en "Please insert media then press ENTER key:\\033[0;39m " >$DEVCONSOLE
+  read waitaenter
+ fi
+
+ MEDIATYPE="CD"
+ waittrayclosed_func $CDR #v2.16
+ DVDRWMEDIAINFO=`dvd+rw-mediainfo $CDR 2>&1`
+ [ "`echo -n "$DVDRWMEDIAINFO" | grep --extended-regexp "non\\-DVD|not a DVD unit|Input/Output error|Input/output error|Invalid argument"`" = "" ] && MEDIATYPE="DVD"
+
+ #if new version iso inserted, need to save all files, not just changed/new...
+ MSPATTERN="$CDR "
+ DVDMNTPT=`mount | grep "$MSPATTERN" | tr -s " " | cut -f 3 -d " "` #in case not unmounted.
+ if [ "$DVDMNTPT" = "" ];then
+  mkdir -p /tmp/dvdmntpt
+  mount -t iso9660 $CDR /tmp/dvdmntpt
+  [ $? -eq 0 ] && DVDMNTPT="/tmp/dvdmntpt"
+ fi
+ if [ "$DVDMNTPT" != "" ];then
+  if [ $ORIGPUPMODE -eq 77 ];then #bypass first boot, PUPMODE=5. v2.22
+   [ "`find $DVDMNTPT -maxdepth 1 -type d -name 20[0-9][0-9]*`" = "" ] && NEWISO="yes"
+  fi
+  umount $CDR 2>$ERR
+ fi
+
+
+ MYDATE=`date "+%Y-%m-%d-%H-%M"` #this will become the folder name on cd.
+
+ SAVEABORT="" #v3.01
+ while [ 1 ];do #WHILELOOP1
+
+  if [ "$NEWISO" = "yes" ];then
+   echo "Burning data from previous '$MEDIATYPE' to first track..." >$DEVCONSOLE
+
+   FOLDEROLD=`echo -n "$PUPSAVE" | cut -f 2 -d '/'`
+
+   if [ "$MEDIATYPE" = "CD" ];then
+    waittrayclosed_func $CDR #v2.16 v3.01 now HDRCDR...
+    SECT=`$CDRECORD -msinfo dev=${HDRCDR} 2>/tmp/cdrerr.txt | grep '^[0-9]*.[0-9]'` #v3.01
+
+    if [ "$SECT" = "" ];then
+     SAVEABORT="$CDR" #v3.01
+     break #NOT ok
+
+    else
+     waittrayclosed_func $CDR #v2.16
+     #v2.02 added -pad ...  v3.01 now HDRCDR...
+     #v2.16 removed -pad from cdrecord as mkisofs has -pad by default... no, leave for now...
+     $MKISOFS -D -R -C $SECT -M $CDR -quiet -new-dir-mode 0755 -graft-points ${FOLDEROLD}=/initrd/pup_ro1 | $CDRECORD -multi -data -tao -eject -v speed=4 gracetime=2 padsize=300k dev=${HDRCDR} -
+    fi
+
+   else #dvd
+    waittrayclosed_func $CDR #v2.16
+    growisofs -M $CDR -D -R -quiet -new-dir-mode 0755 -graft-points ${FOLDEROLD}=/initrd/pup_ro1 2> /tmp/dvderr.txt
+   fi
+  fi # "$NEWISO" = "yes"
+  #v2.22 NEWISO=""
+
+  REMSFS=""
+
+  [ -d /initrd/pup_rw/root/mnt ] && REMSFS="$REMSFS -x /initrd/pup_rw/root/mnt"
+
+  if [ "$NEWISO" = "yes" ];then
+   [ -f /initrd/pup_rw/.badfolders ] && REMSFS="$REMSFS -x /initrd/pup_rw/.badfolders"
+  fi
+
+  if [ "$MEDIATYPE" = "CD" ];then
+   waittrayclosed_func $CDR #v2.16 v3.01 now HDRCDR...
+   SECT=`$CDRECORD -msinfo dev=${HDRCDR} 2>/tmp/cdrerr.txt | grep '^[0-9]*.[0-9]'`
+
+   if [ "$SECT" = "" ];then
+    SAVEABORT="$CDR" #v3.01
+    break #v3.01 #NOT ok
+   else
+     waittrayclosed_func $CDR #v2.16
+    TSIZE=`$MKISOFS -print-size -D -R -C $SECT -M $CDR -quiet -new-dir-mode 0755 -graft-points -x /initrd/pup_rw/tmp $REMSFS -x /initrd/pup_rw/proc -x /initrd/pup_rw/sys -x /initrd/pup_rw/var -x /initrd/pup_rw/initrd -x /initrd/pup_rw/mnt ${MYDATE}=/initrd/pup_rw`
+
+    waittrayclosed_func $CDR #v2.16 v3.01 now HDRCDR...
+    $MKISOFS -D -R -C $SECT -M $CDR -quiet -new-dir-mode 0755 -graft-points -x /initrd/pup_rw/tmp $REMSFS -x /initrd/pup_rw/proc -x /initrd/pup_rw/sys -x /initrd/pup_rw/var -x /initrd/pup_rw/initrd -x /initrd/pup_rw/mnt ${MYDATE}=/initrd/pup_rw | $CDRECORD -multi -data -tao -eject -v speed=4 gracetime=2 padsize=300k tsize=${TSIZE}s dev=${HDRCDR} -
+    [ $? -eq 0 ] && break #ok
+   fi
+   echo "Cannot write to CD" > /tmp/dvderr.txt
+
+  else #dvd
+    waittrayclosed_func $CDR #v2.16
+    #-J Joliet extension disabled, sometimes causes failure...
+    #v2.16 removed '-speed=4' as got 'failed to change write speed' error on one drive...
+    growisofs -M $CDR -D -R -quiet -new-dir-mode 0755 -graft-points -x /initrd/pup_rw/tmp $REMSFS -x /initrd/pup_rw/proc -x /initrd/pup_rw/sys -x /initrd/pup_rw/var -x /initrd/pup_rw/initrd -x /initrd/pup_rw/mnt ${MYDATE}=/initrd/pup_rw 2> /tmp/dvderr.txt
+    [ $? -eq 0 ] && break #ok
+  fi
+
+  [ "$VERBOSE" ] && continue_func_f4p "NEW burn or UPDATE/UPGADE to existing"
+  dialog --yes-label "BLANK ${MEDIATYPE}-R" --no-label "UPGRADE ${MEDIATYPE}-R" --yesno "ERROR MESSAGE:
+`cat /tmp/dvderr.txt | head -n 1`
+
+It seems to be time to migrate to a new 'live-${MEDIATYPE}'.
+You can migrate to a new blank '${MEDIATYPE}-R' , or upgrade
+to a new Puppy version iso file that has been previously
+burnt in multisession mode to a '${MEDIATYPE}-R' .
+
+WARNING:
+If the PC shuts down without allowing the migration, try
+rebooting the current 'live-$MEDIATYPE' and shutdown again.
+
+Have the new media ready, but do not insert it yet.
+Just select the appropriate button..." 0 0 >$DEVCONSOLE
+  RV_NEWoADD=$?
+  if [ $RV_NEWoADD -eq 0 ];then #new blank cd/dvd.
+   DVDMNTPT=`mount | grep "$CDR" | tr -s " " | cut -f 3 -d " "` #in case not unmounted.
+   if [ "$DVDMNTPT" = "" ];then
+    mkdir /tmp/dvdmntpt
+    mount -t iso9660 $CDR /tmp/dvdmntpt
+    [ ! $? -eq 0 ] && break #NOT ok
+    DVDMNTPT="/tmp/dvdmntpt"
+   fi
+
+   echo "Copying some files off '$CDR' ..." >$DEVCONSOLE
+   mkdir /tmp/livecd
+   cp "$DVDMNTPT"/isolinux.bin /tmp/livecd/
+   cp "$DVDMNTPT"/isolinux.cfg /tmp/livecd/
+   cp "$DVDMNTPT"/vmlinuz /tmp/livecd/
+   cp "$DVDMNTPT"/initrd.gz /tmp/livecd/
+   cp "$DVDMNTPT"/boot.msg /tmp/livecd/ 2>$ERR
+   cp "$DVDMNTPT"/goofy.16 /tmp/livecd/ 2>$ERR
+   cp "$DVDMNTPT"/logo.16 /tmp/livecd/ 2>$ERR #w478
+   cp "$DVDMNTPT"/help*.msg /tmp/livecd/ 2>$ERR #w478
+
+   cp "$DVDMNTPT"/"${ZDRVSFS}" /tmp/livecd/ 2>$ERR #w478
+   sync
+   umount $CDR
+   [ ! $? -eq 0 ] && break #NOT ok
+   eject $CDR
+
+   [ "$VERBOSE" ] && continue_func_f4p "Insert new CD/DVD"
+   dialog --msgbox "Take out the old media and write completion date on it.
+NOTE: Do not press tray-close button on '$MEDIATYPE' drive.
+Please insert new media in tray then press ENTER key..." 0 0 >$DEVCONSOLE
+   eject -t $CDR
+
+   echo -n "/initrd/mnt/tmpfs/" > /tmp/dvdextras.txt #v3.01
+   #ls -1 /initrd/mnt/tmpfs | grep "${DISTRO_FILE_PREFIX}r" >> /tmp/dvdextras.txt
+   ls -1 /initrd/mnt/tmpfs | grep "${DISTRO_FILE_PREFIX}\-" >> /tmp/dvdextras.txt
+
+   waittrayclosed_func $CDR #v2.16
+
+   if [ "$MEDIATYPE" = "DVD" ];then
+    #v2.16 removed '-speed=4' as got 'failed to change write speed' error on one drive...
+    growisofs -Z $CDR -R -D -quiet -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -path-list /tmp/dvdextras.txt /tmp/livecd
+    [ ! $? -eq 0 ] && break #NOT ok
+
+   else
+    #v2.02 added -pad ...
+    #v2.16 removed -pad from cdrecord as mkisofs has -pad by default... no, leave for now...
+    $MKISOFS -D -R -quiet -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table -path-list /tmp/dvdextras.txt /tmp/livecd | $CDRECORD -multi -tao -data -v speed=4 gracetime=2 padsize=300k dev=$HDRCDR  -
+    [ ! $? -eq 0 ] && break #NOT ok
+   fi #new blank cd/dvd.
+
+  elif [ $RV_NEWoADD -eq 1 ];then
+   : #NEWISO="yes" #loop back up.
+  else
+   break #abort
+  fi #new blank cd/dvd.
+
+  NEWISO="yes" #loop back up.
+ done #end WHILELOOP1
+
+ sync
+
+ [ "`mount | grep "$CDR"`" ] && STILLMNTD="yes" #v3.01
+ if [ "$STILLMNTD" = "yes" ];then
+  CLOSEMSG="Press ENTER key to complete the shutdown..."
+ else
+  CLOSEMSG="Remove '$MEDIATYPE' media if you wish.
+Do not press close button on drive.
+Press ENTER key to close drive tray
+(laptop drive, have to manually close)"
+  eject $CDR
+ fi
+
+ if [ "$SAVEABORT" = "" ];then #v3.01
+  [ "$VERBOSE" ] && continue_func_f4p "Final burn ok"
+  dialog --msgbox "Have saved session to 'live-$MEDIATYPE'
+(unless it has not, which is an error).
+
+${CLOSEMSG}" 0 0 >$DEVCONSOLE
+ else
+  [ "$VERBOSE" ] && continue_func_f4p "Unable to write to new CD/DVD"
+  dialog --msgbox "A problem with the '${MEDIATYPE}' drive '${SAVEABORT}' ,
+unable to save to it. Sorry.
+
+${CLOSEMSG}" 0 0 >$DEVCONSOLE
+ fi
+
+ [ "$STILLMNTD" != "yes" ] && eject -t $CDR #close tray.
+ sleep 1
+ #waittrayclosed_func $CDR #v2.16
+} #end multisavefunc
+
+#DIAGNOSTICS
+#       Exit  status  is  subject to being overridden by environment variables.
+#       Normally they are:
+#
+#       0    if dialog is exited by pressing the Yes or OK button.
+#
+#       1    if the No or Cancel button is pressed.
+#
+#       2    if the Help button is pressed.
+#
+#       3    if the Extra button is pressed.
+#
+#       -1   if errors occur inside dialog or dialog is exited by pressing  the
+#            ESC key.
+
+###END###
