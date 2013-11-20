@@ -1,0 +1,174 @@
+#!/bin/ash
+
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:46:09·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+currentconsole=`tty`
+echo "currentconsole='$currentconsole'"
+curr="${currentconsole##*/}"
+CONS=`/bin/ps -f -C sh |grep tty|grep -vw "$curr" |awk '{print $2}'`
+for pid in $CONS;do
+kill -1 $pid
+sleep 1s;sync
+done
+
+KERNEL_VERSION=`uname -r` ##+++2012-04-11
+
+PROG="/etc/rc.d/rc.shutdown.local"
+
+###backup system information files
+backup_func() {
+BackupDir=$HOME/my-documents/SYSTEM-BAKS/"`date +%d%b%Y`".$$
+if [ ! -d "$BackupDir" ]; then
+mkdir -p "$BackupDir"
+fi
+
+cp /tmp/xerrs.log $BackupDir
+cp /tmp/Xerrs* $BackupDir
+cp /tmp/Xorg* $BackupDir
+
+cp /tmp/bootkernel.log $BackupDir
+cp /tmp/bootsysinit.log $BackupDir
+
+cp /var/log/messages $BackupDir
+cp /var/log/messages.0 $BackupDir
+
+cp /var/log/Xorg.0.log $BackupDir
+
+cp /etc/X11/xorg.conf $BackupDir
+
+# bash & ash
+cp $HOME/.history $BackupDir
+cp $HOME/.ash_history $BackupDir
+# vte
+cat $HOME/.bash_history | sed "/^cd '/d" > $BackupDir/.bash_history
+
+echo >> $BackupDir/Notes
+echo `uname -a` >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+echo `uname -r` >> $BackupDir/Notes
+echo `cat /proc/cmdline` >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+echo `date` >> $BackupDir/Notes
+
+echo >> $BackupDir/Notes
+
+echo 'lsmod' >> $BackupDir/Notes
+lsmod >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+echo 'lspci' >> $BackupDir/Notes
+lspci >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+echo 'elspci -l' >> $BackupDir/Notes
+elspci -l >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+
+echo
+ls -l /dev >> $BackupDir/Notes
+echo >> $BackupDir/Notes
+}
+backup_func
+
+##clean /mnt directory for filemnt directories
+clean_mnt_dir_func() {
+for d in /mnt/* ; do
+[ -d "$d" ] || continue
+[ -L "$d" ] && continue
+mountpoint -q "$d" || rmdir "$d"
+done
+}
+clean_mnt_dir_func
+
+
+##backup /dev directory
+clean_dev_func() {
+
+[ -d "/var/db/$KERNEL_VERSION/dev" ] || mkdir -p "/var/db/$KERNEL_VERSION/dev"
+D=`find /dev -type c`
+for i in $D; do
+d="${i%/*}"  ##+++2012-04-11
+[ -d "/var/db/$KERNEL_VERSION/$d" ] || mkdir -p "/var/db/$KERNEL_VERSION/$d"
+[ -e "/var/db/$KERNEL_VERSION/$i" ] || cp -a "$i" "/var/db/$KERNEL_VERSION/$i"  ##2012-03-15 added -u, no changed -u for -a  ##+++2012-04-11 added test and KERNEL_VERSION for `uname -r`
+done
+#fi  ###---2012-04-11 took out again
+}
+clean_dev_func
+
+rm -f /etc/rc.d/firstrun*
+rm -f /etc/profile.d/firstrun*
+
+##create fsckme file for testing
+PART=`busybox rdev | sed 's#\ .*## ; s#/dev/##' `
+FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
+#echo "$PART"','"$FS"',' > /etc/fsckme.flag
+
+remove_fsckme_func(){
+find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+}
+remove_fsckme_func
+
+remove_dev_root(){
+rm -f /dev/root
+}
+remove_dev_root
+
+echo -e "\e[1;35m""$0 $PROG END ... ""\e[0;39m"
+#sleep 5
