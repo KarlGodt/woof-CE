@@ -1,95 +1,168 @@
+#!/bin/ash
 #some more functions called from boot scripts in Puppy4...
 #v411 moved choosemousefunc() out of /usr/sbin/xorgwizard, want call from rc.sysinit.
 #w468 not using set_mixers() anymore, it's done in /etc/init.d/alsa.
 #w468 choosemousefunc() simplified.
-#101120 new firmware_tarball_func, as /sbin/pup_event_backend_modprobe rewritten.
-#110722 usb drive, LED light briefly flashes after unmounted, so wait a bit. 110828 remove.
-#120209 slight changes so that SSS mechanism can substitute translations. (see /usr/share/sss/script_strings)
-#120828 rerwin: record firmware installed in /etc/modules/firmware.dep.inst.${KERNVER}
-#120828 grep needs -E option, as expression is extended regular expression.
-#120831 rerwin: Obtain firmware from all-firmware directories as well as tarballs.
-#121004 rerwin: /etc/modules/firmware.dep.inst.${KERNVER} now has names of firmware tarballs, not modules.
 
-#101119 called from rc.sysinit...
-#global $MODULE is name of module, global $KERNVER.
-firmware_tarball_func() {
- MODULEx="`echo -n "$MODULE" | tr '_' '-'`"
-#121004 ... 
- fPATTERN='[:,]'"${MODULE}"'\.ko|[:,]'"${MODULEx}"'\.ko'
- FIRMPKG="`cat /etc/modules/firmware.dep.${KERNVER}  | grep -v '^#' | grep ':' | grep -E "$fPATTERN" | cut -f 1 -d ':' | head -n 1`"
- if [ "$FIRMPKG" != "" ];then
-  iPATTERN='^'"${FIRMPKG}"'$'
-  if [ "`grep "$iPATTERN" /etc/modules/firmware.dep.inst.${KERNVER}`" = "" ];then
-   #120831 rerwin: ...
-   FLAGFIRM='no'
-   if [ -d /lib/modules/all-firmware/${FIRMPKG} ];then #support firmware directories.
-    cp -a -f --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* /
-    FLAGFIRM='yes'
-   else
-    if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-     tar -z -x --strip=1 --directory=/ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz > /dev/null 2>&1
-     FLAGFIRM='yes'
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:43:00·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+
+
+
+
+#v4.02 called from rc.modules, rc.modules2, pup_eventd... v403 only rc.modules2
+firmware_module_func() {
+ #global $MODULE is name of module, global $KERNVER.
+    altMODULE="`echo -n "$MODULE" | tr '_' '-'`"
+    FPATTERN='[:,]'"${MODULE}"'\.ko|[:,]'"${altMODULE}"'\.ko'
+    FIRMPKG="`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`"
+    if [ "$FIRMPKG" != "" ];then
+     #v4.02 firmware pkg is a tarball...
+     if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
+      cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null 2>&1
+      cd /tmp
+      tar -zxf ${FIRMPKG}.tar.gz >/dev/null 2>&1
+     fi
+     if [ -d /tmp/${FIRMPKG} ];then
+      cp -a --remove-destination /tmp/${FIRMPKG}/* / 2>/dev/null
+      #comment-out the firmware pkg entry, so it only installs once...
+      R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
+      DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
+      echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
+      #execute any post-install script...
+      if [ -f /pinstall.${FIRMPKG}.sh ];then
+       cd /
+       /pinstall.${FIRMPKG}.sh >/dev/null 2>&1 #execute script.
+       rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
+      fi
+     fi
     fi
-   fi
-   if [ "$FLAGFIRM" = "yes" ];then #120831 end
-    #execute any post-install script...
-    if [ -f /pinstall.${FIRMPKG}.sh ];then
-     BRKCNT=0; SLEEPU=$((${$} * 10))
-     while [ 1 ];do #serialise execution of pinstall scripts...
-      PINSTALLCNT=`find / -maxdepth 1 -type f -name 'pinstall.*.sh' | wc -l`
-      [ $PINSTALLCNT -eq 1 ] && break
-      usleep $SLEEPU
-      BRKCNT=$(($BRKCNT + 1))
-      [ $BRKCNT -gt 5 ] && break
-     done
-     #120828 remove...
-     #echo "$MODULE" >> /etc/modules/firmware.dep.inst.${KERNVER}
-     cd /
-     /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
-     rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
-    fi
-    echo "$FIRMPKG" >> /etc/modules/firmware.dep.inst.${KERNVER} #120828
-   fi
-  fi
- fi
 }
+
+HOME_func(){  #KRG
+home="$HOME"
+[ "$home" = "/" ] && home="/root"
+echo home=$home
+}  #KRG
+HOME_func  ###KRG
 
 
 #v403 change desktop icon to unmounted status, called from pup_event_frontend_d, pmount...
 icon_unmounted_func() {
+	#DBG echo "icon_unmounted_func BEGIN"  #DBG echo
+	#DBG echo "1:" $1 "2:" $2 "3:" $3
+	if test "$2" != "" ; then
  #passed params: drivename category  ex: sda usbdrv
  DRVICON="drive48.png" #default.
  [ "$2" = "usbdrv" ] && DRVICON="usbdrv48.png"
  [ "$2" = "card" ] && DRVICON="card48.png"
  [ "$2" = "floppy" ] && DRVICON="floppy48.png"
  [ "$2" = "optical" ] && DRVICON="optical48.png"
- #find out if already done...
- if [ -f /root/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
-  GLOBLINES="`cat /root/.config/rox.sourceforge.net/ROX-Filer/globicons | tr '\n' '|' | sed -e 's%</rule>|%\n%g'`"
-  diPATTERN='/root/.pup_event/drive_'"${1}"'"'
-  [ "`echo "$GLOBLINES" | grep "$diPATTERN" | grep "$DRVICON"`" != "" ] && return
- fi
- #[ "`echo "${ATADRIVES}" | grep "${1}"`" = "" ] && sleep 1 #110722 usb drive, LED light briefly flashes after unmounted, so wait a bit. ATADRIVES is in /etc/rc.d/PUPSTATE.
+ echo "$DBG line 51 DRVICON $DRVICON"
+    fi
+#find out if already done...
+if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
+ GLOBLINES=`cat $home/.config/rox.sourceforge.net/ROX-Filer/globicons | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+#GLOBLINES=`cat /root/Choices/ROX-Filer/PuppyPin | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+  #DBG echo "$DBG line 57 GLOBLINES :"
+  #DBG echo "$GLOBLINES" | head -n 2 
+ diPATTERN="$home/.pup_event/drive_"${1}""
+ #DBG echo "$DBG line 60 dipattern $diPATTERN"
+ #DBG GRepGLob="`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`"
+ #DBG echo " $DBG line 62 GRepGLob $GRepGLob"
+ [ "`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`" != "" ] && echo "already there in '$home/.config/rox.sourceforge.net/ROX-Filer/globicons'" && return
+# fi
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <SetIcon>
-   <Path>/root/.pup_event/drive_${1}</Path>
+   <Path>$home/.pup_event/drive_${1}</Path>
    <Icon>/usr/local/lib/X11/pixmaps/${DRVICON}</Icon>
   </SetIcon>
- </env:Body>
+</env:Body>
 </env:Envelope>"  | rox -R
+fi
+#if test "`ps | grep clean_desk_icons | grep -v grep`" != "" ; then add_pinboard_func4 ; fi
+#DBG echo "Cleandeskicons : $Cleandeskicons"
+#DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
+#fi
+#DBG echo "icon_unmounted_func END"
+#DBG echo 
 }
 
 icon_mounted_func() {
+  echo "icon_mounted_func BEGIN"  #DBG
  #passed params: drivename category  ex: sda usbdrv
  DRVICON="drive_mntd48.png" #default.
+  echo "1:" $1 " 2:" $2 " 3:" $3
  [ "$2" = "usbdrv" ] && DRVICON="usbdrv_mntd48.png"
  [ "$2" = "card" ] && DRVICON="card_mntd48.png"
  [ "$2" = "floppy" ] && DRVICON="floppy_mntd48.png"
  [ "$2" = "optical" ] && DRVICON="optical_mntd48.png"
+  echo "$DBG line 100 DRVICON $DRVICON"
  imPATTERN='^/dev/'"${1}" #important, no space on end.
+  echo "$DBG line 102 imPATTERN $imPATTERN"
 # if [ "`mount | cut -f 1,3 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+ echo "$DBG line 104 now finding the boot partition"
  if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
   #only partitions mntd on /initrd/* then must be mntd at boot. cannot unmount.
   #also, full hd install has partition mntd on '/'.
@@ -98,166 +171,105 @@ icon_mounted_func() {
   [ "$2" = "card" ] && DRVICON="card_mntd_boot48.png"
   [ "$2" = "floppy" ] && DRVICON="floppy_mntd_boot48.png"
   [ "$2" = "optical" ] && DRVICON="optical_mntd_boot48.png"
+   echo "$DBG line 113 DRVICON-boot : $DRVICON"
  fi
  #find out if already done...
- if [ -f /root/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
-  GLOBLINES="`cat /root/.config/rox.sourceforge.net/ROX-Filer/globicons | tr '\n' '|' | sed -e 's%</rule>|%\n%g'`"
-  diPATTERN='/root/.pup_event/drive_'"${1}"'"'
-  [ "`echo "$GLOBLINES" | grep "$diPATTERN" | grep "$DRVICON"`" != "" ] && return
- fi
+ if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
+  GLOBLINES=`cat $home/.config/rox.sourceforge.net/ROX-Filer/globicons | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+ # GLOBLINES=`cat /root/Choices/ROX-Filer/PuppyPin | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+  diPATTERN='$home/.pup_event/drive_'"${1}"'"'
+  [ "`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`" != "" ] && echo "already there at $home/.config/rox.sourceforge.net/ROX-Filer/globicons" && return
+#   fi
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <SetIcon>
-   <Path>/root/.pup_event/drive_${1}</Path>
+   <Path>$home/.pup_event/drive_${1}</Path>
    <Icon>/usr/local/lib/X11/pixmaps/${DRVICON}</Icon>
   </SetIcon>
  </env:Body>
 </env:Envelope>"  | rox -R
+fi
+#DBG  echo "$DBG line 122 DRVICON : $DRVICON"
+#DBG echo $Cleandeskicons
+#DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
+#DBG echo "icon_mounted_func END"
+#DBG echo 
 }
 
 
 icon_remove_func() {
+	#DBG echo "icon_remove_func BEGIN"
+	#DBG echo "1:"$1 "2:"$2 "3:"$3
+	#DBG echo "$DBG line 136 DRVICON : $DRVICON "
  #passed param is drive icon to remove from desktop. ex: sda
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
-  <UnsetIcon>
-   <Path>/root/.pup_event/drive_${1}</Path>
-  </UnsetIcon>
+  <PinboardRemove>
+   <Path>$home/.pup_event/drive_${1}</Path>
+   <Icon>/usr/local/lib/X11/pixmaps/${DRVICON}</Icon>
+  </PinboardRemove>
+ </env:Body>
+</env:Envelope>"  | rox -R
+#DBG echo "icon_remove_func END "
+#DBG echo
+}
+
+free_coord4() {
+ #find a free place on desktop. v410 avoid exact overlapping icons...
+ SCRNXY="`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`"
+SCRN_X="`echo -n "$SCRNXY" | cut -f 1 -d 'x'`"
+SCRN_Y="`echo -n "$SCRNXY" | cut -f 2 -d 'x'`"
+
+ COORDSGRID="`grep -o ' x="[0-9]*" y="[0-9]*" ' $home/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`"
+ COORD_Y=`expr $SCRN_Y - 64`
+ COORD_X=32
+ MAX_X=`expr $SCRN_X - 96`
+ xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+ while [ 1 ];do
+  xgPATTERN="`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`"
+  [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+  COORD_X=`expr $COORD_X + 64`
+  xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  [[ $COORD_X -gt $MAX_X ]] && break
+ done
+}
+
+add_pinboard_func4() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
+ #DBG echo "add_pinboard_func BEGIN"
+ #ppPATTERN=' label="'"$ONEDRVNAME"'"'
+ #v411 rerwin: avoid icon getting duplicated if it is renamed...
+ ppPATTERN="$home/.pup_event/drive_${DRV_NAME}<"
+ [ "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
+ free_coord4
+ echo "<?xml version=\"1.0\"?>
+<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
+ <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
+  <PinboardAdd>
+   <Path>$home/.pup_event/drive_${DRV_NAME}</Path>
+   <X>${COORD_X}</X>
+   <Y>${COORD_Y}</Y>
+   <Label>${DRV_NAME}</Label>
+   <Args>${DRV_CATEGORY} ${FSTYPE}</Args>
+  </PinboardAdd>
  </env:Body>
 </env:Envelope>"  | rox -R
 }
 
-##v403 got this out of /usr/sbin/alsaconf, needed to get sound on my laptop...
-##thi func called from rc.local0.
-#set_mixers() {
-# amixer -s -q <<EOF
-#set Master 75% unmute
-#set Master -12dB
-#set 'Master Mono' 75% unmute
-#set 'Master Mono' -12dB
-#set Front 75% unmute
-#set Front -12dB
-#set PCM 90% unmute
-#set PCM 0dB
-#mixer Synth 90% unmute
-#mixer Synth 0dB
-#mixer CD 90% unmute
-#mixer CD 0dB
-## mute mic
-#set Mic 0% mute
-## ESS 1969 chipset has 2 PCM channels
-#set PCM,1 90% unmute
-#set PCM,1 0dB
-## Trident/YMFPCI/emu10k1
-#set Wave 100% unmute
-#set Music 100% unmute
-#set AC97 100% unmute
-## CS4237B chipset:
-#set 'Master Digital' 75% unmute
-## Envy24 chips with analog outs
-#set DAC 90% unmute
-#set DAC -12dB
-#set DAC,0 90% unmute
-#set DAC,0 -12dB
-#set DAC,1 90% unmute
-#set DAC,1 -12dB
-## some notebooks use headphone instead of master
-#set Headphone 75% unmute
-#set Headphone -12dB
-#set Playback 100% unmute
-## turn off digital switches
-#set "SB Live Analog/Digital Output Jack" off
-#set "Audigy Analog/Digital Output Jack" off
-#EOF
-#}
 
-#w468 simplify...
-##v411 moved from /usr/sbin/xorgwizard...
-#choosemousefunc() { #called from xorgwizard and rc.sysinit.
-# DETECTEDMOUSEDEV="`cat /etc/mousedevice`"
-# case $DETECTEDMOUSEDEV in
-#  input/mice)
-#   MOUSETYPE="usb"
-#   MOUSEMENU1a='usb'; MOUSEMENU1b='(little 11x4mm flat plug)'
-#   MOUSEMENU2a='ps/2'; MOUSEMENU2b='(little 8mm round green plug, or laptop builtin touchpad)'
-#   MOUSEMENU3a='serial'; MOUSEMENU3b='(big 15x9mm DB9 or DB25 plug)'
-#  ;;
-#  psaux)
-#   MOUSETYPE="ps/2"
-#   MOUSEMENU1a='ps/2'; MOUSEMENU1b='(little 8mm round green plug, or laptop builtin touchpad)'
-#   MOUSEMENU2a='usb'; MOUSEMENU2b='(little 11x4mm flat plug)'
-#   MOUSEMENU3a='serial'; MOUSEMENU3b='(big 15x9mm DB9 or DB25 plug)'
-#  ;;
-#  *) #ttyS0-4
-#   MOUSETYPE="serial"
-#   MOUSEMENU1a='serial'; MOUSEMENU1b='(big 15x9mm DB9 or DB25 plug)'
-#   MOUSEMENU2a='ps/2'; MOUSEMENU2b='(little 8mm round green plug, or laptop builtin touchpad)'
-#   MOUSEMENU3a='usb'; MOUSEMENU3b='(little 11x4mm flat plug)'
-#  ;;
-# esac
-# EXTRAMOUSEMSG="HOWEVER, if you disagree then please choose the correct type, but do note that your alternative choice here will override autodetection on subsequent startups -- in future, if you want to remove this 'sticky' behaviour, please delete file /etc/mousedevice_sticky."
-# if [ -f /etc/mousedevice_sticky ];then
-#  EXTRAMOUSEMSG="HOWEVER, if you disagree then please choose the correct type. Please note that autodetection of mouse at bootup is currently turned off, determined by existence of file /etc/mousedevice_sticky. If you want to restore autodetection, please delete that file."
-# fi
-# dialog --no-cancel --menu "Puppy thinks that you have a $MOUSETYPE mouse.\n
-#If you agree with that, just press ENTER key only (OK button).\n\n
-#${EXTRAMOUSEMSG}\n\n
-#Please choose mouse type...\n(You can identify type by plug shape)\nUse UP/DOWN ARROW keys, ENTER key to finish" 0 0 0 "$MOUSEMENU1a" "$MOUSEMENU1b" "$MOUSEMENU2a" "$MOUSEMENU2b" "$MOUSEMENU3a" "$MOUSEMENU3b" 2> /tmp/testmsx
-# if [ $? -eq 0 ];then
-#  CHOSENMOUSETYPE="`cat /tmp/testmsx`"
-# else #precaution.
-#  CHOSENMOUSETYPE="$MOUSETYPE"
-# fi
-# MOUSEDEV="psaux"
-# if [ "$CHOSENMOUSETYPE" = "usb" ];then
-#  MOUSEDEV="input/mice"
-#  [ "`lsmod | grep '^usbhid'`" = "" ] && modprobe usbhid #v2.17
-# fi
-# if [ "$CHOSENMOUSETYPE" = "serial" ];then
-#  dialog --no-cancel --menu "Serial port mouse plugged into...\nUse UP/DOWN ARROW keys, ENTER key to finish" 0 0 0 ttyS0 "COM1 (most likely)" ttyS1 COM2 ttyS2 COM3 ttyS3 COM4 2> /tmp/testmsx
-#  MOUSEDEV="`cat /tmp/testmsx`"
-#  modprobe sermouse
-# fi
-# if [ "$CHOSENMOUSETYPE" != "$MOUSETYPE" ];then
-#  echo -n "yes" > /etc/mousedevice_sticky #content doesn't matter.
-#  echo -n "$DETECTEDMOUSEDEV" > /etc/oldmousedevice
-# fi
-# MOUSETYPE="$CHOSENMOUSETYPE"
-# ln -snf $MOUSEDEV /dev/mouse
-# echo -n "$MOUSEDEV" > /etc/mousedevice #note, rc.sysinit will read this on next boot.
-# #fix mouse protocol for Xorg...
-# if [ -f /etc/X11/xorg.conf ];then
-#    case "$MOUSEDEV" in
-#     inpu*) #"input/mice", usb. v411 fix...
-#      cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/	Option	    "Protocol" "IMPS\/2" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
-#      ;;
-#     ttyS*) #ttyS0,1,2,3, serial
-#      cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/	Option	    "Protocol" "Microsoft" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
-#      ;;
-#     *) #v411 fix...
-#      cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/	Option	    "Protocol" "auto" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
-#      ;;
-#    esac
-#    sync
-#    cp -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
-#    sync
-#    rm -f /tmp/xorg.conf.tmp2
-# fi
-#} #choosemousefunc()
 
 choosemousefunc() { #w468 called from xorgwizard.
  MOUSEINTRO="Only very old PCs may have a serial mouse. These are recognised by the fairly large rectangular plug, technically known as a DB9 or the even larger DB25 (where the 9 or 25 refers to the number of pins in the plug). Press the UP and DOWN arrow keys to choose your mouse type, then press the ENTER key:"
  DETECTEDMOUSEDEV="`cat /etc/mousedevice`"
  case $DETECTEDMOUSEDEV in
   ttyS*)
-   MOUSEMENU1a='serial'; MOUSEMENU1b='(mouse in very old computers)' #ttyS leave this comment, needed by SSS
-   MOUSEMENU2a='usb/ps-2'; MOUSEMENU2b='(mouse or touchpad in all modern computers)' #ttyS comment needed by SSS
+   MOUSEMENU1a='serial'; MOUSEMENU1b='(mouse in very old computers)'
+   MOUSEMENU2a='usb/ps-2'; MOUSEMENU2b='(mouse or touchpad in all modern computers)'
   ;;
   *)
-   MOUSEMENU1a='usb/ps-2'; MOUSEMENU1b='(mouse or touchpad in all modern computers)' #usb-ps2 comment needed by SSS
-   MOUSEMENU2a='serial'; MOUSEMENU2b='(mouse in very old computers)' #usb-ps2 comment needed by SSS
+   MOUSEMENU1a='usb/ps-2'; MOUSEMENU1b='(mouse or touchpad in all modern computers)'
+   MOUSEMENU2a='serial'; MOUSEMENU2b='(mouse in very old computers)'
   ;;
  esac
  dialog --no-cancel --menu "${MOUSEINTRO}\n\n
