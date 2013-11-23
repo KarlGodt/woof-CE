@@ -12,11 +12,50 @@
 #v403 fixed excessive spaces in description field.
 #v406 support for old kernel, /proc/ide, /dev/hd*.
 
+########################################################################
+#
+# CHANGES by Karl Reimer Godt
+# 01.0 : ATA+SATADRIVES var new ( still to observe )
+# 02.0 : fallback if info in files contain nothing
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.37.4-KRG-i486-StagingDrivers-2
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·sda·'
+# Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xorg
+# $LANG=de_DE@euro
+# today=Fr·28.·Okt·09:04:43·GMT-1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+
 . /etc/rc.d/PUPSTATE
 #ATADRIVES is all ide/sata drives (not usb) (which all have /dev/sd notation).
 #if old kernel supporting /dev/hd* then using SATADRIVES variable...
-INTERNAL_SD_DRIVES="$SATADRIVES"
-[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
+
+###<KRG+2011_10_28>
+INTERNAL_SD_DRIVES1="$SATADRIVES
+$ATADRIVES"                       ##+++2011_10_28
+INTERNAL_SD_DRIVES=`echo "$INTERNAL_SD_DRIVES1" | sort -u | sort -d`  ##+++2011_10_28
+#[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"  ##+-+2011_10_28
+###</KRG+2011_10_28>
 
 if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
  for ONEUSBDRV in `cat /root/.usb-drive-log-probedisk | tr '\n' ' '`
@@ -27,33 +66,49 @@ if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
 fi
 
 #mounted drives/partitions...
-MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc' | tr '\n' ' '`"
+#MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc' | tr '\n' ' '`"
 
 #crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
 #/proc/ide. pathetic kernel! oh well...
-if [ ! -e /proc/ide ];then #v3.97
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '`"
-else
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
+#if [ ! -e /proc/ide ];then #v3.97
+ #ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '`"
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd|^hd*'`"
+  FDD=`ls -d /sys/block/fd* 2>$ERR`
+  HDD=`ls -d /sys/block/hd* 2>$ERR`
+  MDD=`ls -d /sys/block/mmc* 2>$ERR`
+  SDD=`ls -d /sys/block/sd* 2>$ERR`
+  SCD=`ls -d /sys/block/scd* 2>$ERR`
+  SRD=`ls -d /sys/block/sr* 2>$ERR`
+#else
+if [ -e /proc/ide ];then
+ #ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
+ [ "`echo "$ALLDRVS" | grep '^hd'`" ] || { ALLDRVS="${ALLDRVS}
+`ls -1 /proc/ide | grep '^hd'`"; }
+ ##ALLDRVS=`echo "$ALLDRVS" |sort -u`
 fi
 #note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
 
-for ONEDRV in $ALLDRVS
+#for ONEDRV in $ALLDRVS
+while read ONEDRV
 do
+#echo $ONEDRV
   case $ONEDRV in
    hd*) # ide device, look in /proc/ide for info
      MEDIA="`cat /proc/ide/$ONEDRV/media`"
      [ "$MEDIA" = "disk" ] && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
+     [ "$MEDIA" = "" ] && MEDIA='noInfo@procIde'  ##+++2011_10_28
      INFO="`cat /proc/ide/$ONEDRV/model`"
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
      VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
+     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
      MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
+     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
      INFO="$VENDOR$MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
-     
+
      #log if usb drive (not a sata drive)... v4.01...
      if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
       MEDIA="usbdrv" #v4.01
@@ -82,38 +137,61 @@ do
      MEDIA="optical"
      VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
      MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
+     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
+     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
      INFO="$VENDOR$MODEL"
    ;;
    mmc*) #/dev/mmcblk0
      MEDIA="card"
-     INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
+     NAME="`cat /sys/block/$ONEDRV/device/name`"
+     [ -z "$NAME" ] && NAME='-noInfo@sysBlock'   ##+++2011_10_28
+     #INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
+     INFO="MMC/SD: $NAME"
    ;;
+   fd*)
+     MEDIA='floppy'
+     NAME='generic'
+     INFO='Attached generic floppy'
+     ;;
    *)
      continue
    ;;
   esac
   echo "/dev/$ONEDRV|$MEDIA|$INFO"
 
-done
+done<<EOI
+$(echo "$ALLDRVS")
+EOI
 
 #find out if a mounted device has been unplugged...
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
-for ONEMNTD in $MNTDDEVS
+#mounted drives/partitions...
+MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`"
+#for ONEMNTD in $MNTDDEVS
+while read ONEMNTD
 do
+#echo $ONEMNTD
  case $ONEMNTD in
-  hd*|sd*|sr*)
-   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-3` "
+  fd*|hd*|sd*|sr*)
+   #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-3` "
+   MNTDDRVs="${ONEMNTD:0:3}"
    ;;
   scd*)
-   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-4` "
+   #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-4` "
+   MNTDDRVs="${ONEMNTD:0:4}"
    ;;
   mmc*)
-   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-7` "
+   #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-7` "
+   MNTDDRVs="${ONEMNTD:0:7}"
    ;;
  esac
+ #echo $MAINDRIVE
+ #echo $MNTDDRVs
  #prints to system log and to stderr...
- [ "`echo "$ALLDRVS" | grep "$MNTDDRVs"`" = "" ] && logger -s "PROBEDISK ERROR: MOUNTED UNPLUGGED $ONEMNTD"
-done
+ [ "`echo "$ALLDRVS" | grep "$MNTDDRV"`" ] || logger -s "PROBEDISK INFO: UNPLUGGED $ONEMNTD still listed mounted."
+done<<EOI
+$(echo "$MNTDDEVS")
+EOI
 
 ###END###

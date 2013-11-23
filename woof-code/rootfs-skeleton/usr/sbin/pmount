@@ -81,16 +81,18 @@ ROOTDEV2=""
 [ "$PUPMODE" = "2" ] && ROOTDEV2="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' '`"
 
 DISKINFO="`$PROBEDISK | sort -k 2 --field-separator='|'`" #v4.01
-PARTSINFO="`$PROBEPART -k | grep -v 'none' | tr ' ' '_' | tr '\t' '_' | cut -f 1-3 -d '|'`" #v3.98 fix for mut2.
-
+PARTSINFO="`$PROBEPART -k | grep -v -i -E "none|swap|Ext'd" | tr ' ' '_' | tr '\t' '_' | cut -f 1-3 -d '|'`" #v3.98 fix for mut2.
+###+2011_10_31 added -i -E "swap|Ext'd" #"geany
 #add floppy drive, if any (note, zip detected by probedisk/probepart)...
 if [ "$PMOUNTENGINE" != "mut2" ];then #v409
- if [ -e /sys/block/fd0 ];then
-  DISKINFO="/dev/fd0|floppy|floppy disk drive
+ #if [ -e /sys/block/fd0 ];then
+ for i in `ls /sys/class/block | grep '^fd[0-9]' | sort -ru` ; do
+  DISKINFO="/dev/$i|floppy|floppy disk drive
 $DISKINFO"
-  PARTSINFO="/dev/fd0|vfat|1440
+  PARTSINFO="/dev/$i|vfat|1440
 $PARTSINFO"
- fi
+ done
+ #fi
 fi
 #v409 mut2 lets us know if there are any floppy drives.
 if [ "$PMOUNTENGINE" = "mut2" ];then
@@ -139,7 +141,7 @@ TABLIST="`echo -n "$DISKINFO" | cut -f 2 -d '|' | uniq | tr '\n' '|' | sed -e 's
 CURRENTTAB=''
 
 #v408 v410 moved up...
-VALIDPARTS="`echo "$PARTSINFO" | grep -E 'vfat|msdos|ntfs|minix|ext2|ext3|ext4|reiser|xfs|iso9660'`"
+VALIDPARTS="`echo "$PARTSINFO" | grep -i -E 'FAT|vfat|msdos|ntfs|minix|ext2|ext3|ext4|reiser|xfs|iso9660'`"
 
 #get actual top tab...
 TOPACTUAL="`echo "$TABLIST" | cut -f 1 -d '|'`"
@@ -370,12 +372,12 @@ if [ "`echo -n "$EXIT" | grep 'DOMOUNT'`" != "" ];then
  TOPACTUAL="`echo "$DEV2TAB" | tr ' ' '\n' | grep "$devPATTERN" | cut -f 2 -d '|'`" #find top tab.
  mkdir -p /mnt/$DEVNAME
  case $DOFS in
-  ntfs)
+  ntfs|NTFS|Ntfs)
    #'mount' is a script that takes care of mounting ntfs...
    mount -t ntfs $DODEV /mnt/$DEVNAME
    RETVAL1=$?
    ;;
-  vfat)
+  *fat|FAT*|Fat*|fat*|*fat*)
    #w476 modify codepage and iocharset (note: this code also in /usr/local/bin/drive_all)...
    #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
    NLS_PARAM=''
@@ -394,7 +396,8 @@ if [ "`echo -n "$EXIT" | grep 'DOMOUNT'`" != "" ];then
    RETVAL1=$?
    ;;
   *)
-   mount -t $DOFS $DODEV /mnt/$DEVNAME
+   doFs=`echo "$DOFS" | tr '[A-Z]' '[a-z]'`
+   mount -t $doFs $DODEV /mnt/$DEVNAME
    RETVAL1=$?
    ;;
  esac
@@ -494,5 +497,5 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
  fi
  [ "$PMOUNTQUIT" = "false" ] && exec /usr/sbin/$PMOUNT $TOPACTUAL
 fi
-
+exit ###+++2011_10_31 still to observe that prompt gets shown if in terminal, first test ok
 ###END###

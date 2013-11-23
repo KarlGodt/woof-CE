@@ -7,48 +7,162 @@
 #v408 hack for madwifi ath_pci in 4.1retro. Alsa fix.
 #w004 LANG=C, faster. /bin/ash, even faster.
 #w463 rerwin: Correct override extraction of module name. Add use of optional first argument as MODULE, to support special udev rules added for hardware (modems) not automatically detected by the kernel.
-#w478 support firmware in dirs, not .tar.gz tarballs.
+#w478 support firmware in LocalLOGs, not .tar.gz tarballs.
 #v424 For hybrid modem devices, select modem driver instead of storage driver when both are found by modprobe.
 
+########################################################################
+#
+# CHANGES by Karl Reimer Godt
+# 01.0 : support for more modprobe||alsa.conf files
+# 02.0 : checks if files are existant &&|| readable
+# 03.0 : added logfile $LocalLOG
+# 04.0 : support for more bootparameters : /tmp/alsa.flg created ?
+#        params=all , boot_sound_cards
+# 05.0 : changed pup_event_modprobe.conf -> pup_event_skiplist.conf in /tmp
+#        also in /sbin/init AND /etc/rc.d/rc.sysinit
+# 06.0 : changed the nameing of vars in setup_alsa_func a little
+# 07.0 : added fake pup_event_skiplist.conf
+#
+# 10.0 : added logging of modprobe -v output
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.37.4-KRG-i486-StagingDrivers-2
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·sda·'
+# Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686·GNU/Linux
+# X·Window·System·Version·1.3.0
+# Release·Date:·19·April·2007
+# X·Protocol·Version·11,·Revision·0,·Release·1.3
+# Build·Operating·System:·UNKNOWN·
+# Current·Operating·System:·Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686
+# Build·Date:·28·November·2007
+# $LANG=de_DE@euro
+# today=Fr·28.·Okt·14:04:35·GMT+1·2011
+# TODO1 : cat /tmp/pup_event_alsa_cnt was empty should default to 0 if empty ~FIXED
+# TODO2 : make grep '-pattern' more reliable ~FIXED
+# TODO3 : check what makes logfile dissapearing @/sbin/init->rc.sysinit
+# TODO4 : debug firmware func
+#
+########################################################################
+
+
 export LANG=C #w004
+
+CONFFILE='/etc/modprobe.conf'
+[ -f /etc/modprobe.d/modprobe.conf ] && CONFFILE='/etc/modprobe.d/modprobe.conf'
+[ -f /etc/modprobe.d/puppy.conf ] && CONFFILE='/etc/modprobe.d/puppy.conf'
+ALSACONF="$CONFFILE"
+[ -f /etc/modprobe.d/alsa-base.conf ] && ALSACONF='/etc/modprobe.d/alsa-base.conf'
 
 #NOTICE: If the full 'udev' package, with utility 'udevd' is installed, rc.sysinit
 #   will run 'udevd' instead of 'pup_event_backend_d' and this script will be used.
 
-. /etc/rc.d/PUPSTATE
-. /etc/rc.d/MODULESCONFIG
+[ -r /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE
+[ -r /etc/rc.d/MODULESCONFIG ] && . /etc/rc.d/MODULESCONFIG
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
 KERNVER="`uname -r`"
 CNTSND=0 #v405
 #w463 optional $1 supplied by triggered udev rule, see /etc/udev/rules.d/60-udev-modem.rules
 RULEMODULE=""
+
+LocalLOG=''
+#[ -n "`pidof /sbin/init`" ] && LocalLOG='> /dev/console'
+#[ -n "`ps | grep '/sbin/init' | grep -v 'grep'`" ] && LocalLOG='> /dev/console'
+#LocalLOG='>> /tmp/p_e_b_m.log.1'
+LocalLOG='/tmp/pup_eve_bac_mod.log'
+TIME="date +%M.%S.%N"
+
+
+echo $$ 01.0 `$TIME` '$1='"$1" >> $LocalLOG
+
 [ $1 ] && RULEMODULE="$1"
+RULEMODULE=`echo "$RULEMODULE" | tr '-' '_'`
 touch /tmp/pup_event_module_devpath_log
 
-[ "$FASTBOOTMODULESLIST" != "" ] && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
+###+++2011_10_28
+[ ! -f /tmp/pup_event_modprobe.conf ] && echo 'blacklist damn-module' > /tmp/pup_event_modprobe.conf
+[ ! -f /tmp/pup_event_skiplist.conf ] && echo 'blacklist damn-module' > /tmp/pup_event_skiplist.conf  #+-+2011-11-13 BUG was > /tmp/pup_event_modprobe.conf
+[ ! -f /tmp/pup_event_blacklist.conf ] && echo 'blacklist damn-module' > /tmp/pup_event_blacklist.conf #+-+2011-11-13 BUG was > /tmp/pup_event_modprobe.conf
+###+++2011_10_28
+
+
+
+[ "$FASTBOOTMODULESLIST" != "" ] && echo $$ 01.5 `$TIME` 'FASTMODLST .. exit ..' >> $LocalLOG && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
 
 setup_alsa_func() { #uses MODULE.
  #if a sound module, preconfigure alsa (/etc/init.d/alsa will start it)...
- if [ "`echo -n "$MODULE" | grep '^snd_'`" != "" ];then
-  CNTSND="`cat /tmp/pup_event_alsa_cnt`"
-  DPATTERN="alias snd\\-card\\-$CNTSND"
-  dMODULE="`echo -n "$MODULE" | tr '_' '-'`" #v407
-  if [ "`grep "$DPATTERN" /etc/modprobe.conf`" = "" ];then
-   echo "alias snd-card-$CNTSND $dMODULE" >> /etc/modprobe.conf
-   echo "alias sound-slot-$CNTSND $dMODULE" >> /etc/modprobe.conf
+ #if [ "`echo -n "$MODULE" | grep '^snd_'`" != "" ];then
+  CNTSND="`cat /tmp/pup_event_alsa_cnt 2>/dev/null | sed 's/[^0-9]//g`"  ##+2011_10_28 added sed part 2011_10_31 added 2>/dev/null
+  [ -z "$CNTSND" ] && CNTSND=0  ##+++2011_10_28
+
+  if [ -f /tmp/alsa.flg ] ; then
+   if [ -z "`grep 'all' /tmp/alsa.flg`" ] ; then
+    . /tmp/alsa.flg
+    if [ "$boot_sound_cards" ] ; then
+     if [ -z "`echo "$boot_sound_cards" | grep "$CNTSND"`" ] ; then
+      echo $$ 9.0 `$TIME` "snd-card-$CNTSND disabled on kernel line .. exit .." >> $LocalLOG
+      exit
+     fi
+    fi
+   fi
+  fi
+
+  #DPATTERN="alias snd\\-card\\-$CNTSND"
+  grepNrPATTERN="alias snd\\-card\\-$CNTSND"
+  #dMODULE="`echo -n "$MODULE" | tr '_' '-'`" #v407  ##+-+2011_10_28
+  #dMODULE=${MODULE//_/\\-}  ##+++2011_10_28 to make grep more reliable
+  grepPattern=${MODULE//_/\\-}
+  realModuleName=${MODULE//_/-}
+  #echo $$ 09.0 `$TIME` 'CNTSND='"$CNTSND"' dMODULE='"$dMODULE"'_EOS' >> $LocalLOG
+  echo $$ 09.0 `$TIME` 'CNTSND='"$CNTSND"' grepPattern='"$grepPattern"'_EOS'
+
+  if [ "`grep "$grepNrPATTERN" $ALSACONF`" = "" ];then
+   echo 'Adding '"alias snd-card-$CNTSND $realModuleName"' to '"$ALSACONF"' because entry is missing' >> $LocalLOG
+   echo >> $ALSACONF
+   echo '##### Added by /sbin/pup_event_backend_modprobe #####' >> $ALSACONF
+   echo '### Running kernel '"$KERNVER" >> $ALSACONF
+   echo '### Because alias entry is missing in this'  >> $ALSACONF
+   echo '### Configuration-file '"$CONFFILE" >> $CONFFILE
+   echo "alias snd-card-$CNTSND $realModuleName" >> $ALSACONF
+   echo "alias sound-slot-$CNTSND $realModuleName" >> $ALSACONF
+   echo '##### '`date`' #####' >> $ALSACONF
+
   else
+
    #for portability, check if correct sound card...
-   BPATTERN="alias snd\\-card\\-$CNTSND $dMODULE" #v408
-   if [ "`grep "$BPATTERN" /etc/modprobe.conf`" = "" ];then
-    grep -v "$DPATTERN" /etc/modprobe.conf > /tmp/modprobe.conf
-    cp -f /tmp/modprobe.conf /etc/modprobe.conf
-    echo "alias snd-card-$CNTSND $dMODULE" >> /etc/modprobe.conf
-    echo "alias sound-slot-$CNTSND $dMODULE" >> /etc/modprobe.conf
+   BPATTERN="alias snd\\-card\\-$CNTSND $grepPattern" #v408
+   CPATTERN='alias snd-card-'"$CNTSND $realModuleName"
+
+   if [ "`grep "$BPATTERN" $CONFFILE`" = "" ];then
+
+    echo 'Creating new /tmp/modprobe.conf.setup_alsa_func file because of '"$CPATTERN"' had changed' >> $LocalLOG
+    grep -v "$grepNrPATTERN" "$CONFFILE" > /tmp/modprobe.conf.setup_alsa_func
+    cp -f /tmp/modprobe.conf.setup_alsa_func $CONFFILE
+    #rm -f /tmp/modprobe.conf.setup_alsa_func
+
+    echo >> $CONFFILE
+    echo '##### Changed by /sbin/pup_event_backend_modprobe #####' >> $CONFFILE
+    echo '### Running kernel '"$KERNVER" >> $ALSACONF
+    echo '### Because modulename or harware had changed' >> $CONFFILE
+    echo '### Configuration-file is '"$CONFFILE" >> $CONFFILE
+    echo "alias snd-card-$CNTSND $realModuleName" >> $CONFFILE
+    echo "alias sound-slot-$CNTSND $realModuleName" >> $CONFFILE
+    echo '##### '`date`' #####' >> $CONFFILE
    fi
   fi
   CNTSND=`expr $CNTSND + 1`
   echo -n "$CNTSND" > /tmp/pup_event_alsa_cnt
- fi
+ #fi
 }
 
 pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
@@ -87,73 +201,170 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
 }
 
 firmware_module_func() {
+echo $$ 07.0 `$TIME` 'STARTING firmware_module_func' >> $LocalLOG
  #global MODULE is name of module, global KERNVER.
  altMODULE="`echo -n "$MODULE" | tr '_' '-'`"
  FPATTERN='[:,]'"${MODULE}"'\.ko|[:,]'"${altMODULE}"'\.ko'
  FIRMPKG="`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`"
  if [ "$FIRMPKG" != "" ];then
+ echo $$ 07.1 `$TIME` "FOUND FIRMPKG=$FIRMPKG" >> $LocalLOG
   if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-   cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null 2>&1
+   cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null #2>&1
    cd /tmp
-   tar -zxf ${FIRMPKG}.tar.gz >/dev/null 2>&1
+   tar -zxf ${FIRMPKG}.tar.gz >/dev/null #2>&1
   fi
   if [ -d /tmp/${FIRMPKG} ];then
-   cp -a --remove-destination /tmp/${FIRMPKG}/* / 2>/dev/null
+   cp -a --remove-destination /tmp/${FIRMPKG}/* / #2>/dev/null
   fi
   #in case firmware is not a .tar.gz tarball...
   if [ -d /lib/modules/all-firmware/${FIRMPKG} ];then #w478
-   cp -a --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* / 2>/dev/null
+   cp -a --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* / #2>/dev/null
   fi
   #comment-out the firmware pkg entry, so it only installs once...
   R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
   DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
-  echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
+  echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER  #>
+  ###+++2011-11-12
+  ##SIMPLE:
+  if [ -f /etc/init.d/${FIRMPKG} ] ; then
+  chmod 0755 /etc/init.d/${FIRMPKG}  #would need rename of file(s) to match
+  fi
+  ##TRUE:)
+  find /etc/init.d -type f -iname "*$FIRMPKG*" -exec chmod 0755 {} \;  ##+2011-12-18 added -type f
+  if [ -f /lib/firmware/${FIRMPKG}/pinstall.${FIRMPKG}.sh ] ; then
+  cp /lib/firmware/${FIRMPKG}/pinstall.${FIRMPKG}.sh /
+  fi
+  ###+++2011-11-12
   #execute any post-install script...
   if [ -f /pinstall.${FIRMPKG}.sh ];then
    cd /
-   /pinstall.${FIRMPKG}.sh >/dev/null 2>&1 #execute script.
-   rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
+   chmod +x /pinstall.${FIRMPKG}.sh  ##+++2011-12
+   /pinstall.${FIRMPKG}.sh >/dev/null #2>&1 #execute script.
+   rm -f /pinstall.${FIRMPKG}.sh #>/dev/null 2>&1
   fi
+
  fi
+echo $$ 07.9 `$TIME` 'FINISHIED firmware_module_func' >> $LocalLOG
 }
 
+echo $$ 02.0 `$TIME` 'MODALIAS='"$MODALIAS" >> $LocalLOG
+
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
-MODULES="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`" #v424
+MODULES="`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`" #v424
 MODULE="`echo "$MODULES" | tail -n 1`" #v424
-[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE="`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1`" #v424
+#[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE="`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1`" #v424
+echo $$ 03.0 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
+
 [ "$MODULE" = "" ] && [ "$RULEMODULE" != "" ] && MODULE="$RULEMODULE" #w463 Use module from argument
 
-[ "$MODULE" = "" ] && exit 1
+echo $$ 03.0 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
+
+if [ -z "$MODULE" ] ; then
+grepPAT=${MODALIAS#*:} ## ${MODALIAS/*:/}
+MODULES="`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $grepPAT 2>/dev/null | rev | cut -f 1 -d '/' | rev | sed 's/\.ko//g' | tr '-' '_'`"
+MODULE="`echo "$MODULES" | tail -n 1 | sed 's/^[[:blank:]]*// ; s/[[:blank:]]*$//'`"
+echo $$ 03.5 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
+fi
+
+[ -n "`echo "$MODULE" | grep -i 'builtin'`" ] && echo $$ 03.5 `$TIME` 'Module builtin .. exit ..' >> $LocalLOG && exit 1
+[ "$MODULE" = "" ] && echo $$ 03.5 `$TIME` 'Still no MODULE .. exit ..' >> $LocalLOG && exit 1
+
 #[ "$MODULE" = "usb_storage" ] && exit 1 #loaded explicitly in boot scripts.
 modPATTERN='^'"${MODULE}"'$'
-[ "`cat /tmp/pup_event_module_devpath_log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] && exit 0 #duplicate module.
+echo $$ 04.0 `$TIME` 'modPATTERN 1 ='"$modPATTERN" >> $LocalLOG
+
+usleep $(( $$ * 10 ))
+
+#[ "`cat /tmp/pup_event_module_devpath_log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] && echo 'Duplicate module ..exit ..' >> $LocalLOG && exit 0 #duplicate module.
+if [ "`cat /tmp/pup_event_module_devpath_log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] ; then
+
+FM=`find /dev/.udev/failed | grep "$modPATTERN"`  #2>dev/null 30.6 kernel no failed directory ???
+
+if [ -z "$FM" ] ; then
+echo $$ 04.5 `$TIME` 'Duplicate module ..  exit ..' >> $LocalLOG && exit 0 #duplicate module.
+
+else
+
+echo $$ 04.5 `$TIME` "\e[31m"'udevd seems to have failed loading '"$modPATTERN""\e[39m" >> $LocalLOG
+fi
+
+fi
+
 
 case $MODALIAS in
  pci:*)
   pci_fixup_func #w463 needs MODALIAS, MODULE, RULEMODULE
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && echo -e $$ 5.0 `$TIME` "\e[33m"'Error in pci_fixup_func .. exit ..'"\e[39m" >> $LocalLOG && exit 1
  ;;
 esac
 
 #v404 preferences list, ex rt2500usb and rt73usb both hits, then choose latter...
 modPATTERN='^'"$MODULE"':'
+echo $$ 06.0 `$TIME` 'modPATTERN 2 ='"$modPATTERN" >> $LocalLOG
 PREFHIT="`echo -n "$PREFLIST" | tr ' ' '\n' | grep "$modPATTERN"`"
+echo $$ 06.1 `$TIME` 'PREFHIT='"$PREFHIT" >> $LocalLOG
+
 if [ "$PREFHIT" != "" ];then
  PREFMOD="`echo -n "$PREFHIT" | cut -f 2 -d ':'`"
  echo "blacklist $MODULE" > /tmp/pup_event_prefhit_blacklist
  xMODULE="`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
  [ "$xMODULE" != "" ] && [ "$xMODULE" != "$MODULE" ] && MODULE="$xMODULE"
+ echo $$ 06.5 `$TIME` MODULE=$MODULE >> $LocalLOG
 fi
 
 #installs a firmware tarball (once only. loading firmware is something else)...
 firmware_module_func
 
+if [ "`echo -n "$MODULE" | grep -E '^snd[-_]|^snd[-_]pcsp|^pcspkr'`" != "" ] ; then
+if [ -f /tmp/alsa.flg ] ; then
+if [ -n "`grep 'noalsa' /tmp/alsa.flg`" ] ; then
+echo $$ 08.0 `$TIME` "Detected $MODULE , but booted with 'noalsa' .. exit .." >> $LocalLOG
+exit
+#else
+#echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
+#setup_alsa_func
+fi
+#else
+#echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
+#setup_alsa_func #MODULE and CNTSND are used in this func.
+fi
+echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
 setup_alsa_func #MODULE and CNTSND are used in this func.
+fi
+
+if [ "`echo -n "$MODULE" | grep -E 'fb$|nouveau'`" != "" ] ; then
+if [ -f /tmp/framebuffer.flg ] && [ -n "`grep 'nofb' /tmp/framebuffer.flg`" ] ; then
+echo $$ 10.0 `$TIME` "Bootparameter 'nofb' .. exit .." >> $LocalLOG
+exit
+fi
+fi
+
+if [ "$MODULE" = "fbcon" ] ; then
+if [ -f /tmp/fbcon.flg ] && [ -n "`grep 'nofbcon' /tmp/fbcon.flg`" ] ; then
+echo $$ 10.0 `$TIME` "Bootparameter 'nofbcon' .. exit .." >> $LocalLOG
+exit
+fi
+fi
 
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
-echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath_log
-
 cd /sbin #v408 rerwin thinks this is needed for slamr module.
-exec /sbin/modprobe $MODULE
-
+if [ -z "`lsmod | grep "$MODULE"`" ] ; then
+echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath_log
+echo $$ 10.0 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m" >> $LocalLOG
+ ###+++2011_10_28
+ #exec /sbin/modprobe -v $MODULE >/tmp/$MODULE.txt.$$ 2>&1
+ #/sbin/modprobe -v $MODULE >/tmp/pup-$MODULE.txt.$$ 2>&1
+ /sbin/modprobe -v --first-time $MODULE >/tmp/pup-$MODULE.txt.$$ 2>&1  ##2011_10_31 added --first-time
+ lines=`cat /tmp/pup-$MODULE.txt.$$| wc -l`
+ for i in `seq 1 $lines` ; do
+ paTTern="$$ 10.$i `$TIME`"
+ sed -i "$i s/\(.*\)/$paTTern \1/" /tmp/pup-$MODULE.txt.$$
+ done
+ cat /tmp/pup-$MODULE.txt.$$ >> $LocalLOG
+ rm -f /tmp/pup-$MODULE.txt.$$
+ ###+++2011_10_28
+else
+echo $$ 10.0 `$TIME` "\e[31m"'Module '"$MODULE"' already inserted'"\e[39m" >> $LocalLOG
+fi
 ###END###
+exit

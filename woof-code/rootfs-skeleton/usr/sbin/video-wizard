@@ -8,17 +8,62 @@
 
 . /etc/rc.d/PUPSTATE
 
-CURRENTX="`readlink /usr/bin/X`"
-if [ "$CURRENTX" != "Xvesa" ];then
- Xdialog --title "Xvesa Video Wizard" --msgbox "The Xvesa X server is not currently running.
-Select the Xorg Video Wizard from the menu 
--- it has the option of switching over to the
-Xvesa server. Click OK button to exit..." 0 0
- exit
+CURRENTX="`basename $(readlink /usr/bin/X)`"
+#if [ "$CURRENTX" != "Xvesa" ];then
+#if [ "$CURRENTX" = "Xorg" ];then
+
+# Xdialog --title "Xvesa Video Wizard" --msgbox "The Xvesa X server is not currently running.
+#Select the Xorg Video Wizard from the menu 
+#-- it has the option of switching over to the
+#Xvesa server. Click OK button to exit..." 0 0
+# exit
+#fi
+
+yaf-splash -timeout 5 -fg red -transparent -font '-adobe-courier-bold-o-normal-*-24-*-*-*-*-*-*-*' -text "Please wait .. building database" &
+#-misc-fixed-bold-r-normal-*-18-120-100-100-*-*-*-*
+#-adobe-courier-bold-o-normal-*-24-*-*-*-*-*-*-*
+
+KNOWNXservers="Xati Xchips Xephyr Xepson Xfake Xfbdev Xi810 Xmach64 Xmga Xneomagic Xnest Xnvidia Xorg Xpm2 Xr128 Xsdl Xsmi Xvesa Xvfb Xvia"
+KNOWNXservers=`echo "$KNOWNXservers" | sed "s/^/$CURRENTX /"`  ## | tr ' ' '\n' | uniq | tr '\n' ' '`
+for content in $KNOWNXservers ; do
+INSTALLED=$(basename `find /usr/bin -name "$content" | tail -n1` 2>>/tmp/xorgwizarderrs.log)
+[ -n "$INSTALLED" ] && INSTALLEDXservers="$INSTALLEDXservers $INSTALLED"
+done
+INSTALLEDXservers=`echo "$INSTALLEDXservers" | sed '/^$/d'`
+for content in $INSTALLEDXservers ; do
+ITEMLIST="$ITEMLIST
+<item>$content</item>"
+done
+ITEMLIST=`echo "$ITEMLIST" | sed '/^$/d'`
+
+only1xserver=''
+if [ "`echo "$ITEMLIST" | wc -l`" -lt 2 ] ; then
+only1xserver=`echo "$ITEMLIST" | sed 's/.*\>\(.*\)\<.*/\1/'`
+echo 'only1xserver='"$only1Xserver"'_EOS'
 fi
 
-ALLMODES="`Xvesa -listmodes 2>&1 | grep '^0x' | tr ':' ' ' | tr -s ' ' | cut -f 1,2 -d ' ' | sort -g -k 2 | tr ' ' '|' | tr '\n' ' '`"
+XserverSwitch="
+<frame Xorg - Xvesa - Kdrive switch>
+ <hbox>
+  <text><label>Click here if you want to switch the Xserver</label></text>
+   <vbox>
+   <combobox>
+    <variable>XORGkdriveServers</variable>
+     $ITEMLIST
+   </combobox>
+  </vbox>
+ </hbox>
+</frame>
+"
 
+[ "$only1xserver" ] && XserverSwitch=""
+
+haveXvesa=$(basename `readlink /usr/bin/X`)
+[ -z "$haveXvesa" ] && exit
+
+ALLMODES="`$haveXvesa -listmodes 2>&1 | grep '^0x' | tr ':' ' ' | tr -s ' ' | cut -f 1,2 -d ' ' | sort -g -k 2 | tr ' ' '|' | tr '\n' ' '`"
+
+if [ -n "$ALLMODES" ] ; then
 #v3.02 verify correct mode-number for 640x480x16... (0x0111)
 MODEBASENUM="`echo "$ALLMODES" | tr ' ' '\n' | grep '640x480x16' | cut -f 1 -d '|'`"
 
@@ -56,9 +101,28 @@ do
 "
 done
 
+else
+
+
+RADIOSECTION='
+<vbox><text><label>The Xorg Server\n</label></text>
+<text><label>is currently running !\n</label></text>
+<text><label>To adjust the resolution\n</label></text>
+<text><label>choose the Xorgwizard\n</label></text>
+<text><label>in the Setup Menu .</label></text></vbox>
+'
+
+CURRENTVALS=`xwininfo -root | grep '\-geometry' | grep -o '[0-9].*'`
+
+fi
+
+echo $RADIOSECTION
+echo $CURRENTVALS
+
 # icon-name=\"gtk-preferences\"
 export MAIN_DIALOG="
 <window title=\"Xvesa Video Wizard\">
+<vbox>
 <hbox>
  <vbox>
   <frame Video modes>
@@ -113,6 +177,10 @@ export MAIN_DIALOG="
   </hbox>
  </vbox>
 </hbox>
+<hbox>
+ $XserverSwitch
+</hbox>
+</vbox>
 </window>
 "
 
@@ -122,19 +190,33 @@ echo "$RETVALS"
 
 [ "`echo "$RETVALS" | grep '^EXIT='`" = "" ] && exit #invalid stuff.
 [ "`echo "$RETVALS" | grep 'abort'`" != "" ] && exit #invalid stuff.
-
+echo RETVALS="$RETVALS"
 CHOSENMODE="`echo "$RETVALS" | grep 'RADIO' | grep '"true"' | cut -f 2 -d '_' | cut -f 1 -d '=' | tr '|' ' '`"
 CHOSENBUTTON="`echo "$RETVALS" | grep '^EXIT' | cut -f 2 -d '"'`" #'geany
 CHOSENXOPTIONS="`echo "$RETVALS" | grep '^ENTRY' | cut -f 2 -d '"'`" #'geany
 
-echo "CHOSENMODE=$CHOSENMODE CHOSENBUTON=$CHOSENBUTTON"
+chosenServer=`echo "$RETVALS" | grep -w 'XORGkdriveServers=".*"' | cut -f 2 -d '"' | tr -d '"'`
 
+echo chosenServer=$chosenServer=
+
+echo "CHOSENMODE=$CHOSENMODE CHOSENBUTON=$CHOSENBUTTON"
+[ -z "$CHOSENMODE" ] && CHOSENMODE=`echo "$CURRENTVALS" | sed 's/+.*//'`
+##if [ "$chosenServer" = "$haveXvesa" ] ; then
+
+if [ "$chosenServer" != "Xorg" ] ; then
 echo -n "$CHOSENMODE"  > /tmp/videomode
 echo -n "$CHOSENXOPTIONS" > /etc/xextraoptions
+else
+rm -f /tmp/videomode
+rm -f /etc/xextraoptions
+fi
 
 if [ "$CHOSENBUTTON" = "TESTBUTTON" ];then
  touch /tmp/pup_event_icon_change_flag #v404 see /sbin/clean_desk_icons (called from .xinitrc).
  rm -f /tmp/Xflag #prevent endless restarts. see /usr/bin/xwin.
+ rm -f /usr/bin/X
+ ln -s $chosenServer /usr/bin/X
+ sync
  exec killall X #restart X in new test mode.
 fi
 
@@ -142,14 +224,39 @@ if [ "$CHOSENBUTTON" = "OKAYBUTTON" ];then
  echo -n "$CHOSENMODE" > /etc/videomode
  rm -f /tmp/videomode
  rm -f /tmp/Xflag #prevent endless restarts. see xwin*.
-fi
+#fi
 
-if [ $PUPMODE -eq 5 ];then
- if [ ! "`grep 'alias snd\-card\-0' /etc/modprobe.conf`" = "" ];then
-  wavplay /usr/share/audio/2barks.wav &
-  sleep 3
-  killall wavplay 2> /dev/null
+ if [ $PUPMODE -eq 5 ];then
+  if [ ! "`grep 'alias snd\-card\-0' /etc/modprobe.conf`" = "" ];then
+   wavplay /usr/share/audio/2barks.wav &
+   sleep 3
+   killall wavplay 2> /dev/null
+  fi
  fi
 fi
 
+#else
+#if [ "$chosenServer" != "$haveXvesa" ] ; then
+#xmessage -bg green -button "OK:248,NO:249" "You have choosen to use the ' $chosenServer ' - X-Server .
+#Please close all applications and do all backups you should do
+#before hitting the 'OK' button !
+#After hitting the 'OK' button , X will be restarted automatically 
+#with the $chosenServer X-Server .
+#Otherwise choose 'NO' !"
+#if [ "$?" != 248 ] ; then 
+#exit
+#fi
+
+#echo -n "$CHOSENMODE"  > /tmp/videomode
+#echo -n "$CHOSENXOPTIONS" > /etc/xextraoptions
+#touch /tmp/pup_event_icon_change_flag
+#rm -f /usr/bin/X
+#ln -s $chosenServer /usr/bin/X
+#echo  'Xrestart' > /tmp/wmexitmode.txt
+#sleep 1s
+#sync 
+  
+#exec killall X
+#fi
+#exit
 ###END###

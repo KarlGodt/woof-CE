@@ -1,8 +1,10 @@
 #!/bin/bash
-##############  ROX app.: Click image files to mount & unmount.	by: Terry Becker	aka: SunBurnt
-##############	File types = ".2fs, .3fs, .sfs, .iso, & initrd.gz".
+##############  ROX app.: Click image files to mount & unmount. by: Terry Becker    aka: SunBurnt
+##############  File types = ".2fs, .3fs, .sfs, .iso, & initrd.gz".
 #v423 detect wrong squashfs version 3.x or 4.x.
 #v424 advise of sfs-version-converter.
+
+exec 1>>/tmp/filemnt.log 2>&1
 
 #v423...
 KERNELVER="`uname -r`"
@@ -11,17 +13,24 @@ SFSSTR='squashfs, version 3'
 [ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4'
 
  imgFile="$1"
- if [ -z "$imgFile" ] ;then exit 1 ;fi
- if [ "`dirname $imgFile`" = '\.' ] ;then
-  imgFile="`pwd``echo $imgFile |sed 's/^\.//'`"
- fi
- MntPt='/mnt/'`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`
- 
+ if [ -z "$imgFile" ] ;then exit 1 ;fi #1
 
-if [ 1 -eq 2 ] ;then	##############################################	JUMP OVER this SECTION.
+ if [ "`basename $imgFile`" = 'initrd' ] ;then gzip -9 $imgFile ;fi # 11
+ if [ "`basename $imgFile`" = 'initrd.gz' ] ;then gzip -9 $imgFile ;fi # 111
+
+
+ if [ "`dirname $imgFile`" = '\.' ] ;then # 2
+  imgFile="`pwd``echo $imgFile |sed 's/^\.//'`"
+ fi # 2
+
+
+ MntPt='/mnt/'`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`
+ MntPt='/mnt/'`basename "$imgFile"`.$$
+
+if [ 1 -eq 2 ] ;then    ##############################################  JUMP OVER this SECTION.
 
  loMnts="`mount |grep '/dev/loop' |awk '{print $1}'`"
- echo "$loMnts" |while read LOOP					### test if file's mounted
+ echo "$loMnts" |while read LOOP                    ### test if file's mounted
  do
    loFile="`losetup-FULL $LOOP |sed 's/^.*(//' |sed 's/).*$//'`"
    if [ "$loFile" = "$imgFile" ] ;then
@@ -31,87 +40,193 @@ if [ 1 -eq 2 ] ;then	##############################################	JUMP OVER th
    i=`expr $i + 1`
  done
 
-fi			##############################################	END of JUMP SECTION.
+fi          ##############################################  END of JUMP SECTION.
 
 
-							### file's not mounted, mount it
+                            ### file's not mounted, mount it
 # if [ $i -eq 16 ] ;then
 
- imgFileBASE="`basename "$imgFile"`" #BK
+imgFileBASE="`basename "$imgFile"`" #BK
 
- if [ ! -d "$MntPt" ] ;then
- 
+if [ ! -d "$MntPt" ] ;then # 5
+
+check_already_mounted_func(){
+
   #BK check if already mounted elsewhere...
   for ONELOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' ' | tr '\n' ' '`
   do
+
    MNTDIMG="`losetup-FULL $ONELOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`"
-    IMGBASE="`basename "$MNTDIMG"`"
+   IMGBASE="`basename "$MNTDIMG"`"
+
     #echo "IMGBASE=$IMGBASE imgFileBASE=$imgFileBASE" #TEST
     #not perfect, but paths may be symlinks...
-    if [ "$IMGBASE" = "$imgFileBASE" ];then #if [ "$MNTDIMG" = "$imgFile" ];then
-     xmessage "Sorry $imgFile is already mounted and in-use by Puppy"
+
+    if [ "$IMGBASE" = "$imgFileBASE" ];then #if [ "$MNTDIMG" = "$imgFile" ];then #6
+
+     if [ -n "$DISPLAY" ] ; then #66
+xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" "$imgFile
+is already mounted and in-use by Puppy .
+Do you want to unmount it or mount it to another mount point ?"
+RETVAL=$?
+if [ "$RETVAL" = "190" ] ; then #666
      exit
-    fi
-  done
-   
-  Ext=`echo "$imgFile" |sed 's/^.*\.//'`	# get file type from extention
-  if [ "$Ext" = '2fs' ] ;then
+
+ elif [ "$RETVAL" = "191" ] ; then #666
+     MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     rox $MntPt
+     exit
+
+elif [ "$RETVAL" = "192" ] ; then #666
+     MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     cd $MntPt
+     pwd
+     rxvt &
+     exit
+
+elif [ "$RETVAL" = "193" ] ; then #666
+       UNMOUNT='yes'
+       MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       return
+
+elif [ "$RETVAL" = "194" ] ; then #666
+       UNMOUNT='yes'
+       MntPt=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       echo 1 "$MntPt"
+       MntPt2=`echo "$MntPt" | sed "1 d"`
+       echo 2 "$MntPt2"
+       for i in $MntPt2 ; do
+       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       echo "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       echo "$LOOPD"
+       USEapps=`fuser -c $LOOPD`
+       echo 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
+       echo 4 "$USEapps"
+       for j in $USEapps ; do
+       echo $i
+       kill -1 $j
+       done
+       [ -n "$DISPLAY" ] && rox -D $i
+       umount $i
+       sleep 2
+       rmdir $i
+       done
+       MntPt=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       return
+
+else #666
+     MOUNT='again'
+     return
+fi ###666
+
+fi ##6
+fi #6
+done
+
+}
+check_already_mounted_func
+
+fi # 5
+
+if [ -z "$UNMOUNT" ] ; then #55
+
+  Ext=`echo "$imgFile" |sed 's/^.*\.//'`    # get file type from extention
+  if [ "$Ext" = '2fs' ] ;then #7
    Type='ext2'
   elif [ "$Ext" = '3fs' ] ;then
    Type='ext3'
   elif [ "$Ext" = '4fs' ] ;then #v423 planning for the future!
    Type='ext4'
-  elif [ "$Ext" = 'sfs' ] ;then
+  elif [ "$Ext" = 'sfs' -o "$Ext" = 'sqfs' -o "$Ext" = 'squashfs' ] ;then
    Type='squashfs'
   elif [ "$Ext" = 'iso' ] ;then
    Type='iso9660'
   # BK
   #elif [ "$imgFile" = 'initrd.gz' ] ;then
   # Type='ext2'
-  # gunzip $imgFile				# handle gzip image file
+  # gunzip $imgFile             # handle gzip image file
   # imgFile="echo "$imgFile" |sed 's/.gz$//'"
-  fi
-  
+  fi #7
+
   #v423 detect wrong squashfs version...
-  if [ "$Type" = "squashfs" ];then
-   if [ "`disktype "${imgFile}" | grep "$SFSSTR"`" = "" ];then
-    if [ $KERNELSUBVER -gt 28 ];then
-     xmessage -center -bg '#FFC0C0' "NOTICE: This is an older version 3.x squashfs file, not usable.
+  if [ "$Type" = "squashfs" ];then #8
+   if [ "`disktype "${imgFile}" | grep "$SFSSTR"`" = "" ];then #8.1
+    if [ $KERNELSUBVER -gt 28 ];then #8.1.1
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is an older version 3.x squashfs file, not usable.
 All Linux kernels 2.6.29 or later require version 4.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
-    else
-     xmessage -center -bg '#FFC0C0' "NOTICE: This is a newer version 4.x squashfs file, not usable.
+    else #8.1.1
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is a newer version 4.x squashfs file, not usable.
 All Linux kernels 2.6.28 or earlier require version 3.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
-    fi
+    fi #8.1.1
     exit
-   fi
-  fi
-  
+   fi #8.1
+  fi #8
+
 #  echo -e "\nimgFile = $imgFile\t\tExt  = $Ext"
 #  echo -e "MntPt   = $MntPt\t\tType = $Type\n"
   echo -e "\n ### Mount: $imgFile\n"
-  mkdir -p $MntPt
-  mount -t $Type -o loop $imgFile $MntPt
+  mkdir -p "$MntPt"
+  mount -t $Type -o loop "$imgFile" "$MntPt"
   Err=$?
-  if [ $Err -eq 0 ] ;then
-   rox -d $MntPt # mount good, run rox filer
-   yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
-  fi	
+  sleep 2s
+  if [ $Err -eq 0 ] && [ -n "`mount | grep "$MntPt"`" ];then #9
+   if [ -n "$DISPLAY" ] ; then #99
+    rox -d "$MntPt" # mount good, run rox filer
+   ##[ -n "$DISPLAY" ] && yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+    yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+   fi #99
+  else
+  rmdir "$MntPt"
+  fi #9
 
- else							### file's mounted, unmount it
-  rox -D $MntPt #BK
-  umount $MntPt
+ else #55                       ### file's mounted, unmount it
+
+   [ -n "$DISPLAY" ] && rox -D "$MntPt" #BK
+
+       GREP=`echo "$MntPt" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       echo 1 "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       echo 2 "$LOOPD"
+       USEapps=`fuser -c $LOOPD`
+       echo 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
+       echo 4 "$USEapps"
+       for j in $USEapps ; do
+       echo $i
+       kill -1 $j
+       done
+
+   sleep 2s
+  umount "$MntPt"
   Err=$?
-  rmdir $MntPt
-  if [ "basename $imgFile" = 'initrd' ] ;then gzip -9 $imgFile ;fi
-  yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
+
+  #yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg orange -text "$Err"
+  sleep 2s
+  #rmdir $MntPt
+  #yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg orange -text "$MntPt"
+
+
+  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
+
   #Xdialog --title " Notice..." --no-button \
   #        --infobox "
-  #UnMounting: $imgFile  
+  #UnMounting: $imgFile
   #" 0 0 2000
+
   echo -e "\n ### UnMount: $imgFile\n"
- fi
- if [ $Err -gt 0 ] ;then			# ERROR: mount/unmount
-  xmessage -title " ERROR..." "  Failed mounting or unmounting.  "
- fi
+
+  [ -d "$MntPt" -a "`busybox mount | grep "$MntPt"`" = "" ] && rmdir "$MntPt"
+
+ fi #55
+
+ if [ "$Err" -gt 0 ] ;then          # ERROR: mount/unmount # 9999
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned $Err ... mounting or unmounting $MntPt"
+ fi # 9999
+
+echo "$0:Exiting with '$Err'"
+exit $Err
+

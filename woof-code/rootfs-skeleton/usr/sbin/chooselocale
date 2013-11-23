@@ -8,6 +8,7 @@
 #w478 bugfix, dialog_table was incorrect.
 #v431 updated LANGUAGEDESCR variable.
 
+startLang="$LANG"
 LANG=C #Xdialog seems to need this.
 export LANG
 
@@ -16,7 +17,13 @@ PARAM1=""
 
 . /etc/DISTRO_SPECS
 
-CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
+mainFile='/etc/profile'
+CURRLANG="`grep '^LANG=' $mainFile | cut -f 2 -d '='`"
+if [ -z "$CURRLANG" ] ; then
+mainFile='/etc/bash_completion.d/bashrc'
+CURRLANG="`grep '^LANG=' $mainFile | cut -f 2 -d '='`"
+fi
+[ -z "$CURRLANG" ] && CURRLANG="$startLang"
 
 UTF8=''
 [ "`echo -n "$CURRLANG" | grep 'utf8'`" != "" ] && UTF8='.utf8'
@@ -32,8 +39,8 @@ if [ "$XSTATUS" != "x" ];then
 fi
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
- [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >/dev/null
- #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
+ [ ! -d /usr/lib/locale/en_US ] && localedef -c -f ISO-8859-1 -i en_US --no-archive en_US >/dev/null
+ [ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
 fi
 
 #v431 fix es:Mexican change to es:Spanish (Spain)...
@@ -106,47 +113,53 @@ if [ "$UTF8CHOICE" = "checked" ];then
 fi
 
 if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
-
+echo 'if 1'
  # creates locale files in /usr/lib/locale...
  #CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
  OLDLANG="LANG=$CURRLANG"
  NEWLANG="LANG=${LANGCHOICE}"
  [ "$UTF8" != "" ] && NEWLANG="LANG=${LANGCHOICE}"'.utf8'
- if [ "`locale -a | grep "${LANGCHOICE}${UTF8}"`" = "" ];then
+ if [ "`locale -a | grep -x "${LANGCHOICE}${UTF8}"`" = "" ];then
+  echo 'if 2'
   if [ "$UTF8" = "" ];then
+  echo 'if 3'
    lcPATTERN='^'"${LANGCHOICE}"' '
    CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | head -n 1 | cut -f 2 -d ' '`"
    if [ "$CHARMAP" != "" ];then #make sure have it...
+    echo 'if 4'
     cPATTERN="$CHARMAP"'\.gz'
     [ "`ls -1 /usr/share/i18n/charmaps | grep "$cPATTERN"`" = "" ] && CHARMAP=""
    fi
    if [ "$CHARMAP" != "" ];then
-    localedef -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} > /dev/null
+   echo 'if 5'
+    localedef -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} #> /dev/null
     NEWLANG="LANG=${LANGCHOICE}"
    else
+   echo 'else 5'
     #no match, i think forced to use utf8...
-    localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 > /dev/null
+    localedef -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 #> /dev/null
     NEWLANG="LANG=${LANGCHOICE}.utf8"
 	UTF8='.utf8'
    fi
   else
+  echo 'else 3'
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
    #CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`"
    #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
-   localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 > /dev/null
+   localedef -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 #> /dev/null
    NEWLANG="LANG=${LANGCHOICE}.utf8"
   fi
  fi
 
  if [ "$OLDLANG" != "$NEWLANG" ];then
   langPATTERN="s/${OLDLANG}/${NEWLANG}/"
-  sed -e "$langPATTERN" /etc/profile > /tmp/profile
-  cp -f /tmp/profile /etc/profile
+  sed -e "$langPATTERN" $mainFile > /tmp/profile
+  cp -f /tmp/profile $mainFile
  fi
 
  [ "$XSTATUS" != "x" ] && exit
  
- Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in /etc/profile." 0 100
+ Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in $mainFile." 0 100
  
  if [ $? -eq 0 ];then
   rm -rf /tmp/.X0-lock

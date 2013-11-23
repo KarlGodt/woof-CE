@@ -9,15 +9,15 @@
 #BK v3.99: added Stupid Mode and Auto reconnect checkboxes for each isp.
 #BK v4.00: crash bugfix.
 #HairyWill v4.00: handle init string with quotes, prevent gtkdialog crash.
-#v405 updated. 
+#v405 updated.
 #v408 old pap-secrets, chap-secrets problem has returned, workaround applied.
-#v408 rerwin: Make modem startup after 'erase' same as for first time with no conf file. 
+#v408 rerwin: Make modem startup after 'erase' same as for first time with no conf file.
 #v409 rerwin: bugfix, need a delay for fast machines.
 #v412 rerwin: increase sleep from 0.3 to 1.
 #v465 rerwin: v413 add init strings for wireless modems
 #v477 rerwin: v413 add 'Reading...' splash message during sleep.
 #v424 rerwin: send PIN only on first wireless connection; move APNs to accounts; associate APN with dial accounts; retain dial type (DT/DP)
-#v431 rerwin: retain account checkbox changes; ensure optional lines associated with an account; add APN-specific commands; handle Idle Seconds lines 
+#v431 rerwin: retain account checkbox changes; ensure optional lines associated with an account; add APN-specific commands; handle Idle Seconds lines
 
 KERNVER="`uname -r`"
 
@@ -32,9 +32,9 @@ if [ ! -s /etc/wvdial.conf ] || [ "`grep '/dev/MYDEVM' /etc/wvdial.conf`" != "" 
   echo "[Dialer Defaults]
 Modem = ${MYDEVM}
 Baud = 57600
-Init1 = 
+Init1 =
 Init2 = ATZ
-Init3 = 
+Init3 =
 Carrier Check = no
 Dial Command = ATDT
 
@@ -45,6 +45,8 @@ Password = MYPASSWORD
 
 [Dialer isp1apn]
 Init5 = AT+CGDCONT=1,\"IP\",\"\"
+[Dialer isp1pin]
+Init1 = AT+CPIN=
 
 [Dialer isp2]
 Phone = MY2ISPPHONENUM
@@ -53,8 +55,7 @@ Password = MY2PASSWORD
 
 [Dialer isp2apn]
 Init5 = AT+CGDCONT=1,\"IP\",\"\"
-
-[Dialer pin]
+[Dialer isp2pin]
 Init1 = AT+CPIN=" > /etc/wvdial.conf
 #v408 Treat erased modem device name same as for absent wvdial.conf.
  else #wvdial.conf indicates modem field has been erased
@@ -167,15 +168,25 @@ NEED TO CLICK THE 'probe' BUTTON. DO THIS NOW!
 fi
 
  BAUDM="`cat /etc/wvdial.conf | grep '^Baud = ' | cut -f 3 -d ' '`"
- 
+
  #v4.00 HairyWill fixes for embedded $ " characters...
  INIT1M="`cat /etc/wvdial.conf | grep '^Init1 =' | head -n 1 | cut -f 3-12 -d ' ' | grep -v 'AT+CPIN=' | sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'`" #v413
  INIT2M="`cat /etc/wvdial.conf | grep '^Init2 = ' | cut -f 3-12 -d ' '| sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'`"
  INIT3M="`cat /etc/wvdial.conf | grep '^Init3 = ' | cut -f 3-12 -d ' '| sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'`" #v413
+ if [ "$INIT1M" = "ATZ" ];then
+ INIT1M=''
+ INIT2M="$INIT3M"
+ INIT3M=""
+ fi
+ if [ "$INIT2M" = "ATZ" ];then
+ INIT2M="$INIT3M"
+ INIT3M=""
+ fi
  #v413 If first Init1 not null, move contents to Init2, and Init2 to Init3, to reserve Init1 for wireless PIN.
  [ "$INIT1M" != "" ] && INIT3M="$INIT2M" && INIT2M="$INIT1M" && INIT1M="" #v413
  #v413 Get values for Init1, 4, 6-9.
- WPINM="`cat /etc/wvdial.conf | grep '^Init1 = ' | tail -n 1 | cut -f 3 -d '='`"
+ WPINM1="`cat /etc/wvdial.conf | grep -A1 '\[Dialer isp1pin\]' | grep '^Init1 = ' | tail -n 1 | cut -f 3 -d '='`"
+ WPINM2="`cat /etc/wvdial.conf | grep -A1 '\[Dialer isp2pin\]' | grep '^Init1 = ' | tail -n 1 | cut -f 3 -d '='`"
  INIT4M="`cat /etc/wvdial.conf | grep '^#*Init4 =' | sed 's/"/\\"/g;;s/\$/\\$/g;s/$$//g;'`"
  [ "$INIT4M" = "" ] && INIT4M="#Init4 = AT+COPS=0,0,\"MYOPS\","
  INIT69M="`cat /etc/wvdial.conf | grep '^#*Init[6-9] =' | sed -e 's/"/\\"/g' -e 's/\$/\\$/g' -e 's/$$//'`"
@@ -184,14 +195,14 @@ fi
 #Init8 = AT+CGDCONT?
 #Init9 = AT+COPS?"
  #v413 end
- 
+
  DIALM="`cat /etc/wvdial.conf | grep '^Dial Command = ' | cut -f 4 -d ' '`"
  [ "`echo "$DIALM" | grep -E 'X3|X1'`" != "" ] && STATEDTM="no"
  [ "`echo "$DIALM" | grep -E 'X2|X1'`" != "" ] && STATEBCM="no"
  CCM="`cat /etc/wvdial.conf | grep '^Carrier Check = ' | cut -f 4 -d ' '`"
  [ "$CCM" = "no" ] && STATECCM="no"
  [ "`echo "$DIALM" | grep 'DP'`" = "" ] && DIALTYPE="DT" || DIALTYPE="DP" #v424
- 
+
  #v3.99 there may be up to two of each of the above...
  ISPCNT=0 #v431
  echo -n "" > /tmp/pupdial_read
@@ -209,8 +220,8 @@ fi
   esac
   [ $ISPCNT -eq 0 ] && continue
 #v431 end
-  ONEPARAM="`echo -n "$ONELINE" | cut -f 1 -d '=' | sed -e 's/ $//'`"
-  ONEVALUE="`echo -n "$ONELINE" | cut -f 2 -d '=' | sed -e 's/^ //'`"
+  ONEPARAM="`echo -n "$ONELINE" | cut -f 1 -d '=' | sed -e 's/[[:blank:]]*$//'`"
+  ONEVALUE="`echo -n "$ONELINE" | cut -f 2 -d '=' | sed -e 's/^[[:blank:]]*//'`"
   if [ "$ONEVALUE" != "" ];then
    case $ONEPARAM in
     "Dial Prefix") echo "DIAL_PREFIX${ISPCNT}='${ONEVALUE}'" >> /tmp/pupdial_read ;;
@@ -224,7 +235,7 @@ fi
   fi
  done
  eval "`cat /tmp/pupdial_read`"
- 
+
  #v3.99
  ynSTUPID_MODE1=no
  [ "$STUPID_MODE1" = "1" -o "$STUPID_MODE1" = "yes" ] && ynSTUPID_MODE1=yes
@@ -265,7 +276,7 @@ fi
   </vbox>
  </frame>
  <vbox>
-  <hbox>
+  <hbox width-request=\"400\">
    <text><label>Initialisation string 2:</label></text>
    <entry>
     <input>echo \"${INIT2M}\"</input>
@@ -284,11 +295,6 @@ fi
    <entry>
     <default>\"${BAUDM}\"</default>
     <variable>ENTRYBAUDM</variable>
-   </entry>
-   <text><label>SIM PIN:</label></text>
-   <entry invisible_char=\"x\" visibility=\"false\">
-    <input>echo \"${WPINM}\"</input>
-    <variable>ENTRYWPINM</variable>
    </entry>
   </hbox>
  </vbox>
@@ -349,6 +355,13 @@ export MAINDIALOG="
        <variable>ENTRYACC1APN</variable>
       </entry>
      </hbox>
+     <hbox>
+      <text><label>SIM PIN:</label></text>
+      <entry invisible_char=\"x\" visibility=\"false\">
+       <input>echo \"${WPINM1}\"</input>
+       <variable>ENTRYWPINM1</variable>
+      </entry>
+     </hbox>
 
      <hbox>
      <checkbox>
@@ -362,7 +375,7 @@ export MAINDIALOG="
        <default>${ynAUTO_RECONNECT1}</default>
       </checkbox>
       </hbox>
-     
+
       <button>
        <label>Connect to Internet</label>
        <visible>${STATECONa}</visible>
@@ -400,6 +413,13 @@ export MAINDIALOG="
        <variable>ENTRYACC2APN</variable>
       </entry>
      </hbox>
+      <hbox>
+      <text><label>SIM PIN:</label></text>
+      <entry invisible_char=\"x\" visibility=\"false\">
+       <input>echo \"${WPINM2}\"</input>
+       <variable>ENTRYWPINM2</variable>
+      </entry>
+     </hbox>
 
      <hbox>
       <checkbox>
@@ -413,7 +433,7 @@ export MAINDIALOG="
        <default>${ynAUTO_RECONNECT2}</default>
       </checkbox>
      </hbox>
-    
+
       <button>
        <label>Connect to Internet</label>
        <visible>${STATECONa}</visible>
@@ -484,8 +504,9 @@ RETSTRING="`gtkdialog3 --program=MAINDIALOG`"
 #v4.00 to handle embedded quote, extract ENTRYINIT2M and ENTRYINIT3M separately...
 ENTRYINIT2M="`echo "$RETSTRING" | grep '^ENTRYINIT2M=' | cut -f 2-9 -d '"' | sed -e 's/"$//'`" #'geany
 ENTRYINIT3M="`echo "$RETSTRING" | grep '^ENTRYINIT3M=' | cut -f 2-9 -d '"' | sed -e 's/"$//'`" #'geany
-ENTRYWPINM="`echo "$RETSTRING" | grep '^ENTRYWPINM=' | cut -f 2-9 -d '"' | sed -e 's/"$//' | tr -d ' '`" #no spaces
-RETSTRING="`echo "$RETSTRING" | grep -v '^ENTRYINIT3M=' | grep -v '^ENTRYINIT2M=' | grep -v '^ENTRYWPINM='`"
+ENTRYWPINM1="`echo "$RETSTRING" | grep '^ENTRYWPINM1=' | cut -f 2-9 -d '"' | sed -e 's/"$//' | tr -d ' '`" #no spaces
+ENTRYWPINM2="`echo "$RETSTRING" | grep '^ENTRYWPINM2=' | cut -f 2-9 -d '"' | sed -e 's/"$//' | tr -d ' '`" #no spaces
+RETSTRING="`echo "$RETSTRING" | grep -v -E '^ENTRYINIT3M=|^ENTRYINIT2M=|^ENTRYWPINM1=|^ENTRYWPINM2='`"
 
 #v405 getting some weird stuff on stdout from gtkdialog3, fix...
 #all lines must have format variable="value"... v406 add '_'...
@@ -559,7 +580,7 @@ DIALSTR="${DIALSTR}${DIALTYPE}"
 echo '[Dialer Defaults]' > /etc/wvdial.conf
 echo -n "Modem = /dev/${DEVM}
 Baud = ${ENTRYBAUDM}
-Init1 = 
+Init1 =
 Init2 = ${ENTRYINIT2M}
 Init3 = ${ENTRYINIT3M}
 Carrier Check = ${CHECKCC}
@@ -572,6 +593,8 @@ Password = ${ENTRYACC1PASS}
 ${USEREXTRA1}
 [Dialer isp1apn]
 Init5 = AT+CGDCONT=${ACC1PRFL},\"IP\",\"${ENTRYACC1APN}\"
+[Dialer isp1pin]
+Init1 = AT+CPIN=${ENTRYWPINM1}
 
 [Dialer isp2]
 Phone = ${ENTRYACC2ISP}
@@ -580,9 +603,8 @@ Password = ${ENTRYACC2PASS}
 ${USEREXTRA2}
 [Dialer isp2apn]
 Init5 = AT+CGDCONT=${ACC2PRFL},\"IP\",\"${ENTRYACC2APN}\"
-
-[Dialer pin]
-Init1 = AT+CPIN=${ENTRYWPINM}
+[Dialer isp2pin]
+Init1 = AT+CPIN=${ENTRYWPINM2}
 
 [Dialer wireless]
 #To force only 2G or 3G, uncomment the Init4 line and append 0 (2G) or 2 (3G), and substitute your operator's name for MYOPS.
@@ -615,11 +637,13 @@ if [ "$EXIT" = "CONNECT1" -o "$EXIT" = "CONNECT2" ];then
    WVWRLS="wireless" #Include optional user-edited init strings
    if [ "$WVISP" = "isp1" ];then
     [ "$ENTRYACC1APN" != "" ] && WVAPN="${WVISP}apn" && APNSTRING="$ENTRYACC1APN" #v431
+    [ "$ENTRYWPINM1" ] && WVPIN="${WVISP}pin"
    else
     [ "$ENTRYACC2APN" != "" ] && WVAPN="${WVISP}apn" && APNSTRING="$ENTRYACC2APN" #v431
+     [ "$ENTRYWPINM2" ] && WVPIN="${WVISP}pin"
    fi
-   if [ "$ENTRYWPINM" != "" ] && [ ! -e /tmp/.pupdial_pin_sent ];then
-    WVPIN="pin"
+   if [ "$ENTRYWPINM1" -o "$ENTRYWPINM2" ] && [ ! -e /tmp/.pupdial_pin_sent ];then
+    #WVPIN="pin"
     touch /tmp/.pupdial_pin_sent
    fi
   fi
@@ -627,7 +651,7 @@ if [ "$EXIT" = "CONNECT1" -o "$EXIT" = "CONNECT2" ];then
  rm -f /tmp/pupdial.log
 
 #v3.98 put this in, now remove...
- #v3.98 /etc/ppp/options can cause conflict for wvdial. 
+ #v3.98 /etc/ppp/options can cause conflict for wvdial.
  #(i think 'options' is used by roaring penguin) hide it...
 # mv -f /etc/ppp/options /etc/ppp/optionsHIDE
 
@@ -637,25 +661,84 @@ if [ "$EXIT" = "CONNECT1" -o "$EXIT" = "CONNECT2" ];then
  cp -f /etc/ppp/wvdial /etc/ppp/peers/
  [ "${WVAPN}" != "" ] && [ -f /etc/wvdial_options/APN-${APNSTRING} ] && echo "`cat /etc/wvdial_options/APN-${APNSTRING}`" >> /etc/ppp/peers/wvdial #431
  [ -f /etc/ppp/wvdial-pipe ] && cp -f /etc/ppp/wvdial-pipe /etc/ppp/peers/ #v3.98
- wvdial ${WVISP} ${WVPIN} ${WVAPN} ${WVWRLS} &> /tmp/pupdial.log & #v413
- [ ! -f /tmp/pupdial.log ] && sleep 1 
- [ ! -f /tmp/pupdial.log ] && sleep 1 
+ /etc/ppp/local/pgprs-count-transfer.sh &
+ #wvdial ${WVISP} ${WVAPN} ${WVPIN} ${WVWRLS} &> /tmp/pupdial.log & #v413
+ echo "${WVISP} ${WVAPN} ${WVPIN} ${WVWRLS}"
+ #wvdial ${WVISP} ${WVAPN} ${WVPIN} ${WVWRLS} 1>/tmp/pupdial.log 2>&1 &
+ wvdial ${WVISP} ${WVPIN} ${WVAPN} &>/tmp/pupdial.log &  #needs to be &> :: > directs to terminal instead file
+ [ ! -f /tmp/pupdial.log ] && sleep 1
+ [ ! -f /tmp/pupdial.log ] && sleep 1
+
+ kill_func(){
+  [ "`pidof pppd`" ] && kill -1 `pidof pppd`
+  sleep 2.5
+  [ "`pidof wvdial`" ] && kill -1 `pidof wvdial`
+ }
+ logbox_func(){
  Xdialog --center --wmclass "pupdial" --backtitle "NOTICE: If the log shows a failure to connect, please click left button" --title "PupDial: WvDial connection log" --ok-label "Disconnect, or stop trying" --cancel-label "Close window but stay online" --fixed-font --tailbox /tmp/pupdial.log 20 80
  if [ $? -eq 0 ];then
-  rm -f /etc/ppp/peers/wvdial
-  [ -f /etc/ppp/peers/wvdial-pipe ] && rm -f /etc/ppp/peers/wvdial-pipe
+  kill_func
+  #rm -f /etc/ppp/peers/wvdial
+  #[ -f /etc/ppp/peers/wvdial-pipe ] && rm -f /etc/ppp/peers/wvdial-pipe
+ fi
+  }
+  #logbox_func &
+  #logboxPID=$!
+  logbox_func
+  sleep_func(){
+  sleep 2.5;c=0
+  while [ "`pidof wvdial`" ] ; do
+  #while [ -L /sys/class/net/ppp0 ] ; do
+  #sleep 2.5
+  #done
+  #while [ "`pidof pppd`" ] ; do
+  #sleep 2.5
+  #done
+  #[ ! "`pidof pppd`" ] && echo "pppd not running" >>/tmp/pupdial.log
+  #echo "`which pppd` died" >>/tmp/pupdial.log
+  #while [ "`pidof wvdial`" ] ; do
+  sleep 2.5
+  c=$((c+1))
+  if [ "$c" == '4' ] ; then
+  if [ ! -L /sys/class/net/ppp0 ] ; then
+  return 1
+  else
+  return 0
+  fi
+  fi
+  done
+ }
+ #sleep_func
+  tail -n3 /tmp/pupdial.log
 
+  NOCARR=`tail -n40 /tmp/pupdial.log | grep -i 'No carrier' | wc -l`
+  [ "$NOCARR" ] && PINER=`tail -n3 /tmp/pupdial.log | grep 'AT+CPIN='`
+  [ "$PINER" ] && PINER=`tail -n2 /tmp/pupdial.log | grep 'ERROR'`
+  [ "$PINER" ] && PINER=`tail -n1 /tmp/pupdial.log | grep 'Bad init string'`
+  if [ "$PINER" -o "$NOCARR" -gt 9 ];then
+  #kill $logboxPID
+  XdialogPID=`ps | grep 'Xdialog' | grep 'pupdial' | awk '{print $1}'`
+  [ "$XdialogPID" ] && kill $XdialogPID
+  /etc/ppp/local/pgprs-count-transfer.sh &
+  wvdial ${WVAPN} ${WVISP} &>/tmp/pupdial.log &
+  #logbox_func &
+  logbox_func
+  fi
+  #sleep_func
+
+  [ ! "`pidof wvdial`" ] && echo "`which wvdial` died" >>/tmp/pupdial.log
+  kill_func
 #v3.98 put this in, now remove...
 #  mv -f /etc/ppp/optionsHIDE /etc/ppp/options
 
-  killall wvdial
-  killall pppd
+  #killall wvdial #2>>/tmp/pupdial.log
+  #killall pppd 2>>/tmp/pupdial.log
   #rm -f /tmp/pupdial.log
   echo '' >> /tmp/pupdial.log
   echo '------------------------------------------------------' >> /tmp/pupdial.log
   echo '' >> /tmp/pupdial.log
   exec pupdial #v3.91 go back to main window.
- fi
+ #fi
 fi
-
+exit 0 || exit 1
 ###END###
