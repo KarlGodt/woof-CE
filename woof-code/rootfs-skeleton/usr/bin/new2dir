@@ -7,9 +7,6 @@
 #inside this you do the usual 'configure', 'make', then 'new2dir make install'
 #and 'abiword-0.5.6-i486' directory gets created, with all installed files
 #in it.
-#120220 jemimah: fix to work with cmake (uncertain if will break anything else). ref: http://murga-linux.com/puppy/viewtopic.php?t=71767&start=420
-#120602 updated installwatch to 0.7, got double hits from /tmp/pkginstall.list.
-#130121 grab a .pot if it exists.
 
 if [ ! $1 ];then
  echo "This script is used in the last step when installing a source"
@@ -182,8 +179,7 @@ sync
 # filter out $UPONE...
 # BUGPATTERN='&'"$UPONE"
 # no, just filter out /mnt and /initrd...
-#cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | egrep '^[345]&open&|^0&chmod&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sort -u > ${RELPATH}/${EXE_PKGNAME}.files #120220 120602
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
 #...list will only have created files, not created directories, so an empty
 #   directory won't get recorded.
 
@@ -237,7 +233,7 @@ do
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/'`" = "" ];then
    mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
    cp -af "$ONEFILE" "${NLS_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-   [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
  fi
@@ -247,7 +243,7 @@ do
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
    mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
    cp -af "$ONEFILE" "${DOC_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-   [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
  fi
@@ -257,7 +253,7 @@ do
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-   [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
   #find *.so symlink files...
@@ -265,7 +261,7 @@ do
    if [ ! "`echo -n "$ONEFILE" | grep '\.so$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-    [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
    fi
   fi
@@ -273,14 +269,14 @@ do
   if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\-config$|config.sh$|Conf.sh$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-    [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
   if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-    [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
   fi  
  fi
@@ -289,7 +285,7 @@ do
  if [ "$EXESPLIT" = "yes" ];then
   mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
   cp -af "$ONEFILE" "${EXE_TARGETDIR}/${ONEPATH}/" 2>/dev/null
-  [ $? -ne 0 ] && fixfilelistfunc "$ONEFILE"
+  [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
   #fix for empty directories...
   cat /tmp/${EXE_PKGNAME}.dirs |
   while read ANEWDIR
@@ -298,20 +294,6 @@ do
   done
  fi
 done
-
-#130121 grab a .pot if it exists...
-sync
-pnPTN="/${xNAMEONLY}.pot"
-if [ "`grep "$pnPTN" /tmp/${EXE_PKGNAME}.files`" = "" ];then
- FNDPOT="$(find ${CURRDIR}/ -type f -name "${xNAMEONLY}.pot" | head -n 1)"
- if [ "$FNDPOT" ];then
-  mkdir -p ${EXE_TARGETDIR}/usr/share/doc/nls/${xNAMEONLY}
-  cp -f "$FNDPOT" ${EXE_TARGETDIR}/usr/share/doc/nls/${xNAMEONLY}/
-  echo "/usr/share/doc/nls/${xNAMEONLY}/" >> /tmp/${EXE_PKGNAME}.files
-  echo "/usr/share/doc/nls/${xNAMEONLY}/${xNAMEONLY}.pot" >> /tmp/${EXE_PKGNAME}.files
- fi
-fi
-
 sync
 cp -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 

@@ -11,9 +11,6 @@
 #some information useful to the Puppy Package Manager.
 #w476, w478 fixes to work with petspec.
 #w482 if preexisting pet.specs, read fields from it.
-#100201 improve reading of pet.specs
-#100303 fix bug detection arch-dependent pkg.
-#130305 rerwin: ensure package tmp directory, if any, has all permissions.
 
 if [ ! $1 ];then
  echo "It is required to invoke this script like this:
@@ -43,9 +40,6 @@ NAMEONLY=""
 PUPMENUDESCR=""
 PUPOFFICIALDEPS=""
 PUPCATEGORY=""
-PUPPATH="" #100201
-ARCHDEPENDENT="yes" #100201
-DEFREPO="" #100201
 if [ -f ${1}/pet.specs ];then
  #new: pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
  #optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
@@ -59,7 +53,6 @@ if [ -f ${1}/pet.specs ];then
  PUPCATEGORY="$DB_category"
  DB_size="`echo -n "$PETSPECS" | cut -f 6 -d '|'`"
  DB_path="`echo -n "$PETSPECS" | cut -f 7 -d '|'`"
- PUPPATH="$DB_path" #100201
  DB_fullfilename="`echo -n "$PETSPECS" | cut -f 8 -d '|'`"
  DB_dependencies="`echo -n "$PETSPECS" | cut -f 9 -d '|'`"
  PUPOFFICIALDEPS="$DB_dependencies"
@@ -67,9 +60,7 @@ if [ -f ${1}/pet.specs ];then
  PUPMENUDESCR="$DB_description"
  DB_compileddistro="`echo -n "$PETSPECS" | cut -f 11 -d '|'`"
  DB_compiledrelease="`echo -n "$PETSPECS" | cut -f 12 -d '|'`"
- ARCHDEPENDENT="${DB_compileddistro}|${DB_compiledrelease}"
  DB_repo="`echo -n "$PETSPECS" | cut -f 13 -d '|'`"
- DEFREPO="$DB_repo"
 fi
 
 #difficult task, separate package name from version part... 
@@ -313,16 +304,6 @@ if [ "$DESKTOPFILE" = "" ];then
  echo
 fi
 
-#100201 determine if pkg is ditro-independent (scripts only)...
-ARCHINDEPENDENT='yes'
-for ONEEXEC in `find $DIRPKG/$BASEPKG -maxdepth 6 -type f -perm -o+x`
-do
- [ -f $ONEEXEC ] && [ "`file $ONEEXEC | grep ' ELF '`" != "" ] && ARCHINDEPENDENT='no'
-done
-[ "`find $DIRPKG/$BASEPKG -maxdepth 6 -type f -name '*.a' -o -type f -name 'lib*.so*' -o -type f -name '*.la'`" != "" ] && ARCHINDEPENDENT='no' #100303
-#[ "`echo "${BASEPKG}" | grep '_DEV'`" != "" ] && ARCHINDEPENDENT='no' #100303
-[ "$ARCHINDEPENDENT" = "yes" ] && ARCHDEPENDENT='no'
-
 echo "Press ENTER key to bring up a GUI window that will help you to create"
 echo "a database entry for the package. This will be shown in a text editor"
 echo "for saving somewhere, also written to file 'pet.specs' inside the pkg." 
@@ -339,28 +320,16 @@ TOPCAT="`echo "$PUPHIERARCHY" | grep "$xPUPCATEGORY" | cut -f 1 -d ' ' | head -n
 
 [ "${PUPOFFICIALDEPS}" = "" ] && PUPOFFICIALDEPS="EMPTY"
 [ "${PUPMENUDESCR}" = "" ] && PUPMENUDESCR="EMPTY"
-[ "${PUPPATH}" = "" ] && PUPPATH="EMPTY" #100201
-[ "${DEFREPO}" = "" ] && DEFREPO="EMPTY" #100201
-petspec "${NAMEONLY}" "${TOPCAT}" "${PUPOFFICIALDEPS}" "${PUPMENUDESCR}" "$BASEPKG" "$SIZEK" "$PUPPATH" "$ARCHDEPENDENT" "$DEFREPO" #100201
-
-if [ $? -ne 0 ];then
- echo "Aborted creation of PET package."
- exit
-fi
-
-[ -d $DIRPKG/$BASEPKG/tmp ] && chmod 1777 $DIRPKG/$BASEPKG/tmp #130305 rerwin.
-
+petspec "${NAMEONLY}" "${TOPCAT}" "${PUPOFFICIALDEPS}" "${PUPMENUDESCR}" "$BASEPKG" "$SIZEK"
 cat /tmp/petspec_db_entry | tail -n 1 > $DIRPKG/$BASEPKG/pet.specs
 
 echo
 echo "Creating package..."
 tar -c -f $DIRPKG/${BASEPKG}.tar $DIRPKG/$BASEPKG/
 sync
-gzip --best $DIRPKG/${BASEPKG}.tar
+gzip $DIRPKG/${BASEPKG}.tar
 #rmdir $DIRPKG/$BASEPKG
 TARBALL="$DIRPKG/${BASEPKG}.tar.gz"
-advdef="$(which advdef)"
-[ -n "$advdef" ] && "$advdef" -z4 "$TARBALL"
 
 echo
 echo "File $DIRPKG/${BASEPKG}.tar.gz created. Now converting to .pet..."
