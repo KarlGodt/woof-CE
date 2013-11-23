@@ -1,214 +1,232 @@
 #!/bin/bash
-##############  ROX app.: Click image files to mount & unmount.	by: Terry Becker	aka: SunBurnt
-##############	File types = ".2fs, .3fs, .sfs, .iso, & initrd.gz".
+##############  ROX app.: Click image files to mount & unmount. by: Terry Becker    aka: SunBurnt
+##############  File types = ".2fs, .3fs, .sfs, .iso, & initrd.gz".
 #v423 detect wrong squashfs version 3.x or 4.x.
 #v424 advise of sfs-version-converter.
-#100606 have backported squashfs4 to kernel 2.6.27.47.
-#100831 fix KERNELSUBVER for olpc people, have 'uname -r' returning version with '_'.
-#101221 yaf-splash fix.
-#111016 fix for 3.x kernel.
-#111110 handle encrypted save-files.
-#111112 small fixes.
-#120201 rodin.s: internationalization.
-#120220 npierce: improved test and message for already mounted file, also prevent mkdir if file not found, and fix adding pwd prefix
-#120220 npierce: add slash to pwd prefix; exit on failed stat. refer: http://murga-linux.com/puppy/viewtopic.php?t=71767&start=450
-#120323 replace 'xmessage' with 'pupmessage'.
-#120525 take into account shinobar's sfs load-on-the-fly pet.
-#121105 added a translation.
-#121203 remove directory if mount goes wrong. thanks MHHP: http://murga-linux.com/puppy/viewtopic.php?t=82654
-#130204 mavrothal: fix spaces in imgFile.
-#130223 BK: fix wonky logic.
 
-export TEXTDOMAIN=filemnt
-export OUTPUT_CHARSET=UTF-8
-. gettext.sh
+exec 1>>/tmp/filemnt.log 2>&1
 
 #v423...
 KERNELVER="`uname -r`"
-if vercmp $KERNELVER ge 3.0;then #111016
- SFSSTR='squashfs, version 4'
- SFSMAJOR=4
-else
- KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
- KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
- SFSSTR='squashfs, version 3'
- SFSMAJOR=3
- if [ $KERNELSUBVER -eq 27 ];then
-  if [ $KERNELSUBSUBVER -gt 46 ];then #100606
-   SFSSTR='squashfs, version 4'
-   SFSMAJOR=4
-  fi
- fi
- if [ $KERNELSUBVER -gt 28 ];then
-  SFSSTR='squashfs, version 4'
-  SFSMAJOR=4
- fi
-fi
+KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-'`
+SFSSTR='squashfs, version 3'
+[ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4'
 
-imgFile="$1"
-if [ ! -f "$imgFile" ];then echo "No regular file: $imgFile";exit 1;fi #120220
-if [ "`dirname $imgFile`" = '.' ] ;then                                #120220
- imgFile="`pwd`/`echo $imgFile |sed 's/^\.//'`"                        #120220
-fi
+ imgFile="$1"
+ if [ -z "$imgFile" ] ;then exit 1 ;fi #1
 
-#120525 may need to replace with /mnt/home...
-HOMELINK="`readlink /mnt/home | grep 'initrd'`" #ex: /initrd/mnt/dev_save
-if [ "$HOMELINK" ];then
- hPTN="s%${HOMELINK}%/mnt/home%"
- imgFile="`echo -n "$imgFile" | sed -e "$hPTN"`"
- #ex: ex: /initrd/mnt/dev_save/kernel_src-3.0.7-patched.sfs becomes /mnt/home/kernel_src-3.0.7-patched.sfs becomes
-fi
+ if [ "`basename $imgFile`" = 'initrd' ] ;then gzip -9 $imgFile ;fi # 11
+ if [ "`basename $imgFile`" = 'initrd.gz' ] ;then gzip -9 $imgFile ;fi # 111
 
-#ex: /mnt/home/kernel_src-3.0.7-patched.sfs becomes /mnt/+mnt+home+kernel_src-3.0.7-patched.sfs
-MntPt='/mnt/'"`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`"
 
-#130223 BK is it already mounted?
-MNTEDLOOP="$(cat /proc/mounts | grep "$MntPt" | cut -f 1 -d ' ')"
+ if [ "`dirname $imgFile`" = '\.' ] ;then # 2
+  imgFile="`pwd``echo $imgFile |sed 's/^\.//'`"
+ fi # 2
+
+
+ MntPt='/mnt/'`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`
+ MntPt='/mnt/'`basename "$imgFile"`.$$
+
+if [ 1 -eq 2 ] ;then    ##############################################  JUMP OVER this SECTION.
+
+ loMnts="`mount |grep '/dev/loop' |awk '{print $1}'`"
+ echo "$loMnts" |while read LOOP                    ### test if file's mounted
+ do
+   loFile="`losetup-FULL $LOOP |sed 's/^.*(//' |sed 's/).*$//'`"
+   if [ "$loFile" = "$imgFile" ] ;then
+    echo -e "\n ### Loop File: $loFile"
+    break
+   fi
+   i=`expr $i + 1`
+ done
+
+fi          ##############################################  END of JUMP SECTION.
+
+
+                            ### file's not mounted, mount it
+# if [ $i -eq 16 ] ;then
 
 imgFileBASE="`basename "$imgFile"`" #BK
-imgFileDEV_INODE="`stat -L -c "%d_%i" "$imgFile"`" || exit #120220
 
-if [ "$MNTEDLOOP" = "" ];then #130223 BK
- #not mounted on $MntPt.
- 
+if [ ! -d "$MntPt" ] ;then # 5
+
+check_already_mounted_func(){
+
   #BK check if already mounted elsewhere...
   for ONELOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' ' | tr '\n' ' '`
   do
-   MNTDIMG_MNT_PT="`mount | grep "^$ONELOOP" | cut -f 3 -d ' '`"   #120220...
-   MNTDIMG=""
-   [ "`echo $MNTDIMG_MNT_PT | cut -f 2 -d /`" = "initrd" ] && MNTDIMG="/initrd"
-   MNTDIMG="${MNTDIMG}`losetup-FULL $ONELOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`"
-   MNTDIMG_DEV_INODE="`stat -L -c "%d_%i" "$MNTDIMG"`"             #120220
-   #not perfect, but paths may be symlinks...
-   if [ "$MNTDIMG_DEV_INODE" = "$imgFileDEV_INODE" ];then          #120220...
-    pupmessage -bg '#FF8080' "$(eval_gettext "Sorry \$imgFile is already mounted and in-use by Puppy
-on \$MNTDIMG_MNT_PT from \$MNTDIMG")"    #120220 121105 add gettext.
+
+   MNTDIMG="`losetup-FULL $ONELOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`"
+   IMGBASE="`basename "$MNTDIMG"`"
+
+    #echo "IMGBASE=$IMGBASE imgFileBASE=$imgFileBASE" #TEST
+    #not perfect, but paths may be symlinks...
+
+    if [ "$IMGBASE" = "$imgFileBASE" ];then #if [ "$MNTDIMG" = "$imgFile" ];then #6
+
+     if [ -n "$DISPLAY" ] ; then #66
+xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" "$imgFile
+is already mounted and in-use by Puppy .
+Do you want to unmount it or mount it to another mount point ?"
+RETVAL=$?
+if [ "$RETVAL" = "190" ] ; then #666
      exit
-    fi
-  done
-   
-  Ext=`echo "$imgFile" |sed 's/^.*\.//'`	# get file type from extention
-  if [ "$Ext" = '2fs' ] ;then
+
+ elif [ "$RETVAL" = "191" ] ; then #666
+     MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     rox $MntPt
+     exit
+
+elif [ "$RETVAL" = "192" ] ; then #666
+     MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     cd $MntPt
+     pwd
+     rxvt &
+     exit
+
+elif [ "$RETVAL" = "193" ] ; then #666
+       UNMOUNT='yes'
+       MntPt=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       return
+
+elif [ "$RETVAL" = "194" ] ; then #666
+       UNMOUNT='yes'
+       MntPt=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       echo 1 "$MntPt"
+       MntPt2=`echo "$MntPt" | sed "1 d"`
+       echo 2 "$MntPt2"
+       for i in $MntPt2 ; do
+       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       echo "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       echo "$LOOPD"
+       USEapps=`fuser -c $LOOPD`
+       echo 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
+       echo 4 "$USEapps"
+       for j in $USEapps ; do
+       echo $i
+       kill -1 $j
+       done
+       [ -n "$DISPLAY" ] && rox -D $i
+       umount $i
+       sleep 2
+       rmdir $i
+       done
+       MntPt=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       return
+
+else #666
+     MOUNT='again'
+     return
+fi ###666
+
+fi ##6
+fi #6
+done
+
+}
+check_already_mounted_func
+
+fi # 5
+
+if [ -z "$UNMOUNT" ] ; then #55
+
+  Ext=`echo "$imgFile" |sed 's/^.*\.//'`    # get file type from extention
+  if [ "$Ext" = '2fs' ] ;then #7
    Type='ext2'
   elif [ "$Ext" = '3fs' ] ;then
    Type='ext3'
   elif [ "$Ext" = '4fs' ] ;then #v423 planning for the future!
    Type='ext4'
-  elif [ "$Ext" = 'sfs' ] ;then
+  elif [ "$Ext" = 'sfs' -o "$Ext" = 'sqfs' -o "$Ext" = 'squashfs' ] ;then
    Type='squashfs'
   elif [ "$Ext" = 'iso' ] ;then
    Type='iso9660'
   # BK
   #elif [ "$imgFile" = 'initrd.gz' ] ;then
   # Type='ext2'
-  # gunzip $imgFile				# handle gzip image file
+  # gunzip $imgFile             # handle gzip image file
   # imgFile="echo "$imgFile" |sed 's/.gz$//'"
-  fi
-  
+  fi #7
+
   #v423 detect wrong squashfs version...
-  if [ "$Type" = "squashfs" ];then
-   if [ "`disktype "${imgFile}" | grep "$SFSSTR"`" = "" ];then
-    if [ $SFSMAJOR -eq 4 ];then #100606
-     pupmessage -center -bg '#FFC0C0' "`gettext \"NOTICE: This is an older version 3.x squashfs file, not usable.
-All Linux kernels 2.6.29 or later require version 4.x squashfs files
-(note, some 2.6.27.47+ kernels have Squashfs4 backported to them).
-Note, there is an SFS-version-converter in the Utility menu, run that first.\"`"
-    else
-     pupmessage -center -bg '#FFC0C0' "`gettext \"NOTICE: This is a newer version 4.x squashfs file, not usable.
-All Linux kernels 2.6.28 or earlier require version 3.x squashfs files
-(note, an exception is some 2.6.27.47+ kernels that have Squashfs4 backported).
-Note, there is an SFS-version-converter in the Utility menu, run that first.\"`"
-    fi
+  if [ "$Type" = "squashfs" ];then #8
+   if [ "`disktype "${imgFile}" | grep "$SFSSTR"`" = "" ];then #8.1
+    if [ $KERNELSUBVER -gt 28 ];then #8.1.1
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is an older version 3.x squashfs file, not usable.
+All Linux kernels 2.6.29 or later require version 4.x squashfs files.
+Note, there is an SFS-version-converter in the Utility menu, run that first."
+    else #8.1.1
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is a newer version 4.x squashfs file, not usable.
+All Linux kernels 2.6.28 or earlier require version 3.x squashfs files.
+Note, there is an SFS-version-converter in the Utility menu, run that first."
+    fi #8.1.1
     exit
-   fi
-   
-   #120525 take into account shinobar's load-on-the-fly pet...
-   if [ "`which sfs_load`" != "" ];then
-    SFSMSG1a="$(eval_gettext "You can choose to mount the \${imgFileBASE} file to view it's contents (read-only), or you can install it.")" #'geany
-    SFSMSG1b="${SFSMSG1a}\n\n$(gettext 'Regarding the latter, traditionally SFS files are selected by the \ZbBootManager\ZB for loading at bootup (see System menu), which you can do, or you can choose to install (load) it now (which will not require a reboot).\n\nNote1: If you want to edit the contents of an SFS file, you have to use the commandline utilities \Zbunsquashfs\ZB and \Zbmksquashfs\ZB.\nNote2: In the case of a full HD installation, without a layered filesystem, installation is irreversible. For all other installation modes, the BootManager can be used to unload an installed (loaded) SFS file.')"
-    pupdialog --colors --background '#FFFF80' --backtitle "${imgFileBASE}" --extra-button --yes-label "$(gettext 'View contents')" --no-label "$(gettext 'Install SFS')" --extra-label "$(gettext 'Cancel')"  --yesno "${SFSMSG1b}" 0 0
-    RETVAL=$?
-    [ $RETVAL -eq 1 ] && exec sfs_load "$1"
-    [ $RETVAL -ne 0 ] && exit #120527
-   fi
-   
-  fi
-  
+   fi #8.1
+  fi #8
+
 #  echo -e "\nimgFile = $imgFile\t\tExt  = $Ext"
 #  echo -e "MntPt   = $MntPt\t\tType = $Type\n"
   echo -e "\n ### Mount: $imgFile\n"
   mkdir -p "$MntPt"
-  
-  #111110 handle encrypted save-files...
-  CRYPTO=""; Err=0
-  DEVLOOP="`losetup-FULL -f`" #next free loop device.
-  case $Type in
-   ext2|ext3|ext4)
-    case $imgFileBASE in
-     *_cryptx*) #light encryption.
-      CRYPTO='light'
-      modprobe cryptoloop
-      rxvt -geometry 25x3 -title "$(gettext 'Enter password')" -bg orange -e losetup-FULL -E 1 $DEVLOOP $imgFile
-      #losetup-FULL -E 1 $DEVLOOP $imgFile
-      Err=$?
-     ;;
-     *_crypt*) #heavy encryption.
-      CRYPTO='heavy'
-      modprobe cryptoloop
-      modprobe aes_generic 2>/dev/null #v407 aes name change.
-      modprobe aes 2>/dev/null #for older kernel <2.6.25
-      modprobe crypto_blkcipher 2>/dev/null #v407 blkcipher name change.
-      modprobe blkcipher 2>/dev/null #old kernel.
-      modprobe cbc
-      MYPASS="`pupdialog --title "$(gettext 'Password required')" --stdout --inputbox "$(gettext 'Password required to open') ${imgFileBASE}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e aes $DEVLOOP $imgFile
-       Err=$?
-      fi
-     ;;
-    esac
-   ;;
-  esac
-  if [ "$CRYPTO" ];then
-   [ $Err -eq 0 ] && mount -t $Type $DEVLOOP "$MntPt"
-   Err=$?
-  else #normal, no encryption... 130204 mavrothal: fix spaces in imgFile...
-   mount -t $Type -o loop "$imgFile" "$MntPt"
-   Err=$?
-  fi
-  
-  if [ $Err -eq 0 ] ;then
-   #130223 BK: got a empty window, use -x option to rescan files...
-   rox -x "$MntPt" -d "$MntPt" # mount good, run rox filer 
-#   yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
-#   /usr/X11R7/bin/yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
-   yaf-splash -timeout 6 -bg green -text "`eval_gettext \"SUCCESS! Click \\\$imgFileBASE icon again to unmount it\"`" & #BK
+  mount -t $Type -o loop "$imgFile" "$MntPt"
+  Err=$?
+  sleep 2s
+  if [ $Err -eq 0 ] && [ -n "`mount | grep "$MntPt"`" ];then #9
+   if [ -n "$DISPLAY" ] ; then #99
+    rox -d "$MntPt" # mount good, run rox filer
+   ##[ -n "$DISPLAY" ] && yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+    yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+   fi #99
   else
-   rmdir "$MntPt" #121203
-  fi
+  rmdir "$MntPt"
+  fi #9
 
-else							### file's mounted, unmount it
- rox -D "$MntPt" #BK
- sync #111112
- umount "$MntPt"
- Err=$?
- #if [ "$imgFileBASE" = 'initrd' ] ;then gzip -9 $imgFile ;fi #111112 bug fix. no, remove.
-#  yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
-#  /usr/X11R7/bin/yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
- yaf-splash -timeout 3 -bg orange -text "$(gettext 'Unmounting') $imgFileBASE" #BK
+ else #55                       ### file's mounted, unmount it
+
+   [ -n "$DISPLAY" ] && rox -D "$MntPt" #BK
+
+       GREP=`echo "$MntPt" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       echo 1 "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       echo 2 "$LOOPD"
+       USEapps=`fuser -c $LOOPD`
+       echo 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
+       echo 4 "$USEapps"
+       for j in $USEapps ; do
+       echo $i
+       kill -1 $j
+       done
+
+   sleep 2s
+  umount "$MntPt"
+  Err=$?
+
+  #yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg orange -text "$Err"
+  sleep 2s
+  #rmdir $MntPt
+  #yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg orange -text "$MntPt"
+
+
+  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
+
   #Xdialog --title " Notice..." --no-button \
   #        --infobox "
-  #UnMounting: $imgFile  
+  #UnMounting: $imgFile
   #" 0 0 2000
- echo -e "\n ### UnMount: $imgFile\n"
- sync #111112
- rmdir "$MntPt"
-fi
 
-if [ $Err -ne 0 ] ;then			# ERROR: mount/unmount
- #xmessage -title " ERROR..." "  Failed mounting or unmounting.  "
- pupdialog --background red --title "$(gettext 'ERROR')" --msgbox "$(gettext 'Failed mounting or unmounting')" 0 0
-fi
+  echo -e "\n ### UnMount: $imgFile\n"
 
-###END###
+  [ -d "$MntPt" -a "`busybox mount | grep "$MntPt"`" = "" ] && rmdir "$MntPt"
+
+ fi #55
+
+ if [ "$Err" -gt 0 ] ;then          # ERROR: mount/unmount # 9999
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned $Err ... mounting or unmounting $MntPt"
+ fi # 9999
+
+echo "$0:Exiting with '$Err'"
+exit $Err
+
