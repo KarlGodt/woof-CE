@@ -12,8 +12,51 @@
 #if an ntfs partition, puppy uses user-mode ntfs-3g driver.
 #the mount and umount scripts allow seamless mounting and unmounting of ntfs f.s.
 
-[ ! $1 ] && exec busybox mount
 
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â13:03:32ÂGMT+1Â2011
+#
+#
+#
+#
+#
+########################################################################
+
+[ ! $1 ] && exec busybox mount
+MOUNTAT="$@"  ###KRG
+SIMPLEMOUNT=
+if [ -n "`echo $1 | grep 'dev'`" ] && [[ "$@" = "$1" ]] && [ -z "$2" ] ; then
+if [ ! -f /etc/fstab ] || [ -z "`grep -w $1 /etc/fstab | grep -v -E '^#|^[[:blank:]]*#|^\t*#|^\t*[[:blank:]]*#|^\t*[[:blank:]]*\t*#'`" ] ; then
+simpledriveandpartitionname=`echo $1 | sed 's#/dev/##'`
+[ ! -d /mnt/$simpledriveandpartitionname ] && mkdir /mnt/$simpledriveandpartitionname
+SIMPLEMOUNT="$1 /mnt/$simpledriveandpartitionname"
+fi
+fi  ###KRG
 #i realised this script has to allow reentrancy. So, all temp file now unique,
 #using ${$} which is pid of script.
 MYPID=${$}
@@ -38,9 +81,15 @@ if [ "`echo "$*" | grep 'ntfs'`" = "" ];then
  # #busybox mount does not support '--bind'
  # #as have mtab file (see below), can now use full mount...
   #v409 put in '-n' option as now have /etc/mtab symlink to /proc/mounts...
-  mount-FULL -n ${@}
-  RETVAL=$?
- #fi
+  if test -n "$SIMPLEMOUNT" ; then #KRG
+  mount-FULL -n $SIMPLEMOUNT  ## does not work within double quotes
+  RETVAL=$?  ###DBG
+  echo '$RETVAL11='"$RETVAL"  ###DBG
+  else  ###KRG
+  mount-FULL -n ${@}  ###orig
+  RETVAL=$?  ###DBG
+  echo '$RETVAL12='"$RETVAL"  ###DBG
+ fi  ###KRG
  
 else
  #screen out all the options...
@@ -96,17 +145,23 @@ to mount the partition read-only." &
   fi
  fi
 fi
-
+echo 'Mount Return Value='"$RETVAL"' Display='$DISPLAY
 #v4.02 if there is a desktop icon (see pup_eventd), then refresh it...
-if [ $RETVAL -eq 0 -a "$DISPLAY" != "" ];then
+if [ "$RETVAL" -eq 0 -a "$DISPLAY" != "" ];then
+echo 'first if'
  DEVNAME="`busybox mount | tail -n 1 | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
  if [ "$DEVNAME" != "" ];then
+ echo 'second if'
   DRVNAME="`echo -n "$DEVNAME" | cut -c 1-3`"
   #special case, SD card /dev/mmcblk0p1...
   [ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
   xDRVNAME="$DRVNAME" #v404
-  [ -d /root/.pup_event/drive_${DEVNAME} ] && DRVNAME="$DEVNAME" #icon for each partition.
-  if [ -d /root/.pup_event/drive_${DRVNAME} ];then
+  #[ -d /root/.pup_event/drive_${DEVNAME} ] && DRVNAME="$DEVNAME" #icon for each partition.
+  [ -d /root/Choices/Puppy/.pup_event/drive_${DEVNAME} ] && DRVNAME="$DEVNAME"
+  echo "$DEVNAME" "$DRVNAME" "$xDRVNAME"
+  #if [ -d /root/.pup_event/drive_${DRVNAME} ];then
+  if [ -d /root/Choices/Puppy/.pup_event/drive_${DRVNAME} ];then
+  echo 'third if'
    case $DRVNAME in #v407
     fd*)
      DRV_CATEGORY="floppy"
@@ -116,7 +171,8 @@ if [ $RETVAL -eq 0 -a "$DISPLAY" != "" ];then
      DRV_CATEGORY="`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`"
     ;;
    esac
-   icon_mounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
+   echo 'starting icon_mounted_func '$DEVNAME $DRV_CATEGORY' from '"$0"
+   icon_mounted_func $DEVNAME $DRV_CATEGORY #see functions4puppy4
   fi
  fi
 fi

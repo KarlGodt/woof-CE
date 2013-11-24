@@ -5,6 +5,47 @@
 #v1.0.4 introduces framebuffer Xfbdev Kdriver server, choice
 #at first bootup.
 
+###KRG>>>>
+FINDX=`find /usr/bin /usr/X11/bin -type l -name 'X' -o -type f -name 'X' | tr '\n' ' '` 
+for i in $FINDX ; do
+if [ -z "`ls -l $i | grep '\->'`" ] ; then
+echo -e "\\033[0;31m""Warning : There seems to be anything other
+than links for $FINDX .
+Please make sure X can become a link towards the Xserver you want to use"
+exit
+##else
+[ -z "$DISPLAY" ] && rm -f $i
+fi
+done
+FBSERVERS=`find /usr/bin /usr/X11/bin -type f -name "X*" | grep -v 'Xorg'`
+LIST=''
+for i in $FBSERVERS ; do
+LIST="$LIST
+$i \"`basename $i`\"" 
+done
+LIST=`echo "$LIST" | sort --key=2 --field-separator=" " | sed '/^$/d' | tr '\n' ' '`
+DIAL="dialog --title \"Xframebuffer Server Wizard\" --menu \"Choose the Xserver
+from this list .
+It uses a simple find 'X*' , so please make sure you
+don't choose anything other , than Xservers.\" 0 0 0 $LIST" 
+eval $DIAL 2>/tmp/Xframebufferserver.choice
+if [ $? -eq 0 ];then
+XSERVER=`cat /tmp/Xframebufferserver.choice`
+rm `which X`
+ln -s $XSERVER /usr/bin/X
+else
+echo "No evaluable input . Exiting $0"
+exit
+fi
+WMREBOOT=`which fvwmreboot wmreboot | head -n 1`
+###<<<<KRG
+rm_unneeded_func(){  ###KRG made to function
+rm -rf /lib/modules/2.4/video/*/*fb.* 2> /dev/null
+  rm -rf /lib/modules/2.4/video/*fb.* 2> /dev/null
+  rm -rf /lib/modules/2.6/video/*/*fb.* 2> /dev/null
+rm -rf /lib/modules/2.6/video/*fb.* 2> /dev/null
+}
+
 PSFND="`ps`"
 MSGWIN="WARNING: CHOOSING \"YES\" WILL CAUSE IMMEDIATE REBOOT!"
 if [ ! "`echo -n "$PSFND" | grep "/bin/xwin"`" = "" ];then
@@ -15,7 +56,7 @@ MSGFB="
 CURRENT STATUS:
 The Xfbdev Kdrive framebuffer X server is currently not running.
 "
-if [ "`readlink /usr/X11R7/bin/X`" = "Xfbdev"  ];then
+if [ "`readlink -f /usr/X11R7/bin/X`" = "`basename $(which Xfbdev)`"  ];then
  MSGFB="
 CURRENT STATUS:
 The Xfbdev Kdrive framebuffer X server is currently running,
@@ -23,7 +64,7 @@ and the video setting currently is:
  `cat /etc/videofb`
 "
 fi
-if [ "`readlink /usr/X11R7/bin/X`" = "Xvesa"  ];then
+if [ "`readlink -f /usr/X11R7/bin/X`" = "`basename $(which Xvesa)`"  ];then
  MSGFB="
 The Xfbdev Kdrive framebuffer X server is currently not running.
 The Xvesa Kdrive X server is now running.
@@ -36,7 +77,7 @@ fi
 #as this script and modinfo are both in /usr/sbin/.
 #rc.local0 appends "boot" on the commandline...
 if [ ! "$1" = "boot" ];then
- if [ ! -f /usr/X11R7/bin/Xfbdev ];then #precaution.
+ if [ -z "`which Xfbdev`" ];then #precaution.
   dialog --title "Xfbdev Video Wizard" --msgbox "Sorry, this build of Puppy does not
 have the Xfbdev Kdrive X server.
 
@@ -63,7 +104,7 @@ otherwise TAB or RIGHT-ARROW to highlight \"No\" then ENTER..." 0 0
   if [ "`echo -n "$PSFND" | grep "/bin/xwin"`" = "" ];then
    exec reboot #running without X.
   else
-   exec /usr/X11R7/bin/fvwmreboot #a window manager is running.
+   exec $WMREBOOT #a window manager is running.
   fi
  fi
  exit
@@ -106,7 +147,7 @@ if [ ! -f /root/.fbbootflag ];then
  echo -n "1" > /root/.fbbootflag
 fi
 if [ "`cat /root/.fbbootflag`" = "0" ];then
- if [ "`readlink /usr/X11R7/bin/X`" = "Xfbdev"  ];then
+ if [ "`readlink -f /usr/X11R7/bin/X`" = "`basename $(which Xfbdev)`"  ];then
   if [ -f /etc/videofb ];then #precaution
    VIDEOFB="`cat /etc/videofb`"
    VIDEOMODULE="`echo -n "$VIDEOFB" | tr " " "\n" | grep "module=" | cut -f 2 -d '='`"
@@ -118,17 +159,14 @@ if [ "`cat /root/.fbbootflag`" = "0" ];then
    loadfbfunc
    sleep 1
    if [ ! $RETVAL -eq 0 ];then
-    ln -sf Xvesa /usr/X11R7/bin/X
+    ln -sf `which Xvesa` /usr/X11R7/bin/X
    fi
   else #precaution
-   ln -sf Xvesa /usr/X11R7/bin/X
+   ln -sf `which Xvesa` /usr/X11R7/bin/X
   fi
  else
   #well, do not need the fb modules...
-  rm -rf /lib/modules/2.4/video/*/*fb.* 2> /dev/null
-  rm -rf /lib/modules/2.4/video/*fb.* 2> /dev/null
-  rm -rf /lib/modules/2.6/video/*/*fb.* 2> /dev/null
-  rm -rf /lib/modules/2.6/video/*fb.* 2> /dev/null
+  rm_unneeded_func
  fi
  exit #use Xvesa, or whatever X points to.
 fi
@@ -137,7 +175,7 @@ fi
 ###############################################
 #okay, this is the wizard part of the script...
 
-if [ -f /usr/X11R7/bin/Xvesa ];then
+if [ -x "`which Xvesa`" ];then
  Xvesa -listmodes > /tmp/Xmodes.txt 2>&1
 else
  echo -n "" > /tmp/Xmodes.txt
@@ -174,27 +212,29 @@ if [ ! "`echo "$VIDEOINFO" | grep "SiS"`" = "" ];then
  VIDEOCHIP="SiS"
  VIDEOMODULE="sisfb"
  #FBDESCRIPTION="SiS 300/540/630/730/315/550/65x/661/74x/330/760 framebuffer device"
-fi
-if [ ! "`echo "$VIDEOINFO" | grep "Trident"`" = "" ];then
+
+elif [ ! "`echo "$VIDEOINFO" | grep "Trident"`" = "" ];then
  VIDEOCHIP="Trident"
  VIDEOMODULE="tridentfb"
  #FBDESCRIPTION="Framebuffer driver for Trident cards"
-fi
-if [ ! "`echo "$VIDEOINFO" | grep "Intel"`" = "" ];then
+
+elif [ ! "`echo "$VIDEOINFO" | grep "Intel"`" = "" ];then
  VIDEOCHIP="Intel"
  VIDEOMODULE="intelfb"
  #FBDESCRIPTION="Framebuffer driver for Intel(R) 830M/845G/852GM/855GM/865G chipset"
-fi
-if [ ! "`echo "$VIDEOINFO" | grep -i "NeoMagic"`" = "" ];then
+
+elif [ ! "`echo "$VIDEOINFO" | grep -i "NeoMagic"`" = "" ];then
  VIDEOCHIP="NeoMagic"
  VIDEOMODULE="neofb"
-fi
+
+else
 if [ ! "`echo "$VIDEOINFO" | grep -i "nVidia"`" = "" ];then
  VIDEOCHIP="nVidia"
  VIDEOMODULE="rivafb"
 fi
+fi
 
-if [ -f /usr/X11R7/bin/Xvesa ];then
+if [ -x "`which Xvesa`" ];then
  MSGXVESA=" Puppy will default to using the Xvesa Kdrive X server,
  which works on most PCs and is usually best choice."
  DEFLABEL="Xvesa"
@@ -230,34 +270,28 @@ kernel framebuffer driver module for the video hardware.
 So, defaulting to:
 $MSGXVESA
 
-Press ENTER key to continue..."
+Press ENTER key to continue..." 0 0
  rm -f /etc/videofb
- if [ -f /usr/X11R7/bin/Xvesa ];then
-  ln -sf Xvesa /usr/X11R7/bin/X #precaution.
+ if [ -x "`which Xvesa`" ];then
+  ln -sf `which Xvesa` /usr/X11R7/bin/X #precaution.
  fi
  #to prevent wizard from running in setup mode at next entry...
  echo -n "0" > /root/.fbbootflag #precaution.
  #well, do not need the fb modules...
- rm -rf /lib/modules/2.4/video/*/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.4/video/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.6/video/*/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.6/video/*fb.* 2> /dev/null
+ rm_unneeded_func
  exit
 fi
 
 dialog --title "Xfbdev Video Wizard" --yes-label "$DEFLABEL" --no-label "Framebuffer" --yesno "$MSG1" 0 0
 if [ $? -eq 0 ];then
  #rm -f /etc/videofb
- if [ -f /usr/X11R7/bin/Xvesa ];then
-  ln -sf Xvesa /usr/X11R7/bin/X
+ if [ -x "`which Xvesa`" ];then
+  ln -sf `which Xvesa` /usr/X11R7/bin/X
  fi
  #to prevent wizard from running in setup mode at next entry...
  echo -n "0" > /root/.fbbootflag
  #well, do not need the fb modules...
- rm -rf /lib/modules/2.4/video/*/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.4/video/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.6/video/*/*fb.* 2> /dev/null
- rm -rf /lib/modules/2.6/video/*fb.* 2> /dev/null
+ rm_unneeded_func
  exit
 fi
 
@@ -403,11 +437,11 @@ OTHERWISE FAILURE WILL BE ASSUMED!
 Press the ENTER key to continue..." 0 0
  if [ $? -eq 0 ];then
   #works.
-  ln -sf Xfbdev /usr/X11R7/bin/X
+  ln -sf `which Xfbdev` /usr/X11R7/bin/X
  else
   #failure
-  if [ -f /usr/X11R7/bin/Xvesa ];then
-   ln -sf Xvesa /usr/X11R7/bin/X #precaution.
+  if [ -x "`which Xvesa`" ];then
+   ln -sf `which Xvesa` /usr/X11R7/bin/X #precaution.
   fi
   sync
   exec reboot
@@ -415,7 +449,7 @@ Press the ENTER key to continue..." 0 0
  fi
 else
  MSGFIN1=""
- if [ -f /usr/X11R7/bin/Xvesa ];then
+ if [ -x "`which Xvesa`" ];then
   MSGFIN1="Note, if you choose \"Quit\", Puppy will use the Xvesa server.
 "
  fi
@@ -436,8 +470,8 @@ NOTE: framebufferwizard can run from the console if X not work." 0 0
   if [ -f /etc/videofb.old ];then
    cp -f /etc/videofb.old /etc/videofb
   fi
-  if [ -f /usr/X11R7/bin/Xvesa ];then
-   ln -sf Xvesa /usr/X11R7/bin/X #precaution.
+  if [ -x "`which Xvesa`" ];then
+   ln -sf `which Xvesa` /usr/X11R7/bin/X #precaution.
   fi
  fi
 fi

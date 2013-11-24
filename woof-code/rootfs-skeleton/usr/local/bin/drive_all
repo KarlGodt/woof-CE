@@ -58,26 +58,47 @@ m_56="It is currently mounted on \${MNTPT}"
 # I18N
 LOCALEFILE="pmount.mo"
 # set locale
-# myLOCALE=$LANG # is enough for puppy. but this code is more general. 
-for myLOCALE in C $(echo $LANGUAGE|cut -d':' -f1) $LC_ALL $LANG;do :;done	# ex. 	ja_JP.UTF-8
+# myLOCALE=$LANG # is enough for puppy. but this code is more general.
+for myLOCALE in C $(echo $LANGUAGE|cut -d':' -f1) $LC_ALL $LANG;do :;done   # ex.   ja_JP.UTF-8
 # search locale file
-myLOCALE1=$(echo $myLOCALE|cut -d'.' -f1)		# ex.	ja_JP
-myLOCALE2=$(echo $myLOCALE|cut -d'_' -f1)	# ex.	ja
+myLOCALE1=$(echo $myLOCALE|cut -d'.' -f1)       # ex.   ja_JP
+myLOCALE2=$(echo $myLOCALE|cut -d'_' -f1)   # ex.   ja
 LOCALEDIR=/usr/share/locale
 #LOCALEFILE=$(basename $0).mo
 for D in C $myLOCALE2 $myLOCALE1 $myLOCALE
 do
-	F="$LOCALEDIR/$D/LC_MESSAGES/$LOCALEFILE"
-	[ -f "$F" ] && . "$F" 
+    F="$LOCALEDIR/$D/LC_MESSAGES/$LOCALEFILE"
+    [ -f "$F" ] && . "$F"
 done
 # end of I18N
-export LANG	# need to restart pmount with correct locale
+export LANG # need to restart pmount with correct locale
 
 #w002 extracted as a func...
 unmount_func() {
  rox -D $MNTPT
  sync
  while [ 1 ];do
+  #unmount nested mounts
+   #LOOPS=`mount | grep -v '/initrd' | grep '^/dev/loop'`
+   #LOOPFILES=`echo "$LOOPS" |rev |cut -f1 -d '+' |rev`
+    #LOOPFILES=`echo "$LOOPS" |sed 's%.* on \(.*\) type [[:alnum:]]* (.*)$%\1%'`
+    LOOPS=`losetup |rev |awk '{print $1}' |rev`
+    LOOPFILES="$LOOPS"
+   for loopfile in $LOOPFILES; do
+    [ "$loopfile" ] || continue
+   loopfile="${loopfile##*/}"
+   LOOPMNTPT="$LOOPMNTPT
+`find $MNTPT -maxdepth 2 -type f -name "$loopfile"`"
+   done
+   for loopmount in $LOOPMNTPT; do
+   [ "$loopmount" ] || continue
+   grepP="${loopmount##*/}"
+   #loopdevice=`mount | grep -m1 -w "${grepP} " |awk '{print $1}'`
+   mountpoint=`busybox mount | grep -m1 -o "${grepP} " |sed 's% $%%'` #|awk '{print $1}'`
+   #[ "$loopdevice" -a -b "$loopdevice" ] && umount $loopdevice
+   [ "$mountpoint" -a -d /mnt/"$mountpoint" ] && umount /mnt/"$mountpoint"
+  done
+  #
   umount $MNTPT ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
@@ -87,19 +108,31 @@ unmount_func() {
     echo "Killing parentless zombie process $ONEZOMBIE"
     kill $ONEZOMBIE
    done
-   umount $MNTPT ; umVAL=$?
+   umount $MNTPT 2>/tmp/umount.err; umVAL=$?
   fi
   #rare ocassion, partition got unmounted before umount runs above...
   umPATTERN="${MNTPT} "
   [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0="`fuser -v -m $MNTPT`"  
+   ERRORMSG=`cat /tmp/umount.err`
+   rm /tmp/umount.err
+   EXTRAMSG0="`fuser -v -m $MNTPT 2>&1`"
+   #LOOPS=`mount | grep -v '/initrd' | grep '^/dev/loop'`
+   LOOPS=`losetup |rev |awk '{print $1}' |rev`
+   #LOOPFILES=`echo "$LOOPS" |rev |cut -f1 -d '+' |rev`
+   LOOPFILES="$LOOPS"
+   for loopfile in $LOOPFILES; do
+   LOOPMNTPT="$LOOPMNTPT
+`find $MNTPT -maxdepth 2 -type f -name "$loopfile"`"
+   done
    if [ "$EXTRAMSG0" = "" ];then
     gxmessage -bg "#ff8080" -title "$m_50: ERROR" -center "$m_30"
    else
     gxmessage -bg "#ff99ff" -title "$m_01" -center -buttons "$m_31":10,"$m_32":20 "$m_33
 $m_34
+$ERRORMSG
 $EXTRAMSG0
+$LOOPS
 
 $m_35
 $m_36
@@ -119,7 +152,7 @@ $m_37"
 
 eject_cd ()
 {
-	eject $1 # && gxmessage  -title "$m_50" -center -buttons "$m_38":0 "$m_39" && eject -t $1
+    eject $1 # && gxmessage  -title "$m_50" -center -buttons "$m_38":0 "$m_39" && eject -t $1
 }
 FSTYPE=""
 [ $2 ] && FSTYPE="$2" #see pup_eventd
@@ -150,7 +183,7 @@ if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  #DRV_CATEGORY=$(grep '<Item.option=.pmount_'  "/root/.pup_event/drive_$ONEDRVNAME/AppInfo.xml"| sed -e 's/^.*Item.option=.pmount_//' -e 's/.[ ].*$//')
  DRV_CATEGORY=""
  PROBEDISK="probedisk2"
- which $PROBEDISK >/dev/null || PROBEDISK="probedisk" 
+ which $PROBEDISK >/dev/null || PROBEDISK="probedisk"
  which $PROBEDISK >/dev/null &&  DRV_CATEGORY=$($PROBEDISK|grep "^/dev/$ONEDRVNAME|" | cut -d'|' -f 2)
  echo "$DRV_CATEGORY" | grep '^cd' && DRV_CATEGORY="optical"
  [ "$MNTPT" = "" ] && [ "$DRV_CATEGORY" = "optical" ] && eject_cd /dev/$ONEDRVNAME
@@ -194,13 +227,13 @@ fi
 #   UMNTFLG=$?
 #   if [ $UMNTFLG -eq 10 ];then
 #    unmount_func
-#	exit
+#   exit
 #   fi
 #   if [ $UMNTFLG -eq 12 ];then
 #    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
-#	do
-#	 unmount_func
-#	done
+#   do
+#    unmount_func
+#   done
 #    exit
 #   fi
 #  fi
@@ -305,7 +338,7 @@ if [ "$FSTYPE" != "" ];then
     mount -t ntfs /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
     ;;
-   vfat)
+   vfat|FAT*|Fat*|fat*)
     #w476 modify codepage and iocharset (note: this code also in /usr/sbin/pmount)...
     #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
     # 27jul09 lookup /etc/codepage and LANG by Masaki Shinomiya <shino@pos.to>
@@ -322,7 +355,7 @@ if [ "$FSTYPE" != "" ];then
    iso9660)
     mount -t $FSTYPE -o iocharset=utf8 /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
-    ;;  
+    ;;
    *)
     mount -t $FSTYPE /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?

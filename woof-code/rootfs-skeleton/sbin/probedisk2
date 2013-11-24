@@ -15,11 +15,13 @@
 . /etc/rc.d/PUPSTATE
 #ATADRIVES is all ide/sata drives (not usb) (which all have /dev/sd notation).
 #if old kernel supporting /dev/hd* then using SATADRIVES variable...
+if test -d /proc/ide; then
 INTERNAL_SD_DRIVES="$SATADRIVES"
+else
 [ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
-
-if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
- for ONEUSBDRV in `cat /root/.usb-drive-log-probedisk | tr '\n' ' '`
+fi
+if [ -f $HOME/Choices/Puppy/.usb-drive-log-probedisk ];then #force /proc upate mechanism
+ for ONEUSBDRV in `cat $HOME/Choices/Puppy/.usb-drive-log-probedisk | tr '\n' ' '`
  do
   #disktype /dev/$ONEUSBDRV > /dev/null 2>&1
   dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v4.01 faster.
@@ -32,9 +34,9 @@ MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr
 #crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
 #/proc/ide. pathetic kernel! oh well...
 if [ ! -e /proc/ide ];then #v3.97
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '`"
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '`"
 else
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
 fi
 #note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
 
@@ -48,46 +50,62 @@ do
      INFO="`cat /proc/ide/$ONEDRV/model`"
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
+
+   if test "`cat /sys/block/$ONEDRV/removable`" = "0"; then # 1
      MEDIA="drive"
-     VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
-     MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
-     INFO="$VENDOR$MODEL"
-     DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
-     
+     else # 1
      #log if usb drive (not a sata drive)... v4.01...
-     if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
-      MEDIA="usbdrv" #v4.01
-      echo "$ONEDRV" >> /root/.usb-drive-log-probedisk
-      sort -u /root/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
-      mv -f /tmp/usb-drive-log-probedisk-tmp /root/.usb-drive-log-probedisk
-      #find out if a usb floppy drive...
-      if [ -e /sys/block/${ONEDRV}/size ];then
+     #if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
+     #echo "empty $ONEDRV in INTERNAL_SD_DRIVES"
+     #if test "`cat /sys/block/$ONEDRV/removable`" != "0"; then
+     #find out if a usb floppy drive...
+      if [ -e /sys/block/${ONEDRV}/size ];then #1.1
        [ "`cat /sys/block/${ONEDRV}/size`" = "2880" ] && MEDIA="floppy"
-      fi
+      fi #1.1
       #if the floppy diskette not inserted, try this fallback test...
       #some examples: Vendor: NEC Model: USB UF000x Rev: 1.50, Sony USB Floppy Drive, rev 1.10/5.01,
       # MITUMI USB FDD, VenDor: TEAC Model: FD-05PUB, Vendor: COMPAQ Model: USB EXT FLOPPY
-      if [ -e /sys/block/${ONEDRV}/device/model ];then
+      if [ -e /sys/block/${ONEDRV}/device/model ];then #1.2
        [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${ONEDRV}/device/model`" != "" ] && MEDIA="floppy"
-      fi
-     else
-      #find out if it is a removable internal drive (zip, ls120, etc)...
-      if [ -e /sys/block/${ONEDRV}/removable ];then
-       [ "`cat /sys/block/${ONEDRV}/removable`" = "1" ] && MEDIA="floppy"
-      fi
-     fi
+      fi #1.2
+      if test "`readlink -f /sys/block/$ONEDRV | grep 'usb'`" != ""; then #1.3
+      MEDIA="usbdrv" #v4.01
+      echo "$ONEDRV" >> $HOME/Choices/Puppy/.usb-drive-log-probedisk
+      sort -u $HOME/Choices/Puppy/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
+      mv -f /tmp/usb-drive-log-probedisk-tmp $HOME/Choices/Puppy/.usb-drive-log-probedisk
 
+     else #1.3
+     #echo "not empty in INTERNAL_SD_DRIVES"
+      #find out if it is a removable internal drive (zip, ls120, etc)...
+      if [ -e /sys/block/${ONEDRV}/removable ];then #1.3.1
+       [ "`cat /sys/block/${ONEDRV}/removable`" = "1" ] && MEDIA="floppy"
+      fi #1.3.1
+      fi #1.3
+     fi # 1
+    VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
+     MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
+     INFO="$VENDOR$MODEL"
+    # DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
    ;;
    scd*|sr*) #  scsi cdroms
-     MEDIA="optical"
      VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
      MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
+     if test "`echo $MODEL | grep -i 'storage'`" != ""; then
+     MEDIA="usbdrv"
+     else
+     MEDIA="optical"
+     fi
      INFO="$VENDOR$MODEL"
    ;;
    mmc*) #/dev/mmcblk0
      MEDIA="card"
      INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
    ;;
+   fd*)
+     MEDIA='floppy'
+     INFO='Generic 1.44 MB Floppy Drive'
+   ;;
+
    *)
      continue
    ;;

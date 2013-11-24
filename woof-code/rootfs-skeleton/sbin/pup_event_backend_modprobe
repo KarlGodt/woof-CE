@@ -14,7 +14,105 @@
 #v432 For HSF/ALSA and hybrid modems, append appropriate preferences to ensure correct driver selected; a substitution flag is set by HSF init script.
 #433 Consolidate usbserial modem scripts, using modules.dep for associations; track preference-replaced module.
 
+########################################################################
+#
+# CHANGES by Karl Reimer Godt
+# 01.0 : logging to file LocalLOG='/tmp/pup_event_backend_modmodprobe.log'
+# 02.0 : support for multiple modprobe.conf AND alsa.conf files
+# 03.0 : leaving a note in .conf if alsa-card-nr had changed
+# 04.0 : if module not found in --show-depends , try again with
+#        modalias without pci:|platform:|etc:
+#        example modalias 'platform:it87' becomes 'it87'
+#        2.6.34-KRG-i486-compiled-AcerLaptop-rev5 with 5 modules.* files in
+#        /lib/modules/`uname -r` without depmod-FULL [ bustbox depmod , too?? ]
+#        does not load the it87 driver automatically @boot
+#        modprobe -c | grep it87 = ''
+#
+# 06.0 : finally checking lsmod before modprobing
+#        because updates in /tmp/pup_event_module_devpath_log
+#        can be too slow (older Puppy4 series)
+#
+# 07.0 : added usage and debug func
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â15:38:22ÂGMT+1Â2011
+# TODO1 : usleep $(( $$ * 10 ))
+# TODO2 : $2 = -V|--verbose --stdout --xcon ~FIXED by changing
+# LocalLOG= from '/filename' to '>>/filename'
+# TODO3 : filter "buitin $MODULE"
+# TODO4 : add check for load >=2.0
+#
+########################################################################
+
+LocalLOG='/tmp/pup_event_backend_modprobe.log'
+out="$LocalLOG";err="$LocalLOG"
+#echo LocalLOG="$LocalLOG"_EOS
+
+debug(){
+#echo "$@"
+echo "$@" >> $out #2>>$err
+[ "$do" ] && echo "$@"
+[ "$dx" ] && echo "$@" >>/dev/console
+return 0  ##force returnvalue in case of following && [TEST]
+}
+
+usage(){
+echo "
+$0 [KERNEL-MODULE] [--stdout|--xcon|--help]
+
+PROGRAM gets passed MODALIAS by udevd at boottime .
+Alternatively KERNEL_MODULE to load from CLI .
+
+--stdout log to terminal
+--xcon   log to xconsole
+--help   this usage message
+"
+exit 1
+}
+
+RULEMODULE=''
+
+for content in $@ ; do
+case $content in
+--stdout) do='yes' ;;
+--xcon)   dx='yes' ;;
+--help) usage;;
+-*|--*) usage;;
+*) RULEMODULE="$content";;
+esac
+done
+
+[ -z "`echo "$@"`" -a "$MODALIAS" == "" ] && usage
+#echo "RULEMODULE='$RULEMODULE'"
+
 export LANG=C #w004
+
+until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ] ; do sleep 2s;done  ###+++2011-11-30
+
+if [ "`grep 'pup_event_backend_modprobe_protect \-\-module' $0`" ]; then
+pidof pup_event_backend_modprobe_protect >/dev/null || START_PROTECT_DAEMON='yes'
+#[ "$START_PROTECT_DAEMON" ] && pup_event_backend_modprobe_protect --daemon >>$out 2>>$err &
+[ "$START_PROTECT_DAEMON" ] && pup_event_backend_modprobe_protect --daemon &
+fi
 
 #NOTICE: If the full 'udev' package, with utility 'udevd' is installed, rc.sysinit
 #   will run 'udevd' instead of 'pup_event_backend_d' and this script will be used.
@@ -25,36 +123,64 @@ PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
 KERNVER="`uname -r`"
 
 #w463 optional $1 supplied by triggered udev rule, see /etc/udev/rules.d/60-udev-modem.rules
-RULEMODULE=""
-[ $1 ] && RULEMODULE="$1"
+#RULEMODULE=""
+#[ $1 ] && RULEMODULE="$1"
 touch /tmp/pup_event_module_devpath_log
+touch /tmp/pup_event_modprobe.conf  ##+++2011-11-09 #11-22 was /tm/pup_event_modprobe.conf
+#should be done only once in rc.sysinit
+#[ "$FASTBOOTMODULESLIST" != "" ] && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
 
-[ "$FASTBOOTMODULESLIST" != "" ] && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
+TIME="date +%M.%S.%N"
+
+CONFFILE='/etc/modprobe.conf'
+[ -f /etc/modprobe.d/modprobe.conf ] && CONFFILE='/etc/modprobe.d/modprobe.conf'
+[ -f /etc/modprobe.d/puppy.conf ] && CONFFILE='/etc/modprobe.d/puppy.conf'
+ALSACONF="$CONFFILE"
+[ -f /etc/modprobe.d/alsa-base.conf ] && ALSACONF='/etc/modprobe.d/alsa-base.conf'
 
 setup_alsa_func() { #uses MODULE.
  #if a sound module, preconfigure alsa (/etc/init.d/alsa will start it)...
  if [ "`echo -n "$MODULE" | grep '^snd_'`" != "" ];then
   CNTSND=0 #v432 Reserve first available card number
-  while ! pup_event_backend_modprobe_protect --snd_card_number=$CNTSND;do
+  while ! pup_event_backend_modprobe_protect --snd_card_number=$CNTSND >>$out 2>>$err;do
    CNTSND=`expr $CNTSND + 1`
    [ $CNTSND -gt 10 ] && return 1
   done
-  pup_event_backend_modprobe_protect --lock=modprobeconf #v432 end
+  pup_event_backend_modprobe_protect --lock=modprobeconf >>$out 2>>$err #v432 end
   DPATTERN="alias snd\\-card\\-$CNTSND"
   dMODULE="`echo -n "$MODULE" | tr '_' '-'`" #v407
-  if [ "`grep "$DPATTERN" /etc/modprobe.conf`" = "" ];then
-   echo "alias snd-card-$CNTSND $dMODULE" >> /etc/modprobe.conf
-   echo "alias sound-slot-$CNTSND $dMODULE" >> /etc/modprobe.conf
+  if [ "`grep "$DPATTERN" $ALSACONF`" = "" ];then
+   echo >> $ALSACONF
+   echo '##### Added by /sbin/pup_event_backend_modprobe #####' >> $ALSACONF
+   echo '### Running kernel '"$KERNVER" >> $ALSACONF
+   echo '### Because alias entry is missing in this'  >> $ALSACONF
+   echo '### Configuration-file '"$CONFFILE" >> $ALSACONF
+   echo "alias snd-card-$CNTSND $dMODULE" >> $ALSACONF
+   echo "alias sound-slot-$CNTSND $dMODULE" >> $ALSACONF
+   echo '##### '`date`' #####' >> $ALSACONF
   else
    #for portability, check if correct sound card...
    BPATTERN="alias snd\\-card\\-$CNTSND $dMODULE" #v408
-   if [ "`grep "$BPATTERN" /etc/modprobe.conf`" = "" ];then
+   if [ "`grep "$BPATTERN" $CONFFILE`" = "" ];then
+    DateS=`date`
+    echo '##### Changed by /sbin/pup_event_backend_modprobe #####' >> $CONFFILE
+    echo '### Running kernel '"$KERNVER" >> $CONFFILE
+    echo '### Because modulename or harware had changed' >> $CONFFILE
+    echo '### Configuration-file is '"$CONFFILE" >> $CONFFILE
+    #echo '##### '`date`' #####' >> $CONFFILE
     SEDSCRIPT1="s/^\\(alias\\ snd\\-card\\-$CNTSND\\ \\).*/\\1${dMODULE}/" #v432
     SEDSCRIPT2="s/^\\(alias\\ sound\\-slot\\-$CNTSND\\ \\).*/\\1${dMODULE}/" #v432
-    sed -i -e "$SEDSCRIPT1" -e "$SEDSCRIPT2" /etc/modprobe.conf #v432
+    #sed -i -e "$SEDSCRIPT1" -e "$SEDSCRIPT2" $CONFFILE #v432
+    sed -e "$SEDSCRIPT1" -e "$SEDSCRIPT2" $CONFFILE >/tmp/$CONFFILE.2.txt
+    SEDSCRIPT3="s/^\\(alias\\ snd\\-card\\-$CNTSND\\ \\).*/\#${DateS}\\1${dMODULE}/"
+    SEDSCRIPT4="s/^\\(alias\\ sound\\-slot\\-$CNTSND\\ \\).*/\#${DateS}\\1${dMODULE}/"
+    sed -i -e "$SEDSCRIPT3" -e "$SEDSCRIPT4" $CONFFILE
+    cat /tmp/$CONFFILE.2.txt >> $CONFFILE
+    #rm /tmp/$CONFFILE.2.txt
+    echo '##### '"$DateS"' #####' >> $CONFFILE
    fi
   fi
-  pup_event_backend_modprobe_protect --unlock=modprobeconf #v432
+  pup_event_backend_modprobe_protect --unlock=modprobeconf >>$out 2>>$err #v432
  fi
 }
 
@@ -80,7 +206,7 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  #in some cases a special hack is required, hardcoded in here...
  #8139cp is buggy...
  [ "$MODULE" = "8139cp" ] && MODULE="8139too" \
-  && ! pup_event_backend_modprobe_protect --module=$MODULE \
+  && ! pup_event_backend_modprobe_protect --module=$MODULE >>$out 2>>$err \
   && return 1 #v432
  #v2.17 another hack, mwave.ko (modem), do not load module, just the firmware,
  #as /etc/init.d/ in firmware has script that correctly loads mwave.ko...
@@ -91,7 +217,7 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  #v2.17 intel pci numbering is peculiar, need this hack....
  if [ "$MODULE" = "ipw2200" ];then
   [ "`lspci -m -n -d 8086:1043 | cut -f 10 -d '"' | cut -b 1,2`" = "25" ] && MODULE="ipw2100" \
-   && ! pup_event_backend_modprobe_protect --module=$MODULE \
+   && ! pup_event_backend_modprobe_protect --module=$MODULE >>$out 2>>$err \
    && return 1 #'geany #v432
  fi
  #v408 pup 4.1retro, k2.6.21.7, madwifi wireless, ath_pci.ko loads then
@@ -121,7 +247,7 @@ firmware_module_func() {
   #v432 Ensure firmware installed only once.
   pup_event_backend_modprobe_protect --firmware=$FIRMPKG \
    || return 0
-   
+
   if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
    cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null 2>&1
    cd /tmp
@@ -143,23 +269,65 @@ firmware_module_func() {
  fi
 }
 
+#echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS" $LocalLOG
+#echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS" $($LocalLOG) #does also not work with backticks
+debug "$(echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS")"
+
 #v432 Provide for optional preferences for internal use...
 PREFEXTRAS=""
+
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
 MODULE="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
+debug "$(echo $$ 3.0 `$TIME` 'MODULE='"$MODULE")"
+
+if [ "$MODULE" = "" ] ; then
+if [ "$MODALIAS" ] ; then
+MODALIAS="${MODALIAS#*:}"
+MODULE="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
+debug "$(echo $$ 3.1 `$TIME` 'MODULE='"$MODULE")" #+++changed here 2011-11-09
+###+++2011-11-27
+if [ -n "`echo "$MODULE" | grep -w '^builtin '`" ] ; then
+debug "$(echo $$ 3.2 `$TIME` Module built into the kernel .. exit 1 ..)"  ##-2011-11-30 was 'MODULE
+exit 1
+fi
+###+++2011-11-27
+fi
+fi
+#debug "$(echo $$ 3.1 `$TIME` 'MODULE='"$MODULE")"
+
 [ "$RULEMODULE" != "" ] && [ "$MODULE" = "" -o "$MODULE" = "usb_storage" ] && MODULE="$RULEMODULE" #w463 Use module from argument
-[ "$MODULE" = "" ] && exit 1
+debug "$(echo $$ 3.2 `$TIME` 'MODULE='"$MODULE")"
+
+###+++2011-11-09
+if [ -n "`echo "$FASTBOOTMODULESLIST" | grep "$MODULE"`" ] ; then
+debug "$(echo $$ 3.3 `$TIME` $MODULE in FASTBOOTMODULESLIST .. exit 1 ..)"
+exit 1
+fi
+###+++2011-11-09
+
+[ "$MODULE" = "" ] && debug "$(echo $$ 3.5 `$TIME` 'Still no MODULE .. exit 1 ..')" && exit 1
 #[ "$MODULE" = "usb_storage" ] && exit 1 #loaded explicitly in boot scripts.
 
 #v432 Ensure module procesing done only once, except for usb-storage (needed to find hybrid-device co-driver).
-[ "$MODULE" != "usb_storage" ] \
- && ! pup_event_backend_modprobe_protect --module=$MODULE \
- && exit 0
+#[ "$MODULE" != "usb_storage" ] \
+ #&& ! pup_event_backend_modprobe_protect --module=$MODULE \
+ #|| echo $$ 3.5 `$TIME` "pup_event_backend_modprobe_protect --module='$MODULE' returned errornoise" $LocalLOG && exit 0
+ ##|| echo $$ 3.5 `$TIME` "pup_event_backend_modprobe_protect --module='$MODULE' returned errornoise" $LocalLOG \
+ ##&& exit 0
+ ##&& echo $$ 3.5 `$TIME` "pup_event_backend_modprobe_protect --module='$MODULE' returned errornoise" $LocalLOG #\#
+if [ "$MODULE" != "usb_storage" ] ; then
+pup_event_backend_modprobe_protect --module=$MODULE >>$out 2>>$err
+retVal=$?
+if [ "$retVal" -ne 0 ] ; then
+debug "$(echo $$ 3.5 `$TIME` "pup_event_backend_modprobe_protect --module='$MODULE' returned $retVal")"
+exit 0
+fi
+fi
 
-case $MODALIAS in
+case "$MODALIAS" in
  pci:*)
   pci_fixup_func #w463 needs MODALIAS, MODULE, RULEMODULE
-  [ $? -ne 0 ] && exit 1
+  [ $? -ne 0 ] && debug "$(echo -e $$ 5.0 `$TIME` "\e[33m"'Error in pci_fixup_func .. exit ..'"\e[39m")" && exit 1
  ;;
  usb:*) #v432
   #v432 For USB hybrid storage/modem devices, ensure storage driver loaded, then modem driver (on repeated event, if necessary).
@@ -173,25 +341,53 @@ esac
 
 #v404 preferences list, ex rt2500usb and rt73usb both hits, then choose latter...
 modPATTERN='^'"$MODULE"':'
+
+debug "$(echo $$ 6.0 `$TIME` 'modPATTERN 2 ='"$modPATTERN")"
+
 PREFHIT="`echo -n "${PREFLIST}${PREFEXTRAS}" | tr -s ' ' | tr ' ' '\n' | grep "$modPATTERN"`" #v432
+
+debug "$(echo $$ 7.0 `$TIME` 'PREFHIT='"$PREFHIT")"
+
+
 if [ "$PREFHIT" != "" ];then
+ debug "$(echo $$ 8.0 `$TIME` 'PREFHIT='"$PREFHIT")"
  prefMODULES="`echo -e -n "$PREFHIT" | cut -f 2 -d ':' | tr '|' '\n'`"
+ debug "$(echo $$ 8.0 `$TIME` 'prefMODULES='$prefMODULES)"
  echo "blacklist $MODULE" > /tmp/pup_event_prefhit_blacklist-$$ #v432 begin
  RETRIES=0
  while [ $RETRIES -le 10 ];do
   xMODULE="`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist-$$ --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
-  [ "$xMODULE" = "" ] && break
+  debug "$(echo $$ 8.1 `$TIME` 'xMODULE'="$xMODULE")"
+  debug "$(echo $$ 8.1 `$TIME` 'RETIES='$RETRIES)"
+  [ "$xMODULE" = "" ] && debug "$(echo $$ 8.1.5 `$TIME` 'no xMODULE')" && break
+
   echo "blacklist $xMODULE" >> /tmp/pup_event_prefhit_blacklist-$$
   RETRIES=`expr $RETRIES + 1`
  done
+
  modPATTERN="`cat /tmp/pup_event_prefhit_blacklist-$$ | sed -e s/blacklist\ /\^/ -e s/$/\$/ | tr '\n' '|' | sed -e s/\|$//`"
+ debug "$(echo $$ 8.2 `$TIME` 'modPATTERN='"$modPATTERN")"
  xMODULE="`echo "$prefMODULES" | grep -m 1 -E "$modPATTERN"`"
+ debug "$(echo $$ 8.2 `$TIME` 'xMODULE'="$xMODULE")"
  rm /tmp/pup_event_prefhit_blacklist-$$
- [ "$xMODULE" != "" -a "$xMODULE" != "$MODULE" ] \
-  && pup_event_backend_modprobe_protect --replacedmod=$MODULE \
-  && MODULE="$xMODULE" \
-  && ! pup_event_backend_modprobe_protect --module=$MODULE \
-  && exit 0 #v433 v432 end
+
+  if [ "$xMODULE" != "" -a "$xMODULE" != "$MODULE" ] ; then
+
+ pup_event_backend_modprobe_protect --replacedmod=$MODULE >>$out 2>>$err
+ MODULE="$xMODULE"
+   debug "$(echo $$ 8.3 `$TIME` 'MODULE'="$MODULE")"
+    if ! pup_event_backend_modprobe_protect --module=$MODULE ; then
+    #echo $$ 8.3.5 `$TIME` "pup_event_backend_modprobe_protect returned errornoise '0?'" $LocalLOG
+    #exit 0 #v433 v432 end
+    debug "$(echo $$ 8.3.5 `$TIME` 'pup_event_backend_modprobe_protect --module='$MODULE)"
+    else
+    #echo $$ 8.4 `$TIME` 'pup_event_backend_modprobe_protect --module='$MODULE $LocalLOG
+    debug "$(echo $$ 8.4 `$TIME` "pup_event_backend_modprobe_protect returned errornoise '0?'")"
+    exit 0
+    fi
+  fi
+else
+debug "$(echo $$ 8.0 `$TIME` 'no preflist defined')"
 fi
 
 #installs a firmware tarball (once only. loading firmware is something else)...
@@ -199,9 +395,18 @@ firmware_module_func
 
 setup_alsa_func #MODULE and CNTSND are used in this func.
 
+[ "$START_PROTECT_DAEMON" ] && pup_event_backend_modprobe_protect --stop >>$out 2>>$err &
+
+if [ -z "`lsmod | grep "$MODULE"`" ] ; then
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
 echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath_log
+debug "$(echo -e $$ 9.0 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m")"
 cd /sbin #v408 rerwin thinks this is needed for slamr module.
-exec /sbin/modprobe $MODULE
+ exec /sbin/modprobe -v $MODULE
+else
 
+debug "$(echo -e $$ 9.0 `$TIME` "\e[31m"'Module '"$MODULE"' already inserted'"\e[39m")"
+exit 1
+fi
 ###END###
+#[ "$START_PROTECT_DAEMON" ] && pup_event_backend_modprobe_protect --daemon &
