@@ -6,28 +6,78 @@
 #v477 rerwin: v413 handle both lspci formats (replacing v003).
 #v477 rerwin: v413 added more module names for wireless modems
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+[ -h /dev/modem ] && rm -f /dev/modem
+MODEM_9=`dmesg | grep -i 'MODEM' |grep 'attached'`;echo $MODEM_9;echo
+#reverse
+MODEM_8=`echo "$MODEM_9" | tr '\n' '|'`;echo "$MODEM_8";echo
+MODEM_7=`echo $MODEM_8 |rev|tr '|' '\n' |rev`;echo "$MODEM_7";echo
+#/reverse
+MODEM_6=`echo "$MODEM_7" |sed '/^$/d'|rev |awk '{print $1}' |rev`;echo $MODEM_6;echo
+MODEM_5=`echo "$MODEM_6" |sort -u |head -n1`
+[ "$MODEM_5" ] && ln -s $MODEM_5 /dev/modem
+
+ls -l /dev/modem
+
 MSGMDM3=""
 if [ -h /dev/modem ];then
- MODEMDEV="`readlink /dev/modem`"
+ MODEMDEV=`readlink /dev/modem`
  MSGMDM3="
 PORT: /dev/modem is currently linked to port ${MODEMDEV}."
 fi
 
 #find all loaded modem modules...
-ALSAMODEMINFO="`cat /proc/asound/pcm 2>/dev/null | grep ' Modem :'`"
-MODEMMODS="`lsmod | grep -E '^agrserial |^cdc_acm |^esscom |^Intel536 |^Intel537 |^ltserial |^martian_dev |^mwave |^pctel |^pl2303 |^slamr |^slusb |^snd_via82xx_modem |^snd_atiixp_modem |^snd_intel8x0m |^snd_hda_intel |^dgcusbdcp |^ti_usb_3410_5052 |^hso |^ipw |^ipwireless |^moto_modem |^nozomi |^option |^sierra |^usbserial |^hcfpcihw |^hsfcadmus2 |^hsfcadmus2smart |^hsfmc97ali |^hsfmc97ati |^hsfmc97ich |^hsfmc97sis |^hsfmc97via |^hsfpcibasic2 |^hsfpcibasic2bry |^hsfpcibasic2hsfi |^hsfpcibasic2smart |^hsfpcibasic3  |^hsfusbcd2 ' | cut -f 1 -d ' '`" #v413 v416
-[ "$ALSAMODEMINFO" = "" ] && MODEMMODS="`echo "$MODEMMODS" | grep -v '^snd_'`"
-SNDMOD="`echo "$MODEMMODS" | grep '^snd_' | head -n 1`"
+ALSAMODEMINFO=`cat /proc/asound/pcm 2>$ERR | grep ' Modem :'`
+MODEMMODS=`lsmod | grep -E '^agrserial |^cdc_acm |^esscom |^Intel536 |^Intel537 |^ltserial |^martian_dev |^mwave |^pctel |^pl2303 |^slamr |^slusb |^snd_via82xx_modem |^snd_atiixp_modem |^snd_intel8x0m |^snd_hda_intel |^dgcusbdcp |^ti_usb_3410_5052 |^hso |^ipw |^ipwireless |^moto_modem |^nozomi |^option |^sierra |^usbserial |^hcfpcihw |^hsfcadmus2 |^hsfcadmus2smart |^hsfmc97ali |^hsfmc97ati |^hsfmc97ich |^hsfmc97sis |^hsfmc97via |^hsfpcibasic2 |^hsfpcibasic2bry |^hsfpcibasic2hsfi |^hsfpcibasic2smart |^hsfpcibasic3  |^hsfusbcd2 ' | cut -f 1 -d ' '` #v413 v416
+[ "$ALSAMODEMINFO" = "" ] && MODEMMODS=`echo "$MODEMMODS" | grep -v '^snd_'`
+SNDMOD=`echo "$MODEMMODS" | grep '^snd_' | head -n 1`
 #v413 For usbserial, reject it unless force-loaded with vendor ID (for usb modems).
-[ "`grep '^ADDLIST=' /etc/rc.d/MODULESCONFIG | grep ' usbserial:vendor='`" = "" ] && MODEMMODS="`echo "$MODEMMODS" | grep -v '^usbserial$'`" #v413
-MODEMMODS="`echo "$MODEMMODS" | tr '\n' ' '`"
+[ "`grep '^ADDLIST=' /etc/rc.d/MODULESCONFIG | grep ' usbserial:vendor='`" = "" ] && MODEMMODS=`echo "$MODEMMODS" | grep -v '^usbserial$'` #v413
+MODEMMODS=`echo $MODEMMODS | sed 's/ /, /g'`
+MODEMMODS="<b>$MODEMMODS</b>"
 MMCNT=`echo "$MODEMMODS" | wc -w`
 
 MSGMDM2=""
-#if [ "$SNDMOD" != "" ];then
-# MSGMDM2="
+if [ "$SNDMOD" != "" ];then
+ MSGMDM2="
 #Note that ${SNDMOD} is an ALSA sound driver but it also supports an on-board modem (port ttySL0)."
-#fi
+fi
 
 case $MMCNT in
  0)
@@ -38,11 +88,11 @@ mwave 1014:007d #not in modinfo.
 agrserial 11c1:048c #v4.00 nothing in modinfo. Agere chip.
 agrserial 11c1:048f #v4.00 nothing in modinfo. Agere chip.
 '
- VENDEVS="`cat /proc/bus/usb/devices | grep '^P: ' | tr -s ' ' | tr '=' ' ' | cut -f 3,5 -d ' ' | tr ' ' ':'`"
+ VENDEVS=`cat /proc/bus/usb/devices | grep '^P: ' | tr -s ' ' | tr '=' ' ' | cut -f 3,5 -d ' ' | tr ' ' ':'`
  [ "$VENDEVS" != "" ] && VENDEVS="$VENDEVS
 "
  VENDEVS="$VENDEVS`lspci -n | sed 's/ Class / /' | cut -f 3 -d ' '`" #v413
- MODULE="`echo "$MODEM_MAP" | grep -E "$VENDEVS" | head -n 1 | cut -f 1 -d ' '`"
+ MODULE=`echo "$MODEM_MAP" | grep -E "$VENDEVS" | head -n 1 | cut -f 1 -d ' '`
  [ "$MODULE" != "" -a "`lsmod | grep -e "^$MODULE "`" != "" ] && MODULE=""
  if [ "$MODULE" != "" ];then
   MSGMDM1="HOWEVER, an undetected modem supported by driver module '$MODULE' appears to be installed (or plugged in). To use it, click on Menu > System > BootManager and add the new module, $MODULE."
@@ -64,21 +114,23 @@ esac
 
 
 export MAINDIALOG="
-<window title=\"PupDial modem probe\" icon-name=\"gtk-connect\">
+<window title=\"PupDial modem probe\" icon-name=\"gtk-connect\" editable=\"true\">
  <vbox>
 
-  <hbox>
-   <text  use-markup=\"true\"><label>\"<b>Click this button to use the 'wvdialconf' program to automatically probe and setup a modem for use by PupDial. If successful will create or update /etc/wvdial.conf and will set /dev/modem as a link to the correct modem port:</b>\"</label></text>
+  <frame><hbox>
+   <text  use-markup=\"true\"><label>\"<b>Click this button to use the 'wvdialconf' binary to automatically probe and setup a modem for use by PupDial. If successful will create or update /etc/wvdial.conf and will set /dev/modem as a link to the correct modem port.</b>\"</label></text>
    <button>
     <label>PROBE</label>
     <action type=\"exit\">SETUP</action>
    </button>
-  </hbox>
- 
+  </hbox></frame>
+
  <frame Manual probing>
- 
+
   <text><label>The above does a fully automatic probe, however if it is unsatisfactory you can consider some manual probing and setup...</label></text>
- 
+
+  <notebook labels=\"Serial|USB\">
+
   <frame Serial hardware modem>
   <hbox>
    <text><label>If you have a true-hardware external serial or internal ISA card (or in some rare cases an internal PCI card), or think you might, click a button to probe. Note that 'ttyS0' is the same as 'com1' in DOS/Windows. Note also, 'ttyS0' is the most likely port, unless you have some other serial device such as a mouse. If the test is succesful then you will be offered to set /dev/modem and basic setup of /etc/wvdial.conf. (Note that these modems are not autodetected at bootup by Puppy, but are probed by the automatic PROBE button above)</label></text>
@@ -111,11 +163,46 @@ export MAINDIALOG="
    </vbox>
   </hbox>
   </frame>
-  
+
+  <frame USB external Modem>
+  <hbox>
+   <text><label>If you have an External USB modem attached, that uses more than one /dev/ttyUSB# devices, then click the button you want to test and apply the main device node to.</label></text>
+   <vbox>
+    <button>
+     <label>ttyUSB0</label>
+     <action>/usr/sbin/modemtest ttyUSB0 &</action>
+     <action type=\"exit\">TTYSN</action>
+    </button>
+    <button>
+     <label>ttyUSB1</label>
+     <action>/usr/sbin/modemtest ttyUSB1 &</action>
+     <action type=\"exit\">TTYSN</action>
+    </button>
+    <button>
+     <label>ttyUSB2</label>
+     <action>/usr/sbin/modemtest ttyUSB2 &</action>
+     <action type=\"exit\">TTYSN</action>
+    </button>
+    <button>
+     <label>ttyUSB3</label>
+     <action>/usr/sbin/modemtest ttyUSB3 &</action>
+     <action type=\"exit\">TTYSN</action>
+    </button>
+    <button>
+     <label>ttyUSB4</label>
+     <action>/usr/sbin/modemtest ttyUSB4 &</action>
+     <action type=\"exit\">TTYSN</action>
+    </button>
+   </vbox>
+  </hbox>
+  </frame>
+
+ </notebook>
+
   <frame Autodetected modems>
    <hbox>
-    <text><label>\"Most modems are autodetected by Puppy at bootup, but it has to be turned on! (or plugged in). ${MSGMDM1}\"</label></text>
-    
+    <text use-markup=\"true\"><label>\"Most modems are autodetected by Puppy at bootup, but it has to be turned on! (or plugged in). ${MSGMDM1}\"</label></text>
+
    <vbox>
    <button>
     <label>HELP</label>
@@ -124,48 +211,48 @@ export MAINDIALOG="
    </vbox>
    </hbox>
   </frame>
-  
-  <hbox>
-   <text><label>Click this button to blacklist a modem module. Note that you will then have to click the ERASE button, then reboot Puppy so that autodetection can re-occur.</label></text>
+
+  <frame><hbox>
+   <text><label>Click this button to blacklist a modem module. Note that you will then have to click the ERASE button below too, then reboot Puppy so that autodetection can re-occur.</label></text>
    <vbox>
    <button>
     <label>BLACKLIST</label>
     <action>/usr/sbin/bootmanager blacklist &</action>
    </button>
    </vbox>
-  </hbox>
-  <hbox>
-   <text><label>Click this button to erase current modem settings. This will delete /dev/modem thus allowing a fresh auto-probe at bootup and will cancel the 'Modem' entry in /etc/wvdial.conf:</label></text>
+  </hbox></frame>
+  <frame><hbox>
+   <text><label>Click this button to erase current 'ttyS#' modem settings. This will delete /dev/modem thus allowing a fresh auto-probe at bootup and will cancel the 'Modem' entry in /etc/wvdial.conf .</label></text>
    <vbox>
    <button>
     <label>ERASE</label>
     <action>/usr/sbin/modemprobe_erase</action>
    </button>
    </vbox>
-  </hbox>
- 
+  </hbox></frame>
+
  </frame>
-  
+
  </vbox>
 </window>
 "
 
 #echo "$MAINDIALOG" >/tmp/MAINDIALOG
-RETSTRING="`gtkdialog3 --program=MAINDIALOG`"
+RETSTRING=`gtkdialog3 --program=MAINDIALOG`
 #echo "RETSTRING=$RETSTRING"
 
 #v405 getting some weird stuff on stdout from gtkdialog3, fix...
 #all lines must have format: variable="value" ...
-xRETSTRING="`echo "$RETSTRING" | grep -E '^[a-zA-Z0-9]+=\".*\"$'`"
+xRETSTRING=`echo "$RETSTRING" | grep -E '^[a-zA-Z0-9]+=\".*\"$'`
 
 eval "$xRETSTRING"
 
-[ "$EXIT" != "SETUP" ] && exit
+[ "$EXIT" != "SETUP" ] && { echo "Not 'SETUP' . Exit.";exit 0; }
 
-yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, probing for modems..." &
+yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Removing /tmp/wvdial.conf .Please wait, probing for modems..." &
 X1PID=$!
 
-rm -f /tmp/wvdial.conf 2>/dev/null
+rm -f /tmp/wvdial.conf 2>$ERR
 ##[ "$MODEMDEV" != "" ] && [ "`grep 'SYMLINK="modem"' /etc/udev/rules.d/00-*`" = "" ] && echo 'KERNEL=="$MODEMDEV", SYMLINK="modem"' > /etc/udev/rules.d/00-modem_symlink.rules #v416
 
 #v4.06 begin
@@ -179,23 +266,24 @@ if [ $RETVAL -eq 0 ];then #found a modem and set it in wvdial.conf
   sed -i -e "$SEDSCRIPT" /$CONFDIR/wvdial.conf #v416
  elif [ "`grep '/dev/ttyS_' /$CONFDIR/wvdial.conf`" != "" ];then
   #Convert ttyS_ link name to actual node name (e.g., ttyS_536ep -> 536ep)
-  TMPDEVM="`cat /$CONFDIR/wvdial.conf | tr -s ' ' | grep '^Modem = ' | head -n 1 | cut -f 3 -d ' ' | cut -f 3 -d '/'`" #file name
+  TMPDEVM=`cat /$CONFDIR/wvdial.conf | tr -s ' ' | grep '^Modem = ' | head -n 1 | cut -f 3 -d ' ' | cut -f 3 -d '/'` #file name
   if [ -h /dev/$TMPDEVM ];then #it's a link to the correct device node name
    SEDSCRIPT="s%/dev/$TMPDEVM%/dev/`readlink /dev/$TMPDEVM`%" #v416
    sed -i -e "$SEDSCRIPT" /$CONFDIR/wvdial.conf #v416
   fi
  fi
- DEVM="`cat /$CONFDIR/wvdial.conf | tr -s ' ' | grep '^Modem = ' | head -n 1 | cut -f 3 -d ' '`"
+ DEVM=`cat /$CONFDIR/wvdial.conf | tr -s ' ' | grep '^Modem = ' | head -n 1 | cut -f 3 -d ' '`
 fi
 #v4.06 end
 
 kill $X1PID
 
 if [ "$DEVM" != "" ];then #4.06 probe found a modem (and not /dev/modem)
- xDEVM="`echo -n "$DEVM" | cut -f 3,4 -d '/'`"
+ xDEVM=`echo -n "$DEVM" | cut -f 3,4 -d '/'`
  ln -snf $xDEVM /dev/modem #v4.06
- 
+
  if [ -f /tmp/wvdial.conf ];then
+ xmessage -timeout 10 -bg orange "Recreating /etc/wvdial.conf" &  ##+++2012-06-03
   grep -v '^;' /tmp/wvdial.conf > /etc/wvdial.conf
   rm -f /tmp/wvdial.conf
   echo 'Carrier Check = no

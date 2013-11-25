@@ -5,7 +5,43 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
-KERNVER="`uname -r`"
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+KERNVER=`uname -r`
 KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
 KERNMAJVER=`echo -n $KERNVER | cut -f 2 -d '.'` #6
 DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
@@ -18,9 +54,9 @@ DEPFORMAT='new'
 [ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" != "" ] && DEPFORMAT='old'
 
 if [ "$DEPFORMAT" = "old" ];then
- OFFICIALLIST="`cat /lib/modules/${KERNVER}/modules.dep | grep "^/lib/modules/$KERNVER/kernel/drivers/net/" | sed -e 's/\.gz:/:/' | cut -f 1 -d ':'`"
+ OFFICIALLIST=`cat /lib/modules/${KERNVER}/modules.dep | grep "^/lib/modules/$KERNVER/kernel/drivers/net/" | sed -e 's/\.gz:/:/' | cut -f 1 -d ':'`
 else
- OFFICIALLIST="`cat /lib/modules/${KERNVER}/modules.dep | grep "^kernel/drivers/net/" | sed -e 's/\.gz:/:/' | cut -f 1 -d ':'`"
+ OFFICIALLIST=`cat /lib/modules/${KERNVER}/modules.dep | grep "^kernel/drivers/net/" | sed -e 's/\.gz:/:/' | cut -f 1 -d ':'`
 fi
 
 #there are a few extra scattered around... needs to be manually updated...
@@ -50,11 +86,11 @@ echo "$RAWLIST" |
 while read ONERAW
 do
  [ "$ONERAW" = "" ] && continue #precaution
- ONEBASE="`basename $ONERAW .ko`"
+ ONEBASE=`basename $ONERAW .ko`
  modprobe -vn $ONEBASE >/dev/null 2>&1
- ONEINFO="`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`"
- ONETYPE="`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`"
- ONEDESCR="`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`"
+ ONEINFO=`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`
+ ONETYPE=`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
+ ONEDESCR=`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
  if [ "$ONETYPE" = "pci" -o "$ONETYPE" = "pcmcia" -o "$ONETYPE" = "usb" ];then
   echo "Adding $ONEBASE"
   echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules

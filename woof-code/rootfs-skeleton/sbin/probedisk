@@ -7,6 +7,36 @@
 #v3.97 31jan2008 BK: refinement for detecting kernels with /dev/hd* drives.
 #v4.01 10may2008 BK: bugfix for detecting if usb drive.
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 . /etc/rc.d/PUPSTATE
 #v4.01
 # ...older kernel with /proc/ide support will have SATADRIVES variable, else ATADRIVES
@@ -22,10 +52,10 @@ if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
 fi
 
 #mounted drives/partitions...
-MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc' | tr '\n' ' '`"
+MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd' | tr '\n' ' '`
 
 ##all disk devices, mask off partitions...
-#ALLDRVS="`grep -E ' hd| scd| sd| mmc| sr' /proc/diskstats | tr -s ' ' | cut -f 4 -d ' ' | grep -vE 'hd.*[0-9]$|sd.*[0-9]$|mmc.*p[0-9]' | tr '\n' ' '`"
+#ALLDRVS=`grep -E ' hd| scd| sd| mmc| sr' /proc/diskstats | tr -s ' ' | cut -f 4 -d ' ' | grep -vE 'hd.*[0-9]$|sd.*[0-9]$|mmc.*p[0-9]' | tr '\n' ' '`
 ##plug in a cd, /proc/diskstats does not register it until drive is accessed...
 ##for ONEIDE in `ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`
 #for ONEBLKDRV in `ls -1 /sys/block | grep -E '^hd|^scd|^sd|^mmc|^sr' | tr '\n' ' '`
@@ -35,14 +65,14 @@ MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr
 #done
 
 #yeah, so why not just do this...
-#ALLDRVS="`ls -1 /sys/block | grep -E '^hd|^scd|^sd|^mmc|^sr' | tr '\n' ' '`"
+#ALLDRVS=`ls -1 /sys/block | grep -E '^hd|^scd|^sd|^mmc|^sr' | tr '\n' ' '`
 
 #crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
 #/proc/ide. pathetic kernel! oh well...
 if [ ! -e /proc/ide ];then #v3.97
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '`" #v3.93 no /proc/ide
+ ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '` #v3.93 no /proc/ide
 else
- ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
+ ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`
 fi
 #note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
 
@@ -50,16 +80,16 @@ for ONEDRV in $ALLDRVS
 do
   case $ONEDRV in
    hd*) # ide device, look in /proc/ide for info
-     MEDIA="`cat /proc/ide/$ONEDRV/media`"
-     INFO="`cat /proc/ide/$ONEDRV/model`"
+     MEDIA=`cat /proc/ide/$ONEDRV/media`
+     INFO=`cat /proc/ide/$ONEDRV/model`
      ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="Direct-Access"
-     VENDOR="`cat /sys/block/$ONEDRV/device/vendor`"
-     MODEL="`cat /sys/block/$ONEDRV/device/model`"
+     VENDOR=`cat /sys/block/$ONEDRV/device/vendor`
+     MODEL=`cat /sys/block/$ONEDRV/device/model`
      INFO="$VENDOR$MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
-     
+
      #log if usb drive (not a sata drive)... v4.01...
      if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
       echo "$ONEDRV" >> /root/.usb-drive-log-probedisk
@@ -70,19 +100,31 @@ do
      ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="cdrom"
-     VENDOR="`cat /sys/block/$ONEDRV/device/vendor`"
-     MODEL="`cat /sys/block/$ONEDRV/device/model`"
+     VENDOR=`cat /sys/block/$ONEDRV/device/vendor`
+     MODEL=`cat /sys/block/$ONEDRV/device/model`
      INFO="$VENDOR$MODEL"
      ;;
    mmc*) #/dev/mmcblk0
      MEDIA="Direct-Access"
      INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
      ;;
+   fd*)
+     MEDIA='floppy'
+     INFO='Generic 1440KB'
+     ;;
    *) # maybe I let something bad in -- skip it
      continue
      ;;
   esac
-  echo "/dev/$ONEDRV|$MEDIA|$INFO"
+  #PARTITINOS=`ls -1d /sys/classs/block/$ONEDRV |sed 's#.*\([0-9]*$\)#\1#'`
+  PARTITIONS=`ls -1 /sys/class/block/$ONEDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
+  SIZE=`cat /sys/block/$ONEDRV/size`
+  #[ "$SIZE" ] && SIZE="$((SIZE/2/1000/1000))gb"
+  [ "$SIZE" ] && SIZE=`echo "scale=2;$SIZE /2 /1024 /1024" | bc -l`'gb'
+  [ "$SIZE" ] || SIZE=unknown
+  INFO=`echo "$INFO" | tr '\t' ' ' |tr -s ' '`   ##+++2012-03-20 added size and unknown
+  [ "`echo "$INFO" | grep '[[:alnum:]]'`" ] || INFO=unknown
+  echo "/dev/$ONEDRV|$MEDIA|$INFO|$SIZE|$PARTITIONS"  ##+++2012-03-18 added partitions
 
 done
 

@@ -9,40 +9,76 @@
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 export LANG=C
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
 
-WKGDIR="`pwd`"
+WKGDIR=`pwd`
 
 #search for installed pkgs with descriptions...
 
 #search .desktop files...
-PKGINFO1="`ls -1 /usr/share/applications | sed -e 's%^%/usr/share/applications/%' | xargs cat - | grep '^Name=' | cut -f 2 -d '='`"
+PKGINFO1=`ls -1 /usr/share/applications | sed -e 's%^%/usr/share/applications/%' | xargs cat - | grep '^Name=' | cut -f 2 -d '='`
 #...normal format of each entry is 'name description', ex: 'Geany text editor'.
 
 #w012 commented out...
 ##search pkg database...
 ##want to get entries 'nameonly|description', ex: 'abiword|A wonderful wordprocessor'
 ##user-installed...
-#USER_INSTALLED_INFO="`cut -f 2,10 -d '|' /root/.packages/user-installed-packages`"
+#USER_INSTALLED_INFO=`cut -f 2,10 -d '|' /root/.packages/user-installed-packages`
 ##builtin pet pkgs...
 #if [ ! -f /tmp/petget_builtin_pet ];then
-# BUILTIN_PET_NAMES="`echo "$PKGS_SPECS_TABLE" | grep '^yes' | cut -f 2,3 -d '|' | grep '|$' | sed -e 's%^%|%'`" #ex: '|abiword|'
+# BUILTIN_PET_NAMES=`echo "$PKGS_SPECS_TABLE" | grep '^yes' | cut -f 2,3 -d '|' | grep '|$' | sed -e 's%^%|%'` #ex: '|abiword|'
 # echo "$BUILTIN_PET_NAMES" > /tmp/petget_builtin_pet
 #fi
-#BUILTIN_PET_INFO="`grep --file=/tmp/petget_builtin_pet /root/.packages/Packages-puppy-* | cut -f 2-9 -d ':' | cut -f 2,10 -d '|'`"
+#BUILTIN_PET_INFO=`grep --file=/tmp/petget_builtin_pet /root/.packages/Packages-puppy-* | cut -f 2-9 -d ':' | cut -f 2,10 -d '|'`
 ##builtin compatible-distro pkgs...
 #if [ ! -f /tmp/petget_builtin_system ];then #pkg_chooser.sh creates this.
-# BUILTIN_COMPAT_NAMES="`echo "$PKGS_SPECS_TABLE" | grep '^yes' | cut -f 3 -d '|' | tr ',' '\n' | sort -u | grep -v '^$' | sed -e 's%[0-9]$%%' -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g' -e 's%^%^%'`"
+# BUILTIN_COMPAT_NAMES=`echo "$PKGS_SPECS_TABLE" | grep '^yes' | cut -f 3 -d '|' | tr ',' '\n' | sort -u | grep -v '^$' | sed -e 's%[0-9]$%%' -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g' -e 's%^%^%'`
 # echo "$BUILTIN_COMPAT_NAMES" >/tmp/petget_builtin_system
 #fi
-#BUILTIN_COMPAT_INFO="`grep --file=/tmp/petget_builtin_system /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-*  | cut -f 2-9 -d ':' | cut -f 2,10 -d '|'`"
+#BUILTIN_COMPAT_INFO=`grep --file=/tmp/petget_builtin_system /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-*  | cut -f 2-9 -d ':' | cut -f 2,10 -d '|'`
 #PKGINFODB="${USER_INSTALLED_INFO}
 #${BUILTIN_PET_INFO}
 #${BUILTIN_COMPAT_INFO}"
 ##tidy it up...
-#PKGINFODB="`echo "$PKGINFODB" | grep -v -E '_DEV|_DOC|_NLD' | sort --key=1 --field-separator='|' --unique | sed -e 's%|%||||||||||||||||||||||||||||||%' | uniq --check-chars=32 | tr -s '|'`"
+#PKGINFODB=`echo "$PKGINFODB" | grep -v -E '_DEV|_DOC|_NLD' | sort --key=1 --field-separator='|' --unique | sed -e 's%|%||||||||||||||||||||||||||||||%' | uniq --check-chars=32 | tr -s '|'`
 ##...code on end gets rid of multiple hits.
 
 EXCLLISTsd=" 0rootfs_skeleton autologin bootflash burniso2cd cd/dvd check configure desktop format network pupdvdtool wallpaper pbackup pburn pcdripper pdict pdisk pdvdrsab pmetatagger pschedule pstopwatch prename pprocess pmirror pfind pcdripper pmount puppy pupctorrent pupscan pupx pwireless set text "
@@ -58,12 +94,12 @@ echo '<center>
 echo "$PKGINFO1" |
 while read ONEINFO
 do
- NAMEONLY="`echo "$ONEINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`"
+ NAMEONLY=`echo "$ONEINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`
  EXPATTERN=" $NAMEONLY "
  nEXPATTERN="^$NAMEONLY "
  [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
  HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
- REALHOME="`cat /root/.packages/PKGS_HOMEPAGES | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`"
+ REALHOME=`cat /root/.packages/PKGS_HOMEPAGES | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`
  [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
  echo "<option value=\"${HOMESITE}\">${ONEINFO}" >> /tmp/newinfoindex.xml
 done
@@ -97,14 +133,14 @@ echo '</select>
 #while read ONEINFO
 #do
 # [ "$ONEINFO" = "" ] && continue
-# NAMEONLY="`echo "$ONEINFO" | cut -f 1 -d '|' | tr [A-Z] [a-z]`"
+# NAMEONLY=`echo "$ONEINFO" | cut -f 1 -d '|' | tr [A-Z] [a-z]`
 # EXPATTERN=" $NAMEONLY "
 # nEXPATTERN="^$NAMEONLY "
 # [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
 # HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
-# REALHOME="`echo "$HOMEPAGEDB" | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`"
+# REALHOME=`echo "$HOMEPAGEDB" | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`
 # [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
-# xONEINFO="`echo -n "$ONEINFO" | sed 's%|%:  %'`"
+# xONEINFO=`echo -n "$ONEINFO" | sed 's%|%:  %'`
 # echo "<option value=\"${HOMESITE}\">${xONEINFO}" >> /tmp/newinfoindex.xml
 #done
 #echo '</select>

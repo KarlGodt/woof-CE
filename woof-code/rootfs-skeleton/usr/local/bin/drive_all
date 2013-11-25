@@ -13,50 +13,118 @@
 #w002 left click to unmount a partition.
 #w476 fix codepage for vfat f.s.
 
-#w002 extracted as a func...
-if test -f /usr/local/bin/rox ; then #1
-if test "`which rox`" = "" ; then #1.1
-RCD="/usr/local/bin/rox"
-elif #1.1
-test -f /usr/local/bin/rox ; then
-RCD="/usr/local/bin/rox"
-else #1.1
-if test "`which rox`" != "" ; then #1.1.1
-RCD=`which rox`
-else #1.1.1
-echo "found ROX not in PATH, exit now"
-exit
-fi #1.1.1
-fi #1.1
-fi #1
 
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+########################################################################
+#
+# Changes by Karl Reimer Godt
+# 01.0 : killzombies function : sed beginning spaces away .
+# 02.0 : Show nested mounts in umount xmessage gui .. see also /bin/umount script
+# 03.0 : Added usage, trap, version, debug macros .
+# 04.0 : Added support for udf .
+# 05.0 : Added support for different /sbin/probepart output
+#
+# /dev/sda2:
+# #OLD LABEL="2nd"
+# LABEL="MacPup_F_3"
+# #OLD UUID="a4f28ea3-eede-49f8-93ca-dbeefe8f72fa"
+# UUID="f7956448-f63f-44f4-a725-f15dd21add97"
+# TYPE="ext3"
+# DISTRO_VERSION=430            #481·#416·#218·#478··#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"  #"ubuntu"·#"puppy"···#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"  #"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4" #"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.34-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# PDEV1='sda2'
+# #OLD Linux·puppypc·2.6.34-KRG-i486·#3·SMP·Fri·Dec·31·05:10:23·GMT-8·2010·i686·GNU/Linux
+# Linux puppypc 3.4.9-KRG-iCore2-smp-pae-srv1000gz #1 SMP Sun Sep 16 18:34:45 GMT+1 2012 i686 GNU/Linux
+# Xserver=/usr/X11R7/bin/Xorg
+# #OLD $LANG=de_DE@euro
+# $LANG=de_DE.utf8
+# #OLD today=Mi·18.·Jan·03:21:35·GMT+1·2012
+# today=Mon Sep 17 20:33:36 GMT+1 2012
+#
+# TODO 1 : iconhandler for udf
+#
+#
+#
+########################################################################
+
+
+#w002 extracted as a func...
 unmount_func() {
- $RCD -D $MNTPT
- sync
+ sync  ##2012-06-05
+ rox -D "$MNTPT"
+ #sync
+ sleep 2 ##2012-06-05
  while [ 1 ];do
-  umount $MNTPT ; umVAL=$?
+  umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
-   ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+   ZOMBIES=`ps -H -A | grep '<defunct>' | sed 's#^[[:blank:]]*##'|sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
    for ONEZOMBIE in $ZOMBIES
    do
-    echo "Killing parentless zombie process $ONEZOMBIE"
+    echo "Killing parent(less?) zombie process $ONEZOMBIE"
     kill $ONEZOMBIE
    done
-   umount $MNTPT ; umVAL=$?
+   [ -n "`busybox mount | grep "$MNTPT"`" ] && { umount "$MNTPT";umVAL=$?; }
   fi
   #rare ocassion, partition got unmounted before umount runs above...
   umPATTERN="${MNTPT} "
-  [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
+  _MOUNT=`busybox mount | grep "$umPATTERN"`
+  umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
+  _NESTEDS=`busybox mount | grep "$umPATTERN_2"`
+  [ "${_MOUNT}" ] || umVAL=0
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0="`fuser -v -m $MNTPT`"  
+   EXTRAMSG0=`fuser -v -m $MNTPT`
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
 If so, please remedy."
    else
-    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
+   [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
+    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center \
+ -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
 using /dev/${ONEDRVNAME}. Here they are:
+${_NESTEDS}
+PIDS or APPS :
 $EXTRAMSG0
 
 If you press the \"KILL\" button, Puppy will attempt to
@@ -65,7 +133,7 @@ last resort. Firstly you should try to close the programs
 manually, so do not press \"KILL\".
 PLEASE PRESS THE \"EXIT\" BUTTON!"
     if [ $? -eq 10 ];then
-     fuser -k -m $MNTPT
+     fuser -k -m "$MNTPT"
      continue
     fi
    fi
@@ -82,12 +150,12 @@ FSTYPE=""
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<ONEDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<ONEDRVNAME>/AppRun ...
-ONEDRVNAME="`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`"
+ONEDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
- DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
+ DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
  exec pmount ${DRV_CATEGORY}
@@ -100,8 +168,8 @@ fi
 
 if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  mPATTERN='^/dev/'"$ONEDRVNAME"' '
- #MNTPT="`mount | grep "$mPATTERN" | cut -f 3 -d ' '`"
- MNTPT="`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
+ #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
+ MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
  [ "$MNTPT" = "" ] && exit #precaution.
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${ONEDRVNAME} mounted on ${MNTPT}
@@ -133,7 +201,7 @@ fi
 #if [ $2 ];then
 # #if partition already mounted, offer to unmount it...
 # mPATTERN='^/dev/'"$ONEDRVNAME"' '
-# MNTPT="`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
+# MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
 # if [ "$MNTPT" != "" ];then
 #  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
 #   #it is allowed to be unmounted (not in use by woof)...
@@ -170,7 +238,7 @@ DRV_CATEGORY="${1}"
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
 if [ "$ONEDRVNAME" = "drives" ];then
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
  exec pmount $DRV_CATEGORY
@@ -182,22 +250,25 @@ fi
 # =false always start Pmount.
 if [ "$AUTOTARGET" = "false" ];then
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
  exec pmount $DRV_CATEGORY
 fi
 
 #oh, now have to analyse the media, decide what app to run...
-if [ "$ONEDRVNAME" = "sr0" -o "$ONEDRVNAME" = "sr1" ];then
+#if [ "$ONEDRVNAME" = "sr0" -o "$ONEDRVNAME" = "sr1" ];then
+if [ "`echo "$ONEDRVNAME" |grep '^sr[0-9]'`" ];then  ###+++2012-01-20
  srPATTERN='^/dev/'"$ONEDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
   cddetect -q -d/dev/${ONEDRVNAME}
   RETVAL=$?
   case $RETVAL in
-  3) #iso file: normal data cd.
+  3) #iso file: normal data cd. iso9660
    true
    ;;
+  8) # udf with .wma wav files [VCD: , ] 8 ##+++2012-01-20
+   FSTYPE='udf';;
   1) #audio
    ln -snf /dev/${ONEDRVNAME} /dev/cdrom
    exec defaultmediaplayer cdda://
@@ -215,7 +286,7 @@ if [ "$ONEDRVNAME" = "sr0" -o "$ONEDRVNAME" = "sr1" ];then
    ;;
   esac
  fi
- FSTYPE="iso9660"
+ [ ! "$FSTYPE" ] && FSTYPE="iso9660"
 fi
 
 #if dropped down here, it is likely to be a data partition...
@@ -227,17 +298,17 @@ if [ "$FSTYPE" != "" ];then
   #not mounted...
   mkdir -p /mnt/$ONEDRVNAME
   case $FSTYPE in
-   ntfs|NTFS|Ntfs)
+   NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
     mount -t ntfs /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
     ;;
-   *fat|FAT*|Fat*|fat*|*fat*)
+   fat*|FAT*|Fat*|vfat)
     #w476 modify codepage and iocharset (note: this code also in /usr/sbin/pmount)...
     #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
     NLS_PARAM=''
     if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
-     KEYMAP="`cat /etc/keymap | cut -f 1 -d '.'`"
+     KEYMAP=`cat /etc/keymap | cut -f 1 -d '.'`
      case $KEYMAP in
       de|be|br|dk|es|fi|fr|it|no|se|pt)
        NLS_PARAM=',codepage=850'
@@ -251,20 +322,20 @@ if [ "$FSTYPE" != "" ];then
     RETVAL1=$?
     ;;
    *)
-    fsType=`echo "$FSTYPE" | tr '[A-Z]' '[a-z]'`
-    mount -t $fsType /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
+    FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
+    mount -t $FSTYPE /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
     ;;
   esac
-  [ $RETVAL1 -eq 0 ] && exec $RCD -x /mnt/$ONEDRVNAME -d /mnt/$ONEDRVNAME
+  [ $RETVAL1 -eq 0 ] && exec rox -x /mnt/$ONEDRVNAME -d /mnt/$ONEDRVNAME
  else
   #mounted...
-  MNTPT="`df | grep "$dPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
+  MNTPT=`df | grep "$dPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
   if [ -h /mnt/home ];then
    [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
   fi
   #exec rox -x /mnt/$ONEDRVNAME -d /mnt/$ONEDRVNAME
-  exec $RCD -x $MNTPT -d $MNTPT
+  exec rox -x $MNTPT -d $MNTPT
  fi
 fi
 
@@ -273,7 +344,7 @@ fi
 # just want to bring the window up if it's minimised ...how?
 
 if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
- killall gtkdialog_pmount 2>/dev/null
+ killall gtkdialog_pmount 2>$ERR
  sleep 0.1
 fi
 

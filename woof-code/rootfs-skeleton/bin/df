@@ -2,25 +2,84 @@
 #(c) Barry Kauler 2009, licence GPL2
 #w482 fix for /dev/root.
 
+Version='1.1-simple Macpup_Foxy_3-Puppy_Linux_430/2 KRG'
+
+usage(){
+MSG="
+$0 [d|v|V|h] [-q|-Q] [df options]
+Script wrapper to replace /dev/root
+with current /dev/DEVICE .
+Necessary for pup_event_frontend_d
+and drive icons on desktop on tra-
+ditional full installations
+
+d|v) debug and verbose
+h) show this message
+V) show version
+
+-q) output in single quotes
+-Q) output in double quotes
+"
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg orange4 "$MSG"
+exit $1
+}
+
+case $1 in
+d|v) DEBUG=1;shift;;
+h|help) usage 0;;
+V|version) echo -e "\n$0: Version '$Version'\n";exit 0;;
+esac
+
+[ "$DEBUG" ] && echo "QUOTE_IT_M='$QUOTE_IT_M'"
+[ "$DEBUG" ] && echo "D_QUOTE_IT_M='$D_QUOTE_IT_M'"
+
+QUOTE_IT=`echo "$@" | grep -w '\-q'`
+D_QUOTE_IT=`echo "$@" | grep -w '\-Q'`
+PARAMS=${@//\-q/}
+PARAMS=${PARAMS//\-Q/}
+[ "$DEBUG" ] && echo "PARAMS='$PARAMS'"
+if [ "$QUOTE_IT" ];then
+QUOTE_IT_M=-q exec $0 $PARAMS
+elif [ "$D_QUOTE_IT" ];then
+D_QUOTE_IT_M=-Q exec $0 $PARAMS
+fi
+
 DF="busybox df"
 [ "`which df-FULL`" != "" ] && DF="df-FULL"
-
-RETSTUFF="`$DF $@`"
+#echo 'DF='"$DF"
+#echo '$@='"$@"
+RETSTUFF=`$DF $@`
 RETVAL=$?
+#if [ "`echo "$@" | grep ' \-q '`" ];then
+if [ "$QUOTE_IT_M" ];then
+RETSTUFF=`echo "$RETSTUFF" |sed -r "s|(.*%) (/.*)|\1 '\2'|"`
+#elif [ "`echo "$@" | grep ' \-Q '`" ];then
+elif [ "$D_QUOTE_IT_M" ];then
+RETSTUFF=`echo "$RETSTUFF" |sed -r 's|(.*%) (/.*)|\1 "\2"|'`
+fi
+#echo 'RETSTUFF='"$RETSTUFF"
+#echo 'RETVAL='"$RETVAL"
+#echo
 
 #hack to remove two conflicting entries mounted on / ...
 #if [ "`echo "$RETSTUFF" | grep '^rootfs '`" != "" ];then
 # if [ "`echo "$RETSTUFF" | grep '^/dev/root '`" != "" ];then
-#  RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
+#  RETSTUFF=`echo "$RETSTUFF" | grep -v '^rootfs '`
 # fi
 #fi
-RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
+
+RETSTUFF=`echo "$RETSTUFF" | grep -v '^rootfs '`
+#echo "$RETSTUFF"
 
 #replace /dev/root with correct root partition...
 #rdev is a busybox applet...
-ROOTPARTITION="`$(which rdev) | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`"
+ROOTPARTITION=`rdev | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`
+#echo "$ROOTPARTITION"
 nPATTERN="s%^/dev/root %${ROOTPARTITION} %"
-[ "$ROOTPARTITION" ] && RETSTUFF="`echo "$RETSTUFF" | sed -e "$nPATTERN"`"
+#echo "$nPATTERN"
+#echo "$RETSTUFF" | sed -e "$nPATTERN"
+[ "$ROOTPARTITION" ] && RETSTUFF=`echo "$RETSTUFF" | sed -e "$nPATTERN"`
 
 echo "$RETSTUFF"
 exit $RETVAL

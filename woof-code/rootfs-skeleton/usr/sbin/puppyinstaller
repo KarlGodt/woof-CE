@@ -26,16 +26,52 @@
 #v425 tentative support for install to scsi hd.
 #v430 full hd install, wipe all, rc.update was not running properly.
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 export LANG=C
-#NEWVER="`cat /etc/puppyversion`"
-KERNELVER="`uname -r`"
+#NEWVER=`cat /etc/puppyversion`
+KERNELVER=`uname -r`
 
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 NEWVER="$DISTRO_VERSION"
 
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
-KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+PREFIX1CHAR=`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`
+KERNEL3CHARS=`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`
 ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
 
 fsfunc() #f.s. type param passed in
@@ -59,7 +95,7 @@ ispupfunc() { #two params: fstype partition
  PUPVEROLD=0
  [ ! $2 ] && return 0
  mkdir -p /mnt/$2
- ISPUPMNTPT="`mount | grep "^/dev/$2" | tr -s " " | cut -f 3 -d " "`"
+ ISPUPMNTPT=`mount | grep "^/dev/$2" | tr -s " " | cut -f 3 -d " "`
  if [ "$ISPUPMNTPT" = "" ];then
   ISPUPMNTPT="/mnt/$2"
   mount -t $1 /dev/$2 /mnt/$2
@@ -68,15 +104,15 @@ ispupfunc() { #two params: fstype partition
  #check for ancient puppy...
  [ -f $ISPUPMNTPT/usr_cram.fs ] && PUPVEROLD=108
  #puppy 2,3,4 has format pup_412.sfs ...
- ISFILE="`ls -1 ${ISPUPMNTPT}/${DISTRO_FILE_PREFIX}_[0-9][0-9][0-9].sfs 2>/dev/null | head -n 1`"
+ ISFILE=`ls -1 ${ISPUPMNTPT}/${DISTRO_FILE_PREFIX}_[0-9][0-9][0-9].sfs 2>$ERR | head -n 1`
  [ "$ISFILE" != "" ] && PUPVEROLD=`basename $ISFILE | rev | cut -c 5,6,7 | rev`
  #puppy built by woof has format distroprefix-500.sfs (ex: upup-500.sfs) ...
- ISFILE="`ls -1 ${ISPUPMNTPT}/${DISTRO_FILE_PREFIX}-[0-9][0-9][0-9].sfs 2>/dev/null | head -n 1`"
+ ISFILE=`ls -1 ${ISPUPMNTPT}/${DISTRO_FILE_PREFIX}-[0-9][0-9][0-9].sfs 2>$ERR | head -n 1`
  [ "$ISFILE" != "" ] && PUPVEROLD=`basename $ISFILE | rev | cut -c 5,6,7 | rev`
  #check for a full install to the partition...
  [ -f $ISPUPMNTPT/etc/puppyversion ] && PUPVEROLD=`cat $ISPUPMNTPT/etc/puppyversion` #old pre-w464 install.
  [ -f $ISPUPMNTPT/etc/DISTRO_SPECS ] && PUPVEROLD=`grep '^DISTRO_VERSION' ${ISPUPMNTPT}/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '` #w464 w478
- umount /dev/$2 2>/dev/null
+ umount /dev/$2 2>$ERR
  return $PUPVEROLD
 }
 
@@ -123,7 +159,7 @@ icon(s) -- if it(they) has not updated, unplug then replug the USB drive." &
   [ "`pidof gparted`" = "" ] && break #v424
   sleep 1
  done
- [ ! "`which gparted`" = "" ] && kill $MSGID 2>/dev/null
+ [ ! "`which gparted`" = "" ] && kill $MSGID 2>$ERR
  #w015 need to refresh desktop drive icons(s)...
  #/tmp/pup_event_frontend_block_request is used in /sbin/pup_event_frontend_d to refresh drv...
  sync
@@ -167,7 +203,7 @@ echo "Recreating msdos filesystem on $DESTPART..."
 mkdosfs /dev/$DESTPART
 sync
 echo "Fixing the Master Boot Record (MBR)..."
-DESTDRV="`echo -n "$DESTPART" | cut -b 1-3`"
+DESTDRV=`echo -n "$DESTPART" | cut -b 1-3`
 dd if=/usr/lib/syslinux/mbrfat.bin of=/dev/$DESTDRV
 sync
 echo "...done"
@@ -210,14 +246,14 @@ do
   break
  fi
 done
-[ -f /tmp/srcpath.txt ] && SRCPATH="`cat /tmp/srcpath.txt`"
+[ -f /tmp/srcpath.txt ] && SRCPATH=`cat /tmp/srcpath.txt`
 if [ "$SRCPATH" = "" ];then
  Xdialog --wmclass "gtkdialog2" --left --buttons-style text --title "Puppy universal installer" --ok-label "CD" --cancel-label "DIRECTORY" --yesno "Puppy consists of 2 to 4 files:\nvmlinuz      The Linux kernel\ninitrd.gz    The initial ramdisk.\n${DISTRO_FILE_PREFIX}-$NEWVER.sfs  This has all the Puppy files (sometimes inside initrd.gz).\n             (if built inside initrd.gz then only initrd.gz is required)\n${ZDRVSFS} Extra kernel drivers and firmware (optional).\n             (most builds have a usable selection of drivers in ${DISTRO_FILE_PREFIX}-$NEWVER.sfs)\nIf you booted Puppy from a live-CD, those files will be on it.\nOtherwise, they are in the .iso file and can be extracted -- in that\ncase, just click on the .iso file and it will be mounted (opened) in\na directory (do not forget to click on the file later to unmount it!)\n\nWhere are the Puppy files?..." 0 0
  RETVAL=$?
  if [ $RETVAL -eq 0 ];then #CD
-  CDDRIVE="`readlink /dev/cdrom`"
-  CDDRIVE="`basename $CDDRIVE`"
-  CDDRVINFO="`probedisk2 | grep "/dev/$CDDRIVE" | cut -f 3 -d '|'`"
+  CDDRIVE=`readlink /dev/cdrom`
+  CDDRIVE=`basename $CDDRIVE`
+  CDDRVINFO=`probedisk2 | grep "/dev/$CDDRIVE" | cut -f 3 -d '|'`
   Xdialog --wmclass "gtkdialog2" --left --title "Puppy universal installer" --msgbox "Please insert the Puppy live-CD (if not already) into the drive.\nNote, in case your PC has two CD/DVD drives, Puppy is expecting\nthe live-CD to be inserted into $CDDRIVE, which is described as:\n $CDDRVINFO \n\nAfter inserting live-CD, click OK button..." 0 0
   mkdir /mnt/$CDDRIVE 2> /dev/null
   mount -t iso9660 /dev/$CDDRIVE /mnt/$CDDRIVE
@@ -229,9 +265,9 @@ if [ "$SRCPATH" = "" ];then
   fi 
  fi
  if [ ! $RETVAL -eq 0 ];then #DIRECTORY
-  SRCFPATH="`Xdialog --wmclass "gtkdialog2" --left --backtitle "Please find the latest Puppy files\nvmlinuz, initrd.gz and ${DISTRO_FILE_PREFIX}-$NEWVER.sfs,\nTHEN HIGHLIGHT ANY ONE OF THEM\nand click the OK button" --title "Puppy universal installer" --stdout --no-buttons --no-cancel --fselect "*" 0 0`"
+  SRCFPATH=`Xdialog --wmclass "gtkdialog2" --left --backtitle "Please find the latest Puppy files\nvmlinuz, initrd.gz and ${DISTRO_FILE_PREFIX}-$NEWVER.sfs,\nTHEN HIGHLIGHT ANY ONE OF THEM\nand click the OK button" --title "Puppy universal installer" --stdout --no-buttons --no-cancel --fselect "*" 0 0`
   [ ! $? -eq 0 ] && exit
-  SRCPATH="`dirname $SRCFPATH`"
+  SRCPATH=`dirname $SRCFPATH`
  fi
 fi
 #sanity check...
@@ -242,7 +278,7 @@ fi
 } #end locate_puppy_src_files function.
 
 
-PMEDIA="`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-tags --stdout --menubox "Welcome to the Puppy Universal Installer!\nIf you wish to install Puppy to a removable media, such as a USB Flash\nor hard drive, CD/DVD disc, Zip disk or LS-120 disk, please insert it\nright now, before proceeding.\n\nINSERT MEDIA NOW\nThen, choose the media that you want to install Puppy to:" 0 0 10 usbflash "USB Flash drive" usbhd "USB hard drive" usb2ataflash "USB CF Flash drive, later move CF card to IDE/SATA internal adaptor" iusbflash "Internal USB Flash drive (ex: uDiskOnChip)" ataflash "Internal IDE/SATA Flash drive (ex: CF card in IDE adaptor)" atazip "Internal ZIP or LS120 drive" atahd "Internal (IDE or SATA) hard drive" scsihd "Ancient true-SCSI hard drive" cd "CD drive"`"
+PMEDIA=`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-tags --stdout --menubox "Welcome to the Puppy Universal Installer!\nIf you wish to install Puppy to a removable media, such as a USB Flash\nor hard drive, CD/DVD disc, Zip disk or LS-120 disk, please insert it\nright now, before proceeding.\n\nINSERT MEDIA NOW\nThen, choose the media that you want to install Puppy to:" 0 0 10 usbflash "USB Flash drive" usbhd "USB hard drive" usb2ataflash "USB CF Flash drive, later move CF card to IDE/SATA internal adaptor" iusbflash "Internal USB Flash drive (ex: uDiskOnChip)" ataflash "Internal IDE/SATA Flash drive (ex: CF card in IDE adaptor)" atazip "Internal ZIP or LS120 drive" atahd "Internal (IDE or SATA) hard drive" scsihd "Ancient true-SCSI hard drive" cd "CD drive"`
 [ ! $? -eq 0 ] && exit
 [ "$PMEDIA" = "" ] && exit
 
@@ -257,10 +293,10 @@ fi
 ############BIG LOOP###############
 while [ 1 ];do #BIG LOOP
 
-PROBEDISK="`probedisk2 2> /tmp/probediskerr.txt`"
+PROBEDISK=`probedisk2 2> /tmp/probediskerr.txt`
 case $PMEDIA in
  usbflash)
-  USBDRIVES="`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+  USBDRIVES=`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
   SELECTIONS=""
   for ONEUSB in $USBDRIVES
   do
@@ -268,44 +304,44 @@ case $PMEDIA in
    [ "$SATADRIVES" != "" ] && [ "`echo "$SATADRIVES" | grep "$ONEUSB"`" != "" ] && continue #for old kernel.
    [ "$TAGPMEDIA" = "usbflash" ] && [ "`cat /sys/block/$ONEUSB/removable`" != "1" ] && continue
    [ "$TAGPMEDIA" = "iusbflash" ] && [ "`cat /sys/block/$ONEUSB/removable`" != "0" ] && continue
-   USBINFO="`echo "$PROBEDISK" | grep "/dev/$ONEUSB" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr ',' ' ' | tr -s " " | sed -e 's/ $//'`"
-   USBSIZE="`disktype /dev/$ONEUSB | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
+   USBINFO=`echo "$PROBEDISK" | grep "/dev/$ONEUSB" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr ',' ' ' | tr -s " " | sed -e 's/ $//'`
+   USBSIZE=`disktype /dev/$ONEUSB | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
    SELECTIONS="${SELECTIONS} $ONEUSB \"${USBINFO}, ${USBSIZE}\""
   done
  ;;
  usbhd)
-  USBDRIVES="`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+  USBDRIVES=`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
   SELECTIONS=""
   for ONEUSB in $USBDRIVES
   do
    [ "$ATADRIVES" != "" ] && [ "`echo "$ATADRIVES" | grep "$ONEUSB"`" != "" ] && continue #eliminate ide/sata drives.
    [ "$SATADRIVES" != "" ] && [ "`echo "$SATADRIVES" | grep "$ONEUSB"`" != "" ] && continue #for old kernel.
    [ "`cat /sys/block/$ONEUSB/removable`" != "0" ] && continue
-   USBINFO="`echo "$PROBEDISK" | grep "/dev/$ONEUSB" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//g'`"
-   USBSIZE="`disktype /dev/$ONEUSB | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
+   USBINFO=`echo "$PROBEDISK" | grep "/dev/$ONEUSB" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//g'`
+   USBSIZE=`disktype /dev/$ONEUSB | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
    SELECTIONS="${SELECTIONS} $ONEUSB \"${USBINFO}, ${USBSIZE}\""
   done
  ;;
  cd)
   #find cd drives... 
-  CDDRIVES="`echo "$PROBEDISK" | grep '|optical|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+  CDDRIVES=`echo "$PROBEDISK" | grep '|optical|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
   SELECTIONS=""
   for ONEHD in $CDDRIVES
   do
-   HDINFO="`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`"
-   HDSIZE="`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
+   HDINFO=`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`
+   HDSIZE=`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
    SELECTIONS="${SELECTIONS} $ONEHD \"${HDINFO}, ${HDSIZE}\""
   done
   Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --ok-label "QUIT" --msgbox "Your computer has these CD/DVD drives:\n$SELECTIONS \n\nHowever, you cannot install Puppy to a CD/DVD in the same way as a\nhard drive, USB Flash drive or Zip drive, as the CD/DVD is not\ndirectly writable. For the CD/DVD, you need to do what is called\n'remastering' and Puppy has a program for this, called 'Remaster\nPuppy live-CD', found in the Setup menu. This program enables\nyou to create your own custom live-CD/DVD.\nNote, you will need a new blank CD-R or DVD-R (not +R).\n\nClick button to quit..." 0 0
   exit
  ;;
  atazip)
-  HDDRIVES="`echo "$PROBEDISK" | grep '|floppy|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+  HDDRIVES=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
   SELECTIONS=""
   for ONEHD in $HDDRIVES
   do
-   HDINFO="`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`"
-   HDSIZE="`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
+   HDINFO=`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`
+   HDSIZE=`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
    SELECTIONS="${SELECTIONS} $ONEHD \"${HDINFO}, ${HDSIZE}\""
   done
  ;;
@@ -313,13 +349,13 @@ case $PMEDIA in
   #at bootup, init script creates ATADRIVES='' in /etc/rc.d/PUPSTATE...
   HDDRIVES="$ATADRIVES"
   if [ -e /proc/ide ];then #old kernel.
-    IDEDRIVES="`echo "$PROBEDISK" | grep '|drive|' | grep '/dev/hd' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+    IDEDRIVES=`echo "$PROBEDISK" | grep '|drive|' | grep '/dev/hd' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
     HDDRIVES="$IDEDRIVES $SATADRIVES"
   fi
   for ONEHD in $HDDRIVES
   do
-   HDINFO="`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`"
-   HDSIZE="`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
+   HDINFO=`echo "$PROBEDISK" | grep "/dev/$ONEHD" | head -n 1 | cut -f 3 -d '|' | tr '$' " " | tr -s " " | sed -e 's/ $//'`
+   HDSIZE=`disktype /dev/$ONEHD | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
    SELECTIONS="${SELECTIONS} $ONEHD \"${HDINFO}, ${HDSIZE}\""
   done
  ;;
@@ -345,7 +381,7 @@ chmod 755 /tmp/dlg1
 /tmp/dlg1
 [ $? -ne 0 ] && exit
  
-DRVSEL="`cat /tmp/retval`"
+DRVSEL=`cat /tmp/retval`
 [ "$DRVSEL" = "" ] && exit
 
 #old kernel, distinguish between ide and sata...
@@ -354,16 +390,16 @@ if [ -e /proc/ide ];then
  if [ "$SATADRIVES" != "" ];then
   [ "`echo "$SATADRIVES" | grep "$DRVSEL"`" != "" ] && substPATTERN='s/^ata/sata/'
  fi
- PMEDIA="`echo -n "$PMEDIA" | sed -e "$substPATTERN"`"
- FINALPMEDIA="`echo -n "$FINALPMEDIA" | sed -e "$substPATTERN"`"
+ PMEDIA=`echo -n "$PMEDIA" | sed -e "$substPATTERN"`
+ FINALPMEDIA=`echo -n "$FINALPMEDIA" | sed -e "$substPATTERN"`
 fi
 
-DRVINFO="`disktype /dev/$DRVSEL`"
-SUPERFS="`echo "$DRVINFO" | grep "file system" | grep "^[a-zA-Z]" | tr -s " " | cut -f 1 -d " "`"
-DRVSIZE="`echo "$DRVINFO" | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`"
-DRVSIZM="`echo "$DRVSIZE" | cut -f 3 -d " "`"
-[ "`echo "$DRVSIZE" | grep "GiB"`" != "" ] && DRVSIZM="`dc $DRVSIZM 1000 \* p`"
-IDRVSIZM="`echo -n "$DRVSIZM" | cut -f 1 -d '.'`" #truncate to integer.
+DRVINFO=`disktype /dev/$DRVSEL`
+SUPERFS=`echo "$DRVINFO" | grep "file system" | grep "^[a-zA-Z]" | tr -s " " | cut -f 1 -d " "`
+DRVSIZE=`echo "$DRVINFO" | grep "Block device" | cut -f 2 -d ',' | tr -s " " | cut -f 1-4 -d " "`
+DRVSIZM=`echo "$DRVSIZE" | cut -f 3 -d " "`
+[ "`echo "$DRVSIZE" | grep "GiB"`" != "" ] && DRVSIZM=`dc $DRVSIZM 1000 \* p`
+IDRVSIZM=`echo -n "$DRVSIZM" | cut -f 1 -d '.'` #truncate to integer.
 
 DRVMSG=""
 PUPINST=""
@@ -379,10 +415,10 @@ else
  echo "$DRVINFO" |
  while read ONELINE
  do
-  xPARTNUM="`echo "$ONELINE" | grep '^Partition ' | tr -s " " | cut -f 1 -d ':' | cut -f 2 -d " "`"
+  xPARTNUM=`echo "$ONELINE" | grep '^Partition ' | tr -s " " | cut -f 1 -d ':' | cut -f 2 -d " "`
   [ ! "$xPARTNUM" = "" ] && PARTNUM="$xPARTNUM"
-  [ ! "$xPARTNUM" = "" ] && PARTSIZE="`echo "$ONELINE" | cut -f 2 -d ':' | tr -s " " | cut -f 2-3 -d " "`"
-  PARTITIONFS="`echo "$ONELINE" | grep "file system" | cut -f 1 -d " "`"
+  [ ! "$xPARTNUM" = "" ] && PARTSIZE=`echo "$ONELINE" | cut -f 2 -d ':' | tr -s " " | cut -f 2-3 -d " "`
+  PARTITIONFS=`echo "$ONELINE" | grep "file system" | cut -f 1 -d " "`
   if [ "$PARTITIONFS" ];then
    fsfunc $PARTITIONFS #sets FSTYPE.
    #find out if partition has puppy, or has ${DISTRO_FILE_PREFIX}-xxx.sfs file...
@@ -392,11 +428,11 @@ else
    echo "${DRVSEL}${PARTNUM}: ${FSTYPE}, size ${PARTSIZE}${PUPINST}" >> /tmp/pidrvmsg.txt
   fi
  done
- DRVMSG="`cat /tmp/pidrvmsg.txt`"
+ DRVMSG=`cat /tmp/pidrvmsg.txt`
 fi
 
 DLGTXT=""
-CHOICES="`echo "$DRVMSG" | grep ':' | cut -f 1 -d ':' | tr "\n" " "`"
+CHOICES=`echo "$DRVMSG" | grep ':' | cut -f 1 -d ':' | tr "\n" " "`
 for ONECHOICE in $CHOICES
 do
  DLGTXT="$DLGTXT
@@ -491,7 +527,7 @@ $DLGEXT
  </vbox>
 "
 
-RETTXT="`echo "$DLG2" | gtkdialog2 --stdin`"
+RETTXT=`echo "$DLG2" | gtkdialog2 --stdin`
 
 #returns EXIT="Cancel" or EXIT="abort"...
 [ "`echo "$RETTXT" | grep 'EXIT' | grep -E 'Cancel|abort'`" != "" ] && exit
@@ -507,14 +543,14 @@ fi
 #RETTXT="EXIT:sda1", DRVMSG="sda1: vfat, size 122.1 MiB, Puppy version 108 installed" (has all parts fnd)
 
 #sanity check...
-SANITYPART="`echo -n "$RETTXT" | grep 'EXIT' | cut -f 2 -d ':' | cut -f 2 -d '_'`"
-SANITYMNTPT="`mount | grep "/dev/$SANITYPART" | tr -s " " | cut -f 3 -d " "`"
+SANITYPART=`echo -n "$RETTXT" | grep 'EXIT' | cut -f 2 -d ':' | cut -f 2 -d '_'`
+SANITYMNTPT=`mount | grep "/dev/$SANITYPART" | tr -s " " | cut -f 3 -d " "`
 
 if [ ! "$SANITYMNTPT" = "" ];then
  SANITYMSG1="$SANITYPART currently mounted, need to unmount it!!!"
  SANITYMSG2="$SANITYPART currently mounted read-write."
  SANITYMSG3="$SANITYPART does not have ${DISTRO_FILE_PREFIX}save.3fs file in it."
- SANITYRORW="`mount | grep "/$SANITYPART" | tr -s " " | cut -f 6 -d " "`"
+ SANITYRORW=`mount | grep "/$SANITYPART" | tr -s " " | cut -f 6 -d " "`
  [ ! "`echo -n "$SANITYMNTPT" | grep "/initrd/"`" = "" ] && SANITYMSG1="$SANITYPART cannot be unmounted!"
  [ "$SANITYRORW" = "(ro)" ] && SANITYMSG2="$SANITYPART is mounted read-only!"
  [ -f $SANITYMNTPT/${DISTRO_FILE_PREFIX}save.3fs ] && SANITYMSG3="$SANITYPART has personal file ${DISTRO_FILE_PREFIX}save.3fs in it!"
@@ -525,7 +561,7 @@ fi
 if [ ! "`echo "$RETTXT" | grep 'EXIT:REFORMAT'`" = "" ];then
  #RETTXT will have "EXIT:REFORMAT_sda" or "EXIT:REFORMAT_sda1", depending whether
  #we want to format in superfloppy mode or with a MBR and a partition...
- DESTPART="`echo "$RETTXT" | grep 'EXIT:REFORMAT' | cut -f 2 -d ':' | cut -f 2 -d '_'`"
+ DESTPART=`echo "$RETTXT" | grep 'EXIT:REFORMAT' | cut -f 2 -d ':' | cut -f 2 -d '_'`
  if [ "`echo "$DESTPART" | grep "[0-9]$"`" = "" ];then
   #want superfloppy...
   DLG3="
@@ -545,10 +581,10 @@ if [ ! "`echo "$RETTXT" | grep 'EXIT:REFORMAT'`" = "" ];then
   </hbox>
  </vbox>
 "
-  RETTXT="`echo "$DLG3" | gtkdialog2 --stdin`"
+  RETTXT=`echo "$DLG3" | gtkdialog2 --stdin`
 
   [ ! "`echo "$RETTXT" | grep 'abort'`" = "" ] && exit
-  DESTFS="`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`"
+  DESTFS=`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`
   echo '#!/bin/sh' > /tmp/formatsuper.sh
   echo -e "echo -n \"SANITY CHECK: formatting /dev/${DRVSEL}, ENTER to continue or CTRL-C to quit: \""  >> /tmp/formatsuper.sh
   echo 'read mooo'  >> /tmp/formatsuper.sh
@@ -598,8 +634,8 @@ if [ ! "`echo "$RETTXT" | grep 'EXIT:REFORMAT'`" = "" ];then
   </hbox>
  </vbox>
 "
-  RETTXT="`echo "$DLG3" | gtkdialog2 --stdin`"
-  MYACTION="`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`"
+  RETTXT=`echo "$DLG3" | gtkdialog2 --stdin`
+  MYACTION=`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`
   if [ "$MYACTION" = "gparted" ];then
    #w015 if a superfloppy, first need to create a disk label, else gparted is upset...
    if [ "`echo "$DRVMSG" | cut -f 1 -d ':' | grep "[a-zA-Z]$"`" != "" ];then
@@ -615,15 +651,15 @@ if [ ! "`echo "$RETTXT" | grep 'EXIT:REFORMAT'`" = "" ];then
   
  fi
 else
- DESTPART="`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`"
- DESTFS="`echo "$DRVMSG" | grep "$DESTPART" | cut -f 1 -d ',' | tr -s " " | cut -f 2 -d " "`"
- DESTSIZE="`echo "$DRVMSG" | grep "$DESTPART" | tr -s " " | cut -f 4-5 -d " "`"
- DESTSIZM="`echo -n "$DESTSIZE" | cut -f 1 -d " "`"
+ DESTPART=`echo "$RETTXT" | grep 'EXIT:' | cut -f 2 -d ':'`
+ DESTFS=`echo "$DRVMSG" | grep "$DESTPART" | cut -f 1 -d ',' | tr -s " " | cut -f 2 -d " "`
+ DESTSIZE=`echo "$DRVMSG" | grep "$DESTPART" | tr -s " " | cut -f 4-5 -d " "`
+ DESTSIZM=`echo -n "$DESTSIZE" | cut -f 1 -d " "`
  if [ ! "`echo "$DESTSIZE" | grep "GiB"`" = "" ];then
-  DESTSIZM="`dc $DESTSIZM 1000 \* p`"
+  DESTSIZM=`dc $DESTSIZM 1000 \* p`
  fi
- IDESTSIZM="`echo -n "$DESTSIZM" | cut -f 1 -d '.'`" #truncate to integer.
- DESTVER="`echo "$DRVMSG" | grep "$DESTPART" | tr -s " " | grep "installed" | cut -f 8 -d " "`"
+ IDESTSIZM=`echo -n "$DESTSIZM" | cut -f 1 -d '.'` #truncate to integer.
+ DESTVER=`echo "$DRVMSG" | grep "$DESTPART" | tr -s " " | grep "installed" | cut -f 8 -d " "`
 fi
 
 break
@@ -642,7 +678,7 @@ if [ "`echo "$DESTPART" | grep "[0-9]$"`" = "" ];then
   <hbox><button ok></button><button cancel></button></hbox>
  </vbox>
 "
- RETTXT="`echo "$DLG4" | gtkdialog2 --stdin`"
+ RETTXT=`echo "$DLG4" | gtkdialog2 --stdin`
 else
  DLG4="
  <wtitle>Puppy Universal Installer</wtitle>
@@ -652,7 +688,7 @@ else
   <hbox><button ok></button><button cancel></button></hbox>
  </vbox>
 "
- RETTXT="`echo "$DLG4" | gtkdialog2 --stdin`"
+ RETTXT=`echo "$DLG4" | gtkdialog2 --stdin`
 fi
 
 [ ! $? -eq 0 ] && exit
@@ -675,24 +711,24 @@ case $FINALPMEDIA in
   #26mar06 JustGreg fix mbr...
   if [ "`echo "$DESTPART" | grep '[0-9]$'`" != "" ];then #superfloppy mode has no mbr.
    #DESTPART is a partition (not superfloppy).
-   DESTDRV="`echo -n "$DESTPART" | cut -b 1-3`"
-   DESTNUM="`echo -n "$DESTPART" | cut -b 4-5`"
+   DESTDRV=`echo -n "$DESTPART" | cut -b 1-3`
+   DESTNUM=`echo -n "$DESTPART" | cut -b 4-5`
    dd if=/dev/$DESTDRV of=/tmp/mbr446.bin bs=446 count=1
    sync
    
    #v3.95
-   ALPHADUMP="`hexdump -C /tmp/mbr446.bin | cut -f 2 -d '|' | tr '\n' ' ' | tr -d ' '`"
+   ALPHADUMP=`hexdump -C /tmp/mbr446.bin | cut -f 2 -d '|' | tr '\n' ' ' | tr -d ' '`
    #this will be =1 if mbr has 'GRUB' in it, else =0...
-   FLAGGRUB="`echo "$ALPHADUMP" | grep 'GRUB' | wc -l`"
+   FLAGGRUB=`echo "$ALPHADUMP" | grep 'GRUB' | wc -l`
    
    #v3.97 have a case where normal bootable flash vfat pen drive has the
    #string 'GRUB.Geom.HardDisk.Read.Error' in the mbr...
    [ "$FLAGGRUB" = "1" ] && [ "`echo "$ALPHADUMP" | grep 'GRUB.Geom.HardDisk.Read.Error'`" != "" ] && FLAGGRUB="0"
    
    if [ "`hexdump -x /tmp/mbr446.bin | tr -s " " | cut -f 2-9 -d " " | grep '[1-9a-zA-Z]'`" = "" -o "$FLAGGRUB" = "1" ];then
-    MBRCHOICE="`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "The bootstrap loader code is missing from the MBR (Master Boot Record),\nmeaning that the USB drive will not boot. Please choose one of the\nfollowing to fix this. Personally, I have had success with mbr.bin." 0 0 4 sys-nopart.mbr "Bootstrap loader code, created by JustGreg" mbr.bin "From the Syslinux package" mbrfat.bin "From the makebootfat package" spb2_mbr.bin "From spblinux, created by Christian Ostheimer" `"
+    MBRCHOICE=`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "The bootstrap loader code is missing from the MBR (Master Boot Record),\nmeaning that the USB drive will not boot. Please choose one of the\nfollowing to fix this. Personally, I have had success with mbr.bin." 0 0 4 sys-nopart.mbr "Bootstrap loader code, created by JustGreg" mbr.bin "From the Syslinux package" mbrfat.bin "From the makebootfat package" spb2_mbr.bin "From spblinux, created by Christian Ostheimer" `
    else
-    MBRCHOICE="`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "The MBR (Master Boot Record) in the USB drive is probably okay as-is, so choose\nthe first option. However, if you cannot get the drive to boot, and you are\nsure that the BIOS settings are not to blame and the PC is capable of booting\nfrom USB, then try one of these alternative MBRs.\nNote, if you choose to change the MBR, the old first 446 bytes (the\nbootstrap loader part) of the MBR will be backed up to /tmp/oldmbr.bin\nNote, you can install these MBRs directly, without running this\nInstaller program again: they are located in /usr/lib/syslinux,\nand you can use the dd program to copy them.\nExample: dd if=spb2_mbr.bin of=/dev/${DESTDRV}\nNote, personally I have had success with mbr.bin." 0 0 5 default "DO NOTHING, leave current MBR alone" sys-nopart.mbr "Bootstrap loader code, created by JustGreg" mbr.bin "From the Syslinux package" mbrfat.bin "From the makebootfat package" spb2_mbr.bin "From spblinux, created by Christian Ostheimer" `"
+    MBRCHOICE=`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "The MBR (Master Boot Record) in the USB drive is probably okay as-is, so choose\nthe first option. However, if you cannot get the drive to boot, and you are\nsure that the BIOS settings are not to blame and the PC is capable of booting\nfrom USB, then try one of these alternative MBRs.\nNote, if you choose to change the MBR, the old first 446 bytes (the\nbootstrap loader part) of the MBR will be backed up to /tmp/oldmbr.bin\nNote, you can install these MBRs directly, without running this\nInstaller program again: they are located in /usr/lib/syslinux,\nand you can use the dd program to copy them.\nExample: dd if=spb2_mbr.bin of=/dev/${DESTDRV}\nNote, personally I have had success with mbr.bin." 0 0 5 default "DO NOTHING, leave current MBR alone" sys-nopart.mbr "Bootstrap loader code, created by JustGreg" mbr.bin "From the Syslinux package" mbrfat.bin "From the makebootfat package" spb2_mbr.bin "From spblinux, created by Christian Ostheimer" `
    fi
    rm /tmp/mbr446.bin
    if [ ! "$MBRCHOICE" = "" ];then
@@ -722,7 +758,7 @@ Click 'bypass' to bypass GParted..." 0 0
   case $DESTFS in
    vfat)
      if [ ! "`echo "$DESTPART" | grep '[0-9]$'`" = "" ];then
-      PARTCHOICE="`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "Please just accept the default here, 'JUST KEEP GOING'.\nPLEASE MAKE SURE TOP ENTRY HIGHLIGHTED THEN CLICK OK BUTTON\n\nHowever, if you have tried this Puppy Universal Installer\nbut Puppy will not boot, you can try one of the other choices here.\n\nPersonally, I have had success with using GParted to wipe and\nrecreate the partition..." 0 0 4 default "JUST KEEP GOING" GParted "Wipe and recreate USB/IDE-CF partition using GParted" syslinux "Make USB or IDE-CF msdos/vfat partition bootable"`"
+      PARTCHOICE=`Xdialog --wmclass "gtkdialog2" --left --title "Puppy Universal Installer" --no-cancel --stdout --menubox "Please just accept the default here, 'JUST KEEP GOING'.\nPLEASE MAKE SURE TOP ENTRY HIGHLIGHTED THEN CLICK OK BUTTON\n\nHowever, if you have tried this Puppy Universal Installer\nbut Puppy will not boot, you can try one of the other choices here.\n\nPersonally, I have had success with using GParted to wipe and\nrecreate the partition..." 0 0 4 default "JUST KEEP GOING" GParted "Wipe and recreate USB/IDE-CF partition using GParted" syslinux "Make USB or IDE-CF msdos/vfat partition bootable"`
       [ "$PARTCHOICE" = "syslinux" ] && fixusbfunc $DESTPART $DESTFS
       [ "$PARTCHOICE" = "GParted" ] && gpartedfixfunc $DRVSEL
      fi
@@ -732,7 +768,7 @@ DESTPART="$1"
 SRCPATH="$2"
 FINALPMEDIA="$3"
 DISTRO_FILE_PREFIX="$4"
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+PREFIX1CHAR=`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`
 echo "ABSOLUTE FINAL SANITY CHECK!"
 echo "You are about to install Puppy to /dev/$DESTPART, with boot parameter"
 echo "pmedia=$FINALPMEDIA. The files vmlinuz, initrd.gz, ${DISTRO_FILE_PREFIX}-xxx.sfs, syslinux.cfg"
@@ -764,11 +800,11 @@ else
  #well, minimum to get rid of...
  rm -f /mnt/data/image.gz 2> /dev/null
  rm -f /mnt/data/usr_cram.fs 2> /dev/null #old name.
- rm -f /mnt/data/pup_[0-9]*.sfs 2>/dev/null #old name.
- rm -f /mnt/data/${DISTRO_FILE_PREFIX}-*.sfs 2>/dev/null
- rm -f /mnt/data/devx_*.sfs 2>/dev/null
- rm -f /mnt/data/${DISTRO_FILE_PREFIX}z*.sfs 2>/dev/null #old name.
- rm -f /mnt/data/z${PREFIX1CHAR}*.sfs 2>/dev/null
+ rm -f /mnt/data/pup_[0-9]*.sfs 2>$ERR #old name.
+ rm -f /mnt/data/${DISTRO_FILE_PREFIX}-*.sfs 2>$ERR
+ rm -f /mnt/data/devx_*.sfs 2>$ERR
+ rm -f /mnt/data/${DISTRO_FILE_PREFIX}z*.sfs 2>$ERR #old name.
+ rm -f /mnt/data/z${PREFIX1CHAR}*.sfs 2>$ERR
 fi
 sync
 umount /mnt/data
@@ -811,9 +847,9 @@ echo "Copying initrd.gz..."
 cp -f $SRCPATH/initrd.gz /mnt/data/
 sync
 echo "Copying .sfs files..."
-cp -f $SRCPATH/${DISTRO_FILE_PREFIX}-*.sfs /mnt/data/ 2>/dev/null
+cp -f $SRCPATH/${DISTRO_FILE_PREFIX}-*.sfs /mnt/data/ 2>$ERR
 sync
-cp -f $SRCPATH/z${PREFIX1CHAR}*.sfs /mnt/data/ 2>/dev/null
+cp -f $SRCPATH/z${PREFIX1CHAR}*.sfs /mnt/data/ 2>$ERR
 sync
 umount /mnt/data
 echo -n "Finished, press ENTER key to continue: "
@@ -830,7 +866,7 @@ SRCPATH="$2"
 FINALPMEDIA="$3"
 DESTFS="$4"
 DISTRO_FILE_PREFIX="$5"
-PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+PREFIX1CHAR=`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`
 echo "ABSOLUTE FINAL SANITY CHECK!"
 echo "You are about to install Puppy to /dev/$DESTPART, with boot parameter"
 echo "pmedia=$FINALPMEDIA. The files vmlinuz, initrd.gz, ${DISTRO_FILE_PREFIX}-xxx.sfs, extlinux.conf"
@@ -886,10 +922,10 @@ else
  #well, minimum to get rid of...
  rm -f /mnt/data/image.gz 2> /dev/null
  rm -f /mnt/data/usr_cram.fs 2> /dev/null
- rm -f /mnt/data/pup_[0-9]*.sfs 2>/dev/null
- rm -f /mnt/data/${DISTRO_FILE_PREFIX}-*.sfs 2>/dev/null
- rm -f /mnt/data/devx_*.sfs 2>/dev/null
- rm -f /mnt/data/z${PREFIX1CHAR}*.sfs 2>/dev/null
+ rm -f /mnt/data/pup_[0-9]*.sfs 2>$ERR
+ rm -f /mnt/data/${DISTRO_FILE_PREFIX}-*.sfs 2>$ERR
+ rm -f /mnt/data/devx_*.sfs 2>$ERR
+ rm -f /mnt/data/z${PREFIX1CHAR}*.sfs 2>$ERR
 fi
 sync
 echo
@@ -926,8 +962,8 @@ echo "Copying initrd.gz..."
 cp -f $SRCPATH/initrd.gz /mnt/data/
 sync
 echo "Copying .sfs files..."
-cp -f $SRCPATH/${DISTRO_FILE_PREFIX}-*.sfs /mnt/data/ 2>/dev/null
-cp -f $SRCPATH/z${PREFIX1CHAR}*.sfs /mnt/data/ 2>/dev/null
+cp -f $SRCPATH/${DISTRO_FILE_PREFIX}-*.sfs /mnt/data/ 2>$ERR
+cp -f $SRCPATH/z${PREFIX1CHAR}*.sfs /mnt/data/ 2>$ERR
 sync
 umount /mnt/data
 echo -n "Finished, press ENTER key to continue: "
@@ -949,11 +985,11 @@ Click OK to quit..."
   #SRCPATH where to get vmlinuz, initrd, ${DISTRO_FILE_PREFIX}-xxx.sfs, PUPVEROLD is old puppy version in
   #format 200 (without dots) =0 if no prior installed puppy,
   #NEWVER is new puppy version, DESTSIZM is size of dest partition in Mb (real number),
-  DESTMNTPT="`mount | grep "/dev/$DESTPART" | tr -s " " | cut -f 3 -d " "`"
+  DESTMNTPT=`mount | grep "/dev/$DESTPART" | tr -s " " | cut -f 3 -d " "`
   #v2.02 ntfs-3g needs this...
-  #[ "$DESTMNTPT" = "" ] && DESTMNTPT="`ps -e | grep -o ntfs\-3g.* | grep "/dev/$DESTPART" | sed -e 's/[^a-zA-Z0-9/._\-]/ /g' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`"
+  #[ "$DESTMNTPT" = "" ] && DESTMNTPT=`ps -e | grep -o ntfs\-3g.* | grep "/dev/$DESTPART" | sed -e 's/[^a-zA-Z0-9/._\-]/ /g' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
   
-   [ "$DESTMNTPT" = "" ] && DESTMNTPT="`ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$DESTPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`"
+   [ "$DESTMNTPT" = "" ] && DESTMNTPT=`ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$DESTPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
 
   if [ "$DESTMNTPT" = "" ];then
    mkdir /mnt/$DESTPART 2> /dev/null
@@ -1007,7 +1043,7 @@ Click window close box to quit..." 0 0
   fi
 
   #info for creating a grub entry...
-  DRV_TYPE="`echo -n "$DESTPART" | cut -b 1-3`" #ex: hda
+  DRV_TYPE=`echo -n "$DESTPART" | cut -b 1-3` #ex: hda
   GRUB_DRVN=0
   for ONE_TYPE in `fdisk -l | grep "^Disk /dev/" | cut -d' ' -f2 | cut -d':' -f1 | tr '\n' ' '`
   do
@@ -1037,7 +1073,7 @@ path like 'puppyfiles/pup${NEWVER}'. An example that is ok: 'pup${NEWVER}' (of c
 do not type the '). Type a single word consisting of characters and numeric
 digits only, or leave blank if you want to install Puppy at '/'..." 0 0 "puppy${NEWVER}" >/tmp/NEWPSUBDIR
    [ $? -ne 0 ] && exit
-   NEWPSUBDIR="`cat /tmp/NEWPSUBDIR | sed -e 's%/%%g'`"
+   NEWPSUBDIR=`cat /tmp/NEWPSUBDIR | sed -e 's%/%%g'`
    
    yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, copying files to $DESTPART, in folder $NEWPSUBDIR..." &
    XPID=$!
@@ -1050,7 +1086,7 @@ digits only, or leave blank if you want to install Puppy at '/'..." 0 0 "puppy${
    sync
    [ -f $SRCPATH/${ZDRVSFS} ] && cp -f $SRCPATH/${ZDRVSFS} $DESTMNTPT/$NEWPSUBDIR/
    sync
-   FPCAPS="`echo -n "$FINALPMEDIA" | tr [a-z] [A-Z]`"
+   FPCAPS=`echo -n "$FINALPMEDIA" | tr [a-z] [A-Z]`
    touch $DESTMNTPT/$NEWPSUBDIR/$FPCAPS #needed by WakePup
    sync
    kill $XPID
@@ -1121,7 +1157,7 @@ ${grubEXTRAMSG}" 0 0
     if [ $RET_VAL -eq 255 ];then
      rox -D "$DESTMNTPT"
      sync
-     umount $DESTMNTPT 2>/dev/null
+     umount $DESTMNTPT 2>$ERR
      exit
     fi
     if [ $RET_VAL -eq 1 ];then #no
@@ -1139,7 +1175,7 @@ ${grubEXTRAMSG}" 0 0
    sleep 1
    #loop-device mount ${DISTRO_FILE_PREFIX}-xxx.sfs in DESTPART, copy contents of ${DISTRO_FILE_PREFIX}-xxx.sfs to DESTPART...
    SFSPATTERN="^${DISTRO_FILE_PREFIX}-${NEWVER}.*\\.sfs" #v3.01
-   xSFSNAME="`ls -1 $SRCPATH/ | grep "$SFSPATTERN" | head -n 1`" #v3.01
+   xSFSNAME=`ls -1 $SRCPATH/ | grep "$SFSPATTERN" | head -n 1` #v3.01
    #losetup-FULL /dev/loop2 $SRCPATH/${DISTRO_FILE_PREFIX}-$NEWVER.sfs
    losetup-FULL /dev/loop2 $SRCPATH/$xSFSNAME #v3.01
    mkdir $DESTMNTPT/srcmntpt
@@ -1177,8 +1213,8 @@ ${grubEXTRAMSG}" 0 0
     depmod -b $DESTMNTPT
    fi
    
-   mkdir $DESTMNTPT/sys 2>/dev/null
-   rm -f $DESTMNTPT/var/log/modprobes.log 2>/dev/null #v2.13 see /sbin/modprobe script.
+   mkdir $DESTMNTPT/sys 2>$ERR
+   rm -f $DESTMNTPT/var/log/modprobes.log 2>$ERR #v2.13 see /sbin/modprobe script.
    #...not necessary, not using this any more.
    #v3.96 /etc/rc.d/PUPSTATE only has 'PUPMODE=2', add this...
    if [ -e /proc/ide ];then
@@ -1251,7 +1287,7 @@ FOR USB BOOT DISK CHOICE, PLEASE INSERT IT RIGHT NOW BEFORE PROCEEDING!\n\
    if [ $? -eq 0 ];then #BOOT DISK
     BOOTPART=""
     #v3.96...
-    USBDRIVES="`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`"
+    USBDRIVES=`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
     for ONEUSB in $USBDRIVES
     do
      [ "$ATADRIVES" != "" ] && [ "`echo "$ATADRIVES" | grep "$ONEUSB"`" != "" ] && continue #eliminate ide/sata drives. v3.97

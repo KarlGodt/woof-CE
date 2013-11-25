@@ -1,72 +1,212 @@
-#!/bin/sh
+#!/bin/bash
 #Barry Kauler 2005 www.puppylinux.com
 #frontend for XArchive.
 #well, i want this to be a universal archiver frontend for puppy.
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
 
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=''
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version '$Version'";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 PARAMIN="$@"
-echo 'PARAMIN='"$PARAMIN"
-CDIR="`pwd`"
-echo 'CDIR='"$CDIR"
 #note, do not cd to directory this app is located in.
+CDIR=`pwd`
+
+WHOLE_FILE_NAME="$1"
+DIRECTORY_OF_FILE="${WHOLE_FILE_NAME%/*}"
+#[ "$WHOLE_FILE_NAME" = "${WHOLE_FILE_NAME%/*}" ] && DIRECTORY_OF_FILE='.'
+[ "$WHOLE_FILE_NAME" = "${WHOLE_FILE_NAME%/*}" ] && DIRECTORY_OF_FILE="$PWD"
+WFN="$WHOLE_FILE_NAME"
+DOF="$DIRECTORY_OF_FILE"
+
+if [ "$DEBUG" ] ; then
+echo '$0' "$0"
+echo '$1' "$1"
+echo '$@' "$@"
+echo "PARAMIN='$PARAMIN'"
+echo 'CDIR' "$CDIR"
+fi
+
+#checks
+if [ "${0%/*}" = "${1%/*}" ] ; then
+ echo "Not changing into '${0%/*}' . Exiting ."
+ exit 1
+else
+ #cd "$CDIR"
+ [ "$DEBUG" ] || echo "$PWD"
+fi
+[ -f "$WFN" ] || { echo "'$WFN' : Not a regular file. Exiting.";exit 1; }
+
+#VAR_1="\"`echo "$1"`\""
+VAR_1=`echo "$WFN" | sed 's#^#"#; s#$#"#'`
+echo ':'"$VAR_1"':'
+
+old_0(){
 
 #w474
 if [ "`echo -n "$1" | grep '\.delta$'`" != "" ];then
-echo XDELTA
+echo "XDELTA FILE"
  exec xdelta_gui "$1"
 fi
 if [ "`echo -n "$1" | grep '\.bfe$'`" != "" ];then
-echo BCRYPT
+echo "BFEcrypt FILE"
  exec bcrypt_gui "$1"
 fi
+if [ "`echo -n "$1" | grep '\.pet$'`" != "" ];then
+echo "PET FILE"
+ exec petget "$1"
+fi
+}
 
+  if [[ "$1" =~ '.delta$' ]];then exe=xdelta_gui
+elif [[ "$1" =~ '.bfe$' ]] ; then exe=bcrypt_gui
+elif [[ "$1" =~ '.pet$' ]] ; then exe=petget
+elif [ "`echo "$1" |grep -E '\.bz2$|\.gz$|\.Z$|\.lzo$|\.lzma$|\.xz$'`" ];then
+  if [[ ! "$1" =~ '.tar.' ]];then
+   case "${1##*\.}" in
+   gz) exe=gunzip;;
+   bz2)exe=bunzip2;;
+   lzo)exe=lzop;OPT=-d;;
+   lzma)exe=lzma;OPT=-d;;
+   xz) exe=xz;OPT=-d;;
+   Z)  exe=uncompress;;
+   esac
+  fi
+fi
+
+if [ "$exe" ];then
+#which "$exe" || { xmessage -bg red "'$exe' not installed (in PATH) ";exit 1; }
+type "$exe" || { xmessage -bg red "'$exe' not installed (in PATH) ";exit 1; }
+
+ case "$exe" in
+ xdelta_gui|bcrypt_gui|petget)
+ exec "$exe" "$1";;
+ *)
+ xmessage -buttons "Yes:101,No:105" "Do you want to decompress
+$VAR_1 ?
+"
+ A="$?"
+ [ "$A" -eq 105 ] && { xmessage -timeout 6 "Not done. ";exit 0; }
+ #alt to xmessage :    yaf-splash -timeout 6 -text "Not done."
+ if [ "$A" -eq 101 ] ; then
+ [ "$exe" = 'lzop' ] || { cp "$1" "${DOF}"/tmp-"${1##*/}";RV=$?; }
+ "$exe" $OPT "$1" ;RV=$((RV+$?))
+ sync
+ [ "$exe" = 'lzop' ] || { mv "${DOF}"/tmp-"${1##*/}" "$1";RV=$((RV+$?)); }
+ exit $RV
+ fi #xmessage
+ ;;
+ esac
+
+fi # exe
+
+##simple .lz extension:
+if [ "`echo "$1" |grep '\.lz$'`" ];then
+ cp "$1" "${DOF}"/tmp-"${1##*/}"
+ lzma -S .lz -d "$1"
+ if [ $? = 0 ] ; then
+ mv "${DOF}"/tmp-"${1##*/}" "$1"
+ else
+  lzop -S.lz -d "$1"
+  rm "${DOF}"/tmp-"${1##*/}"
+ fi
+ exit $?
+fi
+
+
+old(){
 #v2.11 G2 has suggested this...
-if [ "`echo "$1" | grep -i '\.gz$'`" != "" ];then
-echo 'GZ'
-   if [ "`echo "$1" | grep -i '\.tar\.gz$'`" = "" ];then
-   echo 'NO TARGZ'
-      ##xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress $1 ?
-        xmessage -buttons "Yes,No" "Do you want to decompress $1 ?
-(it will decompress in current location
- and the original file will be deleted)"
-      [ $? -eq 101 ] || exit
+if [[ "`echo "$1" | grep -i '\.gz$'`" != "" ]] ;then
+echo GZ FILE
+   if [[ "`echo "$1" | grep -i '\.tar\.gz$'`" = "" ]] ;then
+   echo NOT TAR-GZ FILE;
+   ## xmessage -buttons "Yes:101,No:105" -nearmouse
+xmessage -buttons "Yes:101,No:105" "Do you want to decompress
+  $VAR_1 ?
+"
+#(it will decompress in current location
+#and the original file will be deleted)";
+	#[[ "$?" -eq 101 ]] || exit
+	A="$?"
+	[[ "$A" -eq 105 ]] && xmessage "Not done " && exit 0
+	if [[ "$A" -eq 101 ]];then
+	  cp "$1" "${1%/*}"/tmp-"${1##*/}"
       gunzip "$1"
-      sync
-      exit
+      #sync
+      sleep 5
+      mv "${1%/*}"/tmp-"${1##*/}" "$1"
+      exit $?
+    fi
+    if [ "$A" -ne "101" -a "$A" -ne "105" ]; then ## [[ would not run with -a
+     xmessage "Pressed button $?"
+      exit 0
+      fi
    fi
 fi
 
 #also this...
 if [ "`echo "$1" | grep -i '\.bz2$'`" != "" ] ;then
-echo 'BZ2'
+echo BZIP2 FILE
    if [ "`echo "$1" | grep -i '\.tar\.bz2$'`" = "" ] ;then
-   echo 'NO TARBZ2'
-      xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress $1 ?
-(it will decompress in current location
- and the original file will be deleted)"
-      [ $? -eq 101 ] || exit
+   echo NOT TAR-BZIP2 FILE;
+   #F=/mnt/hdb9/Kernels/2.6.33/2.6.33.7/linux-2.6.33.7/Documentation/kernel-parameters.txt
+      xmessage -buttons "Yes:101,No:105" -nearmouse "Do you want to decompress "$VAR_1" ?
+"
+#(it will decompress in current location
+# and the original file will be deleted)";
+      [ "$?" -eq 101 ] || exit
+      cp "$1" "${1%/*}"/tmp-"${1##*/}"
       xmessage "Uncompressing, please wait..." &
-      UPID=$!
+      UPID="$!"
       bunzip2 "$1"
       sync
-      kill $UPID
+      kill "$UPID"
+      mv "${1%/*}"/tmp-"${1##*/}" "$1"
       exit
    fi
 fi
-
+}
 
 #in order of preference...
-if [ ! "`which xarchive`" = "" ];then
-echo XARCHIVE IS THERE
+if [ ! "`type xarchive`" = "" ];then
+echo XARCHIVE FILE
  XARCHIVE="xarchive"
 else
- if [ ! "`which TkZip`" = "" ];then
+ if [ ! "`type TkZip`" = "" ];then
+ echo TKZIP FILE
   XARCHIVE="TkZip"
  else
-  if [ ! "`which guitar`" = "" ];then
+  if [ ! "`type guitar`" = "" ];then
+  echo GUITAR FILE
    XARCHIVE="guitar"
   else
+  echo ERROR
    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
 Please install XArchive."
   fi
@@ -75,20 +215,20 @@ fi
 
 #the full alternatives, dotpups by GuestToo...
 DPKGDEB="dpkg-deb"
-[ ! "`which dpkg-deb2`" = "" ] && DPKGDEB="dpkg-deb2"
-#RPM2CPIO="rpm2cpio2"  ##BUG
-#1.0.7a: xarchive - gz, rpm, deb by GuestToo Puppy Master Mon 12 Dec 2005, 03:42 
-#http://208.109.22.214/puppy/viewtopic.php?t=4577&sid=1a697fb27e2f9301f269eaf64da53d8b
+#[ ! "`which dpkg-deb2`" = "" ] && echo $LINENO && DPKGDEB="dpkg-deb2"
+[ "`type -path dpkg-deb2`" ] && DPKGDEB="dpkg-deb2"
 RPM2CPIO="rpm2cpio"
-[ ! "`which rpm2cpio2`" = "" ] && RPM2CPIO="rpm2cpio2"
+#[ ! "`which rpm2cpio2`" = "" ] && echo $LINENO && RPM2CPIO="rpm2cpio2"
+[ "`type -path rpm2cpio2`" ] && RPM2CPIO="rpm2cpio2"
 
 if [ "$PARAMIN" = "" ];then
-echo "$PARAMIN is EMPTY starting now XARCHIVE"
  #just start xarchive...
+ echo "NO PARAMIN '$PARAMIN' : starting XARCHIVE"
  exec $XARCHIVE
 fi
 
 if [ "$XARCHIVE" = "xarchive" ];then
+echo "XARCHIVE='$XARCHIVE'"
  MSGE="Drag and drop invocation of XArchive is achieved by dragging any file or
 directory the \"pupzip\" icon on the desktop. If you drag one of the
 recognised archived files, such as .tar.gz, .rpm, .deb, .zip, .tar.bz2,
@@ -97,12 +237,14 @@ it. If you drag an ordinary file to the desktop icon, such as for example
 \"myfile.txt\", a XArchive will popup a dialog asking if you want to add
 it to an existing archive or create a new one."
 else
+echo "$0:$LINENO: somethingelse"
  MSGE="There is support for drag-and-drop of archive files to the desktop icon,
-however not for files and directories -- for that you need to have 
+however not for files and directories -- for that you need to have
 XArchiver installed, the preferred archiver program for Puppy."
 fi
 
 if [ "$PARAMIN" = "--help" ];then
+echo "PARAMIN is HELP"
  xmessage -bg "orange" -center -title "PupZip: help" "
 This is a frontend to $XARCHIVE, which in turn is a frontend to the
 archiver utilities in Puppy (such as gzip, bzip2, dpkg, rpm, zip).
@@ -117,42 +259,43 @@ by right-clicking on a file or directory."
 fi
 
 
-ARCHIVEFILE="`echo -n "$PARAMIN" | grep -i -E '\.tar|\.bz|\.gz|\.rpm|\.deb|\.zip|\.tgz|\.tbz' | grep -v '\\\.'`"
-##echo 'NORMFILE='"$NORMFILE"
-echo 'ARCHIVEFILE='"$ARCHIVEFILE"
-##if [ "$NORMFILE" != "" ];then  ##`
-if [ "$ARCHIVEFILE" != "" ];then 
+#NORMFILE=`echo -n "$PARAMIN" | grep -iv "\\.tar" | grep -iv "\\.bz" | grep -iv "\\.gz" | grep -iv "\\.rpm" | grep -iv "\\.deb" | grep -iv "\\.zip" | grep -iv "\\.tgz" | grep -iv "\\.tbz"`
+NORMFILE=`echo "$PARAMIN" | grep -iEv '\.tar$|\.tar\.|\.bz2$|\.gz$|\.rpm$|\.deb$|\.zip$|\.tgz$|\.tbz$|\.txz$|\.lzo$|\.lzma$|\.xz$|\.Z$|\.rar$'`
+echo "NORMFILE='$NORMFILE'"
+if [ "$NORMFILE" = "" ];then
  #it is an archive file...
- 
+ echo NORMFILE is empty
  #get absolute path of file...
- if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then  ##11
+ if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then
   FULLSPEC="$PARAMIN"
- else  ##11
+ else
   #relative path...
-  if [ "$CDIR" = "/" ];then  ##111
+  if [ "$CDIR" = "/" ];then
    FULLSPEC="/$PARAMIN"
-  else  ##111
+  else
    FULLSPEC="$CDIR/$PARAMIN"
-  fi  ##111
- fi ##11
- echo 'FULLSPEC='"$FULLSPEC"
+  fi
+ fi
+echo "FULLSPEC='$FULLSPEC'"
  #busybox applets are not adequate for handling rpm, deb...
- AFILE="`basename "$PARAMIN"`"
- echo 'AFILE='"$AFILE"
- if [ "`echo -n "$AFILE" | grep '\.'`" = "" ];then  ##11
+ AFILE=`basename "$PARAMIN"`
+ if [ "`echo -n "$AFILE" | grep '\.'`" = "" ];then
   #file has no extension, so treat as ordinary file...
-  if [ "$XARCHIVE" = "xarchive" ];then  ##111
+  if [ "$XARCHIVE" = "xarchive" ];then
+  echo "$0: $LINENO about to exec
+ '$XARCHIVE' --add=ask '$PARAMIN'"
    exec xarchive --add=ask "$PARAMIN"
-  else  ###111
+  else
    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
-  fi  ###111
- else  ##11
+  fi
+ else
   AEXT="$AFILE"
-  echo 'AEXT='"$AEXT"
   while [ ! "`echo -n "$AEXT" | grep '\.'`" = "" ];do
-   AEXT="`echo -n "$AEXT" | cut -f 2-6 -d '.'`"
+   AEXT=`echo -n "$AEXT" | cut -f 2-6 -d '.'`
   done
- fi  ##11
+ fi
+ echo "AFILE='$AFILE'"
+ echo "AEXT='$AEXT'"
  #drops here with AEXT=extension.
  case $AEXT in
   rpm|RPM)
@@ -190,16 +333,16 @@ RPM extraction program, that PupZip will automatically use if present."
 #   exit
 #   ;;
  esac
- 
- echo "NOW ABOUT TO EXEC XARCHIVE $XARCHIVE $PARAMIN"
+ echo "$0: $LINENO about to exec
+ '$XARCHIVE' '$PARAMIN'"
+ export PARAMIN
  exec $XARCHIVE "$PARAMIN"
-else  ##1
- if [ "$XARCHIVE" = "xarchive" ];then  ##11
- echo  "Now about starting xarchive --add=ask NORMFILE=$NORMFILE"
+else
+ if [ "$XARCHIVE" = "xarchive" ];then
   exec xarchive --add=ask "$NORMFILE"
- else  ##11
+ else
   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
- fi  ##11
-fi  ##1
+ fi
+fi
 
 ###END###

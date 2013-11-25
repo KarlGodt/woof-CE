@@ -10,10 +10,57 @@
 #w007 path fix for Xorg.
 #w481 warning if modules cannot be loaded.
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+PROG='/usr/sbin/delayedrun'
+
+
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE
 
-KERNVER="`uname -r`" #w481
+KERNVER=`uname -r` #w481
+
+PCICLASS=`cat /sys/bus/pci/devices/*/class`
+if [ "`echo $PCICLASS | grep '0x0c0320'`" != "" ] && [ "`lsmod | grep 'ehci_hcd'`" = "" ] ;then modprobe ehci-hcd
+ [ $? -eq 0 ] && sleep 2
+fi
+[ "`echo $PCICLASS | grep '0x0c0310'`" != "" ] && [ "`lsmod | grep 'ohci_hcd'`" == "" ] && modprobe ohci_hcd
+[ "`echo $PCICLASS | grep '0x0c0300'`" != "" ] && [ "`lsmod | grep 'uhci_hcd'`" == "" ] && modprobe uhci_hcd
+
 
 BAREVIEW="bareview"
 [ "`which bareview`" = "" ] && BAREVIEW="defaulthtmlviewer"
@@ -21,13 +68,13 @@ BAREVIEW="bareview"
 sleep 2 #let the dust settle first.
 
 #w002 this goes into the tray. eggtray gtk app written by mu...
-CURRPS="`ps`"
+CURRPS=`ps`
 [ "`echo "$CURRPS" | grep -E 'lxpanel|fbpanel'`" != "" ] && freememappletd
 
+if [ $PUPMODE -eq 5 ];then
 #offer to popup a getting-started html page...
 #the test for /etc/videomode is for when Xvesa has finished choosing a resolution...
-if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
- if [ $PUPMODE -eq 5 ];then
+ if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
   if [ "`ls -1 /lib/modules/${KERNVER}/modules.* 2>/dev/null`" = "" ];then #w481
    #thistle is a very light purple...
    yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information. WARNING: all required kernel modules were not loaded due to restricted RAM. You need to reboot to create a save-file on the hard drive and/or you need a swap file/partition to obtain more space. If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." &
@@ -50,12 +97,12 @@ if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
     RETAPLAY=$?
     PIDAPLAY=$!
    fi
-   $BAREVIEW file:///usr/share/doc/welcome1stboot.htm
+   $BAREVIEW file:///usr/share/doc/welcome1stboot.htm &
    #[ $RETAPLAY -eq 0 ] && kill $PIDAPLAY 2> /dev/null
    [ "`pidof aplay`" != "" ] && killall aplay
    break
   done
-  [ $RETVALs -eq 0 ] && kill $YAFPIDs 2>/dev/null
+  [ $RETVALs -eq 0 ] && kill $YAFPIDs 2>$ERR
  fi
 fi
 
@@ -87,14 +134,19 @@ fi
 
 #v2.17 suggested by andrei...
 
-if [ -d /root/Startup ];then
-find /root/Startup -type d -exec chmod 0660 {} \;
- for a in /root/Startup/*
+if [ -d $HOME/Startup ];then
+ #EXEF=`ls /root/Startup | grep -v -i 'Readme'`
+ # cd $HOME/Startup
+ for a in $HOME/Startup/* #### $EXEF
  do
-  [ -f "$a" -a -x "$a" ] && exec $a &
+  [ -f "$a" -a -x "$a" ] && echo "Starting $a" && exec $a &   #### $HOME/Startup/$a
   sleep 1
  done
 fi
-
-
+#cd $HOME
+if [ "$PROG" != "$0" ] ; then
+return
+else
+exit
+fi
 ###END###
