@@ -1,0 +1,153 @@
+#!/bin/bash
+#
+# Code updated for Puppy 1.0.9, JWM 1.7
+# by Kwiller on 5-May-2006
+#
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.37.4-KRG-i486-StagingDrivers-2
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·sda·'
+# Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686·GNU/Linux
+# X·Window·System·Version·1.3.0
+# Release·Date:·19·April·2007
+# X·Protocol·Version·11,·Revision·0,·Release·1.3
+# Build·Operating·System:·UNKNOWN·
+# Current·Operating·System:·Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686
+# Build·Date:·28·November·2007
+# $LANG=de_DE@euro
+# today=So·30.·Okt·12:50:17·GMT+1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+##-----DesktopCount Config----->>
+PRO="/virtualDesk"
+SCRIPT_DIR="/usr/local/jwmconfig3"
+. "$SCRIPT_DIR"/path
+
+#-----Backup current settings----->>
+. "$SCRIPT_DIR"/func -backup2
+
+#----Check for current settings---->>
+SET_ON=`grep -c "$DC" "$PersonalFile"`
+
+#----Set choice outside of range----->>
+CHOICE=0
+
+#----------dialogue-------->>
+
+#--- loop until choice is in range 1 to 8 ---->>
+while [ "$CHOICE" -lt "$MINTOPS" -o "$CHOICE" -gt "$MAXTOPS" ]
+do
+  Xdialog --title "Virtual Desktops" \
+          --inputbox "Specify your desired number of virtual desktops (1 - 8)" 0 0 2> "$TmpIB"
+
+  retval=$?
+
+#--------cancel pressed------->>
+. "$SCRIPT_DIR"/func -cancel
+
+#-------preparation----------->>
+
+  CHOICE=`cat "$TmpIB" | tail -n1 | sed 's/[^0-9]//g'`
+  ##+2011_10_30 added tail -n1 , sed unwanted things out
+  if [ -z "$CHOICE" ]; then
+     CHOICE=1
+  fi
+done
+echo CHOICE="$CHOICE"
+
+if [ "$SET_ON" -eq "1" ]
+then
+#-----If there are current settings change them----->>
+
+  if [ "$JWM_VERSION" -lt 499 ]; then  ##+++2013-11-26 add version check
+
+  SEDCOUNT=s!count=\"[0-9][0-9]*\"!count=\"${CHOICE}\"!g
+
+  else
+
+  SEDCOUNT='s!^<Desktops width="[0-9]*" height="[0-9]*"/>!<Desktops width="'${CHOICE}'" height="1"/>!'
+B_SEDCOUNT='s!<Desktops width="[0-9][0-9]*" height="[0-9][0-9]*"/>!<Desktops width="'${CHOICE}'" height="1"/>!'
+  #SEDCOUNT='s%^<Desktops width=\"[0-9]*\" height=\"[0-9]*\"/>%<Desktops width=\"'${CHOICE}'\" height=\"1\"/>%g'
+
+  #SEDCOUNT=s!^<Desktops width=\"[0-9]*\" height=\"[0-9]*\"/>!<Desktops width=\"${CHOICE}\" height=\"1\"/>!g
+
+  #SEDCOUNT='s!^\<Desktops width=\"[0-9]*\" height=\"[0-9]*\"\/\>!\<Desktops width=\"'${CHOICE}'\" height=\"1\"\/\>!'
+
+  fi
+
+  echo "$SEDCOUNT" "$PersonalFile" "$PersonalFileTmp"
+  echo quatsch
+  grep '^<Desktops width=' "$hoMe/.jwm/jwmrc-personal" | sed "$SEDCOUNT"
+
+            sed -e "$SEDCOUNT" "$PersonalFile" > "$PersonalFileTmp"
+  #LC_ALL=C sed -e "$SEDCOUNT"    "$PersonalFile" > "$PersonalFileTmp"
+
+  #sed 's%^<Desktops width=".*%<Desktops width="'$CHOICE'" height="1"/>%' "$PersonalFile" > "$PersonalFileTmp"
+
+else
+#-----If there are no current settings add the new one---->>
+  echo else
+  echo "  " > "$TmpIB"
+  echo '<!-- Number of virtual desktops -->' >> "$TmpIB"
+  if [ "$JWM_VERSION" -lt 499 ]; then
+  echo "<Desktops count=\"${CHOICE}\"/>" >> "$TmpIB"
+  else
+  echo "<Desktops width=\"${CHOICE}\" height=\"1\"/>" >> "$TmpIB"
+  fi
+  echo "/<JWM>/r $TmpIB" "$PersonalFile" "$PersonalFileTmp"
+  sed -e "/<JWM>/r $TmpIB" "$PersonalFile" > "$PersonalFileTmp"
+
+fi
+
+#---------save changes----->>
+
+#echo 'temp file :'
+#echo "$PersonalFileTmp"
+#cat "$PersonalFileTmp"
+#echo "$PersonalFileTmp"
+mv "$PersonalFileTmp" "$PersonalFile"
+#echo 'pers file :'
+#echo "$PersonalFile"
+#cat "$PersonalFile"
+#echo "$PersonalFile"
+
+#------check new configuration----->>
+
+. "$SCRIPT_DIR"/func -checkconf
+
+#----notify of result----->>
+if [ "$JWM_VERSION" -lt 499 ]; then
+RES=`grep -c "Desktops count=\"$CHOICE\"/>" "$PersonalFile"`
+else
+RES=`grep -c "Desktops width=\"$CHOICE\"" "$PersonalFile"`
+fi
+PATTERN="virtual desktops"
+PF=1
+. "$SCRIPT_DIR"/func -notify
+
+#--------clean exit------->>
+rm -f "$TmpIB"
+exit 0
