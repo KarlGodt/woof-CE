@@ -1,0 +1,428 @@
+#!/bin/sh
+
+####################################
+#
+# A JWM panel button configuring tool
+# for jwmconfig
+# 2006-NOV-05
+# by plinej
+#
+#####################################
+
+if [ "`ls /root/.jwmrc-tray-bak`" = "" ]; then
+cp /root/.jwmrc-tray /root/.jwmrc-tray-bak  ### makes .jwmrc-tray-bak backup file unless it already exists
+fi
+cat /root/.jwmrc-tray | sed '/^$/d' > /tmp/.jwmrc-tray  ### remove all blank lines in .jwmrc-tray
+mv /tmp/.jwmrc-tray /root/
+
+total=`wc -l /root/.jwmrc-tray | sed -e 's/ *//' | sed -e 's/ .*//g'` ### get total number of lines
+low=`grep '<TrayButton label="Menu"'  -n /root/.jwmrc-tray | sed -e 's/\:.*>//g'`  ### get line number with the Menu button
+high=`grep '<!-- Additional Pager attributes; width, height -->' -n /root/.jwmrc-tray | sed -e 's/\:.*>//g'` ### get line number with Additional Pager
+last=`echo "(("$total" - "$high" + 2))" | bc -l` 
+begin=`echo "(("$low" + 1))" | bc -l` ### first line with panel buttons
+#end=`echo "(("$high" - 1))" | bc -l` ### last line with panel buttons
+
+cat /root/.jwmrc-tray | head -n "$low" > /tmp/jwmrc-tray-1.txt
+cat /root/.jwmrc-tray | tail -n "$last" > /tmp/jwmrc-tray-3.txt
+
+num=1
+
+### xdialog radiolist gui
+Xdialog --backtitle "" \
+	--title "RADIOLIST BOX" \
+        --radiolist "JWM panel button configuring tool." 26 46 5 \
+        "Edit" "Edit your existing Panel Buttons" ON \
+        "Add" "Add a panel button" off \
+        "Move" "Move panel buttons around" off \
+	"Remove" "Remove a panel button" off\
+        "Restore" "Restore original .jwmrc-tray" off \
+        "Backup" "Backup your current .jwmrc-tray" off \
+	"Exit" "Exit this program" off 2>/tmp/checklist.tmp.$$
+
+retval=$?
+choice=`cat /tmp/checklist.tmp.$$`
+rm -f /tmp/checklist.tmp.$$
+
+case $retval in
+  0)
+    echo "'$choice' chosen.";;
+  1)
+    echo "Cancel pressed.";;
+  255)
+    echo "Box closed.";;
+esac
+
+if [ "$retval" != 0 ]; then
+exit 0
+fi
+
+if [ "$choice" = Backup ]; then
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "This will backup your current
+	     .jwmrc-tray and will be the version
+	     that gets restored if you choose restore." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+cp /root/.jwmrc-tray /root/.jwmrc-tray-bak
+exit 0
+fi
+
+if [ "$choice" = Exit ]; then
+exit 0
+fi
+
+if [ "$choice" = Edit ]; then
+
+while [ "$begin" != "$high" ]; do
+
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//' | sed -e 's/\".*//' | sed 's/^[ \t]*//' > /tmp/tmp-popup.txt  ### gets popup text
+popup=`cat /tmp/tmp-popup.txt`
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//' | sed -e "s/$popup//" | sed -e 's/" icon="//' | sed -e 's/\".*//' | sed 's/^[ \t]*//' > /tmp/tmp-icon.txt  ### gets icon text
+icon=`cat /tmp/tmp-icon.txt`
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed 's/\<.*\"//g' | sed -e 's/<\/TrayButton>//' | sed -e 's/<>//' | sed 's/^[ \t]*//' > /tmp/tmp-exec.txt  ### gets executable text
+#action=`cat /tmp/tmp-exec.txt`
+
+### This is the Edit gui
+export JWM_Panel_Button_Editor="
+<vbox>
+ <frame Button $num Information - edit as you wish>
+  <hbox>
+      <text><label>Popup display</label></text>
+      <entry>
+    <variable>Entry1</variable>
+    <input>cat /tmp/tmp-popup.txt</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>executable</label></text>
+      <entry>
+    <variable>Entry3</variable>
+    <input>cat /tmp/tmp-exec.txt</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>Icon name</label></text>
+      <entry>
+    <variable>Entry2</variable>
+    <input>cat /tmp/tmp-icon.txt</input>
+    </entry>
+    <button>
+      <input file>/usr/local/lib/X11/mini-icons/dir_o.xpm</input>
+      <action>./file-selector</action>
+      <action>refresh:Entry2</action>
+    </button>
+  </hbox>
+ </frame>
+  <hbox>
+   <button ok>
+	<action>echo \$Entry1 | tee /tmp/tmp-popup-$num.txt</action>
+	<action>echo \$Entry2 | tee /tmp/tmp-icon-$num.txt</action>
+	<action>echo \$Entry3 | tee /tmp/tmp-exec-$num.txt</action>
+	<action type=\"exit\">EXIT</action>
+   </button>
+  </hbox>
+</vbox>"
+
+##------------run------------->>
+gtkdialog3 --program JWM_Panel_Button_Editor
+
+##----------cleanup------------>>
+unset JWM_Panel_Button_Editor
+
+#clear
+
+new_line=`echo \<TrayButton popup\=\"``cat /tmp/tmp-popup-$num.txt``echo \" icon\=\"``cat /tmp/tmp-icon-$num.txt``echo \"\>``cat /tmp/tmp-exec-$num.txt``echo \</TrayButton\>`  ### builds replacement line for .jwmrc-tray
+echo "$new_line" >> /tmp/jwmrc-tray-2.txt
+
+begin=`echo "(("$begin" + 1))" | bc -l`
+num=`echo "(("$num" + 1))" | bc -l`
+
+
+shift
+done
+
+cat /tmp/jwmrc-tray-2.txt >> /tmp/jwmrc-tray-1.txt
+cat /tmp/jwmrc-tray-3.txt >> /tmp/jwmrc-tray-1.txt
+mv /tmp/jwmrc-tray-1.txt /root/.jwmrc-tray
+
+rm -f /tmp/jwmrc-tray-*
+rm -f /tmp/tmp-popup*.txt
+rm -f /tmp/tmp-icon*.txt
+rm -r /tmp/tmp-exec*.txt
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Editing complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+fi
+
+if [ "$choice" = Restore ]; then
+
+mv /root/.jwmrc-tray-bak /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Your original .jwmrc-tray
+        file has been restored.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+fi
+
+if [ "$choice" = Add ]; then
+while [ "$begin" != "$high" ]; do
+cat /root/.jwmrc-tray | sed -n ""$begin"p" >> /tmp/jwmrc-tray-panel.txt
+begin=`echo "(("$begin" + 1))" | bc -l`
+shift
+done
+
+### This is the Add gui
+export JWM_Panel_Button_Add="
+<vbox>
+ <frame Button Add>
+  <hbox>
+      <text><label>Popup display</label></text>
+      <entry>
+    <variable>Entry1</variable>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>executable</label></text>
+      <entry>
+    <variable>Entry3</variable>
+    <input>echo exec:</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>Select icon</label></text>
+      <entry>
+    <variable>Entry2</variable>
+    <input>cat /tmp/tmp-icon.txt</input>
+    </entry>
+    <button>
+      <input file>/usr/local/lib/X11/mini-icons/dir_o.xpm</input>
+      <action>./file-selector</action>
+      <action>refresh:Entry2</action>
+    </button>
+  </hbox>
+  </frame>
+  <hbox>
+   <button ok>
+	<action>echo \$Entry1 | tee /tmp/tmp-popup.txt</action>
+	<action>echo \$Entry3 | tee /tmp/tmp-exec.txt</action>
+	<action type=\"exit\">EXIT</action>
+   </button>
+  </hbox>
+</vbox>"
+
+##------------run------------->>
+gtkdialog3 --program JWM_Panel_Button_Add
+
+##----------cleanup------------>>
+unset JWM_Panel_Button_Add
+
+new_line=`echo \<TrayButton popup\=\"``cat /tmp/tmp-popup.txt``echo \" icon\=\"``cat /tmp/tmp-icon.txt``echo \"\>``cat /tmp/tmp-exec.txt``echo \</TrayButton\>`  ### builds new line for .jwmrc-tray
+echo "$new_line" >> /tmp/jwmrc-tray-panel.txt
+
+cat /tmp/jwmrc-tray-panel.txt >> /tmp/jwmrc-tray-1.txt
+cat /tmp/jwmrc-tray-3.txt >> /tmp/jwmrc-tray-1.txt
+mv /tmp/jwmrc-tray-1.txt /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Adding complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+rm -f /tmp/jwmrc-tray-*
+rm -f /tmp/tmp-popup.txt
+rm -f /tmp/tmp-icon.txt
+rm -r /tmp/tmp-exec.txt
+
+fi
+
+
+
+
+if [ "$choice" = Remove ]; then
+
+y=1
+z=`echo "(("$high" - "$begin"))" | bc -l`
+while [ "$begin" != "$high" ]; do
+
+Xdialog --backtitle "Remove panel buttons" \
+	--title "RADIOLIST BOX" \
+        --radiolist "Would you like to delete `cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//g' | sed -e 's/\".*//g' | sed 's/^[ \t]*//'`\n\
+from the panel? If you want to delete it choose\n\
+yes, otherwise choose no." 26 46 5 \
+        "no"    "no do not delete this button" ON \
+        "yes" "yes delete this button" off 2>/tmp/checklist.tmp.$$
+
+retval=$?
+choice=`cat /tmp/checklist.tmp.$$`
+rm -f /tmp/checklist.tmp.$$
+
+case $retval in
+  0)
+    echo "'$choice' chosen.";;
+  1)
+    echo "Cancel pressed.";;
+  255)
+    echo "Box closed.";;
+esac
+
+if [ "$choice" = no ]; then
+cat /root/.jwmrc-tray | sed -n ""$begin"p" >> /tmp/jwmrc-tray-1.txt
+fi
+begin=`echo "(("$begin" + 1))" | bc -l`
+y=`echo "(("$y" + 1))" | bc -l`
+
+shift
+done
+
+cat /tmp/jwmrc-tray-3.txt >> /tmp/jwmrc-tray-1.txt
+mv /tmp/jwmrc-tray-1.txt /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Removing complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+fi
+
+if [ "$choice" = Move ]; then
+y=1
+z=`echo "(("$high" - "$begin"))" | bc -l`
+while [ "$begin" != "$high" ]; do
+cat /root/.jwmrc-tray | sed -n ""$begin"p" >> /tmp/jwmrc-tray-panel-"$y".txt
+
+Xdialog --title "INPUT BOX" \
+        --inputbox "`cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//g' | sed -e 's/\".*//g' | sed 's/^[ \t]*//'` is button $y of your $z buttons.\n\
+\n\
+If you would like that button in another\n\
+position please enter the number below." 18 45 2> /tmp/inputbox.tmp.$$
+
+retval=$?
+input=`cat /tmp/inputbox.tmp.$$`
+rm -f /tmp/inputbox.tmp.$$
+
+case $retval in
+  0)
+    echo "Input string is '$input'";;
+  1)
+    echo "Cancel pressed.";;
+  255)
+    echo "Box closed.";;
+esac
+
+if [ "$retval" != 0 ]; then
+exit 0
+fi
+
+if [ "$input" != "" ]; then
+
+if [ "`ls /tmp/jwmrc-tray-tmp-"$input".txt`" = /tmp/jwmrc-tray-tmp-"$input".txt ]; then
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Position "$input"
+	     has already been selected.
+	     you must now start over." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+rm -f /tmp/jwmrc-tray*
+exit 0
+
+fi
+
+mv /tmp/jwmrc-tray-panel-"$y".txt /tmp/jwmrc-tray-tmp-"$input".txt
+
+else
+
+if [ "`ls /tmp/jwmrc-tray-tmp-"$y".txt`" = /tmp/jwmrc-tray-tmp-"$y".txt ]; then
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Position "$y"
+	     has already been selected.
+	     You must now start over." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+rm -f /tmp/jwmrc-tray*
+exit 0
+
+fi
+
+mv /tmp/jwmrc-tray-panel-"$y".txt /tmp/jwmrc-tray-tmp-"$y".txt
+
+fi
+
+begin=`echo "(("$begin" + 1))" | bc -l`
+y=`echo "(("$y" + 1))" | bc -l`
+shift
+done
+
+cat /tmp/jwmrc-tray-tmp-* >> /tmp/jwmrc-tray-1.txt
+cat /tmp/jwmrc-tray-3.txt >> /tmp/jwmrc-tray-1.txt
+mv /tmp/jwmrc-tray-1.txt /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Moving complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+rm -f /tmp/jwmrc-tray*
+
+fi
+
+rm -f /tmp/jwmrc-tray*
+
+exit 0
