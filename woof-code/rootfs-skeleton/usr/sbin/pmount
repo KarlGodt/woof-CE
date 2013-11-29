@@ -21,400 +21,32 @@
 #v410 catch case no valid partitions/drvs in a category, remove that category.
 #v411 added 'quiet' option for vfat, suppresses error msg when file attribs not preserved on copy.
 #v412, no, do not exit if only a warning error msg.
-#v420JPa1 4Jun09: fix mount iso9660, ext2/ext3
-# 27jun09 I18N, vfat mount options by Masaki Shinomiya <shino@pos.to>
-# 08jul09 ask to eject CD
-#w476 fix codepage for vfat f.s. ... neglected by Masaki Shinomiya
+#w476 fix codepage for vfat f.s.
 #w477 fix pmount crash when running xvesa.
-#100127 codepage fixes. 100131 iso9660 fix.
-#101005 maddox: added m_40 cancel message, fixed usage of m_31.
-#110208 zigbert: improve gui layout. bk: put this on-hold for now, see 3 commented lines.
-#110505 support sudo for non-root user.
-#110720 should not open a layer inside aufs, ex: session saved entire partition, desktop drive icon is /initrd/pup_rw.
-#110814 01micko: convert script from gtkdialog2 to gtkdialog3+.
-#120203 preferences was broken.
-#120129 karl godt: fix ZOMBIES, see http://murga-linux.com/puppy/viewtopic.php?t=71767&start=420. see also rc.shutdown, drive_all, pup_event_frontend_d.
-#120323 partial replace 'gxmessage' with 'pupmessage'.
-#120411 zigbert: gui rewrite, volume-lables, integration of partview, mount at boot
-#130128 convert "technosaurus method" i18n to gettext. mut2 option removed (very old, no longer works properly).
-#130128 fixed for 'udf' f.s. (see also pup_event_frontend_d, drive_all, probepart).
-#130205 zigbert: correct size of bar to report used space on filesystem.
-#130216 support f2fs.
- 
-[ "`whoami`" != "root" ] && exec sudo -A ${0} ${@} #110505
-
-export TEXTDOMAIN=pupmount #so as not to clash with 'pmount.mo' used by previous i18n method.
-export OUTPUT_CHARSET=UTF-8
-. gettext.sh
 
 #using ${$} which is pid of script...
 MYPID=${$}
 
 . /etc/rc.d/PUPSTATE #v3.96
-export PMOUNT="pmount" #name of this executable.
+PMOUNT="pmount" #name of this executable.
+MINIFOLDERXPM='/usr/local/lib/X11/mini-icons/mini-filemgr.xpm'
 . /etc/rc.d/functions4puppy4 #v4.02
 
-
-
-
-
-
-
-#build script to reload gui from mountme funtion
-echo 'TMP="`ps`"; for I in `echo "$TMP" | grep -F "pmount" | awk '"'"'{print $1}'"'"'`; do kill -9 $I 2> /dev/null; done; exec /usr/sbin/'"$PMOUNT $TOPACTUAL" > /tmp/pmount_reload
-chmod 722 /tmp/pmount_reload
-#---
-
-#read config - this does not include options from the preferences window
-[ -f $HOME/.pmountrc ] && . $HOME/.pmountrc
-if [ ! "$HEIGHT" ]; then
-	HEIGHT=350 
-	WIDTH=500
-	export COLOR_SPACEFREE='#3FA04E'
-	export COLOR_SPACEUSED='#D7302A'
-	export COLOR_SPACELOCKED='#EDBF4D'
+#. $HOME/.gtkrc-2.0
+FONTFAMILY="`grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>/dev/null | grep -v -E -e '^#|^[[:blank:]]*#'`"  ##+2011-11-08 added grep -v #
+echo FONTFAMILY="$FONTFAMILY"_EOS
+[ -z "$FONTFAMILY" ] && FONTFAMILY='mono' ##+++2011-11-08
+#if [ -z "`echo "${gtk-font-name}" | grep -i 'monospace'`" ] ; then
+if [ -z "`echo "$FONTFAMILY" | grep -i 'mono'`" ] ; then
+ SPACE='  '; MONO=0  #2 Space #+-2011-11-08 chaged "to'
+else
+ SPACE=' ' ; MONO=1  #1 Space
 fi
+echo SPACE="$SPACE"_EOS
 
-###################################################################################
-#                                                                                 #
-#                              F U N C T I O N S                                  #
-#                                                                                 #
-###################################################################################
+yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Puppy Drive Mounter
 
-
-buildheading (){
-	ONEDISK="$1"
-	ONECATEGORY="$2"
-	ONEDISKDESCR="$3"
-	ONEDISKNAME="`echo "$ONEDISK" | cut -f 3 -d '/'`"
-	
- 	case $ONECATEGORY in
-		drive) 
-			ICON=/usr/local/lib/X11/pixmaps/drive48.png
-			PARTSIZE="`parted $ONEDISK print | grep "^Disk" | cut -d: -f2 | tr -d ' '`"
-			;;
-		optical)
-			ICON=/usr/local/lib/X11/pixmaps/optical48.png
-			PARTSIZE=''
-			;;
-		usbdrv)
-			ICON=/usr/local/lib/X11/pixmaps/usbdrv48.png
-			PARTSIZE="`parted $ONEDISK print | grep "^Disk" | cut -d: -f2 | tr -d ' '`"
-			;;
-		card)
-			ICON=/usr/local/lib/X11/pixmaps/card48.png
-			PARTSIZE="`parted $ONEDISK print | grep "^Disk" | cut -d: -f2 | tr -d ' '`"
-			;;
-		floppy)
-			ICON=/usr/local/lib/X11/pixmaps/floppy48.png
-			PARTSIZE=''
-			;;
-	esac
-	if [ "`echo $ONECATEGORY | grep -E "optical|usbdrv|card"`" ] && [ "`mount | grep "^$ONEDISK"`" ]; then
-		PIXLOCK=' <ellipse cx="51" cy="34" rx="15" ry="15" style="fill:#FFF67B;stroke-width:2;stroke:#FFAE2E;stroke-opacity:1; opacity:0.75" /> 
-		<image xlink:href="/usr/local/lib/X11/pixmaps/lock-screen48.png" width="24" height="24" x="39" y="22" />'
-	else
-		PIXLOCK=''
-	fi
-	echo '
-	<svg version="1.0" width="350" height="60" id="svg1"
-	  xmlns:xlink="http://www.w3.org/1999/xlink">
-
-	  <defs
-		 id="defs4">
-		<linearGradient id="LGD_01">
-		  <stop style="stop-color:#47808E;stop-opacity:1" offset="0" />
-		  <stop style="stop-color:#47808E;stop-opacity:0" offset="1" />
-		</linearGradient>
-		<linearGradient id="LG_01"
-		   x1="-10" y1="-40" x2="20" y2="80"	  
-		   xlink:href="#LGD_01"
-		   gradientUnits="userSpaceOnUse" />
-	  </defs>
-
-	  <rect
-		 style="fill:url(#LG_01);fill-opacity:1;fill-rule:evenodd;stroke-width:0;stroke:#404040;stroke-opacity:1;stroke-dasharray:none;"
-		 width="350" height="60"/>
-	  <image xlink:href="'${ICON}'" width="48" height="48" x="5" y="5"/>
-	  '"$PIXLOCK"'
-	  <text
-		 style="fill:#366570;stroke:none;font-family:DejaVu;font-style:normal;font-weight:medium;font-size:16;fill-opacity:1;stroke-opacity:1;stroke-width:3pt;stroke-linejoin:miter;stroke-linecap:butt;text-anchor:start;writing-mode:lr;"
-		 x="75" y="20">
-		 '${ONEDISKDESCR}'
-	  </text>
-	  <text
-		 style="fill:#366570;stroke:none;font-family:DejaVu;font-style:normal;font-weight:medium;font-size:12;fill-opacity:1;stroke-opacity:1;stroke-width:3pt;stroke-linejoin:miter;stroke-linecap:butt;text-anchor:start;writing-mode:lr;"
-		 x="75" y="40">
-		 '$PARTSIZE'
-	  </text>
-	</svg>' > /tmp/pmount_${ONEDISKNAME}_svg
-}
-
-buildpix (){
-	ONEPART="$1"
-	ONEDEV="$2"
-	ONECATEGORY="$3"
-
-	DEVPATTERN="^${ONEDEV} "
-	ONEMNTPT="`mount | grep "$DEVPATTERN" | cut -f 3 -d ' '`"
-	DEVNAME="`echo -n "$ONEDEV" | cut -f 3 -d '/'`"
-
-	#size
-	if [ "$ONEFS" != "cdda" ]; then
-		export ONESIZEK=`echo -n "$ONEPART" | cut -f 3 -d '|'`
-		[ "$ONESIZEK" = 0 ] && ONESIZEK=1 #calculation of percent (svg) fails if size is 0 (ie. a blank CD)
-		if [ $ONESIZEK -gt 1048576 ];then #1024*1024
-			ONESIZE="`dc $ONESIZEK 1048576 \/ p`"
-			ONESIZE="`printf "%.1f" $ONESIZE`G"
-		else
-			if [ $ONESIZEK -gt 99 ];then
-				ONESIZE="`expr $ONESIZEK \/ 1024`M"
-			else
-				ONESIZE="`dc $ONESIZEK 1024 \/ p`"
-				ONESIZE="`printf "%.1f" $ONESIZE`M"
-			fi
-		fi
-		if [ "$ONESIZE" = "0.0M" ] || [ "$ONESIZE" = "0M" ]; then ONESIZE=""; fi
-	fi
-
-	#free space
-	if [ ! "$ONEMNTPT" ]; then
-		FREEK=$ONESIZEK
-		export PIXTEXT="${ONESIZE}"
-	else 
-		export FREEK=`df -k | tr -s ' ' | grep -m1 "$DEVPATTERN" | cut -f 4 -d ' '`
-		[ ! "$FREEK" ] && FREEK=$ONESIZEK
-		if [ $FREEK -gt 1048576 ];then #1024*1024
-			ONEFREE="`dc $FREEK 1048576 \/ p`"
-			ONEFREE="`printf "%.1f" $ONEFREE`G"
-		else
-			if [ $FREEK -gt 99 ];then
-				ONEFREE="`expr $FREEK \/ 1024`M"
-			else
-				ONEFREE="`dc $FREEK 1024 \/ p`"
-				ONEFREE="`printf "%.1f" $ONEFREE`M"
-			fi
-		fi
-		if [ "$ONEFREE" = "0.0M" ] || [ "$ONEFREE" = "0M" ]; then ONEFREE=""; fi
-		export PIXTEXT="${ONESIZE} / ${ONEFREE}"
-	fi
-	
-	if [ "$ONECATEGORY" = "optical" ] || [ "$ONEFS" = "swap" ]; then
-		COLOR_SPACEBAR="$COLOR_SPACELOCKED"
-	else
-		COLOR_SPACEBAR="$COLOR_SPACEFREE"
-	fi
-	echo '<svg xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1">
-	  <defs>
-		<linearGradient id="LGD_01">
-		  <stop style="stop-color:'$COLOR_SPACEBAR';stop-opacity:1" offset="0" />
-		  <stop style="stop-color:'$COLOR_SPACEBAR';stop-opacity:0" offset="1" />
-		</linearGradient>
-		<linearGradient id="LG_01"
-		   x1="1" y1="10" x2="150" y2="10"	  
-		   xlink:href="#LGD_01"
-		   gradientUnits="userSpaceOnUse" />
-		<linearGradient id="LGD_02">
-		  <stop style="stop-color:'$COLOR_SPACEUSED';stop-opacity:1" offset="0" />
-		  <stop style="stop-color:'$COLOR_SPACEUSED';stop-opacity:0" offset="1" />
-		</linearGradient>
-		<linearGradient id="LG_02"
-		   x1="'$(((($ONESIZEK-$FREEK)*120/$ONESIZEK)-3))'" y1="10" x2="'$(((($ONESIZEK-$FREEK)*120/$ONESIZEK)))'" y2="10"
-		   xlink:href="#LGD_02"
-		   gradientUnits="userSpaceOnUse" />
-	  </defs>
- 	  <rect
-		 style="fill:url(#LG_01);fill-opacity:1;fill-rule:evenodd;stroke-width:1;stroke:#404040;stroke-opacity:1;"
-		 width="120" height="19"/>' > /tmp/pmount${DEVNAME}_svg
-	if [ "$ONECATEGORY" != "optical" ]; then
-		echo '
-	  <rect
-		 style="fill:url(#LG_02);fill-rule:evenodd;stroke:none;stroke-width:0.820816;fill-opacity:1;"
-		 width="'$((($ONESIZEK-$FREEK)*120/$ONESIZEK))'"
-		 height="19"/>' >> /tmp/pmount${DEVNAME}_svg
-	fi
-	echo '
-	  <text
-		 style="fill:#353535;stroke:none;font-family:Nimbus Mono L;font-style:normal;font-weight:bold;font-size:12;fill-opacity:1;stroke-opacity:1;stroke-width:3pt;stroke-linejoin:miter;stroke-linecap:butt;text-anchor:start;writing-mode:lr;"
-		 x="5" y="14">
-		 '$PIXTEXT'
-	  </text>
-	</svg>' >> /tmp/pmount${DEVNAME}_svg
-}
-
-
-
-
-volumelabel (){
-	DODEV="$1"
-	DEVNAME="`echo -n "$DODEV" | cut -f 3 -d '/'`"
-	export inputbox="
-	<window title=\"$(gettext 'Pmount Puppy Drive Mounter')\">
-	 <vbox>
-	  <frame $(gettext 'Edit label') - $DODEV>
-	   <entry activates-default=\"true\">
-		<variable>VOLUME_LABEL</variable>
-		<input>cat /tmp/pmount_${DEVNAME}_LABEL</input>
-	   </entry>
-	  </frame>
-	  <hbox>
-	   <button cancel></button>
-	   <button can-default=\"true\" has-default=\"true\" use-stock=\"true\"><input file icon=\"gtk-ok\"></input><label>$(gettext 'Ok')</label><action type=\"exit\">OK</action></button>
-	  </hbox>
-	 </vbox>
-	</window>"
-	I=$IFS; IFS=""
-	for STATEMENTS in  $(gtkdialog4 -p inputbox --center); do
-		eval $STATEMENTS
-	done
-	IFS=$I
-	if [ $EXIT = OK ]; then
-		e2label $DODEV "$VOLUME_LABEL"
-		echo "$VOLUME_LABEL" > /tmp/pmount_${DEVNAME}_LABEL
-	fi
-}
-
-
-
-
-mountme (){
-	DODEV="`echo -n "$1" | cut -f 2 -d '_'`"
-	DEVNAME="`echo -n "$DODEV" | cut -f 3 -d '/'`"
-	DOFS="`echo -n "$1" | cut -f 3 -d '_'`"
-	devPATTERN='^'"$DEVNAME"'|'
-	TOPACTUAL="`echo "$DEV2TAB" | tr ' ' '\n' | grep "$devPATTERN" | cut -f 2 -d '|'`" #find top tab.
-	if [ "`echo "$1" | grep -F 'DOMOUNT'`" ];then
-		mkdir -p /mnt/$DEVNAME
-		case $DOFS in
-			ntfs)
-				#'mount' is a script that takes care of mounting ntfs... 100127...
-				mount -t ntfs $DODEV /mnt/$DEVNAME
-				RETVAL1=$?
-				;;
-			vfat)
-				NLS_PARAM=""
-				if [ -f /etc/codepage ]; then #100127...
-					grep -q '850' /etc/codepage && [ "$(echo $LANG|cut -d'.' -f1)" != "en_US" ] && NLS_PARAM=",codepage=850"
-					grep -q '852' /etc/codepage && NLS_PARAM=",codepage=852,iocharset=iso8859-2"
-				fi
-				echo $LANG | grep -q -i '\.utf' && NLS_PARAM="$NLS_PARAM,utf8"
-				mount -t vfat -o shortname=mixed,quiet$NLS_PARAM $DODEV /mnt/$DEVNAME #v411 added quiet.
-				RETVAL1=$?
-				;;
-			#100127 not certain about this (inserted by shinobar)... 100131 shinobar informs needed for cds created in windows...
-			iso9660|udf) #130128 add udf.
-				mount -t $DOFS -o iocharset=utf8 $DODEV /mnt/$DEVNAME
-				RETVAL1=$?
-				;;  
-			*)
-				mount -t $DOFS $DODEV /mnt/$DEVNAME
-				RETVAL1=$?
-				;;
-		esac
-		if [ $RETVAL1 -eq 0 ]; then
-			#v3.95 -x option to rescan...
-			exec rox -x /mnt/$DEVNAME -d /mnt/$DEVNAME #want this window on top.
-		else
-			pupmessage -bg red -center -title "$(gettext 'Pmount Puppy Drive Mounter')" "$(eval_gettext "ERROR: unable to mount \$DEVNAME")"
-			exec /tmp/pmount_reload
-		fi
-	else
-		MNTPT="`echo -n "$1" | cut -f 4 -d '_'`"
-		[ ! "$MNTPT" ] && MNTPT=/mnt/$DEVNAME
-
-		rox -D $MNTPT
-		sync
-		umount $DODEV ; umVAL=$?
-		#v3.99 fix zombie process prevents partition unmount, invisible to fuser...
-		if [ $umVAL -ne 0 ];then
-			#120129 karl godt: fix ZOMBIES, see http://murga-linux.com/puppy/viewtopic.php?t=71767&start=420 ...
-			#ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
-			ZOMBIES="`ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
-			for ONEZOMBIE in $ZOMBIES; do
-				echo "Killing parentless zombie process $ONEZOMBIE"
-				kill $ONEZOMBIE
-			done
-			umount $DODEV ; umVAL=$?
-		fi
-		#v3.99 rare ocassion, partition got unmounted before umount runs above...
-		umPATTERN="${MNTPT} "
-		[ "`mount | grep "$umPATTERN"`" = "" ] && umVAL=0
-
-		if [ $umVAL -ne 0 ];then
-			EXTRAMSG0="`fuser -v -m $MNTPT`"  
-			if [ "$EXTRAMSG0" = "" ];then
-				m_30="$(gettext 'FAILURE! In the case of removable media, the most
-common reason is the media is not currently inserted.
-If so, please remedy.')"
-				pupmessage -bg "#ff8080" -title "$(gettext 'Pmount Puppy Drive Mounter')" -center "$m_30"
-			else
-				gxmessage -wrap -bg "#ff99ff" -title "$(gettext 'Pmount Puppy Drive Mounter')" -center -buttons "$(gettext 'KILL')":10,"$(gettext 'EXIT')":20 "$(gettext 'FAILURE!')
-$(gettext 'One or more processes (programs) are currently
-using the partition. Here they are:')
-${EXTRAMSG0}
- 
-$(gettext "If you press the 'KILL' button, Puppy will attempt to
-kill the offending programs for you. Only do this as a
-last resort.")
-$(gettext "Firstly you should try to close the programs
-manually, so do not press 'KILL'.")
-$(gettext "PLEASE PRESS THE 'EXIT' BUTTON!")"
-
-
-				[ $? -eq 10 ] && fuser -k -m $MNTPT
-			fi
-			exec /tmp/pmount_reload
-		else
-			if [ "$DOFS" = "iso9660" ]; then
-				eject $DODEV
-				gxmessage  -title "Pmount Puppy Drive Mounter" -center -buttons "OK":0 "Remove media, then press 'OK'"
-				eject -t $DODEV
-				exec /tmp/pmount_reload
-			fi
-		fi
-	fi
-}
-
-
-writeconfig (){
-	XWININFO=`xwininfo -stats -name Pmount`
-	HEIGHT=`echo "$XWININFO" | grep 'Height:' | awk '{print $2}'`
-	WIDTH=`echo "$XWININFO" | grep 'Width:' | awk '{print $2}'`
-	X1=`echo "$XWININFO" | grep 'Absolute upper-left X' | awk '{print $4}'`
-	Y1=`echo "$XWININFO" | grep 'Absolute upper-left Y' | awk '{print $4}'`
-	X2=`echo "$XWININFO" | grep 'Relative upper-left X' | awk '{print $4}'`
-	Y2=`echo "$XWININFO" | grep 'Relative upper-left Y' | awk '{print $4}'`
-	X=$(($X1-$X2))
-	Y=$(($Y1-$Y2))
-	#---
-	
-	
-	echo "#Pmount config"											 > $HOME/.pmountrc
-	echo "export COLOR_SPACEFREE='#3FA04E'"							>> $HOME/.pmountrc
-	echo "export COLOR_SPACEUSED='#D7302A'"							>> $HOME/.pmountrc
-	echo "export COLOR_SPACELOCKED='#EDBF4D'"						>> $HOME/.pmountrc
-	echo -e "\n#Geometry"											>> $HOME/.pmountrc
-	echo "export HEIGHT=\"$HEIGHT\""								>> $HOME/.pmountrc
-	echo "export WIDTH=\"$WIDTH\""									>> $HOME/.pmountrc
-	echo "export X=\"$X\""											>> $HOME/.pmountrc
-	echo "export Y=\"$Y\""											>> $HOME/.pmountrc
-}
-
-export -f buildheading buildpix volumelabel mountme writeconfig
-
-
-
-
-
-###################################################################################
-#                                                                                 #
-#                                P R O G R A M                                    #
-#                                                                                 #
-###################################################################################
-
-
-#gxmessage -bg yellow -center -buttons '' -title "Pmount Puppy Drive Mounter" "Please wait, probing hardware..." &
-yaf-splash -bg orange -fg black -close never -fontsize large -text "$(gettext 'Please wait, probing hardware...')" & #110720
+Please wait, probing hardware..." &
 X1PID=$!
 
 #v4.01 passed param, choose which tab to be "on top"...
@@ -429,11 +61,24 @@ if [ $1 ];then
  [ "$1" = "fd" ] && TOPTAB="floppy"
 fi
 
+#v3.98...
+HAVEMUT2='no'
+[ -f /usr/sbin/mut ] && [ "`file /usr/sbin/mut | grep 'ELF 32-bit LSB executable'`" != "" ] && HAVEMUT2='yes'
+PMOUNTENGINE='default'
 PROBEPART="probepart"
-PROBEDISK="probedisk"
+PROBEDISK="probedisk2" #v4.01
+ENGINEFLAG='false'
+if [ "$HAVEMUT2" = "yes" ];then
+ [ -f /root/.pmountengine ] && PMOUNTENGINE="`cat /root/.pmountengine`"
+ if [ "$PMOUNTENGINE" = "mut2" ];then
+  PROBEPART='mut --noserv probepart' #v407
+  PROBEDISK='mut --noserv probedisk2' #v407
+  ENGINEFLAG='true'
+ fi
+fi
 
 #v4.01 toggle tabbed interface...
-SINGLEFLAG="true" #default tabbed interface.
+SINGLEFLAG="false" #default tabbed interface.
 [ -f /root/.pmountsingle ] && SINGLEFLAG="`cat /root/.pmountsingle`"
 
 #v4.02 quit immediately after choosing to mount/umount a partition... v404 change to false
@@ -446,18 +91,35 @@ PMOUNTQUIT="false" #"true" v404 change to false
 ROOTDEV2=""
 [ "$PUPMODE" = "2" ] && ROOTDEV2="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' '`"
 
-DISKINFO="`$PROBEDISK | sort -k 2 --field-separator='|'`" #v4.01
+DISKINFO="`$PROBEDISK | grep -v -i -E 'DBG|DEBUG' | sed '/^$/d' | sort -k 2 --field-separator='|'`" #v4.01
+echo "DISKINFO=$DISKINFO"
 PARTSINFO="`$PROBEPART -k | grep -v 'none' | tr ' ' '_' | tr '\t' '_' | cut -f 1-3 -d '|'`" #v3.98 fix for mut2.
+echo  "PARTSINFO=$PARTSINFO"
 
 #add floppy drive, if any (note, zip detected by probedisk/probepart)...
-if [ -e /sys/block/fd0 ];then
- DISKINFO="/dev/fd0|floppy|floppy disk drive
+if [ "$PMOUNTENGINE" != "mut2" ];then #v409
+ #if [ -e /sys/block/fd0 ];then #KRG for multiple floppys (2)
+ Fdrv=`ls /sys/block | grep fd* 2>/dev/null`
+ for i in $Fdrv; do
+  DISKINFO="/dev/$i|floppy|floppy disk drive
 $DISKINFO"
- PARTSINFO="/dev/fd0|vfat|1440
+  PARTSINFO="/dev/$i|vfat|1440
 $PARTSINFO"
+ done
+ #fi
+fi
+#v409 mut2 lets us know if there are any floppy drives.
+if [ "$PMOUNTENGINE" = "mut2" ];then
+  FINDFLOPPY="`echo \"$DISKINFO\" | grep /dev/fd | cut -f 1 -d '|' | tr '\n' ' '`";
+  echo "FINDFLOPPY $FINDFLOPPY"
+  for FDDRIVE in $FINDFLOPPY
+  do
+    PARTSINFO="$FDDRIVE|vfat|1440
+$PARTSINFO"
+  done
 fi
 
-#v4.01 reorganise so that a particular tab is on top...
+#v4.01 reoganise so that a particular tab is on top...
 if [ "$TOPTAB" != "" ];then
  toptabPATTERN='|'"$TOPTAB"'|'
  TOPDISKS="`echo "$DISKINFO" | grep "$toptabPATTERN"`"
@@ -489,11 +151,11 @@ done
 #v4.01 find the tabs...
 #old probedisk has: cdrom, disk, floppy, Direct-Access.
 #probedisk2 has: drive, optical, usbdrv, card, floppy
-TABLIST="`echo -n "$DISKINFO" | cut -f 2 -d '|' | uniq | tr '\n' '|' | sed -e 's/|$//'`"
+TABLIST="`echo -n "$DISKINFO" | cut -f 2 -d '|' | uniq | sed '/^$/d' | tr '\n' '|' | sed -e 's/|$//'`" #KRG : added sed '/^$/d'
 CURRENTTAB=''
 
-#v408 v410 moved up...  130216 added f2fs...
-VALIDPARTS="`echo "$PARTSINFO" | grep -E 'f2fs|vfat|msdos|ntfs|minix|ext2|ext3|ext4|reiser|xfs|iso9660|udf'`" #130128
+#v408 v410 moved up...
+VALIDPARTS="`echo "$PARTSINFO" | grep -E 'vfat|msdos|ntfs|minix|ext2|ext3|ext4|reiser|xfs|iso9660'`"
 
 #get actual top tab...
 TOPACTUAL="`echo "$TABLIST" | cut -f 1 -d '|'`"
@@ -501,215 +163,172 @@ TOPACTUAL="`echo "$TABLIST" | cut -f 1 -d '|'`"
 #v4.01 PARTSINFO has to be sorted in same order as the categories in DISKINFO...
 PARTSGUI=""
 FRAMEFLAG="off"
-export DEV2TAB=""
+DEV2TAB=""
 OLDDISKNAME=''
-
+ECHO(){
+    echo -e "\\033[0;32m$1\\033[0;39m"
+}
 for ONEDISK in `echo "$DISKINFO" | cut -f 1 -d '|' | tr '\n' ' '`
 do
-
+ ECHO "ONEDISK=$ONEDISK"
  #v408 bug fix, a drive with no valid partitions, skip it...
  [ "`echo "$VALIDPARTS" | grep "$ONEDISK"`" = "" ] && continue
- 
+
  ONEDISKNAME="`echo "$ONEDISK" | cut -f 3 -d '/'`"
+ ECHO "ONEDISKNAME=$ONEDISKNAME"
  DSKPATTERN="^${ONEDISK}|"
+ ECHO "DSKPATTERN=$DSKPATTERN"
  #ONEDISKDESCR="`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '<' '_' | tr '>' '_'`"
  ONEDISKDESCR="`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '\-' '@' | sed -e 's/[^a-zA-Z0-9 @_]//g' | tr '@' '-'`"
+ ECHO "ONEDISKDESCR=$ONEDISKDESCR"
  xDSKPATTERN="^${ONEDISK}"
+ ECHO "xDSKPATTERN=$xDSKPATTERN"
  cutPARTSINFO="`echo "$PARTSINFO" | grep "$xDSKPATTERN" | tr '\n' ' '`"
+ ECHO "cutPARTSINFO=$cutPARTSINFO"
  [ "$cutPARTSINFO" = "" ] && continue #fix for superfloppy-drv with unknown f.s.
  [ "$cutPARTSINFO" = " " ] && continue #v408 er, there will be a single space.
  #group one or more frames in same tab...
  ONECATEGORY="`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 2 -d '|'`" #drive,optical,usbdrv,card,floppy
  if [ "$CURRENTTAB" = "" ];then
-  PARTSGUI="${PARTSGUI}<vbox scrollable=\"true\">"
+  PARTSGUI="${PARTSGUI}<vbox>"
   TABFLAG="on"
  else
-  [ "$CURRENTTAB" != "$ONECATEGORY" ] && PARTSGUI="${PARTSGUI}</vbox><vbox scrollable=\"true\">"
+  [ "$CURRENTTAB" != "$ONECATEGORY" ] && PARTSGUI="${PARTSGUI}</vbox><vbox>"
  fi
  CURRENTTAB="$ONECATEGORY"
- 
+ PARTSGUI="${PARTSGUI}<frame ${ONEDISKDESCR}>"
+ ECHO "ONECATEGORY=$ONECATEGORY"
 
-	buildheading ${ONEDISK} ${ONECATEGORY} "${ONEDISKDESCR}"
-	PARTSGUI="${PARTSGUI}
-	<vbox spacing=\"0\">
-	 <hbox space-expand=\"false\" space-fill=\"false\">
-	  <pixmap space-expand=\"false\" space-fill=\"false\"><variable>PIX_DISK_${ONEDISKNAME}</variable><input file>/tmp/pmount_${ONEDISKNAME}_svg</input></pixmap>
-	  <hbox space-expand=\"true\" space-fill=\"true\"><text><label>\"\"</label></text></hbox>
-	 </hbox>"
-
-
+SMALLLETTERS='f i j l r t'
 ###############################################################################
 for ONEPART in $cutPARTSINFO
 do
  ONEDEV="`echo -n "$ONEPART" | cut -f 1 -d '|'`"
  DEVNAME="`echo -n "$ONEDEV" | cut -f 3 -d '/'`"
- export DEV2TAB="${DEV2TAB} ${DEVNAME}|${CURRENTTAB}" #remember which tab a partition is in.
+ fillDnr=`echo $DEVNAME | wc -L`
+ [ "$fillDnr" -eq 5 ] && fillD="${SPACE}"  ##+-2011-11-08 changed '' to Space
+ [ "$fillDnr" -eq 4 ] && fillD="${SPACE}${SPACE}"   ##+-2011-11-08
+ [ "$fillDnr" -eq 3 ] && fillD="${SPACE}${SPACE}${SPACE}"  ##+++2011-11-08 added for fd0
+ echo "fillD='$fillD'"_EOS
+
+ DEV2TAB="${DEV2TAB} ${DEVNAME}|${CURRENTTAB}" #remember which tab a partition is in.
  ONEFS="`echo -n "$ONEPART" | cut -f 2 -d '|'`"
+ [ "$ONEFS" = "swap" ] && continue
+ #DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-hdisk.xpm'
+
+ fillFSnr=`echo $ONEFS | wc -L`
+ if [ "$fillFSnr" -eq 7 ] ; then
+  fillFS=""
+  #fillFS="${SPACE}" ##+2011-11-08
+ else
+ fillFS=""
+ #fillFS="${SPACE}" ##+2011-11-08
+ for i in `seq 6 -1 $fillFSnr` ; do
+ fillFS="${fillFS}`echo -n "${SPACE}"`" ; done
+ fi
+ #fillFS="$fillFS "
+ #[ "$ONEFS" = "vfat" -o "$ONEFS" = "ntfs" ] && fillFS="$fillFS "
+ #[ "$MONO" -ne 1 ] && { [ "$ONEFS" = "vfat" -o "$ONEFS" = "ntfs" ] && fillFS="$fillFS "; }
+ #[ "$MONO" -ne 1 ] && { [ "`echo "ONEFS" | grep -E "$SMALLLETTERS" | wc` " ] && FS="$fillFS "; }
+ if [ "$MONO" -ne 1 ] ; then
+ c=0
+ for sl in $SMALLLETTERS; do
+ c=$((c+1))
+ manysl=`echo "$ONEFS" | grep "$sl" |wc -l`
+  for onemany in $manysl; do
+   if [ "`dc $c 2 div p | grep '[[:punct:]]'`" ]; then :
+   else fillFS="${fillFS}${SPACE}"
+   fi;c=$((c+1));       done
+   done;                fi
+
+ #[ "$ONEFS" = "iso9660" ] && fillFS=`echo "$fillFS" | sed 's/\ $//'`
+ echo "fillFS='$fillFS' ONEFS=$ONEFS"_EOS
+
+ ONESIZEK=`echo -n "$ONEPART" | cut -f 3 -d '|'`
+ [ -z "$ONESIZEK" ] && ONEZIZEK=0
+ if [ $ONESIZEK -gt 1048576 ];then #1024*1024
+  ONESIZE="`dc $ONESIZEK 1048576 \/ p`"
+  ONESIZE="`printf "%.1f" $ONESIZE`G"
+ else
+  #if [ $ONESIZEK -gt 99 ];then
+  # ONESIZE="`expr $ONESIZEK \/ 1024`M"
+  #else
+   ONESIZE="`dc $ONESIZEK 1024 \/ p`"
+   ONESIZE="`printf "%.1f" $ONESIZE`M"
+  #fi
+ fi
+ #[ "$ONESIZE" = "0.0M" ] && ONESIZE=""
+ echo ONESIZE="$ONESIZE"_EOS ONESIZEK="$ONESIZEK"_EOS
+ fillSnr=`echo $ONESIZE | wc -L`
+ if [ "$fillSnr" -eq 7 ] ; then
+ fillS=""
+ else
+ fillS=""
+ for i in `seq 6 -1 $fillSnr` ; do fillS="${fillS}`echo -n "${SPACE}"`" ; done
+ fi
+ echo "fillS='$fillS'"_EOS
 
  DEVPATTERN="^${ONEDEV} "
  ONEMNTPT="`mount | grep "$DEVPATTERN" | cut -f 3 -d ' '`"
  [ "$ROOTDEV2" != "" ] && [ "$ROOTDEV2" = "$ONEDEV" ] && ONEMNTPT='/' #v3.96
- 
- #in some cases prevent unmounting...
- INVISBUT=""
- if [ "`echo -n "$ONEMNTPT" | grep '^/initrd'`" -o "$ONEMNTPT" = "/" ]; then INVISBUT='<visible>disabled</visible>'; fi
- #v404 unipup, cannot unmount anything mntd in /.mnt...
- case $PUPMODE in
- 16|24|17|25)
-  [ "`echo -n "$ONEMNTPT" | grep '^/\.mnt'`" ] && INVISBUT='<visible>disabled</visible>'
-  #usr_xxx.sfs was not copied to ram, still on partition...
-  [ "`losetup | grep -o ' /.*/usr_.*\.sfs' | cut -f 1-3 -d '/' | cut -f 2 -d ' '`" = "$ONEMNTPT" ] && INVISBUT='<visible>disabled</visible>'
- ;;
- esac
- 
-   #if 'home' partition, substitute /mnt/home...
+ if [ "$ONEMNTPT" = "" ];then #not mounted.
+  #[ "$ONEFS" = "iso9660" ] && DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-cd.xpm'
+  #<input file>${DRIVEXPM}</input>
+  PARTSGUI="${PARTSGUI}<hbox><text><label>${DEVNAME}$fillD${ONEFS}$fillFS$fillS${ONESIZE}</label></text><button><label>MOUNT</label><action type=\"exit\">DOMOUNT_${ONEDEV}_${ONEFS}</action></button></hbox>"
+  # PARTSGUI="${PARTSGUI}<hbox><text width-request=\"30\"><label>\"\"</label></text><text width-request=\"130\"><label>${DEVNAME} ${ONEFS} ${ONESIZE}</label></text><text width-request=\"80\"><label>\"\"</label></text><button width-request=\"90\"><label>$m_09</label><action type=\"exit\">DOMOUNT_${ONEDEV}_${ONEFS}</action></button></hbox>"
+ else
+  #DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-hdisk-green.xpm'
+  #[ "$ONEFS" = "iso9660" ] && DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-cd-green.xpm'
+  FREEK=`df -k | tr -s ' ' | grep "$DEVPATTERN" | cut -f 4 -d ' '`
+  if [ $FREEK -gt 1048576 ];then #1024*1024
+   ONEFREE="`dc $FREEK 1048576 \/ p`"
+   ONEFREE="`printf "%.1f" $ONEFREE`G"
+  else
+   #if [ $FREEK -gt 99 ];then
+   # ONEFREE="`expr $FREEK \/ 1024`M"
+   #else
+    ONEFREE="`dc $FREEK 1024 \/ p`"
+    ONEFREE="`printf "%.1f" $ONEFREE`M"
+   #fi
+  fi
+  echo FREEK="$FREEK"_EOS ONEFREE="$ONEFREE"_EOS
+  fillFnr=`echo $ONEFREE | wc -L`
+  if [ "$fillFnr" -eq 7 ] ; then
+  fillF=""
+  else
+  fillF=""
+  for i in `seq 6 -1 $fillFnr` ; do fillF="${fillF}`echo -n "${SPACE}"`" ; done
+  fi
+  echo "fillF='$fillF'"_EOS
+
+  FREEINSERT="<text><label>$fillF${ONEFREE} free</label></text>"
+  # FREEINSERT="<text width-request=\"80\"><label>${ONEFREE} $m_08</label></text>"
+  #[ "$ONEFREE" = "0.0M" ] && FREEINSERT=""
+  #in some cases prevent unmounting...
+  INVISBUT=""
+  [ "`echo -n "$ONEMNTPT" | grep '^/initrd'`" -o "$ONEMNTPT" = "/" ] && INVISBUT='<visible>disabled</visible>'
+  #v404 unipup, cannot unmount anything mntd in /.mnt...
+  case $PUPMODE in
+  16|24|17|25)
+   [ "`echo -n "$ONEMNTPT" | grep '^/\.mnt'`" ] && INVISBUT='<visible>disabled</visible>'
+   #usr_xxx.sfs was not copied to ram, still on partition...
+   [ "`losetup | grep -o ' /.*/usr_.*\.sfs' | cut -f 1-3 -d '/' | cut -f 2 -d ' '`" = "$ONEMNTPT" ] && INVISBUT='<visible>disabled</visible>'
+  ;;
+  esac
+
+  #if 'home' partition, substitute /mnt/home...
   if [ -L /mnt/home -a "`echo "$ONEMNTPT" | grep '/initrd/'`" != "" ];then
    HOMELINK="`readlink /mnt/home`"
    [ "$HOMELINK" = "$ONEMNTPT" ] && ONEMNTPT="/mnt/home"
   fi
-  #110720 should not open a layer inside aufs, ex: session saved entire partition, desktop drive icon is /initrd/pup_rw...
-  case $ONEMNTPT in
-   /initrd/pup_*)
-    ONEMNTPT="/" #open rox at top of aufs layers.
-   ;;
-  esac
-  
- 
- 
-	#define volume label and action menu/button
-	echo '' > /tmp/pmount_${DEVNAME}_LABEL
-	INVISLABEL=true
-	MENU_BOOTMOUNT=false
-	[ ! "`echo $ONEFS | grep -F ext`" ] && INVISLABEL=false
-	if [ ! "$ONEMNTPT" ]; then
-		INVISSHOWLOC=false
-		INVISPIX=false
-		INVISFILECHK=true
-		echo false > /tmp/pmount_${DEVNAME}_domount
-	else
-		INVISSHOWLOC=true
-		INVISPIX=true
-		INVISFILECHK=false
-		echo true > /tmp/pmount_${DEVNAME}_domount
-	fi
-	ACTION_MENU="
-	<menuitem label=\"$(gettext 'Show location')\" stock=\"gtk-open\">
-	 <variable>MENU_SHOWLOC_${DEVNAME}</variable>
-	 <sensitive>${INVISSHOWLOC}</sensitive>
-	 <action>rox -d ${ONEMNTPT} &</action>
-	</menuitem>"
-	if [ "$ONEFS" != "iso9660" ];then
-		#check if patrition is mounted at boot
-		[ "`grep "^mount" /etc/rc.d/rc.local | grep -F $DEVNAME | grep -F '#pmount'`" ] && MENU_BOOTMOUNT=true
-		#---
-		ACTION_MENU="$ACTION_MENU
-		<menuitemseparator></menuitemseparator>
-		<menuitem label=\"$(gettext 'Edit label')\" stock=\"gtk-edit\">
-		 <sensitive>${INVISLABEL}</sensitive>
-		 <action>volumelabel ${ONEDEV}</action>
-		 <action>refresh:LABEL_${DEVNAME}</action>
-		</menuitem>
-		<menuitem label=\"$(gettext 'Check filesystem')\" stock=\"gtk-find\">
-		 <variable>MENU_FILECHK_${DEVNAME}</variable>
-		 <sensitive>${INVISFILECHK}</sensitive>
-		 <action>rxvt --hold --title \"$(gettext 'Pmount Puppy Drive Mounter')\" -geometry 80x10 -bg black -fg green -e fsck -Cv \"$ONEDEV\"</action>
-		</menuitem>
-		<menuitemseparator></menuitemseparator>
-		<menuitem checkbox=\"$MENU_BOOTMOUNT\" label=\"$(gettext 'Mount partition at boot')\">
-		 <variable>MENU_BOOTMOUNT_${DEVNAME}</variable>
-		 ${INVISBUT}
-		 <action>cp -f /etc/rc.d/rc.local /tmp/pmount_tmp</action>
-		 <action>if false grep -v '${DEVNAME} #pmount' /tmp/pmount_tmp > /etc/rc.d/rc.local</action>
-		 <action>if true echo 'mount -t $ONEFS $ONEDEV /mnt/$DEVNAME #pmount' >> /etc/rc.d/rc.local</action>
-		</menuitem>"
-	fi
-	BUTTON="
-	<checkbox draw_indicator=\"false\">
-	 <variable>BUTTON_${DEVNAME}</variable>
-	 <label>$(gettext '(un) Mount')</label>
-	 <default>$(</tmp/pmount_${DEVNAME}_domount)</default>
-	 <input>cat /tmp/pmount_${DEVNAME}_domount</input>
-	 ${INVISBUT}
-	 <action>if false mountme UNMOUNT_${ONEDEV}_${ONEFS}_${ONEMNTPT}</action>
-	 <action>if false disable:PIX_${DEVNAME}</action>
-	 <action>if false disable:MENU_SHOWLOC_${DEVNAME}</action>
-	 <action>if false enable:MENU_FILECHK_${DEVNAME}</action>
-	 <action>if true mountme DOMOUNT_${ONEDEV}_${ONEFS}</action>
-	 <action>if true enable:PIX_${DEVNAME}</action>
-	 <action>if true enable:MENU_SHOWLOC_${DEVNAME}</action>
-	 <action>if true disable:MENU_FILECHK_${DEVNAME}</action>
-	 <action>if true buildpix \"${ONEPART}\" ${ONEDEV} ${ONECATEGORY}</action>
-	 <action>if true refresh:PIX_${DEVNAME}</action>
-	 <action>buildheading ${ONEDISK} ${ONECATEGORY} \"${ONEDISKDESCR}\"</action>
-	 <action>refresh:PIX_DISK_${ONEDISKNAME}</action>
-	</checkbox>"
-	case "$ONEFS" in
-		ntfs)
-			if [ "`ntfslabel -f $ONEDEV 2> /dev/null`" ]; then ntfslabel -f $ONEDEV 2> /dev/null > /tmp/pmount_${DEVNAME}_LABEL; fi
-			;;
-		iso9660)
-			if [ "`cddetect | grep -F 'cdtype: audio'`" ]; then 
-				echo 'CD-Audio' > /tmp/pmount_${DEVNAME}_LABEL
-				ACTION_MENU="<menuitem label=\"$(gettext 'Play')\" stock=\"gtk-media-play\"><action>defaultcdplayer &</action></menuitem>
-				<menuitemseparator></menuitemseparator>
-				<menuitem label=\"$(gettext 'Eject disc')\" stock=\"gtk-cdrom\"><action>eject ${ONEDEV} &</action><action type=\"exit\">REFRESH</action></menuitem>"
-				ONEFS=cdda
-				ONESIZE=74min
-				BUTTON="<button><label>$(gettext '(un) Mount')</label><sensitive>false</sensitive></button>"
-				INVISPIX=true
-			else
-				ACTION_MENU="${ACTION_MENU}
-				<menuitemseparator></menuitemseparator>"
-				[ "`pburn --help | grep -A10 -F '[MODE]' | grep -F info`" ] && ACTION_MENU="${ACTION_MENU}<menuitem label=\"$(gettext 'Disc information')\" stock=\"gtk-info\"><action>pburn -m info &</action></menuitem>"
-				ACTION_MENU="${ACTION_MENU}
-				<menuitem label=\"$(gettext 'Play') Video-DVD\" stock=\"gtk-media-play\"><action>defaultmediaplayer dvd:// &</action></menuitem>
-				<menuitemseparator></menuitemseparator>
-				<menuitem label=\"$(gettext 'Eject disc')\" stock=\"gtk-cdrom\"><action>eject ${ONEDEV} &</action><action type=\"exit\">REFRESH</action></menuitem>"
-				[ "$ONEMNTPT" ] && INVISPIX=true
-			fi
-			;;
-		vfat)
-			if [  `mlabel -i $ONEDEV -s :: 2> /dev/null | cut -d " " -f 4` ]; then mlabel -i $ONEDEV -s :: 2> /dev/null | cut -d " " -f 5 > /tmp/pmount_${DEVNAME}_LABEL; fi
-			;;
-		ext*)
-			e2label $ONEDEV 2> /dev/null > /tmp/pmount_${DEVNAME}_LABEL
-			;;
-		swap)
-			echo Memory > /tmp/pmount_${DEVNAME}_LABEL
-			export PIXTEXT="${ONESIZE}"
-			BUTTON="<button><label>$(gettext '(un) Mount')</label><sensitive>false</sensitive></button>"
-			if [ "`grep -Fw "$ONEDEV" /proc/swaps`" ]; then
-				ACTION_MENU="<menuitem label=\"$(gettext 'Swap off')\" stock=\"gtk-no\"><action>swapoff $ONEDEV</action><action type=\"exit\">REFRESH</action></menuitem>"
-				INVISPIX=true
-			else
-				ACTION_MENU="<menuitem label=\"$(gettext 'Swap on')\" stock=\"gtk-yes\"><action>swapon $ONEDEV</action><action type=\"exit\">REFRESH</action></menuitem>"
-			fi
-			;;
-	esac
 
-	buildpix "${ONEPART}" ${ONEDEV} ${ONECATEGORY}
-
-	PARTSGUI="${PARTSGUI}
-	<hbox height-request=\"22\">
-	 <menubar><menu label=\"${DEVNAME}\" icon-name=\"gtk-execute\">$ACTION_MENU</menu></menubar>
-	 <text space-expand=\"false\" space-fill=\"false\"><variable>LABEL_${DEVNAME}</variable><input>cat /tmp/pmount_${DEVNAME}_LABEL</input></text>"
-	 [ "$INVISBUT" ] && PARTSGUI="${PARTSGUI}<pixmap space-expand=\"false\" space-fill=\"false\"><input file>/usr/share/doc/puppylogo48.png</input><height>20</height></pixmap>"
-	 
-	 PARTSGUI="${PARTSGUI}
-	 <hbox space-expand=\"true\" space-fill=\"true\"><text><label>\"\"</label></text></hbox>
-	 <text><label>${ONEFS}</label></text>
-	 <vbox spacing=\"0\">
-	  <text height-request=\"2\"><label>\"\"</label></text>
-	  <pixmap><variable>PIX_${DEVNAME}</variable><sensitive>$INVISPIX</sensitive><input file>/tmp/pmount${DEVNAME}_svg</input></pixmap>
-	 </vbox>
-	 $BUTTON
-	</hbox>
-	<text height-request=\"2\"><label>\"\"</label></text>"
+  #<input file>${DRIVEXPM}</input>
+  PARTSGUI="${PARTSGUI}<hbox>${FREEINSERT}<button width-request=\"30\"><input file>${MINIFOLDERXPM}</input><action>rox -d ${ONEMNTPT} &</action></button><text><label>${DEVNAME}$fillD${ONEFS}$fillFS$fillS${ONESIZE}</label></text><button><label>UNMNT</label>${INVISBUT}<action type=\"exit\">UNMOUNT_${ONEDEV}_${ONEFS}_${ONEMNTPT}</action></button></hbox>"
+  #krg PARTSGUI="${PARTSGUI}<hbox>${FREEINSERT}<button width-request=\"30\"><input file>${MINIFOLDERXPM}</input><action>rox -d ${ONEMNTPT} &</action></button><text width-request=\"130\"><label>${DEVNAME} ${ONEFS} ${ONESIZE}</label></text><button><label>UNMNT</label>${INVISBUT}<action type=\"exit\">UNMOUNT_${ONEDEV}_${ONEFS}_${ONEMNTPT}</action></button></hbox>"
+ fi
 done
 ########################################################################
- PARTSGUI="${PARTSGUI}
-  <text height-request=\"15\"><label>\"\"</label></text>
- </vbox>"
+ PARTSGUI="${PARTSGUI}</frame>"
  OLDDISKNAME="$ONEDISKNAME"
 done
 
@@ -718,52 +337,40 @@ if [ "$TABFLAG" = "on" ];then #v4.01
  PARTSGUI="${PARTSGUI}</vbox>"
 fi
 
-PREFSBUTTON="
-   <button>
-    <input file stock=\"gtk-preferences\"></input>
+#if [ "$HAVEMUT2" = "yes" ];then
+ PREFSBUTTON="
+   <button><label>preferences</label>
     <action type=\"exit\">SETPREFS</action>
    </button>"
+#fi
 
-m_03="$(gettext 'drive')"
-m_04="$(gettext 'usbdrv')"
-m_05="$(gettext 'optical')"
-m_06="$(gettext 'card')"
-m_07="$(gettext 'floppy')"
-M_TABLIST=$(echo $TABLIST|sed -e "s/drive/$m_03/" -e "s/usbdrv/$m_04/" -e "s/optical/$m_05/" -e "s/card/$m_06/" -e "s/floppy/$m_07/")
+NOTEBOOKHEAD=""
+NOTEBOOKTAIL=""
 if [ "$SINGLEFLAG" = "false" ];then #default
- NOTEBOOKHEAD="<notebook space-expand=\"true\" space-fill=\"true\" labels=\"${M_TABLIST}\">"
+ NOTEBOOKHEAD="<notebook labels=\"${TABLIST}\">"
  NOTEBOOKTAIL="</notebook>"
-else
- NOTEBOOKHEAD="<vbox scrollable=\"true\">"
- NOTEBOOKTAIL="</vbox>"
- PARTSGUI="`echo "$PARTSGUI" | sed  's/ scrollable="true"//g'`"
 fi
 
-
 export PMOUNTGUI="
-<window title=\"Pmount\" icon-name=\"gtk-harddisk\" default_height=\"$HEIGHT\" default_width=\"$WIDTH\">
+<window title=\"Pmount Puppy Drive Mounter\" icon-name=\"gtk-harddisk\">
  <vbox>
-  
+  <text use-markup=\"true\">
+  <label>\"<b>DO NOT REMOVE MOUNTED MEDIA</b>\"</label></text>
+
   ${NOTEBOOKHEAD}
   ${PARTSGUI}
   ${NOTEBOOKTAIL}
 
-  <hbox space-expand=\"false\" space-fill=\"false\">
-   <button space-expand=\"false\" space-fill=\"false\">
-    <input file stock=\"gtk-refresh\"></input>
-    <label>$(gettext 'Refresh')</label>
-    <action>writeconfig</action>
+  <hbox>
+   ${PREFSBUTTON}
+   <button><input file stock=\"gtk-refresh\"></input><label>REFRESH</label>
     <action type=\"exit\">REFRESH</action>
    </button>
-   <hbox homogeneous=\"true\" space-expand=\"true\" space-fill=\"true\"><hbox>
-    <text use-markup=\"true\" space-expand=\"true\" space-fill=\"true\"><label>\"<span fgcolor='"'#821811'"'><b>$(gettext 'DO NOT REMOVE MOUNTED MEDIA')</b></span>\"</label></text>
-   </hbox></hbox>
-   ${PREFSBUTTON}
-   <button><input file stock=\"gtk-quit\"></input><action>writeconfig</action><action type=\"exit\">EXIT</action></button>
+   <button><input file stock=\"gtk-quit\"></input><label>QUIT</label></button>
   </hbox>
  </vbox>
- <action signal=\"delete-event\">writeconfig</action>
 </window>"
+
 echo "$PMOUNTGUI" > /tmp/pmountdlg.txt_${MYPID}
 
 kill $X1PID
@@ -772,17 +379,7 @@ kill $X1PID
 
 #v4.01...
 [ ! -e /tmp/gtkdialog_pmount ] && ln -s /usr/sbin/gtkdialog3 /tmp/gtkdialog_pmount
-/tmp/gtkdialog_pmount --file=/tmp/pmountdlg.txt_${MYPID} -G +"$X"+"$Y" >/tmp/pmountdlg_${MYPID} 2>/tmp/pmounterr
-
-
-
-
-###################################################################################
-#                                                                                 #
-#                          P O S T   O P E R A T O I N S                          #
-#                                                                                 #
-###################################################################################
-
+/tmp/gtkdialog_pmount --file=/tmp/pmountdlg.txt_${MYPID} --center >/tmp/pmountdlg_${MYPID} 2>/tmp/pmounterr
 #[ -s /tmp/pmounterr ] && exit
 #v412, no, do not exit if only a warning error msg...
 if [ -s /tmp/pmounterr ];then
@@ -807,44 +404,180 @@ eval "$RETPARAMS"
 
 [ "$EXIT" = "REFRESH" ] && exec /usr/sbin/$PMOUNT $TOPACTUAL
 
-m_18="$(gettext "If you don't have many drives or partitions, you may find it more convenient to see everything in one window. Untick the box if you want the default tabbed interface, or tick for a single window:")" #'geany
-m_19="$(gettext 'Tick box for single window')"
-m_20="$(gettext 'If this checkbox is ticked, Pmount will quit immediately after choosing to mount or unmount a partition. If you would refer Pmount to keep running afterward, then untick this box:')"
-m_21="$(gettext 'Tick for Pmount to quit after mount/unmount')"
-
 if [ "$EXIT" = "SETPREFS" ];then
- DLGSETENG="<window title=\"$(gettext 'Pmount: choose preferences')\">
+ DLGSETENG="
+<wtitle>Pmount: choose preferences</wtitle>
  <vbox>
-  <text><label>$m_18</label></text>
+  <text><label>The default utilities that Puppy uses to probe the drives are 'probedisk' and 'probepart'. Alternatively, Jesse Liley has developed a utility named 'mut' that has multiple functions including equivalent behaviour to the default utilities. If you find that the default utilities do not detect your drives correctly, then switch over to mut, or vice-versa.</label></text>
   <checkbox>
-   <label>$m_19</label>
+   <label>Tick box to use 'mut'</label>
+   <default>${ENGINEFLAG}</default>
+   <variable>NEWENGINEFLAG</variable>
+  </checkbox>
+
+  <text><label>If you don't have many drives or partitions, you may find it more convenient to see everything in one window. Untick the box if you want the default tabbed interface, or tick for a single window:</label></text>
+  <checkbox>
+   <label>Tick box for single window</label>
    <default>${SINGLEFLAG}</default>
    <variable>NEWSINGLEFLAG</variable>
   </checkbox>
 
-  <text><label>$m_20</label><sensitive>false</sensitive></text>
+  <text><label>If this checkbox is ticked, Pmount will quit immediately after choosing to mount or unmount a partition. If you would refer Pmount to keep running afterward, then untick this box:</label></text>
   <checkbox>
-   <sensitive>false</sensitive>
-   <label>$m_21</label>
+   <label>Tick for Pmount to quit after mount/unmount</label>
    <default>${PMOUNTQUIT}</default>
    <variable>NEWPMOUNTQUIT</variable>
   </checkbox>
 
   <hbox>
-   <button><input file stock=\"gtk-ok\"></input><label>$(gettext 'Ok')</label><action>exit:OK</action></button> 
-   <button><input file stock=\"gtk-cancel\"></input><label>$(gettext 'Cancel')</label></button>
+   <button ok></button>
+   <button cancel></button>
   </hbox>
  </vbox>
-</window>
 "
-
- RETPARAMS="`echo "$DLGSETENG" | gtkdialog4 --stdin`"
+ NEWENGINEFLAG=""
+ RETPARAMS="`echo "$DLGSETENG" | gtkdialog2 --stdin`"
  eval "$RETPARAMS"
  if [ "$EXIT" = "OK" ];then
+  [ "$NEWENGINEFLAG" = "true" ] && echo -n "mut2" > /root/.pmountengine
+  [ "$NEWENGINEFLAG" = "false" ] && echo -n "default" > /root/.pmountengine
   echo "$NEWSINGLEFLAG" > /root/.pmountsingle
   echo "$NEWPMOUNTQUIT" > /root/.pmountquit
  fi
  exec /usr/sbin/$PMOUNT $TOPACTUAL
+fi
+
+if [ "`echo -n "$EXIT" | grep 'DOMOUNT'`" != "" ];then
+ DODEV="`echo -n "$EXIT" | cut -f 2 -d '_'`"
+ DEVNAME="`echo -n "$DODEV" | cut -f 3 -d '/'`"
+ DOFS="`echo -n "$EXIT" | cut -f 3 -d '_'`"
+ devPATTERN='^'"$DEVNAME"'|'
+ TOPACTUAL="`echo "$DEV2TAB" | tr ' ' '\n' | grep "$devPATTERN" | cut -f 2 -d '|'`" #find top tab.
+ mkdir -p /mnt/$DEVNAME
+ case $DOFS in
+  ntfs)
+   #'mount' is a script that takes care of mounting ntfs...
+   mount -t ntfs $DODEV /mnt/$DEVNAME
+   RETVAL1=$?
+   ;;
+  vfat)
+   #w476 modify codepage and iocharset (note: this code also in /usr/local/bin/drive_all)...
+   #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
+   NLS_PARAM=''
+   if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
+    KEYMAP="`cat /etc/keymap | cut -f 1 -d '.'`"
+    case $KEYMAP in
+     de|be|br|dk|es|fi|fr|it|no|se|pt)
+      NLS_PARAM=',codepage=850'
+     ;;
+     slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
+      NLS_PARAM=',codepage=852,iocharset=iso8859-2'
+     ;;
+    esac
+   fi
+   mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $DODEV /mnt/$DEVNAME #v411 added quiet.
+   RETVAL1=$?
+   ;;
+  *)
+   mount -t $DOFS $DODEV /mnt/$DEVNAME
+   RETVAL1=$?
+   ;;
+ esac
+ if [ $RETVAL1 -eq 0 ];then
+
+  #v4.02 now doing this in /bin/mount...
+  ##v4.02 if there is a desktop icon (see pup_eventd), then refresh it...
+  #DRVNAME="`echo -n "$DEVNAME" | cut -b 1-3`"
+  ##special case, SD card /dev/mmcblk0p1...
+  #[ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
+  #if [ -f /usr/local/bin/drive_${DRVNAME} ];then
+  # icon_mounted_func $DRVNAME $TOPACTUAL #see functions4puppy4
+  #fi
+
+  if [ "$PMOUNTQUIT" = "false" ];then #v4.0.2
+   #now restart pmount, but want rox window on top...
+   /usr/sbin/$PMOUNT $TOPACTUAL &
+   NEWPID="$!"
+   while [ ! -f /tmp/pmountdlg.txt_${NEWPID} ];do
+    usleep 200000
+   done
+   usleep 100000
+  fi
+  #v3.95 -x option to rescan...
+  exec rox -x /mnt/$DEVNAME -d /mnt/$DEVNAME #want this window on top.
+ else
+  xmessage -bg red -center -title "Pmount" "ERROR: unable to mount $DEVNAME"
+  exec /usr/sbin/$PMOUNT $TOPACTUAL
+ fi
+fi
+
+if [ "`echo -n "$EXIT" | grep 'UNMOUNT'`" != "" ];then
+ DODEV="`echo -n "$EXIT" | cut -f 2 -d '_'`"
+ DEVNAME="`echo -n "$DODEV" | cut -f 3 -d '/'`"
+ DOFS="`echo -n "$EXIT" | cut -f 3 -d '_'`"
+ MNTPT="`echo -n "$EXIT" | cut -f 4 -d '_'`"
+ devPATTERN='^'"$DEVNAME"'|'
+ TOPACTUAL="`echo "$DEV2TAB" | tr ' ' '\n' | grep "$devPATTERN" | cut -f 2 -d '|'`" #find top tab.
+ rox -D $MNTPT
+ sync
+ umount $MNTPT ; umVAL=$?
+ #v3.99 fix zombie process prevents partition unmount, invisible to fuser...
+ if [ $umVAL -ne 0 ];then
+  ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+  for ONEZOMBIE in $ZOMBIES
+  do
+   echo "Killing parentless zombie process $ONEZOMBIE"
+   kill $ONEZOMBIE
+  done
+  umount $MNTPT ; umVAL=$?
+ fi
+ #v3.99 rare ocassion, partition got unmounted before umount runs above...
+ umPATTERN="${MNTPT} "
+ [ "`mount | grep "$umPATTERN"`" = "" ] && umVAL=0
+ if [ $umVAL -ne 0 ];then
+  EXTRAMSG0="`fuser -v -m $MNTPT`"
+  if [ "$EXTRAMSG0" = "" ];then
+   xmessage -bg "#ff8080" -title "Puppy drive mounter: ERROR" -center "FAILURE! In the case of removable media, the most
+common reason is the media is not currently inserted.
+If so, please remedy."
+  else
+   xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
+using the partition. Here they are:
+$EXTRAMSG0
+
+If you press the \"KILL\" button, Puppy will attempt to
+kill the offending programs for you. Only do this as a
+last resort. Firstly you should try to close the programs
+manually, so do not press \"KILL\".
+PLEASE PRESS THE \"EXIT\" BUTTON!"
+   [ $? -eq 10 ] && fuser -k -m $MNTPT
+  fi
+ else
+
+  #v4.02 have moved this to /bin/umount...
+  ##v4.02 if there is a desktop icon (see pup_eventd), then refresh it...
+  #DRVNAME="`echo -n "$DEVNAME" | cut -b 1-3`"
+  ##special case, SD card /dev/mmcblk0p1...
+  #[ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
+  #if [ -f /usr/local/bin/drive_${DRVNAME} ];then
+  # #if any partitions still mounted, leave "MNTD" on icon...
+  # drvPATTERN='^/dev/'"${DRVNAME}"
+  # #"MNTD" text is intended as a reminder to user that drive needs to be unmounted,
+  # #   but partitions in use by Puppy cannot be unmounted.
+  # if [ "`mount | cut -f 1,3 -d ' ' | grep "$drvPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+  #  if [ "`mount | cut -f 1,3 -d ' ' | grep "$drvPATTERN" | grep -E ' /initrd/| /$'`" != "" ];then
+  #   #only a partition left mntd that is in use by puppy, change green->yellow...
+  #   icon_mounted_func $DRVNAME $TOPACTUAL #see functions4puppy4
+  #  else
+  #   #redraw icon without "MNTD" text...
+  #   icon_unmounted_func $DRVNAME $TOPACTUAL #see functions4puppy4
+  #  fi
+  # fi
+  #fi
+
+  [ "$DOFS" = "iso9660" ] && eject $DODEV
+ fi
+ [ "$PMOUNTQUIT" = "false" ] && exec /usr/sbin/$PMOUNT $TOPACTUAL
 fi
 
 ###END###

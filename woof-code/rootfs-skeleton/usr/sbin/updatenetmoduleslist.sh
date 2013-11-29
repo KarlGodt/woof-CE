@@ -4,8 +4,6 @@
 #w474 bugfix for 2.6.29 kernel, modules.dep different format.
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
-#111027 make modinfo quiet.
-#120507 improve kernel version test. add 'sdio' interfaces.
 
 KERNVER="`uname -r`"
 KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
@@ -15,10 +13,7 @@ DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
 echo "Updating /etc/networkmodules..."
 
 DEPFORMAT='new'
-#[ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old'
-if vercmp $KERNVER lt 2.6.29; then #120507
- DEPFORMAT='old'
-fi
+[ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old'
 #v423 need better test, as now using busybox depmod...
 [ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" != "" ] && DEPFORMAT='old'
 
@@ -57,7 +52,7 @@ do
  [ "$ONERAW" = "" ] && continue #precaution
  ONEBASE="`basename $ONERAW .ko`"
  modprobe -vn $ONEBASE >/dev/null 2>&1
- ONEINFO="`modinfo $ONEBASE 2>/dev/null | tr '\t' ' ' | tr -s ' '`" #111027 make it quiet.
+ ONEINFO="`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`"
  ONETYPE="`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`"
  ONEDESCR="`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`"
  if [ "$ONETYPE" = "pci" -o "$ONETYPE" = "pcmcia" -o "$ONETYPE" = "usb" ];then
@@ -66,11 +61,6 @@ do
  fi
  #v408 add b43legacy.ko...
  if [ "$ONETYPE" = "ssb" ];then
-  echo "Adding $ONEBASE"
-  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
- fi
- #120507 add sdio interfaces...
- if [ "$ONETYPE" = "sdio" ];then
   echo "Adding $ONEBASE"
   echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
  fi

@@ -3,27 +3,87 @@
 #v410 remove icons when drives removed.
 #v410 omit icon if optical drive; defer it to pup_event_frontend_d
 #w014 bugfix, refresh icons if removable drive swapped when PC turned off.
-#120131 rodin.s: internationalized. See warning about "Size:" translation.
-#120213 /var/local/pup_event_icon_change_flag path changed from /tmp.
-#120222 internationalization introduced bug, fixed it (caused drive icons to redraw every time X starts).
 
-# i18n gettext
-TEXTDOMAIN=clean_desk_icons
-export TEXTDOMAIN
-. /usr/bin/gettext.sh
-
+mut --exit
 export LANG=C
 . /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, ICONPARTITIONS, HOTPLUGNOISY, HOTPLUGON, FLOPPYICON.
-
+. /etc/rc.d/functions4puppy4
 ePUPPYPIN="`grep -v '/root/.pup_event/drive_' /root/Choices/ROX-Filer/PuppyPin | grep -v '</pinboard>'`"
 
 #v403 /usr/sbin/eventmanager creates this file if all icons need to be rebuilt...
-#120213 note, /var/local/pup_event_icon_change_flag is written to by /usr/sbin/xorgwizard, video-wizard, eventmanager.
-if [ -f /var/local/pup_event_icon_change_flag ];then #120213 path changed from /tmp
- rm -f /var/local/pup_event_icon_change_flag
+if [ -f /tmp/pup_event_icon_change_flag ];then
+ IconChange=`cat /tmp/pup_event_icon_change_flag`
+fi
+echo $IconChange #>/dev/console
+if [ "$IconChange" = "ICONWIPE" ]; then
+ #rm -f /tmp/pup_event_icon_change_flag
+ rm -f /root/Choices/ROX-Filer/PuppyPin
  echo "$ePUPPYPIN" >  /root/Choices/ROX-Filer/PuppyPin
  echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  rm -rf /root/.pup_event/drive_* 2>/dev/null
+ sync
+ sleep 1
+ #rox -p /root/Choices/ROX-Filer/PuppyPin
+ #. /etc/rc.d/functions4puppy4
+ echo "now changing icons"
+  Floppy=`mut --noserv drivelist | grep -o -e 'fd[0-9]*'`
+  echo "$Floppy"
+  #Partitions=`probepart -s | grep -v none | grep -v swap | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  Partitions=`probepart -k | grep '|' | grep -v none | grep -v swap | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  echo "$Partitions"
+  [ "$Floppy" != "" ] && for i in $Floppy; do icon_remove_func $i ; done; i=0
+  [ "$Partitions" != "" ] && for i in $Partitions; do icon_remove_func $i; done ; i=0
+  sleep 1
+ # for i in $Floppy; do icon_unmounted_func $i floppy; done; i=0
+ # for i in $Partitions; do icon_unmounted_func $i drive; done ; i=0
+ # Mounted=`mount | grep mnt | cut -f 1 -d " " | cut -f 3 -d '/'`
+ # for i in $Mounted; do icon_mounted_func $i drive; done; i=0
+ # Rootdevice=`df | grep -w '/' | tr -s " " | cut -f 1 -d " " | cut -f 3 -d '/'`
+ # icon_mounted_func $Rootdevice drive
+ # sync
+ # rm -f /tmp/pup_event_icon_change_flag
+
+
+ #icon_remove_func
+ #icon_unmounted_func
+ #icon_mounted_func
+ Cleandeskicons=1
+
+ for i in $Floppy ; do
+				DRV_NAME=$i
+				DRV_CATEGORY="floppy"
+				icon_unmounted_func $DRV_NAME $DRV_CATEGORY
+			done
+			Drives=`probedisk2 | cut -f 1 -d '|'`
+			echo $Drives
+			PROBEPART="`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`"
+			#Partitions=`probepart | cut -f1 -d '|'`
+			Partitions=`probepart | grep '|' | cut -f1 -d '|'`
+			for i in $Partitions ; do
+				DRV=`echo $i | tr -d [0-9][0-9]`
+				#DRV_NAME=`echo $i | cut -f 3 -d '/'`
+				DRV_CATEGORY=`probedisk2 | grep  $DRV | cut -f 2 -d '|'`
+				DRV_NAME=$i
+				DRVINFO="`echo "$PROBEPART" | grep "$i" | cut -f 1,2,3 -d '|' | tr '\n' ' '`"
+				FSTYPE="`echo -n "$DRVINFO" | cut -f 2 -d '|'`"
+				echo FSTYPE $FSTYPE
+				echo DRV_NAME $DRV_NAME
+				echo DRV_CATEGORY $DRV_CATEGORY
+				icon_unmounted_func $DRV_NAME $DRV_CATEGORY $FSTYPE
+			done
+
+		Mounted=`df | tr -s ' ' | cut -f 1 -d " " | tr [A-Z] [a-z] | sed 's/filesystem//'`
+		for i in $Mounted; do
+		FSTYPE=`echo "$PROBEPART" | grep -w "$i" | cut -f 2 -d '|'`
+		DRV_NAME=`echo "$i" | cut -f 3 -d '/'`
+		DRV=`echo "$i" | tr -d [0-9]`  #[0-9]`
+		DRV_CATEGORY=`probedisk2 | grep "$DRV" | cut -f 2 -d '|'`
+		echo FSTYPE $FSTYPE
+				echo DRV_NAME $DRV_NAME
+				echo DRV_CATEGORY $DRV_CATEGORY
+		icon_mounted_func $DRV_NAME $DRV_CATEGORY $FSTYPE
+		done
+	Cleandeskicons=0
  exit
 fi
 
@@ -44,8 +104,8 @@ else
   [ ! -d /root/.pup_event/drive_$ONEDRV ] && continue
   [ ! -e /sys/block/${ONEDRV} ] && rm -rf /root/.pup_event/drive_${ONEDRV}*
  done
- 
- for ONEDRV in `ls -1 /sys/block | grep -vE 'loop|ram' | tr '\n' ' '`
+
+ for ONEDRV in `ls -1 /sys/block | grep -vE 'loop|ram|md|mtd' | tr '\n' ' '`
  do
   odPATTERN="/root/.pup_event/drive_${ONEDRV}"
   OKDRV="`grep "$odPATTERN" /root/Choices/ROX-Filer/PuppyPin`"
@@ -61,16 +121,8 @@ else
     [ "$MEDIACAT" = "cdrom" ] && continue #v410 omit icon if optical drive; defer it to pup_event_frontend_d
    fi
    #w014 user may have swapped removable drives while pc turned off...
-   
-   #LANG="`cat /etc/profile|grep '^LANG='`"
-   #eval $LANG
-   #T_size="`gettext \"Size:\"`"  #*WARNING* translation must be same as in /sbin/pup_event_frontend_d create_icon_func() 
-   #LANG=C
-   #120222 internationalization introduced bug, fix it...
-   #DRVMODEL1="`grep -o "<Summary>.*${T_size}" /root/.pup_event/drive_${ONEDRV}/AppInfo.xml | cut -f 2-20 -d ' ' | rev | cut -f 2-20 -d ' ' | rev`"
-   #120222 above is fixed, however go one step further and eliminate dependency on the translation of "Size:"...
-   DRVMODEL1="`grep -o '<Summary>.*</Summary>' /root/.pup_event/drive_${ONEDRV}/AppInfo.xml | cut -f 2-9 -d ':' | cut -f 1 -d '<' | tr -s ' ' | rev | cut -f 3-99 -d ' ' | rev | sed -e 's%^ %%'`"
-   #note, this must be same as done in /sbin/probedisk...
+   DRVMODEL1="`grep -o '<Summary>.*Size:' /root/.pup_event/drive_${ONEDRV}/AppInfo.xml | cut -f 2-20 -d ' ' | rev | cut -f 2-20 -d ' ' | rev`"
+   #note, this must be same as done in /sbin/probedisk2...
    DRVMODEL2="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '``cat /sys/block/${ONEDRV}/device/model | tr -s ' '`"
    if [ "$DRVMODEL1" != "$DRVMODEL2" ];then
     rm -rf /root/.pup_event/drive_${ONEDRV}* 2>/dev/null
@@ -79,7 +131,7 @@ else
    echo "$OKDRV" >> /tmp/pup_event_ok_pin
   fi
  done
- 
+
 fi
 
 #if [ "`cat /tmp/pup_event_ok_pin`" != "" ];then
