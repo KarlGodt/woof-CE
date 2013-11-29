@@ -346,9 +346,9 @@ run this Wizard again and choose the <Xvesa> button.
 
 Press ENTER for Xorg \Z1probing will take several seconds\Z0...
 Press TAB (or right-arrow) key then ENTER key for Xvesa...\Zn" 0 0
- STATUS=$?  #v3.99
- [ $STATUS -eq -1 ] && exit   #v3.99 ESC to exit, same as above dialogs
- if [ $STATUS -eq 1 ];then   #v3.99 Xvesa selected
+ RVAL=$?  #v3.99
+ [ $RVAL -eq -1 -o $RVAL = 255 ] && exit   #v3.99 ESC to exit, same as above dialogs
+ if [ $RVAL -eq 1 ];then   #v3.99 Xvesa selected
   ln -sf Xvesa /usr/bin/X #Xvesa is now the default X server.
   #when start xorgwizard from commandline, it messes up xorg.conf...
   if [ -f /etc/X11/xorg.conf ];then
@@ -392,7 +392,7 @@ cp /etc/X11/xorg.conf0 /etc/X11/xorg.conf
 
 
 #resolution changer uses this. it must be removed here...
-rm -f /etc/xrandrindex 2> /dev/null
+rm -f /etc/xrandrindex
 
 ln -sf Xorg /usr/bin/X
 
@@ -421,31 +421,36 @@ Xorg -configure > "$tmpDir"/xorgprobe.txt 2>&1
 ## My (Dougal) alternate code:
 ######################################################################
 #  Rather than pipe data to "while read", I use "here document" (at bottom),
-#+ so that the loop doesn't run in a subshell -- hence variables
-#+ (like HORIZSYNC0) are retained after the loop has ended...
+#  so that the loop doesn't run in a subshell -- hence variables
+#  (like HORIZSYNC0) are retained after the loop has ended...
+rm -f /xorg.conf.*
 while read ASECTION
 do
  # this (outer) loop recieves a line containing **an entire section**
  # filter out entire sections we don't want
+ echo "$ASECTION" >>/xorg.conf.A
  case $ASECTION in
-  *Section?\"Screen\"*)
+  *Section*\"Screen\"*)
    break #Screen section is created further down.
   ;;
-  *Section?\"Files\"*|*Section?\"Module\"*|*Section?\"ServerFlags\"*)
+  *Section*\"Files\"*|*Section*\"Module\"*|*Section*\"ServerFlags\"*)
    continue #these sections pre-created in /etc/X11/xorg.conf0
   ;;
  esac
  #  Params are retained for the entire ASECTION loop.
  #  I use TEMPSECTION since BASH is slow with file i/o -- so echo
- #+ only once for each section.
+ #  only once for each section.
  #  Tabs at beginning of lines are lost when reading, so I add them
- #+ where appropriate (i.e. before every line except for Section borders).
- #+ ("\n"=newline ; "\t"=tab)
+ #  where appropriate (i.e. before every line except for Section borders).
+ #  ("\n"=newline ; "\t"=tab)
  IDENTIFIER="" ; XSECTION="" ; TEMPSECTION=""
  while read ALINE
  do
+  echo "$ALINE" >>/xorg.conf.B
   case "$ALINE" in
-   EndSection*)
+
+EndSection*)
+
     if [ "$XSECTION" = "InputDevice" -a "$IDENTIFIER" = "Keyboard0" ] ; then
      TEMPSECTION="$TEMPSECTION
         Option      \"XkbRules\" \"xorg\"
@@ -466,22 +471,32 @@ EndSection"
      #v3.98 rerwin - added preferredmode line, after usemodes line.
      continue # we added the line before the "Modes" section, so continue
     fi
+
     TEMPSECTION="$TEMPSECTION\n$ALINE"
+    #TEMPSECTION="${TEMPSECTION}${ALINE}"
     continue # just added line -- no need to get to bottom
     ;;
-   Section?\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
+
+Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
     TEMPSECTION="\n$ALINE"
+    #TEMPSECTION="$ALINE"
     continue # just added line -- no need to get to bottom
     ;;
-   *Identifier*) IDENTIFIER=${ALINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
+
+*Identifier*) IDENTIFIER=${ALINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
     ;;
-   *\"ZAxisMapping\"*) continue
+
+*\"ZAxisMapping\"*) continue
     ;;
-   *HorizSync*[0-9]*) set -- $ALINE ; HORIZSYNC0="$2$3$4" ; continue
+
+*HorizSync*[0-9]*) set -- $ALINE ; HORIZSYNC0="$2$3$4" ; continue
     ;;
-   *VertRefresh*[0-9]*) set -- $ALINE ; VERTREFRESH0="$2$3$4" ; continue
+
+*VertRefresh*[0-9]*) set -- $ALINE ; VERTREFRESH0="$2$3$4" ; continue
     ;;
-   *Option*\"Protocol\"?\"auto\"*)
+
+*Option*\"Protocol\"?\"auto\"*)
+
     case "`cat /etc/mousedevice 2>/dev/null`" in
      input/mice) TEMPSECTION="$TEMPSECTION
         Option      \"Protocol\" \"IMPS/2\" #mouse0protocol"
@@ -497,8 +512,10 @@ EndSection"
           ;;
     esac
     ;;
-   */dev/mouse*|*/dev/input/mice*) #v2.21
+
+*/dev/mouse*|*/dev/input/mice*) #v2.21
     TEMPSECTION="$TEMPSECTION\n\t$ALINE"
+    #TEMPSECTION="$TEMPSECTION\t$ALINE"
     case "`cat /etc/xextraoptions`" in
      *2button*) BLA="" ;;
          *) BLA="#" ;;
@@ -526,16 +543,35 @@ EndSection"
     *Screen1*Right?Of*Screen0*) ALINE="#$ALINE" ;;
    esac
   fi
+
   # add line to section (if we've come this far...)
-  TEMPSECTION="$TEMPSECTION\n\t$ALINE"
- done <<_END2
-$(echo "$ASECTION" | tr '%' '\n')
+  echo "$TEMPSECTION" >>/xorg.conf.Y
+         TEMPSECTION="$TEMPSECTION\n\t$ALINE"
+#        TEMPSECTION="$TEMPSECTION\t$ALINE"
+  echo "$TEMPSECTION" >>/xorg.conf.Z
+
+done <<_END2
+$(echo "$ASECTION" | busybox sed 's%D__ELIMITE__R%\n%g')
 _END2
 echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
 sync
 done <<_END1
-$(cat /root/xorg.conf.new | tr '\n' '%' | sed 's/EndSection/EndSection\n/g' )
+$(cat /root/xorg.conf.new | busybox sed 's%$%D__ELIMITE__R%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
+
+#$(sed 's%\n%__DELIMITER__%' /root/xorg.conf.new | sed 's/EndSection/EndSection\n/g' )
+#_END1
+
+#$(cat /root/xorg.conf.new | sed 's%\n%__DELIMITER__%g' | sed 's/EndSection/EndSection\n/g' )
+#_END1
+
+#$(echo "$ASECTION" | tr '%' '\n')
+#_END2
+#echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
+#sync
+#done <<_END1
+#$(cat /root/xorg.conf.new | tr '\n' '%' | sed 's/EndSection/EndSection\n/g' )
+#_END1
 ###################################################################
 
 #v2.21 quick hack...
@@ -729,6 +765,7 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
  "R" "h31.5-94v50-90            CRT 1600x1200" \
  "Z" "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS" \
   2>"$tmpDir"/taggen.txt
+  [ $? = 255 ] && exit
   CHOICE="`cat "$tmpDir"/taggen.txt 2>/dev/null | tail -n1`"
   [ "$CHOICE" = "" ] && continue
   ## Dougal: use case-structure for setting params -- safer than the old way
@@ -831,7 +868,9 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
      ;;
    Z) # "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS"
      dialog --title "Xorg Video Wizard" --inputbox "Please enter the horizontal frequency range of the monitor, in KHz. An example is given:" 0 0 "31.5-48.5" 2>"$tmpDir"/taghoriz.txt
+     [ $? = 255 ] && exit
      dialog --title "Xorg Video Wizard" --inputbox "Please enter the vertical frequency range of the monitor, in Hz. An example is given:" 0 0 "56-72" 2>"$tmpDir"/tagvert.txt
+     [ $? = 255 ] && exit
      HORIZSYNC="`cat $tmpDir/taghoriz.txt 2>/dev/null | tail -n1`"
      VERTREFRESH="`cat $tmpDir/tagvert.txt 2>/dev/null | tail -n1`"
      [ "$HORIZSYNC" = "" ] && continue
@@ -894,7 +933,7 @@ screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
 [ ! "$RECMODE" = "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >> "$tmpDir"/choosexmodedlg
 echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >> "$tmpDir"/choosexmodedlg
 echo '
-OK:     Just press ENTER key to immediately use the selected mode...
+OK:   Use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
 EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDir"/choosexmodedlg #'geanyfix.
 echo "$FINALCHOICES" >> "$tmpDir"/choosexmodedlg
@@ -1010,7 +1049,7 @@ echo "Copied /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic 9" >> "$tmpD
  NEW3='Section "InputDevice"\
         Identifier "Synaptics Mouse"\
         Driver "synaptics"\
-        Option "Device" "/dev/psaux"\
+#        Option "Device" "/dev/psaux"\
         Option "Protocol" "auto-dev"\
         Option "LeftEdge" "120"\
         Option "RightEdge" "930"\
@@ -1060,7 +1099,7 @@ if grep -F -q 'Synaptics' /proc/bus/input/devices ; then
  NEW3='Section "InputDevice"\
         Identifier "Synaptics Mouse"\
         Driver "synaptics"\
-        Option "Device" "/dev/psaux"\
+#        Option "Device" "/dev/psaux"\
         Option "Protocol" "auto-dev"\
         Option "LeftEdge" "1700"\
         Option "RightEdge" "5300"\
@@ -1168,8 +1207,9 @@ you to press CTRL-ALT-BACKSPACE twice to terminate the test!)
 
 Press ENTER key now to start X graphics mode (may take a few secs)...
 TAB then ENTER to change the mouse (afterward will return here)..." 0 0
-
- if [ ! $? -eq 0 ];then
+ RVAL1=$?
+ [ $RVAL1 = 255 ] && exit
+ if [ ! $RVAL1 -eq 0 ];then
   #change the mouse... (then go back up to above dialog)
   choosemousefunc
   #w480 bugfix, latter used if choose tweak refresh...
@@ -1206,8 +1246,9 @@ Ditto if testing X was an abysmal failure.
 
 ${TWKMSG}
 TAB then ENTER to tweak parameters in xorg.conf & retest X..." 0 0
-
- if [ $? -eq 0 ];then
+ RVAL2=$?
+ [ $RVAL2 = 255 ] && exit
+ if [ $RVAL2 -eq 0 ];then
   break
  fi
 
@@ -1255,12 +1296,13 @@ board info: '${CARD0BOARD}'
 
 So, if you have already tried 'tweaking' or you know that the Xorg
 '${CARD0DRIVER}' driver does not work on your hardware, consider the
-generic driver. Click 'No' to change Xorg to using the
-generic driver, otherwise press ahead and try tweaking...${INTELDRVMSG}" 0 0
-  RET2=$?
+generic driver. Click <No> to change Xorg to using the
+generic driver, otherwise press <Yes> and try tweaking...${INTELDRVMSG}" 0 0
+  RVAL3=$?
   SUBSTDRV='vesa'
-  [ $RET2 -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
-  if [ $RET2 -ne 0 ];then
+  [ $RVAL3 = 255 ] && exit
+  [ $RVAL3 -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
+  if [ $RVAL3 -ne 0 ];then
      if [ "$TRYDRV" = 'i810' ];then
       [ -L /usr/X11/lib/xorg/modules/drivers/i810_drv.so ] && {
       rm  /usr/X11/lib/xorg/modules/drivers/i810_drv.so
@@ -1314,6 +1356,7 @@ Again, the PPM may offer extra packages to add these capabilities.
 
 For now, keep going with using the Generic driver
 (for general PC use, this is proably all that you need anyway)..." 0 0
+[ $? = 255 ] && exit
   fi
  fi
 
@@ -1330,8 +1373,9 @@ to open xorg.conf in a text editor and change whatever you wish.
 
 Press ENTER key for the easy option, tweak refresh frequency...
 Press TAB then ENTER to open xorg.conf in a text editor..." 0 0
-
- if [ $? -eq 0 ];then
+ RVAL4=$?
+ [ $RVAL4 = 255 ] && exit
+ if [ $RVAL4 -eq 0 ];then
   if [ "$MONCHOICES" = "" ];then
    #not plug-n-play.
    MSGPNP="WARNING: Your monitor is not plug-and-play so this Wizard cannot
@@ -1396,7 +1440,8 @@ For the resolution that you want to run at, you many want to narrow
 -down the specs in xorg.conf. For example, say you want 1024x768@85,
 but xorg.conf has VertRefresh 50-160. -- maybe narrow that to 50-85.
 
-Press ENTER key to edit xorg.conf..." 0 0
+Now press ENTER key to edit xorg.conf..." 0 0
+  [ $? = 255 ] && exit
   #edit xorg.conf...
   mp /etc/X11/xorg.conf
  fi
@@ -1410,8 +1455,9 @@ Puppy with Xorg.
 If you cannot get Xorg to work, press TAB then ENTER to choose
 the \"Xvesa\" button. This will start Puppy with the simple Xvesa
 graphics server that runs on most video hardware." 0 0
-
-  if [ ! $? -eq 0 ];then
+  RVAL5=$?
+  [ $RVAL5 = 255 ] && exit
+  if [ ! $RVAL5 -eq 0 ];then
   echo "Linked 'Xvesa' towards '/usr/bin/X'"
    ln -sf Xvesa /usr/bin/X
   else
