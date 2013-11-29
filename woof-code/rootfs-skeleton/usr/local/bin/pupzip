@@ -1,155 +1,360 @@
-#!/bin/sh
+#!/bin/bash
+
 #Barry Kauler 2005 www.puppylinux.com
 #frontend for XArchive.
 #well, i want this to be a universal archiver frontend for puppy.
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
-#100616 support .xz files. support slackware and arch pkgs.
-#110620 busybox rpm2cpio does not work with mageia rpms, use 'exploderpm' instead (in /usr/sbin, permanent builtin).
-#120203 rodin.s: internationalized.
-#120512 added support for .rar (needs unrar or rar pkg installed).
 
-export TEXTDOMAIN=pupzip
-export TEXTDOMAINDIR=/usr/share/locale
-export OUTPUT_CHARSET=UTF-8
-eval_gettext () {
-  local myMESSAGE=$(gettext "$1")
-  eval echo \"$myMESSAGE\"
-}
-
+echo '$1' "$1"
+echo '$@' "$@"
 PARAMIN="$@"
-
+echo "PARAMIN='$PARAMIN'"
 CDIR="`pwd`"
+echo "CDIR='$CDIR'"
+#note, do not cd to directory this app(pupzip usually in /usr/local/bin) is located in.
 
-#note, do not cd to directory this app is located in.
+#VAR_1="\"`echo "$1"`\""
+VAR_1=`echo "$1" | sed 's#^#"#; s#$#"#'`  # was playing with space in filenames
 
-#ask if this is a slackware or arch binary pkg...
-if [ "`echo -n "$PARAMIN" | grep -E '\.tgz$|\.txz$|\.pkg\.tar\.gz$'`" != "" ];then
- xmessage -bg yellow -buttons "$(gettext 'Yes'):100,$(gettext 'No'):101" -center "$(gettext 'Is this a Slackware or Arch package, that you want to install?')
-$(gettext 'If you answer Yes, the Package Manager application will run...')
-$(gettext 'If you answer No, the XArchive application will run...')"
- [ $? -eq 100 ] && exec petget $PARAMIN
-fi
+echo "$0:'$VAR_1'"
 
 #w474
 if [ "`echo -n "$1" | grep '\.delta$'`" != "" ];then
+echo XDELTA-FILE
  exec xdelta_gui "$1"
 fi
 if [ "`echo -n "$1" | grep '\.bfe$'`" != "" ];then
+echo BFEcrypt FILE
  exec bcrypt_gui "$1"
 fi
-
+old(){
 #v2.11 G2 has suggested this...
-if echo "$1" | grep -qi '\.gz$' ;then
-   if ! echo "$1" | grep -qi '\.tar\.gz$' ;then
-      xmessage -buttons "$(gettext 'Yes'),$(gettext 'No')" -center "$(gettext 'Do you want to decompress') ${1}?
-($(gettext 'it will decompress in current location')
- $(gettext 'and the original file will be deleted'))"
-      [ $? -eq 101 ] || exit
-      gunzip "$1"
-      sync
+if [[ "`echo "$1" | grep -i '\.gz$'`" != "" ]] ;then
+echo GZ FILE
+   if [[ "`echo "$1" | grep -i '\.tar\.gz$'`" = "" ]] ;then
+   echo NOT TAR-GZ FILE;
+   ## xmessage -buttons "Yes:101,No:105" -nearmouse
+xmessage -buttons "Yes:101,No:105" "Do you want to decompress
+  $VAR_1 ?
+(it will decompress in current location.)";
+        #[[ "$?" -eq 101 ]] || exit
+        A="$?"
+        [[ "$A" -eq 105 ]] && xmessage "Not done " && exit 0
+        [[ "$A" -eq 101 ]]
+      cp -a "$1" "${CDIR}/.${1##*/}"
+      pidof sync || sync
+      time gunzip "$1"
+      pidof sync || sync
+      sleep 1
+      mv  "${CDIR}/.${1##*/}" "$1"
+      pidof sync || sync
+      exit
+    if [ "$A" -ne "101" -a "$A" -ne "105" ]; then ## [[ would not run with -a
+     xmessage "Pressed button $?"
+      exit 0
+      fi
+   fi
+fi
+
+#also this...
+if [ "`echo "$1" | grep -i '\.bz2$'`" != "" ] ;then
+echo BZIP2 FILE
+   if [ "`echo "$1" | grep -i '\.tar\.bz2$'`" = "" ] ;then
+   echo NOT TAR-BZIP2 FILE;
+   #F=/mnt/hdb9/Kernels/2.6.33/2.6.33.7/linux-2.6.33.7/Documentation/kernel-parameters.txt
+      xmessage -buttons "Yes:101,No:105" -nearmouse "Do you want to decompress "$VAR_1" ?
+(it will decompress in current location.)";
+      [ "$?" -eq 101 ] || exit
+      xmessage "Uncompressing, please wait..." &
+      UPID="$!"
+      cp -a "$1" "${CDIR}/.${1##*/}"
+      pidof sync || sync
+      time bunzip2 "$1"
+      pidof sync || sync
+      sleep 1
+      mv  "${CDIR}/.${1##*/}" "$1"
+      pidof sync || sync
+      kill "$UPID"
       exit
    fi
 fi
 
 #also this...
-if echo "$1" | grep -qi '\.bz2$' ;then
-   if ! echo "$1" | grep -qi '\.tar\.bz2$' ;then
-      xmessage -buttons "$(gettext 'Yes'),$(gettext 'No')" -center "$(gettext 'Do you want to decompress') ${1}?
-($(gettext 'it will decompress in current location
- and the original file will be deleted'))"
-      [ $? -eq 101 ] || exit
-      xmessage "$(gettext 'Uncompressing, please wait...')" &
-      UPID=$!
-      bunzip2 "$1"
-      sync
-      kill $UPID
+if [ "`echo "$1" | grep -i '\.xz$'`" != "" ] ;then
+echo XZ FILE
+   if [ "`echo "$1" | grep -i '\.tar\.xz$'`" = "" ] ;then
+   echo NOT TAR-XZ FILE;
+   #F=/mnt/hdb9/Kernels/2.6.33/2.6.33.7/linux-2.6.33.7/Documentation/kernel-parameters.txt
+      xmessage -buttons "Yes:101,No:105" -nearmouse "Do you want to decompress "$VAR_1" ?
+(it will decompress in current location.)";
+      [ "$?" -eq 101 ] || exit
+      xmessage "Uncompressing, please wait..." &
+      UPID="$!"
+      cp -a "$1" "${CDIR}/.${1##*/}"
+      pidof sync || sync
+      time xz -d "$1"
+      pidof sync || sync
+      sleep 1
+      mv  "${CDIR}/.${1##*/}" "$1"
+      pidof sync || sync
+      kill "$UPID"
       exit
    fi
 fi
 
-#100616 .xz files...
-if echo "$1" | grep -qi '\.xz$' ;then
- if ! echo "$1" | grep -qi '\.tar\.xz$' ;then
-  if [ "`which xz`" == "" ];then
-   xmessage -bg red -center "`gettext \"ERROR: 'xz' utility not installed\"`"
-   exit
-  fi
-  xmessage -bg yellow -buttons "$(gettext 'Yes'):100,$(gettext 'No'):101" -center "$(gettext 'Do you want to decompress') ${1}?
-($(gettext 'it will decompress in current location
- and the original file will be deleted'))"
-  [ $? -ne 100 ] && exit
-  yaf-splash -bg orange -text "$(gettext 'Uncompressing, please wait...')" &
-  UPID=$!
-  xz -d "$1"
-  sync
-  kill $UPID
-  exit
- fi
+#also this...
+if [ "`echo "$1" | grep -i '\.lz$'`" != "" ] ;then
+echo LZ FILE
+   if [ "`echo "$1" | grep -i '\.tar\.lz$'`" = "" ] ;then
+   echo NOT TAR-LZ FILE;
+   #F=/mnt/hdb9/Kernels/2.6.33/2.6.33.7/linux-2.6.33.7/Documentation/kernel-parameters.txt
+      xmessage -buttons "Yes:101,No:105" -nearmouse "Do you want to decompress "$VAR_1" ?
+(it will decompress in current location.)";
+      [ "$?" -eq 101 ] || exit
+      xmessage "Uncompressing, please wait..." &
+      UPID="$!"
+      cp -a "$1" "${CDIR}/.${1##*/}"
+      pidof sync || sync
+      time lzma -d "$1"
+      pidof sync || sync
+      sleep 1
+      mv  "${CDIR}/.${1##*/}" "$1"
+      pidof sync || sync
+      kill "$UPID"
+      exit
+   fi
 fi
+
+
+#also this...
+if [ "`echo "$1" | grep -i '\.Z$'`" != "" ] ;then
+echo Z FILE
+   if [ "`echo "$1" | grep -i '\.tar\.Z$'`" = "" ] ;then
+   echo NOT TAR-Z FILE;
+   #F=/mnt/hdb9/Kernels/2.6.33/2.6.33.7/linux-2.6.33.7/Documentation/kernel-parameters.txt
+      xmessage -buttons "Yes:101,No:105" -nearmouse "Do you want to decompress "$VAR_1" ?
+(it will decompress in current location.)";
+      [ "$?" -eq 101 ] || exit
+      xmessage "Uncompressing, please wait..." &
+      UPID="$!"
+      cp -a "$1" "${CDIR}/.${1##*/}"
+      pidof sync || sync
+      time uncompress "$1"
+      pidof sync || sync
+      sleep 1
+      mv  "${CDIR}/.${1##*/}" "$1"
+      pidof sync || sync
+      kill "$UPID"
+      exit
+   fi
+fi
+}
+
+
+
+
+
+
+
+
+
+##*** NEW ***
+xerr_msg(){
+[ "$DISPLAY" ] && xmessage -bg red "$*"    || err_msg "$*"
+}
+xwarn_msg(){
+[ "$DISPLAY" ] && xmessage -bg orange "$*" || warn_msg "$*"
+}
+xok_msg(){
+[ "$DISPLAY" ] && xmessage -bg green "$*"  || ok_msg "$*"
+}
+
+err_msg(){
+        echo -e '\033[0;31m'"$*"'\033[0;39m'
+}
+warn_msg(){
+        echo -e '\033[0;33m'"$*"'\033[0;39m'
+}
+ok_msg(){
+        echo -e '\033[0;32m'"$*"'\033[0;39m'
+}
+
+#alias mountpoint='busybox mountpoint'
+#alias
+for ext in gz bz2 lz lza lzma lzma2 lzo lzop xz Z
+do
+
+[ "`echo "$*" | grep "\.tar\.$ext$"`" ] && break # goto xarchive
+[ "`echo "$*" | grep "\.$ext$"`" ] || continue
+
+case $ext in
+gz)   DEC_BIN=gzip;DEC_OPTS=-d;;
+bz2)  DEC_BIN=bzip2;DEC_OPTS=-d;;
+lz|lza|lzm|lzma|lzma2) DEC_BIN=lzma -d;DEC_OPTS=-d;;
+lzo|lzop) DEC_BIN=lzop;DEC_OPTS=-d;;
+xz) DEC_BIN=xz;DEC_OPTS=-d;;
+Z)  DEC_BIN=uncompress;DEC_OPTS='';;
+*) : ;;#TODO
+esac
+
+#check space
+DIRS=`echo "$CDIR" | tr '/' '\n'`
+#alias mountpoint='busybox mountpoint'
+#alias
+#type mountpoint
+mountpoint='busybox mountpoint'
+
+for dir in $DIRS; do
+dirall="$dirall/$dir"
+$mountpoint "$dirall" && break
+done
+
+$mountpoint "$dirall" && FREE=`df -k "$dirall"`
+
+[ "$FREE" ] || {
+        . /etc/rc.d/PUPSTATE
+case $PUPMODE in
+2)  FREE=`df -k /`;;
+6)  FREE=`df -k /initrd/pup_ro1`;;
+12) FREE=`df -k /initrd/pup_ro1`;;
+3)  FREE=`df -k /initrd/pup_rw`;;
+7)  FREE=`df -k /initrd/pup_rw`;;
+13) FREE=`df -k /initrd/pup_rw`;;
+5)  FREE=`df -k /initrd/pup_rw`;;
+esac  #TODO check if thats right with the various PUPSTATE
+}
+
+FREE=`echo "$FREE" | awk '{print $4}' | grep -v '[[:alpha:][:punct:]]'`
+[ "$FREE" ] || warn_msg "Could not compute FREE space."
+
+SIZEPKG=`du -Bk -s "$*" | awk '{print $1}' | tr -d '[[:alpha:]]'`
+echo SIZEPKG=$SIZEPKG
+SIZEEXP=$((SIZEPKG*7))
+[[ $SIZEEXP -gt $FREE ]] && warn_msg "$SIZEEXP greater than FREE space."
+
+#confirmation
+xmessage -buttons "Yes:101,No:105" "Do you want to decompress ${*} ?
+It will decompress in the current location.
+Make sure there is enough space there:
+The pkg is $SIZEPKG k and likely needs
+3-5 times diskspace to extract.
+Free diskspace : $FREE k"
+A="$?"
+[[ "$A" -eq 105 ]] && { xmessage -bg pink "Not done.";exit 0; }
+[[ "$A" -ne 101 ]] && warn_msg "xmessage button warning : Pressed button $A - should be 101 ."
+
+#make backup
+case "$DEC_BIN" in
+gzip|bzip2|xz) cp -a --backup=numbered "$*" "${CDIR}"/."${*##*/}";CP_RVAL=$?
+pidof sync || sync;; #creates a hidden file; TODO check for free space
+*) : #TODO
+esac
+
+#uncompress
+which $DEC_BIN || { xerr_msg "$DEC_BIN not found in PATH. You might want to install ${DEC_BIN}.";exit 1; }
+mv -f --backup=numbered "${*//.$ext/}" "${*//.$ext/}.bak"
+time $DEC_BIN $DEC_OPTS "$*"
+DEC_RVAL=$?
+pidof sync || sync
+
+#restore original $* OR clean up
+case "$DEC_BIN" in
+gzip|bzip2|xz)
+[ "$CP_RVAL" = 0 ] && { #restore
+mv "${CDIR}"/."${1##*/}" "$1" && { pidof sync || sync; } || :
+} || { rm -f "${CDIR}"/."${1##*/}";pidof sync || sync; }  #TODO not enough space anymore ?
+;;
+*) : #TODO
+esac
+[ "$DEC_RVAL" ] || RVAL=2
+case $DEC_RVL in
+0) xok_msg "Uncompressing done.";;
+1) xerr_msg "Likely failed to uncompress.";;
+2) xwarn_msg "Did not recieve return value from '$DEC_BIN'.";;
+*) xwarn_msg "Recieved '$DEC_RVAL' from '$DEC_BIN'. Please check everything AND compile a bug report. Thanks."
+esac
+exit $DEC_RVAL
+done
+## *** /NEW ***
+
+
+
+
+
+
+
 
 
 #in order of preference...
 if [ ! "`which xarchive`" = "" ];then
+echo XARCHIVE FILE
  XARCHIVE="xarchive"
 else
  if [ ! "`which TkZip`" = "" ];then
+ echo TKZIP FILE
   XARCHIVE="TkZip"
  else
   if [ ! "`which guitar`" = "" ];then
+  echo GUITAR FILE
    XARCHIVE="guitar"
   else
-   exec xmessage -bg "orange red" -center -title "$(gettext 'PupZip: ERROR')" "$(gettext 'No archive GUI program found.
-Please install XArchive.')"
+  echo ERROR
+   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
+Please install XArchive."
   fi
  fi
 fi
 
 #the full alternatives, dotpups by GuestToo...
 DPKGDEB="dpkg-deb"
-[ "`which dpkg-deb2`" != "" ] && DPKGDEB="dpkg-deb2"
-RPM2CPIO="rpm2cpio"
-[ "`which rpm2cpio2`" != "" ] && RPM2CPIO="rpm2cpio2"
+[ ! "`which dpkg-deb2`" = "" ] && echo line 80 && DPKGDEB="dpkg-deb2"
+RPM2CPIO="rpm2cpio2"
+[ ! "`which rpm2cpio2`" = "" ] && echo line 82 && RPM2CPIO="rpm2cpio2"
 
 if [ "$PARAMIN" = "" ];then
  #just start xarchive...
+ echo NO PARAMIN $PARAMIN starting XARCHIVE
  exec $XARCHIVE
 fi
 
 if [ "$XARCHIVE" = "xarchive" ];then
- MSGE="$(gettext 'Drag and drop invocation of XArchive is achieved by dragging any file or
-directory to the "pupzip" icon on the desktop. If you drag one of the
+echo XARCHIVE $XARCHIVE
+ MSGE="Drag and drop invocation of XArchive is achieved by dragging any file or
+directory the \"pupzip\" icon on the desktop. If you drag one of the
 recognised archived files, such as .tar.gz, .rpm, .deb, .zip, .tar.bz2,
 it will open in XArchive and you will be given the opportunity to extract
 it. If you drag an ordinary file to the desktop icon, such as for example
-"myfile.txt", a XArchive will popup a dialog asking if you want to add
-it to an existing archive or create a new one.')"
+\"myfile.txt\", a XArchive will popup a dialog asking if you want to add
+it to an existing archive or create a new one."
 else
- MSGE="$(gettext 'There is support for drag-and-drop of archive files to the desktop icon,
-however not for files and directories -- for that you need to have 
-XArchive installed, the preferred archiver program for Puppy.')"
+echo somethingelse
+ MSGE="There is support for drag-and-drop of archive files to the desktop icon,
+however not for files and directories -- for that you need to have
+XArchiver installed, the preferred archiver program for Puppy."
 fi
 
 if [ "$PARAMIN" = "--help" ];then
- xmessage -bg "orange" -center -title "$(gettext 'PupZip: help')" "
-`eval_gettext \"This is a frontend to \\\$XARCHIVE, which in turn is a frontend to the\"`
-$(gettext 'archiver utilities in Puppy (such as gzip, bzip2, dpkg, rpm, zip).')
+echo PARAMIN is HELP
+ xmessage -bg "orange" -center -title "PupZip: help" "
+This is a frontend to $XARCHIVE, which in turn is a frontend to the
+archiver utilities in Puppy (such as gzip, bzip2, dpkg, rpm, zip).
 
-`eval_gettext \"Note: \\\$XARCHIVE can be started in the conventional way via the menu.\"`
+Note: $XARCHIVE can be started in the conventional way via the menu.
 
 $MSGE
 
-$(gettext 'PupZip can also be invoked from Rox by the "Open With..." menu,
-by right-clicking on a file or directory.')"
+PupZip can also be invoked from Rox by the \"Open With...\" menu,
+by right-clicking on a file or directory."
  exit
 fi
 
-#120512 added .rar
-NORMFILE="`echo -n "$PARAMIN" | grep -iv "\\.tar" | grep -iv "\\.bz" | grep -iv "\\.gz" | grep -iv "\\.rpm" | grep -iv "\\.deb" | grep -iv "\\.zip" | grep -iv "\\.tgz" | grep -iv "\\.txz" | grep -iv "\\.tbz" | grep -iv "\\.rar"`"
 
+NORMFILE="`echo -n "$PARAMIN" | grep -iv "\\.tar" | grep -iv "\\.bz" | grep -iv "\\.gz" | grep -iv "\\.rpm" | grep -iv "\\.deb" | grep -iv "\\.zip" | grep -iv "\\.tgz" | grep -iv "\\.tbz"`"
+echo NORMFILE $NORMFILE
 if [ "$NORMFILE" = "" ];then
  #it is an archive file...
- 
+ echo NORMFILE is empty
  #get absolute path of file...
  if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then
   FULLSPEC="$PARAMIN"
@@ -169,7 +374,7 @@ if [ "$NORMFILE" = "" ];then
   if [ "$XARCHIVE" = "xarchive" ];then
    exec xarchive --add=ask "$PARAMIN"
   else
-   exec xmessage -bg "orange red" -center -title "$(gettext 'PupZip: ERROR')" "$(gettext 'Not an archive file')"
+   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
   fi
  else
   AEXT="$AFILE"
@@ -182,11 +387,11 @@ if [ "$NORMFILE" = "" ];then
   rpm|RPM)
    mkdir /tmp/temprpm
    cd /tmp/temprpm
-   #110620 rpm2cpio does not always work, use exploderpm...
-   #$RPM2CPIO "$FULLSPEC" | cpio -d -i -m
-   exploderpm -x "$FULLSPEC" #a script in /usr/sbin, uses cpio.
+   $RPM2CPIO "$FULLSPEC" | cpio -d -i -m
    if [ ! $? -eq 0 ];then
-    exec xmessage -bg "orange red" -center -title "$(gettext 'PupZip: ERROR')" "$(gettext 'An error has occurred opening the RPM file.')"
+    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the RPM file.
+Suggestion: install unrpm.pup DotPup package, which contains an alternative
+RPM extraction program, that PupZip will automatically use if present."
    fi
    sync
    tar -c -f /tmp/temprpm.tar .
@@ -219,7 +424,7 @@ else
  if [ "$XARCHIVE" = "xarchive" ];then
   exec xarchive --add=ask "$NORMFILE"
  else
-  exec xmessage -bg "orange red" -center -title "$(gettext 'PupZip: ERROR')" "$(gettext 'Not an archive file')"
+  exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
  fi
 fi
 
