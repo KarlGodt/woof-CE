@@ -1,0 +1,329 @@
+#!/bin/ash
+
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.30.9-i586-dpup005-Celeron2G
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·'
+# Linux·puppypc·2.6.30.9-i586-dpup005-Celeron2G·#6·SMP·Sat·Jan·15·13:35:51·GMT-8·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xorg
+# $LANG=de_DE@euro
+# today=Do·27.·Okt·22:46:08·GMT-1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+RROG="/etc/rc.d/rc.sysinit.local.start"
+echo `date`
+KERNVER="`uname -r`"
+KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
+
+mkmissing_tty_func() {
+echo "mkmissing_tty_func" `date`
+[ ! -c /dev/tty ] && mknod /dev/tty c 5 0
+for i in $(seq 0 12); do
+[ ! -c /dev/tty$i ] && mknod /dev/tty$i c 4 $i
+done
+[ ! -d /dev/vc ] && mkdir /dev/vc
+for i in $(seq 0 12); do
+[ ! -c /dev/vc/$i ] && mknod /dev/vc/$i c 4 $i
+done
+[ ! -d /dev/fb ] && mkdir /dev/fb
+for i in `seq 0 11` ; do
+[ ! -L /dev/fb/$i ] && [ -c /dev/fb$i ] && ln -s ../fb$i /dev/fb/$i
+done
+[ -d /dev/loop ] && mkdir /dev/loop
+for i in `seq 0 11` ; do
+[ ! -L /dev/loop/$i ] && [ -b /dev/loop$i ] && ln -s ../loop$i /dev/loop/$i
+done
+
+}
+mkmissing_tty_func
+
+
+check_frugal_full_func() {
+[ -z "`mount | grep '/proc'`" ] && mount -t proc none /proc
+echo "check_frugal_full_func" `date`
+CatProcPart=`cat /proc/partitions |tr -s ' ' | sed '1,2 d'`
+if test -z "`readlink /dev/root`"; then ## frugal install
+RootDiskFreeFrugal=`df | grep -w '/' | grep 'rootfs'`
+MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
+else
+if test -n "`readlink /dev/root`"; then
+RootDiskReadlinkDevRoot=`readlink /dev/root`
+RooDiskFreeFullInstall=`df | grep -w '/' | tr -s ' ' | cut -f 1 -d ' '`
+MountFull=`mount | grep -w '/' | grep '/dev/' | cut -f 1 -d ' '`
+fi
+fi
+}
+
+check_frugal_full_func
+
+check_extended_dev_func() {
+echo "check_extended_dev_func" `date`	
+if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" ; then ## frugal install
+SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
+MainDriveName=${SimpleDeviceName:0:3}
+RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+else
+if test -n "$RooDiskFreeFullInstall" -a -n "$MountFull" ; then ## full install
+##krg this would get root and later roo :SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
+SimpleDeviceName=`basename $(rdev | cut -f 1 -d ' ')` 
+MainDriveName=${SimpleDeviceName:0:3}
+RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+fi
+fi
+}
+
+check_extended_dev_func
+
+mkmissing_blockdev_func() {
+	echo "mkmissing_blockdev_func" `date`
+	rootdrv=`df | grep -w '/' | grep -v -E 'rootfs|unionfs'`
+if test "$rootdrv" != ""; then
+simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+else
+rootdrv=`mount | grep '/initrd/mnt/dev_save'`
+simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+fi
+if test "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`" != ""; then
+#if [ ! -b /dev/sda -o ! -b /dev/hda ]; then ### simple attempt ;)
+echo "no blockdevices found, creating now" #> /dev/console
+ /root/my-applications/bin/MkMissingDev.sh
+echo "finished ..." #> /dev/console
+fi
+}
+#mkmissing_blockdev_func
+
+dev_tar_gz_restore_func() {
+	echo "dev_tar_gz_restore_func" `date`
+TarGzDevDbF="/var/db/boot/dev.$KERNVER.tar.gz"
+StandardTarGzDevDbFile="/var/db/boot/dev.tar.gz"
+if [ ! -f $TarGzDevDbF ]; then #1
+if test -f $StandardTarGzDevDbFile; then #1.1
+tgdbf="$StandardTarGzDevDbFile"
+fi # 1.1
+elif [ -f $TarGzDevDbF ]; then #1
+tgdbf="$TarGzDevDbF"
+else return #1
+fi #1
+shortfilename=`basename $tgdbf`
+echo $shortfilename
+if test `ls -l /dev | wc -l` -lt 250 ; then #2
+cp $tgdbf /tmp
+startdir=`pwd`
+cd /tmp
+tar -xzf /tmp/$shortfilename
+TDevF=`find /tmp -name "dev"`
+cp -ar $TDevF / #2>/dev/null
+sync
+rm -f $TDevF
+cd "$startdir"
+fi #2
+}
+
+
+simple_dev_maj_259_func() {
+	echo "simple_dev_maj_259_func" `date`
+if [ -d /dev_2.6.37 -a -d /dev_2.6.30.5_orig ]; then #1
+if test "`cat /proc/partitions | tr -s ' ' | cut -f2 -d' ' | grep '259'`" != ""; then #1.1
+rm -rf /dev
+mkdir /dev
+cp -ar /DD/dev_2.6.37/* /dev
+else #1.1
+rm -rf /dev
+mkdir /dev
+cp -ar /DD/dev_2.6.30.5_orig/* /dev
+fi #1.1
+else #1
+dev_tar_gz_restore_func
+fi #1.1
+}
+#simple_dev_maj_259_func
+
+dev_maj_259_func() {
+	echo "dev_maj_259_func" `date`
+ DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
+DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
+
+DEVDNN259=`echo "$DNN" | cut -f 1 -d ' ' | grep '259'`
+MAINDRVS=`echo "$DNN" | grep -E 'sd|hd' | cut -f 4 -d ' ' | cut -b 1-3 | sort -u`
+
+for j in $MAINDRVS; do
+
+ LSLDN=`ls -l /dev/$j* | cut -f 5,6,9,10 -d ' '`
+LSLDNN=`echo "$LSLDN" | sed "s/^ //; s/^/'/; s/$/'/"`
+
+DEVLSL259=`echo "$LSLDN" | cut -f 1 -d ' ' | grep '259'`
+
+if test -n "$DEVDNN259" -a -z "$DEVLSL259"; then
+echo "$DNN" | while read l; do 
+MAJ=`echo $l | cut -f 1 -d ' ' | tr -d "'"` 
+Min=`echo $l | cut -f 2 -d ' '` 
+DEV=`echo $l | cut -f 4 -d ' ' | tr -d "'"`
+echo $MAJ $Min $DEV #> /dev/console
+LSLEXISTINGDEV=`ls -l /dev/$DEV | grep -w $DEV`
+#if
+NeededParts=`echo "$LSLEXISTINGDEV" | cut -f 1,5,6,9,10 -d ' '`
+KIND=`echo $NeededParts | cut -b 1`
+MAJexist=`echo $NeededParts | cut -f 2 -d ' ' | tr -d ','`
+Minexist=`echo $NeededParts | cut -f 3 -d ' '`
+DEVexist=`echo $NeededParts | cut -f 5 -d ' '`
+if test -z "$DEVexis"; then
+DEVexist=`echo $NeededParts | cut -f 4 -d ' '`
+fi
+echo $NeededParts 
+echo $KIND 
+echo $MAJexist 
+echo $Minexist 
+echo $DEVexist
+if test "$MAJexist" != "$MAJ" -a "$Minexist" != "$Min"; then
+rm -f /dev/$DEV
+mknod /dev/$DEV b $MAJ $Min
+fi
+done
+fi
+done
+}
+
+#dev_maj_259_func
+
+device_nodes_fork_func() {
+	echo "device_nodes_fork_func" `date`
+	check_extended_dev_func
+	if test "`echo $RootDevice | grep '^259'`" != "" ; then
+	dev_maj_259_func
+	elif test "`echo $RootDevice | grep -E '^8|^3|^22'`" != "" ; then
+	mkmissing_blockdev_func
+	else
+	return
+	fi
+}
+
+device_nodes_fork_func
+
+mk_missing_var_dev_func() {
+	echo "mk_missing_var_dev_func" `date`
+kernversdbf="/var/db/boot/dev_nodes.$KERNVER.lst"
+standarddbf="/var/db/boot/dev_nodes.lst"
+if test -f /var/db/boot/dev.tar.gz -o -f /var/db/boot/dev.$KERNVER.tar.gz ; then
+	echo "restoring devices archive from /var/db/boot ..."
+dev_tar_gz_restore_func
+return
+elif test -f $kernversdbf ; then
+	echo "restoring devices from $kernversdbf"
+#DDB="`cat /var/db/boot/dev_nodes.$KERNVER.lst`"
+dbf="$kernversdbf"
+elif test -f $standarddbf ;then
+	echo "restoring devices from $standarddbf" 
+dbf="$standarddbf"
+else
+return
+fi
+	#cat /var/db/boot/dev_nodes.$KERNVER.lst| while read PERM N O G MAY Min M D T DEV; do
+cat $dbf | while read PERM N O G MAY Min M D T DEV; do
+[ -z "$DEV" ] && DEV="$T"
+KIND=${PERM:0:1}
+MAJ=`echo $MAY | tr -d ','`
+DN=`dirname $DEV`
+[ ! -d $DN ] && mkdir $DN
+[ ! -$KIND $DEV ] && echo -n "making $DEV " && mknod $DEV $KIND $MAJ $Min
+done
+}
+mk_missing_var_dev_func
+
+mk_missing_var_dev_func2() {
+	echo "mk_missing_var_devfunc2" `date`
+TarGzDevDbF="/var/db/boot/dev.$KERNVER.tar.gz"
+StandardTarGzDevDbFile="/var/db/boot/dev.tar.gz"
+if test -f $TarGzDevDbF -o -f $StandardTarGzDevDbFile ; then
+if [ ! -f $TarGzDevDbF ]; then #1.1
+tgdbf="$StandardTarGzDevDbFile"
+elif [ -f $TarGzDevDbF ]; then #1.1
+tgdbf="$TarGzDevDbF"
+else return #1.1
+fi #1.1
+shortfilename=`basename $tgdbf`
+echo $shortfilename
+if test `ls -l /dev | wc -l` -lt 250 ; then #1.2
+cp $tgdbf /tmp
+startdir=`pwd`
+cd /tmp
+tar -xzf /tmp/$shortfilename
+TDevF=`find /tmp -name "dev"`
+cp -ar $TDevF / #2>/dev/null
+sync
+rm -f $TDevF
+cd "$startdir"
+return
+fi #1.2
+	
+else # 1	
+kernversdbf="/var/db/boot/dev_nodes.$KERNVER.lst"
+standarddbf="/var/db/boot/dev_nodes.lst"
+if test -f $kernversdbf ; then #1.3
+#DDB="`cat /var/db/boot/dev_nodes.$KERNVER.lst`"
+dbf="$kernversdbf"
+elif test -f $standarddbf ;then #1.3
+dbf="$standarddbf"
+else #1.3
+return
+fi #1.3
+	#cat /var/db/boot/dev_nodes.$KERNVER.lst| while read PERM N O G MAY Min M D T DEV; do
+cat $dbf | while read PERM N O G MAY Min M D T DEV; do
+[ -z "$DEV" ] && DEV=$T
+KIND=${PERM:0:1}
+MAJ=`echo $MAY | tr -d ','`
+DN=`dirname $DEV`
+[ ! -d $DN ] && mkdir $DN
+[ ! -$KIND $DEV ] && echo -n "making $DEV " && mknod $DEV $KIND $MAJ $Min
+done
+fi #1
+}
+
+mk_missing_var_dev_func2
+
+root_link_func() {
+	echo "root_link_func "`date`
+	if test "`df | grep -w '/' | grep '/dev/root'`" != "" ; then
+	if test ! -L /dev/root ; then
+	RD=`dmesg | grep 'Mounted root'`
+	device=`echo "$RD" | grep -o -i 'device .*' | cut -f 2 -d ' '`
+	MAJ=`echo $device | cut -f 1 -d ':'`
+	Min=`echo $device | cut -f 2 -d ':' | sed 's#\.$##'`
+	#rootdevice=`grep -E "$MAJ|$Min" /proc/partitions` 
+	rootdevice=`grep -w $MAJ /proc/partitions | grep -w $Min | tr -s [[:blank:]] | cut -f 5 -d ' '` 
+	ln -s /dev/$rootdevice /dev/root
+	fi
+	fi
+}
+
+root_link_func
+
+
+
+
+echo "$PROG finished ..."
+echo `date`
+
