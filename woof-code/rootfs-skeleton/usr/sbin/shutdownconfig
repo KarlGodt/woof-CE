@@ -327,7 +327,8 @@ $RUNMS"
   return 1
  fi
  xSCHOICES=`cat /tmp/schoices.txt | tr '\n' ' '`
-
+ echo "xSCHOICES='$xSCHOICES'"
+ echo "SCHOICES='$SCHOICES'"
  if [ `echo "$SCHOICES" | wc -l` -eq 1 ];then
   SAVEPART=`echo -n "$SCHOICES" | cut -f 1 -d ' '` #no need for dlg.
  else
@@ -355,7 +356,9 @@ $(eg_ 'Or, \Zb${T_abort}\ZB to shutdown without saving...')"
 
   while [ 1 ];do
    /tmp/savedlg >/dev/console
+   echo "SAVEPART='$SAVEPART'"
    SAVEPART=`cat /tmp/tag.txt | head -n 1` #head is in case of errs in output.
+   echo "SAVEPART='$SAVEPART'"
    if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd|^mmcblk'`" = "" ];then
     ${DIALOGEXE} ${BACKGROUNDPINK} ${TITLEPARAM} "$T_notchosentitle" $COLORSPARAM --yes-label "$T_tryagain" --no-label "${T_abort}" --yesno "$T_yesno" 0 0 >/dev/console
     [ ! $? -eq 0 ] && return 1 #abort.
@@ -364,12 +367,14 @@ $(eg_ 'Or, \Zb${T_abort}\ZB to shutdown without saving...')"
    break
   done
  fi
-
+ echo "SCHOICES='$SCHOICES' SAVEPART='$SAVEPART'"
  SAVEFS=`echo "$SCHOICES" | grep "^${SAVEPART} " | tr -s " " | cut -f 2 -d ':' | cut -f 2 -d " "`
  SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs"
+
  [ "$SAVEPART" = "fd0" ] && SAVEFILE="/${DISTRO_FILE_PREFIX}save.2fs"
+ echo "SAVEFILE=$SAVEFILE' SAVEFS=SAVEFS' SAVEPART=$SAVEPART'"
  PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
- echo "$PUPSAVE" #TEST
+ echo "PUPSAVE='$PUPSAVE'" #TEST
  return 0
 } #end choosepartfunc
 
@@ -444,10 +449,12 @@ pupsavefunc() {
  SFEXTNUM=`echo -n "$SFFS" | cut -c 4`
  SFEXT="${SFEXTNUM}fs" #ex: 2fs
  sfPATTERN="s%[234]fs$%${SFEXTNUM}fs%"
+ echo "SAVEFILE=$SAVEFILE'"
  SAVEFILE=`echo -n "$SAVEFILE" | sed -e "$sfPATTERN"`
+ echo "SAVEFILE=$SAVEFILE'"
  PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  NAMEONLY=`basename $SAVEFILE`
-
+ echo "NAMEONLY=$NAMEONLY'"
  #customise the name of the ${DISTRO_FILE_PREFIX}save file...
  T_nametitle=$(g_ 'First shutdown: save-file name')
  #T_nameinput="$(eg_ "Would you like to customise the name of the '\${DISTRO_FILE_PREFIX}save.\${SFEXT}' file?")
@@ -538,13 +545,16 @@ entered at every bootup.')"
   else
    NAMEONLY="${DISTRO_FILE_PREFIX}save_crypt${DENSITY}.${SFEXT}"
   fi
+  echo "SAVEFILE=$SAVEFILE'"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
+  echo "PUPSAVE=$PUPSAVE'"
  fi
+ echo "MNAMEONLY=$MNAMEONLY'"
  MNAMEONLY=`basename $SAVEFILE .${SFEXT}`
-
+ echo "SMNTPTSAVEFILE='$SMNTPT'$SAVEFILE'"
  #save with different name if clash...
- if [ -f $SMNTPT$SAVEFILE ]; then
+ if [ -f "$SMNTPT/$SAVEFILE" ]; then
   T_clashtitle=$(g_ 'First shutdown: name clash')
   T_save=$(g_ 'SAVE')
 #  T_yesno="$(eg_ "There already exists a '\${NAMEONLY}' file on the partition you chose.")
@@ -563,7 +573,7 @@ $QUIT"
   ${DIALOGEXE} ${BACKGROUNDPINK} ${TITLEPARAM} "$T_clashtitle" $COLORSPARAM --yes-label "$T_save" --yesno "$T_yesno" 0 0 >/dev/console
   [ $? -eq 0 ] || return 1
   local BLA=1 #; local SFFIX=`echo "$SAVEFILE" | tail -c 5`
-  while [ -f "$SMNTPT$SAVEFILE" ]; do
+  while [ -f "$SMNTPT/$SAVEFILE" ]; do
    SAVEFILE="$PSUBDIR/${MNAMEONLY}-${BLA}.${SFEXT}"
    BLA=`expr $BLA + 1`
   done
@@ -588,7 +598,11 @@ $QUIT"
  fi
 
  SAVEPATH=`dirname $SAVEFILE`
- [ -d ${SMNTPT}${SAVEPATH} ] || mkdir -p ${SMNTPT}${SAVEPATH}
+ echo "SAVEPATH=$SAVEPATH"
+ [ "$SAVEPATH" = '.' ] && SAVEPATH=""
+ echo "SAVEPATH=$SAVEPATH"
+ echo "SMNTPT/SAVEPATH=${SMNTPT}/${SAVEPATH}'"
+ [ -d "${SMNTPT}/${SAVEPATH}" ] || mkdir -p "${SMNTPT}/${SAVEPATH}"
 
  #final sanity check...
  AAAMB=`expr $SIZEPFILE \/ 1024`
@@ -597,12 +611,12 @@ $QUIT"
  T_sanichange=$(g_ 'CHANGE FOLDER')
  while [ 1 ];do #110926
   T_sanitext="`eg_ \"\Zb\Z1FINAL SANITY CHECK:\Zn\ZB
-Partition you are saving to:      \Zb\\\${SAVEPART}\ZB
+Partition you are saving to:        \Zb\\\${SAVEPART}\ZB
 The filesystem of \\\${SAVEPART} partition: \Zb\\\${SAVEFS}\ZB
-Name of the save file:            \Zb\\\${NAMEONLY}\ZB
-Path (folder) of the save file:   \Zb\\\${SAVEPATH}\ZB
-Size of save file:                \Zb\\\${SIZEPFILE}KB (\\\${AAAMB}MB)\ZB
-Filesystem inside save file:      \Zb\\\${SFFS}\ZB
+Name of the save file:              \Zb\\\${NAMEONLY}\ZB
+Path (folder) of the save file on \\\${SAVEPART}:   \Zb\\\${SAVEPATH}\ZB
+Size of save file:                  \Zb\\\${SIZEPFILE}KB (\\\${AAAMB}MB)\ZB
+Filesystem inside save file:        \Zb\\\${SFFS}\ZB
 
 If they definitely look right, choose \Zb\\\${T_saniyes}\ZB button...
 Looks ok, but you want to change the folder, choose \Zb\\\${T_sanichange}\ZB...
@@ -621,10 +635,10 @@ If uncertain, just click OK button.')"
    [ "$NEWSAVEPATH" ] || NEWSAVEPATH="$SAVEPATH"
    [ "`echo -n "$NEWSAVEPATH" | cut -b 1`" = "/" ] || NEWSAVEPATH="/${NEWSAVEPATH}"
    [ "$NEWSAVEPATH" = "/" ] || NEWSAVEPATH=`echo -n "$NEWSAVEPATH" | sed -e 's%/$%%'`
-   NEWSAVEPATH=`echo -n "$NEWSAVEPATH" | sed -e 's/ //g'`
+   NEWSAVEPATH=`echo -n "$NEWSAVEPATH" | sed -e 's/ //g'`                               ##deletes space
    SAVEPATH="$NEWSAVEPATH"
    SAVEPATHs="$SAVEPATH"
-   [ "$SAVEPATH" = "/" ] || SAVEPATHs="${SAVEPATH}/"
+   [ "$SAVEPATH" = "/" -o "$SAVEPATH" = '.' ] || SAVEPATHs="${SAVEPATH}/"
    SAVEFILE="${SAVEPATHs}${NAMEONLY}"
    PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   else
@@ -632,9 +646,9 @@ If uncertain, just click OK button.')"
    PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   fi
  done
- [ -f ${SMNTPT}${SAVEPATH} ] && return 1 #abort. must be a directory.
- [ -d ${SMNTPT}${SAVEPATH} ] || mkdir -p ${SMNTPT}${SAVEPATH}
- [ -d ${SMNTPT}${SAVEPATH} ] || return 1 #some kind of error, abort.
+ [ -f "${SMNTPT}/${SAVEPATH}" ] && return 1 #abort. must be a directory.
+ [ -d "${SMNTPT}/${SAVEPATH}" ] || mkdir -p "${SMNTPT}/${SAVEPATH}"
+ [ -d "${SMNTPT}/${SAVEPATH}" ] || return 1 #some kind of error, abort.
 
  #JOPT=""
  [ "$SAVEPART" = "fd0" ] && SIZEPFILE=`expr $SIZEPFILE - 16`
@@ -658,15 +672,16 @@ If uncertain, just click OK button.')"
   ${DIALOGEXE} ${BACKGROUNDORANGE} ${TITLEPARAM} "$T_createtitle" $COLORSPARAM --ok-label "OK" --msgbox "$T_createsf" 0 0 >/dev/console &
   w1PID=$!
  fi
- dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
+ echo "SMNTPT/SAVEFILE=${SMNTPT}/$SAVEFILE'"
+ dd if=/dev/zero of="${SMNTPT}/$SAVEFILE" bs=1k count=$SIZEPFILE
  sync
  #pupkill $w1PID
  echo "`eg_ \"Creating a \\\${SFFS} filesystem in \\\${NAMEONLY}...\"`" >/dev/console
  if [ ! "$CRYPTO" ];then
   case $SFFS in
-   ext2) mkfs.ext2 -q -m 0 -F ${SMNTPT}$SAVEFILE ;;
-   ext3) mkfs.ext3 -q -m 0 -F ${SMNTPT}$SAVEFILE ;;
-   ext4) mkfs.ext4 -q -m 0 -F ${SMNTPT}$SAVEFILE ;;
+   ext2) mkfs.ext2 -q -m 0 -F "${SMNTPT}/$SAVEFILE" ;;
+   ext3) mkfs.ext3 -q -m 0 -F "${SMNTPT}/$SAVEFILE" ;;
+   ext4) mkfs.ext4 -q -m 0 -F "${SMNTPT}/$SAVEFILE" ;;
   esac
   #mke2fs -q $JOPT -m 0 -F ${SMNTPT}$SAVEFILE
   #...default is f.s. auto checked every 26 mounts or 180 days. tune2fs to change.
@@ -688,11 +703,11 @@ If uncertain, just click OK button.')"
    echo "#!/bin/sh
    echo \"${T_note1}\" >/dev/console
    echo \"${T_note2}\" >/dev/console
-   echo \"${MYPASSWORD}\" | losetup-FULL -p 0 ${CRYPTO} ${DEVLOOP} ${SMNTPT}${SAVEFILE} >/dev/console" > /tmp/shutdownconfig_encrypt_password
+   echo \"${MYPASSWORD}\" | losetup-FULL -p 0 ${CRYPTO} ${DEVLOOP} \"${SMNTPT}/${SAVEFILE}\" >/dev/console" > /tmp/shutdownconfig_encrypt_password
    chmod 755 /tmp/shutdownconfig_encrypt_password
    $TERMEXE -bg '#FFFF80' -fg black -geometry 80x5 -title "$(g_ 'First shutdown: reenter password')" -e /tmp/shutdownconfig_encrypt_password
   else
-   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
+   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP "${SMNTPT}/$SAVEFILE" >/dev/console
   fi
   if [ $? -ne 0 ];then
    $KILLEXE $w1PID #130525 moved down.
@@ -897,7 +912,7 @@ If you answer \Zb\\\${T_copy}\ZB here, please \Zb\Z1FIRST, RIGHT NOW\Zn\ZB, put 
      DRVFREEK=`df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
      if [ $DRVFREEK -gt $FILESIZEK ];then
       echo "`eg_ \"Copying \\\${BASESFS}...\"`" >/dev/console
-      cp -f $ONESFS $SMNTPT/
+      cp -f $ONESFS "$SMNTPT/"
       sync
      else
       T_cantcopy="`eg_ \"Insufficient space! Cannot copy \\\${BASESFS}\"`"
