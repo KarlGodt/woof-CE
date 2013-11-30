@@ -35,7 +35,8 @@
 
 
 #echo "launchxwin started" #> /dev/console
-echo "$0 started"
+echo "$0 started.."
+[ "$DISPLAY" ] && { echo "X apparently running. Exiting.";exit 1; }
 
 #login -f root ##No job control in this shell
 
@@ -49,7 +50,61 @@ for i in $TTYSN; do vt=$i; done
 #vt=$(($vt + 1))
 vt=$((vt+1))
 
+##+++2013-11-30
+do_modeset(){
+IN_USE=0
+  if grep 'i915' /proc/modules; then
+     grep -m1 '^i915' /proc/modules |
+     while read mod vm users rest
+     do
+     [ "$users" = 0 ] && {
+        modprobe -vr i915
+        sleep 2s
+        modprobe -v i915 modeset=1
+      }
+     done
+elif grep -E 'nouveau|nvidia' /proc/modules; then
+:
+elif grep -E 'amd|ati' /proc/modules; then
+:
+fi
+}
 
+[ "`whoami`" = root -a "$HOME" = '/' ] && export HOME=/root
+[ "`whoami`" = root -a  ! "$HOME" ]    && export HOME=/root
+
+LINK_X=`readlink -f $(which X)`
+echo "LINK_X=$LINK_X"
+LINK_X_bn=${LINK_X##*/}
+echo "LINK_X_bn=$LINK_X_bn"
+
+if [ "`echo "$LINK_X_bn" | grep -i 'Xorg'`" ];then
+XORG_VERSION=`Xorg -version 2>&1`
+echo "Attempting to start
+$XORG_VERSION
+.."
+XORG_VERSION_ONLY=`echo "$XORG_VERSION" | sed '/^$/d' | head -n1 | rev | awk '{print $1}' | rev`
+
+case $XORG_VERSION_ONLY in
+7.0.*|7.1.*|1.0.*|1.1.*) :;;
+7.2.*|1.2.*) :;;
+1.3.*) :;;
+1.4.*) :;;
+1.5.*|1.6.*) :;;
+1.7.*) do_modeset;;
+1.8.*) do_modeset;;
+1.9.*) do_modeset;;
+1.10.*) do_modeset;;
+1.11.*) do_modeset;;
+1.12.*) do_modeset;;
+1.13.*) do_modeset;;
+1.14.*) do_modeset;;
+*) echo "$0: NOTICE : Unhandled Xorg -version '$XORG_VERSION_ONLY'.";;
+esac
+fi
+##+++2013-11-30
+
+sleep 10s
 
 if [ ! -f /usr/bin/X ];then
  #v2.00r1 now support a text-mode-only puppy...
@@ -74,14 +129,14 @@ else
  #fi
  if [ "`cat /tmp/X.status`" = "X" ]; then
  if [ "`grep 'autologinroot' /etc/inittab | grep -v -E -e '^#|^[[:blank:]]*#'`" != "" ]; then
- ps |grep -v '\[' | tr '\n' '·'
+ #ps | grep -v '\[' | tr '\n' '·'
  uptime
  echo "starting now xwin" > /dev/console
  #exec xwin &  #the & seems to be required
  xwin &  ##+2011-12-02
  chvt $vt
  #exec 1>/dev/tty$vt 2>&1
- until [ -n "`pidof xinit`" ] ; do
+ until [ -z "`pidof xinit`" ] ; do
  #xc=$((xc+1));echo -n "$xc " >/dev/tty$vt;sleep 1s;done
  xc=$((xc+1));echo "$xc ";sleep 1s;done
  #exec xwin &
