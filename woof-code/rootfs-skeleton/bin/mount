@@ -1,1 +1,352 @@
-mount.forHAL
+#!/bin/ash
+#BK 2006 www.puppylinux.com
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v407 fix for floppy drive icon.
+#v409 gparted create ext3 part. failed, fixed by making /etc/mtab a symlink.
+
+#mount-FULL, umount-FULL, losetup-FULL are the full versions.
+#The Busybox versions of mount and umount are available but only by:
+# # busybox mount ...
+# # busybox umount ...
+#mount and umount are now scripts.
+#if an ntfs partition, puppy uses user-mode ntfs-3g driver.
+#the mount and umount scripts allow seamless mounting and unmounting of ntfs f.s.
+
+
+########################################################################
+#
+# Changes by Karl Reimer Godt
+# 01.0 : debugging output
+# 02.0 : added creation of /mnt/DIRECTORY if given @CL but does not exist
+# 03.0 : simple mount ??
+# 04.0 : if option -a : workaround for problematic -n option to ntfs-3g
+#
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.37.4-KRG-i486-StagingDrivers-3
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·sda·'
+# Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-3·#8·SMP·PREEMPT·Thu·Mar·24·18:04:10·GMT-8·2011·i686·GNU/Linux
+# X·Window·System·Version·1.3.0
+# Release·Date:·19·April·2007
+# X·Protocol·Version·11,·Revision·0,·Release·1.3
+# Build·Operating·System:·UNKNOWN·
+# Current·Operating·System:·Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-3·#8·SMP·PREEMPT·Thu·Mar·24·18:04:10·GMT-8·2011·i686
+# Build·Date:·28·November·2007
+# $LANG=de_DE@euro
+# today=Di·1.·Nov·18:54:28·GMT+1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+
+LANG=C
+[ ! "$1" ] && exec busybox mount
+
+#if [ -n "$DISPLAY" ] ; then #DBG
+#IFS='|'
+#for i in * @ \# ? - $ ! 0 _ ; do
+#echo $*
+#echo "$*"
+#echo $@
+#echo "$@"
+#done 
+#unset IFS
+
+j=0
+for i in `seq 1 $#` ; do
+j=$((j+1))
+PARAM=`echo "$*" | cut -f $i -d ' '`
+echo '$'$j'='"$PARAM"
+eval PARAME$j='\\'"${PARAM}" 
+eval echo "\$PARAME$j" >> /tmp/mount.options.txt
+if [ -n "`echo $PARAM | grep '/' | grep -v '/dev/.*'`" ] ; then 
+[ ! -e $PARAM ] && echo 'Folder '"$PARAM"' does not exists. Creating now ...' && mkdir -p $PARAM 
+fi
+done
+
+MOUNT_ERRORS='
+1:incorrect invocation or permissions
+2:system error (out of memory, cannot fork, no more loop devices)
+4:internal mount bug
+8:user interrupt
+16:problems writing or locking /etc/mtab
+32:mount failure
+64:some mount succeeded'
+
+
+#i realised this script has to allow reentrancy. So, all temp file now unique,
+#using ${$} which is pid of script.
+MYPID=${$}
+. /etc/rc.d/functions4puppy4 #v4.02
+
+
+#echo 'if #0'
+#FOLDERS=`echo "$@" | grep -w '/.* ' | grep -v /dev/`
+#for i in $FOLDERS; do#
+#[ ! -d $i ] && echo 'Folder '"$i"' does not exists. Creating now ...' && mkdir $i
+#done
+
+#MOUNTAT="$@"
+ALREADYMOUNTED=`busybox mount | cut -f 1 -d ' '`
+
+DEVICE_Q=`echo "$@" | grep -o '/dev/.*' | cut -f 1 -d ' '`
+if [ -n "$DEVICE_Q" ] ; then
+if [ -f /etc/fstab ] ; then
+MOUNT_POINT_Q=`grep "$DEVICE_Q" /etc/fstab | grep -v -E -e '#|^[[:blank:]]*#' | tr '[[:blank:]]' ' ' | tr -s ' ' | cut -f 2 -d ' '` 
+if [ -n "$MOUNT_POINT_Q" ] ; then
+if [ ! -e "$MOUNT_POINT_Q" ] ; then
+mkdir "$MOUNT_POINT_Q"
+fi
+fi
+fi
+fi
+
+
+SIMPLEMOUNT=''
+echo 'Simple mount begin'
+
+if [[ -n "`echo $1 | grep -E '/dev/|/mnt/'`" ]] && [[ "`echo "$@"`" = "$1" ]] && [[ -z "$2" ]] ; then
+#GREPPARAM=`echo "$1" | sed 's#-#\\\-#g'`
+#GREPPARAM=`echo "$1" | sed 's/\([[:punct:]]\)/\\\\\1/g; s/\\\\\\\\\\\/\\\/g'`
+## from /sbin/init      sed 's/\([[:punct:]]\)/\\\\\1/g; s/\\\\/\\/g ; s#\ #\\\ #g ; s/ $// ; s/\\$//'
+GREPPARAM=$(echo "$1" | sed 's/\([[:punct:]]\)/\\\\\1/g ; s/\(\\\\\\\)*$//' | tr -s '\\')
+echo 'if #1'
+echo GREPPARAM="$GREPPARAM"
+if [ ! -f /etc/fstab ] || [ -z "`grep -w "$GREPPARAM" /etc/fstab | grep -v -E -e '^#|^[[:blank:]]*#'`" ] ; then
+echo 'if #2'
+partition=`echo "$1" | sed 's#^/dev/## ; s#^/mnt/##'`
+[ ! -d /mnt/$partition ] && mkdir /mnt/$partition
+SIMPLEMOUNT="/dev/$partition /mnt/$partition"
+fi
+fi
+
+#PARAMSCOMPLETE=`echo "$@" | sed 's#^# # ; s#$# #'`
+echo 'Part -a begin'
+echo ':'"$@"':'
+opt_a_PATTERN=`echo " $@" | grep -w -E -e '\ \-[a-z]*a[a-z]*|\ \-a[a-z]*|\ \-[a-z]*a|\ \-a' | sed 's#^ *##' | tr -s ' '`
+echo opt_a_PATTERN="$opt_a_PATTERN"
+
+if [[ -n "$opt_a_PATTERN" ]] ; then
+### option -a given
+### filer other params
+echo '70 74 82'
+count_PARAMS=$(( $(echo "$opt_a_PATTERN" | wc -c) - 2 ))
+echo count_PARAMS=$count_PARAMS
+[ -z "$count_PARAMS" ] || [ "$count_PARAM" -lt 1 ] && count_PARAMS="-1"
+for i in `seq 0 $count_PARAMS` ; do
+echo $i
+PARAM=${opt_a_PATTERN:$i:1}
+[ "$PARAM" = " " ] && PARAM=''
+echo ':'$PARAM':'
+[ -z ${PARAM} ] || [ ${PARAM} = "a" ] && continue
+PARAMETERLINE="$PARAMETERLINE ${PARAM}"
+done
+
+PARAMETERLINE=`echo "$PARAMETERLINE" | sed 's# ##g ; s#-##g ; s#^#-#'`
+[ "$PARAMETERLINE" = "-" ] && PARAMETERLINE=''
+echo 'PARAMETERLINE='"$PARAMETERLINE"
+echo 'if #3'
+
+if [ -n `readlink -f /etc/fstab` ] ; then
+echo 'if #4'
+FSTAB=`cat $(readlink -f /etc/fstab) | grep -E '^/dev/|^no' | grep -v -E -e 'noauto|^#|^[[:blank:]]*#' | tr '\t' ' ' | tr -s ' ' | sed 's/^[[:blank:]]*//'`
+MOUNTDIRS=`echo "$FSTAB" | cut -f 2 -d ' '`
+for i in $MOUNTDIRS ; do
+[ ! -d $i ] && echo 'if #5' && mkdir -p $i
+done
+
+###first simple attempt###
+FSTYPES=`echo "$FSTAB" | cut -f 3 -d ' '`
+[ -n "`echo "$FSTYPES" | grep 'ntfs'`" ] && echo 'if #6' && SPECIALOPT='1'
+
+###second loop attempt###
+for i in $MOUNTDIRS ; do
+DEVICE=`echo "$FSTAB" | grep "$i" | cut -f 1 -d ' '`
+[ ! "$DEVICE" ] && echo -e "\e[31mError , no device specified for $i\e[39m" && continue
+FSTYPE=`echo "$FSTAB" | grep "$i" | cut -f 3 -d ' '`
+[ ! "$FSTYPE" ] && echo -e "\e[31mError , no file system type  specified for $i\e[39m" && continue
+OPTION=`echo "$FSTAB" | grep "$i" | cut -f 4 -d ' '`
+[ ! "$OPTION" ] && echo -e "\e[31mError , no option(s) specified for $i\e[39m" && continue
+
+MOUNTLINE="${PARAMETERLINE} -t ${FSTYPE} -o ${OPTION} ${DEVICE} $i"
+
+if [ -z "`busybox mount | grep "$i"`" ] ; then
+mount-FULL $MOUNTLINE  #no double quotes at least for ash here ; this seems to sqeeze multiple following spaces into one space
+RETVAL=$?
+if [ "$RETVAL" != "0" ] ; then
+ERROR=`echo "$MOUNT_ERRORS" | grep ^$RETVAL | cut -f 2 -d ' '`
+[ -z "$ERROR" ] && ERROR='unknown error'
+echo -e "\e[31mERROR $RETVAL $ERROR mounting $MOUNTLINE\e[39m"
+fi 
+#mount-FULL "$PARAMETERLINE" "$DEVICE" "$i" -t "$FSTYPE" -o "$OPTION"
+fi
+done
+else
+echo -e "\\033[0;31m""Error , option '-a' given but fstab does not exists .""\\033[0;39m"
+exit
+fi
+#######original part :
+else
+echo 'if #3 else'
+#v2.12 discovered difference between $@ and $*. Replaced all $@ with $* in this script...
+
+#extract all the '-' options, on separate lines... do NOT use $@!!!!...
+#v3.93 eliminate ' -- ' and all past it...
+DASHOPTS="`echo -n " $*" | tr '\t' ' ' | tr -s '[[:blank:]]' | sed 's/\(  *\)--\(  *\)/\1\2/g ; s#--$##' | tr ' ' '\n' | grep '^\-'`"  ##  ; s# *-- *##g## NOT needed anymore 
+echo 'DASHOPTS='$DASHOPTS'='
+#needs an explicit '-t ntfs', does not work with /etc/fstab...
+if [ "`echo "$*" | grep 'ntfs'`" = "" ];then
+echo 'if #7'
+ #v3.93 always use full mount, in case of params not understood by bb-mount...
+ ##v2.10 hack for T2, scripts have '--bind'...
+ #if [ "`echo -n "$*" | grep '\-\-bind'`" = "" ];then
+ # busybox mount $@
+ # RETVAL=$?
+ #else
+ # #busybox mount does not support '--bind'
+ # #as have mtab file (see below), can now use full mount...
+  #v409 put in '-n' option as now have /etc/mtab symlink to /proc/mounts...
+  if test -n "$SIMPLEMOUNT" ; then
+  echo 'if #8'
+  mount-FULL -n $SIMPLEMOUNT  ## does not work within double quotes
+  RETVAL=$?
+  echo 'mount-FULLsimplemount$RETVAL='"$RETVAL" #DBG
+  else
+  echo 'if #8 else'
+  mount-FULL -n ${@}
+  RETVAL=$?
+  echo 'mount-FULLnormal$RETVAL='"$RETVAL" #DBG
+ #fi
+ fi
+else
+ #screen out all the options...
+ CMDPRMS="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/' | tr '\n' ' '`"
+ #kirk advised these options so Rox will not complain about file
+ #permissions when copy a file to a ntfs partition...
+ [ -f /tmp/ntfsmnterr${MYPID}.txt ] && rm -f /tmp/ntfsmnterr${MYPID}.txt
+ echo 'CMDPRMS='"$CMDPRMS"
+ ntfs-3g $CMDPRMS -o umask=0,no_def_opts 2>/tmp/ntfsmnterr${MYPID}.txt
+ RETVAL=$?
+ echo 'ntfs-3g$RETVAL='"$RETVAL"
+ #v2.16 ntfs-3g v1.417, part. scheduled for check, failed with value 10...
+ #v4.00 ntfs-3g v1.2412 does not have 4,10, has 15 for dirty f.s., 14 hiberneted...
+ if [ $RETVAL -eq 4 -o $RETVAL -eq 10 -o $RETVAL -eq 15 -o $RETVAL -eq 14 ];then  #try to force it...
+  if [ $RETVAL -eq 14 ];then
+   #ntfs-3g $CMDPRMS -o umask=0,no_def_opts,remove_hiberfile 2>/tmp/ntfsmnterr${MYPID}.txt
+   #RETVAL=$?
+   echo > /dev/null
+  else
+   ntfs-3g $CMDPRMS -o force,umask=0,no_def_opts 2>/tmp/ntfsmnterr${MYPID}.txt
+   RETVAL=$?
+   ERRMSG1="`cat /tmp/ntfsmnterr${MYPID}.txt`"
+   echo 'ntfs-3gretval#4,10,15#$RETVAL='"$RETVAL"
+   echo "$ERRMSG1"
+   if [ $RETVAL -eq 0 ];then
+    echo "WARNING: NTFS f.s. mounted read/write but corrupted."
+    [ ! "`pidof X`" = "" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was able to mount the NTFS
+partition but returned this error message:
+$ERRMSG1
+
+It is mounted read/write, but advice is only write
+to it in emergency situation. Recommendation is
+boot Windows and fix the filesystem first!!!" &
+   fi
+  fi
+ fi
+ echo 'ntfs-3g_after_check_error_code$RETVAL='"$RETVAL"
+ #ntfs-3g plays very safe and will not mount if thinks anything
+ #wrong with ntfs f.s. But, we may want to recover files from a
+ #damaged windows. So, fall back to the kernel ntfs driver...
+ if [ ! $RETVAL -eq 0 ];then
+  #mount read-only...
+  busybox mount -r -t ntfs $CMDPRMS
+  RETVAL=$?
+  echo 'ntfs-3g switch to busybox mount$RETVAL='"$RETVAL"
+  ERRMSG1="`cat /tmp/ntfsmnterr${MYPID}.txt`"
+  echo "$ERRMSG1"
+  if [ $RETVAL -eq 0 ];then
+   echo "WARNING: NTFS f.s. mounted read-only."
+   [ ! "`pidof X`" = "" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was unable to mount the NTFS
+partition and returned this error message:
+$ERRMSG1
+
+So, the inbuilt kernel NTFS driver has been used
+to mount the partition read-only." &
+  fi
+ fi
+fi
+fi
+echo 'final$RETVAL='"$RETVAL"
+echo '$DISPLAY    ='"$DISPLAY"
+#v4.02 if there is a desktop icon (see pup_eventd), then refresh it...
+##if [ "$RETVAL" -eq 0 -a "$DISPLAY" != "" ];then
+if [ -n "$DISPLAY" ] ; then  ##1
+ ##DEVNAME="`busybox mount | tail -n 1 | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+ DEVNAMES="`busybox mount | cut -f 1 -d " " | grep -v -w "$ALREADYMOUNTED"`"
+ echo '$DEVNAMES   ='"$DEVNAMES"
+ ##if [ "$DEVNAME" != "" ];then  ##2
+  for i in $DEVNAMES ; do
+  DEVNAME=`basename $i`
+  DRVNAME="`echo -n "$DEVNAME" | cut -c 1-3`"
+  echo 'DRVNAME     ='"$DRVNAME"
+  #special case, SD card /dev/mmcblk0p1...
+  [ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
+  xDRVNAME="$DRVNAME" #v404
+  echo 'xDRVNAME    ='"$xDRVNAME"
+  [ -d /root/.pup_event/drive_${DEVNAME} ] && DRVNAME="$DEVNAME" #icon for each partition.
+  echo 'DRVNAME     ='"$DRVNAME"
+  if [ -d /root/.pup_event/drive_${DRVNAME} ];then  ##3
+   echo '/root/.pup_event/drive_'$DRVNAME' exists'
+   case $DRVNAME in #v407
+    fd*)
+     DRV_CATEGORY="floppy"
+     echo '$DRV_CATEGORY='"$DRV_CATEGORY"
+    ;;
+    *)
+     dnPATTERN='/dev/'"${xDRVNAME}"'|'
+     DRV_CATEGORY="`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`"
+     echo 'dnPATTERN='"$dnPATTERN"' DRV_CATEGORY='"$DRV_CATEGORY"
+    ;;
+   esac
+   echo 'starting icon_mounted_func ...'
+   icon_mounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
+   echo '... returned from icon mounted func'
+  fi  ##3
+ done
+## fi  ##2
+fi  ##1
+echo 'finishing now '"$0"' ...'
+#v409 now have /etc/mtab a symlink to /proc/mounts so this section not needed...
+##v2.10 do not update /etc/mtab if '-n' option...
+#[ "`echo " $DASHOPTS" | grep '^\-n$'`" != "" ] && exit $RETVAL
+##busybox does not support /etc/mtab, but some apps (ex: eject
+##and the full mount,umount, mke2fs) need it...
+#[ $RETVAL -eq 0 ] && busybox mount | sed -e 's/ on / /g' | sed -e 's/ type / /g' | sed -e 's/ (/ /g' | sed -e 's/)$/ 0 0/g' > /etc/mtab
+##note, it is a long story here. Busybox can be configured to
+##support /etc/mtab, however the information it writes to mtab
+##is incomplete, different, and breaks my scripts.
+
+#v409, instead just make sure the symlink stays there...
+if [ ! -L /etc/mtab ];then
+ rm -f /etc/mtab
+ ln -s /proc/mounts /etc/mtab
+fi
+echo '$RETVAL='"$RETVAL"
+echo '...'"$0"' finished'
+
+exit $RETVAL
