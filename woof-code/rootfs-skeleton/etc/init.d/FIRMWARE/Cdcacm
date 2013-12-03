@@ -1,0 +1,38 @@
+#!/bin/sh
+#usb modem
+#Barry Kauler, LGPL 2007
+
+#if a modem found, quit...
+[ -h /dev/modem ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for firmware and driver to load.
+/sbin/pup_event_backend_modprobe_protect --modcheck=cdc_acm || exit #v432
+
+#v433 Let high-speed modems to be detected by hso init script.
+[ "`grep -l -s 'Modem' /sys/class/tty/ttyHS?*/hsotype`" != "" ] && exit
+
+#Select interrupt-type device - first one or one identified in log as modem.
+DEVLIST="`grep -l -s 'Interrupt' /sys/class/tty/ttyACM?*/device/ep_??/type | cut -f 5 -d / | sed 's/\(ttyACM\)\([0-9]$\)/\10\2/' | sort | sed 's/\(ttyACM\)\(0\)/\1/'`"
+MODEM="`echo $DEVLIST | head -n 1`"
+DEVMLIST="`grep ': USB ACM device$' /var/log/messages | grep -o 'ttyACM[0-9][0-9]*'`"
+[ "$DEVMLIST" != "" ] \
+ && MODEM="`echo $DEVLIST | grep -F "$DEVMLIST" | head -n 1`"
+echo "Script Cdcacm - DEVLIST: $DEVLIST  DEVMLIST: $DEVMLIST  MODEM: $MODEM" >> /tmp/udevtrace-modem.log  #debug
+[ "$MODEM" = "" ] && exit
+
+[ ! -e /dev/$MODEM ] \
+ && [ -e /dev/input/$MODEM ] \
+ && ln -snf input/$MODEM /dev/$MODEM  #device name for pupdial
+ln -snf $MODEM /dev/modem #v433 end
+
+#the module doesn't seem to support any country setting, so...
+if [ -f /etc/countryinfo ];then
+ SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+ sed -i -e "$SPATTERN" /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable.
+
+###END###
