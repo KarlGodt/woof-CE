@@ -1,0 +1,40 @@
+#!/bin/ash
+
+exec 1>>/tmp/photplug.log 2>&1
+alias sed='busybox sed'
+alias grep='busybox grep'
+#alias awk='busybox awk' ##awk: applet not found
+
+#eval `env`  ##/sbin/photplug: eval: line 1: =/bin/busybox_1.18.3_STATIC_upx9_648KB: not found
+
+[ "$ACTION" = add ] || exit
+echo $MODALIAS
+[ "$MODALIAS" ] && {
+        [ -f /tmp/hotplug.modules ] || modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules
+        #MODALIAS_NEW=`echo "$MODALIAS" | sed 's%\*%\.\*%g'`
+        #MODS=`grep "^alias $MODALIAS_NEW" /tmp/hotplug.modules |awk '{print $3}' | sort -u`
+        MODS=`echo "$MODALIAS" | grep -f /tmp/hotplug.modules |awk '{print $3}' | sort -u`
+        #OPTS=`grep "^options $MODALIAS" /tmp/hotplug.modules |cut -f3- -d' '`
+        for m in $MODS ;do
+        OPTS=`grep -m1 "^options $m" /tmp/hotplug.modules |cut -f3- -d' '`
+        modprobe -b -v $m $OPTS
+        done
+        exit
+}
+
+[ "$MAJOR" -a "$MINOR" -a "$DEVNAME" -a "$SUBSYSTEM" ] && {
+
+sed -n '/Block devices:/,$ p' /proc/devices | grep "$SUBSYSTEM" | awk '{print $1}' | grep -w "$MAJOR" && {
+        [ -e /dev/$DEVNAME ] && exit
+        DEV="/${DEVNAME}"
+        mkdir -p "/dev/${DEV%/*}"
+        mknod /dev/$DEVNAME b $MAJOR $MINOR
+        exit $? ; }
+
+sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep "$SUBSYSTEM" | awk '{print $1}' | grep -w "$MAJOR" && {
+        [ -e /dev/$DEVNAME ] && exit
+        DEV="/${DEVNAME}"
+        mkdir -p "/dev/${DEV%/*}"
+        mknod /dev/$DEVNAME c $MAJOR $MINOR
+        exit $? ; }
+}
