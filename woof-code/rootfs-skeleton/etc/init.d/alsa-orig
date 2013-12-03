@@ -1,0 +1,79 @@
+#!/bin/sh
+#Barry Kauler april 2009, puppylinux.com
+#called from /etc/rc.d/rc.services at bootup, with 'start' param.
+#called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
+
+case "$1" in
+ start)
+  if [ "`lsmod | grep '^snd_'`" != "" ];then
+   rm -f /var/lock/subsys/alsasound 2> /dev/null #or alsa will not start.
+   #sometimes these don't all load...
+   modprobe snd-mixer-oss
+   modprobe snd-seq-oss
+   modprobe snd-pcm-oss
+   if [ ! -f /etc/asound.state ];then
+    #try and set all levels workable...
+    #set_mixers #in functions4puppy4
+	amixer -s -q <<EOF
+set Master 75% unmute
+set Master -12dB
+set 'Master Mono' 75% unmute
+set 'Master Mono' -12dB
+set Front 75% unmute
+set Front -12dB
+set PCM 90% unmute
+set PCM 0dB
+set Synth 90% unmute
+set Synth 0dB
+set CD 90% unmute
+set CD 0dB
+set Mic 0% mute
+set PCM,1 90% unmute
+set PCM,1 0dB
+set Wave 100% unmute
+set Music 100% unmute
+set AC97 100% unmute
+set 'Master Digital' 75% unmute
+set DAC 90% unmute
+set DAC -12dB
+set DAC,0 90% unmute
+set DAC,0 -12dB
+set DAC,1 90% unmute
+set DAC,1 -12dB
+set Headphone 75% unmute
+set Headphone -12dB
+set Playback 100% unmute
+set "SB Live Analog/Digital Output Jack" off
+set "Audigy Analog/Digital Output Jack" off
+EOF
+	
+   else
+    alsactl -f /etc/asound.state restore #from /etc/asound.state.
+   fi
+  fi
+ ;;
+ stop)
+  alsactl -f /etc/asound.state store #saves to /etc/asound.state.
+  # Kill processes holding open sound devices...
+  fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >/dev/null 2>&1
+  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* >/dev/null 2>&1
+  [ -d /dev/snd ] && fuser -k /dev/snd/* >/dev/null 2>&1
+  # remove all sequencer connections if any
+  [ -f /proc/asound/seq/clients -a -x aconnect ] && aconnect --removeall
+  # mute master to avoid clicks at unload
+  amixer set Master mute >/dev/null 2>&1
+  # remove all sound modules
+  lsmod | grep "^snd" | grep -Ev "(snd-page-alloc|snd_page_alloc)" |
+  while read line
+  do
+     rmmod `echo $line | cut -d ' ' -f 1`
+  done
+  # remove the 2.2 soundcore module (if possible)
+  rmmod soundcore 2> /dev/null
+  rmmod gameport 2> /dev/null
+  # remove lockfile if lockdir exists
+  [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
+ ;;
+esac
+
+###END###
