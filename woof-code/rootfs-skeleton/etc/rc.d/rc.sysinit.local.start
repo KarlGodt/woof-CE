@@ -1,0 +1,330 @@
+#!/bin/ash
+
+make_root_link_func() {
+#RL=`ls -l /dev/root`
+RL=`readlink -f /dev/root`
+#DRL=${RL:0:1} ##~device kind b,c,etc
+DRL=${RL#/dev/} ## DRL=`echo $RL | sed 's#/dev/##'`
+echo -e '/dev/root='"$RL""\n""$DRL""\n" >> /tmp/bootsysinit.local.start.log
+#rm -f "$RL"
+
+
+RD=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#\.$##'`
+
+RDMAJ=`echo $RD | cut -f 1 -d ':'`
+RDMin=`echo $RD | cut -f 2 -d ':'`
+
+if [ -n "$RDMAJ" -a -n "$RDMin" ] ; then
+LSLDR=`ls -l /dev/ | grep -E 'hd|sd' | grep -w "$RDMAJ" | grep -w "$RDMin"`
+ARD=`echo $LSLDR | tr -s ' ' | cut -f 9,10 -d ' ' | cut -f 2 -d ' '`
+fi
+
+if test -e /dev/root ; then
+ls -l /dev/root >> /tmp/boot.messages
+fi
+
+rm -f /dev/root
+
+ROOTDEVICEM=`mount | grep -w '/' | cut -f 1 -d ' '` #real	0m8.051s
+ROOTDEVICEDF=`df | grep -w '/' | grep -v -E 'union|root' | tr -s ' ' | cut -f 1 -d ' '` #real	0m27.003s
+ROOTDEVICERDEV=`rdev | cut -f 1 -d ' '` #real	0m9.609s
+#ROOTDEVICERDEV=`rdev | sed 's#\ .*##'` #real	0m9.723s
+
+if [ "$ROOTDEVICEM" = "$ROOTDEVICEDF" ] ; then ##&& ROOTDEVICE="$ROOTDEVICEM" ##OK=1 ##;)
+ln -s $ROOTDEVICEM /dev/root
+#elif
+else
+if test "$RD" != "" ; then
+ln -s $ARD /dev/root
+fi
+#else return
+fi
+#if test ! -L /dev/root ; then
+#if test "$DLR" = "l" ; then
+}
+make_root_link_func
+
+mkmissing_tty_func() {
+[ ! -c /dev/tty ] && mknod /dev/tty c 5 0
+[ ! -d /dev/vc ] && mkdir /dev/vc
+
+VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
+for i in $VTInittab ; do
+[ ! -c /dev/vc/$i ] && rm -f /dev/vc/$i && mknod /dev/vc/$i c 4 $i
+[ ! -c /dev/tty$i ] && rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i
+done
+
+[ ! -c /dev/console ] && rm -f /dev/console && mknod /dev/console c 5 1
+[ ! -c /dev/zero ] && rm -f /dev/zero && mknod /dev/zero c 1 5
+[ ! -c /dev/null ] && rm -f /dev/null && mknod /dev/null c 1 3
+
+[ ! -d /dev/pts ] && rm -f /dev/pts && mkdir /dev/pts
+[ ! -c /dev/ptmx ] && rm -f /dev/ptmx && mknod /dev/ptmx c 5 2
+for i in $(seq 0 4); do
+[ ! -c /dev/ptyp$i ] && rm -f /dev/ptyp$i && mknod /dev/ptyp$i c 2 $i
+done
+}
+mkmissing_tty_func
+
+
+check_frugal_full_func() {
+CatProcPart=`cat /proc/partitions |tr -s ' ' | sed '1,2 d'`
+RootDiskFreeFrugal=`df | grep -w '/' | grep 'rootfs'`
+MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
+RootDiskReadlinkDevRoot=`readlink /dev/root`
+RootDiskFreeFullInstall=`df | grep -w '/' | tr -s ' ' | cut -f 1 -d ' '`
+MountFull=`mount | grep -w '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
+}
+check_frugal_full_func
+
+check_extended_dev_func() {
+
+if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" ; then ## frugal install
+SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
+MainDriveName=${SimpleDeviceName:0:3}
+RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+else
+if test -n "$RootDiskFreeFullInstall" -a -n "$MountFull" ; then ## full install
+SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
+MainDriveName=${SimpleDeviceName:0:3}
+RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+fi
+fi
+}
+check_extended_dev_func
+
+mkmissing_blockdev_func() {
+rootdrv=`df | grep -w '/' | grep -v -E 'rootfs|unionfs'`
+if test "$rootdrv" != ""; then
+simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+else
+rootdrv=`mount | grep '/initrd/mnt/dev_save'`
+simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+fi
+if test "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`" != ""; then
+#echo "no blockdevices found, creating now" #> /dev/console
+/root/my-applications/sbin/MkMissingDev.sh
+#echo "finished ..." #> /dev/console
+fi
+}
+# mkmissing_blockdev_func
+
+dev_maj_259_func() {
+ DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
+DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
+
+DEVDNN259=`echo "$DNN" | cut -f 1 -d ' ' | grep '259'`
+MAINDRVS=`echo "$DNN" | grep -E 'sd|hd' | cut -f 4 -d ' ' | cut -b 1-3 | sort -u`
+
+for j in $MAINDRVS; do
+
+LSLDN=`ls -l /dev/$j* | cut -f 5,6,9,10 -d ' '`
+LSLDNN=`echo "$LSLDN" | sed "s/^ //; s/^/'/; s/$/'/"`
+
+DEVLSL259=`echo "$LSLDN" | cut -f 1 -d ' ' | grep '259'`
+
+if test -n "$DEVDNN259" -a -z "$DEVLSL259"; then
+echo "$DNN" | while read l; do
+MAJ=`echo $l | cut -f 1 -d ' ' | tr -d "'"`
+Min=`echo $l | cut -f 2 -d ' '`
+DEV=`echo $l | cut -f 4 -d ' ' | tr -d "'"`
+echo $MAJ $Min $DEV #> /dev/console
+LSLEXISTINGDEV=`ls -l /dev/$DEV | grep -w $DEV`
+#if
+NeededParts=`echo "$LSLEXISTINGDEV" | cut -f 1,5,6,9,10 -d ' '`
+KIND=`echo $NeededParts | cut -b 1`
+MAJexist=`echo $NeededParts | cut -f 2 -d ' ' | tr -d ','`
+Minexist=`echo $NeededParts | cut -f 3 -d ' '`
+DEVexist=`echo $NeededParts | cut -f 5 -d ' '`
+if test -z "$DEVexis"; then
+DEVexist=`echo $NeededParts | cut -f 4 -d ' '`
+fi
+echo $NeededParts
+echo $KIND
+echo $MAJexist
+echo $Minexist
+echo $DEVexist
+if test "$MAJexist" != "$MAJ" -a "$Minexist" != "$Min"; then
+rm -f /dev/$DEV
+mknod /dev/$DEV b $MAJ $Min
+fi
+done
+fi
+done
+}
+
+# dev_maj_259_func
+
+device_nodes_fork_func() {
+check_extended_dev_func
+if test "`echo $RootDevice | grep '^259'`" != "" ; then
+dev_maj_259_func
+elif test "`echo $RootDevice | grep -E '^8|^3|^22'`" != "" ; then
+mkmissing_blockdev_func
+else
+return
+fi
+}
+device_nodes_fork_func
+
+mk_missing_var_dev_func() {
+if test -f /var/db/boot/dev_nodes.lst; then
+DDB="`cat /var/db/boot/dev_nodes.lst`"
+cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
+[ -z "$DEV" ] && DEV=$T
+KIND=${PERM:0:1}
+MAJ=`echo $MAY | tr -d ','`
+DN=`dirname $DEV`
+[ ! -d $DN ] && mkdir $DN
+[ ! -$KIND $DEV ] && echo makin $DEV && mknod $DEV $KIND $MAJ $Min
+done
+fi
+}
+mk_missing_var_dev_func
+
+
+
+pupstate_prev_func() {
+if test "`grep -x KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER" ; then
+if test ! -f /lib/modules/$KERNVER/modules.dep -o ! -f /lib/modules/$KERNVER/modules.symbols -o ! -f /lib/modules/$KERNVER/modules.alias ; then
+echo "Detected booting other kernel than last time" >> /dev/console
+echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
+depmod
+depmod-FULL
+fi
+fi
+}
+pupstate_prev_func
+
+firmware_dep_func() {
+if test ! -f /etc/modules/firmware.dep.$KERNVER; then
+echo "copying firmware.dep" > /dev/console
+FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
+#cp /etc/modules/firmware.dep /etc/modules/firmware.dep.$KERNVER
+cp "$FWF" /etc/modules/firmware.dep.$KERNVER
+fi
+}
+firmware_dep_func
+
+lib_firmware_func() {
+FWD=`find /lib/modules/$KERNVER/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
+if test "$FWD" != "" ; then
+[ -d /lib/firmware ] && rm -f -r /lib/firmware
+BN=`basename $FWD`
+SN=${BN:0:8}
+cp -a -r "$FWD" /lib/$SN
+fi
+
+if test ! -d /lib/firmware ; then
+if test -f /lib/firmware.tar.gz ; then
+tar -C / -xzf /lib/firmware.tar.gz
+fi
+fi
+}
+lib_firmware_func
+
+
+mondprobe_conf_func() {
+if test ! -d /etc/mult_kernels ; then #0
+mkdir /etc/mult_kernels
+fi #0
+if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then #1
+cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+else #1
+if test -f /etc/modprobe.conf ; then #1.1
+[ ! -f /etc/mult_kernels/modprobe.conf.$KERNVER ] && cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+fi #1.1
+fi #1
+if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then #2
+rm -f -r /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+else #2
+if test -d /etc/modprobe.d ; then #2.1
+[ ! -d /etc/mult_kernels/modprobe.d.$KERNVER ] && cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+fi #2.1
+fi #2
+
+[ ! -d /etc/mult_kernels/rc.d ] && mkdir /etc/mult_kernels/rc.d
+if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ] ; then
+cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+else
+cp -f /etc/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
+fi
+
+}
+mondprobe_conf_func
+
+fbcon_func() {
+if [ -n "`modprobe -l | grep 'fbcon'`" ]; then
+if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=7[0-9][0-9]'`" != "" ]; then
+modinfo fbcon > /dev/console
+sleep 5
+modprobe fbcon
+fi
+fi
+}
+fbcon_func
+
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:47:28·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
