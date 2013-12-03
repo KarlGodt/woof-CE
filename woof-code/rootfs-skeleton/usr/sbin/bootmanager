@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #BK 2007, original idea from sunburnt
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
 #written for Puppy 2.16.
@@ -98,7 +98,7 @@ extrasfs_func() {
  #  UNMOUNTME="/mnt/$PDEV1"
  # fi
  #fi
- 	
+
  cd $EXTRASFSMNTPT
  #v409 lobster gets some non-sfs files in ALLSFSLIST ...i have no idea how, but
  #need an extra grep filter here... w007 new name woof-007.sfs ... w478 fix for 'pup2' prefix...
@@ -106,7 +106,7 @@ extrasfs_func() {
  cd $CURRDIR
  sync
  [ "$UNMOUNTME" != "" ] && umount $UNMOUNTME
- 
+
  #eliminate other versions from list...
  FIXEDSFSLIST=""
  rm -f /tmp/bootmanager_wrong_sfs_version 2>/dev/null #v423
@@ -137,7 +137,7 @@ extrasfs_func() {
  do
   DLGLIST="$DLGLIST $ONESFS $ONESFS on"
  done
- 
+
  #v423 let user know wrong sfs's...
  if [ -e /tmp/bootmanager_wrong_sfs_version ];then
   xmessage -bg '#FFC0C0' "NOTICE: The following SFS files located in directory ${MSGz}
@@ -149,7 +149,7 @@ The above files will be ignored.
 The kernel requires ${SFSSTR}, SFS files.
 Note, there is an SFS-version-converter in the Utility menu." &
  fi
- 
+
  if [ "$DLGLIST" = "" ];then
   [ "$CLPARAM2" = "quiet" ] && return 1
   xmessage -center -bg '#FFC0C0' "Sorry, there are no SFS files in directory $MSGz
@@ -190,7 +190,7 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   [ ! $RETVAL -eq 0 ] && return 1
   [ $RETVAL -eq 0 ] && break
  done
- 
+
  RETTAGS="`cat /tmp/bmrettags.txt`"
 
  #v424 remove...
@@ -243,31 +243,59 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 
 yeslist_func() {
  #choose extra modules to load at bootup.
- yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing..." &
- X1PID=$!
+ #yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing..." &
+ #X1PID=$!
  . /etc/rc.d/MODULESCONFIG
  MODLIST=""
+
+### *** MODLIST
  #note, lsmod will show all modules with '-' as '_'...
- LOADEDMODULES=" `lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`"
+ #LOADEDMODULES=" `lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`"
+ LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules`
+echo $LINENO >&2
+
  #v403 handles both .ko and .ko.gz modules...
- ALLMODULES="`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort - | tr '\n' ' '`"
- for ONEMOD in $ALLMODULES
- do
-  NAMEONLY="`basename $ONEMOD .ko`"
-  MODPATTERN=" $NAMEONLY "
-  #leave off list if already loaded...
-  [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
-  MODPATTERN=' '"$NAMEONLY"'[ :]'
-  #leave off left pane if already on right pane...
-  [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" != "" ] && continue
-  MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"  
- done
+ #ALLMODULES="`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort - | tr '\n' ' '`"
+echo $LINENO >&2
+ modprobe -l | grep -o '[a-zA-Z0-9_-]*\.ko' | sed 's/\.ko.*$//' | tr '\-' '_' | sort - | sed 's!\(.*\)!& &!' >/tmp/bootmanager_allmodules.list
+ /bin/grep -vFw "$LOADEDMODULES" /tmp/bootmanager_allmodules.list >/tmp/bootmanager_wo_loaded.list
+
+echo $LINENO >&2
+ ADDLIST_LINES=`echo "$ADDLIST" | tr '[[:blank:]]' '\n' | sed '/^$/d;s/:.*$//'`
+ /bin/grep -vFw "$ADDLIST_LINES" /tmp/bootmanager_wo_loaded.list >/tmp/bootmanager_wo_addlist.list
+
+echo $LINENO >&2
+ #sed -i 'a\off' /tmp/bootmanager_wo_addlist.list
+  sed 'a\off' /tmp/bootmanager_wo_addlist.list >/tmp/bootmanager_yeslist.list
+echo $LINENO >&2
+
+ #for ONEMOD in $ALLMODULES
+ #do
+ # NAMEONLY="`basename $ONEMOD .ko`"
+ # MODPATTERN=" $NAMEONLY "
+ # #leave off list if already loaded...
+ # [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
+ # MODPATTERN=' '"$NAMEONLY"'[ :]'
+ # #leave off left pane if already on right pane...
+ # [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" != "" ] && continue
+ # MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"
+ #done
+
+echo $LINENO >&2
+ #MODLIST=`tr '\n' ' ' </tmp/bootmanager_wo_addlist.list`
+  MODLIST=`tr '\n' ' ' </tmp/bootmanager_yeslist.list`
+### *** MODLIST
+echo $LINENO >&2
+
+### *** ADDLIST
+
+
  for ONEMOD in $ADDLIST
  do
   NAMEONLY="$ONEMOD"
   xONEMOD="$ONEMOD"
   if [ `echo -n "$ONEMOD" | tr ':' ' ' | wc -w` -gt 1 ];then
-   MPARAMS="`echo -n "$ONEMOD" | cut -f 2-9 -d ':' | tr ':' ' '`"
+   MPARAMS="`echo -n "$ONEMOD" | cut -f 2- -d ':' | tr ':' ' '`"
    NAMEONLY="`echo -n "$ONEMOD" | cut -f 1 -d ':'`"
    xONEMOD="$NAMEONLY $MPARAMS"
   fi
@@ -276,7 +304,10 @@ yeslist_func() {
   [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
   MODLIST="$MODLIST $ONEMOD \"$xONEMOD\" on"
  done
- kill $X1PID
+
+ #kill $X1PID
+### *** ADDLIST
+
  EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
@@ -335,7 +366,7 @@ export MAIN_DIALOG="
 <vbox>
  <text use-markup=\"true\">
  <label>\"<b>Puppy Boot Configuration</b>\"</label></text>
- 
+
  <frame Load SFS files>
   <text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.</label></text>
   <hbox>
@@ -346,7 +377,7 @@ export MAIN_DIALOG="
     </button>
   </hbox>
  </frame>
- 
+
  <frame Load kernel modules>
   <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module or want to use Ndiswrapper (to use the Windows driver).</label></text>
   <hbox>
@@ -373,7 +404,7 @@ export MAIN_DIALOG="
  </frame>
 
 
- 
+
  <hbox>
   <button><input file stock=\"gtk-quit\"></input><label>QUIT</label></button>
  </hbox>
