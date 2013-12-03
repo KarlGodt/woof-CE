@@ -1,0 +1,137 @@
+#!/bin/sh
+
+mkdir -p /var/local/sns
+LANG=C UPDATE_MONTH=`date +%b`
+read CURRENT_MONTH</var/local/sns/current_month
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+ echo "$UPDATE_MONTH" > /var/local/sns/current_month
+ for ONECOUNT in sns pupdial/isp1 pupdial/isp2 ppp0 sns/ppp0;do
+  [ -d /var/local/"$ONECOUNT" ] || mkdir -p /var/local/"$ONECOUNT"
+  cp --backup=numbered /var/local/${ONECOUNT}/rx_bytes_month /var/local/${ONECOUNT}/rx_bytes_month-`date +%Y`-$CURRENT_MONTH
+  echo -n 0 > /var/local/${ONECOUNT}/rx_bytes_month
+  cp --backup=numbered /var/local/${ONECOUNT}/tx_bytes_month /var/local/${ONECOUNT}/tx_bytes_month-`date +%Y`-$CURRENT_MONTH
+  echo -n 0 > /var/local/${ONECOUNT}/tx_bytes_month
+ done
+fi
+
+ACTIVE_INTERFACE="ppp0"
+read RX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/rx_bytes_month
+[ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
+[ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+
+read RX_BYTES </var/local/$ACTIVE_INTERFACE/rx_bytes_session
+read TX_BYTES </var/local/$ACTIVE_INTERFACE/tx_bytes_session
+
+if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
+echo ""
+echo "Last Session :"
+echo "$RX_BYTES Bytes down"
+echo "$TX_BYTES Bytes up"
+
+else
+echo "No download and upload count available."
+fi
+
+unset RX_BYTES TX_BYTES
+
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+echo ""
+echo "Last Month :"
+ if
+ [ -f /var/local/$ACTIVE_INTERFACE/rx_bytes_month-`date +%Y`-$CURRENT_MONTH ]
+ then
+ read LM_RX_BYTES </var/local/$ACTIVE_INTERFACE/rx_bytes_month-`date +%Y`-$CURRENT_MONTH
+ echo "$LM_RX_BYTES Bytes down"
+ else
+ echo "No download count available."
+ fi
+ if
+ [ -f /var/local/$ACTIVE_INTERFACE/tx_bytes_month-`date +%Y`-$CURRENT_MONTH ]
+ then
+ read LM_TX_BYTES </var/local/$ACTIVE_INTERFACE/tx_bytes_month-`date +%Y`-$CURRENT_MONTH
+ echo "$LM_TX_BYTES Bytes up"
+ else
+ echo "No upload count available."
+ fi
+fi
+
+
+echo ""
+#TOTALSESSION=$(((RX_BYTES+TX_BYTES)/1024));          echo "SESSION:$TOTALSESSION KiB"
+TOTALMONTH=$(((RX_BYTES_MONTH+TX_BYTES_MONTH)/1024));echo "  MONTH:$TOTALMONTH KiB"
+#TOTALSESSION=$((TOTALSESSION/1024)); echo "SESSION:$TOTALSESSION MiB"
+TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH MiB"
+#TOTALSESSION=$((TOTALSESSION/1024)); echo "SESSION:$TOTALSESSION GiB"
+TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH GiB"
+echo ""
+#TOTALSESSION=$( dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo "SESSION:$TOTALSESSION KiB"
+TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo "  MONTH:$TOTALMONTH KiB"
+#TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo "SESSION:$TOTALSESSION MiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH MiB"
+#TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo "SESSION:$TOTALSESSION GiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH GiB"
+echo ""
+
+n="r"
+
+while  [ "$n" != "" ]
+do
+/usr/sbin/pppd call gprsmm & #disconnect /etc/ppp/pgprs-disconnect.sh &
+#PPPD_PID=$!
+#wait $PPPD_PID
+#RTVAL="$?"
+jobs -l
+PPPD_PID=`jobs -p /usr/sbin/pppd | tail -n 1`;echo -e '\e[0;36mPPPD_PID='$PPPD_PID'\e[0;39m'
+
+sleep 5s
+
+#echo "pppd status is $RTVAL .
+#Anything other than '0' means error in linux in most cases ."
+#[ "$RTVAL" = 0 ] && echo -e "\e[1;32m""CONNECTED""\e[0;39m"
+
+until
+#[ -f /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes ]
+[ -f /sys/class/net/${ACTIVE_INTERFACE}/carrier ]
+do sleep 1s
+pidof pppd || break
+done
+
+echo ""
+
+pidof pppd &&
+{
+
+while
+[ 1 ]
+do sleep 1s
+read CARRIER </sys/class/net/${ACTIVE_INTERFACE}/carrier
+[ "$CARRIER" = 1 ] && break
+pidof pppd || break
+done
+
+}
+
+pidof pppd &&
+{
+echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\e[0;39m'
+} || {
+echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\e[0;39m'
+}
+
+#pidof pppd || echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\e[0;39m'
+
+#echo ""
+#echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\e[0;39m'
+#echo "Press r ENTER to reconnect/try again"
+#[ "$RTVAL" != '0' ] && break
+
+n="n"
+read n
+done
+
+/etc/ppp/pgprs-disconnect.sh
+#sleep 5s
+read -p "Press any key to quit .. " Q
+exit 0
