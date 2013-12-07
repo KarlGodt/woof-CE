@@ -71,6 +71,9 @@
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
 
+#alias modprobe='/sbin/modprobe --first-time'
+alias modprobe='modprobe -b'  ##+++2013-12-07
+
 if [ -d /proc ] ; then
 FINDPROC=`find /proc -maxdepth 1 -type f 2>/dev/null`
 [ -z "$FINDPROC" ] && busybox mount -t proc none /proc  ###KRG put here for additional df check (wary094 frugal had written /initrd into full install) ###KRG
@@ -364,7 +367,7 @@ nice -n -3 /sbin/pup_event_backend_modprobe_protect --daemon &
 fi
 
 if [ -x /sbin/photplug ] ; then
-[ -f /tmp/hotplug.modules ] || { modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
+[ -f /tmp/hotplug.modules ] || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
 #awk '{print $2}' /tmp/hotplug.modules.sed >/tmp/hotplug.modules ;
 grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' > /tmp/hotplug.modules ;
 }
@@ -399,7 +402,8 @@ INITSTATECOUNT=`echo "$INITSTATE" | wc -l`
 #if [ -z "$INITSTATE" ] ; then
 if [ "$INITSTATECOUNT" -lt 25 ] ; then
 
-MODALIASES="`ls /sys/bus/*/devices/*/modalias | sort -R`"
+#MODALIASES="`ls /sys/bus/*/devices/*/modalias | sort -R`"
+MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
 echo -n "Loading kernel modules "
 
 if [ -z "$MODALIASES" ] ; then
@@ -475,9 +479,9 @@ DRIVER=`basename $i | sed 's#\.ko.*$##'`
 DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 echo -e -n "\\033[1;33m""$DRIVER ""\\033[1;34m"'.. '"\\033[0;39m"
 if [ "$DRVpattern" != "usb_storage" ] ; then
-[ -z "`lsmod | grep "$DRVpattern"`" ] && modprobe --first-time $DRIVER
+[ -z "`lsmod | grep "$DRVpattern"`" ] && modprobe $DRIVER
 else
-[ -z "`lsmod | grep "$DRVpattern"`" ] && modprobe --first-time $DRIVER delay_use:1
+[ -z "`lsmod | grep "$DRVpattern"`" ] && modprobe $DRIVER delay_use:1
 fi
 done
 echo -e "\\033[1;34m"'Waiting 15 sec. for kernel to register usb devices ...'"\\033[0;39m"
@@ -522,7 +526,7 @@ DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 
 if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
 echo -e -n "\\033[1;33m""$DRIVER ""\\033[1;34m"'.. '"\\033[0;39m"
-modprobe --first-time $DRIVER
+modprobe $DRIVER
 fi
 
 done
@@ -570,7 +574,7 @@ DRIVER=`basename $j`
 DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
 echo -e -n "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
-modprobe --first-time $DRIVER #2>/dev/null
+modprobe $DRIVER #2>/dev/null
 fi
 done
 
@@ -604,7 +608,7 @@ DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 [[ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" != "" ]] && continue
 if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
 echo -e -n "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
-modprobe --first-time $DRIVER #2>/dev/null
+modprobe $DRIVER #2>/dev/null
 fi
 done
 
@@ -616,7 +620,7 @@ sleep 4s
 fi
 
 if [ -n "`modprobe -l | grep 'fbcon'`" ] && [ -z "`lsmod | grep 'fbcon'`" ] ; then
-modprobe --first-time fbcon
+modprobe fbcon
 ##modprobe fbcon
 echo -e "\\033[0;39m"
 fi
@@ -792,6 +796,7 @@ fi
 CHECK_ALTERNATE_REPO_FUNC(){
 CURR_GLIBC_FUNC(){
 CURRGLIBC=`basename $(find /lib -maxdepth 1 -name "libc-*.so")`
+
 CURRCLMAJ=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 2 -d '.'`
 CURRCLMin=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 3 -d '.'`
 [ -z "$CURRCLMin" ] && CURRCLMin='0'  ##+++2011-11-25
@@ -808,12 +813,18 @@ CURR_GLIBC_FUNC
 modprobe squashfs
 
 for oneDRV in $DRIVES ; do  ##for 0
+[ "$oneDRV" ] || continue
+[ "${oneDRV//[[:blank:]]/}" ] || continue
 
 SIMPLEDRIVENAME=`basename $oneDRV`
+
 mkdir -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting '"\\033[0;39m"$oneDRV' on '"\\033[0;39m"/mnt/$SIMPLEDRIVENAME
+
 busybox mount -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }  ##+++2013-12-07
 SFS=`find /mnt/$SIMPLEDRIVENAME -maxdepth 3 -type f -name "*.sfs" | grep -i -E 'luma|luci|lupu|pup|pu' | grep -v -E 'devx|\+mnt\+'`
+
 ###check found sfs part
 if [ -z "$SFS" ] ; then  ##if 99
 echo  -e "\\033[0;33m"'No puppy.sfs found on '"\\033[0;39m"$oneDRV
@@ -826,46 +837,57 @@ continue  ##for 0
 
 else  ##if 99
 for oneSFS in $SFS ; do ##for 1
+[ "$oneSFS" ] || continue
+[ "${oneSFS//[[:blank:]]/}" ] || continue
+
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m"'Found '"\\033[0;35m"$oneSFS"\\033[0;39m"
 bneSFS=`basename $oneSFS`
+
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting now '"\\033[0;39m""$oneSFS /mnt/$bneSFS"
 mkdir -p /mnt/$bneSFS
+Err=0
 mount-FULL -o loop $oneSFS /mnt/$bneSFS
 Err=$?
 sleep 1s
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting returned error value='"\\033[1;34m""$Err""\\033[0;39m"
+
 if [ "$Err" -eq 0 ] ; then ##100
-REPOGLIBC=`basename $(find /mnt/$bneSFS/lib -maxdepth 1 -name "libc-*.so")`
-REPOCLMAJ=`echo "$REPOGLIBC" | cut -f 2 -d '.'`
-REPOCLMin=`echo "$REPOGLIBC" | cut -f 3 -d '.'`
-[ -z "$REPOCLMin" ] && REPOCLMin='0'  ##+++2011-11-25
-if [ -z "$REPOGLIBC" ] ; then ##101
-echo -e "\\033[0;31m"'No libc found in '"\\033[0;39m""$bneSFS"
-busybox umount -ldr /mnt/$bneSFS
-sleep 1s
-rmdir /mnt/$bneSFS
-FOUND=''
-continue
-else ##101
-if [ "$REPOCLMAJ" -gt "$CURRCLMAJ" ] ; then #102
-echo -e "\\033[0;31m""Major of libc in $bneSFS = '$REPOCLMAJ' and larger than actual '$CURRCLMAJ'""\\033[0;39m"
-busybox umount -dlr /mnt/$bneSFS
-sleep 1s
-rmdir /mnt/$bneSFS
-FOUND=''
-continue
-elif [ "$REPOCLMAJ" -eq "$CURRCLMAJ" ] && [ "$REPOCLMin" -gt "$CURRCLMin" ] ; then #102
-echo -e "\\033[0;31m""Minor of libc in $bneSFS = '$REPOCLMin' and larger than actual '$CURRCLMin'""\\033[0;39m"
-busybox umount -dlr /mnt/$bneSFS
-sleep 1s
-rmdir /mnt/$bneSFS
-FOUND=''
-continue
-else #102
-echo -e "\\033[0;32m""Found '$REPOGLIBC' and should match '$CURRGLIBC'""\\033[0;39m"
-FOUND='1'
-break ##for 1
-fi #102
+ #REPOGLIBC=`basename $(find /mnt/$bneSFS/lib -maxdepth 1 -name "libc-*.so")`
+ REPOGLIBC=$(find /mnt/$bneSFS/lib -maxdepth 1 -name "libc-*.so")
+ #[ "$REPOGLIBC" ] || continue
+ if [ "$REPOGLIBC" ]; then
+ REPOGLIBC=`basename "$REPOGLIBC"`
+ REPOCLMAJ=`echo "$REPOGLIBC" | cut -f 2 -d '.'`
+ REPOCLMin=`echo "$REPOGLIBC" | cut -f 3 -d '.'`
+ [ -z "$REPOCLMin" ] && REPOCLMin='0'  ##+++2011-11-25
+ fi
+ if [ -z "$REPOGLIBC" ] ; then ##101
+ echo -e "\\033[0;31m"'No libc found in '"\\033[0;39m""$bneSFS"
+ busybox umount -ldr /mnt/$bneSFS
+ sleep 1s
+ rmdir /mnt/$bneSFS
+ FOUND=''
+ continue
+ else ##101
+  if [ "$REPOCLMAJ" -gt "$CURRCLMAJ" ] ; then #102
+  echo -e "\\033[0;31m""Major of libc in $bneSFS = '$REPOCLMAJ' and larger than actual '$CURRCLMAJ'""\\033[0;39m"
+  busybox umount -dlr /mnt/$bneSFS
+  sleep 1s
+  rmdir /mnt/$bneSFS
+  FOUND=''
+  continue
+  elif [ "$REPOCLMAJ" -eq "$CURRCLMAJ" ] && [ "$REPOCLMin" -gt "$CURRCLMin" ] ; then #102
+  echo -e "\\033[0;31m""Minor of libc in $bneSFS = '$REPOCLMin' and larger than actual '$CURRCLMin'""\\033[0;39m"
+  busybox umount -dlr /mnt/$bneSFS
+  sleep 1s
+  rmdir /mnt/$bneSFS
+  FOUND=''
+  continue
+  else #102
+  echo -e "\\033[0;32m""Found '$REPOGLIBC' and should match '$CURRGLIBC'""\\033[0;39m"
+  FOUND='1'
+  break ##for 1
+ fi #102
 fi #101
 else #100
 Err=99999
@@ -876,18 +898,22 @@ rmdir /mnt/$bneSFS
 FOUND=''
 continue
 fi #100
+unset bneSFS
 done  ##for 1
 
 fi  ##if 99
 ###end check sfs part
 [ -n "$FOUND" ] && [ "$Err" -eq 0 ] && break
+unset oneDRV
 done  ##for 0
 
 echo -e "\\033[0;39m"
 ##MOUNTLOOP=`busybox mount | tail -n 2 | cut -f 1 -d ' '`
 [ "$DebugVal" -ge "2" ] && echo -e "\\033[0;31m"'$oneDRV='"\\033[0;39m""$oneDRV ""\\033[0;31m"'oneSFS='"\\033[0;39m""$oneSFS"
+[ "$oneSFS" ] || oneSFS=NOTAVAIL
+[ "$oneDRV" ] || oneDRV=NOTAVAIL
 MOUNTLOOP=`busybox mount | grep -E "$oneDRV|$bneSFS" | cut -f 1 -d ' ' | tr ' ' '|'`
-MOUNT=`busybox mount | grep -v -E "$MOUNTLOOP|$DEVROOTDRIVE" | grep '^/dev/' | grep -v -E  'initrd|none|*tmpfs|root|unionfs|aufs' | cut -f 1 -d ' '`
+MOUNT=`busybox mount | /bin/grep -v -E "$MOUNTLOOP|$DEVROOTDRIVE" | grep '^/dev/' | grep -v -E  'initrd|none|*tmpfs|root|unionfs|aufs' | cut -f 1 -d ' '`
 [ "$DebugVal" -ge "2" ] && echo -e "\\033[0;31m""$MOUNTLOOP : $MOUNT :""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && busybox mount
 
@@ -899,6 +925,10 @@ rmdir /mnt/`basename $m`
 done
 [ "$DebugVal" -ge "1" ] && [ -n "$MOUNT" ] && busybox mount && echo -e "\\033[0;39m"
 sleep $((SLEEP*3))s
+
+busybox mount
+echo "'/mnt/'$bneSFS'"
+busybox mount | grep "/mnt/$bneSFS"
 
 if [ -n "`busybox mount | grep "/mnt/$bneSFS"`" ] ; then #103
 REPO="/mnt/$bneSFS"
@@ -925,11 +955,16 @@ CHECK_FOR_ALT_PART_FUNC
 CURR_GLIBC_FUNC
 
 for oneDRV in $DRIVES ; do ##for 0
+[ "$oneDRV" ] || continue
+[ "${oneDRV//[[:blank:]]/}" ] || continue
 
 SIMPLEDRIVENAME=`basename $oneDRV`
 mkdir -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting '"\\033[0;39m""$oneDRV""\\033[0;33m"' on '"\\033[0;39m""/mnt/$SIMPLEDRIVENAME""\\033[0;39m"
+
 busybox mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }
+
 DS=
 [ -d /mnt/$SIMPLEDRIVENAME/etc ] && DS=`find /mnt/$SIMPLEDRIVENAME/etc -maxdepth 2 -name "DISTRO_SPECS"`
 sleep 2s
@@ -939,9 +974,14 @@ if [ -f "$DS" ] ; then  ##4
 source $DS
 if [ -n "$DISTRO_NAME" ] && [ -n "$DISTRO_VERSION" ] ; then  ##4.1
 echo -e "\\033[1;32m""Found $DISTRO_NAME $DISTRO_VERSION"
-REPOGLIBC=`basename $(find /mnt/$SIMPLEDRIVENAME/lib -maxdepth 1 -name "libc-*.so")`
+#REPOGLIBC=`basename $(find /mnt/$SIMPLEDRIVENAME/lib -maxdepth 1 -name "libc-*.so")`
+REPOGLIBC=$(find /mnt/$SIMPLEDRIVENAME/lib -maxdepth 1 -name "libc-*.so")
+if [ "$REPOGLIBC" ] ; then
+REPOGLIBC=`basename "$REPOGLIBC"`
 REPOCLMAJ=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 2 -d '.'`
 REPOCLMin=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 3 -d '.'`
+[ "$REPOCLMin" ] || REPOCLMin=0
+fi
 if [ -n "$REPOGLIBC" ] ; then #4.1.1
 if [ "$REPOCLMAJ" -gt "$CURRCLMAJ" ] ; then ##4.2
 echo -e "\\033[0;31m""LIBC major = '$REPOCLMAJ' larger than '$CURRCLMAJ'""\\033[0;39m"
@@ -967,6 +1007,7 @@ if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ] ; then  ##5
 echo -e "\\033[0;32m"'OK ,'"\\033[1;32m"" using REPO /mnt/$SIMPLEDRIVENAME""\\033[0;39m"
 echo
 busybox mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }
 sleep 1s
 REPO="/mnt/$SIMPLEDRIVENAME"
 break
@@ -976,7 +1017,7 @@ echo -e "\\033[1;31m""No ,""\\033[0;31m"" $oneDRV seems to be not clean , too""\
 echo "Trying next if possible ...."
 echo
 REPO=''
-[ -n "`busybox mount | grep "$oneDRV"`" ] && busybox umount -lr $oneDRV
+[ -n "`busybox mount | grep -Fw "$oneDRV"`" ] && busybox umount -lr $oneDRV
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 fi  ##5
@@ -1054,7 +1095,7 @@ sleep $((SLEEP*5))s  ###KRG
 CHECK_ALTERNATE_REPO_FUNC
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'$REPO='"\\033[0;39m""$REPO"
 
-[ -z "`busybox mount | grep -w '/' | grep '(rw)'`" ] && busybox mount -o remount,rw /
+[ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount -o remount,rw /
 
 CHECK_DEV_NODES_FUNC(){
 #####KRG
@@ -1062,7 +1103,7 @@ CHECK_DEV_NODES_FUNC(){
 ROOTDRIVE=`basename $(busybox rdev | cut -f 1 -d ' ')`  ### | cut -f 1 -d ' ' | sed 's#/dev/##'`
 ROOTBLOCKDRIVE=${ROOTDRIVE:0:3}
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'rootdrive='"\\033[0;39m""$ROOTDRIVE" && echo  ###DBG
-FS=`mount | grep -w '/' | grep '/dev' | tr -s ' ' | cut -f 5 -d ' '`
+FS=`mount | grep -Fw '/' | grep '/dev' | tr -s ' ' | cut -f 5 -d ' '`
 PDEV1="$ROOTDRIVE"
 DEV1FS="$FS"
 [ "$DebugVal" -eq "2" ] && echo -e "\\033[0;33m""$ROOTDRIVE $ROOTBLOCKDRIVE $FS "','" $PDEV1 $DEV1FS"
@@ -1108,7 +1149,8 @@ LF=`find "$REPO"/lib -maxdepth 1 \( -name "lib*.so*" -o -name "ld*.so*" \)`
 #Filter not needed files :
 LIBF=`echo "$LF" | grep -v "$LLS" | grep -v -E 'libuClibc.*|ld\-uClibc.*|libthread.*|libm\-0.*|libm\.so\.0' | sort`
 for i in $LIBF ; do
-SiZElib=`ls -s $i | cut -f 1 -d ' '`
+#SiZElib=`ls -s $i | cut -f 1 -d ' '`
+SiZElib=`ls -s $i | awk '{print $1}'`  ##+++2013-12-07
 SPACElib=$(($SPACElib + $SiZElib))
 [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;39m""$i"'='"\\033[0;31m""$SiZElib "  ###DBG
 [ "$DebugVal" = "1" ] && [ "$SiZElib" -ne "0" ] && echo -n -e "\\033[0;39m""$i"'='"\\033[0;33m""$SiZElib "
@@ -1237,7 +1279,7 @@ BUSYBOX_FUNC
   else
   continue
   fi
-  RLF=`readlink -e "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
+  RLF=`readlink -f "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
   LSLBIN=`ls -l "$REPO""$BINDIR"/"$ONEBIN" | grep -o '\->.*' | grep -v 'busybox'`
 
   if [ -n "$LSLBIN" ] ; then
@@ -1286,7 +1328,7 @@ BUSYBOX_FUNC
   else
   continue
   fi
-  RLF=`readlink -e "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
+  RLF=`readlink -f "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
   LSLSBIN=`ls -l "$REPO""$BINDIR"/"$ONEBIN" | grep -o '\->.*' | grep -v 'busybox'`
 
    if [ -n "$LSLSBIN" ] ; then
@@ -1348,6 +1390,7 @@ PRESERVE_CHROOT_FUNC
   echo "$PDEV1"','"$DEV1FS"',' > /mnt/ram0/etc/fsckme.err  ###KRG
   echo 'DebugVal='"$DebugVal" > /mnt/ram0/etc/initdebug.in  ###KRG
   echo 'TimeOut='"$TimeOut" >> /mnt/ram0/etc/initdebug.in  ###KRG
+  [ -f /mnt/ram0/etc/fstab ] || touch /mnt/ram0/etc/fstab ##+++2013-12-07
 
   echo '/lib' > /mnt/ram0/etc/ld.so.conf
   echo 'export PATH="/bin:/sbin"
@@ -1449,59 +1492,74 @@ echo -e "\\033[0;32m""Removing [ xwin ] blocking files ..."
 echo -e "\\033[0;39m"
 mkdir -p /mnt/${PDEV1}  ###KRG removing fsckme.file  ###KRG
 mount -t ${DEV1FS} /dev/${PDEV1} /mnt/${PDEV1}
-ErrFlag=`find /mnt/${PDEV1} -maxdepth 3 -type f -iname "*fsckme*"`
-for i in $ErrFlag ; do
-[ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""Removing $i""\\033[0;39m"
-rm $i
-done
-[ -f /mnt/${PDEV1}/etc/.XLOADED ] && rm /mnt/${PDEV1}/etc/.XLOADED
-[ -f /mnt/${PDEV1}/tmp/bootcnt* ] && rm /mnt/${PDEV1}/tmp/bootcnt*
-rm -f /var/log/X*
-rm -f /var/lock/LCK*
-rm -f /var/run/*.pid
-SOCK=`find /mnt/${PDEV1}/var -mount -type s | tr "\n" " "`
-for i in $SOCK ; do
-[ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
-rm -f $i
-done
-PIPE=`find /mnt/${PDEV1}/var -mount -type p | tr "\n" " "`
-for i in $PIPE ; do
-[ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
-rm -f $i
-done
+if [ $? = 0 ] ; then ##+++2013-12-07
+
+ ErrFlag=`find /mnt/${PDEV1} -maxdepth 3 -type f -iname "*fsckme*"`
+ for i in $ErrFlag ; do
+  [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""Removing $i""\\033[0;39m"
+  rm $i
+ done
+
+  [ -f /mnt/${PDEV1}/etc/.XLOADED ] && rm /mnt/${PDEV1}/etc/.XLOADED
+  [ -f /mnt/${PDEV1}/tmp/bootcnt* ] && rm /mnt/${PDEV1}/tmp/bootcnt*
+  rm -f /var/log/X*
+  rm -f /var/lock/LCK*
+  rm -f /var/run/*.pid
+
+ SOCK=`find /mnt/${PDEV1}/var -mount -type s | tr "\n" " "`
+ for i in $SOCK ; do
+  [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
+  rm -f $i
+ done
+
+ PIPE=`find /mnt/${PDEV1}/var -mount -type p | tr "\n" " "`
+ for i in $PIPE ; do
+  [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
+  rm -f $i
+ done
+
 sleep $((SLEEP*2))s
 sync
 umount /dev/${PDEV1}  ###KRG
+
+else
+:     ###+++2013-12-07
+fi
+
 [ "$DebugVal" = "0" ] && DUMPE=`dumpe2fs /dev/$PDEV1 2>/dev/null | grep -i "state"`
 [ "$DebugVal" -gt "1" ] && DUMPE=`dumpe2fs /dev/$PDEV1 | grep -i "state"`
 echo -e "\\033[1;34m""$DUMPE""\\033[0;39m"
+
 echo -e "\\033[0;36m"
 echo "The computer now has to be restarted."
 echo -e "\\033[0;35m"
 echo "Computer will reboot in 1-3  minutes, else press ENTER for immediate reboot."
+
 echo
 echo -e "\\033[0;32m"  ###KRG
 echo "Press Any key and or simply ENTER to reboot ,"
 echo "or wait $TimeOut sec again ,"
 echo -e "\\033[0;31m"
 echo "or [ r ] for dropout into rdsh :"
+
 echo -e "\\033[0;39m"
 echo -n -e "\\033[4;5;34m""ENTER""\\033[0;39m"" -> ""\\033[1;7;32m"
 read -n 1 -t $TimeOut K
 if [ "$K" = "r" -o "$K" = "R" ] ; then
-echo
-echo -e "\\033[0;32m"
-echo "Dropping now"
-echo "Have FUN !"
-echo
-echo -e "\\033[0;39m"
-exit
+ echo
+ echo -e "\\033[0;32m"
+ echo "Dropping now"
+ echo "Have FUN !"
+ echo
+ echo -e "\\033[0;39m"
+ exit
 else
 echo -e "\\033[0;39m"  ###KRG
 [ "$DebugVal" = "0" ] && umount /proc 2>/dev/null
 [ "$DebugVal" -ge "1" ] && umount /proc && sleep $((SLEEP*3))s
 reboot
-fi' > /mnt/ram0/etc/rc.d/rc.sysinit
+fi
+' > /mnt/ram0/etc/rc.d/rc.sysinit
   chmod 0755 /mnt/ram0/etc/rc.d/rc.sysinit
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/usr  ...""\\033[0;39m"
