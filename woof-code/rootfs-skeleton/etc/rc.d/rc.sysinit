@@ -985,7 +985,7 @@ if [ -h /dev/modem ];then
    DEVM=""
   ;;
   /dev/*) #wrong format.
-   DEVM="`echo -n "$DEVM" | cut -f 3,4 -d '/'`"
+   DEVM=`echo -n "$DEVM" | cut -f 3,4 -d '/'`
    ln -snf $DEVM /dev/modem
   ;;
  esac
@@ -1017,19 +1017,20 @@ modprobe battery
 CHECKOLDWIZ="`ls -1 /etc/*[0-9]mode 2>/dev/null`" #ex: eth0mode, wlan0mode.
 if [ "$CHECKOLDWIZ" != "" -a -d /usr/local/net_setup ];then
  #note, old wizard is located in /usr/local/net_setup.
- /usr/local/net_setup/etc/rc.d/rc.network &
+ exec /usr/local/net_setup/etc/rc.d/rc.network &
 else
- /etc/rc.d/rc.network &
+ exec /etc/rc.d/rc.network &
 fi
 
-/etc/rc.d/rc.services & #run scripts in /etc/rc.d/init.d
+exec /etc/rc.d/rc.services & #run scripts in /etc/rc.d/init.d
 
 echo -e "\\033[62G\\033[1;33m[backgrounded]\\033[0;39m" >/dev/console #column 62, yellow.
 echo -n "FILESYSTEM STATE 20: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
 ############RECOGNISE MEDIA DEVICES################
-echo "RECOGNISE MEDIA DEVICES"
+STATUS=0
+echo "RECOGNISE MEDIA DEVICES .."
 echo -n "Recognising media devices..." >/dev/console
 #recognise optical drives...
 echo -n ' optical' >/dev/console
@@ -1054,7 +1055,11 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
 [ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE #>/dev/null 2>&1
+status_func $STATUS
+echo "RECOGNISE MEDIA DEVICES."
 
+echo "`date +%M:%S:%N` :INPUT mouse, keyboard .."
+STATUS=0
 #w468 simplify...
 ##w463 i think time has come to dump the old 'psaux'. use /dev/input/mice for both usb
 ##and ps/2 mice...
@@ -1097,15 +1102,17 @@ else
 fi
 
 #recognise keyboard...
-echo -n ' keyboard' >/dev/console
+echo -n 'Setting keyboard' >/dev/console
 /etc/rc.d/rc.country ;STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
-
 status_func $STATUS
+echo "`date +%M:%S:%N` :INPUT mouse, keyboard."
+
 echo -n "FILESYSTEM STATE 21: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+
 ############MISC DESKTOP STUFF##################
-echo "MISC. DESKTOP STUFF"
+echo "`date +%M:%S:%N` :MISC. DESKTOP STUFF PuppyPin .."
 if [ "$PUPMODE" = "77" ];then #77=multisession cd/dvd.
  if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = "" ];then
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
@@ -1126,12 +1133,13 @@ if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then #pup_rw is tmpfs
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
+echo "`date +%M:%S:%N` :MISC. DESKTOP STUFF PuppyPin."
 
 echo -n "FILESYSTEM STATE 22: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
 ###################PERSONAL BOOT SCRIPT######################
-echo "PERSONAL BOOT SCRIPT"
+echo "`date +%M:%S:%N` :PERSONAL BOOT SCRIPT rc.local .."
 #personal boot script here...
 if [ ! -f /etc/rc.d/rc.local ];then
  echo '#this file called from rc.sysinit' > /etc/rc.d/rc.local
@@ -1139,9 +1147,13 @@ if [ ! -f /etc/rc.d/rc.local ];then
  echo '#When firewall is installed, will append lines to this file...' >> /etc/rc.d/rc.local
 fi
 . /etc/rc.d/rc.local
+echo "`date +%M:%S:%N` :PERSONAL BOOT SCRIPT rc.local."
 
+echo "`date +%M:%S:%N` :dmesg .."
 dmesg > /tmp/bootkernel.log
+echo "`date +%M:%S:%N` :dmesg."
 
+echo "`date +%M:%S:%N` :X.status .."
 if [ "`basename $(readlink -f $(which X))`" != "Xorg" ]; then
 echo 'nox' > /tmp/X.status
 elif [ -n "`cat /proc/cmdline | grep -i 'nox'`" ]; then
@@ -1149,17 +1161,23 @@ echo 'nox' > /tmp/X.status
 else
 echo 'X' > /tmp/X.status
 fi
+echo "`date +%M:%S:%N` :X.status."
 
+echo "`date +%M:%S:%N` :fsckme.flg .."
 if [[ $PUPMODE == 2 ]] ; then
 RD=`basename $(rdev | cut -f 1 -d ' ') 2>/dev/null`
 FS=`mount | grep '^/dev/root' | cut -f 5 -d ' '`
 echo "$RD"','"$FS"',' > /etc/.fsckme.flg
 fi
+echo "`date +%M:%S:%N` :fsckme.flg."
 
+echo "`date +%M:%S:%N` :DEVICES .."
 [ ! -c /dev/ppp ] && mknod /dev/ppp c 108 0
 [ ! -L /dev/mouse ] && ln -s /dev/input/mice /dev/mouse
 [ ! -c /dev/mem ] && mknod /dev/mem c 1 1
 [ ! -L /dev/modem ] && ln -s /dev/ttyUSB0 /dev/modem
+echo "`date +%M:%S:%N` :DEVICES."
+
 echo -n "FILESYSTEM STATE 23: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
@@ -1167,8 +1185,8 @@ echo
 pup_eve_bac_mod_func(){
 FILE='/tmp/pup_eve_bac_mod.log'
 [ ! -f "$FILE" ] && FILE='/tmp/pup_event_backend_modprobe.log'
-echo `date`
-sleep 50s  ## 120s ##5s
+echo "pup_eve_bac_mod_func `date`"
+sleep 5s  ## 120s ##5s
 echo 'Sorting now this log file by '$0 >> $FILE
 cat $FILE | sort -g -k 1,3 -t ' ' >$FILE.sorted
 echo `date`
@@ -1179,7 +1197,7 @@ Line=`grep -n -w "^$i" $FILE.sorted | tail -n 1 | cut -f 1 -d ':'`
 echo Line "'$Line'"
 /bin/sed -i "$Line a\\ " "${FILE}.sorted"  #sed: unsupported command u ???
 done
-echo `date`
+echo "pup_eve_bac_mod_func `date`"
 }
 pup_eve_bac_mod_func &
 
