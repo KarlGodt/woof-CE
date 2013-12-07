@@ -383,13 +383,10 @@ echo "Moving /etc/X11/xorg.conf /etc/X11/xorg.conf.bak 2" >> "$tmpDir"/xorgwizar
 # fi
 fi
 
+
+
 #comes here first time boot puppy, or whenever bootup
 #and xorg.conf has been removed.
-
-#need to create xorg.conf so that at subsequent boots, xwin will not run xorgwizard...
-echo "Copying /etc/X11/xorg.conf0 /etc/X11/xorg.conf 3" >> "$tmpDir"/xorgwizard.messages && sleep 2s #9s
-cp /etc/X11/xorg.conf0 /etc/X11/xorg.conf
-
 
 #resolution changer uses this. it must be removed here...
 rm -f /etc/xrandrindex
@@ -401,10 +398,14 @@ ln -sf Xorg /usr/bin/X
 echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
 echo -n "Probing video hardware, please wait..."
 echo -e "\\033[0;39m"
+
+#need to create xorg.conf so that at subsequent boots, xwin will not run xorgwizard...
+echo "Copying /etc/X11/xorg.conf0 /etc/X11/xorg.conf 3" >> "$tmpDir"/xorgwizard.messages && sleep 2s #9s
+cp /etc/X11/xorg.conf0 /etc/X11/xorg.conf
+
 #autoprobe...
 Xorg -configure > "$tmpDir"/xorgprobe.txt 2>&1
 #... config in /root/xorg.conf.new
-
 
 ##### Below commented out by Dougal:
 
@@ -423,6 +424,7 @@ Xorg -configure > "$tmpDir"/xorgprobe.txt 2>&1
 #  Rather than pipe data to "while read", I use "here document" (at bottom),
 #  so that the loop doesn't run in a subshell -- hence variables
 #  (like HORIZSYNC0) are retained after the loop has ended...
+mkdir -p /usr/share/X11/xorg.conf.d /etc/X11/xorg.conf.d
 rm -f /xorg.conf.*
 while read ASECTION
 do
@@ -431,7 +433,12 @@ do
  echo "$ASECTION" >>/xorg.conf.A
  case $ASECTION in
   *Section*\"Screen\"*)
-   break #Screen section is created further down.
+   case $ASECTION in
+   *Identifier*Screen0*Device*Card0*Monitor*Monitor0*)
+    continue  #break #Screen0 section is created far further down when the monitor Hsync/Vsync's are known
+       ;;
+   *) :;;
+   esac
   ;;
   *Section*\"Files\"*|*Section*\"Module\"*|*Section*\"ServerFlags\"*)
    continue #these sections pre-created in /etc/X11/xorg.conf0
@@ -456,74 +463,115 @@ EndSection*)
         Option      \"XkbRules\" \"xorg\"
         Option      \"XkbModel\" \"pc102\"
         Option      \"XkbLayout\" \"$XKEYMAP\" #xkeymap0"
+
     elif [ "$XSECTION" = "Monitor" -a "$IDENTIFIER" = "Monitor0" ] ; then
      TEMPSECTION="$TEMPSECTION
-        HorizSync    HORIZSYNC0
-        VertRefresh  VERTREFRESH0
-        #UseModes     \"Modes0\" #monitor0usemodes
-        Option      \"PreferredMode\" \"PREFERREDMODE0\"
+        HorizSync    HORIZSYNC0        #horizsync0
+        VertRefresh  VERTREFRESH0      #vertrefresh0
+        #UseModes    \"Modes0\"        #monitor0usemodes
+        Option       \"PreferredMode\" \"PREFERREDMODE0\" #preferredmode0
         $ALINE
+
+        ###Mode
+        ###     DotClock  clock
+        ###     HTimings  hdisp hsyncstart hsyncend htotal
+        ###     VTimings  vdisp vsyncstart vsyncend vtotal
+        ###     Flags    \"flag\" \"...\" \"...\" ...
+        ###     HSkew     hskew
+        ###     VScan     vscan
+        ###EndMode
+
+        ###DisplaySize   width height
+        ### Gamma        gamma-value
+        ### Gamma        red-gamma green-gamma blue-gamma
+        ### Mode         \"name\"
+        ### ModeLine     \"name\" mode-description  #modes0modeline0
+        ### Option       \"DPMS\"  \"bool\"
+        ### Option       \"SyncOnGreen\"  \"bool\"
+        ### Option       \"TargetRefresh\"  \"rate\"
+        ### Option       \"PreferredMode\"  \"string\"
+        ### Option       \"Position\"  \"x y\"
+        ### Option       \"LeftOf\"  \"monitor\"
+        ### Option       \"RightOf\"  \"monitor\"
+        ### Option       \"Above\"  \"monitor\"
+        ### Option       \"Below\"  \"monitor\"
+        ### Option       \"Enable\"  \"bool\"
+        ### Option       \"MinClock\"  \"frequency\"
+        ### Option       \"MaxClock\"  \"frequency\"
+        ### Option       \"Ignore\"  \"bool\"
+        ### Option       \"Rotate\"  \"rotation\"
+##?EndSection
 
 Section \"Modes\"
         Identifier \"Modes0\"
-        #modes0modeline0
+        ###Mode
+        ###     DotClock  clock
+        ###     HTimings  hdisp hsyncstart hsyncend htotal
+        ###     VTimings  vdisp vsyncstart vsyncend vtotal
+        ###     Flags  \"flag\" \"...\" \"...\" ...
+        ###     HSkew  hskew
+        ###     VScan  vscan
+        ###EndMode
+        ###ModeLine     \"name\" mode-description  #modes0modeline0
 EndSection"
      #v3.98 rerwin - added preferredmode line, after usemodes line.
      continue # we added the line before the "Modes" section, so continue
+
     fi
 
     TEMPSECTION="$TEMPSECTION\n$ALINE"
     #TEMPSECTION="${TEMPSECTION}${ALINE}"
     continue # just added line -- no need to get to bottom
-    ;;
+;;
 
 Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
     TEMPSECTION="\n$ALINE"
     #TEMPSECTION="$ALINE"
+    echo "XSECTION='$XSECTION'" >&2
     continue # just added line -- no need to get to bottom
-    ;;
+;;
 
 *Identifier*) IDENTIFIER=${ALINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
-    ;;
+;;
 
 *\"ZAxisMapping\"*) continue
-    ;;
+;;
 
 *HorizSync*[0-9]*) set -- $ALINE ; HORIZSYNC0="$2$3$4" ; continue
-    ;;
+;;
 
 *VertRefresh*[0-9]*) set -- $ALINE ; VERTREFRESH0="$2$3$4" ; continue
-    ;;
+;;
 
 *Option*\"Protocol\"?\"auto\"*)
 
-    case "`cat /etc/mousedevice 2>/dev/null`" in
-     input/mice) TEMPSECTION="$TEMPSECTION
+        case "`cat /etc/mousedevice 2>/dev/null`" in
+        input/mice) TEMPSECTION="$TEMPSECTION
         Option      \"Protocol\" \"IMPS/2\" #mouse0protocol"
           continue
           ;;
-     *ttyS*) TEMPSECTION="$TEMPSECTION
+        *ttyS*) TEMPSECTION="$TEMPSECTION
         Option      \"Protocol\" \"Microsoft\" #mouse0protocol"
           continue
           ;;
-     *) TEMPSECTION="$TEMPSECTION
+        *) TEMPSECTION="$TEMPSECTION
         Option      \"Protocol\" \"auto\" #mouse0protocol"
           continue
           ;;
-    esac
-    ;;
+        esac
+;;
 
 */dev/mouse*|*/dev/input/mice*) #v2.21
     TEMPSECTION="$TEMPSECTION\n\t$ALINE"
     #TEMPSECTION="$TEMPSECTION\t$ALINE"
-    case "`cat /etc/xextraoptions`" in
+        case "`cat /etc/xextraoptions`" in
      *2button*) BLA="" ;;
          *) BLA="#" ;;
         esac
         TEMPSECTION="$TEMPSECTION
         ${BLA}Option      \"Emulate3Buttons\"
         ${BLA}Option      \"Emulate3Timeout\" \"50\""
-        if [ "`cat /etc/mousebuttons`" = "5" ] ; then #scrollwheel
+        if [ "`cat /etc/mousebuttons`" -ge 5 ] ; then #scrollwheel
          BLA=""
         else
          BLA="#"
@@ -531,7 +579,7 @@ Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
     TEMPSECTION="$TEMPSECTION
         ${BLA}Option      \"ZAxisMapping\" \"4 5\" #scrollwheel"
         continue # we added the line at the beginning
-    ;;
+;;
   esac
 
   if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
@@ -540,7 +588,22 @@ Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
     *Driver*) CARD0DRIVER="$FBODY" ; ALINE="$ALINE #card0driver" ;;
     *VendorName*) CARD0VENDOR="$FBODY" ;;
     *BoardName*) CARD0BOARD="$FBODY" ;;
-    *Screen1*Right?Of*Screen0*) ALINE="#$ALINE" ;;
+    *Screen[0-9]*Right?Of*Screen[0-9]*) ALINE="# $ALINE" ;;
+    *Screen[0-9]*Left?Of*Screen[0-9]*)  ALINE="# $ALINE" ;;  ##KRG +++2013-12-05
+   esac
+  fi
+
+  if [ "$XSECTION" = "ServerLayout" ] ; then
+  case "$ALINE" in
+    *Screen*[0-9]*Screen[0-9]*RightOf*Screen[0-9]*) ALINE="# $ALINE" ;;
+    *Screen*[0-9]*Screen[0-9]*LeftOf*Screen[0-9]*)  ALINE="# $ALINE" ;;
+  esac
+  fi
+
+  if [ "$XSECTION" = "Screen" ] ; then
+   case $ALINE in
+    Identifier*) :;;
+   *) ALINE="# $ALINE";;
    esac
   fi
 
@@ -1000,14 +1063,52 @@ MINHORIZ=${HORIZSYNC%-*} #; MINHORIZ=${MINHORIZ%.*}
 #now write the Screen section...
 SCRNSECTION="
 Section \"Screen\"
-        Identifier \"Screen0\"
-        Device     \"Card0\"
-        Monitor    \"Monitor0\"
+    Identifier   \"Screen0\"
+    Device       \"Card0\"
+    Monitor      \"Monitor0\"
+### VideoAdaptor \"xv-id\"
     DefaultDepth $FINALDEPTH
+
+### DefaultFbBpp  bpp
+### Option \"Accel\"
+### Option \"InitPrimary\" \"boolean\"
+### Option \"NoInt10\" \"boolean\"
+### Option \"NoMTRR\"
+### Option \"XaaNoCPUToScreenColorExpandFill\"
+### Option \"XaaNoColor8x8PatternFillRect\"
+### Option \"XaaNoColor8x8PatternFillTrap\"
+### Option \"XaaNoDashedBresenhamLine\"
+### Option \"XaaNoDashedTwoPointLine\"
+### Option \"XaaNoImageWriteRect\"
+### Option \"XaaNoMono8x8PatternFillRect\"
+### Option \"XaaNoMono8x8PatternFillTrap\"
+### Option \"XaaNoOffscreenPixmaps\"
+### Option \"XaaNoPixmapCache\"
+### Option \"XaaNoScanlineCPUToScreenColorExpandFill\"
+### Option \"XaaNoScanlineImageWriteRect\"
+### Option \"XaaNoScreenToScreenColorExpandFill\"
+### Option \"XaaNoScreenToScreenCopy\"
+### Option \"XaaNoSolidBresenhamLine\"
+### Option \"XaaNoSolidFillRect\"
+### Option \"XaaNoSolidFillTrap\"
+### Option \"XaaNoSolidHorVertLine\"
+### Option \"XaaNoSolidTwoPointLine\"
+
     Subsection \"Display\"
         Depth       $FINALDEPTH
         Modes       \"${FINALXY}\"
+
+        ###  FbBpp   bpp
+        ### Weight   red-weight green-weight blue-weight
+        ### Virtual  xdim ydim
+        ###ViewPort  x0 y0
+        ###  Visual  \"visual-name\"
+        ###   Black  red green blue
+        ###   White  red green blue
+        ### Options  Driver Specific
+
     EndSubsection
+
 EndSection
 "
 echo "$SCRNSECTION" >> /etc/X11/xorg.conf
