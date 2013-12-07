@@ -98,7 +98,7 @@ extrasfs_func() {
  #  UNMOUNTME="/mnt/$PDEV1"
  # fi
  #fi
- 	
+
  cd $EXTRASFSMNTPT
  #v409 lobster gets some non-sfs files in ALLSFSLIST ...i have no idea how, but
  #need an extra grep filter here... w007 new name woof-007.sfs ... w478 fix for 'pup2' prefix...
@@ -106,7 +106,7 @@ extrasfs_func() {
  cd $CURRDIR
  sync
  [ "$UNMOUNTME" != "" ] && umount $UNMOUNTME
- 
+
  #eliminate other versions from list...
  FIXEDSFSLIST=""
  rm -f /tmp/bootmanager_wrong_sfs_version 2>/dev/null #v423
@@ -137,7 +137,7 @@ extrasfs_func() {
  do
   DLGLIST="$DLGLIST $ONESFS $ONESFS on"
  done
- 
+
  #v423 let user know wrong sfs's...
  if [ -e /tmp/bootmanager_wrong_sfs_version ];then
   xmessage -bg '#FFC0C0' "NOTICE: The following SFS files located in directory ${MSGz}
@@ -149,7 +149,7 @@ The above files will be ignored.
 The kernel requires ${SFSSTR}, SFS files.
 Note, there is an SFS-version-converter in the Utility menu." &
  fi
- 
+
  if [ "$DLGLIST" = "" ];then
   [ "$CLPARAM2" = "quiet" ] && return 1
   xmessage -center -bg '#FFC0C0' "Sorry, there are no SFS files in directory $MSGz
@@ -190,7 +190,7 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   [ ! $RETVAL -eq 0 ] && return 1
   [ $RETVAL -eq 0 ] && break
  done
- 
+
  RETTAGS="`cat /tmp/bmrettags.txt`"
 
  #v424 remove...
@@ -242,6 +242,57 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  mv /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER  ###+++2011-11-13
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER  ###+++2011-11-13
+
+ SKIPLIST=`echo "$SKIPLIST" | tr ' ' '\n' | sort -d | tr '\n' ' '`
+
+ if [ -d /etc/modprobe.d ] ; then
+
+  for b in $SKIPLIST ; do
+
+   # driver.conf
+   if [ -e /etc/modprobe.d/$b.conf ] ; then
+    sed -i "s!^\(blacklist $b$\)!# &!" /etc/modprobe.d/$b.conf;
+    echo "blacklist $b" >>/etc/modprobe.d/$b.conf;
+   fi
+   # blacklist.conf
+   if [ -e /etc/modprobe.d/blacklist.conf ] ; then
+    sed -i "s!^\(blacklist ${b}$\)!# &!" /etc/modprobe.d/blacklist.conf;
+    echo "blacklist $b" >>/etc/modprobe.d/blacklist.conf;
+   else
+    echo "blacklist $b" >>/etc/modprobe.d/blacklist.conf;
+   fi
+
+  done
+
+              BLACKLISTEDS=`grep '^blacklist' /etc/modprobe.d/*`
+  #for fl in $BLACKLISTEDS ; do
+   while read fl ; do
+   #echo "$fl" >&2
+   file=${fl%%:*}
+   #echo "$file" >&2
+   [ -f "$file" ] || continue
+   line=${fl##*:}
+   #echo "$line" >&2
+   driver=`echo "$line" | awk '{print $2}'`
+   #echo "$driver" >&2
+   [ "$driver" ] || continue
+   #echo $driver >&2
+   echo "$SKIPLIST" | grep -q -w "$driver" && continue  #grep -q important here !!
+   ##         --otherwise gets in eval RETSTRING of the main gtkdialog MAIN_DIALOG.
+   #echo $driver >&2
+   sed "s!^$line!# &!" "$file"
+  done<<EOI
+`echo "$BLACKLISTEDS" | sort -d`
+EOI
+ fi
+
+ if [ -f /etc/modprobe.conf ] ; then
+  for b in $SKIPLIST ; do
+   sed -i "s!^\(blacklist $b.*\)!# &!" /etc/modprobe.conf
+   echo "blacklist $b" >>/etc/modprobe.conf
+  done
+ fi
+
 } #end blacklist_func
 
 yeslist_func() {
@@ -263,7 +314,7 @@ yeslist_func() {
   MODPATTERN=' '"$NAMEONLY"'[ :]'
   #leave off left pane if already on right pane...
   [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" != "" ] && continue
-  MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"  
+  MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"
  done
  for ONEMOD in $ADDLIST
  do
@@ -345,7 +396,7 @@ export MAIN_DIALOG="
 <vbox>
  <text use-markup=\"true\">
  <label>\"<b>Puppy Boot Configuration</b>\"</label></text>
- 
+
  <frame Load SFS files>
   <text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.</label></text>
   <hbox>
@@ -356,7 +407,7 @@ export MAIN_DIALOG="
     </button>
   </hbox>
  </frame>
- 
+
  <frame Load kernel modules>
   <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module or want to use Ndiswrapper (to use the Windows driver).</label></text>
   <hbox>
@@ -383,7 +434,7 @@ export MAIN_DIALOG="
  </frame>
 
 
- 
+
  <hbox>
   <button><input file stock=\"gtk-quit\"></input><label>QUIT</label></button>
  </hbox>
