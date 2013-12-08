@@ -168,9 +168,14 @@ export LANG=C
 
 fsstate_func(){
 t "`rdev`" || return $PUPMODE
-echo -n "FILESYSTEM STATE : $*"
+echo -n "FILESYSTEM STATE : $* > "
 dumpe2fs `rdev` | grep -i 'STATE'
 echo
+}
+fsstate_func 1
+
+timestamp_func(){
+echo "`date +%M:%S:%N` :$*"
 }
 
 fsstate_func 1
@@ -198,7 +203,7 @@ loadswap_func() { #w481 made into a function.
  #if no go, try for a swap file...
  if t "$SWAPON" != "yes";then
   SWAPFILE="/pupswap.swp"
-  t "$PSWAPFILE" && SWAPFILE="`echo -n "$PSWAPFILE" | cut -f 3 -d ','`"  #/etc/rc.d/PUPSTATE
+  t "$PSWAPFILE" && SWAPFILE=`echo -n "$PSWAPFILE" | cut -f 3 -d ','`  #/etc/rc.d/PUPSTATE
   if t -f /initrd${PUP_HOME}${SWAPFILE};then
    echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
    swapon /initrd${PUP_HOME}${SWAPFILE}
@@ -263,7 +268,7 @@ mountpoint /dev &&  {
    }
 
 #w478 moved this code above call to rc.update...
-KERNEL="`uname -r`"
+KERNEL=`uname -r`
 #KERNMAJ=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
 K_VERSION=`echo -n "$KERNEL" | cut -f 1 -d '.' | cut -f 1 -d '-'`
 K_PATCHLEVEL=`echo -n "$KERNEL" | cut -f 2 -d '.' | cut -f 1 -d '-'`
@@ -378,12 +383,12 @@ fi #2
 make_dev_root_func
 
 check_frugal_full_func() {
-            CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
-     RootDiskFreeFrugal=`df | grep -w '/' | grep 'rootfs'`
-            MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
+            CatProcPart=`tr -s ' ' </proc/partitions | sed '1,2 d'`
+     RootDiskFreeFrugal=`df | grep -Fw '/' | grep 'rootfs'`
+            MountFrugal=`grep '/initrd/mnt/dev_save' /proc/mounts | cut -f 1 -d ' '`
 RootDiskReadlinkDevRoot=`readlink /dev/root`
-RootDiskFreeFullInstall=`df | grep -w '/' | tr -s ' ' | cut -f 1 -d ' '`
-              MountFull=`mount | grep -w '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
+RootDiskFreeFullInstall=`df | grep -Fw '/' | tr -s ' ' | cut -f 1 -d ' '`
+              MountFull=`mount | grep -Fw '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
            BBrdevFrugal=`busybox rdev`  #empty at frugal installs
              BBrdevFull=`busybox rdev`
 
@@ -507,7 +512,7 @@ if t -d /var/db/`uname -r`/dev ; then
 cp -a -r /var/db/`uname -r`/dev /
 
 elif t -f /var/db/boot/dev_nodes.lst; then
-DDB="`cat /var/db/boot/dev_nodes.lst`"
+DDB=`cat /var/db/boot/dev_nodes.lst`
 cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
 t -z "$DEV" && DEV=$T
 KIND=${PERM:0:1}
@@ -649,9 +654,9 @@ fsstate_func 14
 echo "LOAD KERNEL MODULES"
 echo -n "Loading kernel modules..." >/dev/console
 
-MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
+MODALIASES=`ls /sys/bus/*/devices/*/modalias`
 
-BLACKLISTVARS="`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`"
+BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
 echo "$BLACKLISTVARS" > /tmp/pup_event_modprobe.conf
 echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
 t -f /etc/modprobe.conf && cat /etc/modprobe.conf >> /tmp/pup_event_modprobe.conf
@@ -671,11 +676,11 @@ if t ! -d /initrd;then #v423 full hd install.
  fi
  #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  # this is contrary to my understanding all these years, but oh well, let's do it...
- ELSPCI="`elspci -l`" #jesses great little utility.
- t "`echo "$ELSPCI" | grep '0C0320'`" != "" && modprobe --config /tmp/pup_event_modprobe.conf ehci-hcd
+ ELSPCI=`elspci -l` #jesses great little utility.
+ t "`echo "$ELSPCI" | grep '0C0320'`" && modprobe --config /tmp/pup_event_modprobe.conf ehci-hcd
  #...perhaps a udev rule could have done this?
- t "`echo "$ELSPCI" | grep '0C0310'`" != "" && modprobe --config /tmp/pup_event_modprobe.conf ohci-hcd
- t "`echo "$ELSPCI" | grep '0C0300'`" != "" && modprobe --config /tmp/pup_event_modprobe.conf uhci-hcd
+ t "`echo "$ELSPCI" | grep '0C0310'`" && modprobe --config /tmp/pup_event_modprobe.conf ohci-hcd
+ t "`echo "$ELSPCI" | grep '0C0300'`" && modprobe --config /tmp/pup_event_modprobe.conf uhci-hcd
 fi
 t -n "`lsmod | grep -E 'uhci|ohci|ehci'`" && modprobe usbhid
 
@@ -718,7 +723,8 @@ MODULECNT=0
 #replay uevents from /sys...
 for ONEMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
+ #ONEPATH="`dirname $ONEMODALIAS`"
+ ONEPATH="${ONEMODALIAS%/*}"
  if t -e ${ONEPATH}/uevent;then
   echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
@@ -745,7 +751,7 @@ if t ! -d /initrd;then #full hd installation.
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
  #ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`"
- SATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
+ SATADRIVES=`ls -1 /sys/block | grep '^sd'`
  for i in $SATADRIVES; do
   LinkTarget=`readlink -f /sys/block/$i`
   if t "`echo $LinkTarget | grep 'usb'`" != ""; then
@@ -811,8 +817,8 @@ echo "WAIT MODULES LOADED"
 #previous module loading may not have completed...
 echo -n "Waiting for modules to complete loading..." >/dev/console
 WAITCNT=0
-PCIPCMCIA="`elspci -l | grep -o '060700'`"
-PCIUSB="`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`"
+PCIPCMCIA=`elspci -l | grep -o '060700'`
+PCIUSB=`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`
 
 if t "$PCIPCMCIA" != "";then #this may be slow to respond.
 if t "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'`" ; then
@@ -840,12 +846,13 @@ fi
 fi
 
 if t $K_SUBLEVEL -lt 24;then #v431
- t -e /sys/bus/pcmcia/devices && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
- t -e /sys/bus/usb/devices && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
+ t -e /sys/bus/pcmcia/devices && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`
+ t -e /sys/bus/usb/devices && NEWUSB=`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`
  echo K_SUBLEVEL=$K_SUBLEVEL >> /tmp/bootmodules.txt
  for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="`dirname $ONEMODALIAS`"
+  #ONEPATH="`dirname $ONEMODALIAS`"
+  ONEPATH="${ONEMODALIAS%/*}"
   if t -e ${ONEPATH}/uevent;then
    echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
    echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
@@ -855,12 +862,13 @@ if t $K_SUBLEVEL -lt 24;then #v431
 else
 echo K_SUBLEVEL=$K_SUBLEVEL >> /tmp/bootmodules.txt
  #v424 try it a different way, this also fixes ssb devices (such as b43.ko)...
- t -e /sys/bus/pcmcia/devices && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
- t -e /sys/bus/usb/devices && NEWUSB="`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
- t -e /sys/bus/ssb/devices && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
+ t -e /sys/bus/pcmcia/devices && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`
+ t -e /sys/bus/usb/devices && NEWUSB=`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`
+ t -e /sys/bus/ssb/devices && NEWSSB=`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`
  for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="`dirname $ONEUEVENT`"
+  #ONEPATH="`dirname $ONEUEVENT`"
+  ONEPATH="${ONEUEVENT%/*}"
   #the check for 'modalias' file is maybe needed for old kernel?...
   t ! -e ${ONEPATH}/modalias && t "`grep 'MODALIAS' $ONEUEVENT`" = "" && continue
   echo 'added '"${ONEUEVENT}" >> /tmp/bootmodules.txt
@@ -943,7 +951,7 @@ fsstate_func 19
 echo "SETUP SERVICES"
 echo -n "Setting up services (network, printing, etc.)..." >/dev/console
 if t -h /dev/modem;then
- DEVM="`readlink /dev/modem`"
+ DEVM=`readlink /dev/modem`
  case $DEVM in
   modem) #error, circular link.
    rm -f /dev/modem
@@ -968,7 +976,7 @@ t "`lsmod | grep '^usbcore'`" && busybox mount -t usbfs none /proc/bus/usb
 #v408 kirk: Check for laptop battery...
 modprobe battery
 #if [ -d /proc/acpi/battery ]; then
- results="`find /proc/acpi/battery -mindepth 1 -type d`"
+ results=`find /proc/acpi/battery -mindepth 1 -type d`
 # if [ ! -z "$results" ]; then
   modprobe ac
 #  modprobe thermal
@@ -979,7 +987,7 @@ modprobe battery
 #fi
 
 #v411 can use old network wizard (from 403, based on 400)...
-CHECKOLDWIZ="`ls -1 /etc/*[0-9]mode 2>/dev/null`" #ex: eth0mode, wlan0mode.
+CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>/dev/null` #ex: eth0mode, wlan0mode.
 if t "$CHECKOLDWIZ" != "" -a -d /usr/local/net_setup;then
  #note, old wizard is located in /usr/local/net_setup.
  exec /usr/local/net_setup/etc/rc.d/rc.network &
@@ -995,14 +1003,14 @@ fsstate_func 20
 
 ############RECOGNISE MEDIA DEVICES################
 STATUS=0
-echo "RECOGNISE MEDIA DEVICES .."
+timestamp_func "RECOGNISE MEDIA DEVICES .."
 echo -n "Recognising media devices..." >/dev/console
 #recognise optical drives...
 echo -n ' optical' >/dev/console
 OPTCNT=1;CDTYPE="";DVDTYPE="";CDBURNERTYPE=""
-OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`"
-t -L /dev/cdrom && CDTYPE="`readlink /dev/cdrom | cut -f 3 -d '/'`"
-t -L /dev/dvd && DVDTYPE="`readlink /dev/dvd | cut -f 3 -d '/'`"
+OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`
+t -L /dev/cdrom && CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
+t -L /dev/dvd && DVDTYPE=`readlink /dev/dvd | cut -f 3 -d '/'`
 t -f /etc/cdburnerdevice && CDBURNERTYPE=`cat /etc/cdburnerdevice`
 t "`echo "$OPTICALS" | grep "$CDTYPE"`" || CDTYPE="" #no longer exists.
 t "`echo "$OPTICALS" | grep "$DVDTYPE"`" || DVDTYPE="" #no longer exists.
@@ -1021,9 +1029,9 @@ t "$DVDTYPE" && ln -sf /dev/$DVDTYPE /dev/dvd
 t "$CDBURNERTYPE" && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
 t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE #>/dev/null 2>&1
 status_func $STATUS
-echo "RECOGNISE MEDIA DEVICES."
+timestamp_func "RECOGNISE MEDIA DEVICES."
 
-echo "`date +%M:%S:%N` :INPUT mouse, keyboard .."
+timestamp_func "INPUT mouse, keyboard .."
 STATUS=0
 
 if [ ! -f /etc/mousedevice ];then
@@ -1037,12 +1045,12 @@ fi
 echo -n 'Setting keyboard' >/dev/console
 /etc/rc.d/rc.country ;STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
 status_func $STATUS
-echo "`date +%M:%S:%N` :INPUT mouse, keyboard."
+timestamp_func "INPUT mouse, keyboard."
 
 fsstate_func 21
 
 ############MISC DESKTOP STUFF##################
-echo "`date +%M:%S:%N` :MISC. DESKTOP STUFF PuppyPin .."
+
 if t "$PUPMODE" = "77";then #77=multisession cd/dvd.
  if t "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = "";then
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
@@ -1063,12 +1071,11 @@ if t $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13;then #pup_rw is tmpfs.
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
-echo "`date +%M:%S:%N` :MISC. DESKTOP STUFF PuppyPin."
 
 fsstate_func 22
 
 ###################PERSONAL BOOT SCRIPT######################
-echo "`date +%M:%S:%N` :PERSONAL BOOT SCRIPT rc.local .."
+timestamp_func 'rc.local ..'
 #personal boot script here...
 if t ! -f /etc/rc.d/rc.local;then
  echo '#this file called from rc.sysinit' > /etc/rc.d/rc.local
@@ -1076,13 +1083,11 @@ if t ! -f /etc/rc.d/rc.local;then
  echo '#When firewall is installed, will append lines to this file...' >> /etc/rc.d/rc.local
 fi
 . /etc/rc.d/rc.local
-echo "`date +%M:%S:%N` :PERSONAL BOOT SCRIPT rc.local."
+timestamp_func 'rc.local.'
 
-echo "`date +%M:%S:%N` :dmesg .."
 dmesg > /tmp/bootkernel.log
-echo "`date +%M:%S:%N` :dmesg."
 
-echo "`date +%M:%S:%N` :X.status .."
+timestamp_func 'X.status ..'
 if t "`basename $(readlink -f $(which X))`" != "Xorg"; then
 echo 'nox' > /tmp/X.status
 elif t -n "`cat /proc/cmdline | grep -i 'nox'`"; then
@@ -1090,28 +1095,29 @@ echo 'nox' > /tmp/X.status
 else
 echo 'X' > /tmp/X.status
 fi
-echo "`date +%M:%S:%N` :X.status."
+timestamp_func 'X.status.'
 
-echo "`date +%M:%S:%N` :fsckme.flg .."
+timestamp_func 'fsckme.flg ..'
 if [[ $PUPMODE == 2 ]] ; then
 RD=`basename $(rdev | cut -f 1 -d ' ') 2>/dev/null`
 FS=`mount | grep '^/dev/root' | cut -f 5 -d ' '`
 echo "$RD"','"$FS"',' > /etc/.fsckme.flg
 fi
-echo "`date +%M:%S:%N` :fsckme.flg."
+timestamp_func 'fsckme.flg.'
 
-echo "`date +%M:%S:%N` :DEVICES .."
+timestamp_func 'DEVICES ..'
 t -c /dev/ppp || mknod /dev/ppp c 108 0
 t -L /dev/mouse || ln -s /dev/input/mice /dev/mouse
 t -c /dev/mem || mknod /dev/mem c 1 1
 t -L /dev/modem || ln -s /dev/ttyUSB0 /dev/modem
-echo "`date +%M:%S:%N` :DEVICES."
+timestamp_func 'DEVICES.'
 
 fsstate_func 23
 
 pup_eve_bac_mod_func(){
 FILE='/tmp/pup_eve_bac_mod.log'
 t ! -f "$FILE" && FILE='/tmp/pup_event_backend_modprobe.log'
+t -f "$FILE" || return 0
 echo "pup_eve_bac_mod_func `date`"
 sleep 5s  ## 120s ##5s
 echo 'Sorting now this log file by '$0 >> $FILE
