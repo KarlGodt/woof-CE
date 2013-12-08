@@ -97,7 +97,7 @@
 # ;;
 # esac
 # PUPMODE=2
-# KERNVER=2.6.30.6-KRG-i486
+# KERNEL=2.6.30.6-KRG-i486
 # ATADRIVES='·sda'
 # USB_SATAD=''
 # PUP_HOME='/'
@@ -256,9 +256,14 @@ mountpoint /dev &&  {
    }
 
 #w478 moved this code above call to rc.update...
-KERNVER="`uname -r`"
-KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
-echo 'KERNVER='$KERNVER >> /etc/rc.d/PUPSTATE
+KERNEL="`uname -r`"
+#KERNMAJ=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
+K_VERSION=`echo -n "$KERNEL" | cut -f 1 -d '.' | cut -f 1 -d '-'`
+K_PATCHLEVEL=`echo -n "$KERNEL" | cut -f 2 -d '.' | cut -f 1 -d '-'`
+K_SUBLEVEL=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'`
+K_EXTRALEVEL=`echo -n "$KERNEL" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+
+echo 'KERNEL='$KERNEL >> /etc/rc.d/PUPSTATE
 
 
 ####KRG>>>>
@@ -267,25 +272,44 @@ dumpe2fs `rdev` | grep -i 'state'
 echo
 
 mount_none_fs_func(){
-NFS=`cat /proc/filesystems | grep 'nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
-NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs'`
-[ ! -d /nodev ] && mkdir /nodev
+   NFS=`cat /proc/filesystems | grep 'nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
+#NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs'`
+ NODEV="$NFS"
+[ -d /nodev ] || mkdir /nodev
 for i in $NODEV ; do
-echo
-echo "$i"
-DIR=`echo "$i" | sed 's#fs$##'`
-if [ -z "`busybox mount | grep "$i"`" ] ; then
-#[ ! -d /nodev/$i ] && mkdir /nodev/$i
-#mount -t $i none /nodev/$i
-#[ ! -d /nodev/$DIR ] && mkdir /nodev/$DIR
-#mount -t $i none /nodev/$DIR
-[ ! -d /dev/fs/$DIR ] && mkdir -p /dev/fs/$DIR
-mount-FULL -v -t $i nodev /dev/fs/$DIR
-#[ ! -d /proc/fs/$DIR ] && mkdir /proc/fs/$DIR
-#mount -t $i nodev /proc/fs/$DIR
-#[ ! -d /sys/fs/$DIR ] && mkdir -p /sys/fs/$DIR
-#mount -t $i none /sys/fs/$DIR
-fi
+      echo
+ echo "$i"
+ DIR=`echo "$i" | sed 's#fs$##'`
+ if [ -z "`busybox mount | grep -Fw "$i"`" ] ; then
+  #[ ! -d /nodev/$i ] && mkdir /nodev/$i
+  #mount -t $i none /nodev/$i
+  #[ ! -d /nodev/$DIR ] && mkdir /nodev/$DIR
+  #mount -t $i none /nodev/$DIR
+
+   case $i in
+    debugfs) mkdir -p /sys/kernel/debug;       busybox mount -t debugfs nodev /sys/kernel/debug;
+    echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
+    ;;
+    fusectl) mkdir -p /sys/fs/fuse/connections;busybox mount -t fusectl fusectl /sys/fs/fuse/connections;;
+binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc;busybox mount -t binfmt_misc nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) mkdir -p /sys/kernel/security;    busybox mount -t securityfs nodev /sys/kernel/security;;
+      usbfs) mkdir -p /proc/bus/usb;                   mount -t usbfs none /proc/bus/usb -o devmode=0666;;
+   configfs) mkdir -p /config;                         mount -t configfs none /config;;
+  hugetlbfs) mkdir -p /mnt/huge;               busybox mount -t hugetlbfs none /mnt/huge;;
+     pstore) mkdir -p /sys/fs/pstore;          busybox mount -t pstore nodev /sys/fs/pstore;;
+ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda) :;;     #mount: wrong fs type, bad option, bad superblock on /nodev,
+    jffs2) :;; #mount: /nodev is not a block device
+    fuse) :;;  #bin/sh: /nodev: is a directory
+    *)
+    [ -d /dev/fs/$DIR ] || mkdir -p /dev/fs/$DIR
+    mount-FULL -v -t $i nodev /dev/fs/$DIR
+    ;;
+   esac
+  #[ ! -d /proc/fs/$DIR ] && mkdir /proc/fs/$DIR
+  #mount -t $i nodev /proc/fs/$DIR
+  #[ ! -d /sys/fs/$DIR ] && mkdir -p /sys/fs/$DIR
+  #mount -t $i none /sys/fs/$DIR
+ fi
 done
 }
 mount_none_fs_func
@@ -509,8 +533,8 @@ echo -n "FILESYSTEM STATE 8: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
 pupstate_prev_func() {
-if test "`grep -x KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER" ; then
-if test ! -f /lib/modules/$KERNVER/modules.dep -o ! -f /lib/modules/$KERNVER/modules.symbols -o ! -f /lib/modules/$KERNVER/modules.alias ; then
+if test "`grep -x KERNEL /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNEL" ; then
+if test ! -f /lib/modules/$KERNEL/modules.dep -o ! -f /lib/modules/$KERNEL/modules.symbols -o ! -f /lib/modules/$KERNEL/modules.alias ; then
 echo "Detected booting other kernel than last time" >> /dev/console
 echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
 depmod
@@ -522,24 +546,28 @@ pupstate_prev_func
 echo -n "FILESYSTEM STATE 9: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+
 firmware_dep_func() {
-if test ! -f /etc/modules/firmware.dep.$KERNVER; then
+if test ! -f /etc/modules/firmware.dep.$KERNEL; then
 echo "copying firmware.dep" > /dev/console
 FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
-cp "$FWF" /etc/modules/firmware.dep.$KERNVER
+cp "$FWF" /etc/modules/firmware.dep.$KERNEL
 fi
 }
 firmware_dep_func
+
 echo -n "FILESYSTEM STATE 10: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+
 lib_firmware_func() {
-FWD=`find /lib/modules/$KERNVER/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
+FWD=`find /lib/modules/$KERNEL/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
 if test "$FWD" != "" ; then
-[ -d /lib/firmware ] && rm -f -r /lib/firmware
+#[ -d /lib/firmware ] && rm -f -r /lib/firmware
 BN=`basename $FWD`
 SN=${BN:0:8}
-cp -a -r "$FWD" /lib/$SN
+cp -a -r "$FWD"/* /lib/$SN/
+#cp -a -r "$FWD" /lib/$SN
 fi
 
 if test ! -d /lib/firmware ; then
@@ -549,6 +577,7 @@ fi
 fi
 }
 lib_firmware_func
+
 echo -n "FILESYSTEM STATE 11: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
@@ -557,27 +586,27 @@ if test ! -d /etc/mult_kernels ; then #0
 mkdir /etc/mult_kernels
 fi #0
 
-if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then #1
-cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+if test -f /etc/mult_kernels/modprobe.conf.$KERNEL ; then #1
+cp -f /etc/mult_kernels/modprobe.conf.$KERNEL /etc/modprobe.conf
 else #1
 if test -f /etc/modprobe.conf ; then #1.1
-[ ! -f /etc/mult_kernels/modprobe.conf.$KERNVER ] && cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+[ ! -f /etc/mult_kernels/modprobe.conf.$KERNEL ] && cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL
 fi #1.1
 fi #1
-if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then #2
+if test -d /etc/mult_kernels/modprobe.d.$KERNEL ; then #2
 rm -f -r /etc/modprobe.d
-cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNEL /etc/modprobe.d
 else #2
 if test -d /etc/modprobe.d ; then #2.1
-[ ! -d /etc/mult_kernels/modprobe.d.$KERNVER ] && cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+[ ! -d /etc/mult_kernels/modprobe.d.$KERNEL ] && cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNEL
 fi #2.1
 fi #2
 
 [ ! -d /etc/mult_kernels/rc.d ] && mkdir /etc/mult_kernels/rc.d
-if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ] ; then
-cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL ] ; then
+cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL
 else
-cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
+cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL /etc/rc.d/MODULESCONFIG
 fi
 }
 #mondprobe_conf_func  ##-2011-11-07 just to be done in /sbin/init
@@ -588,13 +617,13 @@ echo
 
 #w469 may need to run 'depmod'...
 #live-cd may have been built without the modules.* files.
-#initrd init script copied modules to /lib/modules/<kernver>/initrd/.
-if [ ! -f /lib/modules/${KERNVER}/modules.dep ];then
+#initrd init script copied modules to /lib/modules/<KERNEL>/initrd/.
+if [ ! -f /lib/modules/${KERNEL}/modules.dep ];then
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
- [ -d /lib/modules/${KERNVER}/initrd ] && NEEDGUNZIP="yes"
+ [ -d /lib/modules/${KERNEL}/initrd ] && NEEDGUNZIP="yes"
 else
- if [ -d /lib/modules/${KERNVER}/initrd ];then
-  if [ "`grep '/initrd/' /lib/modules/${KERNVER}/modules.dep`" = "" ];then
+ if [ -d /lib/modules/${KERNEL}/initrd ];then
+  if [ "`grep '/initrd/' /lib/modules/${KERNEL}/modules.dep`" = "" ];then
    NEEDDEPMOD="yes" #w469 files may not be there to save space.
    NEEDGUNZIP="yes"
   fi
@@ -602,11 +631,11 @@ else
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
- #for ONEMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #for ONEMOD in `find /lib/modules/${KERNEL}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
  # gunzip $ONEMOD
  #done
- gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
+ gunzip -f -r /lib/modules/${KERNEL}/initrd #w482 shinobar.
 fi
 
 #w481 now building with busybox depmod, in module-init-tools have depmod-FULL, so comment out...
@@ -834,7 +863,9 @@ echo -n "Waiting for modules to complete loading..." >/dev/console
 WAITCNT=0
 PCIPCMCIA="`elspci -l | grep -o '060700'`"
 PCIUSB="`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`"
+
 if [ "$PCIPCMCIA" != "" ];then #this may be slow to respond.
+if [ "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'`" ] ; then
  echo -n " pcmcia"  >/dev/console
  while [ $WAITCNT -lt 10 ];do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" != "" ] && break
@@ -843,8 +874,10 @@ if [ "$PCIPCMCIA" != "" ];then #this may be slow to respond.
   echo -n " $WAITCNT" >/dev/console
  done
 fi
+fi
 #note, if initrd then usb-storage will have already loaded...
 if [ "$PCIUSB" != "" ];then #this may be slow to respond.
+if [ "`busybox modprobe -l | grep '[eoux]hci[-_]hcd'`" ] ; then
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ];do
@@ -853,6 +886,7 @@ if [ "$PCIUSB" != "" ];then #this may be slow to respond.
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
+fi
 fi
 
 #replay uevents from /sys (more interfaces as a consequence of above drivers loaded)...
@@ -877,10 +911,10 @@ fi
 ## done
 ##fi
 
-if [ $KERNMAJ -lt 24 ];then #v431
+if [ $K_SUBLEVEL -lt 24 ];then #v431
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
- echo KERNELMAJ=$KERNMAJ >> /tmp/bootmodules.txt
+ echo KERNELMAJ=$K_SUBLEVEL >> /tmp/bootmodules.txt
  for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
   ONEPATH="`dirname $ONEMODALIAS`"
@@ -891,7 +925,7 @@ if [ $KERNMAJ -lt 24 ];then #v431
   fi
  done
 else
-echo KERNELMAJ=$KERNMAJ >> /tmp/bootmodules.txt
+echo KERNELMAJ=$K_SUBLEVEL >> /tmp/bootmodules.txt
  #v424 try it a different way, this also fixes ssb devices (such as b43.ko)...
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
@@ -913,15 +947,18 @@ fi
 if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" != "" ];then #see pup_event_backend_d
  echo -n " usb-storage"  >/dev/console
  while [ $WAITCNT -lt 15 ];do
-  [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
+  #[ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
+   [ "`dmesg | grep 'usb\-storage.*scan complete'`" ] && break #usb-storage 1-1:1.0: scan complete
   sleep 1
   WAITCNT=`expr $WAITCNT + 1`
   echo -n " $WAITCNT" >/dev/console
  done
  #precaution, make sure have got them all... v412 need sort -u...
- USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
+ #USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
+ USBSTORAGES=`/bin/dmesg | grep "usb [-0-9]*: New USB device found" | sort -u | wc -l`
  while [ $WAITCNT -lt 15 ];do
-  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l`
+  #AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb\-storage.*scan complete" | wc -l`
   [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
   sleep 1
   WAITCNT=`expr $WAITCNT + 1`
