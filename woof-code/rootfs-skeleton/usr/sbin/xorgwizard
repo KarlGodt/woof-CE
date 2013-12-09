@@ -572,7 +572,7 @@ Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
         ${BLA}Option      \"Emulate3Buttons\"
         ${BLA}Option      \"Emulate3Timeout\" \"50\""
         if [ "`cat /etc/mousebuttons`" -ge 5 ] ; then #scrollwheel
-         BLA=""
+         BLA=" "
         else
          BLA="#"
         fi
@@ -587,25 +587,36 @@ Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
    case "$ALINE" in
     *Driver*) CARD0DRIVER="$FBODY" ; ALINE="$ALINE #card0driver" ;;
     *VendorName*) CARD0VENDOR="$FBODY" ;;
-    *BoardName*) CARD0BOARD="$FBODY" ;;
-    *Screen[0-9]*Right?Of*Screen[0-9]*) ALINE="# $ALINE" ;;
-    *Screen[0-9]*Left?Of*Screen[0-9]*)  ALINE="# $ALINE" ;;  ##KRG +++2013-12-05
+    *BoardName*)  CARD0BOARD="$FBODY" ;;
+    *Screen[0-9]*Right?Of*Screen[0-9]*)  ALINE="# $ALINE" ;;
+    *Screen[0-9]*Left?Of*Screen[0-9]*)   ALINE="# $ALINE" ;;  ##KRG +++2013-12-05
+    *Screen*[0-9]*TopOf*Screen[0-9]*)    ALINE="# $ALINE" ;;
+    *Screen*[0-9]*BottomOf*Screen[0-9]*) ALINE="# $ALINE" ;;
    esac
   fi
 
   if [ "$XSECTION" = "ServerLayout" ] ; then
   case "$ALINE" in
-    *Screen*[0-9]*Screen[0-9]*RightOf*Screen[0-9]*) ALINE="# $ALINE" ;;
-    *Screen*[0-9]*Screen[0-9]*LeftOf*Screen[0-9]*)  ALINE="# $ALINE" ;;
+    *Screen*[0-9]*Screen[0-9]*RightOf*Screen[0-9]*)  ALINE="# $ALINE" ;;
+    *Screen*[0-9]*Screen[0-9]*LeftOf*Screen[0-9]*)   ALINE="# $ALINE" ;;
+    *Screen*[0-9]*Screen[0-9]*TopOf*Screen[0-9]*)    ALINE="# $ALINE" ;;
+    *Screen*[0-9]*Screen[0-9]*BottomOf*Screen[0-9]*) ALINE="# $ALINE" ;;
   esac
   fi
 
   if [ "$XSECTION" = "Screen" ] ; then
    case $ALINE in
     Identifier*) :;;
-   *) ALINE="# $ALINE";;
+    *) ALINE="# $ALINE";;
    esac
   fi
+
+ if [ "$XSECTION" = "Device" ] ; then
+  case "$ALINE" in
+  *Card*) TEMPSECTION="$TEMPSECTION\n\tScreen  0";;  #make it Screen 0 for now.
+  *) :;;
+  esac
+ fi
 
   # add line to section (if we've come this far...)
   echo "$TEMPSECTION" >>/xorg.conf.Y
@@ -616,11 +627,13 @@ Section*\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
 done <<_END2
 $(echo "$ASECTION" | busybox sed 's%D__ELIMITE__R%\n%g')
 _END2
+#ALINE
 echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
 sync
 done <<_END1
 $(cat /root/xorg.conf.new | busybox sed 's%$%D__ELIMITE__R%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
+#ASECTION
 
 #$(sed 's%\n%__DELIMITER__%' /root/xorg.conf.new | sed 's/EndSection/EndSection\n/g' )
 #_END1
@@ -1238,6 +1251,11 @@ PROFILEMONITOR="`grep '^monitorid: ' $tmpDir/ddcprobe.txt | head -n 1 | cut -f 2
 [ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' $tmpDir/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' "$tmpDir"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 
+[ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -i vga | tr -s ' ' | tr ' ' '_'`
+[ "$PROFILECHIP" ] || PROFILECHIP=UnidentifiedChip
+
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+
 echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >> /etc/X11/xorg.conf
 #create a copy of xorg.conf with the profile in the filename...
 echo "Copyied /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR} 12" >> "$tmpDir"/xorgwizard.messages && sleep 2s #9s
@@ -1335,7 +1353,7 @@ Press FINISHED if test was okay (or to fall back to Xvesa)... "
   TWKMSG="Press FINISHED key if test was okay..."
  fi
 
- dialog --no-collapse --title "Xorg Video Wizard" --yes-label "FINISHED" --no-label "Tweak" --yesno "Report on X test:
+ dialog --no-collapse --title "Xorg Video Wizard" --yes-label "FINISHED" --no-label "Tweak xorg.conf" --yesno "Report on X test:
                   Resolution           ${XTEST}x${YTEST} pixels
                   Horizontal frequency $HSTEST KHz
                   Refresh frequency    $VRTEST Hz
