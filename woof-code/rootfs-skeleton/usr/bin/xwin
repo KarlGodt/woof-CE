@@ -147,7 +147,7 @@ exec 2>"$tmpDir"/xwin.log.`date +%H_%M`
 #[ $NUMXWINS -gt 1 ] && exit   #w478
 
 if test "`echo $PATH | grep 'X11'`" = "" ; then
-PATH="$PATH:/usr/X11R7/bin"
+PATH="/usr/X11R7/bin:$PATH"
 fi
 #echo $PATH
 
@@ -317,27 +317,27 @@ case $content in
 #pAram1=${pArams%% *};pAarams=${pArams#* }
 pArams=${pArams#* };pAram1=${pArams%% *}
 echo pArams=$pArams
-if [ "`echo $content | grep '='`" != "" ] ; then
-xServer=${content#*=}
-else
-xServer="$1"
-echo xServer=$xServer
-xServer="$pAram1"
-echo xServer=$xServer
-pArams=${pArams#* };shift
-echo pArams=$pArams
-fi
+        if [ "`echo $content | grep '='`" != "" ] ; then
+        xServer=${content#*=}
+        else
+        xServer="$1"
+        echo xServer=$xServer
+        xServer="$pAram1"
+        echo xServer=$xServer
+        pArams=${pArams#* };shift
+        echo pArams=$pArams
+        fi
 
-if [ -z `which $xServer` ] ; then
-usage "$xServer not found in the PATH";exit
-else
-if [ ! -L /usr/bin/X ] ; then
-usage "/usr/bin/X is not a link";exit
-else
-rm -f /usr/bin/X
-ln -s $xServer /usr/bin/X
-fi
-fi
+        if [ -z `which $xServer` ] ; then
+        usage "$xServer not found in the PATH";exit
+        else
+        if [ ! -L /usr/bin/X ] ; then
+        usage "/usr/bin/X is not a link";exit
+        else
+        rm -f /usr/bin/X
+        ln -s $xServer /usr/bin/X
+        fi
+        fi
 
 xServerOK=`readlink -e /usr/bin/X`
 if [ -z "$xServerOK" ] ; then
@@ -375,12 +375,12 @@ usage "unknown option '$content";exit;fi
 if [ "`which $content`" != "" ] ; then
 wM="$content"
 else
-usage "unknown windowmanager $content";exit;fi
+usage "unknown windowmanager '$content'";exit;fi
 
 ;;
 esac
 done
-###</KRG 2011_10_27>
+###</KRG 2011-10-27>
 #0.9.9 enables to start a specific w.m. from commandline...
 if [ "$wM" ];then # 1.0
  echo -n "$wM" > /etc/windowmanager
@@ -423,9 +423,13 @@ if [ ! -f /etc/system.jwmrc ]; then cp /root/.jwmrc /etc/system.jwmrc ; fi
 #XinitXorgVars="-geometry +1+1 -n login -display :0"
 #XinitXorgVars=" -geometry +1+1 -n login -display :0" ##not tested yet
 #XInitXorgVars="-e jwm &"
-XInitXorgVars=" -e echo $PATH && sleep 10 && jwm &"
+#XInitXorgVars=" -e echo $PATH && sleep 10 && jwm &"
+
+XinitXorgVars="-hold -e /root/.xinitrc"
 else
-XinitXorgVars="$HOME/.xinitrc"
+XinitXorgVars="-hold -e $HOME/.xinitrc"  ##fallback
+#XinitXorgVars="$HOME/.xinitrc"
+
 fi
 echo "starting $XinitXorgVars"
 
@@ -435,7 +439,7 @@ EXITCNT=0
 
 #v1.0.7
 HAVEX="`readlink -qs /usr/bin/X`"
-echo '$HAVEX : '$HAVEX
+echo "HAVEX='$HAVEX'"
 
 ddcprobe_func(){
 echo -e "\\033[0;31m""ddcprobe_func"
@@ -480,7 +484,7 @@ echo "HAVEX=Xvesa"
 #v3.99 begin
   if [ -f /etc/xorgoverrides ] && [ -n "`grep -q -f /etc/xorgoverrides $tmpDir/ddcprobe.txt`" ] ;then # 3.1.1.0
    echo "Found to override graphics chips from /etc/xorgoverrides in $tmpDir/ddcprobe.txt"
-   rm -f /etc/.XLOADED 2> /dev/null #not necessary, precaution.
+   rm -f /etc/.XLOADED  #not necessary, precaution.
    #1st dialog offers to use Xvesa...
    echo "Starting now xorgwizard" && slepp 9s
    /usr/sbin/xorgwizard
@@ -559,7 +563,7 @@ if [ "$HAVEX" = "Xvesa" ];then #0.9.9 # 4.0
    if [ "$BASEMODE" != "" ];then # 4.1.1.3.0
     echo '002:$BASEMODE='"$BASEMODE"'= and not empty'
     echo "$BASEMODE" > /etc/videomode #no need for wizard after startup!
-        rm -f "$tmpDir"/videomode 2>/dev/null #w460 make sure can exit from X.
+        rm -f "$tmpDir"/videomode  #w460 make sure can exit from X.
    fi # 4.1.1.3.0
   fi  # 4.1.1.0
 
@@ -813,6 +817,11 @@ PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -
 [ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 
+[ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -i vga | tr -s ' ' | tr ' ' '_'`
+[ "$PROFILECHIP" ] || PROFILECHIP=UnidentifiedChip
+
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+
    HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
    #find out if current xorg.conf matches this profile...
    CURRENTPROFILE="`cat /etc/X11/xorg.conf | grep '^#PuppyHardwareProfile' | cut -f 2 -d '=' | cut -f 1 -d ' '`"
@@ -836,7 +845,7 @@ PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -
   echo "File /etc/X11/xorg.conf does not exists."
   echo "Running xorgwizard ..."
   slepp 9s
-  rm -f /etc/.XLOADED 2> /dev/null #not necessary, precaution.
+  rm -f /etc/.XLOADED  #not necessary, precaution.
   #1st dialog offers to use Xvesa...
   /usr/sbin/xorgwizard
 
@@ -914,7 +923,7 @@ case $HAVEX in
    /usr/bin/xinit $HOME/.xinitrc -- -br > "$tmpDir"/xerrs."$KERNELVER"."$Date".Xorg.log 2>&1
 
   else # 14.3.0
-   /usr/bin/xinit "$XinitXorgVars" -- /usr/bin/X :0 -logfile "$Log" -nolisten tcp > "$ErrLog" 2>&1
+   /usr/bin/xinit $XinitXorgVars -- /usr/bin/X :0 -logfile "$Log" -nolisten tcp > "$ErrLog" 2>&1
   fi # 14.3.0
   ;; #### End Xorg
 
