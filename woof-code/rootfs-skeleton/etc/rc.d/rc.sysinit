@@ -139,19 +139,19 @@ echo -e '\033[7;39m'
 echo -n '->'
 read -t 60 K
 echo -e '\033[0;39m'
-if t "$K" = "R" -o "$K" = "r" ; then
+if t "$K" = "R" -o "$K" = "r"; then
 echo 'Rebooting ...'
 /bin/busybox umount -ar
 /bin/busybox reboot
 fi
 
-if t "$K" = "P" -o "$K" = "p" ; then
+if t "$K" = "P" -o "$K" = "p"; then
 echo "Pow'ring off the computer ..."
 /bin/busybox umount -ar
 /bin/busybox poweroff
 fi
 
-if t "$K" = "B" -o "$K" = "b" ; then
+if t "$K" = "B" -o "$K" = "b"; then
 echo 'Continuing booting ...'
 else
 echo 'Exiting /etc/rc.d/rc.sysinit'
@@ -177,8 +177,6 @@ fsstate_func 1
 timestamp_func(){
 echo "`date +%M:%S:%N` :$*"
 }
-
-fsstate_func 1
 
 status_func() {
  if t $1 -eq 0;then
@@ -253,7 +251,11 @@ mkdir -p /sys
 busybox mount -t sysfs none /sys ;STATUS=$(($STATUS+$?))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
-FREERAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 4 -d ' '` #w481
+#FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
+read lbl tot use FREERAM sha buf<<EOI
+`free | grep Mem`
+EOI
+
 if t ! -d /initrd;then #weird, only full-hd install needs this for xfdiff.
  QTRFREERAM=`expr $FREERAM \/ 4`
  t -d /dev/shm || mkdir /dev/shm
@@ -275,7 +277,7 @@ K_PATCHLEVEL=`echo -n "$KERNEL" | cut -f 2 -d '.' | cut -f 1 -d '-'`
 K_SUBLEVEL=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'`
 K_EXTRALEVEL=`echo -n "$KERNEL" | cut -f 4 -d '.' | cut -f 1 -d '-'`
 
-echo 'KERNEL='$KERNEL >> /etc/rc.d/PUPSTATE
+echo "KERNEL='$KERNEL'" >> /etc/rc.d/PUPSTATE
 
 
 ####KRG>>>>
@@ -431,7 +433,7 @@ fi
 main_drv=${simple_drv:0:3}
 
 if t ! -b /dev/$main_drv -o ! -b /dev/$simple_drv ; then
-if t "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`" != ""; then
+if t "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`"; then
 echo "no blockdevices found, creating now" > /dev/console
 # /root/my-applications/sbin/MkMissingDev.sh
  while read maj min siz dev ; do
@@ -495,9 +497,9 @@ fsstate_func 6
 
 device_nodes_fork_func() {
 check_frugal_full_func #should be check_frugal_full_func
-if t "`echo $RootDevice | grep '^259'`" != "" ; then
+if t "`echo $RootDevice | grep '^259'`"; then
 dev_maj_259_func
-elif t "`echo $RootDevice | grep -E '^8|^3|^22'`" != "" ; then
+elif t "`echo $RootDevice | grep -E '^8|^3|^22'`"; then
 mkmissing_blockdev_func
 else
 return
@@ -559,6 +561,7 @@ FWD=`find /lib/modules/$KERNEL/ -maxdepth 2 -type d -name "firmware*" | head -n 
 if t "$FWD" != "" ; then
 BN=`basename $FWD`
 SN=${BN:0:8}
+rm -f /lib/$SN/firmware*
 cp -a -r "$FWD"/* /lib/$SN/
 fi
 
@@ -686,10 +689,11 @@ t -n "`lsmod | grep -E 'uhci|ohci|ehci'`" && modprobe usbhid
 
 
 if t -x /sbin/photplug ; then
-t -f /tmp/hotplug.modules || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
+
+#t -f /tmp/hotplug.modules || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
 #awk '{print $2}' /tmp/hotplug.modules.sed >/tmp/hotplug.modules ; }
-grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' >/tmp/hotplug.modules ;
-}
+#grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' >/tmp/hotplug.modules ;
+#}
 echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...#my intention is for puppy to work with either of these...
@@ -702,7 +706,7 @@ sleep 0.1
 
 INITSTATE=`find /sys -name "initstate"`
 INITSTATEwc_l=`echo "$INITSTATE" | wc -l`
-echo 'INITSTATEwc_l='"$INITSTATEwc_l"
+echo "INITSTATEwc_l='$INITSTATEwc_l'"
 
 if t -z "$MODALIASES" ; then #1
 
@@ -779,7 +783,7 @@ status_func 0
 fsstate_func 15
 
 ######################LOAD SWAP#####################
-t "$SWAPON" != "yes" && loadswap_func
+t "$SWAPON" = "yes" || loadswap_func
 
 fsstate_func 16
 
@@ -821,7 +825,7 @@ PCIPCMCIA=`elspci -l | grep -o '060700'`
 PCIUSB=`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`
 
 if t "$PCIPCMCIA"; then #this may be slow to respond.
-if t "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'`" ; then
+if t "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'`"; then
  echo -n " pcmcia"  >/dev/console
  while t $WAITCNT -lt 10;do
   t "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" && break
@@ -1008,7 +1012,7 @@ echo -n "Recognising media devices..." >/dev/console
 #recognise optical drives...
 echo -n ' optical' >/dev/console
 OPTCNT=1;CDTYPE="";DVDTYPE="";CDBURNERTYPE=""
-OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`
+OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*'`
 t -L /dev/cdrom && CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
 t -L /dev/dvd && DVDTYPE=`readlink /dev/dvd | cut -f 3 -d '/'`
 t -f /etc/cdburnerdevice && CDBURNERTYPE=`cat /etc/cdburnerdevice`
@@ -1027,7 +1031,7 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 t "$CDTYPE" && ln -sf /dev/$CDTYPE /dev/cdrom
 t "$DVDTYPE" && ln -sf /dev/$DVDTYPE /dev/dvd
 t "$CDBURNERTYPE" && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
-t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE #>/dev/null 2>&1
+t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE
 status_func $STATUS
 timestamp_func "RECOGNISE MEDIA DEVICES."
 
@@ -1115,6 +1119,7 @@ timestamp_func 'DEVICES.'
 fsstate_func 23
 
 pup_eve_bac_mod_func(){
+pidof udevd || return 0
 FILE='/tmp/pup_eve_bac_mod.log'
 t ! -f "$FILE" && FILE='/tmp/pup_event_backend_modprobe.log'
 t -f "$FILE" || return 0
