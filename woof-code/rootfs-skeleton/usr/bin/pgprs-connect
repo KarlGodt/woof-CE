@@ -1,6 +1,20 @@
 #!/bin/sh
 
+#trap "/etc/ppp/pgprs-disconnect.sh" HUP INT QUIT TRAP KILL TERM
+
+
 mkdir -p /var/local/sns
+mkdir -p /var/local/sns/ppp0
+
+fun_touch_files(){
+for ONECOUNT in \
+ sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t sns/ppp0/r sns/ppp0/t
+do mkdir -p /var/local/${ONECOUNT%/*}
+touch /var/local/${ONECOUNT}x_bytes_month
+done
+}
+
+fun_reset_month(){
 LANG=C UPDATE_MONTH=`date +%b`
 read CURRENT_MONTH</var/local/sns/current_month
 [ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
@@ -14,28 +28,36 @@ if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
   echo -n 0 > /var/local/${ONECOUNT}/tx_bytes_month
  done
 fi
+}
 
+fun_read_month(){
 ACTIVE_INTERFACE="ppp0"
 read RX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/rx_bytes_month
 [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
 read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
 [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+}
 
+fun_read_session(){
 read RX_BYTES </var/local/$ACTIVE_INTERFACE/rx_bytes_session
 read TX_BYTES </var/local/$ACTIVE_INTERFACE/tx_bytes_session
+}
 
-if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
+fun_present_last_session(){
+if [ "$RX_BYTES" -o "$TX_BYTES" ] ; then
 echo ""
 echo "Last Session :"
-echo "$RX_BYTES Bytes down"
-echo "$TX_BYTES Bytes up"
+echo "'$RX_BYTES' Bytes down"
+echo "'$TX_BYTES' Bytes up"
 
 else
-echo "No download and upload count available."
+echo "No download andor upload count available for last session."
 fi
+}
 
-unset RX_BYTES TX_BYTES
+#unset RX_BYTES TX_BYTES
 
+fun_present_last_month(){
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
 echo ""
 echo "Last Month :"
@@ -43,56 +65,150 @@ echo "Last Month :"
  [ -f /var/local/$ACTIVE_INTERFACE/rx_bytes_month-`date +%Y`-$CURRENT_MONTH ]
  then
  read LM_RX_BYTES </var/local/$ACTIVE_INTERFACE/rx_bytes_month-`date +%Y`-$CURRENT_MONTH
- echo "$LM_RX_BYTES Bytes down"
+ echo "'$LM_RX_BYTES' Bytes down"
  else
- echo "No download count available."
+ echo "No download count available for '$CURRENT_MONTH' ."
  fi
  if
  [ -f /var/local/$ACTIVE_INTERFACE/tx_bytes_month-`date +%Y`-$CURRENT_MONTH ]
  then
  read LM_TX_BYTES </var/local/$ACTIVE_INTERFACE/tx_bytes_month-`date +%Y`-$CURRENT_MONTH
- echo "$LM_TX_BYTES Bytes up"
+ echo "'$LM_TX_BYTES' Bytes up"
  else
- echo "No upload count available."
+ echo "No upload count available for '$CURRENT_MONTH' ."
  fi
 fi
+}
 
+fun_present_rxtx_bytes(){
+if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
+  SESS_END=`date +%s`
+
+  echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
+  echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session-$SESS_END
+
+  echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
+  echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session-$SESS_END
+
+  read RX_BYTES_MONTH_la </var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  [ "$RX_BYTES_MONTH_la" ] || RX_BYTES_MONTH_la=0
+  read RX_BYTES_MONTH_ls </var/local/sns/rx_bytes_month
+  [ "$RX_BYTES_MONTH_ls" ] || RX_BYTES_MONTH_ls=0
+  read RX_BYTES_MONTH_lsa </var/local/sns/$ACTIVE_INTERFACE/rx_bytes_month
+  [ "$RX_BYTES_MONTH_lsa" ] || RX_BYTES_MONTH_lsa=0
+
+  RX_BYTES_MONTH=$(((RX_BYTES_MONTH_la+RX_BYTES_MONTH_ls+RX_BYTES_MONTH_lsa)/3))
+
+  [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+
+  RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  echo -n "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  echo -n "$RX_BYTES_MONTH" > /var/local/sns/$ACTIVE_INTERFACE/rx_bytes_month
+  echo -n "$RX_BYTES_MONTH" > /var/local/sns/rx_bytes_month
+
+  read TX_BYTES_MONTH_la </var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  [ "$TX_BYTES_MONTH_la" ] || TX_BYTES_MONTH_la=0
+  read TX_BYTES_MONTH_ls </var/local/sns/tx_bytes_month
+  [ "$TX_BYTES_MONTH_ls" ] || TX_BYTES_MONTH_ls=0
+  read TX_BYTES_MONTH_lsa </var/local/sns/$ACTIVE_INTERFACE/tx_bytes_month
+  [ "$TX_BYTES_MONTH_lsa" ] || TX_BYTES_MONTH_lsa=0
+
+  TX_BYTES_MONTH=$(((TX_BYTES_MONTH_la+TX_BYTES_MONTH_ls+TX_BYTES_MONTH_lsa)/3))
+
+  [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+  TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  echo -n "$TX_BYTES_MONTH" > /var/local/sns/$ACTIVE_INTERFACE/tx_bytes_month
+  echo -n "$TX_BYTES_MONTH" > /var/local/sns/tx_bytes_month
 
 echo ""
-#TOTALSESSION=$(((RX_BYTES+TX_BYTES)/1024));          echo "SESSION:$TOTALSESSION KiB"
-TOTALMONTH=$(((RX_BYTES_MONTH+TX_BYTES_MONTH)/1024));echo "  MONTH:$TOTALMONTH KiB"
-#TOTALSESSION=$((TOTALSESSION/1024)); echo "SESSION:$TOTALSESSION MiB"
-TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH MiB"
-#TOTALSESSION=$((TOTALSESSION/1024)); echo "SESSION:$TOTALSESSION GiB"
-TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH GiB"
-echo ""
-#TOTALSESSION=$( dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo "SESSION:$TOTALSESSION KiB"
-TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo "  MONTH:$TOTALMONTH KiB"
-#TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo "SESSION:$TOTALSESSION MiB"
-TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH MiB"
-#TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo "SESSION:$TOTALSESSION GiB"
-TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH GiB"
+TOTALSESSION=$( dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo -e "SESSION: $TOTALSESSION\tKiB"
+TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: $TOTALMONTH\tKiB"
+TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tMiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tMiB"
+TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tGiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tGiB"
 echo ""
 
-n="r"
+else
+echo -e "\e[1;31m""Err .. could not read /sys/class/net/${ACTIVE_INTERFACE}/statistics/""\e[0;39m"
+fi
+}
 
-while  [ "$n" != "" ]
+
+fun_read_rxtx_bytes(){
+ACTIVE_INTERFACE="ppp0"
+#mkdir -p /var/local/sns
+#[ -f /tmp/sns_interface_success ] && read ACTIVE_INTERFACE </tmp/sns_interface_success #SNS
+#[ "$ACTIVE_INTERFACE" ] || ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
+#if [ "$ACTIVE_INTERFACE" ];then
+mkdir -p /var/local/$ACTIVE_INTERFACE
+while test "`pidof pppd`"; do
+  until [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];do sleep 1s;done
+  break
+done
+
+#while test "`pidof pppd`"; do
+while test -d /sys/class/net/${ACTIVE_INTERFACE}; do
+  read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
+  read TX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes
+  #echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
+  #echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
+  #RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
+  #[ ! "$RX_BYTES_MONTH" ] && RX_BYTES_MONTH=0
+  #RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  #echo -n "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  #TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
+  #[ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
+  #TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  #echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
+#  done
+# fi
+sleep 1s
+done
+#fi
+fun_present_rxtx_bytes
+}
+
+fun_kill_pppd(){
+pidof pppd && kill -s HUP `pidof pppd`
+}
+
+fun_kill_jobs(){
+jobs -rp && {
+  for Job in `jobs -pr`; do
+  /bin/ps -p $Job && kill $Job
+  done
+ }
+}
+
+trap "fun_kill_pppd;sleep 4s;fun_kill_jobs;exit" HUP INT QUIT TRAP KILL TERM
+
+fun_touch_files
+fun_reset_month
+fun_read_month
+fun_read_session
+fun_present_last_session
+fun_present_last_month
+
+echo ""
+TOTALMONTHK=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: '$TOTALMONTHK'\tKiB"
+TOTALMONTHM=$( dc $TOTALMONTHK 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHM'\tMiB"
+TOTALMONTHG=$( dc $TOTALMONTHM 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHG'\tGiB"
+echo ""
+
+n="c"
+
+while  [ "$n" ]
 do
 /usr/sbin/pppd call gprsmm & #disconnect /etc/ppp/pgprs-disconnect.sh &
-#PPPD_PID=$!
-#wait $PPPD_PID
-#RTVAL="$?"
-jobs -l
-PPPD_PID=`jobs -p /usr/sbin/pppd | tail -n 1`;echo -e '\e[0;36mPPPD_PID='$PPPD_PID'\e[0;39m'
 
+jobs -l
+PPPD_PID=`jobs -p /usr/sbin/pppd | tail -n 1`;
+echo -e '\e[0;36mPPPD_PID='$PPPD_PID'\e[0;39m'
 sleep 5s
 
-#echo "pppd status is $RTVAL .
-#Anything other than '0' means error in linux in most cases ."
-#[ "$RTVAL" = 0 ] && echo -e "\e[1;32m""CONNECTED""\e[0;39m"
-
 until
-#[ -f /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes ]
 [ -f /sys/class/net/${ACTIVE_INTERFACE}/carrier ]
 do sleep 1s
 pidof pppd || break
@@ -115,23 +231,28 @@ done
 
 pidof pppd &&
 {
-echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\e[0;39m'
+unset RX_BYTES TX_BYTES
+fun_read_rxtx_bytes &
+echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\033[0;39m'
 } || {
-echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\e[0;39m'
+echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\033[0;39m'
 }
-
-#pidof pppd || echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\e[0;39m'
-
-#echo ""
-#echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\e[0;39m'
-#echo "Press r ENTER to reconnect/try again"
-#[ "$RTVAL" != '0' ] && break
+jobs -l
+jobs -p fun_read_rxtx_bytes
 
 n="n"
 read n
 done
 
-/etc/ppp/pgprs-disconnect.sh
+#/etc/ppp/pgprs-disconnect.sh
+
+#fun_present_rxtx_bytes
+
+fun_kill_pppd
+sleep 4s
+fun_kill_jobs
+
+
 #sleep 5s
 read -p "Press any key to quit .. " Q
 exit 0
