@@ -86,6 +86,8 @@
 # TODO1: change path to /tmp/wmexitmode.txt
 ########################################################################
 
+[ "$DISPLAY" ] || exit #X not running.
+
 kill_func(){
     #MEPID=$$
     #PIDS=`pidof ${0##*/} | tr ' ' '\n'`
@@ -323,12 +325,13 @@ export LANG=C #w004
 
 sleep 2 #let the dust settle after X has started.
 #w471 slow cpus need more delay (well, rox does)...
+old_rox_delay(){
 DELAYFACTOR=0
 CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
 [ $CPUMHZ ] && [ $CPUMHZ -gt 100 ] && DELAYFACTOR=`expr 1100 \/ $CPUMHZ`
 [ $DELAYFACTOR -gt 0 ] && sleep $DELAYFACTOR
-
-[ "$DISPLAY" ] || exit #X not running.
+}
+until test "`pidof ROX-Filer`"; do sleep 1s; done
 
 #v404 /usr/sbin/video-wizard (Xvesa) does create /tmp/pup_event_icon_change_flag
 #which /sbin/clean_desk_icons reads via .xinirc when X starts, to wipe all drive icons.
@@ -788,7 +791,7 @@ remove_pinboard_func() { #needs DRV_NAME (name of entire drive)
 }
 
 
-clear_desk_icons_func(){
+old_clear_desk_icons_func(){
  PROBEDISK=`probedisk2`
  BlockDrives=`echo "$PROBEDISK" | cut -f 1 -d '|' | sort -r`
  if [ "$BlockDrives" ] ; then #1.1.1
@@ -806,6 +809,26 @@ clear_desk_icons_func(){
       done
 
  fi
+}
+
+clear_desk_icons_func(){
+while read line
+do test "$line" || continue
+DRV=`echo "$line" | grep -o -e 'drive_[^<]*'`
+test "$DRV" || continue
+#echo "$DRV"
+DRV="${DRV/drive_/}"
+echo "$DRV"
+case $DRV in
+sr*|fd*) DRV_NAME=$DRV remove_pinboard_func;;
+sd*)     test "${OLD_DRV:0:3}" = "${DRV:0:3}" && continue
+         DRV_NAME=${DRV:0:3} remove_pinboard_func
+;;
+*)       DRV_NAME=$DRV remove_pinboard_func;;
+esac
+OLD_DRV=$DRV
+done<$home/Choices/ROX-Filer/PuppyPin
+unset DRV OLD_DRV line DRV_NAME
 }
 clear_desk_icons_func
 
@@ -851,7 +874,7 @@ $PROBEPART"
 done #KRG
 #KRG  fi
  fi
- for ONEDRV in `echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_' | tr '\n' ' '`
+ for ONEDRV in `echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_'`
  do
   DRV_NAME=`echo -n "$ONEDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   DRV_CATEGORY=`echo -n "$ONEDRV" | cut -f 2 -d '|'`
