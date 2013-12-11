@@ -320,7 +320,7 @@ mkmissing_tty_func() {
 INITTAB=`cat /etc/inittab | grep -o -E 'tty[0-9*]|vc/[0-9*]' | grep -v -E '^#|^[[:blank:]*]#' | sort -u`
 INITTABS=`echo "$INITTAB" | grep -o '[0-9*]$'`
 for i in $INITTABS; do
-[ ! -c /dev/tty$i ] && rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i
+[ -c /dev/tty$i ] || rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i
 [ ! -c /dev/vc/$i ] && rm -f /dev/vc/$i && mknod /dev/vc/$i c 4 $i
 done
 
@@ -328,7 +328,7 @@ done
 [ -c /dev/null ] || { rm -f /dev/null;mknod /dev/null c 1 3; }
 [ ! -c /dev/zero ] && rm -f /dev/zero && mknod /dev/zero c 1 5
 
-[ ! -d /dev/fb ] && mkdir /dev/fb  #busybox fbset command needs this
+[ -d /dev/fb ] || mkdir /dev/fb  #busybox fbset command needs this
 for i in `seq 0 11` ; do
 [ ! -L /dev/fb/$i ] && [ -c /dev/fb$i ] && ln -s ../fb$i /dev/fb/$i
 done
@@ -359,7 +359,8 @@ check_frugal_full_func
 check_full_frugal_dev_func() {
 
 if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" ; then ## frugal install
-SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
+#SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
+SimpleDeviceName=${MountFrugal##*/}
 MainDriveName=${SimpleDeviceName:0:3}
 RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
 MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
@@ -375,7 +376,7 @@ echo "'$SimpleDeviceName' '$MainDriveName' '$RootDevice' '$MainDevice'"
 check_full_frugal_dev_func
 
 mkmissing_blockdev_func() {
-rootdrv=`df | grep -w '/' | grep -v -E 'rootfs|unionfs'`
+rootdrv=`df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
 if test "$rootdrv" != ""; then
 simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
 else
@@ -388,7 +389,15 @@ if test ! -b /dev/$main_drv -o ! -b /dev/$simple_drv ; then
 if test "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`" != ""; then
 
 echo "no blockdevices found, creating now" #> /dev/console
- /root/my-applications/bin/MkMissingDev.sh
+# /root/my-applications/bin/MkMissingDev.sh
+  while read maj min siz dev
+  do
+    test "$maj" || continue
+    test "${maj//[[:digit:]]/}" && continue
+    test "`LC_ALL=C ls -l /dev/$dev | tr -s ' ' | cut -f 5 -d ' ' | tr -d ','`" = "$maj" && continue
+    rm -f /dev/$dev
+    mknod /dev/$dev b $maj $min
+    done</proc/partitions
 echo "finished ..." #> /dev/console
 fi
 fi
@@ -398,81 +407,99 @@ echo "'$rootdrv' '$simple_drv' '$main_drv'"
 
 dev_maj_259_func() {
 
-first_func() {
-DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
-DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
+old_first_func() {
+        DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
+        DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
 
-DEVDNN259=`echo "$DNN" | cut -f 1 -d ' ' | grep '259'`
-MAINDRVS=`echo "$DNN" | grep -E 'sd|hd' | cut -f 4 -d ' ' | cut -b 1-3 | sort -u`
+        DEVDNN259=`echo "$DNN" | cut -f 1 -d ' ' | grep '259'`
+        MAINDRVS=`echo "$DNN" | grep -E 'sd|hd' | cut -f 4 -d ' ' | cut -b 1-3 | sort -u`
 echo "'$DNN' '$DEVDNN259' '$MAINDRVS'"
-for j in $MAINDRVS; do
+        for j in $MAINDRVS; do
 
-LSLDN=`ls -l /dev/$j* | cut -f 5,6,9,10 -d ' '`
-LSLDNN=`echo "$LSLDN" | sed "s/^ //; s/^/'/; s/$/'/"`
+        LSLDN=`ls -l /dev/$j* | cut -f 5,6,9,10 -d ' '`
+        LSLDNN=`echo "$LSLDN" | sed "s/^ //; s/^/'/; s/$/'/"`
 
-DEVLSL259=`echo "$LSLDN" | cut -f 1 -d ' ' | grep '259'`
-echo "'$LSLDN' '$LSLDNN' '$DEVLSL259'"
-if test -n "$DEVDNN259" -a -z "$DEVLSL259"; then
-echo "$DNN" | while read l; do
-MAJ=`echo $l | cut -f 1 -d ' ' | tr -d "'"`
-Min=`echo $l | cut -f 2 -d ' '`
-DEV=`echo $l | cut -f 4 -d ' ' | tr -d "'"`
+        DEVLSL259=`echo "$LSLDN" | cut -f 1 -d ' ' | grep '259'`
+        echo "'$LSLDN' '$LSLDNN' '$DEVLSL259'"
+        if test -n "$DEVDNN259" -a -z "$DEVLSL259"; then
+        echo "$DNN" | while read l; do
+        MAJ=`echo $l | cut -f 1 -d ' ' | tr -d "'"`
+        Min=`echo $l | cut -f 2 -d ' '`
+        DEV=`echo $l | cut -f 4 -d ' ' | tr -d "'"`
 echo "'$MAJ' '$Min' '$DEV'"  #> /dev/console
-LSLEXISTINGDEV=`ls -l /dev/$DEV | grep -w $DEV`
+        LSLEXISTINGDEV=`ls -l /dev/$DEV | grep -w $DEV`
 #if
-NeededParts=`echo "$LSLEXISTINGDEV" | cut -f 1,5,6,9,10 -d ' '`
-KIND=`echo $NeededParts | cut -b 1`
-MAJexist=`echo $NeededParts | cut -f 2 -d ' ' | tr -d ','`
-Minexist=`echo $NeededParts | cut -f 3 -d ' '`
-DEVexist=`echo $NeededParts | cut -f 5 -d ' '`
-if test -z "$DEVexis"; then
-DEVexist=`echo $NeededParts | cut -f 4 -d ' '`
-fi
+        NeededParts=`echo "$LSLEXISTINGDEV" | cut -f 1,5,6,9,10 -d ' '`
+        KIND=`echo $NeededParts | cut -b 1`
+        MAJexist=`echo $NeededParts | cut -f 2 -d ' ' | tr -d ','`
+        Minexist=`echo $NeededParts | cut -f 3 -d ' '`
+        DEVexist=`echo $NeededParts | cut -f 5 -d ' '`
+        if test -z "$DEVexis"; then
+        DEVexist=`echo $NeededParts | cut -f 4 -d ' '`
+        fi
 echo "'$NeededParts' '$KIND' '$MAJexist' '$Minexist' '$DEVexist'"
 #echo $KIND
 #echo $MAJexist
 #echo $Minexist
 #echo $DEVexist
-if test "$MAJexist" != "$MAJ" -a "$Minexist" != "$Min"; then
-rm -f /dev/$DEV
-mknod /dev/$DEV b $MAJ $Min
-fi
-done
-fi
-done
-}
+        if test "$MAJexist" != "$MAJ" -a "$Minexist" != "$Min"; then
+        rm -f /dev/$DEV
+        mknod /dev/$DEV b $MAJ $Min
+        fi
+        done
+        fi
+        done
+        }
+
+old_second_func(){
 ##reverse
-DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' ' | tr ' ' ':'`
-DEVDNN=`echo "$DN" | cut -f 2 -d ':' | grep -E '3|8|22|259'`
-if test -n "$DEVDNN" ; then
-for i in $DN ; do
-DRV=`echo $i | cut -f 5 -d ':'`
-MAJ=`echo $i | cut -f 2 -d ':'`
-Min=`echo $i | cut -f 3 -d ':'`
+    DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' ' | tr ' ' ':'`
+    DEVDNN=`echo "$DN" | cut -f 2 -d ':' | grep -E '3|8|22|259'`
+    if test -n "$DEVDNN" ; then
+    for i in $DN ; do
+    DRV=`echo $i | cut -f 5 -d ':'`
+    MAJ=`echo $i | cut -f 2 -d ':'`
+    Min=`echo $i | cut -f 3 -d ':'`
 echo "'$DRV' '$MAJ' '$Min'"
-if test "`ls -l /dev/$DRV | tr -s ' ' | cut -f 5 -d ' ' | tr -d ','`" != "$MAJ" ; then
-rm -f /dev/$DRV
-mknod /dev/$DRV b $MAJ $Min
-fi
-done
-fi
+    if test "`ls -l /dev/$DRV | tr -s ' ' | cut -f 5 -d ' ' | tr -d ','`" != "$MAJ" ; then
+    rm -f /dev/$DRV
+    mknod /dev/$DRV b $MAJ $Min
+    fi
+    done
+    fi
+ }
+
+while read maj min siz dev
+do
+test "$maj" || continue
+test "${maj//[[:digit:]]/}" && continue
+test "`LC_ALL=C ls -l /dev/$dev | tr -s ' ' | cut -f 5 -d ' ' | tr -d ','`" = "$maj" && continue
+rm -f /dev/$dev
+mknod /dev/$dev b $maj $min
+done</proc/partitions
+
 }
 #dev_maj_259_func
 
 device_nodes_fork_func() {
-first_func() {
-check_full_frugal_dev_func
-if test "`echo $RootDevice | grep '^259'`" != "" ; then
-dev_maj_259_func
-elif  test "`echo $RootDevice | grep -E '^8|^3|^22'`" != "" ; then
-mkmissing_blockdev_func
-else
-return
-fi
-}
-check_full_frugal_dev_func
-dev_maj_259_func
-mkmissing_blockdev_func
+
+    first_func() {
+    check_full_frugal_dev_func
+    if test "`echo $RootDevice | grep '^259'`"; then
+    dev_maj_259_func
+    elif  test "`echo $RootDevice | grep -E '^8|^3|^22'`"; then
+    mkmissing_blockdev_func
+    else
+    return
+    fi
+    }
+
+ check_full_frugal_dev_func
+
+ dev_maj_259_func
+
+ mkmissing_blockdev_func
+
 }
 device_nodes_fork_func
 
