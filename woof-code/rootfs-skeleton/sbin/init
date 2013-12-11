@@ -304,7 +304,7 @@ ERRFLG_FUNC  ###KRG
 SIMPLE_CONSOLE_FUNC(){
 [ -n "$ERRMSG" ] && echo -e "$Red""$ERRMSG""$Res"
 echo "Now ramdiskshell without busybox init on top"
-echo -e "$Gre""Type 'busybox reboot -f' or press Cnt+Alt+Del to reboot""$Res"
+echo -e "$Gre""Type 'busybox reboot -f' , 'kill 1' or press Cnt+Alt+Del to reboot""$Res"
 exec chroot . sh
 }
 case $DEV1FS in
@@ -360,13 +360,12 @@ echo 'safeBoot='"$safeBoot"
 failsafe_func
 
 modprobe_conf_func() {
-if test ! -d /etc/mult_kernels ; then #0
-mkdir /etc/mult_kernels
-fi #0
-if test ! -d /etc/mult_kernels/modprobe.d.$KERNVER ; then
-mkdir /etc/mult_kernels/modprobe.d.$KERNVER
-fi
-[ ! -d /etc/modprobe.d ] && mkdir /etc/modprobe.d
+test -d /etc/mult_kernels || mkdir /etc/mult_kernels
+
+test -d /etc/mult_kernels/modprobe.d.$KERNVER || mkdir /etc/mult_kernels/modprobe.d.$KERNVER
+
+[ -d /etc/modprobe.d ] || mkdir /etc/modprobe.d
+
 if test -f /etc/modprobe.conf ; then #1
 if [ ! -f /etc/mult_kernels/modprobe.conf."$KERNVER" ] ; then  ##&&
 cp -f "/etc/modprobe.conf" "/etc/mult_kernels/modprobe.conf.$KERNVER"
@@ -374,26 +373,24 @@ else
 cp -f /etc/mult_kernels/modprobe.conf."$KERNVER" /etc/modprobe.conf
 fi
 fi
+
 if test -d /etc/mult_kernels/modprobe.d."$KERNVER" ; then #2
 rm -f -r /etc/modprobe.d
 cp -f -r /etc/mult_kernels/modprobe.d."$KERNVER" /etc/modprobe.d
-else #2
-if test -d /etc/modprobe.d ; then #2.1
+elif test -d /etc/modprobe.d ; then #2.1
 cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d."$KERNVER"
-fi #2.1
 fi #2
-if test ! -d /etc/mult_kernels/rc.d ; then
-mkdir /etc/mult_kernels/rc.d
-fi
+
+test -d /etc/mult_kernels/rc.d || mkdir /etc/mult_kernels/rc.d
+
 if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER" ; then
 cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER"
 else
 rm /etc/rc.d/MODULESCONFIG
 cp /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER" /etc/rc.d/MODULESCONFIG
 fi
-if test -f /lib/modules/"$KERNVER"/DOTconfig* ; then
-cp /lib/modules/"$KERNVER"/DOTconfig* /etc/modules/
-fi
+
+test -f /lib/modules/"$KERNVER"/DOTconfig* && cp /lib/modules/"$KERNVER"/DOTconfig* /etc/modules/
 } #modprobe_conf_func inside update_modprobe_conf_func
 
 update_modprobe_conf_func(){
@@ -480,11 +477,11 @@ fi
 
 UDEVD_FUNC(){
 if [ -z "$HOTPLUGD" ] ; then  ##=- BUG? why did i -z "$HOTPLUGD" ??? :S
-[ ! -f /etc/rc.d/PUPSTATE ] && echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
+[ -f /etc/rc.d/PUPSTATE ] || echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 . /etc/rc.d/MODULESCONFIG
 ##rm -rf /tmp/*  ##+++2011_10_29 -2011_10_31
 BLACKLISTVARS="`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`"
-[ ! -f /tmp/pup_event_skiplist.conf ]  && echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
+[ -f /tmp/pup_event_skiplist.conf ] || echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
 echo "$BLACKLISTVARS" > /tmp/pup_event_blacklist.conf
 echo "$BLACKLISTVARS" > /tmp/pup_event_modprobe.conf
 
@@ -530,14 +527,16 @@ echo 'Running the modaliases add by /sbin/init '$0 >> /tmp/pup_eve_bac_mod.log
 MODULECNT=0
 for ONEMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
- if [ -e ${ONEPATH}/uevent ];then
+ #ONEPATH="`dirname $ONEMODALIAS`"
+ ONEPATH=${ONEMODALIAS%/*}
+ [ -e ${ONEPATH}/uevent ] || continue
+ #if [ -e ${ONEPATH}/uevent ];then
   echo "$ONEMODALIAS" >> /tmp/modaliases.loaded
   echo 'add' > ${ONEPATH}/uevent #generates an 'add' uevent.
   echo -n '.'
   MODULECNT=$((MODULECNT+1))
   sleep 0.2
- fi
+ #fi
 done
 echo >> /tmp/pup_eve_bac_mod.log
 echo
@@ -821,7 +820,7 @@ SIMPLEDRIVENAME=`basename $oneDRV`
 mkdir -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting '"$Res"$oneDRV' on '"$Res"/mnt/$SIMPLEDRIVENAME
 busybox mount -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
-[ $? = 0 ] || { rm /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
 SFS=`find /mnt/$SIMPLEDRIVENAME -maxdepth 3 -type f -name "*.sfs" | grep -i -E 'dpup|luci|luma|lupu|spup|upup|zpup|puppy|qret|qrky|wary|pup\-' | grep -v -E -e 'devx|\+mnt\+|z[a-z][0-9]*|zdrv'`
 if [ -z "$SFS" ] ; then  ##if 99
 echo  -e "$Ora"'No puppy.sfs found on '"$Res"$oneDRV
@@ -837,6 +836,7 @@ for oneSFS in $SFS ; do ##for 1
 bneSFS=`basename $oneSFS`
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting now '"$Res""$oneSFS /mnt/$bneSFS"
 mkdir -p /mnt/$bneSFS
+Err=0
 mount-FULL -o loop $oneSFS /mnt/$bneSFS
 Err=$?
 sleep 1s
@@ -897,7 +897,7 @@ MOUNT=`busybox mount | grep -v -E "$MOUNTLOOP|$DEVROOTDRIVE" | grep '^/dev/' | g
 [ "$DebugVal" -ge "2" ] && echo -e "$Red""$MOUNTLOOP : $MOUNT :""$Res"
 [ "$DebugVal" -ge "1" ] && busybox mount
 for m in $MOUNT ; do
-[ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Unmounting again '"$Res"$m
+[ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Unmounting again '"$Res""$m"
 busybox umount -lrd $m
 sleep 1s
 rmdir /mnt/`basename $m`
@@ -930,7 +930,7 @@ SIMPLEDRIVENAME=`basename $oneDRV`
 mkdir -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting '"$Res""$oneDRV""$Ora"' on '"$Res""/mnt/$SIMPLEDRIVENAME""$Res"
 busybox mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
-[ $? = 0 ] || { rm /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
 DS=
 [ -d /mnt/$SIMPLEDRIVENAME/etc ] && DS=`find /mnt/$SIMPLEDRIVENAME/etc -maxdepth 2 -name "DISTRO_SPECS"`
 sleep 2s
@@ -966,7 +966,7 @@ if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ] ; then  ##5
 echo -e "$Gre"'OK ,'"$GRE"" using REPO /mnt/$SIMPLEDRIVENAME""$Res"
 echo
 busybox mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
-[ $? = 0 ] || { rm /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
+[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }  ##2013-12-07
 sleep 1s
 REPO="/mnt/$SIMPLEDRIVENAME"
 break
@@ -1208,8 +1208,8 @@ BUSYBOX_FUNC
   NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
   [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$ONEBIN ""$Red"', '"$Res"
   [ "$DebugVal" = "2" ] && echo -n -e "$Red"' LinkTarget '"$Res""${REPO}${RLF} ""$Red"', '"$Res"
-  [ ! -x /mnt/ram0/${NEWBIN} ] && cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
-  [ ! -x /mnt/ram0/bin/$ONEBIN ] && cp -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/bin/$ONEBIN
+  [ -x /mnt/ram0/${NEWBIN} ] || cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
+  [ -x /mnt/ram0/bin/$ONEBIN ] || cp -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/bin/$ONEBIN
   else
    if [ -x ${REPO}${BINDIR}/$ONEBIN ] && [ ! -x /mnt/ram0/bin/$ONEBIN ] ;then  ###KRG for symlink busybox
     cp -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/bin/
@@ -1252,8 +1252,8 @@ BUSYBOX_FUNC
    NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
    [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$ONEBIN ""$Red"', '"$Res"
    [ "$DebugVal" = "2" ] && echo -n -e "$Red"' LinkTarget '"$Res""${REPO}${RLF} ""$Red"', '"$Res"
-   [ ! -x /mnt/ram0/sbin/$ONEBIN ] && cp -a ${REPO}${BINDIR}/"$ONEBIN" /mnt/ram0/sbin/"$ONEBIN"
-   [ ! -x /mnt/ram0/${NEWBIN} ] && cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
+   [ -x /mnt/ram0/sbin/$ONEBIN ] || cp -a ${REPO}${BINDIR}/"$ONEBIN" /mnt/ram0/sbin/"$ONEBIN"
+   [ -x /mnt/ram0/${NEWBIN} ] || cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
    else
    if [ -x ${REPO}${BINDIR}/$ONEBIN ];then  ###KRG -x for -e
     cp -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/sbin/
