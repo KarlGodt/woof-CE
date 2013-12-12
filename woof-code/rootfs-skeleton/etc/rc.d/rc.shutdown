@@ -602,9 +602,61 @@ fi
 
 #KRG goes till 617
 #first time booted puppy, there may not have been any persistent storage.
-if [ $PUPMODE -eq 5 ]; then #ifpupmode5
+#if [ $PUPMODE -eq 5 ]; then #ifpupmode5
  #v2.16.1 pxe boot, humongous initrd, have PDEV1='' DEV1FS=''...
 
+func_save_to_linux_fs(){
+  dialog --extra-button --ok-label "SAVE TO A FILE"  --extra-label "SAVE TO ${xPDEV}" --cancel-label "DO NOT SAVE" --yesno "You can now choose to save the personal session files to file, named ${DISTRO_FILE_PREFIX}save.2fs. Or, if $xPDEV partition is not being used by anything else (no other operating system) then you can choose to save the session files direct to the partition. Either way, your choice will be remembered at next bootup.
+
+Which to choose? Partition: you immediately get the entire partition available for saving. File: having everything in a single file is convenient for archiving, but the file cannot be made bigger than 4GB (even if partition has more free space). If in doubt, just press ENTER to accept the default.
+
+Select <SAVE TO A FILE> (just press ENTER key) to create a ${DISTRO_FILE_PREFIX}save.2fs file, select <SAVE TO ${PDEV1}> (TAB then ENTER) to save direct to partition, or <DO NOT SAVE> to shutdown with saving session..." 0 0 >/dev/console
+   SAVECHOICE=$?
+   if [ "$SAVECHOICE" = "0" ]; then     #v2.02 128=yes, save it.
+    choosepartfunc && { pupsavefunc && PUPMODE=128 || return 234; } || return 233
+   elif [ "$SAVECHOICE" = "3" ]; then
+    PUPMODE=32 #v2.13 3=save to partition.
+   else return $SAVECHOICE
+   fi
+}
+
+func_save_to_windows_fs(){
+    dialog --yes-label "SAVE" --yesno "You can save the session (all of your personal data and settings) to a file, named ${DISTRO_FILE_PREFIX}save.2fs (that has a ext2 filesystem inside it). Note, your answer to this question will be remembered at next boot.
+
+Do you want to create a ${DISTRO_FILE_PREFIX}save.2fs file?
+
+Select <SAVE> (just press ENTER key) to create ${DISTRO_FILE_PREFIX}save.2fs and save to it, or select <No> (TAB then ENTER) to not save session..." 0 0 >/dev/console
+    SAVECHOICE=$?
+    if [ "$SAVECHOICE" = "0" ]; then     #v2.02 128=yes, save it
+     choosepartfunc && { pupsavefunc && PUPMODE=128 || return 234; } || return 233 .
+    else return $SAVECHOICE
+    fi
+}
+
+func_save_to_iso_fs(){
+    dialog --extra-button --ok-label "SAVE TO FILE"  --extra-label "SAVE TO CD" --cancel-label "DO NOT SAVE" --yesno "You have booted off a live-CD or DVD, and you can now save your personal settings and files to a USB Flash drive, Zip drive, floppy disk, or any hard drive partition (including NTFS). The session will be saved as a single file, named ${DISTRO_FILE_PREFIX}save.2fs, which has a ext2 filesystem inside it.
+
+However, if you have burnt the CD/DVD as multisession (not closed), then sessions can be saved as additional tracks to the CD/DVD -- each saved session will appear on the CD/DVD as a directory with all the saved files in it, not as a single file. THIS IS STILL EXPERIMENTAL
+
+Select <SAVE TO FILE> (just press ENTER key) to choose a partition to save the session as file ${DISTRO_FILE_PREFIX}save.2fs...
+Select <SAVE TO CD> (TAB then ENTER) to save session to CD/DVD (multisession) (EXPERIMENTAL)...
+Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
+    SAVECHOICE=$?
+    if [ "$SAVECHOICE" = "0" ]; then     #v2.02 yes, save it.
+     choosepartfunc && { pupsavefunc && PUPMODE=128 || return 234; } return 233
+    else
+     #dialog --no-label "NO_SAVE" --yes-label "SAVE_TO_CD" --yesno "Press ENTER key to save session back to multisession CD/DVD (the iso must have been burnt to CD/DVD in multisession mode), else press TAB then ENTER keys to shut down without saving session..." 0 0
+     if [ "$SAVECHOICE" = "3" ]; then #v2.13 3=save session to cd.
+      PUPMODE=77
+      SAVEPART="$PDEV1"
+     else
+      echo "Shutting down without saving..." >/dev/console
+     fi
+    fi
+}
+
+
+if [ $PUPMODE -eq 5 ]; then
  #3.97...
  xDEVFS="$DEV1FS"
  xPDEV="$PDEV1"
@@ -616,58 +668,17 @@ if [ $PUPMODE -eq 5 ]; then #ifpupmode5
   xDEVFS="$SAVEFS"
   xPDEV="$SAVEPART"
  fi
-
  [ "$DEV1FS" ] || DEV1FS='xxx' #this will enable choice of create a save-file.
   #if it is a linux partition, can offer to save to PDEV1 or create a ${DISTRO_FILE_PREFIX}save.2fs file...
   #if vfat, create a ${DISTRO_FILE_PREFIX}save.2fs file...
-  if [ "`echo -n "$xDEVFS" | grep --extended-regexp "ext2|ext3|ext4|reiserfs|minix|jfs|xfs"`" ]; then #v431
-   dialog --extra-button --ok-label "SAVE TO A FILE"  --extra-label "SAVE TO ${xPDEV}" --cancel-label "DO NOT SAVE" --yesno "You can now choose to save the personal session files to file, named ${DISTRO_FILE_PREFIX}save.2fs. Or, if $xPDEV partition is not being used by anything else (no other operating system) then you can choose to save the session files direct to the partition. Either way, your choice will be remembered at next bootup.
-
-Which to choose? Partition: you immediately get the entire partition available for saving. File: having everything in a single file is convenient for archiving, but the file cannot be made bigger than 4GB (even if partition has more free space). If in doubt, just press ENTER to accept the default.
-
-Select <SAVE TO A FILE> (just press ENTER key) to create a ${DISTRO_FILE_PREFIX}save.2fs file, select <SAVE TO ${PDEV1}> (TAB then ENTER) to save direct to partition, or <DO NOT SAVE> to shutdown with saving session..." 0 0 >/dev/console
-   SAVECHOICE=$?
-   if [ "$SAVECHOICE" = "0" ]; then     #v2.02 128=yes, save it.
-    choosepartfunc && { pupsavefunc && PUPMODE=128 || exit 234; } || exit 233
-   elif [ "$SAVECHOICE" = "3" ]; then
-    PUPMODE=32 #v2.13 3=save to partition.
-   else exit $SAVECHOICE
-   fi
-  fi
   #handle other f.s. types...
   case $xDEVFS in
+   ext2|ext3|ext4|reiserfs|minix|jfs|xfs)
+     func_save_to_linux_fs ;;
    vfat|msdos|ntfs|xxx) #v2.02 ntfs allowed. v2.16.1
-    dialog --yes-label "SAVE" --yesno "You can save the session (all of your personal data and settings) to a file, named ${DISTRO_FILE_PREFIX}save.2fs (that has a ext2 filesystem inside it). Note, your answer to this question will be remembered at next boot.
-
-Do you want to create a ${DISTRO_FILE_PREFIX}save.2fs file?
-
-Select <SAVE> (just press ENTER key) to create ${DISTRO_FILE_PREFIX}save.2fs and save to it, or select <No> (TAB then ENTER) to not save session..." 0 0 >/dev/console
-    SAVECHOICE=$?
-    if [ "$SAVECHOICE" = "0" ];then
-     choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 128=yes, save it.
-    fi
-    ;;
+     func_save_to_windows_fs ;;
    iso9660)
-    dialog --extra-button --ok-label "SAVE TO FILE"  --extra-label "SAVE TO CD" --cancel-label "DO NOT SAVE" --yesno "You have booted off a live-CD or DVD, and you can now save your personal settings and files to a USB Flash drive, Zip drive, floppy disk, or any hard drive partition (including NTFS). The session will be saved as a single file, named ${DISTRO_FILE_PREFIX}save.2fs, which has a ext2 filesystem inside it.
-
-However, if you have burnt the CD/DVD as multisession (not closed), then sessions can be saved as additional tracks to the CD/DVD -- each saved session will appear on the CD/DVD as a directory with all the saved files in it, not as a single file. THIS IS STILL EXPERIMENTAL
-
-Select <SAVE TO FILE> (just press ENTER key) to choose a partition to save the session as file ${DISTRO_FILE_PREFIX}save.2fs...
-Select <SAVE TO CD> (TAB then ENTER) to save session to CD/DVD (multisession) (EXPERIMENTAL)...
-Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
-    SAVECHOICE=$?
-    if [ "$SAVECHOICE" = "0" ];then
-     choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 yes, save it.
-    else
-     #dialog --no-label "NO_SAVE" --yes-label "SAVE_TO_CD" --yesno "Press ENTER key to save session back to multisession CD/DVD (the iso must have been burnt to CD/DVD in multisession mode), else press TAB then ENTER keys to shut down without saving session..." 0 0
-     if [ "$SAVECHOICE" = "3" ];then #v2.13 3=save session to cd.
-      PUPMODE=77
-      SAVEPART="$PDEV1"
-     else
-      echo "Shutting down without saving..." >/dev/console
-     fi
-    fi
-    ;;
+     func_save_to_iso_fs ;;
   esac
 fi #end ifpupmode5
 #### PUPMODE 5
@@ -730,9 +741,14 @@ fi
 
 #save session...
 case $PUPMODE in
- 3) #PDEV1.
-   echo "Saving session to $PDEV1..." >/dev/console
-   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
+ 5) #v2.02 first boot.
+  echo "Session not saved" >/dev/console
+  sync
+  #ha ha, before had this, if aborted save after choosing save-partition, code
+  #further down wiped all of the partition (it was mntd on /tmp/savepup)...
+  #[ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
+  [ "$SMNTPT" ] && umount $SMNTPT 1>$out 2>$err
+  #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
  32) #first shutdown, save back to PDEV1. v3.97: xPDEV
   DEV1MNT=`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`
@@ -887,14 +903,9 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
  6)
   echo "$PDEV1 mounted directly top layer, session already saved." >/dev/console
   ;;
- 5) #v2.02 first boot.
-  echo "Session not saved" >/dev/console
-  sync
-  #ha ha, before had this, if aborted save after choosing save-partition, code
-  #further down wiped all of the partition (it was mntd on /tmp/savepup)...
-  #[ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
-  [ "$SMNTPT" ] && umount $SMNTPT 1>$out 2>$err
-  #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
+ 3) #PDEV1.
+   echo "Saving session to $PDEV1..." >/dev/console
+   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
   ;;
  *)
   echo "Session not saved" >/dev/console
