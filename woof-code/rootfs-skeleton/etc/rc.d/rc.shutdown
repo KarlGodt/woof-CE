@@ -88,15 +88,6 @@ debug(){ echo "$@" 1>$out 2>$err ; }
 [ "$out" == '/dev/null' ] && clear
 exec 1>$out 2>$err
 
-#w482 use xorriso if it is installed (see also functions4puppy)...
-CDRECORD='cdrecord'
-MKISOFS='mkisofs'
-if [ "`which xorriso`" ]; then
- CDRECORD='xorrecord'
- MKISOFS='xorrisofs' #growisofs reads this variable.
-fi
-export CDRECORD MKISOFS
-
 #variables created at bootup by init script in initrd...
 [ -f /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE #v2.02
 [ -z "$PUPMODE" ] && [ -n "`rdev`" ] && PUPMODE=2
@@ -119,7 +110,14 @@ PSUBDIR=`dirname "$PUPSFSFILE"`
 [ "$PSUBDIR" = "/" ] && PSUBDIR=""
 
 #for a full hd install, only setting PUPMODE (=2). no /initrd, no initrd.gz.
-
+#w482 use xorriso if it is installed (see also functions4puppy)...
+CDRECORD='cdrecord'
+MKISOFS='mkisofs'
+if [ "`which xorriso`" ]; then
+ CDRECORD='xorrecord'
+ MKISOFS='xorrisofs' #growisofs reads this variable.
+fi
+export CDRECORD MKISOFS
 . /etc/rc.d/functions4puppy #v3.01
 
 [ -e /dev/vcs1 ] || mknod /dev/vcs1 c 7 1
@@ -135,7 +133,7 @@ killzombies() {
  for ONEZOMBIE in $ZOMBIES
  do
   [ "$out" == '/dev/console' ] && debug "$( echo "Killing parentless zombie process $ONEZOMBIE" )"
-  kill $ONEZOMBIE
+  /bin/ps -p $ONEZOMBIE && kill $ONEZOMBIE
  done
 }
 
@@ -149,7 +147,7 @@ choosesizefunc(){
  do
   KSIZE=`expr $ACHOICE \* 1024`
   SLABEL="${ACHOICE}MB"
-  [ $ACHOICE -ge 1024 ] && SLABEL="`dc $ACHOICE 1024 \/ p`GB"
+  [ $ACHOICE -ge 1024 ] && SLABEL="`LC_ALL=C dc $ACHOICE 1024 \/ p`GB"
   if [ $KSIZE -lt $KFREE ]; then
    SIZELIST="$SIZELIST$NUM $SLABEL "
    CHOICES="$CHOICES$KSIZE "
@@ -169,9 +167,9 @@ choosesizefunc(){
 
 pupsavefunc() {
  #v2.02 ntfs uses /dev/fuse so '/dev/$SAVEPART' no good for grep...
- SMNTPT="`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
+ SMNTPT=`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  #[ "$SMNTPT" = "" ] && SMNTPT="`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
- [ "$SMNTPT" = "" ] && SMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
+ [ "$SMNTPT" ] || SMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
 
  if [ "$SMNTPT" = "" ]; then
   #v2.02 was mntg on /tmp/savepup, but if error and not unmounted, contents
@@ -321,7 +319,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   SANITYRET=$?
   [ $SANITYRET -ne 0 -a $SANITYRET -ne 3 ] && return 1
   [ $SANITYRET -eq 0 ] && break
-  if [ $SANITYRET -eq 3 ];then #change folder.
+  if [ $SANITYRET -eq 3 ]; then #change folder.
    NEWSAVEPATH="`dialog --stdout --no-cancel --inputbox "Edit path. '/' means top-level of partition. You are only allowed to save one-deep, for example: '/puppy300'. If folder does not exist, it will be created. Spaces are not allowed. If uncertain, just press the ENTER key." 0 0 "$SAVEPATH"`"
    [ "$NEWSAVEPATH" = "" ] && NEWSAVEPATH="$SAVEPATH"
    [ "`echo -n "$NEWSAVEPATH" | cut -b 1`" != "/" ] && NEWSAVEPATH="/${NEWSAVEPATH}"
@@ -396,7 +394,7 @@ choosepartfunc() {
   PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
   return 0
  fi
- if [ "`lsmod | grep '^usb'`" != "" ]; then
+ if [ "`lsmod | grep '^usb'`" ]; then
   FDMSG1="NOTE: cannot save to floppy disk on this PC, USB allowed."
  else
   FDMSG1="NOTE: no USB interface this PC, but can save to floppy disk."
@@ -418,7 +416,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
   #problem using dmesg here as it is a fifo buffer, stuff at bootup gets deleted
   #while puppy is being used, prior to shutdown... so, use /var/log/messages...
   if [ "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" != "" ]; then
-   if [ ! "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" = "" ];then
+   if [ "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" != "" ]; then
     if [ "$PARTSLIST" = "" ]; then
      PARTSLIST="/dev/fd0|vfat|1.4" #v2.14 change msdos to vfat.
     else #v2.14 ditto...
@@ -444,16 +442,16 @@ Press ENTER key to continue..." 0 0 >/dev/console
  echo "$PARTSLIST" |
  while read APART
  do
-  ATAG=`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+   ATAG=`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   ASIZE=`echo -n "$APART" | cut -f 3 -d '|'`
-  AFS=`echo -n "$APART" | cut -f 2 -d '|'`
-  AFREE=`df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
-  if [ ! "$AFREE" ];then
+    AFS=`echo -n "$APART" | cut -f 2 -d '|'`
+  AFREE=`/bin/df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
+  if [ ! "$AFREE" ]; then
    mount -t $AFS /dev/$ATAG /mnt/data
    #v2.10 need to put in a check that it is not mounted ro. the
    #mount script will fallback to ro for ntfs if rw mnt fails...
    RETMNTVAL=$?
-   if [ $RETMNTVAL -eq 0 ];then
+   if [ $RETMNTVAL -eq 0 ]; then
     if [ "`mount | grep '(rw' | grep '/mnt/data'`" = "" ]; then
      umount /mnt/data
      RETMNTVAL=1
@@ -477,12 +475,12 @@ Press ENTER key to continue..." 0 0 >/dev/console
    fi
    [ -f /tmp/ntfsmnterr.txt ] && rm -f /tmp/ntfsmnterr.txt
    if [ $RETMNTVAL -eq 0 ]; then
-    if [ "$ATAG" = "fd0" ];then
-     FFREE=`df -k | grep -w "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
+    if [ "$ATAG" = "fd0" ]; then
+     FFREE=`/bin/df -k | grep -w "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
      AFREE=`LC_ALL=C dc $FFREE 1000 \/ p`
     else
      #v2.02 for ntfs cannot use /dev/$ATAG, use mnt point in grep...
-     AFREE=`df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`
+     AFREE=`/bin/df -m | grep " /mnt/data$" | tr -s " " | cut -f 4 -d " "`
     fi
     #umount /dev/$ATAG  v2.02 must use mnt point for ntfs...
     umount /mnt/data
@@ -517,10 +515,10 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
  chmod 755 /tmp/savedlg
 
  #seems some people have problem, do not select anything...
- while [ 1 ];do
+ while [ 1 ]; do
   /tmp/savedlg >/dev/console
   SAVEPART=`cat /tmp/tag.txt | head -n 1`  #head is in case of errs in output.
-  if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd'`" = "" ];then
+  if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd'`" = "" ]; then
    dialog --colors --msgbox "\Zb\Z1ERROR: you did not choose any partition.
    Press ENTER key to try again...
    Press ESC key to shutdown without saving...\Zn" 0 0 >/dev/console
@@ -543,19 +541,8 @@ while [ "`pidof snapmergepuppy | grep '[0-9]'`" ]; do
 done
 killall savepuppyd
 
-##rc.local0 can read this...
-#setvol 0 | tr "\n" " " > /etc/.mixervolume
-##v2.10 instead, probably do it this way...
-#/usr/sbin/alsactl store
-#v4.00 ...yes, using 'alsactl restore' in rc.sysinit (fast boot) and rc.local0.
-#v411 run rc.alsa as it also unloads modules (if not done, prevents shutdown some systems)...
-#/etc/rc.d/rc.alsa stop
 
 #v411 bring down network interfaces (prevents shutdown sometimes)...
-#for ONENETIF in `ifconfig | grep -E '^wifi[0-9]|^wlan[0-9]|^eth[0-9]' | cut -f 1 -d ' ' | tr '\n' ' '`
-#do
-# ifconfig $ONENETIF down 2> /dev/null
-#done
 #no, dougal has code for doing this...
 /etc/rc.d/rc.network stop
 # quick hack, maybe shutdown problem if ath_pci left loaded...
@@ -640,12 +627,11 @@ Which to choose? Partition: you immediately get the entire partition available f
 
 Select <SAVE TO A FILE> (just press ENTER key) to create a ${DISTRO_FILE_PREFIX}save.2fs file, select <SAVE TO ${PDEV1}> (TAB then ENTER) to save direct to partition, or <DO NOT SAVE> to shutdown with saving session..." 0 0 >/dev/console
    SAVECHOICE=$?
-   if [ "$SAVECHOICE" = "0" ];then
-    choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 128=yes, save it.
-   else
-    #dialog --yes-label "SAVE_TO_${PDEV1}" --no-label "QUIT" --yesno "Press ENTER key to save session files direct to $PDEV1 partition, else press TAB then ENTER to not save session..." 0 0
-    #[ $? -eq 0 ] && PUPMODE=32
-    [ "$SAVECHOICE" = "3" ] && PUPMODE=32 #v2.13 3=save to partition.
+   if [ "$SAVECHOICE" = "0" ]; then     #v2.02 128=yes, save it.
+    choosepartfunc && { pupsavefunc && PUPMODE=128 || exit 234; } || exit 233
+   elif [ "$SAVECHOICE" = "3" ]; then
+    PUPMODE=32 #v2.13 3=save to partition.
+   else exit $SAVECHOICE
    fi
   fi
   #handle other f.s. types...
@@ -661,17 +647,6 @@ Select <SAVE> (just press ENTER key) to create ${DISTRO_FILE_PREFIX}save.2fs and
      choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 128=yes, save it.
     fi
     ;;
-#   ntfs) #v2.02 see above case.
-#    dialog --yes-label "SAVE" --yesno "Partition $PDEV1 that ${DISTRO_NAME} booted off, is a ntfs filesystem, and ${DISTRO_NAME} can only save a session to it if there is a pre-existing ${DISTRO_FILE_PREFIX}save.3fs file. Alternatively, you can save to a different partition, including USB Flash drive, Zip drive, floppy disk, or any non-ntfs hard drive partition.
-#
-#Do you want to create a ${DISTRO_FILE_PREFIX}save.3fs file on a non-NTFS partition?
-#
-#Select <SAVE> (just press ENTER key) to chose where to save the session, else select <No> (TAB then ENTER) to not save session..." 0 0
-#    SAVECHOICE=$?
-#    if [ "$SAVECHOICE" = "0" ];then
-#     choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 yes, save it.
-#    fi
-#    ;;
    iso9660)
     dialog --extra-button --ok-label "SAVE TO FILE"  --extra-label "SAVE TO CD" --cancel-label "DO NOT SAVE" --yesno "You have booted off a live-CD or DVD, and you can now save your personal settings and files to a USB Flash drive, Zip drive, floppy disk, or any hard drive partition (including NTFS). The session will be saved as a single file, named ${DISTRO_FILE_PREFIX}save.2fs, which has a ext2 filesystem inside it.
 
@@ -749,32 +724,6 @@ if [ "$PUPSAVE" ]; then
 fi
 
 #v3.02 ask about serial devices... v404 removed...
-#if [ $PUPMODE -eq 32 -o $PUPMODE -eq 128 ];then #saving
-# dialog --yesno "Just before the session is saved, a quick question:
-#${DISTRO_NAME} probes for serial mouse and serial modem at startup,
-#but this does slow the bootup-time. If you have neither of
-#these, and never will, answer no here to speedup startup.
-#
-#Note, a serial mouse is likely to only be on an older PC,
-#and is recognised by a largish rectangular plug.
-#
-#You may have a serial modem if you are on Internet dialup
-#(not broadband). Answering <No> here will only turn off
-#detection of true serial modems and ${DISTRO_NAME} will still
-#detect many types of internal software modems.
-#
-#Note also, you can turn serial probing at bootup on and off
-#in the BootManager (see System menu).
-#
-#Choose <Yes> (just press ENTER) to keep serial probing...
-#Choose <No> (TAB then ENTER) to bypass serial probing..." 0 0 >/dev/console
-# if [ $? -eq 0 ];then
-#  sed -e 's/BYPASSSERIALPROBING=yes/BYPASSSERIALPROBING=no/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-# else
-#  sed -e 's/BYPASSSERIALPROBING=no/BYPASSSERIALPROBING=yes/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-# fi
-# mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
-#fi
 
 #clear >/dev/console
 [ "$out" == '/dev/null' ] && clear >/dev/console
@@ -863,8 +812,8 @@ case $PUPMODE in
   umount /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
-  if [ "$DEV1FS" = "iso9660" ];then #test if booted off cd.
-   if [ ! -f ${SMNTPT}/${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}*.sfs ];then
+  if [ "$DEV1FS" = "iso9660" ]; then #test if booted off cd.
+   if [ ! -f ${SMNTPT}/${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}*.sfs ]; then
     NAMEONLY=`basename "$SAVEFILE"`
     dialog --yesno "The CD has '${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs' and maybe other .sfs files on it.
 It will speed startup considerably if these are on the hard drive.
@@ -958,24 +907,6 @@ esac
 [ "`pidof syslogd`" ] && killall syslogd
 [ "`pidof klogd`" ] && killall klogd
 
-if [ "$out" == '/dev/console' ]; then
-##+++2011-12-02
-debug "$( echo "ABOUT udev :
-`ps | grep udev` #| grep -v 'grep'
-ABOUT klogd :
-`ps | grep klogd` #| grep -v 'grep'
-ABOUT syslogd :
-`ps | grep syslogd` #| grep -v 'grep'
-" ; )
-"
-D="ABOUT udev :
-`ps | grep udev`
-ABOUT klogd :
-`ps | grep klogd`
-ABOUT syslogd :
-`ps | grep syslogd`"
-debug "$D"
-fi
 
 ##+++2011-12-02
 remove_various(){
@@ -1098,30 +1029,7 @@ if [ "$MNTFUSE" ]; then
 # fi
 fi
 
-###+++2011-12-04
-if [ "$out" == '/dev/console' ]; then
-debug "$( echo "ABOUT udev :  ##+++2011-11-18
-`ps | grep udev` #| grep -v 'grep'  ##+++2011-11-18
-#rm -r /dev/.udev #KRG -f
-##+++2011-12-02
-ABOUT klogd :
-`ps | grep klogd` #| grep -v 'grep'
-ABOUT syslogd :
-`ps | grep syslogd` #| grep -v 'grep'
 
-`ps | grep -v '\['`
-" ; )
-"
-D="ABOUT udev :
-`ps | grep udev`
-ABOUT klogd :
-`ps | grep klogd`
-ABOUT syslogd :
-`ps | grep syslogd`
-"
-debug "$D"
-sleep 5s
-fi
 
 [ "`pidof udevd`" ] && { killall udevd;cd /dev/.udev;rm -r `ls -A /dev/.udev`; }
 [ "`pidof syslogd`" ] && killall syslogd
