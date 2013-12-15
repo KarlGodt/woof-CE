@@ -1,0 +1,282 @@
+#!/bin/bash
+
+###INTRO
+# Karl Reimer Godt, March 2013
+# /sbin/probepart originally written by
+#
+# Barry Kauler www.puppylinux.com
+# LGPL 2007 Puppy Linux www.puppylinux.com
+#
+# Different code for /sbin/probepart
+# that is used by
+# /sbin/pup_event_frontend_d
+# ,
+# /usr/sbin/pmount
+# and
+# /usr/local/bin/drive_all
+# and probably some more .
+#
+# Outputs fat as Fat[16|32] by disktype, not as vfat
+# so take this into account if these scripts don't
+# show your fat partitions.
+# Also omitting the /root/.usb-drive-log-probepart file
+# , the forcing of USB by
+# dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v3.97 faster.
+# and unfortunately
+# /usr/lib/mut/bin/guess_fstype
+# since the developer jesse had not ported it to support ext4.
+#
+# Thanks Keef for helping me detecting some wrong formatted code.
+###ENDINTRO
+
+##HEAD
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+#[ "$DEBUG" ] || DEBUG=`sed 's# #\n#g' /proc/cmdline | grep -w -i '^debug'`  ##---edit2 Puppy bash-3.00 treats hash as delimiter for sed ok, but my bash-3.2 treats such hash already as comment, screwing the hole script
+[ "$DEBUG" ] || DEBUG=`sed 's% %\n%g' /proc/cmdline | grep -w -i '^debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+
+#Colors
+BLU='\033[1;34m'
+CYA='\033[1;36m'
+NOR='\033[0;39m'
+
+Version='2.0'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+example usage : DEBUG=1 probepart2 -d/dev/sdc1 /dev/sdd1 -m
+
+PARAMETERS:
+-V|--version : showing version information
+-H|--help : show this usage information
+
+##edit1: added following size formats:
+-b   : show size in bits
+-B   : Bytes
+-kb  : 1000-kilo bits
+-mb  : 1000-mega bits
+-gb  : 1000-giga bits
+-kib : 1024-kilo bits
+-mib : 1024-mega bits
+-gib : 1024-giga bits
+-KB  : 1000-kilo Bytes
+-MB  : 1000-mega Bytes
+-GB  : 1000-giga Bytes
+-KIB : 1024-kilo Bytes
+-MIB : 1024-mega Bytes
+-GIB : 1024-giga Bytes
+-k : show sizes in kilobytes (KiB) #compat.
+-m : show sizes in megabytes (MiB) #compat.
+Without one of the above parameters it is the value found in
+/sys/class/block/drive/size
+; usually as blocksize=512 formatted to bits .
+
+##edit2: added the forgotten -d parameter to check only given partitions
+-d/dev/sdaX [/dev/sdaY ..] : output only for given partitions
+
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0 ##edit2 grep -i
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+##
+SIZE_FACTOR=1
+#SIZE_PARAM=`echo "$@" | grep -o -E '\-k|\-m'`
+#SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-kib|\-mib|\-gib'`
+#SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib'`  ##-+edit2
+SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | head -n1`  ##-+edit2
+echo "$SIZE_PARAM"
+  [ "$SIZE_PARAM" = '-b' ] && SIZE_FACTOR=1
+  [ "$SIZE_PARAM" = '-B' ] && SIZE_FACTOR=8
+ [ "$SIZE_PARAM" = '-kb' ] && SIZE_FACTOR=$((1*1000))
+ [ "$SIZE_PARAM" = '-mb' ] && SIZE_FACTOR=$((1*1000*1000))
+ [ "$SIZE_PARAM" = '-gb' ] && SIZE_FACTOR=$((1*1000*1000*1000))
+ [ "$SIZE_PARAM" = '-KB' ] && SIZE_FACTOR=$((8*1000))
+ [ "$SIZE_PARAM" = '-MB' ] && SIZE_FACTOR=$((8*1000*1000))
+ [ "$SIZE_PARAM" = '-GB' ] && SIZE_FACTOR=$((8*1000*1000*1000))
+[ "$SIZE_PARAM" = '-kib' ] && SIZE_FACTOR=$((1*1024))
+[ "$SIZE_PARAM" = '-mib' ] && SIZE_FACTOR=$((1*1024*1024))
+[ "$SIZE_PARAM" = '-gib' ] && SIZE_FACTOR=$((1*1024*1024*1024))
+[ "$SIZE_PARAM" = '-KIB' ] && SIZE_FACTOR=$((8*1024))
+  [ "$SIZE_PARAM" = '-k' ] && SIZE_FACTOR=$((8*1024))  ##compat.
+[ "$SIZE_PARAM" = '-MIB' ] && SIZE_FACTOR=$((8*1024*1024))
+  [ "$SIZE_PARAM" = '-m' ] && SIZE_FACTOR=$((8*1024*1024))  ##compat.
+[ "$SIZE_PARAM" = '-GIB' ] && SIZE_FACTOR=$((8*1024*1024*1024))
+
+#[ "$SIZE_PARAM" = '-k' ] && SIZE_FACTOR=2
+#[ "$SIZE_PARAM" = '-m' ] && SIZE_FACTOR=2024
+
+DEVICES=`echo "$@" | grep -o '\-d.*' |sed 's%-[[:alnum:]]*%%g;s%/dev/%%g'`  ##+++edit2
+echo "$DEVICES"
+##ENDHEAD
+
+disktype_func(){
+
+   #disktype "$1" |grep -m1 -iE 'file system|Swap size' |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##---edit1
+   #disktype /dev/"$1" |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
+    disktype /dev/"$1" |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
+}
+
+filesystem_func(){
+    ##+++edit1
+    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1"`
+    #[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype /dev/"$1" |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'`
+    [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
+    #[ "$FSTYPE" ] || FSTYPE=unknown
+    [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2
+}
+
+cddetect_func(){
+    ##+++edit1
+    #cddetect_quick -d/dev/"$1" >$OUT && FSTYPE=`disktype_func /dev/"$1"` || FSTYPE='not inserted'
+    cddetect_quick -d/dev/"$1" >$OUT && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted' ##-+edit2
+}
+
+#FDISK=`fdisk -l | grep '^/dev' |tr -s ' ' |sed 's#\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)#\1 N \2 \3#'`
+FDISK=`fdisk -l | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`
+
+[ "$DEBUG" ] && echo -e $CYA"$0 currently at line $LINENO"$NOR >&2
+
+##MAIN
+
+while read line; do
+[ "$DEBUG" ] && echo -e $BLU"$0 currently processing $line of /proc/partitions"$NOR >&2
+[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue
+[ "$line" ] || continue
+
+#drive=`echo $line |awk '{print $4}'`
+drive="${line##* }"                  ##+-edit2
+
+#[ -b /dev/$drive ] || {
+    maj="${line%% *}" ;
+    min=`echo $line |awk '{print $2}'`;
+    [ "$DEBUG" ] && echo -e $BLU"'$maj' '$min'"$NOR >&2
+    [ "$maj" ] || continue
+    [ "$min" ] || continue
+    MORE=`LC_ALL=C ls -l /dev/${drive:0:2}* |awk '{print $5 $6 $10}' |grep -w "^${maj},${min}/dev" |grep -vw "${drive}$"`
+    for more in $MORE;do
+    rm -f /${more#*/};done
+    #[ "$maj" ] || continue
+    #[ "$min" ] || continue
+    TEST=`LC_ALL=C ls -l /dev/${drive:0:2}* |awk '{print $5 $6 $10}' |grep -w "${drive}$"`
+    Tmaj=`echo $TEST |cut -f1 -d','`
+    Tmin=`echo $TEST |cut -f2 -d',' |cut -f1 -d'/'`
+    if [ "$Tmaj" -a "$Tmin" ];then
+    [ "$DEBUG" ] && echo -e $BLU"TEST '$Tmaj' '$Tmin'"$NOR >&2
+    [ "$Tmaj" != "$maj" -o "$Tmin" != "$min" ] && rm /dev/$drive
+    fi
+    [ -b /dev/$drive ] || { mknod /dev/$drive b $maj $min 2>$ERR || continue; }
+#}
+##+++edit2
+
+[ "$DEVICES" ] && { [ "`echo "$DEVICES" | grep -w "$drive"`" ] || continue; }  ##+++edit2 forgot to implement it
+
+SIZE='';FSTYPE='';
+
+#SIZE=`cat /sys/class/block/$drive/size` ##edit1 : changed from using this value to use bits
+#[ "$SIZE" = 2 ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" |awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2)); FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+
+SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
+
+[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+
+if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
+
+ if [ -d /sys/class/block/$drive/device ]; then
+
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+
+ fi
+
+[ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
+
+#[ "$REMOVEABLE" = 0 ] || { cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype_func /dev/$drive ` || FSTYPE='not inserted' ; }
+#[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`                  ##added -i and swap
+#[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func /dev/$drive`
+#[ "$FSTYPE" ] || FSTYPE=unknown
+
+filesystem_func "$drive"
+#echo "/dev/$drive|$SIZE|$FSTYPE"  ##edit1 wrong order for pmount
+echo "/dev/$drive|$FSTYPE|$SIZE"  ##edit1 wrong order for pmount
+else
+
+ if [ -d /sys/class/block/$drive/device ]; then
+
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+
+ if [ "$REMOVEABLE" = 1 ]; then
+
+ if [ "`cat /sys/class/block/$drive/device/type`" = 5 ]; then
+
+ cddetect_func "$drive"
+
+ #cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype_func /dev/$drive` || FSTYPE='not inserted'
+ #[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`
+ #[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func /dev/$drive`
+ #[ "$FSTYPE" ] || FSTYPE=unknown
+ filesystem_func "$drive"
+
+#echo "/dev/$drive|$SIZE|$FSTYPE"  ##--- edit1 : was incorrect order for pmount
+  echo "/dev/$drive|$FSTYPE|$SIZE"
+
+ fi;fi;fi
+fi
+
+done</proc/partitions
+
+[ "$DEBUG" ] && echo -e $CYA"$0 currently at line $LINENO"$NOR >&2
+
+SATA_CD_DRIVES=`ls -1 /sys/class/block | grep -E -e '^sr[0-9]*|^scd[0-9]*'`
+while read drive; do
+
+[ "$drive" ] || continue            ##+++ edit1 if no cd drives attached
+#[ -b /dev/$drive ] || continue  ##+++ edit1 further test if node correct ##---edit2
+[ -b /dev/$drive ] || {
+    majmin=`grep -m1 -w "$drive" /proc/diskstats |head -n1 |awk '{print $1","$2}'`;
+    [ "$majmin" ] || continue
+    [ "$majmin" = ',' ] && continue
+    [ "${majmin%,*}" ] || continue
+    [ "${majmin#*,}" ] || continue
+    mknod /dev/$drive b ${majmin%,*} ${majmin#*,} 2>$ERR || continue;
+}  ##+++edit2
+[ "$DEVICES" ] && { [ "`echo "$DEVICES" | grep -w "$drive"`" ] || continue; }  ##+++edit2 forgot to implement it
+
+SIZE='';FSTYPE='';
+#SIZE=`cat /sys/class/block/$drive/size`
+SIZE=$((`cat /sys/class/block/$drive/size`*512*8))
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+
+if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+fi
+
+[ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
+
+#[ "$REMOVEABLE" = 0 ] || { cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype_func /dev/$drive` || FSTYPE='not inserted' ; }
+##[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`
+##[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func /dev/$drive`
+##[ "$FSTYPE" ] || FSTYPE=unknown
+
+filesystem_func "$drive"
+
+#echo "/dev/$drive|$SIZE|$FSTYPE"
+ echo "/dev/$drive|$FSTYPE|$SIZE"  ##+++ edit1 incorrect order, scrambled pmount
+
+done<<EOI
+$(echo "${SATA_CD_DRIVES}")
+EOI
+
+##ENDMAIN
+[ "$DEBUG" ] && echo -e $CYA"$0 Finished."$NOR >&2
