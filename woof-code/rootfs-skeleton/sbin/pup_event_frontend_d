@@ -814,19 +814,19 @@ old_clear_desk_icons_func(){
 clear_desk_icons_func(){
 while read line
 do test "$line" || continue
-DRV=`echo "$line" | grep -o -e 'drive_[^<]*'`
-test "$DRV" || continue
+   DRV=`echo "$line" | grep -o -e 'drive_[^<]*'`
+   test "$DRV" || continue
 #echo "$DRV"
-DRV="${DRV/drive_/}"
-echo "$DRV"
-case $DRV in
+   DRV="${DRV/drive_/}"
+#echo "$DRV"
+ case $DRV in
 sr*|fd*) DRV_NAME=$DRV remove_pinboard_func;;
 sd*)     test "${OLD_DRV:0:3}" = "${DRV:0:3}" && continue
          DRV_NAME=${DRV:0:3} remove_pinboard_func
 ;;
 *)       DRV_NAME=$DRV remove_pinboard_func;;
-esac
-OLD_DRV=$DRV
+ esac
+   OLD_DRV=$DRV
 done<$home/Choices/ROX-Filer/PuppyPin
 unset DRV OLD_DRV line DRV_NAME
 }
@@ -894,6 +894,9 @@ if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.
 fi
 [ "$HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
 
+ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2
+[ -f /tmp/pup_event_frontend_block1 ] || cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+
 PUPEVENTDAEMON_func(){
 ###################################################################
 #now go into a two-second loop...
@@ -914,8 +917,8 @@ do
   echo "$BLOCKS2" > /tmp/pup_event_frontend_block2
   rm -f /tmp/pup_event_frontend_block_request
  fi
- [ -f /tmp/pup_event_frontend_block1 ] || cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF=`diff /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`
+ #[ -f /tmp/pup_event_frontend_block1 ] || cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+ BLOCKDIFF=`diff -u /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`
 
  #091223 some interfaces, no change in /sys/block when insert/remove a card...
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
@@ -927,10 +930,12 @@ do
    [ "`echo "$ATADRIVES" | grep "$ONETESTDRV"`" ] && continue
    [ "`cat /sys/block/${ONETESTDRV}/removable 2>/dev/null`" = "0" ] && continue
    if [ ! -e /sys/block/${ONETESTDRV}/${ONETESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
-    [ -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${ONETESTDRV}:"
+    #[ -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${ONETESTDRV}:"
+    [ -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${ONETESTDRV}:"
     dd if=/dev/${ONETESTDRV} of=/dev/null bs=512 count=1 > /dev/null 2>&1 #try force kernel to update.
    else
-    [ ! -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${ONETESTDRV}:"
+    #[ ! -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${ONETESTDRV}:"
+     [ ! -d $home/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}+${ONETESTDRV}:"
    fi
   done
   [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo -n "$BLOCKSPROBE" | tr ':' '\n'`
@@ -941,8 +946,10 @@ do
 
   cp -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-  BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
-  BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  #BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  BLOCKSADD=`echo "$BLOCKDIFF" | grep '^\+[[:alpha:]].*' | tr -d '\+'`
+  #BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  BLOCKSREM=`echo "$BLOCKDIFF" | grep '^\-[[:alpha:]].*' | tr -d '\-'`
 
   ACTION=add
   SUBSYSTEM=block
