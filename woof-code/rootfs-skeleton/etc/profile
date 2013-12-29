@@ -1,104 +1,78 @@
-#!/bin/ash
+#!/bin/bash
 #ash might not work for export runprofilecount
 #####
 #
 #####
 
-export_pup_vars(){
-[ -f /etc/rc.d/PUPSTATE ] || return 1
-while read line
-do
-[ "$line" ] || continue
-export "$line"
-done</etc/rc.d/PUPSTATE
-[ -f /etc/DISTRO_SPECS ] || return 1
-source /etc/DISTRO_SPECS
-export DISTRO_VERSION DISTRO_BINARY_COMPAT DISTRO_NAME DISTRO_FILE_PREFIX DISTRO_COMPAT_VERSION
-}
-export_lang_func() {
-#this line gets edited by chooselocale script...
-#LANG=de_DE.utf8.utf8 w004 going back to non-utf8...
-LANG=de_DE.UTF-8
-export LANG
-#LCs=`locale`
-LCs=`locale |tr -d '"'`
-for loc in $LCs;do export $loc;done
-#v426 recommended by MU, avoid crashing for non-English locales on some apps...
-export LC_COLLATE=en_US
 
-#w003 no longer needed as woof now uses utf8...
-#w004 no, leave in, have made utf8 optional...
-##Sylpheed 2.0.1 requires this (also some other gtk2 apps)...
-export G_FILENAME_ENCODING=@locale
+[ "$DEBUG" ] || DEBUG=`grep -wi 'debug' /proc/cmdline`
+alias modprobe='modprobe -b'  ##+++2012-01-30
+alias cp='cp --backup=numbered'  ##+++2013-03-18
+#runprofilecount=$(( $runprofilecount +1 ))
+runprofilecount=$((runprofilecount+1))
+[ "$DEBUG" ] && echo "runprofilecount='$runprofilecount'"
+if test "$runprofilecount" -lt 2 ; then
+export runprofilecount
 
-}
-
-profile_d_func() {
-
-#if [ ! -f /etc/profile.d/firstrun."$TTY" ] ; then
-#this code is lifted straight from Vector...
-# Append any additional sh scripts found in /etc/profile.d/:
-#for profile_script in /etc/profile.d/*.sh ; do
-for profile_script in /etc/profile.d/* ; do #w482 any files.
- [ "`echo -n "$profile_script" | grep 'txt$'`" ] && continue #w482
- [ -x $profile_script ] && . $profile_script
-done
-echo `date` > /etc/profile.d/firstrun."$TTY"
-#fi
-
-}
-
-pers_profile_func(){
-#v1.0.5
-#personal customisation file...
-[ -r /etc/profile.local ] && . /etc/profile.local
-#echo "/etc/profile end ,$0 :'$0'"
-}
-
-
-export_path_func() {
+export_bash_func() {
+#echo 'starting now /etc/profile'
+#echo 'date     :'`date`
+#echo '$0       :'$0
+#echo 'pwd      :'`pwd`
+#echo '$HOME    :'"$HOME"
+#echo 'runlevel :'`runlevel`
+#echo '$DISPLAY :'"$DISPLAY"
 
 #v3.02 set variables so everything can be found...
-PATH="/bin:/usr/X11/bin:/usr/gtk/bin:/usr/SDL/bin:/usr/local/bin:/usr/bin:/sbin:/usr/local/sbin:/usr/sbin:/root/my-applications/bin:/root/my-applications/sbin:/usr/i486-t2-linux-gnu:/var/bin:/var/sbin:/usr/local/bin/i686-pc-linux-gnu:/opt/java/bin"
-#LD_LIBRARY_PATH="/lib:/usr/lib:/usr/X11R7/lib:/root/my-applications/lib:/usr/local/lib"
-if [ -f /etc/ld.so.conf ] ; then
-LD_LIBRARY_PATH=$(echo `cat /etc/ld.so.conf` | tr ' ' ':')
-fi
-[ "$LD_LIBRARY_PATH" ] || LD_LIBRARY_PATH="/lib:/usr/X11/lib:/usr/gtk/lib:/usr/SDL/lib:/usr/local/lib:/usr/lib:/root/my-applications/lib"
-LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/opt/java/lib"
-#needed for pkg-config app to work properly...
-PKG_CONFIG_PATH="/usr/X11/lib/pkgconfig:/usr/gtk/lib/pkgconnfig:/usr/SDL/lib/pkgconfig:/usr/lib/pkgconfig"
+PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/usr/X11R7/bin:/usr/X11R7/sbin:/root/my-applications/bin:/root/my-applications/sbin:/usr/i486-t2-linux-gnu:/var/bin:/var/sbin:/usr/local/bin/i686-pc-linux-gnu"
+LD_LIBRARY_PATH="/lib:/usr/lib:/usr/X11R7/lib:/root/my-applications/lib:/usr/local/lib"
 
-#if [ -d /opt/gnome2 ];then
-# LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/gnome2/lib"
-# PATH="$PATH:/opt/gnome2/bin"
-# PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/gnome2/lib/pkgconfig"
-#fi
-#if [ -d /opt/qt4 ];then
-# LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/qt4/lib"
-# [ -d /opt/qt4/bin ] && PATH="$PATH:/opt/qt4/bin" #if devx sfs.
-# PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/qt4/lib/pkgconfig"
-# export QT4DIR="/opt/qt4"
-# #export QTDIR="/opt/qt4" #i think v3.99removed.
-# [ -d /opt/qt4/include ] && export CPLUS_INCLUDE_PATH="/opt/qt4/include" #devx
-#fi
+#needed for pkg-config app to work properly...
+PKG_CONFIG_PATH="/usr/lib/pkgconfig"
+
+### GNOME ###
+if [ -d /opt/gnome2 ];then
+ LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/gnome2/lib"
+ PATH="$PATH:/opt/gnome2/bin"
+ PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/gnome2/lib/pkgconfig"
+fi
+
+### QT ###
+if [ -d /opt/qt4 ];then
+ LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/qt4/lib"
+ [ -d /opt/qt4/bin ] && PATH="$PATH:/opt/qt4/bin" #if devx sfs.
+ PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/qt4/lib/pkgconfig"
+ export QT4DIR="/opt/qt4"
+ #export QTDIR="/opt/qt4" #i think v3.99removed.
+ [ -d /opt/qt4/include ] && export CPLUS_INCLUDE_PATH="/opt/qt4/include" #devx
+fi
+
+if [ -d /opt ];then
+ls -1d /opt/qt* && qt_OPT=Y
+fi
+if [ "$qt_OPT" ];then
+[ "$DEBUG" ] && echo "Found QT in /opt directory"
+for d in `ls -d1 /opt/qt*`;do
+QTDIR="$d"
+done
+export QTDIR
+fi
 
 #v3.99 added, for older qt3...
-#if [ -e /usr/lib/qt ];then
-# export QTDIR=/usr/lib/qt
-# [ -d /usr/lib/qt/bin ] && PATH=/usr/lib/qt/bin:${PATH}
-# LD_LIBRARY_PATH=/usr/lib/qt/lib:$LD_LIBRARY_PATH
-#fi
-#export QT_XFT=true
+if [ -e /usr/lib/qt ];then
+ export QTDIR=/usr/lib/qt
+ [ -d /usr/lib/qt/bin ] && PATH="/usr/lib/qt/bin:${PATH}"
+ LD_LIBRARY_PATH=/usr/lib/qt/lib:$LD_LIBRARY_PATH
+fi
+export QT_XFT=true
 
-#if [ -d /opt/mozilla.org ];then
-# [ -d /opt/mozilla.org/lib ] && LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/mozilla.org/lib"
-# [ -d /opt/mozilla.org/bin ] && PATH="$PATH:/opt/mozilla.org/bin" #may not exist.
-# [ -d /opt/mozilla.org/lib/pkgconfig ] && PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/mozilla.org/lib/pkgconfig"
-# [ -e /opt/mozilla.org/lib/mozilla ] && export MOZILLA_FIVE_HOME="/opt/mozilla.org/lib/mozilla" #link created unleashed.
-#fi
+if [ -d /opt/mozilla.org ];then
+ [ -d /opt/mozilla.org/lib ] && LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/mozilla.org/lib"
+ [ -d /opt/mozilla.org/bin ] && PATH="$PATH:/opt/mozilla.org/bin" #may not exist.
+ [ -d /opt/mozilla.org/lib/pkgconfig ] && PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/mozilla.org/lib/pkgconfig"
+ [ -e /opt/mozilla.org/lib/mozilla ] && export MOZILLA_FIVE_HOME="/opt/mozilla.org/lib/mozilla" #link created unleashed.
+fi
 MOZ_PLUGIN_PATH="/usr/lib/mozilla/plugins"
-
 if [ -e /usr/lib/seamonkey ];then
  LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/seamonkey"
  export MOZILLA_FIVE_HOME="/usr/lib/seamonkey"
@@ -116,12 +90,18 @@ fi
 
 export PATH LD_LIBRARY_PATH PKG_CONFIG_PATH MOZ_PLUGIN_PATH
 ###### END PATH PART ######
-}
 
 
-export_sh_func() {
+#some builds of moz need this, also maybe render faster...
+export MOZ_DISABLE_PANGO=1
+
+#for gtk...
+export GDK_USE_XFT=1
+#v4.00 for Open Office, force ue of GTK...
+export OOO_FORCE_DESKTOP="gnome"
+
 ulimit -c 0
-if [ "`id -gn`" = "`id -un`" -a "`id -u`" -gt 14 ]; then
+if [ `id -gn` = `id -un` -a `id -u` -gt 14 ]; then
  umask 002
 else
  umask 022
@@ -133,9 +113,9 @@ USER=`id -un`
 #$?=RETURNCODE,$1=?,$0=COMMAND,$@=?,PID,w=PWD,NR,SIGN
 PS1="[\A \$? \$0 \$$ \# \W ] \n[\h]# "
 
-PS2="> "
-PS3=">> "
-PS4=">>> "
+PS2="II> "
+PS3="III "
+PS4="IV> "
 
 LOGNAME=$USER
 HISTSIZE=100000
@@ -152,6 +132,8 @@ INPUTRC=/etc/inputrc
 TERM="xterm"
 #fi
 
+
+
 # used by XRN, change to your news server...
 # NNTPSERVER="news.dodo.com.au"
 # GS_FONTPATH="/usr/lib/X11/fonts/Type1"
@@ -160,63 +142,110 @@ export PS1 USER LOGNAME HISTSIZE INPUTRC EDITOR TERM
 #v2.13...
 export HISTFILESIZE=200000
 export HISTCONTROL=ignoredups
-
-#v2.17 have uncommented this...
-export SHELL="/bin/bash"
 #### END BASH PART ########
 }
+export_bash_func
 
+export_lang_func() {
+#this line gets edited by chooselocale script...
+#LANG=de_DE.utf8.utf8 w004 going back to non-utf8...
+LANG=de_DE.utf8
+export LANG
+#LCs=`locale`
+LCs=`locale |tr -d '"'`
+for loc in $LCs;do export $loc;done
+#v426 recommended by MU, avoid crashing for non-English locales on some apps...
+export LC_COLLATE=en_US
 
-
-function_main(){
-
-alias modprobe='modprobe -b'  ##+++2012-01-30
-
-export_path_func
-
-export_sh_func
-
+#w003 no longer needed as woof now uses utf8...
+#w004 no, leave in, have made utf8 optional...
+##Sylpheed 2.0.1 requires this (also some other gtk2 apps)...
+export G_FILENAME_ENCODING=@locale
+#v1.0.6
+#sylpheed uses metamail which requires this...
+export MM_RUNASROOT=1
+}
 export_lang_func
 
-export_pup_vars
-
+export_shell_func() {
+#v2.16 have gone to full ls, now need this...
+#auto: only creates ansi color codes if o/p to a tty, not in a script...
 
 ##alias ls='ls --color=auto'
+alias modprobe='modprobe -b'
 
 ##better ps-FULL
 #PS_PERSONALITY=old #though man page says so , strings pss-FULL does not show it
 PS_PERSONALITY=debian
 export PS_PERSONALITY
-#v1.0.6
-#sylpheed uses metamail which requires this...
-export MM_RUNASROOT=1
-#some builds of moz need this, also maybe render faster...
-export MOZ_DISABLE_PANGO=1
-#for gtk...
-export GDK_USE_XFT=1
-#v4.00 for Open Office, force ue of GTK...
-export OOO_FORCE_DESKTOP="gnome"
+
 #v4.00 run e3vi whenever vi excuted...
 #alias vi=e3vi
 
 #w482 convenient to set this i think...
 export PREFIX='/usr'
 
+
+#v2.17 have uncommented this...
+SHELL="/bin/bash"
+#echo 'exporting SHELL now'
+export SHELL
+#echo 'done'
+#...this causes a problem with characters in text-mode apps running in rxvt. for example, in mp
+#a vertical line character displays as a 3. so leave the default shell as Busybox sh.
+#...no, have a fix, from alienX. added TERM=xterm to /root/.bashrc.
+#v2.0.0 additional note: now have /bin/sh a symlink to /bin/bash, so above not used.
+##v2.17 no color in terminal window. G2: sh (link to bash) does not read any
+##config file, unless do this...
+#export ENV="/root/.bashrc"
+#...no, instead have exported SHELL=bash, see above.
+}
+export_shell_func
+
+##### End BASH PART_2 #######
+
 #this is for antialiased fonts in gtk1 apps...
 #LD_PRELOAD=/usr/lib/libgdkxft.so
 #export LD_PRELOAD
 #WISH mini-console needs this...
-
+#echo 'runnin now scripts in /etc/profile.d'
 #v2.16 this need arose when considering SFS files that may require special env. variables.
 
-
-pers_profile_func
-profile_d_func
+profile_d_func() {
+#if [ ! -f /etc/profile.d/firstrun ] ; then
+#this code is lifted straight from Vector...
+# Append any additional sh scripts found in /etc/profile.d/:
+#for profile_script in /etc/profile.d/*.sh ; do
+for profile_script in /etc/profile.d/* ; do #w482 any files.
+ [ "`echo -n "$profile_script" | grep 'txt$'`" != "" ] && continue #w482
+  if [ -x $profile_script ]; then
+   #[ "$DEBUG" ] && echo "start... $profile_script"
+. $profile_script
+   #[ "$DEBUG" ] && echo "$profile_script ...end"
+  unset profile_script
+  fi
+done
+#unset profile_script
+echo `date` >> /etc/profile.d/firstrun.$USER
+#fi
+[ "$DEBUG" ] && echo "finished running profile scripts"
 }
 
-#TTY=`tty | tr '/ ' '_'`
-#if test "`echo "$TTY" | grep 'tty'`" ; then
-#[ -f /etc/profile.d/firstrun."$TTY" ] || function_main
-#fi
+pers_profile_func(){
+#v1.0.5
+#personal customisation file...
+#echo 'start... running for /etc/profile.local'
+[ -r /etc/profile.local ] && . /etc/profile.local
+#echo '/etc/profile.local ...end'
+#echo
+#echo `date`
+[ "$DEBUG" ] && echo "/etc/profile end ,$0 :'$0'"
+#echo
+}
+pers_profile_func
+profile_d_func
 
-function_main
+else
+#echo '$runprofilecount='"$runprofilecount"
+:
+fi
