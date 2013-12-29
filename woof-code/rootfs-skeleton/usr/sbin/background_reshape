@@ -7,39 +7,40 @@
 #v424 fix maths.
 #v424 move ORIGINAL-* images to /usr/share/backgrounds_original
 
+LC_ALL=C  ##+++2013-04-11
+LANG=C
+LC_NUMERIC=C
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 OUT=/dev/null;ERR=$OUT
-
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
-Version='1.1'
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+#KRG
+#************
+
 
 #accept optional image file as passed param...
 IMAGEFILE="/usr/share/backgrounds/default.jpg"
-[ $1 ] && IMAGEFILE="$1"
+#[ $1 ] && IMAGEFILE="$1"
+[ "$*" ] && IMAGEFILE="$@"
 
 #v423 precaution, if someone has chosen the backup original...
 [ "`echo -n "$IMAGEFILE" | grep 'ORIGINAL'`" != "" ] && exit
@@ -58,20 +59,30 @@ else
  cp -f ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} ${IMAGEFILE} #restore. v424
 fi
 
-IMAGEDIMS=`jpegtopnm ${IMAGEFILE} 2>$ERR | pamfile 2>&1 | grep 'stdin:' | tr -s ' ' | cut -f 2 -d ',' | cut -f 2,4 -d ' '` #ex: 1200 800
+IMAGEDIMS=`jpegtopnm ${IMAGEFILE} 2>/dev/null | pamfile 2>&1 | grep 'stdin:' | tr -s ' ' | cut -f 2 -d ',' | cut -f 2,4 -d ' '` #ex: 1200 800
 IMAGEHORIZ=`echo -n "$IMAGEDIMS" | cut -f 1 -d ' '`
 IMAGEVERT=`echo -n "$IMAGEDIMS" | cut -f 2 -d ' '`
+
+echo "IMAGEDIMS=$IMAGEDIMS IMAGEHORIZ=$IMAGEHORIZ IMAGEVERT=$IMAGEVERT"
 
 ROOTDIMS=`xwininfo -root | grep ' \-geometry ' | tr -s ' ' | cut -f 3 -d ' ' | cut -f 1 -d '+' | tr 'x' ' '`
 ROOTHORIZ=`echo -n "$ROOTDIMS" | cut -f 1 -d ' '`
 ROOTVERT=`echo -n "$ROOTDIMS" | cut -f 2 -d ' '`
 
+echo "ROOTDIMS=$ROOTDIMS ROOTHORIZ=$ROOTHORIZ ROOTVERT=$ROOTVERT"
+
 #v423...
 RATIOIMAGE=`dc $IMAGEHORIZ $IMAGEVERT div 100 mul p | cut -f 1 -d '.'`
 RATIOROOT=`dc $ROOTHORIZ $ROOTVERT div 100 mul p | cut -f 1 -d '.'`
-#echo "RATIOIMAGE=$RATIOIMAGE RATIOROOT=$RATIOROOT" #TEST
+
+echo "RATIOIMAGE=$RATIOIMAGE RATIOROOT=$RATIOROOT" #TEST
+
 xRATIOIMAGE=`expr $RATIOIMAGE + 5` #allow for roundoff errors.
-[ $xRATIOIMAGE -ge $RATIOROOT ] && exit
+
+echo "xRATIOIMAGE=$xRATIOIMAGE RATIOROOT=$RATIOROOT"
+
+[ $xRATIOIMAGE -ge $RATIOROOT ] && { echo "greaterequal. exit";exit 0; }
+[ $? = 2 ] && { echo "1. test error <2> . exit.";exit 0; }
 
 #v423 some math gymnastics involved here...
 IMGVERTSCALED=`dc $ROOTHORIZ $IMAGEHORIZ div $IMAGEVERT mul p`
@@ -79,7 +90,7 @@ VERTDIFF=`dc $IMGVERTSCALED $ROOTVERT sub p`
 NEWIMGVERTSCALED=`dc $IMGVERTSCALED $VERTDIFF sub p`
 NEWVERT=`dc $IMAGEHORIZ $ROOTHORIZ div $NEWIMGVERTSCALED mul p | cut -f 1 -d '.'` #v424 fix.
 
-#echo "IMGVERTSCALED=$IMGVERTSCALED VERTDIFF=$VERTDIFF NEWIMGVERTSCALED=$NEWIMGVERTSCALED NEWVERT=$NEWVERT" #TEST
+echo "IMGVERTSCALED=$IMGVERTSCALED VERTDIFF=$VERTDIFF NEWIMGVERTSCALED=$NEWIMGVERTSCALED NEWVERT=$NEWVERT" #TEST
 
 #this method only cuts off the bottom of image...
 #if [ $xNEWVERT -lt $IMAGEVERT ];then
@@ -90,14 +101,21 @@ NEWVERT=`dc $IMAGEHORIZ $ROOTHORIZ div $NEWIMGVERTSCALED mul p | cut -f 1 -d '.'
 #fi
 
 #this method cuts equal amount from top and bottom...
+
+echo "NEWVERT=$NEWVERT IMAGEVERT=$IMAGEVERT"
+
 if [ $NEWVERT -lt $IMAGEVERT ];then #precaution
+ [ $? = 2 ] && { echo "2. test error <2> . exit.";exit 0; }
  PAMCUT="pamcut"
  [ "`which pnmcut`" != "" ] && PAMCUT="pnmcut" #older netpbm.
+ which $PAMCUT || { echo "No pamcut or pnmcut installed.";exit 1; }
  CUTVERT=`expr $IMAGEVERT - $NEWVERT`
  TOP=`expr $CUTVERT \/ 2`
  BOTTOM=`expr $NEWVERT + $TOP`
 # jpegtopnm ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} | ${PAMCUT} -left=0 -right=${IMAGEHORIZ} -top=${TOP} -bottom=${BOTTOM} | pnmtojpeg -quality=85 > ${IMAGEFILE}
  jpegtopnm ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} | ${PAMCUT} -left=0 -top=${TOP} -bottom=${BOTTOM} | pnmtojpeg -quality=85 > ${IMAGEFILE}
+else
+echo "greaterequal. Ok. Leaving '$IMAGEFILE' as is."
 fi
 
 ###END###
