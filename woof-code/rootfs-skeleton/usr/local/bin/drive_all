@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 #(c) Copyright 2008 Barry Kauler, puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #/sbin/pup_event_frontend_d creates a desktop icon and copy of this script for each drive, ex:
@@ -14,120 +14,71 @@
 #w476 fix codepage for vfat f.s.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
-Version='1.1'
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
+$0 [ pmount_ | eventmanager | unmount | unmountall ]
+   [ DRIVECATEGORY ]
+   [ option1 [ FILE_SYSTEM_TYPE ]]
 "
-echo "$USAGE_MSG"
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+#KRG
+#************
 
-########################################################################
-#
-# Changes by Karl Reimer Godt
-# 01.0 : killzombies function : sed beginning spaces away .
-# 02.0 : Show nested mounts in umount xmessage gui .. see also /bin/umount script
-# 03.0 : Added usage, trap, version, debug macros .
-# 04.0 : Added support for udf .
-# 05.0 : Added support for different /sbin/probepart output
-#
-# /dev/sda2:
-# #OLD LABEL="2nd"
-# LABEL="MacPup_F_3"
-# #OLD UUID="a4f28ea3-eede-49f8-93ca-dbeefe8f72fa"
-# UUID="f7956448-f63f-44f4-a725-f15dd21add97"
-# TYPE="ext3"
-# DISTRO_VERSION=430            #481·#416·#218·#478··#####change·this·as·required#####
-# DISTRO_BINARY_COMPAT="puppy"  #"ubuntu"·#"puppy"···#####change·this·as·required#####
-# case·$DISTRO_BINARY_COMPAT·in
-# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
-# DISTRO_NAME="Puppy"
-# DISTRO_FILE_PREFIX="pup"  #"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
-# DISTRO_COMPAT_VERSION="4" #"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
-# ;;
-# esac
-# PUPMODE=2
-# KERNVER=2.6.34-KRG-i486
-# ATADRIVES='·sda'
-# USB_SATAD=''
-# PUP_HOME='/'
-# PDEV1='sda2'
-# #OLD Linux·puppypc·2.6.34-KRG-i486·#3·SMP·Fri·Dec·31·05:10:23·GMT-8·2010·i686·GNU/Linux
-# Linux puppypc 3.4.9-KRG-iCore2-smp-pae-srv1000gz #1 SMP Sun Sep 16 18:34:45 GMT+1 2012 i686 GNU/Linux
-# Xserver=/usr/X11R7/bin/Xorg
-# #OLD $LANG=de_DE@euro
-# $LANG=de_DE.utf8
-# #OLD today=Mi·18.·Jan·03:21:35·GMT+1·2012
-# today=Mon Sep 17 20:33:36 GMT+1 2012
-#
-# TODO 1 : iconhandler for udf
-#
-#
-#
-########################################################################
 
 #w002 extracted as a func...
-killzombies(){
-   ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's#^[[:blank:]]*##'|sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
-   for ONEZOMBIE in $ZOMBIES
-   do
-    echo "Killing parent(less?) zombie process $ONEZOMBIE"
-    /bin/ps --no-header -p $ONEZOMBIE && kill $ONEZOMBIE
-   done
-}
-
 unmount_func() {
- pidof sync || sync  ##2012-06-05
  rox -D "$MNTPT"
- #sync
- sleep 2 ##2012-06-05
+
+ ##+++2013-04-23 sync crap
+ if test "`mount |grep -m1 "$MNTPT" | grep '(rw'`" != "" ; then
+ pidof sync || { sync; sleep 2; }
+ fi
+
  while [ 1 ];do
-  /bin/umount "$MNTPT" ; umVAL=$?
+
+  umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
-   killzombies
-   [ -n "`busybox mount | grep "$MNTPT"`" ] && { /bin/umount "$MNTPT"; umVAL=$?; }
+   #ZOMBIES=`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
+   ZOMBIES=`ps -H -A | grep '<defunct>' | grep -v 'grep' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
+   for ONEZOMBIE in $ZOMBIES
+   do
+    echo "Killing parentless zombie process $ONEZOMBIE"
+    kill $ONEZOMBIE
+   done
+   umount "$MNTPT" ; umVAL=$?
   fi
+
   #rare ocassion, partition got unmounted before umount runs above...
   umPATTERN="${MNTPT} "
-  _MOUNT=`busybox mount | grep "$umPATTERN"`
-  umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
-  _NESTEDS=`busybox mount | grep "$umPATTERN_2"`
-  [ "${_MOUNT}" ] || umVAL=0
+  [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0=`fuser -v -m $MNTPT`
+   EXTRAMSG0=`fuser -v -m "$MNTPT" 2>&1`
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
 If so, please remedy."
    else
-   [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
-    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center \
- -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
+    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
 using /dev/${ONEDRVNAME}. Here they are:
-${_NESTEDS}
-PIDS or APPS :
 $EXTRAMSG0
 
 If you press the \"KILL\" button, Puppy will attempt to
@@ -148,7 +99,7 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
 }
 
 FSTYPE=""
-[ $2 ] && FSTYPE="$2" #see pup_eventd
+[ "$2" ] && FSTYPE="$2" #see pup_eventd
 
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<ONEDRVNAME> is executed,
@@ -162,16 +113,18 @@ if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive
   sleep 0.1
  fi
  exec pmount ${DRV_CATEGORY}
+fi
 
-elif [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
+if [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
  #v405 'desktop' param, cutdown tabs for desktop drive icons only...
  exec eventmanager desktop
+fi
 
-elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
+if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  mPATTERN='^/dev/'"$ONEDRVNAME"' '
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
- MNTPT=`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
- [ "$MNTPT" = "" ] && exit #precaution.
+ MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+ [ "$MNTPT" = "" ] && exit 1 #precaution.
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${ONEDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
@@ -179,14 +132,16 @@ is in use by Puppy. You cannot unmount it."
  fi
  unmount_func
  exit
+fi
 
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
-elif [ "$1" = "unmountall" ];then
- for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
+if [ "$1" = "unmountall" ];then
+ for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
  do
+ MNTPT=`echo "$MNTPT" | tr '\`' ' '`
   unmount_func
  done
- exit
+ exit $?
 fi
 
 #w002 left-mouse-click to unmount...
@@ -210,13 +165,13 @@ fi
 #   UMNTFLG=$?
 #   if [ $UMNTFLG -eq 10 ];then
 #    unmount_func
-#	exit
+#   exit
 #   fi
 #   if [ $UMNTFLG -eq 12 ];then
 #    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
-#	do
-#	 unmount_func
-#	done
+#   do
+#    unmount_func
+#   done
 #    exit
 #   fi
 #  fi
@@ -257,18 +212,15 @@ if [ "$AUTOTARGET" = "false" ];then
 fi
 
 #oh, now have to analyse the media, decide what app to run...
-#if [ "$ONEDRVNAME" = "sr0" -o "$ONEDRVNAME" = "sr1" ];then
-if [ "`echo "$ONEDRVNAME" |grep '^sr[0-9]'`" ];then  ###+++2012-01-20
+if [ "$ONEDRVNAME" = "sr0" -o "$ONEDRVNAME" = "sr1" ];then
  srPATTERN='^/dev/'"$ONEDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
   cddetect -q -d/dev/${ONEDRVNAME}
   RETVAL=$?
   case $RETVAL in
-  3) #iso file: normal data cd. iso9660
+  3) #iso file: normal data cd.
    true
    ;;
-  8) # udf with .wma wav files [VCD: , ] 8 ##+++2012-01-20
-   FSTYPE='udf';;
   1) #audio
    ln -snf /dev/${ONEDRVNAME} /dev/cdrom
    exec defaultmediaplayer cdda://
@@ -286,7 +238,9 @@ if [ "`echo "$ONEDRVNAME" |grep '^sr[0-9]'`" ];then  ###+++2012-01-20
    ;;
   esac
  fi
- [ ! "$FSTYPE" ] && FSTYPE="iso9660"
+ FSTYPE=`guess_fstype /dev/${ONEDRVNAME}`
+ [ "$FSTYPE" = 'unknown' ] && FSTYPE="iso9660"
+ [ "$FSTYPE" ] || FSTYPE="iso9660"
 fi
 
 #if dropped down here, it is likely to be a data partition...
@@ -294,16 +248,16 @@ fi
 #if [ "$ICONPARTITIONS" = "true" ];then
 if [ "$FSTYPE" != "" ];then
  dPATTERN='^/dev/'"$ONEDRVNAME"' '
- if [ "`/bin/df | grep "$dPATTERN"`" = "" ];then
+ if [ "`df | grep "$dPATTERN"`" = "" ];then
   #not mounted...
   mkdir -p /mnt/$ONEDRVNAME
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    /bin/mount -t ntfs /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
+    mount -t ntfs /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
     ;;
-   fat*|FAT*|Fat*|vfat)
+   FAT|Fat|FAT*|Fat*|fat*|vfat)
     #w476 modify codepage and iocharset (note: this code also in /usr/sbin/pmount)...
     #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
     NLS_PARAM=''
@@ -318,19 +272,21 @@ if [ "$FSTYPE" != "" ];then
       ;;
      esac
     fi
-    /bin/mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$ONEDRVNAME /mnt/$ONEDRVNAME #v411
+    mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$ONEDRVNAME /mnt/$ONEDRVNAME #v411
     RETVAL1=$?
     ;;
    *)
     FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
-    /bin/mount -t $FSTYPE /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
+    MOUNT_OPT=rw                   ##+++2013-04-23
+    [ "$FSTYPE" = iso9660 -o "$FSTYPE" = udf ] && MOUNT_OPT=ro
+    mount -t $FSTYPE -o $MOUNT_OPT /dev/$ONEDRVNAME /mnt/$ONEDRVNAME
     RETVAL1=$?
     ;;
   esac
   [ $RETVAL1 -eq 0 ] && exec rox -x /mnt/$ONEDRVNAME -d /mnt/$ONEDRVNAME
  else
   #mounted...
-  MNTPT=`/bin/df | grep "$dPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+  MNTPT=`df | grep "$dPATTERN" | tr -s ' ' | cut -f6- -d ' '`
   if [ -h /mnt/home ];then
    [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
   fi
@@ -339,17 +295,14 @@ if [ "$FSTYPE" != "" ];then
  fi
 fi
 
-
+pmount_last_resort(){
 #NOTE: if pmount already running, don't really want to kill then restart,
 # just want to bring the window up if it's minimised ...how?
-
 if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
  killall gtkdialog_pmount 2>$ERR
  sleep 0.1
 fi
-
-xmessage -buttons "Pmount:100,Quit:101" "NOTICE : Encountered unknown situation..
-Will now run pmount '$DRV_CATEGORY' as last resort."
-[ "$?" = 100 ] && exec pmount ${DRV_CATEGORY}
+exec pmount ${DRV_CATEGORY}
+}
 
 ###END###
