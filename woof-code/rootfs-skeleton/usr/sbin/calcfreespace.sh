@@ -5,6 +5,35 @@
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
 #PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
