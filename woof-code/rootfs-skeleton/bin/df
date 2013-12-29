@@ -2,65 +2,37 @@
 #(c) Barry Kauler 2009, licence GPL2
 #w482 fix for /dev/root.
 
-Version='1.1-simple Macpup_Foxy_3-Puppy_Linux_430/2 KRG'
+#************
+#KRG
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+Version=1.1-KRG-MacPup_O2
 
 usage(){
 MSG="
-$0 [d|v|V|h] [-q|-Q] [df options]
-Script wrapper to replace /dev/root
-with current /dev/DEVICE .
-Necessary for pup_event_frontend_d
-and drive icons on desktop on tra-
-ditional full installations
-
-d|v) debug and verbose
-h) show this message
-V) show version
-
--q) output in single quotes
--Q) output in double quotes
+$0 [ help | version ]
 "
-echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg orange4 "$MSG"
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-case $1 in
-d|v) DEBUG=1;shift;;
-h|help) usage 0;;
-V|version) echo -e "\n$0: Version '$Version'\n";exit 0;;
-esac
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-[ "$DEBUG" ] && echo "QUOTE_IT_M='$QUOTE_IT_M'"
-[ "$DEBUG" ] && echo "D_QUOTE_IT_M='$D_QUOTE_IT_M'"
+#KRG
+#************
 
-QUOTE_IT=`echo "$@" | grep -w '\-q'`
-D_QUOTE_IT=`echo "$@" | grep -w '\-Q'`
-PARAMS=${@//\-q/}
-PARAMS=${PARAMS//\-Q/}
-[ "$DEBUG" ] && echo "PARAMS='$PARAMS'"
-if [ "$QUOTE_IT" ];then
-QUOTE_IT_M=-q exec $0 $PARAMS
-elif [ "$D_QUOTE_IT" ];then
-D_QUOTE_IT_M=-Q exec $0 $PARAMS
-fi
 
 DF="busybox df"
 [ "`which df-FULL`" != "" ] && DF="df-FULL"
-#echo 'DF='"$DF"
-#echo '$@='"$@"
+
 RETSTUFF=`$DF $@`
 RETVAL=$?
-#if [ "`echo "$@" | grep ' \-q '`" ];then
-if [ "$QUOTE_IT_M" ];then
-RETSTUFF=`echo "$RETSTUFF" |sed -r "s|(.*%) (/.*)|\1 '\2'|"`
-#elif [ "`echo "$@" | grep ' \-Q '`" ];then
-elif [ "$D_QUOTE_IT_M" ];then
-RETSTUFF=`echo "$RETSTUFF" |sed -r 's|(.*%) (/.*)|\1 "\2"|'`
-fi
-#echo 'RETSTUFF='"$RETSTUFF"
-#echo 'RETVAL='"$RETVAL"
-#echo
 
 #hack to remove two conflicting entries mounted on / ...
 #if [ "`echo "$RETSTUFF" | grep '^rootfs '`" != "" ];then
@@ -68,17 +40,32 @@ fi
 #  RETSTUFF=`echo "$RETSTUFF" | grep -v '^rootfs '`
 # fi
 #fi
-
 RETSTUFF=`echo "$RETSTUFF" | grep -v '^rootfs '`
-#echo "$RETSTUFF"
 
 #replace /dev/root with correct root partition...
 #rdev is a busybox applet...
-ROOTPARTITION=`rdev | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`
-#echo "$ROOTPARTITION"
+ROOTPARTITION=`$(which rdev) | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`
+[ "$DEBUG" ] && echo "ROOTPARTITION='${ROOTPARTITION##*/}'"
+
+if [ -e /sys/class/block/${ROOTPARTITION##*/} ];then
+
+:
+
+else
+
+MAJh=`stat -c %t $ROOTPARTITION`
+MAJd=$(( 16#$MAJh ))
+MINh=`stat -c %T $ROOTPARTITION`
+MINd=$(( 16#$MINh ))
+POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd}" |awk '{print $3}'`
+for p in $POSSIBLE;do
+[ "$DEBUG" ] && echo "POSSIBLE='$p'"
+[ -e /sys/class/block/$p ] && { ROOTPARTITION=/dev/$p ; break ; }
+done
+
+fi
+
 nPATTERN="s%^/dev/root %${ROOTPARTITION} %"
-#echo "$nPATTERN"
-#echo "$RETSTUFF" | sed -e "$nPATTERN"
 [ "$ROOTPARTITION" ] && RETSTUFF=`echo "$RETSTUFF" | sed -e "$nPATTERN"`
 
 echo "$RETSTUFF"
