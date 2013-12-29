@@ -20,40 +20,36 @@
 #v431 rerwin: retain account checkbox changes; ensure optional lines associated with an account; add APN-specific commands; handle Idle Seconds lines
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
-
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
 
 KERNVER=`uname -r`
 
@@ -62,10 +58,9 @@ MYDEVM="MYDEVM"
 [ -h /dev/modem ] && MYDEVM='/dev/'"`readlink /dev/modem`"
 #note, MYDEVM is placeholder for '/dev/ttyS0' whereas DEVM is just 'ttyS0'.
 #v408 rerwin...
-echo "MYDEVM='$MYDEVM'"
+
 if [ ! -s /etc/wvdial.conf ] || [ "`grep '/dev/MYDEVM' /etc/wvdial.conf`" != ""  ];then #also replace empty file #v408
  if [ ! -s /etc/wvdial.conf ];then   #v408
- echo '! -s /etc/wvdial.conf'
   echo "[Dialer Defaults]
 Modem = ${MYDEVM}
 Baud = 57600
@@ -74,52 +69,33 @@ Init2 =
 Init3 =
 Carrier Check = no
 Dial Command = ATDT
-#Dial Prefix =
-Dial Attempts = 10
-Abort on No Dialtone = no
-Abort on Busy = off
-Idle Seconds = 6000
-Auto Reconnect = yes
-Default Reply = ppp
-New PPPD = no
-PPPD Path = /usr/bin/pppd
 
 [Dialer isp1]
 Phone = MYISPPHONENUM
 Username = MYUSERNAME
 Password = MYPASSWORD
-Stupid Mode = yes
-Auto Reconnect = yes
 
 [Dialer isp1apn]
 Init5 = AT+CGDCONT=1,\"IP\",\"\"
-
-[Dialer pin1]
-Init1 = AT+CPIN=
 
 [Dialer isp2]
 Phone = MY2ISPPHONENUM
 Username = MY2USERNAME
 Password = MY2PASSWORD
-Stupid Mode = yes
-Auto Reconnect = yes
 
 [Dialer isp2apn]
 Init5 = AT+CGDCONT=1,\"IP\",\"\"
 
-[Dialer pin2]
-Init1 = AT+CPIN=
-" > /etc/wvdial.conf
+[Dialer pin]
+Init1 = AT+CPIN=" > /etc/wvdial.conf
 #v408 Treat erased modem device name same as for absent wvdial.conf.
  else #wvdial.conf indicates modem field has been erased
   if [ "$MYDEVM" != "MYDEVM" ];then #modem detected; make config agree with /dev/modem.
    SEDSCRIPT="s%/dev/MYDEVM%$MYDEVM%"
-   echo "sed ing s%/dev/MYDEVM%$MYDEVM% into /etc/wvdial.conf"
    sed -i -e "$SEDSCRIPT" /etc/wvdial.conf
   fi
  fi
 #v408 end rerwin.
-echo "MYDEVM='$MYDEVM'"
  if [ "$MYDEVM" != "MYDEVM" -a "$MYDEVM" != "modem" ];then
   Xdialog --left --wmclass "pupdial" --title "PupDial: modem string" --no-cancel --yesno "It seems that you have a modem, at port ${MYDEVM}\n
 However, for the modem to work properly, you may need to supply an initialization\n
@@ -168,8 +144,7 @@ if [ "`grep '/dev/modem' /tmp/wvdial.conf`" != "" -a -h /dev/modem ];then #modem
  echo "s/\/dev\/modem/\/dev\/`readlink /dev/modem`/g" > /tmp/pupdialsedscript
  sed -i -f /tmp/pupdialsedscript /tmp/wvdial.conf #replace device in-place
 fi
-echo 'mv -f /tmp/wvdial.conf /etc/wvdial.conf'
-mv -f /tmp/wvdial.conf /etc/wvdial.conf.tmp
+mv -f /tmp/wvdial.conf /etc/wvdial.conf
 sync #v413 ensure config updated
 
 ISPM=`cat /etc/wvdial.conf | grep '^Phone = ' | head -n 2`
@@ -192,33 +167,29 @@ INIT5M=`cat /etc/wvdial.conf | grep '^Init5 = AT+CGDCONT=' | head -n 2`
 
 ACC1PRFL=`echo "$INIT5M" | head -n 1 | cut -f 3 -d '=' | cut -f 1 -d ','`
 ACC2PRFL=`echo "$INIT5M" | tail -n 1 | cut -f 3 -d '=' | cut -f 1 -d ','`
+[ "$ACC1PRFL" = "" ] && ACC1PRFL="1"; [ "$ACC2PRFL" = "" ] && ACC2PRFL="1"
 
 ACC1APN=`echo "$INIT5M" | head -n 1 | cut -f 4 -d '"' | sed 's/\\$/\\\\$/g;'`
 ACC2APN=`echo "$INIT5M" | tail -n 1 | cut -f 4 -d '"' | sed 's/\\$/\\\\$/g;'`
 
-[ "$ACC1PRFL" = "" ] && ACC1PRFL="1"; [ "$ACC2PRFL" = "" ] && ACC2PRFL="1"
 
 #1st 'cut' fixes if the '/dev/' left off the device name...
 #note, initialised wvdial.conf has 'Modem = MYDEVM' where MYDEVM needs to become
 # '/dev/ttyS0' (for example)
 DEVM=`cat /etc/wvdial.conf | grep '^Modem = ' | cut -f 3 -d ' ' | cut -f 3 -d '/'`
 [ "$DEVM" = "" ] && DEVM='MYDEVM' #v4.00 bugfix, crashed if no DEVM.
-if [ "`ps |grep "$DEVM" |grep -v 'grep'`" ];then ##MODEM in USE?
- echo "'$DEVM' seems to be in use. Please
-check and make sure that the modem is not in use anymore;
-solution would be to kill the program.
-Here's the useres of the modem:"
-ps |grep "$DEVM" |grep -v 'grep'
-echo
-exit 1
-fi
+
 [ ! -f /tmp/pupdial.log ] && touch /tmp/pupdial.log #v408 rerwin, moved up.
+
 if [ "${DEVM}" != "MYDEVM" ];then
  MSG1="GOOD! Modem selected! Device interface: /dev/$DEVM"
  [ "`pidof pppd`" = "" ] && STATECONa="enabled" #dialout button.
+
  TESTMSG="$DEVM"
+
  #[ ! -f /tmp/pupdial.log ] && touch /tmp/pupdial.log
  [ "`grep 'MODEM WAS NOT AUTOMATICALLY DETECTED' /tmp/pupdial.log`" != "" ] && echo -n "" > /tmp/pupdial.log
+
  if [ "`grep 'Barry Kauler' /tmp/pupdial.log`" = "" ];then
   echo "Welcome to PupDial, written by Barry Kauler for Puppy Linux.
 
@@ -243,17 +214,18 @@ fi
 
  BAUDM=`cat /etc/wvdial.conf | grep '^Baud = ' | cut -f 3 -d ' '`
 
+
  #v4.00 HairyWill fixes for embedded $ " characters...
- INIT1M=`cat /etc/wvdial.conf | grep '^Init1 =' | head -n 1 | cut -f 3-12 -d ' ' | grep -v 'AT+CPIN=' | sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'` #v413
+ INIT1M='Init1 = ATZ'  ##+++2012-09-06
+ #INIT1M=`cat /etc/wvdial.conf | grep '^Init1 =' | head -n 1 | cut -f 3-12 -d ' ' | grep -v 'AT+CPIN=' | sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'` #v413
  INIT2M=`cat /etc/wvdial.conf | grep '^Init2 = ' | cut -f 3-12 -d ' '| sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'`
  INIT3M=`cat /etc/wvdial.conf | grep '^Init3 = ' | cut -f 3-12 -d ' '| sed 's/"/\\\\"/g;s/\\$/\\\\$/g;'` #v413
-
  #v413 If first Init1 not null, move contents to Init2, and Init2 to Init3, to reserve Init1 for wireless PIN.
  #[ "$INIT1M" != "" ] && INIT3M="$INIT2M" && INIT2M="$INIT1M" && INIT1M="" #v413
 
+
  #v413 Get values for Init1, 4, 6-9.
  WPINM=`cat /etc/wvdial.conf | grep '^Init1 = ' | tail -n 1 | cut -f 3 -d '='`
-
  INIT4M=`cat /etc/wvdial.conf | grep '^#*Init4 =' | sed 's/"/\\"/g;;s/\$/\\$/g;s/$$//g;'`
  [ "$INIT4M" = "" ] && INIT4M="#Init4 = AT+COPS=0,0,\"MYOPS\","
 
@@ -267,7 +239,6 @@ fi
  DIALM=`cat /etc/wvdial.conf | grep '^Dial Command = ' | cut -f 4 -d ' '`
  [ "`echo "$DIALM" | grep -E 'X3|X1'`" != "" ] && STATEDTM="no"
  [ "`echo "$DIALM" | grep -E 'X2|X1'`" != "" ] && STATEBCM="no"
-
  CCM=`cat /etc/wvdial.conf | grep '^Carrier Check = ' | cut -f 4 -d ' '`
  [ "$CCM" = "no" ] && STATECCM="no"
  [ "`echo "$DIALM" | grep 'DP'`" = "" ] && DIALTYPE="DT" || DIALTYPE="DP" #v424
@@ -327,17 +298,17 @@ fi
 <hbox>
  <frame Line status>
   <vbox>
-   <checkbox tooltip-text=\"Writes the line 'Carrier Check =' in '/etc/wvdial.conf' '[Dialer Defaults] section - wvdial checks your modem during the connection process to ensure that it is actually online. If you have a weird modem that insists its carrier line is always down, you can disable the carrier check by setting this option to 'no'\" >
+   <checkbox>
     <label>Carrier check</label>
     <variable>CHECKCC</variable>
     <default>${STATECCM}</default>
    </checkbox>
-   <checkbox tooltip-text=\"In combination with Busy check decides first part of the Dial Command (AT,ATX1-3) ie ATX1DT\" >
+   <checkbox>
     <label>Dialtone check</label>
     <variable>CHECKDT</variable>
     <default>${STATEDTM}</default>
    </checkbox>
-   <checkbox tooltip-text=\"In combination with Dialtone check decides first part of the Dial Command (AT,ATX1-3) ie ATX1DT\" >
+   <checkbox>
     <label>Busy check</label>
     <variable>CHECKBC</variable>
     <default>${STATEBCM}</default>
@@ -346,27 +317,27 @@ fi
  </frame>
  <vbox>
   <hbox>
-   <text tooltip-text=\"generated by '/usr/sbin/modemtest' and '/usr/sbin/gen_modem_init_string'\"><label>Initialisation string 2:</label></text>
-   <entry tooltip-text=\"generated by '/usr/sbin/gen_modem_init_string'\">
+   <text><label>Initialisation string 2:</label></text>
+   <entry>
     <input>echo \"${INIT2M}\"</input>
     <variable>ENTRYINIT2M</variable>
    </entry>
   </hbox>
   <hbox>
-   <text tooltip-text=\" \"><label>Initialisation string 3:</label></text>
+   <text><label>Initialisation string 3:</label></text>
    <entry>
     <input>echo \"${INIT3M}\"</input>
     <variable>ENTRYINIT3M</variable>
    </entry>
   </hbox>
   <hbox>
-   <text tooltip-text=\" \"><label>Max speed:</label></text>
+   <text><label>Max speed:</label></text>
    <entry>
     <default>\"${BAUDM}\"</default>
     <variable>ENTRYBAUDM</variable>
    </entry>
-   <text tooltip-text=\" \"><label>SIM PIN:</label></text>
-   <entry  tooltip-text=\" \" invisible_char=\"x\" visibility=\"false\">
+   <text><label>SIM PIN:</label></text>
+   <entry invisible_char=\"x\" visibility=\"false\">
     <input>echo \"${WPINM}\"</input>
     <variable>ENTRYWPINM</variable>
    </entry>
@@ -374,12 +345,12 @@ fi
  </vbox>
  <frame Test>
   <vbox>
-   <button tooltip-text=\"starts '/usr/sbin/modemtest ${DEVM}'\">
+   <button>
     <label>${TESTMSG}</label>
     <visible>${STATECONa}</visible>
     <action>/usr/sbin/modemtest ${DEVM} &</action>
    </button>
-   <button tooltip-text=\"starts '/usr/sbin/modemprobe'\">
+   <button>
     <label>probe</label>
     <action>/usr/sbin/modemprobe</action>
     <action>cat /tmp/logwvdialprobe > /tmp/pupdial.log 2> /dev/null</action>
@@ -402,28 +373,28 @@ export MAINDIALOG="
    <frame Account 1>
     <vbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Phone number:</label></text>
+      <text><label>Phone number:</label></text>
       <entry>
        <default>\"${ACC1ISP}\"</default>
        <variable>ENTRYACC1ISP</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Username:</label></text>
+      <text><label>Username:</label></text>
       <entry>
        <default>\"${ACC1USER}\"</default>
        <variable>ENTRYACC1USER</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Password:</label></text>
+      <text><label>Password:</label></text>
       <entry invisible_char=\"x\" visibility=\"false\">
        <default>\"${ACC1PASS}\"</default>
        <variable>ENTRYACC1PASS</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Wireless APN:</label></text>
+      <text><label>Wireless APN:</label></text>
       <entry>
        <default>\"${ACC1APN}\"</default>
        <variable>ENTRYACC1APN</variable>
@@ -431,19 +402,19 @@ export MAINDIALOG="
      </hbox>
 
      <hbox>
-     <checkbox tooltip-text=\"When wvdial is in Stupid Mode, it does not attempt to interpret any prompts  from the terminal server. It starts pppd immediately after the modem connects\">
+     <checkbox>
       <label>Stupid mode</label>
       <variable>ynSTUPID_MODE1</variable>
       <default>${ynSTUPID_MODE1}</default>
      </checkbox>
-      <checkbox tooltip-text=\"Writes the 'Auto Reconnect =' line in 'wvdial.conf' :If enabled, wvdial will attempt to automatically reestablish a connection if you are randomly disconnected by the other side\">
+      <checkbox>
        <label>Auto Reconnect</label>
        <variable>ynAUTO_RECONNECT1</variable>
        <default>${ynAUTO_RECONNECT1}</default>
       </checkbox>
       </hbox>
 
-      <button tooltip-text=\" \">
+      <button>
        <label>Connect to Internet</label>
        <visible>${STATECONa}</visible>
        <action type=\"exit\">CONNECT1</action>
@@ -453,28 +424,28 @@ export MAINDIALOG="
    <frame Account 2>
     <vbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Phone number:</label></text>
+      <text><label>Phone number:</label></text>
       <entry>
        <default>\"${ACC2ISP}\"</default>
        <variable>ENTRYACC2ISP</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Username:</label></text>
+      <text><label>Username:</label></text>
       <entry>
        <default>\"${ACC2USER}\"</default>
        <variable>ENTRYACC2USER</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Password:</label></text>
+      <text><label>Password:</label></text>
       <entry invisible_char=\"x\" visibility=\"false\">
        <default>\"${ACC2PASS}\"</default>
        <variable>ENTRYACC2PASS</variable>
       </entry>
      </hbox>
      <hbox>
-      <text tooltip-text=\" \"><label>Wireless APN:</label></text>
+      <text><label>Wireless APN:</label></text>
       <entry>
        <default>\"${ACC2APN}\"</default>
        <variable>ENTRYACC2APN</variable>
@@ -482,19 +453,19 @@ export MAINDIALOG="
      </hbox>
 
      <hbox>
-      <checkbox tooltip-text=\" \">
+      <checkbox>
        <label>Stupid mode</label>
        <variable>ynSTUPID_MODE2</variable>
        <default>${ynSTUPID_MODE2}</default>
       </checkbox>
-      <checkbox tooltip-text=\" \">
+      <checkbox>
        <label>Auto Reconnect</label>
        <variable>ynAUTO_RECONNECT2</variable>
        <default>${ynAUTO_RECONNECT2}</default>
       </checkbox>
      </hbox>
 
-      <button tooltip-text=\" \">
+      <button>
        <label>Connect to Internet</label>
        <visible>${STATECONa}</visible>
        <action type=\"exit\">CONNECT2</action>
@@ -502,8 +473,8 @@ export MAINDIALOG="
     </vbox>
    </frame>
   </hbox>
-  <frame Connection status log >
-   <edit tooltip-text=\"showing '/tmp/pupdial.log'\" editable=\"false\">
+  <frame Connection status log>
+   <edit editable=\"false\">
     <variable>INFO</variable>
     <input file>/tmp/pupdial.log</input>
     <width>600</width>
@@ -512,16 +483,16 @@ export MAINDIALOG="
   </frame>
 
   <hbox>
-   <button tooltip-text=\"shows '/usr/share/doc/wvdial/wvdial.txt'\">
+   <button>
     <label>Help on WvDial executable</label>
     <action>Xdialog --wmclass \"pupdial\" --title \"WvDial documentation\" --no-cancel --fixed-font --textbox /usr/share/doc/wvdial/wvdial.txt 0 0 &</action>
    </button>
-   <button tooltip-text=\"shows '/usr/share/doc/wvdial/wvdial.conf.txt'\">
+   <button>
     <label>Help on WvDial config file</label>
     <action>Xdialog --wmclass \"pupdial\" --title \"WvDial documentation\" --no-cancel --fixed-font --textbox /usr/share/doc/wvdial/wvdial.conf.txt 0 0 &</action>
    </button>
    <text><label>\"          \"</label></text>
-   <button tooltip-text=\" \">
+   <button>
     <label>Disconnect from Internet</label>
     <visible>${STATECONb}</visible>
     <action>rm -f /etc/ppp/peers/wvdial</action>
@@ -530,7 +501,7 @@ export MAINDIALOG="
     <action>rm -f /tmp/pupdial.log</action>
     <action type=\"exit\">EXIT</action>
    </button>
-   <button tooltip-text=\" \">
+   <button>
     <label>Exit</label>
     <action type=\"exit\">EXIT</action>
    </button>
@@ -554,7 +525,7 @@ echo 'style "specialmono"
 class "GtkText*" style "specialmono"' > /tmp/gtkrc_mono
 export GTK2_RC_FILES=/tmp/gtkrc_mono:/root/.gtkrc-2.0
 
-kill $X1PID #v413
+kill $X1PID 2>$ERR #v413
 
 
 
@@ -636,11 +607,10 @@ DIALSTR="AT"
 [ "$CHECKDT" = "true" -a "$CHECKBC" = "false" ] && DIALSTR="ATX2"
 DIALSTR="${DIALSTR}${DIALTYPE}"
 
-old_create_actual_wvdial_conf(){
-echo '[Dialer Defaults]' > /etc/wvdial.conf.new
+echo '[Dialer Defaults]' > /etc/wvdial.conf
 echo -n "Modem = /dev/${DEVM}
 Baud = ${ENTRYBAUDM}
-Init1 =
+Init1 = ATZ
 Init2 = ${ENTRYINIT2M}
 Init3 = ${ENTRYINIT3M}
 Carrier Check = ${CHECKCC}
@@ -654,12 +624,6 @@ ${USEREXTRA1}
 [Dialer isp1apn]
 Init5 = AT+CGDCONT=${ACC1PRFL},\"IP\",\"${ENTRYACC1APN}\"
 
-[Dialer phone1]
-Phone =
-
-[Dialer pin1]
-Init1 = AT+CPIN=${ENTRYWPINM}
-
 [Dialer isp2]
 Phone = ${ENTRYACC2ISP}
 Username = ${ENTRYACC2USER}
@@ -668,10 +632,7 @@ ${USEREXTRA2}
 [Dialer isp2apn]
 Init5 = AT+CGDCONT=${ACC2PRFL},\"IP\",\"${ENTRYACC2APN}\"
 
-[Dialer phone2]
-Phone =
-
-[Dialer pin2]
+[Dialer pin]
 Init1 = AT+CPIN=${ENTRYWPINM}
 
 [Dialer wireless]
@@ -681,56 +642,7 @@ ${INIT4M}
 #To force the 3G quality of service level, uncomment the Init6/Init7 line pair and set value two places each, for 384k/144k/64k, omitting the \"k\" (e.g., =1,4,64,384,64,384).
 #To list all the APNs stored in the modem, uncomment the Init8 line; check the Connection status log for lines beginning with +CGDCONT:.
 #To list the operator identifier stored in the modem, uncomment the Init9 line; check the Connection status log for a line beginning with +COPS:.
-${INIT69M}" >> /etc/wvdial.conf.new
-}
-
-sedp0="Modem = /dev/${DEVM}"
-sedp1="Baud = ${ENTRYBAUDM}"
-sedp2="Init2 = $ENTRYINIT2M" #${ENTRYINIT2M} seems to use & to substitute
-sedp2=`echo "$sedp2" | sed 's|\&|\\\&|g'` #->\& heute in der sakura bash-3.00
-#sedp2=`echo "$sedp2" | sed 's|\&|\\\\&|g'` #->\\&heute in der sakura bash-3.00
-
-sedp3="Init3 = ${ENTRYINIT3M}"
-sedp3=`echo "$sedp3" | sed 's/"/\\\"/g'`
-sedp4="Carrier Check = ${CHECKCC}"
-sedp5="Dial Command = ${DIALSTR}"
-
-echo "sedp2='$sedp2'"
-echo "sedp3='$sedp3'"
-sed -i -e 's~^Modem = .*~'"$sedp0"'~' -e 's~^Baud = .*~'"$sedp1"'~' -e 's~^Init2 = .*~'"$sedp2"'~' -e 's~^Init3 = .*~'"$sedp3"'~' -e 's~^Carrier Check = .*~'"$sedp4"'~' -e 's~^Dial Command = .*~'"$sedp5"'~'  /etc/wvdial.conf
-
-sedp6="Phone = ${ENTRYACC1ISP}"
-sedp7="Username = ${ENTRYACC1USER}"
-sedp8="Password = ${ENTRYACC1PASS}"
-sedp9="${USEREXTRA1}"
-
-sedp99="Stupid Mode = ${STUPID_MODE1}"
-
-sed -i -e "/\[Dialer isp1\]/,/\[Dialer isp1apn\]/ s~^Phone = .*~$sedp6~;s~^Username = .*~$sedp7~;s~^Password = .*~$sedp8~;s~^Stupid Mode = .*~$sedp99~" /etc/wvdial.conf
-
-sedp10="Phone = ${ENTRYACC2ISP}"
-sedp11="Username = ${ENTRYACC2USER}"
-sedp12="Password = ${ENTRYACC2PASS}"
-sedp13="${USEREXTRA2}"
-
-sedp139="Stupid Mode = ${STUPID_MODE2}"
-
-sed -i -e "/\[Dialer isp2\]/,/\[Dialer isp2apn\]/ s~^Phone = .*~$sedp10~;s~^Username = .*~$sedp11~;s~^Password = .*~$sedp12~;s~^Stupid Mode = .*~$sedp139~" /etc/wvdial.conf
-
-sedp14="Init5 = AT+CGDCONT=${ACC1PRFL},\"IP\",\"${ENTRYACC1APN}\""
-sedp15="Init5 = AT+CGDCONT=${ACC2PRFL},\"IP\",\"${ENTRYACC2APN}\""
-echo "sedp14='$sedp14'"
-echo "sedp15='$sedp15'"
-
-sed -i -e '/\[Dialer isp1apn\]/,/\[Dialer isp2\]/ s~^Init5 = AT+CGDCONT=.*~'"$sedp14"'~' /etc/wvdial.conf
-sed -i -e '/\[Dialer isp2apn\]/,$ s~^Init5 = AT+CGDCONT=.*~'"$sedp15"'~' /etc/wvdial.conf
-
-sedp16="Init1 = AT+CPIN=${ENTRYWPINM}"
-
-sedp16="s/^Init1 = AT+CPIN=.*/Init1 = AT+CPIN=${ENTRYWPINM}/"
-echo "sedp16='$sedp16'"
-
-sed -i -e "$sedp16" /etc/wvdial.conf
+${INIT69M}" >> /etc/wvdial.conf
 
 [ "$EXIT" = "EXIT" ] && exit
 
@@ -776,52 +688,7 @@ if [ "$EXIT" = "CONNECT1" -o "$EXIT" = "CONNECT2" ];then
  cp -f /etc/ppp/wvdial /etc/ppp/peers/
  [ "${WVAPN}" != "" ] && [ -f /etc/wvdial_options/APN-${APNSTRING} ] && echo "`cat /etc/wvdial_options/APN-${APNSTRING}`" >> /etc/ppp/peers/wvdial #431
  [ -f /etc/ppp/wvdial-pipe ] && cp -f /etc/ppp/wvdial-pipe /etc/ppp/peers/ #v3.98
-firewallfunc(){
-c=0
-until [ -e /sys/class/net/ppp0 ]
-do
-sleep 1
-c=$((c+1))
-[ "$c" = '10' ] && break
-done
-if [ -L /sys/class/net/ppp0 ]
-then
-c=0
-until [ "`route|grep ppp0`" ]
-do
-sleep 1
-c=$((c+1))
-[ "$c" = '10' ] && break
-done
-[ ! "`route|grep ppp0`" ] && return 1
-runfirewallfunc(){
-if [ -x /etc/rc.d/rc.firewall ]
-then
-/etc/rc.d/rc.firewall >/tmp/firewall.out
-if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
-then
-xmessage -buttons "OK:100,Again,101" "`cat /tmp/firewall.out`"
-MRV="$?"
-if [ "$MRV" == '101' ]; then
-runfirewallfunc;else return 0
-fi
-fi
-else
-xterm -e firewall_install.sh
-sleep 1s
-/etc/rc.d/rc.firewall >/tmp/firewall.out
-if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
-then
-xmessage "`cat /tmp/firewall.out`";return 0
-fi
-fi
-}
-runfirewallfunc
-fi
-}
-firewallfunc &
- #wvdial ${WVISP} ${WVPIN} ${WVAPN} ${WVWRLS} &> /tmp/pupdial.log & #v413
- wvdial ${WVPIN} ${WVISP} ${WVAPN} ${WVWRLS} &> /tmp/pupdial.log & #v413
+ wvdial ${WVISP} ${WVPIN} ${WVAPN} ${WVWRLS} &> /tmp/pupdial.log & #v413
  [ ! -f /tmp/pupdial.log ] && sleep 1
  [ ! -f /tmp/pupdial.log ] && sleep 1
  Xdialog --center --wmclass "pupdial" --backtitle "NOTICE: If the log shows a failure to connect, please click left button" --title "PupDial: WvDial connection log" --ok-label "Disconnect, or stop trying" --cancel-label "Close window but stay online" --fixed-font --tailbox /tmp/pupdial.log 20 80
@@ -832,8 +699,8 @@ firewallfunc &
 #v3.98 put this in, now remove...
 #  mv -f /etc/ppp/optionsHIDE /etc/ppp/options
 
-  killall wvdial
-  killall pppd
+  killall wvdial 2>$ERR
+  killall pppd 2>$ERR
   #rm -f /tmp/pupdial.log
   echo '' >> /tmp/pupdial.log
   echo '------------------------------------------------------' >> /tmp/pupdial.log
