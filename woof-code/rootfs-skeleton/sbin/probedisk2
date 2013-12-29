@@ -1,1 +1,240 @@
-probedisk
+#!/bin/busybox-1.18.5-ST-98all-1379KB ash
+#/root/my-applications/bin/kash
+#/bin/bash
+#bash-3.00.16-orig bash_3.2
+#/bin/ash
+#busybox-1.20.0-ST
+#busybox-1.18.5-ST-98all-1379KB    busybox-1.21.1_upx9
+#busybox-1.19.4-ST-98all-1388KB    busybox_1.18.3_STATIC_upx9_648KB
+#
+#LGPL 2007 Puppy Linux www.puppyos.com
+#based on probedisk3 written by Dougal.
+#small mods by BK 16 june 2007
+# 21 Jun 2007 BK: force /proc update for usb drives.
+#v3.93 10 dec 2007 BK: updated for 2.6.24 kernel, no /dev/hd*.
+#v3.97 31jan2008 BK: refinement for detecting kernels with /dev/hd* drives.
+#v4.01 10may2008 BK: bugfix for detecting if usb drive.
+#v4.01 10may2008 BK: new 2nd-param categories. named 'probedisk2'.
+#v4.01 21may2008 BK: zip and ls120 now categorized as 'floppy'.
+#v4.02 9jun08 BK: correct detection of usb floppy.
+#v403 fixed excessive spaces in description field.
+#v406 support for old kernel, /proc/ide, /dev/hd*.
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1' ##added partitions
+Version='1.2' ##added function_size, moved code
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+#[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+#[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+while [ $# -gt 0 ]; do
+case $1 in
+*help|-H) usage 0;;
+*version|-V) echo "$0 -version $Version";exit 0;;
+*) echo "Notice : Unrecognized option '$1'." >&2;;
+esac
+shift
+done
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+###KRG Mon Jul  8 22:35:19 GMT+1 2013
+
+function_size(){
+  if [ -f /sys/block/$ONEDRV/size ] ; then
+  read blocks_512 </sys/block/$ONEDRV/size
+  blocks_1024=$(($blocks_512/2))
+  blocks_1000=$(($blocks_512 * 512 / 1000 ))
+   if [ "$blocks_1024" -gt $((1024*1024)) ] ; then
+   #GB
+   SIZE_I=$(( $blocks_1024 / 1024 / 1024 ))
+   SIZE_K=$(( $blocks_1000 / 1000 / 1000 ))
+   SIZES="${SIZE_K}/${SIZE_I} G"
+   elif [ "$blocks_1024" -gt 1024 ] ; then
+   SIZE_I=$(( $blocks_1024 / 1024 ))
+   SIZE_K=$(( $blocks_1000 / 1000 ))
+   SIZES="${SIZE_K}/${SIZE_I} M"
+   else
+   SIZE_I=$blocks_1024
+   SIZE_K=$blocks_1000
+   SIZES="${SIZE_K}/${SIZE_I} K"
+   fi
+  else
+  SIZES='not available'
+  fi
+}
+
+function_partitions(){
+  PARTITIONS=`ls -1 /sys/class/block/$ONEDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
+}
+
+###KRGMon Jul  8 22:35:19 GMT+1 2013
+
+. /etc/rc.d/PUPSTATE
+#ATADRIVES is all ide/sata drives (not usb) (which all have /dev/sd notation).
+#if old kernel supporting /dev/hd* then using SATADRIVES variable...
+INTERNAL_SD_DRIVES="$SATADRIVES"
+[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
+echo "DBG: intSDdrv=$INTERNAL_SD_DRIVES , usb=$USB_SATAD , ATA=$SATADRIVES , SATA=$ATADRIVES" >&2
+if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
+ for ONEUSBDRV in `cat /root/.usb-drive-log-probedisk | tr '\n' ' '`
+ do
+  #disktype /dev/$ONEUSBDRV > /dev/null 2>&1
+  dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v4.01 faster.
+ done
+fi
+
+#mounted drives/partitions...
+MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd' | tr '\n' ' '`
+
+#crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
+#/proc/ide. pathetic kernel! oh well...
+if [ ! -e /proc/ide ];then #v3.97
+ ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '`
+else
+ ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`
+fi
+#note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
+
+for ONEDRV in $ALLDRVS
+do
+  case $ONEDRV in
+   hd*) # ide device, look in /proc/ide for info
+     MEDIA=`cat /proc/ide/$ONEDRV/media`
+     [ "$MEDIA" = "disk" ] && MEDIA="drive"
+     [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
+     INFO=`cat /proc/ide/$ONEDRV/model`
+   ;;
+   sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
+     MEDIA="drive"
+     VENDOR=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`
+     MODEL=`cat /sys/block/$ONEDRV/device/model | tr -s ' '`
+     INFO="$VENDOR$MODEL"
+     DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
+
+     #log if usb drive (not a sata drive)... v4.01...
+     #if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
+      if [ "`find /sys -name $ONEDRV | grep 'usb' | grep 'block'`" != "" ] ; then
+      MEDIA="usbdrv" #v4.01
+      echo "$ONEDRV" >> /root/.usb-drive-log-probedisk
+      sort -u /root/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
+      mv -f /tmp/usb-drive-log-probedisk-tmp /root/.usb-drive-log-probedisk
+      #find out if a usb floppy drive...
+
+      if [ -e /sys/block/${ONEDRV}/size ];then
+       [ "`cat /sys/block/${ONEDRV}/size`" = "2880" ] && MEDIA="floppy"
+      fi
+
+      if [ -e /sys/block/${ONEDRV}/device/model ];then
+       [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${ONEDRV}/device/model`" != "" ] && MEDIA="floppy"
+      fi
+
+     else
+      #find out if it is a removable internal drive (zip, ls120, etc)...
+      if [ -e /sys/block/${ONEDRV}/removable ];then
+       [ "`cat /sys/block/${ONEDRV}/removable`" = "1" ] && MEDIA="floppy"
+      fi
+     fi
+
+   ;;
+   scd*|sr*) #  scsi cdroms
+     MEDIA="optical"
+     VENDOR=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`
+     MODEL=`cat /sys/block/$ONEDRV/device/model | tr -s ' '`
+     INFO="$VENDOR$MODEL"
+   ;;
+   mmc*) #/dev/mmcblk0
+     MEDIA="card"
+     INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
+   ;;
+    fd*)
+     MEDIA='floppy'
+     INFO='Generic 1440KB'
+   ;;
+   *)
+     continue
+   ;;
+  esac
+
+  function_size(){
+  if [ -f /sys/block/$ONEDRV/size ] ; then
+  read blocks_512 </sys/block/$ONEDRV/size
+  blocks_1024=$(($blocks_512/2))
+  blocks_1000=$(($blocks_512 * 512 / 1000 ))
+   if [ "$blocks_1024" -gt $((1024*1024)) ] ; then
+   #GB
+   SIZE_I=$(( $blocks_1024 / 1024 / 1024 ))
+   SIZE_K=$(( $blocks_1000 / 1000 / 1000 ))
+   SIZES="${SIZE_K}/${SIZE_I} G"
+   elif [ "$blocks_1024" -gt 1024 ] ; then
+   SIZE_I=$(( $blocks_1024 / 1024 ))
+   SIZE_K=$(( $blocks_1000 / 1000 ))
+   SIZES="${SIZE_K}/${SIZE_I} M"
+   else
+   SIZE_I=$blocks_1024
+   SIZE_K=$blocks_1000
+   SIZES="${SIZE_K}/${SIZE_I} K"
+   fi
+  else
+  SIZES='not available'
+  fi
+  }
+  function_partitions(){
+  PARTITIONS=`LC_ALL=C ls -1 /sys/class/block/$ONEDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
+  }
+
+  INFO=`echo $INFO | sed '/^$/d'`
+  [[ -z "$INFO" ]] && INFO="SorryDevWontTell"
+
+  #echo -e "/dev/$ONEDRV|$MEDIA|$INFO|$SIZES|$PARTITIONS"
+   echo "/dev/$ONEDRV|$MEDIA|$INFO|$SIZES|$PARTITIONS"
+
+done
+
+#find out if a mounted device has been unplugged...
+#for hotplug drives, remove it and it will disappear from /sys/block, however
+#still shows up in 'mount' if hasn't been unmounted.
+for ONEMNTD in $MNTDDEVS
+do
+ case $ONEMNTD in
+  hd*|sd*|sr*)
+   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-3` "
+   ;;
+  scd*)
+   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-4` "
+   ;;
+  mmc*)
+   MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-7` "
+   ;;
+ esac
+ #prints to system log and to stderr...
+ [ "`echo "$ALLDRVS" | grep "$MNTDDRVs"`" = "" ] && logger -s "PROBEDISK ERROR: MOUNTED UNPLUGGED $ONEMNTD"
+done
+
+###END###
+exit 0
