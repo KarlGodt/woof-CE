@@ -18,48 +18,62 @@
 #
 #BK hacked for puppy linux 4.02, may 2008.
 #v425 fix for busybox depmod.
-#101015 BK various fixes. depmod now full version. config is now /etc/modprobe.d/alsa.conf
-#101015, 101017 using Xdialog and gtkdialog-splash instead of dialog and echo.
-#110102 shinobar: precaution, check if need to run depmod.
-#110405 fix 'free' applet output format different in later versions of busybox.
-#110506 /etc/init.d/10alsa name fix, but this fix might break alsaconf as option 'stop' then 'restart' might not be handled properly in 10alsa.
-#110509 rerwin: take version from alsacctl.
-#110509 rerwin: remove sound card entry in /etc/modprobe.d/alsa.conf before writing it.
-#110519 warning msg that reboot may be required.
-#120201 rodin.s: update internationalized.
-#120329 Xdialog bug --yesno supposed to "yes" "No" buttons, but they are "OK" "Cancel".
 
-#101015 check for low ram, warn full depmod may not work... 110405...
-#FREEMEM=`free | tr -s ' ' | grep -o 'Total: [0-9]*' | cut -f 2 -d ' '`
-memTOTALK=`free | grep -o 'Mem: .*' | tr -s ' ' | cut -f 2 -d ' '`
-swapTOTALK=`free | grep -o 'Swap: .*' | tr -s ' ' | cut -f 2 -d ' '`
-TOTALMEM=`expr $memTOTALK + $swapTOTALK`
-#rodin.s: removed later in script for i18n
-#if [ $TOTALMEM -lt 99000 ];then
-# yaf-splash -placement center -bg pink -close box -text "This computer has very little RAM, perhaps not enough to run the 'depmod' utility (which the ALSA Wizard needs to run). Shutdown first, to create a save-file for the session, and you may then have enough working memory at the next boot. Click button to exit Wizard..."
-# exit
-#fi
 
-cfgfile="/etc/modprobe.d/alsa.conf" #101014
-touch /etc/modprobe.d/alsa.conf
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+########################################################################
+#
+# Changes by Karl Reimer Godt :
+# 01.0 : Added trap, Version, puppy_usage macros .
+# 02.0 : Changed yaf-splash back to xmessage to give chance to exit
+#        before running depmod-FULL .
+# 03.0 : Changed /tmp to $TMP_DIR=/tmp/alsaconf
+# 03.1 : Make $TMP_DIR/alsaconf.log file by default .
+#        Note : /var/tmp/alsaconf.cards !
+# 04.0 : Added some more debugging output .
+# 05.0 : Changed some >/dev/null to >$OUT >$ERR for debug .
+# 06.0 : Added kernel 3.x support in check for uname -r .
+# 07.0 : Load snd-card-0 already here, to not depend on /etc/init.d/alsa .
+# 07.1 : Commented /etc/init.d/alsa restart and unload .
+#
+########################################################################
 
-MYLANG=$LANG
-export LANG=C #to keep Xdialog happy. 120329 this should be removed, then remove all the LANG=$MYLANG prefixes.
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT;SILENT=-s;QUIET=-q;
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr;VERB=-v;QUIET='';SILENT='';L_VERB=--verbose;A_VERB=-verbose; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1-Macpup_Foxy_3-KRG'
+
+puppy_usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-PV|--puppy-version : showing version information
+-PH|--puppy-help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wEi "puppy[-_]help|PH"`" ] && puppy_usage 0
+[ "`echo "$1" | grep -wEi "puppy[-_]version|PV"`" ] && { echo "$0 -version $Version";exit 0; }
+
+TMP_DIR=/tmp/alsaconf
+mkdir -p "$TMP_DIR"
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 export TEXTDOMAIN=alsaconf
-export OUTPUT_CHARSET=UTF-8
-#export XDIALOG_HIGH_DIALOG_COMPAT=1 #101015 # rodin.s: comment out for better layout in Russian
-#DIALOG=dialog
-DIALOG='Xdialog' #101015
-
-Yes_lbl="$(LANG=$MYLANG gettext 'Yes')"
-No_lbl="$(LANG=$MYLANG gettext 'No')"
 
 prefix=/usr
 exec_prefix=${prefix}
 bindir=${exec_prefix}/bin
 sbindir=${exec_prefix}/sbin
-#version=1.0.23 #
-version="`alsactl --version | cut -f 3 -d ' '`" #110509 rerwin
+version=1.0.16
 USE_NLS=yes
 
 # Useful for debugging
@@ -67,9 +81,9 @@ PROCFS="/proc"
 SYSFS="/sys"
 
 # i18n stuff
-if test "$USE_NLS" = "yes" && which gettext > /dev/null; then
+if test "$USE_NLS" = "yes" && which gettext > $OUT; then
   xecho() {
-    LANG=$MYLANG gettext -s "$*"
+    gettext -s "$*"
   }
 else
   xecho() {
@@ -80,18 +94,13 @@ else
   }
 fi
 xmsg() {
-  msg=$(LANG=$MYLANG  gettext "$1")
+  msg=$(gettext "$1")
   shift
-  printf "$msg" $*
+  printf "$msg" "$@"
 }
-# moved it here for gettext to work - rodin.s
-if [ $TOTALMEM -lt 99000 ];then
- yaf-splash -placement center -bg pink -close box -text "$(xmsg 'This computer has very little RAM, perhaps not enough to run the "depmod" utility (which the ALSA Wizard needs to run). Shutdown first, to create a save-file for the session, and you may then have enough working memory at the next boot. Click button to exit Wizard...')"
- exit
-fi
 
 # Check for GNU/Linux distributions BK...
-distribution="unknown"
+  distribution="unknown"
 
 for prog in lspci lsmod; do
 	for path in /sbin /usr/sbin /bin /usr/bin;do
@@ -132,7 +141,7 @@ alsa_uid=0
 alsa_gid=0
 alsa_mode=0666
 legacy_probe_card=""
-LOGFILE=""
+LOGFILE="$TMP_DIR/alsaconf.log" ##KRG changed from "" to NAME
 TESTSOUND="/usr/share/audio/2barks.au" #BK
 try_all_combination=0
 resources="false"
@@ -173,36 +182,63 @@ while true ; do
     esac
 done
 
+#v425 BK
+#this script requires the full depmod...
+if [ "`which depmod-FULL`" != "" ];then
+ #yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Running the 'depmod-FULL' utility, please wait...
+xmessage -print -buttons "YES OK:250,NO:251" -bg orange "
+WARNING:
+The 'depmod-FULL' utility has to be run for ALSA Config to work.
+Puppy normally runs the Busybox 'depmod' which uses less resources.
+The problem is that 'depmod-FULL' hangs on some systems with very
+low RAM (64MB or less) -- such a situation is relieved after you
+have created a 'pupave' and a swap file/partition."  #&
+# X1PID=$!
+XMSG_RV=$?; echo "XMSG_RV='$XMSG_RV'"
+  if [ "$XMSG_RV" != 250 ] ; then
+   exit $?
+  fi
+ depmod-FULL
+#echo "X1PID='$X1PID'"
+#kill $X1PID
+fi
+echo "depmod-FULL finished"
+cfgfile="/etc/modprobe.conf" #BK
+
 #
 # probe legacy ISA cards
 #
 
 check_dma_avail () {
+	echo "     check_dma_avail" >&2
     list=""
     if [ -d $SYSFS/bus/pnp/devices ]; then
       for dma in $*; do
+       echo " dma=$dma" >&2
         ok="true"
         for i in $SYSFS/bus/pnp/devices/??:* ; do
-          if grep -q "state = active" $i/resources ; then
-            if grep -q '^dma '$dma'$' $i/resources; then
+           #echo -n " $i" >&2
+          if grep $QUIET "state = active" $i/resources >&2; then
+            if grep $QUIET '^dma '$dma'$' $i/resources >&2; then
               ok="false"
             fi
           fi
         done
         if [ -r $PROCFS/dma ]; then
-	  if grep -q '^ *'$dma': ' $PROCFS/dma ; then
+         if grep $QUIET '^ *'$dma': ' $PROCFS/dma >&2; then
             ok="false"
-          fi
-	fi
+         fi
+        fi
         if [ "$ok" = "true" ]; then
           list="$list $dma"
         fi
       done
     else
       if [ -r $PROCFS/dma ]; then
-  	for dma in $*; do
-	    grep -q '^ *'$dma': ' $PROCFS/dma || list="$list $dma"
-	done
+       for dma in $*; do
+        echo -n " dma=$dma" >&2
+        grep $QUIET '^ *'$dma': ' $PROCFS/dma >&2 || list="$list $dma"
+       done
       fi
     fi
     if [ ! -z "$list" ]; then
@@ -211,31 +247,35 @@ check_dma_avail () {
 }
 
 check_irq_avail () {
+	echo " check_irq_avail" >&2
     list=""
     if [ -d $SYSFS/bus/pnp/devices ]; then
       for irq in $*; do
+       echo "  irq=$irq" >&2
         ok="true"
         for i in $SYSFS/bus/pnp/devices/??:* ; do
-          if grep -q "state = active" $i/resources ; then
-            if grep -q '^irq '$irq'$' $i/resources; then
+           #echo -n " $i" >&2
+          if grep $QUIET "state = active" $i/resources >&2; then
+            if grep $QUIET '^irq '$irq'$' $i/resources >&2; then
               ok="false"
             fi
           fi
         done
         if [ -r $PROCFS/interrupts ]; then
-	  if grep -q '^ *'$irq': ' $PROCFS/interrupts ; then
+         if grep $QUIET '^ *'$irq': ' $PROCFS/interrupts >&2; then
             ok="false"
-          fi
-	fi
+         fi
+        fi
         if [ "$ok" = "true" ]; then
           list="$list $irq"
         fi
       done
     else
       if [ -r $PROCFS/interrupts ]; then
-	for irq in $*; do
-	    grep -q '^ *'$irq': ' $PROCFS/interrupts || list="$list $irq"
-	done
+       for irq in $*; do
+        echo -n " irq=$irq" >&2
+        grep $QUIET '^ *'$irq': ' $PROCFS/interrupts >&2 || list="$list $irq"
+       done
       fi
     fi
     if [ ! -z "$list" ]; then
@@ -250,10 +290,10 @@ check_irq_avail () {
 if [ "$resources" = "true" ]; then
   if [ -d $SYSFS/bus/pnp/devices ]; then
     for i in $SYSFS/bus/pnp/devices/??:* ; do
-      if [ "$resources" = "true" ]; then
+      #if [ "$resources" = "true" ]; then
         echo ">>>>> PnP file: $i/resources"
         cat $i/resources
-      fi
+      #fi
     done
   fi
   if [ -r $PROCFS/dma ]; then
@@ -269,12 +309,11 @@ if [ "$resources" = "true" ]; then
   echo -n "Valid IRQ channels: "
   check_irq_avail 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
   exit 0
-fi
+fi #resources=true
 
 # Check for root privileges
 if [ `id -u` -ne 0 ]; then
   xecho "You must be root to use this script."
-  yaf-splash -placement center -bg pink -close box -text "$(xmsg 'You must be root to use this script.')"
   exit 1
 fi
 
@@ -282,14 +321,14 @@ fi
 # check the snd_ prefix for ALSA module options
 # snd_ prefix is obsoleted since 0.9.0rc4.
 #
-if /sbin/modinfo -p snd | grep -q snd_ ; then
+if /sbin/modinfo -p snd | grep $QUIET snd_ ; then
   mpfx="snd_"
 else
   mpfx=""
 fi
 
 alsa_device_opts=""
-if /sbin/modinfo -p snd | grep -q uid ; then
+if /sbin/modinfo -p snd | grep $QUIET uid ; then
   if [ x"$alsa_uid" != x0 ]; then
     alsa_device_opts="$alsa_device_opts ${mpfx}device_uid=$alsa_uid"
   fi
@@ -297,36 +336,143 @@ if /sbin/modinfo -p snd | grep -q uid ; then
     alsa_device_opts="$alsa_device_opts ${mpfx}device_gid=$alsa_gid"
   fi
 fi
-if /sbin/modinfo -p snd | grep -q device_mode ; then
+if /sbin/modinfo -p snd | grep $QUIET device_mode ; then
   if [ x"$alsa_mode" != x0 ]; then
     alsa_device_opts="$alsa_device_opts ${mpfx}device_mode=$alsa_mode"
   fi
 fi
 
+case `uname -r` in
+2.6.*|3.*)
+  kernel="new"
+   echo 'Using kernel newer than 2.5.x'
+  ;;
+*)
+  kernel="old"
+   echo 'Using kernel older than 2.6.x'
+  ;;
+esac
+
+# cfgfile = base config file to remove/update the sound setting
+# cfgout = new config file to write the sound setting (if different from $cfgfile)
+if [ -n "$cfgfile" ]; then
+  if [ ! -r "$cfgfile" ]; then
+    xecho "ERROR: The config file doesn't exist: "
+    echo $cfgfile
+    exit 1
+  fi
+else
+if [ "$distribution" = "gentoo" ]; then
+  cfgfile="/etc/modules.d/alsa"
+elif [ "$kernel" = "new" ]; then
+  if [ -d /etc/modprobe.d ]; then
+    cfgout="/etc/modprobe.d/sound"
+  fi
+  cfgfile="/etc/modprobe.conf"
+elif [ "$distribution" = "debian" ]; then
+  cfgfile="/etc/modutils/sound"
+elif [ -e /etc/modules.conf ]; then
+  cfgfile="/etc/modules.conf"
+elif [ -e /etc/conf.modules ]; then
+  cfgfile="/etc/conf.modules"
+else
+  cfgfile="/etc/modules.conf"
+  touch /etc/modules.conf
+fi
+fi
+
+# Check for dialog, whiptail, gdialog, awk, ... ?
+if which dialog > $OUT; then
+    DIALOG=dialog
+else
+  if which whiptail > $OUT; then
+    whiptail_wrapper() {
+      X1="$1"
+      X2="$2"
+      if [ $1 = --yesno ]; then
+        X3=`expr $3 + 2`
+      else
+        X3=$3
+      fi
+      shift 3
+      whiptail "$X1" "$X2" $X3 "$@"
+    }
+    DIALOG=whiptail_wrapper
+  else
+    xecho "Error, dialog or whiptail not found."
+    exit 1
+  fi
+fi
+if which awk > $OUT; then :
+else
+  xecho "Error, awk not found. Can't continue."
+  exit 1
+fi
+
+#
+# remove entries by yast2 sound configurator
+#
+remove_y2_block() {
+    awk '
+    /^alias sound-slot-[0-9]/ { next }
+    /^alias char-major-116 / { next }
+    /^alias char-major-14 / { next }
+    /^alias snd-card-[0-9] / { next }
+    /^options snd / { next }
+    /^options snd-/ { next }
+    /^options off / { next }
+    /^alias sound-service-[0-9]/ { next }
+    /^# YaST2: sound / { next }
+   { print }'
+}
+
+#
+# remove entries by sndconfig sound configurator
+#
+# found strings to search for in WriteConfModules,
+# from sndconfig 0.68-4 (rawhide version)
+
+remove_sndconfig_block() {
+    awk '
+    /^alias sound-slot-0/ { modulename = $3 ; next }
+    /^alias sound-slot-[0-9]/ { next }
+    /^post-install sound-slot-[0-9] / { next }
+    /^pre-remove sound-slot-[0-9] / { next }
+    /^options sound / { next }
+    /^alias synth0 opl3/ { next }
+    /^options opl3 / { next }
+    /^alias midi / { mididev = $3 ; next }
+    /^options / { if ($2 == mididev) next }
+    /^pre-install / { if ($2 == mididev) next }
+    /^alias synth0 / { synth = $3 ; next }
+    /^post-install / { if ($2 == synth) next }
+    /^options sb / { next }
+    /^post-install .+ \/bin\/modprobe "aci"/ { if ($2 == modulename) next }
+    /^options adlib_card / { next }
+    /^options .+ isapnp=1/ { if ($2 == modulename) next }
+    /^options i810_audio / { next }
+    /^options / {if ($2 == modulename) next }
+   { print }'
+}
+
 #
 # remove the previous configuration by alsaconf
 #
-#remove_ac_block() {
-#    awk '/^'"$ACB"'$/,/^'"$ACE"'$/ { next } { print }'
-#}
 remove_ac_block() {
-    awk '/^'"$ACB"'$/,/^'"$ACE"'$/ { next }
-    /^'"alias snd-card-0"'/ { next }
-    /^'"alias sound-slot-0"'/ { next }
-    { print }'
-} #110509 rerwin: remove sound card entry in /etc/modprobe.d/alsa.conf before writing it.
+    awk '/^'"$ACB"'$/,/^'"$ACE"'$/ { next } { print }'
+}
 
 #
 # set default mixer volumes
-#101015 BK had to add ,0 after Front...
+#
 set_mixers() {
-    amixer -s -q <<EOF
+    amixer -s $QUIET <<EOF
 set Master 75% unmute
 set Master -12dB
 set 'Master Mono' 75% unmute
 set 'Master Mono' -12dB
-set Front,0 75% unmute
-set Front,0 -12dB
+set Front 75% unmute
+set Front -12dB
 set PCM 90% unmute
 set PCM 0dB
 mixer Synth 90% unmute
@@ -368,41 +514,39 @@ intro() {
                    ALSA  WIZARD
                    version %s
 
-            This Wizard is a configurator for
+            This script is a configurator for
     Advanced Linux Sound Architecture (ALSA) driver.
        (with some modifications for Puppy Linux)
 
-  If any are running, you should close all sound
-  apps now (like Mplayer, mhWaveEdit, etc.).
+  If ALSA is already running, you should close all sound
+  apps now (like Gxine, mhWaveEdit, etc.).
   " $version)
-  echo "Getting started..." #101017
-  $DIALOG --title "ALSA Sound Wizard" --cr-wrap --msgbox "$msg" 20 63 || acex 0
+  $DIALOG --msgbox "$msg" 20 63 || acex 0
 }
 
 # FAREWELL BK...
 farewell() {
-  local msg=$(xmsg "
+  local msg=$(gettext "
 
      OK, sound driver is configured.
 
                   ALSA  WIZARD
           will prepare the card for playing now.
 
-Technical: \"/etc/init.d/10alsa start\" will be used to
+Technical: \"/etc/init.d/alsa start\" will be used to
            initialise ALSA, amixer used to raise volume.
 
      You can change the volume later via a mixer
-     program such as Retrovol (Multimedia menu), or
+     program such as sGmixer (Multimedia menu), or
      click on speaker icon in tray for volume slider.
   ")
-  echo "Sound driver configured." #101017
-  $DIALOG --title "ALSA Sound Wizard" --cr-wrap --msgbox "$msg" 20 60 || acex 0
+  $DIALOG --msgbox "$msg" 17 60 || acex 0
 }
 
 # Exit function
 acex() {
-  cleanup
-  clear
+  #cleanup
+  #clear
   exit $1
 }
 
@@ -412,40 +556,40 @@ acex() {
     #BK...
     #rcalsasound="/etc/rc.d/rc.alsa"
     #w468...
-    rcalsasound="/etc/init.d/10alsa" #110506
-    
+    rcalsasound="/etc/init.d/alsa"
+
 # MAIN
 if [ -d $PROCFS/asound ]; then
-  $rcalsasound stop >/dev/null 2>&1
-  $rcalsasound unload >/dev/null 2>&1
-  /sbin/rmmod dmasound dmasound_awacs 2>/dev/null
+  $rcalsasound stop >&2
+  #$rcalsasound unload >$OUT 2>&1
+  /sbin/rmmod dmasound dmasound_awacs 2>$ERR
 fi
 
 
 cleanup () {
-    killall -9 aplay arecord >/dev/null 2>&1
-    /sbin/modprobe -r isapnp >/dev/null 2>&1
-    /sbin/modprobe -r isa-pnp >/dev/null 2>&1
-    rm -f "$TMP" "$addcfg" "$FOUND" "$DUMP"
+    killall -9 aplay arecord >$OUT 2>&1
+    /sbin/modprobe $VERB -r isapnp >$OUT 2>&1
+    /sbin/modprobe $VERB -r isa-pnp >$OUT 2>&1
+    #rm -f "$TMP" "$addcfg" "$FOUND" "$DUMP"
 }
-trap cleanup 0 
+trap cleanup 0
 
-TMP=`mktemp -q /tmp/alsaconf.XXXXXX`
+TMP=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
 	xecho "Can't create temp file, exiting..."
         exit 1
 fi
-addcfg=`mktemp -q /tmp/alsaconf.XXXXXX`
+addcfg=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
 	xecho "Can't create temp file, exiting..."
         exit 1
 fi
-FOUND=`mktemp -q /tmp/alsaconf.XXXXXX`
+FOUND=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
 	xecho "Can't create temp file, exiting..."
         exit 1
 fi
-DUMP=`mktemp -q /tmp/alsaconf.XXXXXX`
+DUMP=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
 	xecho "Can't create temp file, exiting..."
         exit 1
@@ -481,11 +625,15 @@ build_card_db () {
     last_driver=""
     echo -n > $1
 
-    [ -f $MODDIR/modules.pcimap ] || depmod  # 2jan2010 shinobar: precaution.
+    echo `date` >&2
+    touch $MODDIR/modules.pcimap
+    rm -f "$TMP_DIR"/modules.pcimap
+    grep '^snd[-_]' $MODDIR/modules.pcimap >"$TMP_DIR"/modules.pcimap
 
     # list pci cards
     while read driver vendor device dummy; do
-	if expr $driver : 'snd-.*' >/dev/null ; then
+    [ "$DEBUG" ] && echo "$driver $vendor $device $dummy" >&2
+	if expr $driver : 'snd-.*' >$OUT ; then
 	    if [ "$last_driver" != "$driver" ]; then
 		echo $driver.o
 		last_driver=$driver
@@ -493,12 +641,19 @@ build_card_db () {
 	    id1=`printf '0x%04x' $vendor`
 	    id2=`printf '0x%04x' $device`
 	    echo "PCI: $id1=$id2"
+	    [ "$DEBUG" ] && echo "	YEP:'$driver.o' last_driver='$driver' PCI: '$id1'='$id2'" >&2
 	fi
-    done < $MODDIR/modules.pcimap >> $1
+    done < "$TMP_DIR"/modules.pcimap >> $1
+    echo `date` >&2
+
+    touch $MODDIR/modules.isapnpmap
+    rm -f "$TMP_DIR"/modules.isapnpmap
+    grep '^snd[-_]' $MODDIR/modules.isapnpmap >"$TMP_DIR"/modules.isapnpmap
 
     # list isapnp cards
     while read driver cardvendor carddevice data vendor func; do
-	if expr $driver : 'snd-.*' >/dev/null ; then
+    [ "$DEBUG" ] && echo "$read $driver $cardvendor $carddevice $data $vendor $func" >&2
+	if expr $driver : 'snd-.*' >$OUT ; then
 	    if [ "$last_driver" != "$driver" ]; then
 		echo $driver.o
 		last_driver=$driver
@@ -508,8 +663,10 @@ build_card_db () {
 	    id2=`convert_isapnp_id $vendor`
 	    dev2=`swap_number $func`
 	    echo "ISAPNP: $id1$dev1=$id2$dev2"
+	    [ "$DEBUG" ] && echo "	YEP:'$driver.o' last_driver='$driver' ISAPNP: '$id1$dev1'='$id2$dev2'" >&2
 	fi
-    done < $MODDIR/modules.isapnpmap >> $1
+    done < "$TMP_DIR"/modules.isapnpmap >> $1
+    echo `date` >&2
 }
 
 #
@@ -517,8 +674,8 @@ build_card_db () {
 #
 probe_cards () {
     found="0"
-    test -r $PROCFS/isapnp || /sbin/modprobe isapnp >/dev/null 2>&1
-    test -r $PROCFS/isapnp || /sbin/modprobe isa-pnp >/dev/null 2>&1
+    test -r $PROCFS/isapnp || /sbin/modprobe $VERB isapnp >$OUT 2>&1
+    test -r $PROCFS/isapnp || /sbin/modprobe $VERB isa-pnp >$OUT 2>&1
     if [ -r $PROCFS/isapnp ]; then
 	cat $PROCFS/isapnp >"$DUMP"
 	found="1"
@@ -548,7 +705,7 @@ probe_cards () {
     fi
     if [ "$found" = "0" ]; then
       echo -n >"$DUMP"
-    fi 
+    fi
     CARDID_DB=/var/tmp/alsaconf.cards
     if [ ! -r $CARDID_DB ]; then
         use_modinfo_db=1
@@ -559,20 +716,16 @@ probe_cards () {
 	fi
     fi
     if [ $use_modinfo_db = 1 ]; then
-	    xecho "Building card database, please wait..."
-	    #yaf-splash -placement center -bg orange -close never -text "Building card database, please wait..." &
-	    #YAFPID=$!
-	    build_card_db $CARDID_DB
-	    #kill $YAFPID
+	xecho "Building card database '$CARDID_DB' .."
+	build_card_db $CARDID_DB
     fi
     if [ ! -r $CARDID_DB ]; then
-	xecho "No card database is found."
-	yaf-splash -placement center -bg pink -close box -text "No card database is found."
+	xecho "No card database is found.."
 	exit 1
     fi
     ncards=`grep '^snd-.*\.o$' $CARDID_DB | wc -w`
 
-    msg=$(xmsg "Searching sound cards")
+    msg=$(gettext "Searching sound cards")
     awk '
 BEGIN {
 	format="%-40s %s\n";
@@ -605,12 +758,12 @@ BEGIN {
 			printf "%s %s\n", id2, driver >>"'"$FOUND"'"
 	}
 }' < $CARDID_DB |\
-    $DIALOG --title "ALSA Wizard" --gauge "$msg" 6 40 0
+    $DIALOG --gauge "$msg" 6 40 0
 
     #
     # PowerMac
     #
-    if grep -q MacRISC $PROCFS/cpuinfo; then
+    if grep $QUIET MacRISC $PROCFS/cpuinfo; then
 	MODDIR=/lib/modules/`uname -r`
 	find $MODDIR -name 'snd-powermac*' -print | \
 	while read i; do
@@ -624,8 +777,8 @@ BEGIN {
     #
     # Sparc
     #
-    if grep -q Sparc $PROCFS/cpuinfo; then
-	test -r $PROCFS/openprom/name || /bin/mount -t openpromfs none $PROCFS/openprom >/dev/null 2>&1
+    if grep $QUIET Sparc $PROCFS/cpuinfo; then
+	test -r $PROCFS/openprom/name || /bin/mount -t openpromfs none $PROCFS/openprom >$OUT 2>&1
 	# Check for an "audio" device
 	audio=
 	compat=
@@ -651,7 +804,7 @@ BEGIN {
 		echo "$sdev $i" >> $FOUND
 	    elif test -r $PROCFS/openprom; then
 		find $PROCFS/openprom -follow -type d -name "SUNW,${sdev}*" \
-		    -exec echo "$sdev $i" \; 2>/dev/null >> $FOUND
+		    -exec echo "$sdev $i" \; 2>$ERR >> $FOUND
 	    else
 		echo "$sdev $i" >> $FOUND
 	    fi
@@ -663,10 +816,10 @@ BEGIN {
 # look for a descriptive device name from the given device id
 #
 find_device_name () {
-    if expr "$1" : '[0-9a-f][0-9a-f][0-9a-f][0-9a-f]:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >/dev/null; then
-	$lspci -d $1 2>/dev/null| sed -e 's/^.*:..\.. [^:]*: //g'
+    if expr "$1" : '[0-9a-f][0-9a-f][0-9a-f][0-9a-f]:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >$OUT; then
+	$lspci -d $1 2>$ERR| sed -e 's/^.*:..\.. [^:]*: //g'
 	return
-    elif expr "$1" : '[A-Z@][A-Z@][A-Z@][0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >/dev/null; then
+    elif expr "$1" : '[A-Z@][A-Z@][A-Z@][0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >$OUT; then
 	cardname=`grep '^Card [0-9]\+ .'$1':' $DUMP | head -n 1 | sed -e 's/^Card [0-9]\+ '\''.*:\(.*\)'\'' .*$/\1/'`
 	echo $cardname
     else
@@ -701,7 +854,7 @@ get_hwcfg_type () {
 # alsaconf sets up exclusively
 cleanup_hwcfg () {
     for i in /etc/sysconfig/hardware/hwcfg-*; do
-	grep -q "MODULE='snd-" $i && rm -f $i
+	grep $QUIET "MODULE='snd-" $i && rm -f $i
     done
 }
 
@@ -724,14 +877,26 @@ ac_config_card () {
 
     CARD_DRIVER=snd-$1
     CARD_OPTS="${*:2}"
-
+     echo "CARD_DRIVER='$CARD_DRIVER'"
+     echo "CARD_OPTS='$CARD_OPTS'"
+    if [ -n "$cfgout" ]; then
 	msg=$(xmsg "
-Configuring %s
+Configuring '%s'
+with these options :
+'$s'
+Do you want to modify '%s' (and '%s' if present)?" "$CARD_DRIVER" "$CARD_OPTS" "$cfgout" "$cfgfile")
+        $DIALOG --yesno "$msg" 14 50 || acex 0
+    else
+    #BK
+	msg=$(xmsg "
+Configuring '%s'
+with these options :
+'%s'
 PLEASE ANSWER YES HERE SO PUPPY WILL USE DRIVER ON NEXT BOOT
-Do you want to modify %s?" $CARD_DRIVER $cfgfile)
-    echo "Configure driver ${CARD_DRIVER}..." #101017
-        $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 10 80 || acex 0
-    clear
+Do you want to modify '%s'?" "$CARD_DRIVER" "$CARD_OPTS" "$cfgfile")
+        $DIALOG --yesno "$msg" 14 70 || acex 0
+    fi
+    #clear
 
     # Copy conf.modules and make changes.
     ACB="# --- BEGIN: Generated by ALSACONF, do not edit. ---"
@@ -748,15 +913,17 @@ Do you want to modify %s?" $CARD_DRIVER $cfgfile)
     fi
 
     if [ -r $cfgfile ] ; then
-        #remove_ac_block < $cfgfile | remove_sndconfig_block | uniq > $TMP
-	    #remove_ac_block < $cfgfile | remove_y2_block | uniq > $TMP
-	    remove_ac_block < $cfgfile | uniq > $TMP #101015
+        if [ "$distribution" = "redhat" -o "$distribution" = "fedora" ] ; then
+            remove_ac_block < $cfgfile | remove_sndconfig_block | uniq > $TMP
+        else
+	    remove_ac_block < $cfgfile | remove_y2_block | uniq > $TMP
+        fi
     fi
 
-    if [ -z "$have_alias" ]; then
-	    if grep -q char-major-116 /lib/modules/`uname -r`/modules.alias; then
-	        have_alias="yes"
-	    fi
+    if [ -z "$have_alias" -a "$kernel" = "new" ]; then
+	if grep $QUIET char-major-116 /lib/modules/`uname -r`/modules.alias; then
+	    have_alias="yes"
+	fi
     fi
     if [ -z "$have_alias" ]; then
 echo "alias char-major-116 snd
@@ -770,34 +937,68 @@ alias sound-service-0-12 snd-pcm-oss" >> $addcfg
     if [ -n "$alsa_device_opts" ]; then
 	echo "options snd $alsa_device_opts" >> $addcfg
     fi
-    echo "alias snd-card-0 $CARD_DRIVER
+echo "alias snd-card-0 $CARD_DRIVER
 alias sound-slot-0 $CARD_DRIVER" >> $addcfg
     if [ -n "$CARD_OPTS" ]; then
-        echo "options $CARD_DRIVER $CARD_OPTS" >> $addcfg
+	echo "options $CARD_DRIVER $CARD_OPTS" >> $addcfg
     fi
 
+    if [ -n "$cfgout" ]; then
+	[ ! -r "$cfgfile" ] || cmp $SILENT "$TMP" "$cfgfile" || cat "$TMP" > "$cfgfile"
+	cmp $SILENT "$addcfg" "$cfgout" || cat "$addcfg" > "$cfgout"
+    else
 	echo "$ACB
 # --- ALSACONF version $version ---" >> $TMP
         cat "$addcfg" >> "$TMP"
 	echo "$ACE
 " >> $TMP
-        cmp -s "$TMP" "$cfgfile" || cat "$TMP" > "$cfgfile"
+        cmp $SILENT "$TMP" "$cfgfile" || cat "$TMP" > "$cfgfile"
+    fi
 
-    /sbin/depmod -a 2>/dev/null
+    /sbin/depmod -a 2>$ERR
 
-    farewell
-    clear
+    # remove yast2 entries (- only for suse distro)
+    if [ -f /var/lib/YaST/unique.inf ]; then
+	awk '
+BEGIN { in_sound=0; }
+/^\[sound\]$/ { print; in_sound=1; next; }
+/^\[.+\]$/ { print; in_sound=0; next; }
+{ if (in_sound == 0) { print; } }
+' < /var/lib/YaST/unique.inf > $TMP
+	cp -f $TMP /var/lib/YaST/unique.inf
+    fi
+
+    # set up /etc/sysconfig/hardware/*
+    if [ "$distribution" = "suse" ]; then
+	case "$suse_version" in
+	10.[012]*|10)
+	    setup_hwcfg $CARD_DRIVER
+	    ;;
+	esac
+    fi
+
+    farewell #BK
+    #clear
+    echo $LINENO
+    #lsmod | sed -n "/${CARD_DRIVER}/ p" || modprobe -v ${CARD_DRIVER}
+    gpCARD_DRIVER=${CARD_DRIVER//-/\[-_\]}
+    lsmod | grep "$gpCARD_DRIVER" || { echo Loading driver...;modprobe $VERB ${CARD_DRIVER}; }
+    echo $LINENO
+    if [ "$distribution" = "gentoo" ]; then
+      xecho "Running modules-update..."
+      modules-update
+    elif [ "$distribution" = "debian" ]; then
+      xecho "Running update-modules..."
+      update-modules
+    fi
     if [ -x $rcalsasound ] ; then
-      echo Loading driver...
-      $rcalsasound restart
+      #echo Loading driver...
+      #$rcalsasound restart
+      echo "Running '$rcalsasound' start ..."
+      $rcalsasound start
+      INITD_ALSA_RV=$?
     fi
-    #101015 need to restart volume tray applet...
-    if [ -f /root/Startup/obmixer_tray ];then
-     [ "`pidof obmixer_tray`" = "" ] && nohup /root/Startup/obmixer_tray >/dev/null &
-    fi
-    if [ -f /root/Startup/retrovol_tray ];then
-     [ "`pidof retrovol`" = "" ] && nohup /root/Startup/retrovol_tray >/dev/null &
-    fi
+if [ "$INITD_ALSA_RV" = 0 ] ;then
     echo Setting default volumes...
     if [ -x $bindir/set_default_volume ]; then
 	$bindir/set_default_volume -f
@@ -806,7 +1007,7 @@ alias sound-slot-0 $CARD_DRIVER" >> $addcfg
     fi
     if [ -f $TESTSOUND ]; then
     #BK...
-      msg=$(xmsg "
+      msg=$(gettext "
        The mixer is set up now for for playing.
        Shall I try to play a sound sample now?
 
@@ -815,22 +1016,23 @@ If you have a big amplifier, lower your volumes or say no.
     Otherwise check that your speaker volume is wound up,
          then select <Yes> to play test sound...
 ")
-      if $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 14 70 
+      if $DIALOG --yesno "$msg" 13 65
       then
-          clear
-	      echo
-	      #aplay -N $TESTSOUND
-          #BK two-barks gets truncated, -N option causes it...
-          aplay $TESTSOUND & #101015
-          sleep 2            #101015
-          killall aplay      #101015
+          #clear
+	  echo
+	  #aplay -N $TESTSOUND
+      #BK two-barks gets truncated, -N option causes it...
+      aplay "$TESTSOUND"
+      sleep 1
       fi
     fi
-    if [ ! -r /etc/asound.state ]; then
-	xecho "Saving the mixer setup used for this in /etc/asound.state."
-	$sbindir/alsactl store
+    DEFAULT_CONFIGURATION_FILE=`alsactl -h | grep '\-f,\-\-file' | grep -o 'default .*' |awk '{print $2}' |sed 's|)$||'`
+    [ "$DEFAULT_CONFIGURATION_FILE" ] || DEFAULT_CONFIGURATION_FILE=/etc/asound.state
+    if [ ! -r "$DEFAULT_CONFIGURATION_FILE" ]; then
+	xecho "Saving the mixer setup used for this in '$DEFAULT_CONFIGURATION_FILE' ."
+	$sbindir/alsactl -f "$DEFAULT_CONFIGURATION_FILE" store
     fi
-    clear
+    #clear
     xecho "
 ===============================================================================
 
@@ -840,36 +1042,45 @@ If you have a big amplifier, lower your volumes or say no.
  Have a lot of fun!
 
 "
+else
+$rcalsasound stop
+fi
 }
 
 # check playback
 # return 0 - OK, 1 - NG, 2 - not working (irq/dma problem)
 ac_try_load () {
+	echo " * ac_try_load * " >&2
     test -n "$LOGFILE" && echo "$1 ${*:2}" >> "$LOGFILE"
-    /sbin/modprobe snd-$1 ${*:2} >/dev/null 2>&1
-    if $lsmod | grep -q -E '^(snd-|snd_)'$1' '; then
+    /sbin/modprobe $VERB snd-$1 ${*:2} >&2
+    sleep 1
+    if $lsmod | grep $QUIET  '^snd[-_]'$1' ' >&2; then
+	echo "snd-$1 ${*:2} loaded ." >&2
 	: ;
     else
-	/sbin/modprobe -r snd-$1 >/dev/null 2>&1
+    echo "snd-$1 ${*:2} did not load.." >&2
+	/sbin/modprobe $VERB -r snd-$1 >&2
 	return 1
     fi
 
     # mute mixers
-    amixer set Master 0% mute >/dev/null 2>&1
-    amixer set PCM 0% mute >/dev/null 2>&1
-    
+    amixer set Master 0% mute >&2
+    st=$?
+    amixer set PCM 0% mute >&2
+    st=$((st+$?))
     # output 0.5 sec
-    head -c 4000 < /dev/zero | aplay -N -r8000 -fS16_LE -traw -c1 > /dev/null 2>&1 &
+    echo "playing testsound.." >&2
+    head -c 4000 < /dev/zero | aplay -N -r8000 -fS16_LE -traw -c1 -d3 >&2 &
     # remember pid
     pp=$!
     # sleep for 2 seconds (to be sure -- 1 sec would be enough)
     sleep 2
     # kill the child process if still exists.
-    kill -9 $pp > /dev/null 2>&1
-    st=$?
+    kill -9 $pp >&2
+    st=$((st+$?))
     ac_cardname=`head -n 1 $PROCFS/asound/cards | sed -e 's/^[0-9].* - \(.*\)$/\1/'`
-    /sbin/modprobe -r snd-$1 >/dev/null 2>&1
-    if [ $st = 0 ]; then
+    /sbin/modprobe $VERB -r snd-$1 >&2
+    if [ "$st" != 0 ]; then
 	# irq problem?
 	test -n "$LOGFILE" && echo "no playback return" >> "$LOGFILE"
 	return 2
@@ -885,37 +1096,43 @@ ac_try_load () {
 # ac_try_capture card duplex opts
 ac_try_capture () {
     test -n "$LOGFILE" && echo "$1 ${*:2}" >> "$LOGFILE"
-    /sbin/modprobe snd-$1 ${*:3} >/dev/null 2>&1
-    if $lsmod | grep -q -E '^(snd-|snd_)'$1' '; then
+    /sbin/modprobe $VERB snd-$1 ${*:3} >&2
+    sleep 2
+    if $lsmod | grep $QUIET '^snd[-_]'$1' ' >&2; then
+    echo "snd-$1 ${*:3} loaded ok." >&2
 	: ;
     else
-	/sbin/modprobe -r snd-$1 >/dev/null 2>&1
+    echo "snd-$1 ${*:3} did not load .."
+	/sbin/modprobe $VERB -r snd-$1 >&2
 	return 1
     fi
 
     # mute mixers
-    amixer set Master 0% mute >/dev/null 2>&1
-    amixer set PCM 0% mute >/dev/null 2>&1
-
+    amixer set Master 0% mute >&2
+    st=$?
+    amixer set PCM 0% mute >&2
+    st=$((st+$?))
     play_pid=0
     if [ $2 = yes ]; then
 	# try duplex - start dummy playing
-	aplay -N -r8000 -fS16_LE -traw -c1 < /dev/zero > /dev/null 2>&1 &
+	echo "playing test sound .." >&2
+	aplay -N -r8000 -fS16_LE -traw -c1 < /dev/zero >/dev/null &
 	play_pid=$!
     fi
     # record 1sec
-    arecord -N -d1 > /dev/null 2>&1 &
+    echo "recording testsound .." >&2
+    arecord -N -d3 >/dev/null &
     # remember pid
     pp=$!
     # sleep for 2 seconds
     sleep 2
     # kill the child process if still exists.
-    kill -9 $pp > /dev/null 2>&1
-    st=$?
+    kill -9 $pp >&2
+    st=$((st+$?))
     # kill playback process if any
-    test $play_pid != 0 && kill -9 $play_pid
-    /sbin/modprobe -r snd-$1 >/dev/null 2>&1
-    if [ $st = 0 ]; then
+    #test $play_pid != 0 && kill -9 $play_pid
+    /sbin/modprobe $VERB -r snd-$1 >&2
+    if [ "$st" != 0 ]; then
 	test -n "$LOGFILE" && echo "capture no return" >> "$LOGFILE"
 	return 2
     else
@@ -945,8 +1162,12 @@ get_dma_pair () {
 #
 ac_try_irq () {
     card=$1
+    if [ "$3" ]; then
     opts="$2 ${mpfx}irq=$3"
-    ac_try_load $card $opts >/dev/null 2>&1
+    else
+    opts="$2"
+    fi
+    ac_try_load $card $opts >&2
     result=$?
     case $result in
     0)
@@ -956,7 +1177,7 @@ ac_try_irq () {
     2)
 	for irq in ${*:4}; do
 	    opts="$2 ${mpfx}irq=$irq"
-	    ac_try_load $card $opts >/dev/null 2>&1
+	    ac_try_load $card $opts >&2
 	    if [ $? = 0 ]; then
 		ac_opts="$opts"
 		return 0
@@ -975,12 +1196,17 @@ ac_try_irq () {
 # return 0 - OK, 1 - NG
 #
 ac_try_dmas () {
+	echo "   ac_try_dmas" >&2
     dma_list=`check_dma_avail 1 0 3 5`
+    echo "dma_list='$dma_list'" >&2
     for irq in ${*:3}; do
+     echo -e "\n      irq=$irq" >&2
 	for dma1 in $dma_list; do
+	  echo -en "\n        dma1=$dma1" >&2
 	    for dma2 in `get_dma_pair $dma1`; do
+	    echo -n " dma2=$dma2" >&2
 		opts="$2 ${mpfx}dma1=$dma1 ${mpfx}dma2=$dma2 ${mpfx}irq=$irq"
-		ac_try_load $1 $opts >/dev/null 2>&1
+		ac_try_load $1 $opts
 		result=$?
 		if [ $result = 1 ]; then
 		    if [ $try_all_combination = 1 ]; then
@@ -991,13 +1217,15 @@ ac_try_dmas () {
 		elif [ $result = 0 ]; then
 		    test -n "$LOGFILE" && echo "Now checking capture..." >> "$LOGFILE"
 		    ac_opts="$opts"
-		    ac_try_capture $1 yes $opts >/dev/null 2>&1 && return 0
+		    ac_try_capture $1 yes $opts >&2 && return 0
 		    for d in yes no; do
+		     echo -n " $d" >&2
 			for dma2 in $dma_list; do
+			 echo -n " $dma2" >&2
 			    if [ $dma1 != $dma2 ]; then
 				opts="$2 ${mpfx}dma1=$dma1 ${mpfx}dma2=$dma2 ${mpfx}irq=$irq"
 				ac_opts="$opts"
-				ac_try_capture $1 $d $opts >/dev/null 2>&1 && return 0
+				ac_try_capture $1 $d $opts >&2 && return 0
 			    fi
 			done
 		    done
@@ -1011,7 +1239,8 @@ ac_try_dmas () {
 
 # check if the option $2 exists in card $1: set value $3
 ac_check_option () {
-    if /sbin/modinfo -p snd-$1 | grep -q $2; then
+	#opl3sa2 ${mpfx}isapnp 0
+    if /sbin/modinfo -p snd-$1 | grep $QUIET $2 >&2; then
       echo "$2=$3"
     fi
 }
@@ -1034,17 +1263,18 @@ ac_try_card_sb16 () {
     dma_list=`check_dma_avail 0 1 3`
     dma16_list=`check_dma_avail 5 6 7`
     # at first try auto-probing by driver itself
-    ac_try_load $card $opts >/dev/null 2>&1
+    ac_try_load $card $opts
     result=$?
     case $result in
     0)
 	ac_opts="$opts"
-	ac_try_capture $card yes $opts >/dev/null 2>&1 && return 0
+	ac_try_capture $card yes $opts && return 0
 	for d in yes no; do
 	    for dma8 in $dma_list; do
+	     echo "irq_list='$irq_list'" >&2
 		for irq in $irq_list; do
 		    opts="${mpfx}dma8=$dma8 ${mpfx}irq=$irq $isapnp"
-		    ac_try_capture $card $d $opts >/dev/null 2>&1 && return 0
+		    ac_try_capture $card $d $opts && return 0
 		done
 	    done
 	done
@@ -1054,12 +1284,12 @@ ac_try_card_sb16 () {
 	for dma16 in $dma16_list; do
 	    opts="${mpfx}dma16=$dma16 $isapnp"
 	    if ac_try_irq $card "$opts" $irq_list ; then
-		ac_try_capture $card yes $ac_opts >/dev/null 2>&1 && return 0
+		ac_try_capture $card yes $ac_opts >$OUT && return 0
 		ac_opts_saved="$ac_opts"
 		for d in yes no; do
 		    for dma8 in $dma_list; do
 			ac_opts="$ac_opts_saved ${mpfx}dma8=$dma8"
-			ac_try_capture $card $d $ac_opts >/dev/null 2>&1 && return 0
+			ac_try_capture $card $d $ac_opts >$OUT && return 0
 		    done
 		done
 		# return anyway here..
@@ -1128,26 +1358,32 @@ ac_try_card_cs4231 () {
 ac_try_card_opl3sa2 () {
     card=opl3sa2
     irq_list=`check_irq_avail 5 9 3 1 11 12 15 0`
+    echo -n "irq_list='$irq_list'" >&2
+    echo " irq_avail:fin" >&2
     isapnp=`ac_check_option $card ${mpfx}isapnp 0`
+    echo -n "isapnp='$isapnp'" >&2
+    echo " check_option:fin" >&2
     for port in 0x370 0x538 0xf86 0x100; do
 	for wss_port in 0x530 0xe80 0xf40 0x604; do
+	    echo -e "\n `date`\n  card=$card port=$port wss_port=$wss_port" >&2
 	    opts="${mpfx}fm_port=-1 ${mpfx}midi_port=-1 ${mpfx}port=$port ${mpfx}wss_port=$wss_port $isapnp"
 	    ac_try_dmas $card "$opts" $irq_list && return 0
 	done
     done
+    echo -e "\n done $card." >&2
     return 1
 }
 
 ac_config_legacy () {
-   title=$(xmsg "WARNING")
-   msg=$(xmsg "
+   title=$(gettext "WARNING")
+   msg=$(gettext "
    Probing legacy ISA cards might make
    your system unstable.
 
         Do you want to proceed?
 
 ")
-    $DIALOG --title "$title" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 10 50 || acex 0
+    $DIALOG --title "$title" --yesno "$msg" 10 50 || acex 0
 
     if [ x"$1" = x ]; then
 	probe_list="$LEGACY_CARDS"
@@ -1163,44 +1399,49 @@ ac_config_legacy () {
 	fi
     done
     if [ x$menu_args = x ]; then
-	msg=$(xmsg "No legacy drivers are available
+	msg=$(gettext "No legacy drivers are available
    for your machine")
-	$DIALOG --title "ALSA Wizard" --msgbox "$msg" 5 50
+	$DIALOG --msgbox "$msg" 5 50
 	return 1
     fi
-    title=$(xmsg "Driver Selection")
-    msg=$(xmsg "           Probing legacy ISA cards
+    title=$(gettext "Driver Selection")
+    msg=$(gettext "           Probing legacy ISA cards
 
         Please select the drivers to probe:")
-    $DIALOG --title "$title" --cr-wrap --checklist "$msg" \
+    $DIALOG --title "$title" --checklist "$msg" \
 	17 64 8 "${menu_args[@]}" 2> $FOUND || acex 0
 
     if [ $try_all_combination != 1 ]; then
-	msg=$(xmsg "
+	msg=$(gettext "
  Shall I try all possible DMA and IRQ combinations?
  With this option, some unconventional configuration
- might be found, but it will take much longer time.")
-	if $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 10 60
+ might be found, but it will take much much longer time
+ (hours). ")
+	if $DIALOG --yesno "$msg" 10 60
 	    then
 	    try_all_combination=1
 	fi
     fi
 
-    xecho "Probing legacy cards..   This may take a few minutes.."
-    echo -n $(xmsg "Probing: ")
+    xecho "Probing legacy cards..   This may take a couple of minutes.."
+    echo -n $(gettext "Probing: ")
     cards=`cat $FOUND | tr -d \"`
     for card in $cards; do
-	echo -n " $card"
+	echo " $card"
 	ac_opts=""
 	if eval ac_try_card_$card ; then
 	    xecho " : FOUND!!"
 	    ac_config_card $card $ac_opts
-	    return 0
+	     if [ "$?" != 0 ] ;then
+	      continue
+	     else
+	      return 0
+	     fi
 	fi
     done
     echo
-    title=$(xmsg "Result")
-    msg=$(xmsg "No legacy cards found")
+    title=$(gettext "Result")
+    msg=$(gettext "No legacy cards found")
     $DIALOG --title "$title" --msgbox "$msg" 5 50
     return 1
 }
@@ -1217,7 +1458,7 @@ fi
 
 if [ x"$legacy_probe_card" != x ]; then
     ac_opts=""
-    if eval ac_try_card_$legacy_probe_card >/dev/null 2>&1; then
+    if eval ac_try_card_$legacy_probe_card >&2; then
 	echo "$ac_opts"
 	echo "$ac_cardname"
 	exit 0
@@ -1227,27 +1468,13 @@ if [ x"$legacy_probe_card" != x ]; then
     fi
 fi
 
-#script execution starts here...
-#110519 warning msg that reboot may be required...
-msg0=''$(xmsg 'The ALSA Wizard unloads any sound drivers and then starts again.
-This causes a problem if you decide to exit anywhere before the
-Wizard has gone right to the end -- if you previously had working
-sound, it will then not be working -- but a reboot will fix it.
-Also, unloading of the audio drivers may affect some dialup modems,
-and they may not work after running this Wizard -- again, a reboot
-will fix it.')'
-
-'$(xmsg 'Do you want to continue and run the Wizard?...')''
-$DIALOG --title "$(xmsg 'ALSA Sound Wizard: NOTICE')" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg0" 0 0 || exit 0
-
-#welcome window...
 intro
 
 if [ $do_legacy_only = 1 ]; then
     ac_config_legacy
     exit 0
 fi
-    
+
 probe_cards
 
 devs_found=()
@@ -1256,7 +1483,7 @@ devs_olist=""
 if [ -s "$FOUND" ]; then
     while read dev card ; do
 	MODDIR=/lib/modules/`uname -r`
-	find $MODDIR -type f | grep -q -E $card'\.(o|ko)' || continue
+	find $MODDIR -type f | grep $QUIET -E $card'\.(o|ko)' >&2 || continue
 	cardname=`find_device_name $dev | cut -c 1-64`
 	if [ -z "$cardname" ]; then
 	    cardname="$card"
@@ -1268,51 +1495,50 @@ if [ -s "$FOUND" ]; then
     devs_olist=`cat $FOUND`
 fi
 if [ x$devs_found != x ]; then
-    echo "...device found" #101017
     #
     # check for TP600E
     #
     if [ ${devs_found[0]} = cs46xx ]; then
-	if $lspci -nv 2>/dev/null| grep -q "Subsystem: 1014:1010"; then
-	    msg=$(xmsg "
+	if $lspci -nv 2>$OUT| grep $QUIET "Subsystem: 1014:1010"; then
+	    msg=$(gettext "
  Looks like you having a Thinkpad 600E or 770 notebook.
  On this notebook, CS4236 driver should be used
  although CS46xx chip is detected.
 
  Shall I try to snd-cs4236 driver and probe
  the legacy ISA configuration?")
-	    if $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 13 60
+	    if $DIALOG --yesno "$msg" 13 60
 	    then
 		try_all_combination=1
 		ac_config_legacy cs4236
 		exit 0
 	    fi
-	elif $lspci -nv 2>/dev/null| grep -q "Subsystem: 8086:8080"; then
-	    msg=$(xmsg "
+	elif $lspci -nv 2>$OUT| grep $QUIET "Subsystem: 8086:8080"; then
+	    msg=$(gettext "
  Looks like you having a Dell Dimension machine.
  On this machine, CS4232 driver should be used
  although CS46xx chip is detected.
 
  Shall I try to snd-cs4232 driver and probe
  the legacy ISA configuration?")
-	    if $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 13 60
+	    if $DIALOG --yesno "$msg" 13 60
 	    then
 		try_all_combination=1
 		ac_config_legacy cs4232
 		exit 0
 	    fi
-        fi	
+        fi
     fi
-   
+
     #BK john doe submitted this...
     #devs_found=("${devs_found[@]}" "legacy" "Probe legacy ISA (non-PnP) chips")
     devs_found=("${devs_found[@]}" "legacy" "Probe: legacy ISA (non-PnP) chips" "usb-audio" "Override: USB Sound Device" "aoa" "Override: Apple Onboard Audio")
-    title=$(xmsg "Soundcard Selection")
-    msg=$(xmsg "
+    title=$(gettext "Soundcard Selection")
+    msg=$(gettext "
          Following card(s) are found on your system.
          Choose a soundcard to configure:
 ")
-    $DIALOG --title "$title" --cr-wrap --menu "$msg" 17 76 8 "${devs_found[@]}" 2> $FOUND || acex 0
+    $DIALOG --title "$title" --menu "$msg" 17 76 8 "${devs_found[@]}" 2> $FOUND || acex 0
     card=`head -n 1 $FOUND`
     if [ "$card" = "legacy" ]; then
 	ac_config_legacy
@@ -1321,14 +1547,13 @@ if [ x$devs_found != x ]; then
     fi
     exit 0
 else
-    echo "...no device found" #101017
-    msg=$(xmsg "
+    msg=$(gettext "
         No supported PnP or PCI card found.
 
  Would you like to probe legacy ISA sound cards/chips?
 
 ")
-    if $DIALOG --title "ALSA Wizard" --cr-wrap --ok-label "$Yes_lbl" --cancel-label "$No_lbl" --yesno "$msg" 9 60 ; then
+    if $DIALOG --yesno "$msg" 9 60 ; then
 	ac_config_legacy
 	exit 0
     fi
