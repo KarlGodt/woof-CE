@@ -1,50 +1,48 @@
 #!/bin/sh
 
-Version='1.1 KRG'
+Version='1.1-simple Macpup_O2-Puppy_Linux_431 KRG'
+
 ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';QUIET='-q'; ##+++2012-03-10
 [ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;QUIET=''; }
 #pidof X 1>$OUT 2>$ERR && { echo "X is still running. Please run wm${0##*/}. Exiting script.";exit 1; }
 
-usage(){
-MSG="
-$0 [help[|force|debug|verbose]|BB PARAMETERS]
-Version $Version .
-Puppy poweroff script to run
-/etc/rc.d/rc.shutdown and finally
-/bin/busybox poweroff .
-Simple PARAMETERS
-verbose,debug,force are passed to rc.shutdown,
-anay other PARAMETERS get passed to busybox poweroff .
-`busybox poweroff --help 2>&1`
-"
-if [ "$2" ];then
-MSG="$MSG
+usage(){ echo "help for $0:
+When run , checks if X not running .
+If X is running executing `which wmpoweroff` .
+wmpoweroff and $0
+do run /etc/rc.d/rc.shutdown
+and are finally executing /bin/busybox poweroff ." ; }
 
-$2
-"
-fi
-echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg black -fg yellow "$MSG"
-exit $1
-}
+PARAMETERS="$@"
+#PARAMETERS=`echo "$PARAMETERS" | tr '[[:upper:]]' '[[:lower:]]'`
+for param in $PARAMETERS; do
+echo $param
+case $param in
+h|-h|help|-help|--help) usage;exit 1;;
+D|-D|debug|-debug|--debug) DEBUG=1;;
+v|-v|verbose|-verbose|--verbose) VERBOSE=1;;
+q|-q|quiet|-quiet|--quiet) QUIET=1;;
+s|-s|silent|-silent|--silent) SILENT=1;;
+*) BB_PARAMS="$BB_PARAMS $param";;
+esac
+done
 
-for i in $@;do
-case $i in
-help)
-/etc/rc.d/rc.shutdown $i
-usage 0 ;;
-force|debug|verbose) RC="$RC $i" ;;
-*) POFF="$POFF $i" ;;
-esac;done
-
-#if [ "`ps | grep -w 'X' | grep -v 'grep'`" != "" ]; then
+#if [ -n "`ps | grep 'X :' | grep -v 'grep'`" ]; then
 if [ "`pidof X`" ]; then
-echo "Using '`which wmpoweroff`' $@ ..."
-exec wmpoweroff "$@"
+exec wmpoweroff $PARAMETERS
+exit
 fi
 
-/etc/rc.d/rc.shutdown "$RC"
-RV=$?
-[ "$RV" = '199' ] && exit 0
-[ "$RV" != '0' ] && exit 1
-exec /bin/busybox poweroff "$POFF"
+RETval=''
+/etc/rc.d/rc.shutdown $PARAMETERS || RETval=$?
+if [ "$RETval" ];then
+case $RETval in
+199) echo;return 0 2>$ERR || exit 0;;
+*)
+echo -e "\n\e[1;31m""$0:ERROR: < $RETval > canceling rc.shutdown""\e[0;39m"
+return $RETval 2>$ERR || exit $RETval
+;;
+esac
+fi
+echo "Executing /bin/busybox poeroff '$BB_PARAMS'"
+exec /bin/busybox poweroff $BB_PARAMS
