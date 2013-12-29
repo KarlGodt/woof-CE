@@ -7,42 +7,38 @@
 #v424 rerwin: reset skip-PIN flag
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
-
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-#[ ! $1 ] && exit
+
+#KRG
+#************
+
+
+[ $1 ] || { echo "NEEDED parameter \$1 [ \$2 ]";exit 1; }
 DEVM=$1
 PARAM2=$2
 
@@ -52,7 +48,7 @@ if [ -h /dev/modem ];then
 fi
 
 #a fallback if user runs this script directly...
-[ "$DEVM" = "" ] && [ "$MODEMDEV" = "" ] && exit
+[ "$DEVM" = "" ] && [ "$MODEMDEV" = "" ] && { echo "NEEDED functioning link /dev/modem"; exit 1; }
 [ "$DEVM" = "" ] && [ "$MODEMDEV" != "" ] && DEVM="$MODEMDEV"
 
 if [ "$PARAM2" = "initonly" ];then
@@ -87,7 +83,7 @@ chat_with_func() { #device passed in.
  #hangs if modem unplugged or turned off (contrary to what docs say)...
  modem-stats -c "ATZ" $1 > /tmp/answer.txt &
  sleep 5 #v413
- killall modem-stats
+ killall modem-stats 2>$ERR
  if [ -e /tmp/answer.txt ];then
   if [ -s /tmp/answer.txt ];then #nonzero size.
    grep "^OK" /tmp/answer.txt > /dev/null 2>&1
@@ -108,7 +104,7 @@ modem_test_func() {
   fuser -k /dev/${DEVM} 2>$ERR #kill processing attached to device.
   chat_with_func /dev/$DEVM
   if [ $? -eq 0 ];then
-   kill $X8PID #v413
+   kill $X8PID 2>$ERR #v413
    if [ "$DEVM" = "$MODEMDEV" -a "$PARAM2" = "" ];then
     Xdialog --left --wmclass "pupdial" --title "PupDial: modem test" --no-cancel --msgbox "Success, the modem responds! (the modem is there, getting it to dialout is another matter!)" 0 0
    else
@@ -117,27 +113,27 @@ modem_test_func() {
      yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, updating settings..." &
      X9PID=$!
      ln -snf $DEVM /dev/modem
+
      #aPATTERN="s%^Modem = .*%Modem = ${DEVM}%"
      aPATTERN="s%^Modem = .*%Modem = /dev/${DEVM}%"  #v408 rerwin
      sed -e "$aPATTERN" /etc/wvdial.conf > /tmp/wvdial.conf.tmp
      [ $? -eq 0 ] && mv -f /tmp/wvdial.conf.tmp /etc/wvdial.conf
+
      waitmax 29 gen_modem_init_string > /dev/null #writes to /tmp/mymodeminitstring
      if [ -s /tmp/mymodeminitstring ];then
       INITSTRING=`cat /tmp/mymodeminitstring | tr '&' '~'` #sed problem with &
-
       #bPATTERN="s/^Init3.*/Init3 = ${INITSTRING}/" #v413
       bPATTERN="s/^Init2.*/Init2 = ${INITSTRING}/"
       sed -e "$bPATTERN" /etc/wvdial.conf > /tmp/wvdial.conf.tmp
-
       if [ $? -eq 0 ];then
        cat /tmp/wvdial.conf.tmp | tr '~' '&' > /etc/wvdial.conf #restore &
       fi
      fi
-     kill $X9PID
+     kill $X9PID 2>$ERR
     fi
    fi
   else
-   kill $X8PID #v413
+   kill $X8PID 2>$ERR #v413
    Xdialog --left --wmclass "pupdial" --title "PupDial: modem test" --no-cancel --msgbox "Sorry, the modem was not detected." 0 0
   fi
  # ;;
