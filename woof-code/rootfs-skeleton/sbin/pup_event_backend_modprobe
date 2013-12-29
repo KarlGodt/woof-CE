@@ -75,6 +75,27 @@
 # TODO5 : debugging pci fixup func
 ########################################################################
 
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+Version='1.1 Macpup_F3-Puppy-Linux-430/2 KRG'
+usage(){
+MSG="
+$0 [-V --version | -h --help] [KERNELMODULE]
+or
+MODULEALIAS=\$MODULEALIAS $0
+
+Bootupscript to load kernel drivers,
+Called via '/etc/rc.d/rc.sysinit'
+by /sbin/udevd .
+See '/etc/udev/' or '/lib/udev/' rules files .
+"
+echo "$MSG"
+exit $1
+}
+[ "`echo "$1" | grep -iE '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nUse help parameter for more info\n";exit 0; }
+[ "`echo "$1" | grep -iE '\-h|help'`" ] && usage 0
 
 export LANG=C #w004
 
@@ -95,7 +116,7 @@ ALSACONF="$CONFFILE"
 [ -r /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE
 [ -r /etc/rc.d/MODULESCONFIG ] && . /etc/rc.d/MODULESCONFIG
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin"
-KERNVER="`uname -r`"
+KERNVER=`uname -r`
 CNTSND=0 #v405
 #w463 optional $1 supplied by triggered udev rule, see /etc/udev/rules.d/60-udev-modem.rules
 RULEMODULE=""
@@ -110,15 +131,16 @@ echo $$ 1.0 `$TIME` '$1='"$1" >> $LocalLOG
 [ $1 ] && RULEMODULE="$1"
 touch /tmp/pup_event_module_devpath_log
 
-[ "$FASTBOOTMODULESLIST" != "" ] && echo $$ 1.5 'FASTMODLST .. exit ..' >> $LocalLOG && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
+[ "$FASTBOOTMODULESLIST" != "" ] && { echo $$ 1.5 'FASTMODLST .. exit ..' >> $LocalLOG ;exit 1; } #fastboot, see /etc/rc.d/MODULESCONFIG.
 
 setup_alsa_func() { #uses MODULE.
  #if a sound module, preconfigure alsa (/etc/init.d/alsa will start it)...
  if [ "`echo -n "$lsmodName" | grep '^snd_'`" != "" ];then
   echo $$ 8.0 `$TIME` "calling setup_alsa_func" >> $LocalLOG
-  CNTSND="`cat /tmp/pup_event_alsa_cnt`"
+  CNTSND=`cat /tmp/pup_event_alsa_cnt`
+  [ "$CNTSND" = 'noalsa' ] && return 1
   DPATTERN="alias snd\\-card\\-$CNTSND"
-  #dMODULE="`echo -n "$lsmodName" | tr '_' '-'`" #v407  ##+-+2011_10_26 dMODULE replaced by realName
+  #dMODULE=`echo -n "$lsmodName" | tr '_' '-'` #v407  ##+-+2011_10_26 dMODULE replaced by realName
   if [ "`grep "$DPATTERN" $ALSACONF`" = "" ];then
   echo 'Adding '"alias snd-card-$CNTSND $realName"' to '"$ALSACONF"' because entry is missing' >> $LocalLOG
    echo >> $ALSACONF
@@ -149,6 +171,7 @@ setup_alsa_func() { #uses MODULE.
   CNTSND=`expr $CNTSND + 1`
   echo -n "$CNTSND" > /tmp/pup_event_alsa_cnt
  fi
+return 0
 }
 
 pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
@@ -161,10 +184,10 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  #######/etc/rc.d/MODULESCONFIG overrides######
  #may need to do substitution for specific pci interface...
  APATTERN="$VENDOR $DEVICE"
- REPLACEMENT="`echo "$PCI_OVERRIDES" | grep "$APATTERN"`"
+ REPLACEMENT=`echo "$PCI_OVERRIDES" | grep "$APATTERN"`
  #w463 replace only if not already forced by udev rule...
  #[ "$REPLACEMENT" != "" ] && MODULE="$REPLACEMENT"
- [ "$REPLACEMENT" != "" ] && [ "$RULEMODULE" = "" ] && lsmodName="`echo "$REPLACEMENT" | cut -f 1 -d ' '`"
+ [ "$REPLACEMENT" != "" ] && [ "$RULEMODULE" = "" ] && lsmodName=`echo "$REPLACEMENT" | cut -f 1 -d ' '`
  #######END MODULESCONFIG OVERRIDES#######
  ######HACKS SECTION#######
  #in some cases a special hack is required, hardcoded in here...
@@ -192,10 +215,10 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
 firmware_module_func() {
  echo $$ 7.0 `$TIME` "starting firmware_module_func ..." >> $LocalLOG
  #global MODULE is name of module, global KERNVER.
- altMODULE="`echo -n "$lsmodName" | tr '_' '-'`"
+ altMODULE=`echo -n "$lsmodName" | tr '_' '-'`
  FPATTERN='[:,]'"${lsmodName}"'\.ko|[:,]'"${altMODULE}"'\.ko'
 
- FIRMPKG="`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`"
+ FIRMPKG=`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`
 
  if [ "$FIRMPKG" != "" ];then
   echo $$ 7.3 `$TIME` "found FIRMPKG='$FIRMPKG' in /etc/modules/firmware.dep.$KERNVER" >> $LocalLOG
@@ -233,7 +256,7 @@ firmware_module_func() {
   #comment-out the firmware pkg entry, so it only installs once...
   if [ "$retVal" == '0' ] ; then
   R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
-  DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
+  DEPUPDATED=`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`
   echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
   #execute any post-install script...
    if [ -f /pinstall.${FIRMPKG}.sh ];then
@@ -254,25 +277,25 @@ firmware_module_func() {
 echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS" >> $LocalLOG
 
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
-#MODULES="`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`" #v424  ##+-2011_10_26 rm tr - _
-MODULES="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`"
-realName="`echo "$MODULES" | tail -n 1`" #v424
-lsmodName="`echo "$realName" | tr '\-' '_'`"  ##+++2011_20_26
-#[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE="`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1`" #v424
+#MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'` #v424  ##+-2011_10_26 rm tr - _
+MODULES=`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
+realName=`echo "$MODULES" | tail -n 1` #v424
+lsmodName=`echo "$realName" | tr '\-' '_'`  ##+++2011_20_26
+#[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE=`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1` #v424
 echo $$ 3.0 `$TIME` 'lsmodName='"$lsmodName" >> $LocalLOG
 
 if [ -z "$realName" ] ; then  ##+++2011_20_26
-MODALIAS2="${MODALIAS#*:}"  ##deletes preceding pci: or platform:
-#MODULES="`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS2 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`"
-MODULES="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS2 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`"
-realName="`echo "$MODULES" | tail -n 1`" #v424
-lsmodName="`echo "$realName" | tr '\-' '_'`"
+MODALIAS2="${MODALIAS#*\:}"  ##deletes preceding pci: or platform:
+#MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS2 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
+MODULES=`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS2 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
+realName=`echo "$MODULES" | tail -n 1` #v424
+lsmodName=`echo "$realName" | tr '\-' '_'`
 fi  ##+++2011_20_26
 
 [ "$lsmodName" = "" ] && [ "$RULEMODULE" != "" ] && lsmodName="$RULEMODULE" #w463 Use module from argument
 
-[ "$lsmodName" = "" ] && echo $$ 3.5 `$TIME` 'Still no lsmodName .. exit ..' >> $LocalLOG && exit 1
-[ "$lsmodName" = "usb_storage" ] && echo $$ 3.6 `$TIME` "$lsmodName omitted by $0" >> $LocalLOG  && exit 1 #loaded explicitly in boot scripts.
+[ "$lsmodName" = "" ] && { echo $$ 3.5 `$TIME` 'Still no lsmodName .. exit ..' >> $LocalLOG;exit 1; }
+[ "$lsmodName" = "usb_storage" ] && { echo $$ 3.6 `$TIME` "$lsmodName omitted by $0" >> $LocalLOG;exit 1; } #loaded explicitly in boot scripts.
 
 ###<2011-11-10>
 #if [ -n "`echo "$lsmodName" | grep '[ou]hci_hcd'`" ] ; then
@@ -299,7 +322,7 @@ fi
 
 realNameGrepPattern="${realName//-/\\-}"     ##+++2011_10_26
 realNameGrepPattern2="${realName//-/\\\\-}"  ##+++2011_10_26 for setup_alsa_func #2011_10_27 :alias snd\-card\-0 snd\\-wavefront not as wanted , changed to $realNameGrepPattern
-[ -z "`modprobe -l | grep "$realNameGrepPattern"`" ] && echo $$ 3.5 `$TIME` "cannot find $realName in modprobe -l" >> $LocalLOG  && exit 2
+[ -z "`modprobe -l | grep "$realNameGrepPattern"`" ] && { echo $$ 3.5 `$TIME` "cannot find $realName in modprobe -l" >> $LocalLOG;exit 2; }
 lsmodNameGrepPattern='^'"${lsmodName}"'$'
 echo $$ 4.0 `$TIME` 'modPATTERN 1 ='"$lsmodNameGrepPattern" >> $LocalLOG
 
@@ -317,20 +340,20 @@ fi
 case $MODALIAS in
  pci:*)
   pci_fixup_func #w463 needs MODALIAS, MODULE, RULEMODULE
-  [ $? -ne 0 ] && echo -e $$ 5.9 `$TIME` "\e[33m"'Error in pci_fixup_func .. exit ..'"\e[39m" >> $LocalLOG && exit 1
+  [ $? -ne 0 ] && { echo -e $$ 5.9 `$TIME` "\e[33m"'Error in pci_fixup_func .. exit ..'"\e[39m" >> $LocalLOG;exit 1; }
  ;;
 esac
 
 #v404 preferences list, ex rt2500usb and rt73usb both hits, then choose latter...
 modPATTERN='^'"$lsmodName"':'
 echo $$ 6.0 `$TIME` 'modPATTERN 2 ='"$modPATTERN" >> $LocalLOG
-PREFHIT="`echo -n "$PREFLIST" | tr ' ' '\n' | grep "$modPATTERN"`"
+PREFHIT=`echo -n "$PREFLIST" | tr ' ' '\n' | grep "$modPATTERN"`
 echo $$ 6.1 `$TIME` 'PREFHIT='"$PREFHIT" >> $LocalLOG
 
 if [ "$PREFHIT" != "" ];then
- PREFMOD="`echo -n "$PREFHIT" | cut -f 2 -d ':'`"
+ PREFMOD=`echo -n "$PREFHIT" | cut -f 2 -d ':'`
  echo "blacklist $lsmodName" > /tmp/pup_event_prefhit_blacklist
- xMODULE="`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
+ xMODULE=`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>$ERR | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`
  [ "$xMODULE" != "" ] && [ "$xMODULE" != "$lsmodName" ] && lsmodName="$xMODULE"
  echo $$ 6.5 `$TIME` lsmodName=$lsmodName >> $LocalLOG
 fi
@@ -339,6 +362,7 @@ fi
 firmware_module_func
 
 setup_alsa_func #MODULE and CNTSND are used in this func.
+[ $? -ne 0 ] && exit 0 ##for use of noalsa boot parameter
 usleep $(( $$ * 10 ))
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
 cd /sbin #v408 rerwin thinks this is needed for slamr module.
