@@ -2,62 +2,27 @@
 #introduced v0.9.8
 #called from /root/.fvwm95rc, .jwmrc at shutdown.
 
-#DBG
-#echo "$0:$@" >/dev/console
+echo -n "poweroff" > /tmp/wmexitmode.txt
+killall pup_event_frontend_d
 
-Version='1.1 KRG'
-usage(){
-MSG="
-$0 [help]
-Version $Version .
-Puppy poweroff script that is used if
-X is running to stop X services and
-`which pup_event_frontend_d` .
-It simply should kill X .
-It creates an entry into /tmp/wmexitmode.txt
-that is read by `which xwin` to execute
-`which poweroff` .
-Try 'poweroff help' for further info .
-"
-if [ "$2" ];then
-MSG="$MSG
-
-$2
-"
-fi
-echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg black -fg yellow "$MSG"
-exit $1
-}
-for param in $@;do
-case $param in
-help|-help|--help) usage 0;;
-*) :;;
-esac;done
-
-
-CURRRENT_WM=$(</etc/windowmanager)
-if [ "$CURRRENT_WM" != 'enlightenment_start' ];then
-[ "$1" ] && exit 1
-fi
-
+old_pup_func(){
 #/sbin/pup_event_frontend_d will quit if this file exists...
 echo -n "poweroff" > /tmp/wmexitmode.txt
-echo -n "poweroff" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 
 #v403 give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
 KCNT=0
-PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
 #while [ "`pidof pup_event_frontend_d`" != "" ];do
 while [ "$PSPEFD" != "" ];do
  sleep 0.5
  KCNT=`expr $KCNT + 1`
  [ $KCNT -gt 60 ] && break #30 secs.
- PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+ PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
 done
 sleep 0.2
+}
 
 sync
 
@@ -69,9 +34,11 @@ fi
 
 #w003
 CURRENTWM="`cat /etc/windowmanager`"
+if [ "$CURRENTWM" = 'enlightenment_start' ];then
+:
+fi
+
 kill -9 `pidof $CURRENTWM`
-##e17
-pidof tempget && kill -2 `pidof tempget`
 
 killall X #default is SIGTERM.
 sleep 1           #v1.0.7
@@ -79,4 +46,3 @@ exec killall -9 X #v1.0.7 make sure X is killed.
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
 #which reads /tmp/wmexitmode.txt.
-exit 0
