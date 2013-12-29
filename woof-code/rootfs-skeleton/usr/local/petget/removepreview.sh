@@ -12,34 +12,41 @@
 #v424 need info box if user has clicked when no pkgs installed.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
+
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
-Version='1.1'
+
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
+
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
@@ -79,31 +86,18 @@ if [ "$DISPLAY" != "" ];then
  [ "$EXIT" != "OK" ] && exit
 fi
 
-SUF="${DB_pkgname}~"
-
 if [ -f /root/.packages/${DB_pkgname}.files ];then
  cat /root/.packages/${DB_pkgname}.files |
  while read ONESPEC
  do
-  echo "$ONESPEC" >&2
   if [ ! -d "$ONESPEC" ];then
    if [ -e "/initrd/pup_ro2$ONESPEC" ];then
     #the problem is, deleting the file on the top layer places a ".wh" whiteout file,
     #that hides the original file. what we want is to remove the installed file, and
     #restore the original pristine file...
-    echo "Restoring /initrd/pup_ro2$ONESPEC" >&2
     cp -a --remove-destination "/initrd/pup_ro2$ONESPEC" "$ONESPEC"
-    if [ -e "${ONESPEC}.$SUF" ];then
-    echo "Restoring ${ONESPEC}.$SUF as $ONESPEC" >&2
-    mv "${ONESPEC}.$SUF" "$ONESPEC"
-    fi
    else
-    echo "Removing $ONESPEC" >&2
     rm -f "$ONESPEC"
-    if [ -e "${ONESPEC}.$SUF" ];then
-    echo "Restoring ${ONESPEC}.$SUF as $ONESPEC" >&2
-    mv "${ONESPEC}.$SUF" "$ONESPEC"
-    fi
    fi
   fi
  done
@@ -112,7 +106,7 @@ if [ -f /root/.packages/${DB_pkgname}.files ];then
  while read ONESPEC
  do
   if [ -d "$ONESPEC" ];then
-   [ "`ls -1 $ONESPEC`" = "" ] && rmdir $ONESPEC 2>$ERR
+   [ "`ls -1 $ONESPEC`" = "" ] && rmdir $ONESPEC 2>$OUT
   fi
  done
 fi
@@ -142,9 +136,9 @@ fi
 
 #remove temp file so main gui window will re-filter pkgs display...
 FIRSTCHAR=`echo -n "$DB_pkgname" | cut -c 1 | tr '[A-Z]' '[a-z]'`
-rm -f /tmp/petget_fltrd_repo_${FIRSTCHAR}* 2>$ERR
-rm -f /tmp/petget_fltrd_repo_?${FIRSTCHAR}* 2>$ERR
-[ "`echo -n "$FIRSTCHAR" | grep '[0-9]'`" != "" ] && rm -f /tmp/petget_fltrd_repo_0* 2>$ERR
+rm -f /tmp/petget_fltrd_repo_${FIRSTCHAR}* 2>$OUT
+rm -f /tmp/petget_fltrd_repo_?${FIRSTCHAR}* 2>$OUT
+[ "`echo -n "$FIRSTCHAR" | grep '[0-9]'`" != "" ] && rm -f /tmp/petget_fltrd_repo_0* 2>$OUT
 
 #announce any deps that might be removable...
 echo -n "" > /tmp/petget-deps-maybe-rem
@@ -180,5 +174,5 @@ export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about
 if [ "$DISPLAY" != "" ];then
  gtkdialog3 --program=REM_DIALOG
 fi
-
+echo "$0: END" >&2
 ###END###
