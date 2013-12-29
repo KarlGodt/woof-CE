@@ -14,31 +14,6 @@
 # DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
 # DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
 # case·$DISTRO_BINARY_COMPAT·in
-# ubuntu)
-# DISTRO_NAME="Jaunty·Puppy"
-# DISTRO_FILE_PREFIX="upup"
-# DISTRO_COMPAT_VERSION="jaunty"
-# ;;
-# debian)
-# DISTRO_NAME="Lenny·Puppy"
-# DISTRO_FILE_PREFIX="dpup"
-# DISTRO_COMPAT_VERSION="lenny"
-# ;;
-# slackware)
-# DISTRO_NAME="Slack·Puppy"
-# DISTRO_FILE_PREFIX="spup"
-# DISTRO_COMPAT_VERSION="12.2"
-# ;;
-# arch)
-# DISTRO_NAME="Arch·Puppy"
-# DISTRO_FILE_PREFIX="apup"
-# DISTRO_COMPAT_VERSION="200904"
-# ;;
-# t2)
-# DISTRO_NAME="T2·Puppy"
-# DISTRO_FILE_PREFIX="tpup"
-# DISTRO_COMPAT_VERSION="puppy5"
-# ;;
 # puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
 # DISTRO_NAME="Puppy"
 # DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
@@ -64,6 +39,8 @@
 currentconsole=`tty`
 echo "currentconsole='$currentconsole'"
 curr="${currentconsole##*/}"
+#curr="${currentconsole//\/dev\//}" #bb-ash v1.14.4 no
+#if [ "$curr" != 'tty1' ];then chvt 1;fi
 CONS=`/bin/ps -f -C sh |grep tty|grep -vw "$curr" |awk '{print $2}'`
 for pid in $CONS;do
 kill -1 $pid
@@ -72,10 +49,12 @@ done
 
 KERNEL_VERSION=`uname -r` ##+++2012-04-11
 
-PROG="/etc/rc.d/rc.shutdown.local"
-
+PROG='/etc/rc.d/rc.shutdown.local'
+echo  -e "\\033[0;35m""$PROG""\\033[0;39m" >/dev/console
+echo BACKUP begin
 ###backup system information files
 backup_func() {
+# $HOME/my-documents/SYSTEM-BAKS
 BackupDir=$HOME/my-documents/SYSTEM-BAKS/"`date +%d%b%Y`".$$
 if [ ! -d "$BackupDir" ]; then
 mkdir -p "$BackupDir"
@@ -126,49 +105,96 @@ ls -l /dev >> $BackupDir/Notes
 echo >> $BackupDir/Notes
 }
 backup_func
-
+echo BACKUP end
+echo -e "\\033[0;35m""Finished Backup part""\\033[0;39m" >/dev/console
 ##clean /mnt directory for filemnt directories
 clean_mnt_dir_func() {
-for d in /mnt/* ; do
-[ -d "$d" ] || continue
-[ -L "$d" ] && continue
-mountpoint -q "$d" || rmdir "$d"
+MNTD=`find /mnt -maxdepth 1 -type d \( -name "*+*" -o -name "*.*.[0-9]*" \)`
+for i in $MNTD; do
+[ "`ls -A $i`" ] || rmdir "$i"
 done
 }
 clean_mnt_dir_func
 
-
+echo DEV begin
 ##backup /dev directory
 clean_dev_func() {
-
+#[ ! -d /var/db/`uname -r`/dev ] && mkdir -p /var/db/`uname -r`/dev
+#if [ ! -d /var/db/`uname -r`/dev ];then  ##+++2012-04-10
 [ -d "/var/db/$KERNEL_VERSION/dev" ] || mkdir -p "/var/db/$KERNEL_VERSION/dev"
 D=`find /dev -type c`
 for i in $D; do
+#d=`dirname $i`
 d="${i%/*}"  ##+++2012-04-11
 [ -d "/var/db/$KERNEL_VERSION/$d" ] || mkdir -p "/var/db/$KERNEL_VERSION/$d"
+
+#mv $i /var/db/`uname -r`/$i
+#rm $i
 [ -e "/var/db/$KERNEL_VERSION/$i" ] || cp -a "$i" "/var/db/$KERNEL_VERSION/$i"  ##2012-03-15 added -u, no changed -u for -a  ##+++2012-04-11 added test and KERNEL_VERSION for `uname -r`
+# no hangs somewhere after hid0raw
 done
 #fi  ###---2012-04-11 took out again
 }
 clean_dev_func
-
-rm -f /etc/rc.d/firstrun*
-rm -f /etc/profile.d/firstrun*
+#[ -d /dev/.udev ] && rm -f -r /dev/.udev
+echo DEV end
+##????
+[ -f /etc/rc.d/firstrun ] && rm /etc/rc.d/firstrun
+[ -f /etc/profile.d/firstrun ] && rm /etc/profile.d/firstrun
 
 ##create fsckme file for testing
 PART=`busybox rdev | sed 's#\ .*## ; s#/dev/##' `
 FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
 #echo "$PART"','"$FS"',' > /etc/fsckme.flag
-
 remove_fsckme_func(){
 find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
 }
 remove_fsckme_func
 
-remove_dev_root(){
-rm -f /dev/root
+net_statistics(){
+##log net statistics :
+#100814 log the cumulative bytes transmitted on network...
+# (see also /etc/rc.d/rc.sysinit and network_tray)
+mkdir -p /var/local/sns
+UPDATE_MONTH="`date +%b`"
+CURRENT_MONTH="`cat /var/local/sns/current_month`"
+[ ! "$CURRENT_MONTH" ] && CURRENT_MONTH=0
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+ echo "$UPDATE_MONTH" > /var/local/sns/current_month
+ for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
+  echo -n 0 > /var/local/${ONECOUNT}x_bytes_month
+ done
+fi
+
+ACTIVE_INTERFACE="ppp0"
+#mkdir -p /var/local/sns
+[ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
+[ ! "$ACTIVE_INTERFACE" ] && ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
+if [ "$ACTIVE_INTERFACE" ];then
+ mkdir -p /var/local/$ACTIVE_INTERFACE
+ if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
+  RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
+  TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
+  echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
+  echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
+  RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
+  [ ! "$RX_BYTES_MONTH" ] && RX_BYTES_MONTH=0
+  RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  echo -n "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
+  [ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
+  TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
+ fi
+fi
 }
-remove_dev_root
+
+acpi_debug_func(){
+echo 0x00000004 > /sys/module/acpi/parameters/debug_level
+echo 0x00000000 > /sys/module/acpi/parameters/debug_layer
+}
+#acpi_debug_func
+
 
 echo -e "\e[1;35m""$0 $PROG END ... ""\e[0;39m"
 #sleep 5
