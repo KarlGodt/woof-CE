@@ -11,7 +11,7 @@
 #that are read and managed by the BootManager.
 #v4.02 bugfix, modules now .ko.gz.
 #v4.02 /lib/modules/modules.dep.<kernver> no more.
-#v403 yeslist_func, parameters may be added to modules.
+#v403 yeslist_func, parameters may be added to modules.  ##changed yeslist to addlist
 #v409 bugfix, list of sfs files was picking up non-sfs files.
 #v411 bugfix, when choose to add more than one module.
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
@@ -24,40 +24,36 @@
 #v424 advise of sfs-version-converter.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
-
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
 
 #reentrant.
 #$1='' then run the main window.
@@ -92,6 +88,9 @@ DEFAULT_SERIAL="false"
 DEFAULT_FAST="false"
 [ "$BYPASSSERIALPROBING" = "yes" ] && DEFAULT_SERIAL="true"
 [ "$FASTBOOTMODULESLIST" != "" ] && DEFAULT_FAST="true"
+
+TTY=`tty`
+echo "TTY='$TTY'"
 
 if [ "$PUPMODE" = "5" ];then
  xmessage "ERROR. Must shutdown and create a personal save file first."
@@ -280,9 +279,9 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 addlist_func() {
  #choose extra modules to load at bootup.
 
- TTY=`tty`;ERR=/dev/stderr
+ TTY=`tty`
  TMP_DIR=/tmp/bootmanager;mkdir -p $TMP_DIR
- echo "Create db :`date`" 1>>$ERR
+ echo "Create db :`date`" 1>>$TTY
 
  #ALLMODULES=`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort -u`
 
@@ -298,14 +297,14 @@ addlist_func() {
  #note, lsmod will show all modules with '-' as '_'...
  #LOADEDMODULES=" `lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`"
 
- LOADEDMODULES=`lsmod | grep -v '^Module' | cut -f 1 -d ' ' |sort`
+ LOADEDMODULES=`lsmod | grep -v '^Module' | cut -f 1 -d ' '`
  echo "$LOADEDMODULES" > $TMP_DIR/LOADEDMODULES.lst
- grep -v -w -f $TMP_DIR/LOADEDMODULES.lst $TMP_DIR/ALLMODULES.lst > $TMP_DIR/FILTERED_MODULES.1.lst
+ grep -v -f $TMP_DIR/LOADEDMODULES.lst $TMP_DIR/ALLMODULES.lst > $TMP_DIR/FILTERED_MODULES.1.lst
  echo "$ADDLIST" |tr ' ' '\n ' |sed '/^$/d;s|\:.*||' |sort > $TMP_DIR/ADDLIST.lst
- grep -v -w -f $TMP_DIR/ADDLIST.lst $TMP_DIR/FILTERED_MODULES.1.lst > $TMP_DIR/FILTERED_MODULES.2.lst
+ grep -v -f $TMP_DIR/ADDLIST.lst $TMP_DIR/FILTERED_MODULES.1.lst > $TMP_DIR/FILTERED_MODULES.2.lst
 
  loop_1(){  #creates "off" list
- echo "First loop :`date`" 1>>$ERR
+ echo "First loop :`date`" 1>>$TTY
  for ONEMOD in $ALLMODULES
  do
   #NAMEONLY=`basename $ONEMOD .ko`
@@ -321,14 +320,14 @@ addlist_func() {
   [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" ] && continue
   MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"
  done
- echo "First loop :`date`" 1>>$ERR
+ echo "First loop :`date`" 1>>$TTY
 }
 
  cat $TMP_DIR/FILTERED_MODULES.2.lst | sed 's|\(.*\)|\1 \1 off|' > $TMP_DIR/OFFLIST.lst
  cat $TMP_DIR/ADDLIST.lst  | sed 's|\(.*\)|\1 \1 on|' > $TMP_DIR/ONLIST.lst
 
  loop_2(){  ##creates "on" list
- echo "Second loop :`date`" 1>>$ERR
+ echo "Second loop :`date`" 1>>$TTY
  #check for parameters
  for ONEMOD in $ADDLIST
  do
@@ -344,18 +343,18 @@ addlist_func() {
   [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
   MODLIST="$MODLIST $ONEMOD \"$xONEMOD\" on"
  done
- echo "Second loop :`date`" 1>>$ERR
+ echo "Second loop :`date`" 1>>$TTY
 }
 
  MODLIST="`cat $TMP_DIR/ONLIST.lst |tr '\n' ' '` `cat $TMP_DIR/OFFLIST.lst |tr '\n' ' '`"
  kill $X1PID
- echo "Create db :`date`" 1>>$ERR
- echo "Xdialog: `date`" 1>>$ERR
+ echo "Create db :`date`" 1>>$TTY
+ echo "Xdialog: `date`" 1>>$TTY
  #gui
-EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
+ EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
- echo "Xdialog: `date`" 1>>$ERR
+ echo "Xdialog: `date`" 1>>$TTY
  [ $RETVAL -eq 0 ] || return 1
  cat $TMP_DIR/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > $TMP_DIR/modules_addlist_edit #v411
  Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox $TMP_DIR/modules_addlist_edit 0 0 > $TMP_DIR/modules_addlist_edit_out
@@ -365,61 +364,16 @@ EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list ma
  #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
+
+ if [ -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ];then
+ grep -v  '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG.$KERNVER
+ mv /tmp/MODULESCONFIG.$KERNVER /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ echo "ADDLIST='${ADDLIST}'" >> /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ fi
+
  mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
 } #end addlist_func
-
-yeslist_func() {
- #choose extra modules to load at bootup.
- yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing..." &
- X1PID=$!
- . /etc/rc.d/MODULESCONFIG
- MODLIST=""
- #note, lsmod will show all modules with '-' as '_'...
- LOADEDMODULES=" `lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`"
- #v403 handles both .ko and .ko.gz modules...
- ALLMODULES=`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort - | tr '\n' ' '`
- for ONEMOD in $ALLMODULES
- do
-  NAMEONLY=`basename $ONEMOD .ko`
-  MODPATTERN=" $NAMEONLY "
-  #leave off list if already loaded...
-  [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
-  MODPATTERN=' '"$NAMEONLY"'[ :]'
-  #leave off left pane if already on right pane...
-  [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" != "" ] && continue
-  MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"
- done
- for ONEMOD in $ADDLIST
- do
-  NAMEONLY="$ONEMOD"
-  xONEMOD="$ONEMOD"
-  if [ `echo -n "$ONEMOD" | tr ':' ' ' | wc -w` -gt 1 ];then
-   MPARAMS=`echo -n "$ONEMOD" | cut -f 2-9 -d ':' | tr ':' ' '`
-   NAMEONLY=`echo -n "$ONEMOD" | cut -f 1 -d ':'`
-   xONEMOD="$NAMEONLY $MPARAMS"
-  fi
-  MODPATTERN=" $NAMEOLY "
-  #leave off list if already loaded...
-  [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
-  MODLIST="$MODLIST $ONEMOD \"$xONEMOD\" on"
- done
- kill $X1PID
- EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/yesrettags.txt"
- eval $EXECME
- RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
- cat /tmp/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > /tmp/modules_addlist_edit #v411
- Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox /tmp/modules_addlist_edit 0 0 > /tmp/modules_addlist_edit_out
- [ $? -ne 0 ] && return 1
- ADDLIST=`cat /tmp/modules_addlist_edit_out`
- ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
- #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
- #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
-} #end yeslist_func
 
 #  \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\"
 
@@ -436,42 +390,28 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
  fi
 } #end preflist_func
 
-old_if_func(){
 if [ "$CLPARAM1" = "extrasfs" ];then
  extrasfs_func
- exit
-fi
+ exit $?
 
-if [ "$CLPARAM1" = "blacklist" ];then
+elif [ "$CLPARAM1" = "blacklist" ];then
  blacklist_func
- exit
-fi
+ exit $?
 
-if [ "$CLPARAM1" = "yeslist" ];then
- yeslist_func
- exit
-fi
+elif [ "$CLPARAM1" = "addlist" -o  "$CLPARAM1" = "yeslist" ];then
+ addlist_func
+ exit $?
 
-if [ "$CLPARAM1" = "preflist" ];then
+elif [ "$CLPARAM1" = "preflist" ];then
  preflist_func
- exit
+ exit $?
 fi
-}
-
-case $CLPARAM1 in
-extrasfs) extrasfs_func;exit $?;;
-blacklist) blacklist_func;exit $?;;
-addlist) addlist_func;exit $?;;
-yeslist) yeslist_func;exit $?;;
-preflist) preflist_func;exit $?;;
-sysdaemons) sysdaemons_func;exit $?;;
-esac
 
 #######################################################
-if [ "$PUPMODE" = 2  -o "$PUPMODE" = 3 ];then
-SFS_DIALOG="<text><label>Puppy Linux is currently running in Full Install Mode. No application.sfs loading available.</label></text>"
+if [ "$PUPMODE" = 2 -o "$PUPMODE" = 3 ];then
+SFS_DIALOG="<text><label>Puppy is currently running in PUPMODE=$PUPMODE . SFS load not available for full installations.</label></text>"
 else
-SFS_DIALOG="<text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.
+SFS_DIALOG="<text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.</label></text>
   <hbox>
    <text><label>Choose which extra SFS files to load at bootup:</label></text>
     <button>
@@ -488,7 +428,7 @@ export MAIN_DIALOG="
  <label>\"<b>Puppy Boot Configuration</b>\"</label></text>
 
  <frame Load SFS files>
-   $SFS_DIALOG
+  $SFS_DIALOG
  </frame>
 
  <frame Load kernel modules>
@@ -523,12 +463,16 @@ export MAIN_DIALOG="
 </window>
 "
 
-old_exit_func(){
-RETSTRING=`gtkdialog3 --program=MAIN_DIALOG --center`
-eval "$RETSTRING"
-[ "$EXIT" = "abort" ] && exit
-}
 
 gtkdialog3 --program=MAIN_DIALOG --center
-exit $?
+
+#RETSTRING=`gtkdialog3 --program=MAIN_DIALOG --center`
+#echo "RETSTRING
+#$RETSTRING"
+
+#eval "$RETSTRING"
+
+#[ "$EXIT" = "abort" ] && exit 0
+exit 0
+
 ###END###
