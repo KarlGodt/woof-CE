@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #Barry Kauler www.puppylinux.com
 #called from savepuppyd and rc.shutdown, to save tmpfs layer to permanent flash storage.
@@ -15,41 +15,56 @@
 #w003 bug fix for .wh.__dir_opaque whiteout file.
 #w003 screened out some dirs in /dev that should not be saved.
 #v424 fix for more layers in unionfs/aufs.
-#100222 shinobar: possible timezone problem with BOOTCONFIG. more file exclusions.
-#100422 added ^root/ftpd exclusion.
-#100429 modify 'trash' exclusion.
-#100820 added /var/tmp exclusion (apparently filled by opera crashes).
-#101221 yaf-splash fix.
-#110206 Dougal: clean up some testing. speedup: LANG=C, also change to /bin/ash.
-#110212 recent aufs: .wh.__dir_opaque name changed to .wh..wh..opq.
-#110212 Jemimah: files may disappear, more efficient calc of free space, fix i/o err.
-#110222 shinobar: remove all /dev, allow 'pup_ro10-19', exit code for no space
-#110224 BK: revert remove all /dev, for now. 110503 added dev/snd
-#110505 support sudo for non-root user.
-#111229 rerwin: fix jemimah code (110212).
-#120103 rerwin: screen out /.XLOADED when save.
 
-[ "`whoami`" != "root" ] && exec sudo -A ${0} ${@} #110505
 
-export LANG=C #110206 Dougal: I **think** this should not cause problems with filenames
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 #variables created at bootup by 'init' script in initramfs...
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS #v412
-SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
+SAVEPART=`echo -n "$PUPSAVE" | cut -f 1 -d ','`
 
 #v3.02 first time, do not use '-u' option when saving, save everything...
 NEXTPASSTHRU=""
 [ -e /tmp/flagnextpassthru ] && NEXTPASSTHRU="yes"
 
-RUNPS="`ps`"
+RUNPS=`ps`
 SHUTDOWN="no"
 XRUNNING="no"
 [ "`echo "$RUNPS" | grep 'rc.shutdown'`" != "" ] && SHUTDOWN="yes"
 [ "`echo "$RUNPS" | grep 'pup_event_frontend_d'`" != "" ] && XRUNNING="yes" #v4.01 v409
 
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R7/bin"
-WD="`pwd`"
+WD=`pwd`
+
+TTY=`tty`
+[ "$TTY" = 'unknown' -o "$TTY" = '?' ] && TTY=/dev/console
 
 SNAP="/initrd/pup_rw"
 cd $SNAP || exit 1
@@ -62,82 +77,108 @@ fi
 
 echo "Merging $SNAP onto $BASE..."
 
-SFSPoints=$( grep -o "/initrd/pup_ro[1-9]" /proc/mounts |sort -u ) #110206 Dougal: get a list of the sfs mountpoints
-
 #Handle Whiteouts...
 find . -mount \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
- BN="`basename "$N"`"
- DN="`dirname "$N"`"
+ BN=`basename "$N"`
+ DN=`dirname "$N"`
  [ "$BN" = ".wh.aufs" ] && continue #w003 aufs has file .wh..wh.aufs in /initrd/pup_rw.
  [ "$DN" = "." ] && continue
- #110212 unionfs and early aufs: '.wh.__dir_opaque' marks ignore all contents in lower layers...
  if [ "$BN" = "__dir_opaque" ];then #w003
   #'.wh.__dir_opaque' marks ignore all contents in lower layers...
-  rm -rf "${BASE}/${DN}" 2>/dev/null #wipe anything in save layer. 110212 delete entire dir.
-  mkdir -p "${BASE}/${DN}" #jemimah: files sometimes mysteriously reappear if you don't delete and recreate the directory, aufs bug? 111229 rerwin: need -p, may have to create parent dir.
+  rm -rf "${BASE}/${DN}/*" 2>$ERR #wipe anything in save layer.
   #also need to save the whiteout file to block all lower layers (may be readonly)...
-  touch "${BASE}/${DN}/.wh.__dir_opaque" 2>/dev/null
+  touch "${BASE}/${DN}/.wh.__dir_opaque" 2>$ERR
   rm -f "$SNAP/$DN/.wh.__dir_opaque" #should force aufs layer "reval".
-  continue
- fi
- #110212 recent aufs: .wh.__dir_opaque name changed to .wh..wh..opq ...
- if [ "$BN" = ".wh..opq" ] ; then
-  rm -rf "${BASE}/${DN}" 2>/dev/null  #wipe anything in save layer.
-  mkdir -p "${BASE}/${DN}" #jemimah: files sometimes mysteriously reappear if you don't delete and recreate the directory, aufs bug? 111229 rerwin: need -p, may have to create parent dir.
-  #also need to save the whiteout file to block all lower layers (may be readonly)...
-  touch "${BASE}/${DN}/.wh..wh..opq" 2>/dev/null 
-  rm -f "$SNAP/$DN/.wh..wh..opq"  #should force aufs layer "reval".
   continue
  fi
  #comes in here with the '.wh.' prefix stripped off, leaving actual filename...
  rm -rf "$BASE/$N"
  #if file exists on a lower layer, have to save the whiteout file...
- #110206 Dougal: speedup and refine the search...
- for P in $SFSPoints
- do
-   if [ -e "$P/$N" ] ; then
-     [ ! -d "${BASE}/${DN}" ] && mkdir -p "${BASE}/${DN}"
-     touch "${BASE}/${DN}/.wh.${BN}"
-     break
-   fi
- done #110206 End Dougal.
+ BLOCKFILE=""
+ [ -e "/initrd/pup_ro1/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro2/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro3/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro4/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro5/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro6/$N" ] && BLOCKFILE="yes"
+ [ -e "/initrd/pup_ro7/$N" ] && BLOCKFILE="yes" #v424
+ [ -e "/initrd/pup_ro8/$N" ] && BLOCKFILE="yes" #v424
+ [ -e "/initrd/pup_ro9/$N" ] && BLOCKFILE="yes" #v424
+ [ "$BLOCKFILE" = "yes" ] && touch "${BASE}/${DN}/.wh.${BN}"
  rm -f "$SNAP/$DN/.wh.$BN" #remove whiteout file. should force aufs layer "reval".
 done
 
 #Directories... v409 remove '^var'. w003 remove aufs .wh. dirs.
-#w003 /dev/.udev also needs to be screened out... 100820 added var/tmp #110222 shinobar: remove all /dev
-#find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/|^var/tmp' |
-#110224 BK revert, leave save of /dev in for now, just take out some subdirs... 110503 added dev/snd
-find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^dev/snd|^var/tmp' |
+#w003 /dev/.udev also needs to be screened out...
+find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
  mkdir -p "$BASE/$N"
- #i think nathan advised this, to handle non-root user:
  chmod "$BASE/$N" --reference="$N"
- OWNER="`stat --format=%U "$N"`"
+ OWNER=`stat --format=%U "$N"`
  chown $OWNER "$BASE/$N"
- GRP="`stat --format=%G "$N"`"
+ GRP=`stat --format=%G "$N"`
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
 done
 
-#100222 a quick hack: BOOTCONFIG written to in init, before timezone set, can cause trouble...
-touch /etc/rc.d/BOOTCONFIG
-FREEBASEK=`df -k | grep -w "$BASE"| head -n 1 | tr -s ' ' | cut -f 4 -d ' '` #110212 Jemimah #110222 shinobar
-rm -f /tmp/snapmergepuppy-nospace #110222 shinobar
-#Copy Files... v409 remove '^var'. w003 screen out some /dev files. 100222 shinobar: more exclusions. 100422 added ^root/ftpd. 100429 modify 'trash' exclusion. 100820 added var/tmp #110222 shinobar: remove all /dev
-#find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/|^\.wh\.|^var/run|^root/ftpd|^var/tmp' | grep -v -E -i '\.thumbnails|\.trash|trash/|\.part$'  |
-#110224 BK: revert, leave save of /dev in for now... 120103 rerwin: add .XLOADED
-find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^\.wh\.|^var/run|^root/ftpd|^var/tmp|\.XLOADED$' | grep -v -E -i '\.thumbnails|\.trash|trash/|\.part$'  |
+#Copy Files... v409 remove '^var'. w003 screen out some /dev files.
+#find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
+#while read N
+#do
+
+FILES=`find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/^\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$' |sort -d`
+
+if [ "$DISPLAY" ]; then
+    yaf-splash -display :0 -font "8x16" -outline 0 -margin 4 -bg green -text "Calculating...
+Please wait ..." &
+else
+    echo -e "\\033[0;31m"'Calculating...'\
+"\nPlease wait ...\\033[0;39m" >$TTY
+fi
+
+SIZE_OLD=0
+#for file in $FILES; do  ##--- filename with spaces
+while read file
+do
+[ -d "$file" ] && continue
+SIZE=`ls -1 -s --block-size=K "$file" |awk -F 'K' '{print $1}'`; [ "$SIZE" ] || SIZE=0
+SIZE_ALL=$((SIZE_ALL+SIZE))
+[ "$SIZE" -ge "$SIZE_OLD" ] && { BIGGEST_SIZE=$SIZE;biggest_file="$file"; }
+SIZE_OLD=$SIZE;
+done<<EOI
+$(echo "$FILES")  ##+++ filename with spaces
+EOI
+
+kill -s HUP `jobs -p yaf-splash` >$OUT 2>$ERR
+
+FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
+
+if [ "$SIZE_ALL" -ge $((FREEBASEK-2048)) ] ; then
+    if [ "$DISPLAY" ]; then
+    yaf-splash -display :0 -timeout 9 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
+Unable to save all files. You need to delete or move some.
+The biggest file with ${BIGGEST_SIZE}KiB is
+$biggest_file" &
+    exit 1
+    else
+    echo -e "\\033[0;31m"'WARNING! Unable to save all files. Biggest is '\
+"\n$biggest_file with ${BIGGEST_SIZE}KiB\\033[0;39m" >$TTY
+    echo -e "Returning back into $TTY or X." >$TTY
+    sleep 2
+    killall poweroff 2>/dev/null || killall reboot
+    exit 1
+    fi
+fi
+
 while read N
 do
-
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
+ [ "$XRUNNING" = "yes" ] && { [ -f /tmp/wmexitmode.txt ] && exit $?; }
 
  if [ "$SAVEPART" = "fd0" ];then
   #not much space, so screen out more files...
@@ -145,26 +186,20 @@ do
   [ "`echo -n "$N" | grep -v -E 'mozilla|printjobs|archive|cache'`" = "" ] && continue
  fi
 
- #stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
- FILESIZEB=`stat --format=%s "/${N}"`
- [ ! $FILESIZEB ] && break #w003 precaution.
- FILESIZEK=$((FILESIZEB/1024))
- FILESIZEK=$((FILESIZEK+200)) #200K slack space.
- if [ $FILESIZEK -gt $FREEBASEK ];then
-  FREEBASEK=`df -k | grep -w "$BASE" | head -n 1 | tr -s ' ' | cut -f 4 -d ' '` #110212 Jemimah: this is very slow; try not to check every iteration #110222 shinobar: fix for pup_ro10 and more
-  if [ $FILESIZEK -gt $FREEBASEK ];then #110212 Jemimah.
-   #also the taskbar freemem-applet lets the user know when low.
-   if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
-    export DISPLAY=':0'
-    yaf-splash -timeout 4 -bg red -text "WARNING!
-Unable to save all files. You need to delete some." &
-   fi
-   touch /tmp/snapmergepuppy-nospace  #110222 shinobar
-   break
-  fi
- else
-  FREEBASEK=$((FREEBASEK-FILESIZEK)) #110212 Jemimah: keep track of the worst case
- fi
+ ##stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
+ #FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
+ #FILESIZEB=`stat --format=%s "/${N}"`
+ #[ ! $FILESIZEB ] && break #w003 precaution.
+ #FILESIZEK=`expr $FILESIZEB \/ 1024`
+ #FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
+ #if [ $FILESIZEK -ge $FREEBASEK ];then
+  ##also the taskbar freemem-applet lets the user know when low.
+  #if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
+   #yaf-splash -display :0 -timeout 4 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
+#Unable to save all files. You need to delete some." &
+  #fi
+  #break
+ #fi
 
  ##v2.21 -u causes trouble if timezone malconfigured...
  ##[ -L "$BASE/$N" ] && rm -f "$BASE/$N"
@@ -173,29 +208,26 @@ Unable to save all files. You need to delete some." &
  [ -L "$BASE/$N" ] && rm -f "$BASE/$N"
  if [ -L "$N" -o "$NEXTPASSTHRU" = "" ];then
   #link, or first run of snapmergepuppy. no '-u' (update) option.
-  cp -a -f "$N" "$BASE/$N"
+  cp -a --remove-destination "$N" "$BASE/$N"
  else
-  cp -a -u -f "$N" "$BASE/$N" #v3.02
+  cp -a -u --remove-destination "$N" "$BASE/$N" #v3.02
  fi
- 
- BN="`basename "$N"`" #111229 rerwin: bugfix for jemimah code (110212).
- DN="`dirname "$N"`" #111229  "
- [ -e "$BASE/$DN/.wh.${BN}" ] && rm "$BASE/$DN/.wh.${BN}" #110212 jemimah bugfix - I/O errors if you don't do this
- 
+
  #if [ "$NEXTPASSTHRU" != "" ];then
  # cp -a -u -f "$N" "$BASE/$N"
  #else
  # cp -a -f "$N" "$BASE/$N" #no update option.
  #fi
  #flock -x -n "$N" -c rm -f "$N" #remove if file not in use
-
-done
+sleep 0.2
+done<<EOI
+$(echo "$FILES")
+EOI
 
 touch /tmp/flagnextpassthru
 
 sync
 cd "$WD"
-[ -f /tmp/snapmergepuppy-nospace ] && exit 1 #110222 shinobar
 exit 0
 
 ###END###
