@@ -6,56 +6,44 @@
 #/tmp/petget_filterversion has the repository that installing from.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
-
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-########################################################################
-#
-# ADDS/CHANGES by Karl Godt :
-#
-# TOTAL TODO/CHECK IF NEEDED
-#
-########################################################################
 
-out=/dev/null;err=$out
-case $2 in
-debug) set -x;;
-verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;;
-esac
+#KRG
+#************
 
-echo "$0:$*" >&2
+
+##KRG CHANGES : DEBUG OUTPUT, -log to .log, dont remove dled pkgs, added # to simple exit ie 0, /tmp/PetGet instead of /tmp
+
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
@@ -87,21 +75,6 @@ DB_description=`echo -n "$DB_ENTRY" | cut -f 10 -d '|'`
 [ "$DB_description" = "" ] && DB_description="no description available"
 
 SIZEFREEM=`cat /tmp/pup_event_sizefreem`
-if [ ! "$SIZEFREEM" ];then
-. /etc/rc.d/PUPSTATE
-. /usr/local/petget/functions
-case $PUPMODE in
-  3|7|13)  #flash
-   free_flash_func
-  ;;
-  16|24|17|25) #unipup.
-   free_initrd_func
-  ;;
-  *)
-   free_func
-  ;;
- esac
-fi
 SIZEFREEK=`expr $SIZEFREEM \* 1024`
 
 if [ $DB_size ];then
@@ -111,7 +84,7 @@ if [ $DB_size ];then
  SIZEVALz=`expr $SIZEVAL \/ 3`
  SIZEVALz=`expr $SIZEVAL + $SIZEVALz`
  SIZEVALx2=`expr $SIZEVALz + 10000`
- if [ "$SIZEVALx2" -ge "$SIZEFREEK" ];then
+ if [ $SIZEVALx2 -ge $SIZEFREEK ];then
   MSGWARN1="${SIZEINFO}<text use-markup=\"true\"><label>\"<b>A general rule-of-thumb is that the free space should be at least the original-package-size plus installed-package-size plus 10MB to allow for sufficient working space during and after installation. It doesn't look to good, so you had better hit the 'Cancel' button</b> -- note, if you are running Puppy in a mode that has a 'pupsave' file, then the Utility menu has an entry 'Resize personal storage file' that should solve the problem.\"</label></text>"
  else
   MSGWARN1="${SIZEINFO}<text use-markup=\"true\"><label>\"<b>...free space looks ok, so click 'Install' button:</b>\"</label></text>"
@@ -120,20 +93,17 @@ else
  MSGWARN1="<text use-markup=\"true\"><label>\"<b>Unfortunately the provider of the package database has not supplied the size of this package when installed. If you are able to see the size of the compressed package, multiple that by 3 to get the approximate installed size. The free available space, which is ${SIZEFREEM}MB (${SIZEFREEK}KB), should be at least 4 times greater.</b>\"</label></text>"
 fi
 
-#out_0(){
+
 #find missing dependencies...
 if [ "$DB_dependencies" = "" ];then
  #DEPINFO="<text><label>The provider of the package database has not supplied any dependency information for this package. However, after installing it you will have the option to test for any missing shared library files. If uncertain, you might want to look for online documentation for this package that explains any required dependencies.</label></text>"
  DEPINFO="<text><label>It seems that all dependencies are already installed. Sometimes though, the dependency information in the database is incomplete, however a check for presence of needed shared libraries will be done after installation.</label></text>"
 else
-#: #fake
-#fi #fake
-#}
 
  #find all missing pkgs...
- [ "$DB_dependencies" ] && /usr/local/petget/findmissingpkgs.sh "$DB_dependencies"
+ /usr/local/petget/findmissingpkgs.sh "$DB_dependencies"
  #...returns /tmp/petget_installed_patterns_all, /tmp/petget_pkg_deps_patterns, /tmp/petget_missingpkgs_patterns
- [ -f /tmp/petget_missingpkgs_patterns ] && MISSINGDEPS_PATTERNS=`cat /tmp/petget_missingpkgs_patterns`
+ MISSINGDEPS_PATTERNS=`cat /tmp/petget_missingpkgs_patterns`
  #/tmp/petget_missingpkgs_patterns has a list of missing dependencies, format ex:
  #|kdebase|
  #|kdelibs|
@@ -162,7 +132,7 @@ else
    MSGWARN1="<text><label>Also, the package database provider has not supplied the installed size of this package, so you will have to try and estimate whether you have enough free space for it (and the dependencies)</label></text>"
   fi
  fi
-fi #out_0
+fi
 
 kill $X1PID
 
@@ -182,10 +152,6 @@ export PREVIEW_DIALOG="<window title=\"Puppy Package Manager: preinstall\" icon-
  </frame>
 
  <hbox>
- <button>
-   <label>Download-only package</label>
-   <action type=\"exit\">BUTTON_PKG_DOWNLOADONLY</action>
-  </button>
   ${DEPBUTTON}
   <button>
    <label>Install ${TREE1}${ONLYMSG}</label>
@@ -201,7 +167,7 @@ export PREVIEW_DIALOG="<window title=\"Puppy Package Manager: preinstall\" icon-
 RETPARAMS=`gtkdialog3 --program=PREVIEW_DIALOG`
 
 eval "$RETPARAMS"
-[ "$EXIT" != "BUTTON_INSTALL" -a "$EXIT" != "BUTTON_EXAMINE_DEPS" -a "$EXIT" != "BUTTON_PKG_DOWNLOADONLY" ] && (echo "Quit";exit 0)
+[ "$EXIT" != "BUTTON_INSTALL" -a "$EXIT" != "BUTTON_EXAMINE_DEPS" ] && exit 0
 
 #DB_ENTRY has the database entry of the main package that we want to install.
 #DB_FILE has the name of the database file that has the main entry, ex: Packages-slackware-12.2-slacky
@@ -360,7 +326,7 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
    mv -f /tmp/petget_tmp /tmp/petget_missing_dbentries-Packages-${ONEREPO}
   done
  else
-  echo "Exit ";exit 1
+  exit 0
  fi
 fi
 
@@ -380,14 +346,13 @@ fi
 #now do the actual install...
 PASSEDPRM=""
 [ "`echo "$RETPARAMS" | grep '^EXIT' | grep 'BUTTON_PKGS_DOWNLOADONLY'`" != "" ] && PASSEDPRM="DOWNLOADONLY"
-[ "$EXIT" = 'BUTTON_PKG_DOWNLOADONLY' ] && PASSEDPRM="DOWNLOADONLY"
 /usr/local/petget/downloadpkgs.sh $PASSEDPRM
-[ $? -ne 0 ] && { echo "Something went wrong with downloadpkgs.sh .Exit";exit 1; }
-[ "$PASSEDPRM" = "DOWNLOADONLY" ] && { echo "'PASSEDPRM = DOWNLOADONLY' .Exit.";exit 0; }
+[ $? -ne 0 ] && exit 1
+[ "$PASSEDPRM" = "DOWNLOADONLY" ] && exit 0
 
 #w482 adjust msg as appropriate, restart jwm and update menu if required...
 INSTALLEDCAT="menu" #any string.
-[ "`cat /tmp/petget-installed-pkgs-log | grep -o 'CATEGORY' | grep -v 'none'`" = "" ] && INSTALLEDCAT="none"
+[ "`cat /tmp/petget-installed-pkgs.log | grep -o 'CATEGORY' | grep -v 'none'`" = "" ] && INSTALLEDCAT="none"
 RESTARTMSG="Please wait, updating help page and menu..."
 [ "`pidof jwm`" != "" ] && RESTARTMSG="Please wait, updating help page and menu (the screen will flicker!)..."
 [ "$INSTALLEDCAT" = "none" ] && RESTARTMSG="Please wait, updating help page..."
@@ -407,5 +372,7 @@ kill $X3PID
 #check any missing shared libraries...
 PKGS=`cat /tmp/petget_missing_dbentries-* | cut -f 1 -d '|' | tr '\n' '|'`
 /usr/local/petget/check_deps.sh $PKGS
-exit $?
+
+echo "$0: END" >&2
+
 ###END###
