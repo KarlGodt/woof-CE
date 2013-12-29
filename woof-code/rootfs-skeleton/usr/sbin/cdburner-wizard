@@ -2,96 +2,200 @@
 #cd-burner wizard
 #Barry Kauler (c) copyright 2003,2004,2005
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
 #updated for v1.0.5
 #updated for 2.17
-#v431 man, this script is ancient! have done some fixing.
-#120323 partial replace 'xmessage' with 'pupmessage'.
-#120507 L18L: internationalised. exit if SELECTIONS="" avoids "Usage of Xdialog"; gettext´ed
-#130203 change probedisk2 to probedisk.
 
-. gettext.sh
-export TEXTDOMAIN=cdburner-wizard
-export OUTPUT_CHARSET=UTF-8
+#make this optional feature...
+#this is the on/off scsi-emulate ide switch...
+FSCSIEMUL=""
+if [ ! -e /etc/scsiemul ];then
+ echo -n "off" > /etc/scsiemul
+fi
+FSCSIEMUL=`cat /etc/scsiemul` #value is "on" or "off"
 
-DRIVESFND="`probedisk`"
-OPTICALDRVSFND="`echo "$DRIVESFND" | grep '|optical|'`"
+if [ "$FSCSIEMUL" = "on" ];then
+ xmessage -bg "orange" -center -name "burnwiz" -title "CD/DVD drive Wizard" -buttons "OK:10" "SCSI emulation of an IDE CD/DVD burner drive is currently switched on.
+Puppy is now using a modern Linux kernel that does not need SCSI-emulation.
 
-SELECTIONS="`echo "$OPTICALDRVSFND" | cut -f 1,3 -d "|" | tr " " "_" | tr "|" " " | tr '$' "_"`"
-if [ -z "$SELECTIONS" ]; then #120507
- pupmessage -bg "red" -center -name "burnwiz" -title "$(gettext 'CD/DVD driver Wizard: FAILURE')" "$(gettext 'no optical drive found')"
- exit 0
+When you click the OK button, you will be taken to the \"old\" CD/DVD Wizard,
+which is designed to handle SCSI-emulated CD/DVD burning.
+The old Wizard also has a button for turning off SCSI-emulation, and it
+is probably best that you do this.
+
+Note however, that SCSI-emulated burning of CD/DVD IDE (internal) drives
+is considered to be more reliable, though I personally have not had any
+trouble with ATAPI (non-SCSI-emulated) CD burning."
+
+ XREPLY=$?
+ case $XREPLY in
+  10) #scsi
+   exec /usr/sbin/cdburner-wizard-old
+   ;;
+  *)
+   exit
+   ;;
+ esac
 fi
 
-nothing="$(gettext 'nothing')" 
-CDROMDEV=$nothing
-CDROMLINK=$nothing
-if [ -e /dev/cdrom ];then
- CDROMDEV="/dev/`readlink /dev/cdrom | sed -e 's%/dev/%%'`"
- CDROMLINK="`readlink /dev/cdrom`"
+
+#using Antonio Gallo's program...
+DRIVESFND=`probedisk 2>&1`
+IDEDRVSFND=`test-eide 2>&1 | grep "cdrom"`
+
+#SELECTIONS=`echo "$DRIVESFND" | grep -i "cd" | grep -i "rom" | cut -f 1,3 -d "|" | tr " " "_" | tr "|" " " | tr '$' "_"`
+SELECTIONS=`echo "$DRIVESFND" | grep -i "|cdrom|" | cut -f 1,3 -d "|" | tr " " "_" | tr "|" " " | tr '$' "_"`
+
+#number of physical cdrom/burner drives...
+NUMDRIVES=`echo "$DRIVESFND" | grep "cdrom" | wc -l | tr -d " " | tr -d "\n"`
+NUMIDEDRVS=`echo "$IDEDRVSFND" | grep "cdrom" | wc -l | tr -d " " | tr -d "\n"`
+
+#one of these should have "RW" or "rw" if a burner...
+#( -i means ignore case)
+NUMBURNERS=`echo "$DRIVESFND" | grep -i "rw" | wc -l | tr -d " " | tr -d "\n"`
+
+NUMCDROMS=`expr $NUMDRIVES - $NUMBURNERS`
+
+#ok, which one is the burner?...
+if [ -f /etc/cdburnerdevice ];then
+ BURNERDEV1="/dev/`cat /etc/cdburnerdevice`"
+else
+ #careful, delimiter for IDEDRVSFND is spaces, not "|"...
+ BURNERDEV1=`echo "$IDEDRVSFND" | grep -i "cd" | grep -i "rw" | cut -f 1 -d " " | head -n 1 | tr -d "\n"`
+ #...if there is a burner, this will now have "/dev/hdc" or whatever.
+ echo -n "$BURNERDEV1" | cut -f 3 -d '/' > /etc/cdburnerdevice
 fi
 
-DVDDEV=$nothing
-DVDLINK=$nothing
-if [ -e /dev/dvd ];then
- DVDDEV="/dev/`readlink /dev/dvd | sed -e 's%/dev/%%'`"
- DVDLINK="`readlink /dev/dvd`"
+#which is the cdrom reader?...
+#note, /dev/cdrom created by rc.local0 if /etc/cdromdevice exists.
+#is there a cdrom drive without "rw" in it?...
+#( -v means if not found)
+CDROMDRVS=`echo "$DRIVESFND" | grep "cdrom" | grep -vi "rw" | cut -f 1 -d "|"`
+#...if exists, has drive which is not a burner.
+if [ "$CDROMDRVS" = "" ];then
+ #nothing found. then, use the cd-burner...
+ CDROMDEV="$BURNERDEV1"
+else
+ #precaution if more than one cdrom ro drive...
+ CDROMDEV=`echo "$CDROMDRVS" | head -n 1 | tr -d "\n"`
 fi
+#what is /dev/cdrom currently linked to?...
+[ -e /dev/cdrom ] && CDROMLINK="/dev/`readlink /dev/cdrom | sed -e 's%/dev/%%'`"
+[ "$CDROMLINK" ] && CDROMDEV="$CDROMLINK" #override above search
 
-MSG1="$(gettext 'Welcome to my CD and DVD Drive Wizard!')"
+#which one is dvd player...
+#note, /dev/dvd created by rc.local0 if /etc/dvddevice exists.
+DVDDEV=`echo "$IDEDRVSFND" | grep -i "dvd" | cut -f 1 -d " " | head -n 1 | tr -d "\n"`
+#what is /dev/dvd currently linked to?...
+[ -e /dev/dvd ] && DVDLINK="/dev/`readlink /dev/dvd | sed -e 's%/dev/%%'`"
+[ "$DVDLINK" ] && DVDEV="$DVDLINK" #overrides the above.
+
+MSG0="Puppy CD/DVD drive Wizard"
+MSG1="Welcome to my CD and DVD drive wizard!"
 BGCOLOR1="#ffc0c0"
+VALIDDRIVES="$SELECTIONS"
 
-CHOSECD="$(gettext 'Choose_cdrom')"
-CHOSEDVD="$(gettext 'Choose_dvd')"
 
 while :; do
 
-xmessage -bg "$BGCOLOR1" -center -name "burnwiz" -title "$(gettext 'Optical Drive Wizard')" -buttons \
- "${CHOSECD}":11,"${CHOSEDVD}":20,"$(gettext 'HELP')":15,"$(gettext 'EXIT')":13 \
+xmessage -bg "$BGCOLOR1" -center -name "burnwiz" -title "$MSG0" -buttons \
+ Choose_cdrom:11,Choose_dvd:20,Choose_burner:10,HELP:15,EXIT:13 \
  -file -<<FILETXT
- 
 $MSG1
-$(gettext 'Puppy has probed your PC and found these CD/DVD drives:')
-$SELECTIONS
 
-`eval_gettext 'Puppy thinks the default CDROM drive is:     ${CDROMDEV}'`
-`eval_gettext 'Puppy thinks the default DVD drive is:       ${DVDDEV}'`
+Puppy has probed your PC and found these CD/DVD drives:
+$VALIDDRIVES
+
+Puppy thinks the default CDROM reader drive is:  $CDROMDEV
+Puppy thinks the default DVD reader drive is:    $DVDDEV
+Puppy thinks the default burner drive is:        $BURNERDEV1
 
 DEVICE LINKS:
-`eval_gettext '/dev/cdrom is currently linked to:  ${CDROMLINK}.'`
-`eval_gettext '/dev/dvd is currently linked to:    ${DVDLINK}.'`
+/dev/cdrom is currently linked to: $CDROMLINK.
+/dev/dvd is currently linked to:   $DVDLINK.
 
-`eval_gettext 'If you disagree with these choices, click the "${CHOSECD}"
-or "${CHOSEDVD}" button to change the selection.'`
+If you disagree with these choices, click the "Choose_burner"
+or "Choose_cdrom" or "Choose_dvd" to change the selection.
 FILETXT
 
 XREPLY=$?
 
+if [ $XREPLY -eq 10 ];then #choose-burner
+ BGCOLOR1="#c0e0ff"
+  #v1.0.0
+  BURNERD0=`Xdialog --wmclass "burnwiz" --title "CD/DVD drive Wizard" --stdout --menubox "Choose which is the burner drive:" 0 48 4 $SELECTIONS 2> /dev/null `
+ if [ ! $? -eq 0 ];then
+  MSG1="YOU MADE NO CHOICE FOR BURNER DRIVE, KEEPING $BURNERDEV1"
+ else
+  MSG1="YOU JUST CHOSE $BURNERD0 AS THE BURNER DRIVE"
+  BURNERDEV1="$BURNERD0"
+  echo -n "$BURNERDEV1" | cut -f 3 -d '/' > /etc/cdburnerdevice
+ fi 
+fi
+
 if [ $XREPLY -eq 11 ];then #choose cdrom
  BGCOLOR1="#c0e0ff"
   #v1.0.0
-  CDROMD0="`Xdialog --wmclass "burnwiz" --title "$(gettext 'CD/DVD drive Wizard')" --stdout --menubox "$(gettext 'Choose which is the CDROM drive:')" 0 48 4 $SELECTIONS 2> /dev/null `"
+  CDROMD0=`Xdialog --wmclass "burnwiz" --title "CD/DVD drive Wizard" --stdout --menubox "Choose which is the CDROM drive:" 0 48 4 $SELECTIONS 2> /dev/null `
  if [ ! $? -eq 0 ];then
-  MSG1="`eval_gettext 'YOU MADE NO CHOICE FOR CDROM DRIVE, KEEPING ${CDROMDEV}'`"
+  MSG1="YOU MADE NO CHOICE FOR CDROM DRIVE, KEEPING $CDROMDEV"
  else
-   MSG1="`eval_gettext 'YOU JUST CHOSE ${CDROMD0} AS THE CDROM DRIVE'`"
+   MSG1="YOU JUST CHOSE $CDROMD0 AS THE CDROM READER DRIVE"
    CDROMDEV="$CDROMD0"
-   CDROMLINK="$CDROMD0"
+    CDROMLINK="$CDROMDEV"
    #strip off the leading "/dev/"...
    echo -n $CDROMLINK | cut -f 3 -d '/' > /etc/cdromdevice
    rm -f /dev/cdrom
    ln -s $CDROMLINK /dev/cdrom
  fi 
 fi
+
 if [ $XREPLY -eq 20 ];then #choose dvd
  BGCOLOR1="#c0e0ff"
  #v1.0.0
- DVDD0="`Xdialog --wmclass "burnwiz" --title "$(gettext 'CD/DVD drive Wizard')" --stdout --menubox "$(gettext 'Choose which is the DVD drive:')" 0 48 4 $SELECTIONS 2> /dev/null `"
+ DVDD0=`Xdialog --wmclass "burnwiz" --title "CD/DVD drive Wizard" --stdout --menubox "Choose which is the DVD drive:" 0 48 4 $SELECTIONS 2> /dev/null `
  if [ ! $? -eq 0 ];then
-  MSG1="`eval_gettext 'YOU MADE NO CHOICE FOR DVD DRIVE, KEEPING ${DVDDEV}'`"
+  MSG1="YOU MADE NO CHOICE FOR DVD DRIVE, KEEPING $DVDDEV"
  else
-  MSG1="`eval_gettext 'YOU JUST CHOSE ${DVDD0} AS THE DVD DRIVE'`"
+  MSG1="YOU JUST CHOSE $DVDD0 AS THE DVD READER DRIVE"
   DVDDEV="$DVDD0"
-  DVDLINK="$DVDD0"
+  DVDLINK="$DVDDEV"
    #strip off the leading "/dev/"...
    echo -n $DVDLINK | cut -f 3 -d '/' > /etc/dvddevice
    rm -f /dev/dvd
@@ -99,13 +203,42 @@ if [ $XREPLY -eq 20 ];then #choose dvd
  fi 
 fi
 
-if [ $XREPLY -eq 15 ];then #help
- pupmessage -bg "SkyBlue" -center  -title "$(gettext 'CD/DVD driver Wizard: HELP')" "$(gettext '/dev/dvd and /dev/cdrom are links to the actual devices, for example, a link to /dev/sdc. These should point to the drives that you want to read from.
-For example, my PC has two drives, a DVD read-only drive and a CD-burner drive. 
-I point *both* /dev/dvd and /dev/cdrom to the DVD drive, although I could have pointed /dev/cdrom to the burner drive (a DVD drive can also read CDs, so I chose it as my default for reading both CDs and DVDs).
 
-There are various applications for reading from CD or DVD. For example, Gxine can play audio CDs and video DVDs. Some of these applications require that /dev/cdrom 
-or /dev/dvd point to the correct devices.')"
+
+if [ $XREPLY -eq 15 ];then #help
+ xmessage -bg "purple" -center -name "burnwiz" -title "CD/DVD driver Wizard: HELP" "/dev/dvd and /dev/cdrom are links to the actual devices, for example, a link
+to /dev/hdc. These should point to the drives that you want to read from.
+For example, my PC has two drives, a DVD read-only drive and a CD-burner
+drive. I point *both* /dev/dvd and /dev/cdrom to the DVD drive, although I
+could have pointed /dev/cdrom to the burner drive (a DVD drive can also read
+CDs, so I chose it as my default for reading both CDs and DVDs).
+
+There are various applications for reading from CD or DVD. For example, Gxine
+can play audio CDs and video DVDs. Most of these applications require that
+/dev/cdrom or /dev/dvd point to the correct devices.
+
+Puppy has applications for burning, for example TkDVD and Graveman. The latter
+will burn to both CD and DVDs, whereas TkDVD is for burning to DVDs only.
+TkDVD defaults to using /dev/dvd to tell it what drive to use, whereas
+Graveman will scan the hardware directly so is not dependent on the /dev/dvd
+and /dev/cdrom settings -- nor do you have to choose the burner drive in
+this Wizard as it is done from within the program.
+
+Gcombust is an older application designed for the 2.4 kernel and hence thinks
+in terms of SCSI-emulation, however it does still work without a SCSI-emulated
+burner drive. Gcombust is available as a PET package if not on the live-CD.
+
+Two recent applications developed especially for Puppy are Burniso2cd and
+Grafburn -- look in the Multimedia menu.
+
+if you want to turn on SCSI-emulation of the burner drive, run the \"old\"
+Wizard by executing \"cdburner-wizard-old\" from the commandline. if you do
+not know what SCSI-emulation is, no problem, no need to know about it.
+SCSI-emulation is no longer required for burning CD/DVDs in Puppy, although
+it does have a historical reputation of being more reliable.
+
+Note that this Wizard stores the settings in /etc/cdromdevice, /etc/dvddevice,
+and /etc/cdburnerdevice."
 fi
 
 if [ $XREPLY -eq 13 ];then #exit
