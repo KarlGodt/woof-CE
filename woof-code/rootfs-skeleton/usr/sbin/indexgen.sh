@@ -10,40 +10,36 @@
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
-
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
 
 export LANG=C
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
