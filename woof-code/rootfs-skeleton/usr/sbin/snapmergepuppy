@@ -17,33 +17,36 @@
 #v424 fix for more layers in unionfs/aufs.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
+
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
-Version='1.1'
+
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
 
 #variables created at bootup by 'init' script in initramfs...
 . /etc/rc.d/PUPSTATE
@@ -62,9 +65,6 @@ XRUNNING="no"
 
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R7/bin"
 WD=`pwd`
-
-TTY=`tty`
-[ "$TTY" = 'unknown' -o "$TTY" = '?' ] && TTY=/dev/console
 
 SNAP="/initrd/pup_rw"
 cd $SNAP || exit 1
@@ -124,61 +124,15 @@ do
  GRP=`stat --format=%G "$N"`
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
-done
+done 
 
 #Copy Files... v409 remove '^var'. w003 screen out some /dev files.
-#find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
-#while read N
-#do
-
-FILES=`find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/^\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$' |sort -d`
-
-if [ "$DISPLAY" ]; then
-    yaf-splash -display :0 -font "8x16" -outline 0 -margin 4 -bg green -text "Calculating...
-Please wait ..." &
-else
-    echo -e "\\033[0;31m"'Calculating...'\
-"\nPlease wait ...\\033[0;39m" >$TTY
-fi
-
-SIZE_OLD=0
-#for file in $FILES; do  ##--- filename with spaces
-while read file
-do
-[ -d "$file" ] && continue
-SIZE=`ls -1 -s --block-size=K "$file" |awk -F 'K' '{print $1}'`; [ "$SIZE" ] || SIZE=0
-SIZE_ALL=$((SIZE_ALL+SIZE))
-[ "$SIZE" -ge "$SIZE_OLD" ] && { BIGGEST_SIZE=$SIZE;biggest_file="$file"; }
-SIZE_OLD=$SIZE;
-done<<EOI
-$(echo "$FILES")  ##+++ filename with spaces
-EOI
-
-kill -s HUP `jobs -p yaf-splash` >$OUT 2>$ERR
-
-FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
-
-if [ "$SIZE_ALL" -ge $((FREEBASEK-2048)) ] ; then
-    if [ "$DISPLAY" ]; then
-    yaf-splash -display :0 -timeout 9 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
-Unable to save all files. You need to delete or move some.
-The biggest file with ${BIGGEST_SIZE}KiB is
-$biggest_file" &
-    exit 1
-    else
-    echo -e "\\033[0;31m"'WARNING! Unable to save all files. Biggest is '\
-"\n$biggest_file with ${BIGGEST_SIZE}KiB\\033[0;39m" >$TTY
-    echo -e "Returning back into $TTY or X." >$TTY
-    sleep 2
-    killall poweroff 2>/dev/null || killall reboot
-    exit 1
-    fi
-fi
-
+find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
 while read N
 do
+
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ "$XRUNNING" = "yes" ] && { [ -f /tmp/wmexitmode.txt ] && exit $?; }
+ [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
 
  if [ "$SAVEPART" = "fd0" ];then
   #not much space, so screen out more files...
@@ -186,20 +140,20 @@ do
   [ "`echo -n "$N" | grep -v -E 'mozilla|printjobs|archive|cache'`" = "" ] && continue
  fi
 
- ##stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
- #FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
- #FILESIZEB=`stat --format=%s "/${N}"`
- #[ ! $FILESIZEB ] && break #w003 precaution.
- #FILESIZEK=`expr $FILESIZEB \/ 1024`
- #FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
- #if [ $FILESIZEK -ge $FREEBASEK ];then
-  ##also the taskbar freemem-applet lets the user know when low.
-  #if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
-   #yaf-splash -display :0 -timeout 4 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
-#Unable to save all files. You need to delete some." &
-  #fi
-  #break
- #fi
+ #stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
+ FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
+ FILESIZEB=`stat --format=%s "/${N}"`
+ [ ! $FILESIZEB ] && break #w003 precaution.
+ FILESIZEK=`expr $FILESIZEB \/ 1024`
+ FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
+ if [ $FILESIZEK -gt $FREEBASEK ];then
+  #also the taskbar freemem-applet lets the user know when low.
+  if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
+   yaf-splash -display :0 -timeout 4 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
+Unable to save all files. You need to delete some." &
+  fi
+  break
+ fi
 
  ##v2.21 -u causes trouble if timezone malconfigured...
  ##[ -L "$BASE/$N" ] && rm -f "$BASE/$N"
@@ -208,21 +162,19 @@ do
  [ -L "$BASE/$N" ] && rm -f "$BASE/$N"
  if [ -L "$N" -o "$NEXTPASSTHRU" = "" ];then
   #link, or first run of snapmergepuppy. no '-u' (update) option.
-  cp -a --remove-destination "$N" "$BASE/$N"
+  cp -a -f "$N" "$BASE/$N"
  else
-  cp -a -u --remove-destination "$N" "$BASE/$N" #v3.02
+  cp -a -u -f "$N" "$BASE/$N" #v3.02
  fi
-
+ 
  #if [ "$NEXTPASSTHRU" != "" ];then
  # cp -a -u -f "$N" "$BASE/$N"
  #else
  # cp -a -f "$N" "$BASE/$N" #no update option.
  #fi
  #flock -x -n "$N" -c rm -f "$N" #remove if file not in use
-sleep 0.2
-done<<EOI
-$(echo "$FILES")
-EOI
+
+done
 
 touch /tmp/flagnextpassthru
 
