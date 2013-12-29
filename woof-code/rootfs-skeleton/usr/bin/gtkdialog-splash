@@ -7,11 +7,44 @@
 #100604 name /tmp/yaf-splash same as original, as some scripts have 'pidof yaf-splash' or 'killall yaf-splash'.
 #100917 if old yaf-splash installed, and '-font' param, execute old yaf-splash.
 #100929 my god, this is clumsy: above did not work, fixed.
-#110926 gtkrc fix.
+#110318 added option for any pixmap, use with caution, recommended less than 48x48 px in size 01micko, 
+#however vovchik tested with larger gifs with success
+
+
+
+#************
+#KRG
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+
+Version=1.1-KRG-MacPup_O2
+
+usage(){
+MSG="
+$0 [ help | version ]
+"
+echo "$MSG
+$2"
+exit $1
+}
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
 
 FIXEDPARAMS=""
 if [ -f /usr/X11R7/bin/yaf-splash ];then #100917
- if [ "`echo " ${*} " | grep ' \-font '`" != "" ];then
+ if [ "`echo "$*" | grep ' \-font '`" != "" ];then
   #100929 insert double-quote chars at begin/end of text string...
   for ONEPARA in "${1}" "${2}" "${3}" "${4}" "${5}" "${6}" "${7}" "${8}" "${9}" "${10}" "${11}" "${12}" "${13}" "${14}" "${15}"
   do
@@ -28,12 +61,12 @@ if [ -f /usr/X11R7/bin/yaf-splash ];then #100917
 fi
 
 #ignore scripts that do 'killall gtkdialog3'...
-GTKDIALOG3="`which gtkdialog3`"
-[ ! "$GTKDIALOG3" ] && GTKDIALOG3="`which gtkdialog`"
+GTKDIALOG3=`which gtkdialog3`
+[ ! "$GTKDIALOG3" ] && GTKDIALOG3=`which gtkdialog`
 [ ! "$GTKDIALOG3" ] && exit
 [ ! -f /tmp/yaf-splash ] && ln -s $GTKDIALOG3 /tmp/yaf-splash
 
-ROOTGEOM="`xwininfo -root | grep -o ' \\-geometry .*' | cut -f 3 -d ' '`" #ex: 1280x800+0+0
+ROOTGEOM=`xwininfo -root | grep -o ' \\-geometry .*' | cut -f 3 -d ' '` #ex: 1280x800+0+0
 ROOTX=`echo -n "$ROOTGEOM" | cut -f 1 -d 'x'`
 ROOTY=`echo -n "$ROOTGEOM" | cut -f 1 -d '+' | cut -f 2 -d 'x'`
 CENTERX=`expr $ROOTX \/ 2`
@@ -49,8 +82,8 @@ usage: gtkdialog-splash [OPTIONS] [-timeout SEC] -text TEXT | -kill PID \n
 \n
 	-text EXPRESSION\n
 	-timeout COUNT (in seconds)\n
-	-icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none), OR\n
-	-icon <full path> (full path to an icon, ex: /usr/share/doc/puppylogo48.png)\n
+	-icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none)\n
+	OR <path/to/pixmap> \n
 	-bg COLOR (background color red, blue, yellow..., default: grey)\n
 	-fg COLOR (font color, default: black)\n
     -placement center|mouse|top|bottom|top-left|bottom-left (default center)\n
@@ -117,11 +150,12 @@ for arg in "$@";
 		optarg=$dummy
 	elif [ $optarg == "ICON" ]
 	then
-		if [ "`echo -n "$arg" | grep '^/'`" = "" ];then #111016
-		 icon="<pixmap><input file stock=\"$arg\"></input></pixmap>"
-        else
-		 icon="<pixmap><input file>${arg}</input></pixmap>"
-        fi
+		icon="<pixmap>
+          <input file stock=\"$arg\"></input>
+        </pixmap>"
+        [ "`echo $arg | grep '^gtk'`" = "" ]&& icon="<pixmap> 
+          <input file>\"$arg\"</input>
+        </pixmap>" #110318
 		optarg=$dummy
 	elif [ $optarg == "KILL" ]
 	then
@@ -129,11 +163,11 @@ for arg in "$@";
 		if [ ${#pid} -eq -1 ]
 		then
 			dlgPID=`ps|grep -w 'GTKDIALOG_SPLASH'`
-			kill $dlgPID 2>/dev/null
+			kill $dlgPID 2>$ERR
 		else
 			TmpFile=$BasePIDFile${pid}
-			dlgPID="`cat $TmpFile`"
-			kill $dlgPID 2>/dev/null
+			dlgPID=`cat $TmpFile`
+			kill $dlgPID 2>$ERR
 			rm -f $TmpFile
 			exit
 		fi
@@ -229,18 +263,16 @@ case $close in
  ;;
 esac
 
-if [ ! -f /tmp/gtkdialog-splash_gtkrc_${bg}_${fg} ];then
- gtkrc="style \"gtkdialog-splash\"
+gtkrc="style \"gtkdialog-splash\"
 {
 	bg[NORMAL]		= \"$bg\"
 	fg[NORMAL]		= \"$fg\"
 }
 class \"*\" style \"gtkdialog-splash\""
 
- echo "$gtkrc" > /tmp/gtkdialog-splash_gtkrc_${bg}_${fg}
-fi
+echo $gtkrc > /tmp/gtkdialog-splash_gtkrc
 
-export GTK2_RC_FILES=/tmp/gtkdialog-splash_gtkrc_${bg}_${fg}:/root/.gtkrc-2.0
+export GTK2_RC_FILES=/tmp/gtkdialog-splash_gtkrc:/root/.gtkrc-2.0
 
 #      <action signal=\"button-press-event\" type=\"exit\">Exit on mouse click</action>
 
@@ -275,7 +307,7 @@ dlgPID=$!
 pidPATTERN="^${dlgPID} "
 while [ $timeout -ne 0 ];do #100604
  sleep 1
- ALLPS="`ps`"
+ ALLPS=`ps`
  timeout=`expr $timeout - 1`
  [ "`echo "$ALLPS" | sed -e 's%^ *%%' | grep "$pidPATTERN"`" == "" ] && exit #already killed.
 done
