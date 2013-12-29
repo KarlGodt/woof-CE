@@ -1,6 +1,41 @@
 #!/bin/sh
-#try prevent freememapplet escaping tray when jwm restarted.
+#try prevent freememapplet escaping tray when jwm -restart restarted.
 
-killall freememapplet
-sleep 2
-exec freememapplet
+ERR=/dev/null
+QUIET=''
+
+#which freememapplet || { echo "freememapplet not installed.";exit 1; }
+
+#pidof freememapplet && killall freememapplet
+#pidof freememapplet || freememapplet &
+
+pidof inotifywait && killall inotifywait
+
+#sleep 2
+#exec freememapplet
+
+
+for p in `echo -e "${PATH//:/\n}"` ; do
+FREE_MEM_APPLETS="$FREE_MEM_APPLETS
+`ls -1 ${p}/*freemem* 2>$ERR`"
+done
+
+FREE_MEM_APPLETS=`echo "$FREE_MEM_APPLETS" | grep -vw "${0##*/}"`
+
+for app in $FREE_MEM_APPLETS ; do
+echo -n "$app "
+[ -f $app -a -x $app ] || { echo " not a file andor not executable";continue; }
+echo -n " is file and executable "
+
+#pidof $app || { echo;continue; }
+ldd $app | grep $QUIET -i 'xpm' && { pidof ${app##*/} && { kill `pidof ${app##*/}`;sleep 10; }; }
+pidof ${app##*/} && { echo " alreay running";continue; }
+echo " not already running"
+
+$app &
+#echo
+done
+
+echo
+sleep 1
+ps -A -o pid,s,cmd,args | grep free
