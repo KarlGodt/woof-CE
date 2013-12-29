@@ -6,76 +6,71 @@
 #v3.02 2Nov2007 BK: bugfix. v3.94 24dec2007: no /dev/hd*
 #w482 change -pad to padsize=300k, recommended by xorriso developer.
 #w482 migrate to using xorriso.
+#v431 rerwin: Add wait for drive lights to stop flashing before verifying and log the verify dd messages.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
+
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
-Version='1.1'
+
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
-echo "$USAGE_MSG"
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-CDRECORD=`which cdrecord`
-if [ "`which xorriso`" ];then
+
+#KRG
+#************
+
+
+CDRECORD='cdrecord'
+if [ "`which xorriso`" != "" ];then
  CDRECORD='xorrecord'
  export MKISOFS='xorrisofs' #growisofs reads this variable.
 fi
 
-[ "$CDRECORD" ] || exit 1
+MEDIATYPE=`Xdialog --wmclass "mini-cd" --title "Burniso2cd" --stdout --menubox "Welcome to our little CD/DVD burner program!\nPlease choose whether you want to burn to a CD or DVD media.\nNote that DVDs are always burnt 'open' so can be used by Puppy\nas normal or multisession, whereas for CD you will be given\nthe choice further on whether to burn as closed or open." 0 0 5 CD "CD-R or CD-RW (must be blank)" DVD "DVD-R or DVD-RW (must be blank)"`
+[ ! $? -eq 0 ] && exit
 
 SELECTIONS=`probedisk | grep '|cdrom|' | grep '/dev/' | cut -f 1,3 -d '|' | tr " " '_' | tr -s '_'`
-echo "SELECTIONS='$SELECTIONS'"
 SELECTIONX=`echo "$SELECTIONS" | tr '|' " " | tr "\n" " "`
-echo "SELECTIONX='$SELECTIONX'"
 
-if [ ! "$SELECTIONX" ];then
+if [ "$SELECTIONX" = "" ];then
  xmessage "Sorry, no CD/DVD drive detected"
- exit 0
+ exit
 fi
-
-MEDIATYPE=`Xdialog --wmclass "mini-cd" --title "Burniso2cd" --stdout --menubox "Welcome to our little CD/DVD burner program!\nPlease choose whether you want to burn to a CD or DVD media.\nNote that DVDs are always burnt 'open' so can be used by Puppy\nas normal or multisession, whereas for CD you will be given\nthe choice further on whether to burn as closed or open." 0 0 5 CD "CD-R or CD-RW (must be blank)" DVD "DVD-R or DVD-RW (must be blank)"`
-[ $? = 0 ] || exit 0
-
-echo "MEDIATYPE='$MEDIATYPE'"
 
 BURNERDRIVE=`Xdialog --wmclass "mini-cd" --title "Burniso2cd: Choose burner drive" --stdout --menubox "Choose the CD/DVD drive to burn to" 400x200 5 $SELECTIONX 2> /dev/null`
-[ $? = 0 ] || exit 0
-echo "BURNERDRIVE='$BURNERDRIVE'"
-[ -f /etc/cdburnerdevice ] || echo -n "$BURNERDRIVE" | sed -e 's/\/dev\///g' > /etc/cdburnerdevice
+[ ! $? -eq 0 ] && exit
+
+[ ! -f /etc/cdburnerdevice ] && echo -n "$BURNERDRIVE" | sed -e 's/\/dev\///g' > /etc/cdburnerdevice
 
 ISOFILE=`Xdialog --wmclass "mini-cd" --backtitle "Please choose the iso file..." --title "Burniso2cd: Choose iso file" --stdout --no-buttons --fselect "*.iso" 0 0`
-if [ $? != 0 ];then
- exit 0
+if [ ! $? -eq 0 ];then
+ exit
 fi
 
-echo "ISOFILE='$ISOFILE'"
 CDR="$BURNERDRIVE"
 CDDESCR=`echo "$SELECTIONS" | grep "$CDR" | cut -f 2 -d '|'`
-echo "CDDESCR='$CDDESCR'"
 
-while [ "`mount | grep "$CDR"`" ];do
+while [ ! "`mount | grep "$CDR"`" = "" ];do
  xmessage -bg "#ff8080" -center -name "burniso2cd" -title "Burniso2cd: ERROR" "The $CDR CD/DVD drive, described as:
  $CDDESCR
 is currently mounted.
@@ -84,8 +79,7 @@ Use MUT or Pmount to unmount it.
 Please unmount CD drive, then click OK button..."
 done
 
-if [ "$MEDIATYPE" = 'CD' ];then
-
+if [ "$MEDIATYPE" = "CD" ];then
  Xdialog --wmclass "mini-cd" --title "Burniso2cd" --stdout --ok-label "NORMAL" --cancel-label "MULTI"  --yesno "You have selected iso file:
  $ISOFILE
 
@@ -123,7 +117,7 @@ case $RETVAL in
   BURNMSG="(blank DVD-R. A DVD+/-RW will be fast-wiped if it has data)"
   ;;
  *)
-  exit $RETVAL
+  exit
   ;;
 esac
 
@@ -131,64 +125,57 @@ RECHECK="yes"
 BURNSPEED="10"
 
 while [ 1 ];do #burn-again-loop
-
- IFS=':' read LABEL CAN_SET_SPEED <<EOI
-$(cd-info $CDR | grep -i 'Can set drive speed')
-EOI
-
- if [ "$CAN_SET_SPEED" = 'Yes' ] ; then
- BURNSPEED=`Xdialog --wmclass "mini-cd" --title "Burniso2cd: Burn $MEDIATYPE" --stdout --spinbox "Please insert blank $MEDIATYPE into $CDR
+  BURNSPEED="`Xdialog --wmclass "mini-cd" --title "Burniso2cd: Burn $MEDIATYPE" --stdout --spinbox "Please insert blank $MEDIATYPE into $CDR
 $BURNMSG
 (which is described as: ${CDDESCR})
 
-Then click 'OK' button..." 0 0 4 32 $BURNSPEED "Set burn speed"`
+Then click 'OK' button..." 0 0 4 32 $BURNSPEED "Set burn speed"`"
 
- [ $? = 0 ] || exit 0
- fi
+ [ ! $? -eq 0 ] && exit
+
  sync
-
- echo "BURNSPEED='$BURNSPEED'"
-
- echo '#!/bin/sh' >/tmp/burniso2cd
  if [ "$MEDIATYPE" = "CD" ];then
+ 
+  #if [ ! "`echo "$CDR" | grep '/dev/hd'`" = "" ];then
+  # DEVDEV="ATAPI:$CDR"
+  #else
+  # DEVDEV="$CDR"
+  #fi
   DEVDEV="$CDR" #w482
-  echo "
-$CDRECORD $BURNMULTI -data -v speed=$BURNSPEED dev=$DEVDEV \"$ISOFILE\"" >>/tmp/burniso2cd
+  
+  echo "Now executing:"
+  echo " $CDRECORD $BURNMULTI -data -eject -v speed=$BURNSPEED dev=$DEVDEV $ISOFILE"
+  rxvt -name burniso2cd -bg orange -geometry 80x10 -e $CDRECORD $BURNMULTI -data -eject -v speed=$BURNSPEED dev=$DEVDEV "$ISOFILE"
  else #dvd
- echo "
-growisofs -speed=$BURNSPEED -Z $CDR=\"$ISOFILE\"" >>/tmp/burniso2cd
+  echo "Now executing:"
+  echo " growisofs -speed=$BURNSPEED -Z $CDR=$ISOFILE"
+  rxvt -name burniso2cd -bg orange -geometry 80x10 -e growisofs -speed=$BURNSPEED -Z $CDR="$ISOFILE"
  fi
- echo 'RETVAL=$?
-read -n1 -p "Press Enter " EK
-echo "$RETVAL" >/tmp/burniso2cd.ok
-exit $RETVAL
-' >>/tmp/burniso2cd
-
- chmod +x /tmp/burniso2cd
- rxvt -name burniso2cd -bg orange -geometry 80x10 -e /tmp/burniso2cd
- read BURNOK </tmp/burniso2cd.ok
  sync
- [ "$BURNOK" = 0 ] && echo "...done." || echo "...failure..."
+ echo "...done"
 
  #v2.10 kirk contributed this...
  # ******Verify burn******
  DEVNAME=`echo -n "$CDR" | grep '/dev' | cut -f 3 -d '/'`
- if [ "$DEVNAME" -a "$RECHECK" = "yes" ];then
-  Xdialog --wmclass "mini-cd" --title "Burniso2cd: Finished" --stdout --yesno "Would you like to verify that the burn was successful?
+ if [ ! "$DEVNAME" = "" -a "$RECHECK" = "yes" ];then
+  Xdialog --wmclass "mini-cd" --title "Burniso2cd: Finished" --stdout --yesno "Would you like to verify that the burn was successful? 
 This may take a while depending on the size of the iso file." 0 0
-  if  [ "$?" = "0" ] ;then
+  if  [ "$?" = "0" ] ;then  
    xmessage -bg "#80ff80" -center -name "burniso2cd" -title "Burniso2cd: Burn Verify" -buttons "OKAY:10" "Make sure the CD/DVD drive is closed,
 then click OK"
-   if [ "$( md5sum $ISOFILE | cut -f 1 -d " " )" = "$(dd if=$CDR | head -c `stat --format=%s $ISOFILE` | md5sum | cut -f 1 -d " " )" ] ;then
+   echo "Waiting 15 seconds to allow drive lights to finish blinking" > /tmp/burniso2cd.log #v431
+   sleep 15 #v431
+   if [ "$( md5sum $ISOFILE | cut -f 1 -d " " )" = "$(dd if=$CDR 2>> /tmp/burniso2cd.log | head -c `stat --format=%s $ISOFILE` | md5sum | cut -f 1 -d " " )" ] ;then #v431
     xmessage -bg "#80ff80" -center -name "burniso2cd" -title "Burniso2cd: Burn Verify" -buttons "OKAY:10" "The burn has been verified as good!"
    else
-    xmessage -bg "#ffc0c0" -center -name "burniso2cd" -title "Burniso2cd: Burn Verify" -buttons "OKAY:10" "The burn was not verified. You should start over"
+    xmessage -bg "#ffc0c0" -center -name "burniso2cd" -title "Burniso2cd: Burn Verify" -buttons "OKAY:10" "The burn was not verified. See details in /tmp/burniso2cd.log. You should start over."
    fi
   else
    RECHECK="no" #do not check if doing repeat burns.
   fi
  fi
 
+ eject $CDR
  Xdialog --wmclass "mini-cd" --title "Burniso2cd: Finished" --stdout --ok-label "FINISHED" --cancel-label "REPEAT" --yesno "If all went well, you have now burnt iso file
 $ISOFILE
 to a $MEDIATYPE!
@@ -199,5 +186,5 @@ click 'REPEAT' button...
 Otherwise, click 'FINISHED' to quit..." 0 0
  [ $? -ne 1 ] && break
 done #burn-again-loop
-eject $CDR
+
 ###END###
