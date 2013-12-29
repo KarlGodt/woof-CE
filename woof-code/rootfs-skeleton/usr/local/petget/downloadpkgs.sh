@@ -7,46 +7,41 @@
 #v424 fix msg, x does not need restart to update menu.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-out=/dev/null;err=/dev/stderr
-case $2 in
-debug) set -x;;
-verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;;
-esac
+#KRG
+#************
+
+
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 export LANG=C
 PASSEDPARAM=""
@@ -57,10 +52,10 @@ PASSEDPARAM=""
 . /root/.packages/DISTRO_PET_REPOS #has PET_REPOS, PACKAGELISTS_PET_ORDER
 . /root/.packages/DISTRO_COMPAT_REPOS #v431 has REPOS_DISTRO_COMPAT
 
-echo -n "" > /tmp/petget-installed-pkgs-log
+echo -n "" > /tmp/petget-installed-pkgs.log
 
 for ONELIST in `ls -1 /tmp/petget_missing_dbentries-Packages-*`
-do  ##ONELIST
+do
  echo -n "" > /tmp/petget_repos
  LISTNAME=`echo -n "$ONELIST" | grep -o 'Packages.*'`
 
@@ -68,23 +63,25 @@ do  ##ONELIST
  #variable REPOS_DISTRO_COMPAT ...
  #REPOS_DISTRO_COMPAT has the associated Packages-* local database file...
  for ONEURLENTRY in $REPOS_DISTRO_COMPAT
- do ##ONEURLENTRY
+ do
   PARTPKGDB=`echo -n "$ONEURLENTRY" | cut -f 3 -d '|'`
   #PARTPKGDB may have a glob * wildcard, convert to reg.expr., also backslash '-'...
   PARTPKGDB=`echo -n "$PARTPKGDB" | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
   ONEURLENTRY_1_2=`echo -n "$ONEURLENTRY" | cut -f 1,2 -d '|'`
   [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${ONEURLENTRY_1_2}|${LISTNAME}" >> /tmp/petget_repos
- done ##ONEURLENTRY
+ done
+
+echo $LINENO >&2
 
  #or it may be one of the official puppy repos...
  if [ "`echo "$ONELIST" | grep 'Packages\\-puppy' | grep '\\-official'`" != "" ];then
   for ONEPETREPO in $PET_REPOS
-  do ##ONEPETREPO
+  do
    ONEPETREPO_3_PATTERN=`echo -n "$ONEPETREPO" | cut -f 3 -d '|' | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
    ONEPETREPO_1_2=`echo -n "$ONEPETREPO" | cut -f 1,2 -d '|'`
    [ "`echo -n "$LISTNAME" | grep "$ONEPETREPO_3_PATTERN"`" != "" ] && echo "${ONEPETREPO_1_2}|${LISTNAME}" >> /tmp/petget_repos
    #...ex: ibiblio.org|http://distro.ibiblio.org/pub/linux/distributions/puppylinux|Packages-puppy-4-official
-  done ##ONEPETREPO
+  done
  fi
 
  sort --key=1 --field-separator="|" --unique /tmp/petget_repos > /tmp/petget_repos-tmp
@@ -97,11 +94,13 @@ do  ##ONELIST
 
  REPOBUTTONS=""
  for ONEREPOSPEC in `cat /tmp/petget_repos`
- do  ##ONEREPOSPEC
+ do
   URL_TEST=`echo -n "$ONEREPOSPEC" | cut -f 1 -d '|'`
   URL_FULL=`echo -n "$ONEREPOSPEC" | cut -f 2 -d '|'`
   REPOBUTTONS="${REPOBUTTONS}<radiobutton><label>${URL_TEST}</label><variable>RADIO_URL_${URL_TEST}</variable></radiobutton>"
- done  ##ONEREPOSPEC
+ done
+
+echo $LINENO >&2
 
  PKGNAMES=`cat $ONELIST | cut -f 1 -d '|' | tr '\n' ' '`
 
@@ -142,6 +141,8 @@ do  ##ONELIST
  #[ "$EXIT" != "BUTTON_PKGS_DOWNLOAD" ] && exit 1
  [ "`echo "$RETPARAMS" | grep 'BUTTON_PKGS_DOWNLOAD'`" = "" ] && exit 1
 
+echo $LINENO >&2
+
  #determine the url to download from....
  #if [ "$RADIO_URL_LOCAL" = "true" ];then
  if [ "`echo "$RETPARAMS" | grep 'RADIO_URL_LOCAL' | grep 'true'`" != "" ];then
@@ -160,44 +161,30 @@ do  ##ONELIST
   DOWNLOADFROM=`cat /tmp/petget_repos | grep "$URL_BASIC" | head -n 1 | cut -f 2 -d '|'`
  fi
 
+echo $LINENO >&2
+
  #now download and install them...
  cd /root
  for ONEFILE in `cat $ONELIST | cut -f 7,8 -d '|' | tr '|' '/'`
- do  ##ONEFILE
+ do
   #if [ "$RADIO_URL_LOCAL" = "true" ];then
   if [ "`echo "$RETPARAMS" | grep 'RADIO_URL_LOCAL' | grep 'true'`" != "" ];then
    [ ! -f ${LOCALDIR}/${ONEFILE} ] && ONEFILE=`basename $ONEFILE`
    cp -f ${LOCALDIR}/${ONEFILE} ./
   else
-   #rxvt -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e wget ${DOWNLOADFROM}/${ONEFILE}
-   #xterm -hold -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e wget ${DOWNLOADFROM}/${ONEFILE}  #NOT with "" || ;WGET_ERROR=$?
-   echo "DOWNLOADFROM='$DOWNLOADFROM' ONEFILE='$ONEFILE'" >$err
-   DOWNLOADFROM="$DOWNLOADFROM" ONEFILE="$ONEFILE" xterm -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e /usr/local/petget/wget.sh
-   XTERM_ERROR=$?
-   source /tmp/wget_sh.err
+   rxvt -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e wget ${DOWNLOADFROM}/${ONEFILE}
   fi
   sync
   DLPKG=`basename $ONEFILE`
-  if [ "$DLPKG" != "" -a -f $DLPKG ];then
+  if [ -f $DLPKG -a "$DLPKG" != "" ];then
    if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
     /usr/local/petget/verifypkg.sh /root/$DLPKG
-   if [ $? -ne 0 ];then
-    xmessage -bg red -title "Puppy Package Manager" "ERROR: faulty download of $DLPKG"
-    export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
-  <vbox>
-  <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
-   <text use-markup=\"true\"><label>\"<b>Error, faulty download of ${DLPKG}</b>\"</label></text>
-   <hbox>
-    <button ok></button>
-   </hbox>
-  </vbox>
- </window>"
-    gtkdialog3 --program=FAIL_DIALOG
-   fi
    else
     /usr/local/petget/installpkg.sh /root/$DLPKG
+    #...appends pkgname and category to /tmp/petget-installed-pkgs-log if successful.
+   fi
    if [ $? -ne 0 ];then
-    xmessage -bg red -title "Puppy Package Manager" "ERROR: faulty download of $DLPKG"
+    #xmessage -bg red -title "Puppy Package Manager" "ERROR: faulty download of $DLPKG"
     export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
   <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
@@ -209,9 +196,6 @@ do  ##ONELIST
  </window>"
     gtkdialog3 --program=FAIL_DIALOG
    fi
-    #...appends pkgname and category to /tmp/petget-installed-pkgs-log if successful.
-   fi
-
    #already removed, but take precautions...
    #[ "$PASSEDPARAM" != "DOWNLOADONLY" ] && rm -f /root/$DLPKG 2>$ERR
    #DLPKG_NAME=`basename $DLPKG .pet` 2>$ERR
@@ -219,10 +203,8 @@ do  ##ONELIST
    #DLPKG_NAME=`basename $DLPKG .tgz` 2>$ERR
    #DLPKG_NAME=`basename $DLPKG .tar.gz` 2>$ERR
    #rm -rf /root/$DLPKG_NAME
-
   else
-   DL_ERROR=1
-   xmessage -bg red -title "Puppy Package Manager" "ERROR: Failed to download ${DLPKG}"
+   #xmessage -bg red -title "Puppy Package Manager" "ERROR: Failed to download ${DLPKG}"
    export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
   <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
@@ -233,31 +215,15 @@ do  ##ONELIST
   </vbox>
  </window>
 "
-   #gtkdialog3 --program=FAIL_DIALOG
-   #exit 1
+   gtkdialog3 --program=FAIL_DIALOG
   fi
- done  ##ONEFILE
+ done
 
-done  ##ONELIST
-
-echo "XTERM_ERROR='$XTERM_ERROR' DL_ERROR='$DL_ERROR' WGET_ERROR='$WGET_ERROR'" >/dev/stderr
-
-if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
-
-for ONEFILE in `cat $ONELIST | cut -f 7,8 -d '|' | tr '|' '/'`;do
-echo "ONEFILE='$ONEFILE'" >$err
-BN_ONEFILE="${ONEFILE##*/}"
-echo "BN_ONEFILE='$BN_ONEFILE'" >$err
-file /root/"$BN_ONEFILE" >$err
-
-if [ -f /root/"$BN_ONEFILE" ];then
-:
-else
-FAIL=$((FAIL+1))
-fi
 done
 
-if [ ! "$FAIL" ];then
+echo $LINENO >&2
+
+if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
  export DL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
   <pixmap><input file>/usr/local/lib/X11/pixmaps/ok.xpm</input></pixmap>
@@ -270,26 +236,14 @@ if [ ! "$FAIL" ];then
 "
  gtkdialog3 --program=DL_DIALOG
  exit 0
- else  #FAIL
- export DL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
-  <vbox>
-  <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
-   <text><label>Finished. $FAIL of the packages failed to download to /root directory.</label></text>
-   <hbox>
-    <button ok></button>
-   </hbox>
-  </vbox>
- </window>
-"
- gtkdialog3 --program=DL_DIALOG
- exit 1
- fi #FAIL
-fi #DOWNLOADONLY
+fi
+
+echo $LINENO >&2
 
 #announce summary of successfully installed pkgs...
 #installpkg.sh will have logged to /tmp/petget-installed-pkgs-log
-if [ -s /tmp/petget-installed-pkgs-log ];then
- INSTALLEDMSG=`cat /tmp/petget-installed-pkgs-log`
+if [ -s /tmp/petget-installed-pkgs.log ];then
+ INSTALLEDMSG=`cat /tmp/petget-installed-pkgs.log`
  CAT_MSG="Note: the package(s) do not have a menu entry."
  [ "`echo "$INSTALLEDMSG" | grep -o 'CATEGORY' | grep -v 'none'`" != "" ] && CAT_MSG="...look in the appropriate category in the menu (bottom-left of screen) to run the application. Note, some packages do not have a menu entry." #424 fix.
  export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
@@ -311,6 +265,8 @@ if [ -s /tmp/petget-installed-pkgs-log ];then
 "
  RETPARAMS=`gtkdialog3 --program=INSTALL_DIALOG`
  eval "$RETPARAMS"
+
+echo $LINENO >&2
 
  #trim the fat...
  if [ "$EXIT" = "BUTTON_TRIM_FAT" ];then
@@ -372,7 +328,7 @@ if [ -s /tmp/petget-installed-pkgs-log ];then
     #find out if this is development file...
     if [ "$CHECK_DEVDEL" = "true" ];then
      if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
-      rm -f "$ONEFILE" 2>$err
+      rm -f "$ONEFILE" 2>$ERR
       grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > /tmp/petget_pkgfiles_temp
       mv -f /tmp/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
@@ -390,5 +346,7 @@ if [ -s /tmp/petget-installed-pkgs-log ];then
  fi
 
 fi
-exit $?
+
+echo "$0: END" >&2
+
 ###END###
