@@ -1,67 +1,144 @@
 #!/bin/sh
 #(c) copyright Barry Kauler aug 2009. Licence LGPL.
-#120202 rodin.s: i18n
-#121020 fix msg where locate 'cursor_themes' pet pkg.
 
-export TEXTDOMAIN=pcur
-export OUTPUT_CHARSET=UTF-8
 
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+
+Version='1.1'
+
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+[ "$1" = 'full' ] && FULL=1
 PREVTHEME=""
 if [ -e /root/.icons/default ];then
- PREVTHEME="`readlink /root/.icons/default | rev | cut -f 1 -d '/' | rev`"
+ PREVTHEME=`readlink /root/.icons/default | rev | cut -f 1 -d '/' | rev`
 fi
 
 CURLIST=""
 FIRSTITEM=""
 LISTHEIGHT=30
-mkdir -p /tmp/xcur2png
-for ONEITEM in `ls -1 /root/.icons | grep -v 'ROX'`
+path=/usr/share/icons/DOTicons
+mkdir -p /tmp/xcur2png /usr/share/icons/DOTicons
+yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing cursor themes database files..." &
+yafPID=$!
+#sleep 4
+for ONEITEM in `ls -1 /root/.icons | grep -vE 'ROX|default'`
 do
 
  #precaution that 'cursors' subdir exists...
  [ ! -d /root/.icons/${ONEITEM}/cursors ] && continue
- 
- if [ ! -f /usr/share/icons/${ONEITEM}.png ];then
-  cd /root/.icons/${ONEITEM}/cursors
-  xcur2png -d /tmp/xcur2png left_ptr
-  mv -f /tmp/xcur2png/left_ptr_000.png /usr/share/icons/${ONEITEM}.png
-  rm -f /tmp/xcur2png/left_ptr_*.png
- fi
- 
+
+cd /root/.icons/${ONEITEM}/cursors
+
+ if [ ! "$FULL" ];then #full or not full parameter given
+     if [ ! -f /usr/share/icons/DOTicons/${ONEITEM}.png ];then #not full
+                   #DBG ls /usr/share/icons/DOTicons/${ONEITEM}/
+                      xcur2png -d /tmp/xcur2png left_ptr
+ mv -f /tmp/xcur2png/left_ptr_000.png /usr/share/icons/DOTicons/${ONEITEM}.png
+                      rm -f /tmp/xcur2png/left_ptr_*.png
+                            rm -f left_ptr.conf*
+     fi #not full
+     cp /usr/share/icons/DOTicons/${ONEITEM}.png /usr/share/icons/
+ else #full or not full
+      path=/usr/share/icons/DOTicons/${ONEITEM}
+    mkdir -p /usr/share/icons/DOTicons/${ONEITEM}/
+   if [ ! -f /usr/share/icons/DOTicons/${ONEITEM}/left_ptr.png ] &&\
+      [ ! -f /usr/share/icons/DOTicons/${ONEITEM}/center_ptr.png ];then #full
+  #DBG echo "ONEITEM=$ONEITEM"
+  #DBG ls /usr/share/icons/DOTicons/${ONEITEM}/
+  # cd /root/.icons/${ONEITEM}/cursors
+   #if [ ! "$FULL" ];then
+                    #xcur2png -d /tmp/xcur2png left_ptr
+                    #mv -f /tmp/xcur2png/${file}_000.png /usr/share/icons/DOTicons/left_ptr.png
+                    #rm -f /tmp/xcur2png/left_ptr_*.png
+                       #rm -f left_ptr.conf
+  #else
+   ls -1 |grep -v '|\..*$' | while read file
+   do
+                    xcur2png -d /tmp/xcur2png $file
+            #cp /tmp/xcur2png/${file}_000.png /usr/share/icons/DOTicons/${ONEITEM}/${file}.png
+[ "$file" = 'left_ptr' ] && cp /tmp/xcur2png/left_ptr_000.png /usr/share/icons/DOTicons/${ONEITEM}/${ONEITEM}.png
+                 mv -f /tmp/xcur2png/${file}_*.png /usr/share/icons/DOTicons/${ONEITEM}/
+
+  #rm -f /tmp/xcur2png/left_ptr_*.png
+                     rm -f /tmp/xcur2png/*.png
+                     rm -f $file.conf*
+
+  done
+[ -f /usr/share/icons/DOTicons/${ONEITEM}/${ONEITEM}.png ] || { cp /usr/share/icons/DOTicons/${ONEITEM}/$(ls -1 /usr/share/icons/DOTicons/${ONEITEM}/ |head -n1)  /usr/share/icons/DOTicons/${ONEITEM}/${ONEITEM}.png; }
+   fi #full
+   cp /usr/share/icons/DOTicons/${ONEITEM}/${ONEITEM}.png /usr/share/icons
+ fi #full or nor full parameter given
+
+CLEAN_UP="$CLEAN_UP ${ONEITEM}.png"
+
  if [ "$ONEITEM" = "$PREVTHEME" ];then
-  FIRSTITEM="<item icon=\"${ONEITEM}\">${ONEITEM} CURRENT THEME</item>"
+  FIRSTITEM="<item icon=\"${ONEITEM}\">\"${ONEITEM} <CURRENT THEME>\"</item>"
  else
   CURLIST="${CURLIST}<item icon=\"${ONEITEM}\">${ONEITEM}</item>"
  fi
  LISTHEIGHT=`expr $LISTHEIGHT + 25`
 done
 
+kill $yafPID 1>/dev/null 2>&1
+
 [ $LISTHEIGHT -gt 550 ] && LISTHEIGHT=550
 CURITEMS="  <tree>
-  <label>$(gettext 'Cursor theme')</label>
+  <label>Cursor theme</label>
     ${FIRSTITEM}
-    <item icon=\"default_left_ptr\">ORIGINAL THEME</item>
+    <item icon=\"default_left_ptr\">\"ORIGINAL THEME <ROX>\"</item>
     ${CURLIST}
     <variable>CHOOSECUR</variable>
     <height>${LISTHEIGHT}</height>
   </tree>"
-  
+
 if [ "$CURLIST" = "" ];then
  CURITEMS="<text use-markup=\"true\">
-    <label>\"<b>$(gettext "You first need to install some cursor themes! For now, quit this program. Run the Puppy Package Manager and find the 'cursor_themes' package in the 'Desktop' category of the 'puppy-noarch' repository -- then install it.")</b>\"</label></text>"
+    <label>\"<b>You first need to install some cursor themes! For now, quit this program. Run the Puppy Package Manager and look in the 'Desktop' category</b>\"</label></text>"
 fi
 
+clean_up(){ for i in $CLEAN_UP;do rm /usr/share/icons/$i;done; }
+
 export MAIN_DIALOG="
-<window title=\"$(gettext 'Pcur: select a cursor theme')\">
+<window title=\"Pcur: select a cursor theme\">
   <vbox>
     <text use-markup=\"true\">
-      <label>\"<b>$(gettext 'You must restart X to use the new theme')</b>\"</label>
+      <label>\"<b>You must restart X to use the new theme</b>\"</label>
     </text>
-    <text><label>`gettext \"Choose one you like, click 'OK', close down all applications, then choose 'Restart X server' in the 'Shutdown' menu...\"`</label></text>
-    
-    
+    <text><label>Choose one you like, click 'OK', close down all applications, then choose 'Restart X server' in the 'Shutdown' menu...</label></text>
+
+
     ${CURITEMS}
-    
+
     <hbox>
      <button ok></button>
      <button cancel></button>
@@ -69,19 +146,22 @@ export MAIN_DIALOG="
   </vbox>
 </window>
 "
-RETVARS="`gtkdialog3 --program=MAIN_DIALOG`"
+RETVARS=`gtkdialog3 --program=MAIN_DIALOG`
 
-[ "$CURLIST" = "" ] && exit
+clean_up
+
+[ "$CURLIST" = "" ] && exit 0
 echo "$RETVARS"
 eval "${RETVARS}"
 
-[ "$EXIT" != "OK" ] && exit
+[ "$EXIT" != "OK" ] && exit 0
 
-[ "`echo "$CHOOSECUR" | grep 'CURRENT THEME'`" != "" ] && exit #already current.
+[ "`echo "$CHOOSECUR" | grep 'CURRENT THEME'`" != "" ] && exit 0 #already current.
 
 if [ "$CHOOSECUR" = "ORIGINAL THEME" ];then
  rm -f /root/.icons/default
- exit
+ exit 0
 fi
 
 ln -snf $CHOOSECUR /root/.icons/default
+exit $?
