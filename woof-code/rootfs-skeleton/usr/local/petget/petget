@@ -1,11 +1,11 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#Note: Puppy Package Manager is started from /usr/local/petget/pkg_chooser.sh for the GUI.
+#Note: Puppy Package Manager GUI is started from /usr/local/petget/pkg_chooser.sh .
 #'petget' is for commandline execution, especially from ROX-Filer.
-#If passed param is a pkg name preceded by a + to install pkg, - to uninstall pkg.
+#If passed param is a pkg name preceded by a '+': installs pkg, '-' uninstalls. Needs to be located in current PWD.
 # example: +xbubble-0.2.4
-#For integration with Rox-Filer, commandline is a .pet|.deb|.tgz|.tar,gz with absolute path, install.
+#For integration with Rox-Filer or commandline: .pet,.deb,.tgz,.tar.gz with absolute path installs.
 # ex: petget /root/xbubble-0.2.4.pet
 #For integration with browser, ex: petget http://somewhere.on.internet/xbubble-0.2.4.pet
 #Note, petget also get called from /etc/rc.d/rc.update to remove packages. ex:
@@ -14,192 +14,68 @@
 #w482 restart jwm immediately to update menu.
 #v424 fix .pet in path with space chars.
 
-
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-trap "exit 1" HUP INT QUIT KILL TERM
+echo "$0: START" >&2
+CURR_DIR="$PWD" >&2
+echo "CURR_DIR=$CURR_DIR'" >&2
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
 
-Version='1.1'
+Version='1.1-simple Puppy-Linux-4.3.1 KRG'
+
+[ "$1" ] || exit
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
+MSG="
+$0 /Path/to/package/to/install.extension
+$0 Filename.pet [options]
 
--V|--version : showing version information
--H|--help : show this usage information
+Where extension may be one of these :
+pet,deb,rpm,tar.gz,tgz,tar.bz2,tar.xz,txz
+b2pet,lopet,lapet,xzpet
 
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+unsupported : pup
+
+NOTE rpm : currently only works with older .rpm
+
+Options :
+-h|help           : ici
+-V|version        : outputs version info
+-R|remove Pkgname : removes pkg
+-A|add Filename   : installs pkg (default)
+-v|verbose        : verbose output
+-D|debug          : 'set -x'
+-C|codecheck      : 'set -n'
+
+-\$PKGNAME        : uninstalls pkg
++\$PKGNAME        : installs pkg (default)
+NOTE PKGNAME : FILENAME=PKGNAME.EXT
+ie FILENAME=you2pup-2.2.1_light.pet
+->  PKGNAME=you2pup-2.2.1_light
+This works only in the current directory
+ie #cd /mnt/home/Downloads/Pet
+# ls ##output shows like this
+copydvd-1.0.pet you2pup-2.1.4.pet you2pup-2.2.1.pet
+# petget +copydvd-1.0 would run installpkg.sh
+# petget -copydvd-1.0 would run removepreview.sh
 "
+echo -e "$MSG"
+if [ "$DISPLAY" ];then
+xmessage "$MSG";fi
+
 exit $1
 }
-
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
-echo "$0:$*" >&2
-
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-########################################################################
-#
-# ADDS/CHANGES by Karl Godt :
-# 1.) usage message, called with $1 "-h" using bash shell
-#       builtin getopts
-# 2.) Support for .pet with other compressions as gzip :
-#       bzip2,lzop,lzma,xz ;needs altered pet2tgz/tgz2pet,dir2pet
-# 3.) though added in later Puppies, have manually adjusted support for .rpm
-# 4.) Added support for checking pets in /tmp with extracting them there .
-#       Code should be nearly the same as in installpkg.sh
-#       On this installation still a TODO
-# 5.0) added support for .pup in simple manner (extracts to tmp dir,
-#       included archives need to be installed manually)
-#
-# /dev/sda1:
-# UUID="0C18A53918A52326"
-# /dev/sda7:
-# UUID="2dfe19a9-7a5c-48aa-9e81-3758c67b12f6"
-# /dev/sda9:
-# UUID="e29717d3-b775-4dc8-9643-42a862f2b34f"
-# /dev/sda2:
-# LABEL="2nd"
-# UUID="a4f28ea3-eede-49f8-93ca-dbeefe8f72fa"
-# /dev/sda10:
-# UUID="193a7e6b-8626-493e-8b77-940211a8fc9d"
-# /dev/sda6:
-# LABEL="1stLogicalPartit"
-# UUID="8efb5611-ffb4-41ca-b8ef-8e64769ce9ef"
-# /dev/sda3:
-# LABEL="3rd"
-# UUID="f711a43e-c5dc-4f92-84dc-6824feeb690c"
-# /dev/sda11:
-# LABEL="store"
-# UUID="51600f00-d3cc-4fba-ba77-c34b0c94502c"
-# /dev/sda8:
-# UUID="7b5cd9dd-54c7-4d03-af79-566588111fcb"
-# /dev/sda5:
-# LABEL="1stSWAP"
-# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
-# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
-# case·$DISTRO_BINARY_COMPAT·in
-# ubuntu)
-# DISTRO_NAME="Jaunty·Puppy"
-# DISTRO_FILE_PREFIX="upup"
-# DISTRO_COMPAT_VERSION="jaunty"
-# ;;
-# debian)
-# DISTRO_NAME="Lenny·Puppy"
-# DISTRO_FILE_PREFIX="dpup"
-# DISTRO_COMPAT_VERSION="lenny"
-# ;;
-# slackware)
-# DISTRO_NAME="Slack·Puppy"
-# DISTRO_FILE_PREFIX="spup"
-# DISTRO_COMPAT_VERSION="12.2"
-# ;;
-# arch)
-# DISTRO_NAME="Arch·Puppy"
-# DISTRO_FILE_PREFIX="apup"
-# DISTRO_COMPAT_VERSION="200904"
-# ;;
-# t2)
-# DISTRO_NAME="T2·Puppy"
-# DISTRO_FILE_PREFIX="tpup"
-# DISTRO_COMPAT_VERSION="puppy5"
-# ;;
-# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
-# DISTRO_NAME="Puppy"
-# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
-# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
-# ;;
-# esac
-# PUPMODE=2
-# KERNVER=2.6.30.9-i586-dpup005-Celeron2G
-# SATADRIVES='·sda'
-# USB_SATAD=''
-# PUP_HOME='/'
-# PDEV1='sda2'
-# Linux·puppypc·2.6.30.9-i586-dpup005-Celeron2G·#6·SMP·Sat·Jan·15·13:35:51·GMT-8·2011·i686·GNU/Linux
-# Xserver=/usr/X11R7/bin/Xorg
-# $LANG=de_DE@euro
-# today=Sa·21.·Apr·19:35:49·GMT+1·2012
-#
-# TODO : adjust installpkg.sh
-# TODO : add support for .Z compression ie for some CMAKE source
-#       , probably .zip or other common Windows compressions
-#
-#
-########################################################################
-
-Version='1.1-getopts Macpup_F3-Puppy-Linux_4.3.0/2 KRG'
-
-usage (){
-MSG="
-$0 [-h -V -v -d] FILE_NAME_TO_INSTALL
-
-    Puppy Linux .pet installer script .
-
-    Needs at least the parameter FILE_NAME_TO_INSTALL.ext
-
-    Currently supported file formats/.ext :
-
-    original : .pet
-    new      : .b2pet,.lopet,.lapet,.xzpet
-    other    : .tgz,.tar.gz,.deb,.rpm
-
-    [partly unsupported : .pup]
-
-    Depends on :
-    pet2tgz, installpkg.sh, tar, gzip, dpkg-pkg, rpm
-    [,bzip2,lzop,lzma,xz]
-
-
-    OPTIONS: -h:ici,-V:version_info,-d:debug,-v:verbose
-    "
-    if [ "$DISPLAY" ];then
-    if [ "$1" != '0' ];then BG='red';else BG='green';fi
-    xmessage -bg $BG "$MSG"
-    else
-    echo "$MSG";fi
-    exit $1
-}
-get_options(){
-while getopts hVvd opt;do echo $opt
-case $opt in
-h) usage 0;;
-V) echo -e "\n$0: Version '$Version'\n";exit 0;;
-v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;ME_VERB=1;OUT=/dev/stdout;ERR=/dev/stderr;;
-d) set -x;DEBUG=1;;
-*) :;; #usage 1;;
-esac;done
-}
 OUT=/dev/null;ERR=/dev/null
-[ ! "$1" ] && usage 1
-echo 1:"$1"
-echo -n 2:
-echo "$1" | grep '^\-'
-if [ "`echo "$1" | grep '^\-'`" ];then
-echo 3:"$1" |sed 's|\([-_\.][0-9\.]*\)\(\.[[:alpha:][\.2]]$\)|\1|'
-[ -f "`echo "$1" |sed 's|\([-_\.][0-9\.]*\)\(\.[[:alpha:][\.2]]$\)|\1|;s|^-|\-|'`" ] || { echo '1 get_options';get_options $@; }
-#fn=`echo "$1" |sed 's|\([-_\.][0-9\.]*\)\(\.[[:alpha:][\.2]]$\)|\1|;s|^-||'`
-#echo 4:"$fn"
-#grep_fn=`echo "$1" |sed -r 's~([[:punct:]])~\\\\\1~g'`
-#echo 5:"$grep_fn"
-#'geany
-##[ -e "$fn" ] || get_options
-#pwd
-#ls | grep -w "$grep_fn"
-#pwd
-#ls -1
-#pwd
-if [[ "`ls -1 | grep -w "$grep_fn"`" = "" ]];then echo "2:Running getopts function"; get_options $@;fi
-#pwd
+if [ "`echo "$@" |grep -Eiw '\-h|help'`" ];then usage 0
+elif [ "`echo "$@" |grep -Ew '\-V|version'`" ];then { echo -e "\n$0: Version '$Version'\nUse help for more info\n";exit 0; }
+elif [ "`echo "$@" |grep -Ew '\-R|remove'`" ];then :
+elif [ "`echo "$@" |grep -Ew '\-A|add'`" ];then :
+elif [ "`echo "$@" |grep -Ew '\-v|verbose'`" ];then VERB=-v;L_VERB=--verbose;A_VERB=-verbose;ME_VERB=1;OUT=/dev/stdout;ERR=/dev/stderr
+elif [ "`echo "$@" |grep -Eiw '\-D|debug'`" ];then set -x;DEBUG=1
+elif [ "`echo "$@" |grep -Eiw '\-C|codecheck'`" ];then set -n
 fi
-while [ "$2" ];do shift;done
 
 #mkdir -p /tmp/PetGet  ##+++2011_10_25
 TEMP_D=/tmp/PetGet  ##+++2012-05-10
@@ -209,14 +85,22 @@ export LANG=C
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 
 PASSEDPARAM="$1"
+FULL_PKG_PATH="$PASSEDPARAM"
+
+echo "PASSEDPARAM=$PASSEDPARAM'" >&2
+echo "FULL_PKG_PATH=$FULL_PKG_PATH'" >&2
 
 if [ "`echo -n "$PASSEDPARAM" | grep '^\\-'`" != "" ];then
  #remove a package...
  PKGNAME=`echo -n "$PASSEDPARAM" | cut -c 2-99`
  TREE2="$PKGNAME"
  export TREE2
+ if [ "`tty`" != 'not a tty' ] ; then
+ read -n1 -p "Sure you want to remove '$PKGNAME' [Yy|Other] ? " OK_KEY
+ [ "$OK_KEY" = Y -o "$OK_KEY" = y ] || exit 0
+ fi
  /usr/local/petget/removepreview.sh
- exit
+ exit $?
 fi
 
 #want to install a pkg...
@@ -232,36 +116,36 @@ case $DISTRO_BINARY_COMPAT in
  arch)
   COMPAT_EXT=".tar.gz"
  ;;
+ mageia)
+  COMPAT_EXT='.rpm';;
 esac
 
 #what type is it...
 PASSEDBASE=`basename "$PASSEDPARAM"`
 case $PASSEDBASE in
  *.pet) EXT=".pet";;
- *.pup) EXT='.pup';;
  *.deb) EXT=".deb";;
  *.tgz) EXT=".tgz";;
- *.txz) EXT=".txz";;
- #*.tar.gz) EXT=".tar.gz";;
- *.tar.lzma|*.tar.lzm|*.tar.lza|*.tar.lzo|*.tar.lzp|*.tar.lzop|*.tar.bz2|*.tar.xz|*.tar.gz)
+# *.tar.gz) EXT=".tar.gz";;
+ *.txz) EXT='.txz';;
+ *.tar.lzma|*.tar.lzm|*.tar.lza|*.tar.lzo|*.tar.lzop|*.tar.bz2|*.tar.xz|*.tar.gz)
  EXT='.'`echo "$PASSEDBASE"|rev|cut -f1,2 -d.|rev`
   ;;
- *rpm)EXT='.rpm';;
+  *.rpm) EXT='.rpm';;
  *.b2pet)EXT='.b2pet';;
  *.lopet)EXT='.lopet';;
  *.lapet)EXT='.lapet';;
  *.xzpet)EXT='.xzpet';;
+ *.pup)  EXT='.pup';;
  *)
   EXT=""
  ;;
 esac
-
-case $PASSEDBASE in
-*.tar.*) TAR_COMPRESS_EXT="${DLPKG_BASE##*\.}"
-esac
+echo "EXT='$EXT'"
 
 #download if required...
-PKGNAME=""; _PKG_ROOT=1
+PKGNAME="";_PKG_ROOT=1
+
 if [ "`echo -n "$PASSEDPARAM" | grep -E '^ftp|^http'`" != "" ];then
  cd /root
  rxvt -title "Puppy Package Manager: download" -bg orange -geometry 80x10 -e wget "$PASSEDPARAM"
@@ -272,17 +156,22 @@ if [ "`echo -n "$PASSEDPARAM" | grep -E '^ftp|^http'`" != "" ];then
   xmessage -bg red "Sorry, failed to download $FULLPKGNAME"
   exit
  fi
+
 else
  #get rid of any leading '+'...
- echo $LINENO
  PASSEDPARAM=`echo -n "$PASSEDPARAM" | sed -e 's%^+%%'`
+ echo "PASSEDPARAM=$PASSEDPARAM'" >&2
+ [ -e "$PASSEDPARAM" ] || { echo "PWD=$PWD' : File '$PASSEDPARAM' seems not to exist";exit 1; }
+ [ -f "$PASSEDPARAM" ] || { echo "PWD=$PWD' : File '$PASSEDPARAM' not regular";exit 1; }
  FIRSTCHAR=`echo -n "$PASSEDPARAM" | cut -c 1`
  if [ "$FIRSTCHAR" = "/" -o "$FIRSTCHAR" = "." ];then
   PKGPATH=`dirname "$PASSEDPARAM"`
   FULLPKGNAME=`basename "$PASSEDPARAM"`
   PKGMAIN=`basename "$PASSEDPARAM" ${EXT}`
+
  else
   PKGPATH=`pwd`
+
   if [ "$EXT" = "" ];then
    PKGMAIN="$PASSEDPARAM"
    FULLPKGNAME="${PKGMAIN}.pet"
@@ -290,16 +179,18 @@ else
   else
    FULLPKGNAME=`basename "$PASSEDPARAM"`
    PKGMAIN=`basename "$PASSEDPARAM" ${EXT}`
-  fi
- fi
- #cp -f "${PKGPATH}/${FULLPKGNAME}" /root/ 2>$ERR #v424 fix if spaces in path.
- [ -f "$HOME/${FULLPKGNAME}" ] || { echo "File not in $HOME/ directory";cp -f "${PKGPATH}/${FULLPKGNAME}" $HOME/; _PKG_ROOT=''; } #v424 fix if spaces in path.
-fi
+  fi ## EXT or NOT EXT
+
+ fi ## firstchar = / or .
+
+ # cp -f "${PKGPATH}/${FULLPKGNAME}" /root/ 2>$ERR #v424 fix if spaces in path.
+ #_PKG_ROOT=1
+ [ -f "/root/${FULLPKGNAME}" ] || { echo "File not in /root directory";cp -f "${PKGPATH}/${FULLPKGNAME}" /root/ 2>$ERR && _PKG_ROOT=''; }
+
+fi #download or local
+
 originPKGPATH="$PKGPATH" #w482
 PKGPATH=/root
-
-unset SIMPLE_BACKUP_SUFFIX
-unset VERSION_CONTROL
 
 #split PKGMAIN, ex: FULLPKGNAME=xvidtune-1.0.1-i486-1.tgz has PKGNAME=xvidtune-1.0.1
  case $EXT in
@@ -310,22 +201,16 @@ unset VERSION_CONTROL
    prPATTERN="s%\\-${DB_pkgrelease}.*%%"
    PKGNAME=`echo -n "$PKGMAIN" | sed -e "$prPATTERN"`
    DB_version=`echo "$PKGNAME" | cut -f 2 -d '_'`
+   [ "$ME_VERB" ] && echo "'$DB_nameonly' '$DB_pkgrelease' $prPATTERN '$PKGNAME' '$DB_version'"
   ;;
-  .pet)
+  .pet|.pup)
    PKGNAME="$PKGMAIN"
-   DB_version=`echo -n "$PKGNAME" | grep -o '[_-][0-9].*' | sed -e 's%^\-%%'`  ##+2012-02-06 changed \\- to [-_]
+   DB_version=`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\-%%'`
    xDB_version=`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`
    xPATTERN="s%${xDB_version}%%"
    DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`
    DB_pkgrelease=""
-  ;;
-  .pup)
-   PKGNAME="$PKGMAIN"
-   DB_version=`echo -n "$PKGNAME" | grep -o '[_-][0-9].*' | sed -e 's%^\-%%'`  ##+2012-02-06 changed \\- to [-_]
-   xDB_version=`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`
-   xPATTERN="s%${xDB_version}%%"
-   DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`
-   DB_pkgrelease=""
+   [ "$ME_VERB" ] && echo "'$DB_nameonly' '$DB_pkgrelease' $prPATTERN '$PKGNAME' '$DB_version' '$xDB_version' '$xPATTERN'"
   ;;
   .tgz|.txz)
    #slack ex: xvidtune-1.0.1-i486-1.tgz  printproto-1.0.4-noarch-1.tgz
@@ -335,15 +220,21 @@ unset VERSION_CONTROL
    xPATTERN="s%${xDB_version}%%"
    DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\-$%%'`
    DB_pkgrelease=`echo -n "$PKGMAIN" | sed -e 's%.*\\-i[3456]86%%' -e 's%.*\\-noarch%%' -e 's%^\\-%%'`
+   [ "$ME_VERB" ] && echo "'$DB_nameonly' '$DB_pkgrelease' $prPATTERN '$PKGNAME' '$DB_version' '$xDB_version' '$xPATTERN'"
   ;;
   .tar.gz|.tar.bz2)
    #arch ex: xproto-7.0.14-1-i686.pkg.tar.gz  trapproto-3.4.3-1.pkg.tar.gz
    PKGNAME=`echo -n "$PKGMAIN" | sed -e 's%\\-i[3456]86.*%%' -e 's%\\.pkg$%%' | rev | cut -f 2-9 -d '-' | rev`
-   DB_version=`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\\-%%'`
-   xDB_version=`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`
+   echo 1
+   DB_version=`echo -n "$PKGMAIN" | grep -o '[\-\_][0-9].*' | sed -e 's%^[\-\_]%%'`
+   echo 2
+   xDB_version=`echo -n "$DB_version" | sed -e 's%[-_]%\\\\-%g' -e 's%\.%\\\\.%g'`
+   echo 3
    xPATTERN="s%${xDB_version}%%"
    DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`
+   echo 4
    DB_pkgrelease=`echo -n "$PKGMAIN" | sed -e 's%\\-i[3456]86.*%%' -e 's%\\.pkg$%%' | rev | cut -f 1 -d '-' | rev`
+   [ "$ME_VERB" ] && echo "$prPATTERN '$PKGNAME' '$DB_version' '$xDB_version' '$xPATTERN' '$DB_nameonly' '$DB_pkgrelease' "
   ;;
   .rpm)
   #fedora ex: acetoneiso-2.3-2.mga2.i586.rpm
@@ -354,6 +245,7 @@ unset VERSION_CONTROL
    xPATTERN="s%${xDB_version}%%"
    DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`
    DB_pkgrelease=`echo -n "$PKGMAIN" | sed -e 's%\\.i[3456]86.*%%' -e 's%\\.noarch.*%%' -e 's%.*mga%%'`
+   [ "$ME_VERB" ] && echo "'$DB_nameonly' '$DB_pkgrelease' $prPATTERN '$PKGNAME' '$DB_version' '$xPATTERN'"
   ;;
   .bzpet|.lopet|.lapet|.xzpet)
    PKGNAME="$PKGMAIN"
@@ -362,6 +254,7 @@ unset VERSION_CONTROL
    xPATTERN="s%${xDB_version}%%"
    DB_nameonly=`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`
    DB_pkgrelease=""
+   [ "$ME_VERB" ] && echo "'$DB_nameonly' '$DB_pkgrelease' $prPATTERN '$PKGNAME' '$DB_version' '$xPATTERN'"
    ;;
  esac
 
@@ -384,21 +277,26 @@ export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-a
 RETPARAMS=`gtkdialog3 --program=INSTALL_DIALOG`
 eval "$RETPARAMS"
 #[ "$EXIT" != "OK" ] && exit
-echo $RETPARAMS
-echo $EXIT
-if [ "$EXIT" != "OK" -a "$EXIT" != "examine" ];then
-echo "Exiting $0"
-[ ! "${_PKG_ROOT}" ] && rm "$HOME/${FULLPKGNAME}"
+#echo $EXIT
+echo "RETPARAMS='$RETPARAMS'"
+echo "EXIT='$EXIT'"
+if [ "$EXIT" != "OK" -a "$EXIT" != "examine" ];then # && exit
+##echo "exiting $0";
+##[ -f "/root/${FULLPKGNAME}" ] && rm "/root/${FULLPKGNAME}";
+#echo "Exiting $0";[ ! "$_PKG_ROOT" ] && [ -f "/root/${FULLPKGNAME}" ] && rm "/root/${FULLPKGNAME}";exit $?;fi
+echo "Exiting $0";
+[ ! "${_PKG_ROOT}" ] && rm "/root/${FULLPKGNAME}"
 exit $?;fi
+
 if [ "$EXIT" = "OK" ];then
 #find entry in databases...
 #pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
 #optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
 pPATTERN='^'"$PKGNAME"'|'
 if [ "$EXT" = ".pet" ];then
- DB_ENTRY=`cat $HOME/.packages/Packages-puppy-* | grep "$pPATTERN" | sort -r | head -n 1`
+ DB_ENTRY=`cat /root/.packages/Packages-puppy-* | grep "$pPATTERN" | sort -r | head -n 1`
 else
- DB_ENTRY=`cat $HOME/.packages/Packages-${DISTRO_BINARY_COMPAT}-* | grep "$pPATTERN" | head -n 1`
+ DB_ENTRY=`cat /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-* | grep "$pPATTERN" | head -n 1`
 fi
 
 #w482 doesn't matter if incomplete, installpkg.sh will read .desktop file for description and category...
@@ -412,9 +310,9 @@ fi
 
 #install pkg...
 rm -f $TEMP_D/petget_missing_dbentries-Packages-* 2>$ERR
-rm -f $TEMP_D/petget-installed-pkgs-log 2>$ERR
+rm -f $TEMP_D/petget-installed-pkgs.log 2>$ERR
 echo "$DB_ENTRY" > $TEMP_D/petget_missing_dbentries-Packages-alien
-/usr/local/petget/installpkg.sh $PKGPATH/$FULLPKGNAME
+DEBUG=$DEBUG VERB=$VERB /usr/local/petget/installpkg.sh "$PKGPATH/$FULLPKGNAME"
 RETVAL=$?
 
 #installpkg.sh has already done this...
@@ -425,13 +323,16 @@ rm -f $PKGPATH/${PKGNAME}.tar.gz 2>$ERR
 [ "$originPKGPATH" = "$PKGPATH" ] && mv -f ${PKGPATH}/${FULLPKGNAME}-TEMPBACKUP ${PKGPATH}/${FULLPKGNAME}
 
 #announce result...
-if [ $RETVAL -ne 0 -o ! -s $TEMP_D/petget-installed-pkgs-log ];then
-if [ $RETVAL != 0 ];then ADD_MSG='(Something went wrong in the installpkg.sh)'
- else ADD_MSG="($TEMP_D/petget-installed-pkgs-log seems not to be OK)";fi
+if [ $RETVAL -ne 0 -o ! -s $TEMP_D/petget-installed-pkgs.log ];then
+ if [ $RETVAL != 0 ];then ADD_MSG='(Something went wrong in the installpkg.sh)'
+ else ADD_MSG="($TEMP_D/petget-installed-pkgs.log seems not to be OK)";fi
  export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
   <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
    <text use-markup=\"true\"><label>\"<b>Error, package ${FULLPKGNAME} failed to install.</b>\"</label></text>
+    <hbox><text><label>\"\"</label></text></hbox>
+    <hbox><text><label>$ADD_MSG</label></text></hbox>
+    <hbox><text><label>\"\"</label></text></hbox>
    <hbox>
     <button ok></button>
    </hbox>
@@ -441,7 +342,7 @@ if [ $RETVAL != 0 ];then ADD_MSG='(Something went wrong in the installpkg.sh)'
  exit
 fi
 
-INSTALLEDMSG=`cat $TEMP_D/petget-installed-pkgs-log`
+INSTALLEDMSG=`cat $TEMP_D/petget-installed-pkgs.log`
 MENUMSG=""
 INSTALLEDCAT=`echo -n "$INSTALLEDMSG" | rev | cut -f 1 -d ' ' | rev`
 if [ "$INSTALLEDCAT" = "none" ];then
@@ -470,7 +371,7 @@ RESTARTMSG="Please wait, updating help page and menu..."
 [ "$INSTALLEDCAT" = "none" ] && RESTARTMSG="Please wait, updating help page..."
 yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "${RESTARTMSG}" &
 X3PID=$!
-echo "$0:$LINENO"
+
 #master help index has to be updated...
 /usr/sbin/indexgen.sh
 #Reconstruct configuration files for JWM, Fvwm95, IceWM...
@@ -479,30 +380,60 @@ if [ "$INSTALLEDCAT" != "none" ];then
  [ "`pidof jwm`" != "" ] && jwm -restart #w482
 fi
 
-kill $X3PID
 
-else  #examine package
+else
 
 function view_temp(){
-rox /tmp/"${FULLPKG}"/
-CONTENT=`find ./"${FULLPKG}"/`
-CONTENT=`echo "$CONTENT" |sed "s|^\./$FULLPKG||"`
-for cont in $CONTENT; do
-[ -d "$cont" ] && continue
-if [ -e "$cont" ];then
-echo "$cont" >>files_replace.lst
-else
-echo "$cont" >>files_new.lst
+pwd
+
+#FILES=`find \( -type f -o -type l \) |sed 's|^\.||'`
+#FILES=`find \( -type f -o -type l \) |sed 's|^\.||;s|^/||'`
+FILES=`find -mindepth 2 \( -type f -o -type l \) |sed 's|^\.||' | sed 's|^/||'`
+
+for file in $FILES;do
+#file=${file#*/}
+
+if echo "$file" | grep $QUIET -i -E -e '*pet*\.specs' ; then
+SPEC_LINES=`cat "$file"`
+ while read line ; do
+ [ "$line" ] || continue
+ grep $QUIET "$line" "$HOME"/.packages/user-installed-packages && echo "$line" >> already.installed || echo "$line" >> notyet.installed
+ done<<EOI
+$(echo "$SPEC_LINES")
+EOI
+continue
 fi
-done
-sleep 1
-gxmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+
+
+file="/${file#*/}"
+
+#if echo "$file" | grep $QUIET -i -E -e '*pet*\.specs' ; then
+#SPEC_LINES=`cat "$file"`
+# while read line ; do
+# [ "$line" ] || continue
+# grep $QUIET "$line" "$HOME"/.packages/user-installed-packages && echo "$line" >> already.installed || echo "$line" >> notyet.installed
+# done<<EOI
+#$(echo "$SPEC_LINES")
+#EOI
+#continue
+#fi
+
+if [ -e $file ];then
+#if [ -e "${file#*/}" ] ; then
+echo "$file" >> files_overwrite.lst
+else
+echo "$file" >> files_new.lst
+fi
+
+done  #for file in FILES
+
+rox /tmp/"${FULLPKG}"/
+xmessage -geometry +500+300 -buttons "OK :140, Delete:141" "Click Delete button to erase this
 examination directory ,
 otherwise just OK"
 if [ "$?" = '141' ];then
 cd /root
 rox -D /tmp/"${FULLPKG}"/
-sleep 1
 rm -rf /tmp/"${FULLPKG}"/
 fi
 }
@@ -510,156 +441,130 @@ fi
 #PKGPATH=`dirname "$PASSEDPARAM"`
 #FULLPKGNAME=`basename "$PASSEDPARAM"`
 #PASSEDBASE=`basename "$PASSEDPARAM"`
-
-FULLPKG="${FULLPKGNAME%\.*}";echo $FULLPKG
-EXTN="${FULLPKGNAME##*.}";echo $EXTN
-mkdir -p /tmp/"$FULLPKG"
-if [ "${_PKG_ROOT}" ];then
-cp "$PKGPATH/$FULLPKGNAME" /tmp/"${FULLPKG}"/
+if [ "`echo "${FULLPKGNAME}" | grep '\.tar\..*'`" ];then
+FULLPKG=`echo "${FULLPKGNAME}" |sed 's|\.tar\..*$||'`
+EXTN=`echo "${FULLPKGNAME}" |sed "s|$FULLPKG||;s|^\.||"`
 else
+FULLPKG="${FULLPKGNAME%\.*}"
+EXTN="${FULLPKGNAME##*.}"
+fi;echo $EXTN;echo $FULLPKG
+rox -D /tmp/"$FULLPKG"   ##+++2013-04-29
+rm -fr /tmp/"$FULLPKG"   ##+++2013-04-29
+mkdir -p /tmp/"$FULLPKG"
+#cp "$PKGPATH/$FULLPKGNAME" /tmp/"${FULLPKG}"/
 mv "$PKGPATH/$FULLPKGNAME" /tmp/"${FULLPKG}"/
-fi
 cd /tmp/"${FULLPKG}"/
-
-VIEW_TMP=1
-
 case $EXTN in
 pet)
 pet2tgz ${FULLPKGNAME}
 tar xzf ${FULLPKG}.tar.gz
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
 ;;
-pup)
-gunzip ${FULLPKGNAME}
+deb)
+#mkdir -p /tmp/${FULLPKG}
+dpkg-deb -x ${FULLPKGNAME} /tmp/${FULLPKG}
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
 ;;
-
 tar.gz|tgz)
-
-if [ "$EXTN" = 'tgz' ];then
+if [ "$EXT" = 'tgz' ];then
 mv "${FULLPKGNAME}" "${FULLPKG}".tar.gz;fi
-
-tar $VERB  xzf "${FULLPKG}".tar.gz 2>$ERR
-if [ "$?" -ne 0 ];then
-gunzip $VERB -f "${FULLPKG}".tar.gz
-tar $VERB xf "${FULLPKG}".tar
-fi
-
+tar xzf "${FULLPKG}".tar.gz
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
 ;;
-
 tar.bz2)
 tar xjf "${FULLPKG}".tar.bz2
+view_temp
 ;;
-
 tar.xz|txz)
-
 if [ "$EXT" = 'txz' ];then
 mv "${FULLPKGNAME}" "${FULLPKG}".tar.xz;fi
-
 xz -d "${FULLPKG}".tar.xz
 tar xf "${FULLPKG}".tar
+view_temp
 ;;
-
-deb)
-mkdir -p /tmp/${FULLPKG}
-dpkg-deb -x ${FULLPKGNAME} /tmp/${FULLPKG}
-;;
-
 b2pet)
 pet2tgz -b ${FULLPKGNAME}
-tar $VERB xjf ${FULLPKG}.tar.bz2
+tar xjf ${FULLPKG}.tar.bz2
+view_temp
 ;;
-
 lopet)
 pet2tgz -l ${FULLPKGNAME}
-lzop $VERB -d ${FULLPKG}.tar.lzo
-tar $VERB xf ${FULLPKG}.tar
+lzop -d ${FULLPKG}.tar.lzo
+tar xf ${FULLPKG}.tar
+view_temp
 ;;
-
 lapet)
 pet2tgz -L ${FULLPKGNAME}
-lzma $VERB -d ${FULLPKG}.tar.lzma
-tar $VERB xf ${FULLPKG}.tar
+lzma -d ${FULLPKG}.tar.lzma
+tar xf ${FULLPKG}.tar
+view_temp
 ;;
-
 xzpet)
 pet2tgz -x ${FULLPKGNAME}
-xz $VERB -d ${FULLPKG}.tar.xz
-tar $VERB xf ${FULLPKG}.tar
+xz -d ${FULLPKG}.tar.xz
+tar xf ${FULLPKG}.tar
+view_temp
 ;;
-
 rpm)
 RPM2CPIO="rpm2cpio"
-[ "`which rpm2cpio2`" ] && RPM2CPIO='rpm2cpio2'
-$RPM2CPIO ${FULLPKGNAME} 2>$TEMP_D/_rpm2cpio.errs| cpio -d -i -m 2>>$TEMP_D/_rpm2cpio.errs
-if [ "$?" != '0' ];then
-xmessage -bg red -file $TEMP_D/_rpm2cpio.errs
-exec petget "$PASSEDPARAM"
-fi
-#tar xf ${FULLPKG}.tar
-#trustedgrub-1.1.3-15.1.src.rpm
-#included TrustedGRUB-1.1.3.tgz
-FIND_PATTERN=`echo "$FULLPKG" | tr -d '[[:punct:]][[:digit:]]'| sed 's|src$||'`
-echo "FIND_PATTERN=$FIND_PATTERN'"
-#NEW_FULLPKG_NAME=`find -iname "*$FIND_PATTERN*" |grep -v '\.rpm$'`
-NEW_FULLPKG_NAME=`find -iname "*$FIND_PATTERN*" |grep -E '\.tgz$|\.tar$|\.gz$|\.bz2$|\.lzo$|\.lzma$|\.xz$'`
-echo "NEW_FULLPKG_NAME='$NEW_FULLPKG_NAME'"
-#TODO if more than one ;(
+[ "`which rpm2cpio2`" ] && RPM2CPIO="rpm2cpio2"
+mkdir Rpm_Extract.d
+cd ./Rpm_Extract.d
+$RPM2CPIO ../"${FULLPKGNAME}" 2>../petget_extract_errs | cpio -d -i -m
+RPM_RV=$?
+   if [ "$RPM_RV" != 0 ];then
+   ERR_MSG=`cat ../petget_extract_errs`
+    xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the RPM file.
 
-if [ "$NEW_FULLPKG_NAME" ];then
-EXT_1=`echo "$NEW_FULLPKG_NAME"|rev|cut -f 1 -d'.'|rev`
-EXT_2=`echo "$NEW_FULLPKG_NAME"|rev|cut -f 2 -d'.'|rev`
-echo "EXT_1='$EXT_1' EXT_2='$EXT_2'"
-case $EXT_1 in
-tgz)
-cp "$NEW_FULLPKG_NAME" explore.tar.gz
-tar $VERB xzf explore.tar.gz
-;;
-tar)
-tar $VERB -xf "$NEW_FULLPKG_NAME"
+$ERR_MSG
+
+Suggestion: install unrpm.pup DotPup package, which contains an alternative
+RPM extraction program, that PupZip will automatically use if present."
+   fi
+ sync
+FULLPKG_F="${FULLPKG//\.src/}" #trustedgrub-1.1.0-14.1.src
+FULLPKG_F="${FULLPKG_F%-*}" #trustedgrub-1.1.0-14.1
+find -maxdepth 1 -type f \( -iname "${FULLPKG_F}.tar.*" -o -iname "${FULLPKG_F}.t[gx]z" -o -iname "${FULLPKG_F}.tar" \)  -print
+find -maxdepth 1 -type f \( -iname "${FULLPKG_F}.tar.*" -o -iname "${FULLPKG_F}.t[gx]z" -o -iname "${FULLPKG_F}.tar" \)  -exec xarchive {} \; &
+view_temp
 ;;
 *)
- case $EXT_2 in
- tar)
-  case $EXT_1 in
-  gz)
-  gunzip $VERB -f "$NEW_FULLPKG_NAME"
-  ;;
-  bz2)
-  bunzip2 $VERB -f "$NEW_FULLPKG_NAME"
-  ;;
-  lzo)
-  lzop $VERB -f -d "$NEW_FULLPKG_NAME"
-  ;;
-  lzma)
-  lzma $VERB -f -d "$NEW_FULLPKG_NAME"
-  ;;
-  xz)
-  xz $VERB -f -d "$NEW_FULLPKG_NAME"
-  ;;
-  *):;; #VIEW_TMP='';;
-  esac
-  NEW_PKG_NAME=`echo "$NEW_FULLPKG_NAME" |sed "s|\.$EXT_1||"`
-  echo "NEW_PKG_NAME='$NEW_PKG_NAME'"
-  tar -xf "${NEW_PKG_NAME}"
- ;;
- ""|*) :  #VIEW_TMP=''
- ;;
- esac
-;;
-esac
- else
- :
- fi
-#view_temp
-;; ##rpm
-
-*) VIEW_TMP=''
-xmessage -bg red "'$EXTN' examination not yet implemented"
+xmessage -bg red "$EXTN examination not yet implemented"
 ;;
 esac
 
-if [ "${VIEW_TMP}" ];then
-view_temp;fi
-
+echo "PWD=$PWD'" >&2
+cd "$CURR_DIR" >&2
+echo "PWD=$PWD'" >&2
+echo "PASSEDPARAM=$PASSEDPARAM'" >&2
+echo "Running `readlink -e $0` again ." >&2
 exec petget "$PASSEDPARAM"
 fi
+
+kill $X3PID
+echo "$0: END" >&2
 ###END###
