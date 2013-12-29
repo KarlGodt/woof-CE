@@ -5,40 +5,41 @@
 #  ENTRY1 is a string, to search for a package.
 
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
-trap "exit 1" HUP INT QUIT KILL TERM
+#************
+#KRG
 
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+[ "$DEBUG" = 2 ] && set -x
 
 
-Version='1.1'
-
+Version=1.1-KRG-MacPup_O2
 
 usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
+MSG="
+$0 [ help | version ]
 "
+echo "$MSG
+$2"
 exit $1
 }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
+trap "exit" HUP INT QUIT ABRT KILL TERM
 
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#KRG
+#************
+
+
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS #has PKGS_SPECS_TABLE.
@@ -71,3 +72,4 @@ done
 
 [ "$FNDIT" = "no" ] && xmessage -bg red -center -title "PPM find" "Sorry, no matching package name"
 
+echo "$0: END" >&2
