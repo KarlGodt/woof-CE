@@ -20,10 +20,12 @@
 #  |cyrus\-sasl|
 #  ...notice the '-' are backslashed.
 
-echo "$0:$*" >&2
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 . /root/.packages/PKGS_MANAGEMENT #has DISTRO_PPM_DEVX_EXCEPTIONS, PKG_ALIASES_INSTALLED
-
 
 #a problem is that the dependencies may have their own dependencies. Some pkg
 #databases have all dependencies up-front, whereas some only list the higher-level
@@ -101,7 +103,7 @@ sort -u /tmp/petget_missingpkgs_patterns > /tmp/petget_missingpkgs_patternsx
 mv -f /tmp/petget_missingpkgs_patternsx /tmp/petget_missingpkgs_patterns
 
 #now find the entries in the databases...
-rm -f /tmp/petget_missing_dbentries* 2>/dev/null
+rm -f /tmp/petget_missing_dbentries* 2>$OUT
 for depPATTERN in `cat /tmp/petget_missingpkgs_patterns`
 do
  depPATTERN="`echo -n "$depPATTERN" | sed -e 's%\\-%\\\\-%g'`" #backslash '-'.
@@ -127,6 +129,6 @@ do
 done
 
 kill $X1PID
-
+echo "$0: END" >&2
 ###END###
 
