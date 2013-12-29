@@ -4,7 +4,10 @@
 #/tmp/petget_filterversion has the repository that installing from.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 
-echo "$0:$*" >&2
+echo "$0: START" >&2
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
@@ -70,5 +73,5 @@ case $DB_DISTRO in
   nohup defaulthtmlviewer $HOMESITE &
  ;;
 esac
-
+echo "$0: END" >&2
 ###END###
