@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #BK 2006 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v407 fix for floppy drive icon.
@@ -15,9 +15,16 @@
 
 ########################################################################
 #
-#
-#
-#
+# CHANGES by Karl Reimer Godt
+# 1.0 : added simple mount for
+#       just 'mount /dev/sda#'
+# 2.0 : support for directories with spaces
+# 2.1 : added '-q' and '-Q' parameter for quoted output
+# 2.2 : uses bash instead of sh
+# 2.3 : uses BASH_ARGV to separate the parameters
+#       instead of LASTPARAM and DASHOPTS
+# 3.0 : added simple 'debug' and 'verbose' parameters
+# 4.0 : removal of /tmp/ntfsmnterr$$.txt at the end
 #
 # /dev/hda7
 # /dev/hda7:
@@ -47,58 +54,101 @@
 #
 ########################################################################
 
-[ ! $1 ] && exec busybox mount
-MOUNTAT="$@"  ###KRG
-SIMPLEMOUNT=
-if [ -n "`echo $1 | grep 'dev'`" ] && [[ "$@" = "$1" ]] && [ -z "$2" ] ; then
-if [ ! -f /etc/fstab ] || [ -z "`grep -w $1 /etc/fstab | grep -v -E '^#|^[[:blank:]]*#|^\t*#|^\t*[[:blank:]]*#|^\t*[[:blank:]]*\t*#'`" ] ; then
-simpledriveandpartitionname=`echo $1 | sed 's#/dev/##'`
-[ ! -d /mnt/$simpledriveandpartitionname ] && mkdir /mnt/$simpledriveandpartitionname
-SIMPLEMOUNT="$1 /mnt/$simpledriveandpartitionname"
+[ "$1" ] || exec busybox mount
+[ "$1" = '-Q' ] && { busybox mount | sed -r 's,(.* on )(.*)( type .*),\1"\2"\3,';exit $?; }
+[ "$1" = '-q' ] && { busybox mount | sed -r "s,(.* on )(.*)( type .*),\1'\2'\3,";exit $?; }
+
+out=/dev/null;err=$out
+case $1 in
+verbose) DEBUG=1;err=/dev/stderr;out=/dev/stdout;shift;;
+debug) set -x;shift;;
+esac
+
+SIMPLEMOUNT=''
+if [ -n "`echo "$1" | grep '/dev/'`" ];then
+ if [[ "`echo "$@"`" == "$1" ]];then
+  if [ -z "$2" ] ; then
+if [ ! -f /etc/fstab ] || [ -z "`grep -w "$1" /etc/fstab | grep -v -E -e '^#|^[[:blank:]]*#'`" ] ; then
+just_name=`echo "$1" | sed 's#/dev/##'`
+mkdir -p /mnt/$just_name
+SIMPLEMOUNT="$1 /mnt/$just_name"
 fi
-fi  ###KRG
+fi;fi;fi  ###KRG
 #i realised this script has to allow reentrancy. So, all temp file now unique,
 #using ${$} which is pid of script.
 MYPID=${$}
-
-. /etc/rc.d/functions4puppy4 #v4.02
+. /etc/rc.d/functions4puppy4 #v4.02 ##for driveicons
 
 #v2.12 discovered difference between $@ and $*. Replaced all $@ with $* in this script...
-
 #extract all the '-' options, on separate lines... do NOT use $@!!!!...
 #v3.93 eliminate ' -- ' and all past it...
-DASHOPTS="`echo "$*" | tr '\t' ' '  | sed -e 's/ -- .*//' | tr ' ' '\n' | grep '^\-'`"
+#v409 now have /etc/mtab a symlink to /proc/mounts so this section not needed...
+##v2.10 do not update /etc/mtab if '-n' option...
+#DASHOPTS="`echo "$*" | tr '\t' ' '  | sed -e 's/ -- .*//' | tr ' ' '\n' | grep '^\-'`"
 
 #needs an explicit '-t ntfs', does not work with /etc/fstab...
-if [ "`echo "$*" | grep 'ntfs'`" = "" ];then
+if [ "`echo "$*" | grep -e '\-t[[:blank:]]*ntfs[[:blank:]]*'`" = "" ];then
 
  #v3.93 always use full mount, in case of params not understood by bb-mount...
  ##v2.10 hack for T2, scripts have '--bind'...
- #if [ "`echo -n "$*" | grep '\-\-bind'`" = "" ];then
- # busybox mount $@
- # RETVAL=$?
- #else
+
  # #busybox mount does not support '--bind'
  # #as have mtab file (see below), can now use full mount...
   #v409 put in '-n' option as now have /etc/mtab symlink to /proc/mounts...
   if test -n "$SIMPLEMOUNT" ; then #KRG
   mount-FULL -n $SIMPLEMOUNT  ## does not work within double quotes
   RETVAL=$?  ###DBG
-  echo '$RETVAL11='"$RETVAL"  ###DBG
+  echo "RETVAL1-1='$RETVAL'"  ###DBG
   else  ###KRG
-  mount-FULL -n ${@}  ###orig
+  mount-FULL -n "${@}"  ###orig
   RETVAL=$?  ###DBG
-  echo '$RETVAL12='"$RETVAL"  ###DBG
+  echo "RETVAL1-2='$RETVAL'"  ###DBG
  fi  ###KRG
- 
-else
+
+else echo 105
  #screen out all the options...
- CMDPRMS="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/' | tr '\n' ' '`"
+ #set | grep BASH_ARGV|sed -r 's,([\[0-9\]*]="),param\1,g'
+ #CMDPRMS=`set |grep BASH_ARGV |sed -r 's,([\[0-9\]*]="),param\1,g;s,BASH_ARGV=\(,,;s,\)$,,;s," (param[\[0-9\]*]="),"\n\1,g'`
+
+CMDPRMS=`set |grep BASH_ARGV |sed -r 's,([\[0-9\]*]="),\1,g;s,BASH_ARGV=\(,,;s,\)$,,;s," ([\[0-9\]*]="),"\n\1,g'`
+echo "CMDPRMS='$CMDPRMS'"
+ c=0
+ while read line;do
+ #echo $line | grep -e 'param\[[0-9]*\]="-.*' && continue
+ #echo $line | grep -v -e 'param\[[0-9]*\]="/.*' && continue
+ echo $line | grep -e '\[[0-9]*\]="-.*' && continue
+ echo $line | grep -v -e '\[[0-9]*\]="/.*' && continue
+ echo $line
+ eval param[$c]=`echo "$line" |sed 's|^\[[0-9]*\]=||'`
+ ((c++))
+ done <<EOI
+$(echo "$CMDPRMS")
+EOI
+
+ for i in `seq 0 1 $((${#param[@]}-1))`;do
+ echo ${i}: ${param[$i]} #${param[$((i-1))]} -1 for -t ntfs /dev/sda1 /mnt/sda1
+ if [ "`echo ${param[$i]} |grep '^/dev/'`" ];then
+ PARTITION[$i]="${param[$i]}"
+ else
+ MOUNTPOINT[$i]="${param[$i]}"
+ fi
+ done
+ echo "param@=${param[@]}"
+ echo "PARTI@=${PARTITION[@]}"
+ echo "MOUNT@=${MOUNTPOINT[@]}"
+ [ "`echo "${MOUNTPOINT[@]}"`" ] && mkdir -p "${MOUNTPOINT[@]}"
+ #echo ${#param[@]}
+ #echo "${#param[@]}"
+ #echo ${#param[*]}
+ #echo "${#param[*]}"
+
+ #exit
+
  #kirk advised these options so Rox will not complain about file
  #permissions when copy a file to a ntfs partition...
- [ -f /tmp/ntfsmnterr${MYPID}.txt ] && rm -f /tmp/ntfsmnterr${MYPID}.txt
- 
- ntfs-3g $CMDPRMS -o umask=0,no_def_opts 2>/tmp/ntfsmnterr${MYPID}.txt
+ #[ -f /tmp/ntfsmnterr${MYPID}.txt ] && rm -f /tmp/ntfsmnterr${MYPID}.txt
+
+ ntfs-3g "${PARTITION[@]}" "${MOUNTPOINT[@]}" -o umask=0,no_def_opts 2>>/tmp/ntfsmnterr$$.txt
  RETVAL=$?
  #v2.16 ntfs-3g v1.417, part. scheduled for check, failed with value 10...
  #v4.00 ntfs-3g v1.2412 does not have 4,10, has 15 for dirty f.s., 14 hiberneted...
@@ -106,11 +156,11 @@ else
   if [ $RETVAL -eq 14 ];then
    #ntfs-3g $CMDPRMS -o umask=0,no_def_opts,remove_hiberfile 2>/tmp/ntfsmnterr${MYPID}.txt
    #RETVAL=$?
-   echo > /dev/null
+   false #echo > /dev/null
   else
-   ntfs-3g $CMDPRMS -o force,umask=0,no_def_opts 2>/tmp/ntfsmnterr${MYPID}.txt
+   ntfs-3g $CMDPRMS -o force,umask=0,no_def_opts 2>>/tmp/ntfsmnterr$$.txt
    RETVAL=$?
-   ERRMSG1="`cat /tmp/ntfsmnterr${MYPID}.txt`"
+   ERRMSG1=`cat /tmp/ntfsmnterr$$.txt`
    echo "$ERRMSG1"
    if [ $RETVAL -eq 0 ];then
     echo "WARNING: NTFS f.s. mounted read/write but corrupted."
@@ -124,34 +174,35 @@ boot Windows and fix the filesystem first!!!" &
    fi
   fi
  fi
- 
+
  #ntfs-3g plays very safe and will not mount if thinks anything
  #wrong with ntfs f.s. But, we may want to recover files from a
  #damaged windows. So, fall back to the kernel ntfs driver...
  if [ ! $RETVAL -eq 0 ];then
   #mount read-only...
-  busybox mount -r -t ntfs $CMDPRMS
+  #busybox mount -r -t ntfs "${param[@]}"
+  mount-FULL -r -t ntfs "${PARTITION[@]}" "${MOUNTPOINT[@]}"
   RETVAL=$?
-  ERRMSG1="`cat /tmp/ntfsmnterr${MYPID}.txt`"
+  ERRMSG1="`cat /tmp/ntfsmnterr$$.txt`"
   echo "$ERRMSG1"
   if [ $RETVAL -eq 0 ];then
    echo "WARNING: NTFS f.s. mounted read-only."
-   [ ! "`pidof X`" = "" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was unable to mount the NTFS
+   [ "`pidof X`" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was unable to mount the NTFS
 partition and returned this error message:
 $ERRMSG1
 
-So, the inbuilt kernel NTFS driver has been used
+So, probably the inbuilt kernel NTFS driver has been used
 to mount the partition read-only." &
   fi
  fi
 fi
-echo 'Mount Return Value='"$RETVAL"' Display='$DISPLAY
+echo "Mount Return Value='$RETVAL' Display='$DISPLAY'"
 #v4.02 if there is a desktop icon (see pup_eventd), then refresh it...
 if [ "$RETVAL" -eq 0 -a "$DISPLAY" != "" ];then
-echo 'first if'
+ [ "$DEBUG" ] && echo 'first if'
  DEVNAME="`busybox mount | tail -n 1 | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
  if [ "$DEVNAME" != "" ];then
- echo 'second if'
+ [ "$DEBUG" ] && echo 'second if'
   DRVNAME="`echo -n "$DEVNAME" | cut -c 1-3`"
   #special case, SD card /dev/mmcblk0p1...
   [ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
@@ -171,7 +222,7 @@ echo 'first if'
      DRV_CATEGORY="`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`"
     ;;
    esac
-   echo 'starting icon_mounted_func '$DEVNAME $DRV_CATEGORY' from '"$0"
+   [ "$DEBUG" ] && echo "starting icon_mounted_func '$DEVNAME $DRV_CATEGORY' from $0"
    icon_mounted_func $DEVNAME $DRV_CATEGORY #see functions4puppy4
   fi
  fi
@@ -193,4 +244,5 @@ if [ ! -L /etc/mtab ];then
  ln -s /proc/mounts /etc/mtab
 fi
 
+rm -f /tmp/ntfsmnterr$$.txt 2>$err
 exit $RETVAL
