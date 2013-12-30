@@ -1,32 +1,62 @@
-#!/bin/ash
-#(c) Copyright Barry Kauler Nov. 2010. License GPL v3 /usr/share/doc/legal.
-#101119 complete rewrite.
-#101121 variable delay, based on snd_ modules.
-#101210 new path /tmp/pup_event_backend for files logged by /sbin/pup_event_backend_*.
+#!/bin/sh
+#called from rc.sysinit (UniPup), as separate process.
+#v408 attempt alsa fix. v411 again.
+#w468 removed alsa stuff, now handled in /etc/init.d/alsa.
+#100217 Pwireless2 is run in rc.sysinit so ignore here.
+#100228 rerwin: pup_event_backend_modprobe_protect script.
 
-#101121 wait for snd_ modules to complete loading...
-#worst case is 6 seconds. best is 2. this sleep benefits all slow peripherals.
-BRKCNT=1 ; GOODFLAG=0
-while [ $BRKCNT -lt 7 ];do
- sleep 1
- echo "BRKCNT=${BRKCNT} SNDPATTERN='${SNDPATTERN}'" >> /tmp/rc_d_rc_services_log #for debugging.
- BRKCNT=$(($BRKCNT + 1))
- [ "`find /tmp/pup_event_backend -maxdepth 1 -type f -name 'pup_event_alsa_cnt*'`" = "" ] && continue #see /sbin/pup_event_backend_modprobe
- SNDPATTERN="`cat /tmp/pup_event_backend/pup_event_module_devpath_log* | grep '^MODULE=snd_.*DEVPATH' | cut -f 1 -d ' ' | cut -f 2 -d '=' | sort -u | tr '\n' ' ' | sed -e 's% $%%' -e 's% %.*%g'`" #see /sbin/pup_event_backend_modprobe
- #ex1: SNDPATTERN=emu10k1.*maestro3 (two snd modules). ex2: SNDPATTERN=snd_hda_intel
- if [ "`lsmod | grep -o '^snd_[^ ]*' | sort -u | tr '\n' ' ' | grep "$SNDPATTERN"`" != "" ];then
-  BRKCNT=$(($BRKCNT + 2))
-  GOODFLAG=1
- fi
-done
-[ $GOODFLAG -eq 1 ] && touch /tmp/rc_d_rc_services_alsa_ok #read by /usr/sbin/delayedrun, /etc/init.d/10alsa.
+#100228 Ensure firmware completely installed and USB-mode-switching completes before running init scripts.
+#pup_event_backend_modprobe_protect --fwcomplete
+
+#v406 a really gross workaround for now. rerwin found that the /etc/init.d/slomodem
+#script was running before slusb had properly loaded (on a slow PC). As this
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â12:47:26ÂGMT+1Â2011
+#
+#
+#
+#
+#
+########################################################################
+
+#problem could occur for any init.d script, a big sleep here...
+sleep 3
 
 for service_script in /etc/init.d/*
 do
- [ -x $service_script ] && $service_script start
+ [ "$service_script" = "/etc/init.d/Pwireless2" ] && continue #100217
+ #[ -x $service_script ] && $service_script start
+ if [ -x $service_script ] ; then
+ $service_script start &
+ sleep 1s #reduce load
+ fi
 done
 unset service_script
 
 ###END###
-
-
