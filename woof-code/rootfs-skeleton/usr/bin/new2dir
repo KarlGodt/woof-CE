@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #(c) Copyright Barry Kauler 2007
 #Now LGPL 2007
 #run like this: # new2dir make install
@@ -8,6 +8,53 @@
 #and 'abiword-0.5.6-i486' directory gets created, with all installed files
 #in it.
 
+#	--debug
+#	--debugger
+#	--dump-po-strings
+#	--dump-strings
+#	--help
+#	--init-file
+#	--login
+#	--noediting #not
+#	--noprofile
+#	--norc
+#	--posix #not
+#	--protected #not
+#	--rcfile
+#	--restricted
+#	--verbose
+#	--version
+#	--wordexp
+#/usr/bin/new2dir: line 328: /usr/bin/installwatch: restricted: cannot specify `/' in command names
+#/usr/bin/new2dir: line 345: ../bluez-4.66-i686.files: restricted: cannot redirect output
+#/usr/bin/new2dir: line 350: /tmp/bluez-4.66-i686.dirs: restricted: cannot redirect output
+#/usr/bin/new2dir: line 354: ../bluez-4.66-i686.files: restricted: cannot redirect output
+#/usr/bin/new2dir: line 358: /tmp/bluez-4.66-i686.moved.files: restricted: cannot redirect output
+
+#SHELL TEST
+A=ABCDE
+[[ "$A" =~ 'A' ]] && SHELL_IS=OK || { echo "$0 needs to run in
+bash environment that supports '=~' tests.
+ERROR.
+"
+exit 2
+}
+
+usage(){
+	echo "$0 [f c r] [s S l] [A C] make [opt] install
+	f force go ahead without questions
+	c clean remove existing TARGET-ARCH dirs for script
+	r rescue don't run installwatch
+	s use busybox script instead of installwatch
+	S use script instead of installwatch
+	l use logsave instead of installwatch
+	A use -amin -5 instead of -mmin -5 in rescue mode
+	C use -cmin -5 instead of -mmin -5 in rescue mode
+	$1
+	"
+	exit $2
+}
+
 if [ ! $1 ];then
  echo "This script is used in the last step when installing a source"
  echo "or binary package. For example:"
@@ -16,13 +63,73 @@ if [ ! $1 ];then
  exit
 fi
 
-CURRDIR="`pwd`"
-UPONE="`dirname "$CURRDIR"`"
-PKGDIR="../`basename "$CURRDIR"`"
-xPKGDIR="`basename "$CURRDIR"`"
+echo "ALL='$@'"
+MAKE=`echo "$@" | grep -owe 'make.*instal[-_a-z0-9A-Z].*'`
+[ ! "$MAKE" ] && MAKE='NONE' ###2012-04-03
+OTHER=`echo "$@" |sed "s#$MAKE##"`
+echo "MAKE='$MAKE'"
+echo "OTHER='$OTHER'"
+
+INSTALLWATCH_SCRIPT=/usr/bin/installwatch_orig
+INSTALLWATCH_SCRIPT=/usr/bin/installwatch_0.6.1.1
+#INSTALLWATCH_SCRIPT=/usr/bin/installwatch_0.6.7.0
+INSTALLWATCH_SCRIPT=/root/my-applications/sbin/installwatch_custom.sh
+INSTAllWATCH_FILE=/tmp/pkginstall.log
+
+FIND_TIME=-mmin
+##+++2012-04-28
+Resc=off
+for o in $OTHER;do
+case $o in
+-f |-f|f |f|/f |/f)TIMEOUT='-t 1';shift;;
+-c |-c|c |c|/c |/c)CLEAN='y';shift;;
+-r |-r|r |r|/r |/r)Resc=ON;shift;;
+-l |-l|l |l|/l |/l)INSTALLWATCH=`which logsave` IW_LINE="-a $INSTAllWATCH_FILE \"$MAKE\"" IW_OUT_OPT=-a IW_EXE_OPT=-c;shift;;
+-s |-s|s |s|/s |/s)INSTALLWATCH='busybox script' IW_LINE="-a -c \"$MAKE\" $INSTAllWATCH_FILE" IW_OUT_OPT=-a IW_EXE_OPT=-c;shift;;
+-A |-A|A |A|/A |/A)FIND_TIME=-amin;shift;;
+-C |-C|C |C|/C |/C)FIND_TIME=-cmin;shift;;
+*)usage "invalid parameter $o" 1;;
+esac
+done
+
+[ "$INSTALLWATCH" ] || INSTALLWATCH=$INSTALLWATCH_SCRIPT;IW_LINE="-o $INSTAllWATCH_FILE $MAKE";IW_OUT_OPT=-o;IW_EXE_OPT='';
+
+if [ ! "$TIMEOUT" ] || [ "$Resc" = 'off' ];then
+##+++2012-04-28
+#MAKE_BINS=`find \( /usr/bin -o /usr/local/bin \) -type f -name "make*"`
+MAKE_BINS=`find /usr/bin -type f \( -name "make" -o -name "make[-_]*" \)`
+MAKE_BINS="$MAKE_BINS
+`find /usr/local/bin -type f \( -name "make" -o -name "make[-_]*" \)`"
+MAKE_BINS=`echo "$MAKE_BINS" |sort`
+for m in $MAKE_BINS;do
+((c++));echo $c:$m
+MAKE_BIN[$c]=$m
+done
+echo "${MAKE_BIN[@]}"
+echo ${MAKE_BIN[@]} |wc -w
+if [ "`echo ${MAKE_BIN[@]} |wc -w`" -gt 1 ];then
+while [ ! "$MAKE_VERSION" ];do
+select NAME in ${MAKE_BIN[@]};do MAKE_VERSION=$NAME;echo $NAME $MAKE_VERSION;break;done
+#sleep 2
+done
+MAKE=`echo $MAKE |sed "s|^make |$MAKE_VERSION |"`
+fi
+echo "MAKE='$MAKE'"
+fi
+
+#CURRDIR="`pwd`"
+CURRDIR="$PWD"
+#UPONE="`dirname "$CURRDIR"`"
+UPONE="${CURRDIR%/*}"
+#PKGDIR="../`basename "$CURRDIR"`"
+PKGDIR="../${CURRDIR##*/}"
+#xPKGDIR="`basename "$CURRDIR"`"
+xPKGDIR="${CURRDIR##*/}"
 if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
- PKGDIR="../../`basename "$UPONE"`"
- xPKGDIR="`basename "$UPONE"`"
+ #PKGDIR="../../`basename "$UPONE"`"
+ PKGDIR="../../${UPONE##*/}"
+ #xPKGDIR="`basename "$UPONE"`"
+ xPKGDIR="${UPONE##*/}"
 fi
 if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  echo "$PKGDIR does not seem to be the package directory with version"
@@ -37,7 +144,7 @@ if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  echo "A dash '-' must be used to separate the package name from version."
  echo "A directory name like 'seamonkey-alpha1' is NOT allowed as the version"
  echo "number must start with a numeric digit, example 'seamonkey-1.0.7alpha1'."
- echo "Exiting script."
+ echo "Exiting $0."
  exit
 fi
 
@@ -64,8 +171,8 @@ echo " number must start with a numeric digit, example 'seamonkey-1.0.7alpha1'."
 echo " If $PKGDIR is incorrect you must now exit with CTRL-C and close this"
 echo " rxvt terminal window then rename the directory."
 echo -n "Type response now: "
-read REPLY1
-[ ! "$REPLY1" = "" ] && PKGDIR="$REPLY1"
+read $TIMEOUT REPLY1
+[ "$REPLY1" ] && PKGDIR="$REPLY1"
 if [ ! -d "$PKGDIR" ];then
  echo
  echo "$PKGDIR does not exist, exiting script."
@@ -83,11 +190,17 @@ echo "specific CPU regardless what is in your PC."
 echo "If you have compiled for a i486, just press ENTER key."
 echo "Otherwise, enter the CPU type, examples: i386 i486 i686 (the i is required)."
 echo -n "Type response here: "
-read CPUTYPE
-[ "$CPUTYPE" = "" ] && CPUTYPE="i486"
-if [ "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" = "" ];then
+read $TIMEOUT CPUTYPE
+if [ "$CPUTYPE" = "" ];then
+if [ ! "$TIMEOUT" ];then
+CPUTYPE="i486"
+else
+CPUTYPE=`uname -m`
+fi;fi
+
+if [ ! "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" ];then
  echo "$CPUTYPE is not valid. Exiting."
- exit
+ exit 300
 fi
 echo "Okay, using $CPUTYPE"
 
@@ -111,10 +224,12 @@ DEV_PKGNAME="`basename $DEV_TARGETDIR`"
 NLS_TARGETDIR="${NAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
 NLS_PKGNAME="`basename $NLS_TARGETDIR`"
 
-rm -rf "$EXE_TARGETDIR" 2>/dev/null
-rm -rf "$DOC_TARGETDIR" 2>/dev/null
-rm -rf "$DEV_TARGETDIR" 2>/dev/null
-rm -rf "$NLS_TARGETDIR" 2>/dev/null
+if [ "$CLEAN" ];then
+rm -rf "$EXE_TARGETDIR" #2>/dev/null
+rm -rf "$DOC_TARGETDIR" #2>/dev/null
+rm -rf "$DEV_TARGETDIR" #2>/dev/null
+rm -rf "$NLS_TARGETDIR" #2>/dev/null
+fi
 
 echo
 echo -en "\\033[1;31mStep 3" #red
@@ -142,57 +257,180 @@ echo " create, using keywords 'exe', 'dev', 'doc', 'nls'."
 echo " Example: exe,dev,doc  (in this example, nls component is left in the"
 echo " main package, that is, the exe component)."
 echo -n "Type response (just press ENTER if in doubt): "
-read SPLITPETS
-[ "$SPLITPETS" = "" ] && SPLITPETS="exe"
+read $TIMEOUT SPLITPETS
+if [ "$SPLITPETS" = "" ];then echo
+if [ ! "$TIMEOUT" ];then
+SPLITPETS="exe"
+else
+SPLITPETS=3
+fi;fi
 [ "$SPLITPETS" = "1" ] && SPLITPETS="exe"
 [ "$SPLITPETS" = "2" ] && SPLITPETS="exe,dev"
 [ "$SPLITPETS" = "3" ] && SPLITPETS="exe,dev,doc,nls"
 EXESPLIT="";DOCSPLIT="";DEVSPLIT="";NLSSPLIT=""
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && EXESPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && DOCSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && DEVSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && NLSSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'exe'`" ] && EXESPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'doc'`" ] && DOCSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'dev'`" ] && DEVSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'nls'`" ] && NLSSPLIT="yes"
 
 
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && mkdir "$EXE_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && mkdir "$DOC_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && mkdir "$DEV_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && mkdir "$NLS_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'exe'`" ] && mkdir "$EXE_TARGETDIR"
+
+echo '$1='"'$1'"
+
+if [ "$Resc" = "ON" ];then
+
+sync
+echo -n "searching for $FIND_TIME -5 files in /usr .. "
+F=`find /usr $FIND_TIME -5`
+echo -n "/etc .. "
+E=`find /etc $FIND_TIME -5 | grep -vE 'cups|mtab'`
+echo -n "/sbin .. "
+S=`find /sbin $FIND_TIME -5`
+echo -n "/bin .. "
+B=`find /bin $FIND_TIME -5`
+echo "/lib .."
+L=`find /lib $FIND_TIME -5`
+C="$F
+$E
+$S
+$B
+$L"
+C=`echo "$C" |sort -u`
+
+#NO-List : Files with these extensions, more to come... : "\." and "$" need to be the very first and last :
+N_LIST='\.m4,h,hpp,gz,html,xml,css,a,la,bz2,txt,pm,pl,py,pc,mo,bash,tcsh,csh,sh,ksh,zsh,diff,conf,cfg,lst,desktop,png,xpm,jpg,jpeg,pnm,pbm,xbm,pnm,tif,tga,j2k,bmp,gif$'
+N_LIST=`echo "$N_LIST" |sed 's#,#\$|\\\\\.#g'`
+N_LIST="${N_LIST}|/man/|/doc/|/info/|/i18n/|/help/"
+strip_func(){
+[ "`echo "$1" | grep -E "$N_LIST"`" ] && return 0
+FILE=`file "$1"`
+[ "`echo "$FILE" | grep 'ELF' | grep 'shared object'`" ] && { strip --strip-debug "${EXE_TARGETDIR}${1}";return $?; }
+[ "`echo "$FILE" | grep 'ELF' | grep 'executable'`" ] && { strip --strip-unneeded "${EXE_TARGETDIR}${1}";return $?; }
+[[ "${1%##*/}" =~ '\.' ]] && echo -e "\\033[1;35m""Notice : 'No_LIST' FIXME : '$1' .""\\033[0;39m";return 0
+}
+
+for i in $C ; do
+#echo "found '$i'"
+[ -d "$i" ] && { echo "creating DIR '$i'";mkdir -p "${EXE_TARGETDIR}${i}";continue; }
+[ -f "$i" ] && { echo "copying file '$i'";mkdir -p "${EXE_TARGETDIR}${i%/*}";cp -ia "${i}" "${EXE_TARGETDIR}${i}";strip_func "$i";continue; }
+[ -L "$i" ] && { echo "copying LINK '$i'";mkdir -p "${EXE_TARGETDIR}${i%/*}";cp -ia --remove-destination "${i}" "${EXE_TARGETDIR}${i}";continue; }
+echo -e "\\033[1;35m""NOTICE: FIXME : '$i' is skipped today.""\\033[0;39m"
+done
+
+find -name "*.log" -exec cp --backup=numbered {} ${EXE_TARGETDIR} \;
+echo "$C" > "${EXE_TARGETDIR}"/${EXE_PKGNAME}.files
+echo "$C" >> /root/.packages/${EXE_PKGNAME}.files
+exit $?
+##
+else
 
 echo
 echo -en "\\033[1;31mStep 4" #red
 echo -e "\\033[0;39m"
 echo "The following line is about to be executed:"
-echo "# installwatch -o /tmp/pkginstall.list ${@}"
-echo "...this logs all file activity to /tmp/pkginstall.list"
+echo "# installwatch -o $INSTAllWATCH_FILE ${@}"
+echo "...this logs all file activity to $INSTAllWATCH_FILE"
 echo "This script will then determine all newly created directories"
 echo "and files and create '$EXE_TARGETDIR' with the new files."
 echo "(and optionally ${DEV_TARGETDIR}, ${DOC_TARGETDIR}, ${NLS_TARGETDIR})"
 echo -n "Press ENTER key to continue: "
-read goforit
+read $TIMEOUT goforit
 
-installwatch -o /tmp/pkginstall.list ${@}
+[ "$goforit" ] || echo
 
+#/usr/bin/installwatch: line 338: make install: command not found
+#installwatch -o /tmp/pkginstall.list "${MAKE}"
+
+#/usr/bin/ginstall -c lynx /usr/local/bin/lynx
+#make: *** [install-bin] Segmentation fault
+#ERROR, SOMETHING WENT WRONG
+#ls -l /tmp
+#ls -lF / | grep -E 'var/$|tmp/$'
+#chmod -vR 1777 /tmp
+#chmod -vR 0777 /var
+#find /tmp -type d -exec chmod 0777 {} \;
+#find /tmp -type f -exec chmod 0666 {} \;
+#find /var -type d -exec chmod 0777 {} \;
+#find /var -type f -not \( -wholename "*/bin/*" -o -wholename "*/sbin/*" \) -exec chmod 0666 {} \;
+#bash-3.00# chmod --help
+#Usage: chmod [OPTION]... MODE[,MODE]... FILE...
+#  or:  chmod [OPTION]... OCTAL-MODE FILE...
+#  or:  chmod [OPTION]... --reference=RFILE FILE...
+#Change the mode of each FILE to MODE.
+#
+#  -c, --changes           like verbose but report only when a change is made
+#      --no-preserve-root  do not treat `/' specially (the default)
+#      --preserve-root     fail to operate recursively on `/'
+#  -f, --silent, --quiet   suppress most error messages
+#  -v, --verbose           output a diagnostic for every file processed
+#      --reference=RFILE   use RFILE's mode instead of MODE values
+#  -R, --recursive         change files and directories recursively
+#      --help     display this help and exit
+#      --version  output version information and exit
+#
+#Each MODE is of the form `[ugoa]*([-+=]([rwxXst]*|[ugo]))+'.
+#
+#Report chmod bugs to bug-coreutils@gnu.org
+
+#bash-3.00# checkinstall
+#
+#checkinstall 1.6.2, Copyright 2009 Felipe Eduardo Sanchez Diaz Duran
+#  Diese Software wurde unter der GNU GPL veröffentlicht
+#
+#
+#
+#**** Failed to create temp dir!
+#**** Do you have write permission for /var/tmp?
+#
+#**** Aborting installation.
+#
+#[was not existing at all ;) ]
+
+
+sync
+touch $INSTAllWATCH_FILE
+sync
+chmod 0666 $INSTAllWATCH_FILE
+sync
+echo "2Quoted : '$INSTALLWATCH' '$IW_LINE'"
+echo 'Not Quotd: '$INSTALLWATCH $IW_LINE
+#echo $INSTALLWATCH $IW_OUT_OPT $IW_EXE_OPT "$MAKE" /tmp/pkginstall.list
+#installwatch -o /tmp/pkginstall.list $MAKE
+#$INSTALLWATCH $IW_OUT_OPT /tmp/pkginstall.list $IW_EXE_OPT $MAKE
+#$INSTALLWATCH $IW_OUT_OPT $IW_EXE_OPT "$MAKE" /tmp/pkginstall.list
+$INSTALLWATCH $IW_LINE
+INSTALLWATCHRV="$?"
+#Usage: script [-afq] [-c PROG] [OUTFILE]
+#/sbin/logsave -a -c make install /tmp/pkginstall.list
+#/sbin/logsave: invalid option -- 'c'
+#Usage: logsave [-v] [-d dir] logfile program
+
+if [ "$INSTALLWATCHRV" -ne '0' ];then
+echo -e "\e[1;31m""ERROR, SOMETHING WENT WRONG""\e[0;39m"
+defaulttexteditor $INSTAllWATCH_FILE
+exit "$INSTALLWATCHRV"
+fi
 sync
 #create list of installed files...
 #v2.17 bug, if sometimes logs files in the pkg installing from, have added
 # filter out $UPONE...
 # BUGPATTERN='&'"$UPONE"
 # no, just filter out /mnt and /initrd...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
+cat $INSTAllWATCH_FILE | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
 #...list will only have created files, not created directories, so an empty
 #   directory won't get recorded.
 
 #bad if we miss out installing an empty directory...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' > /tmp/${EXE_PKGNAME}.dirs
+cat $INSTAllWATCH_FILE | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' > /tmp/${EXE_PKGNAME}.dirs
 
 sync
 #pick up created symlinks...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+cat $INSTAllWATCH_FILE | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
 
 sync
 #problem if there is a post-install script that moves or renames a file...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' > /tmp/${EXE_PKGNAME}.moved.files
+cat $INSTAllWATCH_FILE | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' > /tmp/${EXE_PKGNAME}.moved.files
 #find out if any installed file got moved/renamed...
 if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
  for ONEMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
@@ -206,13 +444,6 @@ if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
  done
 fi
 
-curr_dir=`pwd |sed -r 's|([[:punct:]])|\\\\\1|g'`
-cat ${RELPATH}/${EXE_PKGNAME}.files | grep -v "$curr_dir" >/tmp/${EXE_PKGNAME}.files
-mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
-
-cat ${RELPATH}/${EXE_PKGNAME}.files |sort -u >/tmp/${EXE_PKGNAME}.files
-mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
-
 sync
 echo
 echo -en "\\033[1;31mStep 5" #red
@@ -220,18 +451,27 @@ echo -e "\\033[0;39m"
 #fixfilelistfunc() uses this...
 cp -af ${RELPATH}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
 #...a post-install script could delete files, which fixfilelistfunc fixes.
+
+N_LIST='\.m4,h,hpp,gz,html,xml,css,a,la,bz2,txt,pm,pl,py,pc,mo,bash,tcsh,csh,sh,ksh,zsh,diff,conf,cfg,lst,desktop,png,xpm,jpg,jpeg,pnm,pbm,xbm,pnm,tif,tga,j2k,bmp,gif$'
+N_LIST=`echo "$N_LIST" |sed 's#,#\$|\\\\\.#g'`
 cat ${RELPATH}/${EXE_PKGNAME}.files |
 while read ONEFILE
 do
- ONEBASE="`basename "$ONEFILE"`"
- ONEPATH="`dirname "$ONEFILE"`"
+ #ONEBASE="`basename "$ONEFILE"`"
+ ONEBASE="${ONEFILE##*/}"
+ #ONEPATH="`dirname "$ONEFILE"`"
+ ONEPATH="${ONEFILE%/*}"
  echo "Processing ${ONEFILE}"
 
  #strip the file...
  if [ ! -h "$ONEFILE" ];then #make sure it isn't a symlink
-  [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$ONEFILE"
-  [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$ONEFILE"
- fi
+  if [ ! "`echo "$ONEBASE" | grep -E "$N_LIST"`" ];then
+  FILE=`file "$ONEFILE"`
+  #[ ! "`file "$ONEFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$ONEFILE"
+  [ "`echo "$FILE" | grep 'ELF' | grep 'shared object'`" ] && strip --strip-debug "$ONEFILE"
+  #[ ! "`file "$ONEFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$ONEFILE"
+  [ "`echo "$FILE" | grep 'ELF' | grep 'executable'`" ] && strip --strip-unneeded "$ONEFILE"
+ fi;fi
  sync
 
  if [ "$NLSSPLIT" = "yes" ];then
@@ -303,6 +543,26 @@ done
 sync
 cp -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 
+
+##+++2011-12-27 KRG
+##remove whiteout files
+find  ${EXE_TARGETDIR} -name "*.wh.*" -exec rm {} \;
+[ -d ${NLS_TARGETDIR} ] && find  ${NLS_TARGETDIR} -name "*.wh.*" -exec rm {} \;
+[ -d ${DOC_TARGETDIR} ] && find  ${DOC_TARGETDIR} -name "*.wh.*" -exec rm {} \;
+[ -d ${DEV_TARGETDIR} ] && find  ${DEV_TARGETDIR} -name "*.wh.*" -exec rm {} \;
+##copy the unnecessary .files file to ${EXE_TARGETDIR}
+cp -af /tmp/${EXE_PKGNAME}.files ${EXE_TARGETDIR}
+##cp logfiles
+find -name "*.log" -exec cp {} ${EXE_TARGETDIR} \;
+##rm hidden files on top of rootfs
+find  ${EXE_TARGETDIR} -maxdepth 1 -type f -name ".[a-zA-Z0-9]*" -exec rm {} \;
+[ -d ${NLS_TARGETDIR} ] && find  ${NLS_TARGETDIR} -maxdepth 1 -type f -name ".[a-zA-Z0-9]*" -exec rm {} \;
+[ -d ${DOC_TARGETDIR} ] && find  ${DOC_TARGETDIR} -maxdepth 1 -type f -name ".[a-zA-Z0-9]*" -exec rm {} \;
+[ -d ${DEV_TARGETDIR} ] && find  ${DEV_TARGETDIR} -maxdepth 1 -type f -name ".[a-zA-Z0-9]*" -exec rm {} \;
+###+++2011-12-27 KRG
+
+fi
+
 echo
 echo -en "\\033[1;31mFinished" #red
 echo -e "\\033[0;39m"
@@ -322,8 +582,8 @@ echo "Press ENTER only to exit this script."
 echo "Or, if you want the convenience, the 'dir2pet' script can be launched"
 echo "right now -- press any character on the keyboard then ENTER."
 echo -n "Type response here: "
-read nextphase
-[ "$nextphase" = "" ] && exit
+read  $TIMEOUT nextphase
+[ "$nextphase" = "" ] && echo && exit
 
 cd ${RELPATH}
 if [ -d ${xNAMEONLY}-${VERONLY}-${CPUTYPE} ];then
