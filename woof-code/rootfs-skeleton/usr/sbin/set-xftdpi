@@ -1,7 +1,9 @@
 #!/bin/sh
 #BK Aug 2009, gpl
 
-export LANG=C #xdialog happy with this.
+#export LANG=C #xdialog happy with this.
+#export LC_ALL=C
+for l in `locale |sed 's|=\(.*\)|=C|'` ; do echo $l;eval $l;export $l;done
 
 #read current dpi setting...
 CURRDPI=`cat /root/.Xresources | grep "^Xft\\.dpi:" | tr '\t' ' ' | tr -s ' ' | cut -f 2 -d ' '`
@@ -18,14 +20,46 @@ do
  CNT=`expr $CNT + 1`
 done
 
+##--radiolist	<text> <height> <width> <list height> <tag1> <item1> <status1> {<help1>}...
+#XDIALOG="Xdialog --left --stdout --title \"Set global font size\" --no-tags --radiolist \"Please choose dpi (dots per inch) for the screen.\nThe larger the value, the bigger that antialiased\nfonts will render on the screen. Adjust up or down if\nfonts are rendering too small or too big on screen.\n\nNote1: Some apps do not use antialiased rendering\n            and will not be affected by this setting.\n\nNote2: Change will only take effect after restarting X\" 0 0 0 ${RADIOBUTTONS}"
 
-XDIALOG="Xdialog --left --stdout --title \"Set global font size\" --no-tags --radiolist \"Please choose dpi (dots per inch) for the screen.\nThe larger the value, the bigger that antialiased\nfonts will render on the screen. Adjust up or down if\nfonts are rendering too small or too big on screen.\n\nNote1: Some apps do not use antialiased rendering\n            and will not be affected by this setting.\n\nNote2: Change will only take effect after restarting X\" 0 0 0 ${RADIOBUTTONS}"
+##--spinbox	<text> <height> <width> <min value> <max value> <default value> <label>
+XDIALOG="Xdialog --left \
+ --stdout \
+ --title \"Set global font size\" \
+ --no-tags \
+ --spinbox \"\
+ Please choose dpi (dots per inch) for the screen.\n\
+ The larger the value, the bigger that antialiased\n\
+ fonts will render on the screen. Adjust up or down\n\
+ if fonts are rendering too small or too big on screen.\n\n\
+ Note1: Some apps do not use antialiased rendering\n\
+ and will not be affected by this setting.\n\
+ Note2: Change will only take effect after restarting X\n\"\
+ 0 0 50 120 $CURRDPI Xft.dpi"
+
 NEWDPI="`eval "$XDIALOG"`"
-[ $? -ne 0 ] && exit
+[ $? -ne 0 ] && { echo "$0:Not pressed OK button";exit; }
+echo -e "\\033[1;32m$NEWDPI\\033[0;39m"
+#[ $? -ne 0 ] && { echo "$0:Not pressed OK button";exit; }
 
-TMP1="`cat /root/.Xresources | grep -v "Xft\\.dpi:"`"
+TMP1="`cat /root/.Xresources | grep -v "^Xft\\.dpi:"`"
 echo "$TMP1" > /root/.Xresources
 echo "Xft.dpi: $NEWDPI" >> /root/.Xresources
 sync
-
+if [ -d /usr/share/fonts/X11/75dpi ];then
+ if [ -d /usr/share/fonts/X11/100dpi ];then
+  if [ "$NEWDPI" -le 75 -o "$NEWDPI" -le  87 ];then
+  ln -sf /usr/share/fonts/X11/75dpi /usr/share/fonts/X11/${NEWDPI}dpi
+  else
+  ln -sf /usr/share/fonts/X11/100dpi /usr/share/fonts/X11/${NEWDPI}dpi
+  fi
+ else
+ ln -sf /usr/share/fonts/X11/75dpi /usr/share/fonts/X11/${NEWDPI}dpi
+ fi
+elif [ -d /usr/share/fonts/X11/100dpi ];then
+ ln -sf /usr/share/fonts/X11/100dpi /usr/share/fonts/X11/${NEWDPI}dpi
+else
+echo -e "\\033[1;31mNOTICE : /usr/share/fonts/X11/[75&100]dpi missing.\\033;[0;39m"
+fi
 ###END###
