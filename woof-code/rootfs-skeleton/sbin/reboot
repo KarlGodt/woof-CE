@@ -1,13 +1,46 @@
 #!/bin/sh
-#110505 support sudo for non-root user.
-#120408 support minit
 
-[ "`whoami`" != "root" ] && exec sudo -A ${0} ${@} #110505
+debugging_variables(){
+ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';QUIET='-q'; ##+++2012-03-10
+[ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;QUIET=''; }
+}
+debugging_variables
 
-/etc/rc.d/rc.shutdown
+#[[ "$@" = '-h' ]] && exec /bin/busybox reboot --help
+#[[ "$@" =~ 'help' ]] && exec /bin/busybox reboot --help
+echo "$@" | grep $QUIET -iE '\-h|help|usage' && { echo -e "\\033[0;32m`file $0`\nPuppy Linux Wrapper that should call busybox reboot:\\033[0;39m\n";exec /bin/busybox reboot --help; }  ##+++2013-03-11
+echo "$@" | grep $QUIET -iE 'verbose|debug' && { DEBUG=Y; debugging_variables; }
+echo "$@" | grep $QUIET -iE 'test|check' && { DEBUG=Y; debugging_variables;set -n; }
 
-REBOOTEXE='/bin/busybox reboot'
-#[ -f /sbin/minit ] && REBOOTEXE='/sbin/shutdown -r' #-r means reboot. note, shutdown is part of minit pkg.
-[ -f /sbin/minit ] && REBOOTEXE='hard-reboot RESTART' #note, hard-reboot is part of minit pkg.
+pidof X 1>$OUT 2>$ERR && { echo "X is still running. Please run wm${0##*/}. Exiting script.";exit 1; }
 
-exec ${REBOOTEXE} #>/dev/null 2>&1
+SHUT_HOW='rebooting' /etc/rc.d/rc.shutdown
+[ $? = 199 ] && exit 0
+
+KERNEL=`uname -r`
+
+if dmidecode -t0 | grep $QUIET -i 'vendor' | grep $QUIET -i 'dell'; then
+ if [ "${KERNEL:0:1}" = 3 ] ; then
+  RBOOT="$RBOOT -f -n"
+ elif [ "${KERNEL:0:1}" = 2 -a "${KERNEL:2:1}" = 6 -a "`echo "${KERNEL:4:2}" | sed 's|[^[:digit:]]||'`" -gt 34 ] ; then
+  RBOOT="$RBOOT -f -n"
+ fi
+fi
+
+##KERN="${KERNEL//[^\.[:digit:]]/}"
+#KERN="${KERNEL//[^\.[:digit:]]/ }"
+##K="${KERN//\./ }"
+#KER="${KERN%% *}"
+##Kmaj=${K%% *}
+##Kmaj=${K%%\.*}
+#K="${KER//\./ }"
+#Kmin=`echo $K |awk '{print $2}'`
+#Ksub=`echo $K |awk '{print $3}'`
+#Kpat=`echo $K |awk '{print $4}'`
+#if [ "${KERNEL:0:1}" = 3 ] ; then
+#RBOOT="$RBOOT -f"
+#elif [ "${KERNEL:0:1}" = 2 -a "${KERNEL:2:1}" = 6 -a "${sub}" -ge 34 ]; then
+#RBOOT="$RBOOT -f"
+#fi
+
+exec /bin/busybox reboot "$@" $RBOOT
