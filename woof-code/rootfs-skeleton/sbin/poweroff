@@ -1,13 +1,38 @@
 #!/bin/sh
-#110505 support sudo for non-root user.
-#120408 support minit
 
-[ "`whoami`" != "root" ] && exec sudo -A ${0} ${@} #110505
+PROG='/sbin/poweroff'
+debugging_variables(){
+ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';QUIET='-q'; ##+++2012-03-10
+[ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;QUIET=''; }
+}
+debugging_variables
+echo "$@" | grep $QUIET -iE '\-h|help|usage' && { echo -e "\\033[0;32m`file $0`\nPuppy Linux Wrapper that calls busybox poweroff:\\033[0;39m\n";exec /bin/busybox poweroff --help; }  ##+++2013-03-11
+echo "$@" | grep $QUIET -iE 'verbose|debug' && { DEBUG=Y; debugging_variables; }
+echo "$@" | grep $QUIET -iE 'test|check' && { DEBUG=Y; debugging_variables;set -n; }
+pidof X 1>$OUT 2>$ERR && { echo "X is still running. Please run wm${0##*/}. Exiting script.";exit 1; }
+
+interactive(){
+#sleep 5
+echo "Really want to poweroff ?"
+read -t 60 K
+echo
+if [  ! "$K" = "y" -a ! "$K" = "Y" ] ; then
+echo -e "\\033[1;34m""OK , stopping $PROG""\\033[0;39m"
+echo
+exit 0
+fi
+}
 
 /etc/rc.d/rc.shutdown
+Err=$?
+[ "$Err" = 199 ] && exit 0
+if [ "$Err" -ne 0 ] ; then
+if [ -n "`mount | grep /proc`" ] ; then
+echo -e "\\033[0;31m""Something went wrong running /etc/rc.d/rc.shutdown""\\033[0;39m"
+echo -e "\\033[1;31m""Error returncode is '$Err'""\\033[0;39m"
+echo
+exit $Err
+fi
+fi
 
-POWEROFFEXE='/bin/busybox poweroff'
-#[ -f /sbin/minit ] && POWEROFFEXE='/sbin/shutdown -o' #-o means poweroff. note: shutdown is part of minit pkg.
-[ -f /sbin/minit ] && POWEROFFEXE='hard-reboot POWER_OFF' #note: hard-reboot is part of minit pkg.
-
-exec ${POWEROFFEXE} #>/dev/null 2>&1
+exec /bin/busybox poweroff "$@"
