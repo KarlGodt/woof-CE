@@ -1,58 +1,78 @@
 #!/bin/sh
-#(c) Copyright 2012 Barry Kauler
-#2012 GPL licence v3 (refer: /usr/share/doc/legal)
-#120328 rewrite script.
-#120627 use keymaps from kbd pkg if present.
-#120629 raspberry pi does not have a hw clock, set date to reasonable value.
-#130501 passed param from rc.sysinit.
-#130513 modify handling of "ask" passed param.
+#(c) Copyright 2007 Barry Kauler
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v405 called from rc.sysinit.
+#w000 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+#w001 selection of locale.
+#w019 april2009: selection of timezone.
+#091122 merge kmap mods from ecube, maps now in /lib/keymaps, /lib/consolefonts.
+#100127 added sv.
+#100319 TZ, hwclock fix.
+#100525 hardware clock can be utc or localtime (thanks to pizzasgood).
 
-. /etc/rc.d/PUPSTATE
-. /etc/DISTRO_SPECS #has DISTRO_XORG_AUTO
 STATUS=0
-. /etc/clock
-
 [ $pkeys ] && PKEYS=$pkeys #boot parameter
+[ -f /etc/keymap ] && OLD_KEY_MAP=`cat /etc/keymap |grep -v '^#' |tail -n1`
+[ "$PKEYS" -a "$OLD_KEY_MAP" != "$PKEYS" ] && set $PKEYS
+[ ! "$1" -a -f /etc/X11/xorg.conf ] && exit $STATUS
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+. /etc/clock #100525
 
-ASKKMAP="yes"; ASKLANG="yes"; ASKCLOCK="no"
-[ "$DISTRO_XORG_AUTO" = "yes" ] && ASKKMAP="no" && ASKLANG="no"
-[ -f /tmp/bootcnt.txt ] && ASKKMAP="yes" && ASKLANG="yes" #file created in 'init' if pfix=nox.
+#[ $pkeys ] && PKEYS=$pkeys #boot parameter
 
-#130501 passed param from rc.sysinit (rc.country is called 2nd time)... 130513 no, only one call.
-if [ $1 ];then
- ASKKMAP="yes"
- ASKLANG="yes"
- #delete these, so that kmap and locale dlgs will rerun... 130513 no
- #rm -f /etc/keymap 2>/dev/null
- #rm -rf /usr/lib/locale/*
-fi
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â12:47:05ÂGMT+1Â2011
+#
+#
+#
+#
+#
+########################################################################
 
-#120627
-KMAPPATH='/lib/keymaps'
-[ -d /usr/share/kbd/keymaps/i386 ] && KMAPPATH='/usr/share/kbd/keymaps/i386'
-[ -d /usr/share/keymaps/i386 ] && KMAPPATH='/usr/share/keymaps/i386' #debian, gentoo. note, debian files have extension .kmap.gz, gentoo have .map.gz
-KEXT=''
-[ -f ${KMAPPATH}/qwerty/us.map ] && KEXT='.map'
-[ -f ${KMAPPATH}/qwerty/us.map.gz ] && KEXT='.map'
-[ -f ${KMAPPATH}/qwerty/us.kmap ] && KEXT='.kmap'
-[ -f ${KMAPPATH}/qwerty/us.kmap.gz ] && KEXT='.kmap'
+###+++2012-01-26
+out=/dev/console
+TTY=`tty`
+if [ "$TTY" != 'not a tty' -a  "$TTY" != '?' ];then
+out="$TTY";fi
+[ "$DISPLAY" ] && echo 'X running'
+###+++2012-01-26
 
-######keyboard section######
 askkbdlayout ()
 {
- echo -n "us${KEXT}" > /etc/keymap #default.
- echo -n "" > /etc/codepage # "
- FIRSTITEM="us \"(USA)\""
+ KEYBOARD=""
+ FONTMAP=""
+ CODEPAGE=""
  echo -n "" >/tmp/keybdlist.txt
- case $KMAPPATH in #120627
-  /lib/keymaps) KMAPFILES="`find /lib/keymaps -mindepth 1 -maxdepth 1 -name '*.gz' | sort`" ;; #ex: us.gz
-  *) KMAPFILES="`find ${KMAPPATH}/[^i]* -name '*.map' -o -name '*.kmap' -o -name '*.map.gz' -o -name '*.kmap.gz' -not -name 'defkeymap*' | sort`" ;;
- esac
- for AFILE in $KMAPFILES
+ for AFILE in `ls /lib/keymaps/*`
  do
   AKMAP="`basename $AFILE .gz`" #us, fr, br, etc.
-  AKMAP="`basename $AKMAP .kmap`" #120627
-  AKMAP="`basename $AKMAP .map`" #120627
+  #hmmm, very slow way to do this...
   case $AKMAP in
    us*) ACNTRY="(USA)";;
    fr*) ACNTRY="(France)";;
@@ -107,114 +127,100 @@ askkbdlayout ()
   esac
   echo -e "$AKMAP \"${ACNTRY}\"" >> /tmp/keybdlist.txt
  done
- KEYLIST="${FIRSTITEM} `sort /tmp/keybdlist.txt | tr '\n' ' '`"
+ KEYLIST="us \"(USA)\" `sort /tmp/keybdlist.txt | tr '\n' ' '`"
+
  echo '#!/bin/sh' >/tmp/keydlg
  echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:\n(UP/DOWN arrows then ENTER key)" 0 0 0 \' >>/tmp/keydlg #' geany fix
  echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
  echo 'exit $?' >>/tmp/keydlg
  chmod 755 /tmp/keydlg
- /tmp/keydlg >/dev/console
+ /tmp/keydlg >$out
  [ $? != 0 ] && return 1
- clear > /dev/console 2>&1 #clear screen
- KMAP=`cat /tmp/kbdextlayout.txt`
- case $KMAP in #note, same/similar code in /usr/sbin/input-wizard, init, quicksetup.
-  de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|sv*|pt*) echo -n "850" > /etc/codepage ;;
-  cz*|hu*|pl*|ro*|sk*|croat*|slovene*)  echo -n "852" > /etc/codepage  ;;
+ clear > $out 2>&1 #clear screen
+ KEYBOARD=`cat /tmp/kbdextlayout.txt`
+ case $KEYBOARD in #note, same code in /usr/sbin/input-wizard and init.
+  de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|sv*|pt*) #100127 added sv.
+   FONTMAP="lat1-12.psfu"
+   modprobe nls_cp850
+   CODEPAGE="850"
+  ;;
+  cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
+   modprobe nls_cp852
+   modprobe nls_iso8859-2
+   FONTMAP="lat2-12.psfu"
+   CODEPAGE="852"
+   ;;
  esac
- echo -n "${KMAP}${KEXT}" > /etc/keymap
  return 0
 }
-
-if [ "$ASKKMAP" = "no" ];then
- #'quicksetup' is run 1st time X starts.
- [ ! -f /etc/keymap ] && echo -n "us${KEXT}" > /etc/keymap
- [ ! -f /etc/codepage ] && echo -n "" > /etc/codepage
-else
- [ ! -e /etc/keymap ] && askkbdlayout #creates /etc/keymap, /etc/codepage.
+echo $LINENO
+if [ ! -e /etc/keymap ];then
+ KMAP="us"
+ askkbdlayout #this is extended menu, func above.
+ #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
+ [ $? -eq 0 ] && KMAP="$KEYBOARD"
+ echo -n "$KMAP" > /etc/keymap
+ echo -n "$FONTMAP" > /etc/fontmap
+ echo -n "$CODEPAGE" > /etc/codepage
+ else echo "Nothing to do for /etc/keymap fontmap codepage"
 fi
-
-if [ -s /etc/codepage ];then
- CODEPAGE="`cat /etc/codepage`"
- case $CODEPAGE in
-  850) modprobe nls_cp850 ;;
-  852) modprobe nls_cp852 ; modprobe nls_iso8859-2 ;;
- esac
-fi
-
-#note, "keymap-set --xopt" is run in xorgwizard and xorgwizard-automatic,
-# "keymap-set --load" is run in quicksetup.
-if [ -s /etc/keymap ];then
- NEED2LOADKMAP="yes"
- [ -d /initrd -a "$PKEYS" ] && NEED2LOADKMAP="no" #already done in initrd.
- if [ "$NEED2LOADKMAP" = "yes" ];then
-  KMAP="`cat /etc/keymap`"
-  case $KMAPPATH in #120627
-   /lib/keymaps) gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap ;;
-   *) loadkeys $KMAP ;; #note i think don't need to specify the extension (but it is in KMAP).
-  esac
+echo $LINENO
+NEED2LOADKMAP="yes"
+[ -d /initrd -a "$PKEYS" ] && NEED2LOADKMAP="no" #already done in initrd.
+echo $LINENO
+if [ "$NEED2LOADKMAP" = "yes" ];then
+ KMAP="`cat /etc/keymap`"
+ gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap
+ STATUS=$((STATUS + $?))
+ FONTMAP="`cat /etc/fontmap`"
+ if [ "$FONTMAP" ];then
+  gzip -dcf /lib/consolefonts/${FONTMAP}.gz | loadfont
+  STATUS=$((STATUS + $?))
+  else echo "Nothing to do for which loadfont"
  fi
+else echo "Nothing to do for which loadkmap"
 fi
-######end keyboard section######
-
-######locale section######
+echo $LINENO
+#w001 creates locale files in /usr/lib/locale...
 LANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
-CLANG="`echo "$LANG" | sed -e 's/\.UTF-8/\.utf8/'`" #fix, locale -a always prints .utf8
-
-if [ "$ASKLANG" = "no" ];then
- #'quicksetup' is run 1st time X starts.
- #need this default locale for X to start first time...
- [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >/dev/null
- [ ! -d /usr/lib/locale/${CLANG} ] && /usr/sbin/chooselocale cli quiet #ask no questions, will run localedef.
-else
- #localedef creates locale files in /usr/lib/locale...
- if [ "`locale -a | grep "$CLANG"`" = "" ];then
-  if [ "$LANG" = "en_US" ];then
-   /usr/sbin/chooselocale cli > /dev/console
-  else
-   /usr/sbin/chooselocale cli quiet #ask no questions, will run localedef.
-  fi
-  /sbin/load_consolefont #note, also called from rc.sysinit, xwin.
-  ASKCLOCK="yes"
- fi
-fi
-######end locale section######
-
-######clock section######
-#120629 raspberry pi does not have a hw clock, set date to reasonable value...
-HWDATE="`hwclock --show 2>/dev/null`" #ex: "Fri 29 Jun 2012 07:45:28 AM WST  -0.725833 seconds"
-if [ "$HWDATE" = "" ];then
- if [ -f /var/local/shutdown_date_saved ];then #see /etc/rc.d/rc.shutdown
-  date -s "`cat /var/local/shutdown_date_saved`"
+#commented below by playdayz to never run chooselocale and always run timezone
+if [ "`locale -a | grep "$LANG"`" = "" ];then
+ BASELANG="`basename $LANG .utf8`"
+ if [ -f /usr/share/i18n/locales/$BASELANG ];then
+  localedef -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
  else
-  #either of these formats can set the date: "29 JUN 2012 10:00:00" "2012-06-28 16:20:08"
-  HWDATE="`stat --format=%z /etc/DISTRO_SPECS | cut -f 1 -d '.' | cut -f 1,2 -d ' '`" #creation date of build. ex: "2012-06-28 16:20:08"
-  date -s "$HWDATE"
-  [ ! -e /etc/localtime ] && ln -s /usr/share/zoneinfo/Australia/Perth /etc/localtime
+  [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8
  fi
-else
- if [ "$ASKCLOCK" = "yes" ];then
-  /usr/sbin/timezone-set cli > /dev/console
-  #choose hardware clock set to local or UTC...
-  dialog --title "Set hardware-clock type" --yes-label "Local" --no-label "UTC" --yesno "Is the hardware clock on the computer set to the local time, or to UTC? Note, most PCs with Windows installed have the hardware clock set to the local time, so if in doubt choose that..." 0 0 > /dev/console
-  if [ $? -eq 1 ];then #UTC
-   HWCLOCKTIME='utc'
-   hwPATTERN="s/^HWCLOCKTIME=[^#]*/HWCLOCKTIME='utc'/"
-   sed -i "$hwPATTERN" /etc/clock #note, it is default 'localtime'.
-  fi
+ /usr/sbin/chooselocale cli > $out
+ /usr/sbin/timezone-set cli > $out
+ #100525 choose hardware clock set to local or UTC...
+ dialog --title "Set hardware-clock type" --yes-label "Local" --no-label "UTC" --yesno "Is the hardware clock on the computer set to the local time, or to UTC? Note, most PCs with Windows installed have the hardware clock set to the local time, so if in doubt choose that..." 0 0 > $out
+ if [ $? -eq 1 ];then #UTC
+  echo $LINENO
+  HWCLOCKTIME='utc'
+  hwPATTERN="s/^HWCLOCKTIME=[^#]*/HWCLOCKTIME='utc'/"
+  sed -i "$hwPATTERN" /etc/clock #note, it is default 'localtime'.
+  else echo "Nothing to do for /etc/clock"
  fi
- [ ! -e /etc/localtime ] && ln -s /usr/share/zoneinfo/Australia/Perth /etc/localtime
- #Ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
- TZ=$(readlink /etc/localtime|sed -e 's,/usr/share/zoneinfo/,,' -e 's,Etc/,,') #shinobar
- export TZ
- HWCLOCKTIME="localtime"
- [ -s /etc/clock ] && grep -qw '^[^#]*utc' /etc/clock && HWCLOCKTIME="utc" #shinobar
- #need to set Linux system time/date, from hardware clock...
- #hwclock --hctosys --localtime
- hwclock --hctosys --${HWCLOCKTIME}
- #...--hctosys reads cmos clock to system.
- #...--localtime means that cmos clock is set to local-time.
+else echo "Nothing to do for LANG=$LANG"
 fi
-######end clock section######
-
+echo $LINENO
+#100319 moved from /etc/profile
+#Ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
+TZ=":`readlink /etc/localtime | sed -e 's%^.*share/zoneinfo/%%'`" #ex: ':Etc/GMT-8'
+export TZ
+echo $LINENO
+#100319 moved down.
+#need to set Linux system time/date, from hardware clock...
+#hwclock --hctosys --localtime
+if [ -n "$HWCLOCKTIME" ];then
+echo $HWCLOCKTIME
+hwclock --hctosys --${HWCLOCKTIME} #100525
+#...--hctosys reads cmos clock to system.
+#...--localtime means that cmos clock is set to local-time.
+else
+echo "Nothing to do for HWCLOCKTIME"
+fi
+echo $LINENO $STATUS
 exit $STATUS
 ###END###
