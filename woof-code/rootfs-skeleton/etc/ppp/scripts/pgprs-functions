@@ -1,0 +1,252 @@
+#!/bin/bash
+
+function update_month(){
+ACTIVE_INTERFACE="ppp0"
+mkdir -p /var/local/sns
+LANG=C UPDATE_MONTH="`date +%b`"
+#CURRENT_MONTH="`cat /var/local/sns/current_month`"
+read CURRENT_MONTH </var/local/sns/current_month
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+ echo "$UPDATE_MONTH" > /var/local/sns/current_month
+ for ONECOUNT in sns networking/sns pupdial/isp1 networking/pupdial/isp1 pupdial/isp2 networking/pupdial/isp2 ppp0/ networking/ppp0 ; do
+ [ -d "/var/local/$ONECOUNT" ] || mkdir -p "/var/local/$ONECOUNT"
+
+  cp /var/local/${ONECOUNT}/rx_bytes_month /var/local/${ONECOUNT}/rx_bytes_month-`date +%Y+%m+%d`
+  cp /var/local/${ONECOUNT}/tx_bytes_month /var/local/${ONECOUNT}/tx_bytes_month-`date +%Y+%m+%d`
+  mv /var/local/${ONECOUNT}/rx_bytes_month /var/local/${ONECOUNT}/rx_bytes_month.old
+  mv /var/local/${ONECOUNT}/tx_bytes_month /var/local/${ONECOUNT}/tx_bytes_month.old
+
+  echo -n 0 > /var/local/${ONECOUNT}/tx_bytes_month.cnt
+  echo -n 0 > /var/local/${ONECOUNT}/rx_bytes_month.cnt
+  echo -n 0 > /var/local/${ONECOUNT}/tx_bytes_month  ##+++2013-05-06
+  echo -n 0 > /var/local/${ONECOUNT}/rx_bytes_month
+ done
+fi
+}
+
+function count_rx_tx_bytes_only(){
+ACTIVE_INTERFACE="ppp0"
+
+#[ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
+[ -f /tmp/sns_interface_success ] && read ACTIVE_INTERFACE </tmp/sns_interface_success
+[ "$ACTIVE_INTERFACE" ] || ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
+if [ "$ACTIVE_INTERFACE" ];then
+ mkdir -p /var/local/$ACTIVE_INTERFACE
+ if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
+  #RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
+  #TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
+  read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
+  read TX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes
+ fi
+fi
+#TOTALSESSION=$(((RX_BYTES+TX_BYTES)/1024));echo SESSION:"$TOTALSESSION"
+}
+
+#####
+
+##### begin count_rx_tx_bytes part
+#for printf format, does not work if LANG=C
+#locale
+LC_ALL=`grep '^LANG=[[:lower:]]*_[[:upper:]]*' /etc/profile |cut -f2 -d'='`
+#todo if Puppy 4: cut @ ie de_DE@euro
+#LC_ALL="${LC_ALL//@.*/}" #does not work with .*
+LC_ALL="${LC_ALL//\@*/}"
+[ "$SCRIPT_VERBOSE" ] && echo "LC_ALL='$LC_ALL'"
+export LC_ALL
+#locale
+
+VAR_LOCAL=/var/local/networking
+#mkdir -p "$VAR_LOCAL"
+ACTIVE_INTERFACE="ppp0"
+mkdir -p $VAR_LOCAL/$ACTIVE_INTERFACE
+touch $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month.cnt
+touch $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month.cnt
+#VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month.cnt
+
+function count_rx_tx_bytes(){
+#ACTIVE_INTERFACE="ppp0"
+#mkdir -p /var/local/sns
+#[ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
+[ -f /tmp/sns_interface_success ] && read ACTIVE_INTERFACE </tmp/sns_interface_success
+[ ! "$ACTIVE_INTERFACE" ] && ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
+if [ "$ACTIVE_INTERFACE" ];then
+ #mkdir -p $VAR_LOCAL/$ACTIVE_INTERFACE
+ #touch $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month.cnt
+ #touch $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month.cnt
+ if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
+  #RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
+  #TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
+  RX_BYTES=$(</sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes)
+  TX_BYTES=$(</sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes)
+  [ "$RX_BYTES" ] || RX_BYTES=0;[ "$TX_BYTES" ] || TX_BYTES=0
+  echo -n "$RX_BYTES" > $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_session.cnt
+  echo -n "$TX_BYTES" > $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_session.cnt
+
+  #RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
+  RX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month.cnt)
+  [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+  #RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  RX_BYTES_MONTH=$((RX_BYTES_MONTH+RX_BYTES))
+  echo -n "$RX_BYTES_MONTH" > $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt
+
+  #TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
+  TX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month.cnt)
+  [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+  #TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  TX_BYTES_MONTH=$((TX_BYTES_MONTH+TX_BYTES))
+  echo -n "$TX_BYTES_MONTH" > $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt
+ fi
+fi
+TOTALSESSION=$(((RX_BYTES+TX_BYTES)/1024));
+RX_K_BYTES=$((RX_BYTES/1024));TX_K_BYTES=$((TX_BYTES/1024))
+
+#http://www.linuxquestions.org/questions/programming-9/format-numbers-using-bash-672031/
+TOTALSESSION_P=`printf "%'d" "$TOTALSESSION"`
+
+echo -en "\c`seq -s '' 10 1 49`" #clear the line (for 80xYY terminal size)
+
+echo -en "\tUP  : ${TX_K_BYTES} KB\t\tDOWN: ${RX_K_BYTES} KB\t\tSUM : ${TOTALSESSION_P} KB\t \r"
+}
+##### end of count_rx_tx_bytes part
+
+function kill_pppd(){
+[ "`pidof pppd`" ] && kill -1 `pidof pppd`
+pidof chat && killall -9 chat  ##+++2013-04-07
+}
+
+function present_rx_tx_bytes(){
+if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
+  echo -n "$RX_BYTES" > $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_session
+  echo -n "$TX_BYTES" > $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_session
+
+elif [ -f $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt ];then
+ #RX_BYTES=$(($(cat $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt)-$(cat $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)))
+ #TX_BYTES=$(($(cat $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt)-$(cat $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)))
+ RX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt)
+ TX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt)
+ RX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
+ TX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+ RX_BYTES=$((RX_SES_M - RX_MONTH))
+ TX_BYTES=$((TX_SES_M - TX_MONTH))
+
+else
+echo -e "\\033[1;31m""Warn .. could not read /sys/class/net/${ACTIVE_INTERFACE}/statistics/""\\033[0;39m"
+return 1
+fi
+
+  #RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
+  RX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
+  [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+  #RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  RX_BYTES_MONTH=$((RX_BYTES_MONTH+RX_BYTES))
+  echo -n "$RX_BYTES_MONTH" > $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month
+
+  #TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
+  TX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+  [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+  #TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  TX_BYTES_MONTH=$((TX_BYTES_MONTH+TX_BYTES))
+  echo -n "$TX_BYTES_MONTH" > $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month
+
+[ "$SCRIPT_VERBOSE" ] && echo "shell"
+[ "$SCRIPT_VERBOSE" ] && { TOTALSESSION=$(((RX_BYTES+TX_BYTES)/1024));          echo -e "SESSION:$TOTALSESSION KiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$(((RX_BYTES_MONTH+TX_BYTES_MONTH)/1024));echo -e "  MONTH:$TOTALMONTH KiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALSESSION=$((TOTALSESSION/1024)); echo -e "SESSION:\t$TOTALSESSION MiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$((TOTALMONTH/1024));     echo -e "  MONTH:\t$TOTALMONTH MiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALSESSION=$((TOTALSESSION/1024)); echo -e "SESSION:\t$TOTALSESSION GiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$((TOTALMONTH/1024));     echo -e "  MONTH:\t$TOTALMONTH GiB"; }
+[ "$SCRIPT_VERBOSE" ] && echo "dc"
+
+TOTALSESSION=$( dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo -e "SESSION:$TOTALSESSION KiB"
+TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH:$TOTALMONTH KiB"
+TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION:\t$TOTALSESSION MiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH:\t$TOTALMONTH MiB"
+TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION:\t$TOTALSESSION GiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH:\t$TOTALMONTH GiB"
+echo ""
+
+}
+
+function clean_up_var(){
+    rm $VAR_LOCAL/$ACTIVE_INTERFACE/*.cnt
+    #pidof chat && killall -9 chat  ##+++2013-04-07
+}
+
+#sleep 5s
+#exit 0
+
+function get_jobs(){
+[ "$*" ] && COMMANDO="$*" || COMMANDO=pgprs-connect
+PiDS=`ps -o pid,ppid,s,args -C $COMMANDO --no-headers`
+PPiD=`echo "$PiDS" | awk '{print $1}'`
+while read pid ppid rest
+do
+[ "`echo "$PPiD" | grep -w "$ppid"`" ] && echo "$pid"
+done<<EOI
+$(echo "$PiDS")
+EOI
+return 0
+}
+
+function kill_jobs(){
+KILL_PIDS=`get_jobs`
+for pid in $KILL_PIDS
+do
+ ps -p $pid --no-header && kill $pid
+done
+}
+
+function runfirewallfunc(){
+if [ -x /etc/rc.d/rc.firewall ]
+then
+/etc/rc.d/rc.firewall >/tmp/firewall.out
+ if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
+ then
+ xmessage -buttons "OK :100, Again:101" "`cat /tmp/firewall.out`"
+ MRV="$?"
+  if [ "$MRV" == '101' ]; then
+       runfirewallfunc;
+  else return 0
+  fi
+ fi
+else
+xterm -e firewall_install.sh
+sleep 1s
+/etc/rc.d/rc.firewall >/tmp/firewall.out
+ if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
+ then
+  xmessage "`cat /tmp/firewall.out`";return 0
+ fi
+fi
+}
+
+function firewallfunc(){
+while [ running ] ; do
+
+ until [ -e /sys/class/net/ppp0 ]
+ do
+ [ -e /sys/class/net/ppp0 ] && break
+ sleep 2
+ done
+
+echo
+
+if [ -L /sys/class/net/ppp0 ]
+ then
+ sleep 5s
+
+ until [ "`route|grep ppp0`" ]
+ do
+ sleep 1
+ [ "`route|grep ppp0`" ] && break
+ done
+
+ echo
+
+ runfirewallfunc
+ return $?
+
+fi
+done
+}

@@ -1,0 +1,280 @@
+#! /bin/bash
+# PGPRS SETUP: Puppy Generic GPRS Modem Setup Utility
+#(c) Copyright Aug. 2008 Lloyd Standish www.voluntary-simplicity.org/linux
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+# version 1.3 Aug. 16, 2008
+
+usage(){
+echo "
+$0
+
+Gui to simplyfy the making/changeing of entries in
+/etc/ppp/peers/gprs-connect-chatmm
+/etc/ppp/peers/gprsmm
+
+to be used with '`which pgprs-connect`' gprs script.
+"
+exit $1
+}
+[ "$1" = "-h" -o "$1" = "--help" ] && usage 0
+
+function wordreplace() {
+	#argument 1: file to search
+	#argument 2: search phrase
+	#arg 3: replacement phrase
+	#arg 4: delete, append to end of file
+	TEMPFILE=/tmp/gprs$$.temp
+#	TEMPFILE=/mnt/home/multitech-puppy/tempfile
+
+# escape regex chars, except ^
+# i.e., all except ^ are treated as literals
+#ARG=`echo "$2" | sed 's:[]\[\^\$\.\*\/]:\\\\&:g'`
+echo "'$@'"
+echo "'$2'"
+ARG=`echo "$2" | sed 's:[]\[\$\.\*\/]:\\\\&:g'`
+echo "ARG='$ARG'"
+	if [ "$#" -eq 4 ]; then
+		sed "/$ARG/d" $1 > $TEMPFILE
+		echo "$3" >> $TEMPFILE
+	else
+#	sed '/$2/s//$3/' $1	> $TEMPFILE
+		sed "s/$ARG/$3/g" $1 > $TEMPFILE
+	fi
+	[ ! -s $TEMPFILE ] && exit 1
+	mv -f $TEMPFILE $1
+}
+
+# user: /etc/ppp/peers/gprsmm (also pap-secrets)
+# device file: /etc/ppp/peers/gprsmm
+# password: etc/ppp/pap-secrets (also gets user from gprsmm)
+# phone: /etc/ppp/peers/gprs-connect-chatmm
+# APN /etc/ppp/peers/gprs-connect-chatmm
+# PIN /etc/ppp/peers/gprs-connect-chatmm
+
+if [ ! -f "/etc/ppp/peers/gprsmm" -o ! -f "/etc/ppp/peers/gprs-connect-chatmm" ]; then
+	 xmessage -bg "#ff8080" -center -title "PGPRS SETUP" "ERROR: one or more PGPRS files missing.  Please reinstall package"
+fi
+USER=$"`grep "^user" /etc/ppp/peers/gprsmm | sed 's/\(^user[ 	]*\"\)\([^\"]*\)\(.*\)/\2/'`"
+OLDUSER="$USER"
+if [ "$USER" = "" ]; then
+	USER=gprsuser
+fi
+PASS=$"`grep "^${USER}" /etc/ppp/pap-secrets | cut --fields=3`"
+OLDPASS="$PASS"
+if [ "$PASS" = "" ]; then
+	PASS=gprspassword
+fi
+PHONE=$"`grep -e '^[^\#]*AT' /etc/ppp/peers/gprs-connect-chatmm |grep -E 'ATD|AT.D|AT..D' | sed "s/\(.*AT[X0-9D]*\)\([^\']*\)\(.*\)/\2/"`"
+RGPHONE="ATD${PHONE}"
+if [ "$PHONE" = "" ]; then
+	PHONE="*99***1#"
+fi
+APN=$"`grep '^[^\#].*CGDCONT' /etc/ppp/peers/gprs-connect-chatmm | sed 's/\(.*\"IP\",\"\)\([^\"]*\)\(.*\)/\2/'`"
+RGAPN="AT+CGDCONT=1,\"IP\",\"$APN\""
+if [ "$APN" = "" ]; then
+	APN=icecelular
+fi
+if [ -f /etc/ppp/peers/gprs-connect-chatmm-pin ];then
+PIN=`grep -o -e 'AT+CPIN=["0-9,]*' /etc/ppp/peers/gprs-connect-chatmm-pin | sed 's/\(.*CPIN=\)//;s/"//g'` #"'geany
+else
+PIN=`grep -o -e 'AT+CPIN=["0-9,]*' /etc/ppp/peers/gprs-connect-chatmm | sed 's/\(.*CPIN=\)//;s/"//g'` #"'geany
+fi
+echo "PIN='$PIN'"
+RGPIN="AT+CPIN=$PIN"
+if [ "`echo "$PIN" |grep ','`" ];then
+PUK=`echo "$PIN" | cut -f1 -d','`
+PIN=`echo "$PIN" | cut -f2 -d','`
+sed -i "s/$RGPIN/AT+CPIN=\"$PIN\"/" /etc/ppp/peers/gprs-connect-chatmm
+fi
+#[ ! "$PUK" ] && PUK="\"\""
+PUK="\"\"" #make PUK invisible
+[ ! "$PIN" ] && PIN="\"\""
+RGPIN="AT+CPIN=\"$PIN\""
+echo "PIN='$PIN'"
+
+DEV=$"`grep "^/dev/" /etc/ppp/peers/gprsmm`"
+RGDEV="^/dev/"
+echo "DEV='$DEV'"
+if [ "$DEV" = "" ]; then
+	DEV=/dev/yourdevice
+fi
+while true
+do
+DETECTED=""
+DMESG=`dmesg`
+MODEM_NRS='FAKELINE FAKELINE FAKELINE'
+#for DEVICE in /dev/ttyUSB0 /dev/usb/ttyUSB0 /dev/ircomm0 /dev/ttyUB0 /dev/rfcomm0 /dev/ttyS0
+for dev in ttyUSB usb/ttyUSB ircomm ttyUB rfcomm ttyS
+do
+	for c in {0..15};do
+	if [ -c /dev/${dev}$c ];then
+	#if [ "`file $DEVICE 2>&1 | grep 'character special'`" != "" -a "`echo ATZ 2>&1 > "$DEVICE"`" = "" ]; then
+	#  -a "`echo ATZ > $DEVICE`" = ""
+	#   -a "`echo ATZ > "$DEVICE"`" = ""
+	DEVICE_NR_ATTACHED=`echo "$DMESG" |grep "${dev}$c" |grep -iE 'GSM|modem' |grep 'attached' |tail -n1| cut -d: -f1 |sed 's/\[.*\] //;s/^ *//'`
+	grepP=`echo "$DEVICE_NR_ATTACHED" |sed 's~\([[:punct:]]\)~\\\\\1~g'`
+	[ "`echo "$MODEM_NRS" |grep "$grepP"`" ] && continue
+	MODEM_NRS="$MODEM_NRS
+$DEVICE_NR_ATTACHED"
+		DETECTED="$DETECTED /dev/${dev}$c"
+	fi
+	done
+done
+if [ "$DETECTED" = "" ]; then
+	DETECTED="No devices detected. If USB, plug device and click 'RE-PROBE MODEMS'"
+else
+	DETECTED="detected devices: $DETECTED"
+fi
+export MAIN_DIALOG="
+ <vbox>
+<text use-markup=\"true\"> <label>\"<b>PGPRS MODEM SETUP</b>\"</label></text>
+<text><label>
+If your GPRS ISP does not require a username/password, you should leave the defaults. If you do not know your ISP's APN or the phone number to dial for connection, you can exit and run this setup program again later (click the 'connect' icon on the desktop) The default APN, \"icecelular\", is correct only for Costa Rica.</label></text>
+  <hbox>
+    <text>
+      <label>Serial Modem Device File:</label>
+    </text>
+    <entry>
+      <default>${DEV}</default>
+      <variable>DEV</variable>
+    </entry>
+  </hbox>
+  <hbox>
+    <text><label>($DETECTED)</label></text>
+  </hbox>
+  <hbox>
+    <text>
+      <label>APN:</label>
+    </text>
+    <entry>
+      <default>${APN}</default>
+      <variable>APN</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+    <text>
+      <label>Username:</label>
+    </text>
+    <entry>
+      <default>${USER}</default>
+      <variable>USER</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+    <text>
+      <label>Password:</label>
+    </text>
+    <entry>
+      <default>${PASS}</default>
+      <variable>PASS</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+    <text>
+      <label>Phone number:</label>
+    </text>
+    <entry>
+      <default>${PHONE}</default>
+      <variable>PHONE</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+    <text>
+      <label>Phone PIN:</label>
+    </text>
+    <entry>
+      <default>${PIN}</default>
+      <variable>PIN</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+    <text tooltip-text=\"Only needed if need to unlock SIM card\">
+      <label>SIM card PUK:</label>
+    </text>
+    <entry>
+      <default>${PUK}</default>
+      <variable>PUK</variable>
+    </entry>
+  </hbox>
+
+  <hbox>
+   <button ok></button>
+   <button cancel></button>
+   <button>
+   		<label>RE-PROBE MODEMS</label>
+   	</button>
+  </hbox>
+ </vbox>
+"
+I=$IFS; IFS=""
+for STATEMENTS in  $(gtkdialog3 --program=MAIN_DIALOG); do
+	eval $STATEMENTS
+done
+IFS=$I
+if [ "$EXIT" = "RE-PROBE MODEMS" ]; then
+	continue
+fi
+if [ "$EXIT" = "OK" ]; then
+	LACK=""
+	if [ "$DEV" = "" -o "$DEV" = "/dev/yourdevice" ]; then
+		LACK="$LACK Serial device file"
+		DEV=/dev/yourdevice
+	fi
+	if [ "$PHONE" = "" ]; then
+		LACK="$LACK Telephone"
+		PHONE="*99***1#"
+	fi
+	if [ "$PASS" = "" ]; then
+		LACK="$LACK Password"
+		PASS="gprspass"
+	fi
+	if [ "$USER" = "" ]; then
+		LACK="$LACK Username"
+		USER="gprsuser"
+	fi
+	if [ "${APN}" = "" ]; then
+		LACK="$LACK APN"
+		APN="icecelular"
+	fi
+	if [ "$LACK" != "" ]; then
+		xmessage -bg "#ff8080" -center -title "MT-GPRS SETUP" "The following must not be left blank: $LACK"
+		continue
+	fi
+	wordreplace /etc/ppp/peers/gprsmm "user" "user \"$USER\"" 1
+	wordreplace /etc/ppp/peers/gprsmm "$RGDEV" "$DEV" 1
+	wordreplace /etc/ppp/peers/gprsmm_pin "user" "user \"$USER\"" 1
+	wordreplace /etc/ppp/peers/gprsmm_pin "$RGDEV" "$DEV" 1
+	wordreplace /etc/ppp/peers/gprsmm_puk "user" "user \"$USER\"" 1
+	wordreplace /etc/ppp/peers/gprsmm_puk "$RGDEV" "$DEV" 1
+	wordreplace /etc/ppp/pap-secrets "$OLDUSER	*	$OLDPASS" "$USER	*	$PASS" 1
+	chmod 600 /etc/ppp/pap-secrets
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm "${RGPHONE}" "ATD${PHONE}"
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm "$RGAPN" "AT+CGDCONT=1,\"IP\",\"$APN\""
+	echo "PIN='$PIN'"
+	if [ "$PIN" ];then
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm "$RGPIN" "AT+CPIN=\"$PIN\""
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-pin "$RGPIN" "AT+CPIN=\"$PIN\""
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-pin "$RGAPN" "AT+CGDCONT=1,\"IP\",\"$APN\""
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-pin "${RGPHONE}" "ATD${PHONE}"
+	fi
+	echo "PUK='$PUK'"
+	if [ "$PUK" ];then
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm "$RGPIN" "AT+CPIN=${PUK},${PIN}";MRV=$((MRV+$?))
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-puk "$RGPIN" "AT+CPIN=${PUK},${PIN}"
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-puk "$RGAPN" "AT+CGDCONT=1,\"IP\",\"$APN\""
+	wordreplace /etc/ppp/peers/gprs-connect-chatmm-puk "${RGPHONE}" "ATD${PHONE}"
+	fi
+	chmod 700 /etc/ppp/peers/gprs-connect-chatmm*
+	if [ -f "`which pgprs-shell`" ];then
+	if [ -x "`which pgprs-shell`" ];then
+	chmod a-x "`which pgprs-shell`"
+	xmessage -center -title "PGPRS SETUP" "Connect to the Internet using 'PGPRS Connect' in the 'Network' menu."
+    fi;fi
+fi
+break
+done

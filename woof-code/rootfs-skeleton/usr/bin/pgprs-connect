@@ -1,0 +1,333 @@
+#!/bin/bash
+
+
+###INTRO
+Version='1.1-fork Puppy-Linux-430/2 Macp_Foxy_3 KRG'
+
+usage(){
+USAGE_MSG="
+$0 [-option -option2 ..]
+
+-F) Run this script in NO_CHECKS mode .
+-P) Run only once to unblock SIM PIN. If connection fails,
+    launch pgprs-setup to set simple PIN without PUK.
+    OR better, sed -i the PUK out of gprs-connect-chatmmm .
+    PIN send, udev rule for unplugging the modem ..etcetc...
+-t) timeout # in seconds for displaying traffic bytes.
+    Useful if want to scroll back.  default=1 sec
+-d) debug
+-v) verbose
+-V) show Version information
+-h) help
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[[ "$1" =~ 'help' ]] && usage 0
+OUT_PUT=/dev/null;ERR=/dev/null
+while getopts FPhdvVt: opt;do
+case $opt in
+F) FORCE=1;NO_CHECKS=1; echo FORCE=$FORCE NO_CHECKS=$NO_CHECKS;;
+P) ONCE_FOR_PUK=set;GPRSMM_FILE=/etc/ppp/peers/gprsmm_puk;;
+t) T_1=$OPTARG;T_1=`echo $T_1 |sed 's|[^0-9]||g'`;;
+h) usage 0;;
+d) set -x;;
+v) VERB='-v';L_VERB='--verbose';X_L_VERB='-verbose';SCRIPT_VERBOSE='1';OUT_PUT=/dev/stdout;ERR=/dev/stderr;;
+V) echo -e "\n$0 : Version '$Version'\n";exit 0;;
+*) usage 1;;
+esac;done
+##############################################################################################################
+#23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
+
+#####VARS
+
+source /etc/ppp/scripts/pgprs-functions
+update_month
+
+[ "$T_1" ] || T_1=1  #TMOUT if set to a value greater than zero, TMOUT is treated as the default timeout for the read builtin
+
+mkdir -p /tmp/networking  ##++2013-05-07
+jobs && TTY=`tty` || TTY=/tmp/networking/firewall.out
+[ "$SCRIPT_VERBOSE" ] && echo "TTY='$TTY'"
+
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+
+cleanup(){
+kill_jobs
+kill_pppd
+sleep 2s
+echo "THIS WAS THE TOTAL DATA FLOW:
+"
+present_rx_tx_bytes  ##+++2012-04-01 now as function
+#kill_pppd
+#sleep 4s  ###+++2012-04-03 for exit output of pppd and specially of chat , see below
+echo "
+Internet/Network session completed ."
+read -n1 -p "Press any key to exit " QKEY
+echo
+clean_up_var
+}
+
+trap "cleanup;exit" INT TERM HUP QUIT ABRT KILL
+
+
+##############################################################################################################
+#23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
+
+#####Check Modem
+
+check_modem_function_1(){
+DEV_USED=`grep '^/dev/.*' /etc/ppp/peers/gprsmm`
+[ "$DEV_USED" ] || { echo "Could not find a device (ie /dev/ttyUSB0) entry in
+'/etc/ppp/peers/gprsmm' file " ;dmesg |grep tty;read -n1 -p "Press any key to exit " E_KEY;echo;exit 1; }
+
+[ "$SCRIPT_VERBOSE" ] && echo "DEV_USED='$DEV_USED'"
+
+[ -e $DEV_USED ] || { echo "'$DEV_USED' is needed, but does not exist. Normally the modem driver creates this char dev node.";dmesg |grep tty;read -n1 -p "Press any key to exit " E_KEY;echo;exit 1; }
+
+[ -c $DEV_USED ] || { echo "'$DEV_USED' is needed, but is not a character special device. Normally the modem driver creates this char dev node.";dmesg |grep tty;read -n1 -p "Press any key to exit " E_KEY;echo;exit 1; }
+
+[ "$SCRIPT_VERBOSE" ] && ls -l $DEV_USED
+
+ps |grep "${DEV_USED}" | grep -v grep && { echo "ERROR: '$DEV_USED' seems to be in use";read -n1 -p "Press any key to exit " E_KEY;echo;exit 1; }
+}
+check_modem_function_1
+
+echo "About the modem :"
+timeout -s HUP -t 6 modem-stats $DEV_USED
+[ "$?" -ne 0 ] && { echo "Hmmm... Seems to need Repluging...";exit 1; }
+sleep 2s
+
+modem-stats -c 'ATZ' $DEV_USED
+if [ "$DEV_USED" ];then
+[ "$NO_CHECKS" ] || { echo "Checking '$DEV_USED' .. please wait up to 30 seconds";MODEM_STATS=`busybox timeout -s HUP -t 30 modem-stats -c 'AT+CPIN?' $DEV_USED`; }
+fi
+[ "$SCRIPT_VERBOSE" ] && echo "$MODEM_STATS
+"
+[ "$MODEM_STATS" ] && echo "OK
+"
+#bash-3.00# modem-stats -c AT+CPIN? /dev/ttyUSB0
+#
+#
+#+CPIN: SIM PIN
+#
+#OK
+#
+###
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+
+[ "$GPRSMM_FILE" ] || GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
+
+  if [ "`echo "$MODEM_STATS" |grep '+CPIN: SIM PIN'`" ];then
+GPRSMM_FILE=/etc/ppp/peers/gprsmm_pin #gprs-connect-chatmm-pin
+
+elif [ "`echo "$MODEM_STATS" |grep '+CPIN: SIM PUK'`" ];then
+GPRSMM_FILE=/etc/ppp/peers/gprsmm_puk #gprs-connect-chatmm-puk
+
+elif [ "`echo "$MODEM_STATS" |grep '+CPIN: READY'`" ];then
+GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
+
+else #+CPIN: READY
+#GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
+if [ ! "$NO_CHECKS" ] ; then
+ echo "PROBLEMS with modem-stat test output :
+ '$MODEM_STATS'
+"
+ read -n1 -p "Press any key to exit " E_KEY;echo;exit 1;
+ fi
+fi
+
+[ "$SCRIPT_VERBOSE" ] && echo "$GPRSMM_FILE='$GPRSMM_FILE'"
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+
+##############################################################################################################
+#23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
+
+old_month_func(){
+#####RX-TX STATISTICS
+
+mkdir -p /var/local/sns
+LANG=C UPDATE_MONTH="`date +%b`"
+#CURRENT_MONTH="`cat /var/local/sns/current_month`"
+read CURRENT_MONTH </var/local/sns/current_month
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+echo "CURRENT_MONTH='$CURRENT_MONTH' UPDATE_MONTH='$UPDATE_MONTH'"
+ACTIVE_INTERFACE="ppp0"
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+ echo "$UPDATE_MONTH" > /var/local/sns/current_month
+ for ONECOUNT in sns pupdial/isp1 pupdial/isp2 ppp0;do
+  [ -d "/var/local/$ONECOUNT" ] || mkdir -p "/var/local/$ONECOUNT"
+  #echo -n 0 > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  #echo -n 0 > /var/local/$ACTIVE_INTERFACE$/tx_bytes_month
+  cp /var/local/${ONECOUNT}/rx_bytes_month /var/local/${ONECOUNT}/rx_bytes_month-`date +%Y+%m+%d`
+  cp /var/local/${ONECOUNT}/tx_bytes_month /var/local/${ONECOUNT}/tx_bytes_month-`date +%Y+%m+%d`
+  mv /var/local/${ONECOUNT}/rx_bytes_month /var/local/${ONECOUNT}/rx_bytes_month.old
+  mv /var/local/${ONECOUNT}/tx_bytes_month /var/local/${ONECOUNT}/tx_bytes_month.old
+  echo -n 0 > /var/local/${ONECOUNT}/rx_bytes_month
+  echo -n 0 > /var/local/${ONECOUNT}/tx_bytes_month
+ done
+fi
+}
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+
+old_month_func_2(){
+VAR_LOCAL=/var/local/networking
+mkdir -p "$VAR_LOCAL"
+[ "$SCRIPT_VERBOSE" ] && echo "$0:Line='$LINENO'"
+ACTIVE_INTERFACE="ppp0"
+mkdir -p "$VAR_LOCAL"/"$ACTIVE_INTERFACE"
+
+RX_BYTES_MONTH=`cat $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month`
+[ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+TX_BYTES_MONTH=`cat $VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month`
+[ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+[ "$SCRIPT_VERBOSE" ] && echo "shell"
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$(((RX_BYTES_MONTH+TX_BYTES_MONTH)/1024));echo "  MONTH:$TOTALMONTH KiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH MiB"; }
+[ "$SCRIPT_VERBOSE" ] && { TOTALMONTH=$((TOTALMONTH/1024));     echo "  MONTH:$TOTALMONTH GiB"; }
+[ "$SCRIPT_VERBOSE" ] && echo "dc"
+TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo "  MONTH:$TOTALMONTH KiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH MiB"
+TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo "  MONTH:$TOTALMONTH GiB"
+}
+old_month_func_2
+echo ""
+echo "$Version"
+echo ""
+echo 'This is a testing/development version
+that tries to run the original script with
+pppd forked from this shell.
+Try pgprs-connect -h for little more info.
+Good Luck !
+'
+
+read -p "Press 'Enter' to connect " CONNECT_KEY;echo
+
+##############################################################################################################
+#23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
+
+##### functions
+
+firewallfunc_old(){
+c=10
+until [ -e /sys/class/net/ppp0 ]
+do echo -ne "\r$c "
+sleep 1
+c=$((c-1))
+[ "$c" = '0' ] && break
+done
+echo
+if [ -L /sys/class/net/ppp0 ]
+then
+sleep 5s
+c=10
+until [ "`route|grep ppp0`" ]
+do echo -ne "\r$c "
+sleep 1
+c=$((c-1))
+[ "$c" = '0' ] && break
+done
+[ "`route|grep ppp0`" ] || { echo "Nope...";return 1; }
+echo
+runfirewallfunc(){
+if [ -x /etc/rc.d/rc.firewall ]
+then
+/etc/rc.d/rc.firewall >/tmp/firewall.out
+if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
+then
+xmessage -buttons "OK :100, Again:101" "`cat /tmp/firewall.out`"
+MRV="$?"
+if [ "$MRV" == '101' ]; then
+runfirewallfunc;else return 0
+fi
+fi
+else
+xterm -e firewall_install.sh
+sleep 1s
+/etc/rc.d/rc.firewall >/tmp/firewall.out
+if [ -s /tmp/firewall.out -a -r /tmp/firewall.out -a -f /tmp/firewall.out ]
+then
+xmessage "`cat /tmp/firewall.out`";return 0
+fi
+fi
+}
+runfirewallfunc
+fi
+}
+
+firewallfunc &>$TTY &
+
+##############################################################################################################
+#23456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-123456789-
+
+##### MAIN
+
+n="r"
+while  [ "$n" = "r" ]
+do
+m=''
+
+[ "`pidof pppd`" ] || /usr/sbin/pppd call ${GPRSMM_FILE##*/} &
+
+##+++2013-04-07 added GPRSMM_FILE switch
+GPRSMM_FILE=/etc/ppp/peers/gprsmm
+
+
+sleep 12s #bb chat
+
+if [ ! -L /sys/class/net/ppp0 ];then
+echo -e "\nCould not create link
+'/sys/class/net/ppp0' ...
+Please wait for chat exit"
+
+while [ "`pidof pppd`" ];do sleep 3s;done
+else
+echo
+tput cup 90 0
+echo -e "\nPress ( Any Key And Enter ) to disconnect."
+tput cup 90 0
+fi
+
+[ "$SCRIPT_VERBOSE" ] && echo "PID of pppd:`pidof pppd`"
+while [ "`pidof pppd`" ];do
+n='';m=r
+count_rx_tx_bytes
+[ "$SCRIPT_VERBOSE" ] && echo -en "PID of pppd:`pidof pppd`\r"
+
+read -s -t $T_1 n
+[ "$n" -o "$n" = " " ] && { echo; break; }
+
+done
+
+echo "PID of pppd:`pidof pppd`"
+if [ ! "`pidof pppd`" -a "$n" = 'r' -a "$m" = 'r' ];then
+echo
+echo "Hmmm... seems pppd stopped without user interference ..."
+m=''
+fi
+
+if [ "`pidof pppd`" ];then
+echo "Press simply 'r' to continue network session.
+Press any other key to disconnect."
+else
+echo "Press simply 'r' to reconnect.
+Press any other key to quit."
+fi
+
+##+++2013-04-07 added GPRSMM_FILE switch
+GPRSMM_FILE=/etc/ppp/peers/gprsmm
+
+read -n1 n
+[ "$n" ] || n='n'
+
+if [ "$n" == 'r' ];then ###+++2012-04-03
+check_modem_function_1
+#firewallfunc &>$TTY &
+fi
+
+done
+
+cleanup
+exit 0
