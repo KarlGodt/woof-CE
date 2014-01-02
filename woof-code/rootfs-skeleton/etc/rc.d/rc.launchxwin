@@ -36,82 +36,158 @@
 #
 ########################################################################
 
-echo "starting rc.launchxwin"
-#DBGecho "starting rc.launchxwin" >/dev/console #DBG
-#echo `pwd` #DBG
-#DBGecho `pwd` > /dev/console #DBG
-#autologinroot
-#echo `pwd`
-#DBGecho `pwd` > /dev/console
-#FSCKME=`find / -maxdepth 2 -type f -name "fsckme*"`
-#if [ -n "$FSCKME" ] ; then
-#exit
-#fi
+pidof xwin && exit 1
+pidof X && exit 1
+
+echo "Starting rc.launchxwin ..."
+
+do_modeset(){
+
+MODESTTING_DRIVERS=`grep -m1 -E '^i915|^nvidia|^gfglx' /proc/modules`
+case $MODESTTING_DRIVERS in
+
+i915*)
+    grep -m1 '#card0driver' /etc/X11/xorg.conf | grep -qE '"vesa"|"modesetting"' && return 0
+    read driver vmsize nr_users state address <<EOI
+    `echo "$MODESTTING_DRIVERS"`
+EOI
+    case $nr_users in
+    0)
+    /sbin/modprobe -vr i915
+    /sbin/modprobe -bv i915 modeset=1
+    ;;
+    esac
+;;
+
+nvidia*)
+echo "TODO : nvidia.ko handling."
+;;
+gfglx*)
+echo "TODO : gfglx.ko handling."
+;;
+*)
+echo "No modesetting driver loaded."
+;;
+esac
+
+}
 
 
-#while [ -n "`ps | grep sysinit | grep -v 'grep'`" ]; do
 while [ "`pidof rc.sysinit`" ]; do
-#(( a++ ))
-a=$((a+1))
-#echo "rc.sysinit still running $a" #DBG
+#DBGa=$((a+1))
+#DBGecho "rc.sysinit still running $a" #DBG
 #DBGecho "rc.sysinit still running $a" > /dev/console #DBG
 sleep 2
 done
 . /etc/rc.d/PUPSTATE
 
-#rm -f /etc/.XLOADED
-if [ -f /etc/.XLOADED ]; then #0.0
-#echo "$0 : XLOADED exists" #DBG
-#DBGecho "XLOADED exists" > /dev/console #DBG
-if [ "`cat /etc/.XLOADED`" = "true" ]; then #0.1.0
-echo "$0 : /etc/.XLOADED is set 'true' , exiting now.
-Please run 'xwin' manually.
-"
-#DBGecho "XLOADED is true exit now" > /dev/console #DBG
-exit 1
-fi #0.1.0
-fi #0.0
-echo "$0 : /etc/.XLOADED is not sety 'true' , going on now..." #DBG
-#DBGecho "XLOADED is not true going on now" > /dev/console #DBG
-
-if [ "$PUPMODE" = 5 ] ; then
-echo "Please run 'xorgwizard' to set up the X server.
-"
-exit 0
-fi
-
-if [ ! -L /usr/bin/X ];then #00.0
+if [ ! -L /usr/bin/X ]; then
 #v2.00r1 now support a text-mode-only puppy...
- if [ -f /usr/local/bin/elinks ];then #00.1.0
-  if [ ! -f /tmp/bootcnt.txt ];then #00.1.1.0
+ if [ -f /usr/local/bin/elinks ]; then
+  if [ ! -f /tmp/bootcnt.txt ]; then
    touch /tmp/bootcnt.txt
    exec /usr/local/bin/elinks file:///usr/share/doc/index.html
-  fi #00.1.1.0
- else #00.1.0
+  else
+   :
+  fi
+ else #no /usr/local/bin/elinks
   echo
   echo -e "\\033[1;31m$0 : Sorry, cannot start X. Link /usr/bin/X missing."
   echo -n "(suggestion: type 'xorgwizard' to run the Xorg Video Wizard)"
   echo -e "\\033[0;39m"
- fi #00.1.0
-else #00.0
+  exit 0
+ fi
 
+else # /usr/bin/X
 echo "$0 : /usr/bin/X exists"
 #DBGecho "/usr/bin/X exists" > /dev/console #DBG
 
+ if [ -f /var/lock/.XLOADED ]; then
+ #echo "$0 : XLOADED exists" #DBG
+ #DBGecho "XLOADED exists" > /dev/console #DBG
+  if [ "`cat /var/lock/.XLOADED`" = "true" ]; then
+  echo "$0 : /etc/.XLOADED is set 'true' , exiting now.
+  Please run 'xwin' manually.
+"
+  #DBGecho "XLOADED is true, exiting now." > /dev/console #DBG
+  exit 1
+  fi
+ fi
+ echo "$0 : /var/lock/.XLOADED is not set 'true' , going on now..." #DBG
+ #DBGecho "XLOADED is not true, going on now ..." > /dev/console #DBG
+
+ if [ "$PUPMODE" = 5 ]; then
+ echo "Please run 'xorgwizard' to set up the X server.
+ "
+ exit 0
+ fi
+
+deprecated_bootcnt_txt_function(){
  #want to go straight into X on bootup only...
- #if [ ! -f /tmp/bootcnt.txt ];then
-  #touch /tmp/bootcnt.txt
-  # aplay -N /usr/share/audio/bark.au
-  #dmesg > /tmp/bootkernel.log
-  #exec xwin
- #fi
- if test -f /tmp/X.status ; then #1.0
-  if [ "`cat /tmp/X.status`" = "X" ]; then #1.1.0
+ if [ ! -f /tmp/bootcnt.txt ];then
+  touch /tmp/bootcnt.txt
+   aplay -N /usr/share/audio/bark.au
+  #dmesg > /tmp/bootkernel.log #done in rc.sysinit
+  exec xwin
+ fi
+}
+
+function_determine_Xorg(){
+if test "`which Xorg`"; then
+ REALPATH_X=`realpath /usr/bin/X`
+  if test "${REALPATH_X##*/}" = Xorg; then
+
+  XORG_XSERVER_VERSION=`Xorg -version 2>&1`
+  test "$XORG_XSERVER_VERSION" || echo ERROR receiving XORG_XSERVER_VERSION
+  XORG_XSERVER_VERSION_NUMBER=`echo "$XORG_XSERVER_VERSION" | grep -m1 'X.Org X Server.*' | grep -oe '[.0-9]*$'`
+  test "$XORG_XSERVER_VERSION_NUMBER" || echo ERROR determining XORG_XSERVER_VERSION_NUMBER
+
+  case $XORG_XSERVER_VERSION_NUMBER in
+  7.0.*|1.0.*|7.1.*|1.1.*|7.2.*|1.2.*) :;;
+  1.3.*) :;;
+  1.4.*) :;;
+  1.5.*) :;;
+  1.6.*) :;;
+  1.7.*|1.8.*|1.9.*)    do_modeset;;
+  1.10.*|1.11.*|1.12.*) do_modeset;;
+  1.13.*|1.14.*)        do_modeset;;
+  *) echo "Unhandled Xorg X Server Version '$XORG_XSERVER_VERSION_NUMBER' .";
+  esac
+  fi
+fi
+}
+
+ if test -f /tmp/X.status; then
+  if [ "`cat /tmp/X.status`" = "X" ]; then
    echo "Found X in /tmp/X.status" #DBG
     #DBGecho "found X in /tmp/X.status" >/dev/console #DBG
 
     if [ "`grep 'autologinroot' /etc/inittab | grep -v -E '^#|^ #'`" != "" ]; then #1.1.1.0
      echo "found autologinroot in /etc/inittab"
+
+     if test "`which Xorg`"; then
+     REALPATH_X=`realpath /usr/bin/X`
+      if test "${REALPATH_X##*/}" = Xorg; then
+
+      XORG_XSERVER_VERSION=`Xorg -version 2>&1`
+      test "$XORG_XSERVER_VERSION" || echo ERROR receiving XORG_XSERVER_VERSION
+      XORG_XSERVER_VERSION_NUMBER=`echo "$XORG_XSERVER_VERSION" | grep -m1 'X.Org X Server.*' | grep -oe '[.0-9]*$'`
+      test "$XORG_XSERVER_VERSION_NUMBER" || echo ERROR determining XORG_XSERVER_VERSION_NUMBER
+
+      case $XORG_XSERVER_VERSION_NUMBER in
+        7.0.*|1.0.*|7.1.*|1.1.*|7.2.*|1.2.*) :;;
+        1.3.*) :;;
+        1.4.*) :;;
+        1.5.*) :;;
+        1.6.*) :;;
+        1.7.*|1.8.*|1.9.*)    do_modeset;;
+        1.10.*|1.11.*|1.12.*) do_modeset;;
+        1.13.*|1.14.*)        do_modeset;;
+        *) echo "Unhandled Xorg X Server Version '$XORG_XSERVER_VERSION_NUMBER' .";
+      esac
+      fi
+     fi
+
       #DBGecho "found autologinroot in /etc/inittab" >/dev/console#DBG
       #exec xwin &
       #xwin &
@@ -123,24 +199,13 @@ echo "$0 : /usr/bin/X exists"
      echo "No autologin, exiting.
 "
      exit 0
-    fi #1.1.1.0
+    fi #autologinroot
   else
    echo "Boot parameter apparently set to non-X environment. Exiting.
 "
    exit 0
-  fi #1.1.0
- fi #1.0
-fi #00.0
-#DBGecho >/dev/console #DBG
-#echo  #DBG
-#DBGecho 'X.status:'"`cat /tmp/X.status`" >/dev/console #DBG
-#[ -f /tmp/X.status ] && echo 'X.status:'"`cat /tmp/X.status`" #DBG
-#DBGecho 'XLOADED :'"`cat /etc/.XLOADED`" >/dev/console #DBG
-#[ -f /etc/.XLOADED ] && echo 'XLOADED :'"`cat /etc/.XLOADED`" #DBG
-#DBGecho "$0" >/dev/console #DBG
-#echo "$0" #DBG
-#DBGecho "end" >/dev/console #DBG
-#echo "end" #DBG
-#DBGecho >/dev/console #DBG
-#echo #DBG
+  fi # /tmp/X.status = X
+ fi  #-f /tmp/X.status
+fi   # ! /usr/bin/X
+
 exit $?
