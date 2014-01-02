@@ -251,8 +251,13 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
 blacklist_func() {
  #blacklisting of modules at bootup.
  . /etc/rc.d/MODULESCONFIG
+ SKIPLIST=`echo "$SKIPLIST" | tr ' ' '\n' | sort -u`
+ SKIPLIST_OLD=`echo "$SKIPLIST" | sed '/^$/d'`
+ #SKIPLIST=`echo $SKIPLIST`
+
  MODLIST=""
- LOADEDMODULES=`lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`
+ LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules`
+
  for ONEMOD in $LOADEDMODULES
  do
   MODLIST="$MODLIST $ONEMOD $ONEMOD off"
@@ -261,6 +266,7 @@ blacklist_func() {
  do
   MODLIST="$MODLIST $ONEMOD $ONEMOD on"
  done
+
  EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module blacklist manager\" --left --stdout --separator \" \" --buildlist \"On the left pane are modules that are currently loaded.\n
 On the right pane is the complete list of blacklisted modules.\n
 If you want to prevent a module from loading, move it to the right\n
@@ -270,11 +276,252 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  eval $EXECME
  RETVAL=$?
  [ ! $RETVAL -eq 0 ] && return 1
- SKIPLIST=" `cat /tmp/skiprettags.txt | tr '\n' ' '`"
+
+ SKIPLIST="`cat /tmp/skiprettags.txt | tr ' ' '\n'`"
+ SKIPLIST=`echo "$SKIPLIST" | sort -u`
+
+ SKIPLIST_NEW="$SKIPLIST"
+
+ echo "SKIPLIST_NEW='$SKIPLIST_NEW" >&2
+ echo "SKIPLIST_OLD='$SKIPLIST_OLD" >&2
+
+ ADDED_TO_SKIPLIST=`echo "$SKIPLIST_NEW" | /bin/grep -v "$SKIPLIST_OLD"`
+ REMOVED_FROM_SKIPLIST=`echo "$SKIPLIST_OLD" | /bin/grep -v "$SKIPLIST_NEW"`
+
+ echo "ADDED_TO_SKIPLIST='$ADDED_TO_SKIPLIST'" >&2
+ echo "REMOVED_FROM_SKIPLIST='$REMOVED_FROM_SKIPLIST'" >&2
+
+ mkdir -p /etc/rc.d /etc/mult_kernels/rc.d
+
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
  mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
+ echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >> /etc/rc.d/MODULESCONFIG
+
+ if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER; then
+ grep -v '^SKIPLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER > /tmp/MODULESCONFIG
+ mv -f /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ fi
+
+
+
+ for ONE_MODULE in $SKIPLIST; do
+
+ echo "ONE_MODULE='$ONE_MODULE'" >&2
+
+ if test -f /etc/modprobe.d/$ONE_MODULE.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_MODULE.conf > /tmp/$ONE_MODULE.conf
+ mv /tmp/$ONE_MODULE.conf /etc/modprobe.d/$ONE_MODULE.conf
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/$ONE_MODULE.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf > /tmp/$ONE_MODULE.conf
+  mv /tmp/$ONE_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf
+  echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf
+  else : #echo "NO /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf .." >&2
+  fi
+ else :
+ fi
+
+ if test -f /etc/modprobe.d/blacklist.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/blacklist.conf > /tmp/blacklist.conf
+ mv /tmp/blacklist.conf /etc/modprobe.d/blacklist.conf
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/blacklist.conf
+ else
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/blacklist.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf > /tmp/blacklist.conf
+  mv /tmp/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  else
+  #echo "CREATING /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf .."
+  echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  fi
+  else : #echo "NO /etc/mult_kernels/modprobe.d.$KERNVER .." >&2
+ fi
+
+ if test -f /etc/modprobe.d/puppy.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/puppy.conf > /tmp/puppy.conf
+ mv /tmp/puppy.conf /etc/modprobe.d/puppy.conf
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/puppy.conf
+ else
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/puppy.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf > /tmp/puppy.conf
+  mv /tmp/puppy.conf /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  else
+  echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  fi
+ fi
+
+ if test -f /etc/modprobe.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.conf > /tmp/modprobe.conf
+ mv /tmp/modprobe.conf /etc/modprobe.conf
+ echo "blacklist $ONE_MODULE" >> /etc/modprobe.conf
+ fi
+
+ if test -f /etc/mult_kernels/modprobe.conf.$KERNVER; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.conf.$KERNVER > /tmp/modprobe.conf
+ mv /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+ echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.conf.$KERNVER
+ fi
+
+ done #for ONE_MODULE in $SKIPLIST
+
+ for ONE_MODULE in $REMOVED_FROM_SKIPLIST; do
+
+ echo "ONE_MODULE='$ONE_MODULE'" >&2
+
+ if test -f /etc/modprobe.d/$ONE_MODULE.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_MODULE.conf > /tmp/$ONE_MODULE.conf
+ mv /tmp/$ONE_MODULE.conf /etc/modprobe.d/$ONE_MODULE.conf
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/$ONE_MODULE.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf > /tmp/$ONE_MODULE.conf
+  mv /tmp/$ONE_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf
+  #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf
+  else echo "NO /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_MODULE.conf .." >&2
+  fi
+ else :
+ fi
+
+ if test -f /etc/modprobe.d/blacklist.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/blacklist.conf > /tmp/blacklist.conf
+ mv /tmp/blacklist.conf /etc/modprobe.d/blacklist.conf
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/blacklist.conf
+ else
+ :
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/blacklist.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf > /tmp/blacklist.conf
+  mv /tmp/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  else
+  :
+  #echo "CREATING /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf .."
+  #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
+  fi
+  else echo "NO /etc/mult_kernels/modprobe.d.$KERNVER .." >&2
+ fi
+
+ if test -f /etc/modprobe.d/puppy.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/puppy.conf > /tmp/puppy.conf
+ mv /tmp/puppy.conf /etc/modprobe.d/puppy.conf
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/puppy.conf
+ else
+ :
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/puppy.conf
+ fi
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER; then
+  if test -f /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf; then
+  grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf > /tmp/puppy.conf
+  mv /tmp/puppy.conf /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  else
+  :
+  #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/puppy.conf
+  fi
+ fi
+
+ if test -f /etc/modprobe.conf; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.conf > /tmp/modprobe.conf
+ mv /tmp/modprobe.conf /etc/modprobe.conf
+ #echo "blacklist $ONE_MODULE" >> /etc/modprobe.conf
+ fi
+
+ if test -f /etc/mult_kernels/modprobe.conf.$KERNVER; then
+ grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.conf.$KERNVER > /tmp/modprobe.conf
+ mv /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+ #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.conf.$KERNVER
+ fi
+
+ done #for ONE_MODULE in $REMOVED_FROM_SKIPLIST
+
+
+
+
+ if test -d /etc/modprobe.d/; then
+
+ for ONE_FILE in `ls -1 /etc/modprobe.d/`; do
+  echo "ONE_FILE='$ONE_FILE'" >&2
+  test -f "/etc/modprobe.d/$ONE_FILE" || continue
+  test "$ONE_FILE" = blacklist.conf && continue
+
+   for ONE_MODULE in $SKIPLIST; do
+    test "$ONE_FILE" = $ONE_MODULE.conf && continue
+    grep -q "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_FILE || continue
+
+    grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_FILE >/tmp/$ONE_FILE
+    mv /tmp/$ONE_FILE /etc/modprobe.d/$ONE_FILE
+    echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/$ONE_FILE
+
+   done
+
+   for ONE_MODULE in $REMOVED_FROM_SKIPLIST; do
+    test "$ONE_FILE" = $ONE_MODULE.conf && continue
+    grep -q "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_FILE || continue
+
+    grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/modprobe.d/$ONE_FILE >/tmp/$ONE_FILE
+    mv /tmp/$ONE_FILE /etc/modprobe.d/$ONE_FILE
+    #echo "blacklist $ONE_MODULE" >> /etc/modprobe.d/$ONE_FILE
+
+   done
+
+  done
+
+ else echo "NO /etc/modprobe.d/ .." >&2
+ fi #/etc/modprobe.d/
+
+ if test -d /etc/mult_kernels/modprobe.d.$KERNVER/; then
+
+ for ONE_FILE in `ls -1 /etc/mult_kernels/modprobe.d.$KERNVER/`; do
+  echo "ONE_FILE='$ONE_FILE'" >&2
+  test -f "/etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE" || continue
+  test "$ONE_FILE" = blacklist.conf && continue
+
+   for ONE_MODULE in $SKIPLIST; do
+    test "$ONE_FILE" = $ONE_MODULE.conf && continue
+    grep -q "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE || continue
+
+    grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE >/tmp/$ONE_FILE
+    mv /tmp/$ONE_FILE /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE
+    echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE
+
+   done
+
+   for ONE_MODULE in $REMOVED_FROM_SKIPLIST; do
+    test "$ONE_FILE" = $ONE_MODULE.conf && continue
+    grep -q "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE || continue
+
+    grep -v "^blacklist[[:space:]]*$ONE_MODULE" /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE >/tmp/$ONE_FILE
+    mv /tmp/$ONE_FILE /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE
+    #echo "blacklist $ONE_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/$ONE_FILE
+
+   done
+
+
+ done
+
+ else echo "NO /etc/mult_kernels/modprobe.d.$KERNVER/ .." >&2
+ fi #/etc/mult_kernels/modprobe.d.$KERNVER/
+
 } #end blacklist_func
 
 addlist_func() {
@@ -292,6 +539,7 @@ addlist_func() {
 
  yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing $HOW_MANY modules ..." &
  X1PID=$!
+
 
  . /etc/rc.d/MODULESCONFIG
  MODLIST=""
