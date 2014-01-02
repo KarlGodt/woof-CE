@@ -311,7 +311,7 @@ KERNEL_RELEASE=`uname -r`
 #*) echo "Unhandled KERNEL_RELEASE '$KERNEL_RELEASE'";;
 #esac
 
-echo "KERNEL_RELEASE='$KERNRL_RELEASE'" >> /etc/rc.d/PUPSTATE
+echo "KERNEL_RELEASE='$KERNEL_RELEASE'" >> /etc/rc.d/PUPSTATE
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
 #file_system_state 2
@@ -394,13 +394,14 @@ busybox mount -t debugfs none /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
     echo "STATUS='$STATUS'"
 #echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
+
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
-FREERAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 4 -d ' '` #w481
 #if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
 if [ "$IS_RDEV" ]; then
+ FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
  QTRFREERAM=`expr $FREERAM \/ 4`
  mkdir -p /dev/shm
- mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm; STATUS=$(($STATUS+$?))
+ busybox mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm; STATUS=$(($STATUS+$?))
 fi
 
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
@@ -493,7 +494,7 @@ mkmissing_tty_func(){
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 [ -d /dev/vc ] || mkdir /dev/vc
 
-VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
+VTInittab=`grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
 for i in $VTInittab; do
 [ -c /dev/vc/$i ] || { rm -f /dev/vc/$i; mknod /dev/vc/$i c 4 $i; }
 [ -c /dev/tty$i ] || { rm -f /dev/tty$i; mknod /dev/tty$i c 4 $i; }
@@ -526,7 +527,7 @@ if test -n "$RootDevBlockNrs"; then
 MAJ=`echo $RootDevBlockNrs | cut -f 1 -d ':'`
 Min=`echo $RootDevBlockNrs | cut -f 2 -d ':'`
 
-RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,10 -d ' ' | grep -w "^$MAJ" | grep -w "$Min" | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd'
+RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,10 -d ' ' | grep -w "^$MAJ" | grep -m1 -w "$Min" | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd'
 #LC_ALL=C ls -l /dev/sda2
 #brw-r--r-- 1 root root 8, 2 Jun 12 11:33 /dev/sda2
 #LANG=C ls -l /dev/sda2
@@ -551,11 +552,11 @@ load_average '1x0f'
 check_frugal_full_func(){
 
 CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
-RootDiskFreeFrugal=`df | grep -w '/' | grep 'rootfs'`
-[ "$PUPMODE" = 12 ] && MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
+RootDiskFreeFrugal=`/bin/df | grep -Fw '/' | grep 'rootfs'`
+[ "$PUPMODE" = 12 ] && MountFrugal=`grep ' /initrd/mnt/dev_save ' /proc/mounts | cut -f 1 -d ' '`
 RootDiskReadlinkDevRoot=`readlink /dev/root`
-RootDiskFreeFullInstall=`df | grep -w '/' | tr -s ' ' | cut -f 1 -d ' '`
-MountFull=`mount | grep -w '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
+RootDiskFreeFullInstall=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f 1 -d ' '`
+MountFull=`grep -Fw '/' /proc/mounts | grep '^/dev/' | cut -f 1 -d ' '`
 BBrdev=`busybox rdev`
 
 if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" -a -z "$BBrdev"; then ## frugal install
@@ -696,7 +697,8 @@ playbootnoise(){
     [ -e /etc/rc.d/haileyharly.wav ] || return 0
     bb_modprobe -v snd-card-0 && {
     alsactl -f /etc/asound.state restore && {
-    until pidof X; do
+    #until pidof X; do
+    until pidof rc.launchxwin; do
     aplay /etc/rc.d/haileyharly.wav || return 0
     sleep 0.1
     done
@@ -1186,7 +1188,7 @@ fi; fi
 ### FSCKME ###
 if [[ $PUPMODE == 2 ]]; then
 RD=`basename $(rdev | cut -f 1 -d ' ') 2>$err`
-FS=`mount | grep '^/dev/root' | cut -f 5 -d ' '`
+FS=`grep '^/dev/root' /proc/mounts | cut -f 3 -d ' '`
 echo "$RD"','"$FS"',' > /etc/.fsckme.flg
 echo "PDEV1='$RD'" >> /etc/rc.d/PUPSTATE
 fi
@@ -1211,7 +1213,7 @@ FILE1="${FILE%=*}"
 FILE2=`eval echo \\$$FILE1`
 if [ -f "$FILE2" ]; then
 while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ]; do sleep 4; done
-sleep 15s  ## 120s ##5s
+sleep 1s  ## 120s ##5s
 echo 'Sorting now this log file by '`readlink -f $0` >> "$FILE2"
 cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
 PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
