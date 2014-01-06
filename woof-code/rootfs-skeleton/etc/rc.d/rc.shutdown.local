@@ -47,7 +47,7 @@ kill -1 $pid
 sleep 1s;sync
 done
 
-KERNEL_VERSION=`uname -r` ##+++2012-04-11
+KERNEL_RELEASE=`uname -r` ##+++2012-04-11
 
 PROG='/etc/rc.d/rc.shutdown.local'
 echo  -e "\\033[0;35m""$PROG""\\033[0;39m" >/dev/console
@@ -60,53 +60,55 @@ if [ ! -d "$BackupDir" ]; then
 mkdir -p "$BackupDir"
 fi
 
-cp /tmp/xerrs.log $BackupDir
-cp /tmp/Xerrs* $BackupDir
-cp /tmp/Xorg* $BackupDir
+test -f /tmp/xerrs.log && cp /tmp/xerrs.log $BackupDir
+test -f /tmp/Xerrs* && cp /tmp/Xerrs* $BackupDir
+test -f /tmp/Xorg*  && cp /tmp/Xorg* $BackupDir
 
-cp /tmp/bootkernel.log $BackupDir
-cp /tmp/bootsysinit.log $BackupDir
+test -f /tmp/bootkernel.log  && cp /tmp/bootkernel.log $BackupDir
+test -f /tmp/bootsysinit.log && cp /tmp/bootsysinit.log $BackupDir
 
-cp /var/log/messages $BackupDir
-cp /var/log/messages.0 $BackupDir
+test -f /var/log/messages   && cp /var/log/messages $BackupDir
+test -f /var/log/messages.0 && cp /var/log/messages.0 $BackupDir
 
-cp /var/log/Xorg.0.log $BackupDir
-
-cp /etc/X11/xorg.conf $BackupDir
+test -f /var/log/Xorg.0.log && cp /var/log/Xorg.0.log $BackupDir
+test -f /etc/X11/xorg.conf  && cp /etc/X11/xorg.conf $BackupDir
 
 # bash & ash
-cp $HOME/.history $BackupDir
-cp $HOME/.ash_history $BackupDir
+test -f $HOME/.history      && cp $HOME/.history $BackupDir
+test -f $HOME/.ash_history  && cp $HOME/.ash_history $BackupDir
 # vte
-cat $HOME/.bash_history | sed "/^cd '/d" > $BackupDir/.bash_history
+test -f $HOME/.bash_history && cat $HOME/.bash_history | sed "/^cd '/d" > $BackupDir/.bash_history
 
+echo >>     $BackupDir/Notes
+uname -a >> $BackupDir/Notes
+echo >>     $BackupDir/Notes
+uname -r >> $BackupDir/Notes
+cat /proc/cmdline >> $BackupDir/Notes
 echo >> $BackupDir/Notes
-echo `uname -a` >> $BackupDir/Notes
-echo >> $BackupDir/Notes
-echo `uname -r` >> $BackupDir/Notes
-echo `cat /proc/cmdline` >> $BackupDir/Notes
-echo >> $BackupDir/Notes
-echo `date` >> $BackupDir/Notes
+date >> $BackupDir/Notes
 
 echo >> $BackupDir/Notes
 
 echo 'lsmod' >> $BackupDir/Notes
 lsmod >> $BackupDir/Notes
-echo >> $BackupDir/Notes
+echo >>  $BackupDir/Notes
 echo 'lspci' >> $BackupDir/Notes
 lspci >> $BackupDir/Notes
-echo >> $BackupDir/Notes
+echo >>  $BackupDir/Notes
 echo 'elspci -l' >> $BackupDir/Notes
 elspci -l >> $BackupDir/Notes
-echo >> $BackupDir/Notes
+echo >>      $BackupDir/Notes
 
 echo
 ls -l /dev >> $BackupDir/Notes
-echo >> $BackupDir/Notes
+echo >>       $BackupDir/Notes
 }
 backup_func
 echo BACKUP end
 echo -e "\\033[0;35m""Finished Backup part""\\033[0;39m" >/dev/console
+
+
+
 ##clean /mnt directory for filemnt directories
 clean_mnt_dir_func() {
 MNTD=`find /mnt -maxdepth 1 -type d \( -name "*+*" -o -name "*.*.[0-9]*" \)`
@@ -116,21 +118,24 @@ done
 }
 clean_mnt_dir_func
 
+
+
+
 echo DEV begin
 ##backup /dev directory
 clean_dev_func() {
 #[ ! -d /var/db/`uname -r`/dev ] && mkdir -p /var/db/`uname -r`/dev
 #if [ ! -d /var/db/`uname -r`/dev ];then  ##+++2012-04-10
-[ -d "/var/db/$KERNEL_VERSION/dev" ] || mkdir -p "/var/db/$KERNEL_VERSION/dev"
+[ -d "/var/db/$KERNEL_RELEASE/dev" ] || mkdir -p "/var/db/$KERNEL_RELEASE/dev"
 D=`find /dev -type c`
 for i in $D; do
 #d=`dirname $i`
 d="${i%/*}"  ##+++2012-04-11
-[ -d "/var/db/$KERNEL_VERSION/$d" ] || mkdir -p "/var/db/$KERNEL_VERSION/$d"
+[ -d "/var/db/$KERNEL_RELEASE/$d" ] || mkdir -p "/var/db/$KERNEL_RELEASE/$d"
 
 #mv $i /var/db/`uname -r`/$i
 #rm $i
-[ -e "/var/db/$KERNEL_VERSION/$i" ] || cp -a "$i" "/var/db/$KERNEL_VERSION/$i"  ##2012-03-15 added -u, no changed -u for -a  ##+++2012-04-11 added test and KERNEL_VERSION for `uname -r`
+[ -e "/var/db/$KERNEL_RELEASE/$i" ] || cp -a "$i" "/var/db/$KERNEL_RELEASE/$i"  ##2012-03-15 added -u, no changed -u for -a  ##+++2012-04-11 added test and KERNEL_VERSION for `uname -r`
 # no hangs somewhere after hid0raw
 done
 #fi  ###---2012-04-11 took out again
@@ -138,56 +143,69 @@ done
 clean_dev_func
 #[ -d /dev/.udev ] && rm -f -r /dev/.udev
 echo DEV end
+
+
+
 ##????
 [ -f /etc/rc.d/firstrun ] && rm /etc/rc.d/firstrun
 [ -f /etc/profile.d/firstrun ] && rm /etc/profile.d/firstrun
+
+
 
 ##create fsckme file for testing
 PART=`busybox rdev | sed 's#\ .*## ; s#/dev/##' `
 FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
 #echo "$PART"','"$FS"',' > /etc/fsckme.flag
+#echo "$PART"','"$FS"',' > /var/lock/fsckme.flag
+
 remove_fsckme_func(){
-find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+#find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+rm -f /var/lock/fsckme*  ##+++2014-01-02
 }
 remove_fsckme_func
+
+
+
 
 net_statistics(){
 ##log net statistics :
 #100814 log the cumulative bytes transmitted on network...
 # (see also /etc/rc.d/rc.sysinit and network_tray)
 mkdir -p /var/local/sns
-UPDATE_MONTH="`date +%b`"
-CURRENT_MONTH="`cat /var/local/sns/current_month`"
-[ ! "$CURRENT_MONTH" ] && CURRENT_MONTH=0
+UPDATE_MONTH="`LC_ALL=C date +%b`"
+read CURRENT_MONTH </var/local/sns/current_month
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
  for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
-  echo -n 0 > /var/local/${ONECOUNT}x_bytes_month
+  echo 0 > /var/local/${ONECOUNT}x_bytes_month
  done
 fi
 
 ACTIVE_INTERFACE="ppp0"
 #mkdir -p /var/local/sns
-[ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
+[ -f /tmp/sns_interface_success ] && read ACTIVE_INTERFACE </tmp/sns_interface_success #SNS
 [ ! "$ACTIVE_INTERFACE" ] && ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
 if [ "$ACTIVE_INTERFACE" ];then
  mkdir -p /var/local/$ACTIVE_INTERFACE
  if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
-  RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
-  TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
-  echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
-  echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
-  RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
-  [ ! "$RX_BYTES_MONTH" ] && RX_BYTES_MONTH=0
+  read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
+  read TX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes
+  echo "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
+  echo "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
+  read RX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
   RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
-  echo -n "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
-  TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
-  [ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
+  echo "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
   TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
-  echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  echo "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
  fi
 fi
 }
+
+
 
 acpi_debug_func(){
 echo 0x00000004 > /sys/module/acpi/parameters/debug_level
