@@ -369,7 +369,7 @@ Press TAB (or right-arrow) key then ENTER key for Xvesa...\Zn" 0 0
  STATUS=$?  #v3.99
  [ $STATUS -eq -1 -o $STATUS -eq 255 ] && exit 1   #v3.99 ESC to exit, same as above dialogs
  if [ "$STATUS" -eq 1 ];then   #v3.99 Xvesa selected
-  ln -sf Xvesa /usr/bin/X #Xvesa is now the default X server.
+  ln -sf Xvesa /usr/bin/X #Xvesa becomming now the default X server ..
   #when start xorgwizard from commandline, it messes up xorg.conf...
   if [ -f /etc/X11/xorg.conf ];then
    if [ -f /etc/X11/xorg.conf.bak ];then
@@ -422,7 +422,7 @@ echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aqua
 echo -n "Probing video hardware, please wait..."
 echo -e "\\033[0;39m"
 #autoprobe...
-Xorg -configure > "$tmpDir"/xorgprobe.txt 2>&1
+Xorg -configure -logfile $HOME/Xorg_configure.log > "$tmpDir"/xorgprobe.txt 2>&1
 #... config in /root/xorg.conf.new
 
 
@@ -448,8 +448,8 @@ do
  # this (outer) loop recieves a line containing **an entire section**
  # filter out entire sections we don't want
  case $ASECTION in
-  *Section?\"Screen\"*)
-   break #Screen section is created further down.
+  *Section?\"Screen\"*0*)
+   break #Screen 0 section is created further down.
   ;;
   *Section?\"Files\"*|*Section?\"Module\"*|*Section?\"ServerFlags\"*)
    continue #these sections pre-created in /etc/X11/xorg.conf0
@@ -462,37 +462,93 @@ do
  #+ where appropriate (i.e. before every line except for Section borders).
  #+ ("\n"=newline ; "\t"=tab)
  IDENTIFIER="" ; XSECTION="" ; TEMPSECTION=""
+
  while read ALINE
  do
   case "$ALINE" in
+
    EndSection*)
-    if [ "$XSECTION" = "InputDevice" -a "$IDENTIFIER" = "Keyboard0" ] ; then
+    if [ "$XSECTION" = "InputDevice" -a "$IDENTIFIER" = "Keyboard0" ]; then
      TEMPSECTION="$TEMPSECTION
-    Option      \"XkbRules\" \"xorg\"
-    Option      \"XkbModel\" \"pc102\"
-    Option      \"XkbLayout\" \"$XKEYMAP\" #xkeymap0"
-    elif [ "$XSECTION" = "Monitor" -a "$IDENTIFIER" = "Monitor0" ] ; then
+\tOption\t\"XkbRules\" \"xorg\"
+\tOption\t\"XkbModel\" \"pc102\"
+\tOption\t\"XkbLayout\" \"$XKEYMAP\" #xkeymap0"
+
+    elif [ "$XSECTION" = "Monitor" -a "$IDENTIFIER" = "Monitor0" ]; then
+     case $ALINE in
+     *EndSection*) ALINE="$ALINE";;
+     *)            ALINE="\t$ALINE";;
+     esac
      TEMPSECTION="$TEMPSECTION
-    HorizSync    HORIZSYNC0
-    VertRefresh  VERTREFRESH0
-    #UseModes     \"Modes0\" #monitor0usemodes
-    Option      \"PreferredMode\" \"PREFERREDMODE0\"
-    $ALINE
+\tHorizSync\tHORIZSYNC0
+\tVertRefresh\tVERTREFRESH0
+\t#UseModes\t\"Modes0\" #monitor0usemodes
+\tOption\t\"PreferredMode\" \"PREFERREDMODE0\"
+$ALINE
 
 Section \"Modes\"
-    Identifier \"Modes0\"
-    #modes0modeline0
+\tIdentifier \"Modes0\"
+\t#modes0modeline0
 EndSection"
      #v3.98 rerwin - added preferredmode line, after usemodes line.
      continue # we added the line before the "Modes" section, so continue
+
+    elif [ "$XSECTION" = "Monitor" ]; then
+     #DBGecho "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 9;#DBG
+     NR=`echo $IDENTIFIER | tr -d '[[:alpha:][:punct:]]'`
+     test "$NR" || NR=W
+     case $ALINE in
+     *EndSection*) ALINE="#$ALINE";;
+     *)            ALINE="#\t$ALINE";;
+     esac
+     TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!;s!^#*\(.*\)!#\1!;s!^#*$!!'`
+                                        #| sed 's!^[^#][[:alnum:][:punct:]]*!#!`
+     TEMPSECTION="$TEMPSECTION
+#\tHorizSync    HORIZSYNC${NR}
+#\tVertRefresh  VERTREFRESH${NR}
+#\t#UseModes     \"Modes${NR}\" #monitor${NR}usemodes
+#\tOption      \"PreferredMode\" \"PREFERREDMODE${NR}\"
+$ALINE
+
+#Section \"Modes\"
+#\tIdentifier \"Modes${NR}\"
+#\t#modes${NR}modeline${NR}
+#EndSection"
+     #v3.98 rerwin - added preferredmode line, after usemodes line.
+     continue # we added the line before the "Modes" section, so continue
+
+    elif [ "$XSECTION" = "Device" ]; then
+     case $IDENTIFIER in
+     Card0) :;;
+     Card*) ALINE="#$ALINE";; #just for EndSection :)
+     *) :;;
+     esac
     fi
+
     TEMPSECTION="$TEMPSECTION\n$ALINE"
-    continue # just added line -- no need to get to bottom
+    continue # just added EndSection line -- no need to get to bottom
     ;;
+
+
    Section?\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
     TEMPSECTION="\n$ALINE"
     continue # just added line -- no need to get to bottom
     ;;
+
+   *Screen*)
+    case $ASECTION in
+    Section*ServerLayout*)
+     case $ALINE in
+     Screen*0*Screen0*) :;;
+     Screen*[1-9]*Screen[1-9]*) ALINE="#$ALINE";;
+     *) :;;
+     esac
+     ;;
+    *) :
+    ;;
+    esac
+    ;;
+
    *Identifier*) IDENTIFIER=${ALINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
     ;;
    *\"ZAxisMapping\"*) continue
@@ -501,22 +557,24 @@ EndSection"
     ;;
    *VertRefresh*[0-9]*) set -- $ALINE ; VERTREFRESH0="$2$3$4" ; continue
     ;;
+
    *Option*\"Protocol\"?\"auto\"*)
     case "`cat /etc/mousedevice 2>/dev/null`" in
      input/mice) TEMPSECTION="$TEMPSECTION
-    Option      \"Protocol\" \"IMPS/2\" #mouse0protocol"
+\tOption\t\"Protocol\" \"IMPS/2\" #mouse0protocol"
       continue
       ;;
      *ttyS*) TEMPSECTION="$TEMPSECTION
-    Option      \"Protocol\" \"Microsoft\" #mouse0protocol"
+\tOption\t\"Protocol\" \"Microsoft\" #mouse0protocol"
       continue
       ;;
      *) TEMPSECTION="$TEMPSECTION
-    Option      \"Protocol\" \"auto\" #mouse0protocol"
+\tOption\t\"Protocol\" \"auto\" #mouse0protocol"
       continue
       ;;
     esac
     ;;
+
    */dev/mouse*|*/dev/input/mice*) #v2.21
     TEMPSECTION="$TEMPSECTION\n\t$ALINE"
     case "`cat /etc/xextraoptions`" in
@@ -524,41 +582,72 @@ EndSection"
      *) BLA="#" ;;
     esac
     TEMPSECTION="$TEMPSECTION
-    ${BLA}Option      \"Emulate3Buttons\"
-    ${BLA}Option      \"Emulate3Timeout\" \"50\""
+\t${BLA}Option\t\"Emulate3Buttons\"
+\t${BLA}Option\t\"Emulate3Timeout\" \"50\""
     if [ "`cat /etc/mousebuttons`" = "5" ] ; then #scrollwheel
      BLA=""
     else
      BLA="#"
     fi
     TEMPSECTION="$TEMPSECTION
-    ${BLA}Option      \"ZAxisMapping\" \"4 5\" #scrollwheel"
+\t${BLA}Option\t\"ZAxisMapping\" \"4 5\" #scrollwheel"
     continue # we added the line at the beginning
     ;;
   esac
 
-  if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
+ if [ "$XSECTION" = "Device" ]; then
+  case $IDENTIFIER in
+  Card0)
    FBODY=${ALINE%\"*} ; FBODY=${FBODY##*\"}
-   case "$ALINE" in
-    *Driver*) CARD0DRIVER="$FBODY" ; ALINE="$ALINE #card0driver" ;;
-    *VendorName*) CARD0VENDOR="$FBODY" ;;
-    *BoardName*) CARD0BOARD="$FBODY"
-    if [ "$CARD0BOARD" = 'Unknown Board' ];then
-     CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
-    fi
+    case "$ALINE" in
+        *Driver*) CARD0DRIVER="$FBODY" ; ALINE="$ALINE #card0driver" ;;
+        *VendorName*) CARD0VENDOR="$FBODY" ;;
+        *BoardName*) CARD0BOARD="$FBODY"
+        if [ "$CARD0BOARD" = 'Unknown Board' ];then
+        CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
+        fi
+        ;;
+        *Screen[0-9]*Top?Of*Screen0*) ALINE="#$ALINE" ;;
+        *Screen[0-9]*Left?Of*Screen0*) ALINE="#$ALINE" ;;
+        *Screen[0-9]*Right?Of*Screen0*) ALINE="#$ALINE" ;;
+        *Screen[0-9]*Bottom?Of*Screen0*) ALINE="#$ALINE" ;;
+    esac
     ;;
-    *Screen1*Right?Of*Screen0*) ALINE="#$ALINE" ;;
-   esac
-  fi
+  Card[1-9])
+   ADD_TAB=NO
+   #DBGecho -e "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 1;#DBG
+   #TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^[#]*\(.*\)!#\1!;s!^#*$! !;s!^#    \(#.*\)!\1!'`
+    TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^#*\(.*\)!#\1! ; s!^#*$!!'`
+   NR=`echo $IDENTIFIER | tr -d '[[:alpha:][:punct:]]'`
+   test "$NR" || NR=W
+   #FBODY=${ALINE%\"*} ; FBODY=${FBODY##*\"}
+    case "$ALINE" in
+     *Driver*)     ALINE="#\t$ALINE #card${NR}driver" ;;
+     *VendorName*) ALINE="#\t$ALINE" ;;
+     *BoardName*)  ALINE="#\t$ALINE" ;;
+     # '#'*)         ALINE="$ALINE"    ;;
+     *)            ALINE="#\t$ALINE" ;;
+    esac
+    ;;
+  *) :;;
+  esac
+ fi
+
+  echo "ALINE='$ALINE'" >>/root/xorg.conf.new.ALINE;#DBG
   # add line to section (if we've come this far...)
-  TEMPSECTION="$TEMPSECTION\n\t$ALINE"
+  case $ADD_TAB in
+  NO) TEMPSECTION="$TEMPSECTION\n$ALINE #YYY";;
+  *)  TEMPSECTION="$TEMPSECTION\n\t$ALINE #XXX";;
+  esac
+  ADD_TAB='';
+
  done <<_END2
-$(echo "$ASECTION" | tr '%' '\n')
+$(echo "$ASECTION" | sed 's!__XORGWIZARD__!\n!g')
 _END2
 echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
 sync
 done <<_END1
-$(cat /root/xorg.conf.new | tr '\n' '%' | sed 's/EndSection/EndSection\n/g' )
+$(cat /root/xorg.conf.new | sed 's!$!__XORGWIZARD__!' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
 ###################################################################
 
@@ -1016,17 +1105,17 @@ MINHORIZ=${HORIZSYNC%-*} #; MINHORIZ=${MINHORIZ%.*}
 #now write the Screen section...
 SCRNSECTION="
 Section \"Screen\"
-    Identifier \"Screen0\"
-    Device     \"Card0\"
-    Monitor    \"Monitor0\"
-    DefaultDepth $FINALDEPTH
-    Subsection \"Display\"
-        Depth       $FINALDEPTH
-        Modes       \"${FINALXY}\"
-    EndSubsection
+\tIdentifier\t\"Screen0\"
+\tDevice\t\"Card0\"
+\tMonitor\t\"Monitor0\"
+\tDefaultDepth\t$FINALDEPTH
+\tSubsection\t\"Display\"
+\t\tDepth\t$FINALDEPTH
+\t\tModes\t\"${FINALXY}\"
+\tEndSubsection
 EndSection
 "
-echo "$SCRNSECTION" >> /etc/X11/xorg.conf
+echo -e "$SCRNSECTION" >> /etc/X11/xorg.conf
 echo "Echoed $SCRNSECTION to /etc/X11/xorg.conf 7" >> "$tmpDir"/xorgwizard.messages && sleep 2s #9s
 PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
 #horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
@@ -1057,34 +1146,34 @@ echo "Copied /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic 9" >> "$tmpD
 
  # ...and the replacements
  NEW1='Section "Module"\
-    Load "synaptics"'
+ \tLoad "synaptics"'
 
  NEW2='Section "ServerLayout"\
-    InputDevice "Synaptics Mouse" "AlwaysCore"'
+\tInputDevice "Synaptics Mouse" "AlwaysCore"'
 
  NEW3='Section "InputDevice"\
-    Identifier "Synaptics Mouse"\
-    Driver "synaptics"\
-    Option "Device" "/dev/psaux"\
-    Option "Protocol" "auto-dev"\
-    Option "LeftEdge" "120"\
-    Option "RightEdge" "930"\
-    Option "TopEdge" "120"\
-    Option "BottomEdge" "650"\
-    Option "FingerLow" "14"\
-    Option "FingerHigh" "15"\
-    Option "MaxTapTime" "0"\
-    Option "MaxTapMove" "110"\
-    Option "VertScrollDelta" "20"\
-    Option "MinSpeed" "0.3"\
-    Option "MaxSpeed" "0.75"\
-    Option "AccelFactor" "0.030"\
-    Option "EdgeMotionMinSpeed" "200"\
-    Option "EdgeMotionMaxSpeed" "200"\
-    Option "UpDownScrolling" "1"\
-    Option "CircularScrolling" "1"\
-    Option "CircScrollDelta" "0.1"\
-    Option "CircScrollTrigger" "2"\
+\tIdentifier "Synaptics Mouse"\
+\tDriver "synaptics"\
+\t#Option "Device" "/dev/psaux"\
+\tOption "Protocol" "auto-dev"\
+\tOption "LeftEdge" "120"\
+\tOption "RightEdge" "930"\
+\tOption "TopEdge" "120"\
+\tOption "BottomEdge" "650"\
+\tOption "FingerLow" "14"\
+\tOption "FingerHigh" "15"\
+\tOption "MaxTapTime" "0"\
+\tOption "MaxTapMove" "110"\
+\tOption "VertScrollDelta" "20"\
+\tOption "MinSpeed" "0.3"\
+\tOption "MaxSpeed" "0.75"\
+\tOption "AccelFactor" "0.030"\
+\tOption "EdgeMotionMinSpeed" "200"\
+\tOption "EdgeMotionMaxSpeed" "200"\
+\tOption "UpDownScrolling" "1"\
+\tOption "CircularScrolling" "1"\
+\tOption "CircScrollDelta" "0.1"\
+\tOption "CircScrollTrigger" "2"\
 EndSection\
 \
 Section "Monitor"'
@@ -1092,7 +1181,7 @@ Section "Monitor"'
  # now replace:
  echo "sed $NEW1 $NEW2 $NEW3
  /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf 10" >> "$tmpDir"/xorgwizard.messages && sleep 2s #9s
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf
+ sed "s%$OLD1%$NEW1%; s%$OLD2%$NEW2%; s%$OLD3%$NEW3%" /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf
 fi
 
 if grep -F -q 'Synaptics' /proc/bus/input/devices ; then
@@ -1107,30 +1196,30 @@ if grep -F -q 'Synaptics' /proc/bus/input/devices ; then
 
  # ...and the replacements
  NEW1='Section "Module"\
-    Load "synaptics"'
+\tLoad "synaptics"'
 
  NEW2='Section "ServerLayout"\
-    InputDevice "Synaptics Mouse" "AlwaysCore"'
+\tInputDevice "Synaptics Mouse" "AlwaysCore"'
 
  NEW3='Section "InputDevice"\
-    Identifier "Synaptics Mouse"\
-    Driver "synaptics"\
-    Option "Device" "/dev/psaux"\
-    Option "Protocol" "auto-dev"\
-    Option "LeftEdge" "1700"\
-    Option "RightEdge" "5300"\
-    Option "TopEdge" "1700"\
-    Option "BottomEdge" "4200"\
-    Option "FingerLow" "25"\
-    Option "FingerHigh" "30"\
-    Option "MaxTapTime" "0"\
-    Option "MaxTapMove" "220"\
-    Option "VertScrollDelta" "100"\
-    Option "MinSpeed" "0.10"\
-    Option "MaxSpeed" "0.30"\
-    Option "AccelFactor" "0.0030"\
-    Option "SHMConfig" "on"\
-    #Option "Repeater" "/dev/ps2mouse"\
+\tIdentifier "Synaptics Mouse"\
+\tDriver "synaptics"\
+\t#Option "Device" "/dev/psaux"\
+\tOption "Protocol" "auto-dev"\
+\tOption "LeftEdge" "1700"\
+\tOption "RightEdge" "5300"\
+\tOption "TopEdge" "1700"\
+\tOption "BottomEdge" "4200"\
+\tOption "FingerLow" "25"\
+\tOption "FingerHigh" "30"\
+\tOption "MaxTapTime" "0"\
+\tOption "MaxTapMove" "220"\
+\tOption "VertScrollDelta" "100"\
+\tOption "MinSpeed" "0.10"\
+\tOption "MaxSpeed" "0.30"\
+\tOption "AccelFactor" "0.0030"\
+\tOption "SHMConfig" "on"\
+\t#Option "Repeater" "/dev/ps2mouse"\
 EndSection\
 \
 Section "Monitor"'
@@ -1389,9 +1478,9 @@ Press \Z4FINISHED\Z0 if test was \Z4okay\Z0, or to fall back to \Z1Xvesa Xserver
  fi
 
  dialog --no-collapse --colors --title "Xorg Video Wizard X test report" --yes-label "FINISHED" --no-label "CHANGES" --yesno "
-                  \Z5Resolution           ${XTEST}x${YTEST} pixels\Z0
-                  Horizontal frequency $HSTEST KHz
-                  \Z5Refresh frequency    $VRTEST Hz\Z0
+                  \Z5Resolution        '${XTEST}'x'${YTEST}' pixels\Z0
+                  Horizontal frequency '$HSTEST' KHz
+                  \Z5Refresh frequency '$VRTEST' Hz\Z0
                   Xorg video driver    '${CARD0DRIVER}'
 
 \Z4If you are reporting success, \Z5great\Z4, but if the display was not quite
@@ -1684,8 +1773,9 @@ else
  rm -f "$tmpDir"/videomode
 fi
 
-#move it so people ain't confused seeing it in /root...
-mv -f /root/xorg.conf.new "$tmpDir"/xorg.conf.new
+#move it so people ain't confused seeing it in /root...?
+#mv -f /root/xorg.conf.new "$tmpDir"/xorg.conf.new
+cp -a /root/xorg.conf.new "$tmpDir"/xorg.conf.new
 
 if [ $XAUTO -ne 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
