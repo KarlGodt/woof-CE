@@ -1,0 +1,115 @@
+#!/bin/bash
+# Karl Reimer Godt April 2013
+# Rewrite for Puppy Linux /usr/sbin/partview shellscript .
+# Main change : Using mount/umount-FULL -o ro to speed up reasonably,
+# df -k|-m /mnt/data instead of df -k|-m | grep PATTERN ,
+# support for running outside X , using random foreground colors.
+# Minor changes : FREEK code rearranged and renamed FREEM + using -m option to probepart and df,
+# dropped test for size-changes cos echo + diff + cp code is as heavy as ppmrough + ppmtogif,
+# while + read instead of for loop,
+# grep -vE 'unwanted|fs' instead of grep -E 'known|fs' .
+# add homogeneous=\"true\" to hbox'es + rearrange text in hbox'es,
+# check for gtkdialog2|3|4 and present rough xmessage instead if not|2 .
+
+Version=03
+# 03 added xmessage fallback, added random color
+# 02 was wo random color, added check for gtkdialog2|3|4
+# 01 was code cleanup, added ability to run in kernel console
+# 00 was still -k , used jobs which does not work in 'not a tty'
+
+[ "$DISPLAY" ] && {
+    xmessage -center -bg orange -buttons "" "Please wait, processing. Don't mount or unmount any drives..." &
+    xPID=$! ; }
+
+ERR=/dev/null
+
+mkdir -p /mnt/data
+
+tmpDir=/tmp/partview
+pic_dir=$tmpDir/pic
+mkdir -p $pic_dir
+cd $tmpDir
+
+DISK_FREE=`df -m`
+PARTS=`probepart -m 2> /dev/null | grep '^/dev/' | grep -vE "none|Extended|Ext'd|swap|not inserted|unknown|squashfs" | cut -f 1-3 -d '|'`
+
+if [ "$DISPLAY" ] ; then
+PARTINFO="<hbox homogeneous=\"true\"><text><label>Partitions</label></text><pixmap><input file>$tmpDir/partview_top.gif</input></pixmap><text><label>Free</label></text></hbox>"
+RGB_FILE=`ls -1 /usr/*/X11/rgb.txt | head -n1`
+[ "$RGB_FILE" ] && { COLORS=`cat "$RGB_FILE" | grep -viE 'snow|grey|gray|white|ivory'`
+HOW_MANY=`echo "$COLORS" | wc -l`
+COLOR_NR=$((RANDOM%HOW_MANY))
+#COLOR=`echo "$COLORS" | sed -n "$COLOR_NR p" | awk '{print $4}'`
+COLOR=`echo "$COLORS" | sed -n "$COLOR_NR p" | sed "s%\([[:blank:][:digit:]]*\)\(.*\)%\2%"`
+}
+[ "$COLOR" ] || COLOR=red
+echo "COLOR=$COLOR'"
+ppmrough -width 100 -height 16 -var 1 -bg "$COLOR" -fg grey80 -left 0 | ppmlabel -background transparent -color "$COLOR" -size 10 -y 13 -x 0 -text "Used" -background transparent -color "$COLOR" -size 10 -y 13 -x 1 -text "Used" | ppmtogif > $tmpDir/partview_top.gif
+fi
+
+OLD_IFS="$IFS"
+IFS='|'
+
+echo -e "Partition    Fs   Size_MiB MNTD Used_MiB Free_Space"
+
+time while read device fs size ; do
+[ "$device" -a "$fs" -a "$size" ] || continue
+echo -n "'$device' '$fs' '$size' "
+MST='';echo "$DISK_FREE" | grep -q -w "$device" && MST=ON || MST=OFF;echo -n "'$MST' "
+
+if [ "$MST" = OFF ]; then
+ [ ! "${fs//[FfAaTt0-9]/}" ] && fs=vfat
+ #mount_original -t $fs $device /mnt/data
+ mount-FULL -t $fs -o ro $device /mnt/data
+ [ $? = 0 ] || continue
+ USEDM=`df -m /mnt/data | grep -m1 -w "$device" | awk '{print $3}'`
+ #umount_original $device
+ umount-FULL $device
+else
+ USEDM=`echo "$DISK_FREE" |grep -m1 -w "$device" |awk '{print $3}'`
+fi
+echo -n "'$USEDM' "
+FREEM=$((size - USEDM))
+if [ "$FREEM" -gt 1024 ];then #1024
+  ONEFREE=`dc $FREEM 1024 \/ p`
+  ONEFREE="`printf "%.1f" $ONEFREE`G"
+elif [ "$FREEM" -gt 3 ];then
+  ONEFREE="${FREEM}M"
+else
+  ONEFREE="$((FREEM*1024))K"
+fi
+echo "'$ONEFREE'"
+
+if [ "$DISPLAY" ] ; then
+ppmrough -width 100 -height 14 -var 1 -bg "$COLOR" -fg grey80 -left $(((100*USEDM)/size)) | ppmtogif > $pic_dir/partview_${device//\//_}.gif
+
+PARTINFO="${PARTINFO}
+<hbox homogeneous=\"true\"><text><label>${device##*/}</label></text><pixmap><input file>$pic_dir/partview_${device//\//_}.gif</input></pixmap><text><label>${ONEFREE}</label></text></hbox>"
+fi
+
+done<<EOI
+$(echo "$PARTS")
+EOI
+
+IFS="$OLD_IFS"
+
+[ "$DISPLAY" ] || exit
+
+kill $xPID
+
+which gtkdialog3 && GTKDIALOG_EXE=gtkdialog3 || { which gtkdialog4 && GTKDIALOG_EXE=gtkdialog4 || xmessage -timeout 10 -bg "$COLOR" "
+gtkdialog version 3 or 4 needed.
+
+`echo \"$PARTINFO\" | grep -o '<label>[^>]*</label>'`
+"; }
+
+#WINDOW_ATR=' title="Partview" icon-name="gtk-harddisk"'
+WINDOW_ATR=" title=\"Partview $COLOR\" icon-name=\"gtk-harddisk\""
+
+export PARTVIEW_GTKDLG="<window${WINDOW_ATR}>
+ <vbox>
+  ${PARTINFO}
+ </vbox>
+</window>"
+
+$GTKDIALOG_EXE --program=PARTVIEW_GTKDLG
