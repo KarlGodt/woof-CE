@@ -168,7 +168,8 @@ RDEV_FUNC
 ERRFLG_FUNC() {  ###KRG
 echo -e "\\033[1;34m"'Checking for unpropper previous shutdown  ... '"\\033[0;39m"
 echo -n -e "\\033[1;33m"'Searching for *fsckme* file 3 levels deep ... '"\\033[0;39m"
-ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
+#ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
+ErrFlag=`test -f /var/lock/fsckme* && echo $(ls -1 /var/lock/fsckme* | head -n1)`  ##+++2014-01-02
 if [ -z "$ErrFlag" ] ; then  ##1
 echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"\\033[0;39m"
 echo -e "\\033[1;33m"'Checking for filesystem check intervals using'"\\033[0;39m"
@@ -1395,7 +1396,7 @@ PRESERVE_CHROOT_FUNC
   echo -e "\\033[1;34m""Populating /mnt/ram0/etc  ...""\\033[0;39m"
   mkdir /mnt/ram0/etc
   [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"'/mnt/ram0/etc/'"\\033[0;39m"
-  for ONEFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap fstab group gshadow host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
+  for ONEFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap fstab group gshadow host.conf hostname hosts hosts.allow hosts.deny inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
   do  ##+2013-07-13 added fstab for bb mount
    [ "$DebugVal" = "0" ] && cp -a "$REPO"/etc/$ONEFILE /mnt/ram0/etc/ 2>/dev/null
    [ "$DebugVal" = "2" ] && echo -e -n "$ONEFILE "
@@ -1407,6 +1408,15 @@ PRESERVE_CHROOT_FUNC
   echo "$PDEV1"','"$DEV1FS"',' > /mnt/ram0/etc/fsckme.err  ###KRG
   echo 'DebugVal='"$DebugVal" > /mnt/ram0/etc/initdebug.in  ###KRG
   echo 'TimeOut='"$TimeOut" >> /mnt/ram0/etc/initdebug.in  ###KRG
+
+  touch /mnt/ram0/etc/fstab  ##+++2014-01-02 busybox mount
+
+  echo '::sysinit:/etc/rc.d/rc.sysinit
+tty1::respawn:/sbin/getty -n -l /bin/autologinroot 38400 tty1
+tty2::respawn:/sbin/getty 38400 tty2
+tty3::respawn:/sbin/getty 38400 tty3
+::ctrlaltdel:/sbin/reboot
+' > /mnt/ram0/etc/inittab
 
   echo '/lib' > /mnt/ram0/etc/ld.so.conf
   echo 'export PATH="/bin:/sbin"
@@ -1420,52 +1430,93 @@ export TERM=linux' > /mnt/ram0/etc/profile
   mkdir /mnt/ram0/etc/rc.d
 
   echo '#!/bin/sh
+#VARIABLES
 PDEV1=`cat /etc/fsckme.err | cut -f 1 -d ","`  ###KRG
 DEV1FS=`cat /etc/fsckme.err | cut -f 2 -d ","`  ###KRG
 . /etc/initdebug.in  ###KRG
 PATH="/bin:/sbin"
+#VARIABLES
+
+
+
 echo -e "\\033[0;32m"
 echo "Now running in ramdisk, preparing for filesystem check of ${PDEV1}..."
 echo -e "\\033[0;39m"
+
+
+
+#PROC
 [ ! -d /proc ] && mkdir /proc
-if [ -z "`mount | grep -o /proc`" ] ; then
+if [ -z "`mount | grep -o /proc`" ];
+then
 [ "$DebugVal" = "0" ] && mount -t proc none /proc 2>/dev/null  ###KRG added: 2>/dev/null  ###KRG
 [ "$DebugVal" -ge "1" ] && mount -t proc none /proc
 fi
-if [ "`readlink /etc/mtab`" != "/proc/mounts" ] ; then ##e2fsck needs it , busybox mount apparently not
+
+if [ "`readlink /etc/mtab`" != "/proc/mounts" ];
+then ##e2fsck needs it , busybox mount apparently not
 [ -f /etc/mtab ] || [ -L /etc/mtab ] && rm /etc/mtab
 ln -s ../proc/mounts /etc/mtab
 fi
+#PROC
+
+
+
+#TIME
 [ "$DebugVal" = "0" ] && hwclock --hctosys --localtime 2>/dev/null
 [ "$DebugVal" -ge "1" ] && hwclock --hctosys --localtime
+#TIME
+
+
+
 echo "Unmounting the rootdrive ..."   ###KRG
 echo
+
+
+
+#UNMOUNT old_root
 MOR=`mount | grep "/old_root/.*"`
 for i in `echo "$MOR" | cut -f 3 -d " " | sort -r` ; do
 [ "$DebugVal" = "0" ] && umount $i 2>/dev/null || ErrMor=$?  ###KRG
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""Unmounting $i ...""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && umount $i || ErrMor=$?
-if [ -n "`mount | grep "$i"`" ] ; then
+if [ -n "`mount | grep "$i"`" ];
+then
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""Failed to unmount $i with error=$ErrMor\n""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""Trying lazy now ...""\\033[0;39m"
 umount -l $i || ErrMorl=$?
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""umount -l $i returned errorcode=$ErrMorl""\\033[0;39m"
+
+
 else
+
+
 echo -e "\\033[1;32m""$i was unmounted""\\033[0;39m"
 fi
 done
-if [ -n "`mount | grep -o /old_root`" ] ; then  ##1
+
+if [ -n "`mount | grep -o /old_root`" ];
+then  ##1
 [ "$DebugVal" = "0" ] && umount /old_root 2>/dev/null || Err1=$?
-if [ "$DebugVal" -ge "1" ] ; then
+
+if [ "$DebugVal" -ge "1" ];
+then
 umount /old_root || Err1=$?  ###KRG  ##2
 echo -e "\\033[0;33m""Unmounting /old_root: error returncode=$Err1 , still mounted :""\\033[0;39m"
 mount
 echo  ###DBG
 fi  ##2
+
 sleep $((SLEEP*2))s
-if [ -z "`mount | grep -o /old_root`" ] ; then  ##3
+
+if [ -z "`mount | grep -o /old_root`" ];
+then  ##3
 [ -n "$Err1" ] && { [ "$Err1" -ne "0" ] && echo -e "\\033[1;32m""/old_root $PEDV1 was unmounted though\n""\\033[0;39m"; }
+
+
 else  ##3
+
+
 echo "Not so good, was unable to unmount ${PDEV1}. trying lazy now..."
 sleep $((SLEEP*2))s
 umount -l /old_root
@@ -1473,8 +1524,10 @@ Err3=$?
 sleep $((SLEEP*1))s
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""Umount error returnvalue=$Err3""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && { echo -e "\\033[1;33m""Still mounted :""\\033[0;39m";mount;echo; }
-fi ##3
-if [ -n "$Err3" ] && [ "$Err3" -ne "0" ] ; then  ###KRG  ##5
+fi  ##3
+
+if [ -n "$Err3" ] && [ "$Err3" -ne "0" ];
+then  ###KRG  ##5
 echo "Not so good, was unable to unmount ${PDEV1}. trying option force ..."
 sleep $((SLEEP*2))s
 umount -f /old_root
@@ -1483,57 +1536,117 @@ sleep $((SLEEP*1))s
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""Unmount error returncode=$Err5""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && { echo -e "\\033[1;33m""Still mounted :""\\033[0;39m";mount;echo; }
 fi  ##5
+
 [ -n "$Err5" ] && [ "$Err5" -ne "0" ] && echo "Not so good, was unable to unmount ${PDEV1}. Continuing with f.s. check..."
 fi  ##1
-if [ -z "`mount | grep -o /old_root`" ] ; then
+#UNMOUNT old_root
+
+
+
+#FSCK
+if [ -z "`mount | grep -o /old_root`" ];
+then
 echo -e "\\033[1;32m""OK. /old_root was unmounted successfully .""\\033[0;32m"" Fscking $PDEV1  ...
 Depending on size of installation, might take a while""\\033[0;39m"
-if [ "$DebugVal" -ge "1" ] ; then
+
+if [ "$DebugVal" -ge "1" ];
+then
 e2fsck -C 0 -v -f /dev/${PDEV1}
+
+
 else
+
+
 e2fsck -C 0 -f -y /dev/${PDEV1}
 fi
+
+
 else
+
+
 echo -e "\\033[0;31m""Whatever cause ... /old_root or $PDEV1 still mounted!"
 echo -e "\\033[0;33m""Performing read-only filesystem check ... ""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && e2fsck -C 0 -n -f -v /dev/${PDEV1}
 [ "$DebugVal" = "0" ] && e2fsck -C 0 -n -f /dev/${PDEV1}
 fi
+#FSCK
+
+
+
 sync
 echo
 echo -e "\\033[7;32m"
 echo "Filesystem check completed!"
 echo -e "\\033[0;39m"
+
+
+
+#REMOVE flag files
+mkdir -p /mnt/${PDEV1}  ###KRG removing fsckme.file  ###KRG
+if test "${DEV1FS}"; then
+mount -t ${DEV1FS} /dev/${PDEV1} /mnt/${PDEV1}; MOUNT_ERROR=$?
+
+
+else
+
+
+mount /dev/${PDEV1} /mnt/${PDEV1}; MOUNT_ERROR=$?
+fi
+
+if test $MOUNT_ERROR != 0;
+then
+echo -e "\\033[0;31m""Sorry, could not mount \"$PEDV1\" ."
+echo -e "Very likely that next boot will at least boot"
+echo -e "into the linux console prompt,"
+echo -e "if not directly to X desktop.
+echo -e "If so, Type xwin there to start X.""\\033[0;39m"
+
+
+else
+
+
 echo -e "\\033[0;32m""Removing [ xwin ] blocking files ..."
 echo -e "\\033[0;39m"
-mkdir -p /mnt/${PDEV1}  ###KRG removing fsckme.file  ###KRG
-mount -t ${DEV1FS} /dev/${PDEV1} /mnt/${PDEV1}
+
 ErrFlag=`find /mnt/${PDEV1} -maxdepth 3 -type f -iname "*fsckme*"`
 for i in $ErrFlag ; do
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""Removing $i""\\033[0;39m"
 rm $i
 done
+
 [ -f /mnt/${PDEV1}/etc/.XLOADED ] && rm /mnt/${PDEV1}/etc/.XLOADED
 [ -f /mnt/${PDEV1}/tmp/bootcnt* ] && rm /mnt/${PDEV1}/tmp/bootcnt*
 rm -f /var/log/X*
 rm -f /var/lock/LCK*
 rm -f /var/run/*.pid
+
 SOCK=`find /mnt/${PDEV1}/var -xdev -type s | tr "\n" " "`
 for i in $SOCK ; do
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
 rm -f $i
 done
+
 PIPE=`find /mnt/${PDEV1}/var -xdev -type p | tr "\n" " "`
 for i in $PIPE ; do
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
 rm -f $i
 done
+
 sleep $((SLEEP*2))s
 sync
 umount /dev/${PDEV1}  ###KRG
+fi
+#REMOVE flag files
+
+
+
 [ "$DebugVal" = "0" ] && DUMPE=`dumpe2fs /dev/$PDEV1 2>/dev/null | grep -i "state"`
 [ "$DebugVal" -gt "1" ] && DUMPE=`dumpe2fs /dev/$PDEV1 | grep -i "state"`
 echo -e "\\033[1;34m""$DUMPE""\\033[0;39m"
+
+
+
+#LAST dialog
 echo -e "\\033[0;36m"
 echo "The computer now has to be restarted."
 echo -e "\\033[0;35m"
@@ -1547,7 +1660,8 @@ echo "or [ r ] for dropout into rdsh :"
 echo -e "\\033[0;39m"
 echo -n -e "\\033[4;5;34m""ENTER""\\033[0;39m"" -> ""\\033[1;7;32m"
 read -n 1 -t $TimeOut K
-if [ "$K" = "r" -o "$K" = "R" ] ; then
+if [ "$K" = "r" -o "$K" = "R" ];
+then
 echo
 echo -e "\\033[0;32m"
 echo "Dropping now"
@@ -1555,12 +1669,19 @@ echo "Have FUN !"
 echo
 echo -e "\\033[0;39m"
 exit
+
+
 else
+
+
 echo -e "\\033[0;39m"  ###KRG
 [ "$DebugVal" = "0" ] && umount /proc 2>/dev/null
 [ "$DebugVal" -ge "1" ] && { umount /proc;sleep $((SLEEP*3))s; }
 reboot
-fi' > /mnt/ram0/etc/rc.d/rc.sysinit
+fi
+#LAST dialog
+
+' > /mnt/ram0/etc/rc.d/rc.sysinit
   chmod 0755 /mnt/ram0/etc/rc.d/rc.sysinit
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/usr  ...""\\033[0;39m"
@@ -1608,7 +1729,9 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   mkdir /mnt/ram0/tmp
   mkdir -p /mnt/ram0/var/run
   mkdir /mnt/ram0/proc
-
+  mkdir /mnt/ram0/sys      ##+++2014-01-02
+  mkdir /mnt/ram0/dev      ## "
+  mkdir /mnt/ram0/selinux  ## "
   sleep $((SLEEP*3))s
   sync
 
@@ -1636,7 +1759,9 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   busybox mount -o move /mnt/ram9 ./mnt/ram9
   [ ! -d ./sys ] && mkdir ./sys
   busybox mount -o move /sys ./sys
+  [ ! -d ./proc ] && mkdir ./proc
   busybox mount -o move /proc ./proc
+  busybox mountpoint -q /dev && { mkdir -p ./dev; busybox mount -o move /dev ./dev; }  ##+++2014-01-02
   ##ln -s ../mnt/ram9/lib ./lib
   [ "$DebugVal" = "2" ] && CONTINUE_FUNC
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
