@@ -1,0 +1,89 @@
+#!/bin/sh
+# Karl Reimer Godt in June 2012
+# usual Puppy license
+Version='1.0 Puppy_Linux_Racy_5.3 KRG'
+
+usage(){
+MSG="
+$0 [start|stop]
+Starts busybox acpid daemon at boot and
+shuts it down at reboot or poweroff event.
+If ./PWRF/00000080 contains gui lines, needs
+to be run from.xintrc or /usr/sbin/delayedrun .
+"
+if [ "$2" ];then
+MSG="$MSG
+
+$2
+"
+fi
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue3 "$MSG"
+exit $1
+}
+
+ ACPID_BIN=`which acpid`
+ [ "$ACPID_BIN" ] || usage 1 "No (executable) acpid binary installed?"
+ [ "`readlink "$ACPID_BIN" | grep -i 'busybox'`" ] || usage 1 "$0: Laucher for busybox acppid applet."
+
+ Config_directory=/etc/acpi       # -c
+
+ #1.19.4 does not work wit -e /proc/acpi/event
+ proc_event_file=/proc/acpi/event # -e
+ Log_file=/var/log/acpid.log      # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
+
+ #acpid: invalid option -- 'p'
+ #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
+ #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
+ Pid_file=/var/run/acpid.pid      # -p
+ Action_file=/etc/acpid.conf      # -a
+ Map_file=/etc/acpi.map           # -M
+
+ case $1 in
+ help) usage 0;;
+ version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+ start)
+ if pidof acpid ;then
+ echo "acpid Already running."
+ else
+ acpid -c "$Config_directory" \
+  -l "$Log_file" \
+  -a "$Action_file" \
+  -M "$Map_file"
+
+ sleep 2
+ echo -n "Started acpid:"
+ pidof acpid || echo "FAILED."
+ fi
+ ;;
+ stop)
+ if pidof acpid;then
+  for n in {1..4};do
+  kill -$n `pidof acpid`
+  sleep 1
+  pidof acpid || break
+  done
+    if [ -f "$Pid_file" ];then
+    pid_file_pid=$(cat "$Pid_file")
+    [ "$pid_file_pid" ] || pid_file_pid=999999999999999 #fake, hopefully never used :oops:
+    if ps | grep -w "$pid_file_pid";then
+     for n in {1..4};do
+       kill -$n $pid_file_pid  #MARKER
+       sleep 1
+       pidof acpid || break
+      done
+    fi
+    fi
+   if pidof acpid;then
+    echo "FAILED to stop acpid."
+   else
+    echo "acpid stopped."
+   fi
+ else
+ echo "acpid not running."
+ fi
+ rm -f "$Pid_file"
+ ;;
+ "") usage 1 "Need Parameter.";;
+ *) usage 1 "Unknown Parameter '$1' .";;
+ esac
