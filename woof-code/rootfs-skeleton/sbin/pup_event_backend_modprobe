@@ -60,7 +60,7 @@
 # ;;
 # esac
 # PUPMODE=2
-# KERNVER=2.6.30.6-KRG-i486
+# KERNEL_RELEASE=2.6.30.6-KRG-i486
 # ATADRIVES='·sda'
 # USB_SATAD=''
 # PUP_HOME='/'
@@ -100,7 +100,8 @@ exit $1
 export LANG=C #w004
 
 alias modprobe='modprobe -b'  ##+++2012-02-03
-PROG='/sbin/pup_event_backend_modprobe_version=Macpup_Foxy3-KRG'
+PROG='/sbin/puppy_udev_helper'
+version='Macpup_Foxy3-KRG'
 
 CONFFILE='/etc/modprobe.conf'
 [ -f /etc/modprobe.d/modprobe.conf ] && CONFFILE='/etc/modprobe.d/modprobe.conf'
@@ -110,66 +111,66 @@ ALSACONF="$CONFFILE"
 [ -f /etc/modprobe.d/alsa.conf ] && ALSACONF='/etc/modprobe.d/alsa-base.conf'
 [ -f /etc/modprobe.d/alsa_cards.conf ] && ALSACONF='/etc/modprobe.d/alsa_cards.conf'
 
-#NOTICE: If the full 'udev' package, with utility 'udevd' is installed, rc.sysinit
+#NOTICE: If the full UDEV package is installed, with utility 'udevd',  /etc/rc.d/rc.sysinit
 #   will run 'udevd' instead of 'pup_event_backend_d' and this script will be used.
 
 [ -r /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE
 [ -r /etc/rc.d/MODULESCONFIG ] && . /etc/rc.d/MODULESCONFIG
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin"
-KERNVER=`uname -r`
+KERNEL_RELEASE=`uname -r`
 CNTSND=0 #v405
 #w463 optional $1 supplied by triggered udev rule, see /etc/udev/rules.d/60-udev-modem.rules
 RULEMODULE=""
 
 LocalLOG=''
-
-LocalLOG='/tmp/pup_eve_bac_mod.log'
+LOG_FILE='/tmp/puppy_udev_helper.log'
 TIME="date +%M.%S.%N"
 
-echo $$ 1.0 `$TIME` '$1='"$1" >> $LocalLOG
+exec 1>>"$LOG_FILE" 2>&1
+echo $$ 1.0 `$TIME` '$1='"'$1'" #>> $LocalLOG
 
-[ $1 ] && RULEMODULE="$1"
-touch /tmp/pup_event_module_devpath_log
+[ "$1" ] && RULEMODULE="$1"
+touch /tmp/puppy_udev_helper_module_devpath.log
 
-[ "$FASTBOOTMODULESLIST" != "" ] && { echo $$ 1.5 'FASTMODLST .. exit ..' >> $LocalLOG ;exit 1; } #fastboot, see /etc/rc.d/MODULESCONFIG.
+[ "$FASTBOOTMODULESLIST" != "" ] && { echo $$ 1.5 'FASTMODLST . Exit.'; exit 1; } #fastboot, see /etc/rc.d/MODULESCONFIG.
 
 setup_alsa_func() { #uses MODULE.
  #if a sound module, preconfigure alsa (/etc/init.d/alsa will start it)...
  if [ "`echo -n "$lsmodName" | grep '^snd_'`" != "" ];then
-  echo $$ 8.0 `$TIME` "calling setup_alsa_func" >> $LocalLOG
-  CNTSND=`cat /tmp/pup_event_alsa_cnt`
+  echo $$ 8.0 `$TIME` "calling setup_alsa_func" #>> $LocalLOG
+  read CNTSND </tmp/puppy_udev_helper_alsa_cnt ||  CNTSND=0
   [ "$CNTSND" = 'noalsa' ] && return 1
-  DPATTERN="alias snd\\-card\\-$CNTSND"
+  grepPATTERN="alias snd\\-card\\-$CNTSND"
   #dMODULE=`echo -n "$lsmodName" | tr '_' '-'` #v407  ##+-+2011_10_26 dMODULE replaced by realName
-  if [ "`grep "$DPATTERN" $ALSACONF`" = "" ];then
-  echo 'Adding '"alias snd-card-$CNTSND $realName"' to '"$ALSACONF"' because entry is missing' >> $LocalLOG
-   echo >> $ALSACONF
-   echo '##### Added by /sbin/pup_event_backend_modprobe #####' >> $ALSACONF
-   echo '### Running kernel '"$KERNVER" >> $ALSACONF
-   echo '### Because alias entry is missing in this'  >> $ALSACONF
-   echo '### Configuration-file '"$CONFFILE" >> $ALSACONF
-   echo "alias snd-card-$CNTSND $realName" >> $ALSACONF
-   echo "alias sound-slot-$CNTSND $realName" >> $ALSACONF
-   echo '##### '`date`' #####' >> $ALSACONF
+  if [ "`grep "$grepPATTERN" "$ALSACONF"`" = "" ]; then
+  echo "Adding 'alias snd-card-$CNTSND $realName' to '$ALSACONF' because entry is missing." #>> $LocalLOG
+   echo >> "$ALSACONF"
+   echo '##### Added by /sbin/puppy_udev_helper #####' >> "$ALSACONF"
+   echo '### Running kernel '"$KERNEL_RELEASE" >> "$ALSACONF"
+   echo '### Because alias entry is missing in this'  >> "$ALSACONF"
+   echo '### Configuration-file '"$CONFFILE" >> "$ALSACONF"
+   echo "alias snd-card-$CNTSND $realName" >> "$ALSACONF"
+   echo "alias sound-slot-$CNTSND $realName" >> "$ALSACONF"
+   echo '##### '`date`' #####' >> "$ALSACONF"
   else
    #for portability, check if correct sound card...
-   BPATTERN="alias snd\\-card\\-$CNTSND $realNameGrepPattern" #v408
-   if [ "`grep "$BPATTERN" $CONFFILE`" = "" ];then
-   echo 'Creating new /tmp/modprobe.conf file because of '"$BPATTERN"' had changed' >> $LocalLOG
-    grep -v "$DPATTERN" $CONFFILE > /tmp/modprobe.conf  ##leaves sound-slot-nr in modprobe.conf
-    cp -f /tmp/modprobe.conf $CONFFILE
-    echo >> $CONFFILE
-    echo '##### Changed by /sbin/pup_event_backend_modprobe #####' >> $CONFFILE
-    echo '### Running kernel '"$KERNVER" >> $CONFFILE
-    echo '### Because modulename or harware had changed' >> $CONFFILE
-    echo '### Configuration-file is '"$CONFFILE" >> $CONFFILE
-    echo "alias snd-card-$CNTSND $realName" >> $CONFFILE
-    echo "alias sound-slot-$CNTSND $realName" >> $CONFFILE
-    echo '##### '`date`' #####' >> $CONFFILE
+   grepPATTERN2="alias snd\\-card\\-$CNTSND $realNameGrepPattern" #v408
+   if [ "`grep "$grepPATTERN2" "$CONFFILE"`" = "" ];then
+   echo 'Creating new /tmp/modprobe.conf file because of '"$grepPATTERN2"' had changed' #>> $LocalLOG
+    grep -v "$grepPATTERN" "$CONFFILE" > /tmp/modprobe.conf  ##leaves sound-slot-nr in modprobe.conf
+    cp -f /tmp/modprobe.conf "$CONFFILE"
+    echo >> "$CONFFILE"
+    echo '##### Changed by /sbin/puppy_udev_helper #####' >> "$CONFFILE"
+    echo '### Running kernel '"$KERNEL_RELEASE" >> "$CONFFILE"
+    echo '### Because modulename or harware had changed' >> "$CONFFILE"
+    echo '### Configuration-file is '"$CONFFILE" >> "$CONFFILE"
+    echo "alias snd-card-$CNTSND $realName" >> "$CONFFILE"
+    echo "alias sound-slot-$CNTSND $realName" >> "$CONFFILE"
+    echo '##### '`date`' #####' >> "$CONFFILE"
    fi
   fi
   CNTSND=`expr $CNTSND + 1`
-  echo -n "$CNTSND" > /tmp/pup_event_alsa_cnt
+  echo -n "$CNTSND" > /tmp/puppy_udev_helper_alsa_cnt
  fi
 return 0
 }
@@ -177,14 +178,14 @@ return 0
 pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  #returns 0 if ok to load module, changes MODULE if required.
 
- echo $$ 5.0 `$TIME` "Starting pci_fixup_func ..." >> $LocalLOG
+ echo $$ 5.0 `$TIME` "Starting pci_fixup_func ..." #>> $LocalLOG
 
  VENDOR='0x'"`echo -n "$MODALIAS" | cut -f 2 -d 'v' | cut -b 1-8 | tr [A-Z] [a-z]`"
  DEVICE='0x'"`echo -n "$MODALIAS" | cut -f 2 -d 'v' | cut -b 10-17 | tr [A-Z] [a-z]`"
  #######/etc/rc.d/MODULESCONFIG overrides######
  #may need to do substitution for specific pci interface...
- APATTERN="$VENDOR $DEVICE"
- REPLACEMENT=`echo "$PCI_OVERRIDES" | grep "$APATTERN"`
+ grepPATTERN="$VENDOR $DEVICE"
+ REPLACEMENT=`echo "$PCI_OVERRIDES" | grep "$grepPATTERN"`
  #w463 replace only if not already forced by udev rule...
  #[ "$REPLACEMENT" != "" ] && MODULE="$REPLACEMENT"
  [ "$REPLACEMENT" != "" ] && [ "$RULEMODULE" = "" ] && lsmodName=`echo "$REPLACEMENT" | cut -f 1 -d ' '`
@@ -201,7 +202,7 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  fi
  #v2.17 intel pci numbering is peculiar, need this hack....
  if [ "$lsmodName" = "ipw2200" ];then
-  [ "`lspci -m -n -d 8086:1043 | cut -f 10 -d '"' | cut -b 1,2`" = "25" ] && lsmodName="ipw2100" #'geany
+  [ "`/sbin/lspci -m -n -d 8086:1043 | cut -f 10 -d '"' | cut -b 1,2`" = "25" ] && lsmodName="ipw2100" #'geany
  fi
  #v408 pup 4.1retro, k2.6.21.7, madwifi wireless, ath_pci.ko loads then
  #my pcmcia and sd-card no longer work -- no uevents from kernel. yet, if
@@ -213,129 +214,129 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
 }
 
 firmware_module_func() {
- echo $$ 7.0 `$TIME` "starting firmware_module_func ..." >> $LocalLOG
- #global MODULE is name of module, global KERNVER.
+ echo $$ 7.0 `$TIME` "starting firmware_module_func ..." #>> $LocalLOG
+ #global MODULE is name of module, global KERNEL_RELEASE.
  altMODULE=`echo -n "$lsmodName" | tr '_' '-'`
  FPATTERN='[:,]'"${lsmodName}"'\.ko|[:,]'"${altMODULE}"'\.ko'
 
- FIRMPKG=`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`
+ FIRMPKG=`cat /etc/modules/firmware.dep.$KERNEL_RELEASE | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`
 
  if [ "$FIRMPKG" != "" ];then
-  echo $$ 7.3 `$TIME` "found FIRMPKG='$FIRMPKG' in /etc/modules/firmware.dep.$KERNVER" >> $LocalLOG
+  echo $$ 7.3 `$TIME` "found FIRMPKG='$FIRMPKG' in /etc/modules/firmware.dep.'$KERNEL_RELEASE'" #>> $LocalLOG
 
   if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-   echo $$ 7.4 `$TIME` "found /lib/modules/all-firmware/${FIRMPKG}.tar.gz" >> $LocalLOG
+   echo $$ 7.4 `$TIME` "found /lib/modules/all-firmware/'${FIRMPKG}'.tar.gz" #>> $LocalLOG
 
    cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp ##>/dev/null 2>&1
    cd /tmp
    tar -zxf ${FIRMPKG}.tar.gz ##>/dev/null 2>&1
   fi
   if [ -d /tmp/${FIRMPKG} ];then
-  echo $$ 7.5 `$TIME` "OK , extracted to /tmp/${FIRMPKG}" >> $LocalLOG
+  echo $$ 7.5 `$TIME` "OK , extracted to /tmp/'${FIRMPKG}'" #>> $LocalLOG
 
    /bin/cp -a --remove-destination /tmp/${FIRMPKG}/* / ##2>/dev/null
    retVal=$?
    if [ "$retVal" = '0' ] ; then
-    echo $$ 7.5 `$TIME` "OK , successfully installed ..." >>$LocalLOG
+    echo $$ 7.5 `$TIME` "OK , successfully installed ..." #>>$LocalLOG
    else
-    echo $$ 7.5 `$TIME` "NOPE or what ..? Installing returned $retVal . PLEASE look into /tmp/${FIRMPKG} for the files that should have been installed ..." >> $LocalLOG
+    echo $$ 7.5 `$TIME` "NOPE or what ..? Installing returned $retVal . PLEASE look into /tmp/'${FIRMPKG}' for the files that should have been installed ..." >> $LocalLOG
    fi
   fi
   #in case firmware is not a .tar.gz tarball...
   if [ -d /lib/modules/all-firmware/${FIRMPKG} ];then #w478
-  echo $$ 7.6 `$TIME` "OK , copying /lib/modules/all-firmware/${FIRMPKG}/\* to / , overriding evtl. the tar.gz" >> $LocalLOG
+  echo $$ 7.6 `$TIME` "OK , copying /lib/modules/all-firmware/${FIRMPKG}/\* to / , overriding evtl. the tar.gz" #>> $LocalLOG
 
    /bin/cp -a --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* / ##2>/dev/null
    retVal=$?
    if [ "$retVal" = '0' ] ; then
-    echo $$ 7.6 `$TIME` "OK , successfully installed ..." >>$LocalLOG
+    echo $$ 7.6 `$TIME` "OK , successfully installed ..." #>>$LocalLOG
    else
-    echo $$ 7.6 `$TIME` "NOPE or what ..? Installing returned $retVal . PLEASE look into /tmp/${FIRMPKG} for the files that should have been installed ..." >> $LocalLOG
+    echo $$ 7.6 `$TIME` "NOPE or what ..? Installing returned '$retVal' . PLEASE look into /tmp/${FIRMPKG} for the files that should have been installed ..." #>> $LocalLOG
    fi
   fi
 
   #comment-out the firmware pkg entry, so it only installs once...
   if [ "$retVal" = '0' ] ; then
   R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
-  DEPUPDATED=`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`
-  echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
+  DEPUPDATED=`sed -e "$R1PATTERN" "/etc/modules/firmware.dep.$KERNEL_RELEASE"`
+  [ $? = 0 ] && echo "$DEPUPDATED" > "/etc/modules/firmware.dep.$KERNEL_RELEASE"
   #execute any post-install script...
    if [ -f /pinstall.${FIRMPKG}.sh ];then
-    echo $$ 7.7 `$TIME` "OK , /pinstall.${FIRMPKG}.sh exists , executing now ..." >> $LocalLOG
+    echo $$ 7.7 `$TIME` "OK , /pinstall.${FIRMPKG}.sh exists , executing now ..." #>> $LocalLOG
 
     cd /
     /pinstall.${FIRMPKG}.sh ##>/dev/null 2>&1 #execute script.
     rm -f /pinstall.${FIRMPKG}.sh ##>/dev/null 2>&1
    fi
   else
-   echo $$ 7.7 `$TIME` "NOT altering /etc/modules/firmware.dep.'$KERNVER', because retVal='$retVal'" >> $LocalLOG
+   echo $$ 7.7 `$TIME` "NOT altering /etc/modules/firmware.dep.'$KERNEL_RELEASE', because retVal='$retVal'" #>> $LocalLOG
   fi
   ###+++20111-11-16 chmoding /etc/init.d/$FIRMPKG
   find /etc/init.d -maxdepth 1 \( -type f -o -type l \)-iname "*$FIRMPKG*" -exec chmod +x {} \;
   find /etc/init.d/FIRMWARE -maxdepth 1 \( -type f -o -type l \) -iname "*$FIRMPKG*" -exec chmod +x {} \;
  fi
- echo $$ 7.9 `$TIME` "ending firmware_module_func ..." >> $LocalLOG
+ echo $$ 7.9 `$TIME` "ending firmware_module_func ..." #>> $LocalLOG
 }
 
-echo $$ 2.0 `$TIME` "MODALIAS='$MODALIAS'" >> $LocalLOG
+echo $$ 2.0 `$TIME` "MODALIAS='$MODALIAS'" #>> $LocalLOG
 
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
 #MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'` #v424  ##+-2011_10_26 rm tr - _
-MODULES=`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
+MODULES=`/sbin/modprobe --config /tmp/puppy_udev_helper_modprobe.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
 realName=`echo "$MODULES" | tail -n 1` #v424
 lsmodName=`echo "$realName" | tr '\-' '_'`  ##+++2011_20_26
 #[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE=`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1` #v424
-echo $$ 3.0 `$TIME` 'lsmodName='"$lsmodName" >> $LocalLOG
+echo $$ 3.0 `$TIME` "lsmodName='$lsmodName'" #>> $LocalLOG
 
 if [ -z "$realName" ] ; then  ##+++2011_20_26
 MODALIAS2="${MODALIAS#*\:}"  ##deletes preceding pci: or platform:
 #MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS2 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
-MODULES=`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS2 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
+MODULES=`/sbin/modprobe --config /tmp/puppy_udev_helper_modprobe.conf --show-depends $MODALIAS2 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.'`
 realName=`echo "$MODULES" | tail -n 1` #v424
 lsmodName=`echo "$realName" | tr '\-' '_'`
 fi  ##+++2011_20_26
 
-[ "$lsmodName" = "" ] && [ "$RULEMODULE" != "" ] && lsmodName="$RULEMODULE" #w463 Use module from argument
+[ "$lsmodName" = "" -a "$RULEMODULE" != "" ] && lsmodName="$RULEMODULE" #w463 Use module from argument
 
-[ "$lsmodName" = "" ] && { echo $$ 3.5 `$TIME` 'Still no lsmodName .. exit ..' >> $LocalLOG;exit 1; }
-[ "$lsmodName" = "usb_storage" ] && { echo $$ 3.6 `$TIME` "$lsmodName omitted by $0" >> $LocalLOG;exit 1; } #loaded explicitly in boot scripts.
+[ "$lsmodName" = "" ] && { echo $$ 3.5 `$TIME` 'Still no lsmodName . Exit.'; exit 1; }
+[ "$lsmodName" = "usb_storage" ] && { echo $$ 3.6 `$TIME` "'$lsmodName' omitted by '$0'"; exit 1; } #loaded explicitly in boot scripts.
 
 ###<2011-11-10>
 #if [ -n "`echo "$lsmodName" | grep '[ou]hci_hcd'`" ] ; then
-if [ "$lsmodName" = 'ohci_hcd' -o "$lsmodName" = 'uhci_hcd' ] ; then
+if [ "$lsmodName" = 'ohci_hcd' -o "$lsmodName" = 'uhci_hcd' ]; then
 if [ -z "`lsmod | grep 'ehci_hcd'`" ] ; then
-if [ -n "`elspci -l | grep -w '0C0320'`" ] ; then
-echo $$ 3.7 `$TIME` "$lsmodName detected AND port:ehci-hcd but ehci-hcd not loaded yet" >> $LocalLOG
+if [ -n "`elspci -l | grep -w '0C0320'`" ]; then
+echo $$ 3.7 `$TIME` "'$lsmodName' detected AND port:ehci-hcd but ehci-hcd not loaded yet." #>> $LocalLOG
 MODALIAS='' $0 "ehci-hcd"
 sleep 1s;c=0
-while [ -z "`lsmod | grep 'ehci_hcd'`" ] ; do
+while [ -z "`lsmod | grep 'ehci_hcd'`" ]; do
 c=$((c+1))
 sleep 1s
 [ "$c" == 10 ] && break
 done
 if [ -z "`lsmod | grep 'ehci_hcd'`" ] ; then
-echo $$ 3.8 `$TIME` "MODULE ehci-hcd still not loaded yet . Continuing loading $lsmodName anyway" >> $LocalLog
+echo $$ 3.8 `$TIME` "MODULE ehci-hcd still not loaded yet. Continuing loading '$lsmodName' anyway." #>> $LocalLog
 else
-echo $$ 3.8 `$TIME` "MODULE ehci-hcd loaded . Continuing loading $lsmodName" >> $LocalLog
+echo $$ 3.8 `$TIME` "MODULE ehci-hcd loaded. Continuing loading '$lsmodName'" #>> $LocalLog
 fi
 fi
 fi
 fi
 ###</2011-11-10>
 
-realNameGrepPattern="${realName//-/\\-}"     ##+++2011_10_26
-realNameGrepPattern2="${realName//-/\\\\-}"  ##+++2011_10_26 for setup_alsa_func #2011_10_27 :alias snd\-card\-0 snd\\-wavefront not as wanted , changed to $realNameGrepPattern
-[ -z "`modprobe -l | grep "$realNameGrepPattern"`" ] && { echo $$ 3.5 `$TIME` "cannot find $realName in modprobe -l" >> $LocalLOG;exit 2; }
+realNameGrepPattern="${realName//-/\\-}"     ##+++2011-10-26
+realNameGrepPattern2="${realName//-/\\\\-}"  ##+++2011-10-26 for setup_alsa_func #2011-10-27 :alias snd\-card\-0 snd\\-wavefront not as wanted , changed to $realNameGrepPattern
+[ -z "`modprobe -l | grep "$realNameGrepPattern"`" ] && { echo $$ 3.5 `$TIME` "cannot find '$realName' in modprobe -l"; exit 2; }
 lsmodNameGrepPattern='^'"${lsmodName}"'$'
-echo $$ 4.0 `$TIME` 'modPATTERN 1 ='"$lsmodNameGrepPattern" >> $LocalLOG
+echo $$ 4.0 `$TIME` "modPATTERN 1 ='$lsmodNameGrepPattern'" #>> $LocalLOG
 
-#[ "`cat /tmp/pup_event_module_devpath_log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] && echo 'Duplicate module ..exit ..' >> $LocalLOG && exit 0 #duplicate module.
-if [ "`cat /tmp/pup_event_module_devpath_log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$lsmodNameGrepPattern"`" != "" ] ; then
+#[ "`cat /tmp/pup_event_module_devpath.log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] && echo 'Duplicate module ..exit ..' >> $LocalLOG && exit 0 #duplicate module.
+if [ "`grep "$lsmodNameGrepPattern" /tmp/puppy_udev_helper_module_devpath.log | cut -f 1 -d ' ' | cut -f 2 -d '='`" ] ; then
 FM=`find /dev/.udev/failed | grep "$lsmodNameGrepPattern"`
 if [ -z "$FM" ] ; then
-echo $$ 4.5 `$TIME` 'Duplicate module ..exit ..' >> $LocalLOG && exit 0 #duplicate module.
+echo $$ 4.5 `$TIME` 'Duplicate module. Exit.'; exit 0 #duplicate module.
 else
-echo -e $$ 4.5 `$TIME` "\e[31m"'udevd seems to have failed already loading '"$lsmodNameGrepPattern""\e[39m" >> $LocalLOG
+echo -e $$ 4.5 `$TIME` "udevd seems to have failed already loading '$lsmodNameGrepPattern'" #>> $LocalLOG
 fi
 fi
 
@@ -343,22 +344,22 @@ fi
 case $MODALIAS in
  pci:*)
   pci_fixup_func #w463 needs MODALIAS, MODULE, RULEMODULE
-  [ $? -ne 0 ] && { echo -e $$ 5.9 `$TIME` "\e[33m"'Error in pci_fixup_func .. exit ..'"\e[39m" >> $LocalLOG;exit 1; }
+  [ $? -ne 0 ] && { echo -e $$ 5.9 `$TIME` 'Error in pci_fixup_func . Exit.'; exit 1; }
  ;;
 esac
 
 #v404 preferences list, ex rt2500usb and rt73usb both hits, then choose latter...
 modPATTERN='^'"$lsmodName"':'
-echo $$ 6.0 `$TIME` 'modPATTERN 2 ='"$modPATTERN" >> $LocalLOG
+echo $$ 6.0 `$TIME` "modPATTERN 2 ='$modPATTERN'" #>> $LocalLOG
 PREFHIT=`echo -n "$PREFLIST" | tr ' ' '\n' | grep "$modPATTERN"`
-echo $$ 6.1 `$TIME` 'PREFHIT='"$PREFHIT" >> $LocalLOG
+echo $$ 6.1 `$TIME` "PREFHIT='$PREFHIT'" #>> $LocalLOG
 
 if [ "$PREFHIT" != "" ];then
  PREFMOD=`echo -n "$PREFHIT" | cut -f 2 -d ':'`
- echo "blacklist $lsmodName" > /tmp/pup_event_prefhit_blacklist
- xMODULE=`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>$ERR | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`
- [ "$xMODULE" != "" ] && [ "$xMODULE" != "$lsmodName" ] && lsmodName="$xMODULE"
- echo $$ 6.5 `$TIME` lsmodName=$lsmodName >> $LocalLOG
+ echo "blacklist $lsmodName" > /tmp/puppy_udev_helper_prefhit_blacklist.conf
+ replaceMODULE=`/sbin/modprobe --config /tmp/puppy_udev_helper_prefhit_blacklist.conf --show-depends $MODALIAS 2>$ERR | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`
+ [ "$replaceMODULE" -a "$replaceMODULE" != "$lsmodName" ] && lsmodName="$replaceMODULE"
+ echo $$ 6.5 `$TIME` "lsmodName='$lsmodName'" #>> $LocalLOG
 fi
 
 #installs a firmware tarball (once only. loading firmware is something else)...
@@ -370,11 +371,11 @@ usleep $(( $$ * 10 ))
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
 cd /sbin #v408 rerwin thinks this is needed for slamr module.
 if [ -z "`lsmod | grep "$lsmodName"`" ] ; then
-echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath_log
-echo -e $$ 9.0 `$TIME` "\e[32m"'Finally modprobing '"$lsmodName""\e[39m" >> $LocalLOG
- exec /sbin/modprobe -v $lsmodName
+echo "MODULE=$lsmodName DEVPATH=$DEVPATH" >> /tmp/puppy_udev_helper_module_devpath.log
+echo -e $$ 9.0 `$TIME` "Finally modprobing '$lsmodName'" #>> $LocalLOG
+ exec /sbin/modprobe -vb $lsmodName
 else
-echo -e $$ 9.0 `$TIME` "\e[31m"'lsmodName '"$lsmodName"' already inserted'"\e[39m" >> $LocalLOG
+echo -e $$ 9.0 `$TIME` "lsmodName '$lsmodName' already loaded." #>> $LocalLOG
 fi
 ###END###
 exit
