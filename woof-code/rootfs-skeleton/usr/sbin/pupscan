@@ -11,7 +11,6 @@
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
@@ -30,9 +29,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
@@ -61,10 +58,12 @@ PCIMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
 -e 's/d\(0000....\)sv[^ ]*/ 0x\1/' \
 -e 's/d\*sv[^ ]*/ 0xffffffff/' \
  | tr [A-F] [a-f]`"
+
 [ -s /etc/udev/rules.d/??-dialup-modem.rules ] && RULEMODINFO="`cat /etc/udev/rules.d/??-dialup-modem.rules | tr -s " " | grep '^ATTR{vendor}==' | sed -e 's/ATTR{vendor}==\"0x\(....\)\",/0x0000\1/' \
 -e 's/ATTR{device}==\"0x\([^\"]*\)\",.*RUN[^ ]*/0x0000\1/' \
 -e 's/0x0000[^ ]*\[.*\][^ ]*/0xffffffff/' \
 -e 's/\"$//'`" || RULEMODINFO=""
+
 [ "$RULEMODINFO" != "" ] && PCIMODINFO="$RULEMODINFO
 $PCIMODINFO"
 
@@ -76,7 +75,7 @@ Simplified information only is displayed here:
 "  >> /tmp/chipnummod.txt
  elspci -l  >> /tmp/chipnummod.txt
 else
- scanpci |
+ scanpci 2>>/tmp/chipnummod.txt |
  while read ONELINE
  do
   VENDOR=`echo -n "$ONELINE" | grep '^pci' | grep -o 'vendor .*' | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
@@ -101,7 +100,7 @@ else
    echo "VENDOR: $VENDOR  DEVICE: $CHIPNO  KERNEL MODULE: $MODULE" >> /tmp/chipnummod.txt
    echo  >> /tmp/chipnummod.txt
   fi
- done
+ done 2>>/tmp/chipnummod.txt
 fi
 
 [ ! -s /tmp/chipnummod.txt ] && echo "No PCI interfaces" > /tmp/chipnummod.txt #v3.01
@@ -111,8 +110,11 @@ fi
 #v2.17 usb devices...
 USBSECTION=""
 echo -n "" > /tmp/usbchipnummod.txt
-if [ -e /proc/bus/usb ];then
+if [ ! -e /proc/bus/usb/devices ];then
+busybox mount -t usbfs none /proc/bus/usb >>/tmp/usbchipnummod.txt 2>&1
+fi
 
+if [ -e /proc/bus/usb/devices ];then
 #v4.02...
 USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias usb:' | sed -e 's/alias usb:v/0x/' \
 -e 's/^0x\*/0xffff/' \
@@ -132,14 +134,15 @@ USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
    VENDOR=`echo -n "$ONENUM" | cut -f 1 -d '|' | cut -f 2 -d '='`
    PRODUCT=`echo -n "$ONENUM" | cut -f 2 -d '|' | cut -f 2 -d '='`
    ONEUSB="0x${VENDOR} 0x${PRODUCT}"
-   
+
    [ "$ONEUSB" = "0x0000 0x0000" ] && continue
-   
+
    YESPARA=no
    USBMODULE=""
    rm -f /tmp/usbmodulexxx
    echo -n "" > /tmp/usbdevdescr
-   cat /proc/bus/usb/devices | tr -s ' ' |
+
+   cat /proc/bus/usb/devices 2>>/tmp/usbchipnummod.txt | tr -s ' ' |
    while read ONELINE
    do
     zPATTERN="Vendor=${VENDOR} ProdID=${PRODUCT}"
@@ -154,14 +157,14 @@ USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
    done
    [ ! -s /tmp/usbdevdescr ] && [ "`grep ' ' /tmp/usbmodulexxx`" != "" ] && echo "Product=`cat /tmp/usbmodulexxx`" > /tmp/usbdevdescr && rm /tmp/usbmodulexxx #v425
    [ -f /tmp/usbmodulexxx ] && USBMODULE=`cat /tmp/usbmodulexxx`
-   
+
    [ "$USBMODULE" = "" ] && USBMODULE=`echo "$USBMODINFO" | grep "$ONEUSB" | cut -f 3 -d ' ' | tail -n 1` #v425
 
    #echo "DESCRIPTION: $CHIPDESC" >> /tmp/usbchipnummod.txt
    cat /tmp/usbdevdescr >> /tmp/usbchipnummod.txt
    echo "VendorID=$VENDOR  ProductID=$PRODUCT  KERNEL-MODULE=$USBMODULE" >> /tmp/usbchipnummod.txt
    echo  >> /tmp/usbchipnummod.txt
-   
+
   done
 
 [ ! -s /tmp/usbchipnummod.txt ] && echo "No plugged-in USB devices" > /tmp/usbchipnummod.txt #v3.01
@@ -187,7 +190,7 @@ MAINDIALOG="
 <wtitle>Puppy hardware-interfaces information</wtitle>
 <hbox>
  <vbox>
-  
+
   <frame Kernel modules>
   <hbox>
    <text><label>At bootup, Puppy examines the hardware interfaces to determine what kernel drivers (modules) to load, and does so. Click this button for information on loaded modules:</label></text>
@@ -229,7 +232,7 @@ MAINDIALOG="
   </frame>
 
   ${USBSECTION}
-  
+
   <frame result>
    <edit>
     <variable>INFO</variable>
@@ -238,7 +241,7 @@ MAINDIALOG="
     <height>300</height>
    </edit>
   </frame>
-  <hbox>     
+  <hbox>
    <button>
     <label>exit</label>
     <action>EXIT=EXIT</action>
@@ -260,7 +263,7 @@ MAINDIALOG="
 #  </hbox>
 #  </frame>
 
-rm -f /tmp/hwproberesult.txt #v425 erase stale info 
+rm -f /tmp/hwproberesult.txt #v425 erase stale info
 
 if [ "`which scanpci`" = "" ];then
  echo 'echo "This must be a cutdown Puppy that does not have the scanpci utility
