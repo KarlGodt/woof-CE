@@ -202,10 +202,11 @@ fi
 echo -e "\\033[1;33m""This script will run X windows for you...""\\033[0;39m"
 #fi
 
-XORGCONFFILE='/etc/X11/xorg.conf'
+XORG_CONF='/etc/X11/xorg.conf'
 echo "HOME    : '$HOME'" #> /dev/tty3 #DBG
 echo "pwd     : '`pwd`'" #> /dev/tty3 #DBG
 echo "USER    : '$USER'"
+XINIT_RC="$HOME/.xinitrc"
 
 #if test "$HOME" != "/root" ; then #KRG
 if test "`whoami`" != "root" ; then  #whoami=root at boot but home is /
@@ -214,8 +215,8 @@ cd ~/   #v3.98 Ensure current directory is root, in case changed at command prom
 #cp -u $XORGCONFFILE $HOME/.X11/
 #XORGCONFFILE=".X11/xorg.conf"
 #cp -u $XORGCONFFILE /usr/X11R7/lib/X11/xorg.conf.d/xorg.conf.$USER
-cp -u $XORGCONFFILE /etc/X11/xorg.conf.$USER #had /usr/X11 major BUG 2012-01-31
-XORGCONFFILE="xorg.conf.$USER"
+cp -u $XORG_CONF /etc/X11/xorg.conf.$USER #had /usr/X11 major BUG 2012-01-31
+XORG_CONF="xorg.conf.$USER"
 fi #KRG
 
 ###+++2012-02-10 #both login /f root and autologinroot dont work , would stop/leave script
@@ -713,6 +714,7 @@ echo `date` "7: finally start X"
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
 #but if PC hangs, XLOADED will still be true, so will know it is broken.
 echo -n "true" > /etc/.XLOADED
+rm -f /tmp/wmexitmode.txt
 echo 'HAVEX='"$HAVEX"'_EOS'
 case $HAVEX in
  #Xvesa|Xvesa*|Xnvidia|Xnvidia*|Xchips|Xephyr|Xepson|Xfake|Xfbdev|Xi810|Xmach64|Xmga|Xneomagic|Xnest|Xpm2|Xrt28|Xsdl|Xsmi|Xvfb|Xvia)
@@ -760,15 +762,42 @@ case $HAVEX in
   RETval1=$?
   ;;
  Xorg)
-  echo "Starting X, specs in /etc/X11/xorg.conf, startup apps /root/.xinitrc..."
+
+  if [ ! -f /etc/mousedevice ];then
+   echo "input/mice" > /etc/mousedevice
+   #ln -snf input/mice /dev/mouse
+  else
+   [ "`cat /etc/mousedevice`" = "psaux" ] && echo "input/mice" > /etc/mousedevice
+  fi
+  read MOUSE_DEVICE </etc/mousedevice || MOUSE_DEVICE="input/mice"
+  ln -snf $MOUSE_DEVICE /dev/mouse
+
+  OLD_LOGS=`ls -1rv /tmp/xerrs.$HAVEX.log*`
+  for oneLOG_FILE in $OLD_LOGS; do
+  case $oneLOG_FILE in
+
+  /tmp/xerrs.$HAVEX.log.[0-9]*)
+
+  LOG_NR=${oneLOG_FILE##*.}
+  NEW_NR=$((LOG_NR+1)) || continue
+  while test -e /tmp/xerrs.$HAVEX.log.$NEW_NR; do
+  NEW_NR=$((NEW_NR+1)); done
+  mv $oneLOG_FILE ${oneLOG_FILE%.*}.$NEW_NR
+   ;;
+
+  /tmp/xerrs.$HAVEX.log) mv /tmp/xerrs.$HAVEX.log /tmp/xerrs.$HAVEX.log.0;;
+  esac
+  done
+
+  echo "Starting X, specs in $XORG_CONF, startup apps launched from file $XINIT_RC..."
   #v2.11 G2 suggested -br for black background instead of checked...
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
   #     if have '-nolisten tcp'. until find out why, this workaround...
   if [ "$KERNELVER" = "2.6.18.8" ];then
-   /usr/bin/xinit /root/.xinitrc -- -ignoreABI -config $XORGCONFFILE -br > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit $XINIT_RC -- -ignoreABI -config $XORG_CONF -br > /tmp/xerrs.$HAVEX.log 2>&1
   RETval1=$?
   else
-   /usr/bin/xinit /root/.xinitrc -- -ignoreABI -config $XORGCONFFILE -br -nolisten tcp > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit $XINIT_RC -- -ignoreABI -config $XORG_CONF -br -nolisten tcp > /tmp/xerrs.$HAVEX.log 2>&1
   RETval1=$?
   fi
   ;;
