@@ -31,12 +31,12 @@ PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
 
 pidof_function(){
 pidof -o $ME_PID -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
-}
+} #Still unused
 
 clean_up_script(){
 #!/bin/sh
 
-ME_PROGRAM=`readlink -e "$0"`
+ME_PROGRAM=`readlink -f "$0"`
 ME_PID=$$
 
 usage(){
@@ -218,28 +218,54 @@ done
 kill_jobs(){
 JOBS=`get_jobs_pids`
 for Pid in $JOBS ; do
-ps -p "$Pid" && kill $Pid
+/bin/ps -p "$Pid" && kill $Pid
 done
 }
 
 probedisk_simple(){
-    echo probing for drives >&2
-ALLDRIVES=`ls -1 /sys/block | grep -vE 'ram|loop|mtd|md'`
+[ "${VERBOSE}" ] && echo probing for drives >&2
+ALLDRIVES=`ls -1 /sys/block | grep -vE 'ram|loop|mtd|md|nbd'`
 for drive in $ALLDRIVES ; do
+unset REMOVABLE KIND VEND MODL
 [ -f /sys/block/$drive/removable ] && read REMOVABLE </sys/block/$drive/removable
+[ "$REMOVABLE" ] || REMOVABLE=0
 case $drive in
 sd*)
-[ "$REMOVABLE" = 0 ] && KIND=drive || KIND=usbdrv ;;
+[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=usbdrv
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 0 ] && KIND=drive || KIND=usbdrv
+fi
+  ;;
 sr*)
-[ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv   ;;
+[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=usbcd
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv
+fi
+  ;;
 fd*)
-[ "$REMOVABLE" = 1 ] && KIND=floppy || KIND=floppy  ;;
+
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 1 ] && KIND=floppy || KIND=floppy
+fi
+  ;;
 hd*)
-[ "$REMOVABLE" = 0 ] && KIND=drive || KIND=usbdrv    ;;
+
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 0 ] && KIND=drive || KIND=usbdrv
+fi
+   ;;
 scd*)
-[ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv   ;;
+
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv
+fi
+   ;;
 mmc*)
-[ "$REMOVABLE" = 1 ] && KIND=card || KIND=usbdrv   ;;
+
+if test ! "$KIND"; then
+[ "$REMOVABLE" = 1 ] && KIND=card || KIND=usbdrv
+fi
+  ;;
 esac
 [ -f /sys/block/$drive/device/vendor ] && read VEND </sys/block/$drive/device/vendor
 [ -f /sys/block/$drive/device/model ] && read MODL </sys/block/$drive/device/model
@@ -248,7 +274,7 @@ esac
 #PARTS=`ls -1 /sys/block/$drive/$drive[0-9]* 2>$ERR | grep -o -e '[0-9]*' |tr '\n' ' '`
 echo "$drive|$KIND|$VEND $MODL"
 done
-    echo done probing >&2
+[ "${VERBOSE}" ] && echo done probing >&2
 }
 
 echo here 0
@@ -332,7 +358,7 @@ auto_unmount_func() {
    umount $ONEMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
-    ZOMBIES=`ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
     for ONEZOMBIE in $ZOMBIES
     do
      kill $ONEZOMBIE
@@ -639,7 +665,7 @@ ${DRV_DESCRIPTION}"
  icon_unmounted_func $PART_NAME $DRV_CATEGORY;add_pinboard_func $PART_NAME
  elif [ "$ICONPARTITIONS" = "true" ];then
       [ "$DEBUG" ] && echo "ICONPARTITIONS true"
-    MNTSTATUS=`df | grep "$drvPATTERN"`
+    MNTSTATUS=`/bin/df | grep "$drvPATTERN"`
     if [ "$MNTSTATUS" = "" ];then
      icon_unmounted_func $PART_NAME $DRV_CATEGORY #see functions4puppy4.
     else
@@ -729,10 +755,10 @@ free_initrd_func() { #UniPup, runs entirely in initramfs.
 free_func() { #called every 4 seconds.
  case $PUPMODE in
   6|12)
-   SIZEFREEM=`df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+   SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
   ;;
   *)
-   SIZEFREEM=`df -m | grep -m1 ' /$' | tr -s ' ' | cut -f 4 -d ' '`
+   SIZEFREEM=`/bin/df -m | grep -m1 ' /$' | tr -s ' ' | cut -f 4 -d ' '`
   ;;
  esac
  WARNMSG=""
@@ -772,8 +798,8 @@ savepuppy_func(){
 
 free_flash_func(){ #PUPMODE 3,7,13. called every 3 seconds.
  WARNMSG=""
- SIZEFREEM=`df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
- SIZETMPM=`df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+ SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
+ SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
  [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
  [ -s /tmp/pup_event_sizetmpm ] && PREVSIZETMPM=`cat /tmp/pup_event_sizetmpm`
  [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
@@ -884,7 +910,7 @@ echo "ICONDESK is false"
  DRVINFO="$DEV_NAME"'|0|0'
 
  mkdir -p $drvDir/drive_${DEV_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
- cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
+ /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
  INFO="Puppy drive manager"
  MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
  create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME or $1 or DRV_NAME
@@ -905,7 +931,7 @@ elif [ "$ICONPARTITIONS" = "false" ];then
 
    test_func_out_2(){
    mkdir -p $drvDir/drive_${DEV_NAME}
-   cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
+   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
    probepart_func -d/dev/$DEV_NAME
    FSTYPE=`echo "$PROBEPART" | grep -w "$DEV_NAME" | cut -f2 -d'|'`
    [ "$FSTYPE" ] || FSTYPE=' - '
@@ -915,7 +941,7 @@ elif [ "$ICONPARTITIONS" = "false" ];then
 ${DRV_DESCRIPTION}"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
-   if [ "`df | grep -w "$DEV_NAME"`" ] ; then
+   if [ "`/bin/df | grep -w "$DEV_NAME"`" ] ; then
    icon_mounted_func $DEV_NAME $DRV_CATEGORY
    else
    icon_unmounted_func $DEV_NAME $DRV_CATEGORY
@@ -931,21 +957,27 @@ else
  #show all drives on desktop... w476 add ext4...
 
 while read -r ONEDRV
+#IFS='|' while read -r DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
  do
  [ "$ONEDRV" ] || continue
+ #test "$DRV_NAME" || continue
+
  [ "$DEBUG" ] && echo "ONEDRV=$ONEDRV'"
+ #[ "$DEBUG" ] && echo "DRV_NAME=$DRVNAME' DRV_CATEGORY=$DRV_CATEGORY' DRV_DESCRIPTION=$DRV_DESCRIPTION'"
 
   DEV_NAME=`echo -n "$ONEDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  #DRV_NAME=${DRV_NAME##*/}
 
   DRV_CATEGORY=`echo "$ONEDRV" | cut -f2 -d'|'`
   DRV_DESCRIPTION=`echo "$ONEDRV" | cut -f3 -d'|'`
 
   create_icon_func $DEV_NAME #startup #needs PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
+  #create_icon_func $DRV_NAME
 
   #ONEDRVNAME="$DEV_NAME"
   if [ ! -d $drvDir/drive_${DEV_NAME} ] ; then
    mkdir -p $drvDir/drive_${DEV_NAME}
-   cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
+   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DRV_NAME}/AppRun
    INFO="Puppy drive manager"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
@@ -1115,13 +1147,14 @@ EOI
 
   fi
 fi
+
  ######### hotplug detected #########
- echo here 0
+ [ "$VERBOSE" ] && echo here 0
  PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
  PROBEDISK2_LOOP_NEW=`probedisk_simple`
- echo "PROBEDISK_LOOP_OLD=$PROBEDISK_LOOP_OLD'"
- echo "PROBEDISK_LOOP_NEW=$PROBEDISK_LOOP_NEW'"
- echo here 1
+ [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_OLD=$PROBEDISK_LOOP_OLD'"
+ [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_NEW=$PROBEDISK_LOOP_NEW'"
+ [ "$VERBOSE" ] && echo here 1
  #######four second timeout procesing#########
 
  if test -f "/tmp/pup_event_icon_change_flag" ;then #1
