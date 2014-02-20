@@ -168,7 +168,7 @@ export LANG=C
 
 fsstate_func(){
 t "`rdev`" || return $PUPMODE
-echo -n "FILESYSTEM STATE : $* > "
+echo -n "FILESYSTEM STATE:: $* : "
 dumpe2fs `rdev` | grep -i 'STATE'
 echo
 }
@@ -347,6 +347,9 @@ for i in `seq 0 11` ; do
 t -c /dev/fb$i || mknod /dev/fb$i c 29 $i
 t -L /dev/fb/$i || ln -s ../fb$i /dev/fb/$i
 done
+
+#sound[AO OSS] audio_setup: Can't open audio device /dev/dsp: No such file or directory
+t -c /dev/dsp || { rm -f /dev/dsp;mknod /dev/dsp c 14 3; }
 }
 mkmissing_tty_func
 
@@ -549,10 +552,20 @@ firmware_dep_func() {
 if t ! -f /etc/modules/firmware.dep.$KERNEL; then
 echo "copying firmware.dep" > /dev/console
 FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
-cp "$FWF" /etc/modules/firmware.dep.$KERNEL
+[ -f "$FWF" ] && cp "$FWF" /etc/modules/firmware.dep.$KERNEL
 fi
 }
 firmware_dep_func
+
+DOTconfig_func(){
+#if t -f /lib/modules/$KERNEL/DOTconfig*; then
+if t -f /lib/modules/$KERNEL/DOTconfig-$KERNEL; then
+ if t ! -f /etc/modules/DOTconfig-$KERNEL; then
+ cp -a /lib/modules/$KERNEL/DOTconfig-$KERNEL /etc/modules/DOTconfig-$KERNEL
+ fi
+fi
+}
+DOTconfig_func
 
 fsstate_func 10
 
@@ -655,7 +668,10 @@ fsstate_func 14
 
 #################LOAD KERNEL MODULES################
 echo "LOAD KERNEL MODULES"
-echo -n "Loading kernel modules..." >/dev/console
+syslogd -m 0
+klogd
+
+echo -n "    Loading kernel modules..." >/dev/console
 
 MODALIASES=`ls /sys/bus/*/devices/*/modalias`
 
@@ -733,7 +749,7 @@ do
   echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
   sleep 0.02
-  echo -ne '\033[1;35m''.''\033[0;39m' >/dev/console
+  echo -ne '\r\033[1;35m'$MODULECNT'\033[0;39m' >/dev/console
   MODULECNT=$((MODULECNT+1))
  fi
 done
@@ -789,8 +805,6 @@ fsstate_func 16
 
 #################MISC. SYSTEM SETUP#################
 echo "MISC. SYSTEM SETUP"
-syslogd -m 0
-klogd
 
 echo -e "${DISTRO_NAME} Linux\n`uname -s` `uname -r` [`uname -m` arch]\n\n" > /etc/issue
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
