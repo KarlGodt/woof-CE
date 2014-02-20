@@ -197,10 +197,10 @@ BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 ## Dropped the relevant rt2860.bin into /lib/firmware/ directory, still same error.
 
 KERNEL=`uname -r`
-#K_VERSION=`echo "$KERNEL" | awk -F '.-_' '{print $1}'`
-#K_PATCHLEVEL=`echo "$KERNEL" | awk -F '.-_' '{print $2}'`
-#K_SUBLEVEL=`echo "$KERNEL" | awk -F '.-_' '{print $3}'`
-#K_EXTRALEVEL=`echo "$KERNEL" | awk -F '.-_' '{print $4}'`
+#K_VERSION=`echo "$KERNEL" | awk -F '[_.-]' '{print $1}'`
+#K_PATCHLEVEL=`echo "$KERNEL" | awk -F '[_.-]' '{print $2}'`
+#K_SUBLEVEL=`echo "$KERNEL" | awk -F '[_.-]' '{print $3}'`
+#K_EXTRALEVEL=`echo "$KERNEL" | awk -F '[_.-]' '{print $4}'`
 #echo "$KERNEL" | IFS='.-_' read K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRALEVEL K_EXTRANAME;
 IFS='.-_' read K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRALEVEL K_EXTRANAME<<EOI
 `echo "$KERNEL"`
