@@ -1,0 +1,40 @@
+#!/bin/sh
+echo "$0:|$@|" >&2
+#Barry Kauler, LGPL 2010
+
+#If a different modem selected, quit...
+[ -h /dev/modem ] && { echo "hyperlink /dev/modem exists. Exitin.";exit; }
+
+[ ! $1 ] &&  { echo "No parameter given. Exiting.";exit; }
+[ "$1" != "start" ] && { echo "\$1 is not 'start' . Exiting.";exit; }
+
+echo "" >> /tmp/udevtrace-modem.log  #DEBUG
+echo "Allusbserial: `date | tr -s ' ' | cut -f 4 -d ' '` - No modem found yet." >> /tmp/udevtrace-modem.log  #DEBUG
+#Verify all usbserial-related drivers loaded, then let them settle.
+/sbin/pup_event_backend_modprobe_protect --modcheck=usbserial || exit
+echo "Allusbserial: usbserial module is loaded." >> /tmp/udevtrace-modem.log  #DEBUG
+sleep 0.5
+
+#Let high-speed modems to be detected by hso init script.
+[ "`grep -l -s 'Modem' /sys/class/tty/ttyHS?*/hsotype`" != "" ] && exit
+echo "Allusbserial: No ttyHS modem found, so continuing." >> /tmp/udevtrace-modem.log  #DEBUG
+
+#Select interrupt-type device - first one or one identified in log as modem.
+DEVLIST="`grep -l -s 'Interrupt' /sys/class/tty/ttyUSB?*/device/ep_??/type | cut -f 5 -d / | sed 's/\(ttyUSB\)\([0-9]$\)/\10\2/' | sort | sed 's/\(ttyUSB\)\(0\)/\1/'`"
+MODEM="`echo "$DEVLIST" | head -n 1`"
+DEVMLIST="`grep 'converter now attached' /var/log/messages | grep ' modem ' | grep -o 'ttyUSB[0-9][0-9]*'`"
+[ "$DEVMLIST" != "" ] \
+ && MODEM="`echo "$DEVLIST" | grep -F "$DEVMLIST" | head -n 1`"
+echo "Script Usbserial - DEVLIST: $DEVLIST  DEVMLIST: $DEVMLIST  MODEM: $MODEM" >> /tmp/udevtrace-modem.log  #debug
+[ "$MODEM" = "" ] && exit
+
+ln -snf $MODEM /dev/modem
+
+#the module doesn't seem to support any country setting, so...
+if [ -f /etc/countryinfo ];then
+ SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+ sed -i -e "$SPATTERN" /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable.
+
+###END###
