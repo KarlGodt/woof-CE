@@ -176,6 +176,9 @@ VERBOSE=1
 [ "$VERBOSE" = 1 ] && OUTPUT=/dev/stdout || OUTPUT=/dev/null
 [ "$VERBOSE" = 1 ] &&  ERROR=/dev/stderr ||  ERROR=/dev/null
 
+alias rmmod='/sbin/rmmod -v'
+alias modprobe='/sbin/modprobe -v'
+
 #
 # KRG : 2013-12-04 use verbosity
 #
@@ -193,6 +196,24 @@ echo "-> Projectfiles.com Linux Firewall version $VERSION running."
 # Set PATH explicitly.
 
 export PATH="/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
+
+
+if [ "$1" == "help" ] ; then
+echo "
+$0 [ parameter ]
+
+Valid parameters are
+
+update
+load
+fast
+save
+check
+stop
+cleanup
+
+"
+fi
 
 # Tell everyone if we are loading data from an external configuration file.
 
@@ -243,30 +264,31 @@ fi
 
 if [ "$1" == "stop" ] || [ "$1" == "clear" ]; then
   echo " [ PASSED ]"
-  iptables -t filter -F 1>$OUTPUT 2>$ERROR
-  iptables -t filter -X 1>$OUTPUT 2>$ERROR
-  iptables -t nat -F 1>$OUTPUT 2>$ERROR
-  iptables -t nat -X 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -F 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -X 1>$OUTPUT 2>$ERROR
-  iptables -t filter -P INPUT ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t filter -P OUTPUT ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t filter -P FORWARD ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t nat -P PREROUTING ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t nat -P POSTROUTING ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t nat -P OUTPUT ACCEPT  1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P POSTROUTING ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P OUTPUT ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P PREROUTING ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P INPUT ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P FORWARD ACCEPT 1>$OUTPUT 2>$ERROR
-  if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
+  iptables -t filter -F 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter -X 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -F 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -X 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -F 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -X 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter -P OUTPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -P PREROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -P OUTPUT ACCEPT  1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P OUTPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P PREROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
+  #if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
+  if [ "`which modprobe`" ]  && [ -a "/proc/modules" ]; then
     for MODULE in ipt_TTL iptable_mangle ipt_mark ipt_MARK ipt_MASQUERADE \
                   ip_nat_irc ip_nat_ftp ipt_LOG ipt_limit ipt_REJECT \
                   ip_conntrack_irc ip_conntrack_ftp ipt_state iptable_nat \
                   iptable_filter ip_tables; do
       if (( `lsmod | grep -c "$MODULE"` )); then
-        rmmod $MODULE 1>$OUTPUT 2>$ERROR
+        rmmod $MODULE 1>>$OUTPUT 2>>$ERROR
       fi
     done
   fi
@@ -559,6 +581,7 @@ for PARAM in PERMIT BLACKLIST; do
   done
 done
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Remove entries with ports and put them in their own variable.
@@ -784,6 +807,7 @@ for INTERFACE in $IGNORE_INTERFACES; do
 done
 EXTERNAL_INTERFACES=`echo $EXTERNAL_INTERFACES` # Remove whitespace.
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Divide internal and external interfaces into static and dynamic groups.
@@ -870,6 +894,7 @@ if [ -n "$STATIC_NAT_INTERFACES" ]; then
       echo -n "-> $INTERFACE has no IP address.  Waiting for DHCP"
       for COUNT in 1 2 3 4 5 6 7 8 9 10; do
         sleep 1
+        echo "$0:'$*' `date` $LINENO"
         echo -n "."
         ADDRESS=`ifconfig | grep "^$INTERFACE\ " -A1 | grep "inet" | cut -d: -f2 | cut -d\  -f1 | head -1`
         if [ -n "$ADDRESS" ]; then
@@ -910,13 +935,15 @@ if [ -n "$STATIC_NAT_INTERFACES" ]; then
   NAT_ADDRESSES=`echo $NAT_ADDRESSES`
 fi
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Determine if this is a modular kernel, if so modprobe the required modules.
 
-if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
+#if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
+if [ "`which modprobe`" ]  && [ -a "/proc/modules" ]; then
   if (( `lsmod | grep -c "ipchains"` )); then
-    rmmod ipchains 1>$OUTPUT 2>$ERROR
+    rmmod ipchains 1>>$OUTPUT 2>>$ERROR
   fi
   REQUIRED_MODULES="ip_tables ip_conntrack ipt_state iptable_filter ip_conntrack_irc ip_conntrack_ftp"
   if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
@@ -951,7 +978,7 @@ if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc
     #is fetched from the zdrv file. The following modprobe -l only lists actual
     #module names not aliases. Fix: comment out the if...
     #if (( `modprobe -l | grep -c "$MODULE"` )); then
-      modprobe $MODULE 1>$OUTPUT 2>$ERROR
+      modprobe $MODULE 1>>$OUTPUT 2>>$ERROR
     #fi
   done
 fi
@@ -1115,6 +1142,7 @@ if [ -n "$INTERNAL_NETWORKS" ]; then
   done
 fi
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Sanity check ALLOW_INBOUND and DENY_OUTBOUND and compare against INTERNAL_NETWORKS.
@@ -1314,6 +1342,7 @@ if [ -n "$STATIC_INTERNAL_INTERFACES" ] && [ "$TRUST_ROUTED_NETWORKS" != "yes" ]
   EXTERNAL_ADDRESSES="$EXTERNAL_ADDRESSES $INTERNAL_ADDRESSES"
 fi
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Check that rp_filter interfaces are valid.
@@ -1325,6 +1354,7 @@ for INTERFACE in $NO_RP_FILTER_INTERFACES; do
   fi
 done
 
+echo "$0:'$*' `date` $LINENO"
 # Check for Local Loopback interface.
 
 if !(( `ifconfig | grep -A1 "^lo" | grep "127\." | grep -c "255\.0\.0\.0"` )); then
@@ -1332,6 +1362,7 @@ if !(( `ifconfig | grep -A1 "^lo" | grep "127\." | grep -c "255\.0\.0\.0"` )); t
   exit_failure $1
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Make sure the filter table exists.
 
 if (( `iptables -t filter -nL 2>&1 | grep -c "Table does not exist"` )) || (( `iptables -t filter -nL 2>&1 | grep -c "can't initialize iptables table"` )); then
@@ -1339,6 +1370,7 @@ if (( `iptables -t filter -nL 2>&1 | grep -c "Table does not exist"` )) || (( `i
   exit_failure $1
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Check for the REJECT target if RFC 1122 compliance is enabled.
 
 if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
@@ -1350,6 +1382,7 @@ if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # If logging is enabled check for LOG and limit targets.
 
 if [ "$LOGGING" == "yes" ]; then
@@ -1368,6 +1401,7 @@ if [ "$LOGGING" == "yes" ]; then
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Check for the nat table if we need it.
 
 if [ -n "$STATIC_NAT_INTERFACES" ] || [ -n "$DYNAMIC_NAT_INTERFACES" ] || [ -n "$PORT_FORWARDS" ]; then
@@ -1377,6 +1411,7 @@ if [ -n "$STATIC_NAT_INTERFACES" ] || [ -n "$DYNAMIC_NAT_INTERFACES" ] || [ -n "
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Determine if we need the MASQUERADE target.
 
 if [ -n "$DYNAMIC_NAT_INTERFACES" ] || ( [ -n "$DYNAMIC_INTERFACES" ] && [ -n "$PORT_FORWARDS" ] ); then
@@ -1388,6 +1423,7 @@ if [ -n "$DYNAMIC_NAT_INTERFACES" ] || ( [ -n "$DYNAMIC_INTERFACES" ] && [ -n "$
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Check for state match module.
 
 if (( `iptables -t filter -I OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>&1 | \
@@ -1398,6 +1434,7 @@ else
   iptables -t filter -D OUTPUT 1
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Check for various port forwarding and ttl_stealth_router requirements.
 
 if [ -n "$PORT_FORWARDS" ] || [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
@@ -1429,6 +1466,7 @@ if [ -n "$PORT_FORWARDS" ] || [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Test for ipt_TTL support.
 
 if [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
@@ -1444,6 +1482,7 @@ fi
 
 echo " [ PASSED ]"
 
+echo "$0:'$*' `date` $LINENO"
 # Exit if we only want to do sanity checking.
 
 if [ "$1" == "check" ]; then
@@ -1456,10 +1495,12 @@ fi
 
 echo -n "-> Building firewall."
 
+echo "$0:'$*' `date` $LINENO"
 # Let no packets slip by while we are configuring the firewall.
 
 echo "0" > /proc/sys/net/ipv4/ip_forward
 
+echo "$0:'$*' `date` $LINENO"
 # Enable kernel level reverse path filtering.
 
 echo "1" > /proc/sys/net/ipv4/conf/all/rp_filter
@@ -1467,6 +1508,7 @@ for INTERFACE in $NO_RP_FILTER_INTERFACES; do
   echo "0" > /proc/sys/net/ipv4/conf/$INTERFACE/rp_filter
 done
 
+echo "$0:'$*' `date` $LINENO"
 # Enable kernel level dynamic address handling.
 
 if [ -n "$DYNAMIC_INTERFACES" ]; then
@@ -1475,6 +1517,7 @@ else
   echo "0" > /proc/sys/net/ipv4/ip_dynaddr
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Set default policies.
 
 iptables -t filter -F
@@ -1482,24 +1525,25 @@ iptables -t filter -X
 iptables -t filter -P INPUT DROP
 iptables -t filter -P FORWARD DROP
 iptables -t filter -P OUTPUT ACCEPT
-
+echo "$0:'$*' `date` $LINENO"
 if !(( `iptables -t nat -F 2>&1 | grep -c "Table does not exist"` )); then
   iptables -t nat -X
   iptables -t nat -P PREROUTING ACCEPT
   iptables -t nat -P POSTROUTING ACCEPT
   iptables -t nat -P OUTPUT ACCEPT
 fi
-
+echo "$0:'$*' `date` $LINENO"
 if !(( `iptables -t mangle -F 2>&1 | grep -c "Table does not exist"` )); then
   iptables -t mangle -F
   iptables -t mangle -X
   iptables -t mangle -P PREROUTING ACCEPT
   iptables -t mangle -P OUTPUT ACCEPT
-  iptables -t mangle -P POSTROUTING ACCEPT 1>$OUTPUT 2>$ERROR     # New 2.4.18 builtin mangle chains
-  iptables -t mangle -P INPUT ACCEPT 1>$OUTPUT 2>$ERROR
-  iptables -t mangle -P FORWARD ACCEPT 1>$OUTPUT 2>$ERROR
+  iptables -t mangle -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR     # New 2.4.18 builtin mangle chains
+  iptables -t mangle -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
 fi
 
+echo "$0:'$*' `date` $LINENO"
 # Drop traffic to and from blacklisted networks.
 
 for NETWORK in $BLACKLIST; do
@@ -1545,6 +1589,8 @@ for NETWORK in $BLACKLIST; do
   fi
 done
 
+echo "$0:'$*' `date` $LINENO"
+
 # Initialize trusted chain
 
 iptables -t filter -N TRUSTED
@@ -1554,6 +1600,8 @@ if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
 else
   iptables -t filter -A TRUSTED -j DROP
 fi
+
+echo "$0:'$*' `date` $LINENO"
 
 # Reject state NEW without SYN flag set.  (paranoia setting)
 
@@ -1572,6 +1620,8 @@ if [ "$DROP_NEW_WITHOUT_SYN" == "yes" ]; then
   fi
 fi
 
+echo "$0:'$*' `date` $LINENO"
+
 # Set logging preferences.  Do not log broadcasts.
 
 if [ "$LOGGING" == "yes" ]; then
@@ -1589,6 +1639,7 @@ if [ "$LOGGING" == "yes" ]; then
            --log-prefix "firewall: "
 fi
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Accept icmp-echo-request packets if RFC-1122 compliance option is enabled.  Limit logging of icmp packets.
@@ -1746,6 +1797,7 @@ for ITEM in $OPEN_PORTS $TRUSTED_PORTS; do
   fi
 done
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # For routers, allow routing of internal and routed networks on internal interfaces.  Fix traceroutes under DNAT info-leak-bug.
@@ -1923,6 +1975,7 @@ if [ "$IS_ROUTER" == "yes" ]; then
   done
 fi
 
+echo "$0:'$*' `date` $LINENO"
 echo -n "."
 
 # Configure port forwarding.
@@ -1937,7 +1990,7 @@ for FORWARD in $PORT_FORWARDS; do
   fi
   DPORTS=`echo "$PORTS" | cut -d- -f1,2 --output-delimiter=":"`
   # Support DNAT for locally generated connections, new in iptables 1.2.6a and kernel 2.4.19
-  iptables -t nat -A OUTPUT -o lo -p $PROTOCOL --dport $IN_PORTS -j DNAT --to-destination $DEST:$PORTS 1>$OUTPUT 2>$ERROR
+  iptables -t nat -A OUTPUT -o lo -p $PROTOCOL --dport $IN_PORTS -j DNAT --to-destination $DEST:$PORTS 1>>$OUTPUT 2>>$ERROR
   COUNT="0"
   while (( `echo "${INTERFACE_TAB[$((COUNT + 1))]}" | grep -c "."` )); do
     COUNT=$((COUNT + 1))
