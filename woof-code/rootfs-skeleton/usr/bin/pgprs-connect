@@ -1,6 +1,5 @@
 #!/bin/sh
 
-#trap "/etc/ppp/pgprs-disconnect.sh" HUP INT QUIT TRAP KILL TERM
 
 
 mkdir -p /var/local/sns
@@ -54,8 +53,6 @@ else
 echo "No download andor upload count available for last session."
 fi
 }
-
-#unset RX_BYTES TX_BYTES
 
 fun_present_last_month(){
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
@@ -122,12 +119,12 @@ if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
   echo -n "$TX_BYTES_MONTH" > /var/local/sns/tx_bytes_month
 
 echo ""
-TOTALSESSION=$( dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo -e "SESSION: $TOTALSESSION\tKiB"
-TOTALMONTH=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: $TOTALMONTH\tKiB"
-TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tMiB"
-TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tMiB"
-TOTALSESSION=$( dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tGiB"
-TOTALMONTH=$( dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tGiB"
+TOTALSESSION=$( LC_ALL=C dc $(($RX_BYTES+$TX_BYTES)) 1024 \/ p );          echo -e "SESSION: $TOTALSESSION\tKiB"
+TOTALMONTH=$( LC_ALL=C dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: $TOTALMONTH\tKiB"
+TOTALSESSION=$( LC_ALL=C dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tMiB"
+TOTALMONTH=$( LC_ALL=C dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tMiB"
+TOTALSESSION=$( LC_ALL=C dc $TOTALSESSION 1024 \/ p ); echo -e "SESSION: $TOTALSESSION\tGiB"
+TOTALMONTH=$( LC_ALL=C dc $TOTALMONTH 1024 \/ p );     echo -e "  MONTH: $TOTALMONTH\tGiB"
 echo ""
 
 else
@@ -138,17 +135,13 @@ fi
 
 fun_read_rxtx_bytes(){
 ACTIVE_INTERFACE="ppp0"
-#mkdir -p /var/local/sns
-#[ -f /tmp/sns_interface_success ] && read ACTIVE_INTERFACE </tmp/sns_interface_success #SNS
-#[ "$ACTIVE_INTERFACE" ] || ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
-#if [ "$ACTIVE_INTERFACE" ];then
+
 mkdir -p /var/local/$ACTIVE_INTERFACE
 while test "`pidof pppd`"; do
   until [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];do sleep 1s;done
   break
 done
 
-#while test "`pidof pppd`"; do
 while test -d /sys/class/net/${ACTIVE_INTERFACE}; do
   read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
   read TX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes
@@ -162,11 +155,18 @@ while test -d /sys/class/net/${ACTIVE_INTERFACE}; do
   #[ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
   #TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
   #echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
-#  done
-# fi
+  if test $RX_BYTES -gt 1048576; then DO="$(((RX_BYTES/1024)/1024)) MB"
+  elif test $RX_BYTES -gt 1024; then DO="$((RX_BYTES/1024)) KB"
+  else DO="$RX_BYTES B";fi
+  if test $TX_BYTES -gt 1048576; then UP="$(((TX_BYTES/1024)/1024)) MB"
+  elif test $TX_BYTES -gt 1024; then UP="$((TX_BYTES/1024)) KB"
+  else UP="$TX_BYTES B";fi
+
+  #echo -ne "\r $TX_BYTES B up \t $RX_BYTES B down"
+   echo -ne "\r\\033[K $UP up \t $DO down"
 sleep 1s
 done
-#fi
+
 fun_present_rxtx_bytes
 }
 
@@ -192,9 +192,9 @@ fun_present_last_session
 fun_present_last_month
 
 echo ""
-TOTALMONTHK=$( dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: '$TOTALMONTHK'\tKiB"
-TOTALMONTHM=$( dc $TOTALMONTHK 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHM'\tMiB"
-TOTALMONTHG=$( dc $TOTALMONTHM 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHG'\tGiB"
+TOTALMONTHK=$( LC_ALL=C dc $(($RX_BYTES_MONTH+$TX_BYTES_MONTH)) 1024 \/ p );echo -e "  MONTH: '$TOTALMONTHK'\tKiB"
+TOTALMONTHM=$( LC_ALL=C dc $TOTALMONTHK 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHM'\tMiB"
+TOTALMONTHG=$( LC_ALL=C dc $TOTALMONTHM 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHG'\tGiB"
 echo ""
 
 n="c"
@@ -222,7 +222,22 @@ pidof pppd &&
 while
 [ 1 ]
 do sleep 1s
+file /sys/class/net/${ACTIVE_INTERFACE}/carrier
+[ -e /sys/class/net/${ACTIVE_INTERFACE}/carrier ] || continue
+[ -p /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+[ -S /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+[ -L /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+[ -d /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+[ -b /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+[ -c /sys/class/net/${ACTIVE_INTERFACE}/carrier ] && continue
+
+if [ -f /sys/class/net/${ACTIVE_INTERFACE}/carrier ]; then
+if [ -r /sys/class/net/${ACTIVE_INTERFACE}/carrier ]; then
+if [ -s /sys/class/net/${ACTIVE_INTERFACE}/carrier ]; then
+cat -vT /sys/class/net/${ACTIVE_INTERFACE}/carrier
 read CARRIER </sys/class/net/${ACTIVE_INTERFACE}/carrier
+fi;fi;fi
+
 [ "$CARRIER" = 1 ] && break
 pidof pppd || break
 done
@@ -244,15 +259,9 @@ n="n"
 read n
 done
 
-#/etc/ppp/pgprs-disconnect.sh
-
-#fun_present_rxtx_bytes
-
 fun_kill_pppd
 sleep 4s
 fun_kill_jobs
 
-
-#sleep 5s
 read -p "Press any key to quit .. " Q
 exit 0
