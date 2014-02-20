@@ -112,7 +112,6 @@ if [ "$CURRENTWM" != 'enlightenment_start' ]; then
 #v2.0.0
 fi
 
-/usr/sbin/delayedrun &
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
@@ -130,13 +129,6 @@ fi
 #v2.17 made it optional...
 [ -f /root/.glipper_on ] && glipper &
 
-if [ "$CURRENTWM" = "xfwm4" ];then
- if [ "`which xfce4-panel`" ];then
-  xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
-  exec xfce4-panel
- fi
-fi
-
 #v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
 if [ -f /usr/bin/absvolume ];then
  if [ "$MENU_BG" = "" ];then
@@ -144,13 +136,6 @@ if [ -f /usr/bin/absvolume ];then
  else
   absvolume -bg $MENU_BG &
  fi
-fi
-
-#v3.95 support fbpanel tray/taskbar...
-#only launch tray for w.m. without inbuilt tray...
-if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
- [ -f /usr/bin/fbpanel ] && fbpanel &
- [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
 
 ##w468 rox may not start old hardware, try again...
@@ -165,11 +150,32 @@ if [ "$CURRENTWM" != "enlightenment_start" ] ; then
 #v4.01 BK daemon to handle kernel uevents...
 #( /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
 ( /sbin/pup_event_frontend_d ) & #v403
+else
+dbus-uuidgen --ensure &
 fi
 
+( if test ! -f $HOME/Startup/fbxkb*; then
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+sleep 2s; which fbxkb && fbxkb &
+fi ) &
 
-dbus-uuidgen --ensure &
+/usr/sbin/delayedrun &
+
+if [ "$CURRENTWM" = "xfwm4" ];then
+ if [ "`which xfce4-panel`" ];then
+  xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
+  exec xfce4-panel
+ fi
+fi
+
+#v3.95 support fbpanel tray/taskbar...
+#only launch tray for w.m. without inbuilt tray...
+if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
+ [ -f /usr/bin/fbpanel ] && fbpanel &
+ [ -f /usr/bin/lxpanel ] && lxpanel &
+fi
+
+
 exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
