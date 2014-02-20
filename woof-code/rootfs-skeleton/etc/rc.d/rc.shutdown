@@ -718,20 +718,36 @@ echo "END IF PUPMODE 5" #DBG
 swapfile_func() {
  localSMNTPT="$1"
  localSAVEPART="$2"
+
+ TOTALSWAP=`LC_NUMERIC=C free | grep -o 'Swap:.*' | tr -s ' ' | cut -f 3 -d ' '`
+ if [ $TOTALSWAP -eq 0 ];then
+
+ TOTALRAM=`LC_NUMERIC=C free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 3 -d ' '`
+ if [ $TOTALRAM -lt 1048576 ];then #was 128000, bump up 256MB, bunp up 1GB.
+
  if [ ! -f ${localSMNTPT}/pupswap.swp ];then
   if [ "$FASTPARTS" ];then #see /etc/rc.d/PUPSTATE
-   TOTALRAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '`
-   if [ $TOTALRAM -lt 262145 ];then #was 128000, bump up <=256MB.
-    TOTALSWAP=`free | grep 'Swap:' | tr -s ' ' | cut -f 3 -d ' '`
-    if [ $TOTALSWAP -eq 0 ];then
+
      spPATTERN="$localSAVEPART"'|'
      if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" != "" ];then
       smPATTERN=' '"$localSMNTPT"'$'
-      FREESAVEM=`df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
+      FREESAVEM=`LC_NUMERIC=C df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
+      FREESAVEM="${FREESAVEM//[[:alpha:][:punct:][:blank:]]/}"
+      [ "$FREESAVEM" ] || FREESAVEM=0
       SWPSIZE=""
-      [ $FREESAVEM -gt 100 ] && SWPSIZE="50"
-      [ $FREESAVEM -gt 200 ] && SWPSIZE="100"
-      [ $FREESAVEM -gt 500 ] && SWPSIZE="200"
+
+       function_ONE(){
+       if  [ $FREESAVEM -gt 1049 ]; then SWPSIZE="1000"
+       elif [ $FREESAVEM -gt 525 ]; then SWPSIZE="500"
+       elif [ $FREESAVEM -gt 263 ]; then SWPSIZE="250"
+       elif [ $FREESAVEM -gt 132 ]; then SWPSIZE="100"
+       fi
+       }
+
+       LC_NUMERIC=C SWPSIZE=`echo "scale=0;$FREESAVEM / 1.048" | bc`
+       SWPSIZE=$(((SWPSIZE/10)*10))
+       if [ $SWPSIZE -gt 1000 ]; then SWPSIZE="1000"; fi
+
       if [ "$SWPSIZE" ];then
        echo  >/dev/console
        echo "A swapfile named 'pupswap.swp' is being created in partition ${localSAVEPART}," >/dev/console
@@ -744,7 +760,7 @@ swapfile_func() {
        fi
        if [ $? -ne 0 ];then
         rm -f ${localSMNTPT}/pupswap.swp 2>/dev/null
-	echo "...error, unable to create swapfile." >/dev/console
+        echo "...error, unable to create swapfile." >/dev/console
        fi
        sync
       fi
@@ -1049,7 +1065,7 @@ ls /dev/.udev/*/* | head -n 5
 echo
 ls /dev/.udev/*/* | tail -n 5
 echo
-}
+
 
 echo -e "\e[1;36m""ABOUT : udevd .... :""\e[0;39m"
 ps -C udevd
@@ -1059,6 +1075,7 @@ sleep 5s
 ps -C udevd
 #sleep 5s
 echo
+}
 
 func_udev_2(){
 ls /dev/.udev
@@ -1071,7 +1088,7 @@ ls /dev/.udev/*/* | tail -n 5
 echo
 ls /dev/.udev/*/* | tail -n 5
 echo
-}
+
 
 echo -e "\e[1;36m""REMOVING /dev/.udev ...""\e[0;39m"
 rm -rf /dev/.udev
@@ -1086,7 +1103,9 @@ ls /dev/.udev/*/* | tail -n 5
 ls /dev/.udev/*/* | tail -n 5
 #echo
 sleep 5s
+}
 
+killall udevd
 killall klogd #&>/dev/null    ##busybox applet
 killall syslogd #&>/dev/null  ##busybox applet
 #killall pup_event_backend_modprobe_protect  ##+++2011_10_27
@@ -1097,7 +1116,7 @@ find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
 }
 remove_fsckme_func
 
-mount | grep -w '/'
+mount | grep -Fw '/'
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
   case $PUPMODE in
@@ -1120,7 +1139,7 @@ if [ $PUPMODE -ne 5 ]; then
 fi
 #
 #</code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
-mount | grep -w '/'
+mount | grep -Fw '/'
 sleep 2
 
 #rm -f /tmp/wmexitmode.txt  ##would need to be somewhere at beginning of script
@@ -1150,8 +1169,8 @@ fi
 if [ "$SAVE_LAYER" ];then  ##PupSave ie /pup_rw
 echo '$SAVE_LAYER='"$SAVE_LAYER"
  sync
- SAVEDEV="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`"
- SAVEFS="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`"
+ SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
+ SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} #2>/dev/null
  umount-FULL -i -n -l /initrd/${SAVE_LAYER} #2>/dev/null #-l is lazy unmount.
  Err=$?  ###KRG
@@ -1162,19 +1181,17 @@ echo '$SAVE_LAYER='"$SAVE_LAYER"
 fi
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
-MNTFUSE="`busybox mount | grep 'fuse' | head -n 1 | cut -f 3 -d ' '`"  ##would need a loop I guess
+MNTFUSE=`busybox mount | grep 'fuse' | head -n 1 | cut -f 3 -d ' '`  ##would need a loop I guess
 if [ "$MNTFUSE" != "" ];then
  #v2.17 hairywill found the -u is required with -z...
  fusermount -z -u $MNTFUSE  ##MountPoint
-#else
-# if [ "$PDEV1" ];then #from PUPSTATE
-#  APATTERN="/dev/$PDEV1 "
-#  if [ "`busybox mount | grep "$APATTERN"`" != "" ];then
-#   #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
-#   #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
-#   umount-FULL -i -n -l /dev/$PDEV1
-#  fi
-# fi
+elif [ "$PDEV1" ];then #from PUPSTATE
+  APATTERN="/dev/$PDEV1 "
+  if [ "`busybox mount | grep "$APATTERN"`" != "" ];then
+   #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
+   #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
+   : || umount-FULL -i -n -l /dev/$PDEV1
+  fi
 fi
 
 if [ -f /etc/rc.d/rc.shutdown.local.endOne ] ; then
@@ -1182,18 +1199,20 @@ if [ -f /etc/rc.d/rc.shutdown.local.endOne ] ; then
 else
 [ -f /etc/rc.d/rc.shutdown.local.end ] && . /etc/rc.d/rc.shutdown.local.end  ###KRG
 fi
-#rm_unneeded_files_func_krg() {
-#rm -f -r /dev/.udev  ###KRG
+
+rm_unneeded_files_func_krg() {
+rm -f -r /dev/.udev  ###KRG
 ####KRG /root/my-applications/sbin/MkMissingDev.sh  ###KRG
-#[ -f /etc/.XLOADED ] && mv -f /etc/.XLOADED /etc/.XLOADED.prev  ###KRG
+[ -f /etc/.XLOADED ] && mv -f /etc/.XLOADED /etc/.XLOADED.prev  ###KRG
 ####KRGmv -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev ###KRG
-#echo "sleeping now 10sec" > /dev/console  ###DBG
-#sleep 10  ###KRG
-#MNTD=`find /mnt -maxdepth 1 -type d -name "*+*"`  ###KRG
-#for i in $MNTD; do  ###KRG
-#[ -z "`mount | grep $i`" ] && rmdir "$i"  ###KRG
-#done  ###KRG
-#}
+echo "sleeping now 10sec" > /dev/console  ###DBG
+sleep 10  ###KRG
+MNTD=`find /mnt -maxdepth 1 -type d -name "*+*"`  ###KRG
+for i in $MNTD; do  ###KRG
+[ -z "`mount | grep $i`" ] && rmdir "$i"  ###KRG
+done  ###KRG
+}
+
 ps | grep -v '\['
 mount  ###DBG
 echo -n "FILESYSTEM STATE : "
@@ -1202,10 +1221,10 @@ echo
 echo "ENDING NOW"  ###DBG
 #KRGbusybox umount -ar > /dev/null 2>&1
 busybox umount -ar
-echo "unmounted all -r	Tried to remount devices as read-only if mount is busy"
+echo "unmounted all -r  Tried to remount devices as read-only if mount is busy"
 mount ###DBG
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 [ -f /etc/rc.d/rc.shutdown.local.endZero ] && /etc/rc.d/rc.shutdown.local.endZero
-sleep 20
+sleep 10
 #the end#
