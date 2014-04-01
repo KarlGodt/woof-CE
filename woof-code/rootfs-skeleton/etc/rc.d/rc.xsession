@@ -9,6 +9,7 @@ T=`cat /etc/inittab | grep tty | grep -v -E -e '^#.*|^[[:blank:]]*#' | sed 's#^[
 N=`echo "$T" | grep -o 'tty[0-9]*[0-9]' | sort -u | tail -n 1 | cut -b 4-`
 N=$(($N + 1))
 ###let N="$N +1" ###N=`expr $N + 1` ###N=`dc $N 1 \+ p` ###N=`echo "$N + 1" | bc`
+echo "chvt to $N .."
 chvt $N
 
 
