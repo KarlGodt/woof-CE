@@ -1,21 +1,93 @@
 #!/bin/ash
 
+[ "$ACTION" = add ] || exit
+
 exec 1>>/tmp/photplug.log 2>&1
 alias sed='busybox sed'
 alias grep='busybox grep'
 #alias awk='busybox awk' ##awk: applet not found
 
 #eval `env`  ##/sbin/photplug: eval: line 1: =/bin/busybox_1.18.3_STATIC_upx9_648KB: not found
+echo
 env
-[ "$ACTION" = add ] || exit
-echo $MODALIAS
-[ "$MODALIAS" ] && {
+
+exit_firmware_func(){
+echo "$*"
+exit 1
+}
+
+firmware_func(){
+#test "$FIRMWARE" && {
+#echo -n 1 > /sys/$DEVPATH/loading
+test ! "$FIRMWARE" -a "$1" && FIRMWARE="$*"
+
+echo "FIRMWARE='$FIRMWARE'"
+
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`find /lib/modules/all-firmware -xdev -name "$FIRMWARE"`
+
+test "$FIRMWAREBIN" || exit_firmware_func "NO FIRMWAREBIN"
+test -f "$FIRMWAREBIN" || exit_firmware_func "'$FIRMWAREBIN' not a regular file"
+echo "FIRMWAREBIN='$FIRMWAREBIN'"
+
+test "$DEVPATH" || exit_firmware_func "NO DEVPATH"
+test -e /sys/$DEVPATH/loading || exit_firmware_func "No /sys/$DEVPATH/loading"
+echo -n 1 > /sys/$DEVPATH/loading
+
+test -e /sys/$DEVPATH/data || exit_firmware_func "No /sys/$DEVPATH/data"
+cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+if [ $? = 0 ]; then
+    echo 0 >/sys/$DEVPATH/loading
+else
+echo "ERROR loading '$FIRMWAREBIN'"
+fi
+
+#} #"$FIRMWARE"
+} #firmware_func
+
+#[ "$ACTION" = add ] || exit
+
+echo "'$MODALIAS' -o '$DRIVER'"
+
+[ "$MODALIAS" -o "$DRIVER" ] && {
+        #MODALIAS="${MODALIAS//platform:/}"
         #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
         #exit
+        if test "$DRIVER";
+        then
+        OPTIONS_KER=`grep -o "${DRIVER}[^ ]*=[^ ]*" /proc/cmdline | sed "s/${DRIVER}\.//"`
+        OPTIONS_SYS=`grep "options $DRIVER" /etc/modprobe.d/* | cut -f3- -d' '`
+        OPTIONS="$OPTIONS_SYS
+$OPTIONS_KER"
+        modprobe -v -b $DRIVER $OPTIONS
+        #sleep 2s
+        FWARE=`modinfo $DRIVER | grep firmware: | cut -f2- -d' '`
+            if test "$FWARE"; then
+            for firm in $FWARE; do
+            firmware_func $firm; done
+            fi
+
+        else
+        MODALIAS="${MODALIAS//platform:/}"
         LIST=`modprobe -b -D "$MODALIAS" | grep -vE '^install|^blacklist|^options' | sed 's%.*\(/.*\)\.k.*%\1%'`
+        #LIST=`echo "$LIST" | sed 's/platform://'`
         for m in $LIST ; do
-        modprobe -b -v "${m##*/}"
+
+        OPTIONS_KER=`grep -o "${m}[^ ]*=[^ ]*" /proc/cmdline | sed "s/${DRIVER}\.//"`
+        OPTIONS_SYS=`grep "options $m" /etc/modprobe.d/* | cut -f3- -d' '`
+        OPTIONS="$OPTIONS_SYS
+$OPTIONS_KER"
+
+        modprobe -b -v "${m##*/}" $OPTIONS
+
+            FWARE=`modinfo "${m##*/}" | grep firmware: | cut -f2- -d' '`
+            if test "$FWARE"; then
+            for firm in $FWARE; do
+            firmware_func $firm; done
+            fi
         done
+        fi #DRIVER else MODALIAS
 
 }
 
@@ -41,3 +113,41 @@ sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTE
         exit $? ; }
  }
 }
+
+test "$FIRMWARE" && firmware_func
+#{
+#echo -n 1 > /sys/$DEVPATH/loading
+#
+#FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+#test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+#test "$FIRMWAREBIN" || FIRMWAREBIN=`find /lib/modules/all-firmware -xdev -name "$FIRMWARE"`
+#
+#test "$FIRMWAREBIN" || exit 1
+#test -f "$FIRMWAREBIN" || exit 1
+#echo "FIRMWAREBIN='$FIRMWAREBIN'"
+#
+#test "$DEVPATH" || exit 1
+#test -e /sys/$DEVPATH/loading || exit 1
+#echo -n 1 > /sys/$DEVPATH/loading
+#
+#test -e /sys/$DEVPATH/data || exit 1
+#cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+#if [ $? = 0 ]; then
+#    echo 0 >/sys/$DEVPATH/loading
+#else
+#echo "ERROR loading '$FIRMWAREBIN'"
+#fi
+#
+#exit 0
+#}
+
+
+
+#;;
+
+#*)
+#echo "
+#Unhandled ACTION '$ACTION'"
+#;;
+#esac
+echo
