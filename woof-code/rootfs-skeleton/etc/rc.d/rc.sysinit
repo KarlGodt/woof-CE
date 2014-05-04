@@ -687,16 +687,19 @@ echo 'Running the modaliases add by rc.sysinit '$0 >> /tmp/pup_event_module_devp
 
 MODULECNT=0
 #replay uevents from /sys...
-for ONEMODALIAS in $MODALIASES
+#for ONEMODALIAS in $MODALIASES
+while read ONEMODALIAS
 do
- ONEPATH=${ONEMODALIAS%/*}
- if [ -e ${ONEPATH}/uevent ]; then #3
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ ONEPATH="${ONEMODALIAS%/*}"
+ if [ -e "${ONEPATH}"/uevent ]; then #3
+  echo add > "${ONEPATH}"/uevent #generates an 'add' uevent.
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -en "\r$MODULECNT" >/dev/console
   fi #3
-done
+done<<EoL
+`echo "$MODALIASES"`
+EoL
 
 echo
 echo -e "\n"'Detected '"\e[1;34m""$MODULECNT ""\e[0;39m"'busses' >/dev/console
@@ -941,7 +944,7 @@ if [ "$safeBoot" -ge "4" ]; then
 #v408 kirk: Check for laptop battery...
 modprobe -s battery
 #if [ -d /proc/acpi/battery ]; then
- results="`find /proc/acpi/battery -mindepth 1 -type d`"
+ #results="`find /proc/acpi/battery -mindepth 1 -type d`"
 # if [ ! -z "$results" ]; then
   modprobe -s ac
 #  modprobe thermal
@@ -1119,20 +1122,24 @@ special_mnt_func(){
 [ -d /SPECIAL_MNT ] || mkdir /SPECIAL_MNT
 #for i in `cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | cut -f 2 -d ' '` ; do
 
-validFS=`cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs' | cut -f 2 -d ' '`
-for i in $validFS; do
+#validFS=`cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|autofs|exofs|mtd_inodefs|ubifs' | cut -f 2 -d ' '`
+validFS=`grep '^nodev' /proc/filesystems | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|autofs|exofs|mtd_inodefs|ubifs' | awk '{print $2}'`
+for fs in $validFS; do
 
-[ -n "`busybox mount | grep "$i"`" ] && continue
-DIR=`echo "$i"` # | sed 's#fs$##'`
+#[ -n "`busybox mount | grep "$i"`" ] && continue
+[ "`grep "$fs" /proc/mounts`" ] && continue
+
+#DIR=`echo "$i"` # | sed 's#fs$##'`
+DIR="$fs"
 
 ##2011-10-31 2.6.37.4-KRG-i486-StagingDrivers-2 : grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs'
 ##2011-11-09 2.6.37.4-KRG-i486-StagingDrivers-2 : grep -v -E -w 'aufs|fuse'
 
 [ -d /SPECIAL_MNT/$DIR ] || mkdir -p /SPECIAL_MNT/$DIR
-mount -t $i nodev /SPECIAL_MNT/$DIR
-if [ "$?" -ne 0 ]; then
-mount -t $i none /SPECIAL_MNT/$DIR
-fi
+mount -t $fs none /SPECIAL_MNT/$DIR
+#if [ "$?" -ne 0 ]; then
+#mount -t $i nodev /SPECIAL_MNT/$DIR
+#fi
 done
 }
 special_mnt_func
