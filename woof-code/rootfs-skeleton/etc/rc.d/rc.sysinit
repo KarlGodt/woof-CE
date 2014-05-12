@@ -170,7 +170,7 @@ echo "$1:`uptime`"
 }
 
 fsckme_func_0() {
-FSCKME=`find / -maxdepth 3 -type f -iname "*fsckme*"`  ###KRG, for Advanced /sbin/init
+FSCKME=`/bin/find / -maxdepth 3 -type f -iname "*fsckme*"`  ###KRG, for Advanced /sbin/init
 echo $FSCKME  ###DBG
 if [ -n "$FSCKME" ] ; then  ###KRG
 
@@ -383,6 +383,16 @@ if [ "$IS_RDEV" ];then
  mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(($STATUS+$?))
 fi
 
+##+++2013-12-21
+while read maj min siz dev
+do
+[ "$maj" ] || continue
+[ "${maj//[[:digit:]]/}" ] && continue
+rm -f /dev/$dev
+mknod /dev/$dev b $maj $min
+done </proc/partitions
+##+++2013-12-21
+
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
 LINKTARGET=`readlink /lib/modules/$(uname -r)`
 BOOTPARTITION=`echo "$LINKTARGET" | sed 's#/lib.*##'`
@@ -443,13 +453,13 @@ load_average '1x0a'
 etc_firmware_dep_func() {
 if test ! -f /etc/modules/firmware.dep.$KERNVER; then
 echo "copying firmware.dep" > /dev/console
-FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
+FWF=`/bin/find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
 cp "$FWF" /etc/modules/firmware.dep.$KERNVER
 fi; } ; etc_firmware_dep_func &
 load_average '1x0b'
 #file_system_state 4
 lib_firmware_func() {
-FWD=`find /lib/modules/$KERNVER/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
+FWD=`/bin/find /lib/modules/$KERNVER/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
 if test "$FWD" != "" ; then
 [ -d /lib/firmware ] && rm -f /lib/firmware/firmware* ##+++2012-04-11
 BN=`basename $FWD`
@@ -536,35 +546,36 @@ fi
 }
 check_dev_root_func
 load_average '1x0f'
+
 check_frugal_full_func() {
 CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
-RootDiskFreeFrugal=`df | grep -w '/' | grep 'rootfs'`
+RootDiskFreeFrugal=`df | grep -Fw '/' | grep 'rootfs'`
 [ "$PUPMODE" = 12 ] && MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
 RootDiskReadlinkDevRoot=`readlink /dev/root`
-RootDiskFreeFullInstall=`df | grep -w '/' | tr -s ' ' | cut -f 1 -d ' '`
-MountFull=`mount | grep -w '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
+RootDiskFreeFullInstall=`df | grep -Fw '/' | tr -s ' ' | cut -f 1 -d ' '`
+MountFull=`mount | grep -Fw '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
 BBrdev=`busybox rdev`
 
 if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" -a -z "$BBrdev" ; then ## frugal install
 SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
 MainDriveName=${SimpleDeviceName:0:3}
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+RootDevice=`echo "$CatProcPart" | grep -w "$SimpleDeviceName"`
+MainDevice=`echo "$CatProcPart" | grep -w "$MainDriveName"`
 else
 if test -n "$RootDiskFreeFullInstall" -a -n "$MountFull" -a -n "$BBrdev" ; then ## full install
 SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
 MainDriveName=${SimpleDeviceName:0:3}
 
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+RootDevice=`echo "$CatProcPart" | grep -w "$SimpleDeviceName"`
 if [ -z "$RootDevice" ] ; then  ###KRG&& SimpleDeviceName=`basename "$(busybox rdev)" | tr -d '/'`
 SimpleDeviceName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/'`
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
+RootDevice=`echo "$CatProcPart" | grep -w "$SimpleDeviceName"`
 fi
 
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+MainDevice=`echo "$CatProcPart" | grep -w "$MainDriveName"`
 if [ -z "$MainDevice" ] ; then
 MainDriveName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/' | cut -b 1-3`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
+MainDevice=`echo "$CatProcPart" | grep -w "$MainDriveName"`
 fi
 
 fi
@@ -597,10 +608,10 @@ DDB=`cat /var/db/boot/dev_nodes.lst`
 cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
 [ -z "$DEV" ] && DEV=$T
 KIND=${PERM:0:1}
-MAJ=`echo $MAY | tr -d ','`
-DN=`dirname $DEV`
-[ -d $DN ] || mkdir $DN
-[ -$KIND $DEV ] || { echo "making $DEV";mknod $DEV $KIND $MAJ $Min; }
+MAJ=`echo "$MAY" | tr -d ','`
+DN=`dirname "$DEV"`
+[ -d "$DN" ] || mkdir "$DN"
+[ -$KIND "$DEV" ] || { echo "Making '$DEV'";mknod "$DEV" $KIND $MAJ $Min; }
 done
 fi
 fi
@@ -687,7 +698,7 @@ playbootnoise(){
     [ -e /etc/rc.d/haileyharly.wav ] || return 0
     bb_modprobe -v snd-card-0 && {
     alsactl -f /etc/asound.state restore && {
-    until pidof X; do
+    until pidof rc.launchxwin; do
     aplay /etc/rc.d/haileyharly.wav || return 0
     sleep 0.1
     done
@@ -758,7 +769,7 @@ else
 fi
 sleep 0.1
 
-INITSTATE=`find /sys -name "initstate"`
+INITSTATE=`/bin/find /sys -name "initstate"`
 INITSTATEwc_l=`echo "$INITSTATE" | wc -l`
 echo 'INITSTATEwc_l='"$INITSTATEwc_l"
 load_average '3x0a'
@@ -1037,13 +1048,17 @@ fi
 
 #had hoped to retire this, but HardInfo needs it...
 #[ "`lsmod | grep '^usbcore'`" != "" ] && busybox mount -t usbfs none /proc/bus/usb
+case "`uname -r`" in
+2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
 mkdir -p /proc/bus/usb  ##+++2013-03-21
 busybox mount -t usbfs none /proc/bus/usb
+;;
+esac
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
 bb_modprobe $VERB battery
 #if [ -d /proc/acpi/battery ]; then
- results=`find /proc/acpi/battery -mindepth 1 -type d`
+ results=`/bin/find /proc/acpi/battery -mindepth 1 -type d`
 # if [ ! -z "$results" ]; then
   bb_modprobe $VERB ac
 #  modprobe $VERB thermal
