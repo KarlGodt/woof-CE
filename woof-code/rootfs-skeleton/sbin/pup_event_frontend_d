@@ -202,9 +202,22 @@ BAT_0_state_file=/proc/acpi/battery/BAT0/state
 BAT_0='0'
 if [ -f "$BAT_0_info_file" ];then
 
-BAT_0_DESIGN_CAPACITY=`grep 'design capacity:' "$BAT_0_info_file"`
+BAT_0_DESIGN_CAPACITY=`grep -m1 'design capacity:' "$BAT_0_info_file"`
 BAT_0_DESIGN_CAPACITY="${BAT_0_DESIGN_CAPACITY//[^[:digit:]]/}"
-BAT_0_WARN=$((BAT_0_DESIGN_CAPACITY/15))
+
+BAT_0_LAST_FULL_CAPACITY=`grep -m1 'last full capacity:' "$BAT_0_info_file"`
+BAT_0_LAST_FULL_CAPACITY="${BAT_0_LAST_FULL_CAPACITY//[^[:digit:]]/}"
+
+test $BAT_0_DESIGN_CAPACITY -ge $BAT_0_LAST_FULL_CAPACITY &&
+{
+ BAT_0_MAX=$BAT_0_LAST_FULL_CAPACITY
+} ||
+{
+ BAT_0_MAX=$BAT_0_DESIGN_CAPACITY
+}
+
+BAT_0_WARN=$((BAT_0_MAX/15))
+BAT_0_CRIT=$((BAT_0_MAX/25))
 
 BAT_0_CURRENT=`grep 'remaining capacity:' "$BAT_0_state_file"`
 
@@ -1089,13 +1102,21 @@ powertimeout_func(){
    if [ "$BAT_0" = '1' ];then
   BAT_0_CURRENT=`grep 'last full capacity:' "$BAT_0_info_file"`
   BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
-   if [ $BAT_0_CURRENT -lt $BAT_0_WARN ];then
+
+   if   [ $BAT_0_CURRENT -lt $BAT_0_CRIT ];then
+
+    echo disk >/sys/power/state
+
+   elif [ $BAT_0_CURRENT -lt $BAT_0_WARN ];then
     aplay /usr/share/audio/2barks.au;aplay /usr/share/audio/2barks.au
     pupmessage -bg red -timeout 30 "Battery State is: $BAT_0_CURRENT
-better to plug in ac adapter or poweroff the laptop "
+better to plug in ac adapter or poweroff the laptop " &
+
    fi #warn
   fi #bat
+
    [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+
   if [ "$POWERTIMEOUT" != '0' ];then
    MOUSECNT=$((MOUSECNT+60))
    CURPOS2=`getcurpos`
@@ -1111,13 +1132,18 @@ better to plug in ac adapter or poweroff the laptop "
      aplay /usr/share/audio/2barks.au
      xmessage -timeout 60 -bg '#F213AD' -buttons "OK_poweroff :100, NO_KEEP_PUPPY_RUNNING:101" "Choosen POWERTIMEOUT reached of $((POWERTIMEOUT/60)) min .
 
-> If you think it is unapropriate , please go to
-> Puppy Eventmanager in the
-> System Menu and change this value
+If you think it is unapropriate ,
+please use
+> Puppy Eventmanager
+in the
+>> System Menu
+and change this value.
 "
       if [ "$?" -lt '101' ];then
-      echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt
-      wmpoweroff &
+      #echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt
+      #wmpoweroff &
+      POWEROFF=1
+      break
       fi
     fi
   fi
@@ -1348,14 +1374,14 @@ fi
 
 if [ "$1" ];then echo "$0 daemon started .";shift;fi #KRG
 
- #powertimeout_func
+ test $BAT_0 = 1 && powertimeout_func
  #some apps should not be disturbed by this background stuff...
  RUNPS=`ps`
  #w482 add xorriso...
  #[ "`echo "$RUNPS" | grep -E 'xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'`" != "" ] && continue
  [ "`echo "$RUNPS" | grep -E 'xorriso|xorrecord|petget|wget|axel|dotpup|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|ripoff|pdvdrsab|pburn|installpkg\.sh|downloadpkgs\.sh'`" != "" ] && continue
 
- powertimeout_func
+ test $BAT_0 = 0 && powertimeout_func
  #[ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager). ##put into powertimeout_func to do every minute not every 4 seconds
 
 
@@ -1365,5 +1391,19 @@ done #2*2 second loop.
 PUPEVENTDAEMON_func start
 RV="$?"
 echo "$0 stopped with exitcode '$RV'"
+
+test "$POWEROFF" = 1 && {
+pidof X &&
+ {
+echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt
+exec wmpoweroff
+#exec poweroff
+ } ||
+ {
+ echo 'poweroff' > "$TMPXWIN"/wmexitmode.txt
+ exec poweroff
+ }
+}
+
 exit "$RV"
 ###END###
