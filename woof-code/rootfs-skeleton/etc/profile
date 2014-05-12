@@ -1,41 +1,76 @@
-#set variables so everything can be found...
-#100622 PKG_CONFIG_PATH is determined in 3builddistro (Woof), written to /etc/profile.d/pkgconfig
-#110426 added /usr/games to PATH
-#110804 fix double-login when exit from X, allow /etc/profile to complete. see also "echo -n '# '" in /usr/bin/xwin at exit.
-#110807 revert 110804
-#120221 moved code to start X to /root/.profile
-#120407 hide error msg on screen if 915resolution fails.
-#120525 shinobar: we don't need this: export LC_COLLATE=en_US
-#130224 npierce: fix hard-to-see yellow text in terminal.
+#!/bin/bash
+#ash might not work for export runprofilecount
+#####
+#
+#####
 
-PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin:/root/my-applications/bin:/usr/games"
-#100626 add /usr/local/lib...
-LD_LIBRARY_PATH="/lib:/usr/lib:/usr/X11R7/lib:/root/my-applications/lib:/usr/local/lib"
+
+[ "$DEBUG" ] || DEBUG=`grep -wi 'debug' /proc/cmdline`
+alias modprobe='modprobe -b'  ##+++2012-01-30
+alias cp='cp --backup=numbered'  ##+++2013-03-18
+#runprofilecount=$(( $runprofilecount +1 ))
+runprofilecount=$((runprofilecount+1))
+[ "$DEBUG" ] && echo "runprofilecount='$runprofilecount'"
+if test "$runprofilecount" -lt 2 ; then
+export runprofilecount
+
+export_bash_func() {
+#echo 'starting now /etc/profile'
+#echo 'date     :'`date`
+#echo '$0       :'$0
+#echo 'pwd      :'`pwd`
+#echo '$HOME    :'"$HOME"
+#echo 'runlevel :'`runlevel`
+#echo '$DISPLAY :'"$DISPLAY"
+
+#v3.02 set variables so everything can be found...
+PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/X11R7/bin:/usr/X11R7/sbin:/usr/local/bin:/usr/local/sbin:/root/my-applications/bin:/root/my-applications/sbin:/usr/i486-t2-linux-gnu:/var/bin:/var/sbin:/usr/local/bin/i686-pc-linux-gnu"
+LD_LIBRARY_PATH="/lib:/usr/X11R7/lib:/usr/lib:/root/my-applications/lib:/usr/local/lib"
+
+#needed for pkg-config app to work properly...
+PKG_CONFIG_PATH="/usr/lib/pkgconfig"
+
+### GNOME ###
 if [ -d /opt/gnome2 ];then
  LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/gnome2/lib"
  PATH="$PATH:/opt/gnome2/bin"
+ PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/gnome2/lib/pkgconfig"
 fi
+
+### QT ###
 if [ -d /opt/qt4 ];then
  LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/qt4/lib"
  [ -d /opt/qt4/bin ] && PATH="$PATH:/opt/qt4/bin" #if devx sfs.
+ PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/qt4/lib/pkgconfig"
  export QT4DIR="/opt/qt4"
  #export QTDIR="/opt/qt4" #i think v3.99removed.
  [ -d /opt/qt4/include ] && export CPLUS_INCLUDE_PATH="/opt/qt4/include" #devx
 fi
+
+if [ -d /opt ];then
+ls -1d /opt/qt* && qt_OPT=Y
+fi
+if [ "$qt_OPT" ];then
+[ "$DEBUG" ] && echo "Found QT in /opt directory"
+for d in `ls -d1 /opt/qt*`;do
+QTDIR="$d"
+done
+export QTDIR
+fi
+
 #v3.99 added, for older qt3...
 if [ -e /usr/lib/qt ];then
  export QTDIR=/usr/lib/qt
- [ -d /usr/lib/qt/bin ] && PATH=/usr/lib/qt/bin:${PATH}
+ [ -d /usr/lib/qt/bin ] && PATH="/usr/lib/qt/bin:${PATH}"
  LD_LIBRARY_PATH=/usr/lib/qt/lib:$LD_LIBRARY_PATH
 fi
 export QT_XFT=true
 
-if [ -d /opt/mozilla.org ];then #101220 path fixes.
- [ -e /opt/mozilla.org/lib/mozilla ] && LD_LIBRARY_PATH="/opt/mozilla.org/lib/mozilla:${LD_LIBRARY_PATH}"
- [ -e /opt/mozilla.org/lib/firefox ] && LD_LIBRARY_PATH="/opt/mozilla.org/lib/firefox:${LD_LIBRARY_PATH}"
- [ -d /opt/mozilla.org/bin ] && PATH="/opt/mozilla.org/bin:${PATH}" #may not exist.
- [ -e /opt/mozilla.org/lib/mozilla ] && export MOZILLA_FIVE_HOME="/opt/mozilla.org/lib/mozilla"
- [ -e /opt/mozilla.org/lib/firefox ] && export MOZILLA_FIVE_HOME="/opt/mozilla.org/lib/firefox"
+if [ -d /opt/mozilla.org ];then
+ [ -d /opt/mozilla.org/lib ] && LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/mozilla.org/lib"
+ [ -d /opt/mozilla.org/bin ] && PATH="$PATH:/opt/mozilla.org/bin" #may not exist.
+ [ -d /opt/mozilla.org/lib/pkgconfig ] && PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/mozilla.org/lib/pkgconfig"
+ [ -e /opt/mozilla.org/lib/mozilla ] && export MOZILLA_FIVE_HOME="/opt/mozilla.org/lib/mozilla" #link created unleashed.
 fi
 MOZ_PLUGIN_PATH="/usr/lib/mozilla/plugins"
 if [ -e /usr/lib/seamonkey ];then
@@ -43,11 +78,20 @@ if [ -e /usr/lib/seamonkey ];then
  export MOZILLA_FIVE_HOME="/usr/lib/seamonkey"
  MOZ_PLUGIN_PATH="${MOZ_PLUGIN_PATH}:/usr/lib/seamonkey/plugins"
 fi
+
 if [ -d /opt/samba ];then
  LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/opt/samba/lib"
  PATH="$PATH:/opt/samba/bin"
 fi
-export PATH LD_LIBRARY_PATH MOZ_PLUGIN_PATH
+
+if [ -d /usr/lib/sane ]; then
+LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib/sane"
+fi
+
+export PATH LD_LIBRARY_PATH PKG_CONFIG_PATH MOZ_PLUGIN_PATH
+###### END PATH PART ######
+
+
 #some builds of moz need this, also maybe render faster...
 export MOZ_DISABLE_PANGO=1
 
@@ -56,12 +100,6 @@ export GDK_USE_XFT=1
 #v4.00 for Open Office, force ue of GTK...
 export OOO_FORCE_DESKTOP="gnome"
 
-#100509 not needed with rox_filer 20100408smw...
-##100208 rox-filer needs this for GTK >= 2.18, fixes focus problem... 100423 fix...
-#if [ `grep -E '^gtk\+-2|^libgtk2.0' /root/.packages/woof-installed-packages | head -n 1 | cut -f 3 -d '|' | cut -f 2 -d '.'` -ge 18 ];then
-# export GDK_NATIVE_WINDOWS=true
-#fi
-
 ulimit -c 0
 if [ `id -gn` = `id -un` -a `id -u` -gt 14 ]; then
  umask 002
@@ -69,9 +107,18 @@ else
  umask 022
 fi
 USER=`id -un`
-PS1="# "
+
+#A=HOUR:MIN,E=NOTHING,H=HOSTNAME,T=TIMEinclSEC,V=LONGVERSION,w=`pwd`DIR,W=SHORTDIR
+#a=SPACE,d=DATE,e=NOSPACE,h=hostname,j=0,l=16,n=newline,r=reduces?,s=bash,t=time,u=user,v=version
+#$?=RETURNCODE,$1=?,$0=COMMAND,$@=?,PID,w=PWD,NR,SIGN
+PS1="[\A \$? \$0 \$$ \# \W ] \n[\h]# "
+
+PS2="II> "
+PS3="III "
+PS4="IV> "
+
 LOGNAME=$USER
-HISTSIZE=1000
+HISTSIZE=100000
 HISTFILE="$HOME/.history"
 EDITOR=mp
 INPUTRC=/etc/inputrc
@@ -82,121 +129,123 @@ INPUTRC=/etc/inputrc
 # #now using urxvt...
 # TERM="rxvt-unicode"
 #else
- TERM="xterm"
+TERM="xterm"
 #fi
+
+
 
 # used by XRN, change to your news server...
 # NNTPSERVER="news.dodo.com.au"
 # GS_FONTPATH="/usr/lib/X11/fonts/Type1"
 export PS1 USER LOGNAME HISTSIZE INPUTRC EDITOR TERM
-XFINANSDIR="/root/.xfinans"
-export XFINANSDIR
 
-#v2.10 MU: rox crashes with DRI modules. solution:
-export XLIB_SKIP_ARGB_VISUALS=1
+#v2.13...
+export HISTFILESIZE=200000
+export HISTCONTROL=ignoredups
+#### END BASH PART ########
+}
+export_bash_func
 
-
-
+export_lang_func() {
 #this line gets edited by chooselocale script...
-# w004 going back to non-utf8... 101120 back to utf8... 101121 off again...
-#110409 change .utf8 to .UTF-8 ...
-#LANG=en_US.UTF-8
-LANG=en_US
+#LANG=de_DE.utf8.utf8 w004 going back to non-utf8...
+LANG=de_DE
 export LANG
-
+#LCs=`locale`
+LCs=`locale |tr -d '"'`
+for loc in $LCs;do export $loc;done
 #v426 recommended by MU, avoid crashing for non-English locales on some apps...
-#120525 shinobar: don't think we need this...
-#export LC_COLLATE=en_US
-
-#this is for antialiased fonts in gtk1 apps...
-#LD_PRELOAD=/usr/lib/libgdkxft.so
-#export LD_PRELOAD
-#WISH mini-console needs this...
-HOSTNAME="`cat /etc/hostname | tr -d "\n"`"
-export HOSTNAME
-
-#v2.17 have uncommented this...
-SHELL="/bin/bash"
-export SHELL
-#...this causes a problem with characters in text-mode apps running in rxvt. for example, in mp
-#a vertical line character displays as a 3. so leave the default shell as Busybox sh.
-#...no, have a fix, from alienX. added TERM=xterm to /root/.bashrc.
-#v2.0.0 additional note: now have /bin/sh a symlink to /bin/bash, so above not used.
+export LC_COLLATE=en_US
 
 #w003 no longer needed as woof now uses utf8...
 #w004 no, leave in, have made utf8 optional...
 ##Sylpheed 2.0.1 requires this (also some other gtk2 apps)...
 export G_FILENAME_ENCODING=@locale
-
 #v1.0.6
 #sylpheed uses metamail which requires this...
 export MM_RUNASROOT=1
+}
+export_lang_func
 
-#v1.0.6
-DEFAULTBROWSER="`cat /usr/local/bin/defaultbrowser | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTDRAW="`cat /usr/local/bin/defaultdraw  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTHTMLEDITOR="`cat /usr/local/bin/defaulthtmleditor  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTMEDIAPLAYER="`cat /usr/local/bin/defaultmediaplayer  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTPAINT="`cat /usr/local/bin/defaultpaint  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTSPREADSHEET="`cat /usr/local/bin/defaultspreadsheet  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTTEXTEDITOR="`cat /usr/local/bin/defaulttexteditor  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTWORDPROCESSOR="`cat /usr/local/bin/defaultwordprocessor  | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTIMAGEVIEWER="`cat /usr/local/bin/defaultimageviewer | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-DEFAULTIMAGEEDITOR="`cat /usr/local/bin/defaultimageeditor | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-export DEFAULTBROWSER DEFAULTDRAW DEFAULTHTMLEDITOR DEFAULTMEDIAPLAYER DEFAULTPAINT DEFAULTSPREADSHEET DEFAULTTEXTEDITOR DEFAULTWORDPROCESSOR DEFAULTIMAGEVIEWER DEFAULTIMAGEEDITOR
+export_shell_func() {
+#v2.16 have gone to full ls, now need this...
+#auto: only creates ansi color codes if o/p to a tty, not in a script...
 
-#v2.02 rarsa provided this...
-#freedesktop base directory spec: standards.freedesktop.org/basedir-spec/latest/
-export XDG_DATA_HOME=$HOME/.local/share
-export XDG_CONFIG_HOME=$HOME/.config
-export XDG_DATA_DIRS=/usr/share:/usr/local/share
-export XDG_CONFIG_DIRS=/etc/xdg #v2.14 changed from /usr/etc
-export XDG_CACHE_HOME=$HOME/.cache
+##alias ls='ls --color=auto'
+alias modprobe='modprobe -b'
 
-#v2.13...
-export HISTFILESIZE=2000
-export HISTCONTROL=ignoredups
+##better ps-FULL
+#PS_PERSONALITY=old #though man page says so , strings pss-FULL does not show it
+PS_PERSONALITY=debian
+export PS_PERSONALITY
 
-#v4.00 run e3vi whenever vi excuted... 100530 no, busybox vi now used...
+#v4.00 run e3vi whenever vi excuted...
 #alias vi=e3vi
-
-#w468 'netpbm' utilities need to be told where rgb.txt is...
-[ -f /usr/share/X11/rgb.txt ] && export RGBDEF=/usr/share/X11/rgb.txt
 
 #w482 convenient to set this i think...
 export PREFIX='/usr'
 
-#v2.12
-#xorgwizard creates this file, run once only...
-if [ ! -f /tmp/bootcnt.txt ];then
- [ -f /etc/resolutionfix ] && eval `cat /etc/resolutionfix` 2>/dev/null #120407
-fi
 
+#v2.17 have uncommented this...
+SHELL="/bin/bash"
+#echo 'exporting SHELL now'
+export SHELL
+#echo 'done'
+#...this causes a problem with characters in text-mode apps running in rxvt. for example, in mp
+#a vertical line character displays as a 3. so leave the default shell as Busybox sh.
+#...no, have a fix, from alienX. added TERM=xterm to /root/.bashrc.
+#v2.0.0 additional note: now have /bin/sh a symlink to /bin/bash, so above not used.
+##v2.17 no color in terminal window. G2: sh (link to bash) does not read any
+##config file, unless do this...
+#export ENV="/root/.bashrc"
+#...no, instead have exported SHELL=bash, see above.
+}
+export_shell_func
+
+##### End BASH PART_2 #######
+
+#this is for antialiased fonts in gtk1 apps...
+#LD_PRELOAD=/usr/lib/libgdkxft.so
+#export LD_PRELOAD
+#WISH mini-console needs this...
+#echo 'runnin now scripts in /etc/profile.d'
 #v2.16 this need arose when considering SFS files that may require special env. variables.
+
+profile_d_func() {
+#if [ ! -f /etc/profile.d/firstrun ] ; then
 #this code is lifted straight from Vector...
 # Append any additional sh scripts found in /etc/profile.d/:
 #for profile_script in /etc/profile.d/*.sh ; do
 for profile_script in /etc/profile.d/* ; do #w482 any files.
  [ "`echo -n "$profile_script" | grep 'txt$'`" != "" ] && continue #w482
-  #if [ -x $profile_script ]; then
+  if [ -x $profile_script ]; then
+   #[ "$DEBUG" ] && echo "start... $profile_script"
 . $profile_script
-  #fi
+   #[ "$DEBUG" ] && echo "$profile_script ...end"
+  unset profile_script
+  fi
 done
-unset profile_script
+#unset profile_script
+echo `date` >> /etc/profile.d/firstrun.$USER
+#fi
+[ "$DEBUG" ] && echo "finished running profile scripts"
+}
 
-#v2.16 have gone to full ls, now need this...
-#auto: only creates ansi color codes if o/p to a tty, not in a script...
-alias ls='ls --color=auto'
-##v2.17 no color in terminal window. G2: sh (link to bash) does not read any
-##config file, unless do this...
-#export ENV="/root/.bashrc"
-#...no, instead have exported SHELL=bash, see above.
-#130224 npierce: fix hard-to-read yellow in white terminal. refer: http://murga-linux.com/puppy/viewtopic.php?t=84298&start=210
-#reference: refer http://blog.twistedcode.org/2008/04/lscolors-explained.html
-export LS_COLORS='bd=33:cd=33'
-
+pers_profile_func(){
 #v1.0.5
 #personal customisation file...
+#echo 'start... running for /etc/profile.local'
 [ -r /etc/profile.local ] && . /etc/profile.local
+#echo '/etc/profile.local ...end'
+#echo
+#echo `date`
+[ "$DEBUG" ] && echo "/etc/profile end ,$0 :'$0'"
+#echo
+}
+pers_profile_func
+profile_d_func
 
-###END###
+else
+#echo '$runprofilecount='"$runprofilecount"
+:
+fi
