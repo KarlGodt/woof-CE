@@ -94,15 +94,7 @@ fi
 #[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
 #...no need to start it here, fvwm4 below will start it automatically.
 
-#relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
-  echo $0 17 LINENO $LINENO  `date +"%M %S %N"`
-#w468 on old PCs this sometimes does not start, see further down...
-# rox -p /root/Choices/ROX-Filer/PuppyPin
-  echo $0 18 LINENO $LINENO  `date +"%M %S %N"`
-rox -p=
-  echo $0 19 LINENO $LINENO  `date +"%M %S %N"`
-#v2.0.0
+
 /usr/sbin/delayedrun &
   echo $0 20 LINENO $LINENO  `date +"%M %S %N"`
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
@@ -157,6 +149,19 @@ setxkbmap -rules xorg -model presario -layout "de" -variant "" -option "" -optio
   echo $0 27 LINENO $LINENO  `date +"%M %S %N"`
 dbus-uuidgen --ensure &
   echo $0 28 LINENO $LINENO  `date +"%M %S %N"`
+
+if test "$CURRENTWM" != enlightenment_start; then
+#relocates right-side icons to actual right-side of screen...
+/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+  echo $0 17 LINENO $LINENO  `date +"%M %S %N"`
+#w468 on old PCs this sometimes does not start, see further down...
+rox -p /root/Choices/ROX-Filer/PuppyPin
+  echo $0 18 LINENO $LINENO  `date +"%M %S %N"`
+else
+rox -p=
+  echo $0 19 LINENO $LINENO  `date +"%M %S %N"`
+fi
+#v2.0.0
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
