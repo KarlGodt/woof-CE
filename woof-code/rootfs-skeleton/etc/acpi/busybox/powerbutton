@@ -1,0 +1,195 @@
+#!/bin/sh
+# Karl Reimer Godt in June 2012
+# usual Puppy license
+Version='1.0 Puppy_Racy_5.3 KRG'
+
+/bin/logger -t "acpid:$0" -p 1 "Started"
+
+pidof X && export DISPLAY=':0'
+echo "$0"
+aplay /usr/share/audio/2barks.au
+xmessage "HALLO von $0"
+
+usage(){
+MSG="
+$0 [help]
+Script to suspend or hibernate
+called by busybox applet 'acpid'.
+Busybox acpid since version 1.18 needs
+the 'evdev' kernelmodule loaded , but
+seems not to need the 'button' module.
+Works only with the Powerbutton,
+not with closing the lid.
+Please don't call busybox applets with
+'busybox appletname' . Closing commands like
+kill could accidentaly kill busybox init, which
+would result in immedeate reboot. Always call it with
+the [/path/to/link/]appletname.
+
+Uses acpitool if installed, otherwise the
+simple 'echo \"\$state\" >/sys/power/state' .
+
+Full acpid pkg available : unknown.
+"
+if [ "$2" ];then
+MSG="$MSG
+
+$2
+"
+fi
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue3 -fg white "$MSG"
+exit $1
+}
+case $1 in
+help) usage 0;;
+version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+"") :;;
+*) usage 1 "Unknown Parameter '$1'";;
+esac
+
+sync
+
+loop_umount_func(){
+M_LOOP=`mount | grep '/dev/loop' |grep -v '/initrd'`
+M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
+M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+for mloop in $M_LOOP;do
+umount "$mloop"
+[ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mloop' manually and try again";exit 0; }
+done
+}
+
+part_umount_func(){
+M_DEV=`mount | grep '/dev/[shfmd]+[0-9]' |grep -v '/initrd'`
+M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
+M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed 's!(.*)( on )!\1!'`
+for mpart in $M_POI;do
+umount "$mpart"
+[ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mpart' manually and try again";exit 0; }
+done
+}
+
+restore_mounts(){
+for part in $M_DEV;do
+FS_TYPE=`guess_fstype $part`
+dirn=${part##*/}
+mkdir -p /mnt/$dirn
+mount -t $FS_TYPE $part /mnt/$dirn
+done
+}
+
+ACPITOOL=`which acpitool`
+states_avail=`cat /sys/power/state`
+states_avail=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:disk!;s!mem!S3 PM_SLEEP:mem!'`
+
+aplay /usr/share/audio/2barks.au
+
+
+
+if [ "$DISPLAY" ]; then
+
+xmessage -bg red1 "$0
+Available states:
+$states_avail
+"
+
+xmessage -buttons "HIBERNATE on DISK:204,RAM SLEEP:203,CANCEL this GUI:200" -bg blue3 -fg white "Busybox acpid :
+Do you want to go into ACPI PM SLEEP mode ?"
+ANSWER=$?
+
+if [ "$ANSWER" = 200 ];then
+:
+
+elif [ "$ANSWER" = 203 ];then
+sync
+loop_umount_func
+part_umount_func
+sync
+sleep 1
+
+   if [ "$ACPITOOL" ];then
+
+      acpitool -s
+   else
+echo 'mem' >/sys/power/state
+   fi
+
+restore_mounts
+
+
+
+elif [ "$ANSWER" = 204 ];then
+sync
+loop_umount_func
+part_umount_func
+sync
+sleep 1
+
+   if [ "$ACPITOOL" ];then
+   PROC_SWAPS=`cat /proc/swaps |sed '1d'|awk '{print $1}'`
+      for swap in $PROC_SWAPS;do
+       RESUME=`blkid $swap |grep -iE 'Winter|Hiber|Resume'`
+       [ "$RESUME" ] && break
+      done
+    if [ ! "$RESUME" ];then
+    FDISK_SWAPS=`fdisk -l |grep -i swap|awk '{print $1}'`
+      for swap in $FDISK_SWAPS;do
+       RESUME=`blkid $swap |grep -iE 'Winter|Hiber|Resume'`
+       [ "$RESUME" ] && break
+      done
+    fi
+      if [ "$RESUME" ];then
+         for swap in $PROC_SWAPS;do
+      [ "$swap" = "$RESUME" ] && continue
+      swapoff $swap
+         done
+      swapon $RESUME
+      fi
+
+      sync
+      sleep 1
+      acpitool -S
+
+      sleep 1
+      for swap in $PROC_SWAPS;do
+      swapon $swap
+      done
+      if [ "$RESUME" ];then
+       if test cat /proc/swaps |sed '1d' |wc -l -gt 1;then
+        swapoff $RESUME
+       fi
+      fi
+
+   else #acpitool
+echo 'disk' >/sys/power/state
+   fi
+
+restore_mounts
+
+else
+:
+fi
+
+sleep 5
+#aplay /usr/share/audio/2barks.au
+case $ANSWER in
+203)
+aplay /usr/share/audio/2barks.au
+xmessage "RETURNED from RAM light sleep"
+;;
+204)
+aplay /usr/share/audio/2barks.au
+xmessage "RETURNED from DISK winter sleep"
+;;
+*) :;;
+esac
+/bin/logger -t "acpid:$0" -p 1 "X was run Ended"
+exit 0
+
+else
+:     #X not running
+fi
+
+/bin/logger -t "acpid:$0" -p 1 "No X run Ended"
