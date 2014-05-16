@@ -1,0 +1,69 @@
+#!/bin/sh
+#Barry Kauler, LGPL 2010
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#If a different modem selected, quit...
+[ -h /dev/modem ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+echo "" >> /tmp/udevtrace-modem.log  #DEBUG
+echo "Allusbserial: `date | tr -s ' ' | cut -f 4 -d ' '` - No modem found yet." >> /tmp/udevtrace-modem.log  #DEBUG
+#Verify all usbserial-related drivers loaded, then let them settle.
+/sbin/pup_event_backend_modprobe_protect --modcheck=usbserial || exit
+echo "Allusbserial: usbserial module is loaded." >> /tmp/udevtrace-modem.log  #DEBUG
+sleep 0.5
+
+#Let high-speed modems to be detected by hso init script.
+[ "`grep -l -s 'Modem' /sys/class/tty/ttyHS?*/hsotype`" != "" ] && exit
+echo "Allusbserial: No ttyHS modem found, so continuing." >> /tmp/udevtrace-modem.log  #DEBUG
+
+#Select interrupt-type device - first one or one identified in log as modem.
+DEVLIST=`grep -l -s 'Interrupt' /sys/class/tty/ttyUSB?*/device/ep_??/type | cut -f 5 -d / | sed 's/\(ttyUSB\)\([0-9]$\)/\10\2/' | sort | sed 's/\(ttyUSB\)\(0\)/\1/'`
+MODEM=`echo "$DEVLIST" | head -n 1`
+DEVMLIST=`grep 'converter now attached' /var/log/messages | grep ' modem ' | grep -o 'ttyUSB[0-9][0-9]*'`
+[ "$DEVMLIST" != "" ] \
+ && MODEM=`echo "$DEVLIST" | grep -F "$DEVMLIST" | head -n 1`
+echo "Script Usbserial - DEVLIST: $DEVLIST  DEVMLIST: $DEVMLIST  MODEM: $MODEM" >> /tmp/udevtrace-modem.log  #debug
+[ "$MODEM" = "" ] && exit
+
+ln -snf $MODEM /dev/modem
+
+#the module doesn't seem to support any country setting, so...
+if [ -f /etc/countryinfo ];then
+ SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+ sed -i -e "$SPATTERN" /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable.
+
+###END###
