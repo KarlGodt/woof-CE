@@ -3,23 +3,66 @@
 #delete current modem setting.
 #v416 manage linuxant modems
 
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+Part of pupdial suite .
+
+*WARNING* :  alters files
+             /etc/modules/firmware.dep.\`uname -r\`
+             /etc/wvdial.conf
+             /etc/modprobe.conf
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
 rm -f /dev/modem
+STATUS=$((STATUS+$?))
 
 sed -i -e 's%^Modem = .*%Modem = MYDEVM%' /etc/wvdial.conf #424
+STATUS=$((STATUS+$?))
 
 #v416 v424 Remove all linmodem tty nodes with major number 240 and any links to them, to prevent wvdialonf from finding an incorrect device name after a modem-hardware change.
 MODEMDEVS="`ls -l /dev/* | grep ' root root 240, ' | tr -s ' ' | rev | cut -f 1 -d ' ' | rev`"
 rm -f `echo "$MODEMDEVS" | tr '\n' ' '`
+STATUS=$((STATUS+$?))
+
 MODEMDEVS="`echo "$MODEMDEVS" | cut -f 3 -d '/'`"
-rm -f `ls -l /dev/ttyS_* 2> /dev/null | grep ' -> ' | grep -F "$MODEMDEVS" | tr -s ' ' | rev | cut -f 3 -d ' ' | rev`
+rm -f `ls -l /dev/ttyS_* 2>$ERR | grep ' -> ' | grep -F "$MODEMDEVS" | tr -s ' ' | rev | cut -f 3 -d ' ' | rev`
+STATUS=$((STATUS+$?))
 
 #Nullify all included modem configuration files, to allow fresh start.
 sed -i -e 's%^include /etc/modprobe_include%#&%' /etc/modprobe.conf
+STATUS=$((STATUS+$?))
+
 #Reset firmware entries to allow firmware reinstall to restore only needed modprobe.conf include lines.
 sed -i -e 's%^#\(dgcmodem:\)%\1%' \
 -e 's%^#\(hcfmodem:\)%\1%' \
 -e 's%^#\(hsfmodem:\)%\1%' \
 -e 's%^#\(sl.*modem:\)%\1%' \
 /etc/modules/firmware.dep.`uname -r`
+STATUS=$((STATUS+$?))
 
-xmessage "/dev/modem deleted, 'Modem' entry in /etc/wvdialconf de-initialized."
+if test $STATUS = 0; then
+xmessage "Link /dev/modem deleted, 'Modem' entry in /etc/wvdialconf de-initialized."
+fi
