@@ -115,11 +115,16 @@ if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
 
 elif [ -f $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt ];then
 
- RX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt)
- TX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt)
- RX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
- TX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+ #RX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt)
+ read RX_SES_M <$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month_session.cnt
+ #TX_SES_M=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt)
+ read TX_SES_M <$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month_session.cnt
+ #RX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
+ read RX_MONTH <$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month
+ #TX_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+ read TX_MONTH <$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month
  RX_BYTES=$((RX_SES_M - RX_MONTH))
+
  TX_BYTES=$((TX_SES_M - TX_MONTH))
 
 else
@@ -128,14 +133,16 @@ return 1
 fi
 
 
-  RX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
+  #RX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month)
+  read RX_BYTES_MONTH <$VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month
   [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
 
   RX_BYTES_MONTH=$((RX_BYTES_MONTH+RX_BYTES))
   echo "$RX_BYTES_MONTH" > $VAR_LOCAL/$ACTIVE_INTERFACE/rx_bytes_month
 
 
-  TX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+  #TX_BYTES_MONTH=$(<$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month)
+  read TX_BYTES_MONTH <$VAR_LOCAL/$ACTIVE_INTERFACE/tx_bytes_month
   [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
 
   TX_BYTES_MONTH=$((TX_BYTES_MONTH+TX_BYTES))
@@ -171,6 +178,7 @@ get_jobs(){
 [ "$*" ] && COMMANDO="$*" || COMMANDO=pgprs-connect
 PiDS=`/bin/ps -o pid,ppid,s,args -C $COMMANDO --no-headers`
 PPiD=`echo "$PiDS" | awk '{print $1}'`
+if test "$PiDS"; then
 while read pid ppid rest
 do
 [ "`echo "$PPiD" | grep -w "$ppid"`" ] && echo "$pid"
@@ -178,6 +186,10 @@ done<<EOI
 $(echo "$PiDS")
 EOI
 return 0
+else
+echo "No jobs running" >&2
+return 1
+fi
 }
 
 kill_jobs(){
@@ -213,7 +225,9 @@ fi
 }
 
 firewallfunc(){
-while [ running ] ; do
+sleep 2
+#while [ running ] ; do
+while [ "`pidof pppd`" ]; do
 
  until [ -e /sys/class/net/ppp0 ]
  do
@@ -234,10 +248,32 @@ if [ -L /sys/class/net/ppp0 ]
  done
 
  #echo
-
+ echo 'starting runfirewallfunc'
  runfirewallfunc
- return $?
+ echo 'finished runfirewallfunc'
+ #return $?
+ break
 
 fi
 done
+echo firewallfunc finished
+return $?
+}
+
+stop_other_interfaces(){
+echo -n "Shutting down dhcpcd if running:"
+if pidof dhcpcd; then
+IFACE_TO_DOWN=`ps | grep dhcpcd | grep -v 'grep' | awk '{print $NF}'`
+ if test "$IFACE_TO_DOWN"; then
+ for oneFACE in $IFACE_TO_DOWN; do
+ dhcpcd -k $oneFACE
+ sleep 1
+ ifconfig $oneFACE down
+ done
+ else echo "WARNING: dhcpcd running, but unable to detect interfaces!"
+ fi
+else
+echo "OK-Not running"
+fi
+return 0
 }
