@@ -2,6 +2,8 @@
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 PROG='/root/.xinitrc'
+echo "$0"
+echo "$0:HOME='$HOME'"
 
 . /etc/rc.d/PUPSTATE
 
@@ -44,6 +46,8 @@ fi
 #CURRENTWM="`cat /etc/windowmanager`"
 read CURRENTWM </etc/windowmanager  #|| CURRENTWM=jwm #CURRENTWM=none
 [ "$CURRENTWM" ] || CURRENTWM=jwm
+echo "CURRENTWM='$CURRENTWM'"
+
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
 fi
@@ -73,9 +77,10 @@ if [ -f /etc/xrandrindex ];then
   fi
 fi
 
-
+echo "$0:/root/.xset.sh ..."
 if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
+ echo "$0:Evaluating /root/.xset.sh"
  eval "/root/.xset.sh"
 else
  ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
@@ -85,11 +90,14 @@ else
  # xset fp+ /usr/share/fonts/default/Type1/
  # xset fp+ /usr/share/fonts/default/TTF/
  #fi
+ echo "$0:Setting xset s 600 600 s blank"
  xset s 600 600 s blank
 fi
 
 #v1.0.7 also see /etc/rc.d/rc.local0
+echo "$0:/root/.fonts/fonts.dir .."
 if [ -f /root/.fonts/fonts.dir ];then
+ echo "$0:xset fp+ /root/.fonts/"
  xset fp+ /root/.fonts/
 fi
 
@@ -114,8 +122,10 @@ fi
 
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
+echo "$0:/etc/mousehide ..."
 if [ -f /etc/mousehide ];then
  IDLETIME=`cat /etc/mousehide | cut -f 1 -d ','`
+  echo "$0:IDLETIME='$IDLETIME' OR unclutter .."
  [ "$IDLETIME" = "0" ] || unclutter -idle $IDLETIME &
 fi
 
@@ -159,6 +169,7 @@ setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_to
 sleep 2s; which fbxkb && fbxkb &
 fi ) &
 
+echo "$0:/usr/sbin/delayedrun &"
 /usr/sbin/delayedrun &
 
 if [ "$CURRENTWM" = "xfwm4" ];then
@@ -175,7 +186,7 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
  [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
 
-
+echo "$0:exec '$CURRENTWM'"
 exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
