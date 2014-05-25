@@ -4,20 +4,14 @@ exec 1>>/tmp/photplug.log 2>&1
 
 alias sed='busybox sed'
 alias grep='busybox grep'
-#alias awk='busybox awk' ##awk: applet not found
+alias awk='busybox awk' ##awk: applet not found
 
-#eval `env`  ##/sbin/photplug: eval: line 1: =/bin/busybox_1.18.3_STATIC_upx9_648KB: not found
 env
-
-#[ "$ACTION" = add ] || exit
 
 case $ACTION in
 add)
-#echo $MODALIAS
 [ "$MODALIAS" ] && {
         echo "MODALIAS='$MODALIAS'"
-        #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
-        #exit
         LIST=`modprobe -b -D "$MODALIAS" | grep -vE '^install|^blacklist|^options' | sed 's%.*\(/.*\)\.k.*%\1%'`
         for m in $LIST ; do
         modprobe -b -v "${m##*/}"
@@ -47,18 +41,23 @@ sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTE
 }
 
 test "$FIRMWARE" && {
-echo -n 1 > /sys/$DEVPATH/loading
+#echo -n 1 > /sys/$DEVPATH/loading
 
 FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
 test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`find /lib/modules/all-firmware -xdev -name "$FIRMWARE"`
+
 test "$FIRMWAREBIN" || exit 1
 test -f "$FIRMWAREBIN" || exit 1
 echo "FIRMWAREBIN='$FIRMWAREBIN'"
 
+test "$DEVPATH" || exit 1
+test -e /sys/$DEVPATH/loading || exit 1
+echo -n 1 > /sys/$DEVPATH/loading
+
+test -e /sys/$DEVPATH/data || exit 1
 cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
 if [ $? = 0 ]; then
-    #echo -n  1 > /sys/$DEVPATH/loading
-    #echo -n -1 > /sys/$DEVPATH/loading
     echo 0 >/sys/$DEVPATH/loading
 else
 echo "ERROR loading '$FIRMWAREBIN'"
@@ -66,28 +65,7 @@ fi
 }
 
 ;;
-firmware) #not needed since k-3.7 :
-#Teach the kernel to load firmware files directly from the filesystem instead of using udev
-#http://kernelnewbies.org/Linux_3.7
 
-#http://stackoverflow.com/questions/950107/how-does-linux-kernel-know-where-to-look-for-driver-firmware
-echo -n 1 > /sys/$DEVPATH/loading
-
-FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
-test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
-test "$FIRMWAREBIN" || exit 1
-test -f "$FIRMWAREBIN" || exit 1
-echo "FIRMWAREBIN='$FIRMWAREBIN'"
-cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
-if [ $? = 0 ]; then
-    #echo -n  1 > /sys/$DEVPATH/loading
-    #echo -n -1 > /sys/$DEVPATH/loading
-     echo 0 >/sys/$DEVPATH/loading
-else
-echo "ERROR loading '$FIRMWAREBIN'"
-fi
-
-;;
 *)
 echo "
 Unhandled ACTION '$ACTION'"
