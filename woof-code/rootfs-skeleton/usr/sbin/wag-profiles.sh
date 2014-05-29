@@ -170,6 +170,8 @@
 # ver 0.0.0
 #  basic diagnostic listing
 
+echo "$0:'$*'" >&2
+
 ## Dougal: dirs where config files go
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
@@ -208,9 +210,68 @@ EOI
 [ "${K_EXTRALEVEL//[[:digit:]]/}" ] && K_EXTRALEVEL=0
 
 echo $K_VERSION $K_PATCHLEVEL $K_SUBLEVEL $K_EXTRALEVEL $K_EXTRANAME
+
+#=============================================================================
+# set dhcpcd options
+
+IPV4LL='-L' #-L, --noipv4ll
+            # Don't use IPv4LL at all.
+
+ARP=        #-A, --noarp
+            # Don't request or claim the address by ARP.
+
+GWAY=       # -G, --nogateway
+            # Don't set any default routes.
+
+     #-M, --nomtu
+            # Don't set the MTU of the interface.
+
+     #-N, --nontp
+            # Don't touch /etc/ntpd.conf or restart the ntp service.
+
+     #-R, --nodns
+            # Don't send DNS information to resolvconf or touch
+            # /etc/resolv.conf.
+
+     #-T, --test
+            # On receipt of discover messages, simply print the contents of the
+            # DHCP message to the console.  dhcpcd will not configure the
+            # interface, touch any files or restart any services.
+
+     #-Y, --nonis
+            # Don't touch /etc/yp.conf or restart the ypbind service.
+
+     #-D, --nisdomain
+            # Forces dhcpcd to set domainname of the host to the domainname
+            # option supplied by DHCP server.
+
+     #--netconfig
+            # Forces dhcpcd to use the SuSE netconfig tool. This option turn on
+            # following options: -N, -R, -Y and sets -c to
+            # /etc/sysconfig/network/scripts/dhcpcd-hook.
+
+
+     #or if that is not an
+     #option you can compile DUID support out of dhcpcd or use the -I,
+     #--clientid clientid option and set clientid to ''.
+
+     #ISC dhcpd, dnsmasq, udhcpd and Microsoft DHCP server 2003 default config-
+     #urations work just fine with the default dhcpcd configuration.
+
+     #dhcpcd requires a Berkley Packet Filter, or BPF device on BSD based sys-
+     #tems and a Linux Socket Filter, or LPF device on Linux based systems.
+
+     #-d, --debug
+            # Echo debug and informational messages to the console.  Subsequent
+            # debug options stop dhcpcd from daemonising.
+
+
 #=============================================================================
 setupDHCP()
 {
+
+        echo "'$0':function setupDHCP:'$*' start"
+
         # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
         local MAX_TIME='30'
         # by how much we multiply the time to get percentage (3 for 30 seconds max time)
@@ -234,7 +295,7 @@ setupDHCP()
    <button>
      <label>$L_BUTTON_Abort</label>
      <input file icon=\"gtk-stop\"></input>
-     <action>kill \$(ps ax | grep \"dhcpcd -d -I  $INTERFACE\" | awk '{print \$1}')</action>
+     <action>kill \$(ps ax | grep \"dhcpcd -d -I $IPV4LL $INTERFACE\" | awk '{print \$1}')</action>
      <action>EXIT:Abort</action>
    </button>
   </hbox>
@@ -277,7 +338,7 @@ setupDHCP()
                 dhcpcdProgress "$XPID" &
 
                 # Run dhcpcd. The output goes to the text in the progressbar...
-                if dhcpcd -d -I '' "$INTERFACE" 2>&1
+                if dhcpcd -d -I '' $IPV4LL "$INTERFACE" 2>&1
                 then
                         HAS_ERROR=0
                 else
@@ -317,12 +378,16 @@ setupDHCP()
                 killDhcpcd "$INTERFACE"
         fi
 
+echo "'$0':function setupDHCP:'$*' end"
         return $HAS_ERROR
 } #end of setupDHCP
 
 #=============================================================================
 showProfilesWindow()
 {
+
+echo "'$0':function showProfilesWindow:'$*' start"
+
         INTERFACE="$1"
         # Dougal: find driver and set WPA driver from it
         INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
@@ -449,9 +514,8 @@ showProfilesWindow()
                 esac
 
         done
-
+echo "'$0':function showProfilesWindow:'$*' end"
         return 1
-
 } # end showProfilesWindow
 
 #=============================================================================
@@ -549,7 +613,9 @@ giveNoWPADialog(){
         [ -z "$ENTRY2" ] && ENTRY2=wext
         echo "$ENTRY1:$ENTRY2" >> $Extra_WPA_Modules_File
         CARD_WPA_DRV="$ENTRY2"
-}
+
+        echo "'$0':function giveNoWPADialog:'$*' end"
+} #END giveNoWPADialog
 
 #=============================================================================
 refreshProfilesWindowInfo()
@@ -810,17 +876,21 @@ echo "running NETWIZ_Profiles_Window..."
         </hbox>
 </vbox>
 </window>"
-}
+echo "'$0':function buildProfilesWindow:'$*' end"
+} # end buildProfilesWindow
 
 #=============================================================================
 setNoEncryptionFields()
 {
+        echo "'$0':function setNoEncryptionFields:'$*' start"
         ENCRYPTION_FIELDS="$ADVANCED_FIELDS"
+        echo "'$0':function setNoEncryptionFields:'$*' end"
 }
 
 #=============================================================================
 setWepFields()
 {
+        echo "'$0':function setWepFields:'$*' start"
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
@@ -834,11 +904,13 @@ setWepFields()
 </hbox>
 ${ADVANCED_FIELDS}
 "
-}
+echo "'$0':function setWepFields:'$*' end"
+} # end setWepFields
 
 #=============================================================================
 setWpaFields()
 {
+        echo "'$0':function setWpaFields:'$*' start"
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
@@ -896,7 +968,8 @@ setWpaFields()
         </entry>
 </hbox>
 "
-}
+echo "'$0':function setWpaFields:'$*' end"
+} # end setWpaFields
 
 #=============================================================================
 # Dougal: removed NWID code from top of advanced fields
@@ -913,6 +986,7 @@ setWpaFields()
 
 setAdvancedFields()
 {
+        echo "'$0':function setAdvancedFields:'$*' start"
         if [ ! "$ADVANCED" ] ; then
                 ADVANCED_LABEL="$L_LABEL_Advanced"
                 ADVANCED_ICON="gtk-add"
@@ -952,11 +1026,13 @@ setAdvancedFields()
         </entry>
 </hbox>"
         fi
-}
+        echo "'$0':function setAdvancedFields:'$*' end"
+} #end setAdvancedFields
 
 #=============================================================================
 buildProfilesWindowButtons()
 {
+        echo "'$0':function buildProfilesWindowButtons:'$*' start"
         PROFILE_BUTTONS=""
 
         for PROFILE in $PROFILE_TITLES
@@ -965,11 +1041,13 @@ buildProfilesWindowButtons()
                 PROFILE_BUTTONS="${PROFILE_BUTTONS}<item>${PROFILE}</item>"
         fi
   done
+  echo "'$0':function buildProfilesWindowButtons:'$*' end"
 } # end buildProfileWindowButtons
 
 #=============================================================================
 setupNewProfile ()
 {
+        echo "'$0':function setupNewProfile:'$*' start"
         PROFILE_TITLE=""
         PROFILE_ESSID=""
         PROFILE_MODE="managed"
@@ -999,6 +1077,7 @@ setupNewProfile ()
         PROFILE_TITLES="$PROFILE_TITLES
 #NEW#"
         CURRENT_PROFILE="#NEW#"
+        echo "'$0':function setupNewProfile:'$*' end"
 
 } # end setupNewProfile
 
@@ -1006,6 +1085,7 @@ setupNewProfile ()
 # this is code from loadPrifileData, moved here so can be used at boot...
 # (rather daft all this, should change profiles to contain PROFILE_ names)
 assignProfileData(){
+        echo "'$0':function assignProfileData:'$*' start"
         # now assign to PROFILE_ names...
         PROFILE_WPA_DRV="$WPA_DRV"
         PROFILE_WPA_TYPE="$WPA_TYPE"
@@ -1045,11 +1125,13 @@ assignProfileData(){
                 ENABLE_WPA2_BUTTON='false'
                 ENABLE_OPEN_BUTTON='false'
         fi
+        echo "'$0':function assignProfileData:'$*' end"
 } # end assignProfileData
 
 #=================================================================n============
 loadProfileData()
 {
+        echo "'$0':function loadProfileData:'$*' start"
         # Dougal: added "SECURE" param, increment the "-A" below
         PROFILE_TITLE="$1"
         #PROFILE_DATA=`grep -A 11 -E "TITLE[0-9]+=\"${PROFILE_TITLE}\"" /etc/WAG/profile-conf`
@@ -1061,11 +1143,13 @@ loadProfileData()
         . "$PROFILE_FILE"
         # now assign to PROFILE_ names...
         assignProfileData
+        echo "'$0':function loadProfileData:'$*' end"
 } # end loadProfileData
 
 #=============================================================================
 assembleProfileData()
 {
+        echo "'$0':function assembleProfileData:'$*' start"
         if [ "$PROFILE_MODE_A" = "true" ] ; then
                 PROFILE_MODE="ad-hoc"
         else
@@ -1117,21 +1201,25 @@ assembleProfileData()
         CHANNEL=\"${PROFILE_CHANNEL}\"
         AP_MAC=\"${PROFILE_AP_MAC}\"
         "
+        echo "'$0':function assembleProfileData:'$*' end"
 } # end assembleProfileData
 
 #=============================================================================
 deleteProfile(){
+        echo "'$0':function deleteProfile:'$*' start"
         # skip the templates...
         case $PROFILE_TITLE in autoconnect|template) return ;; esac
         if [ -s "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf" ] ; then
                 rm "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
         fi
+        echo "'$0':function deleteProfile:'$*' end"
 } # end deleteProfile
 
 #=============================================================================
 ## Dougal: we don't need all the mess here if not using one config file...
 saveProfiles ()
 {
+        echo "'$0':function saveProfiles:'$*' start"
         CURRENT_PROFILE=$( echo "$NEW_PROFILE_DATA" | grep -F "TITLE=" | cut -d= -f2 | tr -d '"' )
         # Dougal: the templates aren't named after the mac address... (none)
         case $CURRENT_PROFILE in autoconnect|template) return ;; esac
@@ -1144,11 +1232,13 @@ saveProfiles ()
         echo "$NEW_PROFILE_DATA" > "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
         # create wpa_supplicant config file
         case $PROFILE_ENCRYPTION in WPA|WPA2) saveWpaProfile ;; esac
+        echo "'$0':function saveProfiles:'$*' end"
 } # end saveProfiles
 
 #=============================================================================
 # A function to create an appropriate wpa_supplicant config, rather than use wpa_cli
 saveWpaProfile(){
+        echo "'$0':function saveWpaProfile:'$*' start"
         # first, get the WPA PSK (might have an error)
         getWpaPSK || return 1
 
@@ -1166,12 +1256,14 @@ saveWpaProfile(){
         sed -i "s/\Wssid=.*/    ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"
         sed -i "s/\Wpsk=.*/     #psk=\"$ESCAPED_PHRASE\"\n      psk=$PSK/" "$WPA_CONF"
         #sed -i "s/     psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"
+        echo "'$0':function saveWpaProfile:'$*' end"
         return 0
-}
+} #end saveWpaProfile
 
 #=============================================================================
 # A function to get the psk from wpa_passphrase (moved out of useWpaSupplicant
 getWpaPSK(){
+        echo "'$0':function getWpaPSK:'$*' start"
         # If key is not hex, then convert to hex
         echo "$PROFILE_KEY" | grep -Eq "^[0-9a-fA-F]{64}$"
         if [ $? -eq 0 ] ; then
@@ -1203,13 +1295,15 @@ Shared key must be either
                         fi
                 fi #if [ $KEY_SIZE -lt 8 ] || [ $KEY_SIZE -gt 64 ] ; then
         fi #if [ $? -eq 0 ] ; then #check for hex
+        echo "'$0':function getWpaPSK:'$*' end"
         return 0
-}
+} # end getWpaPSK
 
 #=============================================================================
 # A function that gives an error message using gtkdialog
 # $@: the dialog text
 giveErrorDialog(){
+        echo "'$0':function giveErrorDialog:'$*' start"
         # always echo it, too, for debug purposes
         echo "$@" >> $DEBUG_OUTPUT
         [ "$HAVEX" = "yes" ] || return
@@ -1231,7 +1325,8 @@ giveErrorDialog(){
         gtkdialog3 --program NETWIZ_ERROR_DIALOG #>/dev/null 2>&1
         clean_up_gtkdialog NETWIZ_ERROR_DIALOG
         unset NETWIZ_ERROR_DIALOG
-}
+        echo "'$0':function giveErrorDialog:'$*' end"
+} #end giveErrorDialog
 
 #giveNoNetworkDialog(){
         #export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
@@ -1259,6 +1354,7 @@ giveErrorDialog(){
 #=============================================================================
 useProfile ()
 {
+        echo "'$0':function useProfile:'$*' start"
         case $PROFILE_ENCRYPTION in
                 WPA|WPA2)
                         useWpaSupplicant wizard || return 1
@@ -1271,15 +1367,18 @@ useProfile ()
                         fi
                         ;;
         esac
+        echo "'$0':function useProfile:'$*' end"
 } # end useProfile
 
 #=============================================================================
 killWpaSupplicant ()
 {
-        echo "  killWpaSupplicant '$*' `date` $LINENO"
+
+        echo "$0:killWpaSupplicant '$*' `date` $LINENO"
         # If there are supplicant processes for the current interface, kill them
         [ -d /var/run/wpa_supplicant ] || return
         [ "$INTERFACE" ] || INTERFACE="$1"
+
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
         #       rm /var/run/wpa_supplicant/$INTERFACE* > /dev/null 2>&1
@@ -1288,32 +1387,39 @@ killWpaSupplicant ()
         #       done
         #       sleep 5 # to wait for the supplicant to shutdown
         #fi
+
         # Dougal: replace the above with this...
         wpa_cli -i "$INTERFACE" terminate 2>&1 |grep -v 'Failed to connect'
         [ -e /var/run/wpa_supplicant/$INTERFACE ] && rm -rf /var/run/wpa_supplicant/$INTERFACE
-        echo "  killWpaSupplicant '$*' `date` $LINENO"
+        echo "$0:killWpaSupplicant '$*' `date` $LINENO"
 } # end killWpaSupplicant
 
+##=============================================================================
 # Dougal: put this into a function, for maintainability and so it can be used in setupDHCP
-killDhcpcd(){
-        echo "  killDhcpcd '$*' `date` $LINENO"
+killDhcpcd()
+{
+        echo "$0:killDhcpcd '$*' `date` $LINENO"
         [ "$INTERFACE" ] || INTERFACE="$1"
+
         # release dhcpcd
         #dhcpcd -k "$INTERFACE" 2>/dev/null
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
         #kill $(ps ax | grep "dhcpcd -d -I  $INTERFACE" | awk '{print $1}') 2>/dev/null
         # clean up if needed
         ## Dougal: check /var first, since /etc/dhcpc might exist in save file from the past...
+
         if [ -d /var/lib/dhcpcd ] ; then
           if [ -s /var/run/dhcpcd-${INTERFACE}.pid ] ; then
             kill $( cat /var/run/dhcpcd-${INTERFACE}.pid )
             rm -f /var/run/dhcpcd-${INTERFACE}.* #2>/dev/null
           fi
+
           #begin rerwin - Retain duid, if any, so all interfaces can use
           #it (per ipv6) or delete it if using MAC address as client ID.    rerwin
           rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* #2>/dev/null  #.info
 #end rerwin
           #rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
+
         elif [ -d /etc/dhcpc ];then
           if [ -s /etc/dhcpc/dhcpcd-${INTERFACE}.pid ] ; then
             kill $( cat /etc/dhcpc/dhcpcd-${INTERFACE}.pid )
@@ -1322,14 +1428,16 @@ killDhcpcd(){
           rm /etc/dhcpc/dhcpcd-${INTERFACE}.* #2>/dev/null
           #if left over from last session, causes trouble.
         fi
-        echo "  killDhcpcd '$*' `date` $LINENO"
+
+        echo "$0:killDhcpcd '$*' `date` $LINENO"
 } # end killDhcpcd
 
 #=============================================================================
 # a function to clean up before configuring interface
 # list of stuff stolen from wicd
 # $1: interface name
-cleanUpInterface(){
+cleanUpInterface()
+{
         echo "$0:cleanUpInterface '$*' `date` $LINENO"
         # put interface down
         #ifconfig "$1" down
@@ -1368,7 +1476,7 @@ fi
         #ifconfig "$1" up
 
 if [ "$K_VERSION" = 2 ] ; then
-        echo "$0:cleanUpInterface '$*' `date` $LINENO"
+        echo "$0:function cleanUpInterface:'$*' `date` $LINENO"
         if ! ERROR=$(ifconfig "$1" up 2>&1) ; then
           giveErrorDialog "${L_MESSAGE_Failed_To_Raise_p1}${1}${L_MESSAGE_Failed_To_Raise_p2} ifconfig $1 up
 $L_MESSAGE_Failed_To_Raise_p3
@@ -1379,6 +1487,7 @@ $ERROR
 fi
         return $?
 } # end cleanUpInterface
+
 #=============================================================================
 ## Dougal: function to kill stray processes
 ## dialog variable passed as param
@@ -1392,6 +1501,7 @@ clean_up_gtkdialog(){
 #=============================================================================
 useIwconfig ()
 {
+echo "'$0':function useIwconfig:'$*' start"
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1431,6 +1541,7 @@ useIwconfig ()
           clean_up_gtkdialog NETWIZ_Connecting_DIALOG
         fi
         unset NETWIZ_Connecting_DIALOG
+        echo "'$0':function useIwconfig:'$*' end"
         return 0
   #) | Xdialog --title "Puppy Ethernet Wizard" --progress "Saving profile" 0 0 3
 } # end useIwconfig
@@ -1492,15 +1603,19 @@ useWlanctl(){
           clean_up_gtkdialog NETWIZ_Connecting_DIALOG
         fi
         unset NETWIZ_Connecting_DIALOG
+        echo "'$0':function useWlanctl:'$*' end"
         return 0
   #) | Xdialog --title "Puppy Ethernet Wizard" --progress "Saving profile" 0 0 3
 } # end useWlanctl
+
 #=============================================================================
 # function to validate that the wpa_supplicant authentication process was successful.
 # $1: interface name
 # $2: XPID of gtkdialog progressbar (so we can check if the user clicked "abort")
 # (times in wicd were 15, 3, 1 (sleep), +5 (if rescan) )
-validateWpaAuthentication(){
+validateWpaAuthentication()
+{
+        echo "'$0':function validateWpaAuthentication:'$*' start"
         # Max time we wait for connection to complete (+1 since loop checks at start)
         local MAX_TIME='31'
         # The max time after starting in which we allow the status to be "DISCONNECTED"
@@ -1543,11 +1658,14 @@ validateWpaAuthentication(){
                 #sleep 1
                 ELAPSED=$(($(date +%s)-$START_TIME))
         done
+        echo "'$0':function validateWpaAuthentication:'$*' end"
         return 1
 } # end validateWpaAuthentication
+
 #=============================================================================
 useWpaSupplicant ()
 {
+        echo "'$0':function useWpaSupplicant:'$*' start"
         # add an option for running some parts only from the wizard
         if [ "$1" = "wizard" ] ; then
                 # Dougal: moved all below code to a function
@@ -1740,6 +1858,7 @@ $L_MESSAGE_No_Wpaconfig_p2"
         fi #if [ "$1" = "wizard" ] && [ "$HAVEX" = "yes" ] ; then
         # if we're here, connection failed -- kill wpa_supplicant!
         wpa_cli -i "$INTERFACE" terminate >>$DEBUG_OUTPUT
+        echo "'$0':function useWpaSupplicant:'$*' end"
         return 1
 } # end useWpaSupplicant
 
@@ -1836,23 +1955,30 @@ showScanWindow()
 # $1 might be "retry", to let us know we've already tried once...
 buildScanWindow()
 {
+        echo "'$0':function buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
         SCANWINDOW_BUTTONS=""
+
         (
-                #ifconfig "$INTERFACE" up
-                #cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
+
+                ifconfig "$INTERFACE" up >>$DEBUG_OUTPUT 2>&1
+                #cleanUpInterface "$INTERFACE" >>$DEBUG_OUTPUT 2>&1
 
                 #  Dougal: use files for the scan results, so we can try a few times
                 #+ and see which is biggest (sometimes not all networks show)
-                rm /tmp/net-setup_scan*.tmp #>/dev/null 2>&1
+                rm -f /tmp/net-setup_scan*.tmp >/dev/null 2>&1
+
                 iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
                 echo "X"
 
-                #SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
+                SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
                 sleep 1
+
                 iwlist "$INTERFACE" scan >/tmp/net-setup_scan2.tmp 2>>$DEBUG_OUTPUT
                 echo "X"
 
                 ScanListFile=$(du -b /tmp/net-setup_scan*.tmp |sort -n | tail -n1 |cut -f2)
+                echo "ScanListFile='$ScanListFile'" >&2
+
                 # Dougal: if nothing found, try again!
                 # (put the retry here, so progress is more even in bar...)
                 #case "$SCANALL" in *'No scan results'*)
@@ -1864,32 +1990,45 @@ buildScanWindow()
                   #;;
                 #esac
                 #fi
-                #SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
-                #echo "$SCAN_LIST" > /tmp/net-setup_scanlist
+
+                SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
+                echo "$SCAN_LIST" > /tmp/net-setup_scanlist
+
                 echo "$ScanListFile" > /tmp/net-setup_scanlistfile
-                CELL_LIST=$(grep -Eo "Cell [0-9]+" $ScanListFile | cut -f2 -d " ")
+
+                CELL_LIST=$(grep -Eo "Cell [0-9]+" "$ScanListFile" | cut -f2 -d " ")
+                #CELL_LIST=$(grep -Eo "Cell [0-9]+" /tmp/net-setup_scanlist | cut -f2 -d " ")
+                echo "CELL_LIST='$CELL_LIST'" >&2
+
                 #if [ -z "$SCAN_LIST" ]; then
                 if [ -z "$CELL_LIST" ]; then
+                echo "CELL_LIST zero" >&2
                         # Dougal: a little awkward... want to give an option to reset pcmcia card
                         FI_DRIVER=$(readlink /sys/class/net/$INTERFACE/device/driver)
                         if [ "$1" = "retry" ] ; then # we're on the second try already
+                                echo "Running createNoNetworksDialog" >&2
                                 createNoNetworksDialog
                                 #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " > /tmp/net-setup_scanwindow
                         elif [ -n "$IsPCMCIA" ] ; then
+                                echo "Running createRetryPCMCIAScanDialog" >&2
                                 createRetryPCMCIAScanDialog
                         else
+                                echo "Running createRetryScanDialog" >&2
                                 createRetryScanDialog
                         fi
                 else
+                echo "CELL_LIST not zero" >&2
                         # give each Cell its own button
                         #CELL_LIST=$(echo "$SCAN_LIST" | grep -Eo "Cell [0-9]+" | cut -f2 -d " ")
                         for CELL in $CELL_LIST ; do
+                                echo "CELL='$CELL'" >&2
                                 #getCellParameters $CELL
                                 Get_Cell_Parameters $CELL
                                 [ -z "$CELL_ESSID" ] && CELL_ESSID="(hidden ESSID)"
                                 SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS \"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC};
 ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
                         done
+
                         echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" --radiolist \"$L_TEXT_Scanwindow\"  20 60 4  \
         ${SCANWINDOW_BUTTONS} 2> /dev/null" > /tmp/net-setup_scanwindow
                 fi
@@ -1899,18 +2038,19 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
 
         #Xdialog --title "Puppy Ethernet Wizard" --progress "Scanning wireless networks" 0 0 3
 
-        #SCAN_LIST="$(cat /tmp/net-setup_scanlist)"
+        SCAN_LIST="$(cat /tmp/net-setup_scanlist)"
         read ScanListFile < /tmp/net-setup_scanlistfile
         # run ifconfig down/up, as apparently it is needed for actually configuring to work properly...
         ifconfig "$INTERFACE" down
-        echo "$0:'$*' `date` $LINENO"
+        echo "$0:buildScanWindow'$*' `date` $LINENO"
         ifconfig "$INTERFACE" up
-        echo "$0:'$*' `date` $LINENO"
+        echo "'$0':buildScanWindow:'$*' `date` $LINENO"
 } #end of buildScanWindow
 
 #=============================================================================
-createNoNetworksDialog(){
-echo "creating NETWIZ_SCAN_ERROR_DIALOG..."
+createNoNetworksDialog()
+{
+echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -1940,7 +2080,7 @@ exit 0
 
 #=============================================================================
 createRetryScanDialog(){
-echo "creating NETWIZ_SCAN_ERROR_DIALOG..."
+echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
     echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -1983,7 +2123,7 @@ esac
 
 #=============================================================================
 createRetryPCMCIAScanDialog(){
-echo "creating NETWIZ_SCAN_ERROR_DIALOG..."
+echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -2029,6 +2169,7 @@ esac
 # (note that it echoes Xs for the progress bar)
 runPrismScan()
 {
+        echo "'$0':runPrismScan:'$*' start" >&2
         INTERFACE="$1"
         # enable interface
         wlanctl-ng "$INTERFACE" lnxreq_ifstate ifstate=enable >/tmp/wlan-up 2>&1
@@ -2051,13 +2192,17 @@ runPrismScan()
           done
           echo "X"
         else # let us know it failed
+echo "'$0':runPrismScan:'$*' end 1"
           return 1
         fi
+   echo "'$0':runPrismScan:'$*' end 0" >&2
         return 0
-}
+} # end runPrismScan
+
 #=============================================================================
 buildPrismScanWindow()
 {
+        echo "'$0':buildPrismScanWindow:'$*' start" >&2
   SCANWINDOW_BUTTONS=""
   (
         # do a cleanup first (raises interface, so need to put it down after)
@@ -2093,12 +2238,13 @@ buildPrismScanWindow()
   )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog #>/dev/null
         # clean up
         clean_up_gtkdialog NETWIZ_Scan_Progress_Dialog
-
+echo "'$0':buildPrismScanWindow:'$*' end" >&2
 } #end of buildPrismScanWindow
 
 #=============================================================================
 setupScannedProfile()
 {
+        echo "'$0':setupScannedProfile:'$*' start"
         setupNewProfile
         if [ "$USE_WLAN_NG" = "yes" ] ; then
           getPrismCellParameters $CELL
@@ -2130,11 +2276,13 @@ setupScannedProfile()
         else
           PROFILE_WPA_AP_SCAN="2"
         fi
+        echo "'$0':setupScannedProfile:'$*' end"
 } # end of setupScannedProfile
 
 #=============================================================================
 getCellParameters()
 {
+        echo "'$0':getCellParameters:'$*' start" >&2
         CELL=$1
         #SCAN_CELL=`echo "$SCAN_LIST" | grep -F -A5 "Cell ${CELL}"`
         # Dougal: try and get exactly everything matching our cell
@@ -2161,6 +2309,7 @@ getCellParameters()
         CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
         CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
+
         ## comment out all below code: IE: output isn't reliable (reports WPA as WPA2 at times)
         # Dougal: add this to let the user know the type of encryption
         #CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
@@ -2184,16 +2333,20 @@ getCellParameters()
           #CELL_ENC_TYPE="off"
         #fi
 
+echo "'$0':getCellParameters:'$*' end" >&2
 } # end of getCellParameters
 
 #=============================================================================
 # a modified version of the above, that uses a file rather than SCAN_LIST
 ## it sexpects the variable ScanListFile to be set (file containing scan output)
-Get_Cell_Parameters(){
+Get_Cell_Parameters()
+{
+        echo "'$0':Get_Cell_Parameters:'$*' start" >&2
         #CELL=$1
         #SCAN_CELL=`echo "$SCAN_LIST" | grep -F -A5 "Cell ${CELL}"`
         # Dougal: try and get exactly everything matching our cell
         #START=$(echo "$SCAN_LIST" | grep -F -n "Cell $CELL" |cut -d: -f1)
+
         START=$(grep -F -n "Cell $1" $ScanListFile |cut -d: -f1)
         #NEXT=$(expr $CELL + 1)
     # remove the 0 from the cell number, so the shell won't think it's hex or something
@@ -2225,12 +2378,13 @@ Get_Cell_Parameters(){
         CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
         CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
-
+echo "'$0':Get_Cell_Parameters:'$*' end" >&2
 } # end of Get_Cell_Parameters
-#=============================================================================
 
+#=============================================================================
 getPrismCellParameters()
 {
+        echo "'$0':getPrismCellParameters:'$*' start" >&2
         CELL=$1
         CELL_ESSID=$(grep -F 'ssid=' /tmp/prism-scan$CELL | grep -v 'bssid=' | cut -d"'" -f2)
         CELL_CHANNEL=$(grep -F 'dschannel=' /tmp/prism-scan$CELL | cut -d= -f2)
@@ -2240,6 +2394,7 @@ getPrismCellParameters()
         CELL_MODE=$(grep -F 'bsstype=' /tmp/prism-scan$CELL | cut -d= -f2)
         ## Dougal: maybe do something with "no_value"
         CELL_ENCRYPTION=$(grep -F 'privacy=' /tmp/prism-scan$CELL | cut -d= -f2)
+        echo "'$0':getPrismCellParameters:'$*' end" >&2
 } # end of getPrismCellParameters
 
 #=============================================================================
@@ -2265,6 +2420,7 @@ if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
         showProfilesWindow "$1"
 fi
 #DEBUG_OUTPUT="/dev/stdout"
+DEBUG_OUTPUT="/dev/stderr"
 [ ! "${DEBUG_OUTPUT}" ] && DEBUG_OUTPUT="/dev/null"
 
 #=============================================================================
