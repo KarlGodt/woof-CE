@@ -173,6 +173,17 @@ LOG_LEVEL="notice"
 #
 
 VERBOSE=1
+VERB=-v   # -v, --verbose
+          #    Verbose output.  This option makes the list  command  show
+          #    the interface name, the rule options (if any), and the TOS
+          #    masks.  The packet and byte counters are also listed, with
+          #    the  suffix  'K',  'M'  or  'G'  for  1000,  1,000,000 and
+          #    1,000,000,000 multipliers respectively  (but  see  the
+          # -x
+          #    flag  to change this).  For appending, insertion, deletion
+          #    and replacement, this causes detailed information  on  the
+          #    rule or rules to be printed.
+
 [ "$VERBOSE" = 1 ] && OUTPUT=/dev/stdout || OUTPUT=/dev/null
 [ "$VERBOSE" = 1 ] &&  ERROR=/dev/stderr ||  ERROR=/dev/null
 
@@ -213,12 +224,13 @@ stop
 cleanup
 
 "
+exit
 fi
 
 # Tell everyone if we are loading data from an external configuration file.
 
 if [ "$1" == "update" ] || [ "$1" == "load" ] || [ "$1" == "fast" ] || \
-   [ "$1" == "save" ] || [ "$REQUIRE_EXTERNAL_CONFIG" == "yes" ] || \
+   [ "$1" == "save" ]   || [ "$REQUIRE_EXTERNAL_CONFIG" == "yes" ]  || \
    ( [ "$1" == "check" ] && [ -n "$2" ] ); then
   if [ -z "$2" ]; then
     CONFIG="/etc/firewall.conf"
@@ -264,29 +276,84 @@ fi
 
 if [ "$1" == "stop" ] || [ "$1" == "clear" ]; then
   echo " [ PASSED ]"
-  iptables -t filter -F 1>>$OUTPUT 2>>$ERROR
-  iptables -t filter -X 1>>$OUTPUT 2>>$ERROR
-  iptables -t nat -F 1>>$OUTPUT 2>>$ERROR
-  iptables -t nat -X 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -F 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -X 1>>$OUTPUT 2>>$ERROR
-  iptables -t filter -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t filter -P OUTPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t filter -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t nat -P PREROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t nat -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t nat -P OUTPUT ACCEPT  1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P OUTPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P PREROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
+  #        -t
+  #filter: built-in chains:INPUT FORWARD OUTPUT
+  #                This is the default table (if no -t option is  passed).
+  #nat:    built-in chains:PREROUTING OUTPUT POSTROUTING
+  #
+  #mangle: built-in chains:PREROUTING OUTPUT INPUT FORWARD POSTROUTING
+  #
+  #raw:    built-in chains:PREROUTING OUTPUT
+
+#-F, --flush [chain]
+#              Flush  the  selected  chain (all the chains in the table if
+#              none is given).  This is equivalent  to  deleting  all  the
+#              rules one by one.
+  iptables -t filter -F $VERB 1>>$OUTPUT 2>>$ERROR
+
+#-X, --delete-chain [chain]
+#              Delete  the  optional  user-defined chain specified.  There
+#              must be no references to the chain.  If there are, you must
+#              delete  or replace the referring rules before the chain can
+#              be deleted.  The chain must be empty, i.e. not contain  any
+#              rules.   If no argument is given, it will attempt to delete
+#              every non-builtin chain in the table.
+  iptables -t filter -X $VERB 1>>$OUTPUT 2>>$ERROR
+
+  iptables -t nat    -F $VERB 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat    -X $VERB 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -F $VERB 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -X $VERB 1>>$OUTPUT 2>>$ERROR
+
+
+#-P, --policy chain target
+#              Set the policy for the chain to the given target.  See  the
+#              section TARGETS for the legal targets.  Only built-in (non-
+#              user-defined) chains can have policies, and neither  built-
+#              in nor user-defined chains can be policy targets.
+  iptables -t filter $VERB -P INPUT   ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter $VERB -P OUTPUT  ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t filter $VERB -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
+
+#TARGETS
+#       A firewall rule specifies criteria for a packet and a target.   If
+#       the packet does not match, the next rule in the chain is the exam-
+#       ined; if it does match, then the next rule  is  specified  by  the
+#       value of the target, which can be the name of a user-defined chain
+#       or one of the special values
+#       # ACCEPT, DROP, QUEUE or RETURN.
+
+  iptables -t nat $VERB -P PREROUTING  ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat $VERB -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat $VERB -P OUTPUT      ACCEPT 1>>$OUTPUT 2>>$ERROR
+
+  iptables -t mangle $VERB -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle $VERB -P OUTPUT      ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle $VERB -P PREROUTING  ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle $VERB -P INPUT       ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle $VERB -P FORWARD     ACCEPT 1>>$OUTPUT 2>>$ERROR
+
   #if !(( `which modprobe 2>&1 | grep -c "which: no modprobe in"` )) && [ -a "/proc/modules" ]; then
   if [ "`which modprobe`" ]  && [ -a "/proc/modules" ]; then
-    for MODULE in ipt_TTL iptable_mangle ipt_mark ipt_MARK ipt_MASQUERADE \
-                  ip_nat_irc ip_nat_ftp ipt_LOG ipt_limit ipt_REJECT \
-                  ip_conntrack_irc ip_conntrack_ftp ipt_state iptable_nat \
-                  iptable_filter ip_tables; do
+  MODULES=`modprobe -l | grep '/netfilter/'`
+  MODULES=`echo "$MODULES" | sed 's!.*/!!;s!\.ko!!' | sort`
+    for MODULE in \
+    ipt_TTL \
+    iptable_mangle \
+    ipt_mark \
+    ipt_MARK \
+    ipt_MASQUERADE \
+    ip_nat_irc \
+    ip_nat_ftp \
+    ipt_LOG \
+    ipt_limit \
+    ipt_REJECT \
+    ip_conntrack_irc \
+    ip_conntrack_ftp \
+    ipt_state \
+    iptable_nat \
+    iptable_filter \
+    ip_tables; do
       if (( `lsmod | grep -c "$MODULE"` )); then
         rmmod $MODULE 1>>$OUTPUT 2>>$ERROR
       fi
@@ -300,14 +367,37 @@ fi
 
 if [ "$1" == "cleanup" ]; then
   echo " [ PASSED ]"
+
+       # -n, --numeric
+       #       Numeric  output.   IP  addresses  and port numbers will be
+       #       printed in numeric format.  By default, the  program  will
+       #       try  to display them as host names, network names, or ser-
+       #       vices (whenever applicable).
+
+       # -L, --list [chain]
+       #       List  all  rules  in  the  selected chain.  If no chain is
+       #       selected, all chains are listed. Like every other iptables
+       #       command,  it applies to the specified table (filter is the
+       #       default), so NAT rules get listed by
+       #       # iptables -t nat -n -L
+       #       Please note that it is often used with the -n  option,  in
+       #       order  to  avoid long reverse DNS lookups.  It is legal to
+       #       specify the -Z (zero) option as well, in  which  case  the
+       #       chain(s)  will be atomically listed and zeroed.  The exact
+       #       output is affected by the other arguments given. The exact
+       #       rules are suppressed until you use
+       #       # iptables -L -v
+
+
   COUNT=`iptables -nL INPUT | grep -c "tcp-reset"`
   TAB=$COUNT
   while [ "$((COUNT--))" -gt "0" ]; do
-    iptables -D INPUT 1
+    iptables $VERB -D INPUT 1
   done
+
   COUNT=`iptables -nL FORWARD | grep -c "tcp-reset"`
   while [ "$((COUNT--))" -gt "0" ]; do
-    iptables -D FORWARD 1
+    iptables $VERB -D FORWARD 1
   done
   echo "-> Old TCP session dump rules expunged ( $TAB )...."
   exit
@@ -358,49 +448,166 @@ dump_tcp() {
   fi
   COUNT=10
   TAB=0
+
   NET=`cat /proc/net/ip_conntrack | grep "^tcp" | grep ESTABLISHED | awk '{ gsub(/\ /,"\n"); print }'`
+
   for ADDRESS in `echo "$NET" | sed -n $COUNT~20p | cut -d= -f2`; do
+
     if !(( `echo $INTERNAL_ADDRESSES $EXTERNAL_ADDRESSES | grep -c "$ADDRESS"` )); then
+
       DEST=`echo "$NET" | sed -n $((COUNT+1))~20p | cut -d= -f2 | head -1`
       PORTS=`echo "$NET" | sed -n $((COUNT+2))~20p | cut -d= -f2 | head -1`
       DPORTS=`echo "$NET" | sed -n $((COUNT+3))~20p | cut -d= -f2 | head -1`
-      iptables -I INPUT -s $ADDRESS -d $DEST -p tcp --sport $PORTS --dport $DPORTS -j REJECT --reject-with tcp-reset
+
+#       -I, --insert chain [rulenum] rule-specification
+#              Insert  one  or  more  rules  in the selected chain as the
+#              given rule number.  So, if the rule number is 1, the  rule
+#              or  rules  are inserted at the head of the chain.  This is
+#              also the default if no rule number is specified.
+
+#   PARAMETERS
+#       The following parameters make up a rule specification (as used in
+#       the add, delete, insert, replace and append commands).
+
+#       [!] -s, --source address[/mask]
+#              Source specification. Address  can  be  either  a  network
+#              name,  a hostname (please note that specifying any name to
+#              be resolved with a remote query such as DNS  is  a  really
+#              bad  idea),  a network IP address (with /mask), or a plain
+#              IP address.  The mask can be either a network  mask  or  a
+#              plain  number,  specifying  the  number of 1's at the left
+#              side of the network mask.  Thus, a mask of 24  is  equiva-
+#              lent  to 255.255.255.0.  A "!" argument before the address
+#              specification inverts the sense of the address.  The  flag
+#              --src is an alias for this option.
+#       [!] -d, --destination address[/mask]
+#              Destination  specification.  See the description of the -s
+#              (source) flag for a detailed description  of  the  syntax.
+#              The flag --dst is an alias for this option.
+#       [!] -p, --protocol protocol
+#              The protocol of the rule or of the packet to  check.   The
+#              specified  protocol can be one of
+#                tcp, udp, udplite, icmp,
+#                esp, ah, sctp or all,
+#              or it can be a numeric value, repre-
+#              senting one of these protocols or a different one.  A pro-
+#              tocol name from /etc/protocols is  also  allowed.   A  "!"
+#              argument before the protocol inverts the test.  The number
+#              zero is equivalent to all.  Protocol all will  match  with
+#              all  protocols and is taken as default when this option is
+#              omitted.
+
+#MATCH EXTENSIONS
+#       iptables can use extended  packet  matching  modules.   These  are
+#       loaded  in  two  ways: implicitly, when -p or --protocol is speci-
+#       fied, or with the -m or --match options, followed by the  matching
+#       module  name;  after  these,  various  extra  command line options
+#       become available, depending on the specific module.  You can spec-
+#       ify  multiple  extended match modules in one line, and you can use
+#       the -h or --help options after the module has  been  specified  to
+#       receive help specific to that module.
+#   dccp
+#       [!] --source-port,--sport port[:port]
+#       [!] --destination-port,--dport port[:port]
+#       [!] --dccp-types mask
+#              Match when the DCCP packet type is one of 'mask'. 'mask' is
+#              a comma-separated list of packet types.  Packet types  are:
+#              REQUEST RESPONSE DATA ACK DATAACK CLOSEREQ CLOSE RESET SYNC
+#              SYNCACK INVALID.
+#       [!] --dccp-option number
+#              Match if DCP option set.
+
+#   PARAMETERS
+#      -j, --jump target
+#              This specifies the target of the rule; i.e., what to do  if             -g, --goto chain
+#              the  packet  matches  it.  The target can be a user-defined              This  specifies  that  the  processing should continue in a
+#              chain (other than the one this rule is in), one of the spe-              user specified chain. Unlike the --jump option return  will
+#              cial  builtin  targets  which decide the fate of the packet              not  continue  processing  in this chain but instead in the
+#              immediately, or an extension (see  EXTENSIONS  below).   If              chain that called us via --jump.
+#              this option is omitted in a rule (and -g is not used), then
+#              matching the rule will have no effect on the packet's fate,
+#              but the counters on the rule will be incremented.
+
+      iptables $VERB -I INPUT -s $ADDRESS -d $DEST -p tcp --sport $PORTS --dport $DPORTS -j REJECT --reject-with tcp-reset
+
+#TARGET EXTENSIONS
+#       iptables can  use  extended  target  modules:  the  following  are
+#       included in the standard distribution.
+#   REJECT
+#       This  is  used  to  send  back  an error packet in response to the
+#       matched packet: otherwise it is equivalent to DROP so it is a ter-
+#       minating TARGET, ending rule traversal.  This target is only valid
+#       in the INPUT, FORWARD and OUTPUT chains, and  user-defined  chains
+#       which  are  only  called  from those chains.  The following option
+#       controls the nature of the error packet returned:
+
+#       --reject-with type
+#              The type given can be
+#               icmp-net-unreachable
+#               icmp-host-unreachable
+#               icmp-port-unreachable
+#               icmp-proto-unreachable
+#               icmp-net-prohibited
+#               icmp-host-prohibited or
+#               icmp-admin-prohibited (*)
+#              which return the  appropriate  ICMP  error  message
+#              (port-unreachable  is  the default).
+#              The option
+#               tcp-reset
+#              can be used on rules which  only  match  the  TCP  protocol:
+#              this causes  a  TCP  RST packet to be sent back.  This is mainly
+#              useful for blocking ident (113/tcp) probes which frequently
+#              occur  when  sending mail to broken mail hosts (which won't
+#              accept your mail otherwise).
+
+
       if [ "$IS_ROUTER" == "yes" ]; then
-        iptables -I FORWARD -s $ADDRESS -d $DEST -p tcp --sport $PORTS --dport $DPORTS -j REJECT --reject-with tcp-reset
+
+
+        iptables $VERB -I FORWARD -s $ADDRESS -d $DEST -p tcp --sport $PORTS --dport $DPORTS -j REJECT --reject-with tcp-reset
       fi
+
       TAB=$((TAB+1))
     fi
     COUNT=$((COUNT+20))
   done
+
   echo "( $TAB dumped )"
 }
 
 # Handle 'fast' argument.
 
 if [ "$1" == "fast" ]; then
+
   if (( `which iptables-restore 2>&1 | grep -c "which: no iptables-restore in"` )); then
     FAILURE="Required program 'iptables-restore' not found."
     exit_failure $1
   fi
   echo " [ SKIPPED ]"
+
   echo "1" > /proc/sys/net/ipv4/conf/all/rp_filter
   for INTERFACE in $NO_RP_FILTER_INTERFACES; do
     echo "0" > /proc/sys/net/ipv4/conf/$INTERFACE/rp_filter
   done
+
   cat $CONFIG | sed -n 40~1p | iptables-restore
+
   if [ -n "$DYNAMIC_INTERFACES" ]; then
     echo "1" > /proc/sys/net/ipv4/ip_dynaddr
   else
     echo "0" > /proc/sys/net/ipv4/ip_dynaddr
   fi
+
   if [ "$LOGGING" == "yes" ]; then
     echo "1" > /proc/sys/net/ipv4/conf/all/log_martians
   fi
+
   if [ -n "$INTERNAL_INTERFACES" ] || [ -n "$PORT_FORWARDS" ]; then
     echo "1" > /proc/sys/net/ipv4/ip_forward
   else
     echo "0" > /proc/sys/net/ipv4/ip_forward
   fi
+
   echo "-> Firewall configuration complete.  No sanity checking was performed."
   if [ "$DUMP_TCP_ON_INIT" == "yes" ]; then
     dump_tcp fast
@@ -450,14 +657,17 @@ check_ports() {         # Checks PORTS variable.
   FAILURE=""
   RANGE=`echo "$PORTS/" | cut -d/ -f1`
   PROTOCOL=`echo "$PORTS/" | cut -d/ -f2`
+
   if (( `echo "$PORTS/" | cut -d/ -f3 | grep -c "."` )); then
     FAILURE="Syntax error"
     return 1
   fi
+
   if [ -z "$RANGE" ]; then
     FAILURE="Syntax error"
     return 1
   fi
+
   if (( `echo "$RANGE" | grep -c "[^[:digit:]]"` )) || [ "$RANGE" -lt "1" ] || [ "$RANGE" -gt "65535" ]; then
     for PORT in `echo "$RANGE-" | cut -d- -f1,2 --output-delimiter=" "`; do
       if (( `echo "$PORT" | grep -c "[^[:digit:]]"` )) || [ "$PORT" -lt "1" ] || [ "$PORT" -gt "65535" ]; then
@@ -465,11 +675,14 @@ check_ports() {         # Checks PORTS variable.
         return 1
       fi
     done
+
     if (( `echo "$RANGE-" | cut -d- -f3 | grep -c "."` )); then
       FAILURE="Syntax error"
       return 1
     fi
+
   fi
+
   if [ -n "$PROTOCOL" ]; then
     if ! ( [ "$PROTOCOL" == "tcp" ] || [ "$PROTOCOL" == "udp" ] ); then
       FAILURE="Invalid protocol"
@@ -581,7 +794,7 @@ for PARAM in PERMIT BLACKLIST; do
   done
 done
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Remove entries with ports and put them in their own variable.
@@ -807,7 +1020,7 @@ for INTERFACE in $IGNORE_INTERFACES; do
 done
 EXTERNAL_INTERFACES=`echo $EXTERNAL_INTERFACES` # Remove whitespace.
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2 >&2
 echo -n "."
 
 # Divide internal and external interfaces into static and dynamic groups.
@@ -894,7 +1107,7 @@ if [ -n "$STATIC_NAT_INTERFACES" ]; then
       echo -n "-> $INTERFACE has no IP address.  Waiting for DHCP"
       for COUNT in 1 2 3 4 5 6 7 8 9 10; do
         sleep 1
-        echo "$0:'$*' `date` $LINENO"
+        echo "$0:'$*' `date` $LINENO" >&2
         echo -n "."
         ADDRESS=`ifconfig | grep "^$INTERFACE\ " -A1 | grep "inet" | cut -d: -f2 | cut -d\  -f1 | head -1`
         if [ -n "$ADDRESS" ]; then
@@ -935,7 +1148,7 @@ if [ -n "$STATIC_NAT_INTERFACES" ]; then
   NAT_ADDRESSES=`echo $NAT_ADDRESSES`
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Determine if this is a modular kernel, if so modprobe the required modules.
@@ -1077,7 +1290,6 @@ fi
 
 # Obtain broadcast list if we are doing logging (so that we will not log them).
 # We have to do this before we hax0r STATIC_INTERNAL_INTERFACES.
-
 if [ "$LOGGING" == "yes" ]; then
   BCAST_LIST="255.255.255.255"
   for INTERFACE in $STATIC_INTERNAL_INTERFACES $STATIC_EXTERNAL_INTERFACES; do
@@ -1142,7 +1354,7 @@ if [ -n "$INTERNAL_NETWORKS" ]; then
   done
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Sanity check ALLOW_INBOUND and DENY_OUTBOUND and compare against INTERNAL_NETWORKS.
@@ -1342,11 +1554,10 @@ if [ -n "$STATIC_INTERNAL_INTERFACES" ] && [ "$TRUST_ROUTED_NETWORKS" != "yes" ]
   EXTERNAL_ADDRESSES="$EXTERNAL_ADDRESSES $INTERNAL_ADDRESSES"
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Check that rp_filter interfaces are valid.
-
 for INTERFACE in $NO_RP_FILTER_INTERFACES; do
   if ! [ -w "/proc/sys/net/ipv4/conf/$INTERFACE/rp_filter" ]; then
     FAILURE="Cannot write to /proc/sys/net/ipv4/conf/$INTERFACE/rp_filter.  Is the interface definition valid?"
@@ -1354,56 +1565,59 @@ for INTERFACE in $NO_RP_FILTER_INTERFACES; do
   fi
 done
 
-echo "$0:'$*' `date` $LINENO"
-# Check for Local Loopback interface.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Check for Local Loopback interface.
 if !(( `ifconfig | grep -A1 "^lo" | grep "127\." | grep -c "255\.0\.0\.0"` )); then
   FAILURE="Local Loopback interface (lo) required but not found."
   exit_failure $1
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Make sure the filter table exists.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Make sure the filter table exists.
 if (( `iptables -t filter -nL 2>&1 | grep -c "Table does not exist"` )) || (( `iptables -t filter -nL 2>&1 | grep -c "can't initialize iptables table"` )); then
   FAILURE="Could not find 'filter' table.  Did you compile support for all necessary modules?"
   exit_failure $1
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Check for the REJECT target if RFC 1122 compliance is enabled.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Check for the REJECT target if RFC 1122 compliance is enabled.
 if [ "$RFC_1122_COMPLIANT" == "yes" ]; then
   if ((`iptables -t filter -i lo -o lo -I FORWARD -j REJECT 2>&1 | grep -c "No chain/target/match by that name"`)); then
     FAILURE="Could not find 'REJECT' target.  Did you compile support for all necessary modules?"
     exit_failure $1
   else
+
     iptables -t filter -D FORWARD 1
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# If logging is enabled check for LOG and limit targets.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# If logging is enabled check for LOG and limit targets.
 if [ "$LOGGING" == "yes" ]; then
   if (( `iptables -t filter -i lo -o lo -I FORWARD -m limit 2>&1 | \
          grep -c "No chain/target/match by that name"` )); then
     FAILURE="Could not find 'limit' target.  Did you compile support for all necessary modules?"
     exit_failure $1
   else
+
     iptables -t filter -D FORWARD 1
   fi
   if (( `iptables -t filter -i lo -o lo -I FORWARD -j LOG 2>&1 | grep -c "No chain/target/match by that name"` )); then
     FAILURE="Could not find 'LOG' target.  Did you compile support for all necessary modules?"
     exit_failure $1
   else
+
     iptables -t filter -D FORWARD 1
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Check for the nat table if we need it.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Check for the nat table if we need it.
 if [ -n "$STATIC_NAT_INTERFACES" ] || [ -n "$DYNAMIC_NAT_INTERFACES" ] || [ -n "$PORT_FORWARDS" ]; then
   if (( `iptables -t nat -nL 2>&1 | grep -c "Table does not exist"` )) || (( `iptables -t nat -nL 2>&1 | grep -c "can't initialize iptables table"` )); then
     FAILURE="Could not find 'nat' table.  Did you compile support for all necessary modules?"
@@ -1411,30 +1625,33 @@ if [ -n "$STATIC_NAT_INTERFACES" ] || [ -n "$DYNAMIC_NAT_INTERFACES" ] || [ -n "
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Determine if we need the MASQUERADE target.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Determine if we need the MASQUERADE target.
 if [ -n "$DYNAMIC_NAT_INTERFACES" ] || ( [ -n "$DYNAMIC_INTERFACES" ] && [ -n "$PORT_FORWARDS" ] ); then
   if ((`iptables -t nat -I POSTROUTING -o lo -j MASQUERADE 2>&1 | grep -c "No chain/target/match by that name"`)); then
     FAILURE="Could not find 'MASQUERADE' target.  Did you compile support for all necessary modules?"
     exit_failure $1
   else
+
     iptables -t nat -D POSTROUTING 1
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Check for state match module.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Check for state match module.
 if (( `iptables -t filter -I OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>&1 | \
        grep -c "No chain/target/match by that name"` )); then
   FAILURE="Failed to load state match module.  Did you compile support for all necessary modules?"
   exit_failure $1
 else
+
   iptables -t filter -D OUTPUT 1
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
+
 # Check for various port forwarding and ttl_stealth_router requirements.
 
 if [ -n "$PORT_FORWARDS" ] || [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
@@ -1447,12 +1664,14 @@ if [ -n "$PORT_FORWARDS" ] || [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
       FAILURE="Failed to load MARK target, required for port forwarding.  Did you compile support for all necessary modules?"
       exit_failure $1
     else
+
       iptables -t mangle -D OUTPUT 1
     fi
     if (( `iptables -t mangle -I OUTPUT -m mark --mark "1" -j ACCEPT 2>&1 | grep -c "No chain/target/match by that name"` )); then
       FAILURE="Failed to netfilter MARK match module, required for port forwarding.  Did you compile support for all necessary modules?"
       exit_failure $1
     else
+
       iptables -t mangle -D OUTPUT 1
     fi
   fi
@@ -1461,19 +1680,21 @@ if [ -n "$PORT_FORWARDS" ] || [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
       FAILURE="Linux kernel 2.4.18 or newer required for TTL_STEALTH_ROUTER mode."
       exit_failure $1
     else
+
       iptables -t mangle -D FORWARD 1
     fi
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Test for ipt_TTL support.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Test for ipt_TTL support.
 if [ "$TTL_STEALTH_ROUTER" == "yes" ]; then
   if (( `iptables -t mangle -I FORWARD -j TTL --ttl-inc "1" 2>&1 | grep -c "No chain/target/match by that name"` )); then
     FAILURE="TTL_STEALTH_ROUTER mode requires a patched kernel.  See http://projectfiles.com/firewall/ for details."
     exit_failure $1
   else
+
     iptables -t mangle -D FORWARD 1
   fi
 fi
@@ -1482,7 +1703,7 @@ fi
 
 echo " [ PASSED ]"
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 # Exit if we only want to do sanity checking.
 
 if [ "$1" == "check" ]; then
@@ -1495,55 +1716,59 @@ fi
 
 echo -n "-> Building firewall."
 
-echo "$0:'$*' `date` $LINENO"
-# Let no packets slip by while we are configuring the firewall.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Let no packets slip by while we are configuring the firewall.
 echo "0" > /proc/sys/net/ipv4/ip_forward
 
-echo "$0:'$*' `date` $LINENO"
-# Enable kernel level reverse path filtering.
+#echo "$0:'$*' `date` $LINENO" >&2
 
+# Enable kernel level reverse path filtering.
 echo "1" > /proc/sys/net/ipv4/conf/all/rp_filter
 for INTERFACE in $NO_RP_FILTER_INTERFACES; do
   echo "0" > /proc/sys/net/ipv4/conf/$INTERFACE/rp_filter
 done
 
-echo "$0:'$*' `date` $LINENO"
-# Enable kernel level dynamic address handling.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Enable kernel level dynamic address handling.
 if [ -n "$DYNAMIC_INTERFACES" ]; then
   echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 else
   echo "0" > /proc/sys/net/ipv4/ip_dynaddr
 fi
 
-echo "$0:'$*' `date` $LINENO"
-# Set default policies.
+echo "$0:'$*' `date` $LINENO" >&2
 
+# Set default policies.
 iptables -t filter -F
 iptables -t filter -X
-iptables -t filter -P INPUT DROP
+iptables -t filter -P INPUT   DROP
 iptables -t filter -P FORWARD DROP
-iptables -t filter -P OUTPUT ACCEPT
-echo "$0:'$*' `date` $LINENO"
+iptables -t filter -P OUTPUT  ACCEPT
+
+echo "$0:'$*' `date` $LINENO" >&2
 if !(( `iptables -t nat -F 2>&1 | grep -c "Table does not exist"` )); then
+
   iptables -t nat -X
-  iptables -t nat -P PREROUTING ACCEPT
+  iptables -t nat -P PREROUTING  ACCEPT
   iptables -t nat -P POSTROUTING ACCEPT
-  iptables -t nat -P OUTPUT ACCEPT
-fi
-echo "$0:'$*' `date` $LINENO"
-if !(( `iptables -t mangle -F 2>&1 | grep -c "Table does not exist"` )); then
-  iptables -t mangle -F
-  iptables -t mangle -X
-  iptables -t mangle -P PREROUTING ACCEPT
-  iptables -t mangle -P OUTPUT ACCEPT
-  iptables -t mangle -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR     # New 2.4.18 builtin mangle chains
-  iptables -t mangle -P INPUT ACCEPT 1>>$OUTPUT 2>>$ERROR
-  iptables -t mangle -P FORWARD ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t nat -P OUTPUT      ACCEPT
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
+if !(( `iptables -t mangle -F 2>&1 | grep -c "Table does not exist"` )); then
+
+  iptables -t mangle -F
+  iptables -t mangle -X
+  iptables -t mangle -P PREROUTING  ACCEPT
+  iptables -t mangle -P OUTPUT      ACCEPT
+  iptables -t mangle -P POSTROUTING ACCEPT 1>>$OUTPUT 2>>$ERROR     # New 2.4.18 builtin mangle chains
+  iptables -t mangle -P INPUT       ACCEPT 1>>$OUTPUT 2>>$ERROR
+  iptables -t mangle -P FORWARD     ACCEPT 1>>$OUTPUT 2>>$ERROR
+fi
+
+echo "$0:'$*' `date` $LINENO" >&2
 # Drop traffic to and from blacklisted networks.
 
 for NETWORK in $BLACKLIST; do
@@ -1559,37 +1784,45 @@ for NETWORK in $BLACKLIST; do
     PORT="--dport `echo "$PORTS/" | cut -d/ -f1 | cut -d- -f1,2 --output-delimiter=":"`"
     if [ "$PROTOCOL" == "tcp" ] || [ -z "$PROTOCOL" ]; then
       if [ "$IS_ROUTER" == "yes" ]; then
+
         iptables -t filter -I FORWARD -s $NET -p tcp $PORT -j DROP
         iptables -t filter -I FORWARD -d $NET -p tcp $PORT -j DROP
       fi
-      iptables -t filter -I INPUT -s $NET -p tcp $PORT -j DROP
-      iptables -t filter -I INPUT -d $NET -p tcp $PORT -j DROP
+
+      iptables -t filter -I INPUT  -s $NET -p tcp $PORT -j DROP
+      iptables -t filter -I INPUT  -d $NET -p tcp $PORT -j DROP
       iptables -t filter -I OUTPUT -s $NET -p tcp $PORT -j DROP
       iptables -t filter -I OUTPUT -d $NET -p tcp $PORT -j DROP
     fi
+
     if [ "$PROTOCOL" == "udp" ] || [ -z "$PROTOCOL" ]; then
       if [ "$IS_ROUTER" == "yes" ]; then
+
         iptables -t filter -I FORWARD -s $NET -p udp $PORT -j DROP
         iptables -t filter -I FORWARD -d $NET -p udp $PORT -j DROP
       fi
-      iptables -t filter -I INPUT -s $NET -p udp $PORT -j DROP
-      iptables -t filter -I INPUT -d $NET -p udp $PORT -j DROP
+
+      iptables -t filter -I INPUT  -s $NET -p udp $PORT -j DROP
+      iptables -t filter -I INPUT  -d $NET -p udp $PORT -j DROP
       iptables -t filter -I OUTPUT -s $NET -p udp $PORT -j DROP
       iptables -t filter -I OUTPUT -d $NET -p udp $PORT -j DROP
     fi
+
   else
     if [ "$IS_ROUTER" == "yes" ]; then
-      iptables -t filter -I FORWARD -s $NET -j DROP
-      iptables -t filter -I FORWARD -d $NET -j DROP
+
+       iptables -t filter -I FORWARD -s $NET -j DROP
+       iptables -t filter -I FORWARD -d $NET -j DROP
     fi
-    iptables -t filter -I INPUT -s $NET -j DROP
-    iptables -t filter -I INPUT -d $NET -j DROP
+
+    iptables -t filter -I INPUT  -s $NET -j DROP
+    iptables -t filter -I INPUT  -d $NET -j DROP
     iptables -t filter -I OUTPUT -s $NET -j DROP
     iptables -t filter -I OUTPUT -d $NET -j DROP
   fi
 done
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 
 # Initialize trusted chain
 
@@ -1601,7 +1834,7 @@ else
   iptables -t filter -A TRUSTED -j DROP
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 
 # Reject state NEW without SYN flag set.  (paranoia setting)
 
@@ -1620,7 +1853,7 @@ if [ "$DROP_NEW_WITHOUT_SYN" == "yes" ]; then
   fi
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 
 # Set logging preferences.  Do not log broadcasts.
 
@@ -1639,7 +1872,7 @@ if [ "$LOGGING" == "yes" ]; then
            --log-prefix "firewall: "
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Accept icmp-echo-request packets if RFC-1122 compliance option is enabled.  Limit logging of icmp packets.
@@ -1797,7 +2030,7 @@ for ITEM in $OPEN_PORTS $TRUSTED_PORTS; do
   fi
 done
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # For routers, allow routing of internal and routed networks on internal interfaces.  Fix traceroutes under DNAT info-leak-bug.
@@ -1975,7 +2208,7 @@ if [ "$IS_ROUTER" == "yes" ]; then
   done
 fi
 
-echo "$0:'$*' `date` $LINENO"
+echo "$0:'$*' `date` $LINENO" >&2
 echo -n "."
 
 # Configure port forwarding.
