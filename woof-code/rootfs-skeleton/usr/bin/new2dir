@@ -8,7 +8,7 @@
 #and 'abiword-0.5.6-i486' directory gets created, with all installed files
 #in it.
 
-if [ ! $1 ];then
+if [ ! $1 -o "`echo "$1" | grep -iE 'help|\-h'`" ];then
  echo "This script is used in the last step when installing a source"
  echo "or binary package. For example:"
  echo "# new2dir make install"
@@ -20,11 +20,11 @@ CURRDIR="`pwd`"
 UPONE="`dirname "$CURRDIR"`"
 PKGDIR="../`basename "$CURRDIR"`"
 xPKGDIR="`basename "$CURRDIR"`"
-if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
+if [ "`echo "$PKGDIR" | grep '[\-_\.][0-9]'`" = "" ];then
  PKGDIR="../../`basename "$UPONE"`"
  xPKGDIR="`basename "$UPONE"`"
 fi
-if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
+if [ "`echo "$PKGDIR" | grep '[\-_\.][0-9]'`" = "" ];then
  echo "$PKGDIR does not seem to be the package directory with version"
  echo "number. Unfortunately, some source package tarballs expand to a"
  echo "directory that does not have version number in it's name. SeaMonkey"
@@ -219,6 +219,16 @@ sync
 echo
 echo -en "\\033[1;31mStep 5" #red
 echo -e "\\033[0;39m"
+
+TEXT_FILES_EXT='asc|html|txt|xml|h|pc|c|cc|pdf'
+COMPR_FILES_EXT='tar|gz|bz2|lz|xz|sfs'
+FS_FILES_EXT='ext2|ext3|ext4|xfs|rfs|jfs'
+IMG_FILES_EXT='gif|jpg|jpeg|tif|tiff|png|pnm|bmp'
+LIB_FILES_EXT='a|la'
+NON_STRIP_EXT="$TEXT_FILES_EXT|$COMPR_FILES_EXT|$FS_FILES_EXT|$IMG_FILES_EXT|$LIB_FILES_EXT"
+NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | sed 's!|!\$|!g;s!|!|\\\.!g'`
+NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | tr -s '|' | sed 's!^|*!!;s!|*$!!`
+
 #fixfilelistfunc() uses this...
 cp -af ${RELPATH}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
 #...a post-install script could delete files, which fixfilelistfunc fixes.
@@ -231,8 +241,10 @@ do
 
  #strip the file...
  if [ ! -h "$ONEFILE" ];then #make sure it isn't a symlink
+  if [ ! "`echo "$oneFILE" | grep -iE "$NON_STRIP_EXT|/man/"`" ]; then
   [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$ONEFILE"
   [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$ONEFILE"
+  fi
  fi
  sync
 
@@ -240,7 +252,7 @@ do
   #find out if this is an international language file...
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/'`" = "" ];then
    mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
-   cp -af "$ONEFILE" "${NLS_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+   cp -af "$ONEFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
@@ -250,7 +262,7 @@ do
   #find out if this is a documentation file...
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
    mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
-   cp -af "$ONEFILE" "${DOC_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+   cp -af "$ONEFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
@@ -260,7 +272,7 @@ do
   #find out if this is development file...
   if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-   cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+   cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
    continue
   fi
@@ -268,7 +280,7 @@ do
   if [ -h "$ONEFILE" ];then #-h tests for symlink
    if [ ! "`echo -n "$ONEFILE" | grep '\.so$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
    fi
@@ -276,14 +288,14 @@ do
   #find various config files...
   if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\-config$|config.sh$|Conf.sh$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
   if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
     mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+    cp -af "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
     continue
   fi
@@ -292,7 +304,7 @@ do
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
   mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
-  cp -af "$ONEFILE" "${EXE_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  cp -af "$ONEFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
   #fix for empty directories...
   cat /tmp/${EXE_PKGNAME}.dirs |
