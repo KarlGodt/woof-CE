@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright 2009 Barry Kauler
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #w001 initial creation.
 #w004 checkbox for utf8. w019 fixup.
-#w470 $1=composeonly option, when call from 3builddistro. 
+#w470 $1=composeonly option, when call from 3builddistro.
 #w473 disable en_US.utf8 generation, hangs PC if low RAM (64MB system).
 #w478 bugfix, dialog_table was incorrect.
 
@@ -58,26 +58,33 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
   xmessage -bg orange -fg black -center -buttons "" "Please wait, processing..." &
   XPID=$!
  fi
- for ONELOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
+ for oneLOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
  do
- echo -n "ONELOCALE='$ONELOCALE' "
+ echo -n "oneLOCALE='$oneLOCALE' "
   STATUS="off"
-  [ "$ONELOCALE" = "$BASELANG" ] && STATUS="on"
+  [ "$oneLOCALE" = "$BASELANG" ] && STATUS="on"
   echo "$STATUS"
-  LANGUAGE="`echo -n "$ONELOCALE" | cut -f 1 -d '_'`"
-  REGION="`echo -n "$ONELOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`"
+  #LANGUAGE="`echo -n "$oneLOCALE" | cut -f 1 -d '_'`"
+   LANGUAGE=${oneLOCALE%_*}
+  #REGION="`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`"
+   REGION=`echo -n "${oneLOCALE#*_}" | cut -f 1 -d '.' | cut -f 1 -d '@'`
   lPATTERN="^${LANGUAGE}:"
+
   LANGUAGE="`echo "$LANGUAGEDESCR" | tr ' ' '\n' | grep "$lPATTERN" | head -n 1 | cut -f 2 -d ':'`"
+
   rPATTERN="^${REGION}:"
+
   REGION="`echo "$REGIONDESCR" | tr ' ' '\n' | grep "$rPATTERN" | head -n 1 | cut -f 2 -d ':'`"
+
   [ "$LANGUAGE" != "" ] && [ "$REGION" != "" ] && LANGUAGE="${LANGUAGE}, "
+
   DESCR="${LANGUAGE}${REGION}"
   #[ "$DESCR" != "" ] && DESCR="(${DESCR})"
   if [ "$STATUS" = "on" ];then
-   FIRSTLINE="$ONELOCALE \"${DESCR}\" ${ON}"
+   FIRSTLINE="$oneLOCALE \"${DESCR}\" ${ON}"
    echo "FIRSTLINE='$FIRSTLINE'";echo
   else
-   CHOICES="$CHOICES $ONELOCALE \"${DESCR}\" ${OFF}"
+   CHOICES="$CHOICES $oneLOCALE \"${DESCR}\" ${OFF}"
   fi
  done
  CHOICES="${FIRSTLINE} ${CHOICES}"
@@ -87,6 +94,9 @@ else
  CHOICES="`cat /usr/share/i18n/dialog_table_${XSTATUS}`" #w478
 fi
 
+grep -q en_US /usr/share/i18n/dialog_table_${XSTATUS} || {
+sed -i 's!\(en_GB [onoff ]\)!\1 en_US off!' /usr/share/i18n/dialog_table_${XSTATUS}
+}
 if [ "$PARAM1" = "composeonly" ];then #w470
  exit
 fi
@@ -116,15 +126,15 @@ if [ "$UTF8CHOICE" = "checked" ];then
  #if the user has chosen something like nl_BE@euro, need to chop...
  LANGCHOICE="`echo -n "$LANGCHOICE" | cut -f 1 -d '@'`"
 fi
-echo LANGCHOICE=$LANGCHOICE
+echo LANGCHOICE=$LANGCHOICE UTF8CHOICE=$UTF8CHOICE
 RETVAL=0
 if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
  # creates locale files in /usr/lib/locale...
  #CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
- OLDLANG="LANG=$CURRLANG"
- NEWLANG="LANG=${LANGCHOICE}"
- [ "$UTF8" != "" ] && NEWLANG="LANG=${LANGCHOICE}"'.utf8'
+ oldLANG="LANG=$CURRLANG"
+ newLANG="LANG=${LANGCHOICE}"
+ [ "$UTF8" != "" ] && newLANG="LANG=${LANGCHOICE}"'.utf8'
  if [ "`locale -a | grep -x "${LANGCHOICE}${UTF8}"`" = "" ];then
   if [ "$UTF8" = "" ];then
    lcPATTERN='^'"${LANGCHOICE}"' '
@@ -136,13 +146,13 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
    if [ "$CHARMAP" != "" ];then
     localedef -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} #> /dev/null
     RETVAL=$?
-    NEWLANG="LANG=${LANGCHOICE}"
+    newLANG="LANG=${LANGCHOICE}"
    else
     #no match, i think forced to use utf8...
     localedef -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 #> /dev/null
     RETVAL=$?
-    NEWLANG="LANG=${LANGCHOICE}.utf8"
-	UTF8='.utf8'
+    newLANG="LANG=${LANGCHOICE}.utf8"
+        UTF8='.utf8'
    fi
   else
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
@@ -150,22 +160,25 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
    #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
    localedef -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 #> /dev/null
    RETVAL=$?
-   NEWLANG="LANG=${LANGCHOICE}.utf8"
+   newLANG="LANG=${LANGCHOICE}.utf8"
   fi
  fi
  echo "RETVAL='$RETVAL'"
 if [ "$RETVAL" = "0" ] ; then #+++returnvalue of localedef
- 
- if [ "$OLDLANG" != "$NEWLANG" ];then
-  langPATTERN="s/${OLDLANG}/${NEWLANG}/"
+echo 0 >/tmp/runprofilecnt
+echo oldLANG=$oldLANG newLANG=$newLANG
+ if [ "$oldLANG" != "$newLANG" ];then
+  langPATTERN="s/${oldLANG}/${newLANG}/;s/{oldLANG}${UTF8}/$newLANG/"
   sed -e "$langPATTERN" /etc/profile > /tmp/profile
-  cp -f /tmp/profile /etc/profile
+  test $? = 0 && {
+  cp -f /tmp/profile /etc/profile; }
+
  fi
 
  [ "$XSTATUS" != "x" ] && exit
- 
+
  Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in /etc/profile." 0 100
- 
+
  if [ $? -eq 0 ];then
   rm -rf /tmp/.X0-lock
   sync
@@ -181,7 +194,7 @@ xmessage -bg red "The `which localedef` bianary returned '$RETVAL' .
 Defaulting to en_US ."
 fi
 fi #endif returnvalue of localedef
- 
+
 fi
 
 ###END###
