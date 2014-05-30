@@ -1,0 +1,168 @@
+#!/bin/sh
+#Barry Kauler april 2009, puppylinux.com
+#called from /etc/rc.d/rc.services at bootup, with 'start' param.
+#called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
+
+###KRG : changed order @start ; wideded the loop @stop [ still leaves snd,soundcore,ac_97_bus ] ; added suport for retrovol@$DISPLAY
+
+PROG='/etc/init.d/alsa'  ###KRG
+[ ! -f "$PROG" ] && PROG='alsa'  ###KRG
+ZERO="$0"  ###KRG
+PROGPID="$$"  ###KRG
+echo "$PROG" "$0" "$PROGPID"  ###KRG
+if [ "$ZERO" = "$PROG" ] ; then
+PROGPAT="$PROG"
+EXIT='exit'
+else
+PROGPAT="$PROG called by $ZERO"
+EXIT='return'
+fi
+
+case "$1" in
+ start)
+  
+  echo "Starting now $PROGPAT ..."  ###KRG
+  if [ -n "$DISPLAY" ] ; then  ###KRG
+   if [ -n "`which retrovol`" ] ; then  ###KRG
+    [ -z "`pidof retrovol`" ] && retrovol &  ###KRG
+   fi  ###KRG
+  fi  ###KRG
+  
+  CNT=0  ###KRG
+  while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do  ###KRG
+  echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"  ###KRG
+  sleep 3  ###KRG
+  CNT=$(( $CNT + 1 ))  ###KRG
+  if [ "$CNT" = "20" ] ; then ##&& break  ###KRG
+  modprobe snd-card-0  ###KRG
+  break  ###KRG
+  fi  ###KRG
+  done  ###KRG
+ 
+  if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then  ###KRG
+  echo -e "\\033[0;31m""Still no Sound Modules found `date`""\\033[0;39m"  ###KRG
+  $EXIT  ###KRG
+  fi  ###KRG
+  
+  echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###KRG
+   rm -f /var/lock/subsys/alsasound  ###KRG2> /dev/null #or alsa will not start.
+   #sometimes these don't all load...
+   [ -z "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] && modprobe -L snd-mixer-oss
+   [ -z "`lsmod | grep 'snd[-_]seq[-_]oss'`" ] && modprobe -L snd-seq-oss
+   [ -z "`lsmod | grep 'snd[-_]pcm[-_]oss'`" ] && modprobe -L snd-pcm-oss
+   
+   D=`find /sys -type d -name "*sound*"`  ###KRG
+   POOL=''  ###KRG
+    for i in $D ; do   ###KRG
+     ##echo $i ; 
+     DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr ':' '@' | tr ' ' '@' -exec echo \; ` ;  ###KRG
+     POOL="$POOL $DEV" ;  ###KRG 
+    done  ###KRG
+   POOL=`echo $POOL | rev`  ###KRG
+    for i in $POOL ; do  ###KRG
+     NODE=`echo $i | cut -f 3 -d '@'`  ###KRG
+     NODE=`echo $NODE | rev`  ###KRG
+     NODE=`basename $(dirname $(echo $NODE) )`  ###KRG
+     MAJ=`echo $i | cut -f 2 -d '@'`   ###KRG
+     MAJ=`echo $MAJ | rev`  ###KRG
+     Min=`echo $i | cut -f 1 -d '@'`  ###KRG
+     Min=`echo $Min | rev`  ###KRG
+     echo "$NODE" "$MAJ" "$Min"  ###KRG
+     rm /dev/$NODE  ###KRG 2>/dev/null
+     mknod /dev/$NODE c $MAJ $Min  ###KRG
+     rm /dev/snd/$NODE  ###KRG 2>/dev/null
+     mknod /dev/snd/$NODE c $MAJ $Min  ###KRG
+    done  ###KRG
+  
+   if [ -f /etc/asound.state ] ; then
+   
+    alsactl -f /etc/asound.state restore #from /etc/asound.state.
+   
+   else
+   
+    #try and set all levels workable...
+    #set_mixers #in functions4puppy4
+	amixer -s -q <<EOF
+set Master 75% unmute
+set Master -12dB
+set 'Master Mono' 75% unmute
+set 'Master Mono' -12dB
+set Front 75% unmute
+set Front -12dB
+set PCM 90% unmute
+set PCM 0dB
+set Synth 90% unmute
+set Synth 0dB
+set CD 90% unmute
+set CD 0dB
+set Mic 0% mute
+set PCM,1 90% unmute
+set PCM,1 0dB
+set Wave 100% unmute
+set Music 100% unmute
+set AC97 100% unmute
+set 'Master Digital' 75% unmute
+set DAC 90% unmute
+set DAC -12dB
+set DAC,0 90% unmute
+set DAC,0 -12dB
+set DAC,1 90% unmute
+set DAC,1 -12dB
+set Headphone 75% unmute
+set Headphone -12dB
+set Playback 100% unmute
+set "SB Live Analog/Digital Output Jack" off
+set "Audigy Analog/Digital Output Jack" off
+EOF
+	
+   fi
+   ###KRGfi
+ echo "... $PROGPAT $@ finished"   ###KRG   
+  ;;
+ stop)
+ echo "stopping now $PROGPAT ..."  ###KRG
+ 
+ if [ -n "$DISPLAY" ] ; then  ###KRG
+ [ -n "`pidof retrovol`" ] && killall retrovol  ###KRG
+ rm -f /var/run/retrovol.pid  ###KRG
+ fi  ###KRG
+ 
+  alsactl -f /etc/asound.state store #saves to /etc/asound.state.
+  # Kill processes holding open sound devices...
+  fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >/dev/null 2>&1
+  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* >/dev/null 2>&1
+  [ -d /dev/snd ] && fuser -k /dev/snd/* >/dev/null 2>&1
+  # remove all sequencer connections if any
+  [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
+  # mute master to avoid clicks at unload
+  amixer set Master mute >/dev/null 2>&1  ###KRG loads a bunch of modules###ORIG
+  # remove all sound modules
+  CNT=0  ###KRG
+  while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
+  echo
+  echo 'still soundmodules loaded'
+  lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
+  while read line
+  do
+	 echo -n "$line "  ###KRG
+     rmmod -f -w "$line"
+     sleep 0.1  ###KRG
+  done
+  CNT=$(( $CNT + 1 ))  ###KRG
+  [ "$CNT" = "5" ] && echo -e "\\033[1;34m"'breaking now'"\\033[0;39m" && break  ###KRG precaution###KRG
+  done  ###KRG 
+  # remove the 2.2 soundcore module (if possible)
+  rmmod soundcore 2> /dev/null
+  rmmod gameport 2> /dev/null
+  # remove lockfile if lockdir exists
+  [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
+  echo "... $PROGPAT $@ finished"  ###KRG
+ ;;
+ *)  ##KRG
+ echo -e "\\033[0;31m""Useage of $PROG :""\\033[0;39m"  ##KRG
+ echo "'$PROG start' to start and restore alsa settings"  ##KRG
+ echo "'$PROG stop' to unload sound modules , killall sound users and store last alsa settings"  ##KRG
+ echo -e "\\033[0;32m""For additional help check 'man alsactl' , 'aconnect' , 'amixer'""\\033[0;39m"  ##KRG
+ ;;  ##KRG
+esac
+

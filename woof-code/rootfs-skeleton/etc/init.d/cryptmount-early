@@ -1,0 +1,108 @@
+#!/bin/sh
+echo "$0:|$@|" >&2
+# boot-time init script for cryptmount
+# RW Penney, August 2006
+
+# Basic support for Linux Standard Base:
+### BEGIN INIT INFO
+# Provides:             cryptmount-early
+# Required-Start:       $remote_fs
+# Required-Stop:        $remote_fs
+# Default-Start:        S
+# Default-Stop:         0 6
+# Short-Description:    setup encrypted devices at boot
+# Description:          configure device-mapper targets for encrypted
+#                       devices managed by cryptmount
+### END INIT INFO
+
+CM_EXE=/usr/local/bin/cryptmount
+DMPATH=/dev/mapper
+
+CM_EARLYDV=""
+
+# check whether cryptmount executable is usable:
+test -x "${CM_EXE}" || exit 5
+
+# read user-specified lists of filesystems to initialize:
+if [ -f /etc/default/cryptmount ]; then
+    . /etc/default/cryptmount
+fi
+
+
+configured() {
+    # check if any of the targets needed at boot has been configured:
+    for target in ${CM_EARLYDV}; do
+        if [ -b "${DMPATH}/${target}" ]; then
+            true
+            return
+        fi
+    done
+    false
+}
+
+
+dodevices() {
+    case "$1" in
+        start)  test -z "${CM_EARLYDV}" || ${CM_EXE} --prepare ${CM_EARLYDV}
+            ;;
+        stop)   test -z "${CM_BOOTDV}" || ${CM_EXE} --release ${CM_EARLYDV}
+            ;;
+    esac
+}
+
+doALL() {
+    case "$1" in
+        start)
+            # Make sure that kernel device-mapper is available:
+            modprobe -q -a dm-mod dm-crypt || true
+
+            dodevices start
+            ;;
+        stop)
+            dodevices stop
+            ;;
+    esac
+}
+
+
+case "$1" in
+    start)
+        if configured; then
+            echo "cryptmount auto-devices seem to be already configured"
+        else
+            echo "Starting cryptmount early targets (hit shift/ctrl if short of entropy):"
+            doALL start
+        fi
+        ;;
+    stop)
+        if configured; then
+            echo "Stopping cryptmount early targets:"
+            doALL stop
+            ${CM_EXE} --safetynet || true
+        fi
+        ;;
+    restart)
+        if configured; then
+            doALL stop
+        fi
+        doALL start
+        ;;
+    force-reload|reload)
+        # nothing to do
+        ;;
+    status)
+        if configured; then
+            echo "cryptmount auto-devices are in use"
+        else
+            echo "cryptmount auto-devices do not appear to be in use"
+            exit 3
+        fi
+        ;;
+    *)
+        echo "Usage: $0 " \
+            " {start|stop|restart|reload|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0
