@@ -4,7 +4,7 @@
 PROG='/root/.xinitrc'
 echo "$0"
 echo "$0:HOME='$HOME'"
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 . /etc/rc.d/PUPSTATE
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
@@ -52,7 +52,7 @@ if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
 fi
 
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 #0.9.8 sync selection-buffer and clipboard. only useful for older apps
 #such as rxvt that use the selection-buffer...
 [ -f /usr/bin/autocutsel ] && /usr/bin/autocutsel &
@@ -100,7 +100,7 @@ if [ -f /root/.fonts/fonts.dir ];then
  echo "$0:xset fp+ /root/.fonts/"
  xset fp+ /root/.fonts/
 fi
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
 
 if [ "$CURRENTWM" != 'enlightenment_start' ]; then
@@ -128,7 +128,7 @@ if [ -f /etc/mousehide ];then
   echo "$0:IDLETIME='$IDLETIME' OR unclutter .."
  [ "$IDLETIME" = "0" ] || unclutter -idle $IDLETIME &
 fi
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
 #which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
 #...no, now doing it differently, see /usr/sbin/fixmenus
@@ -163,7 +163,7 @@ if [ "$CURRENTWM" != "enlightenment_start" ] ; then
 else
 dbus-uuidgen --ensure &
 fi
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 ( if test ! -f $HOME/Startup/fbxkb*; then
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 sleep 2s; which fbxkb && fbxkb &
@@ -185,7 +185,7 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
  [ -f /usr/bin/fbpanel ] && fbpanel &
  [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
-
+echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 echo "$0:exec '$CURRENTWM'"
 exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
