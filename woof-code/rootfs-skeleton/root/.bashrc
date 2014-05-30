@@ -14,7 +14,7 @@ echo "FILE : /root/.bashrc begin"
 echo '$0   : '"$0"
 #echo `date`
 
-lsmods(){
+_lsmods(){
 KMODS=`modprobe -l | grep 'snd[-_]'`
 path=`modprobe -l | head -n 1`
 dirname $path
@@ -29,7 +29,7 @@ uname -r
 elspci -l
 }
 
-lsmodg(){
+_lsmodg(){
 KMODS=`modprobe -l | grep -E 'fb|vga|agp|drm|i2c|nv|nvidia|nouveau'`
 path=`modprobe -l | head -n 1`
 dirname $path
@@ -45,12 +45,12 @@ elspci -l
 
 
 
-2b(){
+_2b(){
 aplay /usr/share/audio/2barks.au
 }
 
 
-Rs(){
+_Rs(){
 echo '/root/.bashrc'
 [ ! "$1" ] && echo "No directory/file given" && return
 DIR="$1"
@@ -146,7 +146,7 @@ alias tail='tail -n 20'
 #This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. <http://www.gnu.org/licenses/>.
 #------------------------------
 
-addgroupguibx() { #uses main_dialogbx() -> #addgroup [-g GID] [user_name] group_name
+_addgroupgui() { #uses _main_dialog() -> #addgroup [-g GID] [user_name] group_name
 DESCRIPTION="addgroup is a busybox builtin that allows you to manage groups on your system."
 CBTT1="-S"
 CBV1="Create a system group"
@@ -159,15 +159,15 @@ EBV2="GID"
 EBTT2="Enter the group ID"
 MAX="2"
 BBCOMMAND=addgroup
-`main_dialogbx`
+`_main_dialog`
 }
 
-backupbx(){
-[  ! "$1" ] && echo 'usage backupbx $1=file #cp simply without recursion to filenameDate ' && return
+_backup(){
+[  ! "$1" ] && echo 'usage _backup $1=file #cp simply without recursion to filename-Date~ ' && return 1
 cp $1 ${1}-`date +%d_%b_%Y`~
 }
 
-blockadsbx() { #tweaks /etc/hosts to ban certain sites
+_blockads() { #tweaks /etc/hosts to ban certain sites
 [ ! -f /etc/hosts.usr ] && touch /etc/hosts && cp -f /etc/hosts /etc/hosts.usr #back up original
 for x in `Xdialog --stdout --checklist "Choose your ad blocking service(s)" 0 0 6 1 "mvps.org" off 2 "systcl.org" off 3 "technobeta.com" off 4 "yoyo.org" off 5 "turn off adblocking" ON 6 "manually edit" off |tr "/" " " |tr '\"' ' '`; do
    case $x in
@@ -175,8 +175,8 @@ for x in `Xdialog --stdout --checklist "Choose your ad blocking service(s)" 0 0 
    2)wget -c -4 -t 0 -O /tmp/adlist2 'http://sysctl.org/cameleon/hosts';;
    3)wget -c -4 -t 0 -O /tmp/adlist3 'http://www.technobeta.com/download/urlfilter.ini';;
    4)wget -c -4 -t 0 -O /tmp/adlist4 'http://pgl.yoyo.org/as/serverlist.php?hostformat=hosts&showintro=0&mimetype=plaintext';;
-   5)ln -sf /etc/hosts.usr /etc/hosts && exit;;
-   6)[ -z $DISPLAY ] && $DIALOG --editbox /etc/hosts 0 0 && exit || defaulttexteditor /etc/hosts && exit;;#dialog has no editbox so try vi which is cli and in busybox
+   5)ln -sf /etc/hosts.usr /etc/hosts && return;;
+   6)[ -z $DISPLAY ] && $DIALOG --editbox /etc/hosts 0 0 && return || defaulttexteditor -i /etc/hosts && return;;#dialog has no editbox so try vi which is cli and in busybox
    *)echo $x;;
    esac
 done
@@ -187,46 +187,94 @@ rm -f /tmp/adlist{1,2,3,4} #need to remove or unwanted lists will be added
 #todo add whitelist
 }
 
-brokenlinksbx() { #find broken links in given input dir or pwd if not given
+_brokenlinks() { #find broken links in given input dir or pwd if not given
 [ $1 ] && DIR=$1 || DIR=`pwd`
 file `find $DIR -type l` |grep broken
 }
 
-dirtreebx() { #show a visualization of directories and files
-for x in `ls $1`; do [ -d $1/$x ] &&  echo "$2\`-{"$x && dirtreebx $1/$x "$2   "; done
+#unalias -a
+unalias ls
+
+_dirtree() { #show a visualization of directories and files
+for x in `ls $1`; do [ -d $1/$x ] &&  echo "$2\`-{"$x && _dirtree $1/$x "$2   "; done
 }
 
-fixflashbx() { #mask your flash version as 10.1 rXXXXXX
+_dirtree2()
+{
+for x in `ls $1`; do [ -d "$1/$x" ] &&  echo "$2\`-{$x/" && _dirtree2 "$1/$x" "$2   ";done
+}
+
+_dirtree3() { #show a visualization of directories and files
+test "$1" || set - "`pwd`"
+IFS='
+'
+for x in `ls -1 "${1}"`; do
+[ -d "$1/$x" ] && { busybox echo "${2}´-{$x/" && _dirtree3 "$1/$x" "${2}|  "; } || {
+:;}
+done
+}
+
+_dirtree3d() { #show a visualization of directories and files
+test "$1" || set - "`pwd`"
+IFS='
+'
+for x in `ls -1d "${1}"/*`; do
+#echo "$x"
+#[ -d "$1/$x" ] && echo "$2\`-{$x/" && _dirtree3 "$1/$x" "$2   ";done
+[ -d "$x" ] && echo "$2\`-{${x##*/}/" && _dirtree3 "$x" "$2   ";done
+}
+
+_dirtree4()
+{
+#unalias -a
+test "$1" || set - "`pwd`"
+#echo "$1"
+test "`echo "$1" | grep '//$'`" && return
+while read x
+do
+#test "`echo "$x" | grep '//$'`" && break
+[ -d "$1/$x" ] && echo "$2\`-{$x/" && _dirtree4 "${1}/${x}" "$2   ";
+done<<EoI
+`ls -1 "$1"`
+EoI
+}
+
+
+#_tree() { #show a cli visualization of directories and files
+#for x in `ls $1`; do [ -d $1/$x ] &&  echo "$2\`-{"$x && _tree $1/$x "$2   " || echo "$2\`-<"$x; done
+#}
+
+_fixflash() { #mask your flash version as 10.1 rXXXXXX
 FLASHLOC=/usr/lib/mozilla/plugins/libflashplayer.so
 NEWVER="10.1 r"
-VER=`strings $FLASHLOC | grep -e "^Shockwave Flash [.\d+]*" | sed -e "s/Shockwave Flash //g"` 
+VER=`strings $FLASHLOC | grep -e "^Shockwave Flash [.\d+]*" | sed -e "s/Shockwave Flash //g"`
 while [ "${#NEWVER}" -lt "${#VER}" ]
 do
 NEWVER=${NEWVER}9
 done
 sed -i "s/$VER/$NEWVER/g" $FLASHLOC
-Xdialog --no-buttons --infobox "flash fixed - upgrade faked" 0 0 5000
+test $? = 0 && Xdialog --no-buttons --infobox "flash fixed - upgrade faked" 0 0 5000 ||  Xdialog --no-buttons --infobox "flash fake - upgrade failed" 0 0 5000
 }
 
-getflashbx() { #install latest flash
+_getflash() { #install latest flash
 cd /usr/lib/mozilla/plugins && wget -o - http://fpdownload.macromedia.com/get/flashplayer/current/install_flash_player_10_linux.tar.gz |tar -xz
 }
 
-getflash9bx() { #flash9 is smaller, fewer deps and still updated
-cd /usr/lib/mozilla/plugins && wget -o - http://download.macromedia.com/pub/flashplayer/installers/current/9/install_flash_player_9.tar.gz |tar -xz	
+_getflash9() { #flash9 is smaller, fewer deps and still updated
+cd /usr/lib/mozilla/plugins && wget -o - http://download.macromedia.com/pub/flashplayer/installers/current/9/install_flash_player_9.tar.gz |tar -xz
 }
 
-getinputbx() { #DIALOG box to return user input to stdout
-	setDIALOG
-	$DIALOG --stdout --inputbox "Enter your $@ input and select OK." 0 0
+_getinput() { #DIALOG box to return user input to stdout
+        _setDIALOG
+        $DIALOG --stdout --inputbox "Enter your $@ input and select OK." 0 0
 }
 
-googlebx() { #searches google for $@ or if blank uses $DIALOG
+_google() { #searches google for $@ or if blank uses $DIALOG
 [ $@ == "" ] && QUERY=`getinput search` || QUERY=$@
 defaultbrowser http://www.google.com/search?q=$QUERY
 }
 
-gtkdialog_menubx() { #Set up an external menu for your gtkdialog gui
+_gtkdialog_menu() { #Set up an external menu for your gtkdialog gui
 #Sigmund Berglund, 2010 version 0.3
 
 ITEMS=""
@@ -236,11 +284,11 @@ echo -n > /tmp/OUTPUT
 
 #parameters
 while [ $# != 0 ]; do
-	I=1
-	while [ $I -le `echo $# | wc -c` ]; do
-		case $1 in
-		-h|--help)
-			echo 'Usage: gtkdialog_menu [OPTION] "stock-icon1,menuitem1" "stock-icon2,menuitem2" ...
+        I=1
+        while [ $I -le `echo $# | wc -c` ]; do
+                case $1 in
+                -h|--help)
+                        echo 'Usage: gtkdialog_menu [OPTION] "stock-icon1,menuitem1" "stock-icon2,menuitem2" ...
 example: gtkdialog_menu -m middle "gtk-open,Open file" "gtk-save,Save file"
 Options
   -h         Show this information
@@ -249,36 +297,36 @@ Options
                 left
                 middle
                 right (default)'
-            exit
+            return
             ;;
-		-m) #left-, mid- or right-click
-			export MOUSE="$2"
-			shift
-			;;
-		*)
-			[ ! "$1" ] && break
-			ICON=`echo "$1" | cut -d',' -f1`
-			LABEL=`echo "$1" | cut -d',' -f2`
-			if [ "$ICON" = "seperator" ]; then
-				ICONS="$ICONS"'<text height-request="2"><label>""</label></text>'
-				ITEMS="$ITEMS"'<entry height-request="2"></entry>'
-			else
-				ITEMS="$ITEMS"'<button height-request="20" xalign="0" can-focus="no" relief="2"><label>'"$LABEL"'</label><action>echo '"$LABEL"' > /tmp/OUTPUT</action><action>EXIT:exit</action></button>'
-				ICONS="$ICONS"'<pixmap height-request="20" icon_size="1"><input file stock="'"$ICON"'"></input></pixmap>'
-			fi
-			HEIGHT=$((HEIGHT+20))
-			;;
-		esac
-		shift
-		I=$[$I+1]
-	done
+                -m) #left-, mid- or right-click
+                        export MOUSE="$2"
+                        shift
+                        ;;
+                *)
+                        [ ! "$1" ] && break
+                        ICON=`echo "$1" | cut -d',' -f1`
+                        LABEL=`echo "$1" | cut -d',' -f2`
+                        if [ "$ICON" = "seperator" ]; then
+                                ICONS="$ICONS"'<text height-request="2"><label>""</label></text>'
+                                ITEMS="$ITEMS"'<entry height-request="2"></entry>'
+                        else
+                                ITEMS="$ITEMS"'<button height-request="20" xalign="0" can-focus="no" relief="2"><label>'"$LABEL"'</label><action>echo '"$LABEL"' > /tmp/OUTPUT</action><action>EXIT:exit</action></button>'
+                                ICONS="$ICONS"'<pixmap height-request="20" icon_size="1"><input file stock="'"$ICON"'"></input></pixmap>'
+                        fi
+                        HEIGHT=$((HEIGHT+20))
+                        ;;
+                esac
+                shift
+                I=$[$I+1]
+        done
 done
 
 #check if left-click or right-click
 case $MOUSE in
-	left)	[ ! $BUTTON = 1 ] && exit;;
-	middle)	[ ! $BUTTON = 2 ] && exit;;
-	*)		[ ! $BUTTON = 3 ] && exit;;
+        left)   [ ! $BUTTON = 1 ] && return;;
+        middle) [ ! $BUTTON = 2 ] && return;;
+        *)              [ ! $BUTTON = 3 ] && return;;
 esac
 
 
@@ -300,40 +348,40 @@ cat /tmp/OUTPUT #send output to stdout
 }
 
 
-helpbx(){ #usage: bashbox help [function]
-grep "$1bx() { #" /usr/share/bashbox/bbfxns.sh #list fxn(s)
+_help(){ #usage: bashbox help [function]
+grep "$1() { #" /usr/share/bashbox/bbfxns.sh #list fxn(s)
 }
 
-launcherbx() { #gtkdialog basic launcher program like gexec + dropdown menu
+_launcher() { #gtkdialog basic launcher program like gexec + dropdown menu
 for x in `ls /usr/share/applications/*.desktop`; do I=$I"<item>""`grep "^Exec=" $x |cut -d = -f 2`""</item>"; done
 export D="<vbox><entry editable=\"true\"><variable>E</variable></entry>
 <combobox><variable>C</variable>"$I"</combobox><button ok></button></vbox>"
 eval `gtkdialog3 --program=D` && [ "$E" == "" ] && $C || $E
 }
 
-logstdoutbx() { #usage: logstdout logfile.log command arguments (records normal output)
+_logstdout() { #usage: logstdout logfile.log command arguments (records normal output)
 F=$1
 shift
 $@
 }
 
-logstderrbx() { #usage: logstderr logfile.log command arguments (records error output)
+_logstderr() { #usage: logstderr logfile.log command arguments (records error output)
 F=$1
 shift
 $@ 2>$F
 }
 
-logallbx() { #usage: logall logfile.log command arguments (records error & normal output)
+_logall() { #usage: logall logfile.log command arguments (records error & normal output)
 F=$1
 shift
 $@ 2>&1 |tee $F #using tee instead of just ">" so the output is not silenced
 }
 
-longhelpbx(){ #usage: bashbox longhelp
-grep "bx()" /usr/share/bashbox/bbfxns.sh #}list fxns
+_longhelp(){ #usage: bashbox longhelp
+grep "()" /usr/share/bashbox/bbfxns.sh #}list fxns
 }
 
-main_dialogbx() { #parses template of vars to gen and eval a dialog then return the results
+_main_dialog() { #parses template of vars to gen and eval a dialog then return the results
 HDR="<window title=\"$BBCOMMAND\" icon-name=\"gtk-index\"> <frame $BBCOMMAND GUI>"
 NA="<hbox><button><label>$BBCOMMAND Not Yet Implemented</label><action>$BROWSER /usr/share/doc/bbgui.htm & </action></button></hbox>"
 FTR="<hbox><button ok></button><button><input file icon=\"gtk-quit\"></input><label>QUIT</label><action type=\"exit\">EXIT_NOW</action></button></hbox></frame></window>"
@@ -345,56 +393,56 @@ LNNO=1
 #could do while $CB$EB$... !=""  :would eliminate annoying MAX parameter
 until [ $LNNO -gt $MAX ]
 do
-	#you can't do ${VAR$NUMBER} and get the value of $VAR1 with NUMBER=1 so...
-	
-	#to handle multiple items in one hbox
-	NEWLINE=\${NL$LNNO} && NEWLINE=`eval echo $NEWLINE`
-	[ "$SAMELINE" != "F" ] && echo "<hbox>" >>/dev/shm/MAIN_DIALOG
+        #you can't do ${VAR$NUMBER} and get the value of $VAR1 with NUMBER=1 so...
 
-	#checkboxes
-	CBTOOLTIP=\${CBTT$LNNO} && CBTOOLTIP=`eval echo $CBTOOLTIP`
-	CBOX=\${CBV$LNNO} && CBOX=`eval echo $CBOX`
-	#CBDEFAULT not implemented yet
-	[ "$CBOX" != "" ] && echo "<checkbox tooltip-text=\"$CBTOOLTIP\"><label>$CBOX</label><variable>CBOX"$LNNO"</variable></checkbox>" >>/dev/shm/MAIN_DIALOG
-	
-	#radiobuttons
-	RADIOTOOLTIP=\${RBTT$LNNO} && RADIOTOOLTIP=`eval echo $RADIOTOOLTIP`
-	RADIO=\${RBV$LNNO} && RADIO=`eval echo $RADIO`
-	#RBDEFAULT
-	[ "$RADIO" != "" ] && echo "<radiobutton tooltip-text=\"$RADIOTOOLTIP\"><label>$RADIO</label><variable>RB"$LNNO"</variable></radiobutton>" >>/dev/shm/MAIN_DIALOG
+        #to handle multiple items in one hbox
+        NEWLINE=\${NL$LNNO} && NEWLINE=`eval echo $NEWLINE`
+        [ "$SAMELINE" != "F" ] && echo "<hbox>" >>/dev/shm/MAIN_DIALOG
 
-	#entry boxes
-	ENTRY=\${EBV$LNNO} && ENTRY=`eval echo $ENTRY` && [ "$ENTRY" != "" ] && ENTRY="<default>$ENTRY</default>"
-	ENTRYTOOLTIP=\${EBTT$LNNO} && ENTRYTOOLTIP=`eval echo $ENTRYTOOLTIP`
-	[ "$ENTRYTOOLTIP" != "" ] && echo "<entry editable=\"true\" tooltip-text=\"$ENTRYTOOLTIP\"><variable>ENTRY"$LNNO"</variable>$ENTRY</entry>" >>/dev/shm/MAIN_DIALOG
+        #checkboxes
+        CBTOOLTIP=\${CBTT$LNNO} && CBTOOLTIP=`eval echo $CBTOOLTIP`
+        CBOX=\${CBV$LNNO} && CBOX=`eval echo $CBOX`
+        #CBDEFAULT not implemented yet
+        [ "$CBOX" != "" ] && echo "<checkbox tooltip-text=\"$CBTOOLTIP\"><label>$CBOX</label><variable>CBOX"$LNNO"</variable></checkbox>" >>/dev/shm/MAIN_DIALOG
 
-	#directory selector
-	DIR==\${D$LNNO} && DIR=`eval echo $DIR` && [ "$DIR" != "" ] && DIR="<default>$DIR</default>"
-	DIRTOOLTIP=\${DTT$LNNO} && DIRTOOLTIP=`eval echo $DIRTOOLTIP`
-	[ "$DIRTOOLTIP" != "" ] && echo "<entry editable=\"true\" accept=\"directory\"  tooltip-text=\"$DIRTOOLTIP\"><variable>DIR"$LNNO"</variable>$DIR</entry><button><input file stock=\"gtk-open\"></input><variable>FILE_BROWSE_DIRECTORY</variable><action type=\"fileselect\">DIR"$LNNO"</action></button>" >>/dev/shm/MAIN_DIALOG
+        #radiobuttons
+        RADIOTOOLTIP=\${RBTT$LNNO} && RADIOTOOLTIP=`eval echo $RADIOTOOLTIP`
+        RADIO=\${RBV$LNNO} && RADIO=`eval echo $RADIO`
+        #RBDEFAULT
+        [ "$RADIO" != "" ] && echo "<radiobutton tooltip-text=\"$RADIOTOOLTIP\"><label>$RADIO</label><variable>RB"$LNNO"</variable></radiobutton>" >>/dev/shm/MAIN_DIALOG
 
-	#file selector
-	FILE=\${F$LNNO} && FILE=`eval echo $FILE` && [ "$FILE" != "" ] && FILE="<default>$FILE</default>"
-	FILETOOLTIP=\${FTT$LNNO} && FILETOOLTIP=`eval echo $FILETOOLTIP`
-	[ "$FILETOOLTIP" != "" ] && echo "<entry editable=\"true\" accept=\"filename\"  tooltip-text=\"$FILETOOLTIP\"><variable>FILE"$LNNO"</variable>$FILE</entry><button><input file stock=\"gtk-file\"></input><variable>FILE_BROWSE_FILENAME</variable><visible>enabled</visible><action type=\"fileselect\">FILE"$LNNO"</action></button>" >>/dev/shm/MAIN_DIALOG
+        #entry boxes
+        ENTRY=\${EBV$LNNO} && ENTRY=`eval echo $ENTRY` && [ "$ENTRY" != "" ] && ENTRY="<default>$ENTRY</default>"
+        ENTRYTOOLTIP=\${EBTT$LNNO} && ENTRYTOOLTIP=`eval echo $ENTRYTOOLTIP`
+        [ "$ENTRYTOOLTIP" != "" ] && echo "<entry editable=\"true\" tooltip-text=\"$ENTRYTOOLTIP\"><variable>ENTRY"$LNNO"</variable>$ENTRY</entry>" >>/dev/shm/MAIN_DIALOG
 
-	#combobox
-	COMBO=\${C$LNNO} && COMBO=`eval echo $COMBO`
-	COMBOTOOLTIP=\${CTT$LNNO} && COMBOTOOLTIP=`eval echo $COMBOTOOLTIP`
-	if [ "$COMBO" != "" ]; then
-	for ONE in $COMBO
-	do
-	ITEMS="${ITEMS}<item>${ONE}</item>"
-	done
-	[ "$COMBO" != "" ] && echo "<combobox tooltip-text=\"$COMBOTOOLTIP\"><variable>COMBO"$LNNO"</variable>"$ITEMS"</combobox>" >>/dev/shm/MAIN_DIALOG
-	fi
-	
-	#to handle multiple items in one hbox
-	[ "$NEWLINE" != "F" ] && echo "</hbox>" >>/dev/shm/MAIN_DIALOG
-	SAMELINE=$NEWLINE
-	
-	#HAD TO DO IT THIS WAY BECAUSE VARIABLES WEREN'T RECOGNIZED
-	let LNNO+=1
+        #directory selector
+        DIR==\${D$LNNO} && DIR=`eval echo $DIR` && [ "$DIR" != "" ] && DIR="<default>$DIR</default>"
+        DIRTOOLTIP=\${DTT$LNNO} && DIRTOOLTIP=`eval echo $DIRTOOLTIP`
+        [ "$DIRTOOLTIP" != "" ] && echo "<entry editable=\"true\" accept=\"directory\"  tooltip-text=\"$DIRTOOLTIP\"><variable>DIR"$LNNO"</variable>$DIR</entry><button><input file stock=\"gtk-open\"></input><variable>FILE_BROWSE_DIRECTORY</variable><action type=\"fileselect\">DIR"$LNNO"</action></button>" >>/dev/shm/MAIN_DIALOG
+
+        #file selector
+        FILE=\${F$LNNO} && FILE=`eval echo $FILE` && [ "$FILE" != "" ] && FILE="<default>$FILE</default>"
+        FILETOOLTIP=\${FTT$LNNO} && FILETOOLTIP=`eval echo $FILETOOLTIP`
+        [ "$FILETOOLTIP" != "" ] && echo "<entry editable=\"true\" accept=\"filename\"  tooltip-text=\"$FILETOOLTIP\"><variable>FILE"$LNNO"</variable>$FILE</entry><button><input file stock=\"gtk-file\"></input><variable>FILE_BROWSE_FILENAME</variable><visible>enabled</visible><action type=\"fileselect\">FILE"$LNNO"</action></button>" >>/dev/shm/MAIN_DIALOG
+
+        #combobox
+        COMBO=\${C$LNNO} && COMBO=`eval echo $COMBO`
+        COMBOTOOLTIP=\${CTT$LNNO} && COMBOTOOLTIP=`eval echo $COMBOTOOLTIP`
+        if [ "$COMBO" != "" ]; then
+        for ONE in $COMBO
+        do
+        ITEMS="${ITEMS}<item>${ONE}</item>"
+        done
+        [ "$COMBO" != "" ] && echo "<combobox tooltip-text=\"$COMBOTOOLTIP\"><variable>COMBO"$LNNO"</variable>"$ITEMS"</combobox>" >>/dev/shm/MAIN_DIALOG
+        fi
+
+        #to handle multiple items in one hbox
+        [ "$NEWLINE" != "F" ] && echo "</hbox>" >>/dev/shm/MAIN_DIALOG
+        SAMELINE=$NEWLINE
+
+        #HAD TO DO IT THIS WAY BECAUSE VARIABLES WEREN'T RECOGNIZED
+        let LNNO+=1
 done
 echo $FTR >>/dev/shm/MAIN_DIALOG
 
@@ -406,29 +454,29 @@ LNNO=1
 #could do while $CB$EB$... !=""  :would eliminate annoying LNNO & MAX parameter
 until [ $LNNO -gt $MAX ]
 do
-	#CHECKBOXES
-	CBOX=\${CBOX$LNNO} && CBOX=`eval echo $CBOX`
-	CBTT=\${CBTT$LNNO} && CBTT=`eval echo $CBTT`
-	[ "$CBOX" == "true" ] && BBCOMMAND=$BBCOMMAND" "$CBTT
-	#RADIOBUTTONS
-	RB=\${RB$LNNO} && RB=`eval echo $RB`
-	RBTT=\${RBTT$LNNO} && RBTT=`eval echo $RBTT`
-	[ "$RB" == "true" ] && BBCOMMAND=$BBCOMMAND" "$RBTT
-	#ENTRYBOXES
-	EB=\${ENTRY$LNNO} && EB=`eval echo $EB` && [ "$EB" != "" ] && BBCOMMAND=$BBCOMMAND" "$EB
-	#DIRECTORIES
-	DIR=\${DIR$LNNO} && DIR=`eval echo $DIR` && [ "$DIR" != "" ] && BBCOMMAND=$BBCOMMAND" "$DIR
-	#FILES
-	FILE=\${FILE$LNNO} && FILE=`eval echo $FILE` && [ "$FILE" != "" ] && BBCOMMAND=$BBCOMMAND" "$FILE
-	#COMBOBOXES
-	COMBO=\${COMBO$LNNO} && COMBO=`eval echo $COMBO` && [ "$COMBO" != "" ] && BBCOMMAND=$BBCOMMAND" "$COMBO
-	let LNNO+=1
+        #CHECKBOXES
+        CBOX=\${CBOX$LNNO} && CBOX=`eval echo $CBOX`
+        CBTT=\${CBTT$LNNO} && CBTT=`eval echo $CBTT`
+        [ "$CBOX" == "true" ] && BBCOMMAND=$BBCOMMAND" "$CBTT
+        #RADIOBUTTONS
+        RB=\${RB$LNNO} && RB=`eval echo $RB`
+        RBTT=\${RBTT$LNNO} && RBTT=`eval echo $RBTT`
+        [ "$RB" == "true" ] && BBCOMMAND=$BBCOMMAND" "$RBTT
+        #ENTRYBOXES
+        EB=\${ENTRY$LNNO} && EB=`eval echo $EB` && [ "$EB" != "" ] && BBCOMMAND=$BBCOMMAND" "$EB
+        #DIRECTORIES
+        DIR=\${DIR$LNNO} && DIR=`eval echo $DIR` && [ "$DIR" != "" ] && BBCOMMAND=$BBCOMMAND" "$DIR
+        #FILES
+        FILE=\${FILE$LNNO} && FILE=`eval echo $FILE` && [ "$FILE" != "" ] && BBCOMMAND=$BBCOMMAND" "$FILE
+        #COMBOBOXES
+        COMBO=\${COMBO$LNNO} && COMBO=`eval echo $COMBO` && [ "$COMBO" != "" ] && BBCOMMAND=$BBCOMMAND" "$COMBO
+        let LNNO+=1
 done
 
-echo $BBCOMMAND #echo allows calling function to exec if called as `main_dialogbx` or ???
+echo $BBCOMMAND #echo allows calling function to exec if called as `_main_dialog` or ???
 }
 
-maindialogtemplatebx() { #example of how to use main_dialog
+_maindialogtemplate() { #example of how to use _main_dialog
 ICON="gtk-properties"
 DESCRIPTION="This is just an example of how it works"
 CBTT1="THIS PARAMETER GETS PASSED TO THE MAIN PROGRAM"
@@ -457,12 +505,12 @@ NL8="F"
 RBV9="D"
 RBTT="-D"
 MAX="9" #only necessary because my bash skills and time are limited
-main_dialogbx #surround with ` to execute the command or it just gets echoed
+_main_dialog #surround with ` to execute the command or it just gets echoed
 }
 
-#partview2bx(){ #TODO convert Barry's to use faster percentbarbx()}
+#partview2(){ #TODO convert Barry's to use faster percentbar()}
 
-percentbarbx() { #usage: "$0" XX% name=filename fgcolor=XXX bgcolor=XXX height=XXX width=XXX [vertical]
+_percentbar() { #usage: "$0" XX% name=filename fgcolor=XXX bgcolor=XXX height=XXX width=XXX [vertical]
 FILENAME=barimage
 FGCOLOR=\#000
 BGCOLOR=None
@@ -485,7 +533,7 @@ case $x in
    *%)PERCENT=`echo $x |cut -d % -f 1`;;
    vert*)VERTICAL="true";;
    *)   echo "usage "$0" XX% name=filename fgcolor=XXX bgcolor=XXX height=XXX width=XXX [vertical]
-      colors can be 3 or 6 digit hexadecimal or None ... default is horizontal bars" && exit
+      colors can be 3 or 6 digit hexadecimal or None ... default is horizontal bars" && return
       ;;
 esac
 done
@@ -539,40 +587,40 @@ fi
 echo '};' >>${FILENAME}.xpm
 }
 
-pgetbx() { #download $1 to HOME/my-documents with axel
+_pget() { #download $1 to HOME/my-documents with axel
 cd ${HOME}/my-documents
 rxvt -name pget +sb -bg orange -geometry 80x2 -e axel -S 3 $1
 }
 
-pickdatebx() { #choose a date - optional input: $1="text" $2=day $3=month $4=year
-setDIALOG
+_pickdate() { #choose a date - optional input: $1="text" $2=day $3=month $4=year
+_setDIALOG
 $DIALOG --stdout --calendar "Please select a date $1" 0 0 $2 $3 $4
 }
 
-picktimebx() { #output a time - optional input: $1="text" $2=hours $3=minutes $4=seconds
-setDIALOG
+_picktime() { #output a time - optional input: $1="text" $2=hours $3=minutes $4=seconds
+_setDIALOG
 $DIALOG --stdout --timebox "Please select a time $1" 0 0 $2 $3 $4
 }
 
-pickfilebx() { #DIALOG box to return a user chosen file to stdout
-	setDIALOG
-	$DIALOG --stdout --fselect "Please choose your $@ file." 0 0
+_pickfile() { #DIALOG box to return a user chosen file to stdout
+        _setDIALOG
+        $DIALOG --stdout --fselect "Please choose your $@ file." 0 0
 }
 
-pickXcolorbx() { #DIALOG box to return a user chosen X color to stdout
-	setXCOLORS
-	Xdialog --stdout --combobox "Please choose color $@" 0 0 $XCOLORS
+_pickXcolor() { #DIALOG box to return a user chosen X color to stdout
+        setXCOLORS
+        Xdialog --stdout --combobox "Please choose color $@" 0 0 $XCOLORS
 }
 
-play_aubx() { #just sends $@ to /dev/audio
+_play_au() { #just sends $@ to /dev/audio
 cat $@ > /dev/audio
 }
 
-play_wavbx() { #just sends $@ to /dev/dsp
+_play_wav() { #just sends $@ to /dev/dsp
 cat $@ > /dev/dsp
 }
 
-reset_mixersbx() { #from /usr/sbin/alsaconf... was called from rc.local0.
+_reset_mixers() { #from /usr/sbin/alsaconf... was called from rc.local0.
  amixer -s -q <<EOF
 set Master 75% unmute
 set Master -12dB
@@ -614,64 +662,64 @@ set "Audigy Analog/Digital Output Jack" off
 EOF
 }
 
-setDIALOGbx() { #sets $DIALOG to Xdialog if in X or dialog if in console
-	[ -n "$DISPLAY" ] && [ `which Xdialog` ] && DIALOG="Xdialog" || DIALOG=dialog
+_setDIALOG() { #sets $DIALOG to Xdialog if in X or dialog if in console
+        [ -n "$DISPLAY" ] && [ `which Xdialog` ] && DIALOG="Xdialog" || DIALOG=dialog
 }
 
-setjwmbgbx() { #TODO tweaks ... include $HOME/.jwmbg in the jwmrc template
-setDIALOG
+_setjwmbg() { #TODO tweaks ... include $HOME/.jwmbg in the jwmrc template
+_setDIALOG
 JWMBG="<JWM><Desktops count=\"2\"><Desktop>"
 case `$DIALOG --stdout --radiolist "
 Setting background/wallpaper on your jwm-desktop.
 What type of background do you want to use?
 " 0 0 8 1 Cancel on 2 SolidColor 0 3 ColorGradient 0 4 StretchedImage 0 5 TiledImage 0 6 ExternalCommand 0 7 None 0` in
-	1)return 0;;
-	2)JWMBG=$JWMBG"<Background type=\"solid\">"`pickXcolorbx`"</Background>";;
-	3)JWMBG=$JWMBG"<Background type=\"gradient\">"`pickXcolorbx 1`":"`pickXcolorbx 2`"</Background>";;
-	4)JWMBG=$JWMBG"<Background type=\"image\">"`pickfilebx image`"</Background>";;
-	5)JWMBG=$JWMBG"<Background type=\"tile\">"`pickfilebx image`"</Background>";;
-	6)JWMBG=$JWMBG"<Background type=\"command\">"`pickfilebx executable`"</Background>";;
-	*);;
+        1)return 0;;
+        2)JWMBG=$JWMBG"<Background type=\"solid\">"`_pickXcolor`"</Background>";;
+        3)JWMBG=$JWMBG"<Background type=\"gradient\">"`_pickXcolor 1`":"`_pickXcolor 2`"</Background>";;
+        4)JWMBG=$JWMBG"<Background type=\"image\">"`_pickfile image`"</Background>";;
+        5)JWMBG=$JWMBG"<Background type=\"tile\">"`_pickfile image`"</Background>";;
+        6)JWMBG=$JWMBG"<Background type=\"command\">"`_pickfile executable`"</Background>";;
+        *);;
 esac
 JWMBG=$JWMBG"</Desktops></JWM>"
 echo $JWMBG >${HOME}/.jwmbg
 #$DIALOG --infobox "$JWMBG" 0 0 #debug
 }
 
-#setjwm* not yet implemented
-#setjwmbindingsbx(){ #TODO complete see existing utils}
-#setjwmdrivesbx(){ #TODO complete see pupngo to implement }
-#setjwmiconsbx(){ #TODO complete see forum thread to implement }
-#setjwmstylebx(){ #TODO complete see existing utils to implement }
-#setjwmtraybx(){ #TODO complete see $HOME/.jwmrc-tray to implement }
+#_setjwm* not yet implemented
+#_setjwmbindings(){ #TODO complete see existing utils}
+#_setjwmdrives(){ #TODO complete see pupngo to implement }
+#_setjwmicons(){ #TODO complete see forum thread to implement }
+#_setjwmstyle(){ #TODO complete see existing utils to implement }
+#_setjwmtray(){ #TODO complete see $HOME/.jwmrc-tray to implement }
 
-setXCOLORSbx() { #sets $XCOLORS from ...rgb.txt
-	export XCOLORS=`cut -s -f3,4 /usr/X11R7/lib/X11/rgb.txt |grep -v " "|grep -v "rey" |sed "s/\t//" |sort|uniq` 
+_setXCOLORS() { #sets $XCOLORS from ...rgb.txt
+        export XCOLORS=`cut -s -f3,4 /usr/X11R7/lib/X11/rgb.txt |grep -v " "|grep -v "rey" |sed "s/\t//" |sort|uniq`
 }
 
-silentbx() { #run a command with no output #usage: silent command arguments
+_silent() { #run a command with no output #usage: silent command arguments
 $@ 2>&1 >/dev/null
 }
 
-silentlogbx() { #usage: silentlog logfile.log command arguments (records only normal output)
+_silentlog() { #usage: silentlog logfile.log command arguments (records only normal output)
 F=$1
 shift
 $@ > $F #using > instead of just tee so the output is silenced
 }
 
-silentlogallbx() { #usage: silentlogall logfile.log command arguments (records error & normal output)
+_silentlogall() { #usage: silentlogall logfile.log command arguments (records error & normal output)
 F=$1
 shift
 $@ 2>&1 > $F #using > instead of just tee so the output is silenced
 }
 
-silentlogerrbx() { #usage: silentlogerr logfile.log command arguments (records only error output)
+_silentlogerr() { #usage: silentlogerr logfile.log command arguments (records only error output)
 F=$1
 shift
 $@ 2> $F #using > instead of just tee so the output is silenced
 }
 
-test_program_with_LANGbx() { #$1=LANG followed by command to test
+_test_program_with_LANG() { #$1=LANG followed by command to test
 REAL_LANG=$LANG
 export LANG=$1
 shift #removes $1 from $@
@@ -679,19 +727,19 @@ $@
 export LANG=$REAL_LANG
 }
 
-tolowerbx() { #change input $@ to lower case
+_tolower() { #change input $@ to lower case
 echo $@ | tr [:upper:] [:lower:]
 }
 
-toupperbx() { #change input $@ to upper case
+_toupper() { #change input $@ to upper case
 echo $@ | tr [:lower:] [:upper:]
 }
 
-treebx() { #show a cli visualization of directories and files
-for x in `ls $1`; do [ -d $1/$x ] &&  echo "$2\`-{"$x && treebx $1/$x "$2   " || echo "$2\`-<"$x; done
+_tree() { #show a cli visualization of directories and files
+for x in `ls $1`; do [ -d $1/$x ] &&  echo "$2\`-{"$x && _tree $1/$x "$2   " || echo "$2\`-<"$x; done
 }
 
-tweetbx() { #send a tweet $1 is username $2 is password "$3" is the tweet (must be in quotes)
+_tweet() { #send a tweet $1 is username $2 is password "$3" is the tweet (must be in quotes)
 U=$1;P=$2
 shift 2
 T=$@
@@ -705,11 +753,11 @@ T=$@
 [ "${#T}" -lt "160" ] && curl -u $U:$P -d status="$T" http://twitter.com/statuses/update.xml -o /dev/null || echo "tweets must be < 160 characters"
 }
 
-webcam2avibx() { #capture your webcam to HOME/webcam.avi - requires ffmpeg & rxvt
+_webcam2avi() { #capture your webcam to HOME/webcam.avi - requires ffmpeg & rxvt
 rxvt +sb -bg orange -geometry 80x2 -e ffmpeg -y -f oss -i /dev/audio -f video4linux2 -s qvga -i /dev/video0 ${HOME}/webcam.avi
 }
 
-workingbx(){ #vert pos, horz pos, message
+_working(){ #vert pos, horz pos, message
 #!/bin/sh
 POS="\E[$1;$2H"
 V=$1;H=$2
@@ -740,14 +788,14 @@ clear
 echo -e $POS"|   { $@ }   |"
 sleep 1
 echo $#
-working $V $H $@	
+working $V $H $@
 }
 
-X2avibx() { #capture your desktop to HOME/x11-session.avi - ffmpeg needs x11grab
+_X2avi() { #capture your desktop to HOME/x11-session.avi - ffmpeg needs x11grab
 rxvt +sb -bg orange -geometry 80x2 -e ffmpeg -f oss -i /dev/audio -f x11grab -s 1200x800 -r 5 -i :0.0 ${HOME}/x11-session.avi
 }
 
-Xsetvolumebx() { #set volume with slider
+_Xsetvolume() { #set volume with slider
 VOLUME=`amixer get Master | grep 'Mono:' | cut -d '%' -f 1 | cut -d '[' -f 2`
 VOLUME=`Xdialog --stdout --under-mouse --title "VolumeControl" --buttons-style text --icon /usr/share/mini-icons/audio-volume-high.png \
 --ok-label Set --cancel-label Advanced --rangebox "Master Volume" 9 30 0 100 $VOLUME`
@@ -755,18 +803,18 @@ VOLUME=`Xdialog --stdout --under-mouse --title "VolumeControl" --buttons-style t
 #aplay sound.wav here?
 }
 
-Xshowimagebx() { #quick view of image
+_Xshowimage() { #quick view of image
 Xdialog --icon $1 --no-buttons --msgbox "" 0 0
 }
 
 
 #these are full programs in testing for now so not in the alphabetical listing yet
-#the "internal" functions have no space in bx(){ so they won't get a symlink
+#the "internal" functions have no space in (){ so they won't get a symlink
 #I may use this fact to know which fxns to automatically export
 
 #begin pprocess
-box_okbx(){ # $1=title $2=TXT1 $3=TXT2 $4=IMG $5=FRAME
-[ -z "$5" ] && echo "not enough values to box_ok" && exit 1
+_box_ok(){ # $1=title $2=TXT1 $3=TXT2 $4=IMG $5=FRAME
+[ -z "$5" ] && echo "not enough values to box_ok" && return 1
 export ok_box="
 <window title=\"$1\" icon-name=\"gtk-execute\">
  <vbox>
@@ -786,55 +834,55 @@ export ok_box="
 gtkdialog3 --program=ok_box --center
 }
 
-pprocess_funcbx(){ #functions for pprocess
+_pprocess_func(){ #functions for pprocess
 case $1 in
 -action)
-	if [ ! "$ACTION" ]; then
-		TXT1="$LOC131" 
-		box_ok Pprocess "$TXT1" "$TXT1" dialog-error Pprocess_Error
-	fi
-	case $ACTION in
-		"$LOC101") kill -9 `echo "$LIST" | awk '{print $1}'`;;
-		"$LOC104 - $LOC105") renice -10 `echo "$LIST" | awk '{print $1}'`;; #high
-		"$LOC104 - $LOC106") renice 0 `echo "$LIST" | awk '{print $1}'`;; #normal
-		"$LOC104 - $LOC107") renice 10 `echo "$LIST" | awk '{print $1}'`;; #low
-		*)	#send signal
-			KILL_SIGNAL="`echo "$ACTION" | cut -d ' ' -f 3`"
-			TMP="-`echo "$KILL_SIGNAL" | cut -d " " -f 1`"
-			if [  $TMP = "-0" ]; then TMP=""; fi
-			kill $TMP `echo "$LIST" | awk '{print $1}'`
-	esac
-	;;
+        if [ ! "$ACTION" ]; then
+                TXT1="$LOC131"
+                box_ok Pprocess "$TXT1" "$TXT1" dialog-error Pprocess_Error
+        fi
+        case $ACTION in
+                "$LOC101") kill -9 `echo "$LIST" | awk '{print $1}'`;;
+                "$LOC104 - $LOC105") renice -10 `echo "$LIST" | awk '{print $1}'`;; #high
+                "$LOC104 - $LOC106") renice 0 `echo "$LIST" | awk '{print $1}'`;; #normal
+                "$LOC104 - $LOC107") renice 10 `echo "$LIST" | awk '{print $1}'`;; #low
+                *)      #send signal
+                        KILL_SIGNAL="`echo "$ACTION" | cut -d ' ' -f 3`"
+                        TMP="-`echo "$KILL_SIGNAL" | cut -d " " -f 1`"
+                        if [  $TMP = "-0" ]; then TMP=""; fi
+                        kill $TMP `echo "$LIST" | awk '{print $1}'`
+        esac
+        ;;
 -set_filter)
-	echo "$FILTER_STRING" > /tmp/pprocess-filter
-	;;
+        echo "$FILTER_STRING" > /tmp/pprocess-filter
+        ;;
 -filter_short)
-	echo "PID         CMD" > /tmp/pprocess-ps_source
-	ps -a | awk '{print $4 "\t" $1}' |sort |grep -v CMD |grep -v awk |grep -v ps-FULL |grep -v grep |grep -v sort| awk '{print $2 "\t" $1}' >> /tmp/pprocess-ps_source
-	FILTER_STRING=($(<"/tmp/pprocess-filter"))
-	grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
-	;;
+        echo "PID         CMD" > /tmp/pprocess-ps_source
+        ps -a | awk '{print $4 "\t" $1}' |sort |grep -v CMD |grep -v awk |grep -v ps-FULL |grep -v grep |grep -v sort| awk '{print $2 "\t" $1}' >> /tmp/pprocess-ps_source
+        read FILTER_STRING <"/tmp/pprocess-filter"
+        grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
+        ;;
 -filter_long)
-	ps -u > /tmp/pprocess-ps_source
-	FILTER_STRING=($(<"/tmp/pprocess-filter"))
-	grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
-	;;
+        ps -u > /tmp/pprocess-ps_source
+        read FILTER_STRING <"/tmp/pprocess-filter"
+        grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
+        ;;
 -filter)
-	ps > /tmp/pprocess-ps_source
-	FILTER_STRING=($(<"/tmp/pprocess-filter"))
-	grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
-	;;
+        ps > /tmp/pprocess-ps_source
+        read FILTER_STRING <"/tmp/pprocess-filter"
+        grep -i "$FILTER_STRING" /tmp/pprocess-ps_source > /tmp/pprocess-ps
+        ;;
 -logfile)
-	if [ $LOG_FILE = top ]; then
-		rxvt -name pburn -bg black -fg green -geometry 80x20 -title "Pprocess - Running processes" -e top
-	fi
-	Xdialog --title "Pprocess" --screen-center --fixed-font --no-ok --cancel-label "$LOC_CANCEL" --tailbox $LOG_FILE 500x500
-	;;
+        if [ $LOG_FILE = top ]; then
+                rxvt -name pburn -bg black -fg green -geometry 80x20 -title "Pprocess - Running processes" -e top
+        fi
+        Xdialog --title "Pprocess" --screen-center --fixed-font --no-ok --cancel-label "$LOC_CANCEL" --tailbox $LOG_FILE 500x500
+        ;;
 
 esac
 }
 
-pprocess_locals_en_USbx(){ #english translation for pprocess
+_pprocess_locals_en_US(){ #english translation for pprocess
 set -a
 
 export LOC_OK="Ok" \
@@ -865,11 +913,11 @@ LOC131="No action defined" \
 \
 LOC200="Use filter to show only wanted processes. \
 Keep field blank to show all processes." \
-LOC201="What should happen to the process 
+LOC201="What should happen to the process
 when click on it."
 }
 
-pprocess_locals_de_DEbx(){ #german translation for pprocess
+pprocess_locals_de_DE(){ #german translation for pprocess
 export LOC_OK="Ok" \
 LOC_CANCEL="Abbruch" \
 LOC_ERROR="Fehler" \
@@ -890,7 +938,7 @@ Feld leer lassen, um alle zu zeigen." \
 LOC201="Was soll mit dem Prozess geschehen, der angeklickt wurde?"
 }
 
-pprocess_locals_fr_FRbx(){ #french translation for pprocess
+_pprocess_locals_fr_FR(){ #french translation for pprocess
 export LOC_OK="Ok" \
 LOC_CANCEL="Annuler" \
 LOC_ERROR="Erreur" \
@@ -916,7 +964,7 @@ LOC120="Double-cliquer pour voir les messages" \
 LOC131="Aucune action définie"
 }
 
-pprocess_locals_nb_NObx(){
+_pprocess_locals_nb_NO(){
 export LOC_OK="Ok" \
 LOC_CANCEL="Avbryt" \
 LOC_ERROR="Feilmelding" \
@@ -936,14 +984,14 @@ Et tomt felt viser alle prosesser." \
 LOC201="Hva skal skje når du klikker på en prosess med musen."
 }
 
-pprocessbx() { #process manager
+_pprocess() { #process manager
 #Copyright 2007,2008,2009,2010 Sigmund Berglund
-export -f pprocess_funcbx box_okbx pprocess_locals_en_USbx
+export -f _pprocess_func _box_ok _pprocess_locals_en_US
 
 case $1 in
-	-a)FILTER=-filter_short;;
-	-u)FILTER=-filter_long;;
-	*)FILTER=-filter;;
+        -a)FILTER=-filter_short;;
+        -u)FILTER=-filter_long;;
+        *)FILTER=-filter;;
 esac
 
 
@@ -951,23 +999,23 @@ VERSION=2.2.T
 
 #parameters
 while [ $# != 0 ]; do
-	I=1
-	while [ $I -le `echo $# | wc -c` ]; do #check -xft
-		if [ `echo $1 | grep s` ]; then SHUTDOWN=true; fi
-		if [ `echo $1 | grep h` ]; then
-			echo 'Options
+        I=1
+        while [ $I -le `echo $# | wc -c` ]; do #check -xft
+                if [ `echo $1 | grep s` ]; then SHUTDOWN=true; fi
+                if [ `echo $1 | grep h` ]; then
+                        echo 'Options
   -s          Show Shutdown/Reboot button
   -h          show this help message.'
-  			exit
-		fi
-		shift
-		I=$[$I+1]
-	done
+                        return
+                fi
+                shift
+                I=$[$I+1]
+        done
 done
 
 #set language
-pprocess_locals_en_US #always run to fill gaps in translation
-pprocess_locals_$LANG 2> /dev/null
+_pprocess_locals_en_US #always run to fill gaps in translation
+_pprocess_locals_$LANG 2> /dev/null
 
 #use monofont in <tree>
 echo 'style "specialmono"
@@ -977,12 +1025,12 @@ echo 'style "specialmono"
 widget "*mono" style "specialmono"
 class "GtkTree*" style "specialmono"' > /tmp/gtkrc_mono
 
-export GTK2_RC_FILES=/tmp/gtkrc_mono:/root/.gtkrc-2.0 
+export GTK2_RC_FILES=/tmp/gtkrc_mono:/root/.gtkrc-2.0
 #---
 
 echo -n > /tmp/pprocess-filter
 
-pprocess_funcbx $FILTER
+_pprocess_func $FILTER
 
 S='
 <window title="Pprocess '$VERSION' - '$LOC100'" icon-name="gtk-execute" default_height="450" default_width="700">
@@ -991,8 +1039,8 @@ S='
   <label>hei</label>
   <variable>LIST</variable>
   <input>cat /tmp/pprocess-ps</input>
-  <action signal="button-press-event">pprocess_funcbx -action</action>
-  <action signal="button-press-event">pprocess_funcbx '$FILTER'</action>
+  <action signal="button-press-event">_pprocess_func -action</action>
+  <action signal="button-press-event">_pprocess_func '$FILTER'</action>
   <action signal="button-press-event">refresh:LIST</action>
  </tree>
  <notebook labels="'$LOC102'|'$LOC103'">
@@ -1002,11 +1050,11 @@ S='
       <variable>FILTER_STRING</variable>
       <default>Search text</default>
       <width>100</width><height>25</height>
-      <action signal="key-release-event">pprocess_funcbx -set_filter</action>
+      <action signal="key-release-event">_pprocess_func -set_filter</action>
      </entry>
     <hbox>
      <button relief="2" can-default="true" has-default="true" use-stock="true" height-request="1" width-request="1">
-      <action>pprocess_funcbx '$FILTER'</action>
+      <action>_pprocess_func '$FILTER'</action>
       <action>refresh:LIST</action>
      </button>
     </hbox>
@@ -1020,18 +1068,18 @@ S='
     <variable>ACTION</variable>
     <height>100</height><width>270></width>
     <item stock="gtk-cancel">'$LOC101'</item>
-    <item stock="gtk-nothing">""</item> 
-    <item stock="gtk-go-up">'$LOC104' - '$LOC105'</item> 
-    <item stock="gtk-remove">'$LOC104' - '$LOC106'</item> 
-    <item stock="gtk-go-down">'$LOC104' - '$LOC107'</item> 
-    <item stock="gtk-nothing">""</item> 
-    <item stock="gtk-nothing">'$LOC111' 1 - Hangup</item> 
-    <item stock="gtk-nothing">'$LOC111' 2 - Interrupt</item> 
-    <item stock="gtk-nothing">'$LOC111' 3 - Quit</item> 
-    <item stock="gtk-nothing">'$LOC111' 9 - Kill</item> 
-    <item stock="gtk-nothing">'$LOC111' 14 - Alarm</item> 
-    <item stock="gtk-nothing">'$LOC111' 15 - Terminate</item> 
-    <item stock="gtk-nothing">'$LOC111' 18 - Continue</item> 
+    <item stock="gtk-nothing">""</item>
+    <item stock="gtk-go-up">'$LOC104' - '$LOC105'</item>
+    <item stock="gtk-remove">'$LOC104' - '$LOC106'</item>
+    <item stock="gtk-go-down">'$LOC104' - '$LOC107'</item>
+    <item stock="gtk-nothing">""</item>
+    <item stock="gtk-nothing">'$LOC111' 1 - Hangup</item>
+    <item stock="gtk-nothing">'$LOC111' 2 - Interrupt</item>
+    <item stock="gtk-nothing">'$LOC111' 3 - Quit</item>
+    <item stock="gtk-nothing">'$LOC111' 9 - Kill</item>
+    <item stock="gtk-nothing">'$LOC111' 14 - Alarm</item>
+    <item stock="gtk-nothing">'$LOC111' 15 - Terminate</item>
+    <item stock="gtk-nothing">'$LOC111' 18 - Continue</item>
     <item stock="gtk-nothing">'$LOC111' 19 - Stop</item>
    </tree>'
   [ "$SHUTDOWN" = "true" ] && S=$S'
@@ -1065,9 +1113,9 @@ S='
     <item>'$LOC114'|/var/log/Xorg.0.log</item>
     <item>'$LOC115'|/tmp/bootkernel.log</item>
     <item>'$LOC116'|/tmp/bootsysinit.log</item>
-    <action>pprocess_funcbx -logfile</action>
+    <action>_pprocess_func -logfile</action>
    </tree>
-   </frame>  
+   </frame>
   </notebook>
 </hbox>
 </window>'
@@ -1079,7 +1127,7 @@ gtkdialog3 -p PPROCESS
 #end pprocesss
 
 #begin from ffconvert
-errmsgbx() { 
+_errmsg() {
   #echo $0 $@ >&2
   [ "$XPID" != "" ] && kill $XPID >/dev/null 2>&1
   MARK="error"
@@ -1090,15 +1138,15 @@ errmsgbx() {
    warning) MARK="warning";shift;;
    info) MARK="info";shift;;
    yesno) MARK="question";shift
-		[ "$YESLABEL" ] || YESLABEL=$(gettext "Yes")
-		[ "$NOLABEL" ] || NOLABEL=$(gettext "No")
-		[ "$YESSYMBOL" ] || YESSYMBOL="gtk-yes"
-		[ "$NOSYMBOL" ] || NOSYMBOL="gtk-no"
-		BUTTONS="<hbox>
+                [ "$YESLABEL" ] || YESLABEL=$(gettext "Yes")
+                [ "$NOLABEL" ] || NOLABEL=$(gettext "No")
+                [ "$YESSYMBOL" ] || YESSYMBOL="gtk-yes"
+                [ "$NOSYMBOL" ] || NOSYMBOL="gtk-no"
+                BUTTONS="<hbox>
     <button><label>$YESLABEL</label><input file stock=\"$YESSYMBOL\"></input><action>EXIT:Yes</action></button>
     $EXTRABUTTON
-	<button><label>$NOLABEL</label><input file stock=\"$NOSYMBOL\"></input><action>EXIT:No</action></button></hbox>"
-		;;
+        <button><label>$NOLABEL</label><input file stock=\"$NOSYMBOL\"></input><action>EXIT:No</action></button></hbox>"
+                ;;
    timeout) MARK="info";shift
             if echo "$1" | grep -q '^[0-9][0-9]*$'; then
               TIMEOUT=$1; shift
@@ -1115,8 +1163,8 @@ errmsgbx() {
     <pixmap  icon_size=\"5\"><input file stock=\"gtk-dialog-$MARK\"></input></pixmap>
     <text><input>echo -e -n \"$ERRMSG\"</input></text>
     </hbox>
-	$BUTTONS
-	</vbox></window>"
+        $BUTTONS
+        </vbox></window>"
   if [ $TIMEOUT -eq 0 ]; then
    gtkdialog3 -p DIALOG
    return
@@ -1132,14 +1180,14 @@ errmsgbx() {
   fi
 }
 
-user_presetsbx() {
+_user_presets() {
  [ -d "$USERPRESETDIR" ] && (cd "$USERPRESETDIR";ls|tr '_ ' '@')
 }
 
-waitsplashbx(){
+_waitsplash(){
   [ "$XPID" != "" ] && kill $XPID >/dev/null 2>&1
   XPID=""
-  #LANG=$LANGORG	# recover lang environment
+  #LANG=$LANGORG        # recover lang environment
   [ "$1" = "start" -o "$1" = "progress" ] || return
   PBAR=""
   if [ "$1" = "progress" ]; then
@@ -1147,7 +1195,7 @@ waitsplashbx(){
       <input>while [ -f $COUNTFILE ]; do tail -n 1 $COUNTFILE; sleep 1; done</input>
      </progressbar>"
   fi
-  shift	# remove $1
+  shift # remove $1
   S=$(gettext "Wait a moment ...")
   [ "$*" ] && S="$*\\n$S"
   DIALOG="<window title=\"$TITLE\" $TITLEICON><vbox>
@@ -1159,18 +1207,18 @@ waitsplashbx(){
   </vbox></window>"
   gtkdialog3 -p DIALOG  >/dev/null &
   XPID=$!
-  #LANG=C	# to be faster
+  #LANG=C       # to be faster
 }
 
-make_dialog2bx() {
+_make_dialog2() {
   IMVISIBLE="<visible>disabled</visible>"
-  [ -e "$SOURCEFILE" ] && IMVISIBLE="" 
+  [ -e "$SOURCEFILE" ] && IMVISIBLE=""
  # user presets
- USERPRESETS=$(user_presetsbx)
+ USERPRESETS=$(_user_presets)
  echo "<window title=\"$CREDIT\" icon-name=\"gtk-convert\">
 <vbox>
   <hbox>
-	<text><label>$(gettext 'Source file')</label></text>
+        <text><label>$(gettext 'Source file')</label></text>
       <entry tooltip-text=\"$(gettext 'Type or drag the source video file here.')\" editable=\"true\" accept=\"filename\">
         <variable>FILE1</variable>
         $(make_default \"$SOURCEFILE\")
@@ -1181,7 +1229,7 @@ make_dialog2bx() {
       <button tooltip-text=\"$(gettext 'Browse and select the source video file.')\">
         <input file stock=\"gtk-open\"></input>
         <variable>FILE_BROWSE_FILENAME</variable>
-		<action type=\"fileselect\">FILE1</action>
+                <action type=\"fileselect\">FILE1</action>
       </button>
       <button tooltip-text=\"$(gettext 'Property of the source video file.')\" >
         <label>$(gettext 'Info.')</label><input file stock=\"gtk-info\"></input>
@@ -1212,10 +1260,10 @@ make_dialog2bx() {
    </checkbox>
    </hbox>
    <hbox>
-	<text><label>$(gettext 'Dest. dir.')</label></text>
+        <text><label>$(gettext 'Dest. dir.')</label></text>
       <entry tooltip-text=\"$(gettext 'Type or select the destination directory here.')\" editable=\"true\" accept=\"directory\">
         <variable>DIR1</variable>
-		$(make_default \"$DEFDIR\")
+                $(make_default \"$DEFDIR\")
       </entry>
       <button tooltip-text=\"$(gettext 'Browse and select the destination directory.')\">
         <input file stock=\"gtk-directory\"></input>
@@ -1233,13 +1281,13 @@ make_dialog2bx() {
         <input file stock=\"gtk-apply\"></input>
         <label>$(gettext 'Load')</label>
         <variable>PRESET_BUTTON</variable>
-		<action>EXIT:Preset</action>
+                <action>EXIT:Preset</action>
       </button>
       <button tooltip-text=\"$(gettext 'Save preset options.')\">
         <input file stock=\"gtk-save-as\"></input>
         <label>$(gettext 'Save')</label>
         <variable>SAVE_BUTTON</variable>
-		<action>EXIT:Save</action>
+                <action>EXIT:Save</action>
       </button></hbox>
 
 <hbox>"
@@ -1289,7 +1337,7 @@ $(make_combo - $DEFFRAMERATE $SAME 15 24 25 29.97 30 59.94)
 </combobox>
 </hbox>
 <hbox>
-	<text><label>$(gettext 'Adv. options')</label></text>
+        <text><label>$(gettext 'Adv. options')</label></text>
       <entry tooltip-text=\"$(gettext 'Type additional options for video codec here.')\" editable=\"true\">
         <variable>VOPTIONS1</variable>
         $(make_default $DEFVOPTIONS)
@@ -1323,14 +1371,14 @@ $(make_combo $DEFSAMPLING $SAME 44100 48000)
 </combobox>
 </hbox>
 <hbox>
-	<text><label>$(gettext 'Channels')</label></text>
+        <text><label>$(gettext 'Channels')</label></text>
       <combobox tooltip-text=\"$(gettext 'Select the number of audio channel.')\" editable=\"true\">
         <variable>CHANNEL1</variable>
         $(make_combo $DEFCHANNEL $SAME $MONO $STEREO)
       </combobox>
    </hbox>
    <hbox>
-	<text><label>$(gettext 'Adv. options')</label></text>
+        <text><label>$(gettext 'Adv. options')</label></text>
       <entry tooltip-text=\"$(gettext 'Type additional options for audio codec here.')\" editable=\"true\">
         <variable>AOPTIONS1</variable>
         $(make_default $DEFAOPTIONS)
@@ -1364,7 +1412,7 @@ $(make_combo - $DEFPASS 2-pass 1-pass)
     </button>
     <button tooltip-text=\"$(gettext 'Browse the ffmpeg document on the internet.')\">
         <input file stock=\"gtk-help\"></input>
-		<action>$BROWSER $ONLINEDOC &>/dev/null &</action>
+                <action>$BROWSER $ONLINEDOC &>/dev/null &</action>
     </button>
     <button><label>$(gettext 'Quit')</label><input file stock=\"gtk-quit\"></input><action>EXIT:Abort</action></button>
 </hbox>
@@ -1372,8 +1420,8 @@ $(make_combo - $DEFPASS 2-pass 1-pass)
 </window>"
 }
 
-make_combobx() {
-	LANG=C	# for speed up
+_make_combo() {
+        LANG=C  # for speed up
   ADDNULL=""
   [ "$1" = '-' ] && ADDNULL="yes" && shift
   CHOICE=""
@@ -1388,13 +1436,13 @@ done
   echo "$CHOICE"
 }
 
-make_defaultbx() {
-	P="$@";# echo $P >&2
-	[ "$P" != "" -a "$P" != '""'  ] || return
-	echo -n "<default>$P</default>"
+_make_default() {
+        P="$@";# echo $P >&2
+        [ "$P" != "" -a "$P" != '""'  ] || return
+        echo -n "<default>$P</default>"
 }
 
-load_presetbx() {
+_load_preset() {
     # load preset
     PRESETLINE=""
     if [ "$PRESET1" ]; then
@@ -1407,18 +1455,18 @@ load_presetbx() {
       fi
     fi
     if [ "$PRESETLINE" ]; then
-       opt2defvarbx $PRESETLINE
+       _opt2defvar $PRESETLINE
        DEFPRESET=$(echo "$PRESET1"| tr ' ' '@')
        return 0
     else
-      errmsgbx $(gettext 'No preset found.')
+      _errmsg $(gettext 'No preset found.')
       return 1
     fi
 }
 # save new preset
-save_presetbx() {
+_save_preset() {
       NEWPRESET=$(echo "$PRESET1"| tr '_ ' '@')
-      USERPRESETS=$(user_presetsbx) 
+      USERPRESETS=$(_user_presets)
       [ "$USERPRESETS" ] && echo "$USERPRESETS"| grep -qx "$NEWPRESET" && DUPE="yes" || DUPE=""
       NEWPRESET=$(echo "$NEWPRESET"|tr '@_' ' ')
       MSG=$(gettext 'Save as the new preset?')
@@ -1449,14 +1497,14 @@ save_presetbx() {
     echo -n "$OPTSAVE" > $F
 }
 
-source_propertybx() {
+_source_property() {
   SRCINFO=$(ffmpeg -i "$FILE1" 2>&1 |grep -E '(#|Duration)')
   VSTREAM=$(echo "$SRCINFO"|grep 'Stream .*Video')
   ASTREAM=$(echo "$SRCINFO"|grep 'Stream .*Audio')
   #echo "$VSTREAM" >&2
   #echo "$ASTREAM" >&2
   if [ "$VSTREAM" = "" -a "$ASTREAM" = "" ]; then
-    [ "$1" = "skip" ] || errmsgbx $(printf "$(gettext 'No video nor audio stream in %s.')" "$FILE1")
+    [ "$1" = "skip" ] || _errmsg $(printf "$(gettext 'No video nor audio stream in %s.')" "$FILE1")
     return 1
   fi
   [ "$VSTREAM" ] && NOVIDEO="" || NOVIDEO="true"
@@ -1466,37 +1514,37 @@ source_propertybx() {
   return 0
 }
 
-target2defvarbx() {
- 	case "$1" in
-	*vcd) DEFFORMAT=mpeg
-	    DEFVCODEC=mpeg1video
-	    DEFVBITRATE=1150
-	    DEFACODEC=mp2
-	    DEFABITRATE=224
-	    DEFSAMPLING=44100
-	    CHANNEL=2
-	    DEFSCREEN=352x240
-	    DEFFRAMERATE=29.97
-		;;
-	*dvd)  DEFFORMAT=mpeg
-	    DEFVCODEC=mpeg2video
-	    DEFVBITRATE=6000
-	    DEFACODEC=ac3
-	    DEFABITRATE=448
-	    DEFSAMPLING=48000
-	    CHANNEL=2
-	    DEFSCREEN=720x480
-	    DEFFRAMERATE=29.97
-		;;
-	esac 
-	case "$1" in
-	pal-vcd) DEFSCREEN=352x288
-	    DEFFRAMERATE=25
-		;;
-	pal-dvd) DEFSCREEN=720x576
-	    DEFFRAMERATE=25
-		;;
-	esac
+_target2defvar() {
+        case "$1" in
+        *vcd) DEFFORMAT=mpeg
+            DEFVCODEC=mpeg1video
+            DEFVBITRATE=1150
+            DEFACODEC=mp2
+            DEFABITRATE=224
+            DEFSAMPLING=44100
+            CHANNEL=2
+            DEFSCREEN=352x240
+            DEFFRAMERATE=29.97
+                ;;
+        *dvd)  DEFFORMAT=mpeg
+            DEFVCODEC=mpeg2video
+            DEFVBITRATE=6000
+            DEFACODEC=ac3
+            DEFABITRATE=448
+            DEFSAMPLING=48000
+            CHANNEL=2
+            DEFSCREEN=720x480
+            DEFFRAMERATE=29.97
+                ;;
+        esac
+        case "$1" in
+        pal-vcd) DEFSCREEN=352x288
+            DEFFRAMERATE=25
+                ;;
+        pal-dvd) DEFSCREEN=720x576
+            DEFFRAMERATE=25
+                ;;
+        esac
   case "$CHANNEL" in
   1) DEFCHANNEL=$MONO;;
   2) DEFCHANNEL=$STEREO;;
@@ -1504,7 +1552,7 @@ target2defvarbx() {
   esac
 }
 
-opt2defvarbx() {
+_opt2defvar() {
   [ $# -gt 0 ] || return
   DEFVOPTIONS=""
   DEFAOPTIONS=""
@@ -1533,7 +1581,7 @@ opt2defvarbx() {
     -aframes|-aq|-alang|-atag|-absf) DEFAOPTIONS="$DEFAOPTIONS $1 $2";shift;;
     -newaudio) DEFAOPTIONS="$DEFAOPTIONS $1";;
     *) [ "$VAFLAG" = "V" ] && DEFVOPTIONS="$DEFVOPTIONS $1" ||  DEFAOPTIONS="$DEFAOPTIONS $1"
-		;;
+                ;;
     esac
     shift
   done
@@ -1544,7 +1592,7 @@ opt2defvarbx() {
   esac
 }
 
-var2optbx() {
+_var2opt() {
 PASS=$(echo $PASS1 |tr -dc '1-2')
 if [ "$NOAUDIO" != "" ]; then
   AOPTIONS="-an"
@@ -1553,21 +1601,21 @@ else
  "$COPY") AOPTIONS="-acodec copy";;
  "$NONE") AOPTIONS="-an";;
  *) AB=$(echo $ABITRATE1 |tr -dc '0-9.')
-	[ "$AB" ] && AB="-ab ${AB}k"
-	AR=$(echo "$SAMPLING1"| tr -dc '0-9.k')
-	[ "$AR" ] && AR="-ar $AR"
-	[ "$SAMPLING1" = "$COPY" ] && AR=""
-	case $(echo "$CHANNEL1"|tr ' ' '@') in
-	$MONO) AC="-ac 1";;
-	$STEREO) AC="-ac 2";;
-	*) AC=$(echo "$CHANNEL1"| tr -dc '0-9')
-	  [ "$AC" ] && AC="-ac $AC"
-		;;
-	esac
-	[ "$CHANNEL" ] && AC="-ac $CHANNEL"
-	[ "$CHANNEL" = "$COPY" ] && AC=""
-	AOPTIONS="-acodec $ACODEC1 $AB $AR $AC $AOPTIONS1"
-	;;
+        [ "$AB" ] && AB="-ab ${AB}k"
+        AR=$(echo "$SAMPLING1"| tr -dc '0-9.k')
+        [ "$AR" ] && AR="-ar $AR"
+        [ "$SAMPLING1" = "$COPY" ] && AR=""
+        case $(echo "$CHANNEL1"|tr ' ' '@') in
+        $MONO) AC="-ac 1";;
+        $STEREO) AC="-ac 2";;
+        *) AC=$(echo "$CHANNEL1"| tr -dc '0-9')
+          [ "$AC" ] && AC="-ac $AC"
+                ;;
+        esac
+        [ "$CHANNEL" ] && AC="-ac $CHANNEL"
+        [ "$CHANNEL" = "$COPY" ] && AC=""
+        AOPTIONS="-acodec $ACODEC1 $AB $AR $AC $AOPTIONS1"
+        ;;
  esac
 fi
 #echo "NOVIDEO=$NOVIDEO">&2
@@ -1579,72 +1627,72 @@ else
  "$COPY") PASS=1; VOPTFINAL="-vcodec copy";;
  "$NONE") PASS=1; VOPTFINAL="-vn";;
  *)  VB=$(echo $VBITRATE1 |tr -cd '[0-9.]')
-	[ "$VB" ] && VB="-b ${VB}k"
-	Q=$(echo $QUALITY1|tr -cd '[0-9.]')
-	if [ "$Q" ]; then
-		Q="-qscale  $Q"
-	else
-		[ "$VB" ] || Q="-sameq"
-	fi
-	S=$(echo $SCREEN1|tr 'X' 'x'|tr -cd '[0-9x]')
-	# aspect and cropping
-	CROP=""
-	ASPECT=$ASPECT1
-	if echo $ASPECT| grep -qw 'crop' ; then
-	  ASPECT=$(echo $ASPECT|rev|cut -d' ' -f1|rev)
-	  SSIZE=$(echo $VSTREAM|cut -d',' -f3)
-	  SSIZE=$(echo $SSIZE| cut -d' ' -f1)
-	  SX=$(echo $SSIZE| cut -d'x' -f1)
-	  SY=$(echo $SSIZE| cut -d'x' -f2)
-	  if [ "$ASPECT" = "16:9" ]; then
-	    N=$(($SY / 16 * 2))
-	    CROP="-croptop $N -cropbottom $N"
-	    N=$(($N * 2))
-	    [ "$S" = "" ] && S="${SX}x$(($SY - $N))"
-	  else
-	    N=$(($SX / 16 * 2))
-	    CROP="-cropleft $N -cropright $N"
-	    N=$(($N * 2))
-	    [ "$S" = "" ] && S="$(($SX - $N))x$Y"
-	  fi
-	elif echo $ASPECT| grep -qw 'zoom' ; then
-	  ASPECT=$(echo $ASPECT|rev|cut -d' ' -f1|rev)
-	  SSIZE=$(echo $VSTREAM|cut -d',' -f3)
-	  SSIZE=$(echo $SSIZE| cut -d' ' -f1)
-	  SX=$(echo $SSIZE| cut -d'x' -f1)
-	  SY=$(echo $SSIZE| cut -d'x' -f2)
-	  N=$(($SY / 16 * 2))
-	  CROP="-croptop $N -cropbottom $N"
-	  NY=$(($N * 2))
-	  N=$(($SX / 16 * 2))
-	  CROP="$CROP -cropleft $N -cropright $N"
-	  NX=$(($N * 2))
-	  [ "$S" = "" ] && S="$(($SX - $NX))x$(($SY - $NY))"
-	fi
-	[ "$S" ] && S="-s $S"
-	A=$(echo $ASPECT|tr -cd '[0-9.:]')
-	[ "$A" ] && A="-aspect $A"
-	#
-	R=$(echo $FRAMERATE1|tr -cd '[0-9.]')
-	[ "$R" ] && R="-r $R"
+        [ "$VB" ] && VB="-b ${VB}k"
+        Q=$(echo $QUALITY1|tr -cd '[0-9.]')
+        if [ "$Q" ]; then
+                Q="-qscale  $Q"
+        else
+                [ "$VB" ] || Q="-sameq"
+        fi
+        S=$(echo $SCREEN1|tr 'X' 'x'|tr -cd '[0-9x]')
+        # aspect and cropping
+        CROP=""
+        ASPECT=$ASPECT1
+        if echo $ASPECT| grep -qw 'crop' ; then
+          ASPECT=$(echo $ASPECT|rev|cut -d' ' -f1|rev)
+          SSIZE=$(echo $VSTREAM|cut -d',' -f3)
+          SSIZE=$(echo $SSIZE| cut -d' ' -f1)
+          SX=$(echo $SSIZE| cut -d'x' -f1)
+          SY=$(echo $SSIZE| cut -d'x' -f2)
+          if [ "$ASPECT" = "16:9" ]; then
+            N=$(($SY / 16 * 2))
+            CROP="-croptop $N -cropbottom $N"
+            N=$(($N * 2))
+            [ "$S" = "" ] && S="${SX}x$(($SY - $N))"
+          else
+            N=$(($SX / 16 * 2))
+            CROP="-cropleft $N -cropright $N"
+            N=$(($N * 2))
+            [ "$S" = "" ] && S="$(($SX - $N))x$Y"
+          fi
+        elif echo $ASPECT| grep -qw 'zoom' ; then
+          ASPECT=$(echo $ASPECT|rev|cut -d' ' -f1|rev)
+          SSIZE=$(echo $VSTREAM|cut -d',' -f3)
+          SSIZE=$(echo $SSIZE| cut -d' ' -f1)
+          SX=$(echo $SSIZE| cut -d'x' -f1)
+          SY=$(echo $SSIZE| cut -d'x' -f2)
+          N=$(($SY / 16 * 2))
+          CROP="-croptop $N -cropbottom $N"
+          NY=$(($N * 2))
+          N=$(($SX / 16 * 2))
+          CROP="$CROP -cropleft $N -cropright $N"
+          NX=$(($N * 2))
+          [ "$S" = "" ] && S="$(($SX - $NX))x$(($SY - $NY))"
+        fi
+        [ "$S" ] && S="-s $S"
+        A=$(echo $ASPECT|tr -cd '[0-9.:]')
+        [ "$A" ] && A="-aspect $A"
+        #
+        R=$(echo $FRAMERATE1|tr -cd '[0-9.]')
+        [ "$R" ] && R="-r $R"
     [ "$VCODEC1" = "libx264" ] &&  ADDOPTIONS="$ADDOPTIONS $X264OPTIONS"
-	for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
-		FOUND="yes"
-		[ -f $D/$VCODEC1-$DEFVPREFIRST.ffpreset ] && break
-		FOUND=""
-	done
-	[ "$FOUND" ] && VPREFIRST="-vpre $DEFVPREFIRST" || VPREFIRST=""
-	for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
-		FOUND="yes"
-		[ -f $D/$VCODEC1-$DEFVPREFINAL.ffpreset ] && break
-		FOUND=""
-	done
-	[ "$FOUND" ] && VPREFINAL="-vpre $DEFVPREFINAL" || VPREFINAL=""
-	VOPT="$Q $VB $S $A $R $VOPTIONS1"
-	VOPTFIRST="$CROP -vcodec $VCODEC1 $VPREFIRST $ADDOPTIONS $VOPT"
-	VOPTFINAL="$CROP -vcodec $VCODEC1 $VPREFINAL $ADDOPTIONS $VOPT"
-	VOPTIONS="$CROP -vcodec $VCODEC1 $VOPT"
- 	;;
+        for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
+                FOUND="yes"
+                [ -f $D/$VCODEC1-$DEFVPREFIRST.ffpreset ] && break
+                FOUND=""
+        done
+        [ "$FOUND" ] && VPREFIRST="-vpre $DEFVPREFIRST" || VPREFIRST=""
+        for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
+                FOUND="yes"
+                [ -f $D/$VCODEC1-$DEFVPREFINAL.ffpreset ] && break
+                FOUND=""
+        done
+        [ "$FOUND" ] && VPREFINAL="-vpre $DEFVPREFINAL" || VPREFINAL=""
+        VOPT="$Q $VB $S $A $R $VOPTIONS1"
+        VOPTFIRST="$CROP -vcodec $VCODEC1 $VPREFIRST $ADDOPTIONS $VOPT"
+        VOPTFINAL="$CROP -vcodec $VCODEC1 $VPREFINAL $ADDOPTIONS $VOPT"
+        VOPTIONS="$CROP -vcodec $VCODEC1 $VOPT"
+        ;;
  esac
 fi
 OPTFIRST="-i \"$FILE1\" -y -f $FORMAT1 $VOPTFIRST -an /dev/null "
@@ -1652,7 +1700,7 @@ OPTFINAL="-i \"$FILE1\" -y -f $FORMAT1 $VOPTFINAL $AOPTIONS \"$DESTFILE\""
 OPTSAVE="-f $FORMAT1 $VOPTIONS $AOPTIONS"
 }
 
-var2defbx() {
+_var2def() {
 #THUMBNAILSIZE="128x96"
 DEFDIR="$DIR1"
 DEFBACKGROUND="$BACKGROUND1"
@@ -1677,7 +1725,7 @@ DEFAOPTIONS="$AOPTIONS1"
 DEFPASS="$PASS1"
 }
 # save conf
-save_confbx() {
+_save_conf() {
   mkdir -p $(dirname "$CONFFILE")
   cat <<EOF > "$CONFFILE"
 #THUMBNAILSIZE="128x96"
@@ -1707,35 +1755,35 @@ DEFPASS="$PASS1"
 EOF
 }
 
-keep_entrybx() {
+_keep_entry() {
   SOURCEFILE="$FILE1"
   DEFDIR="$DIR1"
   DEFWHOLEDIR="$WHOLEDIR1"
   DEFOVERWRITE="$OVERWRITE1"
 }
 
-cleanup1bx() {
+_cleanup1() {
  [ "$CPID" != "" ] && kill $CPID && CPID=""
  rm -fR "$WORKDIR"
  rm -f "$CMDFILE" "$TMPFILE" "$STATUSFILE" "$LOGFILE" "$THUMBNAIL"
 }
 
-cleanupbx() {
-  cleanup1
+_cleanup() {
+  _cleanup1
   rm -f "$COUNTFILE"
  for I in "$XPID" "$CPID" "$MPID"; do
    [ "$I" != "" ] && kill $I
- done 
+ done
   rm -f "$COUNTFILE" "$STATUSFILE" "$REPFILE" "$WORKLOG"
   [ -d  "$MYTMPDIR" ] && [ "$(ls "$MYTMPDIR" 2>/dev/null)" = "" ] && rmdir "$MYTMPDIR"
 }
 
-abortbx() {
- cleanupbx
- exit 1
-} 
+_abort() {
+ _cleanup
+ return 1
+}
 
-ffconvertbx() { # FFConvert - a frontend of ffmpeg
+_ffconvert() { # FFConvert - a frontend of ffmpeg
 # 20 Jul 2010 by shinobar <shino@pos.to>
 # 28 Jul 2010 check ffmpeg suports for each codec, crop and zoom, libvovis instead of ovis
 # 10 Oct 2010 progress bar, allow both 'orvis' or 'liborvis' as the codec name
@@ -1744,12 +1792,12 @@ VERSION="1.1"
 CREDIT="FFConvert v.$VERSION"
 TITLE=$CREDIT
 MYNAME=$(basename $0)
-export TEXTDOMAIN=ffconvert	#$MYNAME
-export OUTPUT_CHARSET=UTF-8 
+export TEXTDOMAIN=ffconvert     #$MYNAME
+export OUTPUT_CHARSET=UTF-8
 export DIALOG
 ICONS="/usr/local/lib/X11/mini-icons"
 
-waitsplash start $(printf "$(gettext 'Launching %s')" "$CREDIT")
+_waitsplash start $(printf "$(gettext 'Launching %s')" "$CREDIT")
 
 SOURCEFILE=""
 [ "$1" ] && [ -f "$1" ] && SOURCEFILE="$1"
@@ -1769,7 +1817,7 @@ TEXTVIEWER="defaulttextviewer"
 TERMINAL=""
 for P in urxvt rxvt; do
   which "$P" &>/dev/null && TERMINAL=$P && break
-done 
+done
 #PLAYER="defaultmediaplayer"
 for P in defaultmediaplayer ffplay mplayer gxine; do
   which "$P" &>/dev/null && PLAYER=$P && break
@@ -1784,7 +1832,7 @@ export XPID
 export CPID
 export MPID
 
-waitsplashbx start $(printf "$(gettext 'Launching %s')" "$CREDIT")
+_waitsplash start $(printf "$(gettext 'Launching %s')" "$CREDIT")
 
 # check ffmpeg ability
 FALL=$(ffmpeg -formats 2>/dev/null)
@@ -1832,7 +1880,7 @@ DEFCHANNEL=$(echo "$DEFCHANNEL"|tr ' ' '@')
 [ "$DEFBACKGROUND" = "true" ] || DEFBACKGROUND="false"
 
 EXTRABUTTON=""
-#THUMBNAILSIZE="128x96"	### enable thumbnail
+#THUMBNAILSIZE="128x96" ### enable thumbnail
 THUMBNAILPOS=10
 THUMBNAIL="/tmp/${MYNAME}-thumbnail.png"
 MAKETHUMB="ffmpeg -i \$FILE1 -vcodec png -s $THUMBNAILSIZE -ss $THUMBNAILPOS -dframes 1 -an $THUMBNAIL &>/dev/null;"
@@ -1861,12 +1909,12 @@ USERPRESETS=""
 
 
 #echo "$MAIN_DIALOG" >&2
-#waitsplash stop
+#_waitsplash stop
 # phase 1
-export MAIN_DIALOG	#="$DIALOG1"
+export MAIN_DIALOG      #="$DIALOG1"
 while true; do
   MAIN_DIALOG=$(make_dialog2)
-  waitsplash stop
+  _waitsplash stop
   eval $(gtkdialog3)
   [ "$VDISABLE"  = "" ] || VCODEC1="$NONE"
   [ "$ADISABLE"  = "" ] || ACODEC1="$NONE"
@@ -1875,18 +1923,18 @@ while true; do
   [ "$XPID" ] && kill $XPID
   XPID=""
   if [ "$EXIT" = "Preset" ]; then
-    waitsplashbx start
-    keep_entrybx
-    load_presetbx
+    _waitsplash start
+    _keep_entry
+    _load_preset
     continue
   fi
   if [ "$EXIT" = "Save" ]; then
-    keep_entrybx
-    save_presetbx
-    var2defbx
+    _keep_entry
+    _save_preset
+    _var2def
     continue
   fi
-  [ "$EXIT" = "OK" ] || exit
+  [ "$EXIT" = "OK" ] || return
   # validity check
   # codec
   MSG=$(gettext "Your FFmpeg does not support the codec:")
@@ -1915,7 +1963,7 @@ while true; do
     [ "$ACODEC" != "" ] || MSG="$MSG '$ACODEC1'"
   fi
   if [ "$VCODEC" = "" -o "$ACODEC" = "" ]; then
-    errmsgbx $MSG
+    _errmsg $MSG
     continue
   fi
   # source
@@ -1923,7 +1971,7 @@ while true; do
   if [ -d "$FILE1" ]; then
     MSG=$(printf "$(gettext '%s is a directory.')" "$FILE1")
     MSG="$MSG\\n$(gettext 'Convert all files in this directory?')"
-    eval $(errmsgbx yesno "$MSG")
+    eval $(_errmsg yesno "$MSG")
     echo $EXIT
     [ "$EXIT" = "Yes" ] || continue
     WHOLEDIR="true"
@@ -1931,9 +1979,9 @@ while true; do
     SOURCES=$(cd "$SRCDIR";ls|tr ' ' '/')
   elif [ ! -f "$FILE1" ]; then
    if [ "$FILE1" ]; then
-     errmsgbx $(printf "$(gettext '%s not found.')" "$FILE1")
+     _errmsg $(printf "$(gettext '%s not found.')" "$FILE1")
    else
-     errmsgbx $(gettext 'Souce file not specified.')
+     _errmsg $(gettext 'Souce file not specified.')
    fi
    continue
   else
@@ -1941,7 +1989,7 @@ while true; do
     ASTREEM=""
     NOVIDEO=""
     NOAUDIO=""
-    source_property || continue 
+    _source_property || continue
     [ "$NOVIDEO" ] && DEFVCODEC="$NONE" && VCODEC1="$NONE"
     [ "$NOAUDIO" ] && DEFACODEC="$NONE" && ACODEC1="$NONE"
     SRCDIR=$(dirname "$FILE1")
@@ -1961,14 +2009,14 @@ $SOURCES"
   if [ ! -d "$DIR1" ]; then
    if [ "$DIR1" ]; then
      if [ -f "$DIR1" ]; then
-       errmsgbx $(printf "%s is not a directory." "$DIR1")
+       _errmsg $(printf "%s is not a directory." "$DIR1")
      else
-		ERRMSG=$(printf "%s not exists." "$DIR1")
-		ERRMSG="$ERRMSG\\n$(gettext 'Create new directory?')"
-		eval $(errmsgbx yesno $ERRMSG)
-		[ "$EXIT" = "Yes" ] || continue
-		mkdir -p "$DIR1"
-		break
+                ERRMSG=$(printf "%s not exists." "$DIR1")
+                ERRMSG="$ERRMSG\\n$(gettext 'Create new directory?')"
+                eval $(_errmsg yesno $ERRMSG)
+                [ "$EXIT" = "Yes" ] || continue
+                mkdir -p "$DIR1"
+                break
      fi
    else
      DESTDIR="$SRCDIR"
@@ -1980,7 +2028,7 @@ $SOURCES"
   break
 done
 # save conf
-save_confbx
+_save_conf
 # extention
 EXT1=$FORMAT1
 case $FORMAT1 in
@@ -2006,8 +2054,8 @@ echo 0 >"$COUNTFILE"
 printf "$(gettext '%s files rest')" $REST >"$STATUSFILE"
 rm -f "$REPFILE"
 FORGROUND=""
-[ $NFILES -le 1 -o "$BACKGROUND1" != "true" ] && [ "$TERMINAL" != "" ] && FORGROUND="yes" 
-trap abort 1 2 3 15 
+[ $NFILES -le 1 -o "$BACKGROUND1" != "true" ] && [ "$TERMINAL" != "" ] && FORGROUND="yes"
+trap abort 1 2 3 15
 MSG1=$(printf "$(gettext 'Start converting %s into %s')" "$FILE1" "$DESTDIR")
 LOGBUTTON=""
 if [ "$FORGROUND" = "" -a "$TERMINAL" != "" ]; then
@@ -2044,7 +2092,7 @@ for ITEM in $SOURCES; do
   #[ "$NOAUDIO" ] && DEFACODEC="$NONE" && ACODEC1="$NONE"
   REST=$(expr $REST - 1)
   [ $FLAG -eq 0 ] || continue
- 
+
  # destination
  ROOT1=$(echo "$BASE1"| cut -d'.' -f1)
  DESTFILE="$DESTDIR/$ROOT1.$EXT1"
@@ -2061,13 +2109,13 @@ for ITEM in $SOURCES; do
      YESLABEL="$(gettext 'Replace')"
      NOLABEL="$(gettext 'Quit')"
      NOSYMBOL="gtk-quit"
-   eval $(errmsgbx yesno $ERRMSG)
+   eval $(_errmsg yesno $ERRMSG)
    [ "$EXIT" = "Yes" ] || abort
    fi
  fi
  printf "$(gettext 'Processing %s...')" "$SRCFILE" >"$STATUSFILE"
  # make options
- var2optbx
+ _var2opt
  # prepair work space
  ROOT2=$(echo "$ROOT1"|tr ' ' '_')
  WORKDIR="$DESTDIR/ffconvert_tmp_$ROOT2"
@@ -2088,11 +2136,11 @@ ffmpeg -pass 1 $OPTFIRST && ffmpeg -pass 2 $OPTFINAL" >> "$CMDFILE"
 echo -n \$STATUS > \"$TMPFILE\"" >> "$CMDFILE"
  chmod +x "$CMDFILE"
  if [ "$FORGROUND" != "" ]; then
-   echo "[ \"\$STATUS\" = \"0\" ] && exit
+   echo "[ \"\$STATUS\" = \"0\" ] && return
 cat \"$CMDFILE\" | grep '^ffmpeg'
 echo -n $(gettext 'Press [ENTER] to exit :')
 read REP"  >> "$CMDFILE"
-   #cat "$CMDFILE" >&2	# for debugging
+   #cat "$CMDFILE" >&2  # for debugging
    $TERMINAL -bg orange -fg black -geometry 80x14 -e "$CMDFILE"
  else
    "$CMDFILE" >"$WORKLOG" 2>&1 &
@@ -2100,9 +2148,9 @@ read REP"  >> "$CMDFILE"
    ABORT=""
    RUNNING="yes"
    while [ "$RUNNING" != "" ]; do
-	[ -s "$REPFILE" ] && grep -q 'EXIT=.*Cancel' "$REPFILE" && ABORT="yes" && break
-	sleep $INTERVAL
-	ps | grep -qw "^[[:blank:]]*$CPID" || RUNNING=""
+        [ -s "$REPFILE" ] && grep -q 'EXIT=.*Cancel' "$REPFILE" && ABORT="yes" && break
+        sleep $INTERVAL
+        ps | grep -qw "^[[:blank:]]*$CPID" || RUNNING=""
   done
   [ "$RUNNING" != "" ] && kill $CPID
   CPID=""
@@ -2122,34 +2170,34 @@ read REP"  >> "$CMDFILE"
     YESLABEL="$(gettext 'Skip')"
     NOLABEL="$(gettext 'Quit')"
     NOSYMBOL="gtk-quit"
-    eval $(errmsgbx yesno "$MSG1\\n$MSG2\\n\\n$MSG3")
+    eval $(_errmsg yesno "$MSG1\\n$MSG2\\n\\n$MSG3")
     [ "$EXIT" = "Yes" ] || abort
   else
-    errmsgbx "$MSG1\\n$MSG2"
+    _errmsg "$MSG1\\n$MSG2"
     break
   fi
  else
    NCONV=$(expr $NCONV + 1)
  fi
- cleanup1bx
+ _cleanup1
  C=$(expr $NCONV + $REST )
  expr 100 '*' $NCONV / $C >"$COUNTFILE"
  [ "$ABORT" = "" ] || break
 done
-cleanupbx
+_cleanup
 EXTRABUTTON=""
 if [ $NCONV -eq 0 ]; then
-  errmsgbx $(gettext 'No files converted.')
-  exit
+  _errmsg $(gettext 'No files converted.')
+  return
 fi
 if [ $NCONV -gt 1 ]; then
    EXTRABUTTON="<button><input file stock=\"gtk-open\"></input><label>$(gettext 'Brawse')</label><action>EXIT:Brawse</action></button>"
-  eval $(errmsgbx info $(printf "$(gettext '%s files successfully converted in %s.')" $NCONV "$DESTDIR"))
+  eval $(_errmsg info $(printf "$(gettext '%s files successfully converted in %s.')" $NCONV "$DESTDIR"))
   [ "$EXIT" = "Brawse" ]  && exec rox "$DESTDIR"
-  exit
+  return
 fi
 EXTRABUTTON="<button><input file stock=\"gtk-media-play\"></input><label>$(gettext 'Play')</label><action>EXIT:Play</action></button>"
-eval $(errmsgbx info $(printf "$(gettext 'Successfully converted into %s.')"  "$DESTFILE"))
+eval $(_errmsg info $(printf "$(gettext 'Successfully converted into %s.')"  "$DESTFILE"))
 [ "$EXIT" = "Play" ] && exec $PLAYER "$DESTFILE" &>/dev/null
 }
 
