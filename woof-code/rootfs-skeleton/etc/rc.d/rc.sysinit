@@ -779,28 +779,61 @@ if [ "$safeBoot" -ge "4" ]; then
 echo "WAIT MODULES LOADED"
 #previous module loading may not have completed...
 echo -n "Waiting for modules to complete loading..." >/dev/console
+echo -n "Waiting for modules to complete loading..."
+
+special_mnt_func(){
+[ -d /SPECIAL_MNT ] || mkdir /SPECIAL_MNT
+
+validFS=`grep '^nodev' /proc/filesystems | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|autofs|exofs|mtd_inodefs|ubifs' | awk '{print $2}'`
+for fs in $validFS; do
+[ "`grep -w "$fs" /proc/mounts`" ] && continue
+
+DIR="$fs"
+
+case $fs in
+debugfs)
+mkdir -p /sys/kernel/debug;
+busybox mount -t debugfs nodev /sys/kernel/debug;
+echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
+;;
+*)
+[ -d /SPECIAL_MNT/$DIR ] || mkdir -p /SPECIAL_MNT/$DIR
+mount -t $fs none /SPECIAL_MNT/$DIR
+;;
+esac
+
+done
+}
+special_mnt_func
+
 WAITCNT=0
 PCIPCMCIA=`elspci -l | grep -o '060700'`
 PCIUSB=`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`
 if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
+ echo -n " pcmcia"
  while [ $WAITCNT -lt 10 ]; do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" ] && break
   WAITCNT=`expr $WAITCNT + 1`
   sleep 1
   echo -n " $WAITCNT" >/dev/console
+  echo -n " $WAITCNT"
  done
+ echo
 fi
 #note, if initrd then usb-storage will have already loaded...
 if [ "$PCIUSB" ]; then #this may be slow to respond.
  echo -n " usb"  >/dev/console
+ echo -n " usb"
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ]; do
-  [ "`lsmod | grep -w -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
+  [ "`lsmod | grep -w -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
   WAITCNT=`expr $WAITCNT + 1`
   sleep 1
   echo -n " $WAITCNT" >/dev/console
+  echo -n " $WAITCNT"
  done
+echo
 fi
 echo safeBoot=$safeBoot 2
 #replay uevents from /sys (more interfaces as a consequence of above drivers loaded)...
@@ -868,21 +901,25 @@ echo >> /tmp/pup_event_module_devpath_log
 # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
 if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_event_backend_d
  echo -n " usb-storage"  >/dev/console
+ echo -n " usb-storage"
  while [ $WAITCNT -lt 15 ]; do
-  [ "`dmesg | grep 'usb-storage: device scan complete'`" ] && break
+  [ "`dmesg | grep 'usb\-storage.*scan complete'`" ] && break
   sleep 1
   WAITCNT=`expr $WAITCNT + 1`
   echo -n " $WAITCNT" >/dev/console
+  echo -n " $WAITCNT"
  done
  #precaution, make sure have got them all... v412 need sort -u...
  USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
  while [ $WAITCNT1 -lt 15 ]; do  ###+2011-10-31 changed WAITCNT to WAITCNT1
-  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb\-storage.*scan complete" | wc -l`
   [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
   sleep 1
   WAITCNT1=`expr $WAITCNT1 + 1`  ###+2011-10-31 changed WAITCNT to WAITCNT1
   echo -n " $WAITCNT1" >/dev/console  ###+2011-10-31 changed WAITCNT to WAITCNT
+  echo -n " $WAITCNT1"
  done
+ echo
 fi
 echo safeBoot=$safeBoot 6
 sleep 1 #v411 a bit extra. rerwin reports usb mouse detection problem some hardware.
@@ -1118,7 +1155,7 @@ echo "$PDEV1"','"$DEV1FS"',' > /etc/.fsckme.flag
 }
 fsckme_func
 
-special_mnt_func(){
+special_mnt_func2(){
 [ -d /SPECIAL_MNT ] || mkdir /SPECIAL_MNT
 #for i in `cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | cut -f 2 -d ' '` ; do
 
@@ -1142,7 +1179,7 @@ mount -t $fs none /SPECIAL_MNT/$DIR
 #fi
 done
 }
-special_mnt_func
+#special_mnt_func
 
 sort_pup_eve_bac_mod_func(){
 FILE='/tmp/pup_eve_bac_mod.log'
