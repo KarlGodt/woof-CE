@@ -1,5 +1,5 @@
 The key to understanding how Puppy works is the initial boot script,
-/initrd/init.
+/initrd/sbin/init.
 
 In a nutshell, everything you see in /initrd is the "initial ramdisk",
 which is actually /dev/ram0. For Puppy 4.0 and later, the kernel uses a slightly
