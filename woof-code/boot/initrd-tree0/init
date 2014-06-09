@@ -93,105 +93,8 @@ ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
 
 [ $layerfs ] && LAYERFS=$layerfs
 [ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
-[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
 
-[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
 
-#v3.01 fsck for ext2/3 prior to mounting...
-fsck_func() { #passed params: partition filesystem [filename]
- [ "$PFSCK" != "yes" ] && return 0 #v404 default is not do any checking.
- #v3.93 restrict to ext2 only...
- #[ "$2" != "ext2" -a "$2" != "ext3" ] && return 0 #precaution.
- #[ "$2" != "ext2" ] && return 0 #precaution.
- CHKDEV=$1
- #[ $3 ] && CHKDEV="`basename $3`"
- e2fsck -y /dev/$1 >/tmp/chkret &
- #sleep 1
- #if [ "`grep ': clean, ' /tmp/chkret`" = "" ];then
- # echo -e "\\033[1;35m" >/dev/console #35=purple
- # echo -n "Performing filesystem check on ${CHKDEV}, please wait" >/dev/console
- # echo -en "\\033[0;39m" >/dev/console
- #fi
- echo -en "\\033[1;35m" >/dev/console #35=purple
- MSGFSCK=" ${1} filesystem check, please wait..............."
- MSGFSCNT=1
- while [ "`pidof e2fsck`" != "" ];do
-  if [ "${1}" = "loop1" ];then
-   [ $MSGFSCNT -eq 1 ] && echo -n "filesystem check..." >/dev/console
-  else
-   [ $MSGFSCNT -lt 47 ] && MSGCHAR="`echo -n "$MSGFSCK" | cut -b $MSGFSCNT`"
-   echo -n "$MSGCHAR" >/dev/console
-  fi
-  sleep 1
-  MSGFSCNT=`expr $MSGFSCNT + 1`
- done
- echo -en "\\033[0;39m" >/dev/console
-}
-
-mntfunc() {
- MNT_T="$1"    #ex: vfat
- MNT_DEV="$2"  #ex: /dev/sda1
- MNT_DIR="$3"  #ex: /mnt/sda1
- MNT_O=""
- [ $4 ] && MNT_O="${4}" #ex: noatime
- case $MNT_T in
-  ntfs)
-   ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw 2>/dev/null #default is rw
-   ntfsRETVAL=$?
-   [ $ntfsRETVAL -eq 0 ] && return 0
-   if [ $ntfsRETVAL -eq 14 ];then
-    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
-    echo -e "\\033[1;31m" >/dev/console #31=red
-    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount" >/dev/console
-    echo -e "\\033[0;39m" >/dev/console
-    return 14
-   else
-    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force 2>/dev/null
-   fi
-  ;;
-  vfat) #w476
-   ####TODO#### need to get rid of the old 2-letter keyboard layout, so PKEYS boot
-   # param works for the main kbd layouts.
-   #would like to introduce codepage and iocharset, maybe as kernel params...
-   #ex: codepage=850 iocharset=iso8859-2 ...no, already have 'pkeys'
-   OUT_PARAM='shortname=mixed,quiet'
-   [ "$MNT_O" ] && OUT_PARAM="${OUT_PARAM},${MNT_O}"
-   if [ "$PKEYS" ];then
-    case $PKEYS in
-     de|be|br|dk|es|fi|fr|it|no|se|pt)
-      modprobe nls_cp850 #v426
-      OUT_PARAM="$OUT_PARAM"',codepage=850'
-     ;;
-     slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
-      modprobe nls_cp852 #v426
-      modprobe nls_iso8859-2 #v426
-      OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
-     ;;
-    esac
-   fi
-   mount -t $MNT_T -o $OUT_PARAM $MNT_DEV $MNT_DIR
-  ;;
-  *)
-   if [ "$MNT_O" = "" ];then
-    mount -t $MNT_T $MNT_DEV $MNT_DIR
-   else
-    mount -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR
-   fi
-  ;;
- esac
- return $?
-}
-
-umntfunc() {
- #warning umntfunc call must have mntpt param, not device name.
- LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
- if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
-  umount $@
- else
-  fusermount -u $LASTPARAM
- fi
- return $?
-}
 
 check_status()
 {
@@ -216,7 +119,7 @@ check_status()
     dmesg | tail -n 4 >/dev/console
     /bin/echo -en "\\033[0;39m" >/dev/console
     #exit to initial ramdisk shell...
-    [ "$RDSH" = "yes" ] && exec /bin/sh >/dev/console 2>&1
+    [ "$RDSH" = "yes" ] && exec init && exec bootchartd start && exec syslogd && exec klogd && exec /bin/sh >/dev/console 2>&1
     echo "Pausing for 60 seconds..." >/dev/console
     sleep 60
   fi
@@ -268,9 +171,126 @@ fi
 clear #got this out of embutils, compiled in t2 (as not currently in busybox)
 [ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
 
+
+echo -en "\\033[1;35m RUNNING depmod ....." > /dev/console
+depmod
+check_status $?
+
+[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+
+[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
+
+#v3.01 fsck for ext2/3 prior to mounting...
+fsck_func() { #passed params: partition filesystem [filename]
+ [ "$PFSCK" != "yes" ] && return 0 #v404 default is not do any checking.
+ #v3.93 restrict to ext2 only...
+ #[ "$2" != "ext2" -a "$2" != "ext3" ] && return 0 #precaution.
+ #[ "$2" != "ext2" ] && return 0 #precaution.
+ CHKDEV=$1
+ #[ $3 ] && CHKDEV="`basename $3`"
+ e2fsck -y /dev/$1 >/tmp/chkret &
+ #sleep 1
+ #if [ "`grep ': clean, ' /tmp/chkret`" = "" ];then
+ # echo -e "\\033[1;35m" >/dev/console #35=purple
+ # echo -n "Performing filesystem check on ${CHKDEV}, please wait" >/dev/console
+ # echo -en "\\033[0;39m" >/dev/console
+ #fi
+ echo -en "\\033[1;35m" >/dev/console #35=purple
+ MSGFSCK=" ${1} filesystem check, please wait..............."
+ MSGFSCNT=1
+ while [ "`pidof e2fsck`" != "" ];do
+  if [ "${1}" = "loop1" ];then
+   [ $MSGFSCNT -eq 1 ] && echo -n "filesystem check..." >/dev/console
+  else
+   [ $MSGFSCNT -lt 47 ] && MSGCHAR="`echo -n "$MSGFSCK" | cut -b $MSGFSCNT`"
+   echo -n "$MSGCHAR" >/dev/console
+  fi
+  sleep 1
+  MSGFSCNT=`expr $MSGFSCNT + 1`
+ done
+ echo -en "\\033[0;39m" >/dev/console
+}
+
+mntfunc() {
+ MNT_T="$1"    #ex: vfat
+ MNT_DEV="$2"  #ex: /dev/sda1
+ MNT_DIR="$3"  #ex: /mnt/sda1
+ MNT_O=""
+ [ $4 ] && MNT_O="${4}" #ex: noatime
+ echo "mntfunc:'$*'"
+ echo "MNT_T='$MNT_T' MNT_DEV='$MNT_DEV' MNT_DIR='$MNT_DIR'  MNT_O='$MNT_O'"
+ case $MNT_T in
+  ntfs)
+   ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw 2>/dev/null #default is rw
+   ntfsRETVAL=$?
+   [ $ntfsRETVAL -eq 0 ] && return 0
+   if [ $ntfsRETVAL -eq 14 ];then
+    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
+    echo -e "\\033[1;31m" >/dev/console #31=red
+    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount" >/dev/console
+    echo -e "\\033[0;39m" >/dev/console
+    return 14
+   else
+    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force 2>/dev/null
+   fi
+  ;;
+  vfat) #w476
+   ####TODO#### need to get rid of the old 2-letter keyboard layout, so PKEYS boot
+   # param works for the main kbd layouts.
+   #would like to introduce codepage and iocharset, maybe as kernel params...
+   #ex: codepage=850 iocharset=iso8859-2 ...no, already have 'pkeys'
+   OUT_PARAM='shortname=mixed,quiet'
+   [ "$MNT_O" ] && OUT_PARAM="${OUT_PARAM},${MNT_O}"
+   if [ "$PKEYS" ];then
+    case $PKEYS in
+     de|be|br|dk|es|fi|fr|it|no|se|pt)
+      modprobe nls_cp850 #v426
+      OUT_PARAM="$OUT_PARAM"',codepage=850'
+     ;;
+     slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
+      modprobe nls_cp852 #v426
+      modprobe nls_iso8859-2 #v426
+      OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
+     ;;
+    esac
+   fi
+   mount -t $MNT_T -o $OUT_PARAM $MNT_DEV $MNT_DIR
+  ;;
+  "")
+   if [ "$MNT_O" = "" ];then
+    mount $MNT_DEV $MNT_DIR
+   else
+    mount -o $MNT_O $MNT_DEV $MNT_DIR
+   fi
+  ;;
+  *)
+   if [ "$MNT_O" = "" ];then
+    mount -t $MNT_T $MNT_DEV $MNT_DIR
+   else
+    mount -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR
+   fi
+  ;;
+ esac
+ return $?
+}
+
+umntfunc() {
+ #warning umntfunc call must have mntpt param, not device name.
+ LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+ if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
+  umount $@
+ else
+  fusermount -u $LASTPARAM
+ fi
+ return $?
+}
+
+
 #does this initrd have all the zdrv components inside it?...
 ZDRVINIT='no'
-[ `wc -l /lib/modules/$KERNELVER/modules.dep  | tr -s ' ' | cut -f 2 -d ' '` -gt 200 ] && ZDRVINIT='yes'
+if test -f /lib/modules/$KERNELVER/modules.dep; then
+[ `wc -l /lib/modules/$KERNELVER/modules.dep | sed 's/^[[:blank:]]*//' | cut -f1 -d' '` -gt 200 ] && ZDRVINIT='yes'
+fi
 
 ###################LOAD MODULES TO ACCESS DRIVES#####################
 echo -n "Loading drivers needed to access disk drives" >/dev/console #STEP ONE
@@ -315,7 +335,8 @@ echo -n "$ATADRIVES" > /ATADRIVES #w479 for testing purposes if crash to console
 if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" != "" ];then
   modprobe usb-storage & #run as separate process
   WAITUSB="yes"
-  mount -t usbfs none /proc/bus/usb
+  #mount -t usbfs none /proc/bus/usb
+  mntfunc usbfs none /proc/bus/usb
 
   #v423 problem recent kernels: kernel configured to load hid-* extra drivers when
   #usbhid loads, but it doesn't work. Most unfortunate. Note, older kernels have the
@@ -357,7 +378,7 @@ if [ "$WAITUSB" = "yes" ];then #wait for device to register.
   #if booting from usb, USBSTORAGES must be non-zero...
   [ "`echo "$PMEDIA" | grep 'usb'`" != "" ] && [ $USBSTORAGES -eq 0 ] && continue
   [ $USBSTORAGES -eq 0 ] && break
-  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l | sed -e 's/ //g'`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage.*scan complete" | wc -l | sed -e 's/ //g'`
   [ $USBSTORAGES -ne $AVAILABLEUSBSTORAGES ] && USBSTORAGES=0
  done
  [ $USBSTORAGES -ne 0 ] && sleep 1 #v412 was needed for classmate. was 2, try 1sec.
@@ -386,8 +407,15 @@ done<<EoI
 `grep -v 'nodev' /proc/filesystems`
 EoI
 
-allFS='udf|iso9660|ext[0-9]|btrfs|f2fs|hfs|xfs|jfs|ufs|zfs|msdos|vfat|ntfs|minix|reiserfs|reiser4'"$allFS"
+#allFS='udf|iso9660|ext[0-9]|btrfs|f2fs|hfs|xfs|jfs|ufs|zfs|msdos|vfat|ntfs|minix|reiserfs|reiser4'"$allFS"
 #PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'udf|iso9660|ext[0-9]|btrfs|f2fs|hfs|xfs|jfs|ufs|zfs|msdos|vfat|ntfs|minix|reiserfs|reiser4' | sed -e 's/\/dev\///g'`"
+
+modulesFS=`modprobe -l | grep '/fs/' | grep -E 'udf|iso9660|ext[0-9]|btrfs|f2fs|hfs|xfs|jfs|ufs|zfs|msdos|vfat|ntfs|minix|reiserfs|reiser4' | sed 's!\(.*\)/\(.*\)\.ko*$!\2!'`
+modulesFS=`echo "$modulesFS" | tr '\n' '|'`
+
+allFS="${modulesFS}|${allFS}"
+allFS=`echo "$allFS" | sed 's/^|*//;s/|*$//' | tr -s '|'`
+
 PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E "$allFS" | sed -e 's/\/dev\///g'`"
 
 PCPARTS="`echo "$PCPARTS0" | tr "\n" " "`" #note, will have a space char on end.
@@ -554,7 +582,7 @@ case $NUMPARTS in
    #each line written to file has format: hda7,ext3,path/filename...
    oneDEV="`echo -n "$oneLINE" | cut -f 1 -d ' '`" #ex: hda7
    oneFS="`echo -n "$oneLINE" | cut -f 2 -d ' '`"  #ex: ext3
-   LINEFILES="`echo -n "$oneLINE" | cut -f 3-99 -d ' '`" #ex: /pup220/${DISTRO_FILE_PREFIX}save.2fs /pup220/${DISTRO_FILE_PREFIX}r220.sfs
+   LINEFILES="`echo -n "$oneLINE" | cut -f 3- -d ' '`" #ex: /pup220/${DISTRO_FILE_PREFIX}save.2fs /pup220/${DISTRO_FILE_PREFIX}r220.sfs
    aPATTERN="/${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.*\\.sfs"
    for onePUPXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$aPATTERN" | tr '\n' ' '`
    do
@@ -737,7 +765,7 @@ check_status 0
 ########################END FINDING PUPPY FILES############################
 
 ##########################LOADING PUPPY FILES###########################
-RAMSIZE=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '` #total physical ram (less shared video).
+RAMSIZE=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 2 -d ' '` #total physical ram (less shared video).
 CRYPTO=""
 
 #decide the mount-points...
@@ -751,26 +779,57 @@ CRYPTO=""
 #Multisession cd/dvd:       tmpfs         folders(tmpfs2) pup_xxx.sfs      77
 CREATETMPFS="";CREATEPDEV1="";CREATEPUPXXXSFS="";CREATEPUPSAVE2FS="";CREATEFOLDERS=""
 case $PUPMODE in #w003 changed some save-layer to 'ro+wh' so that whiteouts files are recognised...
- 3)  CREATETMPFS="/pup_rw";CREATEPDEV1="/pup_ro1"
-     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro1";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh";;
- 5)  CREATETMPFS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
- 6)  CREATEPDEV1="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="/pup_rw";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
- 7)  CREATETMPFS="/pup_rw";CREATEPDEV1="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
- 12) CREATEPUPSAVE2FS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="/pup_rw";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
- 13) CREATETMPFS="/pup_rw";CREATEPUPSAVE2FS="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
- 77) CREATETMPFS="/pup_rw";CREATEFOLDERS="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
-     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+ 3)  CREATETMPFS="/pup_rw";
+     CREATEPDEV1="/pup_ro1"
+     OLDFILESMNTPT="/pup_ro1";
+     NEWFILESMNTPT="/pup_ro1";
+     UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh";;
+
+ 5)  CREATETMPFS="/pup_rw";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+
+ 6)  CREATEPDEV1="/pup_rw";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_rw";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+
+ 7)  CREATETMPFS="/pup_rw";
+     CREATEPDEV1="/pup_ro1";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+
+ 12) CREATEPUPSAVE2FS="/pup_rw";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_rw";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+
+ 13) CREATETMPFS="/pup_rw";
+     CREATEPUPSAVE2FS="/pup_ro1";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+
+ 77) CREATETMPFS="/pup_rw";
+     CREATEFOLDERS="/pup_ro1";
+     CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";
+     NEWFILESMNTPT="/pup_ro2";
+     UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
  *)  RDSH="yes";; #precaution.
 esac
 
 if [ "$CREATEPDEV1" != "" ];then
- [ "$DEV1FS" = "ext2" -o "$DEV1FS" = "ext3" ] && echo "/dev/$PDEV1 $CREATEPDEV1 $DEV1FS defaults  1 1" >> /etc/fstab #v2.21
- mount -t $DEV1FS /dev/$PDEV1 $CREATEPDEV1
+ [ "$DEV1FS" = "ext2" -o "$DEV1FS" = "ext3" -o "$DEV1FS" = "ext4" ] && echo "/dev/$PDEV1 $CREATEPDEV1 $DEV1FS defaults  1 1" >> /etc/fstab #v2.21
+ #mount -t $DEV1FS /dev/$PDEV1 $CREATEPDEV1
+ mntfunc $DEV1FS /dev/$PDEV1 $CREATEPDEV1
  #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a unionfs layer...
  if [ "$CREATEPDEV1" = "/pup_rw" -o "$CREATEPDEV1" = "/pup_ro1" ];then #v2.20b
   SMNTPT="$CREATEPDEV1"
@@ -780,13 +839,14 @@ fi
 
 if [ "$CREATEPUPSAVE2FS" != "" ];then
  PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
- PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
+ #PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
+ DEV1FS=`echo -n "$PUPSAVE" | cut -f 2 -d ','`
  PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
  #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
  echo -n "Loading personal file $PUPSAVEFILE ($PUPSAVEDEV)..." >/dev/console
- [ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
- [ "$PUPSAVEFS" = "ext2" -o "$PUPSAVEFS" = "ext3" -o "$PUPSAVEFS" = "ext4" ] && fsck_func $PUPSAVEDEV $PUPSAVEFS #v3.01
- mntfunc $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
+ [ "$DEV1FS" = "ext2" -o "$DEV1FS" = "ext3" -o "$DEV1FS" = "ext4" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $DEV1FS defaults  1 1" >> /etc/fstab #v2.21
+ [ "$DEV1FS" = "ext2" -o "$DEV1FS" = "ext3" -o "$DEV1FS" = "ext4" ] && fsck_func $PUPSAVEDEV $DEV1FS #v3.01
+ mntfunc $DEV1FS /dev/$PUPSAVEDEV /mnt/dev_save noatime  #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
  if [ $? -eq 0 ];then
   SMNTPT="/mnt/dev_save"
   #is the ${DISTRO_FILE_PREFIX}save encrypted?...
@@ -853,10 +913,13 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
       losetup $CRYPTO /dev/loop1 /mnt/dev_save$PUPSAVEFILE
      fi
     fi
-
+    PUPSAVEFS=`guess_fstype /dev/loop1`
+    test "$PUPSAVEFS" || PUPSAVEFS=unknown
+    test "$PUPSAVEFS" = unknown && too_manyERRORS=YES
     echo "/dev/loop1 $CREATEPUPSAVE2FS $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
     #fsck_func loop1 ext2 $PUPSAVEFILE #v3.01. no, removed, takes ages, and won't mount afterward.
-    mount -t $PUPSAVEFS -o noatime,rw /dev/loop1 $CREATEPUPSAVE2FS
+    #mount -t $PUPSAVEFS -o noatime,rw /dev/loop1 $CREATEPUPSAVE2FS
+    mntfunc $PUPSAVEFS /dev/loop1 $CREATEPUPSAVE2FS noatime,rw
     MNTSTAT=$?
     if [ "$MNTSTAT" = "0" ] ; then
      echo -n "...successfully mounted" >/dev/console
@@ -890,16 +953,23 @@ if [ "$CREATEPUPSAVE2FS" != "" ];then
     echo -n "...continuing with loading $PUPSAVEFILE..." >/dev/console
    fi
    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
+   PUPSAVEFS=`guess_fstype /dev/loop1`
+   test "$PUPSAVEFS" || PUPSAVEFS=unknown
+   test "$PUPSAVEFS" = unknown && too_manyERRORS=YES
    echo "/dev/loop1 $CREATEPUPSAVE2FS $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21
    fsck_func loop1 $PUPSAVEFS $PUPSAVEFILE #v3.01
-   mount -t $PUPSAVEFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+   #mount -t $PUPSAVEFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+   mntfunc $PUPSAVEFS /dev/loop1 $CREATEPUPSAVE2FS noatime
    if [ $? -ne 0 ];then
     e2fsck -y -f /dev/loop1 >/dev/console #-y answer yes to all repair questions.
-    mount -t $PUPSAVEFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+    #mount -t $PUPSAVEFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+    mntfunc $PUPSAVEFS /dev/loop1 $CREATEPUPSAVE2FS noatime
    fi
   fi
  fi
- check_status $?
+ mountPUPSAVE2FS_RV=$?
+ test "$mountPUPSAVE2FS_RV" = 0 || too_manyERRORS=YES
+ check_status $mountPUPSAVE2FS_RV
 fi
 
 #there are technical problems with loading a swap partition/file before the union
@@ -925,7 +995,8 @@ if [ "$CREATETMPFS" != "" ];then
  FREEK=`expr $RAMSIZE \/ 2` #half of physical.
  [ $PUPMODE -eq 77 ] && FREEK=`expr $FREEK - 50000` #need some slack.
  ALLOCK=`expr $FREEK + $EXTRAALLOCK`
- mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATETMPFS
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATETMPFS
+ mntfunc tmpfs tmpfs $CREATETMPFS size=${ALLOCK}k
 fi
 
 #RW (top) layer now has a tmpfs, PDEV1 or ${DISTRO_FILE_PREFIX}save mounted on it. calc free space...
@@ -936,10 +1007,12 @@ if [ "$CREATEFOLDERS" != "" ];then
  PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
  PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
- mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
+ #mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
+ mntfunc $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 noatime
  #create a tmpfs to load the folders...
  ALLOCK=`expr $RAMSIZE \/ 2 - 50000` #allocate half of physical ram. + leave 50M slack.
- mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+ mntfunc tmpfs tmpfs $CREATEFOLDERS size=${ALLOCK}k
  #load the folders from the cd...
   ####START LOAD FOLDERS####
   CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
@@ -1090,8 +1163,10 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  fi
 
  echo -n "Loading the '${basepupsfs}' main file..." >/dev/console
+
  if [ "$PUPSFSDEV" = "rootfs" ];then #humongous initrd.
   PUPSFSDEVMNTPT="" #actually it's '/'.
+
  else
   pPATTERN="/dev/$PUPSFSDEV "
   PUPSFSDEVMNTPT="`mount | grep "$pPATTERN" | cut -f 3 -d ' '`"
@@ -1114,6 +1189,7 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
   fi
 
  fi
+
  #if there's heaps of ram, copy ${DISTRO_FILE_PREFIX}-xxx.sfs to a tmpfs...
  [ "$PUPSFSDEVMNTPT" = "" ] && COPY2RAM="yes"
  #v405 fast media plus more than 256MB ram then definitely worth copying to ram...
@@ -1121,7 +1197,8 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  if [ "$COPY2RAM" = "yes" ];then
   SIZESFSK=`du -k ${PUPSFSDEVMNTPT}${PUPSFSFILE} | cut -f 1`
   SIZESFSK=`expr $SIZESFSK + 1000` #some slack.
-  mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
+  #mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
+  mntfunc tmpfs tmpfs /mnt/tmpfs size=${SIZESFSK}k
   if [ "${PUPSFSDEVMNTPT}" = "" ];then #v403 humongous initrd.
     mv -f ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
   else
@@ -1135,7 +1212,8 @@ if [ "$CREATEPUPXXXSFS" != "" ];then
  else
   losetup /dev/loop0 ${PUPSFSDEVMNTPT}${PUPSFSFILE}
  fi
- mount -r -t squashfs -o noatime /dev/loop0 $CREATEPUPXXXSFS #usually /pup_ro2.
+ #mount -r -t squashfs -o noatime /dev/loop0 $CREATEPUPXXXSFS #usually /pup_ro2.
+ mntfunc squashfs /dev/loop0 $CREATEPUPXXXSFS noatime,ro
 fi
 
 ZLAYER='' #v4.02
@@ -1156,14 +1234,16 @@ if [ "$ZDRVINIT" != "yes" ];then
    if [ "$COPY2RAM" = "yes" ];then #256MB system. note, only checking physical ram.
     SIZEZK=`du -k /mnt/${MNT_ZFILE}${ZFILE} | cut -f 1`
     SIZEZK=`expr $SIZEZK + 1000` #some slack.
-    mount -t tmpfs -o size=${SIZEZK}k tmpfs /mnt/tmpfs2
+    #mount -t tmpfs -o size=${SIZEZK}k tmpfs /mnt/tmpfs2
+    mntfunc tmpfs tmpfs /mnt/tmpfs2 size=${SIZEZK}k
     cp -af /mnt/${MNT_ZFILE}${ZFILE} /mnt/tmpfs2/
     sync
     losetup /dev/loop3 /mnt/tmpfs2/${ZBASENAME}
    else
     losetup /dev/loop3 /mnt/${MNT_ZFILE}${ZFILE}
    fi
-   mount -r -t squashfs -o noatime /dev/loop3 /pup_z
+   #mount -r -t squashfs -o noatime /dev/loop3 /pup_z
+   mntfunc squashfs /dev/loop3 /pup_z noatime,ro
    if [ $? -eq 0 ];then
     ZLAYER=':/pup_z=ro'
     ZFACTOR="$ZBASENAME" #v426
@@ -1171,9 +1251,10 @@ if [ "$ZDRVINIT" != "yes" ];then
   fi
  fi
 fi
-
-[ "$UMOUNTME" != "" ] && umntfunc $UMOUNTME #101013
 check_status $?
+
+[ "$UMOUNTME" != "" ] && { echo "UMOUNTME='$UMOUNTME' not empty ..";umntfunc $UMOUNTME; check_status $?; } #101013
+
 ########################END LOADING PUPPY FILES########################
 
 
@@ -1249,7 +1330,9 @@ if [ "$PUPSAVE" != "" ];then
     oneBASE="`basename $oneEXTRA`"
     EXTRASFSLIST="${EXTRASFSLIST}${oneBASE} " #construct list of actually used.
     losetup /dev/loop${CNTLOOP} $oneEXTRA
-    mount -r -t squashfs -o noatime /dev/loop${CNTLOOP} /pup_ro${CNTLOOP}
+    test $? = 0 || continue
+    #mount -r -t squashfs -o noatime /dev/loop${CNTLOOP} /pup_ro${CNTLOOP}
+    mntfunc squashfs /dev/loop${CNTLOOP} /pup_ro${CNTLOOP} noatime,ro
     [ $? -eq 0 ] && UMNTRO="${UMNTRO}:/pup_ro${CNTLOOP}=ro"
     CNTLOOP=`expr $CNTLOOP + 1`
     [ $CNTLOOP -eq 10 ] && break
@@ -1414,16 +1497,20 @@ fi
 
 #create the unionfs layered f.s.... ***THE BIG EVENT***
 if [ "$LAYERFS" = "aufs" ];then
- mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ echo "'$LAYERFS' : mount -t aufs -o udba=reval,diropq=w,dirs='${UMNTMAIN}'${ZLAYER}'${UMNTRO}' unionfs /pup_new"
+ #mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ mntfunc aufs unionfs /pup_new udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${UMNTRO}
 else #unionfs
  UMNTMAIN="`echo -n "$UMNTMAIN" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
- mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ echo "'$LAYERFS' : mount -t unionfs -o dirs='${UMNTMAIN}'${ZLAYER}'${UMNTRO}' unionfs /pup_new"
+ #mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${UMNTRO} unionfs /pup_new
+ mntfunc unionfs unionfs /pup_new dirs=${UMNTMAIN}${ZLAYER}${UMNTRO}
 fi
 check_status $? #END STEP FIVE
 #######################END SETUP UNIONFS LAYERED FILESYSTEM###################
 
 #######################SETUP SWITCH TO MAIN FILESYSTEM#######################
-echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
+echo -n "Preparing the 'switch_root' to the layered filesystem..." >/dev/console
 #prepare everything for doing a switch_root...
 #cpio archive does switch_root, lose the initial-ramfs, so move all mntd...
 mkdir -p /pup_new/initrd
@@ -1450,11 +1537,15 @@ mkdir -p /pup_new/initrd/mnt/zdrv
 mkdir -p /pup_new/initrd/tmp
 for oneMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_' | tr '\n' ' '`
 do
+ echo "mount -o move '$oneMNT' /pup_new/initrd'${oneMNT}'"
  mount -o move $oneMNT /pup_new/initrd${oneMNT}
+ STATUS=$((STATUS+$?))
 done
 for oneMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/' | tr '\n' ' '`
 do
+ echo "mount -o move '$oneMNT' /pup_new/initrd'${oneMNT}'"
  mount -o move $oneMNT /pup_new/initrd${oneMNT}
+ STATUS=$((STATUS+$?))
 done
 
 #v4.02 bring back, but allocate more space (/4 instead of /8)....
@@ -1465,7 +1556,12 @@ if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
 
  #v424 don't create tmpfs if have versioncleanup dir...
  #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
- [ ! -e $OLDFILESMNTPT/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+ [ ! -e $OLDFILESMNTPT/tmp/versioncleanup ] && {
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp;
+ mntfunc tmpfs tmpfs /pup_new/tmp size=${ALLOCK}k
+ STATUS=$((STATUS+$?)); }
+ # mntfunc:1 = (fs) type 2 = device 3 = dir 4 = options
+ # mntfunc tmpfs tmpfs /pup_new/tmp size=${ALLOCK}k
 
  ##v412 bugfix, versioncleanup dir gets overwritten by this tmpfs on tmp...
  #if [ -d $OLDFILESMNTPT/tmp/versioncleanup ];then
@@ -1486,11 +1582,19 @@ fi
 #PNOX is a boot param. /etc/profile prevents X from starting if this file exists...
 [ "$PNOX" = "yes" ] && touch /pup_new/tmp/bootcnt.txt
 cp -a /DISTRO_SPECS /pup_new/initrd/
-
+STATUS=$((STATUS+$?))
 cp -af /tmp/* /pup_new/initrd/tmp/ #keep any log files.
+STATUS=$((STATUS+$?))
+
+test -f /sys/module/kernel/parameters/panic && {
+        read panicVAL </sys/module/kernel/parameters/panic
+        case $panicVAL in
+        0) echo '30' >/sys/module/kernel/parameters/panic;;
+        esac
+}
 
 #RDSH is a boot param. exit to initial ramdisk shell...
-if [ "$RDSH" = "yes" ];then
+if [ "$RDSH" = "yes" -o "$too_manyERRORS" ];then
  echo >/dev/console
  echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." >/dev/console
  exec /bin/sh >/dev/console 2>&1
@@ -1504,12 +1608,19 @@ case $PMEDIA in
 esac
 
 sync
+STATUS=$((STATUS+$?))
+
 #killall -USR1 hotplug2 #v423
 umount /proc/bus/usb
+STATUS=$((STATUS+$?))
 umount /sys
+STATUS=$((STATUS+$?))
 umount /proc
+check_status $((STATUS +$?))
 
+echo -n "Performing a 'switch_root' to the layered filesystem..." >/dev/console
 #now using cpio archive for initramfs 'initial ramdisk'...
+#????
 #exec switch_root -c /dev/console /pup_new /bin/busybox init 3
 exec switch_root /pup_new /sbin/init
 
