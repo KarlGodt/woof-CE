@@ -243,6 +243,20 @@ fi
 rm -f /etc/mtab
 ln -s /proc/mounts /etc/mtab
 
+_make_tmp_no_mount()
+{
+mountpoint /tmp && {
+mkdir -p /tmpTMP || return
+cp -a /tmp/* /tmpTMP/
+cp -a /tmp/.*[[:alnum:]]* /tmpTMP/
+umount /tmp || return
+mkdir -p /tmp || return
+cp -a /tmpTMP/* /tmp/
+cp -a /tmpTMP/.*[[:alnum:]]* /tmp/
+ }
+}
+_make_tmp_no_mount
+
 #redirect all output to a log file (must do after remount rw)...
 t "$LOGLEVEL" || exec 1>/tmp/bootsysinit.log 2>&1
 t -d /dev/pts || mkdir /dev/pts
@@ -639,10 +653,12 @@ if t "$NEEDGUNZIP" = "yes";then
  #do
  # gunzip $ONEMOD
  #done
+ echo "$0:NEEDGUNZIP='$NEEDGUNZIP'"
  gunzip -f -r /lib/modules/${KERNEL}/initrd #w482 shinobar.
 fi
 
 if t "$NEEDDEPMOD" = "yes";then
+ echo "$0:NEEDDEPMOD='$NEEDDEPMOD'"
  echo -n ' depmod' >/dev/console
  depmod
 fi
@@ -703,8 +719,20 @@ if t ! -d /initrd;then #v423 full hd install.
 fi
 t -n "`lsmod | grep -E 'uhci|ohci|ehci'`" && modprobe usbhid
 
+_check_X_dependencies()
+{
+if t -f /sbin/photplug; then
+ t "`which ldd`" || return
+ XSERVER=`realpath $(which X)`
+ t "$XSERVER" || return
+ t "`ldd "$XSERVER" | grep -iE 'udev|hal|dbus'`" || return
+ chmod -x /sbin/photplug
+ return $?
+fi
+}
+_check_X_dependencies
 
-if t -x /sbin/photplug ; then
+if t -x /sbin/photplug; then
 
 #t -f /tmp/hotplug.modules || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
 #awk '{print $2}' /tmp/hotplug.modules.sed >/tmp/hotplug.modules ; }
