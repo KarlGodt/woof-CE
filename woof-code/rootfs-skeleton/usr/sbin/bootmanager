@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 #BK 2007, original idea from sunburnt
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
 #written for Puppy 2.16.
@@ -59,7 +59,7 @@ DEFAULT_FAST="false"
 
 if [ "$PUPMODE" = "5" ];then
  xmessage "ERROR. Must shutdown and create a personal save file first."
- exit
+ exit 0
 fi
 
 if [ "$PUP_HOME" = "" ];then #defined in PUPSTATE.
@@ -251,25 +251,29 @@ yeslist_func() {
 ### *** MODLIST
  #note, lsmod will show all modules with '-' as '_'...
  #LOADEDMODULES=" `lsmod | grep -v '^Module' | cut -f 1 -d ' ' | tr '\n' ' '`"
- LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules`
-echo $LINENO >&2
+ #LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules`
+echo "$0:line $LINENO:`date +%T`:yeslist_func:start" >&2
 
  #v403 handles both .ko and .ko.gz modules...
  #ALLMODULES="`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort - | tr '\n' ' '`"
-echo $LINENO >&2
+echo "$0:line $LINENO:`date +%T`:ALLMODULES:fin" >&2
+
  #modprobe -l | grep -o '[a-zA-Z0-9_-]*\.ko' | sed 's/\.ko.*$//' | tr '\-' '_' | sort - | sed 's!\(.*\)!& & off!' >/tmp/bootmanager_allmodules.list
  modprobe -l | grep -o '[a-zA-Z0-9_-]*\.ko' | sed 's/\.ko.*$//;s^-^_^g;s!\(.*\)!& & off!' | sort >/tmp/bootmanager_allmodules.list
- /bin/grep -vFw "$LOADEDMODULES" /tmp/bootmanager_allmodules.list >/tmp/bootmanager_wo_loaded.list
+echo "$0:line $LINENO:`date +%T`:create /tmp/bootmanager_allmodules.list:fin" >&2
 
-echo $LINENO >&2
+ #/bin/grep -vFw "$LOADEDMODULES" /tmp/bootmanager_allmodules.list >/tmp/bootmanager_wo_loaded.list
+ cp -a /tmp/bootmanager_allmodules.list /tmp/bootmanager_wo_loaded.list
+echo "$0:line $LINENO:`date +%T`:NOT LOADEDMODULES:fin" >&2
+
  ADDLIST_LINES=`echo "$ADDLIST" | tr '[[:blank:]]' '\n' | sed '/^$/d;s/:.*$//'`
  /bin/grep -vFw "$ADDLIST_LINES" /tmp/bootmanager_wo_loaded.list >/tmp/bootmanager_wo_addlist.list
+echo "$0:line $LINENO:`date +%T`:create /tmp/bootmanager_wo_addlist.list:fin" >&2
 
-echo $LINENO >&2
- #sed -i 'a\off' /tmp/bootmanager_wo_addlist.list
+ # sed -i 'a\off' /tmp/bootmanager_wo_addlist.list
  # sed 'a\off' /tmp/bootmanager_wo_addlist.list >/tmp/bootmanager_yeslist.list
- #cp -f /tmp/bootmanager_wo_addlist.list /tmp/bootmanager_yeslist.list
-echo $LINENO >&2
+ # cp -f /tmp/bootmanager_wo_addlist.list /tmp/bootmanager_yeslist.list
+#echo $0:$LINENO:`date +%T`:create  /tmp/bootmanager_yeslist.list:fin >&2
 
  #for ONEMOD in $ALLMODULES
  #do
@@ -282,13 +286,13 @@ echo $LINENO >&2
  # [ "`echo "$ADDLIST" | grep "$MODPATTERN"`" != "" ] && continue
  # MODLIST="$MODLIST $NAMEONLY $NAMEONLY off"
  #done
+#echo $0:$LINENO:`date +%T`:MODLIST loop :fin >&2
 
-echo $LINENO >&2
  #MODLIST=`tr '\n' ' ' </tmp/bootmanager_wo_addlist.list`
  #MODLIST=`tr '\n' ' ' </tmp/bootmanager_yeslist.list`
   MODLIST=`tr '\n' ' ' </tmp/bootmanager_wo_addlist.list`
 ### *** MODLIST
-echo $LINENO >&2
+echo "$0:line $LINENO:`date +%T`:MODLIST 1:fin" >&2
 
 ### *** ADDLIST
 
@@ -307,14 +311,26 @@ echo $LINENO >&2
   [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
   MODLIST="$MODLIST $ONEMOD \"$xONEMOD\" on"
  done
-
+echo "$0:line $LINENO:`date +%T`:MODLIST 2 loop:fin" >&2
  #kill $X1PID
 ### *** ADDLIST
 
  EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/yesrettags.txt"
- eval $EXECME
- RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
+ ( { eval $EXECME; RETVAL=$?;echo $RETVAL >/tmp/bootmanager.rvl; } ) &
+echo "$0:line $LINENO:`date +%T`:eval Xdialog" >&2
+ #jobs -l >&2
+ pidXdialog=`jobs -l 2>&1` # | awk '{print $2}'`
+ pidXdialog=`echo $pidXdialog | cut -f 2 -d ' '`
+ echo "$0:line $LINENO:`date +%T`:waiting for $pidXdialog ..." >&2
+ wait $pidXdialog
+ echo "$0:line $LINENO:`date +%T`:done waiting for $pidXdialog" >&2
+ #wait   #%eval
+ #wait %%eval
+ #RETVAL=$?
+read RETVAL </tmp/bootmanager.rvl && rm /tmp/bootmanager.rvl
+echo "$0:line $LINENO:`date +%T`:RETVAL of eval Xdialog='$RETVAL'" >&2
+
+ [ "$RETVAL" != 0 ] && return 1
  cat /tmp/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > /tmp/modules_addlist_edit #v411
  Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox /tmp/modules_addlist_edit 0 0 > /tmp/modules_addlist_edit_out
  [ $? -ne 0 ] && return 1
@@ -322,9 +338,13 @@ echo $LINENO >&2
  ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
  #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
+ for file in /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG."`uname -r`"
+ do
+ test -f "$file" || continue
+ grep -v '^ADDLIST' "$file" > /tmp/MODULESCONFIG
+ mv -f /tmp/MODULESCONFIG "$file"
+ echo "ADDLIST='${ADDLIST}'" >> "$file"
+ done
 } #end yeslist_func
 
 #  \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\"
@@ -344,22 +364,22 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
 
 if [ "$CLPARAM1" = "extrasfs" ];then
  extrasfs_func
- exit
+ exit 0
 fi
 
 if [ "$CLPARAM1" = "blacklist" ];then
  blacklist_func
- exit
+ exit 0
 fi
 
 if [ "$CLPARAM1" = "yeslist" ];then
  yeslist_func
- exit
+ exit 0
 fi
 
 if [ "$CLPARAM1" = "preflist" ];then
  preflist_func
- exit
+ exit 0
 fi
 
 #######################################################
@@ -376,7 +396,7 @@ export MAIN_DIALOG="
    <text><label>Choose which extra SFS files to load at bootup:</label></text>
     <button>
      <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
-     <action>bootmanager extrasfs</action>
+     <action>bootmanager extrasfs &</action>
     </button>
   </hbox>
  </frame>
@@ -387,21 +407,21 @@ export MAIN_DIALOG="
    <text><label>Click here to 'blacklist' a module:</label></text>
     <button>
      <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
-     <action>bootmanager blacklist</action>
+     <action>bootmanager blacklist &</action>
     </button>
   </hbox>
   <hbox>
    <text><label>Click here to add a new module:</label></text>
     <button>
      <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
-     <action>bootmanager yeslist</action>
+     <action>bootmanager yeslist &</action>
     </button>
   </hbox>
   <hbox>
    <text><label>Give preference to one module over another:</label></text>
     <button>
      <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
-     <action>bootmanager preflist</action>
+     <action>bootmanager preflist &</action>
     </button>
   </hbox>
  </frame>
@@ -419,7 +439,7 @@ RETSTRING="`gtkdialog3 --program=MAIN_DIALOG --center`"
 
 eval "$RETSTRING"
 
-[ "$EXIT" = "abort" ] && exit
-
+[ "$EXIT" = "abort" ] && exit 0
+exit 0
 
 ###END###
