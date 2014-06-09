@@ -139,6 +139,7 @@
 # TODO4: basename was missing var
 ########################################################################
 
+
 TMP_DIR=/tmp/xwin  ##+++2011-11-05
 mkdir -p "$TMP_DIR"
 exec 2>>"$TMP_DIR"/xwin.log.`date +%H_%M`
@@ -146,9 +147,221 @@ exec 2>>"$TMP_DIR"/xwin.log.`date +%H_%M`
 
 if test ! "`echo $PATH | grep 'X11'`"; then
 PATH="/usr/X11R7/bin:$PATH"
+LD_LIBRARY_PATH="/usr/X11R7/lib:$LD_LIBRARY_PATH"
 fi
 
 echo "Starting xwin now,\$0='$0' \$*='$*'"
+
+#sleep 5
+
+#variables created at bootup by init script in initrd...
+. /etc/rc.d/PUPSTATE #v2.02
+#PUPMODE=current operating configuration,
+#PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
+#PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
+#PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
+
+KERNEL=`uname -r` #w479
+Date=`date +%d%b%Y`
+
+###<KRG 2011_10_27>
+debug(){
+echo "$0:Debug:$*"
+}
+
+usage(){
+echo "
+USAGE: $0 [OPTIONS] [windowmanager]
+
+$1
+
+-h|--help
+-s|--server=Xserver ie: Xorg , Xvesa , Xchips
+-v|--verbose
+-w|--windowmanager=Windowmanager ie: jwm, openbox, icewm
+
+"
+exit
+}
+
+_old_parse_commandline()
+{
+pArams="$@"
+for content in $pArams ; do
+echo "$content"
+case $content in
+-h|--help)    shift;usage;exit;;
+-v|--verbose) shift;deBug='1';;
+
+-S|-S=.*|-s|-s=.*|--server|--server=.*)  shift;
+#pAram1=${pArams%% *};pAarams=${pArams#* }
+pArams=${pArams#* };pAram1=${pArams%% *}
+echo pArams=$pArams
+        if [ "`echo $content | grep '='`" != "" ] ; then
+        xServer=${content#*=}
+        else
+        xServer="$1"
+        echo xServer=$xServer
+        xServer="$pAram1"
+        echo xServer=$xServer
+        pArams=${pArams#* };shift
+        echo pArams=$pArams
+        fi
+
+        if [ -z `which $xServer` ] ; then
+        usage "'$xServer' not found in the PATH.";exit
+        elif [ ! -L /usr/bin/X ] ; then
+        usage "/usr/bin/X is not a link.";exit
+        else
+        rm -f /usr/bin/X
+        ln -s $xServer /usr/bin/X
+        fi
+
+xServerOK=`readlink -f /usr/bin/X`
+if [ -z "$xServerOK" ] ; then
+usage "The readlink -e command could not find the target '$xServer' .";exit
+elif [ ! -x "$xServerOK" ] ; then
+usage "'$xServerOK' is not set executable.";exit
+fi
+;;
+
+-w|-w=.*|-W|-W=.*|--wm|--wm=.*|--WM|--WM=.*) shift;
+#pAram1=${pArams%% *};pAarams=${pArams#* }
+pArams=${pArams#* };pAram1=${pArams%% *}
+echo pArams=$pArams
+if [ "`echo $content | grep '='`" != "" ] ; then
+wM=${content#*=}
+else
+wM="$1"
+echo wm=$wM
+wM="$pAram1"
+echo wm=$wM
+pArams=${pArams#* };shift
+echo pArams=$pArams
+fi
+if [ -z `which $wM` ] ; then
+usage "'$wM' not found in the PATH .";exit;fi
+;;
+
+*) shift
+pArams=${pArams#* }
+echo pArams=$pArams
+if [ "`echo $content | grep '^\-'`" ]; then
+usage "Unknown option '$content' .";exit;fi
+if [ "`which $content`" ]; then
+wM="$content"
+else
+usage "Unknown windowmanager '$content' .";exit;fi
+
+;;
+esac
+done
+###</KRG 2011-10-27>
+}
+
+_check_wm(){
+        test "$*" && wM="$*"
+        if [ -z `which $wM` ] ; then
+usage "'$wM' not found in the PATH .";exit;
+else
+echo "wM='$wM'"
+fi
+}
+
+_check_server(){
+        if [ -z `which $xServer` ] ; then
+usage "'$xServer' not found in the PATH.";exit
+        elif [ ! -L /usr/bin/X ] ; then
+usage "/usr/bin/X is not a link.";exit
+        else
+         rm -f /usr/bin/X
+ln -s $xServer /usr/bin/X
+        fi
+
+xServerOK=`readlink -f /usr/bin/X`
+if [ -z "$xServerOK" ] ; then
+usage "The readlink -e command could not find the target '$xServer' .";exit
+elif [ ! -x "$xServerOK" ] ; then
+usage "'$xServerOK' is not set executable.";exit
+fi
+}
+
+_parse_commandline()
+{
+local OPTIONS oneOPTION
+#oldIFS="$IFS"
+#IFS=|
+
+echo "$*"
+OPTIONS=`/usr/bin/getopt -u -a -l windowmanager::,server::,usage,help,version,verbose -o Vvhw:S:X -- "$*"`
+echo "'$OPTIONS'"
+OPTIONS=`echo "$OPTIONS" | sed 's/ --$//'`
+echo "'$OPTIONS'"
+
+for oneOPTION in $OPTIONS; do
+echo "oneOPTION='$oneOPTION'"
+case $oneOPTION in
+--windowmanager) echo 'got --windowmanager='
+wM=${oneOPTION#*=}
+
+test "$wM" != '--windowmanager' && _check_wm "$wM"
+#shift
+;;
+--server)echo 'got --server='
+xServer=${oneOPTION#*=}
+test "$xServer" != '--server' && _check_server "$xServer"
+#shift
+;;
+--usage|--help) usage;exit;;
+--version)echo "$0:Version '$VERSION'";exit;;
+--verbose) VERBOSE=1;QUIET=;VERB=-v;AVERB=-verbose;LVERB=--verbose;ERR=/dev/stderr;OUT=/dev/stdout;;
+-*) :;;
+*) _check_wm "$oneOPTION";;
+esac
+done
+
+unset oneOPTION
+
+set - $OPTIONS
+echo "\$*='$*'"
+echo "\$@='$@'"
+echo "\$#='$#'"
+OPTIONS=`/usr/bin/getopt -u -o Vvhw:S:X -- "$*"`
+echo "'$OPTIONS'"
+#OPTIONS=`echo "$OPTIONS" | sed 's/^[[:blank:]]*\-\-*[[:blank:]]*//'`
+#echo "'$OPTIONS'"
+set --
+echo "\$*='$*'"
+echo "\$@='$@'"
+echo "\$#='$#'"
+set -- $OPTIONS
+echo "\$*='$*'"
+echo "\$@='$@'"
+echo "\$#='$#'"
+
+if test $# -gt 0; then
+while getopts Vvhw:S:X: oneOPTION; do
+echo "oneOPTION='$oneOPTION'"
+case $oneOPTION in
+h) usage;exit;;
+V) echo "$0:Version '$VERSION'";exit;;
+v) VERBOSE=1;QUIET=;VERB=-v;AVERB=-verbose;LVERB=--verbose;ERR=/dev/stderr;OUT=/dev/stdout;;
+w)      wM="$OPTARG"; _check_wm;;
+S) xServer="$OPTARG"; _check_server;;
+X) xserverOPTIONS="$xserverOPTIONS $OPTARG";;
+*) _check_wm "$oneOPTION";;
+esac
+done
+fi
+#IFS="$oldIFS"
+}
+_parse_commandline "$@"
+
+#0.9.9 enables to start a specific w.m. from commandline...
+if [ "$wM" ]; then # 1.0
+ echo "$wM" > /etc/windowmanager
+ #note, /root/.xinitrc uses this file.
+fi # 1.0
 
 
 # From Slackware 11
@@ -246,114 +459,6 @@ fi
 cd /root
 echo 'cd /root , pwd:'`pwd`
 
-#sleep 5
-
-#variables created at bootup by init script in initrd...
-. /etc/rc.d/PUPSTATE #v2.02
-#PUPMODE=current operating configuration,
-#PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
-#PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
-#PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
-
-KERNEL=`uname -r` #w479
-Date=`date +%d%b%Y`
-
-###<KRG 2011_10_27>
-debug(){
-echo "$0:Debug:$*"
-}
-
-usage(){
-echo "
-USAGE: $0 [OPTIONS] [windowmanager]
-
-$1
-
--h|--help
--s|--server[= ]Xserver ie: Xorg , Xvesa , Xchips
--v|--verbose
--w|--wm[= ]windowmanager ie: jwm, openbox, icewm
-
-"
-exit
-}
-
-pArams="$@"
-for content in $pArams ; do
-echo "$content"
-case $content in
--h|--help)    shift;usage;exit;;
--v|--verbose) shift;deBug='1';;
-
--S|-S=.*|-s|-s=.*|--server|--server=.*)  shift;
-#pAram1=${pArams%% *};pAarams=${pArams#* }
-pArams=${pArams#* };pAram1=${pArams%% *}
-echo pArams=$pArams
-        if [ "`echo $content | grep '='`" != "" ] ; then
-        xServer=${content#*=}
-        else
-        xServer="$1"
-        echo xServer=$xServer
-        xServer="$pAram1"
-        echo xServer=$xServer
-        pArams=${pArams#* };shift
-        echo pArams=$pArams
-        fi
-
-        if [ -z `which $xServer` ] ; then
-        usage "'$xServer' not found in the PATH.";exit
-        elif [ ! -L /usr/bin/X ] ; then
-        usage "/usr/bin/X is not a link.";exit
-        else
-        rm -f /usr/bin/X
-        ln -s $xServer /usr/bin/X
-        fi
-
-xServerOK=`readlink -f /usr/bin/X`
-if [ -z "$xServerOK" ] ; then
-usage "The readlink -e command could not find the target '$xServer' .";exit
-elif [ ! -x "$xServerOK" ] ; then
-usage "'$xServerOK' is not set executable.";exit
-fi
-;;
-
--w|-w=.*|-W|-W=.*|--wm|--wm=.*|--WM|--WM=.*) shift;
-#pAram1=${pArams%% *};pAarams=${pArams#* }
-pArams=${pArams#* };pAram1=${pArams%% *}
-echo pArams=$pArams
-if [ "`echo $content | grep '='`" != "" ] ; then
-wM=${content#*=}
-else
-wM="$1"
-echo wm=$wM
-wM="$pAram1"
-echo wm=$wM
-pArams=${pArams#* };shift
-echo pArams=$pArams
-fi
-if [ -z `which $wM` ] ; then
-usage "'$wM' not found in the PATH .";exit;fi
-;;
-
-*) shift
-pArams=${pArams#* }
-echo pArams=$pArams
-if [ "`echo $content | grep '^\-'`" ]; then
-usage "Unknown option '$content' .";exit;fi
-if [ "`which $content`" ]; then
-wM="$content"
-else
-usage "Unknown windowmanager '$content' .";exit;fi
-
-;;
-esac
-done
-###</KRG 2011-10-27>
-#0.9.9 enables to start a specific w.m. from commandline...
-if [ "$wM" ]; then # 1.0
- echo "$wM" > /etc/windowmanager
- #note, /root/.xinitrc uses this file.
-fi # 1.0
 
 #### BEGIN Ex /etc/profile part #######
 #v2.10 MU: rox crashes with DRI modules. solution:
@@ -386,7 +491,7 @@ else
 XinitXorgVars="-hold -e $HOME/.xinitrc"  ##fallback
 #XinitXorgVars="$HOME/.xinitrc"
 fi
-echo "Will start xinit with '$XinitXorgVars' .."
+echo "$0:Will start xinit with '$XinitXorgVars' .."
 
 
 #v1.0.7
@@ -410,7 +515,7 @@ echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
 if [ -n "`grep -i 'edidfail' "$TMP_DIR"/ddcprobe.txt`" ] ; then ###KRG
 echo -e '\033[0;31m''ddcprobe still failed to determine the video..'
 echo -e '\033[0;39m''Exiting $0 now.''\033[0;39m'  ##+2011-11-10 added 0;39 back
-exit
+exit 6
 fi
 }
 ddcprobe_func
@@ -440,6 +545,7 @@ echo "HAVEX=Xvesa"
    #1st dialog offers to use Xvesa...
    echo "Starting now xorgwizard" && sleep 9s
    /usr/sbin/xorgwizard
+   test $? = 255 && exit 255
    HAVEX=`readlink -qs /usr/bin/X`
    if [ "$HAVEX" != "Xorg" ] ; then  ##KRG
    echo "To start the Xorg server for Xvesa does not work for your hardware ,"
@@ -779,7 +885,7 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -m1 '^monitorid: ' | cut -f 2 -d ':' | t
   rm -f /var/lock/XLOADED  #not necessary, precaution.
   #1st dialog offers to use Xvesa...
   /usr/sbin/xorgwizard
-
+  test $? = 255 && exit 255
   HAVEX=`readlink -qs /usr/bin/X`
   if [ "$HAVEX" = "Xvesa" ] ; then  ###KRG
   echo "HAVEX='$HAVEX' (Xvesa)"
