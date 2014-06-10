@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ###INTRO
 # Karl Reimer Godt, March 2013
@@ -28,7 +28,7 @@
 # /usr/lib/mut/bin/guess_fstype
 # since the developer jesse had not ported it to support ext4.
 #
-# Thanks very much to Keef for patience while testing and 
+# Thanks very much to Keef for patience while testing and
 # helping me detecting some wrong formatted code, confirmations
 # and to keep pmount happier.
 # Thanks muchly to wjaguar to remind/teach me to use the read command more effectively,
@@ -115,26 +115,36 @@ SHOWALL=`echo "$@" | grep -oE '\-A|\-\-all' |tr -d '-'` ##+++edit3
 ##ENDHEAD
 
 disktype_func(){
-     disktype /dev/"$1" |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
+	  #echo "disktype_func $*" >&2
+	  #disktype /dev/"$1" >&2
+	  #disktype /dev/"$1" | busybox grep -oiE '.* file system|swap|squashfs|CDDB' >&2
+
+     disktype /dev/"$1" | busybox grep -iE -o '.* file system|swap|squashfs|CDDB' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
 }
 
 filesystem_func(){  ##+++edit1
     [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`
+    #echo "FSTYPE=$FSTYPE"
     [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
+    #echo "FSTYPE=$FSTYPE"
+    [ "$FSTYPE" ] || FSTYPE=`blkid /dev/"$1" | grep -o ' TYPE=".*"' | cut -f2 -d'"'`
+    #echo "FSTYPE=$FSTYPE"
     [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2 added none to please pmount thanks to Keef
 }
 
 cddetect_func(){  ##+++edit1
+    #echo cddetect_func 2>&1
     cddetect_quick -d/dev/"$1" >$OUT && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount thanks to Keef
 }
 
 present_removable(){
+	#echo "present_removable $*" >&2
    cddetect_func "$drive"
    filesystem_func "$drive"
    echo "/dev/$drive|$FSTYPE|$SIZE"
 }
 
-FDISK=`fdisk -l | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
+LANG=C FDISK=`fdisk -l 2>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
 
 ##MAIN
 while read maj min drive rest; do
@@ -143,7 +153,7 @@ while read maj min drive rest; do
 #drive=`echo $line |awk '{print $3}'`  ##---edit4 out again, thanks to wjaguar
 [ "$drive" ] || continue   ##+++edit3
 [ "$SHOWALL" ] || { [ "`echo $drive | grep -vE 'ram|loop|mtd|md'`" ] || continue; }  ##+++edit3 added --all option
-[ -b /dev/$drive ] || { 
+[ -b /dev/$drive ] || {
    #maj="${line%% *}" ; min=`echo $line |awk '{print $2}'`;  ##---edit4 thanks to wjaguar, no need for this anymore
    [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >&2;
    [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
@@ -151,9 +161,12 @@ while read maj min drive rest; do
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
 SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
-[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+#[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+[[ "$SIZE" = $((2*8*512)) ]] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
+FSTYPE=
 if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
  if [ -d /sys/class/block/$drive/device ]; then
  REMOVEABLE=`cat /sys/class/block/$drive/removable`
