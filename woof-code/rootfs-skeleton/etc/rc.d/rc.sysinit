@@ -172,7 +172,7 @@ echo -n "FILESYSTEM STATE:: $* : "
 dumpe2fs `rdev` | grep -i 'STATE'
 echo
 }
-fsstate_func 1
+#fsstate_func 1
 
 timestamp_func(){
 echo "`date +%M:%S:%N` :$*"
@@ -245,7 +245,7 @@ ln -s /proc/mounts /etc/mtab
 
 _make_tmp_no_mount()
 {
-mountpoint /tmp && {
+mountpoint -q /tmp && {
 mkdir -p /tmpTMP || return
 cp -a /tmp/* /tmpTMP/
 cp -a /tmp/.*[[:alnum:]]* /tmpTMP/
@@ -260,7 +260,7 @@ _make_tmp_no_mount
 #redirect all output to a log file (must do after remount rw)...
 t "$LOGLEVEL" || exec 1>/tmp/bootsysinit.log 2>&1
 t -d /dev/pts || mkdir /dev/pts
-busybox mount /dev/pts ;STATUS=$(($STATUS+$?))
+busybox mount /dev/pts ;STATUS=$(($STATUS+$?)) # uses fstab
 mkdir -p /sys
 busybox mount -t sysfs none /sys ;STATUS=$(($STATUS+$?))
 
@@ -270,8 +270,9 @@ read lbl tot use FREERAM sha buf<<EOI
 `free | grep Mem`
 EOI
 
-if t ! -d /initrd;then #weird, only full-hd install needs this for xfdiff.
- QTRFREERAM=`expr $FREERAM \/ 4`
+#if t ! -d /initrd;then #weird, only full-hd install needs this for xfdiff.
+if t "`rdev`"; then
+ QTRFREERAM=`expr $FREERAM \/ 4` # google-chrome also
  t -d /dev/shm || mkdir /dev/shm
  mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(($STATUS+$?))
 fi
@@ -298,34 +299,35 @@ echo "KERNEL='$KERNEL'" >> /etc/rc.d/PUPSTATE
 fsstate_func 2
 
 mount_none_fs_func(){
-   NFS=`cat /proc/filesystems | grep 'nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
+   nFS=`grep '^nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
 #NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs'`
- NODEV="$NFS"
+ NODEV="$nFS"
 t -d /nodev || mkdir /nodev
-for i in $NODEV ; do
+for oneFS in $NODEV ; do
       echo
- echo "$i"
- DIR=`echo "$i" | sed 's#fs$##'`
- if t -z "`busybox mount | grep -Fw "$i"`" ; then
+ echo "$oneFS"
+ DIR=`echo "$oneFS" | sed 's#fs$##'`
+ if t -z "`grep -Fw "$oneFS" /proc/mounts`" ; then
 
-   case $i in
-    debugfs) mkdir -p /sys/kernel/debug;       busybox mount -t debugfs nodev /sys/kernel/debug;
+   case $oneFS in
+    debugfs) mkdir -p /sys/kernel/debug;       busybox mount -t debugfs         nodev /sys/kernel/debug;
     echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
     ;;
-    fusectl) mkdir -p /sys/fs/fuse/connections;busybox mount -t fusectl fusectl /sys/fs/fuse/connections;;
-binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc;busybox mount -t binfmt_misc nodev /proc/sys/fs/binfmt_misc;;
- securityfs) mkdir -p /sys/kernel/security;    busybox mount -t securityfs nodev /sys/kernel/security;;
-      usbfs) mkdir -p /proc/bus/usb;                   mount -t usbfs none /proc/bus/usb;; # -o devmode=0666;;
-   configfs) mkdir -p /config;                         mount -t configfs none /config;;
-  hugetlbfs) mkdir -p /mnt/huge;               busybox mount -t hugetlbfs none /mnt/huge;;
-     pstore) mkdir -p /dev/fs/pstore;          busybox mount -t pstore nodev /dev/fs/pstore;;
+    fusectl) mkdir -p /sys/fs/fuse/connections;busybox mount -t fusectl fusectl nodev /sys/fs/fuse/connections;;
+binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc;busybox mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) mkdir -p /sys/kernel/security;    busybox mount -t securityfs      nodev /sys/kernel/security;;
+      usbfs) mkdir -p /proc/bus/usb;                   mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
+   configfs) mkdir -p /config;                         mount -t configfs        none  /config;;
+  hugetlbfs) mkdir -p /mnt/huge;               busybox mount -t hugetlbfs       none  /mnt/huge;;
+     pstore) mkdir -p /dev/fs/pstore;          busybox mount -t pstore          nodev /dev/fs/pstore;;
 ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
-#mount: wrong fs type, bad option, bad superblock on /nodev,
-    jffs2) :;; #mount: /nodev is not a block device
-    fuse) :;;  #bin/sh: /nodev: is a directory
+      #mount: wrong fs type, bad option, bad superblock on /nodev, ...
+    jffs2) :;;   #mount: /nodev is not a block device
+    fuse)  :;;   #bin/sh: /nodev: is a directory
+    ram|tmp) :;;
     *)
     t -d /dev/fs/$DIR || mkdir -p /dev/fs/$DIR
-    mount-FULL -v -t $i nodev /dev/fs/$DIR
+    mount-FULL -v -t $oneFS nodev /dev/fs/$DIR
     ;;
    esac
 
@@ -338,7 +340,7 @@ mkmissing_tty_func() {
 t -c /dev/tty || mknod /dev/tty c 5 0
 t -d /dev/vc || mkdir /dev/vc
 
-VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
+VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -oe '[0-9]*$'`
 for i in $VTInittab ; do
 t -c /dev/vc/$i || { rm -f /dev/vc/$i;mknod /dev/vc/$i c 4 $i; }
 t -c /dev/tty$i || { rm -f /dev/tty$i;mknod /dev/tty$i c 4 $i; }
@@ -435,37 +437,39 @@ else
 :
 fi
 }
-check_frugal_full_func
+#check_frugal_full_func
 
 fsstate_func 4
 
 mkmissing_blockdev_func() {
-rootdrv=`df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
-if t "$rootdrv" != ""; then
-simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-else
-rootdrv=`mount | grep '/initrd/mnt/dev_save'`
-simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-fi
-main_drv=${simple_drv:0:3}
+#rootdrv=`df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
+#if t "$rootdrv" != ""; then
+#simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+#else
+#rootdrv=`mount | grep '/initrd/mnt/dev_save'`
+#simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
+#fi
+#main_drv=${simple_drv:0:3}
 
-if t ! -b /dev/$main_drv -o ! -b /dev/$simple_drv ; then
-if t "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`"; then
-echo "no blockdevices found, creating now" > /dev/console
+#if t ! -b /dev/$main_drv -o ! -b /dev/$simple_drv ; then
+#if t "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`"; then
+#echo "no blockdevices found, creating now" > /dev/console
 # /root/my-applications/sbin/MkMissingDev.sh
+mountpoint -q /dev && return
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
   [ "$maj" -a "$min" -a "$dev" ] || continue
-  mknod /dev/$dev b $maj $min
+  t -b /dev/$dev || mknod /dev/$dev b $maj $min
  done</proc/partitions
 echo "finished ..." > /dev/console
-fi
-fi
+#fi
+#fi
 }
 
 fsstate_func 5
 
 dev_maj_259_func() {
+ mountpoint -q /dev && return
  DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
 DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
 
@@ -522,7 +526,7 @@ else
 return
 fi
 }
-device_nodes_fork_func
+mountpoint -q /dev || device_nodes_fork_func
 
 fsstate_func 7
 
@@ -544,7 +548,7 @@ else
 :
 fi
 }
-mk_missing_var_dev_func
+mountpoint -q /dev || mk_missing_var_dev_func
 
 fsstate_func 8
 
