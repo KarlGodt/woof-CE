@@ -289,18 +289,22 @@ auto_unmount_func() {
 }
 
 format_size_func() {
-    #echo "format_size_func B" #DBG
-    echo $DRV_NAME $ONEDRVNAME
-    #echo $SIZE #DBG
- [ $SIZE ] || SIZE=0
- if [ $SIZE -gt 1048576 ];then #1024*1024
+	local sizeLOCAL SIZE1 SIZE2
+    echo "format_size_func B" #DBG
+    echo "$diskNAME $partNAME"
+    sizeLOCAL=$1
+    test "$sizeLOCAL" || sizeLOCAL=$SIZE
+    echo sizeLOCAL=$sizeLOCAL #DBG
+ [ $sizeLOCAL ] || sizeLOCAL=0
+
+ if [ $sizeLOCAL -gt 1048576 ];then #1024*1024
  #echo "first if"
-  SIZE=`dc $SIZE 1048576 \/ p`
+  sizeLOCAL=`dc $sizeLOCAL 1048576 \/ p`
   #echo $SIZE #DBG
-  SIZE=`echo $SIZE | tr ',' '.'`
+  sizeLOCAL=`echo $sizeLOCAL | tr ',' '.'`
   #echo $SIZE #DBG
-  SIZE1=`echo $SIZE | cut -f 1 -d '.'`
-  SIZE2=`echo $SIZE | cut -f 2 -d '.'`
+  SIZE1=`echo $sizeLOCAL | cut -f 1 -d '.'`
+  SIZE2=`echo $sizeLOCAL | cut -f 2 -d '.'`
   SIZE2=`echo $SIZE2 | sed -r 's/(.)/ \1/g ; s#^ ##'`
   #echo "$SIZE2"
   SIZE2=`echo "$SIZE2" | cut -f 1 -d ' '`
@@ -308,28 +312,25 @@ format_size_func() {
   #SIZE=`echo "scale=0; $SIZE * 1" | bc`
   #echo $SIZE #DBG
   #echo "fist if end" #DBG
- else
- #echo "fist else" #DBG
-  if [ $SIZE -gt 99 ];then
+ elif [ $SIZE -gt 99 ];then
   #echo "second if" #DBG
-   SIZE="$(($SIZE / 1024))MB"
+   SIZE="$(($sizeLOCAL / 1024))MB"
    #echo $SIZE #DBG
    #echo "second if end" #DBG
   else
   #echo "second else" #DBG
-   SIZE=`dc $SIZE 1024 \/ p`
+   SIZE1=`dc $sizeLOCAL 1024 \/ p`
    #echo $SIZE #DBG
-   SIZE=`echo $SIZE | tr ',' '.'`
+   SIZE2=`echo $SIZE1 | tr ',' '.'`
    #echo $SIZE #DBG
-   SIZE1=`echo $SIZE | cut -f 1 -d '.'`
-   SIZE2=`echo $SIZE | cut -f 2 -d '.'`
+   SIZE1=`echo $SIZE2 | cut -f 1 -d '.'`
+   SIZE2=`echo $SIZE1 | cut -f 2 -d '.'`
    SIZE2=`echo $SIZE2 | sed -r 's/(.)/ \1/g ; s#^ ##'`
    #echo "$SIZE2"
    SIZE2=`echo "$SIZE2" | cut -f 1 -d ' '`
    SIZE="`printf "%s"','"%s" $SIZE1 $SIZE2`GB"
    #SIZE="`printf "%.1f" $SIZE`MB"
   #echo $SIZE #DBG
-  fi
  fi
  [ "$SIZE" = "0.0MB" ] && SIZE="0"
  #echo "format_size_func E" #DBG
@@ -443,6 +444,14 @@ free_coord() {
 
 
 add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
+ local partNAME diskCATEGORY partFS
+ partNAME=$1
+ diskCATEGORY=$2
+ partFS=$3
+ test "$partNAME" || partNAME=$ONEDRVNAME
+ test "$diskCATEGORY" || diskCATEGORY=$DRV_CATEGORY
+ test "$partFS" || partFS=$FSTYPE
+
  #ppPATTERN=' label="'"$ONEDRVNAME"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
  echo "add_pinboard_func begin"
@@ -454,19 +463,19 @@ add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
  #V_Y=$V_Y_S
  #fi
  echo $V_Y #DBG
- ppPATTERN="/root/.pup_event/drive_${ONEDRVNAME}<"
+ ppPATTERN="/root/.pup_event/drive_${partNAME}<"
  [ "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
  free_coord
- echo "X=${COORD_X} Y=${COORD_Y} for PinBoard"
+ echo "X=${COORD_X} Y=${COORD_Y} for PinBoard for $partNAME"
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardAdd>
-   <Path>/root/.pup_event/drive_${ONEDRVNAME}</Path>
+   <Path>/root/.pup_event/drive_${partNAME}</Path>
    <X>${COORD_X}</X>
    <Y>${COORD_Y}</Y>
-   <Label>${ONEDRVNAME}</Label>
-   <Args>${DRV_CATEGORY} ${FSTYPE}</Args>
+   <Label>${partNAME}</Label>
+   <Args>${diskCATEGORY} ${partFS}</Args>
   </PinboardAdd>
  </env:Body>
 </env:Envelope>"  | rox -R
@@ -481,67 +490,76 @@ echo "add_pinboard_func end" #DBG
 }
 
 create_icon_func() {
+ echo "create_icon_func:$*"
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
  #if a passed param $1, then PROBEPART already known, inefficient to rerun here each time.
- DRVINFO="$DRV_NAME"'|0|0'
+ local startUP diskNAME DRV_INFO oneDRVINFO
+ startUP=$1
+ test "$startUP" = "startup" && shift
+ diskNAME=$1
+ test "$diskNAME" || diskNAME=$DRV_NAME
+ DRV_INFO="$diskNAME"'|0|0'
  if [ "$ICONPARTITIONS" = "true" ]; then
   #display an icon for each partition... w476 add ext4...
-  [ "$1" ] || probepart_func #PROBEPART="`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`"
-  drvPATTERN='^/dev/'"${DRV_NAME}" #important, no space on end!
-  DRVINFO=`echo "$PROBEPART" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '`
+  [ "$startUP" = "startup" ] || probepart_func #PROBEPART="`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`"
+  drvPATTERN='^/dev/'"${diskNAME}" #important, no space on end!
+  DRV_INFO=`echo "$PROBEPART" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '`
 
   #w482 k2.6.25.16 /proc/partitions (read by probepart) can be slow to update...
   diCNT=0
-  if [ "`echo -n "$DRV_NAME" | grep -E '^sd|^mmc'`" ]; then
-   while [ "$DRVINFO" = "" ]; do
+  if [ "`echo -n "$diskNAME" | grep -E '^sd|^mmc'`" ]; then
+   while [ "$DRV_INFO" = "" ]; do
     diCNT=$(( $diCNT + 1 ))
     [ $diCNT -gt 3 ] && break
     sleep 1
     probepart_func
     #PROBEPART="`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`"
-    DRVINFO=`echo "$PROBEPART" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '`
+    DRV_INFO=`echo "$PROBEPART" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '`
    done
   fi
+  echo "DRV_INFO='$DRV_INFO'"
 
  fi
- for ONEDRVINFO in $DRVINFO
+ for oneDRV_INFO in $DRV_INFO
  do
+  echo "oneDRV_INFO='$oneDRV_INFO'"
   #ONEDRVNAME="`echo -n "$ONEDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
   #FSTYPE="`echo -n "$ONEDRVINFO" | cut -f 2 -d '|'`"
   #SIZE=`echo -n "$ONEDRVINFO" | cut -f 3 -d '|'`
-  read ONEDRVNAME FSTYPE SIZE <<EOI
-$(echo "$ONEDRVINFO" | tr ' ' '_' | tr '|' ' ')
+  read partNAME partFS partSIZE <<EOI
+$(echo "$oneDRV_INFO" | tr ' ' '_' | tr '|' ' ')
 EOI
-   ONEDRVNAME=${ONEDRVNAME##*/}
-   [ "$ONEDRVNAME" ] || continue
-   echo "ONEDRVNAME='$ONEDRVNAME'"
-  if [ ! -d /root/.pup_event/drive_${ONEDRVNAME} ]; then
-   mkdir /root/.pup_event/drive_${ONEDRVNAME}
-   cp -af /usr/local/bin/drive_all /root/.pup_event/drive_${ONEDRVNAME}/AppRun
-   if [ -e /sys/block/${ONEDRVNAME} ]; then
+   partNAME=${partNAME##*/}
+   [ "$partNAME" ] || continue
+   echo "partNAME='$partNAME'"
+  if [ ! -d /root/.pup_event/drive_${partNAME} ]; then
+   mkdir /root/.pup_event/drive_${partNAME}
+   cp -af /usr/local/bin/drive_all /root/.pup_event/drive_${partNAME}/AppRun
+   if [ -e /sys/block/${partNAME} ]; then
     #device is an entire drive.
     #SIZE=`cat /sys/block/${ONEDRVNAME}/size`
-    read SIZE </sys/block/${ONEDRVNAME}/size || continue
+    read SIZE </sys/block/${partNAME}/size || continue
     SIZE=$(($SIZE/2)) #get KB.
-    format_size_func #formats SIZE for display.
+    format_size_func $SIZE #formats SIZE for display.
     INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
    else
-    if [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
+    if [ "$partFS" = "0" -a "$SIZE" = "0" ];then
      INFO="Puppy drive manager"
     else
      #pPATTERN=' '"$ONEDRVNAME"'$'
      #SIZE=`grep "$pPATTERN" /proc/partitions | tr -s ' ' | cut -f 4 -d ' '`
-     format_size_func #formats SIZE for display.
-     INFO="Filesystem: $FSTYPE Size: $SIZE"
+     format_size_func $partSIZE #formats SIZE for display.
+     INFO="Filesystem: $partFS Size: $SIZE"
     fi
    fi
    #v424 add item to unmount all partitions...
-   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${ONEDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${ONEDRVNAME} (if currently mounted)</Label></Item>
+   <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
+   create_appinfo_func $partNAME $diskCATEGORY "$INFO" "$MOREITEMS"  #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
   fi
 #  if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.
-   drvPATTERN='^/dev/'"${ONEDRVNAME}"' ' #important, a space on end!
+   drvPATTERN='^/dev/'"${partNAME}"' ' #important, a space on end!
    MNTSTATUS=`/bin/df | grep "$drvPATTERN"`
 
    if test -L /dev/root; then
@@ -549,49 +567,54 @@ EOI
    if test "`/bin/df | grep -m1 -Fw '/' | grep -v '^/dev/root'`"; then
    rootdrv=`ls -l /dev/root | grep -o '\->.*' | cut -f 2 -d ' '`
    #if test "${rootdrv:5}" = "$ONEDRVNAME" ; then
-   if test "${rootdrv:0:5}" = "$ONEDRVNAME" ; then
+   if test "${rootdrv:0:5}" = "$partNAME" ; then
    MNTSTATUS="RootDrive"
    fi
    fi
    fi
    echo "MNTSTATUS='$MNTSTATUS'"
    if [ "$MNTSTATUS" = "" ]; then
-    icon_unmounted_func $ONEDRVNAME $DRV_CATEGORY #see functions4puppy4.
+    icon_unmounted_func $partNAME $diskCATEGORY # see functions4puppy4.
    else
-    icon_mounted_func $ONEDRVNAME $DRV_CATEGORY #see functions4puppy4.
+    icon_mounted_func $partNAME $diskCATEGORY   # see functions4puppy4.
    fi
-   add_pinboard_func #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE.
+   add_pinboard_func $partNAME $diskCATEGORY $partFS # needs ONEDRVNAME, DRV_CATEGORY, FSTYPE.
 #  fi
  done
- #always create a handler for entire drive, even if no icon displayed...
- if [ ! -d /root/.pup_event/drive_${DRV_NAME} ]; then
-  if [ -e /sys/block/${DRV_NAME} ]; then
-   mkdir /root/.pup_event/drive_${DRV_NAME}
-   cp -af /usr/local/bin/drive_all /root/.pup_event/drive_${DRV_NAME}/AppRun
-   #SIZE=`cat /sys/block/${DRV_NAME}/size`
-   read SIZE </sys/block/${DRV_NAME}/size || continue
+ # always create a handler for entire drive, even if no icon displayed...
+ if [ ! -d /root/.pup_event/drive_${diskNAME} ]; then
+  if [ -e /sys/block/${diskNAME} ]; then
+   mkdir /root/.pup_event/drive_${diskNAME}
+   cp -af /usr/local/bin/drive_all /root/.pup_event/drive_${diskNAME}/AppRun
+   # SIZE=`cat /sys/block/${DRV_NAME}/size`
+   read SIZE </sys/block/${diskNAME}/size || continue
    SIZE=$(($SIZE/2)) #get KB.
-   format_size_func #formats SIZE for display.
-   INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
-   #v424 add item to unmount all mounted partitions...
+   format_size_func $SIZE #formats SIZE for display.
+   INFO="Description: ${DRV_DESCRIPTION} Size: ${diskSIZE}"
+   # v424 add item to unmount all mounted partitions...
    MOREITEMS="</Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   ONEDRVNAME="$DRV_NAME"
-   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   # partNAME="$diskNAME"
+   create_appinfo_func $diskNAME $diskCATEGORY "$INFO" "$MOREITEMS" # needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
   fi
  fi
+ local diskNAME diskCATEGORY partNAME INFO MOREITEMS SIZE MNTSTATUS partFS INFO rootdrv
 }
 
-remove_pinboard_func() { #needs DRV_NAME (name of entire drive)
- ppPATTERN=' label="'"$DRV_NAME"'.*" '
+remove_pinboard_func() { # needs DRV_NAME (name of entire drive)
+ local diskNAME partNAME ppPATTERN ALLNAMES
+ diskNAME=$1
+ test "$diskNAME" || diskNAME=$DRV_NAME
+
+ ppPATTERN=' label="'"$diskNAME"'.*" '
  [ "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" = "" ] && return
  ALLNAMES=`grep -o "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr '\n' ' '`
- for ONEDRVNAME in $ALLNAMES
+ for partNAME in $ALLNAMES
  do
   echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardRemove>
-   <Path>/root/.pup_event/drive_${ONEDRVNAME}</Path>
+   <Path>/root/.pup_event/drive_${partNAME}</Path>
   </PinboardRemove>
  </env:Body>
 </env:Envelope>"  | rox -R
@@ -601,14 +624,15 @@ remove_pinboard_func() { #needs DRV_NAME (name of entire drive)
 #note that init script in initrd takes care of restoring modules if enough space.
 delete_func() { #called from free_func() and free_flash_func(). delete modules to create more free space.
  #passed param: /pup_rw=delete tmpfs top layer only.
+ local DEL_LAYER oneKEEP_MOD oneKEEP oneKEEP_SPEC oneKEEP_PATH
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
- for ONEKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
+ for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
  do
-  ONEKEEP_SPEC=`modinfo -F filename ${ONEKEEP_MOD}`
-  ONEKEEP_PATH=`dirname $ONEKEEP_SPEC`
-  mkdir -p /tmp${ONEKEEP_PATH}
-  cp -af ${ONEKEEP_SPEC} /tmp${ONEKEEP_PATH}/
+  oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
+  oneKEEP_PATH=`dirname $oneKEEP_SPEC`
+  mkdir -p /tmp${oneKEEP_PATH}
+  cp -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" ]; then
   rm -rf ${DEL_LAYER}/lib/modules
@@ -623,13 +647,14 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
 }
 
 free_initrd_func() { #UniPup, runs entirely in initramfs.
+ local SIZEFREEK SIZEFREEM PREVSIZEFREEM
  SIZEFREEK=`free | grep -i -v 'Total' | tr -s ' ' | cut -f 4 -d ' ' | head -n 1`
  SIZEFREEM=$(( $SIZEFREEK / 1024 ))
  [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
- [ "$PREVSIZEFREEM" = "$SIZEFREEM" ] && return
- #save to a file, freememapplet can read this...
- echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
+ [ "$PREVSIZEFREEM" = "$SIZEFREEM" ] || echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
+                                     #save to a file, freememapplet can read this...
 }
+
 # only free pupsave or rootpartition
 free_func() { #called every 4 seconds.
  case $PUPMODE in
@@ -718,28 +743,44 @@ savepuppy_func() { #called every 4 seconds.
 
 #v407 fixed so works for sr* and hd* optical...
 probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
- DRV_NAME="$1"
- DRV_CATEGORY="optical"
+ local diskNAME diskCATEGORY DRV_DESCRIPTION
+ diskNAME="$1"
+ diskCATEGORY="optical"
  CDSTATUS2="0"
- opticalPATTERN='^/dev/'"${DRV_NAME}"' '
+ opticalPATTERN='^/dev/'"${diskNAME}"' '
+ echo "probe_optical_func:$diskNAME '$*'"
  [ "`grep "$opticalPATTERN" /proc/mounts`" ] && return #only check cd if unmounted.
- cddetect_quick -d/dev/${DRV_NAME} >/dev/null 2>&1 #very fast.
+ cddetect_quick -d/dev/${diskNAME} >/dev/null 2>&1 #very fast.
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
- [ "$CDSTATUS2" != "0" ] && [ -d /root/.pup_event/drive_${DRV_NAME} ] && rm -rf /root/.pup_event/drive_${DRV_NAME} #v410 ensure no drive directory if drive empty.
- echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${DRV_NAME}
- [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
- CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${DRV_NAME}`
- [ "$CDSTATUS1" = "$CDSTATUS2" ] && return
- cp -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ [ "$CDSTATUS2" != "0" -a -d /root/.pup_event/drive_${diskNAME} ] && rm -rf /root/.pup_event/drive_${diskNAME} #v410 ensure no drive directory if drive empty.
+ echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${diskNAME}
+
+ [ -f /tmp/pup_event_frontend_identify1_${diskNAME} ] || {
+	 echo "copying pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}"
+	 cp /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+	}
+
+ CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${diskNAME}`
+ [ "$CDSTATUS1" = "$CDSTATUS2" ] && { echo "probe_optical_func:$CDSTATUS1 = $CDSTATUS2"; return; }
+
+ echo "Updating /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME} ."
+ cp -f /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+
  if [ "$CDSTATUS2" = "0" ]; then
+   echo "CDSTATUS2 is 0"
+
   #VENDOR="`cat /sys/block/${DRV_NAME}/device/vendor | tr -s ' '`"
   #MODEL="`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`"
   #DRV_DESCRIPTION="$VENDOR $MODEL"
-  opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
+
+  opticalPATTERN='^/dev/'"${diskNAME}"'|'
   DRV_DESCRIPTION=`echo "$PROBEDISK" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
-  create_icon_func #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
-  [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${DRV_NAME}/AppRun optical & #handler script.
+
+  echo "Running create_icon_func $diskNAME $diskCATEGORY $DRV_DESCRIPTION"
+  create_icon_func $diskNAME $diskCATEGORY "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  echo "Returned from create_icon_func $diskNAME $diskCATEGORY $DRV_DESCRIPTION"
+  [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${diskNAME}/AppRun optical & #handler script.
 #KRG else
 #KRG  rm -rf /root/.pup_event/drive_${DRV_NAME} 2>/dev/null
 #KRG  remove_pinboard_func #needs DRV_NAME
@@ -748,31 +789,32 @@ probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
 
 #v407 detect ls120 and zip disc inserted...
 probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
- DRV_NAME="$1"
- DRVMAIN=`echo -n "$DRV_NAME" | cut -c 1,2` #sd or hd.
- DRV_CATEGORY="floppy"
- floppyPATTERN="^/dev/$DRV_NAME"
+ local diskNAME diskMAIN diskCATEGORY FLOPPYSTATUS DRV_DESCRIPTION
+ diskNAME="$1"
+ diskMAIN=`echo -n "$DRV_NAME" | cut -c 1,2` #sd or hd.
+ diskCATEGORY="floppy"
+ floppyPATTERN="^/dev/$diskNAME"
  [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return #mounted.
- if [ "$DRVMAIN" = "hd" ]; then
-  cat /proc/ide/${DRV_NAME}/identify > /tmp/pup_event_frontend_identify2_${DRV_NAME}
+ if [ "$diskMAIN" = "hd" ]; then
+  cat /proc/ide/${diskNAME}/identify > /tmp/pup_event_frontend_identify2_${diskNAME}
  else
   #this method not as good, as only detects disc if it has a partition...
-  floppyPATTERN=" ${DRV_NAME}"
-  grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${DRV_NAME}
+  floppyPATTERN=" ${diskNAME}"
+  grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${diskNAME}
  fi
- [ ! -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] && cp /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
- [ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" != "" ] && return
- cp -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ [ ! -f /tmp/pup_event_frontend_identify1_${diskNAME} ] && cp /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+ [ "`diff -s /tmp/pup_event_frontend_identify1_${diskNAME} /tmp/pup_event_frontend_identify2_${diskNAME} | grep ' are identical'`" != "" ] && return
+ cp -f /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
  FLOPPYSTATUS=1
- [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
+ [ "`disktype /dev/${diskNAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
  if [ "$FLOPPYSTATUS" = "0" ]; then
-  if [ "$DRVMAIN" = "hd" ];then
+  if [ "$diskMAIN" = "hd" ];then
    DRV_DESCRIPTION="`cat /proc/ide/${DRV_NAME}/model`"
   else
    DRV_DESCRIPTION=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
   fi
-  create_icon_func #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
-  [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${DRV_NAME}/AppRun floppy & #handler script.
+  create_icon_func $diskNAME $diskCATEGORY "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${diskNAME}/AppRun floppy & #handler script.
 #KRG else
 #KRG  rm -rf /root/.pup_event/drive_${DRV_NAME} 2>/dev/null
 #KRG  remove_pinboard_func #needs DRV_NAME
@@ -780,6 +822,14 @@ probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
 }
 
 create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   local partNAME diskCATEGORY INFO MOREITEMS
+   partNAME=$1
+   test "$partNAME" || partNAME=$ONEDRVNAME
+   diskCATEGORY=$2
+   test "$diskCATEGORY" || diskCATEGORY=$DRV_CATEGORY
+   INFO="$3"
+   MOREITEMS="$4"
+
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
   <Summary>${INFO}</Summary>
@@ -788,21 +838,24 @@ create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
    <Authors>Barry Kauler LGPL 2008</Authors>
   </About>
   <AppMenu>
-   <Item option=\"pmount_${DRV_CATEGORY}\" icon=\"gtk-harddisk\"><Label>Run Pmount Puppy Drive Mounter</Label></Item><Item option=\"eventmanager\" icon=\"gtk-execute\"><Label>Run Desktop Drive Icon Manager</Label></Item>${MOREITEMS}
+   <Item option=\"pmount_${diskCATEGORY}\" icon=\"gtk-harddisk\"><Label>Run Pmount Puppy Drive Mounter</Label></Item>
+   <Item option=\"eventmanager\" icon=\"gtk-execute\"><Label>Run Desktop Drive Icon Manager</Label></Item>
+   ${MOREITEMS}
   </AppMenu>
-</AppInfo>" > /root/.pup_event/drive_${ONEDRVNAME}/AppInfo.xml
+</AppInfo>" > /root/.pup_event/drive_${partNAME}/AppInfo.xml
 }
 
 legacy_floppies_func() {
 #v407 ls120/zip floppy drives are probed every 4 secs...
 #DRVS_FLOPPY="`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d '/'`"
-LEG_FLOPPY=`ls /sys/block | grep 'fd[0-9]' | sort -r`
+local LEG_FLOPPY oneFD
+LEG_FLOPPY=`ls /sys/block | grep -e 'fd[0-9]*' | sort -r`
 if [ "$FD0ICON" = "true" ];then #see /etc/eventmanager
   #if [ -e /sys/block/fd0 ];then
-  for i in $LEG_FLOPPY ; do
-   PROBEDISK="/dev/$i|floppy|Legacy_floppy_drive
+  for oneFD in $LEG_FLOPPY ; do
+   PROBEDISK="/dev/$oneFD|floppy|Legacy_floppy_drive
 $PROBEDISK"
-   PROBEPART="/dev/$i|vfat|1440
+   PROBEPART="/dev/$oneFD|vfat|1440
 $PROBEPART"
   done
 #  fi
@@ -831,7 +884,7 @@ PROBEDISK=`echo "$PROBEDISK" | tr ' ' '\n'`
 
 probepart_func() {
 #PROBEPART="`probepart -k | grep -i -E '\|FAT.*|\|ext4|\|ntfs|\|msdos|\|vfat|\|ext2|\|ext3|\|iso9660|\|xfs|\|reiser'`"
-PROBEPART=`probepart -k | grep -v -i -E "none|swap|Ext'd|Extended"` #'geany
+PROBEPART=`probepart -k | grep -v -i -E "none|unknown|swap|Ext'd|Extended"` #'geany
 }
 
 definition_func() {
@@ -845,12 +898,12 @@ definition_func() {
 #  [ "`echo "$PROBEPART" | grep "$DRV_NAME"`" = "" ] && continue #precaution (such as CD not inserted).
 #  create_icon_func startup #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
 # done
-while read DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
+while read diskNAME diskCATEGORY DRV_DESCRIPTION
 do
-[ "$DRV_NAME" -a "$DRV_CATEGORY" -a "$DRV_DESCRIPTION" ] || continue
-echo "$DRV_NAME $DRV_CATEGORY $DRV_DESCRIPTION"
-[ "`echo "$PROBEPART" | grep "$DRV_NAME"`" ] || continue #precaution (such as CD not inserted).
-create_icon_func startup #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
+[ "$diskNAME" -a "$diskCATEGORY" -a "$DRV_DESCRIPTION" ] || continue
+echo "$diskNAME $diskCATEGORY $DRV_DESCRIPTION"
+[ "`echo "$PROBEPART" | grep "$diskNAME"`" ] || continue #precaution (such as CD not inserted).
+create_icon_func startup $diskNAME $diskCATEGORY "$DRV_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
 done<<EOI
 $(echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | sed 's%^/dev/%%' | tr ' ' '_' | tr '|' ' ')
 EOI
@@ -863,7 +916,7 @@ drive_icon_func() {
 mkdir -p /root/.pup_event
 
 #build the desktop icons...
-DRV_CATEGORY='drive'
+diskCATEGORY='drive'
 #PROBEDISK="`probedisk2`"
 probedisk_func
 #v407 ls120/zip floppy drives are probed every 4 secs...
@@ -873,10 +926,10 @@ DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d
 DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'`
 if [ "$ICONDESK" = "false" ];then
  #only show a single 'drives' icon on desktop...
- DRV_NAME='drives'
- DRV_CATEGORY='any' #see pmount.
+ diskNAME='drives'
+ diskCATEGORY='any' #see pmount.
  DRV_DESCRIPTION="all drives"
- create_icon_func #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+ create_icon_func $diskNAME $diskCATEGORY "$DRV_DESCRIPTION" # needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
 else
  #show all drives on desktop... w476 add ext4...
  #PROBEPART="`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`"
@@ -920,9 +973,9 @@ hotplug_prove_func
 
 TOGGLE=1
 SAVECNT=0
-MOUSECNT=0 #w007
+MOUSECNT=0  #w007
 MINUTECNT=0 #w007
-CURPOS1="" #w007
+CURPOS1=""  #w007
 echo -n "" > /tmp/pup_event_frontend_d_curpos.log #w007
 
 pup_event_frontend_d_main() {
@@ -934,11 +987,11 @@ do
 
  #graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  #[ -f /tmp/wmexitmode.txt ] && break
- [ -f /tmp/wmexitmode.txt ] && exit  ##+++2011_10_28 test
+ [ -f /tmp/wmexitmode.txt ] && break  ##+++2011_10_28 test
 
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
- ls -1 /sys/block | grep -v 'ram|nbd|loop|md|mtd' >/tmp/pup_event_frontend_block2
+ ls -1v /sys/block | grep -v 'ram|nbd|loop|md|mtd' >/tmp/pup_event_frontend_block2
  if [ -f /tmp/pup_event_frontend_block_request ];then #w015
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
@@ -947,47 +1000,49 @@ do
   rm -f /tmp/pup_event_frontend_block_request
  fi
  [ -f /tmp/pup_event_frontend_block1 ] || cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF="`diff /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
+ BLOCKDIFF="`diff -u /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
 
  #########hotplug block event##########
  if [ "$BLOCKDIFF" ]; then
 
   cp -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-  BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
-  BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  #BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  BLOCKSADD=`echo "$BLOCKDIFF" | grep '^\+[[:alpha:]].*' | tr -d '\+'`
+  #BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
+  BLOCKSREM=`echo "$BLOCKDIFF" | grep '^\-[[:alpha:]].*' | tr -d '\-'`
 
   ACTION=add
   SUBSYSTEM=block
   DEVTYPE=disk
-  for DRV_NAME in $BLOCKSADD
+  for diskNAME in $BLOCKSADD
   do
-   [ -e /sys/block/$DRV_NAME ] || continue #precaution
-   DEVPATH=/block/$DRV_NAME
-   odPATTERN='^/dev/'"$DRV_NAME"'|'
+   [ -e /sys/block/$diskNAME ] || continue #precaution
+   DEVPATH=/block/$diskNAME
+   odPATTERN='^/dev/'"$diskNAME"'|'
    PROBEDISK=`probedisk2`
    DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
    DRVS_FLOPPY="`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d '/'`" #update
-   DRV_CATEGORY="`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`"
+   diskCATEGORY="`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`"
    DRV_DESCRIPTION=`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 3 -d '|' | tr -s ' '`
-   [ "$ICONDESK" = "true" ] && create_icon_func #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
-   [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${DRV_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
+   [ "$ICONDESK" = "true" ] && create_icon_func $diskNAME $diskCATEGORY "$DRV_DESCRIPTION" # uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
+   [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${diskNAME}/AppRun ${diskCATEGORY} & #h andler script.
   done
 
   ACTION=remove
-  for DRV_NAME in $BLOCKSREM
+  for diskNAME in $BLOCKSREM
   do
-   #[ -e /sys/block/$DRV_NAME ] && continue #precaution. w015 must remove.
-   DRVS_OPTICAL=`echo "$DRVS_OPTICAL" | grep -v "$DRV_NAME"` #update
-   DRVS_FLOPPY="`echo "$DRVS_FLOPPY" | grep -v "$DRV_NAME"`" #update
-   DEVPATH=/block/$DRV_NAME
-   if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
+   #[ -e /sys/block/$DRV_NAME ] && continue # precaution. w015 must remove.
+   DRVS_OPTICAL=`echo "$DRVS_OPTICAL" | grep -v "$diskNAME"` #update
+   DRVS_FLOPPY="`echo "$DRVS_FLOPPY" | grep -v "$diskNAME"`" #update
+   DEVPATH=/block/$diskNAME
+   if [ "`pidof gtkdialog_pmount`" != "" ];then # if pmount running, refresh it.
     killall gtkdialog_pmount 2>/dev/null
     sleep 0.1
     pmount &
    fi
-   remove_pinboard_func #needs DRV_NAME
-   rm -rf /root/.pup_event/drive_${DRV_NAME}*
+   remove_pinboard_func $diskNAME # needs DRV_NAME
+   rm -rf /root/.pup_event/drive_${diskNAME}*
   done
 
  fi
@@ -1057,16 +1112,16 @@ $PIDPROG"
  esac
  [ "$ICONDESK" = "false" ] && continue #v405 see /etc/eventmanager
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
- for ONEOPTICAL in $DRVS_OPTICAL
+ for oneOPTICAL in $DRVS_OPTICAL
  do
-  [ "$ONEOPTICAL" ] || continue #precaution
-  probe_optical_func $ONEOPTICAL
+  [ "$oneOPTICAL" ] || continue #precaution
+  probe_optical_func $oneOPTICAL
  done
  #v407 poll to see if a ls120 or zip floppy diskette inserted...
- for ONEFLOPPY in $DRVS_FLOPPY
+ for oneFLOPPY in $DRVS_FLOPPY
  do
-  [ "$ONEFLOPPY" ] || continue #precaution
-  probe_floppy_func $ONEFLOPPY
+  [ "$oneFLOPPY" ] || continue #precaution
+  probe_floppy_func $oneFLOPPY
  done
 
  if test -f /tmp/pup_event_icon_change_flag ; then
@@ -1074,21 +1129,21 @@ $PIDPROG"
   #if [ "$ICONWIPE" = "ICONWIPE" ] ; then
   #clean_desk_icons
   screen_start_func
-  Floppies=`ls /sys/block | grep 'fd[0-9]' | sort -r`  #`mut drivelist | grep -o fd[0-9]`
+  Floppies=`ls -1v /sys/block | grep -e 'fd[0-9]*' | sort -r`  #`mut drivelist | grep -o fd[0-9]`
   #Partitions=`probepart | grep -v 'none' | grep -v 'swap' | grep -v 'sr' | cut -f 1 -d '|' | cut -f 3 -d '/'`
   #Usbdrives=`probedisk2 | grep 'usb' | cut -f 1 -d '|' | cut -f 3 -d '/'`
   #Usbpartit=`echo "$Partitions" | grep $Usbdrives`
-  Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^mmc' | sort -r`
+  Drives=`ls -1v /sys/block | grep -E '^sd|^hd|^sr|^mmc' | sort -r`
   #OpticalDrives=`ls /sys/block | grep '^sr'`
   if [ "$Drives" ]; then #&&
-  for DRV_NAME in $Drives; do
+  for diskNAME in $Drives; do
   #icon_remove_func $i;
-  remove_pinboard_func ; done ; i=0; fi
+  remove_pinboard_func $diskNAME; done ; i=0; fi
 
   if [ "$Floppies" ]; then # &&
-  for DRV_NAME in $Floppies; do
+  for diskNAME in $Floppies; do
   #icon_remove_func $i ;
-  remove_pinboard_func ;done; i=0; fi
+  remove_pinboard_func $diskNAME; done; i=0; fi
 
   sleep 1
   jwm_taskbar_func
@@ -1131,4 +1186,5 @@ done #2 second loop.
 pup_event_frontend_d_main
 ;;
 esac
+echo "$0:Stopped."
 ###END###
