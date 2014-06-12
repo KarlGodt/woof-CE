@@ -22,19 +22,23 @@ OPTION="$1"
 echo "DBG \$1='$1' OPTION='$OPTION'"
 [ "$OPTION" = "" ] && OPTION="--help"
 if [ "$OPTION" != "--help" ];then
- [ ! -p /tmp/${SVCNAME}_pipe ] && mkfifo /tmp/${SVCNAME}_pipe
+ [ -p /tmp/${SVCNAME}_pipe ] || { mkfifo /tmp/${SVCNAME}_pipe  || exit 1; }
 fi
 
 
 claim_resource_entity_func() {
 echo DBG claim_resource_entity_func START $1
  #Requires OPTION, SVCNAME, and argument:  M(odule), R(eplaced module), U(sbserial dependent), F(irmware), S(nd-card), D(evice_major_number), L(ock).
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { mkfifo /tmp/${SVCNAME}_pipe-$PPID || return 1; }
  RESOURCE="$1"
  ENTITY="`echo "$OPTION" | cut -f 2 -d '='`"
  modprobe -l | grep -w "$ENTITY" || return 2
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
+ test -p /tmp/${SVCNAME}_pipe || return 3
+ test -w /tmp/${SVCNAME}_pipe || return 3
  echo "add $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
+ test -p /tmp/${SVCNAME}_pipe-$PPID || return 4
+ test -r /tmp/${SVCNAME}_pipe-$PPID || return 4
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
 #  echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
  [ "$RESOURCE" != "L" ] && rm /tmp/${SVCNAME}_pipe-$PPID
@@ -48,9 +52,13 @@ echo DBG claim_resource_entity_func START $1
 
 check_firmware_count_func() {
  #Requires SVCNAME
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { mkfifo /tmp/${SVCNAME}_pipe-$PPID || return 1; }
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
+ test -p /tmp/${SVCNAME}_pipe || return 3
+ test -w /tmp/${SVCNAME}_pipe || return 3
  echo "testzero $PPID F null" >/tmp/${SVCNAME}_pipe
+ test -p /tmp/${SVCNAME}_pipe-$PPID || return 4
+ test -r /tmp/${SVCNAME}_pipe-$PPID || return 4
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
 #  echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
  [ "`echo "$REPLY" | cut -f 2-4 -d ' '`" != "$PPID F null" ] \
@@ -61,12 +69,16 @@ check_firmware_count_func() {
 
 check_entity_claimed_func() {
  #Requires OPTION, SVCNAME, and argument:  M(odule), F(irmeare), S(nd-card), D(evice_major_number), L(ock).
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { mkfifo /tmp/${SVCNAME}_pipe-$PPID || return 1; }
  RESOURCE="$1"
  ENTITY="`echo "$OPTION" | cut -f 2 -d '='`"
  modprobe -l | grep -w "$ENTITY" || return 2
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
+ test -p /tmp/${SVCNAME}_pipe || return 3
+ test -w /tmp/${SVCNAME}_pipe || return 3
  echo "check $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
+ test -p /tmp/${SVCNAME}_pipe-$PPID || return 4
+ test -r /tmp/${SVCNAME}_pipe-$PPID || return 4
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
 #  echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
  rm /tmp/${SVCNAME}_pipe-$PPID
@@ -113,7 +125,7 @@ case $OPTION in
 
  --modcheck=usbserial)
 
-  [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+  [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { mkfifo /tmp/${SVCNAME}_pipe-$PPID || exit 1; }
   RESOURCE="U"
   ENTITY="usbserial"
   modprobe -l | grep -w "$ENTITY" || return 2
@@ -121,7 +133,11 @@ case $OPTION in
   MAXRETRIES=60; RETRIES=0
   while true;do
    [ $RETRIES -ge $MAXRETRIES ] && break
+   test -p /tmp/${SVCNAME}_pipe || return 3
+   test -w /tmp/${SVCNAME}_pipe || return 3
    echo "checkgroup $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
+   test -p /tmp/${SVCNAME}_pipe-$PPID || return 4
+   test -r /tmp/${SVCNAME}_pipe-$PPID || return 4
    read REPLY </tmp/${SVCNAME}_pipe-$PPID
    echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
    [ "`echo "$REPLY" | cut -f 2-4 -d ' '`" != "$PPID $RESOURCE $ENTITY" ] \
@@ -141,6 +157,7 @@ case $OPTION in
   elif [ $RETRIES -gt 0 ];then
    echo "DEBUG ($PPID): Loading of usbserial-dependent module(s) required wait of '$RETRIES' seconds" >> /tmp/${SVCNAME}.log
   fi
+
   echo "$0: '$*' exiting with STATUS '$STATUS'" >/tmp/${SVCNAME}.log
   echo "$0: '$*' exiting with STATUS '$STATUS'"
   exit $STATUS
@@ -172,6 +189,8 @@ case $OPTION in
   exit $?
   ;;
  --fwdone)
+  test -p /tmp/${SVCNAME}_pipe || exit 1
+  test -w /tmp/${SVCNAME}_pipe || exit 1
   echo "decrement $PPID F null" >/tmp/${SVCNAME}_pipe
   exit 0
   ;;
@@ -219,6 +238,8 @@ case $OPTION in
   ;;
  --unlock=*)
   ENTITY="`echo "$OPTION" | grep '=' | cut -f 2 -d '='`"
+  test -p /tmp/${SVCNAME}_pipe || exit 1
+  test -w /tmp/${SVCNAME}_pipe || exit 1
   [ "$ENTITY" != "" ] \
    && echo "delete $PPID L $ENTITY" >/tmp/${SVCNAME}_pipe
   exit 0
@@ -226,8 +247,12 @@ case $OPTION in
  --dump)
   [ `ps -C pup_event_backend_modprobe_protect | grep -c ''` -gt 3 ] \
    || exit 1
-  [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+  [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { mkfifo /tmp/${SVCNAME}_pipe-$PPID || exit 1; }
+  test -p /tmp/${SVCNAME}_pipe || exit 1
+  test -w /tmp/${SVCNAME}_pipe || exit 1
   echo "dump $PPID" >/tmp/${SVCNAME}_pipe
+  test -p /tmp/${SVCNAME}_pipe-$PPID || exit 1
+  test -r /tmp/${SVCNAME}_pipe-$PPID || exit 1
   read REPLY </tmp/${SVCNAME}_pipe-$PPID
   rm /tmp/${SVCNAME}_pipe-$PPID
   [ "`echo "$REPLY" | cut -f 2 -d ' '`" != "$PPID" ] \
@@ -238,6 +263,8 @@ case $OPTION in
  --stop)
 
   if [ -n "`/bin/ps-FULL -C "$SVCNAME" | sed '1 d'`" ] ; then  ##+++2011-11-10 added if check
+  test -p /tmp/${SVCNAME}_pipe || exit 1
+  test -w /tmp/${SVCNAME}_pipe || exit 1
   echo "quit" >/tmp/${SVCNAME}_pipe & ##+2011-11-10 added '&' to prvent program hang
   ##2011-11-10 remark : echo > pipe does not delete the entry(s) in the pipe but gets added
   ##2011-11-10 remark : underneath the last entry
@@ -264,7 +291,10 @@ case $OPTION in
   COUNTF=0
 
   while true; do
+   test -p /tmp/${SVCNAME}_pipe || break
+   test -r /tmp/${SVCNAME}_pipe || break
    REQUESTS="`cat </tmp/${SVCNAME}_pipe`"
+   test $? = 0 || break
    while true;do
     REQUEST=`echo "$REQUESTS" | head -n 1`
     read ACTION CLIENTID RESOURCE ENTITY <<<$REQUEST
@@ -416,6 +446,8 @@ exit $HELP##+2011-11-10
   echo "DEBUG ($PPID): Invalid option '$OPTION'" >> /tmp/${SVCNAME}.log  # Should not be executed.
   echo "($SVCNAME): Invalid option '$OPTION' :: TRY '--help'"  ##+2011-11-10
   if [ -n "`/bin/ps-FULL -C "$SVCNAME" | sed '1 d'`" ] ; then  ##+++2011-11-10 added if check
+  test -p /tmp/${SVCNAME}_pipe || exit 1
+  test -w /tmp/${SVCNAME}_pipe || exit 1
   echo "quit" >/tmp/${SVCNAME}_pipe & ##+2011-11-10 added '&' to prvent program hang
   ##2011-11-10 remark : echo > pipe does not delete the entry(s) in the pipe but gets added
   ##2011-11-10 remark : underneath the last entry
