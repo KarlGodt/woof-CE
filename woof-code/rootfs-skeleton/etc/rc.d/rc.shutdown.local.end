@@ -3,14 +3,14 @@
 PROG='/etc/rc.d/rc.shutdown.local.end'
 
 if [ "$0" != "/etc/rc.d/rc.shutdown" ] ; then
-echo -e "\e[1;34m""STARTING $PROG from $0""\e[0;39m"
+ echo -e "\e[1;34m""STARTING $PROG from $0""\e[0;39m"
 else
-echo -e "\e[1;35m""STARTING $0"'.local.end'"\e[0;39m"
+ echo -e "\e[1;35m""STARTING $0"'.local.end'"\e[0;39m"
 fi
 sleep 2
 echo
 
-end_msg(){
+_end_msg(){
 if [ "$0" != "/etc/rc.d/rc.shutdown" ] ; then
 echo -e "\e[1;34m""ENDING $PROG from $0""\e[0;39m"
 else
@@ -21,118 +21,118 @@ sleep 5
 #sleep 15s
 }
 
-mount | grep -w '/' | grep -w 'ro' && { end_msg; return || exit;}
+mount | grep -Fw '/' | grep -w 'ro' && { _end_msg; return || exit;}
 
 if [ -z "$PUPMODE" ] ; then
-echo 'PUPMODE='"$PUPMODE"
+ echo "PUPMODE='$PUPMODE'"
 [ -f /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE
-echo 'PUPMODE='"$PUPMODE"
+ echo "PUPMODE='$PUPMODE'"
 fi
 
-create_fsckme_func(){
+_create_fsckme_func(){
 #PART=`busybox rdev | sed 's#\ .*## ; s#/dev/##'`
 
-if [ -d /initrd ] && [ "$PUPMODE" != "2" ] ; then
-PART=`basename $(df | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 1 -d ' ')`
-FS=`mount | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 5 -d ' '`
-#HOST=`mount | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 1 -d ' '`
-echo "$PART"','"$FS"',' > /initrd/pup_rw/etc/.fsckme.flg
-echo "$PART"','"$FS"',' > /initrd/mnt/dev_save/fsckme.flg
+if [ -d /initrd ] && [ "$PUPMODE" != "2" ]; then
+ PART=`basename $(df | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 1 -d ' ')`
+ FS=`mount | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 5 -d ' '`
+ #HOST=`mount | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 1 -d ' '`
+ echo "$PART"','"$FS"',' > /initrd/pup_rw/etc/.fsckme.flg
+ echo "$PART"','"$FS"',' > /initrd/mnt/dev_save/fsckme.flg
 
-else
-if [ "$PUPMODE" = "2" ] ; then
-PART=`basename $(busybox rdev | sed 's#\ .*##') |tr -d '/'`
-FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
-echo "$PART"','"$FS"',' > /etc/fsckme.flag
-fi
+elif [ "$PUPMODE" = "2" ]; then
+ PART=`basename $(busybox rdev | sed 's#\ .*##') |tr -d '/'`
+ FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
+ echo "$PART"','"$FS"',' > /etc/fsckme.flag
+
 fi
 
 }
 #create_fsckme_func
 
-remove_fsckme_func(){
-find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+_remove_fsckme_func(){
+find / -maxdepth 3 -type f -iname "*fsckme*" -delete
 }
-remove_fsckme_func
+_remove_fsckme_func
 
 
 
-unmount_func(){
+_unmount_func(){
 echo 'Still mounted :'
 mount
 echo
 if [ "$PUPMODE" = 2 ] ; then
-#M=`mount | cut -f 1 -d ' ' | grep '/dev/' | grep -v 'root'`
-M=`busybox mount`
-SFS=`echo "$M" | grep '\.sfs' | grep -v '*sysfs*' | tr -s ' ' | cut -f 1 -d ' '`
-for i in $SFS ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
-sleep 2.5
-ISO=`echo "$M" | grep '\.iso' | grep -v '\.sfs' | tr -s ' ' | cut -f 1 -d ' '`
-for i in $ISO ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
-sleep 2.5
+ #M=`mount | cut -f 1 -d ' ' | grep '/dev/' | grep -v 'root'`
+ M=`busybox mount`
+ SFS=`echo "$M" | grep '\.sfs' | grep -v '*sysfs*' | tr -s ' ' | cut -f 1 -d ' '`
+ for i in $SFS ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && { sleep 2; umount-FULL -v -d -r $i; }
+ done
 
-FOFS=`echo "$M" | grep '\.4fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
-for i in $FOFS ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
 sleep 2.5
+ ISO=`echo "$M" | grep '\.iso' | grep -v '\.sfs' | tr -s ' ' | cut -f 1 -d ' '`
+ for i in $ISO ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
+ done
 
-TRFS=`echo "$M" | grep '\.3fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
-for i in $TRFS ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
 sleep 2.5
+ FOFS=`echo "$M" | grep '\.4fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
+ for i in $FOFS ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
+ done
 
-TWFS=`echo "$M" | grep '\.2fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
-for i in $TWFS ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
 sleep 2.5
+ TRFS=`echo "$M" | grep '\.3fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
+ for i in $TRFS ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
+ done
 
-M=`busybox mount | cut -f 1 -d ' ' | grep '/dev/' | grep -v 'root'`
-for i in $M ; do
-echo "umounting $i"
-busybox umount -l $i
-ERR=$?
-[ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
-done
+sleep 2.5
+ TWFS=`echo "$M" | grep '\.2fs' | grep -v -E '/initrd/mnt/dev_rw|/initrd/pup_rw' | tr -s ' ' | cut -f 1 -d ' '`
+ for i in $TWFS ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
+ done
+
+sleep 2.5
+ M=`busybox mount | cut -f 1 -d ' ' | grep '/dev/' | grep -v 'root'`
+ for i in $M ; do
+ echo "umounting $i"
+ busybox umount -l $i
+ ERR=$?
+ [ "$ERR" != "0" ] && sleep 2 && umount-FULL -v -d -r $i
+ done
+
 sleep 5
 fi
+
 echo "Unmounting finished , mounted now :"
 mount
 echo
-
 }
-unmount_func
+_unmount_func
 
 
-del_mnt_func(){
-MNTD=`find /mnt -maxdepth 1 -type d -name "*+*"` #KRG
-for i in $MNTD; do  #KRG
-[ -z "`mount | grep "$i"`" ] && { echo "removing $i";rmdir "$i"; }  #KRG
-done  ##KRG
-
+_del_mnt_func(){
+ MNTD=`find /mnt -maxdepth 1 -type d -name "*+*"`
+ for i in $MNTD; do
+ [ -z "`mount | grep "$i"`" ] && { echo "removing $i";rmdir "$i"; }
+ done
 }
-#del_mnt_func
+#_del_mnt_func
 
 
 ########################################################################
