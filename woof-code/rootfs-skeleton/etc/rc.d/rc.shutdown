@@ -81,7 +81,35 @@
 #
 ########################################################################
 
-[ -f /etc/rc.d/rc.shutdown.local.startZero ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
+
+echo "Executing /etc/rc.d/rc.shutdown..."
+echo "FILESYSTEM STATE : "
+dumpe2fs `rdev` | grep -i 'state'
+echo
+
+[ -f /etc/rc.d/rc.shutdown.local.start0 ] && . /etc/rc.d/rc.shutdown.local.start0  ###KRG
+test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/functions4shutdown && source /etc/rc.d/functions4shutdown
+
+#variables created at bootup by init script in initrd...
+[ ! -f /etc/rc.d/PUPSTATE -a -f /etc/rc.d/PUPSTATE.prev ] && cp -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE && sleep 1  ###KRG
+
+test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE #v2.02
+Err=$?
+
+echo "PUPMODE='$PUPMODE'"
+if [ -z "$PUPMODE" ] ; then  ###KRG
+if [ -n "`rdev`"  ]; then
+echo 'rdev='`rdev`
+PUPMODE=2
+else ###KRG assuming 12
+PUPMODE=12
+fi
+echo "PUPMODE='$PUPMODE'"
+fi
+
 #v2.20b make shutdown less verbose...
 ###KRGclear
 ###KRGexec 1> /dev/null 2>&1
@@ -95,97 +123,82 @@ if [ "`which xorriso`" != "" ];then
 fi
 export CDRECORD MKISOFS
 
-#variables created at bootup by init script in initrd...
-[ ! -f /etc/rc.d/PUPSTATE ] && [ -f /etc/rc.d/PUPSTATE.prev ] && cp -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE && sleep 1  ###KRG
-
-. /etc/rc.d/PUPSTATE #v2.02
-Err=$?
-
-echo 'PUPMODE='"$PUPMODE"
-if [ -z "$PUPMODE" ] ; then  ###KRG
-if [ -n "`rdev`" -o -n "`busybox rdev`" ] ; then
-echo '        rdev='`rdev`
-echo 'busybox rdev='`busybox rdev`
-PUPMODE=2
-else ###KRG assuming 12
-PUPMODE=12
-fi
-fi
-
+[ -f /etc/puppyversion ] && PUPPYVERSION="`cat /etc/puppyversion`"  ###KRG added test ###is it needed here?? ##2011_10_27 /etc/puppyversion seems to be a quite old old conf file
 . /etc/DISTRO_SPECS #v412
 
-echo "${DISTRO_NAME} is now shutting down..." > /dev/console
+echo "${DISTRO_NAME} $DISTRO_VERSION is now shutting down..." > /dev/console
 
-if [ -f /etc/rc.d/rc.shutdown.local.startOne ] ; then  ###KRG&&
-. /etc/rc.d/rc.shutdown.local.startOne  ###KRG
-else
-[ -f /etc/rc.d/rc.shutdown.local.start ] && . /etc/rc.d/rc.shutdown.local.start  ###KRG
+if [ -f /etc/rc.d/rc.shutdown.local.start1 ]; then
+ . /etc/rc.d/rc.shutdown.local.start1
+elif [ -f /etc/rc.d/rc.shutdown.local.start ]; then
+ . /etc/rc.d/rc.shutdown.local.start
 fi
+
 ORIGPUPMODE=$PUPMODE #v2.22
 
-echo "Executing /etc/rc.d/rc.shutdown..."
-echo "FILESYSTEM STATE : "
-dumpe2fs `rdev` | grep -i 'state'
-echo
+#echo LINE 130 63  ###DBG
 
-PATH=/bin:/sbin:/usr/bin:/usr/sbin
-[ -f /etc/puppyversion ] && PUPPYVERSION="`cat /etc/puppyversion`"  ###KRG added test ###is it needed here?? ##2011_10_27 /etc/puppyversion seems to be a quite old old conf file
-echo LINE 130 63  ###DBG
 #v2.20 if ${DISTRO_FILE_PREFIX}rxxx.sfs is in a subdirectory, default to saving in it...
 PUPSFSFILE="`echo "$PUPSFS" | cut -f 3 -d ','`"
 PSUBDIR="`dirname "$PUPSFSFILE"`"
 [ "$PSUBDIR" = "/" ] && PSUBDIR=""
-echo LINE 135 68  ###DBG
+#echo LINE 135 68  ###DBG
+
 #for a full hd install, only setting PUPMODE (=2). no /initrd, no initrd.gz.
 
-. /etc/rc.d/functions4puppy #v3.01
-echo LINE 139 72  ###DBG
+. /etc/rc.d/functions4puppy #v3.01 #multisession functions
+#echo LINE 139 72  ###DBG
 
 [ -f /etc/rc.d/rc.shutdown.local.startTwo ] && . /etc/rc.d/rc.shutdown.local.startTwo
-killzombies() {
- ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
- for ONEZOMBIE in $ZOMBIES
- do
-  echo "Killing parentless zombie process $ONEZOMBIE"
-  kill $ONEZOMBIE
- done
-}
-echo LINE 150 81  ###DBG
-echo "END KILLZOMBIES"
+
+#killzombies() {
+# ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+# for ONEZOMBIE in $ZOMBIES
+# do
+#  echo "Killing parentless zombie process $ONEZOMBIE"
+#  kill $ONEZOMBIE
+# done
+#}
+
+#echo LINE 150 81  ###DBG
+#echo "END KILLZOMBIES"
+
 #v2.02 dougal contributed this...
 choosesizefunc(){
- local KFREE SIZELIST NUM CHOICES FLABEL SLABEL ACHOICE KSIZE
- KFREE=$1 ; SIZELIST="" ; NUM=1 ; CHOICES=""
- FLABEL="`expr $KFREE \/ 1024`MB"
- [ $KFREE -ge 1048576 ] && FLABEL="`dc $KFREE 1048576 \/ p`GB"
- for ACHOICE in 32 64 128 256 512 768 1024 1280
+ local kFREE SIZELIST NUM CHOICES fLABEL sLABEL aCHOICE kSIZE
+ kFREE=$1 ; SIZELIST="" ; NUM=1 ; CHOICES=""
+ fLABEL="`expr $kFREE \/ 1024`MB"
+ [ $kFREE -ge 1048576 ] && fLABEL="`dc $kFREE 1048576 \/ p`GB"
+ for aCHOICE in 32 64 128 256 512 768 1024 1280
  do
-  KSIZE=`expr $ACHOICE \* 1024`
-  SLABEL="${ACHOICE}MB"
-  [ $ACHOICE -ge 1024 ] && SLABEL="`dc $ACHOICE 1024 \/ p`GB"
-  if [ $KSIZE -lt $KFREE ];then
-   SIZELIST="$SIZELIST$NUM $SLABEL "
-   CHOICES="$CHOICES$KSIZE "
+  kSIZE=`expr $aCHOICE \* 1024`
+  sLABEL="${aCHOICE}MB"
+  [ $aCHOICE -ge 1024 ] && sLABEL="`dc $aCHOICE 1024 \/ p`GB"
+  if [ $kSIZE -lt $kFREE ];then
+   SIZELIST="$SIZELIST$NUM $sLABEL "
+   CHOICES="$CHOICES$kSIZE "
   else
-   SIZELIST="$SIZELIST$NUM fill_partition(${FLABEL}) "
-   CHOICES="$CHOICES$KFREE "
+   SIZELIST="$SIZELIST$NUM fill_partition(${fLABEL}) "
+   CHOICES="$CHOICES$kFREE "
    break
   fi
   NUM=`expr $NUM + 1`
  done
  dialog --no-collapse --no-cancel --default-item "5" --menu "Please choose the size you would like for the personal save file.\nNote, 512M is good choice, or highest if that not available.\nSelect choice, then press ENTER key..." 0 0 0 $SIZELIST >/dev/console 2>/tmp/sizetag.txt
  NUM=`cat /tmp/sizetag.txt`
- ACHOICE=`echo -n "$CHOICES" | cut -f $NUM -d ' '`
+ aCHOICE=`echo -n "$CHOICES" | cut -f $NUM -d ' '`
  #return $ACHOICE
- SIZEPFILE=$ACHOICE #global variable.
-} # end of choosesizefunc()
-echo LINE 179 110  ###DBG
+ SIZEPFILE=$aCHOICE #global variable.
+} # end of choosesizefunc
+
+#echo LINE 179 110  ###DBG
+
 pupsavefunc() {
  #v2.02 ntfs uses /dev/fuse so '/dev/$SAVEPART' no good for grep...
  SMNTPT="`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
  #[ "$SMNTPT" = "" ] && SMNTPT="`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
- [ "$SMNTPT" = "" ] && SMNTPT="`ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`"
-echo LINE 116  ###DBG
+ [ "$SMNTPT" = "" ] && SMNTPT="`_command ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`"
+#echo LINE 116  ###DBG
  if [ "$SMNTPT" = "" ];then
   #v2.02 was mntg on /tmp/savepup, but if error and not unmounted, contents
   #of /tmp gets deleted, wiping entire partition!!!
@@ -193,7 +206,7 @@ echo LINE 116  ###DBG
   mount -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART #/tmp/savepup
   SMNTPT="/mnt/$SAVEPART" #"/tmp/savepup"
  fi
-echo LINE 193 124  ###DBG
+#echo LINE 193 124  ###DBG
  #v2.15 after forum discussion, trying this. if SAVEFS is ext3 or reiserfs (journalled f.s.)
  # then make our ${DISTRO_FILE_PREFIX}save also an ext3 f.s...
  #v2.16exp3 now have writable compressed ext2, not work ext3, so always use ext2...
@@ -207,7 +220,7 @@ echo LINE 193 124  ###DBG
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  #fi
  NAMEONLY="`basename $SAVEFILE`"
-echo LINE 207 138  ###DBG
+#echo LINE 207 138  ###DBG
  #v2.21 customise the name of the ${DISTRO_FILE_PREFIX}save file...
  MYUSERNAME="`dialog --stdout --nocancel --inputbox "Would you like to customise the name
 of the '${DISTRO_FILE_PREFIX}save.${SFEXT}' file?
@@ -225,7 +238,7 @@ then press ENTER key:" 0 0 ""`"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
-echo LINE 225 156  ###DBG
+#echo LINE 225 156  ###DBG
  CRYPTO=""
  dialog --extra-button --ok-label "NORMAL (no encryp.)" --cancel-label "Heavy encrypted" --extra-label "Light encrypted" --yesno "Do you want to encrypt the $NAMEONLY file?
 If the '${DISTRO_FILE_PREFIX}save' is encrypted, then a password will have to be entered
@@ -275,7 +288,7 @@ entered at every bootup." 0 0`"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
  MNAMEONLY="`basename $SAVEFILE .${SFEXT}`"
-echo LINE 206  ###DBG
+#echo LINE 206  ###DBG
  #fitzhugh found this problem...
  #v2.10 Dougal provided code to save with different name...
  if [ -f $SMNTPT$SAVEFILE ]; then
@@ -293,7 +306,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   NAMEONLY="`basename $SAVEFILE`"
  fi
-echo LINE 293 224  ###DBG
+#echo LINE 293 224  ###DBG
  #we should check to see that there is enough space on the partition...
  PARTFREE=`df | grep "$SMNTPT" | tr -s " " | head -n 1 | cut -f 4 -d " "`
  [ ! $PARTFREE ] && PARTFREE=0
@@ -306,7 +319,7 @@ echo LINE 293 224  ###DBG
  if [ ! "`echo -n $SAVEFILE | grep '\.3fs'`" = "" ];then #ext3 f.s. needs minimum size.
   [ $SIZEPFILE -lt 5000 ] && return 1 #precaution. rerwin discovered this.
  fi
-echo LINE 306 237  ###DBG
+#echo LINE 306 237  ###DBG
  #v2.20
  SAVEPATH="`dirname $SAVEFILE`"
  if [ ! -d ${SMNTPT}${SAVEPATH} ];then
@@ -314,7 +327,7 @@ echo LINE 306 237  ###DBG
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   SAVEPATH="/"
  fi
-echo LINE 314 245  ###DBG
+#echo LINE 314 245  ###DBG
  #v2.02,v2.13 final sanity check...
  AAAFS="ext3"
  [ "$SFEXT" = "2fs" ] && AAAFS="ext2"
@@ -348,8 +361,8 @@ echo LINE 314 245  ###DBG
   fi
  done
  [ -f ${SMNTPT}${SAVEPATH} ] && return 1 #abort. must be a directory.
- [ ! -d ${SMNTPT}${SAVEPATH} ] && mkdir ${SMNTPT}${SAVEPATH}
- [ ! -d ${SMNTPT}${SAVEPATH} ] && return 1 #some kind of error, abort.
+ [ -d ${SMNTPT}${SAVEPATH} ] || mkdir ${SMNTPT}${SAVEPATH}
+ [ -d ${SMNTPT}${SAVEPATH} ] || return 1 #some kind of error, abort.
 
  JOPT=""
  [ "$SAVEPART" = "fd0" ] && SIZEPFILE=`expr $SIZEPFILE - 16`
@@ -380,7 +393,9 @@ echo LINE 314 245  ###DBG
  pidof sync || sync
  return 0
 } #end pupsavefunc
-echo LINE 380 311  ###DBG
+
+#echo LINE 380 311  ###DBG
+
 choosepartfunc() {
  #dialog to choose what partition to create ${DISTRO_FILE_PREFIX}save.2fs on...
  [ ! "$PMEDIA" ] && PCHOOSE="yes"
@@ -393,6 +408,7 @@ choosepartfunc() {
  [ "$DEV1FS" = "ntfs" ] && PCHOOSE="yes"
  [ "$DEV1FS" = "msdos" ] && DEV1FS="vfat" #v2.14
  [ "$DEV1FS" = "xxx" ] && PCHOOSE="yes" #v2.16.1
+
  if [ "$PSAVEMARK" != "" ];then #v3.97 see /etc/rc.d/PUPSTATE
   devnameonly="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//'`"
   SAVEPART="${devnameonly}${PSAVEMARK}" #partition that will-have ${DISTRO_FILE_PREFIX}save.
@@ -400,20 +416,23 @@ choosepartfunc() {
   SAVEFS="`probepart -m | grep "$spPATTERN" | cut -f 2 -d '|'`"
   SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
-  return 0
+  test "$devnameonly" -a "$SAVEFS" && return 0
  fi
+
  if [ "$PCHOOSE" != "yes" ];then
   SAVEFS="$DEV1FS"
   SAVEPART="$PDEV1"
   SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs" #v2.13 was .3fs
   PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
-  return 0
+  test "$PDEV1" -a "$DEV1FS" && return 0
  fi
+
  if [ ! "`lsmod | grep '^usb'`" = "" ];then
   FDMSG1="NOTE: cannot save to floppy disk on this PC, USB allowed."
  else
   FDMSG1="NOTE: no USB interface this PC, but can save to floppy disk."
  fi
+
  dialog --colors --msgbox "\Z1WARNING: If you want to create a save-file (${DISTRO_FILE_PREFIX}save.2fs) in a NTFS
 partition (Windows XP), it is strongly recommended that you defragment
 the partition first. Press ESC key to abort this save, start Windows
@@ -547,15 +566,18 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
  PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  return 0
 } #end choosepartfunc
-echo LINE 547 478  ###DBG
+
+#echo LINE 547 478  ###DBG
+
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
 while [ ! "`pidof snapmergepuppy | grep '[0-9]'`" = "" ];do
  a=$(( $a + 1 ))
- echo 'snapmergepuppy still running'"$a"
+ echo 'snapmergepuppy still running :'"$a"
  sleep 1
 done
 killall savepuppyd
-echo "HALF PART OF RC.SHUTDOWN"  ###DBG
+#echo "HALF PART OF RC.SHUTDOWN"  ###DBG
+
 ##rc.local0 can read this...
 #setvol 0 | tr "\n" " " > /etc/.mixervolume
 ##v2.10 instead, probably do it this way...
@@ -573,7 +595,7 @@ echo "HALF PART OF RC.SHUTDOWN"  ###DBG
 /etc/rc.d/rc.network stop
 # quick hack, maybe shutdown problem if ath_pci left loaded...
 [ "`lsmod | grep '^ath_pci'`" != "" ] && rmmod ath_pci
-echo LINE 573 502  ###DBG
+#echo LINE 573 502  ###DBG
 cd /
 pidof sync || sync
 #just a precaution...
@@ -582,20 +604,23 @@ killall -9 X > /dev/null 2>&1
 sleep 1
 killall -3 X > /dev/null 2>&1
 pidof sync || sync
-echo LINE 582 511  ###DBG
+#echo LINE 582 511  ###DBG
 #MU warns may need to do this for dillo...
 killall file.dpi 2>/dev/null
 killall bookmarks.dpi 2>/dev/null
 killall dpid 2>/dev/null
-echo LINE 587 516  ###DBG
+#echo LINE 587 516  ###DBG
+
 #v2.16 some packages have a service script that requires stopping...
 for service_script in /etc/init.d/*
 do
   [ -f $service_script -a -x $service_script ] && $service_script stop
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
-echo LINE 594 523  ###DBG
-pcmcia_func() {
+#echo LINE 594 523  ###DBG
+
+_unload_pcmcia()
+{
 #v3.97 deprecated, for pcmcia-cs package...
 if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
  if [ "`lsmod | grep -E '^i82092|^tcic|^i82365|^yenta_socket'`" != "" ];then
@@ -618,14 +643,15 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
    done
   fi
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
-  /sbin/rmmod tcic 2>/dev/null || /sbin/rmmod i82365 2>/dev/null || /sbin/rmmod yenta_socket 2>/dev/null || /sbin/rmmod i82092 2>/dev/null
+  /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
   echo "done."
   rm -f /var/lock/subsys/pcmcia
  fi
 fi
 }
-pcmcia_func
-echo "PCMCIA END"  ###DBG
+#pcmcia_func
+_unload_pcmcia
+#echo "PCMCIA END"  ###DBG
 
 pupmode_5_func() {
 #first time booted puppy, there may not have been any persistent storage.
@@ -710,7 +736,8 @@ Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
   esac
 fi #end ifpupmode5
 }
-pupmode_5_func
+#pupmode_5_func
+_pupmode5
 echo "END IF PUPMODE 5" #DBG
 
 #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
@@ -770,7 +797,8 @@ swapfile_func() {
   fi
  fi
 } #end swapfile_func
-echo "SWAPFILE FUNC END" #DBG
+#echo "SWAPFILE FUNC END" #DBG
+
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
  SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
@@ -778,41 +806,50 @@ if [ "$PUPSAVE" != "" ];then
  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
+_ask_serial()
+{
 #v3.02 ask about serial devices... v404 removed...
-#if [ $PUPMODE -eq 32 -o $PUPMODE -eq 128 ];then #saving
-# dialog --yesno "Just before the session is saved, a quick question:
-#${DISTRO_NAME} probes for serial mouse and serial modem at startup,
-#but this does slow the bootup-time. If you have neither of
-#these, and never will, answer no here to speedup startup.
-#
-#Note, a serial mouse is likely to only be on an older PC,
-#and is recognised by a largish rectangular plug.
-#
-#You may have a serial modem if you are on Internet dialup
-#(not broadband). Answering <No> here will only turn off
-#detection of true serial modems and ${DISTRO_NAME} will still
-#detect many types of internal software modems.
-#
-#Note also, you can turn serial probing at bootup on and off
-#in the BootManager (see System menu).
-#
-#Choose <Yes> (just press ENTER) to keep serial probing...
-#Choose <No> (TAB then ENTER) to bypass serial probing..." 0 0 >/dev/console
-# if [ $? -eq 0 ];then
-#  sed -e 's/BYPASSSERIALPROBING=yes/BYPASSSERIALPROBING=no/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-# else
-#  sed -e 's/BYPASSSERIALPROBING=no/BYPASSSERIALPROBING=yes/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-# fi
-# mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
-#fi
+if [ $PUPMODE -eq 32 -o $PUPMODE -eq 128 ];then #saving
+ dialog --yesno "Just before the session is saved, a quick question:
+${DISTRO_NAME} probes for serial mouse and serial modem at startup,
+but this does slow the bootup-time. If you have neither of
+these, and never will, answer no here to speedup startup.
+
+Note, a serial mouse is likely to only be on an older PC,
+and is recognised by a largish rectangular plug.
+
+You may have a serial modem if you are on Internet dialup
+(not broadband). Answering <No> here will only turn off
+detection of true serial modems and ${DISTRO_NAME} will still
+detect many types of internal software modems.
+
+Note also, you can turn serial probing at bootup on and off
+in the BootManager (see System menu).
+
+Choose <Yes> (just press ENTER) to keep serial probing...
+Choose <No> (TAB then ENTER) to bypass serial probing..." 0 0 >/dev/console
+ if [ $? -eq 0 ];then
+  sed -e 's/BYPASSSERIALPROBING=yes/BYPASSSERIALPROBING=no/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
+ else
+  sed -e 's/BYPASSSERIALPROBING=no/BYPASSSERIALPROBING=yes/' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
+ fi
+ mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+fi
+}
 
 ###KRGclear >/dev/console
 
+_out0()
+{
 #save session...
 case $PUPMODE in
- 3) #PDEV1.
-   echo "Saving session to $PDEV1..." >/dev/console
-   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
+ 5) #v2.02 first boot. Saving session not chosen.
+  echo "Session not saved" >/dev/console
+  pidof sync || sync
+  #ha ha, before had this, if aborted save after choosing save-partition, code
+  #further down wiped all of the partition (it was mntd on /tmp/savepup)...
+  [ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
+  #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
  32) #first shutdown, save back to PDEV1. v3.97: xPDEV
   DEV1MNT="`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`"
@@ -839,16 +876,6 @@ case $PUPMODE in
   swapfile_func $DEV1MNT $xPDEV
 
   umount $DEV1MNT 2> /dev/null
-  ;;
- 7) #PDEV1 and PUPSFS.
-   echo "Saving session to $PDEV1..." >/dev/console
-   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
-  ;;
- 13) #PDEV1 and PUPSFS and PUPSAVE
-  #/initrd/pup_rw has tmpfs, pup_ro1 has ${DISTRO_FILE_PREFIX}save.2fs file (PUPSAVE), pup_ro2 has PUPSFS file.
-  #the above are in unionfs at /.
-  echo "Saving session to $SAVEFILE (${SAVEPART})..." >/dev/console
-  /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
   ;;
  128) #1st shutdown, save to ${DISTRO_FILE_PREFIX}save.2fs.
   #partition already mounted on $SMNTPT.
@@ -949,7 +976,30 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func $SMNTPT $SAVEPART
 
-  umount $SMNTPT 2> /dev/null
+  umount "$SMNTPT"
+  ;;
+ 2)
+  echo "$PDEV1 mounted directly, session already saved." >/dev/console
+  ;;
+ 6)
+  echo "$PDEV1 mounted directly top layer, session already saved." >/dev/console
+  ;;
+ 12)
+ echo "`basename $SAVEFILE` mounted directly top layer, session already saved." >/dev/console
+  ;;
+ 3) #PDEV1.
+   echo "Saving session to $PDEV1..." >/dev/console
+   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
+  ;;
+ 7) #PDEV1 and PUPSFS.
+   echo "Saving session to $PDEV1..." >/dev/console
+   /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
+  ;;
+ 13) #PDEV1 and PUPSFS and PUPSAVE
+  #/initrd/pup_rw has tmpfs, pup_ro1 has ${DISTRO_FILE_PREFIX}save.2fs file (PUPSAVE), pup_ro2 has PUPSFS file.
+  #the above are in unionfs at /.
+  echo "Saving session to $SAVEFILE (${SAVEPART})..." >/dev/console
+  /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
   ;;
  69) #save to folder on multisession CD/DVD (including 1st shutdown). (5+64=69) NOT used
   multisavefunc
@@ -957,28 +1007,14 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
  77) #save to folder on multisession CD/DVD (including 1st shutdown). (13+64=77)
   multisavefunc
   ;;
- 2)
-  echo "$PDEV1 mounted directly, session already saved." >/dev/console
-  ;;
- 12)
-  echo "`basename $SAVEFILE` mounted directly top layer, session already saved." >/dev/console
-  ;;
- 6)
-  echo "$PDEV1 mounted directly top layer, session already saved." >/dev/console
-  ;;
- 5) #v2.02 first boot.
-  echo "Session not saved" >/dev/console
-  pidof sync || sync
-  #ha ha, before had this, if aborted save after choosing save-partition, code
-  #further down wiped all of the partition (it was mntd on /tmp/savepup)...
-  [ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
-  #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
-  ;;
  *)
   echo "Session not saved" >/dev/console
   sleep 2
   ;;
 esac
+}
+
+_save_session
 
 #when the working files run in tmpfs in ram, they are saved above and /tmp and /var
 #are screened out. however, some PUPMODES mount ${DISTRO_FILE_PREFIX}save.2fs directly on /initrd/pup_rw,
@@ -986,7 +1022,7 @@ esac
 #files, hence everything is saved directly, ditto for PUPMODE=2 a full h.d. install.
 #hence need to do some explicit wiping here...
 #echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
-rm -f /var/log/X*
+#rm -f /var/log/X*
 #rm -rf /tmp/*  ##+--2011-11-10 to be done in /sbin/init
 rm -f /var/lock/LCK*
 rm -f /var/run/*.pid
@@ -1021,93 +1057,43 @@ MNTDPARTS="`mount|tac`"
 ##REMARK1 : fuser -c /dev/sda4 would return ntfs-3g PID but -c [||-m] /mnt/sda4 not  ##+++2011_10_27
 echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
 echo "$MNTDPARTS"
-STRAYPARTL="`echo "$MNTDPARTS" |grep -v -E "/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / "`"
+STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E "/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / "`
 echo "$STRAYPARTL"
-STRAYPARTMP="`echo "$STRAYPARTL" | cut -f 3 -d " " | tr "\n" " "`"  ##2011_10_27 BUG though inside doublequotes , $TRAYPARTL needs doubblequotes
+STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 3 -d " "`  ##2011_10_27 BUG though inside doublequotes , $TRAYPARTL needs doubblequotes
 echo "$STRAYPARTMP"  ##2011_10_27 BUG echo"$STRAYPARTMP"
-for ONESTRAY in $STRAYPARTMP  ##in MountPoints
+for oneSTRAY in $STRAYPARTMP  ##in MountPoints
 do
- echo -e "\e[1;31mUnmounting STRAY $ONESTRAY...\e[0;39m"
- ONESTRAYP=`busybox mount | grep "$ONESTRAY" | cut -f 1 -d ' '`
+ echo -e "\e[1;31mUnmounting STRAY $oneSTRAY...\e[0;39m"
+ oneSTRAYP=`busybox mount | grep "$oneSTRAY" | cut -f 1 -d ' '`
  #fuser -v -k -c -m $ONESTRAYP ##Device  ##Error both mount and mountpoint dont work
- fuser -v -k -m  $ONESTRAY  ##+++2011_10_27
- killzombies #v3.99
+ fuser -v -k -m  $oneSTRAY  ##+++2011_10_27
+ _killzombies #v3.99
  pidof sync || sync
- if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
+ if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
  #fusermount version: 2.7.0 [options] mountpoint
- fusermount -u $ONESTRAY ##unmounts MountPoint
+ fusermount -u $oneSTRAY ##unmounts MountPoint
  else
- umount -r $ONESTRAY  ##unmounts MountPoint
+ umount -r $oneSTRAY  ##unmounts MountPoint
  fi
 done
 
 swapoff -a #works only if swaps are in mtab or ftab
 #v2.13 menno suggests this improvement...
-STRAYPARTD="`cat /proc/swaps | grep "/dev/" | cut -f 1 -d " " | tr "\n" " "`"
-for ONESTRAY in $STRAYPARTD
+STRAYPARTD=`grep "/dev/" /proc/swaps | cut -f 1 -d " "`
+for oneSTRAY in $STRAYPARTD
 do
- echo "Swapoff $ONESTRAY" >/dev/console
- swapoff $ONESTRAY
+ echo "Swapoff $oneSTRAY" >/dev/console
+ swapoff $oneSTRAY
 done
 pidof sync || sync
 
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 #
 # Stop udev & loggers
-func_udev_0(){
-ls /dev/.udev  ##rm in rc.shutdown.local , want to observe 2011_11_05
-echo
-ls /dev/.udev/* | head -n 10
-echo
-ls /dev/.udev/* | tail -n 10
-echo
-ls /dev/.udev/*/* | head -n 5
-echo
-ls /dev/.udev/*/* | tail -n 5
-echo
-
-
-echo -e "\e[1;36m""ABOUT : udevd .... :""\e[0;39m"
-ps -C udevd
-echo
-killall udevd #&>/dev/null
-sleep 5s
-ps -C udevd
-#sleep 5s
-echo
-}
-
-func_udev_2(){
-ls /dev/.udev
-echo
-ls /dev/.udev/* | head -n 10
-echo
-ls /dev/.udev/* | tail -n 10
-echo
-ls /dev/.udev/*/* | tail -n 5
-echo
-ls /dev/.udev/*/* | tail -n 5
-echo
-
-
-echo -e "\e[1;36m""REMOVING /dev/.udev ...""\e[0;39m"
-rm -rf /dev/.udev
-ls /dev/.udev
-echo
-ls /dev/.udev/* | head -n 10
-#echo
-ls /dev/.udev/* | tail -n 10
-#echo
-ls /dev/.udev/*/* | tail -n 5
-#echo
-ls /dev/.udev/*/* | tail -n 5
-#echo
-sleep 5s
-}
 
 killall udevd
-killall klogd #&>/dev/null    ##busybox applet
-killall syslogd #&>/dev/null  ##busybox applet
+killall klogd     ## busybox applet
+killall syslogd   ## busybox applet
 #killall pup_event_backend_modprobe_protect  ##+++2011_10_27
 which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
 
@@ -1153,15 +1139,15 @@ sleep 2
 [ ! "$ABSPUPHOME" ] && ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
 if [ ! "`busybox mount | grep "$ABSPUPHOME"`" = "" ];then
  BADPIDS="`fuser -v -m $ABSPUPHOME | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`"
- for ONEBAD in $BADPIDS
+ for oneBAD in $BADPIDS
  do
-  echo "Killing process $ONEBAD..." >/dev/console
-  kill $ONEBAD
+  echo "Killing process $oneBAD..." >/dev/console
+  kill $oneBAD
   sleep 1
-  kill -9 $ONEBAD 2>/dev/null
+  kill -9 $oneBAD 2>/dev/null
   pidof sync || sync
  done
- killzombies #v3.99
+ _killzombies #v3.99
 fi
 
 
@@ -1194,24 +1180,12 @@ elif [ "$PDEV1" ];then #from PUPSTATE
   fi
 fi
 
-if [ -f /etc/rc.d/rc.shutdown.local.endOne ] ; then
-. /etc/rc.d/rc.shutdown.local.endOne
-else
-[ -f /etc/rc.d/rc.shutdown.local.end ] && . /etc/rc.d/rc.shutdown.local.end  ###KRG
+if [ -f /etc/rc.d/rc.shutdown.local.end1 ] ; then
+ . /etc/rc.d/rc.shutdown.local.end1
+elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
+ . /etc/rc.d/rc.shutdown.local.end
 fi
 
-rm_unneeded_files_func_krg() {
-rm -f -r /dev/.udev  ###KRG
-####KRG /root/my-applications/sbin/MkMissingDev.sh  ###KRG
-[ -f /etc/.XLOADED ] && mv -f /etc/.XLOADED /etc/.XLOADED.prev  ###KRG
-####KRGmv -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev ###KRG
-echo "sleeping now 10sec" > /dev/console  ###DBG
-sleep 10  ###KRG
-MNTD=`find /mnt -maxdepth 1 -type d -name "*+*"`  ###KRG
-for i in $MNTD; do  ###KRG
-[ -z "`mount | grep $i`" ] && rmdir "$i"  ###KRG
-done  ###KRG
-}
 
 ps | grep -v '\['
 mount  ###DBG
@@ -1225,6 +1199,6 @@ echo "unmounted all -r  Tried to remount devices as read-only if mount is busy"
 mount ###DBG
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
-[ -f /etc/rc.d/rc.shutdown.local.endZero ] && /etc/rc.d/rc.shutdown.local.endZero
-sleep 10
+[ -f /etc/rc.d/rc.shutdown.local.end0 ] && /etc/rc.d/rc.shutdown.local.end0
+sleep 2
 #the end#
