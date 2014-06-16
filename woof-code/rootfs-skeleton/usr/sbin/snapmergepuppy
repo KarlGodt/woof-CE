@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #Barry Kauler www.puppylinux.com
 #called from savepuppyd and rc.shutdown, to save tmpfs layer to permanent flash storage.
@@ -16,6 +16,11 @@
 #w003 screened out some dirs in /dev that should not be saved.
 #v424 fix for more layers in unionfs/aufs.
 
+PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R7/bin"
+
+pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
+
+. /etc/rc.d/f4puppy5 #_command
 #variables created at bootup by 'init' script in initramfs...
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS #v412
@@ -31,9 +36,8 @@ XRUNNING="no"
 [ "`echo "$RUNPS" | grep 'rc.shutdown'`" != "" ] && SHUTDOWN="yes"
 [ "`echo "$RUNPS" | grep 'pup_event_frontend_d'`" != "" ] && XRUNNING="yes" #v4.01 v409
 
-PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R7/bin"
-WD="`pwd`"
 
+WD="`pwd`"
 SNAP="/initrd/pup_rw"
 cd $SNAP || exit 1
 
@@ -46,11 +50,11 @@ fi
 echo "Merging $SNAP onto $BASE..."
 
 #Handle Whiteouts...
-find . -mount \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
+find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
- BN="`basename "$N"`"
- DN="`dirname "$N"`"
+ BN="${N##*/}" #basename
+ DN="${N%/*}"  #dirname
  [ "$BN" = ".wh.aufs" ] && continue #w003 aufs has file .wh..wh.aufs in /initrd/pup_rw.
  [ "$DN" = "." ] && continue
  if [ "$BN" = "__dir_opaque" ];then #w003
@@ -80,7 +84,7 @@ done
 
 #Directories... v409 remove '^var'. w003 remove aufs .wh. dirs.
 #w003 /dev/.udev also needs to be screened out...
-find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
+find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
@@ -92,15 +96,15 @@ do
  GRP="`stat --format=%G "$N"`"
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
-done 
+done
 
 #Copy Files... v409 remove '^var'. w003 screen out some /dev files.
-find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
+find . -xdev -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
 while read N
 do
 
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
+ [ "$XRUNNING" = "yes" -a -f /tmp/wmexitmode.txt ] && exit
 
  if [ "$SAVEPART" = "fd0" ];then
   #not much space, so screen out more files...
@@ -132,11 +136,11 @@ Unable to save all files. You need to delete some." &
   #link, or first run of snapmergepuppy. no '-u' (update) option.
   cp -a -f "$N" "$BASE/$N"
  else
-  cp -a -u -f "$N" "$BASE/$N" #v3.02
+  _command cp -a -u -f "$N" "$BASE/$N" #v3.02
  fi
- 
+
  #if [ "$NEXTPASSTHRU" != "" ];then
- # cp -a -u -f "$N" "$BASE/$N"
+ # /bin/cp -a -u -f "$N" "$BASE/$N"
  #else
  # cp -a -f "$N" "$BASE/$N" #no update option.
  #fi
