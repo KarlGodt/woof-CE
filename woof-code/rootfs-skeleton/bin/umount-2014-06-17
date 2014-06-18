@@ -1,0 +1,433 @@
+#!/bin/sh
+#Barry Kauler 2006 www.puppylinux.com
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v406 support for old kernel /dev/hd*.
+#v407 fix for floppy drive icon.
+#v409 gparted create ext3 part. failed, fixed by making /etc/mtab a symlink.
+#v423 recent version busybox umount, default for umount is to not free loop device, needs -d.
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:56:01·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+#mount-FULL, umount-FULL, losetup-FULL are the full versions.
+#The Busybox versions of mount and umount are available but only by:
+# # busybox mount ...
+# # busybox umount ...
+#mount and umount are now scripts.
+#if an ntfs partition, puppy uses user-mode ntfs-3g driver.
+#the mount and umount scripts allow seamless mounting and unmounting of ntfs f.s.
+
+[ ! $1 ] && exec busybox umount
+
+. /etc/rc.d/functions4puppy4 #v4.02
+
+j=0
+for i in `seq 1 $#` ; do
+j=$((j+1))
+PARAM=`echo "$*" | cut -f $i -d ' '`
+[ "$VERBOSE" = 1 ] && _debug '$'$j' ='"$PARAM"
+eval PARAME$j='\\'"${PARAM}"
+[ "$VERBOSE" = 1 ] && eval _info "\$PARAME$j"
+done
+
+_sync #paranoid precaution. v2.12 kernel call to modprobe, sync hangs.
+
+#v406 add /dev/hd* support... v407 add fd*...
+#MNTDDEVS1="`busybox mount | grep '^/dev/[smhf]' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"  #v403 sd, sr, mmc
+MNTDDEVS1=`grep -o '^/dev/[smhf][^ ]*' /proc/mounts | cut -f 3 -d '/'`
+#MNTDPTS1="`busybox mount | grep '^/dev/[smhflr]' | cut -f 3 -d ' '`"  # old_rmdir_func needs mountpoints, not devices
+
+
+#extract all the '-' options, on separate lines...
+#v2.12 pathetic bug, need space before $@, see comment /bin/mount... No, use $*...
+
+Longopts="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep '^\-\-'`"
+
+if [ -n "$Longopts" ] ; then
+echo "'umount' does not support long options contraty to 'mount'
+The patameterline had been [$*]"
+exit
+fi
+
+DASHOPTS="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep '^\-' | grep -v '^\-\-'`"
+
+#v2.12 curses, busybox mount accepts the '-n' option (just ignores it) but umount does not...
+if [ "`echo " $DASHOPTS" | grep 'n'`" != "" -o "`echo " $DASHOPTS" | grep 'd'`" != ""  ];then
+ #FULLCMD="`echo -n " $*" | sed -e 's/ \-n / /g'`" #unsatisfactory!
+ FULLCMD1=`echo " $*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n'`
+ FULLCMD2=`echo "$FULLCMD1" | sed 's#^\-dn#\-#g ; s#^\-nd#\-#g ; s#^\-d#\-#g ; s#^\-d#\-#g'`
+ FULLCMD3=`echo "$FULLCMD2" | sed 's#^\-\([[:alpha:]]*\)n\(.*\)#\-\1\2#g'`
+ FULLCMD4=`echo "$FULLCMD3" | sed 's#^\-\([[:alpha:]]*\)d\(.*\)#\-\1\2#g'`
+ FULLCMD5=`echo "$FULLCMD4" | sed 's#^\-\([[:alpha:]]*\)n#\-\1#g'`
+ FULLCMD6=`echo "$FULLCMD5" | sed 's#^\-\([[:alpha:]]*\)d#\-\1#g'`
+ FULLCMD=`echo "$FULLCMD6" | tr '\n' ' '`
+else
+ FULLCMD="$*"
+fi
+
+FULLCMD=`echo "$FULLCMD" | sed 's/\ -\ /\ /g' | tr -s '[[:blank:]]' | sed 's/^\ // ; s/\ $//'`
+
+# -a param means unmount everything...
+#if [ ! "`echo "$@" | grep --extended-regexp '\W-a$|\W-a\W'`" = "" ];then
+
+if [ "`echo " $DASHOPTS" | grep 'a'`" != "" ];then #option a given
+
+ if [ "$DISPLAY" ] ; then
+
+ [ -f /etc/fstab ] && defaulttexteditor /etc/fstab &
+ [ -f /etc/fstab ] && xmessage -geometry +10+10 "File : /etc/fstab :
+
+`cat /etc/fstab` " &
+
+ xmessage -geometry +10+600 -bg '#11986C' "Momentarily mounted :
+
+`busybox mount`" &
+
+font_func(){
+FONT=
+XDIR="${PREFX}/usr/X11R7/lib/X11"
+[ -L ${PREFX}/usr/share/X11 ] && XDIR=`readlink -f ${PREFX}/usr/share/X11`
+if [ -f ${PREFX}$XDIR/fonts/misc/fonts.dir ] ; then
+TOTALXFONTS=`cat ${PREFX}$XDIR/fonts/misc/fonts.dir | cut -f 2 -d ' '`
+FONT=`echo "$TOTALXFONTS" | tail -n 1`
+fi
+if [ -z "$FONT" ] ; then
+[ -f ${PREFX}$HOME/.Xresources ] && FONT=`grep -i '^\*font:' ${PREFX}$HOME/.Xresources | sed 's#\*font\:## ; s/ //g'  | tail -n 1`
+fi
+[ -z "$FONT" ] && FONT="-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+}
+font_func
+
+ xmessage -buttons "Proceed:190,Partitions:191,QUIT:199" -default "QUIT" -bg '#E5871A' -font $FONT "  $0 -a : WARNING !!
+
+Your are running in full desktop mode ( X ) !!
+
+If your /etc/fstab file contains evalueable System Relevant entries
+[ /proc , /sys , /dev/root ... ] it is not wise to unmount these !!
+
+"
+RETVAL=$?
+  if [ "$RETVAL" = 191 ] ; then
+    for MNT in $MNTDDEVS1 ; do
+    umount -d /dev/$MNT
+    done
+    exit
+  elif [ "$RETVAL" != 190 ] ; then
+    exit
+  fi
+
+ fi #DISPLAY
+
+ MNTFUSE="`busybox mount | grep 'fuse' | cut -f 3 -d ' '`"
+
+ if [ ! "$MNTFUSE" = "" ] ; then
+ FUSEDEV=`busybox mount | grep -w "$MNTFUSE" | cut -f 1 -d ' '`
+ fusermount -u $MNTFUSE
+ fuser -k -c $FUSEDEV
+ fi
+
+ busybox umount -d $FULLCMD #v423 -d fix.
+ exit $?
+
+fi  # end of -a
+
+#remove everything except the device or mntpt...
+LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/'`"
+
+#thanks to jesse for this...
+#for ntfs-3g, find the device and mount point...
+#note, '\' essential to prevent 'ps' from reporting this invocation line...
+NTFSMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
+NTFSMNTDV=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
+[ "$VERBOSE" ] && _debug "NTFSMNTP='$NTFSMNTP' NTFSMNTP='$NTFSMNTP'"
+if [ "$NTFSMNTPT" != "" ];then
+        if [[ -n "`echo " $DASHOPTS" | grep 'i'`" ]] ; then #fusermount passes -i option to /bin/mount
+        busybox umount -d $FULLCMD #v423 -d fix to free loop device.
+        RETVAL=$?
+        fuser -k -c $NTFSMNTDV
+        else
+        #fusermount can only unmount by giving the mount-point...
+        fusermount -u $NTFSMNTPT
+        RETVAL=$?
+        fuser -k -c $NTFSMNTDV
+        fi
+else
+ busybox umount -d $FULLCMD #v423 -d fix to free loop device.
+ RETVAL=$?
+fi
+
+#v403 if  there is a desktop icon (see pup_eventd), then refresh it...
+if [ $RETVAL -eq 0 ];then
+ #find which device has been unmounted... v406 add hd*... v407 add fd*...
+ #MNTDDEVS2="`busybox mount | grep '^/dev/[smhf]' | cut -f 1 -d ' ' | cut -f 3 -d '/'`" #v403 sd, sr, mmc
+ MNTDDEVS2=`grep -o '^/dev/[smhf][^ ]*' /proc/mounts | cut -f 3 -d '/'`
+
+# if [ "$MNTDDEVS2" = "" ];then
+#  DEVNAME="`echo "$MNTDDEVS1" | head -n 1`" #head is a precaution.
+# else
+#  DEVNAME="`echo "${MNTDDEVS1}
+#${MNTDDEVS2}" | sort | uniq -u | head -n 1`" #head is a precaution.
+# fi
+
+ DEVNAME=`echo "${MNTDDEVS1}" | /bin/grep -v -w "${MNTDDEVS2}"`
+ [ "$VERBOSE" ] && echo "$DEVNAME"
+ if [ "$DEVNAME" != "" -a "$DISPLAY" != "" ];then
+ [ "$VERBOSE" ] && _info "IS '$DEVNAME' -a '$DISPLAY'"
+  DRVNAME="`echo -n "$DEVNAME" | cut -b 1-3`"
+  #special case, SD card /dev/mmcblk0p1...
+  [ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
+  xDRVNAME="$DRVNAME" #v404
+  [[ -d /root/.pup_event/drive_${DEVNAME} ]] && DRVNAME="$DEVNAME" #icon for each partition.
+  if [[ -d /root/.pup_event/drive_${DRVNAME} ]];then
+   [ "$VERBOSE" ] && _info "IS /root/.pup_event/drive_${DRVNAME}"
+   case $DRVNAME in #v407
+    fd*)
+     DRV_CATEGORY="floppy"
+    ;;
+    *)
+     dnPATTERN='/dev/'"${xDRVNAME}"'|'
+     DRV_CATEGORY="`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`"
+    ;;
+   esac
+   #if any partitions still mounted, leave "MNTD" on icon...
+   drvPATTERN='^/dev/'"${DRVNAME}" #important, no space on end.
+   #"MNTD" text is intended as a reminder to user that drive needs to be unmounted,
+   #   but partitions in use by Puppy cannot be unmounted.
+   if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$drvPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+   [ "$VERBOSE" ] && _info "IS in df"
+    if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$drvPATTERN" | grep -E ' /initrd/| /$'`" != "" ];then
+     [ "$VERBOSE" ] && echo "IS BOOT PARTITION"
+     #only a partition left mntd that is in use by puppy, change green->yellow...
+     icon_mounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
+    else
+     [ "$VERBOSE" ] && _info "IS NON-BOOT PARTITION"
+     #redraw icon without "MNTD" text...
+     icon_unmounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
+    fi
+   fi
+  fi
+ fi
+else
+
+[ "$DISPLAY" ] && {
+ if [ -n "`/bin/ps -elF | grep 'ROX-Filer'| grep -v 'grep'`" ] ; then
+ MNTED=`echo "$FULLCMD" | grep -o '/mnt/.*' | cut -f 1 -d ' '`
+ [ -z "$MNTED" ] && MNTED=`echo "$FULLCMD" | grep -o '/dev/.*' | cut -f 1 -d ' '`
+ MNTPT=`busybox  mount | grep "$MNTED" | cut -f 3 -d ' '`
+ echo ROX=$MNTPT
+ [ -n "$MNTPT" ] && [ -n "`busybox mount | grep -w "$MNTPT"`" ] && rox -D $MNTPT
+ sleep 0.5
+ fi
+}
+
+[ -n "$MNT" ] && FUSERS=`fuser -c /dev/$MNT` && DRVNAME="/dev/$MNT"
+echo 197
+[ -n "$DRVNAME" ] && FUSERS=`fuser -c /dev/$DRVNAME` && DRVNAME="/dev/$DRVNAME"
+echo 199
+ if [ -z "$FUSERS" ] ; then
+ DRVNAME=`echo "$FULLCMD" | grep -o -e '/dev/.*' | cut -f 1 -d ' '`
+  if [ -z "$DRVNAME" ] ; then
+  MNTNAME=`echo "$FULLCMD" | grep -o -e '/mnt/.*' | cut -f 1 -d ' '`
+  DRVNAME=`busybox mount | grep -w "$MNTNAME" | cut -f 1 -d ' '`
+  fi
+ echo "202 DRVNAME=$DRVNAME= FULLCMD=$FULLCMD= '$*='$*"
+ [ -n "$DRVNAME" ] && FUSERS=`fuser -c $DRVNAME`
+ fi
+
+
+xmessage_1_func(){
+xmessage -bg '#E9F019' -geometry +400+400 "The simple Puppy umount command returned '$RETVAL' ...
+for $FULLCMD ...
+If the partition was unmounted though , perhaps
+because of the '-l' or '-f' option ,
+the drive icons on the desktop could still show as 'mounted' .
+
+Another likely cause is a mounted file somewhere on the partition ...
+" &
+}
+
+
+[ "$FUSERS" ] && {
+ if [ "$DISPLAY" ] ; then
+ xmessage -geometry +10+600 "These pocesses are currently using the device :
+
+ $FUSERS" &
+ else
+ echo "$FUSERS"
+ fi
+}
+
+MOUNTED=`busybox mount | cut -f 1-3 -d ' ' | grep -v -E "/sys|/proc|root|^no|initrd|union|aufs|/nodev|shmfs|tmpfs"`  ##|$DRVNAME"`
+echo "$MOUNTED"
+Buttons=`echo "$MOUNTED" | cut -f 1 -d ' '`
+echo "$Buttons"
+c=0 ;d=0
+for i in $Buttons ; do
+c=$((c+1)) ;
+[ "$c" = 10 ] && d=$((d+1)) && c=0
+echo $d $c $i
+BUTTONS="$BUTTONS`echo "$i" | sed "s/$/:2$d$c,/"`"
+done
+BUTTONS=`echo $BUTTONS\QUIT:250`  ## | sed 's#,$##'`
+echo BUTTONS="$BUTTONS"=
+
+if [ "$DISPLAY" ] ; then
+xmessage -geometry +10+10 -buttons $BUTTONS "Currently mounted :
+
+$MOUNTED
+
+Do you want to unmount any of these ?
+   Note : In case of a mounted sfs inside an iso ,
+   the sfs has to be unmounted first
+"
+
+DRIVEnr=$?
+
+COLLECTION=`echo "$BUTTONS" | tr ',' '\n'`
+
+DRIVE=`echo "$COLLECTION" | grep -o -x ".*\:$DRIVEnr"`
+echo DRIVE="$DRIVE"=
+DRIVE=`echo "$DRIVE" | cut -f 1 -d ':'`
+echo DRIVE="$DRIVE"=
+ if [ -n "$DRIVE" ] && [ "$DRIVE" != "QUIT" ] ; then
+
+
+ MNTPT=`busybox mount | grep "$DRIVE" | cut -f 3 -d ' '`
+  if [ -n "`/bin/ps -elF | grep 'ROX-Filer'| grep -v 'grep'`" ] ; then
+  echo ROX=$MNTPT
+  rox -D $MNTPT
+  sleep 0.5
+  fi
+ killall xmessage
+ fuser -k -m $MNTPT
+
+  if [ -n "`echo "$DRIVE" | grep '/loop[/0-9]'`" ] ; then
+
+  MNTPT=`busybox mount | grep "$DRIVE" | cut -f3 -d ' '`
+
+  busybox umount -d $DRIVE
+
+  sleep 2s
+
+  [ -d $MNTPT ] && [ -z "`busybox mount | grep "$MNTPT"`" ] && rmdir $MNTPT
+
+  umount $FULLCMD
+  else
+
+  MNTPT=`busybox mount | grep "$DRIVE" | cut -f3 -d ' '`
+
+  umount $DRIVE
+
+  sleep 2s
+
+  [ -d $MNTPT ] && [ -z "`busybox mount | grep "$MNTPT"`" ] && rmdir $MNTPT
+
+  fi
+
+ fi
+
+fi #DISPLAY
+
+fi #end of error = 0
+
+#v409 now have /etc/mtab a symlink to /proc/mounts so this section not needed...
+##v2.10 do not update /etc/mtab if '-n' option...
+#[ ! "`echo " $DASHOPTS" | grep 'n'`" = "" ] && exit $RETVAL
+##busybox does not support /etc/mtab, but some apps (ex: eject
+##and the full mount,umount) need it...
+#[ $RETVAL -eq 0 ] && busybox mount | sed -e 's/ on / /g' | sed -e 's/ type / /g' | sed -e 's/ (/ /g' | sed -e 's/)$/ 0 0/g' > /etc/mtab
+##note, it is a long story here. Busybox can be configured to
+##support /etc/mtab, however the information it writes to mtab
+##is incomplete, different, and breaks my scripts.
+
+#v409, instead just make sure the symlink stays there...
+if [ ! -L /etc/mtab ];then
+ rm -f /etc/mtab
+ ln -s /proc/mounts /etc/mtab
+fi
+
+old_rmdir_func(){
+#echo MNTDPTS1
+#echo "$MNTDPTS1"
+if [ -n "$MNTDPTS1" ]; then
+#echo
+MNTDPTS2="`busybox mount | grep '^/dev/[smhflr]' | cut -f 3 -d ' '`"
+#echo MNTDPTS2
+#echo "$MNTDPTS2"
+#echo
+RMDIRS=`echo "$MNTDPTS1" | /bin/grep -v -w "$MNTDPTS2"`
+#echo "RMDIRS='$RMDIRS'"
+
+for oneDIR in $RMDIRS; do
+
+([ -d "$oneDIR" ] && [ -z "`busybox mount | grep "$oneDIR"`" ]) && rmdir "$oneDIR"
+
+done
+
+fi
+}
+
+RMDIRS=`find /mnt -maxdepth 1 -type d -empty`
+for oneDIR in $RMDIRS; do
+mountpoint -q "$oneDIR" || rmdir "$oneDIR"
+done
+
+exit $RETVAL
