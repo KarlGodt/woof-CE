@@ -262,35 +262,88 @@ echo "`eval echo \\$$*`" | grep -q $gOPT -E "$gPATTERN" && return 0 || { _warn "
 fi
 }
 
+_check_proc()
+{
+  mountpoint -q /proc && return $? || {
+  busybox mount -o remount,rw /dev/root/ /
+  test -d /proc || mkdir -p /proc
+  busybox mount -t proc none /proc
+  return $?
+ }
+}
+
+_check_tmp()
+{
+ test -d /tmp && return $? || {
+ busybox mount -o remount,rw /dev/root/ /
+ mkdir -p /tmp
+ chmod 1777 /tmp
+ return $?
+ }
+}
+
+_check_tmp_rw()
+{
+_check_proc || _crit "Difficulties with /proc  .."
+_check_tmp  || _crit "Difficulties with /tmp  .."
+
+mountpoint -q /tmp && {
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+ } || {
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+ }
+}
+
+_sync()
+{
+pidof sync || sync
+}
+
+EMERGENCY=1
 _emerg(){
+test "$EMERGENCY" || return 0
 echo "EMERGENGY:$*"
 }
 
+ALERT=1
 _alert(){
+test "$ALERT" || return 0
 echo "$0:ALERT:$*"
 }
 
+CRIT=1
 _crit(){
+test "$CRIT" || return 0
 echo "$0:CRITICAL:$*"
 }
 
+ERROR=1
 _err(){
+test "$ERROR" || return 0
 echo "$0:ERROR:$*"
 }
 
+WARN=1
 _warn(){
+test "$WARN" || return 0
 echo "$0:WARNING:$*"
 }
 
+NOTICE=1
 _notice(){
+test "$NOTICE" || return 0
 echo "$0:NOTICE:$*"
 }
 
+INFO=
 _info(){
+test "$INFO" || return 0
 echo "$0:INFO:$*"
 }
 
+DEBUG=
 _debug(){
+test "$DEBUG" || return 0
 echo "$0:DEBUG:$*"
 }
 
@@ -342,6 +395,8 @@ test "$typeCOM" ||{  _return 1 "No such type \"$COM\"";return $?; }
 
 whichCOM=`which "$COM"`
 test "$whichCOM" ||{  _return 1 "No such which \"$COM\"";return $?; }
+
+_debug "_command:$COM:$@" >&2
 
 test "$typeCOM" = "$whichCOM" && {
  "$typeCOM" "$@"    # "$*" does not work, so needs "$@"
