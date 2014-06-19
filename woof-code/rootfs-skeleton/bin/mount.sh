@@ -42,7 +42,7 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || 
 
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsTt:U:uVvWwXxYyZz-
 
-  getOPS=`busybox getopt -u -l help,version -- $allOPS "$@"`
+  getOPS=`busybox getopt -u -l help,version,bind,move -- $allOPS "$@"`
 _debug "options='$getOPS'"
  longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!'`
 _info "long='$longOPS'"
@@ -87,14 +87,14 @@ esac
  _debug "$oneUPDATE $oneMOUNTPOINT $REST"
 
  case $oneUPDATE in
- *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd,nbd"; continue ;;
+ *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd, nbd -- won't update partition icon"; continue ;;
  /dev/fd[0-9]*)      DRV_CATEGORY=floppy ;;
  /dev/sr*|/dev/scd*) DRV_CATEGORY=optical;;
  /dev/mmc*)          DRV_CATEGORY=card   ;;
  /dev/*) DRV_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
          _debug "DRV_CATEGORY='$DRV_CATEGORY'"
          test "$DRV_CATEGORY" || continue;;
- *) _warn "Got $oneUPDATE"; continue;;
+ *) _notice "Got '$oneUPDATE' -- won't update partition icon"; continue;;
  esac
 
  case $WHAT in
@@ -114,7 +114,7 @@ esac
  ;;
  mount)
   icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
-  test "$noROX" || { pidof ROX-Filer && rox $oneMOUNTPOINT; }
+  test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -d "$oneMOUNTPOINT"; }
  ;;
  esac
 
@@ -140,14 +140,14 @@ case $WHAT in
 
   test "$fstype" = swap && continue
   grep -q -w ${device##*/} /proc/partitions || continue
-  test -d $mountpoint || mkdir -p $mountpoint
-  mountpoint -q $mountpoint && continue
+  test -d "$mountpoint" || mkdir -p "$mountpoint"
+  mountpoint -q "$mountpoint" && continue
   mountBEFORE=`cat /proc/mounts`
-  busybox $WHAT $device $mountpoint -t $fstype -o $mntops
+  busybox $WHAT $device "$mountpoint" -t $fstype -o $mntops
   RV=$?
   STATUS=$((STATUS+RV))
   noROX=1
-  test "$RV" = 0 && _update_partition_icon || rmdir $mountpoint
+  test "$RV" = 0 && _update_partition_icon || rmdir "$mountpoint"
  ;;
 umount)
   case $opT in
@@ -184,6 +184,7 @@ EoI
   grep -q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
+*) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'";break;;
 esac
 
 done</etc/fstab
@@ -388,6 +389,9 @@ if test "$deviceORpoint"; then
  _debug "$WHAT:$*"
 fi
 ;;
+umount) :;;
+*) _exit 40 "Unhandled '$WHAT' -- use 'mount' or 'umount' ."
+;;
 esac
 
 #mountBEFORE=`cat /proc/mounts`
@@ -400,6 +404,8 @@ if test "$deviceORpoint"; then
  _debug "NTFSMNTP='$NTFSMNTP' NTFSMNTP='$NTFSMNTP'"
 fi
 ;;
+mount) :;;
+*) _exit 41 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
 case $WHAT in
@@ -413,6 +419,8 @@ mountpoint -q "$mountPOINT" && {
         _debug "Closing ROX-Filer if necessary..."
         pidof ROX-Filer && rox -D "$mountPOINT"; }
 ;;
+mount) :;;
+*) _exit 41 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
 case $WHAT in
@@ -435,9 +443,46 @@ fi
 ;;
 mount)
       case $opT in
-      ntfs)
-       ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
+      *ntfs)
+       test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
+
+        test "`which ntfs-3g.probe`" && {
+         _debug "Running ntfs-3g.probe --readwrite on '$*':"
+         ntfs-3g.probe --readwrite $*
+         RETVAL=$?
+         test "$RETVAL" = 0 && _debug "OK."
+                }
+
+        mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$*";
+        }
+
+       test "$RETVAL" || RETVAL=0
+
+       test "$RETVAL" = 0 && {
+       _notice "ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
+       ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS
        RETVAL=$?
+        }
+
+       test "$RETVAL" = 0 || {
+               if test "$RETVAL" = 14; then { _warn "Need to remove hibernation file to mount read-write";
+                 _notice "ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
+                 ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS
+                 RETVAL=$?
+               }
+             elif test "$RETVAL" = 4 -o "$RETVAL" = 10 -o "$RETVAL" = 15; then { _warn "Attempt to force read-write mount";
+                 _notice "ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS"
+                 ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS
+                 RETVAL=$?
+               }
+             else { _err "Unhandled ntfs-3g return code '$RETVAL'"; } # 11:Wrong Option,No mountpoint specified ; 21:No such File or Dir
+               fi
+                        }
+        test "$RETVAL" = 0 || { _notice "Will attempt to mount ntfs partition using the limited kernel driver";
+         _notice "busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
+         busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
+         RETVAL=$?
+         }
       ;;
       *fat*|*FAT*|*Fat*)
        NLS_PARAM=''
@@ -459,7 +504,7 @@ mount)
       if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "`echo "$longOPS" | grep -E 'bind|move'`"; then
       # use mount-FULL
         if test "$opUUID"; then
-         MntPoints=$(grep -w "`echo "$opUUID" /etc/fstab | cut -f2 -d' '`" | awk '{print $2}')
+         MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
          test -d "$oneMTP" || mkdir -p "$oneMTP"
          done
@@ -485,17 +530,17 @@ mount)
       ;;
       esac
 ;;
+*) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
 _notice "RETVAL=$RETVAL"
-
-
 
 _umount_rmdir(){ mountpoint -q $* || rmdir $*; }
 
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
+ test "$noROX" || rox -x /mnt
  test $WHAT = umount || return 0
  _check_tmp_rw || return 57
  while read oneDIR
