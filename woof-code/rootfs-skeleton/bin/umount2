@@ -1,0 +1,152 @@
+#!/bin/bash
+# Karl Reimer Godt July 2013
+
+[ "$*" ] || exec busybox umount
+
+FILER=rox
+
+pidof sync || sync
+
+USE_FULL='';
+
+ARGS=`set | grep -E 'ARGV|ARGC'`
+ARGSV=`echo "$ARGS" | grep -m1 ARGV | grep -o '(.*)$' | sed 's|^(||;s|)$||' `
+ARGSC=`echo "$ARGS" | grep -m1 ARGC | cut -f2 -d'"'`
+c=$ARGSC
+
+while read p
+do
+p="${p#*=}"
+p="${p/#\"/}"
+p="${p/%\"/}"
+P[$c]="$p"
+(( c-- ))
+done<<EOI
+$(echo "$ARGSV" | sed 's|" \[|"\n\[|g')
+EOI
+
+#function_rox_n_fuser(){
+function_filer_n_fuser(){
+ [ -e "${*}" ]        || return 0
+ [ -e /mnt/${@##*/} ] || return 0
+ #(pidof "$FILER") && "$FILER" -D "/mnt/${@##*/}"
+ [ "`which "$FILER"`" ] && "$FILER" -D "/mnt/${@##*/}"
+ sleep 0.02 #change if req
+ #busybox fuser -m "${*}"
+ fuser -c "${*}"
+ sleep 0.02 #change if req
+}
+
+for k in `seq 1 1 $ARGSC`
+do
+case "${P[$k]}"
+in
+/*)
+if [ -d "${P[$k]}" ] ; then
+ MNTPTS_ALL=`awk '{print $1"+++"$2}' /proc/mounts`
+ MNTPTS_ALL=`busybox echo -e "$MNTPTS_ALL"`
+ DEVNAMEP=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
+ DEVNAMEP="${DEVNAMEP%%+++*}"
+ MNTPT_M="${P[$k]}"
+ #function_rox_n_fuser "$DEVNAMEP"
+ #function_rox_n_fuser "$MNTPT_M"
+ function_filer_n_fuser "$MNTPT_D"
+elif [ -b "${P[$k]}" ] ; then
+ #function_rox_n_fuser "${P[$k]}"
+ function_filer_n_fuser "${P[$k]}"
+ MNTPTS_ALL=`awk '{print $1"+++"$2}' /proc/mounts`
+ MNTPTS_ALL=`busybox echo -e "$MNTPTS_ALL"`
+ MNTPT_D=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
+ MNTPT_D="${MNTPT_D#*+++}"
+ DEVNAMEP="${P[$k]}"
+ #function_rox_n_fuser "$DEVNAMEP"
+ #function_rox_n_fuser "$MNTPT_D"
+ #function_filer_n_fuser "$MNTPT_D"
+fi
+;;
+--version)
+echo "$0 : Puppy Linux Wrapper bash shell script:"
+busybox umount --help
+echo "$0 : defaults using -dr"
+echo "$0 : OR /bin/umount-FULL:"
+USE_FULL=YES
+;;
+--*) #exec umount-FULL ${P[@]} ;;
+USE_FULL=YES
+;;
+esac
+done
+
+[ "$MNTPT_M" -o "$MNTPT_D" ] || MOUNTEDSB=`tac /proc/mounts`
+
+[ "$USE_FULL" ] && {
+umount-FULL "${P[@]}"
+RETVAL=$?
+} || {
+busybox umount -dr "${P[@]}"
+RETVAL=$?
+}
+
+sleep 0.02s #change if req
+IFS='. ' read UPtime restU RUNtime restR </proc/uptime
+dmesg | tail | grep -w "$UPtime"
+
+[ $RETVAL = 0 ] || exit $RETVAL
+
+  if [ "$MNTPT_M" ] ; then OLDMOUNTPT="$MNTPT_M"
+elif [ "$MNTPT_D" ] ; then OLDMOUNTPT="$MNTPT_D"
+else
+sleep 0.02s #change if req
+[ -f /proc/mounts ] || { echo "No /proc/mounts ." ; exit $RETVAL ; } ##+++2013-08-10 in case of umount -a
+MOUNTEDSA=`tac /proc/mounts`
+OLDMOUNTS=`echo "$MOUNTEDSB" | grep -v "$MOUNTEDSA"`
+OLDMOUNTPT=`echo "$OLDMOUNTS" | awk '{print $2}'`
+OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
+  fi
+
+[ "$MNTPT_M" -o "$MNTPT_D" ] || {
+[ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" = "$MOUNTEDSA" ] && {
+echo "NO CHANGES.";exit $RETVAL; } || {
+[ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" != "$MOUNTEDSA" ] || {
+echo "NO CHANGES.";exit $RETVAL; }; }; }
+
+[ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir "$OLDMOUNTPT"
+
+[ "$DISPLAY" ] || { echo "NO DISPLAY.";exit $RETVAL; }
+
+#. /etc/eventmanager
+#[ "$ICONDESK" = true ] || exit $RETVAL
+#[ "$ICONPARTITIONS" = true ] || exit $RETVAL
+
+[ "$DEVNAMEP" ] || {
+DEVNAMEP=`echo "$OLDMOUNT" | awk '{print $1}'`
+DEVNAMEP=`echo -e "$DEVNAMEP"`
+}
+#echo "${DEVNAMEP##*/}"
+[ -d /root/.pup_event/drive_"${DEVNAMEP##*/}" ] || { echo "NO drive_${DEVNAMEP##*/} Directory.";exit $RETVAL ; }
+
+#( pidof ROX-Filer || pidof rox ) || { echo "ROX-Filer or rox not running.";exit $RETVAL ; }
+[ "`which "$FILER"`" ] || { echo "'$FILER' not installed.";exit $RETVAL ; }
+pidof pup_event_frontend_d >/dev/null || { echo "pup_event_frontend_d not running.";exit $RETVAL ; }
+
+case ${DEVNAMEP##*/} in
+fd*)      CATEGORY=floppy  ;;
+scd*|sr*) CATEGORY=optical ;;
+mmc*|sd*|hd*)
+DEVNAME=`echo "$DEVNAMEP" | sed 's%p[0-9]*$%%;s%[0-9]*$%%'`
+PROBEDISK2=`probedisk2`
+CATEGORY=`echo "$PROBEDISK2" | grep -m1 -w "$DEVNAME" | cut -f2 -d'|'`
+;;
+*) echo "Not a block device for pup_event* ICONDESK.";exit $RETVAL ;;
+esac
+
+DISK_FREE=`df`
+
+. /etc/rc.d/functions4puppy4
+echo "$DISK_FREE" | grep -w "^$DEVNAMEP" | grep -E ' /initrd/| /$' &&
+{
+      icon_mounted_func "${DEVNAMEP##*/}" $CATEGORY; } || {  #see functions4puppy4
+      icon_unmounted_func "${DEVNAMEP##*/}" $CATEGORY;
+}
+
+exit $RETVAL
