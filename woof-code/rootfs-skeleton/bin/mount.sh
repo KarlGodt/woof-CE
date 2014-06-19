@@ -84,17 +84,24 @@ esac
  do
 
  test "$oneUPDATE" || continue
- _debug "$oneUPDATE $oneMOUNTPOINT $REST"
+ _debug "'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
+
+ test "$noROX" || { pidof ROX-Filer && {
+
+         test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}" ;
+      test -d "${oneMOUNTPOINT%/*}" && rox -x "${oneMOUNTPOINT%/*}"
+         }
+        }
 
  case $oneUPDATE in
- *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd, nbd -- won't update partition icon"; continue ;;
+ *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd, nbd -- won't update partition icon"; skipICON=YES ; continue;;
  /dev/fd[0-9]*)      DRV_CATEGORY=floppy ;;
  /dev/sr*|/dev/scd*) DRV_CATEGORY=optical;;
  /dev/mmc*)          DRV_CATEGORY=card   ;;
  /dev/*) DRV_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
          _debug "DRV_CATEGORY='$DRV_CATEGORY'"
          test "$DRV_CATEGORY" || continue;;
- *) _notice "Got '$oneUPDATE' -- won't update partition icon"; continue;;
+ *) _notice "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
  esac
 
  case $WHAT in
@@ -111,10 +118,11 @@ esac
      icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     fi
    fi
+ #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT"; }
  ;;
  mount)
   icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
-  test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -d "$oneMOUNTPOINT"; }
+  #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT" -d "$oneMOUNTPOINT"; }
  ;;
  esac
 
@@ -136,12 +144,13 @@ test "`echo "$device" | sed 's,[^#]*,,g'`" && continue
 
 case $WHAT in
  mount)
-  echo $device $mountpoint -t $fstype -o $mntops
+  _debug "'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
   grep -q -w ${device##*/} /proc/partitions || continue
   test -d "$mountpoint" || mkdir -p "$mountpoint"
   mountpoint -q "$mountpoint" && continue
+
   mountBEFORE=`cat /proc/mounts`
   busybox $WHAT $device "$mountpoint" -t $fstype -o $mntops
   RV=$?
@@ -149,6 +158,7 @@ case $WHAT in
   noROX=1
   test "$RV" = 0 && _update_partition_icon || rmdir "$mountpoint"
  ;;
+
 umount)
   case $opT in
   -t) echo "$opT_ARGS" | grep -q -w "$fstype" || continue ;;
@@ -540,7 +550,7 @@ _umount_rmdir(){ mountpoint -q $* || rmdir $*; }
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
- test "$noROX" || rox -x /mnt
+ #test "$noROX" || rox -x /mnt -x "`pwd`"
  test $WHAT = umount || return 0
  _check_tmp_rw || return 57
  while read oneDIR
