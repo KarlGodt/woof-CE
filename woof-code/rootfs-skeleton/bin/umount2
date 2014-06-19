@@ -45,10 +45,10 @@ in
 if [ -d "${P[$k]}" ] ; then
  MNTPTS_ALL=`awk '{print $1"+++"$2}' /proc/mounts`
  MNTPTS_ALL=`busybox echo -e "$MNTPTS_ALL"`
- DEVNAMEP=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
- DEVNAMEP="${DEVNAMEP%%+++*}"
+ devNAMEP=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
+ devNAMEP="${devNAMEP%%+++*}"
  MNTPT_M="${P[$k]}"
- #function_rox_n_fuser "$DEVNAMEP"
+ #function_rox_n_fuser "$devNAMEP"
  #function_rox_n_fuser "$MNTPT_M"
  function_filer_n_fuser "$MNTPT_D"
 elif [ -b "${P[$k]}" ] ; then
@@ -58,8 +58,8 @@ elif [ -b "${P[$k]}" ] ; then
  MNTPTS_ALL=`busybox echo -e "$MNTPTS_ALL"`
  MNTPT_D=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
  MNTPT_D="${MNTPT_D#*+++}"
- DEVNAMEP="${P[$k]}"
- #function_rox_n_fuser "$DEVNAMEP"
+ devNAMEP="${P[$k]}"
+ #function_rox_n_fuser "$devNAMEP"
  #function_rox_n_fuser "$MNTPT_D"
  #function_filer_n_fuser "$MNTPT_D"
 fi
@@ -93,24 +93,30 @@ dmesg | tail | grep -w "$UPtime"
 
 [ $RETVAL = 0 ] || exit $RETVAL
 
-  if [ "$MNTPT_M" ] ; then OLDMOUNTPT="$MNTPT_M"
-elif [ "$MNTPT_D" ] ; then OLDMOUNTPT="$MNTPT_D"
+  if [ "$MNTPT_M" ] ; then oldMOUNTPT="$MNTPT_M"
+elif [ "$MNTPT_D" ] ; then oldMOUNTPT="$MNTPT_D"
 else
 sleep 0.02s #change if req
 [ -f /proc/mounts ] || { echo "No /proc/mounts ." ; exit $RETVAL ; } ##+++2013-08-10 in case of umount -a
 MOUNTEDSA=`tac /proc/mounts`
-OLDMOUNTS=`echo "$MOUNTEDSB" | grep -v "$MOUNTEDSA"`
-OLDMOUNTPT=`echo "$OLDMOUNTS" | awk '{print $2}'`
-OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
+oldMOUNTS=`echo "$MOUNTEDSB" | grep -v "$MOUNTEDSA"`
+oldMOUNTPT=`echo "$oldMOUNTS" | awk '{print $2}'`
+oldMOUNTPT=`echo -e "$oldMOUNTPT" | head -n1`
   fi
+
+_exit(){ which "$FILER" && { sleep 0.1;
+ test -d "$oldMOUNTPT" && { $FILER -x "${oldMOUNTPT%/*}" -x "$oldMOUNTPT" -D "$oldMOUNTPT"; }
+        }
+ [ "$oldMOUNTPT" -a -d "$oldMOUNTPT" -a ! "`ls -A "$oldMOUNTPT"`" ] && rmdir "$oldMOUNTPT"
+ exit $RETVAL; }
 
 [ "$MNTPT_M" -o "$MNTPT_D" ] || {
 [ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" = "$MOUNTEDSA" ] && {
-echo "NO CHANGES.";exit $RETVAL; } || {
+echo "NO CHANGES."; _exit $RETVAL; } || {
 [ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" != "$MOUNTEDSA" ] || {
-echo "NO CHANGES.";exit $RETVAL; }; }; }
+echo "NO CHANGES?."; _exit $RETVAL; }; }; }
 
-[ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir "$OLDMOUNTPT"
+#[ "$oldMOUNTPT" -a -d "$oldMOUNTPT" -a ! "`ls -A "$oldMOUNTPT"`" ] && rmdir "$oldMOUNTPT"
 
 [ "$DISPLAY" ] || { echo "NO DISPLAY.";exit $RETVAL; }
 
@@ -118,35 +124,36 @@ echo "NO CHANGES.";exit $RETVAL; }; }; }
 #[ "$ICONDESK" = true ] || exit $RETVAL
 #[ "$ICONPARTITIONS" = true ] || exit $RETVAL
 
-[ "$DEVNAMEP" ] || {
-DEVNAMEP=`echo "$OLDMOUNT" | awk '{print $1}'`
-DEVNAMEP=`echo -e "$DEVNAMEP"`
+[ "$devNAMEP" ] || {
+devNAMEP=`echo "$oldMOUNT" | awk '{print $1}'`
+devNAMEP=`echo -e "$devNAMEP"`
 }
-#echo "${DEVNAMEP##*/}"
-[ -d /root/.pup_event/drive_"${DEVNAMEP##*/}" ] || { echo "NO drive_${DEVNAMEP##*/} Directory.";exit $RETVAL ; }
+
+#echo "${devNAMEP##*/}"
+[ -d /root/.pup_event/drive_"${devNAMEP##*/}" ] || { echo "NO drive_${devNAMEP##*/} Directory."; _exit $RETVAL ; }
 
 #( pidof ROX-Filer || pidof rox ) || { echo "ROX-Filer or rox not running.";exit $RETVAL ; }
-[ "`which "$FILER"`" ] || { echo "'$FILER' not installed.";exit $RETVAL ; }
-pidof pup_event_frontend_d >/dev/null || { echo "pup_event_frontend_d not running.";exit $RETVAL ; }
+[ "`which "$FILER"`" ] || { echo "'$FILER' not installed."; _exit $RETVAL ; }
+pidof pup_event_frontend_d >/dev/null || { echo "pup_event_frontend_d not running."; _exit $RETVAL ; }
 
-case ${DEVNAMEP##*/} in
+case ${devNAMEP##*/} in
 fd*)      CATEGORY=floppy  ;;
 scd*|sr*) CATEGORY=optical ;;
 mmc*|sd*|hd*)
-DEVNAME=`echo "$DEVNAMEP" | sed 's%p[0-9]*$%%;s%[0-9]*$%%'`
+devNAME=`echo "$devNAMEP" | sed 's%p[0-9]*$%%;s%[0-9]*$%%'`
 PROBEDISK2=`probedisk2`
-CATEGORY=`echo "$PROBEDISK2" | grep -m1 -w "$DEVNAME" | cut -f2 -d'|'`
+CATEGORY=`echo "$PROBEDISK2" | grep -m1 -w "$devNAME" | cut -f2 -d'|'`
 ;;
-*) echo "Not a block device for pup_event* ICONDESK.";exit $RETVAL ;;
+*) echo "Not a block device for pup_event* ICONDESK.";_exit $RETVAL ;;
 esac
 
 DISK_FREE=`df`
 
 . /etc/rc.d/functions4puppy4
-echo "$DISK_FREE" | grep -w "^$DEVNAMEP" | grep -E ' /initrd/| /$' &&
+echo "$DISK_FREE" | grep -w "^$devNAMEP" | grep -E ' /initrd/| /$' &&
 {
-      icon_mounted_func "${DEVNAMEP##*/}" $CATEGORY; } || {  #see functions4puppy4
-      icon_unmounted_func "${DEVNAMEP##*/}" $CATEGORY;
+      icon_mounted_func "${devNAMEP##*/}" $CATEGORY; } || {  #see functions4puppy4
+      icon_unmounted_func "${devNAMEP##*/}" $CATEGORY;
 }
-
+[ "$oldMOUNTPT" -a -d "$oldMOUNTPT" -a ! "`ls -A "$oldMOUNTPT"`" ] && rmdir "$oldMOUNTPT"
 exit $RETVAL
