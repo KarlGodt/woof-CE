@@ -1,0 +1,83 @@
+#!/bin/bash
+# Karl Reimer Godt June 2013
+# Thanks to L18L for testing and confirming that ntfs-3g could need a patch to
+# ignore unused common Linux/GNU mount options
+
+[ "$*" ] || exec busybox mount
+
+FILER=rox
+
+ARGS=`set | grep 'BASH_ARG'`
+ARGV=`echo "$ARGS" | grep 'ARGV' | grep -o '\[.*"'`
+ARGC=`echo "$ARGS" | grep 'ARGC' |cut -f2 -d'"'`
+c=$ARGC
+while read p
+do
+P[$c]="${p#*=}"
+P[$c]="${P[$c]/#\"}"
+P[$c]="${P[$c]/%\"}"
+[ "${P[$c]}" = ntfs ] && P[$c]='ntfs-3g'
+case ${P[$c]} in
+ ntfs-3g) NTFSMOUNT=YES;;
+ vfat) FATMOUNT=YES;CPAGE=437;IOCSET=iso8859-1
+       IFS='.' read KM rest </etc/keymap || KM=us
+       case $KM in
+       de|be|br|dk|es|fi|fr|it|no|se|pt)         CPAGE=850 ;;
+       slovene|croat|hu101|hu|cz-lat2|pl|ro_win) CPAGE=852 ; IOCSET=iso8859-2 ;;
+       esac ;;
+esac
+(( c-- ))
+done<<EOI
+$(echo "$ARGV" | sed 's%" \[%"\n\[%g' )
+EOI
+
+[ $# = 1 -a -b "$1" ] &&
+{
+    mkdir -p /mnt/"${1##*/}"
+    mount-FULL "$1" /mnt/"${1##*/}"
+    RETVAL=$?
+}
+
+[ "$RETVAL" ] ||
+{
+ if [ "$NTFSMOUNT" ] ; then {
+    mount-FULL ${P[@]} && RETVAL=$? || {
+    mount-FULL ${*} && { RETVAL=$? ; NTFSRO=YES ; } || RETVAL=$? ; } ; }
+elif [ "$FATMOUNT" ] ; then { mount-FULL ${P[@]} -o shortname=mixed,quiet,codepage=${CPAGE},iocharset=$IOCSET ; RETVAL=$? ; }
+else { mount-FULL ${P[@]} ; RETVAL=$? ; }
+fi
+}
+
+[ "$DISPLAY" -a "$RETVAL" = 0 ] || exit $RETVAL
+[ "$NTFSRO" ] && xmessage -bg orange "NTFS mount
+$0 $*
+as
+mount-FULL $[P{@]}
+failed to mount read-write .
+The kernel NTFS driver was used to mount
+mount-FULL ${*} at least read-only ." &
+
+read device rest <<EOI
+$(tail -n1 /proc/mounts)
+EOI
+DEVNAME=${device##*/}
+[ -d /root/.pup_event/drive_${DEVNAME} ] || exit $RETVAL
+
+ case $DEVNAME in
+ fd*)         DRV_CATEGORY=floppy ;;
+ mmc*)     DEVNAME=${DEVNAME%p*} ; DRV_CATEGORY=card ;;
+ scd*|sr*) DRV_CATEGORY=optical ;;
+ hd*) : ;;  #either drive or optical
+ sd*) : ;;  #either drive or usbdrv
+ *) exit $RETVAL ;; #loop devices etc.
+ esac
+#echo "'$DEVNAME' '$DRV_CATEGORY' '$device'"
+[ "$DRV_CATEGORY" ] || DRV_CATEGORY=`probedisk2 | grep -m1 "^${device//[[:digit:]]/}|" |cut -f2 -d'|'`
+
+. /etc/rc.d/functions4puppy4
+icon_mounted_func "$DEVNAME" "$DRV_CATEGORY"
+
+#test -d /mnt/$DEVNAME && { pidof ROX-Filer && rox -x /mnt -d /mnt/$DEVNAME; }
+test -d /mnt/$DEVNAME -a "`which "$FILER"`" && { sleep 0.1; rox -x /mnt -d /mnt/$DEVNAME; }
+[ -L /etc/mtab ] || ln -sf /proc/mounts /etc/mtab
+exit $RETVAL

@@ -1,0 +1,87 @@
+#!/bin/bash
+# Karl Reimer Godt June 2013
+# Thanks to L18L for testing and confirming that ntfs-3g could need a patch to
+# ignore unused common Linux/GNU mount options
+
+[ "$*" ] || exec busybox mount
+
+ARGS=`set | grep 'BASH_ARG'`
+ARGV=`echo "$ARGS" | grep 'ARGV' | grep -o '\[.*"'`
+#echo  "$ARGV"
+ARGC=`echo "$ARGS" | grep 'ARGC' |cut -f2 -d'"'`
+#echo $ARGC
+c=$ARGC
+while read p
+do
+P[$c]="${p#*=}"
+P[$c]="${P[$c]/#\"}"
+P[$c]="${P[$c]/%\"}"
+[ "${P[$c]}" = ntfs ] && P[$c]='ntfs-3g'
+(( c-- ))
+done<<EOI
+$(echo "$ARGV" | sed 's%" \[%"\n\[%g' )
+EOI
+#echo ${P[@]}
+
+[ $# = 1 -a -b "$1" ] &&
+{
+    mkdir -p /mnt/"${1##*/}"
+    mount-FULL "$1" /mnt/"${1##*/}"
+    RETVAL=$?
+} ||
+{
+    for sp in ${P[@]}
+    do
+    case $sp in
+    ntfs-3g) NTFSMOUNT=YES;;
+    vfat) FATMOUNT=YES;CPAGE=437;IOCSET=iso8859-1
+          IFS='.' read KM rest </etc/keymap || KM=us
+          case $KM in
+          de|be|br|dk|es|fi|fr|it|no|se|pt)         CPAGE=850 ;;
+          slovene|croat|hu101|hu|cz-lat2|pl|ro_win) CPAGE=852 ; IOCSET=iso8859-2 ;;
+          esac ;;
+    esac
+    done
+}
+
+[ "$RETVAL" ] ||
+{
+[ "$NTFSMOUNT" ] && {
+    mount-FULL ${P[@]} && RETVAL=$? || {
+    mount-FULL ${*} && { RETVAL=$? ; NTFSRO=YES ; } || RETVAL=$? ; } ; }
+
+[ "$FATMOUNT" ]  && { mount-FULL ${P[@]} -o shortname=mixed,quiet,codepage=${CPAGE},iocharset=$IOCSET ; RETVAL=$? ; }
+[ "$RETVAL" ]    || { mount-FULL ${P[@]} ; RETVAL=$? ; }
+}
+
+[ "$DISPLAY" ]    || exit $RETVAL
+[ "$RETVAL" = 0 ] || exit $RETVAL
+[ "$NTFSRO" ] && xmessage -bg orange "NTFS mount
+$0 $*
+as
+mount-FULL $[P{@]}
+failed to mount read-write .
+The kernel NTFS driver was used to mount
+mount-FULL ${*} at least read-only ." &
+
+. /etc/eventmanager
+[ "$ICONDESK" = true ] || exit $RETVAL
+[ "$ICONPARTITIONS" = true ] || exit $RETVAL
+
+. /etc/rc.d/functions4puppy4
+
+read device rest <<EOI
+$(tail -n1 /proc/mounts)
+EOI
+
+DEVNAME=${device##*/}
+ case  $DEVNAME in
+ fd*)  DRV_CATEGORY=floppy ;;
+ mmc*) DEVNAME=${DEVNAME%p*} ; DRV_CATEGORY=card ;;
+ esac
+[ "$DRV_CATEGORY" ] || DRV_CATEGORY=`probedisk2 | grep -m1 "^${device:0:8}|" |cut -f2 -d'|'`
+
+[ "$DRV_CATEGORY" ] && icon_mounted_func "$DEVNAME" "$DRV_CATEGORY"
+
+[ -L /etc/mtab ] || ln -sf /proc/mounts /etc/mtab
+exit $RETVAL
