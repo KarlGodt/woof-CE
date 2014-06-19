@@ -5,9 +5,25 @@
 
 [ "$*" ] || exec busybox mount
 
+echo "$0:$#:$*"
+
 FILER=rox
 
-ARGS=`set | grep 'BASH_ARG'`
+[ $# = 1 -a -b "$1" ] &&  #simple mount: invoke it as `mount /dev/sdaXY'
+{
+    FSTYPE=`guess_fstype "$1"`
+    [ "$FSTYPE" != unknown -a "$FSTYPE" != "" ] && OP="-t $FSTYPE"
+    [ "$FSTYPE" = ntfs ] && OP="-t ntfs-3g"
+    mkdir -p /mnt/"${1##*/}"
+    mount-FULL $OP "$1" /mnt/"${1##*/}"
+    RETVAL=$?
+    case $RETVAL in 0) :;;
+    *) mount-FULL "$1" /mnt/"${1##*/}"
+       RETVAL=$?;;
+    esac
+} || {
+
+ARGS=`set | grep 'BASH_ARG'`                          #parse arguments to script
 ARGV=`echo "$ARGS" | grep 'ARGV' | grep -o '\[.*"'`
 ARGC=`echo "$ARGS" | grep 'ARGC' |cut -f2 -d'"'`
 c=$ARGC
@@ -16,35 +32,79 @@ do
 P[$c]="${p#*=}"
 P[$c]="${P[$c]/#\"}"
 P[$c]="${P[$c]/%\"}"
-[ "${P[$c]}" = ntfs ] && P[$c]='ntfs-3g'
-case ${P[$c]} in
- ntfs-3g) NTFSMOUNT=YES;;
- vfat) FATMOUNT=YES;CPAGE=437;IOCSET=iso8859-1
+[ "${P[$c]}" = ntfs ] && P[$c]='ntfs-3g' #use -t ntfs-3g mount ops instead of -t ntfs
+case ${P[$c]} in                         #to be able to avoid call to ntfs-3g directly
+ ntfs-3g) NTFSMOUNT=YES;;                             # Windows NTFS
+ vfat) FATMOUNT=YES;CPAGE=437;IOCSET=iso8859-1        # Windows FATXY
        IFS='.' read KM rest </etc/keymap || KM=us
        case $KM in
        de|be|br|dk|es|fi|fr|it|no|se|pt)         CPAGE=850 ;;
        slovene|croat|hu101|hu|cz-lat2|pl|ro_win) CPAGE=852 ; IOCSET=iso8859-2 ;;
        esac ;;
+
+#       # try to create directory if not already
+#-U|-t|-p|-o|-O|-L)      markOPTARG=1;;   # exist . Quite simple assumption ...
+#-a|-f|-F|-h|-i|-l|-r|-s|-v|-V|-w)  :;;   # above L: OPTARG options
+#--bind|--move)                     :;;
+#/dev/*|nodev|none|*fs) :;;               # *fs for *filesystem could error below...
+#*) [ -e ${P[$c]} ] || mkdir -p ${P[$c]};;
+#esac
+
+#case ${P[$((c+1))]} in
+#-U|-t|-p|-o|-O|-L) :;;          # exist . Quite simple assumption ...
+#/dev/*|nodev|none|*fs) :;;
+#*) case ${P[$c]} in --bind|--move|none|*nodev|*fs|/dev/*) :;;
+#   *) [ -e ${P[$c]} ] || mkdir -p ${P[$c]};;
+#   esac;;
+
 esac
+#echo "'${P[$c]}' '${P[$((c+1))]}'"
+
 (( c-- ))
 done<<EOI
 $(echo "$ARGV" | sed 's%" \[%"\n\[%g' )
 EOI
 
-[ $# = 1 -a -b "$1" ] &&
-{
-    mkdir -p /mnt/"${1##*/}"
-    mount-FULL "$1" /mnt/"${1##*/}"
-    RETVAL=$?
+ # try to create directory if not already exist . Quite simple assumption ...
+d=0
+for opt in ${P[@]}; do
+(( d++ ))
+echo "'$opt' '$d' '${P[$d]}'"
+test "$markOPTARG" = 1 && { markOPTARG=0; continue; }
+case $opt in
+-U|-t|-p|-o|-O|-L)      markOPTARG=1;;
+-a|-f|-F|-h|-i|-l|-r|-s|-v|-V|-w)  :;;   # above L: OPTARG options
+--bind|--move)                     :;;
+/dev/*|nodev|none|*fs) :;;               # *fs for *filesystem could error below...
+*) [ -e ${P[$d]} ] || mkdir -p ${P[$d]};;
+esac
+#(( d++ ))
+done
 }
 
-[ "$RETVAL" ] ||
-{
- if [ "$NTFSMOUNT" ] ; then {
-    mount-FULL ${P[@]} && RETVAL=$? || {
+#[ $# = 1 -a -b "$1" ] &&  #simple mount: invoke it as `mount /dev/sdaXY'
+#{
+#    FSTYPE=`guess_fstype "$1"`
+#    [ "$FSTYPE" != unknown -a "$FSTYPE" != "" ] && OP="-t $FSTYPE"
+#    [ "$FSTYPE" = ntfs ] && OP="-t ntfs-3g"
+#    mkdir -p /mnt/"${1##*/}"
+#    mount-FULL $OP "$1" /mnt/"${1##*/}"
+#    RETVAL=$?
+#    case $RETVAL in 0) :;;
+#    *) mount-FULL "$1" /mnt/"${1##*/}"
+#       RETVAL=$?;;
+#    esac
+#}
+
+[ "$RETVAL" ] ||         #if simple mount , then RETVAL exists, otherwise
+{                        #do this code below:
+ if [ "$NTFSMOUNT" ] ; then {             #first test if both windows bits are set
+    #     echo "using mount-FULL ${P[@]}" #if transforming from -t ntfs to -t ntfs-3g successfull, then...
+    mount-FULL ${P[@]} && RETVAL=$? || {  #otherwise use original args
+    #     echo "using mount-FULL ${*}"    #would use -t ntfs or -t ntfs-3g then if given
     mount-FULL ${*} && { RETVAL=$? ; NTFSRO=YES ; } || RETVAL=$? ; } ; }
 elif [ "$FATMOUNT" ] ; then { mount-FULL ${P[@]} -o shortname=mixed,quiet,codepage=${CPAGE},iocharset=$IOCSET ; RETVAL=$? ; }
-else { mount-FULL ${P[@]} ; RETVAL=$? ; }
+else { mount-FULL ${P[@]} ; RETVAL=$? ; }  # windows bits are not set
 fi
 }
 
@@ -60,24 +120,29 @@ mount-FULL ${*} at least read-only ." &
 read device rest <<EOI
 $(tail -n1 /proc/mounts)
 EOI
-DEVNAME=${device##*/}
-[ -d /root/.pup_event/drive_${DEVNAME} ] || exit $RETVAL
 
- case $DEVNAME in
+PARTNAME=${device##*/}
+
+_exit(){ which "$FILER" && { sleep 0.1; $FILER -x "`pwd`" -x /mnt -x /mnt/$PARTNAME; }
+ exit $RETVAL; }
+
+[ -d /root/.pup_event/drive_${PARTNAME} ] || _exit $RETVAL
+
+ case $PARTNAME in
  fd*)         DRV_CATEGORY=floppy ;;
- mmc*)     DEVNAME=${DEVNAME%p*} ; DRV_CATEGORY=card ;;
+ mmc*)     PARTNAME=${PARTNAME%p*} ; DRV_CATEGORY=card ;;
  scd*|sr*) DRV_CATEGORY=optical ;;
  hd*) : ;;  #either drive or optical
  sd*) : ;;  #either drive or usbdrv
- *) exit $RETVAL ;; #loop devices etc.
+ *) _exit $RETVAL ;; #loop devices etc.
  esac
-#echo "'$DEVNAME' '$DRV_CATEGORY' '$device'"
+#echo "'$PARTNAME' '$DRV_CATEGORY' '$device'"
 [ "$DRV_CATEGORY" ] || DRV_CATEGORY=`probedisk2 | grep -m1 "^${device//[[:digit:]]/}|" |cut -f2 -d'|'`
 
 . /etc/rc.d/functions4puppy4
-icon_mounted_func "$DEVNAME" "$DRV_CATEGORY"
+icon_mounted_func "$PARTNAME" "$DRV_CATEGORY"
 
-#test -d /mnt/$DEVNAME && { pidof ROX-Filer && rox -x /mnt -d /mnt/$DEVNAME; }
-test -d /mnt/$DEVNAME -a "`which "$FILER"`" && { sleep 0.1; rox -x /mnt -d /mnt/$DEVNAME; }
+#test -d /mnt/$PARTNAME && { pidof ROX-Filer && rox -x /mnt -d /mnt/$PARTNAME; }
+test -d /mnt/$PARTNAME -a "`which "$FILER"`" && { sleep 0.1; $FILER -x /mnt -x /mnt/$PARTNAME -d /mnt/$PARTNAME; }
 [ -L /etc/mtab ] || ln -sf /proc/mounts /etc/mtab
 exit $RETVAL
