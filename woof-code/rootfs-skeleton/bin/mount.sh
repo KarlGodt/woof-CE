@@ -4,12 +4,25 @@ test "$*" || exec busybox mount
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
+QUIET=-q
 DEBUG=1
 INFO=1
+test "$DEBUG" && QUIET='';
+
+#busybox mountpoint does not recognice after
+#mount --bind / /tmp/ROOTFS
+#/tmp/ROOTFS as mountpoint ...
+#but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
+#so using function with grep instead
+mountpoint(){ [ "$1" = '-q' ] && shift;
+set - `echo "$*" | sed 's!\ !\\\040!g'`
+grep $QUIET " $* " /proc/mounts
+ return $?; }
 
 _check_proc()
 {
-  mountpoint -q /proc && return $? || {
+ _debug "_check_proc:mountpoint $QUIET /proc"
+  mountpoint $QUIET /proc && return $? || {
   busybox mount -o remount,rw /dev/root/ /
   test -d /proc || mkdir -p /proc
   busybox mount -t proc none /proc
@@ -32,7 +45,8 @@ _check_tmp_rw()
  _check_proc
  _check_tmp
 
-mountpoint -q /tmp && {
+_debug "_check_tmp_rw:mountpoint $QUIET /tmp"
+mountpoint $QUIET /tmp && {
 grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
 grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
@@ -42,7 +56,7 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || 
 
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsTt:U:uVvWwXxYyZz-
 
-  getOPS=`busybox getopt -u -l help,version,bind,move -- $allOPS "$@"`
+  getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
 _debug "options='$getOPS'"
  longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!'`
 _info "long='$longOPS'"
@@ -84,12 +98,13 @@ esac
  do
 
  test "$oneUPDATE" || continue
- _debug "'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
+ _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
 
  test "$noROX" || { pidof ROX-Filer && {
-
-         test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}" ;
       test -d "${oneMOUNTPOINT%/*}" && rox -x "${oneMOUNTPOINT%/*}"
+         test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}"
+         test "$WHAT" = mount && rox -d "${oneMOUNTPOINT}";
+
          }
         }
 
@@ -106,14 +121,14 @@ esac
 
  case $WHAT in
  umount)
-   if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+   if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
    #[ "$VERBOSE" ] && _info "IS in df"
-    if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
-     _info "$oneUPDATE is boot partition"
+    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
+     _info "_update_partition_icon:$oneUPDATE is boot partition"
      #only a partition left mntd that is in use by puppy, change green->yellow...
      icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     else
-     _info "$oneUPDATE is not boot partition"
+     _info "_update_partition_icon:$oneUPDATE is not boot partition"
      #redraw icon without "MNTD" text...
      icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     fi
@@ -121,8 +136,8 @@ esac
  #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT"; }
  ;;
  mount)
-  icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
-  #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT" -d "$oneMOUNTPOINT"; }
+      icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
+      #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT" -d "$oneMOUNTPOINT"; }
  ;;
  esac
 
@@ -144,12 +159,13 @@ test "`echo "$device" | sed 's,[^#]*,,g'`" && continue
 
 case $WHAT in
  mount)
-  _debug "'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
+  _debug "_parse_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
   grep -q -w ${device##*/} /proc/partitions || continue
   test -d "$mountpoint" || mkdir -p "$mountpoint"
-  mountpoint -q "$mountpoint" && continue
+  _debug "_parse_fstab:$WHAT:mountpoint $QUIET \"$mountpoint\""
+  mountpoint $QUIET "$mountpoint" && continue
 
   mountBEFORE=`cat /proc/mounts`
   busybox $WHAT $device "$mountpoint" -t $fstype -o $mntops
@@ -167,7 +183,7 @@ umount)
   -O) echo "$mntops" | grep -q -E "$opO_ARGS" || continue ;;
   esac
 
-  echo $mountpoint
+  _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
 
                 allSUB_MOUNTS=`losetup -a | grep -w "$mountpoint" | tac`
                 _check_tmp_rw || return 55
@@ -181,10 +197,11 @@ umount)
                 `echo "$allSUB_MOUNTS"`
 EoI
 
-  mountpoint -q $mountpoint && {
+  _debug "_parse_fstab:$WHAT:mountpoint $QUIET \"$mountpoint\""
+  mountpoint $QUIET "$mountpoint" && {
      mountBEFORE=`cat /proc/mounts`
      pidof ROX-Filer && rox -D "$mountpoint"
-     busybox $WHAT $mountpoint
+     busybox $WHAT "$mountpoint"
      RV=$?
      test $RV = 0 && _update_partition_icon
      STATUS=$((STATUS+RV))
@@ -194,7 +211,7 @@ EoI
   grep -q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
-*) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'";break;;
+*) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
 esac
 
 done</etc/fstab
@@ -350,7 +367,7 @@ set - $longOPS $*
 _debug "5:$*"
 _info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID
 
-echo "opALL='$opALL'"
+test "$opALL" && _debug "opALL='$opALL'"
 
 if   test "$opALL" == "-a"; then
         _warn "${WHAT}ing all entries in /etc/fstab..."
@@ -423,11 +440,12 @@ umount)
 #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
 mountPOINT=`echo "$mountBEFORE" | grep -w $deviceORpoint | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
-_debug "mountPOINT=$mountPOINT"
+_debug "mountPOINT='$mountPOINT'"
 
-mountpoint -q "$mountPOINT" && {
+#mountpoint $QUIET "$mountPOINT" && {
         _debug "Closing ROX-Filer if necessary..."
-        pidof ROX-Filer && rox -D "$mountPOINT"; }
+        pidof ROX-Filer && rox -D "$mountPOINT";
+        #}
 ;;
 mount) :;;
 *) _exit 41 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
@@ -438,22 +456,25 @@ umount)
 if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
         #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
+        _notice "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
         busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         RETVAL=$?
         else
         #fusermount can only unmount by giving the mount-point...
+        _notice "fusermount -u $NTFSMNTPT"
         fusermount -u $NTFSMNTPT
         RETVAL=$?
         fi
 else
  #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
+ _info "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
  busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
  RETVAL=$?
 fi
 ;;
 mount)
       case $opT in
-      *ntfs)
+      *ntfs)               #*ntfs*)?
        test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
 
         test "`which ntfs-3g.probe`" && {
@@ -507,11 +528,12 @@ mount)
           ;;
          esac
         fi
+       _notice "busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
        busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       ;;
       *)
-      if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "`echo "$longOPS" | grep -E 'bind|move'`"; then
+      if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "`echo "$longOPS" | grep -E 'bind|move|make'`"; then
       # use mount-FULL
         if test "$opUUID"; then
          MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
@@ -529,11 +551,11 @@ mount)
          test -d "$oneMTP" || mkdir -p "$oneMTP"
          done
         fi
-       _notice $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK
+       _notice "$WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK"
        $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK
        RETVAL=$?
       else # use busybox mount
-       _notice busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
+       _notice "busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
        busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       fi #use mount-FULL
@@ -545,13 +567,14 @@ esac
 
 _notice "RETVAL=$RETVAL"
 
-_umount_rmdir(){ mountpoint -q $* || rmdir $*; }
+_umount_rmdir(){ _debug "_umount_rmdir:mountpoint $QUIET $*"; mountpoint $QUIET $* || rmdir $*; }
 
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
  #test "$noROX" || rox -x /mnt -x "`pwd`"
  test $WHAT = umount || return 0
+ test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
  _check_tmp_rw || return 57
  while read oneDIR
  do
