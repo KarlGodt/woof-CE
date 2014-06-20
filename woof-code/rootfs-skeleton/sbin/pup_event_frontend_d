@@ -93,7 +93,7 @@ trap "exit" INT QUIT ABRT KILL TERM
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 DEBUG=1
 
-kill_func(){
+_kill_me_not(){
     #MEPID=$$
     #PIDS=`pidof ${0##*/} | tr ' ' '\n'`
     #PIDS=`echo "$PIDS" | grep -vw "$MEPID"`
@@ -104,11 +104,11 @@ kill_func(){
 
 case $1 in
 stop)
-kill_func
+_kill_me_not
 exit
 ;;
 restart)
-kill_func
+_kill_me_not
 ;;
 *) : ;;
 esac
@@ -117,7 +117,7 @@ esac
 pidof -o $$ -o %PPID ${0##*/} && { echo "$0: Already Running.";exit 1; }
 
 
-auto_unmount_func() {  #v424 experiment, automatic unmounting...
+_auto_unmount(){  #v424 experiment, automatic unmounting...
  for oneMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
@@ -136,7 +136,7 @@ auto_unmount_func() {  #v424 experiment, automatic unmounting...
  done
 }
 
-free_initrd_func() { #UniPup, runs entirely in initramfs.
+_free_initrd(){ #UniPup, runs entirely in initramfs.
  SIZEFREEK=`free | grep '^Total:' | tr -s ' ' | cut -f 4 -d ' '`
  SIZEFREEM=$((SIZEFREEK / 1024))
  [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
@@ -145,7 +145,7 @@ free_initrd_func() { #UniPup, runs entirely in initramfs.
  echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
 }
 
-free_func() { #called every 4 seconds.
+_free(){ #called every 4 seconds.
  case $PUPMODE in
   6|12)
    SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
@@ -159,7 +159,7 @@ free_func() { #called every 4 seconds.
  [ $PREVSIZEFREEM -eq $SIZEFREEM ] && return
  if [ $SIZEFREEM -lt 10 ];then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   delete_func /initrd/pup_rw #save layer is at top, delete mods.
+   _delete /initrd/pup_rw #save layer is at top, delete mods.
   else
    WARNMSG="WARNING: Personal storage getting full, strongly recommend you resize it or delete files!"
   fi
@@ -181,7 +181,7 @@ free_func() { #called every 4 seconds.
  fi
 }
 
-free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds.
+_free_flash(){ #PUPMODE 3,7,13. called every 4 seconds.
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
  SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
@@ -190,14 +190,14 @@ free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds.
  [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
  if [ $SIZEFREEM -lt 10 ]; then
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   delete_func /initrd/pup_ro1 #delete modules in save layer only.
+   _delete /initrd/pup_ro1 #delete modules in save layer only.
   else
    WARNMSG="WARNING: Personal storage file getting full, strongly recommend you resize it or delete files!"
   fi
  fi
  if [ $SIZETMPM -lt 5 ]; then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   delete_func /initrd/pup_rw #delete modules in top tmpfs layer only.
+   _delete /initrd/pup_rw #delete modules in top tmpfs layer only.
   else
    WARNMSG="WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
   fi
@@ -219,7 +219,7 @@ free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds.
  fi
 }
 
-savepuppy_func() { #called every 4 seconds.
+_savepuppy(){ #called every 4 seconds.
  if [ -f /tmp/snapmergepuppyrequest ]; then #by request.
   rm -f /tmp/snapmergepuppyrequest
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." &
@@ -230,8 +230,8 @@ savepuppy_func() { #called every 4 seconds.
  fi
 }
 
-                #note that init script in initrd takes care of restoring modules if enough space.
-delete_func() { #called from free_func() and free_flash_func(). delete modules to create more free space.
+            #note that init script in initrd takes care of restoring modules if enough space.
+_delete(){  #called from _free() and _free_flash(). delete modules to create more free space.
  #passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
@@ -255,8 +255,8 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
 }
 
 
-                       #v407 fixed so works for sr* and hd* optical...
-probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
+                   #v407 fixed so works for sr* and hd* optical...
+_probe_optical(){  #passed param is sr<0-9> or hd<a-z>
  namePARTITION="$1"
  categoryDISK="optical"
  CDSTATUS2="0"
@@ -277,16 +277,16 @@ probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
   #DRV_DESCRIPTION="$VENDOR $MODEL"
   opticalPATTERN='^/dev/'"${namePARTITION}"'|'
   DRV_DESCRIPTION=`echo "$PROBEDISK" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
-  create_icon_func #requires nameDISK, categoryDISK, DRV_DESCRIPTION.
+  _create_icon #requires nameDISK, categoryDISK, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $home/.pup_event/drive_${namePARTITION}/AppRun optical & #handler script.
 #KRG else
 #KRG  rm -rf $HOME/.pup_event/drive_${namePARTITION} 2>/dev/null
-#KRG  remove_pinboard_func #needs namePARTITION
+#KRG  _remove_pinboard #needs namePARTITION
  fi
 }
 
-                      #v407 detect ls120 and zip disc inserted...
-probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
+                  #v407 detect ls120 and zip disc inserted...
+_probe_floppy(){  #passed param is drive name (exs: hdc, sdc)
  namePARTITION="$1"
  kindDRIVE=`echo -n "$namePARTITION" | cut -c 1,2` #sd or hd.
  categoryDISK="floppy"
@@ -310,11 +310,11 @@ probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
   else
    DRV_DESCRIPTION=`cat /sys/block/${namePARTITION}/device/model | tr -s ' '`
   fi
-  create_icon_func #requires nameDISK, categoryDISK, DRV_DESCRIPTION.
+  _create_icon #requires nameDISK, categoryDISK, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $home/.pup_event/drive_${namePARTITION}/AppRun floppy & #handler script.
 #KRG else
 #KRG  rm -rf $HOME/.pup_event/drive_${namePARTITION} 2>/dev/null
-#KRG  remove_pinboard_func #needs namePARTITION
+#KRG  _remove_pinboard #needs namePARTITION
  fi
 }
 
@@ -370,12 +370,12 @@ KERNVER=`uname -r`
 . /etc/rc.d/functions4puppy4
 DEBUG=1
 
-SCRN_VARS_func() {  #KRG
+_SCRN_VARS(){  #KRG
 SCRNXY=`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'` #orig
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'` #orig
 SCRN_Y=`echo -n "$SCRNXY" | cut -f 2 -d 'x'` #orig
 } #KRG
-SCRN_VARS_func
+_SCRN_VARS
 
 [ "$RAMSAVEINTERVAL" ] || RAMSAVEINTERVAL=30 #412
 RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60)) #convert minutes to seconds.
@@ -392,7 +392,7 @@ RETVALm=1
 PREVSIZETMPM=0
 PREVSIZEFREEM=0
 
-format_size_func() {
+_format_size(){
  [ $SIZE ] || SIZE=0
  if [ $SIZE -gt 1048576 ];then #1024*1024
   SIZE=`LANG=$OLDLANG dc $SIZE 1048576 \/ p` #100613 dc o/p '.' if LANG=C.
@@ -409,7 +409,7 @@ format_size_func() {
  [ "$SIZE" = "0,0MB" ] && SIZE="0" #100613
 }
 
-create_appinfo_func() { #needs INFO, categoryDISK, MOREITEMS, namePARTITION
+_create_appinfo(){  #needs INFO, categoryDISK, MOREITEMS, namePARTITION
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
   <Summary>${INFO}</Summary>
@@ -426,15 +426,15 @@ create_appinfo_func() { #needs INFO, categoryDISK, MOREITEMS, namePARTITION
 }
 
 
-HOME_func(){  #KRG
+_HOME(){  #KRG
 home="$HOME"
 [ "$home" = "/" ] && home="/root"
 echo "home='$home'"
 }  #KRG
-HOME_func  #KRG
+_HOME  #KRG
 
 
-JWM_func(){
+_JWM(){
 #CWM=`cat /etc/windowmanager`
 read CWM </etc/windowmanager
 
@@ -451,9 +451,9 @@ read CWM </etc/windowmanager
  [ "$HEIGHT" = "34" -o "$HEIGHT" = "42" ] && HP=2
  [ -z "$HP" -o "$HP" -lt 1 -o "$HP" -gt 2 ] && HP=1
 }
-JWM_func
+_JWM
 
-ROX_func(){
+_ROX(){
  CONFFILEROX="$home/.config/rox.sourceforge.net/ROX-Filer/Options"
  PIN_GRID_STEP=`grep "pinboard_grid_step" $CONFFILEROX | sed -e "s/ *<[^>]*>//g"`
  [ -z "$PIN_GRID_STEP" ] && PIN_GRID_STEP=16 #16=medium.
@@ -498,14 +498,14 @@ _func_out(){
  VALSX=$(( $SCRN_X / $PIN_GRID_STEP ))
  for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
 }
-ROX_func
+_ROX
 
-MAX_XY_func(){
+_MAX_XY(){
 MAX_X=`expr $SCRN_X`
 }
-MAX_XY_func
+_MAX_XY
 
-START_XY_ICON_VALUES_func() {  #KRG
+_START_XY_ICON_VALUES(){   #KRG
 case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
    COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
@@ -577,14 +577,14 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
    ;;
 esac
 }
-START_XY_ICON_VALUES_func #KRG
+_START_XY_ICON_VALUES #KRG
 
-VAR_VARS_func(){
+_VAR_VARS(){
 LINE=1
 }
-VAR_VARS_func
+_VAR_VARS
 
-free_coord(){
+_free_coord(){
  #find a free place on desktop. v410 avoid exact overlapping icons...
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
@@ -680,13 +680,13 @@ free_coord(){
  esac
 }
 
-add_pinboard_func() { #needs namePARTITION, categoryDISK, FSTYPE
+_add_pinboard(){  #needs namePARTITION, categoryDISK, FSTYPE
  #ppPATTERN=' label="'"$namePARTITION"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
  ppPATTERN="$home/.pup_event/drive_${namePARTITION}<"
  ##[ "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" != "" -a -z "`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`" ] && return #precaution.
  [ "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" ] && return
- free_coord
+ _free_coord
  _debug "X Pin='${COORD_X}' Y Pin='${COORD_Y}' '$namePARTITION'"
  #namePARTITIONlast="$namePARTITION"
  echo
@@ -722,8 +722,8 @@ echo "$allFS"
 allFS=`echo "$allFS" | sed 's!^!\\\|!;s!$!\\\|!'`
 echo "$allFS"
 
-create_icon_func() {
- _debug "create_icon_func:'$*'"
+_create_icon(){
+ _debug "_create_icon:'$*'"
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables namePARTITION, categoryDISK, DRV_DESCRIPTION.
  #if a passed param $1, then PROBEPART already known, inefficient to rerun here each time.
@@ -764,21 +764,21 @@ create_icon_func() {
     #device is an entire drive. ie sr0
     SIZE=`cat /sys/block/${namePARTITION}/size`
     SIZE=$(($SIZE/2)) #get KB.
-    format_size_func #formats SIZE for display.
+    _format_size #formats SIZE for display.
     INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
    elif [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
      INFO="Puppy drive manager"
    else
      #pPATTERN=' '"$namePARTITION"'$'
      #SIZE=`grep "$pPATTERN" /proc/partitions | tr -s ' ' | cut -f 4 -d ' '`
-     format_size_func #formats SIZE for display.
+     _format_size #formats SIZE for display.
      INFO="Filesystem: $FSTYPE Size: $SIZE"
    fi
 
    #v424 add item to unmount all partitions...
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${namePARTITION} (if currently mounted)</Label></Item>
    <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   create_appinfo_func #needs INFO, categoryDISK, MOREITEMS, namePARTITION
+   _create_appinfo #needs INFO, categoryDISK, MOREITEMS, namePARTITION
   fi
   if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.
    MNTSTATUS=`/bin/df | grep "$drvPATTERN"`
@@ -789,8 +789,8 @@ create_icon_func() {
     icon_mounted_func $namePARTITION $categoryDISK #see functions4puppy4.
    fi
    if test "$CWM" != 'enlightenment_start'; then
-   _debug "starting add_pinboard_func..."
-   add_pinboard_func #needs namePARTITION, categoryDISK, FSTYPE.
+   _debug "starting _add_pinboard..."
+   _add_pinboard #needs namePARTITION, categoryDISK, FSTYPE.
    fi
   fi
  done
@@ -802,21 +802,21 @@ create_icon_func() {
    cp -af /usr/local/bin/drive_all $home/.pup_event/drive_${nameDISK}/AppRun
    SIZE=`cat /sys/block/${nameDISK}/size`
    SIZE=$(($SIZE/2)) #get KB.
-   format_size_func #formats SIZE for display.
+   _format_size #formats SIZE for display.
    INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
    #v424 add item to unmount all mounted partitions...
    #MOREITEMS="</Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    namePARTITION="$nameDISK"
-   create_appinfo_func #needs INFO, categoryDISK, MOREITEMS, namePARTITION
+   _create_appinfo #needs INFO, categoryDISK, MOREITEMS, namePARTITION
   fi
  fi
 }
 
-remove_pinboard_func() { #needs nameDISK (name of entire drive)
+_remove_pinboard(){  #needs nameDISK (name of entire drive)
  if test "$CWM" != 'enlightenment_start'; then
  ppPATTERN=' label="'"$nameDISK"'.*" '
- ##[ -z "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" -o -z "`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`" ] && echo "returning from remove_pinboard_func wo any Changes" && return
+ ##[ -z "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" -o -z "`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`" ] && echo "returning from _remove_pinboard wo any Changes" && return
  [ -z "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" ] && return  ##+2011_11_05 added space before closing ]
  ALLNAMES=`grep -o "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr '\n' ' '`
  #ALLNAMESH=`grep -o "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr '\n' ' '`
@@ -844,7 +844,7 @@ _old_clear_desk_icons_func(){
  if [ "$BlockDrives" ] ; then #1.1.1
   echo "Blockdrives not empty"
   for nameDISK in $BlockDrives ; do
-  remove_pinboard_func
+  _remove_pinboard
   done
  fi
  FloppyDrives=`ls /sys/block 2>/dev/null | grep -w -e 'fd[0-9]*'`
@@ -852,13 +852,13 @@ _old_clear_desk_icons_func(){
  if [ "$FDRV" ]; then
       for nameDISK in $FDRV
       do
-      remove_pinboard_func
+      _remove_pinboard
       done
 
  fi
 }
 
-clear_desk_icons_func(){
+_clear_desk_icons(){
 while read line
 do test "$line" || continue
    DRV=`echo "$line" | grep -o -e 'drive_[^<]*'`
@@ -867,17 +867,17 @@ do test "$line" || continue
    DRV="${DRV/drive_/}"
 #_debug "$DRV"
  case $DRV in
-sr*|fd*) nameDISK=$DRV remove_pinboard_func;;
+sr*|fd*) nameDISK=$DRV _remove_pinboard;;
 sd*)     test "${OLD_DRV:0:3}" = "${DRV:0:3}" && continue
-         nameDISK=${DRV:0:3} remove_pinboard_func
+         nameDISK=${DRV:0:3} _remove_pinboard
 ;;
-*)       nameDISK=$DRV remove_pinboard_func;;
+*)       nameDISK=$DRV _remove_pinboard;;
  esac
    OLD_DRV=$DRV
 done<$home/Choices/ROX-Filer/PuppyPin
 unset DRV OLD_DRV line namePARTITION
 }
-clear_desk_icons_func
+_clear_desk_icons
 
 
 #PUPEVENTSTART_func(){
@@ -908,7 +908,7 @@ if [ "$ICONDESK" = "false" ];then
  namePARTITION='drives'
  categoryDISK='any' #see pmount.
  DRV_DESCRIPTION="all drives"
- create_icon_func #needs nameDISK, categoryDISK, DRV_DESCRIPTION.
+ _create_icon #needs nameDISK, categoryDISK, DRV_DESCRIPTION.
 else
  #show all drives on desktop... w476 add ext4...
  PROBEPART=`probepart -k | grep -iE "$allFS"`
@@ -928,7 +928,7 @@ done #KRG
   categoryDISK=`echo -n "$oneDRV" | cut -f 2 -d '|'`
   DRV_DESCRIPTION=`echo -n "$oneDRV" | cut -f 3 -d '|' | tr '_' ' '`
   [ "`echo "$PROBEPART" | grep "^/dev/${nameDISK}"`" ] || continue #precaution (such as CD not inserted).
-  create_icon_func startup #needs nameDISK, categoryDISK, DRV_DESCRIPTION, PROBEPART.
+  _create_icon startup #needs nameDISK, categoryDISK, DRV_DESCRIPTION, PROBEPART.
  done
 fi
 }
@@ -951,12 +951,12 @@ cursPOS2=`getcurpos`
 [ "$cursPOS1" ] || cursPOS1="$cursPOS2"
 
 
-do_break(){
+_do_break(){
 echo "$*"
 break
 }
 
-PUPEVENTDAEMON_func(){
+_PUPEVENTDAEMON(){
 ###################################################################
 #now go into a two/two-second loop...
 while [ ! -f /tmp/xwin/wmexitmode.txt ]
@@ -964,7 +964,7 @@ do
  sleep 2
 
  #graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ -f /tmp/xwin/wmexitmode.txt ] && do_break "test -f /tmp/xwin/wmexitmode.txt" ##+2011-11-07 changed path to /tmp/xwin
+ [ -f /tmp/xwin/wmexitmode.txt ] && _do_break "test -f /tmp/xwin/wmexitmode.txt" ##+2011-11-07 changed path to /tmp/xwin
 
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
@@ -1026,7 +1026,7 @@ do
    categoryDISK=`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`
    DRV_DESCRIPTION=`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 3 -d '|' | tr -s ' '`
    _debug "blockadd:ICONDESK='$ICONDESK' nameDISK='$nameDISK' categoryDISK='$categoryDISK' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
-   [ "$ICONDESK" = "true" ] && create_icon_func #uses nameDISK, categoryDISK, DRV_DESCRIPTION
+   [ "$ICONDESK" = "true" ] && _create_icon #uses nameDISK, categoryDISK, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && {
     if test "`echo "$nameDISK" | grep -vE 'fd.*|sr.*|scd.*'`"; then
      if test -f $home/.pup_event/drive_${nameDISK}/AppRun; then
@@ -1052,7 +1052,7 @@ do
    fi
    #namePARTITION=$nameDISK
    _debug "blockrem: nameDISK='$nameDISK'"
-   remove_pinboard_func #needs nameDISK
+   _remove_pinboard #needs nameDISK
    rm -rf $home/.pup_event/drive_${nameDISK}* 2>/dev/null
   done
 
@@ -1068,7 +1068,7 @@ do
  #######four second timeout procesing#########
  SAVECNT=$((SAVECNT + 4))
  if [ $RAMSAVEINTERVAL -ne 0 -a $SAVECNT -gt $RAMSAVEINTERVAL ];then
-  touch /tmp/snapmergepuppyrequest #request to savepuppy_func.
+  touch /tmp/snapmergepuppyrequest #request to _savepuppy .
   SAVECNT=0
  fi
  if [ $POWERTIMEOUT -ne 0 ];then #w007 power-off computer after inactivity.
@@ -1089,19 +1089,19 @@ do
  #w482 add xorriso...
  [ "`echo "$RUNPS" | grep -E 'xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'`" ] && continue
 
- [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+ [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
 
  #monitor free memory, periodic save of tmpfs top layer...
  case $PUPMODE in
   3|7|13)
-   free_flash_func
-   savepuppy_func
+   _free_flash
+   _savepuppy
   ;;
   16|24|17|25) #unipup.
-   free_initrd_func
+   _free_initrd
   ;;
   *)
-   free_func
+   _free
   ;;
  esac
  [ "$ICONDESK" = "false" ] && continue #v405 see /etc/eventmanager
@@ -1109,36 +1109,37 @@ do
  for oneOPTICAL in $DRVS_OPTICAL
  do
   [ "$oneOPTICAL" ] || continue #precaution
-  probe_optical_func $oneOPTICAL
+  _probe_optical $oneOPTICAL
  done
  #v407 poll to see if a ls120 or zip floppy diskette inserted...
  for oneFLOPPY in $DRVS_FLOPPY
  do
   [ "$oneFLOPPY" ] || continue #precaution
-  probe_floppy_func $oneFLOPPY
+  _probe_floppy $oneFLOPPY
  done
 
 if [[ -f /tmp/pup_event_icon_change_flag ]]; then  #KRG
     ##if [[ "`cat /tmp/pup_event_icon_change_flag`" = "ICONWIPE" ]]; then
-    Floppies=`ls /sys/block | grep 'fd[0-9]' | sort -r`
+    Floppies=`ls -1v /sys/block | grep '^fd[0-9]*' | sort -r`
     if [ -d /proc/ide ] ; then
     Drives=`ls -1v /sys/block | grep -E '^sd|^hd|^sr|^mmc|^scd' | sort -r`
     else
     Drives=`ls -1v /sys/block | grep -E '^sd|^hd|^sr|^mmc|^scd'`
     fi
     for nameDISK in $Drives; do
-    remove_pinboard_func
+    _remove_pinboard
     done
     for nameDISK in $Floppies; do
-    remove_pinboard_func
+    _remove_pinboard
     done
-    SCRN_VARS_func
+    _SCRN_VARS
     ##JWMTASKBAR_func
-    JWM_func
-    ROX_func
-    MAX_XY_func
-    START_XY_ICON_VALUES_func
-    PUPEVENTSTART_func
+    _JWM
+    _ROX
+    _MAX_XY
+    _START_XY_ICON_VALUES
+    #PUPEVENTSTART_func
+    _start
     sleep 1
     rm -f /tmp/pup_event_icon_change_flag
     ##fi
@@ -1148,7 +1149,7 @@ _debug "Reached end of main daemon func"
 done #2 second loop.
 }
 _notice "Starting main daemon function..."
-PUPEVENTDAEMON_func
+_PUPEVENTDAEMON
 _notice "Returned from main daemon func."
 _info "END"
 exit
