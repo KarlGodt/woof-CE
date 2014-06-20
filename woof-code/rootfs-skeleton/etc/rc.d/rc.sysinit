@@ -232,14 +232,14 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount -t proc none /proc ;STATUS=$(($STATUS+$?))
+/bin/mount -t proc none /proc ;STATUS=$(($STATUS+$?))
 
 if t "$PUPMODE" = 2; then #w468
- busybox mount -o remount,rw /
+ /bin/mount -o remount,rw /
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 QUIET=-q
-grep $QUIET '/dev/root' /proc/mounts | grep -w 'rw' || mount -o remount,rw /dev/root /
+grep $QUIET '/dev/root' /proc/mounts | grep -w 'rw' || /bin/mount -o remount,rw /dev/root /
 
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
@@ -254,7 +254,7 @@ mountpoint -q /tmp && {
 mkdir -p /tmpTMP || return 1
 cp -a /tmp/* /tmpTMP/
 cp -a /tmp/.[[:alnum:]]* /tmpTMP/
-umount /tmp || return
+/bin/umount /tmp || return
 mkdir -p /tmp || return
 cp -a /tmpTMP/* /tmp/
 cp -a /tmpTMP/.[[:alnum:]]* /tmp/
@@ -265,9 +265,9 @@ _make_tmp_no_mount
 #redirect all output to a log file (must do after remount rw)...
 t "$LOGLEVEL" || exec 1>/tmp/bootsysinit.log 2>&1
 t -d /dev/pts || mkdir /dev/pts
-busybox mount /dev/pts; STATUS=$(($STATUS+$?)) # uses fstab
+/bin/mount /dev/pts; STATUS=$(($STATUS+$?)) # uses fstab
 mkdir -p /sys
-busybox mount -t sysfs none /sys; STATUS=$(($STATUS+$?))
+/bin/mount -t sysfs none /sys; STATUS=$(($STATUS+$?))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 #FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
@@ -279,7 +279,7 @@ EOI
 if t "$PUPMODE" = 2; then
  QTRFREERAM=`expr $FREERAM \/ 4` # google-chrome also
  t -d /dev/shm || mkdir /dev/shm
- mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm;
+ /bin/mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm;
  STATUS=$(($STATUS+$?))
 fi
 
@@ -316,16 +316,16 @@ for oneFS in $NODEV ; do
  if t -z "`grep -Fw "$oneFS" /proc/mounts`" ; then
 
    case $oneFS in
-    debugfs) mkdir -p /sys/kernel/debug;       busybox mount -t debugfs         nodev /sys/kernel/debug;
+    debugfs) mkdir -p /sys/kernel/debug;       /bin/mount -t debugfs         nodev /sys/kernel/debug;
     echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
     ;;
-    fusectl) mkdir -p /sys/fs/fuse/connections;busybox mount -t fusectl fusectl /sys/fs/fuse/connections;;
-binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc;busybox mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
- securityfs) mkdir -p /sys/kernel/security;    busybox mount -t securityfs      nodev /sys/kernel/security;;
-      usbfs) mkdir -p /proc/bus/usb;                   mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
-   configfs) mkdir -p /config;                         mount -t configfs        none  /config;;
-  hugetlbfs) mkdir -p /mnt/huge;               busybox mount -t hugetlbfs       none  /mnt/huge;;
-     pstore) mkdir -p /dev/fs/pstore;          busybox mount -t pstore          nodev /dev/fs/pstore;;
+    fusectl) mkdir -p /sys/fs/fuse/connections; /bin/mount -t fusectl fusectl /sys/fs/fuse/connections;;
+binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc; /bin/mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) mkdir -p /sys/kernel/security;     /bin/mount -t securityfs      nodev /sys/kernel/security;;
+      usbfs) mkdir -p /proc/bus/usb;            /bin/mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
+   configfs) mkdir -p /config;                  /bin/mount -t configfs        none  /config;;
+  hugetlbfs) mkdir -p /mnt/huge;                /bin/mount -t hugetlbfs       none  /mnt/huge;;
+     pstore) mkdir -p /dev/fs/pstore;           /bin/mount -t pstore          nodev /dev/fs/pstore;;
 ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
       #mount: wrong fs type, bad option, bad superblock on /nodev, ...
     jffs2) :;;   #mount: /nodev is not a block device
@@ -333,7 +333,7 @@ ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|auf
     ram|tmp) :;;
     *)
     t -d /dev/fs/$DIR || mkdir -p /dev/fs/$DIR
-    mount-FULL -v -t $oneFS nodev /dev/fs/$DIR
+    /bin/mount -v -t $oneFS nodev /dev/fs/$DIR
     ;;
    esac
 
@@ -378,161 +378,60 @@ mkmissing_tty_func
 fsstate_func 3
 
 make_dev_root_func() {
-rootpartition=`dmesg | grep 'loop[0-9]*' | grep -i 'mounted' | tr -s ' ' | cut -f 2 -d ' ' | tr -d '(' | tr -d ')' | tr -d ':'`
-if t -n "$rootpartition" ; then #1
-ROOTDEVICE="$rootpartition"
-else #1
-RootDevBlockNrs=`dmesg | grep 'Mounted root'| grep -o 'device.*' | tr -d '.$' | cut -f 2 -d ' '`
- if t -n "$RootDevBlockNrs"; then #1.1
-MAJ=`echo $RootDevBlockNrs | cut -f 1 -d ':'`
-Min=`echo $RootDevBlockNrs | cut -f 2 -d ':'`
-RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,9,10 -d ' ' | grep -w "^$MAJ" | grep -w $Min | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd' ##Next BUG f9,10 become 3,4
-RD10=`echo $RootDevice | cut -f 2 -d ' '`
-RD9=`echo $RootDevice | cut -f 1 -d ' '`
-  if t "$RD10" != "" ; then #1.1.1
-ROOTDEVICE="$RD10"
-  elif t "$RD9" != "" ; then #1.1.1
-ROOTDEVICE="$RD9"
-  else #1.1.1
-ROOTDEVICE=NOT_FOUND_BY_SYSINIT
-  fi #1.1.1
- fi #1.1
-fi #1
+#rootpartition=`dmesg | grep 'loop[0-9]*' | grep -i 'mounted' | tr -s ' ' | cut -f 2 -d ' ' | tr -d '(' | tr -d ')' | tr -d ':'`
+#if t -n "$rootpartition" ; then #1
+#ROOTDEVICE="$rootpartition"
+#else #1
+#RootDevBlockNrs=`dmesg | grep 'Mounted root'| grep -o 'device.*' | tr -d '.$' | cut -f 2 -d ' '`
+# if t -n "$RootDevBlockNrs"; then #1.1
+#MAJ=`echo $RootDevBlockNrs | cut -f 1 -d ':'`
+#Min=`echo $RootDevBlockNrs | cut -f 2 -d ':'`
+#RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,9,10 -d ' ' | grep -w "^$MAJ" | grep -w $Min | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd' ##Next BUG f9,10 become 3,4
+#RD10=`echo $RootDevice | cut -f 2 -d ' '`
+#RD9=`echo $RootDevice | cut -f 1 -d ' '`
+#  if t "$RD10" != "" ; then #1.1.1
+#ROOTDEVICE="$RD10"
+#  elif t "$RD9" != "" ; then #1.1.1
+#ROOTDEVICE="$RD9"
+#  else #1.1.1
+#ROOTDEVICE=NOT_FOUND_BY_SYSINIT
+#  fi #1.1.1
+# fi #1.1
+#fi #1
 
-formerdevroot=`readlink -f /dev/root`
-t -z "$formerdevroot" && formerdevroot='empty'
-if t ! -L /dev/root -o "$formerdevroot" != "/dev/$ROOTDEVICE" ; then #2
-t -L /dev/root && rm -f /dev/root || Err=$?
-ln -s $ROOTDEVICE /dev/root
-fi #2
+#formerdevroot=`readlink -f /dev/root`
+#t -z "$formerdevroot" && formerdevroot='empty'
+#if t ! -L /dev/root -o "$formerdevroot" != "/dev/$ROOTDEVICE" ; then #2
+#t -L /dev/root && rm -f /dev/root || Err=$?
+#ln -s $ROOTDEVICE /dev/root
+#fi #2
 
+devROOT=`rdev`
+test "$devROOT" && { ln -sf "${devROOT% *}" /dev/root; } || {
+        test "$PDEV1" && ln -sf $PDEV1 /dev/root; }
 }
 make_dev_root_func
 
-check_frugal_full_func() {
-            CatProcPart=`tr -s ' ' </proc/partitions | sed '1,2 d'`
-     RootDiskFreeFrugal=`df | grep -Fw '/' | grep 'rootfs'`
-            MountFrugal=`grep '/initrd/mnt/dev_save' /proc/mounts | cut -f 1 -d ' '`
-RootDiskReadlinkDevRoot=`readlink /dev/root`
-RootDiskFreeFullInstall=`df | grep -Fw '/' | tr -s ' ' | cut -f 1 -d ' '`
-              MountFull=`mount | grep -Fw '/' | grep '/dev/' | tr -s ' ' | cut -f 1 -d ' '`
-           BBrdevFrugal=`busybox rdev`  #empty at frugal installs
-             BBrdevFull=`busybox rdev`
 
-if t -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" -a -z "$BBrdevFrugal" ; then ## frugal install
-SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
-MainDriveName=${SimpleDeviceName:0:3}
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-elif t -n "$RootDiskFreeFullInstall" -a -n "$MountFull" -a -n "$BBrdevFull" ; then ## full install
- SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
- MainDriveName=${SimpleDeviceName:0:3}
-
-  RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-  if t -z "$RootDevice" ; then  ###KRG&& SimpleDeviceName=`basename "$(busybox rdev)" | tr -d '/'`
-  SimpleDeviceName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/'`
-  RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-  fi
-
-  MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-  if t -z "$MainDevice" ; then
-  MainDriveName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/' | cut -b 1-3`
-  MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-  fi
-else
-:
-fi
-}
-#check_frugal_full_func
 
 fsstate_func 4
 
 mkmissing_blockdev_func() {
-##rootdrv=`df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
-##if t "$rootdrv" != ""; then
-##simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-##else
-##rootdrv=`mount | grep '/initrd/mnt/dev_save'`
-##simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-##fi
-##main_drv=${simple_drv:0:3}
 
-##if t ! -b /dev/$main_drv -o ! -b /dev/$simple_drv ; then
-##if t "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`"; then
-#echo "no blockdevices found, creating now" > /dev/console
-### /root/my-applications/sbin/MkMissingDev.sh
 mountpoint -q /dev && return
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
   [ "$maj" -a "$min" -a "$dev" ] || continue
   t -b /dev/$dev || mknod /dev/$dev b $maj $min
  done</proc/partitions
-#echo "finished ..." > /dev/console
-##fi
-##fi
+
 }
 
 fsstate_func 5
 
-dev_maj_259_func() {
- mountpoint -q /dev && return
- DN=`cat /proc/partitions | sed "1,2 d" | tr -s ' '`
-DNN=`echo "$DN" | sed "s/^ //; s/^/'/; s/$/'/"`
+#fsstate_func 6
 
-DEVDNN259=`echo "$DNN" | cut -f 1 -d ' ' | grep '259'`
- MAINDRVS=`echo "$DNN" | grep -E 'sd|hd' | cut -f 4 -d ' ' | cut -b 1-3 | sort -u`
-
-for j in $MAINDRVS; do
-
- LSLDN=`LC_ALL=C ls -l /dev/$j* | cut -f 5,6,9,10 -d ' '`
-LSLDNN=`echo "$LSLDN" | sed "s/^ //; s/^/'/; s/$/'/"`
-
-DEVLSL259=`echo "$LSLDN" | cut -f 1 -d ' ' | grep '259'`
-
-if t -n "$DEVDNN259" -a -z "$DEVLSL259"; then
-echo "$DNN" | while read l; do
-MAJ=`echo $l | cut -f 1 -d ' ' | tr -d "'"`
-Min=`echo $l | cut -f 2 -d ' '`
-DEV=`echo $l | cut -f 4 -d ' ' | tr -d "'"`
-echo $MAJ $Min $DEV #> /dev/console
-LSLEXISTINGDEV=`LC_ALL=C ls -l /dev/$DEV | grep -w $DEV`
-#if
-NeededParts=`echo "$LSLEXISTINGDEV" | cut -f 1,5,6,9,10 -d ' '`
-    KIND=`echo $NeededParts | cut -b 1`
-MAJexist=`echo $NeededParts | cut -f 2 -d ' ' | tr -d ','`
-Minexist=`echo $NeededParts | cut -f 3 -d ' '`
-DEVexist=`echo $NeededParts | cut -f 5 -d ' '`
- if t -z "$DEVexist"; then
- DEVexist=`echo $NeededParts | cut -f 4 -d ' '`
- fi
-echo $NeededParts
-echo $KIND
-echo $MAJexist
-echo $Minexist
-echo $DEVexist
- if t "$MAJexist" != "$MAJ" && t "$Minexist" != "$Min" ; then
- rm -f /dev/$DEV
- mknod /dev/$DEV b $MAJ $Min
- fi
-done
-fi
-
-done
-}
-
-fsstate_func 6
-
-device_nodes_fork_func() {
-check_frugal_full_func #should be check_frugal_full_func
-if t "`echo $RootDevice | grep '^259'`"; then
-dev_maj_259_func
-elif t "`echo $RootDevice | grep -E '^8|^3|^22'`"; then
-mkmissing_blockdev_func
-else
-return
-fi
-}
-mountpoint -q /dev || device_nodes_fork_func
+mountpoint -q /dev || mkmissing_blockdev_func
 
 fsstate_func 7
 
@@ -582,7 +481,6 @@ fi
 firmware_dep_func
 
 DOTconfig_func(){
-#if t -f /lib/modules/$KERNEL/DOTconfig*; then
 if t -f /lib/modules/$KERNEL/DOTconfig-$KERNEL; then
  if t ! -f /etc/modules/DOTconfig-$KERNEL; then
  cp -a /lib/modules/$KERNEL/DOTconfig-$KERNEL /etc/modules/DOTconfig-$KERNEL
@@ -1026,7 +924,7 @@ if t -h /dev/modem; then
 fi
 
 #had hoped to retire this, but HardInfo needs it...
-t "`lsmod | grep '^usbcore'`" && busybox mount -t usbfs none /proc/bus/usb
+t "`lsmod | grep '^usbcore'`" && /bin/mount -t usbfs none /proc/bus/usb
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
