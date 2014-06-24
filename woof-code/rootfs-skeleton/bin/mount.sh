@@ -83,23 +83,11 @@ test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
 
 test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 
-case $WHAT in
-umount)
-test "$mountBEFORE" -a "$mountAFTER" && {
-        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
-        updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
-        updateWHAT="$updateWHATA
-$updateWHATB" ; }
-;;
-mount)
 test "$mountBEFORE" -a "$mountAFTER" && {
         updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
         updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
         updateWHAT="$updateWHATA
 $updateWHATB" ; }
-;;
-*) _err "_update_partition_icon:'$WHAT' not handled.";;
-esac
 
  _check_tmp_rw || return 56
  while read oneUPDATE oneMOUNTPOINT REST
@@ -111,12 +99,8 @@ esac
  test "$noROX" || { pidof ROX-Filer && {
       test -d "${oneMOUNTPOINT%/*}" && rox -x "${oneMOUNTPOINT%/*}"
          test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}"
-         case $WHAT in
-         mount)
-         test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}";;
-         umount) rox -D "${oneMOUNTPOINT}";;
-         *) _err "Unhandled case '$WHAT'";;
-         esac
+         #test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}"
+         mountpoint $QUIET "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}"
          }
         }
 
@@ -487,7 +471,7 @@ fi
 ;;
 mount)
       case $opT in
-      *ntfs)               #*ntfs*)?
+      *ntfs*)               #*ntfs*)?
        test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
 
         test "`which ntfs-3g.probe`" && {
@@ -580,18 +564,27 @@ esac
 
 _notice "RETVAL=$RETVAL"
 
-_umount_rmdir(){ _debug "_umount_rmdir:mountpoint $QUIET $*"; mountpoint $QUIET $* || rmdir $*; }
+_umount_rmdir()
+{
+ [ "$DISPLAY" ] && rox -D "$mountPOINT";
+ _debug "_umount_rmdir:mountpoint $QUIET $*";
+ mountpoint $QUIET $* || rmdir $*;
+}
 
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
  #test "$noROX" || rox -x /mnt -x "`pwd`"
  test $WHAT = umount || return 0
+
+ test "`echo "$mountPOINT" | grep -E '/proc|/sys'`" && return 0
  test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
+
  _check_tmp_rw || return 59
  while read oneDIR
  do
  test "$oneDIR" || continue
+ #test "`echo "$oneDIR" | grep -E '/proc|/sys'`" && continue
  _umount_rmdir "$oneDIR"
  done<<EoI
 `_command find /mnt -maxdepth 1 -type d -empty`
@@ -600,6 +593,6 @@ EoI
 
 test "$RETVAL" = 0 && _update
 
-test "`realpath /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
+test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
 
 exit $RETVAL
