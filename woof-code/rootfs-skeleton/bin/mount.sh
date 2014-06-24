@@ -5,8 +5,8 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=1
-INFO=1
+DEBUG=
+INFO=
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
@@ -85,10 +85,18 @@ test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 
 case $WHAT in
 umount)
-test "$mountBEFORE" -a "$mountAFTER" && updateWHAT=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
+test "$mountBEFORE" -a "$mountAFTER" && {
+        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
+        updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
+        updateWHAT="$updateWHATA
+$updateWHATB" ; }
 ;;
 mount)
-test "$mountBEFORE" -a "$mountAFTER" && updateWHAT=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
+test "$mountBEFORE" -a "$mountAFTER" && {
+        updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
+        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
+        updateWHAT="$updateWHATA
+$updateWHATB" ; }
 ;;
 *) _err "_update_partition_icon:'$WHAT' not handled.";;
 esac
@@ -103,8 +111,12 @@ esac
  test "$noROX" || { pidof ROX-Filer && {
       test -d "${oneMOUNTPOINT%/*}" && rox -x "${oneMOUNTPOINT%/*}"
          test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}"
-         test "$WHAT" = mount && rox -d "${oneMOUNTPOINT}";
-
+         case $WHAT in
+         mount)
+         test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}";;
+         umount) rox -D "${oneMOUNTPOINT}";;
+         *) _err "Unhandled case '$WHAT'";;
+         esac
          }
         }
 
