@@ -5,8 +5,8 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=
-INFO=
+DEBUG=1
+INFO=1
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
@@ -69,7 +69,7 @@ _debug "1:$*"
 set - $shortOPS
 _notice "2:$*"
 
-mountBEFORE=`cat /proc/mounts`
+test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
 _update_partition_icon()
 {
@@ -81,14 +81,14 @@ test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
 
 #test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
-mountAFTER=`cat /proc/mounts`
+test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 
 case $WHAT in
 umount)
-updateWHAT=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
+test "$mountBEFORE" -a "$mountAFTER" && updateWHAT=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
 ;;
 mount)
-updateWHAT=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
+test "$mountBEFORE" -a "$mountAFTER" && updateWHAT=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
 ;;
 *) _err "_update_partition_icon:'$WHAT' not handled.";;
 esac
@@ -139,6 +139,7 @@ esac
       icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
       #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT" -d "$oneMOUNTPOINT"; }
  ;;
+ *) _err "_update_partition_icon:'$WHAT' not handled.";;
  esac
 
  done<<EoI
@@ -149,7 +150,7 @@ EoI
 
 _parse_fstab()
 {
-test -f /etc/fstab || return 47
+test -f /etc/fstab || return 57
 
 while read device mountpoint fstype mntops dump check
 do
@@ -186,7 +187,7 @@ umount)
   _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
 
                 allSUB_MOUNTS=`losetup -a | grep -w "$mountpoint" | tac`
-                _check_tmp_rw || return 55
+                _check_tmp_rw || return 58
                 while read loop nr loopmountpoint
                 do
                 test "$loop" || continue
@@ -412,7 +413,7 @@ if test "$deviceORpoint"; then
  _debug "$WHAT:$*"
  test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
  test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
- grep -q -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" || set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
+ grep -q -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
  _debug "$WHAT:$*"
 fi
 ;;
@@ -426,9 +427,9 @@ esac
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
- NTFSMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
- NTFSMNTDV=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
- _debug "NTFSMNTP='$NTFSMNTP' NTFSMNTP='$NTFSMNTP'"
+ NTFSMNTPT=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
+ NTFSMNTDV=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
+ _debug "NTFSMNTPT='$NTFSMNTPT' NTFSMNTDV='$NTFSMNTDV'"
 fi
 ;;
 mount) :;;
@@ -448,7 +449,7 @@ _debug "mountPOINT='$mountPOINT'"
         #}
 ;;
 mount) :;;
-*) _exit 41 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
+*) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
 case $WHAT in
@@ -562,7 +563,7 @@ mount)
       ;;
       esac
 ;;
-*) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
+*) _exit 43 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
 _notice "RETVAL=$RETVAL"
@@ -575,7 +576,7 @@ _update()
  #test "$noROX" || rox -x /mnt -x "`pwd`"
  test $WHAT = umount || return 0
  test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
- _check_tmp_rw || return 57
+ _check_tmp_rw || return 59
  while read oneDIR
  do
  test "$oneDIR" || continue
