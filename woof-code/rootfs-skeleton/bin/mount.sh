@@ -96,7 +96,7 @@ $updateWHATB" ; }
  test "$oneUPDATE" || continue
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
 
- test "$noROX" || { pidof ROX-Filer && {
+ test "$noROX" || { _pidof $QUIET ROX-Filer && {
       test -d "${oneMOUNTPOINT%/*}" && rox -x "${oneMOUNTPOINT%/*}"
          test -d "${oneMOUNTPOINT}" && rox -x "${oneMOUNTPOINT}"
          #test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}"
@@ -197,7 +197,7 @@ EoI
   _debug "_parse_fstab:$WHAT:mountpoint $QUIET \"$mountpoint\""
   mountpoint $QUIET "$mountpoint" && {
      mountBEFORE=`cat /proc/mounts`
-     pidof ROX-Filer && rox -D "$mountpoint"
+     _pidof $QUIET ROX-Filer && rox -D "$mountpoint"
      busybox $WHAT "$mountpoint"
      RV=$?
      test $RV = 0 && _update_partition_icon
@@ -327,7 +327,7 @@ umount)
    opPASS="-p $fd"
    shift
   ;;
-  l) #use filesystem type
+  l) #list, and show label if label exists
    opSHOWL=-l;;
   h) # help
    opH=-h;;
@@ -362,7 +362,7 @@ _debug "3:$*"
 _debug "4:$*"
 set - $longOPS $*
 _debug "5:$*"
-_info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID
+_info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL
 
 test "$opALL" && _debug "opALL='$opALL'"
 
@@ -392,9 +392,9 @@ fi
 _debug "7:$*"
 test "$1" == '--' && shift
 _debug "8:$*"
-_info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID
+_info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL
 
-test "$*" -o "$opUUID" -o "$opLABEL" || _exit 1 "No positional parameters left."
+( test "$*" -o "$opUUID" -o "$opLABEL" || test "$opT" -o "$opSHOWL" ) || _exit 1 "No positional parameters left."
 
 case $# in
 1)
@@ -441,7 +441,7 @@ _debug "mountPOINT='$mountPOINT'"
 
 #mountpoint $QUIET "$mountPOINT" && {
         _debug "Closing ROX-Filer if necessary..."
-        pidof ROX-Filer && rox -D "$mountPOINT";
+        _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
         #}
 ;;
 mount) :;;
@@ -454,18 +454,18 @@ if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
         #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
         _notice "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
-        busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+                 busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         RETVAL=$?
         else
         #fusermount can only unmount by giving the mount-point...
         _notice "fusermount -u $NTFSMNTPT"
-        fusermount -u $NTFSMNTPT
+                 fusermount -u $NTFSMNTPT
         RETVAL=$?
         fi
 else
  #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
  _info "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
- busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+        busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
  RETVAL=$?
 fi
 ;;
@@ -488,19 +488,19 @@ mount)
 
        test "$RETVAL" = 0 && {
        _notice "ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
-       ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS
+                ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
        RETVAL=$?
         }
 
        test "$RETVAL" = 0 || {
                if test "$RETVAL" = 14; then { _warn "Need to remove hibernation file to mount read-write";
                  _notice "ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
-                 ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS
+                          ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
                  RETVAL=$?
                }
              elif test "$RETVAL" = 4 -o "$RETVAL" = 10 -o "$RETVAL" = 15; then { _warn "Attempt to force read-write mount";
                  _notice "ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS"
-                 ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS
+                          ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS $opSHOWL
                  RETVAL=$?
                }
              else { _err "Unhandled ntfs-3g return code '$RETVAL'"; } # 11:Wrong Option,No mountpoint specified ; 21:No such File or Dir
@@ -508,7 +508,7 @@ mount)
                         }
         test "$RETVAL" = 0 || { _notice "Will attempt to mount ntfs partition using the limited kernel driver";
          _notice "busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
-         busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
+                  busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
          RETVAL=$?
          }
       ;;
@@ -526,11 +526,11 @@ mount)
          esac
         fi
        _notice "busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
-       busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
+                busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       ;;
       *)
-      if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "`echo "$longOPS" | grep -E 'bind|move|make'`"; then
+      if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "$opSHOWL" -o "`echo "$longOPS" | grep -E 'bind|move|make'`"; then
       # use mount-FULL
         if test "$opUUID"; then
          MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
@@ -548,12 +548,12 @@ mount)
          test -d "$oneMTP" || mkdir -p "$oneMTP"
          done
         fi
-       _notice "$WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK"
-       $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK
+       _notice "$WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL"
+                $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
        RETVAL=$?
       else # use busybox mount
        _notice "busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
-       busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
+                busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       fi #use mount-FULL
       ;;
