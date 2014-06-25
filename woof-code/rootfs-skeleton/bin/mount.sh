@@ -5,8 +5,8 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=1
-INFO=1
+DEBUG=
+INFO=
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
