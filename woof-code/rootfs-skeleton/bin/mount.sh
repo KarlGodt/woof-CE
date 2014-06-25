@@ -5,8 +5,8 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=
-INFO=
+DEBUG=1
+INFO=1
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
@@ -409,9 +409,15 @@ if test "$deviceORpoint"; then
  _debug "$WHAT:$*"
  test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
  test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
- grep -q -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
+ grep $QUIET -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
  _debug "$WHAT:$*"
 fi
+for posPAR in $*; do  #hope, only file/device AND mountpoint left
+case $posPAR in
+-*):;;
+*) test -e "$posPAR" || mkdir -p "$posPAR";;
+esac
+done
 ;;
 umount) :;;
 *) _exit 40 "Unhandled '$WHAT' -- use 'mount' or 'umount' ."
