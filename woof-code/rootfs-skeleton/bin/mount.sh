@@ -441,13 +441,17 @@ esac
 case $WHAT in
 umount)
 #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
-mountPOINT=`echo "$mountBEFORE" | grep -w $deviceORpoint | cut -f 2 -d' '`
+mountPOINT=`echo "$mountBEFORE" | grep -w "$deviceORpoint" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
 
 #mountpoint $QUIET "$mountPOINT" && {
         _debug "Closing ROX-Filer if necessary..."
         _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
+        _debug "Showing Filesystem user pids:"
+        fuser -m "$mountPOINT" && {
+                _err "Mountpoint is in use by above pids."
+                _exit 1 "Refusing to complete '$WHAT'."; } ;
         #}
 ;;
 mount) :;;
@@ -456,6 +460,9 @@ esac
 
 case $WHAT in
 umount)
+
+#mountpoint $QUIET "$deviceORpoint" && fuser -m "$deviceORpoint"
+
 if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
         #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
