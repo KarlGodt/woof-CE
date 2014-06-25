@@ -13,6 +13,8 @@
 #w002 left click to unmount a partition.
 #w476 fix codepage for vfat f.s.
 
+test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+
 #w002 extracted as a func...
 unmount_func() {
  rox -D "$MNTPT"
@@ -33,7 +35,7 @@ unmount_func() {
   umPATTERN="${MNTPT} "
   [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0="`fuser -v -m $MNTPT`"
+   EXTRAMSG0="`_command fuser -v -m $MNTPT 2>&1`"
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
@@ -54,7 +56,7 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
     fi
    fi
   else
-   [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+   [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ] && eject /dev/$oneDRVNAME
   fi
   break
  done
@@ -67,14 +69,14 @@ FSTYPE=""
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
 oneDRVNAME="`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`"
-echo oneDRVNAME=$oneDRVNAME >&2
+echo "oneDRVNAME='$oneDRVNAME'" >&2
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>/dev/null
   sleep 0.1
  fi
- echo 77 >&2
+ echo 79 >&2
  exec pmount ${DRV_CATEGORY}
 fi
 
@@ -91,19 +93,20 @@ if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
-  exit
+  exit 1
  fi
  unmount_func
- exit
+ exit $?
 fi
 
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 if [ "$1" = "unmountall" ];then
- for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
+ for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/nbd|^/dev/md|^/dev/mtd' | cut -f 3 -d ' ' | grep -vE '^/initrd/|^/$'`
  do
   unmount_func
+  STATUS=$((STATUS+$?))
  done
- exit
+ exit $STATUS
 fi
 
 #w002 left-mouse-click to unmount...
@@ -158,7 +161,7 @@ if [ "$oneDRVNAME" = "drives" ];then
   killall gtkdialog_pmount 2>/dev/null
   sleep 0.1
  fi
- echo 161 >&2
+ echo 164 >&2
  exec pmount $DRV_CATEGORY
 fi
 
@@ -171,12 +174,12 @@ if [ "$AUTOTARGET" = "false" ];then
   killall gtkdialog_pmount 2>/dev/null
   sleep 0.1
  fi
- echo 174 >&2
+ echo 177 >&2
  exec pmount $DRV_CATEGORY
 fi
 
 #oh, now have to analyse the media, decide what app to run...
-if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
+if [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ];then
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
   cddetect -q -d/dev/${oneDRVNAME}
@@ -206,7 +209,7 @@ if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
  test "$FSTYPE" || FSTYPE=iso9660
  test "$FSTYPE" = "unknown" && FSTYPE=iso9660
 fi
-echo 209 >&2
+echo 212 >&2
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
@@ -214,7 +217,7 @@ if [ "$FSTYPE" != "" ];then
  dPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`/bin/df | grep "$dPATTERN"`" = "" ];then
   #not mounted...
-  test -d /mnt/$oneDRVNAME || mkdir -p /mnt/$oneDRVNAME
+  #test -d /mnt/$oneDRVNAME || mkdir -p /mnt/$oneDRVNAME
   case $FSTYPE in
    ntfs)
     #'mount' is a script that takes care of mounting ntfs...
@@ -253,7 +256,7 @@ if [ "$FSTYPE" != "" ];then
    [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
   fi
   #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
-  exec rox -x "$MNTPT" -d "$MNTPT"
+  exec rox -x "$MNTPT" -x "${MNTPT%/*}" -d "$MNTPT"
  fi
 fi
 
@@ -265,7 +268,7 @@ if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
  killall gtkdialog_pmount 2>/dev/null
  sleep 0.1
 fi
-echo 268 >&2
+echo 271 >&2
 exec pmount ${DRV_CATEGORY}
 
 ###END###
