@@ -454,8 +454,13 @@ _debug "mountPOINT='$mountPOINT'"
                 _err "Mountpoint is in use by above pids:"
                 for aPID in `fuser -m "$mountPOINT"`
                 do
-                ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -v 'grep'
+                fsUSERS="$fsUSERS
+`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -v 'grep'`
+                "
                 done
+                echo "$fsUSERS"
+                test "$DISPLAY" && xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
+$fsUSERS" &
                 _exit 1 "Refusing to complete '$WHAT $*' ."; } ;
         fi
         #}
