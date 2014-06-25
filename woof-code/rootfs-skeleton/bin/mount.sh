@@ -447,8 +447,8 @@ _debug "mountPOINT='$mountPOINT'"
 
 #mountpoint $QUIET "$mountPOINT" && {
         if test -d "$mountPOINT"; then
-        _debug "Closing ROX-Filer if necessary..."
-        _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
+        #_debug "Closing ROX-Filer if necessary..."
+        #_pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
         fuser -m "$mountPOINT" && {
                 _err "Mountpoint is in use by above pids:"
@@ -464,6 +464,8 @@ $fsUSERS" &
                 _exit 1 "Refusing to complete '$WHAT $*' ."; } ;
         fi
         #}
+        _debug "Closing ROX-Filer if necessary..."
+        _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
 ;;
 mount) :;;
 *) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
