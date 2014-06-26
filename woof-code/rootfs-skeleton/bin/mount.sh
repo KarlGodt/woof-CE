@@ -359,7 +359,7 @@ esac
 
 _debug "3:$*"
 while test 1 = 1; do
-[[ "$1" = '--' ]] && shift
+[[ "$1" = '--' ]] && shift || break
 done
 _debug "4:$*"
 set - $longOPS $*
