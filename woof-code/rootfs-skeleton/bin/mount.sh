@@ -358,7 +358,9 @@ umount)
 esac
 
 _debug "3:$*"
+while test 1 = 1; do
 [[ "$1" = '--' ]] && shift
+done
 _debug "4:$*"
 set - $longOPS $*
 _debug "5:$*"
@@ -390,7 +392,9 @@ exit 0
 fi
 
 _debug "7:$*"
-test "$1" == '--' && shift
+while test 1 = 1; do
+test "$1" == '--' && shift || break
+done
 _debug "8:$*"
 _info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL
 
@@ -414,8 +418,11 @@ if test "$deviceORpoint"; then
 fi
 for posPAR in $*; do  #hope, only file/device AND mountpoint left
 case $posPAR in
--*):;;
-*) test -e "$posPAR" || mkdir -p "$posPAR";;
+-*)         :;;
+none|nodev) :;;
+*) if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
+    test -e "$posPAR" || { _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
+   fi ;;
 esac
 done
 ;;
