@@ -14,9 +14,11 @@ test "$DEBUG" && QUIET='';
 #/tmp/ROOTFS as mountpoint ...
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
 #so using function with grep instead
-mountpoint(){ [ "$1" = '-q' ] && shift;
-set - `echo "$*" | sed 's!\ !\\\040!g'`
-grep $QUIET " $* " /proc/mounts
+mountpoint(){
+ test -f /proc/mounts || return 1
+ [ "$1" = '-q' ] && shift;
+ set - `echo "$*" | sed 's!\ !\\\040!g'`
+ grep $QUIET " $* " /proc/mounts
  return $?; }
 
 _check_proc()
