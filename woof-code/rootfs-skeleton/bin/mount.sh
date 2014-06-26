@@ -49,9 +49,9 @@ _check_tmp_rw()
 
 _debug "_check_tmp_rw:mountpoint $QUIET /tmp"
 mountpoint $QUIET /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
  }
 
 }
@@ -162,7 +162,7 @@ case $WHAT in
   _debug "_parse_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
-  grep -q -w ${device##*/} /proc/partitions || continue
+  grep $QUIET -w ${device##*/} /proc/partitions || continue
   test -d "$mountpoint" || mkdir -p "$mountpoint"
   _debug "_parse_fstab:$WHAT:mountpoint $QUIET \"$mountpoint\""
   mountpoint $QUIET "$mountpoint" && continue
@@ -416,6 +416,7 @@ if test "$deviceORpoint"; then
  _debug "$WHAT:$*"
  test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
  test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
+ test -e /etc/fstab || touch /etc/fstab
  grep $QUIET -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
  _debug "$WHAT:$*"
 fi
@@ -423,9 +424,17 @@ for posPAR in $*; do  #hope, only file/device AND mountpoint left
 case $posPAR in
 -*)         :;;
 none|nodev) :;;
-*) if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
+shmfs)      :;;
+
+adfs|affs|autofs|cifs|coda|coherent|cramfs|debugfs|devpts)       :;;
+efs|ext|ext2|ext3|ext4|hfs|hfsplus|hpfs|iso9660|jfs|minix)         :;;
+msdos|ncpfs|nfs|nfs4|ntfs|proc|qnx4|ramfs|reiserfs|romfs)            :;;
+smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
+
+*) if test -f /proc/filesystems; then
+   if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
     test -e "$posPAR" || { _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
-   fi ;;
+   fi;fi ;;
 esac
 done
 ;;
@@ -439,9 +448,11 @@ esac
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
+ mountpoint $QUIET /proc && {
  NTFSMNTPT=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
  NTFSMNTDV=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
  _debug "NTFSMNTPT='$NTFSMNTPT' NTFSMNTDV='$NTFSMNTDV'"
+ }
 fi
 ;;
 mount) :;;
