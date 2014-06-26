@@ -77,6 +77,7 @@ _update_partition_icon()
 test -f /etc/eventmanager && . /etc/eventmanager
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
 
+test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
 
 #test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
