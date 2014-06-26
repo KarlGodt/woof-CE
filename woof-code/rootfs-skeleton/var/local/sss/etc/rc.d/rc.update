@@ -1,0 +1,508 @@
+#!/bin/sh
+#LGPL Barry Kauler 2006,2007 www.puppylinux.com
+#v555 pup files renamed to woofr555.sfs, woofsave.2fs.
+#w001 /etc/networkmodules generated (previously done in createpuppy, Unleashed).
+#w002 run gtk-update-icon-cache on hicolor icons.
+#w002 run icon_switcher_cli for default desktop icon set JQ8flat.
+#w007 if sfs layer with extra modules added or removed, need to run depmod.
+#w012 updated for new standardised pkg database format.
+#w020 april2009: fix for add/remove zdrv (modules) sfs.
+#w464 tidyup, make sure /etc/puppyversion is history.
+#w474 updatenetmoduleslist.sh called when zdrv loaded or unloaded.
+#w477 /etc/desktop_icon_theme has default desktop icon set.
+#v423 fix for PUPMODE=2, full hd installation.
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:47:42·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+#This script is called by /etc/rc.d/rc.sysinit. the purpose is to perform
+#any required updates to files when a new version of Puppy is booted.
+
+#this script can also be called by /usr/sbin/puppyinstaller, when doing a full install
+#(option2) to hard drive. in that case, chroot to hd partition, and the ${DISTRO_FILE_PREFIX}_xxx.sfs
+#source files are mounted on /srcmntpt in the hd partition.
+#puppyinstaller will call here with PUPMODE="option2hdinstall"
+
+echo "$0:'$*'"
+echo "$0:'$@'"
+
+PUPMODE="$1"
+KERNVER="`uname -r`"
+[ -z $DISPLAY ] || XSTATUS="yes" #v3.99
+
+
+ [ "$PUPMODE" = "" ] && exit
+ case $PUPMODE in
+  "7") #tmpfs (pup_rw), hd for persistent storage (pup_ro1), ${DISTRO_FILE_PREFIX}rxxx.sfs (pup_ro2).
+   NEWFILESMNTPT="/initrd/pup_ro2"
+   OLDFILESMNTPT="/initrd/pup_ro1"
+   ;;
+  "6") #no tmpfs, PDEV1 (pup_rw), ${DISTRO_FILE_PREFIX}rxxx.sfs (pup_ro2)
+   #have booted from PDEV1 partition, which has initrd.gz & ${DISTRO_FILE_PREFIX}rxxx.sfs files on it, and
+   #session has been saved direct to the partition. (very similar to mode 12)
+   NEWFILESMNTPT="/initrd/pup_ro2"
+   OLDFILESMNTPT="/initrd/pup_rw"
+   ;;
+  "12") #no tmpfs, ${DISTRO_FILE_PREFIX}save.3fs (pup_rw), nothing (pup_ro1), ${DISTRO_FILE_PREFIX}rxxx.sfs (pup_ro2)
+   #example: boot from live-cd, ${DISTRO_FILE_PREFIX}save.3fs on a fast h.d. partition.
+   NEWFILESMNTPT="/initrd/pup_ro2"
+   OLDFILESMNTPT="/initrd/pup_rw"
+   ;;
+  "13") #tmpfs (pup_rw), ${DISTRO_FILE_PREFIX}save.3fs (pup_ro1), ${DISTRO_FILE_PREFIX}rxxx.sfs (pup_ro2).
+   #example: boot from usb flash, ${DISTRO_FILE_PREFIX}save.3fs on flash media (needs restrained writes).
+   NEWFILESMNTPT="/initrd/pup_ro2"
+   OLDFILESMNTPT="/initrd/pup_ro1"
+   ;;
+  "77") #tmpfs (pup_rw), folders (pup_ro1), ${DISTRO_FILE_PREFIX}rxxx.sfs (pup_ro2).
+   #example: boot from multisession live-cd/dvd, pup_ro1 is a tmpfs folders copied from cd.
+   NEWFILESMNTPT="/initrd/pup_ro2"
+   OLDFILESMNTPT="/initrd/pup_ro1"
+   ;;
+  "option2hdinstall")
+   NEWFILESMNTPT="/srcmntpt"
+   OLDFILESMNTPT=""
+   ;;
+  5) #v423
+   #PUPMODE=5 is first boot, ignore.
+   NEWPVERSION=`grep '^DISTRO_VERSION' /etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '`
+   #w001 generate /etc/networkmodules...
+   echo -n " network-drivers-list" >/dev/console
+   /usr/sbin/updatenetmoduleslist.sh
+   #w002 update icon cache (supposed to speed things up)...
+   echo -n " gtk-icon-cache" >/dev/console
+   /usr/bin/gtk-update-icon-cache -f /usr/share/icons/hicolor/
+   #w002 generate desktop icons (previously done in unleashed)...
+   echo -n " desk-icons" >/dev/console
+   DEFAULT_DESK_ICONS="JQ8flat"
+   [ $NEWPVERSION -ge 500 ] && DEFAULT_DESK_ICONS="JQ8flat"
+   [ ! -d /usr/local/lib/X11/themes/JQ8flat ] && DEFAULT_DESK_ICONS="Stardust"
+   [ -f /etc/desktop_icon_theme ] && DEFAULT_DESK_ICONS="`cat /etc/desktop_icon_theme`" #w477
+   /usr/sbin/icon_switcher_cli $DEFAULT_DESK_ICONS
+   echo "$0:PUPMODE 5:exit."
+   exit ###EXIT###
+   ;;
+  *) #v423 PUPMODE=2 (full hd install) then just exit.
+   echo "$0:PUPMODE Other:exit."
+   exit
+   ;;
+ esac
+
+echo "$0:NEWFILESMNTPT='$NEWFILESMNTPT'"
+. $NEWFILESMNTPT/etc/DISTRO_SPECS #w020 has DISTRO_VERSION, DISTRO_BINARY_COMPAT, DISTRO_FILE_PREFIX
+
+#w020 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHAR}.sfs"
+
+ NEWPVERSION=`grep '^DISTRO_VERSION' $NEWFILESMNTPT/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '`
+ #note, reboot after creating save file, this might not be there...
+ # (but does get created, see bottom of this script)
+ if [ -f $OLDFILESMNTPT/etc/puppyversion ];then
+  OLDPVERSION=`cat $OLDFILESMNTPT/etc/puppyversion`
+  rm -f $OLDFILESMNTPT/etc/puppyversion #init does this, but not in case of full hd install.
+ fi
+ [ -f $OLDFILESMNTPT/etc/DISTRO_SPECS ] && OLDPVERSION=`grep '^DISTRO_VERSION' $OLDFILESMNTPT/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '`
+ [ ! $OLDPVERSION ] && OLDPVERSION=$NEWPVERSION
+
+ if [ $NEWPVERSION -gt $OLDPVERSION ];then
+  echo "Upgrading ${DISTRO_NAME} from version '$OLDPVERSION' to '$NEWPVERSION' ..."
+  echo -n " $0: '$OLDPVERSION' to '$NEWPVERSION'" >/dev/console
+
+  #need to identify files that absolutely must always be updated, when
+  #there is a new version, and forcefully copy them...
+  echo "Updating w.m. menus..."
+  cp -af $NEWFILESMNTPT/root/.packages/Packages-* /root/.packages/ #w012
+  cp -af $NEWFILESMNTPT/root/.packages/DISTRO_PKGS_SPECS /root/.packages/ #w012
+  cp -af /root/.fvwm95rc /root/DOTfvwm95rc.bak 2>/dev/null
+  cp -af /root/.jwmrc /root/DOTjwmrc.bak 2>/dev/null
+  cp -af /root/.icewm/menu /root/DOTicewmmenu.bak 2>/dev/null #v1.0.5
+  cp -af $NEWFILESMNTPT/root/.fvwm95rc /root/ 2>/dev/null
+  cp -af $NEWFILESMNTPT/root/.jwmrc /root/ 2>/dev/null
+  cp -af $NEWFILESMNTPT/root/.icewm/menu /root/.icewm/ 2>/dev/null #v1.0.5
+  cp -af $NEWFILESMNTPT/root/.xinitrc /root/
+
+
+  #also update every boot and shutdown script...
+  #v2.21 question, why are we doing this?... harmeless, but why?...
+  echo "Updating boot and shutdown system scripts..."
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.country /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.local0 /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.modem /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.modules /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.modules2 /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.network /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.shutdown /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.sysinit /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/rc.d/rc.update /etc/rc.d/
+  cp -af $NEWFILESMNTPT/etc/profile /etc/
+
+  cp -af $NEWFILESMNTPT/etc/DISTRO_SPECS /etc/ #w012
+  #cp -af $NEWFILESMNTPT/etc/puppyversion /etc/   now doing it everytime.
+  cp -af $NEWFILESMNTPT/usr/X11R7/bin/xwin /usr/X11R7/bin/
+
+  #then run depmod to overwrite any depmod files on OLD layer...
+  echo "$0:Executing depmod, to update module files..."
+  depmod
+
+
+  if [ $NEWPVERSION -lt 200 ];then
+   #keep the menu right for our alpha/beta releases...
+   cp -af $NEWFILESMNTPT/root/Choices/ROX-Filer/globicons /root/Choices/ROX-Filer/
+   cp -af $NEWFILESMNTPT/root/Choices/ROX-Filer/PuppyPin /root/Choices/ROX-Filer/
+  fi
+
+  #FUTURE: test for particular version updates here...
+  if [ $OLDPVERSION -lt 201 ];then
+   cp -af $NEWFILESMNTPT/etc/group /etc/ #added 'audio' group
+   #bugfixes may conflict with user customisations in rc.local...
+   if [ -f $OLDFILESMNTPT/etc/rc.d/rc.local ];then
+    mv -f /etc/rc.d/rc.local /tmp/
+    echo '#version upgrade, any prior content of rc.local moved to /tmp/rc.local' > /etc/rc.d/rc.local
+   fi
+   #alsaconf generates alsaconf.cards, maybe have to get rid of old one?...
+   [ -f /var/tmp/alsaconf.cards ] && rm -f /var/tmp/alsaconf.cards
+  fi
+
+  if [ $OLDPVERSION -lt 217 ];then
+   #have some new stuff in /etc/modprobe.conf, but cannot just overwrite
+   #as user may have modified it. so just append the new stuff...
+   if [ "`cat /etc/modprobe.conf | grep 'tifm_7xx1'`" = "" ];then
+    echo 'install sdhci /sbin/modprobe mmc_block major=253 ; /sbin/modprobe --ignore-install sdhci' >> /etc/modprobe.conf
+    echo 'remove sdhci /sbin/modprobe -r --ignore-remove sdhci ; /sbin/modprobe -r mmc_block' >> /etc/modprobe.conf
+    echo 'install tifm_7xx1 /sbin/modprobe --ignore-install tifm_7xx1 ; /sbin/modprobe mmc_block major=253 ; /sbin/modprobe tifm_sd' >> /etc/modprobe.conf
+   fi
+  fi
+
+  #master help index has to be updated...
+  /usr/sbin/indexgen.sh
+  #Reconstruct configuration files for JWM, Fvwm95, IceWM...
+  /usr/sbin/fixmenus
+
+  #v2.14 Jesse suggested this. remove any broken shared library symlinks...
+  find / -mount -noleaf -path '*/lib/*' -type l -name *.so -o -noleaf -path '*/lib/*' -type l -name *.so.* |
+  while read ONESYMLINK
+  do
+   ONESYMDEST="`readlink $ONESYMLINK`"
+   ONESYMDIR="`dirname $ONESYMLINK`"
+   FIRSTCHAR="`echo -n "$ONESYMDEST" | cut -b 1`"
+   if [ "$FIRSTCHAR" = "/" ];then
+    [ ! -e "$ONESYMDEST" ] && rm -f $ONESYMLINK
+   else
+    [ ! -e $ONESYMDIR/$ONESYMDEST ] && rm -f $ONESYMLINK
+   fi
+  done
+
+  #v3.99 find any missing deps from user-installed Puppy2 or Puppy3 pkgs...
+  #v4.01 removed some multimedia deps that are now in puppy4...
+  NEWMAJORDIGIT="`echo -n "$NEWPVERSION" | cut -b 1`"
+  [ $NEWPVERSION -eq 399 ] && NEWMAJORDIGIT="4"
+  if [ $NEWPVERSION -gt 389 ];then
+   if [ $OLDPVERSION -lt 390 ];then
+    /usr/local/petget/findinstalledpkgs.sh #writes to /tmp/petget_installedpkgs
+    INSTALLEDPKGS="`cat /tmp/petget_installedpkgs | cut -f 2 -d '"'`" #'geany
+    MISSINGPKGS=""
+    #if [ "$INSTALLEDPKGS" != "" ];then
+     DEPENDPKGS="`cat /tmp/petget_installedpkgs | cut -f 6 -d '"' | tr -s ' ' | cut -f 2 -d " " | tr "," "\n" | grep "^\+" |  sed -e 's/^\+//g' | sort -u`" #'geany
+     if [ $OLDPVERSION -lt 300 ];then
+      #major pkgs in Puppy2 that are not in Puppy4...
+      OLDMAJORDIGIT="2"
+      MISSINGPKGS="`echo "$DEPENDPKGS" | grep -E 'gtk+12|gdkxft|tk|tcl|qt|tix|libidn|fig2dev|audiofile|imlib|gdk_pixbuf10|combobox|pstoedit|speex|libosip2|mtools|gnocl|^uri|tktable|tablelist|tile|trf|cdrdao' | tr '\n' ' ' | sed -e 's/ $//'`"
+      GENERICDEPS="GTK1:       gtk+12 gdkxft gdk_pixbuf10 glib12
+Tcl/Tk:     tk tcl tix uri tktable tablelist tile trf combobox gnocl img
+Qt:         qt
+Xlib:       imlib libxaw95_DEP4
+Multimedia: speex libosip2 cdrdao sox
+Misc.:      libidn fig2dev pstoedit mtools"
+     else
+      OLDMAJORDIGIT="3"
+      MISSINGPKGS="`echo "$DEPENDPKGS" | grep -E 'gtk+12|gdkxft|tk|tcl|qt|tix|libidn|fig2dev|audiofile|imlib|gdk_pixbuf10|combobox|pstoedit|speex|libosip2|mtools|gnocl|^uri|tktable|tablelist|tile|trf|cdrdao|libxcb|dbus$|dbus_qt|dbus_glib' | tr '\n' ' ' | sed -e 's/ $//'`"
+      GENERICDEPS="GTK1:       gtk+12 gdkxft gdk_pixbuf10 glib12
+Tcl/Tk:     tk tcl tix uri tktable tablelist tile trf combobox gnocl img
+Qt:         qt
+Xlib:       imlib libxaw95_DEP4
+Multimedia: speex libosip2 cdrdao sox
+Misc.:      libidn fig2dev pstoedit mtools
+ESSENTIAL:  libxcb dbus dbus_qt dbus_glib"
+     fi
+     echo >/dev/console
+     echo -e "\\033[1;31m" >/dev/console #31=red
+     if [ "$MISSINGPKGS" != "" ];then
+      echo "There are Puppy${OLDMAJORDIGIT} packages installed with these missing dependencies in Puppy${NEWMAJORDIGIT}:" >/dev/console
+      echo " $MISSINGPKGS" >/dev/console
+     fi
+     xINSTALLEDPKGS="`echo -n "$INSTALLEDPKGS" | tr '\n'  ' '`"
+     echo "You will either have to uninstall the Puppy${OLDMAJORDIGIT} packages, or install the missing" >/dev/console
+     echo "dependencies -- the latter is easy: click the 'install' icon on the desktop" >/dev/console
+     echo "after Puppy is running and you have Internet access." >/dev/console
+     echo >/dev/console
+     echo "These are the most likely missing dependencies (if in doubt, install them all!):" >/dev/console
+     echo "PKG-TYPE    MISSING DEPENDENCIES" >/dev/console
+     echo "${GENERICDEPS}" >/dev/console
+     echo >/dev/console
+     echo "PLEASE WRITE THESE DEPENDENCIES DOWN ON A PIECE OF PAPER RIGHT NOW." >/dev/console
+     echo -e "\\033[0;39m" >/dev/console
+     if [ "$XSTATUS" = "yes" ];then
+      xmesssage "Dependencies may be missing in Puppy ${NEWPVERSION}.
+You will either have to uninstall the Puppy${OLDMAJORDIGIT} packages, or install the missing
+dependencies -- the latter is easy: click the 'install' icon on the desktop
+after Puppy is running and you have Internet access.
+
+These are the most likely missing dependencies (if in doubt, install them all!):
+PKG-TYPE    MISSING DEPENDENCIES
+${GENERICDEPS}
+
+PLEASE WRITE THESE PACKAGE NAMES DOWN ON A PIECE OF PAPER RIGHT NOW."
+     else
+      echo -n "Then, press the ENTER key to continue: " >/dev/console
+      read keepgoingnow
+     fi
+    #fi
+   fi
+  fi
+
+  if [ $OLDPVERSION -lt 411 ];then #v411
+   #remove the config files for the old Network Wizard...
+   rm -f /etc/*[0-9]mode
+  fi
+
+  if [ $OLDPVERSION -lt 464 ];then #w464
+   if [ -f /etc/mousedevice ];then
+    #not using 'psaux' anymore (scrollwheel broken)...
+    [ "`cat /etc/mousedevice`" = "psaux" ] && echo -n "input/mice" > /etc/mousedevice
+   fi
+  fi
+
+  #v425 updating from 420 or 421 is a problem as it has tcl/tk apps...
+  if [ $OLDPVERSION -eq 420 -o $OLDPVERSION -eq 421 ];then
+   if [ $NEWPVERSION -gt 424 ];then #4.3beta3 or greater
+    RBWARNMSG="WARNING!
+Puppy 420 and 421 has tcl/tk libraries builtin, but 430 and later do not.
+Therefore, if you have installed any applications that require these
+libraries then they will not work. You will have to run the Puppy Package
+Manager and install them."
+    echo >/dev/console
+    echo -e "\\033[1;31m" >/dev/console #31=red
+    echo "$RBWARNMSG" >/dev/console
+    echo -e "\\033[0;39m" >/dev/console
+    if [ "$XSTATUS" = "yes" ];then
+     xmessage -bg red -center "$RBWARNMSG"
+    else
+     echo -n "Press the ENTER key to continue: " >/dev/console
+     read keepgoingnow
+    fi
+   fi
+  fi
+
+  #w001 generate /etc/networkmodules...
+  echo -n " network-drivers-list" >/dev/console
+  /usr/sbin/updatenetmoduleslist.sh
+
+  #w002 update icon cache (supposed to speed things up)...
+  echo -n " gtk-icon-cache" >/dev/console
+  /usr/bin/gtk-update-icon-cache -f /usr/share/icons/hicolor/
+
+   #w002 generate desktop icons (previously done in unleashed)...
+   #(doing it here saves space in the iso file)
+   echo -n " desk-icons" >/dev/console
+   DEFAULT_DESK_ICONS="JQ8flat"
+   [ $NEWPVERSION -ge 500 ] && DEFAULT_DESK_ICONS="JQ8flat"
+   [ ! -d /usr/local/lib/X11/themes/JQ8flat ] && DEFAULT_DESK_ICONS="Stardust"
+   [ -f /etc/desktop_icon_theme ] && DEFAULT_DESK_ICONS="`cat /etc/desktop_icon_theme`" #w477
+   /usr/sbin/icon_switcher_cli $DEFAULT_DESK_ICONS
+
+ fi
+
+
+ #stuff to update on every boot...
+
+ #think have to do this everytime...
+ cp -af $NEWFILESMNTPT/etc/DISTRO_SPECS /etc/
+ touch /etc/DISTRO_SPECS #important, as snapmergepuppy uses '-u' cp option. ...huh, why?
+
+#v2.16 if unionfs layers have changed, may need to fix menu (etc)...
+#note, BootManager may be popped-up, see /usr/sbin/delayedrun.
+if [ -d /initrd ];then #test it isn't full hd installation.
+ . /etc/rc.d/BOOTCONFIG
+
+ #v2.16.1 bug with multisession-cd, different folder at each startup, so screen out...
+ xLASTUNIONRECORD="`echo -n "$LASTUNIONRECORD" | sed -e 's/^20[0-9][0-9][-0123456789]* //'`"
+ xPREVUNIONRECORD="`echo -n "$PREVUNIONRECORD" | sed -e 's/^20[0-9][0-9][-0123456789]* //'`"
+
+ ##v2.17 2nd boot, new ${DISTRO_FILE_PREFIX}save, prevent update....
+ #[ " ${DISTRO_FILE_PREFIX}r${NEWPVERSION}.sfs" = "$PREVUNIONRECORD" ] && xPREVUNIONRECORD="$xLASTUNIONRECORD"
+ #...no, want to do fix if using an old ${DISTRO_FILE_PREFIX}save file.
+
+ if [ "$xLASTUNIONRECORD" != "$xPREVUNIONRECORD" ];then
+  echo -en " layered-filesystem \\033[1;35mnext boot will be faster!\\033[0;39m" > /dev/console
+  echo "Unionfs layers have changed since previous boot, fixing menu..."
+  #master help index has to be updated...
+  /usr/sbin/indexgen.sh
+  #Reconstruct configuration files for JWM, Fvwm95, IceWM...
+  /usr/sbin/fixmenus
+  #w007 has a 'zdrv' layer been added or removed?...
+  EXMOD_CNT=0
+  zPATTERN='z'"${PREFIX1CHAR}"'[0-9]' #w020 ex: zu500629.sfs
+  zzPATTERN='^'"$zPATTERN"
+  EXMOD_SFS1="`echo "$xLASTUNIONRECORD" | tr ' ' '\n' | grep "$zzPATTERN"`"
+  EXMOD_SFS2="`echo "$xPREVUNIONRECORD" | tr ' ' '\n' | grep "$zzPATTERN"`"
+  [ "$EXMOD_SFS1" != "" ] && EXMOD_CNT=1
+  [ "$EXMOD_SFS2" != "" ] && EXMOD_CNT=`expr $EXMOD_CNT + 1`
+  if [ $EXMOD_CNT -eq 2 ];then
+   #may have changed to a different zdrv sfs...
+   [ "$EXMOD_SFS1" != "$EXMOD_SFS2" ] && EXMOD_CNT=1
+  fi
+  if [ $EXMOD_CNT -eq 1 ];then
+   echo "$0:Running depmod ..."
+   depmod
+   /usr/sbin/updatenetmoduleslist.sh
+  fi
+ fi
+
+ #fix the desktop...
+ #note, init does 'touch' on PuppyPin and globicons to prevent overwrite at version upgrade.
+ if [ $NEWPVERSION -gt $OLDPVERSION -o "$xLASTUNIONRECORD" != "$xPREVUNIONRECORD" ];then
+  #need some way to retain user-modifications, especially additions to desktop...
+  #one way is to just merge everything and then delete invalid entries...
+  #DennisF reported backdrop image reverted to default.jpg, so screen out default here...
+  cat $NEWFILESMNTPT/root/Choices/ROX-Filer/PuppyPin | grep -v '<backdrop' >> /root/Choices/ROX-Filer/PuppyPin
+  cat $NEWFILESMNTPT/root/Choices/ROX-Filer/globicons >> /root/Choices/ROX-Filer/globicons
+  #an inconstency, user-mod to desktop, PuppyPin gets changed in
+  #/root/Choices/ROX-Filer/, but globicons gets copied and updated in
+  #/root/.config/rox.sourceforge.net/ROX-Filer/...
+  if [ -f /root/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
+   cat /root/.config/rox.sourceforge.net/ROX-Filer/globicons >> /root/Choices/ROX-Filer/globicons
+   rm -f /root/.config/rox.sourceforge.net/ROX-Filer/globicons
+  fi
+  for LAYERNUM in 3 4 5
+  do
+   [ -f /initrd/pup_ro$LAYERNUM/root/Choices/ROX-Filer/PuppyPin ] && cat /initrd/pup_ro$LAYERNUM/root/Choices/ROX-Filer/PuppyPin >> /root/Choices/ROX-Filer/PuppyPin
+   [ -f /initrd/pup_ro$LAYERNUM/root/Choices/ROX-Filer/globicons ] && cat /initrd/pup_ro$LAYERNUM/root/Choices/ROX-Filer/globicons >> /root/Choices/ROX-Filer/globicons
+  done
+  echo '<?xml version="1.0"?>' > /tmp/PuppyPinTmp
+  echo '<pinboard>' >> /tmp/PuppyPinTmp
+  grep -v -E 'pinboard>|<\?xml' /root/Choices/ROX-Filer/PuppyPin | sort -u >> /tmp/PuppyPinTmp
+  echo '</pinboard>' >> /tmp/PuppyPinTmp
+  #sort -u only gets rid of completely duplicate lines. delete duplicate execs...
+  #also delete line if exec is invalid. also avoid overlapping icons...
+  EXECSLOG="";XYLOG=""
+  echo -n "" > /root/Choices/ROX-Filer/PuppyPin
+  cat /tmp/PuppyPinTmp |
+  while read ONELINE
+  do
+   if [ "`echo -n "$ONELINE" | grep -v '<icon '`" != "" ];then
+    echo "$ONELINE" >> /root/Choices/ROX-Filer/PuppyPin
+    continue
+   fi
+   ONEEXEC="`echo -n "$ONELINE" | cut -f 2 -d '>' | cut -f 1 -d '<'`"
+   ONEX=`echo -n "$ONELINE" | cut -f 1 -d '>' | cut -f 2 -d '"'` #'geany
+   ONEY=`echo -n "$ONELINE" | cut -f 1 -d '>' | cut -f 4 -d '"'` #'geany
+   ONEXY0="${ONEX}_${ONEY}"
+   ONEXY="${ONEX}_${ONEY}"
+   while [ "`echo -n "$XYLOG" | grep "$ONEXY"`" != "" ];do
+    ONEX=`expr $ONEX + 32` #64
+    ONEY=`expr $ONEY + 48` #96
+    ONEXY="${ONEX}_${ONEY}"
+   done
+   if [ "`echo "$EXECSLOG" | grep "$ONEEXEC"`" = "" ];then
+    if [ -e $ONEEXEC ];then #could be a file, symlink or directory(rox-dir).
+     XYLOG="$XYLOG $ONEXY"
+     if [ "$ONEXY" = "$ONEXY0" ];then
+      echo "$ONELINE" >> /root/Choices/ROX-Filer/PuppyPin
+     else
+      #icon has to be moved...
+      XPATTERN="s/x=\"[0-9]*\"/x=\"${ONEX}\"/g"
+      YPATTERN="s/y=\"[0-9]*\"/y=\"${ONEY}\"/g"
+      echo "$ONELINE" | sed -e "$XPATTERN" | sed -e "$YPATTERN" >> /root/Choices/ROX-Filer/PuppyPin
+     fi
+    fi
+   fi
+   EXECSLOG="$EXECSLOG $ONEEXEC"
+  done
+  #now do globicons file...
+  echo '<?xml version="1.0"?>' > /tmp/globiconsTmp
+  echo '<special-files>' >> /tmp/globiconsTmp
+  grep -v -E 'special\-files>|<\?xml' /root/Choices/ROX-Filer/globicons >> /tmp/globiconsTmp
+  echo '</special-files>' >> /tmp/globiconsTmp
+  #get rid of duplicate entries...
+  RULESLOG="";FLAGIGNORE="";ONERULE=""
+  echo -n "" >  /root/Choices/ROX-Filer/globicons
+  cat /tmp/globiconsTmp |
+  while read ONELINE
+  do
+   if [ "`echo -n "$ONELINE" | grep 'rule match'`" != "" ];then
+    ONERULE="`echo -n "$ONELINE" | cut -f 2 -d '"'`" #'geany
+    [ "`echo -n "$RULESLOG" | grep "$ONERULE"`" != "" ] && FLAGIGNORE="yes"
+   fi
+   if [ "`echo -n "$ONELINE" | grep '</rule>'`" != "" ];then
+    if [ "$FLAGIGNORE" = "yes" ];then
+     FLAGIGNORE=""
+     continue
+    fi
+   fi
+   [ "$FLAGIGNORE" = "yes" ] && continue
+   RULESLOG="$RULESLOG $ONERULE"
+   echo "$ONELINE" >> /root/Choices/ROX-Filer/globicons
+  done
+ fi
+fi
+echo "$0:'$*'"
+###END###

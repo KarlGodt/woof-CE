@@ -1,0 +1,246 @@
+#!/bin/sh
+#(c) Copyright 2007 Barry Kauler
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v405 called from rc.sysinit.
+#w000 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+#w001 selection of locale.
+#w019 april2009: selection of timezone.
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNVER=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:43:50·CEST·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+#PUPPYVER="`cat /etc/puppyversion`"
+STATUS=0
+
+[ $pkeys ] && PKEYS=$pkeys #boot parameter
+
+askkbdlayout ()
+{
+ KEYBOARD=""
+ FONTMAP=""
+ CODEPAGE=""
+ while :; do
+  echo -n "" >/tmp/keybdlist.txt
+  for aFILE in `ls /usr/share/kbd/keymaps/i386/[^i]*/*`
+  do
+   #AKMAP="`basename $AFILE | sed -e 's/.map$//g'`" #us, fr, br, etc.
+    aKMAP="`basename $aFILE .map`"
+   #hmmm, very slow way to do this...
+   ACNTRY=`grep -m1 -w -i -E 'keymap|keyboard map' $aFILE`
+   if test ! "$ACNTRY"; then
+   case $aKMAP in
+    us) ACNTRY=" (USA)";;
+    fr) ACNTRY=" (France)";;
+    it) ACNTRY=" (Italy)";;
+    be*) ACNTRY=" (Belgium)";;
+    br*) ACNTRY=" (Brazil)";;
+    croat) ACNTRY=" (Croatia)";;
+    cz*) ACNTRY=" (Czech)";;
+    de) ACNTRY=" (Germany)";;
+    dk) ACNTRY=" (Denmark)";;
+    es) ACNTRY=" (Spain)";;
+    fi) ACNTRY=" (Finland)";;
+    hu*) ACNTRY=" (Hungary)";;
+    il) ACNTRY=" (Israel)";;
+    is*) ACNTRY=" (Iceland)";;
+    jp*) ACNTRY=" (Japan)";;
+    la*) ACNTRY=" (Latin America)";;
+    nl) ACNTRY=" (Netherlands)";;
+    no) ACNTRY=" (Norway)";;
+    pl) ACNTRY=" (Poland)";;
+    pt*) ACNTRY=" (Portugal)";;
+    ro*) ACNTRY=" (Romania)";;
+    ru) ACNTRY=" (Russia)";;
+    se) ACNTRY=" (Sweden)";;
+    sk*) ACNTRY=" (Slovakia)";;
+    sl*) ACNTRY=" (Slovenia)";;
+    uk) ACNTRY=" (UK)";;
+    wangbe) ACNTRY=" (Belgium)";;
+    qc) ACNTRY=" (Quebec, Canada)";;
+    *)  ACNTRY="";;
+   esac
+   fi
+   #APATH="`dirname $AFILE`"
+   aPATH=${aFILE%/*}
+   #ATYPE="`basename $APATH`" #qwerty, qwertz, etc.
+   aTYPE=${aPATH##*/}
+   echo -e "$aKMAP \"${aTYPE}${ACNTRY}\"" >> /tmp/keybdlist.txt
+  done
+  KEYLIST="us \"qwerty (USA)\" `sort /tmp/keybdlist.txt | tr '\n' ' '`"
+  echo '#!/bin/sh' >/tmp/keydlg
+  echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:\n(UP/DOWN arrows then ENTER key)" 0 0 0 \' >>/tmp/keydlg #' geany fix
+  echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
+  echo 'exit $?' >>/tmp/keydlg
+  chmod 755 /tmp/keydlg
+  echo "$0:Running /tmp/keydlg .."
+
+  /tmp/keydlg >$TTY
+  [ $? != 0 ] && return 1
+  clear > $TTY 2>&1 #clear screen
+
+  KEYBOARD=`cat /tmp/kbdextlayout.txt`
+  case $KEYBOARD in
+   cz|hu101|pl|ro_win|sk-qwerty|croat|cz-us-qwertz|hu|slovene)
+    FONTMAP=/usr/share/kbd/consolefonts/lat2-12.psfu
+    CODEPAGE=ISO-8859-2
+    break
+    ;;
+   *)
+    FONTMAP=/usr/share/kbd/consolefonts/lat1-12.psfu
+    CODEPAGE=ISO-8859-1
+    break
+    ;;
+  esac
+ done
+ KEYBOARD=$KEYBOARD.map  #.gz
+ return 0
+}
+
+[ $PKEYS ] && echo -n "$PKEYS" > /etc/keymap #boot param.
+
+TTY=`tty`
+test "$TTY" = 'not a tty' && TTY=/dev/console
+
+if [ ! -e /etc/keymap ];then
+ echo "$0:Running function askkbdlayout .."
+ while :; do
+   askkbdlayout #this is extended menu, func above.
+   #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
+   if [ $? -eq 0 ];then
+    KMAP="$KEYBOARD"
+    break
+   else #cancel, error exit.
+    KMAP="us"
+   fi
+ done #end while loop.
+ echo -n "$KMAP" > /etc/keymap
+ echo "You have chosen \"$KMAP\" keyboard map."
+ echo "Note, this information is saved in file /etc/keymap"
+ if [ "$FONTMAP" ];then
+  echo -n "$FONTMAP" > /etc/fontmap
+ fi
+ if [ "$CODEPAGE" ];then
+  echo -n "$CODEPAGE" > /etc/codepage
+ fi
+fi
+
+if [ -e /etc/keymap ];then
+ if [ $PKEYS ];then
+  echo -n "$PKEYS" > /etc/keymap
+  echo -n "Loading \"$PKEYS\" keyboard map... "
+  gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
+ else
+  KMAP="`cat /etc/keymap`"
+  cat /etc/keymap | grep "\\.map" #> /dev/null 2>&1 #looking for .map
+  if [ $? -eq 0 ];then #=0 found.
+   #key layout maps are in /usr/share/kbd, using "kbd" package...
+   KMAP="`basename $KMAP .map`"
+   echo -en "Loading \"$KMAP\" keyboard map... "
+   loadkeys ${KMAP}.map ;STATUS=$?
+   #xwin also set these...
+   FONTMAP="`cat /etc/fontmap`"
+   #echo -e "Loading fontmap \"${FONTMAP}\"..."
+   #setfont $FONTMAP   #cat "$FONTMAP" | loadfont
+   #...this needs work. messes up font set required by dialog program. see also /usr/X11R7/bin/xwin.
+   #um, also have /etc/codepage, don't know how to do anything with that.
+  else
+   #this is the technique up to Puppy v0.8.6. KMAP is just a 2-letter code...
+   echo -ne "Loading \"$KMAP\" keyboard map... "
+   gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap ;STATUS=$?
+  fi
+ fi
+else
+ echo -n "loading \"us\" (USA) keyboard map... "
+ gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
+fi
+
+
+#need to set Linux system time/date, from hardware clock...
+echo "$0:Setting hwclock .."
+hwclock --hctosys --localtime
+[ $? = 0 ] || hwclock --hctosys --localtime --directisa
+#...--hctosys reads cmos clock to system.
+#...--localtime means that cmos clock is set to local-time.
+
+#w001 creates locale files in /usr/lib/locale...
+LANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
+test "$LANG" || LANG='Not set.'
+echo "LANG='$LANG'"
+locale -a
+
+if [ "`locale -a | grep "$LANG"`" = "" ];then
+ #BASELANG="`basename $LANG .utf8`"
+ #if [ -f /usr/share/i18n/locales/$BASELANG ];then
+ # localedef -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
+ #else
+ # [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8
+ #fi
+ echo "$0:Running /usr/sbin/chooselocale cli .."
+ /usr/sbin/chooselocale cli > $TTY
+ echo "$0:Running /usr/sbin/timezone-set  cli .."
+ /usr/sbin/timezone-set cli > $TTY
+fi
+
+
+exit $STATUS
+###END###

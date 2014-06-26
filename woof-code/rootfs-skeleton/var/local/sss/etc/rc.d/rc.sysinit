@@ -1,0 +1,1020 @@
+#!/bin/ash
+#(c) copyright Barry Kauler 2008, puppylinux.com
+#2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v404 first release. rewritten from scratch, aiming for simplicity and speed.
+#v405 fix for alsa.
+#v406 load apm.ko if no acpi.
+#v408 explicitly load battery, ac, thermal, fan modules.
+#v409 gparted create ext3 part. failed, fixed by making /etc/mtab a symlink.
+#v411 fix mouse detection logic.
+#v411 can use old network wizard (from 403, based on 400)
+#v411 return of 'puppyserialdetect', for usb/ps2 mouse detection only. now 'puppyinputdetect'.
+#v411 extra 'sleep 1' as rerwin reports usb mouse may need it some hardware.
+#v411 choosemousefunc().
+#v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+#v412 bugfix usb-storage wait loop.
+#w001 ubuntu module-init-tools not configured to support gzipped modules.
+#w004 LANG=C, faster. /bin/ash, even faster.
+#w463 rerwin: special mwave modem handling.
+#w463 mouse scrollwheel fix.
+#w468 full-hd-install, write to PUPSTATE after remount r/w.
+#w478 moved depmod code up above call to rc.update.
+#w481 fix crappy depmod, 'out of memory' in first boot 64MB RAM (no swap).
+#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid.
+#v424 fix LAYERFS variable.
+#v424 fix secondary uevent replay. now finds ssb devices.
+#v431 secondary uevent replay, fix for old kernels < 2.6.24
+
+########################################################################
+#
+# CHANGES by Karl Reimer Godt
+# 00.0 : added function for fsckme.flg to boot further or stop booting
+# 01.0 : added various debug echos and dumpe2fs to examine ext2 fs -> switched to ext3
+# 02.0 : private part :
+#   .1 : mount all none fs with   mount_none_fs_func
+#   .2 : case have had booted a kernel with mnt/dev feature : mkmissing_tty_func
+#   .3 : check_dev_root_func which sould create the link /dev/root -> rdev
+#   .4 : check_frugal_full_func
+#   .5 : mkmissing_blockdev_func
+#   .6 : dev_maj_259_func
+#   .7 : device_nodes_fork_func
+#   .8 : mk_missing_var_dev_func
+#   .9 : pupstate_prev_func
+# 03.0 : multiple kernels part :
+#   .1 : firmware_dep_func
+#   .2 : lib_firmware_func
+#   .3 : mondprobe_conf_func
+# 04.0 : added additional /tmp/pup_event_skiplist.conf
+#   .1 : parsing the content of /etc/[modprobe.d/]modprobe.conf to  /tmp/pup_event_modprobe.conf
+# 05.0 : forced loading of uhci_hcd and ohci_hcd similar to ehci_hcd
+# 06.0 : only load modules if initstate lesser than 25
+#
+# 07.0 : still experimenting with echo "SATADRIVES='${BLOCK_SATAD}'" >> /etc/rc.d/PUPSTATE
+# 08.0 : force loading of acpi drivers battery , ac , fan
+#
+# 09.0 : fbcon_func
+# 10.0 : echo nox if Xvesa server or in /proc/cmdline
+# 11.0 : creating /etc/.fsckme.flg <- commented to shutdown i think
+#
+# 13.0 : code to sort the pup_event_backend_modprobe logfile
+#
+# /dev/sda5:
+# LABEL="MacPup430_F3"
+# UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
+# TYPE="ext3"
+# DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
+# DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
+# case·$DISTRO_BINARY_COMPAT·in
+# ubuntu)
+# DISTRO_NAME="Jaunty·Puppy"
+# DISTRO_FILE_PREFIX="upup"
+# DISTRO_COMPAT_VERSION="jaunty"
+# ;;
+# debian)
+# DISTRO_NAME="Lenny·Puppy"
+# DISTRO_FILE_PREFIX="dpup"
+# DISTRO_COMPAT_VERSION="lenny"
+# ;;
+# slackware)
+# DISTRO_NAME="Slack·Puppy"
+# DISTRO_FILE_PREFIX="spup"
+# DISTRO_COMPAT_VERSION="12.2"
+# ;;
+# arch)
+# DISTRO_NAME="Arch·Puppy"
+# DISTRO_FILE_PREFIX="apup"
+# DISTRO_COMPAT_VERSION="200904"
+# ;;
+# t2)
+# DISTRO_NAME="T2·Puppy"
+# DISTRO_FILE_PREFIX="tpup"
+# DISTRO_COMPAT_VERSION="puppy5"
+# ;;
+# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
+# DISTRO_NAME="Puppy"
+# DISTRO_FILE_PREFIX="pup"·#"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
+# DISTRO_COMPAT_VERSION="4"·#"2"··#4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
+# ;;
+# esac
+# PUPMODE=2
+# KERNEL=2.6.30.6-KRG-i486
+# ATADRIVES='·sda'
+# USB_SATAD=''
+# PUP_HOME='/'
+# Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
+# $LANG=en_US
+# today=Mon·Oct·24·22:46:48·CEST·2011
+# TODO1 : modaliases | sort -d
+#
+#
+#
+#
+########################################################################
+
+alias modprobe='/sbin/modprobe -bvL'  ##+++2013-12-03
+## -L is my private modprobe re-compile for common -s --syslog Log to syslog
+## -s became -s  #same as -n#   --show : still -n --dry-run available.
+
+alias t=test
+
+export LANG=C
+
+. /etc/rc.d/functions4puppy4
+. /etc/DISTRO_SPECS
+
+fsstate_func(){
+#t "`rdev`" || return $PUPMODE
+t "$PUPMODE" = 2 || return 0
+echo -n "FILESYSTEM STATE:: $* : "
+dumpe2fs /dev/$PDEV1 | grep -i 'STATE'
+echo
+}
+#fsstate_func 1
+
+timestamp_func(){
+echo "`date +%M:%S:%N` :$*"
+}
+
+status_func() {
+ if t $1 -eq 0;then
+  /bin/echo -e '\033[72G\033[1;32mdone\033[0;39m' >/dev/console #green [done] msg.
+ else
+  /bin/echo -e '\033[70G\033[1;31mfailed\033[0;39m' >/dev/console #red [failed].
+  STATUS=0
+ fi
+ return $1 #return with same status as entry param.
+}
+
+loadswap_func() { #w481 made into a function.
+ echo "LOAD SWAP"
+ #load a swap partition...
+ for ONESWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
+ do
+  echo -n "Loading swap partition $ONESWAP..." >/dev/console
+  swapon $ONESWAP
+  status_func $?
+  t $? -eq 0 && SWAPON="yes"
+ done
+ #if no go, try for a swap file...
+ if t "$SWAPON" != "yes";then
+  SWAPFILE="/pupswap.swp"
+  t "$PSWAPFILE" && SWAPFILE=`echo -n "$PSWAPFILE" | cut -f 3 -d ','`  #/etc/rc.d/PUPSTATE
+  if t -f /initrd${PUP_HOME}${SWAPFILE};then
+   echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
+   swapon /initrd${PUP_HOME}${SWAPFILE}
+   status_func $?
+   t $? -eq 0 && SWAPON="yes"
+  fi
+  if t -f $SWAPFILE;then
+   echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
+   swapon $SWAPFILE
+   status_func $?
+   t $? -eq 0 && SWAPON="yes"
+  fi
+ fi
+}
+
+#if have just done a switch_root, output a 'done' message...
+devROOT=`rdev | awk '{print $1}'`
+t "$devROOT" && { PUPMODE=2; PDEV1=${devROOT##*/}; } || status_func 0 #note, /initrd should not exist when a full-hd installation.
+
+t $loglevel && LOGLEVEL=$loglevel #boot param.
+t $pmedia && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+t $pdev1 && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
+STATUS=0
+
+##############MAKE FILESYSTEM USABLE################
+#echo "MAKE FILESYSTEM USABLE"
+echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
+/bin/mount -t proc none /proc ;STATUS=$(($STATUS+$?))
+
+if t "$PUPMODE" = 2; then #w468
+ /bin/mount -o remount,rw /
+ echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
+fi
+QUIET=-q
+grep '/dev/root' /proc/mounts | grep $QUIET -w 'rw' || /bin/mount -o remount,rw /dev/root /
+
+. /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
+
+#v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
+#ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
+rm -f /etc/mtab
+ln -s /proc/mounts /etc/mtab
+
+_make_tmp_no_mount()
+{
+mountpoint $QUIET /tmp && {
+mkdir -p /tmpTMP || return 1
+cp -a /tmp/* /tmpTMP/
+cp -a /tmp/.[[:alnum:]]* /tmpTMP/
+/bin/umount /tmp || return
+mkdir -p /tmp || return
+cp -a /tmpTMP/* /tmp/
+cp -a /tmpTMP/.[[:alnum:]]* /tmp/
+ }
+}
+_make_tmp_no_mount
+
+#redirect all output to a log file (must do after remount rw)...
+t "$LOGLEVEL" || exec 1>/tmp/bootsysinit.log 2>&1
+t -d /dev/pts || mkdir /dev/pts
+/bin/mount /dev/pts; STATUS=$(($STATUS+$?)) # uses fstab
+mkdir -p /sys
+/bin/mount -t sysfs none /sys; STATUS=$(($STATUS+$?))
+
+##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
+#FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
+read lbl tot use FREERAM sha buf<<EOI
+`free | grep Mem`
+EOI
+
+#if t ! -d /initrd;then #weird, only full-hd install needs this for xfdiff.
+if t "$PUPMODE" = 2; then
+ QTRFREERAM=`expr $FREERAM \/ 4` # google-chrome also
+ t -d /dev/shm || mkdir /dev/shm
+ /bin/mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm;
+ STATUS=$(($STATUS+$?))
+fi
+
+mountpoint $QUIET /dev &&  {
+   t -e /dev/fd || ln -s ../proc/self/fd /dev/fd
+   t -e /dev/stdin || ln -s fd/0 /dev/stdin
+   t -e /dev/stdout || ln -s fd/1 /dev/stdout
+   t -e /dev/stderr || ln -s fd/2 /dev/stderr
+   }
+
+#w478 moved this code above call to rc.update...
+KERNEL=`uname -r`
+#KERNMAJ=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
+K_VERSION=`echo -n "$KERNEL" | cut -f 1 -d '.' | cut -f 1 -d '-'`
+K_PATCHLEVEL=`echo -n "$KERNEL" | cut -f 2 -d '.' | cut -f 1 -d '-'`
+K_SUBLEVEL=`echo -n "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'`
+K_EXTRALEVEL=`echo -n "$KERNEL" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+
+echo "KERNEL='$KERNEL'" >> /etc/rc.d/PUPSTATE
+
+
+####KRG>>>>
+fsstate_func 2
+
+mount_none_fs_func(){
+   nFS=`grep '^nodev' /proc/filesystems | tr  '\t' ' ' | cut -f 2 -d ' '`
+#NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs'`
+ NODEV="$nFS"
+t -d /nodev || mkdir /nodev
+for oneFS in $NODEV ; do
+      echo
+ echo "$oneFS"
+ DIR=`echo "$oneFS" | sed 's#fs$##'`
+ if t -z "`grep -Fw "$oneFS" /proc/mounts`" ; then
+
+   case $oneFS in
+    debugfs) mkdir -p /sys/kernel/debug;       /bin/mount -t debugfs         nodev /sys/kernel/debug;
+    echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
+    ;;
+    fusectl) mkdir -p /sys/fs/fuse/connections; /bin/mount -t fusectl fusectl /sys/fs/fuse/connections;;
+binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc; /bin/mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) mkdir -p /sys/kernel/security;     /bin/mount -t securityfs      nodev /sys/kernel/security;;
+      usbfs) mkdir -p /proc/bus/usb;            /bin/mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
+   configfs) mkdir -p /config;                  /bin/mount -t configfs        none  /config;;
+  hugetlbfs) mkdir -p /mnt/huge;                /bin/mount -t hugetlbfs       none  /mnt/huge;;
+     pstore) mkdir -p /dev/fs/pstore;           /bin/mount -t pstore          nodev /dev/fs/pstore;;
+ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
+      #mount: wrong fs type, bad option, bad superblock on /nodev, ...
+    jffs2) :;;   #mount: /nodev is not a block device
+    fuse)  :;;   #bin/sh: /nodev: is a directory
+    ram|tmp) :;;
+    *)
+    t -d /dev/fs/$DIR || mkdir -p /dev/fs/$DIR
+    /bin/mount -v -t $oneFS nodev /dev/fs/$DIR
+    ;;
+   esac
+
+ fi
+done
+}
+mount_none_fs_func
+
+mkmissing_tty_func() {
+t -c /dev/tty || mknod /dev/tty c 5 0
+t -d /dev/vc || mkdir /dev/vc
+
+VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -oe '[0-9]*$'`
+for i in $VTInittab ; do
+t -c /dev/vc/$i || { rm -f /dev/vc/$i;mknod /dev/vc/$i c 4 $i; }
+t -c /dev/tty$i || { rm -f /dev/tty$i;mknod /dev/tty$i c 4 $i; }
+done
+
+#[ ! -c /dev/console ] && rm -f /dev/console && mknod /dev/console c 5 1
+ t -c /dev/console || { rm -f /dev/console;mknod /dev/console c 5 1; }
+t -c /dev/zero || { rm -f /dev/zero;mknod /dev/zero c 1 5; }
+t -c /dev/null || { rm -f /dev/null;mknod /dev/null c 1 3; }
+
+t -d /dev/pts || { rm -f /dev/pts;mkdir /dev/pts; }
+t -c /dev/ptmx || { rm -f /dev/ptmx;mknod /dev/ptmx c 5 2; }
+
+for i in $(seq 0 4); do
+t -c /dev/ptyp$i || { rm -f /dev/ptyp$i;mknod /dev/ptyp$i c 2 $i; }
+done
+
+t -d /dev/fb || mkdir /dev/fb
+for i in `seq 0 11` ; do
+t -c /dev/fb$i || mknod /dev/fb$i c 29 $i
+t -L /dev/fb/$i || ln -s ../fb$i /dev/fb/$i
+done
+
+#sound[AO OSS] audio_setup: Can't open audio device /dev/dsp: No such file or directory
+t -c /dev/dsp || { rm -f /dev/dsp;mknod /dev/dsp c 14 3; }
+}
+mkmissing_tty_func
+
+#fsstate_func 3
+
+make_dev_root_func() {
+
+devROOT=`rdev`
+test "$devROOT" && { ln -sf "${devROOT% *}" /dev/root; } || {
+        test "$PDEV1" && ln -sf $PDEV1 /dev/root; }
+}
+make_dev_root_func
+
+#fsstate_func 4
+
+mkmissing_blockdev_func() {
+
+mountpoint $QUIET /dev && return
+ while read maj min siz dev ; do
+  [ "${maj//[[:digit:]]/}" ] && continue
+  [ "$maj" -a "$min" -a "$dev" ] || continue
+  t -b /dev/$dev || mknod /dev/$dev b $maj $min
+ done</proc/partitions
+
+}
+
+#fsstate_func 5
+
+#fsstate_func 6
+
+mountpoint $QUIET /dev || mkmissing_blockdev_func
+
+#fsstate_func 7
+
+mk_missing_var_dev_func() {
+if t -d /var/db/`uname -r`/dev ; then
+cp -a -r /var/db/`uname -r`/dev /
+
+elif t -f /var/db/boot/dev_nodes.lst; then
+DDB=`cat /var/db/boot/dev_nodes.lst`
+cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
+t -z "$DEV" && DEV=$T
+KIND=${PERM:0:1}
+MAJ=`echo $MAY | tr -d ','`
+DN=`dirname $DEV`
+t -d $DN || mkdir $DN
+t -$KIND $DEV || { echo making $DEV;mknod $DEV $KIND $MAJ $Min; }
+done
+else
+:
+fi
+}
+mountpoint $QUIET /dev || mk_missing_var_dev_func
+
+#fsstate_func 8
+
+pupstate_prev_func() {
+if t "`grep -x KERNEL /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNEL" ; then
+if t ! -f /lib/modules/$KERNEL/modules.dep -o ! -f /lib/modules/$KERNEL/modules.symbols -o ! -f /lib/modules/$KERNEL/modules.alias ; then
+echo "Detected booting other kernel than last time" >> /dev/console
+echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
+depmod
+depmod-FULL
+fi
+fi
+}
+pupstate_prev_func
+
+#fsstate_func 9
+
+firmware_dep_func() {
+if t ! -f /etc/modules/firmware.dep.$KERNEL; then
+echo "copying firmware.dep" > /dev/console
+FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
+[ -f "$FWF" ] && cp "$FWF" /etc/modules/firmware.dep.$KERNEL
+fi
+}
+firmware_dep_func
+
+DOTconfig_func(){
+if t -f /lib/modules/$KERNEL/DOTconfig-$KERNEL; then
+ if t ! -f /etc/modules/DOTconfig-$KERNEL; then
+ cp -a /lib/modules/$KERNEL/DOTconfig-$KERNEL /etc/modules/DOTconfig-$KERNEL
+ fi
+fi
+}
+DOTconfig_func
+
+#fsstate_func 10
+
+lib_firmware_func() {
+FWD=`find /lib/modules/$KERNEL/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
+if t "$FWD" != "" ; then
+BN=`basename $FWD`
+SN=${BN:0:8}
+rm -f /lib/$SN/firmware*
+cp -a -r "$FWD"/* /lib/$SN/
+fi
+
+if t ! -d /lib/firmware ; then
+if t -f /lib/firmware.tar.gz ; then
+tar -C / -xzf /lib/firmware.tar.gz
+fi
+fi
+}
+lib_firmware_func
+
+#fsstate_func 11
+
+modprobe_conf_func() {
+t -d /etc/mult_kernels || mkdir /etc/mult_kernels
+
+if t -f /etc/mult_kernels/modprobe.conf.$KERNEL ; then
+  cp -f /etc/mult_kernels/modprobe.conf.$KERNEL /etc/modprobe.conf
+elif t -f /etc/modprobe.conf ; then
+  t -f /etc/mult_kernels/modprobe.conf.$KERNEL || cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL
+else
+:
+fi #1
+
+if t -d /etc/mult_kernels/modprobe.d.$KERNEL ; then
+rm -f -r /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNEL /etc/modprobe.d
+elif t -d /etc/modprobe.d ; then
+  t -d /etc/mult_kernels/modprobe.d.$KERNEL || cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNEL
+else
+:
+fi #2
+
+t -d /etc/mult_kernels/rc.d || mkdir /etc/mult_kernels/rc.d
+if t ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL ; then
+cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL
+else
+cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL /etc/rc.d/MODULESCONFIG
+fi
+}
+modprobe_conf_func  ##-2011-11-07 just to be done in /sbin/init
+
+. /etc/rc.d/MODULESCONFIG
+
+#fsstate_func 12
+
+#w469 may need to run 'depmod'...
+#live-cd may have been built without the modules.* files.
+#initrd init script copied modules to /lib/modules/<KERNEL>/initrd/.
+if t ! -f /lib/modules/${KERNEL}/modules.dep;then
+ NEEDDEPMOD="yes" #w469 files may not be there to save space.
+ t -d /lib/modules/${KERNEL}/initrd && NEEDGUNZIP="yes"
+elif t -d /lib/modules/${KERNEL}/initrd;then
+  if t "`grep '/initrd/' /lib/modules/${KERNEL}/modules.dep`" = "";then
+   NEEDDEPMOD="yes" #w469 files may not be there to save space.
+   NEEDGUNZIP="yes"
+  fi
+fi
+if t "$NEEDGUNZIP" = "yes";then
+ #w001 ubuntu module-init-tools not configured to support gzipped modules...
+ #for ONEMOD in `find /lib/modules/${KERNEL}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #do
+ # gunzip $ONEMOD
+ #done
+ echo "$0:NEEDGUNZIP='$NEEDGUNZIP'"
+ /bin/gunzip -f -r /lib/modules/${KERNEL}/initrd #w482 shinobar.
+fi
+
+if t "$NEEDDEPMOD" = "yes";then
+ echo "$0:NEEDDEPMOD='$NEEDDEPMOD'"
+ echo -n ' depmod' >/dev/console
+ depmod
+fi
+
+t $layerfs && LAYERFS=$layerfs #boot param.
+t $LAYERFS || LAYERFS=aufs #aufs or unionfs
+t "`modinfo aufs 2>/dev/null`" = "" && LAYERFS=unionfs #precaution.
+
+status_func $STATUS
+
+#fsstate_func 13
+
+#######################VERSION UPDATE##########################
+echo "VERSION UPDATE"
+#force update when new version of ${DISTRO_NAME}...
+echo -n "Updating..." >/dev/console
+
+/etc/rc.d/rc.update $PUPMODE
+sync
+status_func $STATUS
+
+#fsstate_func 14
+
+#################LOAD KERNEL MODULES################
+echo "LOAD KERNEL MODULES"
+syslogd -m 0
+klogd
+
+echo -n "    Loading kernel modules..." >/dev/console
+
+MODALIASES=`ls /sys/bus/*/devices/*/modalias`
+
+BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
+echo "$BLACKLISTVARS" > /tmp/pup_event_modprobe.conf
+echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
+t -f /etc/modprobe.conf && cat /etc/modprobe.conf >> /tmp/pup_event_modprobe.conf
+if t -d /etc/modprobe.d ; then
+for i in /etc/modprobe.d/* ; do
+cat $i >> /tmp/pup_event_modprobe.conf
+done
+fi
+
+#...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
+
+if t "$PUPMODE" = 2;then #v423 full hd install.
+ #v423 have this in 'init', probably need here too...
+ if t "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "";then
+  modprobe --config /tmp/pup_event_modprobe.conf yenta-socket
+  t $? -eq 0 && sleep 2
+ fi
+ #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
+ # this is contrary to my understanding all these years, but oh well, let's do it...
+ ELSPCI=`elspci -l` #jesses great little utility.
+ t "`echo "$ELSPCI" | grep '0C0320'`" && modprobe --config /tmp/pup_event_modprobe.conf ehci-hcd
+ #...perhaps a udev rule could have done this?
+ t "`echo "$ELSPCI" | grep '0C0310'`" && modprobe --config /tmp/pup_event_modprobe.conf ohci-hcd
+ t "`echo "$ELSPCI" | grep '0C0300'`" && modprobe --config /tmp/pup_event_modprobe.conf uhci-hcd
+fi
+t -n "`lsmod | grep -E 'uhci|ohci|ehci'`" && modprobe usbhid
+
+_check_X_dependencies()
+{
+if t -f /sbin/photplug; then
+ t "`which ldd`" || return
+ XSERVER=`realpath $(which X)`
+ t "$XSERVER" || return
+ t "`ldd "$XSERVER" | grep -iE 'udev|hal|dbus'`" || return
+ chmod -x /sbin/photplug
+ return $?
+fi
+}
+_check_X_dependencies
+
+if t -x /sbin/photplug; then
+
+#t -f /tmp/hotplug.modules || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
+#awk '{print $2}' /tmp/hotplug.modules.sed >/tmp/hotplug.modules ; }
+#grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' >/tmp/hotplug.modules ;
+#}
+echo '/sbin/photplug' >/proc/sys/kernel/hotplug
+
+#v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...#my intention is for puppy to work with either of these...
+elif t -x /sbin/udevd;then  ##2011_10_27 changed -f to -x
+t -z "`pidof udevd`" && /sbin/udevd --daemon
+else
+t -z "`pidof pup_event_backend_d`" &&  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
+fi
+sleep 0.1
+
+INITSTATE=`find /sys -name "initstate"`
+INITSTATEwc_l=`echo "$INITSTATE" | wc -l`
+echo "INITSTATEwc_l='$INITSTATEwc_l'"
+
+if t -z "$MODALIASES" ; then #1
+
+echo -e '\033[1;5;31m''WARNING : ''\033[0;31m''No modaliases found !''\033[39m' >/dev/console
+echo -e '\033[39m''Either the kernel detected no HW automatically''\033[39m' >/dev/console
+echo -e '\033[39m''or something else went wrong''\033[39m' >/dev/console
+
+else #1
+
+echo -n '0' > /tmp/pup_event_alsa_cnt
+
+if t "$INITSTATEwc_l" -lt 25 ; then  #initrd.gz loads 10 modules plus some extra #2
+echo 'Running the modaliases add by rc.sysinit '$0
+echo >> /tmp/pup_event_module_devpath_log
+echo 'Running the modaliases add by rc.sysinit '$0 >> /tmp/pup_event_module_devpath_log
+
+MODULECNT=0
+#replay uevents from /sys...
+for ONEMODALIAS in $MODALIASES
+do
+ #ONEPATH="`dirname $ONEMODALIAS`"
+ ONEPATH="${ONEMODALIAS%/*}"
+ if t -e ${ONEPATH}/uevent;then
+  echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
+  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  sleep 0.02
+  echo -ne '\r\033[1;35m'$MODULECNT'\033[0;39m' >/dev/console
+  MODULECNT=$((MODULECNT+1))
+ fi
+done
+echo >> /tmp/bootmodules.txt
+
+else #2
+echo 'Skipping uevent part , more than 25 modules already loaded ...'
+
+fi
+fi
+
+
+if t "$PUPMODE" = 2;then #full hd installation.
+ modprobe nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
+ modprobe nls_iso8859-1 # "
+ modprobe fuse
+ modprobe $LAYERFS #unionfs or aufs.
+ modprobe squashfs
+ #we can determine ide/sata drives at this point (drivers builtin to kernel)...
+ #ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
+ #ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`"
+ SATADRIVES=`ls -1 /sys/block | grep '^sd'`
+ for i in $SATADRIVES; do
+  LinkTarget=`readlink -f /sys/block/$i`
+  if t "`echo $LinkTarget | grep 'usb'`"; then
+  USB_SATAD="$USB_SATAD $i"
+  else
+  BLOCK_SATAD="$BLOCK_SATAD $i"
+ fi
+ done
+ if t -e /proc/ide;then
+  echo "SATADRIVES='${BLOCK_SATAD}'" >> /etc/rc.d/PUPSTATE #kernel supports /dev/hd*.
+ else
+  echo "ATADRIVES='${BLOCK_SATAD}'" >> /etc/rc.d/PUPSTATE
+ fi
+ echo "USB_SATAD='${USB_SATAD}'" >> /etc/rc.d/PUPSTATE
+fi
+
+if t -z "`lsmod | grep 'usb_storage'`"; then
+modprobe usb_storage
+fi
+
+t -d /proc/acpi || modprobe -v apm #v406
+
+status_func 0
+
+#fsstate_func 15
+
+######################LOAD SWAP#####################
+t "$SWAPON" = "yes" || loadswap_func
+
+#fsstate_func 16
+
+#################MISC. SYSTEM SETUP#################
+echo "MISC. SYSTEM SETUP"
+
+echo -e "${DISTRO_NAME} Linux\n`uname -s` `uname -r` [`uname -m` arch]\n\n" > /etc/issue
+echo "1" > /proc/sys/net/ipv4/ip_dynaddr
+hostname -F /etc/hostname
+
+rm -f /mnt/home
+if t "$PUPMODE" = 2;then
+ PUP_HOME='/'
+ echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
+ ln -s / /mnt/home
+elif t "$PUP_HOME";then #see /etc/rc.d/PUPSTATE
+  if t "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw";then
+   #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
+   #in the case of the persistent storage being the partition itself, this will be mounted
+   #on /initrd/pup_ro1 (tmpfs on pup_rw for restricted writes) or directly on /initrd/pup_rw
+   #and we do not really want users to access it as it is a unionfs layer. Instead, they are
+   #already accessing it as "/".
+   ln -s / /mnt/home
+  else
+   ln -s /initrd${PUP_HOME} /mnt/home
+  fi
+fi
+
+#fsstate_func 17
+
+################WAIT MODULES LOADED##################
+echo "WAIT MODULES LOADED"
+#previous module loading may not have completed...
+echo -n "Waiting for modules to complete loading..." >/dev/console
+WAITCNT=0
+PCIPCMCIA=`elspci -l | grep -o '060700.*<>$'`
+PCIUSB=`elspci -l | grep -E '0C0300|0C0310|0C0320' | grep '<>$' | cut -f2 -d' '`
+
+if t "$PCIPCMCIA"; then #this may be slow to respond.
+if t "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'`"; then
+ echo -n " pcmcia"  >/dev/console
+ while t $WAITCNT -lt 10;do
+  t "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" && break
+  WAITCNT=`expr $WAITCNT + 1`
+  sleep 1
+  echo -n " $WAITCNT" >/dev/console
+ done
+fi
+fi
+#note, if initrd then usb-storage will have already loaded...
+if t "$PCIUSB"; then #this may be slow to respond.
+if t "`busybox modprobe -l | grep '[eoux]hci[-_]hcd'`"; then
+ echo -n " usb"  >/dev/console
+ PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
+ while t $WAITCNT -lt 10;do
+  t `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l` -ge $PCIUSBNUM && break
+  WAITCNT=`expr $WAITCNT + 1`
+  sleep 1
+  echo -n " $WAITCNT" >/dev/console
+ done
+fi
+fi
+
+if t $K_SUBLEVEL -lt 24;then #v431
+ t -e /sys/bus/pcmcia/devices && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`
+ t -e /sys/bus/usb/devices && NEWUSB=`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`
+ echo K_SUBLEVEL=$K_SUBLEVEL >> /tmp/bootmodules.txt
+ for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+ do
+  #ONEPATH="`dirname $ONEMODALIAS`"
+  ONEPATH="${ONEMODALIAS%/*}"
+  if t -e ${ONEPATH}/uevent;then
+   echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
+   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+   sleep 0.02
+  fi
+ done
+else
+echo K_SUBLEVEL=$K_SUBLEVEL >> /tmp/bootmodules.txt
+ #v424 try it a different way, this also fixes ssb devices (such as b43.ko)...
+ t -e /sys/bus/pcmcia/devices && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`
+ t -e /sys/bus/usb/devices && NEWUSB=`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`
+ t -e /sys/bus/ssb/devices && NEWSSB=`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`
+ for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
+ do
+  #ONEPATH="`dirname $ONEUEVENT`"
+  ONEPATH="${ONEUEVENT%/*}"
+  #the check for 'modalias' file is maybe needed for old kernel?...
+  t ! -e ${ONEPATH}/modalias && t "`grep 'MODALIAS' $ONEUEVENT`" = "" && continue
+  echo 'added '"${ONEUEVENT}" >> /tmp/bootmodules.txt
+  echo add > $ONEUEVENT
+  sleep 0.02
+ done
+fi
+
+#wait for usb-storage drives to become available...(already done if initrd)
+#note, pup_event_backend_d and udevd both log to this file when load modules
+# (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
+if t "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`"; then #see pup_event_backend_d
+ echo -n " usb-storage"  >/dev/console
+ while t $WAITCNT -lt 15;do
+  #[ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
+   t "`dmesg | grep 'usb\-storage.*scan complete'`" && break #usb-storage 1-1:1.0: scan complete
+  sleep 1
+  WAITCNT=`expr $WAITCNT + 1`
+  echo -n " $WAITCNT" >/dev/console
+ done
+ #precaution, make sure have got them all... v412 need sort -u...
+ #USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
+ #USBSTORAGES=`/bin/dmesg | grep "usb [-0-9]*: New USB device found" | sort -u | wc -l`
+ USBSTORAGES=`/bin/dmesg | grep -o "usb\-storage.*starting scan.*" | sort -u | wc -l`
+ while t $WAITCNT -lt 15;do
+  #AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb\-storage.*scan complete" | wc -l`
+  t $AVAILABLEUSBSTORAGES -ge $USBSTORAGES && break
+  sleep 1
+  WAITCNT=`expr $WAITCNT + 1`
+  echo -n " $WAITCNT" >/dev/console
+ done
+fi
+
+sleep 1 #v411 a bit extra. rerwin reports usb mouse detection problem some hardware.
+        #(delay before usb mouse info appears in /proc/bus/input/devices)
+
+status_func 0
+
+#fsstate_func 18
+
+##############USER SELECTED MODULES##################
+echo "USER SELECTED MODULES"
+#the user can select extra modules to load in the BootManager...
+if t "$ADDLIST"; then #variable is in /etc/rc.d/MODULESCONFIG
+ echo -n "Loading user-selected modules..." >/dev/console
+ for MODULE in $ADDLIST
+ do
+  MPARAMS=""
+  if t `echo -n "$MODULE" | tr ':' ' ' | wc -w` -gt 1; then
+   MPARAMS=`echo -n "$MODULE" | cut -f 2- -d ':' | tr ':' ' '`
+   MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
+  fi
+  MODULE=`echo "$MODULE" | tr '-' '_'`
+  echo -n " $MODULE" >/dev/console
+  echo "Loading module $MODULE $MPARAMS"
+  firmware_module_func #install firmware tarball. see functions4puppy4.
+  #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
+  if t -z "`lsmod | grep -w "$MODULE"`" ; then
+  t "$MODULE" = "mwave" || modprobe $MODULE $MPARAMS
+  fi
+ done
+ status_func 0
+fi
+
+fbcon_func() {
+if t -n "`modprobe -l | grep 'fbcon'`"; then
+if t "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]'`"; then
+echo >> /dev/console
+modinfo fbcon > /dev/console
+sleep 1
+modprobe fbcon
+fi
+fi
+}
+fbcon_func
+
+#fsstate_func 19
+
+###################SETUP SERVICES################
+echo "SETUP SERVICES"
+echo -n "Setting up services (network, printing, etc.)..." >/dev/console
+if t -h /dev/modem; then
+ DEVM=`readlink /dev/modem`
+ case $DEVM in
+  modem) #error, circular link.
+   rm -f /dev/modem
+   DEVM=""
+  ;;
+  /dev/*) #wrong format.
+   DEVM=`echo -n "$DEVM" | cut -f 3,4 -d '/'`
+   ln -snf $DEVM /dev/modem
+  ;;
+ esac
+ case $DEVM in
+  ttyS[0-9]) #apparently setserial can crash with other modems.
+   setserial -v -b /dev/modem auto_irq skip_test autoconfig
+  ;;
+ esac
+fi
+
+#had hoped to retire this, but HardInfo needs it...
+t "`lsmod | grep '^usbcore'`" && /bin/mount -t usbfs none /proc/bus/usb
+
+#v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
+#v408 kirk: Check for laptop battery...
+modprobe battery
+#if [ -d /proc/acpi/battery ]; then
+ results=`find /proc/acpi/battery -mindepth 1 -type d`
+# if [ ! -z "$results" ]; then
+  modprobe ac
+#  modprobe thermal
+  modprobe fan
+# else
+#  rmmod battery
+# fi
+#fi
+
+#v411 can use old network wizard (from 403, based on 400)...
+CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>/dev/null` #ex: eth0mode, wlan0mode.
+if t "$CHECKOLDWIZ" != "" -a -d /usr/local/net_setup;then
+ #note, old wizard is located in /usr/local/net_setup.
+ exec /usr/local/net_setup/etc/rc.d/rc.network &
+else
+ exec /etc/rc.d/rc.network &
+fi
+
+exec /etc/rc.d/rc.services & #run scripts in /etc/rc.d/init.d
+
+echo -e '\033[62G\033[1;33m[backgrounded]\033[0;39m' >/dev/console #column 62, yellow.
+
+#fsstate_func 20
+
+############RECOGNISE MEDIA DEVICES################
+STATUS=0
+timestamp_func "RECOGNISE MEDIA DEVICES .."
+echo -n "Recognising media devices..." >/dev/console
+#recognise optical drives...
+echo -n ' optical' >/dev/console
+OPTCNT=1;CDTYPE="";DVDTYPE="";CDBURNERTYPE=""
+OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*'`
+t -L /dev/cdrom && CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
+t -L /dev/dvd && DVDTYPE=`readlink /dev/dvd | cut -f 3 -d '/'`
+t -f /etc/cdburnerdevice && CDBURNERTYPE=`cat /etc/cdburnerdevice`
+t "`echo "$OPTICALS" | grep "$CDTYPE"`" || CDTYPE="" #no longer exists.
+t "`echo "$OPTICALS" | grep "$DVDTYPE"`" || DVDTYPE="" #no longer exists.
+t "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" || CDBURNERTYPE="" #no longer exists.
+for ONEOPTICAL in $OPTICALS
+do
+ ONENUM=`echo -n "$ONEOPTICAL" | cut -c 3`
+ t "$CDTYPE" || CDTYPE="$ONEOPTICAL"
+ ( t "$DVDTYPE" = "" && t "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ) && DVDTYPE="$ONEOPTICAL"
+ ( t "$CDBURNERTYPE" = "" && t "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ) && CDBURNERTYPE="$ONEOPTICAL"
+ OPTCNT=`expr $OPTCNT + 1`
+done
+rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
+t "$CDTYPE" && ln -sf /dev/$CDTYPE /dev/cdrom
+t "$DVDTYPE" && ln -sf /dev/$DVDTYPE /dev/dvd
+t "$CDBURNERTYPE" && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
+t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE
+status_func $STATUS
+timestamp_func "RECOGNISE MEDIA DEVICES."
+
+timestamp_func "INPUT mouse, keyboard .."
+STATUS=0
+
+if [ ! -f /etc/mousedevice ];then
+ echo -n "input/mice" > /etc/mousedevice
+ ln -snf input/mice /dev/mouse
+else
+ t "`cat /etc/mousedevice`" = "psaux" && echo -n "input/mice" > /etc/mousedevice
+fi
+
+#recognise keyboard...
+echo -n 'Setting keyboard' >/dev/console
+/etc/rc.d/rc.country ;STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
+status_func $STATUS
+timestamp_func "INPUT mouse, keyboard."
+
+#fsstate_func 21
+
+############MISC DESKTOP STUFF##################
+
+if t "$PUPMODE" = "77";then #77=multisession cd/dvd.
+ if t "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = ""; then
+  echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
+  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
+  sync
+  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
+ fi
+fi
+
+#save button on desktop when booted from flash drive...
+if t $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13;then #pup_rw is tmpfs.
+ if t "`cat /root/Choices/ROX-Filer/PuppyPin | grep "save2flash"`" = ""; then
+  echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
+  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
+  sync
+  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
+ fi
+fi
+
+#fsstate_func 22
+
+###################PERSONAL BOOT SCRIPT######################
+timestamp_func 'rc.local ..'
+#personal boot script here...
+if t ! -f /etc/rc.d/rc.local;then
+ echo '#this file called from rc.sysinit' > /etc/rc.d/rc.local
+ echo '#you can edit this file' >> /etc/rc.d/rc.local
+ echo '#When firewall is installed, will append lines to this file...' >> /etc/rc.d/rc.local
+fi
+. /etc/rc.d/rc.local
+timestamp_func 'rc.local.'
+
+dmesg > /tmp/bootkernel.log
+
+timestamp_func 'X.status ..'
+if t "`basename $(readlink -f $(which X))`" != "Xorg"; then
+echo 'nox' > /tmp/X.status
+elif t -n "`cat /proc/cmdline | grep -i 'nox'`"; then
+echo 'nox' > /tmp/X.status
+else
+echo 'X' > /tmp/X.status
+fi
+timestamp_func 'X.status.'
+
+timestamp_func 'fsckme.flg ..'
+if [[ $PUPMODE == 2 ]] ; then
+RD=`basename $(rdev | cut -f 1 -d ' ') 2>/dev/null`
+FS=`mount | grep '^/dev/root' | cut -f 5 -d ' '`
+echo "$RD"','"$FS"',' > /etc/.fsckme.flg
+fi
+timestamp_func 'fsckme.flg.'
+
+timestamp_func 'DEVICES ..'
+t -c /dev/ppp || mknod /dev/ppp c 108 0
+t -L /dev/mouse || ln -s /dev/input/mice /dev/mouse
+t -c /dev/mem || mknod /dev/mem c 1 1
+t -L /dev/modem || ln -s /dev/ttyUSB0 /dev/modem
+timestamp_func 'DEVICES.'
+
+fsstate_func 23
+
+pup_eve_bac_mod_func(){
+pidof udevd || return 0
+FILE='/tmp/pup_eve_bac_mod.log'
+t ! -f "$FILE" && FILE='/tmp/pup_event_backend_modprobe.log'
+t -f "$FILE" || return 0
+echo "pup_eve_bac_mod_func `date`"
+sleep 5s  ## 120s ##5s
+echo 'Sorting now this log file by '$0 >> $FILE
+cat $FILE | sort -g -k 1,3 -t ' ' >$FILE.sorted
+echo `date`
+PIDS=`cat $FILE.sorted | cut -f 1 -d ' ' | sort -u | sort -g`
+for i in $PIDS ; do
+echo PID  "$i"
+Line=`grep -n -w "^$i" $FILE.sorted | tail -n 1 | cut -f 1 -d ':'`
+echo Line "'$Line'"
+/bin/sed -i "$Line a\\ " "${FILE}.sorted"  #sed: unsupported command u ???
+done
+echo "pup_eve_bac_mod_func `date`"
+}
+pup_eve_bac_mod_func &
+
+#that's it. next stop is /etc/profile...
+###END###
