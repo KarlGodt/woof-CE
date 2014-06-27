@@ -135,19 +135,35 @@ if [ "`dirname "$file_toMOUNT"`" = '\.' ] ;then # 2
       file_toMOUNT="`pwd``echo "$file_toMOUNT" |sed 's/^\.//'`"
 fi # 2
 
-file_toMOUNTdevINODE=`stat -L -c "%d_%i" "$file_toMOUNT"` || _exit 2 "Problems with stat" #120220
+declare -x -r file_toMOUNT
+declare -x -r file_toMOUNTdevINODE=`stat -L -c "%d_%i" "$file_toMOUNT"` || _exit 2 "Problems with stat" #120220
 _debug "file_toMOUNTdevINODE='$file_toMOUNTdevINODE'"
 
 #MntPt='/mnt/'`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`
-MntPt='/mnt/'`basename "$file_toMOUNT"`.$$  ##KRG my change
+declare -x MntPt='/mnt/'`basename "$file_toMOUNT"`.$$  ##KRG my change
 grepPatternMntPt=`echo "$MntPt" | sed 's#\([[:punct:]]\)#\\\1#g'`
 grepPatternImgFile=`echo "$imgFile" | sed 's#\([[:punct:]]\)#\\\1#g'`
 
-file_toMOUNTbase="`basename "$file_toMOUNT"`" #BK  ##only for yaf/xmessage message not too long
+declare -x -r file_toMOUNTbase="`basename "$file_toMOUNT"`" #BK  ##only for yaf/xmessage message not too long
+
+_guess_losetup_options()
+{
+busybox losetup -a >/dev/null 2>&1
+test $? = 0 && BBLA=-a
+losetup-FULL -a >/dev/null 2>&1
+test $? = 0 && LA=-a
+_debug "_guess_losetup_options:BBLA='$BBLA'"
+}
+_guess_losetup_options
+_debug "BBLA='$BBLA'"
+declare -x -r BBLA=$BBLA
+declare -x -r LA=$LA
 
 _disassociate_loopdevices()
 {
+ _debug "_disassociate_loopdevices:BBLA='$BBLA'"
   #disassociate not mounted loop devices ..
+  local device nr file
   while read device nr file
   do
   test "$device" || continue
@@ -158,21 +174,14 @@ _disassociate_loopdevices()
 EoI
 }
 
-_guess_losetup_options()
-{
-busybox losetup -a >/dev/null 2>&1
-test $? = 0 && BBLA=-a
-losetup-FULL -a >/dev/null 2>&1
-test $? = 0 && LA=-a
-}
-_guess_losetup_options
-
 if [ ! -d "$MntPt" ] ;then # 5
 
 _disassociate_loopdevices
 
 _show_mount_menu()
 {
+local i j MntPts MntPts2 GREP LOOPD USEapps
+
      if [ -n "$DISPLAY" ] ; then #66
 xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $imgBASE:194,Mount another time:199" "$file_toMOUNT
 is already mounted and in-use by Puppy .
@@ -232,7 +241,7 @@ elif [ "$RETVAL" = "194" ] ; then #666  ##umount ALL $IMGBASE
        return
 
 else #666
-     MOUNT='again'
+        MOUNT='again'
      return
 fi   ###666
 else ##66      ##+++2011-10-27 to fix call from without X running
@@ -321,6 +330,8 @@ done
 
 check_already_mounted_func2()
 {
+
+local device fstype rest imgDEV_INODE
 while read device mountpoint fstype rest
 do
 test "$device" || continue
@@ -399,6 +410,7 @@ _guess_file_fstype
 
 _mk_free_loop_device()
 {
+local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
   test -c /dev/loop-control || mknod /dev/loop-control c 10 237
   FREE_LOOP=`losetup -f`
   [ "$FREE_LOOP" ] || {
@@ -456,28 +468,30 @@ _encrypted
 
 _mount_loop_file()
 {
+  local freeLOOP
   echo -e "\n$0 : Mount: $file_toMOUNT\n"
   #mkdir -p "$MntPt"
   echo '-------------'
-  freeLOOP=`losetup -f`
-  losetup $freeLOOP "$file_toMOUNT"
 
  if [ "$CRYPTO" ];then
    [ $Err -eq 0 ] && { /bin/mount -t $Type $DEVLOOP "$MntPt"; Err=$?; }
 
   else #normal, no encryption... 130204 mavrothal: fix spaces in imgFile...
 
+  freeLOOP=`losetup -f`
+  losetup $freeLOOP "$file_toMOUNT"
+  Err=$?
   #/bin/mount -t $Type -o loop "$file_toMOUNT" "$MntPt"
-  /bin/mount -t $Type -o loop $freeLOOP "$MntPt"
-  Err=$?     ##+++2011_10_27
+  test $Err = 0 && { /bin/mount -t $Type -o loop $freeLOOP "$MntPt"; Err=$?; }
+  #Err=$?     ##+++2011-10-27
 
-fi
+ fi
 
   echo '-------------'
   if [ $Err -eq 0 ] || [ -n "`grep " $MntPt " /proc/mounts`" ]; then #9
    if [ -n "$DISPLAY" ]; then #99
    # rox -d "$MntPt" # mount good, run rox filer #done by /bin/mount
-    yaf-splash -timeout 4 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $file_toMOUNTBASE icon again to unmount it" & #BK
+    yaf-splash -timeout 4 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $file_toMOUNTbase icon again to unmount it" & #BK
    fi #99
   fi #9
 }
@@ -487,6 +501,7 @@ _mount_loop_file
 
 _unmount_loop_file()
 {
+local j GREP LOOPD USEapps
     [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $file_toMOUNTbase" & #BK
 
        GREP=`echo "$MntPt" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
