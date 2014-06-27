@@ -386,6 +386,47 @@ _mk_free_loop_device()
 }
 _mk_free_loop_device
 
+_encrypted()
+{
+  #111110 handle encrypted save-files...
+  CRYPTO=""; Err=0
+  DEVLOOP="`losetup-FULL -f`" #next free loop device.
+  case $Type in
+   ext2|ext3|ext4)
+    case "$file_toMOUNTbase" in
+     *_cryptx*) #light encryption.
+      CRYPTO='light'
+      modprobe $VERB cryptoloop
+      rxvt -geometry 25x3 -title "$(gettext 'Enter password')" -bg orange -e losetup-FULL -E 1 $DEVLOOP "$file_toMOUNT"
+      #losetup-FULL -E 1 $DEVLOOP $imgFile
+      Err=$?
+     ;;
+     *_crypt*) #heavy encryption.
+      CRYPTO='heavy'
+      for mod in cryptoloop aes_generic aes crypto_blkcipher blkcipher cbc
+      do
+      modprobe -l | grep $QUIET "/${mod}.ko$" || continue
+      modprobe $VERB $mod
+      done
+      #modprobe cryptoloop
+      #modprobe aes_generic 2>/dev/null #v407 aes name change.
+      #modprobe aes 2>/dev/null #for older kernel <2.6.25
+      #modprobe crypto_blkcipher 2>/dev/null #v407 blkcipher name change.
+      #modprobe blkcipher 2>/dev/null #old kernel.
+      #modprobe cbc
+      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+      Err=$?
+      if [ $Err -eq 0 ];then
+       echo "$MYPASS" | losetup-FULL -p 0 -e aes $DEVLOOP "$file_toMOUNT"
+       Err=$?
+      fi
+     ;;
+    esac
+   ;;
+  esac
+}
+_encrypted
+
 _mount_loop_file()
 {
   echo -e "\n$0 : Mount: $file_toMOUNT\n"
@@ -393,9 +434,18 @@ _mount_loop_file()
   echo '-------------'
   freeLOOP=`losetup -f`
   losetup $freeLOOP "$file_toMOUNT"
+
+ if [ "$CRYPTO" ];then
+   [ $Err -eq 0 ] && { /bin/mount -t $Type $DEVLOOP "$MntPt"; Err=$?; }
+
+  else #normal, no encryption... 130204 mavrothal: fix spaces in imgFile...
+
   #/bin/mount -t $Type -o loop "$file_toMOUNT" "$MntPt"
   /bin/mount -t $Type -o loop $freeLOOP "$MntPt"
   Err=$?     ##+++2011_10_27
+
+fi
+
   echo '-------------'
   if [ $Err -eq 0 ] || [ -n "`grep " $MntPt " /proc/mounts`" ]; then #9
    if [ -n "$DISPLAY" ]; then #99
