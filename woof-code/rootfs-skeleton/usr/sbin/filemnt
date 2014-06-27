@@ -164,6 +164,74 @@ file_toMOUNTbase="`basename "$file_toMOUNT"`" #BK  ##only for yaf/xmessage messa
 
 if [ ! -d "$MntPt" ] ;then # 5
 
+_show_mount_menu()
+{
+     if [ -n "$DISPLAY" ] ; then #66
+xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $imgBASE:194,Mount another time:199" "$file_toMOUNT
+is already mounted and in-use by Puppy .
+Do you want to unmount it or mount it to another mount point ?"
+RETVAL=$?
+if [ "$RETVAL" = "190" ] ; then #666  ##Quit
+     exit 0
+
+elif [ "$RETVAL" = "191" ] ; then #666  ##ROX-Filer
+       #MntPt=`busybox mount | grep "$imgBASE" | head -n 1 | cut -f 3 -d ' '`
+       #rox "$MntPt"
+       rox -x "$mountpoint" -x "${mountpoint%/*}" -d "$mountpoint"
+       exit $?
+
+elif [ "$RETVAL" = "192" ] ; then #666  ##console
+       #MntPt=`busybox mount | grep "$imgBASE" | head -n 1 | cut -f 3 -d ' '`
+       #cd "$MntPt"
+       cd "$mountpoint"
+       pwd
+       rxvt &
+       exit $?
+
+elif [ "$RETVAL" = "193" ] ; then #666  ##umount
+       UNMOUNT='yes'
+       #MntPt=`busybox mount | grep "$imgBASE" | head -n 1 | cut -f 3 -d ' '`
+       MntPt="$mountpoint"
+       return
+
+elif [ "$RETVAL" = "194" ] ; then #666  ##umount ALL $IMGBASE
+       UNMOUNT='yes'
+       #MntPt=`busybox mount | grep "$imgBASE" | cut -f 3 -d ' '`
+       MntPts=`grep -w "${mountpoint##*/}" /proc/mounts | cut -f2 -d' '`
+       _debug "MntPts='$MntPts'"
+       MntPts2=`echo "$MntPts" | sed "1 d"` ##only umount all others except one
+       _debug "MntPts2='$MntPts2'"
+       for i in $MntPts2 ; do
+       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       _debug "GREP='$GREP'"
+       LOOPD=$(busybox mount | grep -m1 "$GREP" | cut -f 1 -d ' ')
+       _debug "LOOPD='$LOOPD'"
+       #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
+       USEapps=`fuser -m "$i"`   ##+++2011-10-27
+       _debug "USEapps='$USEapps'"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
+       _info "USEapps='$USEapps'"
+       for j in $USEapps ; do
+       echo $j
+       kill -1 $j
+       done
+       [ -n "$DISPLAY" ] && rox -D $i
+       /bin/umount $i
+       #test $? = 0 && { sleep 2s; test -d "$i" && rmdir $i; }
+       done
+       MntPt=`grep "$mountpoint" /proc/mounts | cut -f 2 -d ' '`
+       return
+
+else #666
+     MOUNT='again'
+     return
+fi   ###666
+else ##66      ##+++2011-10-27 to fix call from without X running
+UNMOUNT='yes'  ##+++2011-10-27
+fi ##66
+}
+
+
 check_already_mounted_func(){
 
   #BK check if already mounted elsewhere...
@@ -227,7 +295,7 @@ elif [ "$RETVAL" = "194" ] ; then #666  ##umount ALL $IMGBASE
        /bin/umount $i
        #test $? = 0 && { sleep 2s; test -d "$i" && rmdir $i; }
        done
-       MntPt=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       MntPt=`busybox mount | grep "$imgBASE" | cut -f 3 -d ' '`
        return
 
 else #666
@@ -241,6 +309,7 @@ fi #6
 done
 
 }
+
 check_already_mounted_func2()
 {
 while read device mountpoint fstype rest
@@ -252,9 +321,11 @@ case $device in
             test -e "$fileNAME" && { imgDEV_INODE=`stat -L -c "%d_%i" "$fileNAME"`
             _debug "imgDEV_INODE='$imgDEV_INODE'"
             test "$imgDEV_INODE" = "$file_toMOUNTdevINODE" && {
-xmessage -bg '#FF8080' "$(eval_gettext "Sorry \$file_toMOUNT is already mounted and in-use by Puppy
-on \$mountpoint from \$fileNAME")"
-            exit 3; } ; }
+#xmessage -bg '#FF8080' "$(eval_gettext "Sorry \$file_toMOUNT is already mounted and in-use by Puppy
+#on \$mountpoint from \$fileNAME")"
+#            exit 3;
+            _show_mount_menu
+} ; }
 ;;
 *) continue;;
 esac
@@ -352,7 +423,7 @@ _mount_loop_file
 
 _unmount_loop()
 {
-    [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $file_toMOUNTBASE" & #BK
+    [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $file_toMOUNTbase" & #BK
 
        GREP=`echo "$MntPt" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
        _debug "GREP='$GREP'"
