@@ -76,6 +76,11 @@ echo '----------------------------------------------------------------------'
 
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 
+QUIET=-q
+INFO=1
+DEBUG=1
+test "$DEBUG" && QUIET='';
+
 _kernel_version3 || {
 #v423...
 KERNELVER="`uname -r`"
@@ -115,8 +120,10 @@ esac
 }
 _debug "SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 
-imgFile="$*"
-if [ -z "$imgFile" ] ;then exit 1 ;fi #1
+imgFile="$@"
+_debug "imgFile='$imgFile'"
+if [ -z "$imgFile" ]; then _exit 1 "Need file-name" ;fi #1
+test  -f "$imgFile" || _exit 1 "Not a regular file"
 
 if [ "`basename "$imgFile"`" = 'initrd' ] ;then gzip -9 "$imgFile" ;fi # 11
 if [ "`basename "$imgFile"`" = 'initrd.gz' ] ;then gunzip -9 "$imgFile" ;fi # 111  ##+2011_10_27 changed gzip to gunzip
@@ -126,6 +133,8 @@ if [ "`dirname "$imgFile"`" = '\.' ] ;then # 2
       imgFile="`pwd``echo "$imgFile" |sed 's/^\.//'`"
 fi # 2
 
+imgFileDEV_INODE=`stat -L -c "%d_%i" "$imgFile"` || _exit 2 "Problems with stat" #120220
+_debug "imgFileDEV_INODE='$imgFileDEV_INODE'"
 
 #MntPt='/mnt/'`echo "$imgFile" |sed "s#^\.##g" |sed "s#/#+#g"`
 MntPt='/mnt/'`basename "$imgFile"`.$$  ##KRG my change
@@ -153,15 +162,33 @@ fi                      ##############################################  END of J
 
 imgFileBASE="`basename "$imgFile"`" #BK  ##only for yaf/xmessage message not too long
 
+while read device mountpoint fstype rest
+do
+test "$device" || continue
+case $device in
+/dev/loop*) fileNAME=`busybox losetup $device | awk '{print $3}'`
+            _debug "fileNAME='$fileNAME'"
+            test -e "$fileNAME" && { imgDEV_INODE=`stat -L -c "%d_%i" "$fileNAME"`
+            _debug "imgDEV_INODE='$imgDEV_INODE'"
+            test "$imgDEV_INODE" = "$imgFileDEV_INODE" && {
+xmessage -bg '#FF8080' "$(eval_gettext "Sorry \$imgFile is already mounted and in-use by Puppy
+on \$mountpoint from \$fileNAME")"
+            exit 3; } ; }
+;;
+*) continue;;
+esac
+
+done</proc/mounts
+
 if [ ! -d "$MntPt" ] ;then # 5
 
 check_already_mounted_func(){
 
   #BK check if already mounted elsewhere...
-  for ONELOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' ' | tr '\n' ' '`
+  for oneLOOP in `grep '^/dev/loop' /proc/mounts | cut -f 1 -d ' '`
   do
 
-   MNTDIMG="`losetup-FULL $ONELOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`"
+   MNTDIMG="`losetup-FULL $oneLOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`"
    IMGBASE="`basename "$MNTDIMG"`"
 
     #echo "IMGBASE=$IMGBASE imgFileBASE=$imgFileBASE" #TEST
@@ -286,10 +313,12 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   test -c /dev/loop-control || mknod /dev/loop-control c 10 237
   FREE_LOOP=`losetup -f`
   [ "$FREE_LOOP" ] || {
+        _info "No free loop devices available.. Attempt to create one.."
         LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
         LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
         LOOP_NEW=$(( $LOOP_LAST + 1 ))
         mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
+        test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
 }
 
   echo -e "\n$0 : Mount: $imgFile\n"
