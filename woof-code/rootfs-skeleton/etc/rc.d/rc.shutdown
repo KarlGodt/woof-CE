@@ -85,9 +85,6 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin
 pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
 
 echo "Executing /etc/rc.d/rc.shutdown..."
-echo "FILESYSTEM STATE : "
-dumpe2fs `rdev` | grep -i 'state'
-echo
 
 [ -f /etc/rc.d/rc.shutdown.local.start0 ] && . /etc/rc.d/rc.shutdown.local.start0  ###KRG
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
@@ -109,6 +106,12 @@ PUPMODE=12
 fi
 echo "PUPMODE='$PUPMODE'"
 fi
+
+test $PUPMODE = 2 && {
+echo "FILESYSTEM STATE : "
+dumpe2fs `rdev` | grep -i 'state'
+echo
+}
 
 #v2.20b make shutdown less verbose...
 ###KRGclear
@@ -338,14 +341,16 @@ pidof sync || sync
 #
 # Stop udev & loggers
 
-killall udevd
-killall klogd     ## busybox applet
-killall syslogd   ## busybox applet
-#killall pup_event_backend_modprobe_protect  ##+++2011_10_27
+pidof udevd && killall udevd
+pidof klogd && killall klogd       ## busybox applet
+pidof syslogd && killall syslogd   ## busybox applet
+pidof tempget && killall tempget   ## e17 daemon
+#killall pup_event_backend_modprobe_protect  ##+++2011-10-27
 #which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
 
 remove_fsckme_func(){
 find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+test -d /mnt/home && find /mnt/home -maxdepth 3 -type f -iname "*fsckme*" -delete
 }
 remove_fsckme_func
 
@@ -440,16 +445,24 @@ fi
 
 ps | grep -v '\['
 mount  ###DBG
+
+test $PUPMODE = 2 && {
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+}
+
 echo "ENDING NOW"  ###DBG
 #KRGbusybox umount -ar > /dev/null 2>&1
 busybox umount -ar
 echo "unmounted all -r  -- Tried to remount devices as read-only if mount is busy"
-mount ###DBG
+test -f /proc/mounts && mount ###DBG
+
+test $PUPMODE = 2 && {
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
+}
+
 [ -f /etc/rc.d/rc.shutdown.local.end0 ] && . /etc/rc.d/rc.shutdown.local.end0
 sleep 20
 #the end#
