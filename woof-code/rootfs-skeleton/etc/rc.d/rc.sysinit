@@ -257,13 +257,15 @@ ln -s /proc/mounts /etc/mtab
 
 #redirect all output to a log file (must do after remount rw)...
 ##[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
-Ybd=`date +%Y%b%d`
+#Ybd=`date +%Y%b%d`
+_DATE_=`date +%F`
 
 chmod 1777 /tmp
 
-exec 1>/tmp/bootsysinit.log."$Ybd" 2>&1
+#exec 1>/tmp/bootsysinit.log."$Ybd" 2>&1
+exec 1>/tmp/bootsysinit.log."$_DATE_" 2>&1
 
-[ -d /dev/pts ] || mkdir /dev/pts
+[ -d /dev/pts ] || mkdir -p /dev/pts
     echo "Mounting /dev/pts"
 busybox mount /dev/pts ;STATUS=$(( $STATUS + $? ))
     echo 'STATUS='"$STATUS"
@@ -273,10 +275,10 @@ busybox mount -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
     echo 'STATUS='"$STATUS"
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
-FREERAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 5 -d ' '` #w481  ##2011-10-20 TODO:-f4 instead of -f5
+FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481  ##2011-10-20 TODO:-f4 instead of -f5
 if [ ! -d /initrd ]; then #weird, only full-hd install needs this for xfdiff.
  QTRFREERAM=`expr $FREERAM \/ 4`
- [ -d /dev/shm ] || mkdir /dev/shm
+ [ -d /dev/shm ] || mkdir -p /dev/shm
  mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
 fi
 
@@ -300,23 +302,25 @@ norcsysinit_func
 mkmissing_tty_func() {
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
-[ ! -d /dev/vc ] && rm -f -r /dev/vc && mkdir /dev/vc
+[ ! -d /dev/vc ] && rm -f -r /dev/vc && mkdir -p /dev/vc
 INITTAB=`cat /etc/inittab | grep -o -E 'tty[0-9*]|vc/[0-9*]' | grep -v -E '^#|^[[:blank:]*]#' | sort -u`
 INITTABS=`echo "$INITTAB" | grep -o '[0-9*]$'`
 for i in $INITTABS; do
-[ -c /dev/tty$i ] || { rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i; }
+[ -c /dev/tty$i ]  || { rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i; }
+[ -c /dev/vcs$i ]  || { rm -f /dev/vcs$i && mknod /dev/vcs$i c 7 $i; }
+[ -c /dev/vcsa$i ] || { rm -f dev/vcsa$i && mknod /dev/vcsa$i c 7 $((128+i)); }
 [ ! -c /dev/vc/$i ] && rm -f /dev/vc/$i && mknod /dev/vc/$i c 4 $i
 done
-
+[ -c /dev/tty0 ] || { rm -f /dev/tty0 && mknod /dev/tty0 c 4 0; }
 [ -c /dev/console ] || { rm -f /dev/console;mknod /dev/console c 5 1; }
 [ -c /dev/null ] || { rm -f /dev/null;mknod /dev/null c 1 3; }
 [ ! -c /dev/zero ] && rm -f /dev/zero && mknod /dev/zero c 1 5
 
-[ -d /dev/fb ] || mkdir /dev/fb  #busybox fbset command needs this
+[ -d /dev/fb ] || mkdir -p /dev/fb  #busybox fbset command needs this
 for i in `seq 0 11`; do
 [ ! -L /dev/fb/$i ] && [ -c /dev/fb$i ] && ln -s ../fb$i /dev/fb/$i
 done
-[ ! -d /dev/loop ] && mkdir /dev/loop
+[ ! -d /dev/loop ] && mkdir -p /dev/loop
 for i in `seq 0 15`; do
 [ -h /dev/loop/$i ] || ln -s ../loop$i /dev/loop/$i
 done
@@ -468,7 +472,7 @@ cat $dbf | while read PERM N O G MAY Min M D T DEV; do
 KIND=${PERM:0:1}
 MAJ=`echo $MAY | tr -d ','`
 DN=${DEV%/*}
-[ -d $DN ] || mkdir $DN
+[ -d $DN ] || mkdir -p $DN
 [ ! -$KIND $DEV ] && echo "creating $DEV" && mknod $DEV $KIND $MAJ $Min
 done
 fi #1
@@ -511,9 +515,9 @@ firmware_dep_func
 
 modprobe_conf_func() {
 
-test -d /etc/mult_kernels || mkdir /etc/mult_kernels
+test -d /etc/mult_kernels || mkdir -p /etc/mult_kernels
 
-[ -d /etc/modprobe.d ] || mkdir /etc/modprobe.d
+[ -d /etc/modprobe.d ] || mkdir -p /etc/modprobe.d
 
 if test -f /tmp/modprobe.conf; then #1
 
@@ -545,7 +549,7 @@ cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
 fi #2.1
 
 
-test -d /etc/mult_kernels/rc.d || mkdir /etc/mult_kernels/rc.d
+test -d /etc/mult_kernels/rc.d || mkdir -p /etc/mult_kernels/rc.d
 
 
 if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER; then
@@ -792,7 +796,7 @@ DIR="$fs"
 
 case $fs in
 debugfs)
-mkdir -p /sys/kernel/debug;
+[ -d /sys/kernel/debug ] || mkdir -p /sys/kernel/debug;
 busybox mount -t debugfs nodev /sys/kernel/debug;
 echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
 ;;
@@ -807,8 +811,7 @@ done
 special_mnt_func
 
 WAITCNT=0
-PCIPCMCIA=`elspci -l | grep -o '060700'`
-PCIUSB=`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`
+PCIPCMCIA=`elspci -l | grep '060700' | grep '<>' | cut -f2 -d' '`
 if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
  echo -n " pcmcia"
@@ -821,6 +824,18 @@ if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
  done
  echo
 fi
+
+PCIUSB=`elspci -l | grep -E '0C0300|0C0310|0C0320' | grep '<>' | cut -f2 -d' '`
+ for aBUS in `echo "$PCIUSB" | sort -u`; do
+ DRIVER='';
+ case $aBUS in
+ 0C0320) DRIVER=ehci-hcd;;
+ 0C0310) DRIVER=ohci-hcd;;
+ 0C0300) DRIVER=uhci-hcd;;
+ *) continue;;
+ esac
+ modprobe $DRIVER
+ done
 #note, if initrd then usb-storage will have already loaded...
 if [ "$PCIUSB" ]; then #this may be slow to respond.
  echo -n " usb"  >/dev/console
@@ -910,9 +925,10 @@ if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_e
   echo -n " $WAITCNT"
  done
  #precaution, make sure have got them all... v412 need sort -u...
- USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
+ #USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
+ USBSTORAGES=`/bin/dmesg | grep -o "usb\-storage.*starting scan.*" | sort -u | wc -l`
  while [ $WAITCNT1 -lt 15 ]; do  ###+2011-10-31 changed WAITCNT to WAITCNT1
-  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb\-storage.*scan complete" | wc -l`
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep -o "usb\-storage.*scan complete.*" | wc -l`
   [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
   sleep 1
   WAITCNT1=`expr $WAITCNT1 + 1`  ###+2011-10-31 changed WAITCNT to WAITCNT1
@@ -1024,7 +1040,8 @@ else
  /etc/rc.d/rc.network &
 fi
 
-Ybd="$Ybd" /etc/rc.d/rc.services $safeBoot & #run scripts in /etc/rc.d/init.d
+#Ybd="$Ybd" /etc/rc.d/rc.services $safeBoot & #run scripts in /etc/rc.d/init.d
+_DATE_="$_DATE_" /etc/rc.d/rc.services $safeBoot &
 
 echo -e "\\033[62G\\033[1;33m[backgrounded]\\033[0;39m" >/dev/console #column 62, yellow.
 
