@@ -394,6 +394,7 @@ test -f /lib/modules/"$KERNVER"/DOTconfig* && cp /lib/modules/"$KERNVER"/DOTconf
 } #modprobe_conf_func inside update_modprobe_conf_func
 
 update_modprobe_conf_func(){
+PATCH_EXE=`which patch`
 KERNVER=`uname -r`
 CONFFILE='/etc/modprobe.conf'
 [ -f /etc/modprobe.d/modprobe.conf ] && CONFFILE='/etc/modprobe.d/modprobe.conf'
@@ -401,6 +402,7 @@ CONFFILE='/etc/modprobe.conf'
 basenameCONFFILE="${CONFFILE##*/}"
 
 modprobe_conf_func
+test "$PATCH_EXE" || return 0
 
 if [ -f "$CONFFILE" ]; then
 SYSTEM=`dmidecode -t 0 | grep -i -E 'vendor|version|release'`
@@ -420,26 +422,26 @@ cp "$CONFFILE" "$CONFFILE".`basename $0`."$KERNVER".sbin_init.bac
 echo >> "$CONFFILE"
 echo '#####  Updated modaliases for system  ###########' >> "$CONFFILE"
 echo '### RUNNING kernel '"$KERNVER" >> "$CONFFILE"
-for i in `seq 1 $WC`; do
-PARAM=`echo "$SYSTEM" | head -n $i | tail -n 1 | tr '\t' ' ' | tr -s ' '`
-STRING="### ${PARAM} "
-echo "$STRING" >> "$CONFFILE"
-done
+ for i in `seq 1 $WC`; do
+ PARAM=`echo "$SYSTEM" | head -n $i | tail -n 1 | tr '\t' ' ' | tr -s ' '`
+ STRING="### ${PARAM} "
+ echo "$STRING" >> "$CONFFILE"
+ done
 BOARD=`dmidecode -t1 | grep -i -E 'Manufacturer|Product' | tr -d '[[:blank:]]' | cut -f 2 -d ':' | tr '\n' ' '`
 echo '### '"$BOARD" >> "$CONFFILE"
 BOAR2=`dmidecode -t2 | grep -i -E 'Manufacturer|Product' | tr -d '[[:blank:]]' | cut -f 2 -d ':' | tr '\n' ' '`
 echo '### '"$BOAR2" >> "$CONFFILE"
 echo >> "$CONFFILE"
 UEVENTS="`ls /sys/bus/*/devices/*/uevent`"
-for i in $UEVENTS; do
-DRVR=`grep 'DRIVER' $i 2>/dev/null | cut -f 2 -d '='`;
-MODA=`grep 'MODALIAS' $i 2>/dev/null | cut -f 2 -d '='` ;
-if [ -n "$DRVR" ] && [ -n "$MODA" ]; then
-echo -n 'alias ' >> /tmp/sbin_init_modaliases.conf
-echo -n "$MODA " >> /tmp/sbin_init_modaliases.conf
-echo "$DRVR" >> /tmp/sbin_init_modaliases.conf
-fi
-done
+ for i in $UEVENTS; do
+ DRVR=`grep 'DRIVER' $i 2>/dev/null | cut -f 2 -d '='`;
+ MODA=`grep 'MODALIAS' $i 2>/dev/null | cut -f 2 -d '='` ;
+ if [ -n "$DRVR" ] && [ -n "$MODA" ]; then
+ echo -n 'alias ' >> /tmp/sbin_init_modaliases.conf
+ echo -n "$MODA " >> /tmp/sbin_init_modaliases.conf
+ echo "$DRVR" >> /tmp/sbin_init_modaliases.conf
+ fi
+ done
 cat /tmp/sbin_init_modaliases.conf | sort -u | sort -k 3 -t ' ' >> "$CONFFILE"
 echo >> "$CONFFILE"
 echo '### '`cat /proc/cmdline` >> "$CONFFILE"
@@ -447,29 +449,31 @@ echo '### '`date` >> "$CONFFILE"
 echo "##### by $0 #######################" >> "$CONFFILE"
 fi
 fi
-if [ -f /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" ]; then
-DIFF=`diff -uaNd /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" "$CONFFILE"`
-echo "$DIFF" > /tmp/sbin_init."$basenameCONFFILE".diff
-if [ -n "`grep -E '[[:alpha:]]|[[:punct:]]' /tmp/sbin_init."$basenameCONFFILE".diff`" ]; then
-if [ "$DebugVal" = "0" ]; then
-patch -s -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
-elif [ "$DebugVal" = "1" ]; then
-patch -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
-else
-patch --verbose -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
-fi
-fi
-fi
+
+ if [ -f /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" ]; then
+ DIFF=`diff -uaNd /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" "$CONFFILE"`
+ echo "$DIFF" > /tmp/sbin_init."$basenameCONFFILE".diff
+  if [ -n "`grep -E '[[:alpha:]]|[[:punct:]]' /tmp/sbin_init."$basenameCONFFILE".diff`" ]; then
+   if [ "$DebugVal" = "0" ]; then
+   $PATCH_EXE -s -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+   elif [ "$DebugVal" = "1" ]; then
+   $PATCH_EXE -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+   else
+   $PATCH_EXE --verbose -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+   fi
+  fi
+ fi
+
 if [ -f "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" ]; then
 DIFF=`diff -uaNd "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "$CONFFILE"`
 echo "$DIFF" > "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
 if [ -n "`grep -E '[[:alpha:]]|[[:punct:]]' /tmp/sbin_init."$basenameCONFFILE".2.diff`" ]; then
 if [ "$DebugVal" = "0" ]; then
-patch -s -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+$PATCH_EXE -s -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
 elif [ "$DebugVal" = "1" ]; then
-patch -b "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
+$PATCH_EXE -b "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
 else
-patch --verbose -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+$PATCH_EXE --verbose -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
 fi
 fi
 fi
@@ -674,13 +678,14 @@ fi
 FBCON_FUNC  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
 sleep 5s  ###DBG
 ASK_DEBUG_FUNC(){
+test -x /etc/rc.d/rc.country && /etc/rc.d/rc.country
 DebugVal=0
 echo -e "$Res"
 echo "Do you think $0 DEBUG MODE is required ?"
 echo -e -n "$BLU"
-echo "If so , press [ y ] and [ Enter ] for normal debug incl. 'fsck -v' ,"
+echo "If so , press [ y ] for normal debug, incl. 'fsck -v' ,"
 echo -e -n "$Res""\\033[6;7;32m"
-echo "    or  press [ Y ] and [ Enter ] for extensive output ,            "
+echo "    or  press [ Y ] for extensive output ,            "
 echo -e -n "$Res"
 echo -e -n "\\033[1;36m"
 echo -e "which may confuse muchly first and second time ..."
