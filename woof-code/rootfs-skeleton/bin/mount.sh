@@ -5,8 +5,7 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=
-INFO=
+DEBUG=1
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
@@ -367,7 +366,7 @@ done
 _debug "4:$*"
 set - $longOPS $*
 _debug "5:$*"
-_info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL
+_info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 test "$opALL" && _debug "opALL='$opALL'"
 
@@ -399,7 +398,7 @@ while test 1 = 1; do
 test "$1" == '--' && shift || break
 done
 _debug "8:$*"
-_info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL
+_info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 ( test "$*" -o "$opUUID" -o "$opLABEL" || test "$opT" -o "$opSHOWL" ) || _exit 1 "No positional parameters left."
 
@@ -415,14 +414,23 @@ mount)
 if test "$deviceORpoint"; then
  _debug "$WHAT:$*"
  test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
+ grep $QUIET -w "${deviceORpoint##*/}" /proc/partitions && {
+  _info "found '${deviceORpoint##*/}' in /proc/partitions"
+ } || {
+  _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
+ #grep $QUIET -w "${deviceORpoint}" /proc/mounts && _exit 3 "${deviceORpoint} Already mounted"
  test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
  test -e /etc/fstab || touch /etc/fstab
- grep $QUIET -w $deviceORpoint /etc/fstab || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
+ grep $QUIET -w "$deviceORpoint" /etc/fstab && {
+ _info "Found $deviceORpoint in /etc/fstab"
+         } || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
  _debug "$WHAT:$*"
 fi
+c=0
 for posPAR in $*; do  #hope, only file/device AND mountpoint left
+c=$((c+1))
 case $posPAR in
--*)         :;;
+-*)         :;; #break
 none|nodev) :;;
 shmfs)      :;;
 
@@ -431,12 +439,19 @@ efs|ext|ext2|ext3|ext4|hfs|hfsplus|hpfs|iso9660|jfs|minix)         :;;
 msdos|ncpfs|nfs|nfs4|ntfs|proc|qnx4|ramfs|reiserfs|romfs)            :;;
 smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
 
-*) if test -f /proc/filesystems; then
+*) test $c = $# || continue
+   if test -f /proc/filesystems; then
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-    test -e "$posPAR" || { _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
+      #if test "`echo "$*" | grep -e '\-\-[[:alpha:]]*'`" = ""; then
+   grep $QUIET -w "$posPAR" /proc/mounts && _exit 3 "'$posPAR' already mounted."
+      #fi
+      _debug "c=$c \$#=$# $posPAR"
+    #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
+   test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
    fi;fi ;;
 esac
 done
+c=0
 ;;
 umount) :;;
 *) _exit 40 "Unhandled '$WHAT' -- use 'mount' or 'umount' ."
@@ -468,8 +483,8 @@ _debug "mountPOINT='$mountPOINT'"
 
 #mountpoint $QUIET "$mountPOINT" && {
         if test -d "$mountPOINT"; then
-        #_debug "Closing ROX-Filer if necessary..."
-        #_pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
+        _debug "Closing ROX-Filer if necessary..."
+        _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
         fuser -m "$mountPOINT" && {
                 _err "Mountpoint is in use by above pids:"
@@ -485,8 +500,8 @@ $fsUSERS" &
                 _exit 1 "Refusing to complete '$WHAT $*' ."; } ;
         fi
         #}
-        _debug "Closing ROX-Filer if necessary..."
-        _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
+        #_debug "Closing ROX-Filer if necessary..."
+        #_pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
 ;;
 mount) :;;
 *) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
@@ -599,8 +614,8 @@ mount)
                 $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
        RETVAL=$?
       else # use busybox mount
-       _notice "busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
-                busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
+       _info "busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
+              busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       fi #use mount-FULL
       ;;
