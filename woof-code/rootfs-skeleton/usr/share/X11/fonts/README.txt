@@ -81,7 +81,3 @@ careful, especially check can open all '.ps' and '.pdf' files
 -- if not, will have to grab more fonts out of the original 'Type1'
 directory.
 
-BK SEPT 2011:
-Note that in t2, in the Woof build system the 'fonts' dir is at
-rootfs-skeleton/usr/share/X11, but the PET 'zz_t2_fixup' relocates it to
-/usr/X11R7/lib/X11/, and /usr/share/X11 becomes a symlink.
