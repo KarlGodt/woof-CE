@@ -1,0 +1,133 @@
+#(c) Copyright 2006 Barry Kauler
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#inserts into /sbin/modprobe script.
+#variables that need to be preset: PUPPYVER, ZDRV (from /etc/rc.d/PUPSTATE)
+# XSTATUS (=yes if X running)
+#if found, zdrv file will be mounted, return ALLMODS=mntpt/zdrv_xxx.sfs
+#if partition had to be mounted, returns UMNTFLAG="yes", so will have to unmount
+# it later, like this:
+# [ "$UMNTFLAG" = "yes" ] && umount -n /mnt/$PDEVZ >/dev/null 2>&1
+
+#v2.22 may need to simplify this script, as ZDRV in /etc/rc.d/PUPSTATE now accurately locates
+#best zdrv file.
+
+UMNTFLAG="no"
+ALLMODS=""
+ZSPEC="/zdrv_$PUPPYVER.sfs" #v3.00
+PDEVZ="" #v3.00
+
+ #have to mount the full set of modules...
+ [ -f /zdrv_$PUPPYVER.sfs ] && ALLMODS="/zdrv_$PUPPYVER.sfs"
+ #this is the partition where the pup-save file is located...
+ [ -f /initrd/mnt/dev_save/zdrv_$PUPPYVER.sfs ] && ALLMODS="/initrd/mnt/dev_save/zdrv_$PUPPYVER.sfs"
+ #look in any other mounted partitions...
+ if [ "$ALLMODS" = "" ];then
+  ZMNTD="`df | grep '^/dev/' | grep -v '/initrd' | grep -v ' /$' | tr -s ' ' | cut -f 6 -d ' ' | grep '/mnt/' | tr '\n' ' '`"
+  for ONEZMNT in $ZMNTD
+  do
+   if [ -f $ONEZMNT/zdrv_$PUPPYVER.sfs ];then
+    ALLMODS="$ONEZMNT/zdrv_$PUPPYVER.sfs"
+    break
+   fi
+  done
+ fi
+ if [ "$ALLMODS" = "" ];then
+  #init script also looked for it, set ZDRV in /etc/rc.d/PUPSTATE if fnd...
+  if [ $ZDRV ];then
+   PDEVZ="`echo -n "$ZDRV" | cut -f 1 -d ','`"  #v2.22
+   DEVZFS="`echo -n "$ZDRV" | cut -f 2 -d ','`" #v2.22
+   ZSPEC="`echo -n "$ZDRV" | cut -f 3 -d ','`" #v3.00
+  else
+   PDEVZ=$PDEV1; DEVZFS=$DEV1FS
+  fi
+  #it could be on the boot media...
+  if [ "$PDEVZ" ];then
+   ZPATTERN="/dev/$PDEVZ " #v2.17.1
+   MNTPT="`mount | grep "$ZPATTERN" | cut -f 3 -d ' '`"
+   if [ ! "$MNTPT" = "" ];then
+    #[ -f $MNTPT/zdrv_$PUPPYVER.sfs ] && ALLMODS="$MNTPT/zdrv_$PUPPYVER.sfs"
+    [ -f ${MNTPT}${ZSPEC} ] && ALLMODS="${MNTPT}${ZSPEC}" #v3.00
+   else
+    #it isn't mounted. if removable media, need to ask for it to be inserted...
+    #nah, assume it is inserted, will relocate it immediately after...
+    mkdir -p /mnt/$PDEVZ
+    mount -n -t $DEVZFS /dev/$PDEVZ /mnt/$PDEVZ >/dev/null 2>&1
+    #yeah, but what if it is not there?...
+    
+    #v2.17.1 TonyVegas pointed out a potential problem with two almost-simultaneous
+    #modprobes, PDEVZ got mounted just before this instance, so above mount fails,
+    #but PDEVZ is actually just-mounted...
+    MRET=$?
+    xMRET=$MRET #note, xMRET referenced further down.
+    if [ $MRET -ne 0 ];then
+     if [ "`mount | grep "$ZPATTERN"`" != "" ];then
+      MRET=0
+      UMNTFLAG="yes" #still need to attempt to unmount it.
+      [ -f /mnt/${PDEVZ}${ZSPEC} ] && ALLMODS="/mnt/${PDEVZ}${ZSPEC}"
+     fi
+    fi
+    
+    if [ $MRET -ne 0 ];then
+     if [ "$XSTATUS" = "yes" ];then
+      xmessage -bg 'orange' -center -title "Puppy Kernel Module Manager" "URGENT, URGENT! These modules are missing:
+`cat /tmp/missingmods${MYPID}.txt`
+
+Please insert the Puppy boot media (/dev/$PDEVZ)
+(or do whatever is needed to get file zdrv_$PUPPYVER.sfs
+in /dev/$PDEVZ, but make sure it is unmounted before
+clicking the OK button).
+Then click OK button (RECOMMENDED!)...
+Or click close-box to abort loading module/s..."
+      [ $? -ne 0 ] && exec modprobe.bin $@ #exit 1 #fail.
+     else
+      #echo
+      #echo -n "Please insert the Puppy boot media (/dev/$PDEV1), then press ENTER: "
+      #read gagaga
+      exec modprobe.bin $@ #exit 1 #fail.
+     fi
+     sleep 2
+     mount -n -t $DEVZFS /dev/$PDEVZ /mnt/$PDEVZ >/dev/null 2>&1
+     xMRET=$?
+    fi
+    if [ $xMRET -eq 0 ];then
+     UMNTFLAG="yes"
+     if [ -f /mnt/${PDEVZ}${ZSPEC} ];then
+      ALLMODS="/mnt/${PDEVZ}${ZSPEC}" #v3.01
+      ZPATTERN="/dev/${PDEVZ} "
+      if [ "`df | grep '/initrd/mnt/dev_save' | grep -v "$ZPATTERN"`" != "" ];then #v3.01 filter.
+       if [ ! -f /initrd/mnt/dev_save/zdrv_$PUPPYVER.sfs ];then #v2.17.1 precaution.
+        #now that we have it, copy to a better location...
+        S1SIZE=`df -m | grep '/initrd/mnt/dev_save' | tr -s ' ' | cut -f 4 -d ' '`
+        if [ $S1SIZE ];then
+         S2SIZE=`stat --format=%s $ALLMODS`
+         S2SIZE=`expr $S2SIZE \/ 1048576` #convert to MB
+         S2SIZE=`expr $S2SIZE + 10` #add slack
+         if [ $S1SIZE -gt $S2SIZE ];then
+          ZDESTDEV="`df | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`"
+          if [ "$XSTATUS" = "yes" ];then
+           xmessage -bg 'orange' -center -title "Puppy Kernel Module Manager" -timeout 10 -buttons "" "Please wait, zdrv_$PUPPYVER.sfs (file with complete
+set of kernel drivers) is being copied from
+/dev/$PDEVZ to $ZDESTDEV
+(same place as pup_save.3fs file)" &
+           #ZPID=$!
+          fi
+          cp -af $ALLMODS /initrd/mnt/dev_save/
+          #sync
+          #[ $ZPID ] && kill $ZPID >/dev/null 2>&1
+         fi
+        fi
+        #we could fall back to copying it inside the personal storage file, but
+        #that is troublesome when boot from multisession-cd as personal
+        #files copied into ram. don't want it taking up ram space.
+       fi
+      fi
+     fi
+    fi
+   fi
+  fi
+ fi
+
+#v2.22 removed...
+##although /etc/rc.d/PUPSTATE has the ZDRV variable, i'm not sure if that
+##always finds it. So, write here...
+#[ ! "$ALLMODS" = "" ] && echo "${DEVZFS},${PDEVZ},/zdrv_${PUPPYVER}.sfs" > /etc/zdrv
