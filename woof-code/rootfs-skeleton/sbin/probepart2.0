@@ -1,0 +1,175 @@
+#!/bin/bash
+
+###INTRO
+# Karl Reimer Godt, March 2013
+# /sbin/probepart originally written by
+#
+# Barry Kauler www.puppylinux.com
+# LGPL 2007 Puppy Linux www.puppylinux.com
+#
+# Different code for /sbin/probepart
+# that is used by
+# /sbin/pup_event_frontend_d
+# ,
+# /usr/sbin/pmount
+# ,
+# /usr/local/bin/drive_all
+# and
+# /usr/sbin/shutdownconfig
+# and probably some more .
+#
+# Outputs fat as Fat[16|32] by disktype, not as vfat
+# so take this into account if these scripts don't
+# show your fat partitions.
+# Also omitting the /root/.usb-drive-log-probepart file
+# , the forcing of USB by
+# dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v3.97 faster.
+# and unfortunately
+# /usr/lib/mut/bin/guess_fstype
+# since the developer jesse had not ported it to support ext4.
+#
+# Thanks Keef for testing and helping me detecting some wrong formatted code.
+# Also thanks to Ted Dog and headfound for company.
+###ENDINTRO
+
+##HEAD
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's% %\n%g' /proc/cmdline | grep -w -i '^debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+
+Version='2.0'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+
+PARAMETERS:
+-V|--version : showing version information
+-H|--help : show this usage information
+-A|--all  : show all disks noted in /proc/diskstats like ram|loop|mtd|md
+
+##edit1: added following size formats:
+-b   : show size in bits (default)
+-B   : Bytes
+-kb  : 1000-kilo bits
+-mb  : 1000-mega bits
+-gb  : 1000-giga bits
+-kib : 1024-kilo bits
+-mib : 1024-mega bits
+-gib : 1024-giga bits
+-KB  : 1000-kilo Bytes
+-MB  : 1000-mega Bytes
+-GB  : 1000-giga Bytes
+-KIB : 1024-kilo Bytes
+-MIB : 1024-mega Bytes
+-GIB : 1024-giga Bytes
+-k : show sizes in kilobytes (KiB) #compat.
+-m : show sizes in megabytes (MiB) #compat.
+Without one of the above parameters it is the value found in
+/sys/class/block/drive/size
+; usually as blocksize=512 formatted to bits .
+
+##edit2: added the forgotten -d parameter to check only given partitions
+-d/dev/sdaX [/dev/sdaY ..] : output only for given partitions
+
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+##
+SIZE_FACTOR=1
+SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | head -n1`  ##-+edit2
+  [ "$SIZE_PARAM" = '-b' ] && SIZE_FACTOR=1
+  [ "$SIZE_PARAM" = '-B' ] && SIZE_FACTOR=8
+ [ "$SIZE_PARAM" = '-kb' ] && SIZE_FACTOR=$((1*1000))
+ [ "$SIZE_PARAM" = '-mb' ] && SIZE_FACTOR=$((1*1000*1000))
+ [ "$SIZE_PARAM" = '-gb' ] && SIZE_FACTOR=$((1*1000*1000*1000))
+ [ "$SIZE_PARAM" = '-KB' ] && SIZE_FACTOR=$((8*1000))
+ [ "$SIZE_PARAM" = '-MB' ] && SIZE_FACTOR=$((8*1000*1000))
+ [ "$SIZE_PARAM" = '-GB' ] && SIZE_FACTOR=$((8*1000*1000*1000))
+[ "$SIZE_PARAM" = '-kib' ] && SIZE_FACTOR=$((1*1024))
+[ "$SIZE_PARAM" = '-mib' ] && SIZE_FACTOR=$((1*1024*1024))
+[ "$SIZE_PARAM" = '-gib' ] && SIZE_FACTOR=$((1*1024*1024*1024))
+[ "$SIZE_PARAM" = '-KIB' ] && SIZE_FACTOR=$((8*1024))
+  [ "$SIZE_PARAM" = '-k' ] && SIZE_FACTOR=$((8*1024))  ##compat.
+[ "$SIZE_PARAM" = '-MIB' ] && SIZE_FACTOR=$((8*1024*1024))
+  [ "$SIZE_PARAM" = '-m' ] && SIZE_FACTOR=$((8*1024*1024))  ##compat.
+[ "$SIZE_PARAM" = '-GIB' ] && SIZE_FACTOR=$((8*1024*1024*1024))
+
+DEVICES=`echo "$@" | grep -o '\-d.*' |sed 's%-[[:alnum:]]*%%g;s%/dev/%%g'`  ##+++edit2
+SHOWALL=`echo "$@" | grep -oE '\-A|\-\-all' |tr -d '-'` ##+++edit3
+##ENDHEAD
+
+disktype_func(){
+     disktype /dev/"$1" |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
+}
+
+filesystem_func(){  ##+++edit1
+    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`
+    [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
+    [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2 added none to please pmount
+}
+
+cddetect_func(){  ##+++edit1
+    cddetect_quick -d/dev/"$1" >$OUT && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount
+}
+
+present_removable(){
+   cddetect_func "$drive"
+   filesystem_func "$drive"
+   echo "/dev/$drive|$FSTYPE|$SIZE"
+}
+
+FDISK=`fdisk -l | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
+
+##MAIN
+while read line; do
+[ "$line" ] || continue
+[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue
+drive=`echo $line |awk '{print $3}'`  ##+-edit3 resurrcet from edit2
+[ "$drive" ] || continue   ##+++edit3
+[ "$SHOWALL" ] || { [ "`echo $drive | grep -vE 'ram|loop|mtd|md'`" ] || continue; }  ##+++edit3 added --all option
+[ -b /dev/$drive ] || { {
+   maj="${line%% *}" ; min=`echo $line |awk '{print $2}'`;
+   [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >&2;
+   [ "$maj" -a "$min" ] && mknod /dev/$drive b $maj $min 2>$ERR ; } || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
+[ "$DEVICES" ] && { [ "`echo "$DEVICES" | grep -w "$drive"`" ] || continue; }  ##+++edit2 forgot to implement it
+SIZE='';FSTYPE='';
+#SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
+test -f /sys/class/block/$drive/size || continue
+read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
+[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
+ if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ fi
+ [ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
+  filesystem_func "$drive"
+  echo "/dev/$drive|$FSTYPE|$SIZE"  ##edit1 wrong order for pmount
+else  #whole drive
+ if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ if [ "$REMOVEABLE" = 1 ]; then
+ if [ -e /sys/class/block/$drive/device/type ]; then  ##+++edit3
+  if [ "`cat /sys/class/block/$drive/device/type`" = 5 ]; then
+   present_removable
+  fi
+ else  ##+++edit3
+   present_removable
+ fi
+ fi;fi
+fi
+#done</proc/partitions
+done</proc/diskstats  ##-+edit3
+
