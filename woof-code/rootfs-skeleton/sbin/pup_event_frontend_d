@@ -189,7 +189,7 @@ auto_unmount_func() {
    umount $ONEMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
-    ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+    ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
     for ONEZOMBIE in $ZOMBIES
     do
      kill $ONEZOMBIE 2>/dev/null
@@ -605,10 +605,10 @@ free_initrd_func() { #UniPup, runs entirely in initramfs.
 free_func() { #called every 4 seconds.
  case $PUPMODE in
   6|12)
-   SIZEFREEM=`df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+   SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
   ;;
   *)
-   SIZEFREEM=`df -m | grep ' /$' | tr -s ' ' | cut -f 4 -d ' '`
+   SIZEFREEM=`/bin/df -m | grep ' /$' | tr -s ' ' | cut -f 4 -d ' '`
   ;;
  esac
  WARNMSG=""
@@ -640,8 +640,8 @@ free_func() { #called every 4 seconds.
 
 free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds.
  WARNMSG=""
- SIZEFREEM=`df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
- SIZETMPM=`df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+ SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
+ SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
  [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
  [ -s /tmp/pup_event_sizetmpm ] && PREVSIZETMPM=`cat /tmp/pup_event_sizetmpm`
  [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
@@ -941,7 +941,8 @@ do
  [ -f /tmp/wmexitmode.txt ] && break
 
  #test for any change in /sys/block...
- ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
+ #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
+ ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2
  if [ -f /tmp/pup_event_frontend_block_request ];then #w015 (see gparted_shell, puppyinstaller, bootflash)
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
@@ -950,7 +951,7 @@ do
   rm -f /tmp/pup_event_frontend_block_request
  fi
  [ ! -f /tmp/pup_event_frontend_block1 ] && cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF="`diff /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
+ BLOCKDIFF="`diff -u /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
 
  #091223 some interfaces, no change in /sys/block when insert/remove a card...
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
@@ -963,10 +964,12 @@ do
    [ "`echo "$ATADRIVES" | grep "$ONETESTDRV"`" != "" ] && continue
    [ "`cat /sys/block/${ONETESTDRV}/removable 2>/dev/null`" = "0" ] && continue
    if [ ! -e /sys/block/${ONETESTDRV}/${ONETESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
-    [ -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${ONETESTDRV}:"
+    #[ -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${ONETESTDRV}:"
+    [ -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
     dd if=/dev/${ONETESTDRV} of=/dev/null bs=512 count=1 > /dev/null 2>&1 #try force kernel to update.
    else
-    [ ! -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${ONETESTDRV}:"
+    #[ ! -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${ONETESTDRV}:"
+    [ ! -d $drvDir/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
    fi
   done
   [ "$BLOCKSPROBE" != "" ] && BLOCKDIFF="`echo -n "$BLOCKSPROBE" | tr ':' '\n'`"
@@ -977,9 +980,10 @@ do
 
   cp -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-  BLOCKSADD="`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
-  BLOCKSREM="`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
-
+  #BLOCKSADD="`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
+  #BLOCKSREM="`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
+  BLOCKSADD=`echo "$BLOCKDIFF" | grep '^\+[[:alpha:]].*' | tr -d '\+'`
+  BLOCKSREM=`echo "$BLOCKDIFF" | grep '^\-[[:alpha:]].*' | tr -d '\-'`
   ACTION=add
   SUBSYSTEM=block
   DEVTYPE=disk
