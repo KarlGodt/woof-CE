@@ -5,7 +5,7 @@ test "$*" || exec busybox mount
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 QUIET=-q
-DEBUG=
+DEBUG=1
 test "$DEBUG" && QUIET='';
 
 #busybox mountpoint does not recognice after
@@ -57,18 +57,21 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0
 
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsTt:U:uVvWwXxYyZz-
 
-  getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
+  #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
+ getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
 _debug "options='$getOPS'"
  longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!'`
-_info "long='$longOPS'"
+_info "long options='$longOPS'"
 test "$longOPS" || longOPS=--
 shortOPS=`echo "$getOPS" | sed "s%$longOPS%%"`
-_info "short='$shortOPS'"
+#shortOPS=`echo "$shortOPS" | sed "s%'%"'"'"%g"`
+shortOPS=`echo "$shortOPS" | sed "s%'%%g"`
+_info "short options='$shortOPS'"
 
-_debug "1:$*"
+_debug "1:"$*
 #set - $getOPS
 set - $shortOPS
-_notice "2:$*"
+_notice "2:"$*
 
 test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
@@ -359,14 +362,14 @@ umount)
  *) _exit 39 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
-_debug "3:$*"
+_debug "3:"$*
 while test 1 = 1; do
 [[ "$1" = '--' ]] && shift || break
 done
-_debug "4:$*"
-set - $longOPS $*
-_debug "5:$*"
-_info "6:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
+_debug "4:"$*
+set - $longOPS $@
+_debug "5:"$@
+_info "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 test "$opALL" && _debug "opALL='$opALL'"
 
@@ -393,12 +396,12 @@ exit 0
 
 fi
 
-_debug "7:$*"
+_debug "7:"$@
 while test 1 = 1; do
 test "$1" == '--' && shift || break
 done
-_debug "8:$*"
-_info "9:$WHAT $* "$opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
+_debug "8:"$@
+_info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 ( test "$*" -o "$opUUID" -o "$opLABEL" || test "$opT" -o "$opSHOWL" ) || _exit 1 "No positional parameters left."
 
@@ -412,19 +415,28 @@ esac
 case $WHAT in
 mount)
 if test "$deviceORpoint"; then
- _debug "$WHAT:$*"
- test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
- grep $QUIET -w "${deviceORpoint##*/}" /proc/partitions && {
-  _info "found '${deviceORpoint##*/}' in /proc/partitions"
- } || {
-  _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
- #grep $QUIET -w "${deviceORpoint}" /proc/mounts && _exit 3 "${deviceORpoint} Already mounted"
- test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
+ _debug "$WHAT:"$@
+ #test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
+ if test -b $deviceORpoint; then
+  grep $QUIET -w ${deviceORpoint##*/} /proc/partitions && {
+   _info "found '${deviceORpoint##*/}' in /proc/partitions"
+  } || {
+   _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
+ # grep $QUIET -w ${deviceORpoint} /proc/mounts && _exit 3 "'${deviceORpoint}' already mounted"
+ fi
+ #test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
  test -e /etc/fstab || touch /etc/fstab
- grep $QUIET -w "$deviceORpoint" /etc/fstab && {
- _info "Found $deviceORpoint in /etc/fstab"
-         } || { test "$@" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
- _debug "$WHAT:$*"
+ grep $QUIET -w $deviceORpoint /etc/fstab && {
+  _info "Found $deviceORpoint in /etc/fstab"
+  #mkdir -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
+  mountPOINT=`grep -m1 -w $deviceORpoint /etc/fstab | awk '{print $2}'`
+  _debug "mountPOINT='$mountPOINT'"
+  #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
+  mountpoint "$mountPOINT" && _exit 3 "'$mountPOINT' already mounted"
+  test "$*" = "$mountPOINT" || set - $@ $mountPOINT
+  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; mkdir -p "$mountPOINT"; }
+ } || { test "$*" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
+ _debug "$WHAT:"$@
 fi
 c=0
 for posPAR in $*; do  #hope, only file/device AND mountpoint left
@@ -441,13 +453,13 @@ smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
 
 *) test $c = $# || continue
    if test -f /proc/filesystems; then
-   if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
+   if test ! "`grep 'nodev' /proc/filesystems | grep $posPAR`"; then
       #if test "`echo "$*" | grep -e '\-\-[[:alpha:]]*'`" = ""; then
-   grep $QUIET -w "$posPAR" /proc/mounts && _exit 3 "'$posPAR' already mounted."
+   grep $QUIET -w $posPAR /proc/mounts && _exit 3 "$posPAR already mounted."
       #fi
-      _debug "c=$c \$#=$# $posPAR"
+      _debug "c=$c \$#=$# "$posPAR
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
-   test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
+   test -e $posPAR || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p $posPAR; }
    fi;fi ;;
 esac
 done
@@ -497,7 +509,7 @@ _debug "mountPOINT='$mountPOINT'"
                 echo "$fsUSERS"
                 test "$DISPLAY" && xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
 $fsUSERS" &
-                _exit 1 "Refusing to complete '$WHAT $*' ."; } ;
+                _exit 1 "Refusing to complete '$WHAT $@ ."; } ;
         fi
         #}
         #_debug "Closing ROX-Filer if necessary..."
@@ -515,8 +527,8 @@ umount)
 if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
         #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
-        _notice "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
-                 busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+        _notice "busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
+                 busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         RETVAL=$?
         else
         #fusermount can only unmount by giving the mount-point...
@@ -526,42 +538,42 @@ if [ "$NTFSMNTPT" != "" ]; then
         fi
 else
  #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
- _info "busybox $WHAT \"$deviceORpoint\" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
-        busybox $WHAT "$deviceORpoint" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+ _info  busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+        busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
  RETVAL=$?
 fi
 ;;
 mount)
       case $opT in
       *ntfs*)               #*ntfs*)?
-       test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
+       test -b $@ && {   #ntfs-3g does not look into /etc/fstab?
 
         test "`which ntfs-3g.probe`" && {
-         _debug "Running ntfs-3g.probe --readwrite on '$*':"
-         ntfs-3g.probe --readwrite $*
+         _debug "Running ntfs-3g.probe --readwrite on $@:"
+         ntfs-3g.probe --readwrite $@
          RETVAL=$?
          test "$RETVAL" = 0 && _debug "OK."
                 }
 
-        mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$*";
+        mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$@";
         }
 
        test "$RETVAL" || RETVAL=0
 
        test "$RETVAL" = 0 && {
-       _notice "ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
+       _notice "ntfs-3g -o umask=0,no_def_opts "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
                 ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
        RETVAL=$?
         }
 
        test "$RETVAL" = 0 || {
                if test "$RETVAL" = 14; then { _warn "Need to remove hibernation file to mount read-write";
-                 _notice "ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
+                 _notice "ntfs-3g "$@" -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
                           ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
                  RETVAL=$?
                }
              elif test "$RETVAL" = 4 -o "$RETVAL" = 10 -o "$RETVAL" = 15; then { _warn "Attempt to force read-write mount";
-                 _notice "ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS"
+                 _notice "ntfs-3g "$@" -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS"
                           ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS $opSHOWL
                  RETVAL=$?
                }
@@ -569,7 +581,7 @@ mount)
                fi
                         }
         test "$RETVAL" = 0 || { _notice "Will attempt to mount ntfs partition using the limited kernel driver";
-         _notice "busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
+         _notice "busybox mount "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
                   busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
          RETVAL=$?
          }
@@ -587,8 +599,8 @@ mount)
           ;;
          esac
         fi
-       _notice "busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
-                busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $* $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
+       _notice "busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
+                busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       ;;
       *)
@@ -610,11 +622,11 @@ mount)
          test -d "$oneMTP" || mkdir -p "$oneMTP"
          done
         fi
-       _notice "$WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL"
+       _notice "$WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL"
                 $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
        RETVAL=$?
       else # use busybox mount
-       _info "busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
+       _info "busybox $WHAT "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS"
               busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS
        RETVAL=$?
       fi #use mount-FULL
@@ -653,7 +665,7 @@ _update()
 EoI
 }
 
-test "$RETVAL" = 0 && _update
+test "$RETVAL" = 0 && _update || _umount_rmdir
 
 test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
 
