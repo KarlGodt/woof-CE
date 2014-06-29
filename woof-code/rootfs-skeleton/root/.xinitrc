@@ -1,28 +1,25 @@
 #!/bin/sh
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
-#120718 redesign for startup on slow computers. see also /sbin/pup_event_frontend_d and delayedrun.
-#130202 xrandr set vert freq. see also /usr/sbin/quicksetup.
-#130212 removed glipper code, see latest glipper pet.
-#130525 old pc celeron 2ghz cpu, 256mb ram, CPUSPEED=1999, 1st bootup rox failed to start. try experiment.
 
 . /etc/rc.d/PUPSTATE
+. /etc/rc.d/BOOTCONFIG
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
 
-#v4.01 BK daemon to handle kernel uevents...
+[ -x /usr/sbin/fixicons ] && fixicons #icon fix for lupu by 01micko
+
+if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then  #sfs fix?
+echo "ICONWIPE" >/tmp/pup_event_icon_change_flag
+fi
+
+##v4.01 BK daemon to handle kernel uevents...
 /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-#/sbin/pup_event_frontend_d &
-#130525 ...start this further down.
+/sbin/pup_event_frontend_d & #v403
 
 #w482 reshape background image if widescreen...
-#120708 need to reshape for PUPMODE=2 also...
-#[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
-NEEDRESHAPE='yes'
-[ -f /usr/share/backgrounds_original/ORIGINAL-default.jpg ] && NEEDRESHAPE='no'
-[ -f /usr/share/backgrounds_original/ORIGINAL-default.png ] && NEEDRESHAPE='no'
-[ "$NEEDRESHAPE" = "yes" ] && /usr/sbin/background_reshape
+[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
 
 userresources=$HOME/.Xresources
 usermodmap=$HOME/.Xmodmap
@@ -49,7 +46,6 @@ fi
 
 CURRENTWM="`cat /etc/windowmanager`"
 if [ "$CURRENTWM" = "startkde" ];then
- /sbin/pup_event_frontend_d & #130525
  exec startkde
 fi
 
@@ -72,17 +68,16 @@ fi
 #v1.0.7 set by xrandrshell, part of xorg wizard... v3.99...
 if [ -f /etc/xrandrindex ];then
   #v3.99 workround for dual monitors, 'head -n 1'....
-  XRANDRDEFAULT="$(xrandr -q | grep '\*' | tr -s ' ' | grep '^ [0-9]' | cut -f 2,3 -d ' ' | cut -f 1 -d '*' | tr ' ' '@' | head -n 1)" #130202 return 1024x768@60.0
-  XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution. #130202 now vertxhoriz@freq (refer quicksetup).
+  XYDEFAULT="`xrandr | grep '\*' | tr -s " " | grep '^ [0-9]' | cut -f 2 -d " " | head -n 1`"
+  XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution.
   #but do not switch if default is already this resolution....
-  if [ "$XRANDRINDEX" = "$XRANDRDEFAULT" ];then
+  if [ "$XRANDRINDEX" = "$XYDEFAULT" ];then
    rm -f /etc/xrandrindex
   else
-   NEW_XY="$(echo -n "$XRANDRINDEX" | cut -f 1 -d '@')" #130202
-   NEW_VFREQ="$(echo -n "$XRANDRINDEX" | cut -f 2 -d '@')" #130202
-   xrandr -s $NEW_XY -r $NEW_VFREQ #130202
+   xrandr -s $XRANDRINDEX
   fi
 fi
+
 
 if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
@@ -113,20 +108,12 @@ fi
 #relocates right-side icons to actual right-side of screen...
 /usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
 
-#w468 on old PCs rox sometimes does not start, see further down...
-#120718 raspi sometimes need extra delay otherwise rox fails to start.
-CPUSPEED=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'` #my laptop: 933.000
-[ ! $CPUSPEED ] && CPUSPEED=`grep -m 1 -i '^bogomips' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'` #120718 raspi: 697.95  my laptop: 4789.47
-[ ! $CPUSPEED ] && CPUSPEED=250
-[ $CPUSPEED -lt 700 ] && sleep 0.5
-[ $CPUSPEED -lt 400 ] && sleep 0.5
+#w468 on old PCs this sometimes does not start, see further down...
 if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
  rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
 else
  rox -p /root/Choices/ROX-Filer/PuppyPin
 fi
-
-/sbin/pup_event_frontend_d & #130525 moved down.
 
 #v2.0.0
 /usr/sbin/delayedrun &
@@ -140,6 +127,12 @@ fi
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
 #which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
 #...no, now doing it differently, see /usr/sbin/fixmenus
+
+#v2.17 removed, interferes with clipboard in Composer....
+##v2.15 disovered by GuestToo...
+#[ "`which glipper`" != "" ] && glipper &
+#v2.17 made it optional...
+[ -f /root/.glipper_on ] && glipper &
 
 if [ "$CURRENTWM" = "xfwm4" ];then
  if [ "`which xfce4-panel`" != "" ];then
@@ -170,21 +163,20 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
  [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
 
-##w468 rox may not start old hardware, try again... 120517 bring this back...
-##PS="`ps`"
-##if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
-#if ! busybox pidof ROX-Filer;then
+##w468 rox may not start old hardware, try again...
+#PS="`ps`"
+#if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
 # touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
-# sleep 0.5
-# if ! busybox pidof ROX-Filer;then #check again.
-#  rox -p /root/Choices/ROX-Filer/PuppyPin
-# fi
+# sleep 0.2
+# rox -p /root/Choices/ROX-Filer/PuppyPin
 #fi
+
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
 [ -x $CURRENTWM ] && exec $CURRENTWM
 exec jwm
-
+exit
 ###END###
