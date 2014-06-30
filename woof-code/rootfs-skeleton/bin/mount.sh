@@ -14,7 +14,8 @@ test "$DEBUG" && QUIET='';
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
 #so using function with grep instead
 mountpoint(){
- test -f /proc/mounts || return 1
+ test -f /proc/mounts || return 3
+ test "$*" || return 2
  [ "$1" = '-q' ] && shift;
  set - `echo "$*" | sed 's!\ !\\\040!g'`
  grep $QUIET " $* " /proc/mounts
@@ -78,7 +79,7 @@ set - $shortOPS
 _notice "2:"$*
 
 test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
-
+mountpoint
 _update_partition_icon()
 {
 
@@ -456,7 +457,7 @@ if test "$deviceORpoint"; then
   mountPOINT=`grep -m1 -w $deviceORpoint /etc/fstab | awk '{print $2}'`
   _debug "mountPOINT='$mountPOINT'"
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
-  mountpoint "$mountPOINT" && _exit 3 "'$mountPOINT' already mounted"
+  mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ $mountPOINT
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; mkdir -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && set - $deviceORpoint /mnt/${deviceORpoint##*/}; }
@@ -479,7 +480,7 @@ smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
    if test -f /proc/filesystems; then
    if test ! "`grep 'nodev' /proc/filesystems | grep $posPAR`"; then
       #if test "`echo "$*" | grep -e '\-\-[[:alpha:]]*'`" = ""; then
-   grep $QUIET -w $posPAR /proc/mounts && _exit 3 "$posPAR already mounted."
+   grep $QUIET -Fw $posPAR /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
       #fi
       _debug "c=$c \$#=$# "$posPAR
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
@@ -524,7 +525,11 @@ fi
         _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
         fuser -m "$mountPOINT" && {
-                _err "Mountpoint is in use by above pids:"
+           if test "$opL" -o "$opF"; then
+           _warn "Mountpoint is in use by above pids:"
+           else
+           _err "Mountpoint is in use by above pids:"
+           fi
                 for aPID in `fuser -m "$mountPOINT"`
                 do
                 fsUSERS="$fsUSERS
@@ -532,11 +537,16 @@ fi
                 "
                 done
                 echo "$fsUSERS"
+           if test "$opL" -o "$opF"; then
+           :
+           else
                 test "$DISPLAY" && xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
 $fsUSERS" &
-                _exit 1 "Refusing to complete '$WHAT $@ ."; } ;
+                _notice "Use -l or -f option to skip this sanity check."
+                _exit 1 "Refusing to complete $WHAT $@ ."
+           fi
+         }
         fi
-        #}
         #_debug "Closing ROX-Filer if necessary..."
         #_pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
 ;;
@@ -571,7 +581,7 @@ fi
 mount)
       case $opT in
       *ntfs*)               #*ntfs*)?
-       test -b $@ && {   #ntfs-3g does not look into /etc/fstab?
+       test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
 
         test "`which ntfs-3g.probe`" && {
          _debug "Running ntfs-3g.probe --readwrite on $@:"
@@ -665,6 +675,7 @@ _notice "RETVAL=$RETVAL"
 
 _umount_rmdir()
 {
+ test "$*" || return 1
  [ "$DISPLAY" ] && rox -D "$mountPOINT";
  _debug "_umount_rmdir:mountpoint $QUIET $*";
  mountpoint $QUIET $* || rmdir $*;
@@ -676,7 +687,7 @@ _update()
  #test "$noROX" || rox -x /mnt -x "`pwd`"
  test $WHAT = umount || return 0
 
- test "`echo "$mountPOINT" | grep -E '/proc|/sys'`" && return 0
+ test "`echo "$mountPOINT" | grep -E '/dev|/proc|/sys|/tmp'`" && return 0
  test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
 
  _check_tmp_rw || return 59
@@ -690,7 +701,7 @@ _update()
 EoI
 }
 
-test "$RETVAL" = 0 && _update || _umount_rmdir
+test "$RETVAL" = 0 && _update || _umount_rmdir "$mountPOINT"
 
 test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
 
