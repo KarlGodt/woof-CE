@@ -145,23 +145,57 @@ FDISK=`fdisk -l 2>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9
 
 ##MAIN
 
-while read line; do
-[ "$DEBUG" ] && _eBLU "$0 currently processing $line of /proc/partitions" >&2
-[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue
-[ "$line" ] || continue
+#while read line; do
+
+# Documentation/ABI/testing/procfs-diskstats:
+#What:          /proc/diskstats
+#Date:          February 2008
+#Contact:       Jerome Marchand <jmarchan@redhat.com>
+#Description:
+#               The /proc/diskstats file displays the I/O statistics
+#               of block devices. Each line contains the following 14
+#               fields:
+#                1 - major number
+#                2 - minor mumber
+#                3 - device name
+#                4 - reads completed successfully
+#                5 - reads merged
+#                6 - sectors read
+#                7 - time spent reading (ms)
+#                8 - writes completed
+#                9 - writes merged
+#               10 - sectors written
+#               11 - time spent writing (ms)
+#               12 - I/Os currently in progress
+#               13 - time spent doing I/Os (ms)
+#               14 - weighted time spent doing I/Os (ms)
+#               For more details refer to Documentation/iostats.txt
+#           1   2    3      4               5            6           7             8        9            10       11               12         13       14
+#while read maj min part suc_reads_compl reads_merged sect_read ms_spend_read writes_compl writes_merg sect_writ ms_spend_writ io_curr_prog ms_do_io ms_weighted_io
+while read maj min part rest
+do
+[ "$DEBUG" ] && _eBLU "$0 currently processing $maj $min $part ..." >&2
+#[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue
+[ "$maj" ] || continue
+#[ "$line" ] || continue
 
 #drive=`echo $line |awk '{print $4}'`
-drive="${line##* }"                  ##+-edit2
+#drive="${line##* }"                  ##+-edit2
+drive=$part
+#test "`echo "$drive" | grep -E '^loop|^md|^mtd|^ndb|^ram'`" && continue
+case $drive in
+loop*|md*|mtd*|nbd*|ram*) continue;;
+esac
 
 #[ -b /dev/$drive ] || {
-    maj="${line%% *}" ;
-    min=`echo $line |awk '{print $2}'`;
+    #maj="${line%% *}" ;
+    #min=`echo $line |awk '{print $2}'`;
     [ "$DEBUG" ] && _eBLU "'$maj' '$min'" >&2
     [ "$maj" ] || continue
     [ "$min" ] || continue
     MORE=`LC_ALL=C ls -l /dev/${drive:0:2}* |awk '{print $5 $6 $10}' |grep -w "^${maj},${min}/dev" |grep -vw "${drive}$"`
-    for more in $MORE;do
-    rm -f /${more#*/};done
+    #for more in $MORE;do
+    #rm -f /${more#*/};done
 
     TEST=`LC_ALL=C ls -l /dev/${drive:0:2}* |awk '{print $5 $6 $10}' |grep -w "${drive}$"`
     Tmaj=`echo $TEST |cut -f1 -d','`
@@ -223,7 +257,8 @@ else
  fi;fi;fi
 fi
 
-done</proc/partitions
+done</proc/diskstats
+#done</proc/partitions
 
 [ "$DEBUG" ] && _eCYA "$0 currently at line $LINENO" >&2
 
