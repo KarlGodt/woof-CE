@@ -449,18 +449,38 @@ _guess_file_fstype
 
 test "$Type" = 'squashfs' && _handle_squashfs
 
+_mknod_free_loop_device()
+{
+        local RV LOOPS_ALL LOOP_LAST LOOP_NEW
+LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
+        LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+        LOOP_NEW=$(( $LOOP_LAST + 1 ))
+        mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
+        RV=$?
+        test $RV = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Probably could not create /dev/loop$LOOP_NEW"
+        return $RV
+}
+
 _mk_free_loop_device()
 {
 local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
   test -c /dev/loop-control || mknod /dev/loop-control c 10 237
   FREE_LOOP=`losetup -f`
-  [ "$FREE_LOOP" ] || {
+  [ -e "$FREE_LOOP" ] && {
+    [ -b "$FREE_LOOP" ] || {
+            [ -d "$FREE_LOOP" ] && {
+                mountpoint $QUIET "$FREE_LOOP" && _warn "$FREE_LOOP is considered mountpoint." || {
+                    rmdir "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove directory $FREE_LOOP"; }
+            } || rm -f "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove file $FREE_LOOP"
+            }
+  } || {
         _info "No free loop devices available.. Attempt to create one.."
-        LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
-        LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
-        LOOP_NEW=$(( $LOOP_LAST + 1 ))
-        mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
-        test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
+        #LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
+        #LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+        #LOOP_NEW=$(( $LOOP_LAST + 1 ))
+        #mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
+        #test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
+        _mknod_free_loop_device
  }
 }
 _mk_free_loop_device
