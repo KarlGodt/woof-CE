@@ -55,7 +55,11 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0
 
 }
 
-allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsTt:U:uVvWwXxYyZz-
+allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
+
+umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-only,no-mtab,lazy,test-opts:,recursive,read-only,types:,verbose,help,version
+ mount_longPOS=all,no-canonicalize,fake,fork,fstab:,internal-only,show-labels,no-mtab,options:,test-opts:,read-only,types:,source:,target,verbose,rw,read-write,label,uuid,help,version
+ mount_longOPS="$mount_longOPS",bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable
 
   #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
@@ -239,6 +243,10 @@ umount)
   noSHIFT=YES;;
  a) #all
   opALL=-a;;
+ A) #all-targets
+  opAT=-A;;
+ c) # no cononicalize
+  opC=-c;;
  d) #free loop
   opFL=-d;;
  D) #don't free loop
@@ -255,6 +263,8 @@ umount)
   opN=-n;;
  r) #read-only
   opR=-r;;
+ R) # recurse
+  opREC=-R;;
  v) #verbose
   opVERB=-v;;
  V) #version
@@ -293,27 +303,32 @@ umount)
    noSHIFT=YES;;
   a) # all
    opALL=-a;;
+  B) # bind
+   opB=-B;;
+  c) #no canonicalize
+   opC=-c;;
   f) #fake dry-run
    opDRY=-f;;
   F) # FORK while using -a
    opFORK=-F;;
+  h) # help
+   opH=-h;;
   i) #don'use mount helper
    opI=-i;;
+  l) #list, and show label if label exists
+   opSHOWL=-l;;
+  L) # mount label
+   mLABEL=$OPTARG
+   opLABEL="-L $mLABEL"
+   shift
+  ;;
+  M) # move
+   opM=-M;;
   n) # don't write to /etc/mtab
    opN=-n;;
-  r) #read-only
-   opR=-r;;
-  s) # sloppy
-   opS=-s;;
-  v) #verbose
-   opVERB=-v;;
-  w) # read-write, same as -o rw
-   opW=-w;;
-  t) #filesystem type
-   opT=-t
-   opT_ARGS="$OPTARG"
-   #fsTYPE=$OPTARG
-   opT="-t $opT_ARGS"
+  o) #mount options
+   ops=$OPTARG
+   opMO="-o $ops"
    shift
   ;;
   O) # mount options for -a
@@ -322,32 +337,41 @@ umount)
    opO_ARGS="${opO_ARGS//,/|}"
    shift
   ;;
-  o) #mount options
-   ops=$OPTARG
-   opMO="-o $ops"
-   shift
-  ;;
   p) # passphrase from file_descriptor
    fd=$OPTARG
    opPASS="-p $fd"
    shift
   ;;
-  l) #list, and show label if label exists
-   opSHOWL=-l;;
-  h) # help
-   opH=-h;;
-  V) #version
-   opVERS=-V;;
-  L) # mount label
-   mLABEL=$OPTARG
-   opLABEL="-L $mLABEL"
+  r) #read-only
+   opR=-r;;
+  R) # rbind
+   opRB=-R;;
+  s) # sloppy
+   opS=-s;;
+  t) #filesystem type
+   opT=-t
+   opT_ARGS="$OPTARG"
+   #fsTYPE=$OPTARG
+   opT="-t $opT_ARGS"
    shift
-   ;;
+  ;;
+  T) # altern. fstab file
+   opAF=-T
+   opAF_ARGS="$OPTARG"
+   opAF="-T $opAF_ARGS"
+   shift
+  ;;
   U) #mount UUID
    uLABEL=$OPTARG
    opUUID="-U $uLABEL"
    shift
   ;;
+  v) #verbose
+   opVERB=-v;;
+  V) #version
+   opVERS=-V;;
+  w) # read-write, same as -o rw
+   opW=-w;;
   *)
    #shift
    echo "$0:Unhandled option \"$oneOPT\""
@@ -489,10 +513,11 @@ esac
 case $WHAT in
 umount)
 #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
+if test "$deviceORpoint"; then
 mountPOINT=`echo "$mountBEFORE" | grep -w "$deviceORpoint" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
-
+fi
 #mountpoint $QUIET "$mountPOINT" && {
         if test -d "$mountPOINT"; then
         _debug "Closing ROX-Filer if necessary..."
@@ -527,8 +552,8 @@ umount)
 if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
         #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
-        _notice "busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
-                 busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+        _notice "busybox $WHAT $@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB"
+                 busybox $WHAT $@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         RETVAL=$?
         else
         #fusermount can only unmount by giving the mount-point...
@@ -538,8 +563,8 @@ if [ "$NTFSMNTPT" != "" ]; then
         fi
 else
  #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
- _info  busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
-        busybox $WHAT $deviceORpoint $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+ _info  busybox $WHAT $@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
+        busybox $WHAT $@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
  RETVAL=$?
 fi
 ;;
