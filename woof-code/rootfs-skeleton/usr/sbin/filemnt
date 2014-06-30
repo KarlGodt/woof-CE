@@ -457,7 +457,7 @@ LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
         LOOP_NEW=$(( $LOOP_LAST + 1 ))
         mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
         RV=$?
-        test $RV = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Probably could not create /dev/loop$LOOP_NEW"
+        test $RV = 0 && _notice "Created /dev/loop$LOOP_NEW ." || _warn "Probably could not create /dev/loop$LOOP_NEW ."
         return $RV
 }
 
@@ -467,19 +467,27 @@ local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
   test -c /dev/loop-control || mknod /dev/loop-control c 10 237
   FREE_LOOP=`losetup -f`
   [ -e "$FREE_LOOP" ] && {
+    _info "$FREE_LOOP already exists."
     [ -b "$FREE_LOOP" ] || {
+            _warn "$FREE_LOOP is not a block device file."
             [ -d "$FREE_LOOP" ] && {
+                _info "$FREE_LOOP is a directory."
                 mountpoint $QUIET "$FREE_LOOP" && _warn "$FREE_LOOP is considered mountpoint." || {
+                    _notice "$FREE_LOOP appears not to be a mountpoint, attempting to remove it."
                     rmdir "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove directory $FREE_LOOP"; }
-            } || rm -f "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove file $FREE_LOOP"
+            } || {
+                    _notice "$FREE_LOOP is not a directory, will attempt to remove it."
+                    rm -f "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove file $FREE_LOOP"
+             }
             }
   } || {
-        _info "No free loop devices available.. Attempt to create one.."
+        #_info "No free loop devices available.. Attempt to create one.."
         #LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
         #LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
         #LOOP_NEW=$(( $LOOP_LAST + 1 ))
         #mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
         #test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
+        _info "No free loop device available, or '$FREE_LOOP' does not exist."
         _mknod_free_loop_device
  }
 }
@@ -732,7 +740,16 @@ _unmount_loop_file
 _disassociate_loopdevices
 
  if [ "$Err" -gt 0 ] ;then                      # ERROR: mount/unmount # 9999
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned <$Err> ... mounting or unmounting $MntPt"
+  MSG="Returned <$Err> ... mounting or unmounting $MntPt"
+  if test "$Type" = squashfs; then
+  test "$squashXZ" = NOT && MSG="$MSG
+  Notice :
+This might be a kernel without support for XZ compressed squashfs files.
+Former there was only GZ compression available.
+GZ compression is considered faster."
+  fi
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "$MSG"
+  #[ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned <$Err> ... mounting or unmounting $MntPt"
   #[ -d "$MntPt" ] && [ -z "`ls "$MntPt" 2>/dev/null`" ] && rmdir "$MntPt"  ##+++2011_10_27
  fi # 9999
 
