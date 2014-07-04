@@ -1,0 +1,229 @@
+#!/bin/bash
+
+# *********************************************************
+# PROGRAM:	pfont2 (and ttf) v. 0.21
+# PURPOSE:	preview, display and install ttf fonts
+# ORIGINAL	Sigmund Berglund - Valåmoen, Norway, 2009
+# AUTHOR:		Vovchik (Puppy Linux forum)
+# MODDED:		vovchik added ttf preview, removed web 
+# 			font lookup and made interface changes
+# DEPENDS:	bash, gtkdialog3, ttf2png, pngcrop or
+# 			IM convert, ttf, gtkdialog-splash (symlinked
+# 			to yaf-splash)
+# PLATFORM:	Puppy Linux (actually, any *nix)
+# DATE:		20-06-2011 (vovchik's ugly ttf preview)
+# LICENSE:	This program is free software; you can
+#			redistribute it and/or modify it under the
+#			terms of the GNU General Public License as
+#			published by the Free Software Foundation,
+#			version 2.
+#			This program is distributed in the hope
+#			that it will be useful, but WITHOUT ANY
+#			WARRANTY; without even the implied
+#			warranty of MERCHANTABILITY or FITNESS
+#			FOR A PARTICULAR PURPOSE. See the GNU
+#			General Public License for more details.
+#			<http://www.gnu.org/licenses/>.
+# NOTES:		This program is a kluge. What is needed
+#			is a binary GTK app that uses the
+#			freetype2 function to read a ttf font
+#			on disk and to display it in a GTK
+#			window via CairoPango. I am working on
+#			it.
+# 			Sources for the binaries:
+# 			http://www.tdb.fi/ttf2png.shtml
+# 			http://www.litchie.net/programs/pngcrop.html
+# 			I compiled them in Puppy 3.01 for
+# 			universality and they work fine in lucid.
+# *********************************************************
+
+
+# *********************
+# INIT VARS
+# *********************
+
+# current version
+VERSION=0.21
+# line feed var
+nl=$'\012'
+export myviewer="ttf"
+export msg_prev="
+You must first select a file in order to preview it,
+using either the file selector button or by drag and
+drop to the input box.
+"
+export msg_view="
+No font previewer is available.
+Install $myviewer, please.
+"
+export msg_inst="
+No TTF file has been selected for installation. 
+Select a suitable file using drag and drop or via the 'Select' button. 
+"
+
+# *********************
+# END INIT VARS
+# *********************
+
+
+# *********************
+# FUNCTIONS
+# *********************
+
+# ------------------
+function kill_yaf()
+# ------------------
+{
+if [ "$(pidof yaf-splash)" ] ; then
+	killall yaf-splash >/dev/null
+fi
+}
+
+# ------------------
+function preview_font()
+# ------------------
+{
+
+myfont="$1"
+# soft code executable for replacement when we get a better viewer.
+myviewer="ttf"
+# check to see whether a font was selected and really exists.
+if [ -f "$myfont" ] ; then
+	# check to see whether myviewer exists
+	if which "$myviewer" >/dev/null; then
+		# toggle myviewer on or off using preview button
+		if [ "$(pidof yaf-splash)" ] ; then
+			# groovy, the process was found
+			killall yaf-splash >/dev/null
+		else
+			# equally groovy, the process was not found
+			"$myviewer" "$myfont"
+		fi
+	else
+		# if no previewer found, be nice and tell user
+		my_msg="No font previewer is available. Install Pfont2 v.0.21, please."
+		gtkdialog-splash -placement top -timeout 4 -fontsize medium -icon "gtk-dialog-error" -text "$my_msg"
+	fi
+else
+	# if no font selected, be nice and tell user
+	kill_yaf
+	my_msg="You must first select a file in order to preview it, using either the file selector button or by drag and drop to the input box."
+	gtkdialog-splash -placement top -timeout 4 -fontsize medium -icon "gtk-dialog-error" -text "$my_msg"
+fi
+}
+
+# ------------------
+function install_font()
+# ------------------
+{
+my_msg="
+ No TTF file has been selected for installation. 
+ Select a suitable file using drag and drop or via the 'Select' button. 
+ "
+if [ ! "`echo "$FONT" | grep -i ttf`" ]; then
+	gtkdialog-splash -placement top -timeout 4 -fontsize medium -icon "gtk-dialog-error" -text "$my_msg"
+else
+	cp "$FONT" /usr/share/fonts/default/TTF/
+	rm /usr/share/fonts/default/TTF/fonts.dir
+	rm /usr/share/fonts/default/TTF/fonts.scale
+	mkfontscale /usr/share/fonts/default/TTF
+	mkfontdir /usr/share/fonts/default/TTF
+fi
+}
+echo > /tmp/ttf_file.pfont2
+# ------------------
+function make_gui()
+# ------------------
+{
+export pfont='
+	<window window_position="1" width-request="500" title="Pfont2 '$VERSION'" icon-name="gtk-bold">
+		<vbox>
+		<hbox homogeneous="true">
+			<text use-markup="true">
+				<label>"<span weight='"'"heavy"'"' size='"'"36000"'"'>P</span><span weight='"'"heavy"'"' size='"'"36000"'"' color='"'"#3272C0"'"'>Font2</span>"</label>
+			</text>
+		</hbox>
+			<frame Select truetype font>
+				<text>
+					<label>"Use the Select button, or drag and drop, to choose a *.TTF file.'$nl'Click preview or install. You can use Windows TTF files."</label>
+				</text>
+				<hbox spacing="10">
+					<entry accept="filename">
+						<variable>FONT</variable>
+						<input>cat /tmp/ttf_file.pfont2</input>
+					</entry>
+					<button>
+						<input file stock="gtk-open"></input>
+						<label>"Select "</label>
+						<action>FNT=`Xdialog --title "Please select your file" --fselect /usr/share/fonts/ 28 48 2>&1` ; echo "$FNT" > /tmp/ttf_file.pfont2 ; sleep 0.1s</action>
+						<action>refresh:FONT</action>
+					</button>
+					<button>
+						<label>"Clear "</label>
+						<input file stock="gtk-clear"></input>
+						<action>echo > /tmp/ttf_file.pfont2</action>
+						<action>clear:FONT</action>
+						<action>refresh:FONT</action>
+						<action>kill_yaf</action>
+					</button>
+				</hbox>
+			</frame>
+			<hbox spacing="10" homogeneous="false">
+				<button>
+					<input file stock="gtk-find"></input>
+					<label>Preview </label>
+					<action>refresh:FONT</action>
+					<action>preview_font "$FONT"&</action>
+				</button>
+				<button>
+					<input file stock="gtk-select-font"></input>
+					<label>View installed </label>
+					<action>gfontsel &</action>
+				</button>
+				<button>
+					<input file stock="gtk-execute"></input>
+					<label>Install new </label>
+					<action>install_font</action>
+				</button>
+					<text>
+						<label>"      "</label>
+					</text>
+				<button>
+					<input file stock="gtk-exit"></input>
+					<label>Exit </label>
+					<action type="exit">QUIT</action> 
+				</button>
+			</hbox>
+		</vbox>
+		<action signal="hide">exit:Exit</action>
+	</window>
+'
+}
+
+# *********************
+# END FUNCTIONS
+# *********************
+
+
+# *********************
+# MAIN
+# *********************
+
+# kill myviewer on startup
+kill_yaf
+# export functions
+export -f kill_yaf
+export -f install_font
+export -f preview_font
+export -f make_gui
+# create gui
+make_gui
+# display gui
+gtkdialog3 -p pfont
+# kill myviewer on exit
+kill_yaf
+exit 0
+
+# *********************
+# END MAIN
+# *********************
