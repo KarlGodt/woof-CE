@@ -140,9 +140,11 @@ _posparams_to_octal()
 {
         _debug "_posparams_to_octal:$@"
 #echo -n "$@" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\ !\\0!g;s!:$!!;/^$/d;s!^!\\0!' >/tmp/posPARAMS.od
-echo "$@" | _string_to_octal >/tmp/posPARAMS.od
-test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
-posPARAMS=`cat /tmp/posPARAMS.od`
+#echo "$@" | _string_to_octal >/tmp/posPARAMS.od
+#test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
+#posPARAMS=`cat /tmp/posPARAMS.od`
+
+posPARAMS=`echo "$@" | _string_to_octal`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
