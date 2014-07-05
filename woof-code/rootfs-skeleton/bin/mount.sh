@@ -534,10 +534,6 @@ esac
 _builtin_getopts "$@"
 _debugt 88 $_DATE_
 
-#_debug '3*:'$*
-#while test 1 = 1; do
-#[[ "$1" = '--' ]] && shift || break
-#done
 _debug '4*:'$*
 #set - $longOPS $@
 set - $longOPS $shortOPS $posPARAMS
@@ -570,10 +566,6 @@ exit 0
 fi
 _debugt 87 $_DATE_
 
-#_debug "7@:"$@
-#while test 1 = 1; do
-#test "$1" == '--' && shift || break
-#done
 _debug "8@:"$@
 _info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
