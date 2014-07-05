@@ -1,6 +1,6 @@
 #!/bin/ash
 
-DEBUGT=1
+DEBUGT=
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -24,8 +24,8 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 QUIET=-q
-DEBUG=1
-DEBUGX=1
+DEBUG=
+DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -136,22 +136,6 @@ echo "$oSTRING"
 
 }
 
-_get_options()
-{
-allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
-
-umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-only,no-mtab,lazy,test-opts:,recursive,read-only,types:,verbose,help,version
- mount_longOPS=all,no-canonicalize,fake,fork,fstab:,internal-only,show-labels,no-mtab,options:,test-opts:,read-only,types:,source:,target,verbose,rw,read-write,label,uuid,help,version
- mount_longOPS="$mount_longOPS",bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable
-
-  #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
- getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
-_debug "               options='$getOPS'"
-
-# getOPS=`echo "$getOPS" | sed 's!\\\\!\\\\\\\\!g'`
-  #getOPS=`echo "$getOPS" | sed 's!\\\\ !\\\\040!g'`
-#_debug "options='$getOPS'"
-
 _posparams_to_octal()
 {
         _debug "_posparams_to_octal:$@"
@@ -166,6 +150,17 @@ posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
 }
 
+_get_options()
+{
+allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
+
+umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-only,no-mtab,lazy,test-opts:,recursive,read-only,types:,verbose,help,version
+ mount_longOPS=all,no-canonicalize,fake,fork,fstab:,internal-only,show-labels,no-mtab,options:,test-opts:,read-only,types:,source:,target,verbose,rw,read-write,label,uuid,help,version
+ mount_longOPS="$mount_longOPS",bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable
+
+  #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
+ getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
+_debug "               options='$getOPS'"
 
  #longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  longOPS=${getOPS% -- *}
@@ -173,44 +168,31 @@ _debug "             posPARAMS='$posPARAMS'"
  test "${longOPS//[[:blank:]]/}" || longOPS='';
 _info "           long options='$longOPS'"
 
-#test "$longOPS" || longOPS=--
-#shortOPS=`echo "$getOPS" | sed "s%$longOPS%%"`
-#test "$longOPS" = '--' && longOPS=""
-#shortOPS=`echo "$shortOPS" | sed "s%'%"'"'"%g"`
-
-#shortOPS=${getOPS//--/}
 shortOPS=${getOPS%%--*}
 _debugx "        short options='$shortOPS'"
 shortOPS=`echo "$shortOPS" | sed "s%'%%g"`
 test "${shortOPS//[[:blank:]]/}" || shortOPS='';
 _info "          short options='$shortOPS'"
-#posPARAMS=${getOPS#*--}
+
 posPARAMS=${getOPS#*-- }
 _debugx "positional parameters='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!--$!!'`
 _debugx "positional parameters='$posPARAMS'"
-#posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g;s%'\\\\\\\''%\\\\\\\'%g;s%^'%%;s%'$%%"`
+
 posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g"`
 _debugx "positional parameters='$posPARAMS'"
-#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\\\\\\\'%g"`
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\'%g"`
-#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\\\\\\\!%g"`
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`
-#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\\\\\\\ %g"`
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`
 _debugx "positional parameters='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed "s%^'%%;s%'$%%"`
 _debugx "positional parameters='$posPARAMS'"
+
 test "$posPARAMS" = "$shortOPS" && posPARAMS='' || _debugx "posPARAMS NOT same as shortOPS";
 _debugx "positional parameters='$posPARAMS'"
-#_string_to_octal "$posPARAMS"
+
 _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
-
-#_debug '1*:'"$*"
-##set - $getOPS
-#set - $shortOPS $posPARAMS
-#_notice '2*:'"$*"
 }
 #_get_options "$*"
 #_get_options $*
@@ -223,13 +205,19 @@ test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 _update_partition_icon()
 {
 
+o_DEBUG=$DEBUG
+o_DEBUGX=$DEBUGX
+o_DEBUGT=$DEBUGT
+
 test -f /etc/eventmanager && . /etc/eventmanager
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
 
-#test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+DEBUG=$o_DEBUG
+DEBUGX=$o_DEBUGX
+DEBUGT=$o_DEBUGT
 
 test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 _debugt 99 $_DATE_
@@ -238,14 +226,13 @@ test "$mountBEFORE" -a "$mountAFTER" && {
         grepMB=`echo "$mountBEFORE" | sed 's!\\\!\\\\\\\!g'`
         updateWHATA=`echo "$mountAFTER" | _command grep -v "$grepMB"`
         updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA"`
-        #updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
-        #updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
-
         updateWHAT="$updateWHATA
 $updateWHATB" ; }
 _debugt 9f $_DATE_
+
  _check_tmp_rw || return 56
 _debugt 9e $_DATE_
+
  while read -r oneUPDATE oneMOUNTPOINT REST
  do
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
@@ -253,14 +240,15 @@ _debugt 9e $_DATE_
  eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
 _debugt 9d $_DATE_
+
  test "$noROX" || { _pidof $QUIET ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
-         #test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}"
          mountpoint $QUIET "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
          }
         }
  _debugt 9c $_DATE_
+
  case $oneUPDATE in
  *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd, nbd -- won't update partition icon"; skipICON=YES ; continue;;
  /dev/fd[0-9]*)      DRV_CATEGORY=floppy ;;
@@ -272,11 +260,11 @@ _debugt 9d $_DATE_
  *) _notice "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
  esac
  _debugt 9b $_DATE_
+
  case $WHAT in
  umount)
  _debugt 98 $_DATE_
    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
-   #[ "$VERBOSE" ] && _info "IS in df"
     if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
      _info "_update_partition_icon:$oneUPDATE is boot partition"
      #only a partition left mntd that is in use by puppy, change green->yellow...
@@ -287,14 +275,12 @@ _debugt 9d $_DATE_
      icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     fi
    fi
- #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT"; }
  _debugt 97 $_DATE_
  ;;
  mount)
  _debugt 96 $_DATE_
  _debugx "icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY"
       icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
-      #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT" -d "$oneMOUNTPOINT"; }
  _debugt 95 $_DATE_
  ;;
  *) _err "_update_partition_icon:'$WHAT' not handled.";;
@@ -546,10 +532,10 @@ esac
 _builtin_getopts "$@"
 _debugt 88 $_DATE_
 
-_debug '3*:'$*
-while test 1 = 1; do
-[[ "$1" = '--' ]] && shift || break
-done
+#_debug '3*:'$*
+#while test 1 = 1; do
+#[[ "$1" = '--' ]] && shift || break
+#done
 _debug '4*:'$*
 #set - $longOPS $@
 set - $longOPS $shortOPS $posPARAMS
@@ -581,10 +567,11 @@ exit 0
 
 fi
 _debugt 87 $_DATE_
-_debug "7@:"$@
-while test 1 = 1; do
-test "$1" == '--' && shift || break
-done
+
+#_debug "7@:"$@
+#while test 1 = 1; do
+#test "$1" == '--' && shift || break
+#done
 _debug "8@:"$@
 _info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
@@ -592,14 +579,12 @@ _info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW
 
 case $# in
 1)
-#deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
-#deviceORpoint=`echo -e "$deviceORpoint"`
 deviceORpoint=`echo -e $@`
-#deviceORpoint=${deviceORpoint//\\/}
 _debug "deviceORpoint='$deviceORpoint'"
 ;;
 esac
 _debugt 86 $_DATE_
+
 case $WHAT in
 mount)
 if test "$deviceORpoint"; then
@@ -686,7 +671,6 @@ umount) :;;
 ;;
 esac
 _debugt 85 $_DATE_
-#mountBEFORE=`cat /proc/mounts`
 
 case $WHAT in
 umount)
@@ -702,18 +686,16 @@ mount) :;;
 *) _exit 41 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 _debugt 84 $_DATE_
+
 case $WHAT in
 umount)
-#deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
 if test "$deviceORpoint"; then
 grepP=${deviceORpoint// /\\\\040}
 _debug "grepP='$grepP'"
-#mountPOINT=`echo "$mountBEFORE" | grep -w "$deviceORpoint" | cut -f 2 -d' '`
 mountPOINT=`echo "$mountBEFORE" | grep -w "$grepP" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
 fi
-#mountpoint $QUIET "$mountPOINT" && {
         if test -d "$mountPOINT"; then
         _debug "Closing ROX-Filer if necessary..."
         _pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
@@ -741,13 +723,12 @@ $fsUSERS" &
            fi
          }
         fi
-        #_debug "Closing ROX-Filer if necessary..."
-        #_pidof $QUIET ROX-Filer && rox -D "$mountPOINT";
 ;;
 mount) :;;
 *) _exit 42 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 _debugt 83 $_DATE_
+
 case $WHAT in
 umount)
 
@@ -756,18 +737,14 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-
 ePAR="`echo -e "$onePAR"`"
-#ePAR=${ePAR//\\/}
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
-#set - $@ $ePAR
 done
 
 
 if [ "$NTFSMNTPT" != "" ]; then
         if [ "$opI" == '-i' ]; then #fusermount passes -i option to /bin/mount
-        #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
         _notice busybox $WHAT "$@" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
                 busybox $WHAT "$@" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         RETVAL=$?
@@ -778,104 +755,12 @@ if [ "$NTFSMNTPT" != "" ]; then
         RETVAL=$?
         fi
 else
- #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
  _info  busybox $WHAT "$@" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
         busybox $WHAT "$@" $opFL $opNFL $opF $opI $opN $opR $opL $opVERB
  RETVAL=$?
 fi
 ;;
 mount)
-
-__out(){
-      case $opT in
-      *ntfs*)               #*ntfs*)?
-       test -b "$*" && {   #ntfs-3g does not look into /etc/fstab?
-
-        test "`which ntfs-3g.probe`" && {
-         _debug "Running ntfs-3g.probe --readwrite on $@:"
-         ntfs-3g.probe --readwrite $@
-         RETVAL=$?
-         test "$RETVAL" = 0 && _debug "OK."
-                }
-
-        LANG=$LANG_ROX mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$@";
-        }
-
-       test "$RETVAL" || RETVAL=0
-
-       test "$RETVAL" = 0 && {
-       _notice "ntfs-3g -o umask=0,no_def_opts "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
-                ntfs-3g -o umask=0,no_def_opts $@ $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
-       RETVAL=$?
-        }
-
-       test "$RETVAL" = 0 || {
-               if test "$RETVAL" = 14; then { _warn "Need to remove hibernation file to mount read-write";
-                 _notice "ntfs-3g "$@" -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS"
-                          ntfs-3g $@ -o umask=0,no_def_opts,remove_hiberfile $opVERB $opLABEL $opUUID $opDRY $opO $opR $opW $opI $opS $opSHOWL
-                 RETVAL=$?
-               }
-             elif test "$RETVAL" = 4 -o "$RETVAL" = 10 -o "$RETVAL" = 15; then { _warn "Attempt to force read-write mount";
-                 _notice "ntfs-3g "$@" -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS"
-                          ntfs-3g $@ -o force,umask=0,no_def_opts $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opS $opSHOWL
-                 RETVAL=$?
-               }
-             else { _err "Unhandled ntfs-3g return code '$RETVAL'"; } # 11:Wrong Option,No mountpoint specified ; 21:No such File or Dir
-               fi
-                        }
-        test "$RETVAL" = 0 || { _notice "Will attempt to mount ntfs partition using the limited kernel driver";
-         _notice "busybox mount "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
-                  busybox mount $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
-         RETVAL=$?
-         }
-      ;;
-      *fat*|*FAT*|*Fat*)
-       NLS_PARAM=''
-        if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
-         KEYMAP="`cat /etc/keymap | cut -f 1 -d '.'`"
-         case $KEYMAP in
-          de|be|br|dk|es|fi|fr|it|no|se|pt)
-           NLS_PARAM=',codepage=850'
-          ;;
-          slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
-           NLS_PARAM=',codepage=852,iocharset=iso8859-2'
-          ;;
-         esac
-        fi
-       _notice "busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS"
-                busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} $@ $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS
-       RETVAL=$?
-      ;;
-      *)
-      if test "$opFORK" -o "$opUUID" -o "$opLABEL" -o "$opSHOWL" -o "`echo "$longOPS" | grep -E 'bind|move|make'`"; then
-      # use mount-FULL
-        if test "$opUUID"; then
-         MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
-         for oneMTP in $MntPoints; do
-         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
-         done
-        fi
-        if test "$opLABEL"; then
-         _debug "opLABEL='$opLABEL'"
-         lONLY=`echo "$opLABEL" | cut -f2 -d' '`
-         _debug "lONLY='$lONLY'"
-         MntPoints=$(grep -w "$lONLY" /etc/fstab | awk '{print $2}')
-         for oneMTP in $MntPoints; do
-         _debug "oneMTP='$oneMTP'"
-         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
-         done
-        fi
-       _notice "$WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL"
-                $WHAT-FULL $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
-       RETVAL=$?
-      else # use busybox mount
-       _info "busybox $WHAT "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB"
-              busybox $WHAT $@ $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-       RETVAL=$?
-      fi #use mount-FULL
-      ;;
-      esac
-} #__out
 
 _do_mount_ntfs_3g()
 {
@@ -885,9 +770,7 @@ set --  #unset everything
 
 for onePAR in $posPARAMS
 do
-
 ePAR="`echo -e "$onePAR"`"
-#ePAR=${ePAR//\\/}
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -943,9 +826,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-
 ePAR="`echo -e "$onePAR"`"
-#ePAR=${ePAR//\\/}
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -976,9 +857,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-
 ePAR="`echo -e "$onePAR"`"
-#ePAR=${ePAR//\\/}
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -1008,32 +887,19 @@ done
 
 _do_mount_bb()
 {
-
-#set - `echo -e $@`
 set --  #unset everything
 set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-
 ePAR="`echo -e "$onePAR"`"
-#ePAR=${ePAR//\\/}
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
-#set - $@ $ePAR
 done
 _debug "_do_mount_bb:$*"
 
        _info "busybox $WHAT ""$@"" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB"
               busybox $WHAT  "$@"  $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-
-#_info busybox $WHAT $longOPS $shortOPS $posPARAMS   $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-#      busybox $WHAT $longOPS $shortOPS $posPARAMS   $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-
-#_info busybox $WHAT $longOPS $shortOPS $MOUNT_STRING   $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-#      busybox $WHAT $longOPS $shortOPS $MOUNT_STRING   $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
-
-
        RETVAL=$?
        return $RETVAL
 
@@ -1056,21 +922,18 @@ case $OPT in
 -a|-f|-i|-o*|-O*|-r|-s|-v|-w) :;;
 -t*ntfs*)
  _notice "Using ntfs-3g"
- #_do_mount_ntfs_3g $*
  _do_mount_ntfs_3g "$@"
  RV=$?
  return $RV
  ;;
 -t*fat*)
  _notice "vfat mount"
- #_do_mount_vfat $*
  _do_mount_vfat "$@"
  RV=$?
  return $RV
 ;;
 -B|-c|-F|-l|-L*|-M|-p|-R|-T*|-U*)
  _notice "Using mount-FULL"
- #_do_mount_full $*
  _do_mount_full "$@"
  RV=$?
  return $RV
@@ -1078,7 +941,6 @@ case $OPT in
 esac
 done
 _info Using busybox mount "$@"
-#_do_mount_bb $*
 _do_mount_bb "$@"
 RV=$?
 return $RV
@@ -1090,14 +952,12 @@ _debug "_have_long_options:$*"
 case $longOPS in
 --|"")
 _debugt 82 $_DATE_
-#_which_mount $*
 _which_mount "$@"
 RV=$?
 _debugt 81 $_DATE_
 return $RV
 ;;
 *)
-#_do_mount_full $*
 _do_mount_full "$@"
 RV=$?
 return $RV
@@ -1108,12 +968,10 @@ esac
 shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
 _debugx "shortOPS='$shortOPS'"
 _debugx " longOPS='$longOPS'"
-#set  - $longOPS $shortOPS `echo -e $@`
 set -- # unset everything
 set - $longOPS $shortOPS $@ #$opVERB $opALL $opC $opDRY $opD $opND $opFORK $opLABEL $opMO $opPASS $opRB $opUUID $opT $opAF $opSHOWL $opVERB
 _debugx 'A*:'$*
 _debugx 'A@:'$@
-#_have_long_options $*
 _have_long_options "$@"
 
 ;;
@@ -1134,7 +992,6 @@ _umount_rmdir()
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
- #test "$noROX" || rox -x /mnt -x "`pwd`"
  test "$WHAT" = umount || return 0
  _debugt 04 $_DATE_
  test "`echo "$mountPOINT" | grep -E '/dev|/proc|/sys|/tmp'`" && return 0
@@ -1146,7 +1003,6 @@ _update()
  do
  _debug "oneDIR='$oneDIR'" >&2
  test "$oneDIR" || continue
- #test "`echo "$oneDIR" | grep -E '/proc|/sys'`" && continue
  _umount_rmdir "$oneDIR"
  done<<EoI
 `_command find /mnt -maxdepth 1 -type d -empty`
