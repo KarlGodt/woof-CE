@@ -29,7 +29,9 @@ DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
-echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.UTF-8
+#echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.UTF-8
+echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.utf8
+_info "using '$LANG_ROX'"
 
 #busybox mountpoint does not recognice after
 #mount --bind / /tmp/ROOTFS
