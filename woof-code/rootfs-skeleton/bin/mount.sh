@@ -5,7 +5,7 @@ _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
 #unset LANG LC_ALL
-local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
+local _TIME_ LC_NUMERIC=C LC_TIME=C LANG= LC_ALL=
 _DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
 #_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
 if test "$2"; then
@@ -108,20 +108,20 @@ else
 while read -r oneLINE
 do
 #test "$oneLINE" || continue
- echo "oneLINE='$oneLINE'" >&2
+ _debug "oneLINE='$oneLINE'" >&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
- echo "STRING='$STRING'" >&2
+ _debugx "STRING='$STRING'" >&2
  while read -r oneCHAR
  do
- echo "oneCHAR='$oneCHAR'" >&2
+ _debugx "oneCHAR='$oneCHAR'" >&2
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
- echo "oneCHAR='$oneCHAR'" >&2
+ _debug "oneCHAR='$oneCHAR'" >&2
  oCHAR=`printf %o \'"$oneCHAR"`
- echo "oCHAR='$oCHAR'" >&2
+ _debug "oCHAR='$oCHAR'" >&2
  #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
- echo "oSTRING='$oSTRING'" >&2
+ _debugx "oSTRING='$oSTRING'" >&2
 
  done<<EoI
 `echo "$STRING"`
@@ -207,18 +207,18 @@ _debugx "positional parameters='$posPARAMS'"
 _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
 
-_debug '1*:'"$*"
-#set - $getOPS
-set - $shortOPS $posPARAMS
-_notice '2*:'"$*"
+#_debug '1*:'"$*"
+##set - $getOPS
+#set - $shortOPS $posPARAMS
+#_notice '2*:'"$*"
 }
 #_get_options "$*"
 #_get_options $*
 #_get_options $@
 _get_options "$@"
 _debugt 8C $_DATE_
+
 test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
-#mountpoint
 
 _update_partition_icon()
 {
@@ -383,6 +383,10 @@ case $0 in
 *) _exit 38 "No such '$0' -- use 'mount' or 'umount' .";;
 esac
 _debugt 89 $_DATE_
+
+_builtin_getopts()
+{
+local oneOPT
 opN=-n;
 case $WHAT in
 umount)
@@ -538,7 +542,10 @@ umount)
 ;;
  *) _exit 39 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
+}
+_builtin_getopts "$@"
 _debugt 88 $_DATE_
+
 _debug '3*:'$*
 while test 1 = 1; do
 [[ "$1" = '--' ]] && shift || break
@@ -749,9 +756,10 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-echo -e "$onePAR"
+
 ePAR="`echo -e "$onePAR"`"
 #ePAR=${ePAR//\\/}
+_debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
@@ -877,9 +885,10 @@ set --  #unset everything
 
 for onePAR in $posPARAMS
 do
-echo -e "$onePAR"
+
 ePAR="`echo -e "$onePAR"`"
 #ePAR=${ePAR//\\/}
+_debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
 
@@ -934,9 +943,10 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-echo -e "$onePAR"
+
 ePAR="`echo -e "$onePAR"`"
 #ePAR=${ePAR//\\/}
+_debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
 
@@ -966,9 +976,10 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-echo -e "$onePAR"
+
 ePAR="`echo -e "$onePAR"`"
 #ePAR=${ePAR//\\/}
+_debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
 
@@ -1004,9 +1015,10 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-echo -e "$onePAR"
+
 ePAR="`echo -e "$onePAR"`"
 #ePAR=${ePAR//\\/}
+_debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
