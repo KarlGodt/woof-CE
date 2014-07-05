@@ -105,15 +105,20 @@ else
 while read -r oneLINE
 do
 #test "$oneLINE" || continue
- echo "'oneLINE=$oneLINE'" >&2
+ echo "oneLINE='$oneLINE'" >&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
  echo "STRING='$STRING'" >&2
  while read -r oneCHAR
  do
+ echo "oneCHAR='$oneCHAR'" >&2
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ echo "oneCHAR='$oneCHAR'" >&2
  oCHAR=`printf %o \'"$oneCHAR"`
+ echo "oCHAR='$oCHAR'" >&2
+ #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
+ echo "oSTRING='$oSTRING'" >&2
 
  done<<EoI
 `echo "$STRING"`
@@ -152,14 +157,16 @@ echo "$@" | _string_to_octal >/tmp/posPARAMS.od
 test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
 posPARAMS=`cat /tmp/posPARAMS.od`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
-posPARAMS=`echo "$posPARAMS" | sed 's!\\012!\n!g'`
+posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
 }
 
 
- longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ #longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ longOPS=${getOPS% -- *}
+ longOPS=`echo "$longOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  test "${longOPS//[[:blank:]]/}" || longOPS='';
 _info "           long options='$longOPS'"
 
@@ -179,10 +186,22 @@ posPARAMS=${getOPS#*-- }
 _debugx "positional parameters='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!--$!!'`
 _debugx "positional parameters='$posPARAMS'"
-posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g;s%'%%g"`
+#posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g;s%'\\\\\\\''%\\\\\\\'%g;s%^'%%;s%'$%%"`
+posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g"`
+_debugx "positional parameters='$posPARAMS'"
+#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\\\\\\\'%g"`
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\'%g"`
+#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\\\\\\\!%g"`
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`
+#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\\\\\\\ %g"`
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`
+_debugx "positional parameters='$posPARAMS'"
+posPARAMS=`echo "$posPARAMS" | sed "s%^'%%;s%'$%%"`
+_debugx "positional parameters='$posPARAMS'"
 test "$posPARAMS" = "$shortOPS" && posPARAMS='' || _debugx "posPARAMS NOT same as shortOPS";
 _debugx "positional parameters='$posPARAMS'"
-_string_to_octal "$posPARAMS"
+#_string_to_octal "$posPARAMS"
+_posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
 
 _debug '1*:'"$*"
@@ -566,7 +585,7 @@ case $# in
 #deviceORpoint=`echo $@ | sed "s%^'%%;s%'$%%"`
 #deviceORpoint=`echo -e "$deviceORpoint"`
 deviceORpoint=`echo -e $@`
-deviceORpoint=${deviceORpoint//\\/}
+#deviceORpoint=${deviceORpoint//\\/}
 _debug "deviceORpoint='$deviceORpoint'"
 ;;
 esac
@@ -594,7 +613,9 @@ if test "$deviceORpoint"; then
   mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; mkdir -p "$mountPOINT"; }
- } || { test "$*" = "$deviceORpoint" && set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
+ } || { test "$*" = "$deviceORpoint" && {
+         posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
+          }
  _debug "$WHAT:"$@
 fi
 c=0
@@ -621,12 +642,16 @@ smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
 o_ocposPAR="$posPAR"
    posPAR=`echo -e "$posPAR"`
-   posPAR=${posPAR//\\/}
+   #posPAR=${posPAR//\\/}
 o_posPAR="$posPAR"
-      _debug "c=$c \$#=$# "$posPAR
+      _debug "c=$c \$#=$# ""$posPAR"
    test -e /etc/fstab || touch /etc/fstab
-   mountPOINT=`grep $QUIET -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
-   test "$mountPOINT" && posPAR="$mountPOINT"
+   grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
+   mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
+   #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
+   _debugx "mountPOINT='$mountPOINT'"
+   test "$mountPOINT" && { posPAR="$mountPOINT"
+   _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
    test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
@@ -716,15 +741,6 @@ _debugt 83 $_DATE_
 case $WHAT in
 umount)
 
-_without_od()
-{
-        _get_options "$@"
-
-shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
-_debug " shortOPS='$shortOPS'"
-_debug "  longOPS='$longOPS'"
-_debug "posPARAMS='$posPARAMS'"
-
 set --  #unset everything
 set - $longOPS $shortOPS
 
@@ -732,20 +748,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-set - $@ "$ePAR"
-done
-
-#mountpoint $QUIET "$deviceORpoint" && fuser -m "$deviceORpoint"
-}
-
-set --  #unset everything
-set - $longOPS $shortOPS
-
-for onePAR in $posPARAMS
-do
-echo -e "$onePAR"
-ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
@@ -866,47 +869,6 @@ __out(){
 _do_mount_ntfs_3g()
 {
 
-_without_od()
-{
-        #set - `echo -e $@`
-        #_get_options $*
-        _get_options "$@"
-
-shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
-_debug " shortOPS='$shortOPS'"
-_debug "  longOPS='$longOPS'"
-_debug "posPARAMS='$posPARAMS'"
-#set  - $longOPS $shortOPS `echo -e $@`
-#set  - $longOPS $shortOPS $@
-
-#posPARAMS=`echo "$posPARAMS" | sed 's!\\040!\\ !g'`
-#_debug "posPARAMS='$posPARAMS'"
-
-#set - $longOPS $shortOPS "$posPARAMS"
-#_debug 'A*:'$*
-#_debug 'A@:'$@
-
-#set - `echo -e "$@"`
-
-set --  #unset everything
-set - $longOPS $shortOPS
-
-for onePAR in $posPARAMS
-do
-echo -e "$onePAR"
-ePAR="`echo -e "$onePAR"`"
-#MOUNT_STRING="$MOUNT_STRING
-#\"`echo -e $onePAR`\"
-#"
-#MOUNT_STRING="$MOUNT_STRING
-#`echo -e $onePAR`
-#"
-set - $@ "$ePAR"
-done
-
-#MOUNT_STRING=`echo $MOUNT_STRING`
-}
-
 set --  #unset everything
 #set - $longOPS $shortOPS
 
@@ -914,7 +876,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
@@ -964,28 +926,6 @@ done
 _do_mount_vfat()
 {
 
-_without_od()
-{
-         #set - `echo -e $@`
-        #_get_options $*
-        _get_options "$@"
-
-shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
-_debug " shortOPS='$shortOPS'"
-_debug "  longOPS='$longOPS'"
-_debug "posPARAMS='$posPARAMS'"
-#set  - $longOPS $shortOPS `echo -e $@`
-#set  - $longOPS $shortOPS $@
-
-#posPARAMS=`echo "$posPARAMS" | sed 's!\\040!\\ !g'`
-#_debug "posPARAMS='$posPARAMS'"
-
-#set - $longOPS $shortOPS "$posPARAMS"
-#_debug 'A*:'$*
-#_debug 'A@:'$@
-
-#set - `echo -e "$@"`
-
 set --  #unset everything
 set - $longOPS $shortOPS
 
@@ -993,26 +933,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-#MOUNT_STRING="$MOUNT_STRING
-#\"`echo -e $onePAR`\"
-#"
-#MOUNT_STRING="$MOUNT_STRING
-#`echo -e $onePAR`
-#"
-set - $@ "$ePAR"
-done
-
-#MOUNT_STRING=`echo $MOUNT_STRING`
-}
-
-set --  #unset everything
-set - $longOPS $shortOPS
-
-for onePAR in $posPARAMS
-do
-echo -e "$onePAR"
-ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
@@ -1037,27 +958,6 @@ done
 _do_mount_full()
 {
 
-_without_od(){
-        #set - `echo -e $@`
-        #_get_options $*
-        _get_options "$@"
-
-shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
-_debug " shortOPS='$shortOPS'"
-_debug "  longOPS='$longOPS'"
-_debug "posPARAMS='$posPARAMS'"
-#set  - $longOPS $shortOPS `echo -e $@`
-#set  - $longOPS $shortOPS $@
-
-#posPARAMS=`echo "$posPARAMS" | sed 's!\\040!\\ !g'`
-#_debug "posPARAMS='$posPARAMS'"
-
-#set - $longOPS $shortOPS "$posPARAMS"
-#_debug 'A*:'$*
-#_debug 'A@:'$@
-
-#set - `echo -e "$@"`
-
 set --  #unset everything
 set - $longOPS $shortOPS
 
@@ -1065,26 +965,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-#MOUNT_STRING="$MOUNT_STRING
-#\"`echo -e $onePAR`\"
-#"
-#MOUNT_STRING="$MOUNT_STRING
-#`echo -e $onePAR`
-#"
-set - $@ "$ePAR"
-done
-
-#MOUNT_STRING=`echo $MOUNT_STRING`
-}
-
-set --  #unset everything
-set - $longOPS $shortOPS
-
-for onePAR in $posPARAMS
-do
-echo -e "$onePAR"
-ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
@@ -1114,46 +995,6 @@ done
 _do_mount_bb()
 {
 
-_without_od(){
-        #set - `echo -e $@`
-        #_get_options $*
-        _get_options "$@"
-
-shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
-_debug " shortOPS='$shortOPS'"
-_debug "  longOPS='$longOPS'"
-_debug "posPARAMS='$posPARAMS'"
-#set  - $longOPS $shortOPS `echo -e $@`
-#set  - $longOPS $shortOPS $@
-
-#posPARAMS=`echo "$posPARAMS" | sed 's!\\040!\\ !g'`
-#_debug "posPARAMS='$posPARAMS'"
-
-#set - $longOPS $shortOPS "$posPARAMS"
-#_debug 'A*:'$*
-#_debug 'A@:'$@
-
-#set - `echo -e "$@"`
-
-set --  #unset everything
-set - $longOPS $shortOPS
-
-for onePAR in $posPARAMS
-do
-echo -e "$onePAR"
-ePAR="`echo -e "$onePAR"`"
-#MOUNT_STRING="$MOUNT_STRING
-#\"`echo -e $onePAR`\"
-#"
-#MOUNT_STRING="$MOUNT_STRING
-#`echo -e $onePAR`
-#"
-set - $@ "$ePAR"
-done
-
-#MOUNT_STRING=`echo $MOUNT_STRING`
-}
-
 #set - `echo -e $@`
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -1162,7 +1003,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
@@ -1187,11 +1028,6 @@ _which_mount()
 {
 _debug "_which_mount:$*"
 local oneOPT
-
-#for oneOPT in opA opB opC opD opE opF opG opH opI opJ opK opL opM opN opO opP opQ opR opS opT opU opV opW opX opY opZ \
-# opALL opDRY opFORK opSHOWL opLABEL opMO opPASS opRB opAF opUUID opVERB
-#do
-#OPT=`eval echo \\$$oneOPT`
 
 for oneOPT in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
  ALL DRY FORK SHOWL LABEL MO PASS RB AF UUID VERB
