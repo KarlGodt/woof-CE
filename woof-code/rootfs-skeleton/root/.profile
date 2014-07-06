@@ -1,5 +1,7 @@
 #120221 moved this code here from /etc/profile, also take 'exec' prefix off call to xwin.
 
+_function_run_xwin()
+{
 if [ ! -f /usr/bin/X ];then
  #v2.00r1 now support a text-mode-only puppy...
  if [ -f /usr/local/bin/elinks ];then
@@ -29,3 +31,4 @@ else
   xwin
  fi
 fi
+}
