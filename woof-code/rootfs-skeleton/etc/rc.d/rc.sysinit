@@ -298,14 +298,19 @@ echo "MAKE FILESYSTEM USABLE"
 out=/dev/null; err=$out
 [ $debug ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=-q; out=/dev/stdout; err=/dev/stderr; }
 
+mountpointDEV='';
+mDEV=YES;
+mountpoint $Q /dev && mountpointDEV=YES
+if test ! "$mountpointDEV"; then
+mdev -s || mDEV='';
+
 ##+++2013-12-28
-mountpoint $Q /dev && {
 ln -snf /proc/self/fd /dev/fd
  [ -L /dev/stdin ] || ln -snf fd/0 /dev/stdin
 [ -L /dev/stdout ] || ln -snf fd/1 /dev/stdout
 [ -L /dev/stderr ] || ln -snf fd/2 /dev/stderr
-}
 ##+++2013-12-28
+fi
 
 ##+++2012-01-29
 mkdir -p /dev/vc; rm -f /dev/vc/11; mknod /dev/vc/11 c 4 11
@@ -384,9 +389,10 @@ busybox mount /dev/pts; STATUS=$(($STATUS+$?))
 mkdir -p /sys
 busybox mount -t sysfs none /sys; STATUS=$(($STATUS+$?))
     echo "STATUS='$STATUS'"
+
+
 busybox mount -t debugfs none /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
     echo "STATUS='$STATUS'"
-
 #echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 #2.6.30.9-i586-dpup005-Celeron2G
 #/etc/rc.d/rc.sysinit: line 396: can't create /sys/kernel/debug/dynamic_debug/control: nonexistent directory
@@ -486,6 +492,7 @@ done
    #load_average '1x0d'
 
 mkmissing_tty_func(){
+test "$mDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 [ -d /dev/vc ] || mkdir /dev/vc
 
@@ -523,15 +530,6 @@ MAJ=`echo $RootDevBlockNrs | cut -f 1 -d ':'`
 Min=`echo $RootDevBlockNrs | cut -f 2 -d ':'`
 
 RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,10 -d ' ' | grep -w "^$MAJ" | grep -m1 -w "$Min" | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd'
-#LC_ALL=C ls -l /dev/sda2
-#brw-r--r-- 1 root root 8, 2 Jun 12 11:33 /dev/sda2
-#LANG=C ls -l /dev/sda2
-#brw-r--r-- 1 root root 8, 2 2012-06-12 11:33 /dev/sda2
-
-#LANG=C ls -l /dev/root
-#lrwxrwxrwx 1 root root 4 2012-06-15 17:16 /dev/root -> sda2
-#LANG=en_US ls -l /dev/root
-#lrwxrwxrwx 1 root root 4 2012-06-15 17:16 /dev/root -> sda2
 
 if [ -b /dev/"$RootDevice" ]; then
 ROOTDEVICE=$RootDevice
@@ -540,11 +538,27 @@ ROOTDEVICE=NOT_FOUND_BY_SYSINIT
 fi
 ln -sf $ROOTDEVICE /dev/root
 fi
-}
-check_dev_root_func
+}; #check_dev_root_func
+#load_average '1x0f'
+
+funcDEV_ROOT(){
+test "$PUPMODE" || return 1
+case $PUPMODE in
+2|3) DEV_ROOT=`rdev | cut -f1 -d' '`
+     [ -b $DEV_ROOT ] || return 1
+     ln -sf ${DEV_ROOT##*/} /dev/root
+     ;;
+6|7) :;;
+12|13) :;;
+77)  :;;
+esac
+}; funcDEV_ROOT
 load_average '1x0f'
 
+
 check_frugal_full_func(){
+
+return 0
 
 CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
 RootDiskFreeFrugal=`/bin/df | grep -Fw '/' | grep 'rootfs'`
@@ -589,10 +603,11 @@ RootDevice='$RootDevice'
 MainDevice='$MainDevice'
 "
 }; check_frugal_full_func
-load_average '1x1a'
+#load_average '1x1a'
 #file_system_state 7
 
 mk_missing_var_dev_func(){
+test "$mDEV" && return 0
 
 if test -d /var/db/$KERNEL_RELEASE/dev; then
 cp -a /var/db/$KERNEL_RELEASE/dev / 2>$err
@@ -1242,8 +1257,6 @@ fi
 
 ### sort logs ###
 funcPUPPY_UDEV_HELPER(){
-#FILE='/tmp/pup_eve_bac_mod.log'
-#[ -f "$FILE" ] || FILE='/tmp/pup_event_backend_modprobe.log'
 FILE=`grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe)`
 eval $FILE
 FILE1="${FILE%=*}"
@@ -1251,7 +1264,7 @@ FILE2=`eval echo \\$$FILE1`
 if [ -f "$FILE2" ]; then
 while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ]; do sleep 4; done
 sleep 1s  ## 120s ##5s
-echo 'Sorting now this log file by '`readlink -f $0` >> "$FILE2"
+echo 'Sorting now this log file by '`readlink -f "$0"` >> "$FILE2"
 cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
 PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
 for i in $PIDS; do
@@ -1278,8 +1291,7 @@ if [ "$maxChars" ]; then
 else
 maxChars=80
 fi
-#echo -e "`cat /tmp/vcs1.txt |sed -e 's,\(.\{80\}\),\1\\n,g'`" >>/tmp/vcs1.txt
-#sed "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt >>/tmp/vcs1.txt
+
 sed -i "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt
 ### capture bootscreen ###
 
