@@ -138,6 +138,25 @@ Cya='\033[0;36m'
 CYA='\033[1;36m'
 Res='\033[0;39m'
 
+test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
+
+#if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then
+if [ "$PUPMODE" = 2 ]; then
+busybox mount -o remount,rw /dev/root /
+#sleep 1s;mkdir -p /root/my-documents/boot;cp -r /tmp /root/my-documents/boot/tmp.old  ###+++2011-12-04
+sleep 1s;rm -rf /tmp/*;rm -rf /tmp/.[a-zA-Z0-9]*  ##+++2011-11-08 moved here #+2011-11-17 added rm hidden files
+ test -d /tmp || mkdir /tmp
+ chmod 1777 /tmp
+ mountpoint -q /dev || {
+ test "`which mdev`" && {
+ test -d /dev || mkdir /dev
+ mount -t ramfs devramfs /dev
+        mdev -s; } ; } ###+++2014-06-25
+else
+STATUS=0
+status_func $STATUS
+fi
+
 if [ -d /proc ]; then
 FINDPROC=`find /proc -maxdepth 1 -type f 2>/dev/null`
 [ -z "$FINDPROC" ] && busybox mount -t proc none /proc  ###KRG put here for additional df check (wary094 frugal had written /initrd into full install) ###KRG
@@ -164,20 +183,14 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
-if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then
-busybox mount -o remount,rw /
-#sleep 1s;mkdir -p /root/my-documents/boot;cp -r /tmp /root/my-documents/boot/tmp.old  ###+++2011-12-04
-sleep 1s;rm -rf /tmp/*;rm -rf /tmp/.[a-zA-Z0-9]*  ##+++2011-11-08 moved here #+2011-11-17 added rm hidden files
-else
-STATUS=0
-status_func $STATUS
-fi
 BUSYBOX_INIT_FUNC(){  ###KRG
 busybox umount /sys
 busybox umount /proc
 exec busybox init
 }
-if [ -d /initrd -o -n "`busybox df | grep '/initrd'`" ]; then  ###KRG
+
+#if [ -d /initrd -o -n "`busybox df | grep '/initrd'`" ]; then  ###KRG
+if [ "$PUPMODE" != 2 ]; then
 BUSYBOX_INIT_FUNC
 fi  ###KRG
 
@@ -189,7 +202,7 @@ UPDATINGDEV_FUNC(){
 #MODULES_ADD_FUNC
 #fi
 #fi
-echo -n "Updating Device nodes " >/dev/console
+echo -n "Updating Device nodes ..." >/dev/console
 STATUS=0
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
 echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV; do
@@ -199,7 +212,8 @@ mknod "$1"/dev/$SDEV b $MAJ $MIN
 STATUS=$(( $STATUS + $? ))
 echo -n '.' >/dev/console
 done
-if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then
+#if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then
+if [ "$PUPMODE" = 2 ]; then
 status_func $STATUS
 fi
 }
