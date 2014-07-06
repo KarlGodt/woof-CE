@@ -428,7 +428,7 @@ cat /root/.packages/${DLPKG_NAME}.files
 #flush unionfs cache, so files in pup_save layer will appear "on top"...
 if [ "$DIRECTSAVEPATH" != "" ];then
  #but first, clean out any bad whiteout files...
- find /initrd/pup_rw -xdev -type f -name .wh.\* |
+ find /initrd/pup_rw -mount -type f -name .wh.\* |
  while read ONEWHITEOUT
  do
   ONEWHITEOUTFILE=`basename "$ONEWHITEOUT"`
