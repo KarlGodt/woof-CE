@@ -1,0 +1,1388 @@
+#!/bin/ash
+
+VERSION=0.0.1
+SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
+
+_cd_program_dir()
+{
+ME_PROG=`readlink -f "$0"`
+ME_DIR=${ME_PROG%/*}
+cd "$ME_DIR"
+}
+
+_check_if_already_running()
+{
+pidof -o $$ -o %PPID "${0##*/}" && {
+        echo "Already running."
+        exit 1
+ }
+return $?
+}
+
+_check_for_terminal()
+{
+local MSG
+MSG="Need a contolling terminal"
+tty >/dev/null || {
+echo -n "Pid of X server:"
+pidof X && xmessage -br red "$MSG"; exit 2; } || {
+echo "$MSG"; exit 2; }
+return $?
+}
+
+_exit()
+{
+RV=$1
+shift
+echo "$*"
+exit $RV
+}
+
+_trap()
+{
+trap "_exit 99 \"Caught Signal\"" INT KILL TERM
+}
+
+_version()
+{
+echo "$0:Version:$VERSION"
+exit 0
+}
+
+_usage()
+{
+local USAGE_MSG RV
+RV=$1
+shift
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+PARAMETERS :
+
+NONE YET
+
+--
+$*
+"
+echo "$USAGE_MSG"
+
+if test "$RV" != 0; then
+_exit $RV "Try again. Good Luck!"
+else
+exit $RV
+fi
+return $?
+}
+
+__getopt()
+{
+
+#POSIXLY_CORRECT=    ##
+#GETOPT_COMPATIBLE=  ##
+
+GET_OPT=`busybox getopt \
+      -a -l help,version \
+      -o h,V \
+      -s sh \
+      "$*"`
+test $? = 0 || _usage 2 "Wrong option."
+
+set - "`echo "$GET_OPT" | sed "s^' '^'\n'^g"`"
+
+while read oneOPTION
+do
+test "$oneOPTION" || continue
+case $oneOPTION
+in
+*) :;;
+esac
+done<<EoI
+`set`
+EoI
+set -
+return $?
+}
+
+_getopts()
+{
+local oneOPTION
+allOPS=AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz-
+#while getopts hV oneOPTION
+while getopts $allOPS oneOPTION
+do
+case $oneOPTION
+in
+h) _usage 0;;
+V) _version;;
+*) _warn "Unsupported option '$oneOPTION'";;
+esac
+done
+return $?
+}
+
+_test()
+{
+#test "$*"
+test $*
+case $? in
+0)
+echo "'$*'" OK
+return 0
+;;
+1)
+echo "! '$*'"
+return 1
+;;
+2)
+echo "'$*'" wrong input
+return 1
+;;
+esac
+return $?
+}
+
+_get_argv()
+{
+local oneARG
+for oneARG in $*
+do
+case $oneARG
+in
+-*help|help) _usage 0;;
+-*version|version) _version;;
+*) :;;
+esac
+done
+return $?
+}
+
+_logger()
+{
+local MESSAGE PRIORITY TAG
+case $# in
+1) MESSAGE="$*";;
+2) PRIORITY=$1
+   shift
+   MESSAGE="$*";;
+''|0) echo "$0:_logger [ PRRIORITY ] [[ TAG ]]:Need at least MESSAGE." >&2
+      return 1;;
+*)
+PRIORITY=$1
+shift
+TAG="$1"
+shift
+MESSAGE="$*"
+;;
+esac
+
+#_test "\"$PRIORITY\"" != '""' || PRIORITY=7
+#_test "\"$TAG\"" != '""'      || TAG=${0##*/}
+
+_check_content "$PRIORITY" || PRIORITY=7
+_check_content "$TAG"      || TAG=${0##*/}
+
+logger -p $PRIORITY -t "$TAG" "$MESSAGE"
+return $?
+
+#May 29 09:21:57 puppypc user.debug  /bin/sh: TESTING logger 7
+#May 29 09:22:13 puppypc user.info   /bin/sh: TESTING logger 6
+#May 29 09:22:19 puppypc user.notice /bin/sh: TESTING logger 5
+#May 29 09:22:26 puppypc user.warn   /bin/sh: TESTING logger 4
+#May 29 09:22:32 puppypc user.err    /bin/sh: TESTING logger 3
+#May 29 09:22:37 puppypc user.crit   /bin/sh: TESTING logger 2
+#May 29 09:22:43 puppypc user.alert  /bin/sh: TESTING logger 1
+#May 29 09:22:48 puppypc user.emerg  /bin/sh: TESTING logger 0
+#May 29 09:22:06 puppypc user.emerg  /bin/sh: TESTING logger 8
+
+}
+
+#======== Accumulating Errors and create Message Variable ====================
+_basic_error_check()
+{
+local USAGE RV
+USAGE="Usage: _basic_error_check \$? \"MESSAGE\""
+RV=$1
+test "$RV" || { RV=127; set - $USAGE $*; echo "$USAGE -- got '$*'" >&2; }
+test "${RV//[0-9]/}" && { RV=127; set - $USAGE $*; echo "$USAGE -- got '$*'" >&2; }
+shift
+if test "$RV" != "0"; then
+__ERRORS__="$__ERRORS__
+'$*' returned '$RV'"
+fi
+return $RV
+}
+
+_check_content()
+{
+test "$*" || { _err "Usage: _check_content VARIABLE -- got '$*'"; return 0; }
+ENOCONTENT=28
+#test "$*" && return 0 || { _err "NO content."; return $ENOCONTENT; }
+#echo "'`eval echo \\$$*`'"
+test "`eval echo \\$$*`" && return 0 || { _err "$*:NO content."; return $ENOCONTENT; }
+}
+
+_check_content2()
+{
+test "$2" || { _err "Usage: _check_content2 PATTERN VARIABLE -- got '$*'"; return 0; }
+EWRONGCONTENT=29
+unset sPATTERN gPATTERN
+local sPATTERN gPATTERN
+#echo -n "`eval echo \\$$*`"' : '
+#echo "`eval echo \\$\${*//[[:digit:]]/}`"
+
+case $1 in
+  digit) gPATTERN="[[:digit:]]";;
+nodigit|onlydigit|digitonly) gOPT=-v;gPATTERN="[[:digit:]]";
+test "`echo $(eval echo \\$\${*//[[:digit:]]/})`" && { _warn "$*:Other than :digit: content."; return $EWRONGCONTENT; } || return 0;;
+  alpha) gPATTERN="[[:alpha:]]";;
+noalpha|onlyalpha|alphaonly) gOPT=-v;gPATTERN="[[:alpha:]]";
+test "`echo $(eval echo \${*//[[:alpha:]]/})`" && { _warn "$*:Other than :alpha: content."; return $EWRONGCONTENT; } || return 0;;
+  alnum) gPATTERN="[[:alnum:]]";;
+noalnum|onlyalnum|alnumonly) gOPT=-v;gPATTERN="[[:alnum:]]";
+test "`echo $(eval echo \${*//[[:alnum:]]/})`" && { _warn "$*:Other than :alnum: content."; return $EWRONGCONTENT; } || return 0;;
+  punct) gPATTERN="[[:punct:]]";;
+nopunct|onlypunct|punctonly) gOPT=-v;gPATTERN="[[:punct:]]";
+test "`echo $(eval echo \\$\${*//[[:punct:]]/})`" && { _warn "$*:Other than :punct: content."; return $EWRONGCONTENT; } || return 0;;
+  space) gPATTERN="[[:space:]]";;
+nospace|onlyspace|spaceonly) gOPT=-v;gPATTERN="[[:space:]]";
+test "`echo $(eval echo \\$\${*//[[:space:]]/})`" && { _warn "$*:Other than :space: content."; return $EWRONGCONTENT; } || return 0;;
+  blank) gPATTERN="[[:blank:]]";;
+noblank|onlyblank|blankonly) gOPT=-v;gPATTERN="[[:blank:]]";
+test "`echo $(eval echo \\$\${*//[[:blank:]]/})`" && { _warn "$*:Other than :blank: content."; return $EWRONGCONTENT; } || return 0;;
+'') :;;
+no*|only*|*only) gOPT=-v;gPATTERN="$*";;
+*) gPATTERN="$*";;
+esac
+shift
+
+#test "`echo "$*" | grep -E "$gPATTERN"`" && return 0 || return $EWRONGCONTENT
+#echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
+#echo "`eval echo \\$$*`"
+
+QUIET=-q
+if test "$gOPT" = '-v'; then
+echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+else
+echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+fi
+}
+
+#================= Check /tmp if read-write ==================================
+_check_proc()
+{
+  mountpoint -q /proc && return $? || {
+  busybox mount -o remount,rw /dev/root/ /
+  test -d /proc || mkdir -p /proc
+  busybox mount -t proc none /proc
+  return $?
+ }
+}
+
+_check_tmp()
+{
+ test -d /tmp && return $? || {
+ busybox mount -o remount,rw /dev/root/ /
+ mkdir -p /tmp
+ chmod 1777 /tmp
+ return $?
+ }
+}
+
+_check_tmp_rw()
+{
+_check_proc || _crit "Difficulties with /proc  .."
+_check_tmp  || _crit "Difficulties with /tmp  .."
+
+mountpoint -q /tmp && {
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+ } || {
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+ }
+}
+
+#============= Avoid multiple instances of sync ==============================
+_sync()
+{
+pidof sync || sync
+}
+
+#=============== LOGLEVEL / DEBUG MESSAGES ==================================
+EMERGENCY=1
+_emerg(){
+test "$EMERGENCY" || return 0
+echo "EMERGENGY:$*"
+}
+
+ALERT=1
+_alert(){
+test "$ALERT" || return 0
+echo "$0:ALERT:$*"
+}
+
+CRIT=1
+_crit(){
+test "$CRIT" || return 0
+echo "$0:CRITICAL:$*"
+}
+
+ERROR=1
+_err(){
+test "$ERROR" || return 0
+echo "$0:ERROR:$*"
+}
+
+WARN=1
+_warn(){
+test "$WARN" || return 0
+echo "$0:WARNING:$*"
+}
+
+NOTICE=1
+_notice(){
+test "$NOTICE" || return 0
+echo "$0:NOTICE:$*"
+}
+
+INFO=1
+_info(){
+test "$INFO" || return 0
+echo "$0:INFO:$*"
+}
+
+DEBUG=
+_debug(){
+test "$DEBUG" || return 0
+echo "$0:DEBUG:$*"
+}
+
+DEBUGX=
+_debugx(){
+test "$DEBUGX" || return 0
+echo "$0:DEBUGX:$@"
+}
+
+DEBUGT=1
+_debugt(){  #$1 label #$2 time
+
+test "$DEBUGT" || return 0
+#unset LANG LC_ALL
+local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
+_DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
+#_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
+if test "$2"; then
+_TIME_=`dc $_DATE_ $2 \- p`
+echo "$0:TIME:$1:$_TIME_"
+else
+#echo "$0:TIME:$*:`date +%s.%N | sed 's:.*\(..\..*\):\1:'`"
+echo "$0:TIME:$*:$_DATE_"
+fi
+}
+
+#=================== Prefer Busybox applets ==================================
+_use_busybox_applets()
+{
+[ "`which busybox`" ] && BBEXE=`which busybox`
+[ "$BBEXE" ] || { [ -s /bin/busybox -a -x /bin/busybox ] && BBEXE='/bin/busybox'; }
+[ "$BBEXE" ] || return 2  ##errno.h:define ENOENT 2 /* No such file or directory */
+
+BBAPPLETS=`$BBEXE --list`
+
+test "$BBAPPLETS" || BBAPPLETS='basename cat chmod chown clear cut
+date dc dd dirname dmesg du ed expr false find free
+head kill ln login ls lsmod mkdir mknod more mv nice pidof
+readlink rev rm rmdir sleep sort stat su sync tail tar touch tr true
+uname usleep waitmax wc which xargs'
+
+for applet in $BBAPPLETS
+do
+#echo $applet
+#file "`which $applet`" | grep 'link' | grep busybox || continue
+eval "alias ${applet}=\"$BBEXE $applet\"";
+
+done
+}
+
+#================ return with message, same as _exit =========================
+_return()
+{
+RV=$1
+ test "$RV" && shift || {
+ false
+ }
+test "${RV//[0-9]/}" && RV=123
+echo "$*"
+return $RV
+}
+
+#================== Use binary instead of busybox applet =====================
+_command() # This is for busybox with internals first .
+{          # sed -i and grep -w may not work as the regular binaries ,
+           # especially if compiled without REGEX or not with GLIBC
+#echo "$0:_command:$1:$*"
+COM="$1"
+shift
+#echo "$0:_command:$1:$*"
+
+typeCOM=`type -p "$COM"`
+test "$typeCOM" ||{  _return 1 "No such type \"$COM\"" >&2;return $?; }
+
+whichCOM=`which "$COM"`
+test "$whichCOM" ||{  _return 1 "No such which \"$COM\"" >&2;return $?; }
+
+_debug "_command:$COM:$@" >&2
+
+test "$typeCOM" = "$whichCOM" && {
+ "$typeCOM" "$@"    # "$*" does not work, so needs "$@"
+ return $?
+ } || {
+ "$whichCOM" "$@"
+ return $?
+ }
+}
+
+#========= make nodes in /dev if /dev not mounted ============================
+_mkdevices()
+{
+mountpoint -q /dev && return 0
+test "`type mdev`" && { mdev -s; return $?; }
+ while read maj min siz dev ; do
+  [ "${maj//[[:digit:]]/}" ] && continue
+  [ "$maj" -a "$min" -a "$dev" ] || continue
+  test -b /dev/$dev || mknod /dev/$dev b $maj $min
+ done</proc/partitions
+}
+
+#============ Test to filter out links =======================================
+_test_f()
+{
+test -L "$*" && return 1
+test -f "$*" && return 0
+return 1
+}
+_test_d()
+{
+test -L "$*" && return 1
+test -d "$*" && return 0
+return 1
+}
+_test_p()
+{
+test -L "$*" && return 1
+test -p "$*" && return 0
+return 1
+}
+_test_S()
+{
+test -L "$*" && return 1
+test -S "$*" && return 0
+return 1
+}
+
+#=============== Rotate Logs =================================================
+_log_rotate()
+{
+test "$*" || { _err "_log_rotate:Need filename to rotate"; return 1; }
+test -f "$*" || { _err "_log_rotate: '$*' not a regular file"; return 1; }
+nrLOGS=`ls -1v "$*".[0-9]* | wc -l`
+_debug "nrLOGS='$nrLOGS'"
+while read oneLOG
+do
+test "$oneLOG" || continue
+test -f "$oneLOG" || continue
+_debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
+mv "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+nrLOGS=$((nrLOGS-1))
+done<<EoI
+`ls -1v "$*".[0-9]* | tac`
+EoI
+test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
+_info "moving $* --> ${*}.1"
+mv "$*" "${*}.1"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#================= KERNEL VERSION and SFS VERSION ============================
+
+#VERSION = 3
+#PATCHLEVEL = 13
+#SUBLEVEL = 3
+#EXTRAVERSION =
+#Mounting Squashfs 1.x filesystems IS supported by the 2.0 kernel patch.
+#Mounting 2.0 filesystems is supported by Squashfs 2.1.
+#Squashfs 3.0 supports 2.x filesystems.  Support for 1.x filesystems
+#will be added in the future.
+#3.2: Unsquashfs now supports Squashfs 2.x filesystems.
+#Welcome to Squashfs 4.0.  This is an initial tools only release to
+#support users of the 2.6.29 kernel
+#Later releases will probably contain kernel patches supporting 4.0
+#layouts for earlier kernels.
+
+_kernel_version()
+{
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset SFSSTR SFSMAJOR squashXZ
+
+if test "$*"; then
+KERNELVER="$@"
+else
+KERNELVER=`uname -r`
+fi
+KERNEL="$KERNELVER"
+KERNVER="$KERNELVER"
+
+SFSSTR='squashfs, version 4'
+SFSMAJOR=4
+squashXZ=YES
+
+if vercmp $KERNELVER ge 3.0;then #111016
+:    # if vercmp not installed would run else
+_info "Kernel 3.0 or greater"
+else # assume 2.6
+ #test $? = 127 && { _warn "_kernel_version:Is vercomp installed in PATH? -- using _kernel_version2 instead..."; _kernel_version2; }
+ #echo $?
+ #which vercmp || _kernel_version2
+case $KERNELVER in
+2.6.*)
+ _info "Kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+   SFSSTR='squashfs, version 3'
+   SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+ squashXZ=NOT
+ fi
+;;
+*) _err "_kernel_version:UNHANDLED KERNELVER '$KERNELVER'";;
+esac
+fi 2>/dev/null #if vercmp is not installed :P
+
+#kVERSION="$K_VERSION"
+#kPATCHLEVEL="$K_PATCHLEVEL"
+#kSUBLEVEL="$K_SUBLEVEL"
+#kEXTRAVERSION="$K_EXTRAVERSION"
+#kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version:KERNELVER='$KERNELVER'"
+_info "_kernel_version:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version:squashXZ='$squashXZ'"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version2()
+{
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRAVERSION K_LOCALVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+if test "$*"; then
+KERNELVER="$@"
+else
+KERNELVER=`uname -r`
+fi
+KERNEL="$KERNELVER"
+KERNVER="$KERNELVER"
+
+SFSSTR='squashfs, version 3'
+SFSMAJOR=3
+squashXZ=NOT
+
+ifsv='.-_'
+#ifsv='[[:punct:]]' # also [:punct:] does not work
+ifsv='^°!"§$%&/()=?`¹²³¼½¬{[]}\ß´+*~#-_.:·,;'"'"  # '\' seems not to work , even as '\\' '\\\' '\\\\'
+
+      K_VERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion localversion;echo $kversion; }` ##code from /usr/sbin/laptop_mode, Maintainer: Bart Samwel (bart@samwel.tk)
+   K_PATCHLEVEL=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel localversion;echo $patchlevel; }`
+     K_SUBLEVEL=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel localversion;echo $sublevel; }`
+   KERNELSUBVER="$K_SUBLEVEL"
+
+ #test "$K_VERSION" || _err "_kernel_version2:Could not get K_VERSION"
+ _check_content K_VERSION
+ #test "${K_VERSION//[[:digit:]]/}" && _warn "_kernel_version2:Got '$K_VERSION' with other than :digit:"
+ _check_content2 onlydigit "$K_VERSION"
+
+ if test $K_VERSION = 3; then
+  _info "Newer kernel 3 series"
+  K_LOCALVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel localversion;echo $localversion; }`
+ elif
+ test $K_VERSION = 2; then
+  _info "Older Kernel 2 series"
+  K_EXTRAVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel extraversion localversion;echo $extraversion; }`
+  K_LOCALVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel extraversion localversion;echo $localversion; }`
+ else
+  _err "Unhandled K_VERSION '$K_VERSION'"
+ fi
+
+[ "$K_EXTRAVERSION" ] || K_EXTRAVERSION=0
+[ "${K_EXTRAVERSION//[[:digit:]]/}" ] && { K_LOCALVERSION="$K_EXTRAVERSION $K_LOCALVERSION";K_EXTRAVERSION=0; }
+KERNELSUBSUBVER="$K_EXTRAVERSION"
+
+case $K_VERSION in
+3) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
+2)
+        case $K_PATCHLEVEL in
+        6)
+                case $K_SUBLEVEL in
+                29|30|31|32|33|34|35|36|37) SFSSTR='squashfs, version 4';SFSMAJOR=4;;
+                38|39) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
+                28)
+                    case $K_EXTRAVERSION in
+                    47) SFSSTR='squashfs, version 4';;
+                    esac
+                ;;
+                *) _notice "Old 2.6 kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' sublevel '$K_SUBLEVEL' .";;
+                esac;;
+        0|1|2|3|4|5) _crit "Unhandled kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' .";;
+        *) _alert "Unhandled kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' .";;
+        esac;;
+*) _emerg "Unhandled kernel version '$K_VERSION' .";;
+esac
+
+kVERSION="$K_VERSION"
+kPATCHLEVEL="$K_PATCHLEVEL"
+kSUBLEVEL="$K_SUBLEVEL"
+kEXTRAVERSION="$K_EXTRAVERSION"
+kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version2:KERNELVER='$KERNELVER'"
+_info "_kernel_version2:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version2:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version2:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version2:squashXZ='$squashXZ'"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version3()
+{
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset VERSIONS LOCALVERSION K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRAVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+test -f /proc/config.gz || modprobe -v configs
+test -f /proc/config.gz && {
+
+ if test "$*"; then
+ KERNELVER="$@"
+ fi
+
+ VERSIONS=`zcat /proc/config.gz | grep -m2 -iE '# Linux.*kernel.*|CONFIG_LOCALVERSION=".*"'`
+ test "$KERNELVER" || KERNELVER=`echo "$VERSIONS" | grep -m1 -i '# Linux.*kernel.*' | awk '{print $3}'`
+ LOCALVERSION=`echo "$VERSIONS" | grep -m1 -i 'CONFIG_LOCALVERSION=".*"' | cut -f2 -d=`
+_debug "KERNELVER='$KERNELVER'"
+_debug "LOCALVERSION='$LOCALVERSION'"
+ test "$KERNELVER" || KERNELVER="`uname -r`"
+ KERNVER="$KERNELVER"
+ KERNEL="$KERNELVER"
+
+ SFSSTR='squashfs, version 4'
+ SFSMAJOR=4
+ squashXZ=YES
+
+ if test "`echo "$KERNELVER" | grep '^3\.[0-9]\.'`"; then #111016
+ _info "Kernel 3. series"
+ K_VERSION=${KERNELVER:0:1}
+ K_PATCHLEVEL=${KERNELVER:2:1}
+ K_SUBLEVEL=${KERNELVER:4:1}
+
+ KERNELSUBVER=$K_SUBLEVEL
+ KERNELSUBSUBVER=0
+
+ elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ _info "Kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+  SFSSTR='squashfs, version 3'
+  SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+  squashXZ=NOT
+ fi
+
+ else # assume 2.6
+ _warn "Assuming kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+  SFSSTR='squashfs, version 3'
+  SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+  squashXZ=NOT
+ fi
+fi
+
+
+kVERSION="$K_VERSION"
+kPATCHLEVEL="$K_PATCHLEVEL"
+kSUBLEVEL="$K_SUBLEVEL"
+kEXTRAVERSION="$K_EXTRAVERSION"
+kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version3:KERNELVER='$KERNELVER'"
+_info "_kernel_version3:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version3:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version3:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version3:squashXZ='$squashXZ'"
+return 0
+ } || _kernel_version
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version4()
+{
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+_process_kernel_2dotX()
+{
+squashXZ=NOT
+case $kVERSION in
+0|1) _crit "TODO: Unhandled kVERSION '$kVERSION'"; return 1;;
+2)
+  case $kPATCHLEVEL in
+  0|2|4|5) _warn "TODO: Unhandled kVERSION '$kVERSION' kPATCHLEVEL '$kPATCHLEVEL'"; return 1;;
+  6) test "$kSUBLEVEL" -ge 38 && squashXZ=YES
+     test "$kSUBLEVEL" -gt 28 && return 0
+     case $kSUBLEVEL in
+      27) test "$kEXTRAVERSION" -eq 47 && return 0
+          return 1;;
+     esac
+  ;;
+  esac
+;;
+esac
+return 1
+}
+
+_eval_sfsversion()
+{
+case $1 in
+1) SFSSTR='squashfs, version 3';SFSMAJOR=3; test "$squashXZ" || squashXZ=NOT;;
+*) SFSSTR='squashfs, version 4';SFSMAJOR=4; test "$squashXZ" || squashXZ=YES;;
+esac
+}
+
+if test "$*"; then
+KERNEL="$@"
+else
+KERNEL=`uname -r`
+fi
+
+_old(){
+case "$KERNEL" in
+0.*|1.*|2.*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+echo kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+;;
+*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+echo kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+;;
+esac
+}
+
+_new(){
+_debug "case \"$KERNEL\" start"
+oldIFS="$IFS"
+#IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄä:;'"'"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"  #bash-3.2 does not like * as IFS in case
+_debug "case \"$KERNEL\" start"
+case "$KERNEL" in
+0*|1*|2*) _debug "HANDLED KERNEL='$KERNEL'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+;;
+3*) _debug "HANDLED KERNEL='$KERNEL'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+;;
+*) _debug "UNHANDLED KERNEL='$KERNEL'"
+;;
+esac
+_debug "case \"$KERNEL\" end"
+IFS="$oldIFS"
+}
+
+_old
+#_new
+
+_info kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+
+test "$kSUBLEVEL" || kSUBLEVEL=0
+test "$kEXTRAVERSION" || kEXTRAVERSION=0
+KERNVER="$KERNEL"
+KERNELVER="$KERNEL"
+
+KERNELSUBVER="$kSUBLEVEL"
+KERNELSUBSUBVER="$kEXTRAVERSION"
+
+K_VERSION="$kVERSION"
+K_PATCHLEVEL="$kPATCHLEVEL"
+K_SUBLEVEL="$kSUBLEVEL"
+K_EXTRAVERSION="$kEXTRAVERSION"
+K_LOCALVERSION="$kLOCALVERSION"
+
+test "$kVERSION" -le 2 && { _process_kernel_2dotX; _eval_sfsversion $?; } || _eval_sfsversion 0
+_debug "_kernel_version4:End"
+
+_notice "_kernel_version4:KERNELVER='$KERNELVER'"
+_info "_kernel_version4:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version4:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version4:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version4:squashXZ='$squashXZ'"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version5()
+{
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION
+
+if test "$*"; then
+KERNEL="$@"
+else
+KERNEL=`uname -r`
+fi
+KERNELVER="$KERNEL"
+KERNVER="$KERNEL"
+
+unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
+
+if test ! "$*"; then
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
+grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+}
+test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
+
+SFS_MAJOR=`echo ${SFS_STR##* } | cut -b 1`
+test "${SFS_MAJOR//[[:digit:]]/}" && SFS_MAJOR='';
+test "$SFS_MAJOR" || { _warn "Could not determine squashfs major version, assuming '4'"; SFS_MAJOR=4; }
+
+SFS_STR="squashfs, $SFS_STR"
+
+else
+:
+fi
+
+squashXZ=NOT
+case "$KERNEL" in
+3.*) squashXZ=YES
+test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+test "$SFS_MAJOR" || SFS_MAJOR=4
+;;
+2.6.*) case $KERNEL in
+     2.6.38*|2.6.39*) squashXZ=YES
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.29*|2.6.3[0-7]*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.28*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     2.6.27.47)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     *)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     esac
+;;
+*) _warn "_kernel_version5:UNHANDLED kernel version '$KERNEL' , assuming squashXZ=$squashXZ";;
+esac
+
+SFSSTR="$SFS_STR"
+SFSMAJOR="$SFS_MAJOR"
+
+case "$KERNEL" in
+0.*|1.*|2.*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+;;
+*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+;;
+esac
+
+_info kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+
+test "$kSUBLEVEL" || kSUBLEVEL=0
+test "$kEXTRAVERSION" || kEXTRAVERSION=0
+KERNVER="$KERNEL"
+KERNELVER="$KERNEL"
+
+KERNELSUBVER="$kSUBLEVEL"
+KERNELSUBSUBVER="$kEXTRAVERSION"
+
+K_VERSION="$kVERSION"
+K_PATCHLEVEL="$kPATCHLEVEL"
+K_SUBLEVEL="$kSUBLEVEL"
+K_EXTRAVERSION="$kEXTRAVERSION"
+K_LOCALVERSION="$kLOCALVERSION"
+
+_notice "_kernel_version5:KERNELVER='$KERNELVER'"
+_info "_kernel_version5:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version5:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version5:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version5:squashXZ='$squashXZ'"
+}
+
+
+
+
+#================ Make free loop device ======================================
+_mk_free_loop()
+{
+  FREE_LOOP=`losetup -f`  # find free and create loop
+  [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
+  LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
+  LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+  LOOP_NEW=$(( $LOOP_LAST + 1 ))
+  mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+  }
+}
+
+#================ Check GETTEXT ==============================================
+_check_gettext()
+{
+_G=`which gettext`
+test "$_G" && {
+ test "`which gettext.sh`" && {
+export TEXTDOMAIN=f4puppy5 #NOTE: rename to avoid clash with 'remasterpup2.mo' used by previous i18n method.
+export OUTPUT_CHARSET=UTF-8
+. gettext.sh
+test "`type -t eval_gettext`"   &&  _eG=eval_gettext
+if test "`which ngettext`"; then
+ test "`type -t eval_ngettext`" && _eNG=eval_ngettext
+fi
+  }
+ }
+
+test "$_G"   ||   _G=echo
+test "$_eG"  ||  _eG=echo
+test "$_eNG" || _eNG=echo
+#echo "_G='$_G'"
+#echo "_eG='$_eG'"
+#echo "_eNG='$_eNG'"
+}
+_check_gettext
+
+_killzombies()
+{
+ ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`"
+ for oneZOMBIE in $ZOMBIES
+ do
+  _command ps --no-header -p $oneZOMBIE || continue
+  echo " :Killing parentless zombie process $oneZOMBIE ..."
+  kill $oneZOMBIE
+ done
+}
+
+#===== XMESSAGE or SPLASH ====================================================
+_get_yaf_args()
+{
+for exe in pupmessage gtkdialog-splash yaf-splash gxmessage xmessage; do
+YAF=`which $exe`
+test "$YAF" || continue
+test -L "$YAF" && continue
+case $YAF in
+
+ pupmessage)yafFSIZE="-fontsize large"; yafICON="-icon /usr/share/doc/puppylogo96.png"
+  yafBG="-bg orange"; yafFG="-fg black"; yafPL="-placement center"; yafFONT="-font '-*-*-*-*-*-*-*-*-*-*-*-*-*-*'"
+  yafTXT="-text"
+ ;;
+
+#gtkdialog-splash
+
+# an easy replacement for yaf-splash in Puppy (NOT Puppy <=4.x)
+# mave 30.05.2010
+# no warranty
+# Thanks for Puppy!
+
+# usage: gtkdialog-splash [OPTIONS] [-timeout SEC] -text TEXT | -kill [ PID ]
+
+# -text EXPRESSION
+# -timeout COUNT (in seconds)
+# -icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none)
+# OR path/to/pixmap.png|gif|jpeg
+# -icon_width WIDTH in pixels
+# -bg COLOR (background color red, blue, yellow..., default: grey)
+# -bg_gradient true|false (default: true)
+# -fg COLOR (font color, default: black)
+# -placement center|mouse|top|bottom|top-left|bottom-left (default: center)
+# -close never|mouseover|box (default is mouseover)
+# -deco TITLE (shows windows decorations, with title)
+# -font NAME
+# -fontsize SIZE
+# -align ALIGNMENT left, right or center -margin SIZE (default: 10)
+# -border true|false (default: true)
+# -kill [ PID ] ( When PID omitted, kills all GTKDIALOG_SPLASH found
+# in ps output, PID must exist as /tmp/GTKDIALOG-SPLASHPID with PID content )
+
+ gtkdialog-splash) yafFSIZE="-fontsize large"; yafICON="-icon /usr/share/doc/puppylogo96.png"
+  yafBG="-bg orange"; yafFG="-fg black"; yafPL="-placement center"; yafFONT="-font '-*-*-*-*-*-*-*-*-*-*-*-*-*-*'"
+  yafTXT="-text"
+ ;;
+
+#Usage: yaf-splash [ options ]
+#Where options include:
+
+#  -text                         Message to display.
+#  -timeout                      How long to display the message before
+#                                exiting. Default is 0, which means forever.
+#  -clock                        Enable clock display.
+#  -12                           Display twelve hour time (default).
+#  -24                           Display twenty-four hour time.
+#  -seconds                      Display seconds (default).
+#  -noseconds                    Don't display seconds.
+#  -countdown <date>             Display a countdown instead of a clock.
+#                                Run `-countdown foo' to see date syntax.
+#  -countdownquit                Quit after the countdown has reached
+#                                zero (default).
+#  -nocountdownquit              Keep counting after reaching zero.
+#  -geometry <geometry>          Size and position of window.
+#  -placement <placement name>   A screen location, one of center, top,
+#                                bottom, right, left, top-right, top-left,
+#                                bottom-left, bottom-right. Defaults to center.
+#                                A specified placement will override -geometry.
+#  -font <font>                  Name of an X font to use.
+#  -transparent                  Make the window background be transparent,
+#                                if possible.
+#  -nontransparent               Don't (default).
+#  -mirror                       Flip the text about the y axis. Useful for
+#                                back projection.
+#  -nomirror                     Don't (default).
+#  -fg                           Set the forground text colour (default: black).
+#  -bg                           Set the background colour (default: white).
+#  -bd                           Set the border colour (default: black).
+#  -bw                           Set the border width (default: 2).
+#  -outline                      Set the text outline width (default: 1).
+#  -margin                       Set the margin size (default: 0).
+
+ yaf-splash) #yafFSIZE="-fontsize large"; yafICON="-icon /usr/share/doc/puppylogo96.png"
+  yafBG="-bg black"; yafFG="-fg orange"; yafPL="-placement center"; yafFONT="-font -*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+  yafFONT="-font -misc-*-*-*-*-*-*-*-*-*-*-*-*-*"
+  yafEXTRA="-transparent"
+  #yaf-splash: couldn't load font "'*-*-*-*-*-*-*-*-*-*-*-*-*'"
+  yafTXT="-text"
+ ;;
+
+ gxmessage)#yafFSIZE="-fontsize large"; yafICON="-icon /usr/share/doc/puppylogo96.png"
+  yafBG="-bg orange"; yafFG="-fg black"; yafPL="-center"; yafFONT="-font '-*-*-*-*-*-*-*-*-*-*-*-*-*-*'"
+ ;;
+
+#gxmessage - a GTK-based xmessage clone
+
+#Usage: gxmessage [OPTIONS] message ...
+#       gxmessage [OPTIONS] -file FILENAME
+
+#xmessage options:
+#  -file FILENAME         Get message text from file, '-' for stdin
+#  -buttons BUTTON_LIST   List of "LABEL:EXIT_CODE", comma separated
+#  -default LABEL         Give keyboard focus to the specified button
+#  -print                 Send the selected button's LABEL to stdout
+#  -center                Try to open window in the centre of the screen
+#  -nearmouse             Try to open window near the mouse pointer
+#  -timeout SECONDS       Exit with code 0 after SECONDS seconds
+
+#X-like options:
+#  -display DISPLAY       X display to use
+#  -fn FONT | -font FONT  Set message font (works with GTK font names)
+#  -fg COLOUR             Set message font colour
+#  -bg COLOUR             Set message background colour
+#  -geometry GEOMETRY     Set window size (position will be ignored)
+#  -iconic                Start iconified
+#  -name NAME             Program name as used by the window manager
+#  -title TITLE           Set window title to TITLE
+
+#gxmessage options:
+#  -borderless            Try to open window without border decoration
+#  -nofocus               Don't focus the window when it opens
+#  -encoding CHARSET      Expect CHARSET as the message encoding
+#  -entry                 Prompt for text to be sent to stdout
+#  -entrytext TEXT        Same as -entry, but with TEXT as default text
+#  -wrap                  Wrap lines of text to fit window width
+#  -help | -?             Show this usage information
+#  -version               Show gxmessage version information
+
+ xmessage) #yafFSIZE="-fontsize large"; yafICON="-icon /usr/share/doc/puppylogo96.png"
+  yafBG="-bg orange"; yafFG="-fg black"; yafPL="-center"; yafFONT="-font '-*-*-*-*-*-*-*-*-*-*-*-*-*-*'"
+ ;;
+esac
+break
+done
+_debug "Using '$YAF'"
+}
+
+_pidof()
+{
+local RV
+case $1 in
+-q) shift;
+pidof $* >/dev/null; return $?
+;;
+*)
+echo -n "pids of $*:"
+pidof $*; RV=$?
+test "$RV" = 0 || echo
+return $RV
+;;
+esac
+}
