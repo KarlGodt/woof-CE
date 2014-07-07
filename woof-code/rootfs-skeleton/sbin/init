@@ -101,6 +101,8 @@ export LC_ALL=C  ##+++2012-09-06 for mkfs.ext2
 
 alias modprobe='/sbin/modprobe -b'  ##+++2012-01-30  ##+2013-07-13 PATH/
 
+test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
+
 status_func() {
  if [ $1 -eq 0 ]; then
   /bin/echo -e "\\033[72G\\033[1;32mdone\\033[0;39m" >/dev/console #green [done] msg.
@@ -110,6 +112,8 @@ status_func() {
  fi
  return $1 #return with same status as entry param.
 }
+
+
 
 if [ -d /proc ]; then
 [ -z "`ls -A /proc`" ] && busybox mount -t proc none /proc
@@ -128,6 +132,50 @@ mkdir -p /sys
 busybox mount -t sysfs none /sys
 #busybox mount -o -remount,ro /
 fi
+
+if [ ! -d /dev ]; then
+busybox mount -o remount,rw /dev/root /
+mkdir /dev
+fi
+
+mountpoint -q /dev || {
+  mount -t ramfs devramfs /dev
+  test "`which mdev`" && mdev -s || {
+  #_devFILES_=`find /sys -type f -name dev`
+   _devFILES_=`find /sys -type f -name uevent`
+  oldIFS="$IFS"
+  IFS=$'\n'
+  for oneFILE in $_devFILES_
+  do
+  unset MAJOR MINOR DEVNAME DEVTYPE
+  test -r "$oneFILE" || continue
+  source "$oneFILE" || continue
+   #MAJOR=13
+   #MINOR=65
+   #DEVNAME=input/event1
+  test -e /dev/$DEVNAME && continue
+  test "$DEVTYPE" && {
+      mknod /dev/$DEVNAME b $MAJOR $MINOR; } || {
+      mknod /dev/$DEVNAME c $MAJOR $MINOR; }
+   #MAJOR=7
+   #MINOR=5
+   #DEVNAME=loop5
+   #DEVTYPE=disk
+
+  #_device_=`echo "$oneFILE" | awk -F'/' '{print $(NF-1)}'`
+  #test -e /dev/$_device_ && continue
+  #IFS=':' read maj min <"$oneFILE"
+  #case $maj in
+  #1|4|5|7|9|10|13|14|21|29|37|67|86|89|90|108|116|128|136|180|188|189|206|226|239|24[0-9]|25[0-4])
+  #   mknod /dev/$_device_ c $maj $min;;
+  #*) mknod /dev/$_device_ b $maj $min;;
+  #esac
+
+  sleep 0.01
+  done
+  IFS="$oldIFS"
+ }
+}
 
 if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then #frugal or full
     #busybox mount -o remount,rw /  #can't read /proc/mounts
