@@ -1,4 +1,9 @@
 #!/bin/bash
+
+case $1 in
+stop) return ;;
+esac
+
 echo "$0: `pwd`"
 f=/root/Startup/ACPI_DEBUG.txt
 
@@ -30,19 +35,19 @@ fi
 sleep 2s
 
 if [ -f /proc/acpi/debug_layer ] ; then
-					echo >> $f
+                    echo >> $f
 cat /proc/acpi/debug_layer >> $f
 fi
 if [ -f /sys/module/acpi/parameters/debug_layer ] ; then
-									echo >> $f
+                                    echo >> $f
 cat /sys/module/acpi/parameters/debug_layer >> $f
 fi
 if [ -f /proc/acpi/debug_level ] ; then
-					echo >> $f
+                    echo >> $f
 cat /proc/acpi/debug_level >> $f
 fi
 if [ -f /sys/module/acpi/parameters/debug_level ] ; then
-									echo >> $f
+                                    echo >> $f
 cat /sys/module/acpi/parameters/debug_level >> $f
 fi
 
