@@ -63,13 +63,13 @@ Version='1.1-simple Macpup_F3-Puppy_Linux_430/2 KRG'
 leave_func(){
 [ "$VERBOSE" ] || exec 1>/dev/console 2>&1
 echo -n "OK, just before
-$1
+$*
 Press 'E' and ENTER if don't want to shutdown : " >/dev/console
 read -t $T_OUT EXIT_KEY
 [ "$EXIT_KEY" ] || EXIT_KEY='C' #for continue
 if [ "$EXIT_KEY" = 'E' -o "$EXIT_KEY" = 'e' ]; then
 exit 199; fi
-[ "$VERBOSE"] || exec 1>$OUT 2>&1
+[ "$VERBOSE"] || { test -e $OUT && exec 1>$OUT 2>&1; }
 }
 
 rcsd=/etc/rc.d/rc.shutdown
@@ -124,6 +124,8 @@ case $p in
 *verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;T_OUT=$((T_OUT+15));;
 *) echo -e "\\033[0;31mWrong Parameter '$p' .\\033[0;39m"; usage 1;;
 esac; done
+
+DEBUG=1
 
 [ "$DISPLAY" ] && { [ ! "$FORCE" ] && { echo "Please run wmpoweroff|wmreboot. Exiting script."; exit 1; }; } #case accidentially clicking on it
 
@@ -1160,20 +1162,20 @@ STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E ' /dev | /dev/pts | /proc | /sys | tmp
 while read ONESTRAY
 do
  [ "$ONESTRAY" ] || continue
- echo "$ONESTRAY"
- echo -en "\\033[1;34mUnmounting '$ONESTRAY' ... \\033[0;39m" >/dev/console
- busybox fuser -m -k "$ONESTRAY"
- killzombies #v3.99
- #sync
- if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" ]; then
- #fusermount version: 2.7.0 [options] mountpoint
- fusermount -u "$ONESTRAY" ##unmounts MountPoint
- status_func $?
- sleep 1
+  echo "$ONESTRAY"
+  echo -en "\\033[1;34mUnmounting '$ONESTRAY' ... \\033[0;39m" >/dev/console
+  busybox fuser -m -k "$ONESTRAY"
+  killzombies #v3.99
+   #sync
+  if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" ]; then
+  #fusermount version: 2.7.0 [options] mountpoint
+   fusermount -u "$ONESTRAY" ##unmounts MountPoint
+   status_func $?
+   sleep 1
  else
- umount -r "$ONESTRAY"  ##unmounts MountPoint
- status_func $?
- sleep 1
+  umount -r "$ONESTRAY"  ##unmounts MountPoint
+  status_func $?
+  sleep 1
  fi
 done<<EOI
 $(echo "$STRAYPARTL" |sed 's#.* on /#/#;s# type [[:alnum:]]* (.*)$##')
@@ -1214,8 +1216,8 @@ pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
 
 if [ -f /etc/rc.d/rc.shutdown.local.endOne ]; then
 . /etc/rc.d/rc.shutdown.local.endOne
-else
-[ -f /etc/rc.d/rc.shutdown.local.end ] && . /etc/rc.d/rc.shutdown.local.end  ###KRG
+elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
+ . /etc/rc.d/rc.shutdown.local.end  ###KRG
 fi
 
 [ "$DEBUG" ] && leave_func "unmounting /dev/root"
@@ -1309,13 +1311,14 @@ echo "ENDING NOW"  ###DBG
 fi
 
 busybox umount -ar 2>$ERR
+
 if [ "$DEBUG" ]; then
 echo "unmounted all -r  Tried to remount devices as read-only if mount is busy"
 test -e /proc/mounts && { ps | grep -v '\['; mount; }
-
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 fi
+
 [ -f /etc/rc.d/rc.shutdown.local.endZero ] && /etc/rc.d/rc.shutdown.local.endZero
 
 [ "$DEBUG" ] && leave_func "exiting at the very end"
