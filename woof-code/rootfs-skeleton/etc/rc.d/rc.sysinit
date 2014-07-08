@@ -302,9 +302,18 @@ echo "MAKE FILESYSTEM USABLE"
 
 ##+++2012-01-29
 echo "Opening additional rescue console on Alt+F11.."  >/dev/console
-mkdir -p /dev/vc; rm -f /dev/vc/11; mknod /dev/vc/11 c 4 11
-openvt -c 11 autologinroot && sleep 2
+mkdir -p /dev/vc;
+rm -f /dev/vc/11;
+mknod /dev/vc/11 c 4 11
+openvt -c 11 autologinroot
+_RCRV_=$?
+case $_RCRV_ in
+0) sleep 2; _status 0;;
+1)          _status 1;;
+*)    _status $_RCRV_;;
+esac
 ##+++2012-01-29
+
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 
 out=/dev/null; err=$out
@@ -407,7 +416,7 @@ busybox mount -t debugfs none /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
 #echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 #2.6.30.9-i586-dpup005-Celeron2G
 #/etc/rc.d/rc.sysinit: line 396: can't create /sys/kernel/debug/dynamic_debug/control: nonexistent directory
-echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
+test -e /sys/kernel/debug/dynamic_debug/control && echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 #if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
@@ -749,7 +758,10 @@ klogd
 syslogd -O /var/log/syslog_7 -l 7 -s 1024 -b 99
 
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...#my intention is for puppy to work with either of these...
-if [ -x /sbin/udevd ]; then  ##2011_10_27 changed -f to -x
+if [ -x /sbin/photplug ]; then
+echo '/sbin/photplug' >/proc/sys/kernel/hotplug
+
+elif [ -x /sbin/udevd ]; then  ##2011_10_27 changed -f to -x
  [ "$LOGLEVEL" ] || LOGLEVEL=7
 [ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
 
@@ -1277,8 +1289,9 @@ eval $FILE
 FILE1="${FILE%=*}"
 FILE2=`eval echo \\$$FILE1`
 if [ -f "$FILE2" ]; then
-while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ]; do sleep 4; done
-sleep 1s  ## 120s ##5s
+while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ]; do sleep 1; done
+sleep 0.1s  ## 120s ##5s
+_DATE_=`date +%F`
 echo 'Sorting now this log file by '`readlink -f "$0"` >> "$FILE2"
 cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
 PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
@@ -1286,7 +1299,7 @@ for i in $PIDS; do
 #echo PID  "$i"
 Line=`grep -n -w "^$i" "${FILE2}".sorted | tail -n 1 | cut -f 1 -d ':'`
 #echo Line "$Line"
-sed -i "$Line a\ " "${FILE2}".sorted
+sed -i".$_DATE_" "$Line a\ " "${FILE2}".sorted
 done
 fi
 }
