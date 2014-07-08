@@ -260,7 +260,7 @@ killzombies() {
   #[ "$ONEBAD" = "$MYPID" ] && continue #120514 precaution.
   #[ "$ONEBAD" = "$PARENT" ] && continue #120514 precaution.
   #[ "$ONEBAD" = "1" ] && continue
-  [ "$VERBOSE" ] && echo "$ZOMBIES" |grep -w "$ONEZOMBIE"
+  [ "$VERBOSE" ] && echo "$ZOMBIES" | grep -Fw "$ONEZOMBIE"
   echo "Killing zombie process $ONEZOMBIE"
   /bin/ps --no-headers -p $ONEZOMBIE && kill $ONEZOMBIE 2>$ERR
   [ "$VERBOSE" ] && sleep 2
@@ -1134,7 +1134,7 @@ else
 echo "Frugal Install ,free space more than 10%; leaving thumbnails ok "
 fi
 else
-FP=`/bin/df | grep -w '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if test "$FP" -lt 5; then
 echo "Full install , free space lesser than 5%; removing thumbnails"
 rm -rf /root/.thumbnails/* 2>$ERR
@@ -1155,7 +1155,7 @@ MNTDPARTS=`mount |tac`
 
 echo -e "\\033[1;35m""Unmounting stray filesystems:""\\033[0;39m"
 
-STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E '/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / '`
+STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E ' /dev/pts | /proc | /sys | tmpfs | rootfs |/dev/root | usbfs | unionfs | /initrd | on / '`
 
 while read ONESTRAY
 do
@@ -1223,7 +1223,7 @@ fi
 ############# Umount 2 ####################################
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
-  sync;sleep 4
+  pidof sync || { sync;sleep 4; }
   case $PUPMODE in
    2)   pupFS=$(awk '/\/dev\/root/ {print $3}' /proc/mounts)
       mount -o remount,ro -t $pupFS /dev/root /
@@ -1276,7 +1276,7 @@ fi
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ]; then  ##PupSave ie /pup_rw
 echo "SAVE_LAYER='$SAVE_LAYER'"
- sync
+ pidof sync || sync
  SAVEDEV=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 1 -d ' '`
   SAVEFS=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 3 -d ' '`
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>$ERR
@@ -1296,8 +1296,11 @@ if [ "$MNTFUSE" ]; then
 fi
 ############# Umount 2 ####################################
 
+pidof mplayer && killall mplayer
+pidof acpid && killall acpid
 
 if [ "$DEBUG" ]; then
+ps | grep -v '\['
 mount
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
@@ -1305,12 +1308,11 @@ echo
 echo "ENDING NOW"  ###DBG
 fi
 
-killall mplayer
-
 busybox umount -ar 2>$ERR
 if [ "$DEBUG" ]; then
-echo "unmounted all -r  Try to remount devices as read-only if mount is busy"
-mount
+echo "unmounted all -r  Tried to remount devices as read-only if mount is busy"
+test -e /proc/mounts && { ps | grep -v '\['; mount; }
+
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 fi
