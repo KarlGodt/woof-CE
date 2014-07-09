@@ -1,0 +1,143 @@
+#!/bin/sh
+# Start/stop/restart the hal daemon:
+# slackware script, modified for woof/puppy dec 2008, BK.
+# i have named this script x_hal so it starts after 'messagebus' (dbus) script.
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+
+#PREFIX=/usr/local
+PREFIX=/usr
+
+#PIDFILE=$PREFIX/var/run/hald/pid
+PIDFILE=/var/run/hald/pid
+#PIDFILE=/var/run/hald/hald.pid
+
+hal_start() {
+
+    #CUSTOM=' --retain-privileges --use-syslog --verbose=yes'
+    #CUSTOM='--retain-privileges --verbose=yes'
+    #CUSTOM='--drop-privileges --verbose=yes'
+    #CUSTOM='--verbose=yes'
+
+    #echo "Starting HAL daemon:  /usr/sbin/hald --daemon=yes $CUSTOM"
+    #/usr/sbin/hald --daemon=yes $CUSTOM
+    #/usr/sbin/hald --daemon=yes --verbose=yes --retain-privileges --use-syslog
+
+    if ! ps aux |grep hald | grep -vE 'grep|man' ;then
+
+      rm -f /var/cache/hald/*pid*
+      mkdir -p /var/cache/hald  #0.5.14:*** [DIE] mmap_cache.c:di_rules_init():70 : Unable to open cache /var/cache/hald/fdi-cache
+      chown haldaemon:root /var/cache/hald
+      chmod 1777 /var/cache/hald
+
+      CUSTOM='--verbose=yes --retain-privileges --use-syslog'
+      #CUSTOM=--use-syslog
+      #logsave hald.logsave.log /usr/sbin/hald --daemon=yes --verbose=yes --retain-privileges
+      echo "Starting HAL daemon:  $PREFIX/sbin/hald --daemon=yes $CUSTOM"
+      $PREFIX/sbin/hald --daemon=yes $CUSTOM
+    else
+     echo "Another instance of hald apparently running:"
+     ps aux |grep hald | grep -vE 'grep|man'
+     exit 4
+    fi
+    sleep 2
+
+    PID=` pidof hald`
+    if [ "$PID" ];then
+      echo "Sucessfully started hald : '$PID'"
+    else
+     echo "Failed to start hald"
+     sleep 2
+     dmesg |tail -n 100 |grep hal
+     echo
+     tail -n100 /var/log/messages |grep -i hal
+     echo
+     tail -n100 /var/log/syslog_7 |grep -i hal
+    fi
+}
+
+#sh-3.00# /usr/local/sbin/hald --verbose=yes --daemon=no
+#15:26:58.812 [I] hald.c:669: hal 0.5.11
+#15:26:58.812 [I] hald.c:734: Will not daemonize
+#15:26:58.812 [I] hald_dbus.c:5381: local server is listening at unix:abstract=/usr/local/var/run/hald/dbus-qW3Z47qLmU,guid=ecd077ac1bff361cdab9f62d4ff86352
+#15:26:58.813 [E] hald_dbus.c:5747: dbus_bus_get(): Did not receive a reply. Possible causes include: the remote application did not send a reply, the message bus security policy blocked the reply, the reply timeout expired, or the network connection was broken.
+
+#sh-3.00# /usr/sbin/hald --daemon=no --verbose=yes
+#15:30:39.702 [I] hald.c:673: hal 0.5.14
+#15:30:39.702 [I] hald.c:674: using child timeout 250s
+#15:30:39.702 [I] hald.c:739: Will not daemonize
+#15:30:39.702 [I] hald_dbus.c:5444: local server is listening at unix:abstract=/var/run/hald/dbus-shPUrsbp81,guid=66e3a6b767e1d54381f831e64ff8642f
+#15:30:39.703 [E] hald_dbus.c:5821: dbus_bus_get(): Did not receive a reply. Possible causes include: the remote application did not send a reply, the message bus security policy blocked the reply, the reply timeout expired, or the network connection was broken.
+
+hal_stop() {
+  if [ -e "$PIDFILE" ]; then
+    kill $(cat $PIDFILE)
+    rm -f $PIDFILE
+  else
+   echo "NO PID file '$PIDFILE'"
+   PID=`pidof hald`
+   if [ "$PID" ];then
+    kill $PID
+   fi
+   sleep 2
+   PID=`pidof hald`
+   if [ "$PID" ];then
+     echo "Failed to stop hald, still running with '$PID'"
+   else
+    echo "Successfully stopped hald"
+   fi
+  fi
+
+sleep 2
+pidof hald && echo "Failed to stop haldaemon." || echo "Successfully stopped haldaemon."
+
+  # Just in case:
+  #killall hald 1> /dev/null 2> /dev/null
+}
+
+# See how we were called.
+case "$1" in
+    start)
+        hal_start
+        ;;
+    stop)
+        hal_stop
+        ;;
+    restart)
+        hal_stop
+    sleep 1
+        hal_start
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart}"
+        ;;
+esac

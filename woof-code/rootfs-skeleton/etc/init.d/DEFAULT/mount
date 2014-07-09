@@ -1,0 +1,72 @@
+#!/bin/ash
+
+
+_mount_none_filesystems(){
+   nFS=`grep '^nodev' /proc/filesystems | tr  '\t' ' ' | cut -f 2 -d ' '`
+#NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs'`
+ NODEV="$nFS"
+test -d /nodev || mkdir /nodev
+
+for oneFS in $NODEV ; do
+      echo
+ echo "$oneFS"
+ DIR=`echo "$oneFS" | sed 's#fs$##'`
+
+ if test -z "`grep -Fw "$oneFS" /proc/mounts`" ; then
+
+ test "$1" = start || continue
+
+   case $oneFS in
+    debugfs) mkdir -p /sys/kernel/debug;       /bin/mount -t debugfs         nodev /sys/kernel/debug;
+    echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
+    ;;
+    fusectl) mkdir -p /sys/fs/fuse/connections; /bin/mount -t fusectl fusectl /sys/fs/fuse/connections;;
+binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc; /bin/mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) mkdir -p /sys/kernel/security;     /bin/mount -t securityfs      nodev /sys/kernel/security;;
+      usbfs) mkdir -p /proc/bus/usb;            /bin/mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
+   configfs) mkdir -p /config;                  /bin/mount -t configfs        none  /config;;
+  hugetlbfs) mkdir -p /mnt/huge;                /bin/mount -t hugetlbfs       none  /mnt/huge;;
+     pstore) mkdir -p /dev/fs/pstore;           /bin/mount -t pstore          nodev /dev/fs/pstore;;
+ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
+      #mount: wrong fs type, bad option, bad superblock on /nodev, ...
+    jffs2) :;;   #mount: /nodev is not a block device
+    fuse)  :;;   #bin/sh: /nodev: is a directory
+    ram*|tmp*) :;;
+    rootfs)    :;;
+    *)
+    test -d /dev/fs/$DIR || mkdir -p /dev/fs/$DIR
+    /bin/mount -v -t $oneFS nodev /dev/fs/$DIR
+    ;;
+   esac
+
+else
+
+ test "$1" = stop || continue
+ while read -r _device_ _mountpoint_ _filesystem_ _rest_
+ do
+ case $_filesystem_ in
+ rootfs|proc|sysfs|devramfs|devtmpfs|devpts) continue;;
+ esac
+ _mountpoint_=`echo -e "$_mountpoint_"`
+ /bin/umount "$_mountpoint_"
+ done<<EoI
+`grep -Fw "$oneFS" /proc/mounts`
+EoI
+
+ fi
+
+done
+
+}
+
+
+echo $0:$*
+case $1 in
+stop)
+ _mount_none_filesystems $1
+;;
+start)
+ _mount_none_filesystems $1
+;;
+esac
+echo $0:$*

@@ -1,0 +1,142 @@
+#!/bin/sh
+#
+# messagebus:   The D-BUS systemwide message bus
+#
+# description:  This is a daemon which broadcasts notifications of system events \
+#               and other messages. See http://www.freedesktop.org/software/dbus/
+#
+# processname: dbus-daemon
+# pidfile: /var/run/dbus/pid
+
+# This is a modified version of the rc.messagebus script distributed with the
+# dbus sources.  Thanks to Don Tanner of the GWare <http://gware.org> Project
+# for most of the work involved      --Robby Workman <http://rlworkman.net>
+
+#PREFIX=/usr/local
+PREFIX=/usr
+PIDFILE=$PREFIX/var/run/dbus/pid
+SOCK_FILE=$PREFIX/var/run/dbus/system_bus_socket
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g' /proc/cmdline |tr ' ' '\n' |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+
+link_function(){
+#echo $LINENO
+rm -rf /var/run/dbus $PREFIX/var/run/dbus
+mkdir -p /var/run/dbus
+#file /var/run/dbus
+#file $PREFIX/var/run/dbus
+#echo $LINENO
+if [ -d  /var/run/dbus ];then
+if [ ! "`ls -A /var/run/dbus`" ];then
+#echo $LINENO
+#file /var/run/dbus
+#file $PREFIX/var/run/dbus
+#file $PREFIX/var/run/dbus | grep link || rm -rf $PREFIX/var/run/dbus
+#file /var/run/dbus
+#file $PREFIX/var/run/dbus
+#echo $LINENO
+#mkdir -p /var/run/dbus
+[ "$PREFIX/var/run/dbus" =  '/var/run/dbus' ] && return 0
+#echo $LINENO
+#file /var/run/dbus
+#file $PREFIX/var/run/dbus
+ln -s /var/run/dbus $PREFIX/var/run/dbus
+#file /var/run/dbus
+#file $PREFIX/var/run/dbus
+#echo $LINENO
+fi;fi
+}
+
+#PROGSYSCONFIGDIR=/usr/local/etc
+
+start() {
+    link_function
+    #echo $LINENO
+
+  if ! ps axc | grep -w dbus-daemon | grep -vE 'grep|man'; then
+
+    #echo $LINENO
+    dirname $PIDFILE
+    if [ "`readlink -e $(dirname $PIDFILE)`" ];then
+    rm -f `readlink -e $(dirname $PIDFILE)`/*
+    #echo $LINENO
+    fi
+
+    if [ -x $PREFIX/bin/dbus-uuidgen -a -x $PREFIX/bin/dbus-daemon ] ; then
+      echo "Starting system message bus:  $PREFIX/bin/dbus-uuidgen --ensure ; $PREFIX/bin/dbus-daemon --system"
+      #/usr/bin/dbus-uuidgen --ensure
+      $PREFIX/bin/dbus-uuidgen --ensure
+      #/usr/bin/dbus-daemon --system #1> /dev/null
+      #/usr/local/bin/dbus-launch #in case dbus-daemon is a library(1.2.1~lenny)
+      $PREFIX/bin/dbus-daemon --system
+      sleep 2
+       if [ "`pidof dbus-daemon`" ];then
+      echo "Started dbus :"
+      ps aux |grep dbus |grep -vE 'grep|man'
+       else
+      echo "Failed starting dbus"
+       fi
+    fi
+    else
+    echo "Another instance of dbus-daemon already running :"
+    ps aux |grep -w dbus-daemon | grep -vE 'grep|man'
+  fi
+}
+
+stop() {
+  if [ -e "$PIDFILE" ]; then
+    echo "Stopping system message bus..."
+    pid=$(cat $PIDFILE)
+    kill $pid 1>$OUT 2>$ERR
+    # Just in case:
+    killall dbus-daemon 1>$OUT 2>$ERR
+    rm -f $PIDFILE
+    rm -f $SOCK_FILE
+  else
+  echo "No PID file"
+  PID=`pidof dbus-daemon`
+   if [ "$PID" ];then
+  echo "Trying pidof dbus-daemon .. : '$PID'"
+  kill `pidof dbus-daemon`
+   fi
+  fi
+  sleep 2
+  if [ "`pidof dbus-daemon`" ];then
+  echo "Failed to stop dbus-daemon :`pidof dbus-daemon`"
+  else
+  echo "Successfully stopped dbus-daemon"
+  fi
+}
+
+reload() {
+  echo "Reloading system message bus configuration..."
+  if [ -e "$PIDFILE" ]; then
+    pid=$(cat $PIDFILE)
+    kill -HUP $pid
+  else
+    killall -HUP dbus-daemon
+  fi
+}
+
+# See how we were called.
+case "$1" in
+  start)
+    start
+    ;;
+  stop)
+    stop
+    ;;
+  restart)
+    stop
+    start
+    ;;
+  reload)
+    reload
+    ;;
+  *)
+    echo $"Usage: $0 {start|stop|restart|reload}"
+    ;;
+esac
+
