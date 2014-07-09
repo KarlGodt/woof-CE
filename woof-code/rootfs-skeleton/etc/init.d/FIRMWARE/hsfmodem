@@ -1,0 +1,65 @@
+#!/bin/sh
+#Barry Kauler 2009. totally free code.
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#if a modem found, quit...
+[ -h /dev/modem ] && exit
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for driver to load.
+/sbin/pup_event_backend_modprobe_protect --modcheck=hsfhda \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfmc97ali \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfmc97ati \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfmc97ich \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfmc97sis \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfmc97via \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfpcibasic2 \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfpcibasic3 \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=hsfusbcd2 \
+ || exit #v432
+
+#v432 Don't select if HCFPCI driver also loaded, to avoid hanging pupdial when connecting.
+[ "`lsmod | grep '^hcfpciosspec '`" != "" ] && exit
+
+#v432 If AC97 modem not actually HSF type, substitute ALSA module next boot-up.
+if [ "`lsmod | grep '^hsfmc97... '`" != "" ] && [ "`grep -E 'HSF: ERROR: | kernel: EIP is at hsf' /var/log/messages`" != "" ];then
+ #Delete conflict prevention statements, to activate ALSA driver; set flag for pup_event_backend_modprobe to see, to make the substitution.
+ pup_event_backend_modprobe_protect --lock=modprobeconf
+ sed -i '/^include \/etc\/modprobe_includes\/modem-hsfmodem/d' /etc/modprobe.conf
+ pup_event_backend_modprobe_protect --unlock=modprobeconf
+ touch /etc/hsfmodem/.substitute_alternate_module
+else
+ ln -snf ttySHSF0 /dev/modem
+fi
+
+###END###

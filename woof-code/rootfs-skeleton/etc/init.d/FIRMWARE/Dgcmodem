@@ -1,0 +1,78 @@
+#!/bin/sh
+#usb modem
+#Barry Kauler, LGPL 2008
+#called from rc.services.
+#This script sets device links as cdc_acm would.  Cdc_acm is loaded  auromatically, although its initialization script may not be executed.
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#if a modem found, quit...
+[ -h /dev/modem ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for firmware and driver to load.
+/sbin/pup_event_backend_modprobe_protect --modcheck=dgcusbdcp || exit #v432
+WAITMAX=20
+WAITCNT=0
+until [ "`lsmod | grep '^cdc_acm '`" != "" ];do
+ [ $WAITCNT -ge $WAITMAX ] \
+  && echo "Script Dgcmodem: Timeout after $WAITMAX second(s) waiting for module cdc_acm to load." >> /tmp/udevtrace-modem.log \
+  && exit
+ WAITCNT=`expr $WAITCNT + 1`
+ sleep 1
+done
+[ $WAITCNT -gt 0 ] \
+ && echo "Script Dgcmodem: Waited $WAITCNT second(s) after dgcusbdcp loaded for module cdc_acm to load." >> /tmp/udevtrace-modem.log
+
+#v433 Let high-speed modems to be detected by hso init script.
+[ "`grep -l -s 'Modem' /sys/class/tty/ttyHS?*/hsotype`" != "" ] && exit
+
+[ "`grep 'adding union descriptor for cdc_acm' /var/log/messages | grep 'dgcusbdcp'`" = "" ] && exit
+
+#Select interrupt-type device - first one or one identified in log as probably a DGC modem.
+MODEM=""
+DEVLIST=`grep -l -s 'Interrupt' /sys/class/tty/ttyACM?*/device/ep_??/type | cut -f 5 -d / | sed 's/\(ttyACM\)\([0-9]$\)/\10\2/' | sort | sed 's/\(ttyACM\)\(0\)/\1/'`
+if grep -q 'd[gc][cg]usbdcp' /var/log/messages;then
+ DEVMLIST=`grep -o -E 'd[gc][cg]usbdcp|ttyACM[0-9][0-9]*' /var/log/messages | sed -e '1,/d[gc][cg]usbdcp/d' -e '/d[gc][cg]usbdcp/Q'`
+ [ "$DEVMLIST" != "" ] \
+  && MODEM=`echo $DEVLIST | grep -F "$DEVMLIST" | head -n 1`
+fi
+echo "Script Dgcmodem - DEVLIST: $DEVLIST  DEVMLIST: $DEVMLIST  MODEM: $MODEM" >> /tmp/udevtrace-modem.log  #debug
+[ "$MODEM" = "" ] && exit
+
+[ ! -e /dev/$MODEM ] \
+ && [ -e /dev/input/$MODEM \ ]
+ && ln -snf input/$MODEM /dev/$MODEM  #device name for pupdial
+ln -snf $MODEM /dev/modem #v433 end
+
+###END###

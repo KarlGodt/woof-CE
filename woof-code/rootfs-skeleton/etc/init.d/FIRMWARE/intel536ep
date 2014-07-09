@@ -1,0 +1,68 @@
+#!/bin/sh
+#Barry Kauler, LGPL 2007
+#v406 rerwin: bugfix.
+#v405 if a different modem selected, quit...
+#v413 recoded to use device 536ep0, as created by driver.
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+[ -h /dev/modem ] && [ "`readlink /dev/modem`" != "536ep0" ] && exit #v413
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for driver to load.
+/sbin/pup_event_backend_modprobe_protect --modcheck=Intel536 || exit #v432
+
+#v413
+[ ! -h /dev/modem ] &&  ln -snf 536ep0 /dev/modem
+rm -f /dev/ttyS_53*
+ln -snf 536ep0 /dev/ttyS_536 #v406 so wvdialconf can see it
+#v413 end
+
+if [ -f /etc/countryinfo ];then
+ . /etc/countryinfo
+ if [ "$T35_COUNTRY_CODE" != "" ];then
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING='AT+GCI=${T35_COUNTRY_CODE}'/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ else
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ fi
+ sync
+ mv -f /tmp/countryinfo /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable (called from second
+#entry to /etc/rc.d/rc.modem, in rc.local0).
+
+
+###END###

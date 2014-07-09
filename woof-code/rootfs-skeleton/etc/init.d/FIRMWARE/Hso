@@ -1,0 +1,85 @@
+#!/bin/sh
+#Barry Kauler, LGPL 2009
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#If a different modem selected, quit...
+MODEM=""
+[ -h /dev/modem ] && MODEM=`readlink /dev/modem | grep -v '^ttyHS[0-9]$'`
+[ "$MODEM" != "" ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for driver to load and determine network port (ttyHS?). Adapted from hso_connect script.
+/sbin/pup_event_backend_modprobe_protect --modcheck=hso || exit #v432
+
+#@MODEM_PORT=""
+#@until [ "$MODEM_PORT" != "" ];do
+#@ TTYS=`find /sys/class/tty -name "ttyHS*"`
+#@ for i in $TTYS; do
+#@  if [ `grep 'Modem' $i/hsotype` ];then
+#@   MODEM_PORT=$i
+#@   break
+#@  fi
+#@ done
+until [ "$MODEM" != "" ];do
+ MODEM=`grep -l -s 'Modem' /sys/class/tty/ttyHS[0-9][0-9]*/hsotype | head -n 1 | cut -f 5 -d /`
+#@ if [ "$MODEM_PORT" = "" ];then
+ if [ "$MODEM" = "" ];then
+  WAITCNT=`expr $WAITCNT + 1`
+  [ $WAITCNT -gt $WAITMAX ] && break
+  sleep 1
+ fi
+done
+[ $WAITCNT -gt $WAITMAX ] \
+ && echo "Script Hso: Timeout after $WAITMAX seconds waiting for modem port determination." >> /tmp/udevtrace-modem.log \
+ && exit
+
+#@MODEM=`echo $MODEM_PORT | cut -f 5 -d '/'`
+echo "Script Hso: Waited $WAITCNT seconds for module to load and determination of port as $MODEM." >> /tmp/udevtrace-modem.log
+
+#Even if /dev/modem already set, ensure it matches detected modem.
+[ -h /dev/modem ] && rm /dev/modem
+ln -snf $MODEM /dev/modem
+[ -h /dev/ttyS_HS ] && rm /dev/ttyS_HS
+ln -snf $MODEM /dev/ttyS_HS #for pupdial probe
+
+#the module doesn't seem to support any country setting, so...
+if [ -f /etc/countryinfo ];then
+ SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+ cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ sync
+ mv -f /tmp/countryinfo /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable.
+
+###END###

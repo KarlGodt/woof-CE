@@ -1,0 +1,81 @@
+#!/bin/sh
+#Barry Kauler, LGPL 2007
+#v406 rerwin: bugfix
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#v405 if a different modem selected, quit...
+#v413 recoded to use device Intel5370, as created by driver
+#v425 revert to device 5370, for upgraded driver
+#v431 restore device Intel5370, to support both old and new drivers.
+
+[ -h /dev/modem ] && [ "`readlink /dev/modem`" != "5370" ] && [ "`readlink /dev/modem`" != "Intel5370" ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+#Wait for driver to load.
+/sbin/pup_event_backend_modprobe_protect --modcheck=intel537 \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=intel537EA \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=intel537EP \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=intel537SP \
+ || /sbin/pup_event_backend_modprobe_protect --modcheck=Intel537 \
+ || exit #v432
+
+if [ -e /dev/5370 ];then
+ MODEMDEV="5370"
+elif [ -e /dev/Intel5370 ];then
+ MODEMDEV="Intel5370"
+else
+ exit
+fi
+ln -snf $MODEMDEV /dev/modem
+rm -f /dev/ttyS_53*
+ln -snf $MODEMDEV /dev/ttyS_537 #v406 so wvdialconf can see it
+#v413 end
+
+if [ -f /etc/countryinfo ];then
+ . /etc/countryinfo
+ if [ "$T35_COUNTRY_CODE" != "" ];then
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING='AT+GCI=${T35_COUNTRY_CODE}'/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ else
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ fi
+ sync
+ mv -f /tmp/countryinfo /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable (called from second
+#entry to /etc/rc.d/rc.modem, in rc.local0).
+
+
+###END###
