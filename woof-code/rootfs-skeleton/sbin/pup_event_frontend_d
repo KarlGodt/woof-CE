@@ -173,10 +173,14 @@ VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;QUIET='
 ;;
 
 stop)
+pidof -o $$ -o %PPID ${ME_PROGRAM##*/} || { echo " NOT Running.";exit 0; }
 for pid in $PIDS_OTHER_MES ; do
 kill $pid
 RETVAL=$((RETVAL+$?))
+#echo "RETVAL='$RETVAL'"
 done
+test "$RETVAL" || RETVAL=0
+#echo "RETVAL='$RETVAL'"
 echo
 exit "$RETVAL"
 ;;
@@ -223,7 +227,7 @@ done
 }
 
 probedisk_simple(){
-[ "${VERBOSE}" ] && echo probing for drives >&2
+[ "${VERBOSE}" ] && echo "probing for drives" >>/dev/stderr
 ALLDRIVES=`ls -1 /sys/block | grep -vE 'ram|loop|mtd|md|nbd'`
 for drive in $ALLDRIVES ; do
 unset REMOVABLE KIND VEND MODL
@@ -237,7 +241,7 @@ if test ! "$KIND"; then
 fi
   ;;
 sr*)
-[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=usbcd
+[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=optical #KIND=usbcd
 if test ! "$KIND"; then
 [ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv
 fi
@@ -274,7 +278,7 @@ esac
 #PARTS=`ls -1 /sys/block/$drive/$drive[0-9]* 2>$ERR | grep -o -e '[0-9]*' |tr '\n' ' '`
 echo "$drive|$KIND|$VEND $MODL"
 done
-[ "${VERBOSE}" ] && echo done probing >&2
+[ "${VERBOSE}" ] && echo "done probing" >>/dev/stderr
 }
 
 echo here 0
@@ -345,9 +349,9 @@ PREVSIZEFREEM=0
 ####KRG
 
 ###<KRG>
-stateDir="$HOME/Choices/Puppy"
-drvDir="$stateDir"/.pup_event
-mkdir -p "$drvDir"
+stateDIR="$HOME/Choices/Puppy"
+drive_iconDIR="$stateDIR"/.pup_event
+mkdir -p "$drive_iconDIR"
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
@@ -397,7 +401,7 @@ create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
   <AppMenu>
    <Item option=\"pmount_${DRV_CATEGORY}\" icon=\"gtk-harddisk\"><Label>Run Pmount Puppy Drive Mounter</Label></Item><Item option=\"eventmanager\" icon=\"gtk-execute\"><Label>Run Desktop Drive Icon Manager</Label></Item>${MOREITEMS}
   </AppMenu>
-</AppInfo>" > $drvDir/drive_${DRV_NAME}/AppInfo.xml
+</AppInfo>" > $drive_iconDIR/drive_${DRV_NAME}/AppInfo.xml
 }
 
 #COORDSGRID="`grep -o ' x="[0-9]*" y="[0-9]*" ' /root/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`"
@@ -558,7 +562,7 @@ add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
 
  #ppPATTERN=' label="'"$ONEDRVNAME"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
- #ppPATTERN="$drvDir/drive_${ONEDRVNAME}<"
+ #ppPATTERN="$drive_iconDIR/drive_${ONEDRVNAME}<"
  #[ "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
 
  free_coord_simple   #${ONEDRVNAME}
@@ -569,7 +573,7 @@ add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardAdd>
-   <Path>$drvDir/drive_${DRV_NAME}</Path>
+   <Path>$drive_iconDIR/drive_${DRV_NAME}</Path>
    <X>${COORD_X}</X>
    <Y>${COORD_Y}</Y>
    <Label>${DRV_NAME}</Label>
@@ -613,7 +617,7 @@ create_icon_func() {
  # [ "$1" = 'startup' ] || { echo "VAR_1 not startup doing now probepart command (again)";probepart_func -d/dev/$DEV_NAME ;echo "$PROBEPART";echo "done"; } #probepart_func line 314
   probepart_func -d/dev/$DEV_NAME ;
   echo "$PROBEPART";
-  echo "done";
+  echo "done"
 
   drvPATTERN="^/dev/${DEV_NAME}" #important, no space on end! #drvPATTERN='^/dev/'"${PART_NAME}"
   #DRVINFO=`echo "$PROBEPART" | grep -w "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '` # grep -w
@@ -636,9 +640,9 @@ fi   ## was# ICONPARTITIONS true
 
   drvPATTERN='^/dev/'"${PART_NAME}"' ' #important, a space on end!
 
-  if [ ! -d $drvDir/drive_${PART_NAME} ];then
-   mkdir -p $drvDir/drive_${PART_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
-   cp -af /usr/local/bin/drive_all $drvDir/drive_${PART_NAME}/AppRun
+  if [ ! -d $drive_iconDIR/drive_${PART_NAME} ];then
+   mkdir -p $drive_iconDIR/drive_${PART_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
+   cp -af /usr/local/bin/drive_all $drive_iconDIR/drive_${PART_NAME}/AppRun
   fi
 
    if [ "$FSTYPE" != 0 -a "$SIZE" != 0 ] ; then
@@ -709,10 +713,10 @@ remove_pinboard_func() { #needs DEV_NAME (name of entire drive)
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardRemove>
-   <Path>$drvDir/drive_${ONE_PART}</Path>
+   <Path>$drive_iconDIR/drive_${ONE_PART}</Path>
   </PinboardRemove>
   <UnsetIcon>
-   <Path>$drvDir/drive_${ONE_PART}</Path>
+   <Path>$drive_iconDIR/drive_${ONE_PART}</Path>
   </UnsetIcon>
  </env:Body>
 </env:Envelope>"  | rox -R
@@ -879,7 +883,7 @@ DEV_NAME="$item"
 echo "removing '$DEV_NAME'"
 remove_pinboard_func $DEV_NAME
 done
-rm -fr "$drvDir"/*
+rm -fr "$drive_iconDIR"/*
 echo "Finished clear_desk_icons_func
 "
 }
@@ -909,8 +913,8 @@ echo "ICONDESK is false"
  test_func_out(){
  DRVINFO="$DEV_NAME"'|0|0'
 
- mkdir -p $drvDir/drive_${DEV_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
- /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
+ mkdir -p $drive_iconDIR/drive_${DEV_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
+ /bin/cp -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DEV_NAME}/AppRun
  INFO="Puppy drive manager"
  MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
  create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME or $1 or DRV_NAME
@@ -930,8 +934,8 @@ elif [ "$ICONPARTITIONS" = "false" ];then
    [ "$DEBUG" ] && { echo $item;echo '***'; }
 
    test_func_out_2(){
-   mkdir -p $drvDir/drive_${DEV_NAME}
-   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DEV_NAME}/AppRun
+   mkdir -p $drive_iconDIR/drive_${DEV_NAME}
+   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DEV_NAME}/AppRun
    probepart_func -d/dev/$DEV_NAME
    FSTYPE=`echo "$PROBEPART" | grep -w "$DEV_NAME" | cut -f2 -d'|'`
    [ "$FSTYPE" ] || FSTYPE=' - '
@@ -975,9 +979,9 @@ while read -r ONEDRV
   #create_icon_func $DRV_NAME
 
   #ONEDRVNAME="$DEV_NAME"
-  if [ ! -d $drvDir/drive_${DEV_NAME} ] ; then
-   mkdir -p $drvDir/drive_${DEV_NAME}
-   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drvDir/drive_${DRV_NAME}/AppRun
+  if [ ! -d $drive_iconDIR/drive_${DEV_NAME} ] ; then
+   mkdir -p $drive_iconDIR/drive_${DEV_NAME}
+   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DRV_NAME}/AppRun
    INFO="Puppy drive manager"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
@@ -1124,7 +1128,7 @@ if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
 
    [ "$ICONDESK" = "true" ] && create_icon_func $DEV_NAME
    #uses DEV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
-   [ "$HOTPLUGNOISY" = "true" ] && $drvDir/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
+   [ "$HOTPLUGNOISY" = "true" ] && $drive_iconDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
   done<<EOI
 $(echo "$BLOCKSADD")
 EOI
@@ -1140,7 +1144,7 @@ EOI
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    remove_pinboard_func $DEV_NAME #needs DEV_NAME or DRV_NAME
-   rm -rf $drvDir/drive_${DEV_NAME}*
+   rm -rf $drive_iconDIR/drive_${DEV_NAME}*
   done<<EOI
 $(echo "$BLOCKSREM")
 EOI
