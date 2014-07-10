@@ -1,0 +1,82 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          mbmon
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+#
+# 2005/06/17 Dustin Laurence (based on the Debian initscript for ntop)
+#
+# Run mbmon in daemon mode at startup for the benefit of e.g. gkrellm
+
+case $2 in
+[0-9]*) safeBOOT=$2;;
+""|*) :;;
+esac
+
+NAME="mbmon"
+DAEMON="/usr/bin/$NAME"
+DESC="motherboard sensor monitoring daemon"
+CFG="/etc/default/$NAME"
+
+test -f $DAEMON || exit 0
+echo "file $DAEMON exists"
+
+if test -f $CFG ; then
+    . $CFG
+    echo "sourced $CFG"
+else
+    # better change this in the /etc/default/mbmon file and leave this alone
+    MBMONPORT="411" # This port seems appropriate and unused
+    START_MBMON=0 # default is not to start the daemon
+fi
+
+test -n "$MBMONPORT" || exit 0
+echo "MBMONPORT='$MBMONPORT'"
+
+[ "$START_MBMON" -eq 1 ] || {
+    echo "Not starting ${DESC}."
+    echo "Edit ${CFG} if you want it to start automatically"
+    exit 0 ; }
+
+case "$1" in
+start)
+    echo -n "Starting $DESC: "
+    start-stop-daemon --start --quiet --name $NAME --exec $DAEMON -- \
+        -r -P $MBMONPORT
+    if ps xa | grep -v grep | grep $DAEMON > /dev/null ; then
+        echo $NAME
+    else
+        echo "$NAME not started."
+    fi
+    ;;
+stop)
+    echo -n "Stopping $DESC: "
+    start-stop-daemon --stop --oknodo --name $NAME --exec $DAEMON --retry 9
+    if ps xa | grep -v grep | grep $DAEMON > /dev/null ; then
+        echo "$NAME not stopped. Need to kill manually."
+    else
+        echo $NAME
+    fi
+    ;;
+restart | force-reload)
+    $0 stop
+    sleep 2
+    $0 start
+    ;;
+reload)
+    if ps aux | grep -v grep | grep -q '$DAEMON' ; then
+        $0 stop
+        sleep 2
+        $0 start
+    fi
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart|force-reload}" >&2
+    exit 1
+    ;;
+esac
+
+exit 0
