@@ -1,0 +1,423 @@
+#!/bin/sh
+# vim: syntax=sh
+#
+# usb.rc    This brings the USB subsystem up and down safely.
+#
+# $Id: usb.rc,v 1.28 2004/09/20 22:30:35 kroah Exp $
+#
+# Best invoked via /etc/init.d/hotplug or equivalent, with
+# writable /tmp, /usr mounted, and syslogging active.
+#
+# Bus management is basically unrelated to runlevel changes; it
+# relates to physical topology, including possibly hotpluggable
+# busses (USB, Cardbus) or controllers.  If a bus is physically
+# present, it should normally be available.
+#
+# USB-dependant systems (iMacs, "legacy free" x86 systems, and so on)
+# should statically link USB keyboard support into the kernel (USB core,
+# EHCI/OHCI/UHCI/..., hid, input, keybdev; and likely mousedev) so the
+# system console can't be removed by accident.
+
+OUT=/dev/null;ERR=$OUT  ##KRG
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+echo "$0: '$@' --BEGIN"
+
+export DEVPATH=/dev ##+++2012-07-13
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+
+unset I_WANT_A_BROKEN_PS
+PS_PERSONALITY=linux
+
+STATIC_MODULE_LIST=
+X11_USBMICE_HACK=false
+
+# override any of the defaults above?
+if [ -f /etc/sysconfig/usb ]; then
+    . /etc/sysconfig/usb
+fi
+if [ -f /etc/conf.d/usb ]; then
+    . /etc/conf.d/usb
+fi
+
+
+MOUSE_MODULES="mousedev input"
+
+# In its currently-recommended configuration, XFree86 3.3.6 always opens
+# /dev/input/mice; so mousedev and input must be loaded before X11 starts.
+if [ $X11_USBMICE_HACK = true ]; then
+    STATIC_MODULE_LIST="$MOUSE_MODULES $STATIC_MODULE_LIST"
+fi
+
+
+#
+# "COLD PLUG" ... recovery from partial USB init that may have happened
+# before the OS could really handle hotplug, perhaps because /sbin or
+# $HOTPLUG_DIR wasn't available or /tmp wasn't writable.  When/if the
+# /sbin/hotplug program is invoked then, hotplug event notifications
+# get dropped.  To make up for such "cold boot" errors, we synthesize
+# all the hotplug events we expect to have seen already.  They can be
+# out of order, and some might be duplicates.
+#
+# Note that on 2.5 the init filesystem may have loaded some of the more
+# essential usb drivers (maybe usb-storage for a boot disk, and hid),
+# but we may still need to load less important ones or invoke setup
+# scripts that couldn't run earlier.
+#
+usb_boot_events ()
+{
+    #
+    # FIXME on 2.5, /sys/bus/usb/devices/* gives all of the
+    # info we need.  Interface hotplug events come from the
+    # "*:*" files, and device events (do them first) come
+    # from the others.
+    #
+    # don't expect usbmodules to exist!!  and remove the
+    # dependency (below) on usbfs to decide whether we should
+    # be synthesizing coldplug events.
+    #
+
+    # synthesize hotplug events if we can
+
+    # make sure the usb agent will run
+    ACTION=add
+    PRODUCT=0/0/0
+    TYPE=
+    INTERFACE=
+    DEVPATH=
+    DEVFS=/proc/bus/usb
+    DEVICE=
+    export ACTION PRODUCT TYPE INTERFACE DEVPATH DEVFS DEVICE
+
+    if [ -d /sys/bus ]; then
+        if [ -d /sys/bus/usb/devices ]; then
+        cd /sys/bus/usb/devices
+        for device in /sys/bus/usb/devices/[0-9]*; do
+            devlink=$( readlink -f $device )
+            DEVPATH=${devlink#/sys}
+            if [ -f $devlink/../idVendor ]; then
+            PRODUCT="$(cat $devlink/../idVendor)/$(cat $devlink/../idProduct)/$(cat $devlink/../bcdDevice)"
+                if [ -f $devlink/../../devnum ]
+            then
+                devbus=$( ( echo -n 000 ; cat $devlink/../../devnum ) | grep -o ...\$ )
+                devdev=$( ( echo -n 000 ; cat $devlink/../devnum ) | grep -o ...\$ )
+                DEVICE="/proc/bus/usb/$devbus/$devdev"
+            else
+                DEVICE=
+            fi
+            /etc/hotplug/usb.agent
+            fi
+        done
+        fi
+    else
+        # we need (non-bash) programs to parse descriptors.
+        LISTER=`which usbmodules`
+        if [ "$LISTER" = "" ] || [ ! -f /proc/bus/usb/devices ]; then
+        echo $"** can't synthesize root hub events"
+        return
+        fi
+        for DEVICE in /proc/bus/usb/*/*; do
+        /etc/hotplug/usb.agent
+        done
+    fi
+}
+
+
+maybe_start_usb ()
+{
+    COUNT=0
+
+    # if USB is partially initted then synthesize "cold plug" events. the
+    # kernel probably dropped many "hot plug" events, and those it didn't
+    # drop likely couldn't trigger all the setup actions (kicking daemons,
+    # dropping config records, and so on).
+
+    # if it's not initted at all (no hcds loaded) no synthesized events
+    # will be needed, we'll see real ones.  knowing that there are no
+    # hcds available through version-portable logic is a nightmare, so
+    # assume we synthesize unless "usbfs" is clearly not initted (which
+    # we currently need when synthesizing, anyway).
+
+    SYNTHESIZE=true
+    if [ ! -d /proc/bus/usb ]; then
+    SYNTHESIZE=false
+    fi
+
+    # if distro hasn't already done part of this ... load core,
+    # and mount usbfs before the first hotplug agent fires
+    # (so it'll be available to the agents).
+    modprobe usbcore >$OUT 2>$ERR
+    if [ -d /proc/bus/usb ]; then
+    # if it's not mounted, try to mount it
+    if [ -z "`grep " /proc/bus/usb " /proc/mounts`" ]; then
+        if grep -E "^[^#][^[:space:]]+[[:space:]]+/proc/bus/usb/?[[:space:]]" /etc/fstab; then
+        mount /proc/bus/usb
+        else
+        if grep usbfs /proc/filesystems; then
+            mount -t usbfs usbfs /proc/bus/usb
+        else
+            mount -t usbdevfs usbdevfs /proc/bus/usb
+        fi
+        fi
+    fi
+    fi
+
+    # Load Host Controller Drivers (HCDs) ... this automatically handles
+    # systems with multiple controllers (EHCI, OHCI, UHCI) without needing
+    # /proc or tools (lspci -v|grep USB, etc) to do so.  If hotplugging
+    # is enabled on this system, initting a root hub will cause hotplug
+    # events to fire for every device on the tree at that root.
+
+    # FIXME: some of this should be driven by PCI hotplugging, and have
+    # the blacklist control which uhci driver gets used (before 2.5).
+
+    # "new style" HCDs ... more common code
+    modprobe ehci-hcd >$OUT 2>$ERR
+    modprobe ohci-hcd >$OUT 2>$ERR
+    modprobe uhci-hcd >$OUT 2>$ERR
+
+    # "old style" HCDs ... more driver-specific bugs
+    modprobe usb-ohci >$OUT 2>$ERR
+
+    # NOTE: this prefers "uhci"; you may prefer "usb-uhci".
+    # modprobe -q usb-uhci >/dev/null 2>&1 || modprobe -q uhci >/dev/null 2>&1
+    modprobe uhci >$OUT 2>$ERR || modprobe usb-uhci >$OUT 2>$ERR
+
+    # ... add any non-PCI HCDS here.  Examples include the
+    # CRIS usb-host, Philips ISP-1161, Symlogic 811HS, and so on.
+    # ohci-hcd can handle some non-pci variants.
+
+    if [ -d /proc/bus/usb ]; then
+    # If we see there are no busses, we "failed" and
+    # can report so even if we're partially nonmodular.
+    #
+    # NOTE: this fails on older kernels, where usbdevfs had two files
+    # ('devices' and 'drivers') with no hcds registered, but works on
+    # newer kernels where usbfs has zero files until hcds register,
+    # and might not have the 'drivers' file.
+    COUNT=`ls /proc/bus/usb | wc -l`
+    if [ $COUNT -lt 2 ]; then
+        umount /proc/bus/usb
+        rmmod usbcore >$OUT 2>$ERR
+        return 1
+    fi
+
+    # if USB is fully modular and yet can clean up,
+    # we know init failed without needing usbfs
+    elif rmmod usbcore >$OUT 2>$ERR; then
+    return 1
+    fi
+
+    # hotplug events didn't fire during booting;
+    # cope with devices that enumerated earlier
+    # and may not have been fully configured.
+    if [ $SYNTHESIZE = true ]; then
+    sleep 1
+        usb_boot_events
+    fi
+
+    # Some modules are statically loaded, perhaps because they are
+    # needed to activate filesystem device nodes.
+    for MODULE in $STATIC_MODULE_LIST; do
+    modprobe $MODULE
+    done
+
+    # we did everything we could ...
+    return 0
+}
+
+maybe_stop_usb ()
+{
+    # call this multiple times if you had to take down components of the
+    # USB subsystem by hand; it cleans up whatever can
+    # be cleaned up, letting the system quiesce further.
+
+    # NOTE:  this list of "all USB modules" is unfortunate, but it seems
+    # inevitable until modutils supports the notion of drivers with use
+    # counts of zero that shouldn't be removed until after their device
+    # gets removed.  Maybe in 2.5 ... of necessity, the list is partial.
+
+    # disconnect all controllers we can, and kernel drivers
+    # HCDs first, so most drivers reduce their use counts.
+old_part(){
+    rmmod ehci-hcd >$OUT 2>$ERR
+    rmmod ohci-hcd >$OUT 2>$ERR
+    rmmod uhci-hcd >$OUT 2>$ERR
+    rmmod usb-ohci >$OUT 2>$ERR
+    rmmod usb-uhci >$OUT 2>$ERR
+    rmmod     uhci >$OUT 2>$ERR
+
+    # user mode code may keep usbfs busy for a while yet ...
+
+    # Now let's workaround the fact that some USB modules never increase
+    # their module use counts, so that "rmmod -a" won't unload them.
+    # (And we can't use "modprobe --autoclean" anyway.)
+    rmmod acm              >$OUT 2>$ERR
+    rmmod audio            >$OUT 2>$ERR
+    rmmod auerswald        >$OUT 2>$ERR
+    rmmod belkin_sa        >$OUT 2>$ERR
+    rmmod bluetooth        >$OUT 2>$ERR
+    rmmod catc             >$OUT 2>$ERR
+    rmmod CDCEther         >$OUT 2>$ERR
+    rmmod cpia_usb         >$OUT 2>$ERR
+    rmmod cyberjack        >$OUT 2>$ERR
+    rmmod dabusb           >$OUT 2>$ERR
+    rmmod dc2xx            >$OUT 2>$ERR
+    rmmod digi_acceleport  >$OUT 2>$ERR
+    rmmod dsbr100          >$OUT 2>$ERR
+    rmmod emi26            >$OUT 2>$ERR
+    rmmod empeg            >$OUT 2>$ERR
+    rmmod ftdi_sio         >$OUT 2>$ERR
+    rmmod hci_usb          >$OUT 2>$ERR
+    rmmod hid              >$OUT 2>$ERR
+    rmmod hpusbscsi        >$OUT 2>$ERR
+    rmmod ibmcam           >$OUT 2>$ERR
+    rmmod iforce           >$OUT 2>$ERR
+    rmmod io_edgeport      >$OUT 2>$ERR
+    rmmod ipaq             >$OUT 2>$ERR
+    rmmod ir-usb           >$OUT 2>$ERR
+    rmmod irda-usb         >$OUT 2>$ERR
+    rmmod kaweth           >$OUT 2>$ERR
+    rmmod keyspan          >$OUT 2>$ERR
+    rmmod keyspan_pda      >$OUT 2>$ERR
+    rmmod kl5kusb105       >$OUT 2>$ERR
+    rmmod mct_u232         >$OUT 2>$ERR
+    rmmod mdc800           >$OUT 2>$ERR
+    rmmod microtek         >$OUT 2>$ERR
+    rmmod omninet          >$OUT 2>$ERR
+    rmmod ov511            >$OUT 2>$ERR
+    rmmod pegasus          >$OUT 2>$ERR
+    rmmod pl2303           >$OUT 2>$ERR
+    rmmod printer          >$OUT 2>$ERR
+    rmmod pwc pwcx         >$OUT 2>$ERR
+    rmmod rio500           >$OUT 2>$ERR
+    rmmod rtl8150          >$OUT 2>$ERR
+    rmmod scanner          >$OUT 2>$ERR
+    rmmod se401            >$OUT 2>$ERR
+    rmmod stv680           >$OUT 2>$ERR
+    rmmod usbhid           >$OUT 2>$ERR
+    rmmod usbkbd           >$OUT 2>$ERR
+    rmmod usbmouse         >$OUT 2>$ERR
+    rmmod usbnet           >$OUT 2>$ERR
+    rmmod usbtest          >$OUT 2>$ERR
+    rmmod usb-storage      >$OUT 2>$ERR
+    rmmod uss720           >$OUT 2>$ERR
+    rmmod vicam            >$OUT 2>$ERR
+    rmmod visor            >$OUT 2>$ERR
+    rmmod wacom            >$OUT 2>$ERR
+    rmmod whiteheat        >$OUT 2>$ERR
+}
+
+  for oneMOD in acm audio auerswald \
+                belkin_sa bluetooth \
+                catc CDCEther cpia_usb cyberjack \
+                dabusb dc2xx digi_acceleport dsbr100 \
+                emi26 empeg \
+                ftdi_sio \
+                hpusbscsi \
+                ibmcam iforce io_edgeport ipaq ir-usb irda-usb \
+                kaweth kl5kusb105 \
+                mct_u232 mdc800 microtek \
+                ov511 \
+                pegasus pl2303 printer pwc pwcx \
+                rio500 rtl8150 \
+                scanner se401 stv680 \
+                usbmouse usbnet usbtest uss720 usblp \
+                vicam visor \
+                wacom whiteheat
+
+    do
+    rmmod $oneMOD >$OUT 2>$ERR
+    done
+
+    if [ "$STATIC_MODULE_LIST" != "" ]; then
+    rmmod $STATIC_MODULE_LIST >$OUT 2>$ERR
+    fi
+
+    # remove the helper modules that some usb modules need
+    rmmod usbserial        >$OUT 2>$ERR
+    rmmod usbvideo         >$OUT 2>$ERR
+
+    # OK, usbcore won't actually be removed unless there happen to be
+    # no USB drivers loaded, and usbfs isn't mounted.  let's force
+    # removal of autocleanable modules before trying to rmmod usbcore
+    rmmod -as
+    # note: module-init-tools 0.8a doesn't handle "-as" flags
+
+
+    # ok, hope that user mode drivers/managers closed their fds.
+    umount /proc/bus/usb >$OUT 2>$ERR
+
+    rmmod usbcore >$OUT 2>$ERR
+
+    # we did everything we could ...
+    return 0;
+}
+
+# See how we were called.
+case "$1" in
+  start)
+    maybe_start_usb
+        ;;
+  stop)
+    #pidof rc.shutdown && exit
+    maybe_stop_usb
+        ;;
+  status)
+    echo $"USB Status for kernel: " `uname -srm`
+    echo ''
+
+    if [ -f /proc/bus/usb/devices ]; then
+        # as noted above:  this fails on older kernels,
+        # where usbfs created files differently.
+        COUNT=`ls /proc/bus/usb | wc -l`
+        if [ $COUNT -ge 2 ]; then
+        COUNT=`expr $COUNT - 2`
+        echo $"USB up; bus count is $COUNT"
+        grep "^[TPSI]:" /proc/bus/usb/devices
+        else
+        echo $"usbfs partially up; no busses"
+        fi
+        echo ''
+
+        echo $"USB Drivers Loaded: "
+        if [ -f /proc/bus/usb/drivers ]; then
+        cat /proc/bus/usb/drivers
+        fi
+        if [ -d /sys/bus/usb ]; then
+        ls -1 /sys/bus/usb/drivers
+        fi
+    else
+        echo $"usbfs is unavailable. "
+        if [ -f /proc/modules ] && grep -F usbcore /proc/modules; then
+        echo $"USB module is loaded. "
+        else
+        echo $"USB may be statically linked. "
+        fi
+        echo $"If khubd is running, that shows USB is available."
+    fi
+    echo ''
+
+    if [ -f /proc/sys/kernel/hotplug ]; then
+        echo $"khubd/hotplug thread: "
+    else
+        echo $"khubd thread:"
+    fi
+    /bin/ps -l | head -n 1
+    /bin/ps -Al | grep 'khubd' | grep -v grep
+    echo ''
+
+    lsmod
+    echo ''
+
+    # /proc/devices too? "usb", "input", and others ...
+
+    ;;
+  restart)
+    # always invoke by absolute path, else PATH=$PATH:
+    $0 stop && $0 start
+    ;;
+  *)
+        echo $"Usage: $0 {start|stop|status|restart}"
+        exit 1
+esac
