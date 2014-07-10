@@ -1,0 +1,252 @@
+#!/bin/sh
+
+aplay /usr/share/audio/2barks.au
+Version='1.0 Macpup_O2-Puppy_Linux_431 KRG'
+usage(){
+MSG="
+$0
+
+OPTIONS:
+[help|version]
+[checkcode|debug|verbose]
+[hiber|sleep|resume=/dev/SWAP|/dev/SWAP]
+
+Available Modes :
+$KERN_VER
+$AVAIL_MODES
+"
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg white4 "$MSG"
+exit $1
+}
+
+sync
+
+KERN_VER=`uname -r`
+AVAIL_MODES=$(</sys/power/state)
+BUTTONS="Let me outa here:200"
+for m in $AVAIL_MODES;do
+case $m in
+standby)
+BUTTONS="Powerdown to Standby:201,${BUTTONS}"
+;;
+mem)
+BUTTONS="REST in RAM:203,${BUTTONS}"
+;;
+disk)
+BUTTONS="Hiber on DISK:204,${BUTTONS}"
+;;
+esac;done
+
+out=/dev/null;err=$out
+HIBER=1;MODE=DISK;mode=disk
+for param in $@;do
+case $1 in
+
+version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+help) usage 0;;
+
+checkcode|codecheck) set -n; shift;;
+debug) set -x;     shift;;
+verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
+
+hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
+sleep) SLEEP=1;MODE=RAM;mode=mem; shift;;
+resume=/dev/*) SWAP_TO_USE=${1#*=};shift;;
+/dev/*) SWAP_TO_USE=$1;            shift;;
+
+*) :;;
+
+esac;done
+
+echo "$0"
+
+#[ "$DISPLAY" ] || export DISPLAY=':0'
+#if [ "$DISPLAY" ];then
+if pidof X; then
+	[ "$DISPLAY" ] || export DISPLAY=':0'
+	#xmessage -buttons "Hiber on DISK:204,Rest in RAM:203,Let me outa here:200" "
+	xmessage -timeout 30 -buttons "$BUTTONS" "
+acpid daemon triggered '$0' :
+Kernel : $KERN_VER
+available modes: $AVAIL_MODES
+Power Button Pressed ?
+
+Note: Timesout in 30 seconds with wmpoweroff.
+"
+	ANSWER=$?  ##+++2012-06-01 added menu
+	case $ANSWER in
+	205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ;;
+	204) HIBER=1;SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';;
+	203) SLEEP=1;HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"';;
+	200) exit 0;;
+	"") exit 0;;
+	*) wmpoweroff;; #exit 0;;
+	esac
+
+else #X not running, read console
+
+chvt 12
+echo "Security stub for frozen systems to poweroff cleanly." >/dev/tty12
+sleep 3s
+
+#echo "Timesout in 30 seconds to run poweroff." >/dev/tty12
+#exec 1>>/dev/tty12 2>&1
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/console >/dev/console NO_KEY 
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/tty12 >/dev/tty12 NO_KEY
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/vcs12 >/dev/vcs12 NO_KEY
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/vcsa12 >/dev/vcsa12 NO_KEY
+
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " NO_KEY >/dev/console </dev/console
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " NO_KEY </dev/console >/dev/console
+
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/console NO_KEY >/dev/console
+#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " >/dev/console NO_KEY </dev/console 
+
+case $NO_KEY in 
+N|n) exit;;
+*) exec poweroff;exit;;
+esac
+
+fi #pidof X
+
+
+[ "$DISPLAY" ] && xmessage -bg blue -fg yellow "Power button pressed ..
+Preparing to suspend to $MODE .." &
+
+aplay /usr/share/audio/2barks.au
+
+[ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -1 `pidof pppd`;sleep 1; }
+
+
+MNTDPARTS=`tac /proc/mounts`
+
+##REMARK1 : fuser -c /dev/sda4 would return ntfs-3g PID but -c [||-m] /mnt/sda4 not  ##+++2011_10_27
+
+echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
+
+STRAYPARTL="`echo "$MNTDPARTS" |grep -v -E "/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / "`"
+
+#STRAYPARTL=`echo $STRAYPARTL |rev |sed 's# )#\n)#g'|rev`
+
+STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 2 -d " "` ### |sed 's# type.*##' | tr ' ' '·'`
+
+sync
+
+for ONESTRAY in $STRAYPARTMP  ##in MountPoints
+do
+ [ "$ONESTRAY" ] || continue
+ #Prepare the vars :
+ ONESTRAY="${ONESTRAY//·/ }"
+ ONESTRAY=${ONESTRAY//\"/}
+
+ echo -e "\e[1;31mUnmounting '$ONESTRAY'...\e[0;39m"
+
+ #ONESTRAYP=`busybox mount | grep -w "$ONESTRAY" | cut -f 1 -d ' '`
+
+ #fuser:
+ #fuser -v -k -c -m $ONESTRAYP ##Device  ##Error both mount and mountpoint dont work
+
+ #fuser -v -k -m  "$ONESTRAY"  ##+++2011_10_27
+
+ sync
+
+ #ntfs or not:
+ if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
+ #fusermount version: 2.7.0 [options] mountpoint
+ fusermount -u "$ONESTRAY" ##unmounts MountPoint
+ else
+ umount -r "$ONESTRAY"  ##unmounts MountPoint
+ echo -e "\e[1;31m'$?'\e[0;39m"
+ sleep 1
+ fi
+done
+
+sync
+
+if [ "$HIBER" ];then
+
+show_swaps(){
+echo "$2
+"
+
+echo "
+Currently available swap partitions :
+$SWAPS
+
+`free`
+"
+[ "$DISPLAY" ] && xmessage -bg red -fg white "Aborted hibernation shutdown
+due for more RAM to send to SWAP than SWAP available" &
+aplay /usr/share/audio/2barks.au
+exit $1
+}
+
+#prepare vars:
+SWAPS_LONG=`fdisk -l |grep -i 'swap'`
+SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
+
+SWAPS_ON=`cat /proc/swaps |sed '1d'`
+
+MEM_USED=`free |grep -i 'Mem' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $3}'`
+SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
+
+[ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to DISK due to free swap lesser than used mem"
+
+
+#
+if [ "$SWAP_TO_USE" ];then
+
+[ "`echo "$SWAPS_LONG" |grep "^$SWAP_TO_USE"`" ] || show_swaps 1 "'$SWAP_TO_USE' seems not to be a regular swap partition"
+#[ "`echo "$SWAPS" |grep -w "$SWAP_TO_USE"`" ] || show_swaps 1 "'$SWAP_TO_USE' seems not to be a regular swap partition"
+{ for swap in $SWAPS_ON;do swapoff $swap;sleep 1s;sync;done;swapon $SWAP_TO_USE; }
+FIRST_SWAP=$SWAP_TO_USE
+
+else
+
+FIRST_SWAP=`echo "$SWAPS" |head -n1`
+
+for swap in $SWAPS;do
+
+SWAP_LABEL_RESUME=`blkid $swap |grep -iE 'Resume|Hiber' |cut -f1 -d':'`
+[ "$SWAP_LABEL_RESUME" ] && { FIRST_SWAP=$SWAP_LABEL_RESUME;break; }
+
+done
+
+SWAPS_TO_TURN_OFF=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
+echo "Swapping off all unneeded swaps..."
+for swap in $SWAPS_TO_TURN_OFF;do swapoff $swap;sleep 1s;sync;done
+
+fi #swap_to_use
+
+SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
+
+[ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to RAM due to free swap lesser than used mem"
+
+echo 'disk' >/sys/power/state 2>/tmp/acpi.err
+[ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err
+
+sleep 30s
+echo "$0: HELLO AGAIN '$USER'"
+SWAPS_LONG=`fdisk -l |grep -i 'swap'`
+SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
+
+SWAPS_TO_TURN_ON=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
+for swap in $SWAPS_TO_TURN_ON;do swapon $swap;sleep 1s;done
+
+free
+
+[ "$DISPLAY" ] && xmessage -bg green -fg white "HELLO AGAIN !
+And WELCOME BACK '$USER'
+on '$HOSTNAME' '$MACHTYPE'" &
+aplay /usr/share/audio/2barks.au
+
+else #hiber
+  if [ "$SLEEP" ];then
+echo 'mem' >/sys/power/state 2>/tmp/acpi.err
+[ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err
+    fi
+fi
+
+exit 0
+
