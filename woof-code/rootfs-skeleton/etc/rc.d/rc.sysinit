@@ -437,6 +437,22 @@ echo "KERNEL_RELEASE='$KERNEL_RELEASE'" >> /etc/rc.d/PUPSTATE
 fsckme_func(){
 if [ ! "$PDEV1" ];then
 PDEV1=`basename $(rdev | cut -f 1 -d ' ' | sed 's#/dev/##')`
+
+MAJh=`stat -c %t /dev/$PDEV1`
+MAJd=$(( 16#$MAJh ))
+MINh=`stat -c %T /dev/$PDEV1`
+MINd=$(( 16#$MINh ))
+POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd},[[:blank:]]*${MINd}" |awk '{print $3}'`
+for p in $POSSIBLE;do
+[ "$DEBUG" ] && echo "POSSIBLE='$p'"
+[ -e /sys/class/block/$p ] && {
+    [ -r /sys/class/block/$p/uevent ] || continue
+    unset MAJOR MINOR
+    source /sys/class/block/$p/uevent || continue
+    test $MAJOR = $MAJd -a $MINOR = $MINd || continue
+    PDEV1=$p ; break ; }
+done
+
 DEV1FS=`mount | grep ^[\ \'\"\/]*dev/root |tr -d '"' |cut -f 5 -d ' '`
 else
 : ##+++2012-05-07 TODO
@@ -471,7 +487,7 @@ load_average '0x0a'
 ###### PERSONAL #######################
 echo "`date` KRG part starts ... of $0"
 
-#failsafe_func  ##+++2011_10_31 moved here would have been a BUG echo before everything got mounted
+#failsafe_func  ##+++2011-10-31 moved here would have been a BUG echo before everything got mounted
 ##due to typo faisafe_func -> ash: bad number ??
 norcsysinit_func(){
 if [ -n "`cat /proc/cmdline | grep -i 'norcsysinit'`" ] ; then
@@ -703,8 +719,10 @@ fi;NO_FBCON=1
 };[ "$FBCON_FIRST" ] && { fbcon_func;STATUS=$((STATUS+$?));echo -n "4 STATUS=$STATUS "; }
 
 update_fstab(){
-if ! grep -w "$PDEV1" /etc/fstab; then
-sed -i "1i\/dev/$PDEV1\t\t/\t\t$DEV1FS\t\tdefaults\t\t0\t1" /etc/fstab
+if ! grep -w "^$PDEV1" /etc/fstab; then
+_DATE_=`date +%F`
+_TAB_=`echo -e '\t'`
+sed -i".$_DATE_" "1i\/dev/${PDEV1}${_TAB_}${_TAB_}/${_TAB_}${_TAB_}${DEV1FS}${_TAB_}${_TAB_}defaults${_TAB_}${_TAB_}0${_TAB_}1" /etc/fstab
 fi; };update_fstab;STATUS=$((STATUS+$?));echo -n "5 STATUS=$STATUS "
 
 ###########  DEMPOD  ##############################
