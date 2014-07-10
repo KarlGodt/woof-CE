@@ -1,0 +1,159 @@
+#!/bin/sh
+# Start/stop/restart the hal daemon:
+# slackware script, modified for woof/puppy dec 2008, BK.
+
+
+
+#************
+#KRG
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+
+Version=1.1-KRG-MacPup_O2
+
+usage(){
+MSG="
+$0 [ help | version ]
+"
+echo "$MSG
+$2"
+exit $1
+}
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+#KRG
+#************
+
+
+# i have named this script x_hal so it starts after 'messagebus' (dbus) script.
+
+export DEVPATH=/dev  ##+++2012-07-13
+
+OUT=/dev/null;ERR=$OUT
+case $2 in
+[0-9]*) safeBOOT=$2;;
+""|*) :;;
+esac
+
+#PIDFILE=/var/run/hald/hald.pid
+PIDFILE=/var/run/hald/pid
+mkdir -p /var/run/hald/
+
+hal_start() {
+    CUSTOM_[431]='--use-syslog --retain-privileges --verbose=yes'
+    CUSTOM_[421]='--use-syslog --drop-privileges --verbose=yes'
+    CUSTOM_[41]='--use-syslog --verbose=yes'
+    CUSTOM_[31]='--retain-privileges --verbose=yes'
+    CUSTOM_[21]='--drop-privileges --verbose=yes'
+    CUSTOM_[4]='--use-syslog'
+    CUSTOM_[3]='--retain-privileges'
+    CUSTOM_[2]='--drop-privileges' #/usr/local/sbin/hald: unrecognized option `--drop-privileges'
+    CUSTOM_[1]='--verbose=yes'
+
+    #echo "Starting HAL daemon:  /usr/sbin/hald --daemon=yes $CUSTOM"
+    #/usr/sbin/hald --daemon=yes $CUSTOM
+    #/usr/sbin/hald --daemon=yes --verbose=yes --retain-privileges --use-syslog
+
+    ##############################################################
+    #
+    # May  3 23:20:26 (none) daemon.err hald[29489]: 23:20:26.117 [E] hald_dbus.c:5821: dbus_bus_get():
+    #Failed to connect to socket /usr/var/run/dbus/system_bus_socket: No such file or directory
+    #~ # find /usr -maxdepth 5 \( -type d -o -type l \) -name "var"
+    #/usr/local/var
+    #/usr/var
+    #
+    ##############################################################
+
+    for daemon in /usr/sbin/hald /usr/local/sbin/hald;do
+    [ "`pidof hald`" ] && { break; }
+
+     for a in 1 2 3 4; do
+      if [ "${CUSTOM_[$a]}" ];then
+      echo "Starting HAL daemon: $daemon --daemon=yes ${CUSTOM_[$a]}"
+      $daemon --daemon=yes ${CUSTOM_[$a]}
+      sleep 5s
+      DAEMON=$daemon;CUSTOM="${CUSTOM_[$a]}";
+      [ "`pidof hald`" ] && { break;break;break;break; }
+      fi
+
+       for b in 1 2 3 4;do
+        if [ "${CUSTOM_[$a$b]}" ];then
+         echo "Starting HAL daemon: $daemon --daemon=yes ${CUSTOM_[$a$b]}"
+         $daemon --daemon=yes ${CUSTOM_[$a$b]}
+         sleep 7.5s
+         DAEMON=$daemon;CUSTOM="${CUSTOM_[$a]}";
+         [ "`pidof hald`" ] && { break;break;break; }
+        fi
+
+         for c in 1 2 3 4;do
+          if [ "${CUSTOM_[$a$b$c]}" ];then
+          echo "Starting HAL daemon: $daemon --daemon=yes ${CUSTOM_[$a$b$c]}"
+          $daemon --daemon=yes ${CUSTOM_[$a$b$c]}
+          sleep 10s
+          DAEMON=$daemon;CUSTOM="${CUSTOM_[$a]}";
+          [ "`pidof hald`" ] && { break;break; }
+          fi
+         done
+       done
+     done
+    done
+
+    #echo "Starting HAL daemon:  /usr/local/sbin/hald --daemon=yes $CUSTOM"
+    #/usr/local/sbin/hald --daemon=yes $CUSTOM
+    #sleep 5
+
+    #if  [ "`pidof hald`" ];then
+    #echo "Started hald with PID '`pidof hald`'"
+    #fi
+    #if [ ! "`pidof hald`" ];then
+    #echo "Failed /usr/local/sbin, trying /usr/sbin"
+    #/usr/sbin/hald --daemon=yes
+    #fi
+    #sleep 5
+
+    if [ "`pidof hald`" ];then
+    echo "Hald started '$DAEMON' --daemon=yes '$CUSTOM':
+    `ps -ef|grep hal |grep -v grep`
+    "
+    else
+    echo "FAILED to start hald ... :("
+    fi
+
+}
+
+hal_stop() {
+ pidof hald || echo "Notice: Hald not running ."
+  if [ -e "$PIDFILE" ]; then
+    kill $(cat $PIDFILE)
+    rm -f $PIDFILE
+  fi
+  # Just in case:
+ pidof hald && killall hald 1>$OUT 2>$ERR
+ sleep 2
+ pidof hald && echo "Error: Hald still running ." || echo "Stopped Hal daemon ."
+}
+
+# See how we were called.
+case "$1" in
+    start)
+        hal_start
+        ;;
+    stop)
+        hal_stop
+        ;;
+    restart)
+        hal_stop
+    sleep 1
+        hal_start
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart}"
+        ;;
+esac
