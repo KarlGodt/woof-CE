@@ -1,0 +1,378 @@
+#!/bin/sh
+#Barry Kauler april 2009, puppylinux.com
+#called from /etc/rc.d/rc.services at bootup, with 'start' param.
+#called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
+
+
+
+#************
+#KRG
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+
+Version=1.1-KRG-MacPup_O2
+
+usage(){
+MSG="
+$0 [ help | version ]
+"
+echo "$MSG
+$2"
+exit $1
+}
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
+
+########################################################################
+#
+# CHANGES by Karl Reimer Godt
+# 01.0 : made script exit sourceable
+# 02.0 : added debug output , still TODO
+# 03.0 : added param2 for failsafe , still TODO
+# 04.0 : added closing||start of retrovol
+# 05.0 : added waitloop to one minute to wait if snd modules got loaded
+#        finally modprobing snd-card-[0-9]* as last attempt
+# 06.0 : added creation of right /dev/snd nodes in /dev and
+#        and the statically /dev/snd directory
+#        MIGHT be obsolete since summer/autumn 2011 for newer puppies
+#
+# 08.0 : modprobe -r instead of rmmod
+#
+#
+# 10.0 : added Usage
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.37.4-KRG-i486-StagingDrivers-2
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·sda·'
+# Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686·GNU/Linux
+# X·Window·System·Version·1.3.0
+# Release·Date:·19·April·2007
+# X·Protocol·Version·11,·Revision·0,·Release·1.3
+# Build·Operating·System:·UNKNOWN·
+# Current·Operating·System:·Linux·puppypc·2.6.37.4-KRG-i486-StagingDrivers-2·#4·SMP·Thu·Mar·17·06:05:58·GMT-8·2011·i686
+# Build·Date:·28·November·2007
+# $LANG=de_DE@euro
+# today=Fr·28.·Okt·15:23:16·GMT+1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.30.9-i586-dpup005-Celeron2G
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·'
+# Linux·puppypc·2.6.30.9-i586-dpup005-Celeron2G·#6·SMP·Sat·Jan·15·13:35:51·GMT-8·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xorg
+# $LANG=de_DE@euro
+# today=Do·27.·Okt·22:42:03·GMT-1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+Version='1.1-safeBoot Macpup_O2-Puppy_Linux_431 KRG'
+
+PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin"
+
+###<KRG>
+	#### TEST for sourced or executed ####
+PROG='/etc/init.d/alsa'
+[ ! -f "$PROG" ] && PROG='alsa'
+ZERO="$0"
+PROGPID="$$"
+echo "$PROG" "$0" "$PROGPID"
+if [ "$ZERO" = "$PROG" ] ; then
+PROGPAT="$PROG"
+EXIT='exit'
+else
+PROGPAT="$PROG called by $ZERO"
+EXIT='return'
+fi
+###</KRG>
+
+###<KRG>
+	#### Bootparameter 'noalsa=anyVAL_or_CHAR' ####
+	# /sbin/init = +16
+[ "$2" ] && param2="$2"
+[ -z "$param2" ] && { param2=256;YES=1; }
+
+case $param2 in
+16)  NO=1 ;;  #noalsa #Only no alsa
+256) YES=1;; #alsa
+0)   NO=1 ;; #noalsa #NO DRIVERS at ALL
+128) NO=1 ;; #noalsa #ADDLIST ONLY
+*)
+if [ $param2 -lt 16 ];then  YES=1 #alsa
+elif [ $param2 -le 31 ];then NO=1 #noalsa
+elif [ $param2 -gt 256 and $param2 -lt 272 ];then YES=1 #alsa
+elif [ $param2 -ge 272 ];then                      NO=1 #noalsa
+else
+YES=1
+fi
+;;
+esac
+
+###</KRG>
+
+case "$1" in
+ start)
+
+   ###<KRG>
+   echo "Starting now $PROGPAT ..."
+
+  #[ "$param2" -ge "32" -a "$param2" -lt "64" ] && $EXIT
+  #[ "$param2" = "0" ] && $EXIT
+  [ "$NO" = 1 ] && { echo "Booted with '$param2', so no '$0' .Exit.";exit 0; }
+
+retrovol_func(){
+echo 0
+ if [ -n "$DISPLAY" ] ; then
+ #echo 1 ; which retrovol
+   if [ -n "`which retrovol`" ] ; then
+    #echo 2
+    [ -z "`pidof retrovol`" ] && retrovol -hide &
+    :
+   echo 4
+   else
+   : #echo '2.else'
+   fi
+  #echo 5
+  fi
+ #echo 6
+}
+
+  CNT=0
+  while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do
+  echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
+  sleep 3
+  CNT=$(( $CNT + 1 ))
+  if [ "$CNT" = "20" ] ; then ##&& break
+  #modprobe snd-card-0
+
+    if [ -f /tmp/alsa.flg ] ; then
+      bootAlsaCards=`grep -m1 'boot_alsa_cards=.*' /tmp/alsa.flg | cut -f 2 -d '=' | tr ',' ' '`
+      #bootAlsaCards=`echo "$bootAlsaCards1" | wc -w`
+      if [ "$bootAlsaCards" ] ; then
+       for number in $bootAlsaCards ; do
+        if [ "`echo "$number" | grep -w -e '^[0-9]*$'`" != "" ] ; then  ###+++2011_10_28
+         /sbin/pup_event_backend_modprobe snd-card-$number
+        else
+         /sbin/pup_event_backend_modprobe $number
+        fi
+       done
+      fi
+    else
+     alsaConfFiles=''
+     [ -f /etc/modprobe.conf ] && alsaConfFiles="/etc/modprobe.conf"
+     [ -f /etc/modprobe.d/modprobe.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/modprobe.conf"
+     [ -f /etc/modprobe.d/puppy.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/puppy.conf"
+     [ -f /etc/modprobe.d/alsa-base.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa-base.conf"
+     [ -f /etc/modprobe.d/alsa.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa.conf"
+     [ -f /etc/modprobe.d/alsa_cards.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa_cards.conf"
+
+      if [ "$alsaConfFiles" ] ; then
+       echo 'found' "$alsaConfFiles"
+        for alsaconffile in $alsaConfFiles ; do
+         soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' /etc/modprobe.conf | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
+          for number in $soundCards ; do
+           echo $number
+           #/sbin/pup_event_backend_modprobe snd-card-$number
+           alsaDrivers=`modprobe -c | grep "^alias snd-card-$number" | cut -f3 -d ' '`
+           echo $alsaDrivers
+            for driver in $alsaDrivers ; do
+             /sbin/pup_event_backend_modprobe $driver
+            done
+          done
+        done
+      fi
+    fi
+   break
+  fi
+  done
+
+  if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then  ###KRG perhaps needs snd_
+  echo -e "\\033[0;31m""Still no Sound Modules found `date`""\\033[0;39m"
+  $EXIT
+  fi
+
+  echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###KRG
+  ###</KRG>
+
+   rm -f /var/lock/subsys/alsasound  ###KRG2> /dev/null #or alsa will not start.
+   #sometimes these don't all load...
+   ###+-+2011_10_31
+   #[ -z "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] && /sbin/pup_event_backend_modprobe snd-mixer-oss #modprobe -L snd-mixer-oss
+   #[ -z "`lsmod | grep 'snd[-_]seq[-_]oss'`" ] && /sbin/pup_event_backend_modprobe snd-seq-oss     #modprobe -L snd-seq-oss
+   #[ -z "`lsmod | grep 'snd[-_]pcm[-_]oss'`" ] && /sbin/pup_event_backend_modprobe snd-pcm-oss     #modprobe -L snd-pcm-oss
+   modprobe -v --first-time snd-mixer-oss
+   modprobe -v --first-time snd-seq-oss
+   modprobe -v --first-time snd-pcm-oss
+   ###+-+2011_10_31
+
+   ###<KRG>
+   D=`find /sys -type d -name "*sound*"`
+   POOL=''
+    for i in $D ; do
+     ##echo $i ;
+     DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr ':' '@' -exec echo \; ` ;
+     POOL="$POOL $DEV" ;
+    done
+   POOL=`echo $POOL | rev`
+    for i in $POOL ; do
+     NODE=`echo $i | cut -f 3 -d '@'`
+     NODE=`echo $NODE | rev`
+     NODE=`basename $(dirname $(echo $NODE) )`
+     MAJ=`echo $i | cut -f 2 -d '@'`
+     MAJ=`echo $MAJ | rev`
+     Min=`echo $i | cut -f 1 -d '@'`
+     Min=`echo $Min| rev`
+     echo "$NODE" "$MAJ" "$Min"
+     rm -f /dev/$NODE  ###KRG 2>$ERR or -f
+     mknod /dev/$NODE c $MAJ $Min
+     rm -f /dev/snd/$NODE  ###KRG 2>$ERR or -f
+     mknod /dev/snd/$NODE c $MAJ $Min
+    done
+   ###</KRG>
+
+   if [ -f /etc/asound.state ] ; then
+
+    alsactl -f /etc/asound.state restore #from /etc/asound.state.
+
+   else
+
+    #try and set all levels workable...
+    #set_mixers #in functions4puppy4
+	amixer -s -q <<EOF
+set Master 75% unmute
+set Master -12dB
+set 'Master Mono' 75% unmute
+set 'Master Mono' -12dB
+set Front 75% unmute
+set Front -12dB
+set PCM 90% unmute
+set PCM 0dB
+set Synth 90% unmute
+set Synth 0dB
+set CD 90% unmute
+set CD 0dB
+set Mic 0% mute
+set PCM,1 90% unmute
+set PCM,1 0dB
+set Wave 100% unmute
+set Music 100% unmute
+set AC97 100% unmute
+set 'Master Digital' 75% unmute
+set DAC 90% unmute
+set DAC -12dB
+set DAC,0 90% unmute
+set DAC,0 -12dB
+set DAC,1 90% unmute
+set DAC,1 -12dB
+set Headphone 75% unmute
+set Headphone -12dB
+set Playback 100% unmute
+set "SB Live Analog/Digital Output Jack" off
+set "Audigy Analog/Digital Output Jack" off
+EOF
+
+   fi
+   ###KRGfi
+ retrovol_func
+ echo "... $PROGPAT $@ finished"   ###KRG
+  ;;
+
+ stop)
+ echo "stopping now $PROGPAT ..."  ###KRG
+
+ if [ -n "$DISPLAY" ] ; then  ###KRG
+ [ -n "`pidof retrovol`" ] && killall retrovol  ###KRG
+ rm -f /var/run/retrovol.pid  ###KRG
+ fi  ###KRG
+
+  alsactl -f /etc/asound.state store #saves to /etc/asound.state.
+  # Kill processes holding open sound devices...
+  fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat #>/dev/null 2>&1
+  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* #>/dev/null 2>&1
+  [ -d /dev/snd ] && fuser -k /dev/snd/* #>/dev/null 2>&1
+  # remove all sequencer connections if any
+  [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
+  # mute master to avoid clicks at unload
+  amixer set Master mute #>/dev/null 2>&1  ###KRG loads a bunch of modules###ORIG
+  # remove all sound modules
+  CNT=0  ###KRG
+  while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
+  echo
+  echo 'still soundmodules loaded'
+  lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
+  while read line
+  do
+	 echo -n "$line "  ###KRG
+     #rmmod -f -w "$line"
+     #modprobe -r "$line"
+     modprobe-3.6-orig -vr "$line"
+     sleep 0.1  ###KRG
+  done
+  CNT=$(( $CNT + 1 ))  ###KRG
+  [ "$CNT" = "5" ] && { echo -e "\\033[1;34m"'breaking now'"\\033[0;39m";break; }  ###KRG precaution###KRG
+  done  ###KRG
+  # remove the 2.2 soundcore module (if possible)
+  #modprobe -r snd
+  #rmmod soundcore #2> /dev/null
+  #rmmod gameport #2> /dev/null
+  # remove lockfile if lockdir exists
+  [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
+  echo "... $PROGPAT $@ finished"  ###KRG
+ ;;
+ *)  ##KRG
+ echo -e "\\033[0;31m""Usage of $PROG :""\\033[0;39m"  ##KRG
+ echo "'$PROG start' to start and restore alsa settings"  ##KRG
+ echo "'$PROG stop' to unload sound modules , killall sound users and store last alsa settings"  ##KRG
+ echo -e "\\033[0;32m""For additional help check man 'alsactl' , 'aconnect' , 'amixer' manpages""\\033[0;39m"  ##KRG
+ ;;  ##KRG
+esac
+
