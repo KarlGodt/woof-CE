@@ -100,7 +100,7 @@ exit $1
 
 [ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-(grep -o "/proc " /proc/mounts >$OUT 2>$ERR && grep -o "/sys " /proc/mounts >$OUT 2>$ERR) || usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
+(grep -o "/proc " /proc/mounts 1>>$OUT 2>>$ERR && grep -o "/sys " /proc/mounts 1>>$OUT 2>>$ERR) || usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
 ##
 SIZE_FACTOR=1
 SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | head -n1`  ##-+edit2
@@ -123,23 +123,23 @@ SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | 
 
 #DEVICES=`echo "$@" | grep -o '\-d.*' |sed 's%-[[:alnum:]]*%%g;s%/dev/%%g'`  ##+++edit2
 DEVICES=`echo "$@" | grep -o '\-d.*' | sed 's%-[[:alnum:]]*%%g;s%/dev/%%g' | sed 's% %|%g' | tr -s '|' | sed 's%^|*%%;s%|*$%%'`
-echo "$DEVICES" >$OUT
+echo "$DEVICES" >>$OUT
 SHOWALL=`echo "$@" | grep -oE '\-A|\-\-all' |tr -d '-'` ##+++edit3
 ##ENDHEAD
 #env >$ERR
 
 disktype_func(){
-     disktype /dev/"$1" 2>$ERR |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
+     disktype /dev/"$1" 2>>$ERR |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
 }
 
 filesystem_func(){  ##+++edit1
-    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`
+    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
     [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
     [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2 added none to please pmount thanks to Keef
 }
 
 cddetect_func(){  ##+++edit1
-    cddetect_quick -d/dev/"$1" >$OUT 2>$ERR && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount thanks to Keef
+    cddetect_quick -d/dev/"$1" 1>>$OUT 2>>$ERR && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount thanks to Keef
 }
 
 present_removable(){
@@ -148,10 +148,10 @@ present_removable(){
    echo "/dev/$drive|$FSTYPE|$SIZE"
 }
 
-echo "DEBUG=$DEBUG' DEVICES=$DEVICES'"
+echo "DEBUG='$DEBUG' DEVICES='$DEVICES'"
 [ "$DEVICES" ] && FDISK_DEVICES=`echo "$DEVICES" | sed 's%^%/dev/%;s%|% /dev/%g'`
-echo "FDISK_DEVICES=$FDISK_DEVICES'"
-LANG=$LNG FDISK=`fdisk -l $FDISK_DEVICES 2>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
+echo "FDISK_DEVICES='$FDISK_DEVICES'"
+LANG=$LNG FDISK=`fdisk -l $FDISK_DEVICES 2>>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
 
 ##MAIN
 while read maj min drive rest; do
@@ -162,8 +162,8 @@ while read maj min drive rest; do
 [ "$SHOWALL" ] || { [ "`echo $drive | grep -vE 'ram|loop|mtd|md'`" ] || continue; }  ##+++edit3 added --all option
 [ -b /dev/$drive ] || {
    #maj="${line%% *}" ; min=`echo $line |awk '{print $2}'`;  ##---edit4 thanks to wjaguar, no need for this anymore
-   [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >&2;
-   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
+   [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >>$OUT;
+   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
 [ "$DEVICES" ] && { [ "`echo "$drive" | grep -E "$DEVICES"`" ] || continue; }  ##+++edit2 forgot to implement it
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
@@ -178,7 +178,7 @@ SIZE=`echo "$FDISK" |grep -m1 -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:d
 #SIZEn=`busybox echo $((SIZE * 2 * 512 * 8))`
 #SIZE=$SIZEn
 #expr: syntax error
-echo "SIZE='$SIZE'" >&2
+echo "SIZE='$SIZE'" >>$ERR
 SIZE=`expr $SIZE '*' 2 '*' 512 '*' 8` || continue
 FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)';
 }  ##+ edit2 added (none) to please pmount
