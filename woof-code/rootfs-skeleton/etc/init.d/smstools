@@ -1,0 +1,239 @@
+#! /bin/sh
+#
+# smstools	Startup script for the SMS Server Tools
+#
+# Based on upstream sms3 script
+# Modified for Debian by Patrick Schoenfeld <schoenfeld@debian.org>
+
+### BEGIN INIT INFO
+# Provides:          smstools
+# Required-Start:    $syslog $remote_fs
+# Required-Stop:     $syslog $remote_fs
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: starts smstools
+### END INIT INFO
+
+case $2 in
+[0-9]*) safeBOOT=$2;;
+""|*) :;;
+esac
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/smsd
+DEFAULT=/etc/default/smstools
+NAME=smsd
+PACKAGE=smstools
+DESC='SMS Daemon'
+
+test -x $DAEMON || exit 0
+
+if [ ! -f /etc/default/$PACKAGE ]
+then
+	exit 1
+else
+	. /etc/default/smstools
+fi
+
+start () {
+	# Recreate /var/run/smstools if it went missing
+	rundir="/var/run/smstools"
+	if [ ! -d $rundir ]; then
+	    # Create directory
+	    mkdir -p $rundir
+
+	    # Set permissions
+	    if ! dpkg-statoverride --list $rundir >/dev/null 2>&1 ; then
+		dpkg-statoverride --update --add smsd smsd 2755 $rundir
+	    else
+		# Get user/group/perms from dpkg-statoverride
+		# We go through this torture, because the user should be able
+		# to override the permissions for /v/r/smstools via
+		# dpkg-statoverride
+		D_USER="`dpkg-statoverride --list $rundir|cut -d' ' -f1`"
+		D_GROUP="`dpkg-statoverride --list $rundir|cut -d' ' -f2`"
+		PERMS="`dpkg-statoverride --list $rundir|cut -d' ' -f3`"
+
+		chown ${D_USER}:${D_GROUP} $rundir
+		chmod ${PERMS} $rundir
+	    fi
+	fi
+
+	if ! ps -C smsd > /dev/null 2>&1 ; then
+		# Delete infofile if it exists
+		if [ -f $INFOFILE ]; then
+			rm $INFOFILE
+		fi
+
+		if [ -f $PIDFILE ]; then
+			rm $PIDFILE
+		fi
+
+		# Delete lock files if they exist
+		find /var/spool/sms -name '*.LOCK' -exec rm \{\} \;
+	fi
+
+	# Start the daemon
+	ARGS="-p$PIDFILE -i$INFOFILE -u$USER -g$GROUP"
+	if start-stop-daemon -q --start --background -p $PIDFILE --exec $DAEMON -- $ARGS ; then
+		echo "$NAME."
+	else
+		echo "$NAME already running."
+	fi
+
+	sleep 1
+}
+
+forcestop ()
+{
+	if [ -f $PIDFILE ]; then
+                PID=`cat $PIDFILE 2>/dev/null`
+        fi
+
+        if ! kill -0 $PID 2>/dev/null 2>/dev/null; then
+                echo "$NAME not running."
+        else
+		kill -9 $PID
+		if [ -f $PIDFILE ]; then
+			rm $PIDFILE
+		fi
+
+		if kill -0 $PID 2>/dev/null 2>/dev/null; then
+			echo "Failed."
+		else
+			echo "$NAME."
+		fi
+	fi
+}
+
+status()
+{
+	if [ ! -f $PIDFILE ]; then
+		return 1;
+	fi
+
+    start-stop-daemon --start --quiet -p $PIDFILE --exec $DAEMON --test > /dev/null
+    if [ "$?" = '0' ]; then
+		return 1    # Daemon is not running
+    else
+        return 0    # Daemon is running
+    fi
+}
+
+stop () {
+
+	restartmode="0"
+
+	if [ "$1" = 'restart' ]; then
+		restartmode=1
+	fi
+
+	if [ -f $PIDFILE ]; then
+		PID=`cat $PIDFILE 2>/dev/null`
+	fi
+
+	if ! kill -0 $PID 2>/dev/null 2>/dev/null; then
+		echo "$NAME not running."
+
+		if [ "$restartmode" -lt 1 ]
+		then
+			return 0
+		fi
+	fi
+
+	infofound=0
+	maxwait=15
+
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+
+	#
+	#	Now we have to wait until smsd has _really_ stopped
+	#
+	sleep 1
+
+	if test -n "$PID" && kill -0 $PID 2>/dev/null
+	then
+		echo -n "(waiting..."
+
+		seconds=0
+		while kill -0 $PID 2>/dev/null
+		do
+			if [ $infofound -lt 1 ]; then
+				if [ -f $INFOFILE ]; then
+					infofound=1
+				fi
+			fi
+
+			if [ $infofound -lt 1 ]; then
+				seconds=`expr $seconds + 1`
+			fi
+
+			if [ $seconds -ge $maxwait ]; then
+				echo -n "failed)"
+				echo -n "Timeout occured, killing smsd hardly."
+
+				kill -9 $PID
+				if [ -f $PIDFILE ]; then
+					rm $PIDFILE
+				fi
+
+				echo ""
+				exit 0
+			fi
+
+			sleep 1
+		done
+
+		echo -n "done)"
+	fi
+
+	if [ "$restartmode" -lt 1 ]; then
+		echo "$NAME."
+	fi
+}
+
+case "$1" in
+	start)
+		echo -n "Starting $DESC: "
+		start
+	;;
+
+	stop)
+		echo -n "Stopping $DESC: "
+		stop
+	;;
+
+	status)
+		echo -n "Status of $DESC: "
+		status
+		case "$?" in
+        	0)
+                echo "$NAME is running."
+                ;;
+            1)
+                echo "$NAME is not running."
+				;;
+		esac
+	;;
+	force-stop)
+		echo -n "Forcing stop of $DESC: "
+		force-stop
+		echo "$NAME."
+
+	;;
+
+	restart|reload|force-reload)
+		echo -n "Restarting $DESC: "
+		stop restart
+		start
+	;;
+
+	*)
+		echo "Usage: /etc/init.d/$NAME {start|stop|force-stop|reload|force-reload|restart|status}"
+		exit 3
+	;;
+esac
+
+exit 0
