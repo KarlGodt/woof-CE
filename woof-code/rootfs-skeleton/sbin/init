@@ -248,6 +248,28 @@ if [ ! -d /initrd -o "`busybox df | grep '/initrd'`" = "" ] ; then
 busybox mount -o remount,rw /dev/root /
 
 sleep 1
+
+ test -d /dev || mkdir /dev
+ mountpoint -q /dev || {
+     mount -t ramfs devramfs /dev
+ }
+ test "`which mdev`" && mdev -s || {
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS
+     source $oneFILE || continue
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+  }
+
 mkdir -p /tmp
 
 if [ ! "$DISPLAY" ];then  #for tests in X
@@ -305,24 +327,40 @@ fi
 ############ ROOTDRIVE ###################
 RDEV_FUNC(){
 while [ -z "$PDEV1flag" ] ; do  ##+++2011_10_28
-DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011_10_28 changed position to top
-DEVROOTDRIVE="$DEVPDEV1" ##+2011_10_28 changed position to second
-DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011_10_28 changed position to third
+DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011-10-28 changed position to top
+DEVROOTDRIVE="$DEVPDEV1"                   ##+2011-10-28 changed position to second
+DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011-10-28 changed position to third
+
 #PDEV1=`basename "$DEVPDEV1"`
 PDEV1="${DEVPDEV1##*/}"
+MAJh=`stat -c %t $DEVROOTDRIVE`
+MAJd=$(( 16#$MAJh ))
+MINh=`stat -c %T $DEVROOTDRIVE`
+MINd=$(( 16#$MINh ))
+POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd}" |awk '{print $3}'`
+for p in $POSSIBLE;do
+[ "$DEBUG" ] && echo "POSSIBLE='$p'"
+[ -e /sys/class/block/$p ] && {
+    [ -r /sys/class/block/$p/uevent ] || continue
+    unset MAJOR MINOR
+    source /sys/class/block/$p/uevent || continue
+    test $MAJOR = $MAJd -a $MINOR = $MINd || continue
+    PDEV1=$p ; break ; }
+done
+
 ROOTDRIVE="$PDEV1"
-if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011_10_28
+if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011-10-28
 PDEV1flag=''
 head -n 5 /proc/partitions
 UPDATINGDEV_FUNC
 else
 echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
 PDEV1flag='yes'
-fi  ##+++2011_10_28
+fi  ##+++2011-10-28
 PDEV1flagCount=$((PDEV1flagCount+1))
 [ "$PDEV1flagCount" -gt "10" ] && break  ##precaution to prevent neverending loop
 sleep 1s
-done  ##+++2011_10_28
+done  ##+++2011-10-28
 }
 
 [ -r /etc/DISTRO_SPECS -a -f /etc/DISTRO_SPECS ] && {
