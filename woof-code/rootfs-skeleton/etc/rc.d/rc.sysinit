@@ -129,6 +129,12 @@ fi
 
 export LANG=C
 alias modprobe='modprobe -b'
+#modprobeFIRST_TIME=--first-time
+modprobeFIRST_TIME=
+#modprobeCONFIG=--config
+modprobeCONFIG=
+#modprobeSYSLOG=--syslog
+modprobeSYSLOG=-s
 
 load_average(){
 echo "$1: `uptime`"
@@ -415,11 +421,18 @@ if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
 fi
  #mount
 
+mountpointDEV='';
+mDEV=YES;
+mountpoint /dev && mountpointDEV=YES
+if test ! "$mountpointDEV"; then
+mdev -s || mDEV='';
+fi
+
  #PUPSTATE
 #w478 moved this code above call to rc.update...
-KERNVER=`uname -r`
-KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
-echo "KERNVER='$KERNVER'" >> /etc/rc.d/PUPSTATE
+KERNEL_RELEASE=`uname -r`
+KERNMAJ=`echo -n "$KERNEL_RELEASE" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
+echo "KERNEL_RELEASE='$KERNEL_RELEASE'" >> /etc/rc.d/PUPSTATE
 
 fsckme_func(){
 if [ ! "$PDEV1" ];then
@@ -471,6 +484,7 @@ norcsysinit_func
 status_func $STATUS;STATUS=0
 
 make_block_dev(){
+test "$mDEV" && return 0
 echo -n "Updating Block Device Nodes " >/dev/console
 STATUS=0
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
@@ -488,6 +502,7 @@ echo -n "Sanity Checks " >/dev/console
 echo "Sanity Checks "
 
 mkmissing_tty_func() {
+test "$mDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
 mkdir -p /dev/vc
@@ -513,9 +528,10 @@ done
 };mkmissing_tty_func;STATUS=$((STATUS+$?));echo -n "0 STATUS=$STATUS "
 
 mk_missing_var_dev_func() {
+test "$mDEV" && return 0
 
 mountpoint /dev || {
-TarGzDevDbF="/var/db/boot/dev.$KERNVER.tar.gz"
+TarGzDevDbF="/var/db/boot/dev.$KERNEL_RELEASE.tar.gz"
 StandardTarGzDevDbFile="/var/db/boot/dev.tar.gz"
 if test -f $TarGzDevDbF -o -f $StandardTarGzDevDbFile ; then #1
 
@@ -552,7 +568,7 @@ fi #1.2
 else # 1
 
 echo "$TarGzDevDbF and $StandardTarGzDevDbFile do not exists"
-kernversdbf="/var/db/boot/dev_nodes.$KERNVER.lst"
+kernversdbf="/var/db/boot/dev_nodes.$KERNEL_RELEASE.lst"
 standarddbf="/var/db/boot/dev_nodes.lst"
 
 if test -f $kernversdbf ; then #1.3
@@ -584,10 +600,10 @@ fi #1
 load_average '0x0d'
 
 firmware_dep_func() {
-if test ! -f /etc/modules/firmware.dep.$KERNVER; then
+if test ! -f /etc/modules/firmware.dep.$KERNEL_RELEASE; then
 FWF=`find /etc/modules -type f -name "firmware.*" | head -n 1`
 echo "copying firmware.dep"  #> /dev/console
-cp "$FWF" /etc/modules/firmware.dep.$KERNVER
+cp "$FWF" /etc/modules/firmware.dep.$KERNEL_RELEASE
 fi
 
 fwf=`find /lib/modules/$KERNVER -maxdepth 2 -name "firmware*" | head -n1`
@@ -595,11 +611,13 @@ if test -d "$fwf" ; then
 rm -r -f /lib/firmware
 cp -r "$fwf" /lib/
 fi
+
 lfwd=`find /lib -maxdepth 1 -type d -name "firmware*"`
 currlfw=`echo "$lfwd" | grep "$KERNVER"`
 if test -n "$currlfw" ; then
 mv "$currlfw" /lib/firmware
 fi
+
 if test ! -d /lib/firmware ; then
 if test -f /lib/firmware.tar.gz ; then
 tar -C / -xzf /lib/firmware.tar.gz
@@ -617,29 +635,29 @@ if test -f /tmp/modprobe.conf ; then #1 #/sbin/init
 
 cp -f /tmp/modprobe.conf /etc/modprobe.conf
 cp -f /tmp/modprobe.conf /etc/modprobe.d/modprobe.conf
-cp -f /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
-[ -d /etc/mult_kernels/modprobe.d.$KERNVER ] && cp -f /tmp/modprobe.conf /etc/mult_kernels/modprobe.d.$KERNVER/modprobe.conf
+cp -f /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
+[ -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE ] && cp -f /tmp/modprobe.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/modprobe.conf
 
 elif test -f /tmp/modprobe.conf.setup_alsa_func ; then
 cp -f /tmp/modprobe.conf.setup_alsa_func /etc/modprobe.conf
 cp -f /tmp/modprobe.conf.setup_alsa_func /etc/modprobe.d/modprobe.conf
-cp -f /tmp/modprobe.conf.setup_alsa_func /etc/mult_kernels/modprobe.conf.$KERNVER
-[ -d /etc/mult_kernels/modprobe.d.$KERNVER ] && cp -f /tmp/modprobe.conf.setup_alsa_func /etc/mult_kernels/modprobe.d.$KERNVER/modprobe.conf
+cp -f /tmp/modprobe.conf.setup_alsa_func /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
+[ -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE ] && cp -f /tmp/modprobe.conf.setup_alsa_func /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/modprobe.conf
 
 fi
 
-if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then
-cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+if test -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE ; then
+cp -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE /etc/modprobe.conf
 elif test -f /etc/modprobe.conf ; then
-cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
 fi
 
 
-if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then
+if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE ; then
 rm -f -r /etc/modprobe.d
-cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE /etc/modprobe.d
 elif test -d /etc/modprobe.d ; then
-cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE
 fi
 
 
@@ -647,11 +665,11 @@ fi
 mkdir -p /etc/mult_kernels/rc.d
 #fi
 
-if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ; then
-cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE ; then
+cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
 else
 rm /etc/rc.d/MODULESCONFIG
-cp /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
+cp /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE /etc/rc.d/MODULESCONFIG
 fi
 
 if [ "$USERDRIVERS_ADD" ];then
@@ -659,8 +677,8 @@ for item in $userDrivers;do
 sed -i "s|^\(ADDLIST=\)\([\'\"]\)\(.*\)\([\'\"]\)|\1\2\3 $item \4|" /etc/rc.d/MODULESCONFIG
 done;fi
 
-if test -f /lib/modules/$KERNVER/DOTconfig* ; then
-cp /lib/modules/$KERNVER/DOTconfig* /etc/modules/
+if test -f /lib/modules/$KERNEL_RELEASE/DOTconfig* ; then
+cp /lib/modules/$KERNEL_RELEASE/DOTconfig* /etc/modules/
 fi
 
 BOARD=`dmidecode -t1 | grep -E 'Manufacturer|Product Name'|cut -f 2 -d ':' | tr ' ' '_' |tr -s '_' |tr '/' ':' |tr '\n' '-'`
@@ -678,7 +696,7 @@ if [ -n "`modprobe -l | grep 'fbcon'`" ]; then
 if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]'`" != "" ]; then
 if [ -z "`lsmod | grep 'fbcon'`" ] ; then  ##for /sbin/init
 modinfo fbcon  > /dev/console
-modprobe --syslog fbcon
+modprobe $modprobeSYSLOG fbcon
 fi
 fi
 fi;NO_FBCON=1
@@ -691,8 +709,8 @@ fi; };update_fstab;STATUS=$((STATUS+$?));echo -n "5 STATUS=$STATUS "
 
 ###########  DEMPOD  ##############################
 pupstate_prev_func(){
-if test "`grep -w KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER" ; then
-if test ! -f /lib/modules/$KERNVER/modules.dep -o ! -f /lib/modules/$KERNVER/modules.symbols -o ! -f /lib/modules/$KERNVER/modules.alias ; then
+if test "`grep -w KERNEL_RELEASE /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNEL_RELEASE" ; then
+if test ! -f /lib/modules/$KERNEL_RELEASE/modules.dep -o ! -f /lib/modules/$KERNEL_RELEASE/modules.symbols -o ! -f /lib/modules/$KERNEL_RELEASE/modules.alias ; then
 echo "Detected booting other kernel than last time" >> /dev/console
 echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
 depmod
@@ -708,16 +726,14 @@ echo "`date` KRG part ended ..."
 #w469 may need to run 'depmod'...
 #live-cd may have been built without the modules.* files.
 #initrd init script copied modules to /lib/modules/<kernver>/initrd/.
-if [ ! -f /lib/modules/${KERNVER}/modules.dep ];then
+if [ ! -f /lib/modules/${KERNEL_RELEASE}/modules.dep ];then
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
- [ -d /lib/modules/${KERNVER}/initrd ] && NEEDGUNZIP="yes"
-else
- if [ -d /lib/modules/${KERNVER}/initrd ];then
-  if [ "`grep -E '^initrd/|/initrd/' /lib/modules/${KERNVER}/modules.dep`" = "" ];then
+ [ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && NEEDGUNZIP="yes"
+elif [ -d /lib/modules/${KERNEL_RELEASE}/initrd ];then
+  if [ "`grep -E '^initrd/|/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" = "" ];then
    NEEDDEPMOD="yes" #w469 files may not be there to save space.
    NEEDGUNZIP="yes"
   fi
- fi
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
@@ -725,7 +741,7 @@ if [ "$NEEDGUNZIP" = "yes" ];then
  #do
  # gunzip $ONEMOD
  #done
- gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
+ gunzip -f -r /lib/modules/${KERNEL_RELEASE}/initrd #w482 shinobar.
  STATUS=$((STATUS+$?));echo -n "7 STATUS=$STATUS "
 fi
 
@@ -793,16 +809,16 @@ echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf;
 if [ ! -d /initrd ];then #v423 full hd install.
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
-  [ -z "`lsmod | grep 'yenta_socket'`" ] && modprobe --syslog --config /tmp/pup_event_skiplist.conf yenta-socket
+  [ -z "`lsmod | grep 'yenta_socket'`" ] && modprobe $modprobeSYSLOG $modprobeCONFIG /tmp/pup_event_skiplist.conf yenta-socket
   [ $? -eq 0 ] && sleep 2
  fi
  #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  # this is contrary to my understanding all these years, but oh well, let's do it...
  ELSPCI=`elspci -l` #jesses great little utility.
- [ "`echo "$ELSPCI" | grep '0C0320' | grep '<>$'`" != "" ] && modprobe --syslog --config /tmp/pup_event_skiplist.conf ehci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0320' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG /tmp/pup_event_skiplist.conf ehci-hcd
  #...perhaps a udev rule could have done this?
- [ "`echo "$ELSPCI" | grep '0C0310' | grep '<>$'`" != "" ] && modprobe --syslog --config /tmp/pup_event_skiplist.conf ohci-hcd
- [ "`echo "$ELSPCI" | grep '0C0300' | grep '<>$'`" != "" ] && modprobe --syslog --config /tmp/pup_event_skiplist.conf uhci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0310' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG /tmp/pup_event_skiplist.conf ohci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0300' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG /tmp/pup_event_skiplist.conf uhci-hcd
 fi
 #########force loading of pcmcia- usb- -hid #################
 
@@ -909,7 +925,7 @@ fi
 ###force usb-storage
 if [ -z "`lsmod | grep 'usb_storage'`" ]; then
 echo "forcing usb-storage"
-modprobe --syslog usb_storage
+modprobe $modprobeSYSLOG usb_storage
 fi
 ###force usb-storage
 
@@ -920,11 +936,11 @@ fi
 ### PUPMODE 2
 #if [ ! -d /initrd ];then #full hd installation.
 if [ "$PUPMODE" = 2 ];then
-modprobe --syslog nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
-modprobe --syslog nls_iso8859-1 # "
-modprobe --syslog fuse
-modprobe --syslog $LAYERFS #unionfs or aufs.
-modprobe --syslog squashfs
+modprobe $modprobeSYSLOG nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
+modprobe $modprobeSYSLOG nls_iso8859-1 # "
+modprobe $modprobeSYSLOG fuse
+modprobe $modprobeSYSLOG $LAYERFS #unionfs or aufs.
+modprobe $modprobeSYSLOG squashfs
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
 fi
 
@@ -1125,11 +1141,11 @@ if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
    MPARAMS=`echo -n "$MODULE" | cut -f 2-9 -d ':' | tr ':' ' '`
    MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
   fi
-  echo -n " $MODULE" >/dev/console
+  echo -en " \\033[1;36m$MODULE\\033[0;39m" >/dev/console
   echo "Loading module $MODULE $MPARAMS"
   firmware_module_func #install firmware tarball. see functions4puppy4.
   #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
-  [ "$MODULE" != "mwave" ] && modprobe -v --syslog --first-time $MODULE $MPARAMS  ##+2011_10_31 added -v and --first-time
+  [ "$MODULE" != "mwave" ] && modprobe -v $modprobeSYSLOG $modprobeFIRST_TIME $MODULE $MPARAMS  ##+2011_10_31 added -v and --first-time
  done
  status_func 0
 fi
@@ -1144,7 +1160,7 @@ load_average '4xff'
 echo -n "MOUNT /proc/bus/usb "
 #had hoped to retire this, but HardInfo needs it...
 #if [ "`lsmod | grep '^usbcore'`"  ];then
-case $KERNVER in
+case $KERNEL_RELEASE in
 2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
 busybox mount -t usbfs none /proc/bus/usb
 echo "<$?>"
@@ -1157,17 +1173,17 @@ esac
 
 ############ ACPI/APM ##################################################
 echo "APM/ACPI"
-[ -d /proc/acpi ] || modprobe --syslog apm #v406
+[ -d /proc/acpi ] || modprobe $modprobeSYSLOG apm #v406
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
-modprobe --syslog battery
+modprobe $modprobeSYSLOG battery
 #if [ -d /proc/acpi/battery ]; then
  results=`find /proc/acpi/battery -mindepth 1 -type d`
 # if [ ! -z "$results" ]; then
-  modprobe --syslog ac
+  modprobe $modprobeSYSLOG ac
 #  modprobe thermal
-  modprobe --syslog fan
+  modprobe $modprobeSYSLOG fan
 # else
 #  rmmod battery
 # fi
@@ -1221,7 +1237,7 @@ ls -l /tmp;ls -l /var
 echo "BEFORE RC.SERVICES";fi
  #permissions
 
-Ybd="$Ybd" /etc/rc.d/rc.services $safeBoot & #run scripts in /etc/rc.d/init.d
+Ybd="$Ybd" /etc/rc.d/rc.services start $safeBoot & #run scripts in /etc/rc.d/init.d
 
  #permissions
 if [ "$DEBUG" ];then
