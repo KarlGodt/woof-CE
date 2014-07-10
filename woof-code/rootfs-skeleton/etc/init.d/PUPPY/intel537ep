@@ -1,0 +1,47 @@
+#!/bin/sh
+#Barry Kauler, LGPL 2007
+#v406 rerwin: bugfix
+
+#v405 if a different modem selected, quit...
+#v413 recoded to use device Intel5370, as created by driver
+#v425 revert to device 5370, for upgraded driver
+#v431 restore device Intel5370, to support both old and new drivers.
+
+[ -h /dev/modem ] && [ "`readlink /dev/modem`" != "5370" ] && [ "`readlink /dev/modem`" != "Intel5370" ] && exit
+
+[ ! $1 ] && exit
+[ "$1" != "start" ] && exit
+
+[ "`lsmod | grep '^[iI]ntel537[ESAP]* '`" = "" ] && exit
+
+#v413
+if [ -e /dev/5370 ];then
+ MODEMDEV="5370"
+elif [ -e /dev/Intel5370 ];then
+ MODEMDEV="Intel5370"
+else
+ exit
+fi
+
+ln -snf $MODEMDEV /dev/modem
+rm -f /dev/ttyS_53*
+ln -snf $MODEMDEV /dev/ttyS_537 #v406 so wvdialconf can see it
+#v413 end
+
+if [ -f /etc/countryinfo ];then
+ . /etc/countryinfo
+ if [ "$T35_COUNTRY_CODE" != "" ];then
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING='AT+GCI=${T35_COUNTRY_CODE}'/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ else
+  SPATTERN="s/^MODEM_COUNTRY_STRING.*/MODEM_COUNTRY_STRING=''/"
+  cat /etc/countryinfo | sed -e "$SPATTERN" > /tmp/countryinfo
+ fi
+ sync
+ mv -f /tmp/countryinfo /etc/countryinfo
+fi
+#.../usr/sbin/gen_modem_init_string reads this variable (called from second
+#entry to /etc/rc.d/rc.modem, in rc.local0).
+
+
+###END###
