@@ -161,7 +161,7 @@ interactive(){
 
 #v2.20b make shutdown less verbose...
 #clear
-exec 1>$out 2>$err
+#exec 1>$out 2>$err
 
 ### CD/DVD ###
 #w482 use xorriso if it is installed (see also functions4puppy)...
@@ -1091,7 +1091,7 @@ if [ "$PUPMODE" != "2" ]; then
 echo "removing thumbnails" > /dev/console
 rm -rf /root/.thumbnails/* 1>$out 2>$err
 else #KRG
-FP=`df | grep -w '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if test "$FP" -lt 5; then
 echo "Full install , free space lesser than 5%; removing thumbnails" >/dev/console
 rm -rf /root/.thumbnails/* 1>$out 2>$err
@@ -1101,34 +1101,40 @@ fi
 fi
 [ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
 
-sync
+pidof sync || sync
 
 
 mountedPARTS=`mount`
-mountedPARTS=`echo $mountedPARTS |rev|sed 's# )#\n)#g'|rev`  ##+++2012-01-22
+mountedPARTS=`echo $mountedPARTS |rev|sed 's% )%\n)%g'|rev`  ##+++2012-01-22
 #echo #KRG
 echo "Unmounting stray filesystems:"
 
 #STRAYPARTitionsList=`echo "$MNTDPARTitionS" |grep -v "/dev/pts" |grep -v "/proc" |grep -v "/sys" |grep -v "tmpfs" |grep -v "rootfs" |grep -v 'on / ' | grep -v "/dev/root" | grep -v "usbfs" | grep -v "unionfs" | grep -v "/initrd"`
-strayPART_List=`echo "$mountedPARTS" |grep -vE '/dev/pts|/proc|/sys|tmpfs|rootfs|usbfs|unionfs| on / type | on "/" type |/dev/root|/initrd'`
-strayPART_And_MountPoints=`echo "$strayPART_List" |awk -F '"' '{print $2" "$4}'` #| cut -f 1,3 -d " "`" # | tr "\n" " "`"  ##+2011_10_27 doublequotes for $STRAYPARTitionsList
+strayPART_List=`echo "$mountedPARTS" |grep -vE '/dev/pts|/proc|/sys|tmpfs|rootfs|usbfs|unionfs| on / type | on "/" type |/dev/root|/initrd| /dev '`
+#strayPART_And_MountPoints=`echo "$strayPART_List" |awk -F '"' '{print $2" "$4}'` #| cut -f 1,3 -d " "`" # | tr "\n" " "`"  ##+2011_10_27 doublequotes for $STRAYPARTitionsList
+strayPART_And_MountPoints=`echo "$strayPART_List" |awk '{print $1" "$3}'`
 strayMOUNT=`echo "$strayPART_And_MountPoints" | cut -f 2 -d ' '`   ##2011-10-27 doubblequotes for $STRAYPARTitionsAndMountpoints
 strayDISKS=`echo "$strayPART_And_MountPoints" | cut -f 1 -d ' '`  ##2011_10_27 doubblequotes for $STRAYPARTitionsAndMountpoints
+
 for oneSTRAY in $strayMOUNT
 do
  echo "Unmounting $oneSTRAY..." >/dev/console
  #sleep 3s
  oneDISK=`echo "$strayPART_And_MountPoints" | grep -w "$oneSTRAY" | cut -f 1 -d ' '`
-oneMOUNT=`echo "$strayPART_And_MountPoints" | grep -w "$oneSTRAY" | cut -f 2 -d ' '`
+oneMOUNT=`echo "$strayPART_And_MountPoints" | grep -w "$oneSTRAY" | cut -f 2- -d ' '`
 
  #fuser -k -m $ONESTRAYD
  #fuser -k -c $ONESTRAYDisk  ##2011_10_27 took off to prevent ntfs-3g gets killed
  fuser -k -m $oneMOUNT
  killzombies #v3.99
- sync
+ pidof sync || sync
  ##ONESTRAYM=`echo "$STRAYPART" | grep "$ONESTRAY" | cut -f 2 -d ' '`
  [ "`rdev`" = "/dev/$PDEV1 /" ] && continue
- umount -r $oneDISK
+if test "$oneDISK" = none; then
+umount -r $oneMOUNT
+else 
+umount -r $oneDISK
+fi
 done
 
 swapoff -a #works only if swaps are in mtab or ftab
@@ -1139,7 +1145,7 @@ do
  echo "Swapoff $ONESTRAY" >/dev/console
  swapoff $ONESTRAY
 done
-sync
+pidof sync || sync
 
 
 ### kill ###
@@ -1167,7 +1173,7 @@ fi
 ### unmounting frugal save file or partition ###
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ];then
- sync
+ pidof sync || sync
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
   SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>$err
@@ -1214,7 +1220,7 @@ for w in $WMpids;do kill -4 $w;done
 
 ##+++2011-12-02
 
-debug "`ls -l /`"
+debug "`ls -l / | head -n10`"
 interactive
 
 ##+++2013-04-29
@@ -1225,7 +1231,7 @@ pidof inotifywait && kill -9 `pidof inotifywait`
 #[ -f /mnt/dev_ro2${ZFILE} ] && MNT_ZFILE="dev_ro2"
 
 #unmount mother partition
-sync;sleep 2
+pidof sync || sync;sleep 2
 case $PUPMODE in
 2)
 mount -o remount,ro /
