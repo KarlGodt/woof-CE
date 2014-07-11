@@ -7,7 +7,7 @@
 #this script is /sbin/init in the main Puppy f.s., which is the very first to run.
 #in the case of not a full hd install, this script just passes execution to busybox init.
 
-
+#set -n
 
 #************
 #KRG
@@ -196,6 +196,7 @@ PATH='/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin' #local for r
 export PATH  ##+++2012-03-06 for hwclock in rc.country
 export LANG=C
 
+test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 alias modprobe='modprobe -b'  ##+++2012-01-30
 #modprobeFIRST_TIME=--first-time
 modprobeFIRST_TIME='';
@@ -327,46 +328,58 @@ fi
 ############ ROOTDRIVE ###################
 RDEV_FUNC(){
 while [ -z "$PDEV1flag" ] ; do  ##+++2011-10-28
+echo   PDEV1flag=$PDEV1flag
 DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011-10-28 changed position to top
 DEVROOTDRIVE="$DEVPDEV1"                   ##+2011-10-28 changed position to second
 DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011-10-28 changed position to third
 
 #PDEV1=`basename "$DEVPDEV1"`
 PDEV1="${DEVPDEV1##*/}"
+echo "PDEV1=$PDEV1"
 MAJh=`stat -c %t $DEVROOTDRIVE`
-MAJd=$(( 16#$MAJh ))
+MAJh=`echo "$MAJh" | tr '[a-z]' '[A-Z]'`
+echo "MAJh=$MAJh"
+#MAJd=$((16#MAJh))
+MAJd=`echo "ibase=16;$MAJh" | bc -l`
+echo "MAJd=$MAJd"
 MINh=`stat -c %T $DEVROOTDRIVE`
-MINd=$(( 16#$MINh ))
-POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd}" |awk '{print $3}'`
-for p in $POSSIBLE;do
-[ "$DEBUG" ] && echo "POSSIBLE='$p'"
-[ -e /sys/class/block/$p ] && {
+MINh=`echo "$MINh" | tr '[a-z]' '[A-Z]'`
+#MINd=$((16#MINh))
+MINd=`echo "ibase=16;$MINh" | bc -l`
+POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd} " |awk '{print $3}'`
+ for p in $POSSIBLE;do
+ echo "POSSIBLE='$p'"
+ [ -e /sys/class/block/$p ] && {
     [ -r /sys/class/block/$p/uevent ] || continue
     unset MAJOR MINOR
     source /sys/class/block/$p/uevent || continue
     test $MAJOR = $MAJd -a $MINOR = $MINd || continue
     PDEV1=$p ; break ; }
-done
+ done
 
 ROOTDRIVE="$PDEV1"
-if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011-10-28
-PDEV1flag=''
-head -n 5 /proc/partitions
-UPDATINGDEV_FUNC
-else
-echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
-PDEV1flag='yes'
-fi  ##+++2011-10-28
+ if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011-10-28
+ PDEV1flag=''
+ head -n 5 /proc/partitions
+ UPDATINGDEV_FUNC
+ else
+ echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
+ PDEV1flag='yes'
+ fi  ##+++2011-10-28
+echo    PDEV1flagCount=$PDEV1flagCount
 PDEV1flagCount=$((PDEV1flagCount+1))
 [ "$PDEV1flagCount" -gt "10" ] && break  ##precaution to prevent neverending loop
+echo    PDEV1flagCount=$PDEV1flagCount
 sleep 1s
 done  ##+++2011-10-28
+return 0
 }
 
 [ -r /etc/DISTRO_SPECS -a -f /etc/DISTRO_SPECS ] && {
     . /etc/DISTRO_SPECS
     echo -e "\\033[1;36mPuppy Linux '$DISTRO_NAME' '$DISTRO_VERSION' booting. Have a nice day"'!'"\\033[0;39m"
 }
+
 [ -z "$PDEV1flag" ] && RDEV_FUNC
 ############ ROOTDRIVE #####################
 
@@ -921,11 +934,14 @@ DIFF=`diff -uaNd /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" "$CONFFILE"`
 echo "$DIFF" > /tmp/sbin_init."$basenameCONFFILE".diff
 if [ -n "`grep -E '[[:alpha:]]|[[:punct:]]' /tmp/sbin_init."$basenameCONFFILE".diff`" ] ; then
 if [ "$DebugVal" = "0" ] ; then
-patch -s -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+#patch -s -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+patch /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
 elif [ "$DebugVal" = "1" ] ; then
-patch -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+#patch -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+patch /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
 else
-patch --verbose -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+#patch --verbose -b /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
+patch /etc/mult_kernels/"$basenameCONFFILE"."$KERNVER" /tmp/sbin_init."$basenameCONFFILE".diff
 fi
 fi
 fi
@@ -934,11 +950,14 @@ DIFF=`diff -uaNd "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "
 echo "$DIFF" > "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
 if [ -n "`grep -E '[[:alpha:]]|[[:punct:]]' /tmp/sbin_init."$basenameCONFFILE".2.diff`" ] ; then
 if [ "$DebugVal" = "0" ] ; then
-patch -s -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+#patch -s -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+patch /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
 elif [ "$DebugVal" = "1" ] ; then
-patch -b "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
+#patch -b "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
+patch "/etc/mult_kernels/modprobe.d.${KERNVER}/${basenameCONFFILE}" "/tmp/sbin_init.${basenameCONFFILE}.2.diff"
 else
-patch --verbose -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+#patch --verbose -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
+patch /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFILE" /tmp/sbin_init."$basenameCONFFILE".2.diff
 fi
 fi
 fi
