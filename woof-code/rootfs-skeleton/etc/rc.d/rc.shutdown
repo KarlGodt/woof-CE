@@ -70,6 +70,7 @@ read -t $T_OUT EXIT_KEY
 if [ "$EXIT_KEY" = 'E' -o "$EXIT_KEY" = 'e' ]; then
 exit 199; fi
 [ "$VERBOSE"] || { test -e $OUT && exec 1>$OUT 2>&1; }
+echo
 }
 
 rcsd=/etc/rc.d/rc.shutdown
@@ -143,7 +144,7 @@ case $1 in
 13|*) echo "Saving session to $SAVEFILE (${SAVEPART})..." >/dev/console ;;
 esac
 /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
-sync
+pidof sync || sync
 sleep 1
 fi
 }
@@ -206,8 +207,8 @@ ORIGPUPMODE=$PUPMODE #v2.22
 
 ##### VERBOSE ############################
 if [ "$VERBOSE" ]; then
-echo "Executing /etc/rc.d/rc.shutdown..."
-echo "FILESYSTEM STATE : "
+echo -e '\033[0;36m'"Executing /etc/rc.d/rc.shutdown..."'\033[0;39m'
+echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
 dumpe2fs `rdev` | grep -i 'state'
 echo
 fi
@@ -295,16 +296,16 @@ killall savepuppyd 2>$ERR
 
 
 cd /
-sync
+pidof sync || sync
 
 
 ################### kill X ########
 #just a precaution...
-echo "Killing X and all X apps..."
+echo -e '\033[0;33m'"Killing X and all X apps..."'\033[0;39m'
 killall -9 X >$OUT 2>$ERR
 sleep 1
 killall -3 X >$OUT 2>$ERR
-sync
+pidof sync || sync
 [ "$VERBOSE" ] && LINEP=D005 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################### kill X ########
 
@@ -762,7 +763,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  [ "$SFEXT" = "3fs" ] && JOPT='-j'
  echo "Creating '$NAMEONLY' in '/dev/$SAVEPART' , please wait awhile..." >/dev/console
  dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
- sync
+ pidof sync || sync
  echo "Creating a '$AAAFS' filesystem in '$NAMEONLY' ..." >/dev/console
  if [ "$CRYPTO" = "" ]; then
   mke2fs -q $JOPT -m 0 -F ${SMNTPT}$SAVEFILE
@@ -780,10 +781,10 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
   [ ! $? -eq 0 ] && return 1
   mke2fs -q $JOPT -m 0 $DEVLOOP #REMOVEDv3.98 added '-O none', fix mntg fail at boot.
-  sync
+  pidof sync || sync
   losetup -d $DEVLOOP
  fi
- sync
+ pidof sync || sync
  return 0
 } #end pupsavefunc
 ############################## choose and make pupsave ################################
@@ -895,14 +896,14 @@ swapfile_func() {
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of="${localSMNTPT}"/pupswap.swp bs=1048576 count=$SWPSIZE
        if [ $? -eq 0 ]; then
-        sync
+        pidof sync || sync
         mkswap "${localSMNTPT}"/pupswap.swp
        fi
        if [ $? -ne 0 ]; then
         rm -f "${localSMNTPT}"/pupswap.swp 2>$ERR
     echo "...error, unable to create swapfile." >/dev/console
        fi
-       sync
+       pidof sync || sync
       fi
      fi
     fi
@@ -957,7 +958,7 @@ case $PUPMODE in
 
  5) #v2.02 first boot. No save choosen.
   echo "Session not saved" >/dev/console
-  sync
+  pidof sync || sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
   [ "$SMNTPT" ] && umount "$SMNTPT" 2>$ERR
@@ -986,7 +987,7 @@ EOI
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
   cp -af /etc/DISTRO_SPECS "${DEV1MNT}"/etc/
-  sync
+  pidof sync || sync
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func "$DEV1MNT" $xPDEV
@@ -1035,7 +1036,7 @@ EOI
   done<<EOI
 $(echo "$RDIRS")
 EOI
-  sync
+  pidof sync || sync
   umount /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
@@ -1083,7 +1084,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       if [ $DRVFREEK -gt $FILESIZEK ];then
        echo "Copying $BASESFS..." >/dev/console
        cp -f "$ONESFS" "$SMNTPT"/
-       sync
+       pidof sync || sync
       else
        echo "Insufficient space! Cannot copy $BASESFS" >/dev/console
        break
@@ -1150,7 +1151,7 @@ fi
 [ "$VERBOSE" ] && echo "RM UNEEDED FILES END"
 #################### RM unneded (tmp) files #######################################
 
-sync
+pidof sync || sync
 
 ################### Umount everything #############################################################
 MNTDPARTS=`mount |tac`
@@ -1191,7 +1192,7 @@ do
  #[[ "$ONESTRAY" =~ 'deleted' ]] && continue
  [ "${ONESTRAY%/*}" = '/dev/' ] || continue
  [ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
- echo "Swapoff '$ONESTRAY'" >/dev/console
+ echo -e '\033[0;36m'"Swapoff '$ONESTRAY'"'\033[0;39m' >/dev/console
  swapoff "$ONESTRAY"
 done</proc/swaps
 #sync
@@ -1235,7 +1236,7 @@ if [ $PUPMODE -ne 5 ]; then
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
       if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
         mkdir -p /tmp/unrootfs
-        sync
+        pidof sync || sync
         mount -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
         #sync
       fi
@@ -1304,7 +1305,7 @@ pidof acpid && killall acpid
 if [ "$DEBUG" ]; then
 ps | grep -v '\['
 mount
-echo -n "FILESYSTEM STATE : "
+echo -en '\033[0;36m'"FILESYSTEM STATE : "'\033[0;39m'
 dumpe2fs `rdev` | grep -i 'state'
 echo
 echo "ENDING NOW"  ###DBG
@@ -1313,9 +1314,9 @@ fi
 busybox umount -ar 2>$ERR
 
 if [ "$DEBUG" ]; then
-echo "unmounted all -r  Tried to remount devices as read-only if mount is busy"
+echo -e  '\033[0;36m'"unmounted all -r  Tried to remount devices as read-only if mount is busy"'\033[0;39m'
 test -e /proc/mounts && { ps | grep -v '\['; mount; }
-echo -n "FILESYSTEM STATE : "
+echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
 dumpe2fs `rdev` | grep -i 'state'
 fi
 
