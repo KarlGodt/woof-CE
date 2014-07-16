@@ -8,7 +8,7 @@ ipDETECT_ADDRESS=icanhazip.com
 sleep 5s
 
 while test "`pidof pppd`"; do
-read carRIER </sys/class/net/$ACTIVE_INTERFACE/carrier
+read carRIER </sys/class/net/$ACTIVE_INTERFACE/carrier 2>/dev/null
 test "$carRIER" = 1 && break
 sleep 1s
 done
