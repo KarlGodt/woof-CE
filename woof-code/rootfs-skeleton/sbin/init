@@ -221,6 +221,7 @@ FINDPROC=`find /proc -maxdepth 1 -type f 2>/dev/null`
 [ -z "$FINDPROC" ] && busybox mount -t proc none /proc  ###KRG put here for additional df check (wary094 frugal had written /initrd into full install) ###KRG
 else
 mount -o remount,rw /dev/root /
+rm -rf /proc
 mkdir -p /proc
 busybox mount -t proc none /proc
 fi
@@ -230,6 +231,7 @@ FINDSYS=`find /sys/* -maxdepth 0 -type d 2>/dev/null`
 [ -z "$FINDSYS" ] && busybox mount -t sysfs none /sys
 else
 mount -o remount,rw /dev/root /
+rm -fr /sys
 mkdir -p /sys
 busybox mount -t sysfs none /sys
 fi
@@ -245,12 +247,13 @@ status_func() {
 }
 
 dir_initrd_or_rm_tmp_func(){
-if [ ! -d /initrd -o "`busybox df | grep '/initrd'`" = "" ] ; then
+#if [ ! -d /initrd -o "`busybox df | grep '/initrd'`" = "" ] ; then
+if [ "$PUPMODE" = 2 ]; then
 busybox mount -o remount,rw /dev/root /
 
 sleep 1
 
- test -d /dev || mkdir /dev
+ test -d /dev || { rm -fr /dev && mkdir /dev; }
  mountpoint -q /dev || {
      mount -t ramfs devramfs /dev
  }
@@ -300,7 +303,8 @@ busybox umount /sys
 busybox umount /proc
 exec busybox init
 }
-if [ -d /initrd -a "`busybox df | grep '/initrd'`" ] ; then
+#if [ -d /initrd -a "`busybox df | grep '/initrd'`" ] ; then
+if [ "$PUPMODE" != 2 ]; then
 BUSYBOX_INIT_FUNC #frugal installation
 fi
 ################ RUN BUSYBOX INIT ##############
@@ -309,16 +313,18 @@ fi
 ########### UPDATE DEVICE NODES ################
 UPDATINGDEV_FUNC(){
 echo -n "Updating Device nodes " >/dev/console
-STATUS=0
-CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
-echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
-rm -f "$1"/dev/$SDEV
-STATUS=$(( $STATUS + $? ))
-mknod "$1"/dev/$SDEV b $MAJ $MIN
-STATUS=$(( $STATUS + $? ))
-echo -n '.' >/dev/console
-done
-if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ] ; then
+ test -f /proc/partitions && { STATUS=0
+ CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
+ echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
+ rm -f "$1"/dev/$SDEV
+ STATUS=$(( $STATUS + $? ))
+ mknod "$1"/dev/$SDEV b $MAJ $MIN
+ STATUS=$(( $STATUS + $? ))
+ echo -n '.' >/dev/console
+ done
+ } || STATUS=1
+#if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ] ; then
+if [ "$PUPMODE" = 2 ]; then
 status_func $STATUS
 fi
 }
@@ -326,29 +332,32 @@ fi
 
 
 ############ ROOTDRIVE ###################
+DEBUG=''; #set to anything than empty for some between values showin on the screen
 RDEV_FUNC(){
 while [ -z "$PDEV1flag" ] ; do  ##+++2011-10-28
-echo   PDEV1flag=$PDEV1flag
+[ "$DEBUG" ] && echo   PDEV1flag=$PDEV1flag
 DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011-10-28 changed position to top
 DEVROOTDRIVE="$DEVPDEV1"                   ##+2011-10-28 changed position to second
 DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011-10-28 changed position to third
 
 #PDEV1=`basename "$DEVPDEV1"`
 PDEV1="${DEVPDEV1##*/}"
-echo "PDEV1=$PDEV1"
+[ "$DEBUG" ] && echo "PDEV1=$PDEV1"
 MAJh=`stat -c %t $DEVROOTDRIVE`
 MAJh=`echo "$MAJh" | tr '[a-z]' '[A-Z]'`
-echo "MAJh=$MAJh"
+[ "$DEBUG" ] && echo "MAJh=$MAJh"
 #MAJd=$((16#MAJh))
 MAJd=`echo "ibase=16;$MAJh" | bc -l`
-echo "MAJd=$MAJd"
+[ "$DEBUG" ] && echo "MAJd=$MAJd"
 MINh=`stat -c %T $DEVROOTDRIVE`
 MINh=`echo "$MINh" | tr '[a-z]' '[A-Z]'`
+[ "$DEBUG" ] && echo "MINh=$MINh"
 #MINd=$((16#MINh))
 MINd=`echo "ibase=16;$MINh" | bc -l`
+[ "$DEBUG" ] && echo "MINd=$MINd"
 POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd} " |awk '{print $3}'`
  for p in $POSSIBLE;do
- echo "POSSIBLE='$p'"
+ [ "$DEBUG" ] && echo "POSSIBLE='$p'"
  [ -e /sys/class/block/$p ] && {
     [ -r /sys/class/block/$p/uevent ] || continue
     unset MAJOR MINOR
@@ -360,16 +369,16 @@ POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd}
 ROOTDRIVE="$PDEV1"
  if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011-10-28
  PDEV1flag=''
- head -n 5 /proc/partitions
+ [ "$DEBUG" ] && head -n 5 /proc/partitions
  UPDATINGDEV_FUNC
  else
  echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
  PDEV1flag='yes'
  fi  ##+++2011-10-28
-echo    PDEV1flagCount=$PDEV1flagCount
+[ "$DEBUG" ] && echo    PDEV1flagCount=$PDEV1flagCount
 PDEV1flagCount=$((PDEV1flagCount+1))
 [ "$PDEV1flagCount" -gt "10" ] && break  ##precaution to prevent neverending loop
-echo    PDEV1flagCount=$PDEV1flagCount
+[ "$DEBUG" ] && echo    PDEV1flagCount=$PDEV1flagCount
 sleep 1s
 done  ##+++2011-10-28
 return 0
@@ -385,6 +394,7 @@ return 0
 
 
 ############# ERRFLAG OR INTERVALS #########
+DEBUG=''; #set to anything than empty for some between values showin on the screen
 ERRFLG_FUNC() {  ###KRG
 echo -e "\\033[1;34m"'Checking for unpropper previous shutdown  ... '"\\033[0;39m"
 echo -n -e "\\033[1;33m"'Searching for *fsckme* file 3 levels deep ... '"\\033[0;39m"
@@ -399,7 +409,7 @@ todayD=`date +%d | sed 's/^0//'`;[ "$todayD" ] || todayD='1'
 #todayYDN=`date +%j`;[ "$todayYDN" ] || todayYDN=100
 todayYDN=`date +%j |sed 's%^0*%%'`;[ "$todayYDN" ] || todayYDN=100
 
-echo "
+[ "$DEBUG" ] && echo "
 todayY='$todayY'
 todayM='$todayM'
 todayD='$todayD'
@@ -412,9 +422,9 @@ montTN=`echo "$monthT" | cut -f 1 -d ' '`
 montTO=`echo "$monthT" | cut -f 2 -d ' '`
 
 #echo "monthN=$monthN"
-echo "monthT='$monthT'"
-echo "monthTN='$montTN'"
-echo "montTO='$montTO'"
+[ "$DEBUG" ] && echo "monthT='$monthT'"
+[ "$DEBUG" ] && echo "monthTN='$montTN'"
+[ "$DEBUG" ] && echo "montTO='$montTO'"
 
 #funcs:
 
@@ -462,22 +472,22 @@ val30T=`cal $montTN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o 
 func_compare(){
 echo -e "\\033[0;39m"
 FSCK=''
-echo "$mntcnt -ge $maxmnt"
+[ "$DEBUG" ] && echo "$mntcnt -ge $maxmnt ?:"
 if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##1
 echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
 FSCK='yes'
 else ##1
-  echo "$todayY -ge $nextcY"
+  [ "$DEBUG" ] && echo "$todayY -ge $nextcY ?:"
   if [ "$todayY" -ge "$nextcY" ] ; then    #2
-   echo  "$montTN = $montCN"
+   [ "$DEBUG" ] && echo  "$montTN = $montCN ?:"
    if [ "$montTN" = "$montCN" ] ; then     #3
-    echo "$todayD -ge $nextcD"
+    [ "$DEBUG" ] && echo "$todayD -ge $nextcD ?:"
     if [ "$todayD" -ge "$nextcD" ] ; then  #4 ##+-2012-05-24 changed -gt to -ge
 echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
 FSCK='yes'
     fi #4
    else #3
-    echo "$montTN -gt $montCN"
+    [ "$DEBUG" ] && echo "$montTN -gt $montCN ?:"
     if [ "$montTN" -gt "$montCN" ] ; then #5
      MinusTD=$todayD
      PlusCD=$(( $val30C - $nextcD ))
@@ -533,9 +543,9 @@ func_thirties
 #chdays=$((checkday/60/60/24))
 #chdays=$((ckday/60/60/24))
 nextckYDN=`/bin/date --d="$montCN"/"$nextcD"/"$nextcY" +%j |sed 's%^0*%%'`
-echo "todayY=$todayY'"
+[ "$DEBUG" ] && echo "todayY=$todayY'"
 if [ "$nextcY" -gt $((todayY+1)) ];then
-  echo "$nextcY -gt $((todayY+1))"
+  [ "$DEBUG" ] && echo "$nextcY -gt $((todayY+1))"
   part_1=$nextckYDN
 for i in `seq $nextcY -1 $todayY`;do
 [ $i = $todayY ] && break
@@ -544,15 +554,15 @@ done
   part_3=$((365-todayYDN))
   time_elapsed=$((part_1+part_2+part_3))
 elif [ "$nextcY" -eq $((todayY+1)) ];then
-     echo "$nextcY -eq $((todayY+1))"
+     [ "$DEBUG" ] && echo "$nextcY -eq $((todayY+1))"
      part_1=$nextckYDN
-     echo "part_1=$part_1' nextckYDN=$nextckYDN' todayYDN=$todayYDN'"
+     [ "$DEBUG" ] && echo "part_1=$part_1' nextckYDN=$nextckYDN' todayYDN=$todayYDN'"
      part_3=$((365-todayYDN))
-     echo "part_3=$part_3'"
+     [ "$DEBUG" ] && echo "part_3=$part_3'"
      time_elapsed=$((part_1+part_3))
-     echo "time_elapsed=$time_elapsed'"
+     [ "$DEBUG" ] && echo "time_elapsed=$time_elapsed'"
 elif [ "$nextcY" -eq $todayY ];then
-  echo "$nextcY -eq $todayY"
+  [ "$DEBUG" ] && echo "$nextcY -eq $todayY"
   time_elapsed=$((nextckYDN-todayYDN))  ##+++2013-07-07 BUG was nextYDN , should have been nextckYDN
 fi
 
@@ -655,7 +665,7 @@ lastch=`echo "$VARS" |grep 'Last fsck run:' |cut -f2- -d':' |awk '{print $5" "$2
 [ "`echo "$lastch" |grep '[[:alpha:][:digit:]]'`" ] || lastch=''
 [ "$lastch" ] || lastch='2012 May 1'
 func_last_check
-echo "
+[ "$DEBUG" ] && echo "
 lastcY=$lastcY
 lastcM=$lastcM
 lastcD=$lastcD
@@ -664,9 +674,9 @@ monthC=`echo "$monthN" | grep -e "^[0-9]* ${lastcM}.*"`
 [ "$monthC" ] || monthC='1 Jan'
 func_thirties
 #echo "monthN=$monthN"
-echo "monthN=$monthN"
-echo "monthC=$monthC"
-echo "montCN=$montCN/lastcD=$lastcD/lastcY=$lastcY"
+[ "$DEBUG" ] && echo "monthN=$monthN"
+[ "$DEBUG" ] && echo "monthC=$monthC"
+[ "$DEBUG" ] && echo "montCN=$montCN/lastcD=$lastcD/lastcY=$lastcY"
 /bin/date --d="$montCN"/"$lastcD"/"$lastcY" +%j |sed 's%^0*%%'
 lastcYDN=`/bin/date --date="$montCN"/"$lastcD"/"$lastcY" +%j |sed 's%^0*%%'`
 [ "$lastcYDN" ] || lastcYDN=1
@@ -686,7 +696,7 @@ time_elapsed=$((part_1+part_3))
 elif [ "$lastcY" -eq $todayY ];then
 time_elapsed=$((todayYDN-lastcYDN))
 fi
-echo "time_elapsed=$time_elapsed"
+[ "$DEBUG" ] && echo "time_elapsed=$time_elapsed"
 ##+++2012-08-22
 [ "$time_elapsed" ] || time_elapsed=1
 ##nextcM=`date -d "${time_elapsed} days" +%b`  ##---2012-09-03
