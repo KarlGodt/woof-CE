@@ -1,0 +1,77 @@
+#!/bin/ash
+
+exec 1>>/tmp/photplug.log 2>&1
+#alias sed='busybox sed'
+#alias grep='busybox grep'
+#alias awk='busybox awk' ##awk: applet not found
+
+#eval `env`  ##/sbin/photplug: eval: line 1: =/bin/busybox_1.18.3_STATIC_upx9_648KB: not found
+echo
+env
+#[ "$ACTION" = add ] || exit
+
+case $ACTION in
+add)
+[ "$MODALIAS" ] && {
+        echo $MODALIAS
+        #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
+        #exit
+        LIST=`modprobe -b -D "$MODALIAS" | grep -vE '^install|^blacklist|^options' | sed 's%.*\(/.*\)\.k.*%\1%'`
+        for m in $LIST ; do
+        modprobe -b -v "${m##*/}"
+        done
+        exit $?
+
+}
+
+[ "$MAJOR" -a "$MINOR" -a "$SUBSYSTEM" ] && { [ "$DEVNAME" -o "$DEVPATH" ] && {
+echo $MAJOR $MINOR $SUBSYSTEM $DEVNAME $DEVPATH
+
+[ "$DEVNAME" ] || DEVNAME="${SUBSYSTEM}/${DEVPATH##*/}"
+
+#sed -n '/Block devices:/,$ p' /proc/devices | grep "$SUBSYSTEM" | awk '{print $1}' | grep -w "$MAJOR" && {
+if [ "$DEVTYPE" = disk -o "$DEVTYPE" = partition ]; then
+        [ -e /dev/$DEVNAME ] && exit
+        DEV="/${DEVNAME}"
+        [ -e "/dev/${DEV%/*}" ] || mkdir -p "/dev/${DEV%/*}"
+        mknod /dev/$DEVNAME b $MAJOR $MINOR
+        exit $?
+        #}
+else
+[ "$SUBSYSTEM" = sound ] && GPATTERN='alsa|sound' || GPATTERN="$SUBSYSTEM"
+#sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTERN" | awk '{print $1}' | grep -w "$MAJOR" && {
+        [ -e /dev/$DEVNAME ] && exit
+        DEV="/${DEVNAME}"
+        [ -e "/dev/${DEV%/*}" ] || mkdir -p "/dev/${DEV%/*}"
+        mknod /dev/$DEVNAME c $MAJOR $MINOR
+        exit $?
+        #}
+fi
+ }
+}
+
+test "$FIRMWARE" && {
+
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || exit 1
+test -f "$FIRMWAREBIN" || exit 1
+echo "FIRMWAREBIN='$FIRMWAREBIN'"
+
+echo 1 > /sys/$DEVPATH/loading
+
+cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+if [ $? = 0 ]; then
+    echo 0 >/sys/$DEVPATH/loading
+else
+echo "ERROR loading '$FIRMWAREBIN'"
+fi
+}
+
+;;
+
+remove)
+:;;
+change)
+:;;
+esac
