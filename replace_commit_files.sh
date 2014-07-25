@@ -20,12 +20,12 @@ DIRS=`find woof-code/rootfs-skeleton -type d`
 
 
 while read ONE_DIR; do
-echo "ONE_DIR='$ONE_DIR'"
+#echo "ONE_DIR='$ONE_DIR'"
 test "$ONE_DIR" || continue
 
 #ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
 ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
-echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
+#echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  cd "$CURRENT_DIR/$ONE_DIR" || _error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
