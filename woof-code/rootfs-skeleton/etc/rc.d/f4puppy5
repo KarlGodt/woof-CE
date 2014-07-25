@@ -49,6 +49,31 @@ echo "$0:Version:$VERSION"
 exit 0
 }
 
+_have_all_commands()
+{
+
+haveALL_COMMANDS=MAYBE
+
+grep -I -oE -e '=`[^ ]*| \| [^ ]*' "$0" | grep -v '=.*=' | sort -u | sed 's@^=`@@;s@| @@' |
+while read oneCOMMAND;
+  do
+#which $oneCOMMAND || haveALL_COMMANDS=NO;
+test [ "`which $oneCOMMAND`" -o "`type $oneCOMMAND`" ] || { haveNOT_COMMAND="$haveNOT_COMMAND $oneCOMMAND"; haveALL_COMMANDS=NOT; }
+done
+
+[ "$haveALL_COMMANDS" = MAYBE ] && haveALL_COMMANDS=YES
+
+  if test "$haveALL_COMMANDS" = YES; then
+_debug "haveALL_COMMANDS=$haveALL_COMMANDS"
+elif test "$haveALL_COMMANDS" = NOT; then
+_warn "Don't have all needed commands! Here they are:
+$haveNOT_COMMAND
+"
+else
+_error "Unhandled haveALL_COMMANDS '$haveALL_COMMANDS'"
+  fi
+}
+
 _usage()
 {
 local USAGE_MSG RV
@@ -72,6 +97,61 @@ else
 exit $RV
 fi
 return $?
+}
+
+_string_to_octal()
+{
+_debug "_string_to_octal:$*" >&2
+unset oSTRING
+if test "$*"; then
+STRING_ORIG="$*"
+
+STRING=`echo "$STRING_ORIG" | sed 's!\(.\)!"\1"\n!g'`
+_debug "_string_to_octal:STRING='$STRING'" >&2
+
+
+while read -r oneCHAR
+do
+oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+oCHAR=`printf %o \'"$oneCHAR"`
+
+oSTRING=$oSTRING"\\0$oCHAR"
+
+done<<EoI
+`echo "$STRING"`
+EoI
+
+else
+
+while read -r oneLINE
+do
+#test "$oneLINE" || continue
+ _debug "oneLINE='$oneLINE'" >&2
+ STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
+ _debugx "STRING='$STRING'" >&2
+ while read -r oneCHAR
+ do
+ _debugx "oneCHAR='$oneCHAR'" >&2
+ oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ _debug "oneCHAR='$oneCHAR'" >&2
+ oCHAR=`printf %o \'"$oneCHAR"`
+ _debug "oCHAR='$oCHAR'" >&2
+ #test "$oCHAR" = 134 && oCHAR=0134
+
+ oSTRING=$oSTRING"\\0$oCHAR"
+ _debugx "oSTRING='$oSTRING'" >&2
+
+ done<<EoI
+`echo "$STRING"`
+EoI
+
+oSTRING=$oSTRING"\\012"
+done
+
+fi
+
+echo "$oSTRING"
+
 }
 
 __getopt()
