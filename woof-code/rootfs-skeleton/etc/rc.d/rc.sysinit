@@ -145,33 +145,37 @@ STATUS=0
 
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
-echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
+#echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 busybox mount -t proc none /proc;STATUS=$(( $STATUS + $? ))
 if [ ! -d /initrd ];then #w468
  busybox mount -o remount,rw /;STATUS=$(( $STATUS + $? ))
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
-
+##+++2012-01-29
+mkdir -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
+openvt -c 11 autologinroot
+##+++2012-01-29
+echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 #if [ ! "$DISPLAY" ];then
 rm -rf /tmp/*  ##+++2011-11-30 implemented again
 rm -rf /tmp/.[[:alnum:]]*  ##+++2012-05-28
 #fi
+#redirect all output to a log file (must do after remount rw)...
+#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
+exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm -f /etc/mtab
 ln -s /proc/mounts /etc/mtab
 
-#redirect all output to a log file (must do after remount rw)...
-#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
-exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 mkdir -p /dev/pts ####KRG for DEVTMPFS KERNEL
 busybox mount /dev/pts ;STATUS=$(( $STATUS + $? ))
 mkdir -p /sys
 busybox mount -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
-FREERAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
+FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
 QTRFREERAM=`expr $FREERAM \/ 4`
 [ ! -d /dev/shm ] && mkdir /dev/shm ####KRG for DEVTMPFS KERNEL
 mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
@@ -247,11 +251,6 @@ playbootnoise &
 [ $layerfs ] && LAYERFS=$layerfs #boot param.
 [ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
 [ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
-
-##+++2012-01-29
-mkdir -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
-openvt -c 11 autologinroot
-##+++2012-01-29
 
 #######################VERSION UPDATE##########################
 echo "VERSION UPDATE"
