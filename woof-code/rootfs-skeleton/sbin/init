@@ -47,6 +47,14 @@ PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 
 export LANG=C
 
+if busybox mountpoint /dev ; then
+if [ ! -L /dev/fd ] ; then
+ln -sf /proc/self/fd /dev/fd
+ln -snf fd/0 /dev/stdin
+ln -snf fd/1 /dev/stdout
+ln -snf fd/2 /dev/stderr
+fi;fi
+
 if [ -d /proc ] ; then
 
 FINDPROC=`find /proc -maxdepth 1 -type f 2>/dev/null`
@@ -76,6 +84,34 @@ busybox mount -t sysfs none /sys
 
 fi
 
+
+test -d /dev || { rm -fr /dev && mkdir /dev; }
+ mountpoint -q /dev || {
+     mount -t ramfs devramfs /dev
+if [ ! -L /dev/fd ]; then
+ln -sf /proc/self/fd /dev/fd
+ln -snf fd/0 /dev/stdin
+ln -snf fd/1 /dev/stdout
+ln -snf fd/2 /dev/stderr
+fi
+ }
+
+ test "`which mdev`" && mdev -s || {
+     oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS
+     source "$oneFILE" 2>/dev/null || continue
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+     IFS="$oldIFS"
+  }
 
 status_func() {
 
