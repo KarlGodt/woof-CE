@@ -161,7 +161,13 @@ fi
 
 _file_system_state(){
 echo -n "FILESYSTEM STATE $1: "
-dumpe2fs `rdev` | grep -i 'state'
+if test "$PUPMODE" = 2; then
+ dumpe2fs `rdev` | grep -i 'state'
+elif test "$PDEV1"; then
+ dumpe2fs /dev/$PDEV1 | grep -i 'state'
+else
+ :
+fi
 echo
 }
 
@@ -322,15 +328,16 @@ out=/dev/null; err=$out
 
 mountpointDEV='';
 mDEV=YES;
-mountpoint $Q /dev && mountpointDEV=YES
+#mountpoint $Q /dev && mountpointDEV=YES
+grep $Q ' /dev ' /proc/mounts && mountpointDEV=YES
 #if test ! "$mountpointDEV"; then
 mdev -s || mDEV='';
 #fi
 ##+++2013-12-28
-[ -d/proc/self/fd ] && ln -snf /proc/self/fd /dev/fd
- [ -L /dev/stdin ]  || ln -snf fd/0 /dev/stdin
-[ -L /dev/stdout ]  || ln -snf fd/1 /dev/stdout
-[ -L /dev/stderr ]  || ln -snf fd/2 /dev/stderr
+[ -d /proc/self/fd ] && ln -snf /proc/self/fd /dev/fd
+ [ -L /dev/stdin ]   || ln -snf fd/0 /dev/stdin
+[ -L /dev/stdout ]   || ln -snf fd/1 /dev/stdout
+[ -L /dev/stderr ]   || ln -snf fd/2 /dev/stderr
 ##+++2013-12-28
 
 ##+++2012-01-29
@@ -1286,26 +1293,26 @@ fi
 ### MKNODs ###
 
 #_file_system_state 23
-
+_DATE_=`date +%F`
 ### sort logs ###
 funcPUPPY_UDEV_HELPER(){
-FILE=`grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe)`
-eval $FILE
+FILE=`grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe) | grep -vE '<|>'`
+test "$FILE" && eval $FILE
 FILE1="${FILE%=*}"
-FILE2=`eval echo \\$$FILE1`
-if [ -f "$FILE2" ]; then
-while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ]; do sleep 1; done
-sleep 0.1s  ## 120s ##5s
-_DATE_=`date +%F`
-echo 'Sorting now this log file by '`readlink -f "$0"` >> "$FILE2"
-cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
-PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
-for i in $PIDS; do
-#echo PID  "$i"
-Line=`grep -n -w "^$i" "${FILE2}".sorted | tail -n 1 | cut -f 1 -d ':'`
-#echo Line "$Line"
-sed -i".$_DATE_" "$Line a\ " "${FILE2}".sorted
-done
+test "$FILE1" && FILE2=`eval echo \\$$FILE1`
+ if [ -f "$FILE2" ]; then
+ while [ "`pidof rc.services pup_event_backend_modprobe photplug`" ]; do sleep 1; done
+ sleep 0.1s  ## 120s ##5s
+ #_DATE_=`date +%F`
+ echo 'Sorting now this log file by '`readlink -f "$0"` >> "$FILE2"
+ cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
+ PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
+  for i in $PIDS; do
+  #echo PID  "$i"
+  Line=`grep -n -w "^$i" "${FILE2}".sorted | tail -n 1 | cut -f 1 -d ':'`
+  #echo Line "$Line"
+  sed -i".$_DATE_" "$Line a\ " "${FILE2}".sorted
+  done
 fi
 }
 funcPUPPY_UDEV_HELPER &
@@ -1325,7 +1332,7 @@ else
 maxChars=80
 fi
 
-sed -i "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt
+sed -i".$_DATE_" "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt
 ### capture bootscreen ###
 
 _load_average 'FxFF'
