@@ -140,9 +140,12 @@ debug(){ echo "$@" 1>$out 2>$err ; }
 interactive(){
         #modprobe -v usbhid;modprobe -v ehci_hcd;sleep 5
         modprobe -v ehci_hcd >$out 2>$err;modprobe -v uhci_hcd >$out 2>$err;modprobe -v usbhid >$out 2>$err;sleep 5
-        exec 1>/dev/console 2>/dev/console
+        TTY=`tty`
+        [ "$TTY" = 'not a tty' ] && TTY=/dev/console
+        FD=/proc/self/fd
+        exec 1>$TTY 2>$TTY
         echo -n "Proceed to $SHUT_HOW2 [n|y=AnyOtherKey] ? " >/dev/console;
-        read $SILENCE -t30 -n1 PK;
+        read $SILENCE -t30 -n1 PK <$FD/0 >$FD/1;
         #PKorig="$PK"
         #[ "$PK" ] || PK=y;
         #[ "$PKorig" = "$PK" ] || ADD_MSG="-> Assuming ${PK}."
@@ -201,13 +204,14 @@ PSUBDIR=`dirname "$puppySFS_FILE"`
 #for a full hd install, only setting PUPMODE (=2). no /initrd, no initrd.gz.
 
 . /etc/rc.d/functions4puppy #v3.01
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 ### source ###
 
 
 ### kill ###
 killzombies() {
  #ZOMBIES=`ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
- ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
+ ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
  for oneZOMBIE in $ZOMBIES
  do
   case $oneZOMBIE in
@@ -692,7 +696,8 @@ done
 }
 echo -n "Stopping init scripts .. "
 /etc/rc.d/rc.services stop
-echo " DONE"
+#echo " DONE"
+_status DONE
 
 ### PCMCIA ###
 #v3.97 deprecated, for pcmcia-cs package...
@@ -721,7 +726,8 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
   #/sbin/rmmod tcic 2>/dev/null || /sbin/rmmod i82365 2>/dev/null || /sbin/rmmod yenta_socket 2>/dev/null || /sbin/rmmod i82092 2>/dev/null
   rmmod tcic 1>$out 2>$err || rmmod i82365 1>$out 2>$err || rmmod yenta_socket 1>$out 2>$err || rmmod i82092 1>$out 2>$err
-  echo "done."
+  #echo "done."
+  _status DONE
   rm -f /var/lock/subsys/pcmcia
  fi
 fi
@@ -1000,7 +1006,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       mount -t iso9660 /dev/$PDEV1 /mnt/$PDEV1
       CDMNTPT="/mnt/$PDEV1"
      fi
-     for ONESFS in `find $CDMNTPT -maxdepth 1 -type f -name \*.sfs | grep -v ' ' | tr '\n' ' '`
+     for ONESFS in `find $CDMNTPT -maxdepth 1 -type f -name \*.sfs | grep -v ' '`
      do
       BASESFS=`basename $ONESFS`
       FILESIZEB=`stat --format=%s $ONESFS`
@@ -1103,6 +1109,18 @@ fi
 
 pidof sync || sync
 
+_status(){
+ _CHAR=${1//[[:digit:]]/}
+ if [ "$_CHAR" ];then echo -e "\\033[32G\\033[1;36m${_CHAR}$Black0" >/dev/console
+ set -- 0
+ elif [ "$1" = 0 ];then
+  /bin/echo -e "\\033[72G\\033[1;32mdone$Black0" >/dev/console #green [done] msg.
+ else
+  /bin/echo -e "\\033[70G\\033[1;31mfailed$Black0" >/dev/console #red [failed].
+  STATUS=0
+ fi
+ return $1 #return with same status as entry param.
+}
 
 mountedPARTS=`mount`
 mountedPARTS=`echo $mountedPARTS |rev|sed 's% )%\n)%g'|rev`  ##+++2012-01-22
@@ -1118,32 +1136,35 @@ strayDISKS=`echo "$strayPART_And_MountPoints" | cut -f 1 -d ' '`  ##2011_10_27 d
 
 for oneSTRAY in $strayMOUNT
 do
- echo "Unmounting $oneSTRAY..." >/dev/console
+ echo -n "Unmounting $oneSTRAY..." >/dev/console
  #sleep 3s
  oneDISK=`echo "$strayPART_And_MountPoints" | grep -w "$oneSTRAY" | cut -f 1 -d ' '`
 oneMOUNT=`echo "$strayPART_And_MountPoints" | grep -w "$oneSTRAY" | cut -f 2- -d ' '`
 
  #fuser -k -m $ONESTRAYD
- #fuser -k -c $ONESTRAYDisk  ##2011_10_27 took off to prevent ntfs-3g gets killed
- fuser -k -m $oneMOUNT
+ #fuser -k -c $ONESTRAYDisk  ##2011-10-27 took off to prevent ntfs-3g gets killed
+ [ "$oneMOUNT" ] && fuser -k -m "$oneMOUNT"
  killzombies #v3.99
  pidof sync || sync
  ##ONESTRAYM=`echo "$STRAYPART" | grep "$ONESTRAY" | cut -f 2 -d ' '`
- [ "`rdev`" = "/dev/$PDEV1 /" ] && continue
+ #[ "`rdev`" = "/dev/$PDEV1 /" ] && continue
+ [ "`rdev`" = "${oneDISK} /" ] && continue
 if test "$oneDISK" = none; then
-umount -r $oneMOUNT
-else 
-umount -r $oneDISK
+umount -r "$oneMOUNT"
+_status $?
+else
+umount -r "$oneDISK"
+_status $?
 fi
 done
 
 swapoff -a #works only if swaps are in mtab or ftab
 #v2.13 menno suggests this improvement...
-STRAYPARTD=`cat /proc/swaps | grep "/dev/" | grep -v 'deleted' | cut -f 1 -d " " | tr "\n" " "`
+STRAYPARTD=`cat /proc/swaps | grep "/dev/" | grep -v 'deleted' | cut -f 1 -d " "`
 for ONESTRAY in $STRAYPARTD
 do
  echo "Swapoff $ONESTRAY" >/dev/console
- swapoff $ONESTRAY
+ swapoff "$ONESTRAY"
 done
 pidof sync || sync
 
@@ -1157,7 +1178,7 @@ pidof sync || sync
 [ "$PUP_HOME" ] && absPUP_HOME="/initrd${PUP_HOME}" #v2.16rc
 [ "$absPUP_HOME" ] || absPUP_HOME="/initrd/mnt/dev_save" #v2.16rc
 if [ "`busybox mount | grep "$absPUP_HOME"`" != "" ];then
- BADPIDS=`fuser -v -m $ABSPUPHOME | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`
+ BADPIDS=`fuser -v -m $ABSPUPHOME | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' '`
  for oneBAD in $BADPIDS
  do
   echo "Killing process $oneBAD..."
@@ -1234,37 +1255,37 @@ pidof inotifywait && kill -9 `pidof inotifywait`
 pidof sync || sync;sleep 2
 case $PUPMODE in
 2)
-mount -o remount,ro /
+mount -s -o remount,ro /
 MAIN_RET_VAL=$?
 ;;
 3)
-mount -o remount,ro /dev/$PDEV1
+mount -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 5)
-mount -o remount,ro /dev/$PDEV1
+mount -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 6)
-mount -o remount,ro /dev/$PDEV1
+mount -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 7)
-mount -o remount,ro /dev/$PDEV1
+mount -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 12)
-mount -o remount,ro /dev/$PDEV1 
+mount -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
  case $MAIN_RET_VAL in
  0) :;;
  *) mount -s -o remount,ro /dev/$PDEV1
     MAIN_RET_VAL=$?
  ;;
- esac 
+ esac
 ;;
 13)
-mount -o remount,ro /dev/$PDEV1
+mount -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 77)  ## Multi Session DVD
@@ -1283,14 +1304,17 @@ MAIN_RET_VAL=$?
 :
 ;;
 esac
-[ "$MAIN_RET_VAL" = 0 ] || exit $MAIN_RET_VAL
 
-busybox umount -ar 1>$out 2>$err
-UMOUNT_RET_VAL=$?
+if [ "$DEBUG" -o "$VERBOSE" ]; then
+ [ "$MAIN_RET_VAL" = 0 ] || exit $MAIN_RET_VAL
+fi
+
+busybox umount -lar 1>$out 2>$err
+ UMOUNT_RET_VAL=$?
 #sleep 5 #10
 if [ "$DEBUG" -o "$VERBOSE" ];then
-exit $UMOUNT_RET_VAL
+ exit $UMOUNT_RET_VAL
 else
-exit 0
+ exit 0
 fi
 #the end # -- returning  to /sbin/reboot or /sbin/poweroff, executed normaly from xwin
