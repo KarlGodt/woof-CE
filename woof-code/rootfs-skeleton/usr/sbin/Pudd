@@ -13,18 +13,18 @@
 Version='1.1-getopts Macpup_F3-Puppy-Linux-430/2 KRG'
 
 usage(){
-	echo "
-	$0 [-p [4|6] |-h]
-	Simple xmessage based dialogs to perform the 'dd' command
-	to clone disks,partitions,save-files
-	to a file,partition or disk.
+    echo "
+    $0 [-p [4|6] |-h]
+    Simple xmessage based dialogs to perform the 'dd' command
+    to clone disks,partitions,save-files
+    to a file,partition or disk.
 
-	Options:
-	-p 4|6 ) When Using Pudd to clone from netrwork shares pass
-	-4,-6		Force IP or IPv6 name resolution
-	option to 'ping' (default is 4).
-	"
-	exit $1
+    Options:
+    -p 4|6 ) When Using Pudd to clone from netrwork shares pass
+    -4,-6       Force IP or IPv6 name resolution
+    option to 'ping' (default is 4).
+    "
+    exit $1
 }
 [ "`echo "$1" | grep -E '\-h|help'`" ] && usage 0
 [ "`echo "$1" | grep -E '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nTry --help for more info\n";exit 0; }
@@ -44,7 +44,7 @@ while [ "$2" ];do shift;done #precaution for many scritps may use at least one '
 
 BKCOLOR='#ffe0e0'
 BLURBERR=""
-touch /tmp/umounterr.txt
+touch /tmp/Pudd_unmount_err.txt
 
 # Added by LC
 # this window message will remain on screen until probe is over
@@ -98,16 +98,19 @@ while [ 1 ];do #first loop.
   BLURB2="...HOWEVER, Puppy detects an error probing the partitions!!!"
   USBERR=`echo -n "$RETMSG0" | grep "/dev/sd"`
   if [ ! "$USBERR" = "" ];then
-   sync
+   pidof sync || sync
    #find what usb mounted on and unmount (don't assume /mnt/flash)...
-   USBMNTD=`mount | grep "/dev/sd" | cut -f 3 -d " " | tr "\n" " "`
+   USBMNTD=`mount | grep "/dev/sd" | cut -f 3 -d " "`
+   oldIFS="$IFS"
+   IFS=$'\n'
    for ONEUSBMNT in $USBMNTD
    do
     rox -D "$ONEUSBMNT"
     #fuser -k -m $ONEUSBMNT
-    sync
-    umount -r $ONEUSBMNT 2> /tmp/umounterr.txt
+    pidof sync || sync
+    umount -r $ONEUSBMNT 2>/tmp/Pudd_unmount_err.txt
    done
+   IFS="$oldIFS"
    modprobe -r usb-storage
    BLURB2="...HOWEVER, Puppy detects an error probing the USB partitions!!!"
   fi
@@ -115,20 +118,25 @@ while [ 1 ];do #first loop.
  else
   BKCOLOR='#e0ffe0'
  fi
- PROBEPART0=`probepart -k | grep "/dev/"`
+ PROBEPART0=`probepart -k | grep "^/dev/"`
  PROBEPARTALL="$FOUNDZIP$FOUNDFD0$PROBEPART0"
- PROBEDISK0=`probedisk | grep "/dev/"`
+ PROBEDISK0=`probedisk | grep "^/dev/"`
  PROBEDISKALL="$FOUNDFD0$PROBEDISK0"
 
  #we should not copy from/to anything that is mounted...
- MNTLIST=`df | grep "/dev/" | cut -f 1 -d " " | tr "\n" " "`
+ MNTLIST=`df | grep "^/dev/" | cut -f 1 -d " "`
+ oldIFS="$IFS"
+ IFS=$'\n'
  for MNTONE in $MNTLIST
  do
   NONMATCH=`echo -n "$PROBEPARTALL" | grep -v "$MNTONE"`
   PROBEPARTALL="$NONMATCH"
  done
+ IFS="$oldIFS"
  #...PROBEPARTALL has mounted partitions removed.
- DISKLIST=`echo -n "$PROBEDISKALL" | cut -f 1 -d "|" | tr "\n" " "`
+ DISKLIST=`echo -n "$PROBEDISKALL" | cut -f 1 -d "|"`
+ oldIFS="$IFS"
+ IFS=$'\n'
  for DISKONE in $DISKLIST
  do
   if [ ! "`echo "$MNTLIST" | grep "$DISKONE"`" = "" ];then
@@ -137,7 +145,7 @@ while [ 1 ];do #first loop.
   fi
  done
  #...if PROBEDISKALL contains any mounted partitions, drive is removed.
-
+ IFS="$oldIFS"
 
 # Added by LC
 # we remove the information message at beginning of the script
@@ -167,9 +175,9 @@ $PROBEPARTALL
 ...if floppy disk partition missing or incorrect, click \"Probe FLOPPY\" button...
 $BLURB2"
 
-if [ -s /tmp/umounterr.txt ];then
+if [ -s /tmp/Pudd_unmount_err.txt ];then
  BKCOLOR="#ff8080"
- CATERR=`cat /tmp/umounterr.txt`
+ CATERR=`cat /tmp/Pudd_unmount_err.txt`
  BLURBERR="ERROR: Puppy experienced a problem trying to unmount a partition:
 $CATERR
 "
@@ -181,7 +189,7 @@ MSG1
 
 RETVAL=$?
 BLURBERR=""
-> /tmp/umounterr.txt
+> /tmp/Pudd_unmount_err.txt
 case ${RETVAL} in
    10)# file
      SOURCECHOICE="file"
@@ -202,16 +210,19 @@ case ${RETVAL} in
      exit
      ;;
    14)# probe USB
-     sync
+     pidof sync || sync
      #find what usb mounted on and unmount (don't assume /mnt/flash)...
-     USBMNTD=`mount | grep "/dev/sd" | cut -f 3 -d " " | tr "\n" " "`
+     USBMNTD=`mount | grep "/dev/sd" | cut -f 3 -d " "`
+     oldIFS="$IFS"
+     IFS=$'\n'
      for ONEUSBMNT in $USBMNTD
      do
       rox -D "$ONEUSBMNT"
       #fuser -k -m $ONEUSBMNT
-      sync
-      umount $ONEUSBMNT 2> /tmp/umounterr.txt
+      pidof sync || sync
+      umount $ONEUSBMNT 2>/tmp/Pudd_unmount_err.txt
      done
+     IFS="$oldIFS"
      modprobe -r usb-storage
      xmessage -bg "#ff00ff" -title "Puppy universal dd: probe USB" -center -buttons "" "Wait awhile for the usb-storage driver to reload..." &
      modprobe usb-storage
@@ -224,8 +235,8 @@ case ${RETVAL} in
      if [ ! "$RETZIPMNT" = "" ];then
       rox -D "/mnt/zip"
       #fuser -k -m /mnt/zip
-      sync
-      umount /mnt/zip 2> /tmp/umounterr.txt
+      pidof sync || sync
+      umount /mnt/zip 2>/tmp/Pudd_unmount_err.txt
      fi
     #is it a ide or parallel-port Zip?...
     xmessage -bg "#ffe0e0" -center -name "Pudd" -title "Puppy universal dd: probe ZIP" -buttons "Parallel port ZIP":14,"IDE (internal) ZIP":15,"none of these:10" "Please choose what type of ZIP drive you have..."
@@ -300,8 +311,8 @@ echo "1"
      if [ ! "$RETZIPMNT" = "" ];then
       rox -D "/mnt/zip"
       #fuser -k -m /mnt/floppy
-      sync
-      umount /mnt/floppy 2> /tmp/umounterr.txt
+      pidof sync || sync
+      umount /mnt/floppy 2>/tmp/Pudd_unmount_err.txt
      fi
     PROBEFD0=`disktype /dev/fd0 2>&1`
     echo "$PROBEFD0" | grep "No such device"
@@ -389,7 +400,7 @@ if [ "$SOURCECHOICE" = "file" ];then
           Pudd will delete it, but aborting before completion may prevent this.
 "
    SOURCEPART="$UNCOMPRPATHNAME"
-   sync
+   pidof sync || sync
   fi
   SOURCEFS=`disktype $SOURCEPART | grep "file system" | head -n 1 | tr -s " " | cut -f 1 -d " "`
   if [ "$SOURCEFS" = "" ];then
@@ -718,7 +729,7 @@ Would you like to do this size optimisation?" 0 0
      fi
      echo 'echo -n "Backup finished. Press ENTER key to exit: "' >> /tmp/backuppartition.sh
      echo 'read nnn' >> /tmp/backuppartition.sh
-     sync
+     pidof sync || sync
      chmod 755 /tmp/backuppartition.sh
      rxvt -name Pudd -title "Puppy universal dd: copying" -bg "#ffff00" -geometry 80x8 -e /tmp/backuppartition.sh ${DESTPART} ${SOURCEPART} ${DESTSIZE} ${ALLOWGROW}
      ;;

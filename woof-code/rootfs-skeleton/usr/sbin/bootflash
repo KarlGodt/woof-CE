@@ -108,11 +108,11 @@ export MAIN_DIALOG="<window title=\"BootFlash: make USB drive bootable\" icon-na
 <vbox>
  <text><label>\"  \"</label></text>
  <text use-markup=\"true\"><label>\"<b>Welcome! The intention of BootFlash is to get a USB memory stick (Flash drive) or USB hard drive to boot off any computer that has options in its BIOS setup for booting from USB ...then to install Puppy on it</b>\"</label></text>
- 
+
  <text><label>Your PC's BIOS setup has choices for booting from various types of drives. Modern BIOSes will autodetect whatever USB drives are plugged in, but older BIOSes have fixed choices such as 'USB-HDD' (hard drive), 'USB-ZIP' (zip drive) or 'USB-FDD' (floppy drive). For modern auto-detecting BIOSes or an older one that offers 'USB-HDD', I suggest you make that your preferred choice and tick the 'USB-HDD' radiobutton below. However, it may not work, even on modern computers.</label></text>
- 
+
  <text use-markup=\"true\"><label>\"<b>Please be aware that running this program will erase anything currently on the USB drive</b>\"</label></text>
- 
+
  <frame>
  <radiobutton><label>USB-HDD (hard drive) PREFERRED CHOICE</label><variable>RADIO_HDD</variable></radiobutton>
  <radiobutton><label>USB-ZIP (zip drive)</label><variable>RADIO_ZIP</variable></radiobutton>
@@ -120,7 +120,7 @@ export MAIN_DIALOG="<window title=\"BootFlash: make USB drive bootable\" icon-na
  <radiobutton><label>ComboFormat (hard/zip/floppy chameleon)</label><variable>RADIO_ALL</variable></radiobutton>
  <radiobutton><label>ISO9660 (CD filesystem)</label><variable>RADIO_ISO</variable></radiobutton>
  </frame>
- 
+
  <hbox>
   <button><label>More help</label><action>/tmp/bootme-morehelp & </action></button>
   <button><label>About</label><action>/tmp/bootme-about & </action></button>
@@ -142,12 +142,12 @@ This will make the USB drive seem like a Zip drive. A slightly older BIOS may of
 This is also known as <b>SuperFloppy</b> mode and will make the USB drive seem like a floppy drive. The drive is formatted without any partitions -- just like a floppy, the entire disk is used for the filesystem.
 
 <b>ComboFormat</b>
-This one is very cunning. It makes the drive seem like a HDD, ZIP <i>and</i> FDD. This is the one to choose if you want to be able to take your USB memory stick to just about any PC and it will boot.\"</label></text>   
+This one is very cunning. It makes the drive seem like a HDD, ZIP <i>and</i> FDD. This is the one to choose if you want to be able to take your USB memory stick to just about any PC and it will boot.\"</label></text>
   </frame>
  </vbox>
  </hbox>
- 
- 
+
+
 </vbox>
 </window>"
 
@@ -182,8 +182,10 @@ if [ "$USBDRV" = "" ];then
  [ "$EXIT" != "OK" ] && exit
  sleep 2
  PROBEDISK=`probedisk2 2> /tmp/probediskerr.txt`
- USBDRIVES=`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|' | tr "\n" " "`
+ USBDRIVES=`echo "$PROBEDISK" | grep '|usbdrv|' | cut -f 3 -d '/' | cut -f 1 -d '|'`
  SELECTIONS=""
+ oldIFS="$IFS"
+ IFS=$'\n'
  for ONEUSB in $USBDRIVES
  do
   [ "$ATADRIVES" != "" ] && [ "`echo "$ATADRIVES" | grep "$ONEUSB"`" != "" ] && continue #eliminate ide/sata drives.
@@ -195,6 +197,7 @@ if [ "$USBDRV" = "" ];then
    SELECTIONS="${SELECTIONS}
 $ONEUSB \"${USBMEMTYPE}, ${USBINFO}, ${USBSIZE}\""
  done
+ IFS="$oldIFS"
  xSELECTIONS=`echo "$SELECTIONS" | tr '\n' ' ' | tr -s ' '`
  if [ "$SELECTIONS" = "" ];then
   xmessage -bg red -center -title "ERROR" "No USB drive plugged in!"
@@ -263,7 +266,7 @@ X1PID=$!
 if [ "$RADIO_HDD" = "true" ];then #hard drive.
  #weird code here...
  dd if=/dev/zero of=/dev/$USBDRV bs=512 count=1
- sync
+ pidof sync || sync
  #fdisk cannot be used to create a partition table, it won't boot, use makebootfat...
  makebootfat --output /dev/$USBDRV --syslinux3 --boot ldlinux.bss --mbr mbr.bin --copy ldlinux.sys tempdir
  #...but drive broken, fix as follows...
@@ -277,14 +280,14 @@ if [ "$RADIO_HDD" = "true" ];then #hard drive.
  ##delete wrong partition, create correct partition...
  #echo -e 'd\nn\np\n1\n\n\nw' | fdisk /dev/$USBDRV
  #sync
- 
+
  #also optional...
  dd if=/dev/zero of=/dev/${USBDRV}1 bs=512 count=1 #zeroise first 512 bytes of partition. some apps need this.
 
  DRVSIZEB=`fdisk -l /dev/${USBDRV} | grep '^Disk /dev/' | cut -f 5 -d ' '` #in bytes.
  DRVSIZEK=`expr $DRVSIZEB \/ 1024`
  DRVSIZEM=`expr $DRVSIZEK \/ 1024`
- sync
+ pidof sync || sync
  if [ $DRVSIZEM -gt 1024 ];then #1GB
   #set partition-id to fat32 (0b=fat32, oc=fat32-lba)...
   echo -e 't\n0b\nw' | fdisk /dev/$USBDRV
@@ -294,7 +297,7 @@ if [ "$RADIO_HDD" = "true" ];then #hard drive.
   echo -e 't\n06\nw' | fdisk /dev/$USBDRV
   mkdosfs -F 16 /dev/${USBDRV}1 #FAT16.  -n puppysave
  fi
- sync
+ pidof sync || sync
  syslinux /dev/${USBDRV}1
  #um, it may still need to have the boot flag set...
  [ "`fdisk -l /dev/$USBDRV | grep '/dev/.* \\* '`" = "" ] && echo -e 'a\n1\nw' | fdisk /dev/$USBDRV
@@ -340,15 +343,15 @@ else
    X1PID=$!
    rm -f $WKGPATH/image128m 2>$ERR
    cp -f "$SRCFPATH" $WKGPATH/image128m
-   sync
+   pidof sync || sync
    isohybrid $WKGPATH/image128m
-   sync
+   pidof sync || sync
    PUPSAVEPART="${USBDRV}2"
    PUPBOOTPART="${USBDRV}1"
   else
    #create 128M empty file...
    dd if=/dev/zero of=${WKGPATH}/image128m bs=1024 count=131072 #128MB
-   sync
+   pidof sync || sync
    LOOPDEV=`losetup -f`
    losetup $LOOPDEV ${WKGPATH}/image128m
    if [ "$RADIO_ALL" = "true" ];then #ComboFormat
@@ -364,13 +367,13 @@ else
     PUPSAVEPART="${USBDRV}1"
     PUPBOOTPART="${USBDRV}4"
    fi
-   sync
+   pidof sync || sync
    losetup -d $LOOPDEV
   fi
 
   #write bootable f.s. to drive...
   dd if=${WKGPATH}/image128m of=/dev/$USBDRV
-  sync
+  pidof sync || sync
   rm -f ${WKGPATH}/image128m
 
   #now create partition to fill remaining space on usb drive...
@@ -387,7 +390,7 @@ else
   if [ $DRVSIZEM -gt 1024 ];then #1GB
    #set partition-id to fat32 (0b=fat32, oc=fat32-lba)...
    echo -e "t\n${PARTNUM}\n0b\nw" | fdisk /dev/${USBDRV}
-   sync
+   pidof sync || sync
    mkdosfs -F 32 -n puppysave /dev/${PUPSAVEPART} #FAT32.
   else
    #set partition-id to fat16 (06=fat16, 0e=fat16-lba)...
@@ -469,7 +472,7 @@ echo "default vmlinuz initrd=initrd.gz pmedia=${PMEDIA}" > /mnt/${PUPBOOTPART}/s
 cp -f /tmp/bootflash_iso/vmlinuz /mnt/${PUPBOOTPART}/
 cp -f /tmp/bootflash_iso/initrd.gz /mnt/${PUPBOOTPART}/
 cp -f /tmp/bootflash_iso/*-[0-9][0-9][0-9].sfs /mnt/${PUPBOOTPART}/
-sync
+pidof sync || sync
 
 umount /mnt/${PUPBOOTPART}
 umount /tmp/bootflash_iso
