@@ -12,27 +12,29 @@ for oneFS in $NODEV ; do
  echo "$oneFS"
  DIR=`echo "$oneFS" | sed 's#fs$##'`
 
- if test -z "`grep -Fw "$oneFS" /proc/mounts`" ; then
+ if test -z "`grep -Fw "$oneFS" /proc/mounts`"; then
 
  test "$1" = start || continue
 
    case $oneFS in
-    debugfs) mkdir -p /sys/kernel/debug;       /bin/mount -t debugfs         nodev /sys/kernel/debug;
+    debugfs) test -d /sys/kernel/debug        || mkdir -p /sys/kernel/debug;        /bin/mount -t debugfs         nodev /sys/kernel/debug;
     echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
     ;;
-    fusectl) mkdir -p /sys/fs/fuse/connections; /bin/mount -t fusectl fusectl /sys/fs/fuse/connections;;
-binfmt_misc) mkdir -p /proc/sys/fs/binfmt_misc; /bin/mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
- securityfs) mkdir -p /sys/kernel/security;     /bin/mount -t securityfs      nodev /sys/kernel/security;;
-      usbfs) mkdir -p /proc/bus/usb;            /bin/mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
-   configfs) mkdir -p /config;                  /bin/mount -t configfs        none  /config;;
-  hugetlbfs) mkdir -p /mnt/huge;                /bin/mount -t hugetlbfs       none  /mnt/huge;;
-     pstore) mkdir -p /dev/fs/pstore;           /bin/mount -t pstore          nodev /dev/fs/pstore;;
+    fusectl) test -d /sys/fs/fuse/connections || mkdir -p /sys/fs/fuse/connections; /bin/mount -t fusectl fusectl /sys/fs/fuse/connections;;
+binfmt_misc) test -d /proc/sys/fs/binfmt_misc || mkdir -p /proc/sys/fs/binfmt_misc; /bin/mount -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
+ securityfs) test -d /sys/kernel/security     || mkdir -p /sys/kernel/security;     /bin/mount -t securityfs      nodev /sys/kernel/security;;
+      usbfs) test -d /proc/bus/usb            || mkdir -p /proc/bus/usb;            /bin/mount -t usbfs           none  /proc/bus/usb;; # -o devmode=0666;;
+   configfs) test -d /config                  || mkdir -p /config;                  /bin/mount -t configfs        none  /config;;
+  hugetlbfs) test -d /mnt/huge                || mkdir -p /mnt/huge;                /bin/mount -t hugetlbfs       none  /mnt/huge;;
+     pstore) test -d /sys/fs/pstore           || mkdir -p /sys/fs/pstore;           /bin/mount -t pstore          nodev /sys/fs/pstore;;
 ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
       #mount: wrong fs type, bad option, bad superblock on /nodev, ...
     jffs2) :;;   #mount: /nodev is not a block device
     fuse)  :;;   #bin/sh: /nodev: is a directory
     ram*|tmp*) :;;
     rootfs)    :;;
+#mqueue) test -d /proc/sys/fs/mqueue || mkdir -p /proc/sys/fs/mqueue; /bin/mount -v -t mqueue nodev /proc/sys/fs/mqueue;;
+   nfsd) test -d /proc/fs/nfsd || mkdir -p /proc/fs/nfsd; /bin/mount -v -t nfsd nodev /proc/fs/nfsd;;
     *)
     test -d /dev/fs/$DIR || mkdir -p /dev/fs/$DIR
     /bin/mount -v -t $oneFS nodev /dev/fs/$DIR
@@ -45,7 +47,7 @@ else
  while read -r _device_ _mountpoint_ _filesystem_ _rest_
  do
  case $_filesystem_ in
- rootfs|proc|sysfs|devramfs|devtmpfs|devpts) continue;;
+ rootfs|proc|sysfs|devramfs|devtmpfs|devpts|tmpfs|ramfs|*tmpfs|*ramfs) continue;;
  esac
  _mountpoint_=`echo -e "$_mountpoint_"`
  /bin/umount "$_mountpoint_"
@@ -59,11 +61,33 @@ done
 
 }
 
+_unmount_none_filesystems(){
+test "$1" = stop || return 1
+
+_nFS_=`grep '^nodev' /proc/filesystems | tr  '\t' ' ' | cut -f 2 -d ' '`
+
+for _oneFS_ in $_nFS_
+do
+
+case $_oneFS_ in
+sysfs|proc|devtmpfs|tmpfs|*tmpfs|ramfs|*ramfs|rootfs|devpts) continue;;
+esac
+
+_mntPTs_=`grep " $_oneFS_ " /proc/mounts | awk '{print $2}'`
+ for _oneMNT_ in $_mntPTs_
+ do
+ oneMNT_=`busybox echo -e "$_oneMNT_"`
+ /bin/umount "$oneMNT_"
+ done
+done
+
+}
 
 echo $0:$*
 case $1 in
 stop)
- _mount_none_filesystems $1
+ #_mount_none_filesystems $1
+ _unmount_none_filesystems $1
 ;;
 start)
  _mount_none_filesystems $1
