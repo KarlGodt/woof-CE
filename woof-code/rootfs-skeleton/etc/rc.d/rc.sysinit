@@ -281,11 +281,6 @@ _loadswap() { #w481 made into a function.
 #[ -d /initrd ] && _status 0 #note, /initrd does not exist when a full-hd installation.
 test -e /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 
-_is_rdev(){
-IS_RDEV=`rdev`
-[ "$IS_RDEV" ] || _status 0
-}
-
 #[ "$PUPMODE" = 2 ] || _status 0 ## done in /sbin/init
 STATUS=0
 
@@ -293,9 +288,6 @@ STATUS=0
 
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 
-#if [ ! -d /initrd ];then #w468
-#if [ "`rdev`" ];then
-#if [ "$IS_RDEV" ]; then
 if [ "$PUPMODE" = 2 ]; then
  busybox mount -o remount,rw /dev/root /; STATUS=$(($STATUS+$?))
  test -d /etc/rc.d || mkdir -p /etc/rc.d
@@ -424,8 +416,6 @@ test -e /sys/kernel/debug/dynamic_debug/control && echo 'module usb_storage +p' 
 fi
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
-#if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
-#if [ "$IS_RDEV" ]; then
 if [ "$PUPMODE" = 2 ]; then
  FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
  QTRFREERAM=`expr $FREERAM \/ 4`
@@ -530,25 +520,6 @@ done
 #_file_system_state 6
 _load_average '1x0e'
 
-_check_dev_root_(){
-RootDevBlockNrs=`dmesg | grep 'Mounted root'| grep -o 'device.*' | tr -d '.' | cut -f 2 -d ' '`
-
-if test -n "$RootDevBlockNrs"; then
-MAJ=`echo $RootDevBlockNrs | cut -f 1 -d ':'`
-Min=`echo $RootDevBlockNrs | cut -f 2 -d ':'`
-
-RootDevice=`LC_ALL=C ls -l /dev/ | grep -E 'hd|sd' |tr -s ' '| cut -f 5,6,10 -d ' ' | grep -w "^$MAJ" | grep -m1 -w "$Min" | tr -s ' ' | cut -f 3,4 -d ' '`  ##BUG : added tr -s ' ' after grep -E 'hd|sd'
-
-if [ -b /dev/"$RootDevice" ]; then
-ROOTDEVICE=$RootDevice
-else
-ROOTDEVICE=NOT_FOUND_BY_SYSINIT
-fi
-ln -sf $ROOTDEVICE /dev/root
-fi
-}; #_check_dev_root_
-#_load_average '1x0f'
-
 funcDEV_ROOT(){
 test "$PUPMODE" || return 1
 case $PUPMODE in
@@ -562,57 +533,6 @@ case $PUPMODE in
 esac
 }; funcDEV_ROOT
 _load_average '1x0f'
-
-
-_check_frugal_full(){
-
-return 0
-
-CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
-RootDiskFreeFrugal=`/bin/df | grep -Fw '/' | grep 'rootfs'`
-[ "$PUPMODE" = 12 ] && MountFrugal=`grep ' /initrd/mnt/dev_save ' /proc/mounts | cut -f 1 -d ' '`
-RootDiskReadlinkDevRoot=`readlink /dev/root`
-RootDiskFreeFullInstall=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f 1 -d ' '`
-MountFull=`grep -Fw '/' /proc/mounts | grep '^/dev/' | cut -f 1 -d ' '`
-BBrdev=`busybox rdev`
-
-if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal" -a -z "$BBrdev"; then ## frugal install
-SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
-MainDriveName=${SimpleDeviceName:0:3}
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-elif test -n "$RootDiskFreeFullInstall" -a -n "$MountFull" -a -n "$BBrdev"; then ## full install
-SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
-MainDriveName=${SimpleDeviceName:0:3}
-
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-if [ -z "$RootDevice" ]; then  ###KRG&& SimpleDeviceName=`basename "$(busybox rdev)" | tr -d '/'`
-SimpleDeviceName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/'`
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-fi
-
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-if [ -z "$MainDevice" ]; then
-MainDriveName=`basename "$(busybox rdev | sed 's#/$## ; s#[[:blank:]]*$##')" | tr -d '/' | cut -b 1-3`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-fi
-
-fi
-
-echo "RootDiskFreeFrugal='$RootDiskFreeFrugal'
-MountFrugal='$MountFrugal'
-RootDiskReadlinkDevRoot='$RootDiskReadlinkDevRoot'
-RootDiskFreeFullInstall='$RootDiskFreeFullInstall'
-MountFull='$MountFull'
-BBrdev='$BBrdev'
-SimpleDeviceName='$SimpleDeviceName'
-MainDriveName='$MainDriveName'
-RootDevice='$RootDevice'
-MainDevice='$MainDevice'
-"
-}; _check_frugal_full
-#_load_average '1x1a'
-#_file_system_state 7
 
 _mk_missing_device_nodes(){
 test "$haveMDEV" && return 0
@@ -632,7 +552,7 @@ DN=`dirname $DEV`
 done
 fi
 }
-_mk_missing_device_nodes
+#_mk_missing_device_nodes
 _load_average '1x1b'
 #_file_system_state 8
 
@@ -654,24 +574,12 @@ echo `date`
 _load_average '1x00'
 #_file_system_state 9
 
-_pupstate_prev_() {
-if test "`grep -x KERNEL_RELEASE /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNEL_RELEASE"; then
-if test ! -f /lib/modules/$KERNEL_RELEASE/modules.dep -o ! -f /lib/modules/$KERNEL_RELEASE/modules.symbols -o ! -f /lib/modules/$KERNEL_RELEASE/modules.alias; then
-echo "Detected booting new kernel other than last time" >> /dev/console
-echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
-depmod
-depmod-FULL
-fi
-fi
-}; #_pupstate_prev_
-
 #w469 may need to run 'depmod'...
 #live-cd may have been built without the modules.* files.
 #initrd init script copied modules to /lib/modules/<kernver>/initrd/.
 if [ ! -f /lib/modules/${KERNEL_RELEASE}/modules.dep ]; then
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
  [ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && NEEDGUNZIP="yes"
-#else
 fi
 
 if [ -d /lib/modules/${KERNEL_RELEASE}/initrd ]; then
@@ -684,7 +592,7 @@ else
     NEEDDEPMOD="yes"
    fi
 fi
-#fi
+
 if [ "$NEEDGUNZIP" = "yes" ]; then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
  #for ONEMOD in `find /lib/modules/${KERNEL_RELEASE}/initrd/* -type f -name *.gz | tr '\n' ' '`
@@ -745,6 +653,7 @@ syslogd -m 0
 klogd
 syslogd -O /var/log/syslog_7 -l 7 -s 1024 -b 99
 
+#v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 PUPPY_TMP_MODPROBE_CONF=/tmp/puppy_udev_helper_modprobe.conf
 touch "$PUPPY_TMP_MODPROBE_CONF"
 
@@ -753,18 +662,16 @@ echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 #my intention is for puppy to work with either of these...
 elif [ -x /sbin/udevd ]; then  ##2011-10-27 changed -f to -x
  [ "$LOGLEVEL" ] || LOGLEVEL=7
-[ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
+ [ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
+ [ -f /tmp/puppy_udev_helper_alsa_cnt ] || echo '0' > /tmp/puppy_udev_helper_alsa_cnt
 
-[ -f /tmp/puppy_udev_helper_alsa_cnt ] || echo '0' > /tmp/puppy_udev_helper_alsa_cnt
- #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
-#PUPPY_TMP_MODPROBE_CONF=/tmp/puppy_udev_helper_modprobe.conf
-BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
-echo "$BLACKLISTVARS" > "$PUPPY_TMP_MODPROBE_CONF"
-echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
-[ -f /etc/modprobe.conf ] && cat /etc/modprobe.conf >> "$PUPPY_TMP_MODPROBE_CONF"
-if [ -d /etc/modprobe.d ]; then
-cat /etc/modprobe.d/* >>"$PUPPY_TMP_MODPROBE_CONF"
-fi
+ BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
+ echo "$BLACKLISTVARS" > "$PUPPY_TMP_MODPROBE_CONF"
+ echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
+ [ -f /etc/modprobe.conf ] && cat /etc/modprobe.conf >> "$PUPPY_TMP_MODPROBE_CONF"
+ if [ -d /etc/modprobe.d ]; then
+  cat /etc/modprobe.d/* >>"$PUPPY_TMP_MODPROBE_CONF"
+ fi
 
 else
 [ -z "`pidof pup_event_backend_d`" ] &&  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
@@ -776,10 +683,6 @@ sleep 0.1
 #MODALIASES=`ls /sys/bus/*/devices/*/modalias`
  MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
 
-#...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
-
-#if [ ! -d /initrd ];then #v423 full hd install.
-#if [ "$IS_RDEV" ]; then
 if [ "$PUPMODE" = 2 ]; then
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ]; then
@@ -867,7 +770,7 @@ if [ "$PUPMODE" = 2 ]; then
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
-modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
+ modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
  unset BLOCK_SATAD USB_SATAD SATADRIVES ATADRIVES
  SATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  for i in $SATADRIVES; do
