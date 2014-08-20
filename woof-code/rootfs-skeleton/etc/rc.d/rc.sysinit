@@ -292,16 +292,19 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-test -f /proc/mounts || { busybox mount -t proc none /proc; STATUS=$(($STATUS+$?)); }
-grep -q ' /proc ' /proc/mounts || { busybox mount -t proc none /proc; STATUS=$(($STATUS+$?)); }
 
 #if [ ! -d /initrd ];then #w468
 #if [ "`rdev`" ];then
 #if [ "$IS_RDEV" ]; then
 if [ "$PUPMODE" = 2 ]; then
- busybox mount -o remount,rw /; STATUS=$(($STATUS+$?))
+ busybox mount -o remount,rw /dev/root /; STATUS=$(($STATUS+$?))
+ test -d /etc/rc.d || mkdir -p /etc/rc.d
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
+
+test -d /proc || mkdir -p /proc
+test -f /proc/mounts || { busybox mount -t proc none /proc; STATUS=$(($STATUS+$?)); }
+grep -q ' /proc ' /proc/mounts || { busybox mount -t proc none /proc; STATUS=$(($STATUS+$?)); }
 
 #redirect all output to a log file (must do after remount rw)...
 exec 1>/tmp/bootsysinit.log 2>&1
@@ -322,29 +325,32 @@ esac
 ##+++2012-01-29
 
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
+#v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
+#ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
+rm -f /etc/mtab
+ln -s /proc/mounts /etc/mtab
 
-out=/dev/null; err=$out
-[ $debug ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=-q; out=/dev/stdout; err=/dev/stderr; }
+out=/dev/null; err=$out; Q=-q
+[ "$debug" ] && DEBUG="$debug"
+[ "$DEBUG" ] || DEBUG=`grep -io 'debug' /proc/cmdline`
+[ "$DEBUG" ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=''; out=/dev/stdout; err=/dev/stderr; }
+
+mkdir -p /sys
+grep $Q ' /sys ' /proc/mounts || { busybox mount -t sysfs none /sys; STATUS=$(($STATUS+$?)); }
+    echo "STATUS='$STATUS'"
 
 mountpointDEV='';
-mDEV=YES;
-#mountpoint $Q /dev && mountpointDEV=YES
+haveMDEV=YES;
 grep $Q ' /dev ' /proc/mounts && mountpointDEV=YES
-#if test ! "$mountpointDEV"; then
-mdev -s || mDEV='';
-#fi
+mdev -s || haveMDEV='';
 ##+++2013-12-28
 [ -d /proc/self/fd ] && ln -snf /proc/self/fd /dev/fd
  [ -L /dev/stdin ]   || ln -snf fd/0 /dev/stdin
 [ -L /dev/stdout ]   || ln -snf fd/1 /dev/stdout
 [ -L /dev/stderr ]   || ln -snf fd/2 /dev/stderr
 ##+++2013-12-28
-
-##+++2012-01-29
-#mkdir -p /dev/vc; rm -f /dev/vc/11; mknod /dev/vc/11 c 4 11
-#openvt -c 11 autologinroot
-##+++2012-01-29
-
+test -d /dev/pts || mkdir -p /dev/pts
+grep $Q ' /dev/pts ' /proc/mounts || { busybox mount /dev/pts; STATUS=$(($STATUS+$?)); }
 
 #w478 moved this code above call to rc.update...
 KERNEL_RELEASE=`uname -r`
@@ -405,18 +411,6 @@ echo
 fi
 
 _load_average '0x00'
-
-
-#v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
-#ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
-rm -f /etc/mtab
-ln -s /proc/mounts /etc/mtab
-
-test -d /dev/pts || mkdir -p /dev/pts
-grep $Q ' /dev/pts ' /proc/mounts || { busybox mount /dev/pts; STATUS=$(($STATUS+$?)); }
-mkdir -p /sys
-grep $Q ' /sys ' /proc/mounts || { busybox mount -t sysfs none /sys; STATUS=$(($STATUS+$?)); }
-    echo "STATUS='$STATUS'"
 
 if grep -q 'debugfs' /proc/filesystems; then
 busybox mount -t debugfs none /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
@@ -503,26 +497,8 @@ fi; }; _lib_firmware
 _load_average '1x0c'
 #_file_system_state 5
 
-_mount_all_none(){
-NFS=`cat /proc/filesystems | grep 'nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
-NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs|fuse'`
-
-for i in $NODEV; do
-echo
-echo "$i"
-DIR=`echo "$i" | sed 's#fs$##'`
-if [ -z "`busybox mount | grep "$i"`" ]; then
-
-[ -d /dev/fs/$DIR ] || mkdir -p /dev/fs/$DIR
-mount-FULL -v -t $i none /dev/fs/$DIR  ##+-2012-01-11 changed nodev to none
-
-fi
-done
-}; #_mount_all_none
-   #_load_average '1x0d'
-
 _mkmissing_tty(){
-#test "$mDEV" && return 0
+#test "$haveMDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 [ -d /dev/vc ] || mkdir /dev/vc
 
@@ -637,7 +613,7 @@ MainDevice='$MainDevice'
 #_file_system_state 7
 
 _mk_missing_device_nodes(){
-test "$mDEV" && return 0
+test "$haveMDEV" && return 0
 
 if test -d /var/db/$KERNEL_RELEASE/dev; then
 cp -a /var/db/$KERNEL_RELEASE/dev / 2>$err
@@ -795,7 +771,8 @@ sleep 0.1
 
 . /etc/rc.d/MODULESCONFIG
 
-MODALIASES=`ls /sys/bus/*/devices/*/modalias`
+#MODALIASES=`ls /sys/bus/*/devices/*/modalias`
+ MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
 
 #...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
 
@@ -810,15 +787,10 @@ if [ "$PUPMODE" = 2 ]; then
  ELSPCI=`elspci -l` #jesses great little utility.
  ##v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  ## this is contrary to my understanding all these years, but oh well, let's do it...
- #[ "`echo "$ELSPCI" | grep '0C0320'`" != "" ] && modprobe $VERB --config /tmp/pup_event_modprobe.conf ehci-hcd
- ##...perhaps a udev rule could have done this?
- #[ "`echo "$ELSPCI" | grep '0C0310'`" != "" ] && modprobe $VERB --config /tmp/pup_event_modprobe.conf ohci-hcd
- #[ "`echo "$ELSPCI" | grep '0C0300'`" != "" ] && modprobe $VERB --config /tmp/pup_event_modprobe.conf uhci-hcd
  modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ehci-hcd
  modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" uhci-hcd
  modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ohci-hcd
 fi
-#[ -n "`lsmod | grep -E 'uhci|ohci|ehci'`" ] && modprobe $VERB usbhid
 modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usbhid
 
 funcUSER_SELECTED_MODULES(){
@@ -856,14 +828,6 @@ echo -e "\e[39m"'or something else went wrong..?'"\e[39m" >/dev/console
 
 else #1
 
-
-#INITSTATE=`find /sys -name "initstate"`
-#INITSTATEwc_l=`echo "$INITSTATE" | wc -l`
-#echo "INITSTATEwc_l='$INITSTATEwc_l'"
-#_load_average '3x0a'
-
-#if [ "$INITSTATEwc_l" -lt 30 ]; then  #initrd.gz loads 10 modules plus some extra #2
-
 echo `date`
 echo -n "    :Loading kernel modules..." >/dev/console
 
@@ -876,12 +840,12 @@ fi
 
 MODULECNT=0
 #replay uevents from /sys...
-for ONEMODALIAS in $MODALIASES
+for oneMODALIAS in $MODALIASES
 do
- ONEPATH=${ONEMODALIAS%/*}
- if [ -e ${ONEPATH}/uevent ]; then
-  echo 'added '"${ONEPATH}/uevent" >> /tmp/bootmodules.txt
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ onePATH=${oneMODALIAS%/*}
+ if [ -e ${onePATH}/uevent ]; then
+  echo 'added '"${onePATH}/uevent" >> /tmp/bootmodules.txt
+  echo add > ${onePATH}/uevent #generates an 'add' uevent.
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -ne "\\033[1;35m\r$MODULECNT\\033[0;39m" >/dev/console
@@ -889,15 +853,10 @@ do
 done
 echo >> /tmp/bootmodules.txt
 
-#else #2
-#echo 'Skipping uevent part , more than 25 modules already loaded ...'
-#fi
-
 fi
 
 _load_average '3x0b'
-#if [ ! -d /initrd ];then #full hd installation.
-#if [ "$IS_RDEV" ]; then
+
 if [ "$PUPMODE" = 2 ]; then
  bb_modprobe $VERB nls_cp437      #these needed by vfat/ntfs/ext2 f.s.'s.
  bb_modprobe $VERB nls_iso8859-1  # "
@@ -906,6 +865,7 @@ if [ "$PUPMODE" = 2 ]; then
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
+modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
  unset BLOCK_SATAD USB_SATAD SATADRIVES ATADRIVES
  SATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  for i in $SATADRIVES; do
@@ -923,10 +883,6 @@ if [ "$PUPMODE" = 2 ]; then
  fi
  echo "USB_SATAD='${USB_SATAD}'" >> /etc/rc.d/PUPSTATE
 fi
-
-#if [ -z "`lsmod | grep 'usb_storage'`" ]; then
-modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
-#fi
 
 [ -d /proc/acpi ] || modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" apm #v406
 
@@ -947,8 +903,6 @@ echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
 rm -f /mnt/home
-#if [ ! -d /initrd ];then
-#if [ "$IS_RDEV" ]; then
 if [ "$PUPMODE" = 2 ]; then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
@@ -1054,7 +1008,6 @@ if [ "`grep 'usb_storage' /tmp/puppy_udev_helper_module_devpath.log`" != "" ]; t
   #[ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
   [ "`dmesg | grep 'usb-storage.* scan complete'`" != "" ] && break
   sleep 2
-  #WAITCNT=`expr $WAITCNT + 1`
   WAITCNT=$((WAITCNT+2))
   echo -n " $WAITCNT" >/dev/console
  done
@@ -1066,7 +1019,6 @@ if [ "`grep 'usb_storage' /tmp/puppy_udev_helper_module_devpath.log`" != "" ]; t
   AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage.* scan complete" | wc -l`
   [ "$AVAILABLEUSBSTORAGES" -ge $USBSTORAGES ] && break
   sleep 2
-  #WAITCNT=`expr $WAITCNT + 1`
   WAITCNT=$((WAITCNT+2))
   echo -n " $WAITCNT" >/dev/console
  done
