@@ -74,10 +74,10 @@ test "$device" || continue
 
 device=${device/:/}
 mntp=/mnt/${device##*/}
-test $device = $ROOTPART && device=/dev/root && mntp=/
-grep -q -w $device /etc/fstab && continue
+test "$device" = "$ROOTPART" && { device=/dev/root; mntp=/; }
+grep -q -Fw "$device" /etc/fstab && continue
 
-case $device in
+case "$device" in
 *loop*|*ram*|*md*|*mtd*|*nbd*) continue;;
 esac
 
