@@ -2,27 +2,7 @@
 #(c) copyright Barry Kauler 2008, puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v404 first release. rewritten from scratch, aiming for simplicity and speed.
-#v405 fix for alsa.
-#v406 load apm.ko if no acpi.
-#v408 explicitly load battery, ac, thermal, fan modules.
-#v409 gparted create ext3 part. failed, fixed by making /etc/mtab a symlink.
-#v411 fix mouse detection logic.
-#v411 can use old network wizard (from 403, based on 400)
-#v411 return of 'puppyserialdetect', for usb/ps2 mouse detection only. now 'puppyinputdetect'.
-#v411 extra 'sleep 1' as rerwin reports usb mouse may need it some hardware.
-#v411 choosemousefunc().
-#v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
-#v412 bugfix usb-storage wait loop.
-#w001 ubuntu module-init-tools not configured to support gzipped modules.
-#w004 LANG=C, faster. /bin/ash, even faster.
-#w463 rerwin: special mwave modem handling.
-#w463 mouse scrollwheel fix.
-#w468 full-hd-install, write to PUPSTATE after remount r/w.
-#w478 moved depmod code up above call to rc.update.
-#w481 fix crappy depmod, 'out of memory' in first boot 64MB RAM (no swap).
-#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid.
-#v424 fix LAYERFS variable.
-#v424 fix secondary uevent replay. now finds ssb devices.
+# 21 comments here. rerwin mentioned one time.
 #v431 secondary uevent replay, fix for old kernels < 2.6.24
 
 ########################################################################
@@ -90,14 +70,10 @@
 # Xserver=/usr/X11R7/bin/Xorg
 # $LANG=de_DE@euro
 # today=Do·27.·Okt·22:45:42·GMT-1·2011
-# TODO1 : ln: target `/dev/root' is not a directory ~FIXED
-# TODO2 : rm tmp file especially for alsa_cnt and udevdevicepath.log
-#         ~FIXED just before loading kernel modules
-# TODO3 : add alias modprobe='modprobe -b' ~FIXED
 #
-#safeBoot=256 5
-#ash: 15: unknown operand ##2012-01-15
-#safeBoot=256 6
+#
+#
+#
 #
 ########################################################################
 
@@ -118,7 +94,7 @@ echo "$MSG"
 exit $1
 }
 [ "$1" -a "$1" != codecheck ] && usage 0
-###<KRG 2011_11_02>
+###<KRG 2011-11-02>
 if [ -n "$DISPLAY" ] ; then
 #return || exit
 [ "$1" = codecheck ] || usage 1
@@ -146,9 +122,6 @@ mkdir -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
 openvt -c 11 autologinroot
 ##+++2012-01-29
 }
-
-#. /etc/rc.d/functions4puppy4  ##-+2011-12-04 put further down
-#. /etc/DISTRO_SPECS
 
 status_func() {
  _CHAR=${1//[[:digit:]]/}
@@ -201,7 +174,7 @@ loadswap_func() { #w481 made into a function.
 }
 
 #if have just done a switch_root, output a 'done' message...
-[ -d /initrd ] && status_func 0 #note, /initrd should not exist when a full-hd installation.
+#[ -d /initrd ] && status_func 0 #note, /initrd should not exist when a full-hd installation.
 
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
@@ -225,8 +198,6 @@ Black0='\033[0;39m'
 
 Inv_White0='\033[0;47m'
 Inv_White1='\033[1;47m'
-
-#. /etc/rc.d/MODULESCONFIG #modules loading configuration.
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin
 
@@ -258,7 +229,7 @@ pfix=*)
 
    esac;done
   ;;
-*) [ "`echo "$item" | grep '='`" ] || continue
+*) [ "`echo "$item" | grep '='`" ] || item="${item}=set"
 item=${item//\./_};
 kp=${item%=*};echo -n "${kp},"
 eval $item
@@ -336,19 +307,19 @@ fi
 [ "$safeBoot" ] || safeBoot=256
 
 }
-#failsafe_func  ##---2011-10-31 mved down to top of my own part
-
 
 ############## MAKE FILESYSTEM USABLE ################
+test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 STATUS=0
 echo "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount -t proc none /proc ;STATUS=$((STATUS+$?))
 
-if [ ! -d /initrd ];then #w468
- busybox mount -o remount,rw /
+if test "$PUPMODE" = 2; then
+ busybox mount -o remount,rw /dev/root /
  STATUS=$((STATUS+$?))
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
+
+busybox mount -t proc none /proc ;STATUS=$((STATUS+$?))
 
 #. /etc/rc.d/PUPSTATE
 
@@ -357,7 +328,7 @@ eleventh_console  ##+++2012-06-01
  ### boot params
  # debug
 if [ "$VERBOSE" ];then
-echo "'$@='$@
+echo "\$@='$@'
 pfix='$pfix'
 safeBoot='$safeBoot'" #>/dev/console
 fi
@@ -373,7 +344,7 @@ failsafe_func
 
  #debug
 if [ "$VERBOSE" ];then
-echo "'$@='$@
+echo "\$@='$@'
 pfix='$pfix'
 safeBoot='$safeBoot'" #>/dev/console
 fi
@@ -386,8 +357,6 @@ ls -l /;ls -l /root;ls -l /tmp;ls -l /var
 fi
  #permissions
 
-#further down . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
-
  #mtab
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
@@ -395,13 +364,7 @@ rm -f /etc/mtab
 ln -s /proc/mounts /etc/mtab
  #mtab
  #tmp
-##rm -rf /tmp/*  ##krg  ##+-2011-10-29 put into /sbin/init
-###<KRG +++2011-10-31 ; 2011-12-04 out into rc.shutown>
-#mkdir -p $HOME/my-documents/tmp
-#cp -r /tmp $HOME/my-documents/tmp/tmp_"$Ybd"
-##rm -rf /tmp/*  ##---2011-11-07
 chmod 1777 /tmp
-###</KRG +++2011-10-31>
  #tmp
 
  #log
@@ -435,7 +398,7 @@ echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 FREERAM=`free | grep 'Mem:' | tr -s ' ' |awk '{print $4}'` #w481
-if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
+if test "$PUPMODE" = 2; then #weird, only full-hd install needs this for xfdiff.
  QTRFREERAM=`expr $FREERAM \/ 4`
  mkdir -p /dev/shm
  mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS+$?))
@@ -443,11 +406,9 @@ fi
  #mount
 
 mountpointDEV='';
-mDEV=YES;
-mountpoint /dev && mountpointDEV=YES
-#if test ! "$mountpointDEV"; then
-mdev -s || mDEV='';
-#fi
+haveMDEV=YES;
+grep -q ' /dev ' /proc/mounts && mountpointDEV=YES
+mdev -s || haveMDEV='';
 
  #PUPSTATE
 #w478 moved this code above call to rc.update...
@@ -527,7 +488,7 @@ norcsysinit_func
 status_func $STATUS;STATUS=0
 
 make_block_dev(){
-test "$mDEV" && return 0
+test "$haveMDEV" && return 0
 echo -n "Updating Block Device Nodes " >/dev/console
 STATUS=0
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
@@ -545,7 +506,7 @@ echo -n "Sanity Checks " >/dev/console
 echo "Sanity Checks "
 
 mkmissing_tty_func() {
-test "$mDEV" && return 0
+test "$haveMDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
 mkdir -p /dev/vc
@@ -572,7 +533,7 @@ done
 };mkmissing_tty_func;STATUS=$((STATUS+$?));echo -n "0 STATUS=$STATUS "
 
 mk_missing_var_dev_func() {
-test "$mDEV" && return 0
+test "$haveMDEV" && return 0
 
 mountpoint /dev || {
 TarGzDevDbF="/var/db/boot/dev.$KERNEL_RELEASE.tar.gz"
@@ -842,7 +803,8 @@ klogd
 echo -n "    Loading kernel modules..." >/dev/console
 
 #### prepare config files #############
-MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
+#MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
+MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
 echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf;
@@ -853,7 +815,7 @@ echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf;
 #### prepare config files #############
 
 #########force loading of pcmcia usb hid #################
-if [ ! -d /initrd ];then #v423 full hd install.
+if test "$PUPMODE" = 2; then #v423 full hd install.
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
   [ -z "`lsmod | grep 'yenta_socket'`" ] && modprobe $modprobeSYSLOG $modprobeCONFIG /tmp/pup_event_skiplist.conf yenta-socket
@@ -982,7 +944,6 @@ fi
 ###fbcon 2
 
 ### PUPMODE 2
-#if [ ! -d /initrd ];then #full hd installation.
 if [ "$PUPMODE" = 2 ];then
 modprobe $modprobeSYSLOG nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
 modprobe $modprobeSYSLOG nls_iso8859-1 # "
@@ -1071,7 +1032,6 @@ modprobe -l | grep '[eoux]hci_hcd' && {
  echo 'Running the pcmcia-usb-ssb modaliases add by rc.sysinit '$0 >> /tmp/pup_event_module_devpath_log
  #echo safeBoot=$safeBoot 3
 
- #LSMOD=`lsmod | sed "1 d" | cut -f 1 -d ' '`
  LSMOD=`cut -f 1 -d ' ' /proc/modules`
  MODULECNT2=0
 
@@ -1082,7 +1042,6 @@ modprobe -l | grep '[eoux]hci_hcd' && {
   [ -e /sys/bus/usb/devices ] && NEWUSB=`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`
    for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
   do
-  #ONEPATH=`dirname $ONEMODALIAS`
   onePATH=${oneMODALIAS%/*}
     if [ -e ${onePATH}/uevent ];then
     echo add > ${onePATH}/uevent #generates an 'add' uevent.
@@ -1100,7 +1059,6 @@ modprobe -l | grep '[eoux]hci_hcd' && {
  echo -e "${NEWPCMCIA}\n${NEWUSB}\n${NEWSSB}"
   for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
    do
-  #ONEPATH=`dirname $ONEUEVENT`
   onePATH=${oneUEVENT%/*}
   #the check for 'modalias' file is maybe needed for old kernel?...
   [ ! -e ${onePATH}/modalias ] && [ "`grep 'MODALIAS' $oneUEVENT`" = "" ] && continue
