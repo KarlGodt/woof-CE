@@ -253,13 +253,15 @@ sleep 1
  test -d /dev || { rm -fr /dev && mkdir /dev; }
  mountpoint -q /dev || {
      mount -t ramfs devramfs /dev
+     }
+
 if [ ! -L /dev/fd ]; then
-ln -sf /proc/self/fd /dev/fd
+ln -snf /proc/self/fd /dev/fd
 ln -snf fd/0 /dev/stdin
 ln -snf fd/1 /dev/stdout
 ln -snf fd/2 /dev/stderr
 fi
- }
+
 
  test "`which mdev`" && mdev -s || {
      oldIFS="$IFS"
@@ -268,7 +270,9 @@ fi
      while read oneFILE
      do
      unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS
-     source "$oneFILE" 2>/dev/null || continue
+     source "$oneFILE" 2>/dev/null  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
      test -e /dev/$DEVPATH/$DEVNAME || {
      test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
      test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir -p /dev/$DEVPATH/${DEVNAME%/*}; }
@@ -340,31 +344,41 @@ fi
 
 
 ############ ROOTDRIVE ###################
-DEBUG=''; #set to anything than empty for some between values showin on the screen
+DEBUG=''; #set to anything than empty for some between values showing on the screen
 RDEV_FUNC(){
-while [ -z "$PDEV1flag" ] ; do  ##+++2011-10-28
-[ "$DEBUG" ] && echo   PDEV1flag=$PDEV1flag
+
+while [ -z "$havePDEV1" ] ; do  ##+++2011-10-28
+[ "$DEBUG" ] && echo "havePDEV1=$havePDEV1'"
+
 DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011-10-28 changed position to top
+test "$DEVPDEV1" || { UPDATINGDEV_FUNC; DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`; }
+
 DEVROOTDRIVE="$DEVPDEV1"                   ##+2011-10-28 changed position to second
 DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011-10-28 changed position to third
 
 #PDEV1=`basename "$DEVPDEV1"`
 PDEV1="${DEVPDEV1##*/}"
 [ "$DEBUG" ] && echo "PDEV1=$PDEV1"
-MAJh=`stat -c %t $DEVROOTDRIVE`
+
+MAJh=`stat -c %t "$DEVROOTDRIVE"`
 MAJh=`echo "$MAJh" | tr '[a-z]' '[A-Z]'`
 [ "$DEBUG" ] && echo "MAJh=$MAJh"
+
 #MAJd=$((16#MAJh))
 MAJd=`echo "ibase=16;$MAJh" | bc -l`
 [ "$DEBUG" ] && echo "MAJd=$MAJd"
-MINh=`stat -c %T $DEVROOTDRIVE`
+
+MINh=`stat -c %T "$DEVROOTDRIVE"`
 MINh=`echo "$MINh" | tr '[a-z]' '[A-Z]'`
 [ "$DEBUG" ] && echo "MINh=$MINh"
+
 #MINd=$((16#MINh))
 MINd=`echo "ibase=16;$MINh" | bc -l`
 [ "$DEBUG" ] && echo "MINd=$MINd"
+
 POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd} " |awk '{print $3}'`
- for p in $POSSIBLE;do
+ for p in $POSSIBLE;
+ do
  [ "$DEBUG" ] && echo "POSSIBLE='$p'"
  [ -e /sys/class/block/$p ] && {
     [ -r /sys/class/block/$p/uevent ] || continue
@@ -375,20 +389,23 @@ POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd}, ${MINd}
  done
 
 ROOTDRIVE="$PDEV1"
- if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011-10-28
- PDEV1flag=''
+
+ if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ]; then  ##+++2011-10-28
+ havePDEV1=''
  [ "$DEBUG" ] && head -n 5 /proc/partitions
  UPDATINGDEV_FUNC
  else
  echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
- PDEV1flag='yes'
+ havePDEV1='yes'
  fi  ##+++2011-10-28
-[ "$DEBUG" ] && echo    PDEV1flagCount=$PDEV1flagCount
-PDEV1flagCount=$((PDEV1flagCount+1))
-[ "$PDEV1flagCount" -gt "10" ] && break  ##precaution to prevent neverending loop
-[ "$DEBUG" ] && echo    PDEV1flagCount=$PDEV1flagCount
+[ "$DEBUG" ] && echo "havePDEV1Count=$havePDEV1Count'"
+havePDEV1Count=$((havePDEV1Count+1))
+[ "$havePDEV1Count" -gt "10" ] && break  ##precaution to prevent neverending loop
+[ "$DEBUG" ] && echo "havePDEV1Count=$havePDEV1Count'"
 sleep 1s
+
 done  ##+++2011-10-28
+
 return 0
 }
 
@@ -397,7 +414,7 @@ return 0
     echo -e "\\033[1;36mPuppy Linux '$DISTRO_NAME' '$DISTRO_VERSION' booting. Have a nice day"'!'"\\033[0;39m"
 }
 
-[ -z "$PDEV1flag" ] && RDEV_FUNC
+[ -z "$havePDEV1" ] && RDEV_FUNC
 ############ ROOTDRIVE #####################
 
 
