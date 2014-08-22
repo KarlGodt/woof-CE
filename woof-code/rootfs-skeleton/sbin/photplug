@@ -12,14 +12,18 @@ env
 
 case $ACTION in
 add)
-[ "$MODALIAS" ] && {
-        echo $MODALIAS
+[ "$MODALIAS" -o "$DRIVER" ] && {
+        echo "$MODALIAS $DRIVER"
         #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
         #exit
+    if [ "$DRIVER" ]; then
+        modprobe -b -v "$DRIVER"
+    else
         LIST=`modprobe -b -D "$MODALIAS" | grep -vE '^install|^blacklist|^options' | sed 's%.*\(/.*\)\.k.*%\1%'`
         for m in $LIST ; do
         modprobe -b -v "${m##*/}"
         done
+    fi
         exit $?
 
 }
@@ -27,7 +31,13 @@ add)
 [ "$MAJOR" -a "$MINOR" -a "$SUBSYSTEM" ] && { [ "$DEVNAME" -o "$DEVPATH" ] && {
 echo $MAJOR $MINOR $SUBSYSTEM $DEVNAME $DEVPATH
 
-[ "$DEVNAME" ] || DEVNAME="${SUBSYSTEM}/${DEVPATH##*/}"
+[ "$DEVNAME" ] || {
+    case "$SUBSYSTEM" in
+    snd|sound|alsa) DEVNAME="snd/${DEVPATH##*/}";;
+    tty|video4linux|v4l|v4l2) DEVNAME="${DEVPATH##*/}";;
+    *) DEVNAME="${SUBSYSTEM}/${DEVPATH##*/}";;
+    esac
+}
 
 #sed -n '/Block devices:/,$ p' /proc/devices | grep "$SUBSYSTEM" | awk '{print $1}' | grep -w "$MAJOR" && {
 if [ "$DEVTYPE" = disk -o "$DEVTYPE" = partition ]; then
@@ -38,7 +48,7 @@ if [ "$DEVTYPE" = disk -o "$DEVTYPE" = partition ]; then
         exit $?
         #}
 else
-[ "$SUBSYSTEM" = sound ] && GPATTERN='alsa|sound' || GPATTERN="$SUBSYSTEM"
+#[ "$SUBSYSTEM" = sound ] && GPATTERN='alsa|sound' || GPATTERN="$SUBSYSTEM"
 #sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTERN" | awk '{print $1}' | grep -w "$MAJOR" && {
         [ -e /dev/$DEVNAME ] && exit
         DEV="/${DEVNAME}"
