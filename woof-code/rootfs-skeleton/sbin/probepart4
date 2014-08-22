@@ -1,0 +1,103 @@
+#!/bin/bash
+
+
+###
+#
+###
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+
+PARAMETERS:
+-V|--version : showing version information
+-H|--help : show this usage information
+
+-k : show sizes in kilobytes (KiB)
+-m : show sizes in megabytes (MiB)
+Without one of the above parameters it is the value found in
+/sys/class/block/drive/size
+; usually as blocksize=512 .
+
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+##
+SIZE_FACTOR=1
+SIZE_PARAM=`echo "$@" | grep -o -E '\-k|\-m'`
+[ "$SIZE_PARAM" = '-k' ] && SIZE_FACTOR=2
+[ "$SIZE_PARAM" = '-m' ] && SIZE_FACTOR=2024
+
+FDISK=`fdisk -l`
+while read line; do
+[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue
+[ "$line" ] || continue
+drive=`echo $line |awk '{print $4}'`
+SIZE='';FSTYPE='';
+SIZE=`cat /sys/class/block/$drive/size`
+[ "$SIZE" = 2 ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" |rev| awk '{print $3}' |rev |sed 's#[^[:digit:]]##g'`*2));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |rev| awk '{print $1}' |rev`; }
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+if [[ "${drive}" =~ '[0-9]' ]]; then
+#SIZE='';FSTYPE='';
+#SIZE=`cat /sys/class/block/$drive/size`
+#[ "$SIZE" = 2 ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" |rev| awk '{print $3}' |rev |sed 's#[^[:digit:]]##g'`*2));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |rev| awk '{print $1}' |rev`; }
+#SIZE=$((SIZE/SIZE_FACTOR))
+#REMOVEABLE=0
+ if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ fi
+[ "$REMOVEABLE" = 0 ] || { cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'` || FSTYPE='not inserted' ; }
+[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`
+[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'`
+[ "$FSTYPE" ] || FSTYPE=unknown
+echo "/dev/$drive|$SIZE|$FSTYPE"
+else
+ if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ if [ "$REMOVEABLE" = 1 ]; then
+ if [ "`cat /sys/class/block/$drive/device/type`" = 5 ]; then
+ cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'` || FSTYPE='not inserted'
+[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`
+[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'`
+[ "$FSTYPE" ] || FSTYPE=unknown
+echo "/dev/$drive|$SIZE|$FSTYPE"
+ fi;fi;fi
+fi
+done</proc/partitions
+
+SATA_CD_DRIVES=`ls -1 /sys/class/block | grep -E -e '^sr[0-9]*|^scd[0-9]*'`
+while read drive; do
+SIZE='';FSTYPE='';
+SIZE=`cat /sys/class/block/$drive/size`
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+if [ -d /sys/class/block/$drive/device ]; then
+ REMOVEABLE=`cat /sys/class/block/$drive/removable`
+fi
+[ "$REMOVEABLE" = 0 ] || { cddetect_quick -d/dev/$drive >$OUT && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'` || FSTYPE='not inserted' ; }
+[ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$drive`
+[ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype /dev/$drive |grep -m1 'file system' |awk '{print $1}' |tr '[A-Z]' '[a-z]'`
+[ "$FSTYPE" ] || FSTYPE=unknown
+echo "/dev/$drive|$SIZE|$FSTYPE"
+done<<EOI
+$(echo "${SATA_CD_DRIVES}")
+EOI
