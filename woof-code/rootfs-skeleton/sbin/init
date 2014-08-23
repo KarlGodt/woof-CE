@@ -104,8 +104,6 @@ alias modprobe='/sbin/modprobe -b'  ##+++2012-01-30  ##+2013-07-13 PATH/
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 
-TTY=`tty`
-test "$TTY" = 'not a tty' && TTY=/dev/console
 status_func() {
  if [ $1 -eq 0 ]; then
   /bin/echo -e "\\033[72G\\033[1;32mdone\\033[0;39m" >$TTY #green [done] msg.
@@ -115,8 +113,6 @@ status_func() {
  fi
  return $1 #return with same status as entry param.
 }
-
-
 
 if [ -d /proc ]; then
 [ -z "`ls -A /proc`" ] && busybox mount -t proc none /proc
@@ -154,13 +150,16 @@ grep -q ' /dev ' /proc/mounts || {
   test -e /dev/stdout || ln -snf fd/1 /dev/stdout
   test -e /dev/stderr || ln -snf fd/2 /dev/stderr
 
+  test -c /dev/null || { rm -rf /dev/null; mknod /dev/null c 1 3; }
+  test -c /dev/console || { rm -rf /dev/console; mknod /dev/console c 1 5; }
+
   test "`which mdev`" && mdev -s || {
    _devFILES_=`find /sys -type f -name uevent -perm 644`
   oldIFS="$IFS"
   IFS=$'\n'
   for oneFILE in $_devFILES_
   do
-  unset MAJOR MINOR DEVNAME DEVTYPE
+  unset MAJOR MINOR DEVNAME DEVTYPE DEVMODE
   test -r "$oneFILE" || continue
   source "$oneFILE" 2>/dev/null || continue
    #MAJOR=13
@@ -168,9 +167,10 @@ grep -q ' /dev ' /proc/mounts || {
    #DEVNAME=input/event1
   test "$MAJOR" -a "$MINOR" || continue
   test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+  test "$DEVMODE" && DEVMODE="-m $DEVMODE"
   test "$DEVTYPE" && {
-      mknod /dev/$DEVNAME b $MAJOR $MINOR; } || {
-      mknod /dev/$DEVNAME c $MAJOR $MINOR; }
+      mknod $DEVMODE /dev/$DEVNAME b $MAJOR $MINOR; } || {
+      mknod $DEVMODE /dev/$DEVNAME c $MAJOR $MINOR; }
    #MAJOR=7
    #MINOR=5
    #DEVNAME=loop5
@@ -181,7 +181,11 @@ grep -q ' /dev ' /proc/mounts || {
  }
 #}
 
-if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then #frugal or full
+TTY=`tty`
+test "$TTY" = 'not a tty' && TTY=/dev/console
+
+#if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then #frugal or full
+if [ "$PUPMODE" = 2 ]; then
     #busybox mount -o remount,rw /  #can't read /proc/mounts
      busybox mount -o remount,rw /dev/root /
      [ $? = 0 ] && {
