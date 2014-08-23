@@ -92,7 +92,7 @@ sleep 2s;done  ###+++2011-11-30
 c=0
 }
 
-load(){ echo "Uptime: `uptime`"; }
+_load(){ echo "Uptime: `uptime`"; }
 
 status_func() {
  if [ $1 -eq 0 ];then
@@ -140,14 +140,14 @@ loadswap_func() { #w481 made into a function.
 
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
-
+test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 STATUS=0
 
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 busybox mount -t proc none /proc;STATUS=$(( $STATUS + $? ))
-if [ ! -d /initrd ];then #w468
+if test "$PUPMODE" = 2; then #w468
  busybox mount -o remount,rw /;STATUS=$(( $STATUS + $? ))
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
@@ -177,15 +177,15 @@ busybox mount -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
 QTRFREERAM=`expr $FREERAM \/ 4`
-[ ! -d /dev/shm ] && mkdir /dev/shm ####KRG for DEVTMPFS KERNEL
+[ -d /dev/shm ] || mkdir /dev/shm ####KRG for DEVTMPFS KERNEL
 mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
 
 mountpointDEV='';
-mDEV=YES;
+haveMDEV=YES;
 mountpoint /dev && mountpointDEV=YES
-if test ! "$mountpointDEV"; then
-mdev -s || mDEV='';
-fi
+#if test ! "$mountpointDEV"; then
+mdev -s || haveMDEV='';
+#fi
 
 status_func $STATUS
 
@@ -267,7 +267,8 @@ echo -n "Loading kernel modules..." >/dev/console
 #100126 moved to /etc/init.d/00sys_logger...
 syslogd -m 0
 klogd
-MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
+#MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
+MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
 
 BLACKLISTVARS="`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`"
 echo "$BLACKLISTVARS" > /tmp/pup_event_modprobe.conf
@@ -276,7 +277,7 @@ grep -h '^blacklist' /etc/modprobe.d/* >>/tmp/pup_event_modprobe.conf
 
 #...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
 
-if [ ! -d /initrd ];then #v423 full hd install.
+if test "$PUPMODE" = 2; then #v423 full hd install.
 #if [ -n "`grep 'KRG version' /sbin/init`" ] ; then
 
  #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin. have this in 'init' also...
@@ -300,7 +301,7 @@ if [ ! -d /initrd ];then #v423 full hd install.
 ##v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 #echo -n '0' > /tmp/pup_event_alsa_cnt
 #100228 udevd calls /sbin/pup_event_backend_modprobe, which uses its 'access protection' service to serialize concurrent access to shared resources.
-load
+_load
 INITSTATE=`find /sys -name "initstate"`
 for i in $INITSTATE ; do echo -n "$i " ; cat "$i" ; done
 [ -z "$INITSTATE" ] && echo 'No initstate files in /sys ...'
@@ -347,11 +348,14 @@ daemons ##+++2012-01-28
 
 #replay uevents from /sys...
 c=0;d=0;e='module'  ##+++2011-11-08
-for ONEMODALIAS in $MODALIASES
+oldIFS="$IFS"
+IFS=$'\n'
+for oneMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
- if [ -e ${ONEPATH}/uevent ];then
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ #ONEPATH="`dirname $ONEMODALIAS`"
+ onePATH="${oneMODALIAS%/*}"
+ if [ -e "${onePATH}/uevent" ]; then
+  echo add > "${onePATH}/uevent" #generates an 'add' uevent.
   sleep 0.02
    ##+++2011-11-08
    c=$((c+1));d=$((d+1));e="$d"
@@ -365,10 +369,12 @@ do
   ##+++2011-11-08
  fi
 done
-load
+IFS="$oldIFS"
+_load
 fi ###Modules not loaded yet ?
 
-if [ ! -d /initrd ];then #full hd installation.
+#if [ ! -d /initrd ];then #full hd installation.
+if test "$PUPMODE" = 2; then
  modprobe -v nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
  modprobe -v nls_iso8859-1 # "
  modprobe -v fuse
@@ -713,7 +719,7 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 echo -n ' input' >/dev/console #100131
 
 test -d /dev/input || mkdir -p /dev/input
-test -c /dev/input/mice || { rm -rf /dev/input/mice; mknod /dev/input/mice 13 63; }
+test -c /dev/input/mice || { rm -rf /dev/input/mice; mknod /dev/input/mice c 13 63; }
 if [ ! -f /etc/mousedevice ];then
  echo -n "input/mice" > /etc/mousedevice
  #ln -snf input/mice /dev/mouse
@@ -770,7 +776,7 @@ fi
 
 ##### fsckme.flg
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
-if [ ! -d /initrd ];then #if no /initrd, full hd install.
+if test "$PUPMODE" = 2; then #if no /initrd, full hd install.
  [ $PDEV1 ] || PDEV1="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
  [ $DEV1FS ] || DEV1FS="`mount | grep ' on / ' | grep '^/dev/' | cut -f 5 -d ' '`"
  if [ "$PDEV1" -a "$DEV1FS" ];then
