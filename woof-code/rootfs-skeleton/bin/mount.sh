@@ -24,7 +24,7 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 QUIET=-q
-DEBUG=1
+DEBUG=
 DEBUGX=
 test "$DEBUG" && QUIET='';
 
