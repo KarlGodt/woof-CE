@@ -57,6 +57,7 @@ getopts works with -SXorg or -wjwm same as -S Xorg and -w jwm .
 exit $1
 }
 
+out=/dev/null; err=/dev/null; Q=-q
 while getopts hHdD:ovVw:W:s:S: opt;do
 case $opt in
 h|H) usage 0;;
@@ -71,7 +72,7 @@ D) Xorg_driver="$OPTARG"
 ;;
 o) ONCE=1;;
 #v) VERB=-v L_VERB=--verbose X_L_VERB=-verbose out='&1' err='&1' me_verb=1;;
-v) VERB=-v;L_VERB=--verbose;X_L_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;me_verb=1;;  ##+-+2013-04-11
+v) VERBOSE=1;VERB=-v;L_VERB=--verbose;X_L_VERB=-verbose;Q=;out=/dev/stdout;err=/dev/stderr;me_verb=1;;  ##+-+2013-04-11
 V) echo -e "\n$0: Version '$Version'\n";exit 0;;
 w|W) WINDOW_MANAGER="$OPTARG"
  [ "`which $WINDOW_MANAGER`" ] || usage 1
@@ -804,6 +805,7 @@ case $haveX in
   done
 
   _XORG_SERVER_VERSION_=`Xorg -version 2>&1 | grep 'X\.Org X Server .*' | grep -oe '[.0-9]*$'`
+  [ "$VERBOSE" ] && echo "Xorg is version '$_XORG_SERVER_VERSION_'"
   case $_XORG_SERVER_VERSION_ in
   '') :;; # older Xorg has different version output
   *)      # newer Xorg - needs KMS and fbcon.ko
@@ -813,13 +815,17 @@ case $haveX in
      _LS_PCI_N_=`lspci -n`
     #_LS_PCI_VGA_=`lspci -n | cut -f2 -d':' | awk '{print $NF}' | grep -Ew '0001|03|0300|0301|0302|0380'`
      _LS_PCI_VGA_=`echo "$_LS_PCI_N_" | cut -f2 -d':' | awk '{print $NF}' | grep -Ew '0001|03|0300|0301|0302|0380'`
+     [ "$VERBOSE" ] && echo "PCI video controllers :"$_LS_PCI_VGA_ 
 
-     for onePCI in $_LSPCI_VGA_
+     for onePCI in $_LS_PCI_VGA_
      do
+
      VEN_PROD_=`echo "$_LS_PCI_N_" | grep " ${onePCI}:" | cut -f1 -d'(' | awk '{print $NF}'`
        VENDOR_=`echo "$VEN_PROD_" | cut -f1 -d':'`
       PRODUCT_=`echo "$VEN_PROD_" | cut -f2 -d':'`
-      case $VENDOR_ in
+     [ "$VERBOSE" ] && echo "VEN_PROD_='$VEN_PROD_'" 
+
+     case $VENDOR_ in
          8086) # Intel
          grep -q '^i915 ' /proc/modules && {
          grep '^i915 ' /proc/modules | while read drivr vmsize users rest; do
@@ -828,8 +834,9 @@ case $haveX in
          0)
          modprobe -vr i915
          sleep 1
-         modprobe -v i195 modeset=1
+         modprobe -v i915 modeset=1
          ;;
+         *) [ "$VERBOSE" ] && echo "users of i915 not 0";;
          esac
          done
          modprobe -v intel-agp
