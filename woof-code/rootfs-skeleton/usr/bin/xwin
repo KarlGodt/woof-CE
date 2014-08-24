@@ -805,8 +805,89 @@ case $haveX in
 
   _XORG_SERVER_VERSION_=`Xorg -version 2>&1 | grep 'X\.Org X Server .*' | grep -oe '[.0-9]*$'`
   case $_XORG_SERVER_VERSION_ in
-  '') :;;
-  *)  modprobe -v -b fbcon;;
+  '') :;; # older Xorg has different version output
+  *)      # newer Xorg - needs KMS and fbcon.ko
+     # do modesetting
+
+     # first determine graphics ( linux/pci_ids.h )
+     _LS_PCI_N_=`lspci -n`
+    #_LS_PCI_VGA_=`lspci -n | cut -f2 -d':' | awk '{print $NF}' | grep -Ew '0001|03|0300|0301|0302|0380'`
+     _LS_PCI_VGA_=`echo "$_LS_PCI_N_" | cut -f2 -d':' | awk '{print $NF}' | grep -Ew '0001|03|0300|0301|0302|0380'`
+
+     for onePCI in $_LSPCI_VGA_
+     do
+     VEN_PROD_=`echo "$_LS_PCI_N_" | grep " ${onePCI}:" | cut -f1 -d'(' | awk '{print $NF}'`
+       VENDOR_=`echo "$VEN_PROD_" | cut -f1 -d':'`
+      PRODUCT_=`echo "$VEN_PROD_" | cut -f2 -d':'`
+      case $VENDOR_ in
+         8086) # Intel
+         grep -q '^i915 ' /proc/modules && {
+         grep '^i915 ' /proc/modules | while read drivr vmsize users rest; do
+         [ "$drivr" ] || break
+         case $users in
+         0)
+         modprobe -vr i915
+         sleep 1
+         modprobe -v i195 modeset=1
+         ;;
+         esac
+         done
+         modprobe -v intel-agp
+         }
+        ;;
+
+         1002) # ATI / AMD
+         grep -q '^glrfx ' /proc/modules && {
+         grep '^glrfx ' /proc/modules | while read drivr vmsize users rest; do
+         [ "$drivr" ] || break
+         case $users in
+         0)
+         modprobe -vr glrfx
+         sleep 1
+         modprobe -v glrfx modeset=1
+
+         ;;
+         esac
+         done
+         }
+        ;;
+
+         10de) # nVidia
+         grep -q '^nouveau ' /proc/modules && {
+         grep '^nouveau ' /proc/modules | while read drivr vmsize users rest; do
+         [ "$drivr" ] || break
+         case $users in
+         0)
+         modprobe -vr nouveau
+         sleep 1
+         modprobe -v nouveau modeset=1
+
+         ;;
+         esac
+         done
+         }
+
+         grep -q '^nvidea ' /proc/modules && {
+         grep '^nvidia ' /proc/modules | while read drivr vmsize users rest; do
+         [ "$drivr" ] || break
+         case $users in
+         0)
+         modprobe -vr nvidea
+         sleep 1
+         modprobe -v nvidea modeset=1
+
+         ;;
+         esac
+         done
+         }
+
+        ;;
+      *) _warn "Unhandled PCI VENDOR '$VENDOR_'";;
+      esac
+     done
+
+   modprobe -v -b fbcon
+   ;;
   esac
 
   echo "Starting X, specs in $XORG_CONF, startup apps launched from file $XINIT_RC..."
