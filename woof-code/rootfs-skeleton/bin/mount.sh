@@ -232,6 +232,7 @@ test "$mountBEFORE" -a "$mountAFTER" && {
         updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA"`
         updateWHAT="$updateWHATA
 $updateWHATB" ; }
+        updateWHAT=`echo "$updateWHAT" | awk '{print $1 " " $2}' | uniq`
 _debugt 9f $_DATE_
 
  _check_tmp_rw || return 56
@@ -644,7 +645,7 @@ o_posPAR="$posPAR"
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir -p "$posPAR"; }
+   test -e "$posPAR" && _debug "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
