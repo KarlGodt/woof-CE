@@ -1,0 +1,611 @@
+#!/bin/sh
+#Barry Kauler 2008.
+#Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
+#a gui to provide choices for "events" -- things that occur at a systems level,
+#usually hardware related.
+#v411 checkbox to redraw/realign icons.
+#v412 workaround, someone exited with invalid settings.
+#w007 mouse inactivity computer power-down.
+#w464 /etc/puppyversion is now history.
+#v424 automatic unmounting (see pup_event_frontend_d).
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+#KRG APR/MAY2011 : ADDED SUPPORT FOR EDITING (partly) /ETC/EVENTMANAGER VIA TAB "$PLACEMENTTB"
+#KRG APR/MAY2011 : TRYED BACKWARDSCOMPATIBILITY VIA IF CHECKS
+
+SHOWMODE=$1 #v405 optional to modify gui.
+
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+PUPPYVERSION="$DISTRO_VERSION"
+KERNVER=`uname -r`
+. /etc/rc.d/MODULESCONFIG
+
+[ -f /etc/eventmanager ] && . /etc/eventmanager
+[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
+[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
+[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
+[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
+[ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
+[ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] && HOTPLUGON="true"
+[ "$BACKENDON" != "true" -a "$BACKENDON" != "false" ] && BACKENDON="true"
+[ "$FD0ICON" != "true" -a "$FD0ICON" != "false" ] && FD0ICON="true"
+[ ! $POWERTIMEOUT ] && POWERTIMEOUT=0 #w007 0=never.
+[ ! $AUTOUNMOUNT ] && AUTOUNMOUNT="false" #v424
+
+[ -z "$ICON_PLACE_START_GAP" ] && ICON_PLACE_START_GAP=32 #KRG
+[ -z "$ICON_PLACE_EDGE_GAP" ] && ICON_PLACE_EDGE_GAP=64
+[ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
+if [ -z "$ICON_PLACE_SPACING" ] ; then
+case "`xwininfo -root | grep '\-geometry' | sed 's#^[[:blank:]]*##' | cut -f2 -d ' ' | sed 's#+.*##' | cut -f 2 -d 'x'`" in
+480) ICON_PLACE_SPACING=8 ;;
+600) ICON_PLACE_SPACING=16 ;;
+768) ICON_PLACE_SPACING=32 ;;
+1024) ICON_PLACE_SPACING=48 ;;
+1200) ICON_PLACE_SPACING=64 ;;
+esac
+fi #KRG
+
+
+if [ -n "$ICON_PLACE_ORIENTATION" ] ; then #KRG
+case $ICON_PLACE_ORIENTATION in
+bottom) ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
+right) ICONPOSITIONR="true" ; ICONPOSITIONB="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
+top) ICONPOSITIONT="true" ; ICONPOSITIONR="false" ; ICONPOSITIONB="false" ; ICONPOSITIONL="false" ;;
+left) ICONPOSITIONL="true" ; ICONPOSITIONB="false" ;  ICONPOSITIONR="false" ; ICONPOSITIONT="false" ;;
+*) ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
+esac
+
+ICONPO="
+  <hbox>
+  <text xalign=\"0\"><label>Choose Position of Icons : Tick box for</label></text>
+  <radiobutton>
+  <label>\"bottom  \"</label>
+  <default>${ICONPOSITIONB}</default>
+  <variable>ICONPSITIONB</variable>
+  </radiobutton>
+  <radiobutton>
+  <label>\"right  \"</label>
+  <default>${ICONPOSITIONR}</default>
+  <variable>ICONPSITIONR</variable>
+  </radiobutton>
+  <radiobutton>
+  <label>\"top  \"</label>
+  <default>${ICONPOSITIONT}</default>
+  <variable>ICONPSITIONT</variable>
+  </radiobutton>
+  <radiobutton>
+  <label>\"left  \"</label>
+  <default>${ICONPOSITIONL}</default>
+  <variable>ICONPSITIONL</variable>
+  </radiobutton>
+  </hbox>
+"
+fi
+PLACEMENTTB=
+if [ -n "$ICON_PLACE_EDGE_GAP" ] ; then
+PLACEMENTTB="Icon placement"
+IPEGAP="
+<hbox>
+<text><label>Choose the Spacing to edge of screen:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_EDGE_GAP}</default>
+<variable>NEWIPEGAP</variable>
+</entry>
+</hbox>
+</hbox>
+"
+if [ -n "$ICON_PLACE_EDGE_GAP_X" ] ; then
+IPEGAPX="
+<hbox>
+<text><label>Choose the Spacing 'x' to edge of screen:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_EDGE_GAP_X}</default>
+<variable>NEWIPEGAPX</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+if [ -n "$ICON_PLACE_EDGE_GAP_Y" ] ; then
+IPEGAPY="
+<hbox>
+<text><label>Choose the Spacing 'y' to edge of screen:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_EDGE_GAP_Y}</default>
+<variable>NEWIPEGAPY</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+if [ -n "$ICON_PLACE_START_GAP" ] ; then
+IPSGAP="
+<hbox>
+<text><label>Choose the Beginning of driveicons:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_START_GAP}</default>
+<variable>NEWIPSGAP</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+if [ -n "$ICON_PLACE_SPACING" ] ; then
+IPSPA="
+<hbox>
+<text><label>Choose the Spacing of driveicons:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_SPACING}</default>
+<variable>NEWIPSPAC</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+if [ -n "$ICON_PLACE_SPACING_X" ] ; then
+IPSPAX="
+<hbox>
+<text><label>Choose the Spacing X of driveicons:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_SPACING_X}</default>
+<variable>NEWIPSPACX</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+if [ -n "$ICON_PLACE_SPACING_Y" ] ; then
+IPSPAY="
+<hbox>
+<text><label>Choose the Spacing Y of driveicons:</label></text>
+<hbox>
+<entry>
+<default>${ICON_PLACE_SPACING_Y}</default>
+<variable>NEWIPSPACY</variable>
+</entry>
+</hbox>
+</hbox>
+"
+fi
+PLACEMENT="
+<vbox>
+$ICONPO
+$IPEGAP
+$IPEGAPX
+$IPEGAPY
+$IPSGAP
+$IPSPA
+$IPSPAX
+$IPSPAY
+<checkbox>
+   <label>Tick box to erase then redraw and realign existing icons</label>
+   <default>true</default>
+   <variable>NEWICONWIPE</variable>
+  </checkbox>
+</vbox>
+"
+fi
+
+
+#w007 as have a optional cutdown gui, make sure these are all preset...
+NEWICONDESK="$ICONDESK"
+NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
+NEWHOTPLUGNOISY="$HOTPLUGNOISY"
+NEWAUTOTARGET="$AUTOTARGET"
+NEWICONPARTITIONS="$ICONPARTITIONS"
+NEWHOTPLUGON="$HOTPLUGON"
+NEWBACKENDON="$BACKENDON"
+NEWFD0ICON="$FD0ICON"
+NEWPOWERTIMEOUT=$POWERTIMEOUT
+NEWAUTOUNMOUNT="$AUTOUNMOUNT"
+
+DRIVESPART="
+ <frame Drive icons on desktop>
+ <vbox>
+  <text><label>When this box is ticked, there will be an icon for each drive. If you plugin a USB pen drive for example, an icon will appear. Unplug and it will disappear. If you don't want these drive icons on the desktop, untick this box (but there will still remain just one icon that will launch Pmount when clicked on). The individual drive icons are purely a convenience and Puppy works fine without them.</label></text>
+  <checkbox>
+   <label>Tick box for drive icons on desktop</label>
+   <default>${ICONDESK}</default>
+   <variable>NEWICONDESK</variable>
+  </checkbox>
+
+  <hbox>
+  <text><label>\"  \"</label></text>
+  <vbox>
+  <text><label>If the above is ticked, then you can choose to have an icon for each partition, rather than one icon for the entire drive:</label></text>
+  <checkbox>
+   <label>Tick box for an icon for each partition</label>
+   <default>${ICONPARTITIONS}</default>
+   <variable>NEWICONPARTITIONS</variable>
+  </checkbox>
+  </vbox>
+  </hbox>
+
+  <checkbox>
+   <label>Tick box to erase then redraw and realign existing icons</label>
+   <default>false</default>
+   <variable>NEWICONWIPE</variable>
+  </checkbox>
+
+ </vbox>
+ </frame>
+
+ <frame Drive 'handler'>
+
+ <vbox>
+  <text><label>The 'handler' decides what to do when you click on a desktop drive icon. Normally, this just starts Pmount if you click on a drive icon, or mounts it and starts ROX-Filer if a partition icon, but this behavior can be extended by these checkboxes.</label></text>
+
+  <text><label>This checkbox extends the default behavior, and will launch a more appropriate application. Currently, it adds detection of a video DVD or audio CD and launches the media player:</label></text>
+  <checkbox>
+   <label>Tick box for auto-detection of target application</label>
+   <default>${AUTOTARGET}</default>
+   <variable>NEWAUTOTARGET</variable>
+  </checkbox>
+ </vbox>
+
+ <vbox>
+  <text><label>Normally you have to click on a drive icon to run the 'handler', but this checkbox makes the 'handler' run as soon as a media is plugged in. For example, plug in a DVD and it will immediately either get mounted, or if the above checkbox is ticked the media player will run:</label></text>
+  <checkbox>
+   <label>Tick box for auto-launch 'handler' when media plugged in</label>
+   <default>${HOTPLUGNOISY}</default>
+   <variable>NEWHOTPLUGNOISY</variable>
+  </checkbox>
+ </vbox>
+
+ </frame>
+
+ <frame Legacy>
+  <text><label>Linux does not support hotplug detection of when a legacy floppy diskette is inserted or removed. Periodic probing requires starting the drive motor, which is very slow -- and do you want the motor to startup every 4 seconds? Therefore, if your PC has a floppy drive, tick this box to have a permanent icon on desktop (regardless whether a diskette is actually inserted, or even a floppy drive!).</label></text>
+  <checkbox>
+   <label>Tick box for floppy drive icon on desktop</label>
+   <default>${FD0ICON}</default>
+   <variable>NEWFD0ICON</variable>
+  </checkbox>
+ </frame>
+"
+DRIVESPART2="
+ <frame Legacy>
+  <text><label>Linux does not support hotplug detection of when a legacy floppy diskette is inserted or removed. Periodic probing requires starting the drive motor, which is very slow -- and do you want the motor to startup every 4 seconds? Therefore, if your PC has a floppy drive, tick this box to have a permanent icon on desktop (regardless whether a diskette is actually inserted, or even a floppy drive!).</label></text>
+  <checkbox>
+   <label>Tick box for floppy drive icon on desktop</label>
+   <default>${FD0ICON}</default>
+   <variable>NEWFD0ICON</variable>
+  </checkbox>
+ </frame>
+
+ <frame Drive 'handler'>
+ <vbox>
+  <text><label>The 'handler' decides what to do when you click on a desktop drive icon. Normally, this just starts Pmount if you click on a drive icon, or mounts it and starts ROX-Filer if a partition icon, but this behavior can be extended by these checkboxes.</label></text>
+  <text><label>This checkbox extends the default behavior, and will launch a more appropriate application. Currently, it adds detection of a video DVD or audio CD and launches the media player:</label></text>
+  <checkbox>
+   <label>Tick box for auto-detection of target application</label>
+   <default>${AUTOTARGET}</default>
+   <variable>NEWAUTOTARGET</variable>
+  </checkbox>
+ </vbox>
+
+ <vbox>
+  <text><label>Normally you have to click on a drive icon to run the 'handler', but this checkbox makes the 'handler' run as soon as a media is plugged in. For example, plug in a DVD and it will immediately either get mounted, or if the above checkbox is ticked the media player will run:</label></text>
+  <checkbox>
+   <label>Tick box for auto-launch 'handler' when media plugged in</label>
+   <default>${HOTPLUGNOISY}</default>
+   <variable>NEWHOTPLUGNOISY</variable>
+  </checkbox>
+ </vbox>
+</frame>
+
+ <frame Drive icons on desktop>
+ <vbox>
+  <text><label>When this box is ticked, there will be an icon for each drive. If you plugin a USB pen drive for example, an icon will appear. Unplug and it will disappear. If you don't want these drive icons on the desktop, untick this box (but there will still remain just one icon that will launch Pmount when clicked on). The individual drive icons are purely a convenience and Puppy works fine without them.</label></text>
+  <checkbox>
+   <label>Tick box for drive icons on desktop</label>
+   <default>${ICONDESK}</default>
+   <variable>NEWICONDESK</variable>
+  </checkbox>
+
+  <vbox>
+  <text><label>If the above is ticked, then you can choose to have an icon for each partition, rather than one icon for the entire drive:</label></text>
+  <checkbox>
+   <label>Tick box for an icon for each partition</label>
+   <default>${ICONPARTITIONS}</default>
+   <variable>NEWICONPARTITIONS</variable>
+  </checkbox>
+  </vbox>
+
+  <checkbox>
+   <label>Tick box to erase then redraw and realign existing icons</label>
+   <default>true</default>
+   <variable>NEWICONWIPE</variable>
+  </checkbox>
+  </vbox>
+ </frame>
+
+ <frame IconPlacements>
+  $PLACEMENT
+ </frame>
+"
+
+if [ "$SHOWMODE" = "desktop" ];then
+ #cutdown, only show choices for settng the desktop icons...
+ export MAIN_DIALOG="
+<window title=\"Event Manager: Desktop drive icons\" icon-name=\"gtk-execute\">
+<vbox>
+
+  <text use-markup=\"true\">
+  <label>\"<b>Restart X for changes to take effect</b>\"</label></text>
+
+  <notebook labels=\"Legacy|Icon Handler|Desktop Icons|$PLACEMENTTB\">
+
+  $DRIVESPART2
+
+  </notebook>
+
+ <hbox>
+   <button>
+    <label>Show full Event Manager</label>
+    <action type=\"exit\">fullem</action>
+   </button>
+   <button ok></button>
+   <button cancel></button>
+ </hbox>
+</vbox>
+</window>
+"
+else
+ export MAIN_DIALOG="
+<window title=\"Puppy Event Manager\" icon-name=\"gtk-execute\">
+<vbox>
+
+  <text use-markup=\"true\">
+  <label>\"<b>Restart X for changes to take effect</b>\"</label></text>
+
+<notebook labels=\"Activate|Save Session|Power|Legacy|Icon Handler|Desktop Icons|$PLACEMENTTB\">
+
+ <frame Activate Puppy Event Manager>
+  <text><label>The 'pup_event' Puppy Event Manager runs in the background and handles hotplugging of drives, including the desktop drive icons. This also includes automatic module and firmware loading if new hardware is detected. However, turn it all off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. Pmount can still be run manually to mount and unmount partitions.</label></text>
+  <checkbox>
+   <label>Tick box for hotplug module/firmware loading</label>
+   <default>${BACKENDON}</default>
+   <variable>NEWBACKENDON</variable>
+  </checkbox>
+
+  <hbox>
+  <text><label>\"  \"</label></text>
+  <vbox>
+  <text><label>If the above is ticked, then can also turn on these:</label></text>
+  <checkbox>
+   <label>Tick box for desktop hotplug support</label>
+   <default>${HOTPLUGON}</default>
+   <variable>NEWHOTPLUGON</variable>
+  </checkbox>
+  <checkbox>
+   <label>Tick box for auto unmounting of partitions</label>
+   <default>${AUTOUNMOUNT}</default>
+   <variable>NEWAUTOUNMOUNT</variable>
+  </checkbox>
+  <text><label>(WARNING: auto unmounting is highly experimental)</label></text>
+  </vbox>
+  </hbox>
+ </frame>
+
+ <frame Periodic save from RAM>
+ <vbox>
+  <text><label>Puppy runs in a particular 'state' that we call the PUPMODE. This depends on the type of installation and the type of hardware. Currently, PUPMODE=${PUPMODE}. If it is an odd number, for example 13, then Puppy is doing everything in RAM and saving the current session to a drive periodically -- this is done in the case of Flash memory to make it last longer. When Puppy runs in an odd PUPMODE, there will be a 'save' icon on the desktop, also a save occurs at shutdown. You can also specify a periodic save here:</label></text>
+  <hbox>
+   <text><label>Save interval (0=never):</label></text>
+   <entry max_length=\"4\">
+    <default>${RAMSAVEINTERVAL}</default>
+    <variable>NEWRAMSAVEINTERVAL</variable>
+   </entry>
+   <text><label>minutes</label></text>
+   <text><label>\"       \"</label></text>
+  </hbox>
+  <text><label>NOTE1: PUPMODE=77 (multisession DVD) excluded, only manual save with desktop icon and at shutdown.</label></text>
+  <text><label>NOTE2: PUPMODE=5 there are no saves, above value ignored.</label></text>
+ </vbox>
+ </frame>
+
+ <frame Power>
+ <vbox>
+  <text><label>Puppy is able to power-off your computer after a period of mouse inactivity. This will occur if the mouse cursor has not been moved for the designated interval:</label></text>
+  <hbox>
+   <text><label>Inactivity interval (0=never):</label></text>
+   <entry max_length=\"4\">
+    <default>${POWERTIMEOUT}</default>
+    <variable>NEWPOWERTIMEOUT</variable>
+   </entry>
+   <text><label>minutes</label></text>
+   <text><label>\"       \"</label></text>
+  </hbox>
+  </vbox>
+ </frame>
+
+ $DRIVESPART2
+
+</notebook>
+
+ <hbox>
+ <text><label>\"Click  \"</label></text>
+   <button>
+   <input file icon=\"gtk-apply\"></input>
+   <label>OK:Apply!</label>
+   </button>
+  <text><label>\"  or  \"</label></text>
+   <button cancel></button>
+  <text><label>\"  to Exit without saving\"</label></text>
+ </hbox>
+</vbox>
+</window>
+"
+fi
+if [ "$HAVEMUT2" = "yes" ];then # <button file icon="top"> | icon-name=\"gtk-execute\"
+ PREFSBUTTON="
+   <button><label>$m_11</label>
+    <action type=\"exit\">SETPREFS</action>
+   </button>"
+fi
+RETSTRING=`gtkdialog3 --program=MAIN_DIALOG --center`
+[ $? -ne 0 ] && exit
+
+eval "$RETSTRING"
+
+#echo "$RETSTRING" #TEST
+
+[ "$EXIT" = "abort" ] && exit
+[ "$EXIT" = "Cancel" ] && exit
+[ "$EXIT" = "" ] && exit
+
+#v405 it is running with 'desktop' param, now rerun with all tabs...
+[ "$EXIT" = "fullem" ] && exec eventmanager
+
+#make sure that RAMSAVEINTERVAL is an integer only...
+[ "$NEWRAMSAVEINTERVAL" = "" ] && NEWRAMSAVEINTERVAL=30 #412
+NEWRAMSAVEINTERVAL=`echo -n "$NEWRAMSAVEINTERVAL" | sed -e 's/[^0-9]//g'`
+#do not allow too-frequent saves...
+[ $NEWRAMSAVEINTERVAL -gt 0 -a $NEWRAMSAVEINTERVAL -lt 5 ] && NEWRAMSAVEINTERVAL=5
+
+#w007 make sure that POWERTIMEOUT is integer only...
+[ "$NEWPOWERTIMEOUT" = "" ] && NEWPOWERTIMEOUT=0
+NEWPOWERTIMEOUT=`echo -n "$NEWPOWERTIMEOUT" | sed -e 's/[^0-9]//g'`
+#do not allow too-frequent power-down...
+[ $NEWPOWERTIMEOUT -gt 0 -a $NEWPOWERTIMEOUT -lt 5 ] && NEWPOWERTIMEOUT=5
+
+#v403 if major-switch has turned off hotplug support, only show one icon...
+[ "$NEWBACKENDON" = "" ] && NEWBACKENDON="true" #v412
+[ "$NEWHOTPLUGON" = "" ] && NEWHOTPLUGON="true" #v412
+[ "$NEWBACKENDON" = "false" ] && NEWHOTPLUGON="false"
+if [ "$NEWHOTPLUGON" = "false" ];then
+ NEWICONDESK="false"
+ NEWICONPARTITIONS="false"
+ NEWHOTPLUGNOISY="false"
+ NEWAUTOTARGET="false"
+ NEWAUTOUNMOUNT="false" #v424
+fi
+
+#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
+[ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] && echo "ICONPARTITIONS" > /tmp/pup_event_icon_change_flag
+[ "$ICONDESK" != "$NEWICONDESK" ] && echo "ICONDESK" >> /tmp/pup_event_icon_change_flag
+
+
+CONFIG=`cat /etc/eventmanager`
+
+rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=\"${NEWRAMSAVEINTERVAL}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$rsPATTERN"`
+
+#w007...
+ptPATTERN="s/^POWERTIMEOUT=.*/POWERTIMEOUT=\"${NEWPOWERTIMEOUT}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$ptPATTERN"`
+
+idPATTERN="s/^ICONDESK=.*/ICONDESK=\"${NEWICONDESK}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$idPATTERN"`
+
+ipPATTERN="s/^ICONPARTITIONS=.*/ICONPARTITIONS=\"${NEWICONPARTITIONS\"}/"
+CONFIG=`echo "$CONFIG" | sed -e "$ipPATTERN"`
+
+hnPATTERN="s/^HOTPLUGNOISY=.*/HOTPLUGNOISY=\"${NEWHOTPLUGNOISY}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$hnPATTERN"`
+
+atPATTERN="s/^AUTOTARGET=.*/AUTOTARGET=\"${NEWAUTOTARGET}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$atPATTERN"`
+
+hoPATTERN="s/^HOTPLUGON=.*/HOTPLUGON=\"${NEWHOTPLUGON}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$hoPATTERN"`
+
+boPATTERN="s/^BACKENDON=.*/BACKENDON=\"${NEWBACKENDON}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$boPATTERN"`
+
+fiPATTERN="s/^FD0ICON=.*/FD0ICON=\"${NEWFD0ICON}\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$fiPATTERN"`
+
+auPATTERN="s/^AUTOUNMOUNT=.*/AUTOUNMOUNT=\"${NEWAUTOUNMOUNT}\"/" #v424
+CONFIG=`echo "$CONFIG" | sed -e "$auPATTERN"`
+
+if [ "$ICONPSITIONB" = "true" ] ; then #KRG
+ibPATTERN="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION=\'bottom\'/"
+CONFIG=`echo "$CONFIG" | sed -e "$ibPATTERN"`
+elif [ "$ICONPSITIONR" = "true" ] ; then
+irPATTERN="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION=\'right\'/"
+CONFIG=`echo "$CONFIG" | sed -e "$irPATTERN"`
+elif [ "$ICONPSITIONT" = "true" ] ; then
+itPATTERN="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION=\'top\'/"
+CONFIG=`echo "$CONFIG" | sed -e "$itPATTERN"`
+elif [ "$ICONPSITIONL" = "true" ] ; then
+ilPATTERN="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION=\'left\'/"
+CONFIG=`echo "$CONFIG" | sed -e "$ilPATTERN"`
+else
+ibPATTERN="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION=\'bottom\'/"
+CONFIG=`echo "$CONFIG" | sed -e "$ibPATTERN"`
+fi
+
+if [ -n "`echo $NEWIPEGAP | grep -w -x '[0-9]*'`" ] ; then
+newipegP="s/^ICON_PLACE_EDGE_GAP=.*/ICON_PLACE_EDGE_GAP=\"$NEWIPEGAP\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipegP"`
+fi
+if [ -n "`echo $NEWIPEGAPX | grep -w -x '[0-9]*'`" ] ; then
+newipegxP="s/^ICON_PLACE_EDGE_GAP_X=.*/ICON_PLACE_EDGE_GAP_X=\"$NEWIPEGAPX\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipegxP"`
+fi
+if [ -n "`echo $NEWIPEGAPY | grep -w -x '[0-9]*'`" ] ; then
+newipegyP="s/^ICON_PLACE_EDGE_GAP_Y=.*/ICON_PLACE_EDGE_GAP_Y=\"$NEWIPEGAPY\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipegPy"`
+fi
+if [ -n "`echo $NEWIPSGAP | grep -w -x '[0-9]*'`" ] ; then
+newipsgP="s/^ICON_PLACE_START_GAP=.*/ICON_PLACE_START_GAP=\"$NEWIPSGAP\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipsgP"`
+fi
+if [ -n "`echo $NEWIPSPAC | grep -w -x '[0-9]*'`" ] ; then
+newipspP="s/^ICON_PLACE_SPACING=.*/ICON_PLACE_SPACING=\"$NEWIPSPAC\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipspP"`
+fi
+if [ -n "`echo $NEWIPSPACX | grep -w -x '[0-9]*'`" ] ; then
+newipsxP="s/^ICON_PLACE_SPACING_X=.*/ICON_PLACE_SPACING_X=\"$NEWIPSPACX\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipsxP"`
+fi
+if [ -n "`echo $NEWIPSPACY | grep -w -x '[0-9]*'`" ] ; then
+newipsyP="s/^ICON_PLACE_SPACING_Y=.*/ICON_PLACE_SPACING_Y=\"$NEWIPSPACY\"/"
+CONFIG=`echo "$CONFIG" | sed -e "$newipsyP"`
+fi
+echo "$CONFIG" > /etc/eventmanager
+sleep 1
+
+[ "$NEWICONWIPE" = "true" ] && echo "ICONWIPE" >> /tmp/pup_event_icon_change_flag #v411
+sleep 2
+eventmanager &
+exit
+
+###END###
