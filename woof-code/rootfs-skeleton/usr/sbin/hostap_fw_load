@@ -1,0 +1,71 @@
+#!/bin/sh
+# Example script for automatically loading firmware images when needed. This
+# can be run, e.g., from /etc/pcmcia/wireless.
+
+# Firmware images for the card
+# TODO: could try to select correct firmware type automatically
+
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+
+PRI=/etc/pcmcia/PM010102.HEX
+STA=/etc/pcmcia/RF010802.HEX
+# BK path modified...
+PRISM2_SREC=/usr/sbin/prism2_srec
+
+set -e
+
+if [ -z "$1" ]; then
+    echo "usage: $0 <ifname>"
+    exit 1
+fi
+
+IFNAME=$1
+DIR=/proc/net/hostap/$IFNAME
+
+if [ ! -d $DIR ]; then
+    echo "Host AP driver data for device $IFNAME not found in procfs."
+    exit 1
+fi
+
+if grep -q no_pri=1 $DIR/debug; then
+    # no primary image - load primary in two steps, first without PDA and then
+    # with full PDA plugging
+    echo "Downloading primary firmware $PRI"
+    $PRISM2_SREC -gs $IFNAME $PRI
+    $PRISM2_SREC -gp $IFNAME $PRI
+fi
+
+if grep -q pri_only=1 $DIR/debug; then
+    echo "Downloading secondary (station) firmware $STA"
+    $PRISM2_SREC -rp $IFNAME $STA
+fi
+
+echo "Card is ready with both PRI and STA firmware images"
