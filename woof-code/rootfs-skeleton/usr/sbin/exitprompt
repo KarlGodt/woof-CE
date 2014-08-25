@@ -1,0 +1,68 @@
+#!/bin/sh
+
+#orig: killall X
+#end of orig
+
+##/usr/bin/wmexit
+#Exit from X, will cause return to xwin.
+
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+#/sbin/pup_event_frontend_d will quit if this file exists...
+echo -n "exit" > /tmp/wmexitmode.txt
+echo -n "exit" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
+sleep 1s
+#give time for /sbin/pup_event_frontend_d to quit.
+#w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
+#detected /tmp/wmeximode.txt, but became 'defunct'...
+KCNT=0
+PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+#while [ "`pidof pup_event_frontend_d`" != "" ];do
+while [ "$PSPEFD" != "" ];do
+ sleep 0.5
+ KCNT=`expr $KCNT + 1`
+ [ $KCNT -gt 60 ] && break #30 secs.
+ PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+done
+sleep 0.2
+
+sync
+
+if [ "`pidof xfce4-panel`" != "" ];then
+ #killall xfce4-panel
+ kill `pidof xfce4-panel`
+ exit
+fi
+
+#w003
+CURRENTWM="`cat /etc/windowmanager`"
+kill -9 `pidof $CURRENTWM`
+
+##exec killall $PREVIOUSWM
+##exec killall X
+killall X #default is SIGTERM.
+sleep 1
+#exec killall -9 X #make sure X is killed.
+
