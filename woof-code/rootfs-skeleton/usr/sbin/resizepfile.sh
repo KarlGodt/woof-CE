@@ -4,6 +4,30 @@
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
 #PUPMODE=current operating configuration,
@@ -62,7 +86,7 @@ REPORTACTION="Welcome to the Puppy Resize personal storage file utility!"
 
 MAINTEXT="Your personal file is $NAMEPFILE, and this contains all of your data,
 configuration files, email, newsgroup cache, history files, installed
-packages and so on. 
+packages and so on.
 
 You have $SIZEFREE Mbytes free space left in $NAMEPFILE,
 out of a total size of $ACTUALSIZE Mbytes.
