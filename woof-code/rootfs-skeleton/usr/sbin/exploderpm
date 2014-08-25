@@ -10,6 +10,31 @@
 # (c) bjdouma@xs4all.nl VER="v1.5, october 2004"
 #110705 bk: added -i install option for rpm.
 
+trap "exit 1" HUP INT QUIT KILL TERM
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+-V|--version : showing version information
+-H|--help : show this usage information
+
+*******  *******  *******  *******  *******  *******  *******  *******  *******
+$2
+"
+exit $1
+}
+
+[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+
 OPT="$1"
 FILE="$2"
 [[ $OPT = '-lv' ]] && VERBOSE='v' OPT='-l'
@@ -26,39 +51,39 @@ explode() {
 
 gzip_sieve()
 {
-	# gzip-magic: 0x1F,0x8B
-	sed -ne '/1[fF]/{;N;/8[bB]$/{;s/1[fF]//g;s/^0*//g;P;};}'
+    # gzip-magic: 0x1F,0x8B
+    sed -ne '/1[fF]/{;N;/8[bB]$/{;s/1[fF]//g;s/^0*//g;P;};}'
 }
 
 bzip2_sieve()
 {
-	# bzip2-magic: 0x42,0x5A,0x68
-	sed -ne '/42/{;N;/5[aA]$/{;N;/68$/{s/42//g;s/5[aA]//g;s/^0*//g;P;};};}'
+    # bzip2-magic: 0x42,0x5A,0x68
+    sed -ne '/42/{;N;/5[aA]$/{;N;/68$/{s/42//g;s/5[aA]//g;s/^0*//g;P;};};}'
 }
 
 probe()
 {
-	dd if=$FILE ibs=$O skip=1 2>/dev/null \
-	| $2 -dc - 2>/dev/null \
-	| cpio "$1" 2>/dev/null
+    dd if=$FILE ibs=$O skip=1 2>/dev/null \
+    | $2 -dc - 2>/dev/null \
+    | cpio "$1" 2>/dev/null
 }
 
 explode_deb() {
 
 PASS1="probe -t$VERBOSE"
 case $OPT in
-	'-l'|'-v') PASS2=":" ;;
-	'-x') PASS2="probe -idm" ;;
+    '-l'|'-v') PASS2=":" ;;
+    '-x') PASS2="probe -idm" ;;
 esac
 
 for AR in gzip bzip2 ; do
-	e=1
-	HEADER_SIZE=256000
-	AR_OFFSETS=$(od -A d -N $HEADER_SIZE -v -t x1 -w1 $FILE | ${AR}_sieve)
-	for O in $AR_OFFSETS ; do
-		$PASS1 $AR 2>/dev/null && $PASS2 $AR && e=0
-	done
-	[ $e -eq 0 ] && return $e
+    e=1
+    HEADER_SIZE=256000
+    AR_OFFSETS=$(od -A d -N $HEADER_SIZE -v -t x1 -w1 $FILE | ${AR}_sieve)
+    for O in $AR_OFFSETS ; do
+        $PASS1 $AR 2>/dev/null && $PASS2 $AR && e=0
+    done
+    [ $e -eq 0 ] && return $e
 done
 }
 
@@ -81,40 +106,40 @@ explode_rpm() {
   gz="$(echo -en '\037\0213')"
   #xz="$(echo -en '\0fd\037\07a\058\05a\000')"
   case $OPT in
-	'-x')
-		case "$comp" in
-			BZh)      dd if="$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet -ivdm ;;
-			"$gz"*)   dd if="$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet -ivdm ;;
-			"]"*)     dd if="$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet -ivdm ;;
-			*)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
-		esac
-	;;
-	'-l')
-		case "$comp" in
-			BZh)      dd if="$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet -t$VERBOSE ;;
-			"$gz"*)   dd if="$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet -t$VERBOSE ;;
-			"]"*)     dd if="$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet -t$VERBOSE ;;
-			*)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
-		esac
-	;;
-	'-i') #110705 install
-		CURRDIR="`pwd`"
-		if [ ! -f ${CURRDIR}/${pkg} ];then
-		 echo "Error: ${CURRDIR}/${pkg} does not exist"
-		 return 1
-		fi
-		cd /
-		case "$comp" in
-			BZh)      dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet --unconditional -idm ;;
-			"$gz"*)   dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet --unconditional -idm ;;
-			"]"*)     dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet --unconditional -idm ;;
-			*)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
-		esac
-		RETSTAT=$?
-		cd "$CURRDIR"
-		[ $RETSTAT != 0 ] && return 1
-		return 0
-	;;
+    '-x')
+        case "$comp" in
+            BZh)      dd if="$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet -ivdm ;;
+            "$gz"*)   dd if="$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet -ivdm ;;
+            "]"*)     dd if="$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet -ivdm ;;
+            *)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
+        esac
+    ;;
+    '-l')
+        case "$comp" in
+            BZh)      dd if="$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet -t$VERBOSE ;;
+            "$gz"*)   dd if="$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet -t$VERBOSE ;;
+            "]"*)     dd if="$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet -t$VERBOSE ;;
+            *)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
+        esac
+    ;;
+    '-i') #110705 install
+        CURRDIR="`pwd`"
+        if [ ! -f ${CURRDIR}/${pkg} ];then
+         echo "Error: ${CURRDIR}/${pkg} does not exist"
+         return 1
+        fi
+        cd /
+        case "$comp" in
+            BZh)      dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | bunzip2 | cpio --quiet --unconditional -idm ;;
+            "$gz"*)   dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | gunzip | cpio --quiet --unconditional -idm ;;
+            "]"*)     dd if="${CURRDIR}/$pkg" ibs=$o skip=1 2>/dev/null | unxz | cpio --quiet --unconditional -idm ;;
+            *)        echo "Unrecognized rpm file: $pkg"; return 1 ;;
+        esac
+        RETSTAT=$?
+        cd "$CURRDIR"
+        [ $RETSTAT != 0 ] && return 1
+        return 0
+    ;;
   esac
   [ $? != 0 ] && return 1
   # The directories that are not listed in the RPM file are always created
