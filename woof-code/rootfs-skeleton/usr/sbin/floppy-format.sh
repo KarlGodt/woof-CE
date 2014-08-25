@@ -6,18 +6,13 @@
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-
 Version='1.1'
-
 
 usage(){
 USAGE_MSG="
@@ -34,8 +29,6 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
-
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
@@ -73,7 +66,7 @@ fi
 #umount /dev/fd1 2>/tmp/floppyformat1.txt.$$
 #IN2=`cat /tmp/floppyformat1.txt.$$`
 #if test "$IN2" != ""
-t#hen 
+t#hen
 #xmessage -bg "#ffe0e0" -name "loformat2" -title "Puppy Lo-level Formatter" -center \
 #  -buttons "Open Rox Filer at /mnt":20,"QUIT":10 -file -<<XMSG
 #ERROR
@@ -85,9 +78,9 @@ t#hen
 #  fi
 #  if [ $AN91 -eq 20 ];then
 #   `rox /mnt`
-#   
+#
 #   floppy-format.sh
-#   
+#
 #   exit
 #  fi
 #  if [ $AN91 -eq 0 ];then
@@ -134,8 +127,8 @@ done
 
 fsfloppy()
 {
-	
-	xmessage -bg "#c0ffff" -center -name "loformat choice" -title "Choose Floppy Drive" -buttons "Floppy1 (fd0)":20,"Floppy2 (fd1)":30,"EXIT":10  -file -<<XMSG
+
+    xmessage -bg "#c0ffff" -center -name "loformat choice" -title "Choose Floppy Drive" -buttons "Floppy1 (fd0)":20,"Floppy2 (fd1)":30,"EXIT":10  -file -<<XMSG
 Which Floppy Drive to format
 Choose the floppy drive
 XMSG
