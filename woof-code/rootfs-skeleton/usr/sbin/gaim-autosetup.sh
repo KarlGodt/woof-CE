@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# gaim-autosetup.sh -- generates autologin configuration for GAIM 
+# gaim-autosetup.sh -- generates autologin configuration for GAIM
 #                      so that starting GAIM will log user into #puppylinux
 #
 # Copyright 2006 Jonathan Marsden
@@ -8,12 +8,12 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 ,
 # as published by the Free Software Foundation.
-#           
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#                           
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
@@ -21,18 +21,13 @@
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-
 Version='1.1'
-
 
 usage(){
 USAGE_MSG="
@@ -49,8 +44,6 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
-
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
@@ -85,7 +78,7 @@ then
   if test "$?" -eq 0
   then
     USERNAME=`echo $NEWNAME |tr -cd 'A-Za-z0-9[-\`{-}'` # See RFC 2812 2.3.1
-  fi  
+  fi
 fi
 
 # Create the two config files
