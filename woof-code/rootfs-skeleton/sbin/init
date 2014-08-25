@@ -115,16 +115,16 @@ status_func() {
 }
 
 if [ -d /proc ]; then
-[ -z "`ls -A /proc`" ] && busybox mount -t proc none /proc
+[ -f /proc/mounts ] || busybox mount -t proc proc /proc
 else
 busybox mount -o remount,rw /dev/root /
 mkdir -p /proc
-busybox mount -t proc none /proc
+busybox mount -t proc proc /proc
 #busybox mount -o -remount,ro /
 fi
 
 if [ -d /sys ]; then
-[ -z "`ls -A /sys`" ] && busybox mount -t sysfs none /sys
+grep -q ' /sys ' /proc/mounts || busybox mount -t sysfs sysfs /sys
 else
 busybox mount -o -remount,rw /dev/root /
 mkdir -p /sys
@@ -137,7 +137,6 @@ busybox mount -o remount,rw /dev/root /
 mkdir /dev
 fi
 
-#mountpoint -q /dev || {
 grep -q ' /dev ' /proc/mounts || {
   mount -t ramfs devramfs /dev
 }
@@ -162,29 +161,20 @@ grep -q ' /dev ' /proc/mounts || {
   unset MAJOR MINOR DEVNAME DEVTYPE DEVMODE
   test -r "$oneFILE" || continue
   source "$oneFILE" 2>/dev/null || continue
-   #MAJOR=13
-   #MINOR=65
-   #DEVNAME=input/event1
   test "$MAJOR" -a "$MINOR" || continue
   test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
   test "$DEVMODE" && DEVMODE="-m $DEVMODE"
   test "$DEVTYPE" && {
       mknod $DEVMODE /dev/$DEVNAME b $MAJOR $MINOR; } || {
       mknod $DEVMODE /dev/$DEVNAME c $MAJOR $MINOR; }
-   #MAJOR=7
-   #MINOR=5
-   #DEVNAME=loop5
-   #DEVTYPE=disk
   sleep 0.01
   done
   IFS="$oldIFS"
  }
-#}
 
 TTY=`tty`
 test "$TTY" = 'not a tty' && TTY=/dev/console
 
-#if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then #frugal or full
 if [ "$PUPMODE" = 2 ]; then
     #busybox mount -o remount,rw /  #can't read /proc/mounts
      busybox mount -o remount,rw /dev/root /
@@ -192,7 +182,7 @@ if [ "$PUPMODE" = 2 ]; then
     ###+++2011-11-10
     if [ -d /tmp ]; then
     [ -e /var/tmp-last-boot ] && rm -rf /var/tmp-last-boot/ ##2012-02-08
-    mkdir -p /var/tmp-last-boot  ##2012-02-06
+    mkdir -p /var/tmp-last-boot    ##2012-02-06
     mv /tmp/* /var/tmp-last-boot/  ##2012-01-08
     else
     mkdir /tmp
@@ -212,9 +202,9 @@ busybox umount /proc
 exec busybox init
 }
 
-if [ -d /initrd -o -n "`busybox df | grep '/initrd'`" ]; then  ###KRG
+if [ "$PUPMODE" != 2 ]; then
 BUSYBOX_INIT_FUNC
-fi  ###KRG
+fi
 
 
 test -f /etc/DISTRO_SPECS && . /etc/DISTRO_SPECS  ##+++2013-03-12
@@ -292,7 +282,7 @@ else #3
 if [ "$montTN" -gt "$montCN" ]; then #5
 MinusTD=$todayD
 PlusCD=$(( $val30C - $nextcD ))
-##+++2011_10_19 month difference missing val30B
+##+++2011-10-19 month difference missing val30B
 SUM=$(( $MinusTD + $val30B + $PlusCD ))
 
 if [ "$SUM" -gt "$interN" ]; then #6
@@ -624,7 +614,7 @@ STATUS=$(( $STATUS + $? ))
 echo -n '.' >/dev/console
 done
 
-if [ ! -d /initrd -o "`busybox df | grep 'initrd'`" = "" ]; then
+if test "$PUPMODE" = 2; then
 status_func $STATUS
 fi
 
