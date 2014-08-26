@@ -2,6 +2,18 @@
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #this is very primitive script to create desktop shortcut.
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Script to create dektop shortcut."
+_parse_basic_parameters "$@"
+
+_trap
+}
 
 while [ 1 ]
 do
