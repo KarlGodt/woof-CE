@@ -2190,6 +2190,7 @@ getPrismCellParameters()
 #=============== START OF SCRIPT BODY ====================
 #=============================================================================
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -2214,11 +2215,28 @@ exit $1
 
 [ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST="INTERFACE"
+ADD_PARAMETERS="interface like 'wlan0'"
+_provide_basic_parameters
+
+ADD_HELP_MSG="Combined shell function library to setup WirelessLAN."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 # If ran by itself it shows the interface, Otherwise it's only used as a function library
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
+    test -f /usr/share/locale/en/LC_MESSAGES/net-setup.mo && . /usr/share/locale/en/LC_MESSAGES/net-setup.mo
+    test -f /usr/share/locale/$LANG/LC_MESSAGES/net-setup.mo && . /usr/share/locale/$LANG/LC_MESSAGES/net-setup.mo
     INTERFACE="$1"
     DEBUG_OUTPUT="/dev/stderr"
     showProfilesWindow "$1"
