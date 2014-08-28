@@ -14,6 +14,7 @@ export TEXTDOMAIN=usb_modeswitch_status
 export OUTPUT_CHARSET=UTF-8
 export LANG="`cat /etc/profile|grep '^LANG='| cut -d '=' -f2`"
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -38,7 +39,23 @@ exit $1
 
 [ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="UDEV helper script for 3G modems.
+Just presents too long wait message ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 #all of the uevent env. variables are visible here. ex (my Optus 3G modem):
 #130326 note: DEVICE variable no longer in 3.5+ kernel, as /proc/bus/usb removed...
@@ -75,13 +92,14 @@ rm -f /tmp/usb_modeswitch_status_lockregion_${$}_
 
 rm -f /tmp/usb_modeswitch_status_flag_success 2>/dev/null
 
-DISPLAY=":0" yaf-splash -placement center -close never -bg yellow -fontsize large -text "$(gettext '3G USB modem inserted, please wait, configuring ...')" &
+#DISPLAY=":0" yaf-splash -placement center -close never -bg yellow -fontsize large -text "$(gettext '3G USB modem inserted, please wait, configuring ...')" &
+ DISPLAY=":0" xmessage -bg yellow "$(gettext '3G USB modem inserted, please wait up to 30 sec, configuring ...')" &
 yPID=$!
 
 BRKCNT=0
 while [ $BRKCNT -lt 30 ];do
  sleep 1
- LOGS="`cat /var/log/usb_modeswitch_*`"
+ test "`ls /var/log/usb_modeswitch_* 2>$ERR`" && LOGS="`cat /var/log/usb_modeswitch_*`"
  [ "`echo "$LOGS" | grep 'Mode switch succeeded'`" ] && break
  [ "`echo "$LOGS" | grep 'Mode switching was successful'`" ] && break #120109 usb_modeswitch 1.2.1 different success message.
  BRKCNT=$(($BRKCNT+1))
@@ -127,7 +145,8 @@ if [ $BRKCNT -lt 30 ];then
 
  fi
  kill $yPID
- DISPLAY=":0" yaf-splash -placement center -close never -timeout 12 -bg green -fontsize large -text "$(gettext '3G USB modem now ready for use')" &
+ #DISPLAY=":0" yaf-splash -placement center -close never -timeout 12 -bg green -fontsize large -text "$(gettext '3G USB modem now ready for use')" &
+  DISPLAY=":0" xmessage -timeout 12 -bg green "$(gettext '3G USB modem now ready for use')" &
  touch /tmp/usb_modeswitch_status_flag_success
 else
  #do not display an error msg. in case no modeswitch was required?
