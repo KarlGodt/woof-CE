@@ -1,20 +1,20 @@
 #!/bin/bash
-
+#
 #script depends on:
-#1 cd ripping program (cdparanoia, cdda2wav, icedax)
-#gtkdialog(3)
-#a terminal (preferably rxvt)
-#cddb_query (optional) (cddb database support for automatically tagging files)
-#lame (optional) (support for .mp3 files)
-#flac (optional) (support for .flac files)
-#metaflac (optional) (support for tagging .flac files)
-#shorten (optional) (doesn't allow meta tagging) (support for .shn files)
-#faac (optional) (support for .aac, .m4a, & .mp4 files)
-#mac (optional) (support for lossless Monkey's audio .ape files)
-#mppenc (optional) (support for musepack .mpc & mpeg plus .mpp files)
-#apetag (optional) (support for tagging .ape, .mpc, & .mpp files)
-#cddetect (optional) (a cli program that will find number of audio tracks on a disc)
-#cd-info (optional) (a cli program that will find number of audio tracks on a disc)
+# 1 cd ripping program (cdparanoia, cdda2wav, icedax)
+# gtkdialog(3)
+# a terminal (preferably rxvt)
+# cddb_query (optional) (cddb database support for automatically tagging files)
+# lame (optional) (support for .mp3 files)
+# flac (optional) (support for .flac files)
+# metaflac (optional) (support for tagging .flac files)
+# shorten (optional) (doesn't allow meta tagging) (support for .shn files)
+# faac (optional) (support for .aac, .m4a, & .mp4 files)
+# mac (optional) (support for lossless Monkey's audio .ape files)
+# mppenc (optional) (support for musepack .mpc & mpeg plus .mpp files)
+# apetag (optional) (support for tagging .ape, .mpc, & .mpp files)
+# cddetect (optional) (a cli program that will find number of audio tracks on a disc)
+# cd-info (optional) (a cli program that will find number of audio tracks on a disc)
 
 ##TODO
 #figure out how ffmpeg & mac accept stdin
@@ -22,6 +22,7 @@
 
 VERSION=3.7 ##by Jason Pline 2008-05-27
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -45,14 +46,44 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST="-force"
+ADD_PARAMETERS="-f|--force : Recreate HOME/.config/pcdripper config files."
+_provide_basic_parameters
+
+ADD_HELP_MSG="Huge script with GTKdialogs."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
+
+configDIR="$HOME/.config/pcdripper"
+case $1 in
+-f|*force) rm -rf "$configDIR";;
+esac
+mkdir -p "$configDIR"
+
+##this will write the tmp files in "$tmpDIR"/ using your user as the beginning of the files
+##not really necessary in puppy since your running in root mode but this should make the
+##script more portable to other multiuser distros.
+WHOAMI=`whoami`
+test "$WHOAMI" || WHOAMI=unknown
+tmpDIR="/tmp/pcdripper"
 VTAG=""
 EXTRATAGS=""
 APETAG=""
 MUSEPACK=""
 
-##remove any temp files incase they weren't removed previously
-rm -f /tmp/$WHOAMI-pcdripper*
+##remove any temporary files in case they weren't removed previously
+#rm -f "$tmpDIR"/$WHOAMI-pcdripper*
+rm -rf "$tmpDIR"
+mkdir -p "$tmpDIR"
 
 ##find a suitable version of gtkdialog (needs 0.7.20 or greater) currently (as of puppy 4 and maybe before)
 ##the executable is named gtkdialog3. Exit with a warning incase gtkdialog isn't found.
@@ -63,7 +94,7 @@ elif [ "`which gtkdialog`" != "" ]; then
 GTKDIALOG=gtkdialog
 elif [ "$GTKDIALOG" = "" ]; then
 echo "you need to install gtkdialog"
-exit 0
+exit 1
 fi
 
 ##find a suitable terminal
@@ -146,7 +177,7 @@ fi
 ##select the file to be played)
 AUDIOFILE=/usr/share/audio/2barks.wav
 
-##exit program incase a terminal isn't in your $PATH
+##exit program in case a terminal isn't in your $PATH
 if [ "$TERMINAL" = "" ]; then
 export MAIN_DIALOG="
  <vbox>
@@ -166,19 +197,19 @@ NORXVT=`$GTKDIALOG --program=MAIN_DIALOG --center`
 exit 0
 fi
 
-##exit program incase a supported cdripper isn't in your $PATH
+##exit program in case a supported cdripper isn't in your $PATH
 CDRIPPER2=""
 if [ "`which cdparanoia`" != "" ]; then
 CDRIPPER2=cdparanoia
-echo true > $HOME/.config/pcdripper/cdparanoia
+echo true > "$configDIR"/cdparanoia
 fi
 if [ "`which cdda2wav`" != "" ]; then
 CDRIPPER2=cdda2wav
-echo true > $HOME/.config/pcdripper/cdda2wav
+echo true > "$configDIR"/cdda2wav
 fi
 if [ "`which icedax`" != "" ]; then
 CDRIPPER2=icedax
-echo true > $HOME/.config/pcdripper/icedax
+echo true > "$configDIR"/icedax
 fi
 if [ "$CDRIPPER2" = "" ]; then
 export MAIN_DIALOG="
@@ -199,77 +230,75 @@ NOCDRIPPER=`$GTKDIALOG --program=MAIN_DIALOG --center`
 exit 0
 fi
 
-##this will write the tmp files in /tmp/ using your user as the beginning of the files
-##not really necessary in puppy since your running in root mode but this should make the
-##script more portable to other multiuser distros.
-WHOAMI=`whoami`
-
 ##make the home config directory (incase it doesn't already exist)
-mkdir -p $HOME/.config/pcdripper
+mkdir -p "$configDIR"
 
 ##I wanted to make the script not depend on probedisk to find your cd drives
 ##so I scanned /dev/ & /media/ (used in other distros) for cd & dvd
-rm -f /tmp/$WHOAMI-pcdripper-PROBEDISK
+rm -f "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
 if [ "`which probedisk`" != "" ]; then
-probedisk | grep -i cd-*rom | cut -f 1 -d '|' 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
+probedisk | grep -i cd-*rom | cut -f 1 -d '|' 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
 else
-ls /dev/cd* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
-ls /dev/dvd* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
-ls /dev/scd* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
-ls /dev/sr* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
-ls /media/cd* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
-ls /media/dvd* 2>/dev/null >> /tmp/$WHOAMI-pcdripper-PROBEDISK
+ls /dev/cd* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
+ls /dev/dvd* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
+ls /dev/scd* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
+ls /dev/sr* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
+ls /media/cd* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
+ls /media/dvd* 2>/dev/null >> "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK
 fi
 
 ##add the found drives to the combobox in the gui
 PROBEDRIVES=""
-for ONEDRIVE in `cat /tmp/$WHOAMI-pcdripper-PROBEDISK`
+for ONEDRIVE in `cat "$tmpDIR"/$WHOAMI-pcdripper-PROBEDISK`
 do
  PROBEDRIVES="$PROBEDRIVES<item>$ONEDRIVE</item>"
 done
 
 ##find the encoders for the supported file formats
-echo wav > /tmp/$WHOAMI-pcdripper-formats
+echo wav > "$tmpDIR"/$WHOAMI-pcdripper-formats
 if [ "`which flac`" != "" ]; then
-echo flac >> /tmp/$WHOAMI-pcdripper-formats
+echo flac >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which shorten`" != "" ]; then
-echo shn >> /tmp/$WHOAMI-pcdripper-formats
+echo shn >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which lame`" != "" ]; then
-echo mp3 >> /tmp/$WHOAMI-pcdripper-formats
+echo mp3 >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which oggenc`" != "" ]; then
-echo ogg >> /tmp/$WHOAMI-pcdripper-formats
+echo ogg >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which ffmpeg`" != "" ]; then
-echo wma >> /tmp/$WHOAMI-pcdripper-formats
+echo wma >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which mac`" != "" ]; then
-echo ape >> /tmp/$WHOAMI-pcdripper-formats
+echo ape >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which faac`" != "" ]; then
-echo mp4 >> /tmp/$WHOAMI-pcdripper-formats
-echo m4a >> /tmp/$WHOAMI-pcdripper-formats
-echo aac >> /tmp/$WHOAMI-pcdripper-formats
+echo mp4 >> "$tmpDIR"/$WHOAMI-pcdripper-formats
+echo m4a >> "$tmpDIR"/$WHOAMI-pcdripper-formats
+echo aac >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
 if [ "`which mppenc`" != "" ]; then
-echo mpp >> /tmp/$WHOAMI-pcdripper-formats
-echo mpc >> /tmp/$WHOAMI-pcdripper-formats
+echo mpp >> "$tmpDIR"/$WHOAMI-pcdripper-formats
+echo mpc >> "$tmpDIR"/$WHOAMI-pcdripper-formats
 fi
-cat /tmp/$WHOAMI-pcdripper-formats | sort -u > /tmp/$WHOAMI-pcdripper-formats
-if ! [ -f $HOME/.config/pcdripper/chosenformat ]; then
-echo wav > $HOME/.config/pcdripper/chosenformat
+#cat "$tmpDIR"/$WHOAMI-pcdripper-formats | sort -u > "$tmpDIR"/$WHOAMI-pcdripper-formats
+FORMATS_=`cat "$tmpDIR"/$WHOAMI-pcdripper-formats | sort -u`
+echo "$FORMATS_" > "$tmpDIR"/$WHOAMI-pcdripper-formats
+test -s "$tmpDIR"/$WHOAMI-pcdripper-formats || echo wav > "$tmpDIR"/$WHOAMI-pcdripper-formats
+if ! [ -f "$configDIR"/chosenformat ]; then
+echo wav > "$configDIR"/chosenformat
 fi
 
 ##add the found encoders to the gui
 FORMATS=""
-for ONEFORMAT in `cat /tmp/$WHOAMI-pcdripper-formats`
+for ONEFORMAT in `cat "$tmpDIR"/$WHOAMI-pcdripper-formats`
 do
 FORMATS="$FORMATS
       <menuitem>
       <label>$ONEFORMAT</label>
-      <action>echo $ONEFORMAT | tee $HOME/.config/pcdripper/chosenformat</action>
+      <action>echo $ONEFORMAT | tee $configDIR/chosenformat</action>
       <action>refresh:WORD</action>
         </menuitem>"
 done
@@ -277,100 +306,100 @@ done
 ##this part is for the config directory so the gui will be populated with these defaults
 ##and after you make changes & restart the program your options from the last session will
 ##be the same as last time
-if ! [ -f $HOME/.config/pcdripper/cbox1 ]; then
-echo false > $HOME/.config/pcdripper/cbox1
+if ! [ -f "$configDIR"/cbox1 ]; then
+echo false > "$configDIR"/cbox1
 else
-if [ "`cat $HOME/.config/pcdripper/cbox1 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox1 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox1
+if [ "`cat "$configDIR"/cbox1 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox1 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox1
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox2 ]; then
-echo false > $HOME/.config/pcdripper/cbox2
+if ! [ -f "$configDIR"/cbox2 ]; then
+echo false > "$configDIR"/cbox2
 else
-if [ "`cat $HOME/.config/pcdripper/cbox2 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox2 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox2
+if [ "`cat "$configDIR"/cbox2 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox2 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox2
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox3 ]; then
-echo false > $HOME/.config/pcdripper/cbox3
+if ! [ -f "$configDIR"/cbox3 ]; then
+echo false > "$configDIR"/cbox3
 else
-if [ "`cat $HOME/.config/pcdripper/cbox3 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox3 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox3
+if [ "`cat "$configDIR"/cbox3 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox3 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox3
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox4 ]; then
-echo false > $HOME/.config/pcdripper/cbox4
+if ! [ -f "$configDIR"/cbox4 ]; then
+echo false > "$configDIR"/cbox4
 else
-if [ "`cat $HOME/.config/pcdripper/cbox4 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox4 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox4
+if [ "`cat "$configDIR"/cbox4 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox4 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox4
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox5 ]; then
-echo false > $HOME/.config/pcdripper/cbox5
+if ! [ -f "$configDIR"/cbox5 ]; then
+echo false > "$configDIR"/cbox5
 else
-if [ "`cat $HOME/.config/pcdripper/cbox5 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox5 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox5
+if [ "`cat "$configDIR"/cbox5 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox5 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox5
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox6 ]; then
-echo true > $HOME/.config/pcdripper/cbox6
+if ! [ -f "$configDIR"/cbox6 ]; then
+echo true > "$configDIR"/cbox6
 else
-if [ "`cat $HOME/.config/pcdripper/cbox6 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox6 | grep false`" = "" ]; then
-echo true > $HOME/.config/pcdripper/cbox6
+if [ "`cat "$configDIR"/cbox6 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox6 | grep false`" = "" ]; then
+echo true > "$configDIR"/cbox6
 fi
 fi
 fi
-if ! [ -f $HOME/.config/pcdripper/cbox8 ]; then
-echo false > $HOME/.config/pcdripper/cbox8
+if ! [ -f "$configDIR"/cbox8 ]; then
+echo false > "$configDIR"/cbox8
 else
-if [ "`cat $HOME/.config/pcdripper/cbox8 | grep true`" = "" ]; then
-if [ "`cat $HOME/.config/pcdripper/cbox8 | grep false`" = "" ]; then
-echo false > $HOME/.config/pcdripper/cbox8
+if [ "`cat "$configDIR"/cbox8 | grep true`" = "" ]; then
+if [ "`cat "$configDIR"/cbox8 | grep false`" = "" ]; then
+echo false > "$configDIR"/cbox8
 fi
 fi
 fi
 
 if [ "`which cddb_query`" != "" ]; then
-echo true > $HOME/.config/pcdripper/cddb_query
+echo true > "$configDIR"/cddb_query
 fi
 
-cbox1=`cat $HOME/.config/pcdripper/cbox1`
-cbox2=`cat $HOME/.config/pcdripper/cbox2`
-cbox3=`cat $HOME/.config/pcdripper/cbox3`
-cbox4=`cat $HOME/.config/pcdripper/cbox4`
-cbox5=`cat $HOME/.config/pcdripper/cbox5`
-cbox6=`cat $HOME/.config/pcdripper/cbox6`
-cbox8=`cat $HOME/.config/pcdripper/cbox8`
+cbox1=`cat "$configDIR"/cbox1`
+cbox2=`cat "$configDIR"/cbox2`
+cbox3=`cat "$configDIR"/cbox3`
+cbox4=`cat "$configDIR"/cbox4`
+cbox5=`cat "$configDIR"/cbox5`
+cbox6=`cat "$configDIR"/cbox6`
+cbox8=`cat "$configDIR"/cbox8`
 if [ $cbox6 = true ]; then
 cbox6depend=disabled
 else
 cbox6depend=enabled
 fi
 
-if ! [ -f $HOME/.config/pcdripper/savedir ]; then
-echo $HOME > $HOME/.config/pcdripper/savedir
+if ! [ -f "$configDIR"/savedir ]; then
+echo $HOME > "$configDIR"/savedir
 fi
 
-if [ "`cat $HOME/.config/pcdripper/savedir`" = "" ]; then
-echo $HOME > $HOME/.config/pcdripper/savedir
+if [ "`cat "$configDIR"/savedir`" = "" ]; then
+echo $HOME > "$configDIR"/savedir
 fi
 
-if ! [ -f $HOME/.config/pcdripper/nameformat ]; then
-echo TN > $HOME/.config/pcdripper/nameformat
+if ! [ -f "$configDIR"/nameformat ]; then
+echo TN > "$configDIR"/nameformat
 fi
 
-touch /tmp/$WHOAMI-pcdripper-0
+touch "$tmpDIR"/$WHOAMI-pcdripper-0
 
 export DIALOG="
   <vbox>
@@ -471,7 +500,7 @@ $PROBEDRIVES
       <entry accept=\"directory\">
         <label>Select a Directory</label>
         <variable>ENTRY1</variable>
-            <input>cat $HOME/.config/pcdripper/savedir</input>
+            <input>cat $configDIR/savedir</input>
       </entry>
       <button>
         <input file stock=\"gtk-open\"></input>
@@ -487,7 +516,7 @@ $PROBEDRIVES
 "
 if [ "`which cdda2wav`" != "" ]; then
 RIPGUI="$RIPGUI
-     <radiobutton active=\"`cat $HOME/.config/pcdripper/cdda2wav`\">
+     <radiobutton active=\"`cat $configDIR/cdda2wav`\">
       <label>use cdda2wav</label>
       <variable>CDDA2WAV</variable>
     </radiobutton>
@@ -495,7 +524,7 @@ RIPGUI="$RIPGUI
 fi
 if [ "`which icedax`" != "" ]; then
 RIPGUI="$RIPGUI
-     <radiobutton active=\"`cat $HOME/.config/pcdripper/icedax`\">
+     <radiobutton active=\"`cat $configDIR/icedax`\">
       <label>use icedax</label>
       <variable>ICEDAX</variable>
     </radiobutton>
@@ -503,7 +532,7 @@ RIPGUI="$RIPGUI
 fi
 if [ "`which cdparanoia`" != "" ]; then
 RIPGUI="$RIPGUI
-    <radiobutton active=\"`cat $HOME/.config/pcdripper/cdparanoia`\">
+    <radiobutton active=\"`cat $configDIR/cdparanoia`\">
       <label>use cdparanoia</label>
       <variable>CDPARANOIA</variable>
       <action>if false disable:CHECKBOX1</action>
@@ -533,7 +562,7 @@ RIPGUI="$RIPGUI
       <action>if false enable:ENTRY4</action>
       <action>if true enable:CHECKBOX3</action>
     </radiobutton>
-    <radiobutton active=\"`cat $HOME/.config/pcdripper/cddb_query`\">
+    <radiobutton active=\"`cat $configDIR/cddb_query`\">
       <label>cddb_query tags</label>
       <variable>CDDBQUERY</variable>
       <action>if true disable:CHECKBOX3</action>
@@ -622,7 +651,7 @@ RIPGUI="$RIPGUI
       <text><label>Enter track name format</label></text>
       <entry>
         <variable>ENTRY4</variable>
-        <input>cat $HOME/.config/pcdripper/nameformat</input>
+        <input>cat $configDIR/nameformat</input>
             <visible>enabled</visible>
       </entry>
     </hbox>
@@ -632,7 +661,7 @@ RIPGUI="$RIPGUI
       <text><label>Selected file format:</label></text>
       <entry editable=\"false\">
         <variable>WORD</variable>
-        <input>cat $HOME/.config/pcdripper/chosenformat</input>
+        <input>cat $configDIR/chosenformat</input>
       </entry>
       </hbox>
 
@@ -645,15 +674,16 @@ RIPGUI="$RIPGUI
 
 RESULTS="`$GTKDIALOG --program=RIPGUI --center`"
 
+test "$RESULTS" || _exit 1 "Error or no input"
 ###exit the program if the X button is pushed - This doesn't work because there is a gtkdialog bug that won't let you X out the app when the menu function is used in the gui
 if [ "`echo $RESULTS | grep abort`" != "" ]; then
-rm /tmp/$WHOAMI-pcdripper* 2>/dev/null
+rm "$tmpDIR"/$WHOAMI-pcdripper* 2>/dev/null
 exit 0
 fi
 
 ##incase quit was selected, let's exit the program
 if [ "`echo $RESULTS | grep EXIT_NOW`" != "" ]; then
-rm /tmp/$WHOAMI-pcdripper* 2>/dev/null
+rm "$tmpDIR"/$WHOAMI-pcdripper* 2>/dev/null
 exit 0
 fi
 
@@ -662,45 +692,45 @@ TRACKTOTAL=""
 ENDLOOP=""
 STARTTRACK=1
 
-echo $RESULTS | tr -s '\"' '\n' | sed 's/^ //g' > /tmp/$WHOAMI-pcdripper-RESULTS
+echo $RESULTS | tr -s '\"' '\n' | sed 's/^ //g' > "$tmpDIR"/$WHOAMI-pcdripper-RESULTS
 
 ##find the selected device from the gui
-DEVICE=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep PROBECOMBO= -A 1 | grep -v PROBECOMBO=`
+DEVICE=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep PROBECOMBO= -A 1 | grep -v PROBECOMBO=`
 if [ "`echo $DEVICE | grep =`" != "" ]; then
 DEVICE=/dev/cdrom
 fi
 
 ##find all the other results from the gui
-if [ "`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CDPARANOIA= -A 1 | grep -v CDPARANOIA=`" != false ]; then CDRIPPER=cdparanoia
-    elif [ "`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CDDA2WAV= -A 1 | grep -v CDDA2WAV=`" != false ]; then CDRIPPER=cdda2wav
-    elif [ "`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep ICEDAX= -A 1 | grep -v ICEDAX=`" != false ]; then CDRIPPER=icedax
+if [ "`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CDPARANOIA= -A 1 | grep -v CDPARANOIA=`" != false ]; then CDRIPPER=cdparanoia
+    elif [ "`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CDDA2WAV= -A 1 | grep -v CDDA2WAV=`" != false ]; then CDRIPPER=cdda2wav
+    elif [ "`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep ICEDAX= -A 1 | grep -v ICEDAX=`" != false ]; then CDRIPPER=icedax
 fi
-CDDBQUERY=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CDDBQUERY= -A 1 | grep -v CDDBQUERY=`
-NOTAGS=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep NOTAGS= -A 1 | grep -v NOTAGS=`
-MANUAL=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep MANUAL= -A 1 | grep -v MANUAL=`
-CHECKBOX1=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX1= -A 1 | grep -v CHECKBOX1=`
-echo $CHECKBOX1 > $HOME/.config/pcdripper/cbox1
-CHECKBOX2=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX2= -A 1 | grep -v CHECKBOX2=`
-echo $CHECKBOX2 > $HOME/.config/pcdripper/cbox2
-CHECKBOX3=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX3= -A 1 | grep -v CHECKBOX3=`
-echo $CHECKBOX3 > $HOME/.config/pcdripper/cbox3
-CHECKBOX4=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX4= -A 1 | grep -v CHECKBOX4=`
-echo $CHECKBOX4 > $HOME/.config/pcdripper/cbox4
-CHECKBOX5=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX5= -A 1 | grep -v CHECKBOX5=`
-echo $CHECKBOX5 > $HOME/.config/pcdripper/cbox5
-CHECKBOX6=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX6= -A 1 | grep -v CHECKBOX6=`
-echo $CHECKBOX6 > $HOME/.config/pcdripper/cbox6
-CHECKBOX8=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX8= -A 1 | grep -v CHECKBOX8=`
-echo $CHECKBOX8 > $HOME/.config/pcdripper/cbox8
-ENTRY1=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep ENTRY1= -A 1 | grep -v ENTRY1=`
+CDDBQUERY=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CDDBQUERY= -A 1 | grep -v CDDBQUERY=`
+NOTAGS=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep NOTAGS= -A 1 | grep -v NOTAGS=`
+MANUAL=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep MANUAL= -A 1 | grep -v MANUAL=`
+CHECKBOX1=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX1= -A 1 | grep -v CHECKBOX1=`
+echo $CHECKBOX1 > "$configDIR"/cbox1
+CHECKBOX2=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX2= -A 1 | grep -v CHECKBOX2=`
+echo $CHECKBOX2 > "$configDIR"/cbox2
+CHECKBOX3=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX3= -A 1 | grep -v CHECKBOX3=`
+echo $CHECKBOX3 > "$configDIR"/cbox3
+CHECKBOX4=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX4= -A 1 | grep -v CHECKBOX4=`
+echo $CHECKBOX4 > "$configDIR"/cbox4
+CHECKBOX5=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX5= -A 1 | grep -v CHECKBOX5=`
+echo $CHECKBOX5 > "$configDIR"/cbox5
+CHECKBOX6=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX6= -A 1 | grep -v CHECKBOX6=`
+echo $CHECKBOX6 > "$configDIR"/cbox6
+CHECKBOX8=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep CHECKBOX8= -A 1 | grep -v CHECKBOX8=`
+echo $CHECKBOX8 > "$configDIR"/cbox8
+ENTRY1=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep ENTRY1= -A 1 | grep -v ENTRY1=`
 if [ "`echo $ENTRY1 | grep =`" != "" ]; then
 ENTRY1=$HOME
 fi
-echo "$ENTRY1" > $HOME/.config/pcdripper/savedir
+echo "$ENTRY1" > "$configDIR"/savedir
 if [ "$NOTAGS" = false ]; then
 ENTRY2=""
 else
-ENTRY2=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep ENTRY2= -A 1 | grep -v ENTRY2= | sed 's/ /_/g'`
+ENTRY2=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep ENTRY2= -A 1 | grep -v ENTRY2= | sed 's/ /_/g'`
 fi
 if [ "`echo $ENTRY2 | grep =`" != "" ]; then
 ENTRY2=""
@@ -708,24 +738,24 @@ fi
 if [ "$CHECKBOX6" = true ]; then
 ENTRY3=""
 else
-ENTRY3="`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep ENTRY3= -A 1 | grep -v ENTRY3= | sed 's/ //g'`"
+ENTRY3="`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep ENTRY3= -A 1 | grep -v ENTRY3= | sed 's/ //g'`"
 fi
 if [ "`echo $ENTRY3 | grep =`" != "" ]; then
 ENTRY3=""
 fi
 if [ "$ENTRY3" = "" ]; then
 CHECKBOX6=true
-echo $CHECKBOX6 > $HOME/.config/pcdripper/cbox6
+echo $CHECKBOX6 > "$configDIR"/cbox6
 fi
 if [ "$NOTAGS" = false ]; then
-ENTRY4=`cat /tmp/$WHOAMI-pcdripper-RESULTS | grep ENTRY4= -A 1 | grep -v ENTRY4=`
+ENTRY4=`cat "$tmpDIR"/$WHOAMI-pcdripper-RESULTS | grep ENTRY4= -A 1 | grep -v ENTRY4=`
 else
 ENTRY4=""
 fi
 if [ "`echo $ENTRY4 | grep -o [A-Z]`" != "" ]; then
-echo $ENTRY4 | grep -o [A-Z] | tr -s '\n' ' ' | sed 's/ //g' > $HOME/.config/pcdripper/nameformat
+echo $ENTRY4 | grep -o [A-Z] | tr -s '\n' ' ' | sed 's/ //g' > "$configDIR"/nameformat
 fi
-WORD=`cat $HOME/.config/pcdripper/chosenformat`
+WORD=`cat "$configDIR"/chosenformat`
 
 ##Check for various taggers
 VTAGGER=""
@@ -776,7 +806,7 @@ fi
 if [ "$CHECKBOX3" = true ]; then
 if [ "$NOTAGS" = false ]; then
 CHECKBOX3=false
-echo $CHECKBOX3 > $HOME/.config/pcdripper/cbox3
+echo $CHECKBOX3 > "$configDIR"/cbox3
 fi
 fi
 
@@ -805,7 +835,7 @@ fi
 
 #cddetect scan
 if [ "`echo $RESULTS | grep CDDETECT_SCAN`" != "" ]; then
-cddetect -d $DEVICE  > /tmp/$WHOAMI-pcdripper-cdscan
+cddetect -d $DEVICE  > "$tmpDIR"/$WHOAMI-pcdripper-cdscan
 export SCANBOX="
 <window title=\"CDDETECT_SCAN \"icon-name=\"gtk-cdrom\">
 <hbox>
@@ -813,7 +843,7 @@ export SCANBOX="
 <frame cddetect information:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-cdscan</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-cdscan</input>
       <width>400</width>
       <height>320</height>
     </edit>
@@ -836,7 +866,7 @@ fi
 
 #cd-info scan
 if [ "`echo $RESULTS | grep CD-INFO_SCAN`" != "" ]; then
-cd-info -C $DEVICE > /tmp/$WHOAMI-pcdripper-cdscan
+cd-info -C $DEVICE > "$tmpDIR"/$WHOAMI-pcdripper-cdscan
 export SCANBOX="
 <window title=\"CD-INFO_SCAN \"icon-name=\"gtk-cdrom\">
 <hbox>
@@ -844,7 +874,7 @@ export SCANBOX="
 <frame cd-info information:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-cdscan</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-cdscan</input>
       <width>400</width>
       <height>320</height>
     </edit>
@@ -868,9 +898,9 @@ fi
 ##paranoia scan cd gui
 if [ "`echo $RESULTS | grep SCAN_CD_NOW`" != "" ]; then
 if [ "$CDRIPPER" = cdparanoia ]; then
-cdparanoia -Q -d $DEVICE 2> /tmp/$WHOAMI-pcdripper-cdscan
+cdparanoia -Q -d $DEVICE 2> "$tmpDIR"/$WHOAMI-pcdripper-cdscan
 else
-$CDRIPPER dev=$DEVICE -info-only 2> /tmp/$WHOAMI-pcdripper-cdscan
+$CDRIPPER dev=$DEVICE -info-only 2> "$tmpDIR"/$WHOAMI-pcdripper-cdscan
 fi
 export SCANBOX="
 <window title=\"$CDRIPPER CD-SCAN \"icon-name=\"gtk-cdrom\">
@@ -879,7 +909,7 @@ export SCANBOX="
 <frame $CDRIPPER CD information:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-cdscan</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-cdscan</input>
       <width>400</width>
       <height>320</height>
     </edit>
@@ -920,7 +950,7 @@ export CDDATABASESCAN="
 MESSAGE=`$GTKDIALOG --program=CDDATABASESCAN --center` &
 
 ##cddb_query scan gui
-cddb_query -i $DEVICE read > /tmp/$WHOAMI-pcdripper-cddb
+cddb_query -i $DEVICE read > "$tmpDIR"/$WHOAMI-pcdripper-cddb
 NUM2KILL=`ps aux | grep "gtkdialog3 --program=CDDATABASESCAN --center" | tr -s ' ' | cut -f 2 -d ' ' | grep -v grep | head -n 1`
 kill -9 "$NUM2KILL" 2>/dev/null
 export CDDB="
@@ -930,7 +960,7 @@ export CDDB="
 <frame CD information:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-cddb</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-cddb</input>
       <width>400</width>
       <height>320</height>
     </edit>
@@ -947,7 +977,7 @@ export CDDB="
 </window>
 "
 cddbscan=`$GTKDIALOG --program=CDDB --center`
-rm -f /tmp/$WHOAMI-pcdripper-cddb
+rm -f "$tmpDIR"/$WHOAMI-pcdripper-cddb
 pcdripper &
 exit 0
 fi
@@ -996,16 +1026,16 @@ export CDDATABASESCAN="
 MESSAGE=`$GTKDIALOG --program=CDDATABASESCAN --center` &
 
 ##enter the cddb_query results into a temp file
-cddb_query -i $DEVICE read | tr -s ' ' | sed 's/^ //g' > /tmp/$WHOAMI-pcdripper-cddb
+cddb_query -i $DEVICE read | tr -s ' ' | sed 's/^ //g' > "$tmpDIR"/$WHOAMI-pcdripper-cddb
 NUM2KILL=`ps aux | grep "gtkdialog3 --program=CDDATABASESCAN --center" | tr -s ' ' | cut -f 2 -d ' ' | grep -v grep | head -n 1`
 kill -9 "$NUM2KILL" 2>/dev/null
-cat /tmp/$WHOAMI-pcdripper-cddb | grep "\[" | grep "\]" | grep "(" | grep ")" | sed "s/' by /' /g" > /tmp/$WHOAMI-pcdripper-cddb2
+cat "$tmpDIR"/$WHOAMI-pcdripper-cddb | grep "\[" | grep "\]" | grep "(" | grep ")" | sed "s/' by /' /g" > "$tmpDIR"/$WHOAMI-pcdripper-cddb2
 
 ##find the desired results from the cddb_query temp file
-ARTIST="`cat /tmp/$WHOAMI-pcdripper-cddb | grep ^Artist: | sed 's/Artist: //g'`"
-ALBUM="`cat /tmp/$WHOAMI-pcdripper-cddb | grep ^Title: | sed 's/Title: //g'`"
-GENRE="`cat /tmp/$WHOAMI-pcdripper-cddb | grep ^Genre: | sed 's/Genre: //g'`"
-YEAR=`cat /tmp/$WHOAMI-pcdripper-cddb | grep ^Year: | sed 's/Year: //g' | head -c 5`
+ARTIST="`cat "$tmpDIR"/$WHOAMI-pcdripper-cddb | grep ^Artist: | sed 's/Artist: //g'`"
+ALBUM="`cat "$tmpDIR"/$WHOAMI-pcdripper-cddb | grep ^Title: | sed 's/Title: //g'`"
+GENRE="`cat "$tmpDIR"/$WHOAMI-pcdripper-cddb | grep ^Genre: | sed 's/Genre: //g'`"
+YEAR=`cat "$tmpDIR"/$WHOAMI-pcdripper-cddb | grep ^Year: | sed 's/Year: //g' | head -c 5`
 
 ##show the cddb_query results. If this info is wrong, uncheck the box and go back to the main gui to start over.
 export CDDB="
@@ -1015,7 +1045,7 @@ export CDDB="
 <frame CD information:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-cddb</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-cddb</input>
       <width>400</width>
       <height>320</height>
     </edit>
@@ -1546,8 +1576,8 @@ fi
 ##scan number of tracks on the disc
 TOTALTRACKS=""
 if [ "`which cddetect`" != "" ]; then
-cddetect -d $DEVICE > /tmp/$WHOAMI-pcdripper-cddetect
-TOTALTRACKS=`cat /tmp/$WHOAMI-pcdripper-cddetect | grep audio | sed 's/ //g' | cut -f 1 -d ':' | grep ^[0-9] | tail -n 1`
+cddetect -d $DEVICE > "$tmpDIR"/$WHOAMI-pcdripper-cddetect
+TOTALTRACKS=`cat "$tmpDIR"/$WHOAMI-pcdripper-cddetect | grep audio | sed 's/ //g' | cut -f 1 -d ':' | grep ^[0-9] | tail -n 1`
 fi
 if [ "$TOTALTRACKS" = "" ]; then
 if [ "`which cd-info`" != "" ]; then
@@ -1556,21 +1586,21 @@ fi
 fi
 if [ "$TOTALTRACKS" = "" ]; then
 if [ "`which cdparanoia`" != "" ]; then
-cdparanoia -Q -d $DEVICE 2> /tmp/$WHOAMI-pcdripper-tracks1
-cat /tmp/$WHOAMI-pcdripper-tracks1 | sed 's/ //g' | grep ^[1-9] > /tmp/$WHOAMI-pcdripper-tracks2
-TOTALTRACKS=`wc -l /tmp/$WHOAMI-pcdripper-tracks2 | sed -e "s/ *//" | sed -e "s/ .*//g" | grep [0-9]`
+cdparanoia -Q -d $DEVICE 2> "$tmpDIR"/$WHOAMI-pcdripper-tracks1
+cat "$tmpDIR"/$WHOAMI-pcdripper-tracks1 | sed 's/ //g' | grep ^[1-9] > "$tmpDIR"/$WHOAMI-pcdripper-tracks2
+TOTALTRACKS=`wc -l "$tmpDIR"/$WHOAMI-pcdripper-tracks2 | sed -e "s/ *//" | sed -e "s/ .*//g" | grep [0-9]`
 fi
 fi
 if [ "$TOTALTRACKS" = "" ]; then
 if [ "`which icedax`" != "" ]; then
-icedax dev=$DEVICE -info-only 2> /tmp/$WHOAMI-pcdripper-icedax
-TOTALTRACKS=`cat /tmp/$WHOAMI-pcdripper-icedax | grep AUDIOtrack -A 1 | tr -s ' ' | cut -f 2 -d '-' | sed 's/^ //g' | cut -f 1 -d ' ' | tail -n 1 | grep [0-9]`
+icedax dev=$DEVICE -info-only 2> "$tmpDIR"/$WHOAMI-pcdripper-icedax
+TOTALTRACKS=`cat "$tmpDIR"/$WHOAMI-pcdripper-icedax | grep AUDIOtrack -A 1 | tr -s ' ' | cut -f 2 -d '-' | sed 's/^ //g' | cut -f 1 -d ' ' | tail -n 1 | grep [0-9]`
 fi
 fi
 if [ "$TOTALTRACKS" = "" ]; then
 if [ "`which cdda2wav`" != "" ]; then
-cdda2wav dev=$DEVICE -info-only 2> /tmp/$WHOAMI-pcdripper-cdda2wav
-TOTALTRACKS=`cat /tmp/$WHOAMI-pcdripper-cdda2wav | grep AUDIOtrack -A 1 | tr -s ' ' | cut -f 2 -d '-' | sed 's/^ //g' | cut -f 1 -d ' ' | tail -n 1 | grep [0-9]`
+cdda2wav dev=$DEVICE -info-only 2> "$tmpDIR"/$WHOAMI-pcdripper-cdda2wav
+TOTALTRACKS=`cat "$tmpDIR"/$WHOAMI-pcdripper-cdda2wav | grep AUDIOtrack -A 1 | tr -s ' ' | cut -f 2 -d '-' | sed 's/^ //g' | cut -f 1 -d ' ' | tail -n 1 | grep [0-9]`
 fi
 fi
 
@@ -1663,15 +1693,15 @@ NUMCOMMAS=`echo $ENTRY3 | grep -o , | wc -l`
 TOOMANY=`expr $NUMCOMMAS + 2`
 TOOMUCH=`expr $TOTALTRACKS + 1`
 STARTLOOP=1
-rm -f /tmp/$WHOAMI-pcdripper-DESIGNATED
+rm -f "$tmpDIR"/$WHOAMI-pcdripper-DESIGNATED
 while [ "$STARTLOOP" != "$TOOMANY" ]; do
 TRACKTOADD=`echo $ENTRY3 | cut -f $STARTLOOP -d ',' | grep [0-9]`
 if [ "`echo $TRACKTOADD`" -lt "`echo $TOOMUCH`" ]; then
-echo $TRACKTOADD >> /tmp/$WHOAMI-pcdripper-DESIGNATED
+echo $TRACKTOADD >> "$tmpDIR"/$WHOAMI-pcdripper-DESIGNATED
 fi
 STARTLOOP=`expr $STARTLOOP + 1`
 done
-TRACKTOTAL=`cat /tmp/$WHOAMI-pcdripper-DESIGNATED | wc -l`
+TRACKTOTAL=`cat "$tmpDIR"/$WHOAMI-pcdripper-DESIGNATED | wc -l`
 fi
 fi
 
@@ -1690,16 +1720,16 @@ ENTRY1=$HOME
 fi
 cd "$ENTRY1"
 
-##just incase for some unknown reason the rip/encode script is already in /tmp/ it will be removed
+##just incase for some unknown reason the rip/encode script is already in "$tmpDIR"/ it will be removed
 ##so the new one can be created.
-rm -f /tmp/$WHOAMI-pcdripper-ripcli
+rm -f "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 
 ##while loop to build the rip/encode script
 while [ "$TRACKS" != "$TOOMUCH" ]; do
 
 ##this is the code necessary to rip individual tracks (i.e. 1,3,5,9) 2,4,7,10
 if [ "$TRACKTOTAL" != "" ]; then
-TRACKS=`cat /tmp/$WHOAMI-pcdripper-DESIGNATED | sed -n "$STARTTRACK"p`
+TRACKS=`cat "$tmpDIR"/$WHOAMI-pcdripper-DESIGNATED | sed -n "$STARTTRACK"p`
 TOOMUCH=999
 if [ "$TRACKS" = "" ]; then
 TRACKS=`expr $TOOMUCH - 1`
@@ -1727,7 +1757,7 @@ fi
 if [ "$CDDBQUERY" = true ]; then
 
 ##get the trackname from the cddb_query temp file
-TRACKNAME=`cat /tmp/$WHOAMI-pcdripper-cddb2 | tail -n $TOTALTRACKS | cut -f 2 -d "]" | cut -f 1 -d "(" | sed 's/^ //g' | sed "s/'//g" | sed "s/ $ARTIST //g" | sed -n "$TRACKS"p | sed 's/[ \t]*$//'`
+TRACKNAME=`cat "$tmpDIR"/$WHOAMI-pcdripper-cddb2 | tail -n $TOTALTRACKS | cut -f 2 -d "]" | cut -f 1 -d "(" | sed 's/^ //g' | sed "s/'//g" | sed "s/ $ARTIST //g" | sed -n "$TRACKS"p | sed 's/[ \t]*$//'`
 
 fi ##end of cddb only stuff
 
@@ -1779,7 +1809,7 @@ export RIPGUI2="
       <hbox>
       <entry>
     <variable>YEAR</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep date= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep date= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
       </hbox>
 
@@ -1787,7 +1817,7 @@ export RIPGUI2="
       <hbox>
       <entry>
     <variable>ALBUM</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep album= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep album= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 
@@ -1795,7 +1825,7 @@ export RIPGUI2="
       <hbox>
       <entry>
     <variable>ARTIST</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep artist= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep artist= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 
@@ -1803,7 +1833,7 @@ export RIPGUI2="
       <hbox>
       <entry>
     <variable>GENRE</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep genre= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep genre= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 
@@ -1811,7 +1841,7 @@ export RIPGUI2="
       <hbox>
       <entry>
     <variable>COMMENT</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep comment= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep comment= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 "
@@ -1821,7 +1851,7 @@ RIPGUI2="$RIPGUI2
       <hbox>
       <entry>
     <variable>COMPOSER</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep composer= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep composer= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 
@@ -1829,7 +1859,7 @@ RIPGUI2="$RIPGUI2
       <hbox>
       <entry>
     <variable>LYRICIST</variable>
-    <input>cat /tmp/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep lyricist= | tail -n 1 | cut -f 2 -d '='</input>
+    <input>cat $tmpDIR/$WHOAMI-pcdripper-[0-9] | tail -n 8 | grep lyricist= | tail -n 1 | cut -f 2 -d '='</input>
       </entry>
     </hbox>
 "
@@ -1842,14 +1872,14 @@ RIPGUI2="$RIPGUI2
     <button>
       <input file icon=\"gtk-ok\"></input>
       <label>NEXT</label>
-      <action>echo date=\$YEAR | tee /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo title=\$NAME | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo album=\$ALBUM | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo artist=\$ARTIST | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo genre=\$GENRE | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo comment=\$COMMENT | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo composer=\$COMPOSER | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
-      <action>echo lyricist=\$LYRICIST | tee -a /tmp/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo date=\$YEAR | tee $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo title=\$NAME | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo album=\$ALBUM | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo artist=\$ARTIST | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo genre=\$GENRE | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo comment=\$COMMENT | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo composer=\$COMPOSER | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
+      <action>echo lyricist=\$LYRICIST | tee -a $tmpDIR/$WHOAMI-pcdripper-$TRACKS</action>
         <action type=\"exit\">Exit by button</action>
     </button>
       <button>
@@ -1869,14 +1899,14 @@ pcdripper &
 exit 0
 fi
 ##find the results from the manual tagging gui
-ARTIST="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep artist= | sed 's/artist=//g' | tr -s ' '`"
-ALBUM="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep album= | sed 's/album=//g' | tr -s ' '`"
-TRACKNAME="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep title= | sed 's/title=//g' | tr -s ' '`"
-GENRE="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep genre= | sed 's/genre=//g' | tr -s ' '`"
-COMMENT="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep comment= | sed 's/comment=//g' | tr -s ' '`"
-COMPOSER="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep composer= | sed 's/composer=//g' | tr -s ' '`"
-LYRICIST="`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep lyricist= | sed 's/lyricist=//g' | tr -s ' '`"
-YEAR=`cat /tmp/$WHOAMI-pcdripper-$TRACKS | grep date= | sed 's/date=//g' | sed 's/ //g'`
+ARTIST="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep artist= | sed 's/artist=//g' | tr -s ' '`"
+ALBUM="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep album= | sed 's/album=//g' | tr -s ' '`"
+TRACKNAME="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep title= | sed 's/title=//g' | tr -s ' '`"
+GENRE="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep genre= | sed 's/genre=//g' | tr -s ' '`"
+COMMENT="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep comment= | sed 's/comment=//g' | tr -s ' '`"
+COMPOSER="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep composer= | sed 's/composer=//g' | tr -s ' '`"
+LYRICIST="`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep lyricist= | sed 's/lyricist=//g' | tr -s ' '`"
+YEAR=`cat "$tmpDIR"/$WHOAMI-pcdripper-$TRACKS | grep date= | sed 's/date=//g' | sed 's/ //g'`
 fi
 fi
 
@@ -1906,24 +1936,24 @@ fi
 
 ##use lame to find a suitable genre list and use the "other" category if selected not found
 ##this way lame won't choke on an unknown genre
-lame --genre-list | grep -i "$GENRE" | sed 's/[0-9]//g' | tr -s ' ' | sed 's/^ //g' > /tmp/$WHOAMI-pcdripper-genrelist
-GENRELINES=`wc -l /tmp/$WHOAMI-pcdripper-genrelist`
+lame --genre-list | grep -i "$GENRE" | sed 's/[0-9]//g' | tr -s ' ' | sed 's/^ //g' > "$tmpDIR"/$WHOAMI-pcdripper-genrelist
+GENRELINES=`wc -l "$tmpDIR"/$WHOAMI-pcdripper-genrelist`
 if [ "$GENRELINES" != 1 ]; then
 BYTES=`echo "$GENRE" | wc -c`
-cat /tmp/$WHOAMI-pcdripper-genrelist | while read GENRE1
+cat "$tmpDIR"/$WHOAMI-pcdripper-genrelist | while read GENRE1
 do
 BYTES2=`echo "$GENRE1" | wc -c`
 if [ "$BYTES" = "$BYTES2" ]; then
-echo "$GENRE1" >> /tmp/$WHOAMI-pcdripper-genre
+echo "$GENRE1" >> "$tmpDIR"/$WHOAMI-pcdripper-genre
 fi
 done
-if [ "`cat /tmp/$WHOAMI-pcdripper-genre | grep -i -o \"$GENRE\"`" != "" ]; then
-GENRE=`cat /tmp/$WHOAMI-pcdripper-genre | grep -i -o "$GENRE"`
+if [ "`cat "$tmpDIR"/$WHOAMI-pcdripper-genre | grep -i -o \"$GENRE\"`" != "" ]; then
+GENRE=`cat "$tmpDIR"/$WHOAMI-pcdripper-genre | grep -i -o "$GENRE"`
 else
-GENRE=`cat /tmp/$WHOAMI-pcdripper-genre | sed -n 1p`
+GENRE=`cat "$tmpDIR"/$WHOAMI-pcdripper-genre | sed -n 1p`
 fi
 else
-GENRE=`cat /tmp/$WHOAMI-pcdripper-genrelist`
+GENRE=`cat "$tmpDIR"/$WHOAMI-pcdripper-genrelist`
 fi
 if [ "$GENRE" = "" ]; then
 GENRE=other
@@ -1932,7 +1962,7 @@ fi
 
 ##if no tags is not selected
 if [ "$NOTAGS" = false ]; then
-rm -f /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+rm -f "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 ##get the info from the main gui in regards to the file naming scheme
 NUMLINES=`echo "$ENTRY4" | grep -o [A-Z] | wc -l`
 START=1
@@ -1941,26 +1971,26 @@ END=`expr $NUMLINES + 1`
 while [ "$START" != "$END" ]; do
 LETTER=`echo "$ENTRY4" | grep -o [A-Z] | sed -n "$START"p`
 if [ "$LETTER" = T ]; then
-echo "$NUM" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$NUM" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 if [ "$LETTER" = N ]; then
-echo "$TRACKNAME" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$TRACKNAME" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 if [ "$LETTER" = A ]; then
-echo "$ARTIST" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$ARTIST" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 if [ "$LETTER" = Y ]; then
-echo "$YEAR" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$YEAR" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 if [ "$LETTER" = L ]; then
-echo "$ALBUM" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$ALBUM" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 if [ "$LETTER" = G ]; then
-echo "$GENRE" >> /tmp/$WHOAMI-pcdripper-NAMEFORMAT
+echo "$GENRE" >> "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT
 fi
 START=`expr $START + 1`
 done
-LINE=`cat /tmp/$WHOAMI-pcdripper-NAMEFORMAT | tr -s '\n' '-' | sed 's/-*$//g'`
+LINE=`cat "$tmpDIR"/$WHOAMI-pcdripper-NAMEFORMAT | tr -s '\n' '-' | sed 's/-*$//g'`
 else
 ##if no tagging is selected this will name the files with whatever is put in the entrybox then the track number
 LINE="$TRACKNAME""$NUM"
@@ -2028,22 +2058,22 @@ fi
 ##wavs aren't encoded so they get their own part of the script to create the rip/encode script
 if [ "$NOSTDIN" = yes ]; then
 if [ "$CDRIPPER" = cdparanoia ]; then
-echo cdparanoia "$OPTIONS" "$TRACKS"-"$TRACKS2" -d "$DEVICE" \"$LINE\".wav >> /tmp/$WHOAMI-pcdripper-ripcli
-echo mv "track\"$NUM\".\"$LINE\".wav" "\"$LINE\".wav" >> /tmp/$WHOAMI-pcdripper-ripcli
+echo cdparanoia "$OPTIONS" "$TRACKS"-"$TRACKS2" -d "$DEVICE" \"$LINE\".wav >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
+echo mv "track\"$NUM\".\"$LINE\".wav" "\"$LINE\".wav" >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 else
-echo $CDRIPPER dev="$DEVICE" -t "$TRACKS" \"$LINE\".wav >> /tmp/$WHOAMI-pcdripper-ripcli
-echo rm -f \"$LINE\".inf >> /tmp/$WHOAMI-pcdripper-ripcli
+echo $CDRIPPER dev="$DEVICE" -t "$TRACKS" \"$LINE\".wav >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
+echo rm -f \"$LINE\".inf >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 if [ "$WORD" != wav ]; then
-echo "$ENCODELINE" >> /tmp/$WHOAMI-pcdripper-ripcli
-echo rm -f \"$LINE\".wav >> /tmp/$WHOAMI-pcdripper-ripcli
+echo "$ENCODELINE" >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
+echo rm -f \"$LINE\".wav >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 else
 ##incase any other format besides wav was chosen here is where the rip/encode script is built
 if [ "$CDRIPPER" = cdparanoia ]; then
-echo cdparanoia "$OPTIONS" "$TRACKS"-"$TRACKS2" -d "$DEVICE" - \| "$ENCODE2"  >> /tmp/$WHOAMI-pcdripper-ripcli
+echo cdparanoia "$OPTIONS" "$TRACKS"-"$TRACKS2" -d "$DEVICE" - \| "$ENCODE2"  >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 else
-echo $CDRIPPER dev="$DEVICE" -t "$TRACKS" - \| "$ENCODE2" >> /tmp/$WHOAMI-pcdripper-ripcli
+echo $CDRIPPER dev="$DEVICE" -t "$TRACKS" - \| "$ENCODE2" >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 fi
 
@@ -2053,7 +2083,7 @@ if [ "$CHECKBOX3" = false ]; then
 if [ "$WORD" = flac ]; then
 if [ "`which metaflac`" != "" ]; then
 ##tagging flac files is done post encoding with metaflac
-echo metaflac --set-tag=TRACKNUMBER=$TRACKS --set-tag=ARTIST=\"$ARTIST\" --set-tag=ALBUM=\"$ALBUM\" --set-tag=TITLE=\"$TRACKNAME\" --set-tag=GENRE=\"$GENRE\" --set-tag=DATE=$YEAR --set-tag=COMMENT=\"$COMMENT\" --set-tag=COMPOSER=\"$COMPOSER\" --set-tag=LYRICIST=\"$LYRICIST\" \"$LINE\".flac >> /tmp/$WHOAMI-pcdripper-ripcli
+echo metaflac --set-tag=TRACKNUMBER=$TRACKS --set-tag=ARTIST=\"$ARTIST\" --set-tag=ALBUM=\"$ALBUM\" --set-tag=TITLE=\"$TRACKNAME\" --set-tag=GENRE=\"$GENRE\" --set-tag=DATE=$YEAR --set-tag=COMMENT=\"$COMMENT\" --set-tag=COMPOSER=\"$COMPOSER\" --set-tag=LYRICIST=\"$LYRICIST\" \"$LINE\".flac >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 fi
 
@@ -2061,16 +2091,16 @@ if [ "$VTAG" = true ]; then
 if [ "$VTAGGER" != "" ]; then
 
 if [ "$VTAGGER" = apetag ]; then
-echo apetag -i \"$LINE\".$WORD -m overwrite -p TRACK=\"$TRACKS\" -p ARTIST=\"$ARTIST\" -p ALBUM=\"$ALBUM\" -p TITLE=\"$TRACKNAME\" -p GENRE=\"$GENRE\" -p YEAR=\"$YEAR\" -p LYRICIST=\"$LYRICIST\" -p COMMENT=\"$COMMENT\" -p COMPOSER=\"$COMPOSER\" >> /tmp/$WHOAMI-pcdripper-ripcli
+echo apetag -i \"$LINE\".$WORD -m overwrite -p TRACK=\"$TRACKS\" -p ARTIST=\"$ARTIST\" -p ALBUM=\"$ALBUM\" -p TITLE=\"$TRACKNAME\" -p GENRE=\"$GENRE\" -p YEAR=\"$YEAR\" -p LYRICIST=\"$LYRICIST\" -p COMMENT=\"$COMMENT\" -p COMPOSER=\"$COMPOSER\" >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 
 if [ "$VTAGGER" = id3tag ]; then
-echo id3tag -1 --artist=\"$ARTIST\" --album=\"$ALBUM\" --song=\"$TRACKNAME\" --year=\"$YEAR\" --track=\"$TRACKS\" --genre=\"$GENRE\" --comment=\"$COMMENT\" \"$LINE\".$WORD >> /tmp/$WHOAMI-pcdripper-ripcli
+echo id3tag -1 --artist=\"$ARTIST\" --album=\"$ALBUM\" --song=\"$TRACKNAME\" --year=\"$YEAR\" --track=\"$TRACKS\" --genre=\"$GENRE\" --comment=\"$COMMENT\" \"$LINE\".$WORD >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 
 if [ "$VTAGGER" = mp3info ]; then
-echo mp3info -d -f \"$LINE\".$WORD >> /tmp/$WHOAMI-pcdripper-ripcli
-echo mp3info -a \"$ARTIST\" -g \"$GENRE\" -l \"$ALBUM\" -n \"$TRACKS\" -t \"$TRACKNAME\" -y \"$YEAR\" -c \"$COMMENT\" -f \"$LINE\".$WORD >> /tmp/$WHOAMI-pcdripper-ripcli
+echo mp3info -d -f \"$LINE\".$WORD >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
+echo mp3info -a \"$ARTIST\" -g \"$GENRE\" -l \"$ALBUM\" -n \"$TRACKS\" -t \"$TRACKNAME\" -y \"$YEAR\" -c \"$COMMENT\" -f \"$LINE\".$WORD >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 
 fi
@@ -2091,15 +2121,15 @@ done ##big loop to create the rip/encode script is complete
 
 ##rip/encode complete now eject the cd incase option was selected
 if [ "$CHECKBOX5" = true ]; then
-echo eject $DEVICE >> /tmp/$WHOAMI-pcdripper-ripcli
+echo eject $DEVICE >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 
 ##rip/encode complete now play a sound incase option was selected
 if [ "$CHECKBOX8" = true ]; then
-echo $PLAY "$AUDIOFILE" >> /tmp/$WHOAMI-pcdripper-ripcli
+echo $PLAY "$AUDIOFILE" >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 fi
 
-echo exit 0 >> /tmp/$WHOAMI-pcdripper-ripcli
+echo exit 0 >> "$tmpDIR"/$WHOAMI-pcdripper-ripcli
 
 ##show the script that is going to be executed
 export RIPCLI="
@@ -2109,7 +2139,7 @@ export RIPCLI="
 <frame INFO:>
     <edit>
       <variable>INFO</variable>
-      <input file>/tmp/$WHOAMI-pcdripper-ripcli</input>
+      <input file>$tmpDIR/$WHOAMI-pcdripper-ripcli</input>
       <width>600</width>
       <height>320</height>
     </edit>
@@ -2118,7 +2148,7 @@ export RIPCLI="
     <button>
        <input file icon=\"gtk-ok\"></input>
       <label>OK</label>
-      <action>echo \"\$INFO\" | tee /tmp/$WHOAMI-pcdripper-ripcli2</action>
+      <action>echo \"\$INFO\" | tee $tmpDIR/$WHOAMI-pcdripper-ripcli2</action>
       <action type=\"exit\">Exit-now</action>
     </button>
 </hbox>
@@ -2129,16 +2159,16 @@ export RIPCLI="
 RIPCLI2=`$GTKDIALOG --program=RIPCLI --center`
 
 ##make the script executable & run it in rxvt
-chmod a+x /tmp/$WHOAMI-pcdripper-ripcli2
+chmod a+x "$tmpDIR"/$WHOAMI-pcdripper-ripcli2
 if [ "$TERMINAL" = rxvt ]; then
-rxvt -bg black -fg green -title pcdripper --geometry 79x20 -e /tmp/$WHOAMI-pcdripper-ripcli2
+rxvt -bg black -fg green -title pcdripper --geometry 79x20 -e "$tmpDIR"/$WHOAMI-pcdripper-ripcli2
 else
-$TERMINAL -e /tmp/$WHOAMI-pcdripper-ripcli2
+$TERMINAL -e "$tmpDIR"/$WHOAMI-pcdripper-ripcli2
 fi
 fi ##end cd rip/encode portion
 
 ##remove all the temp files
-rm -f /tmp/$WHOAMI-pcdripper*
+rm -f "$tmpDIR"/$WHOAMI-pcdripper*
 
 ##Ask to rip another disc
 export MAIN_DIALOG="
