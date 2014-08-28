@@ -1,8 +1,8 @@
 #!/bin/sh
 #(c) copyright Barry Kauler, May 2013, bkhome.org
 #License GPL3 (refer /usr/share/doc/legal).
-#called from /usr/sbin/loginmanager, to change back to 'root'.
-#may also be called standalone.
+# Called from /usr/sbin/loginmanager, to change back to 'root'.
+# May also be called standalone.
 #130527 first version.
 
 NOWUSER="`whoami`"
@@ -11,6 +11,7 @@ NOWUSER="`whoami`"
 export TEXTDOMAIN=user2root
 export OUTPUT_CHARSET=UTF-8
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -35,16 +36,38 @@ exit $1
 
 [ "`echo "$1" | grep -wE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="/usr/sbin/loginmanager helper script
+to change back to 'root' .
+may also be called standalone.
+Needs reboot.
+Alters /etc/inittab [and /etc/minit/* fido to root]."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 #change auto login back to root...
 rootEXPR="s%^tty1.*%tty1::respawn:/sbin/mingetty --autologin root tty1%"
+STATUS=0
 sed -i -e "$rootEXPR" /etc/inittab #110507 TaZOC bug fix.
+STATUS=$((STATUS+$?))
 #120409 if using minit instead of busybox init...
 if [ -f /etc/minit/getty/1/params  ];then #see my minit pet pkg.
  EXPR2='s%^fido$%root%'
  sed -i -e "$EXPR2" /etc/minit/getty/1/params
+ STATUS=$((STATUS+$?))
 fi
-pupmessage -bg green -center -title "$(gettext 'Login Manager: OK')" "$(gettext 'Ok, you will be administrator at next boot')"
-
+#pupmessage -bg green -center -title "$(gettext 'Login Manager: OK')" "$(gettext 'Ok, you will be administrator at next boot')"
+test "$STATUS" = 0 && xmessage -bg green -center -title "$(gettext 'Login Manager: OK')" "$(gettext 'Ok, you will be administrator at next boot')"
 ###END###
