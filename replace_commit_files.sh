@@ -19,7 +19,7 @@ which git || error "Git not in PATH"
 CURRENT_DIR=`pwd`
 cd "$CURRENT_DIR"
 
-DIRS=`find -type d`
+DIRS=`find -type d -not -name ".git"`
 
 while read ONE_DIR; do
 echo "ONE_DIR='$ONE_DIR'"
@@ -50,8 +50,16 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      diff -q "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ./"$ONE_FILE" && continue #returns 1 if differ
 
+    modSYSfile=`stat -c %Y "$ONE_DIR_IN_SYSTEM/$ONE_FILE"`
+    modGITfile=`stat -c %Y ./"$ONE_FILE"`
+
+    if [ "$modSYSfile" -ge "$modGITfile" ]; then
      cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
      sleep 1
+    else
+     cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
+     continue
+    fi
 
      cd "$CURRENT_DIR" || error 1 "Could not cd into '$CURRENT_DIR'"
 
