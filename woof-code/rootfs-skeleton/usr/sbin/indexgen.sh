@@ -1,8 +1,8 @@
 #!/bin/bash
 #(c) Copyright Barry Kauler 2009, puppylinux.com.
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#generates index.html master help page. called from petget, rc.update,
-#  /usr/local/petget/installpreview.sh, 3builddistro (in Woof).
+# Generates index.html master help page. called from petget, rc.update,
+# /usr/local/petget/installpreview.sh, 3builddistro (in Woof).
 #w012 commented-out drop-down for all installed pkgs as too big in Ubuntu-Puppy.
 #w016 support/find_homepages (in Woof) used to manually update HOMEPAGEDB variable.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
