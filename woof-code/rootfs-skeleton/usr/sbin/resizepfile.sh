@@ -4,6 +4,20 @@
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Script to create dektop shortcut."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
+
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
 #PUPMODE=current operating configuration,
@@ -62,7 +76,7 @@ REPORTACTION="Welcome to the Puppy Resize personal storage file utility!"
 
 MAINTEXT="Your personal file is $NAMEPFILE, and this contains all of your data,
 configuration files, email, newsgroup cache, history files, installed
-packages and so on. 
+packages and so on.
 
 You have $SIZEFREE Mbytes free space left in $NAMEPFILE,
 out of a total size of $ACTUALSIZE Mbytes.
