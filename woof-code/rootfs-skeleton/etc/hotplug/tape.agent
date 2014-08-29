@@ -5,7 +5,7 @@
 # Copyright (c) 2002 IBM Development Germany, Boeblingen
 #
 # the GNU Public License applies
-# 
+#
 # Author: Stefan Bader <Stefan.Bader@de.ibm.com>, 2002
 #
 # History:
@@ -39,10 +39,10 @@ cd /etc/hotplug
 mesg "$ACTION $DEVNO $MAJOR $MINOR $INTERFACE"
 
 if test -r tape.permissions; then
-	. tape.permissions
+    . tape.permissions
 else
-	mesg "Tape permission handling not found"
-	exit 1
+    mesg "Tape permission handling not found"
+    exit 1
 fi
 
 #==============================================================================
@@ -64,14 +64,14 @@ set -o nounset
 #------------------------------------------------------------------------------
 # Abort handling
 abort() {
-	if test "$#" -lt 2; then
-		RC=1
-	else
-		RC=$2
-	fi
+    if test "$#" -lt 2; then
+        RC=1
+    else
+        RC=$2
+    fi
 
-	mesg "$1 RC($RC)"
-	exit $RC
+    mesg "$1 RC($RC)"
+    exit $RC
 }
 
 #------------------------------------------------------------------------------
@@ -83,12 +83,12 @@ abort() {
 # Returns:     0
 #------------------------------------------------------------------------------
 tape_number() {
-	if test "$INTERFACE" = "block"; then
-		echo $MINOR
-	else
-		echo "$(($MINOR / 2))"
-	fi
-	return 0
+    if test "$INTERFACE" = "block"; then
+        echo $MINOR
+    else
+        echo "$(($MINOR / 2))"
+    fi
+    return 0
 }
 
 #------------------------------------------------------------------------------
@@ -104,22 +104,22 @@ tape_number() {
 # Returns:     0 on success, otherwise 1
 #------------------------------------------------------------------------------
 create_symlink() {
-	LINK=$ROOTDIR/dev/tape/$DEVNO/$1
-	TARGET=../../../$2$(tape_number)
+    LINK=$ROOTDIR/dev/tape/$DEVNO/$1
+    TARGET=../../../$2$(tape_number)
 
-	# Do not create link if devfs compatibility mode is not started
-	if test ! -d $ROOTDIR/dev/tape; then
-		return 0
-	fi
+    # Do not create link if devfs compatibility mode is not started
+    if test ! -d $ROOTDIR/dev/tape; then
+        return 0
+    fi
 
-	if test ! -d $(dirname $LINK); then
-		$CONDOM mkdir -p $(dirname $LINK)                  || return 1
-	fi
-	mesg "Creating symlink $LINK -> $TARGET"
-	$CONDOM rm -f $LINK                                        || return 1
-	$CONDOM ln -s $TARGET $LINK                                || return 1
+    if test ! -d $(dirname $LINK); then
+        $CONDOM mkdir -p $(dirname $LINK)                  || return 1
+    fi
+    mesg "Creating symlink $LINK -> $TARGET"
+    $CONDOM rm -f $LINK                                        || return 1
+    $CONDOM ln -s $TARGET $LINK                                || return 1
 
-	return 0
+    return 0
 }
 
 #------------------------------------------------------------------------------
@@ -134,21 +134,21 @@ create_symlink() {
 # Returns:     0 if the node is ok, otherwise 1
 #------------------------------------------------------------------------------
 verify_node() {
-	NAME="$1"
-	TYPE="$2"
-	RC=1
+    NAME="$1"
+    TYPE="$2"
+    RC=1
 
-	if test -$TYPE "$NAME"; then
-		MAJMIN=$(ls -l "$NAME"|awk '{print $5 $6}')
+    if test -$TYPE "$NAME"; then
+        MAJMIN=$(ls -l "$NAME"|awk '{print $5 $6}')
 
-		if test "$(echo $MAJMIN|cut -d, -f1)" = "$MAJOR"; then
-			if test "$(echo $MAJMIN|cut -d, -f2)" = "$MINOR"; then
-				RC=0
-			fi
-		fi
-	fi
+        if test "$(echo $MAJMIN|cut -d, -f1)" = "$MAJOR"; then
+            if test "$(echo $MAJMIN|cut -d, -f2)" = "$MINOR"; then
+                RC=0
+            fi
+        fi
+    fi
 
-	return $RC
+    return $RC
 }
 
 #------------------------------------------------------------------------------
@@ -169,83 +169,82 @@ verify_node() {
 # Returns:     0 on success, otherwise 1
 #------------------------------------------------------------------------------
 create_node() {
-	TYPE="$1"
-	NAME="$ROOTDIR/dev/$2$(tape_number)"
+    TYPE="$1"
+    NAME="$ROOTDIR/dev/$2$(tape_number)"
 
-	# FIXME: This would currently recreate the device node if it isn't
-	#        right even if devfs compatibility isn't enabled. Should
-	#        ownership and permissions be preserved in that case???
-	if ! verify_node $NAME $TYPE; then
-		mesg "Creating devicenode $NAME"
-		$CONDOM rm -f "$NAME"                              || return 1
-		$CONDOM mknod "$NAME" $TYPE $MAJOR $MINOR          || return 1
-	fi
+    # FIXME: This would currently recreate the device node if it isn't
+    #        right even if devfs compatibility isn't enabled. Should
+    #        ownership and permissions be preserved in that case???
+    if ! verify_node $NAME $TYPE; then
+        mesg "Creating devicenode $NAME"
+        $CONDOM rm -f "$NAME"                              || return 1
+        $CONDOM mknod "$NAME" $TYPE $MAJOR $MINOR          || return 1
+    fi
 
-	# We only want to change ownership and permissions if devfs compa-
-	# tibility is enabled.
-	tape_permissions $DEVNO
-	if test "$OWNER" != "" && test -d $ROOTDIR/dev/tape; then
-		$CONDOM chown $OWNER "$NAME"                       || return 1
+    # We only want to change ownership and permissions if devfs compa-
+    # tibility is enabled.
+    tape_permissions $DEVNO
+    if test "$OWNER" != "" && test -d $ROOTDIR/dev/tape; then
+        $CONDOM chown $OWNER "$NAME"                       || return 1
 
-		if test "$PERMISSIONS" != ""; then
-			$CONDOM chmod "$PERMISSIONS" "$NAME"       || return 1
-		fi
-	fi
+        if test "$PERMISSIONS" != ""; then
+            $CONDOM chmod "$PERMISSIONS" "$NAME"       || return 1
+        fi
+    fi
 
-	return 0
+    return 0
 }
 
 #------------------------------------------------------------------------------
 # Main
 #------------------------------------------------------------------------------
 case "$ACTION" in
-	add)
-		case "$INTERFACE" in
-			block)
-				create_node    b btibm             || return 1
-				create_symlink block/disc btibm    || return 1
-				;;
-			char)
-				create_node    c ntibm             || return 1
-				create_symlink char/norewind ntibm || return 1
-				MINOR=$(($MINOR + 1))
-				create_node    c rtibm             || return 1
-				create_symlink char/rewind rtibm   || return 1
-				;;
-			*)
-				abort "Unknown interface type <$INTERFACE>"
-				;;
-		esac
-		;;
-	remove)
-		case "$INTERFACE" in
-			char)
-				$CONDOM rm -rf $ROOTDIR/dev/tape/$DEVNO/char
-				if test -d $ROOTDIR/dev/tape; then
-					$CONDOM rm -f \
-					$ROOTDIR/dev/[nr]tibm$(tape_number)
-				fi
-				;;
-			block)
-				$CONDOM rm -rf $ROOTDIR/dev/tape/$DEVNO/block
-				if test -d $ROOTDIR/dev/tape; then
-					$CONDOM \
-					rm -f $ROOTDIR/dev/btibm$(tape_number)
-				fi
-				;;
-			*)
-				abort "Unknown interface type <$INTERFACE>"
-				;;
-		esac
+    add)
+        case "$INTERFACE" in
+            block)
+                create_node    b btibm             || return 1
+                create_symlink block/disc btibm    || return 1
+                ;;
+            char)
+                create_node    c ntibm             || return 1
+                create_symlink char/norewind ntibm || return 1
+                MINOR=$(($MINOR + 1))
+                create_node    c rtibm             || return 1
+                create_symlink char/rewind rtibm   || return 1
+                ;;
+            *)
+                abort "Unknown interface type <$INTERFACE>"
+                ;;
+        esac
+        ;;
+    remove)
+        case "$INTERFACE" in
+            char)
+                $CONDOM rm -rf $ROOTDIR/dev/tape/$DEVNO/char
+                if test -d $ROOTDIR/dev/tape; then
+                    $CONDOM rm -f \
+                    $ROOTDIR/dev/[nr]tibm$(tape_number)
+                fi
+                ;;
+            block)
+                $CONDOM rm -rf $ROOTDIR/dev/tape/$DEVNO/block
+                if test -d $ROOTDIR/dev/tape; then
+                    $CONDOM \
+                    rm -f $ROOTDIR/dev/btibm$(tape_number)
+                fi
+                ;;
+            *)
+                abort "Unknown interface type <$INTERFACE>"
+                ;;
+        esac
 
-		if test "$(ls $ROOTDIR/dev/tape/$DEVNO)" = ""; then
-			$CONDOM rmdir $ROOTDIR/dev/tape/$DEVNO
-		fi
-		;;
-	*)
-		abort "$(basename $0): $ACTION event not supported"
-		;;
+        if test "$(ls $ROOTDIR/dev/tape/$DEVNO)" = ""; then
+            $CONDOM rmdir $ROOTDIR/dev/tape/$DEVNO
+        fi
+        ;;
+    *)
+        abort "$(basename $0): $ACTION event not supported"
+        ;;
 esac
 
 exit 0
-
