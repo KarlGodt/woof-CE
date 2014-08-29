@@ -11,7 +11,8 @@ _provide_basic_parameters
 
 ADD_HELP_MSG="Script to create dektop shortcut."
 _parse_basic_parameters "$@"
-
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
 _trap
 }
 
