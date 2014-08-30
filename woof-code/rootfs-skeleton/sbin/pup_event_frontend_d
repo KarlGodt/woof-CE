@@ -1,14 +1,17 @@
 #!/bin/ash
 #(c) Copyright 2008 Barry Kauler puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#this is /sbin/pup_event_frontend_d, created June 2008 for Puppy Linux 4.x, by Barry Kauler.
-#This script is part of 'pup_event', my (very) light-weight alternative to udev.
-#responds to events posted to /tmp/pup_event_backend_s by /sbin/pup_event_backend_d.
-#this script is launched from /root/.xinitrc.
+# This is /sbin/pup_event_frontend_d, created June 2008 for Puppy Linux 4.x, by Barry Kauler.
+# This script is part of 'pup_event', my (very) light-weight alternative to udev.
+# Responds to events posted to /tmp/pup_event_backend_s by /sbin/pup_event_backend_d.
+# This script is launched from /root/.xinitrc.
 #v407 added hotplug support for zip and ls120 diskettes.
 #v407 hotplug fix for /dev/hd* optical drives.
+#
 #v408 fix for k2.6.21.7, does not set DEVTYPE.
-#v408 rewrite, now works by polling /sys/block.
+#
+#v408 REWRITE, now works by polling /sys/block.
+#
 #v410 rerwin: detect optical disc not inserted.
 #v410 avoid exact overlapping icons.
 #v411 rerwin: avoid icon getting duplicated if it is renamed
@@ -22,6 +25,7 @@
 #v424 add right-click menu item to unmount all mounted partitions.
 #v424 experimental automatic unmounting.
 #v431 shinobar: fix for overlapping icons at some screen resolutions.
+#
 #091208 fine-tune placement of desktop drive icons.
 #091223 partial fix, some interfaces, no change in /sys/block when insert/remove a card.
 #100613 some locales (ex: nl_BE) have ',' instead of '.' in numeric, ex o/p of 'dc'.
@@ -130,7 +134,7 @@ while getopts Vhvd opt; do
  case $opt in
   V) echo -e "\n$0: Version '$Version'\nTry -h for more info.\n";exit 0;;
   h) usage 0;;
-  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;DEBUG=1;ME_VERB=1;QUIET='';;
+  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;DEBUG=1;VERBOSE=1;QUIET='';;
   d) set -x;;
   *) :;;
   esac
@@ -139,7 +143,7 @@ done
 
 ME_PROGRAM=`readlink -f "$0"`  ##+-2013-08-10 should be readlink -e but busybox readlink treats -f as -e option
 ME_PID=$$
-PIDS_OTHER_MES=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
+ME_OTHER_PIDS=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
 
 PARAMETER_LINE="$@"
 
@@ -168,13 +172,13 @@ exit 0
 ;;
 debug|-*debug|-d) set -x
 ;;
-verbose|-*verbose|-v) ME_VERB=1
+verbose|-*verbose|-v) VERBOSE=1
 VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;QUIET=''
 ;;
 
 stop)
 pidof -o $$ -o %PPID ${ME_PROGRAM##*/} || { echo " NOT Running.";exit 0; }
-for pid in $PIDS_OTHER_MES ; do
+for pid in $ME_OTHER_PIDS; do
 kill $pid
 RETVAL=$((RETVAL+$?))
 #echo "RETVAL='$RETVAL'"
@@ -186,7 +190,7 @@ exit "$RETVAL"
 ;;
 
 restart)
-for pid in $PIDS_OTHER_MES ; do
+for pid in $ME_OTHER_PIDS; do
 echo $pid
 kill $pid
 done
@@ -232,21 +236,21 @@ done
 }
 
 probedisk_simple(){
-[ "${VERBOSE}" ] && echo "probing for drives" >>/dev/stderr
+[ "${VERBOSE}" ] && echo "$0:probedisk_simple: Probing for drives..." >>/dev/stderr
 ALLDRIVES=`ls -1 /sys/block | grep -vE 'ram|loop|mtd|md|nbd'`
-for drive in $ALLDRIVES ; do
+for drive_ in $ALLDRIVES ; do
 unset REMOVABLE KIND VEND MODL
-[ -f /sys/block/$drive/removable ] && read REMOVABLE </sys/block/$drive/removable
+[ -f /sys/block/$drive_/removable ] && read REMOVABLE </sys/block/$drive_/removable
 [ "$REMOVABLE" ] || REMOVABLE=0
-case $drive in
+case $drive_ in
 sd*)
-[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=usbdrv
+[ "`readlink /sys/block/$drive_ | grep '/usb[/0-9]*/'`" ] && KIND=usbdrv
 if test ! "$KIND"; then
 [ "$REMOVABLE" = 0 ] && KIND=drive || KIND=usbdrv
 fi
   ;;
 sr*)
-[ "`readlink /sys/block/$drive | grep '/usb[/0-9]*/'`" ] && KIND=optical #KIND=usbcd
+[ "`readlink /sys/block/$drive_ | grep '/usb[/0-9]*/'`" ] && KIND=optical #KIND=usbcd
 if test ! "$KIND"; then
 [ "$REMOVABLE" = 1 ] && KIND=optical || KIND=usbdrv
 fi
@@ -276,18 +280,21 @@ if test ! "$KIND"; then
 fi
   ;;
 esac
-[ -f /sys/block/$drive/device/vendor ] && read VEND </sys/block/$drive/device/vendor
-[ -f /sys/block/$drive/device/model ] && read MODL </sys/block/$drive/device/model
+[ -f /sys/block/$drive_/device/vendor ] && read VEND </sys/block/$drive_/device/vendor
+[ -f /sys/block/$drive_/device/model ]  && read MODL </sys/block/$drive_/device/model
 [ "$VEND" ] || VEND=Unknown
 [ "$MODL" ] || MODL=Unknown
 #PARTS=`ls -1 /sys/block/$drive/$drive[0-9]* 2>$ERR | grep -o -e '[0-9]*' |tr '\n' ' '`
 echo "$drive|$KIND|$VEND $MODL"
 done
-[ "${VERBOSE}" ] && echo "done probing" >>/dev/stderr
+[ "${VERBOSE}" ] && echo " $0: Done probing." >>/dev/stderr
 }
 
-echo here 0
+[ "$VERBOSE" ] && echo "$0: Header END"
+
 ### CODE ###
+
+[ "$DISPLAY" ] || exit 0 #X not running.
 OLDLANG=$LANG #100613
 export LANG=C #w004
 
@@ -297,14 +304,20 @@ export LANG=C #w004
 #simple polling loop.
 
 sleep 2 #let the dust settle after X has started.
-until [ "`awk -F '.' '{print $1}' /proc/loadavg`" -lt 2 ];do sleep 5;done
+
 #w471 slow cpus need more delay (well, rox does)...
 DELAYFACTOR=0
 CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
 [ "$CPUMHZ" -a "$CPUMHZ" -gt 100 ] && DELAYFACTOR=$(( 1100 / $CPUMHZ ))
 [ "$DELAYFACTOR" -gt 0 ] && sleep $DELAYFACTOR
+_sleep_=0
+until [ "`pidof ROX-Filer`" ]; do
+sleep 2
+_sleep_=$((_sleep_+1))
+[ "$_sleep_" = 9 ] && break
+done
+until [ "`awk -F '.' '{print $1}' /proc/loadavg`" -lt 2 ];do sleep 5;done
 
-[ "$DISPLAY" ] || exit 0 #X not running.
 
 #v404 /usr/sbin/video-wizard (Xvesa) does create /tmp/pup_event_icon_change_flag
 #which /sbin/clean_desk_icons reads via .xinirc when X starts, to wipe all drive icons.
@@ -312,24 +325,25 @@ CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cu
 if [ -f /tmp/videomode ];then #only exists during X resolution setup.
  if [ "`readlink /usr/bin/X`" = "Xvesa" ];then
   while [ -f /tmp/videomode ];do
-count=$((count+1))
+_count_=$((_count_+1))
    sleep 3
-[ "$count" = 100 ] && { echo "/tmp/videomode still exist after 5 minutes. Exit.";exit 0; }
+[ "$_count_" = 100 ] && { echo "/tmp/videomode still exist after 5 minutes. Exit.";exit 0; }
   done
  fi
 fi
 
+### VARIABLES
 SAVECNT=0
-MOUSECNT=0 #w007
+MOUSECNT=0  #w007
 MINUTECNT=0 #w007
-CURPOS1="" #w007
-
-ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
-. /etc/rc.d/PUPSTATE
+CURPOS1=""  #w007
 
 KERNVER=`uname -r`
-. /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
-. /etc/rc.d/functions4puppy4
+ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
+test -f /etc/rc.d/PUPSTATE         && . /etc/rc.d/PUPSTATE
+test -f /etc/eventmanager          && . /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
+test -f /etc/rc.d/functions4puppy4 && . /etc/rc.d/functions4puppy4
+test -f /etc/rc.d/f4puppy5         && . /etc/rc.d/f4puppy5
 
 SCRNXY=`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'`
@@ -349,9 +363,6 @@ fi
 RETVALm=1
 PREVSIZETMPM=0
 PREVSIZEFREEM=0
-
-####KRG:VARIABLES
-####KRG
 
 ###<KRG>
 stateDIR="$HOME/Choices/Puppy"
@@ -417,8 +428,6 @@ create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
  MAX_X=`expr $SCRN_X - 96`
  MAX_Y=`expr $SCRN_Y - 96`
 [ "$DEBUG" ] && echo "PIN_GRID_STEP=$PIN_GRID_STEP PIN_GRID_STEP2=$PIN_GRID_STEP2"
-
-
 
 
 
@@ -519,6 +528,10 @@ free_coord_normal(){
 
 
 
+
+
+
+
 free_coord_simple(){
  #DRIVE_NAME="$1"
  #LAST_PLACE=`grep -m1 -w "\.pup_event/drive_${OLD_DRV_NAME}" /root/Choices/ROX-Filer/PuppyPin`
@@ -560,8 +573,6 @@ $COORD_X $COORD_Y"
 #OLD_DRV_NAME="$DRIVE_NAME"
 }
 
-echo here
-
 add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
  [ "$1" ] && DRV_NAME="$1"
 
@@ -597,8 +608,6 @@ PROBEPART=`probepart $* -k $@ | grep -iE 'not inserted|\|ext4\||\|ntfs\||\|msdos
 #
 #
 #}
-
-
 
 create_icon_func() {
  [ "$1" ] && DEV_NAME="$1"
@@ -1103,13 +1112,11 @@ case $PUPMODE in
    FREE_FUNCTION='free_func'  ;;
 esac
 
-echo here 0
 PROBEDISK2_LOOP_NEW=`probedisk_simple`
 PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
-echo here 1
 
 ###################################################################
-#now go into a two-second loop...
+#now go into a three-second loop...
 while [ 1 ]
 do
  sleep 3
@@ -1158,16 +1165,17 @@ EOI
 fi
 
  ######### hotplug detected #########
- [ "$VERBOSE" ] && echo here 0
+ [ "$VERBOSE" ] && echo "$0:Hotplug detected"
  PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
  PROBEDISK2_LOOP_NEW=`probedisk_simple`
  [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_OLD=$PROBEDISK_LOOP_OLD'"
  [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_NEW=$PROBEDISK_LOOP_NEW'"
- [ "$VERBOSE" ] && echo here 1
- #######four second timeout procesing#########
+ [ "$VERBOSE" ] && echo
+ ####### three second timeout procesing #########
 
  if test -f "/tmp/pup_event_icon_change_flag" ;then #1
  clear_desk_icons_func
+ unset COORD_X COORD_Y
  [ -f /etc/eventmanager ] && . /etc/eventmanager
  POWERTIMEOUT=$(($POWERTIMEOUT * 60));RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60))
  pup_event_frontend_d_start_func
