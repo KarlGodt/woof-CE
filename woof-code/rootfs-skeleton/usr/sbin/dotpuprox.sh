@@ -3,18 +3,45 @@
 # dotpup handler 0.0.4 - GuestToo - Feb 24, 2007
 # this is NOT a package management system
 
-DPDIR=/root
-CONFIG=/etc/dotpup
-
-[ -z $1 ] && exit 1
 export TEXTDOMAIN=dotpuprox
 export TEXTDOMAINDIR=/usr/share/locale
+
+_TITLE_=dotpuprox
+_COMMENT_="xmessage GUIs to install .pup ."
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=FILENAME.pup
+ADD_PARAMETERS="File-name: /path/to/package.pup"
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
+
+
+[ -z $1 ] && exit 1
+
+DPDIR=/root
+CONFIG=/etc/dotpup
 export CONFIG
+
 FNAME="`basename "$1"`"
 FPATH="$1"
 echo $FPATH | grep '^/' > /dev/null || FPATH="`pwd`/$1" # absolute path
 which eval_gettext || alias eval_gettext='gettext'
 MSG=`which gxmessage` || MSG=xmessage
+
 [ -d $CONFIG ] || mkdir $CONFIG
 
 # workaround for MU
@@ -187,6 +214,7 @@ ALWAYS=$CONFIG/always-delete-dotpup
 NEVER=$CONFIG/never-delete-dotpup
 [ -r $ALWAYS ] && exec rm -f "$FPATH"
 [ -r $NEVER ] && exit
+
 MSG2="`eval_gettext "Delete the file"`"
 MSG1="`eval_gettext "Yes,Always,Never,No"`"
 $MSG -buttons "$MSG1" -center -title "$TITLE1" "$MSG2 $FNAME ?"
