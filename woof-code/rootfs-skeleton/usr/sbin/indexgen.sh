@@ -1,13 +1,36 @@
 #!/bin/bash
 #(c) Copyright Barry Kauler 2009, puppylinux.com.
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#generates index.html master help page. called from petget, rc.update,
+# Generates index.html master help page. called from petget, rc.update,
 #  /usr/local/petget/installpreview.sh, 3builddistro (in Woof).
 #w012 commented-out drop-down for all installed pkgs as too big in Ubuntu-Puppy.
 #w016 support/find_homepages (in Woof) used to manually update HOMEPAGEDB variable.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
+
+_TITLE_=generate-index
+_COMMENT_="CLI to update /usr/share/doc/index.html ."
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=
+ADD_PARAMETERS=
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
 export LANG=C
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
