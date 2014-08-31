@@ -1,14 +1,45 @@
 #!/bin/sh
 #Barry Kauler 2011, GPL3 (/usr/share/doc/legal)
-#specified in /etc/sudoers or /etc/sudo.conf, gui-helper for sudo. (path compiled-in to my sudo PET)
+# Specified in /etc/sudoers or /etc/sudo.conf .
+# gui-helper for sudo. (path compiled-in to my sudo PET)
 #110513 display name of app that is requesting to run.
 #120201 rodin.s: internationalized.
 
 export TEXTDOMAIN=askpass
 export OUTPUT_CHARSET=UTF-8
 
+_TITLE_=askpass
+_COMMENT_="GTKdialog GUI or CLI to enter a password."
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=
+ADD_PARAMETERS=
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
+
+[ "$*" ] && {
+case $1 in
+cli|-*cli) useCLI=YES;;
+esac
+}
+
 PSALL="`ps`"
 CALLEDAPP="`echo "$PSALL" | grep -o ' sudo \-A .*' | tr -s ' ' | cut -f 4 -d ' '`"
+
 if [ "$CALLEDAPP" ];then
  INSERTMSG="    <text><label>$(gettext 'This application wants to run:')</label></text>
     <text><label>${CALLEDAPP}</label></text>
@@ -18,7 +49,7 @@ else
  INSERTMSG="<text><label>$(gettext 'Please enter the administrator password required to run this application:')</label></text>"
 fi
 
-if [ $DISPLAY ];then
+if [ "$DISPLAY" -a ! "$useCLI" ];then
  export ASKDIALOG="
 <window title=\"AskPass\" decorated=\"false\" window_position=\"1\" skip_taskbar_hint=\"true\">
   <vbox>
@@ -36,15 +67,54 @@ if [ $DISPLAY ];then
 </window>
 "
  RETVAL="`gtkdialog3 --program=ASKDIALOG 2>/dev/null`"
- eval "$RETVAL"
+
+__first__(){
+ echo "$RETVAL"
+ RETVAL_="${RETVAL//ADMINPASSWORD=/}"
+ RETVAL_=${RETVAL_//EXIT=*/}
+ echo "$RETVAL_"
+ RETVAL_=`echo "$RETVAL_" | sed -r 's/(.)/\\\\\\1/g'`
+ RETVAL_=`echo "$RETVAL_" | sed 's/^\\\"/"/;s/\\\"$/"/'`
+ #RETVAL_=`echo "$RETVAL_" | sed 's/^"\\\/"\\\\\\\/'`
+ echo "$RETVAL_"
+ RETVAL_="ADMINPASSWORD=$RETVAL_"
+ echo "$RETVAL_"
+
+ EXIT_=`echo "$RETVAL" | grep '^EXIT=.*'`
+
+ RETVAL="$RETVAL_
+$EXIT_"
+}
+
+ PWORD=`echo "$RETVAL" | grep -m1 'ADMINPASSWORD=.*'`
+ PWORD_=${PWORD//ADMINPASSWORD=\"/}
+ PWORD_=`echo "$PWORD_" | sed 's/"$//'`
+ _PWORD_=`echo "$PWORD_" | _string_to_octal`
+
+   EXIT_=`echo "$RETVAL" | grep -m1 'EXIT=.*'`
+
+ echo "$_PWORD_"
+ _RETVAL_="ADMINPASSWORD='$_PWORD_'
+$EXIT_"
+
+ eval "$_RETVAL_"
+ [ "$?" = 0 ] && yaf-splash -t 5 -bg green -text "OK" || {
+ yaf-splash -t 5 -bg red -text "Password contains unwanted elements"
+ exec "$MY_SELF"
+ }
+
 else
- echo >/dev/console
- echo -n "$(gettext 'Type admin password required to run this app:') " >/dev/console
- read -t 30 ADMINPASSWORD
- [ "$ADMINPASSWORD" = "" ] && echo '...failed' >/dev/console
+
+ _TTY_=`tty`
+               [ "$_TTY_" ] || _TTY_=/dev/console
+ [ "$_TTY_" = 'not a tty' ] && _TTY_=/dev/console
+ echo > $_TTY_
+ echo "$(gettext '30 sec: Type admin password required to run this app:') " > $_TTY_
+ read -r -t 30 -s ADMINPASSWORD
+ [ "$ADMINPASSWORD" = "" ] && echo '...failed' > $_TTY_
 fi
 
 #echo "$RETVAL"
 
-echo "$ADMINPASSWORD" #return password to sudo.
+echo -e "$ADMINPASSWORD" #return password to sudo.
 ###END###
