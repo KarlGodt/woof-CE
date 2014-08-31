@@ -3,6 +3,10 @@
 #Copyright (c) Barry Kauler 2004 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
+_TITLE_=format-floppy
+_COMMENT_="xmessage GUIs to format Floppy Disks with msdos fs"
+
+MY_SELF="$0"
 
 #************
 #KRG
