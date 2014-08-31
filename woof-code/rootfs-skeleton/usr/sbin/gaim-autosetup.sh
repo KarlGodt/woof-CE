@@ -18,6 +18,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
+_TITLE_=gaim-autosetup
+_COMMENT_="autologin configuration to login into #puppylinux IRC"
+
+MY_SELF="$0"
 
 #************
 #KRG
@@ -37,7 +41,7 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
 [ "`echo "$1" | grep -Ew "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
