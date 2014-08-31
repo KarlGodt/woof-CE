@@ -1,9 +1,15 @@
 #!/bin/sh
 #Barry Kauler www.puppylinux.com
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#calc free space in which to create/save files. called by freememapplet (in taskbar).
+# Calculate free space in which to create/save files.
+# Called by freememapplet (in taskbar).
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
+
+_TITLE_="calcfreespace"
+_COMMENT_="Outputs free space in KiB for use by freememapplet - NOT USED anymore"
+
+MY_SELF="$0"
 
 #************
 #KRG
@@ -22,7 +28,7 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
