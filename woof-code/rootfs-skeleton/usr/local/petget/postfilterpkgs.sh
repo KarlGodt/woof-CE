@@ -1,6 +1,6 @@
 #!/bin/sh
-#called from pkg_chooser.sh, findnames.sh, filterpkgs.sh
-#post-process the selection of pkgs that is to be displayed, according to the exe, dev, doc, nls checkboxes.
+# Called from pkg_chooser.sh, findnames.sh, filterpkgs.sh
+# Post-process the selection of pkgs that is to be displayed, according to the exe, dev, doc, nls checkboxes.
 #120515 script created, common code extracted from above 3 scripts.
 #120525 fix post-filtering.
 #120529 prefix an icon to each line of results.
@@ -24,7 +24,7 @@ DEF_CHK_NLS='false'
 cp -f /tmp/petget/filterpkgs.results /tmp/petget/filterpkgs.results.post
 
 #120525 quick filtering but not perfect...
-#PETs: _DEV _DOC _NLS  
+#PETs: _DEV _DOC _NLS
 #Ubuntu,Debian DEBs: -dev_ -doc_ -docs_ -langpack -lang-
 #Mageia RPMs: -devel- -doc-
 sed -i -e '/-dbg_/d' /tmp/petget/filterpkgs.results.post #120525 always take out the debug pkgs.
