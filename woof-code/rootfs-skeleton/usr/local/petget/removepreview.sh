@@ -11,6 +11,11 @@
 #v424 support post-uninstall script for .pet pkgs.
 #v424 need info box if user has clicked when no pkgs installed.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -38,9 +43,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
