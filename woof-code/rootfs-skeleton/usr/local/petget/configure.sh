@@ -4,8 +4,8 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # Configure package manager
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=configure_ppm
+_COMMENT_="Configure Puppy Package Manager GUI"
 
 MY_SELF="$0"
 
