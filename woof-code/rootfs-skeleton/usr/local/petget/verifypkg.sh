@@ -1,22 +1,18 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/downloadpkgs.sh.
-#passed param is the path and name of the downloaded package.
+# Called from /usr/local/petget/downloadpkgs.sh.
+# Passed param is the path and name of the downloaded package.
 #100116 add support for .tar.bz2 T2 pkgs.
 #100616 add support for .txz slackware pkgs.
 #101225 bug fix, .pet was converted to .tar.gz, restore to .pet.
 
-
-
 #************
 #KRG
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -31,13 +27,10 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
-
 
 echo "$0: START" >&2
 
