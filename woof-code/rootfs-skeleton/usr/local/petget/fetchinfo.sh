@@ -1,8 +1,22 @@
 #!/bin/sh
-#called from installpreview.sh.
-#passed param (also variable TREE1) is name of pkg, ex: abiword-1.2.3.
-#/tmp/petget_filterversion has the repository that installing from.
+# Called from installpreview.sh.
+# Passed param (also variable TREE1) is name of pkg, ex: abiword-1.2.3.
+# /tmp/petget_filterversion has the repository that installing from.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
 
 echo "$0: START" >&2
 
