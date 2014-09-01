@@ -5,6 +5,11 @@
 #v424 reintroduce the 'ALL' category, for ppup build only.
 #v425 enable ENTER key for find box.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -33,9 +38,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 echo "$0: START" >&2
 
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-
 export LANG=C
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
@@ -61,7 +63,7 @@ COMPAT_REPO=""
 COMPAT_DBS=""
 echo -n "" > "$tmpDIR"/petget_active_repo_list
 if [ "$DISTRO_BINARY_COMPAT" != "puppy" ];then #w477 if compat-distro is puppy, bypass.
- for ONE_DB in `ls -1 /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}* | tr '\n' ' '`
+ for ONE_DB in `ls -1 /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}*`
  do
   BASEREPO=`basename $ONE_DB`
   bPATTERN=' '"$BASEREPO"' '
@@ -76,7 +78,7 @@ fi
 
 xrepocnt=$repocnt #w476
 PUPPY_DBS=""
-for ONE_DB in `ls -1 /root/.packages/Packages-puppy* | sort -r | tr '\n' ' '`
+for ONE_DB in `ls -1 /root/.packages/Packages-puppy* | sort -r`
 do
  BASEREPO=`basename $ONE_DB`
  bPATTERN=' '"$BASEREPO"' '
