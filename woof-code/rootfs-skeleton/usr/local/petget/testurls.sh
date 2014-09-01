@@ -1,8 +1,22 @@
 #!/bin/sh
-#called from /usr/local/petget/downloadpkgs.sh
-#/tmp/petget_repos has the list of repos, each line in this format:
-#repository.slacky.eu|http://repository.slacky.eu/slackware-12.2|Packages-slackware-12.2-slacky
-#...only the first field is of interest in this script.
+# Called from /usr/local/petget/downloadpkgs.sh
+# /tmp/petget_repos has the list of repos, each line in this format:
+# repository.slacky.eu|http://repository.slacky.eu/slackware-12.2|Packages-slackware-12.2-slacky
+# ...only the first field is of interest in this script.
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
 
 echo "$0: START" >&2
 
