@@ -4,6 +4,11 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # Find all pkgs that have been user-installed, format for display.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -31,9 +36,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
