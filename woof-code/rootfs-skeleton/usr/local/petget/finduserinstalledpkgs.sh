@@ -4,8 +4,8 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # Find all pkgs that have been user-installed, format for display.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=find_installed_packages
+_COMMENT_="Convert $HOME/.packages/user-installed-packages to installedpkgs.results"
 
 MY_SELF="$0"
 
