@@ -50,9 +50,12 @@ exit 1
 }
 
 export LANG=C
-. /etc/rc.d/PUPSTATE  #this has PUPMODE and SAVE_LAYER.
-. /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+. /etc/rc.d/PUPSTATE #this has PUPMODE and SAVE_LAYER.
+. /etc/DISTRO_SPECS  #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+
 mkdir -p /tmp/petget #101225
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
 DLPKG="$1"
 DLPKG_BASE=`basename $DLPKG` #ex: scite-1.77-i686-2as.tgz
@@ -67,9 +70,9 @@ case $DLPKG_BASE in
   DLPKG_MAIN=`basename $DLPKG_BASE .pet`
   FULLSIZE=`stat --format=%s "${DLPKG_BASE}"`
   ORIGSIZE=`expr $FULLSIZE - 32`
-  dd if="${DLPKG_BASE}" of=/tmp/petget/petmd5sum bs=1 skip=${ORIGSIZE} 2>$OUT
+  dd if="${DLPKG_BASE}" of="$tmpDIR"/petmd5sum bs=1 skip=${ORIGSIZE} 2>$OUT
   sync
-  MD5SUM=`cat /tmp/petget/petmd5sum`
+  MD5SUM=`cat "$tmpDIR"/petmd5sum`
   pet2tgz $DLPKG_BASE
   [ $? -ne 0 ] && FLAG="bad"
   if [ -f ${DLPKG_PATH}/${DLPKG_MAIN}.tar.gz ];then
@@ -79,11 +82,11 @@ case $DLPKG_BASE in
  ;;
  *.*pet)
    case $DLPKG_BASE in
-   *.b2pet) OPT=-b;COMPRESS_EXT=bz2;CE=$COMPRESS_EXT;;
-   *.lopet) OPT=-l;COMPRESS_EXT=lzo;CE=$COMPRESS_EXT;;
+   *.b2pet) OPT=-b;COMPRESS_EXT=bz2; CE=$COMPRESS_EXT;;
+   *.lopet) OPT=-l;COMPRESS_EXT=lzo; CE=$COMPRESS_EXT;;
    *.lapet) OPT=-L;COMPRESS_EXT=lzma;CE=$COMPRESS_EXT;;
-   *.xzpet) OPT=-x;COMPRESS_EXT=xz;CE=$COMPRESS_EXT;;
-   *) OPT=-g;COMPRESS_EXT=gz;CE=$COMPRESS_EXT;;;;
+   *.xzpet) OPT=-x;COMPRESS_EXT=xz;  CE=$COMPRESS_EXT;;
+   *)       OPT=-g;COMPRESS_EXT=gz;  CE=$COMPRESS_EXT;;
    esac
   pet2tgz $OPT $DLPKG_BASE
    [ $? -ne 0 ] && error_1 "pet2tgz $OPT $DLPKG_BASE"
@@ -142,11 +145,11 @@ case $DLPKG_BASE in
  *.tar.*)
   TAR_COMPRESS_EXT="${DLPKG_BASE##*\.}";TCE=$TAR_COMPRESS_EXT
     case $TCE in
-      gz)   COMPRESSBIN=gzip;TEST=--test;;
+      gz)   COMPRESSBIN=gzip; TEST=--test;;
       bz2)  COMPRESSBIN=bzip2;TEST=--test;;
-      lzo)  COMPRESSBIN=lzopTEST=--test;;;
-      lzma) COMPRESSBIN=lzma;TEST=--test;;
-      xz)   COMPRESSBIN=xz;TEST=--test;;
+      lzo)  COMPRESSBIN=lzop; TEST=--test;;
+      lzma) COMPRESSBIN=lzma; TEST=--test;;
+      xz)   COMPRESSBIN=xz;   TEST=--test;;
     esac
     [ "`which $COMPRESSBIN`" ] || error_1 "'$COMPRESSBIN' Not found ?"
    $COMPRESSBIN $TEST $DLPKG_BASE >$OUT 2>$ERR
@@ -164,5 +167,6 @@ failed.
  exit 1
 fi
 echo "$0: END" >&2
-exit $?
+#exit $?
+exit $STATUS
 ###END###
