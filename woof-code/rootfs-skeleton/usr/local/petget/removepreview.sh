@@ -11,8 +11,8 @@
 #v424 support post-uninstall script for .pet pkgs.
 #v424 need info box if user has clicked when no pkgs installed.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=uninstall_preview
+_COMMENT_="Confirm uninstallation of a software package."
 
 MY_SELF="$0"
 
