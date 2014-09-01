@@ -45,6 +45,9 @@ OUT=/dev/null;ERR=$OUT
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 DB_pkgname="$TREE2"
 
 #v424 info box, nothing yet installed...
@@ -118,8 +121,8 @@ DEP_PKGS=`grep -v "$remPATTERN" /root/.packages/user-installed-packages | cut -f
 
 #remove records of pkg...
 rm -f /root/.packages/${DB_pkgname}.files
-grep -v "$remPATTERN" /root/.packages/user-installed-packages > /tmp/petget-user-installed-pkgs-rem
-cp -f /tmp/petget-user-installed-pkgs-rem /root/.packages/user-installed-packages
+grep -v "$remPATTERN" /root/.packages/user-installed-packages > "$tmpDIR"/petget-user-installed-pkgs-rem
+cp -f "$tmpDIR"/petget-user-installed-pkgs-rem /root/.packages/user-installed-packages
 
 #v424 .pet pckage may have post-uninstall script, which was originally named puninstall.sh
 #but /usr/local/petget/installpkg.sh moved it to /root/.packages/$DB_pkgname.remove
@@ -130,12 +133,12 @@ fi
 
 #remove temp file so main gui window will re-filter pkgs display...
 FIRSTCHAR=`echo -n "$DB_pkgname" | cut -c 1 | tr '[A-Z]' '[a-z]'`
-rm -f /tmp/petget_fltrd_repo_${FIRSTCHAR}* 2>$OUT
-rm -f /tmp/petget_fltrd_repo_?${FIRSTCHAR}* 2>$OUT
-[ "`echo -n "$FIRSTCHAR" | grep '[0-9]'`" != "" ] && rm -f /tmp/petget_fltrd_repo_0* 2>$OUT
+rm -f "$tmpDIR"/petget_fltrd_repo_${FIRSTCHAR}* 2>$OUT
+rm -f "$tmpDIR"/petget_fltrd_repo_?${FIRSTCHAR}* 2>$OUT
+[ "`echo -n "$FIRSTCHAR" | grep '[0-9]'`" != "" ] && rm -f "$tmpDIR"/petget_fltrd_repo_0* 2>$OUT
 
 #announce any deps that might be removable...
-echo -n "" > /tmp/petget-deps-maybe-rem
+echo -n "" > "$tmpDIR"/petget-deps-maybe-rem
 cut -f 1,2,10 -d '|' /root/.packages/user-installed-packages |
 while read ONEDB
 do
@@ -143,13 +146,13 @@ do
  ONE_nameonly=`echo -n "$ONEDB" | cut -f 2 -d '|'`
  ONE_description=`echo -n "$ONEDB" | cut -f 3 -d '|'`
  opPATTERN='^'"$ONE_nameonly"'$'
- [ "`echo "$DEP_PKGS" | grep "$opPATTERN"`" != "" ] && echo "$ONE_pkgname DESCRIPTION: $ONE_description" >> /tmp/petget-deps-maybe-rem
+ [ "`echo "$DEP_PKGS" | grep "$opPATTERN"`" != "" ] && echo "$ONE_pkgname DESCRIPTION: $ONE_description" >> "$tmpDIR"/petget-deps-maybe-rem
 done
 EXTRAMSG=""
-if [ -s /tmp/petget-deps-maybe-rem ];then
- #MAYBEREM=`cat /tmp/petget-deps-maybe-rem` # wrap=\"false\"
+if [ -s "$tmpDIR"/petget-deps-maybe-rem ];then
+ #MAYBEREM=`cat "$tmpDIR"/petget-deps-maybe-rem` # wrap=\"false\"
  #nah, just list the names, not descriptions...
- MAYBEREM=`cat /tmp/petget-deps-maybe-rem | cut -f 1 -d ' ' | tr '\n' ' '`
+ MAYBEREM=`cat "$tmpDIR"/petget-deps-maybe-rem | cut -f 1 -d ' ' | tr '\n' ' '`
  EXTRAMSG="<text><label>Perhaps you don't need these dependencies that you had also installed:</label></text> <text use-markup=\"true\"><label>\"<b>${MAYBEREM}</b>\"</label></text><text><label>...if you do want to remove them, you will have to do so back on the main window, after clicking the 'Ok' button below (perhaps make a note of the package names on a scrap of paper right now)</label></text>"
 fi
 
