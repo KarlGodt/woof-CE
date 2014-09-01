@@ -5,8 +5,8 @@
 #v424 reintroduce the 'ALL' category, for ppup build only.
 #v425 enable ENTER key for find box.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=PPM
+_COMMENT_="Puppy Package Manager main GUI"
 
 MY_SELF="$0"
 
