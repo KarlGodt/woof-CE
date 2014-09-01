@@ -30,18 +30,21 @@ DBG="echo $Script_Dir$Pro line :$LINENO"  ####krg---debugging value---<<<<
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 files(){
-/tmp/missinglibs.txt
-/tmp/missingpkgs.txt
+"$tmpDIR"/missinglibs.txt
+"$tmpDIR"/missingpkgs.txt
 /root/.packages/user-installed-packages
-/tmp/petget_missingpkgs_patterns
-/tmp/petget_depchk_buttons
-/tmp/sort.criteria
+"$tmpDIR"/petget_missingpkgs_patterns
+"$tmpDIR"/petget_depchk_buttons
+"$tmpDIR"/sort.criteria
 /usr/local/petget/check_deps.sh
 }
 
-echo -n "" > /tmp/missinglibs.txt
-echo -n "" > /tmp/missingpkgs.txt
+echo -n "" > "$tmpDIR"/missinglibs.txt
+echo -n "" > "$tmpDIR"/missingpkgs.txt
 
 dependcheckfunc() {
  #entered with ex: APKGNAME=abiword-1.2.3
@@ -64,8 +67,8 @@ cat /root/.packages/${APKGNAME}\.files
    LDDRESULT="`ldd $ONEFILE`"
    MISSINGLIBS="`echo "$LDDRESULT" | grep "not found" | cut -f 2 | cut -f 1 -d " " | tr "\n" " "`"
    if [ ! "$MISSINGLIBS" = "" ];then
-    echo "File $ONEFILE has these missing library files:" >> /tmp/missinglibs.txt
-    echo " $MISSINGLIBS" >> /tmp/missinglibs.txt
+    echo "File $ONEFILE has these missing library files:" >> "$tmpDIR"/missinglibs.txt
+    echo " $MISSINGLIBS" >> "$tmpDIR"/missinglibs.txt
    fi
   fi
  done
@@ -79,9 +82,9 @@ missingpkgsfunc() {
  X2PID=$!
   USER_DB_dependencies="`cat /root/.packages/user-installed-packages | cut -f 9 -d '|' | tr ',' '\n' | sort -u | tr '\n' ','`"
   /usr/local/petget/findmissingpkgs.sh "$USER_DB_dependencies"
-  #...returns /tmp/petget_installed_patterns_all, /tmp/petget_pkg_deps_patterns, /tmp/petget_missingpkgs_patterns
-  MISSINGDEPS_PATTERNS="`cat /tmp/petget_missingpkgs_patterns`" #v431
-  #/tmp/petget_missingpkgs_patterns has a list of missing dependencies, format ex:
+  #...returns "$tmpDIR"/petget_installed_patterns_all, "$tmpDIR"/petget_pkg_deps_patterns, "$tmpDIR"/petget_missingpkgs_patterns
+  MISSINGDEPS_PATTERNS="`cat "$tmpDIR"/petget_missingpkgs_patterns`" #v431
+  #"$tmpDIR"/petget_missingpkgs_patterns has a list of missing dependencies, format ex:
   #|kdebase|
   #|kdelibs|
   #|mesa|
@@ -101,11 +104,11 @@ else
      <label>Check dependencies</label>
      <action type=\"exit\">BUTTON_CHK_DEPS</action>
      </button>"
- #echo -n "" > /tmp/petget_depchk_buttons
+ #echo -n "" > "$tmpDIR"/petget_depchk_buttons
 
- #rm -f /tmp/petget_depchk_buttons.*
- if [ ! -f /tmp/petget_depchk_buttons ] ; then
- echo -n "" > /tmp/petget_depchk_buttons
+ #rm -f "$tmpDIR"/petget_depchk_buttons.*
+ if [ ! -f "$tmpDIR"/petget_depchk_buttons ] ; then
+ echo -n "" > "$tmpDIR"/petget_depchk_buttons
  TOTAL=`cat /root/.packages/user-installed-packages | wc -l`
  yaf-splash -bg yellow -timeout $((TOTAL/5)) -text "Building database list ..." &
  rm -f /root/.packages/user-installed-packages-rev
@@ -113,9 +116,9 @@ else
  sed -n "$i p" /root/.packages/user-installed-packages >> /root/.packages/user-installed-packages-rev
  done
 
- cat -n /root/.packages/user-installed-packages | cut -f 1,10 -d '|' | sed 's/^[[:blank:]]*//g' | tr '\t' ' ' | tr -s ' ' | sed 's/^\([0-9]* \)\(.*\)/\2\|\1/g' > /tmp/petget_depchk_buttons-orig
+ cat -n /root/.packages/user-installed-packages | cut -f 1,10 -d '|' | sed 's/^[[:blank:]]*//g' | tr '\t' ' ' | tr -s ' ' | sed 's/^\([0-9]* \)\(.*\)/\2\|\1/g' > "$tmpDIR"/petget_depchk_buttons-orig
 
- ls -l /root/.packages/* | tr '[[:blank:]]' ' ' | tr -s ' ' | cut -f 6,8 -d ' ' >/tmp/petget_chdeps_ls_l
+ ls -l /root/.packages/* | tr '[[:blank:]]' ' ' | tr -s ' ' | cut -f 6,8 -d ' ' >"$tmpDIR"/petget_chdeps_ls_l
 
  NR=$TOTAL
  cat /root/.packages/user-installed-packages-rev | cut -f 1,10 -d '|' |
@@ -127,7 +130,7 @@ else
   grepPattern9=${ONEPKG//-/\\-}
   grepPattern=${grepPattern9//./\\.}
   echo grepPattern="$grepPattern"
-  oneTime=`grep "$grepPattern" /tmp/petget_chdeps_ls_l | head -n1 | cut -f 1 -d ' '`
+  oneTime=`grep "$grepPattern" "$tmpDIR"/petget_chdeps_ls_l | head -n1 | cut -f 1 -d ' '`
   [ -z "$oneTime" ] && oneTime='Name of flieslist file and package differ'
   ONEDESCR="`echo -n "$ONEPKGSPEC" | cut -f 2 -d '|'`"
 
@@ -135,20 +138,20 @@ else
   elif [ "$NR" -gt 9 ] && [ "$NR" -lt 100 ] ; then NRf="0$NR";
   else NRf=$NR;
   fi
-  # echo "<radiobutton><label>${ONEPKG} DESCRIPTION: ${ONEDESCR}</label><variable>RADIO_${ONEPKG}</variable></radiobutton>" >> /tmp/petget_depchk_buttons
-  echo "${ONEPKG} | DESCRIPTION: ${ONEDESCR} | ${oneTime} | $NRf" >> /tmp/petget_depchk_buttons
+  # echo "<radiobutton><label>${ONEPKG} DESCRIPTION: ${ONEDESCR}</label><variable>RADIO_${ONEPKG}</variable></radiobutton>" >> "$tmpDIR"/petget_depchk_buttons
+  echo "${ONEPKG} | DESCRIPTION: ${ONEDESCR} | ${oneTime} | $NRf" >> "$tmpDIR"/petget_depchk_buttons
   NR=$((NR-1)) ;
  done
  fi
- cp /tmp/petget_depchk_buttons /tmp/petget_depchk_buttons-rev
- echo 'rev' > /tmp/sort.criteria
+ cp "$tmpDIR"/petget_depchk_buttons "$tmpDIR"/petget_depchk_buttons-rev
+ echo 'rev' > "$tmpDIR"/sort.criteria
 
- RADBUTTONS="`cat /tmp/petget_depchk_buttons`"
+ RADBUTTONS="`cat "$tmpDIR"/petget_depchk_buttons`"
  if [ "$RADBUTTONS" = "" ];then
   ACTIONBUTTON=""
   # RADBUTTONS="<text use-markup=\"true\"><label>\"<b>No packages installed by user, click 'Cancel' button</b>\"</label></text>"
-  echo "No packages installed by user, click 'Cancel' button." > /tmp/petget_depchk_buttons
- fi ; echo '0' > /tmp/sort.count
+  echo "No packages installed by user, click 'Cancel' button." > "$tmpDIR"/petget_depchk_buttons
+ fi ; echo '0' > "$tmpDIR"/sort.count
  export DEPS_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
    <text><label>Please choose what package you would like to check the dependencies of:</label></text>
@@ -156,14 +159,14 @@ else
     <tree>
      <label> Package List              | Description       | Time stamp | Nr  </label>
       <variable>ONEPKG</variable>
-      <input>cat /tmp/petget_depchk_buttons</input>
+      <input>cat \"$tmpDIR\"/petget_depchk_buttons</input>
       <width>700</width><height>180</height>
     </tree>
    </frame>
    <hbox>
     ${ACTIONBUTTON}
     <button><input file stock=\"gtk-add\"></input><label>Refresh db</label>
-    <action>rm -f /tmp/petget_depchk*</action>
+    <action>rm -f \"$tmpDIR\"/petget_depchk*</action>
     <action>$0 &</action>
     <action>EXIT:newDB</action>
     </button>
@@ -175,7 +178,7 @@ else
     <action>refresh:ONEPKG</action>
     <action>refresh:SORTCRITERIA</action>
     </button>
-    <text><label>\"\"</label><variable>SORTCRITERIA</variable><input file>/tmp/sort.criteria</input></text>
+    <text><label>\"\"</label><variable>SORTCRITERIA</variable><input file>\"$tmpDIR\"/sort.criteria</input></text>
     <button><input file stock=\"gtk-quit\"></input><label>..bye..</label>
     <action>EXIT:QUIT</action>
     </button>
@@ -206,11 +209,11 @@ missingpkgsfunc
 
 #present results to user...
 MISSINGMSG1="<text use-markup=\"true\"><label>\"<b>No missing shared libraries</b>\"</label></text>"
-if [ -s /tmp/missinglibs.txt ];then
- MISSINGMSG1="<text use-markup=\"true\"><label>\"<b>`cat /tmp/missinglibs.txt`</b>\"</label></text>"
+if [ -s "$tmpDIR"/missinglibs.txt ];then
+ MISSINGMSG1="<text use-markup=\"true\"><label>\"<b>`cat \"$tmpDIR\"/missinglibs.txt`</b>\"</label></text>"
 fi
 MISSINGMSG2="<text use-markup=\"true\"><label>\"<b>No missing dependent packages</b>\"</label></text>"
-if [ "$MISSINGDEPS_PATTERNS" != "" ];then #[ -s /tmp/petget_missingpkgs ];then
+if [ "$MISSINGDEPS_PATTERNS" != "" ];then #[ -s "$tmpDIR"/petget_missingpkgs ];then
  MISSINGPKGS="`echo "$MISSINGDEPS_PATTERNS" | sed -e 's%|%%g' | tr '\n' ' '`" #v431
  MISSINGMSG2="<text use-markup=\"true\"><label>\"<b>${MISSINGPKGS}</b>\"</label></text>"
 fi
