@@ -2,10 +2,9 @@
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
 # Called from /usr/local/petget/installpreview.sh
-# The database entries for the packages to be installed are in /tmp/petget_missing_dbentries-*
-# ex: /tmp/petget_missing_dbentries-Packages-slackware-12.2-official
+# The database entries for the packages to be installed are in "$tmpDIR"/petget_missing_dbentries-*
+# ex: "$tmpDIR"/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
-
 
 #************
 #KRG
@@ -47,11 +46,14 @@ PASSEDPARAM=""
 . /root/.packages/DISTRO_PET_REPOS    #has PET_REPOS, PACKAGELISTS_PET_ORDER
 . /root/.packages/DISTRO_COMPAT_REPOS #v431 has REPOS_DISTRO_COMPAT
 
-echo -n "" > /tmp/petget-installed-pkgs.log
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
-for ONELIST in `ls -1 /tmp/petget_missing_dbentries-Packages-*`
+echo -n "" > "$tmpDIR"/petget-installed-pkgs.log
+
+for ONELIST in `ls -1 "$tmpDIR"/petget_missing_dbentries-Packages-*`
 do
- echo -n "" > /tmp/petget_repos
+ echo -n "" > "$tmpDIR"/petget_repos
  LISTNAME=`echo -n "$ONELIST" | grep -o 'Packages.*'`
 
  #have the compat-distro repo urls in /root/.packages/DISTRO_PKGS_SPECS,
@@ -63,7 +65,7 @@ do
   #PARTPKGDB may have a glob * wildcard, convert to reg.expr., also backslash '-'...
   PARTPKGDB=`echo -n "$PARTPKGDB" | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
   ONEURLENTRY_1_2=`echo -n "$ONEURLENTRY" | cut -f 1,2 -d '|'`
-  [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${ONEURLENTRY_1_2}|${LISTNAME}" >> /tmp/petget_repos
+  [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${ONEURLENTRY_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
  done
 
 echo $LINENO >&2
@@ -74,21 +76,21 @@ echo $LINENO >&2
   do
    ONEPETREPO_3_PATTERN=`echo -n "$ONEPETREPO" | cut -f 3 -d '|' | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
    ONEPETREPO_1_2=`echo -n "$ONEPETREPO" | cut -f 1,2 -d '|'`
-   [ "`echo -n "$LISTNAME" | grep "$ONEPETREPO_3_PATTERN"`" != "" ] && echo "${ONEPETREPO_1_2}|${LISTNAME}" >> /tmp/petget_repos
+   [ "`echo -n "$LISTNAME" | grep "$ONEPETREPO_3_PATTERN"`" != "" ] && echo "${ONEPETREPO_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
    #...ex: ibiblio.org|http://distro.ibiblio.org/pub/linux/distributions/puppylinux|Packages-puppy-4-official
   done
  fi
 
- sort --key=1 --field-separator="|" --unique /tmp/petget_repos > /tmp/petget_repos-tmp
- mv -f /tmp/petget_repos-tmp /tmp/petget_repos
+ sort --key=1 --field-separator="|" --unique "$tmpDIR"/petget_repos > "$tmpDIR"/petget_repos-tmp
+ mv -f "$tmpDIR"/petget_repos-tmp "$tmpDIR"/petget_repos
 
- #/tmp/petget_repos has a list of repos for downloading these packages.
+ #"$tmpDIR"/petget_repos has a list of repos for downloading these packages.
  #now put up a window, request which url to use...
 
  LISTNAMECUT=`echo -n "$LISTNAME" | cut -f 2-9 -d '-'` #take Packages- off.
 
  REPOBUTTONS=""
- for ONEREPOSPEC in `cat /tmp/petget_repos`
+ for ONEREPOSPEC in `cat "$tmpDIR"/petget_repos`
  do
   URL_TEST=`echo -n "$ONEREPOSPEC" | cut -f 1 -d '|'`
   URL_FULL=`echo -n "$ONEREPOSPEC" | cut -f 2 -d '|'`
@@ -153,7 +155,7 @@ echo $LINENO >&2
   DOWNLOADFROM="file://${LOCALDIR}"
  else
   URL_BASIC=`echo "$RETPARAMS" | grep 'RADIO_URL_' | grep '"true"' | cut -f 1 -d '=' | cut -f 3 -d '_'`
-  DOWNLOADFROM=`cat /tmp/petget_repos | grep "$URL_BASIC" | head -n 1 | cut -f 2 -d '|'`
+  DOWNLOADFROM=`cat "$tmpDIR"/petget_repos | grep "$URL_BASIC" | head -n 1 | cut -f 2 -d '|'`
  fi
 
 echo $LINENO >&2
@@ -176,7 +178,7 @@ echo $LINENO >&2
     /usr/local/petget/verifypkg.sh /root/$DLPKG
    else
     /usr/local/petget/installpkg.sh /root/$DLPKG
-    #...appends pkgname and category to /tmp/petget-installed-pkgs-log if successful.
+    #...appends pkgname and category to "$tmpDIR"/petget-installed-pkgs-log if successful.
    fi
    if [ $? -ne 0 ];then
     #xmessage -bg red -title "Puppy Package Manager" "ERROR: faulty download of $DLPKG"
@@ -236,9 +238,9 @@ fi
 echo $LINENO >&2
 
 #announce summary of successfully installed pkgs...
-#installpkg.sh will have logged to /tmp/petget-installed-pkgs-log
-if [ -s /tmp/petget-installed-pkgs.log ];then
- INSTALLEDMSG=`cat /tmp/petget-installed-pkgs.log`
+#installpkg.sh will have logged to "$tmpDIR"/petget-installed-pkgs-log
+if [ -s "$tmpDIR"/petget-installed-pkgs.log ];then
+ INSTALLEDMSG=`cat "$tmpDIR"/petget-installed-pkgs.log`
  CAT_MSG="Note: the package(s) do not have a menu entry."
  [ "`echo "$INSTALLEDMSG" | grep -o 'CATEGORY' | grep -v 'none'`" != "" ] && CAT_MSG="...look in the appropriate category in the menu (bottom-left of screen) to run the application. Note, some packages do not have a menu entry." #424 fix.
  export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
@@ -306,8 +308,8 @@ echo $LINENO >&2
     if [ "$ENTRY_LOCALE" != "" ];then
      if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/' | grep -v -E "$elPATTERN"`" != "" ];then
       rm -f "$ONEFILE"
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > /tmp/petget_pkgfiles_temp
-      mv -f /tmp/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
+      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+      mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
     fi
@@ -315,8 +317,8 @@ echo $LINENO >&2
     if [ "$CHECK_DOCDEL" = "true" ];then
      if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/man/|/doc/|/doc-base/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
       rm -f "$ONEFILE" 2>$ERR
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > /tmp/petget_pkgfiles_temp
-      mv -f /tmp/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
+      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+      mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
     fi
@@ -324,15 +326,15 @@ echo $LINENO >&2
     if [ "$CHECK_DEVDEL" = "true" ];then
      if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
       rm -f "$ONEFILE" 2>$ERR
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > /tmp/petget_pkgfiles_temp
-      mv -f /tmp/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
+      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+      mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
      #all .a and .la files... and any stray .m4 files...
      if [ "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" != "" ];then
       rm -f "$ONEFILE"
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > /tmp/petget_pkgfiles_temp
-      mv -f /tmp/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
+      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+      mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
      fi
     fi
    done
