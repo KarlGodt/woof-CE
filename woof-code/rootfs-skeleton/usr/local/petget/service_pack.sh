@@ -48,6 +48,8 @@ fi
 . /root/.packages/DISTRO_PET_REPOS #has PET_REPOS, PKG_DOCS_PET_REPOS
 
 mkdir -p /tmp/petget
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
 DBFILE="Packages\-puppy\-${DISTRO_DB_SUBNAME}\-"
 URLSPEC0="$(echo "$PKG_DOCS_PET_REPOS" | tr ' ' '\n' | grep "$DBFILE" | head -n 1 | cut -f 2 -d '|' | rev | cut -f 2-9 -d '/' | rev)"
@@ -62,10 +64,10 @@ ping -4 -c 1 $URLPING
 #find all service packs...
 #note, can use wildcard to test if file exists, if need to look for alternate versions, ex:
 # wget -4 -t 2 -T 20 --waitretry=20 --spider -S --recursive --no-parent --no-directories -A 'avast-*.pet' 'http://distro.ibiblio.org/quirky/pet_packages-common/'
-wget -4 -t 2 -T 20 --waitretry=20 --spider -S --recursive --no-parent --no-directories -A 'service_pack*.pet' "$URLSPEC" > /tmp/petget/service_pack_probe 2>&1
+wget -4 -t 2 -T 20 --waitretry=20 --spider -S --recursive --no-parent --no-directories -A 'service_pack*.pet' "$URLSPEC" > "$tmpDIR"/service_pack_probe 2>&1
 PTN1=" ${URLSPEC}service_pack.*\.pet$"
 #ex line in file: --2012-11-25 09:01:13--  http://distro.ibiblio.org/quirky/pet_packages-precise/service_pack-5.4.1_TO_5.4.1.1_precise.pet
-FNDPETURLS="$(grep -o "$PTN1" /tmp/petget/service_pack_probe | grep -v '\*' | tr '\n' ' ')"
+FNDPETURLS="$(grep -o "$PTN1" "$tmpDIR"/service_pack_probe | grep -v '\*' | tr '\n' ' ')"
 
 [ "$FNDPETURLS" = "" ] && exit 3
 [ "$FNDPETURLS" = " " ] && exit 3
@@ -83,7 +85,7 @@ do
 done
 
 CNT=0; RADIOXML=''; STARTVER=0.0; ENDVER='0.0'; ENDVERbiggest='0.0'; PETbest=''
-#echo -n "" > /tmp/petget/service_pack_hack
+#echo -n "" > "$tmpDIR"/service_pack_hack
 for APETURL in $FNDPETURLS
 do
  ABASE="$(basename $APETURL)"
@@ -98,13 +100,13 @@ do
     [ "$FNDINST" != "" ] && continue
     CNT=`expr $CNT + 1`
     #find the size...
-    PARAS="$(cat /tmp/petget/service_pack_probe | sed -e 's%^$%BLANKLINE%' | tr '\n' ' ' | tr -s ' ' | sed -e 's%BLANKLINE%\n%g')"
+    PARAS="$(cat "$tmpDIR"/service_pack_probe | sed -e 's%^$%BLANKLINE%' | tr '\n' ' ' | tr -s ' ' | sed -e 's%BLANKLINE%\n%g')"
     LENB=`echo "$PARAS" | grep "/${ABASE}" | grep -o ' Length: [0-9]* ' | cut -f 3 -d ' '`
     [ ! $LENB ] && LENB=0
     LENK=`expr $LENB \/ 1024`
     RADIOXML="${RADIOXML}
 <radiobutton><label>${ABASE} SIZE:${LENK}K</label><variable>RADIOVAR_${CNT}_</variable></radiobutton>"
-    #echo "PACKAGE: ${ABASE}  SIZE: ${LENK}K" >> /tmp/petget/service_pack_hack
+    #echo "PACKAGE: ${ABASE}  SIZE: ${LENK}K" >> "$tmpDIR"/service_pack_hack
     if vercmp $ENDVER gt $ENDVERbiggest;then
      ENDVERbiggest="$ENDVER"
      PETbest="$ABASE"
