@@ -41,6 +41,9 @@ export LANG=C
 . /root/.packages/DISTRO_PET_REPOS
 . /root/.packages/PKGS_MANAGEMENT   #has PKG_REPOS_ENABLED
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 #find what repos are currently in use...
 CHECKBOXES_REPOS=""
 for ONEREPO in `ls -1 /root/.packages/Packages-*`
@@ -115,8 +118,8 @@ do
   [ $repocnt -gt 5 ] && break #only allow 5 active repos in PPM.
  fi
 done
-grep -v '^PKG_REPOS_ENABLED' /root/.packages/PKGS_MANAGEMENT > /tmp/pkgs_management_tmp2
-mv -f /tmp/pkgs_management_tmp2 /root/.packages/PKGS_MANAGEMENT
+grep -v '^PKG_REPOS_ENABLED' /root/.packages/PKGS_MANAGEMENT > "$tmpDIR"/pkgs_management_tmp2
+mv -f "$tmpDIR"/pkgs_management_tmp2 /root/.packages/PKGS_MANAGEMENT
 echo "PKG_REPOS_ENABLED='${enabledrepos}'" >> /root/.packages/PKGS_MANAGEMENT
 
 echo "$0: END" >&2
