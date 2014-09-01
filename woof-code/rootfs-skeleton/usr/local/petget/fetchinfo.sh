@@ -1,7 +1,7 @@
 #!/bin/sh
 # Called from installpreview.sh.
 # Passed param (also variable TREE1) is name of pkg, ex: abiword-1.2.3.
-# /tmp/petget_filterversion has the repository that installing from.
+# "$tmpDIR"/petget_filterversion has the repository that installing from.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 
 test -f /etc/rc.d/f4puppy5 && {
@@ -26,8 +26,11 @@ OUT=/dev/null;ERR=$OUT
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 #ex: TREE1=abiword-1.2.4 (first field in database entry).
-DB_FILE=Packages-`cat /tmp/petget_filterversion` #ex: Packages-slackware-12.2-official
+DB_FILE=Packages-`cat "$tmpDIR"/petget_filterversion` #ex: Packages-slackware-12.2-official
 
 tPATTERN='^'"$TREE1"'|'
 DB_ENTRY="`grep "$tPATTERN" /root/.packages/$DB_FILE | head -n 1`"
@@ -59,9 +62,9 @@ case $DB_DISTRO in
    mv -f PACKAGES.TXT PACKAGES.TXT-${DB_SUB}
    kill $X5PID
   fi
-  cat /root/.packages/PACKAGES.TXT-${DB_SUB} | tr -s ' ' | sed -e 's% $%%' | tr '%' ' ' | tr '\n' '%' | sed -e 's/%%/@/g' | grep -o "PACKAGE NAME: ${DB_fullfilename}[^@]*" | tr '%' '\n' > /tmp/petget_slackware_pkg_extra_info
+  cat /root/.packages/PACKAGES.TXT-${DB_SUB} | tr -s ' ' | sed -e 's% $%%' | tr '%' ' ' | tr '\n' '%' | sed -e 's/%%/@/g' | grep -o "PACKAGE NAME: ${DB_fullfilename}[^@]*" | tr '%' '\n' > "$tmpDIR"/petget_slackware_pkg_extra_info
   sync
-  nohup leafpad /tmp/petget_slackware_pkg_extra_info &
+  nohup leafpad "$tmpDIR"/petget_slackware_pkg_extra_info &
  ;;
  debian)
   nohup defaulthtmlviewer http://packages.debian.org/${DB_RELEASE}/${DB_nameonly} &
@@ -73,12 +76,12 @@ case $DB_DISTRO in
   nohup defaulthtmlviewer http://www.archlinux.org/packages/${DB_SUB}/i686/${DB_nameonly}/ &
  ;;
  puppy|t2)
-  #rm -f /tmp/gethomepage_1 2>/dev/null
-  #wget --tries=2 --output-document=/tmp/gethomepage_1 http://club.mandriva.com/xwiki/bin/view/rpms/Application/$DB_nameonly
-  #LINK1="`grep 'View package information' /tmp/gethomepage_1 | head -n 1 | grep -o 'href=".*' | cut -f 2 -d '"'`"
-  #rm -f /tmp/gethomepage_2 2>/dev/null
-  #wget --tries=2 --output-document=/tmp/gethomepage_2 http://club.mandriva.com/xwiki/bin/view/rpms/Application/${LINK1}
-  #HOMELINK="`grep 'Homepage:' /tmp/gethomepage_2 | grep -o 'href=".*' | cut -f 2 -d '"'`"
+  #rm -f "$tmpDIR"/gethomepage_1 2>/dev/null
+  #wget --tries=2 --output-document="$tmpDIR"/gethomepage_1 http://club.mandriva.com/xwiki/bin/view/rpms/Application/$DB_nameonly
+  #LINK1="`grep 'View package information' "$tmpDIR"/gethomepage_1 | head -n 1 | grep -o 'href=".*' | cut -f 2 -d '"'`"
+  #rm -f "$tmpDIR"/gethomepage_2 2>/dev/null
+  #wget --tries=2 --output-document="$tmpDIR"/gethomepage_2 http://club.mandriva.com/xwiki/bin/view/rpms/Application/${LINK1}
+  #HOMELINK="`grep 'Homepage:' "$tmpDIR"/gethomepage_2 | grep -o 'href=".*' | cut -f 2 -d '"'`"
   #w019 fast (see also /usr/sbin/indexgen.sh)...
   HOMESITE="http://en.wikipedia.org/wiki/${DB_nameonly}"
   nEXPATTERN="^${DB_nameonly} "
