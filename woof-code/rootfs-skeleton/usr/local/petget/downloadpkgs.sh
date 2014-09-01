@@ -1,21 +1,18 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/installpreview.sh
-#The database entries for the packages to be installed are in /tmp/petget_missing_dbentries-*
-#ex: /tmp/petget_missing_dbentries-Packages-slackware-12.2-official
+# Called from /usr/local/petget/installpreview.sh
+# The database entries for the packages to be installed are in /tmp/petget_missing_dbentries-*
+# ex: /tmp/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
-
 
 
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -30,9 +27,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
@@ -47,9 +42,9 @@ export LANG=C
 PASSEDPARAM=""
 [ $1 ] && PASSEDPARAM="$1" #DOWNLOADONLY
 
-. /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
-. /root/.packages/DISTRO_PKGS_SPECS #
-. /root/.packages/DISTRO_PET_REPOS #has PET_REPOS, PACKAGELISTS_PET_ORDER
+. /etc/DISTRO_SPECS                   #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+. /root/.packages/DISTRO_PKGS_SPECS   #
+. /root/.packages/DISTRO_PET_REPOS    #has PET_REPOS, PACKAGELISTS_PET_ORDER
 . /root/.packages/DISTRO_COMPAT_REPOS #v431 has REPOS_DISTRO_COMPAT
 
 echo -n "" > /tmp/petget-installed-pkgs.log
