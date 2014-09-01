@@ -1,21 +1,17 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/installpreview.sh or check_deps.sh
-#/tmp/petget_pkg_name_aliases_patterns is written by pkg_chooser.sh.
-#passed param is a list of dependencies (DB_dependencies field of the pkg database).
-#results format, see comment end of this script.
-
-
+# Called from /usr/local/petget/installpreview.sh or check_deps.sh
+# /tmp/petget_pkg_name_aliases_patterns is written by pkg_chooser.sh.
+# Passed param is a list of dependencies (DB_dependencies field of the pkg database).
+# Results format, see comment end of this script.
 
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -30,9 +26,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
@@ -45,9 +39,9 @@ OUT=/dev/null;ERR=$OUT
 
 DB_dependencies="$1" #in standard format of the package database, field 9.
 
-. /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+. /etc/DISTRO_SPECS                 #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS #has PKGS_SPECS_TABLE
-. /root/.packages/PKGS_MANAGEMENT #has DISTRO_PPM_DEVX_EXCEPTIONS, PKG_ALIASES_INSTALLED
+. /root/.packages/PKGS_MANAGEMENT   #has DISTRO_PPM_DEVX_EXCEPTIONS, PKG_ALIASES_INSTALLED
 
 
 #need patterns of all installed pkgs...
