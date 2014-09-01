@@ -4,8 +4,8 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # ENTRY1 is a string, to search for a package.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=find_packages
+_COMMENT_="CLI Search Engine for PPM"
 
 MY_SELF="$0"
 
