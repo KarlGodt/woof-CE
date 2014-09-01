@@ -1,19 +1,15 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/pkg_chooser.sh
-#find all pkgs that have been user-installed, format for display.
-
-
+# Called from /usr/local/petget/pkg_chooser.sh
+# Find all pkgs that have been user-installed, format for display.
 
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -28,9 +24,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
