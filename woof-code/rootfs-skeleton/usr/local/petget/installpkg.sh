@@ -3,8 +3,8 @@
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
 # Called from /usr/local/petget/downloadpkgs.sh and petget.
 # Passed param is the path and name of the downloaded package.
-# /tmp/petget_missing_dbentries-Packages-* has database entries for the set of pkgs being downloaded.
-#w456 warning: petget may write to /tmp/petget_missing_dbentries-Packages-alien with missing fields.
+# "$tmpDIR"/petget_missing_dbentries-Packages-* has database entries for the set of pkgs being downloaded.
+#w456 warning: petget may write to "$tmpDIR"/petget_missing_dbentries-Packages-alien with missing fields.
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
@@ -48,8 +48,8 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 export LANG=C
-. /etc/rc.d/PUPSTATE  #this has PUPMODE and SAVE_LAYER.
-. /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+. /etc/rc.d/PUPSTATE #this has PUPMODE and SAVE_LAYER.
+. /etc/DISTRO_SPECS  #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 
 . /etc/xdg/menus/hierarchy #w478 has PUPHIERARCHY variable.
 
@@ -61,9 +61,12 @@ DLPKG="$1"
 DLPKG_BASE=`basename $DLPKG` #ex: scite-1.77-i686-2as.tgz
 DLPKG_PATH=`dirname $DLPKG`  #ex: /root
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 #get the pkg name ex: scite-1.77 ...
 dbPATTERN='|'"$DLPKG_BASE"'|'
-DLPKG_NAME=`cat /tmp/petget_missing_dbentries-Packages-* | grep "$dbPATTERN" | head -n 1 | cut -f 1 -d '|'`
+DLPKG_NAME=`cat "$tmpDIR"/petget_missing_dbentries-Packages-* | grep "$dbPATTERN" | head -n 1 | cut -f 1 -d '|'`
 
 ###NOTE### not working properly with aufs...
 ###TODO### maybe fix by comparing content .files and copy-up.
@@ -298,7 +301,7 @@ if [ -f /pet.specs -a -s /pet.specs ];then #w482 ignore zero-byte file.
 else
  [ -f /pet.specs ] && rm -f /pet.specs #w482 remove zero-byte file.
  dlPATTERN='|'"`echo -n "$DLPKG_BASE" | sed -e 's%\\-%\\\\-%'`"'|'
- DB_ENTRY=`cat /tmp/petget_missing_dbentries-Packages-* | grep "$dlPATTERN" | head -n 1`
+ DB_ENTRY=`cat "$tmpDIR"/petget_missing_dbentries-Packages-* | grep "$dlPATTERN" | head -n 1`
 fi
 
 echo $LINENO >&2
@@ -340,8 +343,8 @@ do
   [ "`echo "$PUPHIERARCHY" | tr -s ' ' | cut -f 3 -d ' ' | tr ',' ' ' | sed -e 's%^% %' -e 's%$% %' | grep "$oocPATTERN"`" != "" ] && CATFOUND="yes"
  done
  if [ "$CATFOUND" = "no" ];then
-  sed -e "$cPATTERN" $ONEDOT > /tmp/petget_category
-  mv -f /tmp/petget_category $ONEDOT
+  sed -e "$cPATTERN" $ONEDOT > "$tmpDIR"/petget_category
+  mv -f "$tmpDIR"/petget_category $ONEDOT
  else
   CATEGORY=`echo -n "$ONEORIGCAT" | rev | cut -f 1 -d ' ' | rev` #w482
  fi
@@ -351,8 +354,8 @@ do
   [ -e $ICON ] && continue #it may have a hardcoded path.
   [ "`find /usr/local/lib/X11 /usr/share/icons /usr/share/pixmaps /usr/local/share/pixmaps -name $ICON -o -name $ICON.png -o -name $ICON.xpm -o -name $ICON.jpg 2>/dev/null`" != "" ] && continue
   #substitute a default icon...
-  sed -e "$iPATTERN" $ONEDOT > /tmp/petget-installpkg-tmp
-  mv -f /tmp/petget-installpkg-tmp $ONEDOT
+  sed -e "$iPATTERN" $ONEDOT > "$tmpDIR"/petget-installpkg-tmp
+  mv -f "$tmpDIR"/petget-installpkg-tmp $ONEDOT
  fi
 done
 
@@ -365,8 +368,8 @@ while read ONEFILE
 do
  if [ ! -e "$ONEFILE" ];then
   ofPATTERN='^'"$ONEFILE"'$'
-  grep -v "$ofPATTERN" /root/.packages/${DLPKG_NAME}.files > /tmp/petget_instfiles
-  mv -f /tmp/petget_instfiles /root/.packages/${DLPKG_NAME}.files
+  grep -v "$ofPATTERN" /root/.packages/${DLPKG_NAME}.files > "$tmpDIR"/petget_instfiles
+  mv -f "$tmpDIR"/petget_instfiles /root/.packages/${DLPKG_NAME}.files
  fi
 done
 
@@ -409,7 +412,7 @@ echo "$DB_ENTRY" >> /root/.packages/user-installed-packages
 CATEGORY=`echo -n "$CATEGORY" | cut -f 1 -d ';'`
 [ "$CATEGORY" = "" ] && CATEGORY="none"
 [ "$CATEGORY" = "BuildingBlock" ] && CATEGORY="none"
-echo "PACKAGE: $DLPKG_NAME CATEGORY: $CATEGORY" >> /tmp/PetGet/petget-installed-pkgs.log
+echo "PACKAGE: $DLPKG_NAME CATEGORY: $CATEGORY" >> "$tmpDIR"/petget-installed-pkgs.log
 
 echo "$0: END" >&2
 
