@@ -1,25 +1,21 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from pkg_chooser.sh, provides filtered formatted list of uninstalled pkgs.
+# Called from pkg_chooser.sh, provides filtered formatted list of uninstalled pkgs.
 # ...this has written to /tmp/petget_pkg_first_char, ex: 'mn'
-#filter category may be passed param to this script, ex: 'Document'
+# Filter category may be passed param to this script, ex: 'Document'
 # or, /tmp/petget_filtercategory was written by pkg_chooser.sh.
-#repo may be written to /tmp/petget_filterversion by pkg_chooser.sh, ex: slackware-12.2-official
-#/tmp/petget_pkg_name_aliases_patterns setup in pkg_chooser.sh, name aliases.
-#written for Woof, standardised package database format.
+# Repo may be written to /tmp/petget_filterversion by pkg_chooser.sh, ex: slackware-12.2-official
+# /tmp/petget_pkg_name_aliases_patterns setup in pkg_chooser.sh, name aliases.
+# Written for Woof, standardised package database format.
 #v425 'ALL' may take awhile, put up please wait msg.
-
-
 
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -34,9 +30,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
