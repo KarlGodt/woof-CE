@@ -4,6 +4,11 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # Configure package manager
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -31,9 +36,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 export LANG=C
 . /etc/DISTRO_SPECS                 #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
