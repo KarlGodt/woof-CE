@@ -21,6 +21,11 @@ export TEXTDOMAIN=petget___service_pack.sh
 export OUTPUT_CHARSET=UTF-8
 #. gettext.sh
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
@@ -28,7 +33,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+ADD_HELP_MSG="Helper script for PPM ."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -67,7 +72,7 @@ ping -4 -c 1 $URLPING
 wget -4 -t 2 -T 20 --waitretry=20 --spider -S --recursive --no-parent --no-directories -A 'service_pack*.pet' "$URLSPEC" > "$tmpDIR"/service_pack_probe 2>&1
 PTN1=" ${URLSPEC}service_pack.*\.pet$"
 #ex line in file: --2012-11-25 09:01:13--  http://distro.ibiblio.org/quirky/pet_packages-precise/service_pack-5.4.1_TO_5.4.1.1_precise.pet
-FNDPETURLS="$(grep -o "$PTN1" "$tmpDIR"/service_pack_probe | grep -v '\*' | tr '\n' ' ')"
+FNDPETURLS="$(grep -o "$PTN1" "$tmpDIR"/service_pack_probe | grep -v '\*')"
 
 [ "$FNDPETURLS" = "" ] && exit 3
 [ "$FNDPETURLS" = " " ] && exit 3
@@ -76,7 +81,7 @@ spPTN1="|service_pack.*\.pet|"
 
 #121217 precaution, check highest already installed...
 INSTBIGGEST='0.0'
-INSTALLEDVERS="$(grep "$spPTN1" /root/.packages/user-installed-packages /root/.packages/woof-installed-packages | cut -f 3 -d '|' | cut -f 3 -d '_' | cut -f 1 -d '-' | tr '\n' ' ')"
+INSTALLEDVERS="$(grep "$spPTN1" /root/.packages/user-installed-packages /root/.packages/woof-installed-packages | cut -f 3 -d '|' | cut -f 3 -d '_' | cut -f 1 -d '-')"
 for ONEIN in $INSTALLEDVERS
 do
  if vercmp $ONEIN ge $INSTBIGGEST;then
