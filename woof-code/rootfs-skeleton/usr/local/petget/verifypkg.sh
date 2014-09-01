@@ -7,8 +7,8 @@
 #100616 add support for .txz slackware pkgs.
 #101225 bug fix, .pet was converted to .tar.gz, restore to .pet.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=verify_package
+_COMMENT_="just test the archive"
 
 MY_SELF="$0"
 
