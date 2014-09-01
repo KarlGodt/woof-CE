@@ -21,8 +21,8 @@ export TEXTDOMAIN=petget___service_pack.sh
 export OUTPUT_CHARSET=UTF-8
 #. gettext.sh
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=service_pack
+_COMMENT_="Check availability of a Service-Pack, download and install"
 
 MY_SELF="$0"
 
