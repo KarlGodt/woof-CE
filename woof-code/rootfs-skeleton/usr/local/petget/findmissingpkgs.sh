@@ -6,8 +6,8 @@
 # Passed param is a list of dependencies (DB_dependencies field of the pkg database).
 # Results format, see comment end of this script.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=find_missing_packages
+_COMMENT_="CLI to check for dependencies"
 
 MY_SELF="$0"
 
