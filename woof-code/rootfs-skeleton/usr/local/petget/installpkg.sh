@@ -8,8 +8,8 @@
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=install_package
+_COMMENT_="CLI to install the package and alter config files"
 
 MY_SELF="$0"
 
