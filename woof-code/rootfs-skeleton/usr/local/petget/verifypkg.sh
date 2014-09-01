@@ -7,6 +7,11 @@
 #100616 add support for .txz slackware pkgs.
 #101225 bug fix, .pet was converted to .tar.gz, restore to .pet.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -18,7 +23,7 @@ Version=1.1-KRG-MacPup_O2
 
 usage(){
 MSG="
-$0 [ help | version ]
+$0 [ help | version | DLPKG ]
 "
 echo "$MSG
 $2"
@@ -33,9 +38,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #************
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 error_1(){
 MSG="$0
