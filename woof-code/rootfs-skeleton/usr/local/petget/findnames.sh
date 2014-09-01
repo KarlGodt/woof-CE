@@ -4,6 +4,11 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # ENTRY1 is a string, to search for a package.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -32,9 +37,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 echo "$0: START" >&2
 
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-
 . /etc/DISTRO_SPECS                 #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS #has PKGS_SPECS_TABLE.
 . /root/.packages/DISTRO_PET_REPOS  #has PET_REPOS, PACKAGELISTS_PET_ORDER
@@ -45,7 +47,7 @@ test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 entryPATTERN='^'"`echo -n "$ENTRY1" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g' -e 's%\\*%.*%'`"
 
 CURRENTREPO=`cat "$tmpDIR"/petget_filterversion` #search here first.
-REPOLIST="${CURRENTREPO} `cat "$tmpDIR"/petget_active_repo_list | grep -v "$CURRENTREPO" | tr '\n' ' '`"
+REPOLIST="${CURRENTREPO} `cat "$tmpDIR"/petget_active_repo_list | grep -v "$CURRENTREPO"`"
 
 FNDIT=no
 for ONEREPO in $REPOLIST
