@@ -48,8 +48,17 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
          diff -q "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ./"$ONE_FILE" && continue #returns 1 if differ
 
+         modSYSfile=`stat -c %Y "$ONE_DIR_IN_SYSTEM/$ONE_FILE"`
+         modGITfile=`stat -c %Y ./"$ONE_FILE"`
+
+         if [ "$modSYSfile" -lt "$modGITfile" ]; then
+         echo FILE in GIT newer
+         cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
+         continue
+         else
          cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
          sleep 1
+         fi
 
          cd "$CURRENT_DIR" || error 1 "Could not cd into '$CURRENT_DIR'"
 
