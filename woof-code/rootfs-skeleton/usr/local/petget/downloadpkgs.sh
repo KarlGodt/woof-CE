@@ -6,6 +6,11 @@
 # ex: "$tmpDIR"/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -17,7 +22,8 @@ Version=1.1-KRG-MacPup_O2
 
 usage(){
 MSG="
-$0 [ help | version ]
+$0 [ help | version | PASSEDPARAM ]
+PASSEDPARAM : DOWNLOADONLY
 "
 echo "$MSG
 $2"
@@ -33,9 +39,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 export LANG=C
 PASSEDPARAM=""
