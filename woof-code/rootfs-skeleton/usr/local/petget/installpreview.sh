@@ -5,8 +5,8 @@
 # Package to be previewed prior to installation is TREE1 -- inherited from parent.
 # "$tmpDIR"/petget_filterversion has the repository that installing from.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=install_preview
+_COMMENT_="GTKdialogs for confirmation to install a package"
 
 MY_SELF="$0"
 
