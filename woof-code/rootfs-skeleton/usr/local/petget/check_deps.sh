@@ -3,14 +3,19 @@
 # When entered with a passed param, it is a list of pkgs, '|' delimited,
 # ex: abiword-1.2.3|aiksaurus-3.4.5|yabby-5.0
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
-ADD_PARAMETER_LIST=""
-ADD_PARAMETERS=""
+ADD_PARAMETER_LIST="PLG_LIST"
+ADD_PARAMETERS="Package List: |-delimited line of pkg names"
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+ADD_HELP_MSG="Helper script for PPM ."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -22,10 +27,10 @@ echo "$0: START" >&2
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
-Pro="/check_deps.sh"
+Pro="check_deps.sh"
 Script_Dir="/usr/local/petget"
-if test -f $Script_Dir/path ; then . $Script_Dir/path ; fi
-DBG="echo $Script_Dir$Pro line :$LINENO"  ####krg---debugging value---<<<<
+if test -f $Script_Dir/path; then . $Script_Dir/path; fi
+DBG="echo $Script_Dir/$Pro line :$LINENO"  ####krg---debugging value---<<<<
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
@@ -198,9 +203,9 @@ else
 
  # APKGNAME="`echo "$RETPARAMS" | grep '^RADIO_' | grep '"true"' | cut -f 1 -d '=' | cut -f 2 -d '_'`"
  APKGNAME=`echo "$RETPARAMS" | grep -w 'ONEPKG' | cut -f 2 -d '"' | cut -f 1 -d ' '`
- echo $DBG 119 ONEPKG $ONEPKG
- echo $DBG 120 RETPARAMS $RETPARAMS
- echo $DBG 121 'APKGNAME='"$APKGNAME"'='
+ echo "DBG $LINENO ONEPKG='$ONEPKG'"
+ echo "DBG $LINENO RETPARAMS='$RETPARAMS'"
+ echo "DBG $LINENO 'APKGNAME='$APKGNAME'"
  dependcheckfunc
 
 fi
@@ -219,7 +224,7 @@ if [ "$MISSINGDEPS_PATTERNS" != "" ];then #[ -s "$tmpDIR"/petget_missingpkgs ];t
 fi
 
 PKGS="$APKGNAME"
-[ $1 ] && PKGS="`echo -n "${1}" | tr '|' ' '`"
+[ "$1" ] && PKGS="`echo -n "${1}" | tr '|' ' '`"
 
 export DEPS_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
@@ -241,5 +246,5 @@ echo "$RETPARAMS" > /dev/console
 echo "$0: END" >&2
 
 #krg---Start again --->>>>
-[ ! "$1" ] && . /usr/local/petget/check_deps.sh
+[ "$1" ] || . /usr/local/petget/check_deps.sh
 ###END###
