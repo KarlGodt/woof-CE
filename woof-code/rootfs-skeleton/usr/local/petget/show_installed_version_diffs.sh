@@ -20,12 +20,15 @@ _parse_basic_parameters "$@"
 _trap
 }
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 #created by findnames.sh...
-[ ! -s /tmp/petget/filterpkgs.results.installed ] && exit
+[ ! -s "$tmpDIR"/filterpkgs.results.installed ] && exit
 
 #120908 "ALREADY INSTALLED" may not be helpful, as the versions may differ. display these...
 DIFFVERITEMS=""
-for ONEALREADYINSTALLED in `cut -f 1,2,3 -d '|' /tmp/petget/filterpkgs.results.installed`
+for ONEALREADYINSTALLED in `cut -f 1,2,3 -d '|' "$tmpDIR"/filterpkgs.results.installed`
 do
  #ex: langpack_de-20120718|langpack_de|20120718
  ONEPKG="$(echo -n "$ONEALREADYINSTALLED" | cut -f 1 -d '|')"
