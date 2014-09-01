@@ -8,14 +8,20 @@
 #130326 pass in $DLPKG_NAME as $2. font size fix for 96 dpi.
 #130507 kompozer needs MOZILLA_FIVE_HOME fix.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
-ADD_PARAMETER_LIST=""
-ADD_PARAMETERS=""
+ADD_PARAMETER_LIST="INSTALLEDPKG|INSTALLEDNAME"
+ADD_PARAMETERS="INSTALLEDPKG : Long package name without .ext
+INSTALLEDNAME: (any) For 78->96 fonsize hack."
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+ADD_HELP_MSG="Helper script for PPM ."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
