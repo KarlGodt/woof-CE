@@ -35,11 +35,14 @@ echo "$0: START" >&2
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 #/root/.packages/usr-installed-packages has the list of installed pkgs...
 touch /root/.packages/user-installed-packages
-sort -u /root/.packages/user-installed-packages >/tmp/installedpkgs.db
-cp --remove-destination /tmp/installedpkgs.db /root/.packages/user-installed-packages
-cut -f 1,10 -d '|' /root/.packages/user-installed-packages |sed '/^$/d' |sort -u > /tmp/installedpkgs.results
-#cp -f /tmp/installedpkgs.results /root/.packages/user-installed-packages
+sort -u /root/.packages/user-installed-packages >"$tmpDIR"/installedpkgs.db
+cp --remove-destination "$tmpDIR"/installedpkgs.db /root/.packages/user-installed-packages
+cut -f 1,10 -d '|' /root/.packages/user-installed-packages |sed '/^$/d' |sort -u > "$tmpDIR"/installedpkgs.results
+#cp -f "$tmpDIR"/installedpkgs.results /root/.packages/user-installed-packages
 echo "$0: END" >&2
 ###END###
