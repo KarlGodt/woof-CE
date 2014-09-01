@@ -1,24 +1,38 @@
 #!/bin/sh
-#called from /usr/local/petget/installpreview.sh
-#/tmp/petget_installpreview_pkgname (writen in installpreview.sh) has name of package being
-#  previewed prior to installation. ex: abiword-1.2.3
-#/tmp/petget_filterversion has the repository that installing from (written in pkgchooser.sh).
-#  ex: slackware-12.2-slacky
-#  ...full package database file is /root/.packages/Packages-slackware-12.2-slacky
-#/tmp/petget_missingpkgs_patterns (written in findmissingpkgs.sh) has a list of missing dependencies, format ex:
+# Called from /usr/local/petget/installpreview.sh
+# /tmp/petget_installpreview_pkgname (writen in installpreview.sh) has name of package being
+# previewed prior to installation. ex: abiword-1.2.3
+# /tmp/petget_filterversion has the repository that installing from (written in pkgchooser.sh).
+# ex: slackware-12.2-slacky
+# ...full package database file is /root/.packages/Packages-slackware-12.2-slacky
+# /tmp/petget_missingpkgs_patterns (written in findmissingpkgs.sh) has a list of missing dependencies, format ex:
 #  |kdebase|
 #  |kdelibs|
 #  |mesa-lib|
 #  |qt|
-#  ...that is, pkg name-only with vertical-bars on both ends, one name per line.
-#/tmp/petget_installed_patterns_all (writen in findmissingpkgs.sh) has a list of already installed
+# ...that is, pkg name-only with vertical-bars on both ends, one name per line.
+# /tmp/petget_installed_patterns_all (writen in findmissingpkgs.sh) has a list of already installed
 #  packages, both builtin and user-installed. One on each line, exs:
 #  |915resolution|
 #  |a52dec|
 #  |absvolume_puppy|
 #  |alsa\-lib|
 #  |cyrus\-sasl|
-#  ...notice the '-' are backslashed.
+# ...notice the '-' are backslashed.
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
 
 echo "$0: START" >&2
 
