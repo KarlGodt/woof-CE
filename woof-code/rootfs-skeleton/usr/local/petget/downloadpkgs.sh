@@ -6,8 +6,8 @@
 # ex: "$tmpDIR"/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=package_download
+_COMMENT_="GTKdialog GUIs to download by PPM."
 
 MY_SELF="$0"
 
