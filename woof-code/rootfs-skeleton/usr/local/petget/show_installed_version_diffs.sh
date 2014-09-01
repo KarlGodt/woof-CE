@@ -6,6 +6,11 @@
 export TEXTDOMAIN=petget___versiondiffs
 export OUTPUT_CHARSET=UTF-8
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
@@ -13,7 +18,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+ADD_HELP_MSG="Helper script for PPM ."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -24,7 +29,7 @@ tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
 #created by findnames.sh...
-[ ! -s "$tmpDIR"/filterpkgs.results.installed ] && exit
+[ -s "$tmpDIR"/filterpkgs.results.installed ] || exit 1
 
 #120908 "ALREADY INSTALLED" may not be helpful, as the versions may differ. display these...
 DIFFVERITEMS=""
@@ -35,7 +40,7 @@ do
  ONENAMEONLY="$(echo -n "$ONEALREADYINSTALLED" | cut -f 2 -d '|')"
  ONEVERSION="$(echo -n "$ONEALREADYINSTALLED" | cut -f 3 -d '|')"
  onoPTN="|${ONENAMEONLY}|"
- INSTALLEDPKGS="$(cat /root/.packages/layers-installed-packages /root/.packages/user-installed-packages | grep "$onoPTN" | cut -f 1,3 -d '|' | tr '\n' ' ')"
+ INSTALLEDPKGS="$(cat /root/.packages/layers-installed-packages /root/.packages/user-installed-packages | grep "$onoPTN" | cut -f 1,3 -d '|')"
  for AINSTALLEDPKG in $INSTALLEDPKGS
  do
   AIPKG="$(echo -n "$AINSTALLEDPKG" | cut -f 1 -d '|')"
