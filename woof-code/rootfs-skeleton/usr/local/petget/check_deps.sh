@@ -1,7 +1,21 @@
 #!/bin/sh
-#choose an installed pkg and find all its dependencies.
-#when entered with a passed param, it is a list of pkgs, '|' delimited,
-#ex: abiword-1.2.3|aiksaurus-3.4.5|yabby-5.0
+# Choose an installed pkg and find all its dependencies.
+# When entered with a passed param, it is a list of pkgs, '|' delimited,
+# ex: abiword-1.2.3|aiksaurus-3.4.5|yabby-5.0
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
 
 echo "$0: START" >&2
 
