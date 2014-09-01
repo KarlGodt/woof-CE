@@ -1,26 +1,22 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from pkg_chooser.sh and petget.
-#package to be removed is TREE2, ex TREE2=abiword-1.2.3 (corrresponds to 'pkgname' field in db).
-#installed pkgs are recorded in /root/.packages/user-installed-packages, each
-#line a standardised database entry:
-#pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
-#optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
-#If X not running, no GUI windows displayed, removes without question.
+# Called from pkg_chooser.sh and petget.
+# Package to be removed is TREE2, ex TREE2=abiword-1.2.3 (corrresponds to 'pkgname' field in db).
+# Installed pkgs are recorded in /root/.packages/user-installed-packages, each
+# Line a standardised database entry:
+# pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
+# Optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
+# If X not running, no GUI windows displayed, removes without question.
 #v424 support post-uninstall script for .pet pkgs.
 #v424 need info box if user has clicked when no pkgs installed.
-
-
 
 #************
 #KRG
 
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -35,9 +31,7 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
