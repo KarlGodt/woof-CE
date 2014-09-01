@@ -8,8 +8,8 @@
 #130326 pass in $DLPKG_NAME as $2. font size fix for 96 dpi.
 #130507 kompozer needs MOZILLA_FIVE_HOME fix.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=postinstall_hack
+_COMMENT_="Incomplete code to take care for certain packages"
 
 MY_SELF="$0"
 
