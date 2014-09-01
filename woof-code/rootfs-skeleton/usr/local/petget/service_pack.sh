@@ -1,21 +1,40 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler November 2012, bkhome.org
 #License GPL v3 (/usr/share/doc/legal).
-#look online for a service-pack.
-#called by ppm (pkg_chooser.sh) at startup, as a separate process.
+# Look online for a service-pack.
+# Called by ppm (pkg_chooser.sh) at startup, as a separate process.
 #121128 first release.
 #121129 bug fix.
 #121206 faster internet check. remove window centralise.
 #121217 DISTRO_VERSION getting reset by 'init' in initrd, need workaround.
 
 #121206 speed this up...
-#exit if no internet connection...
-#check_internet
-#check_internet
-#if [ $? -ne 0 ];then
+# exit if no internet connection...
+# check_internet
+# check_internet
+# if [ $? -ne 0 ];then
 # sleep 2
 # check_internet
-#fi
+# fi
+
+export TEXTDOMAIN=petget___service_pack.sh
+export OUTPUT_CHARSET=UTF-8
+#. gettext.sh
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
+
 IFCONFIG="`ifconfig | grep '^[pwe]' | grep -v 'wmaster'`"
 [ ! "$IFCONFIG" ] && exit 1 #no network connection.
 ping -4 -c 1 www.google.com
@@ -24,10 +43,6 @@ if [ $? -ne 0 ];then
  ping -4 -c 1 www.google.com
  [ $? -ne 0 ] && exit 1 #no internet.
 fi
-
-export TEXTDOMAIN=petget___service_pack.sh
-export OUTPUT_CHARSET=UTF-8
-#. gettext.sh
 
 . /etc/DISTRO_SPECS #has DISTRO_DB_SUBNAME
 . /root/.packages/DISTRO_PET_REPOS #has PET_REPOS, PKG_DOCS_PET_REPOS
@@ -118,7 +133,7 @@ ${RADIOXML}"
 esac
 MSG5TXT="$(gettext 'Please click the <b>OK</b> button right now, to download and install the Service Pack.')"
 
-#121206  window_position=\"1\" 
+#121206  window_position=\"1\"
 export SP_DIALOG="<window title=\"${WINTITLETXT}\" icon-name=\"gtk-about\">
 <vbox>
  <pixmap><input file>/usr/local/lib/X11/pixmaps/question.xpm</input></pixmap>
