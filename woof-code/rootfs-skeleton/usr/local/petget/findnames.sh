@@ -4,7 +4,6 @@
 # Called from /usr/local/petget/pkg_chooser.sh
 # ENTRY1 is a string, to search for a package.
 
-
 #************
 #KRG
 
@@ -40,10 +39,13 @@ OUT=/dev/null;ERR=$OUT
 . /root/.packages/DISTRO_PKGS_SPECS #has PKGS_SPECS_TABLE.
 . /root/.packages/DISTRO_PET_REPOS  #has PET_REPOS, PACKAGELISTS_PET_ORDER
 
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
+
 entryPATTERN='^'"`echo -n "$ENTRY1" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g' -e 's%\\*%.*%'`"
 
-CURRENTREPO=`cat /tmp/petget_filterversion` #search here first.
-REPOLIST="${CURRENTREPO} `cat /tmp/petget_active_repo_list | grep -v "$CURRENTREPO" | tr '\n' ' '`"
+CURRENTREPO=`cat "$tmpDIR"/petget_filterversion` #search here first.
+REPOLIST="${CURRENTREPO} `cat "$tmpDIR"/petget_active_repo_list | grep -v "$CURRENTREPO" | tr '\n' ' '`"
 
 FNDIT=no
 for ONEREPO in $REPOLIST
@@ -52,14 +54,14 @@ do
  if [ "$FNDENTRIES" != "" ];then
   FIRSTCHAR=`echo "$FNDENTRIES" | cut -c 1 | tr '\n' ' ' | sed -e 's% %%g'`
   #write these just in case needed...
-  ALPHAPRE=`cat /tmp/petget_pkg_first_char`
+  ALPHAPRE=`cat "$tmpDIR"/petget_pkg_first_char`
   #if [ "$ALPHAPRE" != "ALL" ];then
-  # echo "$FIRSTCHAR" > /tmp/petget_pkg_first_char
+  # echo "$FIRSTCHAR" > "$tmpDIR"/petget_pkg_first_char
   #fi
-  #echo "ALL" > /tmp/petget_filtercategory
-  echo "$ONEREPO" > /tmp/petget_filterversion #ex: slackware-12.2-official
+  #echo "ALL" > "$tmpDIR"/petget_filtercategory
+  echo "$ONEREPO" > "$tmpDIR"/petget_filterversion #ex: slackware-12.2-official
   #this is read when update TREE1 in pkg_chooser.sh...
-  echo "$FNDENTRIES" | cut -f 1,10 -d '|' > /tmp/filterpkgs.results
+  echo "$FNDENTRIES" | cut -f 1,10 -d '|' > "$tmpDIR"/filterpkgs.results
   FNDIT=yes
   break
  fi
