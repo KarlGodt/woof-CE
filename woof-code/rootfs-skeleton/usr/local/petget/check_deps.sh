@@ -3,8 +3,8 @@
 # When entered with a passed param, it is a list of pkgs, '|' delimited,
 # ex: abiword-1.2.3|aiksaurus-3.4.5|yabby-5.0
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=dependencies_check
+_COMMENT_="Check for missing dependencies of packages"
 
 MY_SELF="$0"
 
@@ -15,7 +15,8 @@ ADD_PARAMETER_LIST="PLG_LIST"
 ADD_PARAMETERS="Package List: |-delimited line of pkg names"
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for PPM ."
+ADD_HELP_MSG="Helper script for PPM .
+$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
