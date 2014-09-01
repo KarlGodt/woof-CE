@@ -3,7 +3,7 @@
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
 # Called from pkg_chooser.sh
 # Package to be previewed prior to installation is TREE1 -- inherited from parent.
-# /tmp/petget_filterversion has the repository that installing from.
+# "$tmpDIR"/petget_filterversion has the repository that installing from.
 
 #************
 #KRG
@@ -30,7 +30,7 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #KRG
 #************
 
-##KRG CHANGES : DEBUG OUTPUT, -log to .log, dont remove dled pkgs, added # to simple exit ie 0, /tmp/PetGet instead of /tmp
+##KRG CHANGES : DEBUG OUTPUT, -log to .log, dont remove dled pkgs, added # to simple exit ie 0, "$tmpDIR"/PetGet instead of /tmp
 
 echo "$0: START" >&2
 
@@ -44,10 +44,13 @@ OUT=/dev/null;ERR=$OUT
 yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing package database files..." &
 X1PID=$!
 
-#ex: TREE1=abiword-1.2.4 (first field in database entry).
-DB_FILE=Packages-`cat /tmp/petget_filterversion` #ex: Packages-slackware-12.2-official
+tmpDIR=/tmp/petget
+test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
-rm -f /tmp/petget_missing_dbentries-* 2>$ERR
+#ex: TREE1=abiword-1.2.4 (first field in database entry).
+DB_FILE=Packages-`cat "$tmpDIR"/petget_filterversion` #ex: Packages-slackware-12.2-official
+
+rm -f "$tmpDIR"/petget_missing_dbentries-* 2>$ERR
 
 tPATTERN='^'"$TREE1"'|'
 DB_ENTRY=`grep "$tPATTERN" /root/.packages/$DB_FILE | head -n 1`
@@ -67,7 +70,7 @@ DB_description=`echo -n "$DB_ENTRY" | cut -f 10 -d '|'`
 
 [ "$DB_description" = "" ] && DB_description="no description available"
 
-SIZEFREEM=`cat /tmp/pup_event_sizefreem`
+SIZEFREEM=`cat "$tmpDIR"/pup_event_sizefreem`
 SIZEFREEK=`expr $SIZEFREEM \* 1024`
 
 if [ $DB_size ];then
@@ -95,9 +98,9 @@ else
 
  #find all missing pkgs...
  /usr/local/petget/findmissingpkgs.sh "$DB_dependencies"
- #...returns /tmp/petget_installed_patterns_all, /tmp/petget_pkg_deps_patterns, /tmp/petget_missingpkgs_patterns
- MISSINGDEPS_PATTERNS=`cat /tmp/petget_missingpkgs_patterns`
- #/tmp/petget_missingpkgs_patterns has a list of missing dependencies, format ex:
+ #...returns "$tmpDIR"/petget_installed_patterns_all, "$tmpDIR"/petget_pkg_deps_patterns, "$tmpDIR"/petget_missingpkgs_patterns
+ MISSINGDEPS_PATTERNS=`cat "$tmpDIR"/petget_missingpkgs_patterns`
+ #"$tmpDIR"/petget_missingpkgs_patterns has a list of missing dependencies, format ex:
  #|kdebase|
  #|kdelibs|
  #|mesa|
@@ -111,7 +114,7 @@ else
   ONLYMSG=" ONLY"
   DEPBUTTON="<button>
    <label>Examine dependencies</label>
-   <action>echo \"${TREE1}\" > /tmp/petget_installpreview_pkgname</action>
+   <action>echo \"${TREE1}\" > \"$tmpDIR\"/petget_installpreview_pkgname</action>
    <action type=\"exit\">BUTTON_EXAMINE_DEPS</action>
   </button>"
   xMISSINGDEPS=`echo "$MISSINGDEPS_PATTERNS" | sed -e 's%|%%g' | tr '\n' ' '`
@@ -148,7 +151,7 @@ export PREVIEW_DIALOG="<window title=\"Puppy Package Manager: preinstall\" icon-
   ${DEPBUTTON}
   <button>
    <label>Install ${TREE1}${ONLYMSG}</label>
-   <action>echo \"${TREE1}\" > /tmp/petget_installpreview_pkgname</action>
+   <action>echo \"${TREE1}\" > \"$tmpDIR\"/petget_installpreview_pkgname</action>
    <action type=\"exit\">BUTTON_INSTALL</action>
   </button>
   <button cancel></button>
@@ -168,7 +171,7 @@ eval "$RETPARAMS"
 if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
  /usr/local/petget/dependencies.sh
  [ $? -ne 0 ] && exec /usr/local/petget/installpreview.sh #reenter.
- #returns with /tmp/petget_missing_dbentries-* has the database entries of missing deps.
+ #returns with "$tmpDIR"/petget_missing_dbentries-* has the database entries of missing deps.
  #the '*' on the end is the repo-file name, ex: Packages-slackware-12.2-slacky
 
  #compose pkgs into checkboxes...
@@ -182,22 +185,22 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
 
  #making up the dependencies into tabs, need limit of 8 per tab...
  #also limit to 6 tabs (gedit is way beyond this!)...
- echo -n "" > /tmp/petget_moreframes
- echo -n "" > /tmp/petget_tabs
- echo "0" > /tmp/petget_frame_cnt
+ echo -n "" > "$tmpDIR"/petget_moreframes
+ echo -n "" > "$tmpDIR"/petget_tabs
+ echo "0" > "$tmpDIR"/petget_frame_cnt
  DEP_CNT=0
  ONEREPO=""
- for ONEDEPSLIST in `ls -1 /tmp/petget_missing_dbentries-*`
+ for ONEDEPSLIST in `ls -1 "$tmpDIR"/petget_missing_dbentries-*`
  do
   ONEREPO_PREV="$ONEREPO"
   ONEREPO=`echo "$ONEDEPSLIST" | grep -o 'Packages.*' | sed -e 's%Packages\\-%%'`
-  FRAME_CNT=`cat /tmp/petget_frame_cnt`
+  FRAME_CNT=`cat "$tmpDIR"/petget_frame_cnt`
   if [ "$ONEREPO_PREV" != "" ];then #next repo, so start a new tab.
    DEP_CNT=0
    FRAME_CNT=`expr $FRAME_CNT + 1`
-   echo "$FRAME_CNT" > /tmp/petget_frame_cnt
+   echo "$FRAME_CNT" > "$tmpDIR"/petget_frame_cnt
    #w017 bugfix, prevent double frame closure...
-   [ "`cat /tmp/petget_moreframes | tail -n 1 | grep '</frame>$'`" = "" ] && echo "</frame>" >> /tmp/petget_moreframes
+   [ "`cat "$tmpDIR"/petget_moreframes | tail -n 1 | grep '</frame>$'`" = "" ] && echo "</frame>" >> "$tmpDIR"/petget_moreframes
   fi
   cat $ONEDEPSLIST |
   while read ONELIST
@@ -208,38 +211,38 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
    DEP_CNT=`expr $DEP_CNT + 1`
    case $DEP_CNT in
     1)
-     echo -n "<frame REPOSITORY: ${ONEREPO}>" >> /tmp/petget_moreframes
-     echo -n "Dependencies|" >> /tmp/petget_tabs
-     echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> /tmp/petget_moreframes
+     echo -n "<frame REPOSITORY: ${ONEREPO}>" >> "$tmpDIR"/petget_moreframes
+     echo -n "Dependencies|" >> "$tmpDIR"/petget_tabs
+     echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> "$tmpDIR"/petget_moreframes
     ;;
     8)
-     FRAME_CNT=`cat /tmp/petget_frame_cnt`
+     FRAME_CNT=`cat "$tmpDIR"/petget_frame_cnt`
      FRAME_CNT=`expr $FRAME_CNT + 1`
      if [ $FRAME_CNT -gt 5 ];then
-      echo -n "<text use-markup=\"true\"><label>\"<b>SORRY! Too many dependencies, list truncated. Suggest install some deps first.</b>\"</label></text>" >> /tmp/petget_moreframes
+      echo -n "<text use-markup=\"true\"><label>\"<b>SORRY! Too many dependencies, list truncated. Suggest install some deps first.</b>\"</label></text>" >> "$tmpDIR"/petget_moreframes
      else
-      echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> /tmp/petget_moreframes
+      echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> "$tmpDIR"/petget_moreframes
      fi
-     echo "</frame>" >> /tmp/petget_moreframes
+     echo "</frame>" >> "$tmpDIR"/petget_moreframes
      DEP_CNT=0
-     echo "$FRAME_CNT" > /tmp/petget_frame_cnt
+     echo "$FRAME_CNT" > "$tmpDIR"/petget_frame_cnt
     ;;
     *)
-     echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> /tmp/petget_moreframes
+     echo -n "<checkbox><default>true</default><label>${DEP_NAME} SIZE: ${DEP_SIZE}B DESCRIPTION: ${DEP_DESCR}</label><variable>CHECK_PKG_${ONEREPO}_${DEP_NAME}</variable></checkbox>" >> "$tmpDIR"/petget_moreframes
     ;;
    esac
    [ $FRAME_CNT -gt 5 ] && break #too wide!
    ADDSIZEK=0
    [ "$DEP_SIZE" != "" ] && ADDSIZEK=`echo "$DEP_SIZE" | rev | cut -c 2-10 | rev`
    INSTALLEDSIZEK=`expr $INSTALLEDSIZEK + $ADDSIZEK`
-   echo "$INSTALLEDSIZEK" > /tmp/petget_installedsizek
+   echo "$INSTALLEDSIZEK" > "$tmpDIR"/petget_installedsizek
   done
-  INSTALLEDSIZEK=`cat /tmp/petget_installedsizek`
-  FRAME_CNT=`cat /tmp/petget_frame_cnt`
+  INSTALLEDSIZEK=`cat "$tmpDIR"/petget_installedsizek`
+  FRAME_CNT=`cat "$tmpDIR"/petget_frame_cnt`
   [ $FRAME_CNT -gt 5 ] && break #too wide!
  done
- TABS=`cat /tmp/petget_tabs`
- MOREFRAMES=`cat /tmp/petget_moreframes`
+ TABS=`cat "$tmpDIR"/petget_tabs`
+ MOREFRAMES=`cat "$tmpDIR"/petget_moreframes`
  #make sure last frame has closed...
  [ "`echo "$MOREFRAMES" | tail -n 1 | grep '</frame>$'`" = "" ] && MOREFRAMES="${MOREFRAMES}</frame>"
 
@@ -273,7 +276,7 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
    <hbox>
     <button>
      <label>View hierarchy</label>
-     <action>/usr/local/bin/defaulttextviewer /tmp/petget_deps_visualtreelog & </action>
+     <action>/usr/local/bin/defaulttextviewer \"$tmpDIR\"/petget_deps_visualtreelog & </action>
     </button>
    </hbox>
   </vbox>
@@ -315,8 +318,8 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
    ONEREPO=`echo -n "$ONECHK" | cut -f 1 -d '=' | cut -f 3 -d '_'` #ex: slackware-12.2-slacky
    ONEPKG=`echo -n "$ONECHK" | cut -f 1 -d '=' | cut -f 4-9 -d '_'`  #ex: libtermcap-1.2.3
    opPATTERN='^'"$ONEPKG"'|'
-   grep -v "$opPATTERN" /tmp/petget_missing_dbentries-Packages-${ONEREPO} > /tmp/petget_tmp
-   mv -f /tmp/petget_tmp /tmp/petget_missing_dbentries-Packages-${ONEREPO}
+   grep -v "$opPATTERN" "$tmpDIR"/petget_missing_dbentries-Packages-${ONEREPO} > "$tmpDIR"/petget_tmp
+   mv -f "$tmpDIR"/petget_tmp "$tmpDIR"/petget_missing_dbentries-Packages-${ONEREPO}
   done
  else
   exit 0
@@ -330,10 +333,10 @@ fi
 #TREE1 is name of main pkg, ex: abiword-1.2.3
 
 #check to see if main pkg entry already in install-lists...
-touch /tmp/petget_missing_dbentries-${DB_FILE} #create if doesn't exist.
+touch "$tmpDIR"/petget_missing_dbentries-${DB_FILE} #create if doesn't exist.
 mPATTERN='^'"$TREE1"'|'
-if [ "`grep "$mPATTERN" /tmp/petget_missing_dbentries-${DB_FILE}`" = "" ];then
- echo "$DB_ENTRY" >> /tmp/petget_missing_dbentries-${DB_FILE}
+if [ "`grep "$mPATTERN" "$tmpDIR"/petget_missing_dbentries-${DB_FILE}`" = "" ];then
+ echo "$DB_ENTRY" >> "$tmpDIR"/petget_missing_dbentries-${DB_FILE}
 fi
 
 #now do the actual install...
@@ -345,7 +348,7 @@ PASSEDPRM=""
 
 #w482 adjust msg as appropriate, restart jwm and update menu if required...
 INSTALLEDCAT="menu" #any string.
-[ "`cat /tmp/petget-installed-pkgs.log | grep -o 'CATEGORY' | grep -v 'none'`" = "" ] && INSTALLEDCAT="none"
+[ "`cat "$tmpDIR"/petget-installed-pkgs.log | grep -o 'CATEGORY' | grep -v 'none'`" = "" ] && INSTALLEDCAT="none"
 RESTARTMSG="Please wait, updating help page and menu..."
 [ "`pidof jwm`" != "" ] && RESTARTMSG="Please wait, updating help page and menu (the screen will flicker!)..."
 [ "$INSTALLEDCAT" = "none" ] && RESTARTMSG="Please wait, updating help page..."
@@ -363,7 +366,7 @@ fi
 kill $X3PID
 
 #check any missing shared libraries...
-PKGS=`cat /tmp/petget_missing_dbentries-* | cut -f 1 -d '|' | tr '\n' '|'`
+PKGS=`cat "$tmpDIR"/petget_missing_dbentries-* | cut -f 1 -d '|' | tr '\n' '|'`
 /usr/local/petget/check_deps.sh $PKGS
 
 echo "$0: END" >&2
