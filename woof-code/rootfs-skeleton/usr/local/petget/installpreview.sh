@@ -5,6 +5,11 @@
 # Package to be previewed prior to installation is TREE1 -- inherited from parent.
 # "$tmpDIR"/petget_filterversion has the repository that installing from.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -33,10 +38,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 ##KRG CHANGES : DEBUG OUTPUT, -log to .log, dont remove dled pkgs, added # to simple exit ie 0, "$tmpDIR"/PetGet instead of /tmp
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
@@ -70,8 +71,10 @@ DB_description=`echo -n "$DB_ENTRY" | cut -f 10 -d '|'`
 
 [ "$DB_description" = "" ] && DB_description="no description available"
 
-SIZEFREEM=`cat "$tmpDIR"/pup_event_sizefreem`
+test -s /tmp/pup_event_sizefreem && {
+SIZEFREEM=`cat /tmp/pup_event_sizefreem`
 SIZEFREEK=`expr $SIZEFREEM \* 1024`
+}
 
 if [ $DB_size ];then
  SIZEMK=`echo -n "$DB_size" | rev | cut -c 1`
@@ -313,7 +316,7 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
 
  if [ "`echo "$RETPARAMS" | grep '^EXIT' | grep -E 'BUTTON_PKGS_INSTALL|BUTTON_PKGS_DOWNLOADONLY'`" != "" ];then
   #remove any unticked pkgs from the list...
-  for ONECHK in `echo "$RETPARAMS" | grep '^CHECK_PKG_' | grep '"false"' | tr '\n' ' '`
+  for ONECHK in `echo "$RETPARAMS" | grep '^CHECK_PKG_' | grep '"false"'`
   do
    ONEREPO=`echo -n "$ONECHK" | cut -f 1 -d '=' | cut -f 3 -d '_'` #ex: slackware-12.2-slacky
    ONEPKG=`echo -n "$ONECHK" | cut -f 1 -d '=' | cut -f 4-9 -d '_'`  #ex: libtermcap-1.2.3
