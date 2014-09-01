@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler 2011, GPL3 (/usr/share/doc/legal)
 #specified in /etc/sudoers or /etc/sudo.conf, gui-helper for sudo. (path compiled-in to my sudo PET)
 #110513 display name of app that is requesting to run.
@@ -6,6 +6,8 @@
 
 export TEXTDOMAIN=askpass
 export OUTPUT_CHARSET=UTF-8
+
+MY_SELF="$0"
 
 ADD_HELP_MSG="gui-helper for sudo"
 PARAMETER_LIST="-help|-version|-verbose|-debug"
@@ -21,8 +23,14 @@ OUT=/dev/null;ERR=$OUT;Q=-q
 case $1 in
 -h|-H|-*help) _usage 0 "$ADD_HELP_MSG";;
 -V|-*version) _version;;
--v|-*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;;
--d|-*debug)   set -x;;
+-v|-*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;D_SHIFT=1;;
+-d|-*debug)   set -x;DO_SHIFT=1;;
+esac
+test "$DO_SHIFT" && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+case $1 in
+cli|*-cli) useCLI=YES;;
 esac
 
 PSALL="`ps`"
@@ -36,7 +44,7 @@ else
  INSERTMSG="<text><label>$(gettext 'Please enter the administrator password required to run this application:')</label></text>"
 fi
 
-if [ $DISPLAY ];then
+if [ $DISPLAY -a ! "$useCLI" ];then
  export ASKDIALOG="
 <window title=\"AskPass\" decorated=\"false\" window_position=\"1\" skip_taskbar_hint=\"true\">
   <vbox>
@@ -53,16 +61,42 @@ if [ $DISPLAY ];then
   </vbox>
 </window>
 "
+ _eval_simple(){
  RETVAL="`gtkdialog3 --program=ASKDIALOG 2>/dev/null`"
  eval "$RETVAL"
+ [ "$?" = 0 ] || exec "$MY_SELF" "$@"
+ }
+
+ _eval_octal(){
+ GTK_OUT="`gtkdialog3 --program=ASKDIALOG 2>/dev/null`"
+
+ PWORD=`echo "$GTK_OUT" | grep -m1 '^ADMINPASSWORD=.*'`
+ PWORD_=`echo "${PWORD#*=}" | sed 's/^"//;s/"$//'`
+ _PWORD_=`echo "$PWORD_" | _string_to_octal`
+ _PWORD_="ADMINPASSWORD='$_PWORD_'"
+
+ GTK_REST=`echo "$GTK_OUT" | grep -v 'ADMINPASSWORD=.*'`
+
+ GTK_NEW="$_PWORD_
+ $GTK_REST"
+ eval "$GTK_NEW"
+ [ "$?" = 0 ] || exec "$MY_SELF" "$@"
+ }
+
+type _string_to_octal && { _eval_octal; } || _eval_simple
+
 else
- echo >/dev/console
- echo -n "$(gettext 'Type admin password required to run this app:') " >/dev/console
- read -t 30 ADMINPASSWORD
- [ "$ADMINPASSWORD" = "" ] && echo '...failed' >/dev/console
+ _TTY_=`tty`
+ test "_$TTY_" || _TTY_=/dev/console
+ test "_$TTY_" = 'not a tty' && _TTY_=/dev/console
+
+ echo >$_TTY_
+ echo "$(gettext 'Type admin password required to run this app:') " >$_TTY_
+ read -r -t 30 -s ADMINPASSWORD
+ [ "$ADMINPASSWORD" = "" ] && echo '...failed' >$_TTY_
 fi
 
 #echo "$RETVAL"
 
-echo "$ADMINPASSWORD" #return password to sudo.
+echo -en "$ADMINPASSWORD" #return password to sudo.
 ###END###
