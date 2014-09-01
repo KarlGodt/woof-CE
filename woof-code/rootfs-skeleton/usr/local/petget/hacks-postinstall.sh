@@ -1,14 +1,28 @@
 #!/bin/sh
-#this is for hacks needed to fix a package, that might not have been done elsewhere.
-#called from /usr/local/petget/installpkg.sh
-#package that has just been installed is passed in on commandline.
+# This is for hacks needed to fix a package, that might not have been done elsewhere.
+# Called from /usr/local/petget/installpkg.sh
+# Package that has just been installed is passed in on commandline.
 #120924 DejaVu font no good for non-Latin languages. 120925 add korean.
 #130122 xsane: remove warning about running as root.
 #130221 pemasu: google-chrome run as root. 130224 pemasu: limit cache size.
 #130326 pass in $DLPKG_NAME as $2. font size fix for 96 dpi.
 #130507 kompozer needs MOZILLA_FIVE_HOME fix.
 
-INSTALLEDPKG="$1" #ex: vlc_2.0.3-0ubuntu0.12.04.1_i386, without .deb
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
+
+INSTALLEDPKG="$1"  #ex: vlc_2.0.3-0ubuntu0.12.04.1_i386, without .deb
 INSTALLEDNAME="$2" #130326
 
 case $INSTALLEDPKG in
