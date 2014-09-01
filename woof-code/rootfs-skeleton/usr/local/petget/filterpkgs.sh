@@ -10,8 +10,8 @@
 # Written for Woof, standardised package database format.
 #v425 'ALL' may take awhile, put up please wait msg.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=filter_packages
+_COMMENT_="CLI search helper script"
 
 MY_SELF="$0"
 
