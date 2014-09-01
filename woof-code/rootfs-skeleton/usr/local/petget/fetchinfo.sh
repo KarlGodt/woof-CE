@@ -4,8 +4,8 @@
 # "$tmpDIR"/petget_filterversion has the repository that installing from.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=download_repository_database
+_COMMENT_="CLI to download repository database"
 
 MY_SELF="$0"
 
@@ -16,7 +16,8 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for PPM ."
+ADD_HELP_MSG="Helper script for PPM .
+$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
