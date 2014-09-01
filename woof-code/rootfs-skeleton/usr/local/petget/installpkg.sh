@@ -1,23 +1,19 @@
 #!/bin/sh
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/downloadpkgs.sh and petget.
-#passed param is the path and name of the downloaded package.
-#/tmp/petget_missing_dbentries-Packages-* has database entries for the set of pkgs being downloaded.
+# Called from /usr/local/petget/downloadpkgs.sh and petget.
+# Passed param is the path and name of the downloaded package.
+# /tmp/petget_missing_dbentries-Packages-* has database entries for the set of pkgs being downloaded.
 #w456 warning: petget may write to /tmp/petget_missing_dbentries-Packages-alien with missing fields.
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
-
-
 #************
 #KRG
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -32,20 +28,18 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
 
 
 #information from 'labrador', to expand a .pet directly to '/':
-#NAME="a52dec-0.7.4"
-#pet2tgz "${NAME}.pet"
-#tar -C / --transform 's/^\(\.\/\)\?'"$NAME"'//g' -zxf "${NAME}.tar.gz"
-#i found this also works:
-#tar -z -x --strip=1 --directory=/ -f bluefish-1.0.7.tar.gz
+# NAME="a52dec-0.7.4"
+# pet2tgz "${NAME}.pet"
+# tar -C / --transform 's/^\(\.\/\)\?'"$NAME"'//g' -zxf "${NAME}.tar.gz"
+# I found this also works:
+# tar -z -x --strip=1 --directory=/ -f bluefish-1.0.7.tar.gz
 #v424 .pet pkgs may have post-uninstall script, puninstall.sh
 
 echo "$0: START" >&2
@@ -106,9 +100,9 @@ function tar_extract_pet(){
 }
 
 function tar_extract(){
-	PETFILES=`tar --list -f ${DLPKG_MAIN}.tar`
-	[ $? -ne 0 ] && exit 1
-	if [ "`echo "$PETFILES" | grep '^\\./'`" != "" ];then
+    PETFILES=`tar --list -f ${DLPKG_MAIN}.tar`
+    [ $? -ne 0 ] && exit 1
+    if [ "`echo "$PETFILES" | grep '^\\./'`" != "" ];then
     #ttuuxx has created some pets with './' prefix...
      pPATTERN="s%^\\./${DLPKG_NAME}%%"
      echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
