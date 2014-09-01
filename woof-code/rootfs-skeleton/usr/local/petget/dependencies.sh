@@ -20,8 +20,8 @@
 #  |cyrus\-sasl|
 # ...notice the '-' are backslashed.
 
-_TITLE_=
-_COMMENT_=
+_TITLE_=dependencies_check_two
+_COMMENT_="Check for missing dependencies."
 
 MY_SELF="$0"
 
@@ -32,7 +32,8 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG="Helper script for PPM ."
+ADD_HELP_MSG="Helper script for PPM .
+$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
