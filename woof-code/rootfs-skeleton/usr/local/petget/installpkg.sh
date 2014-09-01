@@ -8,6 +8,11 @@
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
+_TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 #************
 #KRG
 
@@ -19,7 +24,7 @@ Version=1.1-KRG-MacPup_O2
 
 usage(){
 MSG="
-$0 [ help | version ]
+$0 [ help | version | DLPKG ]
 "
 echo "$MSG
 $2"
@@ -43,9 +48,6 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #v424 .pet pkgs may have post-uninstall script, puninstall.sh
 
 echo "$0: START" >&2
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
 export LANG=C
 . /etc/rc.d/PUPSTATE #this has PUPMODE and SAVE_LAYER.
