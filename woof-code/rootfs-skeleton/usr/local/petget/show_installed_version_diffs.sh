@@ -1,10 +1,24 @@
 #!/bin/sh
-#called from ui_Classic and ui_Ziggy, after running findnames.sh.
+# Called from ui_Classic and ui_Ziggy, after running findnames.sh.
 #120908 script created.
 #130511 pkg_chooser.sh has created layers-installed-packages (use instead of woof-installed-packages).
 
 export TEXTDOMAIN=petget___versiondiffs
 export OUTPUT_CHARSET=UTF-8
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="Helper script for /usr/local/petget/ petget and downloadpkgs.sh ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+    for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+_trap
+}
 
 #created by findnames.sh...
 [ ! -s /tmp/petget/filterpkgs.results.installed ] && exit
