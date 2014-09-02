@@ -1,11 +1,12 @@
 #!/bin/sh
 #Barry Kauler www.puppylinux.com
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#calc free space in which to create/save files. called by freememapplet (in taskbar).
+# Calculate free space in which to create/save files.
+# Called by freememapplet (in taskbar).
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
-
+__old_header__(){
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -33,6 +34,22 @@ exit $1
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG=""
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
