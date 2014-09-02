@@ -9,36 +9,6 @@
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
-__old_header__(){
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-trap "exit 1" HUP INT QUIT KILL TERM
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
-
-Version='1.1'
-
-usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
-"
-exit $1
-}
-
-[ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}
-
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
