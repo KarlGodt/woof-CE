@@ -1,9 +1,10 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler 2011, GPL3 (/usr/share/doc/legal)
 #specified in /etc/sudoers or /etc/sudo.conf, gui-helper for sudo. (path compiled-in to my sudo PET)
 #110513 display name of app that is requesting to run.
 #120201 rodin.s: internationalized.
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -27,9 +28,31 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
 export TEXTDOMAIN=askpass
 export OUTPUT_CHARSET=UTF-8
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST="cli"
+ADD_PARAMETERS="cli : Use terminal instead of GTKdialog if DISPLAY set."
+_provide_basic_parameters
+
+ADD_HELP_MSG="CLI or GTKdialog to enter a password."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
+
+case "$1" in
+cli|-*cli) useCLI=YES;;
+esac
+
+ECHO_OPT=-n
 
 PSALL="`ps`"
 CALLEDAPP="`echo "$PSALL" | grep -o ' sudo \-A .*' | tr -s ' ' | cut -f 4 -d ' '`"
@@ -42,7 +65,7 @@ else
  INSERTMSG="<text><label>$(gettext 'Please enter the administrator password required to run this application:')</label></text>"
 fi
 
-if [ $DISPLAY ];then
+if [ $DISPLAY -a ! "$useCLI" ];then
  export ASKDIALOG="
 <window title=\"AskPass\" decorated=\"false\" window_position=\"1\" skip_taskbar_hint=\"true\">
   <vbox>
@@ -59,16 +82,55 @@ if [ $DISPLAY ];then
   </vbox>
 </window>
 "
- RETVAL="`gtkdialog3 --program=ASKDIALOG 2>/dev/null`"
+_eval_simple(){
+ RETVAL="`gtkdialog3 --program=ASKDIALOG 2>$ERR`"
+ [ "$?" = 0 ] || { _GTKdialog_error 1 || exit 1; }
  eval "$RETVAL"
+ [ "$?" = 0 ] || { _eval_error 1 || exit 1; }
+}
+
+_eval_octal(){
+ RETVAL="`gtkdialog3 --program=ASKDIALOG 2>$ERR`"
+ [ "$?" = 0 ] || { _GTKdialog_error 1 || exit 1; }
+ _debug "$RETVAL"
+
+ PWORD=`echo "$RETVAL" | grep -m1 '^ADMINPASSWORD=.*'`
+ REST=`echo "$RETVAL" | grep -v '^ADMINPASSWORD=.*'`
+
+ PWORD_="${PWORD#*\"}"
+ PWORD_=`echo "$PWORD_" | sed 's/"$//'`
+ _debug "PWORD_='$PWORD_'"
+
+ _PWORD_=`echo "$PWORD_" | _string_to_octal`
+ _debug "$_PWORD_"
+
+ _RETVAL_="ADMINPASSWORD='$_PWORD_'
+$REST"
+
+ eval "$_RETVAL_"
+ [ "$?" = 0 ] || { _eval_error 1 || exit 1; }
+ ECHO_OPT="$ECHO_OPT -e"
+}
+
+type _string_to_octal && _eval_octal || _eval_simple
+
 else
- echo >/dev/console
- echo -n "$(gettext 'Type admin password required to run this app:') " >/dev/console
- read -t 30 ADMINPASSWORD
- [ "$ADMINPASSWORD" = "" ] && echo '...failed' >/dev/console
+ _TTY_=`tty`
+               [ "$_TTY_" ] || _TTY_=/dev/console
+ [ 'not a tty' = "$_TTY_" ] && _TTY_=/dev/console
+
+ echo >$_TTY_
+ echo -n "$(gettext 'Type admin password required to run this app:') " >$_TTY_
+ read -r -t 30 -s ADMINPASSWORD
+ [ "$ADMINPASSWORD" = "" ] && echo '...failed' >$_TTY_ || {
+ type _string_to_octal && { PWORD=`echo "$ADMINPASSWORD" | _string_to_octal`
+  ADMINPASSWORD="$PWORD"
+  ECHO_OPT="$ECHO_OPT -e"
+ }
+}
 fi
 
 #echo "$RETVAL"
 
-echo "$ADMINPASSWORD" #return password to sudo.
+echo $ECHO_OPT "$ADMINPASSWORD" #return password to sudo.
 ###END###
