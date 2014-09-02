@@ -54,32 +54,32 @@ test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
 echo -n "" > "$tmpDIR"/petget-installed-pkgs.log
 
-for ONELIST in `ls -1 "$tmpDIR"/petget_missing_dbentries-Packages-*`
+for oneLIST in `ls -1 "$tmpDIR"/petget_missing_dbentries-Packages-*`
 do
  echo -n "" > "$tmpDIR"/petget_repos
- LISTNAME=`echo -n "$ONELIST" | grep -o 'Packages.*'`
+ LISTNAME=`echo -n "$oneLIST" | grep -o 'Packages.*'`
 
  #have the compat-distro repo urls in /root/.packages/DISTRO_PKGS_SPECS,
  #variable REPOS_DISTRO_COMPAT ...
  #REPOS_DISTRO_COMPAT has the associated Packages-* local database file...
- for ONEURLENTRY in $REPOS_DISTRO_COMPAT
+ for oneURLENTRY in $REPOS_DISTRO_COMPAT
  do
-  PARTPKGDB=`echo -n "$ONEURLENTRY" | cut -f 3 -d '|'`
+  PARTPKGDB=`echo -n "$oneURLENTRY" | cut -f 3 -d '|'`
   #PARTPKGDB may have a glob * wildcard, convert to reg.expr., also backslash '-'...
   PARTPKGDB=`echo -n "$PARTPKGDB" | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
-  ONEURLENTRY_1_2=`echo -n "$ONEURLENTRY" | cut -f 1,2 -d '|'`
-  [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${ONEURLENTRY_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
+  oneURLENTRY_1_2=`echo -n "$oneURLENTRY" | cut -f 1,2 -d '|'`
+  [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${oneURLENTRY_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
  done
 
 echo $LINENO >&2
 
  #or it may be one of the official puppy repos...
- if [ "`echo "$ONELIST" | grep 'Packages\\-puppy' | grep '\\-official'`" != "" ];then
-  for ONEPETREPO in $PET_REPOS
+ if [ "`echo "$oneLIST" | grep 'Packages\\-puppy' | grep '\\-official'`" != "" ];then
+  for onePETREPO in $PET_REPOS
   do
-   ONEPETREPO_3_PATTERN=`echo -n "$ONEPETREPO" | cut -f 3 -d '|' | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
-   ONEPETREPO_1_2=`echo -n "$ONEPETREPO" | cut -f 1,2 -d '|'`
-   [ "`echo -n "$LISTNAME" | grep "$ONEPETREPO_3_PATTERN"`" != "" ] && echo "${ONEPETREPO_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
+   onePETREPO_3_PATTERN=`echo -n "$onePETREPO" | cut -f 3 -d '|' | sed -e 's%\\-%\\\\-%g' -e 's%\\*%.*%g'`
+   onePETREPO_1_2=`echo -n "$onePETREPO" | cut -f 1,2 -d '|'`
+   [ "`echo -n "$LISTNAME" | grep "$onePETREPO_3_PATTERN"`" != "" ] && echo "${onePETREPO_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
    #...ex: ibiblio.org|http://distro.ibiblio.org/pub/linux/distributions/puppylinux|Packages-puppy-4-official
   done
  fi
@@ -93,16 +93,16 @@ echo $LINENO >&2
  LISTNAMECUT=`echo -n "$LISTNAME" | cut -f 2-9 -d '-'` #take Packages- off.
 
  REPOBUTTONS=""
- for ONEREPOSPEC in `cat "$tmpDIR"/petget_repos`
+ for oneREPOSPEC in `cat "$tmpDIR"/petget_repos`
  do
-  URL_TEST=`echo -n "$ONEREPOSPEC" | cut -f 1 -d '|'`
-  URL_FULL=`echo -n "$ONEREPOSPEC" | cut -f 2 -d '|'`
+  URL_TEST=`echo -n "$oneREPOSPEC" | cut -f 1 -d '|'`
+  URL_FULL=`echo -n "$oneREPOSPEC" | cut -f 2 -d '|'`
   REPOBUTTONS="${REPOBUTTONS}<radiobutton><label>${URL_TEST}</label><variable>RADIO_URL_${URL_TEST}</variable></radiobutton>"
  done
 
 echo $LINENO >&2
 
- PKGNAMES=`cat $ONELIST | cut -f 1 -d '|' | tr '\n' ' '`
+ PKGNAMES=`cat $oneLIST | cut -f 1 -d '|' | tr '\n' ' '`
 
  export DEPS_DIALOG="<window title=\"Puppy Package Manager: download\" icon-name=\"gtk-about\">
 <vbox>
@@ -165,17 +165,17 @@ echo $LINENO >&2
 
  #now download and install them...
  cd /root
- for ONEFILE in `cat $ONELIST | cut -f 7,8 -d '|' | tr '|' '/'`
+ for oneFILE in `cat $oneLIST | cut -f 7,8 -d '|' | tr '|' '/'`
  do
   #if [ "$RADIO_URL_LOCAL" = "true" ];then
   if [ "`echo "$RETPARAMS" | grep 'RADIO_URL_LOCAL' | grep 'true'`" != "" ];then
-   [ ! -f ${LOCALDIR}/${ONEFILE} ] && ONEFILE=`basename $ONEFILE`
-   cp -f ${LOCALDIR}/${ONEFILE} ./
+   [ ! -f ${LOCALDIR}/${oneFILE} ] && oneFILE=`basename $oneFILE`
+   cp -f ${LOCALDIR}/${oneFILE} ./
   else
-   rxvt -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e wget ${DOWNLOADFROM}/${ONEFILE}
+   rxvt -title "Puppy Package Manager: download" -bg orange -fg black -geometry 80x10 -e wget ${DOWNLOADFROM}/${oneFILE}
   fi
   sync
-  DLPKG=`basename $ONEFILE`
+  DLPKG=`basename $oneFILE`
   if [ -f $DLPKG -a "$DLPKG" != "" ];then
    if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
     /usr/local/petget/verifypkg.sh /root/$DLPKG
@@ -303,40 +303,40 @@ echo $LINENO >&2
   for PKGNAME in $INSTALLEDPKGNAMES
   do
    cat /root/.packages/${PKGNAME}.files |
-   while read ONEFILE
+   while read oneFILE
    do
-    [ ! -f "$ONEFILE" ] && continue
-    [ -h "$ONEFILE" ] && continue
+    [ ! -f "$oneFILE" ] && continue
+    [ -h "$oneFILE" ] && continue
     #find out if this is an international language file...
     if [ "$ENTRY_LOCALE" != "" ];then
-     if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/' | grep -v -E "$elPATTERN"`" != "" ];then
-      rm -f "$ONEFILE"
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+     if [ "`echo -n "$oneFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/' | grep -v -E "$elPATTERN"`" != "" ];then
+      rm -f "$oneFILE"
+      grep -v "$oneFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
       mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
     fi
     #find out if this is a documentation file...
     if [ "$CHECK_DOCDEL" = "true" ];then
-     if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/man/|/doc/|/doc-base/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
-      rm -f "$ONEFILE" 2>$ERR
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+     if [ "`echo -n "$oneFILE" | grep --extended-regexp '/man/|/doc/|/doc-base/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
+      rm -f "$oneFILE" 2>$ERR
+      grep -v "$oneFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
       mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
     fi
     #find out if this is development file...
     if [ "$CHECK_DEVDEL" = "true" ];then
-     if [ "`echo -n "$ONEFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
-      rm -f "$ONEFILE" 2>$ERR
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+     if [ "`echo -n "$oneFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
+      rm -f "$oneFILE" 2>$ERR
+      grep -v "$oneFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
       mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
       continue
      fi
      #all .a and .la files... and any stray .m4 files...
-     if [ "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" != "" ];then
-      rm -f "$ONEFILE"
-      grep -v "$ONEFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
+     if [ "`echo -n "$oneBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" != "" ];then
+      rm -f "$oneFILE"
+      grep -v "$oneFILE" /root/.packages/${PKGNAME}.files > "$tmpDIR"/petget_pkgfiles_temp
       mv -f "$tmpDIR"/petget_pkgfiles_temp /root/.packages/${PKGNAME}.files
      fi
     fi
