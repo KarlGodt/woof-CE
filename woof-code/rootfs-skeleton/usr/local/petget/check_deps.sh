@@ -66,14 +66,14 @@ dependcheckfunc() {
  fi
 cat /root/.packages/${APKGNAME}\.files
  FNDFILES=`cat /root/.packages/${APKGNAME}\.files`
- for ONEFILE in $FNDFILES
+ for oneFILE in $FNDFILES
  do
-  ISANEXEC="`file --brief $ONEFILE | grep --extended-regexp "LSB executable|shared object"`"
+  ISANEXEC="`file --brief $oneFILE | grep --extended-regexp "LSB executable|shared object"`"
   if [ ! "$ISANEXEC" = "" ];then
-   LDDRESULT="`ldd $ONEFILE`"
+   LDDRESULT="`ldd $oneFILE`"
    MISSINGLIBS="`echo "$LDDRESULT" | grep "not found" | cut -f 2 | cut -f 1 -d " " | tr "\n" " "`"
    if [ ! "$MISSINGLIBS" = "" ];then
-    echo "File $ONEFILE has these missing library files:" >> "$tmpDIR"/missinglibs.txt
+    echo "File $oneFILE has these missing library files:" >> "$tmpDIR"/missinglibs.txt
     echo " $MISSINGLIBS" >> "$tmpDIR"/missinglibs.txt
    fi
   fi
@@ -128,24 +128,24 @@ else
 
  NR=$TOTAL
  cat /root/.packages/user-installed-packages-rev | cut -f 1,10 -d '|' |
- while read ONEPKGSPEC
+ while read onePKGSPEC
  do
-  [ "$ONEPKGSPEC" = "" ] && continue
-  ONEPKG="`echo -n "$ONEPKGSPEC" | cut -f 1 -d '|'`"
+  [ "$onePKGSPEC" = "" ] && continue
+  onePKG="`echo -n "$onePKGSPEC" | cut -f 1 -d '|'`"
   #echo 87
-  grepPattern9=${ONEPKG//-/\\-}
+  grepPattern9=${onePKG//-/\\-}
   grepPattern=${grepPattern9//./\\.}
   echo grepPattern="$grepPattern"
   oneTime=`grep "$grepPattern" "$tmpDIR"/petget_chdeps_ls_l | head -n1 | cut -f 1 -d ' '`
   [ -z "$oneTime" ] && oneTime='Name of flieslist file and package differ'
-  ONEDESCR="`echo -n "$ONEPKGSPEC" | cut -f 2 -d '|'`"
+  oneDESCR="`echo -n "$onePKGSPEC" | cut -f 2 -d '|'`"
 
   if [ "$NR" -lt 10 ] ; then NRf="00$NR";
   elif [ "$NR" -gt 9 ] && [ "$NR" -lt 100 ] ; then NRf="0$NR";
   else NRf=$NR;
   fi
-  # echo "<radiobutton><label>${ONEPKG} DESCRIPTION: ${ONEDESCR}</label><variable>RADIO_${ONEPKG}</variable></radiobutton>" >> "$tmpDIR"/petget_depchk_buttons
-  echo "${ONEPKG} | DESCRIPTION: ${ONEDESCR} | ${oneTime} | $NRf" >> "$tmpDIR"/petget_depchk_buttons
+  # echo "<radiobutton><label>${onePKG} DESCRIPTION: ${oneDESCR}</label><variable>RADIO_${onePKG}</variable></radiobutton>" >> "$tmpDIR"/petget_depchk_buttons
+  echo "${onePKG} | DESCRIPTION: ${oneDESCR} | ${oneTime} | $NRf" >> "$tmpDIR"/petget_depchk_buttons
   NR=$((NR-1)) ;
  done
  fi
@@ -204,7 +204,7 @@ else
 
  # APKGNAME="`echo "$RETPARAMS" | grep '^RADIO_' | grep '"true"' | cut -f 1 -d '=' | cut -f 2 -d '_'`"
  APKGNAME=`echo "$RETPARAMS" | grep -w 'ONEPKG' | cut -f 2 -d '"' | cut -f 1 -d ' '`
- echo "DBG $LINENO ONEPKG='$ONEPKG'"
+ echo "DBG $LINENO onePKG='$onePKG'"
  echo "DBG $LINENO RETPARAMS='$RETPARAMS'"
  echo "DBG $LINENO 'APKGNAME='$APKGNAME'"
  dependcheckfunc
