@@ -5,7 +5,7 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
-
+__old_header__(){
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -33,16 +33,36 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}
 
-KERNVER=`uname -r`
-KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
-KERNMAJVER=`echo -n $KERNVER | cut -f 2 -d '.'` #6
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="UDEV helper script for 3G modems.
+Just presents too long wait message ."
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
+
+test "$KERNVER"    ||    KERNVER=`uname -r`
+test "$KERNSUBVER" || KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
+test "$KERNMAJVER" || KERNMAJVER=`echo -n $KERNVER | cut -f 2 -d '.'` #6
 DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
 
 echo "Updating /etc/networkmodules..."
 
 DEPFORMAT='new'
-[ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old'
+case $KERNVER in
+2.*) [ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old';;
+esac
+
 #v423 need better test, as now using busybox depmod...
 [ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" != "" ] && DEPFORMAT='old'
 
