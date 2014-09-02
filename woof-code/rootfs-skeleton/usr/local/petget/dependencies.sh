@@ -85,18 +85,18 @@ DB_OTHERS="`echo "$DB_OTHERS" | tr '\n' ' '`"
 cp -f "$tmpDIR"/petget_missingpkgs_patterns "$tmpDIR"/petget_missingpkgs_patternsx
 echo "HIERARCHY OF MISSING DEPENDENCIES OF PACKAGE $TREE1" > "$tmpDIR"/petget_deps_visualtreelog #w017
 echo "Format of each line: 'a-missing-dependent-pkg: missing dependencies of a-missing-dependent-pkg'" >> "$tmpDIR"/petget_deps_visualtreelog #w017
-for ONELEVEL in 1 2 3
+for oneLEVEL in 1 2 3
 do
  echo "" >> "$tmpDIR"/petget_deps_visualtreelog #w017
  echo -n "" > "$tmpDIR"/petget_missingpkgs_patterns2
  for depPATTERN in `cat "$tmpDIR"/petget_missingpkgs_patternsx`
  do
-  ONEDEP="`echo -n "$depPATTERN" | sed -e 's%|%%g'`" #convert to exact name, ex: abiword
+  oneDEP="`echo -n "$depPATTERN" | sed -e 's%|%%g'`" #convert to exact name, ex: abiword
   depPATTERN="`echo -n "$depPATTERN" | sed -e 's%\\-%\\\\-%g'`" #backslash '-'
   #find database entry for this package...
-  for ONEDB in $DB_MAIN $DB_OTHERS
+  for oneDB in $DB_MAIN $DB_OTHERS
   do
-   DB_dependencies="`cat $ONEDB | cut -f 1,2,9 -d '|' | grep "$depPATTERN" | cut -f 3 -d '|' | head -n 1 | sed -e 's%,$%%'`"
+   DB_dependencies="`cat $oneDB | cut -f 1,2,9 -d '|' | grep "$depPATTERN" | cut -f 3 -d '|' | head -n 1 | sed -e 's%,$%%'`"
    if [ "$DB_dependencies" != "" ];then
     ALLDEPS_PATTERNS="`echo -n "$DB_dependencies" | tr ',' '\n' | grep '^+' | sed -e 's%^+%%' -e 's%$%|%' -e 's%^%|%'`" #put '|' on each end.
     echo "$ALLDEPS_PATTERNS" > "$tmpDIR"/petget_subpkg_deps_patterns
@@ -104,15 +104,15 @@ do
     echo "$MISSINGDEPS_PATTERNS" >> "$tmpDIR"/petget_missingpkgs_patterns2
     #w017 log a visual tree...
     MISSDEPSLIST="`echo "$MISSINGDEPS_PATTERNS" | sed -e 's%|%%g' | tr '\n' ' '`"
-    case $ONELEVEL in
+    case $oneLEVEL in
      1)
-      echo "$ONEDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
+      echo "$oneDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
      ;;
      2)
-      echo "    $ONEDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
+      echo "    $oneDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
      ;;
      3)
-      echo "        $ONEDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
+      echo "        $oneDEP: $MISSDEPSLIST" >> "$tmpDIR"/petget_deps_visualtreelog
      ;;
     esac
     break
@@ -130,11 +130,11 @@ rm -f "$tmpDIR"/petget_missing_dbentries* 2>$OUT
 for depPATTERN in `cat "$tmpDIR"/petget_missingpkgs_patterns`
 do
  depPATTERN="`echo -n "$depPATTERN" | sed -e 's%\\-%\\\\-%g'`" #backslash '-'.
- for ONEREPODB in $DB_MAIN $DB_OTHERS
+ for oneREPODB in $DB_MAIN $DB_OTHERS
  do
-  DBFILE="`basename $ONEREPODB`" #ex: Packages-slackware-12.2-official
+  DBFILE="`basename $oneREPODB`" #ex: Packages-slackware-12.2-official
   #find database entry(s) for this package...
-  DB_ENTRY="`cat $ONEREPODB | grep "$depPATTERN"`"
+  DB_ENTRY="`cat $oneREPODB | grep "$depPATTERN"`"
   if [ "$DB_ENTRY" != "" ];then
    echo "$DB_ENTRY" >> "$tmpDIR"/petget_missing_dbentries-${DBFILE}-2
    break
@@ -142,9 +142,9 @@ do
  done
 done
 #clean them up...
-for ONEREPODB in $DB_MAIN $DB_OTHERS
+for oneREPODB in $DB_MAIN $DB_OTHERS
 do
- DBFILE="`basename $ONEREPODB`" #ex: Packages-slackware-12.2-official
+ DBFILE="`basename $oneREPODB`" #ex: Packages-slackware-12.2-official
  if [ -f "$tmpDIR"/petget_missing_dbentries-${DBFILE}-2 ];then
   sort -u "$tmpDIR"/petget_missing_dbentries-${DBFILE}-2 > "$tmpDIR"/petget_missing_dbentries-${DBFILE}
   rm -f "$tmpDIR"/petget_missing_dbentries-${DBFILE}-2
