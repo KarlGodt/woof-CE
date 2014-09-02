@@ -9,6 +9,11 @@
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
