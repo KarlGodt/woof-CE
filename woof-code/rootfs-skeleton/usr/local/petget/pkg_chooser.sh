@@ -70,7 +70,7 @@ if [ "$DISTRO_BINARY_COMPAT" != "puppy" ];then #w477 if compat-distro is puppy, 
   [ "`echo -n "$PKG_REPOS_ENABLED" | grep "$bPATTERN"`" = "" ] && continue
   repocnt=`expr $repocnt + 1`
   COMPAT_REPO=`echo -n "$ONE_DB" | rev | cut -f 1 -d '/' | rev | cut -f 2-4 -d '-'`
-  COMPAT_DBS="${COMPAT_DBS} <radiobutton><label>${COMPAT_REPO}</label><action>\"$tmpDIR\"/filterversion.sh ${COMPAT_REPO}</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>"
+  COMPAT_DBS="${COMPAT_DBS} <radiobutton><label>${COMPAT_REPO}</label><action>$tmpDIR/filterversion.sh ${COMPAT_REPO}</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>"
   echo "${COMPAT_REPO}" >> "$tmpDIR"/petget_active_repo_list #read in findnames.sh
   #[ $repocnt = 1 ] && FIRST_DB="$COMPAT_REPO"
  done
@@ -87,7 +87,7 @@ do
  #chop size of label down a bit, to fit in 800x600 window...
  PUPPY_REPO_CUT=`echo -n "$ONE_DB" | rev | cut -f 1 -d '/' | rev | cut -f 2,3 -d '-'`
  PUPPY_REPO_FULL=`echo -n "$ONE_DB" | rev | cut -f 1 -d '/' | rev | cut -f 2-9 -d '-'`
- PUPPY_DBS="${PUPPY_DBS} <radiobutton><label>${PUPPY_REPO_CUT}</label><action>\"$tmpDIR\"/filterversion.sh ${PUPPY_REPO_FULL}</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>"
+ PUPPY_DBS="${PUPPY_DBS} <radiobutton><label>${PUPPY_REPO_CUT}</label><action>$tmpDIR/filterversion.sh ${PUPPY_REPO_FULL}</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>"
  echo "${PUPPY_REPO}" >> "$tmpDIR"/petget_active_repo_list #read in findnames.sh
  [ $repocnt = $xrepocnt ] && FIRST_DB="$PUPPY_REPO" #w476
  repocnt=`expr $repocnt + 1`
@@ -103,21 +103,21 @@ if [ 0 -eq 1 ];then #w020 disable this choice.
  #filter pkgs by first letter, for more speed. must start with ab...
  echo "ab" > "$tmpDIR"/petget_pkg_first_char
  FIRSTCHARS="
-<radiobutton><label>a,b</label><action>echo ab > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>c,d</label><action>echo cd > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>e,f</label><action>echo ef > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>g,h</label><action>echo gh > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>i,j</label><action>echo ij > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>k,l</label><action>echo kl > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>m,n</label><action>echo mn > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>o,p</label><action>echo op > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>q,r</label><action>echo qr > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>s,t</label><action>echo st > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>u,v</label><action>echo uv > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>w,x</label><action>echo wx > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>y,z</label><action>echo yz > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>0-9</label><action>echo 0123456789 > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
-<radiobutton><label>ALL</label><action>echo ALL > \"$tmpDIR\"/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>a,b</label><action>echo ab > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>c,d</label><action>echo cd > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>e,f</label><action>echo ef > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>g,h</label><action>echo gh > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>i,j</label><action>echo ij > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>k,l</label><action>echo kl > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>m,n</label><action>echo mn > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>o,p</label><action>echo op > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>q,r</label><action>echo qr > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>s,t</label><action>echo st > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>u,v</label><action>echo uv > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>w,x</label><action>echo wx > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>y,z</label><action>echo yz > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>0-9</label><action>echo 0123456789 > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
+<radiobutton><label>ALL</label><action>echo ALL > $tmpDIR/petget_pkg_first_char</action><action>/usr/local/petget/filterpkgs.sh</action><action>refresh:TREE1</action></radiobutton>
 "
  xFIRSTCHARS="<hbox>
 ${FIRSTCHARS}
@@ -176,7 +176,7 @@ export MAIN_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-abou
     <label>Package|Description</label>
     <height>280</height><width>668</width>
     <variable>TREE1</variable>
-    <input>cat \"$tmpDIR\"/filterpkgs.results</input>
+    <input>cat $tmpDIR/filterpkgs.results</input>
     <action signal=\"button-release-event\">/usr/local/petget/installpreview.sh</action>
     <action signal=\"button-release-event\">/usr/local/petget/finduserinstalledpkgs.sh</action>
     <action signal=\"button-release-event\">refresh:TREE2</action>
@@ -217,7 +217,7 @@ export MAIN_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-abou
     <label>Package|Description</label>
     <height>100</height><width>480</width>
     <variable>TREE2</variable>
-    <input>cat \"$tmpDIR\"/installedpkgs.results</input>
+    <input>cat $tmpDIR/installedpkgs.results</input>
     <action signal=\"button-release-event\">/usr/local/petget/removepreview.sh</action>
     <action signal=\"button-release-event\">/usr/local/petget/finduserinstalledpkgs.sh</action>
     <action signal=\"button-release-event\">refresh:TREE2</action>
