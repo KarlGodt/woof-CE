@@ -1,8 +1,8 @@
 #!/bin/bash
-#automagical button created by lvds, 2006
+# Automagical button created by lvds, 2006
 #BK v3.94, dec 2007, bug fix.
 
-
+__old_header__(){
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -30,6 +30,7 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}
 
 #
 # The Linux Firewall Project Graphical Installation Utility
@@ -88,6 +89,21 @@ FW_VERSION="2.0rc9"
 # Set PATH explicitly.
 
 export PATH="/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG=""
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 # Set variables.
 
