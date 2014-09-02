@@ -71,6 +71,11 @@
 # Update: Mar. 19th: add wireless scan files to cleanUpTmp, change shebang to bash
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
