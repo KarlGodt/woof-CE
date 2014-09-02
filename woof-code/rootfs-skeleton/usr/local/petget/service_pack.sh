@@ -91,11 +91,11 @@ done
 
 CNT=0; RADIOXML=''; STARTVER=0.0; ENDVER='0.0'; ENDVERbiggest='0.0'; PETbest=''
 #echo -n "" > "$tmpDIR"/service_pack_hack
-for APETURL in $FNDPETURLS
+for aPETURL in $FNDPETURLS
 do
- ABASE="$(basename $APETURL)"
- STARTVER="$(echo -n "$ABASE" | cut -f 2 -d '-' | cut -f 1 -d '_')" #ex: extract 5.4.1 from service_pack-5.4.1_TO_5.4.1.1_precise.pet
- ENDVER="$(echo -n "$ABASE" | cut -f 2 -d '-' | cut -f 3 -d '_' | cut -f 1 -d '-' | sed -e 's%\.pet$%%')"   #ex: extract 5.4.1.1  121217 fix.
+ aBASE="$(basename $aPETURL)"
+ STARTVER="$(echo -n "$aBASE" | cut -f 2 -d '-' | cut -f 1 -d '_')" #ex: extract 5.4.1 from service_pack-5.4.1_TO_5.4.1.1_precise.pet
+ ENDVER="$(echo -n "$aBASE" | cut -f 2 -d '-' | cut -f 3 -d '_' | cut -f 1 -d '-' | sed -e 's%\.pet$%%')"   #ex: extract 5.4.1.1  121217 fix.
  if vercmp $ENDVER gt $INSTBIGGEST;then #121217 precaution
   if vercmp $STARTVER le $DISTRO_VERSION;then
    if vercmp $ENDVER gt $DISTRO_VERSION;then #121129
@@ -106,16 +106,16 @@ do
     CNT=`expr $CNT + 1`
     #find the size...
     PARAS="$(cat "$tmpDIR"/service_pack_probe | sed -e 's%^$%BLANKLINE%' | tr '\n' ' ' | tr -s ' ' | sed -e 's%BLANKLINE%\n%g')"
-    LENB=`echo "$PARAS" | grep "/${ABASE}" | grep -o ' Length: [0-9]* ' | cut -f 3 -d ' '`
+    LENB=`echo "$PARAS" | grep "/${aBASE}" | grep -o ' Length: [0-9]* ' | cut -f 3 -d ' '`
     [ ! $LENB ] && LENB=0
     LENK=`expr $LENB \/ 1024`
     RADIOXML="${RADIOXML}
-<radiobutton><label>${ABASE} SIZE:${LENK}K</label><variable>RADIOVAR_${CNT}_</variable></radiobutton>"
-    #echo "PACKAGE: ${ABASE}  SIZE: ${LENK}K" >> "$tmpDIR"/service_pack_hack
+<radiobutton><label>${aBASE} SIZE:${LENK}K</label><variable>RADIOVAR_${CNT}_</variable></radiobutton>"
+    #echo "PACKAGE: ${aBASE}  SIZE: ${LENK}K" >> "$tmpDIR"/service_pack_hack
     if vercmp $ENDVER gt $ENDVERbiggest;then
      ENDVERbiggest="$ENDVER"
-     PETbest="$ABASE"
-     BESTXML="<radiobutton><label>${ABASE} SIZE:${LENK}K</label><variable>RADIOVAR_${CNT}_</variable></radiobutton>"
+     PETbest="$aBASE"
+     BESTXML="<radiobutton><label>${aBASE} SIZE:${LENK}K</label><variable>RADIOVAR_${CNT}_</variable></radiobutton>"
     fi
    fi
   fi
