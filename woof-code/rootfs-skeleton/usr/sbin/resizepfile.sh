@@ -4,6 +4,11 @@
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
