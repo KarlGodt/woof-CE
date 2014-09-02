@@ -70,7 +70,7 @@ case $DLPKG_BASE in
  *.pet)
   #101225 bug fix, .pet was converted to .tar.gz, restore to .pet...
   DLPKG_MAIN=`basename $DLPKG_BASE .pet`
-  FULLSIZE=`stat --format=%s "${DLPKG_BASE}"`
+  FULLSIZE=`stat -c %s "${DLPKG_BASE}"`
   ORIGSIZE=`expr $FULLSIZE - 32`
   dd if="${DLPKG_BASE}" of="$tmpDIR"/petmd5sum bs=1 skip=${ORIGSIZE} 2>$OUT
   sync
