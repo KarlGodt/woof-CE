@@ -50,9 +50,9 @@ CURRENTREPO=`cat "$tmpDIR"/petget_filterversion` #search here first.
 REPOLIST="${CURRENTREPO} `cat "$tmpDIR"/petget_active_repo_list | grep -v "$CURRENTREPO"`"
 
 FNDIT=no
-for ONEREPO in $REPOLIST
+for oneREPO in $REPOLIST
 do
- FNDENTRIES=`cat /root/.packages/Packages-${ONEREPO} | grep "$entryPATTERN"`
+ FNDENTRIES=`cat /root/.packages/Packages-${oneREPO} | grep "$entryPATTERN"`
  if [ "$FNDENTRIES" != "" ];then
   FIRSTCHAR=`echo "$FNDENTRIES" | cut -c 1 | tr '\n' ' ' | sed -e 's% %%g'`
   #write these just in case needed...
@@ -61,7 +61,7 @@ do
   # echo "$FIRSTCHAR" > "$tmpDIR"/petget_pkg_first_char
   #fi
   #echo "ALL" > "$tmpDIR"/petget_filtercategory
-  echo "$ONEREPO" > "$tmpDIR"/petget_filterversion #ex: slackware-12.2-official
+  echo "$oneREPO" > "$tmpDIR"/petget_filterversion #ex: slackware-12.2-official
   #this is read when update TREE1 in pkg_chooser.sh...
   echo "$FNDENTRIES" | cut -f 1,10 -d '|' > "$tmpDIR"/filterpkgs.results
   FNDIT=yes
