@@ -9,8 +9,8 @@
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=generate_index
+_COMMENT_="Generate files in /usr/share/doc/"
 
 MY_SELF="$0"
 
