@@ -1,32 +1,34 @@
 #!/bin/bash
-# Simple applying a Backup FiLe
+# Simple apply a Backup File
 # November 2010
 # KRG
-PRO="/restore.sh"
+
+PRO="restore.sh"
 echo $$
 SCRIPT_DIR="/usr/local/jwmconfig3"
 . $SCRIPT_DIR/path
-echo $DBG 8
+
+echo $DBG 11
 
 ##---backup--->
-cp -f $ColorFileBak "$ColorFileBak.0"
-cp -f $ThemeFileBak "$ThemeFileBak.0"
+cp -f $colorFILEbak "$colorFILEbak.0"
+cp -f $themeFILEbak "$themeFILEbak.0"
 
-cp -f $ColorFileBak $ColorFile
-cp -f $ThemeFileBak $ThemeFile
+cp -f $colorFILEbak $colorFILE
+cp -f $themeFILEbak $themeFILE
 
 # Patriot Sep 2009
   # Attempting some robustness
   # Update only for known -bg option applets: blinky and xload
 
-  . $ColorFile #Get MENU_BG, PAGER_BG
-  
+  . $colorFILE #Get MENU_BG, PAGER_BG
+
   . $SCRIPT_DIR/func -trayapply2
-  
+
 
   sync
-  
-  pidof jwm >/dev/null && jwm -restart
+
+  pidof jwm >$OUT && jwm -restart
 
 
 
