@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# Code adapted for Puppy 1.0.9, JWM 1.7
+# by Kwiller on 07-May-2006
+#
+###################
+#v3.99 normal height now 28, changed from 26. changed short 18 -> 20.
+# 23aug2010 shinobar: remove warnings at parsing new config
+
+##-----taskbarHeight----->>
+
+TMP="/tmp/checklist.tmp.$$"
+
+CONFIG="/root/.jwmrc-tray"
+CONFIG2="/root/.jwmrc-tray-bak"
+CONF="/root/.jwmrc-tray-temp"
+
+#-----Backup current settings----->>
+cp $CONFIG $CONFIG2
+
+check_config(){
+jwm -p 2>$TMP
+CHECKCONF=`cat $TMP | grep -vi 'DEBUG:'`
+echo "CHECKCONF='$CHECKCONF'"
+if [ "$CHECKCONF" ] ; then
+ echo ERROR 1
+ if [ "$1" = 'restore' ] ; then
+  mv $CONFIG2 $CONFIG
+  RESTOP="Change Failed"
+  RESMSG="Configuration has not been altered"
+  else
+  RESMSG="Current configuration not OK:\n$CHECKCONF\nLaunching Editor ..."
+  RESTOP="Refusing to continue."
+ fi
+
+defaulttexteditor "$CONFIG" &
+sleep 3
+Xdialog --title "$RESTOP" --msgbox "$RESMSG" 0 0 &
+exit 1
+fi
+}
+check_config
+#grep -m1 -E -e '^([[:blank:]]*)<Tray .*|^<Tray .*' $CONFIG
+#grep -m1 -E -e '^([[:blank:]]*)<Tray .*|^<Tray .*' $CONFIG | grep -o -e 'height="\([0-9]*\)"'
+#grep -m1 -E -e '^([[:blank:]]*)<Tray .*|^<Tray .*' $CONFIG | grep -o -e 'height="\([0-9]*\)"' | sed -r 's|(.*")([0-9]*)"|\2|'
+SET_NOW=`grep -m1 -E -e '^([[:blank:]]*)<Tray .*|^<Tray .*' $CONFIG | grep -o -e 'height="\([0-9]*\)"' | sed -r 's|(.*")([0-9]*)"|\2|'`
+echo "SET_NOW='$SET_NOW'"
+[ "$SET_NOW" ] || exit
+#--spinbox	<text> <height> <width> <min value> <max value> <default value> <label>
+Xdialog --backtitle "JWM Taskbar Configuration" \
+	--title "Taskbar" \
+	--spinbox "Choose the Tray Height" 0 0 10 48 $SET_NOW 'Tray height:' 2>$TMP
+retval=$?
+
+#--------cancel pressed----->>
+case $retval in
+  1 | 255) exit 0;;
+esac
+
+#---------save changes----->>
+
+HGHT=`cat $TMP |tail -n1`
+echo "HGHT='$HGHT'"
+#-----If there are new settings chosen then make the changes----->>
+
+if [ "$HGHT" != "$SET_NOW" ]; then
+  SED_STRING=s!height=\"$SET_NOW\"!height=\"$HGHT\"!
+  sed -e "$SED_STRING" $CONFIG >$CONF
+  sleep 1
+  mv $CONF $CONFIG
+fi
+
+#------check new configuration----->>
+
+check_config restore
+
+SET_NEW=`grep -m1 -E -e '^([[:blank:]]*)<Tray .*|^<Tray .*' $CONFIG | grep -o -e 'height="\([0-9]*\)"' | sed -r 's|(.*")([0-9]*)"|\2|'`
+echo "SET_NEW='$SET_NEW'"
+
+#----notify of result----->>
+RESTOP="Change Saved"
+RESMSG="The tray height is set to $HGHT"
+rm -f $CONFIG2
+
+Xdialog --title "$RESTOP" --msgbox "$RESMSG" 0 0
+
+#--------clean exit------->>
+rm -f $TMP
+echo 'JWM TASKBARPLACEMENT' >/tmp/pup_event_manager.flg
+echo 'ICONWIPE' >/tmp/pup_event_icon_change_flag
+exit 0

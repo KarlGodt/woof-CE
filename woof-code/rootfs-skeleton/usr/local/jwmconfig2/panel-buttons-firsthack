@@ -1,0 +1,558 @@
+#!/bin/sh
+
+####################################
+#
+# A JWM panel button configuring tool
+# for jwmconfig
+# 2006-NOV-05
+# by plinej
+#
+#####################################
+# 2009-NOV-06 low and high position fixed by himajin, shinobar
+# 23aug2010 shinobar: skip comments from edit
+
+if [ ! -f /root/.jwmrc-tray-bak ]; then
+cp /root/.jwmrc-tray /root/.jwmrc-tray-bak  ### makes .jwmrc-tray-bak backup file unless it already exists
+fi
+cat /root/.jwmrc-tray | sed '/^$/d' > /tmp/.jwmrc-tray  ### remove all blank lines in .jwmrc-tray
+mv /tmp/.jwmrc-tray /root/
+
+# 2009-NOV-06 low and high position fixed 
+total=`wc -l /root/.jwmrc-tray | sed -e 's/ *//' | sed -e 's/ .*//g'` ### get total number of lines
+low=`grep -n '^[[:blank:]]*<TrayButton' /root/.jwmrc-tray | head -n 1| cut -d':' -f1`  ### get line number of the first button(Menu)
+#high=`grep -n '^[[:blank:]]*<TrayButton' /root/.jwmrc-tray | tail -n 1| cut -d':' -f1` ### get line number of the last button
+high=`grep '<!-- Additional Pager attributes; width, height -->' -n /root/.jwmrc-tray | sed -e 's/\:.*>//g'` ### get line number with Additional Pager
+high=`echo "(("$high" - 0))" | bc -l`
+last=`echo "(("$total" - "$high" + 2))" | bc -l`
+begin=`echo "(("$low" + 1))" | bc -l` ### first line with panel buttons
+#end=`echo "(("$high" - 1))" | bc -l` ### last line with panel buttons
+
+cat /root/.jwmrc-tray | head -n "$low" > /tmp/jwmrc-tray-head.txt
+cat /root/.jwmrc-tray | tail -n "$last" > /tmp/jwmrc-tray-tail.txt
+
+cat /root/.jwmrc-tray | head -n "$low" 
+echo
+cat /root/.jwmrc-tray | tail -n "$last" 
+echo
+echo $DBG  37 "total=$total, low=$low, high=$high, last=$last, begin=$begin"
+num=1
+
+### xdialog radiolist gui
+Xdialog --backtitle "" \
+	--title "RADIOLIST BOX" \
+        --radiolist "JWM panel button configuring tool." 26 46 5 \
+        "Edit" "Edit your existing Panel Buttons" ON \
+        "Add" "Add a panel button" off \
+        "Move" "Move panel buttons around" off \
+	"Remove" "Remove a panel button" off\
+        "Restore" "Restore original .jwmrc-tray" off \
+        "Backup" "Backup your current .jwmrc-tray" off \
+	"Exit" "Exit this program" off 2>/tmp/checklist.tmp.$$
+
+retval=$?
+choice=`cat /tmp/checklist.tmp.$$`
+rm -f /tmp/checklist.tmp.$$
+
+case $retval in
+  0)
+    echo "'$choice' chosen.";;
+  1)
+    echo "Cancel pressed."
+    exit 0
+    ;;
+  255)
+    echo "Box closed."
+    exit 0
+    ;;
+esac
+
+if [ "$retval" != 0 ]; then
+exit 0
+fi
+
+if [ "$choice" = Backup ]; then
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "This will backup your current
+	     .jwmrc-tray and will be the version
+	     that gets restored if you choose restore." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed."
+    exit 0
+    ;;
+esac
+
+cp /root/.jwmrc-tray /root/.jwmrc-tray-bak
+exit 0
+fi
+
+
+
+if [ "$choice" = Restore ]; then
+
+mv /root/.jwmrc-tray-bak /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Your original .jwmrc-tray
+        file has been restored.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+exit 0
+fi
+
+if [ "$choice" = Exit ]; then
+exit 0
+fi
+
+
+if [ "$choice" = Edit ]; then
+echo "Debug: $begin":"$high"
+while [ "$begin" != "$high" ]; do
+
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//' | sed -e 's/\".*//' | sed 's/^[ \t]*//' > /tmp/tmp-popup.txt  ### gets popup text
+popup=`cat /tmp/tmp-popup.txt`
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//' | sed -e "s/$popup//" | sed -e 's/" icon="//' | sed -e 's/\".*//' | sed 's/^[ \t]*//' > /tmp/tmp-icon.txt  ### gets icon text
+icon=`cat /tmp/tmp-icon.txt`
+cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed 's/\<.*\"//g' | sed -e 's/<\/TrayButton>//' | sed -e 's/<>//' | sed 's/^[ \t]*//' > /tmp/tmp-exec.txt  ### gets executable text
+#action=`cat /tmp/tmp-exec.txt`
+SKIP=""
+echo "$popup" | grep -q '^<!--' && SKIP="yes"
+[ "$icon" = "" ] && SKIP="yes"
+if [ "$SKIP" != "yes" ]; then
+ ### This is the Edit gui
+ export JWM_Panel_Button_Editor="
+<vbox>
+ <frame Button $num Information - edit as you wish>
+  <hbox>
+      <text><label>Popup display</label></text>
+      <entry>
+    <variable>Entry1</variable>
+    <input>cat /tmp/tmp-popup.txt</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>executable</label></text>
+      <entry>
+    <variable>Entry3</variable>
+    <input>cat /tmp/tmp-exec.txt</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>Icon name</label></text>
+      <entry>
+    <variable>Entry2</variable>
+    <input>cat /tmp/tmp-icon.txt</input>
+    </entry>
+    <button>
+      <input file>/usr/local/lib/X11/mini-icons/dir_o.xpm</input>
+      <action>./file-selector</action>
+      <action>refresh:Entry2</action>
+    </button>
+  </hbox>
+ </frame>
+  <hbox>
+   <button ok>
+	<action>echo \$Entry1 | tee /tmp/tmp-popup-$num.txt</action>
+	<action>echo \$Entry2 | tee /tmp/tmp-icon-$num.txt</action>
+	<action>echo \$Entry3 | tee /tmp/tmp-exec-$num.txt</action>
+	<action type=\"exit\">EXIT</action>
+   </button>
+   <button cancel>
+   <action> rm $POP $EXC $ICO </action>
+   <action type=\"exit\">EXIT:ok</action>
+   </button>
+  </hbox>
+</vbox>"
+
+ ##------------run------------->>
+ gtkdialog3 --program JWM_Panel_Button_Editor
+
+ ##----------cleanup------------>>
+ unset JWM_Panel_Button_Editor
+
+ #clear
+
+ new_line=`echo \<TrayButton popup\=\"``cat /tmp/tmp-popup-$num.txt``echo \" icon\=\"``cat /tmp/tmp-icon-$num.txt``echo \"\>``cat /tmp/tmp-exec-$num.txt``echo \</TrayButton\>`  ### builds replacement line for .jwmrc-tray
+ echo "$new_line" >> /tmp/jwmrc-tray-2.txt
+fi
+begin=`echo "(("$begin" + 1))" | bc -l`
+num=`echo "(("$num" + 1))" | bc -l`
+
+
+shift
+done
+
+cat /tmp/jwmrc-tray-2.txt >> /tmp/jwmrc-tray-head.txt
+cat /tmp/jwmrc-tray-tail.txt >> /tmp/jwmrc-tray-head.txt
+mv /tmp/jwmrc-tray-head.txt /root/.jwmrc-tray
+
+rm -f /tmp/jwmrc-tray-*
+rm -f /tmp/tmp-popup*.txt
+rm -f /tmp/tmp-icon*.txt
+rm -r /tmp/tmp-exec*.txt
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Editing complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+exit 0
+fi
+
+
+
+if [ "$choice" = Add ]; then
+while [ "$begin" != "$high" ]; do
+cat /root/.jwmrc-tray | sed -n ""$begin"p" >> /tmp/jwmrc-tray-panel.txt
+begin=`echo "(("$begin" + 1))" | bc -l`
+shift
+done
+
+### This is the Add gui
+export JWM_Panel_Button_Add="
+<vbox>
+ <frame Button Add>
+  <hbox>
+      <text><label>Popup display</label></text>
+      <entry>
+    <variable>Entry1</variable>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>executable</label></text>
+      <entry>
+    <variable>Entry3</variable>
+    <input>echo exec:</input>
+      </entry>
+  </hbox>
+  <hbox>
+      <text><label>Select icon</label></text>
+      <entry>
+    <variable>Entry2</variable>
+    <input>cat /tmp/tmp-icon.txt</input>
+    </entry>
+    <button>
+      <input file>/usr/local/lib/X11/mini-icons/dir_o.xpm</input>
+      <action>./file-selector</action>
+      <action>refresh:Entry2</action>
+    </button>
+  </hbox>
+  </frame>
+  <hbox>
+   <button ok>
+	<action>echo \$Entry1 | tee /tmp/tmp-popup.txt</action>
+	<action>echo \$Entry3 | tee /tmp/tmp-exec.txt</action>
+	<action type=\"exit\">EXIT</action>
+   </button>
+   <button cancel>
+   <action> rm $POP $EXC $ICO </action>
+   <action type=\"exit\">EXIT:ok</action>
+   </button>
+  </hbox>
+</vbox>"
+
+##------------run------------->>
+gtkdialog3 --program JWM_Panel_Button_Add
+
+##----------cleanup------------>>
+unset JWM_Panel_Button_Add
+
+new_line=`echo \<TrayButton popup\=\"``cat /tmp/tmp-popup.txt``echo \" icon\=\"``cat /tmp/tmp-icon.txt``echo \"\>``cat /tmp/tmp-exec.txt``echo \</TrayButton\>`  ### builds new line for .jwmrc-tray
+echo "$new_line" >> /tmp/jwmrc-tray-panel.txt
+
+cat /tmp/jwmrc-tray-panel.txt >> /tmp/jwmrc-tray-head.txt
+cat /tmp/jwmrc-tray-tail.txt >> /tmp/jwmrc-tray-head.txt
+mv /tmp/jwmrc-tray-head.txt /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Adding complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+
+rm -f /tmp/jwmrc-tray-*
+rm -f /tmp/tmp-popup.txt
+rm -f /tmp/tmp-icon.txt
+rm -r /tmp/tmp-exec.txt
+exit 0
+fi
+
+
+
+
+if [ "$choice" = Remove ]; then
+
+y=1
+z=`echo "(("$high" - "$begin"))" | bc -l`
+
+while [ "$begin" != "$high" ]; do
+
+PB=`cat /root/.jwmrc-tray | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//g' | sed -e 's/\".*//g' | sed 's/^[ \t]*//'`
+
+Xdialog --backtitle "Remove panel buttons" \
+	--title "RADIOLIST BOX" \
+        --radiolist "Would you like to delete $PB\n\
+from the panel? If you want to delete it choose\n\
+yes, otherwise choose no." 26 46 5 \
+        "no"    "no do not delete this button" ON \
+        "yes" "yes delete this button" off 2>/tmp/checklist.tmp.$$
+
+retval=$?
+choice=`cat /tmp/checklist.tmp.$$`
+rm -f /tmp/checklist.tmp.$$
+
+case $retval in
+  0)
+    echo "'$choice' chosen.";;
+  1)
+    echo "Cancel pressed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+  255)
+    echo "Box closed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+esac
+
+if [ "$choice" = no ]; then
+cat /root/.jwmrc-tray | sed -n ""$begin"p" >> /tmp/jwmrc-tray-head.txt
+fi
+begin=`echo "(("$begin" + 1))" | bc -l`
+y=`echo "(("$y" + 1))" | bc -l`
+
+shift
+done
+
+cat /tmp/jwmrc-tray-tail.txt >> /tmp/jwmrc-tray-head.txt
+mv /tmp/jwmrc-tray-head.txt /root/.jwmrc-tray
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Removing complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed.";;
+esac
+rm -f /tmp/jwmrc-tray*
+exit 0
+fi
+
+if [ "$choice" = Move ]; then
+grep -n '<TrayButton popup' /root/.jwmrc-tray | grep -v '<!--' > /tmp/g0.txt
+zz=`grep -c '<TrayButton popup' /tmp/g0.txt`
+yy=0
+y=1
+z=`echo "(("$high" - "$begin"))" | bc -l`
+echo $z
+echo $begin
+echo $high
+bb=`expr $begin - 1`
+echo 380
+echo $bb
+
+while [ "$begin" != "$high" ]; do
+(( bb++ ))
+echo $bb
+PB2=`cat /root/.jwmrc-tray  | sed -n ""$begin"p" | sed -e 's/<TrayButton popup="//g' | sed -e 's/\".*//g' | sed 's/^[ \t]*//'`
+echo $PB2
+#echo $PB2 > /tmp/jwmrc-tray-panel-$z.txt
+#TTPT=`cat /root/.jwmrc-tray | sed -n ""$begin"p"`
+#echo $TTPT > /tmp/jwmrc-tray-panel-$z.txt
+#cat /tmp/jwmrc-tray-panel-$z.txt
+SKIP=""
+echo "$PB2" | grep -q '^<!--' && SKIP="yes"
+[ "$PB2" = "" ] && SKIP="yes"
+#[ "$SKIP" = "yes" ] && y=`expr $y - 1 `
+echo $y
+# echo $PB2 > /tmp/jwmrc-tray-move-$y.txt
+LINE=`cat -n  /root/.jwmrc-tray | grep -w $bb -m 1`
+echo 399
+echo $LINE
+LINEwoNr=`echo $LINE | cut -f 2-99 -d ' '`
+echo 402
+echo "$LINEwoNr"
+echo "$LINEwoNr" > /tmp/jwmrc-tray-move-$bb.txt
+cat /tmp/jwmrc-tray-move-$bb.txt
+echo 406
+if [ "$SKIP" != "yes" ]; then
+(( yy++ )); echo $yy
+echo $bb
+by=`expr $bb + $yy`
+echo $by
+echo 412
+TTPT=`cat /root/.jwmrc-tray | grep "$PB2"`
+echo $TTPT > /tmp/jwmrc-tray-move-$by.txt
+cat /tmp/jwmrc-tray-move-$by.txt
+#zz=`expr $z - 1`        
+echo line 417
+echo $zz
+#echo $TTPT > /tmp/jwmrc-tray-move-$zz.txt
+#at /tmp/jwmrc-tray-move-$zz.txt
+#grep -n '<TrayButton popup' /root/.jwmrc-tray | grep -v '<\!--' > /tmp/g0.txt
+#zz=`grep -c '<TrayButton popup' /tmp/g0.txt`
+
+
+Xdialog --title "INPUT BOX" \
+        --inputbox "$PB2 is button $yy of your $zz buttons.\n\
+\n\
+If you would like that button in another\n\
+position please enter the number below." 18 45 2> /tmp/inputbox.tmp.$$
+
+retval=$?
+input=`cat /tmp/inputbox.tmp.$$`
+rm -f /tmp/inputbox.tmp.$$
+echo 434
+echo $input
+case $retval in
+  0)
+    echo "Input string is '$input'";;
+  1)
+    echo "Cancel pressed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+  255)
+    echo "Box closed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+esac
+
+if [ "$retval" != 0 ]; then
+rm -f /tmp/jwmrc-tray*
+exit 0
+fi
+
+if [ "$input" != "" ]; then
+#ls /tmp/jwmrc-tray-tmp-$input.txt
+echo 457
+#ls /tmp/jwmrc-tray-tmp-$zz.txt
+echo 459
+#ls /tmp/jwmrc-tray-tmp-$z.txt
+echo 461
+#ls /tmp/jwmrc-tray-tmp-$z.txt
+echo 463
+bbb=`expr $bb + $input`
+if [ "`ls /tmp/jwmrc-tray-tmp-$bbb.txt`" = "/tmp/jwmrc-tray-tmp-$bbb.txt" ]; then
+echo 466
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Position "$input"
+	     has already been selected.
+	     you must now start over." 10 41
+
+case $? in
+  0)
+    echo "OK" 464 ;; 
+  255)
+    echo "Box closed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+esac
+rm -f /tmp/jwmrc-tray*
+exit 0
+
+fi # 469
+echo 485
+mv /tmp/jwmrc-tray-move-"$by".txt /tmp/jwmrc-tray-tmp-"$input".txt
+echo 457
+else # 459 
+echo 489
+bbb=`expr $bb + $input`
+if [ "`ls /tmp/jwmrc-tray-tmp-"$bbb".txt`" = /tmp/jwmrc-tray-tmp-"$bbb".txt ]; then #513
+
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Position "$y"
+	     has already been selected.
+	     You must now start over." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed."
+    rm -f /tmp/jwmrc-tray*
+    exit 0
+    ;;
+esac
+rm -f /tmp/jwmrc-tray*
+exit 0
+fi # 495
+fi # 492
+echo 511
+echo $y
+# mv /tmp/jwmrc-tray-move-$y.txt /tmp/jwmrc-tray-tmp-$y.txt
+
+#fi # 492
+else # 410
+mv /tmp/jwmrc-tray-move-$bb.txt /tmp/jwmrc-tray-tmp-$bb.txt
+fi # 520
+begin=`echo "(("$begin" + 1))" | bc -l`
+echo 520
+echo $begin
+y=`echo "(("$y" + 1))" | bc -l`
+echo 523
+echo $y
+#fi # 410 daemon :)
+shift
+done
+echo line 528
+cat /tmp/jwmrc-tray-tmp-* >> /tmp/jwmrc-tray-head.txt
+cat /tmp/jwmrc-tray-head.txt
+echo line 531
+cat /tmp/jwmrc-tray-tail.txt
+echo line 533
+cat /tmp/jwmrc-tray-tail.txt >> /tmp/jwmrc-tray-head.txt
+cat /tmp/jwmrc-tray-head.txt
+mv /tmp/jwmrc-tray-head.txt /root/.jwmrc-tray
+# fi # 410 syntax error near unexpected token done
+Xdialog --title "MESSAGE BOX" \
+        --msgbox "Moving complete.
+	     You must restart jwm for
+	     changes to take effect." 10 41
+
+case $? in
+  0)
+    echo "OK";;
+  255)
+    echo "Box closed."
+    exit 0
+    ;;
+esac
+
+
+
+fi # 370
+
+rm -f /tmp/jwmrc-tray*
+
+exit 0

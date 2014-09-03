@@ -1,0 +1,134 @@
+#!/bin/bash
+#
+# Code updated for Puppy 1.0.9, JWM 1.7
+# by Kwiller on 5-May-2006
+#
+# 27aug2010 shinobar: remove warnings at parsing new config
+
+##-----DesktopCount Config----->>
+
+NEW=0
+MINTOPS=1
+MAXTOPS=8
+DC="<Desktops count=\"[0-9][0-9]*\"/>"
+CONFIG="/root/.jwm/jwmrc-personal"
+CONFIG2="/root/.jwm/jwmrc-personal-bak"
+CONF="/root/.jwm/jwmrc-personal-temp"
+TMP="/tmp/inputbox.tmp.$$"
+
+JWM_VERSION=`jwm -v 2>/dev/null | grep -o -e 'vsvn\-[0-9]*' | cut -f2 -d-`
+echo "JWM_VERSION='$JWM_VERSION'"
+if [ "$JWM_VERSION" -ge 496 ] ; then
+NEW=1
+DC="<Desktops width=\"[0-9]\" height=\"[0-9]\"/>"
+fi
+echo "NEW='$NEW'"
+
+#-----Backup current settings----->>
+cp $CONFIG $CONFIG2
+
+#----Check for current settings---->>
+SET_ON=`grep -c "$DC" $CONFIG`
+
+#----Set choice outside of range----->>
+CHOICE=0
+
+#----------dialogue-------->>
+
+#--- loop until choice is in range 1 to 8 ---->>
+#while [ "$CHOICE" -lt "$MINTOPS" -o "$CHOICE" -gt "$MAXTOPS" ]
+#do
+#  Xdialog --title "Virtual Desktops" \
+#          --inputbox "Specify your desired number of virtual desktops (1 - 8)" 0 0 2> $TMP
+#--2spinsbox	<text> <height> <width> <min1> <max1> <def1> <label1> <min2> <max2> <def2> <label2>
+if [ "$NEW" = 0 ] ; then
+Xdialog --title "Virtual Desktops" \
+ --spinbox	"Specify your desired number of virtual desktops (1 - 8)" 0 0 1 8 2 ":VirtualDesks" 2> $TMP
+  retval=$?
+else
+Xdialog --title "Virtual Desktops" \
+ --2spinsbox	"Specify your desired number of virtual desktops (1 - 10)" 0 0 1 5 3 ":VirtDesks" 1 5 1 ":Rows" 2> $TMP
+  retval=$?
+fi
+
+#--------cancel pressed------->>
+  case $retval in
+    1 | 255)  exit 0;;
+  esac
+
+#-------preparation----------->>
+
+  CHOICE=`cat $TMP`
+#NEW=1: 2/5
+  if [ -z $CHOICE ]; then
+   if [ "$NEW" =0 ] ; then
+     CHOICE=1
+   else
+    CHOICE=1/1
+   fi
+  fi
+#done
+#exit
+echo "CHOICE='$CHOICE' '${CHOICE:0:1}' '${CHOICE:2:1}'"
+if [ "$NEW" = 0 ] ; then
+ if [ "$SET_ON" -eq "1" ] ; then
+#-----If there are current settings change them----->>
+  SEDCOUNT=s!count=\"[0-9][0-9]*\"!count=\"${CHOICE}\"!g
+  sed -e "$SEDCOUNT" $CONFIG > $CONF
+ else
+#-----If there are no current settings add the new one---->>
+  echo "  " > $TMP
+  echo '<!-- Number of virtual desktops -->' >> $TMP
+  echo "<Desktops count=\"${CHOICE}\"/>" >> $TMP
+  sed -e "/<JWM>/r $TMP" $CONFIG > $CONF
+ fi
+else
+ if [ "$SET_ON" -eq "1" ] ; then
+  SEDCOUNT="s!width=\"[0-9]\" height=\"[0-9]\"!width=\"${CHOICE:0:1}\" height=\"${CHOICE:2:1}\"!g"
+  echo "$SEDCOUNT"
+  echo $LINENO
+  sed -e "$SEDCOUNT" $CONFIG > $CONF
+  echo $LINENO
+ else
+  echo "  " > $TMP
+  echo '<!-- Number of virtual desktops -->' >> $TMP
+  echo "<Desktops width=\"${CHOICE:0:1}\" height=\"${CHOICE:2:1}\"/>" >> $TMP
+  sed -e "/<JWM>/r $TMP" $CONFIG > $CONF
+ fi
+fi
+#---------save changes----->>
+
+  mv $CONF $CONFIG
+
+#------check new configuration----->>
+jwm -p 2>&1 > $TMP
+
+CHECKCONF=`cat $TMP | grep -vi '^DEBUG'`
+if [ "$NEW" = 0 ] ; then
+RES=`grep -c "Desktops count=\"$CHOICE\"/>" $CONFIG`
+else
+RES=`grep -c "Desktops width=\"${CHOICE:0:1}\" height=\"${CHOICE:2:1}\"/>" $CONFIG`
+fi
+#----notify of result----->>
+
+if [ "$RES" -eq "1" ]; then
+  if [ -z "$CHECKCONF" ]; then
+    RESTOP="Change Saved"
+    RESMSG="Now set for $CHOICE virtual desktops."
+    rm -f $CONFIG2
+  else
+    RESTOP="Change Reversed"
+    RESMSG="New config corrupt. $CHECKCONF .. Keeping original."
+    mv $CONFIG2 $CONFIG
+  fi
+else
+  RESTOP="Change Failed"
+  RESMSG="Configuration has not been altered"
+  mv $CONFIG2 $CONFIG
+fi
+
+Xdialog --title "$RESTOP" --msgbox "$RESMSG" 0 0
+
+#--------clean exit------->>
+rm -f $TMP
+exit 0
