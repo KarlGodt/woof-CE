@@ -7,8 +7,9 @@ PRO="restore.sh"
 echo $$
 SCRIPT_DIR="/usr/local/jwmconfig3"
 . $SCRIPT_DIR/path
+. /etc/rc.d/f4puppy5
 
-echo $DBG 11
+echo $DBG 12
 
 ##---backup--->
 cp -f $colorFILEbak "$colorFILEbak.0"
