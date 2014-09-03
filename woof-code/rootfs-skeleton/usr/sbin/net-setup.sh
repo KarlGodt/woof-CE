@@ -285,7 +285,7 @@ buildMainWindow ()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+            <action>$HELP_COMMAND >$OUT 2>&1 & </action>
         </button>
         <button>
              <label>$L_BUTTON_Exit</label>
@@ -979,7 +979,7 @@ findLoadedModules ()
   echo -n " " > /tmp/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
-  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
+  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules 2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
 
   COUNT_MOD=0
   for MOD in $LOADED_MODULES
@@ -1212,7 +1212,7 @@ buildConfigureInterfaceWindow ()
     <hbox>
         $DONEBUTTON
         <button help>
-            <action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+            <action>$HELP_COMMAND >$OUT 2>$ERR & </action>
         </button>
         ${SAVE_SETUP_BUTTON}
         <button>
@@ -1446,7 +1446,7 @@ buildStaticIPWindow()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+            <action>$HELP_COMMAND >$OUT 2>$ERR & </action>
         </button>
         <button ok></button>
         <button cancel></button>
@@ -1627,7 +1627,7 @@ unloadNewModule()
 #=============================================================================
 validip() {
   # uses dotquad.c to parse $1 as a dotted-quad IP address
-  if dotquad "$1" > /dev/null 2>&1
+  if dotquad "$1" > $OUT 2>&1
   then
     return 0
   else
