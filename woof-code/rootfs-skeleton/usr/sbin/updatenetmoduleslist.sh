@@ -5,8 +5,8 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=update_netmodules
+_COMMENT_="CLI to write /etc/networkmodules file"
 
 MY_SELF="$0"
 
@@ -17,8 +17,8 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG="UDEV helper script for 3G modems.
-Just presents too long wait message ."
+ADD_HELP_MSG="$_COMMENT_
+called from /etc/rc.d/rc.update"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -71,22 +71,22 @@ $EXTRALIST"
 #the list has to be cutdown to genuine network interfaces only...
 echo -n "" > /tmp/networkmodules
 echo "$RAWLIST" |
-while read ONERAW
+while read oneRAW
 do
- [ "$ONERAW" = "" ] && continue #precaution
- ONEBASE=`basename $ONERAW .ko`
- modprobe -vn $ONEBASE >/dev/null 2>&1
- ONEINFO=`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`
- ONETYPE=`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
- ONEDESCR=`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
- if [ "$ONETYPE" = "pci" -o "$ONETYPE" = "pcmcia" -o "$ONETYPE" = "usb" ];then
-  echo "Adding $ONEBASE"
-  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
+ [ "$oneRAW" = "" ] && continue #precaution
+ oneBASE=`basename $oneRAW .ko`
+ modprobe -vn $oneBASE >/dev/null 2>&1
+ oneINFO=`modinfo $oneBASE | tr '\t' ' ' | tr -s ' '`
+ oneTYPE=`echo "$oneINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
+ oneDESCR=`echo "$oneINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
+ if [ "$oneTYPE" = "pci" -o "$oneTYPE" = "pcmcia" -o "$oneTYPE" = "usb" ];then
+  echo "Adding $oneBASE"
+  echo -e "$oneBASE \"$oneTYPE: $oneDESCR\"" >> /tmp/networkmodules
  fi
  #v408 add b43legacy.ko...
- if [ "$ONETYPE" = "ssb" ];then
-  echo "Adding $ONEBASE"
-  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
+ if [ "$oneTYPE" = "ssb" ];then
+  echo "Adding $oneBASE"
+  echo -e "$oneBASE \"$oneTYPE: $oneDESCR\"" >> /tmp/networkmodules
  fi
 done
 
