@@ -1,10 +1,10 @@
 #!/bin/bash
 #(c) copyright Barry Kauler 2004 www.puppylinux.org
-#Puppy ethernet network setup script.
-#I got some bits of code from:
-# trivial-net-setup, by Seth David Schoen <schoen@linuxcare.com> (c)2002
+# Puppy ethernet network setup script.
+# I got some bits of code from:
+#  trivial-net-setup, by Seth David Schoen <schoen@linuxcare.com> (c)2002
 # and the little executables and, or, dotquad from the
-# lnx-bbx Linux project. ipcalc app from Redhat 7.
+#  lnx-bbx Linux project. ipcalc app from Redhat 7.
 # Thanks to GuestToo and other guys on the Puppy Forum for bug finding.
 # Rarsa (Raul Suarez) reorganized the code and cleaned up the user interface
 # Ported to gtkdialog3 and abused by Dougal, June 2007
