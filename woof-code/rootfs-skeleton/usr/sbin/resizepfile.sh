@@ -4,8 +4,8 @@
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=puppy_savefile_resize
+_COMMENT_="Leave a marker file to notice initrd.gz to increase a save-file"
 
 MY_SELF="$0"
 
