@@ -1,6 +1,6 @@
 #!/bin/ash
 #(c) Copyright Barry Kauler Nov. 2010. License GPL v3 /usr/share/doc/legal
-#a complete rewrite of this script, aiming for extreme simplicity and multi-thread protection.
+# A complete rewrite of this script, aiming for extreme simplicity and multi-thread protection.
 #101202 usb_storage may have claimed an interface that is needed by another module (dual-mode 3G modems).
 #101202 more variability for random usleep.
 #101202 /etc/modules/firmware.dep.inst.${KERNVER} now has names of firmware tarballs, not modules.
@@ -13,11 +13,31 @@
 #110509 avoid chance of a module not getting loaded when almost-simultaneous 'add' uevents.
 #110516 no longer using setup_alsa_func. now using /etc/modprobe.d/alsa-base.conf (from Ubuntu) only.
 #111106 support firmware directories.
-#120823 rerwin: $FIRMPKG always written. 
+#120823 rerwin: $FIRMPKG always written.
 #120823 rerwin: --use-blacklist to apply the blacklist commands in the configuration files (if any) to module names as well.
 #120828 rerwin: --use-blacklist again.
 #120908 rerwin: Change preference processing to ensure preferred module loaded first.
 #120909 rerwin: Use temporary blacklisting for preferences to avoid interference and inconsistency.
+
+  _TITLE_=
+_COMMENT_=""
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG=""
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 export LANG=C
 . /etc/rc.d/PUPSTATE
@@ -72,7 +92,7 @@ firmware_tarball_func() {
     FLAGFIRM='yes'
    else
     if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-     tar -z -x --strip=1 --directory=/ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz > /dev/null 2>&1
+     tar -z -x --strip=1 --directory=/ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz >$OUT 2>$ERR
      FLAGFIRM='yes'
     fi
    fi
@@ -88,8 +108,8 @@ firmware_tarball_func() {
       [ $BRKCNT -gt 5 ] && break
      done
      cd /
-     /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
-     rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
+     /pinstall.${FIRMPKG}.sh >$OUT 2>$ERR
+     rm -f /pinstall.${FIRMPKG}.sh >$OUT 2>$ERR
     fi
     echo "$FIRMPKG" >> /etc/modules/firmware.dep.inst.${KERNVER} #101202 120823 moved.
    fi
@@ -158,7 +178,7 @@ modPATTERN='^'"$MODULE"':'
 PREFHIT="`echo -n "$PREFLIST" | tr ' ' '\n' | grep "$modPATTERN" | head -n 1`" #120908
 if [ "$PREFHIT" != "" ];then
  origMODULE="$MODULE" #120908
- cat /etc/modprobe.d/* 2>/dev/null | grep -o '^blacklist  *[^ ]*' | tr -s ' ' > /tmp/pup_event_backend/blacklist-$$.conf #120909
+ cat /etc/modprobe.d/* 2>$ERR | grep -o '^blacklist  *[^ ]*' | tr -s ' ' > /tmp/pup_event_backend/blacklist-$$.conf #120909
  PREFMODS="`echo -n "$PREFHIT" | cut -f 2-9 -d ':' | tr ':' ' '`"
  for PREFMOD in $PREFMODS #format can have multiple ':', ex: 8139cp:8139too:8139xx (last is most preferred).
  do
@@ -176,7 +196,7 @@ fi
 
 #module already loaded, exit...
 mREGEX='MODULE='"$MODULE"' DEVPATH'
-if cat /tmp/pup_event_backend/pup_event_module_devpath_log* 2>/dev/null | grep "${mREGEX}" ;then exit ;fi
+if cat /tmp/pup_event_backend/pup_event_module_devpath_log* 2>$ERR | grep "${mREGEX}" ;then exit ;fi
 
 ##101210 there may be virtual-simultaneous executions of this script to load the same module...
 #echo "M=${MODULE} " > /tmp/pup_event_backend/protect1-${$}
@@ -200,11 +220,11 @@ do
  if [ `echo "$SIMULT" | wc -l` -gt 1 ];then
   [ $NUM -eq 2 ] && usleep ${SLEEPU}
   #random sleep above means that this process will kill the others before they can kill this one...
-  for ONEPID in `echo -n "$SIMULT" | cut -f 1 -d ' ' | tr '\n' ' '`
+  for onePID in `echo -n "$SIMULT" | cut -f 1 -d ' '`
   do
-   [ $ONEPID -eq ${$} ] && continue
-   [ -f /tmp/pup_event_backend/lock1-${ONEPID} ] && kill $ONEPID #other process within lock region.
-   [ $? -eq 0 ] && rm -f /tmp/pup_event_backend/protect1-${ONEPID} && rm -f /tmp/pup_event_backend/lock1-${ONEPID}
+   [ $onePID -eq ${$} ] && continue
+   [ -f /tmp/pup_event_backend/lock1-${onePID} ] && kill $onePID #other process within lock region.
+   [ $? -eq 0 ] && rm -f /tmp/pup_event_backend/protect1-${onePID} && rm -f /tmp/pup_event_backend/lock1-${onePID}
   done
  fi
 done
