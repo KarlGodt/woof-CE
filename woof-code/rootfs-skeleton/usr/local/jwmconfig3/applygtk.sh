@@ -3,7 +3,7 @@
 PRO="applygtk.sh"
 SCRIPT_DIR="/usr/local/jwmconfig3"
 . $SCRIPT_DIR/path
-
+. /etc/rc.d/f4puppy5
 
 GTKTHEME=`fgrep 'include' /root/.gtkrc-2.0 | fgrep '/usr/share/themes/' | grep -v '^#' | fgrep -m1 'gtkrc' | tr -d "'" | tr -d '"' | sed 's/include //' | tr -d '\t' | tr -d ' '`
 # [ ! -e $GTKTHEME ] && exit 1
