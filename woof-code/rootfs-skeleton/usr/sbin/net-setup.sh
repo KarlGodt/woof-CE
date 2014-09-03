@@ -437,20 +437,20 @@ showLoadModuleWindow()
     if [ $INTERFACE_NUM -gt $OLD_NUM ] ; then # got a new interface
       DIFF=$((INTERFACE_NUM-OLD_NUM))
 
-      #for ANEW in $(ifconfig -a | grep -F 'Link encap:Ethernet' |cut -f1 -d' ')
-      for ANEW in $INTERFACES
+      #for aNEW in $(ifconfig -a | grep -F 'Link encap:Ethernet' |cut -f1 -d' ')
+      for aNEW in $INTERFACES
       do
-        case "$OLD_INTERFACES" in *$ANEW*) continue ;; esac
+        case "$OLD_INTERFACES" in *$aNEW*) continue ;; esac
         # If we got here, it's a new one
-        NEW_INTERFACES="$NEW_INTERFACES $ANEW"
+        NEW_INTERFACES="$NEW_INTERFACES $aNEW"
       done
 
-      for ANEW in $NEW_INTERFACES
+      for aNEW in $NEW_INTERFACES
       do
         # get info for it
-        findInterfaceInfo $ANEW
+        findInterfaceInfo $aNEW
         # add to code for new interface dialog
-        NEW_DATA="$NEW_DATA <item>$ANEW|$INTTYPE|$FI_DRIVER|$TYPE: $INFO</item>"
+        NEW_DATA="$NEW_DATA <item>$aNEW|$INTTYPE|$FI_DRIVER|$TYPE: $INFO</item>"
       done
       # Set message telling about new interfaces
       if [ $DIFF -eq 1 ] ; then
@@ -673,23 +673,23 @@ askWhichInterfaceForNdiswrapper(){
      Cancel|abort) return 1 ;;
     esac
     # if we got here, it's an interface
-    AMOD=$(readlink /sys/class/net/$EXIT/device/driver/module)
-    AMOD=${AMOD##*/}
-    AMOD=${AMOD//_/-}
-    #echo $AMOD
+    aMOD=$(readlink /sys/class/net/$EXIT/device/driver/module)
+    aMOD=${aMOD##*/}
+    aMOD=${aMOD//_/-}
+    #echo $aMOD
     ##  Need to have an exception for the acx modules, since unloading them
     ##+ causes the kernel to become unstable
-    case $AMOD in acx*) giveAcxDialog "$AMOD" || return 1 ;; esac
+    case $aMOD in acx*) giveAcxDialog "$aMOD" || return 1 ;; esac
     # Try removing module
-    if ERROR=$(rmmod $AMOD 2>&1) ; then
+    if ERROR=$(rmmod $aMOD 2>&1) ; then
       # ask the user if to blacklist
-      offerToBlacklistModule "$AMOD"
+      offerToBlacklistModule "$aMOD"
       # need to refresh the main gui, since # of interfaces has changed
       setDefaultMODULEBUTTONS
       refreshMainWindowInfo
       return 0
     else # failed to remove: give message
-      giveErrorDialog "$L_MESSAGE_Remove_Module_Failed_p1 $AMOD.
+      giveErrorDialog "$L_MESSAGE_Remove_Module_Failed_p1 $aMOD.
 $L_MESSAGE_Remove_Module_Failed_p2
 $ERROR"
       return 1
@@ -987,18 +987,18 @@ findLoadedModules ()
   done
 
   (
-        for AMOD in $LOADED_MODULES
+        for aMOD in $LOADED_MODULES
         do
             echo "X"
             # Dougal: use a case structure for globbing
             # Also try and retain original module names (removed "tr '-' '_')
             case "$NETWORK_MODULES" in
-             *" $AMOD "*)
-               echo "$AMOD" >> /tmp/loadedeth.txt
+             *" $aMOD "*)
+               echo "$aMOD" >> /tmp/loadedeth.txt
                echo -n " " >> /tmp/loadedeth.txt #space separation
                ;;
-             *" ${AMOD/_/-} "*) # kernel shows module with underscore...
-              echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
+             *" ${aMOD/_/-} "*) # kernel shows module with underscore...
+              echo "${aMOD/_/-}" >> /tmp/loadedeth.txt
               echo -n " " >> /tmp/loadedeth.txt #space separation
               ;;
             esac
