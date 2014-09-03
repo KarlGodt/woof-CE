@@ -2,7 +2,7 @@
 
 PRO="applygtk.sh"
 SCRIPT_DIR="/usr/local/jwmconfig3"
-. $SCRIPT_DIR/path
+. "$SCRIPT_DIR/path"
 . /etc/rc.d/f4puppy5
 
 GTKTHEME=`fgrep 'include' /root/.gtkrc-2.0 | fgrep '/usr/share/themes/' | grep -v '^#' | fgrep -m1 'gtkrc' | tr -d "'" | tr -d '"' | sed 's/include //' | tr -d '\t' | tr -d ' '`
@@ -31,21 +31,21 @@ Or try to adjust $HOME/.jwm/jwmrc-color manually.\n" 0 0
  exit 2
 else
 #save them...
-echo '#This is written to by /usr/local/jwmconfig2/gtk2jwm script' > $colorFILE
-echo "MENU_BG='${MENU_BG}'" >> $colorFILE
-echo "ACTIVE_BG='${ACTIVE_BG}'" >> $colorFILE
-echo "FOREGROUND='${FOREGROUND}'" >> $colorFILE
-echo "PAGER_BG='${PAGER_BG}'" >> $colorFILE
-echo "FG_SELECTED='${FG_SELECTED}'" >> $colorFILE
-. $SCRIPT_DIR/func -gradientcolors
+echo '#This is written to by /usr/local/jwmconfig2/gtk2jwm script' > "$colorFILE"
+echo "MENU_BG='${MENU_BG}'" >> "$colorFILE"
+echo "ACTIVE_BG='${ACTIVE_BG}'" >> "$colorFILE"
+echo "FOREGROUND='${FOREGROUND}'" >> "$colorFILE"
+echo "PAGER_BG='${PAGER_BG}'" >> "$colorFILE"
+echo "FG_SELECTED='${FG_SELECTED}'" >> "$colorFILE"
+. "$SCRIPT_DIR/func" -gradientcolors
 
-. $SCRIPT_DIR/func -themedef
+. "$SCRIPT_DIR/func" -themedef
 
 echo "$ThemeDef" > "$themeFILE"
 
 #########
 #John Doe created code for the applet backgrounds, old jwmconfig, port here...
-. $SCRIPT_DIR/func -trayapply
+. "$SCRIPT_DIR/func" -trayapply
 #end John Doe's code.
 ########
 
