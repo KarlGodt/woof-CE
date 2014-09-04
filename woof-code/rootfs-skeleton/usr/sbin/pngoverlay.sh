@@ -1,12 +1,13 @@
 #!/bin/sh
-# Barry Kauler 2011 GPL3 (/usr/share/doc/legal)
-#pngoverlay.sh is an alternative to pngoverlay written by vovchik (in BaCon)
-# (vovchik's pngoverlay requires X to be running, which may be a disadvantage)
-#requires netpbm svn rev 1543 or later, with pamcomp -mixtransparency
-#requires three params, 1st and 2nd must exist:
-# bottom-image top-image output-image
-#overlays the two images, with common areas of transparency in output image.
+#Barry Kauler 2011 GPL3 (/usr/share/doc/legal)
+# pngoverlay.sh is an alternative to pngoverlay written by vovchik (in BaCon)
+#  (vovchik's pngoverlay requires X to be running, which may be a disadvantage)
+# Requires netpbm svn rev 1543 or later, with pamcomp -mixtransparency
+# Requires three params, 1st and 2nd must exist:
+#  bottom-image top-image output-image
+# Overlays the two images, with common areas of transparency in output image.
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -30,7 +31,27 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 [ ! $3 ] && exit 1
 [ ! -e "$1" ] && exit 1
