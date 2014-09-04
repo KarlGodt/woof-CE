@@ -2,6 +2,7 @@
 #Barry Kauler 2009. A first go, not very efficient generating gif images.
 #v431 clarf: bugfix, old kernel without libata drivers.
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -25,10 +26,30 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 DISKLIST="`probedisk2`"
-PARTSLIST="`probepart -k 2> /dev/null | grep '^/dev/' | grep -E 'iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|ntfs|minix' | cut -f 1-3 -d '|' | tr '\n' ' '`"
+PARTSLIST="`probepart -k 2> /dev/null | grep '^/dev/' | grep -E 'iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|ntfs|minix' | cut -f 1-3 -d '|'`"
 
 PARTINFO="<hbox><text><label>Free</label></text><pixmap><input file>/tmp/partview_top.gif</input></pixmap></hbox>"
 
@@ -39,72 +60,72 @@ fi
 xmessage -center -bg orange -buttons "" "Please wait, processing..." &
 XPID=$!
 
-for APART in $PARTSLIST
+for aPART in $PARTSLIST
 do
  MNTSTATUS='(currently mounted)'
- ATAG="`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
- ASIZE=`echo -n "$APART" | cut -f 3 -d '|'`
+ aTAG="`echo -n "$aPART" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
+ aSIZE=`echo -n "$aPART" | cut -f 3 -d '|'`
  if [ -e /proc/ide ];then #v431 old kernel without libata drivers.
-  ATIPE=`echo -n "$APART" | cut -f 2 -d '|'`
-  case $ATIPE in
+  aTIPE=`echo -n "$aPART" | cut -f 2 -d '|'`
+  case $aTIPE in
    iso*)
-    ASIZE=4300000
-    [ "`dvd+rw-mediainfo /dev/${ATAG} 2>&1 | grep 'non-DVD'`" != "" ] && ASIZE=700000
+    aSIZE=4300000
+    [ "`dvd+rw-mediainfo /dev/${aTAG} 2>&1 | grep 'non-DVD'`" != "" ] && aSIZE=700000
    ;;
   esac
  else
-  case $ATAG in
+  case $aTAG in
    sr*)
-    ASIZE=4300000
-    [ "`dvd+rw-mediainfo /dev/${ATAG} 2>&1 | grep 'non-DVD'`" != "" ] && ASIZE=700000
+    aSIZE=4300000
+    [ "`dvd+rw-mediainfo /dev/${aTAG} 2>&1 | grep 'non-DVD'`" != "" ] && aSIZE=700000
    ;;
   esac
  fi
- AFS="`echo -n "$APART" | cut -f 2 -d '|'`"
- AFPATTERN="^/dev/$ATAG "
- AUSED=`df -k | grep "$AFPATTERN" | tr -s " " | cut -f 3 -d " "`
+ aFS="`echo -n "$aPART" | cut -f 2 -d '|'`"
+ aFPATTERN="^/dev/$aTAG "
+ aUSED=`df -k | grep "$aFPATTERN" | tr -s " " | cut -f 3 -d " "`
  if [ ! "$AUSED" ];then
   MNTSTATUS='(not mounted)'
-  mkdir -p /mnt/$ATAG
-  mount -t $AFS /dev/$ATAG /mnt/$ATAG > /dev/null 2>&1
+  mkdir -p /mnt/$aTAG
+  mount -t $aFS /dev/$aTAG /mnt/$aTAG >$OUT 2>$ERR
   if [ $? -eq 0 ];then
-   AUSED=`df -k | grep "$AFPATTERN" | tr -s " " | cut -f 3 -d " "`
-   umount /dev/$ATAG
+   aUSED=`df -k | grep "$aFPATTERN" | tr -s " " | cut -f 3 -d " "`
+   umount /dev/$aTAG
   else
    continue
   fi
  fi
- #[ "$AFS" ] && echo "${ATAG} \"Filesystem: $AFS  Size: ${ASIZE}M  Free: ${AFREE}M ${MNTSTATUS}\" \\" >> /tmp/schoices.txt #v3.01 added precaution.
- AFREE=`expr $ASIZE - $AUSED`
- nAUSED=`expr 100 \* $AUSED \/ $ASIZE` #normalise.
+ #[ "$aFS" ] && echo "${aTAG} \"Filesystem: $aFS  Size: ${aSIZE}M  Free: ${aFREE}M ${MNTSTATUS}\" \\" >> /tmp/schoices.txt #v3.01 added precaution.
+ aFREE=`expr $aSIZE - $aUSED`
+ naUSED=`expr 100 \* $aUSED \/ $aSIZE` #normalise.
  #process size...
- if [ $AFREE -gt 1048576 ];then #1024*1024
-  ONESIZE="`dc $AFREE 1048576 \/ p`"
-  ONESIZE="`printf "%.1f" $ONESIZE`G"
+ if [ $aFREE -gt 1048576 ];then #1024*1024
+  oneSIZE="`dc $aFREE 1048576 \/ p`"
+  oneSIZE="`printf "%.1f" $oneSIZE`G"
  else
-  if [ $AFREE -gt 99 ];then
-   ONESIZE="`expr $AFREE \/ 1024`M"
+  if [ $aFREE -gt 99 ];then
+   oneSIZE="`expr $aFREE \/ 1024`M"
   else
-   ONESIZE="`dc $AFREE 1024 \/ p`"
-   ONESIZE="`printf "%.1f" $AFREE`M"
+   oneSIZE="`dc $aFREE 1024 \/ p`"
+   oneSIZE="`printf "%.1f" $aFREE`M"
   fi
  fi
- if [ ! -f /tmp/partview_used_${ATAG} ];then
-  echo "$ONESIZE" > /tmp/partview_used_${ATAG}_old
-  echo "$ONESIZE" > /tmp/partview_used_${ATAG}
+ if [ ! -f /tmp/partview_used_${aTAG} ];then
+  echo "$oneSIZE" > /tmp/partview_used_${aTAG}_old
+  echo "$oneSIZE" > /tmp/partview_used_${aTAG}
  else
-  cp -f /tmp/partview_used_${ATAG} /tmp/partview_used_${ATAG}_old
-  echo "$ONESIZE" > /tmp/partview_used_${ATAG}
+  cp -f /tmp/partview_used_${aTAG} /tmp/partview_used_${aTAG}_old
+  echo "$oneSIZE" > /tmp/partview_used_${aTAG}
  fi
- pvDIFFER="`diff -q /tmp/partview_used_${ATAG} /tmp/partview_used_${ATAG}_old`"
- if [ "$pvDIFFER" != "" -o ! -f /tmp/partview_${ATAG}.gif ];then #saves time.
+ pvDIFFER="`diff -q /tmp/partview_used_${aTAG} /tmp/partview_used_${aTAG}_old`"
+ if [ "$pvDIFFER" != "" -o ! -f /tmp/partview_${aTAG}.gif ];then #saves time.
   #generate bar graph...
-  ppmrough -width 100 -height 14 -var 1 -bg red -fg grey80 -left ${nAUSED} | ppmtogif > /tmp/partview_${ATAG}.gif
+  ppmrough -width 100 -height 14 -var 1 -bg red -fg grey80 -left ${naUSED} | ppmtogif > /tmp/partview_${aTAG}.gif
  fi
  #add to gui...
  PARTINFO="${PARTINFO}
-<hbox><text><label>${ATAG} ${ONESIZE}</label></text><pixmap><input file>/tmp/partview_${ATAG}.gif</input></pixmap></hbox>"
- #echo "ATAG=$ATAG ASIZE=$ASIZE AFREE=$AFREE"
+<hbox><text><label>${aTAG} ${oneSIZE}</label></text><pixmap><input file>/tmp/partview_${aTAG}.gif</input></pixmap></hbox>"
+ #echo "aTAG=$aTAG aSIZE=$aSIZE aFREE=$aFREE"
 done
 
 kill $XPID
