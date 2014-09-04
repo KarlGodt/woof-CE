@@ -32,6 +32,11 @@ exit $1
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 }
 
+  _TITLE_=wizard_scanner
+_COMMENT_=
+
+MY_SELF="$0"
+
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
