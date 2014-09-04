@@ -8,7 +8,7 @@ SCRIPT_DIR="/usr/local/jwmconfig3"
 . $colorFILEdef
 
 if [ -z "$MENU_BG" ]; then
- pidof jwm >/dev/null && jwm -restart
+ pidof jwm >$OUT && jwm -restart
  exit 2
 else
 
