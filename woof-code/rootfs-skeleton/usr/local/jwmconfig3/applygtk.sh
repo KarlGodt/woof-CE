@@ -8,7 +8,7 @@ SCRIPT_DIR="/usr/local/jwmconfig3"
 GTKTHEME=`fgrep 'include' /root/.gtkrc-2.0 | fgrep '/usr/share/themes/' | grep -v '^#' | fgrep -m1 'gtkrc' | tr -d "'" | tr -d '"' | sed 's/include //' | tr -d '\t' | tr -d ' '`
 # [ ! -e $GTKTHEME ] && exit 1
 GtkTheme="`echo $GTKTHEME | cut -f 5 -d /`"
-echo $DBG 10 $GtkTheme
+echo $DBG 11 $GtkTheme
 ##------get relevant gtk colours-------->>
 MENU_BG=`grep -v "^#" $GTKTHEME | grep -m1 '\Wbg\[NORMAL\]' | cut -d'"' -f2`
 ACTIVE_BG=`grep -v "^#" $GTKTHEME | grep -m1 '\Wbg\[SELECTED\]' | cut -d'"' -f2`
@@ -31,7 +31,7 @@ Or try to adjust $HOME/.jwm/jwmrc-color manually.\n" 0 0
  exit 2
 else
 #save them...
-echo '#This is written to by /usr/local/jwmconfig2/gtk2jwm script' > "$colorFILE"
+echo '#This is written to by /usr/local/jwmconfig3/applygtk.sh script' > "$colorFILE"
 echo "MENU_BG='${MENU_BG}'" >> "$colorFILE"
 echo "ACTIVE_BG='${ACTIVE_BG}'" >> "$colorFILE"
 echo "FOREGROUND='${FOREGROUND}'" >> "$colorFILE"
