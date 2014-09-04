@@ -1,7 +1,7 @@
 #!/bin/sh
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #Barry Kauler www.puppylinux.com
-#called from savepuppyd and rc.shutdown, to save tmpfs layer to permanent flash storage.
+# Called from savepuppyd and rc.shutdown, to save tmpfs layer to permanent flash storage.
 #updated 13 Sept 2007. copy-down only. flushing is done in petget.
 #updated 24 Sept 2007. removed '-u' option when copy-down files.
 #8 oct 2007: screen out $HOME/tmp when saving.
@@ -16,7 +16,7 @@
 #w003 screened out some dirs in /dev that should not be saved.
 #v424 fix for more layers in unionfs/aufs.
 
-
+__old_header__(){
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -44,6 +44,27 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}
+
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 #variables created at bootup by 'init' script in initramfs...
 . /etc/rc.d/PUPSTATE
@@ -81,8 +102,10 @@ echo "Merging $SNAP onto $BASE..."
 find . -mount \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
- BN=`basename "$N"`
- DN=`dirname "$N"`
+ #BN=`basename "$N"`
+ BN=${N##*/}
+ #DN=`dirname "$N"`
+ DN=${N%/*}
  [ "$BN" = ".wh.aufs" ] && continue #w003 aufs has file .wh..wh.aufs in /initrd/pup_rw.
  [ "$DN" = "." ] && continue
  if [ "$BN" = "__dir_opaque" ];then #w003
@@ -112,16 +135,16 @@ done
 
 #Directories... v409 remove '^var'. w003 remove aufs .wh. dirs.
 #w003 /dev/.udev also needs to be screened out...
-find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
+find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
  mkdir -p "$BASE/$N"
  chmod "$BASE/$N" --reference="$N"
- OWNER=`stat --format=%U "$N"`
+ OWNER=`stat -c %U "$N"`
  chown $OWNER "$BASE/$N"
- GRP=`stat --format=%G "$N"`
+ GRP=`stat -c %G "$N"`
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
 done
@@ -131,7 +154,7 @@ done
 #while read N
 #do
 
-FILES=`find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/^\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$' |sort -d`
+FILES=`find . -xdev -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/^\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$' |sort -d`
 
 if [ "$DISPLAY" ]; then
     yaf-splash -display :0 -font "8x16" -outline 0 -margin 4 -bg green -text "Calculating...
@@ -208,9 +231,9 @@ do
  [ -L "$BASE/$N" ] && rm -f "$BASE/$N"
  if [ -L "$N" -o "$NEXTPASSTHRU" = "" ];then
   #link, or first run of snapmergepuppy. no '-u' (update) option.
-  cp -a --remove-destination "$N" "$BASE/$N"
+  /bin/cp -a --remove-destination "$N" "$BASE/$N"
  else
-  cp -a -u --remove-destination "$N" "$BASE/$N" #v3.02
+  /bin/cp -a -u --remove-destination "$N" "$BASE/$N" #v3.02
  fi
 
  #if [ "$NEXTPASSTHRU" != "" ];then
@@ -226,7 +249,7 @@ EOI
 
 touch /tmp/flagnextpassthru
 
-sync
+_sync
 cd "$WD"
 exit 0
 
