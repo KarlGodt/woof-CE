@@ -1,14 +1,14 @@
 #!/bin/sh
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=usb_modeswitch.sh
+_COMMENT_="Wrapper for usb_modeswitch ."
 
 MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
 
-ADD_PARAMETER_LIST=""
+ADD_PARAMETER_LIST="ARGUMENTS"
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
