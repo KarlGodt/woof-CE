@@ -1,4 +1,25 @@
 #!/bin/sh
+
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
+
 ARGUMENTS="$@"
 if [ "$ARGUMENTS" = "" -o "$ARGUMENTS" = "-W" ];then #config-file method of invocation
  usb_modeswitch -W -c /etc/usb_modeswitch.conf &> /tmp/usb_modeswitch.log #log both output and errors
