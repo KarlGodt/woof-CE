@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -a
 #
 # Code updated for Puppy 1.0.9, JWM 1.7
 # by Kwiller on 5-May-2006
@@ -13,6 +13,29 @@ SCRIPT_DIR="/usr/local/jwmconfig3"
 #-----Backup current settings----->>
 . "$SCRIPT_DIR/func" -backup2
 
+jwmVERSION=`jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]*'`
+[ "$jwmVERSION" ] || jwmVERSION=501
+
+if [ "$jwmVERSION" -le 499 ]; then
+
+xSCREEN=`xwininfo -root | tac | grep -m1 '\-geometry' | awk '{print $2}' | cut -f1 -dx`
+[ "$xSCREEN" ] || xSCREEN=1024
+
+case $xSCREEN in
+ 640) maxD=4;;
+ 800) maxD=6;;
+1024) maxD=8;;
+1280) maxD=10;;
+1366) maxD=12;;
+1920) maxD=16;;
+1[0-9][0-9][0-9]) maxD=14;;
+2[0-9][0-9][0-9]) maxD=20;;
+*) maxD=4;;
+esac
+
+MAXTOPS=$maxD
+[ "$MAXTOPS" ] || MAXTOPS=5
+
 #----Check for current settings---->>
 SET_ON=`grep -c "$DC" "$personalFILE"`
 
@@ -21,11 +44,11 @@ CHOICE=0
 
 #----------dialogue-------->>
 
-#--- loop until choice is in range 1 to 8 ---->>
+#--- loop until choice is in range 1 to $MAXTOPS ---->>
 while [ "$CHOICE" -lt "$MINTOPS" -o "$CHOICE" -gt "$MAXTOPS" ]
 do
   Xdialog --title "Virtual Desktops" \
-          --inputbox "Specify your desired number of virtual desktops (1 - 8)" 0 0 2>"$tmpIB"
+          --inputbox "Specify your desired number of virtual desktops (1 - $MAXTOPS)" 0 0 2>"$tmpIB"
 
   retval=$?
 
@@ -34,7 +57,7 @@ do
 
 #-------preparation----------->>
 
-  CHOICE=`cat $tmpIB`
+  CHOICE=`tail -n1 "$tmpIB"`
 
   if [ -z $CHOICE ]; then
      CHOICE=1
@@ -71,6 +94,144 @@ RES=`grep -c "Desktops count=\"$CHOICE\"/>" "$personalFILE"`
 PATTERN="virtual desktops"
 PF=1
 . "$SCRIPT_DIR/func" -notify
+
+else
+
+test -e /tmp/JWMCONFIGVARS && . /tmp/JWMCONFIGVARS
+
+ySCREEN=`xwininfo -root | tac | grep -m1 '\-geometry' | awk '{print $2}' | cut -f2 -dx | cut -f1 -d+`
+[ "$xSCREEN" ] || ySCREEN=768
+
+case "$ySCREEN" in
+ 480) MAXROWS=1;;
+ 600) MAXROWS=2;;
+ 768) MAXROWS=3;;
+1024) MAXROWS=4;;
+1080) MAXROWS=7;;
+*)    MAXROWS=2;;
+esac
+
+[ "MAXROWS" ] || MAXROWS=2
+
+xSCREEN=`xwininfo -root | tac | grep -m1 '\-geometry' | awk '{print $2}' | cut -f1 -dx`
+[ "$xSCREEN" ] || xSCREEN=1024
+
+case $xSCREEN in
+ 640) maxD=4;;
+ 800) maxD=6;;
+1024) maxD=8;;
+1280) maxD=10;;
+1366) maxD=12;;
+1920) maxD=16;;
+1[0-9][0-9][0-9]) maxD=14;;
+2[0-9][0-9][0-9]) maxD=20;;
+*) maxD=4;;
+esac
+
+MAXTOPS=$maxD
+[ "$MAXTOPS" ] || MAXTOPS=5
+
+for aROW in `seq 1 1 $MAXROWS`; do
+SELECT_ROWS="$SELECT_ROWS
+<item>$aROW</item>"
+done
+
+for aDESK in `seq 1 1 $MAXTOPS`; do
+SELECT_COLUMNS="$SELECT_COLUMNS
+<item>$aDESK</item>"
+done
+
+switchdesk(){
+NEWROWS="\"$NEWROWS\""
+NEWCOLUMNS="\"$NEWCOLUMNS\""
+
+OLDCOLUMNS=`grep "Desktops width" "$personalFILE" | cut -d'=' -f2 | cut -d' ' -f1`
+[ "$OLDCOLUMNS" ] || {
+
+ [ -s "$personalFILE" ] && {
+  lineNR=`grep -n -A1 -m1 '^<JWM>' "$personalFILE" | tail -n1 | awk -F':' '{print $1}'`
+  [ "$lineNR" ] && {
+   sed -i "$lineNR i\<Desktops width="3" height="1"/>" "$personalFILE"
+   SED_RV=$?
+   sed -i "$lineNR i\<!-- Number of virtual desktops  BK: syntax change with jwm 500... -->" "$personalFILE"
+   SED_RV=$?
+   }
+  } || {
+  echo '<!-- Personally configurable options for JWM: these override default settings and theme settings -->
+
+<JWM>
+
+<!-- Number of virtual desktops  BK: syntax change with jwm 500... -->
+<Desktops width="3" height="1"/>
+
+</JWM>' >>"$personalFILE"
+
+ sleep 1
+ OLDCOLUMNS=`grep "Desktops width" "$personalFILE" | cut -d'=' -f2 | cut -d' ' -f1`
+  }
+
+ } || {
+ echo '<!-- Personally configurable options for JWM: these override default settings and theme settings -->
+
+<JWM>
+
+<!-- Number of virtual desktops  BK: syntax change with jwm 500... -->
+<Desktops width="3" height="1"/>
+
+</JWM>' >>"$personalFILE"
+
+sleep 1
+OLDCOLUMNS=`grep "Desktops width" "$personalFILE" | cut -d'=' -f2 | cut -d' ' -f1`
+}
+
+OLDROWS=`grep "Desktops width" "$personalFILE" | cut -d'=' -f3 | cut -d'/' -f1`
+[ "$OLDROWS" ] || _warn "Could not grep 'Desktops width' in '$personalFILE'"
+
+sed -i "s/$OLDROWS/"$NEWROWS"/" "$personalFILE"
+SED_RV=$?
+sed -i "s/$OLDCOLUMNS/"$NEWCOLUMNS"/" "$personalFILE"
+SED_RV=$?
+cp -f "$personalFILE" "$personalFILE2"
+
+sleep 0.5
+jwm -restart
+}
+export -f switchdesk
+
+export virtualdesk="<window title=\"Virtual Desktops\" resizable=\"false\">
+ <vbox>
+  <text use-markup=\"true\"><label>\"<b>Maximum of 10 desktops</b>\"</label></text>
+  <hbox>
+
+  <text><label>No of Rows</label></text>
+   <combobox width-request=\"60\">
+    <variable>NEWROWS</variable>
+    $SELECT_ROWS
+   </combobox>
+
+   <text><label>No of Columns</label></text>
+   <combobox width-request=\"60\">
+    <variable>NEWCOLUMNS</variable>
+    $SELECT_COLUMNS
+   </combobox>
+
+  </hbox>
+  <hbox homogeneous=\"true\">
+   <button>
+    <input file stock=\"gtk-ok\"></input>
+    <label>ok</label>
+    <action>switchdesk &</action>
+    <action>exit:done</action>
+   </button>
+  </hbox>
+ </vbox>
+</window>"
+gtkdialog3 -p virtualdesk
+unset virtualdesk
+exit
+
+fi
+
 
 #--------clean exit------->>
 rm -f "$tmpIB"
