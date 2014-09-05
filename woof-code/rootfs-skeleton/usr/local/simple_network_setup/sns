@@ -35,6 +35,7 @@ export OUTPUT_CHARSET=UTF-8
 
 [ "`whoami`" != "root" ] && exec sudo -A ${0} ${@} #110505
 
+__old_header__(){
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -58,6 +59,27 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+}
+
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
 
 #each line of /etc/simple_network_setup/connections has everything known about a connection:
 #(please ignore spaces, put here for readability only)
@@ -82,7 +104,7 @@ GTKDIALOGEXE="gtkdialog"
 
 BIGGESTCNT=0
 echo -n '' > /tmp/sns_interfaces
-INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' '`"
+INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' '`"
 for INTERFACE in $INTERFACES #exs: wlan0 eth0
 do
  IF_DRIVER="`readlink /sys/class/net/$INTERFACE/device/driver | rev | cut -f1 -d'/' | rev`" #ex: ath5k
@@ -116,7 +138,7 @@ do
    [ $CNTLINE -gt 60 ] && break
    FINALINFO="${FINALINFO}${oneWORD} " #ensures whole words only in string.
   done
-  IF_INFO="`echo -n "$FINALINFO"  | tr '[&|"<>]' ' ' | tr -s ' '`" #'geany. filter out chars that mess up xml.
+  IF_INFO=`echo -n "$FINALINFO"  | tr '[&|"<>]' ' ' | tr -s ' '` # filter out chars that mess up xml.
 
  IF_INTTYPE='Wired'
  ePATTERN="${INTERFACE}:"
@@ -161,7 +183,7 @@ if [ "`pidof dhcpcd`" != "" ];then
  if [ "`grep -v '^#' /etc/resolv.conf`" != "" ];then
   PSALL="`ps`"
   PSDHCPCD="`echo "$PSALL" | grep 'dhcpcd'`"
-  for oneIF in `ifconfig | grep '^[a-z]' | cut -f 1 -d ' ' | grep -v '^lo' | tr '\n' ' '`
+  for oneIF in `ifconfig | grep '^[a-z]' | cut -f 1 -d ' ' | grep -v '^lo'`
   do
    if [ "`echo "$PSDHCPCD" | grep "$oneIF"`" != "" ];then
     WORKINGIF="${WORKINGIF}${oneIF} "
@@ -296,7 +318,7 @@ if [ "$INTERFACE" == "Windows" ];then #100313
  </window>"
  RETSTRND="`${GTKDIALOGEXE} --program=NDISWRAPPER_DLG`"
  if [ "`echo "$RETSTRND" | grep '^EXIT' | grep 'OK'`" != "" ];then
-  INFFILE="`echo "$RETSTRND" | grep '^INF_FILE_NAME' | cut -f 2 -d '"'`" #'geany
+  INFFILE=`echo "$RETSTRND" | grep '^INF_FILE_NAME' | cut -f 2 -d '"'`
   case "$INFFILE" in
    *.[iI][nN][fF])
     FLAGND=""
@@ -306,7 +328,7 @@ if [ "$INTERFACE" == "Windows" ];then #100313
      if [ $? -eq 0 ];then
       modprobe ndiswrapper
       [ $? -eq 0 ] && FLAGND="ok"
-      [ "$FLAGND" != "ok" ] && rmmod ndiswrapper 2>/dev/null
+      [ "$FLAGND" != "ok" ] && rmmod ndiswrapper 2>$ERR
      fi
     fi
     [ "$FLAGND" != "ok" ] && rm -rf /etc/ndiswrapper
@@ -330,7 +352,7 @@ if [ "`ifconfig | grep "$ifPATTERN"`" != "" ];then
  [ "`iwconfig $INTERFACE | grep "$INTERFACE" | grep "ESSID"`" != "" ] && iwconfig $INTERFACE essid off
  iwconfig $INTERFACE key off #100320 think need this for when I'm experimenting with different wep/wpa/open settings on the same interface.
  #killall dhcpcd
- dhcpcd --release $INTERFACE 2>/dev/null
+ dhcpcd --release $INTERFACE 2>$ERR
  ip route flush dev $INTERFACE #100703
  sleep 1
  kill $PIDX1
@@ -388,7 +410,7 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    CELL_CHANNEL="`echo -n "$oneLINE" | grep -o ' Channel:.*' | cut -f2 -d':' | cut -f1 -d'|'`"
    [ "$CELL_CHANNEL" == "" ] && CELL_CHANNEL="`echo -n "$oneLINE" | grep -o ' (Channel .*' | cut -f 3 -d ' ' | cut -f 1 -d')'`"
    CELL_QUALITY="`echo -n "$oneLINE" | grep -o ' Quality[:=].*' | cut -f 2 -d ' ' | cut -f 2 -d '=' | cut -f 2 -d ':'`"
-   CELL_ESSID="`echo -n "$oneLINE" | grep -o ' ESSID:.*' | cut -f 2 -d '"'`" #'geany
+   CELL_ESSID=`echo -n "$oneLINE" | grep -o ' ESSID:.*' | cut -f 2 -d '"'`
    CELL_ENCRYPTIONKEY="`echo -n "$oneLINE" | grep -o 'Encryption key:.*' | cut -f 2 -d ':' | cut -f1 -d '|'`" #ex: off
    CELLMSG="Name: $CELL_ESSID  Encryption: $CELL_ENCRYPTIONKEY  Strength: $CELL_QUALITY"
    echo "<radiobutton><label>${CELLMSG}</label><variable>RADIO_${CELL_NUMBER}</variable></radiobutton>" >> /tmp/sns_scan_radiobuttons
@@ -666,7 +688,7 @@ network={
         fi
         [ "`iwconfig $INTERFACE | grep "$INTERFACE" | grep "ESSID"`" != "" ] && iwconfig $INTERFACE essid off
         ifconfig $INTERFACE down
-        dhcpcd --release $INTERFACE 2>/dev/null
+        dhcpcd --release $INTERFACE 2>$ERR
         ip route flush dev $INTERFACE #100703
        else
 
@@ -778,16 +800,16 @@ if [ "$IF_INTTYPE" == "Wired" ];then
  ifconfig $INTERFACE up >> /tmp/sns_wired_log 2>&1
  [ $? -eq 0 ] && MODTIME2="0"
  if [ "$MODTIME2" == "0" ];then
-  if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+  if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected'; then
    sleep 1
-   if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+   if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected'; then
     sleep 1
-    if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+    if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected'; then
      sleep 1
-     if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+     if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected'; then
       # add ethtool test, just in case it helps at times...
       sleep 1
-      if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+      if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes'; then
        ifconfig $INTERFACE down
        kill $PIDXX
        export WIN4_DLG="<window title=\"$(gettext 'Simple Network Setup')\" icon-name=\"gtk-network\">
