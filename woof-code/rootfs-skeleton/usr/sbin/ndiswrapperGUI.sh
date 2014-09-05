@@ -8,8 +8,8 @@
 # Update: Oct. 11th: fix the "ok" of the chooser exit...
 # Update: Oct. 26th: localize
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_ndiswrapperGUI
+_COMMENT_="Puppy ndiswrapper GUI setup script."
 
 MY_SELF="$0"
 
