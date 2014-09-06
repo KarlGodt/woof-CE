@@ -71,10 +71,17 @@
 # Update: Mar. 19th: add wireless scan files to cleanUpTmp, change shebang to bash
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Setup_Net
+_COMMENT_="GTKdialog for Puppy ethernet network setup"
 
 MY_SELF="$0"
+
+# Check if output should go to the console
+if [ "${1}" = "-d" ]; then
+    DEBUG_OUTPUT=/dev/stderr
+else
+    DEBUG_OUTPUT=/dev/null
+fi
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
@@ -103,13 +110,6 @@ if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
 elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
-fi
-
-# Check if output should go to the console
-if [ "${1}" = "-d" ] ; then
-    DEBUG_OUTPUT=/dev/stderr
-else
-    DEBUG_OUTPUT=/dev/null
 fi
 
 # basic configuration info for interface
