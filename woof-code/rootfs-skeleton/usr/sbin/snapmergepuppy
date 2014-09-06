@@ -46,8 +46,8 @@ exit $1
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 }
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_Snap_Merge
+_COMMENT_="CLI to copy tmpfs into puppy save-file"
 
 MY_SELF="$0"
 
@@ -85,10 +85,10 @@ PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/X11R7/bin"
 WD=`pwd`
 
 TTY=`tty`
-[ "$TTY" = 'unknown' -o "$TTY" = '?' ] && TTY=/dev/console
+[ "$TTY" = 'unknown' -o "$TTY" = '?' -o "$TTY" = 'not a tty' ] && TTY=/dev/console
 
 SNAP="/initrd/pup_rw"
-cd $SNAP || exit 1
+cd "$SNAP" || { echo "Could not change into directory '$SNAP'"; exit 1; }
 
 if [ "$SAVE_LAYER" ];then #defined in PUPSTATE
  BASE="/initrd${SAVE_LAYER}"
@@ -96,12 +96,15 @@ else
  BASE="/initrd/pup_ro1"
 fi
 
+grep $Q " $BASE " /proc/mounts || { echo "'$BASE' not mounted"; exit 1; }
 echo "Merging $SNAP onto $BASE..."
 
 #Handle Whiteouts...
 find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
+ #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
+ [ "$XRUNNING" = "yes" ] && [ -f /tmp/xwin/wmexitmode.txt ] && exit 0
  #BN=`basename "$N"`
  BN=${N##*/}
  #DN=`dirname "$N"`
@@ -139,7 +142,7 @@ find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^p
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
+ [ "$XRUNNING" = "yes" ] && [ -f /tmp/xwin/wmexitmode.txt ] && exit 0
  mkdir -p "$BASE/$N"
  chmod "$BASE/$N" --reference="$N"
  OWNER=`stat -c %U "$N"`
@@ -173,15 +176,16 @@ SIZE=`ls -1 -s --block-size=K "$file" |awk -F 'K' '{print $1}'`; [ "$SIZE" ] || 
 SIZE_ALL=$((SIZE_ALL+SIZE))
 [ "$SIZE" -ge "$SIZE_OLD" ] && { BIGGEST_SIZE=$SIZE;biggest_file="$file"; }
 SIZE_OLD=$SIZE;
-done<<EOI
-$(echo "$FILES")  ##+++ filename with spaces
+ done <<EOI
+$(echo "$FILES")
 EOI
+ ##+++ filename with spaces
 
 kill -s HUP `jobs -p yaf-splash` >$OUT 2>$ERR
 
 FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
 
-if [ "$SIZE_ALL" -ge $((FREEBASEK-2048)) ] ; then
+if [ "$SIZE_ALL" -ge $((FREEBASEK-2048)) ]; then
     if [ "$DISPLAY" ]; then
     yaf-splash -display :0 -timeout 9 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
 Unable to save all files. You need to delete or move some.
@@ -193,7 +197,7 @@ $biggest_file" &
 "\n$biggest_file with ${BIGGEST_SIZE}KiB\\033[0;39m" >$TTY
     echo -e "Returning back into $TTY or X." >$TTY
     sleep 2
-    killall poweroff 2>$ERR || killall reboot
+    killall poweroff 2>$ERR || killall reboot 2>$ERR
     exit 1
     fi
 fi
@@ -201,9 +205,9 @@ fi
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ "$XRUNNING" = "yes" ] && { [ -f /tmp/wmexitmode.txt ] && exit $?; }
+ [ "$XRUNNING" = "yes" ] && { [ -f /tmp/xwin/wmexitmode.txt ] && exit 1; }
 
- if [ "$SAVEPART" = "fd0" ];then
+ if [ "$SAVEPART" = "fd0" ]; then
   #not much space, so screen out more files...
   [ "`echo -n "$N" | grep -v -E '^etc|^root'`" != "" ] && continue
   [ "`echo -n "$N" | grep -v -E 'mozilla|printjobs|archive|cache'`" = "" ] && continue
