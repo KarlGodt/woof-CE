@@ -27,8 +27,8 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 }
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_Monitor_Kernelmessages
+_COMMENT_="CLI to display /var/log/xorg.log"
 
 MY_SELF="$0"
 
