@@ -1,0 +1,1317 @@
+#! /bin/sh
+
+PAR=$1
+PAR2=$2
+export BURNLIST_DIR="`cat $WORKDIR/burnlist_dir 2> /dev/null`"
+#reset gtk-theme
+if [ -f /etc/gtk-2.0/gtkrc ]; then
+	export GTK2_RC_FILES=':/etc/gtk-2.0/gtkrc' #/etc/gtk-2.0/gtkrc is for < Puppy4
+else
+	export GTK2_RC_FILES="`grep -m 1 gtkrc $HOME/.gtkrc-2.0 | cut -d'\"' -f2 2> /dev/null`" #get active theme
+fi
+#---
+GRAFT_POINT_DIR="`echo "$BURNLIST_DIR/" | sed "s%$TMPDIR%%g"  2> /dev/null | sed -e 's%//%/%g'`" #be sure it ends with /
+[ "$GRAFT_POINT_DIR" = '/' ] && GRAFT_POINT_DIR="" #no root dir when burning
+
+build_burn_list () {
+if [ "$BURN_DATA" = "false" ]; then
+	mv -f $WORKDIR/burn $WORKDIR/tmp3 #keep old length-info
+	echo -n > $WORKDIR/burn
+	#VIDEO_TS
+	if [ "$BURN_VIDEO" = "true" ]; then
+		TMP="`grep -i video_ts $WORKDIR/graft_points | cut -d'=' -f1`" 
+		if [ "$TMP" ]; then echo "gtk-directory|$TMP|" >> $WORKDIR/burn; VIDEO_TS=true; fi
+		TMP="`grep -i audio_ts $WORKDIR/graft_points | cut -d'=' -f1`" 
+		if [ "$TMP" ]; then echo "gtk-directory|$TMP|" >> $WORKDIR/burn; VIDEO_TS=true; fi
+		if [ "$VIDEO_TS" = "true" ]; then
+			 echo video_ts > $WORKDIR/BURNLIST_MODE
+			 echo 100 > $WORKDIR/splash
+			exit
+		fi
+	fi
+	#---
+	[ "$BURN_AUDIO" = "true" ] && ls -A1 "$BURNLIST_DIR" | grep -iE "$AUDIO_FORMATS" > $WORKDIR/tmp
+	[ "$BURN_VIDEO" = "true" ] && ls -A1 "$BURNLIST_DIR" | grep -iE "$VIDEO_FORMATS|$IMAGE_FORMATS" > $WORKDIR/tmp
+	#number audio/video list
+	COUNT=0
+	while read I; do
+		COUNT=$((COUNT+1)); NR=$COUNT
+		[ ${#COUNT} -eq 1 ] && NR="0$COUNT" #ensure 2 digits
+		ITEM="${I%%|*}"
+		NEW="${ITEM#([0-9][0-9])_}" #remove old number
+		[ "$ITEM" != "($NR)_$NEW" ] && mv "$BURNLIST_DIR/$ITEM" "$BURNLIST_DIR/($NR)_$NEW"
+		TIME="`grep "$NEW" $WORKDIR/tmp3 | cut -d '|' -f 3 | grep ':'`"
+		if [ "$TIME" ]; then #length already present
+			echo "gtk-media-play|($NR)_$NEW|$TIME" >> $WORKDIR/burn
+		else
+			if echo "$I" | grep -iEq "$IMAGE_FORMATS" ; then #pictures get 00:00
+				if [ ${#PIC_VIEWTIME} -eq 1 ]; then # one char long?
+					echo "gtk-media-play|($NR)_$NEW|00:00:0$PIC_VIEWTIME" >> $WORKDIR/burn
+				else
+					echo "gtk-media-play|($NR)_$NEW|00:00:$PIC_VIEWTIME" >> $WORKDIR/burn
+				fi
+			else
+				ffmpeg -i "$TMPDIR/($NR)_$NEW" 2> $WORKDIR/tmp2
+				TIME=`grep Duration $WORKDIR/tmp2 | awk '{print $2}' | cut -d "." -f 1`
+				echo "gtk-media-play|($NR)_$NEW|$TIME" >> $WORKDIR/burn
+			fi
+		fi
+	done < $WORKDIR/tmp
+else
+	if [ "$BURNLIST_DIR" = "$TMPDIR" ]; then
+		echo -n > $WORKDIR/burn #cd root /
+	else
+		echo "|.." > $WORKDIR/burn
+	fi
+	find -L "$BURNLIST_DIR" -maxdepth 1 -mindepth 1 -type d -printf "gtk-directory|%f/|" -exec du -shLx {} \; | awk -F '/' '{print $1"/"$2}' | sort >> $WORKDIR/burn
+	find -L "$BURNLIST_DIR" -maxdepth 1 -mindepth 1 -type f -printf "gtk-file|%f|" -exec du -shLx {} \; | awk -F '/' '{print $1}' | sort >> $WORKDIR/burn
+	#assume that symlinks from imported session are the ONLY broken links. will show other broken links too
+	find -L "$BURNLIST_DIR" -maxdepth 1 -mindepth 1 -type l -printf "gtk-cdrom|%f|\n" | sort >> $WORKDIR/burn
+fi
+}
+
+build_chooser_list () {
+#if no / is defined --> search
+if [ "`echo "$DIR" | grep -v '/'`" ]; then
+	$APPDIR/func -search
+	exit
+fi
+#---
+DIR="`echo "/$DIR/" | sed -e "s%///%/%g" | sed -e "s%//%/%g"`" #ensure that $DIR has the leading and trailing /
+echo "$DIR" > $WORKDIR/dir #update dir-entry in gui
+#heading
+if [ "$DIR" = '/' ]; then
+	echo -n > $WORKDIR/ls
+else
+	echo "gtk-go-up|..|.                                      .|.." > $WORKDIR/ls #add .. prefix
+fi
+#---
+[ ! -d "$DIR" ] && "|$LOC_ERROR" > $WORKDIR/ls #check if valid dir-name
+#add items
+if [ `cat $WORKDIR/SHOW_HIDDEN` = true ]; then #show also hidden files
+	find "$DIR" -maxdepth 1 -mindepth 1 -type d -follow -printf "gtk-directory|%f|.                                      .|%p/\n" \
+	  -o -type f -follow -printf "gtk-file|%f|.                                      .|%p\n" | sort >> $WORKDIR/ls
+else
+	find "$DIR" -maxdepth 1 -mindepth 1 -type d -follow \! -name .\* -printf "gtk-directory|%f|.                                      .|%p/\n" \
+	  -o -type f -follow \! -name .\* -printf "gtk-file|%f|.                                      .|%p\n" | sort >> $WORKDIR/ls
+fi
+}
+
+case $PAR in
+-update_sizebar)
+	BURNLIST_MODE="`cat $WORKDIR/BURNLIST_MODE`"
+	#calculation of added data in burnlist
+	echo -n > $WORKDIR/isosize
+	case $BURNLIST_MODE in
+	video_ts|data)
+		[ `wc -c $WORKDIR/burn | awk '{print $1}'` -gt 1 ] && du -sbLx "$BURNLIST_DIR" | awk '{print " "$1}' > $WORKDIR/isosize
+		;;
+	audio|video)
+		#calculate length by sum up columns
+		HOUR=`cut -d'|' -f3 $WORKDIR/burn | awk -F: '{ SUM += $1} END { print SUM*60*60 }'`
+		MIN=`cut -d'|' -f3 $WORKDIR/burn | awk -F: '{ SUM += $2} END { print SUM*60 }'`
+		SEC=`cut -d'|' -f3 $WORKDIR/burn | awk -F: '{ SUM += $3} END { print SUM }'`
+		LENGTH=$(($HOUR+$MIN+$SEC))
+		echo $(($LENGTH/60)) > $WORKDIR/isosize
+		;;
+	esac
+	#---
+	ISOSIZE="`cat $WORKDIR/isosize`"; [ ! "$ISOSIZE" ] && ISOSIZE=0 #content of data in burnlist
+	cp -f $WORKDIR/burn $WORKDIR/burn_old #while-loop compares burn_old and burn to detect changes in burnlist
+	#check disc if status is changed
+	if [ "`cddetect_quick`" != "`cat $WORKDIR/cddetect 2> /dev/null`" ]; then
+		. $APPDIR/func -check_media
+		cddetect_quick > $WORKDIR/cddetect
+	fi
+	MEDIATYPE="`cat $WORKDIR/MEDIATYPE`"
+	MEDIASIZE="`cat $WORKDIR/MEDIASIZE`"
+	MEDIASIZE_FREE="`cat $WORKDIR/MEDIASIZE_FREE`"
+	#echo output to progressbar
+	case $BURNLIST_MODE in
+	audio|video) #audio/video
+		case $MEDIATYPE in
+			none) #no disc insterted
+				echo 100 #Red progress bar
+				echo "$LOC387 - $LOC223: $ISOSIZE $LOC218"
+				exit
+				;;
+			DVD-rom)
+				echo 100 #Red progress bar
+				echo "DVD-rom - $LOC223: $ISOSIZE $LOC218"
+				exit
+			;;
+		esac
+		if [ $BURNLIST_MODE = audio ]; then
+			[ "$MEDIASIZE" -gt "1000000000" ] && MEDIATYPE="$LOC224" #DVD - not valid audio CD
+			if [ "$MEDIASIZE" -gt "700000000" ]; then MEDIASIZE=80; else MEDIASIZE=74; fi
+			USED_PERCENT=$(($ISOSIZE*100/$MEDIASIZE))
+			echo "$USED_PERCENT"
+			echo "$MEDIATYPE: $MEDIASIZE $LOC218 - $LOC223: $ISOSIZE $LOC218"
+		else #video
+			echo "0"
+			echo "$LOC223: $ISOSIZE $LOC218"
+		fi
+		;;
+	video_ts|data) #data and video_ts
+		#define human values
+		if [ "$ISOSIZE" -gt "1000000000" ]; then
+			ISOSIZE_HUMAN="`echo "scale=2; $ISOSIZE / 1024 / 1024 / 1024" | bc -l` Gb"
+		else
+			ISOSIZE_HUMAN="`echo "scale=2; $ISOSIZE / 1024 / 1024" | bc -l` Mb"
+		fi
+		#---
+		case $MEDIATYPE in
+		none) #no disc insterted
+			echo 100 #Red progress bar
+			echo "$LOC387 - $LOC223: $ISOSIZE_HUMAN"
+			;;
+		DVD-rom)
+			echo 100 #Red progress bar
+			echo "DVD ($LOC225) - $LOC223: $ISOSIZE_HUMAN"
+			exit
+			;;
+		*)
+			#closed discs are incompatible
+			if [ ! "`echo $MEDIASIZE_FREE | grep [0-9]`" ]; then
+				echo "100"
+				echo "$MEDIATYPE: $MEDIASIZE_FREE - $LOC223: $ISOSIZE_HUMAN"
+				exit
+			fi
+			FREE_SPACE=$(($MEDIASIZE_FREE-$ISOSIZE)) #calculate free space on disc
+			#calculate % for progressbar
+			TMP=$(($MEDIASIZE-$FREE_SPACE))
+			USED_PERCENT=$(($TMP*100/$MEDIASIZE))
+			#Human values
+			if [ "$MEDIASIZE" -gt "1000000000" ]; then
+				MEDIASIZE_HUMAN="`echo "scale=2; $MEDIASIZE / 1024 / 1024 / 1024" | bc -l` Gb"
+			else
+				MEDIASIZE_HUMAN="`echo "scale=2; $MEDIASIZE / 1024 / 1024" | bc -l` Mb"
+			fi
+			if [ "$FREE_SPACE" -gt "1000000000" ]; then
+				FREE_SPACE_HUMAN="`echo "scale=2; $FREE_SPACE / 1024 / 1024 / 1024" | bc -l` Gb"
+			else
+				FREE_SPACE_HUMAN="`echo "scale=2; $FREE_SPACE / 1024 / 1024" | bc -l` Mb"
+			fi
+			#---
+			echo "$USED_PERCENT"
+			echo "$MEDIATYPE: $MEDIASIZE_HUMAN . . . . $LOC222: $FREE_SPACE_HUMAN"
+		esac
+		;;
+	esac
+	;;
+-help)
+	if [ -f /usr/share/doc/pburn/$LANGUAGE.html ]; then
+		$BROWSER /usr/share/doc/pburn/$LANGUAGE.html
+	else
+		$BROWSER /usr/share/doc/pburn/en_US:english.html
+	fi
+	;;
+-slideshow_time)
+	NR=$(ls -1 "$OUTDIR"/pburn_tmp | grep -iEc "$IMAGE_FORMATS")
+	echo "$LOC710 $LOC715:|"$(($SLIDETIME*$NR))" $LOC714" > $WORKDIR/slideshow_time
+	ffmpeg -i "$BACKGROUND_MUSIC" 2> $WORKDIR/tmp
+	TIME=`grep Duration $WORKDIR/tmp | awk '{print $2}' | cut -d "." -f 1 | cut -d ":" -f 2-`
+	MIN=${TIME%:*}
+	SEC=${TIME#*:}
+	if [ "$MIN" ]; then TMP2=$(($MIN*60)); TMP=$(($TMP2+$SEC)); else TMP=$SEC; fi
+	if [ ! "$TMP" ]; then
+		echo "$LOC712:|? $LOC714" >> $WORKDIR/slideshow_time
+	else
+		echo "$LOC712:|$TMP $LOC714" >> $WORKDIR/slideshow_time
+	fi
+	;;
+-slideshow)
+	echo $2 > $WORKDIR/CHK_SLIDESHOW
+	;;
+-c2scan)
+	IMG=cdrom; FRAME="$LOC134"; TXT1="<span size='"'x-large'"'>$LOC134</span>"; TXT2="$LOC500"
+	type readcd > /dev/null 2>&1 || TXT1="<b><span color='"'red'"'>$LOC348: readcd</span></b>"
+	. $APPDIR/box -yesno
+	if [ $EXIT = Yes ]; then
+		echo 'exec readcd -c2scan -ts=32k dev='"$BURNDEV"' "$@"' > $WORKDIR/exec_c2scan
+		chmod 700 $WORKDIR/exec_c2scan
+		echo -n > $LOG
+		$WORKDIR/exec_c2scan > $LOG 2>&1 &
+		export TAIL_TITLE="$LOC134"; TAIL_BUTTON="$LOC_OK"
+		. $APPDIR/box_tail
+	fi
+	;;
+-fixate_CD)
+	IMG=cdrom; FRAME="$LOC135"; TXT1="<span size='"'x-large'"'>$LOC135 CD</span>"; TXT2="$LOC505"
+	. $APPDIR/box -yesno
+	if [ $EXIT = Yes ]; then
+		echo "exec $CDRECORD -fix dev=$BURNDEV" > $WORKDIR/exec_fixate
+		chmod 700 $WORKDIR/exec_fixate
+		echo -n > $LOG
+		$WORKDIR/exec_fixate > $LOG 2>&1 &
+		export TAIL_TITLE="$LOC135"; TAIL_BUTTON="$LOC_OK"
+		. $APPDIR/box_tail
+	fi
+	;;
+-fixate_DVD)
+	IMG=cdrom; FRAME="$LOC135"; TXT1="<span size='"'x-large'"'>$LOC135 DVD</span>"; TXT2="$LOC505"
+	type close >/dev/null 2>&1 || TXT1="<b><span color='"'red'"'>$LOC348: readcd</span></b>"
+	. $APPDIR/box -yesno
+	if [ $EXIT = Yes ]; then
+		echo "exec close $BURNDEV" > $WORKDIR/exec_fixate
+		chmod 700 $WORKDIR/exec_fixate
+		echo -n > $LOG
+		$WORKDIR/exec_fixate > $LOG 2>&1 &
+		export TAIL_TITLE="$LOC135"; TAIL_BUTTON="$LOC_OK"
+		. $APPDIR/box_tail
+	fi
+	;;
+-cdtext)
+	#splash
+	echo "$LOC295" > $WORKDIR/splashtext
+	$APPDIR/box_splash &
+	#---
+	echo -n > $WORKDIR/cdtext
+	echo -n > $WORKDIR/CDTEXT_ALBUM_ARTIST
+	echo -n > $WORKDIR/CDTEXT_ALBUM_TITLE
+	INDRIVE="${INDRIVE%%|*}"
+	[ ! "$INDRIVE" ] && INDRIVE=$BURNDEV
+	cd "$OUTDIR"
+	rm *.inf; rm *.wav; rm *.raw
+	if type icedax >/dev/null 2>&1; then RIPPER=icedax; else RIPPER=cdda2wav; fi
+	$RIPPER dev=$INDRIVE -vall cddb=1 -B -info-only "$OUTDIR/pburn" > $WORKDIR/tmp 2>&1 &
+	#wait until operation is finished
+	while [ "`cat $WORKDIR/splash`" = 0 ]; do
+		TMP="`ps`"
+		if grep -Fq 'no audio' $WORKDIR/tmp || grep -Fq 'Read TOC size failed' $WORKDIR/tmp || grep -Fq 'load cdrom' $WORKDIR/tmp ; then
+			echo 100 > $WORKDIR/splash
+			TXT1="<b>$LOC347</b>"
+			TXT2="$LOC261: $BURNDEV"
+			. $APPDIR/box
+		fi
+		case $TMP in *$RIPPER*) ;; *) echo 100 > $WORKDIR/splash ;; esac
+	done
+	#remove ISRC info in file since it corrupts burning
+	ls -1 "$OUTDIR" | grep -F '.inf' > $WORKDIR/tmp
+	while read I; do
+		grep 'Albumperformer=' "$I" > $WORKDIR/tmp2
+		grep 'Performer=' "$I" >> $WORKDIR/tmp2
+		grep 'Albumtitle=' "$I" >> $WORKDIR/tmp2
+		grep 'Tracktitle=' "$I" >> $WORKDIR/tmp2
+		grep 'Tracknumber=' "$I" >> $WORKDIR/tmp2
+		cp $WORKDIR/tmp2 "$I"
+	done < $WORKDIR/tmp
+	#---
+	ls -1A *.inf > $WORKDIR/tmp
+	while read I; do
+		ARTIST=`grep Performer "$I" | cut -d "'" -f 2- | sed -e "s/'[^']*$//"`
+		TITLE=`grep Tracktitle "$I" | cut -d "'" -f 2- | sed -e "s/'[^']*$//"`
+		grep Albumperformer "$I" | cut -d "'" -f 2- | sed -e "s/'[^']*$//" > $WORKDIR/CDTEXT_ALBUM_ARTIST
+		grep Albumtitle "$I" | cut -d "'" -f 2- | sed -e "s/'[^']*$//" > $WORKDIR/CDTEXT_ALBUM_TITLE
+		if [ "$ARTIST" ]; then
+			echo "$ARTIST - $TITLE" >> $WORKDIR/cdtext
+		fi
+	done < $WORKDIR/tmp
+	;;
+-move_up_down)
+	if [ -z "$BURNLIST" ]; then
+		BURNLIST="`cat $WORKDIR/BURNLIST`" #if it has been moved before
+		if [ -z "$BURNLIST" ]; then
+			TXT1="<b>$LOC381</b>"
+			. $APPDIR/box
+			exit
+		fi
+	fi
+	INDEX=`echo $BURNLIST | cut -d ")" -f 1 | sed -e "s/(//g"`
+	if [ $DIRECTION = up ]; then
+		INDEX_NEW=`expr $INDEX - 1`
+	else
+		INDEX_NEW=`expr $INDEX + 1`
+	fi
+	[ ${#INDEX_NEW} -eq 1 ] && INDEX_NEW="0$INDEX_NEW" #ensure 2 digits
+	TMP="($INDEX_NEW)"
+	SWAP=`grep -F "($INDEX_NEW)" $WORKDIR/burn | cut -d "|" -f 2`
+	if [ "$SWAP" ]; then #reached top / bottom
+		SWAP_NEW=`echo "$SWAP" | sed -e "s/(..)/($INDEX)/g"`
+		BURNLIST_NEW=`echo $BURNLIST | sed -e "s/(..)/($INDEX_NEW)/g"`
+		mv "$BURNLIST_DIR/$BURNLIST" "$BURNLIST_DIR/$BURNLIST_NEW"
+		mv "$BURNLIST_DIR/$SWAP" "$BURNLIST_DIR/$SWAP_NEW"
+		build_burn_list
+		#store new name for next move
+		TMP=`echo $BURNLIST_NEW | sed -e "s/(..)_//"`
+		grep "$TMP" $WORKDIR/burn | cut -d '|' -f 2 > $WORKDIR/BURNLIST
+	fi
+	;;
+-logbox)
+	export TAIL_TITLE="$LOC433"; TAIL_BUTTON="$LOC430"
+	. $APPDIR/box_tail
+	if [ "$EXIT" = "tail_button" ]; then
+		rm -f $WORKDIR/pburn* > /dev/null 2>&1
+		#kill all pburn processes
+		for I in `ps -eo pid,command | grep -wE "$MKISOFS|$CDRECORD|$CDDA2WAV|growisofs|diff|ffmpeg|dd|vobcopy|vamps" | awk '{print $1}'`; do kill -9 $I; done
+		rm $WORKDIR/* > /dev/null 2>&1
+		#kill Pburn itself
+		for I in `ps -eo pid,command | grep -i "pburn" | awk '{print $1}'`; do kill -9 $I; done
+	fi
+	;;
+-calculate_needed_space) #only used by gui when changing burn-mode
+	#show splash
+	if [ $BURN_DATA = false ] && [ "`cat $WORKDIR/burn | wc -l`" -gt "1" ]; then
+		echo "$LOC336" > $WORKDIR/splashtext
+		$APPDIR/box_splash &
+	fi
+	#go to CDs root-dir. Audio/video supports only files on root-dir.
+	export BURNLIST_DIR=$TMPDIR
+	echo "$BURNLIST_DIR" > $WORKDIR/burnlist_dir
+	#remove audio numbers
+	if [ $BURN_DATA = true ]; then
+		ls -A "$BURNLIST_DIR" > $WORKDIR/tmp
+		while read I; do
+			ITEM="${I%%|*}"
+			NEW=`echo "$ITEM" | sed -e "s/(..)_//g"` #remove old number
+			mv "$BURNLIST_DIR/$ITEM" "$BURNLIST_DIR/$NEW"
+		done < $WORKDIR/tmp
+	fi
+	echo ' ' > $WORKDIR/isosize
+	build_burn_list
+	echo 100 > $WORKDIR/splash
+	;;
+-disc_info)
+	#check if mounted
+	. $APPDIR/func -check_media
+	MOUNT="`mount | grep $BURNDEV | cut -d' ' -f3`"
+	if [ "$MOUNT" ]; then #mounted
+		MOUNTPOINT="$MOUNT"
+	else
+		MOUNTPOINT="$HOME/.pburn/mnt/"
+		mount $BURNDEV $MOUNTPOINT -t auto 2> /dev/null
+	fi
+	#check content/md5sum
+	ls -1pA --group-directories-first $MOUNTPOINT > $WORKDIR/tmp
+	MD5SUM="$LOC508" #not available
+	if [ -s $WORKDIR/tmp ]; then
+		MD5SUM="$( ls $MOUNTPOINT | md5sum | cut -f 1 -d " " )"
+	else #blank disc
+		echo "$LOC400" > $WORKDIR/tmp
+	fi
+	#---
+	[ ! "$MOUNT" ] && umount $MOUNTPOINT	
+	IMG=cdrom; FRAME="$LOC136"
+	TXT1="<span size='"'x-large'"'>$LOC136</span>"
+	TXT2="$LOC236: $MEDIATYPE
+$LOC509: $MEDIASIZE
+$LOC510: $MEDIASIZE_FREE
+$LOC507: $MD5SUM
+
+$LOC506:"
+	EXTENDED_GTKDIALOG="
+	<edit editable=\"false\" left_margin=\"10\">
+	 <input file>$WORKDIR/tmp</input>
+   	 <visible>disabled</visible>
+   	 <width>100</width><height>100</height>
+   	</edit>"
+	. $APPDIR/box
+	;;
+-import_session)
+	. $CONFIG #reload configs in case user changed device setting
+	#splash
+	echo "$LOC315 $BURNDEV" > $WORKDIR/splashtext
+	$APPDIR/box_splash &
+	#Error checks
+	if [ ! "$BURNDEV" ]; then #no burner
+		TXT1="<b>$LOC393</b>"
+		. $APPDIR/box
+		echo 100 > $WORKDIR/splash #kill progress bar
+		exit
+	fi
+	if mount | grep -Fq "$BURNDEV" ; then #mounted
+		TXT1="$LOC375"
+		. $APPDIR/box
+		echo 100 > $WORKDIR/splash #kill progress bar
+		exit
+	fi
+	#---
+	mount $BURNDEV $HOME/.pburn/mnt -t auto 2> /dev/null
+	# /tmp/pburn-import_session keeps ls -AR, while tmp/pburn-import keeps ls -A
+	echo -n > $WORKDIR/import_session
+	find $HOME/.pburn/mnt/ -mindepth 1 -printf "%p\n" >> $WORKDIR/import_session #surrugat for ls -AR
+	sed -i -e "s%$HOME/.pburn/mnt%%g" $WORKDIR/import_session
+	#---
+	ls -A $HOME/.pburn/mnt/ > $WORKDIR/import
+	while read I; do
+		cp -srpf "$HOME/.pburn/mnt/$I" "$TMPDIR"
+	done < $WORKDIR/import
+	umount $HOME/.pburn/mnt
+	build_burn_list
+	. $APPDIR/func -check_media
+	echo 100 > $WORKDIR/splash
+	;;
+-import_iso)
+	if mount | grep -q 'pburn' ; then #iso already mounted
+		TXT1="$LOC321"
+		. $APPDIR/box
+		exit
+	fi
+	TITLE="$LOC107"
+	. $APPDIR/box_chooser
+	if [ "$EXIT" = "OK" ]; then
+		if [ ! -s "$CHOOSER" ]; then #file not found
+			TXT1="<b>$LOC383</b>"
+			. $APPDIR/box
+		else
+			mount -t auto -o loop "$CHOOSER" $HOME/.pburn/mnt
+			ls -A $HOME/.pburn/mnt/ > $WORKDIR/tmp
+			while read I; do
+				cp -srpf "$HOME/.pburn/mnt/$I" "$BURNLIST_DIR"
+				echo -e "$GRAFT_POINT_DIR$I=$HOME/.pburn/mnt/$I" >> $WORKDIR/graft_points 
+			done < $WORKDIR/tmp
+			build_burn_list
+		fi
+	fi
+	;;
+-info_burn)
+	[ "$BURN_DATA" = "true" ] && echo -e "$LOC215\c" > $WORKDIR/info
+	[ "$BURN_AUDIO" = "true" ] && echo -e "$LOC216\c" > $WORKDIR/info
+	[ "$BURN_VIDEO" = "true" ] && echo -e "$LOC217\c" > $WORKDIR/info
+	;;
+-browser_go_to_dir)
+	build_chooser_list
+	;;
+-browser_change_dir)
+	if [ "$CHOOSER" != ".." ]; then
+		TMP="`find "$CHOOSER" -maxdepth 0 -type d -follow`" 2> /dev/null #check if hit is directory
+		if [ ! "$TMP" ]; then #it's a file - MIME
+			TMP=`find "$CHOOSER" -maxdepth 1 -follow`
+			$APPDIR/func -execute "$TMP" &
+			exit
+		else
+			DIR="$TMP"
+		fi
+	else
+		DIR=`dirname "$DIR"`/
+	fi
+	build_chooser_list
+	;;
+-add)
+	#---
+	if [ "$BUTTON" != "3" ] || [ "$CHOOSER" = ".." ]; then exit; fi
+	cut -d '|' -f 4 $WORKDIR/ls > $WORKDIR/tmp2
+	if [ ! "$CHOOSER" ] && [ "$ADD" = "$LOC150 [$LOC211]" ]; then #nothing is selected
+		echo -n > $WORKDIR/tmp
+	else
+		[ "$ADD" = "$LOC150 [$LOC211]" ] && grep -Fx -m1 -- "$CHOOSER" $WORKDIR/tmp2 | sed 's|\\|\\\\|g' > $WORKDIR/tmp #Dougal: support filenames with \ or starts with - 
+	fi
+	[ "$ADD" = "$LOC151" ] && grep -iE "$AUDIO_FORMATS" $WORKDIR/tmp2 > $WORKDIR/tmp
+	[ "$ADD" = "$LOC152" ] && grep -iE "$VIDEO_FORMATS" $WORKDIR/tmp2 > $WORKDIR/tmp
+	[ "$ADD" = "$LOC153" ] && grep -iE "$IMAGE_FORMATS" $WORKDIR/tmp2 > $WORKDIR/tmp
+	[ "$ADD" = "$LOC154" ] && grep -vx '..' $WORKDIR/tmp2 > $WORKDIR/tmp
+	if [ ! -s $WORKDIR/tmp ]; then #Add from menu could give 'nothing to add'
+		TXT1="$LOC332"
+		. $APPDIR/box
+		exit
+	fi
+	#check audio format
+	if ! grep -iEq "$AUDIO_FORMATS" $WORKDIR/tmp && [ "$BURN_AUDIO" = "true" ]; then
+		TXT1="$LOC324"
+		. $APPDIR/box
+		exit
+	fi
+	#check video format
+	if ! grep -iEq "$VIDEO_FORMATS|$IMAGE_FORMATS|video_ts|audio_ts" $WORKDIR/tmp && [ "$BURN_VIDEO" = "true" ]; then
+		TXT1="$LOC324"
+		. $APPDIR/box
+		exit
+	fi
+	#if add more than 5 items or dir --> show splash
+	if [ "`cat $WORKDIR/tmp | wc -l`" -gt 5 ] || [ -d "$CHOOSER" ]; then
+		echo "$LOC336" > $WORKDIR/splashtext
+		$APPDIR/box_splash &
+	fi
+	while read I; do
+		TMP=`basename "$I"`
+		if grep -qx "^$GRAFT_POINT_DIR$TMP=$I" $WORKDIR/graft_points ; then #already exist
+			echo 100 > $WORKDIR/splash
+			export TXT1="<b>$LOC349:</b> $I"
+			$APPDIR/box &
+			continue
+		fi
+		cp -srpf "$I" "$BURNLIST_DIR"
+		echo "$GRAFT_POINT_DIR$TMP=$I" >> $WORKDIR/graft_points
+	done < $WORKDIR/tmp
+	build_burn_list
+	echo 100 > $WORKDIR/splash #reset progress bar
+	;;
+-add_list)
+	if [ "$GO_CHOOSER" = "true" ]; then #import list from file-menu
+		TITLE="$LOC102"
+		. $APPDIR/box_chooser
+		if [ "$EXIT" = "OK" ]; then
+			if [ ! -s "$CHOOSER" ]; then #file not found
+				TXT1="<b>$LOC383</b>"
+				. $APPDIR/box
+				exit
+			fi
+		else
+			exit
+		fi 
+	fi
+	if [ ! -s "$CHOOSER" ]; then
+		echo 100 > $WORKDIR/splash #kill splash in case user run from terminal with -i parameter
+		TXT1="<b>$LOC377</b>"
+		. $APPDIR/box
+		exit
+	fi
+	#playlist
+	grep -v "#" "$CHOOSER" > $WORKDIR/import_list #remove metadata of playlist
+	if [ -z "`grep -Ev "$AUDIO_FORMATS" $WORKDIR/import_list`" ]; then
+		IMG="sort-ascending"; TXT1="$LOC378"
+		. $APPDIR/box -yesno
+	fi
+	echo "$LOC312" > $WORKDIR/splashtext
+	$APPDIR/box_splash &
+	usleep 300000 #for splash to rerender
+	#number items
+	COUNT=0
+	while read I; do
+		COUNT=$((COUNT+1)); NR=$COUNT
+		[ ${#COUNT} -eq 1 ] && NR="0$COUNT"
+		ITEM=`echo "$I" | cut -d "|" -f 2 | sed -e "s%\r%%g"`
+		ITEM_NAME=`basename "$ITEM"`
+		[ ! "$ITEM" ]&& break
+		case $ITEM in
+		*/*) #path exist
+			if [ $EXIT = Yes ]; then #number output
+				cp -srpf "$ITEM" "$BURNLIST_DIR/($NR)_$ITEM_NAME"
+				echo "$GRAFT_POINT_DIR""($NR)_$ITEM_NAME=$ITEM" >> $WORKDIR/graft_points
+			else
+				cp -srpf "$ITEM" "$BURNLIST_DIR"
+				echo "$GRAFT_POINT_DIR$ITEM_NAME=$ITEM" >> $WORKDIR/graft_points 
+			fi
+			;;
+		*) #no path for files in list. Use current dir
+			TMP=`dirname "$CHOOSER"`
+			if [ "$EXIT" = "Yes" ]; then #number output
+				cp -srpf "$TMP/$ITEM" "$BURNLIST_DIR/($NR)_$ITEM_NAME"
+				echo "$GRAFT_POINT_DIR""($NR)_$ITEM_NAME=$TMP/$ITEM" >> $WORKDIR/graft_points 
+			else
+				cp -srpf "$TMP/$ITEM" "$BURNLIST_DIR"
+				echo "$GRAFT_POINT_DIR$ITEM_NAME=$TMP/$ITEM" >> $WORKDIR/graft_points 
+			fi
+			;;
+		esac
+	done < $WORKDIR/import_list
+	build_burn_list
+	echo 100 > $WORKDIR/splash
+	;;
+-pfilesearch)
+	pfilesearch -b -d "$SEARCHPATH"
+	#generate results
+	echo -n > $WORKDIR/tmp
+	while read I; do
+		find "$I" -maxdepth 1 -type d -printf "gtk-directory|%f|.                                      .|%p\n" \
+		  -o -type f -printf "gtk-file|%f|.                                      .|%p\n" >> $WORKDIR/tmp
+	done < $HOME/.pfilesearch/hits
+	sort -u --output=$WORKDIR/ls $WORKDIR/tmp
+	;;
+-search)
+	#check search
+	if ! type pfilesearch >/dev/null 2>&1; then #Pfilesearch not installed
+		TXT1="$LOC319"
+		. $APPDIR/box
+		exit
+	fi
+	#define MIME groups from Pfilesearch
+	export EXTMUSIC="('"`grep music= $HOME/.pfilesearch/pfilesearchMIMErc | sed -e s/^.*\=//g | sed -e 's/ ./$\\\|\\\./g'`"$ ')"
+	export EXTVIDEO="('"`grep video= $HOME/.pfilesearch/pfilesearchMIMErc | sed -e s/^.*\=//g | sed -e 's/ ./$\\\|\\\./g'`"$ ')"
+	export EXTPIC="('"`grep picture= $HOME/.pfilesearch/pfilesearchMIMErc | sed -e s/^.*\=//g | sed -e 's/ ./$\\\|\\\./g'`"$ ')"
+	#search
+	pfilesearch -b -c "$DIR" -d "$SEARCHPATH"
+	#generate results
+	echo -n > $WORKDIR/tmp
+	while read I; do
+		find "$I" -maxdepth 1 -type d -printf "gtk-directory|%f|.                                      .|%p\n" \
+		  -o -type f -printf "gtk-file|%f|.                                      .|%p\n" >> $WORKDIR/tmp
+	done < $HOME/.pfilesearch/hits
+	sort -u --output=$WORKDIR/ls $WORKDIR/tmp
+	;;
+-burnlist_change_dir)
+	if [ "$BURNLIST" != ".." ]; then
+		TMP=`file -L "$BURNLIST_DIR/$BURNLIST" | grep directory` #is hit a directory
+		if [ ! "$TMP" ]; then  #it's a file - MIME
+			if grep -x "/$BURNLIST" $WORKDIR/import_session 2> /dev/null; then
+				TXT1="$LOC331"
+				. $APPDIR/box
+				exit
+			fi
+			$APPDIR/func -execute "$BURNLIST_DIR/$BURNLIST" &
+		else
+			export BURNLIST_DIR="`echo "$BURNLIST_DIR/$BURNLIST" | sed -e "s%//%/%g"`" #in case //
+			echo "$BURNLIST_DIR" > $WORKDIR/burnlist_dir
+			build_burn_list
+		fi
+	else
+		export BURNLIST_DIR=`dirname "$BURNLIST_DIR"`
+		echo "$BURNLIST_DIR" > $WORKDIR/burnlist_dir
+		build_burn_list
+	fi
+	;;
+-burnlist_create_new_dir)
+	FRAME="$LOC111"; IMG="new"; TXT1="$LOC379"; DEFAULT=""
+	. $APPDIR/box -input
+	if [ $EXIT = Apply ]; then
+		echo > $WORKDIR/error
+		mkdir "$BURNLIST_DIR"/"$INPUT" 2> $WORKDIR/error
+		TXT1="`cat $WORKDIR/error`"
+		if [ "$TXT1" ]; then
+			. $APPDIR/box #error
+			exit
+		fi
+		echo "$BURNLIST_DIR"/"$INPUT" | sed -e "s%//%/%g" >> $WORKDIR/main_dirs
+		build_burn_list
+	fi
+	;;
+-burnlist_rename)
+	#check if trying to rename an already burnt item
+	TMP="`echo "$GRAFT_POINT_DIR$BURNLIST/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	if grep -x "$TMP" $WORKDIR/import_session 2> /dev/null; then #can't rename from imported session
+		TXT1="$LOC380"
+		. $APPDIR/box
+		exit
+	fi
+	#Nothing is selected
+	if [ -z "$BURNLIST" ]; then
+		TXT1="<b>$LOC381</b>"
+		. $APPDIR/box
+		exit
+	fi
+	#---
+	FRAME="$LOC112"; IMG="convert"; TXT1="$BURNLIST"; DEFAULT=`echo "$BURNLIST" | sed -e "s%/%%g"`
+	. $APPDIR/box -input
+	BURNLIST="`echo "$BURNLIST/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	BURNLIST_DIR="`echo "$BURNLIST_DIR/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	SOURCE=`readlink "$BURNLIST_DIR/$BURNLIST"`
+	if [ $EXIT = Apply ]; then
+		if grep -q /"$INPUT"$ $WORKDIR/graft_points ; then #already exist
+			TXT1="<b>$LOC349:</b> $INPUT"
+			. $APPDIR/box
+			exit
+		fi
+		#if item is in list, --> remove from graft-points
+		TMP="`grep "^$GRAFT_POINT_DIR$BURNLIST=" $WORKDIR/graft_points | cut -d '=' -f 2`"
+		if [ "$TMP" ]; then
+			grep -v "$TMP" $WORKDIR/graft_points > $WORKDIR/tmp
+			mv -f $WORKDIR/tmp $WORKDIR/graft_points
+		else #add to exclude list
+			echo "$SOURCE" >> $WORKDIR/exclude
+		fi
+		echo "$GRAFT_POINT_DIR$INPUT=$SOURCE" >> $WORKDIR/graft_points #add new item to list
+		mv "$BURNLIST_DIR"/"$BURNLIST" "$BURNLIST_DIR"/"$INPUT" #rename symlink
+		build_burn_list
+	fi
+	;;
+-burnlist_remove)
+	#check if trying to remove an already burnt item
+	TMP="`echo "$GRAFT_POINT_DIR$BURNLIST/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	if grep -Fqx "$TMP" $WORKDIR/import_session 2> /dev/null; then
+		TXT1="$LOC382"
+		. $APPDIR/box
+		exit
+	fi
+	#check if any item is selected
+	if [ -z "$BURNLIST" ]; then
+		TXT1="<b>$LOC381</b>"
+		. $APPDIR/box
+		exit
+	fi
+	ITEM=`echo "$BURNLIST" | tr -d /`
+	#remove graft-points
+	BURNLIST="`echo "$BURNLIST/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	BURNLIST_DIR="`echo "$BURNLIST_DIR/" | sed -e 's%//%/%g' | sed -e 's/\/[^\/]*$//'`" #remove last / if exist
+	SOURCE=`readlink "$BURNLIST_DIR/$BURNLIST"`
+	[ -d "$BURNLIST_DIR/$BURNLIST" ] && BURNLIST="/$BURNLIST/"
+	if grep "$GRAFT_POINT_DIR$BURNLIST" $WORKDIR/graft_points; then #this also removes items inside a removed dir
+		grep -v "$TMP" $WORKDIR/graft_points > $WORKDIR/tmp; mv -f $WORKDIR/tmp $WORKDIR/graft_points
+	else #add to exclude list
+		echo "$SOURCE" >> $WORKDIR/exclude
+	fi
+	rm -fr "$BURNLIST_DIR/$BURNLIST" > /dev/null 2>&1
+	build_burn_list
+	;;
+-new)
+	rm -fr "$TMPDIR"
+	rm -fr "$OUTDIR/pburn_tmp" > /dev/null 2>&1
+	rm -rf "$OUTDIR/pburn-DVD" > /dev/null 2>&1
+	rm $WORKDIR/import_session > /dev/null 2>&1
+	rm $WORKDIR/log > /dev/null 2>&1
+	mkdir "$TMPDIR" > /dev/null 2>&1
+	umount $HOME/.pburn/mnt > /dev/null 2>&1 #imported iso
+	#reset burnlist to cd /
+	export BURNLIST_DIR="$TMPDIR"
+	echo "$BURNLIST_DIR" > $WORKDIR/burnlist_dir
+	#---
+#[ "$WORKDIR" != "/root/.pburn/tmp" ] && gxmessage 'Files are now written to /'
+	echo 0 > $WORKDIR/isosize
+	echo -n > $WORKDIR/tmp
+	echo -n > $WORKDIR/graft_points 
+	echo -n > $WORKDIR/exclude 
+	echo -n > $WORKDIR/SAVEFILE
+	echo -n > $WORKDIR/OPEN_FILE
+	echo -n > $WORKDIR/BACKGROUND_MUSIC
+	echo -n > $WORKDIR/CDTEXT_ALBUM_ARTIST
+	echo -n > $WORKDIR/CDTEXT_ALBUM_TITLE
+	echo -e " " > $WORKDIR/cdtext
+	echo 0 > $WORKDIR/datasize_add
+	echo 0 > $WORKDIR/datasize_exclude
+	echo "$TMPDIR" > $WORKDIR/main_dirs
+	echo "$LOC001" > $WORKDIR/open_file
+	build_burn_list
+	;; 
+-open)
+gxmessage hei
+	if [ "$OPEN_DIALOG" = "true" ]; then
+gxmessage hei
+		TITLE="$LOC102"
+		. $APPDIR/box_chooser
+		if [ "$EXIT" = "OK" ]; then
+			if [ ! -s "$CHOOSER" ]; then #file not found
+				TXT1="<b>$LOC383</b>"
+				. $APPDIR/box
+				EXIT=cancel
+			else
+				#splash
+				echo > $WORKDIR/splashtext
+				. $APPDIR/box_splash &
+				#---
+				. $APPDIR/func -new #clear list
+				OPEN_FILE="$CHOOSER"
+				echo "$OPEN_FILE" > $WORKDIR/OPEN_FILE
+				OPEN_DIALOG=false
+			fi
+		fi
+	fi	
+	#open from terminal starts here
+	if [ "$EXIT" != "cancel" ]; then
+		cd /
+		tar -xf "$OPEN_FILE"
+		if [ "$?" != "0" ]; then
+			TXT1="<b>$LOC384</b>"
+			. $APPDIR/box
+		fi
+		if tar -vtf "$OPEN_FILE" | grep -q "PBURN-audio" ; then  #it's saved as audio-CD
+			export BURN_DATA=false
+			export BURN_AUDIO=true
+			export BURN_VIDEO=false
+			echo audio > $WORKDIR/BURNLIST_MODE
+			. $APPDIR/func -calculate_time_of_audio_files
+		fi
+		if tar -vtf "$OPEN_FILE" | grep -q "PBURN-video" ; then  #it's saved as video-DVD
+			export BURN_DATA=false
+			export BURN_AUDIO=false
+			export BURN_VIDEO=true
+			echo video > $WORKDIR/BURNLIST_MODE
+			. $APPDIR/func -calculate_time_of_audio_files
+		fi
+		cp "$TMPDIR"/pburn-graftfiles/pburn-graft_points $WORKDIR/
+		cp "$TMPDIR"/pburn-graftfiles/pburn-exclude $WORKDIR/
+		cp "$TMPDIR"/pburn-graftfiles/pburn-main_dirs $WORKDIR/
+		cp "$TMPDIR"/pburn-graftfiles/pburn-datasize_add $WORKDIR/
+		cp "$TMPDIR"/pburn-graftfiles/pburn-datasize_exclude $WORKDIR/
+		rm -fr "$TMPDIR"/pburn-graftfiles/
+		echo "$OPEN_FILE" > $WORKDIR/open_file
+		build_burn_list
+	fi
+	;;
+-save_log) #button in finish-dialog and error-dialog 
+	TMP="`date +%d.%b.%Y-%T`"
+	echo "$HOME/Pburn_$TMP.log" > $WORKDIR/SAVEFILE
+	SAVE_EXT=log
+	. $APPDIR/box_save
+	if [ -s $WORKDIR/SAVEFILE ]; then
+		TMP="`cat $WORKDIR/SAVEFILE`"
+		echo "Pburn version $VERSION" > "$TMP"
+		echo -e "\n###################################################\n   COMMAND:\n###################################################" >> "$TMP"
+		cat $WORKDIR/exec_preburn >> "$TMP"
+		cat $WORKDIR/exec >> "$TMP"
+		echo -e "\n###################################################\n   OUTPUT:\n###################################################" >> "$TMP"
+		cat $WORKDIR/log >> "$TMP"
+	fi
+	;;
+-save)
+	if [ ! "$SAVEAS" = "true" ]; then
+		cp -f $WORKDIR/OPEN_FILE $WORKDIR/SAVEFILE
+	else
+		echo -n > $WORKDIR/SAVEFILE #empty file will run dialog
+	fi
+	if [ ! -s $WORKDIR/SAVEFILE ]; then #new file, open dialog
+		echo "$HOME/pburn.pbn" > $WORKDIR/SAVEFILE
+		SAVE_EXT=pbn
+		. $APPDIR/box_save
+	fi
+	if [ -s $WORKDIR/SAVEFILE ]; then
+		[ "$BURN_AUDIO" = "true" ] && TMP="--label=PBURN-audio" #set tar label
+		[ "$BURN_VIDEO" = "true" ] && TMP="--label=PBURN-video"
+		#add info files into tar-package
+		mkdir "$TMPDIR"/pburn-graftfiles
+		cp -f $WORKDIR/graft_points "$TMPDIR"/pburn-graftfiles/
+		cp -f $WORKDIR/exclude "$TMPDIR"/pburn-graftfiles/
+		cp -f $WORKDIR/main_dirs "$TMPDIR"/pburn-graftfiles/
+		cp -f $WORKDIR/datasize_add "$TMPDIR"/pburn-graftfiles/
+		cp -f $WORKDIR/datasize_exclude "$TMPDIR"/pburn-graftfiles/
+		#---
+		SAVEFILE="`cat $WORKDIR/SAVEFILE`"
+		tar "$TMP" -cf "$SAVEFILE" "$TMPDIR"
+		rm -fr "$TMPDIR"/pburn-graftfiles/
+		#define saved file as the active (open) file
+		cp -f $WORKDIR/SAVEFILE $WORKDIR/OPEN_FILE
+	fi
+	;;
+-execute)
+	FILE="`echo "$*" | sed -e 's/-execute //g'`"
+	case $FILE in *.iso*|*.ISO*) exit;; esac #avoid mounting of iso
+	#who's gonna handle MIME
+	if which rox > /dev/null 2>&1; then export FILEMANAGER=rox
+		elif which pcmanfm; then export FILEMANAGER=pcmanfm
+		elif which nautilus; then export FILEMANAGER=nautilus
+		elif which xfe; then export FILEMANAGER=xfe
+		elif which thunar; then export FILEMANAGER=thunar
+		elif which dolphin; then export FILEMANAGER=dolphin
+		elif which konqueror; then export FILEMANAGER=konqueror
+		elif which emelfm; then export FILEMANAGER=emelfm
+	fi
+	#open with MIME-type settings
+	$FILEMANAGER "$FILE"
+	;;
+-eject)
+	umount $HOME/.pburn/mnt > /dev/null 2>&1
+	eject $BURNDEV &
+	;;
+-load_tray)
+	$CDRECORD -load dev=$BURNDEV &
+	;;
+-check_media)
+	#read disc
+	# cdrecord -toc must be run before dvd-mediainfo to ensure spin-up of disc
+	$CDRECORD dev=$BURNDEV -toc > $WORKDIR/tmp 2>&1 #if disc is damaged, this might take tooooo long time
+	export CDINFO="`cat $WORKDIR/tmp`"
+	export DVDINFO="`dvd+rw-mediainfo $BURNDEV 2>&1`"
+	#check if disc in tray
+	case $CDINFO in *Cannot\ load\ media*|*No\ disk*)
+		if [ ! "$BURN" ]; then #updating sizebar in main gui
+			DVDINFO=none
+		else
+			echo 100 > $WORKDIR/splash
+			TXT1="<b>$LOC304</b>"
+			TXT2="$LOC261: $BURNDEV"
+			. $APPDIR/box
+			exit
+		fi
+		;;
+	esac
+	#check if CD or DVD
+	case $DVDINFO in
+	*non\-DVD*|*not\ a\ DVD\ unit*) #CD
+		export MEDIATYPE=CD
+		type vcdimager > /dev/null 2>&1 || MEDIATYPE_VIDEO=VCD
+
+		[ "`echo "$CDINFO" | grep -B 1 'track:lout' | grep 'mode: 1'`" ] && export MEDIASIZE_FREE="$LOC511" #closed disc
+		#find size
+		ATIP="`wodim dev=/dev/sr0 -atip`"
+		TMP="`echo "$ATIP" | grep 'lead out:' | cut -d: -f2 | cut -d' ' -f2`"
+		[ "$TMP" ] && export MEDIASIZE=$(($TMP*2048))
+		#free space
+		case $CDINFO in *Cannot\ read\ TOC*|*-1:59:74*) export MEDIASIZE_FREE=$MEDIASIZE;; esac #blank disc
+		if [ ! "$MEDIASIZE_FREE" ]; then #not closed
+			TMP="`echo "$CDINFO" | grep 'track:lout' | cut -d'(' -f1 | cut -d: -f3 | tr -d ' '`"
+			MEDIASIZE_USED="$(($TMP*2048))"
+			export MEDIASIZE_FREE=$(($MEDIASIZE-$MEDIASIZE_USED))
+		fi
+		;;
+	none)
+		export MEDIATYPE=none
+		export MEDIASIZE=''
+		;;
+	*)	#DVD/Blu-ray
+		export MEDIATYPE=DVD
+		export MEDIATYPE_VIDEO=DVD
+		#find size and free space
+		if [ ! "$MEDIASIZE" ]; then
+			case $DVDINFO in
+			*00h\(*) #-RW
+				export MEDIASIZE="`echo "$DVDINFO" | grep '00h(' | tail -n 1 | cut -d= -f2`"
+				export MEDIASIZE_FREE="`echo "$DVDINFO" | grep '13h(' | cut -d= -f2`"
+				[ ! "$MEDIASIZE_FREE" ] && MEDIASIZE_FREE=$MEDIASIZE #blanked
+				;;
+			*Disc\ status*appendable*) #+-R
+				export MEDIASIZE="`echo "$DVDINFO" | grep 'Legacy lead-out at' | cut -d= -f2`"
+				TMP="`echo "$DVDINFO" | grep 'Next Writable Address' | cut -d: -f2 | tr -d ' ' | cut -d "*" -f1`"
+				MEDIASIZE_USED=$(($TMP*2048))
+				export MEDIASIZE_FREE=$(($MEDIASIZE-$MEDIASIZE_USED))
+				;;
+			*Disc\ status*blank*) #blank
+				TMP="`echo "$DVDINFO" | grep -m 1 'Track Size:' | cut -d: -f2 | tr -d ' ' | cut -d "*" -f1`"
+				export MEDIASIZE=$(($TMP*2048))
+				export MEDIASIZE_FREE="$MEDIASIZE"
+				;;
+			*DVD-ROM\ media\ detected*) #DVD-rom --> not writable
+				export MEDIATYPE=DVD-rom
+				export MEDIASIZE=''
+				;;
+			*) #+RW --- #dvd+rw-mediainfo doesn't find free space for DVD+RW
+				export MEDIASIZE="`echo "$DVDINFO" | grep '26h(' | cut -d= -f2`"
+				mount -t auto $BURNDEV $HOME/.pburn/mnt/ > /dev/null 2>&1
+				MEDIASIZE_USED=`du -sbLx $HOME/.pburn/mnt/ | awk '{print $1}'`
+				umount $HOME/.pburn/mnt/
+				export MEDIASIZE_FREE=$(($MEDIASIZE-$MEDIASIZE_USED))
+				;;
+			esac
+		fi
+		;;
+	esac
+	#Progressbar in main gui needs these files. See -update_sizebar)
+	echo $MEDIATYPE > $WORKDIR/MEDIATYPE
+	echo $MEDIASIZE > $WORKDIR/MEDIASIZE
+	echo $MEDIASIZE_FREE > $WORKDIR/MEDIASIZE_FREE
+	;;
+-find_devices)
+	#Find CD / DVD drives. Code taken from Probedisk and Bck2CD.sh.
+	echo -n > $WORKDIR/tmp
+	ALL_DEV="`ls -1 /sys/block 2> /dev/null | grep -E '^scd|^sr' | tr '\n' ' '``ls -1 /proc/ide 2> /dev/null | grep '^hd' | tr '\n' ' '`"
+	for I in $ALL_DEV; do
+		case $I in
+			hd*) #ide device, look in /proc/ide for info
+				MEDIA="`cat /proc/ide/$I/media`"
+				INFO="`cat /proc/ide/$I/model`"
+				;;
+			scd*|sr*) #scsi cdroms
+				MEDIA="cdrom"
+				INFO="$VENDOR$MODEL"
+				;;
+		esac
+		echo "/dev/$I|$MEDIA|$INFO" >> $WORKDIR/tmp
+	done
+	export CD_DRIVES="`grep -Fi cd $WORKDIR/tmp | cut -f 1,3 -d "|" | tr " " "_" | tr "|" " " | tr '$' "_"`"
+	#make items for <tree>
+	echo -n > $WORKDIR/tmp
+	for I in `echo "$CD_DRIVES" | tr " " "|"`; do
+		echo "<item stock=\"gtk-cdrom\">""$I""</item>" >> $WORKDIR/tmp
+	done
+	export ITEMS_DEVICES=`cat $WORKDIR/tmp`
+	;;
+-install)
+	#check if helpfile is new/updated
+	HELPFILE_CHKSUM_NEW="`md5sum /usr/share/doc/pburn/$LANGUAGE.html 2> /dev/null | awk '{print $1}'`"
+	[ "$HELPFILE_CHKSUM" = "$HELPFILE_CHKSUM_NEW" ] && exit #nothing new
+	#---
+	echo "Installing...please wait" > $WORKDIR/splashtext #language not specified yet (if first run)
+	$APPDIR/box_splash &
+	#build helptext variables for wizard
+	echo -n > $WORKDIR/tmp
+	echo -n > $WORKDIR/hlp31
+	echo -n > $WORKDIR/hlp32
+	echo -n > $WORKDIR/hlp33
+	echo -n > $WORKDIR/hlp34
+	echo -n > $WORKDIR/hlp35
+	echo -n > $WORKDIR/hlp36
+	echo -n > $WORKDIR/hlp37
+	echo -n > $WORKDIR/hlp38
+	echo -n > $WORKDIR/hlp39
+	echo -n > $WORKDIR/hlp310
+	echo -n > $WORKDIR/hlp311
+	echo -n > $WORKDIR/hlp4
+	if [ -f /usr/share/doc/pburn/$LANGUAGE.html ]; then
+		cp /usr/share/doc/pburn/$LANGUAGE.html $WORKDIR/helpfile #not work on org
+	else
+		cp /usr/share/doc/pburn/en_US:english.html $WORKDIR/helpfile
+	fi
+	sed -i -e 's/<br>//g' $WORKDIR/helpfile #remove html tags
+	sed -i -e "s/ /{ð®SSSđþ}/g" $WORKDIR/helpfile
+	for I in `cat $WORKDIR/helpfile`; do #'while read I' doesn't work here. locals ?????
+		if [ `echo "$I" | grep -o "\{3.1\}"` ]; then echo "{31}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.2\}"` ]; then echo "{32}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.3\}"` ]; then echo "{33}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.4\}"` ]; then echo "{34}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.5\}"` ]; then echo "{35}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.6\}"` ]; then echo "{36}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.7\}"` ]; then echo "{37}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.8\}"` ]; then echo "{38}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.9\}"` ]; then echo "{39}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.10\}"` ]; then echo "{310}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{3.11\}"` ]; then echo "{311}" > $WORKDIR/tmp; fi
+		if [ `echo "$I" | grep -o "\{4\}"` ]; then echo "{4}" > $WORKDIR/tmp; fi
+		case `cat $WORKDIR/tmp` in
+			"{31}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp31;;
+			"{32}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp32;;
+			"{33}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp33;;
+			"{34}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp34;;
+			"{35}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp35;;
+			"{36}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp36;;
+			"{37}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp37;;
+			"{38}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp38;;
+			"{39}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp39;;
+			"{310}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp310;;
+			"{311}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp311;;
+			"{4}") echo "$I" | sed -e "s/{ð®SSSđþ}/ /g" >> $WORKDIR/hlp4;;
+		esac
+	done
+	#remove empty lines and make bold
+	HLPTXT31=`grep -v "\{*\}" $WORKDIR/hlp31 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT32=`grep -v "\{*\}" $WORKDIR/hlp32 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT33=`grep -v "\{*\}" $WORKDIR/hlp33 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT34=`grep -v "\{*\}" $WORKDIR/hlp34 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT35=`grep -v "\{*\}" $WORKDIR/hlp35 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT36=`grep -v "\{*\}" $WORKDIR/hlp36 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT37=`grep -v "\{*\}" $WORKDIR/hlp37 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT38=`grep -v "\{*\}" $WORKDIR/hlp38 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT39=`grep -v "\{*\}" $WORKDIR/hlp39 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT310=`grep -v "\{*\}" $WORKDIR/hlp310 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT311=`grep -v "\{*\}" $WORKDIR/hlp311 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	HLPTXT4=`grep -v "\{*\}" $WORKDIR/hlp4 | sed -e 's/< /<b>/g' | sed -e 's/ >/<\/b>/g'`
+	#Write config
+	echo > $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT31=\"$HLPTXT31\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT32=\"$HLPTXT32\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT33=\"$HLPTXT33\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT34=\"$HLPTXT34\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT35=\"$HLPTXT35\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT36=\"$HLPTXT36\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT37=\"$HLPTXT37\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT38=\"$HLPTXT38\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT39=\"$HLPTXT39\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT310=\"$HLPTXT310\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT311=\"$HLPTXT311\""		>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	echo "export HLPTXT4=\"$HLPTXT4\""			>> $HOME/.pburn/pburnhlp-$LANGUAGE
+	chmod 700 $HOME/.pburn/pburnhlp-$LANGUAGE
+	#write new checksum in rc file
+	HELPFILE_CHKSUM="$HELPFILE_CHKSUM_NEW"
+	. $APPDIR/func -write_config
+	#end install
+	echo 100 > $WORKDIR/splash
+	usleep 500000
+	;;
+-available_size)
+	#$OUTDIR can't be located inside ../pburn_symlink_tree/
+	if [ `echo "$OUTDIR" | grep pburn_symlink_tree` ]; then 
+		TXT1="$LOC343"
+		. $APPDIR/box
+		exit
+	fi
+	#find available space on filesystem with $TMPDIR
+	TMPOUTDIR=`cat $WORKDIR/OUTDIR`
+	[ -L "$TMPOUTDIR" ] && TMPOUTDIR=`readlink "$TMPOUTDIR"` #if symlink, point to actual dir	
+	FILESYSTEM=`df -m "$TMPOUTDIR" 2> /dev/null | grep ^/dev`
+	if [ "$FILESYSTEM" == "" ]; then
+		FREE_SIZE=` df -m | grep ' /$' | tr -s " " | cut -f 4 -d ' '`
+	else
+		FREE_SIZE=`echo $FILESYSTEM | tr -s " " | cut -f 4 -d ' '`
+	fi
+	echo -e "$LOC239: $FREE_SIZE Mb $LOC242\c" > $WORKDIR/systemsize
+	;;
+-config)
+	. $CONFIG
+	echo "$OUTDIR" > $WORKDIR/OUTDIR
+	if [ -s $CONFIG_SEARCH ]; then . $CONFIG_SEARCH; fi #read Pfilesearch config
+	VISIBLE_ISO=enabled #disabled when burning ISO
+	. $APPDIR/func_gui_options #read gtkdialog code for option-tabs
+	export LANGUAGES=`ls $APPDIR/locals | awk '{print "<item>"$1"</item>"}'` #for configure
+	export THEMES=`ls $APPDIR/themes | awk '{print "<item>"$1"</item>"}'` #for configure
+
+	export Pburn_config="
+<window title=\"Pburn\" icon-name=\"gtk-cdrom\">
+ <vbox>
+  <pixmap><input file>$APPDIR/themes/$THEME/heading-preferences.png</input></pixmap>
+  <notebook labels=\"$LOC229|$LOC120|$LOC249|$LOC260|$LOC122|$LOC129|$LOC274\">
+   <vbox>
+    <frame $LOC229>
+     <checkbox label=\"$LOC227\">
+      <variable>SHOW_HIDDEN</variable>
+      <default>$SHOW_HIDDEN</default>
+     </checkbox>
+     <checkbox>
+      <label>$LOC231</label>
+      <variable>SHOW_TOOLTIPS</variable>
+      <default>$SHOW_TOOLTIPS</default>
+     </checkbox>
+     <text><label>\"\"</label></text>
+     <hbox>
+      <text><label>$LOC232</label></text>
+      <combobox>
+       <variable>NEW_LANGUAGE</variable>
+       <item>$LANGUAGE</item>
+       <item>auto</item>
+       $LANGUAGES
+      </combobox>
+      <button label=\"www\"><action>$BROWSER http:\/\/www.murga-linux.com/puppy/viewtopic.php?p=164887 &</action></button>
+     </hbox>
+     <hbox>
+      <text><label>$LOC233</label></text>
+      <combobox>
+       <variable>THEME</variable>
+       <item>$THEME</item>
+       <item>No theme</item>
+       $THEMES
+      </combobox>
+      <button label=\"www\"><action>$BROWSER http:\/\/www.murga-linux.com/puppy/viewtopic.php?p=205908#205908 &</action></button>
+     </hbox>
+    </frame>
+    <frame $LOC117>
+     <hbox>
+      <button><label>$LOC228</label><input file stock=\"gtk-find\"></input><action>. pfilesearch -p</action></button>
+     </hbox>
+     <hbox>
+      <text><label>$LOC234</label></text>
+      <entry>
+       <variable>SEARCHPATH</variable>
+       <default>$SEARCHPATH</default>
+      </entry>
+     </hbox>
+    </frame>
+    <hbox>
+     <text use-markup=\"true\"><label>\"<b>$LOC_INFO</b>\"</label></text>
+     <button>
+      <input file stock=\"gtk-info\"></input>
+      <action>FRAME=$LOC_INFO; IMG=dialog-info; TXT1=\$HLPTXT31; . $APPDIR/box &</action>
+     </button>
+    </hbox>
+   </vbox>
+   $GUI_BURN
+   $GUI_FILESYSTEM
+   $GUI_DEVICES
+   $GUI_AUDIO
+   $GUI_VIDEO
+   $GUI_PUBLISH
+  </notebook>
+  <hbox>
+   $GUI_TEMPORARY_STORAGE
+   <hbox width-request=\"340\">
+   <button tooltip-text=\"$LOC_CANCEL\" height-request=\"50\" width-request=\"50\">
+    <input file icon=\"gtk-cancel\"></input>
+    <action type=\"exit\">cancel</action>
+   </button>
+   <button tooltip-text=\"$LOC103\" height-request=\"50\" width-request=\"50\">
+    <input file icon=\"gtk-apply\"></input>
+    <action type=\"exit\">OK</action>
+   </button>
+   </hbox>
+  </hbox>
+ </vbox>
+</window>"
+	I=$IFS; IFS=""
+	for STATEMENTS in $($GTKDIALOG -p Pburn_config); do
+		eval $STATEMENTS
+	done
+	IFS=$I
+	if [ "$EXIT" = "OK" ]; then
+		if [ ! $LANGUAGE = $NEW_LANGUAGE ]; then
+			LANGUAGE="$NEW_LANGUAGE"
+			$APPDIR/func -install
+			FRAME="$LOC_INFO"; IMG="dialog-info"; TXT1="Restart Pburn to activate new language."
+			. $APPDIR/box
+		fi
+		. $APPDIR/func -write_config
+		. $CONFIG
+		. $CONFIG_SEARCH
+		echo "$SHOW_HIDDEN" > $WORKDIR/SHOW_HIDDEN
+		. $APPDIR/func -available_size
+		. $APPDIR/func_gui_options
+	fi
+	;;
+-write_config)
+	echo "#Pburn config"							 > $CONFIG
+	echo "export VERSION=$VERSION"					>> $CONFIG
+	echo "export WINDOW_POS_TOP=$WINDOW_POS_TOP"	>> $CONFIG
+	echo "export WINDOW_POS_LEFT=$WINDOW_POS_LEFT"	>> $CONFIG
+	echo "export WINDOW_HEIGHT=$WINDOW_HEIGHT"		>> $CONFIG
+	echo "export LANGUAGE=$LANGUAGE"				>> $CONFIG
+	echo "export HELPFILE_CHKSUM=$HELPFILE_CHKSUM"	>> $CONFIG #Used to check for NLS-updates
+	echo "export THEME=\"$THEME\""					>> $CONFIG
+	echo "export SEARCHPATH=\"$SEARCHPATH\""		>> $CONFIG
+	echo "export OUTDIR=\"$OUTDIR\""				>> $CONFIG #where iso-file is built
+	echo "export SHOW_HIDDEN=$SHOW_HIDDEN"			>> $CONFIG
+	echo "export SHOW_TOOLTIPS=$SHOW_TOOLTIPS"		>> $CONFIG
+	echo "export MEDIATYPE=$MEDIATYPE"				>> $CONFIG
+#	echo "export CHK_OVERBURN=$CHK_OVERBURN"		>> $CONFIG #not good for compatibility. Overburn forces dao which is not good for multisession
+	echo "export ON_THE_FLY=$ON_THE_FLY"			>> $CONFIG
+	echo "export BURNDEV=$BURNDEV"					>> $CONFIG
+	echo "export ISOLEVEL3=$ISOLEVEL3"				>> $CONFIG
+	echo "export ISOLEVEL1=$ISOLEVEL1"				>> $CONFIG
+	echo "export ROCKRIDGE=$ROCKRIDGE"				>> $CONFIG
+	echo "export JOLIET=$JOLIET"					>> $CONFIG
+	echo "export UDF=$UDF"						 	>> $CONFIG
+	echo "export FOLLOW_SYMLINK=$FOLLOW_SYMLINK" 	>> $CONFIG
+	echo "export BURNMULTI=$BURNMULTI" 				>> $CONFIG
+	echo "export CDSPEED=$CDSPEED"					>> $CONFIG
+	echo "export DVDSPEED=$DVDSPEED"				>> $CONFIG
+	echo "export DISC_AT_ONCE=$DISC_AT_ONCE"		>> $CONFIG
+	echo "export BURNRAW=$BURNRAW"					>> $CONFIG
+	echo "export NORMALIZE=$NORMALIZE"				>> $CONFIG
+	echo "export MEDIATYPE_VIDEO=$MEDIATYPE_VIDEO" 	>> $CONFIG
+	echo "export PAL=$PAL"							>> $CONFIG
+	echo "export NTSC=$NTSC"						>> $CONFIG
+	echo "export ASPECT43=$ASPECT43"				>> $CONFIG
+	echo "export ASPECT169=$ASPECT169"				>> $CONFIG
+	echo "export PIC_VIEWTIME=$PIC_VIEWTIME"		>> $CONFIG
+	echo "export PAUSE_VIDEO=$PAUSE_VIDEO"			>> $CONFIG
+	echo "export PUBLISHER=\"$PUBLISHER\""			>> $CONFIG
+	echo "export PREPARER=\"$PREPARER\""			>> $CONFIG
+	echo "export VOLUME=\"$VOLUME\""				>> $CONFIG
+	echo "export CPU_PRIORITY=$CPU_PRIORITY"		>> $CONFIG
+	sed -i -e "s/\/\//\//g" $CONFIG #in case //
+	#(de)activate tooltips
+	if [ $SHOW_TOOLTIPS = true ]; then
+		TMP='tooltipXXXtext'
+		TMP1='tooltip-text'
+	else
+		TMP1='tooltipXXXtext'
+		TMP='tooltip-text'
+	fi
+	sed -i -e "s%$TMP%$TMP1%g" $APPDIR/func_gui
+	;;
+-about)
+	export Pburn_about="
+<window title=\"Pburn - about\" icon-name=\"gtk-cdrom\">
+ <vbox>
+  <notebook labels=\"About|License|Credits\">
+   <vbox>
+    <text><label>\"\"</label></text>
+    $SPLASH
+    <text use-markup=\"true\"><label>\"<b><span size='"'x-large'"'>P</span><span size='"'x-large'"' color='"'#B6661F'"'>burn</span> $VERSION</b>\"</label></text>
+    <text use-markup=\"true\"><label>Sigmund Berglund, Copyright 2007,2008,2009</label></text>
+    <text><label>\"\"</label></text>
+     <button>
+      <label>\"http://www.murga-linux.com/puppy/viewtopic.php?t=23881\"</label>
+      <action>$BROWSER http:\/\/www.murga-linux.com/puppy/viewtopic.php?t=23881 &</action>
+     </button>
+   </vbox>
+   <vbox>
+    <text use-markup=\"true\"><label>\"Pburn is released under the <b>GNU General Public License</b> (GPL). You have the right to use and modify this software in any way you like, so long as any derivative works remain under a GPL license.\"</label></text>
+    <text use-markup=\"true\"><label>\"This program is distributed in the hope that it will be useful, but <b><span color='"'red'"'>WITHOUT ANY WARRANTY</span></b>. See the GNU General Public License homepage for more details.\"</label></text>
+    <hbox>
+     <button label=\"http://www.gnu.org/licenses/\"><action>$BROWSER http:\/\/www.gnu.org\/licenses\/</action></button>
+    </hbox>
+   </vbox>
+   <vbox>
+    <edit><default>\"Translators:
+French - Jean-Jacques Moulinier (esmourguit)
+German - Thorsten Köbe (aragon), Mark Ulrich (MU)
+Greek - (The hamsters)
+Italian - Angelo Gemmi
+Japanese - Yukihiro MIYASAKA 
+Norwegian (bokmål) - Sigmund Berglund (zigbert)
+Russian - Viktor Melechin (melviX), Aleksandr Proklov (Pro), Valeriy Danilin (Valeriy), (DdShurick), (Zloy_T)
+Spanish -  Néstor Jiménez (bernard), Pedro Worcel (droope)
+
+Others:
+Alister Hood (disciple) for endless input
+Omair (Dougal) for bash knowledge
+Nathan Fisher for 'Grafburn' code
+Mikeb for verify-function and more
+Jason Pline (plinej) for 'Pdvdrsab' code
+Barry Kauler for 'burniso2CD' code
+01micko,MU,JB4x4,HairyWill
+ttuxxx,whodo,Pizzasgood...and more
+\"</default></edit>
+   </vbox>
+  </notebook>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+</window>"
+	$GTKDIALOG -p Pburn_about --center
+	;;
+esac
