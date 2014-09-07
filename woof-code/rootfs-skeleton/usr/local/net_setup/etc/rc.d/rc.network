@@ -1,0 +1,221 @@
+#!/bin/sh
+#(c) Copyright 2006 Barry Kauler
+#LGPL 2007 Barry Kauler www.puppylinux.com
+#setup the networking. called from rc.local0
+#v403 BK need to wait up to 10 seconds for some interfaces to become available.
+#v403 BK commented out a line that takes interface down, which fixes my usb wifi.
+
+#note, "> out.txt 2>&1" is syntax required to redirect both stdout and
+#stderr to a file, using BusyBox Ash shell (not "&>").
+
+PASSEDPARAM=$1 #'foreground'
+
+#Color mnemonics to use for messages
+color_red="\\033[1;31m"
+color_green="\\033[1;32m"
+color_yellow="\\033[1;33m"
+color_blue="\\033[1;34m"
+color_purple="\\033[1;35m"
+color_aquablue="\\033[1;36m"
+color_black="\\033[1;38m"
+color_normal="\\033[0;39m"
+
+#echo "Setting up interface lo..."
+ifconfig lo 127.0.0.1
+route add -net 127.0.0.0 netmask 255.0.0.0 lo
+
+#most modules are loaded in /etc/rc.d/rc.modules.
+#after running the Puppy Ethernet wizard, the files /etc/eth0mode,
+#/etc/eth1mode and /etc/ethernetmodules may exist and have to be
+#handled here.
+#/etc/ethernetmodules has extra modules to load.
+if [ -s /etc/ethernetmodules ];then #-s tests file not zero size.
+ echo "Loading extra ethernet driver modules..."
+ #each line of ethernetmodules has a module plus optional params...
+ EMODULE="`cat /etc/ethernetmodules | head -n 1`"
+ modprobe $EMODULE
+ FMODULE="`cat /etc/ethernetmodules | head -n 2 | tail -n 1`"
+ if [ ! "$EMODULE" = "$FMODULE" ];then
+  modprobe $FMODULE
+ fi
+fi
+
+#v403 remove...
+##v0.9.4 wacha reported need sleep 3 secs after loading e1000 module...
+##v2.14 must have a pause after loading module, before ifconfig...
+## why not delay for wireless also...
+##if [ -f /etc/eth[0-9]mode -o -f /etc/ethernetmodules -o -f /etc/*wireless ];then
+##v3.96 rerwin bugfix...
+#if [ "`ls /etc | grep 'eth[0-9]mode\|ethernetmodules\|*wireless'`" != "" ];then
+# sleep 3
+#fi
+
+#begin rerwin
+if [ -f /root/.dhcpcd.duid ];then  #Using a DUID in client ID
+ #If running from pup_save file and no common DHCP Unique Identifier (DUID) present and partition has a full-install or partition-save and a duid file, make that file the common duid.
+ [ ! -s /mnt/home/.common.duid -a ! "`ls -l /mnt/home | cut -f 11 -d ' '`" = "/" -a -s /mnt/home/root/.dhcpcd.duid ] && cp /mnt/home/root/.dhcpcd.duid /mnt/home/.common.duid
+ #Ensure that any local duid matches the common duid or will force new duid.
+ [ -s /mnt/home/.common.duid ] && cp /mnt/home/.common.duid /root/.dhcpcd.duid || cp /dev/null /root/.dhcpcd.duid
+ if [ -s /root/.dhcpcd.duid ];then   #duid info for DHCP request.
+  [ ! -d /var/lib/dhcpcd ] && mkdir /var/lib/dhcpcd
+  cp /root/.dhcpcd.duid /var/lib/dhcpcd/dhcpcd.duid
+ else  #Force new DUID
+  [ -f /var/lib/dhcpcd/dhcpcd.duid ] && rm /var/lib/dhcpcd/dhcpcd.duid
+ fi
+fi
+#end rerwin
+
+#Try to connect each ethernet interface found...
+
+#v403 wait for interfaces...
+echo -n "Waiting for interfaces... "
+sleep 2
+YAFPID="";RETYAF=1
+WAITCNT=2
+INTERFACES="";WANTINTS=""
+CHECKINTS="`ls -1 /etc/*[0-9]mode 2>/dev/null`" #ex: eth0mode, wlan0mode.
+[ "$CHECKINTS" != "" ] && WANTINTS="`echo "$CHECKINTS" | sed -e 's%/etc/%%' | sed -e 's%mode%%'`"
+for WANTONE in $WANTINTS
+do
+ while [ $WAITCNT -lt 12 ];do
+  if [ $RETYAF -ne 0 ];then # -a $WAITCNT -gt 4
+   /usr/X11R7/bin/yaf-splash -display :0 -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Negotiating network connection. Blinky will appear in tray if successful" &
+   RETYAF=$?
+   YAFPID=$!
+  fi
+  INTERFACES=" `ifconfig -a | grep 'Link encap:Ethernet' | cut -f 1 -d ' '`"
+  [ "`echo $INTERFACES | grep "$WANTONE"`" != "" ] && break
+  echo -n "$WAITCNT "
+  WAITCNT=`expr $WAITCNT + 2`
+  sleep 2
+ done
+done
+echo
+
+echo "The following interfaces have been found: ${INTERFACES}
+Trying to connect"
+
+for INTERFACE in ${INTERFACES}
+do
+ INTERFACEFAIL=0
+ #code inserted by rarsa for wireless...	
+ #Puppy v1.0.9 have Puppy internet wizard create /etc/${INTERFACE}wireless for wireless interfaces 
+ if [ -e /etc/${INTERFACE}wireless ] ; then 
+  echo "/etc/${INTERFACE}wireless found"
+. /etc/${INTERFACE}wireless 
+ fi	
+ #end rarsa patch.
+ #Puppy v0.8.4, have Puppy Ethernet Wizard, creates /etc/${INTERFACE}mode
+ if [ ! -f /etc/${INTERFACE}mode ];then
+  echo "WARNING: Interface ${INTERFACE} has not been configured. Use the network wizard."
+  INTERFACEFAIL=1
+ else
+  ifconfig ${INTERFACE} up #fails if interface doesn't exist.
+  if [ ! $? -eq 0 ];then #=0 success.
+   echo "${INTERFACE} interface does not exist"
+   INTERFACEFAIL=1
+  else
+   # let's find out if the ethernet cable plugged in...
+   #v1.0.0 both v0.18 and 0.25 now used, sometimes one works, not the other...
+   #fix from GuestToo (see Forum) ifplugstatus sometimes does not work...
+   #v2.14 fix from rarsa (<Raul Suarez> "rarsa at yahoo.com"). 
+   echo "Testing if ${INTERFACE} network is alive..." #v2.22
+   UNPLUGGED='true'
+   TRY_COUNT=0; ODDCNT=0; IFVER=""
+   while [ $TRY_COUNT -lt 5 ] ; do
+    #v2.14 mighty peculiar, running rc.network as a separate process,
+    #ifplugstatus only returns "unplugged". but, can get it to work with -v...
+    TRY_COUNT=`expr $TRY_COUNT + 1`
+    echo -n "."
+    #v2.14 tried -v option also...
+    ifplugstatus${IFVER} ${INTERFACE} #so we can see it in /tmp/bootsysinit.log
+    if [ "`ifplugstatus${IFVER} ${INTERFACE} | grep "link beat detected"`" = "" ]; then
+     sleep 1
+    else
+     UNPLUGGED='false'
+     break
+    fi
+    [ $ODDCNT -eq 0 ] && IFVER='-0.28'
+    [ $ODDCNT -eq 1 ] && IFVER=''
+    [ $ODDCNT -eq 0 ] && ODDCNT=1
+    [ $ODDCNT -eq 1 ] && ODDCNT=0
+   done
+
+#   UNPLUGGED="false" #'LINE XXX' Remove # in column 1 to uncomment. 'LINE XXX'
+   if [ "$UNPLUGGED" = "true" ];then
+    #no cable plugged in, no network connection possible...
+    echo "ERROR: Unable to find a connection for ${INTERFACE}"
+    echo "Possible causes:"
+    echo "- Network unavailable"
+    echo "- Ethernet cable or wireless card not plugged in correctly"
+    echo "- Defective network addapter."
+    echo "NOTICE: IF THIS IS WRONG, EDIT /etc/rc.d/rc.network AND UNCOMMENT 'LINE XXX'"
+    ifconfig ${INTERFACE} down
+    INTERFACEFAIL=1
+   else
+    #i think should bring ${INTERFACE} down first, then bring up again...
+    
+    #v403 why do we have to take it down here? commented out...
+    #ifconfig ${INTERFACE} down 
+    #...commenting out has fixed my usb wifi!
+    
+    if [ "`cat /etc/${INTERFACE}mode`" = "auto" ];then #see Puppy Ethernet Wizard.
+     #i'll tackle Puppy plugged into a network with a dhcp
+     #server, so we need to be assigned an ip address... v2.22...
+     [ "$PASSEDPARAM" = "foreground" ] && echo -n "Trying to get IP address from DHCP server (60sec timeout)..." > /dev/console
+	 rm /etc/dhcpc/dhcpcd-${INTERFACE}.* 2>/dev/null #if left over from last session, causes trouble.
+
+#begin rerwin
+     #Preset duid for dhcpcd, to use common  or local duid.
+     if [ -f /root/.dhcpcd.duid ];then   #duid client ID expected
+      dhcpcd ${INTERFACE}
+     else
+      [ -d /etc/dhcpc ] && dhcpcd ${INTERFACE} || dhcpcd -I '' ${INTERFACE}
+     fi
+#end rerwin
+     if [ ! $? -eq 0 ];then #=0 success
+      [ "$PASSEDPARAM" = "foreground" ] && echo -n " FAIL" > /dev/console
+      ifconfig ${INTERFACE} down
+	    INTERFACEFAIL=1
+     else
+#begin rerwin
+      if [ -f /root/.dhcpcd.duid ];then   #using a duid
+       [ -z `cat /root/.dhcpcd.duid` ] && cp /var/lib/dhcpcd/dhcpcd.duid /root/.dhcpcd.duid   #Save duid locally, if new.
+      #If no common duid, save new duid as the partition-common duid.
+       [ -d /mnt/home -a ! -s /mnt/home/.common.duid ] && cp /var/lib/dhcpcd/dhcpcd.duid /mnt/home/.common.duid
+      fi
+#end rerwin
+      echo
+      echo "SUCCESS! nameservers written to /etc/resolv.conf, and"
+      echo "Assigned IP address written to /etc/dhcpc/dhcpcd-${INTERFACE}.cache"
+      echo "Connection information in /etc/dhcpc/dhcpcd-${INTERFACE}.info"
+      echo "DHCP client daemon now running"
+      #note, /etc/yp.conf and /etc/ntp.conf also created.
+     fi
+    else
+     #${INTERFACE}mode contains startup script, created by Ethernet Wizard...
+     #${INTERFACE} was configured manually...
+     #eval `cat /etc/${INTERFACE}mode` ...problem, concatenates multiple lines into one.
+     . /etc/${INTERFACE}mode
+     if [ ! $? -eq 0 ];then # =0 success
+      echo "Error initializing interface ${INTERFACE}.!"
+      ifconfig ${INTERFACE} down
+     else
+#begin rerwin
+      if [ -f /root/.dhcpcd.duid ];then   #using a duid
+       [ -z `cat /root/.dhcpcd.duid` ] && cp /var/lib/dhcpcd/dhcpcd.duid /root/.dhcpcd.duid   #Save duid locally, if new.
+      #If no common duid, save new duid as the partition-common duid.
+       [ -d /mnt/home -a ! -s /mnt/home/.common.duid ] && cp /var/lib/dhcpcd/dhcpcd.duid /mnt/home/.common.duid
+      fi
+#end rerwin
+      echo "SUCCESS initializing interface ${INTERFACE}.!"
+     fi
+    fi
+   fi
+  fi
+ fi
+done
+
+[ $RETYAF -eq 0 ] && kill $YAFPID #v403
+
+#end
