@@ -4,18 +4,82 @@
 # tested by Eric and the Puppy Community
 ####################
 
+test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+DEBUG=1; D=-d
+
+echo "\$0='$0'" >&2
+
+MY_SELF="$0"
+MY_BASE="${MY_SELF##*/}"
+MY_PID=$$
+echo "$MY_SELF $MY_BASE $MY_PID"
+
+
 #GTK-theme
 if [ -f $HOME/.gtkrc-2.0 ]; then
-	export GTK2_RC_FILES="$HOME/.gtkrc-2.0" #get active theme
+    export GTK2_RC_FILES="$HOME/.gtkrc-2.0" #get active theme
 fi
 if [ -f /etc/gtk-2.0/gtkrc ]; then GTK_OLD_PUPPY=':/etc/gtk-2.0/gtkrc'; fi #/etc/gtk-2.0/gtkrc is for < Puppy4
 export GTK2_RC_FILES="$GTK2_RC_FILES$GTK_OLD_PUPPY:$PJAPPDIR/theme/gtkrc"
 #---
 
+_kill_GTKdialog()
+{
+
+_PROGRESSBAR_PIDs_=`ps | grep "$PJAPPDIR/func_progressbar" | awk '{print $1}'`
+echo "_PROGRESSBAR_PIDs_='$_PROGRESSBAR_PIDs_'"
+for aPID in $_PROGRESSBAR_PIDs_
+do
+echo $aPID >&2
+kill -9 $aPID
+done
+
+_WINDOW_PIDs_=`ps | grep 'gtkdialog' | grep 'PSIP' | grep -v 'grep' | awk '{print $1}'`
+echo "_WINDOW_PIDs_='$_WINDOW_PIDs_'"
+for aPID in $_WINDOW_PIDs_
+do
+echo $aPID >&2
+kill -9 $aPID
+done
+
+}
+
+MY_OTHER_PIDs=`pidof -o $MY_PID -o %PPID "$MY_BASE"`
+echo "MY_OTHER_PIDs='$MY_OTHER_PIDs'"
+for aPID in $MY_OTHER_PIDs
+do
+kill -9 $aPID
+done
+
+_kill_GTKdialog
+
+trap "_kill_GTKdialog:exit" INT KILL TERM ABRT HUP QUIT ILL TRAP BUS FPE ALRM PIPE CONT STOP CHLD
+
+
+_monitor_GUI()
+{
+sleep 4
+
+while true;
+do
+
+xwininfo -name "PSIP 0.12  ~ 08 August 2008" 1>$OUT 2>$ERR && {
+    echo "WINDOW still running"
+} || {
+    $PJAPPDIR/func_shutdownpjsua
+    _kill_GTKdialog
+    break
+}
+sleep 2
+done
+exit
+}
+_monitor_GUI &
+
 export DIALOG='
 <window title="PSIP 0.12  ~ 08 August 2008" window-position="1" icon-name="gtk-yes" width="800">
 <vbox>
-<menubar> 
+<menubar>
   <menu>
   <menuitem>
   <variable>CALL_MENU</variable>
@@ -40,7 +104,7 @@ export DIALOG='
   <menuitem>
   <variable>HANGUP_MENU</variable>
        <label>Hangup</label>
-       		<input file>'$PJICONS'/hangup.png</input>
+            <input file>'$PJICONS'/hangup.png</input>
             <action>echo -e "\nha\nT\n1\n" >> '$PJSIGNAL'</action>
             <action type="enable">GIZMO_VOICEMAIL_PRESET</action>
             <action type="enable">CONFERENCE_PRESET</action>
@@ -50,20 +114,20 @@ export DIALOG='
   </menuitem>
     <menuitem>
        <label>Restart in CLI Mode</label>
-       	<action>'$PJAPPDIR'/func_shutdownpjsua</action>
+        <action>'$PJAPPDIR'/func_shutdownpjsua</action>
          <action>rxvt -geometry 80x50 -rv -e '$PJAPPDIR'/'$PJSUA' --config-file='$PJCFG' &</action>
     </menuitem>
      <menuitem><label>Start Pjsua (login)</label>
-       	<action>'$PJAPPDIR'/func_startpjsua &</action>
+        <action>'$PJAPPDIR'/func_startpjsua &</action>
          </menuitem>
     <menuitem><label>Shutdown Pjsua (logout)</label>
-       	<action>'$PJAPPDIR'/func_shutdownpjsua &</action>
+        <action>'$PJAPPDIR'/func_shutdownpjsua &</action>
          </menuitem>
       <menuitem><label>Quit with pjsua running</label>
            <action type="exit">exit by menu</action>
          </menuitem>
        <menuitem><label>Quit and shutdown pjsua</label>
-       	<action>'$PJAPPDIR'/func_shutdownpjsua &</action>
+        <action>'$PJAPPDIR'/func_shutdownpjsua &</action>
         <action type="exit">exit by menu</action>
          </menuitem>
     <label>Phone</label>
@@ -99,7 +163,7 @@ export DIALOG='
             <action type="disable">NEWS_PRESET</action>
             </menuitem>
           <label>Presets</label>
-          </menu> 
+          </menu>
    <menu>
          <menuitem>
            <action>./dialog_addaccount &</action>
@@ -110,14 +174,14 @@ export DIALOG='
            <label>Add Buddy</label>
          </menuitem>
      <menuitem>
-          <action>'$PJAPPDIR'/dialog_setstatus &</action>
+           <action>'$PJAPPDIR'/dialog_setstatus &</action>
            <label>Set Online Status</label>
          </menuitem>
      <menuitem>
-     			<action>'$PJAPPDIR'/dialog_debugger &</action>                
+           <action>'$PJAPPDIR'/dialog_debugger &</action>
            <label>Debug</label>
          </menuitem>
-          <menuitem>
+         <menuitem>
            <label>Edit Config File</label>
            <action>gxmessage "$(echo -e "Opening config file for editing. \nAfter editing you will need to stop and start pjsua\nusing the phone menu")"; leafpad '$PJCFG' &</action>
            <action>exit</action>
@@ -125,65 +189,65 @@ export DIALOG='
          <label>Configure</label>
     </menu>
     <menu>
-   	<menuitem>
-   		<label>Next Call</label>
-   			<action>echo -e "\n]\n" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Previous Call</label>
-   			<action>echo -e "\n[\n" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Hold Call</label>
-   			<action>echo -e "\nH\n" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Unhold Call</label>
-   			<action>echo -e "\nv\n" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Telephone Book</label>
-   			<action>defaulthtmlviewer http://www.puppylinux.org/wiki/applications/dot-pets/psip-public-user-directory &</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Change to Account 0</label>
-   			<action>echo -e "\n>\n#\n0" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<menuitem>
-   		<label>Change to Account 1</label>
-   			<action>echo -e "\n>\n#\n1" >> '$PJSIGNAL'</action>
-   	</menuitem>
-   	<label>Line</label>
+    <menuitem>
+        <label>Next Call</label>
+            <action>echo -e "\n]\n" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <menuitem>
+        <label>Previous Call</label>
+            <action>echo -e "\n[\n" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <menuitem>
+        <label>Hold Call</label>
+            <action>echo -e "\nH\n" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <menuitem>
+        <label>Unhold Call</label>
+            <action>echo -e "\nv\n" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <menuitem>
+        <label>Telephone Book</label>
+            <action>defaulthtmlviewer http://www.puppylinux.org/wiki/applications/dot-pets/psip-public-user-directory &</action>
+    </menuitem>
+    <menuitem>
+        <label>Change to Account 0</label>
+            <action>echo -e "\n>\n#\n0" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <menuitem>
+        <label>Change to Account 1</label>
+            <action>echo -e "\n>\n#\n1" >> '$PJSIGNAL'</action>
+    </menuitem>
+    <label>Line</label>
    </menu>
-   <menu> 
-         <menuitem>
-           <label>PSIP forum thread</label>
+   <menu>
+    <menuitem>
+       <label>PSIP forum thread</label>
            <action>defaultbrowser http://www.murga-linux.com/puppy/viewtopic.php?p=212572#212572 &</action>
-         </menuitem>
-         <menuitem>
-           <label>PSIP Wiki</label>
+    </menuitem>
+    <menuitem>
+       <label>PSIP Wiki</label>
              <action>defaulthtmlviewer http://tmxxine.com/wik/wikka.php?wakka=PuppySip &</action>
-         </menuitem>
-         <menuitem>
-           <label>Pjsua Manual</label>
+     </menuitem>
+     <menuitem>
+       <label>Pjsua Manual</label>
              <action>defaulthtmlviewer http://www.pjsip.org/pjsua.htm &</action>
-         </menuitem>
-         <menuitem>
-           <label>Pjsua no local audio</label>
+     </menuitem>
+     <menuitem>
+       <label>Pjsua no local audio</label>
              <action>defaulthtmlviewer http://trac.pjsip.org/repos/wiki/audio-problem-local-no-audio &</action>
-         </menuitem>
-         <menuitem>
-           <label>Pjsua no remote audio</label>
+     </menuitem>
+     <menuitem>
+       <label>Pjsua no remote audio</label>
              <action>defaulthtmlviewer http://trac.pjsip.org/repos/wiki/audio-problem-remote-no-audio &</action>
-         </menuitem>
-              <menuitem>
-           <label>Help</label>
+     </menuitem>
+     <menuitem>
+       <label>Help</label>
            <action>defaulthtmlviewer http://rbcfaqs.co.cc/PSIP/index.html &</action>
-         </menuitem>
-        <menuitem>
-           <label>Credits</label>
+     </menuitem>
+     <menuitem>
+       <label>Credits</label>
            <action>defaulthtmlviewer file://`pwd`/resources/credits.html &</action>
-         </menuitem>
+     </menuitem>
      <label>Help</label>
    </menu>
    </menubar>
@@ -191,8 +255,8 @@ export DIALOG='
 
 <vbox>
        <button>
-       <variable>CALL</variable>
-			<input file>'$PJICONS'/call.png</input>
+            <variable>CALL</variable>
+            <input file>'$PJICONS'/call.png</input>
             <label>Call        </label>
             <action>echo -e "\nm\n$BUDDYLIST\nT\n3\n" >> '$PJSIGNAL'</action>
             <action type="disable">GIZMO_VOICEMAIL_PRESET</action>
@@ -200,9 +264,10 @@ export DIALOG='
             <action type="disable">NEWS_PRESET</action>
             <action type="disable">CALL_MENU</action>
             <action type="disable">CALL</action>
-       </button><button>
-       <variable>ANSWER</variable>
-       		<input file>'$PJICONS'/answer.png</input>
+       </button>
+       <button>
+            <variable>ANSWER</variable>
+            <input file>'$PJICONS'/answer.png</input>
             <label>Answer   </label>
             <action>echo -e "\na\n200\nT\n3\n" >> '$PJSIGNAL'</action>
             <action type="disable">GIZMO_VOICEMAIL_PRESET</action>
@@ -212,14 +277,14 @@ export DIALOG='
             <action type="disable">CALL</action>
        </button>
        <button>
-       <variable>CHAT</variable>
-       	  	<input file>'$PJICONS'/textchat.png</input>
-       	  	<label>Text Chat</label>
-             <action>'$PJAPPDIR'/dialog_inputchat $BUDDYLIST</action>
+            <variable>CHAT</variable>
+            <input file>'$PJICONS'/textchat.png</input>
+            <label>Text Chat</label>
+            <action>'$PJAPPDIR'/dialog_inputchat $BUDDYLIST</action>
        </button>
        <button>
-       		<input file>'$PJICONS'/hangup.png</input>
-       		<label>Hang Up  </label>
+            <input file>'$PJICONS'/hangup.png</input>
+            <label>Hang Up  </label>
             <action>echo -e "\nha\nT\n1\n" >> '$PJSIGNAL'</action>
             <action type="enable">GIZMO_VOICEMAIL_PRESET</action>
             <action type="enable">CONFERENCE_PRESET</action>
@@ -227,76 +292,119 @@ export DIALOG='
             <action type="enable">CALL</action>
             <action type="enable">CALL_MENU</action>
        </button>
-       <hbox>
-  <button>
-  			<input file>'$PJICONS'/1.png</input>
-  			<action>echo -e "\n#\n1\n" >> '$PJSIGNAL'</action>
-  </button>
-  <button>
-  			<input file>'$PJICONS'/2.png</input>
+ <hbox>
+       <button>
+            <input file>'$PJICONS'/1.png</input>
+            <action>echo -e "\n#\n1\n" >> '$PJSIGNAL'</action>
+       </button>
+       <button>
+            <input file>'$PJICONS'/2.png</input>
             <action>echo -e "\n#\n2\n" >> '$PJSIGNAL'</action>
-  </button><button>
-  			<input file>'$PJICONS'/3.png</input>
+       </button>
+       <button>
+            <input file>'$PJICONS'/3.png</input>
             <action>echo -e "\n#\n3\n" >> '$PJSIGNAL'</action>
-  </button>
-  </hbox><hbox><button>
-  			<input file>'$PJICONS'/4.png</input>
+       </button>
+ </hbox>
+ <hbox>
+       <button>
+            <input file>'$PJICONS'/4.png</input>
             <action>echo -e "\n#\n4\n" >> '$PJSIGNAL'</action>
-  </button><button>
-  			<input file>'$PJICONS'/5.png</input>
+       </button>
+       <button>
+            <input file>'$PJICONS'/5.png</input>
             <action>echo -e "\n#\n5\n" >> '$PJSIGNAL'</action>
-  </button><button>
-  			<input file>'$PJICONS'/6.png</input>
+       </button>
+       <button>
+            <input file>'$PJICONS'/6.png</input>
             <action>echo -e "\n#\n6\n" >> '$PJSIGNAL'</action>
-  </button>
-  
-  </hbox><hbox><button>
-  			<input file>'$PJICONS'/7.png</input>
+       </button>
+
+ </hbox>
+ <hbox>
+       <button>
+            <input file>'$PJICONS'/7.png</input>
             <action>echo -e "\n#\n7\n" >> '$PJSIGNAL'</action>
-  </button><button>
-  			<input file>'$PJICONS'/8.png</input>
+       </button>
+       <button>
+            <input file>'$PJICONS'/8.png</input>
             <action>echo -e "\n#\n8\n" >> '$PJSIGNAL'</action>
-  </button><button>
-  			<input file>'$PJICONS'/9.png</input>
+       </button>
+       <button>
+            <input file>'$PJICONS'/9.png</input>
             <action>echo -e "\n#\n9\n" >> '$PJSIGNAL'</action>
-  </button>
-  </hbox><hbox>
-  <button>
-  			<input file>'$PJICONS'/star.png</input>
+       </button>
+ </hbox>
+ <hbox>
+      <button>
+            <input file>'$PJICONS'/star.png</input>
             <action>echo -e "\n#\n*\n" >> '$PJSIGNAL'</action>
       </button>
-  <button>
-  			<input file>'$PJICONS'/0.png</input>
+      <button>
+            <input file>'$PJICONS'/0.png</input>
             <action>echo -e "\n#\n0\n" >> '$PJSIGNAL'</action>
       </button>
-  <button>
-  			<input file>'$PJICONS'/hash.png</input>
+      <button>
+            <input file>'$PJICONS'/hash.png</input>
             <action>echo -e "\n#\n#\n" >> '$PJSIGNAL'</action>
       </button>
-</hbox><button>
-  			<input file stock="gtk-refresh"></input>
-  			<label>Refresh Buddies</label>
+ </hbox>
+      <button>
+             <input file stock="gtk-refresh"></input>
+             <label>Refresh Buddies</label>
              <action>echo -e "\n\n" >> '$PJSIGNAL'</action>
              <action>sleep 1</action>
              <action>'$PJAPPDIR'/func_buildbuddytree</action>
              <action>Refresh:BUDDYLIST</action>
       </button>
 </vbox>
-  <tree  headers_visible="false" exported_column="1" rules_hint="true">
+
+  <tree headers_visible="false" exported_column="1" rules_hint="true">
    <label>Buddy|Status</label>
    <height>100</height><width>420</width>
    <input>cat '$PJTMP'/buddy-tree</input>
    <variable>BUDDYLIST</variable>
    <action signal="button-release-event">echo $BUDDYLIST > '$PJTMP'/selected-buddy</action>
   </tree>
- </hbox><progressbar>
-	 <label>" "</label>
-	 <input>while [ "$(ps | grep [P]SIP)" ]; do '$PJAPPDIR'/func_progressbar; sleep 1; done</input>
-	</progressbar>
+
+ </hbox>
+
+    <progressbar>
+     <label>" "</label>
+      <input>while [ "$(ps | awk "{print $1}" | grep -w \$MY_PID)" ]; do '$PJAPPDIR'/func_progressbar; sleep 1; done</input>
+    </progressbar>
+
  </vbox>
  </window>'
+
+#      <!-- <input>while [ "$(ps | grep -i [P]SIP)" ]; do '$PJAPPDIR'/func_progressbar; sleep 1; done</input> -->
+#      <input>while [ "$(pidof ${0##*/})" ]; do '$PJAPPDIR'/func_progressbar; sleep 1; done</input>
 
 #the menubar stops gtkdialog from exiting
 #if the box is closed by the window manager pjsua will not be shutdown
 #change of plan use it as a feature
-gtkdialog3 --program DIALOG --name PSIP
+
+__test__() {
+rm -f $PJTMP/gtkdialog_exit $PJTMP/gtkdialog_errors
+gtkdialog3 --program DIALOG --name PSIP >$PJTMP/gtkdialog_exit 2>$PJTMP/gtkdialog_errors &
+echo $? >&2
+while true; do
+test -s $PJTMP/gtkdialog_exit && source $PJTMP/gtkdialog_exit
+test "$EXIT" || EXIT=abort
+case $EXIT in
+OK|abort) $PJAPPDIR/func_shutdownpjsua
+          _kill_GTKdialog
+          break
+          ;;
+esac
+done
+}
+
+gtkdialog3 $D --program DIALOG --name PSIP
+RV=$?
+echo "$0: gtkdialog exited with '$RV'"
+echo -n "pidof pjsua :" >/dev/stderr
+pidof pjsua && {
+$PJAPPDIR/func_shutdownpjsua
+_kill_GTKdialog
+} || echo
