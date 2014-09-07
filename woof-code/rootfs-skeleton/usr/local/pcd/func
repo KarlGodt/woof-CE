@@ -1,0 +1,176 @@
+#!/bin/bash
+#pcd
+#Copyright 2009
+#Sigmund Berglund
+
+#reset gtk-theme from Pmusic
+if [ "`cat $APPDIR/themes/$THEME/themerc > /dev/null 2>&1 | grep THEME_ALL | grep '=true'`" ]; then 
+	echo
+else
+	if [ -f /etc/gtk-2.0/gtkrc ]; then
+		export GTK2_RC_FILES=':/etc/gtk-2.0/gtkrc' #/etc/gtk-2.0/gtkrc is for < Puppy4
+	else
+		export GTK2_RC_FILES="`grep -m 1 gtkrc $HOME/.gtkrc-2.0 | cut -d'\"' -f2 2> /dev/null`" #get active theme
+	fi
+fi
+#---
+
+case $1 in
+-probe)
+	#slpash
+	echo "$LOC300 ....." > $WORKDIR/pcd-splashtext
+	echo 0 > $WORKDIR/pcd-splash #reset progress bar
+	. $APPDIR/box_splash &
+	#---
+	$APPDIR/func -stop
+	echo -e "\c" > $WORKDIR/pcd-cdda
+	echo -e "\c" > $WORKDIR/pcd-tracks
+	echo "»»» pCD «««" > $WORKDIR/pcd-playing
+	echo 100 >> $WORKDIR/pcd-playing
+	#read internal cd-text info
+	cdda2wav dev=$DEVICE -info-only -no-infofile > $WORKDIR/pcd-cddb 2>&1 &
+	while [ ! "$BREAK" ]; do
+		#is disc an audio-CD
+		if [ "`grep 'no audio' $WORKDIR/pcd-cddb`" ] || [ "`grep 'Read TOC size failed' $WORKDIR/pcd-cddb`" ] || [ "`grep 'load cdrom' $WORKDIR/pcd-cddb`" ]; then
+			ERROR="$LOC400"
+			echo -e "\c" > $WORKDIR/pcd-cddb
+			BREAK=true
+		fi
+		#don't run complete cdda2wav check. kill it when we got enough
+		if [ "`grep ISRC $WORKDIR/pcd-cddb`" ] || [ "`grep 'load cdrom' $WORKDIR/pcd-cddb`" ] ; then
+			BREAK=true
+			for I in `ps | grep cdda2wav | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+		fi
+	done
+	[ "`grep 'load cdrom' $WORKDIR/pcd-cddb`" ] && ERROR="$LOC401"
+	#if no internal cd-text, try www
+	wget -S --spider -T 1 puppylinux.com 2> $WORKDIR/pcd-tmp #check internet connection
+	if [ "`grep 'CD-Text: not detected' $WORKDIR/pcd-cddb`" ] && [ "`grep 'connected' $WORKDIR/pcd-tmp`" ]; then
+		cdda2wav dev=$DEVICE -cddb=1 -info-only -no-infofile > $WORKDIR/pcd-cddb 2>&1 &
+		while [ ! "$BREAK2" ]; do
+			#don't run complete cdda2wav check. kill it when we got enough
+			if [ "`grep ISRC $WORKDIR/pcd-cddb`" ] || [ "`grep 'load cdrom' $WORKDIR/pcd-cddb`" ]; then
+				BREAK2=true
+				for I in `ps | grep cdda2wav | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+			fi
+		done
+	fi
+	cat $WORKDIR/pcd-cddb | grep 'Track ' | grep \' | cut -d ':' -f 2- | cut -d '[' -f 1 | cut -c 3- | sed -e "s/.$//" > $WORKDIR/pcd-tracks
+	ALBUM=`grep 'Album title' $WORKDIR/pcd-cddb | cut -d "'" -f 2`
+	ARTIST=`grep 'Album title' $WORKDIR/pcd-cddb | cut -d '[' -f 2 | cut -d ']' -f 1 | cut -d ' ' -f 2-`
+	[ ! "$ARTIST" ] && ARTIST="$LOC301"
+	[ ! "$ALBUM" ] && ALBUM="$LOC301"
+	#add length
+	NR=1
+	while read I; do
+		COL=$NR
+		if [ $COL -gt 95 ]; then COL=`expr $NR - 95`
+		elif [ $COL -gt 90 ]; then COL=`expr $NR - 90`
+		elif [ $COL -gt 85 ]; then COL=`expr $NR - 85`
+		elif [ $COL -gt 80 ]; then COL=`expr $NR - 80`
+		elif [ $COL -gt 75 ]; then COL=`expr $NR - 75`
+		elif [ $COL -gt 70 ]; then COL=`expr $NR - 70`
+		elif [ $COL -gt 65 ]; then COL=`expr $NR - 65`
+		elif [ $COL -gt 60 ]; then COL=`expr $NR - 60`
+		elif [ $COL -gt 55 ]; then COL=`expr $NR - 55`
+		elif [ $COL -gt 50 ]; then COL=`expr $NR - 50`
+		elif [ $COL -gt 45 ]; then COL=`expr $NR - 45`
+		elif [ $COL -gt 40 ]; then COL=`expr $NR - 40`
+		elif [ $COL -gt 35 ]; then COL=`expr $NR - 35`
+		elif [ $COL -gt 30 ]; then COL=`expr $NR - 30`
+		elif [ $COL -gt 25 ]; then COL=`expr $NR - 25`
+		elif [ $COL -gt 20 ]; then COL=`expr $NR - 20`
+		elif [ $COL -gt 15 ]; then COL=`expr $NR - 15`
+		elif [ $COL -gt 10 ]; then COL=`expr $NR - 10`
+		elif [ $COL -gt 5 ]; then COL=`expr $NR - 5`
+		fi
+		LENGTH="`grep -m 1 $NR'.(' $WORKDIR/pcd-cddb | cut -d "," -f $COL | cut -d '.' -f 2 | cut -d ' ' -f 2`"
+		echo "$NR | $I | ($LENGTH)" | sed -e "s/((/(/g" >> $WORKDIR/pcd-cdda
+		NR=`expr $NR + 1`
+	done < $WORKDIR/pcd-tracks
+	#manually build list if no cd-text info available
+	if [ ! "`cat $WORKDIR/pcd-cdda`" ]; then
+		NR=1; LENGTH=0
+		while [ "$LENGTH" ]; do
+			COL=$NR
+			if [ $COL -gt 95 ]; then COL=`expr $NR - 95`
+			elif [ $COL -gt 90 ]; then COL=`expr $NR - 90`
+			elif [ $COL -gt 85 ]; then COL=`expr $NR - 85`
+			elif [ $COL -gt 80 ]; then COL=`expr $NR - 80`
+			elif [ $COL -gt 75 ]; then COL=`expr $NR - 75`
+			elif [ $COL -gt 70 ]; then COL=`expr $NR - 70`
+			elif [ $COL -gt 65 ]; then COL=`expr $NR - 65`
+			elif [ $COL -gt 60 ]; then COL=`expr $NR - 60`
+			elif [ $COL -gt 55 ]; then COL=`expr $NR - 55`
+			elif [ $COL -gt 50 ]; then COL=`expr $NR - 50`
+			elif [ $COL -gt 45 ]; then COL=`expr $NR - 45`
+			elif [ $COL -gt 40 ]; then COL=`expr $NR - 40`
+			elif [ $COL -gt 35 ]; then COL=`expr $NR - 35`
+			elif [ $COL -gt 30 ]; then COL=`expr $NR - 30`
+			elif [ $COL -gt 25 ]; then COL=`expr $NR - 25`
+			elif [ $COL -gt 20 ]; then COL=`expr $NR - 20`
+			elif [ $COL -gt 15 ]; then COL=`expr $NR - 15`
+			elif [ $COL -gt 10 ]; then COL=`expr $NR - 10`
+			elif [ $COL -gt 5 ]; then COL=`expr $NR - 5`
+			fi
+			LENGTH="`grep -m 1 $NR'.(' $WORKDIR/pcd-cddb | cut -d "," -f $COL | cut -d '.' -f 2 | cut -d ' ' -f 2`"
+			[ "$LENGTH" ] && echo "$NR | Track$NR | ($LENGTH)" >> $WORKDIR/pcd-cdda
+			NR=`expr $NR + 1`
+		done 
+	fi
+ 
+	echo "$ARTIST" > $WORKDIR/pcd-ARTIST
+	echo "$ALBUM" > $WORKDIR/pcd-ALBUM
+	if [ ! "`cat $WORKDIR/pcd-cdda`" ]; then
+		echo "|$ERROR" > $WORKDIR/pcd-cdda
+	else #autoplay first song
+		echo 1 > $WORKDIR/pcd-nr
+		$APPDIR/func -play &
+	fi
+	echo 100 > $WORKDIR/pcd-splash #reset progress bar
+	;;
+-rip)
+	if [ "`which ripoff 2> /dev/null`" ]; then ripoff &
+	elif [ "`which pcdripper 2> /dev/null`" ]; then pcdripper &
+	elif [ "`which asunder 2> /dev/null`" ]; then asunder &
+	fi
+	;;
+-play)
+	for I in `ps | grep cdda2wav | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	for I in `ps | grep aplay | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	[ ! "`cat $WORKDIR/pcd-nr`" ] && echo 1 > $WORKDIR/pcd-nr
+	CDDA=`cat $WORKDIR/pcd-nr`
+	grep -m 1 $CDDA" | " $WORKDIR/pcd-cdda | cut -d '|' -f 2 > $WORKDIR/pcd-playing
+	echo 100 >> $WORKDIR/pcd-playing
+	hdparm -E2 /dev/cdrom
+	cdda2wav dev=/dev/cdrom -t $CDDA -Owav - | aplay -f cd -D plughw &
+#	cdda2wav dev=/dev/cdrom -t $CDDA -Owav /tmp/pcd.wav &
+#	sleep 5
+#	ffmpeg -i /tmp/pcd.wav -f au - 2>> $WORKDIR/pmusic-ffmpeg_output | aplay -f cd &
+	while [ ! "$NEXT" ]; do
+		sleep 2
+		TMP=`ps`
+		[ ! "`echo $TMP | grep aplay`" ] && NEXT=true
+	done
+	$APPDIR/func -next
+	;;
+-stop)
+	for I in `ps | grep pcd | grep play | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	for I in `ps | grep cdda2wav | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	for I in `ps | grep aplay | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	;;
+-next)
+	CDDA=`cat $WORKDIR/pcd-nr`
+	CDDA=`expr $CDDA + 1`
+	echo $CDDA > $WORKDIR/pcd-nr
+	for I in `ps | grep pcd | grep play | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	$APPDIR/func -play &
+	;;
+-previous)
+	CDDA=`cat $WORKDIR/pcd-nr`
+	CDDA=`expr $CDDA - 1`
+	echo $CDDA > $WORKDIR/pcd-nr
+	for I in `ps | grep pcd | grep play | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	$APPDIR/func -play &
+	;;
+esac
