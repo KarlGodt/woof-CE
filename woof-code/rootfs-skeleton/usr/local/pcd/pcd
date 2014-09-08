@@ -1,0 +1,120 @@
+#!/bin/bash
+#pcd
+#Copyright 2009,2010
+#Sigmund Berglund
+
+#------------------------------
+#This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation version 2.
+
+#This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. <http://www.gnu.org/licenses/>.
+#------------------------------
+
+VERSION=1.2
+export WORKDIR=$HOME/.pcd/tmp
+APPDIR="`dirname $0`"
+[ "$APPDIR" = "." ] && APPDIR="`pwd`"
+export APPDIR="$APPDIR"
+#initialize
+export DEVICE='/dev/cdrom'
+mkdir -p $HOME/.pcd/tmp > /dev/null 2>&1
+
+#set language
+TMP="`ls -1 $APPDIR/locals/ | grep ${LANG%.*}`"
+. $APPDIR/locals/en_US:english #always run to fill gaps in translation
+#fallback to macrolanguage if available (ISO 639-1 two letter code: en, es, fr, etc.)
+[ -z $TMP ] && TMP="`ls -1 $APPDIR/locals/ | grep ${LANG%_*}:`" && echo $TMP
+[ "$TMP" != "en_US:english" ] && . $APPDIR/locals/$TMP 2> /dev/null 
+
+. $APPDIR/func -probe
+
+export pcd="
+<window title=\"pcd - $LOC200\" icon-name=\"gtk-media-stop\">
+<vbox>
+ <hbox homogeneous=\"true\">
+  <vbox>
+   <hbox>
+    <button>
+     <label>$LOC201</label>
+     <variable>COPY_DISC</variable>
+     <action>pburn -m copy-audio &</action>
+    </button>
+    <button>
+     <label>$LOC202</label>
+     <variable>Rip_DISC</variable>
+     <action>$APPDIR/func -rip</action>
+    </button>
+    <text><label>\"  \"</label></text>
+    <button relief=\"2\" tooltip-text=\" $LOC800 \">
+     <input file stock=\"gtk-media-previous\"></input>
+     <action>$APPDIR/func -previous</action>
+    </button>
+    <button relief=\"2\" tooltip-text=\" $LOC801 \">
+     <input file stock=\"gtk-media-stop\"></input>
+     <action>$APPDIR/func -stop</action>
+    </button>
+    <button relief=\"2\" tooltip-text=\" $LOC802 \">
+     <input file stock=\"gtk-media-play\"></input>
+     <action>echo \$CDDA > \$WORKDIR/pcd-nr; $APPDIR/func -play &</action>
+    </button>
+    <button relief=\"2\" tooltip-text=\" $LOC803 \">
+     <input file stock=\"gtk-media-next\"></input>
+     <action>$APPDIR/func -next</action>
+    </button>
+    <text><label>\"  \"</label></text>
+    <button>
+     <label>$LOC203</label>
+     <action>. $APPDIR/func -probe</action>
+     <action>refresh:ENTRY_ARTIST</action>
+     <action>refresh:ENTRY_ALBUM</action>
+     <action>refresh:CDDA</action>
+    </button>
+    <button>
+     <label>$LOC204</label>
+     <action>$APPDIR/func -stop</action>
+     <action>eject</action>
+    </button>
+   </hbox>
+  </vbox>
+ </hbox>
+ <progressbar>
+  <label>\" \"</label>
+  <input>"'while [ "$(ps | grep -F '/pcd')" ]; do PERCENT=`cat $WORKDIR/pcd-progress | tr "\r" "\n" | tail -n 1`; NAME=`cat $WORKDIR/pcd-playing`; echo $PERCENT | cut -c 1-3; echo $NAME ; sleep 3; done'"</input>
+ </progressbar>
+ <frame>
+  <hbox>
+   <text width_request=\"60\"><label>$LOC205</label></text>
+   <entry editable=\"false\"><input>cat $WORKDIR/pcd-ARTIST</input><variable>ENTRY_ARTIST</variable></entry>
+  </hbox>
+  <hbox>
+   <text width_request=\"60\"><label>$LOC206</label></text>
+   <entry editable=\"false\"><input>cat $WORKDIR/pcd-ALBUM</input><variable>ENTRY_ALBUM</variable></entry>
+  </hbox>
+  <tree headers_visible=\"false\" rules_hint=\"true\">
+   <height>300</height><width>100</width>
+   <label>$LOC207|$LOC208|$LOC209</label>
+   <input>cat $WORKDIR/pcd-cdda</input>
+   <variable>CDDA</variable>
+   <action>echo \$CDDA > \$WORKDIR/pcd-nr</action>
+   <action>disable:READ_DISC</action>
+   <action>disable:EJECT</action>
+   <action>. $APPDIR/func -play &</action>
+  </tree>
+ </frame>
+ <hbox>
+  <button>
+   <label>$LOC210</label>
+   <input file icon=\"gtk-cancel\"></input>
+   <action type=\"exit\">cancel</action>
+  </button>
+ </hbox>
+</vbox>
+</window>"
+
+gtkdialog3 -p pcd
+. $APPDIR/func -stop
+#in case stopping in pause beetween tracks
+sleep 2
+. $APPDIR/func -stop
+for I in `ps | grep pcd | grep while | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+for I in `ps | grep pcd_splash | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+
