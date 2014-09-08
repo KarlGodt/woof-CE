@@ -13,6 +13,7 @@
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
+echo >>/tmp/xarchive_errs.log
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 E_UNSUPPORTED=65
@@ -48,8 +49,10 @@ done
 # the shifting will leave the files passed as
 # all the remaining args "$@"
 opt="$1"
+echo opt $opt >>/tmp/xarchive_errs.log
 shift 1
 archive="$1"
+echo archive $archive >>/tmp/xarchive_errs.log
 shift 1
 
 # Command line options for prog functions
@@ -68,8 +71,8 @@ case "$opt" in
                 printf "%s;" $ext
             done
         else
-            echo command $ACE_PROG not found > /dev/stderr 
-            echo extentions $EXTS ignored > /dev/stderr 
+            echo command $ACE_PROG not found >>/tmp/xarchive_errs.log 
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log 
         fi
         printf "\n"
         exit
