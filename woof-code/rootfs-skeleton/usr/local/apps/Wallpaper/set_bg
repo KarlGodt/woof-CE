@@ -1,26 +1,62 @@
 #!/bin/sh
 
+VERSION="0.6.1-1.sp"
 # Determine the path to this application.
 CURDIR="`pwd`"
 APPDIR=`dirname "$0"`
 cd "${APPDIR}"
 APPDIR="`pwd`"
 cd "${CURDIR}"
-IMAGE="$1"
+LOG=/tmp/backg.log
+echo "$0:$*" >>"$LOG"
 
-[ "$1" = "-clear" ] && IMAGE=""
+if [ "$1" = "-clear" ];then
+ if [ "`grep '\[none\]' "$HOME"/.config/wallpaper/bg_img`" ]; then
+        rox -p "$HOME"/Choices/ROX-Filer/PuppyPin
+        echo "PuppyPin" > "$HOME"/.config/wallpaper/bg_img
+        exit $?
+ else
+        if [ -f "$HOME"/.config/rox.sourceforge.net/ROX-Filer/pb_default ] ; then
+        cat "$HOME"/.config/rox.sourceforge.net/ROX-Filer/pb_default | grep -v '<backdrop' > "$HOME"/.config/wallpaper/pb
+        fi
+        if [ -f "$HOME"/.config/wallpaper/pb ] ; then
+        mv -f "$HOME"/.config/wallpaper/pb "$HOME"/.config/rox.sourceforge.net/ROX-Filer/pb_default
+        fi
+ rox -p=default
+ echo "[none]" > "$HOME"/.config/wallpaper/bg_img
+ exit $?
+fi;fi
 
-MODE="`cat $HOME/.config/wallpaper/backgroundmode`"
-[ "$MODE" = "" ] && MODE="Stretch"
+MODE=`cat "$HOME"/.config/wallpaper/backgroundmode`
+[ "$MODE" = "" ] && MODE="Scale"
 [ "$MODE" = "Centred" ] && MODE="Centre"
 [ "$MODE" = "Scaled" ] && MODE="Scale"
+
+#w482 BK now have script that truncates an image vertically so that it has the right dimensions
+#for a widescreen...
+if [ -x /usr/sbin/background_reshape ];then #legacy compatibility
+ if [ "$MODE" = "Stretch" ];then
+  /usr/sbin/background_reshape "$*"
+ fi
+fi
+
+SCREEN_DIMENSIONS=$(echo `xwininfo -root |grep '\-geometry'` |tr ' ' '+' |awk -F '+' '{print $2}')
+[ "$SCREEN_DIMENSIONS" ] || SCREEN_DIMENSIONS=UNKNOWN
+mkdir -p /usr/share/backgrounds-"$SCREEN_DIMENSIONS"
+OUT_PUT_FILE=/usr/share/backgrounds-"$SCREEN_DIMENSIONS"/"$IMAGEBASE"-"$SCREEN_DIMENSIONS"
+
+if [ -f /usr/share/backgrounds-"$SCREEN_DIMENSIONS"/"$IMAGEBASE"-"$SCREEN_DIMENSIONS" ] ; then
+:
+else
+OUT_PUT_FILE="$*"
+fi
 
 rox --RPC << EOF
 <?xml version="1.0"?>
 <env:Envelope xmlns:env="http://www.w3.org/2001/12/soap-envelope">
  <env:Body xmlns="http://rox.sourceforge.net/SOAP/ROX-Filer">
   <SetBackdrop>
-   <Filename>$IMAGE</Filename>
+   <Filename>$OUT_PUT_FILE</Filename>
    <Style>$MODE</Style>
   </SetBackdrop>
  </env:Body>
@@ -28,5 +64,5 @@ rox --RPC << EOF
 
 EOF
 
-echo "$IMAGE" > $HOME/.config/wallpaper/bg_img
-
+#<action>[ \"$(which fixwidgets)\" ] && fixwidgets -wallpaper_setter &</action>
+[ "$(which fixwidgets)" ] && fixwidgets -wallpaper_setter &
