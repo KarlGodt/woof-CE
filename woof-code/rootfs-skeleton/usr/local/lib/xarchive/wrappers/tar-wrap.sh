@@ -18,6 +18,7 @@
 
 # modified by technosaurus for puppy 4.4a
 # added lzma and xz and changed --use-compress-program={progs} -{ajJzZ}
+echo >>/tmp/xarchive_errs.log
 
 # set up exit status variables
 E_UNSUPPORTED=65
@@ -47,8 +48,10 @@ TAR_PROG="tar"
 # the shifting will leave the files passed as
 # all the remaining args "$@"
 opt="$1"
+echo opt $opt >>/tmp/xarchive_errs.log
 shift 1
 archive="$1"
+echo archive $archive >>/tmp/xarchive_errs.log
 shift 1
 
 # set up compression variables for our compression functions. 
@@ -130,8 +133,8 @@ compress_func()
 case "$opt" in
     -i) # info: output supported extentions for progs that exist
         if [ ! "$AWK_PROG" ]; then
-            echo none of the awk programs $AWK_PROGS found >/dev/stderr
-            echo extentions $EXTS ignored >/dev/stderr
+            echo none of the awk programs $AWK_PROGS found >>/tmp/xarchive_errs.log
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         elif [ "$(which $TAR_PROG)" ]; then
             for ext in $TAR_EXTS; do
                 printf "%s;" $ext
@@ -140,45 +143,45 @@ case "$opt" in
                 if [ "$(which gzip)" ]; then
                     printf "%s;" $ext
                 else
-                    echo gzip not found > /dev/stderr 
-                    echo extention $ext ignored > /dev/stderr 
+                    echo gzip not found >>/tmp/xarchive_errs.log 
+                    echo extention $ext ignored >>/tmp/xarchive_errs.log 
                 fi
             done
             for ext in $XZ_EXTS; do
                 if [ "$(which xz)" ]; then
                     printf "%s;" $ext
                 else
-                    echo xz not found > /dev/stderr 
-                    echo extention $ext ignored > /dev/stderr 
+                    echo xz not found >>/tmp/xarchive_errs.log 
+                    echo extention $ext ignored >>/tmp/xarchive_errs.log 
                 fi
             done
             for ext in $LZMA_EXTS; do
                 if [ "$(which lzma)" ]; then
                     printf "%s;" $ext
                 else
-                    echo lzma not found > /dev/stderr 
-                    echo extention $ext ignored > /dev/stderr 
+                    echo lzma not found >>/tmp/xarchive_errs.log 
+                    echo extention $ext ignored >>/tmp/xarchive_errs.log 
                 fi
             done            
             for ext in $BZIP2_EXTS; do
                 if [ "$(which bzip2)" ]; then
                     printf "%s;" $ext
                 else
-                    echo bzip2 not found > /dev/stderr 
-                    echo extention $ext ignored > /dev/stderr
+                    echo bzip2 not found >>/tmp/xarchive_errs.log 
+                    echo extention $ext ignored >>/tmp/xarchive_errs.log
                 fi
             done
             for ext in $COMPRESS_EXTS; do
                 if [ "$(which compress)" ] && [ "$(which uncompress)" ]; then
                     printf "%s;" $ext
                 else
-                    echo compress and uncompress not found > /dev/stderr 
-                    echo extention $ext ignored > /dev/stderr
+                    echo compress and uncompress not found >>/tmp/xarchive_errs.log 
+                    echo extention $ext ignored >>/tmp/xarchive_errs.log
                 fi
             done
         else
-            echo command $TAR_PROG not found > /dev/stderr 
-            echo extentions $TAR_EXTS ignored > /dev/stderr
+            echo command $TAR_PROG not found >>/tmp/xarchive_errs.log 
+            echo extentions $TAR_EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
