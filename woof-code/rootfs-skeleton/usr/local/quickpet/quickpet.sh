@@ -96,7 +96,7 @@ if [ $RADIO1 = "true" ];then URLREPO=$URL1
 	elif [ $RADIO9 = "true" ];then URLREPO=$URL9
 	elif [ $RADIO10 = "true" ];then URLREPO=$URL10
 	elif [ $RADIO11 = "true" ];then URLREPO=$URL11
-	
+
 fi
 if [ $RADIO1 = "true" ];then URLREPOX=$URLX1
 	elif [ $RADIO2 = "true" ];then URLREPOX=$URLX2
@@ -109,9 +109,9 @@ if [ $RADIO1 = "true" ];then URLREPOX=$URLX1
 	elif [ $RADIO9 = "true" ];then URLREPOX=$URLX9
 	elif [ $RADIO10 = "true" ];then URLREPOX=$URLX10
 	elif [ $RADIO11 = "true" ];then URLREPOX=$URLX11
-	
-fi	
-	
+
+fi
+
 #set incoming dir
 if [ ! -d $WORKDIR/Downloads ] ;then mkdir $WORKDIR/Downloads
 fi
@@ -130,11 +130,11 @@ function CHECKNET(){
 	 fi
 }
 
-	
+
 
 # lucid_pup_update-1.pet (or whatever VERSION number) is the current format for the update #scrapped
 #lucidpuppyupdate is now just a news site with possible updates posted
-function LUPU_UPDATE(){	
+function LUPU_UPDATE(){
 	CHECKNET
 	if [[ $USEBROWSER = gtkmoz ]];then  Xdialog --title $LOC_INFO --msgbox "$LOC_BRS" 0 0 0
 	$USEBROWSER http://www.diddywahdiddy.net/LupuNews &
@@ -143,7 +143,7 @@ function LUPU_UPDATE(){
 		elif [[ $BROWSINSTALLED != netsurf ]];then
 		$USEBROWSER http://www.diddywahdiddy.net/LupuNews &
 	fi
-	
+
 }
 
           ############################################################################################
@@ -159,20 +159,20 @@ function GETPET(){
 	 THEPET=`cat /tmp/thepet`
 	 #DLDPET=`grep "$THEPET" $WORKDIR/urls.conf | cut -d '=' -f2`
 	 GRABPET=`grep "$THEPET" $WORKDIR/petnames.conf | cut -d '=' -f2`
-	
+
 	 kill `ps | grep -w "quickpack" | awk '{print $1}'` 2>/dev/null
 	 kill `ps | grep -w "BWIZ" | awk '{print $1}'` 2>/dev/null
 	 #kill `ps | grep -w "oldupdategui" | awk '{print $1}'` 2>/dev/null
 	 #chmod 644 /usr/sbin/quickpackage
 	 #PETINST=`grep "$THEPET" $WORKDIR/urls.conf | sed s'/\// /'g | tr " '" '\n' | tail -n1 | tr -d '"'` #get the actual .pet
-	
+
 	 #yaf-splash -font "-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1" -placement top -outline 0 -timeout 4 -bg lightblue -text "$LOC_106a $THEPET $LOC_106b" &
 	 #download &
 	 #sleep 5
 	 #kill `ps|grep "down_load"` 2>/dev/null
 	 gtkdialog-splash -icon gtk-info -timeout 5 -fontsize large -bg lightblue -close never -text "$LOC_106a $THEPET $LOC_106b" &
 	 COUNT=0
-	 until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "`grep -w "broken link" /tmp/docheck`" ]  || [ "`grep -w "No such file" /tmp/docheck`" ]|| [ "$COUNT" = "30" ] 
+	 until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "`grep -w "broken link" /tmp/docheck`" ]  || [ "`grep -w "No such file" /tmp/docheck`" ]|| [ "$COUNT" = "30" ]
 		do echo "wget -S --spider -T 20 -4 $URLREPO/$GRABPET 2>/tmp/docheck" >/tmp/statcheck
 		. /tmp/statcheck
 	 COUNT=`expr $COUNT + 1`
@@ -182,15 +182,15 @@ function GETPET(){
 	 rm -f /tmp/statXcheck
 	 if [[ "`grep -w "broken link" /tmp/docheck`" ]];then rm -f /tmp/docheck
 	 gtkdialog-splash -icon gtk-dialog-info -timeout 5 -fontsize large -bg yellow -close never -text "$LOC_113" &
-	   until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "`grep -w "No such file" /tmp/docheck`" ] || [ "$COUNT" = "30" ] 
+	   until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "`grep -w "No such file" /tmp/docheck`" ] || [ "$COUNT" = "30" ]
 		  do echo "wget -S --spider -T 20 -4 $URLREPOX/$GRABPET 2>/tmp/docheck" >/tmp/statXcheck
 		. /tmp/statXcheck
 	 COUNT=`expr $COUNT + 1`
 	  sleep $SLEEP_SIZE
-	   done 
+	   done
 		elif [[ "`grep -w "No such file" /tmp/docheck`" ]];then rm -f /tmp/docheck
 			gtkdialog-splash -icon gtk-dialog-info -timeout 5 -fontsize large -bg yellow -close never -text "$LOC_113" &
-			until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "$COUNT" = "30" ] 
+			until [ "`grep -w "Content-Length" /tmp/docheck`" ] || [ "`grep -w "exists" /tmp/docheck`" ] || [ "`grep -w "Login successful" /tmp/docheck`" ] || [ "$COUNT" = "30" ]
 				do echo "wget -S --spider -T 20 -4 $URLREPOX/$GRABPET 2>/tmp/docheck" >/tmp/statXcheck
 			. /tmp/statXcheck
 			COUNT=`expr $COUNT + 1`
@@ -204,22 +204,22 @@ function GETPET(){
 	 if [ -f /tmp/statXcheck ]; then URLREPO="$URLREPOX"
 	 fi
      PET_SIZE=`grep -w "Content-Length" /tmp/docheck|awk '{print $2}'`
-	    
+
 	 if [ "$PET_SIZE" = "" ];then PET_SIZE=`grep -w -i $THEPET /tmp/docheck|grep -v Removed|grep -v exists|tail -n1|awk '{print $5}'`
 	 fi
 	 echo $PET_SIZE
 	 #echo $PET_SIZE >/tmp/petsize
 	 killall yaf-splash
 	 echo "eval rxvt -background lightblue -title "Quickpet" -e wget -t 0 -c -4 -P $DLDDIR $URLREPO/$GRABPET" > /tmp/quickpet-get
-	 . /tmp/quickpet-get 
-	 
-	 
-	 
-	 
-	 #if [ $(grep $THEPET $HOME/.quickpackage/sizes | cut -d "|" -f2) = $(stat -c %s  $HOME/.quickpackage/Downloads/$PETINST | cut -d '/' -f1) ];then petget +$DLDDIR/$PETINST 
+	 . /tmp/quickpet-get
+
+
+
+
+	 #if [ $(grep $THEPET $HOME/.quickpackage/sizes | cut -d "|" -f2) = $(stat -c %s  $HOME/.quickpackage/Downloads/$PETINST | cut -d '/' -f1) ];then petget +$DLDDIR/$PETINST
 	 rm -f /tmp/integrity-check 2>/dev/null
-	 if [ $PET_SIZE = $(stat -c %s  /tmp/$GRABPET) ] ;then petget +$DLDDIR/$GRABPET	
-	     else 
+	 if [ $PET_SIZE = $(stat -c %s  /tmp/$GRABPET) ] ;then petget +$DLDDIR/$GRABPET
+	     else
 	 gtkdialog-splash -icon gtk-dialog-warning -timeout 5 -fontsize large -bg red -close never -text "$LOC_108" &
 	 #yaf-splash -font "-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1" -timeout 5 -placement top -outline 0 -bg red -text "$LOC_108"
 		exit
@@ -230,17 +230,17 @@ function GETPET(){
 	 INST_SUCCESS=`grep -i $THEPET /tmp/quinstpacks`
 	 if [ "$INST_SUCCESS" = "" ] ;then
 	 gtkdialog-splash -icon gtk-dialog-warning -timeout 5 -fontsize large -bg red -close never -text "$LOC_108" &
-	 rm -f $GRABPET	
+	 rm -f $GRABPET
 		else
 	 gtkdialog-splash -icon gtk-apply -timeout 5 -fontsize large -bg green -close never -text "$LOC_110a $THEPET $LOC_110b" &
 	 echo "yay" > /tmp/we_got_it
 	 fi
-	 if [ $CHKBOX = "false" ];then 
+	 if [ $CHKBOX = "false" ];then
      cp -f  $DLDDIR/$GRABPET $WORKDIR/Downloads/$GRABPET
      fi
      rm -f /tmp/we_got_it 2>/dev/null
      [ -x /pinstall.sh ]&& rm -f /pinstall.sh 2>/dev/null
-	 exit	
+	 exit
 }
 ### END MAIN FUNCTION ###
 
@@ -254,7 +254,7 @@ function INFO(){
 function CHANGE(){
 	#CHANGE_DEFAULT=`grep "exec" /usr/local/bin/defaultbrowser` #changed in case old entry is commented
 	CHANGE_DEFAULT=`grep -v "#" /usr/local/bin/defaultbrowser`
-	
+
 	#new engine to find installed browsers from *.desktop files
 rm -rf /tmp/tmpbrs
 mkdir /tmp/tmpbrs
@@ -263,7 +263,7 @@ echo '#browsers' >/tmp/installed-browsers
 INSTALLED_BROWSERS=`cat /tmp/browserlist`
 for i in $INSTALLED_BROWSERS;do grep 'Exec=' /usr/share/applications/$i|cut -d '=' -f2|sed 's/ \%U$//g'|sed s'/\// /'g | tr " '" '\n' | tail -n1>/tmp/tmpbrs/$i
 	#cat /tmp/tmpbrs/$i>>/tmp/browserexecs
-done 
+done
 BROWSE=`ls /tmp/tmpbrs`
 for b in $BROWSE;do cat /tmp/tmpbrs/$b>>/tmp/installed-browsers
 done
@@ -274,7 +274,7 @@ done
 	#puppybrs &
 	 #sleep 5
 	 #kill `ps|grep "puppy_brs"` 2>/dev/null
-	#yaf-splash -font "-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1" -timeout 4 -placement top -outline 0 -bg green -text "$LOC_111" & 
+	#yaf-splash -font "-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1" -timeout 4 -placement top -outline 0 -bg green -text "$LOC_111" &
 	gtkdialog-splash -icon gtk-dialog-info -timeout 5 -fontsize large -bg green -close never -text "$NEW_BROWSER""$LOC_111" &
 }
 
@@ -298,8 +298,8 @@ NVIDIA_TEXT="
   <text use-markup=\"true\"><label>\"<i>$LOC_392C</i>\"</label></text>
  </hbox>
  <hbox>
-  <text><label>\"$LOC_392_96\"</label></text>                        
-  <button relief=\"2\" tooltip-text=\"$LOC_392Att\">                                              
+  <text><label>\"$LOC_392_96\"</label></text>
+  <button relief=\"2\" tooltip-text=\"$LOC_392Att\">
    <input file>/root/.quickpet/icons/nvidia.png</input>
    <action>echo \"nvidia-96\" > /tmp/thepet</action>
    <action>GETPET &</action>
@@ -307,8 +307,8 @@ NVIDIA_TEXT="
   </button>
  </hbox>
  <hbox>
-  <text><label>\"$LOC_392_173\"</label></text>        
-  <button relief=\"2\" tooltip-text=\"$LOC_392Btt\">                                              
+  <text><label>\"$LOC_392_173\"</label></text>
+  <button relief=\"2\" tooltip-text=\"$LOC_392Btt\">
    <input file>/root/.quickpet/icons/nvidia.png</input>
    <action>echo \"nvidia-173\" > /tmp/thepet</action>
    <action>GETPET &</action>
@@ -316,8 +316,8 @@ NVIDIA_TEXT="
   </button>
  </hbox>
  <hbox>
-  <text><label>\"$LOC_392_256\"</label></text>        
-  <button relief=\"2\" tooltip-text=\"$LOC_392Ctt\">                                              
+  <text><label>\"$LOC_392_256\"</label></text>
+  <button relief=\"2\" tooltip-text=\"$LOC_392Ctt\">
    <input file>/root/.quickpet/icons/nvidia.png</input>
    <action>echo \"nvidia-256\" > /tmp/thepet</action>
    <action>GETPET &</action>
@@ -325,8 +325,8 @@ NVIDIA_TEXT="
   </button>
  </hbox>
  <hbox>
-  <text><label>\"$LOC_392h\"</label></text>        
-  <button relief=\"2\">                                              
+  <text><label>\"$LOC_392h\"</label></text>
+  <button relief=\"2\">
    <input file stock=\"gtk-help\"></input>
    <action>$USEBROWSER $WORKDIR/nvidiahelp.htm &</action>
   </button>
@@ -340,9 +340,9 @@ export invidia="
  <vbox>
 $NVIDIA_TEXT
   <hbox homogeneous=\"true\">
-   <button> 
+   <button>
     <label>$LOC_OK</label>
-    <input file stock=\"gtk-ok\"></input> 
+    <input file stock=\"gtk-ok\"></input>
    </button>
   </hbox>
  </vbox>
@@ -355,11 +355,11 @@ unset invidia
 function CLEAR(){
 Xdialog --title "$LOC_801" --clear \
         --yesno "$LOC_802 " 0 0 0
-case $? in 
+case $? in
 0) rm -f $HOME/.quickpet/Downloads/* ;;
 1) exit ;;
 255) exit ;;
-esac	
+esac
 }
 
 #reset after change prefs
@@ -397,7 +397,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO1=[a-z]*[a-z]/RADIO1=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO1</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ibiblio.org\"</label>
 	<variable>RADIO2</variable>
@@ -405,7 +405,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO2=[a-z]*[a-z]/RADIO2=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO2</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.linux.hr\"</label>
 	<variable>RADIO3</variable>
@@ -413,7 +413,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO3=[a-z]*[a-z]/RADIO3=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO3</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.lug.udel.edu\"</label>
 	<variable>RADIO4</variable>
@@ -421,7 +421,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO4=[a-z]*[a-z]/RADIO4=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO4</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.nluug.nl\"</label>
 	<variable>RADIO5</variable>
@@ -429,7 +429,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO5=[a-z]*[a-z]/RADIO5=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO5</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.sh.cvut.cz\"</label>
 	<variable>RADIO6</variable>
@@ -437,7 +437,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO6=[a-z]*[a-z]/RADIO6=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO6</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.tu-chemnitz.de\"</label>
 	<variable>RADIO7</variable>
@@ -445,7 +445,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO7=[a-z]*[a-z]/RADIO7=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO7</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.ussg.iu.edu\"</label>
 	<variable>RADIO8</variable>
@@ -453,7 +453,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO8=[a-z]*[a-z]/RADIO8=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO8</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"mirror.aarnet.edu.au\"</label>
 	<variable>RADIO9</variable>
@@ -461,7 +461,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO9=[a-z]*[a-z]/RADIO9=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO9</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"ftp.oss.cc.gatech.edu\"</label>
 	<variable>RADIO10</variable>
@@ -469,7 +469,7 @@ export qpprefs="
 	<action>if false sed -i 's/RADIO10=[a-z]*[a-z]/RADIO10=false/' $WORKDIR/prefs.conf</action>
 	<default>$RADIO10</default>
 	</radiobutton>
-	
+
 	<radiobutton>
 	<label>\"mirror.internode.on.net\"</label>
 	<variable>RADIO11</variable>
@@ -479,26 +479,26 @@ export qpprefs="
 	</radiobutton>
 	<text use-markup=\"true\"><label>\"<b>Increase this Value</b>\"</label></text>
    <hbox homogeneous=\"true\">
-	 
-	
+
+
 	<text><label>\"If you are having Timeout errors\"</label></text>
     <combobox width-request=\"50\">
      <variable>SLEEP_SIZE</variable>
 $SLEEP_SIZE_ITEMS
 	</combobox>
-   </hbox> 
-   
+   </hbox>
+
    <hbox>
-    <button> 
+    <button>
      <label>$LOC_OK</label>
-     <input file stock=\"gtk-ok\"></input> 
+     <input file stock=\"gtk-ok\"></input>
      <action>RESET &</action>
      <action>EXIT:exit</action>
     </button>
    </hbox>
-    
+
   </vbox>
-</window>	
+</window>
 "
 gtkdialog3 -p qpprefs
 unset qpprefs
@@ -544,20 +544,20 @@ export qabout="
 	</hbox>
 	<hbox>
 	<text use-markup=\"true\"><label>\"<b>Licenced under the GPL 2010. No Warranty</b>\"</label></text>
-    <button> 
+    <button>
      <label>$LOC_306</label>
-     <input file stock=\"gtk-dnd\"></input> 
+     <input file stock=\"gtk-dnd\"></input>
      <action>defaulthtmlviewer file:///root/puppy-reference/doc/legal/gpl-3.0.htm &</action>
     </button>
 	</hbox>
 	<hbox>
-    <button> 
+    <button>
      <label>$LOC_OK</label>
-     <input file stock=\"gtk-ok\"></input> 
+     <input file stock=\"gtk-ok\"></input>
     </button>
 	</hbox>
   </vbox>
-</window>	
+</window>
 "
 gtkdialog3 -p qabout
 unset qabout
@@ -603,7 +603,7 @@ fi
 DISPLAY_TEXT=`cat /tmp/luci_recomend`
 export DISPLAY_TEXT
 export grafix="
-<window title=\"Graphics\" resizable=\"false\">	
+<window title=\"Graphics\" resizable=\"false\">
  <vbox>
   <frame Lupu Recommends>
    <hbox width-request=\"420\">
@@ -619,14 +619,14 @@ export grafix="
    </button>
    </hbox>
   </frame>
-${CARD_TEXT}  
+${CARD_TEXT}
    <hbox homogeneous=\"true\">
     <button>
      <input file stock=\"gtk-ok\"></input>
      <label>$LOC_OK</label>
     </button>
    </hbox>
- </vbox> 
+ </vbox>
 </window>
 "
 gtkdialog3 -p grafix -c
@@ -653,7 +653,7 @@ gtkdialog3 -p BWIZ
 unset BWIZ
 
 	;;
-	
+
 	*)
 #quickpet
 
@@ -692,7 +692,7 @@ export quickpack="
            <action>ABOUT</action>
          </menuitem>
         <label>$LOC_FILE</label>
-        </menu>    
+        </menu>
         <menu>
          <menuitem icon=\"gtk-help\">
            <label>$LOC_HELP</label>
@@ -707,7 +707,7 @@ export quickpack="
            <action>defaulthtmlviewer file:///root/puppy-reference/doc/legal/gpl-3.0.htm &</action>
          </menuitem>
         <label>$LOC_307</label>
-      </menu>    
+      </menu>
       <menu>
 		 <menuitem>
            <label>$LOC_300</label>
@@ -732,31 +732,31 @@ export quickpack="
          <menuitem>
            <label>Java</label>
            <action>$USEBROWSER http://puppylinux.org/wikka/JavaRuntimeEnvironment &</action>
-         </menuitem>                    
-         <menuitem>       
-           <label>Open Office</label>
-           <action>$USEBROWSER http://puppylinux.org/wikka/OpenOffice &</action>  
-           <action>yaf-splash -font \"-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1\" -timeout 10 -placement top -outline 0 -bg lightgreen -text \"Note: This package installs to /mnt/home, you need to install Puppy first\" &</action>        
          </menuitem>
-         <menuitem>       
+         <menuitem>
+           <label>Open Office</label>
+           <action>$USEBROWSER http://puppylinux.org/wikka/OpenOffice &</action>
+           <action>yaf-splash -font \"-misc-dejavu sans-bold-r-normal--16-0-0-0-p-0-iso10646-1\" -timeout 10 -placement top -outline 0 -bg lightgreen -text \"Note: This package installs to /mnt/home, you need to install Puppy first\" &</action>
+         </menuitem>
+         <menuitem>
            <label>precord</label>
-           <action>$USEBROWSER http://murga-linux.com/puppy/viewtopic.php?t=49907 &</action>         
+           <action>$USEBROWSER http://murga-linux.com/puppy/viewtopic.php?t=49907 &</action>
          </menuitem>
          <menuitem>
             <label>Snap2 Backup</label>
 			<action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=374387#374387 &</action>
-          </menuitem> 
-          <menuitem>       
+          </menuitem>
+          <menuitem>
              <label>Startmount</label>
-             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?t=50845 &</action>         
-          </menuitem>              
-          <menuitem>       
+             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?t=50845 &</action>
+          </menuitem>
+          <menuitem>
              <label>Sunbird</label>
-             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=409050#409050 &</action>         
-          </menuitem>         
+             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=409050#409050 &</action>
+          </menuitem>
         <label>$LOC_350</label>
       </menu>
-     
+
       <menu>
          <menuitem>
            <label>SFS $LOC_307</label>
@@ -770,17 +770,17 @@ export quickpack="
            <label>sfs_linker</label>
            <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=352836#352836 &</action>
          </menuitem>
-         <menuitem>       
+         <menuitem>
              <label>Sfs Install</label>
-             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=291574#291574 &</action>         
-         </menuitem>   
-         <menuitem>       
+             <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=291574#291574 &</action>
+         </menuitem>
+         <menuitem>
            <label>Petmaker Plus (includes SFS)</label>
-           <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=289038#289038 &</action>         
+           <action>$USEBROWSER http://www.murga-linux.com/puppy/viewtopic.php?p=289038#289038 &</action>
          </menuitem>
      <label>SFS</label>
    </menu>
-   
+
  </menubar>
   <hbox>
    <vbox>
@@ -791,8 +791,8 @@ export quickpack="
    <vbox>
     <text use-markup=\"true\" width-request=\"300\"><label>\"<b>$LOC_309 Quickpet</b>\"</label></text>
      <text width-request=\"350\"><label>$LOC_310</label></text>
-   </vbox> 
-  </hbox> 
+   </vbox>
+  </hbox>
      <notebook labels=\"$LOC_311|$LOC_312|$LOC_313|$LOC_314|$LOC_315\">
    <vbox>
      <text><label>$LOC_316</label></text>
@@ -836,5 +836,5 @@ unset quickpack
 
 	;;
 esac
-
+exit 0
 ###END###
