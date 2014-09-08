@@ -1,0 +1,153 @@
+#!/bin/bash
+#Pprocess - process manager
+#Copyright 2007,2008,2009,2010
+#Sigmund Berglund
+
+#------------------------------
+#This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation version 2.
+
+#This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details. <http://www.gnu.org/licenses/>.
+#------------------------------
+
+VERSION=2.1
+#define paths
+PROGPATH="`dirname $0`" #Pprocess directory
+[ "$PROGPATH" = "." ] && PROGPATH="`pwd`"
+export PROGPATH=$PROGPATH
+
+#parameters
+while [ $# != 0 ]; do
+	I=1
+	while [ $I -le `echo $# | wc -c` ]; do #check -xft
+		if [ `echo $1 | grep s` ]; then SHUTDOWN=true; fi
+		if [ `echo $1 | grep h` ]; then
+			echo 'Options
+  -s          Show Shutdown/Reboot button
+  -h          show this help message.'
+  			exit
+		fi
+		shift
+		I=$[$I+1]
+	done
+done
+
+#set language
+TMP="`ls -1 $PROGPATH/locals/ | grep $LANG`"
+. $PROGPATH/locals/en_US:english #always run to fill gaps in translation
+[ "$TMP" != "en_US:english" ] && . $PROGPATH/locals/$TMP 2> /dev/null
+
+#use monofont in <tree>
+echo 'style "specialmono"
+{
+  font_name="Mono 12"
+}
+widget "*mono" style "specialmono"
+class "GtkTree*" style "specialmono"' > /tmp/gtkrc_mono
+
+export GTK2_RC_FILES=/tmp/gtkrc_mono:/root/.gtkrc-2.0 
+#---
+
+echo -n > /tmp/pprocess-filter
+
+$PROGPATH/func -filter
+
+S='
+<window title="Pprocess '$VERSION' - '$LOC100'" icon-name="gtk-execute">
+<hbox>
+ <tree headers_visible="false" rules_hint="true" hover-selection="true">
+  <label>hei</label>
+  <width>520</width><height>200</height>
+  <variable>LIST</variable>
+  <input>cat /tmp/pprocess-ps</input>
+  <action signal="button-press-event">. '$PROGPATH'/func -action</action>
+  <action signal="button-press-event">'$PROGPATH'/func -filter</action>
+  <action signal="button-press-event">refresh:LIST</action>
+ </tree>
+ <vbox>
+  <frame '$LOC108'>
+   <vbox tooltip-text="'$LOC200'">
+     <entry activates-default="true">
+      <variable>FILTER_STRING</variable>
+      <width>100</width><height>25</height>
+      <action signal="key-release-event">'$PROGPATH'/func -set_filter</action>
+     </entry>
+    <hbox>
+     <button relief="2" can-default="true" has-default="true" use-stock="true" height-request="1" width-request="1">
+      <action>'$PROGPATH'/func -filter</action>
+      <action>refresh:LIST</action>
+     </button>
+    </hbox>
+    <progressbar height-request="1">
+     <input>while [ A ]; do $PROGPATH/func -filter; echo; echo 100; sleep 4; done</input>
+     <action>refresh:LIST</action>
+    </progressbar>
+   </vbox> 
+  </frame>
+  <text height-request="1"><label>""</label></text>
+  <frame '$LOC109'>
+   <hbox tooltip-text="'$LOC201'">
+    <vbox>
+     <radiobutton visible="false"></radiobutton>
+     <radiobutton height-request="30">
+      <variable>KILL</variable>
+      <label>'$LOC111'</label>
+      <action>if true enable:KILL_SIGNAL</action> 
+      <action>if true disable:CPU_PRIORITY</action> 
+     </radiobutton>
+     <radiobutton height-request="30">
+      <variable>CPU</variable>
+      <label>'$LOC104'</label>
+      <action>if true disable:KILL_SIGNAL</action> 
+      <action>if true enable:CPU_PRIORITY</action> 
+     </radiobutton>
+    </vbox>
+    <vbox>
+     <combobox height-request="30">
+      <variable>KILL_SIGNAL</variable>
+      <visible>disabled</visible>
+      <item>9 - Kill</item> 
+      <item>0 - No signal</item> 
+      <item>1 - Hangup</item> 
+      <item>2 - Interrupt</item> 
+      <item>3 - Quit</item> 
+      <item>9 - Kill</item> 
+      <item>14 - Alarm</item> 
+      <item>15 - Terminate (soft kill)</item> 
+      <item>18 - Continue</item> 
+      <item>19 - Stop</item> 
+     </combobox>
+     <combobox height-request="30">
+      <variable>CPU_PRIORITY</variable>
+      <visible>disabled</visible>
+      <item>'$LOC106'</item> 
+      <item>'$LOC105'</item> 
+      <item>'$LOC107'</item> 
+     </combobox>
+    </vbox>
+   </hbox>
+  </frame>
+  <text height-request="150"><label>""</label></text>'
+  [ "$SHUTDOWN" = "true" ] && S=$S'
+  <hbox homogeneous="true"><hbox>
+   <pixmap icon_size="5"><input file stock="gtk-refresh"></input></pixmap>
+   <button width-request="180">
+    <label>" '$LOC119' "</label>
+    <action>reboot</action>
+   </button>
+   <pixmap icon_size="5"><input file stock="gtk-refresh"></input></pixmap>
+  </hbox></hbox>
+  <hbox homogeneous="true"><hbox>
+   <pixmap icon_size="5"><input file stock="gtk-stop"></input></pixmap>
+   <button width-request="180">
+    <label>" '$LOC118' "</label>
+    <action>wmpoweroff</action>
+   </button>
+   <pixmap icon_size="5"><input file stock="gtk-stop"></input></pixmap>
+  </hbox></hbox>'
+ S=$S'</vbox>
+</hbox>
+</window>'
+export PPROCESS="`echo "$S" | sed 's/##.*//'`" #I use double hash (##) for comments. --> as #FF0000
+
+gtkdialog3 -p PPROCESS
+
