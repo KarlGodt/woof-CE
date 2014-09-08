@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+echo >>/tmp/xarchive_errs.log
 
 # set up exit status variables
 E_UNSUPPORTED=65
@@ -40,8 +41,10 @@ TAR_PROG="tar"
 # the shifting will leave the files passed as
 # all the remaining args "$@"
 opt="$1"
+echo opt $opt >>/tmp/xarchive_errs.log
 shift 1
 archive="$1"
+echo archive $archive >>/tmp/xarchive_errs.log
 shift 1
 
 
@@ -57,18 +60,18 @@ TAR_EXTRACT_OPTS="-xf"
 case "$opt" in
     -i) # info: output supported extentions for progs that exist
         if [ ! "$AWK_PROG" ]; then
-            echo none of the awk programs $AWK_PROGS found >/dev/stderr
-            echo extentions $EXTS ignored >/dev/stderr
+            echo none of the awk programs $AWK_PROGS found >>/tmp/xarchive_errs.log
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         elif [ ! "$(which $TAR_PROG)" ]; then
-            echo $TAR_PROG required by $0, but not found >/dev/stderr
-            echo extentions $EXTS ignored >/dev/stderr
+            echo $TAR_PROG required by $0, but not found >>/tmp/xarchive_errs.log
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         elif [ "$(which $DEB_PROG)" ]; then
             for ext in $EXTS; do
                 printf "%s;" $ext
             done
         else
-            echo program $DEB_PROG not found > /dev/stderr 
-            echo extentions $EXTS ignored > /dev/stderr
+            echo program $DEB_PROG not found >>/tmp/xarchive_errs.log 
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
