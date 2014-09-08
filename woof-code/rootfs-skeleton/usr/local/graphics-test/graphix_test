@@ -1,0 +1,75 @@
+#!/bin/bash
+#simple script to determine what graphics package to use
+
+rm -f /tmp/nvidia-table 2>/dev/null
+rm -f /tmp/luci_recomend 2>/dev/null
+rm -f /tmp/card_brand 2>/dev/null
+#define working directorys
+APPDIR="/usr/local/graphics-test"
+
+NVIDIA_SITE="http://www.nvidia.com/object/unix.html"
+
+MODEL=`lspci|grep -iw vga|cut -d ':' -f3`
+BRAND=`echo $MODEL|awk '{print $1}'`
+MODEL_TEST=`echo $MODEL|cut -d '[' -f2|cut -d ']' -f1|awk '{print $1}'|head -c6`
+
+if [[ $MODEL_TEST = GeForc || $MODEL_TEST = Quadro ]];then MODEL_NUM=`echo $MODEL|cut -d '[' -f2|cut -d ']' -f1|awk '{print $2}'`
+	elif [[ $MODEL_TEST = ION ]];then MODEL_NUM="ION" 
+	elif [[ $MODEL_TEST = Riva || $MODEL_TEST = Vanta || $MODEL_TEST = Vanta/Vanta || $MODEL_TEST = Vanta/ || $MODEL_TEST = TNT ]];then MODEL_NUM="OLD"
+fi
+MODEL_SLASH=`echo $MODEL_NUM|grep '/'`
+if [ "$MODEL_SLASH" != "" ];then MODEL_NUM=`echo "$MODEL_SLASH"|cut -d '/' -f1`
+fi
+if [[ $MODEL_NUM = GT ]];then MODEL_NUM=`echo $MODEL|cut -d '[' -f2|cut -d ']' -f1|awk '{print $3}'`
+fi
+
+#MODEL_NUM=`echo $MODEL|cut -d '[' -f2|cut -d ']' -f1|awk '{print $2 echo " " $3 echo " " $4 echo " " $5}'|sed 's/[ ]*$//'`
+#ION_CHIP=`echo $MODEL|grep -iw "ION"`
+#if [ "$ION_CHIP" != "" ];then MODEL_NUM="ION"
+#fi
+echo "$BRAND" > /tmp/card_brand
+echo "#nvidia-table" > /tmp/nvidia-table
+
+if [[ $MODEL_TEST = GeForc ]];then
+  [[ `grep "$MODEL_NUM" $APPDIR/nv-71` != "" ]]&& echo "71" >> /tmp/nvidia-table #Xorg doesn't support these old girls so they are assigned "$OLD" 
+  [[ `grep "$MODEL_NUM" $APPDIR/nv-96G` != "" ]]&& echo "nvidia-96.43.16" >> /tmp/nvidia-table
+  [[ `grep "$MODEL_NUM" $APPDIR/nv-173G` != "" ]]&& echo "nvidia-173.14.25" >> /tmp/nvidia-table
+  [[ `grep "$MODEL_NUM" $APPDIR/nv-256G` != "" ]]&& echo "nvidia-256.35" >> /tmp/nvidia-table
+	else
+	[[ `grep "$MODEL_NUM" $APPDIR/nv-71` != "" ]]&& echo "71" >> /tmp/nvidia-table
+	[[ `grep "$MODEL_NUM" $APPDIR/nv-96` != "" ]]&& echo "nvidia-96.43.16" >> /tmp/nvidia-table
+    [[ `grep "$MODEL_NUM" $APPDIR/nv-173` != "" ]]&& echo "nvidia-173.14.25" >> /tmp/nvidia-table
+    [[ `grep "$MODEL_NUM" $APPDIR/nv-256` != "" ]]&& echo "nvidia-256.35" >> /tmp/nvidia-table
+fi	
+
+DRIVER=`head -n3 /tmp/nvidia-table|grep -v "#"`
+LINES=`wc -l /tmp/nvidia-table|awk '{print $1}'`
+DRIVER1=`head -n2 /tmp/nvidia-table|grep -v "#"`
+DRIVER2=`head -n3 /tmp/nvidia-table|grep -v $DRIVER1|grep -v "#"`
+if [ "$DRIVER" = "71" ];then DRIVER="Xorg High"
+fi
+#is quickpet running?
+QUICKPET=`ps  | grep -w "quickpack" | grep -v "grep"`
+if [ "$QUICKPET" != "" ];then OPTION="below"
+	else OPTION="in Quickpet under Drivers"
+fi
+RECO1="For your nVidia video card, $MODEL we think the best add on driver is ${DRIVER}. It would be required for some programs and games with high graphical content and your desktop might seem a bit more snappy. It is available ${OPTION}"
+RECO2="For your nVidia card, $MODEL we think the best add on driver is $DRIVER1 or $DRIVER2. It would be required for some programs and games with high graphical content and your desktop might seem a bit more snappy. They are available ${OPTION}"
+RECO3="For your $BRAND graphics card, $MODEL , we think the best add on driver is Xorg_High.pet . It would be required for some programs and games with high graphical content and your desktop might seem a bit more snappy. It is available in Quickpet under Drivers"
+if [[ $BRAND != nVidia ]];then RECOMEND="$RECO3"
+	else  
+		if [ "$LINES" = "2" ];then
+		RECOMEND="$RECO1"
+			elif [ "$LINES" = "3" ];then
+		RECOMEND="$RECO2"
+			elif [ "$LINES" = "1" ];then
+		RECOMEND="$RECO3"
+		fi
+fi
+echo "$RECOMEND" > /tmp/luci_recomend
+echo "$RECOMEND"
+echo $MODEL
+echo $BRAND
+echo $MODEL_TEST
+echo $MODEL_NUM
+###END
