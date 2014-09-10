@@ -32,7 +32,7 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #************
 
 
-[ "`echo $@ | grep ' *--silent *'`" != "" ] && SILENT=true || SILENT=false #v431
+[ "`echo "$@" | grep ' *--silent *'`" != "" ] && SILENT=true || SILENT=false #v431
 KERNVER=`uname -r`
 ZDRV='' #set in PUPSTATE.
 #variables created at bootup by init script in initrd...
@@ -41,9 +41,9 @@ ZDRV='' #set in PUPSTATE.
 . /etc/rc.d/functions4puppy4
 
 MODITEMS=""
-for ONEMOD in `lsmod | grep -v '^Module ' | cut -f 1 -d ' ' | tr '\n' ' '`
+for oneMOD in `lsmod | grep -v '^Module ' | cut -f 1 -d ' '`
 do
- MODITEMS="$MODITEMS<item>$ONEMOD</item>"
+ MODITEMS="$MODITEMS<item>$oneMOD</item>"
 done
 
 #PCINUMS=`lspci -n | tr -s " " | cut -f 4 -d " " | tr "\n" " "`
@@ -73,10 +73,10 @@ Simplified information only is displayed here:
  elspci -l  >> /tmp/chipnummod.txt
 else
  scanpci 2>>/tmp/chipnummod.txt |
- while read ONELINE
+ while read oneLINE
  do
-  VENDOR=`echo -n "$ONELINE" | grep '^pci' | grep -o 'vendor .*' | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
-  CHIPNO=`echo -n "$ONELINE" | grep '^pci' | grep -o 'device .*' | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
+  VENDOR=`echo -n "$oneLINE" | grep '^pci' | grep -o 'vendor .*' | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
+  CHIPNO=`echo -n "$oneLINE" | grep '^pci' | grep -o 'device .*' | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
   if [ "$VENDOR" ];then
    read NEXTLINE
    CHIPDESC=`echo -n "$NEXTLINE" | cut -f 2 -d '[' | cut -f 2 -d ']'`
@@ -89,9 +89,9 @@ else
    if [ "$MODULE" = "unknown" ];then
     #find out if it is a usb module...
     UPATTERN=" ${VENDOR}:${CHIPNO} "
-    [ ! "`elspci -l | grep -i "$UPATTERN" | grep '0C0300'`" = "" ] && MODULE="uhci-hcd"
-    [ ! "`elspci -l | grep -i "$UPATTERN" | grep '0C0310'`" = "" ] && MODULE="ohci-hcd"
-    [ ! "`elspci -l | grep -i "$UPATTERN" | grep '0C0320'`" = "" ] && MODULE="ehci-hcd"
+    [ "`elspci -l | grep -i "$UPATTERN" | grep '0C0300'`" != "" ] && MODULE="uhci-hcd"
+    [ "`elspci -l | grep -i "$UPATTERN" | grep '0C0310'`" != "" ] && MODULE="ohci-hcd"
+    [ "`elspci -l | grep -i "$UPATTERN" | grep '0C0320'`" != "" ] && MODULE="ehci-hcd"
    fi
       echo "DESCRIPTION: $CHIPDESC" >> /tmp/chipnummod.txt
    echo "VENDOR: $VENDOR  DEVICE: $CHIPNO  KERNEL MODULE: $MODULE" >> /tmp/chipnummod.txt
@@ -116,7 +116,12 @@ fi
 ;;
 *) :;;
 esac
-grep $QUIET debugfs /proc/filesystems && mount -t debugfs debugfs /sys/kernel/debug
+
+grep $QUIET debugfs /proc/filesystems && {
+    grep $QUIET ' /sys/kernel/debug ' /proc/mounts || {
+    mount -t debugfs debugfs /sys/kernel/debug
+    }
+}
 
 test -f /proc/bus/usb/devices && USB_DEVICES_FILE=/proc/bus/usb/devices
 test -f /sys/kernel/debug/usb/devices && USB_DEVICES_FILE=/sys/kernel/debug/usb/devices
@@ -136,15 +141,15 @@ USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
 
 
   #USBNUMS=`cat /proc/bus/usb/devices | grep '^P: ' | tr -s ' ' | cut -f 2-3 -d ' ' | tr ' ' '|' | tr [A-Z] [a-z] | tr '\n' ' '`
-  USBNUMS=`cat "$USB_DEVICES_FILE" | grep '^P: ' | tr -s ' ' | cut -f 2-3 -d ' ' | tr ' ' '|' | tr [A-Z] [a-z] | tr '\n' ' '`
+  USBNUMS=`cat "$USB_DEVICES_FILE" | grep '^P: ' | tr -s ' ' | cut -f 2-3 -d ' ' | tr ' ' '|' | tr [A-Z] [a-z]`
 
-  for ONENUM in $USBNUMS
+  for oneNUM in $USBNUMS
   do
-   VENDOR=`echo -n "$ONENUM" | cut -f 1 -d '|' | cut -f 2 -d '='`
-   PRODUCT=`echo -n "$ONENUM" | cut -f 2 -d '|' | cut -f 2 -d '='`
-   ONEUSB="0x${VENDOR} 0x${PRODUCT}"
+   VENDOR=`echo -n "$oneNUM" | cut -f 1 -d '|' | cut -f 2 -d '='`
+   PRODUCT=`echo -n "$oneNUM" | cut -f 2 -d '|' | cut -f 2 -d '='`
+   oneUSB="0x${VENDOR} 0x${PRODUCT}"
 
-   [ "$ONEUSB" = "0x0000 0x0000" ] && continue
+   [ "$oneUSB" = "0x0000 0x0000" ] && continue
 
    YESPARA=no
    USBMODULE=""
@@ -153,22 +158,22 @@ USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
 
    #cat /proc/bus/usb/devices 2>>/tmp/usbchipnummod.txt | tr -s ' ' |
    cat "$USB_DEVICES_FILE" 2>>/tmp/usbchipnummod.txt | tr -s ' ' |
-   while read ONELINE
+   while read oneLINE
    do
     zPATTERN="Vendor=${VENDOR} ProdID=${PRODUCT}"
-    [ "`echo -n "$ONELINE" | grep "$zPATTERN"`" != "" ] && YESPARA=yes
+    [ "`echo -n "$oneLINE" | grep "$zPATTERN"`" != "" ] && YESPARA=yes
     if [ "$YESPARA" = "yes" ];then
-     xDRIVER=`echo -n "$ONELINE" | grep '^I:' | grep -o ' Driver=.*' | cut -f 2 -d '='`
+     xDRIVER=`echo -n "$oneLINE" | grep '^I:' | grep -o ' Driver=.*' | cut -f 2 -d '='`
      [ "$xDRIVER" != "" ] && echo -n "$xDRIVER" > /tmp/usbmodulexxx
-     xDESCR=`echo -n "$ONELINE" | grep '^S:' | cut -f 2-20 -d ' '`
+     xDESCR=`echo -n "$oneLINE" | grep '^S:' | cut -f 2-20 -d ' '`
      [ "$xDESCR" != "" ] && echo "$xDESCR" >> /tmp/usbdevdescr
-     [ "$ONELINE" = "" ] && break
+     [ "$oneLINE" = "" ] && break
     fi
    done
    [ ! -s /tmp/usbdevdescr ] && [ "`grep ' ' /tmp/usbmodulexxx`" != "" ] && echo "Product=`cat /tmp/usbmodulexxx`" > /tmp/usbdevdescr && rm /tmp/usbmodulexxx #v425
    [ -f /tmp/usbmodulexxx ] && USBMODULE=`cat /tmp/usbmodulexxx`
 
-   [ "$USBMODULE" = "" ] && USBMODULE=`echo "$USBMODINFO" | grep "$ONEUSB" | cut -f 3 -d ' ' | tail -n 1` #v425
+   [ "$USBMODULE" = "" ] && USBMODULE=`echo "$USBMODINFO" | grep "$oneUSB" | cut -f 3 -d ' ' | tail -n 1` #v425
 
    #echo "DESCRIPTION: $CHIPDESC" >> /tmp/usbchipnummod.txt
    cat /tmp/usbdevdescr >> /tmp/usbchipnummod.txt
@@ -196,8 +201,8 @@ USBMODINFO="`cat /lib/modules/$KERNVER/modules.alias | tr -s " " | grep '^alias 
 
 fi
 
-MAINDIALOG="
-<wtitle>Puppy hardware-interfaces information</wtitle>
+
+MAINDIALOG="<wtitle>Puppy hardware-interfaces information</wtitle>
 <hbox>
  <vbox>
 
@@ -261,6 +266,8 @@ MAINDIALOG="
 </hbox>
 "
 
+#  <label>INFO                              | Info two                                                      | further info</label>
+
 #  <frame Other interfaces>
 #  <hbox>
 #   <text><label>Information about USB interfaces:</label></text>
@@ -274,23 +281,43 @@ MAINDIALOG="
 #  </frame>
 
 rm -f /tmp/hwproberesult.txt #v425 erase stale info
+#touch /tmp/hwproberesult.txt
 
-if [ "`which scanpci`" = "" ];then
- echo 'echo "This must be a cutdown Puppy that does not have the scanpci utility
+if [ "`which scanpci`" != "" ];then
+ echo "echo 'This must be a cutdown Puppy that does not have the scanpci utility
 (which is part of the Xorg package). So, cannot give a detailed
 report on the PCI bus. Instead can display this summary only. The
-most useful information here is the vendor:chip numbers (column-3):
-" >/tmp/hwproberesult.txt
-lspci -n >>/tmp/hwproberesult.txt'  >/tmp/hwprobescanpci
+most useful information here is the 'vendor:chip' numbers (column 4):
+' >/tmp/hwproberesult.txt
+
+test -f /usr/share/pci.ids.gz && PCI_IDS_FILE=/usr/share/pci.ids.gz
+test -f /usr/share/pci.ids && PCI_IDS_FILE=/usr/share/pci.ids
+test -f /usr/share/misc/pci.ids.gz && PCI_IDS_FILE=/usr/share/misc/pci.ids.gz
+test -f /usr/share/misc/pci.ids && PCI_IDS_FILE=/usr/share/misc/pci.ids
+
+lspci -Q && QueryNET=-Q
+lspci -q && queryNET=-q
+lspci -k && showKERNEL=-k
+
+if [ -e \$PCI_IDS_FILE ]; then
+lspci -i \$PCI_IDS_FILE $QueryNET $showKERNEL >>/tmp/hwproberesult.txt
+else
+lspci $queryNET $showKERNEL >>/tmp/hwproberesult.txt
+fi
+lspci -n >>/tmp/hwproberesult.txt
+">/tmp/hwprobescanpci
+
 else
  #echo '#!/bin/sh' >/tmp/hwprobescanpci.sh
  echo 'scanpci >/tmp/hwproberesult.txt' >/tmp/hwprobescanpci
 fi
 chmod 755 /tmp/hwprobescanpci
 
-echo 'lsmod >/tmp/hwproberesult.txt' >/tmp/hwprobelsmod
+#echo 'lsmod | sed "s/\ /|/g" | tr -s "|" >/tmp/hwproberesult.txt 2>&1' >/tmp/hwprobelsmod
+echo 'lsmod >/tmp/hwproberesult.txt 2>&1' >/tmp/hwprobelsmod
 chmod 755 /tmp/hwprobelsmod
-echo 'modinfo $1 > /tmp/hwproberesult.txt 2>&1' >/tmp/hwprobemodinfo
+#echo 'modinfo $1 | sed "s/\ /|/" >/tmp/hwproberesult.txt 2>&1' >/tmp/hwprobemodinfo
+echo 'modinfo $1 >/tmp/hwproberesult.txt 2>&1' >/tmp/hwprobemodinfo
 chmod 755 /tmp/hwprobemodinfo
 
 #v3.98 improved...
@@ -313,7 +340,8 @@ echo 'style "specialmono"
 }
 
 class "GtkText*" style "specialmono"' > /tmp/gtkrc_mono
-export GTK2_RC_FILES=/tmp/gtkrc_mono:/root/.gtkrc-2.0
+export GTK2_RC_FILES=/tmp/gtkrc_mono
+#:$HOME/.gtkrc-2.0
 
 
 [ $SILENT != true ] && RETSTRING=`echo "$MAINDIALOG" | gtkdialog2 --stdin` #v431
