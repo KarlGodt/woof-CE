@@ -1282,19 +1282,19 @@ killDhcpcd(){
     if [ -d /var/lib/dhcpcd ] ; then
       if [ -s /var/run/dhcpcd-${INTERFACE}.pid ] ; then
         kill $( cat /var/run/dhcpcd-${INTERFACE}.pid )
-        rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null
+        rm -f /var/run/dhcpcd-${INTERFACE}.* 2>$ERR
       fi
       #begin rerwin - Retain duid, if any, so all interfaces can use
       #it (per ipv6) or delete it if using MAC address as client ID.    rerwin
-      rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>/dev/null  #.info
+      rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>$ERR  #.info
 #end rerwin
       #rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
     elif [ -d /etc/dhcpc ];then
       if [ -s /etc/dhcpc/dhcpcd-${INTERFACE}.pid ] ; then
         kill $( cat /etc/dhcpc/dhcpcd-${INTERFACE}.pid )
-        rm /etc/dhcpc/dhcpcd-${INTERFACE}.pid 2>/dev/null
+        rm -f /etc/dhcpc/dhcpcd-${INTERFACE}.pid 2>$ERR
       fi
-      rm /etc/dhcpc/dhcpcd-${INTERFACE}.* 2>/dev/null
+      rm -f /etc/dhcpc/dhcpcd-${INTERFACE}.* 2>$ERR
       #if left over from last session, causes trouble.
     fi
 } # end killDhcpcd
@@ -1991,7 +1991,7 @@ runPrismScan()
       # get scan results for all access points
       for P in $(seq 0 $POINTNUM)
       do
-        wlanctl-ng "$INTERFACE" dot11req_scan_results bssindex=$P >/tmp/prism-scan$P 2>/dev/null
+        wlanctl-ng "$INTERFACE" dot11req_scan_results bssindex=$P >/tmp/prism-scan$P 2>$ERR
       done
       echo "X"
     else # let us know it failed
