@@ -1,8 +1,8 @@
 #!/bin/sh
 # log a file tail
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=pup_monitor_xerrs.sh
+_COMMENT_="Cli to show /tmp/xerrs.log in console"
 
 MY_SELF="$0"
 
