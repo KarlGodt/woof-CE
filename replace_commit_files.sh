@@ -39,6 +39,12 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
  test "$ONE_FILE" || continue
  test -L "$ONE_FILE" && continue
 
+ test -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || {
+     echo "$ONE_DIR_IN_SYSTEM/$ONE_FILE does not exist"
+     cp -a "$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
+     continue
+    }
+
  test -f "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || continue
 
  case "$ONE_FILE" in
