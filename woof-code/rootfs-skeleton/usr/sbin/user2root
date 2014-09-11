@@ -1,8 +1,8 @@
 #!/bin/sh
 #(c) copyright Barry Kauler, May 2013, bkhome.org
 #License GPL3 (refer /usr/share/doc/legal).
-#called from /usr/sbin/loginmanager, to change back to 'root'.
-#may also be called standalone.
+# Called from /usr/sbin/loginmanager, to change back to 'root'.
+# May also be called standalone.
 #130527 first version.
 
 NOWUSER="`whoami`"
@@ -11,8 +11,8 @@ NOWUSER="`whoami`"
 export TEXTDOMAIN=user2root
 export OUTPUT_CHARSET=UTF-8
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=pup_change_root_to_user
+_COMMENT_="Cli to alter /etc/inittab"
 
 MY_SELF="$0"
 
@@ -23,7 +23,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG=""
+ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -32,13 +32,35 @@ _trap
 
 
 #change auto login back to root...
-rootEXPR="s%^tty1.*%tty1::respawn:/sbin/mingetty --autologin root tty1%"
-sed -i -e "$rootEXPR" /etc/inittab #110507 TaZOC bug fix.
-#120409 if using minit instead of busybox init...
-if [ -f /etc/minit/getty/1/params  ];then #see my minit pet pkg.
- EXPR2='s%^fido$%root%'
- sed -i -e "$EXPR2" /etc/minit/getty/1/params
+if grep $QUIET '^tty1.*/sbin/mingetty \-\-autologin root tty1' /etc/inittab; then
+ rootEXPR="s%^tty1::respawn.*%tty1::respawn:/sbin/mingetty --autologin root tty1%"
+ sed -i -e "$rootEXPR" /etc/inittab #110507 TaZOC bug fix.
+ STATUS=$((STATUS+$?))
+ #120409 if using minit instead of busybox init...
+ if [ -f /etc/minit/getty/1/params  ];then #see my minit pet pkg.
+  EXPR2='s%^fido$%root%'
+  sed -i -e "$EXPR2" /etc/minit/getty/1/params
+  STATUS=$((STATUS+$?))
+ fi
+elif grep $QUIET '^tty1::respawn:.* login .*' /etc/inittab; then
+ rootEXPR="s%^tty1::respawn.*%tty1::respawn:/sbin/getty -n -l /bin/autologinroot 38400 tty1%"
+ sed -i -e "$rootEXPR" /etc/inittab
+ STATUS=$((STATUS+$?))
 fi
-pupmessage -bg green -center -title "$(gettext 'Login Manager: OK')" "$(gettext 'Ok, you will be administrator at next boot')"
+
+[ "$STATUS" ] || STATUS=0
+test "$STATUS" = 0 && {
+    [ "$DISPLAY" ] && {
+    pupmessage -bg green -center -title "$(gettext 'Login Manager: OK')" "$(gettext 'Ok, you will be administrator at next boot')"
+    } || {
+    gettext 'Login Manager: Ok, you will be administrator at next boot'
+    }
+} || {
+    [ "$DISPLAY" ] && {
+    pupmessage -bg red -center -title "$(gettext 'Login Manager: Fail')" "$(gettext 'Something went wrong altering /etc/inittab')"
+    } || {
+    gettext 'Login Manager: Failure, something went wrong altering /etc/inittab'
+    }
+}
 
 ###END###
