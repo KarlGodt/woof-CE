@@ -2,8 +2,8 @@
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 # This is very primitive script to create desktop shortcut.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_Shortcut
+_COMMENT_="Xdialog GUI to create desktop shortcut"
 
 MY_SELF="$0"
 
