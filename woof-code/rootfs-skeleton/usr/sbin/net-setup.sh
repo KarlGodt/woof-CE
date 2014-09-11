@@ -1,13 +1,14 @@
 #!/bin/bash
 #(c) copyright Barry Kauler 2004 www.puppylinux.org
-#Puppy ethernet network setup script.
-#I got some bits of code from:
+# Puppy ethernet network setup script.
+# I got some bits of code from:
 # trivial-net-setup, by Seth David Schoen <schoen@linuxcare.com> (c)2002
 # and the little executables and, or, dotquad from the
 # lnx-bbx Linux project. ipcalc app from Redhat 7.
 # Thanks to GuestToo and other guys on the Puppy Forum for bug finding.
 # Rarsa (Raul Suarez) reorganized the code and cleaned up the user interface
 # Ported to gtkdialog3 and abused by Dougal, June 2007
+#
 # Update: Jul.  4th: redesign main dialog, change "Load module" dialog
 # Update: Jul. 10th: change INTERFACEBUTTONS format, add findInterfaceInfo function
 # Update: Jul. 11th: move findLoadedModules into tryLoadModule
@@ -72,15 +73,13 @@
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
 
-
+__old_header__(){
 #************
 #KRG
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 
 Version=1.1-KRG-MacPup_O2
 
@@ -95,13 +94,11 @@ exit $1
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 
 #KRG
 #************
-
+}
 
 APPDIR="$(dirname $0)"
 [ "$APPDIR" = "." ] && APPDIR="$(pwd)"
