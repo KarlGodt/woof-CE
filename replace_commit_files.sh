@@ -35,7 +35,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
  FILES=`ls -1v`
 
  while read ONE_FILE; do
- echo "ONE_FILE='$ONE_FILE'"
+ [ "$DEBUG" ] && echo "ONE_FILE='$ONE_FILE'"
  test "$ONE_FILE" || continue
  test -L "$ONE_FILE" && continue
 
@@ -49,7 +49,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  case "$ONE_FILE" in
  *.gz|*.xpm|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|*.jpg|fonts.*|*.pcf|*.png|*.so|*.so.conf|*.svg|yaf-splash)
- echo "Skipping '$ONE_FILE'"; continue;;
+ [ "$DEBUG" ] && echo "Skipping '$ONE_FILE'"; continue;;
  esac
 
  [ -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ] && {
