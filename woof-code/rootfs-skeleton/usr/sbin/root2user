@@ -8,8 +8,8 @@
 #120409 if using minit instead of busybox init.
 #130528 change /root/.Diricon. No, revert.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_="Puppy_Change_root_to_user"
+_COMMENT_="dialogs to change root to USER"
 
 MY_SELF="$0"
 
@@ -20,7 +20,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG=""
+ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -30,7 +30,8 @@ _trap
 . /etc/rc.d/PUPSTATE
 
 #ask for a username? i don't think that is required.
-NEWUSER='fido'
+[ "$*" ] && NEWUSER="$1"
+[ "$NEWUSER" ] || NEWUSER='fido'
 
 #have pre-created these entries in Woof...
 ## -D means no password, -h specifies home dir, -G is group...
@@ -84,12 +85,21 @@ esac
 #chown -h -R ${NEWUSER}:users /tmp
 
 #modify /etc/inittab to autologin as fido...
-userEXPR='s%autologin root %autologin fido %'
-sed -i -e "$userEXPR" /etc/inittab
-#120409 if using minit instead of busybox init...
-if [ -f /etc/minit/getty/1/params  ];then #see my minit pet pkg.
- EXPR2='s%^root$%fido%'
- sed -i -e "$EXPR2" /etc/minit/getty/1/params
+
+if grep $QUIET '^tty1.*/sbin/mingetty \-\-autologin root tty1' /etc/inittab; then
+ userEXPR="s%autologin root %autologin $NEWUSER %"
+ sed -i -e "$userEXPR" /etc/inittab
+  STATUS=$((STATUS+$?))
+ #120409 if using minit instead of busybox init...
+ if [ -f /etc/minit/getty/1/params  ];then #see my minit pet pkg.
+  EXPR2="s%^root$%${NEWUSER}%"
+  sed -i -e "$EXPR2" /etc/minit/getty/1/params
+  STATUS=$((STATUS+$?))
+ fi
+elif grep $QUIET '^tty1.*/bin/autologinroot.*tty1' /etc/inittab; then
+ userEXPR="s%tty1::respawn:/sbin/getty -n -l /bin/autologinroot 38400 tty1%tty1::respawn:/sbin/getty -n -l login -f $NEWUSER 38400 tty1"
+ sed -i -e "$userEXPR" /etc/inittab
+ STATUS=$((STATUS+$?))
 fi
 
 #stuff from pizzasgood, http://www.murga-linux.com/puppy/viewtopic.php?t=47410
@@ -97,15 +107,20 @@ fi
 #on next boot, so have changed them in rootfs-skeleton also...
 # ...oh, i think snapmergepuppy (when boot from usb) does not save /dev.
 busybox chmod 770 /dev/zero
+STATUS=$((STATUS+$?))
 busybox chmod 770 /dev/ptmx
+STATUS=$((STATUS+$?))
 #set the setuid bit...
 busybox chmod u+s `which ddcprobe`
-[ "`which Xvesa`" ] && busybox chmod u+s `which Xvesa`
-[ "`which Xorg`" ] && busybox chmod u+s `which Xorg`
+STATUS=$((STATUS+$?))
+[ "`which Xvesa`" ] && { busybox chmod u+s `which Xvesa`;STATUS=$((STATUS+$?)); }
+[ "`which Xorg`" ]  && { busybox chmod u+s `which Xorg`; STATUS=$((STATUS+$?)); }
 
 #120317 L18L: ref http://murga-linux.com/puppy/viewtopic.php?t=71358&start=60
 chgrp users /dev/console
+STATUS=$((STATUS+$?))
 chmod g+w /dev/console
+STATUS=$((STATUS+$?))
 
 #pizzasgood... have done this in rootfs-skeleton...
 #have the "audio" group own the audio devices
@@ -124,6 +139,7 @@ chmod g+w /dev/console
 
 #busybox has to be configured with CONFIG_FEATURE_SUID_CONFIG (ex: busybox-1.17.2-1-w5.pet)
 busybox chmod u+s `which busybox`
+STATUS=$((STATUS+$?))
 #see docs on busybox.conf at: http://www.softforge.de/bb/suid.html
 #also: http://www.slitaz.org/en/doc/scratchbook/base-system.html
 echo '[SUID]
@@ -138,19 +154,36 @@ umount = ssx root.root
 ps = ssx root.0
 kill = ssx root.0
 ' > /etc/busybox.conf
-
+STATUS=$((STATUS+$?))
 
 #i made /dev/pts 777 (was 707) in rootfs-skeleton in Woof.
 
 
 #optional, change root password, and require password to 'su root'...
 #ROOTPASSWORD="`${DIALOGEXE} --screen-center --stdout --nocancel --inputbox "Please enter a password for the administrator (root).\nLogin as fido does not require a password, so at bootup you will go directly to\nthe desktop. This is also the case if you had chosen to run as administrator.\nHowever, having chosen the restricted fido user, you will be required to enter\na password whenever you want to perform an operation that requires admin\npriviledges.\n\nPLEASE REMEMBER THIS PASSWORD" 0 0 ""`"
-ROOTPASSWORD="`${DIALOGEXE} ${BACKGROUNDYELLOW} ${TITLEPARAM} "First shutdown: ask admin password" --stdout --nocancel --inputbox "Please enter a password for the administrator (root), minimum six characters.\n\nLogin as fido does not require a password, so at bootup you will go directly to the desktop. This is also the case if you had chosen to run as administrator. However, having chosen the restricted fido user, you will be required to enter a password whenever you want to perform an operation that requires admin priviledges.\n\nPLEASE REMEMBER THIS PASSWORD" 0 0 ""`"
+if [ "`pidof shutdownconfig`" ]; then
+ROOTPASSWORD="`${DIALOGEXE} ${BACKGROUNDYELLOW} ${TITLEPARAM} "First shutdown: ask admin password" --stdout --nocancel --inputbox "Please enter a password for the administrator (root), minimum six characters.\n\nLogin as $NEWUSER does not require a password, so at bootup you will go directly to the desktop. This is also the case if you had chosen to run as administrator. However, having chosen the restricted fido user, you will be required to enter a password whenever you want to perform an operation that requires admin priviledges.\n\nPLEASE REMEMBER THIS PASSWORD" 0 0 ""`"
 echo "root:${ROOTPASSWORD}" | busybox chpasswd #--md5
 #sudo asks for user password, not root, simple solution give same password to both...
 #(that is the default, but i have specified runaspw in /etc/sudoers to ask for root pw)
-echo "fido:${ROOTPASSWORD}" | busybox chpasswd #--md5
-
+echo "$NEWUSER:${ROOTPASSWORD}" | busybox chpasswd #--md5
+STATUS=$((STATUS+$?))
 #note, /usr/sbin/loginmanager enables to change back to root afterward.
+fi
+
+[ "$STATUS" ] || STATUS=0
+test "$STATUS" = 0 && {
+    [ "$DISPLAY" ] && {
+    pupmessage -bg green -center -title "$(gettext 'root2user: OK')" "$(gettext 'Ok, you will be $NEWUSER at next boot')"
+    } || {
+    gettext "root2user: Ok, you will be '$NEWUSER' at next boot"
+    }
+} || {
+    [ "$DISPLAY" ] && {
+    pupmessage -bg red -center -title "$(gettext 'root2user: Fail')" "$(gettext 'Something went wrong altering /etc/inittab')"
+    } || {
+    gettext 'root2user: Failure, something went wrong altering /etc/inittab'
+    }
+}
 
 ###END###
