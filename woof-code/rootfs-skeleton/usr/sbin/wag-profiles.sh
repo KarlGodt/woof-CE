@@ -222,7 +222,7 @@ setupDHCP()
   </hbox>
  </vbox>
 </window>"
-        gtkdialog3 --program=Dhcpcd_Progress_Dialog <$PROGRESS_OUTPUT >/dev/null &
+        gtkdialog3 --program=Dhcpcd_Progress_Dialog <$PROGRESS_OUTPUT >$OUT &
         local XPID=$!
     else
         local PROGRESS_OUTPUT=$DEBUG_OUTPUT
@@ -282,7 +282,7 @@ setupDHCP()
 
     ## Clean up:
     if [ -n "$XPID" ] ;then
-        kill $XPID >/dev/null 2>&1
+        kill $XPID >$OUT 2>&1
         # any rogue gtkdialog processes
         clean_up_gtkdialog Dhcpcd_Progress_Dialog
     fi
@@ -452,7 +452,7 @@ showProfilesWindow()
  #</vbox>
 #</window>"
 
-    #gtkdialog3 --program NETWIZ_No_WPA_Dialog >/dev/null 2>&1
+    #gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
     #clean_up_gtkdialog NETWIZ_No_WPA_Dialog
     #unset NETWIZ_No_WPA_Dialog
 #}
@@ -1206,7 +1206,7 @@ giveErrorDialog(){
  </vbox>
 </window>"
 
-    gtkdialog3 --program NETWIZ_ERROR_DIALOG >/dev/null 2>&1
+    gtkdialog3 --program NETWIZ_ERROR_DIALOG >$OUT 2>&1
     clean_up_gtkdialog NETWIZ_ERROR_DIALOG
     unset NETWIZ_ERROR_DIALOG
 }
@@ -1229,7 +1229,7 @@ giveErrorDialog(){
  #</vbox>
 #</window>"
 
-    #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >/dev/null 2>&1
+    #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >$OUT 2>&1
     #clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
     #unset NO_NETWORK_ERROR_DIALOG
 #}
@@ -1382,7 +1382,7 @@ useIwconfig ()
 
     #echo "X"
     if [ "$XPID" ] ;then
-      kill $XPID >/dev/null 2>&1
+      kill $XPID >$OUT 2>&1
       clean_up_gtkdialog NETWIZ_Connecting_DIALOG
     fi
     unset NETWIZ_Connecting_DIALOG
@@ -1442,7 +1442,7 @@ useWlanctl(){
 
     #echo "X"
     if [ "$XPID" ] ;then
-      kill $XPID >/dev/null 2>&1
+      kill $XPID >$OUT 2>&1
       clean_up_gtkdialog NETWIZ_Connecting_DIALOG
     fi
     unset NETWIZ_Connecting_DIALOG
@@ -1609,7 +1609,7 @@ $L_MESSAGE_No_Wpaconfig_p2"
     ####################################################################
   #| Xdialog --title "Puppy Ethernet Wizard" --progress "Acquiring WPA connection\n\nThere may be a delay up to 60 seconds." 0 0 20
     if [ "$XPID" ] ;then
-      kill $XPID >/dev/null 2>&1
+      kill $XPID >$OUT 2>&1
       clean_up_gtkdialog NETWIZ_Scan_Progress_Dialog
     fi
     unset NETWIZ_Scan_Progress_Dialog
@@ -1720,7 +1720,7 @@ waitForPCMCIA(){
     for i in 1 2 3 4 5 ; do
         sleep 1
         echo X
-    done | gtkdialog3 --program=NETWIZ_Wait_For_PCMCIA_Dialog >/dev/null
+    done | gtkdialog3 --program=NETWIZ_Wait_For_PCMCIA_Dialog >$OUT
     clean_up_gtkdialog NETWIZ_Wait_For_PCMCIA_Dialog
 } # end of waitForPCMCIA
 
@@ -1792,7 +1792,7 @@ buildScanWindow()
 
         #  Dougal: use files for the scan results, so we can try a few times
         #+ and see which is biggest (sometimes not all networks show)
-        rm /tmp/net-setup_scan*.tmp >/dev/null 2>&1
+        rm /tmp/net-setup_scan*.tmp >$OUT 2>&1
         iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
         echo "X"
 
@@ -1843,7 +1843,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
     ${SCANWINDOW_BUTTONS} 2> /dev/null" > /tmp/net-setup_scanwindow
         fi
         echo "X"
-    )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog >/dev/null
+    )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog >$OUT
     clean_up_gtkdialog NETWIZ_Scan_Progress_Dialog
 
     #Xdialog --title "Puppy Ethernet Wizard" --progress "Scanning wireless networks" 0 0 3
@@ -1980,11 +1980,11 @@ runPrismScan()
     wlanctl-ng "$INTERFACE" dot11req_scan bsstype=any \
      bssid=ff:ff:ff:ff:ff:ff ssid="" scantype=both \
       channellist="00:01:02:03:04:05:06:07:08:09:0a:0b:00:00" \
-       minchanneltime=200 maxchanneltime=250 >/tmp/prism-scan-all 2>/dev/null
+       minchanneltime=200 maxchanneltime=250 >/tmp/prism-scan-all 2>$ERR
     echo "X"
     # get number of access points (make sure we get integer)
     POINTNUM=$(grep -F 'numbss=' /tmp/prism-scan-all 2>/dev/null | cut -d= -f2 | grep [0-9])
-    rm /tmp/prism-scan-all >/dev/null 2>&1
+    rm /tmp/prism-scan-all >$OUT 2>&1
     ## Dougal: not sure about this -- need a way to make sure we get something
     #if grep -F 'resultcode=success' /tmp/prism-scan-all ; then
     if [ "$POINTNUM" ] ; then
@@ -2034,7 +2034,7 @@ buildPrismScanWindow()
       fi
     fi
     echo "X"
-  )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog >/dev/null
+  )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog >$OUT
     # clean up
     clean_up_gtkdialog NETWIZ_Scan_Progress_Dialog
 
