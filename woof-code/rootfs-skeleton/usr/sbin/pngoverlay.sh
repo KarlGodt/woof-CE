@@ -7,8 +7,8 @@
 #  bottom-image top-image output-image
 # overlays the two images, with common areas of transparency in output image.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=pngoverlay.sh
+_COMMENT_="Cli to merge images"
 
 MY_SELF="$0"
 
