@@ -1,11 +1,18 @@
 #!/bin/sh
 # Barry Kauler 2011 GPL3 (/usr/share/doc/legal)
-#pngoverlay.sh is an alternative to pngoverlay written by vovchik (in BaCon)
+# pngoverlay.sh is an alternative to pngoverlay written by vovchik (in BaCon)
 # (vovchik's pngoverlay requires X to be running, which may be a disadvantage)
-#requires netpbm svn rev 1543 or later, with pamcomp -mixtransparency
-#requires three params, 1st and 2nd must exist:
-# bottom-image top-image output-image
-#overlays the two images, with common areas of transparency in output image.
+# requires netpbm svn rev 1543 or later, with pamcomp -mixtransparency
+# requires three params, 1st and 2nd must exist:
+#  bottom-image top-image output-image
+# overlays the two images, with common areas of transparency in output image.
+
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 [ ! $3 ] && exit 1
 [ ! -e "$1" ] && exit 1
