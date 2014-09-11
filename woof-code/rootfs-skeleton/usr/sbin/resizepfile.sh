@@ -4,8 +4,8 @@
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_Increase_Pupsave
+_COMMENT_="Make the pup_save.2fs file bigger."
 
 MY_SELF="$0"
 
@@ -16,7 +16,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-ADD_HELP_MSG=""
+ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
     for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
