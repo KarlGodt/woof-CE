@@ -5,8 +5,8 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=pup_update_net_modules.sh
+_COMMENT_="Cli to create /etc/networkmodules file"
 
 MY_SELF="$0"
 
@@ -46,7 +46,10 @@ DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
 echo "Updating /etc/networkmodules..."
 
 DEPFORMAT='new'
-[ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old'
+case $KERNVER in
+2*)
+[ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old';;
+esac
 #v423 need better test, as now using busybox depmod...
 [ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" != "" ] && DEPFORMAT='old'
 
@@ -84,7 +87,7 @@ while read ONERAW
 do
  [ "$ONERAW" = "" ] && continue #precaution
  ONEBASE=`basename $ONERAW .ko`
- modprobe -vn $ONEBASE >/dev/null 2>&1
+ modprobe -vn $ONEBASE >$OUT 2>&1
  ONEINFO=`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`
  ONETYPE=`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
  ONEDESCR=`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
