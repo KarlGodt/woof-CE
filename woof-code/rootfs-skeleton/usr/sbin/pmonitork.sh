@@ -1,6 +1,13 @@
 #!/bin/sh
 # log a file tail
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
 #Xdialog --title "Monitoring tail of $1" --smooth --fixed-font --no-cancel --ok-label "Exit" --tailbox $1 18 95
 
 LINES1=0
@@ -11,6 +18,6 @@ while [ 1 ];do
   LINESDIFF=`expr $LINES2 - $LINES1`
   tail -n $LINESDIFF /var/log/messages
   LINES1=$LINES2
- fi 
+ fi
  sleep 1
 done
