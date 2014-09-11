@@ -19,13 +19,14 @@ which git || error "Git not in PATH"
 CURRENT_DIR=`pwd`
 cd "$CURRENT_DIR"
 
-DIRS=`find -type d -not -name ".git"`
+DIRS=`find woof-code/rootfs-skeleton/ -type d -not -name ".git"`
 
 while read ONE_DIR; do
 echo "ONE_DIR='$ONE_DIR'"
 test "$ONE_DIR" || continue
 
-ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
+#ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
+ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
 echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
@@ -36,10 +37,11 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
  while read ONE_FILE; do
  echo "ONE_FILE='$ONE_FILE'"
  test "$ONE_FILE" || continue
+ test -L "$ONE_FILE" && continue
 
  test -f "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || continue
 
- case $ONE_FILE in
+ case "$ONE_FILE" in
  *.gz|*.xpm|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|*.jpg|fonts.*|*.pcf|*.png|*.so|*.so.conf|*.svg|yaf-splash)
  echo "Skipping '$ONE_FILE'"; continue;;
  esac
@@ -54,9 +56,11 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
     modGITfile=`stat -c %Y ./"$ONE_FILE"`
 
     if [ "$modSYSfile" -ge "$modGITfile" ]; then
+     echo "FILE in SYSTEM newer"
      cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
      sleep 1
     else
+     echo "File in GIT newer"
      cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
      continue
     fi
