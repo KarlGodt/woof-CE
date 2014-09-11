@@ -1,8 +1,8 @@
 #!/bin/sh
 # log a file tail
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=pup_monitor_kernel.sh
+_COMMENT_="Cli to show kernel messages in the console"
 
 MY_SELF="$0"
 
