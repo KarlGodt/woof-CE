@@ -6,10 +6,12 @@
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
-_TITLE_="calcfreespace"
+  _TITLE_="calcfreespace"
 _COMMENT_="Outputs free space in KiB for use by freememapplet - NOT USED anymore"
 
 MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 #************
 #KRG
