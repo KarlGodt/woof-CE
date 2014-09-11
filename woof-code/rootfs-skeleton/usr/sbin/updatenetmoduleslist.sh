@@ -5,6 +5,13 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
 #************
 #KRG
 
