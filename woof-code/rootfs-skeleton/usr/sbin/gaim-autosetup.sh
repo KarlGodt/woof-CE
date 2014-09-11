@@ -18,10 +18,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
-_TITLE_=gaim-autosetup
+  _TITLE_=gaim-autosetup
 _COMMENT_="autologin configuration to login into #puppylinux IRC"
 
 MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 #************
 #KRG
