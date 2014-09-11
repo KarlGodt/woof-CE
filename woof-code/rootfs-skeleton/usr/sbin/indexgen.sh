@@ -9,6 +9,10 @@
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
+  _TITTE_=pup_generate_index.sh
+_COMMENT_="Cli helper for petget and woof to create index.html"
+
+MY_SELF="$0"
 
 #************
 #KRG
@@ -27,7 +31,7 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
@@ -83,9 +87,9 @@ echo '<center>
 <select name="site" size="1" onchange="javascript:formHandler()">
 ' >>/tmp/newinfoindex.xml
 echo "$PKGINFO1" |
-while read ONEINFO
+while read oneINFO
 do
- NAMEONLY=`echo "$ONEINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`
+ NAMEONLY=`echo "$oneINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`
  EXPATTERN=" $NAMEONLY "
  nEXPATTERN="^$NAMEONLY "
  [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
