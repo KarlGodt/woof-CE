@@ -1,6 +1,11 @@
 #!/bin/sh
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#this is very primitive script to create desktop shortcut.
+# This is very primitive script to create desktop shortcut.
+
+  _TITLE_=
+_COMMENT_=
+
+MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
