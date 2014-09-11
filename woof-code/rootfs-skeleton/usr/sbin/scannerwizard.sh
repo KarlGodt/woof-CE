@@ -2,8 +2,8 @@
 #Scanner Wizard (c) Barry Kauler 2003 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
-  _TITLE_=
-_COMMENT_=
+  _TITLE_=Puppy_Scanner_Wizard
+_COMMENT_="Attempt to setup scanner by Xdialog GUI"
 
 MY_SELF="$0"
 
@@ -26,7 +26,7 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
@@ -200,6 +200,6 @@ if [ $STATUSRET -eq 0 ];then
 # --infobox "NOTE: Your choice will only take effect after rebooting" \
 # 8 50 10000 2> /dev/null
  Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" \
- --infobox "SCRIPT NOT FINISHED. DOESN'T ACTUALLY DO ANYTHING!" \
- 8 50 10000 2> /dev/null
+ --infobox "SCRIPT FINISHED BUT DOESN'T ACTUALLY DO ANYTHING!" \
+ 8 50 10000 2>$ERR
 fi
