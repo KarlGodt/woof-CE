@@ -1,8 +1,31 @@
 #!/bin/sh
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#make the pup_save.2fs file bigger.
+# Make the pup_save.2fs file bigger.
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
+
+  _TITLE_=
+_COMMENT_=""
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=
+ADD_PARAMETERS=
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
@@ -97,7 +120,7 @@ REPORTACTION="Welcome to the Puppy Resize personal storage file utility!"
 
 MAINTEXT="Your personal file is $NAMEPFILE, and this contains all of your data,
 configuration files, email, newsgroup cache, history files, installed
-packages and so on. 
+packages and so on.
 
 You have $SIZEFREE Mbytes free space left in $NAMEPFILE,
 out of a total size of $ACTUALSIZE Mbytes.
@@ -155,10 +178,10 @@ esac
 
 echo -n "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
 #PUPSAVE='sda4,ntfs,/RACY_01/warysave_crypta-MaxCrypt_2011_10_04.2fs'
-pupSaveFile=${PUPSAVE##*\,}  ## '##*delim' deletes everything from the beginning 
+pupSaveFile=${PUPSAVE##*\,}  ## '##*delim' deletes everything from the beginning
 #( left to right ) until and inclusive the last  delim ( , )
 #=realpath with all '/' needed in init@initrd.gz
-psubDir=${pupSaveFile%\/*}   ## '%delim*'  deletes everything from the end       
+psubDir=${pupSaveFile%\/*}   ## '%delim*'  deletes everything from the end
 #( right to left ) until and inclusive the first delim ( / )
 #=dirname nneded to place pupsaveresize.[$var.]txt in subdir , not on top of rootfs
 saveFile=${PUPSAVE##*\/}     ##  == basename
