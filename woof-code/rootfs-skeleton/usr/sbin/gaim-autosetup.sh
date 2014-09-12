@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# gaim-autosetup.sh -- generates autologin configuration for GAIM 
+# gaim-autosetup.sh -- generates autologin configuration for GAIM
 #                      so that starting GAIM will log user into #puppylinux
 #
 # Copyright 2006 Jonathan Marsden
@@ -8,17 +8,40 @@
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 ,
 # as published by the Free Software Foundation.
-#           
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-#                           
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 # bugfix bk 2006
+
+  _TITLE_=
+_COMMENT_=""
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=
+ADD_PARAMETERS=
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
 IRCHOST='irc.freenode.net'
 IRCCHANNEL='#puppylinux'
@@ -49,7 +72,7 @@ then
   if test "$?" -eq 0
   then
     USERNAME=`echo $NEWNAME |tr -cd 'A-Za-z0-9[-\`{-}'` # See RFC 2812 2.3.1
-  fi  
+  fi
 fi
 
 # Create the two config files
