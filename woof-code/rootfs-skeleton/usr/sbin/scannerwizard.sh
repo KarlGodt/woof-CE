@@ -7,6 +7,29 @@
 #this script creates /etc/scanner, which has format driver[:device].
 #note, we could also have /dev/scanner linked to device.
 
+  _TITLE_=
+_COMMENT_=""
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+ set +e
+ source /etc/rc.d/f4puppy5 && {
+ set +n
+ source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+
+ADD_PARAMETER_LIST=
+ADD_PARAMETERS=
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+} || echo "Warning : No /etc/rc.d/f4puppy5 installed."
+
 #display window with driver info...
 #dillo "file:///usr/share/doc/sane/sane-backends.htm" &
 defaultbrowser "http://www.mostang.com/sane/sane-backends.html" &
