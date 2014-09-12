@@ -7,8 +7,8 @@
 
 . /etc/rc.d/PUPSTATE
 
-if [ -f /root/.jwm/jwm_colors ];then #v3.96
-. /root/.jwm/jwm_colors
+if [ -f $HOME/.jwm/jwm_colors ];then #v3.96
+. $HOME/.jwm/jwm_colors
 fi
 
 #v4.01 BK daemon to handle kernel uevents...
@@ -54,7 +54,7 @@ if [ "$CURRENTWM" = "startkde" ];then
 fi
 
 #100501 if full nvidia pkg installed, it has a gui config app...
-[ -f /root/.nvidia-settings-rc ] && nvidia-settings --load-config-only
+[ -f $HOME/.nvidia-settings-rc ] && nvidia-settings --load-config-only
 
 [ -f $HOME/.xgamma-gamma ] && /bin/sh $HOME/.xgamma-gamma #100215 see /usr/sbin/xgamma-gui.
 
@@ -84,9 +84,9 @@ if [ -f /etc/xrandrindex ];then
   fi
 fi
 
-if [ -f /root/.xset.sh ];then
+if [ -f $HOME/.xset.sh ];then
  #this is created by /usr/bin/pupx...
- eval "/root/.xset.sh"
+ eval "$HOME/.xset.sh"
 else
  ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
  #if [ "`readlink /usr/bin/X`" != "Xorg" ];then
@@ -99,8 +99,8 @@ else
 fi
 
 #v1.0.7 also see /etc/rc.d/rc.local0
-if [ -f /root/.fonts/fonts.dir ];then
- xset fp+ /root/.fonts/
+if [ -f $HOME/.fonts/fonts.dir ];then
+ xset fp+ $HOME/.fonts/
 fi
 
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
@@ -111,7 +111,7 @@ fi
 #...no need to start it here, fvwm4 below will start it automatically.
 
 #relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+/usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
 
 #w468 on old PCs rox sometimes does not start, see further down...
 #120718 raspi sometimes need extra delay otherwise rox fails to start.
@@ -120,10 +120,10 @@ CPUSPEED=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | 
 [ ! $CPUSPEED ] && CPUSPEED=250
 [ $CPUSPEED -lt 700 ] && sleep 0.5
 [ $CPUSPEED -lt 400 ] && sleep 0.5
-if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
- rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
+if [ -f $HOME/Choices/ROX-Filer/PuppyPan1 ];then
+ rox -p $HOME/Choices/ROX-Filer/PuppyPin -r $HOME/Choices/ROX-Filer/PuppyPan1
 else
- rox -p /root/Choices/ROX-Filer/PuppyPin
+ rox -p $HOME/Choices/ROX-Filer/PuppyPin
 fi
 
 /sbin/pup_event_frontend_d & #130525 moved down.
