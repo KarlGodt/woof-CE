@@ -2,7 +2,30 @@
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 # This is very primitive script to create desktop shortcut.
 
-_TITLE_=deskshortcut
+FILENAME0=
+
+FILENAME10=
+FILENAME11=
+FILENAME12=
+
+FILENAME20=
+FILENAME21=
+FILENAME22=
+
+FILENAME30=
+FILENAME31=
+FILENAME32=
+
+FILENAME40=
+FILENAME41=
+FILENAME42=
+FILENAME43=
+
+FILENAME50=
+FILENAME51=
+FILENAME52=
+
+  _TITLE_=deskshortcut
 _COMMENT_="Xdialog to create desktop shortcut."
 
 MY_SELF="$0"
