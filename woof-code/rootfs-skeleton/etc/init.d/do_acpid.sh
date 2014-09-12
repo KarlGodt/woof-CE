@@ -61,15 +61,17 @@ Supported kill signals:
 case $1 in
 start|Start|START|-start|--start)
 shift
+
 test -d /dev/input || mkdir -p /dev/input
 test -c /dev/input/event0 || {
-rm -rf /dev/input/event
+rm -rf /dev/input/event0
 test -c /dev/event0 && {
 cp -a /dev/event0 /dev/input/
 } || {
 mknod /dev/input/event0 c 13 64
 }
 }
+
 test -c /dev/input/event0 || { echo "Failed to create /dev/input/event0"; exit 3; }
 
 ALREADY_RUNNING=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
@@ -83,6 +85,7 @@ if [ "$ACPID_PID" ];then
                                                 echo "$0: STARTED '$ACPID_BIN' with PID '$ACPID_PID'";STATUS=0
 else
 echo "$0: FAILED to start '$ACPID_BIN'";STATUS=1
+test -f /var/log/acpid.log && cat /var/log/acpid.log
 fi
 exit $STATUS
 ;;
