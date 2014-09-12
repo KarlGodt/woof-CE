@@ -77,7 +77,14 @@ test -c /dev/input/event0 || { echo "Failed to create /dev/input/event0"; exit 3
 ALREADY_RUNNING=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
 [ "$ALREADY_RUNNING" = 1 ] && ALREADY_RUNNING=''
 [ "`echo "$ALREADY_RUNNING" |wc -w`" -ge 1 ] && { echo "Another instance of '$ACPID_BIN' already running with PID '$ALREADY_RUNNING'"; exit 1; }
-$ACPID_BIN $@
+case "$@" in
+'') [ -e /proc/acpi/event ] && {
+$ACPID_BIN -e /proc/acpi/event
+} || {
+$ACPID_BIN
+} ;;
+*) $ACPID_BIN $@;;
+esac
 sleep 3
 ACPID_PID=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
 [ "$ACPID_PID" = 1 ] && ACPID_PID=''
