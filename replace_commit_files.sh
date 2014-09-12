@@ -15,26 +15,33 @@ error_cont(){
 CURRENT_DIR=`pwd`
 cd "$CURRENT_DIR"
 
-DIRS=`find -type d`
+DIRS=`find woof-code/rootfs-skeleton/ -type d -not -name "*.git"`
 
 while read ONE_DIR; do
 [ "$DEBUG" ] && echo "ONE_DIR='$ONE_DIR'"
 test "$ONE_DIR" || continue
 
-ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
+#ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
+ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
 [ "$DEBUG" ] && echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
- FILES=`ls -1v`
+ FILES=`ls -1Av | grep -v '.git'`
 
  while read ONE_FILE; do
  [ "$DEBUG" ] && echo "ONE_FILE='$ONE_FILE'"
  test "$ONE_FILE" || continue
 
- test -f "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || continue
  test -L "$ONE_DIR_IN_SYSTEM/$ONE_FILE" && continue
+ test -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || {
+  echo "$ONE_FILE missing in SYSTEM"
+  cp -a "$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
+  continue
+ }
+
+ test -f "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || continue
 
  case $ONE_FILE in
  *.gz|*.xpm|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|*.jpg|fonts.*|*.pcf|*.png|*.so|*.so.conf|*.svg|yaf-splash)
