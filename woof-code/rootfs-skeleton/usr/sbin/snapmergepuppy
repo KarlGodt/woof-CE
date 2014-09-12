@@ -73,7 +73,7 @@ fi
 echo "Merging $SNAP onto $BASE..."
 
 #Handle Whiteouts...
-find . -mount \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
+find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
  BN="`basename "$N"`"
@@ -82,9 +82,9 @@ do
  [ "$DN" = "." ] && continue
  if [ "$BN" = "__dir_opaque" ];then #w003
   #'.wh.__dir_opaque' marks ignore all contents in lower layers...
-  rm -rf "${BASE}/${DN}/*" 2>/dev/null #wipe anything in save layer.
+  rm -rf "${BASE}/${DN}/*" 2>$ERR #wipe anything in save layer.
   #also need to save the whiteout file to block all lower layers (may be readonly)...
-  touch "${BASE}/${DN}/.wh.__dir_opaque" 2>/dev/null
+  touch "${BASE}/${DN}/.wh.__dir_opaque" 2>$ERR
   rm -f "$SNAP/$DN/.wh.__dir_opaque" #should force aufs layer "reval".
   continue
  fi
@@ -107,16 +107,16 @@ done
 
 #Directories... v409 remove '^var'. w003 remove aufs .wh. dirs.
 #w003 /dev/.udev also needs to be screened out... 100820 added var/tmp
-find . -mount -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^var/tmp' |
+find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^var/tmp' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && [ -f /tmp/wmexitmode.txt ] && exit
  mkdir -p "$BASE/$N"
  chmod "$BASE/$N" --reference="$N"
- OWNER="`stat --format=%U "$N"`"
+ OWNER="`stat -c %U "$N"`"
  chown $OWNER "$BASE/$N"
- GRP="`stat --format=%G "$N"`"
+ GRP="`stat -c %G "$N"`"
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
 done
@@ -125,7 +125,7 @@ done
 touch /etc/rc.d/BOOTCONFIG
 
 #Copy Files... v409 remove '^var'. w003 screen out some /dev files. 100222 shinobar: more exclusions. 100422 added ^root/ftpd. 100429 modify 'trash' exclusion. 100820 added var/tmp
-find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^\.wh\.|^var/run|^root/ftpd|^var/tmp' | grep -v -E -i '\.thumbnails|\.trash|trash/|\.part$'  |
+find . -xdev -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm|^\.wh\.|^var/run|^root/ftpd|^var/tmp' | grep -v -E -i '\.thumbnails|\.trash|trash/|\.part$'  |
 while read N
 do
 
@@ -140,7 +140,7 @@ do
 
  #stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
  FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
- FILESIZEB=`stat --format=%s "/${N}"`
+ FILESIZEB=`stat -c %s "/${N}"`
  [ ! $FILESIZEB ] && break #w003 precaution.
  FILESIZEK=`expr $FILESIZEB \/ 1024`
  FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
