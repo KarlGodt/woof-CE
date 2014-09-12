@@ -182,7 +182,7 @@ ${FIDOMSG2}"
  fi
 
  #130216 add f2fs...
- PARTSLIST="`probepart -m 2> /dev/null | grep '^/dev/' | grep "$expBOOTDRV" | grep -E 'f2fs|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs|btrfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`"
+ PARTSLIST="`probepart -m 2>$ERR | grep '^/dev/' | grep "$expBOOTDRV" | grep -E 'f2fs|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs|btrfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`"
 
  #offer floppy disk if present...
  if [ "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" != "" ];then
@@ -221,7 +221,7 @@ ${FIDOMSG2}"
   AFS="`echo -n "$APART" | cut -f 2 -d '|'`"
   AFREE=`df -m | grep "/dev/${ATAG} " | tr -s " " | cut -f 4 -d " "`
   if [ ! $AFREE ];then
-   mount -t $AFS /dev/$ATAG /mnt/data > /dev/null 2>&1
+   mount -t $AFS /dev/$ATAG /mnt/data >$OUT 2>&1
    #need to put in a check that it is not mounted ro. the
    #mount script will fallback to ro for ntfs if rw mnt fails...
    RETMNTVAL=$?
@@ -310,7 +310,7 @@ $(eval_gettext 'Or, \Zb${T_abort}\ZB to shutdown without saving...')"
   while [ 1 ];do
    /tmp/savedlg >/dev/console
    SAVEPART="`cat /tmp/tag.txt | head -n 1`" #head is in case of errs in output.
-   if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd|^mmcblk'`" = "" ];then
+   if [ "`echo -n "$SAVEPART" | grep -E '^hd|^sd|^sc|^fd|^mmcblk'`" = "" ];then
     ${DIALOGEXE} ${BACKGROUNDPINK} ${TITLEPARAM} "$T_notchosentitle" --colors --yes-label "$T_tryagain" --no-label "${T_abort}" --yesno "$T_yesno" 0 0 >/dev/console
     [ ! $? -eq 0 ] && return 1 #abort.
     continue
@@ -370,7 +370,7 @@ pupsavefunc() {
  [ "$SMNTPT" = "" ] && SMNTPT="`ps -e | grep -o 'ntfs\-3g.*' | grep "$sPTN" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`"
 
  if [ "$SMNTPT" = "" ];then
-  mkdir /mnt/$SAVEPART 2>/dev/null
+  mkdir /mnt/$SAVEPART 2>$ERR
   mount -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART
   SMNTPT="/mnt/$SAVEPART"
  fi
@@ -386,7 +386,7 @@ pupsavefunc() {
  #KVER=`uname -r`
  #HAVEEXT4='no'
  #[ -f /lib/modules/${KVER}/modules.builtin ] && [ "`grep 'fs/ext4' /lib/modules/${KVER}/modules.builtin`" != "" ] && HAVEEXT4='yes'
- #[ "$HAVEEXT4" = "no" ] && [ "`modinfo ext4 2>/dev/null`" != "" ] && HAVEEXT4='yes'
+ #[ "$HAVEEXT4" = "no" ] && [ "`modinfo ext4 2>$ERR`" != "" ] && HAVEEXT4='yes'
  #if [ "$HAVEEXT4" = "yes" ];then
  if [ "`grep 'ext4$' /proc/filesystems`" != "" ];then #120428 technosaurus: simplify test.
   ${DIALOGEXE} ${BACKGROUNDYELLOW} ${TITLEPARAM} "$T_fstitle"  --no-cancel --menu "$T_fsmenu" 0 0 3 ext2 "$T_ext2" ext3 "$T_ext3"  ext4 "$T_ext4" >/dev/console 2>/tmp/rc.shutdown_pupsave_fs #120425 01micko
@@ -448,10 +448,10 @@ entered at every bootup.')"
   if [ $RETVAL -eq 1 ];then
    DENSITY="a" #heavy aes encryption
    CRYPTO='-e aes'
-   modprobe aes_generic 2>/dev/null #builtin my recent kernels.
+   modprobe aes_generic 2>$ERR #builtin my recent kernels.
    #did not explicitly load these two before, but do so in init script...
-   modprobe crypto_blkcipher 2>/dev/null #builtin my recent kernels.
-   modprobe cbc 2>/dev/null #110926 builtin in my 2.6.32-smp-45 kernel.
+   modprobe crypto_blkcipher 2>$ERR #builtin my recent kernels.
+   modprobe cbc 2>$ERR #110926 builtin in my 2.6.32-smp-45 kernel.
   else
    DENSITY="x" #light xor encryption.
    CRYPTO='-E 1' #'-e xor' --bug, loads xor.ko which is something else.
@@ -797,7 +797,7 @@ If you answer \Zb\\\${T_copy}\ZB here, please \Zb\Z1FIRST, RIGHT NOW\Zn\ZB, put 
     for ONESFS in `find $CDMNTPT -maxdepth 1 -type f -name \*.sfs | grep -v ' ' | tr '\n' ' '`
     do
      BASESFS="`basename $ONESFS`"
-     FILESIZEB=`stat --format=%s $ONESFS`
+     FILESIZEB=`stat -c %s $ONESFS`
      FILESIZEK=`expr $FILESIZEB \/ 1024 + 2048` #2MB slack.
      BPATTERN=" $SMNTPT"'$'
      DRVFREEK=`df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
