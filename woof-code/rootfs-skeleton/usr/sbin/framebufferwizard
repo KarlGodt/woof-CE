@@ -6,7 +6,7 @@
 # at first bootup.
 
   _TITLE_=framebufferwizard
-_COMMENT_="Chose between X11 Xvesa and Xfbdev X swerver"
+_COMMENT_="Chose between X11 Xvesa and Xfbdev X server"
 
 MY_SELF="$0"
 
@@ -40,7 +40,7 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 PSFND=`ps`
 MSGWIN="WARNING: CHOOSING \"YES\" WILL CAUSE IMMEDIATE REBOOT!"
-if [ ! "`echo -n "$PSFND" | grep "/bin/xwin"`" = "" ];then
+if [ "`echo -n "$PSFND" | grep "xwin"`" != "" ];then
  MSGWIN="PLEASE CLOSE ALL OTHER WINDOWS BEFORE CHOOSE \"YES\"!
 DO THAT RIGHT NOW IF YOU ARE GOING TO CHOOSE THE \"YES\" OPTION!"
 fi
@@ -68,7 +68,7 @@ fi
 #will call this script from /etc/rc.d/rc.local0, after /usr is loaded,
 #as this script and modinfo are both in /usr/sbin/.
 #rc.local0 appends "boot" on the commandline...
-if [ ! "$1" = "boot" ];then
+if [ "$1" != "boot" ];then
  if [ ! -f /usr/X11R7/bin/Xfbdev ];then #precaution.
   dialog --title "Xfbdev Video Wizard" --msgbox "Sorry, this build of Puppy does not
 have the Xfbdev Kdrive X server.
@@ -93,7 +93,7 @@ otherwise TAB or RIGHT-ARROW to highlight \"No\" then ENTER..." 0 0
   #rm -f /usr/X11R7/bin/X
   echo -n "1" > /root/.fbbootflag
   sync
-  if [ "`echo -n "$PSFND" | grep "/bin/xwin"`" = "" ];then
+  if [ "`echo -n "$PSFND" | grep "xwin"`" = "" ];then
    exec reboot #running without X.
   else
    exec /usr/X11R7/bin/fvwmreboot #a window manager is running.
@@ -108,27 +108,27 @@ loadfbfunc() {
  case $VIDEOMODULE in
   sisfb)
    MODEXEC="modprobe sisfb mode=$RESXYB rate=$FBRATE"
-   modprobe sisfb mode=$RESXYB rate=$FBRATE 2> /tmp/fbmnterr.txt
+   modprobe sisfb mode=$RESXYB rate=$FBRATE 2>/tmp/fbmnterr.txt
    RETVAL=$?
    ;;
   tridentfb)
    MODEXEC="modprobe tridentfb mode=$RESXYN bpp=$RESBPP"
-   modprobe tridentfb mode=$RESXYN bpp=$RESBPP 2> /tmp/fbmnterr.txt
+   modprobe tridentfb mode=$RESXYN bpp=$RESBPP 2>/tmp/fbmnterr.txt
    RETVAL=$?
    ;;
   intelfb)
    MODEXEC="modprobe intelfb mode=${RESXYN}-${RESBPP}@${FBRATE} accel=1 mtrr=1"
-   modprobe intelfb mode=${RESXYN}\-${RESBPP}@${FBRATE} accel=1 mtrr=1 2> /tmp/fbmnterr.txt
+   modprobe intelfb mode=${RESXYN}\-${RESBPP}@${FBRATE} accel=1 mtrr=1 2>/tmp/fbmnterr.txt
    RETVAL=$?
    ;;
   neofb)
    MODEXEC='modprobe neofb #note, no params.'
-   modprobe neofb  2> /tmp/fbmnterr.txt #note, no params?
+   modprobe neofb 2>/tmp/fbmnterr.txt #note, no params?
    RETVAL=$?
    ;;
   rivafb)
    MODEXEC='modprobe rivafb #note, no params.'
-   modprobe rivafb  2> /tmp/fbmnterr.txt #note, no params?
+   modprobe rivafb 2>/tmp/fbmnterr.txt #note, no params?
    RETVAL=$?
    ;;
  esac
@@ -199,8 +199,15 @@ if [ ! "$FBRATE" ];then
  FBRATE="60"
 fi
 
+if test -f /proc/pci; then
 #VIDEOINFO=`cat /proc/pci | grep --ignore-case --extended-regexp "vga|video"`
 VIDEOINFO=`cat /proc/pci | grep "VGA" | cut -f 2-4 -d ':'`
+elif which scanpci >$OUT; then
+VIDEOINFO=`scanpci | grep -iE 'VGA|Graphics Controller'`
+elif which lspci >$OUT; then
+VIDEOINFO=`lspci | grep -iE 'VGA|Display|Graphics Controller'`
+fi
+
 VIDEOMODULE=""
 
 if [ ! "`echo "$VIDEOINFO" | grep "SiS"`" = "" ];then
@@ -330,7 +337,7 @@ fi
 #and insert column 1 with a tag number...
 BADCHOICES=""
 FINALCHOICES=""
-for oneMODE in `echo -n "$ALLVIDCHOICES"`
+for oneMODE in $ALLVIDCHOICES
 do
  TAGCNT="$oneMODE"
  if [ "`echo -n "$OLDCHOICE$NEWCHOICES" | grep "$oneMODE"`" = "" ];then
@@ -350,7 +357,7 @@ Note: _supported means mode confirmed supported by the video card.
 Use DOWN-ARROW then press SPACEBAR on desired choice then
 press ENTER key..." 0 0 0 $FINALCHOICES 2>/tmp/tag.txt
 
-CHOSENTAG=`cat /tmp/tag.txt 2>/dev/null`
+CHOSENTAG=`tail -n1 /tmp/tag.txt 2>$ERR`
 if [ "$CHOSENTAG" ];then
  FBMODE="$CHOSENTAG"
 else
@@ -381,7 +388,7 @@ NOTE: If make wrong choice, there is opportunity to try again.
 Use DOWN-ARROW then press SPACEBAR on desired choice then
 press ENTER key..." 0 0 0 $OLDRATE$NEWRATES 2>/tmp/tag.txt
 
-CHOSENTAG=`cat /tmp/tag.txt 2>/dev/null`
+CHOSENTAG=`tail -n1 /tmp/tag.txt 2>$ERR`
 if [ "$CHOSENTAG" ];then
  FBRATE="$CHOSENTAG"
 fi
