@@ -28,8 +28,44 @@ _trap
 } || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
 
+test -f /proc/pci && {
 VIDEOINFO="`cat /proc/pci | grep "VGA" | cut -f 2-4 -d ':'`"
-WHATXS="`ls -1 /usr/bin/X?* | sed -e 's/\/usr\/bin\///g' | tr "\n" " "`"
+} || {
+  if which scanpci >$OUT; then
+VIDEOINFO=`scanpci | grep -iE 'vga|display|graphics' | sort -u`
+
+elif which lspci >$OUT; then
+
+ _PCI_IDS_FILE_=
+ test -f /usr/share/pci.ids.gz && _PCI_IDS_FILE_=/usr/share/pci.ids.gz
+ test -f /usr/share/pci.ids    && _PCI_IDS_FILE_=/usr/share/pci.ids
+ test -f /usr/share/misc/pci.ids.gz && _PCI_IDS_FILE_=/usr/share/misc/pci.ids.gz
+ test -f /usr/share/misc/pci.ids    && _PCI_IDS_FILE_=/usr/share/misc/pci.ids
+
+ if test "$_PCI_IDS_FILE_"; then
+ VIDEOINFO=`lspci -i "$_PCI_IDS_FILE_" | grep -iE 'vga|display|graphics' | sort -u`
+ else
+ VIDEOINFO=`lspci`
+ fi
+
+fi
+}
+
+WHATXS_="`ls -1 /usr/bin/X?* | sed -e 's%/usr/bin/%%'`"
+WHATXS_="$WHATXS_
+`ls -1 /usr/X11/bin/X?* 2>$ERR | sed -e 's%/usr/X11/bin/%%'`"
+WHATXS_="$WHATXS_
+`ls -1 /usr/local/bin/X?* 2>$ERR | sed -e 's%/usr/local/bin/%%'`"
+
+for aX in $WHATXS_
+do
+[ -L "$aX" ] && continue
+file "$aX" | grep $QUIET -i 'ELF.*LSB executable' || continue
+WHATXS="$WHATXS
+$aX"
+done
+WHATXS=`echo "$WHATXS" | sort -u`
+
 CURRENTX="`readlink /usr/bin/X`"
 
 XVESATXT=""
