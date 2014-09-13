@@ -3,6 +3,38 @@
 #v423 kirk: add ext4 support.
 #v424 BK: bugfixes. fix accidental wiping partition!
 
+
+
+#************
+#KRG
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+
+Version=1.1-KRG-MacPup_O2
+
+usage(){
+MSG="
+$0 [ help | version ]
+"
+echo "$MSG
+$2"
+exit $1
+}
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
+
 #BK...
 export XDIALOG_HIGH_DIALOG_COMPAT=true
 #all incidents of 'dialog' replaced by 'Xdialog' below...
@@ -70,7 +102,7 @@ test_boot_tmp_func() {
   umount $BOOT_TMP
  fi
  if [ "`mount | grep "$btPATTERN"`" != "" ];then
-  btPART="`mount | grep "$btPATTERN" | cut -f 1 -d ' '`"
+  btPART=`mount | grep "$btPATTERN" | cut -f 1 -d ' '`
   xmessage -bg red -center "ERROR: could not unmount partition ${btPART} mounted on ${BOOT_TMP}"
   exit
  fi
@@ -128,7 +160,7 @@ frame buffer console, or the standard Linux console?" 0 0 0 \
 #  "1024x768x16m" "Frame buffer console, 1024x768x16.8m" \
 #  "1280x1024x16m" "Frame buffer console, 1280x1024x16.8m" \
 #  "1600x1200x16m" "Frame buffer console, 1600x1200x16.8m"
-  CONSOLETYPE="`cat $TMP/reply`"
+  CONSOLETYPE=`cat $TMP/reply`
   if [ "$CONSOLETYPE" = "standard" ]; then
     CONSOLENUM=normal
   elif [ "$CONSOLETYPE" = "1600x1200x16m" ]; then
@@ -186,10 +218,10 @@ create_devices() {
 }
 
 hd_mbr() {
- mbr_dev="`grep "^Disk /dev/" $TMP/DEV | head -n 1 | cut -d ' ' -f 2 | cut -b 1-8`"
- mbr_dev2="`grep "^Disk /dev/" $TMP/DEV | tail -n 1 | cut -d ' ' -f 2 | cut -b 1-8`"
+ mbr_dev=`grep "^Disk /dev/" $TMP/DEV | head -n 1 | cut -d ' ' -f 2 | cut -b 1-8`
+ mbr_dev2=`grep "^Disk /dev/" $TMP/DEV | tail -n 1 | cut -d ' ' -f 2 | cut -b 1-8`
  if [ -z $mbr_dev ]; then
-  kill $INFOPID 2>/dev/null
+  kill $INFOPID 2>$ERR
   $DIALOG --title "Grubconfig: ERROR" --msgbox \
   "I can't find a device to install GRUB to!" 0 0 #5 60
   umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
@@ -200,7 +232,7 @@ hd_mbr() {
   mbr_grub_dev=hd0
   #BK if ! probe $mbr_dev; then
   if [ "`probepart | grep "$mbr_dev"`" = "" ];then
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    $DIALOG --title "Grubconfig: ERROR" --msgbox \
    "I can't find the device '$mbr_dev', so I can't install GRUB!" 0 0 #5 68
    umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
@@ -224,7 +256,7 @@ leave the box blank for '$mbr_dev'.
 EOF
  
    #    $DIALOG --title "HARD DRIVE MBR" --inputbox "`cat $TMP/tmpmsg`" 0 68 2> $TMP/mbr_dev
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    $DIALOG --title "Grubconfig: HARD DRIVE MBR" --inputbox "`cat $TMP/tmpmsg`" 0 0 2> $TMP/mbr_dev
    if [ ! $? = 0 ]; then
     umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
@@ -234,7 +266,7 @@ EOF
     echo "Cancelled!"
     exit
    fi 
-   MBR_DEV="`cat $TMP/mbr_dev`"
+   MBR_DEV=`cat $TMP/mbr_dev`
    ombr_dev="$mbr_dev" #BK
    if [ -n $MBR_DEV ]; then
     mbr_dev="$MBR_DEV"
@@ -247,7 +279,7 @@ EOF
    if [ ! "`probepart | grep "$mbr_dev"`" = "" ];then
     break
    else
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfgi: ERROR" --msgbox \
     "I can't find the device '$mbr_dev'." 0 0 #5 45
     continue
@@ -261,7 +293,7 @@ EOF
    fi
    NUM=$(( $NUM + 1 ))
   done
-  mbr_grub_dev="`cat $TMP/mbr_grub_dev`"
+  mbr_grub_dev=`cat $TMP/mbr_grub_dev`
  fi
 }
 
@@ -270,7 +302,7 @@ if [ "$ROOT_DEVICE" = "$1" ]; then
 if ls $BOOT/initrd* 1>$TMP/null 2>$TMP/null ; then
 initrd=`ls -1 -t $BOOT/initrd* | head -n 1`
 if [ ! "$3" = "no" ]; then
-  kill $INFOPID 2>/dev/null
+  kill $INFOPID 2>$ERR
   $DIALOG --title "Grubconfig: INITRD FOUND" --yesno "Do you want to include \
 the initrd '$initrd' in the GRUB config file?" 0 0 #7 66
 return=$?
@@ -306,13 +338,13 @@ get_root_dev() {
 NUM=0
 grep "^Disk /dev/" $TMP/DEV | cut -d ' ' -f 2 | cut -b 1-8 | while read dev; do
 echo "hd$NUM" >$TMP/hd_grub
-dev2="`echo $1 | cut -b 1-8`"
+dev2=`echo $1 | cut -b 1-8`
 if [ "$dev" = "$dev2" ]; then
 break
 fi
 NUM=$(( $NUM + 1 ))
 done
-hd="`cat $TMP/hd_grub`"
+hd=`cat $TMP/hd_grub`
 }
 
 other() {
@@ -390,7 +422,7 @@ simplegrub()
 {
  LOOPBRK="yes" #BK v2.02
  if grep -q "OS/2 Boot Manager" $TMP/DEV 2> $TMP/null ; then
-  kill $INFOPID 2>/dev/null
+  kill $INFOPID 2>$ERR
   $DIALOG --title "Grubconfig: OS/2 BOOT MANAGER FOUND" --yesno \
   "Your system appears to have Boot Manager, a boot menu system provided \
 with OS/2 and Partition Magic.  If you like, we can install a very simple \
@@ -407,7 +439,7 @@ fi
 #while [ 1 ];do #BIGWHILELOOP BK v2.02
 
 if [ ! "$skip" = "yes" ]; then
- kill $INFOPID 2>/dev/null
+ kill $INFOPID 2>$ERR
  $DIALOG --title "Grubconfig: SELECT GRUB DESTINATION" --menu \
 "Pupply Linux users: if choose floppy boot disk here, this script\n\
 optionally reruns and redisplays this dialog so you can then choose\n\
@@ -434,7 +466,7 @@ Which option would you like? (Cancel button to exit script)" \
    chroot_umount
    exit
  fi
- TG="`cat $TMP/reply`"
+ TG=`cat $TMP/reply`
 fi
  
  if [ "$TG" = "MBR" ]; then
@@ -456,7 +488,7 @@ fi
  # Search for Linux partitions:
  grep "83  Linux" $TMP/DEV | while read PART ; do 
  if [ ! "$PART" = "" ]; then
-  LNXP="`echo $PART | cut -f 1 -d ' '`"
+  LNXP=`echo $PART | cut -f 1 -d ' '`
   p1=`echo $LNXP | cut -b9-`
   p2=$(( $p1 - 1 ))
 
@@ -466,7 +498,7 @@ fi
 
   title="Linux (on $LNXP)"
 
-  num="`echo $LNXP | cut -b8-`" 
+  num=`echo $LNXP | cut -b8-` 
 
   cat << EOF > $TMP/part.$num.sort
 # Linux bootable partition config begins
@@ -483,7 +515,7 @@ done
 grep "^/dev/" $TMP/DEV | grep -E "DOS|Win95|W95|FAT|BSD|NTFS|HURD|QNX|Minix|Plan|BeOS" | \
 grep -v "Ext'd" | grep -v "Extend" | grep -v -i "swap" | while read PART ; do
   if [ ! "$PART" = "" ]; then
-  DOSP="`echo $PART | cut -f 1 -d ' '`"
+  DOSP=`echo $PART | cut -f 1 -d ' '`
   p1=`echo $DOSP | cut -b9-`
   p2=$(( $p1 - 1 ))
   if echo $PART | grep -q -E "Win95|W95|NTFS" ; then
@@ -511,10 +543,10 @@ grep -v "Ext'd" | grep -v "Extend" | grep -v -i "swap" | while read PART ; do
   other $PART
 
   if echo $PART | grep -q "HURD" ; then
-  LABEL="`cat $TMP/label`"
+  LABEL=`cat $TMP/label`
   fi
 
-  num="`echo $DOSP | cut -b8-`" 
+  num=`echo $DOSP | cut -b8-` 
 
   cat << EOF > $TMP/part.$num.sort
 # Other bootable partition config begins
@@ -553,7 +585,7 @@ want GRUB to boot?
 The default is '/boot/vmlinuz'. Just press enter for it.
 EOF
 
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: KERNEL LOCATION" --cr-wrap --inputbox "`cat $TMP/tmpmsg`" 0 0 2> $TMP/kernel
     if [ $? = 1 -o $? = 255 ]; then
       umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
@@ -563,7 +595,7 @@ EOF
       echo "Cancelled!"
       exit
     else
-      kernel="`cat $TMP/kernel`"
+      kernel=`cat $TMP/kernel`
     if [ "$kernel" = "" ]; then
       KERNEL="kernel /boot/vmlinuz root=$PART ro vga=$CONSOLENUM"
     else
@@ -583,9 +615,9 @@ For example: hdd=scsi foo=boo
 Put then on one line one after the other or leave box blank.
 EOF
 
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "KERNEL OPTIONS" --cr-wrap --inputbox "`cat $TMP/tmpmsg`" 0 0 2> $TMP/reply
-    APPEND="`cat $TMP/reply`"
+    APPEND=`cat $TMP/reply`
 }
 
 install_grub()
@@ -593,13 +625,13 @@ install_grub()
 NUM=0
 grep "^Disk /dev/" $TMP/DEV | cut -d ' ' -f 2 | cut -b 1-8 | while read dev; do
 echo "hd$NUM" >$TMP/root_dev
-dev2="`echo $ROOT_DEVICE | cut -b 1-8`"
+dev2=`echo $ROOT_DEVICE | cut -b 1-8`
 if [ "$dev" = "$dev2" ]; then
 break
 fi
 NUM=$(( $NUM + 1 ))
 done
-root_dev="`cat $TMP/root_dev`"
+root_dev=`cat $TMP/root_dev`
 
      p1=`echo $ROOT_DEVICE | cut -b 9-`
      p2=$(( $p1 - 1 ))
@@ -771,7 +803,7 @@ installcolor()
 if [ "$GRUB_TARGET" = "/dev/fd0" ]; then
 while :
 do
-     kill $INFOPID 2>/dev/null
+     kill $INFOPID 2>$ERR
      $DIALOG --title "Grubconfig: FLOPPY DISK" --menu \
 "The floppy should be formatted. \n\
 Put the floppy in the drive and press enter." 10 55 2 \
@@ -783,7 +815,7 @@ Put the floppy in the drive and press enter." 10 55 2 \
       elif ! (dd if=/dev/fd0 of=$TMP/null bs=1 count=1 1>$TMP/null 2>$TMP/null) ; then
         continue
       fi
-      REPLY="`cat $TMP/reply`"
+      REPLY=`cat $TMP/reply`
       if [ "$REPLY" = "Format" ]; then
       [ -b /dev/fd0h1440 ] && fd=/dev/fd0h1440
       [ -b /dev/fd0H1440 ] && fd=/dev/fd0H1440
@@ -808,7 +840,7 @@ Put the floppy in the drive and press enter." 10 55 2 \
 done
 fi
 
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    XDIALOG_HIGH_DIALOG_COMPAT=false $DIALOG --title "Grubconfig" --no-buttons --infobox "Installing the GRUB Bootloader..." 0 0 25000 & #5 40
    INFOPID=$!
    sleep 2 
@@ -829,7 +861,7 @@ fi
   fi
   fi
   fi
-  kill $INFOPID 2>/dev/null
+  kill $INFOPID 2>$ERR
   $DIALOG --title "GRUB INSTALL ERROR # $SUCCESS" --msgbox \
   "Sorry, but the attempt to install GRUB has returned an error, so GRUB \
   has not been correctly installed.  You'll have to use a bootdisk \
@@ -849,10 +881,10 @@ the location '/boot/vmlinuz', and/or options passed to any
 Linux kernel listed there.
 
 EOF
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    $DIALOG --title "GRUB INSTALL SUCCESS" --msgbox "`cat $TMP/tmpmsg`" 0 0 #12 70
   else
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    $DIALOG --title "GRUB INSTALL SUCCESS" --msgbox \
    "GRUB was successfully $installed." 0 0 #5 70
   fi
@@ -868,7 +900,7 @@ EOF
 #}
 
    #BK...
-   DIALOG="`which Xdialog`"
+   DIALOG=`which Xdialog`
    #DIALOG=`type -path dialog`
    #if [ ! -x "$DIALOG" ]; then
    #  echo "This script requires the 'dialog' program to run."
@@ -903,10 +935,10 @@ EOF
 
 root_device() {
 # Determine the root partition (such as /dev/hda2)
-    ROOT_DEVICE="`mount 2>$TMP/null | grep " on / " | awk '{print $1}'`"
+    ROOT_DEVICE=`mount 2>$TMP/null | grep " on / " | awk '{print $1}'`
 
   if [ -z "$ROOT_DEVICE" -a -s /etc/fstab ]; then
-    ROOT_DEVICE="`grep -v "^#" /etc/fstab 2>$TMP/null | grep " / " | awk '{print $1}'`"
+    ROOT_DEVICE=`grep -v "^#" /etc/fstab 2>$TMP/null | grep " / " | awk '{print $1}'`
   fi
   
   if [ -n "$ROOT_DEVICE" ]; then
@@ -953,7 +985,7 @@ do
  fi
 
 #BK    $DIALOG --title "SELECT GRUB PARTITION" --inputbox "`cat $TMP/tmpmsg`" 0 0 "$ROOT_DEVICE" 2> $TMP/root_device
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: SELECT GRUB PARTITION" --no-collapse --inputbox "`cat $TMP/tmpmsg`" 0 0 "$BKINITIAL_DEVICE" 2> $TMP/root_device
     if [ ! $? = 0 ]; then
       umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
@@ -976,7 +1008,7 @@ do
        fi
     
         if ! grep "^$ROOT_DEVICE" $TMP/DEV | grep -q "83  Linux" ; then
-         kill $INFOPID 2>/dev/null
+         kill $INFOPID 2>$ERR
 	     $DIALOG --title "Grubconfig: ERROR" --msgbox \
           "The partition '$ROOT_DEVICE' is not Linux." 0 0 #5 55
 	  continue
@@ -987,7 +1019,7 @@ do
          if echo "fooboo" > $BOOT/fooboo 2>$TMP/null ; then
  	      rm -f $BOOT/fooboo
          else
-          kill $INFOPID 2>/dev/null
+          kill $INFOPID 2>$ERR
  	      $DIALOG --title "Grubconfig: ERROR" --msgbox \
            "The partition '$ROOT_DEVICE' is mounted read-only, \
            either unmount it or mount it read-write." 0 0 #6 55
@@ -1003,7 +1035,7 @@ do
        if [ ! $? = 0 ]; then
        echo "" >> $TMP/error
        echo "I couldn't mount '$ROOT_DEVICE' read-write!" >> $TMP/error
-       kill $INFOPID 2>/dev/null
+       kill $INFOPID 2>$ERR
        $DIALOG --title "Grubconfig: MOUNT ERROR" --textbox "$TMP/error" 0 0
        umount $BOOT_TMP 2>$TMP/null && rmdir $BOOT_TMP
        rm -rf $TMP
@@ -1079,7 +1111,7 @@ LNX="no" # this means no Linux partition has been defined as bootable
   exit
  fi
 
-  REPLY="`cat $TMP/reply`"
+  REPLY=`cat $TMP/reply`
 
   if [ ! -f /proc/partitions ]; then
     CHROOT=YES
@@ -1126,7 +1158,7 @@ Which option would you like?" 18 76 7 \
   if [ ! $? = 0 ]; then
    REPLY="Skip"
   else
-   REPLY="`cat $TMP/reply`"
+   REPLY=`cat $TMP/reply`
   fi
   if [ "$REPLY" = "Begin" ]; then
     use_framebuffer
@@ -1137,7 +1169,7 @@ Which option would you like?" 18 76 7 \
 
     create_devices
 
-   kill $INFOPID 2>/dev/null
+   kill $INFOPID 2>$ERR
    $DIALOG --title "SELECT GRUB TARGET LOCATION" --menu "GRUB can be installed \
 to a variety of places: the master boot record of a hard drive, \
 the superblock of a Linux partition (which could be made \
@@ -1153,7 +1185,7 @@ the "Root" selection. Please pick a target location:" 15 68 3 \
     continue;
    else
     LNX="no"
-    TG="`cat $TMP/reply`"
+    TG=`cat $TMP/reply`
    fi
    if [ "$TG" = "MBR" ]; then
     hd_mbr
@@ -1178,8 +1210,8 @@ grep "^/dev/" $TMP/DEV | grep "83  Linux" | grep -v "Ext'd" | grep -v "Extend" >
 if [ -s $TMP/tmpmsg2 ]; then
 echo '$DIALOG --title "POSSIBLE LINUX PARTITIONS" --cr-wrap --checklist "`cat $TMP/tmpmsg1`" 0 0 0 \' > $TMP/tmpmsg3
 cat $TMP/tmpmsg2 | sed "/^$/d" | while read device ; do
-device_name="`echo "$device" | awk '{print $1}'`"
-device_info="`echo "$device" | awk '{print $2,$3,$4,$5,$6,$7}'`"
+device_name=`echo "$device" | awk '{print $1}'`
+device_info=`echo "$device" | awk '{print $2,$3,$4,$5,$6,$7}'`
 echo "$device_name" | sed "/^$/d" | sed -e 's/.*/"&" '"'$device_info'"' on \\/' >> $TMP/tmpmsg3
 done
 echo "2> $TMP/parts" >> $TMP/tmpmsg3
@@ -1220,12 +1252,12 @@ not be a bad choice.
 The default is 'Linux (on $PART)'.  Just press ENTER for it.
 (the menu will add '(on $PART)' for you automatically)
 EOF
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: SELECT PARTITION NAME" --cr-wrap --inputbox "`cat $TMP/tmpmsg`" 0 0 2> $TMP/reply
     if [ ! $? = 0 ]; then
      break;
     fi
-     LABEL="`cat $TMP/reply`"
+     LABEL=`cat $TMP/reply`
     if [ "$LABEL" = "" ]; then
      LABEL="Linux"
     fi    
@@ -1236,7 +1268,7 @@ EOF
   find_kernel
   get_root_dev $PART
 
-  num="`echo $PART | cut -b8-`" 
+  num=`echo $PART | cut -b8-` 
 
   cat << EOF > $TMP/part.$num.sort
 # Linux bootable partition config begins
@@ -1248,7 +1280,7 @@ EOF
 initrd $PART $TMP/initrd.conf
 done
    else
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: CAN'T ADD LINUX PARTITION" --msgbox "You can't add \
 partitions unless you start over with a new GRUB header." 0 0 #6 60
     continue
@@ -1265,8 +1297,8 @@ grep -v "Ext'd" | grep -v "Extend" | grep -v -i "swap" > $TMP/tmpmsg2
 if [ -s $TMP/tmpmsg2 ]; then
 echo '$DIALOG --title "POSSIBLE DOS/WIN/OS2/BSD etc. PARTITIONS" --cr-wrap --checklist "`cat $TMP/tmpmsg1`" 0 0 0 \' > $TMP/tmpmsg3
 cat $TMP/tmpmsg2 | sed "/^$/d" | while read device ; do
-device_name="`echo "$device" | awk '{print $1}'`"
-device_info="`echo "$device" | awk '{print $2,$3,$4,$5,$6,$7}'`"
+device_name=`echo "$device" | awk '{print $1}'`
+device_info=`echo "$device" | awk '{print $2,$3,$4,$5,$6,$7}'`
 echo "$device_name" | sed "/^$/d" | sed -e 's/.*/"&" '"'$device_info'"' on \\/' >> $TMP/tmpmsg3
 done
 echo "2> $TMP/parts" >> $TMP/tmpmsg3
@@ -1306,12 +1338,12 @@ the GRUB menu. 'DOS, Win2k, WinXP, FreeBSD, GNU/Hurd,
 etc.' might not be a bad choice.
 EOF
 
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: SELECT PARTITION NAME" --cr-wrap --inputbox "`cat $TMP/tmpmsg`" 0 0 2> $TMP/reply
     if [ ! $? = 0 ]; then
      break;
     fi
-     LABEL="`cat $TMP/reply`"
+     LABEL=`cat $TMP/reply`
     if [ "$LABEL" = "" ]; then
      LABEL=Unknown
     fi    
@@ -1322,7 +1354,7 @@ EOF
 
     other $part
 
-    num="`echo $PART | cut -b8-`" 
+    num=`echo $PART | cut -b8-` 
 
   cat << EOF > $TMP/part.$num.sort
 # Other bootable partition config begins
@@ -1332,14 +1364,14 @@ EOF
 EOF
 done
    else
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: CAN'T ADD OTHER PARTITION" --msgbox "You can't add \
 partitions unless you start over with a new GRUB header." 0 0 #6 60
     continue
    fi
   elif [ "$REPLY" = "Install" ]; then
    if [ "$LNX" = "no" ]; then
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "Grubconfig: CAN'T INSTALL GRUB" --msgbox "GRUB could not be \
 installed. If you have not created a GRUB configuration file by defining \
 a new header and adding at least one Linux bootable partition to it, you \
@@ -1373,14 +1405,14 @@ must do so before installing GRUB." 8 70
   fi
    
    if [ -r $TMP/view.conf ]; then
-    kill $INFOPID 2>/dev/null
+    kill $INFOPID 2>$ERR
     $DIALOG --title "YOUR NEW /boot/grub/$grub_config" --textbox "$TMP/view.conf" 22 70
    else
     if [ -r $BOOT/grub/$grub_config ]; then
-     kill $INFOPID 2>/dev/null
+     kill $INFOPID 2>$ERR
      $DIALOG --title "YOUR CURRENT /boot/grub/$grub_config" --textbox "$BOOT/grub/$grub_config" 22 70
     else
-     kill $INFOPID 2>/dev/null
+     kill $INFOPID 2>$ERR
      $DIALOG --title "NO CONFIG FILE FOUND" --msgbox "Sorry, but you don't \
 have a GRUB configuration file that can be viewed." 0 0 #6 60
     fi
