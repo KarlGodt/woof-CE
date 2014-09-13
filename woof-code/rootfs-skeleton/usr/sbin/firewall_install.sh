@@ -2,6 +2,38 @@
 #automagical button created by lvds, 2006
 #BK v3.94, dec 2007, bug fix.
 
+
+
+#************
+#KRG
+
+
+OUT=/dev/null;ERR=$OUT
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = 2 ] && set -x
+
+
+Version=1.1-KRG-MacPup_O2
+
+usage(){
+MSG="
+$0 [ help | version ]
+"
+echo "$MSG
+$2"
+exit $1
+}
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+
+trap "exit" HUP INT QUIT ABRT KILL TERM
+
+
+#KRG
+#************
+
+
 #
 # The Linux Firewall Project Graphical Installation Utility
 # Version 1.1 -- 1/21/03
