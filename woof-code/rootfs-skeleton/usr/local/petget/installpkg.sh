@@ -61,6 +61,7 @@ echo "$0: '$@'" >&2
 
 DLPKG="$1"
 DLPKG_BASE=`basename $DLPKG` #ex: scite-1.77-i686-2as.tgz
+DLPKG_BASEbak=${DLPKG_BASE/.pet/-pet}
 DLPKG_PATH=`dirname $DLPKG`  #ex: /root
 
 tmpDIR=/tmp/petget
@@ -95,12 +96,12 @@ function tar_extract_pet(){
    #ttuuxx has created some pets with './' prefix...
    pPATTERN="s%^\\./${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   else
    #new2dir and tgz2pet creates them this way...
    pPATTERN="s%^${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   fi
 }
 
@@ -111,12 +112,12 @@ function tar_extract(){
     #ttuuxx has created some pets with './' prefix...
      pPATTERN="s%^\\./${DLPKG_NAME}%%"
      echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-     tar -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar --backup --suffix=".backup.$DLPKG_BASE"
+     tar -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar --backup --suffix=".backup-$DLPKG_BASEbak"
     else
     #new2dir and tgz2pet creates them this way...
      pPATTERN="s%^${DLPKG_NAME}%%"
      echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-     tar -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar --backup --suffix=".backup.$DLPKG_BASE"
+     tar -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar --backup --suffix=".backup-$DLPKG_BASEbak"
     fi
 }
 case $DLPKG_BASE in
@@ -131,12 +132,12 @@ case $DLPKG_BASE in
    #ttuuxx has created some pets with './' prefix...
    pPATTERN="s%^\\./${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -x --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   else
    #new2dir and tgz2pet creates them this way...
    pPATTERN="s%^${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   fi
   tgz2pet ${DLPKG_MAIN}.tar.gz
  ;;
@@ -151,12 +152,12 @@ case $DLPKG_BASE in
    #ttuuxx has created some pets with './' prefix...
    pPATTERN="s%^\\./${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -j --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -j --strip=2 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   else
    #new2dir and tgz2pet creates them this way...
    pPATTERN="s%^${DLPKG_NAME}%%"
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
-   tar -z -j --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup.$DLPKG_BASE"
+   tar -z -j --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   fi
   tgz2pet -b ${DLPKG_MAIN}.tar.bz2
  ;;
@@ -218,7 +219,7 @@ case $DLPKG_BASE in
   #hmmm, got a case where passed the above test but failed here...
   [ $? -ne 0 ] && exit 1
   echo "$PFILES" > /root/.packages/${DLPKG_NAME}.files
-  tar -z -x --directory=${DIRECTSAVEPATH}/ -f $DLPKG_BASE --backup --suffix=".backup.$DLPKG_BASE"
+  tar -z -x --directory=${DIRECTSAVEPATH}/ -f $DLPKG_BASE --backup --suffix=".backup-$DLPKG_BASEbak"
  ;;
  *.tar.gz)
   DLPKG_MAIN=`basename $DLPKG_BASE .tar.gz` #ex: acl-2.2.47-1-i686.pkg
@@ -227,7 +228,7 @@ case $DLPKG_BASE in
   PFILES=`tar --list -z -f $DLPKG_BASE`
   [ $? -ne 0 ] && exit 1
   echo "$PFILES" > /root/.packages/${DLPKG_NAME}.files
-  tar -z -x --directory=${DIRECTSAVEPATH}/ -f $DLPKG_BASE --backup --suffix=".backup.$DLPKG_BASE"
+  tar -z -x --directory=${DIRECTSAVEPATH}/ -f $DLPKG_BASE --backup --suffix=".backup-$DLPKG_BASEbak"
  ;;
 esac
 
