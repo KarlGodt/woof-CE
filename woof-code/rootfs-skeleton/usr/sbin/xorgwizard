@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #(c) Copyright Barry Kauler 2006,2007 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 ## Abused by Dougal, Feb 2007
@@ -169,8 +169,82 @@ if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
 fi
 echo 'CURRENTX='"$CURRENTX"'_EOS'
 
+_do_xvidtune(){
+
+xySCREEN=`xwininfo -root | tac | grep -m1 '\-geometry' | awk '{print $2}'`
+echo "xySCREEN='$xySCREEN'" >&2
+case $xySCREEN in
+1920*) XY='-geometry +1300+540';;
+1600*) XY='-geometry +1180+600';;
+1366*) XY='-geometry +824+450' ;;
+1280*) XY='-geometry +600+400' ;;
+1024*) XY='-geometry +568+384' ;;
+ 800*) XY='-geometry +440+300' ;;
+ 768*) XY='-geometry +400+250' ;;
+ 640*) XY='-geometry +300+200' ;;
+ '')   XY='-geometry +300+200' ;;
+ *)    XY='-geometry +440+300' ;;
+esac
+
+ _do_message(){
+   sleep 0.3
+   xmessage $XY -bg violet -title "Xvidtune IMPORTANT HELP" "If you click the 'Show' button, the adjusted settings will be what
+you want permanently. After hitting the 'Quit' button, you will be
+given one last chance not to make the change permanent.
+Thus:
+'Show' to record the settings (for later inclusion into xorg.conf)
+'Quit' to exit Xvidtune.
+
+Please note that Xvidtune does not work with all graphic chips, meaning
+that changing the settings will cause no change on the screen." #& xmsgPID=$!
+   echo "\$!='$!'" >&2
+   echo " 2 xmsgPID='$xmsgPID'" >&2
+   jobs -l xmessage >&2
+while :; do sleep 1; done
+ }
+ _do_message &
+ echo "\$!='$!'" >&2
+ echo " 1 xmsgPID='$xmsgPID'" >&2
+
+   MODELINE0=`xvidtune | grep '^"[0-9]'`
+   echo " 3 xmsgPID='$xmsgPID'" >&2
+   [ "$xmsgPID" ] && { ps | grep $QUIET -w $xmsgPID 1>$OUT 2>$ERR && kill $xmsgPID 2>$ERR; }
+   if [ "$MODELINE0" != "" ];then
+    xmessage -bg orange -title "Xvidtune: Modeline" -buttons Write:10,Quit:11 "The new modeline is:
+$MODELINE0
+
+Note, you will have to restart X for it to take effect. If it messes
+up X, edit from commandline 'mp /etc/X11/xorg.conf' and comment-out
+the 'UseModes' line (do not delete it) in the Monitor section.
+
+To insert this into /etc/X11/xorg.conf, click 'Write' button...
+To exit without changing xorg.conf, click 'Quit' button..."
+    if [ $? -eq 10 ];then
+     aPATTERN="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
+     cat /etc/X11/xorg.conf | sed -e "$aPATTERN" > /tmp/xorg.conf.new
+     sync
+     cat /tmp/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > /etc/X11/xorg.conf
+     _sync
+    fi
+   fi
+#jobs -l _do_message >&2; echo $? >&2
+#jobs -p _do_message >&2; echo $? >&2
+
+msgPID=`jobs -p _do_message`
+[ "$msgPID" ] && { kill $msgPID; }
+
+#jobs -l xmessage >&2
+#echo " 4 xmsgPID='$xmsgPID'" >&2
+#[ "$xmsgPID" ] && { ps | grep $QUIET -w $xmsgPID 1>$OUT 2>$ERR && kill $xmsgPID 2>$ERR; }
+
+
+echo "function _do_xvidtune END." >&2
+}
+export -f _do_xvidtune
+
 . /etc/rc.d/functions4puppy4 #v411 has choosemousefunc().
-echo 1
+
+echo 1 >&2
 #v2.0.0
 #read the console keymap (country layout), apply to xkb...
 CONSKEYMAP=`cat /etc/keymap | cut -b 1-2`
@@ -242,24 +316,30 @@ XserverSwitch="
 
 [ "$only1xserver" ] && XserverSwitch=""
 
-echo 2
+echo 2 >&2
 export MAIN_DIALOG="
-<wtitle>Xorg Graphics Wizard</wtitle>
+<wtitle>Xorg Screen Display Wizard</wtitle>
 <hbox>
  <vbox>
   <text><label>\"Welcome to the Puppy Linux
 Xorg Graphics Wizard!\"</label></text>
   <text><label>\"The behaviour of Xorg is controlled
-by a configuration file, /etc/X11/
-xorg.conf. You have a choice here,
+by a configuration file
+'/etc/X11/xorg.conf' .
+You have a choice here,
 either to completely reconstruct
-the /etc/X11/xorg.conf file, or
-to modify the existing file.\"</label></text>
+the /etc/X11/xorg.conf file,
+or to modify the existing file.\"</label></text>
  </vbox>
  <vbox>
   <frame XorgWizard>
   <hbox>
-   <text><label>XorgWizard completely reconstructs the /etc/X11/xorg.conf file, and X must not be running to do this. A reboot is required, and the Wizard will run in text mode, before X is launched.</label></text>
+   <text><label>\"XorgWizard completely reconstructs the /etc/X11/xorg.conf file,
+and X must not be running to do this.
+An exit to the promt is required,
+and the Wizard will run in text mode, before X is launched.
+-- CLOSE ALL APPs before hitting this button ! --
+\"</label></text>
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
@@ -267,7 +347,9 @@ to modify the existing file.\"</label></text>
     </button>
    </vbox>
   </hbox>
-  <text><label>NOTE: You can also run XorgWizard manually, without rebooting, by exiting from X to the commandline (see Shutdown menu) then run xorgwizard.</label></text>
+  <text><label>\"NOTE: You can also run XorgWizard manually,
+   by exiting from X to the commandline (see Shutdown menu),
+   then run xorgwizard.\"</label></text>
   </frame>
 
   <frame Edit xorg.conf>
@@ -276,7 +358,7 @@ to modify the existing file.\"</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
-      <action>EXIT:15</action>
+      <action>defaulttexteditor /etc/X11/xorg.conf &</action>
      </button>
     </vbox>
    </hbox>
@@ -288,7 +370,7 @@ to modify the existing file.\"</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
-      <action>EXIT:13</action>
+      <action>_do_xvidtune &</action>
      </button>
     </vbox>
    </hbox>
@@ -300,7 +382,7 @@ to modify the existing file.\"</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
-      <action>EXIT:16</action>
+      <action>input-wizard &</action>
      </button>
     </vbox>
    </hbox>
@@ -312,7 +394,7 @@ to modify the existing file.\"</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
-      <action>EXIT:17</action>
+      <action>tkgamma &</action>
      </button>
     </vbox>
    </hbox>
@@ -324,7 +406,7 @@ to modify the existing file.\"</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
-      <action>EXIT:18</action>
+      <action>xrandrshell &</action>
      </button>
     </vbox>
    </hbox>
@@ -335,16 +417,16 @@ to modify the existing file.\"</label></text>
  </vbox>
 </hbox>
 "
-echo 3
+echo 3 >&2
 
 #do this code block if X is running...
 if [ ! "`echo -n "$PSFND" | grep '\.xinitrc'`" = "" ];then
-echo 4
+echo 4 >&2
  RETSTR=`echo "$MAIN_DIALOG" | gtkdialog2 --stdin`  ##-p "$MAIN_DIALOG"`"  ## | gtkdialog2`"  ## --stdin`
  ##gtkdialog2 --program=MAIN_DIALOG
  #gtkdialog3 --print-ir -p MAIN_DIALOG
  RETVAL=`echo "$RETSTR" | grep -o -e 'EXIT:.*' | cut -f 2 -d ':'`
-echo 5
+echo 5 >&2
 echo 'RETVAL='"$RETVAL"'_EORETVAL'
  case $RETVAL in
 
@@ -387,12 +469,12 @@ sync
   11) #XorgWizard.
    #rm /etc/mousedevice # Dougal: any reason for this?
    mv -f /etc/X11/xorg.conf /etc/X11/xorg.conf.prev 2>$ERR
-   [ -e /usr/bin/Xvesa ] && ln -sf `which Xvesa` /usr/bin/X
+   [ -e "`which Xvesa`" ] && ln -sf `which Xvesa` /usr/bin/X
    NEXTWM=`cat /etc/windowmanager`
-   echo -n "$NEXTWM" > /etc/windowmanager #this makes change permanent.
+   echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
    #echo -n "$NEXTWM" > /tmp/wmexitmode.txt
    echo 'xorgwizard' > /tmp/wmexitmode.txt
-   sync
+   _sync
    #exec killall X ##2011-10-03
    killall X
    exit 0  ##2011-10-03 to prevent multiple xwin and xorgwizards running
