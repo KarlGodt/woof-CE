@@ -1,7 +1,6 @@
 #!/bin/bash
-
 # YouTube download script by John Lawrence (http://blog.johnlawrence.net)
-#Modified for puppy by trio - 2009
+# Modified for puppy by trio - 2009
 
 use_err() {
   echo "Usage:   `basename $0` [-f savefile] video_id"
