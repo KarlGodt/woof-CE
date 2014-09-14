@@ -1,0 +1,288 @@
+#!/bin/sh
+#(c) Copyright Barry Kauler 2006,2007 www.puppylinux.com
+#2007 Lesser GPL licence v2 (/usr/share/doc/legal/lgpl-2.1.txt)
+## Abused by Dougal, Feb 2007
+## Update: March 16th: fixed "OK" button when testing X
+## Update: April 15th: fixed problem with MONTYPES format, added touchpad code
+## Update: April 16th: removed MONTYPES, using a case-structure to set params
+#v2.21 BK 9sept2007 bug fix: serial mouse setting was wrong.
+#v3.93 BK 1dec2007: updated for dingo.
+#v3.93 BK 2dec2007: bugfixes from Dougal and rerwin.
+#v3.94 BK 24dec2007: recognise Classmate PC laptop.
+#v3.95 BK 4jan2008: recognise eeepc laptop.
+#v3.95 BK 8jan2008: bug that caused xorgwizard to run at every boot.
+#v3.96 BK 22jan2008: special case submitted by rerwin.
+#v3.97 BK 2feb2008: improved detection of Classmate laptop.
+#v3.98 RE 7mar2008: added preferred mode parameter; corrected & added special cases submitted by rerwin.
+#v3.99 BK 15apr2008: have restored the xrandrshell utility to the main GUI menu.
+#v3.99 BK 15apr2008: workaround for xrandr and dual monitors.
+#v3.99 RE 7apr2008: improve user interface for any Xvesa-hanging video adapters.
+#v405 BK 22jul08: added support for 1024x600.
+#v408 BK k2.6.25.16 serial mouse driver now a module 'sermouse'.
+#v411 rerwin: mouse improvements.
+#v411 moved choosemousefunc() to /etc/rc.d/functions4puppy4, want call from rc.sysinit.
+#w000 path /usr/X11R7 no longer used.
+#w002 no longer offering xvesa.
+#w005 restored EXIT button in first dlg.
+#w007 fix X if it is not a symlink.
+#w019 april2009: restored Xvesa.
+#w460 fixed X test screen, proper exit.
+#w468 modify mouse detection message.
+#w478 fix prevent 2 instances of xwin, do not 'exec xwin'.
+#w480 bugfix, serial mouse choice lost if choose to tweak refresh.
+#w482 allow switch between intel_drv.so and i810OLD_drv.so.
+#091119 pizzasgood: patch for multiple monitors.
+#091125 if no Xvesa, do not display dlg that offers to choose it.
+#100109 fix yes/no labels in dlg, fix bug when switch to 'vesa' driver.
+#100113 choose alternate video drivers.
+#100215 now have xgamma-gui.
+#100328 different xorg.conf0 for xorg 7.3.
+#100329,100330 first window offer vesa.
+#100401 offer alternate drivers in first window.
+#100430 handle commercial nvidia driver. improve Choose button.
+#100501 monitor probe returns random 'manufacture' data from one of my monitors.
+#100510 fix column alignment.
+#100516 TazOC: nvidia module loading fix.
+#100603 Jemimah: support Elantech touchpads.
+#100708 fix for when all three nv, nouveau, nvidia drivers present, choose just one.
+#100820 Xvesa present, improve dialogs if choose Xorg.
+#100820 for intel video, mplayer needs 'Option "LinearAlloc" "6144"' in xorg.conf.
+
+[ "$DISPLAY" ] || {
+echo "$0 : need X running.
+Try 'xorgwizard' with small 'x' ."
+exit 1
+}
+
+# redirect errors to file (to help debug):
+exec 2>/tmp/Xorgwizard-errors.log
+
+# redirect errors to file (to help debug):
+#exec 2>/tmp/xorgwizard-errors.log
+
+PSFND="`ps`"
+CURRENTX="`readlink /usr/bin/X`"
+if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
+ ln -snf Xorg /usr/bin/X
+ CURRENTX='Xorg'
+fi
+
+#100328 determine version of Xorg...
+if [ -f /etc/X11/xorg.conf0XORG73 ];then
+ XORGBIN="`which Xorg`"
+ if [ "$XORGBIN" ];then
+  XVERSION=`Xorg -version 2>&1 | grep '^X Window System Version' | rev | cut -f 1 -d ' ' | rev | cut -c 3` #ex: 3 (as in 1.3.0)
+  [ ! $XVERSION ] && XVERSION=`Xorg -version 2>&1 | grep '^X.Org X Server' | rev | cut -f 1 -d ' ' | rev | cut -c 3`
+  if [ $XVERSION -lt 5 ];then
+   if [ -f /etc/X11/xorg.conf0XORG73 ];then
+    #xorg 7.3 needs a different file...
+    mv -f /etc/X11/xorg.conf0XORG73 /etc/X11/xorg.conf0
+fi;fi;fi;fi
+
+. /etc/rc.d/functions4puppy4 #v411 has choosemousefunc().
+
+#v2.0.0
+#read the console keymap (country layout), apply to xkb...
+CONSKEYMAP="`cat /etc/keymap | cut -c 1-2`"
+[ "$CONSKEYMAP" = "" ] && CONSKEYMAP="us"
+case $CONSKEYMAP in
+  az) XKEYMAP="fr" ;;     #azerty
+  wa) XKEYMAP="fr" ;;     #wangbe
+  dv) XKEYMAP="dvorak" ;; #dvorak
+  cr) XKEYMAP="cz" ;;     #croat
+  sl) XKEYMAP="si" ;;     #slovene v2.12 bugfix, changed from 'sk' to 'si' (sk is slovakia)
+  sv) XKEYMAP="se" ;;     #sweden
+  uk) XKEYMAP="gb" ;;     #united kingdom
+  *)  XKEYMAP="$CONSKEYMAP" ;;
+esac
+if [ -d /etc/X11/xkb/symbols/pc ];then #100127 fallback...
+ if [ ! -f /etc/X11/xkb/symbols/pc/${XKEYMAP} ];then
+  if [ ! -f /etc/X11/xkb/symbols/${XKEYMAP} ];then
+   echo "ERROR: Console keyboard `cat /etc/keymap` no matching Xorg layout. PLEASE REPORT TO BK"
+   XKEYMAP='us'
+  fi
+ fi
+fi
+
+
+MAIN1="
+<wtitle>Xorg Video Wizard</wtitle>
+<hbox>
+ <vbox>
+  <text><label>\"Welcome to the Puppy Linux
+Xorg Video Wizard!\"</label></text>
+  <text><label>\"The behaviour of Xorg is controlled
+by the configuration file
+'/etc/X11/xorg.conf' .
+
+You have a choice here,
+either to completely reconstruct
+the /etc/X11/xorg.conf file,
+or to modify the existing file.
+Edit xorg.conf would start
+the defaulttexteditor displaying
+/etc/X11/xorg.conf .
+If the defaulttexteditor is geany,
+and geany is already running,
+but on a different virtual desktop,
+you'd need to switch there - in
+case you wonder if the button
+does anything.
+
+
+Or choose any of the other
+menu entries.\"</label></text>
+ </vbox>
+ <vbox>
+  <frame xorgwizard>
+  <hbox>
+   <text><label>xorgwizard completely reconstructs the /etc/X11/xorg.conf file, and X must not be running to do this. A Restart Xserver is required, and the Wizard will run in text mode, before X is relaunched. So close all applications before hitting this button!</label></text>
+   <vbox>
+    <button>
+     <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
+     <action>EXIT:11</action>
+    </button>
+   </vbox>
+  </hbox>
+  <text><label>NOTE: You can also run xorgwizard manually, without rebooting, by exiting from X to the commandline (see Shutdown menu) then run xorgwizard.</label></text>
+  </frame>
+
+  <frame Edit xorg.conf>
+   <hbox>
+    <text><label>You can manually edit /etc/X11/xorg.conf, but note that you will need to exit from X afterward then restart X (see Shutdown menu). Click button to edit:</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
+      <action>defaulttexteditor /etc/X11/xorg.conf &</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
+  <frame xvidtune>
+   <hbox>
+    <text><label>If the screen is displaced or the width/height are wrong, xvidtune can get it right. This will modify the existing xorg.conf file. Use with caution:</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
+      <action>Puppy_xvidtune &</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
+  <frame Mouse/keyboard Wizard>
+   <hbox>
+    <text><label>/etc/X11/xorg.conf has generic settings for mouse and keyboard and in most cases it is recommended to leave it as-is. Instead, use the MouseKeyboardWizard:</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
+      <action>input-wizard &</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
+  <frame Monitor gamma calibration>
+   <hbox>
+    <text><label>This will adjust the monitor colors, including screen brightness.</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
+      <action>tkgamma &</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
+  <frame Resolution changer>
+   <hbox>
+    <text><label>It is possible to change screen resolutions without exiting from X:</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
+      <action>xrandrshell &</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
+ </vbox>
+</hbox>
+"
+
+
+#do this code block if X is running...
+if [ ! "`echo -n "$PSFND" | grep "\\.xinitrc"`" = "" ];then
+
+ RETSTR="`echo "$MAIN1" | gtkdialog2 --stdin`"
+ RETVAL="`echo "$RETSTR" | grep 'EXIT:' | cut -f 2 -d ':'`"
+
+ case $RETVAL in
+  11) #XorgWizard.
+   #rm /etc/mousedevice # Dougal: any reason for this?
+   mv -f /etc/X11/xorg.conf /etc/X11/xorg.conf.prev   #2>$ERR
+   [ -e /usr/bin/Xvesa ] && ln -sf Xvesa /usr/bin/X
+   NEXTWM="`cat /etc/windowmanager`"
+   echo -n "$NEXTWM" >/etc/windowmanager #this makes change permanent.
+   echo -n "$NEXTWM" >/tmp/wmexitmode.txt
+   echo 'ICONWIPE' >/tmp/pup_event_icon_change_flag  ##+++2011_10_30
+   sync
+   exec killall X
+   ;;
+  12) #xorgconfig
+   xorgcfg
+   xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to /etc/X11/xorg.conf will only take effect after X is restarted.
+
+Click OK button to restart X..."
+   exec restartwm
+   ;;
+  13) #xvidtune
+   xmessage -bg violet -title "Xvidtune IMPORTANT HELP" "If you click the 'Show' button, the adjusted settings will be what
+you want permanently. After hitting the 'Quit' button, you will be
+given one last chance not to make the change permanent.
+Thus:
+'Show' to record the settings (for later inclusion into xorg.conf)
+'Quit' to exit Xvidtune.
+
+Please note that Xvidtune does not work with all video hardware, meaning
+that changing the settings will cause no change on the screen." &
+   XMSGPID=$!
+   MODELINE0="`xvidtune | grep '^"[0-9]'`"  ##krg 'geany
+   kill $XMSGPID
+   if [ ! "$MODELINE0" = "" ];then
+    xmessage -bg orange -title "Xvidtune: Modeline" -buttons Write:10,Quit:11 "The new modeline is:
+$MODELINE0
+
+Note, you will have to restart X for it to take effect. If it messes
+up X, edit from commandline 'mp /etc/X11/xorg.conf' and comment-out
+the 'UseModes' line (do not delete it) in the Monitor section.
+
+To insert this into /etc/X11/xorg.conf, click 'Write' button...
+To exit without changing xorg.conf, click 'Quit' button..."
+    if [ $? -eq 10 ];then
+     PATTERNA="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
+     cat /etc/X11/xorg.conf | sed -e "$PATTERNA" >/tmp/xorg.conf.new
+     sync
+     cat /tmp/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' >/etc/X11/xorg.conf
+     sync
+    fi
+   fi
+   exit
+   ;;
+  15) #edit xorg.conf
+   exec defaulttexteditor /etc/X11/xorg.conf
+   ;;
+  16) #mouse/keyboard wizard
+   exec input-wizard
+   ;;
+  17) #tkgamma
+   exec tkgamma
+   ;;
+  18) #resolution changer
+   exec xrandrshell
+   ;;
+ esac
+ exit
+fi
+
