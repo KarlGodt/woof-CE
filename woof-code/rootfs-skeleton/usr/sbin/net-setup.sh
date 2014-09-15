@@ -759,7 +759,7 @@ loadNdiswrapperModule ()
 #=============================================================================
 #loadSpecificModule ()
 #{
-    #RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
+    #RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2>/dev/null)
     #if [ $? -eq 0 ];then
         #tryLoadModule "${RESPONSE}"
     #fi
@@ -979,7 +979,7 @@ findLoadedModules ()
   echo -n " " > /tmp/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
-  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules 2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
+  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules 2>$ERR | cut -f1 -d' ' | tr '\n' ' ') "
 
   COUNT_MOD=0
   for MOD in $LOADED_MODULES
