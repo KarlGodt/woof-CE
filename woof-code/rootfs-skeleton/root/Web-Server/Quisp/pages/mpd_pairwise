@@ -1,0 +1,542 @@
+// pairwise_strains
+//
+// view: entire = all measurements, project order;  zoom = zoomed-in to a piece of 'entire'
+//	 dist = bars ordered by magnitude to show distribution, clicks go to twostrains table
+//       spec = a project or category (defined by reqprojsym or reqheading)
+
+#set MAXMEAS = 1000
+
+// get cgi user vars..
+#cgilistvar strainid 
+#cgivar astrainid view binstart binstop logmode
+#cgivar anchorstrain gformat reqprojsym reqheading projlist
+
+// set title and do top..
+#if @view = zoom
+  #set TITLE = "Pairwise comparison of strains (zoomed-in view)" 
+#elseif @view = spec && @reqprojsym != ""
+  #set TITLE = "Pairwise comparison of strains, project" @reqprojsym
+#elseif @view = spec && @reqheading != ""
+  #set TITLE = "Pairwise comparison of strains, category '" @reqheading "'"
+#elseif @view = dist
+  #set TITLE = "Distribution of strain difference, all MPD measurements"
+#else
+  #set TITLE = "Pairwise comparison of strains" 
+#endif
+#include include/top
+<center>
+
+#if @SPIDER = 1
+  #include include/spiderexit
+#endif
+
+#if error in @strainid
+  <h2>Error in strain selection.. try again</h2>
+  #include include/bottom
+  #exit
+#endif
+#if $count(*, @strainid ) > 8
+  <h2>Too many strains.. try again (select 2 - 8 strains)</h2>
+  #include include/bottom
+  #exit
+#endif
+
+
+// set defaults..
+#setifnotgiven gformat = png
+#if @reqprojsym != "" || @reqheading != ""
+  #setifnotgiven view = spec
+#endif
+#setifnotgiven view = entire
+#setifnotgiven logmode = no
+#if @astrainid != ""
+  #set strainid = @astrainid
+#endif
+
+// this added to be sure anchorstrain is one of selected strains.. scg 3/25/04 
+#if @anchorstrain !in @strainid
+  #set anchorstrain = ""
+#endif
+
+#if @anchorstrain = ""  && @strainid != "" 
+  #if 7 in @strainid
+    #set anchorstrain = 7
+  #else
+    #set anchorstrain = $nmember( 1, @strainid )
+  #endif
+#endif
+#set urlheading = $change( " ", "%20", @reqheading )
+  
+#if @anchorstrain != ""
+  #sql #load select fname (as anchorname) from strains where id = @anchorstrain
+#endif
+
+Strains will be compared using measurement <a href="@CGIPROG?rtn=docs/statshelp">Z scores</a>.
+<br>
+<br>
+
+
+///////////
+// form  //
+///////////
+<form action="@CGIBIN/mpdgrcgi" method=GET>
+#formtarget plots/pairwise_strains
+#pass reqprojsym, reqheading, projlist
+
+<TABLE cellpadding=2 border=1><TR><TD>
+<table cellpadding=10><tr>
+<td valign=top align=center>
+Select 2 - 8 strains<br>
+to compare:
+<br>
+<small>(<a href="@CGIPROG?rtn=docs/mselecthelp">Help</a>)<br>
+// render a strains select list..
+#set selparms = "size=12 multiple"
+#set projsym = @reqprojsym
+#include views/choosestrains
+</td>
+<td valign=top>
+#if @strainid != ""
+  Select one strain<br>
+  to compare all others<br>
+  against:<br>
+  <select name=anchorstrain size=4>
+  #optionlist selected=@anchorstrain
+    #options
+      #sql #dumptab select id, fname from strains where id in @strainid
+  </select>
+#endif
+<br><br>
+<select name=view size=1>
+#optionlist selected=@view
+  #options
+    entire	All MPD measurements, project order
+    #if @reqprojsym != ""
+     spec	Measurements in project @reqprojsym
+    #elseif @reqheading != ""
+     spec	Measurements in category '@reqheading'
+    #else
+      dist	Distribution of strain differences (magnitude order)
+    #endif
+</select>
+
+<br><br>
+Log transform?
+<select name=logmode size=1>
+#optionlist selected=@logmode options=no,yes
+</select>
+<br><br>
+<input type=submit value="Compare strains">
+</td>
+</tr>
+
+</table>
+</TD>
+#if @anchorstrain != ""
+  // display strain pairs
+  <TD valign=top>
+  <br>Pair comparions<br>in list format:<br>
+  #for sid in @strainid
+     #if @sid = @anchorstrain
+       #continue
+     #endif
+     #sql #load select aname (as strainname) from strains where id = @sid
+     <li> <a href="@CGIPROG?rtn=views/twostrains&opmode=all&strainid=@anchorstrain,@sid&reqheading=@urlheading&projsym=@reqprojsym&projlist=@projlist">@anchorname vs. @strainname</a>
+  #endloop
+  </TD>
+#endif
+</TR>
+</TABLE>
+
+</form>
+
+
+#set nstrains = $count( "*", @strainid )
+
+// sanity checks..
+#if @nstrains < 2 
+  <h3>Please select 2 - 8 strains...</h3>
+  #include include/bottom
+  #exit
+#endif
+// the following added 10/1/03 scg...
+#if @nstrains = 2 && $nmember( 1, @strainid ) = $nmember( 2, @strainid )
+  <h3>Please select 2 - 8 strains...</h3>
+  #include include/bottom
+  #exit
+#endif
+
+#set npanels = $arith( @nstrains-1 )
+#if @npanels > 7
+  #set npanels = 7
+#endif
+
+
+#if @view = entire
+  <h3>All MPD measurements in order by project.  Click on a region to zoom in...</h3>
+#elseif @view = dist
+  <h3>Distribution of strain differences, all MPD measurements.</h3>
+#else
+  <h3>
+  #if @view = spec && @reqprojsym != ""
+    All measurements in project <a href="@CGIPROG?rtn=projects/details&sym=@reqprojsym">@reqprojsym</a>
+  #elseif @view = spec && @reqheading != ""
+    All measurements in category <a href="@CGIPROG?rtn=assays/group&reqheading=@urlheading">@reqheading</a>
+  #elseif @view = zoom
+    This is a zoomed-in view.  Click 'compare strains' button above to regenerate full view.
+  #endif
+  </h3>
+  <b>Move mouse over a bar</b> to see measurement description. &nbsp; &nbsp; Click on bar to see measurement summary.<br><br>
+#endif
+
+
+
+//////////////////////////////
+// embedded ploticus script //
+//////////////////////////////
+
+#set unique = $uniquename()
+#set imgfile = @unique "." @gformat
+
+
+#if @binstart < 1
+  #set binstart = 1
+#endif
+
+
+<map name=clickmap>
+
+#graphic @gformat @PROJDIR/tmp/@imgfile
+  #arg -diagfile stdout
+  #arg -pagesize 10,15
+  #arg -csmap
+  #arg -mapfile stdout
+  // #arg -debug
+  #arg -diagfile stdout
+  #arg -maxproclines 10000
+
+  #set left = 1
+  #if @view = spec
+    #set right = 5
+  #elseif @view = zoom 
+    #set right = 9
+  #else
+    #set right = 7
+  #endif
+  #set top = $arith( @npanels*1.25 )
+  #set top = $arith( @top+1.0 )
+  #set bottom = 1
+
+
+  #if @view in entire,zoom,spec
+    // read in list of all eligible measnums.. 
+    #proc getdata
+    delim: tab
+    fieldnames: measnum, projsym, heading, subheading, desc
+    data:
+    #sql #dumptab
+      select measnum, projsym, heading, subheading, desc from assays 
+      where
+      #if @view = spec && @reqprojsym != ""
+        projsym = '@reqprojsym' and
+      #elseif @view = spec && @reqheading != ""
+        heading = '@reqheading' and
+      #endif
+      projsym !in 'Paigen3,Hunter1,@SUPPRESSED_PROJECTS' and datatype !in 'cat,linkflag,subflag' 
+      order by projsym, displayorder (num), measnum (num)
+      #if @view = zoom
+        limit @binstart, @binstop
+      #endif
+        
+    #endsql
+    #endproc
+
+    #if @NRECORDS < 1
+      #exit
+    #endif
+
+    #set NMEAS = @NRECORDS
+  
+  
+    #proc categories
+    axis: x
+    listsize: @MAXMEAS
+    datafield: measnum
+
+
+    /////////// display the project ranges..
+    #set topheader = $arith( @top+0.5 )
+  
+    #proc processdata
+    action: segment
+    fields: projsym measnum
+    // can't use fieldnames here - it clobbers the fieldnames associated w/ assays data..
+    // fieldnames: projsym startcat stopcat
+  
+    #proc areadef
+    rectangle: @left @top @right @topheader
+    xrange: categories
+    yrange: 0 3
+  
+    #proc bars
+      constantloc: 2.0
+      segmentfields: 2 3
+      color: rgb(1,1,0.4)
+      outline: no
+      axis: x
+      labelfield: 1
+      labeldetails: size=6
+      longwayslabel: yes
+      #if @view = entire
+        labelrotate: 90
+        color: white
+      #endif
+      clickmapurl: ?rtn=projects/details&sym=@@1
+  
+    #proc usedata
+      original: yes
+    #endproc
+  
+  #endif  
+
+  /////////// display the female/male legend above the project ranges..
+
+  #if @view = dist
+    // need to set up an area to conform ..
+    #proc areadef
+    rectangle: @left @bottom @right @top
+    xrange: 0 1
+    yrange: 0 1
+  #endif
+
+  #proc legendentry
+  sampletype: color
+  label: Female
+  details: red width=0.5
+
+  #proc legendentry
+  sampletype: color
+  label: Male
+  details: blue width=0.5
+
+  #proc legend
+  #if @view = entire
+   location: max-1 max+0.3
+  #else
+   location: max-1 max+0.1
+  #endif
+  format: singleline
+  sep: 0.4
+  
+
+  /////////// zoom and meas desc clickmaps.....
+  #if @view = entire
+
+     // set up 5 clickable regions for zoom in
+     #set fifthwidth = $arith(@right-@left/5.0)
+     #set fifthcat = $arith(@NRECORDS/5.0, %.0f)
+     #set tenthcat = $arith(@NRECORDS/10.0, %.0f)
+     #set L = @left
+     #set R = $arith(@left+@fifthwidth)
+
+     #for i in 0,1,2,3,4
+       // set 5 clickable regions for zoom-in (for ease of use, zoomed region will be somewhat wider than clickable region)..
+       #set binstart = $arith(@fifthcat*@i-@tenthcat)
+       #set binstop = $arith(@binstart+@fifthcat+@fifthcat)
+       #proc rect
+	rectangle: @L @bottom @R @top
+        color: white
+	// outline: color=pink width=0.5
+        clickmapurl: ?rtn=plots/pairwise_strains&view=zoom&logmode=@logmode&binstart=@binstart&binstop=@binstop&astrainid=@strainid&anchorstrain=@anchorstrain
+
+       #set L = $arith(@L+@fifthwidth)
+       #set R = $arith(@R+@fifthwidth)
+     #endloop
+
+  #elseif @view in zoom,spec
+     // render clickmap
+     #proc areadef
+     rectangle: @left @bottom @right @top
+     xrange: categories
+     yrange: 0 10
+
+     #proc bars
+     locfield: measnum
+     constantlength: 10
+     color: white
+     outline: no
+     clickmapurl: ?rtn=assays/onesumm&measnum=@measnum
+     clickmaplabel: @desc (@heading; @subheading)
+
+
+     // guide lines..
+     #if @NMEAS > 12
+       #proc xaxis
+       gridblocks: 0.92 white
+       ticincrement: 2
+       tics: none
+       stubs: none
+       axisline: none
+     #endif
+ 
+  #endif
+  
+
+  // set up for topmost panel..
+  #set bottom = $arith( @top-0.75 )
+
+  #if @view = entire
+     #set barthick = ""
+  #elseif @view = spec
+     #set barthick = "width=3"
+  #else
+     #set barthick = "width=1"
+  #endif
+
+  #if @logmode = yes
+    #set zfield = logzscore
+  #else
+    #set zfield = zscore
+  #endif
+
+  /////////// loop across strains.......
+  #for sid in @strainid
+    #if @sid = @anchorstrain
+      #continue
+    #endif
+
+    #set bottom = $arith( @top-0.75 )
+
+    ////////// females /////////
+    // get diff data..
+    #set key =  @sid "v" @anchorstrain "f"
+    #proc getdata
+      fieldnames: measnum, zdiff
+      data:
+      #shell
+	shsql "select a.measnum, a.@zfield, b.@zfield
+	  from summstats (as a) join summstats (as b) on a.measnum = b.measnum and a.sex = b.sex 
+	  where a.istrain = @sid and b.istrain = @anchorstrain and a.sex = 'f'" | 
+        #if @view = dist
+	  /bin/nawk '{ print $1, $2-$3 }'  | sort +1rn
+        #else
+	  /bin/nawk '{ print $1, $2-$3 }' 
+        #endif
+      #endshell
+    #endproc
+
+    #if @NRECORDS < 1
+      #continue
+    #endif
+
+    // set up plotting area..
+    #sql #load select aname (as strainname) from strains where id = @sid
+    #proc areadef
+      rectangle: @left @bottom @right @top
+      #if @view = dist
+        xrange: 0 @NRECORDS
+      #else
+        xrange: categories
+      #endif
+      yrange: -4.0 4.0
+      yaxis.tics: none
+      yaxis.axisline: none
+      #if @view = dist
+        clickmapurl: ?rtn=views/twostrains&opmode=all&strainid=@anchorstrain,@sid
+      #endif
+      #saveas A
+
+    #proc bars
+      #if @view != dist
+        locfield: measnum
+      #endif
+      lenfield: zdiff
+      crossover: 0
+      thinbarline: color=red @barthick
+      
+
+    #proc line
+       linedetails: width=0.5
+       points: @AREALEFT 0(s) @AREARIGHT 0(s)
+
+
+    // slap on title now (so it's not obliterated by bars)..
+    #proc annotate
+      location: min max-0.12
+      textdetails: align=left size=12
+      text: @strainname with respect to @anchorname
+
+
+    ////////// males /////////
+    #set top = $arith(@top-0.5)
+    #set bottom = $arith( @top-0.75 )
+
+    // get diff data..
+    #set key = @sid "v" @anchorstrain "f"
+    #proc getdata
+      fieldnames: measnum, zdiff
+      data:
+      #shell
+	shsql "select a.measnum, a.@zfield, b.@zfield
+	  from summstats (as a) join summstats (as b) on a.measnum = b.measnum and a.sex = b.sex 
+	  where a.istrain = @sid and b.istrain = @anchorstrain and a.sex = 'm'" | 
+        #if @view = dist
+	  /bin/nawk '{ print $1, $2-$3 }' | sort +1rn
+        #else
+	  /bin/nawk '{ print $1, $2-$3 }' 
+        #endif
+      #endshell
+    #endproc
+
+    #if @NRECORDS < 1
+      // move down to next panel..
+      #set top = $arith(@top-.75)
+      #set bottom = $arith( @top-0.75 )
+      #continue
+    #endif
+
+    // set up plotting area..
+    #sql #load select aname (as strainname) from strains where id = @sid
+    #proc areadef
+      #clone: A
+      rectangle: @left @bottom @right @top
+      #if @view = dist
+        clickmapurl: ?rtn=views/twostrains&opmode=all&strainid=@anchorstrain,@sid
+      #endif
+
+    #proc bars
+      #if @view != dist
+        locfield: measnum
+      #endif
+      lenfield: zdiff
+      crossover: 0
+      thinbarline: color=blue @barthick
+
+    #proc line
+       linedetails: width=0.5
+       points: @AREALEFT 0(s) @AREARIGHT 0(s)
+
+    // move down to next panel..
+    #set top = $arith(@top-.75)
+
+  #endloop
+#endgraphic
+</map>
+    
+
+///////////// display the generated image, hooked up to the client side image map embedded above..
+<img src="@HTMLURL/tmp/@imgfile" usemap="#clickmap">
+<br>
+#if @logmode = yes
+  Note: measurements that were not submitted as per-animal data do not have log transform z scores.
+  <br><br>
+#endif
+Note: these plots use client-side imagemaps to allow clicking on graph regions
+<br>
+and mouse-activated popup text bubbles.  Older browsers may not support this.
+
+
+<br>
+<br>
+#include include/bottom
+

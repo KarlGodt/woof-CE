@@ -1,0 +1,472 @@
+#cgilistvar ml, sl
+#cgivar gformat reqsex
+#cgivar reqprojsym reqheading reqmeasnum show_n_below
+
+#setifnotgiven show_n_below = all
+#setifnotgiven reqsex = all
+#setifnotgiven gformat = png
+#set context = multiplot
+
+
+#set TITLE = "Horizontal bar display of several measurements"
+#include include/top
+
+#set starttime = $time()
+
+<center>
+#if @SPIDER = 1
+  #include include/spiderexit
+#endif
+
+<form action="@CGIPROG" method=GET>
+#formtarget plots/choosebarmeas
+#pass ml sl reqprojsym reqheading reqmeasnum context gformat reqsex show_n_below
+<input type=submit 
+#if @ml != ""
+  value="Select other measurements"
+#else
+  value="Select measurements"
+#endif
+</form>
+
+#if @ml = ""
+  #include include/bottom
+  #exit
+#endif
+
+#if @ml like "*error*"
+  <h2>One or more selections is invalid... try again.</h2>
+  #exit
+#endif
+
+
+// sex stuff..
+#if @reqprojsym != ""
+  #sql #load select genders from datasetinfo where projsym = "@reqprojsym"
+  #if @genders != ""
+    #set reqsex = @genders
+  #endif
+#endif
+#if @reqsex = all
+  #set sexlist = m,f
+#else
+  #set sexlist = @reqsex
+#endif
+
+
+#set unique = $uniquename()
+#set imgfile = "/tmp/multi" @unique "." @gformat
+
+#if @gformat = png
+  <map name=clickmap>
+#endif
+
+
+#graphic @gformat @PROJDIR/@imgfile
+#arg -pagesize 15,18
+#if @gformat = png
+  #arg -csmap
+  #arg -mapfile stdout
+#endif
+
+
+
+///////////////////////////////////
+// set up strains as X categories, and set panel and overall dimensions based on #measurements and #strains
+///////////////////////////////////
+
+// get a list of involved strains..
+#proc getdata
+  delim: tab
+  fieldnames: strainname strainid
+  data:
+    #sql #dumptab select distinct strain, istrain from summstats where measnum in '@ml' and sex != 'all' maxrows = 10000
+#endproc
+
+// compute dimensions
+#set nmeas = $count( *, @ml )
+#if @nmeas > 4
+  #set pwidth = 0.7
+#else
+  #set pwidth = 1.2
+#endif
+#set pmargin = 0.2
+#set totalwidth = $arith( @pwidth+@pmargin*@nmeas )
+#set pheight = $arith( @NRECORDS*0.2 )
+
+// set up strain name categories..
+#proc categories
+  axis: y
+  datafield: strainname
+
+// set up total area
+#proc areadef
+  box: @totalwidth @pheight
+  location: 2 1
+  yrange: categories
+  xrange: 0 1
+  clickmapurl: ?rtn=strains/details&aname=@@YVAL
+
+// do alternate shaded zones..
+#proc yaxis
+  ticincrement: 1
+  axisline: none
+  tics: none
+  gridblocks: gray(0.9) white
+  gridlineextent: min-0.95 max+0.95
+
+// now go back and put in the strain names..
+#proc yaxis
+  stubs: usecategories
+  stubdetails: size=12 
+  tics: none
+  axisline: none
+  stubslide: 0.5(s)
+  clickmap: grid
+  clickmapextent: min-1.5 max+1.5
+
+// right side strain names..
+#if @nmeas > 2
+  #proc yaxis
+  stubs: usecategories
+  stubdetails: size=12 
+  tics: none
+  axisline: none
+  location: max
+  stubslide: 0.5(s)
+  stubdetails: size=12 align=left adjust=0.2,0
+
+#endif
+  
+
+
+
+///////////////////
+// legend
+///////////////////
+
+#if m in @sexlist
+  #proc legendentry
+  sampletype: color
+  details: powderblue
+  label: male
+#endif
+
+#if f in @sexlist
+  #proc legendentry
+  sampletype: color
+  details: coral
+  label: female
+#endif
+
+#if @show_n_below != none
+  #proc legendentry
+  sampletype: text
+  details: N
+  details2: size=4 color=green
+  label: N mice 
+#endif
+
+#proc legend
+  location: min-0.7 max+0.7
+  swatchsize: 0.04
+
+
+
+////////////////////////
+// now plot each measurement..
+////////////////////////
+
+#set xloc = 2
+#for meas in @ml
+
+  // get meas description info..
+  #sql #load select varname, desc, units, projsym, datatype from assays where measnum = @meas
+
+  // get summary stats to plot..
+  #proc getdata
+    delim: tab
+    fieldnames: strain, sex, mean, sd, nmice
+    data:
+     #sql #dumptab select strain, sex, mean, sd, nmice from summstats where measnum = @meas and sex != 'all'
+
+  // set up panel for graph..
+
+  #proc areadef
+    box: @pwidth @pheight
+    location: @xloc 1
+    #if @datatype = cat
+     xrange: 0 1
+    #else
+     xautorange: datafields=mean incmult=2
+    #endif
+    yscaletype: categories
+    clickmaplabel: @desc (@projsym)
+    clickmapurl: ?rtn=assays/onesumm&measnum=@meas
+  
+
+
+  ////////////
+  // labels..
+  ////////////
+
+  #set hiloc = $arith(@xloc+@pwidth)
+
+  #set boxl = $arith(@xloc-0.05)
+  #set boxr = $arith(@hiloc+0.05)
+
+  // yellow boxes
+  #proc rect
+    rectangle: @boxl max+0.05 @boxr max+0.7
+    clickmaplabel: @desc (@projsym)
+    clickmapurl: ?rtn=assays/onesumm&measnum=@meas
+    color: dullyellow
+
+  #proc rect
+    rectangle: @boxl min-0.45 @boxr min+0.1
+    clickmaplabel: @desc (@projsym)
+    clickmapurl: ?rtn=assays/onesumm&measnum=@meas
+    color: dullyellow
+    
+  #if @datatype != cat
+
+    // axis min 
+    #proc annotate
+      location: @xloc max+0.1
+      textdetails: size=5 color=gray(0.5) adjust=0.08,0 align=left
+      verttext: yes
+      text: @XMIN
+  
+    #proc annotate
+      location: @xloc min+0.1
+      textdetails: size=5 color=gray(0.5) adjust=0.08,0 align=right
+      verttext: yes
+      text: @XMIN
+
+  #endif
+
+  // varname 
+  #set varname = $change( " ", "_", @varname )
+  #set midloc = $arith(@pwidth/2+@xloc)
+
+  #set units = $change( "<sup>", "~", @units )
+  #set units = $change( "</sup>", ">", @units )
+  #set units = $change( "~", "<", @units )
+  #set units = $change( "&sdot;", " ", @units )
+  #proc annotate
+    location: @midloc max+0.5
+    text: @varname
+          [@units]
+
+  #proc annotate
+    location: @midloc min-0.2
+    text: @varname
+          [@units]
+
+  // axis max 
+  #if @datatype != cat
+
+    #proc annotate
+      location: @hiloc max+0.1
+      textdetails: size=5 color=gray(0.5) adjust=0.05,0 align=left
+      verttext: yes
+      text: @XMAX
+  
+    #proc annotate
+      location: @hiloc min+0.1
+      textdetails: size=5 color=gray(0.5) adjust=0.05,0 align=right
+      verttext: yes
+      text: @XMAX
+  #endif
+
+
+
+  //////////////
+  // bars..
+  //////////////
+
+  #if @reqsex = all
+    #set barwidth = 0.04
+  #else
+    #set barwidth = 0.07
+  #endif
+
+  #for sex in @sexlist
+
+
+    #proc categories
+      axis: y
+      #if @sex = m && @reqsex = all
+        slideamount: -0.7
+      #else
+        slideamount: -0.4
+      #endif
+
+    // N= labels
+    #proc scatterplot
+      yfield: strain
+      xlocation: max
+      labelfield: nmice
+      #if @sex = m
+        textdetails: size=4 adjust=0,-0.02 color=green
+      #else
+        textdetails: size=4 adjust=0,-0.04 color=green
+      #endif
+      #if @show_n_below = all
+        select: @@sex = @sex 
+      #elseif @show_n_below = none
+        select: 1 = 0
+      #else
+        select: @@sex = @sex && @@nmice < @show_n_below
+      #endif
+
+    // categorical data.. just show the value..
+    #if @datatype = cat 
+      #proc scatterplot
+        yfield: strain
+        xlocation: 0.5(s)
+        labelfield: mean      
+        textdetails: size=8
+        select: @@sex = @sex
+      #endproc
+
+      #continue
+    #endif
+
+
+    // numerical data.. normal..
+    #proc bars
+      horizontalbars: yes
+      barwidth: @barwidth
+      locfield: strain
+      lenfield: mean
+      outline: no
+      #if @sex = m
+        color: powderblue
+      #else
+        color: coral
+      #endif
+      select: @@sex = @sex
+  
+    #if @sl != ""
+      // do !highlighting
+      #proc bars
+        horizontalbars: yes
+        barwidth: @barwidth
+        locfield: strain
+        lenfield: mean
+        outline: no
+        #if @sex = m
+          color: rgb(.8,.8,1)
+        #else
+          color: rgb(1,.8,.8)
+        #endif
+        select: @@sex = @sex && @@strain !in @sl
+    #endif
+  
+    // error bars..
+    #proc bars
+      horizontalbars: yes
+      locfield: strain
+      lenfield: mean
+      // one-way error bars..
+      errbarfield: 0 sd
+      thinbarline: color=gray(0.7) width=0.5
+      tails: 0.04
+      select: @@sex = @sex
+  
+  
+  #endloop
+
+  #set xloc = $arith( @xloc+@pwidth+@pmargin )
+
+#endloop
+  
+#endgraphic
+//////////////////////////////////////////////////////////////////////
+
+#if @gformat = png
+  </map>
+  
+  
+  ////////////////////////////////
+  // display the generated image 
+  ////////////////////////////////
+  
+  <br>
+  Move mouse over a measurement to see longer description,<br>
+  or click to see measurement summary pages or strain profile pages.<br>
+  Error bars are 1 SD.  More graph settings available at bottom of page.
+  <br>
+  <img src="@HTMLURL/@imgfile" usemap="#clickmap">
+  <br>
+  <br>
+#else
+  <h2><a href="@HTMLURL/@imgfile">Click here to download your @gformat result</a></h2>
+#endif
+
+
+/////////////////////////////
+// graph settings form..
+/////////////////////////////
+
+<form action="@CGIBIN/mpdgrcgi" method=GET>
+#formtarget plots/multiplot
+#pass ml reqprojsym reqheading reqmeasnum context 
+
+Sexes: <select name=reqsex size=1>
+#optionlist selected=@reqsex
+#options
+	all	both females and males
+	f	females only
+	m	males only
+</select>
+&nbsp; &nbsp; &nbsp;
+Show N mice (in green)
+<select name=show_n_below size=1>
+#optionlist selected=@show_n_below
+#options
+	all 	for all
+	10	when N < 10
+	8	when N < 8
+	5	when N < 5
+	none	not at all
+</select>
+<br>
+<br>
+<table cellpadding=2><tr>
+<td>Highlight the following strains:</td>
+<td>
+<select name=sl multiple size=4>
+#optionlist selected=@sl
+#options
+  #sql select distinct strain from summstats where measnum in '@ml'
+  #while $sqlrow() = 0
+    #set strain = $change( " ", "_", @strain )
+    @strain	@strain
+  #endloop
+</select>
+</td></tr></table>
+
+<a href="@CGIPROG?rtn=docs/pubgraphhelp">Result file format</a>:
+<select name=gformat size=1>
+#optionlist selected=@gformat options=png,svg,eps
+</select>
+
+&nbsp; &nbsp; &nbsp;
+
+<input type=submit value="Go">
+</form>
+
+<br>
+<br>
+
+#set endtime = $time()
+#set elapsedtime = $timediff( @endtime, @starttime )
+#set elapsedtime = $arith( @elapsedtime*60, "%g" )
+// [Page generated in @elapsedtime sec.  @PLVERSION ]
+
+<br>
+<br>
+
+#include include/bottom

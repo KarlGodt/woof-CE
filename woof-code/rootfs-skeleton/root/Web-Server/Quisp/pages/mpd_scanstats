@@ -1,0 +1,559 @@
+// SCANSTATS - display a table of measurements w/ statistics.  
+//
+// mode must be one of: strainproj, strainheading, strainsearch, strainoutliers, 
+//      strainmlist (get measurements list from MPD_MLIST cookie),
+//	strainmset (one or more measnums given in url),
+//         projoutliers, headingoutliers, mlistoutliers
+// outliers may be either highlight or only 
+// outlierspace may be either linear (default) or log
+//
+#cgivar mode, strainid, outliers, fence, negfence, reqheading, req, projsym, sexmode, outlierspace, projid, mset
+#cgivar resultorder
+#cgivar projlist
+// projlist (eg. 29,99,28) may be passed with reqheading.. it's used in some modes to build a 
+// relevant strain selection list.. and in headingoutliers mode it narrows down the search
+#cookie MPD_MLIST
+
+
+
+//////////////////////////////////////////
+// check / process incoming parameters  //
+//////////////////////////////////////////
+
+#setifnotgiven outliers = highlight
+#setifnotgiven fence = 2.0
+#setifnotgiven negfence = -2.0
+#setifnotgiven sexmode = both
+#setifnotgiven outlierspace = linear
+#if @mode in projoutliers,strainproj
+  #setifnotgiven resultorder = semantic
+#else
+  #setifnotgiven resultorder = alpha
+#endif
+#setifnotgiven projlist = ""
+#if @strainid = error
+  #set strainid = ""
+#endif
+#setifnotgiven strainid = 7
+
+// accomodate callers that only projid but not projsym..
+#if @projid != ""
+  #sql #load select projsym, org from datasetinfo where projid = @projid
+#elseif @mode = projoutliers
+  #sql #load select org from datasetinfo where projsym = '@projsym'
+#endif
+
+
+#if @mode !in strainproj,strainheading,strainsearch,strainoutliers,strainmlist,strainmset,projoutliers,headingoutliers,mlistoutliers
+  #set _ERRORMESSAGE = "invalid mode (" @mode ")"
+  #set rtn = errorpage
+  #include errorpage
+#elseif @mode = projoutliers
+  #if @projsym = ""
+    #set _ERRORMESSAGE = "projsym required"
+    #set rtn = errorpage
+    #include errorpage
+  #endif
+  #sql #load select projid, pistring, title from projects where projsym = "@projsym"
+#elseif @mode = strainmset
+  #if @mset = ""
+    #set _ERRORMESSAGE = "mset parameter (comma-delimited list of measnums) required"
+    #set rtn = errorpage
+    #include errorpage
+  #endif
+#endif
+
+#if @strainid != ""
+  #sql #load select fname from strains where id = @strainid
+#else
+  #set fname = "a particular strain"
+#endif
+
+
+
+///////////////////////////
+// page title and header //
+///////////////////////////
+
+#if @mode = strainproj
+  #set TITLE = @projsym ": measurements involving " @fname
+  #setifnotgiven fence = 1.0
+  #setifnotgiven negfence = -1.0
+
+#elseif @mode = strainheading
+  #set TITLE = "'" @reqheading "' measurements involving " @fname
+
+#elseif @mode = strainsearch
+  #set TITLE = "MPD measurements involving " @fname " that match '" @req "'"
+
+#elseif @mode = strainoutliers
+  #set TITLE = "MPD measurements where " @fname " is an outlier"
+  #set outliers = only
+
+#elseif @mode in strainmlist,strainmset
+  #set TITLE = "Display measurements" 
+
+#elseif @mode = projoutliers
+  #set TITLE = "All outliers from project " @projsym 
+  #set outliers = only
+
+#elseif @mode = headingoutliers
+  #set TITLE = "All outliers in measurement category: " @reqheading 
+  #set outliers = only
+  #setifnotgiven fence = 1.5
+  #setifnotgiven negfence = -1.5
+
+#elseif @mode = mlistoutliers
+  #set TITLE = "All outliers in your flagged measurements"
+  #set outliers = only
+  #setifnotgiven fence = 1.5
+  #setifnotgiven negfence = -1.5
+
+#endif
+
+
+#include include/top
+
+#if @SPIDER = 1
+  #include include/spiderexit
+#endif
+
+<center>
+
+// if using mlist and user does not have a measurements list...
+#if @mode in strainmlist,mlistoutliers && @MPD_MLIST = ""
+    <center>
+    <br><br>
+    In order to use tool in this mode some flagged measurements are required.
+    #include include/noflagmsg
+    <br><br>
+    </center>
+  #include include/bottom
+  #exit
+#endif
+
+
+////////////
+/// form  //
+////////////
+
+// sanity check..
+#if $isnumber(@fence) = 0 || $isnumber(@negfence) = 0
+  #set _ERRORMESSAGE = "Invalid fence value"
+  #include errorpage
+#endif
+//#set negfence = "-" @fence
+
+// produce a query form for regenerating list
+<form method="GET" action="@CGIPROG">
+  #formtarget views/scanstats
+  #pass mode, projsym, reqheading, req, outliers, projlist, mset
+
+  Outliers will have a Z score greater than
+  <select name=fence size=1>
+  #optionlist selected=@fence options=0.5,0.8,1.0,1.3,1.5,1.8,2.0,2.5,3.0,3.5,4.0
+  </select>
+  or less than
+  <select name=negfence size=1>
+  #optionlist selected=@negfence options=-0.5,-0.8,-1.0,-1.3,-1.5,-1.8,-2.0,-2.5,-3.0,-3.5,-4.0
+  </select>
+  in
+  <select name=outlierspace size=1>
+  #optionlist selected=@outlierspace 
+  #options:
+    linear	linear
+  #if @org !like precomp*
+    log		log
+  #endif
+  </select>
+  space. 
+  <br>
+
+  #if @mode like strain*
+    #if @strainid = ""
+      <b>Select a strain:</b>
+    #else
+      Strain:
+    #endif
+    #set selparms = "size=1"
+    // render a strain select list..
+    #include views/choosestrains
+    &nbsp;
+  #endif
+
+  <select name=sexmode size=1>
+  #optionlist selected=@sexmode
+    #options
+	both	Female and Male
+	f	Female only
+	m	Male only
+  </select>
+  &nbsp; Order:
+  <select name=resultorder size=1>
+  #optionlist selected=@resultorder 
+   #options
+     alpha	alphabetical
+     semantic	project order
+   #if @mode !like strain*
+     alphastrain strain name
+   #endif
+  </select>
+  &nbsp;
+  <input type=submit value="Go">
+</form>
+<br><br>
+
+
+#if @strainid = "" && @mode like strain* 
+  // user needs to select a strain..
+  <b>Please select a strain...</b> <br><br><br><br><br>
+  #include include/bottom
+  #exit
+#endif
+
+
+//////////////////////
+// explanatory info //
+//////////////////////
+
+// chunk showing color codes and (strain)..
+<table cellpadding=2 @BOR><tr><td>
+//
+<td bgcolor=FFFFBF><small>Yellow = high end outlier</td>
+<td bgcolor=@BCOLOR> &nbsp; &nbsp; &nbsp; </td>
+<td bgcolor=CCFFFF><small>Blue = low end outlier</td>
+<td bgcolor=@BCOLOR><small> &nbsp; relative to all strains tested by project</td>
+</tr></table>
+
+#if @mode = strainproj
+  <h3><a href="@CGIPROG?rtn=projects/details&sym=@projsym&dsonly=1">@projsym</a>:
+  measurements for <a href="@CGIPROG?rtn=strains/details&strainid=@strainid">@fname</a></h3>
+#elseif @mode = projoutliers
+  <h3>All outliers for project <a href="@CGIPROG?rtn=projects/details&sym=@projsym&dsonly=1">@projsym</a></h3>
+#elseif @mode = strainheading
+  #set urlheading = $change( " ", "%20", @reqheading )
+  <h3><a href="@CGIPROG?rtn=assays/group&reqheading=@urlheading">@reqheading</a>
+  measurements for <a href="@CGIPROG?rtn=strains/details&strainid=@strainid">@fname</a></h3>
+#elseif @mode = headingoutliers
+  #set urlheading = $change( " ", "%20", @reqheading )
+  <h3>Measurement category: <a href="@CGIPROG?rtn=assays/group&reqheading=@urlheading">@reqheading</a></h3>
+#elseif @mode = strainmlist 
+  <h3>Displaying <a href="@CGIPROG?rtn=strains/details&strainid=@strainid">@fname</a> with respect to 
+  <a href="@CGIPROG?rtn=flaglist/list">your flagged measurements</a></h3>
+#elseif @mode = mlistoutliers
+  <h3>Displaying outliers from <a href="@CGIPROG?rtn=flaglist/list">your flagged measurements</a></h3>
+#elseif @mode = strainmset
+  <h3><a href="@CGIPROG?rtn=strains/details&strainid=@strainid">@fname</a> data for selected measurements</h3>
+#elseif @strainid != ""
+  <h3>Strain: <a href="@CGIPROG?rtn=strains/details&strainid=@strainid">@fname</a></h3>
+#endif
+
+
+//////////////////////////
+// database retrieval.. //
+//////////////////////////
+
+// capture submitted commands .. trying to diagnose user error .. scg 6/13/03
+// #if @MPDNODE = pro
+//  #sql sqlmode logcommands /tmp/scg_scanstats_sql
+// #endif
+
+
+#if @outlierspace = log
+  #set zfield = "s.logzscore"
+#elseif @outlierspace = linear
+  #set zfield = "s.zscore"
+#endif
+
+#if @mode = strainsearch
+  // first get assay records that match the search request..
+  #sql
+    select * into $tmp1 from assays
+    where desc contains "@req" or varname contains "@req" or heading contains "@req" or subheading contains "@req"
+  #endsql
+#endif
+
+#sql 
+  select distinct a.*, s.*
+  // 'distinct' is used here because mlist can contain same measnum twice, etc
+  from 
+  #if @mode = strainsearch
+    $tmp1 (as a)
+  #else
+    assays (as a) 
+  #endif
+      join summstats (as s) on a.measnum = s.measnum
+  where
+  #if @mode = strainproj
+    a.projsym = "@projsym" and s.istrain = @strainid
+  #elseif @mode = headingoutliers
+    #set projlist = $strcat( @projlist, "," )
+    #set projlist = $change( ",", "??," @projlist )
+    s.measnum inlike '@projlist'
+    and a.heading = "@reqheading" 
+    and @zfield outrange @negfence,@fence
+  #elseif @mode = strainheading
+    a.heading = "@reqheading" and s.istrain = @strainid
+  #elseif @mode = strainsearch
+    s.istrain = @strainid 
+  #elseif @mode = strainoutliers
+    s.istrain = @strainid and @zfield outrange @negfence,@fence
+  #elseif @mode = projoutliers
+    // using measnum speeds things up..
+    s.measnum like "@projid??" and @zfield outrange @negfence,@fence
+  #elseif @mode in mlistoutliers,strainmlist
+    #set wcmlist = $strcat( @MPD_MLIST, "," )
+    #set wcmlist = $change( "00,", "??,", @wcmlist )
+    // specifying measnum condition for both sides speeds things up..
+    a.measnum inlike "@wcmlist" 
+      and s.measnum inlike "@wcmlist"
+    #if @mode = strainmlist
+      and s.istrain = @strainid
+    #elseif @mode = mlistoutliers
+      and @zfield outrange @negfence,@fence
+    #endif
+  #elseif @mode = strainmset
+     a.measnum in "@mset" and s.istrain = @strainid
+  #endif
+  and a.projsym !in "@SUPPRESSED_PROJECTS" and s.sex != "all"
+  #if @mode = strainmset
+    // list measurements in the given order..
+  #elseif @resultorder = alpha
+    order by a.heading, a.subheading, a.desc dict, a.projsym, s.sex
+  #elseif @resultorder = alphastrain
+    order by s.strain, s.sex, a.heading, a.subheading, a.desc dict, a.projsym
+  #else
+    order by a.projsym, a.displayorder, a.measnum, s.sex
+  #endif
+  maxrows = 10000
+#endsql
+
+
+// #set NROWS = $sqlrowcount()
+// N = @NROWS
+
+
+
+////////////////////////
+// presentation table //
+////////////////////////
+
+// suppress numeric stat table headings for geno categories...  added 1/13/04
+#set numericdata = 1
+#if @mode = strainheading && @reqheading inlike "SNP*"
+  #set numericdata = 0
+#endif
+  
+
+// do the table heading..  
+<table cellpadding=2  @BOR><tr>
+
+<tr bgcolor=FFFFEC align=center>
+  <td><a href="@CGIPROG?rtn=assays/headings">Category</a></td>
+  <td>Measurement description <small>&amp; supplying project</td>
+  #if @mode !like strain*
+    <td >Strain</td>
+  #endif
+  #if @numericdata = 1
+    <td>Sex</td>
+    #if @reqheading like "MHC*"
+       <td><b>Haplotype</b></td>
+    #else
+      <td><b>Mean</td>
+    #endif
+    <td><a href="@CGIPROG?rtn=docs/units">Units</a></td>
+    <td>SD</td>
+    <td>N mice</td>
+    #if @outlierspace = log
+      <td colspan=2><a href="@CGIPROG?rtn=docs/statshelp">Z score</a> <small>(log)</small>
+    #else
+      <td colspan=2><a href="@CGIPROG?rtn=docs/statshelp">Z score</a>
+    #endif
+      <small>relative to<br>
+      all strains tested by project</td>
+  #endif
+  </tr>
+</tr>
+
+
+
+///////////////////////////////////////////
+// retrieve and format the result rows.. //
+///////////////////////////////////////////
+
+#set nrows = 0
+#set prevmeasnum = ""
+#set previstrain = ""
+#set sexcluster = 1
+#while $sqlrow() = 0
+
+
+  #if @sexmode = m && @s.sex = f
+    #continue
+  #elseif @sexmode = f && @s.sex = m
+    #continue
+  #endif
+
+  #set nrows = $arith( @nrows+1 )
+
+  // begin the row..
+  // <tr bgcolor=FFFFFF align=center>
+
+  // see if we're doing a sex cluster (both sexes for same measurement & same strain)...
+  // this uses a spacer gif... <td></td> doesn't give enough space, and <td><small>&nbsp;</td> gives too much
+  // and also rowspan=2 on category, desc, and strain fields..
+  #if @a.measnum = @prevmeasnum && @s.istrain = @previstrain
+    #set sexcluster = 1
+    <tr bgcolor=FFFFFF align=center>
+  #else
+    #if @sexcluster = 0
+      <tr bgcolor=@BCOLOR><td colspan=10><img src="@HTMLURL/im/spacer1.gif" height=2></td></tr>
+    #endif
+    #set sexcluster = 0
+    <tr bgcolor=@BCOLOR><td colspan=10><img src="@HTMLURL/im/spacer1.gif" height=2></td></tr>
+    <tr bgcolor=FFFFFF align=center>
+
+    // category..
+    #if @a.heading = ""
+      <td rowspan=2> &nbsp; </td>
+    #else
+      <td rowspan=2 align=left>
+      #set urlheading = $change( " ", "%20", @a.heading )
+      #if @mode like strain* && @mode != strainheading
+        <a href="@CGIPROG?rtn=views/scanstats&mode=strainheading&reqheading=@urlheading&strainid=@strainid">@a.heading</a>
+      #elseif @mode like *outliers
+        <a href="@CGIPROG?rtn=views/scanstats&mode=strainheading&reqheading=@urlheading&strainid=@s.istrain">@a.heading</a>
+      #else
+        <a href="@CGIPROG?rtn=assays/group&reqheading=@urlheading">@a.heading</a>
+      #endif
+      #if @a.subheading != "" 
+        &nbsp; <small>@a.subheading
+      #endif
+      </td>
+    #endif
+
+    // meas. description
+    <td rowspan=2 align=left><a href="@CGIPROG?rtn=assays/onesumm&measnum=@a.measnum">@a.desc</a> &nbsp 
+    #if @mode != projoutliers
+      <small>
+      #if @mode like strain* && @mode != strainproj
+        <a href="@CGIPROG?rtn=views/scanstats&mode=strainproj&projsym=@a.projsym&strainid=@strainid">@a.projsym</a>
+      #elseif @mode like *outliers
+        <a href="@CGIPROG?rtn=views/scanstats&mode=strainproj&projsym=@a.projsym&strainid=@s.istrain">@a.projsym</a>
+      #else
+        <a href="@CGIPROG?rtn=projects/details&sym=@a.projsym">@a.projsym</a>
+      #endif
+      #if @a.projsym in @PRIVATE_PROJECTS
+        <font color=D00000>(pending)</font>
+      #endif
+    #endif
+    </td>
+    #if @mode !like strain*
+      <td rowspan=2 align=left><a href="@CGIPROG?rtn=strains/details&strainid=@s.istrain">@s.strain</a></td>
+    #endif
+
+  #endif  // sex cluster
+  #set prevmeasnum = @a.measnum
+  #set previstrain = @s.istrain
+
+
+  #if @s.sex = f
+    <td>female</td>
+  #else
+    <td>male</td>
+  #endif
+  //
+  // mean.. set color if outlier..
+  #if @outlierspace = log
+     #set z = @s.logzscore
+  #else
+     #set z = @s.zscore
+  #endif
+  //
+  //
+  <td align=center
+  #if $isnumber(@z) = 0
+    // do nothing..
+  #elseif @z >= @fence
+    bgcolor=FFFFBF \c
+  #elseif @z <= @negfence
+    bgcolor=CCFFFF \c
+  #endif
+  ><nobr>
+  #if @s.mean = linkflag
+    &nbsp;
+  #else
+    <b>@s.mean</b></nobr></td>
+  #endif
+  #if @a.units = ""
+    <td>&nbsp;</td>
+  #elseif @sexcluster = 1
+    // do nothing.. cell above it will rowspan
+  #else
+    <td rowspan=2><small>@a.units</td>
+  #endif
+  //
+  <td>@s.sd</td>
+  <td>@s.nmice</td>
+  //
+  // sometimes log z score is missing .. if so, suppress z score-related computations & fields  scg 4/7/03
+  //
+  <td><nobr>@z</nobr></td>
+  // adjust z to a -16 to +16 even integer..
+  #if $isnumber(@z) = 1
+    #set bar = $arith( @z*2.5, "%.0f" )
+    #set bar = $arith( @bar*2 )  
+    #if @bar < -16
+      #set bar = -16
+    #elseif @bar > 16
+      #set bar = 16
+    #endif
+    #set barfile = @HTMLURL "/im/dbar" @bar ".gif"
+    <td><img src="@barfile" border=0 width=150 height=12></td>
+  #else
+    <td>&nbsp;</td>
+    // <td>not avail.</td>
+  #endif
+
+  </tr>
+#endloop
+</table>
+<br>
+#if @reqheading !like "SNP*"
+  #if @mode like strain* 
+    #if @mode != strainheading
+      Click on categories to see all category data for @fname .<br>
+    #endif
+    #if @mode != strainproj
+      Click on project symbols to see project data for @fname .<br>
+    #endif
+  #elseif @mode like *outliers
+    Click on categories to see all category data for the given strain.<br>
+    Click on project symbols to see project data for the given strain.<br>
+  #endif
+#endif
+<br>
+[N rows = @nrows]<br>
+
+#if @mode = strainsearch
+  <h3>
+  #if @nrows < 1
+     Nothing found..
+  #endif
+  <a href="@CGIPROG?rtn=views/search&req=@req">Search all MPD for '@req'</a>
+  </h3>
+#elseif @nrows < 1
+<br><h3>No measurements found that met the criteria.</h3>
+  #include include/bottom
+  #exit
+#endif
+
+#if @outlierspace = log
+  <br><br>
+  Note: measurements that were not supplied as per-animal data cannot be log transformed <br>
+  and therefore will not be eligible for outlier detection in log space.
+  <br>
+#endif
+
+<br><br>
+#include include/bottom

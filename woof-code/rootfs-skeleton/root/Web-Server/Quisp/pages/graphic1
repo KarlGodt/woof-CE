@@ -1,0 +1,163 @@
+// graphic1 - a form which submits parameters to itself, and generates a
+// graph using embedded #graphic / #endgraphic.  For purposes of this example
+// data are embedded herein.. in real life data would more likely be coming
+// from a database.
+//
+// This assumes that a soft link to your project ./tmp directory has been created 
+// in your local html directory, and the link is named 'tmp'.
+// 
+
+
+#cgivar varname, errbars, lowfix, datasource, scale
+
+#setifnotgiven errbars = sd
+#setifnotgiven datasource = file
+#setifnotgiven scale = 1.0
+
+#set TITLE = "graphic1"
+#include top
+
+<center>
+<br>
+
+
+<form action="?" method=GET>
+#formtarget graphic1
+
+Measurement:
+<select name=varname size=1>
+#optionlist selected=@varname
+  #options
+	""	-- select one --
+	HR 	heart rate, beats per minute [n/min]
+	HR_VAR	heart rate variability, beats per minute [n/min]
+	RR 	interval between R-waves (RR) [ms]
+	PQ 	interval between peak of P-wave to Q-wave (PQ) [ms]
+</select>
+&nbsp;
+Get data from:
+<select name=datasource size=1>
+#optionlist selected=@datasource options=file,SQL
+</select>
+<br>
+<br>
+Error bars:
+<select name=errbars size=1>
+#optionlist selected=@errbars
+  #options
+	sd	1 standard deviation
+	se	1 standard error
+	2se	2 standard error
+	none	no error bars
+</select>
+&nbsp;
+Y axis min:
+<select name=lowfix size=1>
+#optionlist selected=@lowfix
+  #options
+	""	automatic
+	lowfix=0	fixed at 0
+</select>
+&nbsp;
+Graphic size:
+<select name=scale size=1>
+#optionlist selected=@scale 
+#options
+ 0.3	tiny
+ 0.6	small
+ 1.0	normal
+ 1.2	bigger
+ 1.6	huge
+</select>
+&nbsp;    
+
+<input type=submit value="Go">
+</form>
+
+// if nothing selected yet, quit here...
+#if @varname = ""
+  #exit
+#endif
+
+<br>
+
+// generate a tmp file name for PNG result...
+#set tmpname = $uniquename()
+#set imgname = @tmpname ".png"
+
+// generate the plot
+#graphic png @HTMLPATH/tmp/@imgname
+   #arg -scale @scale
+   
+   // begin embedded PLOTICUS script.......
+   
+   #if @datasource = file
+   
+     #proc getdata
+     fieldnames: varname strain istrain sex mean nmice nmissing sd se cv min max logmean logsd logse logcv zscore logzscore
+     data:
+       #include graph.data
+   
+   #elseif @datasource = SQL
+   
+     #proc getdata
+     sql: select * from examp_stats where varname = '@varname'
+   
+   #endif
+   
+   
+   #proc areadef
+   rectangle: 1 1 5 3
+   xcategories: datafield=2
+   // note, the selectrows is necessary only with datasource=file...
+   yautorange: datafields=mean,sd combomode=stack @lowfix selectrows=@@varname = @varname 
+   yaxis.stubs: inc
+   xaxis.stubs: usecategories
+   xaxis.stubvert: yes
+   xaxis.stubdetails: size=6 adjust=0,0.08
+   xaxis.tics: none
+   
+   
+   #proc bars
+   locfield: strain
+   lenfield: mean
+   // note, this select is necessary only with datasource=file...
+   select: @@varname = @varname
+   color: orange
+   outline: no
+   barwidth: 0.1
+   
+   #if @errbars != none
+     #proc bars
+     locfield: strain
+     lenfield: mean
+     tails: 0.05
+     // note, this select is necessary only with datasource=file...
+     select: @@varname = @varname
+     #if @errbars = 2se
+       errbarfields: 0 se
+       errbarmult: 2
+     #else
+       errbarfields: 0 @errbars
+     #endif
+   #endif
+
+   // end of embedded ploticus script ..............
+
+#endgraphic
+
+// display the graphic
+
+<img src="@HTMLURL/tmp/@imgname" >
+
+<br>
+<br>
+<table cellpadding=2 width=350><tr><td>
+For this example to work properly, you
+must have set things up as described in
+the #graphic manual page.
+<br>
+<br>
+Using @PLVERSION
+</td></tr></table>
+

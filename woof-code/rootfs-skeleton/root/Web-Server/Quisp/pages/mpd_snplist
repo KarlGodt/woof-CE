@@ -1,0 +1,794 @@
+// DISPLAY SNPS & other polymorphisms
+//
+// this module is used to display SNPs from the merged snp data set (mpd146.dat)
+// as well as others such as mpd148 (SSLPs), mpd152 (GNF2), and mpd102 (Roche2).  
+//
+// Code branching herein is keyed on @projid (here and in ./densmap_chunk)  
+// Each project supplies a strain picklist in its project directory.
+//
+// graphic processing is keyed on @doing_plot
+//
+//
+#cgivar chr mbplo mbphi snpid selmode refstrain ssonly gobutton1 gobutton2 doing_name projid 
+#cgivar doing_plot gobutton3 firsttime zoomx zoomwidth colormode insdel
+//
+// set 'firsttime'  8/15/03
+// links pass firsttime=1 but there are old bookmarked URLs out there that don't use this.
+// (we need to know if this is the initial invocation so we don't proceed w/ a retrieval..)
+#if @gobutton1 = "" && @gobutton2 = "" && @gobutton3 = "" && @snpid = "" && @zoomx = ""
+  #set firsttime = 1
+#endif
+//
+#if @zoomx != ""
+  // we arrived here via a zoom-in mouse click.. set range..
+  #cgivar compstrains reqstrains dispstrains projlist
+  #set zoomwidth = $arith( @zoomwidth/2.0 )
+  #set mbplo = $arith( @zoomx-@zoomwidth, "%.10f" )
+  #set mbphi = $arith( @zoomx+@zoomwidth, "%.10f" )
+#else
+  #cgilistvar compstrains reqstrains dispstrains projlist
+#endif
+#setifnotgiven chr = 1
+#setifnotgiven selmode = all
+#setifnotgiven refstrain = C57BL_6J
+#setifnotgiven compstrains = _129S1_SvImJ
+#setifnotgiven reqstrains = C57BL_6J
+#if @selmode = all 
+  #setifnotgiven dispstrains = all
+#else
+  #setifnotgiven dispstrains = none
+#endif
+#setifnotgiven projid = 146
+#if @gobutton2 != "" || @firsttime != "" || @doing_name = 1
+  #set doing_plot = 0
+  #setifnotgiven mbplo = 0
+  #setifnotgiven mbphi = 10
+#else
+  #set doing_plot = 1
+  #setifnotgiven mbplo = 0
+  #setifnotgiven mbphi = 200
+#endif
+#setifnotgiven ssonly = no
+#setifnotgiven projlist = all
+#setifnotgiven colormode = strong
+#setifnotgiven insdel = no
+
+
+#set TITLE = "Display SNPs"
+#include include/top
+
+
+#set allchr = ""
+#if @projid = 148
+  #set datafile = @PROJDIR "/genodata/148/mpd148.dat"
+  #set allchr = ",All"
+#elseif @projid = 146
+  #set datafile = @PROJDIR "/genodata/146/mpd146.dat"
+#elseif @projid = 152
+  #set datafile = @PROJDIR "/genodata/152/mpd152.dat"
+  #set allchr = ",Y"
+#elseif @projid = 102
+  #set datafile = @PROJDIR "/genodata/102/mpd102.dat"
+  #set allchr = ""
+#endif
+
+
+/////////////////////////
+// pre-form sanity checks - limit listings to 20 Mbp range...  do this here so actual range is visible in form..
+////////////////////////
+
+#if @snpid != "" && $strlen( @snpid ) < 5
+  <h2>Please enter a longer search string.. try again</h2>
+  #exit
+#endif
+
+// this check added scg 1/27/04...
+#if @firsttime != 1
+  #if $isnumber(@mbphi) = 0 || $isnumber(@mbplo) = 0
+    <h2>Mbp positions must be numeric values.. try again</h2>
+    #exit
+  #endif
+  #setifnotgiven zoomwidth = $arith(@mbphi-@mbplo)
+#endif
+
+// the user has zoomed way in or specified a very small region (< 5 kbp).. 
+// always do a list.. (size was 0.001 .. changed to 0.005 on 11/3/03)
+#if @zoomwidth < 0.005
+  #set doing_plot = 0
+  #set selmode = all
+  #set dispstrains = all
+#endif
+
+// invalid base pair range values..  (moved up from main sanity checks section 10/14/03 scg)
+#if @projid in 146,152,102 && @snpid = "" 
+  #if $isnumber( @mbplo ) = 0 || $isnumber( @mbphi ) = 0 || @mbphi < @mbplo
+    <h2>Missing or invalid base pair range value(s)... try again</h2>
+    #include include/bottom
+    #exit
+  #endif
+#endif
+
+// negative low end..
+#if @mbplo < 0
+  #set mbplo = 0
+#endif
+
+// out-of-range hi end..
+#if @mbphi > 200
+  #set mbphi = 200
+#endif
+
+
+// large retrieval.. for lists always limit to 20 mbp
+#if @doing_plot != 1 && $arith( @mbphi-@mbplo ) > 20 
+  #set mbphi = $arith( @mbplo+20 )
+#endif
+
+<center>
+
+#sql #load select title from projects where projid = @projid
+<a href="@CGIPROG?rtn=projects/details&id=@projid">Click here for the "@title" project page.</a> 
+<br>
+<br>
+
+<table width=550 cellpadding=2><tr><td>
+Use this interface to locate and display SNPs by specific location or identifier.
+(The term "SNPs" should be understood to mean "SNPs and other polymorphisms" on this page.)
+You can generate a histogram for up to one full chromosome, or list up to 200 SNPs.
+#if @projid = 146
+The <a href="@CGIPROG?rtn=snp/download">MPD146 download page</a>
+should be used for larger list retrievals.
+#endif
+</td></tr></table>
+<br>
+
+////////////////////////
+/////// form...
+////////////////////////
+
+<table cellpadding=2 border=1>
+<tr><td>
+<form action="@CGIPROG" method=GET>
+#formtarget snp/list
+#pass projid
+<b>By name</b> (beginning with:) <input name=snpid size=20 maxlen=40 value="@snpid"> 
+&nbsp; <input type=submit value=Go name=gobutton1>
+#set doing_name_in = @doing_name
+#set doing_name = 1
+#pass doing_name
+<br>
+#if @projid = 148
+  <small>(Marker name eg. D1Mit24)
+#else
+  <small>(Submitter-supplied id, ss number eg. <tt>ss5074457</tt>, or rs number eg. <tt>rs3698282</tt>)</small>
+#endif
+</form>
+// handle MSIE glitch.. see below
+#set doing_name = @doing_name_in
+</td></tr>
+</table>
+
+<br>
+
+<form action="@CGIBIN/mpdgrcgi" method=GET>
+#formtarget snp/list
+#pass projid
+
+<table cellpadding=2 border=1>
+<tr><td colspan=2>
+<b>Display SNPs by location and strain:</b><br>
+&nbsp; &nbsp;
+Chromosome
+<select name=chr size=1>
+#optionlist selected=@chr options=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,X@allchr
+</select>
+#if @projid in 146,152,102
+&nbsp;
+from <input name=mbplo size=5 maxlen=10 value="@mbplo"> 
+to <input name=mbphi size=5 maxlen=10 value="@mbphi"> Mbp
+#endif
+</td></tr>
+
+<tr>
+
+<td valign=top align=center>
+<input type=radio name=selmode value=all
+#if @selmode = all
+  checked
+#endif
+> Show all records <br><br>
+
+<input type=radio name=selmode value=require
+#if @selmode = require
+  checked
+#endif
+> Show records that<br>have alleles for:<br>
+  <select name=reqstrains size=4 multiple>
+  #optionlist selected=@reqstrains
+  #options
+  #sql select * from @PROJDIR/genodata/@projid/strainpicklist
+  #while $sqlrow() = 0
+    #set headername = $change( " ", "_", @headername )
+    @headername	@realname
+  #endloop
+  </select>
+
+</td>
+
+<td valign=top align=center>
+  <input type=radio name=selmode value=poly
+  #if @selmode = poly
+    checked
+  #endif
+  > Show records where known alleles are polymorphic:<br>
+
+  <table>
+  <tr>
+
+  <td align=center>Reference strain</td>
+  <td>&nbsp; &nbsp; &nbsp;</td>
+  <td align=center>Comparison strains</td>
+  </tr>
+
+  <tr>
+  <td>
+  <select name=refstrain size=4 >
+  #optionlist selected=@refstrain
+  #options
+  #sql select * from @PROJDIR/genodata/@projid/strainpicklist
+  #while $sqlrow() = 0
+    #set headername = $change( " ", "_", @headername )
+    @headername	@realname
+  #endloop
+  </select>
+  </td>
+
+  <td>&nbsp; &nbsp; &nbsp;</td>
+
+  <td>
+  <select name=compstrains size=4 multiple>
+  #optionlist selected=@compstrains
+  #options
+  #sql select * from @PROJDIR/genodata/@projid/strainpicklist
+  #while $sqlrow() = 0
+    #set headername = $change( " ", "_", @headername )
+    @headername	@realname
+  #endloop
+  </select>
+  </td>
+  </tr>
+  </table>
+
+</td>
+
+</tr>
+
+#if @doing_plot != 1
+  <tr>
+  <td colspan=2>
+  <table><tr>
+  <td>Show these strains<br>in addition to those<br>selected above:</td>
+  <td>
+  <select name=dispstrains size=3 multiple>
+  #optionlist selected=@dispstrains
+  #options
+       none	None
+       all 	All
+       #sql select * from @PROJDIR/genodata/@projid/strainpicklist
+       #while $sqlrow() = 0
+         #set headername = $change( " ", "_", @headername )
+         @headername	@realname
+       #endloop
+  </select>
+  </td>
+  <td>
+  &nbsp; &nbsp; 
+  #if @projid in 146,152,102
+    Color scheme:
+    <select name=colormode size=1>
+    #optionlist selected=@colormode options=strong,muted,none
+    </select>
+  #endif
+ 
+  </td>
+  </tr>
+  #if @projid in 146,152,102
+     <tr><td colspan=3>
+     Show only ss# for copy/paste to 
+     <a href="http://www.ncbi.nlm.nih.gov/SNP/dbSNP.cgi?list=sslist">dbSNP batch query form</a>?
+     <select name=ssonly>
+     #optionlist selected=@ssonly options=no,yes
+     </select>
+     <br>
+     <center>Include insertion/deletions?
+     <select name=insdel>
+     #optionlist selected=@insdel options=no,yes
+     </select>
+     </center>
+       
+     </td></tr>
+     <tr><td colspan=3 align=center><small>(the above options are not applicable for histogram displays)</td></tr>
+  #endif
+  </table>
+  </td></tr>
+#endif
+
+#if @projid = 146
+  <tr>
+  <td colspan=2>
+    <table cellpadding=2><tr><td>
+    Data sources:
+    </td><td>
+    <select name=projlist size=3 multiple>
+    #optionlist selected=@projlist
+    #options
+	all	All
+  #if @projid = 146
+	mpd100 WICGR1 (mpd100)
+	mpd101 Roche1 (mpd101)
+	// mpd102 Roche2 (mpd102) 
+	mpd127 WICGR2 (mpd127)
+	mpd129 WICGR3 (mpd129)
+	mpd133 GNF1 (mpd133)
+	mpd147 Celera1 (mpd147, chr 16 only)
+	// mpd152 Wiltshire2 (mpd152) 
+  #endif
+     </select>
+   </td>
+   <td align=center>
+   <a href="@CGIPROG?rtn=projects/details&id=146#projtable">Characteristics of<br>data sources</a></td>
+   </tr></table>
+  </td></tr>
+  
+#endif
+
+
+<tr><td align=center colspan=2>
+#if @projid in 146,152,102
+  <input type=submit value="Generate histogram" name=gobutton3>
+  &nbsp; &nbsp;
+#endif
+<input type=submit value="List SNPs" name=gobutton2>
+&nbsp; &nbsp;
+<a href="@CGIPROG?rtn=snp/list&projid=@projid&firsttime=1">Reset form</a>
+</td></tr>
+</table>
+<small><a href="@CGIPROG?rtn=docs/mselecthelp">How to pick from multi-choice list boxes</a></small><br>
+
+</form>
+
+
+
+
+//////////////////////////////////////////
+//////// sanity checks and settings..
+//////////////////////////////////////////
+
+
+///////  first time, don't generate table..
+// (note: the doing_name flag had to be added because MSIE didn't seem to be passing the
+//  go button from the "by name" form when user pressed enter without clicking on go button)
+#if @firsttime = 1
+  #include include/bottom
+  #exit
+#elseif @gobutton1 = Go && @snpid = ""
+  <h2>No name entered... try again</h2>
+  #include include/bottom
+  #exit
+#endif
+
+
+#if @snpid != ""
+  #set selmode = byname
+#endif
+
+#set ncomps = $count( "*", @compstrains )
+
+#if @selmode = poly && @ncomps < 1
+  <h2>Not enough strains selected for polymorphisms... try again</h3>
+  #exit
+#elseif @selmode = require && $count( "*", @reqstrains ) < 1
+  <h2>No strains selected... try again</h3>
+  #exit
+#elseif @selmode = all && @dispstrains = none
+  <h2>No strains selected for display... try again</h3>
+  #exit
+#endif
+
+
+///////////////////////////
+// plots take off from here...
+///////////////////////////
+
+#if @doing_plot = 1
+  #include snp/densmap_chunk
+  #include include/bottom
+  #exit
+#endif
+
+
+
+///////////////////////////
+// other preliminary work..
+///////////////////////////
+
+#set dispstrains2 = ""
+#if @selmode = byname || @dispstrains = all
+  // fill dispstrains with all strains..
+  #sql select headername from @PROJDIR/genodata/@projid/strainpicklist
+  #set dispstrains = ""
+  // since this list can get longer than 255 chars, let it overflow into dispstrains2
+  #while $sqlrow() = 0
+    #set headername = $change( " ", "_", @headername )
+    #if $strlen(@dispstrains) < 200
+      #set dispstrains = $addmember( @headername, @dispstrains )
+    #else
+      #set dispstrains2 = $addmember( @headername, @dispstrains2 )
+    #endif
+  #endloop
+#endif
+
+#if @colormode = strong
+  #set ACOLOR = FF0000
+  #set CCOLOR = FFFF00
+  #set GCOLOR = 0000FF
+  #set TCOLOR = FF00FF
+#elseif @colormode = muted
+  #set ACOLOR = E0FFFF
+  #set CCOLOR = FFECFF
+  #set GCOLOR = FFECEC
+  #set TCOLOR = ECFFEC
+#else
+  #set ACOLOR = FFFFFF
+  #set CCOLOR = FFFFFF
+  #set GCOLOR = FFFFFF
+  #set TCOLOR = FFFFFF
+#endif
+  
+
+
+//////////////////////////////
+/////// database retrieval..
+//////////////////////////////
+#if @projid in 146,152,102
+  #if @chr = X
+    #set chr = 20
+  #elseif @chr = Y
+    #set chr = 21
+  #endif
+  #set chrcode = $arith( @chr*1000000000, "%.0f" )
+  #set bplo = $arith( @mbplo*1000000, "%.0f" )
+  #set keylo = $arith( @chrcode+@bplo, "%.0f" )
+  #set bphi = $arith( @mbphi*1000000, "%.0f" )
+  #set keyhi = $arith( @chrcode+@bphi, "%.0f" )
+  #if @snpid != ""
+    #set insdel = yes
+  #endif
+#endif
+
+// <tt>snpid=@snpid chr=@chr mbplo=@mbplo mbphi=@mbphi type=@type keylo=@keylo keyhi=@keyhi strains=@polystrains</tt>
+
+
+#sql
+  select * from @datafile
+  where
+  #if @snpid like rs*
+     rs like '@snpid*'
+  #elseif @snpid like ss*
+     ss like '@snpid*'
+  #elseif @snpid != ""
+     submitter_id like '@snpid*'
+  #elseif @projid = 148
+     #if @chr != All
+       chr = '@chr'
+     #else
+       // chr = All ... provide this so that subsequent clauses can begin with 'and'...
+       chr like '*'
+     #endif
+  #else
+     bploc_key inrange @keylo,@keyhi
+  #endif
+  #if @selmode = poly 
+    and @refstrain != null
+    // simple case of A vs. B can be done here... one to many has to be done in diff logic within row loop below ..
+    #if @ncomps = 1
+      and @compstrains != null 
+      and @refstrain != @compstrains
+    #endif
+  #elseif @selmode = require
+    #for S in @reqstrains
+      and @S != null
+    #endloop
+  #endif
+  #if @projid in 146,152,102 && @insdel = no
+    and type != 'i'
+  #endif
+  #if @projid = 148
+    order by chr, cM (num), submitter_id
+  #else
+    order by bploc_key (num)
+  #endif
+  maxrows = 20000
+#endsql
+
+#if $sqlrowcount() < 1
+  <h2>Nothing found that met the criteria.</h2>
+  #include include/bottom
+  #exit
+#endif
+
+
+#set nrows = $sqlrowcount()
+
+
+
+///////////////////////////////
+////////////// result table
+///////////////////////////////
+
+// notes appearing just above table..
+<br>
+#if @projid in 146,152 && @ssonly = no
+  <table cellpadding=2 width=550 border=1><tr><td>
+  Basepair locations are supplied by dbSNP unless otherwise annotated (<b>s</b> =
+  location supplied by investigator, not dbSNP, and may not be current; <b>C</b> indicates
+  Celera map).
+  An asterisk <b>*</b> denotes
+  SNPs currently mapped to more than one location (we replicate data at all locations).
+  <b>ss#</b> are linked to dbSNP, where 
+  flanking sequences and other details are available.
+  <b>rs#</b> cells include links to dbSNP <b>d</b>,
+  Ensembl <b>e</b>, and UC Santa Cruz <b>s</b> web sites.
+  </td></tr></table>
+#elseif @ssonly = yes
+  The following ss# may be copy/pasted into the 
+  <a href="http://www.ncbi.nlm.nih.gov/SNP/dbSNP.cgi?list=sslist">dbSNP batch query form</a>:
+#endif
+#if @projid in 146,152,102 && @selmode in poly,require
+  #include snp/note1
+#endif
+<br>
+<br>
+
+
+/////////////////////////////////
+///////// table header..
+/////////////////////////////////
+<table cellpadding=2 @BOR>
+
+#if @ssonly = no
+  <tr bgcolor=FFFFEC align=center>
+    
+  <td>Chr</td>
+  <td>
+  #if @projid = 148
+    Base pair<br>location</td><td>cM</td><td>Submitter-<br>supplied id</td>
+  #else 
+     Base pair<br>location<br><br>
+     // <small>Annotations:<br>
+     // C = celera map<br><br>s = supplied by<br>investigator<br><br>* = mapped to <br>&gt; 1 location
+  #endif
+  </td>
+  
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+  
+  #if @selmode = poly
+    #set strainlist = @refstrain "," @compstrains
+  #elseif @selmode = require
+    #set strainlist = @reqstrains
+  #elseif @selmode in all,byname
+    #set strainlist = ""
+  #endif
+  #for S in @strainlist
+    #set FILENAME = @S ".gif"
+    #set FILENAME = $change( "_129", "129", @FILENAME )
+    <td><img src="@HTMLURL/im/straingifs/@FILENAME" alt=@S></td>
+  #endloop
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+  #for S in @dispstrains,@dispstrains2
+    #if @S = none || @S = "" || @S in @strainlist 
+      #continue
+    #endif
+    #set FILENAME = @S ".gif"
+    #set FILENAME = $change( "_129", "129", @FILENAME )
+    <td><img src="@HTMLURL/im/straingifs/@FILENAME" alt=@S></td>
+  #endloop
+
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+  <td>Submitter-<br>supplied id</td>
+  #if @projid = 148
+    <td>Type</td>
+    <td>Link</td>
+  #else
+    <td>ss#</td>
+    <td>rs#</td>
+    <td>MPD<br>project</td>
+    <td>Type</td>
+  #endif
+#endif
+
+#if @ssonly = yes
+  <tr bgcolor=FFFFFF><td>
+#else
+  </tr>
+#endif
+
+////////////////////////////////
+///////// table body..
+////////////////////////////////
+
+#set nrows = 0
+#while $sqlrow() = 0
+  
+  // do one to many polymorphic comparison..
+  #if @selmode = poly && @ncomps > 1 
+    #set keep = 0
+    #set rval = $ref(@refstrain)
+    #for S in @compstrains
+      #set sval = $ref(@S)
+      #if @sval != "" && @rval != @sval
+        #set keep = 1
+        #break
+      #endif
+    #endloop
+    #if @keep = 0
+      #continue
+    #endif
+  #endif
+  //
+  //
+  // data source / project filter..
+  #if @projlist != all && @mpd_id !in @projlist
+    #continue
+  #endif
+
+  #set snpid = $change( " ", "_", @submitter_id )
+  #set nrows = $arith( @nrows+1 )
+
+  #if @ssonly = yes
+    #if @ss = ""
+       #continue
+    #endif
+    <tt> @ss </tt><br>
+    #if @nrows >= 200
+      -- List truncated at 200 rows --
+      #break
+    #endif
+    #continue
+  #endif
+
+
+  #if @nrows >= 200
+    <tr><td colspan=20><h2>List truncated at 200 rows</td></tr>
+    #break
+  #endif
+
+  <tr bgcolor=FFFFFF align=center>
+  <td>@chr</td>
+  <td align=left><small>
+  #if @multiloc != ""
+    <a href="@CGIPROG?rtn=snp/list&snpid=@snpid">
+  #endif
+  @loc
+  #if @projid in 146,152,102
+    #if @assembly = c
+      C
+    #endif
+    #if @mapper = s
+      s
+    #endif
+    #if @multiloc != ""
+      *</a>
+    #endif
+  #endif
+  </td>
+  #if @projid = 148
+    <td>@cM</td> 
+    <td>@snpid</td>
+  #endif
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+
+  #for S in @strainlist
+    #set allele = $ref( @S )
+    #if @allele = ""
+      <td>&nbsp;</td>
+    #elseif @allele = A
+      <td bgcolor=@ACOLOR>@allele</td>
+    #elseif @allele = C
+      <td bgcolor=@CCOLOR>@allele</td>
+    #elseif @allele = G
+      <td bgcolor=@GCOLOR>@allele</td>
+    #elseif @allele = T
+      <td bgcolor=@TCOLOR>@allele</td>
+    #else
+      <td>@allele</td>
+    #endif
+  #endloop
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+  #for S in @dispstrains,@dispstrains2
+    #if @S = none || @S = "" || @S in @strainlist
+      #continue
+    #endif
+    #set allele = $ref( @S )
+    #if @allele = ""
+      <td>&nbsp;</td>
+    #elseif @allele = A
+      <td bgcolor=@ACOLOR>@allele</td>
+    #elseif @allele = C
+      <td bgcolor=@CCOLOR>@allele</td>
+    #elseif @allele = G
+      <td bgcolor=@GCOLOR>@allele</td>
+    #elseif @allele = T
+      <td bgcolor=@TCOLOR>@allele</td>
+    #else
+      <td>@allele</td>
+    #endif
+  #endloop
+
+  <td bgcolor=@BCOLOR>&nbsp;</td>
+
+  <td><small>@snpid</td>
+  #if @projid = 148
+    <td><small>SSLP</td>
+    <td><small><a href="http://www.ensembl.org/Mus_musculus/markerview?marker=@submitter_id">Ensembl</a></td>
+    </tr>
+    #continue
+  #endif
+  <td>
+  #if @ss = ""
+    n/a
+  #else
+    <small>
+    #set ss = $change( "ss", "", @ss )
+    <a href="http://www.ncbi.nlm.nih.gov/SNP/snp_retrieve.cgi?subsnp_id=@ss">@ss</a>
+  #endif
+  </td>
+  <td>
+  #if @rs = ""
+    n/a
+  #else
+    <small>
+    #set rs = $change( "rs", "", @rs )
+    @rs </small> &nbsp;
+    <a href="http://www.ncbi.nlm.nih.gov/SNP/snp_ref.cgi?type=rs&rs=@rs">d</a>
+    <a href="http://www.ensembl.org/Mus_musculus/snpview?snp=@rs">e</a>
+    <a href="http://genome.ucsc.edu/cgi-bin/hgTracks?org=Mouse&position=rs@rs&pix=610">s</a>
+  #endif
+  </td>
+  <td>
+  <small>
+  #if @mpd_id like mpd101
+    <a href="http://mousesnp.roche.com/cgi-bin/msnp.pl?get_strain=@snpid">mpd101</a>
+  #elseif @mpd_id like mpd*
+    #set project_id = $change( "mpd", "", @mpd_id )
+    <a href="@CGIPROG?rtn=projects/details&id=@project_id">@mpd_id</a>
+  #else
+    @mpd_id
+  #endif
+  </td>
+  <td>
+  #if @type = s
+    snp
+  #elseif @type = m
+    mnp
+  #elseif @type = i
+    ins-del
+  #endif
+  </td>
+  </tr>
+#endloop
+#if ssonly = yes
+  </td></tr>
+#endif
+
+</table>
+
+
+#if @nrows < 1
+  <h2>Nothing found that met the criteria</h2>
+#elseif @ssonly = no
+  N rows = @nrows<br>
+#endif
+
+
+#include include/bottom
