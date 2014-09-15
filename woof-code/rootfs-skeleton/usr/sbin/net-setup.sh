@@ -285,7 +285,7 @@ buildMainWindow ()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>&1 & </action>
+            <action>$HELP_COMMAND >$OUT 2>&1 &</action>
         </button>
         <button>
              <label>$L_BUTTON_Exit</label>
@@ -1212,7 +1212,7 @@ buildConfigureInterfaceWindow ()
     <hbox>
         $DONEBUTTON
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>$ERR & </action>
+            <action>$HELP_COMMAND >$OUT 2>$ERR &</action>
         </button>
         ${SAVE_SETUP_BUTTON}
         <button>
@@ -1446,7 +1446,7 @@ buildStaticIPWindow()
     </frame>
     <hbox>
         <button help>
-            <action>$HELP_COMMAND >$OUT 2>$ERR & </action>
+            <action>$HELP_COMMAND >$OUT 2>$ERR &</action>
         </button>
         <button ok></button>
         <button cancel></button>
