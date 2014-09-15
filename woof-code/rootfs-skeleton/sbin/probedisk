@@ -68,12 +68,9 @@ INTERNAL_SD_DRIVES="$SATADRIVES"
 if [ -f $HOME/.usb-drive-log-probedisk ];then #force /proc upate mechanism
  for oneUSBDRV in `cat $HOME/.usb-drive-log-probedisk`
  do
-  disktype /dev/$oneUSBDRV > /dev/null 2>&1
+  disktype /dev/$oneUSBDRV >$OUT 2>$ERR
  done
 fi
-
-#mounted drives/partitions...
-MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
 
 ##all disk devices, mask off partitions...
 #ALLDRVS=`grep -E ' hd| scd| sd| mmc| sr' /proc/diskstats | tr -s ' ' | cut -f 4 -d ' ' | grep -vE 'hd.*[0-9]$|sd.*[0-9]$|mmc.*p[0-9]' | tr '\n' ' '`
@@ -150,6 +147,9 @@ do
 
 done
 
+#mounted drives/partitions...
+MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
+
 #find out if a mounted device has been unplugged...
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
@@ -157,17 +157,24 @@ for oneMNTD in $MNTDDEVS
 do
  case $oneMNTD in
   hd*|sd*|sr*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-3` "
+   MNTDDRVs="$MTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-3`"
    ;;
   scd*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-4` "
+   MNTDDRVs="$MTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-4`"
    ;;
   mmc*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-7` "
+   MNTDDRVs="$MTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-7`"
    ;;
+  *) echo "Unhandled '$oneMNTD'";;
  esac
  #prints to system log and to stderr...
- [ "`echo "$ALLDRVS" | grep "$MNTDDRVs"`" = "" ] && logger -s "PROBEDISK ERROR: MOUNTED UNPLUGGED $oneMNTD"
+ MNTDDRVs=`echo "$MNTDDRVs" | sed '/^$/d'`
+ echo "MNTDDRVs='$MNTDDRVs'"
+ echo "ALLDRVS='$ALLDRVS'"
+ [ "$ALLDRVS" -a "$MNTDDRVs" ] && { [ "`echo "$ALLDRVS" | /bin/grep "$MNTDDRVs"`" = "" ] && logger -s "PROBEDISK ERROR: MOUNTED UNPLUGGED $oneMNTD"; }
 done
 
 ###END###
