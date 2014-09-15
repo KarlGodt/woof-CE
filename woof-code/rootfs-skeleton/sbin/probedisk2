@@ -22,7 +22,7 @@
 #v403 fixed excessive spaces in description field.
 #v406 support for old kernel, /proc/ide, /dev/hd*.
 
-
+date +%N
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -99,16 +99,16 @@ function_partitions(){
 INTERNAL_SD_DRIVES="$SATADRIVES"
 [ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
 echo "DBG: intSDdrv=$INTERNAL_SD_DRIVES , usb=$USB_SATAD , ATA=$SATADRIVES , SATA=$ATADRIVES" >&2
-if [ -f $HOME/.usb-drive-log-probedisk ];then #force /proc upate mechanism
- for oneUSBDRV in `cat $HOME/.usb-drive-log-probedisk | tr '\n' ' '`
+
+date +%N
+if [ -f $HOME/.pup_event/usb-drive-log-probedisk ];then #force /proc upate mechanism
+ for oneUSBDRV in `cat $HOME/.pup_event/usb-drive-log-probedisk | tr '\n' ' '`
  do
   #disktype /dev/$oneUSBDRV > /dev/null 2>&1
-  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v4.01 faster.
+  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >$OUT 2>$ERR #v4.01 faster.
  done
 fi
-
-#mounted drives/partitions...
-MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
+date +%N
 
 #crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
 #/proc/ide. pathetic kernel! oh well...
@@ -120,29 +120,35 @@ else
 fi
 #note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
 
+date +%N
+
 for oneDRV in $ALLDRVS
 do
   case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
-     MEDIA=`cat /proc/ide/$oneDRV/media`
+     #MEDIA=`cat /proc/ide/$oneDRV/media`
+     read MEDIA </proc/ide/$oneDRV/media
      [ "$MEDIA" = "disk" ] && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
-     INFO=`cat /proc/ide/$oneDRV/model`
+     #INFO=`cat /proc/ide/$oneDRV/model`
+     read INFO </proc/ide/$oneDRV/model
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
-     VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
-     MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
+     read VENDOR </sys/block/$oneDRV/device/vendor
+     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$oneDRV" | cut -b 1-3` "
 
      #log if usb drive (not a sata drive)... v4.01...
      #if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$oneDRV"`" = "" ];then
-      if [ "`find /sys -name $oneDRV | grep 'usb' | grep 'block'`" != "" ] ; then
+      if [ "`find /sys/devices -name "$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
       MEDIA="usbdrv" #v4.01
-      echo "$oneDRV" >> $HOME/.usb-drive-log-probedisk
-      sort -u $HOME/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
-      mv -f /tmp/usb-drive-log-probedisk-tmp $HOME/.usb-drive-log-probedisk
+      echo "$oneDRV" >> $HOME/.pup_event/usb-drive-log-probedisk
+      sort -u $HOME/.pup_event/usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
+      mv -f /tmp/usb-drive-log-probedisk-tmp $HOME/.pup_event/usb-drive-log-probedisk
       #find out if a usb floppy drive...
 
       if [ -e /sys/block/${oneDRV}/size ];then
@@ -163,8 +169,10 @@ do
    ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="optical"
-     VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
-     MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
+     read VENDOR </sys/block/$oneDRV/device/vendor
+     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
    ;;
    mmc*) #/dev/mmcblk0
@@ -224,6 +232,9 @@ do
 
 done
 
+#mounted drives/partitions...
+MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
+
 #find out if a mounted device has been unplugged...
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
@@ -231,17 +242,23 @@ for oneMNTD in $MNTDDEVS
 do
  case $oneMNTD in
   hd*|sd*|sr*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-3` "
+   MNTDDRVs="$MNTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-3`"
    ;;
   scd*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-4` "
+   MNTDDRVs="$MNTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-4`"
    ;;
   mmc*)
-   MNTDDRVs="`echo -n "$oneMNTD" | cut -b 1-7` "
+   MNTDDRVs="$MNTDDRVs
+`echo -n "$oneMNTD" | cut -b 1-7`"
    ;;
+  *) echo "Unhandled '$oneMNTD'";;
  esac
+
+  MNTDDRVs=`echo "$MNTDDRVs" | sed '/^$/d'`
  #prints to system log and to stderr...
- [ "`echo "$ALLDRVS" | grep "$MNTDDRVs"`" = "" ] && logger -s "PROBEDISK ERROR: MOUNTED UNPLUGGED $oneMNTD"
+  [ "$ALLDRVS" -a "$MNTDDRVs" ] && { [ "`echo "$ALLDRVS" | /bin/grep "$MNTDDRVs"`" = "" ] && logger -s "$0: WARNING: UNPLUGGED '$oneMNTD'" still listed in /proc/mounts"; }
 done
 
 ###END###
