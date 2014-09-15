@@ -76,16 +76,16 @@ echo '<center>
 <select name="site" size="1" onchange="javascript:formHandler()">
 ' >>/tmp/newinfoindex.xml
 echo "$PKGINFO1" |
-while read ONEINFO
+while read oneINFO
 do
- NAMEONLY=`echo "$ONEINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`
+ NAMEONLY=`echo "$oneINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`
  EXPATTERN=" $NAMEONLY "
  nEXPATTERN="^$NAMEONLY "
  [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
  HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
  REALHOME=`cat /root/.packages/PKGS_HOMEPAGES | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`
  [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
- echo "<option value=\"${HOMESITE}\">${ONEINFO}" >> /tmp/newinfoindex.xml
+ echo "<option value=\"${HOMESITE}\">${oneINFO}" >> /tmp/newinfoindex.xml
 done
 echo '</select>
 </form>
@@ -114,17 +114,17 @@ echo '</select>
 #<select name="site2" size="1" onchange="javascript:formHandler2()">
 #' >>/tmp/newinfoindex.xml
 #echo "$PKGINFODB" |
-#while read ONEINFO
+#while read oneINFO
 #do
-# [ "$ONEINFO" = "" ] && continue
-# NAMEONLY=`echo "$ONEINFO" | cut -f 1 -d '|' | tr [A-Z] [a-z]`
+# [ "$oneINFO" = "" ] && continue
+# NAMEONLY=`echo "$oneINFO" | cut -f 1 -d '|' | tr [A-Z] [a-z]`
 # EXPATTERN=" $NAMEONLY "
 # nEXPATTERN="^$NAMEONLY "
 # [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
 # HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
 # REALHOME=`echo "$HOMEPAGEDB" | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`
 # [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
-# xONEINFO=`echo -n "$ONEINFO" | sed 's%|%:  %'`
+# xONEINFO=`echo -n "$oneINFO" | sed 's%|%:  %'`
 # echo "<option value=\"${HOMESITE}\">${xONEINFO}" >> /tmp/newinfoindex.xml
 #done
 #echo '</select>
@@ -139,12 +139,12 @@ echo '</select>
 #<select name="site" size="1" onchange="javascript:formHandler()">
 #' >>/tmp/newinfoindex.xml
 #echo "$PKGINFONODESCR" |
-#while read ONEINFO
+#while read oneINFO
 #do
-# [ "`echo "$ONEINFO" | grep -E 'NOTUSED|FULL|\.bin$|config$|README|OLD|\.glade$'`" != "" ] && continue
-# EXPATTERN=" $ONEINFO "
+# [ "`echo "$oneINFO" | grep -E 'NOTUSED|FULL|\.bin$|config$|README|OLD|\.glade$'`" != "" ] && continue
+# EXPATTERN=" $oneINFO "
 # [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
-# echo "<option value=\"http://linux.die.net/man/${ONEINFO}\">${ONEINFO}</option>" >> /tmp/newinfoindex.xml
+# echo "<option value=\"http://linux.die.net/man/${oneINFO}\">${oneINFO}</option>" >> /tmp/newinfoindex.xml
 #done
 #echo '</select>
 #</form>
