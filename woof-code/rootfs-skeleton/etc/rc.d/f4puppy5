@@ -1613,3 +1613,322 @@ return $RV
 ;;
 esac
 }
+
+_batch_diff1()
+{
+local SIMPLE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2
+_debug "_batch_diff1: '$*'" >&2
+
+test "$*" || { _err "Usage: _batch_diff [ -s ] DIR"; return 1 2>$ERR || exit 1; }
+
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+#FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+#FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+     test "$oneF1" = "$oneF2" && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+}
+
+_batch_diff2()
+{
+local SIMPLE INVERT FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
+_debug "_batch_diff2: '$*'" >&2
+
+test "$*" || { _err "Usage: _batch_diff2 [ -s |& -i ] DIR"; return 1 2>$ERR || exit 1; }
+
+
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+test "$1" = '-i' && { INVERT=YES; shift; }
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+if test "$INVERT"; then
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF2" "$oneF1"
+
+     else
+      diff -up "$oneF2" "$oneF1"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+else
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+
+    [ "$oneF2" ] || continue
+
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+fi
+
+}
+
+_batch_diff3()
+{
+DEBUG=1
+local SIMPLE INVERT REMOVE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
+_debug "_batch_diff2: '$*'" >&2
+
+test "$*" || { _err "Usage: _batch_diff3 [ -s -i | -r ] DIR"; return 1 2>$ERR || exit 1; }
+
+while [ "$2" ]; do
+case "$1" in
+-s) SIMPLE=YES;;
+-i) INVERT=YES;;
+-r) REMOVE=YES;;
+esac
+shift
+done
+
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+if test "$INVERT"; then
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+    [ -e "$oneF2" ] || continue
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$REMOVE"; then
+      diff -q "$oneF2" "$oneF1" && rm "$oneF2"
+
+     elif test "$SIMPLE"; then
+      diff -q -s "$oneF2" "$oneF1"
+
+     else
+      diff -up "$oneF2" "$oneF1"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+else
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+
+    [ "$oneF2" ] || continue
+
+    [ -e "$oneF2" ] || continue
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$REMOVE"; then
+      diff -q "$oneF1" "$oneF2" && rm "$oneF2"
+
+     elif test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+fi
+
+}
