@@ -4,24 +4,18 @@
   _TITLE_="Puppy_downloadpkgs.sh"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
-
 MY_SELF="/usr/local/petget/downloadpkgs.sh"
 MY_PID=$$
-
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
-
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
-
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in 1; do shift; done; }
-
 _trap
-
 }
 # End new header
 #
@@ -32,20 +26,16 @@ _trap
 # ex: "$tmpDIR"/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
 
+__old_default_info_header__(){
 _TITLE_=package_download
 _COMMENT_="GTKdialog GUIs to download by PPM."
-
 MY_SELF="$0"
-
 #************
 #KRG
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 Version=1.1-KRG-MacPup_O2
-
 usage(){
 MSG="
 $0 [ help | version | PASSEDPARAM ]
@@ -57,34 +47,25 @@ exit $1
 }
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 #KRG
 #************
-
-
+}
 echo "$0: START" >&2
-
 export LANG=C
 PASSEDPARAM=""
 [ $1 ] && PASSEDPARAM="$1" #DOWNLOADONLY
-
 . /etc/DISTRO_SPECS                   #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS   #
 . /root/.packages/DISTRO_PET_REPOS    #has PET_REPOS, PACKAGELISTS_PET_ORDER
 . /root/.packages/DISTRO_COMPAT_REPOS #v431 has REPOS_DISTRO_COMPAT
-
 tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
-
 echo -n "" > "$tmpDIR"/petget-installed-pkgs.log
-
 for oneLIST in `ls -1 "$tmpDIR"/petget_missing_dbentries-Packages-*`
 do
  echo -n "" > "$tmpDIR"/petget_repos
  LISTNAME=`echo -n "$oneLIST" | grep -o 'Packages.*'`
-
  #have the compat-distro repo urls in /root/.packages/DISTRO_PKGS_SPECS,
  #variable REPOS_DISTRO_COMPAT ...
  #REPOS_DISTRO_COMPAT has the associated Packages-* local database file...
@@ -96,9 +77,7 @@ do
   oneURLENTRY_1_2=`echo -n "$oneURLENTRY" | cut -f 1,2 -d '|'`
   [ "`echo "$LISTNAME" | grep "$PARTPKGDB"`" != "" ] && echo "${oneURLENTRY_1_2}|${LISTNAME}" >> "$tmpDIR"/petget_repos
  done
-
 echo $LINENO >&2
-
  #or it may be one of the official puppy repos...
  if [ "`echo "$oneLIST" | grep 'Packages\\-puppy' | grep '\\-official'`" != "" ];then
   for onePETREPO in $PET_REPOS
@@ -109,15 +88,11 @@ echo $LINENO >&2
    #...ex: ibiblio.org|http://distro.ibiblio.org/pub/linux/distributions/puppylinux|Packages-puppy-4-official
   done
  fi
-
  sort --key=1 --field-separator="|" --unique "$tmpDIR"/petget_repos > "$tmpDIR"/petget_repos-tmp
  mv -f "$tmpDIR"/petget_repos-tmp "$tmpDIR"/petget_repos
-
  #"$tmpDIR"/petget_repos has a list of repos for downloading these packages.
  #now put up a window, request which url to use...
-
  LISTNAMECUT=`echo -n "$LISTNAME" | cut -f 2-9 -d '-'` #take Packages- off.
-
  REPOBUTTONS=""
  for oneREPOSPEC in `cat "$tmpDIR"/petget_repos`
  do
@@ -125,22 +100,17 @@ echo $LINENO >&2
   URL_FULL=`echo -n "$oneREPOSPEC" | cut -f 2 -d '|'`
   REPOBUTTONS="${REPOBUTTONS}<radiobutton><label>${URL_TEST}</label><variable>RADIO_URL_${URL_TEST}</variable></radiobutton>"
  done
-
 echo $LINENO >&2
-
  PKGNAMES=`cat $oneLIST | cut -f 1 -d '|' | tr '\n' ' '`
-
  export DEPS_DIALOG="<window title=\"Puppy Package Manager: download\" icon-name=\"gtk-about\">
 <vbox>
  <text><label>You have chosen to download these packages:</label></text>
  <text use-markup=\"true\"><label>\"<b>${PKGNAMES}</b>\"</label></text>
  <text><label>Please choose which URL you would like to download them from. Choose 'LOCAL FOLDER' if you have already have them on this computer (on hard drive, USB drive or CD):</label></text>
-
  <frame ${LISTNAMECUT}>
   ${REPOBUTTONS}
   <radiobutton><label>LOCAL FOLDER</label><variable>RADIO_URL_LOCAL</variable></radiobutton>
  </frame>
-
  <hbox>
   <button>
    <label>Test URLs</label>
@@ -155,20 +125,15 @@ echo $LINENO >&2
 </vbox>
 </window>
 "
-
  RETPARAMS=`gtkdialog3 --program=DEPS_DIALOG`
  #RETPARAMS ex:
  #RADIO_URL_LOCAL="false"
  #RADIO_URL_repository.slacky.eu="true"
  #EXIT="BUTTON_PKGS_DOWNLOAD"
-
  #eval "$RETPARAMS"
-
  #[ "$EXIT" != "BUTTON_PKGS_DOWNLOAD" ] && exit 1
  [ "`echo "$RETPARAMS" | grep 'BUTTON_PKGS_DOWNLOAD'`" = "" ] && exit 1
-
 echo $LINENO >&2
-
  #determine the url to download from....
  #if [ "$RADIO_URL_LOCAL" = "true" ];then
  if [ "`echo "$RETPARAMS" | grep 'RADIO_URL_LOCAL' | grep 'true'`" != "" ];then
@@ -186,9 +151,7 @@ echo $LINENO >&2
   URL_BASIC=`echo "$RETPARAMS" | grep 'RADIO_URL_' | grep '"true"' | cut -f 1 -d '=' | cut -f 3 -d '_'`
   DOWNLOADFROM=`cat "$tmpDIR"/petget_repos | grep "$URL_BASIC" | head -n 1 | cut -f 2 -d '|'`
  fi
-
 echo $LINENO >&2
-
  #now download and install them...
  cd /root
  for oneFILE in `cat $oneLIST | cut -f 7,8 -d '|' | tr '|' '/'`
@@ -244,11 +207,8 @@ echo $LINENO >&2
    gtkdialog3 --program=FAIL_DIALOG
   fi
  done
-
 done
-
 echo $LINENO >&2
-
 if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
  export DL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
@@ -263,9 +223,7 @@ if [ "$PASSEDPARAM" = "DOWNLOADONLY" ];then
  gtkdialog3 --program=DL_DIALOG
  exit 0
 fi
-
 echo $LINENO >&2
-
 #announce summary of successfully installed pkgs...
 #installpkg.sh will have logged to "$tmpDIR"/petget-installed-pkgs-log
 if [ -s "$tmpDIR"/petget-installed-pkgs.log ];then
@@ -291,9 +249,7 @@ if [ -s "$tmpDIR"/petget-installed-pkgs.log ];then
 "
  RETPARAMS=`gtkdialog3 --program=INSTALL_DIALOG`
  eval "$RETPARAMS"
-
 echo $LINENO >&2
-
  #trim the fat...
  if [ "$EXIT" = "BUTTON_TRIM_FAT" ];then
   INSTALLEDPKGNAMES=`echo "$INSTALLEDMSG" | cut -f 2 -d ' ' | tr '\n' ' '`
@@ -370,9 +326,6 @@ echo $LINENO >&2
   done
   kill $X4PID
  fi
-
 fi
-
 echo "$0: END" >&2
-
 ###END###
