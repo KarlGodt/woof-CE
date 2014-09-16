@@ -22,7 +22,7 @@ _parse_basic_parameters "$@"
   for oneSHIFT in 1; do shift; done; }
 
 _trap
-
+}
 # End new header
 #
 #(c) Copyright Barry Kauler 2009, puppylinux.com
