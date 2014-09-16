@@ -72,19 +72,19 @@ SCRIPT_DIR="/usr/local/jwmconfig3"
 if [ -z "$MENU_BG" ]; then
  pidof jwm >/dev/null && jwm -restart
  exit 2
-else 
+else
 
 . $SCRIPT_DIR/func -gradientcolors
- 
+
 . $SCRIPT_DIR/func -themedef
-  
+
 fi
 
 echo "$DefTheme" > "$ThemeFile"
 
 #########
 #John Doe created code for the applet backgrounds, old jwmconfig, port here...
-. $SCRIPT_DIR/func -trayapply 
+. $SCRIPT_DIR/func -trayapply
 #end John Doe's code.
 ########
 
