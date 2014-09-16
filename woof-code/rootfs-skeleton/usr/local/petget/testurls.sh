@@ -4,7 +4,7 @@
 # repository.slacky.eu|http://repository.slacky.eu/slackware-12.2|Packages-slackware-12.2-slacky
 # ...only the first field is of interest in this script.
 
-_TITLE_=testurls
+  _TITLE_=testurls
 _COMMENT_="wget test for entries in petget_repos file"
 
 MY_SELF="$0"
