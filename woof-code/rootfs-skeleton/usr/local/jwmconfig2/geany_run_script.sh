@@ -31,8 +31,7 @@ _trap
 echo "
 
 ------------------
-(program exited with code: $?)" 		
-
+(program exited with code: $?)"
 
 echo "Press return to continue"
 #to be more compatible with shells like dash
