@@ -21,8 +21,8 @@ _parse_basic_parameters "$@"
   for oneSHIFT in 1; do shift; done; }
 
 _trap
-
 }
+
 # End new header
 #
 #(c) Copyright Barry Kauler 2009, puppylinux.com
@@ -30,7 +30,8 @@ _trap
 # Called from /usr/local/petget/pkg_chooser.sh
 # Find all pkgs that have been user-installed, format for display.
 
-_TITLE_=find_installed_packages
+__old_default_info_header__(){
+  _TITLE_=find_installed_packages
 _COMMENT_="Convert $HOME/.packages/user-installed-packages to installedpkgs.results"
 
 MY_SELF="$0"
@@ -52,6 +53,7 @@ echo "$MSG
 $2"
 exit $1
 }
+
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
@@ -59,7 +61,7 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 #KRG
 #************
-
+}
 
 echo "$0: START" >&2
 
@@ -72,5 +74,8 @@ sort -u /root/.packages/user-installed-packages >"$tmpDIR"/installedpkgs.db
 cp --remove-destination "$tmpDIR"/installedpkgs.db /root/.packages/user-installed-packages
 cut -f 1,10 -d '|' /root/.packages/user-installed-packages |sed '/^$/d' |sort -u > "$tmpDIR"/installedpkgs.results
 #cp -f "$tmpDIR"/installedpkgs.results /root/.packages/user-installed-packages
+
 echo "$0: END" >&2
+
 ###END###
+
