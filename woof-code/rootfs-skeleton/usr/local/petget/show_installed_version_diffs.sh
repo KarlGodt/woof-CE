@@ -6,7 +6,7 @@
 export TEXTDOMAIN=petget___versiondiffs
 export OUTPUT_CHARSET=UTF-8
 
-_TITLE_=
+  _TITLE_=
 _COMMENT_=
 
 MY_SELF="$0"
