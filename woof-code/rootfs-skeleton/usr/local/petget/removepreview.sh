@@ -1,6 +1,7 @@
 #!/bin/sh
 #
 # New header by Karl Reimer Godt, September 2014
+
   _TITLE_="Puppy_removepreview.sh"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
@@ -21,7 +22,6 @@ _parse_basic_parameters "$@"
   for oneSHIFT in 1; do shift; done; }
 
 _trap
-
 }
 # End new header
 #
@@ -37,7 +37,8 @@ _trap
 #v424 support post-uninstall script for .pet pkgs.
 #v424 need info box if user has clicked when no pkgs installed.
 
-_TITLE_=uninstall_preview
+__old_default_info_header__(){
+  _TITLE_=uninstall_preview
 _COMMENT_="Confirm uninstallation of a software package."
 
 MY_SELF="$0"
@@ -59,6 +60,7 @@ echo "$MSG
 $2"
 exit $1
 }
+
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
@@ -66,7 +68,7 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 #KRG
 #************
-
+}
 
 echo "$0: START" >&2
 
@@ -90,6 +92,7 @@ if [ "$DB_pkgname" = "" ];then
   </vbox>
  </window>
 "
+
  [ "$DISPLAY" != "" ] && gtkdialog3 --program=REM_DIALOG
  exit
 fi
@@ -105,6 +108,7 @@ export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about
   </vbox>
  </window>
 "
+
 if [ "$DISPLAY" != "" ];then
  RETPARAMS=`gtkdialog3 --program=REM_DIALOG`
  eval "$RETPARAMS"
@@ -112,10 +116,12 @@ if [ "$DISPLAY" != "" ];then
 fi
 
 if [ -f /root/.packages/${DB_pkgname}.files ];then
+
  cat /root/.packages/${DB_pkgname}.files |
  while read ONESPEC
  do
   if [ ! -d "$ONESPEC" ];then
+
    if [ -e "/initrd/pup_ro2$ONESPEC" ];then
     #the problem is, deleting the file on the top layer places a ".wh" whiteout file,
     #that hides the original file. what we want is to remove the installed file, and
@@ -124,8 +130,10 @@ if [ -f /root/.packages/${DB_pkgname}.files ];then
    else
     rm -f "$ONESPEC"
    fi
+
   fi
  done
+
  #do it again, looking for empty directories...
  cat /root/.packages/${DB_pkgname}.files |
  while read ONESPEC
@@ -140,6 +148,7 @@ fi
 #master help index has to be updated...
 ##to speed things up, find the help files in the new pkg only...
 /usr/sbin/indexgen.sh #${WKGDIR}/${APKGNAME}
+
 #Reconstruct configuration files for JWM, Fvwm95, IceWM...
 /usr/sbin/fixmenus
 
@@ -167,16 +176,21 @@ rm -f "$tmpDIR"/petget_fltrd_repo_?${FIRSTCHAR}* 2>$OUT
 
 #announce any deps that might be removable...
 echo -n "" > "$tmpDIR"/petget-deps-maybe-rem
+
 cut -f 1,2,10 -d '|' /root/.packages/user-installed-packages |
 while read ONEDB
 do
+
  ONE_pkgname=`echo -n "$ONEDB" | cut -f 1 -d '|'`
  ONE_nameonly=`echo -n "$ONEDB" | cut -f 2 -d '|'`
  ONE_description=`echo -n "$ONEDB" | cut -f 3 -d '|'`
  opPATTERN='^'"$ONE_nameonly"'$'
  [ "`echo "$DEP_PKGS" | grep "$opPATTERN"`" != "" ] && echo "$ONE_pkgname DESCRIPTION: $ONE_description" >> "$tmpDIR"/petget-deps-maybe-rem
+
 done
+
 EXTRAMSG=""
+
 if [ -s "$tmpDIR"/petget-deps-maybe-rem ];then
  #MAYBEREM=`cat "$tmpDIR"/petget-deps-maybe-rem` # wrap=\"false\"
  #nah, just list the names, not descriptions...
@@ -196,8 +210,11 @@ export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about
   </vbox>
  </window>
 "
+
 if [ "$DISPLAY" != "" ];then
  gtkdialog3 --program=REM_DIALOG
 fi
+
 echo "$0: END" >&2
+
 ###END###
