@@ -9,7 +9,7 @@
 #120813 fix subcategory icon.
 #120817 modify 'category' field: Document;edit becomes mini-Document-edit (will use icon mini-Document-edit.xpm)
 
-_TITLE_=post_filter_packages
+  _TITLE_=post_filter_packages
 _COMMENT_="Filter helper for displaying category in PPM"
 
 MY_SELF="$0"
