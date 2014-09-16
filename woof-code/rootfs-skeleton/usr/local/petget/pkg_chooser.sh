@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_pkg_chooser.sh"
@@ -158,7 +158,7 @@ fi
 #finds pkgs in repository based on filter category and version and formats ready for display...
 /usr/local/petget/filterpkgs.sh $FILTER_CATEG #writes to "$tmpDIR"/filterpkgs.results
 
-echo '#!/bin/sh
+echo '#!/bin/bash
 echo $1 > "$tmpDIR"/petget_filterversion
 ' > "$tmpDIR"/filterversion.sh
 chmod 777 "$tmpDIR"/filterversion.sh
