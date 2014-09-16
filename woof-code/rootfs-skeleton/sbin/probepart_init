@@ -1,0 +1,84 @@
+#!/bin/ash
+#Barry Kauler www.puppylinux.com
+#LGPL 2007 Puppy Linux www.puppylinux.com
+#17 june 2007
+#v3.93 10 dec 2007 BK: updated for 2.6.24 kernel, no /dev/hd*
+#v3.97 handle /dev/hd also for retro kernels.
+#v3.97 25feb2008 BK: guess_fstype does not work when testing 'makebootfat', use fdisk.
+#v4.01 19may2008 BK: bugfix for 2.6.25.4, ram entries in /proc/partitions.
+
+#***this one runs in initrd, very slightly different from the main one.***
+
+SUNITS="$1" #allowed params are '-k' or '-m'.
+OUTPUT=""
+
+##devices that have partitions...
+#([^k] is to eliminate mmcblk0 device) v4.01 bugfix eliminate ram...
+PARTITIONS="`grep -E '^ .*[^k][0-9]$' /proc/partitions | tr -s ' ' | cut -f 4-5 -d ' ' | grep -vE ' loop| ram' | tr ' ' '|'`"
+
+#all disk devices...
+#ALLDEVS="`grep -E ' hd| scd| sd| mmc| sr' /proc/diskstats | tr -s ' ' | cut -f 4 -d ' ' | tr '\n' ' '`"
+#ALLDRVS="`ls -1 /sys/block | grep -E '^hd|^scd|^sd|^mmc|^sr' | tr '\n' ' '`"
+#NO, NO, NO, /sys is very flakey for hd devices...
+if [ ! -e /proc/ide ];then #v3.93 v3.97
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '`"
+else
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`"
+fi
+#all drives and partitions...
+ALLDEVS="`echo "$PARTITIONS" | cut -f 2 -d '|' | tr '\n' ' '`$ALLDRVS"
+
+for ONEDEV in $ALLDEVS
+do
+ FSTYPE="unknown"
+ DPATTERN='|'${ONEDEV}'$'
+ SIZE=`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 1 -d '|'`
+ DEVICE="`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 2 -d '|'`"
+ if [ ! $SIZE ];then
+  [ "`echo "$PARTITIONS" | grep "$ONEDEV"`" != "" ] && continue
+  #must be a device without partitions...
+  SIZE=0
+  DEVICE="$ONEDEV"
+  case $DEVICE in
+   hd*)
+    [ "`cat /proc/ide/$DEVICE/media`" = "cdrom" ] && FSTYPE="`guess_fstype /dev/$DEVICE 2>/dev/null`"
+    #FSTYPE="iso9660"
+    ;;
+   scd*|sr*) #usb,sata,scsi cd/dvd drive.
+    FSTYPE="`guess_fstype /dev/$DEVICE 2>/dev/null`"
+    #FSTYPE="iso9660"
+    ;;
+  esac
+  #for hd* or sd* superfloppy, determine size...
+  if [ "$FSTYPE" = "unknown" ];then
+   BSIZE=`disktype /dev/$DEVICE 2>/dev/null | grep '^Block device' | cut -f 2 -d '(' | cut -f 1 -d ' '`
+   [ $BSIZE ] && SIZE=$(($BSIZE/1024)) #KB
+  fi
+ fi
+ [ "$FSTYPE" = "unknown" ] && FSTYPE="`guess_fstype /dev/$DEVICE 2>>/tmp/probepart_init-errs`"
+ [ "$FSTYPE" = "unknown" ] && FSTYPE=`disktype /dev/$DEVICE 2>>/tmp/probepart_init-errs | grep -m1 'file system' |sed 's%^ *%%' | cut -f 1 -d ' ' |tr '[[:upper:]]' '[[:lower:]]'`
+ [ "$FSTYPE" ] || FSTYPE=unknown
+ #v3.97 guess_fstype fails sometimes...
+ #(using makebootfat to setup a USB-FLOPPY/-HDD/-ZIP combined bootable FAT drive).
+ xFSTYPE=''
+ if [ "$FSTYPE" = "unknown" ];then
+  fsPATTERN='^/dev/'"$DEVICE"' '
+  xDEVICE="`echo -n "$DEVICE" | sed -e 's/[0-9]*$//'`" #"${DEVICE/[0-9]/}" #remove partition number.
+  xFSTYPE=`fdisk -l /dev/$xDEVICE 2>/dev/null | grep "$fsPATTERN" | head -n 1 | grep -o -E "FAT12$|FAT16$|FAT32$|swap|Ext'd|Extended"`
+  #[ "$xFSTYPE" != "" ] && FSTYPE='vfat'
+  [ "`echo "$xFSTYPE" | grep -i 'fat'`" != "" ] && FSTYPE='vfat'
+  [ "`echo "$xFSTYPE" | grep -i 'swap'`" != "" ] && FSTYPE='swap'
+  [ "`echo "$xFSTYPE" | grep -E "Extended|Ext'd"`" != "" ] && FSTYPE='extended' #'geany
+ fi
+
+ #for compatibility with old probepart from antonio gallo...
+ [ "$FSTYPE" = "unknown" ] && FSTYPE="none"
+
+ [ "$SUNITS" = "" ] && SIZE=$(($SIZE*2)) #512 byte blocks.
+ [ "$SUNITS" = '-m' ] && SIZE=$(($SIZE/1024)) #MB
+
+ echo "/dev/$DEVICE|$FSTYPE|$SIZE"
+done
+
+
+###END###
