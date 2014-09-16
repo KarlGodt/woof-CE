@@ -13,7 +13,7 @@ source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
-_provide_basic_parameters
+_provide_basic_paramters
 
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
@@ -21,7 +21,6 @@ _parse_basic_parameters "$@"
   for oneSHIFT in 1; do shift; done; }
 
 _trap
-
 }
 # End new header
 #
@@ -33,9 +32,9 @@ _trap
 #100616 add support for .txz slackware pkgs.
 #101225 bug fix, .pet was converted to .tar.gz, restore to .pet.
 
-_TITLE_=verify_package
+__old_default_info_header__(){
+  _TITLE_=verify_package
 _COMMENT_="just test the archive"
-
 MY_SELF="$0"
 
 #************
@@ -59,9 +58,9 @@ exit $1
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 #KRG
 #************
+}
 
 echo "$0: START" >&2
 
@@ -82,6 +81,7 @@ export LANG=C
 . /etc/DISTRO_SPECS  #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 
 mkdir -p /tmp/petget #101225
+
 tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
 
@@ -90,9 +90,11 @@ DLPKG_BASE=`basename $DLPKG` #ex: scite-1.77-i686-2as.tgz
 DLPKG_PATH=`dirname $DLPKG`  #ex: /root
 
 FLAG="ok"
+
 cd $DLPKG_PATH
 
 case $DLPKG_BASE in
+
  *.pet)
   #101225 bug fix, .pet was converted to .tar.gz, restore to .pet...
   DLPKG_MAIN=`basename $DLPKG_BASE .pet`
@@ -108,6 +110,7 @@ case $DLPKG_BASE in
    echo -n "$MD5SUM" >> ${DLPKG_PATH}/${DLPKG_MAIN}.pet
   fi
  ;;
+
  *.*pet)
    case $DLPKG_BASE in
    *.b2pet) OPT=-b;COMPRESS_EXT=bz2; CE=$COMPRESS_EXT;;
@@ -150,26 +153,31 @@ case $DLPKG_BASE in
   dpkg-deb --contents $DLPKG_BASE
   [ $? -ne 0 ] && FLAG="bad"
  ;;
+
  *.tgz)
   DLPKG_MAIN=`basename $DLPKG_BASE .tgz` #ex: scite-1.77-i686-2as
   gzip --test $DLPKG_BASE > $OUT 2>$ERR
   [ $? -ne 0 ] && FLAG="bad"
  ;;
+
  *.txz)
   DLPKG_MAIN=`basename $DLPKG_BASE .txz` #ex: scite-1.77-i686-2as
   xz --test $DLPKG_BASE > $OUT 2>$ERR
   [ $? -ne 0 ] && FLAG="bad"
  ;;
+
  *.tar.gz)
   DLPKG_MAIN=`basename $DLPKG_BASE .tar.gz` #ex: acl-2.2.47-1-i686.pkg
   gzip --test $DLPKG_BASE > $OUT 2>$ERR
   [ $? -ne 0 ] && FLAG="bad"
  ;;
+
  *.tar.bz2) #100116
   DLPKG_MAIN=`basename $DLPKG_BASE .tar.bz2`
   bzip2 --test $DLPKG_BASE > $OUT 2>$ERR
   [ $? -ne 0 ] && FLAG="bad"
  ;;
+
  *.tar.*)
   TAR_COMPRESS_EXT="${DLPKG_BASE##*\.}";TCE=$TAR_COMPRESS_EXT
     case $TCE in
@@ -179,13 +187,16 @@ case $DLPKG_BASE in
       lzma) COMPRESSBIN=lzma; TEST=--test;;
       xz)   COMPRESSBIN=xz;   TEST=--test;;
     esac
+
     [ "`which $COMPRESSBIN`" ] || error_1 "'$COMPRESSBIN' Not found ?"
    $COMPRESSBIN $TEST $DLPKG_BASE >$OUT 2>$ERR
     [ $? -ne 0 ] && FLAG="bad"
  ;;
 esac
 
+
 if [ "$FLAG" = "bad" ];then
+
  #rm -f $DLPKG_BASE >$OUT 2>$ERR
  #rm -f ${DLPKG_MAIN}.tar.gz >$OUT 2>$ERR
  xmessage -bg red "$0 :
@@ -194,7 +205,10 @@ failed.
 "
  exit 1
 fi
+
 echo "$0: END" >&2
 #exit $?
+
 exit $STATUS
+
 ###END###
