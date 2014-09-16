@@ -10852,3 +10852,284 @@ _batch_diff2 -s `pwd` >/tmp/batch.diff
 source /etc/rc.d/f4puppy5 
 _batch_diff1 -s `pwd` 
 _batch_diff1 -s -i `pwd` 
+gs -h
+man gs
+./configure --prefix=/usr/print
+make 2>make_errs.log
+make 2>>make_errs.log
+find -name http-private.h
+geany ./cups/http-private.h
+grep HAVE_GNUTLS *
+make 2>>make_errs.log
+./configure --help | grep tls
+./configure --help | grep -A5 -B5 tls
+./configure --enable-openssl=yes --enable-gnutls=no --prefix=/usr/print
+make
+make install
+source /etc/rc.d/f4puppy5 
+_batch_diff2 -s -i `pwd` 
+_batch_diff3 -s -i `pwd` 
+_batch_diff3 -r `pwd` 
+_batch_diff3 -t `pwd` 
+_batch_diff3 -t `pwd` ; echo $?
+_batch_diff3 -r `pwd` ; echo $?
+_batch_diff3 -s `pwd` ; echo $?
+source /etc/rc.d/f4puppy5 
+_batch_diff3 -s `pwd` ; echo $?
+_batch_diff3 -r `pwd` ; echo $?
+source /etc/rc.d/f4puppy5 
+_batch_diff3 -r `pwd` ; echo $?
+_batch_diff3 -s `pwd` ; echo $?
+source /etc/rc.d/f4puppy5 
+_batch_diff3 -s `pwd` ; echo $?
+source /etc/rc.d/f4puppy5 
+_batch_diff3 -s `pwd` ; echo $?
+_batch_diff3 -r `pwd` ; echo $?
+grep gnutls_session_t *
+pwd
+chroot /mnt/sda6
+chroot /mnt/sdb6
+git commit
+git commit 2>&1 | while read f; do [ -f "$f" ] || continue;echo "$f"; done
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; done
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; ; sleep 1;done
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; sleep 1;done
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; git add "$f" && git commit -m "$f: Added."; sleep 1;done
+find -type d -empty
+find -type d -not -name ".git" -empty
+find -type d -not -wholename "*/.git/*" -empty
+find -type d -not -wholename "*/.git/*" -empty -exec touch "{}"/EMPTYDIRMARKER \;
+find -type d -not -wholename "*/.git/*" -empty
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; sleep 1;done
+git commit 2>&1 | while read f; do [ -e "$f" ] || continue;echo "$f"; git add "$f" && git commit -m "$f: Added EMPTYDIRMARKER file."; sleep 1;done
+find -name ".gitignore"
+find woof-code/rootfs-skeleton/ -name ".gitignore"
+find woof-code/rootfs-skeleton/ -name ".gitignore" | while read f; do echo "$f" ; done
+find woof-code/rootfs-skeleton/ -name ".gitignore" | while read f; do echo "$f" ; git rm "$f" && git commit -m "$f: Removed.";done
+git branch
+pwd
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./update_files_from_running_system 
+git rm /root/.config/Trolltech.conf
+git rm woof-code/rootfs-skeleton/root/.config/Trolltech.conf
+git rm /etc/issue
+git rm woof-code/rootfs-skeleton//etc/issue
+git rm woof-code/rootfs-skeleton/etc/rc.d/PUPSTATE
+git commit
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+find /usr -name ".gitignore"
+find /lib -name ".gitignore"
+find /etc -name ".gitignore"
+find  -name ".gitignore"
+git commit
+git commit -m '/usr/share/ghostscript/fonts: Made relative symlink.'
+git add woof-code/rootfs-skeleton/usr/share/ghostscript/fonts
+git commit -m '/usr/share/ghostscript/fonts: Made relative symlink.'
+git commit
+git add woof-code/rootfs-skeleton/usr/share/X11/fonts/TTF
+git add woof-code/rootfs-skeleton/usr/share/X11/fonts/Type1
+git commit -m 'Made absolute to relative symlinks :
+woof-code/rootfs-skeleton/usr/share/X11/fonts/TTF
+woof-code/rootfs-skeleton/usr/share/X11/fonts/Type1'
+git commit
+git commit 2>&1 | sed '/Untracked files/,/$/ p'
+git commit 2>&1 | sed -n '/Untracked files:/,/$/ p'
+git commit 2>&1 | sed -n '/Untracked files:/ p'
+git commit 2>&1 | sed -n '/Untracked files:/,/no changes added to commit/ p'
+git commit 2>&1 | sed -n '/Untracked files:/,/no changes added to commit/ p' | while read f; do [ -e "$f" ] || continue; echo "$f"; done
+git commit 2>&1 | sed -n '/Untracked files:/,/no changes added to commit/ p' | while read f; do [ -e "$f" ] || continue; echo "$f"; git add "$f" && git commit -m "$f: Added.";done
+git commit
+git add woof-code/rootfs-skeleton/usr/share/applications/cups.desktop
+git commit -m '/usr/share/applications/cups.desktop: New from compiling cups-1.7.5'
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+psip
+grep gnutls_session_t /usr/incclude/*
+grep gnutls_session_t /usr/include/*
+grep gnutls_session_t /usr/local/include/*
+grep gnutls_session_t /usr/include/*
+libgnutls-config --help
+libgnutls-config --version
+libgnutls-config --libs
+libgnutls-config --cflags
+grep gnutls_session_t /usr/local/include/gnutls/*
+geany /usr/local/include/gnutls/gnutlsxx.h
+geany /usr/local/include/gnutls/gnutls.h
+find /usr/include/ -iname "*vector*"
+find /usr/include/ -iname "exception"
+find /usr -type d -name bits
+gcc --version
+find /usr -name stl_vector.h
+geany /usr/include/c++/4.2.2/bits/stl_vector.h
+geany /usr/include/c++/4.2.2/exception
+geany /usr/include/c++/4.2.2/vector
+geany /etc/cups/cupsd.conf
+pgprs-connect
+. /etc/rc.d/f4puppy5
+_batch_diff2 $PWD
+_batch_diff2 -s $PWD
+_batch_diff2 -s $PWD >/tmp/batch.diff
+
+Mon Sep 15 13:21:41 GMT+1 2014
+
+find -name "*boot*"
+cat ./sys/kernel/bootloader_type
+cat ./sys/kernel/bootloader_version
+cat ./sys/kernel/random/boot_id
+cat ./sys/net/ipv4/conf/all/bootp_relay
+cat ./sys/net/ipv4/conf/default/bootp_relay
+cat ./sys/net/ipv4/conf/eth0/bootp_relay
+cat ./sys/net/ipv4/conf/lo/bootp_relay
+cat /proc/sys/kernel/real-root-dev
+cat /proc/sys/kernel/modprobe
+find /sys -name "*boot*"
+awk -F'/ ' '{print $3}' /proc/mounts
+awk -F'/\ ' '{print $3}' /proc/mounts
+awk '/^dev\// {print $3}' /proc/mounts
+awk '/^dev\// {print}' /proc/mounts
+awk '/dev\// {print}' /proc/mounts
+awk -F'/' '/dev\// {print}' /proc/mounts
+awk -F'/' '/dev\// {print $3}' /proc/mounts
+awk -F'/' '/\/dev\// {print $3}' /proc/mounts
+awk -F'/' '/^\/dev\// {print $3}' /proc/mounts
+probedisk2
+time probedisk2
+D=sdb12
+echo ${D:0:3}
+awk -F'/' '/^\/dev\// {print $3}' /proc/mounts | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'
+mount
+awk -F'/' '/^\/dev\// {print $3}' /proc/mounts
+pwd
+top
+git commit
+git commit 2>&1 | while read f; do [ -f "$f" ] || continue; echo $F; done
+git commit 2>&1 | while read f; do [ -f "$f" ] || continue; echo $f; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; git add $f && git commit -m "$f: Control gtkdialog <action> tags.";done
+git commit 2>&1 | while read f; do [ -f "$f" ] || continue; echo $f; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; git add $f && git commit -m "$f: Handle /dev/null .";done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo $f; git add $f && git commit -m "$f: Handle or fixes for variables starting ONE .";done
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./update_files_from_running_system 
+file /usr/bin/rxvt
+git commit
+git add woof-code/rootfs-skeleton/usr/bin/rxvt
+git commit -m '/usr/bin/rxvt: Shell script wrapper for rxvt added.'
+./replace_commit_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git commit
+git commit 2>&1 | while read f; do [ -f "$f" ] || continue; echo $f; git add $f && git commit -m "$f: Added.";done
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+git commit
+git add woof-code/rootfs-skeleton/lib/lsb/
+git commit -m '/lib/lsb/: Added,'
+./update_files_from_running_system 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+grep '<action>' *
+grep -m1 '<action>' *
+grep -m1 '<action>' * | cut -f1 -d':'
+grep -m1 '<action>' * | cut -f1 -d':' | while read f; do echo $f; done
+grep -m1 '<action>' * | cut -f1 -d':' | while read f; do echo $f; geany $f; sleep 1;done
+grep -m1 '/dev/null' *
+grep -m4 '/dev/null' *
+grep -m4 'for ONE' *
+grep -m4 'read ONE' *
+grep -m4 'read ONE' * | cut -f 1 -d ':' | sort -u | while read f; do echo $file; done
+grep -m4 'read ONE' * | cut -f 1 -d ':' | sort -u | while read f; do echo $f; done
+grep -m4 'read ONE' * | cut -f 1 -d ':' | sort -u | while read f; do echo $f; geany $f;done
+git commit
+pwd
+git commit
+cat /proc/cmdline
+/etc/init.d/DRIVER/cups
+/etc/init.d/DRIVER/cups stop
+/etc/init.d/cups stop
+/etc/init.d/cups start
+geany /sbin/probedisk
+probedisk
+probedisk2
+probedisk
+geany /sbin/probedisk2
+probedisk2
+time probedisk2
+probedisk2
+time probedisk2
+time probedisk
+time probedisk2
+ls $HOME/.pup_event
+awk -F'/' '{print $3}' /proc/mounts
+awk -F'/ ' '{print $3}'
+/etc/init.d/cups restart
+find /usr -name "libpango*
+find /usr -name "libpango*"
+ln -s /usr/lib/libpangoft2-1.0.la /usr/local/lib/libpangoft2-1.0.la
+ln -s /usr/lib/libpango-1.0.la /usr/local/lib/libpango-1.0.la
+./configure --prefix=/usr/print
+make
+find /usr -name "libpango*"
+ln -s /usr/lib/libpangocairo-1.0.la /usr/local/lib/libpangocairo-1.0.la
+make
+ls /usr/lib/c*
+ls -d /usr/lib/c*
+file /usr/lib/crt1.o
+stat /usr/lib/crt1.o
+ldd /usr/lib/crt1.o
+grep __libc_csu_fini /usr/lib/cr*
+file /mnt/devx_430.sfs.4936/usr/lib/crt1.o
+make
+grep __libc_csu_fini /usr/lib/cr*
+ldd /usr/lib/crt1.o
+ldd /mnt/devx_430.sfs.4936/usr/lib/crt1.o
+ldd /mnt/devx_430.sfs.4936/usr/lib/crti.o
+ldd /mnt/devx_430.sfs.4936/usr/lib/crtn.o
+ldd /mnt/devx_430.sfs.4936/usr/lib/gcrt1.o
+find /usr -name crt1.o
+find /lib -name crt1.o
+find /opt -name crt1.o
+make
+grep __libc_csu_fini *
+modprobe -v usblp
+modprobe -v lp
+head /sbin/probepart | sed "1d"
+top
+pgprs-connect
+./add_header.sh 
+./remove_header.sh 
+./add_header.sh 
+./remove_header.sh 
+./add_header.sh 
+./remove_header.sh 
+./add_header.sh 
+pwd
+git commit
+git add add_header.sh
+git commit -m 'add_header.sh: Added. 
+Description:Add f4puppy5 help header.'
+git add remove_header.sh
+git commit -m 'remove_header.sh: Added.
+Description: Remove header made by add_header.sh .'
+git commit
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo "$f"; done
+git commit 2>&1 | while read l f; do [ -f "$f" ] || continue; echo "$f"; git add "$f" && git commit -m "$f: help usage f4puppy5 header added."; done
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./replace_commit_files.sh 
+stat --help
+stat -c %a /bin/df
+geany /etc/rc.d/f4puppy5
+which murgaLua_Dynamic
+[logout
+plogout
+which plogout
+geany /usr/sbin/plogout
+
+Tue Sep 16 17:37:35 GMT+1 2014
+
