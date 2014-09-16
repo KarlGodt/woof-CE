@@ -4,24 +4,18 @@
   _TITLE_="Puppy_installpkg.sh"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
-
 MY_SELF="/usr/local/petget/installpkg.sh"
 MY_PID=$$
-
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
-
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
-
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in 1; do shift; done; }
-
 _trap
-
 }
 # End new header
 #
@@ -34,20 +28,16 @@ _trap
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
+__old_default_info_header__(){
 _TITLE_=install_package
 _COMMENT_="CLI to install the package and alter config files"
-
 MY_SELF="$0"
-
 #************
 #KRG
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 Version=1.1-KRG-MacPup_O2
-
 usage(){
 MSG="
 $0 [ help | version | DLPKG ]
@@ -58,12 +48,10 @@ exit $1
 }
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 #KRG
 #************
-
+}
 
 #information from 'labrador', to expand a .pet directly to '/':
 # NAME="a52dec-0.7.4"
@@ -72,31 +60,22 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 # I found this also works:
 # tar -z -x --strip=1 --directory=/ -f bluefish-1.0.7.tar.gz
 #v424 .pet pkgs may have post-uninstall script, puninstall.sh
-
 echo "$0: START" >&2
-
 export LANG=C
 . /etc/rc.d/PUPSTATE #this has PUPMODE and SAVE_LAYER.
 . /etc/DISTRO_SPECS  #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
-
 . /etc/xdg/menus/hierarchy #w478 has PUPHIERARCHY variable.
-
 [ "$1" ] || { echo "Need parameter PKGNAME" >&2;exit 1; }
-
 echo "$0: '$@'" >&2
-
 DLPKG="$1"
 DLPKG_BASE=`basename $DLPKG` #ex: scite-1.77-i686-2as.tgz
 DLPKG_BASEbak=${DLPKG_BASE/.pet/-pet}
 DLPKG_PATH=`dirname $DLPKG`  #ex: /root
-
 tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
-
 #get the pkg name ex: scite-1.77 ...
 dbPATTERN='|'"$DLPKG_BASE"'|'
 DLPKG_NAME=`cat "$tmpDIR"/petget_missing_dbentries-Packages-* | grep "$dbPATTERN" | head -n 1 | cut -f 1 -d '|'`
-
 ###NOTE### not working properly with aufs...
 ###TODO### maybe fix by comparing content .files and copy-up.
 #boot from flash: bypass tmpfs top layer, install direct to pup_save file...
@@ -111,7 +90,6 @@ if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then
   DIRECTSAVEPATH="/initrd${SAVE_LAYER}"
  fi
 fi
-
 cd $DLPKG_PATH
 echo $LINENO >&2
 function tar_extract_pet(){
@@ -129,8 +107,6 @@ function tar_extract_pet(){
    echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
    tar -z -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar.gz --backup --suffix=".backup-$DLPKG_BASEbak"
   fi
-}
-
 function tar_extract(){
     PETFILES=`tar --list -f ${DLPKG_MAIN}.tar`
     [ $? -ne 0 ] && exit 1
@@ -145,7 +121,6 @@ function tar_extract(){
      echo "$PETFILES" | sed -e "$pPATTERN" > /root/.packages/${DLPKG_NAME}.files
      tar -x --strip=1 --directory=${DIRECTSAVEPATH}/ -f ${DLPKG_MAIN}.tar --backup --suffix=".backup-$DLPKG_BASEbak"
     fi
-}
 case $DLPKG_BASE in
  *.pet)
   DLPKG_MAIN=`basename $DLPKG_BASE .pet`
@@ -218,7 +193,6 @@ case $DLPKG_BASE in
   tgz2pet -x ${DLPKG_MAIN}.tar.xz
  ;;
  *.pup)
-
  :
  ;;
  *.deb)
@@ -257,16 +231,12 @@ case $DLPKG_BASE in
   tar -z -x --directory=${DIRECTSAVEPATH}/ -f $DLPKG_BASE --backup --suffix=".backup-$DLPKG_BASEbak"
  ;;
 esac
-
 #rm -f $DLPKG_BASE 2>$ERR
 #rm -f $DLPKG_MAIN.tar.gz 2>$ERR
-
 echo $LINENO >&2
-
 #pkgname.files may need to be fixed...
 FIXEDFILES=`cat /root/.packages/${DLPKG_NAME}.files | grep -v '^\\./$'| grep -v '^/$' | sed -e 's%^\\.%%' -e 's%^%/%' -e 's%^//%/%'`
 echo "$FIXEDFILES" > /root/.packages/${DLPKG_NAME}.files
-
 #flush unionfs cache, so files in pup_save layer will appear "on top"...
 if [ "$DIRECTSAVEPATH" != "" ];then
  #but first, clean out any bad whiteout files...
@@ -286,7 +256,6 @@ if [ "$DIRECTSAVEPATH" != "" ];then
  mount -t unionfs -o remount,incgen unionfs /
  sync
 fi
-
 #some .pet pkgs have images at '/'...
 mv /*24.xpm /usr/local/lib/X11/pixmaps/ 2>$ERR
 mv /*32.xpm /usr/local/lib/X11/pixmaps/ 2>$ERR
@@ -295,9 +264,7 @@ mv /*48.xpm /usr/local/lib/X11/pixmaps/ 2>$ERR
 mv /*48.png /usr/local/lib/X11/pixmaps/ 2>$ERR
 mv /*.xpm /usr/local/lib/X11/mini-icons/ 2>$ERR
 mv /*.png /usr/local/lib/X11/mini-icons/ 2>$ERR
-
 echo $LINENO >&2
-
 #post-install script?...
 if [ -f /pinstall.sh ];then #pet pkgs.
  chmod +x /pinstall.sh
@@ -311,17 +278,14 @@ if [ -f /install/doinst.sh ];then #slackware pkgs.
  sh /install/doinst.sh
  rm -rf /install
 fi
-
 #v424 .pet pkgs may have a post-uninstall script...
 if [ -f /puninstall.sh ];then
  mv -f /puninstall.sh /root/.packages/${DLPKG_NAME}.remove
 fi
-
 #w465 <pkgname>.pet.specs is in older pet pkgs, just dump it...
 #maybe a '$APKGNAME.pet.specs' file created by dir2pet script...
 rm -f /*.pet.specs 2>$ERR
 #...note, this has a setting to prevent .files and entry in user-installed-packages, so install not registered.
-
 #add entry to /root/.packages/user-installed-packages...
 #w465 a pet pkg may have /pet.specs which has a db entry...
 if [ -f /pet.specs -a -s /pet.specs ];then #w482 ignore zero-byte file.
@@ -332,9 +296,7 @@ else
  dlPATTERN='|'"`echo -n "$DLPKG_BASE" | sed -e 's%\\-%\\\\-%'`"'|'
  DB_ENTRY=`cat "$tmpDIR"/petget_missing_dbentries-Packages-* | grep "$dlPATTERN" | head -n 1`
 fi
-
 echo $LINENO >&2
-
 #see if a .desktop file was installed, fix category...
 ONEDOT=""
 DEFICON='Executable.xpm'
@@ -387,9 +349,7 @@ do
   mv -f "$tmpDIR"/petget-installpkg-tmp $ONEDOT
  fi
 done
-
 echo $LINENO >&2
-
 #due to images at / in .pet and post-install script, .files may have some invalid entries...
 INSTFILES=`cat /root/.packages/${DLPKG_NAME}.files`
 echo "$INSTFILES" |
@@ -401,7 +361,6 @@ do
   mv -f "$tmpDIR"/petget_instfiles /root/.packages/${DLPKG_NAME}.files
  fi
 done
-
 #w482 DB_ENTRY may be missing DB_category and DB_description fields...
 #pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
 #optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
@@ -431,18 +390,13 @@ if [ "$DESKTOPFILE" != "" ];then
   DB_ENTRY="$newDB_ENTRY"
  fi
 fi
-
 echo $LINENO >&2
-
 echo "$DB_ENTRY" >> /root/.packages/user-installed-packages
-
 #announcement of successful install...
 #announcement is done after all downloads, in downloadpkgs.sh...
 CATEGORY=`echo -n "$CATEGORY" | cut -f 1 -d ';'`
 [ "$CATEGORY" = "" ] && CATEGORY="none"
 [ "$CATEGORY" = "BuildingBlock" ] && CATEGORY="none"
 echo "PACKAGE: $DLPKG_NAME CATEGORY: $CATEGORY" >> "$tmpDIR"/petget-installed-pkgs.log
-
 echo "$0: END" >&2
-
 ###END###
