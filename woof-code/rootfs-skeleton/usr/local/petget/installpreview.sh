@@ -79,6 +79,7 @@ DB_description=`echo -n "$DB_ENTRY" | cut -f 10 -d '|'`
 test -s /tmp/pup_event_sizefreem && {
 SIZEFREEM=`cat /tmp/pup_event_sizefreem`
 SIZEFREEK=`expr $SIZEFREEM \* 1024`
+}
 if [ $DB_size ];then
  SIZEMK=`echo -n "$DB_size" | rev | cut -c 1`
  SIZEVAL=`echo -n "$DB_size" | rev | cut -c 2-9 | rev`
