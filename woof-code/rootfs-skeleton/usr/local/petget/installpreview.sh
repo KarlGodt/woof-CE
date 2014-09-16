@@ -4,24 +4,18 @@
   _TITLE_="Puppy_installpreview.sh"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
-
 MY_SELF="/usr/local/petget/installpreview.sh"
 MY_PID=$$
-
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
-
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
-
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in 1; do shift; done; }
-
 _trap
-
 }
 # End new header
 #
@@ -31,20 +25,16 @@ _trap
 # Package to be previewed prior to installation is TREE1 -- inherited from parent.
 # "$tmpDIR"/petget_filterversion has the repository that installing from.
 
-_TITLE_=install_preview
+__old_default_info_header__(){
+  _TITLE_=install_preview
 _COMMENT_="GTKdialogs for confirmation to install a package"
-
 MY_SELF="$0"
-
 #************
 #KRG
-
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
-
 Version=1.1-KRG-MacPup_O2
-
 usage(){
 MSG="
 $0 [ help | version ]
@@ -55,35 +45,26 @@ exit $1
 }
 [ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
 [ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
 trap "exit" HUP INT QUIT ABRT KILL TERM
-
 #KRG
 #************
+}
 
 ##KRG CHANGES : DEBUG OUTPUT, -log to .log, dont remove dled pkgs, added # to simple exit ie 0, "$tmpDIR"/PetGet instead of /tmp
-
 echo "$0: START" >&2
-
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
-
 yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing package database files..." &
 X1PID=$!
-
 tmpDIR=/tmp/petget
 test -d "$tmpDIR" || mkdir -p "$tmpDIR"
-
 #ex: TREE1=abiword-1.2.4 (first field in database entry).
 DB_FILE=Packages-`cat "$tmpDIR"/petget_filterversion` #ex: Packages-slackware-12.2-official
-
 rm -f "$tmpDIR"/petget_missing_dbentries-* 2>$ERR
-
 tPATTERN='^'"$TREE1"'|'
 DB_ENTRY=`grep "$tPATTERN" /root/.packages/$DB_FILE | head -n 1`
 #line format: pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
 #optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
-
 DB_pkgname=`echo -n "$DB_ENTRY" | cut -f 1 -d '|'`
 DB_nameonly=`echo -n "$DB_ENTRY" | cut -f 2 -d '|'`
 DB_version=`echo -n "$DB_ENTRY" | cut -f 3 -d '|'`
@@ -94,14 +75,10 @@ DB_path=`echo -n "$DB_ENTRY" | cut -f 7 -d '|'`
 DB_fullfilename=`echo -n "$DB_ENTRY" | cut -f 8 -d '|'`
 DB_dependencies=`echo -n "$DB_ENTRY" | cut -f 9 -d '|'`
 DB_description=`echo -n "$DB_ENTRY" | cut -f 10 -d '|'`
-
 [ "$DB_description" = "" ] && DB_description="no description available"
-
 test -s /tmp/pup_event_sizefreem && {
 SIZEFREEM=`cat /tmp/pup_event_sizefreem`
 SIZEFREEK=`expr $SIZEFREEM \* 1024`
-}
-
 if [ $DB_size ];then
  SIZEMK=`echo -n "$DB_size" | rev | cut -c 1`
  SIZEVAL=`echo -n "$DB_size" | rev | cut -c 2-9 | rev`
@@ -117,14 +94,11 @@ if [ $DB_size ];then
 else
  MSGWARN1="<text use-markup=\"true\"><label>\"<b>Unfortunately the provider of the package database has not supplied the size of this package when installed. If you are able to see the size of the compressed package, multiple that by 3 to get the approximate installed size. The free available space, which is ${SIZEFREEM}MB (${SIZEFREEK}KB), should be at least 4 times greater.</b>\"</label></text>"
 fi
-
-
 #find missing dependencies...
 if [ "$DB_dependencies" = "" ];then
  #DEPINFO="<text><label>The provider of the package database has not supplied any dependency information for this package. However, after installing it you will have the option to test for any missing shared library files. If uncertain, you might want to look for online documentation for this package that explains any required dependencies.</label></text>"
  DEPINFO="<text><label>It seems that all dependencies are already installed. Sometimes though, the dependency information in the database is incomplete, however a check for presence of needed shared libraries will be done after installation.</label></text>"
 else
-
  #find all missing pkgs...
  /usr/local/petget/findmissingpkgs.sh "$DB_dependencies"
  #...returns "$tmpDIR"/petget_installed_patterns_all, "$tmpDIR"/petget_pkg_deps_patterns, "$tmpDIR"/petget_missingpkgs_patterns
@@ -134,7 +108,6 @@ else
  #|kdelibs|
  #|mesa|
  #|qt|
-
  DEPBUTTON=""
  ONLYMSG=""
  if [ "$MISSINGDEPS_PATTERNS" = "" ];then
@@ -158,24 +131,19 @@ else
   fi
  fi
 fi
-
 kill $X1PID
-
 export PREVIEW_DIALOG="<window title=\"Puppy Package Manager: preinstall\" icon-name=\"gtk-about\">
 <vbox>
  <text><label>You have chosen to install package '${TREE1}'. A short description of this package is:</label></text>
  <text use-markup=\"true\"><label>\"<b>${DB_description}</b>\"</label></text>
  ${DEPINFO}
-
  ${MSGWARN1}
-
  <frame>
   <hbox>
    <text><label>If you would like more information about '${TREE1}', such as what it is for and the dependencies, this button will download and display detailed information:</label></text>
    <button><label>More info</label><action>/usr/local/petget/fetchinfo.sh ${TREE1} &</action></button>
   </hbox>
  </frame>
-
  <hbox>
   ${DEPBUTTON}
   <button>
@@ -188,21 +156,16 @@ export PREVIEW_DIALOG="<window title=\"Puppy Package Manager: preinstall\" icon-
 </vbox>
 </window>
 "
-
 RETPARAMS=`gtkdialog3 --program=PREVIEW_DIALOG`
-
 eval "$RETPARAMS"
 [ "$EXIT" != "BUTTON_INSTALL" -a "$EXIT" != "BUTTON_EXAMINE_DEPS" ] && exit 0
-
 #DB_ENTRY has the database entry of the main package that we want to install.
 #DB_FILE has the name of the database file that has the main entry, ex: Packages-slackware-12.2-slacky
-
 if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
  /usr/local/petget/dependencies.sh
  [ $? -ne 0 ] && exec /usr/local/petget/installpreview.sh #reenter.
  #returns with "$tmpDIR"/petget_missing_dbentries-* has the database entries of missing deps.
  #the '*' on the end is the repo-file name, ex: Packages-slackware-12.2-slacky
-
  #compose pkgs into checkboxes...
  MAIN_REPO=`echo "$DB_FILE" | cut -f 2-9 -d '-'`
  MAINPKG_NAME=`echo "$DB_ENTRY" | cut -f 1 -d '|'`
@@ -211,7 +174,6 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
  MAIN_CHK="<checkbox><default>true</default><label>${MAINPKG_NAME} SIZE: ${MAINPKG_SIZE}B DESCRIPTION: ${MAINPKG_DESCR}</label><variable>CHECK_PKG_${MAIN_REPO}_${MAINPKG_NAME}</variable></checkbox>"
  INSTALLEDSIZEK=0
  [ "$MAINPKG_SIZE" != "" ] && INSTALLEDSIZEK=`echo "$MAINPKG_SIZE" | rev | cut -c 2-10 | rev`
-
  #making up the dependencies into tabs, need limit of 8 per tab...
  #also limit to 6 tabs (gedit is way beyond this!)...
  echo -n "" > "$tmpDIR"/petget_moreframes
@@ -274,31 +236,24 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
  MOREFRAMES=`cat "$tmpDIR"/petget_moreframes`
  #make sure last frame has closed...
  [ "`echo "$MOREFRAMES" | tail -n 1 | grep '</frame>$'`" = "" ] && MOREFRAMES="${MOREFRAMES}</frame>"
-
  INSTALLEDSIZEM=`expr $INSTALLEDSIZEK \/ 1024`
  MSGWARN2="If that looks like enough free space, go ahead and click the 'Install' button..."
  testSIZEK=`expr $INSTALLEDSIZEK \/ 3`
  testSIZEK=`expr $INSTALLEDSIZEK + $testSIZEK`
  testSIZEK=`expr $testSIZEK + 8000`
  [ $testSIZEK -gt $SIZEFREEK ] && MSGWARN2="Not too good! recommend that you make more space before installing -- see 'Resize personal storage file' in the 'Utility' menu."
-
  export DEPS_DIALOG="<window title=\"Puppy Package Manager: dependencies\" icon-name=\"gtk-about\">
 <vbox>
-
  <frame REPOSITORY: ${MAIN_REPO}>
   ${MAIN_CHK}
  </frame>
-
  <notebook labels=\"${TABS}\">
  ${MOREFRAMES}
  </notebook>
-
  <hbox>
  <text><label>Sometimes Puppy's automatic dependency checking comes up with a list that may include packages that don't really need to be installed, or are already installed under a different name. If uncertain, just accept them all, but if you spot one that does not need to be installed, then un-tick it.</label></text>
-
  <text><label>Puppy usually avoids listing the same package more than once if it exists in two or more repositories. However, if the same package is listed twice, choose the one that seems to be most appropriate.</label></text>
  </hbox>
-
  <hbox>
   <vbox>
    <text><label>Click to see the hierarchy of the dependencies:</label></text>
@@ -312,7 +267,6 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
   <text><label>\"   \"</label></text>
   <text use-markup=\"true\"><label>\"<b>If all of the above packages are selected, the total installed size will be ${INSTALLEDSIZEK}KB (${INSTALLEDSIZEM}MB). The free space available for installation is ${SIZEFREEK}KB (${SIZEFREEM}MB). ${MSGWARN2}</b>\"</label></text>
  </hbox>
-
  <hbox>
   <button>
    <label>Download-only selected packages</label>
@@ -327,9 +281,7 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
 </vbox>
 </window>
 "
-
  RETPARAMS=`gtkdialog3 --program=DEPS_DIALOG`
-
  #example if 'Install' button clicked:
  #CHECK_PKG_slackware-12.2-official_libtermcap-1.2.3="true"
  #CHECK_PKG_slackware-12.2-official_pygtk-2.12.1="true"
@@ -339,7 +291,6 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
  #CHECK_PKG_slackware-12.2-slacky_mono-2.2="true"
  #CHECK_PKG_slackware-12.2-slacky_monodoc-2.0="true"
  #EXIT="BUTTON_PKGS_INSTALL"
-
  if [ "`echo "$RETPARAMS" | grep '^EXIT' | grep -E 'BUTTON_PKGS_INSTALL|BUTTON_PKGS_DOWNLOADONLY'`" != "" ];then
   #remove any unticked pkgs from the list...
   for ONECHK in `echo "$RETPARAMS" | grep '^CHECK_PKG_' | grep '"false"'`
@@ -354,27 +305,22 @@ if [ "$EXIT" = "BUTTON_EXAMINE_DEPS" ];then
   exit 0
  fi
 fi
-
 #come here, want to install pkg(s)...
-
 #DB_ENTRY has the database entry of the main package that we want to install.
 #DB_FILE has the name of the database file that has the main entry, ex: Packages-slackware-12.2-slacky
 #TREE1 is name of main pkg, ex: abiword-1.2.3
-
 #check to see if main pkg entry already in install-lists...
 touch "$tmpDIR"/petget_missing_dbentries-${DB_FILE} #create if doesn't exist.
 mPATTERN='^'"$TREE1"'|'
 if [ "`grep "$mPATTERN" "$tmpDIR"/petget_missing_dbentries-${DB_FILE}`" = "" ];then
  echo "$DB_ENTRY" >> "$tmpDIR"/petget_missing_dbentries-${DB_FILE}
 fi
-
 #now do the actual install...
 PASSEDPRM=""
 [ "`echo "$RETPARAMS" | grep '^EXIT' | grep 'BUTTON_PKGS_DOWNLOADONLY'`" != "" ] && PASSEDPRM="DOWNLOADONLY"
 /usr/local/petget/downloadpkgs.sh $PASSEDPRM
 [ $? -ne 0 ] && exit 1
 [ "$PASSEDPRM" = "DOWNLOADONLY" ] && exit 0
-
 #w482 adjust msg as appropriate, restart jwm and update menu if required...
 INSTALLEDCAT="menu" #any string.
 [ "`cat "$tmpDIR"/petget-installed-pkgs.log | grep -o 'CATEGORY' | grep -v 'none'`" = "" ] && INSTALLEDCAT="none"
@@ -383,7 +329,6 @@ RESTARTMSG="Please wait, updating help page and menu..."
 [ "$INSTALLEDCAT" = "none" ] && RESTARTMSG="Please wait, updating help page..."
 yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "${RESTARTMSG}" &
 X3PID=$!
-
 #master help index has to be updated...
 ##to speed things up, find the help files in the new pkg only...
 /usr/sbin/indexgen.sh #${WKGDIR}/${APKGNAME}
@@ -393,11 +338,8 @@ if [ "$INSTALLEDCAT" != "none" ];then
  [ "`pidof jwm`" != "" ] && jwm -restart #w482
 fi
 kill $X3PID
-
 #check any missing shared libraries...
 PKGS=`cat "$tmpDIR"/petget_missing_dbentries-* | cut -f 1 -d '|' | tr '\n' '|'`
 /usr/local/petget/check_deps.sh $PKGS
-
 echo "$0: END" >&2
-
 ###END###
