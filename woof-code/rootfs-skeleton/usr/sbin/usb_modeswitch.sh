@@ -1,4 +1,30 @@
 #!/bin/sh
+#
+# New header by Karl Reimer Godt, September 2014
+  _TITLE_="Puppy_usb_modeswitch.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/usr/sbin/usb_modeswitch.sh"
+MY_PID=$$
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in 1; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
 ARGUMENTS="$@"
 if [ "$ARGUMENTS" = "" -o "$ARGUMENTS" = "-W" ];then #config-file method of invocation
  usb_modeswitch -W -c /etc/usb_modeswitch.conf &> /tmp/usb_modeswitch.log #log both output and errors
