@@ -27,3 +27,5 @@ _trap
 #
 
 exec sylpheed --compose "$@"
+# Very End of this file 'usr/sbin/mailto.sh' #
+###END###
