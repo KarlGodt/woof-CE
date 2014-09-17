@@ -93,3 +93,5 @@ done
 sort -u /tmp/networkmodules > /etc/networkmodules
 
 ###end###
+# Very End of this file 'usr/sbin/updatenetmoduleslist.sh' #
+###END###
