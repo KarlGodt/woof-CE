@@ -3,7 +3,7 @@
 #Copyright (c) Barry Kauler 2004 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
-__old_header__(){
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -31,7 +31,7 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}
+}  ###__old_header__(){  #END
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
@@ -295,3 +295,5 @@ if [ $ANS -eq 30 ];then #vfat
 fi
 
 done
+# Very End of this file 'usr/sbin/floppy-format.sh' #
+###END###
