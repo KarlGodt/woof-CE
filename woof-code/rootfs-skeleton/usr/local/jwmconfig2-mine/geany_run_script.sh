@@ -39,3 +39,5 @@ echo "Press return to continue"
 dummy_var=""
 read dummy_var
 rm $0
+# Very End of this file 'usr/local/jwmconfig2-mine/geany_run_script.sh' #
+###END###
