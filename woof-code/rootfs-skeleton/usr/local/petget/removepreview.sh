@@ -38,6 +38,7 @@ _trap
 #v424 need info box if user has clicked when no pkgs installed.
 
 
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -66,6 +67,7 @@ exit $1
 
 echo "$0:$*" >&2
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}  ###__old_header__(){ #END
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
