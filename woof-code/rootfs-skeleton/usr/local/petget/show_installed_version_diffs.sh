@@ -77,3 +77,5 @@ export MAIN_DIALOG="<window title=\"$(gettext 'PPM: version differences')\" icon
 
 gtkdialog4 --program=MAIN_DIALOG
 
+# Very End of this file 'usr/local/petget/show_installed_version_diffs.sh' #
+###END###
