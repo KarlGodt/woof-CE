@@ -2,7 +2,7 @@
 # Automagical button created by lvds, 2006
 #BK v3.94, dec 2007, bug fix.
 
-__old_header__(){
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -30,7 +30,7 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}
+}  ###__old_header__(){  #END
 
 #
 # The Linux Firewall Project Graphical Installation Utility
@@ -2786,3 +2786,5 @@ FIREWALL_END_OF_FILE
 done
 
 goodbye
+# Very End of this file 'usr/sbin/firewall_install.sh' #
+###END###
