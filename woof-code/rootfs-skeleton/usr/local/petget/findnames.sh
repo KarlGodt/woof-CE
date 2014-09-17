@@ -30,35 +30,6 @@ _trap
 #called from /usr/local/petget/pkg_chooser.sh
 #  ENTRY1 is a string, to search for a package.
 
-__old_header__(){  #BEGIN
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
-trap "exit 1" HUP INT QUIT KILL TERM
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
-
-Version='1.1'
-
-usage(){
-USAGE_MSG="
-$0 [ PARAMETERS ]
-
--V|--version : showing version information
--H|--help : show this usage information
-
-*******  *******  *******  *******  *******  *******  *******  *******  *******
-$2
-"
-exit $1
-}
-
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}  ###__old_header__(){  #END  ###__old_header__(){ #END
 
 echo "$0:$*" >&2
 
