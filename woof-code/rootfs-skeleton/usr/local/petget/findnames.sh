@@ -58,7 +58,7 @@ exit $1
 [ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}  ###__old_header__(){ #END
+}  ###__old_header__(){  #END  ###__old_header__(){ #END
 
 echo "$0:$*" >&2
 
@@ -93,3 +93,5 @@ done
 
 [ "$FNDIT" = "no" ] && xmessage -bg red -center -title "PPM find" "Sorry, no matching package name"
 
+# Very End of this file 'usr/local/petget/findnames.sh' #
+###END###
