@@ -123,3 +123,5 @@ case $PAPER in
     rm /tmp/$$.ps
     ;;
 esac
+# Very End of this file 'usr/local/bin/rtf2pdf.sh' #
+###END###
