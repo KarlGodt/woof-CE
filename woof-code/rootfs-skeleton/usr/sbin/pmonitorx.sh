@@ -1,7 +1,7 @@
 #!/bin/sh
 # log a file tail
 
-__old_header__(){
+__old_header__(){  #BEGIN
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -25,7 +25,7 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-}
+}  ###__old_header__(){  #END
 
   _TITLE_=Puppy_Monitor_Xerrs
 _COMMENT_="CLI to display /tmp/xerrs.log"
@@ -61,3 +61,5 @@ while [ 1 ];do
  fi
  sleep 1
 done
+# Very End of this file 'usr/sbin/pmonitorx.sh' #
+###END###
