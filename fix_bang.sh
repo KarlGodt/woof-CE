@@ -1,5 +1,23 @@
 #!/bin/ash
 
+
+# defaults
+QUIET=-q # -q option for grep
+GIT=1   # change bang in git repo
+SYS=   # change bang in current OS
+DRY=  #dry run - do not do actually change bang
+while [ "$1" ]; do
+case "$1" in
+-D) DRY=1;;
+-d) set -x;;
+-S) GIT='';SYS=1;;
+-v) VERBOSE=1;QUIET='';
+*) echo "$0:Unrecognized option '$1'"; exit 1;;
+esac
+shift
+done
+echo "${0##*/}:GIT=$GIT' SYS=$SYS' DRY=$DRY'"
+
 pwd
 
 cd `pwd`/woof-code/rootfs-skeleton/ || { echo "Could not change into `pwd`/woof-code/rootfs-skeleton/"; exit 1; }
