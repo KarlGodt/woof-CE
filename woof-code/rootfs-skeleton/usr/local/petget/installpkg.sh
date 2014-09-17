@@ -68,7 +68,7 @@ verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/d
 esac
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}  ###__old_header__(){ #END
+}  ###__old_header__(){  #END  ###__old_header__(){ #END
 
 # information from 'labrador', to expand a .pet directly to '/':
 # NAME="a52dec-0.7.4"
