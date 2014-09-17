@@ -32,21 +32,16 @@ _trap
 #ex: /tmp/petget_missing_dbentries-Packages-slackware-12.2-official
 #v424 fix msg, x does not need restart to update menu.
 
-
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-
 Version='1.1'
-
 
 usage(){
 USAGE_MSG="
@@ -64,15 +59,16 @@ exit $1
 [ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
-
-###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-
 out=/dev/null;err=/dev/stderr
 case $2 in
 debug) set -x;;
 verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;;
 esac
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}  ###__old_header__(){ #END
+
+echo "$0:$*" >&2
 
 export LANG=C
 PASSEDPARAM=""
