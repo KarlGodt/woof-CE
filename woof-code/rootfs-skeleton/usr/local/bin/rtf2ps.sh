@@ -86,3 +86,5 @@ case $PAPER in
     Ted --printToFile $1 $2
     ;;
 esac
+# Very End of this file 'usr/local/bin/rtf2ps.sh' #
+###END###
