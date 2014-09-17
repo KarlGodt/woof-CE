@@ -49,3 +49,5 @@ if  ping -c 1 google.com | grep -q "bytes from" ;
  	exit 0 
 fi
 
+# Very End of this file 'usr/local/autoconnect/AC_status.sh' #
+###END###
