@@ -129,3 +129,5 @@ sync
 pidof jwm >/dev/null && jwm -restart
 fi
 exit 0
+# Very End of this file 'usr/local/jwmconfig3_2011_10_30/applygtk.sh' #
+###END###
