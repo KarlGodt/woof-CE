@@ -34,3 +34,5 @@ package system superceded by PET packages. If you want to
 install a DotPup package, you must first run the PETget
 package manager (see install icon on desktop) and install
 ${MSGDEPS}"
+# Very End of this file 'usr/sbin/dotpuprox.sh' #
+###END###
