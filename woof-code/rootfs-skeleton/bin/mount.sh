@@ -1016,3 +1016,5 @@ _debugt 00 $_DATE_
 test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
 _debugt 00
 exit $RETVAL
+# Very End of this file 'bin/mount.sh' #
+###END###
