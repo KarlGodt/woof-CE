@@ -27,26 +27,21 @@ _trap
 #
 #(c) Copyright Barry Kauler 2009, puppylinux.com
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
-#called from /usr/local/petget/installpreview.sh or check_deps.sh
-#/tmp/petget_pkg_name_aliases_patterns is written by pkg_chooser.sh.
-#passed param is a list of dependencies (DB_dependencies field of the pkg database).
-#results format, see comment end of this script.
+# Called from /usr/local/petget/installpreview.sh or check_deps.sh
+# /tmp/petget_pkg_name_aliases_patterns is written by pkg_chooser.sh.
+# Passed param is a list of dependencies (DB_dependencies field of the pkg database).
+# Results format, see comment end of this script.
 
-
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-
 Version='1.1'
-
 
 usage(){
 USAGE_MSG="
@@ -64,9 +59,10 @@ exit $1
 [ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
-
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}  ###__old_header__(){ #END
+
+echo "$0:$*" >&2
 
 DB_dependencies="$1" #in standard format of the package database, field 9.
 
