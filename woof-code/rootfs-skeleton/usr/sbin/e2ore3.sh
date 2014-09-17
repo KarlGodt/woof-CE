@@ -48,3 +48,5 @@ MYSTR="`tune2fs -l $MYDEVICE | grep 'Filesystem features:' | grep 'has_journal'`
 [ "$MYSTR" = "" ] && { echo 'ext2' >&2; exit 0; } #ext2
 echo 'ext3' >&2; exit 1 #ext3
 }
+# Very End of this file 'usr/sbin/e2ore3.sh' #
+###END###
