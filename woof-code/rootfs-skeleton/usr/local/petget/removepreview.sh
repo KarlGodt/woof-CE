@@ -67,7 +67,7 @@ exit $1
 
 echo "$0:$*" >&2
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}  ###__old_header__(){ #END
+}  ###__old_header__(){  #END  ###__old_header__(){ #END
 
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
 . /root/.packages/DISTRO_PKGS_SPECS
