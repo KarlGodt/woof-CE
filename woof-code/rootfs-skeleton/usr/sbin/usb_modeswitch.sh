@@ -37,3 +37,5 @@ else #udev-rule invocation
  fi
 fi
 exit 0
+# Very End of this file 'usr/sbin/usb_modeswitch.sh' #
+###END###
