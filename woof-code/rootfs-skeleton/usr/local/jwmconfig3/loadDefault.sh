@@ -28,3 +28,5 @@ echo "$DefTheme" > "$themeFILE"
 
 sync
 pidof jwm >$OUT && jwm -restart
+# Very End of this file 'usr/local/jwmconfig3/loadDefault.sh' #
+###END###
