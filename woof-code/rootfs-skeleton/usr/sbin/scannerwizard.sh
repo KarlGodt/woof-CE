@@ -2,7 +2,7 @@
 #Scanner Wizard (c) Barry Kauler 2003 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
-__old_header__(){
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -30,7 +30,7 @@ exit $1
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}
+}  ###__old_header__(){  #END
 
   _TITLE_=wizard_scanner
 _COMMENT_=
@@ -223,3 +223,5 @@ if [ $STATUSRET -eq 0 ];then
  --infobox "SCRIPT NOT FINISHED. DOESN'T ACTUALLY DO ANYTHING!" \
  8 50 10000 2> $ERR
 fi
+# Very End of this file 'usr/sbin/scannerwizard.sh' #
+###END###
