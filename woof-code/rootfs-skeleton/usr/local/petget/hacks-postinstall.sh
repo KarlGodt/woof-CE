@@ -162,3 +162,5 @@ Categories=WebBrowser;' > /usr/share/applications/google-chrome.desktop
  ;;
 esac
 
+# Very End of this file 'usr/local/petget/hacks-postinstall.sh' #
+###END###
