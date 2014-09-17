@@ -89,4 +89,5 @@ echo "$DefTheme" > "$ThemeFile"
 ########
 
 sync
-pidof jwm >/dev/null && jwm -restart
+pidof jwm >/dev/null && jwm -restart# Very End of this file 'usr/local/jwmconfig3_2011_10_30/loadDefault.sh' #
+###END###
