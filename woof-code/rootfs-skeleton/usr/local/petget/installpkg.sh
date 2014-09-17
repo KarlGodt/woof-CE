@@ -34,21 +34,16 @@ _trap
 #w478, w482 fix for pkg menu categories.
 #w482 detect zero-byte pet.specs, fix typo.
 
-
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
-
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-
 Version='1.1'
-
 
 usage(){
 USAGE_MSG="
@@ -66,16 +61,21 @@ exit $1
 [ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wiE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
-echo "$0:$*" >&2
+out=/dev/null;err=$out
+case $2 in
+debug) set -x;;
+verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;;
+esac
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+}  ###__old_header__(){ #END
 
-#information from 'labrador', to expand a .pet directly to '/':
-#NAME="a52dec-0.7.4"
-#pet2tgz "${NAME}.pet"
-#tar -C / --transform 's/^\(\.\/\)\?'"$NAME"'//g' -zxf "${NAME}.tar.gz"
-#i found this also works:
-#tar -z -x --strip=1 --directory=/ -f bluefish-1.0.7.tar.gz
+# information from 'labrador', to expand a .pet directly to '/':
+# NAME="a52dec-0.7.4"
+# pet2tgz "${NAME}.pet"
+# tar -C / --transform 's/^\(\.\/\)\?'"$NAME"'//g' -zxf "${NAME}.tar.gz"
+# I found this also works:
+# tar -z -x --strip=1 --directory=/ -f bluefish-1.0.7.tar.gz
 #v424 .pet pkgs may have post-uninstall script, puninstall.sh
 
 ########################################################################
@@ -90,30 +90,6 @@ echo "$0:$*" >&2
 # 5.0) added support for .pup in simple manner (extracts to tmp dir,
 #      included archives need to be installed manually)
 #
-# /dev/sda1:
-# UUID="0C18A53918A52326"
-# /dev/sda7:
-# UUID="2dfe19a9-7a5c-48aa-9e81-3758c67b12f6"
-# /dev/sda9:
-# UUID="e29717d3-b775-4dc8-9643-42a862f2b34f"
-# /dev/sda2:
-# LABEL="2nd"
-# UUID="a4f28ea3-eede-49f8-93ca-dbeefe8f72fa"
-# /dev/sda10:
-# UUID="193a7e6b-8626-493e-8b77-940211a8fc9d"
-# /dev/sda6:
-# LABEL="1stLogicalPartit"
-# UUID="8efb5611-ffb4-41ca-b8ef-8e64769ce9ef"
-# /dev/sda3:
-# LABEL="3rd"
-# UUID="f711a43e-c5dc-4f92-84dc-6824feeb690c"
-# /dev/sda11:
-# LABEL="store"
-# UUID="51600f00-d3cc-4fba-ba77-c34b0c94502c"
-# /dev/sda8:
-# UUID="7b5cd9dd-54c7-4d03-af79-566588111fcb"
-# /dev/sda5:
-# LABEL="1stSWAP"
 # DISTRO_VERSION=430·#481·#416·#218·#478······#####change·this·as·required#####
 # DISTRO_BINARY_COMPAT="puppy"·#"ubuntu"·#"puppy"·#####change·this·as·required#####
 # case·$DISTRO_BINARY_COMPAT·in
@@ -165,11 +141,7 @@ echo "$0:$*" >&2
 #
 ########################################################################
 
-out=/dev/null;err=$out
-case $2 in
-debug) set -x;;
-verbose) DEBUG=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;;
-esac
+echo "$0:$*" >&2
 
 error_1() {
     gxmessage -bg red "Failed to execute
