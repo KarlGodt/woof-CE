@@ -2,7 +2,7 @@
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 # This is very primitive script to create desktop shortcut.
 
-__old_header__(){
+__old_header__(){  #BEGIN
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -26,7 +26,7 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-}
+}  ###__old_header__(){  #END
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
@@ -73,3 +73,5 @@ case $RETVAL in
 esac
 done
 
+# Very End of this file 'usr/sbin/deskshortcut.sh' #
+###END###
