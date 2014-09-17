@@ -6,7 +6,7 @@
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
-__old_header__(){
+__old_header__(){  #BEGIN
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 trap "exit 1" HUP INT QUIT KILL TERM
@@ -34,7 +34,7 @@ exit $1
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
-}
+}  ###__old_header__(){  #END
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
@@ -80,3 +80,5 @@ esac
 #exit $SIZEFREE
 echo "$SIZEFREE"
 ###end###
+# Very End of this file 'usr/sbin/calcfreespace.sh' #
+###END###
