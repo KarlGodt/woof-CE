@@ -7,7 +7,7 @@
 #  bottom-image top-image output-image
 # Overlays the two images, with common areas of transparency in output image.
 
-__old_header__(){
+__old_header__(){  #BEGIN
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -31,7 +31,7 @@ exit $1
 
 [ "`echo "$1" | grep -wE "\-help|\-H"`" ] && usage 0
 [ "`echo "$1" | grep -wE "\-version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-}
+}  ###__old_header__(){  #END
 
   _TITLE_=PNG_Overlay
 _COMMENT_="CLI to run pngtopam pamcomp pamrgbatopng"
@@ -67,3 +67,5 @@ pamrgbatopng /tmp/pngoverlay_${$}_out.png > "${3}"
 rm -f /tmp/pngoverlay_${$}_1.pam
 rm -f /tmp/pngoverlay_${$}_2.pam
 rm -f /tmp/pngoverlay_${$}_out.pam
+# Very End of this file 'usr/sbin/pngoverlay.sh' #
+###END###
