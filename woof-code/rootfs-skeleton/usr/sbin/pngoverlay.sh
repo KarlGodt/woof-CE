@@ -7,10 +7,12 @@
 # bottom-image top-image output-image
 #overlays the two images, with common areas of transparency in output image.
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="pup_pngoverlay.sh.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -44,3 +46,5 @@ pamrgbatopng /tmp/pngoverlay_${$}_out.png > "${3}"
 rm -f /tmp/pngoverlay_${$}_1.pam
 rm -f /tmp/pngoverlay_${$}_2.pam
 rm -f /tmp/pngoverlay_${$}_out.pam
+# Very End of this file 'usr/sbin/pngoverlay.sh' #
+###END###
