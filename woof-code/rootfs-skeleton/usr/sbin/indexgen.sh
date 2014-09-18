@@ -10,9 +10,11 @@
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
 _TITLE_=generate-index
+_VERSION_=1.0omega
 _COMMENT_="CLI to update /usr/share/doc/index.html ."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
