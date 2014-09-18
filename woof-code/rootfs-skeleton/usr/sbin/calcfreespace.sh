@@ -6,9 +6,11 @@
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
 _TITLE_=calcfreespace
+_VERSION_=1.0omega
 _COMMENT_="CLI to output free space in save-file (KiB)."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -57,3 +59,5 @@ esac
 #exit $SIZEFREE
 echo "$SIZEFREE"
 ###end###
+# Very End of this file 'usr/sbin/calcfreespace.sh' #
+###END###
