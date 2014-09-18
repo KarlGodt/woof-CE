@@ -4,9 +4,11 @@
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
 _TITLE_=floppyformat
+_VERSION_=1.0omega
 _COMMENT_="xmessage GUI to fromat Floppy Disks with msdos fs."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -182,3 +184,5 @@ if [ $ANS -eq 30 ];then #vfat
 fi
 
 done
+# Very End of this file 'usr/sbin/floppy-format.sh' #
+###END###
