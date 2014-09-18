@@ -7,9 +7,11 @@ export TEXTDOMAIN=dotpuprox
 export TEXTDOMAINDIR=/usr/share/locale
 
 _TITLE_=dotpuprox
+_VERSION_=1.0omega
 _COMMENT_="xmessage GUIs to install .pup ."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -225,3 +227,5 @@ case $? in
   *) exit ;;
 esac
 
+# Very End of this file 'usr/sbin/dotpuprox.sh' #
+###END###
