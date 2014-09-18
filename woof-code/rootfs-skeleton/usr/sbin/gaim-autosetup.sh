@@ -20,10 +20,12 @@
 
 # bugfix bk 2006
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="Puppy_gaim-autosetup.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -116,3 +118,5 @@ cat >$GAIMCONFIGDIR/blist.xml <<EOF
         </privacy>
 </gaim>
 EOF
+# Very End of this file 'usr/sbin/gaim-autosetup.sh' #
+###END###
