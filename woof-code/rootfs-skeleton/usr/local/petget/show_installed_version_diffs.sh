@@ -1,4 +1,30 @@
 #!/bin/sh
+#
+# New header by Karl Reimer Godt, September 2014
+  _TITLE_="Puppy_show_installed_version_diffs.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/usr/local/petget/show_installed_version_diffs.sh"
+MY_PID=$$
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in 1; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
 #called from ui_Classic and ui_Ziggy, after running findnames.sh.
 #120908 script created.
 #130511 pkg_chooser.sh has created layers-installed-packages (use instead of woof-installed-packages).
@@ -51,3 +77,5 @@ export MAIN_DIALOG="<window title=\"$(gettext 'PPM: version differences')\" icon
 
 gtkdialog4 --program=MAIN_DIALOG
 
+# Very End of this file 'usr/local/petget/show_installed_version_diffs.sh' #
+###END###
