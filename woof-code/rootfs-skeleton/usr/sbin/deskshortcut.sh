@@ -26,9 +26,11 @@ FILENAME51=
 FILENAME52=
 
   _TITLE_=deskshortcut
+_VERSION_=1.0omega
 _COMMENT_="Xdialog to create desktop shortcut."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -77,3 +79,5 @@ case $RETVAL in
 esac
 done
 
+# Very End of this file 'usr/sbin/deskshortcut.sh' #
+###END###
