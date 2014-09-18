@@ -5,9 +5,11 @@
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
   _TITLE_=puppy_savefile_resize
+_VERSION_=1.0omega
 _COMMENT_="Leave a marker file to notice initrd.gz to increase a save-file"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
