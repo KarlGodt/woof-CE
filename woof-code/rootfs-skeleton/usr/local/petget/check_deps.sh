@@ -1,4 +1,30 @@
 #!/bin/sh
+#
+# New header by Karl Reimer Godt, September 2014
+  _TITLE_="Puppy_check_deps.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/usr/local/petget/check_deps.sh"
+MY_PID=$$
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in 1; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
 #choose an installed pkg and find all its dependencies.
 #when entered with a passed param, it is a list of pkgs, '|' delimited,
 #ex: abiword-1.2.3|aiksaurus-3.4.5|yabby-5.0
