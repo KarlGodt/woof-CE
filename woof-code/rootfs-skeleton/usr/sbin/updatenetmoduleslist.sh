@@ -5,10 +5,12 @@
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="pup_updatenetmoduleslist.sh.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -92,3 +94,5 @@ done
 sort -u /tmp/networkmodules > /etc/networkmodules
 
 ###end###
+# Very End of this file 'usr/sbin/updatenetmoduleslist.sh' #
+###END###
