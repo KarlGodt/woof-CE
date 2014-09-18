@@ -72,9 +72,11 @@
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
   _TITLE_=Setup_Net
+_VERSION_=1.0omega
 _COMMENT_="GTKdialog for Puppy ethernet network setup"
 
 MY_SELF="$0"
+MY_PID=$$
 
 # Check if output should go to the console
 if [ "${1}" = "-d" ]; then
