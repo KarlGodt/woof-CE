@@ -1,10 +1,12 @@
 #!/bin/sh
 # log a file tail
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="Puppy_pmonitorx.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -37,3 +39,5 @@ while [ 1 ];do
  fi
  sleep 1
 done
+# Very End of this file 'usr/sbin/pmonitorx.sh' #
+###END###
