@@ -128,10 +128,12 @@ showNdiswrapperGUI()
 #=============== START OF SCRIPT BODY ====================
 #=============================================================================
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="Puppy_ndiswrapperGUI.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -160,3 +162,5 @@ fi
 #=============================================================================
 #=============== END OF SCRIPT BODY ====================
 #=============================================================================
+# Very End of this file 'usr/sbin/ndiswrapperGUI.sh' #
+###END###
