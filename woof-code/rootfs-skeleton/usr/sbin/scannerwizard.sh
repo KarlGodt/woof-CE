@@ -7,10 +7,12 @@
 #this script creates /etc/scanner, which has format driver[:device].
 #note, we could also have /dev/scanner linked to device.
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="Puppy_scannerwizard.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -193,3 +195,5 @@ if [ $STATUSRET -eq 0 ];then
  --infobox "SCRIPT NOT FINISHED. DOESN'T ACTUALLY DO ANYTHING!" \
  8 50 10000 2> /dev/null
 fi
+# Very End of this file 'usr/sbin/scannerwizard.sh' #
+###END###
