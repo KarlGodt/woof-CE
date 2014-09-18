@@ -7,10 +7,12 @@
 #20100801 #added window list on taskbar
 #20100802 #added show/hide cpu status
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="Puppy_ice_config.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -181,3 +183,5 @@ $NUMBERS
 gtkdialog3 -p MAIN
 unset MAIN
 
+# Very End of this file 'usr/sbin/ice_config.sh' #
+###END###
