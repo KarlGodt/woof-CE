@@ -1,10 +1,10 @@
 #!/bin/ash
 #(c) Copyright 2008 Barry Kauler puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#this is /sbin/pup_event_frontend_d, created June 2008 for Puppy Linux 4.x, by Barry Kauler.
-#This script is part of 'pup_event', my (very) light-weight alternative to udev.
-#responds to events posted to /tmp/pup_event_backend_s by /sbin/pup_event_backend_d.
-#this script is launched from /root/.xinitrc.
+# This is /sbin/pup_event_frontend_d, created June 2008 for Puppy Linux 4.x, by Barry Kauler.
+# This script is part of 'pup_event', my (very) light-weight alternative to udev.
+# Responds to events posted to /tmp/pup_event_backend_s by /sbin/pup_event_backend_d.
+# This script is launched from "$HOME"/.xinitrc.
 #v407 added hotplug support for zip and ls120 diskettes.
 #v407 hotplug fix for /dev/hd* optical drives.
 #v408 fix for k2.6.21.7, does not set DEVTYPE.
@@ -29,59 +29,6 @@
 
 ME_PROGRAM=`readlink -f "$0"`
 ME_PID=$$
-
-clean_up_script(){
-#!/bin/sh
-
-ME_PROGRAM=`readlink -f "$0"`
-ME_PID=$$
-
-usage(){
-MSG="
-$ME_PROGRAM FILENAME
-
-Script to convert strings
-VALUE=\"\`command\`\"
-back to
-VALUE=\`command\`
-"
-
-[ "$2" ] && MSG="$MSG
-$2
-"
-
-echo "$MSG"
-exit $1
-}
-
-[ "$*" ] || usage 1
-FILE="$1"
-[ -e "$FILE" ] || usage 1 "$FILE does not exist."
-[ -f "$FILE" ] || usage 1 "$FILE is not a regular file."
-
-cp "$FILE" /root/changes
-
-while read -r line; do
-[ "$line" ] || continue
-echo "$line"
-
-NEW_LINE=`echo "$line" | sed 's%\(.*=\)\"\(\`.*\`\)\"\(.*\)%\1\2\3%'`
-NEW_LINE=`echo "$NEW_LINE" | sed 's%\*%\\\\\*%g' | sed 's%\\\%\\\\\\\\%g'`
-
-line=`echo "$line" | sed 's/\\\/\\\\\\\\/g'`
-
-echo "\"s~${line}~${NEW_LINE}~\""
-echo LINE $LINENO
-
-sed -i "s~${line}~${NEW_LINE}~" /root/changes
-[ "$?" = 0 ] || exit
-
-done<<EOI
-$(grep -I '[[:alnum:]]="`.*`"' "$FILE")
-EOI
-
-}
-
 
 PRIVATE_OPTIONS=`echo "$@" |sed 's|restart||;s|start||;s|stop||;s|^\ *||;s|\ *$||'`  ##+++2012-07-26
 
@@ -131,17 +78,19 @@ echo "$MSG"
 exit $1
 }
 
-out=/dev/null;err=$out;QUIET='-q'
+OUT=/dev/null;ERR=$OUT;QUIET='-q'
 
+__old_getopts__(){  #BEGIN #OUT
 while getopts Vhvd opt; do
  case $opt in
   V) echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0;;
   h) usage 0;;
-  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;DEBUG=1;ME_VERB=1;QUIET='';;
+  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERBOSE=1;QUIET='';;
   d) set -x;;
   *) :;;
   esac
 done
+}  ###__old_getopts__(){  #END
 
 PIDPROG=$$
 
@@ -149,8 +98,73 @@ PARAMETER_LINE="$@"
 CASEPARAM="$1"
 [ "$1" ] || CASEPARAM="start" #gives default value
 
+
+_do_stop(){
+oPIDS=`pidof -o %PPID -o $$ ${0##*/}`
+echo "_do_stop:oPIDS=$oPIDS'"
+for aP in $oPIDS
+do
+ /bin/ps -p $aP && kill -9 $aP
+ sleep 0.2
+done
+}
+
+for aP in $@
+do
+
+case $aP in
+help|-*help|-h) usage 0
+;;
+version|-*version|version|-V)
+echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0
+;;
+codecheck|-*codecheck|checkcode|-*checkcode)
+#BASH set -n
+bn=${0##*/}
+cp $0 /tmp/
+sed -i '1d' /tmp/"$bn"
+sed -i '1i\#!/bin/bash -n' /tmp/"$bn"
+/tmp/"$bn" $PARAMETER_LINE
+echo "<$?>"
+echo "Codecheck finished"
+echo "Attention :
+Normally uses ash, this had been done in bash,
+because ash has no -n parameter"
+exit 0
+;;
+debug|-*debug|-d) set -x
+;;
+verbose|-*verbose|-v) VERBOSE=1
+VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
+;;
+restart) doRESTART=1;;
+start) doSTART=1;;
+stop) doSTOP=1;;
+*) echo "Error: Unsupported option '$aP'"; exit 1;;
+esac
+done
+
+[ "$doSTOP" -a "$doRESTART" ] && doSTOP=
+[ "$doSTART" -a "$doSTOP" ] && { doSTART='';doSTOP='';doRESTART=1; }
+[ "$doSTART" -a "$doRESTART" ] && doSTART=
+
+if [ "$doSTOP" ]; then
+_do_stop
+exit
+elif [ "$doRESTART" ]; then
+_do_stop
+true
+elif [ "$doSTART" ]; then
+true
+else
+false
+fi
+[ $? = 1 ] && exit 1
+
+
+__old_crap__(){  #BEGIN #OUT
 while [ "$1" ];do
-CASEPARAM=$1;shift
+CASEPARAM=$1
 
 case "$CASEPARAM" in
 help|-*help|-h) usage 0
@@ -174,15 +188,22 @@ exit 0
 ;;
 debug|-*debug|-d) set -x
 ;;
-verbose|-*verbose|-v) ME_VERB=1
-VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;QUIET=''
+verbose|-*verbose|-v) VERBOSE=1
+VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
 ;;
+*) break;;
+esac
+shift
+done
 
+while [ "$1" ];do
+CASEPARAM=$1
+case "$CASEPARAM" in
 stop)
-echo "$PIDPROG
+echo "PIDPROG='$PIDPROG'
 "
 
-if [ "$ME_VERB" ];then
+if [ "$VERBOSE" ];then
 PSP=`ps-FULL --no-headers -C pup_event_frontend_d |awk '{print $1}' |grep -vw "$PIDPROG"`
 else
 PSP=`ps-FULL --no-headers -C pup_event_frontend_d |grep -v '<defunct>' |awk '{print $1}' |grep -vw "$PIDPROG"`
@@ -219,7 +240,7 @@ restart)
 PSP=`ps-FULL --no-headers -C pup_event_frontend_d |awk '{print $1}' |grep -vw "$PIDPROG"`
 
 for i in $PSP ; do
-kill -1 $i #2>/dev/null
+kill -1 $i 2>$ERR
 sleep 2
 done
 exec pup_event_frontend_d $PRIVATE_OPTIONS start  ##+++2012-07-26 added PRIVATE_OPTIONS
@@ -233,9 +254,45 @@ OTHER_PIDS=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
 exit 0
 ;;
 
-start) break;;
+start|*) break;;
 esac
 done #while $2  or $1
+
+while [ "$1" ];do
+CASEPARAM=$1
+
+case "$CASEPARAM" in
+help|-*help|-h) usage 0
+;;
+version|-*version|version|-V)
+echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0
+;;
+codecheck|-*codecheck|checkcode|-*checkcode)
+#BASH set -n
+bn=${0##*/}
+cp $0 /tmp/
+sed -i '1d' /tmp/"$bn"
+sed -i '1i\#!/bin/bash -n' /tmp/"$bn"
+/tmp/"$bn" $PARAMETER_LINE
+echo "<$?>"
+echo "Codecheck finished"
+echo "Attention :
+Normally uses ash, this had been done in bash,
+because ash has no -n parameter"
+exit 0
+;;
+debug|-*debug|-d) set -x
+;;
+verbose|-*verbose|-v) VERBOSE=1
+VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
+;;
+*) break;;
+esac
+shift
+done
+}  ###__old_crap__(){  #END
+
+###END OLD HEADER###
 
 OLDLANG=$LANG #100613
 export LANG=C #w004
@@ -305,25 +362,27 @@ PREVSIZEFREEM=0
 ####KRG
 
 ###<KRG>
-stateDir="$HOME/Choices/Puppy"
-drvDir="$stateDir"/.pup_event
-mkdir -p "$drvDir"
+stateDIR="$HOME/Choices/Puppy"
+drvDIR="$stateDIR"/.pup_event
+mkdir -p "$drvDIR"
+
+###END VARIABLES###
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
- for ONEMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
+ for oneMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
  do
-  if [ "`fuser -v -m $ONEMNTPT`" = "" ];then
+  if [ "`fuser -v -m $oneMNTPT`" = "" ];then
    sync
-   umount $ONEMNTPT ; umVAL=$?
+   umount $oneMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
     ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
-    for ONEZOMBIE in $ZOMBIES
+    for oneZOMBIE in $ZOMBIES
     do
-     kill $ONEZOMBIE
+     kill $oneZOMBIE
     done
-    umount $ONEMNTPT ; umVAL=$?
+    umount $oneMNTPT ; umVAL=$?
    fi
   fi
  done
@@ -345,7 +404,7 @@ format_size_func() {
  [ "${SIZE//[[:alpha:][:punct:]]/}" = '00' ] && SIZE=0
 }
 
-create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
   <Summary>${INFO}</Summary>
@@ -356,10 +415,10 @@ create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
   <AppMenu>
    <Item option=\"pmount_${DRV_CATEGORY}\" icon=\"gtk-harddisk\"><Label>Run Pmount Puppy Drive Mounter</Label></Item><Item option=\"eventmanager\" icon=\"gtk-execute\"><Label>Run Desktop Drive Icon Manager</Label></Item>${MOREITEMS}
   </AppMenu>
-</AppInfo>" > $drvDir/drive_${ONEDRVNAME}/AppInfo.xml
+</AppInfo>" > $drvDIR/drive_${oneDRVNAME}/AppInfo.xml
 }
 
-#COORDSGRID="`grep -o ' x="[0-9]*" y="[0-9]*" ' /root/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`"
+#COORDSGRID="`grep -o ' x="[0-9]*" y="[0-9]*" ' "$HOME"/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`"
  PIN_GRID_STEP=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
  [ $PIN_GRID_STEP ] || PIN_GRID_STEP=16 #16=medium.
  [ $PIN_GRID_STEP -eq 0 ] && PIN_GRID_STEP=16 #precaution.
@@ -372,7 +431,7 @@ free_coord() {
  #find a free place on desktop. v410 avoid exact overlapping icons...
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
- COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' /root/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
+ COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' "$HOME"/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
    COORD_Y=`expr $SCRN_Y - $ICON_PLACE_EDGE_GAP` #default 64, see /etc/eventmanager
@@ -459,21 +518,21 @@ free_coord() {
  esac
 }
 
-add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
- #ppPATTERN=' label="'"$ONEDRVNAME"'"'
+add_pinboard_func() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
+ #ppPATTERN=' label="'"$oneDRVNAME"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
- ppPATTERN="$drvDir/drive_${ONEDRVNAME}<"
- [ "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
+ ppPATTERN="$drvDIR/drive_${oneDRVNAME}<"
+ [ "`grep "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
  free_coord
  [ "$DEBUG" ] && echo "Passing X='$COORD_X' Y='$COORD_Y' to rox -R"
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardAdd>
-   <Path>$drvDir/drive_${ONEDRVNAME}</Path>
+   <Path>$drvDIR/drive_${oneDRVNAME}</Path>
    <X>${COORD_X}</X>
    <Y>${COORD_Y}</Y>
-   <Label>${ONEDRVNAME}</Label>
+   <Label>${oneDRVNAME}</Label>
    <Args>${DRV_CATEGORY} ${FSTYPE}</Args>
   </PinboardAdd>
  </env:Body>
@@ -516,45 +575,45 @@ create_icon_func() {
   fi
 
 fi
- #for ONEDRVINFO in $DRVINFO
- while read -r ONEDRVINFO
+ #for oneDRVINFO in $DRVINFO
+ while read -r oneDRVINFO
  do
-  [ "$ONEDRVINFO" ] || continue
-  DriveNamePartition=`echo -n "$ONEDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
-  ONEDRVNAME=`echo -n "$ONEDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  [ "$oneDRVINFO" ] || continue
+  DriveNamePartition=`echo -n "$oneDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  oneDRVNAME=`echo -n "$oneDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   if [ "`echo $DriveNamePartition | grep 'sd'`" != "" -o "`echo $DriveNamePartition | grep 'hd'`" != "" ]; then
   BlockDriveName=`echo $DriveNamePartition | sed 's/[0-9].*//'` # sed deletes every number
-  OneDriveName="$ONEDRVNAME"
+  OneDriveName="$oneDRVNAME"
   else
   BlockDriveName="$DriveNamePartition"
   OneDriveName=""
   fi
 
   [ "$DEBUG" ] && echo PART_NAME=$PART_NAME
-  FSTYPE=`echo -n "$ONEDRVINFO" | cut -f 2 -d '|'`
+  FSTYPE=`echo -n "$oneDRVINFO" | cut -f 2 -d '|'`
   [ "$DEBUG" ] && echo $FSTYPE
   [ ! "$FSTYPE" -o "$FSTYPE" = '0' ] && FSTYPE=`guess_fstype /dev/$PART_NAME`
   [ "$DEBUG" ] && echo $FSTYPE
   [ "$FSTYPE" = "unknown" ] && FSTYPE=' - '
   [ "$DEBUG" ] && echo $FSTYPE
-  SIZE=`echo -n "$ONEDRVINFO" | cut -f 3 -d '|'`
-  drvPATTERN='^/dev/'"${ONEDRVNAME}"' ' #important, a space on end!
-  if [ ! -d $drvDir/drive_${ONEDRVNAME} ];then
-   mkdir -p $drvDir/drive_${ONEDRVNAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
-   cp -af /usr/local/bin/drive_all $drvDir/drive_${ONEDRVNAME}/AppRun
+  SIZE=`echo -n "$oneDRVINFO" | cut -f 3 -d '|'`
+  drvPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
+  if [ ! -d $drvDIR/drive_${oneDRVNAME} ];then
+   mkdir -p $drvDIR/drive_${oneDRVNAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
+   cp -af /usr/local/bin/drive_all $drvDIR/drive_${oneDRVNAME}/AppRun
    RL=`readlink -f  /sys/block/$BlockDriveName`
    LS=`ls $RL/$OneDriveName 2> /dev/null`
    if test -z "$LS"; then
    LS=""
    fi
 
-   if [ -e /sys/block/${ONEDRVNAME} ] || [ -e /sys/block/$BlockDriveName/$OneDriveName ] || [ "`echo "$LS" | grep partition`" != "" ];then
+   if [ -e /sys/block/${oneDRVNAME} ] || [ -e /sys/block/$BlockDriveName/$OneDriveName ] || [ "`echo "$LS" | grep partition`" != "" ];then
 
         if [ -d /sys/block/$BlockDriveName/$OneDriveName -o "`echo "$LS" | grep 'partition'`" != "" ];then
         SizeDrv="/sys/block/${BlockDriveName}/${OneDriveName}"
 
         else
-        SizeDrv="/sys/block/${ONEDRVNAME}"
+        SizeDrv="/sys/block/${oneDRVNAME}"
 
         fi
         SIZE=`cat $SizeDrv/size`
@@ -565,18 +624,18 @@ fi
     INFO="Filesystem: $FSTYPE Size: ${SIZE}
 ${DRV_DESCRIPTION}"
 
-   else ##if [ -e /sys/block/${ONEDRVNAME} ] ||
+   else ##if [ -e /sys/block/${oneDRVNAME} ] ||
     if [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
      INFO="Puppy drive manager"
     else
 
      format_size_func #formats SIZE for display.
      INFO="Filesystem: $FSTYPE Size: $SIZE"
-    fi ##if [ -e /sys/block/${ONEDRVNAME} ] ||
-   fi ##if [ ! -d $drvDir/drive_${ONEDRVNAME} ]
+    fi ##if [ -e /sys/block/${oneDRVNAME} ] ||
+   fi ##if [ ! -d $drvDIR/drive_${oneDRVNAME} ]
    #v424 add item to unmount all partitions...
-   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${ONEDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${oneDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
+   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
   [ "$DEBUG" ] && echo DBG drvPATTERN $drvPATTERN
   if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.
@@ -585,16 +644,16 @@ ${DRV_DESCRIPTION}"
     [ "$DEBUG" ] && echo ICONPARTITIONStrue
     MNTSTATUS=`/bin/df | grep "$drvPATTERN"`
     if [ "$MNTSTATUS" = "" ];then
-     icon_unmounted_func $ONEDRVNAME $DRV_CATEGORY #see functions4puppy4.
+     icon_unmounted_func $oneDRVNAME $DRV_CATEGORY #see functions4puppy4.
     else
      [ "$DEBUG" ] && echo 'starting now icon_mounted_func'
-     icon_mounted_func $ONEDRVNAME $DRV_CATEGORY #see functions4puppy4.
+     icon_mounted_func $oneDRVNAME $DRV_CATEGORY #see functions4puppy4.
      [ "$DEBUG" ] && echo 'returned from icon_mounted_func'
     fi
-   add_pinboard_func #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE.
-  else icon_unmounted_func $ONEDRVNAME $DRV_CATEGORY;add_pinboard_func
+   add_pinboard_func #needs oneDRVNAME, DRV_CATEGORY, FSTYPE.
+  else icon_unmounted_func $oneDRVNAME $DRV_CATEGORY;add_pinboard_func
   fi
- else icon_unmounted_func $ONEDRVNAME $DRV_CATEGORY;add_pinboard_func
+ else icon_unmounted_func $oneDRVNAME $DRV_CATEGORY;add_pinboard_func
  fi
  done<<EOI
 $(echo "$DRVINFO")
@@ -606,19 +665,19 @@ EOI
 
     BlockDriveName_2="${PART_NAME:0:3}"
     [ "$DEBUG" ] && echo "BlockDriveName_2='$BlockDriveName_2'"
- if [ ! -d $drvDir/drive_${BlockDriveName_2} ];then
+ if [ ! -d $drvDIR/drive_${BlockDriveName_2} ];then
   if [ -e /sys/block/${BlockDriveName_2} ];then
-   mkdir -p $drvDir/drive_${BlockDriveName_2}
-   cp -af /usr/local/bin/drive_all $drvDir/drive_${BlockDriveName_2}/AppRun
+   mkdir -p $drvDIR/drive_${BlockDriveName_2}
+   cp -af /usr/local/bin/drive_all $drvDIR/drive_${BlockDriveName_2}/AppRun
    SIZE=`cat /sys/block/${BlockDriveName_2}/size`
    SIZE=$(($SIZE/2)) #get KB.
    format_size_func #formats SIZE for display.
    INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
    #v424 add item to unmount all mounted partitions...
-   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${ONEDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
+   MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${oneDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    #MOREITEMS="</Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   ONEDRVNAME="$BlockDriveName_2"
-   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   oneDRVNAME="$BlockDriveName_2"
+   create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
  fi
 }
@@ -634,18 +693,18 @@ remove_pinboard_func() { #needs PART_NAME (name of entire drive)
  ppPATTERN=" label=\"$PART_NAME"
  ppPATTERN="${ppPATTERN}.*"
 
- if [ ! "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" ]; then
+ if [ ! "`grep "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin`" ]; then
  return; fi
- ALLNAMES=`grep -o "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr "\n" ' ' | sort -r` #'geany
+ ALLNAMES=`grep -o "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr "\n" ' ' | sort -r` #'geany
 
- for ONEDRVNAME in $ALLNAMES
+ for oneDRVNAME in $ALLNAMES
  do
 
   echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
   <PinboardRemove>
-   <Path>$drvDir/drive_${ONEDRVNAME}</Path>
+   <Path>$drvDIR/drive_${oneDRVNAME}</Path>
   </PinboardRemove>
  </env:Body>
 </env:Envelope>"  | rox -R
@@ -657,12 +716,12 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
  #passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
- for ONEKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
+ for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
  do
-  ONEKEEP_SPEC=`modinfo -F filename ${ONEKEEP_MOD}`
-  ONEKEEP_PATH=`dirname $ONEKEEP_SPEC`
-  mkdir -p /tmp${ONEKEEP_PATH}
-  cp -af ${ONEKEEP_SPEC} /tmp${ONEKEEP_PATH}/
+  oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
+  oneKEEP_PATH=`dirname $oneKEEP_SPEC`
+  mkdir -p /tmp${oneKEEP_PATH}
+  cp -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" != "" ];then
   rm -rf ${DEL_LAYER}/lib/modules
@@ -780,7 +839,7 @@ while [ running ] ; do
  opticalPATTERN='^/dev/'"${PART_NAME}"' '
 
  [ "`grep "$opticalPATTERN" /proc/mounts`" != "" ] && { echo "opticalPATTERN in /proc/mounts , returning now";return; } #only check cd if unmounted.
- cddetect_quick -d/dev/${PART_NAME} >$out 2>$err #very fast.
+ cddetect_quick -d/dev/${PART_NAME} >$OUT 2>$ERR #very fast.
 #...returns 0 if disc inserted, else 255.
  CDSTATUS_NEW="$?"
  eval CDSTATUS_NEW_$PART_NAME=CDSTATUS_NEW
@@ -808,13 +867,13 @@ while [ running ] ; do
 
   create_icon_func #requires PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
 
-  [ "$HOTPLUGNOISY" = "true" ] && { echo "starting now $drvDir/drive_${PART_NAME}/AppRun";$drvDir/drive_${PART_NAME}/AppRun optical &
+  [ "$HOTPLUGNOISY" = "true" ] && { echo "starting now $drvDIR/drive_${PART_NAME}/AppRun";$drvDIR/drive_${PART_NAME}/AppRun optical &
 } #handler script.
  fi
  CDSTATUS_OLD=$CDSTATUS_NEW
  eval CDSTATUS_OLD_$PART_NAME=CDSTATUS_OLD
  #else
-  #rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>/dev/null
+  #rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>$ERR
   #remove_pinboard_func #needs PART_NAME
  #fi
 
@@ -849,9 +908,9 @@ while [ running ] ; do
    DRV_DESCRIPTION=`cat /sys/block/${PART_NAME}/device/model | tr -s ' '`
   fi
   create_icon_func #requires PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
-  [ "$HOTPLUGNOISY" = "true" ] && $drvDir/drive_${PART_NAME}/AppRun floppy & #handler script.
+  [ "$HOTPLUGNOISY" = "true" ] && $drvDIR/drive_${PART_NAME}/AppRun floppy & #handler script.
 # else
-#  rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>/dev/null
+#  rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>$ERR
 #  remove_pinboard_func #needs PART_NAME
  fi
 
@@ -903,7 +962,7 @@ for item in $drives; do
 PART_NAME=$item
 remove_pinboard_func
 done
-rm -fr "$drvDir"/*
+rm -fr "$drvDIR"/*
 }
 clear_desk_icons_func
 
@@ -947,7 +1006,7 @@ else
 
 #        if [ -n "$CD0ICON" -a "$CD0ICON" = "true" ]; then
 #
-#        drives=`ls /sys/block 2>/dev/null`
+#        drives=`ls /sys/block 2>$ERR`
 #        CDdrV=`echo "drives" | grep 'sr' | sort -r`
 #        for i in $CDdrV; do
 #        PROBEPART="/dev/$i|unknown|unknown
@@ -970,13 +1029,13 @@ else
 
 # DRIVES=`echo "$PROBEPART" | cut -f 1,2,3 -d '|'`
 
-# for ONEDRV in $DRIVES #`echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_' | tr '\n' ' '`
-while read -r ONEDRV
+# for oneDRV in $DRIVES #`echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_' | tr '\n' ' '`
+while read -r oneDRV
  do
- [ "$ONEDRV" ] || continue
- [ "$DEBUG" ] && echo "ONEDRV=$ONEDRV'"
+ [ "$oneDRV" ] || continue
+ [ "$DEBUG" ] && echo "oneDRV=$oneDRV'"
 
- PART_NAME=`echo -n "$ONEDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+ PART_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
 
   #      if [ "`echo $PART_NAME | grep 'sd'`" != "" -o "`echo $PART_NAME | grep 'hd'`" != "" ]; then
 
@@ -990,8 +1049,8 @@ while read -r ONEDRV
 
   #DRV_DESCRIPTION=`echo "$PROBEDISK" | grep $MainDrvName | cut -f 3 -d '|'`
 
-  DRV_CATEGORY=`echo "$ONEDRV" | cut -f2 -d'|'`
-  DRV_DESCRIPTION=`echo "$ONEDRV" | cut -f3 -d'|'`
+  DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
+  DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
 
   #[ "`echo "$PROBEPART" | grep -w "$PART_NAME"`" ] || continue #precaution (such as CD not inserted).
 
@@ -1109,19 +1168,19 @@ poll_removable_func(){
 if [ "$ICONDESK" != "false" ]; then
 CDSTATUS_OLD=1
 CDSTATUS_NEW=1
-while read -r ONEOPTICAL ; do
-  [ "$ONEOPTICAL" ] || continue
-  ONEOPTICAL=`echo "${ONEOPTICAL%%|*}" | cut -f3 -d'/'`
-  probe_optical_func $ONEOPTICAL &
+while read -r oneOPTICAL ; do
+  [ "$oneOPTICAL" ] || continue
+  oneOPTICAL=`echo "${oneOPTICAL%%|*}" | cut -f3 -d'/'`
+  probe_optical_func $oneOPTICAL &
   sleep 1s
 done<<EOI
 $(echo "$PROBEDISK" | grep -i '|optical|')
 EOI
 
-while read -r ONEFLOPPY ; do
-  [ "$ONEFLOPPY" ] || continue
-  ONEFLOPPY=`echo "${ONEFLOPPY%%|*}" | cut -f3 -d'/'`
-  probe_floppy_func $ONEFLOPPY
+while read -r oneFLOPPY ; do
+  [ "$oneFLOPPY" ] || continue
+  oneFLOPPY=`echo "${oneFLOPPY%%|*}" | cut -f3 -d'/'`
+  probe_floppy_func $oneFLOPPY
 done<<EOI
 $(echo "$PROBEDISK" | grep -i '|floppy|')
 EOI
@@ -1164,7 +1223,7 @@ if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
    create_icon_func
    fi #uses PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION
 
-   [ "$HOTPLUGNOISY" = "true" ] && $drvDir/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
+   [ "$HOTPLUGNOISY" = "true" ] && $drvDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
    #[ "`echo "$ADD" | grep -i '|optical|'`" ] &&  probe_optical_func $PART_NAME &
    #[ "`echo "$ADD" | grep -i '|floppy|'`" ] &&  probe_floppy_func $PART_NAME &
 
@@ -1183,7 +1242,7 @@ EOI
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    remove_pinboard_func #needs PART_NAME
-   rm -rf $drvDir/drive_${PART_NAME}*
+   rm -rf $drvDIR/drive_${PART_NAME}*
   done<<EOI
 $(echo "$BLOCKSREM")
 EOI
@@ -1274,20 +1333,20 @@ fi
 # echo "probe_parts at end of loop"
 # [ "$ICONDESK" = "false" ] && continue #v405 see /etc/eventmanager
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
-# while read -r ONEOPTICAL ; do
-#  [ "$ONEOPTICAL" ] || continue
-#  ONEOPTICAL=`echo "${ONEOPTICAL%%|*}" | cut -f3 -d'/'`
-#  probe_optical_func $ONEOPTICAL
+# while read -r oneOPTICAL ; do
+#  [ "$oneOPTICAL" ] || continue
+#  oneOPTICAL=`echo "${oneOPTICAL%%|*}" | cut -f3 -d'/'`
+#  probe_optical_func $oneOPTICAL
 #  sleep 2s
 # done<<EOI
 #$(echo "$PROBEDISK2_LOOP_NEW" | grep -i '|optical|')
 #EOI
 
  #v407 poll to see if a ls120 or zip floppy diskette inserted...
-# while read -r ONEFLOPPY ; do
-#  [ "$ONEFLOPPY" ] || continue
-#  ONEFLOPPY=`echo "${ONEFLOPPY%%|*}" | cut -f3 -d'/'`
-#  probe_floppy_func $ONEFLOPPY
+# while read -r oneFLOPPY ; do
+#  [ "$oneFLOPPY" ] || continue
+#  oneFLOPPY=`echo "${oneFLOPPY%%|*}" | cut -f3 -d'/'`
+#  probe_floppy_func $oneFLOPPY
 # done<<EOI
 #$(echo "$PROBEDISK2_LOOP_NEW" | grep -i '|floppy|')
 #EOI
