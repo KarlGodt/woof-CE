@@ -9,9 +9,11 @@
 # Update: Oct. 26th: localize
 
   _TITLE_=Puppy_ndiswrapperGUI
+_VERSION_=1.0omega
 _COMMENT_="Puppy ndiswrapper GUI setup script."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
