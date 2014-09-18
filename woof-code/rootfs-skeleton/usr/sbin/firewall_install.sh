@@ -60,10 +60,12 @@ FW_VERSION="2.0rc9"
 
 export PATH="/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin"
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="puppy_firewall_install.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -2764,3 +2766,5 @@ FIREWALL_END_OF_FILE
 done
 
 goodbye
+# Very End of this file 'usr/sbin/firewall_install.sh' #
+###END###
