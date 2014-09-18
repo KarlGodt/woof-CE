@@ -3,9 +3,11 @@
 
 
   _TITLE_=Puppy_Monitor_Xerrs
+_VERSION_=1.0omega
 _COMMENT_="CLI to display /tmp/xerrs.log"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
