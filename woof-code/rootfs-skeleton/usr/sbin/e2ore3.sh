@@ -3,10 +3,12 @@
 #used by probepart.
 #read device, example '/dev/hda4' from stdin.
 
-  _TITLE_=
-_COMMENT_=""
+  _TITLE_="pup_e2ore3.sh.sh"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
@@ -32,3 +34,5 @@ MYSTR="`tune2fs -l $MYDEVICE | grep 'Filesystem features:' | grep 'has_journal'`
 
 [ "$MYSTR" = "" ] && exit 0 #ext2
 exit 1 #ext3
+# Very End of this file 'usr/sbin/e2ore3.sh' #
+###END###
