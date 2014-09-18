@@ -6,9 +6,11 @@
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
   _TITLE_=update_netmodules
+_VERSION_=1.0omega
 _COMMENT_="CLI to write /etc/networkmodules file"
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
