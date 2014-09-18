@@ -4,9 +4,11 @@
 # read device, example '/dev/hda4' from stdin.
 
   _TITLE_=Ext2orExt3
+_VERSION_=1.0omega
 _COMMENT_="CLI to return 0 if ext2 or 1 if ext3 file-system."
 
 MY_SELF="$0"
+MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 source /etc/rc.d/f4puppy5
