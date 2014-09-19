@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_df"
@@ -28,11 +28,118 @@ _trap
 #(c) Barry Kauler 2009, licence GPL2
 #w482 fix for /dev/root.
 
+usage(){
+MSG="
+$0 [-d|-v] [-V|-h] [-q|-Q|-M] [df options]
+Script wrapper to replace /dev/root
+with current /dev/DEVICE .
+Necessary for pup_event_frontend_d
+and drive icons on desktop on tra-
+ditional full installations
+
+-d) debug set -x
+-v) verbose some diagnostic messages
+-h) show this message
+-V) show version
+
+-M) Machine readable output
+-q) Mountpoint in single quotes
+-Q) Mountpoint in double quotes
+"
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg orange4 "$MSG" &
+#exit $1
+return $1
+}
+
+echo "$0: '$*'" >&2
+while [ "$1" ]; do
+case $1 in
+-d|*debug)   set -x;;
+-v|*verbose) VERBOSE=1;;
+-h|*help)    usage 0; dfOPTIONS="$dfOPTIONS $1";;
+-V|*version) echo -e "\n$0: Version '$Version'\n";dfOPTIONS="$dfOPTIONS $1";;
+*) dfOPTIONS="$dfOPTIONS $1";;
+esac
+shift
+done
+
+[ "$VERBOSE" ] && echo "QUOTE_IT_M='$QUOTE_IT_M'" >&2
+[ "$VERBOSE" ] && echo "D_QUOTE_IT_M='$D_QUOTE_IT_M'" >&2
+
+QUOTE_IT=`echo "$dfOPTIONS" | grep -w '\-q'`
+D_QUOTE_IT=`echo "$dfOPTIONS" | grep -w '\-Q'`
+PARAMS=${dfOPTIONS//\-q/}
+PARAMS=${PARAMS//\-Q/}
+[ "$VERBOSE" ] && echo "PARAMS='$PARAMS'" >&2
+if [ "$QUOTE_IT" ];then
+QUOTE_IT_M=-q exec $0 $PARAMS
+elif [ "$D_QUOTE_IT" ];then
+D_QUOTE_IT_M=-Q exec $0 $PARAMS
+fi
+
+[ "$VERBOSE" ] && echo "M_READABLE='$M_READABLE'" >&2
+MACHINE_READABLE=`echo "$dfOPTIONS" | grep -w '\-M'`
+PARAMS=${dfOPTIONS//\-M/}
+[ "$VERBOSE" ] && echo "PARAMS='$PARAMS'" >&2
+if [ "$MACHINE_READABLE" ]; then
+M_READABLE=-M exec $0 $PARAMS
+fi
+
+DF="busybox df"
+[ "`which df-FULL`" != "" ] && DF="df-FULL"
+#echo 'DF='"$DF"
+#echo '$@='"$@"
+RETSTUFF=`$DF $dfOPTIONS`
+RETVAL=$?
+
+[ "$M_READABLE" -a "$QUOTE_IT_M" ] && QUOTE_IT_M=''
+[ "$M_READABLE" -a "$D_QUOTE_IT_M" ] && D_QUOTE_IT_M=''
+#if [ "`echo "$@" | grep ' \-q '`" ];then
+if [ "$QUOTE_IT_M" ];then
+RETSTUFF=`echo "$RETSTUFF" |sed -r "s|(.*) ([0-9]*%) (/.*)|\1 \2 '\3'|"`
+RETSTUFF=`echo "$RETSTUFF" |sed -r "s|(.*) (- ) (/.*)|\1 \2 '\3'|"`
+#RETSTUFF=`echo "$RETSTUFF" |sed -r "s|(.*) (- ) (/.*)|\1 \2 '\3'|"`
+#elif [ "`echo "$@" | grep ' \-Q '`" ];then
+elif [ "$D_QUOTE_IT_M" ];then
+RETSTUFF=`echo "$RETSTUFF" |sed -r 's|(.*) ([0-9]*%) (/.*)|\1 \2 "\3"|'`
+RETSTUFF=`echo "$RETSTUFF" |sed -r 's|(.*) (- ) (/.*)|\1 \2 "\3"|'`
+
+elif [ "$M_READABLE" ]; then
+TOP_LINE=`echo "$RETSTUFF" | head -n1`
+HAVE_FS=`echo "$RETSTUFF" | head -n1 | grep -w 'Type'`
+RETSTUFF=`echo "$RETSTUFF" |sed '1d'`
+
+if [ "$HAVE_FS" ]; then
+RETSTUFF=`while read -r dev_ type_ blocks_ used_ avail_ percent_ mountpoint_
+do
+echo \"$dev_\" \"$type_\" \"$blocks_\" \"$used_\" \"$avail_\" \"$percent_\" \"$mountpoint_\"
+
+done <<EoI
+$(echo "$RETSTUFF")
+EoI`
+
+else # HAVE_FS
+RETSTUFF=`while read -r dev_ blocks_ used_ avail_ percent_ mountpoint_
+do
+echo \"$dev_\" \"$blocks_\" \"$used_\" \"$avail_\" \"$percent_\" \"$mountpoint_\"
+
+done <<EoI
+$(echo "$RETSTUFF")
+EoI`
+fi # HAVE_FS
+fi #M_READABLE
+#echo 'RETSTUFF='"$RETSTUFF"
+#echo 'RETVAL='"$RETVAL"
+#echo
+
+__old_diskfree__(){
 DF="busybox df"
 [ "`which df-FULL`" != "" ] && DF="df-FULL"
 
 RETSTUFF="`$DF $@`"
 RETVAL=$?
+}
 
 #hack to remove two conflicting entries mounted on / ...
 #if [ "`echo "$RETSTUFF" | grep '^rootfs '`" != "" ];then
@@ -40,13 +147,14 @@ RETVAL=$?
 #  RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
 # fi
 #fi
-RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
+RETSTUFF=`echo "$RETSTUFF" | grep -vE '^rootfs |^"rootfs" '`
 
 #replace /dev/root with correct root partition...
 #rdev is a busybox applet...
-ROOTPARTITION="`rdev | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`"
+ROOTPARTITION="`rdev | grep -m1 -E ' /$| "/"$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`"
 nPATTERN="s%^/dev/root %${ROOTPARTITION} %"
-[ "$ROOTPARTITION" ] && RETSTUFF="`echo "$RETSTUFF" | sed -e "$nPATTERN"`"
+mPATTERN='s%^"/dev/root" %"'"${ROOTPARTITION}"'" %'
+[ "$ROOTPARTITION" ] && RETSTUFF="`echo "$RETSTUFF" | sed -e "$nPATTERN" -e "$mPATTERN"`"
 
 echo "$RETSTUFF"
 exit $RETVAL
