@@ -15,6 +15,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
+TWO_HELP=1
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -58,7 +59,7 @@ ME_PID=$$
 
 PRIVATE_OPTIONS=`echo "$@" |sed 's|restart||;s|start||;s|stop||;s|^\ *||;s|\ *$||'`  ##+++2012-07-26
 
-usage_old(){
+__old_usage__(){
         echo "
         $0 [-h|-v] [start|stop|restart]
         Shellscript daemon to recognize automatically
@@ -75,7 +76,9 @@ Version='1.1-kill luci_218-Puppy_Linux_511 KRG'
 
 usage(){
 MSG="
-$0 [help|version] [start|stop|restart|status]
+$0 [help|version|codecheck]
+   [debug|verbose]
+   [start|stop|restart|status]
 Puppy Daemon to manage the Drive Icons on the desktop.
 Is configurable by /usr/sbin/eventmanager gtkdialog GUI.
 
@@ -139,12 +142,12 @@ for aP in $@
 do
 
 case $aP in
-help|-*help|-h) usage 0
+*help|-h|*usage) usage 0
 ;;
-version|-*version|version|-V)
+*version|-V)
 echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0
 ;;
-codecheck|-*codecheck|checkcode|-*checkcode)
+*codecheck|*checkcode)
 #BASH set -n
 bn=${0##*/}
 cp $0 /tmp/
@@ -158,20 +161,20 @@ Normally uses ash, this had been done in bash,
 because ash has no -n parameter"
 exit 0
 ;;
-debug|-*debug|-d) set -x
+*debug|-d) set -x
 ;;
-verbose|-*verbose|-v) VERBOSE=1
+*verbose|-v) VERBOSE=1
 VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
 ;;
-status)
+*status)
 echo -n "$ME_PROGRAM : "
 OTHER_PIDS=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
 [ "$OTHER_PIDS" ] && echo "$OTHER_PIDS are already running." || echo "not already running."
 exit 0
 ;;
-restart) doRESTART=1;;
-start) doSTART=1;;
-stop) doSTOP=1;;
+*restart) doRESTART=1;;
+*start) doSTART=1;;
+*stop) doSTOP=1;;
 *) echo "Error: Unsupported option '$aP'"; exit 1;;
 esac
 done
@@ -631,8 +634,8 @@ fi
   SIZE=`echo -n "$oneDRVINFO" | cut -f 3 -d '|'`
   drvPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
   if [ ! -d $drvDIR/drive_${oneDRVNAME} ];then
-   mkdir -p $drvDIR/drive_${oneDRVNAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
-   cp -af /usr/local/bin/drive_all $drvDIR/drive_${oneDRVNAME}/AppRun
+   mkdir $VERB -p $drvDIR/drive_${oneDRVNAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
+   cp $VERB -af /usr/local/bin/drive_all $drvDIR/drive_${oneDRVNAME}/AppRun
    RL=`readlink -f  /sys/block/$BlockDriveName`
    LS=`ls $RL/$OneDriveName 2> /dev/null`
    if test -z "$LS"; then
@@ -699,8 +702,8 @@ EOI
     [ "$DEBUG" ] && echo "BlockDriveName_2='$BlockDriveName_2'"
  if [ ! -d $drvDIR/drive_${BlockDriveName_2} ];then
   if [ -e /sys/block/${BlockDriveName_2} ];then
-   mkdir -p $drvDIR/drive_${BlockDriveName_2}
-   cp -af /usr/local/bin/drive_all $drvDIR/drive_${BlockDriveName_2}/AppRun
+   mkdir $VERB -p $drvDIR/drive_${BlockDriveName_2}
+   cp $VERB -af /usr/local/bin/drive_all $drvDIR/drive_${BlockDriveName_2}/AppRun
    SIZE=`cat /sys/block/${BlockDriveName_2}/size`
    SIZE=$(($SIZE/2)) #get KB.
    format_size_func #formats SIZE for display.
@@ -752,18 +755,18 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
  do
   oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
   oneKEEP_PATH=`dirname $oneKEEP_SPEC`
-  mkdir -p /tmp${oneKEEP_PATH}
-  cp -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
+  mkdir $VERB -p /tmp${oneKEEP_PATH}
+  cp $VERB -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" != "" ];then
-  rm -rf ${DEL_LAYER}/lib/modules
+  rm $VERB -rf ${DEL_LAYER}/lib/modules
  else
   if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then
-   rm -rf ${SAVE_LAYER}/lib/modules
+   rm $VERB -rf ${SAVE_LAYER}/lib/modules
   fi
-  rm -rf /lib/modules
+  rm $VERB -rf /lib/modules
  fi
- cp -af /tmp/lib/modules /lib/modules
+ cp $VERB -af /tmp/lib/modules /lib/modules
  depmod -a
 }
 
@@ -852,7 +855,7 @@ free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds.
 
 savepuppy_func() { #called every 4 seconds.
  if [ -f /tmp/snapmergepuppyrequest ];then #by request.
-  rm -f /tmp/snapmergepuppyrequest
+  rm $VERB -f /tmp/snapmergepuppyrequest
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." &
   YAFPID=$!
   sync
@@ -882,9 +885,9 @@ while [ running ] ; do
 # disc inserted
 # 0
 
- # [ "$CDSTATUS2" != "0" ] && [ -d $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} ] && rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} #v410 ensure no drive directory if drive empty.
+ # [ "$CDSTATUS2" != "0" ] && [ -d $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} ] && rm $VERB -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} #v410 ensure no drive directory if drive empty.
  #echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${PART_NAME}
- #[ ! -f /tmp/pup_event_frontend_identify1_${PART_NAME} ] && cp /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
+ #[ ! -f /tmp/pup_event_frontend_identify1_${PART_NAME} ] && cp $VERB /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
 
  #CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${PART_NAME}`
 
@@ -928,7 +931,7 @@ while [ running ] ; do
  # floppyPATTERN=" ${PART_NAME}"
  # grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${PART_NAME}
  #fi
- #[ ! -f /tmp/pup_event_frontend_identify1_${PART_NAME} ] && cp /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
+ #[ ! -f /tmp/pup_event_frontend_identify1_${PART_NAME} ] && cp $VERB /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
  #[ "`diff -s /tmp/pup_event_frontend_identify1_${PART_NAME} /tmp/pup_event_frontend_identify2_${PART_NAME} | grep ' are identical'`" != "" ] && return
  #cp -f /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
  FLOPPYSTATUS=1
@@ -942,7 +945,7 @@ while [ running ] ; do
   create_icon_func #requires PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $drvDIR/drive_${PART_NAME}/AppRun floppy & #handler script.
 # else
-#  rm -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>$ERR
+#  rm $VERB -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} 2>$ERR
 #  remove_pinboard_func #needs PART_NAME
  fi
 
@@ -1274,7 +1277,7 @@ EOI
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    remove_pinboard_func #needs PART_NAME
-   rm -rf $drvDIR/drive_${PART_NAME}*
+   rm $VERB -rf $drvDIR/drive_${PART_NAME}*
   done<<EOI
 $(echo "$BLOCKSREM")
 EOI
@@ -1339,7 +1342,7 @@ fi
  POWERTIMEOUT=$(($POWERTIMEOUT * 60));RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60))
  pup_event_frontend_d_start_func
  sleep 1
- rm -f /tmp/pup_event_icon_change_flag
+ rm $VERB -f /tmp/pup_event_icon_change_flag
  fi #1
 
  #echo $TOGGLE
