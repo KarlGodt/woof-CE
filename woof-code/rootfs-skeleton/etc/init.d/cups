@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # "$Id: cups.sh.in,v 1.25 2005/01/03 19:29:44 mike Exp $"
 #
@@ -45,58 +45,58 @@
 #### OS-Dependent Configuration
 
 case "`uname`" in
-	IRIX*)
-		IS_ON=/sbin/chkconfig
+        IRIX*)
+                IS_ON=/sbin/chkconfig
 
-		if $IS_ON verbose; then
-			ECHO=echo
-		else
-			ECHO=:
-		fi
-		ECHO_OK=:
-		ECHO_ERROR=:
-		;;
+                if $IS_ON verbose; then
+                        ECHO=echo
+                else
+                        ECHO=:
+                fi
+                ECHO_OK=:
+                ECHO_ERROR=:
+                ;;
 
-	*BSD*)
-        	IS_ON=:
-		ECHO=echo
-		ECHO_OK=:
-		ECHO_ERROR=:
-		;;
+        *BSD*)
+                IS_ON=:
+                ECHO=echo
+                ECHO_OK=:
+                ECHO_ERROR=:
+                ;;
 
-	Darwin*)
-		. /etc/rc.common
+        Darwin*)
+                . /etc/rc.common
 
-		if test "${CUPS:=-YES-}" = "-NO-"; then
-			exit 0
-		fi
+                if test "${CUPS:=-YES-}" = "-NO-"; then
+                        exit 0
+                fi
 
-        	IS_ON=:
-		ECHO=ConsoleMessage
-		ECHO_OK=:
-		ECHO_ERROR=:
-		;;
+                IS_ON=:
+                ECHO=ConsoleMessage
+                ECHO_OK=:
+                ECHO_ERROR=:
+                ;;
 
-	Linux*)
-		IS_ON=/bin/true
-		if test -f /etc/init.d/functions; then
-			. /etc/init.d/functions
-			ECHO=echo
-			ECHO_OK="echo_success"
-			ECHO_ERROR="echo_failure"
-		else
-			ECHO=echo
-			ECHO_OK=:
-			ECHO_ERROR=:
-		fi
-		;;
+        Linux*)
+                IS_ON=/bin/true
+                if test -f /etc/init.d/functions; then
+                        . /etc/init.d/functions
+                        ECHO=echo
+                        ECHO_OK="echo_success"
+                        ECHO_ERROR="echo_failure"
+                else
+                        ECHO=echo
+                        ECHO_OK=:
+                        ECHO_ERROR=:
+                fi
+                ;;
 
-	*)
-		IS_ON=/bin/true
-		ECHO=echo
-		ECHO_OK=:
-		ECHO_ERROR=:
-		;;
+        *)
+                IS_ON=/bin/true
+                ECHO=echo
+                ECHO_OK=:
+                ECHO_ERROR=:
+                ;;
 esac
 
 #### OS-Independent Stuff
@@ -104,106 +104,178 @@ esac
 #
 # Set the timezone, if possible...  This allows the
 # scheduler and all child processes to know the local
-# timezone when reporting dates and times to the user. 
+# timezone when reporting dates and times to the user.
 # If no timezone information is found, then Greenwich
 # Mean Time (GMT) will probably be used.
 #
 
 for file in /etc/TIMEZONE /etc/rc.config /etc/sysconfig/clock; do
-	if test -f $file; then
-	        . $file
-	fi
+        if test -f $file; then
+                . $file
+        fi
 done
 
 if test "x$ZONE" != x; then
-	TZ="$ZONE"
+        TZ="$ZONE"
 fi
 
 if test "x$TIMEZONE" != x; then
-	TZ="$TIMEZONE"
+        TZ="$TIMEZONE"
 fi
 
 if test "x$TZ" != x; then
-	export TZ
+        export TZ
 fi
+
+echo "TZ='$TZ'"
 
 #
 # See if the CUPS server (cupsd) is running...
 #
 
 case "`uname`" in
-	HP-UX* | AIX* | SINIX*)
-		pid=`ps -e | awk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
-		;;
-	IRIX* | SunOS*)
-		pid=`ps -e | nawk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
-		;;
-	UnixWare*)
-		pid=`ps -e | awk '{if (match($6, ".*/cupsd$") || $6 == "cupsd") print $1}'`
-		. /etc/TIMEZONE
-		;;
-	OSF1*)
-		pid=`ps -e | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
-		;;
-	Linux* | *BSD* | Darwin*)
-		pid=`ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
-		;;
-	*)
-		pid=""
-		;;
+        HP-UX* | AIX* | SINIX*)
+                pids=`/bin/ps -e | awk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+                ;;
+        IRIX* | SunOS*)
+                pids=`/bin/ps -e | nawk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+                ;;
+        UnixWare*)
+                pids=`/bin/ps -e | awk '{if (match($6, ".*/cupsd$") || $6 == "cupsd") print $1}'`
+                . /etc/TIMEZONE
+                ;;
+        OSF1*)
+                pids=`/bin/ps -e | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+                ;;
+        Linux* | *BSD* | Darwin*)
+                pids=`/bin/ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+                ;;
+        *)
+                pids=""
+                ;;
 esac
 
+if test -s /var/run/cups/cupsd.pid; then
+ read cupsPID </var/run/cups/cupsd.pid
+  for aPID in $pids
+   do
+    case $aPID in
+     $cupsPID) pid=$aPID;;
+     *) [ "$otherPIDS" ] && otherPIDS="$otherPIDS $aPID" || otherPIDS=$aPID;;
+    esac
+  done
+fi
+[ "$pid" ] || pid="$pids"
 #
 # Start or stop the CUPS server based upon the first argument to the script.
 #
 
+WHAT=$1
 case $1 in
-	start | restart | reload)
-		if $IS_ON cups; then
-			if test "$pid" != ""; then
-				kill -HUP $pid
-			else
-				prefix=/
-				exec_prefix=/usr
-				${exec_prefix}/sbin/cupsd
-				if test $? != 0; then
-					$ECHO_FAIL
-					$ECHO "cups: unable to $1 scheduler."
-					exit 1
-				fi
-			fi
-			$ECHO_OK
-			$ECHO "cups: ${1}ed scheduler."
-		fi
-		;;
+        start | restart | reload)
+        shift
+        # HOSTNAME
 
-	stop)
-		if test "$pid" != ""; then
-			kill $pid
-			$ECHO_OK
-			$ECHO "cups: stopped scheduler."
-		fi
-		;;
+        #locale
+        #export LANG=de_DE.UTF-8
+        #export LC_ALL=de_DE.UTF-8
 
-	status)
-		if test "$pid" != ""; then
-			echo "cups: scheduler is running."
-		else
-			echo "cups: scheduler is not running."
-		fi
-		;;
+        #permissions
+        chmod 0666 /dev/random
+        chmod 0666 /dev/urandom
 
-	*)
-		echo "Usage: cups {reload|restart|start|status|stop}"
-		exit 1
-		;;
+                if $IS_ON cups; then
+
+                        for aPID in $otherPIDS; do
+                        $ECHO "cups: NOTICE: killing parallel running cupsd process '$aPID'"
+                        kill $aPID;
+                        done
+                        STATUS=$?
+
+                        if test "$pid" != ""; then
+                        WHAT=restart
+                        $ECHO "cups: cupsd with '$pid' running - sending signal HUP to it.."
+                                kill -HUP $pid
+                        else
+                                WHAT=start
+                                prefix=/
+                                exec_prefix=/usr
+
+                                [ "$VERBOSE" ] && strace ${exec_prefix}/sbin/cupsd $@ 2>/tmp/cupsd.strace || {
+                                ${exec_prefix}/sbin/cupsd $@; }
+
+                                if test $? != 0; then
+                                        $ECHO_FAIL
+                                        $ECHO "cups: unable to $WHAT scheduler."
+                                        STATUS=$((STATUS+1))
+                                fi
+                        fi
+                        test $? = 0 && [ ! "$STATUS" -o "$STATUS" = 0 ] && {
+                        $ECHO_OK
+                        $ECHO "cups: ${WHAT}ed scheduler."
+                        STATUS=$((STATUS+0))
+                        } || {
+                        $ECHO_FAIL
+                        $ECHO "cups: Something went wrong."
+                        STATUS=255
+                        }
+                fi
+                STATUS=$((STATUS+$?))
+                ;;
+
+        stop)
+                for aPID in $otherPIDS; do
+                $ECHO "cups: NOTICE: killing parallel running cupsd process '$aPID'"
+                kill $aPID;
+                done
+                STATUS=$?
+
+                if test "$pid" != ""; then
+                        kill $pid && {
+                        sleep 1
+                         pidof cupsd && {
+                         $ECHO_FAIL
+                         $ECHO "cups: scheduler(s) still running with PID(s) `pidof cupsd` ."
+                         STATUS=$((STATUS+1))
+                         } || {
+                         $ECHO_OK
+                         $ECHO "cups: stopped scheduler."
+                         STATUS=$((STATUS+0))
+                         }
+                        }
+                fi
+                STATUS=$((STATUS+$?))
+                rm -f /var/run/cups/cupsd.pid
+                STATUS=$((STATUS+$?))
+                ;;
+
+        status)
+
+                for aPID in $otherPIDS; do $ECHO "cups: WARNING: cupsd with PID '$aPID' running";STATUS=$((STATUS+1)); done
+
+                if test "$pid" != ""; then
+                        $ECHO "cups: scheduler is running with PID '$pid' ."
+                        $ECHO "cupsd:$pid" >&2
+                        [ "$STATUS" ] || STATUS=0
+                else
+                        $ECHO "cups: scheduler is not running."
+                        $ECHO "cupsd:" >&2
+                        STATUS=$((STATUS+1))
+                fi
+                ;;
+
+        *)
+                echo "Usage: cups {reload|restart|start|status|stop}"
+                STATUS=255
+                ;;
 esac
 
 #
 # Exit with no errors.
 #
 
-exit 0
+[ "$STATUS" ] || STATUS=0
+exit $STATUS
 
 
 #
