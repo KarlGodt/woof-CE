@@ -11133,3 +11133,763 @@ geany /usr/sbin/plogout
 
 Tue Sep 16 17:37:35 GMT+1 2014
 
+pwd
+cp -a `which xwin` .
+cp -a `which startx` .
+geany `which xwin`
+git commit
+file woof-code/rootfs-skeleton/usr/bin/xwin
+which xwin
+git commit woof-code/rootfs-skeleton/sbin/probedisk2E
+git add woof-code/rootfs-skeleton/sbin/probedisk2E
+git commit -m '/sbin/probedisk2E: Added.'
+git add woof-code/rootfs-skeleton/sbin/probepart_init
+git commit -m '/sbin/probepart_init: Added.'
+git add woof-code/rootfs-skeleton/sbin/probepart_woof2L
+git commit -m '/sbin/probepart_eoof2L: Added.'
+git commit
+git add fix_bang.sh
+git commit -m 'fix_bang.sh: Added.'
+git add jump_over_old_header.sh
+git commit -m 'jump_over_old_header.sh: Added.'
+git add repair_jump_over_old_header.sh
+git commit -m 'repair_jump_over_old_header.sh: Added.'
+git commit
+which startx
+file /usr/bin/startx
+git commit
+./update_files_from_running_system 
+git commit
+./update_files_from_running_system 
+geany /usr/local/bin/pupzip
+geany /usr/local/bin/drive_all
+geany /usr/local/jwmconfig3/taskbarPlace
+cd woof-code/rootfs-skeleton/
+pwd
+./fix_bang.sh -D
+./fix_bang.sh -ERT
+./fix_bang.sh -S
+geany /usr/local/you2pup/func
+geany usr/local/you2pup/func
+geany usr/local/video_upgrade/video_upgrade_wizard-OLD
+./fix_bang.sh -S -D
+pwd
+./fix_bang.sh -S -D
+./fix_bang.sh -S
+./fix_bang.sh -S -D
+time probepart
+file /sbin/probepart
+probedisk2
+probedisk
+probepart
+probepart2.09
+head probepart2.09
+head /sbin/probepart2.09
+for i in /sbin/probepart*; do echo $i; done
+for i in /sbin/probepart*; do echo $i; [ -L "$i" ] && continue;geany $i; sleep 1;done
+for i in /sbin/probedisk*; do echo $i; [ -L "$i" ] && continue;geany $i; sleep 1;done
+pwd
+probedisk
+probedisk2
+probedisk2E
+probedisk2.scribble 
+time probedisk2
+time probedisk
+time probedisk2
+git commit
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+pgprs-connect
+echo $((6*25*135))
+
+Wed Sep 17 07:06:20 GMT+1 2014
+
+pgprs-connect
+git commit
+giat add jump_over_old_header.sh
+git add jump_over_old_header.sh
+git commit -m 'jump_over_old_header.sh: Security fixes .'
+git add fix_bang.sh
+git commit -m 'fix_bang.sh: Fixes.' 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./jump_over_old_header.sh 
+./jump_over_old_header.sh -D
+./jump_over_old_header.sh -D -v
+geany woof-code/rootfs-skeleton/sbin/probepart2
+./jump_over_old_header.sh -D -v
+./jump_over_old_header.sh -v
+./jump_over_old_header.sh -v -D
+./jump_over_old_header.sh -v
+man sed
+./jump_over_old_header.sh 
+./jump_over_old_header.sh 
+pwd
+./jump_over_old_header.sh -D -v
+./jump_over_old_header.sh -v -D
+
+Wed Sep 17 15:43:11 GMT+1 2014
+
+cp =a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodtFork.Pull.d/woof-code .
+cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodtFork.Pull.d/woof-code .
+pwd
+./jump_over_old_header.sh --help
+./jump_over_old_header.sh -D -v
+pwd
+./jump_over_old_header.sh -D -v
+rm -fr woof-code/
+cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodtFork.Push.d/woof-code .
+cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code .
+./jump_over_old_header.sh -D -v
+./jump_over_old_header.sh
+./jump_over_old_header.sh -v
+rm -fr woof-code/
+cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code .
+./jump_over_old_header.sh -v
+pwd
+cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code .
+./jump_over_old_header.sh -v -D
+./jump_over_old_header.sh -v
+./jump_over_old_header.sh -D
+A='AB\c'
+echo "$A"
+echo "$A" | grep -F '\'
+echo "$A" | grep '\'
+echo "$A" | grep -F '\'
+echo "$A" | grep -F 'B\'
+echo "$A" | busybox grep -F 'B\'
+echo "$A" | busybox grep -F '\'
+./jump_over_old_header.sh -D -v
+./grep_pattern.sh 
+./grep_pattern.sh KRG
+./grep_pattern.sh "\#\#\#\K\R\G\ \F\r\ \3\1\.\ \A\u\g\ "
+./grep_pattern.sh "###KRG Fr 31. Aug "
+./grep_pattern.sh "###KRG Fr 31. Aug"
+geany usr/bin/pgprs-connect
+geany woof-code/rootfs-skeleton/usr/bin/pgprs-connect
+geany woof-code/rootfs-skeleton/usr/bin/pgprs-setup 
+geany woof-code/rootfs-skeleton/usr/sbin/spacereplace 
+geany woof-code/rootfs-skeleton/usr/sbin/pmount
+geany woof-code/rootfs-skeleton/usr/sbin/keymap-set
+geany woof-code/rootfs-skeleton/usr/sbin/Pudd
+geany woof-code/rootfs-skeleton/usr/bin/wmreboot
+geany woof-code/rootfs-skeleton/usr/bin/wmpoweroff 
+geany woof-code/rootfs-skeleton/usr/bin/tgz2pet
+./grep_pattern.sh 
+./grep_pattern.sh usage
+pwd
+./remove_old_header.sh 
+./mark_old_header_begin.sh 
+./mark_old_header_end.sh
+./insert_title.sh 
+./insert_comment.sh -v
+./insert_missing.sh -v
+git
+pwd
+git commit
+git add insert_comment.sh
+git commit -m 'insert_comment.sh: Added.'
+git add insert_title.sh 
+git commit -m 'insert_title.sh: Added.'
+git add insert_missing.sh
+git commit -m 'insert_missing.sh: Added.'
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; git add "$f" && git commit -m "$f: Fixed new header default variables.";done
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+pwsget -help
+pwsget -d
+./replace_commit_files.sh 
+wc --help
+cd woof-code/rootfs-skeleton/
+geany usr/sbin/pcreatetorrent
+geany usr/sbin/pdvdrsab
+grep -m1 '_COMMENT_=' usr/sbin/pcreatetorrent
+grep -m1 '_COMMENT_=' usr/sbin/pdvdrsab
+file=usr/sbin/pdvdrsab
+_COM_=`grep -m1 '_COMMENT_=' "$file"`
+echo "$_COM_"
+_COM_="${_COM_#*=}"
+echo "$_COM_"
+echo "$_COM_" | grep -o '"' | wc -c
+echo "$_COM_" | grep -o '"' | wc -m
+echo "$_COM_" | grep -o '"' | wc -w
+touch inset_title.sh
+touch insert_comment.sh
+touch insert_missing.sh
+chmod +x insert*
+./insert_comment.sh 
+./insert_comment.sh -v
+./insert_title.sh 
+./insert_missing.sh -v
+geany woof-code/rootfs-skeleton/usr/local/psip/psip-gui
+geany woof-code/rootfs-skeleton/usr/sbin/bcrypt_gui
+geany woof-code/rootfs-skeleton/usr/sbin/pplog_gui
+geany woof-code/rootfs-skeleton/usr/sbin/download_file 
+geany woof-code/rootfs-skeleton/usr/sbin/grubconfig
+geany woof-code/rootfs-skeleton/sbin/clean_desk_icons 
+geany woof-code/rootfs-skeleton/sbin/init
+geany woof-code/rootfs-skeleton/sbin/probedisk
+./grep_pattern.sh 
+./grep_pattern.sh usage
+./grep_pattern.sh 'usage()'
+pwd
+./add_end.sh 
+./add_end.sh --help
+./add_end.sh -D -v
+./add_end.sh -v
+pwd
+./mark_old_header --help
+./mark_old_header -D -v
+./mark_old_header -v
+./mark_old_header_end -D -v
+./mark_old_header_end.sh -D -v
+./mark_old_header_end.sh -v
+grep --help
+probepart --help
+probedisk --help
+probepart -m
+git help tag
+git help push
+./jump_over_old_header.sh -D
+./jump_over_old_header.sh -D -v
+./jump_over_old_header.sh -D
+./jump_over_old_header.sh -v
+pwd
+git commit
+./jump_over_old_header.sh -D
+pwd
+git commit
+git add jump_over_old_header.sh
+git commit -m 'jump_over_old_header.sh: Fixes.'
+git add grep_pattern.sh
+git commit -m 'grep_pattern.sh: Added.'
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; git add "$f" && git commit -m "$f: batch retire __old_header__() .";done
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git help tag
+git tag --list
+git tag -m 'Fox3-Dell755-0.0.1r2:
+header transformation mainly done,
+__old_header__ needs markers still.' Fox3-Dell755-0.0.1r2
+git tag --list
+./add_end.sh -help
+./add_end.sh -D -v
+./add_end.sh -v
+pwd
+git commit
+git add add_end.sh
+git commit -m 'add_end.sh: Added.'
+git add mark_old_header_begin.sh
+git commit -m 'mark_old_header_begin.sh: Added.'
+git add mark_old_header_end.sh
+git commit -m 'mark_old_header_end.sh: Added.'
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$file" ; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; git add "$f" && git commit -m "$f: MARKER for __old_header__ and ##END## added.";done
+geany woof-code/rootfs-skeleton/usr/sbin/xserverwizard
+git tag --list
+git tag -m 'Fox3-Dell755-0.0.1r3:
+Finished to mark __old_header__() part' Fox3-Dell755-0.0.1r3
+git tag --list
+git commit
+git add remove_old_header.sh
+git commit -m "remove_old_header.sh: Added."
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue ; echo "$f" ; git add "$f" && git commit -m "$f: __old_header__() function removed.";done
+git tag --list
+git tag -m 'Fox3-Dell755-0.0.2:
+Removed __old_header__() part' Fox3-Dell755-0.0.2
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git push --tags MSkrg Fox3-Dell755
+git push --tags krg Fox3-Dell755
+./replace_commit_files.sh 
+git rm /root/.config/geany/geany.conf
+git rm woof-code/rootfs-skeleton/root/.config/geany/geany.conf
+git rm woof-code/rootfs-skeleton//root/.config/rox.sourceforge.net/ROX-Filer/menus2
+git rm woof-code/rootfs-skeleton//root/.config/rox.sourceforge.net/ROX-Filer/globicons
+git rm woof-code/rootfs-skeleton//root/Choices/ROX-Filer/PuppyPin
+git rm woof-code/rootfs-skeleton//root/Startup/zz_uptime
+git rm woof-code/rootfs-skeleton//root/Startup/zzzProgs
+git commit
+pgprs-connect
+e
+pgprs-connect
+plogout
+geany `which plogout`
+which murgaLua_Dynamic
+plogout
+
+Thu Sep 18 23:02:11 GMT+1 2014
+
+
+Thu Sep 25 12:37:43 GMT+1 2014
+
+pgprs-connect
+pppd --help
+geany /usr/kical/bin/defaultmediaplayer
+geany /usr/local/bin/defaultmediaplayer
+chmod +x /root/parse_options.sh 
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file"
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file" -v -g
+/root/parse_options.sh -ABC -DEFG -x "BAK" -v -g "PATTERN1" "PATTERN 2" "/path/to/file" -v -g
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file" -v -g
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t
+geany /etc/rc.d/f4puppy5
+
+Thu Sep 25 17:44:10 GMT+1 2014
+
+
+Fri Sep 26 19:17:34 GMT+1 2014
+
+freedink
+freedink --help
+freedink -w -7
+freedink -w -7 -d
+freeramdisk 
+freedroid
+  
+freecraft
+crossfire
+rox --help
+man mv
+which sfsget
+geany /usr/sbin/sfsget
+geany `which xdelta_gui`
+heand -n1 `which plogout`
+head -n1 `which plogout`
+/root/shift_flashplayer.gtkdlg 
+xdelta_gui 
+sfsget 
+/root/shift_flashplayer.gtkdlg 
+busybox mv --help
+which mv
+file /bin/mv
+ls -s /bin/mv
+/root/shift_flashplayer.gtkdlg 
+/root/shift_flashplayer.gtkdlg -Version
+/root/shift_flashplayer.gtkdlg --version
+/root/shift_flashplayer.gtkdlg --help
+/root/shift_flashplayer.gtkdlg -V
+/root/shift_flashplayer.gtkdlg -d
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t
+/root/parse_options.sh
+/root/parse_options.sh /path/to/file
+/root/parse_options.sh /path/to/file -y -Z "path/to/di rec tory" -A "whatever" "new" -d
+getopt --help
+man getopt
+getopt --help
+source /etc/rc.d/f4puppy5
+echo $Q
+echo $QUIET
+echo $DBG
+set - -ABC -def -g -x"123" "PARAM1" "P A R A M 2" "/path/to/file" -abc -DEF -G -X "123" -Y'123'
+echo $*
+IFS=$'\n'
+echo $*
+set - -ABC -def -g -x"123" "PARAM1" "P A R A M 2" "/path/to/file" -abc -DEF -G -X "123" -Y'123'
+echo $*
+echo "$*"
+echo "$@"
+echo $@
+getopt --help
+getopt -a -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -a -l "abc ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -a -l "abc,ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -a -l "abc ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -a -l "abc ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$@"
+getopt -l "abc ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$@"
+getopt -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$@"
+getopt -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -l "abc ABC" - ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -l "abc ABC" --- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$*"
+getopt -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$@"
+getopt -a -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: "$@"
+getopt -a -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*
+CMDLNE=`getopt -a -l "abc ABC" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+set - $CMDLNE
+echo "$*"
+IFS='\n'
+echo "$*"
+echo $*
+echo $@
+echo "$@"
+CMDLNE=`getopt -a -l "abcs ABCs" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+echo $CMDLNE
+echo "$CMDLNE"
+CMDLNE=`getopt -a -l "rst RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+CMDLNE=`getopt -a -l "rst RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+echo $*
+CMDLNE=`getopt -a -l "rst,RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo $*
+set - -ABC -def -g -x"123" "PARAM1" "P A R A M 2" "/path/to/file" -abc -DEF -G -X "123" -Y'123'
+CMDLNE=`getopt -a -l "rst,RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+CMDLNE=`getopt -a -l "rst RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+unset cmdlne
+unset CMDLNE
+echo "$CMDLNE"
+CMDLNE=`getopt -a -l "rst RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+unset CMDLNE
+echo "$CMDLNE"
+CMDLNE=`getopt -u -a -l "rst RST" -- ABCDEFGHIJKLMNOPQRSTUVWX:Y:Z:abcdefghijklmnopqrstuvwx:y:z: $*`
+echo "$CMDLNE"
+set - $CMDLNE
+echo "$*"
+echo "'$IFS'"
+echo "$*"
+echo $*
+echo $* | grep -w '\-\-'
+echo $* | grep -ow '\-\-'
+QAZ=1234567
+case $QAZ in ^1*7$) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in 1*7$) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in 1*7\$) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in 1*7) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in *1*7*) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in *1.*7*) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in *1\.*7*) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in 1*7) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in #1*7) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in \#1*7) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in \#1*7%) echo "Starts with 1 and ends with 7";; esac
+case $QAZ in 1*7%) echo "Starts with 1 and ends with 7";; esac
+echo ${QAZ%7*}
+echo ${QAZ/%7/}
+echo ${QAZ//%7/}
+echo ${QAZ//#7/}
+echo ${QAZ/#7/}
+echo ${QAZ/#1/}
+while true; do read -r opt rest <<EoI; case $opt in --) continue;; \') continue;; -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+ while true;   do   read -r opt rest <<EoI;    ; case $opt in
+  --) continue;;
+  \') continue;;
+  -*) OPT="$OPT
+$opt";;
+esac;
+echo "OPT='$OPT'";
+sleep 1;
+done
+ while true;   do   read -r opt rest <<EoI;   case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+echo "$*"
+  while true;   do   read -r opt rest <<EoI;   case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+  while true;   do   read -r opt rest <<EoI;   shift;  case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+ while true;   do   read -r opt rest <<EoI;   shift;  echo "opt='$opt' rest='$rest' \$*='$*'";  case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+echo $*
+echo "$CMDLNE"
+set - $CMDLNE
+  while true;   do   read -r opt rest <<EoI;   shift;  echo "opt='$opt' rest='$rest' \$*='$*'";  case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+echo $*
+IFS=$'\040'
+echo $*
+echo "$CMDLNE"
+set - $CMDLNE
+echo $*
+ while true;   do   read -r opt rest <<EoI;   shift;  echo "opt='$opt' rest='$rest' \$*='$*'";  case $opt in   --) continue;;   \') continue;;   -*) OPT="$OPT
+$opt";; esac; echo "OPT='$OPT'"; sleep 1; done
+echo "$CMDLNE"
+set  PARAM1 P A R A M 2 /path/to/file
+echo $*
+getopt "$@"
+echo $*
+set  PARAM1 P A R A M 2 /path/to/file
+echo $*
+getopt "$@"
+type -a getopt
+file /bin/getopt
+file /usr//bin/getopt
+/usr/bin/getopt "$@"
+getopt "$@"
+echo $GETOPT_COMPATIBLE
+export GETOPT_COMPATIBLE=NO
+getopt "$@"
+export GETOPT_COMPATIBLE=
+getopt "$@"
+/usr/bin/getopt "$@"
+export GETOPT_COMPATIBLE=NO
+/usr/bin/getopt "$@"
+echo $GETOPT_COMPATIBLE 
+export GETOPT_COMPATIBLE=0
+/usr/bin/getopt "$@"
+export GETOPT_COMPATIBLE=1
+/usr/bin/getopt "$@"
+export GETOPT_COMPATIBLE=no
+/usr/bin/getopt "$@"
+export GETOPT_COMPATIBLE=yes
+/usr/bin/getopt "$@"
+unset GETOPT_COMPATIBLE
+/usr/bin/getopt "$@"
+GETOPT_COMPATIBLE='' /usr/bin/getopt "$@"
+GETOPT_COMPATIBLE='1' /usr/bin/getopt "$@"
+GETOPT_COMPATIBLE='set' /usr/bin/getopt "$@"
+GETOPT_COMPATIBLE='0' /usr/bin/getopt "$@"
+GETOPT_COMPATIBLE='0' /usr/local/bin/getopt "$@"
+/usr/bin/getopt -l 'not_implemented' "$@"
+/usr/bin/getopt -l 'not_implemented' 'N' "$@"
+while getopts OPT_; do echo "$OPT_"; done
+while getopts '' OPT_; do echo "$OPT_"; done
+while getopt '' OPT_; do echo "$OPT_"; done
+while getopt '' $*; do echo "$OPT_"; done
+NO_OPTIONS=`getopt '' $*`
+echo "$NO_OPTIONS"
+NO_OPTIONS=`getopt -u '' $*`
+echo "$NO_OPTIONS"
+echo "$CMDLNE"
+/root/parse_options2.sh 
+echo "'$IFS'"
+/root/parse_options2.sh 
+echo $*
+echo "$CMDLNE"
+set - $CMDLNE
+echo $*
+getopt '' $*
+echo $*
+getopt '' "$*"
+echo $*
+getopt '' "$@"
+echo $*
+getopt '' $@
+echo $*
+echo "$CMDLNE"
+set - -A -B -C -d -e -f -g -x 123 "$PARAM1" "P A R A M 2" "/path/to/file" -a -b -c -D -E -F -G -X 123 -Y 123
+echo $*
+getopt '' $@
+echo $*
+getopt '' $*
+echo $*
+getopt '' - $*
+getopt '' -- $*
+getopt --version
+/usr/bin/getopt --version
+/usr/local/bin/getopt --version
+chmod +x /root/parse_options*
+/root/parse_options201.sh 
+/root/parse_options202.sh 
+/root/parse_options203.sh 
+/root/parse_options204.sh 
+/root/parse_options205.sh 
+/root/parse_options206.sh 
+/root/parse_options201.sh 
+/root/parse_options202.sh 
+/root/parse_options203.sh 
+/root/parse_options204.sh 
+/root/parse_options205.sh 
+/root/parse_options206.sh 
+/root/parse_options201.sh 
+/root/parse_options202.sh 
+/root/parse_options203.sh 
+/root/parse_options204.sh 
+/root/parse_options205.sh 
+/root/parse_options206.sh 
+/root/parse_options207.sh 
+/root/parse_options208.sh 
+/root/parse_options208.sh -A -b -c /path/to/file
+/root/parse_options208.sh -A -b -d /path/to/file
+echo " -- -A -b -d /path/to/file"
+echo " -- -A -b -d /path/to/file" | sed 's! /path/to/file!!'
+/root/parse_options208.sh -A -b -d /path/to/file
+/root/parse_options.sh -ABC -DEFG -x "BAK" "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t=ABC -defg -x BAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t=ABC -defg -xBAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t=ABC -defg -x'BAK'
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x'BAK'
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x"BAK"
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -xBAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x BAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -xBAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x BAK
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x'BAK'
+/root/parse_options.sh  "PATTERN1" "PATTERN 2" "/path/to/file" -v -g -t -ABC -defg -x"BAK"
+sPTN='/./{H;$!d;};x;/Section "Monitor".*"Monitor0"/!d'
+cat /etc/X11/xorg.conf | sed -e "$sPTN"
+sPTN='/./{H;$!d;};x;/Section "Monitor".*"Monitor0"/d'
+cat /etc/X11/xorg.conf | sed -e "$sPTN"
+sPTN='/./{H;$d;};x;/Section "Monitor".*"Monitor0"/!d'
+sPTN='/./{H;$!d;};x;/Section "Monitor".*"Monitor0"/!d'
+sPTN='/./{H;$d;};x;/Section "Monitor".*"Monitor0"/!d'
+cat /etc/X11/xorg.conf | sed -e "$sPTN"
+sPTN='/./{H;$!d;};x;/Section "Monitor".*"Monitor0"/!d'
+cat /etc/X11/xorg.conf | sed -e "$sPTN"
+./shift_flashplayer2.sh 
+file /bin/rm
+/bin/rm --help
+./shift_flashplayer2.sh 
+./shift_flashplayer3.sh 
+./shift_flashplayer4.sh 
+/usr/SVC/gitCOMPILEgitGit.git.d/gitGit.git.d-1.8.5.2-i686/usr/SVC/libexec/git-core/git-daemon --help
+git help daemon
+source /etc/rc.d/f4puppy5
+_test_b /dev/console
+_test_b /dev/console;echo $?
+_test_b /dev/consoleX;echo $?
+df
+rsync_dirs
+df
+time umount /dev/sdb20
+time umount /dev/sdb18
+time umount /dev/sdb17
+time umount /dev/sdb16
+time umount /dev/sdb9
+time umount /dev/sdb8
+time umount /dev/sdb7
+grep -r "gitignore"
+grep -r "gitignore" *
+which gbtl
+which nroff
+file /usr/bin/nroff
+geany /usr/bin/nroff
+which groff
+file /usr/bin/groff
+ldd /usr/bin/groff
+find /usr -name libstdc++.so.6
+for i in*; do echo $i; done
+for i in *; do echo $i; done
+for i in *; do echo $i; j=${i/-/}; echo $j;done
+for i in *; do echo $i; j=${i/-/}; echo $j; test -e "$j" && continue;done
+for i in *; do echo $i; j=${i/-/}; echo $j; test -e "$j" && continue;echo $j;done
+for i in *; do echo $i; j=${i/-/}; echo $j; test -e "$j" && continue;echo $j; ln -s $i $j;done
+type -a groff
+type -a nroff
+pwd
+cd /mnt/sdb18/gitGit.git.d/Documentation
+grp -r 'export\-ok' *
+grep -r 'export\-ok' *
+man 5 gitaccess
+df
+df -m
+df -T -m
+filemnt /JUMP-2/pup-430.sfs
+geany `which filemnt`
+filemnt /JUMP-2/pup-430.sfs
+find /usr -name "libcrypto*"
+ls -l /dev/null
+git daemon
+git --version
+git help daemon
+find /usr -name "git*daemon.1*"
+man --version
+echo $MAILCHECK 
+strace git daemon 2>/root/git-daemon.strace
+geany /root/git-daemon.strace
+git daemon --verbose
+pwd
+cd ..
+git daemon --verbose
+cd ..
+git daemon --verbose
+pwd
+cd ..
+git daemon --verbose .
+man 5 gitignore
+gitk
+which wish
+ln -s bash /bin/wish
+gitk
+gitk --help
+which gitk
+file /usr/bin/gitk
+geany /usr/bin/gitk
+git --help
+git daemon
+git help daemon
+./update_files_from_running_system 
+pwd
+cd /GIT
+chroot .
+chroot .
+fsck -n /dev/sdb20
+fsck -n /dev/sdb18
+fsck -n /dev/sdb17
+fsck -n /dev/sdb16
+fsck -n /dev/sdb14
+fsck -n /dev/sdb13
+fsck -n /dev/sdb8
+fsck -v /dev/sdb8
+fsck -v /dev/sdb3
+fsck -v /dev/sdb2
+fsck -v /dev/sda1
+fsck -v /dev/sda2
+git help daemon
+git help clone
+git clone --mirror git://localhost:9418
+strace git clone --mirror git://localhost:9418
+strace git clone --mirror localhost:9418 
+strace git clone --mirror localhost:9418 2>/root/git-clone-from-daemon.strace
+strace git clone localhost:9418 2>/root/git-clone-from-daemon.strace
+git clone localhost:9418
+git clone git://localhost:9418
+git clone http://localhost:9418
+git clone git://localhost:9418
+git clone https://localhost:9418
+git clone tcp://localhost:9418
+git clone udp://localhost:9418
+git clone ssh://localhost:9418
+git clone http://localhost:9418
+git clone http://127.0.0.1:9418
+git clone http://127.0.0.1
+git clone localhost:9418
+git clone localhost:9418/.
+git clone http://localhost:9418/.
+git clone http://localhost:9418/.git
+git clone --bare  http://localhost:9418/
+git clone --bare  http://localhost:9418
+git pull  http://localhost:9418
+git init
+git pull  http://localhost:9418
+grep 9418 /etc/services
+grep git /etc/services
+geany /etc/services
+git pull  http://localhost:9418
+git pull  git://localhost:9418
+git pull  git://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d /mnt/sda7/CHROOT.D/GIT/SVC
+git pull http://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d /mnt/sda7/CHROOT.D/GIT/SVC
+git pull http://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d
+git pull git://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d
+git pull git://localhost:9418/KarlGodt_WoofFork.Push.d
+git pull http://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d
+git pull git://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d
+git pull ftp://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d
+git pull ftp://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d naster
+git clone ftp://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d naster
+git clone ftp://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d master
+git pull ftp://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d master
+git pull http://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d master
+git pull git://localhost:9418//mnt/sda7/CHROOT.D/GIT/KarlGodt_WoofFork.Push.d master
+git clone git://localhost:9418
+git clone git://localhost:9418//mnt/sda7/CHROOT.D/GIT/git-Fox3-Dell755-server.d.git
+git clone git://localhost:9418/git-Fox3-Dell755-server.d.git
+git clone git://localhost:9418/GIT/git-Fox3-Dell755-server.d.git
+git clone git://localhost:9418/mnt/sda7/CHROOT.D/GIT/git-Fox3-Dell755-server.d.git
+pwd
+ls
+cd git-Fox3-Dell755-server.d/
+git branch
+df
+route
+netstat -l
+pwd
+ls
+ls -A
+pwd
+ls
+ls ../
+cd ..
