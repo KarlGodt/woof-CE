@@ -20,12 +20,13 @@
 
 
 test -f /etc/rc.d/f4puppy5 && {
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
+TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG=""
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
