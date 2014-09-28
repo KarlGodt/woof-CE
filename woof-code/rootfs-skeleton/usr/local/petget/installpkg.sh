@@ -7,7 +7,7 @@ _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 MY_SELF="/usr/local/petget/installpkg.sh"
 MY_PID=$$
 test -f /etc/rc.d/f4puppy5 && {
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
