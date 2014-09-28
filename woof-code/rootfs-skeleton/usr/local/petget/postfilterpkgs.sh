@@ -15,7 +15,7 @@ _COMMENT_="Filter helper for displaying category in PPM"
 MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && {
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="PKG_TYPE|TRUE_FASLSE"
 ADD_PARAMETERS="PKG_TYPE : DEV, DOC, EXE, NLS
