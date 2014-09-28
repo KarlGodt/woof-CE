@@ -14,7 +14,7 @@ _COMMENT_="Incomplete code to take care for certain packages"
 MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && {
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="INSTALLEDPKG|INSTALLEDNAME"
 ADD_PARAMETERS="INSTALLEDPKG : Long package name without .ext
