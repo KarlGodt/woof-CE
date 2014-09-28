@@ -1,7 +1,7 @@
 #!/bin/ash
 
 
-DRY=1
+DRY=
 
 pwd
 
@@ -32,8 +32,8 @@ do
   else
    sed -i".BAK" 's%for oneSHIFT in.*do shift\; done\; \}%for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`\; do shift\; done\; \}%' "$file"
    test $? = 0 && { rm "${file}.BAK"; } || break
-   geany "$file"
-   break
+   #geany "$file"
+   #break
    sleep 1
   fi
 
