@@ -10,7 +10,7 @@ _COMMENT_="Make the pup_save.2fs file bigger."
 MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && {
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
