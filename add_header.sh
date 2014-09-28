@@ -8,7 +8,7 @@ for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep -viE 'perl|python' || continue
+   file "$file" | grep -i text | grep -viE 'perl|python|murgaLua_Dynamic' || continue
 
    grep 'f4puppy5' "$file" && continue
 
@@ -16,8 +16,14 @@ do
    [ "${PERM//[0-6]/}" ] || continue
    echo "$file"
 
+  SHELLBANG=`head -n1 "$file"`
+  case "$SHELLBANG" in
+  \#\!*) :;;
+  *) continue;;
+  esac
+
    cat >/tmp/${file##*/} <<EoI
-#!/bin/sh
+$HELLBANG
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_${file##*/}"
@@ -37,7 +43,7 @@ _provide_basic_parameters
 ADD_HELP_MSG="\$_COMMENT_"
 _parse_basic_parameters "\$@"
 [ "\$DO_SHIFT" ] && [ ! "\${DO_SHIFT//[[:digit:]]/}" ] && {
-  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+  for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`; do shift; done; }
 
 _trap
 
@@ -46,8 +52,11 @@ _trap
 #
 EoI
    cat "$file" | sed '1d' >>/tmp/${file##*/}
-   rm "$file"
-   mv /tmp/${file##*/} "$file"
-   chmod $PERM "$file"
+   [ "$?" = 0 ] || continue
+   if test ! "$DRY"; then
+    rm "$file"
+    mv /tmp/${file##*/} "$file"
+    chmod $PERM "$file"
+   fi
 
 done
