@@ -38,8 +38,8 @@ do
   else
    sed -i".BAK" "$lineNR i\TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)" "$file"
    test $? = 0 && { rm "${file}.BAK"; } || break
-   geany "$file"
-   break
+   #geany "$file"
+   #break
    sleep 1
   fi
 
