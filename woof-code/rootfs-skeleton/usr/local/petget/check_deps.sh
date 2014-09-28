@@ -15,6 +15,7 @@ ADD_PARAMETER_LIST="PLG_LIST"
 ADD_PARAMETERS="Package List: |-delimited line of pkg names"
 _provide_basic_parameters
 
+TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="Helper script for PPM .
 $_COMMENT_"
 _parse_basic_parameters "$@"
