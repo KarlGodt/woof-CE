@@ -166,23 +166,23 @@ export PATH
 
 case "`uname`" in
     HP-UX* | AIX* | SINIX*)
-        pid=`ps -e | awk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+        pids=`ps -e | awk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
         ;;
     IRIX* | SunOS*)
-        pid=`ps -e | nawk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+        pids=`ps -e | nawk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
         ;;
     UnixWare*)
-        pid=`ps -e | awk '{if (match($6, ".*/cupsd$") || $6 == "cupsd") print $1}'`
+        pids=`ps -e | awk '{if (match($6, ".*/cupsd$") || $6 == "cupsd") print $1}'`
         . /etc/TIMEZONE
         ;;
     OSF1*)
-        pid=`ps -e | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+        pids=`ps -e | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
         ;;
     Linux* | *BSD* | Darwin*)
-        pid=`ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+        pids=`/bin/ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
         ;;
     *)
-        pid=""
+        pids=""
         ;;
 esac
 
@@ -190,13 +190,35 @@ esac
 # Start or stop the CUPS server based upon the first argument to the script.
 #
 
+test -f /var/run/cups/cupsd.pid && read CUPSD_PID </var/run/cups/cupsd.pid
+
+if test ! "$CUPSD_PID" -a "$pids"; then
+ for aPID in $pids
+  do
+  ETIMES="$ETIMES
+`ps --no-header -p $aPID -o etime,pid | sed 's%^ *%%'`"
+ done
+fi
+ETIMES=`echo "$ETIMES" | sort -n -k 2 -t '-'`
+echo "ETIMES='$ETIMES'"
+
+test "$CUPSD_PID" && pid=$CUPSD_PID || {
+pid=`echo "$ETIMES" | tail -n1 | awk '{print $2}'`
+pidsOTHER=`echo "$ETIMES" | awk '{print $2}' | grep -v -w "$pid"`
+}
+
+. /etc/rc.d/f4puppy5
+
+WHAT="$1"
 case $1 in
     start | restart | reload)
 
+    CUPSD_OPTIONS=''
+
     # load drivers
-    modprobe -v parport_pc
-    modprobe -v lp
-    modprobe -v usblp
+    modprobe -v parport_pc 2>$ERR
+    modprobe -v lp         2>$ERR
+    modprobe -v usblp      2>$ERR
 
     # make device nodes
     test -e /dev/lp0 || mknod /dev/lp0 c 6 0
@@ -204,35 +226,69 @@ case $1 in
     test -e /dev/unknown-parallel0 || ln -s lp0 /dev/unknown-parallel0
     test -L /dev/unknown-parallel0 || { _secure_demove /dev/unknown-parallel0; ln -s lp0 /dev/unknown-parallel0; }
 
+    # permissions
+    chmod 0666 /dev/urandom
+    chmod 0666 /dev/random
+
         if $IS_ON cups; then
+
+            for aPID in $pidsOTHER; do kill $aPID; done
+
             if test "$pid" != ""; then
+                test "$WHAT" = start && WHAT=restart
                 kill -HUP $pid
             else
+                test "$WHAT" = restart -o "$WHAT" = reload && WHAT=start
                 prefix=/
                 exec_prefix=/usr
-                /usr/sbin/cupsd
+                /usr/sbin/cupsd $CUPSD_OPTIONS
                 if test $? != 0; then
                     $ECHO_FAIL
-                    $ECHO "cups: unable to $1 scheduler."
+                    $ECHO "cups: unable to $WHAT scheduler."
                     exit 1
                 fi
             fi
-            $ECHO_OK
-            $ECHO "cups: ${1}ed scheduler."
+            if test $? = 0; then
+
+             test -f /var/run/cups/cupsd.pid && read CUPSD_PID </var/run/cups/cupsd.pid
+             test "$CUPSD_PID" || CUPSD_PID=`pidof cupsd`
+
+             $ECHO_OK
+             $ECHO "cups: ${WHAT}ed scheduler with PID '$CUPSD_PID' ."
+            else
+             $ECHO_FAIL
+             $ECHO "cups: unable to $WHAT scheduler."
+            fi
+
+        else
+          $ECHO_FAIL
+          $ECHO "cups: IS_ON not true, not ${1}ed scheduler."
         fi
+
         ;;
 
     stop)
+
+        for aPID in $pidsOTHER; do kill $aPID; done
+
         if test "$pid" != ""; then
             kill $pid
-            $ECHO_OK
-            $ECHO "cups: stopped scheduler."
+            if test $? = 0; then
+             $ECHO_OK
+             $ECHO "cups: stopped scheduler."
+            else
+             $ECHO_FAIL
+             $ECHO "cups: unable to $1 scheduler."
+            fi
+        else
+          $ECHO_OK
+          $ECHO "cups: Not running."
         fi
         ;;
 
     status)
         if test "$pid" != ""; then
-            echo "cups: scheduler is running."
+            echo "cups: scheduler is running with PID '$pid' ."
         else
             echo "cups: scheduler is not running."
         fi
