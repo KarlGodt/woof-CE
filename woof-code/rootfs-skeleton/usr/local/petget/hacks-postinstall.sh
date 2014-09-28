@@ -21,6 +21,7 @@ ADD_PARAMETERS="INSTALLEDPKG : Long package name without .ext
 INSTALLEDNAME: (any) For 78->96 fonsize hack."
 _provide_basic_parameters
 
+TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="Helper script for PPM ."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
