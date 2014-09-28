@@ -18,7 +18,7 @@ _provide_basic_parameters
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
-  for oneSHIFT in 1; do shift; done; }
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
 
 _trap
 }
