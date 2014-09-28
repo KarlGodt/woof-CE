@@ -1,7 +1,7 @@
 #!/bin/ash
 
 
-DRY=1
+DRY=
 
 pwd
 
@@ -34,8 +34,8 @@ do
   else
    sed -i".BAK" 's%^source /etc/rc\.d/f4puppy5$%\[ "$HAVE_F4PUPPY5" \] || source /etc/rc\.d/f4puppy5%' "$file"
    test $? = 0 && { rm "${file}.BAK"; } || break
-   geany "$file"
-   break
+   #geany "$file"
+   #break
    sleep 1
   fi
 
