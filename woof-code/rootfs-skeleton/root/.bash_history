@@ -11893,3 +11893,157 @@ pwd
 ls
 ls ../
 cd ..
+./update_files_from_running_system 
+cupsd
+ps -l
+ps -l -c
+ps -o cutime,cstime,utime
+ps -o cutime,cstime,utime,args
+ps -a -o cutime,cstime,utime,args
+ps -A -o cutime,cstime,utime,args
+ps -A -o cutime,cstime,utime,start_time,priority,args
+ps -A -o xtime,cutime,cstime,utime,start_time,priority,args
+ps -A -o time,cutime,cstime,utime,start_time,bsdtime,priority,args
+ps -A -o time,cutime,cstime,utime,start_time,bsdtime,cputime,priority,args
+ps -A -w -o time,cutime,cstime,utime,start_time,bsdtime,cputime,priority,args
+ps -A -w -o time,cutime,cstime,utime,start_time,bsdtime,cputime,etime,priority,args
+ps -A -w -o utime,start_time,bsdtime,cputime,etime,priority,args
+ps -A -w -o start_time,bsdtime,cputime,etime,priority,args
+uptime
+ps -A -w -o start_time,bsdtime,cputime,etime,priority,args | grep cups
+ps -A -o etime
+ps -A -w -o pid,etime,args | grep cups
+ps -A -p 7492 -o etime
+ps -p 7492 -o etime
+ps -p 7492 --no-header -o etime
+ps -A -w -o pid,etime,args | grep cups
+ps -p 29370 --no-header -o etime
+ps -p 29370 --no-header -o etime | tr -d ' '
+S="1-03:29:19
+03:04"
+echo "$S"
+echo "$S" | sort -r
+echo "$S" | sort -R
+echo "$S" | sort -n
+echo "$S" | sort -gn
+echo "$S" | sort -g
+S="1-03:29:19
+03:04
+5-12:23:45
+15-13:56:55"
+echo "$S" | sort -g
+echo "$S" | sort -n
+echo "$S" | sort -r
+echo "$S" | sort -R
+echo "$S" | sort -r
+echo "$S" | sort -n
+echo "$S" | busybox sort -n
+echo "$S" | busybox sort
+echo "$S" | sort
+echo "$S" | sort -n -k 1 -t '-'
+echo "$S" | sort -n -k 1,1 -t '-'
+echo "$S" | sort -n -k 1,2 -t '-'
+echo "$S" | sort -n -k 2 -t '-'
+/etc/init.d/DRIVER/cups status
+/etc/init.d/DRIVER/cups restart
+/etc/init.d/DRIVER/cups status
+/etc/init.d/DRIVER/cups stop
+/etc/init.d/DRIVER/cups start
+ls /var
+ls /var/run
+ls /var/run/cups
+find /var -name "cups*.pid"
+/etc/init.d/DRIVER/cups start
+/etc/init.d/DRIVER/cups status
+/etc/init.d/DRIVER/cups stop
+/etc/init.d/DRIVER/cups status
+/etc/init.d/DRIVER/cups restart
+/etc/init.d/DRIVER/cups start
+/etc/init.d/DRIVER/cups stop
+/etc/init.d/DRIVER/cups status
+/etc/init.d/DRIVER/cups restart
+/etc/init.d/DRIVER/cups start
+man ps
+git daemon --verbose
+git daemon --verbose --port=9418 --listen=localhost
+git daemon --verbose --export-all --port=9418 --listen=localhost
+git daemon --verbose --export-all --syslog --port=9418 --listen=localhost
+git daemon --verbose --export-all --syslog --port=9418 --listen=localhost $PWD
+echo "$PWD"
+git daemon --verbose --export-all --syslog --port=9418 --listen=localhost $PWD
+pwd
+cd ..
+cit clone --bare /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d git-Fox3-Dell755-server.d.git
+git clone --bare /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d git-Fox3-Dell755-server.d.git
+touch git-Fox3-Dell755-server.d.git/git-daemon-export-ok
+cd git-Fox3-Dell755-server.d.git/
+git daemon --verbose --export-all --syslog --port=9418 --listen=localhost $PWD
+df
+df
+date
+while [ "`pidof mksquashfs`" ]; do sleep 1; done;date
+mkdir RSYNC.d
+cd RSYNC.d
+pwd
+rsync_dirs
+pwd
+cd ..
+ls
+mksquashfs RSYNC.d/ Fox3-Dell755-2014-09-28.sfs
+df
+ls
+rm -rf RSYNC.d/*
+df
+man smartctl
+smartctl -A /dev/sdc
+smartctl -A /dev/sdd
+smartctl -A -d ata /dev/sdc
+smartctl -A -d scsi /dev/sdc
+smartctl -A -d sat /dev/sdc
+smartctl -A -d sat /dev/sdd
+smartctl -A -d scsi /dev/sdd
+smartctl -A -d ata /dev/sdd
+smartctl -A -d sat,12 /dev/sdd
+smartctl -A -d sat,16 /dev/sdd
+smartctl -A -d sat -T /dev/sdc
+smartctl -A -d sat -T normal /dev/sdc
+smartctl -A -d sat -T normal /dev/sdd
+smartctl -A -d sat,12 -T normal /dev/sdd
+smartctl -A -d sat,16 -T normal /dev/sdd
+smartctl -A -d sat,10 -T normal /dev/sdd
+smartctl -A -d sat,0 -T normal /dev/sdd
+smartctl -A -d scsi,0 -T normal /dev/sdd
+smartctl -A -d scsi -T  /dev/sdd
+smartctl -A -d scsi -T conservative  /dev/sdd
+smartctl -A -d scsi -T permissive  /dev/sdd
+smartctl -A -d scsi -T verypermissive  /dev/sdd
+smartctl -A -d scsi -T verypermissiveX  /dev/sdd
+smartctl -A -d sat -T verypermissive  /dev/sdd
+smartctl -A -s on -d sat -T verypermissive  /dev/sdd
+smartctl -A -s on -d sat -T verypermissive  /dev/sr0
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr0
+smartctl -A -s on -d ata -T verypermissive  /dev/sr0
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr0
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr1
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr2
+smartctl -A -s on -d sat -T verypermissive  /dev/sr2
+smartctl -A -s on -d sat -T verypermissive  /dev/sr1
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr1
+smartctl -A -s on -d scsi -T verypermissive  /dev/sr0
+smartctl -A /dev/sdb
+echo $((2219/24))
+smartctl -A /dev/sdb
+probedisk2
+mount
+smartctl -A /dev/sda
+echo $((2946/24))
+smartctl -A /dev/sda
+geany `which xorgwizard-cli`
+ps ax | grep cups
+
+Sun Sep 28 12:58:49 GMT+1 2014
+
+probedisk2
+
+Sun Sep 28 20:40:09 GMT+1 2014
+
