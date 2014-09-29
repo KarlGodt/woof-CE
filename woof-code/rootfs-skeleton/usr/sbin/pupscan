@@ -9,7 +9,9 @@
 
   _TITLE_="Puppy_Hardware_Info"
 _VERSION_=1.0omega
-_COMMENT_="GTKdialog GUI to display Hardware and Driver information"
+_COMMENT_="GTKdialog GUI to display Hardware and Driver information
+using scanpci binary from Xorg server package
+(Xorg -version up to 1.4.x)"
 
 MY_SELF="$0"
 MY_PID=$$
@@ -22,16 +24,23 @@ ADD_PARAMETERS="--silent : Just generate files, no GUI."
 _provide_basic_parameters
 
 TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
-ADD_HELP_MSG="Multipurpose GTKdialog hardware diagnostic GUI ."
+ADD_HELP_MSG="Multipurpose GTKdialog hardware diagnostic Window.
+$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
 
 _trap
+INFO=1; DEBUG=1
 }
 
 
 [ "`echo $@ | grep ' *--silent *'`" != "" ] && SILENT=true || SILENT=false #v431
+
+tmpDIR="/tmp/${0##*/}"
+rm -rf "$tmpDIR"
+mkdir "$tmpDIR" 2>$ERR
+
 KERNVER=`uname -r`
 ZDRV='' #set in PUPSTATE.
 #variables created at bootup by init script in initrd...
@@ -39,12 +48,18 @@ ZDRV='' #set in PUPSTATE.
 #v4.02 common functions...
 . /etc/rc.d/functions4puppy4
 
+yaf-splash -bg orange -text "Scanning Drivers, PCI and USB ports...Please wait" &
+yPID=$!
+
+_info "Building Module item s..."
 MODITEMS=""
 for oneMOD in `lsmod | grep -v '^Module ' | cut -f 1 -d ' '`
 do
  MODITEMS="$MODITEMS<item>$oneMOD</item>"
 done
+_debug "DONE Building Module item s"
 
+_info "Building PCI list ..."
 #PCINUMS=`lspci -n | tr -s " " | cut -f 4 -d " " | tr "\n" " "`
 
 #v4.02 all mods now present...
@@ -72,16 +87,18 @@ fi
 [ "$RULEMODINFO" != "" ] && PCIMODINFO="$RULEMODINFO
 $PCIMODINFO"
 
-echo "PCIMODINFO='$PCIMODINFO'" >&2
+_debugx "PCIMODINFO='$PCIMODINFO'" >&2
 
-echo -n "" > /tmp/chipnummod.txt
+echo -n "" > "$tmpDIR"/chipnummod.txt
 if [ "`which scanpci`" = "" ];then
  echo "PCI scan utility scanpci not available. This must be a
 cutdown Puppy (scanpci is part of the Xorg package).
 Simplified information only is displayed here:
-"  >> /tmp/chipnummod.txt
- elspci -l  >> /tmp/chipnummod.txt
+"  >> "$tmpDIR"/chipnummod.txt
+ _notice "Using elspci -l"
+ elspci -l  >> "$tmpDIR"/chipnummod.txt
 else
+ _warn "Using scanpci - scanpci is not supported in Xorg version 1.5 and above"
  scanpci 2>&1 |
  while read oneLINE
  do
@@ -103,21 +120,23 @@ else
     [ ! "`elspci -l | grep -i "$UPATTERN" | grep '0C0310'`" = "" ] && MODULE="ohci-hcd"
     [ ! "`elspci -l | grep -i "$UPATTERN" | grep '0C0320'`" = "" ] && MODULE="ehci-hcd"
    fi
-      echo "DESCRIPTION: $CHIPDESC" >> /tmp/chipnummod.txt
-   echo "VENDOR: $VENDOR  DEVICE: $CHIPNO  KERNEL MODULE: $MODULE" >> /tmp/chipnummod.txt
-   echo  >> /tmp/chipnummod.txt
+      echo "DESCRIPTION: $CHIPDESC" >> "$tmpDIR"/chipnummod.txt
+   echo "VENDOR: $VENDOR  DEVICE: $CHIPNO  KERNEL MODULE: $MODULE" >> "$tmpDIR"/chipnummod.txt
+   echo  >> "$tmpDIR"/chipnummod.txt
   fi
  done
- [ $? = 0 ] || echo 'Error occurred while running scanpci.' >> /tmp/chipnummod.txt
+ [ $? = 0 ] || echo 'Error occurred while running scanpci.' >> "$tmpDIR"/chipnummod.txt
 fi
 
-[ ! -s /tmp/chipnummod.txt ] && echo "No PCI interfaces" > /tmp/chipnummod.txt #v3.01
+[ ! -s "$tmpDIR"/chipnummod.txt ] && echo "No PCI interfaces" > "$tmpDIR"/chipnummod.txt #v3.01
 
-#     <action>/tmp/formatfunc.sh 30</action>
+#     <action>$tmpDIR/formatfunc.sh 30</action>
+_debug "DONE Building PCI list"
 
+_info "Building USB list ..."
 #v2.17 usb devices...
 USBSECTION=""
-echo -n "" > /tmp/usbchipnummod.txt
+echo -n "" > "$tmpDIR"/usbchipnummod.txt
 #if [ -e /proc/bus/usb ];then
 
 #v4.02...
@@ -137,8 +156,9 @@ test -f /sys/kernel/debug/usb/devices && USB_DEVICES=/sys/kernel/debug/usb/devic
 
 
   test -f "$USB_DEVICES" && {
+  _notice "Using '$USB_DEVICES'"
   USBNUMS=`cat "$USB_DEVICES" | grep '^P: ' | tr -s ' ' | cut -f 2-3 -d ' ' | tr ' ' '|' | tr [A-Z] [a-z]`
-  } || USBNUMS=`lsusb`
+  } || { _warn "Using lsusb - please enable debugfs in kernel since 3.5 and above"; USBNUMS=`lsusb`; }
 
   for oneNUM in $USBNUMS
   do
@@ -150,8 +170,8 @@ test -f /sys/kernel/debug/usb/devices && USB_DEVICES=/sys/kernel/debug/usb/devic
 
    YESPARA=no
    USBMODULE=""
-   rm -f /tmp/usbmodulexxx
-   echo -n "" > /tmp/usbdevdescr
+   rm -f "$tmpDIR"/usbmodulexxx
+   echo -n "" > "$tmpDIR"/usbdevdescr
    test -f "$USB_DEVICES" && {
    cat "$USB_DEVICES" | tr -s ' ' |
    while read oneLINE
@@ -160,27 +180,27 @@ test -f /sys/kernel/debug/usb/devices && USB_DEVICES=/sys/kernel/debug/usb/devic
     [ "`echo -n "$oneLINE" | grep "$zPATTERN"`" != "" ] && YESPARA=yes
     if [ "$YESPARA" = "yes" ];then
      xDRIVER=`echo -n "$oneLINE" | grep '^I:' | grep -o ' Driver=.*' | cut -f 2 -d '='`
-     [ "$xDRIVER" != "" ] && echo -n "$xDRIVER" > /tmp/usbmodulexxx
+     [ "$xDRIVER" != "" ] && echo -n "$xDRIVER" > "$tmpDIR"/usbmodulexxx
      xDESCR=`echo -n "$oneLINE" | grep '^S:' | cut -f 2-20 -d ' '`
-     [ "$xDESCR" != "" ] && echo "$xDESCR" >> /tmp/usbdevdescr
+     [ "$xDESCR" != "" ] && echo "$xDESCR" >> "$tmpDIR"/usbdevdescr
      [ "$oneLINE" = "" ] && break
     fi
    done
-   }  || touch /tmp/usbdevdescr /tmp/usbmodulexxx
-   [ ! -s /tmp/usbdevdescr ] && [ "`grep ' ' /tmp/usbmodulexxx`" != "" ] && echo "Product=`cat /tmp/usbmodulexxx`" > /tmp/usbdevdescr && rm /tmp/usbmodulexxx #v425
-   [ -f /tmp/usbmodulexxx ] && USBMODULE=`cat /tmp/usbmodulexxx`
+   }  || touch "$tmpDIR"/usbdevdescr "$tmpDIR"/usbmodulexxx
+   [ ! -s "$tmpDIR"/usbdevdescr ] && { [ "`grep ' ' "$tmpDIR"/usbmodulexxx`" != "" ] && { echo "Product=`cat $tmpDIR/usbmodulexxx`" > "$tmpDIR"/usbdevdescr; rm "$tmpDIR"/usbmodulexxx; }; } #v425
+   [ -f "$tmpDIR"/usbmodulexxx ] && USBMODULE=`cat "$tmpDIR"/usbmodulexxx`
 
    [ "$USBMODULE" = "" ] && USBMODULE=`echo "$USBMODINFO" | grep "$oneUSB" | cut -f 3 -d ' ' | tail -n 1` #v425
 
-   #echo "DESCRIPTION: $CHIPDESC" >> /tmp/usbchipnummod.txt
-   cat /tmp/usbdevdescr >> /tmp/usbchipnummod.txt
-   echo "VendorID=$VENDOR  ProductID=$PRODUCT  KERNEL-MODULE=$USBMODULE" >> /tmp/usbchipnummod.txt
-   echo  >> /tmp/usbchipnummod.txt
+   #echo "DESCRIPTION: $CHIPDESC" >> "$tmpDIR"/usbchipnummod.txt
+   cat "$tmpDIR"/usbdevdescr >> "$tmpDIR"/usbchipnummod.txt
+   echo "VendorID=$VENDOR  ProductID=$PRODUCT  KERNEL-MODULE=$USBMODULE" >> "$tmpDIR"/usbchipnummod.txt
+   echo  >> "$tmpDIR"/usbchipnummod.txt
 
   done
  #} ||  USBNUMS=`lsusb`
 
-[ ! -s /tmp/usbchipnummod.txt ] && echo "No plugged-in USB devices" > /tmp/usbchipnummod.txt #v3.01
+[ ! -s "$tmpDIR"/usbchipnummod.txt ] && echo "No plugged-in USB devices" > "$tmpDIR"/usbchipnummod.txt #v3.01
 
   USBSECTION="
   <frame USB devices>
@@ -189,7 +209,7 @@ test -f /sys/kernel/debug/usb/devices && USB_DEVICES=/sys/kernel/debug/usb/devic
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/usb16.xpm</input>
-     <action>cp -f /tmp/usbchipnummod.txt /tmp/hwproberesult.txt</action>
+     <action>cp -f $tmpDIR/usbchipnummod.txt $tmpDIR/hwproberesult.txt</action>
      <action>refresh:INFO</action>
     </button>
    </vbox>
@@ -198,6 +218,8 @@ test -f /sys/kernel/debug/usb/devices && USB_DEVICES=/sys/kernel/debug/usb/devic
 "
 
 #fi #USB
+USBSECTION=`_GTKdialog_remove_comments "$USBSECTION"`
+_debug "DONE Building USB list"
 
 MAINDIALOG="
 <wtitle>Puppy hardware Driver and Interfaces information</wtitle>
@@ -210,7 +232,7 @@ MAINDIALOG="
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/module16.xpm</input>
-     <action>eval /tmp/hwprobelsmod</action>
+     <action>eval $tmpDIR/hwprobelsmod</action>
      <action>refresh:INFO</action>
     </button>
    </vbox>
@@ -224,7 +246,7 @@ MAINDIALOG="
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/module16.xpm</input>
-     <action>eval /tmp/hwprobemodinfo \$MODCOMBO</action>
+     <action>eval $tmpDIR/hwprobemodinfo \$MODCOMBO</action>
      <action>refresh:INFO</action>
     </button>
    </vbox>
@@ -237,7 +259,7 @@ MAINDIALOG="
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/Card.xpm</input>
-     <action>cp -f /tmp/chipnummod.txt /tmp/hwproberesult.txt</action>
+     <action>cp -f $tmpDIR/chipnummod.txt $tmpDIR/hwproberesult.txt</action>
      <action>refresh:INFO</action>
     </button>
    </vbox>
@@ -249,7 +271,7 @@ MAINDIALOG="
   <frame result>
    <edit>
     <variable>INFO</variable>
-    <input file>/tmp/hwproberesult.txt</input>
+    <input file>$tmpDIR/hwproberesult.txt</input>
     <width>450</width>
     <height>300</height>
    </edit>
@@ -262,63 +284,75 @@ MAINDIALOG="
   </hbox>
  </vbox>
 </hbox>
+
+<!-- NOT USED Other Interfaces -->
+<!--
+  <frame Other Interfaces>
+  <hbox>
+   <text><label>Information about USB interfaces:</label></text>
+   <vbox>
+    <button>
+     <input file>/usr/local/lib/X11/mini-icons/usb16.xpm</input>
+     <action>usbview &</action>
+    </button>
+   </vbox>
+  </hbox>
+  </frame>
+-->
 "
+MAINDIALOG=`_GTKdialog_remove_comments "$MAINDIALOG"`
 
-#  <frame Other interfaces>
-#  <hbox>
-#   <text><label>Information about USB interfaces:</label></text>
-#   <vbox>
-#    <button>
-#     <input file>/usr/local/lib/X11/mini-icons/usb16.xpm</input>
-#     <action>usbview &</action>
-#    </button>
-#   </vbox>
-#  </hbox>
-#  </frame>
-
-rm -f /tmp/hwproberesult.txt #v425 erase stale info
+rm -f "$tmpDIR"/hwproberesult.txt #v425 erase stale info
 
 if [ "`which scanpci`" = "" ];then
- echo 'echo "This must be a cutdown Puppy that does not have the scanpci utility
+ echo "echo 'This must be a cutdown Puppy that does not have the scanpci utility
 (which is part of the Xorg package). So, cannot give a detailed
 report on the PCI bus. Instead can display this summary only. The
 most useful information here is the vendor:chip numbers (column-3):
-" >/tmp/hwproberesult.txt
-lspci -n >>/tmp/hwproberesult.txt'  >/tmp/hwprobescanpci
+' >$tmpDIR/hwproberesult.txt
+lspci -n >>$tmpDIR/hwproberesult.txt"  >"$tmpDIR"/hwprobescanpci
 else
- #echo '#!/bin/sh' >/tmp/hwprobescanpci.sh
- echo 'scanpci >/tmp/hwproberesult.txt' >/tmp/hwprobescanpci
+ #echo '#!/bin/sh' >"$tmpDIR"/hwprobescanpci.sh
+ echo "scanpci >$tmpDIR/hwproberesult.txt" >"$tmpDIR"/hwprobescanpci
 fi
-chmod 755 /tmp/hwprobescanpci
+chmod 755 "$tmpDIR"/hwprobescanpci
 
-echo 'lsmod >/tmp/hwproberesult.txt' >/tmp/hwprobelsmod
-chmod 755 /tmp/hwprobelsmod
-echo 'modinfo $1 > /tmp/hwproberesult.txt 2>&1' >/tmp/hwprobemodinfo
-chmod 755 /tmp/hwprobemodinfo
+echo "lsmod >$tmpDIR/hwproberesult.txt" >"$tmpDIR"/hwprobelsmod
+chmod 755 "$tmpDIR"/hwprobelsmod
+echo "modinfo \$1 >$tmpDIR/hwproberesult.txt 2>&1" >"$tmpDIR"/hwprobemodinfo
+chmod 755 "$tmpDIR"/hwprobemodinfo
 
+__old_gtk2rc(){  #BEGIN
 #v3.98 improved...
-##i don't know enough about themes to do this any better...
-#[ -f /etc/gtk-2.0/gtkrc ] && cp -f /etc/gtk-2.0/gtkrc /tmp/gtkrc-pupscan
-#cp -f /etc/gtk-2.0/gtkrcMONOSPACED-APPEND /etc/gtk-2.0/gtkrc
-#echo '#!/bin/sh
-# sleep 2
-# if [ -f /tmp/gtkrc-pupscan ];then
-#  cp -f /tmp/gtkrc-pupscan /etc/gtk-2.0/gtkrc
-# else
-#  rm /etc/gtk-2.0/gtkrc
-# fi
-#' > /tmp/delaygtkrc.sh
-#chmod 755 /tmp/delaygtkrc.sh
-#/tmp/delaygtkrc.sh &
+## I don't know enough about themes to do this any better...
+[ -f /etc/gtk-2.0/gtkrc ] && cp -f /etc/gtk-2.0/gtkrc "$tmpDIR"/gtkrc-pupscan
+cp -f /etc/gtk-2.0/gtkrcMONOSPACED-APPEND /etc/gtk-2.0/gtkrc
+echo '#!/bin/sh
+sleep 2
+if [ -f "$tmpDIR"/gtkrc-pupscan ];then
+ cp -f "$tmpDIR"/gtkrc-pupscan /etc/gtk-2.0/gtkrc
+else
+ rm /etc/gtk-2.0/gtkrc
+fi
+' > "$tmpDIR"/delaygtkrc.sh
+chmod 755 "$tmpDIR"/delaygtkrc.sh
+"$tmpDIR"/delaygtkrc.sh &
+}  ###__old_gtk2rc__(){  #END
+
 echo 'style "specialmono"
 {
   font_name="Mono 12"
 }
 
-class "GtkText*" style "specialmono"' > /tmp/gtkrc_mono
-export GTK2_RC_FILES=/tmp/gtkrc_mono:/$HOME/.gtkrc-2.0
+class "GtkText*" style "specialmono"' > "$tmpDIR"/gtkrc_mono
+#export GTK2_RC_FILES="$tmpDIR"/gtkrc_mono:/$HOME/.gtkrc-2.0
+if test -e "$GTK2_RC_FILES"; then
+ export GTK2_RC_FILES
+else
+ export GTK2_RC_FILES="$tmpDIR"/gtkrc_mono
+fi
 
-
+[ "$yPID" ] && kill $yPID 2>$ERR
 [ $SILENT != true ] && RETSTRING=`echo "$MAINDIALOG" | gtkdialog2 --stdin` #v431
 
 # Very End of this file 'usr/sbin/pupscan' #
