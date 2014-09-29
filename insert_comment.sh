@@ -40,7 +40,7 @@ cd `pwd`/woof-code/rootfs-skeleton/ || { echo "Could not change into `pwd`/woof-
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep $QUIET -viE 'ISO-8859|murga\-lua\-dynamic|perl|python|pascal|bacon|ASCII C program|C++ program|HTML document|X pixmap image|PNG image data' || { [ "$VERBOSE" ] && echo "$file is not a shell script file by detection"; continue; }
+   file "$file" | grep -i text | grep $QUIET -viE 'ISO-8859|murgaLua_Dynamic|perl|python|pascal|bacon|ASCII C program|C++ program|HTML document|X pixmap image|PNG image data' || { [ "$VERBOSE" ] && echo "$file is not a shell script file by detection"; continue; }
    case "$file" in
    *.txt|*.TXT|*rc|*.xpm|*.svg|*.png|*.jpg|*.wav|*.au|*.bac|*.dat|*.pupdev|*.gs|*Help)
    [ "$VERBOSE" ] && echo "$file is not a shell script file by EXT"; continue;;
