@@ -185,8 +185,9 @@ setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_to
 
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM && exec $CURRENTWM
-[ -x $CURRENTWM ] && exec $CURRENTWM
+which $CURRENTWM  && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+[ -x $CURRENTWM ] && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+echo 'jwm' >/etc/windowmanager
 exec jwm
 
 ###END###
