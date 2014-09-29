@@ -1,0 +1,557 @@
+#used in the main Woof scripts, inline common code.
+#INLINE_PASSED1 is name of calling script.
+#exs: findwoofinstalledpkgs, 1download, 2createpackages, rootfs-skeleton/usr/local/petget/findwoofinstalledpkgs.sh
+#100806 if compat-pkgs are PETs, automatically look for _DEV pkgs.
+#100820 replace /var/cache/woof path with /var/local/woof
+
+#puppy package database format:
+#pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|compileddistro|compiledrelease|repo|
+#...'compileddistro|compiledrelease' (fields 11,12) identify where the package was compiled.
+#ex:  bc-1.06.95|bc|1.06.95|1|BuildingBlock|240K|slackware/ap|bc-1.06.95-i486-1.tgz|+ncurses,+readline,+glibc|An arbitrary precision calculator language|
+#ex last 3:  slackware|12.2|official|
+
+#100730 if subdir field not specified in pet.specs, use this...
+REPO_DEFAULT_SUBDIR="pet_packages-${DISTRO_COMPAT_VERSION}"
+
+#cut out any to be excluded ( '-' prefix)...
+BINARYEXCLUDED="`echo "$BINARYPARTNAMES" | tr ' ' '\n' | grep '^-' | sed -e 's/^-//' | tr '\n' ' '`"
+BINARYPARTNAMES="`echo "$BINARYPARTNAMES" | tr ' ' '\n' | grep -v '^-' | tr '\n' ' '`"
+
+for ONEBINARYPARTNAME in $BINARYPARTNAMES #may be space-delimited list.
+do
+ [ "$ONEBINARYPARTNAME" = "" ] && continue
+ devPATTERN="" #100806
+
+ #i think that dashes need to be backslashed...
+ xpPATTERN="`echo -n "$ONEBINARYPARTNAME" | sed -e 's%\\-%\\\\-%g'`"
+ #ONEBINARYPARTNAME may have blob * wildcard, change to reg.expr....
+ xpPATTERN="`echo -n "$xpPATTERN" | sed -e 's%\\*%.*%g'`"
+ #w020 if has '*' on end, then look in full pkg name...
+ if [ "`echo -n "$ONEBINARYPARTNAME" | grep '\\*$'`" != "" ];then
+  #for cases where partname is like 'gcc-4'...
+  pPATTERN='^'"$xpPATTERN"
+ else
+  pPATTERN='|'"$xpPATTERN"'|'
+  if [ "$DISTRO_BINARY_COMPAT" == "puppy" ];then #100806
+   if [ "`echo -n "$xpPATTERN" | grep '_DEV'`" == "" ];then
+    #ONEPKGSPEC is line from PKGS_SPECS_TABLE, see caller script...
+    [ "`echo -n "$ONEPKGSPEC" | cut -f 4 -d '|' | grep 'dev'`" != "" ] && devPATTERN='|'"${xpPATTERN}_DEV"'|'
+   fi
+  fi
+ fi
+ 
+ case $INLINE_PASSED1 in
+  1download)
+   FILESPEC="`cat $PKGLISTS_COMPAT | grep "$pPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' ' | tr -s ' ' | sed -e 's% $%%'`"
+   #...ex: pool/main/a/aide/aide_0.13.1-10ubuntu1_i386.deb pool/main/a/aide/aide-common_0.13.1-10ubuntu1_all.deb
+   devFILESPEC="" #100806
+   [ "$devPATTERN" ] && devFILESPEC="`cat $PKGLISTS_COMPAT | grep "$devPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' ' | tr -s ' ' | sed -e 's% $%%'`"
+   for ONEFILE in $FILESPEC $devFILESPEC
+   do
+    if [ "`echo "$ONEFILE" | cut -c 1`" == "/" ];then #100730 no subdir then use default...
+     ONEFILE=${REPO_DEFAULT_SUBDIR}${ONEFILE}
+    fi
+    #currently only applies to arch (see 0setup)...
+    ONEFILE="`echo -n "$ONEFILE" | sed -e 's%ARCHTYPE%-i686%'`"
+    #...probably don't need this anymore ###NOTE###
+    ONEFILE_BASE="`basename $ONEFILE`"
+    if [ "$BINARYEXCLUDED" != "" ];then
+     for ONEEXCLUDED in $BINARYEXCLUDED
+     do
+      oePATTERN="/${ONEEXCLUDED}"
+      #ONEEXCLUDED may have blob * wildcard, change to reg.expr....
+      oePATTERN="`echo -n "$oePATTERN" | sed -e 's%\*%.*%g'`"
+      if [ "`echo -n "$ONEFILE" | grep "$oePATTERN"`" != "" ];then
+       echo " ...excluding $ONEFILE_BASE"
+       continue 2
+      fi
+     done
+    fi
+    #check if already downloaded...
+    [ -f packages-${BINARIES}/$ONEFILE_BASE ] && continue
+    #arch is a bit awkward, as the pkg may or may not have '-i686' in the name...
+    if [ "$DISTRO_BINARY_COMPAT" = "arch" ];then
+     altONEFILE_BASE="`echo -n "$ONEFILE_BASE" | sed -e 's%\-i686\.pkg%.pkg%'`"
+     [ -f packages-${BINARIES}/$altONEFILE_BASE ] && continue
+    fi
+    #...probably don't need this anymore ###NOTE###
+    #use wget to see if pkg on a repository, if not try a secondary repo, then a third.
+    #if found, download to packages-${BINARIES} (packages-deb).
+    #if fail, log failure, request manual download.
+    SUCCESS='no'
+    for ONE_BIN_URL in $BIN_URLS
+    do
+     wget --spider --tries=1 --timeout=20 ${ONE_BIN_URL}/${ONEFILE} > /dev/null 2>&1
+     RETSPIDER=$?
+     if [ "$DISTRO_BINARY_COMPAT" = "arch" -a $RETSPIDER -ne 0 ];then #pkg naming inconsistency problem.
+      altONEFILE="`echo -n "$ONEFILE" | sed -e 's%\-i686\.pkg%.pkg%'`"
+      wget --spider --tries=1 --timeout=20 ${ONE_BIN_URL}/${altONEFILE} > /dev/null 2>&1
+      RETSPIDER=$?
+      if [ $RETSPIDER -eq 0 ];then
+       ONEFILE="$altONEFILE"
+       ONEFILE_BASE="$altONEFILE_BASE"
+      fi
+     fi
+     #...probably don't need this anymore ###NOTE###
+     [ $RETSPIDER -ne 0 ] && continue
+     cd packages-${BINARIES}
+     #rxvt -name pet -bg orange -geometry 80x10 -e wget ${ONE_BIN_URL}/${ONEFILE}
+     wget ${ONE_BIN_URL}/${ONEFILE}
+     sync
+     #check file downloaded correctly...
+     if [ -f $ONEFILE_BASE ];then
+      case $DISTRO_BINARY_COMPAT in #exs: ubuntu, debian
+       ubuntu|debian)
+        dpkg-deb --extract $ONEFILE_BASE tempdironly
+        [ $? -eq 0 ] && SUCCESS='yes'
+       ;;
+       arch)
+        gzip --test $ONEFILE_BASE > /dev/null 2>&1
+        [ $? -eq 0 ] && SUCCESS='yes'
+       ;;
+       slackware) #100617 support .txz...
+        xz --test $ONEFILE_BASE > /dev/null 2>&1
+        if [ $? -eq 0 ];then
+         SUCCESS='yes'
+        else
+         gzip --test $ONEFILE_BASE > /dev/null 2>&1
+         [ $? -eq 0 ] && SUCCESS='yes'
+        fi
+       ;;
+       puppy) #w017
+        SUCCESS='no'
+        PETPKG="`basename $ONEFILE_BASE .pet`"
+        cp -f ${PETPKG}.pet tempfileonly.pet
+        pet2tgz tempfileonly.pet
+        [ $? -eq 0 ] && SUCCESS='yes'
+        rm -f tempfileonly.pet 2>/dev/null
+        rm -f tempfileonly.tar.gz 2>/dev/null
+       ;;
+       t2)
+        bzip2 --test $ONEFILE_BASE > /dev/null 2>&1
+        [ $? -eq 0 ] && SUCCESS='yes'
+       ;;
+      esac
+      rm -rf tempdironly 2>/dev/null
+      [ "$SUCCESS" = "no" ] && rm -f ${ONEFILE_BASE}
+     fi
+     cd ..
+     [ "$SUCCESS" = "yes" ] && continue 2
+    done 
+    #failed to find it, log failure, request manual download...
+    echo "$ONEFILE_BASE" >> DOWNLOAD-FAILS-${BINARIES}
+   done
+  ;;
+
+  2createpackages)
+   BINARYPKGLIST="`cat $PKGLISTS_COMPAT | grep "$pPATTERN" | cut -f 8 -d '|'`"
+   #...ex: abiword-1.2.3-2.pkg.tar.gz
+   BINARYPKGLIST="`echo -n "$BINARYPKGLIST" | tr '\n' ' '`"
+   devBINARYPKGLIST=""
+   [ "$devPATTERN" ] && devBINARYPKGLIST="`cat $PKGLISTS_COMPAT | grep "$devPATTERN" | cut -f 8 -d '|' | tr '\n' ' '`" #100806
+   #Find version. in theory could be more than one hit, accept first only...
+   UPKGVERSION="`cat $PKGLISTS_COMPAT | grep "$pPATTERN" | head -n 1 | cut -f 3 -d '|'`"
+   #100723 need this for support/compat2pets...
+   echo "${GENERICNAME}|${UPKGVERSION}" >> /var/local/woof/2createpackages_4_compat2pets-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}
+   for ONEBINARYPKG in $BINARYPKGLIST $devBINARYPKGLIST #SPLIT EACH PKG
+   do
+    [ "$ONEBINARYPKG" = "" ] && continue
+    ONEBINARYPKG="./packages-${BINARIES}/${ONEBINARYPKG}"
+    if [ "$BINARYEXCLUDED" != "" ];then
+     for ONEEXCLUDED in $BINARYEXCLUDED
+     do
+      oePATTERN="/${ONEEXCLUDED}"
+      #ONEEXCLUDED may have blob * wildcard, change to reg.expr....
+      oePATTERN="`echo -n "$oePATTERN" | sed -e 's%\\*%.*%g'`"
+      if [ "`echo -n "$ONEBINARYPKG" | grep "$oePATTERN"`" != "" ];then
+       echo " ...excluding $ONEBINARYPKG"
+       continue 2
+      fi
+     done
+    fi
+    while [ ! -f $ONEBINARYPKG ];do
+     echo
+     echo "ERROR: ${ONEBINARYPKG} does not exist."
+     echo "Please find a package that matches, place it in packages-${BINARIES},"
+     echo -n "then press ENTER key to try again ('s' to skip): "
+     read TRYAGAIN
+     [ "$TRYAGAIN" = "s" ] && continue 2 #skip this pkg.
+    done
+    zPKGNAME="`basename $ONEBINARYPKG`" #keep extension.
+    #091211 CHANGED_ONLY commandline option...
+    cspPATTERN='|'"$zPKGNAME"'$'
+    if [ "$COMMANDLINE_CHOICE" = "CHANGED_ONLY" ];then
+     if [ "`grep "$cspPATTERN" /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}`" != "" ];then
+      echo " ...${zPKGNAME} already processed"
+      MISSPOSTPROC='yes'
+      continue
+     fi
+     groPATTERN='^'"$GENERICNAME"'|' #get rid of old entries...
+     grep -v "$groPATTERN" /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION} > /tmp/2createpackages-hbdd
+     mv -f /tmp/2createpackages-hbdd /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}
+     REMOVEDGENFLAG=1
+     #there is a problem, actually need to redo the whole thing afterward...
+     echo "$GENERICNAME" >> /tmp/2createpackages-redo
+     continue 3 #process next GENERICNAME
+    fi
+    echo "${GENERICNAME}|${zPKGNAME}" >> /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}
+    echo " processing $zPKGNAME"
+    case $DISTRO_BINARY_COMPAT in
+     ubuntu|debian)
+      PKGNAME="`basename $ONEBINARYPKG .deb`" #ex: bash_3.2-4ububtu1_i386
+      rm -rf sandbox2
+      mkdir sandbox2
+      dpkg-deb -x $ONEBINARYPKG sandbox2/
+      if [ $? -ne 0 ];then
+       echo "ERROR: failed to unpack $PKGNAME"
+       continue
+      fi
+     ;;
+     slackware)
+      #100617 add support for .txz...
+      SLACKEXT="`echo -n "$ONEBINARYPKG" | rev | cut -f 1 -d '.' | rev`" #exs: tgz, txz
+      rm -rf sandbox2
+      mkdir sandbox2
+      cp -a $ONEBINARYPKG sandbox2/
+      cd sandbox2
+      if [ "$SLACKEXT" == "tgz" ];then
+       PKGNAME="`basename ${ONEBINARYPKG} .tgz`" #ex: bash-3.2
+       tar -izxf ${PKGNAME}.tgz
+       RETVAL=$?
+       rm -f ${PKGNAME}.tgz
+      else
+       PKGNAME="`basename ${ONEBINARYPKG} .txz`" #ex: bash-3.2
+       tar -iJxf ${PKGNAME}.txz
+       RETVAL=$?
+       rm -f ${PKGNAME}.txz
+      fi
+      cd ..
+      if [ $RETVAL -ne 0 ];then
+       echo "ERROR: failed to unpack $PKGNAME"
+       continue
+      fi
+      #complication, may have a post-install script...
+      if [ -f sandbox2/install/doinst.sh ];then
+       chmod +x sandbox2/install/doinst.sh
+       #dunno why really, but move it to here...
+       cat sandbox2/install/doinst.sh > sandbox2/hack-install.sh
+       #...note, could have created FIXUPHACK which executes later in this script,
+       #   hack-install.sh also is executed near end of this script.
+       rm -rf sandbox2/install
+      fi
+     ;;
+     arch)
+      FULLPKGNAME="`basename $ONEBINARYPKG`"
+      PKGNAME="`basename $ONEBINARYPKG .pkg.tar.gz`" #ex: bash-3.2
+      PKGNAME="`echo -n "$PKGNAME" | sed 's%\-i686$%%'`"
+      rm -rf sandbox2
+      mkdir sandbox2
+      cp -a $ONEBINARYPKG sandbox2/
+      cd sandbox2
+      tar -zxf $FULLPKGNAME
+      RETVAL=$?
+      rm -f $FULLPKGNAME
+      cd ..
+      if [ $RETVAL -ne 0 ];then
+       echo "ERROR: failed to unpack $PKGNAME"
+       continue
+      fi
+     ;;
+     puppy) #w018
+      PKGNAME="`basename $ONEBINARYPKG .pet`" #ex: bash-3.2
+      rm -rf sandbox2
+      cp -a $ONEBINARYPKG ./
+      pet2tgz ${PKGNAME}.pet
+      if [ $? -eq 0 ];then
+       tar -zxf ${PKGNAME}.tar.gz
+       if [ $? -eq 0 ];then
+        mv -f $PKGNAME sandbox2
+       fi
+      fi
+      rm -f ${PKGNAME}.tar.gz 2>/dev/null
+      rm -f ${PKGNAME}.pet 2>/dev/null
+      if [ ! -d sandbox2 ];then
+       echo "ERROR: failed to unpack $PKGNAME"
+       continue
+      fi
+     ;;
+     t2)
+      FULLPKGNAME="`basename $ONEBINARYPKG`"
+      PKGNAME="`basename $ONEBINARYPKG .tar.bz2`" #ex: bash-3.2
+      rm -rf sandbox2
+      mkdir sandbox2
+      cp -a $ONEBINARYPKG sandbox2/
+      cd sandbox2
+      tar -jxf $FULLPKGNAME
+      RETVAL=$?
+      rm -f $FULLPKGNAME
+      cd ..
+      if [ $RETVAL -ne 0 ];then
+       echo "ERROR: failed to unpack $PKGNAME"
+       continue
+      fi
+     ;;
+    esac
+    #w006 multple slackware pkgs getting combined may mean more than one hack-install.sh...
+    [ -f /tmp/2createpackages-hackinstallsh ] && rm -f /tmp/2createpackages-hackinstallsh
+    [ -f sandbox2b/hack-install.sh ] && mv -f sandbox2b/hack-install.sh /tmp/2createpackages-hackinstallsh
+    #[ "`echo "$PKGNAME" | grep '\.pet$'`" != "" ] && FLAGPET='yes' #w018
+    #w019 fix .desktop files...
+    DEFICON='Executable.xpm'
+    FULLPKGNAME="`basename $ONEBINARYPKG`" #ex ONEBINARPKG=./packages-pet-2/abiword-2.4.5.pet
+    fnPATTERN='|'"$FULLPKGNAME"'|'
+    DB_ENTRY="`cat $PKGLISTS_COMPAT | grep "$fnPATTERN" | head -n 1`"
+    CATEGORY="`echo -n "$DB_ENTRY" | cut -f 5 -d '|'`"
+    #see also /usr/local/petget/installpkg.sh...
+    case $CATEGORY in
+     Desktop)    CATEGORY='Desktop;X-Desktop' ; DEFICON='mini.window3d.xpm' ;;
+     System)     CATEGORY='System' ; DEFICON='mini-term.xpm' ;;
+     Setup)      CATEGORY='Setup;X-SetupEntry' ; DEFICON='so.xpm' ;;
+     Utility)    CATEGORY='Utility' ; DEFICON='mini-hammer.xpm' ;;
+     Filesystem) CATEGORY='Filesystem;FileSystem' ; DEFICON='mini-filemgr.xpm' ;;
+     Graphic)    CATEGORY='Graphic;Presentation' ; DEFICON='image_2.xpm' ;;
+     Document)   CATEGORY='Document;X-Document' ; DEFICON='mini-doc1.xpm' ;;
+     Calculate)  CATEGORY='Calculate;X-Calculate' ; DEFICON='mini-calc.xpm' ;;
+     Personal)   CATEGORY='Personal;X-Personal' ; DEFICON='mini-book2.xpm' ;;
+     Network)    CATEGORY='Network' ; DEFICON='pc-2x.xpm' ;;
+     Internet)   CATEGORY='Internet;X-Internet' ; DEFICON='pc2www.xpm' ;;
+     Multimedia) CATEGORY='Multimedia;AudioVideo' ; DEFICON='Animation.xpm' ;;
+     Fun)        CATEGORY='Fun;Game' ; DEFICON='mini-maze.xpm' ;;
+     Develop)    CATEGORY='Utility' ; DEFICON='mini-hex.xpm' ;;
+     Help)       CATEGORY='Utility' ; DEFICON='info16.xpm' ;;
+    esac
+    #echo "PKGLISTS_COMPAT=$PKGLISTS_COMPAT ONEBINARYPKG=$ONEBINARYPKG CATEGORY=$CATEGORY" #TEST
+    cPATTERN="s%^Categories=.*%Categories=${CATEGORY}%"
+    iPATTERN="s%^Icon=.*%Icon=${DEFICON}%"
+    FND_DESKTOP="`find sandbox2/usr/share/applications sandbox2/usr/local/share/applications sandbox2/usr/X11R7/applications -type f -name \*.desktop 2>/dev/null | tr '\n' ' '`"
+    for ONEDESKTOP in $FND_DESKTOP
+    do
+     #w478 find if category is already valid...
+     CATFOUND="no"
+     for ONEORIGCAT in `cat $ONEDESKTOP | grep '^Categories=' | head -n 1 | cut -f 2 -d '=' | tr ';' ' '`
+     do
+      oocPATTERN=' '"$ONEORIGCAT"' '
+      [ "`echo "$PUPHIERARCHY" | tr -s ' ' | cut -f 3 -d ' ' | tr ',' ' ' | sed -e 's%^% %' -e 's%$% %' | grep "$oocPATTERN"`" != "" ] && CATFOUND="yes"
+     done
+     if [ "$CATFOUND" = "no" ];then
+      sed -e "$cPATTERN" $ONEDESKTOP > /tmp/2createpackages-tmp
+      mv -f /tmp/2createpackages-tmp $ONEDESKTOP
+     fi
+     #does the icon exist?...
+     ICON="`grep '^Icon=' $ONEDESKTOP | cut -f 2 -d '='`"
+     if [ "$ICON" != "" ];then
+      [ -e sandbox2${ICON} ] && continue #it may have a hardcoded path.
+      [ -e ${ICON} ] && continue #it may have a hardcoded path, look in running puppy.
+      #problem, if not in pkg, search running puppy...
+      if [ "`echo -n "$ICON" | cut -c 1`" != "/" ];then #w478 absolute path.
+       [ "`find sandbox2 /usr/local/lib/X11 /usr/share/icons -name $ICON -o -name $ICON.png -o -name $ICON.xpm -o -name $ICON.jpg -o -name $ICON.svg`" != "" ] && continue
+      fi
+      #substitute a default icon...
+      sed -e "$iPATTERN" $ONEDESKTOP > /tmp/2createpackages-tmp
+      mv -f /tmp/2createpackages-tmp $ONEDESKTOP
+     fi
+    done
+    #w019 T2 pkgs have /var/adm...
+    [ -d sandbox2/var/adm ] && rm -rf sandbox2/var/adm
+    #and these...
+    [ -d sandbox2/etc/postinstall.d ] && rm -rf sandbox2/etc/postinstall.d
+    [ -d sandbox2/etc/stone.d ] && rm -rf sandbox2/etc/stone.d
+    #accumulate multiple binary pkgs into one place...
+    cp -a --remove-destination sandbox2/* sandbox2b/ #accumulate all ubuntu|debian|t2|slackware pkgs.
+    [ -f /tmp/2createpackages-hackinstallsh ] && cat /tmp/2createpackages-hackinstallsh >> sandbox2b/hack-install.sh
+    #if pkg has '-dev_' in name, copy all of it to $DEV... w018 add '_DEV'
+    if [ "`echo "$PKGNAME" | grep -E '\-dev_|_DEV'`" != "" ];then
+     mkdir -p packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}
+     cp -a --remove-destination sandbox2/* packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/
+     continue
+    fi
+    #if pkg has '-doc_' in name, copy all of it to $DOC... w018 add '_DOC'
+    if [ "`echo "$PKGNAME" | grep -E '\-doc_|_DOC'`" != "" ];then
+     mkdir -p packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DOC}
+     cp -a --remove-destination sandbox2/* packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DOC}/
+     continue
+    fi
+    #w018 '_NLS'
+    if [ "`echo "$PKGNAME" | grep '_NLS'`" != "" ];then
+     mkdir -p packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${NLS}
+     cp -a --remove-destination sandbox2/* packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${NLS}/
+     continue
+    fi
+    #w018 a .pet pkg, don't want to do all that stuff below, it's already trimmed...
+    if [ "$DISTRO_BINARY_COMPAT" = "puppy" ];then
+    #if [ "`echo "$PKGNAME" | grep '\.pet$'`" != "" ];then
+     mkdir -p packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}
+     cp -a --remove-destination sandbox2/* packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/
+     continue
+    fi
+    #now process sandbox2 and create split rootfs, devx, docs, nls...
+    cd sandbox2
+    #now to split pkg into exe,dev,doc,nls components...
+    #this will find all files and symlinks to files...
+    find -L ./ -noleaf -type f | sed -e 's/^\.\///' |
+    while read ONEFILE
+    do
+     #problem, coming here with paths that have symlinks...
+     UPONE="`dirname "$ONEFILE"`"
+     while [ "$UPONE" != "." -a "$UPONE" != "/" ];do
+      [ -h "$UPONE" ] && continue 2
+      UPONE="`dirname "$UPONE"`"
+     done
+     ONEBASE="`basename "$ONEFILE"`"
+     ONEPATH="`dirname "$ONEFILE"`"
+     [ "$ONEPATH" = "." ] && ONEPATH=""
+     #strip the file...
+     if [ "`which strip`" != "" ];then #needs devx.
+      if [ ! -h "$ONEFILE" ];then #make sure it isn't a symlink
+       [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$ONEFILE"
+       [ ! "`file "$ONEFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$ONEFILE"
+      fi
+     fi
+     sync
+     ###NLS###
+     #find out if this is an international language file...
+     if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/'`" = "" ];then
+      if [ "`echo -n "$ONEFILE" | grep 'share/X11/locale/'`" = "" ];then #w020 T2, need Xorg locale files in main pkg.
+       [ "$NLS" = "_NULL" ] && continue #just dump it.
+       mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${NLS}/${ONEPATH}"
+       cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${NLS}/${ONEPATH}/" 2>/dev/null
+      continue
+      fi
+     fi
+     ###DOC###
+     #find out if this is a documentation file...
+     if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp '/man/|/doc/|/doc-base/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
+      [ "$DOC" = "_NULL" ] && continue #just dump it.
+      mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DOC}/${ONEPATH}"
+      cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DOC}/${ONEPATH}/" 2>/dev/null
+      continue
+     fi
+     ###DEV###
+     #find out if this is development file... 091125: add 'config' dir (in xorg)...
+     if [ ! "`echo -n "$ONEFILE" | grep --extended-regexp 'X11/config/|/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
+      #note: if "$DEV" = "_NULL" then 'abiword_NULL' will get created, delete later.
+      mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}"
+      cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}/" 2>/dev/null
+      continue
+     fi
+     #find *.so symlink files...
+     if [ -h "$ONEFILE" ];then #-h tests for symlink
+      if [ ! "`echo -n "$ONEFILE" | grep '\.so$'`" = "" ];then
+       #note: if "$DEV" = "_NULL" then 'abiword_NULL' will get created, delete later.
+       mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}"
+       cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}/" 2>/dev/null
+       continue
+      fi
+     fi
+     #find various config files...
+     if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\-config$|config.sh$|Conf.sh$'`" = "" ];then
+      #note: if "$DEV" = "_NULL" then 'abiword_NULL' will get created, delete later.
+      mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}"
+      cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}/" 2>/dev/null
+      continue
+     fi
+     #all .a and .la files... and any stray .m4 files...
+     if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
+      #note: if "$DEV" = "_NULL" then 'abiword_NULL' will get created, delete later.
+      mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}"
+      cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${DEV}/${ONEPATH}/" 2>/dev/null
+      continue
+     fi
+     ###EXE###
+     #anything left over goes into the main 'executable' package...
+     mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/${ONEPATH}"
+     cp -af "$ONEFILE" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/${ONEPATH}/" 2>/dev/null
+    done
+    ###EXE###
+    #fix for empty directories and links to dirs...
+    find -L ./ -noleaf -type d | sed -e 's/^\.\///' |
+    while read ANEWDIR
+    do
+     UPONE="`dirname "$ANEWDIR"`"
+     [ "$UPONE" = "." ] && UPONE=""
+     if [ -h "$ANEWDIR" ];then #link
+      mkdir -p "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/${UPONE}"
+      cp -af "$ANEWDIR" "../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/${UPONE}/"
+      continue
+     fi
+     #copy a empty dir...
+     [ "`ls -1 $ANEWDIR`" = "" ] && mkdir -p ../packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${EXE}/${ANEWDIR}
+    done
+    cd ..
+    #end of splitting.
+   done #END: SPLIT EACH PKG
+  ;;
+  
+  findwoofinstalledpkgs)
+   FILESPEC="`cat $PKGLISTS_COMPAT | grep "$pPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' '`"
+   #...ex: pool/main/a/aide/aide_0.13.1-10ubuntu1_i386.deb pool/main/a/aide/aide-common_0.13.1-10ubuntu1_all.deb
+   devFILESPEC="" #100806
+   [ "$devPATTERN" ] && devFILESPEC="`cat $PKGLISTS_COMPAT | grep "$devPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' ' | tr -s ' ' | sed -e 's% $%%'`"
+   for ONEFILE in $FILESPEC $devFILESPEC
+   do
+    ONEFILE_BASE="`basename $ONEFILE`"
+    if [ "$BINARYEXCLUDED" != "" ];then
+     for ONEEXCLUDED in $BINARYEXCLUDED
+     do
+      oePATTERN="/${ONEEXCLUDED}"
+      #ONEEXCLUDED may have blob * wildcard, change to reg.expr....
+      oePATTERN="`echo -n "$oePATTERN" | sed -e 's%\\*%.*%g'`"
+      [ "`echo -n "/$ONEFILE_BASE" | grep "$oePATTERN"`" != "" ] && continue 2
+     done
+    fi
+    #which repo is it...
+    ofPATTERN="`echo -n "|$ONEFILE_BASE" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+    for PKGLIST in $PKGLISTS_COMPAT
+    do
+     DB_ENTRY="`grep "$ofPATTERN" $PKGLIST`"
+     [ "$DB_ENTRY" != "" ] && break
+    done
+    [ "$DB_ENTRY" = "" ] && continue #precaution.
+    #if doesn't have fields 11,12,13, create them...
+    DB_compileddistro="`echo -n "$DB_ENTRY" | cut -f 11 -d '|'`" #field 11.
+    if [ "$DB_compileddistro" = "" ];then
+     DB_ENTRY="`echo -n "$DB_ENTRY" | cut -f 1-10 -d '|'`|" #precaution, cut off fields 12,13 if exist.
+     DB_ENTRY="${DB_ENTRY}`echo -n "$PKGLIST" | cut -f 2,3,4 -d '-' | tr '\-' '|'`|"
+    fi
+    echo -n "$GENERICNAME "
+    echo "$DB_ENTRY" >> /tmp/woof-installed-packages-compat
+   done
+  ;;
+
+  findwoofinstalledpkgs.sh)
+   FILESPEC="`cat $PKGLISTS_COMPAT | grep "$pPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' '`"
+   #...ex: pool/main/a/aide/aide_0.13.1-10ubuntu1_i386.deb pool/main/a/aide/aide-common_0.13.1-10ubuntu1_all.deb
+   devFILESPEC="" #100806
+   [ "$devPATTERN" ] && devFILESPEC="`cat $PKGLISTS_COMPAT | grep "$devPATTERN" | cut -f 7,8 -d '|' | tr '|' '/' | tr '\n' ' ' | tr -s ' ' | sed -e 's% $%%'`"
+   for ONEFILE in $FILESPEC $devFILESPEC
+   do
+    ONEFILE_BASE="`basename $ONEFILE`"
+    if [ "$BINARYEXCLUDED" != "" ];then
+     for ONEEXCLUDED in $BINARYEXCLUDED
+     do
+      oePATTERN="/${ONEEXCLUDED}"
+      #ONEEXCLUDED may have blob * wildcard, change to reg.expr....
+      oePATTERN="`echo -n "$oePATTERN" | sed -e 's%\\*%.*%g'`"
+      [ "`echo -n "/$ONEFILE_BASE" | grep "$oePATTERN"`" != "" ] && continue 2
+     done
+    fi
+    #which repo is it...
+    ofPATTERN="`echo -n "|$ONEFILE_BASE" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+    for PKGLIST in $PKGLISTS_COMPAT
+    do
+     DB_ENTRY="`grep "$ofPATTERN" $PKGLIST`"
+     [ "$DB_ENTRY" != "" ] && break
+    done
+    [ "$DB_ENTRY" = "" ] && continue #precaution.
+    #if doesn't have fields 11,12,13, create them...
+    DB_compileddistro="`echo -n "$DB_ENTRY" | cut -f 11 -d '|'`" #field 11.
+    if [ "$DB_compileddistro" = "" ];then
+     DB_ENTRY="`echo -n "$DB_ENTRY" | cut -f 1-10 -d '|'`|" #precaution, cut off fields 12,13 if exist.
+     DB_ENTRY="${DB_ENTRY}`echo -n "$PKGLIST" | cut -f 2,3,4 -d '-' | tr '\-' '|'`|"
+    fi
+    echo "$DB_ENTRY" >> /root/.packages/woof-installed-packages
+   done
+  ;;
+ esac
+ 
+done
