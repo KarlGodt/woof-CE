@@ -1,0 +1,249 @@
+#used in the main Woof scripts, inline common code.
+#100820 replace /var/cache/woof path with /var/local/woof
+
+#INLINE_PASSED1 is name of calling script.
+#exs: findwoofinstalledpkgs, 1download, 2createpackages, rootfs-skeleton/usr/local/petget/findwoofinstalledpkgs.sh
+ 
+#100730 if subdir field not specified in pet.specs, use this...
+REPO_DEFAULT_SUBDIR="pet_packages-${DISTRO_COMPAT_VERSION}"
+
+FLAGPETFND='no'
+for PETTYPE in exe dev doc nls
+do
+ [ "$PETTYPE" = "exe" ] && xPETTYPE=''
+ [ "$PETTYPE" = "dev" ] && xPETTYPE='_DEV'
+ [ "$PETTYPE" = "doc" ] && xPETTYPE='_DOC'
+ [ "$PETTYPE" = "nls" ] && xPETTYPE='_NLS'
+ 
+ #new package database format, last 3 are optional...
+ #pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|compileddistro|compiledrelease|repo|
+ #...'compileddistro|compiledrelease' identify where the package was compiled.
+ gPATTERN="|${GENERICNAME}${xPETTYPE}|"
+ if [ "$FLAGPETFND" = "no" ];then
+  drPATTERN="|${DISTRO_BINARY_COMPAT}|${DISTRO_COMPAT_VERSION}|" #ex: |ubuntu|intrepid|
+  for PKGLIST in $PACKAGELISTS_PET_ORDER #ex: Packages-puppy-woof-official Packages-puppy-4-official
+  do
+   if [ "$FALLBACKS_COMPAT_VERSIONS" = "" ];then #w469
+    SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+    [ "$SPEC_PETPKG" != "" ] && break
+   else
+    for ONECOMPATVERSION in $FALLBACKS_COMPAT_VERSIONS #sliding scale, ex: koala jaunty intrepid
+    do
+     drPATTERN="|${DISTRO_BINARY_COMPAT}|${ONECOMPATVERSION}|" #ex: |ubuntu|intrepid|
+     SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+     [ "$SPEC_PETPKG" != "" ] && break 2
+    done
+   fi
+   #not found, fall back to finding an entry of, ex: '|ubuntu||' ...
+   drPATTERN="|${DISTRO_BINARY_COMPAT}||"
+   SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+   [ "$SPEC_PETPKG" != "" ] && break
+   if [ "${DISTRO_BINARY_COMPAT}" != "puppy" ];then #100622 hack
+    drPATTERN='|t2|8.0rc|'
+    SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+    [ "$SPEC_PETPKG" != "" ] && break
+   fi
+   #not found, fall back to a pkg compiled in puppy '|puppy|' (meaning 4.x or earlier) or with '|||' ...
+   drPATTERN='|puppy|'
+   SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+   [ "$SPEC_PETPKG" != "" ] && break
+   #fallback to nothing in 'compileddistro|compiledrelease' fields...
+   drPATTERN='|||'
+   SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+   [ "$SPEC_PETPKG" != "" ] && break
+   if [ "$PKGLIST" != "$PACKAGELISTS_PET_PRIMARY" ];then
+    #look in the secondary list (older puppy pkgs) find generic name only...
+    drPATTERN=''
+    SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 | grep "$gPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+    [ "$SPEC_PETPKG" != "" ] && break
+    #final desparate, anything in primary list...
+    #if more than 2 pkglists, make this test at last iteration...
+    if [ "$PKGLIST" = "$PACKAGELISTS_PET_LAST" ];then
+     PKGLIST="${PACKAGELISTS_PET_PRIMARY}"
+     SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 7 8 | grep "$gPATTERN" | head -n 1 | cut -f 3,4 -d '|'`"
+     [ "$SPEC_PETPKG" != "" ] && break
+    fi
+   fi
+  done
+  if [ "$SPEC_PETPKG" != "" ];then
+   FLAGPETFND='yes'
+   PKG_VERSION="`printcols ./${PKGLIST} 1 2 3 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | head -n 1 | cut -f 3 -d '|'`" #'
+   verPATTERN="|${PKG_VERSION}|"
+  fi
+ else
+  #one is found, now only look in same PKGLIST, verPATTERN and drPATTERN ...
+  SPEC_PETPKG="`printcols ./${PKGLIST} 1 2 3 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | grep "$verPATTERN" | head -n 1 | cut -f 4,5 -d '|'`"
+ fi
+ #...returns ex: SPEC_PETPKG=pet_packages-4|abiword-1.2.4.pet
+ [ "$SPEC_PETPKG" = "" ] && continue
+  
+ PETPKG="`echo -n "$SPEC_PETPKG" | cut -f 2 -d '|'`"
+ PETPKG="`basename $PETPKG .pet`"
+ PETPATH="`echo -n "$SPEC_PETPKG" | cut -f 1 -d '|'`"
+   
+ if [ "$PETPATH" == "" ];then #100730
+  DB_compiledrelease="`printcols ./${PKGLIST} 1 2 3 7 8 11 12 | grep "$gPATTERN" | grep "$drPATTERN" | grep "$verPATTERN" | head -n 1 | cut -f 7 -d '|'`"
+  if [ "$DB_compiledrelease" != "" ];then
+   PETPATH="pet_packages-${DB_compiledrelease}"
+  else
+   PETPATH="$REPO_DEFAULT_SUBDIR"
+  fi
+ fi
+   
+ #100801 handle according to calling script...
+ case $INLINE_PASSED1 in
+  1download) ###called from 1download###
+   #maybe see if pkg already downloaded...
+   [ -f packages-pet/${PETPKG}.pet ] && continue
+   echo "Downloading ${PETPKG}.pet..."
+   SUCCESS='no'
+   for ONE_PET_URL in $PET_URLS
+   do
+    wget --spider --tries=1 --timeout=30 ${ONE_PET_URL}/${PETPATH}/${PETPKG}.pet #w013 was 20
+    [ $? -ne 0 ] && continue
+    cd packages-pet
+    #rxvt -name pet -bg orange -geometry 80x10 -e wget ${ONE_PET_URL}/${PETPATH}/${PETPKG}.pet
+    wget ${ONE_PET_URL}/${PETPATH}/${PETPKG}.pet
+    sync
+    #check file downloaded correctly...
+    if [ -f ${PETPKG}.pet ];then
+     cp -f ${PETPKG}.pet tempfileonly.pet
+     pet2tgz tempfileonly.pet
+     [ $? -eq 0 ] && SUCCESS='yes'
+     rm -f tempfileonly.pet 2>/dev/null
+     rm -f tempfileonly.tar.gz 2>/dev/null
+     [ "$SUCCESS" = "no" ] && rm -f ${PETPKG}.pet
+    fi
+    cd ..
+    #check controlpanel, whether need to pause, resume or quit...
+    CP_STATUS_REQ="`cat /tmp/1download-status-request`" #Run, Pause, Resume, Quit
+    pausecnt=0; PIDCP=0
+    while [ "$CP_STATUS_REQ" = "Pause" ];do
+     #echo "Status: paused ${pausecnt}seconds"
+     if [ $PIDCP -eq 0 ];then
+      yaf-splash -close never -placement top -bg orange -text "1download script is currently in paused state" &
+      PIDCP=$!
+     fi
+     sleep 5
+     pausecnt=`expr $pausecnt + 5`
+     CP_STATUS_REQ="`cat /tmp/1download-status-request`"
+    done
+    [ $PIDCP -ne 0 ] && kill $PIDCP
+    [ "$CP_STATUS_REQ" = "Quit" ] && break 3
+    [ "$SUCCESS" = "yes" ] && break
+   done 
+   #if fail to find it, log failure, request manual download.
+   [ "$SUCCESS" = "no" ] && echo "DOWNLOAD FAIL: ${PETPKG}.pet"
+   [ "$SUCCESS" = "no" ] && echo "${PETPKG}.pet" >> DOWNLOAD-FAILS-PET
+  ;;
+  2createpackages) ###called from 2createpackages###
+   #091211 CHANGED_ONLY commandline option...
+   cspPATTERN='|'"$PETPKG"'.pet$'
+   if [ "$COMMANDLINE_CHOICE" = "CHANGED_ONLY" ];then
+    if [ "`grep "$cspPATTERN" /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}`" != "" ];then
+     echo " ...${PETPKG}.pet already processed"
+     continue
+    fi
+    if [ $REMOVEDGENFLAG -eq 0 ];then
+     rm -rf packages-${DISTRO_FILE_PREFIX}/${GENERICNAME} 2>/dev/null
+     rm -rf packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}_DEV 2>/dev/null
+     rm -rf packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}_DOC 2>/dev/null
+     rm -rf packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}_NLS 2>/dev/null
+     rm -rf sandbox2c/${GENERICNAME} 2>/dev/null
+     groPATTERN='^'"$GENERICNAME"'|' #get rid of old entries...
+     grep -v "$groPATTERN" /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION} > /tmp/2createpackages-hbdd
+     mv -f /tmp/2createpackages-hbdd /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}
+     REMOVEDGENFLAG=1
+    fi
+   fi
+   echo "${GENERICNAME}|${PETPKG}.pet" >> /var/local/woof/2createpackages_history_builds-${DISTRO_BINARY_COMPAT}-${DISTRO_COMPAT_VERSION}
+   #now expand $PETPKG.pet in packages-${DISTRO_FILE_PREFIX}...
+   echo " processing ${PETPKG}.pet"
+   #PKGS_SPECS_TABLE may specify redirections...
+   genPATTERN='^yes|'"$GENERICNAME"'|'
+   SPLITRULE="`echo "$PKGS_SPECS_TABLE" | grep "$genPATTERN" | head -n 1 | cut -f 4 -d '|'`" #ex: exe>dev,dev,nls,doc
+   EXE="_`echo "$SPLITRULE" | tr ',' '\n' | grep '^exe' | cut -f 2 -d '>' | tr '[a-z]' '[A-Z]'`"
+   DEV="_`echo "$SPLITRULE" | tr ',' '\n' | grep '^dev' | cut -f 2 -d '>' | tr '[a-z]' '[A-Z]'`"
+   DOC="_`echo "$SPLITRULE" | tr ',' '\n' | grep '^doc' | cut -f 2 -d '>' | tr '[a-z]' '[A-Z]'`"
+   NLS="_`echo "$SPLITRULE" | tr ',' '\n' | grep '^nls' | cut -f 2 -d '>' | tr '[a-z]' '[A-Z]'`"
+   [ "$EXE" = "_" ] && EXE="_EXE"
+   [ "$DEV" = "_" ] && DEV="_EXE"
+   [ "$DOC" = "_" ] && DOC="_EXE"
+   [ "$NLS" = "_" ] && NLS="_EXE"
+   #the "packagename_EXE" is just named "packagename"...
+   [ "$EXE" = "_EXE" ] && EXE=""
+   [ "$DEV" = "_EXE" ] && DEV=""
+   [ "$DOC" = "_EXE" ] && DOC=""
+   [ "$NLS" = "_EXE" ] && NLS=""
+   [ "$xPETTYPE" = "" ] && xxPETTYPE="$EXE"
+   [ "$xPETTYPE" = "_DEV" ] && xxPETTYPE="$DEV"
+   [ "$xPETTYPE" = "_DOC" ] && xxPETTYPE="$DOC"
+   [ "$xPETTYPE" = "_NLS" ] && xxPETTYPE="$NLS"
+   rm -rf packages-${DISTRO_FILE_PREFIX}/${GENERICNAME}${xxPETTYPE} 2> /dev/null
+   if [ -f packages-pet/${PETPKG}.pet ];then
+    cp -f packages-pet/${PETPKG}.pet packages-${DISTRO_FILE_PREFIX}/
+    cd packages-${DISTRO_FILE_PREFIX}
+    pet2tgz ${PETPKG}.pet
+    tar -z -x -f $PETPKG.tar.gz
+    cp -a $PETPKG ${GENERICNAME}${xxPETTYPE}
+    rm ${PETPKG}.tar.gz
+    rm -rf $PETPKG
+    cd ..
+   else
+    echo
+    echo "ERROR: packages-pet/${PETPKG}.pet (Generic: ${GENERICNAME}) does not exist."
+    echo "       You will need to find this PET package and place in packages-pet."
+    echo "       Do it later, then rerun this script and choose to build $GENERICNAME."
+    echo -n "Press ENTER to continue: "
+    read KEEPGOING
+   fi
+  ;;
+  findwoofinstalledpkgs)
+   #drops to here if a pet pkg found. PKGLIST is name of database file, ex: PKGLIST=Packages-puppy-woof-official
+   #SPEC_PETPKG is 'path|fullfilename', ex: SPEC_PETPKG=pet_packages-4|abiword-1.2.4.pet
+   spPATTERN="`echo -n "$SPEC_PETPKG" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%'`"
+   DB_ENTRY="`grep "$spPATTERN" $PKGLIST`"
+   #if doesn't have fields 11,12,13, create them...
+   DB_compileddistro="`echo -n "$DB_ENTRY" | cut -f 11 -d '|'`" #field 11.
+   if [ "$DB_compileddistro" = "" ];then
+    DB_ENTRY="`echo -n "$DB_ENTRY" | cut -f 1-10 -d '|'`|" #precaution, cut off fields 12,13 if exist.
+    DB_ENTRY="${DB_ENTRY}`echo -n "$PKGLIST" | cut -f 2,3,4 -d '-' | tr '\-' '|'`|"
+   fi
+   echo -n "$GENERICNAME "
+   echo "$DB_ENTRY" >> /tmp/woof-installed-packages-pet
+  ;;
+  findwoofinstalledpkgs.sh)
+   #drops to here if a pet pkg found. PKGLIST is name of database file, ex: PKGLIST=Packages-puppy-woof-official
+   #SPEC_PETPKG is 'path|fullfilename', ex: SPEC_PETPKG=pet_packages-4|abiword-1.2.4.pet
+   spPATTERN="`echo -n "$SPEC_PETPKG" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%'`"
+   DB_ENTRY="`grep "$spPATTERN" $PKGLIST`"
+   #if doesn't have fields 11,12,13, create them...
+   DB_compileddistro="`echo -n "$DB_ENTRY" | cut -f 11 -d '|'`" #field 11.
+   if [ "$DB_compileddistro" = "" ];then
+    DB_ENTRY="`echo -n "$DB_ENTRY" | cut -f 1-10 -d '|'`|" #precaution, cut off fields 12,13 if exist.
+    DB_ENTRY="${DB_ENTRY}`echo -n "$PKGLIST" | cut -f 2,3,4 -d '-' | tr '\-' '|'`|"
+   fi
+   echo "$DB_ENTRY" >> /root/.packages/woof-installed-packages
+  ;;
+ esac
+   
+done
+
+case $INLINE_PASSED1 in
+ 1download)
+  [ "$FLAGPETFND" = "no" ] && echo "GENERICNAME=$GENERICNAME however PET package not found." >> DOWNLOAD-ERRORS
+ ;;
+ 2createpackages)
+  if [ "$FLAGPETFND" = "no" ];then
+   echo
+   echo "ERROR: '${GENERICNAME}' PET package does not exist in packages-pet."
+   echo "       You will need to find a matching PET package and place in packages-pet."
+   echo "       Do it later, then rerun this script and choose to build $GENERICNAME."
+   echo -n "Press ENTER to continue: "
+   read KEEPGOING
+  fi
+ ;;
+esac
+  
+
+
