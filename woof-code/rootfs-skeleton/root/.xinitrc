@@ -111,7 +111,7 @@ fi
 #...no need to start it here, fvwm4 below will start it automatically.
 
 #relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
+/usr/local/bin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
 
 #w468 on old PCs rox sometimes does not start, see further down...
 #120718 raspi sometimes need extra delay otherwise rox fails to start.
