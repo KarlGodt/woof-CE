@@ -543,7 +543,7 @@ tryLoadModule ()
         #+ false, while the driver might already be loaded! Trying to reload
         #+ will then not do anything, I assume... so remove quotes (in loadSpecificModule).
         MODULE_NAME="$1"
-        if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+        if grep $QUIET "$MODULE_NAME" /tmp/loadedeth.txt ; then
                 Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
                         --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
                 echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
@@ -699,7 +699,7 @@ loadNdiswrapperModule ()
           NATIVEMOD=${NATIVEMOD##*/}
           if [ "$NATIVEMOD" != "ndiswrapper" ];then
             #note 'ndiswrapper -l' also returns the native linux module.
-            if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep -q 'ESSID' ;then
+            if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep $QUIET 'ESSID' ;then
               rmmod "$NATIVEMOD"
               sleep 6
               [ $INTERFACE_NUM -gt 0 ] && INTERFACE_NUM=$((INTERFACE_NUM-1))
@@ -797,10 +797,10 @@ autoLoadModule ()
                 esac
 
                 #also, do not try if it is already loaded...?
-                grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+                grep $QUIET "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
 
                 #in case of false-hits, ignore anything already tried this session...
-                grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+                grep $QUIET "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
 
                 if [ "$MDOIT" = "yes" ];then
                         echo; echo "*** Trying $CANDIDATE."
@@ -831,7 +831,7 @@ autoLoadModule ()
 # A function to add a module to the SKIPLIST
 blacklist_module(){
   MODULE="$1"
-  if grep -Fq 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
+  if grep -F $QUIET 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
         sed -i "s/^SKIPLIST=.*/SKIPLIST=\"$SKIPLIST ${MODULE//_/-} \"/" /etc/rc.d/MODULESCONFIG
   else
         echo "SKIPLIST=\" ${MODULE//_/-} \"" >>/etc/rc.d/MODULESCONFIG
@@ -1014,20 +1014,20 @@ $ERROR
   IFPLUGNEW=ifplugstatus
   [ -x /sbin/ifplugstatus-0.18 ] && IFPLUGOLD=ifplugstatus-0.18
   [ -x /sbin/ifplugstatus-0.25 ] && IFPLUGNEW=ifplugstatus-0.25
-        if ! $IFPLUGOLD "$INTERFACE" | grep -F -q 'link beat detected' ;then
+        if ! $IFPLUGOLD "$INTERFACE" | grep -F $QUIET 'link beat detected' ;then
           sleep 2
           echo "X"
-          if ! $IFPLUGNEW "$INTERFACE" | grep -F -q 'link beat detected' ;then
+          if ! $IFPLUGNEW "$INTERFACE" | grep -F $QUIET 'link beat detected' ;then
                 sleep 2
                 echo "X"
-                if ! $IFPLUGOLD "$INTERFACE" | grep -F -q 'link beat detected' ;then
+                if ! $IFPLUGOLD "$INTERFACE" | grep -F $QUIET 'link beat detected' ;then
                   sleep 2
                   echo "X"
-                  if ! $IFPLUGNEW "$INTERFACE" | grep -F -q 'link beat detected' ;then
+                  if ! $IFPLUGNEW "$INTERFACE" | grep -F $QUIET 'link beat detected' ;then
                     # add ethtool test, just in case it helps at times...
                     sleep 1
                     echo "X"
-                    if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+                    if ! ethtool "$INTERFACE" | grep -F $QUIET 'Link detected: yes' ; then
                       UNPLUGGED="true"
                     fi
                   fi
@@ -1253,7 +1253,7 @@ checkIfIsWireless ()
 
   if [ -d "/sys/class/net/$INTERFACE/wireless" ] || \
      [ "$INTMODULE" = "prism2_usb" ] || \
-     grep -q "$INTERFACE" /proc/net/wireless
+     grep $QUIET "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
   return 1
@@ -1614,7 +1614,7 @@ unloadNewModule()
 #=============================================================================
 validip() {
   # uses dotquad.c to parse $1 as a dotted-quad IP address
-  if dotquad "$1" > /dev/null 2>&1
+  if dotquad "$1" >$OUT 2>&1
   then
         return 0
   else
@@ -1656,7 +1656,7 @@ findInterfaceInfo()
    */bus/usb*) TYPE="usb" ;;
    */bus/ieee1394*) TYPE="firewire" ;;
    *) # pcmcia and pci apparently both appear as pci...
-      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep -q 'pcmcia:' ; then
+      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep $QUIET 'pcmcia:' ; then
         TYPE="pcmcia"
       else
         TYPE="pci"
@@ -1667,7 +1667,7 @@ findInterfaceInfo()
 
   if [ -d "/sys/class/net/$INT/wireless" ] || \
      [ "$FI_DRIVER" = "prism2_usb" ] || \
-     grep -q "$INT" /proc/net/wireless
+     grep $QUIET "$INT" /proc/net/wireless
   then INTTYPE="$L_INTTYPE_Wireless"
   else INTTYPE="$L_INTTYPE_Ethernet"
   fi
@@ -1834,7 +1834,7 @@ _trap
 cleanUpTmp
 
 # Do we have pcmcia hardware?...
-if elspci -l | grep -E -q '60700|60500' ; then
+if elspci -l | grep -E $QUIET '60700|60500' ; then
   MPCMCIA="yes"
 fi
 
