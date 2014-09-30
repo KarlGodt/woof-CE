@@ -25,12 +25,18 @@ do
   *) continue;;
   esac
 
+  grep $QUIET -E 'TWO_HELP=|TWO_VERSION=|TWO_VERBOSE=|TWO_DEBUG=' "$file" && continue
+
+  lineNR=`grep -n -m1 'ADD_HELP_MSG=' "$file" | awk -F'[ :]' '{print $1}'`
+  [ "$lineNR" ] || continue
+  [ "${lineNR//[[:digit:]]/}" ] && continue
+
   if test "$DRY"; then
-   cat "$file" | sed 's%for oneSHIFT in.*do shift\; done\; \}%for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`\; do shift\; done\; \}%'
+   cat "$file" | sed "$lineNR i\TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)"
    break
    sleep 1
   else
-   sed -i".BAK" 's%for oneSHIFT in.*do shift\; done\; \}%for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`\; do shift\; done\; \}%' "$file"
+   sed -i".BAK" "$lineNR i\TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)" "$file"
    test $? = 0 && { rm "${file}.BAK"; } || break
    #geany "$file"
    #break

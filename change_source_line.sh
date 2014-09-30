@@ -25,12 +25,14 @@ do
   *) continue;;
   esac
 
+  grep $QUIET 'HAVE_F4PUPPY5' "$file" && continue
+
   if test "$DRY"; then
-   cat "$file" | sed 's%for oneSHIFT in.*do shift\; done\; \}%for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`\; do shift\; done\; \}%'
+   cat "$file" | sed 's%^source /etc/rc\.d/f4puppy5$%\[ "$HAVE_F4PUPPY5" \] || source /etc/rc\.d/f4puppy5%'
    break
    sleep 1
   else
-   sed -i".BAK" 's%for oneSHIFT in.*do shift\; done\; \}%for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`\; do shift\; done\; \}%' "$file"
+   sed -i".BAK" 's%^source /etc/rc\.d/f4puppy5$%\[ "$HAVE_F4PUPPY5" \] || source /etc/rc\.d/f4puppy5%' "$file"
    test $? = 0 && { rm "${file}.BAK"; } || break
    #geany "$file"
    #break
