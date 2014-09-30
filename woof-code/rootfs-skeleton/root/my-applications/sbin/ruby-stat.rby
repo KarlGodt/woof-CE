@@ -1,0 +1,56 @@
+!#/usr/bin/ruby
+
+DEBUGFS_BINARY='/sbin/debugfs'  # Change this when needed ...
+
+STDERR.reopen(STDOUT)
+
+STDOUT.sync = true
+STDERR.sync = true
+
+def die(message); puts message; exit(1); end
+
+unless File.exists?(DEBUGFS_BINARY)
+  die "#{$0}: #{DEBUGFS_BINARY} not found. Aborting ..."
+end
+
+if ARGV.length < 1 or ARGV.first == '-'
+  die <<-EOS
+
+Usage:
+
+  #{$0} <FILE>
+
+  Specify <FILE> for which you wish to display its crtime (Creation Time).
+
+  Please note that this is for ext4 file system only ...
+
+  EOS
+end
+
+file = ARGV.shift
+
+unless File.exists?(file)
+  die "#{$0}: file `#{file}' does not exists ..."
+end
+
+unless (Process.uid or Process.euid).zero?
+  die "#{$0}: you have to be super-user to run this script ..."
+end
+
+device_lookup = Dir['/dev/*'].inject({}) { |h, v|
+  h.update(File.stat(v).rdev => v)
+}
+
+stat = File.stat(file)
+
+this_process = \
+  "-R \"stat <#{stat.ino}>\" #{device_lookup[stat.dev].first} 2>/dev/null"
+
+this_process = "#{DEBUGFS_BINARY} #{this_process}"
+
+IO.popen(this_process).each do |p|
+  (puts "#{file}: #{p.split('--').last.strip}"; break) if p.match(/^crtime/)
+end
+
+exit(0)
+
