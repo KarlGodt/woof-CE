@@ -1,7 +1,21 @@
 #!/bin/ash
 
-VERSION=0.0.1
+_assign_version()
+{
+case $1 in
+_VERSION_) VERSION=$_VERSION_; Version=$_VERSION_; version=$_VERSION_;;
+VERSION) _VERSION_=$VERSION; Version=$VERSION; version=$VERSION;;
+Version) _VERSION_=$Version; VERSION=$Version; version=$Version;;
+version) _VERSION_=$version; VERSION=$version; Version=$version;;
+esac
+}
+
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.2
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.2
+test "$Version"   && _assign_version Version   ||   Version=0.0.2
+test "$version"   && _assign_version version   ||   version=0.0.2
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
+test "$MY_SELF" || MY_SELF="$0"
 
 # colours
 Red0='\033[0;31m'
@@ -62,7 +76,7 @@ _check_for_terminal()
 {
 local MSG
 MSG="Need a contolling terminal"
-tty >/dev/null || {
+tty >$OUT || {
 echo -n "Pid of X server:"
 pidof X && xmessage -br red "$MSG"; exit 2; } || {
 echo "$MSG"; exit 2; }
@@ -158,12 +172,12 @@ $ADD_PARAMETERS
 
 _parse_basic_parameters()
 {
-OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=-q
+OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=-q;DBG=''
 case $1 in
 -h|-H|-*help) _usage 0 "$ADD_HELP_MSG";;
 -V|-*version) _version;;
--v|-*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET='';OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; DO_SHIFT=$((DO_SHIFT+1));;
--d|-*debug)   set -x; DO_SHIFT=$((DO_SHIFT+1));;
+-v|-*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET='';DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
+-d|-*debug)   set -x; [ "$TWO_DEBUG" ] || DO_SHIFT=$((DO_SHIFT+1));;
 esac
 }
 
@@ -614,49 +628,57 @@ test "`type mdev`" && { mdev -s; return $?; }
 #============ Test to filter out links =======================================
 _test_f()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" && return 0
 return 1
 }
 #= readable to source
 _test_fr(){
-test -L "$@" && return 1
+test -e "$*" || return 2
+test -L "$@" && return 3
 test -f "$@" -a -r "$@" && return 0
 return 1
 }
 #= writable to write to
 _test_fw(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -w "$*" && return 0
 return 1
 }
 _test_frw(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -r "$*" -a -w "$*" && return 0
 return 1
 }
 #= file and xecutable
 _test_fx(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -x "$*" && return 0
 return 1
 }
 
 _test_d()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -d "$*" && return 0
 return 1
 }
 _test_p()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -p "$*" && return 0
 return 1
 }
 _test_S()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -S "$*" && return 0
 return 1
 }
@@ -690,14 +712,15 @@ do
 test "$oneLOG" || continue
 test -f "$oneLOG" || continue
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
 nrLOGS=$((nrLOGS-1))
 done<<EoI
 `ls -1v "$*".[0-9]* | tac`
 EoI
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.1"
-mv "$*" "${*}.1"
+mv $VERB "$*" "${*}.1"
+return $?
 }
 
 
@@ -775,7 +798,7 @@ case $KERNELVER in
 ;;
 *) _err "_kernel_version:UNHANDLED KERNELVER '$KERNELVER'";;
 esac
-fi 2>/dev/null #if vercmp is not installed :P
+fi 2>$ERR #if vercmp is not installed :P
 
 #kVERSION="$K_VERSION"
 #kPATCHLEVEL="$K_PATCHLEVEL"
@@ -1537,7 +1560,7 @@ _pidof()
 local RV
 case $1 in
 -q) shift;
-pidof $* >/dev/null; return $?
+pidof $* >$OUT; return $?
 ;;
 *)
 echo -n "pids of $*:"
@@ -1547,3 +1570,8 @@ return $RV
 ;;
 esac
 }
+
+###END###
+_HAVE_F4PUPPY5_=1
+  HAVE_F4PUPPY5=1
+###END###
