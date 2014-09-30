@@ -6,7 +6,7 @@ IFS=$'\012'  #\012 octal for NEWLINE ( \011 TAB, \040 SPACE )
 [ "$VERBOSE" ] && echo "$0: '$*' '$#' $OPTIND"
 OPTINDB=$OPTIND
 
-source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="-q -R -s -w"
 ADD_PARAMETERS="
@@ -31,7 +31,7 @@ TWO_HELP=
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 #[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
-#  for oneSHIFT in 1; do shift; done; }
+#  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
 
 _trap
 
