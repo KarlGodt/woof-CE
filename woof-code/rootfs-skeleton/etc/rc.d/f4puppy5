@@ -627,49 +627,71 @@ test "`type mdev`" && { mdev -s; return $?; }
 #============ Test to filter out links =======================================
 _test_f()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" && return 0
 return 1
 }
 #= readable to source
 _test_fr(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -r "$*" && return 0
 return 1
 }
 #= writable to write to
 _test_fw(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -w "$*" && return 0
 return 1
 }
 _test_frw(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -r "$*" -a -w "$*" && return 0
 return 1
 }
 #= file and xecutable
 _test_fx(){
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -f "$*" -a -x "$*" && return 0
+return 1
+}
+#= file and has size
+_test_fs(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -f "$*" -a -s "$*" && return 0
+return 1
+}
+#= file readable and size
+_test_frs(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -f "$*" -a -r "$*" -a -s "$*" && return 0
 return 1
 }
 
 _test_d()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -d "$*" && return 0
 return 1
 }
 _test_p()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -p "$*" && return 0
 return 1
 }
 _test_S()
 {
-test -L "$*" && return 1
+test -e "$*" || return 2
+test -L "$*" && return 3
 test -S "$*" && return 0
 return 1
 }
@@ -1447,16 +1469,23 @@ for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep -viE 'perl|python' || continue
+   file "$file" | grep -i text | grep $QUIET -viE 'perl|python|murgaLua_Dynamic|Pascal|C\+\+| C ' || continue
 
-   grep 'f4puppy5' "$file" && continue
+   grep $QUIET 'f4puppy5' "$file" && continue
 
    PERM=`stat -c %a "$file"`
    [ "${PERM//[0-6]/}" ] || continue
+
+   SHELLBANG=`head -n1 "$file"`
+   case "$SHELLBANG" in
+   '#!'*) :;;
+   *) continue;;
+   esac
+
    echo "$file"
 
    cat >/tmp/${file##*/} <<EoI
-#!/bin/sh
+$SHELLBANG
 #
 # New header by $_AUTHOR_, $_MONTH_ $_YEAR_
   _TITLE_="Puppy_${file##*/}"
@@ -1476,7 +1505,7 @@ _provide_basic_parameters
 ADD_HELP_MSG="\$_COMMENT_"
 _parse_basic_parameters "\$@"
 [ "\$DO_SHIFT" ] && [ ! "\${DO_SHIFT//[[:digit:]]/}" ] && {
-  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+  for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`; do shift; done; }
 
 _trap
 
@@ -1484,10 +1513,14 @@ _trap
 # End new header
 #
 EoI
+
    cat "$file" | sed '1d' >>/tmp/${file##*/}
-   rm "$file"
-   mv /tmp/${file##*/} "$file"
-   chmod $PERM "$file"
+
+   if test ! "$DRY"; then
+    rm "$file"
+    mv $VERB /tmp/${file##*/} "$file"
+    chmod $VERB $PERM "$file"
+   fi
 
 done
 }
@@ -1842,5 +1875,9 @@ fi
 
 }
 
+
+
+###END###
 _HAVE_F4PUPPY5_=1
   HAVE_F4PUPPY5=1
+###END###
