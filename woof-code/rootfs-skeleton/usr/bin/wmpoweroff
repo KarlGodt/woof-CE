@@ -2,6 +2,14 @@
 #introduced v0.9.8
 #called from /root/.fvwm95rc, .jwmrc at shutdown.
 
+  _TITLE_=pup_wmpoweroff
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Script to handle pup_event_frontend_d, wmexitmode.txt and
+kill windowmanager and X"
+
+MY_SELF="$0"
+MY_PID=$$
+
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
@@ -17,10 +25,13 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-echo -n "poweroff" > /tmp/wmexitmode.txt
+yaf-splash -bg green "Puppy will now shutdown and poweroff ..." & yPID=$!
+sleep 1
+
+echo "poweroff" > /tmp/wmexitmode.txt
 killall pup_event_frontend_d
 
-old_pup_func(){
+__old_pup_event__(){  #BEGIN
 #/sbin/pup_event_frontend_d will quit if this file exists...
 echo -n "poweroff" > /tmp/wmexitmode.txt
 
@@ -28,38 +39,42 @@ echo -n "poweroff" > /tmp/wmexitmode.txt
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
 KCNT=0
-PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 #while [ "`pidof pup_event_frontend_d`" != "" ];do
 while [ "$PSPEFD" != "" ];do
  sleep 0.5
  KCNT=`expr $KCNT + 1`
  [ $KCNT -gt 60 ] && break #30 secs.
- PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+ PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 done
 sleep 0.2
-}
+}  ###__old_pup_event__(){  #END
 
-sync
+_sync
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
  kill `pidof xfce4-panel`
- exit
+ exit $?
 fi
 
 #w003
 #CURRENTWM="`cat /etc/windowmanager`"
-read CURRENTWM </etc/windowmanager
+_test_frs /etc/windowmanager && read CURRENTWM </etc/windowmanager
+
 if [ "$CURRENTWM" = 'enlightenment_start' ];then
 :
-killall tempget
+_pidof $QUIET tempget && killall tempget
 fi
 
-kill -9 `pidof $CURRENTWM`
+_pidof $QUIET "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` || kill -9 `pidof $CURRENTWM` 2>$ERR
+sleep 1
 
-killall X #default is SIGTERM.
-sleep 1           #v1.0.7
-exec killall -9 X #v1.0.7 make sure X is killed.
+_pidof $QUIET X && killall X     #default is SIGTERM.
+sleep 1                          #v1.0.7
+exec killall -9 X 1>$OUT 2>$ERR  #v1.0.7 make sure X is killed.
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
-#which reads /tmp/wmexitmode.txt.
+# which reads /tmp/wmexitmode.txt.
+
+###END###
