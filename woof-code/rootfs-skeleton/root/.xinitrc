@@ -2,7 +2,11 @@
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 . /etc/rc.d/PUPSTATE
-CURRENTWM="`cat /etc/windowmanager`"
+. /etc/rc.d/f4puppy5
+
+DEFAULTWM=jwm
+_test_frs /etc/windowmanager && read CURRENTWM </etc/windowmanager
+test "$CURRENTWM" || CURRENTWM="$DEFAULTWM"
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
@@ -64,7 +68,7 @@ if [ -e /tmp/videomode ];then #xvesa only: testing a video mode
  video-wizard &
 fi
 
-[ -f /usr/local/bin/agenda_chk ] && agenda_chk &
+[ -f /usr/local/bin/agenda_chk ] && /usr/local/bin/agenda_chk &
 
 #v1.0.7 set by xrandrshell, part of xorg wizard... v3.99...
 if [ -f /etc/xrandrindex ];then
@@ -169,8 +173,9 @@ fi
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM && exec $CURRENTWM
-[ -x $CURRENTWM ] && exec $CURRENTWM
+which $CURRENTWM  && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+[ -x $CURRENTWM ] && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+echo jwm >/etc/windowmanager
 exec jwm
 
 ###END###
