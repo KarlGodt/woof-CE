@@ -8,21 +8,24 @@ _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 MY_SELF="/usr/bin/xwin"
 MY_PID=$$
 
+DEBUG=1
 test -f /etc/rc.d/f4puppy5 && {
+echo "HAVE_F4PUPPY5='$HAVE_F4PUPPY5'"
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
 
 _trap
-
+INFO=1
+_debug "OUT='$OUT'"
 }
 # End new header
 #
@@ -43,7 +46,7 @@ _trap
 #w479 k2.6.18.8 need awful hack, Xorg, '-nolisten tcp' causes hang!
 #v424 bad hack to fix serial mouse.
 
-echo "Executing '$0' with options '$*' ..."
+_info "Executing '$0' with options '$*' ..."
 #ps |grep -v '\[' | tr '\n' '·'
 #uptime
 
@@ -89,9 +92,12 @@ same as
 exit $1
 }
 
-out=/dev/null; err=/dev/null; Q=-q
-while getopts hHdD:ovVw:W:s:S: opt;do
-case $opt in
+_debug "Checking for short options \$#=$# \$*=$* \$@=$@"
+OUT=/dev/null; ERR=/dev/null; Q=-q; QUIET=$Q; DBG=
+OPTIND=0
+while getopts hHdD:ovVw:W:s:S: opt_;do
+_debug "opt_='$opt_'"
+case $opt_ in
 h|H) usage 0;;
 d)    set -x;;
 D) Xorg_driver="$OPTARG"
@@ -104,7 +110,7 @@ D) Xorg_driver="$OPTARG"
 ;;
 o) ONCE=1;;
 #v) VERB=-v L_VERB=--verbose X_L_VERB=-verbose out='&1' err='&1' me_verb=1;;
-v) VERBOSE=1;VERB=-v;L_VERB=--verbose;X_L_VERB=-verbose;Q=;out=/dev/stdout;err=/dev/stderr;me_verb=1;;  ##+-+2013-04-11
+v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;Q=;QUIET=$Q;DBG=-d;OUT=/dev/stdout;ERR=/dev/stderr;;  ##+-+2013-04-11
 V) echo -e "\n$0: Version '$Version'\n";exit 0;;
 w|W) WINDOW_MANAGER="$OPTARG"
  [ "`which $WINDOW_MANAGER`" ] || usage 1
@@ -119,6 +125,7 @@ s|S) X_SERVER="$OPTARG"
 ;;
 *):;;
 esac;done
+_debug "Checking for short options [ DONE ]"
 
 #while [ "$2" ];do #shift;done
 #case $1 in
@@ -129,13 +136,13 @@ esac;done
 #*)echo $1 >/dev/null;;
 #esac;done
 
-for w in $@;do echo $w
+for w in $@;do _debugx $w
 ((c++))
 PARAMS[$c]=$w
 done
 
 readonly c
-for w in ${PARAMS[@]};do echo $w
+for w in ${PARAMS[@]};do _debugx $w
 ((cc++))
 case $w in
 -h|-H|-d|-o|-v|-V)PARAMS[$cc]='';;
@@ -148,10 +155,10 @@ case $w in
 esac;done
 
 set -- `echo ${PARAMS[@]}`
-[ "$DEBUG" ] && echo "NEW parameters : $@"
+[ "$DEBUG" ] && _info "NEW parameters : $@"
 [ "$DEBUG" ] && sleep 5
 
-ERR=$err;OUT=$out  ##+++2013-04-11
+err=$ERR;out=$OUT  ##+++2013-04-11
 
 __deprecatedNUMXWINS__(){
 #NUMXWINS=`pidof xwin | wc -w` #w478
@@ -233,7 +240,7 @@ if [ -z "`echo "$XWINSsorted" |head -n1 |awk '{print $2}' | grep -w "$PROGPID"`"
 fi
 }
 
-pidof -o $$ -o %PPID ${0##*/} && exit 1
+_pidof $Q -o $$ -o %PPID ${0##*/} && _exit 1 "Already running."
 
 #elif ...
 if [ -n "$DISPLAY" ] ; then
@@ -337,7 +344,7 @@ else
 echo "$1" >/etc/windowmanager
 fi;fi
 
-echo `date` "1: passed checking for other instances of xwin running or parameters"
+_debug `date` "1: passed checking for other instances of xwin running or parameters"
 
 #v1.0.7
 haveX=`readlink /usr/bin/X`
@@ -485,7 +492,7 @@ if [ "$haveXVESA" ] ; then
  fi
 
 fi
-echo `date` "2: finished checking for haveXVESA"
+_debug `date` "2: finished checking for haveXVESA"
 #note, mouse and keyboard types are autodetected in /etc/rc.d/rc.local0 at every bootup,
 #so /etc/mousedevice and /etc/keyboardtype have autodetected values in them
 #(changeable by Mouse/Keyboard Wizard, but rc.local0 will override if interface not found).
@@ -546,7 +553,7 @@ if [ ! -f /etc/mousebuttons ];then
  #fi
 fi
 
-echo `date` "3: finished checking for mouse"
+_debug `date` "3: finished checking for mouse"
 #now done in /etc/rc.d/rc.modules...
 ##alsa sound setup...
 #if [ "`cat /etc/modprobe.conf | grep 'snd\-card\-0'`" = "" ];then
@@ -575,11 +582,13 @@ if [ -f /usr/bin/Xorg ];then
    if [ "$DRVRCURR" ];then
     #if [ ! -f $DRVRSPATH/${DRVRCURR}_drv.so ];then
     #one driver is mtx_drv.o hmmm, okay do it this way (pakt)...
+    _debug "OUT='$OUT'"
     ls -1 $DRVRSPATH/* | grep $DRVRCURR >$OUT
     if [ $? -ne 0 ];then
-     APATTERN="s/.*#card0driver/    Driver      \"vesa\" #card0driver/g"
-     cat /etc/X11/xorg.conf | sed -e "$APATTERN" > /tmp/xorg.conf.tmp2
-     sync
+     _warn "Altering xorg.conf to use vesa driver"
+     sPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
+     cat /etc/X11/xorg.conf | sed -e "$sPATTERN" > /tmp/xorg.conf.tmp2
+     _sync
      cp -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
     fi
    fi
@@ -640,7 +649,7 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -d
   [ "$haveXVESA" ] && exec xwin
  fi
 fi
-echo `date` "4: finished checking for Xorg"
+_debug `date` "4: finished checking for Xorg"
 #v1.0.7 J_Reys idea (see note further down)...
 if [ -f /var/lock/XLOADED ];then
  #v3.98 improved handling by pizzasgood...
@@ -684,7 +693,7 @@ Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
  fi
 
 fi
-echo `date` "5: finished checking for XLOADED"
+_debug `date` "5: finished checking for XLOADED"
 
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$haveXVESA" ] ; then
@@ -724,7 +733,7 @@ if [ "$haveXVESA" ] ; then
   VID_SCRN=`cat /etc/videomode | tr -s ' ' | cut -f 2 -d ' '`
  fi
 fi
-echo `date` "6: finished checking for haveXVESA"
+_debug `date` "6: finished checking for haveXVESA"
 
 
 MOUSEBUTTONS=3
@@ -756,13 +765,18 @@ fi
 #v424 bad hack, i somehow get /dev/mouse pointing to psaux when chose a serial mouse, don't know why...
 [ "`grep 'ttyS' /etc/mousedevice`" != "" ] && ln -snf $MOUSEDEV /dev/mouse
 
-echo `date` "7: finally start X"
+_debug `date` "7: finally start X"
 #finally, start X...
+
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
-#but if PC hangs, XLOADED will still be true, so will know it is broken.
+# but if PC hangs, XLOADED will still be true, so will know it is broken.
 echo "true" > /var/lock/XLOADED
+
 rm -f /tmp/wmexitmode.txt
-echo "haveX='$haveX'"
+
+_info "haveX='$haveX'"
+test -e/tmp/xerrs.$haveX.log && mv $VERB /tmp/xerrs.$haveX.log  /tmp/xerrs.$haveX.log-prev
+
 case $haveX in
  #Xvesa|Xvesa*|Xnvidia|Xnvidia*|Xchips|Xephyr|Xepson|Xfake|Xfbdev|Xi810|Xmach64|Xmga|Xneomagic|Xnest|Xpm2|Xrt28|Xsdl|Xsmi|Xvfb|Xvia)
  Xvesa|Xvesa*|Xchips)
