@@ -1,0 +1,525 @@
+#!/bin/sh
+
+LANG=C
+START_DIRECTORY="`pwd`"
+
+PROGRAM_NAME_LONG='flashplayer-change'
+PROGRAM_NAME='Sflash-c'
+
+echo
+
+help_func(){
+
+cat 1>&2 << EOT
+
+Usage: `basename $0` [ OPTION ] [ \${filename}  to use ]
+
+Copies the desired libflashplayer to the default name 'libflashplayer.so'
+
+OPTIONS :
+
+-l | --list   ) Shows available libflashplayer in '/usr/lib/' .
+                An additional term would show available 
+                templates for this term .
+
+-s | --search ) Searches for term . If no dirname is given ,
+                search defaults to '/usr/lib' .
+                Example : '/root/flash' would look eveywhere
+                in the '/root' directory for a file named '*flash*' .
+
+-c | --copy   ) This is the default , if no parameters are given .
+                The program defaults to search for '*flash*' in '/usr/lib' .
+                If a filename is given i.e. flash-7 , 
+                it searches for the filename in '/usr/lib' 
+                and presents a menu : 
+                first to choose , which directory
+                and second , which file should be copied .
+                If the destination filename is empty , it defaults to
+                'libflashplayer.so' in the chosen directory .
+
+-d | --delete ) Menu to delete a 'libflashplayer.so' .
+                Of course use with caution .    
+
+-L | --link   ) Menu to delete 'libflashplayer.so' 
+                and link a chosen one to 'libflashplayer.so' .
+                Note : 'libflashplayer.so' may not work as 
+                link to a file named differently than 'libflashplayer.so' .
+
+EOT
+
+}
+
+###BEGIN --help ##############################################################
+if [ "$1" = "-h" -o "$1" = "-help" -o "$1" = "--help"  ] ; then
+
+echo
+echo "$PROGRAM_NAME reqiures an argument ."
+
+help_func
+
+exit
+
+fi
+###END --help ################################################################
+
+###BEGIN case $1 #############################################################
+
+case "$1" in
+
+###BEGIN --list ##############################################################
+-l|--list)
+
+if [ -z "$2" ] ; then
+
+LIB_FLASH_PLAYERS=`find /usr/ -type f -name "libflashplayer*" -o -type l -name "libflashplayer*" | sort -f -k 2,3 -t '/'`
+
+if [ -n "$LIB_FLASH_PLAYERS" ] ; then
+
+##echo "$LIB_FLASH_PLAYERS"
+
+for SFP in $LIB_FLASH_PLAYERS ; do
+echo $SFP
+##file $SFP | cut -f 2-99 -d ' '
+FILE_SFP=`file $SFP | cut -f 2-99 -d ' '`
+
+if [ -n "`echo "$FILE_SFP"  | grep 'ELF' | grep 'LSB'`" ] ; then
+
+FLASHPLAYER_VERSION=`strings $SFP | grep -i 'shockwave flash' | grep '[0-9]'`
+
+[ -n "$FLASHPLAYER_VERSION" ] && echo -e "\e[1;36m$FLASHPLAYER_VERSION\e[0;35m"
+
+ldd $SFP 2>/tmp/ldd-flashplayer.txt | grep -v '=> /' | grep -v -E 'linux\-gate|ld\-linux'
+echo "`cat /tmp/ldd-flashplayer.txt | cut -f 2-99 -d ' ' | cut -f 1 -d '('`" 
+
+fi
+
+echo -e "\e[1;34m$FILE_SFP\e[0;39m"
+
+echo
+done
+
+else
+
+echo -e "\e[31mNo libflashplayers found in '/usr/lib/*'\e[39m"
+
+fi
+
+else
+
+LIB_FLASH_PLAYERS=`find /usr/lib -type f -name "*.$2*" -o -type l -name "libflashplayer*" | sort -f -k 2,3 -t '/'`
+
+if [ -n "$LIB_FLASH_PLAYERS" ] ; then
+
+##echo "$LIB_FLASH_PLAYERS"
+
+for SFP in $LIB_FLASH_PLAYERS ; do
+
+echo $SFP
+##file $SFP | cut -f 2-99 -d ' '
+FILE_SFP=`file $SFP | cut -f 2-99 -d ' '`
+
+if [ -n "`echo "$FILE_SFP"  | grep 'ELF' | grep 'LSB'`" ] ; then
+
+FLASHPLAYER_VERSION=`strings $SFP | grep -i 'shockwave flash' | grep '[0-9]'`
+
+[ -n "$FLASHPLAYER_VERSION" ] && echo -e "\e[1;36m$FLASHPLAYER_VERSION\e[0;39m"
+
+fi
+
+echo "$FILE_SFP"
+echo
+
+done
+
+else
+
+echo -e "\e[31mNo libflashplayers found for '$2' in '/usr/lib/*'\e[39m"
+
+fi
+
+fi
+
+exit
+;;
+###END --list #################################################################
+
+###BEGIN --search #############################################################
+-s|--search)
+
+if [ -n "$2" ] ; then  #0
+
+if [ -n "`echo "$2" | grep '/'`" ] ; then #1
+
+PATH_TO_SEARCH=`dirname "$2"`
+
+if [ "$PATH_TO_SEARCH" = "." ] ; then
+PATH_TO_SEARCH='./'
+fi
+
+else #1
+
+PATH_TO_SEARCH='/usr/lib'
+
+fi #1
+
+FILE_NAME=`basename $2`
+FIND_NAME=`find $PATH_TO_SEARCH -type f -iname "*${FILE_NAME}*" | sort -f -k 2,3 -t '/'`
+
+if [ -n "$FIND_NAME" ] ; then #3
+
+for FN in $FIND_NAME ; do
+
+echo -e "\e[0;36m$FN\e[0;39m"
+ldd "$FN" 2>/tmp/ldd-flashplayer.txt | grep -v -E 'linux\-gate|ld\-linux| => /'
+echo "`cat /tmp/ldd-flashplayer.txt | cut -f 2-99 -d ' ' | cut -f 1 -d '(' | uniq`"
+echo -n -e "\e[0;35m"
+file "$FN" | cut -f 2 -d ':'
+echo -e "\e[0;39m"
+
+done
+
+else #3
+
+echo -e "\e[31mNo matches for $FILE_NAME found in $PATH_TO_SEARCH\e[39m"
+
+fi #3
+
+else #0
+echo -e "\e[31mError , no evaluable filename to search for given .\e[39m"
+fi #1
+exit
+;;
+###END --search ###############################################################
+
+###BEGIN --link ###############################################################
+
+-L|--link ) 
+
+LIB_FLASH_PLAYERS=`find /usr/lib -type f -name "libflashplayer.so" -o -type l -name "libflashplayer.so" | sort -f -k 2,3 -t '/'`
+
+rm -f /tmp/flashplayers.link.txt
+rm -f /tmp/flashplayers.link.txt.2
+
+FLASH_COUNT=0
+for FP in $LIB_FLASH_PLAYERS ; do
+
+FLASH_COUNT=$((FLASH_COUNT+1))
+echo -e "\e[36m$FLASH_COUNT;main;$FP\e[39m" >> /tmp/flashplayers.link.txt
+echo "$FLASH_COUNT;main;$FP" >> /tmp/flashplayers.link.txt.2
+DIR_NAME=`dirname $FP`
+LS_DIR_NAME=`ls -1 "$DIR_NAME" | grep -i 'flash' | sort`
+
+ONE_COUNT=0
+for ONE in $LS_DIR_NAME ; do
+
+ONE_COUNT=$((ONE_COUNT+1))
+echo "$FLASH_COUNT;$ONE_COUNT;file;$ONE" >> /tmp/flashplayers.link.txt
+
+done
+
+done
+
+
+LIST_OF_FLASH_PLAYERS=`cat /tmp/flashplayers.link.txt`
+
+echo -e "$LIST_OF_FLASH_PLAYERS"
+
+echo -n -e "\e[35mFirst : Choose the main number : \e[39m"
+read MAIN_NUMBER
+MAIN_NUMBER=`echo "$MAIN_NUMBER" | grep -o '[0-9]' | tr '\n' ' '`
+
+if [ -n "$MAIN_NUMBER" ] ; then
+
+if [ "$MAIN_NUMBER" -le "$FLASH_COUNT" ] && [ "$MAIN_NUMBER" -ge 1 ] ; then
+#echo $MAIN_NUMBER
+AVAILABLES=`grep -w ^$MAIN_NUMBER  /tmp/flashplayers.link.txt | grep '\;file\;' | sed 's/^[0-9]*\;//g'`
+
+echo
+
+echo "$AVAILABLES"
+            
+echo -n -e "\e[35mSecond : Which one should link ? \e[39m"
+read LINK_NUMBER
+LINK_NUMBER=`echo "$LINK_NUMBER" | grep -o '[0-9]' | tr '\n' ' '`
+
+if [ -n "$LINK_NUMBER" ] ; then
+
+NUMBER_OF_AVAILABLES=`echo $AVAILABLES | wc -w`
+
+if [ "$LINK_NUMBER" -le "$NUMBER_OF_AVAILABLES" ] && [ "$LINK_NUMBER" -ge 1 ] ; then
+
+LINK_SOURCE=`grep -w ^$MAIN_NUMBER /tmp/flashplayers.link.txt | sed 's/^[0-9]*\;//g' | grep -w ^$LINK_NUMBER | cut -f 3 -d ';'`
+
+#echo $LINK_SOURCE
+grep -w ^$MAIN_NUMBER /tmp/flashplayers.link.txt.2
+DIR_NAME=`dirname $(grep -w ^$MAIN_NUMBER /tmp/flashplayers.link.txt.2 | grep '\;main\;' | cut -f 3 -d ';')`
+
+#echo $DIR_NAME 
+if [ "${DIR_NAME}/$LINK_SOURCE" != "${DIR_NAME}/libflashplayer.so" ] ; then
+rm -f ${DIR_NAME}/libflashplayer.so
+
+ln -s ${LINK_SOURCE} ${DIR_NAME}/libflashplayer.so
+file ${DIR_NAME}/libflashplayer.so
+rox ${DIR_NAME}
+
+else
+
+echo -e "\e[31mDon't wnat to link file into itself ...\e[39m"
+
+fi
+
+else
+
+echo -e "\e[31mNumber outside the range of possible choices .\e[39m"
+exit 
+fi
+
+else
+
+echo -e "\e[31mNo input given .\e[39m"
+exit
+fi
+
+else
+
+echo -e "\e[31mNumber outside the range of possible choices .\e[39m"
+exit 
+fi
+
+else
+
+echo -e "\e[31mNo input given .\e[39m"
+exit
+fi
+
+if [ -n "$2" ] ; then
+echo "$2"
+else
+echo -e "\e[31mNo \$2 given .\e[39m"
+fi
+
+exit
+;;
+###END --link #################################################################
+
+###BEGIN --delete #############################################################
+
+-d|--delete)
+
+LIB_FLASH_PLAYERS=`find /usr/lib -type f -name "libflashplayer.so" -o -type l -name "libflashplayer.so" | sort -f -k 2,3 -t '/'`
+
+rm -f /tmp/flashplayers.rm.txt
+rm -f /tmp/flashplayers.rm.txt.2
+
+if [ -n "$LIB_FLASH_PLAYERS" ] ; then
+
+FLASH_COUNT=0
+for FP in $LIB_FLASH_PLAYERS ; do
+
+FLASH_COUNT=$((FLASH_COUNT+1))
+echo -e "\e[36m$FLASH_COUNT;main;$FP\e[39m" >> /tmp/flashplayers.rm.txt
+echo "$FLASH_COUNT;main;$FP" >> /tmp/flashplayers.rm.txt.2
+DIR_NAME=`dirname $FP`
+LS_DIR_NAME=`ls -1 "$DIR_NAME" | grep -i 'flash' | sort`
+
+ONE_COUNT=0
+for ONE in $LS_DIR_NAME ; do
+
+ONE_COUNT=$((ONE_COUNT+1))
+echo "$FLASH_COUNT;$ONE_COUNT;file;$ONE" >> /tmp/flashplayers.rm.txt
+
+done
+
+done
+
+
+LIST_OF_FLASH_PLAYERS=`cat /tmp/flashplayers.rm.txt`
+
+echo -e "$LIST_OF_FLASH_PLAYERS"
+
+echo -n -e "\e[35mFirst : Choose the main number : \e[39m"
+read MAIN_NUMBER
+MAIN_NUMBER=`echo "$MAIN_NUMBER" | grep -o '[0-9]' | tr '\n' ' '`
+
+if [ -n "$MAIN_NUMBER" ] ; then
+
+if [ "$MAIN_NUMBER" -le "$FLASH_COUNT" ] && [ "$MAIN_NUMBER" -ge 1 ] ; then
+#echo $MAIN_NUMBER
+AVAILABLES=`grep -w ^$MAIN_NUMBER  /tmp/flashplayers.rm.txt | grep '\;file\;' | sed 's/^[0-9]*\;//g'`
+
+echo
+
+echo "$AVAILABLES"
+            
+echo -n -e "\e[35mSecond : Which one should be removed ? \e[39m"
+read REMOVE_NUMBER
+REMOVE_NUMBER=`echo "$REMOVE_NUMBER" | grep -o '[0-9]' | tr '\n' ' '`
+
+if [ -n "$REMOVE_NUMBER" ] ; then
+
+NUMBER_OF_AVAILABLES=`echo $AVAILABLES | wc -w`
+
+if [ "$REMOVE_NUMBER" -le "$NUMBER_OF_AVAILABLES" ] && [ "$REMOVE_NUMBER" -ge 1 ] ; then
+
+REMOVE_SOURCE=`grep -w ^$MAIN_NUMBER /tmp/flashplayers.rm.txt | sed 's/^[0-9]*\;//g' | grep -w ^$REMOVE_NUMBER | cut -f 3 -d ';'`
+
+#echo $LINK_SOURCE
+
+DIR_NAME=`dirname $(grep -w ^$MAIN_NUMBER /tmp/flashplayers.rm.txt.2 | grep '\;main\;' | cut -f 3 -d ';')`
+
+#echo $DIR_NAME 
+rox ${DIR_NAME}
+file ${DIR_NAME}/libflashplayer.so
+echo
+rm -i -v  ${DIR_NAME}/libflashplayer.so
+
+if [ ! -f ${DIR_NAME}/libflashplayer.so ] ; then
+echo '#DUMMY' > ${DIR_NAME}/libflashplayer.so
+fi
+
+else
+
+echo -e "\e[31mNumber exceeds possible choices .\e[39m"
+exit 
+fi
+
+else
+
+echo -e "\e[31mNo input given .\e[39m"
+exit
+fi
+
+else
+
+echo -e "\e[31mNumber exceeds possible choices .\e[39m"
+exit 
+fi
+
+else
+
+echo -e "\e[31mNo input given .\e[39m"
+exit
+fi
+
+if [ -n "$2" ] ; then
+echo "$2"
+else
+echo -e "\e[31mNo \$2 given .\e[39m"
+fi
+
+else
+
+echo -e "\e[31mNo libflashplayer.so found in /usr/lib .\e[39m"
+
+fi
+
+
+exit
+;;
+###END --delete ###############################################################
+
+
+###Begin --copy ###############################################################
+
+-c|--copy|*)
+
+FIND_NAME="$1"
+
+if [ "$2" ] ; then
+FIND_NAME="$2"
+echo 1 "$FIND_NAME"
+else
+if [ "$1" = "-c" -o "$1" = "--copy" ] ; then
+FIND_NAME='flash'
+echo 2 "$FIND_NAME"
+fi
+fi
+
+FLASH_PLAYERS=`find /usr/lib -type f -iname "*${FIND_NAME}*" | grep -i 'flash' | sort -f -k 2,3 -t '/'`
+
+if [ -n "$FLASH_PLAYERS" ] ; then
+
+rm -f /tmp/ShockwaveFlash.lst
+NUMBERS=0
+for SFP in $FLASH_PLAYERS ; do
+
+NUMBERS=$((NUMBERS+1))
+echo -e "\e[1;35m$NUMBERS $SFP\e[0;39m"
+echo "$NUMBERS;$SFP" >> /tmp/ShockwaveFlash.lst
+
+done
+
+echo -n -e "\e[0;39mChoose which one of the flashplayers : \e[0;39m"
+read FLASHNUMBER
+FLASHNUMBER=`echo "$FLASHNUMBER" | grep -o '[0-9]' | tr -d '\n'` 
+echo
+
+if [ -n "$FLASHNUMBER" ] ; then
+
+if [ "$FLASHNUMBER" -le "$NUMBERS" ] && [ "$FLASHNUMBER" -ge 1 ] ; then
+
+echo -e "\e[0;39mEnter new filename :\e[0;39m"
+read NEWFILENAME
+NEWFILENAME=`echo "$NEWFILENAME" | sed 's/^[[:blank:]]*// ; s/[[:blank:]]*$//'`
+
+[ -z "$NEWFILENAME" ] && NEWFILENAME='libflashplayer.so'
+
+if [ -n "$NEWFILENAME" ] ; then
+
+if [ -z "`echo "$NEWFILENAME" | grep '^/'`" ] ; then
+
+NEWFILENAME="/${NEWFILENAME}"
+
+fi
+
+echo
+
+OLD_FLASH_NAME=`grep -w "^$FLASHNUMBER\;" /tmp/ShockwaveFlash.lst | cut -f 2 -d ';' | sed 's/^[[blank:]]*//'`
+echo "$OLD_FLASH_NAME"
+OLD_FLASH_PATH_SLASH=`echo "$OLD_FLASH_NAME" | grep -o '/' | tr -d '\n' | wc -c`
+echo "$OLD_FLASH_PATH_SLASH"
+NEW_FLASH_PATH_SLASH=`echo "$NEWFILENAME" | grep -o '/' | tr -d '\n' | wc -c`
+echo "$NEW_FLASH_PATH_SLASH"
+PATH_TO_KEEP_SLASH=$(( $OLD_FLASH_PATH_SLASH - $NEW_FLASH_PATH_SLASH ))
+echo "$PATH_TO_KEEP_SLASH"
+PATH_TO_KEEP=`echo "$OLD_FLASH_NAME" | cut -f 1-$PATH_TO_KEEP_SLASH -d '/'`
+echo "$PATH_TO_KEEP"
+if [ -z "`echo "$OLD_FLASH_NAME" | cut -f 1 -d '/'`" ] ; then
+PTKS=$(( $PATH_TO_KEEP_SLASH + 1 ))
+PATH_TO_KEEP=`echo "$OLD_FLASH_NAME" | cut -f 1-$PTKS -d '/'`
+fi
+echo "$PATH_TO_KEEP"
+NEW_FLASH_PATH="${PATH_TO_KEEP}${NEWFILENAME}"
+echo "$NEW_FLASH_PATH"
+
+cp -i "$OLD_FLASH_NAME"  "$NEW_FLASH_PATH"
+
+
+else
+
+echo -e "\e[31m Filename does not contain content .\e[39m"
+exit
+fi
+
+else
+
+echo -e "\e[31mChosen number outside the range .\e[39m"
+exit
+fi
+
+else
+
+echo -e "\e[31mNo evaluable input found .\e[39m"
+exit
+fi
+
+else
+
+echo -e "\e[31mNo files found for $FIND_NAME in '/usr/lib' .\e[39m"
+
+fi
+
+exit
+;;
+
+esac 
