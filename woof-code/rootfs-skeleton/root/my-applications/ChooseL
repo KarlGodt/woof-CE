@@ -1,0 +1,107 @@
+#!/bin/sh
+
+start_dir="$PWD"
+tmpDir=/tmp/locale
+mkdir -p $tmpDir/log
+[ "$start_dir" ] || start_dir=$tmpDir
+
+#AVAIL_LANGS=`for i in $(ls -1 /usr/share/i18n/locales) ; do echo -n "${i} | ";grep -m1 '^title' /usr/share/i18n/locales/$i; done`
+
+for i in $(ls -1 /usr/share/i18n/locales) ; do
+#echo -n "${i} | ";
+#grep -m1 '^title' /usr/share/i18n/locales/$i;
+
+AVAIL_LANGS="$AVAIL_LANGS
+${i}| `grep -m1 '^title' /usr/share/i18n/locales/$i`"
+done
+
+echo "$AVAIL_LANGS" | grep -viE 'posix|translit|i18n|iso|^$' >/tmp/AVAIL_LANGS.lst
+
+export ChooseLocaleMainWindow="
+<window title=\"chooselocale\">
+<vbox>
+ <hbox>
+  <text><label>Select the language</label></text>
+ </hbox>
+ <hbox>
+  <frame Language>
+   <table>
+   <label>Available Languages in i18n locales | Description</label>
+   <variable>MY_LANG</variable>
+   <input>cat /tmp/AVAIL_LANGS.lst</input>
+   <action>echo \$MY_LANG >/tmp/LANG_sel</action>
+   <width>700</width><height>180</height>
+  </table>
+ </frame>
+</hbox>
+
+<hbox>
+<text><label>Select the char map</label></text>
+</hbox>
+<hbox>
+<frame Charmap>
+   <table>
+   <label>Available Character Maps in i18n charmaps</label>
+   <variable>MY_MAP</variable>
+   <input>ls -1 /usr/share/i18n/charmaps</input>
+   <action>echo $MY_MAP >/tmp/MAP_sel</action>
+   <width>700</width><height>180</height>
+  </table>
+</frame>
+</hbox>
+<hbox>
+ <button ok></button>
+ <button cancel></button>
+</hbox>
+</vbox>
+</window>
+"
+
+eval `gtkdialog --program=ChooseLocaleMainWindow`
+#: MY_LANG="de_DE"
+#: MY_MAP="IBM1132.gz"
+#: EXIT="OK"
+
+[ "$EXIT" = OK ] || exit 0
+   [ "$MY_MAP" ] || exit 0
+  [ "$MY_LANG" ] || exit 0
+
+MAP=`echo "$MY_MAP" | sed 's%\..*$%%'`
+echo "MAP=$MAP'"
+
+echo "MY_LANG=$MY_LANG'"
+
+localedef --no-archive -f $MAP -i $MY_LANG "${MY_LANG}.${MAP}" > $tmpDir/log/${MAP}.${MY_LANG}.log 2>&1
+           RV=$?
+echo "Return Value of localedef is < $RV >"
+
+if [ "$RV" != 0 ] ; then
+
+echo "$MY_LANG $MAP" >> /usr/share/i18n/UNSUPPORTED
+ERROR_MSG=`tail -n 10 $tmpDir/log/"${MAP}.${MY_LANG}.log"`
+xmessage -bg red "Failed to create correct Language
+
+$ERROR_MSG"
+
+cd /usr/lib/locale/
+rmdir ${MY_LANG}*
+cd "$start_dir"
+exec $0
+
+fi
+
+
+grep "$MY_LANG" /usr/share/i18n/SUPPORTED | grep "$MAP" || echo "$MY_LANG $MAP" >> /usr/share/i18n/SUPPORTED
+
+sed -i "s%^LANG=.*%LANG=${MY_LANG}\.${MAP}%" /etc/profile
+[ $? = 0 ] || { xmessage -gb red "Sorry, probably /etc/profile corrupt."; exit 1; }
+
+
+Xdialog --left --wrap --title "Glibc Locale setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${MY_LANG}.${MAP} in /etc/profile." 0 100
+
+ if [ $? -eq 0 ];then
+  rm -rf /tmp/.X0-lock
+  sync
+  exec restartwm $CURRENTWM
+ fi
+
