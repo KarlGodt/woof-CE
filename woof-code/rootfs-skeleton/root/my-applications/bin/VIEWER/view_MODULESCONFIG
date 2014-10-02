@@ -1,0 +1,256 @@
+#!/bin/sh
+
+
+START_Dir="`pwd`"
+Conf_File_Dir_Name='/etc/rc.d'
+Conf_File_Base_Name='MODULESCONFIG'
+Conf_File_Real_Path='/etc/rc.d/MODULESCONFIG'
+FullPath_Conf_File='/etc/rc.d/MODULESCONFIG'
+
+
+Tmp_Dir='/tmp/view_MODULESCONFIG'
+[ ! -d "$Tmp_Dir" ] && mkdir -p "$Tmp_Dir"
+
+TARS=`find "$Tmp_Dir" -name "view_MODULESCONFIG.files.[0-9]*.tar.gz"`
+if [ "`echo "$TARS" | wc -l`" -gt 9 ] ; then
+KeepTARS=`echo "$TARS" | tail -n 9`
+grep_PAT=`echo "$KeepTARS" | sed 's/\./\\\\./g ; s/\-/\\\\-/g'`
+DelTARS=`echo "$TARS" | grep -v "$grep_PAT"`
+for content in $DelTARS ; do rm -f $content ; done ; 
+fi
+
+
+KERNEL_VER="`uname -r | sed 's/\./\\\\./g'`"
+. /etc/rc.d/MODULESCONFIG
+
+None_Module_PAT='No modules selected 
+in bootmanager'
+
+if [ -n "$SKIPLIST" ] ; then
+rm -f $Tmp_Dir/SKIPLIST.list
+SKIPLIST=`echo "$SKIPLIST" | sed 's/#.*//g'`
+for content in $SKIPLIST ; do
+echo "$content" >> $Tmp_Dir/SKIPLIST.txt
+done
+else
+echo "$None_Module_PAT" > $Tmp_Dir/SKIPLIST.txt
+fi
+
+if [ -n "$PREFLIST" ] ; then
+rm -f $Tmp_Dir/PREFLIST.list
+PREFLIST=`echo "$PREFLIST" | sed 's/#.*//g'`
+for content in $PREFLIST ; do
+echo "$content" >> $Tmp_Dir/PREFLIST.txt
+done
+else
+echo "$None_Module_PAT"> $Tmp_Dir/PREFLIST.txt
+fi
+
+if [ -n "$PCI_OVERRIDES" ] ; then
+rm -f $Tmp_Dir/PCI_OVERRIDES.list
+PCI_OVERRIDES=`echo "$PCI_OVERRIDES" | sed 's/#.*//g'` 
+echo "$PCI_OVERRIDES" | while read driver pci over ; do
+echo "$driver : $pci - $over" >> $Tmp_Dir/PCI_OVERRIDES.txt
+done
+else
+echo "$None_Module_PAT" > $Tmp_Dir/PCI_OVERRIDES.txt
+fi
+
+if [ -n "$ADDLIST" ] ; then
+rm -f $Tmp_Dir/ADDLIST.txt
+ADDLIST=`echo "$ADDLIST" | sed 's/#.*//g'` 
+for content in $ADDLIST ; do
+echo "$content" >> $Tmp_Dir/ADDLIST.txt
+done
+else
+echo "$None_Module_PAT" > $Tmp_Dir/ADDLIST.txt
+fi
+echo 68
+L_add=`wc -l $Tmp_Dir/ADDLIST.txt | tr -d '[[:blank:]]' | grep -o -e '^[[:digit:]]*'`
+L_pci=`wc -l $Tmp_Dir/PCI_OVERRIDES.txt | tr -d '[[:blank:]]' | grep -o -e '^[[:digit:]]*'`
+L_pre=`wc -l $Tmp_Dir/PREFLIST.txt | tr -d '[[:blank:]]' | grep -o -e '^[[:digit:]]*'`
+L_ski=`wc -l $Tmp_Dir/SKIPLIST.txt | tr -d '[[:blank:]]' | grep -o -e '^[[:digit:]]*'`
+
+yafCdown=`echo -e $L_add"\n"$L_pci"\n"$L_pre"\n"$L_ski | sort -g | tail -n1`
+
+
+processing_func(){
+count=$((count+1))
+if [ "$count" -gt "$L_add" -a "$count" -gt "$L_pci" -a "$count" -gt "$L_pre" -a "$count" -gt "$L_ski" ]
+then END='now' ; fi
+
+LINE1="`sed -n "$count p" $Tmp_Dir/ADDLIST.txt`" ## | tr -d '[[:blank:]]' | sed 's/^[[:digit:]]*\://'`"
+[ -z "$LINE1" ] && LINE1=" "
+LINE="$LINE1"' | '
+if [ -z "`grep "$None_Module_PAT" $Tmp_Dir/ADDLIST.txt`" ] ; then
+if [ -z "`grep -w "$LINE1" $Tmp_Dir/yaf_modules`" ] ; then
+DESCR1=`dirname $(find /lib/modules/$(uname -r) \( -iname "$LINE1*" -o -iname "$LINE1" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+[ -z "$DESCR1" ] && DESCR1=`dirname $(find /lib/modules/$(uname -r) \( -iname "$LINE1*" -a -iname "$LINE1" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+echo "$LINE1" >> $Tmp_Dir/yaf_modules
+fi;fi
+[ -z "$DESCR1" ] && DESCR1=" "
+LINE="$LINE $DESCR1"' |   | '
+DESCR1=;
+
+LINE2="`sed -n "$count p" $Tmp_Dir/PCI_OVERRIDES.txt`" ## | tr -d '[[:blank:]]' | sed 's/^[[:digit:]]*\://'`"
+[ -z "$LINE2" ] && LINE2=" "
+LINE="$LINE $LINE2"' | '
+if [ -z "`grep "$None_Module_PAT" $Tmp_Dir/PCI_OVERRIDES.txt`" ] ; then
+Module=`echo "$LINE2" | sed 's/^[[:blank:]]*//' | cut -f 1 -d ':' | tr -d '[[:blank:]]'`
+echo 'Module='"$Module"'_EOS'
+
+if [ -n "$Module" ] ; then
+if [ -z "`grep -w "$Module" $Tmp_Dir/yaf_modules`" ] ; then
+echo "$Module" >> $Tmp_Dir/yaf_modules
+DESCR2=`dirname $(find /lib/modules/$(uname -r) \( -iname "$Module*" -o -iname "$Module" \) | tail -n1  ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+[ -z "$DESCR2" ] && DESCR2=`dirname $(find /lib/modules/$(uname -r) \( -iname "$LINE1*" -a -iname "$Module" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+fi;fi
+fi
+[ -z "$DESCR2" ] && DESCR2=" "
+LINE="$LINE $DESCR2"' |   | '
+DESCR2=;
+
+LINE3="`sed -n "$count p" $Tmp_Dir/PREFLIST.txt`" ## | tr -d '[[:blank:]]' | sed 's/^[[:digit:]]*\://'`"
+[ -z "$LINE3" ] && LINE3=" "
+LINE="$LINE $LINE3"' | '
+if [ -z "`grep "$None_Module_PAT" $Tmp_Dir/PREFLIST.txt`" ] ; then
+if [ -n "`echo "$LINE3" | grep '[[:alnum:]]'`" ] ; then
+Module1=`echo "$LINE3" | sed 's/^[[:blank:]]*//' | cut -f 1 -d ':'`
+Module2=`echo "$LINE3" | sed 's/^[[:blank:]]*//' | cut -f 2 -d ':'`
+echo 'Module1='"$Module1"'_EOS'; #echo "$Module1" >> $Tmp_Dir/yaf_modules
+echo 'Module2='"$Module2"'_EOS'; #echo "$Module2" >> $Tmp_Dir/yaf_modules
+if [ -z "`grep -w "$Module1" $Tmp_Dir/yaf_modules`" ] ; then
+DESCR3=`dirname $(find /lib/modules/$(uname -r) \( -iname "$Module1*" -o -iname "$Module1" \) | tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+[ -z "$DESCR3" ] && DESCR3=`dirname $(find /lib/modules/$(uname -r) \( -iname "$Module1*" -a -iname "$Module1" \) | tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+echo "$Module1" >> $Tmp_Dir/yaf_modules; fi
+if [ -z "`grep -w "$Module2" $Tmp_Dir/yaf_modules`" ] ; then
+DESCR3p=`dirname $(find /lib/modules/$(uname -r) \( -iname "$Module2*" -o -iname "$Module2" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+[ -z "$DESCR3p" ] && DESCR3p=`dirname $(find /lib/modules/$(uname -r) \( -iname "$Module2*" -a -iname "$Module2" \) | tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+echo "$Module2" >> $Tmp_Dir/yaf_modules; fi
+[ -z "$DESCR3" ] && DESCR3="' '" ; [ -z "$DESCR3p" ] && DESCR3p="' '"
+fi;fi
+if [ -n "$DESCR3" -o -n "$DESCR3p" ] ; then
+LINE="$LINE $DESCR3 : $DESCR3p"' |   | '
+else
+LINE="$LINE"' |   | '
+fi
+DESCR3=;DESCR3p=;
+
+LINE5="`sed -n "$count p" $Tmp_Dir/SKIPLIST.txt `" ##| tr -d '[[:blank:]]' | sed 's/^[[:digit:]]*\://'`"
+[ -z "$LINE5" ] && LINE5=" "
+LINE="$LINE $LINE5"' | '
+if [ -z "`grep "$None_Module_PAT" $Tmp_Dir/SKIPLIST.txt`" ] ; then
+if [ -n "`echo "$LINE5" | grep '[[:alnum:]]'`" ] ; then
+if [ -z "`grep -w "$LINE5" $Tmp_Dir/yaf_modules`" ] ; then
+DESCR5=`dirname $(find /lib/modules/$(uname -r) \( -iname "$LINE5*" -o -iname "$LINE5" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+[ -z "$DESCR5" ] && DESCR5=`dirname $(find /lib/modules/$(uname -r) \( -iname "$LINE5*" -a -iname "$LINE5" \) |tail -n1 ) 2>/dev/null | sed "s/\/lib\/modules\/$KERNEL_VER//"`
+fi
+echo "$LINE5" >> $Tmp_Dir/yaf_modules
+fi;fi
+[ -z "$DESCR5" ] && DESCR5=" "
+LINE="$LINE $DESCR5"
+echo "$LINE" >> $Tmp_Dir/view_MODULESCONFIG
+DESCR5=;
+}
+
+#yaf-splash -bg "#89C2FA" -text "formatting the files ... please wait `while [[ $END != now ]] ; do sleep 2s ; yafMOD=$(cat $Tmp_Dir/yaf_modules | tail -n 1) ; echo $yafMOD ; done`" &
+
+#xmessage -bg "#89C2FA" "formatting the files ... please wait `while [[ $END != now ]] ; do sleep 2s ; yafMOD=$(cat $Tmp_Dir/yaf_modules | tail -n 1) ; echo $yafMOD ; done`" &
+
+touch $Tmp_Dir/yaf_modules
+#END='not_now'
+#while [[ "$END" != "now" ]] ; do 
+#sleep 2s ; 
+#yafMOD=$(cat $Tmp_Dir/yaf_modules | tr '\n' ' ') # | tail -n 1) ; 
+#echo $yafMOD ; done`" &
+#YAF_PID=$!
+yaf-splash -bg "#89C2FA" -font "-*-*-bold-*-*-*-18-*-*-*-*-*-*-*" -countdown $(( $(date +%s) + $yafCdown )) &
+YAF_PID=$!
+
+count=0 ; ##END='not_now'
+while [ "$END" != "now" ] ; do
+
+processing_func
+#[ -n "$YAF_PID" ] && kill $YAF_PID
+#yaf-splash -bg "#89C2FA" -text "formatting the files ... please wait `
+#echo $LINE5`" &
+#YAF_PID=$!
+#yaf-splash -bg "#89C2FA" -font "-*-*-bold-*-*-*-18-*-*-*-*-*-*-*" -countdown $(( $(date +%s) + $yafCdown )) &
+YAF_PID=$!
+done
+
+#kill $YAF_PID
+
+#done
+
+killall yaf-splash
+
+EXP_LABEL="<label> Driver Add List    $L_add | DESCRIPTION |  | Pci Overrides    $L_pci |  DECRIPTION |  | Preference List    $L_pre | DESCRIPTION |  | Driver Skip List    $L_ski | DESCRITION</label>" 
+
+echo 96
+export VIEW_RC_MODULESCONFIG="<window title=\"Puppy DRIVER_VIEWER\" icon-name=\"gtk-about\">
+  <vbox>
+   <text><label>SIMPLE GTKDIALOG3 VIEWER
+/etc/rc.d/MODULESCONFIG</label></text>
+   <frame Bootmanger entries in /etc/rc.d/MODULESCONFIG>
+    <tree hover-expand=\"TRUE\" hover-selection=\"TRUE\" reorderable=\"TRUE\" rubber-banding=\"TRUE\" rules-hint=\"TRUE\" tooltip-column=\"2\" odd-row-color=\"#A52A2A\">
+      $EXP_LABEL
+      <variable>ONESTATE</variable>
+       <input>cat $Tmp_Dir/view_MODULESCONFIG</input>
+       <width>700</width><height>180</height>
+    </tree>
+   </frame>
+   <hbox>
+   <vbox><text><label>To open the MODULESCONFIG file click 'run Geany':</label></text></vbox>
+     <button><label>run Geany</label><input file stock=\"gtk-edit\"></input>
+     <action>TIME=`date +%H%M%S`</action>
+     <action>cp /etc/rc.d/MODULESCONFIG /etc/rc.d/MODULESCONFIG.view_MODULESCONFIG.bac.$TIME</action>
+     <action>defaulttexteditor /etc/rc.d/MODULESCONFIG &</action>
+     </button>
+   <vbox><text><label>  Open the filemanager to view rc -directory:</label></text></vbox>
+     <button><label>view rc folder</label><input file stock=\"gtk-open\"></input>
+     <action>rox /etc/rc.d</action>
+     </button>
+    <button cancel></button>
+   </hbox>
+   <hbox>
+   <text line-wrap=\"FALSE\" word-wrap=\"FALSE\"><label>Press this button to start the Command Line Interface 'console' to type 'modinfo [ Name of DRIVER ]'</label></text>
+   
+   <button><label>XTERM emulation</label><input file stock=\"gtk-execute\"></input>
+   <action>xterm &</action>
+   </button>
+   <button><label>ROX-Filer</label><input file stock=\"gtk-directory\"></input>
+   <action>rox /lib/modules/`uname -r` &</action>
+   </button>
+   
+   <text line-wrap=\"FALSE\" word-wrap=\"FALSE\"><label>Press this button to open the ROX-Filer inside the kernel directory '</label></text>
+   
+   </hbox>
+  </vbox>
+ </window>
+" 
+
+RETPARAMS="`gtkdialog3 --program=VIEW_RC_MODULESCONFIG`"
+
+cd /tmp
+tar -czf "view_MODULESCONFIG.files.tar.gz" $Tmp_Dir/view_MODULESCONFIG $Tmp_Dir/ADDLIST.txt $Tmp_Dir/SKIPLIST.txt $Tmp_Dir/PREFLIST.txt $Tmp_Dir/PCI_OVERRIDES.txt /etc/rc.d/MODULESCONFIG
+Time="`date +%H%M%S`"
+mv "view_MODULESCONFIG.files.tar.gz" "view_MODULESCONFIG.files.$Time.tar.gz"
+#mv "view_MODULESCONFIG.files.$Time.tar.gz" /tmp/"view_MODULESCONFIG.files.$Time.tar.gz"
+rm -rf $Tmp_Dir
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
