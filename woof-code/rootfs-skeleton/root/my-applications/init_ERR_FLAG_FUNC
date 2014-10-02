@@ -1,0 +1,350 @@
+#!/bin/ash
+
+export LANG=C
+
+RDEV_FUNC(){
+while [ -z "$PDEV1flag" ] ; do  ##+++2011_10_28
+DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011_10_28 changed position to top
+DEVROOTDRIVE="$DEVPDEV1" ##+2011_10_28 changed position to second
+DEV1FS=`mount | grep ^[\ \"\'\/]*dev/root | cut -f 5 -d ' ' |tr -d \'\"`  ##+2011_10_28 changed position to third
+#PDEV1=`basename "$DEVPDEV1"`
+PDEV1="${DEVPDEV1##*/}"
+ROOTDRIVE="$PDEV1"
+if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ] ; then  ##+++2011_10_28
+PDEV1flag=''
+head -n 5 /proc/partitions
+UPDATINGDEV_FUNC
+else
+echo -e "\\033[1;32m""Root device is /dev/$PDEV1""\\033[0;39m"
+PDEV1flag='yes'
+fi  ##+++2011_10_28
+PDEV1flagCount=$((PDEV1flagCount+1))
+[ "$PDEV1flagCount" -gt "10" ] && break  ##precaution to prevent neverending loop
+sleep 1s
+done  ##+++2011_10_28
+}
+RDEV_FUNC
+
+ERRFLG_FUNC() {  ###KRG
+echo -e "\\033[1;34m"'Checking for unpropper previous shutdown  ... '"\\033[0;39m"
+echo -n -e "\\033[1;33m"'Searching for *fsckme* file 3 levels deep ... '"\\033[0;39m"
+ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
+if [ -z "$ErrFlag" ] ; then  ##1
+echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"\\033[0;39m"
+
+LANG=C
+todayY=`date +%Y`;[ "$todayY" ] || todayY='9999'
+todayM=`date +%m | sed 's/^0//'`;[ "$todayM" ] || todayM=12
+todayD=`date +%d | sed 's/^0//'`;[ "$todayD" ] || todayD='1'
+#todayYDN=`date +%j`;[ "$todayYDN" ] || todayYDN=100
+todayYDN=`date +%j |sed 's%^0*%%'`;[ "$todayYDN" ] || todayYDN=100
+
+echo "
+todayY=$todayY
+todayM=$todayM
+todayD=$todayD
+todayYDN=$todayYDN
+"
+
+monthN=`for i in $(seq 1 12) ; do cal $i 1 | head -n 1 | grep -o '[[:alpha:]]*' | sed "s/^/$i /"; done`
+monthT=`echo "$monthN" | grep -w "^$todayM"`
+montTN=`echo "$monthT" | cut -f 1 -d ' '`
+montTO=`echo "$monthT" | cut -f 2 -d ' '`
+
+#echo "monthN=$monthN"
+echo "monthT=$monthT"
+echo "monthTN=$montTN"
+echo "montTO=$montTO"
+
+#funcs:
+
+func_next_check(){
+nextcY=`echo "$nextch" |awk '{print $1}'`;[ "$nextcY" ] || nextcY=2038
+nextcM=`echo "$nextch" |awk '{print $2}'`;[ "$nextcM" ] || nextcM='Dec'
+nextcD=`echo "$nextch" |awk '{print $3}'`;[ "$nextcD" ] || nextcD='31'
+}
+func_last_check(){
+lastcY=`echo "$lastch" |awk '{print $1}'`;[ "$lastcY" ] || lastcY=1902
+lastcM=`echo "$lastch" |awk '{print $2}'`;[ "$lastcM" ] || lastcM='Dec'
+lastcD=`echo "$lastch" |awk '{print $3}'`;[ "$lastcD" ] || lastcD='31'
+}
+
+
+func_mount_count(){
+    #echo "mntcnt=$mntcnt maxmnt=$maxmnt"
+diffMC=$(( $maxmnt - $mntcnt ));
+}
+
+func_check_maxmnt(){
+    #echo "mntcnt=$mntcnt maxmnt=$maxmnt"
+if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##1
+echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
+FSCK='yes';fi
+}
+
+func_thirties(){
+montCN=`echo "$monthC" | cut -f 1 -d ' '`
+montCO=`echo "$monthC" | cut -f 2 -d ' '`
+val30C=`cal $montCN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]*$'`
+
+
+##+++
+val30B=0
+for i in `seq $((montCN+1)) $((montTN-1))` ; do
+val30i=`cal $i 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o -e '[[:digit:]]*$'`
+val30B=$((val30B+val30i))
+done
+###+++
+
+val30T=`cal $montTN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]*$'`
+}
+
+func_compare(){
+echo -e "\\033[0;39m"
+FSCK=''
+if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##1
+echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
+FSCK='yes'
+else ##1
+  if [ "$todayY" -ge "$nextcY" ] ; then    #2
+   if [ "$montTN" = "$montCN" ] ; then     #3
+    if [ "$todayD" -ge "$nextcD" ] ; then  #4 ##+-2012-05-24 changed -gt to -ge
+echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
+FSCK='yes'
+    fi #4
+   else #3
+    if [ "$montTN" -gt "$montCN" ] ; then #5
+     MinusTD=$todayD
+     PlusCD=$(( $val30C - $nextcD ))
+     SUM=$(( $MinusTD + $val30B + $PlusCD ))
+      if [ "$SUM" -ge "$interN" ] ; then  #6 ##+-2012-05-24 changed -gt to -ge
+       echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
+       FSCK='yes'
+      fi #6
+    fi #5 "$montTN" -gt "$montCN"
+   fi #3 "$montTN" = "$montCN"
+  fi #2 "$todayY" -ge "$nextcY"
+fi #1 "$mntcnt" -ge "$maxmnt"
+}
+
+func_notify(){
+if [ -z "$FSCK" ] ; then #8
+  echo -e "\\033[1;32m"'OK , '"\\033[0;32m""next check '$nextcM $nextcD' or in '$diffMC' mounts""\\033[0;39m"
+  echo -e "\\033[0;39m"
+  BUSYBOX_INIT_FUNC
+                    else #8
+   if [ "$TIME_ELASPED" ];then
+  echo -e "\\033[1;33m"'Filesystem check interval reached :'"\\033[0;39m"
+  echo -e "\\033[0;33m"'Today : '"\\033[0;33m""$montTO $todayD""\\033[0;33m"' , next check was or would be : '"\\033[0;33m""$nextcM  $nextcD""\\033[0;33m"
+   elif [ "$MAX_MOUNT_COUNT" ];then
+  echo -e "\\033[0;33m"'mount intervals : '"\\033[0;33m""$mntcnt""\\033[0;33m"' of '"\\033[0;33m""$maxmnt"
+   else
+  echo -e "\\033[0;33m"'File System Apparently marked unclean'
+   fi
+  echo -e "\\033[0;39m"
+fi #8                    #8
+}
+
+#func
+busybox mount -o remount,ro /  ##+++2012-08-21 for reiserfs
+                  if [ "`echo "$DEV1FS" |grep -Ei 'ext[234]'`" ];then #1.5
+echo -e "\\033[1;33m"'Checking for filesystem check intervals using'"\\033[0;39m"
+VARS=`dumpe2fs -h $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`  ##+2013-07-07 added -h option to dumpe2fs
+nextch=`echo "$VARS" | grep 'Next check after:' |cut -f2- -d':' |awk '{print $5" "$2" "$3}'`;[ "$nextch" ] || nextch="Next check after:         Sun Dec 31 17:51:27 9999"
+func_next_check
+
+mntcnt=`echo "$VARS" | grep 'Mount count:' |cut -f 2 -d ':' |awk '{print $1}'`;[ "$mntcnt" ] || mntcnt='1'
+maxmnt=`echo "$VARS" | grep 'Maximum mount count:' |grep -o '[[:digit:]]' |tr -d '\n'`;[ "$maxmnt" ] || maxmnt=999
+#func_mount_count
+func_check_maxmnt
+func_mount_count
+
+monthC=`echo "$monthN" | grep -e "^[0-9]* $nextcM.*"`
+func_thirties
+#func_compare
+
+#NEW*
+ckday=`echo "$VARS" |grep 'Check interval:' |cut -f2 -d ':' |awk '{print $1}'`
+#chdays=$((checkday/60/60/24))
+chdays=$((ckday/60/60/24))
+nextckYDN=`date --d="$montCN"/"$nextcD"/"$nextcY" +%j |sed 's%^0*%%'`
+if [ "$nextcY" -gt $((todayY+1)) ];then
+  echo "$nextcY -gt $((todayY+1))"
+  part_1=$nextckYDN
+for i in `seq $nextcY -1 $todayY`;do
+[ $i = $todayY ] && break
+  part_2=$((part_2+365))
+done
+  part_3=$((365-todayYDN))
+  time_elapsed=$((part_1+part_2+part_3))
+elif [ "$nextcY" -eq $((todayY+1)) ];then
+     echo "$nextcY -eq $((todayY+1))"
+     part_1=$nextckYDN
+     part_3=$((365-todayYDN))
+     time_elapsed=$((part_1+part_3))
+elif [ "$nextcY" -eq $todayY ];then
+  echo "$nextcY -eq $todayY"
+  time_elapsed=$((nextckYDN-todayYDN))
+fi
+ echo '1'
+ ckdays=`echo "$VARS" | grep 'Check interval:' | awk '{print $3}'`
+ ckdays=$(($ckdays/60/60/24))
+ echo "$time_elapsed ? $ckdays"
+ if [ $time_elapsed -ge $ckdays ];then
+       FSCK=yes;TIME_ELAPSED=yes
+   fi
+ echo '1'
+
+func_notify
+
+   elif [ "`echo "$DEV1FS" |grep -Ei 'reiser'`" ];then #1.5
+   VERSION=`debugreiserfs -V 2>&1|awk '{print $2}' |tr -d '.'`
+
+ echo -e "\\033[1;33m"'Checking for filesystem check intervals using'"\\033[0;39m"
+###VARS=`debugreiserfs -J $DEVROOTDRIVE`  ##---2012-09-03
+VARS=`debugreiserfs $DEVROOTDRIVE`
+
+#sh-3.2# debugreiserfs -J /dev/sda3
+#debugreiserfs 3.6.18 (2003 www.namesys.com)
+
+#Filesystem state: consistency is not checked after last mounting
+
+#Reiserfs super block in block 16 on 0x20010300 of format 3.6 with standard journal
+#Count of blocks on the device: 5317504
+#Number of bitmaps: 163
+#Blocksize: 4096
+#Free blocks (count of blocks - used [journal, bitmaps, data, reserved] blocks): 2689033
+#Root block: 4030501
+#Filesystem marked as NOT cleanly umounted
+#Tree height: 5
+#Hash function used to sort names: "r5"
+#Objectid map size 2, max 972
+
+#Journal parameters:
+#   Device [0x0]
+#   Magic [0x2e25382]
+#   Size 8193 blocks (including 1 for journal header) (first block 18)
+#   Max transaction length 1024 blocks
+#   Max batch size 900 blocks
+#   Max commit age 30
+
+#Blocks reserved by journal: 0
+#Fs state field: 0x0:
+#sb_version: 2
+#inode generation number: 30835
+#UUID: 6040ae97-a196-48e5-8738-6f9c30cb5e7d
+#LABEL: MacPup_O2
+
+#Set flags in SB:
+#   ATTRIBUTES CLEAN
+
+###3.6.21
+#Mount count: 32
+#Maximum mount count: 30
+#Last fsck run: Tue May 15 21:16:51 2012
+#Check interval in days: 180
+###3.6.21
+
+#Journal header (block #8210 of /dev/sda3):
+#   j_last_flush_trans_id 19138
+#   j_first_unflushed_offset 6697
+#   j_mount_id 32
+#   Device [0x0]
+#   Magic [0x2e25382]
+#   Size 8193 blocks (including 1 for journal header) (first block 18)
+#   Max transaction length 1024 blocks
+#   Max batch size 900 blocks
+#   Max commit age 30
+###echo -e "\\033[1;33m""for $DEVROOTDRIVE""\\033[0;39m"
+       if echo "$VARS" |grep -i 'NOT clean' ;then
+       FSCK=yes
+       else
+       FSCK=''
+       fi
+
+      if [ "$VERSION" = 3621 ];then
+
+#######################
+
+maxmnt=`echo "$VARS" |grep 'Maximum mount count:' |cut -f 2 -d ':' |tr -d '[[:blank:]]'`
+[ "$maxmnt" ] || maxmnt=30
+mntcnt=`echo "$VARS" |grep 'Mount count:' |cut -f 2 -d ':' |tr -d '[[:blank:]]'`
+[ "$mntcnt" ] || mntcnt=1
+#func_mount_count
+func_check_maxmnt
+func_mount_count
+#######################
+
+#######################
+ckdays=`echo "$VARS" |grep 'Check interval in days:' |cut -f2 -d':' |tr -d '[[:blank:]]'`
+###echo $ckdays
+[ "$ckdays" ] || ckdays=180
+lastch=`echo "$VARS" |grep 'Last fsck run:' |cut -f2- -d':' |awk '{print $5" "$2" "$3}'`
+###echo $lastch
+##[[ "$lastch" =~ '[[:alpha:][:digit:]]' ]] || lastch=''
+[ "`echo "$lastch" |grep '[[:alpha:][:digit:]]'`" ] || lastch=''
+[ "$lastch" ] || lastch='2012 May 1'
+func_last_check
+echo "
+lastcY=$lastcY
+lastcM=$lastcM
+lastcD=$lastcD
+"
+monthC=`echo "$monthN" | grep -e "^[0-9]* ${lastcM}.*"`
+[ "$monthC" ] || monthC='1 Jan'
+func_thirties
+#echo "monthN=$monthN"
+echo "monthN=$monthN"
+echo "monthC=$monthC"
+echo "montCN=$montCN/lastcD=$lastcD/lastcY=$lastcY"
+date --d="$montCN"/"$lastcD"/"$lastcY" +%j |sed 's%^0*%%'
+lastcYDN=`date --date="$montCN"/"$lastcD"/"$lastcY" +%j |sed 's%^0*%%'`
+[ "$lastcYDN" ] || lastcYDN=1
+if [ "$lastcY" -lt $((todayY-1)) ];then
+part_1=$((365-lastcYDN))
+for i in `seq $lastcY 1 $todayY`;do
+[ $i = $todayY ] && break
+part2=$((part_2+365))
+done
+part_3=$todayYDN
+time_elapsed=$((part_1+part_2+part_3))
+
+elif [ "$lastcY" -eq $((todayY-1)) ];then
+part_1=$((365-lastcYDN))
+part_3=$todayYDN
+time_elapsed=$((part_1+part_3))
+elif [ "$lastcY" -eq $todayY ];then
+time_elapsed=$((todayYDN-lastcYDN))
+fi
+echo "time_elapsed=$time_elapsed"
+##+++2012-08-22
+[ "$time_elapsed" ] || time_elapsed=1
+##nextcM=`date -d "${time_elapsed} days" +%b`  ##---2012-09-03
+nextcM=`date -d "$((ckdays-time_elapsed)) days" +%b`
+#date -d "${time_elapsed} days" +%m
+##nextcD=`date -d "${time_elapsed} days" +%d`  ##---2012-09-03
+nextcD=`date -d "$((ckdays-time_elapsed)) days" +%d`
+##+++2012-08-22
+
+ if [ $time_elapsed -ge $ckdays ];then
+       FSCK=yes;TIME_ELAPSED=yes
+   fi
+func_notify
+
+#monthC=`echo "$monthN" | grep -e "^[0-9]* $lastcM.*"`
+#func_thirties
+
+    fi #version 3.6.21
+
+   else #1.5
+   echo -e "\\033[1;34m""FILESYSTEM '$DEV1FS' not supported""\\033[0;39m"
+   ErrFlag='';FSCK='';
+   fi   #1.5
+else #1
+echo -e "\\033[1;31m" ' Found : '"\\033[0;39m""\\033[1;5;31m""$ErrFlag"
+echo -e "\\033[0;39m"
+fi #1
+busybox mount -o remount,rw /  ##+++2012-08-21 for reiserfs
+}
+############# ERRFLAG OR INTERVALS #########
+ERRFLG_FUNC
