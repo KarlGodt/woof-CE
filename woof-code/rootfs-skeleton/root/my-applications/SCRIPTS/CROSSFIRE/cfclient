@@ -1,0 +1,96 @@
+#!/bin/sh
+
+[ "`tty`" = 'not a tty' ] && exit $?
+
+crossfire_server_dir=/usr/games/crossfire
+crossfire_server_config_dir="$crossfire_server_dir"/etc/crossfire
+crossfire_server_tmp_dir="$crossfire_server_dir"/tmp
+
+CLIENTS="
+client_gtk1_110=gcfclient-1.10
+client_gtk1v2_110=gcfclient-1.10
+client_gtk2_110=gcfclient2-1.10
+client_gtk1_111=gcfclient-1.11
+client_gtk1v2_111=gcfclient-1.11
+client_gtk2_111=gcfclient2-1.11
+client_gtk1_112=crossfire-client-gtk-1.12
+client_gtk1v2_112=crossfire-client-gtk1v2-1.12
+client_gtk2_112=crossfire-client-gtk2-1.12
+client_gtk1_150=crossfire-client-gtk-1.50
+client_gtk1v2_150=crossfire-client-gtk-1.50
+client_gtk2_150=crossfire-client-gtk2-1.50
+client_gtk1_160=crossfire-client-gtk-1.60
+client_gtk1v2_160=crossfire-client-gtk-1.60
+client_gtk2_160=crossfire-client-gtk2-1.60
+client_gtk1_170=crossfire-client-gtk-1.70
+client_gtk1v2_170=crossfire-client-gtk-1.70
+client_gtk2_170=crossfire-client-gtk2-1.70
+"
+
+eval `echo "$CLIENTS"`
+
+for client in $CLIENTS ; do
+variable=${client%\=*}
+binary=${client#*\=}
+[ "`which $binary`" ] || continue
+CLIENTS_ALL="${CLIENTS_ALL}
+`echo $variable`"
+#`echo $\\$variable`"
+#`echo \\$$variable`"
+done
+
+#CLIENTS=$(eval `echo "$CLIENTS"`)
+
+
+echo "$0 : '`readlink -e $0`' ::
+Wrapper to choose the installed crossfire client
+if several are defined in this script .
+"
+
+while [ 1 ] ; do
+select client_choose in $CLIENTS_ALL ; do echo "
+$client_choose chosen"; break ; done ;
+[ "$client_choose" ] && break ;
+done
+
+assigned_client=`echo "$CLIENTS" | grep -w ^$client_choose | cut -f2 -d=`
+
+which "$assigned_client" || { echo "'$client_choose' = '$assigned_client' not in PATH ?" >&2;exit $?; }
+
+ps | grep crossfire | grep server || {
+
+crossfire_server="$crossfire_server_dir"/bin/crossfire
+
+[ -x "$crossfire_server" ] && {
+
+echo starting crossfire server ... >&2
+
+[ -f "$crossfire_server_tmp_dir"/crossfire_server.log ] && mv "$crossfire_server_tmp_dir"/crossfire_server.log "$crossfire_server_tmp_dir"/crossfire_server.log.0
+
+ME_IP_ADDRESS=`ifconfig |grep inet |tail -n1 |awk '{print $2}' |cut -f2 -d:`
+echo "ME_IP_ADDRESS='$ME_IP_ADDRESS'"
+sed -i "s,^metaserver_host .*,metaserver_host ${ME_IP_ADDRESS}," "$crossfire_server_config_dir"/settings
+sed -i "s,^localhostname .*,localhostname ${ME_IP_ADDRESS}," "$crossfire_server_config_dir"/metaserver2
+
+#"$crossfire_server" +d -detach -log "$crossfire_server_tmp_dir"/crossfire_server.log
+"$crossfire_server" +d -log "$crossfire_server_tmp_dir"/crossfire_server.log &
+
+
+sleep 5
+sync
+
+echo ... done ...
+  }
+
+}
+
+echo "Some clients tend to occupy one CPU core
+when no local server is running
+or no internet access available.
+The GTK frontend also is unusable then.
+This is a *BUG* .
+Please kill the program manually if neccessary
+( ps | grep client ; kill -9 \`pidof client\`)" >&2
+
+"$assigned_client" $@
+

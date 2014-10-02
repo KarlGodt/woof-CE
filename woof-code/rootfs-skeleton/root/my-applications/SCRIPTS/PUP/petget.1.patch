@@ -1,0 +1,114 @@
+--- /mnt/+JUMP-6+luci-218.sfs/usr/local/petget/petget   2010-06-16 14:33:36.000000000 -0100
++++ /usr/local/petget/petget   2012-01-27 13:59:02.000000000 -0100
+@@ -17,6 +17,8 @@
+
+ [ ! $1 ] && exit
+
++mkdir -p /tmp/PetGet  ##+++2011_10_25
++
+ export LANG=C
+ . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+
+@@ -153,14 +155,21 @@ export INSTALL_DIALOG="<window title=\"P
+    <text use-markup=\"true\"><label>\"<b>${FULLPKGNAME}</b>\"</label></text>
+    <hbox>
+     <button ok></button>
++    <button><label>Examine Package</label>
++    <action>EXIT:examine</action></button>
+     <button cancel></button>
+    </hbox>
+   </vbox>
+- </window>"
++ </window>"
+ RETPARAMS="`gtkdialog3 --program=INSTALL_DIALOG`"
+ eval "$RETPARAMS"
+-[ "$EXIT" != "OK" ] && exit
++#echo $EXIT
++echo $RETPARAMS
++echo $EXIT
++if [ "$EXIT" != "OK" -a "$EXIT" != "examine" ];then # && exit
++echo "exiting $0";exit;fi
+
++if [ "$EXIT" = "OK" ];then
+ #find entry in databases...
+ #pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
+ #optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
+@@ -181,9 +190,9 @@ fi
+ [ "$originPKGPATH" = "$PKGPATH" ] && cp -f ${PKGPATH}/${FULLPKGNAME} ${PKGPATH}/${FULLPKGNAME}-TEMPBACKUP
+
+ #install pkg...
+-rm -f /tmp/petget_missing_dbentries-Packages-* 2>/dev/null
+-rm -f /tmp/petget-installed-pkgs-log 2>/dev/null
+-echo "$DB_ENTRY" > /tmp/petget_missing_dbentries-Packages-alien
++rm -f /tmp/PetGet/petget_missing_dbentries-Packages-* 2>/dev/null
++rm -f /tmp/PetGet/petget-installed-pkgs-log 2>/dev/null
++echo "$DB_ENTRY" > /tmp/PetGet/petget_missing_dbentries-Packages-alien
+ /usr/local/petget/installpkg.sh $PKGPATH/$FULLPKGNAME
+ RETVAL=$?
+
+@@ -195,7 +204,7 @@ rm -f $PKGPATH/${PKGNAME}.tar.gz 2>/dev/
+ [ "$originPKGPATH" = "$PKGPATH" ] && mv -f ${PKGPATH}/${FULLPKGNAME}-TEMPBACKUP ${PKGPATH}/${FULLPKGNAME}
+
+ #announce result...
+-if [ $RETVAL -ne 0 -o ! -s /tmp/petget-installed-pkgs-log ];then
++if [ $RETVAL -ne 0 -o ! -s /tmp/PetGet/petget-installed-pkgs-log ];then
+  export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
+   <vbox>
+   <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
+@@ -204,12 +213,12 @@ if [ $RETVAL -ne 0 -o ! -s /tmp/petget-i
+     <button ok></button>
+    </hbox>
+   </vbox>
+- </window>"
++ </window>"
+  gtkdialog3 --program=FAIL_DIALOG
+  exit
+ fi
+
+-INSTALLEDMSG="`cat /tmp/petget-installed-pkgs-log`"
++INSTALLEDMSG="`cat /tmp/PetGet/petget-installed-pkgs-log`"
+ MENUMSG=""
+ INSTALLEDCAT="`echo -n "$INSTALLEDMSG" | rev | cut -f 1 -d ' ' | rev`"
+ if [ "$INSTALLEDCAT" = "none" ];then
+@@ -218,7 +227,7 @@ else
+  MENUMSG="<text><label>...look in '${INSTALLEDCAT}' in the menu (bottom-left of screen) to run the application.</label></text>"
+ fi
+
+-#installpkg.sh will have logged to /tmp/petget-installed-pkgs-log
++#installpkg.sh will have logged to /tmp/PetGet/petget-installed-pkgs-log
+ export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
+  <vbox>
+  <pixmap><input file>/usr/local/lib/X11/pixmaps/ok.xpm</input></pixmap>
+@@ -256,4 +265,32 @@ fi
+
+ kill $X3PID
+
++else
++#PKGPATH="`dirname "$PASSEDPARAM"`"
++#FULLPKGNAME="`basename "$PASSEDPARAM"`"
++#PASSEDBASE="`basename "$PASSEDPARAM"`"
++FULLPKG="${FULLPKGNAME%\.*}";echo $FULLPKG
++EXTN="${FULLPKGNAME##*.}";echo $EXTN
++mkdir -p /tmp/"$FULLPKG"
++cp "$PKGPATH/$FULLPKGNAME" /tmp/"${FULLPKG}"/
++cd /tmp/"${FULLPKG}"/
++case $EXTN in
++pet)
++pet2tgz ${FULLPKGNAME}
++tar xzf ${FULLPKG}.tar.gz
++rox /tmp/"${FULLPKG}"/
++xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
++examination directory ,
++otherwise just OK"
++if [ "$?" = '141' ];then
++rox -D /tmp/"${FULLPKG}"/
++rm -rf /tmp/"${FULLPKG}"/
++fi
++;;
++*)
++xmessage -bg red "$EXTN examination not yet implemented"
++;;
++esac
++exec petget "$PASSEDPARAM"
++fi
+ ###END###

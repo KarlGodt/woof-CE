@@ -1,0 +1,148 @@
+#!/bin/ash
+
+die(){
+    echolog "$@"
+    cat <<EOF
+
+If you think configure made a mistake, make sure you are using the latest
+version from Git.  If the latest version fails, report the problem to the
+ffmpeg-user@ffmpeg.org mailing list or IRC #ffmpeg on irc.freenode.net.
+EOF
+    if disabled logging; then
+        cat <<EOF
+Rerun configure with logging enabled (do not use --disable-logging), and
+include the log this produces with your report.
+EOF
+    else
+cat <<EOF
+Include the log file "$logfile" produced by configure as this will help
+solving the problem.
+EOF
+    fi
+    exit 1
+}
+
+enabled(){
+    test "${1#!}" = "$1" && op== || op=!=
+    eval test "x\$${1#!}" $op "xyes"
+}
+
+get_safe(){
+    eval echo \$$(echo "$1" | sed 's/[^A-Za-z0-9_]/_/g')
+}
+
+set_safe(){
+    var=$1
+    shift
+    eval $(echo "$var" | sed 's/[^A-Za-z0-9_]/_/g')='$*'
+}
+
+logfile="config.log"
+log(){
+    echo "$@" >> $logfile
+}
+
+log_file(){
+    log BEGIN $1
+    pr -n -t $1 >> $logfile
+    log END $1
+}
+
+pkg_config_default=pkg-config
+
+set_default(){
+    for opt; do
+        eval : \${$opt:=\$${opt}_default}
+    done
+}
+
+heck_cmd(){
+    log "$@"
+    "$@" >> $logfile 2>&1
+}
+
+check_cc(){
+    log check_cc "$@"
+    cat > $TMPC
+    log_file $TMPC
+    check_cmd $cc $CPPFLAGS $CFLAGS "$@" -c -o $TMPO $TMPC
+}
+
+
+check_ld(){
+    log check_ld "$@"
+    type=$1
+    shift 1
+    flags=''
+    libs=''
+    for f; do
+        test "${f}" = "${f#-l}" && flags="$flags $f" || libs="$libs $f"
+    done
+    check_$type $($filter_cflags $flags) || return
+    check_cmd $ld $LDFLAGS $flags -o $TMPE $TMPO $libs $extralibs
+}
+
+enable(){
+    set_all yes $*
+}
+
+enable_safe(){
+    for var; do
+        enable $(echo "$var" | sed 's/[^A-Za-z0-9_]/_/g')
+    done
+}
+
+check_func_headers(){
+    log check_func_headers "$@"
+    headers=$1
+    funcs=$2
+    shift 2
+    {
+        for hdr in $headers; do
+            echo "#include <$hdr>"
+        done
+        for func in $funcs; do
+            echo "long check_$func(void) { return (long) $func; }"
+        done
+        echo "int main(void) { return 0; }"
+    } | check_ld "cc" "$@" && enable $funcs && enable_safe $headers
+}
+
+check_pkg_config(){
+    log check_pkg_config "$@"
+    pkg="$1"
+    headers="$2"
+    funcs="$3"
+    shift 3
+    $pkg_config --exists $pkg 2>/dev/null || return
+    pkg_cflags=$($pkg_config --cflags $pkg)
+    pkg_libs=$($pkg_config --libs $pkg)
+    check_func_headers "$headers" "$funcs" $pkg_cflags $pkg_libs "$@" &&
+        set_safe ${pkg}_cflags $pkg_cflags   &&
+        set_safe ${pkg}_libs   $pkg_libs
+}
+
+require_pkg_config(){
+    pkg="$1"
+    check_pkg_config "$@" || die "ERROR: $pkg not found"
+    add_cflags    $(get_safe ${pkg}_cflags)
+    add_extralibs $(get_safe ${pkg}_libs)
+}
+
+set_default pkg_config
+
+enabled gnutls     && require_pkg_config gnutls gnutls/gnutls.h gnutls_global_init
+
+
+#sh-3.2# find /usr -name gnutls.h
+#/usr/local/include/gnutls/gnutls.h
+#sh-3.2# grep check_gnutls_global_init /usr/local/include/gnutls/gnutls.h
+#sh-3.2# geany /usr/local/include/gnutls/gnutls.h
+#sh-3.2# grep check_gnutls_global_init /usr/local/include/gnutls/*
+#sh-3.2# pkg-config --exists gnutls;echo $?
+#0
+#sh-3.2# pkg-config --cflags gnutls
+#-I/usr/local/include
+#sh-3.2# pkg-config --libs gnutls
+#-L/usr/local/lib -lgnutls
+#sh-3.2#
