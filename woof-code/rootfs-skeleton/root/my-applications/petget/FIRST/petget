@@ -1,0 +1,372 @@
+#!/bin/sh
+#(c) Copyright Barry Kauler 2009, puppylinux.com
+#2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
+#Note: Puppy Package Manager is started from /usr/local/petget/pkg_chooser.sh for the GUI.
+#'petget' is for commandline execution, especially from ROX-Filer.
+#If passed param is a pkg name preceded by a + to install pkg, - to uninstall pkg.
+# example: +xbubble-0.2.4
+#For integration with Rox-Filer, commandline is a .pet|.deb|.tgz|.tar,gz with absolute path, install.
+# ex: petget /root/xbubble-0.2.4.pet
+#For integration with browser, ex: petget http://somewhere.on.internet/xbubble-0.2.4.pet
+#Note, petget also get called from /etc/rc.d/rc.update to remove packages. ex:
+# petget -xbubble-0.2.4
+# ...when X not running, removal will not put up any DLG windows, will remove without question.
+#w482 restart jwm immediately to update menu.
+#v424 fix .pet in path with space chars.
+
+[ ! $1 ] && exit
+
+mkdir -p /tmp/PetGet  ##+++2011_10_25
+
+export LANG=C
+. /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
+
+PASSEDPARAM="$1"
+
+if [ "`echo -n "$PASSEDPARAM" | grep '^\\-'`" != "" ];then
+ #remove a package...
+ PKGNAME="`echo -n "$PASSEDPARAM" | cut -c 2-99`"
+ TREE2="$PKGNAME"
+ export TREE2
+ /usr/local/petget/removepreview.sh
+ exit
+fi
+
+#want to install a pkg...
+
+COMPAT_EXT=""
+case $DISTRO_BINARY_COMPAT in
+ slackware)
+  COMPAT_EXT=".tgz"
+ ;;
+ debian|ubuntu)
+  COMPAT_EXT=".deb"
+ ;;
+ arch)
+  COMPAT_EXT=".tar.gz"
+ ;;
+ mageia)
+  COMPAT_EXT='.rpm';;
+esac
+
+#what type is it...
+PASSEDBASE="`basename "$PASSEDPARAM"`"
+case $PASSEDBASE in
+ *.pet)
+  EXT=".pet"
+ ;;
+ *.deb)
+  EXT=".deb"
+ ;;
+ *.tgz)
+  EXT=".tgz"
+ ;;
+ *.tar.gz)
+  EXT=".tar.gz"
+ ;;
+ *.rpm)
+  EXT='.rpm';;
+ *.b2pet)EXT='.b2pet';;
+ *.lopet)EXT='.lopet';;
+ *.lapet)EXT='.lapet';;
+ *.xzpet)EXT='.xzpet';;
+ *)
+  EXT=""
+ ;;
+esac
+echo "EXT='$EXT'"
+#download if required...
+PKGNAME=""
+if [ "`echo -n "$PASSEDPARAM" | grep -E '^ftp|^http'`" != "" ];then
+ cd /root
+ rxvt -title "Puppy Package Manager: download" -bg orange -geometry 80x10 -e wget "$PASSEDPARAM"
+ PKGPATH="`dirname "$PASSEDPARAM"`" #really a url.
+ FULLPKGNAME="`basename "$PASSEDPARAM"`"
+ PKGMAIN="`basename "$PASSEDPARAM" ${EXT}`"
+ if [ ! -f "$FULLPKGNAME" ];then
+  xmessage -bg red "Sorry, failed to download $FULLPKGNAME"
+  exit
+ fi
+else
+ #get rid of any leading '+'...
+ PASSEDPARAM="`echo -n "$PASSEDPARAM" | sed -e 's%^+%%'`"
+ FIRSTCHAR="`echo -n "$PASSEDPARAM" | cut -c 1`"
+ if [ "$FIRSTCHAR" = "/" -o "$FIRSTCHAR" = "." ];then
+  PKGPATH="`dirname "$PASSEDPARAM"`"
+  FULLPKGNAME="`basename "$PASSEDPARAM"`"
+  PKGMAIN="`basename "$PASSEDPARAM" ${EXT}`"
+ else
+  PKGPATH="`pwd`"
+  if [ "$EXT" = "" ];then
+   PKGMAIN="$PASSEDPARAM"
+   FULLPKGNAME="${PKGMAIN}.pet"
+   EXT=".pet"
+  else
+   FULLPKGNAME="`basename "$PASSEDPARAM"`"
+   PKGMAIN="`basename "$PASSEDPARAM" ${EXT}`"
+  fi
+ fi
+ cp -f "${PKGPATH}/${FULLPKGNAME}" /root/ 2>/dev/null #v424 fix if spaces in path.
+fi
+originPKGPATH="$PKGPATH" #w482
+PKGPATH=/root
+
+#split PKGMAIN, ex: FULLPKGNAME=xvidtune-1.0.1-i486-1.tgz has PKGNAME=xvidtune-1.0.1
+ case $EXT in
+  .deb)
+   #deb ex: xsltproc_1.1.24-1ubuntu2_i386.deb  xserver-common_1.5.2-2ubuntu3_all.deb
+   DB_nameonly="`echo -n "$PKGMAIN" | cut -f 1 -d '_'`"
+   DB_pkgrelease="`echo -n "$PKGMAIN" | rev | cut -f 2 -d '_' | cut -f 1 -d '-' | rev`"
+   prPATTERN="s%\\-${DB_pkgrelease}.*%%"
+   PKGNAME="`echo -n "$PKGMAIN" | sed -e "$prPATTERN"`"
+   DB_version="`echo "$PKGNAME" | cut -f 2 -d '_'`"
+  ;;
+  .pet)
+   PKGNAME="$PKGMAIN"
+   DB_version="`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\-%%'`"
+   xDB_version="`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+   xPATTERN="s%${xDB_version}%%"
+   DB_nameonly="`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`"
+   DB_pkgrelease=""
+  ;;
+  .tgz)
+   #slack ex: xvidtune-1.0.1-i486-1.tgz  printproto-1.0.4-noarch-1.tgz
+   PKGNAME="`echo -n "$PKGMAIN" | sed -e 's%\\-i[3456]86.*%%' -e 's%\\-noarch.*%%'`"
+   DB_version="`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\\-%%'`"
+   xDB_version="`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+   xPATTERN="s%${xDB_version}%%"
+   DB_nameonly="`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\-$%%'`"
+   DB_pkgrelease="`echo -n "$PKGMAIN" | sed -e 's%.*\\-i[3456]86%%' -e 's%.*\\-noarch%%' -e 's%^\\-%%'`"
+  ;;
+  .tar.gz)
+   #arch ex: xproto-7.0.14-1-i686.pkg.tar.gz  trapproto-3.4.3-1.pkg.tar.gz
+   PKGNAME="`echo -n "$PKGMAIN" | sed -e 's%\\-i[3456]86.*%%' -e 's%\\.pkg$%%' | rev | cut -f 2-9 -d '-' | rev`"
+   DB_version="`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\\-%%'`"
+   xDB_version="`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+   xPATTERN="s%${xDB_version}%%"
+   DB_nameonly="`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`"
+   DB_pkgrelease="`echo -n "$PKGMAIN" | sed -e 's%\\-i[3456]86.*%%' -e 's%\\.pkg$%%' | rev | cut -f 1 -d '-' | rev`"
+  ;;
+  .rpm)
+  #fedora ex: acetoneiso-2.3-2.mga2.i586.rpm
+  #           acidrip-0.14-10.mga1.noarch.rpm
+   PKGNAME="`echo -n "$PKGMAIN" | sed -e 's%\\.i[3456]86.*%%' -e 's%\\.noarch.*%%' -e 's%\\.mga[0-9]$%%' | rev | cut -f 2-9 -d '-' | rev`"
+   DB_version="`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\\-%%'`"
+   xDB_version="`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+   xPATTERN="s%${xDB_version}%%"
+   DB_nameonly="`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`"
+   DB_pkgrelease="`echo -n "$PKGMAIN" | sed -e 's%\\.i[3456]86.*%%' -e 's%\\.noarch.*%%' -e 's%.*mga%%'`"
+  ;;
+  .bzpet|.lopet|.lapet|.xzpet)
+   PKGNAME="$PKGMAIN"
+   DB_version="`echo -n "$PKGNAME" | grep -o '\\-[0-9].*' | sed -e 's%^\-%%'`"
+   xDB_version="`echo -n "$DB_version" | sed -e 's%\\-%\\\\-%g' -e 's%\\.%\\\\.%g'`"
+   xPATTERN="s%${xDB_version}%%"
+   DB_nameonly="`echo -n "$PKGNAME" | sed -e "$xPATTERN" -e 's%\\-$%%'`"
+   DB_pkgrelease=""
+   ;;
+ esac
+
+cd "$PKGPATH" #well, this is /root
+
+#confirm want to install...
+export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
+  <vbox>
+  <pixmap><input file>/usr/local/lib/X11/pixmaps/question.xpm</input></pixmap>
+   <text><label>Click 'OK' button to confirm that you wish to install this package:</label></text>
+   <text use-markup=\"true\"><label>\"<b>${FULLPKGNAME}</b>\"</label></text>
+   <hbox>
+    <button ok></button>
+    <button><label>Examine Package</label>
+    <action>EXIT:examine</action></button>
+    <button cancel></button>
+   </hbox>
+  </vbox>
+ </window>"
+RETPARAMS="`gtkdialog3 --program=INSTALL_DIALOG`"
+eval "$RETPARAMS"
+#[ "$EXIT" != "OK" ] && exit
+#echo $EXIT
+echo $RETPARAMS
+echo $EXIT
+if [ "$EXIT" != "OK" -a "$EXIT" != "examine" ];then # && exit
+echo "exiting $0";exit;fi
+
+if [ "$EXIT" = "OK" ];then
+#find entry in databases...
+#pkgname|nameonly|version|pkgrelease|category|size|path|fullfilename|dependencies|description|
+#optionally on the end: compileddistro|compiledrelease|repo| (fields 11,12,13)
+pPATTERN='^'"$PKGNAME"'|'
+if [ "$EXT" = ".pet" ];then
+ DB_ENTRY="`cat /root/.packages/Packages-puppy-* | grep "$pPATTERN" | sort -r | head -n 1`"
+else
+ DB_ENTRY="`cat /root/.packages/Packages-${DISTRO_BINARY_COMPAT}-* | grep "$pPATTERN" | head -n 1`"
+fi
+
+#w482 doesn't matter if incomplete, installpkg.sh will read .desktop file for description and category...
+#also, if .pet pkg has pet.specs, that will get written to /root/.packages/user-packages-installed
+if [ "$DB_ENTRY" = "" ];then
+ DB_ENTRY="${PKGNAME}|${DB_nameonly}|${DB_version}|${DB_pkgrelease}||||${FULLPKGNAME}|||"
+fi
+
+#w482 hack, if pkg was originally at /root then don't delete it...
+[ "$originPKGPATH" = "$PKGPATH" ] && cp -f ${PKGPATH}/${FULLPKGNAME} ${PKGPATH}/${FULLPKGNAME}-TEMPBACKUP
+
+#install pkg...
+rm -f /tmp/PetGet/petget_missing_dbentries-Packages-* 2>/dev/null
+rm -f /tmp/PetGet/petget-installed-pkgs.log 2>/dev/null
+echo "$DB_ENTRY" > /tmp/PetGet/petget_missing_dbentries-Packages-alien
+/usr/local/petget/installpkg.sh $PKGPATH/$FULLPKGNAME
+RETVAL=$?
+
+#installpkg.sh has already done this...
+rm -f $PKGPATH/$FULLPKGNAME 2>/dev/null
+rm -f $PKGPATH/${PKGNAME}.tar.gz 2>/dev/null
+
+#w482 hack, if pkg was originally at /root then don't delete it...
+[ "$originPKGPATH" = "$PKGPATH" ] && mv -f ${PKGPATH}/${FULLPKGNAME}-TEMPBACKUP ${PKGPATH}/${FULLPKGNAME}
+
+#announce result...
+if [ $RETVAL -ne 0 -o ! -s /tmp/PetGet/petget-installed-pkgs.log ];then
+ export FAIL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
+  <vbox>
+  <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
+   <text use-markup=\"true\"><label>\"<b>Error, package ${FULLPKGNAME} failed to install.</b>\"</label></text>
+   <hbox>
+    <button ok></button>
+   </hbox>
+  </vbox>
+ </window>"
+ gtkdialog3 --program=FAIL_DIALOG
+ exit
+fi
+
+INSTALLEDMSG="`cat /tmp/PetGet/petget-installed-pkgs.log`"
+MENUMSG=""
+INSTALLEDCAT="`echo -n "$INSTALLEDMSG" | rev | cut -f 1 -d ' ' | rev`"
+if [ "$INSTALLEDCAT" = "none" ];then
+ MENUMSG="<text><label>...note, this package does not have a menu entry.</label></text>"
+else
+ MENUMSG="<text><label>...look in '${INSTALLEDCAT}' in the menu (bottom-left of screen) to run the application.</label></text>"
+fi
+
+#installpkg.sh will have logged to /tmp/petget-installed-pkgs-log
+export INSTALL_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
+ <vbox>
+ <pixmap><input file>/usr/local/lib/X11/pixmaps/ok.xpm</input></pixmap>
+  <text><label>The following package has been successfully installed:</label></text>
+  <text use-markup=\"true\"><label>\"<b>${INSTALLEDMSG}</b>\"</label></text>
+  ${MENUMSG}
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+</window>
+"
+gtkdialog3 --program=INSTALL_DIALOG
+
+RESTARTMSG="Please wait, updating help page and menu..."
+[ "`pidof jwm`" != "" ] && RESTARTMSG="Please wait, updating help page and menu (the screen will flicker!)..." #w482
+[ "$INSTALLEDCAT" = "none" ] && RESTARTMSG="Please wait, updating help page..."
+yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "${RESTARTMSG}" &
+X3PID=$!
+
+#master help index has to be updated...
+/usr/sbin/indexgen.sh
+#Reconstruct configuration files for JWM, Fvwm95, IceWM...
+if [ "$INSTALLEDCAT" != "none" ];then
+ /usr/sbin/fixmenus
+ [ "`pidof jwm`" != "" ] && jwm -restart #w482
+fi
+else
+function view_temp(){
+rox /tmp/"${FULLPKG}"/
+xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+examination directory ,
+otherwise just OK"
+if [ "$?" = '141' ];then
+rox -D /tmp/"${FULLPKG}"/
+rm -rf /tmp/"${FULLPKG}"/
+fi
+}
+#PKGPATH="`dirname "$PASSEDPARAM"`"
+#FULLPKGNAME="`basename "$PASSEDPARAM"`"
+#PASSEDBASE="`basename "$PASSEDPARAM"`"
+FULLPKG="${FULLPKGNAME%\.*}";echo $FULLPKG
+EXTN="${FULLPKGNAME##*.}";echo $EXTN
+mkdir -p /tmp/"$FULLPKG"
+cp "$PKGPATH/$FULLPKGNAME" /tmp/"${FULLPKG}"/
+cd /tmp/"${FULLPKG}"/
+case $EXTN in
+pet)
+pet2tgz ${FULLPKGNAME}
+tar xzf ${FULLPKG}.tar.gz
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
+;;
+deb)
+#mkdir -p /tmp/${FULLPKG}
+dpkg-deb -x ${FULLPKGNAME} /tmp/${FULLPKG}
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
+;;
+tar.gz|tgz)
+if [ "$EXT" ='tgz' ];then
+mv "${FULLPKGNAME}" "${FULLPKG}".tar.gz;fi
+tar xzf "${FULLPKG}".tar.gz
+#rox /tmp/"${FULLPKG}"/
+#xmessage -buttons "OK :140, Delete:141" "Click Delete button to erase this
+#examination directory ,
+#otherwise just OK"
+#if [ "$?" = '141' ];then
+#rox -D /tmp/"${FULLPKG}"/
+#rm -rf /tmp/"${FULLPKG}"/
+#fi
+view_temp
+;;
+b2pet)
+pet2tgz -b ${FULLPKGNAME}
+tar xjf ${FULLPKG}.tar.bz2
+view_temp
+;;
+lopet)
+pet2tgz -l ${FULLPKGNAME}
+lzop -d ${FULLPKG}.tar.lzo
+tar xf ${FULLPKG}.tar
+view_temp
+;;
+lapet)
+pet2tgz -L ${FULLPKGNAME}
+lzma -d ${FULLPKG}.tar.lzma
+tar xf ${FULLPKG}.tar
+view_temp
+;;
+xzpet)
+pet2tgz -x ${FULLPKGNAME}
+xz -d ${FULLPKG}.tar.xz
+tar xf ${FULLPKG}.tar
+view_temp
+;;
+rpm|*)
+xmessage -bg red "$EXTN examination not yet implemented"
+;;
+esac
+exec petget "$PASSEDPARAM"
+fi
+kill $X3PID
+
+###END###

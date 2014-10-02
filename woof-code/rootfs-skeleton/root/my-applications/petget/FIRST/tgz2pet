@@ -1,0 +1,129 @@
+#!/bin/sh
+
+#convert a .tar.gz file to .pet...
+#passed param is file to be converted.
+#this works for md5sum returning 8-bit characters!
+
+usage (){
+	echo "
+	$0 [-g|-b|-l|-h|-s|-S|-X|-x] TARFILE.tar.EXT
+	-g) gzip (default) '`which gzip`'
+	-b) bzip2          '`which bzip2`'
+	-h) help: show this usage
+	-l) lzop           '`which lzop`'
+	-L) lzma           '`which lzma`'
+	-s) squashfs3 gz   '`which mksquashfs3`'
+	-S) squashfs4 gz   '`which mksquashfs4`'
+	-X) squashfs4 xz   '`which mksquashfs4`'
+	-x) xz             '`which xz`'
+	Script to create a .pet with the above compressions.
+	Without option given,defaults to the old and proven gzip
+	compression.
+	-d) debug through 'set -x'
+	-v) verbose output and options to binaries
+	"
+	exit $1
+}
+
+while getopts gbhlLsSXx opt;do
+case $opt in
+g) COMPRESS_BIN='gzip';OPT='-g';EXT='.gz';PET_EXT='.pet';;
+b) COMPRESS_BIN='bzip2';OPT='-b';EXT='.bz2';PET_EXT='.b2pet';;
+h) usage 0;;
+l) COMPRESS_BIN='lzop';OPT='-l';EXT='.lzo';PET_EXT='.lopet';;
+L) COMPRESS_BIN='lzma';OPT='-L';EXT='.lzma';PET_EXT='.lapet';;
+s) COMPRESS_BIN='mksquashfs3';PET_EXT='.s3pet';;
+S) COMPRESS_BIN='mksquashfs4';PET_EXT='.s4pet';;
+X) COMPRESS_BIN='mksquashfs4';COMPRESS_OPT='xz';PET_EXT='.s4xpet';;
+x) COMPRESS_BIN='xz';OPT='-x';EXT='.xz';PET_EXT='.xzpet';;
+d) set -x;;
+v) VERBOSE='-v';LONG_VERBOSE='--verbose';OUTPUT='&2';;
+*) usage 1;;
+esac;done
+
+[ ! "$COMPRESS_BIN" ] && { COMPRESS_BIN='gzip';PET_EXT='.pet'; }
+[ "`which $COMPRESS_BIN`" ] || { echo "'$COMPRESS_BIN' apparenty not installed (in the PATH)";exit 1; }
+sync
+while [ "$2" ];do shift;done #leave only the last argument
+TARBALL=$1
+#[ "$2" ] && TARBALL=$2
+[ -f "$TARBALL" ] || { echo "'$TARBALL' is not a file";exit 1; }
+chmod +w $TARBALL #make it writable.
+
+#only accept .tgz or .tar.gz files...
+EXT=''
+case $COMPRESS_BIN in
+gzip)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.gz$'`" = "" ] && EXT='.tar.gz'
+[ ! "`echo -n "$TARBALL" | grep '\\.tgz$'`" = "" ] && EXT='.tgz'
+#[ "$EXT" = "" ] && exit 1
+[ "$EXT" = "" ] && usage 1
+;;
+bzip2)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.bz2$'`" = "" ] && EXT='.tar.bz2'
+[ "$EXT" = "" ] && usage 1
+;;
+lzo)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.lzo$'`" = "" ] && EXT='.tar.lzo'
+[ ! "`echo -n "$TARBALL" | grep '\\.tzo$'`" = "" ] && EXT='.tzo'
+[ "$EXT" = "" ] && usage 1
+;;
+lzma)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.lza$'`" = "" ] && EXT='.tar.lzma'
+[ "$EXT" = "" ] && usage 1
+;;
+mksquashfs3)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.gz$'`" = "" ] && EXT='.tar.gz'
+[ "$EXT" = "" ] && usage 1
+;;
+mksquashfs4)
+ case $COMPRESS_OPT in
+  xz)
+   [ ! "`echo -n "$TARBALL" | grep '\\.tar\\.gz$'`" = "" ] && EXT='.tar.gz'
+   [ "$EXT" = "" ] && usage 1;;
+  ""|*)
+   [ ! "`echo -n "$TARBALL" | grep '\\.tar\\.gz$'`" = "" ] && EXT='.tar.gz'
+   [ "$EXT" = "" ] && usage 1;;
+ esac
+;;
+xz)
+[ ! "`echo -n "$TARBALL" | grep '\\.tar\\.xz$'`" = "" ] && EXT='.tar.xz'
+[ "$EXT" = "" ] && usage 1
+;;
+esac
+
+#split TARBALL path/filename into components...
+BASEPKG="`basename $TARBALL $EXT`"
+DIRPKG="`dirname $TARBALL`"
+[ "$DIRPKG" = "/" ] && DIRPKG=""
+
+#perhaps makes following code easier if do this...
+if [ "$EXT" = ".tgz" ];then
+ mv -f $TARBALL $DIRPKG/${BASEPKG}.tar.gz
+ TARBALL="$DIRPKG/${BASEPKG}.tar.gz"
+ EXT='.tar.gz'
+fi
+
+#if tarball expands direct to '/' want to wrap around it (slackware pkg)...
+if [ "`tar --list -f $TARBALL | head -n 1`" = "./" ];then
+# [ -d $DIRPKG/$BASEPKG ] && rm -rf $DIRPKG/$BASEPKG #a bit radical
+ [ -d $DIRPKG/$BASEPKG ] && exit 1
+ mkdir $DIRPKG/$BASEPKG
+ mv $DIRPKG/${BASEPKG}${EXT} $DIRPKG/$BASEPKG/
+ #can put other files in here if want...
+
+ tar --remove-files -c -f $DIRPKG/${BASEPKG}.tar $DIRPKG/$BASEPKG/
+ $COMPRESS_BIN $DIRPKG/${BASEPKG}.tar
+ rmdir $DIRPKG/$BASEPKG
+fi
+
+FULLSIZE="`stat --format=%s ${TARBALL}`"
+MD5SUM="`md5sum $TARBALL | cut -f 1 -d ' '`"
+echo -n "$MD5SUM" >> $TARBALL
+sync
+#NEWNAME="`echo -n "${TARBALL}" | sed -e 's/\\.tar\\.gz$/\\.pet/g'`"
+#mv -f $TARBALL $NEWNAME
+mv -f $TARBALL $DIRPKG/${BASEPKG}${PET_EXT}
+sync
+
+###END###

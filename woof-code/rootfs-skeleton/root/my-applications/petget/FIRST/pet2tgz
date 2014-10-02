@@ -1,0 +1,79 @@
+#!/bin/sh
+#by BarryK 2006 for Puppy Linux v2.13+
+#passed param is file to be converted.
+#converts a .pet file to .tar.gz.
+
+usage (){
+	echo "
+	$0 [-g|-b|-l|-h|-s|-S|-X|-x] TARFILE.tar.EXT
+	-g) gzip (default) '`which gzip`'
+	-b) bzip2          '`which bzip2`'
+	-h) help: show this usage
+	-l) lzop           '`which lzop`'
+	-L) lzma           '`which lzma`'
+	-s) squashfs3 gz   '`which mksquashfs3`'
+	-S) squashfs4 gz   '`which mksquashfs4`'
+	-X) squashfs4 xz   '`which mksquashfs4`'
+	-x) xz             '`which xz`'
+	Script to create a .pet with the above compressions.
+	Without option given,defaults to the old and proven gzip
+	compression.
+	-d) debug through 'set -x'
+	-v) verbose output and options to binaries
+	"
+	exit $1
+}
+
+while getopts gbhlLsSXx opt;do
+case $opt in
+g) COMPRESS_BIN='gzip';OPT='-g';EXT='gz';PET_EXT='pet';;
+b) COMPRESS_BIN='bzip2';OPT='-b';EXT='bz2';PET_EXT='b2pet';;
+h) usage 0;;
+l) COMPRESS_BIN='lzop';OPT='-l';EXT='lzo';PET_EXT='lopet';;
+L) COMPRESS_BIN='lzma';OPT='-L';EXT='lzma';PET_EXT='lapet';;
+s) COMPRESS_BIN='mksquashfs3';PET_EXT='s3pet';;
+S) COMPRESS_BIN='mksquashfs4';PET_EXT='s4pet';;
+X) COMPRESS_BIN='mksquashfs4';COMPRESS_OPT='xz';PET_EXT='s4xpet';;
+x) COMPRESS_BIN='xz';OPT='-x';EXT='xz';PET_EXT='xzpet';;
+d) set -x;;
+v) VERBOSE='-v';LONG_VERBOSE='--verbose';OUTPUT='&2';;
+*) usage 1;;
+esac;done
+
+[ ! "$COMPRESS_BIN" ] && { COMPRESS_BIN='gzip';PET_EXT='.pet'; }
+[ "`which $COMPRESS_BIN`" ] || { echo "'$COMPRESS_BIN' apparenty not installed (in the PATH)";exit 1; }
+
+#[ "$2" ] && chmod +w "$2" || chmod +w "$1"
+while [ "$2" ];do shift;done #leave only the last argument
+chmod +w "$1" #make it writable.
+
+FULLSIZE=`stat --format=%s "${1}"`
+ORIGSIZE=`expr $FULLSIZE - 32`
+##doing it this way have to remove dd stdout msg (preceded by a '+')...
+##um, cut and sed are really intended for working on text files, may have to
+##do this differently (in case have a corrupted file with non-char bytes on end)...
+#MD5SUM="`dd if="${1}" bs=1 skip=${ORIGSIZE} 2>/dev/null | cut -f 1 -d '+' | sed -e 's/[^0-9a-zA-Z]/0/g'`" #md5sum to stdout.
+#do it this indirect way instead...
+dd if="${1}" of=/tmp/petmd5sum bs=1 skip=${ORIGSIZE} 2>/dev/null
+sync
+MD5SUM="`md5sum /tmp/petmd5sum | cut -f 1 -d ' '`"
+#truncate is a little app I wrote. format: truncate newsize filename
+truncate $ORIGSIZE "$1"
+[ $? -ne 0 ] && exit 1
+sync
+#NEWMD5SUM="`md5sum "$1" | cut -f 1 -d ' '`"
+md5sum "$1" | cut -f 1 -d ' ' > /tmp/newpetmd5sum
+sync
+#get rid of trailing newline char...
+truncate 32 /tmp/newpetmd5sum
+NEWMD5SUM="`md5sum /tmp/newpetmd5sum | cut -f 1 -d ' '`"
+rm -f /tmp/petmd5sum
+rm -f /tmp/newpetmd5sum
+#NEWNAME="`echo -n "${1}" | sed -e 's/\\.pet$/\\.tar\\.gz/g'`"
+echo "PET_EXT='$PET_EXT' EXT='$EXT'"
+NEWNAME="`echo -n "${1}" | sed -e "s|\.${PET_EXT}|\.tar\.${EXT}|"`"
+echo "NEWNAME='$NEWNAME'"
+mv -f $1 $NEWNAME
+[ ! "$MD5SUM" = "$NEWMD5SUM" ] && exit 1
+exit 0
+
