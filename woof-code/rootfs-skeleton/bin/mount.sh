@@ -24,7 +24,7 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 QUIET=-q
-DEBUG=
+DEBUG=1
 DEBUGX=
 test "$DEBUG" && QUIET='';
 
@@ -41,11 +41,12 @@ _info "using '$LANG_ROX'"
 mountpoint(){
  test -f /proc/mounts || return 3
  test "$*" || return 2
- [ "$1" = '-q' ] && shift;
+ local QUIET_
+ [ "$1" = '-q' ] && { QUIET_=-q; shift; }
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
  set - ${*//\\/\\\\}
  _debug "mountpoint:$*"
- grep $QUIET " $* " /proc/mounts
+ grep $QUIET_ " $* " /proc/mounts
  return $?; }
 
 _check_proc()
@@ -687,9 +688,9 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
-grepP=${deviceORpoint// /\\\\040}
+grepP="${deviceORpoint// /\\\\040} "
 _debug "grepP='$grepP'"
-mountPOINT=`echo "$mountBEFORE" | grep -w "$grepP" | cut -f 2 -d' '`
+mountPOINT=`echo "$mountBEFORE" | grep -F "$grepP" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
 fi
