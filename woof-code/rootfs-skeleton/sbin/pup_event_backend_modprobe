@@ -336,7 +336,7 @@ echo $$ 07.9 `$TIME` 'FINISHIED firmware_module_func' >> $LocalLOG
 echo $$ 02.0 `$TIME` 'MODALIAS='"$MODALIAS" >> $LocalLOG
 
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
-MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $MODALIAS 2>/dev/null | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'` #v424
+MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>$ERR | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'` #v424
 MODULE=`echo "$MODULES" | tail -n 1` #v424
 #[ "$MODULE" = "usb_storage" ] && [ "`echo "$MODULES" | grep '^usbserial$'`" != "" ] && MODULE=`echo "$MODULES" | grep -v -E '^usb_storage$|^usbcore$' | tail -n 1` #v424
 echo $$ 03.0 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
@@ -347,7 +347,7 @@ echo $$ 03.0 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
 
 if [ -z "$MODULE" ] ; then
 grepPAT=${MODALIAS#*\:}  ## ${MODALIAS/*:/}
-MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --show-depends $grepPAT 2>/dev/null | rev | cut -f 1 -d '/' | rev | sed 's/\.ko.*//g' | tr '-' '_'`
+MODULES=`/sbin/modprobe --config /tmp/pup_event_skiplist.conf --config /tmp/pup_event_modprobe.conf --show-depends $grepPAT 2>$ERR | rev | cut -f 1 -d '/' | rev | sed 's/\.ko.*//g' | tr '-' '_'`
 MODULE=`echo "$MODULES" | tail -n 1 | sed 's/^[[:blank:]]*// ; s/[[:blank:]]*$//'`
 echo $$ 03.5 `$TIME` 'MODULE='"$MODULE" >> $LocalLOG
 fi
@@ -363,7 +363,7 @@ usleep $(( $$ * 10 ))
 
 #[ "`cat /tmp/pup_event_module_devpath.log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] && echo 'Duplicate module ..exit ..' >> $LocalLOG && exit 0 #duplicate module.
 if [ "`cat /tmp/pup_event_module_devpath.log | cut -f 1 -d ' ' | cut -f 2 -d '=' | grep "$modPATTERN"`" != "" ] ; then
-
+ unset FM
  test -d /dev/.udev/failed && FM=`find /dev/.udev/failed | grep "$modPATTERN"` 2>$ERR #2.6.30.6 kernel no failed directory ???
 
  if [ -z "$FM" ] ; then
@@ -371,7 +371,7 @@ if [ "`cat /tmp/pup_event_module_devpath.log | cut -f 1 -d ' ' | cut -f 2 -d '='
 
  else
 
-  echo $$ 04.5 `$TIME` "\e[31m"'udevd seems to have failed loading '"$modPATTERN""\e[39m" >> $LocalLOG
+  echo $$ 04.5 `$TIME` "\e[31m"'udevd seems to have already failed loading '"$modPATTERN""\e[39m"' before' >> $LocalLOG
  fi
 
 fi
@@ -393,50 +393,53 @@ echo $$ 06.1 `$TIME` 'PREFHIT='"$PREFHIT" >> $LocalLOG
 if [ "$PREFHIT" != "" ];then
  PREFMOD=`echo -n "$PREFHIT" | cut -f 2 -d ':'`
  echo "blacklist $MODULE" > /tmp/pup_event_prefhit_blacklist
- xMODULE=`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`
+ xMODULE=`/sbin/modprobe --config /tmp/pup_event_prefhit_blacklist --show-depends $MODALIAS 2>$ERR | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`
  [ "$xMODULE" != "" ] && [ "$xMODULE" != "$MODULE" ] && MODULE="$xMODULE"
  echo $$ 06.5 `$TIME` MODULE=$MODULE >> $LocalLOG
 fi
 
-#installs a firmware tarball (once only. loading firmware is something else)...
-firmware_module_func
-
 if [ "`echo -n "$MODULE" | grep -E '^snd[-_]|^snd[-_]pcsp|^pcspkr'`" != "" ] ; then
-if [ -f /tmp/alsa.flg ] ; then
-if [ -n "`grep 'noalsa' /tmp/alsa.flg`" ] ; then
-echo $$ 08.0 `$TIME` "Detected $MODULE , but booted with 'noalsa' .. exit .." >> $LocalLOG
-exit 0
+ if [ -f /tmp/alsa.flg ] ; then
+  if [ -n "`grep 'noalsa' /tmp/alsa.flg`" ] ; then
+  echo $$ 08.0 `$TIME` "Detected $MODULE , but booted with 'noalsa' .. exit .." >> $LocalLOG
+  exit 0
 #else
 #echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
 #setup_alsa_func
-fi
+  fi
 #else
 #echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
 #setup_alsa_func #MODULE and CNTSND are used in this func.
-fi
-echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
-setup_alsa_func #MODULE and CNTSND are used in this func.
+ fi
+#echo $$ 08.0 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
+#setup_alsa_func #MODULE and CNTSND are used in this func.
 fi
 
 if [ "`echo -n "$MODULE" | grep -E 'fb$|nouveau'`" != "" ] ; then
-if [ -f /tmp/framebuffer.flg ] && [ -n "`grep 'nofb' /tmp/framebuffer.flg`" ] ; then
-echo $$ 10.0 `$TIME` "Bootparameter 'nofb' .. exit .." >> $LocalLOG
-exit
-fi
+ if [ -f /tmp/framebuffer.flg ] && [ -n "`grep 'nofb' /tmp/framebuffer.flg`" ] ; then
+ echo $$ 10.0 `$TIME` "Bootparameter 'nofb' .. exit .." >> $LocalLOG
+ exit
+ fi
 fi
 
 if [ "$MODULE" = "fbcon" ] ; then
-if [ -f /tmp/fbcon.flg ] && [ -n "`grep 'nofbcon' /tmp/fbcon.flg`" ] ; then
-echo $$ 10.0 `$TIME` "Bootparameter 'nofbcon' .. exit .." >> $LocalLOG
-exit
-fi
+ if [ -f /tmp/fbcon.flg ] && [ -n "`grep 'nofbcon' /tmp/fbcon.flg`" ] ; then
+ echo $$ 10.0 `$TIME` "Bootparameter 'nofbcon' .. exit .." >> $LocalLOG
+ exit
+ fi
 fi
 
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
 cd /sbin #v408 rerwin thinks this is needed for slamr module.
 if [ -z "`lsmod | grep "$MODULE"`" ] ; then
 echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath.log
-echo $$ 10.0 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m" >> $LocalLOG
+ #installs a firmware tarball (once only. loading firmware see pup_event_backend_firmware)
+ firmware_module_func
+
+  echo $$ 10.8 `$TIME` "Starting setup_alsa_func ..." >> $LocalLOG
+  setup_alsa_func #MODULE and CNTSND are used in this func.
+
+echo $$ 10.9 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m" >> $LocalLOG
  ###+++2011_10_28
  #exec /sbin/modprobe -v $MODULE >/tmp/$MODULE.txt.$$ 2>&1
  #/sbin/modprobe -v $MODULE >/tmp/pup-$MODULE.txt.$$ 2>&1
@@ -450,7 +453,7 @@ echo $$ 10.0 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m" >> $LocalLOG
  rm -f /tmp/pup-$MODULE.txt.$$
  ###+++2011_10_28
 else
-echo $$ 10.0 `$TIME` "\e[31m"'Module '"$MODULE"' already inserted'"\e[39m" >> $LocalLOG
+echo $$ 10.9 `$TIME` "\e[31m"'Module '"$MODULE"' already inserted'"\e[39m" >> $LocalLOG
 fi
 ###END###
 exit
