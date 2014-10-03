@@ -4,7 +4,7 @@
 # Called from /etc/rc.d/rc.shutdown at shutdown, with 'stop'  param.
 
 . /etc/rc.d/f4puppy5
-INFO=1;DEBUG=1;DEBUGX=1
+INFO=1;DEBUG='';DEBUGX=1
 #************
 #KRG
 
@@ -22,8 +22,15 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
-[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+#[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
+#[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+case $1 in
+-h|*help|*usage) usage 0;;
+-V|*version)  { echo "$0: $Version";exit 0; } ;;
+-v|*verbose) OUT=/dev/stdout;ERR=/dev/stderr;Q='';QUIET=$Q;DBG=-d;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;VERBOSE=1;shift;;
+-d|*debug)   set -x;DEBUG=1;shift;;
+esac
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
 
@@ -241,14 +248,14 @@ $alsaDrivers"
    waitCNT=$(( $waitCNT + 1 ))
 
     if [ "$waitCNT" = "$WAIT_" ]; then ##&& break
-       # modprobe snd-card-0
-       # _load_snd_card_0
 
     if [ -f /tmp/alsa.flg ] ; then
 
          _load_cmdline_drivers
     else
         _load_all_sound_cards
+       # modprobe snd-card-0
+       # _load_snd_card_0
 
     fi     ###  if [ -f /tmp/alsa.flg ] ; then
    break
@@ -263,20 +270,16 @@ $alsaDrivers"
   echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###KRG
   ###</KRG>
 
-   rm -f /var/lock/subsys/alsasound  ###KRG2> /dev/null #or alsa will not start.
+   rm -f /var/lock/subsys/alsasound # or alsa will not start.
 
    #sometimes these don't all load...
-   ###+-+2011-10-31
-   #[ -z "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] && /sbin/pup_event_backend_modprobe snd-mixer-oss   #modprobe -L snd-mixer-oss
-   #[ -z "`lsmod | grep 'snd[-_]seq[-_]oss'`" ]   && /sbin/pup_event_backend_modprobe snd-seq-oss     #modprobe -L snd-seq-oss
-   #[ -z "`lsmod | grep 'snd[-_]pcm[-_]oss'`" ]   && /sbin/pup_event_backend_modprobe snd-pcm-oss     #modprobe -L snd-pcm-oss
-
    mFT=''; #--first-time
    modprobe $VERB $mFT snd-mixer-oss
    modprobe $VERB $mFT snd-seq-oss
    modprobe $VERB $mFT snd-pcm-oss
    ###+-+2011-10-31
 
+   _create_sound_nodes(){
    ###<KRG>
    [ -d /dev/snd ] || { rm -fr /dev/snd; mkdir -p /dev/snd; }  ##+++2014-07-11
 
@@ -303,6 +306,8 @@ $alsaDrivers"
      mknod /dev/snd/$NODE c $MAJ $Min
     done
    ###</KRG>
+   }
+   _create_sound_nodes
 
    if [ -f /etc/asound.state ] ; then
 
@@ -362,7 +367,22 @@ EOF
   alsactl $DBG -f /etc/asound.state store #saves to /etc/asound.state.
 
   # Kill processes holding open sound devices...
-  _command fuser $VERB -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >$OUT 2>$ERR
+    # _command fuser $VERB -k /dev/admmidi? /dev/adsp? /dev/amidi? \
+    #                         /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* \
+    #                         /dev/dspW* /dev/midi0? /dev/mixer? /dev/music \
+    #                         /dev/patmgr? /dev/sequencer* /dev/sndstat >$OUT 2>$ERR
+
+  # soundDEVICES=`ls -1 /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >$OUT 2>$ERR`
+    soundDEVICES=`for dev in /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* \
+                            /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* \
+                            /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat*; do
+                            [ -e "$dev" ] || continue
+                            echo $dev; done`
+
+  _debugx $soundDEVICES
+
+   _command fuser $VERB -k $soundDEVICES >$OUT 2>$ERR
+  #_command fuser $VERB -k /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >$OUT 2>$ERR
 
   [ -d /proc/asound/dev ] && _command fuser $VERB -k /proc/asound/dev/* >$OUT 2>$ERR
   [ -d /dev/snd ] && _command fuser $VERB -k /dev/snd/*                1>$OUT 2>$ERR
@@ -375,27 +395,38 @@ EOF
 
   # remove all sound modules
   CNT=0  ###KRG
-  while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
+  while [ -n "`lsmod | grep -E '^snd[-_].*|^snd |^soundcore|^gameport|^pcspkr'`" ] ; do
   echo
-  echo 'still soundmodules loaded'
-  lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
+  echo -e '\033[0;33mstill soundmodules loaded:\033[0;39m'
+  lsmod | grep -E '^snd_|^gameport|^snd |^soundcore|^pcspkr' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
   while read line
   do
-     echo -n "$line "  ###KRG
-     #rmmod -f -w "$line"
-     #modprobe -r "$line"
-     modprobe-3.6-orig $VERB -r "$line"
-     sleep 0.1  ###KRG
+     [ "$line" ] || continue
+     if [ "$VERB" ]; then echo -e "\\033[0;35m$line:\\033[0;39m"  ###KRG
+     else echo -ne "\\033[0;35m$line\\033[0;39m "; fi
+     # _command rmmod $VERB -f -w "$line"
+     # modprobe $VERB -r "$line"
+     # modprobe-3.6-orig $VERB -r "$line"
+       /sbin/modprobe $VERB -r "$line"
+     sleep 0.01  ###KRG
   done
   CNT=$(( $CNT + 1 ))  ###KRG
-  [ "$CNT" = "5" ] && { echo -e "\\033[1;34m"'breaking now'"\\033[0;39m";break; }  ###KRG precaution###KRG
+  [ "$CNT" = "9" ] && { echo -e "\n\\033[1;31m"'breaking now'"\\033[0;39m";break; }  ###KRG precaution###KRG
   done  ###KRG
+  if [ "$VERB" ]; then echo
+  else echo -e '\n'; fi
+
+  [ "$VERBOSE" -o "$DEBUG" ] && lsmod | grep '^snd_'
 
   # remove the 2.2 soundcore module (if possible)
-  modprobe $VERB -r snd
-  _command rmmod $VERB soundcore 2>$ERR
-  _command rmmod $VERB gameport  2>$ERR
-  _command rmmod $VERB pcspkr    2>$ERR
+  #echo -e "\\033[0;31m"
+  #_command rmmod    $VERB snd       2>$ERR
+  #_command rmmod    $VERB soundcore 2>$ERR
+  #_command rmmod    $VERB gameport  2>$ERR
+  #_command rmmod    $VERB pcspkr    2>$ERR
+  #echo -e "\\033[0;39m"
+
+  [ "$VERBOSE" -o "$DEBUG" ] && lsmod | grep -E 'snd|soundcore|gameport|pcspkr'
 
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound || mkdir -p /var/lock/subsys
