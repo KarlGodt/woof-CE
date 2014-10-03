@@ -1,5 +1,7 @@
 #!/bin/ash
 
+[ "$HAVE_F4PUPPY5" ] && return 0
+
 _assign_version()
 {
 case $1 in
@@ -516,10 +518,10 @@ fi
 #================= Check /tmp if read-write ==================================
 _check_proc()
 {
-  mountpoint -q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  mountpoint $Q /proc && return $? || {
+  busybox mount $VERB $VERB -o remount,rw /dev/root/ /
   test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  busybox mount $VERB $VERB -t proc none /proc
   return $?
  }
 }
@@ -527,9 +529,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount $VERB $VERB -o remount,rw /dev/root/ /
  mkdir -p /tmp
- chmod 1777 /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -539,20 +541,52 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint -q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+mountpoint $Q /tmp && {
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw none /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
  }
 }
 
 #============= Avoid multiple instances of sync ==============================
 _sync()
 {
-pidof sync || sync
+pidof sync >$OUT || sync
 }
 
 #=============== LOGLEVEL / DEBUG MESSAGES ==================================
+
+_parse_cmdline_loglevel(){
+if test "$loglevel"; then
+ LOG_LEVEL="$loglevel"
+elif test "$LOGLEVEL"; then
+ LOG_LEVEL="$LOGLEVEL"
+fi
+
+if test ! "$LOG_LEVEL"; then
+ test -e /proc/cmdline || return 0
+ LOG_LEVEL_=`grep -i -o 'loglevel=[^[:space:]]*' /proc/cmdline | tr '[:upper:]' '[:lower:]'`
+ test "$LOG_LEVEL_" && { eval "$LOG_LEVEL_" && LOG_LEVEL=$loglevel; }
+fi
+
+
+if test "$LOG_LEVEL" && [ ! "${LOG_LEVEL//[[:digit:]]/}" ];
+then
+    for aL in `seq $LOG_LEVEL -1 0`; do
+    case $aL in
+    7) DEBUG=1;;
+    6) INFO=1;;
+    5) NOTICE=1;;
+    4) WARN=1;;
+    3) ERROR=1;;
+    2) CRIT=1;;
+    1) ALERT=1;;
+    0) EMERGENCY=1;;
+    esac                        ; done
+fi
+}
+_parse_cmdline_loglevel
+
 [ "$EMERGENCY" ] || EMERGENCY=1
 _emerg(){
 test "$EMERGENCY" || return 0
@@ -670,10 +704,10 @@ shift
 #echo "$0:_command:$1:$*"
 
 typeCOM=`type -p "$COM"`
-test "$typeCOM" ||{  _return 1 "No such type \"$COM\"" >&2;return $?; }
+test "$typeCOM"  ||  { _return 1 "No such type \"$COM\"" >&2;return $?; }
 
 whichCOM=`which "$COM"`
-test "$whichCOM" ||{  _return 1 "No such which \"$COM\"" >&2;return $?; }
+test "$whichCOM" || { _return 1 "No such which \"$COM\"" >&2;return $?; }
 
 _debug "_command:$COM:$@" >&2
 
@@ -689,7 +723,7 @@ test "$typeCOM" = "$whichCOM" && {
 #========= make nodes in /dev if /dev not mounted ============================
 _mkdevices()
 {
-mountpoint -q /dev && return 0
+mountpoint $Q /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
@@ -775,24 +809,25 @@ _log_rotate()
 {
 test "$*" || { _err "_log_rotate:Need filename to rotate"; return 1; }
 test -f "$*" || { _err "_log_rotate: '$*' not a regular file"; return 1; }
+
 nrLOGS=`ls -1v "$*".[0-9]* | wc -l`
 _debug "nrLOGS='$nrLOGS'"
+
 while read oneLOG
 do
-test "$oneLOG" || continue
-test -f "$oneLOG" || continue
-_debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
-nrLOGS=$((nrLOGS-1))
-done<<EoI
+ test "$oneLOG" || continue
+ test -f "$oneLOG" || continue
+  _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
+ mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+ nrLOGS=$((nrLOGS-1))
+done <<EoI
 `ls -1v "$*".[0-9]* | tac`
 EoI
+
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
-_info "moving $* --> ${*}.1"
-mv "$*" "${*}.1"
+ _info "moving $* --> ${*}.1"
+mv $VERB "$*" "${*}.1"
 }
-
-
 
 
 
@@ -814,6 +849,7 @@ mv "$*" "${*}.1"
 
 _kernel_version()
 {
+local oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -860,7 +896,7 @@ case $KERNELVER in
 ;;
 *) _err "_kernel_version:UNHANDLED KERNELVER '$KERNELVER'";;
 esac
-fi 2>/dev/null #if vercmp is not installed :P
+fi 2>$ERR #if vercmp is not installed :P
 
 #kVERSION="$K_VERSION"
 #kPATCHLEVEL="$K_PATCHLEVEL"
@@ -873,17 +909,8 @@ _info "_kernel_version:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -894,6 +921,7 @@ _notice "_kernel_version:squashXZ='$squashXZ'"
 
 _kernel_version2()
 {
+local oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -975,6 +1003,7 @@ _info "_kernel_version2:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version2:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version2:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version2:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
 }
 
 
@@ -994,6 +1023,7 @@ _notice "_kernel_version2:squashXZ='$squashXZ'"
 
 _kernel_version3()
 {
+local oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1030,7 +1060,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -1077,13 +1107,16 @@ _info "_kernel_version3:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version3:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version3:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version3:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
 return 0
  } || _kernel_version
+INFO=$oldINFO;DEBUG=$oldDEBUG
 }
 
 
 _kernel_version4()
 {
+local oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1200,6 +1233,7 @@ _info "_kernel_version4:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version4:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version4:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version4:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
 }
 
 
@@ -1214,6 +1248,7 @@ _notice "_kernel_version4:squashXZ='$squashXZ'"
 
 _kernel_version5()
 {
+local oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1233,9 +1268,11 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
-grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+    test -f /proc/modules && {
+    grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; }
+    } || { modprobe $VERB squashfs; sleep 1; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-}
+}; }
 test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
 
 SFS_MAJOR=`echo ${SFS_STR##* } | cut -b 1`
@@ -1323,6 +1360,7 @@ _info "_kernel_version5:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version5:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version5:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version5:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
 }
 
 
@@ -1335,8 +1373,7 @@ _mk_free_loop()
   [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
   LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
   LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
-  LOOP_NEW=$(( $LOOP_LAST + 1 ))
-  mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+  LOOP_NEW=$(( $LOOP_LAST + 1 )) && mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
   }
 }
 
@@ -1614,9 +1651,9 @@ for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep -viE 'perl|python' || continue
+   file "$file" | grep -i text | grep $Q -viE 'perl|python' || continue
 
-   grep "# New header by $_AUTHOR_, $_MONTH_ $_YEAR_" "$file" || continue
+   grep $Q "# New header by $_AUTHOR_, $_MONTH_ $_YEAR_" "$file" || continue
 
    PERM=`stat -c %a "$file"`
    [ "${PERM//[0-6]/}" ] || continue
@@ -1625,8 +1662,8 @@ do
    sed '/# New header by Karl Reimer Godt, September 2014/,/# End new header/ d' "$file" >/tmp/${file##*/}
    sed -i '2,3 d' /tmp/${file##*/}
 
-   mv /tmp/${file##*/} "$file"
-   chmod $PERM "$file"
+   mv $VERB /tmp/${file##*/} "$file"
+   chmod $VERB $PERM "$file"
 done
 }
 
@@ -1635,13 +1672,13 @@ _batch_diff1()
 local SIMPLE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2
 _debug "_batch_diff1: '$*'" >&2
 
-test "$*" || { _err "Usage: _batch_diff [ -s ] DIR"; return 1 2>$ERR || exit 1; }
+test "$*"    || { _err "Usage: _batch_diff [ -s ] DIR"; return 1 2>$ERR || exit 1; }
 
 test "$1" = '-s' && { SIMPLE=YES; shift; }
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+test -d "$@" || { _err "'$@' not a directory";         return 1 2>$ERR || exit 1; }
 
-cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
+cd "$@"      || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
 
 FILES1_=`ls -1dv *`
 
@@ -1714,7 +1751,7 @@ test "$1" = '-s' && { SIMPLE=YES; shift; }
 test "$1" = '-i' && { INVERT=YES; shift; }
 test "$1" = '-s' && { SIMPLE=YES; shift; }
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+test -d "$@" || { _err "'$@' not a directory";  return 1 2>$ERR || exit 1; }
 
 cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
 
@@ -1836,7 +1873,7 @@ esac
 shift
 done
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || exit 1; }
+test -d "$@" || { _err "'$@' not a directory";  return 1 2>$ERR || exit 1; }
 
 cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || exit 1; }
 
@@ -1952,6 +1989,6 @@ fi
 
 
 ###END###
-_HAVE_F4PUPPY5_=1
+_HAVE_F4PUPPY5_=1  ## WARN : DO NOT EXPORT !!
   HAVE_F4PUPPY5=1
 ###END###
