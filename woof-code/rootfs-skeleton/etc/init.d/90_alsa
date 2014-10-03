@@ -144,9 +144,7 @@ retrovol_func(){
   fi
 }
 
-  CNT=0; WAIT_=20
-  [ "`pidof X`" ] && WAIT_=2
-
+ _reset_pup_event_files(){
   [ -z "`lsmod | grep -E -i '^snd|sound'`" ] && {
       echo 0 >/tmp/pup_event_alsa_cnt
       touch /tmp/pup_event_module_devpath.log
@@ -154,20 +152,16 @@ retrovol_func(){
       sed -i '/MODULE=sound.*/d'  /tmp/pup_event_module_devpath.log
       sed -i '/MODULE=pcspkr.*/d' /tmp/pup_event_module_devpath.log
   }
+ }
 
-  while [ -z "`lsmod | grep -E -i '^snd|sound'`" ];
-  do
+ _load_snd_card_0(){
+                    modprobe snd-card-0
+ }
 
-   echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
-   sleep 3
-   waitCNT=$(( $waitCNT + 1 ))
+ _load_cmdline_drivers(){
 
-    if [ "$waitCNT" = "$WAIT_" ]; then ##&& break
-       #modprobe snd-card-0
-
-    if [ -f /tmp/alsa.flg ] ; then
-      bootAlsaCards=`grep -m1 'boot_alsa_cards=.*' /tmp/alsa.flg | cut -f 2 -d '=' | tr ',' ' '`
-      #bootAlsaCards=`echo "$bootAlsaCards1" | wc -w`
+    bootAlsaCards=`grep -m1 'boot_alsa_cards=.*' /tmp/alsa.flg | cut -f 2 -d '=' | tr ',' ' '`
+    #bootAlsaCards=`echo "$bootAlsaCards1" | wc -w`
 
       if [ "$bootAlsaCards" ] ; then
        for number in $bootAlsaCards ; do
@@ -179,10 +173,14 @@ retrovol_func(){
          /sbin/pup_event_backend_modprobe $number
         fi
        done
+      else
+           _err "Failed to extract bootAlsaCards from /tmp/alsa.flg"
       fi
 
-    else
-     alsaConfFiles=''
+ }
+
+ _get_all_conf_files(){
+                                               alsaConfFiles=''
      [ -f /etc/modprobe.conf ]              && alsaConfFiles="/etc/modprobe.conf"
      [ -f /etc/modprobe.d/modprobe.conf ]   && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/modprobe.conf"
      [ -f /etc/modprobe.d/puppy.conf ]      && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/puppy.conf"
@@ -190,14 +188,23 @@ retrovol_func(){
      [ -f /etc/modprobe.d/alsa.conf ]       && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa.conf"
      [ -f /etc/modprobe.d/alsa_cards.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa_cards.conf"
 
-      if [ "$alsaConfFiles" ] ; then
+ }
+
+ _load_all_sound_cards(){
+                          _get_all_conf_files
+
+       [ "$alsaConfFiles" ] || return 1
+
        _info "found '$alsaConfFiles'"
 
         for alsaconffile in $alsaConfFiles; do
          _info "Using entries in '$alsaconffile'"
+
          soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' "$alsaconffile" | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
+
           for number in $soundCards ; do
      _debugx $number
+
            #/sbin/pup_event_backend_modprobe snd-card-$number
            alsaDrivers=`_command modprobe -c | grep "^alias snd-card-$number " | cut -f3 -d ' ' | sort -u`
 
@@ -220,11 +227,86 @@ $alsaDrivers"
 
           done
         done
-      fi
-    fi
+        return $?
+ }
+
+  _reset_pup_event_files
+  CNT=0; WAIT_=20
+  [ "`pidof X`" ] && WAIT_=2
+  while [ -z "`lsmod | grep -E -i '^snd|sound'`" ];
+  do
+
+   echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
+   sleep 3
+   waitCNT=$(( $waitCNT + 1 ))
+
+    if [ "$waitCNT" = "$WAIT_" ]; then ##&& break
+       # modprobe snd-card-0
+       # _load_snd_card_0
+
+    if [ -f /tmp/alsa.flg ] ; then
+    #  bootAlsaCards=`grep -m1 'boot_alsa_cards=.*' /tmp/alsa.flg | cut -f 2 -d '=' | tr ',' ' '`
+    #  #bootAlsaCards=`echo "$bootAlsaCards1" | wc -w`
+    #
+    #  if [ "$bootAlsaCards" ] ; then
+    #   for number in $bootAlsaCards ; do
+    #    if [ "`echo "$number" | grep -w -e '^[0-9]*$'`" != "" ] ; then  ###+++2011-10-28
+    #                     _notice "Loading snd-card-$number"
+    #     /sbin/pup_event_backend_modprobe snd-card-$number
+    #    else
+    #                      _warn "Loading '$number'"
+    #     /sbin/pup_event_backend_modprobe $number
+    #    fi
+    #   done
+    #  fi
+
+         _load_cmdline_drivers
+    else
+        _load_all_sound_cards
+    # alsaConfFiles=''
+    # [ -f /etc/modprobe.conf ]              && alsaConfFiles="/etc/modprobe.conf"
+    # [ -f /etc/modprobe.d/modprobe.conf ]   && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/modprobe.conf"
+    # [ -f /etc/modprobe.d/puppy.conf ]      && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/puppy.conf"
+    # [ -f /etc/modprobe.d/alsa-base.conf ]  && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa-base.conf"
+    # [ -f /etc/modprobe.d/alsa.conf ]       && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa.conf"
+    # [ -f /etc/modprobe.d/alsa_cards.conf ] && alsaConfFiles="$alsaConfFiles /etc/modprobe.d/alsa_cards.conf"
+
+    #  if [ "$alsaConfFiles" ] ; then
+    #   _info "found '$alsaConfFiles'"
+    #
+    #    for alsaconffile in $alsaConfFiles; do
+    #     _info "Using entries in '$alsaconffile'"
+    #     soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' "$alsaconffile" | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
+    #      for number in $soundCards ; do
+    # _debugx $number
+    #       #/sbin/pup_event_backend_modprobe snd-card-$number
+    #       alsaDrivers=`_command modprobe -c | grep "^alias snd-card-$number " | cut -f3 -d ' ' | sort -u`
+    #
+    #        #if [ "$alreadyDRIVERS" ]; then
+    #        # echo "$alreadyDRIVERS" | _command grep "$alsaDrivers" && continue
+    #        #fi
+    #               _debug $alsaDrivers
+    #        for driver in $alsaDrivers ; do
+    #
+    #        if [ "$alreadyDRIVERS" ]; then
+    #         echo "$alreadyDRIVERS" | _command grep "$driver" && continue
+    #        fi
+    #                        _notice "Loading '$driver'"
+    #         /sbin/pup_event_backend_modprobe $driver
+    #        done
+    #
+    #       alreadyDRIVERS="$alreadyDRIVERS
+#$alsaDrivers"
+    #       alreadyDRIVERS=`echo "$alreadyDRIVERS" | sort -u`
+    #
+    #      done
+    #    done
+    #  fi  ###  if [ "$alsaConfFiles" ] ; then
+
+    fi     ###  if [ -f /tmp/alsa.flg ] ; then
    break
-  fi
-  done
+  fi       ###  if [ "$waitCNT" = "$WAIT_" ]; then
+  done     ### while [ -z "`lsmod | grep -E -i '^snd|sound'`" ];
 
   if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then  ###KRG perhaps needs snd_
   echo -e "\\033[0;31m""Still no Sound Modules found `date`""\\033[0;39m"
