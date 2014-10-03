@@ -193,16 +193,26 @@ retrovol_func(){
        _info "found '$alsaConfFiles'"
 
         for alsaconffile in $alsaConfFiles; do
-         soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' /etc/modprobe.conf | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
+         _info "Using entries in '$alsaconffile'"
+         soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' "$alsaconffile" | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
           for number in $soundCards ; do
      _debugx $number
            #/sbin/pup_event_backend_modprobe snd-card-$number
            alsaDrivers=`_command modprobe -c | grep "^alias snd-card-$number " | cut -f3 -d ' ' | sort -u`
-   _debug $alsaDrivers
+
+            if [ "$alreadyDRIVERS" ]; then
+             echo "$alreadyDRIVERS" | _command grep "$alsaDrivers" && continue
+            fi
+                   _debug $alsaDrivers
             for driver in $alsaDrivers ; do
                             _notice "Loading '$driver'"
              /sbin/pup_event_backend_modprobe $driver
             done
+
+           alreadyDRIVERS="$alreadyDRIVERS
+$alsaDrivers"
+           alreadyDRIVERS=`echo "$alreadyDRIVERS" | sort -u`
+
           done
         done
       fi
@@ -351,6 +361,7 @@ EOF
   modprobe $VERB -r snd
   _command rmmod $VERB soundcore 2>$ERR
   _command rmmod $VERB gameport  2>$ERR
+  _command rmmod $VERB pcspkr    2>$ERR
 
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound || mkdir -p /var/lock/subsys
