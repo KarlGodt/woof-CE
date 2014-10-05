@@ -31,9 +31,16 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
-[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+#[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
+#[ "`echo "$1" | grep -E  "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+case $1 in
+-h|*help|*usage) usage 0;;
+-V|*version)   { echo "$0: $Version";exit 0; };;
+-v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;shift;;
+-d|*debug)   set -x;shift;;
+esac
 
+INFO=1;DEBUG=1;DEBUGX=1
 trap "exit" HUP INT QUIT ABRT KILL TERM
 
 #KRG
@@ -115,13 +122,31 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 export LANG=C
 
-XSTATUS="no"
-[ -z $DISPLAY ] || XSTATUS="yes"
-[ $1 ] && XSTATUS="no"
+#XSTATUS="no"
+#[ -z $DISPLAY ] || XSTATUS="yes"
+#[ $1 ] && XSTATUS="no"
+
+#DEBUG=1
+_debug "\$*='$*' \$1=$1"
+PARAM1=""
+[ "$1" ] && PARAM1="$1"
+_debugx "PARAM1='$PARAM1'"
+
+XSTATUS="CLI"
+[ -z $DISPLAY ] || XSTATUS="X"
+#[ "$1" = cli ]  && XSTATUS="CLI"
+case "$*" in
+*cli*|*CLI*) XSTATUS=CLI;;
+esac
+PARAM1=$XSTATUS
+_debug "XSTATUS='$XSTATUS' PARAM1='$PARAM1'"
+
+tmpDIR=/tmp/timezone
+mkdir -p "$tmpDIR"
 
 if [ -e /etc/localtime ];then
  CZONE=`readlink /etc/localtime`
- [ "$CZONE" = "" ] && rm -f /etc/localtime
+ [ "$CZONE" ] && _info "/etc/localtime points to '$CZONE'" || { _notice "Removing /etc/localtime since readlink is empty"; rm -f /etc/localtime; }
 fi
 
 if [ -e /etc/localtime ];then
@@ -130,15 +155,17 @@ if [ -e /etc/localtime ];then
 else
  CZONE='/usr/share/zoneinfo/Etc/GMT+8'
  DEFTAG='Etc/GMT+8'
+ _notice "Have set CZONE to '$CZONE'"
 fi
 
 DEFTAG=`echo -n "$DEFTAG" | sed -e 's%Etc/%%'`
 
-ZONEINFO=`find /usr/share/zoneinfo -type f | grep -v '\.tab$' | sed -e 's%/usr/share/zoneinfo/%%' | sed -e 's%Etc/%%' | tr ' ' '_' | sort | tr '\n' ' '`
+ZONEINFO=`find /usr/share/zoneinfo -type f | grep -v '\.tab$' | sed -e 's%/usr/share/zoneinfo/%%' | sed -e 's%Etc/%%' | tr ' ' '_' | sort`
 
 ZONECHOICES=""
 for oneZONE in $ZONEINFO
 do
+ _debugx "oneZONE='$oneZONE'"
  oneDESCR="."
  [ "$oneZONE" = "GMT" ] && continue
  [ "$oneZONE" = "GMT-0" ] && continue
@@ -175,45 +202,56 @@ do
   GMT+13)    oneDESCR='(Rawaki Islands)';;
   GMT+14)    oneDESCR='(Line Islands)';;
  esac
+ _debugx "oneDESCR='$oneDESCR'"
  ZONECHOICES="${ZONECHOICES}${oneZONE} \"${oneDESCR}\" "
 done
 
 if [ "$XSTATUS" = "yes" ];then
  ZONEDLG="Xdialog --stdout --title \"Puppy timezone selector\" --default-item $DEFTAG --menubox \"Please choose your timezone.\\nIf a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 $ZONECHOICES"
- eval $ZONEDLG >/tmp/zoneretval
+ eval $ZONEDLG >"$tmpDIR"/zoneretval
 else
- ZONEDLG="dialog --aspect 10 --title \"Puppy timezone selector\" --default-item $DEFTAG --menu \"Please choose your timezone. If a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 ${ZONECHOICES}"
- eval $ZONEDLG 2>/tmp/zoneretval
+ ZONEDLG="dialog --stdout --aspect 10 --title \"Puppy timezone selector\" --default-item $DEFTAG --menu \"Please choose your timezone. If a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 ${ZONECHOICES}"
+ eval $ZONEDLG >"$tmpDIR"/zoneretval
 fi
 
 [ $? -ne 0 ] && {
-    [ "$DEBUG" ] && echo "Returnvalue not '0' ."
-    exit
+    _err "Returnvalue not '0' ."
+    exit 1
 }
 
-ZONERETVAL=`tail -n1 /tmp/zoneretval`
+ZONERETVAL=`tail -n1 "$tmpDIR"/zoneretval`
+_info "Now setting time zone to '$ZONERETVAL'"
 
 #validity check...
 [ "`echo "$ZONEINFO" | grep "$ZONERETVAL"`" = "" ] && {
-    [ "$DEBUG" ] && echo "ZONERETVAL string is empty."
-    exit
+    _err "ZONEINFO does not contain '$ZONERETVAL'"
+    exit 1
 }
 
 [ "`echo "$ZONERETVAL" | grep 'GMT'`" != "" ] && ZONERETVAL="Etc/$ZONERETVAL"
+_info "ZONERETVAL='$ZONERETVAL'"
 
 rm -f /etc/localtime
-ln -s /usr/share/zoneinfo/$ZONERETVAL /etc/localtime
+ln $VERB -s /usr/share/zoneinfo/$ZONERETVAL /etc/localtime
 
 rm -f /etc/TZ #don't think need this anymore. also removed from /etc/profile.
 #.../etc/profile now reads /etc/localtime and exports TZ variable.
 
 #need to set Linux system time/date, from hardware clock...
 test -c /dev/rtc0 || {
-    [ "$DEBUG" ] && echo -e "/dev/rtc0 not a character special device ..\nAttempting to create it..."
-test -c /dev/rtc/rtc0 && ln -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /dev/rtc0 c 253 0; }
+    _warn "/dev/rtc0 not a character special device ..Attempting to create it..."
+test -c /dev/rtc/rtc0 && ln $VERB -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /dev/rtc0 c 253 0; }
 }
-hwclock -f /dev/rtc0 --hctosys --localtime || hwclock --hctosys --localtime --directisa --debug
+
 #...--hctosys reads cmos clock to system, referencing /usr/share/zoneinfo/localtime
 #...--localtime means that cmos clock is set to local-time.
+hwclock -f /dev/rtc0 --hctosys --localtime && {
+    _info "OK setting 'hwclock -f /dev/rtc0 --hctosys --localtime'"
+    } || {
+        _warn "Attempt to 'hwclock --hctosys --localtime --directisa --debug'"
+        hwclock --hctosys --localtime --directisa --debug && {
+            _notice "OK using 'hwclock --hctosys --localtime --directisa --debug'"
+            } || { _err "FAILED  to set even 'hwclock --hctosys --localtime --directisa --debug'"; }
+        }
 
 ###END###
