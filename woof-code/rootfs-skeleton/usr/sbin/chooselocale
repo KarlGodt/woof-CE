@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
 
@@ -11,6 +11,7 @@ MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+INFO=1; #DEBUG=1;DEBUGX=1
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -36,7 +37,7 @@ _trap
 #w478 bugfix, dialog_table was incorrect.
 #v431 updated LANGUAGEDESCR variable.
 
-__old_default_info_header__(){
+__old_default_info_header__(){  #BEGIN
   _TITLE_="Puppy_Chooselocale"
 _COMMENT_="dialogs to select LANG variable and initialise charmap."
 
@@ -60,40 +61,50 @@ $2"
 exit $1
 }
 
-[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0 "$_COMMENT_"
-[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0 "$_COMMENT_"
+[ "`echo "$1" | grep -E  "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
 
 #KRG
 #************
-}
+}  ###__old_default_info_header__(){  #END
 
 LANG=C #Xdialog seems to need this.
 export LANG
 
+#DEBUG=1
+_debug "\$*='$*' \$1=$1"
 PARAM1=""
-[ $1 ] && PARAM1="$1"
+[ "$1" ] && PARAM1="$1"
+_debugx "PARAM1='$PARAM1'"
 
 . /etc/DISTRO_SPECS
 
 CURRLANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
+[ "$CURRLANG" ] && _info "Have current CURRLANG='$CURRLANG' in /etc/profile" || _warn "CURRLANG not found in /etc/profile"
 UTF8=''
 [ "`echo -n "$CURRLANG" | grep 'utf8'`" != "" ] && UTF8='.utf8'
 BASELANG=`basename $CURRLANG .utf8`
+[ "$BASELANG" ] && _info "Have BASELANG='$BASELANG'" || _warn "BASELANG not defined"
 
 CURRENTWM=`cat /etc/windowmanager`
 
-XSTATUS="cli"
-[ -z $DISPLAY ] || XSTATUS="x"
-[ $1 ] && XSTATUS="cli"
+XSTATUS="CLI"
+[ -z $DISPLAY ] || XSTATUS="X"
+#[ "$1" = cli ]  && XSTATUS="CLI"
+case "$*" in
+*cli*|*CLI*) XSTATUS=CLI;;
+esac
+PARAM1=$XSTATUS
 
-if [ "$XSTATUS" != "x" ];then
- echo -n -e " \\033[1;35mplease wait...\\033[0;39m" #purple text.
-fi
+_debug "XSTATUS='$XSTATUS' PARAM1='$PARAM1'"
+
+tmpDIR=/tmp/chooselocale
+mkdir -p "$tmpDIR"
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
- [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >/dev/null
+ [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
  #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
 fi
 
@@ -104,22 +115,34 @@ REGIONDESCR='AA:ArabicCountries AE:UAE AL:Yugoslavia AR:Argentina AT:Austria AU:
 
 #if [ ! -f /usr/share/i18n/dialog_table ];then
 
-if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
+#if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
+
+_create_dialog_tables(){  #BEGIN
 
  CHOICES=""; ON=""; OFF=""; XPID=""
 
- if [ "$XSTATUS" = "x" ];then
-  ON="on"
-  OFF="off"
+# if [ "$XSTATUS" = "x" ];then
+if [ "$XSTATUS" != "X" ];then
+ echo -n -e " \\033[1;35mplease wait...\\033[0;39m" #purple text.
+else
   xmessage -bg orange -fg black -center -buttons "" "Please wait, processing..." &
   XPID=$!
- fi
+fi
 
+  ON="on"
+  OFF="off"
+
+# fi
+
+ oldIFS="$IFS"
+ IFS=$'\n'
  for oneLOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
  do
+  _debug "oneLOCALE='$oneLOCALE'"
 
   STATUS="off"
   [ "$oneLOCALE" = "$BASELANG" ] && STATUS="on"
+  _debugx "STATUS='$STATUS'"
 
   LANGUAGE=`echo -n "$oneLOCALE" | cut -f 1 -d '_'`
   REGION=`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`
@@ -136,52 +159,100 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
 
   if [ "$STATUS" = "on" ];then
 
-   FIRSTLINE="$oneLOCALE \"${DESCR}\" ${ON}"
+   xFIRSTLINE="$oneLOCALE \"${DESCR}\" ${ON}"
+   cliFIRSTLINE="$oneLOCALE \"${DESCR}\""
 
   else
 
-   CHOICES="$CHOICES $oneLOCALE \"${DESCR}\" ${OFF}"
+   xCHOICES="${xCHOICES} $oneLOCALE \"${DESCR}\" ${OFF}"
+   cliCHOICES="${cliCHOICES} $oneLOCALE \"${DESCR}\""
 
   fi
 
  done
+ IFS="$oldIFS"
 
- CHOICES="${FIRSTLINE} ${CHOICES}"
- echo -n "$CHOICES" > /usr/share/i18n/dialog_table_${XSTATUS} #w478
- [ "$XPID" != "" ] && kill $XPID
+ xCHOICES="${xFIRSTLINE} ${xCHOICES}"
+ cliCHOICES="${cliFIRSTLINE} ${cliCHOICES}"
 
-else
+ #[ "$VERBOSE" ] || VERBOSE=1
+ [ "$VERBOSE" ] && echo -n "${xCHOICES}" >           "$tmpDIR"/dialog_table_${XSTATUS}
 
- CHOICES=`cat /usr/share/i18n/dialog_table_${XSTATUS}` #w478
+ if test "$PARAM1" = "composeonly"; then
+  mv $VERB /usr/share/i18n/dialog_table_x /usr/share/i18n/dialog_table.Xdlg-`date +%Y-%m%d-%H-%M` 2>$ERR
+    echo -n "$xCHOICES"                  >/usr/share/i18n/dialog_table.Xdlg
 
-fi
+mv $VERB /usr/share/i18n/dialog_table_cli /usr/share/i18n/dialog_table.dlg-`date +%Y-%m%d-%H-%M` 2>$ERR
+    echo -n "$cliCHOICES"                >/usr/share/i18n/dialog_table.dlg
 
-if [ "$PARAM1" = "composeonly" ];then #w470
+ elif test "$PARAM1" = X; then
+       mv $VERB /usr/share/i18n/dialog_table.Xdlg /usr/share/i18n/dialog_table.Xdlg-`date +%Y-%m%d-%H-%M` 2>$ERR
+                         echo -n "${xCHOICES}"   >/usr/share/i18n/dialog_table.Xdlg #w478
+
+ elif test "$PARAM1" = CLI; then
+        mv $VERB /usr/share/i18n/dialog_table.dlg /usr/share/i18n/dialog_table.dlg-`date +%Y-%m%d-%H-%M` 2>$ERR
+                       echo -n "${cliCHOICES}"   >/usr/share/i18n/dialog_table.dlg #w478
+
+ else
+       false
+ fi
+
+ [ "$XPID" != "" ] && kill $XPID || echo
+}  ###_create_dialog_tables(){  #END
+_create_dialog_tables
+
+#else
+
+ #CHOICES=`cat /usr/share/i18n/dialog_table_${XSTATUS}` #w478
+ #CHOICES=`cat /usr/share/i18n/dialog_table_${XSTATUS} | tr '\n' ' '`
+# CHOICES=`tr '\n' ' ' </usr/share/i18n/dialog_table_${XSTATUS}` || CHOICES="\"SOME ERROR OCCURED\" \"SOME ERROR OCCURED\" ${ON}"
+ #CHOICES=`tr '\n' '\\' </usr/share/i18n/dialog_table_${XSTATUS}`
+
+#fi
+
+
+#if [ "$XSTATUS" != "x" ];then
+# echo  #purple text.
+#fi
+
+#if [ "$PARAM1" = "composeonly" ];then #w470
+# exit $composeRV
+#fi
+
+
+#if [ "$XSTATUS" = "x" ];then
+case $PARAM1 in
+*composeonly)
  exit
-fi
+;;
+esac
 
 CHECKUTF8='off'
 [ "$UTF8" != "" ] && CHECKUTF8='on'
 
-if [ "$XSTATUS" = "x" ];then
-
+case $XSTATUS in
+x|X)
+ xCHOICES=`tr '\n' ' ' </usr/share/i18n/dialog_table.Xdlg` || CHOICES="\"SOME ERROR OCCURED\" \"SOME ERROR OCCURED\" ${ON}"
  echo "#!/bin/sh
-Xdialog --left --stdout --wrap --title \"Country setup\" --check \"UTF-8 encoding (apps faster without)\" ${CHECKUTF8} --radiolist \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 46 0 $CHOICES >/tmp/chooselocale-choice
-exit \$?" > /tmp/xdialog-chooselocale
-
-else
+Xdialog --left --stdout --wrap --title \"Country setup\" --check \"UTF-8 encoding (apps faster without)\" ${CHECKUTF8} --radiolist \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 46 0 $xCHOICES >$tmpDIR/chooselocale-choice
+exit \$?" > "$tmpDIR"/xdialog-chooselocale
+;;
+#else
+cli|CLI)
+ cliCHOICES=`tr '\n' ' ' </usr/share/i18n/dialog_table.dlg` || CHOICES="\"SOME ERROR OCCURED\" \"SOME ERROR OCCURED\""
  echo "#!/bin/sh
-dialog --aspect 10 --title \"Country setup\" --menu \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 0 0 ${CHOICES} 2>/tmp/chooselocale-choice
-exit \$?" > /tmp/xdialog-chooselocale
+dialog --stdout --aspect 10 --title \"Country setup\" --menu \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 0 0 ${cliCHOICES} >$tmpDIR/chooselocale-choice 2>$tmpDIR/chooselocale-choice.err
+exit \$?" > "$tmpDIR"/xdialog-chooselocale
+;;
+#fi
+esac
 
-fi
-
-chmod 777 /tmp/xdialog-chooselocale
-/tmp/xdialog-chooselocale
+chmod $VERB 0774 "$tmpDIR"/xdialog-chooselocale
+"$tmpDIR"/xdialog-chooselocale
 [ $? -ne 0 ] && exit
 
-LANGCHOICE=`cat /tmp/chooselocale-choice | head -n 1`
-UTF8CHOICE=`cat /tmp/chooselocale-choice | tail -n 1`
+LANGCHOICE=`cat "$tmpDIR"/chooselocale-choice | head -n 1`
+UTF8CHOICE=`cat "$tmpDIR"/chooselocale-choice | tail -n 1`
 UTF8=''
 
 if [ "$UTF8CHOICE" = "checked" ];then
@@ -210,13 +281,13 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
    if [ "$CHARMAP" != "" ];then
 
-    localedef -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} > /dev/null
+    localedef -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} >$OUT
     NEWLANG="LANG=${LANGCHOICE}"
 
    else
 
     #no match, i think forced to use utf8...
-    localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 > /dev/null
+    localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
     NEWLANG="LANG=${LANGCHOICE}.utf8"
     UTF8='.utf8'
    fi
@@ -226,7 +297,7 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
    #CHARMAP=`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`
    #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
-   localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 > /dev/null
+   localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
    NEWLANG="LANG=${LANGCHOICE}.utf8"
 
   fi
@@ -235,18 +306,52 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
  if [ "$OLDLANG" != "$NEWLANG" ];then
   langPATTERN="s/${OLDLANG}/${NEWLANG}/"
-  sed -e "$langPATTERN" /etc/profile > /tmp/profile
-  cp -f /tmp/profile /etc/profile
+  sed -e "$langPATTERN" /etc/profile > "$tmpDIR"/profile; STATUS=$((STATUS+$?))
+  [ $STATUS = 0 ] && {
+  cp $VERB -f "$tmpDIR"/profile /etc/profile;             STATUS=$((STATUS+$?))
+  [ $STATUS = 0 ] && _info "Have changed LANG entry in /etc/profile from '$OLDLANG' to '$NEWLANG'" || _warn "Attempt to copy $tmpDIR/profile to /etc/ failed."
+  } || _warn "Attempt to sed '$langPATTERN' from /etc/profile to $tmpDIR/profile failed."
  fi
 
- [ "$XSTATUS" != "x" ] && exit
+ [ "$VERBOSE" -o "$STATUS" != 0 ] || rm -f /etc/profile
 
- Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in /etc/profile." 0 100
- if [ $? -eq 0 ];then
-  rm -rf /tmp/.X0-lock
-  sync
-  exec restartwm $CURRENTWM
+ #[ "$XSTATUS" != "x" ] && exit
+case $XSTATUS in
+*x*|*X*)
+
+ if [ "$STATUS" = 0 ]; then
+   Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno \
+   "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button \
+   X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications \
+   are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\
+   \n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) \
+   and LANG variable set to ${LANGCHOICE}${UTF8} in /etc/profile." 0 100
+    if [ $? -eq 0 ];then
+     rm -rf /tmp/.X0-lock
+     _sync
+     exec restartwm $CURRENTWM
+    fi
+
+ else
+    # xmessage -bg red "SOMETHING WENT WRONG ???"
+
+    extraMSG="Please contact system administrator."
+
+     if [ "`whoami`" = "root" ]; then
+     defaulttexteditor /etc/profile
+     rox -x /etc -d /etc
+     rox -x "$tmpDIR" -d "$tmpDIR"
+     extraMSG="Have opened /etc and $tmpDIR in rox window and /etc/profile in defaulttexteditor"
+     sleep 1
+    fi
+
+    xmessage -bg red "SOMETHING WENT WRONG
+
+$extraMSG" &
+
  fi
+;;
+esac
 
 fi
 
