@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/bin/ash
+
+. /etc/rc.d/f4puppy5
+
+[ "$VERBOSE" ] && SAME=-s
 
 error(){
     exit=$1; shift
@@ -22,12 +26,12 @@ cd "$CURRENT_DIR"
 DIRS=`find woof-code/rootfs-skeleton/ -type d -not -name ".git"`
 
 while read ONE_DIR; do
-echo "ONE_DIR='$ONE_DIR'"
+_debug "ONE_DIR='$ONE_DIR'"
 test "$ONE_DIR" || continue
 
 #ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
 ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
-echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
+_debug "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
@@ -35,12 +39,12 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
  FILES=`ls -1v`
 
  while read ONE_FILE; do
- [ "$DEBUG" ] && echo "ONE_FILE='$ONE_FILE'"
+ _debugx "ONE_FILE='$ONE_FILE'"
  test "$ONE_FILE" || continue
  test -L "$ONE_FILE" && continue
 
  test -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || {
-     echo "$ONE_DIR_IN_SYSTEM/$ONE_FILE does not exist"
+     _notice "$ONE_DIR_IN_SYSTEM/$ONE_FILE does not exist"
      cp -a "$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
      continue
     }
@@ -56,18 +60,18 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
-     diff -q "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ./"$ONE_FILE" && continue #returns 1 if differ
+     diff $Q $SAME "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ./"$ONE_FILE" && continue #returns 1 if differ
 
     modSYSfile=`stat -c %Y "$ONE_DIR_IN_SYSTEM/$ONE_FILE"`
     modGITfile=`stat -c %Y ./"$ONE_FILE"`
 
     if [ "$modSYSfile" -ge "$modGITfile" ]; then
-     echo "FILE in SYSTEM newer"
-     cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
+     _info "FILE in SYSTEM newer"
+     _command cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
      sleep 1
     else
-     echo "File in GIT newer"
-     cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
+     _info "File in GIT newer"
+     _command cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM"/
      continue
     fi
 
@@ -81,7 +85,7 @@ by the one found currently in the system." || error_cont 1 "git commit failed."
 
      cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
-    } || { echo "$ONE_DIR_IN_SYSTEM/$ONE_FILE : No such so."; }
+    } || { _err "$ONE_DIR_IN_SYSTEM/$ONE_FILE : No such so."; }
 
  done <<EOI
 `echo "$FILES"`
