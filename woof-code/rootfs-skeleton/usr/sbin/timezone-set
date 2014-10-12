@@ -17,9 +17,24 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 #************
 #KRG
 
+_set_default_flags(){
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
+}
+_set_default_flags
+
+_set_verbose_flags(){
+    _parse_cmdline_loglevel
+    VERBOSE=1;
+    EMERGENCY=1;ALERT=1;CRIT=1;ERROR=1;WARN=1;NOTICE=1
+    NOTICE2=1;INFO=1;
+    VERB=-v;A_VERB=-verbose;L_VERB=--verbose;
+    Q='';   QUIET=$Q;
+    DBG=-d;L_DBG=--debug;  A_DBG=-debug
+    OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+}
+
 
 Version=1.1-KRG-MacPup_O2
 
@@ -36,11 +51,26 @@ exit $1
 case $1 in
 -h|*help|*usage) usage 0;;
 -V|*version)   { echo "$0: $Version";exit 0; };;
--v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;shift;;
--d|*debug)   set -x;shift;;
+-v|*verbose) #VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;DBG=-d;
+             #INFO=1;DBG=-d;L_DBG=--debug;A_DBG=-debug
+             #OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+             #shift;;
+             _set_verbose_flags
+             ;;
+-vv|*very*verbose)
+             _set_verbose_flags
+             NOTICE2=1;DEBUG=1;
+             ;;
+-vvv|*very*very*verbose|-dE|-de|-Dall|-vE)
+             _set_verbose_flags
+             NOTICE2=1;INFO2=1;DEBUG=1;DEBUG2=1
+             ;;
+-d|-dx|*debug)   set -x;;
+*) NO_SHIFT=Y;;
 esac
+[ "$NO_SHIFT" ] || shift
 
-INFO=1;DEBUG=1;DEBUGX=1
+#INFO=1;DEBUG=1;DEBUGX=1
 trap "exit" HUP INT QUIT ABRT KILL TERM
 
 #KRG
@@ -146,7 +176,7 @@ mkdir -p "$tmpDIR"
 
 if [ -e /etc/localtime ];then
  CZONE=`readlink /etc/localtime`
- [ "$CZONE" ] && _info "/etc/localtime points to '$CZONE'" || { _notice "Removing /etc/localtime since readlink is empty"; rm -f /etc/localtime; }
+ [ "$CZONE" ] && _info -p "/etc/localtime points to '$CZONE'" || { _notice -p "Removing /etc/localtime since readlink is empty"; rm -f /etc/localtime; }
 fi
 
 if [ -e /etc/localtime ];then
@@ -206,30 +236,37 @@ do
  ZONECHOICES="${ZONECHOICES}${oneZONE} \"${oneDESCR}\" "
 done
 
-if [ "$XSTATUS" = "yes" ];then
+#if [ "$XSTATUS" = "yes" ];then
+case $XSTATUS in
+yes|Yes|YES|1|ON|On|on|TRUE|True|true|*X*|*x*)
  ZONEDLG="Xdialog --stdout --title \"Puppy timezone selector\" --default-item $DEFTAG --menubox \"Please choose your timezone.\\nIf a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 $ZONECHOICES"
  eval $ZONEDLG >"$tmpDIR"/zoneretval
-else
+;;
+#else
+-C|-c|*CLI|*Cli|*cli|*ANY|*Any|*any)
  ZONEDLG="dialog --stdout --aspect 10 --title \"Puppy timezone selector\" --default-item $DEFTAG --menu \"Please choose your timezone. If a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 ${ZONECHOICES}"
  eval $ZONEDLG >"$tmpDIR"/zoneretval
-fi
+;;
+*) _err "Unhandled XSTATUS '$XSTATUS'";false;;
+esac
+#fi
 
 [ $? -ne 0 ] && {
-    _err "Returnvalue not '0' ."
-    exit 1
+    _noticep "${Yellow0}Returnvalue not '0' .${Normal0}"  #cancel pressed
+    exit 0
 }
 
 ZONERETVAL=`tail -n1 "$tmpDIR"/zoneretval`
-_info "Now setting time zone to '$ZONERETVAL'"
+_info "${Green1}Now setting time zone to '$ZONERETVAL'${Normal0}"
 
 #validity check...
 [ "`echo "$ZONEINFO" | grep "$ZONERETVAL"`" = "" ] && {
-    _err "ZONEINFO does not contain '$ZONERETVAL'"
+    _err -p "${Red1}ZONEINFO does not contain '$ZONERETVAL'${Normal0}"
     exit 1
 }
 
 [ "`echo "$ZONERETVAL" | grep 'GMT'`" != "" ] && ZONERETVAL="Etc/$ZONERETVAL"
-_info "ZONERETVAL='$ZONERETVAL'"
+_debug "${Black0}ZONERETVAL='$ZONERETVAL'${Normal0}"
 
 rm -f /etc/localtime
 ln $VERB -s /usr/share/zoneinfo/$ZONERETVAL /etc/localtime
@@ -245,8 +282,8 @@ test -c /dev/rtc/rtc0 && ln $VERB -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; m
 
 #...--hctosys reads cmos clock to system, referencing /usr/share/zoneinfo/localtime
 #...--localtime means that cmos clock is set to local-time.
-hwclock -f /dev/rtc0 --hctosys --localtime && {
-    _info "OK setting 'hwclock -f /dev/rtc0 --hctosys --localtime'"
+_command hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG >$OUT && {
+    _info "OK setting 'hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG'"
     } || {
         _warn "Attempt to 'hwclock --hctosys --localtime --directisa --debug'"
         hwclock --hctosys --localtime --directisa --debug && {
