@@ -7,7 +7,7 @@
 #w019 april2009: selection of timezone.
 
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
-DEBUG=1
+#INFO=1;DEBUG=1;DEBUGX=1
 
 __old_intro_header__(){  #BEGIN
 #************
@@ -32,7 +32,9 @@ exit $1
 case $1 in
 -h|*help|*usage) usage 0;;
 -V|*version)   { echo "$0: $Version";exit 0; };;
--v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;;
+-v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;
+                INFO=1;DBG=-d;L_DBG=--debug;A_DBG=-debug
+                OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;;
 -d|*debug)   set -x;;
 esac
 
@@ -74,9 +76,9 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 
 Version='1.1-simple Puppy-Linux-4.3.1 KRG'
 
-usage () {
+usage(){
 echo "
-[pkeys=LANG] $0 [showmaps|help|cli|version]
+[pkeys=LANG] $0 [showmaps|help|CLI,force,any|version]
 
     Starts setting keyboardlayout for console
     AND localtime for
@@ -96,23 +98,36 @@ exit 11
 _show_available_maps(){
 echo "Currently installed keyboard maps
 found in '/lib/keymaps' directory :"
-ls -1 /lib/keymaps | sed 's|\.gz$||' |tr '\n' '\t'
+ls -1 /lib/keymaps | sed 's|\.gz$||' |tr '\n' '\t';RV=$?
 echo
-exit $?
+exit $RV
 }
 
 TTY=/dev/console
-TTY9=`tty`
-if [ "$TTY9" = '?' -o "$TTY9" = 'not a tty' ];then
-TTY9="$TTY";fi
-TTY="$TTY9"
+TTY_=`tty`
+if [ "$TTY_" = '?' -o "$TTY_" = 'not a tty' ];then
+TTY_="$TTY";fi
+TTY="$TTY_"
 _debug "$0: using $TTY"
 
-  if [ "`echo "$@" |grep -Ei '\-h|help'`" ];        then usage
-elif [ "`echo "$@" |grep -Ei '\-s|show|key|map'`" ];then _show_available_maps
-elif [ "`echo "$@" |grep -E  '\-V|version'`" ];     then echo -e "\n$Version\n";exit $?;fi
+#  if [ "`echo "$@" |grep -Ei '\-h|help'`" ];        then usage
+#elif [ "`echo "$@" |grep -Ei '\-s|show|key|map'`" ];then _show_available_maps
+#elif [ "`echo "$@" |grep -E  '\-V|version'`" ];     then echo -e "\n$Version\n";exit $?;fi
+
+case $1 in
+-h|*help|*usage) usage;;
+-s|-S|*show*|*key*|*map*) _show_available_maps;;
+-V|*version) echo -e "\n$Version\n";exit $?;;
+-v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;
+                INFO=1;DBG=-d;L_DBG=--debug;A_DBG=-debug
+                OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+                ;;
+-d|*debug)   set -x;;
+esac
+
+
 if [ "$DISPLAY" -a "$TTY" = '/dev/console' ];then
-xmessage "PLEASE run $0 from terminal console" &
+xmessage "PLEASE run $0 from kernel terminal console" &
 #define EWOULDBLOCK EAGAIN  /* Operation would block */
 exit 11;fi
 
@@ -121,16 +136,16 @@ CHANGE=;
 _debug "pkeys='$PKEYS'"
 
 if [ -f /etc/keymap ];then
-currentkeymap=`cat /etc/keymap |sed 's#\.map$##'`
-_debug "currentkeymap='$currentkeymap'"
+currentKEYMAP=`sed -n 's#\.map$##p' /etc/keymap`
+_debug "currentKEYMAP='$currentKEYMAP'"
 
-if [ "$pkeys" ];then
-PKEYS="$pkeys"
-if [ "$currentkeymap" != "$PKEYS" ];then
-#set go
-_notice "$0: Changing '$currentkeymap' to '$PKEYS'"
-CHANGE=on
-echo "$PKEYS" > /etc/keymap #boot param.
+ if [ "$pkeys" ];then
+ PKEYS="$pkeys"
+ if [ "$currentKEYMAP" != "$PKEYS" ];then
+ #set go
+ _notice "Changing '$currentKEYMAP' to '$PKEYS'"
+ CHANGE=1
+ echo "$PKEYS" > /etc/keymap #boot param.
 fi;fi;fi
 #[ "$PKEYS" ] && echo -n "$PKEYS" > /etc/keymap #boot param.
 
@@ -140,8 +155,19 @@ fi;fi;fi
 
 STATUS=0
 #if [ "$PUPMODE" = '5' ] || [ "$1" ] || [ "$CHANGE" ];then ##+++2012-01-31
-if [ "$1" ];then rm -f /etc/keymap;unset pkeys PKEYS
-sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile;fi
+
+#if [ "$1" ];then rm -f /etc/keymap;unset pkeys PKEYS
+#sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile;fi
+
+case $@ in
+#-C|*CLI|*cli)
+#-f|-F|*force)
+-C|-c|*CLI*|*Cli*|*cli*|*-F|*-f|*force*|*any*)
+ rm -f /etc/keymap;unset pkeys PKEYS
+ sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile
+;;
+esac
+
 _debug  "\$1='$1'"
 _debugx "pkeys='$pkeys'"
 _debug  "PKEYS='$PKEYS'"
@@ -188,8 +214,10 @@ askkbdlayout ()
     qc)     aCNTRY=" (Quebec, Canada)";;
     *)      aCNTRY="";;
    esac
-   aPATH=`dirname $aFILE`
-   aTYPE=`basename $aPATH` #qwerty, qwertz, etc.
+   #aPATH=`dirname $aFILE`
+    aPATH=${aFILE%/*}
+   #aTYPE=`basename $aPATH` #qwerty, qwertz, etc.
+    aTYPE=${aPATH##*/}
    echo -e "$aKMAP \"${aTYPE}${aCNTRY}\"" >> /tmp/keybdlist.txt
   done
 
@@ -200,11 +228,13 @@ askkbdlayout ()
  ' >>/tmp/keydlg
   echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
   echo 'exit $?' >>/tmp/keydlg
+
   chmod 755 /tmp/keydlg
   /tmp/keydlg >$TTY
   [ $? != 0 ] && return 1
 
   [ "$VERBOSE" ] || clear > $TTY # 2>&1 #clear screen
+
   KEYBOARD=`tail -n1 /tmp/kbdextlayout.txt`
   case $KEYBOARD in
    cz|hu101|pl|ro_win|sk-qwerty|croat|cz-us-qwertz|hu|slovene)
@@ -224,6 +254,7 @@ askkbdlayout ()
 }
 
 if [ ! -e /etc/keymap ];then
+_notice "/etc/keymap does not exist"
  while :; do
    askkbdlayout #this is extended menu, func above.
    #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
@@ -236,31 +267,34 @@ if [ ! -e /etc/keymap ];then
  done #end while loop.
 
  echo "$KMAP" > /etc/keymap
- echo "You have chosen \"$KMAP\" keyboard map." >$TTY
- echo "Note, this information is saved in file /etc/keymap" >$TTY
+ _notice "You have chosen \"$KMAP\" keyboard map." >$TTY
+ _notice "Note, this information is saved in file /etc/keymap" >$TTY
 
  if [ "$FONTMAP" ];then
+  _notice "FONTMAP='$FONTMAP' written to /etc/fontmap"
   echo "$FONTMAP" > /etc/fontmap
  fi
  if [ "$CODEPAGE" ];then
+  _notice "CODEPAGE='$CODEPAGE' written to /etc/codepage"
   echo "$CODEPAGE" > /etc/codepage
  fi
 
-fi
+fi #[ ! -e /etc/keymap ]
 
 if [ -e /etc/keymap ];then
  if [ $PKEYS ];then
-  echo -n "$PKEYS" > /etc/keymap
-  _debug "Loading pkeys \"$PKEYS\" /lib/keymaps keyboard map... " >$TTY
+  echo "$PKEYS" > /etc/keymap
+  _info "Loading pkeys \"$PKEYS\" /lib/keymaps keyboard map... " >$TTY
   gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
+
  else
   KMAP=`cat /etc/keymap`
-  cat /etc/keymap | grep "\\.map" > /dev/null 2>&1 #looking for .map
+  cat /etc/keymap | grep "\\.map" >$OUT 2>$ERR #looking for .map
   if [ $? -eq 0 ];then #=0 found.
    #key layout maps are in /usr/share/kbd, using "kbd" package...
    KMAP=`basename $KMAP .map`
-   _debug "Loading /usr/share/kbd \"$KMAP\" keyboard map... " >$TTY
-   loadkeys ${KMAP}.map ;STATUS=$?
+   _info "Loading /usr/share/kbd \"$KMAP\" keyboard map... " >$TTY
+   loadkeys $VERB ${KMAP}.map ;STATUS=$?
    #xwin also set these...
    FONTMAP=`cat /etc/fontmap`
    #echo -e "Loading fontmap \"${FONTMAP}\"..."
@@ -269,44 +303,61 @@ if [ -e /etc/keymap ];then
    #um, also have /etc/codepage, don't know how to do anything with that.
   else
    #this is the technique up to Puppy v0.8.6. KMAP is just a 2-letter code...
-   _debug "Loading /lib/keymaps \"$KMAP\" keyboard map... " >$TTY
+   _info "Loading /lib/keymaps \"$KMAP\" keyboard map... " >$TTY
    gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap ;STATUS=$?
   fi
- fi
+ fi #[ $PKEYS ]
 else
- echo -e "loading default \"us\" (USA) keyboard map... " >$TTY
+ _notice "loading default \"us\" (USA) keyboard map... " >$TTY
  gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
-fi
+fi #[ -e /etc/keymap ]
 
 
 #need to set Linux system time/date, from hardware clock...
-_debug -e "Setting hwclock --hctosys (to) --localtime " >$TTY
+_info "Setting hwclock --hctosys (to) --localtime " >$TTY
+
 test -c /dev/rtc0 || {
-    [ "$DEBUG" ] && echo -e "/dev/rtc0 not a character special device ..\nAttempting to create it..."
+    _warn "/dev/rtc0 not a character special device ..
+Attempting to create it..." >$TTY
 test -c /dev/rtc/rtc0 && ln -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /dev/rtc0 c 253 0; }
 }
-hwclock -f /dev/rtc0 --hctosys --localtime || hwclock --hctosys --localtime --directisa --debug
+
+_command hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG && {
+    _info "OK:Setting:hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG" >$TTY
+    } || {
+        _warn "Attempt to 'hwclock --hctosys --localtime --directisa --debug'" >$TTY
+        _command hwclock --hctosys --localtime --directisa --debug && {
+            _notice "OK using 'hwclock --hctosys --localtime --directisa --debug'" >$TTY
+            } || { _err "FAILED  to set even 'hwclock --hctosys --localtime --directisa --debug'" >$TTY; }
+        }
 #...--hctosys reads cmos clock to system.
 #...--localtime means that cmos clock is set to local-time.
 
 #w001 creates locale files in /usr/lib/locale...
-LANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
-[ ! "$LANG" ] && LANG=empty_string
-_info "LANG='$LANG'" >$TTY
-if [ "`locale -a | grep "$LANG"`" = "" ];then
- _debug "Running 'chooselocale cli' AND 'timezone-set cli'" >$TTY
- #BASELANG=`basename $LANG .utf8`
- #if [ -f /usr/share/i18n/locales/$BASELANG ];then
- # localedef -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
- #else
- # [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8
- #fi
- read -s -p "press any key to run chooselocale cli" -n1 someKEY 1>$TTY 2>&1
- _debug "\$@='$@'"
- /usr/sbin/chooselocale $@ cli > $TTY
- read -s -p "press any key to run timezone-set cli" -n1 someKEY 1>$TTY 2>&1
- _debug "\$@='$@'"
- /usr/sbin/timezone-set $@ cli > $TTY
+LANG_=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
+[ ! "$LANG_" ] && LANG_=empty_string
+_info "LANG_='$LANG_'" >$TTY
+
+if [ "`locale -a | grep "$LANG_"`" = "" ];then
+ _notice "LANG_='$LANG_' not found in locale -a output"      >$TTY
+   _info "Running 'chooselocale cli' AND 'timezone-set cli'" >$TTY
+
+ __set_default__en_US_utf8__(){
+  BASELANG=`basename $gLANG .utf8`
+  if [ -f /usr/share/i18n/locales/$BASELANG ];then
+   localedef $VERB -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
+  else
+   [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef $VERB -f UTF-8 -i en_US --no-archive en_US.utf8
+  fi
+ }
+
+ read -s -p "press any key to run chooselocale $* cli " -n1 someKEY 1>$TTY 2>&1
+ _debug "\$*='$*'"
+ /usr/sbin/chooselocale $* cli > $TTY
+
+ read -s -p "press any key to run timezone-set $* cli " -n1 someKEY 1>$TTY 2>&1
+ _debug "\$*='$*'"
+ /usr/sbin/timezone-set $* cli > $TTY
 fi
 
 #fi ##+++2012-01-31 PUPMODE 5
