@@ -11,7 +11,7 @@ MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
-INFO=1; #DEBUG=1;DEBUGX=1
+INFO=1; DEBUG=1;DEBUGX=1
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -51,8 +51,10 @@ _debugx "PARAM1='$PARAM1'"
 
 CURRLANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
 [ "$CURRLANG" ] && _info "Have current CURRLANG='$CURRLANG' in /etc/profile" || _warn "CURRLANG not found in /etc/profile"
+
 UTF8=''
 [ "`echo -n "$CURRLANG" | grep 'utf8'`" != "" ] && UTF8='.utf8'
+
 BASELANG=`basename $CURRLANG .utf8`
 [ "$BASELANG" ] && _info "Have BASELANG='$BASELANG'" || _warn "BASELANG not defined"
 
@@ -72,8 +74,8 @@ tmpDIR=/tmp/chooselocale
 mkdir -p "$tmpDIR"
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
- [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
- #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
+ [ ! -d /usr/lib/locale/en_US ] && localedef $VERB -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
+ #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef $VERB -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
 fi
 
 #v431 fix es:Mexican change to es:Spanish (Spain)...
@@ -106,8 +108,10 @@ fi
   [ "$oneLOCALE" = "$BASELANG" ] && STATUS="on"
   _debugx "STATUS='$STATUS'"
 
-  LANGUAGE=`echo -n "$oneLOCALE" | cut -f 1 -d '_'`
-  REGION=`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`
+  #LANGUAGE=`echo -n "$oneLOCALE" | cut -f 1 -d '_'`
+  LANGUAGE=${oneLOCALE%%_*}
+  #REGION=`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`
+  REGION=`echo -n "${oneLOCALE#*_}" | awk -F'[.@]' '{print $1}'`
 
   lPATTERN="^${LANGUAGE}:"
   LANGUAGE=`echo "$LANGUAGEDESCR" | tr ' ' '\n' | grep "$lPATTERN" | head -n 1 | cut -f 2 -d ':'`
@@ -115,8 +119,9 @@ fi
   rPATTERN="^${REGION}:"
   REGION=`echo "$REGIONDESCR" | tr ' ' '\n' | grep "$rPATTERN" | head -n 1 | cut -f 2 -d ':'`
 
-  [ "$LANGUAGE" != "" ] && [ "$REGION" != "" ] && LANGUAGE="${LANGUAGE}, "
+  [ "$LANGUAGE" -a "$REGION" ] && LANGUAGE="${LANGUAGE}, "
   DESCR="${LANGUAGE}${REGION}"
+  _debug "DESCR='$DESCR'"
 
   if [ "$STATUS" = "on" ];then
 
@@ -221,13 +226,13 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
    if [ "$CHARMAP" != "" ];then
 
-    localedef -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} >$OUT
+    localedef $VERB -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} >$OUT
     NEWLANG="LANG=${LANGCHOICE}"
 
    else
 
     #no match, i think forced to use utf8...
-    localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
+    localedef $VERB -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
     NEWLANG="LANG=${LANGCHOICE}.utf8"
     UTF8='.utf8'
    fi #[ "$CHARMAP" != "" ]
@@ -237,7 +242,7 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
    #CHARMAP=`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`
    #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
-   localedef -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
+   localedef $VERB -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
    NEWLANG="LANG=${LANGCHOICE}.utf8"
 
   fi #[ "$UTF8" = "" ]
@@ -245,6 +250,7 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
 
  if [ "$OLDLANG" != "$NEWLANG" ];then
+  _info "Attempting to change '$OLDLANG' to '$NEWLANG' :"
   langPATTERN="s/${OLDLANG}/${NEWLANG}/"
   sed -e "$langPATTERN" /etc/profile > "$tmpDIR"/profile; STATUS=$((STATUS+$?))
   [ $STATUS = 0 ] && {
@@ -253,7 +259,7 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
   } || _warn "Attempt to sed '$langPATTERN' from /etc/profile to $tmpDIR/profile failed."
  fi
 
- [ "$VERBOSE" -o "$STATUS" != 0 ] || rm -f /etc/profile
+ [ "$VERBOSE" -o "$STATUS" != 0 ] || rm -f "$tmpDIR"/profile
 
 case $XSTATUS in
 *x*|*X*)
