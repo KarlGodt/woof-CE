@@ -24,13 +24,14 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 QUIET=-q
-DEBUG=1
+DEBUG=
 DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 #echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.UTF-8
-echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.utf8
+test "$LANG" = C || {
+    echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.utf8; }
 _info "using '$LANG_ROX'"
 
 #busybox mountpoint does not recognice after
@@ -113,18 +114,18 @@ do
 #test "$oneLINE" || continue
  _debug "oneLINE='$oneLINE'" >&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
- _debugx "STRING='$STRING'" >&2
+ _debugx "STRING='$STRING'"  >&2
  while read -r oneCHAR
  do
- _debugx "oneCHAR='$oneCHAR'" >&2
+ _debugx "oneCHAR='$oneCHAR'"   >&2
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
- _debug "oneCHAR='$oneCHAR'" >&2
+ _debug "oneCHAR='$oneCHAR'"    >&2
  oCHAR=`printf %o \'"$oneCHAR"`
- _debug "oCHAR='$oCHAR'" >&2
+ _debug "oCHAR='$oCHAR'"        >&2
  #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
- _debugx "oSTRING='$oSTRING'" >&2
+ _debugx "oSTRING='$oSTRING'"   >&2
 
  done<<EoI
 `echo "$STRING"`
@@ -210,9 +211,9 @@ test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 _update_partition_icon()
 {
 
-o_DEBUG=$DEBUG
-o_DEBUGX=$DEBUGX
-o_DEBUGT=$DEBUGT
+oldDEBUG=$DEBUG
+oldDEBUGX=$DEBUGX
+oldDEBUGT=$DEBUGT
 
 test -f /etc/eventmanager && . /etc/eventmanager
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
@@ -220,9 +221,9 @@ test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
 
-DEBUG=$o_DEBUG
-DEBUGX=$o_DEBUGX
-DEBUGT=$o_DEBUGT
+DEBUG=$oldDEBUG
+DEBUGX=$oldDEBUGX
+DEBUGT=$oldDEBUGT
 
 test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 _debugt 99 $_DATE_
@@ -247,7 +248,7 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
 _debugt 9d $_DATE_
 
- test "$noROX" || { _pidof $QUIET ROX-Filer && {
+ test "$noROX" && : || { _pidof $QUIET ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
          mountpoint $QUIET "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
@@ -328,10 +329,10 @@ case $WHAT in
 
 umount)
   case $opT in
-  -t) echo "$opT_ARGS" | grep -q -w "$fstype" || continue ;;
+  -t) echo "$opT_ARGS" | grep $Q -w "$fstype" || continue ;;
   esac
   case $opO in
-  -O) echo "$mntops" | grep -q -E "$opO_ARGS" || continue ;;
+  -O) echo "$mntops" | grep $Q -E "$opO_ARGS" || continue ;;
   esac
 
   _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
@@ -359,7 +360,7 @@ EoI
     }
 
   #echo $device
-  grep -q -w "^$device" /proc/mounts || continue
+  grep $Q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
 *) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
@@ -619,11 +620,26 @@ case $posPAR in
 -*)         :;; #break
 none|nodev) :;;
 shmfs)      :;;
+sysfs|proc) :;;
 
-adfs|affs|autofs|cifs|coda|coherent|cramfs|debugfs|devpts)       :;;
+adfs|affs|autofs|cifs|coda|coherent) :;;
+cramfs)               :;;
+debugfs|devpts)       :;;
 efs|ext|ext2|ext3|ext4|hfs|hfsplus|hpfs|iso9660|jfs|minix)         :;;
-msdos|ncpfs|nfs|nfs4|ntfs|proc|qnx4|ramfs|reiserfs|romfs)            :;;
-smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
+msdos)                :;;
+ncpfs|nfs|nfs4)                 :;;
+ntfs)                 :;;
+qnx4)                           :;;
+ramfs)                          :;;
+reiserfs|romfs)                 :;;
+smbfs|sysv)                     :;;
+tmpfs)                          :;;
+udf)                  :;;
+ufs)                            :;;
+umsdos)               :;;
+usbfs|usbdevfs)       :;;
+vfat)                 :;;
+xenix|xfs|xiafs) :;;
 
 *) test $c = $# || continue
    if test -f /proc/filesystems; then
@@ -831,7 +847,8 @@ done
 
        NLS_PARAM=''
         if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
-         KEYMAP="`cat /etc/keymap | cut -f 1 -d '.'`"
+         #KEYMAP="`cat /etc/keymap | cut -f 1 -d '.'`"
+         IFS='.' read KEYMAP EXT_ </etc/keymap
          case $KEYMAP in
           de|be|br|dk|es|fi|fr|it|no|se|pt)
            NLS_PARAM=',codepage=850'
@@ -1010,6 +1027,6 @@ _debugt 01 $_DATE_
 
 test "$RETVAL" = 0 && _update || _umount_rmdir "$mountPOINT"
 _debugt 00 $_DATE_
-test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
+test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf ../proc/mounts /etc/mtab
 _debugt 00
 exit $RETVAL
