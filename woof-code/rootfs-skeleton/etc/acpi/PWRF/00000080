@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 
 aplay /usr/share/audio/2barks.au
 Version='1.0 Macpup_O2-Puppy_Linux_431 KRG'
@@ -23,7 +23,8 @@ exit $1
 pidof sync || sync
 
 KERN_VER=`uname -r`
-AVAIL_MODES=$(</sys/power/state)
+#AVAIL_MODES=$(</sys/power/state)
+read AVAIL_MODES </sys/power/state
 BUTTONS="Let me outa here:200"
 for m in $AVAIL_MODES;do
 case $m in
@@ -43,17 +44,17 @@ HIBER=1;MODE=DISK;mode=disk
 for param in $@;do
 case $1 in
 
-version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
-help) usage 0;;
+*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+*help) usage 0;;
 
-checkcode|codecheck) set -n; shift;;
-debug) set -x;     shift;;
-verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
+*checkcode|*codecheck)   set -n; shift;;
+*debug)                  set -x; shift;;
+*verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
 
-hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
-sleep) SLEEP=1;MODE=RAM;mode=mem; shift;;
-resume=/dev/*) SWAP_TO_USE=${1#*=};shift;;
-/dev/*) SWAP_TO_USE=$1;            shift;;
+*hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
+*sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
+resume=/dev/*) SWAP_TO_USE=${1#*=};  shift;;
+/dev/*) SWAP_TO_USE=$1;              shift;;
 
 *) :;;
 
@@ -77,11 +78,11 @@ Note: Timesout in 30 seconds with wmpoweroff.
     ANSWER=$?  ##+++2012-06-01 added menu
     case $ANSWER in
     205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ;;
-    204) HIBER=1;SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';;
-    203) SLEEP=1;HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"';;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';;
+    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"';;
     200) exit 0;;
-    "") exit 0;;
-    *) wmpoweroff;; #exit 0;;
+    "")  exit 0;;
+    *)   wmpoweroff;; #exit 0;;
     esac
 
 else #X not running, read console
@@ -116,7 +117,7 @@ Preparing to suspend to $MODE .." &
 
 aplay /usr/share/audio/2barks.au
 
-[ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -1 `pidof pppd`;sleep 1; }
+[ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -2 `pidof pppd`;sleep 1; }
 
 
 MNTDPARTS=`tac /proc/mounts`
@@ -155,9 +156,9 @@ do
  #ntfs or not:
  if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
  #fusermount version: 2.7.0 [options] mountpoint
- fusermount -u "$ONESTRAY" ##unmounts MountPoint
+ noROX=1 fusermount -u "$ONESTRAY" ##unmounts MountPoint
  else
- umount -r "$ONESTRAY"  ##unmounts MountPoint
+ noROX=1 /bin/umount -r "$ONESTRAY"  ##unmounts MountPoint
  echo -e "\e[1;31m'$?'\e[0;39m"
  sleep 1
  fi
@@ -189,8 +190,10 @@ SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
 
 SWAPS_ON=`cat /proc/swaps |sed '1d'`
 
-MEM_USED=`free |grep -i 'Mem' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $3}'`
-SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
+#MEM_USED=`free |grep -i 'Mem' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $3}'`
+MEM_USED=`free | awk '/Mem:/ {print $3}'`
+#SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
+SWAP_FREE=`free | awk '/Swap:/ {print $4}'`
 
 [ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to DISK due to free swap lesser than used mem"
 
@@ -257,8 +260,14 @@ echo 'mem' >/sys/power/state 2>/tmp/acpi.err
    _fstype_=`echo "$oneLINE" | awk '{print $3}'`
    _mntops_=`echo "$oneLINE" | awk '{print $4}'`
    test "$_device_" -a "$_mntpnt_" -a "$_fstype_" -a "$_mntops_" || continue
-   mount -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
+   grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && noROX=1
+   if grep $Q -w "$_mntpnt_" /proc/mounts; then
+    noROX=$noROX /bin/mount -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
+   else
+    noROX=$noROX /bin/mount -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
+   fi
    sleep 0.2
+   unset noROX
   done
   IFS="$oldIFS"
    }
