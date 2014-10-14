@@ -1,9 +1,11 @@
 #!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
-  _TITLE_="Puppy_pup_event_frontend_d"
+  _TITLE_="Pup_event_frontend_d"
 _VERSION_=1.0omega
-_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+_COMMENT_="$_TITLE_:Puppy Linux ash shell script daemon
+to handle free space in RAM and Save-File
+and Drive Icons on Desktop"
 
 MY_SELF="/sbin/pup_event_frontend_d"
 MY_PID=$$
@@ -15,7 +17,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -125,7 +127,20 @@ _trap
 #
 ########################################################################
 
-trap "echo $0:PID=$$::Stopped.;exit 1" HUP INT QUIT KILL TERM
+_make_restart(){
+echo '#!/bin/ash
+sleep 5
+exec pup_event_frontend_d restart
+'       >/tmp/restart_pup_event_frontend_d
+chmod +x /tmp/restart_pup_event_frontend_d
+exec     /tmp/restart_pup_event_frontend_d &
+sleep 1
+rm       /tmp/restart_pup_event_frontend_d
+}
+#trap "_make_restart;exit 0" HUP
+
+trap "echo $0:PID=$$::Stop.;exit 1" INT QUIT ABRT KILL TERM
+trap "echo HUP >/tmp/pup_event_manager.flg >/tmp/pup_event_icon_change_flag" HUP
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
@@ -134,7 +149,7 @@ OUT=/dev/null;ERR=$OUT
 Version='1.1-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
-$0 [help|version|start|stop|restart]
+$0 [help|version|start|stop|restart|reload]
 
 Script daemon to run in background to manage the
 Puppy specific drive icons on the desktop.
@@ -187,33 +202,59 @@ get_lineno(){
 }
 
 ########### parameters start stop restart ##############
-stop_func(){
-echo 'stop' >"$TMPXWIN"/wmexitmode.txt
-for n in `seq 9 -1 1`;do echo -n "$n ";sleep 1;done;echo
-rm "$TMPXWIN"/wmexitmode.txt
-if ! ps | grep 'pup_event_frontend_d' |grep -v 'grep'| grep -v "$1";then
-return "$?"
-else
+__old_stop_func__(){
+
+ echo 'stop' >"$TMPXWIN"/wmexitmode.txt
+  for n in `seq 9 -1 1`;do echo -n "$n ";sleep 1;done;echo
+  rm "$TMPXWIN"/wmexitmode.txt
+ if ! ps | grep 'pup_event_frontend_d' |grep -v 'grep'| grep -v "$1";then
+  return "$?"
+ else
 return "$?";fi; }
 
+DEBUG=1
+stop_func(){
+ local aPID
+ _debug "\$\$='$$'"
+__while_loop__(){
+ pidof -o $$ -o %PPID ${0##*/} | tr ' ' '\n' | while read aPID; do
+ _debug "aPID='$aPID'";
+ /bin/ps -welF | grep -w $aPID
+ kill -9 $aPID; done
+}
+ MY_PIDS=`pidof -o $$ -o %PPID ${0##*/}`
+ for aPID in $MY_PIDS; do
+ [ $aPID = 1 ] && continue
+ kill -15 $aPID
+ done
+ sleep 5
+ pidof -o $$ -o %PPID ${0##*/} && return 4 || return 0
+}
+
 echo "
-$0 $1
+$PID $0 $*
 "
 
 case "$1" in
-stop)
-stop_func stop
-RV=$?;if [ "$RV" = '0' ];then
-echo 'stopped .';else echo 'error occurred !';fi
+*stop)
+    stop_func stop
+    RV=$?;if [ "$RV" = '0' ];then
+            echo 'stopped .';else echo 'error occurred !';fi
 return "$RV" || exit "$RV";;
-restart)
-stop_func restart
-RV="$?";if [ "$RV" = '0' ];then
-echo 'stopped .';else echo 'error occurred !';return "$RV" || exit "$RV";fi;;
-start|"")
+
+*restart)
+    stop_func restart
+    RV="$?";if [ "$RV" = '0' ];then
+            echo 'stopped .';else echo 'error occurred !';return "$RV" || exit "$RV";fi;;
+
+*start|"")
 :;;
-help) usage 0;;
-version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+
+*reload) echo HUP >/tmp/pup_event_manager.flg >/tmp/pup_event_icon_change_flag; exit $?;;
+
+*help) usage 0;;
+*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+
 *)
 echo "implemented parameters : help|version|stop|restart|start|NULL(means start)
 "
@@ -250,7 +291,7 @@ auto_unmount_func() {
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
    sync
-   umount "$oneMNTPT"; umVAL=$?
+   /bin/umount "$oneMNTPT"; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ "$umVAL" -ne 0 ];then
     ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
@@ -258,19 +299,29 @@ auto_unmount_func() {
     do
      /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE 2>$ERR
     done
-    umount "$oneMNTPT"; umVAL=$?
+    /bin/umount -r "$oneMNTPT"; umVAL=$?
    fi
   fi
  done
 }
 
 free_initrd_func() { #UniPup, runs entirely in initramfs.
+ __old_freekm__(){
  SIZEFREEK=`free | grep '^Total:' | tr -s ' ' | cut -f 4 -d ' '` #BusyBox v1.4.2 initrd.gz
- SIZEFREEM=`expr $SIZEFREEK \/ 1024`
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
+ SIZEFREEM=$((SIZEFREEK/1024))
+ }
+
+ local SIZEFREEM SIZEFREEM_
+ SIZEFREEM_=`free -m | awk '{if (match($1, "Mem:") || match($1, "Swap:")) print $4}'`
+ for aVAL in $SIZEFREEM_; do SIZEFREEM=$((SIZEFREEM+aVAL)); done
+
+ __unneeded__(){
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ "$PREVSIZEFREEM" = "$SIZEFREEM" ] && return
+ }
+
  #save to a file, freememapplet can read this...
- echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
+ echo "$SIZEFREEM" >/tmp/pup_event_sizefreem
 }
 
 free_func() { #called every 4 seconds.
@@ -279,11 +330,11 @@ free_func() { #called every 4 seconds.
    SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
   ;;
   *)
-   SIZEFREEM=`/bin/df -m | grep -m1 ' /$' | tr -s ' ' | cut -f 4 -d ' '`
+   SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
   ;;
  esac
  WARNMSG=""
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ $PREVSIZEFREEM -eq $SIZEFREEM ] && return
  if [ $SIZEFREEM -lt 10 ];then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
@@ -293,15 +344,15 @@ free_func() { #called every 4 seconds.
   fi
  fi
  VIRTUALFREEM=$SIZEFREEM
- if [ "$ZDRVINIT" = "yes" ];then #full set of modules present, moved from initrd.
+ if [ "$ZDRVINIT" = "yes" ];then                         #full set of modules present, moved from initrd.
   if [ -d /initrd/pup_rw/lib/modules/all-firmware ];then #have not yet deleted modules.
    #calc the "virtual" free space (would have if modules not there...)
    VIRTUALFREEM=`expr $SIZEFREEM + $SIZE_MODS_M`
-   VIRTUALFREEM=`expr $VIRTUALFREEM - 1` #allow for some mods will not be deleted.
+   VIRTUALFREEM=`expr $VIRTUALFREEM - 1`                 #allow for some mods will not be deleted.
   fi
  fi
  #save to a file, freememapplet can read this...
- echo "$VIRTUALFREEM" > /tmp/pup_event_sizefreem
+ echo "$VIRTUALFREEM" >/tmp/pup_event_sizefreem
  [ $PUPMODE -eq 5 -o $PUPMODE -eq 2 ] && return 0 #5=first boot, no msgs at top of screen. 2=full install
  if [ "$WARNMSG" != "" ];then
   killall yaf-splash
@@ -312,16 +363,24 @@ free_func() { #called every 4 seconds.
 free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds. 3=full on internal flash, 7 frugal to whole partition, 13=frugal to save-file
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
- SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
- [ -s /tmp/pup_event_sizetmpm ] && PREVSIZETMPM=`cat /tmp/pup_event_sizetmpm`
- [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
+  SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
+ [ -s /tmp/pup_event_sizetmpm ]  && read PREVSIZETMPM  </tmp/pup_event_sizetmpm
+ [ "$PREVSIZEFREEM" = $SIZEFREEM -a "$PREVSIZETMPM" = $SIZETMPM ] && return
+
  if [ $SIZEFREEM -lt 10 ]; then
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    delete_func /initrd/pup_ro1 #delete modules in save layer only.
   else
-   WARNMSG="WARNING: Personal storage file getting full, strongly recommend you resize it or delete files!"
+   WARNMSG="WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
+   pidof resizepfile.sh >$OUT || resizepfile.sh &
   fi
+ fi
+
+ if [ $SIZETMPM -lt 5 ]; then
+  echo '3' >/proc/sys/vm/drop_caches && { sleep 2;
+  SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+    }
  fi
  if [ $SIZETMPM -lt 5 ]; then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
@@ -330,6 +389,7 @@ free_flash_func() { #PUPMODE 3,7,13. called every 4 seconds. 3=full on internal 
    WARNMSG="WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
   fi
  fi
+
  VIRTUALFREEM=$SIZEFREEM
  if [ "$ZDRVINIT" = "yes" ]; then #full set of modules present at bootup.
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware ];then #have not yet deleted modules.
@@ -352,7 +412,7 @@ savepuppy_func() { #called every 4 seconds.
   rm -f /tmp/snapmergepuppyrequest
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." &
   YAFPID=$!
-  sync
+  pidof sync || sync
   nice -n 19 /usr/sbin/snapmergepuppy
   kill $YAFPID
  fi
@@ -1234,7 +1294,7 @@ do
 
    PROBEDISK=`probedisk2`
    DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
-   DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
+    DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
 
   ACTION=add
   SUBSYSTEM=block
@@ -1300,7 +1360,7 @@ _EOI
 if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
 
     . /etc/eventmanager ###2012-01-18
-    EXIT_func
+    funcEXIT
     RAM_POWER_func
     POWERTIMEOUT_FUNCS
     rm /tmp/pup_event_manager.flg
@@ -1323,7 +1383,7 @@ if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
     ROX_func
     MAX_XY_func
     START_XY_ICON_VALUES_func
-    PUPEVENTSTART_func
+    funcPUPEVENTSTART
     sleep 1
     rm -f /tmp/pup_event_icon_change_flag
 
