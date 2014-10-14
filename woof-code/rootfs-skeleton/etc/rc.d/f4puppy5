@@ -1,5 +1,7 @@
 #!/bin/ash
 
+[ "$HAVE_F4PUPPY5" ] && return 0
+
 _assign_version()
 {
 case $1 in
@@ -19,21 +21,23 @@ test "$MY_SELF" || MY_SELF="$0"
 
 
 # colours
-Red0='\033[0;31m'
-Red1='\033[1;31m'
-Green0='\033[0;32m'
-Green1='\033[1;32m'
+ Black0='\033[0;30m'
+ Black1='\033[1;30m'
+   Red0='\033[0;31m'
+   Red1='\033[1;31m'
+ Green0='\033[0;32m'
+ Green1='\033[1;32m'
 Yellow0='\033[0;33m'
 Yellow1='\033[1;33m'
-Blue0='\033[0;34m'
-Blue1='\033[1;34m'
-Pink0='\033[0;35m'
-Pink1='\033[1;35m'
-Cyan0='\033[0;36m'
-Cyan1='\033[1;36m'
-White0='\033[0;37m'
-White1='\033[1;37m'
-Black0='\033[0;39m'
+  Blue0='\033[0;34m'
+  Blue1='\033[1;34m'
+  Pink0='\033[0;35m'
+  Pink1='\033[1;35m'
+  Cyan0='\033[0;36m'
+  Cyan1='\033[1;36m'
+ White0='\033[0;37m'
+ White1='\033[1;37m'
+Normal0='\033[0;39m'
 
 Inv_White0='\033[0;47m'
 Inv_White1='\033[1;47m'
@@ -44,12 +48,12 @@ _status(){
  [ "$_TTY_" = 'not a tty' ] && _TTY_=/dev/console
 
  _CHARS_=${1//[[:digit:]]/}
- if [ "$_CHARS_" ];then echo -e "\\033[60G\\033[1;36m${_CHARS_}$Black0" >$_TTY_
+ if [ "$_CHARS_" ];then echo -e "\\033[60G\\033[1;36m${_CHARS_}$Normal0" >$_TTY_
  set -- 0
  elif [ "$1" = 0 ];then
-  /bin/echo -e "\\033[72G\\033[1;32mdone$Black0" >$_TTY_ #green [done] msg.
+  /bin/echo -e "\\033[72G\\033[1;32mdone$Normal0"   >$_TTY_ #green [done] msg.
  else
-  /bin/echo -e "\\033[70G\\033[1;31mfailed$Black0" >$_TTY_ #red [failed].
+  /bin/echo -e "\\033[70G\\033[1;31mfailed$Normal0" >$_TTY_ #red [failed].
   STATUS=0
  fi
 
@@ -581,7 +585,7 @@ return $?
 
 }
 
-#======== Accumulating Errors and create Message Variable ====================
+#======== Accumulate Errors and create Message Variable ====================
 _basic_error_check()
 {
 local USAGE RV
@@ -644,7 +648,7 @@ shift
 #echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
 #echo "`eval echo \\$$*`"
 
-QUIET=-q
+#QUIET=-q
 if test "$gOPT" = '-v'; then
 echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
@@ -658,7 +662,7 @@ _check_proc()
   mountpoint -q /proc && return $? || {
   busybox mount -o remount,rw /dev/root/ /
   test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  busybox mount -t proc proc /proc
   return $?
  }
 }
@@ -666,10 +670,14 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
+ local STATUS_
  busybox mount -o remount,rw /dev/root/ /
+ STATUS_=$((STATUS_+$?))
  mkdir -p /tmp
+ STATUS_=$((STATUS_+$?))
  chmod 1777 /tmp
- return $?
+ STATUS_=$((STATUS_+$?))
+ return $STATUS_
  }
 }
 
@@ -678,78 +686,125 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint -q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+mountpoint $Q /tmp && {
+grep  ' /tmp ' /proc/mounts    | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp;   return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
  }
 }
 
 #============= Avoid multiple instances of sync ==============================
 _sync()
 {
-pidof sync || sync
+pidof sync >$OUT || sync
 }
+
+#=
+_grep_one_tail(){
+test "$*" || { _return 2 "Usage:_grep_one_tail PATTERN [ FILENAME ]" >&2; return $?; }
+if test ! "$2"; then
+#piped
+grep "$*" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | tail -n1
+else
+ local REV nREV FILENAME
+ REV=`echo $* | rev`
+ set - $REV
+ _debug "\$*='$*'"             >&2
+ FILENAME=`echo $* | awk '{print $1}' | rev`
+ _debug "FILENAME='$FILENAME'" >&2
+ shift
+ nREV=`echo $* | rev`
+ set - $nREV
+ _debug "\$*='$*'"             >&2
+ grep "$*" "$FILENAME" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | tail -n1
+fi
+}
+
+_grep_one_head(){
+test "$*" || { _return 2 "Usage:_grep_one_tail PATTERN [ FILENAME ]" >&2; return $?; }
+if test ! "$2"; then
+#piped
+grep "$*" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | head -n1
+else
+ local REV nREV FILENAME
+ REV=`echo $* | rev`
+ set - $REV
+ _debug "\$*='$*'"             >&2
+ FILENAME=`echo $* | awk '{print $1}' | rev`
+ _debug "FILENAME='$FILENAME'" >&2
+ shift
+ nREV=`echo $* | rev`
+ set - $nREV
+ _debug "\$*='$*'"             >&2
+ grep "$*" "$FILENAME" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | head -n1
+fi
+}
+
+_get_screen_resolution(){
+xwininfo -root | tac | grep -vE '^[#!;]|^[[:blank:]]*[#!;]|^[/\*][/\*]|^[[:blank:]]*[/\*][/\*]' | grep -m1 '\-geometry' | awk '{print $2}'
+return $?
+}
+#=
 
 #=============== LOGLEVEL / DEBUG MESSAGES ==================================
 EMERGENCY=1
 _emerg(){
-test "$EMERGENCY" || return 0
-echo "EMERGENGY:$*"
+test "$EMERGENCY" || return 1
+echo -e "EMERGENGY:$*"
 }
 
 ALERT=1
 _alert(){
-test "$ALERT" || return 0
-echo "$0:ALERT:$*"
+test "$ALERT" || return 1
+echo -e "$0:ALERT:$*"
 }
 
 CRIT=1
 _crit(){
-test "$CRIT" || return 0
-echo "$0:CRITICAL:$*"
+test "$CRIT" || return 1
+echo -e "$0:CRITICAL:$*"
 }
 
 ERROR=1
 _err(){
-test "$ERROR" || return 0
-echo "$0:ERROR:$*"
+test "$ERROR" || return 1
+echo -e "$0:ERROR:$*"
 }
 
 WARN=1
 _warn(){
-test "$WARN" || return 0
-echo "$0:WARNING:$*"
+test "$WARN" || return 1
+echo -e "$0:WARNING:$*"
 }
 
 NOTICE=1
 _notice(){
-test "$NOTICE" || return 0
-echo "$0:NOTICE:$*"
+test "$NOTICE" || return 1
+echo -e "$0:NOTICE:$*"
 }
 
 INFO=1
 _info(){
-test "$INFO" || return 0
-echo "$0:INFO:$*"
+test "$INFO" || return 1
+echo -e "$0:INFO:$*"
 }
 
 DEBUG=
 _debug(){
-test "$DEBUG" || return 0
-echo "$0:DEBUG:$*"
+test "$DEBUG" || return 1
+echo -e "$0:DEBUG:$*"
 }
 
 DEBUGX=
 _debugx(){
-test "$DEBUGX" || return 0
-echo "$0:DEBUGX:$@"
+test "$DEBUGX" || return 1
+echo -e "$0:DEBUGX:$@"
 }
 
 DEBUGT=
 _debugt(){  #$1 label #$2 time
 
-test "$DEBUGT" || return 0
+test "$DEBUGT" || return 1
 #unset LANG LC_ALL
 local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
 _DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
@@ -1298,7 +1353,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -1709,20 +1764,25 @@ fi
 
 test "$_G"   ||   _G=echo
 test "$_eG"  ||  _eG=echo
-test "$_eNG" || _eNG=echo
+test "$_eNG" || _eNG='echo -n'
 #echo "_G='$_G'"
 #echo "_eG='$_eG'"
 #echo "_eNG='$_eNG'"
+alias g_="$_G"
+alias eg_="$_eG"
+alias eng_="$_eNG"
 }
 _check_gettext
 
 _killzombies()
 {
- ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`"
+ ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -vE 'grep|\|\|\|' | awk '{print $1}'`"
+ ZOMBIES=`_command ps -H -A | awk '{if ($3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs") print $1}'`
+ ZOMBIES=`_command ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'`
  for oneZOMBIE in $ZOMBIES
  do
   _command ps --no-header -p $oneZOMBIE || continue
-  echo " :Killing parentless zombie process $oneZOMBIE ..."
+  _notice " :Killing (parentless) zombie process '$oneZOMBIE' ..."
   kill $oneZOMBIE
  done
 }
@@ -1893,6 +1953,16 @@ sPATTERN3='s%^#.*%%'
 sPATTERN4='s%>.*#[^>]*$%%'
 
 echo "$*" | sed -e "$sPATTERN1" -e "$sPATTERN2" -e "$sPATTERN3" -e "$sPATTERN4" || return 1
+}
+
+_GTKdialog_debug_gui()
+{
+test "$*" || { _return 2 "_GTKdialog_debug_gui: Usage: debugGUI=\`_GTKdialog_debug_gui \"$MAIN_DIALOG\"\`"; return $?; }
+
+local lNR
+lNR=0
+echo "$*" | while read -r aLINE; do lNR=$((lNR+1)); echo "$lNR: $aLINE";done
+
 }
 
 _eval_error()
