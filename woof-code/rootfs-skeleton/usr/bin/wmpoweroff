@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_wmpoweroff"
@@ -15,7 +15,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -64,23 +64,25 @@ exit $1
 
 for param in $@;do
 case $param in
-help|-help|--help) usage 0;;
+*help|*usage) usage 0;;
+*force) FORCE=1;;
 *) :;;
 esac;done
 
+yaf-splash -bg green -text "Preparing for poweroff..." &
 
 #CURRRENT_WM=$(</etc/windowmanager)
 read CURRRENT_WM </etc/windowmanager
 if [ "$CURRRENT_WM" != 'enlightenment_start' ];then
-[ "$1" ] && exit 1
+: #[ "$1" ] && exit 1
 fi
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
-echo -n "poweroff" > /tmp/wmexitmode.txt
-echo -n "poweroff" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
+echo "poweroff $@" > /tmp/wmexitmode.txt
+echo "poweroff $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 killall pup_event_frontend_d
 
- wait_for_frontend_d(){
+__wait_for_frontend_d__(){
 #v403 give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
@@ -96,7 +98,7 @@ done
 sleep 0.2
 }
 
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync >$OUT || sync; }
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -104,20 +106,22 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
-#w003
-CURRENTWM="`cat /etc/windowmanager`"
-kill -9 `pidof $CURRENTWM`
 ##e17
 pidof tempget && kill -2 `pidof tempget`
 
-for _file_ in $HOME/Choices/XINIT/*; do
-test -f $_file_ || continue
-source $_file_ stop
-done
+[ "$FORCE" ] || {
+ for _file_ in $HOME/Choices/XINIT/*; do
+    test -f $_file_ || continue
+    source $_file_ stop
+ done
+}
 
-killall X #default is SIGTERM.
-sleep 1           #v1.0.7
-exec killall -9 X #v1.0.7 make sure X is killed.
+#w003
+CURRENTWM="`cat /etc/windowmanager`"
+kill -9 `pidof $CURRENTWM`
+killall X >$OUT          #default is SIGTERM.
+sleep 1                  #v1.0.7
+exec killall -9 X 2>$ERR #v1.0.7 make sure X is killed.
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
 #which reads /tmp/wmexitmode.txt.
