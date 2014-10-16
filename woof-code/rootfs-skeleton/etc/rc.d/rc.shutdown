@@ -59,6 +59,7 @@
 
 ###################### HEADER 0 #################################
 Version='1.1-simple Macpup_F3-Puppy_Linux_430/2 KRG'
+. /etc/rc.d/f4puppy5
 
 leave_func(){
 [ "$VERBOSE" ] || exec 1>/dev/console 2>&1
@@ -130,7 +131,7 @@ DEBUG=1
 
 [ "$DISPLAY" ] && { [ ! "$FORCE" ] && { echo "Please run wmpoweroff|wmreboot. Exiting script."; exit 1; }; } #case accidentially clicking on it
 
-[ -f /etc/rc.d/rc.shutdown.local.startZero ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
+[ -f /etc/rc.d/rc.shutdown.local.startZero -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
 ###################### HEADER 0 #################################
 
 ################# SNAPMERGE DIALOG ##############################
@@ -140,11 +141,11 @@ save_session(){
 dialog --yesno "Save this session?" 0 0 >/dev/console
 if [ $? -eq 0 ]; then
 case $1 in
-3|7) echo "Saving session to $PDEV1..." >/dev/console ;;
+3|7)  echo "Saving session to $PDEV1..."                  >/dev/console ;;
 13|*) echo "Saving session to $SAVEFILE (${SAVEPART})..." >/dev/console ;;
 esac
 /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync >$OUT || sync; }
 sleep 1
 fi
 }
@@ -191,11 +192,14 @@ fi
 SHUT_HOW2=`echo "${SHUT_HOW//ing/}" | tr -s 't'`
 echo "${DISTRO_NAME} ${DISTRO_VERSION} is now ${SHUT_HOW}..." > /dev/console
 
+[ "$FORCE" ] || {
 if test "`which mplayer`" -a -f /etc/rc.d/Flashgonxet; then
 mplayer -really-quiet -vo fbdev2 /etc/rc.d/Flashgonxet &
 fi
+}
 
 ########### Personal shutdown scripts #########################
+[ "$FORCE" ] || {
 if [ -f /etc/rc.d/rc.shutdown.local.startOne ]; then  ###KRG
 . /etc/rc.d/rc.shutdown.local.startOne
 elif [ -f /etc/rc.d/rc.shutdown.local.start ]; then
@@ -203,6 +207,7 @@ elif [ -f /etc/rc.d/rc.shutdown.local.start ]; then
 elif [ -f /etc/rc.d/rc.shutdown.local ]; then
 . /etc/rc.d/rc.shutdown.local
 fi
+}
 ########### Personal shutdown scripts #########################
 
 
@@ -244,7 +249,7 @@ PSUBDIR=`dirname "$PUPSFSFILE"`
 
 
 ########### Personal shutdown scripts #########################
-[ -f /etc/rc.d/rc.shutdown.local.startTwo ] && . /etc/rc.d/rc.shutdown.local.startTwo
+[ -f /etc/rc.d/rc.shutdown.local.startTwo -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startTwo
 ########### Personal shutdown scripts #########################
 
 
@@ -260,9 +265,9 @@ esac; }
 
 ################## kill zombies ######################################################
 killzombies() {
-   MYPID=$$ #120514
+   MYPID=$$    #120514
   PARENT=$PPID #120514
-   sleep 1  #newer fuser
+   sleep 1     #newer fuser
  ZOMBIES=`/bin/ps -H -A | grep '<defunct>' |grep -v grep`
  ZOMBIPIDS=`echo "$ZOMBIES" |awk '{print $1}' | grep -vwE "1|$MYPID|$PARENT"`
 
@@ -304,7 +309,7 @@ killall savepuppyd 2>$ERR
 
 
 cd /
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync >$OUT || sync; }
 
 
 ################### kill X ########
@@ -313,16 +318,16 @@ echo -e '\033[0;33m'"Killing X and all X apps..."'\033[0;39m'
 killall -9 X >$OUT 2>$ERR
 sleep 1
 killall -3 X >$OUT 2>$ERR
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync >$OUT || sync; }
 [ "$VERBOSE" ] && LINEP=D005 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################### kill X ########
 
 
 ################### dillo ################
 #MU warns may need to do this for dillo...
-killall file.dpi 2>$ERR
+killall file.dpi      2>$ERR
 killall bookmarks.dpi 2>$ERR
-killall dpid 2>$ERR
+killall dpid          2>$ERR
 [ "$VERBOSE" ] && LINEP=D006 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################### dillo ################
 
@@ -336,7 +341,7 @@ do
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 }
-/etc/rc.d/rc.services stop
+[ "$FORCE" ]   || /etc/rc.d/rc.services stop
 [ "$VERBOSE" ] && LINEP=D007 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################# rc.services ######################################
 
@@ -466,13 +471,13 @@ Press ENTER key to continue..." 0 0 >/dev/console
   AFS=`echo -n "$APART" | cut -f 2 -d '|'`
   AFREE=`/bin/df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
   if [ ! "$AFREE" ]; then
-   mount -t $AFS /dev/$ATAG /mnt/data >$OUT 2>$ERR
+   mount $VERB $VERB -t $AFS /dev/$ATAG /mnt/data >$OUT 2>$ERR
    #v2.10 need to put in a check that it is not mounted ro. the
    #mount script will fallback to ro for ntfs if rw mnt fails...
    RETMNTVAL=$?
    if [ $RETMNTVAL -eq 0 ]; then
     if [ "`mount | grep '(rw' | grep '/mnt/data'`" = "" ]; then
-     umount /mnt/data
+     umount $VERB $VERB /mnt/data
      RETMNTVAL=1
     else
      #v2.12 if the ntfs rw mount was forced (see /bin/mount script) it is unwise to use...
@@ -503,7 +508,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
      AFREE=`/bin/df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`
     fi
     #umount /dev/$ATAG  v2.02 must use mnt point for ntfs...
-    umount /mnt/data
+    umount $VERB $VERB /mnt/data
    fi
   fi
   [ "$ATAG" = "$PDEV1" ] && DEFTAG=" --default-item $ATAG" #v2.13
@@ -529,17 +534,17 @@ Note, next time Puppy boots, this file, with all saved personal data,
 will be automatically loaded.
 
 UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 ' >> /tmp/savedlg
- echo "$SCHOICES"  >> /tmp/savedlg
+ echo "$SCHOICES"       >> /tmp/savedlg
  echo ' 2>/tmp/tag.txt' >> /tmp/savedlg
- chmod 755 /tmp/savedlg
+ chmod 0755                /tmp/savedlg
 
  #seems some people have problem, do not select anything...
- [ "$VERBOSE" ] && continue_func
+ [ "$VERBOSE" -a ! "$FORCE" ] && continue_func
  while [ 1 ]; do
   /tmp/savedlg >/dev/console
   SAVEPART=`cat /tmp/tag.txt | head -n 1` #head is in case of errs in output.
   if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd'`" = "" ]; then
-   [ "$VERBOSE" ] && continue_func
+   [ "$VERBOSE" -a ! "$FORCE" ] && continue_func
    dialog --colors --msgbox "\Zb\Z1ERROR: you did not choose any partition.
    Press ENTER key to try again...
    Press ESC key to shutdown without saving...\Zn" 0 0 >/dev/console
@@ -594,12 +599,12 @@ pupsavefunc() {
  SMNTPT=`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  #[ "$SMNTPT" = "" ] && SMNTPT=`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  [ "$SMNTPT" = "" ] && SMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
-  [ "$VERBOSE" ] && LINEP=D101 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
+  [ "$VERBOSE" ]    && LINEP=D101 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
  if [ "$SMNTPT" = "" ]; then
   #v2.02 was mntg on /tmp/savepup, but if error and not unmounted, contents
   #of /tmp gets deleted, wiping entire partition!!!
   mkdir /mnt/$SAVEPART 2>$ERR #/tmp/savepup
-  mount -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART #/tmp/savepup
+  mount $VERB $VERB -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART #/tmp/savepup
   SMNTPT="/mnt/$SAVEPART" #"/tmp/savepup"
  fi
   [ "$VERBOSE" ] && LINEP=D102 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
@@ -771,7 +776,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  [ "$SFEXT" = "3fs" ] && JOPT='-j'
  echo "Creating '$NAMEONLY' in '/dev/$SAVEPART' , please wait awhile..." >/dev/console
  dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
- pidof sync || sync
+ [ "$FORCE" ] || { pidof sync >$OUT || sync; }
  echo "Creating a '$AAAFS' filesystem in '$NAMEONLY' ..." >/dev/console
  if [ "$CRYPTO" = "" ]; then
   mke2fs -q $JOPT -m 0 -F ${SMNTPT}$SAVEFILE
@@ -789,10 +794,10 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
   [ ! $? -eq 0 ] && return 1
   mke2fs -q $JOPT -m 0 $DEVLOOP #REMOVEDv3.98 added '-O none', fix mntg fail at boot.
-  pidof sync || sync
+  [ "$FORCE" ] || { pidof sync >$OUT || sync; }
   losetup -d $DEVLOOP
  fi
- pidof sync || sync
+ [ "$FORCE" ] || { pidof sync >$OUT || sync; }
  return 0
 } #end pupsavefunc
 ############################## choose and make pupsave ################################
@@ -904,14 +909,14 @@ swapfile_func() {
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of="${localSMNTPT}"/pupswap.swp bs=1048576 count=$SWPSIZE
        if [ $? -eq 0 ]; then
-        pidof sync || sync
+        [ "$FORCE" ] || { pidof sync >$OUT || sync; }
         mkswap "${localSMNTPT}"/pupswap.swp
        fi
        if [ $? -ne 0 ]; then
         rm -f "${localSMNTPT}"/pupswap.swp 2>$ERR
     echo "...error, unable to create swapfile." >/dev/console
        fi
-       pidof sync || sync
+       [ "$FORCE" ] || { pidof sync >$OUT || sync; }
       fi
      fi
     fi
@@ -966,17 +971,17 @@ case $PUPMODE in
 
  5) #v2.02 first boot. No save choosen.
   echo "Session not saved" >/dev/console
-  pidof sync || sync
+  [ "$FORCE" ] || { pidof sync >$OUT || sync; }
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
-  [ "$SMNTPT" ] && umount "$SMNTPT" 2>$ERR
+  [ "$SMNTPT" ] && umount $VERB $VERB "$SMNTPT" 2>$ERR
   #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
 32) #first shutdown, save back to PDEV1. v3.97: xPDEV #save to partition
   DEV1MNT=`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`
   if [ "$DEV1MNT" = "" ];then
    mkdir -p /mnt/"$xPDEV"
-   mount -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV"
+   mount $VERB $VERB -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV"
    if [ ! $? -eq 0 ];then
     echo "ERROR: unable to mount '/dev/$xPDEV' , cannot save." >/dev/console
     exit
@@ -995,12 +1000,12 @@ EOI
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
   cp -af /etc/DISTRO_SPECS "${DEV1MNT}"/etc/
-  pidof sync || sync
+  [ "$FORCE" ] || { pidof sync >$OUT || sync; }
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func "$DEV1MNT" $xPDEV
 
-  umount "$DEV1MNT" 2>$ERR
+  umount $VERB $VERB "$DEV1MNT" 2>$ERR
   ;;
 128) #1st shutdown, save to ${DISTRO_FILE_PREFIX}save.2fs.
   #partition already mounted on $SMNTPT.
@@ -1011,7 +1016,7 @@ EOI
   [ ! "`echo -n "$SAVEFILE" | grep "2fs"`" = "" ] && FILEFS="ext2"
 
   if [ "$CRYPTO" = "" ];then
-   mount -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
+   mount $VERB $VERB -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
   else
    #note: loop2 is kept available for scripts to use. but, do this to find free one...
    DEVLOOP=`losetup-FULL -f`
@@ -1023,7 +1028,7 @@ EOI
    fi
    echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
    [ ! $? -eq 0 ] && exit 1
-   mount -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
+   mount $VERB $VERB -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
   fi
 
   #floppy disk has little space. snapmergepuppy handles this for subsequent saves, but for now,
@@ -1041,11 +1046,11 @@ EOI
    mkdir -p /tmp/save1stpup/"${BASENAME}" #v2.16exp3 likely already created above.
    cp -a "$ONEDIR"/* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp3
    [ "$BASENAME" = "root" ] && cp -a "$ONEDIR"/.[0-9a-zA-Z]* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp4
-  done<<EOI
+  done <<EOI
 $(echo "$RDIRS")
 EOI
-  pidof sync || sync
-  umount /tmp/save1stpup
+  [ "$FORCE" ] || { pidof sync >$OUT || sync; }
+  umount $VERB $VERB /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
   if [ "$DEV1FS" = "iso9660" ];then #test if booted off cd.
@@ -1079,7 +1084,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
      CDMNTPT=`mount | grep "$APATTERN" | cut -f 3 -d ' '`
      mkdir -p /mnt/$PDEV1
      if [ "$CDMNTPT" = "" ];then
-      mount -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1"
+      mount $VERB $VERB -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1"
       CDMNTPT="/mnt/$PDEV1"
      fi
      for ONESFS in `find "$CDMNTPT" -maxdepth 1 -type f -name \*.sfs | grep -v ' ' | tr '\n' ' '`
@@ -1092,13 +1097,13 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       if [ $DRVFREEK -gt $FILESIZEK ];then
        echo "Copying $BASESFS..." >/dev/console
        cp -f "$ONESFS" "$SMNTPT"/
-       pidof sync || sync
+       [ "$FORCE" ] || { pidof sync >$OUT || sync; }
       else
        echo "Insufficient space! Cannot copy $BASESFS" >/dev/console
        break
       fi
      done
-     busybox umount "$CDMNTPT"
+     busybox umount $VERB $VERB "$CDMNTPT"
     fi
    fi
   fi
@@ -1106,7 +1111,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func "$SMNTPT" "$SAVEPART"
 
-  umount "$SMNTPT" 2>$ERR
+  umount $VERB $VERB "$SMNTPT" 2>$ERR
   ;;
  69) #save to folder on multisession CD/DVD (including 1st shutdown). (5+64=69) NOT used
   multisavefunc  #/etc/rc.d/functions4puppy
@@ -1159,7 +1164,7 @@ fi
 [ "$VERBOSE" ] && echo "RM UNEEDED FILES END"
 #################### RM unneded (tmp) files #######################################
 
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync >$OUT || sync; }
 
 ################### Umount everything #############################################################
 MNTDPARTS=`mount |tac`
@@ -1182,7 +1187,7 @@ do
    status_func $?
    sleep 1
  else
-  umount -r "$ONESTRAY"  ##unmounts MountPoint
+  umount $VERB $VERB -r "$ONESTRAY"  ##unmounts MountPoint
   status_func $?
   sleep 1
  fi
@@ -1202,7 +1207,7 @@ do
  [ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
  echo -e '\033[0;36m'"Swapoff '$ONESTRAY'"'\033[0;39m' >/dev/console
  swapoff "$ONESTRAY"
-done</proc/swaps
+done </proc/swaps
 #sync
 ################### Umount everything #############################################################
 
@@ -1216,39 +1221,41 @@ killall udevd &>$OUT
 
 rm -rf /dev/.udev
 
-killall klogd &>$ERR    ##busybox applet
+killall klogd   &>$ERR  ##busybox applet
 killall syslogd &>$ERR  ##busybox applet
 pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
 ################### Udev ##################################################
 
 [ -d /initrd ] && [ ! "`ls -1A /initrd`" ] && rmdir /initrd
 
+[ "$FORCE" ] || {
 if [ -f /etc/rc.d/rc.shutdown.local.endOne ]; then
 . /etc/rc.d/rc.shutdown.local.endOne
 elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
  . /etc/rc.d/rc.shutdown.local.end  ###KRG
 fi
+}
 
-[ "$DEBUG" ] && leave_func "unmounting /dev/root"
+[ "$DEBUG" -a ! "$FORCE" ] && leave_func "unmounting /dev/root"
 
 ############# Umount 2 ####################################
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
-  pidof sync || { sync;sleep 4; }
+  [ "$FORCE" ] || { pidof sync >$OUT || { sync; sleep 4; }; }
   case $PUPMODE in
    2)   pupFS=$(awk '/\/dev\/root/ {print $3}' /proc/mounts)
-      mount -o remount,ro -t $pupFS /dev/root /
+      mount $VERB $VERB -o remount,ro -t $pupFS /dev/root /
       #sync
       ;;
    *) uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts)
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
       if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
         mkdir -p /tmp/unrootfs
-        pidof sync || sync
-        mount -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
+        [ "$FORCE" ] || { pidof sync >$OUT || sync; }
+        mount $VERB $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
         #sync
       fi
-      mount -o remount,ro /initrd${SAVE_LAYER}
+      mount $VERB $VERB -o remount,ro /initrd${SAVE_LAYER}
       #sync
       ;;
   esac
@@ -1275,7 +1282,7 @@ if [ "`busybox mount | grep "$ABSPUPHOME"`" ]; then
   #[ "$ONEBAD" = "$PARENT" ] && continue #120514 precaution.
   #[ "$ONEBAD" = "1" ] && continue
   echo "Killing process $ONEBAD..."
-  kill $ONEBAD 2>$ERR
+  kill    $ONEBAD 2>$ERR
   sleep 1
   kill -9 $ONEBAD 2>$ERR
   #sync
@@ -1287,15 +1294,15 @@ fi
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ]; then  ##PupSave ie /pup_rw
 echo "SAVE_LAYER='$SAVE_LAYER'"
- pidof sync || sync
+ [ "FORCE" ] || { pidof sync >$OUT || sync; }
  SAVEDEV=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 1 -d ' '`
   SAVEFS=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 3 -d ' '`
- busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>$ERR
- umount-FULL -i -n -l /initrd/${SAVE_LAYER} 2>$ERR #-l is lazy unmount.
+ busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>$ERR
+ umount-FULL $VERB -i -n -l /initrd/${SAVE_LAYER} 2>$ERR #-l is lazy unmount.
  Err=$?  ###KRG
  echo $Err  ###DBG
  if [ "$Err" != 0 ]; then
- busybox umount -l /initrd/${SAVE_LAYER}
+ busybox umount $VERB $VERB -l /initrd/${SAVE_LAYER}
  fi
 fi
 
@@ -1308,7 +1315,7 @@ fi
 ############# Umount 2 ####################################
 
 pidof mplayer && killall mplayer
-pidof acpid && killall acpid
+pidof acpid   && killall acpid
 
 if [ "$DEBUG" ]; then
 ps | grep -v '\['
@@ -1323,7 +1330,7 @@ mount
 echo "ENDING NOW"  ###DBG
 fi
 
-busybox umount -ar 2>$ERR
+busybox umount $VERB $VERB -ar 2>$ERR
 
 if [ "$DEBUG" ]; then
 echo -e  '\033[0;36m'"unmounted all -r  Tried to remount devices as read-only if mount is busy"'\033[0;39m'
@@ -1336,9 +1343,9 @@ test -e /proc/mounts && { ps | grep -v '\['; mount; }
  fi
 fi
 
-[ -f /etc/rc.d/rc.shutdown.local.endZero ] && /etc/rc.d/rc.shutdown.local.endZero
+[ -f /etc/rc.d/rc.shutdown.local.endZero -a ! "$FORCE" ] && /etc/rc.d/rc.shutdown.local.endZero
 
-[ "$DEBUG" ] && leave_func "exiting at the very end"
+[ "$DEBUG" -a ! "$FORCE" ] && leave_func "exiting at the very end"
 
 #force exitmode 0 now
 exit 0
