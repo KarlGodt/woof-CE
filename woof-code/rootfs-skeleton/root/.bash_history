@@ -12047,3 +12047,1345 @@ probedisk2
 
 Sun Sep 28 20:40:09 GMT+1 2014
 
+pgprs-connect
+Xorg-14090 -help
+rsync_dirs.sh
+puppyhelp --help
+puppyhelp -d
+for i in `seq 1 1 0`; do echo ONE in seq; done
+for i in `seq 1 1`; do echo ONE in seq; done
+puppyhelp -d
+puppyhelp --help
+pup-advert-blocker --help
+pup-advert-blocker
+pup2pet --help
+pup2pet -d
+pupautodetect -h
+pupautodetect -d
+pupautodetect -v
+pupdial --help
+pupdial --version
+pupdial -d
+pupkill --help
+pupkill -d
+puppybasic --help
+puppybasic -d
+puppybasic2 --help
+puppybasic2 -d
+puppydownload
+puppydownload --help
+puppydownload -d
+puppyinputdetect 
+puppyinputdetect -m
+puppyinputdetect -k
+puppyinputdetect --help
+file `which puppyinputdetect`
+puppyinputdetect -kmpu
+puppyinputdetect -dkmpu
+puppyinputdetect -k
+puppyinputdetect -km
+puppyinputdetect -kmu
+puppyinputdetect -kmp
+ls /proc/bus/input/devices
+file /proc/bus/input/devices
+puppyinstaller --help
+puppyinstaller -d
+puppypdf --help
+puppypdf -d
+puppyserialdetect 
+puppyserialdetect -d
+file `which puppyserialdetect`
+puppyserialdetect --help
+pupscan --help
+pupscan -d
+geany `which pupscan`
+pupscan
+Xorg -version
+Xorg -version 2>/dev/null
+Xorg -version 1>/dev/null
+pupscan --help
+pwd
+rsync_dirs.sh
+defaulthtmlviewer file:///usr/share/doc/index.html
+elspci -l
+pupscan --help
+pupscan
+which pupscan
+pupscan
+cat /root/.gtkrc-2.0 
+grep include /root/.gtkrc-2.0 
+pupscan
+pupscan --silent
+pupscan silent
+geany /etc/rc.d/f4puppy5
+geany /bin/ps
+geany /usr/bin/shutdownconfig
+geany /usr/sbin/shutdownconfig
+geany `which puppyhelp`
+info coreutils 'chmod invocation'
+man chmod
+source /etc/rc.d/f4puppy5
+_run_status cupsd
+_run_status cupsd; echo $?
+_run_status X; echo $?
+_run_status XX; echo $?
+_run_status 1; echo $?
+_run_status; echo $?
+source /etc/rc.d/f4puppy5
+_run_status; echo $?
+_run_status X; echo $?
+_run_status XX; echo $?
+source /etc/rc.d/f4puppy5
+_run_status XX; echo $?
+_run_status X; echo $?
+T_createtitle="$(gettext 'First shutdown: creating save-file')"
+ T_createsf="$(eval_gettext "Creating \${NAMEONLY} in \${SAVEPART}, please wait awhile (no need to click OK button)...")"
+ altT_createsf="$(eval_gettext "Creating \${NAMEONLY} in \${SAVEPART}, please wait awhile...")"
+alias eval_gettext=echo
+T_createtitle="$(gettext 'First shutdown: creating save-file')"
+ altT_createsf="$(eval_gettext "Creating \${NAMEONLY} in \${SAVEPART}, please wait awhile...")"
+ T_createsf="$(eval_gettext "Creating \${NAMEONLY} in \${SAVEPART}, please wait awhile (no need to click OK button)...")"
+export SHUTDLG="<window decorated=\"false\">
+<vbox>
+<text use-markup=\"true\"><label>\"<big><b>${T_createtitle}</b></big>\"</label></text>
+<text use-markup=\"true\"><label>\"<big>${altT_createsf}</big>\"</label></text>
+</vbox>
+</window>"
+ GTK2_RC_FILES=/tmp/orange_gtkrc${$}:$HOME/.gtkrc-2.0 gtkdialog --center --class="splashwindow" --program=SHUTDLG
+source /usr/bin/gettext.sh
+unalias
+alias
+type -a eval_gettext
+unalias eval_gettext
+type -a eval_gettext
+source /usr/bin/gettext.sh
+type -a eval_gettext
+envsubst
+envsubst --help
+which envsubst
+file /usr/bin/envsubst
+ps
+ps | grep df
+ps | grep pup
+ps | grep df
+ps | grep free
+ps | grep df
+ps | grep free
+ps | grep df
+ps | grep free
+ps | grep df
+ps | grep free
+ps | grep df
+ps | grep free
+ps | grep df
+ps | grep free
+ps | grep not
+ps | grep size
+ls /tmp
+ps | grep pup
+ps | grep free
+ps | grep df
+ps | grep free
+/bin/ps --help
+/bin/ps
+/bin/ps | grep -v '\[.*\]'
+pidof .xinitrc
+/bin/ps | grep -v '\[.*\]'
+/bin/ps | grep def
+/bin/ps -V
+file `which sh`
+source /etc/rc.d/f4puppy5
+_test_fx /usr/bin/wmreboot; echo $?
+_test_fr /usr/bin/wmreboot; echo $?
+_test_fw /usr/bin/wmreboot; echo $?
+_test_frw /usr/bin/wmreboot; echo $?
+stat /usr/bin/wmreboot
+echo HALLO >/tmp/testfile.txt
+stat /tmp/testfile.txt
+chmod 0440 /tmp/testfile.txt
+_test_frw /usr/bin/wmreboot; echo $?
+_test_fw /usr/bin/wmreboot; echo $?
+_test_frw /usr/bin/wmreboot; echo $?
+ash
+git commit
+git add add_header.sh
+git commit -m 'add_header.sh: BUGFIX shift code;
+add DRY code'
+git add add_header-repair.sh
+gti commit -m 'add_header-repair.sh: Added; fix header shift code'
+git add add_two_variables.sh
+git commit -m 'add_two_variables.sh: Added;
+add TWO_HELP TWO_VERSION TWO_VERBOSE TWO_DEBUG variable line.'
+git add change_source_line.sh
+git commit -m 'change_source_line.sh: Added;
+test if f4puppy5 already sourced.'
+./change_source_line.sh 
+./add_two_variables.sh 
+./add_header-repair.sh 
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue;echo "$f"; done
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue;echo "$f"; git add "$f" && git commit -m "$f: Add TWO_HELP TWO_VERSION TWO_VERBOSE TWO_DEBUG variables;
+add HAVE_F4PUPPY5 test;
+probably fix shift code."; sleep 1;done
+git commit
+git commit 2>&1 | while read l f ; do [ -f "$f" ] || continue;echo "$f"; git add "$f" && git commit -m "$f: Add TWO_HELP TWO_VERSION TWO_VERBOSE TWO_DEBUG variables;
+add HAVE_F4PUPPY5 test;
+probably fix shift code."; sleep 1;done
+/bin/df --help
+./update_files_from_running_system 
+file /usr/local/etc/cryptmount
+ls /usr/local/etc/cryptmount
+./replace_commit_files.sh 
+./update_files_from_running_system 
+pupkill --help
+/mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/bin/pupkill --help
+./update_files_from_running_system 
+./replace_commit_files.sh 
+git commit
+git add woof-code/rootfs-skeleton/bin/pupkill
+git commit -m '/bin/pupkill: Tests for correct understanding of it's code ;)'
+git commit -m '/bin/pupkill: Tests for correct understanding of it\'s code ;)'
+git commit -m "/bin/pupkill: Tests for correct understanding of it's code ;)"
+git commit
+./update_files_from_running_system 
+git log --grep '1\.5'
+git log --grep '1.4'
+git log --grep '1\.4'
+git log --grep X11R7
+git log --grep BUMP
+git log --grep bump
+git log --grep Bump
+git log --grep VERSION
+git log --grep Version
+git log --prep version
+git log --grep version
+git log --grep scanpci
+rsync_dirs.sh
+puupscan --help
+pupscan --help
+pupscan --version
+pupscan -d
+time pupscan --silent
+./update_files_from_running_system 
+murgaLua_Dynamic
+git commit
+./update_files_from_running_system 
+plogout
+plogout
+geany `which plogout`
+rm -r *
+ls -a
+rsync_dirs.sh
+df
+df -m
+df
+df -m
+rsync_dirs.sh
+df
+df -T
+pidof sync || sync
+df -T
+
+Mon Oct 13 18:09:33 GMT+1 2014
+
+LC_ALL=C freeciv_client
+LANG=C freeciv_client
+export LANG=C
+export LC_ALL=C
+freeciv_client
+export LC_ALL=en_US
+export LANG=en_US
+freeciv_client
+export LANG=de_DE
+export LC_ALL=de_DE
+freeciv_client
+freeciv_client --help
+freeciv_client -debug 0
+freeciv_client -debug 1
+freeciv_client -debug 2
+freeciv_client -debug 3
+echo $LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/lib:/usr/lib:$LD_LIBRARY_PATH
+echo $LD_LIBRARY_PATH 
+freeciv_client
+export LD_LIBRARY_PATH=/lib:/usr/local/lib:$LD_LIBRARY_PATH
+freeciv_client
+export LD_LIBRARY_PATH=/lib:/usr/X11R7-2013-12-28/lib:/usr/local/lib:$LD_LIBRARY_PATH
+freeciv_client
+find /usr -name "libXrender*"
+file /usr/X11R7.7/lib/libXrender.so.1
+ldd /usr/games/freeciv/freeciv-1.7.2/bin/civclient | sort -d
+pwd
+ldd /usr/games/freeciv/freeciv-1.7.2/bin/civclient | sort -d >freeciv_client.ldd
+freeciv_client
+strace freeciv_client
+Xorg -version
+strace freeciv_client 2>freeciv_client.strace
+pwd
+locale
+exec Abc & echo $?
+exec Abc & echo $?
+( exec Abc & echo $? )
+exec Abc & echo $?
+( exec Abc & echo $? )
+exec Abc & echo $?
+( exec Abc & echo $? )
+( exec Abc >/tmp/xinitrc.err 2>&1 & echo $? )
+ash
+source /etc/rc.d/f4puppy5
+_warn "\\033[1;31mWARNING"
+DEBUG=1
+_grep_one_tail '#card0driver' /etc/X11/xorg.conf
+_warn "\\033[1;31mWARNING\e39"
+_warn "\\033[1;31mWARNING\e39m"
+_warn "\\033[1;31mWARNING\e[39"
+_warn "\\033[1;31mWARNING\e[0;39"
+_warn "\\033[1;31mWARNING\e[0;39m"
+geany /usr/bin/xwin
+geany /etc/rc.d/f4puppy5
+ps -H -A | awk '{if $3 == Z || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs' print $1}'
+ps -H -A | awk '{if $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs' print $1}'
+ps -H -A | awk '{if ( $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs' ) print $1}'
+ps -H -A | awk '{if ( match $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs' ) print $1}'
+ps -H -A | awk '{if ( match( $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs') ) print $1}'
+geany /etc/init.d/DRIVER/cups
+ps -H -A | awk '{if (match( $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs') ) print $1}'
+ps -H -A | awk '{if (match( $3 == 'Z' || $3 == 'Z+' || $3 == 'Z<' || $3 == 'ZL' || $3 == 'Zl' || $3 == 'ZN' || $3 == 'Zs')) print $1}'
+/bin/ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'
+/bin/ps | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'
+/bin/ps | awk '{if (match(  $3 == "Z") print $1}'
+/bin/ps ax | awk '{if (match(  $3 == "Z") print $1}'
+/bin/ps ax | awk '{if (  $3 == "Z") print $1}'
+/bin/ps ax | awk '{if (  $3 == 'Z') print $1}'
+/bin/ps ax | awk '{if (  $3 == "Z") print $1}'
+/bin/ps ax | awk '{if (  $3 == Z) print $1}'
+/bin/ps ax | awk '{if (  $3 == "Z") print $1}'
+/bin/ps ax | awk '{if (  $3 == "Z" || $3 == "Z+") print $1}'
+ps -H -A | awk '{if $3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs" print $1}'
+ps -H -A | awk '{if ($3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs") print $1}'
+ps -H -A | awk '{if (match($3, "Z[+<LlNs]") || $3 == "Z") print $1}'
+A="1234 tt123 Z+ 98:09 command"
+echo "$A"
+echo "$A" | awk '{if (match($3, "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3 "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3,$5 "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3,$3 "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3,1 "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3,0 "Z[+<LlNs]") || $3 == "Z") print $1}'
+echo "$A" | awk '{if (match($3,"" "Z[+<LlNs]") || $3 == "Z") print $1}'
+ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'
+man awk
+man ps
+ash
+info gettext
+source /etc/rc.d/f4puppy5
+alias -p
+g_ HELLO
+eg_ HELLO
+eng_ HELLO
+eng_ HELLO HELLO
+type -a gettext
+type -a ngettext
+file /usr/bin/ngettext
+file /usr/bin/gettext
+ngettext --help
+eng_ HELLO HELLOS 2
+eng_ 222 HELLOS 2
+eng_ 222 HELLOS 
+man gettext
+dbus-uuidgen --help
+dbus-uuidgen --ensure
+dbus-uuidgen --ensure; echo $?
+dbus-uuidgen --ensure & echo $?
+dbus-viewer --help
+type -a dbus-viewer
+strace dbus-viewer
+strace dbus-viewer 2>dbus-viewer.strace
+A='/*'
+echo "$A"
+echo "$A" | grep -vE '^[/\*]'
+echo "$A" | grep -vE '^[/\*][/\*]'
+A='//'
+echo "$A" | grep -vE '^[/\*][/\*]'
+echo "$A" | grep -vE '^[/\*]+'
+echo "$A" | grep -vE '^[/\*]?'
+echo "$A" | grep -vE '^[/\*]'
+echo "$A" | grep -vE '^[/\*]*'
+A='/etc'
+echo "$A" | grep -vE '^[/\*]*'
+echo "$A" | grep -vE '^[/\*]'
+echo "$A" | grep -vE '^[/\*]?'
+echo "$A" | grep -vE '^[/\*]+'
+echo "$A" | grep -vEe '^[/\*]+'
+echo "$A" | grep -vEe '^[/\*]?'
+echo "$A"
+ps -H -A | grep '<defunct>'
+ps | grep dbus
+source /etc/rc.d/f4puppy5
+_grep_one_tail '#card0driver' /etc/X11/xorg.conf
+cat /etc/X11/xorg.conf | grep '#card0driver' | grep -vE '^#|^[[:blank:]]*#' | tail -n1 | cut -f 2 -d '"'
+source /etc/rc.d/f4puppy5
+cat /etc/X11/xorg.conf | _grep_one_tail
+source /etc/rc.d/f4puppy5
+cat /etc/X11/xorg.conf | _grep_one_tail
+cat /etc/X11/xorg.conf | _grep_one_tail '#card0driver'
+_warn "\\033[1;31mWARNING"
+source /etc/rc.d/f4puppy5
+cat /etc/X11/xorg.conf | _grep_one_tail '#card0driver'
+ _grep_one_tail '#card0driver' /etc/X11/xorg.conf
+source /etc/rc.d/f4puppy5
+ _grep_one_tail '#card0driver' /etc/X11/xorg.conf
+source /etc/rc.d/f4puppy5
+ash
+exec Abc & echo $?
+( exec Abc & echo $? )
+( exec Abc >/tmp/xinitrc.err 2>&1 & echo $? )
+cat /tmp/xinitrc.err 
+ash
+uname -r
+echo $(( $AWER + 1 ))
+xwininfo -root | tac | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | grep -m1 '\-geometry'
+freedroid
+freeciv_server
+freedink
+freedink --help
+freedink -d -w -7
+freedink -d -w
+info date
+man date
+locale
+type -a rdev
+which rdev
+busybox rdev
+stat -c %T /
+stat --help
+stat -c %t /
+stat -c %n /
+stat  /
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do stat -c %$i /;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";stat -c %$i /;done
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";stat -c %$i /;done
+STAT --HELP
+stat --help
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";date +%$i;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%$i ;done
+date --help
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i}9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i} 9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i}9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i}E ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i}O ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i} %9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i}%9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +%${i} +%9 ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%${i} 9" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date + "%${i} 9" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%${i} 9" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%-9${i}" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%-9E${i}" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%-${i}" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%-4O${i}" ;done
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";date +%-$i;done
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";date +%-4$i;done
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";date +%-9$i;done
+for i in A B C D E F G H I J K L M N O P Q R S T U V W X Y Z; do echo -n "$i:";date +%_9$i;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%_9${i}" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%_9E${i}" ;done
+for i in a b c d e f g h i j k l m n o p q r s t u v w x y z; do echo -n "$i:";date +"%_9O${i}" ;done
+chroot .
+./update_files_from_running_system 
+file /usr/local/share/dink/dink
+ls /usr/local/share/dink/dink
+ls /usr/local/share/dink/
+time mount /dev/sdc19
+geany /etc/rc.d/rc.sysinit
+geany /etc/fstab
+mount
+./update_files_from_running_system 
+man mount
+./transformdirnames.sh 
+cd .
+./heroes3 
+time mount /dev/sdb2
+probedisk2
+time mount /dev/sdb2
+ls /mnt
+ls /mnt/sdb2
+ls -a /mnt/sdb2
+guess_fstype-static /dev/sdb2
+time mount /dev/sdb3
+mount
+rox /mnt
+time mount /dev/sdb2 /mnt/sdb2
+/usr/bin/abiword
+type -a abiword
+abiword 
+which abiword
+type -a abiword
+/usr/local/bin/abiword
+pidof ROX-Filer
+./gpart
+man gpart
+source /etc/rc.d/f4puppy5
+_exit
+source /etc/rc.d/f4puppy5
+_exit
+source /etc/rc.d/f4puppy5
+_exit
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+_check_if_already_running X
+pidof X; echo $?
+pidof XABC; echo $?
+source /etc/rc.d/f4puppy5
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+_check_if_already_running X
+OUT=/dev/stdout
+_check_if_already_running X
+_check_if_already_running XABC
+_check_if_already_running XABC; echo $?
+_check_if_already_running X; echo $?
+pidof X; echo $?
+_exit
+source /etc/rc.d/f4puppy5
+_check_if_already_running X
+DEBUG=1
+_check_if_already_running X
+OUT=/dev/stdout
+_check_if_already_running X
+echo -e "\\033[A"
+echo -e "\\033[A[A"
+echo -e "\\033[A\033[A"
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+echo -e "\\033[A3"
+echo -e "\\033[3A"
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+source /etc/rc.d/f4puppy5
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+echo -e '\e[4B'HELLo
+echo -e '\e[4C'HELLo
+echo -e '\e[4A'HELLo
+echo -e '\e[4C'HELLo
+echo -e '\e[4D'HELLo
+echo -e '\e[4E'HELLo
+echo -e '\e[4F'HELLo
+echo -e '\e[4G'HELLo
+echo -e '\e[4H'HELLo
+echo -e '\e[4I'HELLo
+echo -e '\e[4J'HELLo
+echo -e '\e[4K'HELLo
+echo -e '\e[4L'HELLo
+echo -e '\e[4M'HELLo
+echo -e '\e[4N'HELLo
+echo -e '\e[4O'HELLo
+echo -e '\e[4P'HELLo
+echo -e '\e[4Q'HELLo
+echo -e '\e[4R'HELLo
+echo -e '\e[4S'HELLo
+echo -e '\e[4T'HELLo
+echo -e '\e[4R'HELLo
+echo -e '\e[4r'HELLo
+echo -e '\e[4U'HELLo
+echo -e '\e[4V'HELLo
+echo -e '\e[4W'HELLo
+echo -e '\e[4X'HELLo
+echo -e '\e[4Y'HELLo
+echo -e '\e[4Z'HELLo
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running X
+echo 12345;echo -e '\e[2F\e[6G'PROGRAM
+echo 12345;echo -e '\e[2F\e[7G'PROGRAM
+echo 12345;echo -e '\e[1F\e[7G'PROGRAM
+source /etc/rc.d/f4puppy5
+_check_if_already_running X; echo $?
+_check_if_already_running XABC; echo $?
+source /etc/rc.d/f4puppy5
+_check_if_already_running XABC; echo $?
+_check_if_already_running X; echo $?
+OUT=/dev/stdout
+_check_if_already_running X; echo $?
+source /etc/rc.d/f4puppy5
+_check_if_already_running X; echo $?
+_check_if_already_running XA; echo $?
+OUT=/dev/stdout
+_check_if_already_running X; echo $?
+_check_if_already_running XA; echo $?
+source /etc/rc.d/f4puppy5
+OUT=/dev/stdout
+_check_if_already_running XA; echo $?
+_check_if_already_running X; echo $?
+mount /dev/sdc6
+rox
+info update-mime-database
+man update-mime-database
+which update-mime-database
+file /usr/local/bin/update-mime-database
+type -a update-mime-database
+sed '/Detailed mode:/,/Monitor ranges/ p' /tmp/xwin/ddcprobe.txt 
+sed -n '/Detailed mode:/,/Monitor ranges/ p' /tmp/xwin/ddcprobe.txt 
+xwininfo -root
+geany /usr/bin/xwin
+
+Tue Oct 14 11:48:57 GMT+1 2014
+
+./update_files_from_running_system 
+uname -r
+geany /sbin/pup_event_frontend_d
+free -m
+free | awk {if (match($1, = "Mem:" || $1, = "Swap:") print $4}'
+free | awk {if (match($1, "Mem:" || $1, "Swap:") print $4}'
+free | awk {if (match($1, "Mem:" || $1, "Swap:")) print $4}'
+free | awk '{if (match($1, "Mem:" || $1, "Swap:")) print $4}'
+free | awk '{if (match($1, "Mem:") || match($1, "Swap:")) print $4}'
+SIZEFREEM_=`free -m | awk {if '(match($1, "Mem:") || match($1, "Swap:") print $4}'`
+SIZEFREEM_=`free -m | awk '{if (match($1, "Mem:") || match($1, "Swap:") print $4}'`
+SIZEFREEM_=`free -m | awk '{if (match($1, "Mem:") || match($1, "Swap:")) print $4}'`
+echo $SIZEFREEM_ 
+for aVAL in $SIZEFREEM_; do SIZEFREEM=$((SIZEFREEM+aVAL)); done
+echo $SIZEFREEM
+ls /proc/sys
+ls /proc/sys/vm
+probedisk2
+geany `which probedisk2`
+pup_event_frontend_d restart
+pup_event_frontend_d --help
+pidof pup_event_frontend_d
+kill -1 14929
+pup_event_frontend_d --version
+pup_event_frontend_d version
+pup_event_frontend_d /version
+pup_event_frontend_d stop
+pup_event_frontend_d restart
+pup_event_frontend_d stop
+ps | grep -welF 17121
+ps -welF | grep -w 17121
+pup_event_frontend_d stop
+pidof pup_event_frontend_d
+pup_event_frontend_d stop
+pidof pup_event_frontend_d
+pup_event_frontend_d start
+pup_event_frontend_d restart
+pidof pup_event_frontend_d
+pup_event_frontend_d start
+pup_event_frontend_d reload
+pidof pup_event_frontend_d
+kill -1 pup_event_frontend_d
+kill -1 5241
+kill -9 5241
+kill -1 pup_event_frontend_d
+pidof pup_event_frontend_d
+kill -1 29503
+cat /etc/windowmanager
+pup_event_frontend_d restart
+pidof pup_event_frontend_d
+pup_event_frontend_d restart
+pup_event_frontend_d start
+pup_event_frontend_d stop
+pup_event_frontend_d restart
+pidof pup_event_frontend_d
+pup_event_frontend_d restart
+pidof pup_event_frontend_d
+kill -1 30132
+pidof pup_event_frontend_d
+kill -1 4089
+pidof pup_event_frontend_d
+kill -1 9518
+pidof pup_event_frontend_d
+pup_event_frontend_d restart
+trap -l
+echo HUP >/tmp/pup_event_manager.flg /tmp/pup_event_icon_change_flag
+echo HUP >/tmp/pup_event_manager.flg >/tmp/pup_event_icon_change_flag
+pup_evebt_frontend_d restart
+pup_event_frontend_d restart
+pup_event_frontend_d stop
+pidof pup_event_frontend_d
+ps | grep -w 31500
+source /etc/rc.d/f4pupp5
+source /etc/rc.d/f4puppy5
+_kernel_version5
+pidof sync
+mount | grep '/dev/[shfmd]+[0-9]' |grep -v '/initrd'
+mount | grep '/dev/[shfmd]+*[0-9]' |grep -v '/initrd'
+mount | grep '/dev/[shfmd]+.*[0-9]' |grep -v '/initrd'
+mount | grep '/dev/[shfmd].*[0-9]' |grep -v '/initrd'
+mount | grep -E '/dev/[shfmd]+[0-9]' |grep -v '/initrd'
+mount | grep -E '/dev/[shfmd]+.*[0-9]' |grep -v '/initrd'
+mount | grep -E '^/dev/[shfmd]+.*[0-9]' |grep -v '/initrd'
+mount | grep -E '^/dev/[shfmd]+.*[0-9] ' |grep -v '/initrd'
+mount | grep -E '^/dev/[shfmd]+*[0-9] ' |grep -v '/initrd'
+mount | grep -E '^/dev/[shfmd]+*[0-9]? ' |grep -v '/initrd'
+mount | grep -E '^/dev/[shfmd]+.*[0-9]? ' |grep -v '/initrd'
+mount /dev/ram5
+cat /sys/power/state
+uname -r
+mkfs.ext4 /dev/ram5
+mkfs.ext4 /dev/ram6
+mount /dev/ram6
+mount | grep -E '^/dev/[shfmdr]+.*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr]+.*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr]+[^ ]*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr]?[^ ]*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr][^ ]*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr][^aot]*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr][^aot ]*[0-9]? ' |grep -v '/initrd'
+mount | grep -oE '^/dev/[shfmdr][^abot ]*[0-9]? ' |grep -v '/initrd'
+mount
+dmesg
+umount -l /dev/ram5
+umount -l /dev/ram6
+cat /proc/mounts
+pidof xmessage
+top
+pidof powerbutton
+pidof sleep.sh
+/etc/acpi/busybox/powerbutton
+pidof powerbutton
+killall -9 powerbutton
+pidof powerbutton
+killall -9 powerbutton
+pidof powerbutton
+/etc/acpi/sleep.sh
+ACPITOOL=`which acpitool`
+states_avail=`cat /sys/power/state`
+states_avail=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:disk!;s!mem!S3 PM_SLEEP:mem!'`
+ps | grep sync
+pidof sync
+/etc/acpi/busybox/powerbutton
+/etc/acpi/busybox/powerbutton urgs
+/etc/acpi/busybox/powerbutton
+
+Tue Oct 14 15:21:28 GMT+1 2014
+
+top
+grep logfs /proc/filesystems 
+mount
+pidof powerbutton
+awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?")) print $1}' /proc/mounts
+mount
+mount /dev/sda1
+mount /dev/sdb1
+mount
+awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?")) print $1}' /proc/mounts
+awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?$")) print $1}' /proc/mounts
+ash
+mount
+MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "`
+echo "$MOUNTED"
+M_DEV=`echo "$MOUNTED" | awk '{print $1}'`
+ M_DEV=`echo -e "$M_DEV"`
+for part in $M_DEV;do yaf-splash -bg purple -text "Restoring mount of $part ..." & yPID=$!; grep $Q -w "$part" /proc/mounts && reMOUNT='remount,'; mntOPS=`echo "$MOUNTED" | grep -w "^$part" | awk '{print $4}'`; [ "$mntOPS" ] || mntOPS=rw; FS_TYPE=`guess_fstype $part`; basn=${part##*/}; mkdir -p /mnt/$basn; sleep 2; echo ${reMOUNT}$mntOPS $FS_TYPE $part; kill $yPID; unset reMOUNT mntOPS FS_TYPE; done
+mount /dev/sr1
+mount
+rox mnt
+rox /mnt
+
+Tue Oct 14 20:41:39 GMT+1 2014
+
+cat /proc/mounts
+umount-FULL /dev/loop0
+umount-FULL /dev/sda1
+umount-FULL /dev/fd0
+umount-FULL /dev/sdb1
+cat /proc/mounts
+fuser -m /mnt/sda1
+fuser -c /dev/sda1
+busybox fuser -m /mnt/sda1
+umount /dev/fs/mqueue
+umount /sys/fs/pstore
+umount /dev/fs/ocfs2_dlm
+umount /proc/fs/nfsd
+umount /mnt/huge
+cat /proc/mounts
+umount /proc/sys/fs/binfmt_misc
+umount /sys/kernel/security
+umount /dev/fs/rpc_pipe
+cat /proc/mounts
+umount /config
+umount /sys/fs/fuse/connections
+cat /proc/mounts
+umount -l /dev/sda1
+cat /proc/mounts
+top
+states_avail=`cat /sys/power/state`
+states_avail=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation on disk!;s!mem!S3 PM_SLEEP in mem!'`
+echo "$states_avail"
+grep --help
+yaf-splash -bg pink1 -text "Unmounting $mloop ..." & yPID=$!
+echo $yPID
+mount | grep -e '^/dev/loop[0-9]? ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]? ' |grep -v '/initrd'
+mount | grep '^/dev/loop[0-9]? ' |grep -v '/initrd'
+mount | grep -G '^/dev/loop[0-9]? ' |grep -v '/initrd'
+mount | grep -G '^/dev/loop[0-9] ' |grep -v '/initrd'
+mount | grep -G '^/dev/loop[0-9]* ' |grep -v '/initrd'
+mount | grep -G '^/dev/loop[0-9]+ ' |grep -v '/initrd'
+mount | grep -e '^/dev/loop[0-9]+ ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]+ ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]?? ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]??? ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]+ ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]++ ' |grep -v '/initrd'
+mount | grep -E '^/dev/loop[0-9]+++ ' |grep -v '/initrd'
+mount | grep -e '^/dev/loop[0-9]?? ' |grep -v '/initrd'
+mount | grep -e '^/dev/loop[0-9]??? ' |grep -v '/initrd'
+mount | grep -e '^/dev/loop[0-9]\?\?\? ' |grep -v '/initrd'
+mount | grep '^/dev/loop[0-9]\?\?\? ' |grep -v '/initrd'
+mount
+top
+pidof ROX-Filer
+ps | grep rox
+ps | grep -i ROX
+pidof pup_event_frontend_d
+cat /tmp/pup_event_sizefreem 
+pidof sync
+pidof pup_event_frontend_d
+cat /tmp/pup_event_sizefreem 
+time mount /dev/sda1
+time mount /dev/sdb1
+mount
+mount /dev/sr1
+mount /dev/fd0
+time umount /dev/sdb1
+time mount -t ntfs /dev/sdb1
+mount
+ps
+ps | grep acpi
+ps | grep sync
+man sync
+info coreutils sync invocation
+man 2 sync
+man 3 sync
+man 4 sync
+man 6 sync
+man 7 sync
+man 8 sync
+find /usr -name "sync.[0-9]*"
+
+Tue Oct 14 22:22:05 GMT+1 2014
+
+busybox grep --quiet jwm /root/.xinitrc; echo $?
+source /etc/rc.d/f4puppy5
+_part_umount_func
+mount -r /dev/sdb20
+_part_umount_func
+mount
+cat /proc/mounts
+_restore_mounts 
+source /etc/rc.d/f4puppy5
+cat /proc/mounts
+mount -r /dev/sdb20
+_part_umount_func
+_restore_mounts 
+source /etc/rc.d/f4puppy5
+_noticedt "SOME NOTICE HERE"
+geany /bin/mount.sh
+date +%F-%T
+geany /sbin/poweroff
+geany /sbin/reboot
+geany /usr/bin/wmpoweroff
+geany /usr/bin/wmreboot
+geany /usr/bin/wmexit
+geany /etc/rc.d/rc.shutdown
+grep -w QUIET *
+mount
+grep -w 137 *
+bbconfig 
+bbconfig | grep -i clean
+busybox --list | while read app; do which $app && continue; echo $app not in path; done
+whois
+busybox --list | while read app; do which $app && continue; echo $app not in path; ln -s busybox /bin/$app;done
+whois
+whois root
+sync
+mount
+mount /dev/sr1
+mount -o remount,ro /dev/sr1
+mount
+mount -o remount ro,relatime,errors=continue,user_xattr,acl,barrier=1,data=ordered /dev/sr1 /mnt/sr1
+mount -o remount.ro,relatime,errors=continue,user_xattr,acl,barrier=1,data=ordered /dev/sr1 /mnt/sr1
+sync
+mount -o remount.ro,relatime,errors=continue,user_xattr,acl,barrier=1,data=ordered -t ext3 /dev/sr1 /mnt/sr1
+mount -o remount.rw,relatime,errors=continue,user_xattr,acl,barrier=1,data=ordered -t ext3 /dev/sr1 /mnt/sr1
+mount -o remount.rw -t ext3 /dev/sr1 /mnt/sr1
+sync
+mount
+mount -o remount.rw -t ext3 /dev/sr1
+mount
+mount -r /dev/sdb1
+mount
+mount -r /dev/sda1
+mount -r /dev/fd0
+hexedit /mnt/fd0/COMMAND.COM
+hexdump -C /mnt/fd0/COMMAND.COM
+hexdump -C /mnt/fd0/COMMAND.COM >/root/COMMAND.COM.hexdump
+grep -o '|.*| !$
+grep -o '|.*|' '|.*| !$
+grep -o '|.*|' /root/COMMAND.COM.hexdump 
+grep -o '|.*|' /root/COMMAND.COM.hexdump >COMMAND.COM.readable
+geany COMMAND.COM.readable
+unix2dos --help
+unix2dos -d COMMAND.COM.readable
+cp COMMAND.COM.readable /mnt/fd0/COMMAND.TXT
+mount
+mount -o remount,rw /dev/fd0 /mnt/fd0
+cp COMMAND.COM.readable /mnt/fd0/COMMAND.TXT
+mount -o remount,ro /dev/fd0 /mnt/fd0
+tar --help | grep verbose
+wmpoweroff force
+mount /dev/sr1
+umount /dev/sr1
+mount
+man mount
+mount /dev/sr1
+mount -r /dev/sr1
+mount -r /dev/sdb19
+cddetect --help
+cdinfo
+cdinfo /dev/sr0
+cdinfo /dev/sr1
+cd-info /dev/sr1
+cd-info --dvd /dev/sr1
+cd-info --dvd /dev/sr0
+cdclose --help
+cdclose -D
+cdstop -h
+cdstop -D
+file /dev/cdrom
+dvdtop
+top
+mount
+
+Wed Oct 15 09:34:12 GMT+1 2014
+
+geany /usr/bin/xwin
+date +%F-%T
+date +%R-%S
+date +%R:%S
+date --help
+mount
+man ffs
+man fls64
+man free_dma
+info jade
+man jade.J
+man jade
+make help
+make pdfdocs
+make help
+make psdocs
+make help
+make mandocs
+jade --help
+which jade
+type -a jade
+file /usr/bin/jade
+file /usr/bin/openjade1.3 
+geany /usr/bin/openjade1.3
+mkdir `uname -r`
+cd 3.9.9-KRG-iCore2-smp-pae-srv1000gz/
+cp /proc/config.gz .
+pupzip config.gz 
+modprobe -v configs
+pwd
+man find
+LC_ALL=C man find
+sync
+mount
+umount /dev/fd0
+umount /dev/sr1
+mount
+info latex
+man latex
+history | grep tex
+source /etyc/rc.d/f4puppy5
+source /etc/rc.d/f4puppy5
+ash
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+yaf-splash -bg pink -geometry +$rootCENTER_X+$rootCENTER_Y -text "Unmounting $mpart_ ..." & yPID=$!
+source /etc/rc.d/f4puppy5
+yaf-splash -bg pink -geometry +$rootCENTER_X+$rootCENTER_Y -text "Unmounting $mpart_ ..." & yPID=$!
+_get_screen_resolution
+_get_screen_resolution2
+_get_screen_resolution3
+_get_screen_resolution; echo $?
+_get_screen_resolution2; echo $?
+_get_screen_resolution3; echo $?
+yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ...
+"
+yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ...
+" &
+yaf-splash -timeout 150 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.."
+rootSCREEN_XY=`_get_screen_resolution`
+rootSCREEN_XY=`_get_screen_resolution`; echo $?
+echo $rootSCREEN_XY
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ...
+" &
+yaf-splash -timeout 150 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.." &
+source /etc/rc.d/f4puppy5
+time /bin/mount -o ro /dev/sr1
+time /bin/mount -o ro /dev/fd0
+mount
+time /bin/umount -r /dev/sr1
+mount
+time /bin/mount -o ro,relatime,errors=continue,user_xattr,acl,barrier=1,data=ordered -t ext3 /dev/sr1 /mnt/sr1
+mount
+mount /dev/sda1
+mount -r /dev/sdb1
+mount
+_ROOT_SCREEN_Y_=`xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F' ' '{print $NF}'`
+echo $_ROOT_SCREEN_Y_ 
+echo ${_ROOT_SCREEN_Y_/,/}
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | sed -r 's%(.*) x ([0-9]*),%\2%
+'
+source /etc/rc.d/f4puppy5
+rootSCREEN_XY=`_get_screen_resolution`
+rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+echo $rootSCREEN_XY 
+echo $rootCENTER_X 
+rootCENTER_Y=`expr $(echo "rootSCREEN_XY" | awk -F'[x+]' '{print $2}') /2`
+echo $rootCENTER_Y
+echo "rootSCREEN_XY" | awk -F'[x+]' '{print $2}'
+echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}'
+rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+echo $rootCENTER_Y
+xrandr
+xrandr | grep -o -m 1 current
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | grep -oe '[0-9]*'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | grep -o '[0-9]*'
+_ROOT_SCREEN_XY_=`xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | grep -oe '[0-9]*'`
+RV=$?
+echo ${_ROOT_SCREEN_XY_/ /x}
+echo ${_ROOT_SCREEN_XY_/\n/x}
+echo ${_ROOT_SCREEN_XY_/\\n/x}
+echo ${_ROOT_SCREEN_XY_/\\\n/x}
+echo ${_ROOT_SCREEN_XY_/$/x}
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | sed 's%[^[0-9x]]%%g'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | sed 's%[^[0-9]]%%g'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | sed 's%[^0-9]%%g'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | sed 's%[^0-9x]%%g'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F'[ ,]' '{if (match($NF, "[0-9]*")) print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F'[ ,]' '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F'[\ ,]' '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F'[ ,]' '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F'[,]' '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F',' '{print $NF}'
+xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F' ' '{print $NF}'
+qqq
+xset
+make headers_install
+rox
+make install
+make modules install
+make modules_install
+cp .config DOTconfig-3.7.10-KRG-iP4CelXeon-smp-pae-1000lzo
+make modules
+make modules 2>>make_errs.log
+make modules_install
+make firmware_install
+make
+grep -I -r p6_hw_cache_event_ids *
+make
+make help
+grep -I -r p6_hw_cache_event_ids *
+find -name ".*"
+mount
+make
+make help
+make htmldocs
+latex cdrom-standard
+strace latex cdrom-standard 2>latex.strace
+strace latex cdrom-standard 2>latex.strace 1>&2
+mount
+mount /dev/sdb19
+mount
+ash
+xdpyinfo | grep -A1 '^screen #0:'
+xdpyinfo | grep -A1 '^screen #0:' | awk '{print $2}'
+xdpyinfo | grep -A1 '^screen #0:' | tail -n1 |awk '{print $2}'
+ash
+xmessage -bg red -geometry 100x100+10+10 MESSAGE
+xmessage -bg red -geometry +10+10 MESSAGE
+xdpyinfo
+xdpyinfo | grep dimensions
+xwininfo -root
+type -a xwininfo
+file /usr/bin/xwininfo
+/usr/X11R7.7-1.8.2-BIG/bin/xwininfo
+xwininfo
+xwininfo --help
+xwininfo -all
+xrandr -help
+yaf-splash -help
+yaf-splash -bg purple --transparent -text "Restoring mount of $part_ ..."
+yaf-splash -bg purple -transparent -text "Restoring mount of $part_ ..."
+yaf-splash -bg purple -transparent -geometry 100x100 -text "Restoring mount of $part_ ..."
+yaf-splash -bg purple -geometry 100x100 -text "Restoring mount of $part_ ..."
+yaf-splash -bg purple -geometry 100x100+10+10 -text "Restoring mount of $part_ ..."
+yaf-splash -bg purple -geometry +960+540 -text "Restoring mount of $part_ ..."
+for i in *; do [ -f $i ] || continue; echo $i; cat $i; echo;done
+man 5 uptime
+man 2 uptime
+uptime
+cat /proc/uptime
+echo $((77720/60))
+echo $((1295/60))
+man uptime
+probepart2
+cddetect_quick -d/dev/sr0; echo $?
+probepart2
+grep $Q 'sr[0-9]' /proc/partitions
+probepart2
+time probepart2
+probepart2
+disktype /dev/sr1
+cat /sys/block/sr1/device/state
+cat /sys/block/sr0/device/state
+cat /sys/block/fd0/device/state
+cat /sys/block/sr0/device/dh_state
+cat /sys/block/sr1/device/dh_state
+cat /sys/block/sr1/device/evt_media_change 
+cat /sys/block/sr1/device/device_blocked 
+cat /sys/block/sr1/device/delete 
+cat /sys/block/sr1/device/iocounterbits 
+cat /sys/block/sr1/device/iodone_cnt 
+cat /sys/block/sr1/device/ioerr_cnt 
+cat /sys/block/sr1/device/iorequest_cnt 
+cat /sys/block/sr1/device/queue_depth 
+cat /sys/block/sr1/device/queue_type 
+cat /sys/block/sr1/device/queue_ramp_up_period 
+cat /sys/block/sr1/device/bsg/5:0:0:0/uevent
+for i in *; do [ -f $i ] || continue; echo $i; done
+for i in *; do [ -f $i ] || continue; echo $i; cat $i; echo;done
+cddetect_quick /dev/sr1
+cddetect_quick -d/dev/sr1
+probedisk
+probedisk2
+probepart2
+file `which probepart2`
+geany /sbin/probepart2
+guess_fstype /dev/sr1
+make
+top
+cddetect --help
+mount
+sdparm -e --long
+sdparm -e --long /dev/sr1
+sdparm -C capacity /dev/sr0
+sdparm -C capacity /dev/sr1
+sdparm -C profile /dev/sr1
+sdparm -C sense /dev/sr1
+sdparm --inquiry /dev/sr0
+sdparm --inquiry /dev/sr1
+date -s
+date +%s
+yaf-splash -help
+yaf-splash -countdown foo
+yaf-splash -countdown $(( $(date +%s) +20))
+yaf-splash -countdown $(( $(date +%s) +20)) -text "SOME TEXT"
+yaf-splash -text "SOME TEXT" -countdown $(( $(date +%s) +20)) 
+yaf-splash -text "SOME TEXT" -clock -countdown $(( $(date +%s) +20)) 
+yaf-splash -text "SOME TEXT" -clock
+yaf-splash -clock -text "SOME TEXT"
+modprobe -v apm
+sdparm -C stop /dev/sr0
+sdparm -C start /dev/sr0
+sdparm -C start /dev/sr1
+sdparm -C stop /dev/sr1
+busybox --list | grep parm
+hdparm --help
+busybox --list | grep parm
+hdparm -J
+hdparm -J /dev/sr1
+sdparm -al /dev/sr0
+sdparm -al -6  /dev/sr0
+hdparm -Y /dev/sr0
+hdparm -Y /dev/fd0
+sdparm -C stop /dev/sr0
+sdparm -C start /dev/sr0
+hdparm -y /dev/fd0
+hdparm -y /dev/sr0
+sdparm -C start /dev/sr0
+hdparm -C /dev/sr0
+sdparm -C start /dev/sr0
+hdparm --idle-immediate /dev/sr0
+hdparm -C /dev/sr0
+sdparm -C start /dev/sr0
+sdparm -C start /dev/sr1
+hdparm -C /dev/sr1
+hdparm --idle-immediate /dev/sr0
+hdparm -C /dev/sr1
+hdparm --idle-immediate /dev/sr0
+hdparm -C /dev/sr1
+hdparm -Y /dev/sr1
+hdparm -C /dev/sr1
+sdparm -a /dev/sr1
+sdparm -a -l /dev/sr1
+sdparm --help
+info sdparm
+man sdparm
+mount -r /dev/sr3
+mount -r /dev/sr2
+mount -o ro /dev/sr2
+mount -o ro /mnt/sr2
+mount -o ro /dev/sr1
+sdparm -C stop /dev/sr1
+umount -r /dev/sr1
+sdparm -C stop /dev/sr1
+mount -o ro /dev/sr1
+hdparm -C /dev/sr1
+sdparm -C stop /dev/sr1
+hdparm -C /dev/sr1
+grep -r standby /sys/block/sr1
+busybox grep -r standby /sys/block/sr1
+grep -r standby /sys/block/sr1 2>/dev/null
+cd /sys/block/sr1
+ls
+dmidecode
+dmidecode | grep ata | grep -v -i data
+find /usr -name latexfmt
+find /usr -name latex.fmt
+find /usr -name "*.fmt"
+find /usr -name "fmtutil.cnf"
+fmtutil --help
+fmtutil --edit
+find /usr -name "fmtutil.cnf"
+fmtutil --listcfg
+export TEXMFMAIN=/usr/local/teTeX/share/texmf/web2c
+fmtutil --listcfg
+find /usr -name "fmtutil.cnf"
+find /usr -name tcfmgr.map
+export TEXMFMAIN=/usr/local/teTeX/share/texmf
+fmtutil --listcfg
+fmtutil --help
+fmtutil --catcfg
+/bin/find /usr -name "tcfmgr.map" | read file
+echo $file
+read file <<EoI
+echo $file
+ls /proc/sys/kernel/*
+ls /proc/sys/kernel/a*
+cat /proc/sys/kernel/acct
+cat /proc/sys/kernel/acpi_video_flags 
+cat /proc/sys/kernel/bootloader_type 
+cat /proc/sys/kernel/bootloader_version 
+cat /proc/sys/kernel/cap_last_cap 
+cat /proc/sys/kernel/lock_stat
+cat /proc/sys/kernel/latencytop 
+cat /proc/sys/kernel/panic*
+cat /proc/sys/vm/panic_on_oom 
+cat /proc/sys/vm/min_slab_ratio 
+cat /proc/sys/vm/swappiness 
+cat /proc/sys/vm/stat_interval 
+cat /proc/sys/fs/file-nr
+cat /proc/sys/fs/file-max
+cat /proc/sys/fs/aio-nr
+cat /proc/sys/fs/aio-max-nr 
+cat /proc/sys/fs/inotify/max_queued_events 
+cat /proc/sys/fs/inotify/max_user_instances 
+cat /proc/sys/fs/inotify/max_user_watches 
+cat /proc/sys/fs/protected_hardlinks 
+cat /proc/sys/fs/protected_symlinks 
+xdpyinfo | grep -A1 -m 1 '^screen #0:' | tail -n1 |awk '{print $2}'
+xdpyinfo | sed -n '/dimension/ p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9x]*\) pixels.*%\2%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9]*x[0-9]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:*\([0-9]*x[0-9]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:*\([0-9x]**\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:*\([0-9x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([0-9x].*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([[:digit]x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:.*\([[:digit:]x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:[[:blank:]]*\([[:digit:]x]*\) pixels.*%\1%p'
+xdpyinfo | sed -n '/dimensions:/ s%.*dimensions:[[:blank:]]*\([0-9x]*\) pixels.*%\1%p'
+xdpyinfo | awk '/dimensions:/ {print $2}'
+xdpyinfo | awk -F' x' '/dimensions:/ {print $2}'
+xdpyinfo | awk -F'x' '/dimensions:/ {print $2}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $2}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $3}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $4}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $5}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $6}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $7}'
+xdpyinfo | awk -F'[x ]' '/dimensions:/ {print $8}'
+xdpyinfo | awk -F'[x \t]' '/dimensions:/ {print $8}'
+xdpyinfo | awk -F'[x \t]' '/dimensions:/ {print $2}'
+xdpyinfo | awk -F'[x \t]' '/dimensions:/ {print $1}'
+xdpyinfo | awk -F'[x \t]' '/dimensions:/ {print}'
+cat /proc/uptime
+source /etc/rc.d/f4puppy5
+ash
+busybox hdparm --help
+for i in *; do [ -f $i ] || continue; echo $i; cat $i; echo;done
+echo $((8946816/1024))
+echo $((8737/1024))
+dc 8946816 1024 \/ p
+dc 8737,12 1024 \/ p
+dc 8,53234 2 \/ p
+geany /usr/bin/wmpoweroff
+geany /usr/bin/wmreboot
+geany /usr/bin/wmexit
+geany /usr/bin/wmrestart
+geany /usr/bin/restartwm
+mount
+wmpoweroff force
+
+Thu Oct 16 14:29:43 GMT+1 2014
+
+modprobe configs
+uname 0r
+uname -r
+mkdir "`uname -r`"
+cd 3.7.10-KRG-iP4CelXeon-smp-pae-1000lzo/
+ls
+pupzip config.gz 
