@@ -3,11 +3,12 @@
 # usual Puppy license
 Version='1.0 Puppy_Racy_5.3 KRG'
 echo "$0:$Version:$*"
+. /etc/rc.d/f4puppy5
 
 test "$DISPLAY" || export DISPLAY=':0'
 
 aplay /usr/share/audio/2barks.au
-xmessage -timeout 10 "HALLO von $0"
+xmessage -title "POWERBUTTON ACKNOWLEDGE" -timeout 10 "HALLO von $0"
 
 _usage(){
 MSG="
@@ -37,63 +38,268 @@ $2
 "
 fi
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg blue3 -fg white "$MSG"
+[ "$DISPLAY" ] && xmessage -title "POWERBUTTON HELP" -bg blue3 -fg white "$MSG"
 exit $1
 }
+
 case $1 in
 *help) _usage 0;;
 *version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
 "") :;;
+*force) :;; #from enlightenment Bereitschaftsmodus
 *) _usage 1 "Unknown Parameter '$1'";;
 esac
-
-pidof sync || sync
+echo 52
+pidof sync >$OUT || sync
+echo 54
 
 _loop_umount_func(){
-M_LOOP=`mount | grep '/dev/loop' |grep -v '/initrd'`
+                    local M_LOOP mloop_ yPID
+
+M_LOOP=`mount | grep -E '^/dev/loop[0-9]? ' |grep -v '/initrd'`
 M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
 M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
-for mloop in $M_LOOP;do
-/bin/umount "$mloop"
-[ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mloop' manually and try again";exit 0; }
+
+for mloop_ in $M_LOOP;
+do
+    yaf-splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
+    /bin/umount $VERB -r "$mloop_"
+[ $? -ne 0 ] && { xmessage -title "POWERBUTTON LOOP UMOUNT FAIL" -bg red2 "Please umount '$mloop_' manually and try again";exit 0; }
+    sleep 1
+    kill $yPID
 done
 }
+echo 64
+
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
 
 _part_umount_func(){
-M_DEV=`mount | grep '/dev/[shfmd]+[0-9]' |grep -v '/initrd'`
-M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
-M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
-M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
-for mpart in $M_POI;do
-/bin/umount "$mpart"
-[ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mpart' manually and try again";exit 0; }
+                    local M_POI M_OPS mpart_ yPID
+#M_DEV=`mount | grep -E '^/dev/[shfmdr][^ ]*[0-9]? ' |grep -vE '/initrd|^/dev/root|rootfs|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd'`
+#M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
+#M_DEV=`awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?$")) print $1}' /proc/mounts`
+##M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]].*[0-9]?$" /proc/mounts`
+#M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? " /proc/mounts`
+ MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "`
+#M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+ M_POI=`echo "$MOUNTED" | awk '{print $2}'`
+ M_POI=`echo -e "$M_POI"`
+ M_OPS=`echo "$MOUNTED" | awk '{print $4}'`
+ M_OPS=`echo -e "$M_OPS"`
+#M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
+ M_DEV=`echo "$MOUNTED" | awk '{print $1}'`
+ M_DEV=`echo -e "$M_DEV"`
+
+for mpart_ in $M_POI;
+do
+
+    ## BIG PROBLEM un-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/umount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 5 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 1 Exit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # xmessage -bg orange "Slow drive '$mpart_' is mounted ..!
+    # Please un-mount it manually,
+    # and try to put the machine to sleep again !!"
+    # exit 1
+    #;;
+    #esac
+
+    ## Solution Nr. 3 Omit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+
+    ##Solution Nr. 2 and 4 Reasonable and BIG sleep :
+    case $mpart_ in
+    */sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    esac
+
+    /bin/umount $VERB -r "$mpart_"
+[ $? -ne 0 ] && { xmessage -title "POWERBUTTON UMOUNT FAIL" -bg red2 "Please umount '$mpart_' manually and try again";exit 0; }
+
+    ## Solution Nr. 2 Reasonable sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 15 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 15 seconds.." &
+    # sleep 15;;
+    #esac
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to stop the drive
+    case $mpart_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      hdparm $L_VERB -C /dev/${mpart_##*/} | grep $Q 'active' && {
+           MSG="ERROR: Drive '/dev/${mpart_##*/}' still recognized as active.
+           Exiting ${PWD}/${0}."
+           MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
+           xmessage -bg red -title "$MY_SELF" "$MSG"
+           exit 5
+      }
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C stop /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB -Y /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+    sleep 1
+    kill $yPID
 done
 }
+echo 87
 
 _restore_mounts(){
-for part in $M_DEV;do
-FS_TYPE=`guess_fstype $part`
-dirn=${part##*/}
-mkdir -p /mnt/$dirn
-/bin/mount -t $FS_TYPE $part /mnt/$dirn
+                    local part_ basn FS_TYPE reMOUNT mntOPS yPID
+for part_ in $M_DEV;
+do
+
+    ## BIG PROBLEM re-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/mount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 4 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 2 and 3 Omit to un- and or re-mount :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    yaf-splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+
+        grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
+        mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
+            [ "$mntOPS" ] || mntOPS=rw
+        FS_TYPE=`guess_fstype $part_`
+
+    ##Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to wake-up the drive
+    case $part_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C start $part_
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB --idle-immediate $part_
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+        basn=${part_##*/}
+        mkdir -p /mnt/$basn
+
+[ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
+} || {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE $part_ /mnt/$basn || false
+}
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg purple3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    sleep 1
+    kill $yPID
+    unset reMOUNT mntOPS FS_TYPE
 done
 }
+echo 96
 
 ACPITOOL=`which acpitool`
 states_avail=`cat /sys/power/state`
-states_avail=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:disk!;s!mem!S3 PM_SLEEP:mem!'`
+states_avail_=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation on disk!;s!mem!S3 PM_SLEEP in mem!'`
+echo 102
 
 aplay /usr/share/audio/2barks.au
-xmessage -timeout 20 -bg red1 "$0
+xmessage -title "POWERBUTTON STATES" -timeout 20 -bg red1 "$0
 Available states:
-$states_avail
+$states_avail_
 "
+echo 108
 
-xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
-Do you want to go into ACPI PM SLEEP mode ?
+for st_ in $states_avail
+do
+    case $st_ in
+    *freeze*)   BUTTON_FREEZE=freeze:190;;
+    *standby*)  BUTTON_STANDBY=standby:188;;
+    *mem*)      BUTTON_MEM="RAM sleep:203";;
+    *disk*)     BUTTON_DISK="hibernate on swap partition:204";;
+        *)          _warn "Unhandled ACPI state '$st_'";;
+    esac
+done
+
+
+test "$BUTTON_DISK"    && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_DISK"
+test "$BUTTON_MEM"     && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_MEM"
+test "$BUTTON_STANDBY" && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_STANDBY"
+test "$BUTTON_FREEZE"  && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_FREEZE"
+
+BUTTONS_GUI="${BUTTONS_GUI},DO NOTHING:200"
+BUTTONS_GUI=`echo "$BUTTONS_GUI" | sed 's%^,*%%;s%,*$%%'`
+
+#xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
+ xmessage -timeout 30 -buttons "$BUTTONS_GUI" -title "POWERBUTTON MENU" -bg blue3 -fg white "Busybox acpid :
+Do you want to go into one of the ACPI PM SLEEP modes ?
 Note : Timesout in 30 seconds to poweroff normally."
 ANSWER=$?
-
+echo 113
 if [ "$ANSWER" = 200 ];then
 exit 0
 
@@ -110,6 +316,7 @@ sleep 1
     echo 'mem' >/sys/power/state
    fi
 
+sleep 5
 _restore_mounts
 
 
@@ -168,14 +375,22 @@ sleep 1
    #  echo 'disk' >/sys/power/state
    #fi
 
+sleep 5
 _restore_mounts
+
+elif [ "$ANSWER" = 188 ]; then  #standby
+    echo standby >/sys/power/state
+
+elif [ "$ANSWER" = 190 ]; then  #freeze
+    echo freeze >/sys/power/state
 
 else
  unset DISPLAY
  if test "`pidof X`"; then
- wmpoweroff
+ wmpoweroff force
  sleep 5
- exec /sbin/poweroff force
+ pidof poweroff rc.shutdown >$OUT || exec /sbin/poweroff force
+ exit $?
  else
  exec /sbin/poweroff force
  fi
@@ -185,10 +400,10 @@ sleep 5
 aplay /usr/share/audio/2barks.au
 case $ANSWER in
 203)
-xmessage "RETURNED from RAM light sleep"
+xmessage -title "POWERBUTTON WAKEUP MESSAGE" "RETURNED from RAM light sleep"
 ;;
 204)
-xmessage "RETURNED from DISK winter sleep"
+xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter sleep"
 ;;
 *) :;;
 esac
