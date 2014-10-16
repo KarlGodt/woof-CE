@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 # Exit from X, will cause return to xwin.
 
 
@@ -25,25 +25,31 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-_KILL_WALLPAPER(){
+case $1 in
+*force) FORCE=1;;
+esac
+
+yaf-splash -bg green -text "Exiting to prompt..." &
+
+__KILL_WALLPAPER__(){
 pidof slideshow && killall -9 slideshow
 pidof wallpaper && killall -9 wallpaper
 
 sleep 1s
 }
 
-_KILL_FREEMEMAPPLET(){
+__KILL_FREEMEMAPPLET__(){
 ps | grep freemem | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 ps | grep freemem | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 ps | grep inotify | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 }
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
-echo -n "exit" > /tmp/wmexitmode.txt       #xwin needs wmexitmode.txt
-echo -n "exit" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
+echo "exit $@" > /tmp/wmexitmode.txt       #xwin needs wmexitmode.txt
+echo "exit $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 killall pup_event_frontend_d
 
-wait_for_frontend_d(){
+__wait_for_frontend_d__(){
 #sleep 1s
 #give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
@@ -60,7 +66,7 @@ done
 sleep 0.2
 }
 
-pidof sync || sync
+[ "$FORCE" ] || { pidof sync || sync; }
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -68,22 +74,30 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
-read CURRENTWM </etc/windowmanager && kill -9 `pidof $CURRENTWM`
 ##e17
-pidof tempget && kill -2 `pidof tempget`
+pidof tempget >$OUT && kill -2 `pidof tempget`
 
+__KILL_FREEMEMAPPLET__(){
 ps | grep freemem | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 ps | grep freemem | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 ps | grep inotify | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
+}
 
-for _file_ in $HOME/Choices/XINIT/*; do
-test -f $_file_ || continue
-source $_file_ stop
-done
+fPIDS=`ps | grep -E 'freemem|inotify' | grep -v grep`
+for aPID in $fPIDS; do kill -9 $pid; done
 
-killall X #default is SIGTERM.
+[ "$FORCE" ] || {
+ for _file_ in $HOME/Choices/XINIT/*; do
+    test -f $_file_ || continue
+    source $_file_ stop
+ done
+}
+
+read CURRENTWM </etc/windowmanager && kill -9 `pidof $CURRENTWM`
+
+killall X >$OUT 2>$ERR #default is SIGTERM.
 sleep 1
-pidof X && exec killall -9 X #make sure X is killed.
+pidof X >$OUT && exec killall -9 X #make sure X is killed.
 
 exit $STATUS
 # Very End of this file 'usr/bin/wmexit' #
