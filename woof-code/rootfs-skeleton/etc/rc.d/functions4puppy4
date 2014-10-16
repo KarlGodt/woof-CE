@@ -41,12 +41,15 @@
 
 f4f4FN=/etc/rc.d/functions4puppy4
 
-HOME_func(){  #KRG
+. /etc/rc.d/f4puppy5
+
+HOME_func(){  #BEGIN
 home="$HOME"
 [ "$home" = "/" ] && home="/root"
 [ "$DEBUG" ] && echo "home='$home'"
-}  #KRG
-HOME_func  ###KRG
+}
+HOME_func
+
 globiconsFN="$home/.config/rox.sourceforge.net/ROX-Filer/globicons"
 
 #** DEBUG
@@ -75,12 +78,12 @@ firmware_module_func() {
     if [ "$FIRMPKG" != "" ];then
      #v4.02 firmware pkg is a tarball...
      if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-      cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null 2>&1
+      cp $VERB -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >$OUT 2>&1
       cd /tmp
-      tar -zxf ${FIRMPKG}.tar.gz >/dev/null 2>&1
+      tar $VERB -zxf ${FIRMPKG}.tar.gz >$ERR 2>&1
      fi
      if [ -d /tmp/${FIRMPKG} ];then
-      cp -a --remove-destination --backup=numbered /tmp/${FIRMPKG}/* / 2>/dev/null
+      /bin/cp $VERB -a --remove-destination --backup=numbered /tmp/${FIRMPKG}/* / 2>$ERR
       #comment-out the firmware pkg entry, so it only installs once...
       R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
       DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
@@ -88,26 +91,27 @@ firmware_module_func() {
       #execute any post-install script...
       if [ -f /pinstall.${FIRMPKG}.sh ];then
        cd /
-       /pinstall.${FIRMPKG}.sh >/dev/null 2>&1 #execute script.
-       rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
+       /pinstall.${FIRMPKG}.sh >$OUT 2>&1 #execute script.
+       [ "$VERBOSE" ] || rm -f /pinstall.${FIRMPKG}.sh >$OUT 2>&1
       fi
      fi
     fi
 }
 
 #v403 change desktop icon to unmounted status, called from pup_event_frontend_d, pmount...
-icon_unmounted_func() {
+__icon_unmounted_func__() {
     [ "$DEBUG" ] && echo "icon_unmounted_func BEGIN" >&2 #DBG echo
     [ "$DEBUG" ] && echo "1:'$1' 2:'$2' 3:'$3'" >&2
     if test "$2" != "" ; then
  #passed params: drivename category  ex: sda usbdrv
  DRVICON="drive48.png" #default.
- [ "$2" = "usbdrv" ] && DRVICON="usbdrv48.png"
- [ "$2" = "card" ] && DRVICON="card48.png"
- [ "$2" = "floppy" ] && DRVICON="floppy48.png"
+ [ "$2" = "usbdrv" ]  && DRVICON="usbdrv48.png"
+ [ "$2" = "card" ]    && DRVICON="card48.png"
+ [ "$2" = "floppy" ]  && DRVICON="floppy48.png"
  [ "$2" = "optical" ] && DRVICON="optical48.png"
  [ "$DEBUG" ] && { LINEP=D001; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` DRVICON='$DRVICON'"; }
     fi
+
 #find out if already done...
 if [ -f "$globiconsFN" ];then
  GLOBLINES=`cat "$globiconsFN" | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
@@ -131,6 +135,7 @@ if [ -f "$globiconsFN" ];then
 </env:Body>
 </env:Envelope>"  | rox -R
 fi
+
 #if test "`ps | grep clean_desk_icons | grep -v grep`" != "" ; then add_pinboard_func4 ; fi
 #DBG echo "Cleandeskicons : $Cleandeskicons"
 #DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
@@ -139,30 +144,180 @@ fi
 #DBG echo
 }
 
-icon_mounted_func() {
+my_self=/etc/rc.d/functions4puppy4
+homeGLOBICONS="$HOME/.config/rox.sourceforge.net/ROX-Filer/globicons"
+
+INFO=1;DEBUG=1;DEBUGX=1
+icon_unmounted_func(){
+    [ "$DEBUG" ] && echo "icon_unmounted_func BEGIN" >&2 #DBG echo
+    [ "$DEBUG" ] && echo "1:'$1' 2:'$2' 3:'$3'" >&2
+
+local DRVICON GLOBLINES diPATTERN
+
+    if test "$2" != "" ; then
+ #passed params: drivename category  ex: sda usbdrv
+ DRVICON="drive48.png" #default.
+ [ "$2" = "usbdrv" ]  && DRVICON="usbdrv48.png"
+ [ "$2" = "card" ]    && DRVICON="card48.png"
+ [ "$2" = "floppy" ]  && DRVICON="floppy48.png"
+ [ "$2" = "optical" ] && DRVICON="optical48.png"
+ [ "$DEBUG" ] && { LINEP=D001; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` DRVICON='$DRVICON'"; }
+    fi
+
+# Skip code for Macpup e17
+local CURRENTWM_
+ read CURRENTWM_ </etc/windowmanager
+case $CURRENTWM_ in
+*enlightenment*) return 0;;
+esac
+
+#find out if already done...
+if [ -f "$homeGLOBICONS" ];then
+ GLOBLINES=`cat "$homeGLOBICONS" | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+
+  [ "$DEBUG" ] && { LINEP=D002; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` GLOBLINES :" >&2; }
+  [ "$DEBUG" ] && echo "$GLOBLINES" | head -n 2 >&2
+
+ #diPATTERN="$HOME/.pup_event/drive_"${1}""
+  diPATTERN="$HOME/.pup_event/drive_${1}"'"'
+
+ [ "$DEBUG" ] && { LINEP=D003; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` dipattern='$diPATTERN'" >&2; }
+ [ "$DEBUG" ] && GRepGLob=`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`
+ [ "$DEBUG" ] && { LINEP=D004; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` GRepGLob='$GRepGLob'" >&2; }
+
+ [ "`echo "$GLOBLINES" | grep "$diPATTERN" | grep "$DRVICON"`" != "" ] && { echo "already there in '$homeGLOBICONS'"; return 0; }
+# fi
+
+ echo "<?xml version=\"1.0\"?>
+<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
+ <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
+  <SetIcon>
+   <Path>$HOME/.pup_event/drive_${1}</Path>
+   <Icon>/usr/local/lib/X11/pixmaps/${DRVICON}</Icon>
+  </SetIcon>
+</env:Body>
+</env:Envelope>"  | rox -R
+fi
+
+#if test "`ps | grep clean_desk_icons | grep -v grep`" != "" ; then add_pinboard_func4 ; fi
+#DBG echo "Cleandeskicons : $Cleandeskicons"
+#DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
+#fi
+
+[ "$DEBUG" ] && echo "icon_unmounted_func END" >&2
+}
+
+icon_mounted_func(){
+ [ "$DEBUG" ] && echo "icon_mounted_func BEGIN" >&2  #DBG
+ [ "$DEBUG" ] && echo "1:'$1' 2:'$2' 3:'$3'"
+
+local DRVICON PART_ICON imPATTERN GLOBLINES diPATTERN
+#passed params: drivename category  ex: sda usbdrv
+ DRVICON="drive_mntd48.png" #default.
+ [ "$2" = "drivero" ] && DRVICON="drive_mntdro48.png"
+
+ [ "$2" = "usbdrv" ]  && DRVICON="usbdrv_mntd48.png"
+ [ "$2" = "card" ]    && DRVICON="card_mntd48.png"
+ [ "$2" = "floppy" ]  && DRVICON="floppy_mntd48.png"
+ [ "$2" = "optical" ] && DRVICON="optical_mntd48.png"
+ [ "$2" = usbdrvro ]  && DRVICON="usbdrv_mntdro48.png"
+ [ "$2" = cardro ]    && DRVICON="card_mntdro48.png"
+ [ "$2" = floppyro ]  && DRVICON="floppy_mntdro48.png"
+ [ "$2" = opticalro ] && DRVICON="optical_mntdro48.png"
+
+ local hasRO
+ hasRO='';
+ tac /proc/mounts | grep -w "^/dev/$1" | awk '{print $4}' | grep $Q -w ro && hasRO=1
+ echo "$0:$*" >/dev/stderr
+ case $2 in
+ card*)       [ "$hasRO" ] && PART_ICON=card_mntdro48.png    || PART_ICON=card_mntd48.png   ;;
+ floppy*)     [ "$hasRO" ] && PART_ICON=floppy_mntdro48.png  || PART_ICON=floppy_mntd48.png ;;
+ optical*)    [ "$hasRO" ] && PART_ICON=optical_mntdro48.png || PART_ICON=optical_mntd48.png;;
+ usbdrv*)     [ "$hasRO" ] && PART_ICON=usbdrv_mntdro48.png  || PART_ICON=usbdrv_mntd48.png ;;
+ drive*|*|"") [ "$hasRO" ] && PART_ICON=drive_mntdro48.png   || PART_ICON=drive_mntd48.png  ;;
+ esac
+
+ DRVICON=${PART_ICON}
+ [ "$DEBUG" ] && LINEP=D011 echo "Line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` DRVICON '$DRVICON'" >&2
+
+ imPATTERN='^/dev/'"${1}" #important, no space on end.
+ [ "$DEBUG" ] && LINEP=D012 echo "Line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` imPATTERN '$imPATTERN'" >&2
+# if [ "`mount | cut -f 1,3 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+ [ "$DEBUG" ] && LINEP=D013 echo "Line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` now finding the boot partition" >&2
+
+ if [ "`/bin/df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+  #only partitions mntd on /initrd/* then must be mntd at boot. cannot unmount.
+  #also, full hd install has partition mntd on '/'.
+  DRVICON="drive_mntd_boot48.png" #default.
+  [ "$2" = "usbdrv" ]  && DRVICON="usbdrv_mntd_boot48.png"
+  [ "$2" = "card" ]    && DRVICON="card_mntd_boot48.png"
+  [ "$2" = "floppy" ]  && DRVICON="floppy_mntd_boot48.png"
+  [ "$2" = "optical" ] && DRVICON="optical_mntd_boot48.png"
+ [ "$DEBUG" ] && LINEP=D014 echo "Line `[ $LINENO ] && echo $LINENO || _get_lineno $LINEP` DRVICON-boot : '$DRVICON'" >&2
+ fi
+
+# Skip code for Macpup e17
+local CURRENTWM_
+ read CURRENTWM_ </etc/windowmanager
+case $CURRENTWM_ in
+*enlightenment*) return 0;;
+esac
+
+ #find out if already done...
+ if [ -f "$homeGLOBICONS" ];then
+  GLOBLINES=`cat "$homeGLOBICONS" | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+ #GLOBLINES=`cat /root/Choices/ROX-Filer/PuppyPin | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
+ #diPATTERN='$HOME/.pup_event/drive_'"${1}"'"'
+  diPATTERN="$HOME/.pup_event/drive_${1}"'"'
+
+  [ "`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`" != "" ] && { echo "already there at $homeGLOBICONS"; return 0; }
+#   fi
+
+ echo "<?xml version=\"1.0\"?>
+<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
+ <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
+  <SetIcon>
+   <Path>$HOME/.pup_event/drive_${1}</Path>
+   <Icon>/usr/local/lib/X11/pixmaps/${DRVICON}</Icon>
+  </SetIcon>
+ </env:Body>
+</env:Envelope>"  | rox -R
+fi
+
+#DBG  echo "$DBG line 122 DRVICON : $DRVICON"
+#DBG echo $Cleandeskicons
+#DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
+
+[ "$DEBUG" ] && echo "icon_mounted_func END" >&2
+}
+
+__icon_mounted_func__() {
   [ "$DEBUG" ] && echo "icon_mounted_func BEGIN" >&2  #DBG
  #passed params: drivename category  ex: sda usbdrv
  DRVICON="drive_mntd48.png" #default.
   [ "$DEBUG" ] && echo "1:'$1' 2:'$2' 3:'$3'"
- [ "$2" = "usbdrv" ] && DRVICON="usbdrv_mntd48.png"
- [ "$2" = "card" ] && DRVICON="card_mntd48.png"
- [ "$2" = "floppy" ] && DRVICON="floppy_mntd48.png"
+ [ "$2" = "usbdrv" ]  && DRVICON="usbdrv_mntd48.png"
+ [ "$2" = "card" ]    && DRVICON="card_mntd48.png"
+ [ "$2" = "floppy" ]  && DRVICON="floppy_mntd48.png"
  [ "$2" = "optical" ] && DRVICON="optical_mntd48.png"
   [ "$DEBUG" ] && LINEP=D011 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` DRVICON '$DRVICON'" >&2
+
  imPATTERN='^/dev/'"${1}" #important, no space on end.
   [ "$DEBUG" ] && LINEP=D012 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` imPATTERN '$imPATTERN'" >&2
 # if [ "`mount | cut -f 1,3 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
  [ "$DEBUG" ] && LINEP=D013 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` now finding the boot partition" >&2
- if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+
+ if [ "`/bin/df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
   #only partitions mntd on /initrd/* then must be mntd at boot. cannot unmount.
   #also, full hd install has partition mntd on '/'.
   DRVICON="drive_mntd_boot48.png" #default.
-  [ "$2" = "usbdrv" ] && DRVICON="usbdrv_mntd_boot48.png"
-  [ "$2" = "card" ] && DRVICON="card_mntd_boot48.png"
-  [ "$2" = "floppy" ] && DRVICON="floppy_mntd_boot48.png"
+  [ "$2" = "usbdrv" ]  && DRVICON="usbdrv_mntd_boot48.png"
+  [ "$2" = "card" ]    && DRVICON="card_mntd_boot48.png"
+  [ "$2" = "floppy" ]  && DRVICON="floppy_mntd_boot48.png"
   [ "$2" = "optical" ] && DRVICON="optical_mntd_boot48.png"
    [ "$DEBUG" ] && LINEP=D014 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno_f4p4 $LINEP` DRVICON-boot : '$DRVICON'" >&2
  fi
+
  #find out if already done...
  if [ -f "$globiconsFN" ];then
   GLOBLINES=`cat "$globiconsFN" | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
@@ -181,13 +336,13 @@ icon_mounted_func() {
  </env:Body>
 </env:Envelope>"  | rox -R
 fi
+
 #DBG  echo "$DBG line 122 DRVICON : $DRVICON"
 #DBG echo $Cleandeskicons
 #DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
 [ "$DEBUG" ] && echo "icon_mounted_func END" >&2
 #DBG echo
 }
-
 
 icon_remove_func() {
     [ "$DEBUG" ] && echo "icon_remove_func BEGIN" >&2
@@ -209,9 +364,9 @@ icon_remove_func() {
 
 free_coord4() {
  #find a free place on desktop. v410 avoid exact overlapping icons...
- SCRNXY="`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`"
-SCRN_X="`echo -n "$SCRNXY" | cut -f 1 -d 'x'`"
-SCRN_Y="`echo -n "$SCRNXY" | cut -f 2 -d 'x'`"
+ SCRNXY="`xwininfo -root    | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`"
+ SCRN_X="`echo -n "$SCRNXY" | cut -f 1 -d 'x'`"
+ SCRN_Y="`echo -n "$SCRNXY" | cut -f 2 -d 'x'`"
 
  COORDSGRID="`grep -o ' x="[0-9]*" y="[0-9]*" ' $home/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`"
  COORD_Y=`expr $SCRN_Y - 64`
@@ -255,12 +410,12 @@ choosemousefunc() { #w468 called from xorgwizard.
  DETECTEDMOUSEDEV="`cat /etc/mousedevice`"
  case $DETECTEDMOUSEDEV in
   ttyS*)
-   MOUSEMENU1a='serial'; MOUSEMENU1b='(mouse in very old computers)'
+   MOUSEMENU1a='serial';   MOUSEMENU1b='(mouse in very old computers)'
    MOUSEMENU2a='usb/ps-2'; MOUSEMENU2b='(mouse or touchpad in all modern computers)'
   ;;
   *)
    MOUSEMENU1a='usb/ps-2'; MOUSEMENU1b='(mouse or touchpad in all modern computers)'
-   MOUSEMENU2a='serial'; MOUSEMENU2b='(mouse in very old computers)'
+   MOUSEMENU2a='serial';   MOUSEMENU2b='(mouse in very old computers)'
   ;;
  esac
  dialog --no-cancel --menu "${MOUSEINTRO}\n\n
@@ -274,11 +429,11 @@ Please choose mouse type..." 0 0 0 "$MOUSEMENU1a" "$MOUSEMENU1b" "$MOUSEMENU2a" 
   MOUSEDEV="`cat /tmp/testmsx`"
   modprobe sermouse
   ln -snf $MOUSEDEV /dev/mouse
-  echo -n "$MOUSEDEV" > /etc/mousedevice
+  echo "$MOUSEDEV" > /etc/mousedevice
   cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/  Option      "Protocol" "Microsoft" #mouse0protocol/' > /tmp/xorg.conf.tmp2
  ;;
  *)
-  echo -n "input/mice" > /etc/mousedevice
+  echo "input/mice" > /etc/mousedevice
   ln -snf input/mice /dev/mouse
   cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/  Option      "Protocol" "IMPS\/2" #mouse0protocol/' > /tmp/xorg.conf.tmp2
  ;;
