@@ -1,0 +1,32 @@
+#!/bin/ash
+
+. /etc/rc.d/f4puppy5
+
+#v4.02 called from rc.modules, rc.modules2, pup_eventd... v403 only rc.modules2
+firmware_module_func() {
+ #global $MODULE is name of module, global $KERNVER.
+    altMODULE="`echo -n "$MODULE" | tr '_' '-'`"
+    FPATTERN='[:,]'"${MODULE}"'\.ko|[:,]'"${altMODULE}"'\.ko'
+    FIRMPKG="`cat /etc/modules/firmware.dep.$KERNVER  | grep -v '^#' | grep ':' | grep -E "$FPATTERN" | cut -f 1 -d ':' | head -n 1`"
+    if [ "$FIRMPKG" != "" ];then
+     #v4.02 firmware pkg is a tarball...
+     if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
+      cp $VERB -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >$OUT 2>&1
+      cd /tmp
+      tar $VERB -zxf ${FIRMPKG}.tar.gz >$ERR 2>&1
+     fi
+     if [ -d /tmp/${FIRMPKG} ];then
+      /bin/cp $VERB -a --remove-destination --backup=numbered /tmp/${FIRMPKG}/* / 2>$ERR
+      #comment-out the firmware pkg entry, so it only installs once...
+      R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
+      DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
+      echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
+      #execute any post-install script...
+      if [ -f /pinstall.${FIRMPKG}.sh ];then
+       cd /
+       /pinstall.${FIRMPKG}.sh >$OUT 2>&1 #execute script.
+       [ "$VERBOSE" ] || rm -f /pinstall.${FIRMPKG}.sh >$OUT 2>&1
+      fi
+     fi
+    fi
+}
