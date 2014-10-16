@@ -1,12 +1,24 @@
 #!/bin/ash
 #(c) Copyright 2008 Barry Kauler, puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#/sbin/pup_event_frontend_d creates a desktop icon and copy of this script for each drive, ex:
-# for drive sda: cp -a /usr/local/bin/drive_all /root/.pup_event/drive_sda/AppRun
-#this script is launched by pup_event_frontend_d when the icon is first created. also,
-#this script is launched when user clicks on deskop icon (former is configurable,
-# see /usr/sbin/eventmanager.
-#passed param is category of drive: card, floppy, optical, usbdrv, drive.
+#
+# /sbin/pup_event_frontend_d creates a desktop icon and copy of this script for each drive, ex:
+#  for drive sda: cp -a /usr/local/bin/drive_all /root/.pup_event/drive_sda/AppRun
+#
+# This script is launched by pup_event_frontend_d when the icon is first created.
+#  also, this script is launched when user clicks on deskop icon
+#  (former is configurable, see /usr/sbin/eventmanager).
+#
+# Optional passed parameters are :
+#  category of drive: card, floppy, optical, usbdrv, drive.
+#  pmount_{DRV_CATEGORY}:
+#  mountro
+#  unmount
+#  unmountall
+#  eventmanager
+#  FS_TYPE
+#  MOUNT_OPTS
+#
 #v4.0.2 jun08: first write of this script, expanding 'pup_eventd' management.
 #v403 icon menu, can call with 'unmount', 'eventmanager' and 'pmount_<DRV_CATEGORY>' params.
 #v411 added 'quiet' option for vfat, suppresses error msg when file attribs not preserved on copy.
@@ -60,7 +72,7 @@
 
   _TITLE_=puppy_drive_all
 _VERSION_=1.0omega
-_COMMENT_="Default AppRun for the Partition Icons on Destop."
+_COMMENT_="Default AppRun for the Partition Icons on Desktop."
 
 MY_SELF="$0"
 MY_PID=$$
@@ -68,7 +80,7 @@ MY_PID=$$
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
 
-ADD_PARAMETER_LIST="pmount_|eventmanager|unmount|unmountall|DRV_CATEGORY ] [ FSTYPE ]"
+ADD_PARAMETER_LIST="eventmanager|unmount|unmountall|[pmount_]DRV_CATEGORY ] [ FSTYPE ]"
 ADD_PARAMETERS="pmount_DRV_CATEGORY :
 eventmanager : Run small eventmanager GUI
 unmount      : Unmount the partition
@@ -109,14 +121,16 @@ unmount_func() {
    killzombies
    [ -n "`busybox mount | grep "$MNTPT"`" ] && { /bin/umount "$MNTPT"; umVAL=$?; }
   fi
+
   #rare ocassion, partition got unmounted before umount runs above...
   umPATTERN=" ${MNTPT} "
-  _MOUNT=`busybox mount | grep "$umPATTERN"`
+  MOUNT_=`busybox mount | grep "$umPATTERN"`
   umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
   _NESTEDS=`busybox mount | grep "$umPATTERN_2"`
-  [ "${_MOUNT}" ] || umVAL=0
+  [ "${MOUNT_}" ] || umVAL=0
+
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0=`fuser -v -m $MNTPT`
+   EXTRAMSG0=`fuser -v -m "$MNTPT"`
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
@@ -141,7 +155,10 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
     fi
    fi
   else
-   [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+   #[ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+   case $oneDRVNAME in
+    sr[0-9]*|scd[0-9]*|hd[a-d]) eject /dev/$oneDRVNAME;;
+   esac
   fi
   break
  done
@@ -153,10 +170,14 @@ case "$FSTYPE" in
 not*inserted|none) FSTYPE="";;
 esac
 
+MOUNT_OPTS=
+[ $3 ] && MOUNT_OPTS="-o $3" #see pup_eventd
+
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
 oneDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+_debug "oneDRVNAME='$oneDRVNAME'"
 
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
@@ -173,23 +194,23 @@ elif [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
 elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  mPATTERN='^/dev/'"$oneDRVNAME"' '
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
- MNTPT=`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
- [ "$MNTPT" = "" ] && exit #precaution.
+ MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+ [ "$MNTPT" = "" ] && exit 200 #precaution.
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
-  exit
+  exit 201
  fi
  unmount_func
- exit
+ exit $?
 
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 elif [ "$1" = "unmountall" ];then
- for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
+ for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
   unmount_func
  done
- exit
+ exit $?
 fi
 
 #w002 left-mouse-click to unmount...
@@ -230,13 +251,30 @@ DRV_CATEGORY="${1}"
    [ "$DRV_CATEGORY" = "" ] && DRV_CATEGORY="drive" #precaution.
 [ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
+[ -f /etc/eventmanager ] && . /etc/eventmanager #written to by /usr/sbin/eventmanager
 [ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
 
-[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
-[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
-[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
-[ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
+#[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ]     && AUTOTARGET="true"
+case $AUTOTARGET in
+TRUE|True|true|Y|YES|Yes|yes|y|1|FALSE|False|false|N|NO|No|no|n|0) :;;
+*) AUTOTARGET="true";;
+esac
+#[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
+case $HOTPLUGNOISY in
+TRUE|True|true|Y|YES|Yes|yes|y|1|FALSE|False|false|N|NO|No|no|n|0) :;;
+*) HOTPLUGNOISY="false";;
+esac
+#[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ]             && ICONDESK="true"
+case $ICONDESK in
+TRUE|True|true|Y|YES|Yes|yes|y|1|FALSE|False|false|N|NO|No|no|n|0) :;;
+*) ICONDESK="true";;
+esac
+#[ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
+case $ICONPARTITIONS in
+TRUE|True|true|Y|YES|Yes|yes|y|1|FALSE|False|false|N|NO|No|no|n|0) :;;
+*) ICONPARTITIONS="true";;
+esac
+
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
 if [ "$oneDRVNAME" = "drives" ];then
@@ -259,12 +297,25 @@ if [ "$AUTOTARGET" = "false" ];then
  exec pmount $DRV_CATEGORY
 fi
 
+case $DRV_CATEGORY in  ##+++2014-10-16
+*mountro)
+         grep -w "^/dev/$oneDRVNAME" /proc/mounts && {
+         mkdir -p /mnt/"$oneDRVNAME"
+        /bin/mount -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+        } || {
+         mkdir -p /mnt/"$oneDRVNAME"
+        /bin/mount -o         ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+    }
+    exit $?
+;;
+esac
+
 #oh, now have to analyse the media, decide what app to run...
 #if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
-if [ "`echo "$oneDRVNAME" |grep '^sr[0-9]'`" ];then  ###+++2012-01-20
+if [ "`echo "$oneDRVNAME" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
-  cddetect -q -d/dev/${oneDRVNAME}
+  cddetect $Q $VERB -d/dev/${oneDRVNAME}
   RETVAL=$?
   case $RETVAL in
   3) #iso file: normal data cd. iso9660
@@ -289,7 +340,8 @@ if [ "`echo "$oneDRVNAME" |grep '^sr[0-9]'`" ];then  ###+++2012-01-20
    ;;
   esac
  fi
- [ ! "$FSTYPE" ] && FSTYPE="iso9660"
+ #[ ! "$FSTYPE" ] && FSTYPE="iso9660"
+ [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$oneDRVNAME`
 fi
 
 #if dropped down here, it is likely to be a data partition...
@@ -303,7 +355,7 @@ if [ "$FSTYPE" != "" ];then
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    /bin/mount -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount $MOUNT_OPTS -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
    fat*|FAT*|Fat*|vfat)
@@ -321,17 +373,22 @@ if [ "$FSTYPE" != "" ];then
       ;;
      esac
     fi
-    /bin/mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    /bin/mount $MOUNT_OPTS -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
     RETVAL1=$?
     ;;
    *)
     FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
-    /bin/mount -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    grep $Q -w "$FSTYPE" /proc/filesystems || unset FSTYPE
+    [ "$FSTYPE" ] && {
+    /bin/mount $MOUNT_OPTS -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    } || {
+    /bin/mount $MOUNT_OPTS            /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    }
     RETVAL1=$?
     ;;
   esac
   [ $RETVAL1 -eq 0 ] && : #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
-  exit
+  exit $RETVAL1
  else
   #mounted...
   MNTPT=`/bin/df | grep "$dPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
@@ -353,12 +410,12 @@ if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
  sleep 0.1
 fi
 
-if test "$DRV_CATEGORY" = optical; then
-xmessage "Please insert a CD/DVD first."
+if test  "$DRV_CATEGORY" = optical; then
+xmessage -title "$MY_SELF" "Please insert a CD/DVD first."
 elif test "$DRV_CATEGORY" = floppy; then
-xmessage "Please insert a floppy first."
+xmessage -title "$MY_SELF" "Please insert a floppy first."
 else
-xmessage -buttons "Pmount:100,Quit:101" "NOTICE : Encountered unknown situation..
+xmessage -title "PMOUNT LAST FALLBACK" -buttons "Pmount:100,Quit:101" "NOTICE : Encountered unknown situation..
 Will now run pmount '$DRV_CATEGORY' as last resort."
 [ "$?" = 100 ] && exec pmount ${DRV_CATEGORY}
 fi
