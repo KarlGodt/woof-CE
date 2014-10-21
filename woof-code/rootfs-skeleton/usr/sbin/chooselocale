@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright 2009 Barry Kauler
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #w001 initial creation.
@@ -15,8 +15,8 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
-ADD_HELP_MSG="GTKdialog to select several wizards."
+TWO_HELP='1'; TWO_VERSION=''; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
+ADD_HELP_MSG="(X)dialog to select locale for login, apps and terminals."
 _parse_basic_parameters "$@"
 if [ "$DO_SHIFT" ]; then
  if [ ! "${DO_SHIFT//[[:digit:]]/}" ]; then
@@ -30,7 +30,7 @@ fi
 _trap
 }
 
-usage (){
+usage(){
     MSG="
     $0 [-options|cli|composeonly]
     Script to give a menu to select the desired language environment.
@@ -56,20 +56,23 @@ LANGCHOICE=\"\`echo -n \"\$LANGCHOICE\" | cut -f 1 -d '@'\`\"
     #FONT='-*-*-*-*-*-*-*-*-*-*-*-*-*-*'
     BG=green;[ "$1" = '0' ] || BG='red'
     if [ "$DISPLAY" ];then
-    xmessage -bg $BG "$MSG"
+    xmessage -title "CHOOSELOCALE HELP" -bg $BG "$MSG"
     #yaf-splash -timeout 30 -bg $BG -font $FONT -text "$MSG"
-    else
-    echo "$MSG";fi
+    fi
+    echo "$MSG"
     exit $1
 }
-if [ "$1" = '--help' -o "$1" = '-h' ];then usage 0;fi
+case "$1" in *help|-h) usage 0;; esac
+
 CLI_P="$@";CMDL_P="$@"
-OUTPUT='/dev/null';ERR=$OUTPUT
-while getopts dvlh opt;do
-case $opt in
+OUT='/dev/null';ERR=$OUT;Q=-q;QUIET=--quiet
+
+while getopts dvlh opt_;do
+case $opt_ in
 d) DEBUG='on';  set -x;;
-v) VERBOSE='-v';LONG_VERBOSE='--verbose';LONG_X_VERBOSE='-verbose';
-   OUTPUT=/dev/sdtout;ERR=/dev/stderr ;;
+v) VERBOSE=1;VERB='-v';L_VERB='--verbose';A_VERB='-verbose';
+   Q=''; QUIET='';
+   OUT=/dev/sdtout;ERR=/dev/stderr ;;
 f) OVER_RIDE=1;;
 l) CLI_P=`echo "$@" | tr ' ' '\n' |grep '^\-' |grep 'l' |tr -d 'l'|tr '\n' ' '|sed 's/- //g'`
    exec logsave -a /tmp/chooselocale.log "$0" $CLI_P;;
@@ -87,34 +90,35 @@ PARAM1=""
 . /etc/DISTRO_SPECS
 
 CURRLANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
-echo "CURRLANG='$CURRLANG'"
+_debug "CURRLANG='$CURRLANG'"
 
 UTF8=''
 [ "`echo -n "$CURRLANG" | grep 'utf8'`" != "" ] && UTF8='.utf8'
 
 BASELANG=`basename $CURRLANG .utf8`
-echo "BASELANG='$BASELANG'"
-basename $CURRLANG
-basename .utf8
-basename $CURRLANG .utf8
-basename "$CURRLANG .utf8"
-basename ${CURRLANG} ${UTF8}
-basename "${CURRLANG}${UTF8}"
+_debug "BASELANG='$BASELANG'"
+_debugx "`basename $CURRLANG`"
+_debugx "`basename .utf8`"
+_debugx "`basename $CURRLANG .utf8`"
+_debugx "`basename "$CURRLANG .utf8"`"
+_debugx "`basename ${CURRLANG} ${UTF8}`"
+_debug "`basename "${CURRLANG}${UTF8}"`"
 
 #exit
 
-CURRENTWM=`cat /etc/windowmanager`
+read CURRENTWM </etc/windowmanager
+
 XSTATUS="cli"
 [ -z $DISPLAY ] || XSTATUS="x"
 [ $1 ] && XSTATUS="cli"
-echo XSTATUS=$XSTATUS
+_debug "XSTATUS='$XSTATUS'"
 
 if [ "$XSTATUS" != "x" ];then
  echo -n -e " \\033[1;35mplease wait...\\033[0;39m" #purple text.
 fi
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
- [ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >$OUTPUT
+ [ ! -d /usr/lib/locale/en_US ] && localedef $VERB -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
  #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >$OUT
 fi
 
@@ -123,24 +127,42 @@ REGIONDESCR='AA:ArabicCountries AE:UAE AL:Yugoslavia AR:Argentina AT:Austria AU:
 
 #if [ ! -f /usr/share/i18n/dialog_table ];then
 if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
- CHOICES=""; ON=""; OFF=""; XPID=""
+ CHOICES=""; ON=""; OFF=""; xPID=""
  if [ "$XSTATUS" = "x" ];then
   ON="on"
   OFF="off"
-  xmessage -bg orange -fg black -center -buttons "" "Please wait, processing..." &
-  XPID=$!
+  xmessage -title "CHOOSELOCALE" -bg orange -fg black -center -buttons "" "Please wait, processing..." &
+  xPID=$!
  fi
- ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX' || { echo SOMETHING WRONG;kill $XPID;exit 1; }
- echo -n "oneLOCALE="
+
+ ls -1 /usr/share/i18n/locales | grep $Q -v -E 'i18n|iso|translit|POSIX' || { _err "SOMETHING WRONG"; kill $xPID; exit 1; }
+
  for oneLOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
  do
- #echo -n "oneLOCALE='$oneLOCALE' "
- echo -n "'$oneLOCALE' "
+ _debugx "'$oneLOCALE' "
   STATUS="off"
   [ "$oneLOCALE" = "$BASELANG" ] && STATUS="on"
-  echo "$STATUS"
-  LANGUAGE=`echo -n "$oneLOCALE" | cut -f 1 -d '_'`
-  REGION=`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`
+  _debugx "$STATUS"
+
+   LOC=${oneLOCALE//[.@]*/}
+
+  #LANGUAGE=`echo -n "$oneLOCALE" | cut -f 1 -d '_'`
+  #LANGUAGE=`echo -n "$oneLOCALE" | awk -F'[_@.]' '{print $1}'`
+  #LANGUAGE="${oneLOCALE%%_*}"
+
+  # LANGUAGE="${LANGUAGE:0:2}"
+  #be_BY@latin
+  #ber_DZ
+
+   LANGUAGE=${LOC%%_*}
+
+  #  REGION=`echo -n "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`
+  #  REGION=`echo -n "$oneLOCALE" | awk -F'[_@.]' '{print $2}'`
+  #  REGION="${oneLOCALE:3:2}"
+  #  REGION=`echo ${oneLOCALE#*_}
+
+     REGION=${LOC##*_}
+
   lPATTERN="^${LANGUAGE}:"
   LANGUAGE=`echo "$LANGUAGEDESCR" | tr ' ' '\n' | grep "$lPATTERN" | head -n 1 | cut -f 2 -d ':'`
   rPATTERN="^${REGION}:"
@@ -148,16 +170,17 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
   [ "$LANGUAGE" != "" ] && { [ "$REGION" != "" ] && LANGUAGE="${LANGUAGE}, "; }
   DESCR="${LANGUAGE}${REGION}"
   #[ "$DESCR" != "" ] && DESCR="(${DESCR})"
+
   if [ "$STATUS" = "on" ];then
    FIRSTLINE="$oneLOCALE \"${DESCR}\" ${ON}"
-   echo "FIRSTLINE='$FIRSTLINE'";echo
+   _debug "FIRSTLINE='$FIRSTLINE'";echo
   else
    CHOICES="$CHOICES $oneLOCALE \"${DESCR}\" ${OFF}"
   fi
  done
  CHOICES="${FIRSTLINE} ${CHOICES}"
  echo -n "$CHOICES" > /usr/share/i18n/dialog_table_${XSTATUS} #w478
- [ "$XPID" != "" ] && kill $XPID
+ [ "$xPID" != "" ] && kill $xPID
 else
  CHOICES=`cat /usr/share/i18n/dialog_table_${XSTATUS}` #w478
 fi
@@ -178,21 +201,21 @@ else
 dialog --aspect 10 --title \"Country setup\" --menu \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 0 0 ${CHOICES} 2>/tmp/chooselocale-choice
 exit \$?" > /tmp/xdialog-chooselocale
 fi
-chmod 777 /tmp/xdialog-chooselocale
-[ "$VERBOSE" -o "$DEBUG" ] && { read -p "Press ENTER to continue" CONT_KEY;echo; }
+chmod $VERB 0777 /tmp/xdialog-chooselocale
+[ "$VERBOSE" -o "$DEBUG" ] && { read -p "Press ENTER to continue" CONT_KEY; echo; }
 /tmp/xdialog-chooselocale
-[ $? -ne 0 ] && exit
+[ $? -ne 0 ] && exit 49
 
 LANGCHOICE=`cat /tmp/chooselocale-choice | head -n 1`
-
 UTF8CHOICE=`cat /tmp/chooselocale-choice | tail -n 1`
 UTF8=''
+
 if [ "$UTF8CHOICE" = "checked" ];then
  UTF8='.utf8'
  #if the user has chosen something like nl_BE@euro, need to chop...
  [ "$OVER_RIDE" ] || LANGCHOICE=`echo -n "$LANGCHOICE" | cut -f 1 -d '@'`
 fi
-echo LANGCHOICE=$LANGCHOICE
+_debug "LANGCHOICE='$LANGCHOICE'"
 RETVAL=0
 if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
 
@@ -201,6 +224,7 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
  OLDLANG="LANG=$CURRLANG"
  NEWLANG="LANG=${LANGCHOICE}"
  [ "$UTF8" != "" ] && NEWLANG="LANG=${LANGCHOICE}"'.utf8'
+
  if [ "`locale -a | grep -x "${LANGCHOICE}${UTF8}"`" = "" ];then
   if [ "$UTF8" = "" ];then
    lcPATTERN='^'"${LANGCHOICE}"' '
@@ -210,12 +234,12 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
     [ "`ls -1 /usr/share/i18n/charmaps | grep "$cPATTERN"`" = "" ] && CHARMAP=""
    fi
    if [ "$CHARMAP" != "" ];then
-    localedef $VERBOSE -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} > $OUTPUT
+    localedef $VERB -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} > $OUT
     RETVAL=$?
     NEWLANG="LANG=${LANGCHOICE}"
    else
     #no match, i think forced to use utf8...
-    localedef $VERBOSE -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUTPUT
+    localedef $VERB -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
     RETVAL=$?
     NEWLANG="LANG=${LANGCHOICE}.utf8"
     UTF8='.utf8'
@@ -224,19 +248,26 @@ if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
    #CHARMAP=`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`
    #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
-   localedef $VERBOSE -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUTPUT
+   localedef $VERB -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >$OUT
    RETVAL=$?
    NEWLANG="LANG=${LANGCHOICE}.utf8"
   fi
  fi
- echo "RETVAL='$RETVAL'"
+
+_debug "RETVAL='$RETVAL'"
+
 if [ "$RETVAL" = "0" ] ; then #+++returnvalue of localedef
 
  if [ "$OLDLANG" != "$NEWLANG" ];then
   langPATTERN="s/${OLDLANG}/${NEWLANG}/"
   sed -e "$langPATTERN" /etc/profile > /tmp/profile
-  cp -f /tmp/profile /etc/profile
- fi
+  [ "$?"  = 0 ] && { cp $VERB -f /tmp/profile /etc/profile || true; } || {
+      xmessage -title "CHOSELOCALE" -bg red 'SOMETHING WENT WRONG
+      while altering /etc/profile ...
+      Please check out /tmp/profile ..?'
+     exit 10
+    }
+  fi
 
  [ "$XSTATUS" != "x" ] && exit $RETVAL
 
@@ -244,7 +275,7 @@ if [ "$RETVAL" = "0" ] ; then #+++returnvalue of localedef
 
  if [ $? -eq 0 ];then
   rm -rf /tmp/.X0-lock
-  sync
+  pidof sync >$OUT || sync
   exec restartwm $CURRENTWM
  fi
 
@@ -253,7 +284,7 @@ if [ "$XSTATUS" != 'x' ] ; then
 echo -e "\n\n\n\e[0;31m""The `which localedef` bianary returned '$RETVAL' .
 Defaulted to en_US ."
 else
-xmessage -bg red "The `which localedef` bianary returned '$RETVAL' .
+xmessage -title "CHOOSELOCALE" -bg red "The `which localedef` bianary returned '$RETVAL' .
 Defaulted to en_US ."
 fi
 fi #endif returnvalue of localedef
