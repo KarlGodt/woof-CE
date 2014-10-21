@@ -106,9 +106,9 @@ Version='1.1 Macpup_F3-Puppy-Linux-430/2 KRG'
 
 _usage(){
 MSG="
-$0 [-V [-[-]]version | -h [-[-]]help | check]
+$0 [-V|version] [-h|help] [check]
 Bootupscript to load kernel drivers,
-update,set network and drives,set locale
+update,set network and drives,
 and much more . Without it,
 the kernel does not do anything.
 
@@ -119,15 +119,16 @@ check : Run this script in 'set -n' mode; disabling DISPLAY exit.
 echo "$MSG"
 exit $1
 }
-[ "`echo "$1" | grep -iE '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nUse help parameter for more info\n"; exit 0; }
-[ "`echo "$1" | grep -iE '\-h|help'`" ]    && _usage 0
-#[ "$1" ] && _usage 1
-if [ "$1" = check ]; then
-set -n
-elif [ "$1" ]; then _usage 1  ###+-+2013-03-20
-else
-[ "$DISPLAY" ] && exit 1
-fi
+#[ "`echo "$1" | grep -iE '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nUse help parameter for more info\n"; exit 0; }
+#[ "`echo "$1" | grep -iE '\-h|help'`" ]    && _usage 0
+
+case "$1" in
+*check*)  set -n;;
+"") [ "$DISPLAY" ] && _exit 1 "Should only run once by init";;
+*help|-h) _usage 0;;
+*version|-V) echo -e "\n$0: Version '$Version'\nUse help parameter for more info\n"; exit 0;;
+*) _usage 1;;
+esac
 ##+++2012-05-08
 
 _file_system_state(){
@@ -217,11 +218,11 @@ _loadswap() { #w481 made into a function.
  SWAPS=`fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
  if [ "$SWAPS" ]; then
  #load a swap partition...
-  for ONESWAP in $SWAPS
+  for oneSWAP in $SWAPS
  do
-  [ "`blkid $ONESWAP | grep -iE 'Resume|Hiber'`" ] && continue
-  echo -en " \\033[1;33m${ONESWAP##*/}\\033[0;39m" >/dev/console
-  swapon $ONESWAP
+  [ "`blkid $oneSWAP | grep -iE 'Resume|Hiber'`" ] && continue
+  echo -en " \\033[1;33m${oneSWAP##*/}\\033[0;39m" >/dev/console
+  swapon $oneSWAP
   SWAP_STATUS=$((SWAP_STATUS+$?))
   [ $SWAP_STATUS -eq 0 ] && SWAPON="yes"
  done
@@ -259,18 +260,18 @@ STATUS=0
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 
 if [ "$PUPMODE" = 2 ]; then
- busybox mount -o remount,rw /dev/root /; STATUS=$(($STATUS+$?))
+ busybox mount $VERB $VERB -o remount,rw /dev/root /; STATUS=$(($STATUS+$?))
  test -d /etc/rc.d || mkdir -p /etc/rc.d
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 
 #redirect all output to a log file (must do after remount rw)...
-exec 1>/tmp/bootsysinit.log 2>&1
+exec 1>>/tmp/bootsysinit.log 2>&1
 echo "MAKE FILESYSTEM USABLE"
 
 test -d /proc || mkdir -p /proc
-test -f /proc/mounts || { busybox mount -t proc proc /proc; STATUS=$(($STATUS+$?)); }
-grep -q ' /proc ' /proc/mounts || { busybox mount -t proc proc /proc; STATUS=$(($STATUS+$?)); }
+test -f /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$(($STATUS+$?)); }
+grep $Q ' /proc ' /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$(($STATUS+$?)); }
 
 ##+++2012-01-29
 echo -e '\033[1;34m'"Opening additional rescue console on Alt+F11.."'\033[0;39m'  >/dev/console
@@ -293,13 +294,13 @@ echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 rm -f /etc/mtab
 ln -s /proc/mounts /etc/mtab
 
-out=/dev/null; err=$out; Q=-q
+OUT=/dev/null; ERR=$OUT; Q=-q; QUIET=--quiet
 [ "$debug" ] && DEBUG="$debug"
 [ "$DEBUG" ] || DEBUG=`grep -io 'debug' /proc/cmdline`
-[ "$DEBUG" ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=''; out=/dev/stdout; err=/dev/stderr; }
+[ "$DEBUG" ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=''; QUIET=''; OUT=/dev/stdout; ERR=/dev/stderr; }
 
 test -d /sys || mkdir -p /sys
-grep $Q ' /sys ' /proc/mounts || { busybox mount -t sysfs sysfs /sys; STATUS=$(($STATUS+$?)); }
+grep $Q ' /sys ' /proc/mounts || { busybox mount $VERB $VERB -t sysfs sysfs /sys; STATUS=$(($STATUS+$?)); }
 [ "$DEBUG" ] && echo "STATUS='$STATUS'"
 
 mountpointDEV='';
@@ -314,7 +315,7 @@ mdev -s || haveMDEV='';
 ##+++2013-12-28
 
 test -d /dev/pts || mkdir -p /dev/pts
-grep $Q ' /dev/pts ' /proc/mounts || { busybox mount /dev/pts; STATUS=$(($STATUS+$?)); }
+grep $Q ' /dev/pts ' /proc/mounts || { busybox mount $VERB $VERB /dev/pts; STATUS=$(($STATUS+$?)); }
 
 #w478 moved this code above call to rc.update...
 KERNEL_RELEASE=`uname -r`
@@ -336,7 +337,7 @@ pfix=*)
         for item2 in $ITEMS; do
         case $item2 in
         nox)        echo 'nox' > /var/lock/X.status;;
-        xorgwizard) mv /etc/X11/xorg.conf /etc/X11/xorg.conf-"`date`";;
+        xorgwizard) mv $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-"`date`";;
         noswap)     SWAPON=yes;;  #fake value,dunno why for now
         noalsa)     echo 'noalsa' >/tmp/pup_event_alsa_cnt;;
         nofbcon)    NO_FBCON=1;;
@@ -377,7 +378,7 @@ fi
 _load_average '0x00'
 
 if grep $Q 'debugfs' /proc/filesystems; then
-busybox mount -t debugfs debugfs /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t debugfs debugfs /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
 [ "$DEBUG" ] && echo "STATUS='$STATUS'"
 #echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 #2.6.30.9-i586-dpup005-Celeron2G
@@ -390,7 +391,7 @@ if [ "$PUPMODE" = 2 ]; then
  FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
  QTRFREERAM=`expr $FREERAM \/ 4`
  mkdir -p /dev/shm
- busybox mount -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$(($STATUS+$?))
+ busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$(($STATUS+$?))
 fi
 
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
@@ -399,11 +400,11 @@ BOOTPARTITION=`echo "$LINKTARGET" | sed 's#/lib.*##'`
 if [ "$BOOTPARTITION" ]; then
 BOOTDRIVE=`echo "$BOOTPARTITION" | grep -o -E -e 'hd[a-z][0-9]*|sd[a-z][0-9]*'`
 if [ "$BOOTDRIVE" ]; then
-grep -w "$BOOTDRIVE" /proc/partitions || BOOTDRIVE='unknown'; fi
+grep $Q -w "$BOOTDRIVE" /proc/partitions || BOOTDRIVE='unknown'; fi
 if [ "$BOOTDRIVE" != 'unknown' ]; then
 BOOTPARTITION=`echo "$BOOTPARTITION" | sed 's#\(.*/[sh]d[a-z][0-9]*/\).*#\1#'`  #need to be like /mnt/sda1/
 mkdir -p "$BOOTPARTITION"
-mount /dev/$BOOTDRIVE "$BOOTPARTITION"
+mount $VERB $VERB /dev/$BOOTDRIVE "$BOOTPARTITION"
 fi; fi
 #__fsckme_func__
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
@@ -418,23 +419,23 @@ mkdir -p /etc/mult_kernels
 
 if test -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE; then
 #cp -f --remove-destination /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE /etc/modprobe.conf
-cp -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE /etc/modprobe.conf
+cp $VERB -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE /etc/modprobe.conf
 elif test -f /etc/modprobe.conf; then
-[ -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE ] || cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
+[ -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE ] || cp $VERB /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
 fi
 
 if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
 rm -f -r /etc/modprobe.d
-cp -f -r /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE /etc/modprobe.d
+cp $VERB -f -r /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE /etc/modprobe.d
 elif test -d /etc/modprobe.d; then
-[ -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE ] || cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE
+[ -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE ] || cp $VERB -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE
 fi
 
 [ -d /etc/mult_kernels/rc.d ] || mkdir /etc/mult_kernels/rc.d
 if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE ]; then
-cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+cp $VERB /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
 else
-cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE /etc/rc.d/MODULESCONFIG
+cp $VERB -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE /etc/rc.d/MODULESCONFIG
 fi; }; _modprobe_conf & ##-2011-11-07 just to be done in /sbin/init ##2012-01-13 not implemented there yet
 _load_average '1x0a'
 #_file_system_state 3
@@ -443,7 +444,7 @@ _etc_firmware_dep(){
 if test ! -f /etc/modules/firmware.dep.$KERNEL_RELEASE; then
 echo "copying firmware.dep" > /dev/console
 FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
-cp "$FWF" /etc/modules/firmware.dep.$KERNEL_RELEASE
+cp $VERB "$FWF" /etc/modules/firmware.dep.$KERNEL_RELEASE
 fi; }; _etc_firmware_dep &
 _load_average '1x0b'
 #_file_system_state 4
@@ -454,7 +455,7 @@ if test "$FWD" != ""; then
 [ -d /lib/firmware ] && rm -f /lib/firmware/firmware* ##+++2012-04-11
 BN=`basename $FWD`
 SN=${BN:0:8}
-cp -f -r "$FWD"/* /lib/$SN ##+++2012-04-11 to preserve alredy installed special firmware from all-modules directory #+2012-04-21 added /* to "$FWD" --happened before several times
+cp $VERB -f -r "$FWD"/* /lib/$SN ##+++2012-04-11 to preserve alredy installed special firmware from all-modules directory #+2012-04-21 added /* to "$FWD" --happened before several times
 fi; }; _lib_firmware
 _load_average '1x0c'
 #_file_system_state 5
@@ -462,7 +463,7 @@ _load_average '1x0c'
 _mkmissing_tty(){
 #test "$haveMDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
-[ -d /dev/vc ] || mkdir /dev/vc
+[ -d /dev/vc ]  || mkdir /dev/vc
 
 VTInittab=`grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
 for i in $VTInittab; do
@@ -474,7 +475,7 @@ done
 [ -c /dev/zero ] || { rm -f /dev/zero; mknod /dev/zero c 1 5; }
 [ -c /dev/null ] || { rm -f /dev/null; mknod /dev/null c 1 3; }
 
-[ -d /dev/pts ] || { rm -f /dev/pts; mkdir /dev/pts; }
+[ -d /dev/pts ]  || { rm -f /dev/pts; mkdir /dev/pts; }
 [ -c /dev/ptmx ] || { rm -f /dev/ptmx; mknod /dev/ptmx c 5 2; }
 
 for i in $(seq 0 4); do
@@ -483,7 +484,7 @@ done
 
 [ -d /dev/fb ] || mkdir /dev/fb
 for i in `seq 0 11`; do
-[ -c /dev/fb$i ] || mknod /dev/fb$i c 29 $i
+[ -c /dev/fb$i ]  || mknod /dev/fb$i c 29 $i
 [ -L /dev/fb/$i ] || ln -s ../fb$i /dev/fb/$i
 done
 }; _mkmissing_tty
@@ -662,10 +663,14 @@ funcUSER_SELECTED_MODULES(){
  do
   MPARAMS=""
   if [ "`echo -n "$MODULE" | tr ':' ' ' | wc -w`" -gt 1 ]; then
-   MPARAMS=`echo -n "$MODULE" | cut -f2- -d ':' | tr ':' ' '`
-   MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
+  #MPARAMS=`echo -n "$MODULE" | cut -f2- -d ':' | tr ':' ' '`
+   MPARAMS=${MODULE#*:}
+   MPARAMS=${MPARAMS//:/ }
+   #MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
+    MODULE=${MODULE%%:*}
   fi
-  MODULE=`echo "$MODULE" | tr '-' '_'`
+  #MODULE=`echo "$MODULE" | tr '-' '_'`
+  MODULE=${MODULE//-/_}
   echo -en " \\033[0;35m$MODULE\\033[0;39m" >/dev/console
   echo "Loading module $MODULE $MPARAMS"
   firmware_module_func #install firmware tarball. see functions4puppy4.
@@ -701,9 +706,9 @@ MODULECNT=0
 for oneMODALIAS in $MODALIASES
 do
  onePATH=${oneMODALIAS%/*}
- if [ -e ${onePATH}/uevent ]; then
+ if [ -e "${onePATH}/uevent" ]; then
   echo 'added '"${onePATH}/uevent" >> /tmp/bootmodules.txt
-  echo add > ${onePATH}/uevent #generates an 'add' uevent.
+  echo add > "${onePATH}/uevent" #generates an 'add' uevent.
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -ne "\\033[1;35m\r$MODULECNT\\033[0;39m" >/dev/console
@@ -725,13 +730,13 @@ if [ "$PUPMODE" = 2 ]; then
  #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
  modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
  unset BLOCK_SATAD USB_SATAD SATADRIVES ATADRIVES
- SATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
- for i in $SATADRIVES; do
- LinkTarget=`readlink -f /sys/block/$i`
+ SATADRIVES=`ls -1 /sys/block | grep '^sd'`
+ for _s_ in $SATADRIVES; do
+ LinkTarget=`readlink -f /sys/block/$_s_`
   if test "`echo $LinkTarget | grep 'usb'`" != ""; then
-  USB_SATAD="$USB_SATAD $i"
+  USB_SATAD="$USB_SATAD $_s_"
   else
-  BLOCK_SATAD="$BLOCK_SATAD $i"
+  BLOCK_SATAD="$BLOCK_SATAD $_s_"
   fi
  done
  if [ -e /proc/ide ]; then
@@ -820,29 +825,29 @@ fi
 #gets generated (yes it happens in 2.6.25.x kernel!)
 
 _retrigger_modalias(){
-[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`
-[ -e /sys/bus/usb/devices ] && NEWUSB=`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`
- for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA=`ls -1v /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`
+[ -e /sys/bus/usb/devices ]    &&    NEWUSB=`ls -1v /sys/bus/usb/devices/*/modalias    | tr '\n' ' '`
+ for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="${ONEMODALIAS%/*}"
-  if [ -e ${ONEPATH}/uevent ]; then
-   echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
-   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  onePATH="${oneMODALIAS%/*}"
+  if [ -e "${onePATH}/uevent" ]; then
+   echo 'added '"${onePATH}" >> /tmp/bootmodules.txt
+   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
    sleep 0.02
   fi
  done
 }
 _retrigger_uevent(){
-[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA=`ls /sys/bus/pcmcia/devices/*/uevent 2>$err | tr '\n' ' '`
-[ -e /sys/bus/usb/devices ] && NEWUSB=`ls /sys/bus/usb/devices/*/uevent 2>$err | tr '\n' ' '`
-[ -e /sys/bus/ssb/devices ] && NEWSSB=`ls /sys/bus/ssb/devices/*/uevent 2>$err | tr '\n' ' '`
-for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
+[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA=`ls -1v /sys/bus/pcmcia/devices/*/uevent 2>>$ERR | tr '\n' ' '`
+[ -e /sys/bus/usb/devices ]    &&    NEWUSB=`ls -1v /sys/bus/usb/devices/*/uevent    2>>$ERR | tr '\n' ' '`
+[ -e /sys/bus/ssb/devices ]    &&    NEWSSB=`ls -1v /sys/bus/ssb/devices/*/uevent    2>>$ERR | tr '\n' ' '`
+for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="${ONEUEVENT%/*}"
+  onePATH="${oneUEVENT%/*}"
   #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e ${ONEPATH}/modalias ] && [ "`grep 'MODALIAS' $ONEUEVENT`" = "" ] && continue
-  echo 'added '"${ONEUEVENT}" >> /tmp/bootmodules.txt
-  echo add > $ONEUEVENT
+  [ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
+  echo 'added '"${oneUEVENT}" >> /tmp/bootmodules.txt
+  echo add > "$oneUEVENT"
   sleep 0.02
  done
 }
@@ -956,7 +961,7 @@ fi
 case $KERNEL_RELEASE in
 2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
 mkdir -p /proc/bus/usb  ##+++2013-03-21
-busybox mount -t usbfs none /proc/bus/usb;;
+busybox mount $VERB $VERB -t usbfs none /proc/bus/usb;;
 esac
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
@@ -973,7 +978,7 @@ bb_modprobe $VERB battery
 #fi
 
 #v411 can use old network wizard (from 403, based on 400)...
-CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>$err` #ex: eth0mode, wlan0mode.
+CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>>$ERR` #ex: eth0mode, wlan0mode.
 if [ "$CHECKOLDWIZ" != "" -a -d /usr/local/net_setup ]; then
  #note, old wizard is located in /usr/local/net_setup.
  /usr/local/net_setup/etc/rc.d/rc.network &
@@ -991,27 +996,27 @@ echo "RECOGNISE MEDIA DEVICES"
 echo -n "Recognising media devices..." >/dev/console
 #recognise optical drives...
 echo -n ' optical' >/dev/console
-OPTCNT=1; CDTYPE=""; DVDTYPE=""; CDBURNERTYPE=""
+opticalCNT=1; CDTYPE=""; DVDTYPE=""; CDBURNERTYPE=""
 OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`
-[ -L /dev/cdrom ] && CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
-[ -L /dev/dvd ] && DVDTYPE=`readlink /dev/dvd | cut -f 3 -d '/'`
+[ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
+[ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
 [ -f /etc/cdburnerdevice ] && CDBURNERTYPE=`cat /etc/cdburnerdevice`
-[ "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ] && CDTYPE="" #no longer exists.
+[ "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]  && CDTYPE=""  #no longer exists.
 [ "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
 [ "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
-for ONEOPTICAL in $OPTICALS
+for oneOPTICAL in $OPTICALS
 do
- ONENUM=`echo -n "$ONEOPTICAL" | cut -c 3`
- [ "$CDTYPE" = "" ] && CDTYPE="$ONEOPTICAL"
- [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$ONEOPTICAL"
- [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL"
- OPTCNT=`expr $OPTCNT + 1`
+ oneNUM=`echo -n "$oneOPTICAL" | cut -c 3`
+ [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL"
+ [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
+ [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
+ opticalCNT=`expr $opticalCNT + 1`
 done
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
-[ "$CDTYPE" ] && ln -sf /dev/$CDTYPE /dev/cdrom
+[ "$CDTYPE" ]  && ln -sf /dev/$CDTYPE  /dev/cdrom
 [ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
-[ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" > /etc/cdburnerdevice
-[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE >$out 2>&1
+[ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" >/etc/cdburnerdevice
+[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE >>$OUT 2>&1
 
 #w468 simplify...
 ##w463 i think time has come to dump the old 'psaux'. use /dev/input/mice for both usb
@@ -1026,7 +1031,7 @@ if [ -f /etc/mousedevice ]; then
 else
  echo "input/mice" > /etc/mousedevice
 fi
- test -d /dev/input || mkdir -p /dev/input
+ test -d /dev/input      || mkdir -p /dev/input
  test -c /dev/input/mice || mknod /dev/input/mice c 13 63
  ln -snf input/mice /dev/mouse
 
@@ -1044,7 +1049,7 @@ if [ "$PUPMODE" = "77" ]; then #77=multisession cd/dvd.
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
   cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
   sync
-  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
@@ -1054,8 +1059,8 @@ if [ "$PUPMODE" -eq 3 -o "$PUPMODE" -eq 7 -o "$PUPMODE" -eq 13 ]; then #pup_rw i
  if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "save2flash"`" = "" ]; then
   echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
   cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
-  sync
-  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  pidof sync >>$OUT || sync
+  cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
@@ -1068,7 +1073,7 @@ if [ -f /etc/rc.d/rc.local ]; then
  :
 else
  echo '#this file called from rc.sysinit' > /etc/rc.d/rc.local
- echo '#you can edit this file' >> /etc/rc.d/rc.local
+ echo '#you can edit this file'          >> /etc/rc.d/rc.local
  echo '#When firewall is installed, will append lines to this file...' >> /etc/rc.d/rc.local
 fi
 . /etc/rc.d/rc.local
@@ -1090,18 +1095,18 @@ fi; fi
 
 ### FSCKME ###
 if [[ $PUPMODE == 2 ]]; then
-RD=`basename $(rdev | cut -f 1 -d ' ') 2>$err`
-FS=`grep '^/dev/root' /proc/mounts | cut -f 3 -d ' '`
+RD=`basename $(rdev | cut -f 1 -d ' ') 2>>$ERR`
+FS=`grep '^/dev/root ' /proc/mounts | cut -f 3 -d ' '`
 #echo "$RD"','"$FS"',' > /etc/.fsckme.flg
-echo "$RD"','"$FS"',' > /var/lock/fsckme.flag
-echo "PDEV1='$RD'" >> /etc/rc.d/PUPSTATE
+echo "$RD"','"$FS"','  > /var/lock/fsckme.flag
+echo "PDEV1='$RD'"    >> /etc/rc.d/PUPSTATE
 fi
 ### FSCKME ###
 
 ### MKNODs ###
-[ -c /dev/ppp ] || mknod /dev/ppp c 108 0
+[ -c /dev/ppp ]   || mknod /dev/ppp c 108 0
 [ -L /dev/mouse ] || ln -s /dev/input/mice /dev/mouse
-[ -c /dev/mem ] || mknod /dev/mem c 1 1
+[ -c /dev/mem ]   || mknod /dev/mem c 1 1
 [ -L /dev/modem ] || { MODEM=`dmesg | grep -i 'MODEM' |grep 'attached' |head -n1 |rev |awk '{print $1}' |rev`; [ "$MODEM" ] && ln -s $MODEM /dev/modem; }
 ### MKNODs ###
 
@@ -1133,7 +1138,7 @@ funcPUPPY_UDEV_HELPER &
 
 ### capture bootscreen ###
 [ -e /dev/vcs1 ] || { mknod /dev/vcs1 c 7 1; sleep 1; }
-cat /dev/vcs1 >/tmp/vcs1.txt
+cat /dev/vcs1   >/tmp/vcs1.txt
 echo -e "\n\n" >>/tmp/vcs1.txt
 #vesafb: mode is 1280x1024x32, linelength=5120, pages=0
 #Console: switching to colour frame buffer device 160x64
