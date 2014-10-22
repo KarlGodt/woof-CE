@@ -1,14 +1,31 @@
-#!/bin/ash
+#!/bin/ash +e
 # Karl Reimer Godt in June 2012
 # usual Puppy license
 Version='1.1 Puppy_Macpup-Foxy3 KRG'
 echo "$0:$Version:$*"
 . /etc/rc.d/f4puppy5
 
+# Power button pressed 5 times in 10 seconds : poweroff force
+_check_if_already_running ${0##*/} || {
+ [ -f /tmp/acpi_button_count ] && {
+     read BUTTONcnt </tmp/acpi_button_count
+     BUTTONcnt=$((BUTTONcnt+1))
+     echo $BUTTONcnt >/tmp/acpi_button_count
+     true
+    } || echo 2 >/tmp/acpi_button_count
+  [ "$BUTTONcnt" = 5 ] && {
+      ( sleep 2; killall -9 ${0##*/} ) &
+      exec /sbin/poweroff force
+  }
+  sleep 10
+  rm -f /tmp/acpi_button_count
+  exit 1
+}
+
 test "$DISPLAY" || export DISPLAY=':0'
 
 aplay /usr/share/audio/2barks.au
-xmessage -title "POWERBUTTON ACKNOWLEDGE" -timeout 10 "HELLO from $0 |:+)-"
+xmessage -title "POWERBUTTON ACKNOWLEDGE" -timeout 10 "HELLO from `pwd`/$0"
 
 _usage(){
 MSG="
@@ -39,18 +56,19 @@ $2
 fi
 echo "$MSG"
 [ "$DISPLAY" ] && xmessage -title "POWERBUTTON HELP" -bg blue3 -fg white "$MSG"
+rm -f /tmp/acpi_button_count
 exit $1
 }
 
 case $1 in
 *help) _usage 0;;
-*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f /tmp/acpi_button_count;exit 0;;
 "") :;;
 *force) :;; #from enlightenment Bereitschaftsmodus
 *) _usage 1 "Unknown Parameter '$1'";;
 esac
 echo 52
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 echo 54
 
 _loop_umount_func(){
@@ -64,7 +82,7 @@ for mloop_ in $M_LOOP;
 do
     yaf-splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
     /bin/umount $VERB -r "$mloop_"
-[ $? -ne 0 ] && { xmessage -title "POWERBUTTON LOOP UMOUNT FAIL" -bg red2 "Please umount '$mloop_' manually and try again";exit 0; }
+[ $? -ne 0 ] && { xmessage -title "POWERBUTTON LOOP UMOUNT FAIL" -bg red2 "Please umount '$mloop_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
     sleep 1
     kill $yPID
 done
@@ -131,7 +149,7 @@ do
     esac
 
     /bin/umount $VERB -r "$mpart_"
-[ $? -ne 0 ] && { xmessage -title "POWERBUTTON UMOUNT FAIL" -bg red2 "Please umount '$mpart_' manually and try again";exit 0; }
+[ $? -ne 0 ] && { xmessage -title "POWERBUTTON UMOUNT FAIL" -bg red2 "Please umount '$mpart_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
 
     ## Solution Nr. 2 Reasonable sleep :
     #case $mpart_ in
@@ -155,6 +173,7 @@ do
            Exiting ${PWD}/${0}."
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
            xmessage -bg red -title "$MY_SELF" "$MSG"
+           rm -f /tmp/acpi_button_count
            exit 5
       }
       yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
@@ -262,6 +281,137 @@ done
 }
 echo 96
 
+_set_usb_power_sysfs_values(){
+
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+OTH_WAKEUP_ENABLED=1
+
+local KBD_CONTROL MOU_CONTROL OTH_CONTROL
+KBD_CONTROL=on
+MOU_CONTROL=auto
+OTH_CONTROL=auto
+
+local KBD_DELAY KBD_DELAY_MS MOU_DELAY MOU_DELAY_MS OTH_DELAY OTH_DELAY_MS
+KBD_DELAY=360  # seconds
+KBD_DELAY_MS=$((KBD_DELAY*1000))
+MOU_DELAY=360  # seconds
+MOU_DELAY_MS=$((MOU_DELAY*1000))
+OTH_DELAY=360  # seconds
+OTH_DELAY_MS=$((OTH_DELAY*1000))
+
+
+ls -1d /sys/bus/usb/devices/*/power/ | while read oneD;
+do
+  [ -f "$oneD"/control ] || continue  #+++2.6.34
+  [ -f "$oneD"/level   ] || continue  #+++2.6.22 level and control same
+  [ -f "$oneD"/wakeup  ] || continue  #
+     #2.6.21/2.6.22            #2.6.37/2.6.38
+  [ -f "$oneD"/autosuspend -o -f "$oneD"/autosuspend_delay_ms ] || continue
+
+ _debug "oneD='$oneD'"
+
+ if [ -f "$oneD/../uevent" ]; then
+  _debug "`cat "$oneD"/../uevent`"
+  source "$oneD/../uevent"
+ fi
+ if [ -f "$oneD/../product" ]; then
+  _debug "`cat "$oneD"/../product`"
+  grep $Q -Ei 'Keyboard'          "$oneD/../product" && IS_KBD=YES
+  grep $Q -Ei 'Mouse|Transceiver' "$oneD/../product" && IS_MOU=YES
+ fi
+ if [ -f "$oneD/../interface" ]; then
+  _debug "`cat "$oneD"/../interface`"
+  grep $Q -Ei 'Keyboard'          "$oneD/../interface" && IS_KBD=YES
+  grep $Q -Ei 'Mouse|Transceiver' "$oneD/../interface" && IS_MOU=YES
+ fi
+
+ _debugx "$(ls -1v "$oneD"/* | while read oneF; do [ -f "$oneF" ] || continue; echo -n "$oneF"':';cat "$oneF"; done)"
+
+
+  read HAVE_WAKEUP <"$oneD"/wakeup
+
+   if [ "$IS_KBD" ]; then
+  case $HAVE_WAKEUP in
+  enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+  esac
+
+ elif [ "$IS_MOU" ]; then
+  case $HAVE_WAKEUP in
+  enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for '$oneD'";;
+  esac
+
+ else
+  case $HAVE_WAKEUP in
+  enabled)   [ "$OTH_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$OTH_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for '$oneD'";;
+  esac
+  fi
+
+  read HAVE_CONTROL <"$oneD"/control
+
+    if [ "$IS_KBD" ]; then
+   case $HAVE_CONTROL in
+   on)    [ "$KBD_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$KBD_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+
+  elif [ "$IS_MOU" ]; then
+   case $HAVE_CONTROL in
+   on)    [ "$MOU_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$MOU_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+
+  else
+   case $HAVE_CONTROL in
+   on)    [ "$OTH_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$OTH_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+  fi
+
+  read HAVE_LEVEL <"$oneD"/level
+  _debug "HAVE_LEVEL='$HAVE_LEVEL'"
+
+  if [ -f "$oneD"/autosuspend ] ; then
+   read HAVE_DELAY <"$oneD"/autosuspend
+   _debug "HAVE_DELAY='$HAVE_DELAY'"
+
+   if [ "$IS_KBD" ]; then
+    [ "$KBD_DELAY" = $HAVE_DELAY ] || echo $KBD_DELAY >"$oneD"/autosuspend
+   elif [ "$IS_MOU" ]; then
+    [ "$MOU_DELAY" = $HAVE_DELAY ] || echo $MOU_DELAY >"$oneD"/autosuspend
+   else
+    [ "$OTH_DELAY" = $HAVE_DELAY ] || echo $OTH_DELAY >"$oneD"/autosuspend
+   fi
+
+  elif [ -f "$oneD"/autosuspend_delay_ms ]; then
+   read HAVE_DELAY <"$oneD"/autosuspend_delay_ms
+   _debug "HAVE_DELAY='$HAVE_DELAY'"
+
+   if [ "$IS_KBD" ]; then
+    [ "$KBD_DELAY_MS" = $HAVE_DELAY ] || echo $KBD_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   elif [ "$IS_MOU" ]; then
+    [ "$MOU_DELAY_MS" = $HAVE_DELAY ] || echo $MOU_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   else
+    [ "$OTH_DELAY_MS" = $HAVE_DELAY ] || echo $OTH_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   fi
+  fi
+
+  unset HAVE_WAKEUP HAVE_CONTROL HAVE_LEVEL HAVE_DELAY IS_KBD IS_MOU
+
+ echo
+done
+
+local HAVE_WAKEUP HAVE_CONTROL HAVE_LEVEL HAVE_DELAY IS_KBD IS_MOU
+}
+_set_usb_power_sysfs_values
+
 ACPITOOL=`which acpitool`
 states_avail=`cat /sys/power/state`
 states_avail_=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation on disk!;s!mem!S3 PM_SLEEP in mem!;s!standby!S1 Stand By!'`
@@ -301,6 +451,7 @@ Note : Timesout in 30 seconds to poweroff normally."
 ANSWER=$?
 echo 113
 if [ "$ANSWER" = 200 ];then
+rm -f /tmp/acpi_button_count
 exit 0
 
 elif [ "$ANSWER" = 203 ];then
@@ -319,13 +470,14 @@ grep $Q -w no_console_suspend /proc/cmdline && {
 echo N >/sys/module/printk/parameters/console_suspend
 return $?
  }
+return $?
 }
 _handle_no_console_suspend    ##2014-10-18
 
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 _loop_umount_func
 _part_umount_func
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 sleep 1
 
    if [ "$ACPITOOL" ];then
@@ -340,10 +492,10 @@ _restore_mounts
 
 
 elif [ "$ANSWER" = 204 ];then
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 _loop_umount_func
 _part_umount_func
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 sleep 1
 
    #if [ "$ACPITOOL" ];then
@@ -368,7 +520,7 @@ sleep 1
       swapon $RESUME
       fi
 
-      pidof sync || sync
+      pidof sync >>$OUT || sync
       sleep 1
 
       if [ "$ACPITOOL" ];then
@@ -402,12 +554,13 @@ elif [ "$ANSWER" = 188 ]; then  #standby
 elif [ "$ANSWER" = 190 ]; then  #freeze
     echo freeze >/sys/power/state
 
-else
+else # timeout 0, error 1
  unset DISPLAY
  if test "`pidof X`"; then
  wmpoweroff force
  sleep 5
- pidof poweroff rc.shutdown >$OUT || exec /sbin/poweroff force
+ pidof poweroff rc.shutdown >>$OUT || exec /sbin/poweroff force
+ rm -f /tmp/acpi_button_count
  exit $?
  else
  exec /sbin/poweroff force
@@ -426,4 +579,5 @@ xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter sl
 *) :;;
 esac
 
+rm -f /tmp/acpi_button_count
 exit 0
