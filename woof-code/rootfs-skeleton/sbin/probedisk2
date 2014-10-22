@@ -80,7 +80,7 @@ function_size(){
 }
 
 function_partitions(){
-  PARTITIONS=`ls -1 /sys/class/block/$oneDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
+  PARTITIONS=`LC_ALL=C ls -1v /sys/class/block/$oneDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
 }
 
 ###KRGMon Jul  8 22:35:19 GMT+1 2013
@@ -97,7 +97,7 @@ if [ -f $HOME/.pup_event/usb-drive-log-probedisk ];then #force /proc upate mecha
  for oneUSBDRV in `cat $HOME/.pup_event/usb-drive-log-probedisk`
  do
   #disktype /dev/$oneUSBDRV > /dev/null 2>&1
-  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >$OUT 2>$ERR #v4.01 faster.
+  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #v4.01 faster.
  done
 fi
 [ "$DEBUGT" ] && date +%N >&2
@@ -118,25 +118,21 @@ for oneDRV in $ALLDRVS
 do
   case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
-     #MEDIA=`cat /proc/ide/$oneDRV/media`
      read MEDIA </proc/ide/$oneDRV/media
-     [ "$MEDIA" = "disk" ] && MEDIA="drive"
+     [ "$MEDIA" = "disk" ]  && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
-     #INFO=`cat /proc/ide/$oneDRV/model`
      read INFO </proc/ide/$oneDRV/model
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
-     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
      read VENDOR </sys/block/$oneDRV/device/vendor
-     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
      read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$oneDRV" | cut -b 1-3` "
 
      #log if usb drive (not a sata drive)... v4.01...
-     #if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$oneDRV"`" = "" ];then
-      if [ "`/bin/find /sys/devices -name "$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
+      #if [ "`/bin/find /sys/devices -name "$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
+      if [ "`readlink -f "/sys/block/$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
       MEDIA="usbdrv" #v4.01
       echo "$oneDRV" >> $HOME/.pup_event/usb-drive-log-probedisk
       sort -u $HOME/.pup_event/usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
@@ -154,7 +150,6 @@ do
      else
       #find out if it is a removable internal drive (zip, ls120, etc)...
       if [ -e /sys/block/${oneDRV}/removable ];then
-       #[ "`cat /sys/block/${oneDRV}/removable`" = "1" ] && MEDIA="floppy"
        grep $Q -w '1' /sys/block/${oneDRV}/removable && MEDIA="floppy"
       fi
      fi
@@ -162,9 +157,7 @@ do
    ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="optical"
-     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
      read VENDOR </sys/block/$oneDRV/device/vendor
-     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
      read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
    ;;
@@ -181,38 +174,9 @@ do
    ;;
   esac
 
-  function_size(){
-  if [ -f /sys/block/$oneDRV/size ] ; then
-  read blocks_512 </sys/block/$oneDRV/size
-  blocks_1024=$(($blocks_512/2))
-  blocks_1000=$(($blocks_512 * 512 / 1000 ))
-   if [ "$blocks_1024" -gt $((1024*1024)) ] ; then
-   #GB
-   SIZE_I=$(( $blocks_1024 / 1024 / 1024 ))
-   SIZE_K=$(( $blocks_1000 / 1000 / 1000 ))
-   SIZES="${SIZE_K}/${SIZE_I} G"
-   elif [ "$blocks_1024" -gt 1024 ] ; then
-   SIZE_I=$(( $blocks_1024 / 1024 ))
-   SIZE_K=$(( $blocks_1000 / 1000 ))
-   SIZES="${SIZE_K}/${SIZE_I} M"
-   else
-   SIZE_I=$blocks_1024
-   SIZE_K=$blocks_1000
-   SIZES="${SIZE_K}/${SIZE_I} K"
-   fi
-  else
-  SIZES='not available'
-  fi
-  }
-
-  function_partitions(){
-  PARTITIONS=`LC_ALL=C ls -1 /sys/class/block/$oneDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
-  }
-
   INFO=`echo "$INFO" | sed '/^$/d'`
   [[ -z "$INFO" ]] && INFO="SorryDiskWontTell"
 
-  #echo -e "/dev/$oneDRV|$MEDIA|$INFO|$SIZES|$PARTITIONS"
      if  test "$SIZES" -a "$PARTITIONS"; then
    echo "/dev/$oneDRV|$MEDIA|$INFO|$SIZES|$PARTITIONS"
    elif  test "$SIZES"; then
@@ -226,8 +190,8 @@ do
 
 done
 [ "$DEBUGT" ] && date +%N    >&2
+
 #mounted drives/partitions...
-#MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
 MNTDDEVS=`awk -F'/' '/^\/dev\// {print $3}' /proc/mounts | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
 
 #find out if a mounted device has been unplugged...
