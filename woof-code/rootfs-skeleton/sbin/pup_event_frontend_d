@@ -131,11 +131,11 @@ _make_restart(){
 echo '#!/bin/ash
 sleep 5
 exec pup_event_frontend_d restart
-'       >/tmp/restart_pup_event_frontend_d
-chmod +x /tmp/restart_pup_event_frontend_d
-exec     /tmp/restart_pup_event_frontend_d &
+'             >/tmp/restart_pup_event_frontend_d
+chmod $VERB +x /tmp/restart_pup_event_frontend_d
+exec           /tmp/restart_pup_event_frontend_d &
 sleep 1
-rm       /tmp/restart_pup_event_frontend_d
+rm             /tmp/restart_pup_event_frontend_d
 }
 #trap "_make_restart;exit 0" HUP
 
@@ -212,7 +212,7 @@ __old_stop_func__(){
  else
 return "$?";fi; }
 
-DEBUG=1
+#DEBUG=1
 stop_func(){
  local aPID
  _debug "\$\$='$$'"
@@ -285,27 +285,27 @@ fi
 
 ################# ORIG #####################################
 #v424 experiment, automatic unmounting...
-funcauto_unmount(){
+_auto_unmount(){
  #for ONEMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
  for oneMNTPT in `grep '^/dev/[fhms][md]' /proc/mounts | grep -vE '^/dev/md|/initrd/' | awk '{print $2}'`
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
-   sync
-   /bin/umount "$oneMNTPT"; umVAL=$?
+   pidof sync >>$OUT || sync
+   /bin/umount $VERB "$oneMNTPT"; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ "$umVAL" -ne 0 ];then
     ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
     for oneZOMBIE in $ZOMBIES
     do
-     /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE 2>$ERR
+     /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE 2>>$ERR
     done
-    /bin/umount -r "$oneMNTPT"; umVAL=$?
+    /bin/umount $VERB -r "$oneMNTPT"; umVAL=$?
    fi
   fi
  done
 }
 
-funcfree_initrd(){
+_free_initrd(){
 #UniPup, runs entirely in initramfs.
 
  __old_freekm__(){
@@ -328,7 +328,7 @@ funcfree_initrd(){
  echo "$SIZEFREEM" >/tmp/pup_event_sizefreem
 }
 
-funcfree(){
+_free(){
 #called every 4 seconds.
  case $PUPMODE in
   6|12) #frugal to whole partition|frugal to save-file (on HDD)
@@ -343,7 +343,7 @@ funcfree(){
  [ $PREVSIZEFREEM -eq $SIZEFREEM ] && return
  if [ $SIZEFREEM -lt 10 ];then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   funcdelete /initrd/pup_rw #save layer is at top, delete mods.
+   _delete /initrd/pup_rw #save layer is at top, delete mods.
   else
    WARNMSG="WARNING: Personal storage getting full, strongly recommend you resize it or delete files!"
   fi
@@ -368,7 +368,7 @@ funcfree(){
  fi
 }
 
-funcfree_flash(){
+_free_flash(){
 #PUPMODE 3,7,13. called every 4 seconds. 3=full on internal flash, 7 frugal to whole partition, 13=frugal to save-file
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
@@ -379,10 +379,10 @@ funcfree_flash(){
 
  if [ $SIZEFREEM -lt 10 ]; then
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   funcdelete /initrd/pup_ro1 #delete modules in save layer only.
+   _delete /initrd/pup_ro1 #delete modules in save layer only.
   else
    WARNMSG="WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
-   pidof resizepfile.sh >$OUT || resizepfile.sh &
+   pidof resizepfile.sh >>$OUT || resizepfile.sh &
   fi
  fi
 
@@ -393,7 +393,7 @@ funcfree_flash(){
  fi
  if [ $SIZETMPM -lt 5 ]; then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   funcdelete /initrd/pup_rw #delete modules in top tmpfs layer only.
+   _delete /initrd/pup_rw #delete modules in top tmpfs layer only.
   else
    WARNMSG="WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
   fi
@@ -418,21 +418,21 @@ funcfree_flash(){
  fi
 }
 
-funcsavepuppy(){
+_savepuppy(){
 #called every 4 seconds.
  if [ -f /tmp/snapmergepuppyrequest ]; then #by request.
    rm -f /tmp/snapmergepuppyrequest
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." &
   YAFPID=$!
-  pidof sync || sync
+  pidof sync >>$OUT || sync
   nice -n 19 /usr/sbin/snapmergepuppy
   kill $YAFPID
  fi
 }
 
 #note that init script in initrd takes care of restoring modules if enough space.
-funcdelete(){
-# Called from funcfree() and funcfree_flash().
+_delete(){
+# Called from _free() and _free_flash().
 # Deletes modules to create more free space.
 # passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
@@ -442,7 +442,7 @@ funcdelete(){
   oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
   oneKEEP_PATH=`dirname $oneKEEP_SPEC`
   mkdir -p /tmp/${oneKEEP_PATH}
-  cp -af ${oneKEEP_SPEC} /tmp/${oneKEEP_PATH}/
+  cp $VERB -af ${oneKEEP_SPEC} /tmp/${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" != "" ];then
   rm -rf ${DEL_LAYER}/lib/modules
@@ -452,12 +452,12 @@ funcdelete(){
   fi
   rm -rf /lib/modules
  fi
- cp -af /tmp/lib/modules /lib/modules
- depmod -a
+ cp $VERB -af /tmp/lib/modules /lib/modules
+ depmod $VERB -a
 }
 
 #v407 fixed so works for sr* and hd* optical...
-funcprobe_optical(){
+_probe_optical(){
 #passed param is sr<0-9> or hd<a-z>
  DRV_NAME="$1"
  DRV_CATEGORY="optical"
@@ -465,33 +465,33 @@ funcprobe_optical(){
 
  opticalPATTERN='^/dev/'"${DRV_NAME}"' '
  [ "`grep "$opticalPATTERN" /proc/mounts`" != "" ] && return #only check cd if unmounted.
- cddetect_quick -d/dev/${DRV_NAME} >$OUT 2>$ERR #very fast.
+ cddetect_quick -d/dev/${DRV_NAME} >>$OUT 2>>$ERR #very fast.
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
  #[ "$CDSTATUS2" != "0" ] && [ -d $HOME/.pup_event/drive_${DRV_NAME} ] && rm -rf $HOME/.pup_event/drive_${DRV_NAME} #v410 ensure no drive directory if drive empty. ##+-2012-01-18
  echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${DRV_NAME}
- [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${DRV_NAME}`
  [ "$CDSTATUS1" = "$CDSTATUS2" ] && return
 
- cp -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ cp $VERB -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  if [ "$CDSTATUS2" = "0" ]; then
   #VENDOR=`cat /sys/block/${DRV_NAME}/device/vendor | tr -s ' '`
   #MODEL=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
   #DRV_DESCRIPTION="$VENDOR $MODEL"
   opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
   DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
-  funccreate_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $HOME/.pup_event/drive_${DRV_NAME}/AppRun optical & #handler script.
 #KRG else
-#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>$ERR
-#KRG  funcremove_pinboard "$DRV_NAME" #needs DRV_NAME
+#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>>$ERR
+#KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
  fi
 unset DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
 }
 
 #v407 detect ls120 and zip disc inserted...
-funcprobe_floppy(){
+_probe_floppy(){
 #passed param is whole drive name (exs: hdc, sdc)
  DRV_NAME="$1"
  DRVMAIN=`echo -n "$DRV_NAME" | cut -c 1,2` #sd or hd.
@@ -508,9 +508,9 @@ funcprobe_floppy(){
   grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  fi
 
- [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  [ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" != "" ] && return
- cp -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
+ cp $VERB -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
 
  FLOPPYSTATUS=1
  [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" = "" ] && FLOPPYSTATUS=0
@@ -523,11 +523,11 @@ funcprobe_floppy(){
    #DRV_DESCRIPTION=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
    read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model | tr -s ' '
   fi
-  funccreate_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $HOME/.pup_event/drive_${DRV_NAME}/AppRun floppy & #handler script.
 #KRG else
-#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>$ERR
-#KRG  funcremove_pinboard "$DRV_NAME" #needs DRV_NAME
+#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>>$ERR
+#KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
  fi
 
 unset DRV_NAME DRVMAIN DRV_CATEGORY floppyPATTERN FLOPPYSTATUS DRV_DESCRIPTION
@@ -557,7 +557,7 @@ if [ "$DISPLAY" = "" ]; then return 29 || exit 29; fi #X not running.
 prog=$(basename $0)
 DAEMONS=`ps-FULL -f --no-headers -C "$prog"| grep -v '<defunct>'`
 PROGPID=$$
-echo "
+_debug "
 .............
 $PROGPID
 $DAEMONS
@@ -569,8 +569,8 @@ pids1=`echo "$PIDS" |sed -n "1 p"`
 pid1=`echo "$pids1" |awk '{print $1}'`
 ppid1=`echo "$pids1" |awk '{print $2}'`
 pids2=`echo "$PIDS" |sed -n "2 p"`
-echo "pids1='$pids1'"
-echo "pids2='$pids2'"
+_debug "pids1='$pids1'"
+_debug "pids2='$pids2'"
 [ ! "$pids2" ] && break
 if [ ! "`echo "$pids2" | grep -w "$pid1"`" -a ! "`echo "$pids2" | grep -w "$ppid1"`" ];then
 
@@ -646,7 +646,7 @@ RETVALm=1
 PREVSIZETMPM=0
 PREVSIZEFREEM=0
 
-funcformat_size(){
+_format_size(){
  SIZE="$1"
  [ $SIZE ] || SIZE=0
  if [ $SIZE -gt 1048576 ];then #1024*1024
@@ -664,7 +664,7 @@ funcformat_size(){
  [ "$SIZE" = "0,0MB" ] && SIZE="0" #100613
 }
 
-funccreate_appinfo(){
+_create_appinfo(){
 
 INFO="$1"
 DISK_CATEGORY="$2"
@@ -711,7 +711,7 @@ fi
 
 JWMT_Yvar=10
 JWMT_Yvar=$(expr \( $SCRN_Y \/ 500 \) '*' $HEIGHT)
-echo JWMT_Yvar=$JWMT_Yvar
+_debug "JWMT_Yvar='$JWMT_Yvar'"
 }
 funcJWM
 
@@ -722,7 +722,7 @@ PIN_GRID_STEP=`grep -m1 "pinboard_grid_step" "$CONFFILEROX" | sed -e "s/ *<[^>]*
 [ -z "$PIN_GRID_STEP" ] && PIN_GRID_STEP=16 #16=medium.
 [ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=16 #precaution.
 
-echo "PIN_GRID_STEP='$PIN_GRID_STEP'"
+_debug "PIN_GRID_STEP='$PIN_GRID_STEP'"
 PIN_GRID_STEP2=`expr $PIN_GRID_STEP \/ 2`
 JWMT_Yvar=$((((JWMT_Yvar/PIN_GRID_STEP2)+1)*PIN_GRID_STEP2))
 
@@ -735,8 +735,8 @@ fi
 
 VALSY=$(( $SCRN_Y / $PIN_GRID_STEP ))
 for i in `seq 1 $VALSY` ; do PGSYvals="$PGSYvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
-echo $VALSY
-echo $PGSYvals
+_debug $VALSY
+_debug $PGSYvals
 VALSX=$(( $SCRN_X / $PIN_GRID_STEP ))
 for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
 }
@@ -747,7 +747,7 @@ funcMAX_XY(){
 
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
 FONT_SIZE=`grep 'name="label_font">.*<' $CONFFILEROX |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
-echo "FONTSIZE=$FONT_SIZE"
+_debug "FONTSIZE='$FONT_SIZE'"
 
 ICON_X=48;icon_x=$((ICON_X/2))
 ICON_Y=$((FONT_SIZE+48));icon_y=$((ICON_Y/2))
@@ -777,9 +777,9 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
    COORD_YSt=$(( $SCRN_Y - $ICON_PLACE_EDGE_GAP - $JWMT_Yvar ))
    #COORD_YSt=$(( $SCRN_Y - $JWMT_Yvar ))
    COORD_Y=$COORD_YSt
-   echo "COORD_Y='$COORD_Y'"
+   _debug "funcSTART_XY_ICON_VALUES:bottom: COORD_Y='$COORD_Y'"
    COORD_Y=`expr \( $COORD_Y - $PIN_GRID_STEP2 \) \/ $PIN_GRID_STEP '*'  $PIN_GRID_STEP` #430: - $PINgridSTEP2
-   echo "$COORD_Y='$COORD_Y'"
+   _debug "funcSTART_XY_ICON_VALUES:bottom: COORD_Y='$COORD_Y'"
    ;;
 
   top)
@@ -787,16 +787,16 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
     case "$JWMTpos" in
    0)
-   echo JWMTpos=$JWMTpos ICON_PLACE_START_GAP=$ICON_PLACE_START_GAP ICON_PLACE_EDGE_GAP=$ICON_PLACE_EDGE_GAP #JWMT_Yvar=$JWMT_Yvar
+   _debug "funcSTART_XY_ICON_VALUES:top JWMTpos='$JWMTpos' ICON_PLACE_START_GAP='$ICON_PLACE_START_GAP' ICON_PLACE_EDGE_GAP='$ICON_PLACE_EDGE_GAP' JWMT_Yvar='$JWMT_Yvar'"
    :
    ;;
    *)
-   echo JWMTpos=$JWMTpos
+   _debug "funcSTART_XY_ICON_VALUES:top: JWMTpos='$JWMTpos'"
    JWMT_Yvar=0
    ;;
     esac
    COORD_YSt=$(( $ICON_PLACE_EDGE_GAP + $JWMT_Yvar ))
-   echo  COORD_YSt=$COORD_YSt PIN_GRID_STEP2=$PIN_GRID_STEP2
+   _debug "funcSTART_XY_ICON_VALUES:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
    COORD_Y=$COORD_YSt
    COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*'  $PIN_GRID_STEP`
    [ "$DEBUG" ] && { LINEP=D0512;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
@@ -820,7 +820,7 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
    right)
    #COORD_X=`expr $SCRN_X - \( 2 \* $ICON_PLACE_START_GAP \)` #default 64, see /etc/eventmanager
    COORD_X=`expr $SCRN_X - $ICON_PLACE_START_GAP`
-   echo "JWMTpos='$JWMTpos'"
+   _debug "funcSTART_XY_ICON_VALUES:right: JWMTpos='$JWMTpos'"
     case "$JWMTpos" in
    0) #TOP
    :
@@ -832,7 +832,7 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
    COORD_YSt=$(( $ICON_PLACE_EDGE_GAP + $JWMT_Yvar )) #default 64, see /etc/eventmanager
    COORD_Y=$COORD_YSt
    COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*'  $PIN_GRID_STEP`
-   echo "right: COORD_Y=$COORD_Y"
+   _debug "funcSTART_XY_ICON_VALUES:right: COORD_Y='$COORD_Y'"
 
    ;;
 esac
@@ -849,19 +849,19 @@ free_coord() {
  COORDSGRID1=`grep -o ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin` # | sed 's/[0-9]"/"/g'`"
  COORDSGRID2=`grep -o ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin`
  COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
- echo "$COORDSGRID" | head -n 2
+ _debug "$COORDSGRID" | head -n 2
 
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
 
-   echo "X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
+   _debug "free_coord:bottom: X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
 
    while [ 1 ];do
 
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    echo "    xgPATTERN=$xgPATTERN"
+    _debug "    xgPATTERN=$xgPATTERN"
 
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { echo breaking now;break; }
     COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
@@ -873,13 +873,13 @@ free_coord() {
      if [ -z "`echo "$PGSYvals" | grep "$COORD_Y"`" ] ; then
      for i in `seq 1 $PIN_GRID_STEP` ; do
      TEST=$(( $COORD_Y - $i ))
-     echo $TEST
+     _debug $TEST
      [ -n "`echo "$PGSYvals" | grep "$TEST"`" ] && { COORD_Y=$TEST;break; }
      done
      fi
      COORD_X=$ICON_PLACE_START_GAP
 
-     echo "COORD_Y='$COORD_Y' COORD_X='$COORD_X'" #LINE='"$LINE"'='
+     _debug "COORD_Y='$COORD_Y' COORD_X='$COORD_X'" #LINE='"$LINE"'='
     fi
 
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
@@ -903,16 +903,17 @@ free_coord() {
    done
   ;;
   left)
-   echo "Free_Coord ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
+
+   _debug "free_coord:left: ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    echo "xgPATTERN=$xgPATTERN"
+    _debug "xgPATTERN=$xgPATTERN"
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
-      echo "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
+      _debug "COORD_Y='$COORD_Y' MAX_Y='$MAX_Y'"
      COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
      #COORD_Y=$(((ICON_PLACE_EDGE_GAP+JWMT_Yvar+PIN_GRID_STEP2)/PIN_GRID_STEP2*PIN_GRID_STEP2))
      COORD_Y=$((ICON_PLACE_EDGE_GAP+JWMT_Yvar))
@@ -920,7 +921,7 @@ free_coord() {
      #COORD_Y=$(( (ICON_PLACE_EDGE_GAP+JWMT_Yvar)+((PIN_GRID_STEP2)/PIN_GRID_STEP2*PIN_GRID_STEP2) ))
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-    echo "$xPATTERN :JWMT_Yvar=$JWMT_Yvar ICON_PLACE_EDGE_GAP=$ICON_PLACE_EDGE_GAP"
+    _debug "$xPATTERN :JWMT_Yvar=$JWMT_Yvar ICON_PLACE_EDGE_GAP=$ICON_PLACE_EDGE_GAP"
    done
   ;;
   right)
@@ -932,7 +933,7 @@ free_coord() {
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
-      echo "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
+      _debug "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
      COORD_X=`expr $COORD_X - $ICON_PLACE_SPACING`
      #COORD_Y=$(((ICON_PLACE_EDGE_GAP+JWMT_Yvar+PIN_GRID_STEP2)/PIN_GRID_STEP2*PIN_GRID_STEP2))
      COORD_Y=$((ICON_PLACE_EDGE_GAP+JWMT_Yvar))
@@ -946,7 +947,7 @@ free_coord() {
 }
 
 [ "$DEBUG" ] && { LINEP=D003;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
-funcadd_pinboard(){
+_add_pinboard(){
 #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
 oneDRVNAME="$1"
 DRV_CATEGORY="$2"
@@ -975,14 +976,14 @@ FSTYPE="$3"
    <Args>${DRV_CATEGORY} ${FSTYPE}</Args>
   </PinboardAdd>
  </env:Body>
-</env:Envelope>"  | rox -R  2>$ERR
+</env:Envelope>"  | rox -R  2>>$ERR
 
 unset oneDRVNAME DRV_CATEGORY FSTYPE
 }
 
-DEBUG=1
-funccreate_icon(){
-    [ "$DEBUG" ] && echo 'funccreate_icon:'
+#DEBUG=1
+_create_icon(){
+    [ "$DEBUG" ] && echo '_create_icon:'
     [ "$DEBUG" ] && echo "$@"
     #echo "DRV_NAME='$DRV_NAME' DRV_CATEGORY='$DRV_CATEGORY' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
     [ "$DEBUG" ] && echo "DISK_NAME='$DISK_NAME' DISK_CATEGORY='$DISK_CATEGORY' DISK_DESCRIPTION='$DISK_DESCRIPTION'"
@@ -1049,13 +1050,13 @@ funccreate_icon(){
   drvPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
   if [ ! -d $HOME/.pup_event/drive_${oneDRVNAME} ];then
       mkdir $HOME/.pup_event/drive_${oneDRVNAME}
-   cp -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${oneDRVNAME}/AppRun
+   cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${oneDRVNAME}/AppRun
    if [ -e /sys/block/${oneDRVNAME} ];then
     #device is an entire drive.
     #SIZE=`cat /sys/block/${oneDRVNAME}/size`
     read SIZE </sys/block/${oneDRVNAME}/size
     SIZE=$(($SIZE/2)) #get KB.
-    funcformat_size $SIZE #formats SIZE for display.
+    _format_size $SIZE #formats SIZE for display.
     INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
    else
     if [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
@@ -1063,7 +1064,7 @@ funccreate_icon(){
     else
      #pPATTERN=' '"$oneDRVNAME"'$'
      #SIZE=`grep "$pPATTERN" /proc/partitions | tr -s ' ' | cut -f 4 -d ' '`
-     funcformat_size $SIZE #formats SIZE for display.
+     _format_size $SIZE #formats SIZE for display.
      INFO="Filesystem: $FSTYPE Size: $SIZE"
     fi
    fi
@@ -1072,7 +1073,7 @@ funccreate_icon(){
    <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>
    <Item option=\"mountro\" icon=\"gtk-harddisk\"><Label>Toggle Read-Only/Read-Write (re)mount of ${oneDRVNAME}</Label></Item>
    <Item option=\"fsck_$FSTYPE\" icon=\"gtk-execute\"><Label>Fsck ${oneDRVNAME} (if not mounted)</Label></Item>"
-   funccreate_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
 
   if [ "$ICONDESK" = "true" ];then             #see /etc/eventmanager.
@@ -1085,11 +1086,11 @@ funccreate_icon(){
     icon_mounted_func   "$oneDRVNAME" "$DISK_CATEGORY"   #see functions4puppy4.
    fi
 
-   funcadd_pinboard "$oneDRVNAME" "$DISK_CATEGORY" "$FSTYPE" #needs oneDRVNAME, DRV_CATEGORY, FSTYPE.
+   _add_pinboard "$oneDRVNAME" "$DISK_CATEGORY" "$FSTYPE" #needs oneDRVNAME, DRV_CATEGORY, FSTYPE.
 
   else #for single universal icon
    icon_unmounted_func drives any
-   funcadd_pinboard "$oneDRVNAME" "$DISK_CATEGORY" "$FSTYPE" #needs oneDRVNAME, DRV_CATEGORY, FSTYPE. for single universal icon
+   _add_pinboard "$oneDRVNAME" "$DISK_CATEGORY" "$FSTYPE" #needs oneDRVNAME, DRV_CATEGORY, FSTYPE. for single universal icon
   fi
 
   sleep 0.03
@@ -1100,18 +1101,18 @@ funccreate_icon(){
  if [ ! -d $HOME/.pup_event/drive_${DISK_NAME} ];then
   if [ -e /sys/block/${DISK_NAME} ]; then
      mkdir -p $HOME/.pup_event/drive_${DISK_NAME}
-   cp -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${DISK_NAME}/AppRun
+   cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${DISK_NAME}/AppRun
 
    #SIZE=`cat /sys/block/${DRV_NAME}/size`
    read SIZE </sys/block/${DISK_NAME}/size
    SIZE=$(($SIZE/2))     #get KB.
-   funcformat_size $SIZE #formats SIZE for display.
+   _format_size $SIZE #formats SIZE for display.
 
    INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
    #v424 add item to unmount all mounted partitions...
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    oneDRVNAME="$DISK_NAME"
-   funccreate_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
  fi
 
@@ -1120,7 +1121,7 @@ unset oneDRVNAME DISK_NAME DISK_CATEGORY drvPATTERN FSTYPE INFO SIZE MOREITEMS
 }
 
 
-funcremove_pinboard(){
+_remove_pinboard(){
 #needs DRV_NAME (name of entire drive)
  echo "$@"
  DRV_NAME="$1"
@@ -1144,7 +1145,7 @@ funcremove_pinboard(){
    <Path>$HOME/.pup_event/drive_${oneDRVNAME}</Path>
   </PinboardRemove>
  </env:Body>
-</env:Envelope>"  | rox -R  2>$ERR
+</env:Envelope>"  | rox -R  2>>$ERR
  done
 unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
 }
@@ -1153,7 +1154,7 @@ unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
 funcCLEAN_DESK_ICONS(){
 while read part;do
  DRV_NAME=$part
- funcremove_pinboard "$DRV_NAME" #$DRV_NAME
+ _remove_pinboard "$DRV_NAME" #$DRV_NAME
 done << _EOI
 $(grep -o '/\.pup_event/drive.*' $HOME/Choices/ROX-Filer/PuppyPin |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
 _EOI
@@ -1197,7 +1198,7 @@ if [ "$ICONDESK" = "false" ]; then
  DISK_NAME='drives'
  DISK_CATEGORY='any' #see pmount.
  DISK_DESCRIPTION="all drives"
- funccreate_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+ _create_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
 else
  #show all drives on desktop... w476 add ext4...
  #_PROBEPART_=`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser\||\|reiserfs\||\|udf\|'`
@@ -1225,7 +1226,7 @@ done
   [ "`echo "$_PROBEPART_" | grep "$DISK_NAME"`" ] || continue #precaution (such as CD not inserted).
   #[ "$DEBUG" ] && echo "'$DRV_NAME' in _PROBEDISK_ and _PROBEPART_"
   [ "$DEBUG" ] && echo "'$DISK_NAME' in _PROBEDISK_ and _PROBEPART_"
-  funccreate_icon startup "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, _PROBEPART_.
+  _create_icon startup "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, _PROBEPART_.
  sleep 0.3
  done
 
@@ -1255,20 +1256,20 @@ LINEP=D005;echo "$0 line '`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`' PO
 
 
 POWERTIMEOUT_FUNCS(){
-func_powertimeout_1(){
+__powertimeout__(){
     MINUTECNT=`expr $MINUTECNT + 4`
     if [ $MINUTECNT -gt 59 ];then
-    [ "$AUTOUNMOUNT" = "true" ] && funcauto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+    [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
     MINUTECNT=0
     fi
 }
 
-funcpowertimeout(){
+_powertimeout(){
     :
 }
 
 if [ "$POWERTIMEOUT" != '0' -o "$AUTOUNMOUNT" = "true" -o "$BAT_0" = '1' ];then #w007 power-off computer after inactivity.
-funcpowertimeout(){
+_powertimeout(){
   #MOUSECNT=`expr $MOUSECNT + 4`
   MINUTECNT=`expr $MINUTECNT + 4`
   if [ $MINUTECNT -gt 59 ];then #come in here every minute...
@@ -1282,7 +1283,7 @@ funcpowertimeout(){
 better to plug in ac adapter or poweroff the laptop "
    fi #warn
   fi #bat
-   [ "$AUTOUNMOUNT" = "true" ] && funcauto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+   [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
   if [ "$POWERTIMEOUT" != '0' ];then
    MOUSECNT=$((MOUSECNT+60))
    CURPOS2=`getcurpos`
@@ -1320,7 +1321,7 @@ POWERTIMEOUT_FUNCS
 ##+++2013-07-07
 #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
 ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram|^zram' > /tmp/pup_event_frontend_block2
-cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 ##+++2013-07-07
 
 funcPUPEVENTDAEMON(){
@@ -1365,7 +1366,7 @@ do
    if [ ! -e /sys/block/${oneTESTDRV}/${oneTESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
     #[ -d $HOME/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${oneTESTDRV}:"
     [ -d $HOME/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
-    dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >$OUT 2>$ERR #try force kernel to update.
+    dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
    #else
    # [ ! -d $HOME/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${oneTESTDRV}:"  #-+-2013-07-07
    elif [ ! -d $HOME/.pup_event/drive_${oneTESTDRV}1 ] ; then
@@ -1379,10 +1380,10 @@ do
  #########hotplug block event##########
  if [ "$BLOCKDIFF" != "" ];then
 
-  cp -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+  cp $VERB -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-   BLOCKSADD=`echo "$BLOCKDIFF" | grep -oe '^+[[:alnum:]]*' | sed 's%^+%%'`
-   BLOCKSREM=`echo "$BLOCKDIFF" | grep -oe '^-[[:alnum:]]*' | sed 's%^-%%'`
+   BLOCKSADD=`echo "$BLOCKDIFF" | grep -oe '^\+[[:alnum:]]*' | sed 's%^\+%%'`
+   BLOCKSREM=`echo "$BLOCKDIFF" | grep -oe '^\-[[:alnum:]]*' | sed 's%^\-%%'`
 
    _PROBEDISK_=`probedisk2`
    DRVS_OPTICAL=`echo "$_PROBEDISK_" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
@@ -1400,7 +1401,7 @@ do
 $(echo "$_PROBEDISK_" | grep "$odPATTERN")
 _EOI
    DISK_NAME="${DISK_NAME##*/}"
-   [ "$ICONDESK" = "true" ]     && funccreate_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION"  #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
+   [ "$ICONDESK" = "true" ]     && _create_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION"  #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && $HOME/.pup_event/drive_${DISK_NAME}/AppRun ${DISK_CATEGORY} &      #handler script.
   done
 
@@ -1409,12 +1410,12 @@ _EOI
   do
    DEVPATH=/block/$DISK_NAME
    if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
-    killall gtkdialog_pmount 2>$ERR
+    killall gtkdialog_pmount 2>>$ERR
     sleep 0.1
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
-   funcremove_pinboard "$DISK_NAME"   #needs DRV_NAME
-   rm -rf $HOME/.pup_event/drive_${DISK_NAME}* 2>$ERR
+   _remove_pinboard "$DISK_NAME"   #needs DRV_NAME
+   rm -rf $HOME/.pup_event/drive_${DISK_NAME}* 2>>$ERR
   done
 
  fi
@@ -1440,14 +1441,14 @@ _EOI
  #monitor free memory, periodic save of tmpfs top layer...
  case $PUPMODE in
   3|7|13)  #flash
-   funcfree_flash
-   funcsavepuppy
+   _free_flash
+   _savepuppy
   ;;
   16|24|17|25) #unipup.
-   funcfree_initrd
+   _free_initrd
   ;;
   *)
-   funcfree
+   _free
   ;;
  esac
 
@@ -1469,11 +1470,11 @@ if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
     fi
 
     for DRV_NAME in $Drives drives; do
-    funcremove_pinboard "$DRV_NAME"
+    _remove_pinboard "$DRV_NAME"
     done
     unset DRV_NAME
     for DRV_NAME in $Floppies; do
-    funcremove_pinboard "$DRV_NAME"
+    _remove_pinboard "$DRV_NAME"
     done
     unset DRV_NAME
 
@@ -1494,13 +1495,13 @@ if [ "$ZCDPOLL" != "false" ];then
  for oneOPTICAL in $DRVS_OPTICAL
  do
   [ "$oneOPTICAL" ] || continue #precaution
-  funcprobe_optical $oneOPTICAL
+  _probe_optical $oneOPTICAL
  done
  #v407 poll to see if a ls120 or zip floppy diskette inserted...
  for oneFLOPPY in $DRVS_FLOPPY
  do
   [ "$oneFLOPPY" ] || continue #precaution
-  funcprobe_floppy $oneFLOPPY
+  _probe_floppy $oneFLOPPY
  done
 fi
 
@@ -1513,7 +1514,7 @@ fi
  #[ "`echo "$RUNPS" | grep -E 'xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'`" != "" ] && continue
  [ "`echo "$RUNPS" | grep -E 'xorriso|xorrecord|petget|wget|axel|dotpup|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|ripoff|pdvdrsab|pburn|installpkg\.sh|downloadpkgs\.sh'`" != "" ] && continue
 
- funcpowertimeout
+ _powertimeout
 
 done #2*2 second loop.
 }
