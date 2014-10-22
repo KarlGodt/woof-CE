@@ -63,9 +63,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount $VERB $VERB -o remount,rw /dev/root/ /
  mkdir -p /tmp
- chmod 1777 /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -77,9 +77,9 @@ _check_tmp_rw()
 
 _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
  }
 
 }
@@ -994,7 +994,7 @@ _umount_rmdir()
  test "$*" || return 1
  [ "$DISPLAY" ] && { test "$mountPOINT" && rox -D "$mountPOINT"; }
  _debug "_umount_rmdir:mountpoint $Q $*";
- mountpoint $Q "$*" || rmdir "$@" 2>$ERR;
+ mountpoint $Q "$*" || rmdir "$@" 2>>$ERR;
 }
 
 _update()
