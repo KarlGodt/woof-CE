@@ -149,9 +149,9 @@ __check_if_already_running()
 {
 local PROGRAM
 test "$*" && PROGRAM="$*" || PROGRAM=$MY_SELF
-#pidof -o $$ -o %PPID "${0##*/}" >$OUT && {
+#pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
 #echo;echo
-pidof -o $$ -o %PPID "${PROGRAM##*/}" >$OUT && {
+pidof -o $$ -o %PPID "${PROGRAM##*/}" >>$OUT && {
     case $OUT in
     /dev/null) echo -e "\\033[1F""Program '$PROGRAM' already running.\n"   ;;
             *) echo -e "\\033[2F""Program '$PROGRAM' already running:\n"   ;;
@@ -166,8 +166,8 @@ _check_if_already_running()
 {
 local PROGRAM
 test "$*" && PROGRAM="$*" || PROGRAM=$MY_SELF
-#pidof -o $$ -o %PPID "${0##*/}" >$OUT && {
-pidof -o $$ -o %PPID "${PROGRAM##*/}" >$OUT && {
+#pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
+pidof -o $$ -o %PPID "${PROGRAM##*/}" >>$OUT && {
         echo -e "\\033[1F\\033[7G""Program '$PROGRAM' already running."
         return 1
  }
@@ -178,8 +178,8 @@ _exit_if_already_running()
 {
 local PROGRAM
 test "$*" && PROGRAM="$*" || PROGRAM=$MY_SELF
-#pidof -o $$ -o %PPID "${0##*/}" >$OUT && {
-pidof -o $$ -o %PPID "${PROGRAM##*/}" >$OUT && {
+#pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
+pidof -o $$ -o %PPID "${PROGRAM##*/}" >>$OUT && {
         echo -e "\\033[1F\\033[7G""Program '$PROGRAM' already running."
         $EXIT 1
  }
@@ -189,16 +189,16 @@ return $?
 _run_status()
 {
 test "$*"  || { _return 2 "_run_status: Usage: _run_status BASENAMEPROGRAM"; return $?; }
-pidof "${*##*/}" >$OUT && { _info " '$*' running."; return 0; } || { _info " '$*' not running."; return 1; }
+pidof "${*##*/}" >>$OUT && { _info " '$*' running."; return 0; } || { _info " '$*' not running."; return 1; }
 }
 
 _check_for_terminal()
 {
 local MSG
 MSG="Need a contolling terminal"
-tty >$OUT || {
+tty >>$OUT || {
 [ "$OUT" = 'dev/null' ] || echo -n "Pid of X server:"
-pidof X >$OUT && xmessage -br red "$MSG"; $EXIT 2; } || {
+pidof X >>$OUT && xmessage -br red "$MSG"; $EXIT 2; } || {
 echo "$MSG"; $EXIT 2; }
 return $?
 }
@@ -299,7 +299,13 @@ $ADD_PARAMETERS"
 }
 
                   OUT=/dev/null;  ERR=$OUT;       Q=-q;QUIET=--quiet;DBG='';L_DBG='';     A_DBG=''
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr;Q='';QUIET=$Q;     DBG=-d;L_DBG=--debug;A_DBG=-debug; }
+[ "$DEBUG" ] && {
+    if [ "`tty`" = 'not a tty' ]; then
+     OUT=/tmp/${MY_SELF##*/}_out.log; ERR=/tmp/${MY_SELF##*/}_err.log
+    else
+     OUT=/dev/stdout;ERR=/dev/stderr;
+    fi
+    Q='';QUIET=$Q;     DBG=-d;L_DBG=--debug;A_DBG=-debug; }
 [ "$DEBUG" = "2" ] && set -x
 _parse_basic_parameters()
 {
@@ -310,7 +316,12 @@ case $1 in
 -v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;
              Q='';QUIET=$Q;
              DEBUG=1;DBG=-d;L_DBG=--debug;A_DBG=-debug;
-             OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
+             if [ "`tty`" = 'not a tty' ]; then
+              OUT=/tmp/${MY_SELF##*/}_out.log; ERR=/tmp/${MY_SELF##*/}_err.log
+             else
+              OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+             fi
+             [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
 -d|*debug)   set -x; [ "$TWO_DEBUG" ] || DO_SHIFT=$((DO_SHIFT+1));;
 esac
 export VERBOSE VERB L_VERB A_VERB Q QUIET DEBUG DBG L_DBG A_DBG OUT ERR
@@ -813,7 +824,7 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 #============= Avoid multiple instances of sync ==============================
 _sync()
 {
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 }
 
 #=
@@ -1422,6 +1433,7 @@ mv $VERB "$*" "${*}.1"
 
 _kernel_version()
 {
+oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1481,6 +1493,9 @@ _info "_kernel_version:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 }
 
 
@@ -1523,6 +1538,7 @@ _notice "_kernel_version:squashXZ='$squashXZ'"
 
 _kernel_version2()
 {
+oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1604,6 +1620,9 @@ _info "_kernel_version2:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version2:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version2:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version2:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 }
 
 
@@ -1624,6 +1643,7 @@ _notice "_kernel_version2:squashXZ='$squashXZ'"
 
 _kernel_version3()
 {
+oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1707,8 +1727,14 @@ _info "_kernel_version3:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version3:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version3:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version3:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 return 0
  } || _kernel_version
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 }
 
 
@@ -1725,6 +1751,7 @@ return 0
 
 _kernel_version4()
 {
+oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -1841,6 +1868,9 @@ _info "_kernel_version4:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version4:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version4:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version4:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 }
 
 
@@ -1927,6 +1957,7 @@ _notice "_kernel_version4:squashXZ='$squashXZ'"
 
 _kernel_version5()
 {
+oldINFO=$INFO oldDEBUG=$DEBUG
 INFO=1
 DEBUG=1
 
@@ -2036,6 +2067,9 @@ _info "_kernel_version5:KERNELSUBVER='$KERNELSUBVER'"
 _info "_kernel_version5:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
 _notice "_kernel_version5:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
 _notice "_kernel_version5:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
 }
 
 
@@ -2312,13 +2346,13 @@ _batch_diff1()
 local SIMPLE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2
 _debug "_batch_diff1: '$*'" >&2
 
-test "$*" || { _err "Usage: _batch_diff [ -s ] DIR"; return 1 2>$ERR || $EXIT 1; }
+test "$*" || { _err "Usage: _batch_diff [ -s ] DIR"; return 1 2>>$ERR || $EXIT 1; }
 
 test "$1" = '-s' && { SIMPLE=YES; shift; }
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || $EXIT 1; }
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>>$ERR || $EXIT 1; }
 
-cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || $EXIT 1; }
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>>$ERR || $EXIT 1; }
 
 FILES1_=`ls -1dv *`
 
@@ -2363,7 +2397,7 @@ do
      test "$oneF1" = "$oneF2" && continue
 
      if test "$SIMPLE"; then
-      diff -q -s "$oneF1" "$oneF2"
+      diff $Q -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
@@ -2384,16 +2418,16 @@ _batch_diff2()
 local SIMPLE INVERT FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
 _debug "_batch_diff2: '$*'" >&2
 
-test "$*" || { _err "Usage: _batch_diff2 [ -s |& -i ] DIR"; return 1 2>$ERR || $EXIT 1; }
+test "$*" || { _err "Usage: _batch_diff2 [ -s |& -i ] DIR"; return 1 2>>$ERR || $EXIT 1; }
 
 
 test "$1" = '-s' && { SIMPLE=YES; shift; }
 test "$1" = '-i' && { INVERT=YES; shift; }
 test "$1" = '-s' && { SIMPLE=YES; shift; }
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || $EXIT 1; }
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>>$ERR || $EXIT 1; }
 
-cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || $EXIT 1; }
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>>$ERR || $EXIT 1; }
 
 FILES1_=`ls -1dv *`
 
@@ -2441,7 +2475,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$SIMPLE"; then
-      diff -q -s "$oneF2" "$oneF1"
+      diff $Q -s "$oneF2" "$oneF1"
 
      else
       diff -up "$oneF2" "$oneF1"
@@ -2474,7 +2508,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$SIMPLE"; then
-      diff -q -s "$oneF1" "$oneF2"
+      diff $Q -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
@@ -2502,7 +2536,7 @@ DEBUG=1
 local SIMPLE INVERT REMOVE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
 _debug "_batch_diff2: '$*'" >&2
 
-test "$*" || { _err "Usage: _batch_diff3 [ -s -i | -r ] DIR"; return 1 2>$ERR || $EXIT 1; }
+test "$*" || { _err "Usage: _batch_diff3 [ -s -i | -r ] DIR"; return 1 2>>$ERR || $EXIT 1; }
 
 while [ "$2" ]; do
 case "$1" in
@@ -2513,9 +2547,9 @@ esac
 shift
 done
 
-test -d "$@" || { _err "'$@' not a directory"; return 1 2>$ERR || $EXIT 1; }
+test -d "$@" || { _err "'$@' not a directory"; return 1 2>>$ERR || $EXIT 1; }
 
-cd "$@" || { _err "Could not change into '$@'"; return 1 2>$ERR || $EXIT 1; }
+cd "$@" || { _err "Could not change into '$@'"; return 1 2>>$ERR || $EXIT 1; }
 
 FILES1_=`ls -1dv *`
 
@@ -2564,10 +2598,10 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff -q "$oneF2" "$oneF1" && rm "$oneF2"
+      diff $Q "$oneF2" "$oneF1" && rm "$oneF2"
 
      elif test "$SIMPLE"; then
-      diff -q -s "$oneF2" "$oneF1"
+      diff $Q -s "$oneF2" "$oneF1"
 
      else
       diff -up "$oneF2" "$oneF1"
@@ -2601,10 +2635,10 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff -q "$oneF1" "$oneF2" && rm "$oneF2"
+      diff $Q "$oneF1" "$oneF2" && rm "$oneF2"
 
      elif test "$SIMPLE"; then
-      diff -q -s "$oneF1" "$oneF2"
+      diff $Q -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
