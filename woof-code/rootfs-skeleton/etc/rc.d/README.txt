@@ -65,14 +65,14 @@ For Puppy 4.1+
 Firewall:
 
 When the firewall is installed, it will be in /etc/rc.d
-folder as "rc.firewall" and the file "rc.local" will
-have an entry to start it.
-"rc.local" is called from "rc.sysinit".
+ folder as "rc.firewall" and the file "rc.local" will
+ have an entry to start it.
+ "rc.local" is called from "rc.sysinit".
 
 Startup:
 
 When Puppy boots, the order of execution of the
-scripts is (except for a full-hd installation and UniPup):
+ scripts is (except for a full-hd installation and UniPup):
 
   /init (in the initial ramdisk)
 
@@ -86,7 +86,7 @@ scripts is (except for a full-hd installation and UniPup):
     /etc/rc.d/rc.services (as a parallel process)
     /etc/rc.d/rc.country
     /etc/rc.d/rc.local    (created by rc.sysinit if doesn't exist)
-    
+
   /etc/profile
 
 Puppy doesn't use runlevels.
