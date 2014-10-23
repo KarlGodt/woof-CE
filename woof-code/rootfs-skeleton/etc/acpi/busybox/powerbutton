@@ -281,18 +281,21 @@ done
 }
 echo 96
 
-_set_usb_power_sysfs_values(){
+__set_usb_power_sysfs_values__(){
 
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
 local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
 KBD_WAKEUP_ENABLED=1
 MOU_WAKEUP_ENABLED=
 OTH_WAKEUP_ENABLED=1
 
+# control : autosuspend values : on = never autosuspend , auto = let kernel decide
 local KBD_CONTROL MOU_CONTROL OTH_CONTROL
 KBD_CONTROL=on
 MOU_CONTROL=auto
 OTH_CONTROL=auto
 
+# delay : seconds/milliseconds to pass by idle before autosuspending
 local KBD_DELAY KBD_DELAY_MS MOU_DELAY MOU_DELAY_MS OTH_DELAY OTH_DELAY_MS
 KBD_DELAY=360  # seconds
 KBD_DELAY_MS=$((KBD_DELAY*1000))
@@ -304,8 +307,8 @@ OTH_DELAY_MS=$((OTH_DELAY*1000))
 
 ls -1d /sys/bus/usb/devices/*/power/ | while read oneD;
 do
-  [ -f "$oneD"/control ] || continue  #+++2.6.34
-  [ -f "$oneD"/level   ] || continue  #+++2.6.22 level and control same
+  [ -f "$oneD"/control ] || continue  #+++2.6.34 35
+  [ -f "$oneD"/level   ] || continue  #+++2.6.22 level and control same , depr. 2.6.35
   [ -f "$oneD"/wakeup  ] || continue  #
      #2.6.21/2.6.22            #2.6.37/2.6.38
   [ -f "$oneD"/autosuspend -o -f "$oneD"/autosuspend_delay_ms ] || continue
@@ -359,19 +362,22 @@ do
     if [ "$IS_KBD" ]; then
    case $HAVE_CONTROL in
    on)    [ "$KBD_CONTROL" = on ] || echo auto >"$oneD"/control;;
-   auto)  [ "$KBD_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   auto)  [ "$KBD_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$KBD_CONTROL" = on ] || echo on   >"$oneD"/control;;
    esac
 
   elif [ "$IS_MOU" ]; then
    case $HAVE_CONTROL in
    on)    [ "$MOU_CONTROL" = on ] || echo auto >"$oneD"/control;;
-   auto)  [ "$MOU_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   auto)  [ "$MOU_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$MOU_CONTROL" = on ] || echo on   >"$oneD"/control;;
    esac
 
   else
    case $HAVE_CONTROL in
    on)    [ "$OTH_CONTROL" = on ] || echo auto >"$oneD"/control;;
-   auto)  [ "$OTH_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   auto)  [ "$OTH_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$OTH_CONTROL" = on ] || echo on   >"$oneD"/control;;
    esac
   fi
 
@@ -410,7 +416,229 @@ done
 
 local HAVE_WAKEUP HAVE_CONTROL HAVE_LEVEL HAVE_DELAY IS_KBD IS_MOU
 }
-_set_usb_power_sysfs_values
+
+_set_usb_power_sysfs_valuesSTUB(){
+
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+#OTH_WAKEUP_ENABLED=1  ##unused
+
+local CLASS PROTOCOL
+
+ ls -1d /sys/bus/usb/devices/*/power/ | while read oneD;
+do
+   _debugx "$oneD"
+   [ -f "$oneD"/wakeup ] || continue
+
+   [ -f "$oneD"/../bInterfaceClass ]    || continue
+   [ -f "$oneD"/../bInterfaceProtocol ] || continue
+   _debug "$oneD"
+
+unset CLASS PROTOCOL CURR_WAKEUP_SETTING
+
+#<[uapi/]linux/usb/ch9.h>
+#define USB_CLASS_HID           3
+    read CLASS <"$oneD"/../bInterfaceClass
+   _debug "`cat "$oneD"/../bInterfaceClass`"
+   case $CLASS in
+   03|3) :;;
+   *) _notice "Unhandled USB_CLASS '$CLASS'"
+      continue;;
+   esac
+
+#<[uapi/]linux/hid.h>
+#define USB_INTERFACE_PROTOCOL_KEYBOARD 1
+#define USB_INTERFACE_PROTOCOL_MOUSE    2
+   read PROTOCOL <"$oneD"/../bInterfaceProtocol
+     _debug "`cat "$oneD"/../bInterfaceProtocol`"
+   case $PROTOCOL in
+   01|1) :;;
+   02|2) :;;
+   *) _notice "Unhandled USB_INTERFACE_PROTOCOL '$PROTOCOL'"
+      continue;;
+   esac
+
+   read CURR_WAKEUP_SETTING <"$oneD"/wakeup
+   _debug "`cat "$oneD"/wakeup`"
+   case $PROTOCOL in
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+    esac
+    ;;
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for '$oneD'";;
+    esac
+    ;;
+   esac
+
+done
+}
+
+_set_usb_power_sysfs_values(){
+DEBUG=1
+
+KERNEL_RELEASE=`uname -r`
+if test -f /etc/modules/DOTconfig-$KERNEL_RELEASE; then
+ ##source /etc/modules/DOTconfig-$KERNEL_RELEASE || return 0
+ ##[ "$CONFIG_USB_SUSPEND" = y ] || return 0
+ ##[ "$CONFIG_USB_SUSPEND" ]     || return 0
+ #grep -w 'CONFIG_USB_SUSPEND' | grep $Q 'is not set' && return 0
+ grep $Q -w '# CONFIG_USB_SUSPEND' && return 0
+elif modprobe $VERB configs; then
+ zcat /proc/config.gz | grep $Q -w '# CONFIG_USB_SUSPEND' && return 0
+elif [ -f /proc/config.gz ]; then
+ zcat /proc/config.gz | grep $Q -w '# CONFIG_USB_SUSPEND' && return 0
+fi
+
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+#OTH_WAKEUP_ENABLED=1  ##unused
+
+# control : autosuspend values : on = never autosuspend , auto = let kernel decide
+local KBD_CONTROL MOU_CONTROL OTH_CONTROL
+KBD_CONTROL=on
+MOU_CONTROL=auto
+#OTH_CONTROL=auto
+
+local CLASS PROTOCOL AM_HID AM_KBD AM_MOU oneCF onePF
+
+ ls -1d /sys/bus/usb/devices/*/power/ | while read oneDIR;
+do
+   oneD=`readlink -f "$oneDIR"`
+   _debugx "$oneD"
+   [ -f "$oneD"/wakeup ] || continue
+   _debug "$oneD"
+
+   #[ -f "${oneD}../bInterfaceClass" ]    || continue
+   #[ -f "${oneD}../bInterfaceProtocol" ] || continue
+    ls -1 "${oneD}"/../*/bInterfaceClass    >>$OUT 2>>$ERR  || continue
+    ls -1 "${oneD}"/../*/bInterfaceProtocol >>$OUT 2>>$ERR  || continue
+    _debug "$oneD"
+
+    [ -f "$oneD"/../uevent ]       && _debugx "`cat "$oneD"/../uevent`"
+    [ -f "$oneD"/../class ]        && _info   "`cat "$oneD"/../class`"
+    [ -f "$oneD"/../vendor ]       && _info   "`cat "$oneD"/../vendor`"
+    [ -f "$oneD"/../manufacturer ] && _info   "`cat "$oneD"/../manufacturer`"
+    [ -f "$oneD"/../product ]      && _info   "`cat "$oneD"/../product`"
+
+unset CLASS PROTOCOL CURR_WAKEUP_SETTING AM_HID AM_KBD AM_MOU oneCF onePF
+
+#<[uapi/]linux/usb/ch9.h>
+#define USB_CLASS_HID           3
+    #read CLASS <"$oneD"../bInterfaceClass
+   #_debug "`cat "$oneD"../bInterfaceClass`"
+   #ls -1 "${oneD}"../*/bInterfaceClass | while read oneCF;
+   while read oneCF
+   do
+     read CLASS <"$oneCF"
+    _debug "`cat "$oneCF"`"
+    case $CLASS in
+     03|3) AM_HID=YES;;
+     *) _notice "Unhandled USB_CLASS '$CLASS'"
+        continue;;
+    esac
+   done <<EoI
+`ls -1 "${oneD}"/../*/bInterfaceClass`
+EoI
+   [ "$AM_HID" ] || continue
+
+#<[uapi/]linux/hid.h>
+#define USB_INTERFACE_PROTOCOL_KEYBOARD 1
+#define USB_INTERFACE_PROTOCOL_MOUSE    2
+   #read PROTOCOL <"$oneD"../bInterfaceProtocol
+   #  _debug "`cat "$oneD"../bInterfaceProtocol`"
+   #ls -1 "${oneD}"../*/bInterfaceProtocol | while read onePF;
+   while read onePF
+   do
+     read PROTOCOL <"$onePF"
+       _debug "`cat "$onePF"`"
+   case $PROTOCOL in
+   01|1) AM_KBD=YES;;
+   02|2) AM_MOU=YES;;
+   *) _notice "Unhandled USB_INTERFACE_PROTOCOL '$PROTOCOL'"
+      continue;;
+   esac
+
+   read CURR_WAKEUP_SETTING <"$oneD"/wakeup
+                _debug "`cat "$oneD"/wakeup`"
+                 _info "`cat "$oneD"/control`"
+                 _info "`cat "$oneD"/autosuspend_delay_ms`"
+   read CURR_CONTROL_SETTING <"$oneD"/control
+
+   case $PROTOCOL in
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+    *)  _warn   "Unhandled CURR_WAKEUP_SETTING '$CURR_WAKEUP_SETTING'";;
+    esac
+
+    case $CURR_CONTROL_SETTING in
+    on)   [ "$KBD_CONTROL" = on ] || echo auto >"$oneD"/control;;
+    auto) [ "$KBD_CONTROL" = on ] && echo on   >"$oneD"/control;;
+    "")  _warn "CURR_CONTROL_SETTING empty";;
+    *)   _warn "Unhandled CURR_CONTROL_SETTING '$CURR_CONTROL_SETTING'";;
+    esac
+    ;;
+
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for mouse '$oneD'";;
+    *)  _warn   "Unhandled CURR_WAKEUP_SETTING '$CURR_WAKEUP_SETTING'";;
+    esac
+
+    case $CURR_CONTROL_SETTING in
+    on)   [ "$MOU_CONTROL" = on ] || echo auto >"$oneD"/control;;
+    auto) [ "$MOU_CONTROL" = on ] && echo on   >"$oneD"/control;;
+    "")  _warn "CURR_CONTROL_SETTING empty";;
+    *)   _warn "Unhandled CURR_CONTROL_SETTING '$CURR_CONTROL_SETTING'";;
+    esac
+    ;;
+   esac
+
+   done <<EoI
+`ls -1 "${oneD}"/../*/bInterfaceProtocol`
+EoI
+
+__fall_through__(){
+   [ "$AM_KBD" -o "$AM_MOU" ] || continue
+
+   read CURR_WAKEUP_SETTING <"$oneD"/wakeup
+   _debug "`cat "$oneD"/wakeup`"
+   case $PROTOCOL in
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+    esac
+    ;;
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for mouse '$oneD'";;
+    esac
+    ;;
+   esac
+}
+
+done
+}
+#_set_usb_power_sysfs_values
 
 ACPITOOL=`which acpitool`
 states_avail=`cat /sys/power/state`
@@ -456,6 +684,8 @@ exit 0
 
 elif [ "$ANSWER" = 203 ];then
 
+_set_usb_power_sysfs_values
+
 _handle_no_console_suspend(){    ##2014-10-18
 test -f  /sys/module/printk/parameters/console_suspend || { _notice "File
 /sys/module/printk/parameters/console_suspend
@@ -492,6 +722,9 @@ _restore_mounts
 
 
 elif [ "$ANSWER" = 204 ];then
+
+_set_usb_power_sysfs_values
+
 pidof sync >>$OUT || sync
 _loop_umount_func
 _part_umount_func
@@ -549,9 +782,11 @@ sleep 5
 _restore_mounts
 
 elif [ "$ANSWER" = 188 ]; then  #standby
+_set_usb_power_sysfs_values
     echo standby >/sys/power/state
 
 elif [ "$ANSWER" = 190 ]; then  #freeze
+_set_usb_power_sysfs_values
     echo freeze >/sys/power/state
 
 else # timeout 0, error 1
