@@ -1,6 +1,5 @@
 #!/bin/ash
 
-
 ########################################################################
 #
 #
@@ -62,8 +61,8 @@
 ########################################################################
 
 exec 2>/tmp/rc_xsession.log
-[ -z "$DISPLAY" ] || exit #echo $DISPLAY # || exit 
-#sleep 20 
+[ -z "$DISPLAY" ] || exit #echo $DISPLAY # || exit
+#sleep 20
 #exit
 
 T=`cat /etc/inittab | grep tty | grep -v -E '^#.*|^[[:blank:]]#' | sed 's#^[[:blank:]]##' | sort -u`
@@ -87,7 +86,7 @@ sleep 5
 /usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin &
 echo 'now have launched jwm and rox'
 echo 'starting now pup_event_frontend_d'
-/sbin/clean_desk_icons 
+/sbin/clean_desk_icons
 /sbin/pup_event_frontend_d &
 
 
