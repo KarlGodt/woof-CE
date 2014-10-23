@@ -191,3 +191,5 @@ sed -i".`date +%F`" '/^$/d' /etc/fstab #delete empty lines, make .DATE backup
 test $? = 0 || mv /etc/fstab".`date +%F`" /etc/fstab
 sed -i".`date +%F`" 's!\ !\\040!g' /etc/fstab  #handle space in labels
 test $? = 0 || mv /etc/fstab".`date +%F`" /etc/fstab
+
+### END ###
