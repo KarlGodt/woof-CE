@@ -42,8 +42,8 @@ Yellow1='\033[1;33m'
  White0='\033[0;37m'
  White1='\033[1;37m'
 
-Back0='\033[0;39m'
-Reset0='\033[0;39m'
+  Back0='\033[0;39m'
+ Reset0='\033[0;39m'
 Normal0='\033[0;39m'
 
  BackBlack0='\033[0;40m'
@@ -63,7 +63,7 @@ BackYellow1='\033[1;43m'
  BackWhite0='\033[0;47m'
  BackWhite1='\033[1;47m'
 
- BackBack0='\033[0;49m'
+  BackBack0='\033[0;49m'
  BackReset0='\033[0;49m'
 BackNormal0='\033[0;49m'
 
@@ -124,12 +124,12 @@ _status(){
  [ "$_TTY_" = 'not a tty' ] && _TTY_=/dev/console
 
  _CHARS_=${1//[[:digit:]]/}
- if [ "$_CHARS_" ];then echo -e "\\033[60G\\033[1;36m${_CHARS_}$Black0" >$_TTY_
+ if [ "$_CHARS_" ];then echo -e "\\033[60G\\033[1;36m${_CHARS_}$Normal0" >$_TTY_
  set -- 0
  elif [ "$1" = 0 ];then
-  /bin/echo -e "\\033[72G\\033[1;32mdone$Black0" >$_TTY_ #green [done] msg.
+  /bin/echo -e "\\033[72G\\033[1;32mdone$Normal0"   >$_TTY_ #green [done] msg.
  else
-  /bin/echo -e "\\033[70G\\033[1;31mfailed$Black0" >$_TTY_ #red [failed].
+  /bin/echo -e "\\033[70G\\033[1;31mfailed$Normal0" >$_TTY_ #red [failed].
   STATUS=0
  fi
 
@@ -163,6 +163,145 @@ pidof X && xmessage -br red "$MSG"; $EXIT 2; } || {
 echo "$MSG"; $EXIT 2; }
 return $?
 }
+
+__which_tty_is_X(){
+#  2014-10-25
+local ttyALL ttyX
+#ps-FULL
+ttyALL=`/bin/ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
+#busybox ps
+#ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) print}'`
+  _debugx "ttyALL='$ttyALL'"
+
+#ps-FULL
+   ttyX=`echo "$ttyALL" | awk '{if ($4 == "X" && $5 == ":0") print $3}' | head -n1`
+#busybox ps
+  #ttyX_=`echo "$ttyALL" | awk '{if ($4 == "X" && $5 == ":0") print $3}' | head -n1`
+  #ttyX=`stat -c %t','%T' '%n /dev/tty* | grep -w "^$ttyX_" | awk '{print $2}'`
+
+  _info "X server found running on '$ttyX'"
+
+#ps-FULL
+  _DEV_TTY_X_="/dev/$ttyX"
+      _TTY_X_="$ttyX"
+#busybox ps
+  #_DEV_TTY_X_="$ttyX"
+  #    _TTY_X_=${ttyX##*/}
+
+echo "$ttyX"
+return 0
+}
+
+_which_tty_is_X(){
+#  2014-10-25
+local ttyALL ttyX
+#ps-FULL
+#ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
+#busybox ps
+ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) print}'`
+  _debugx "ttyALL='$ttyALL'"
+#ps-FULL
+ #ttyX=`echo "$ttyALL" | awk '{if ($4 == "X" && $5 == ":0") print $3}' | head -n1`
+  ttyX_=`echo "$ttyALL" | awk '{if ($4 == "X" && $5 == ":0") print $3}' | head -n1`
+  ttyX=`stat -c %t','%T' '%n /dev/tty* | grep -w "^$ttyX_" | awk '{print $2}'`
+  _info "X server found running on '$ttyX'"
+#ps-FULL
+  #_DEV_TTY_X_="/dev/$ttyX"
+  #    _TTY_X_="$ttyX"
+#busybox ps
+  _DEV_TTY_X_="$ttyX"
+      _TTY_X_=${ttyX##*/}
+
+echo "$ttyX"
+return 0
+}
+
+_get_tty_X_nr(){
+#  2014-10-25
+local ttyX nrVT
+ttyX=`_which_tty_is_X`
+test "$ttyX" || return 1
+nrVT=${ttyX##*[[:alpha:][:punct:]_]}
+   case $nrVT in
+    [1-9]|[1-9][0-9]) echo $nrVT; true;;
+    *) _err "'$nrVT' not in range of 1-9 | 10-99"; false;;
+   esac
+return $?
+}
+
+_switch_to_tty_X(){
+#  2014-10-25
+local nrVT RV
+nrVT=`_get_tty_X_nr`
+   case $nrVT in
+    [1-9]|[1-9][0-9]) chvt $nrVT
+                      RV=$?;
+    [ $RV = 0 ] && {
+    _info "OK, switched to tty${nrVT}"
+     return 0
+     true; } || {
+    _err "chvt '$nrVT' returned with '$RV' exitcode"
+     return 1
+     false; }
+    ;;
+    *) _err "'$nrVT' not in range of 1-9 | 10-99"; false;;
+   esac
+return $?
+}
+
+_logged_in_on_tty(){
+local WHO_ RV USERS_ USERSm USERSs USERSa
+WHO_=`_command who -a`
+RV=$?
+USERS_=`echo "$WHO_" | grep '^[[:alnum:][:punct:]_]'`
+RV=$((RV+$?))
+[ "$USERS_" ] || RV=$((RV+1))
+USERSm=`echo "$USERS_" | tr -s ' '`
+RV=$((RV+$?))
+[ "$USERSm" ] || RV=$((RV+1))
+USERSs=`echo "$USERSm"| sort -k4,5 -t' '`
+RV=$((RV+$?))
+[ "$USERSs" ] || RV=$((RV+1))
+USERSa=`echo "$USERSs" | awk '{if (match($3, "tty[0-9]?")) print}'`
+RV=$((RV+$?))
+[ "$USERSa" ] || RV=$((RV+1))
+echo "$USERSa"
+RV=$((RV+$?))
+return $RV
+}
+
+__logged_in_on_tty(){
+###STUB### ##BB who does not show YEAR :(##
+local WHO_ RV USERS_ USERSm USERSs USERSa
+WHO_=`busybox who -a`
+RV=$?
+USERS_=`echo "$WHO_" | grep '^[[:alnum:][:punct:]_]'`
+RV=$((RV+$?))
+[ "$USERS_" ] || RV=$((RV+1))
+USERSm=`echo "$USERS_" | tr -s ' '`
+RV=$((RV+$?))
+[ "$USERSm" ] || RV=$((RV+1))
+USERSs=`echo "$USERSm"| sort -k4,5 -t' '`
+RV=$((RV+$?))
+[ "$USERSs" ] || RV=$((RV+1))
+USERSa=`echo "$USERSs" | awk '{if (match($3, "tty[0-9]?")) print}'`
+RV=$((RV+$?))
+[ "$USERSa" ] || RV=$((RV+1))
+echo "$USERSa"
+RV=$((RV+$?))
+return $RV
+}
+
+_last_logged_in_on_tty(){
+local lastL RV
+lastL=`_logged_in_on_tty | tail -n1`
+RV=$?
+[ "$lastL" ] || RV=$((RV+1))
+echo "$lastL"
+RV=$((RV+$?))
+return $RV
+}
+
 
 _exit()
 {
@@ -1936,6 +2075,29 @@ esac
 break
 done
 _debug "Using '$YAF'"
+}
+
+_GTKdialog_remove_comments()
+{
+
+test "$*" || { _return 1 "No Input. Usage _GTKdialog_remove_comments DIALOG_GUI_CODE"; return 1; }
+local sPATTERN1 sPATTERN2 sPATTERN3 sPATTERN4
+sPATTERN1='s%<!--.*-->%%g'
+sPATTERN2='/<!--/,/-->/d'
+sPATTERN3='s%^#.*%%'
+sPATTERN4='s%>.*#[^>]*$%%'
+
+echo "$*" | sed -e "$sPATTERN1" -e "$sPATTERN2" -e "$sPATTERN3" -e "$sPATTERN4" || return 1
+}
+
+_GTKdialog_debug_gui()
+{
+test "$*" || { _return 2 "_GTKdialog_debug_gui: Usage: debugGUI=\`_GTKdialog_debug_gui \"$MAIN_DIALOG\"\`"; return $?; }
+
+local lNR
+lNR=0
+echo "$*" | while read -r aLINE; do lNR=$((lNR+1)); echo "$lNR: $aLINE";done
+
 }
 
 _pidof()
