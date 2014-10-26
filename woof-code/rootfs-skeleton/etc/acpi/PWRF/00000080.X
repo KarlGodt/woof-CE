@@ -24,26 +24,7 @@ echo "$MSG"
 exit $1
 }
 
-__available_modes__(){
-pidof sync >>$OUT || sync
 
-KERN_VER=`uname -r`
-#AVAIL_MODES=$(</sys/power/state)
-read AVAIL_MODES </sys/power/state
-BUTTONS="Let me outa here:200"
-for m in $AVAIL_MODES;do
-case $m in
-standby)
-BUTTONS="Powerdown to Standby:201,${BUTTONS}"
-;;
-mem)
-BUTTONS="REST in RAM:203,${BUTTONS}"
-;;
-disk)
-BUTTONS="Hiber on DISK:204,${BUTTONS}"
-;;
-esac;done
-}
 
 out=/dev/null;err=$out
 HIBER=1;MODE=DISK;mode=disk
@@ -87,7 +68,7 @@ BUTTONS="Hiber on DISK:204,${BUTTONS}"
 ;;
 esac;done
 
-#[ "$DISPLAY" ] || export DISPLAY=':0'
+
 #if [ "$DISPLAY" ];then
 if pidof X; then
 
@@ -156,35 +137,13 @@ Note: Timesout in 30 seconds with wmpoweroff.
 
 else #X not running, read console
 
-__old_fallback__(){
-chvt 12
-sleep 1
-echo "Security stub for frozen systems to poweroff cleanly." >/dev/tty12
-sleep 3s
-
-#echo "Timesout in 30 seconds to run poweroff." >/dev/tty12
-#exec 1>>/dev/tty12 2>&1
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/console >/dev/console NO_KEY
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/tty12 >/dev/tty12 NO_KEY
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/vcs12 >/dev/vcs12 NO_KEY
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/vcsa12 >/dev/vcsa12 NO_KEY
-
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " NO_KEY >/dev/console </dev/console
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " NO_KEY </dev/console >/dev/console
-
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " </dev/console NO_KEY >/dev/console
-#read -t 30 -p "Ready to poweroff. Press n-key to cancel system poweroff: " >/dev/console NO_KEY </dev/console
-
-case $NO_KEY in
-N|n) exit;;
-*) exec poweroff;exit;;
-esac
-}
 
 lastTTY=`_last_logged_in_on_tty | awk '{print $3}'`
 lTTYnr=${lastTTY##*[[:alpha:][:punct:]_]}
 chvt $lTTYnr
 sleep 1
+
+
 echo -e "\nPowerbutton pressed:\n" >/dev/${lastTTY##*/}
 
 cat >>/dev/${lastTTY##*/} <<EoI
@@ -246,43 +205,35 @@ echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
 
 STRAYPARTL=`echo "$MNTDPARTS" |grep -vE ' /dev | /dev/shm | /dev/pts | devpts | /proc | /sys | proc | sysfs | *tmpfs  | *ramfs | rootfs |/dev/root | usbfs | unionfs | /initrd| on / '`
 
-#STRAYPARTL=`echo $STRAYPARTL |rev |sed 's# )#\n)#g'|rev`
 readonly STRAYPARTL
 
 STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 2 -d " "` ### |sed 's# type.*##' | tr ' ' '·'`
 
 pidof sync || sync
 
-for ONESTRAY in $STRAYPARTMP  ##in MountPoints
+for oneSTRAY in $STRAYPARTMP  ##in MountPoints
 do
- [ "$ONESTRAY" ] || continue
+ [ "$oneSTRAY" ] || continue
  #Prepare the vars :
- ONESTRAY="${ONESTRAY//·/ }"
- ONESTRAY=${ONESTRAY//\"/}
+ oneSTRAY="${oneSTRAY//·/ }"
+ oneSTRAY=${oneSTRAY//\"/}
 
- echo -e "\e[1;31mUnmounting '$ONESTRAY'...\e[0;39m"
+ echo -e "\e[1;31mUnmounting '$oneSTRAY'...\e[0;39m"
 
- #ONESTRAYP=`busybox mount | grep -w "$ONESTRAY" | cut -f 1 -d ' '`
-
- #fuser:
- #fuser -v -k -c -m $ONESTRAYP ##Device  ##Error both mount and mountpoint dont work
-
- #fuser -v -k -m  "$ONESTRAY"  ##+++2011-10-27
-
- pidof sync || sync
+ pidof sync >>$OUT || sync
 
  #ntfs or not:
- if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
+ if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
  #fusermount version: 2.7.0 [options] mountpoint
- noROX=1 fusermount -u "$ONESTRAY" ##unmounts MountPoint
+ noROX=1 fusermount -u "$oneSTRAY"   ##unmounts MountPoint
  else
- noROX=1 /bin/umount -r "$ONESTRAY"  ##unmounts MountPoint
+ noROX=1 /bin/umount $VERB -r "$oneSTRAY"  ##unmounts MountPoint
  echo -e "\e[1;31m'$?'\e[0;39m"
  sleep 1
  fi
 done
 
-pidof sync || sync
+pidof sync >>$OUT || sync
 
 if [ "$HIBER" ];then
 
@@ -345,7 +296,7 @@ SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
 
 [ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to RAM due to free swap lesser than used mem"
 
-echo 'disk' >/sys/power/state 2>/tmp/acpi.err
+echo 'disk' >/sys/power/state 2>>/tmp/acpi.err
 [ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err
 
 sleep 30s
@@ -365,9 +316,10 @@ aplay /usr/share/audio/2barks.au
 
 else #hiber
   if [ "$SLEEP" ];then
-echo 'mem' >/sys/power/state 2>/tmp/acpi.err
+echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 [ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err || {
   aplay /usr/share/audio/2barks.au
+
   oldIFS="$IFS"
   IFS=$'\n'
   for oneLINE in $STRAYPARTL
@@ -377,20 +329,26 @@ echo 'mem' >/sys/power/state 2>/tmp/acpi.err
    _mntpnt_=`echo -e "$_mntpnt_"`
    _fstype_=`echo "$oneLINE" | awk '{print $3}'`
    _mntops_=`echo "$oneLINE" | awk '{print $4}'`
+
    test "$_device_" -a "$_mntpnt_" -a "$_fstype_" -a "$_mntops_" || continue
+
    grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && noROX=1
+
    if grep $Q -w "$_mntpnt_" /proc/mounts; then
-    noROX=$noROX /bin/mount -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
+    noROX=$noROX /bin/mount $VERB -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
    else
-    noROX=$noROX /bin/mount -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
+    noROX=$noROX /bin/mount $VERB -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
    fi
+
    sleep 0.2
    unset noROX
   done
   IFS="$oldIFS"
+
    }
   fi
 fi
 
 exit 0
 
+###END###
