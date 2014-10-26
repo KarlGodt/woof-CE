@@ -1,8 +1,9 @@
-#!/bin/ash +e
+#!/bin/ash
 # Karl Reimer Godt in June 2012
 # usual Puppy license
 Version='1.1 Puppy_Macpup-Foxy3 KRG'
-echo "$0:$Version:$*"
+echo "
+$0:$Version:$*"
 . /etc/rc.d/f4puppy5
 
 # Power button pressed 5 times in 10 seconds : poweroff force
@@ -22,10 +23,20 @@ _check_if_already_running ${0##*/} || {
   exit 1
 }
 
-test "$DISPLAY" || export DISPLAY=':0'
+test "$DISPLAY" || { pidof X >>$OUT && export DISPLAY=':0'; }
+
+_xmessage(){
+
+[ "$DISPLAY" ] && {
+ xmessage "$@"
+true
+ } || {
+ echo "${*##*-title}"
+ }
+}
 
 aplay /usr/share/audio/2barks.au
-xmessage -title "POWERBUTTON ACKNOWLEDGE" -timeout 10 "HELLO from `pwd`/$0"
+_xmessage -timeout 10 -title "POWERBUTTON ACKNOWLEDGE" "HELLO from `pwd`/$0"
 
 _usage(){
 MSG="
@@ -55,7 +66,7 @@ $2
 "
 fi
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -title "POWERBUTTON HELP" -bg blue3 -fg white "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue3 -fg white -title "POWERBUTTON HELP" "$MSG"
 rm -f /tmp/acpi_button_count
 exit $1
 }
@@ -67,9 +78,12 @@ case $1 in
 *force) :;; #from enlightenment Bereitschaftsmodus
 *) _usage 1 "Unknown Parameter '$1'";;
 esac
-echo 52
+
+LINEP=BEFORESYNC01
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 pidof sync >>$OUT || sync
-echo 54
+LINEP=AFTERSYNC01
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 _loop_umount_func(){
                     local M_LOOP mloop_ yPID
@@ -80,18 +94,68 @@ M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!
 
 for mloop_ in $M_LOOP;
 do
-    yaf-splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
+    _yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
     /bin/umount $VERB -r "$mloop_"
-[ $? -ne 0 ] && { xmessage -title "POWERBUTTON LOOP UMOUNT FAIL" -bg red2 "Please umount '$mloop_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
+[ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
     sleep 1
     kill $yPID
 done
 }
-echo 64
+LINEP=A001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
  rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
- rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+ #rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+
+_yaf_splash(){
+
+[ "$DISPLAY" ] && {
+ yaf-splash "$@"
+  true
+ } || {
+ echo "${*##*-text}"
+ }
+}
+
+__xmessage(){
+
+local RV SELECT
+unset RV SELECT
+
+[ "$DISPLAY" ] && {
+ xmessage "$@"
+ return $?
+ } || {
+
+ echo "${*##*-title}"
+ echo "
+$BUTTONS_GUI
+"
+ while [ selecting ];
+ do
+  read -t30 -p "Select one of the above numbers #: " SELECT
+   RV=$?
+   if [ ! "$SELECT" ]; then
+    case $RV in
+    0) continue;;
+    1)  exit;;  #exec /sbin/poweroff force;;
+    *) echo RV=$RV; continue;;
+    esac
+   else
+    case $SELECT in
+     204|203|200|190|188) break;;
+     *) echo "Error - wrong entry '$SELECT'";;
+    esac
+   fi
+  sleep 1
+ done
+return $SELECT
+ }
+
+}
 
 _part_umount_func(){
                     local M_POI M_OPS mpart_ yPID
@@ -141,7 +205,7 @@ do
     #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
     #esac
 
-    yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+    _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
 
     ##Solution Nr. 2 and 4 Reasonable and BIG sleep :
     case $mpart_ in
@@ -149,7 +213,7 @@ do
     esac
 
     /bin/umount $VERB -r "$mpart_"
-[ $? -ne 0 ] && { xmessage -title "POWERBUTTON UMOUNT FAIL" -bg red2 "Please umount '$mpart_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
+[ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON UMOUNT FAIL" "Please umount '$mpart_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
 
     ## Solution Nr. 2 Reasonable sleep :
     #case $mpart_ in
@@ -172,25 +236,25 @@ do
            MSG="ERROR: Drive '/dev/${mpart_##*/}' still recognized as active.
            Exiting ${PWD}/${0}."
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
-           xmessage -bg red -title "$MY_SELF" "$MSG"
+           _xmessage -bg red -title "$MY_SELF" "$MSG"
            rm -f /tmp/acpi_button_count
            exit 5
       }
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
       sdparm $VERB -C stop /dev/${mpart_##*/}
       sleep 17
      ;;
 
      */hd[a-d])
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
       hdparm $L_VERB -Y /dev/${mpart_##*/}
       sleep 17
      ;;
 
      */fd[0-9]*)
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 25
      ;;
     esac
@@ -199,7 +263,8 @@ do
     kill $yPID
 done
 }
-echo 87
+LINEP=B001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 _restore_mounts(){
                     local part_ basn FS_TYPE reMOUNT mntOPS yPID
@@ -224,7 +289,7 @@ do
     #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
     #esac
 
-    yaf-splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+    _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
 
         grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
         mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
@@ -239,32 +304,32 @@ do
     ## Solution Nr. 5 use hdparm and or sdparm to wake-up the drive
     case $part_ in
      */sr[0-9]*|*/scd[0-9]*)
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
       sdparm $VERB -C start $part_
       sleep 17
      ;;
 
      */hd[a-d])
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
       hdparm $L_VERB --idle-immediate $part_
       sleep 17
      ;;
 
      */fd[0-9]*)
-      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 25
      ;;
     esac
 
         basn=${part_##*/}
-        mkdir -p /mnt/$basn
+        mkdir -p /mnt/"$basn"
 
 [ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS             "$part_" /mnt/"$basn" || true
 } || {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE $part_ /mnt/$basn || false
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE "$part_" /mnt/"$basn" || false
 }
 
     ## Solution Nr. 4 BIG sleep :
@@ -279,7 +344,8 @@ do
     unset reMOUNT mntOPS FS_TYPE
 done
 }
-echo 96
+LINEP=C001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 __set_usb_power_sysfs_values__(){
 
@@ -693,14 +759,16 @@ return $RV
 ACPITOOL=`which acpitool`
 states_avail=`cat /sys/power/state`
 states_avail_=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation on disk!;s!mem!S3 PM_SLEEP in mem!;s!standby!S1 Stand By!'`
-echo 102
+LINEP=D001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 aplay /usr/share/audio/2barks.au
-xmessage -title "POWERBUTTON STATES" -timeout 20 -bg red1 "$0
+_xmessage -timeout 20 -bg red1 -title "POWERBUTTON STATES" "$0
 Available states:
 $states_avail_
 "
-echo 108
+LINEP=E001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 for st_ in $states_avail
 do
@@ -722,15 +790,16 @@ test "$BUTTON_FREEZE"  && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_FREEZE"
 BUTTONS_GUI="${BUTTONS_GUI},DO NOTHING:200"
 BUTTONS_GUI=`echo "$BUTTONS_GUI" | sed 's%^,*%%;s%,*$%%'`
 
-#xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
- xmessage -timeout 30 -buttons "$BUTTONS_GUI" -title "POWERBUTTON MENU" -bg blue3 -fg white "Busybox acpid :
+  #xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
+ __xmessage -timeout 30 -buttons "$BUTTONS_GUI" -title "POWERBUTTON MENU" -bg blue3 -fg white "Busybox acpid :
 Do you want to go into one of the ACPI PM SLEEP modes ?
 Note : Timesout in 30 seconds to poweroff normally."
 ANSWER=$?
-echo 113
+LINEP=F001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 _mouse_message(){
-yaf-splash -bg yellow -fg black -timeout 10 -text "OK, If your mouse receiver is
+_yaf_splash -bg yellow -fg black -timeout 10 -text "OK, If your mouse receiver is
 attached to a keyboard integrated hub, and you don't
 want to wake the system by mouse moves,
 then you have 10 seconds from now,
@@ -865,10 +934,10 @@ sleep 5
 aplay /usr/share/audio/2barks.au
 case $ANSWER in
 203)
-xmessage -title "POWERBUTTON WAKEUP MESSAGE" "RETURNED from RAM light sleep"
+_xmessage -title "POWERBUTTON WAKEUP MESSAGE" "RETURNED from RAM light sleep"
 ;;
 204)
-xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter sleep"
+_xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter sleep"
 ;;
 *) :;;
 esac
