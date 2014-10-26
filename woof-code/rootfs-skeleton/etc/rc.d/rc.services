@@ -65,20 +65,24 @@ while [ "`pidof pup_event_backend_modprobe`" ];do sleep 1;done
     #LSMODS=`lsmod | cut -f 1 -d ' ' | grep -v -w -E 'snd|processor|ac'`
     #LSMODS=`sed 's# .*##' /proc/modules | grep -vwE 'snd|processor|ac'`
 LSMODS1=`awk '{print $1}' /proc/modules | grep -vwE 'snd|processor|ac'`
+
     #for i in $LSMODS ; do
 while read mod_; do
 [ "$mod_" ] || continue
-echo -n "$mod_ "
-find /etc/init.d/ -maxdepth 1 \( -type f -o -type l \) -iname "*${mod_}*" -exec echo -e "\nchmoding +x {}" \; -exec chmod $VERB +x {} \;
-done <<EOI
+echo -n "$mod_ :"
+find /etc/init.d/ -maxdepth 1 \( -type f -o -type l \)      -iname "*${mod_}*" -exec echo -en "\nchmoding +x {}" \; -exec chmod $VERB +x {} \;
+#find /etc/init.d/ -maxdepth 1 \( -type f -o -type l \) -not -iname "*${mod_}*" -exec echo -en "\nchmoding -x {}" \; -exec chmod $VERB -x {} \;
+echo
+done <<EoI
 $(echo "$LSMODS1")
-EOI
+EoI
 
     #LSMODS2=`echo "$LSMODS" | tr '\n' '|' | sed 's#|$##;s#^|##'`
     #LSMODS2=`echo "$LSMODS" | sed 's#\n#|#;s#|$##;s#^|##'`
     #LSMODS2=`echo $LSMODS | sed 's/[[:space:]]/|/g;s/^|*//;s/|*$//' |tr -s '|'`
     #LSMODS2=`echo $LSMODS | ${BB}sed 's/ */|/g;s/^|*//;s/|*$//'`
 LSMODS2=`echo $LSMODS1 | ${BB}sed 's/[ *]/|/g;s/^|*//;s/|*$//'`
+echo
 echo LSMODS2="$LSMODS2"
 
     #for i in /etc/init.d/FIRMWARE/* ; do
@@ -87,14 +91,16 @@ while read mod__; do
 [ "$mod__" ] || continue
 if [ -z "`echo "$mod__" | grep -i -E "$LSMODS2"`" ] ; then
 echo "chmod -x $mod__"
-chmod $VERB -x /etc/init.d/FIRMWARE/"$mod__"
+#chmod $VERB -x /etc/init.d/FIRMWARE/"$mod__"
+chmod -x "$mod__"
 else
 echo "chmod +x $mod__"
-chmod $VERB +x /etc/init.d/FIRMWARE/"$mod__"
+#chmod $VERB +x /etc/init.d/FIRMWARE/"$mod__"
+chmod +x "$mod__"
 fi
-done <<EOI
-`${BB}ls -1LF /etc/init.d/FIRMWARE/ 2>>$ERR | grep '\*$' |tr -d '\*'`
-EOI
+done <<EoI
+`for dir in FIRMWARE; do ${BB}ls -1LF /etc/init.d/$dir/* 2>>$ERR | grep '\*$' |tr -d '\*'; done`
+EoI
 
 }
 
@@ -106,9 +112,9 @@ while read name1; do
 [ "$name1" ] || continue
 echo "$RUN_PARAMETER default script '$name1' .."
 /etc/init.d/DEFAULT/"$name1" $RUN_PARAMETER  #;done
-done <<EOI
+done <<EoI
 $(echo "$LIST_1")
-EOI
+EoI
 
 LIST_2=`ls -1LBF /etc/init.d/FIRMWARE/ 2>>$ERR | grep '\*$' |tr -d '\*'`
     #for i in $LIST_1;do
@@ -116,13 +122,19 @@ while read name2; do
 [ "$name2" ] || continue
 echo "$RUN_PARAMETER firmware script '$name2' .."
 /etc/init.d/FIRMWARE/"$name2" $RUN_PARAMETER  #;done
-done <<EOI
+done <<EoI
 $(echo "$LIST_2")
-EOI
+EoI
 }  ###__old__(){
 
+INIT_D_ORDER="DEFAULT DRIVER FRIMWARE SOFTWARE"
+case $RUN_PARAMETER in
+*start) INIT_D_ORDER="DEFAULT DRIVER FIRMWARE SOFTWARE";;
+*stop ) INIT_D_ORDER="SOFTWARE FIRMWARE DRIVER DEFAULT";;
+esac
 
-for _dir_ in SOFTWARE DEFAULT DRIVER FIRMWARE
+echo
+for _dir_ in $INIT_D_ORDER
 do
  test -d /etc/init.d/$_dir_ || continue
  echo "${RUN_PARAMETER}ing init scripts in /etc/init.d/$_dir_ ..."
@@ -131,17 +143,20 @@ do
   do
    [ "$_oneFILE_" ] || continue
    echo "$RUN_PARAMETER init script '$_oneFILE_'"
-   /etc/init.d/${_dir_}/${_oneFILE_} $RUN_PARAMETER
+    exec /etc/init.d/${_dir_}/${_oneFILE_} $RUN_PARAMETER &
+    sleep 1
   done <<EoI
 $(echo "$_LIST_")
 EoI
 done
 
+echo
 LIST_3=`ls -1LF /etc/init.d/ 2>>$ERR | grep '\*$' |tr -d '\*'`
 while read mod___; do
 [ "$mod___" ] || continue
 echo "$RUN_PARAMETER init script '$mod___' .."
-/etc/init.d/"$mod___" $RUN_PARAMETER
+exec /etc/init.d/"$mod___" $RUN_PARAMETER &
+sleep 1
 done <<EOI
 $(echo "$LIST_3")
 EOI
