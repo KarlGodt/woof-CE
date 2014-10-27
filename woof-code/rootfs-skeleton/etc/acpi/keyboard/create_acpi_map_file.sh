@@ -78,7 +78,7 @@ do
 
 echo "$oneLINE" >&2
 
-unset KEYname KEYnumber KEYcomment
+unset KEYname KEYnumber KEYcomment CONF_LABEL
 
 KEYname=${oneLINE%%[[:blank:]]*}
 echo "'$KEYname'" >&2
@@ -91,18 +91,26 @@ echo "'$KEYcomment'" >&2
 #test "${KEYcomment//[[:blank:]]/}" || \
 #{       KEYcomment='/* '$KEYname" "$KEYnumber' */'; }
 #
-KEYcomment='/* '$KEYname" "$KEYnumber' */'
+#KEYcomment='/* '$KEYname" "$KEYnumber' */'
+#
+
+CONF_LABEL=${KEYname/KEY_/}
+
 
 _filter_keynumber $KEYnumber || continue
 
 if test "$KEYname" -a "$KEYnumber"; then
-echo -e ${KEYname/KEY_/}"\t\t"0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '$KEYcomment
+#echo -e ${KEYname/KEY_/}"\t\t"0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '$KEYcomment
+echo -e "EV_KEY "0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '\"$CONF_LABEL\"
 elif test "$KEYname"; then
-echo -e '#'${KEYname/KEY_/}"\t\t"0x01" $KEYname""\t\t"'key_number'"\t"' 1 '$KEYcomment
+#echo -e '#'${KEYname/KEY_/}"\t\t"0x01" $KEYname""\t\t"'key_number'"\t"' 1 '$KEYcomment
+echo -e "EV_KEY "0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '\"$CONF_LABEL\"
 elif test "$KEYnumber"; then
-echo -e '#unique_label_here'"\t"0x01'KEY_keyname'"\t\t""$KEYnumber""\t"' 1 '$KEYcomment
+#echo -e '#unique_label_here'"\t"0x01'KEY_keyname'"\t\t""$KEYnumber""\t"' 1 '$KEYcomment
+echo -e "EV_KEY "0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '\"$CONF_LABEL\"
 else
-echo -e '#unique_label_here'"\t"0x01'KEY_keyname'"\t\t"'key_number'"\t"" 1 "'description'
+#echo -e '#unique_label_here'"\t"0x01'KEY_keyname'"\t\t"'key_number'"\t"" 1 "'description'
+echo -e "EV_KEY "0x01" $KEYname""\t\t""$KEYnumber""\t"' 1 '\"$CONF_LABEL\"
 fi
 done     >> "$MAP_FILE"
 IFS=$"$oldIFS"
