@@ -94,7 +94,8 @@ M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!
 
 for mloop_ in $M_LOOP;
 do
-    _yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
+    #_yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
+     _yaf_splash -bg pink1 -text "Unmounting $mloop_ ..."
     /bin/umount $VERB -r "$mloop_"
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";rm -f /tmp/acpi_button_count;exit 0; }
     sleep 1
@@ -113,7 +114,7 @@ rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
 _yaf_splash(){
 
 [ "$DISPLAY" ] && {
- yaf-splash "$@"
+ yaf-splash "$@" & yPID=!$
   true
  } || {
  echo "${*##*-text}"
@@ -130,6 +131,8 @@ unset RV SELECT
  return $?
  } || {
 
+ openvt -s
+ sleep 1
  echo "${*##*-title}"
  echo "
 $BUTTONS_GUI
@@ -146,7 +149,7 @@ $BUTTONS_GUI
     esac
    else
     case $SELECT in
-     204|203|200|190|188) break;;
+     204|203|201|200|190) break;;
      *) echo "Error - wrong entry '$SELECT'";;
     esac
    fi
@@ -205,7 +208,8 @@ do
     #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
     #esac
 
-    _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+    #_yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+     _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..."
 
     ##Solution Nr. 2 and 4 Reasonable and BIG sleep :
     case $mpart_ in
@@ -289,7 +293,8 @@ do
     #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
     #esac
 
-    _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+    #_yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+     _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..."
 
         grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
         mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
@@ -773,10 +778,18 @@ echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 for st_ in $states_avail
 do
     case $st_ in
-    *freeze*)   BUTTON_FREEZE=freeze:190;;
-    *standby*)  BUTTON_STANDBY=standby:188;;
-    *mem*)      BUTTON_MEM="RAM sleep:203";;
-    *disk*)     BUTTON_DISK="hibernate on swap partition:204";;
+    *freeze*)   BUTTON_FREEZE=freeze:190
+                XdmbTAG_FREEZE="\"Freeze\" \"EXP\" \"{?}\""
+    ;;
+    *standby*)  BUTTON_STANDBY="Standby:201"
+                XdmbTAG_STANDBY="\"Standby\" \"ACPI-S1\" \"{ fan still runs }\""
+    ;;
+    *mem*)      BUTTON_MEM="RAM sleep:203"
+                XdmbTAG_MEM="\"RAM Sleep\" \"ACPI-S3\" \"{ normal rest in ram }\""
+    ;;
+    *disk*)     BUTTON_DISK="hibernate on swap partition:204"
+                XdmbTAG_DISK="\"Hibernation\" \"ACPI-S4\" \"{ poweroff and put RAM-Image into swap }\""
+    ;;
         *)          _warn "Unhandled ACPI state '$st_'";;
     esac
 done
@@ -790,11 +803,117 @@ test "$BUTTON_FREEZE"  && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_FREEZE"
 BUTTONS_GUI="${BUTTONS_GUI},DO NOTHING:200"
 BUTTONS_GUI=`echo "$BUTTONS_GUI" | sed 's%^,*%%;s%,*$%%'`
 
+test "$XdmbTAG_FREEZE"  && Xd_MENU="$Xd_MENU
+ $XdmbTAG_FREEZE \\"
+test "$XdmbTAG_STANDBY" && Xd_MENU="$Xd_MENU
+ $XdmbTAG_STANDBY \\"
+test "$XdmbTAG_MEM"     && Xd_MENU="$Xd_MENU
+ $XdmbTAG_MEM \\"
+test "$XdmbTAG_DISK"    && Xd_MENU="$Xd_MENU
+ $XdmbTAG_DISK"
+
+ Xd_MENU=" \"Do Nothing\" \"just leave\" \"{quit and skip any further code}\" \\
+ $Xd_MENU"
+#Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d;s!$!   \\\!'`
+ Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d'`
+echo
+echo "Xd_MENU='$Xd_MENU'"
+echo
+
+___do_xmessage__(){
   #xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
  __xmessage -timeout 30 -buttons "$BUTTONS_GUI" -title "POWERBUTTON MENU" -bg blue3 -fg white "Busybox acpid :
 Do you want to go into one of the ACPI PM SLEEP modes ?
 Note : Timesout in 30 seconds to poweroff normally."
 ANSWER=$?
+}
+
+Xd_TITLE="Powerbutton GUI"
+Xd_BTITLE="Powerbutton MENU"
+Xd_TEXT="Choose one of the \n
+Entries below :"
+Xd_HELP="ACPI Power-Save Modes :\n
+                                \n
+S1: Just switches off the monitor .\n
+                                   \n
+S3: Sleeps in random-access Memory   \n
+    and as long as power is supplied \n
+    will return to desktop when the  \n
+    power button is pressed again.   \n
+    Some buggy kernels will panic though.. \n
+                                           \n
+S4: Writes an Image of the current Memory    \n
+    to a swap partition or file and shutdown \n
+    and halts or poweroffs the computer.     \n
+                                                \n
+    To restore the Session, boot with            \n
+    'resume=/dev/[hs]d[a-z][0-9] boot parameter, \n
+    where /dev/sdaX is the first swap partition. \n
+                                                 \n
+    A swap file would additionally need the      \n
+    resume_offset= kernel parameter              \n
+    ( See Documentation/power/swsusp-and-swap-files.txt \n
+      in the kernel source ) .                          \n
+"
+
+_do_menu_Xdialog_menubox(){
+
+#oldIFS=$"IFS"
+#IFS=$'\n'
+#unset IFS
+rm -f /tmp/acpi_Xd_MENU.out
+cat > /tmp/acpi_Xd_MENU.sh <<EoI
+#!/bin/ash
+
+ Xdialog  \\
+ --backtitle "$Xd_BTITLE" \\
+ --title     "$Xd_TITLE" \\
+ --screen-center \\
+ --stdout \\
+ --separator ":"    \\
+ --separate-output   \\
+ --buttons-style text \\
+ --timeout 30 \\
+ --item-help  \\
+ --default-item "RAM Sleep" \\
+ --help "$Xd_HELP" \\
+ --ok-label "Do It" \\
+ --cancel-label "Coward" \\
+ --menubox "$Xd_TEXT" \\
+ 0 0 5 \\
+ $Xd_MENU  \\
+  >/tmp/acpi_Xd_MENU.out
+exit $?
+EoI
+
+chmod $VERB 0774 /tmp/acpi_Xd_MENU.sh
+/tmp/acpi_Xd_MENU.sh
+ RV=$?
+
+ case $RV in
+ 0) :;;
+ *) exit;;
+ esac
+ CHOICE_LINE=`tail -n1 /tmp/acpi_Xd_MENU.out`
+ echo "CHOICE_LINE='$CHOICE_LINE'"
+ #exit
+
+#IFS=$"$oldIFS"
+
+case $CHOICE_LINE in
+*FREEZE*|*Freeze*|*freeze*) ANSWER=190;;
+*Do*Nothing*|*do*nothing*)  ANSWER=200;;
+*Standby*|*standby*)        ANSWER=201;;
+*RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
+*Hibernation*|*hiber*)      ANSWER=204;;
+"") ANSWER=3;;
+*)  ANSWER=4;;
+esac
+
+return $ANSWER
+}
+_do_menu_Xdialog_menubox
+
 LINEP=F001
 echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
@@ -909,7 +1028,7 @@ sleep 1
 sleep 5
 _restore_mounts
 
-elif [ "$ANSWER" = 188 ]; then  #standby
+elif [ "$ANSWER" = 201 ]; then  #standby
 _set_usb_power_sysfs_values && _mouse_message
     echo standby >/sys/power/state
 
