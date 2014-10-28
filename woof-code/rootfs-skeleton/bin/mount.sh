@@ -1,7 +1,8 @@
 #!/bin/ash
 
+source /etc/rc.d/f4puppy5
 DEBUGT=
-_debugt(){  #$1 label #$2 time
+__debugt__(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
 #unset LANG LC_ALL
@@ -20,13 +21,13 @@ fi
 _debugt 8F
 test "$*" || exec busybox mount
 _debugt 8E $_DATE_
-test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+#test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=
-DEBUGX=
+DEBUG=1
+DEBUGX=1
 test "$DEBUG" && { Q='';QUIET=$Q; }
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -39,7 +40,7 @@ _info "using '$LANG_ROX'"
 #/tmp/ROOTFS as mountpoint ...
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
 #so using function with grep instead
-mountpoint(){
+__mountpoint__(){
  test -f /proc/mounts || return 3
  test "$*" || return 2
  [ "$1" = '-q' ] && shift;
@@ -49,7 +50,7 @@ mountpoint(){
  grep $Q " $* " /proc/mounts
  return $?; }
 
-_check_proc()
+__check_proc__()
 {
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
@@ -60,7 +61,7 @@ _check_proc()
  }
 }
 
-_check_tmp()
+__check_tmp__()
 {
  test -d /tmp && return $? || {
  busybox mount $VERB $VERB -o remount,rw /dev/root/ /
@@ -70,7 +71,7 @@ _check_tmp()
  }
 }
 
-_check_tmp_rw()
+__check_tmp_rw__()
 {
  _check_proc
  _check_tmp
@@ -84,7 +85,7 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 
 }
 
-_string_to_octal()
+__string_to_octal__()
 {
 _debug "_string_to_octal:$*" >&2
 unset oSTRING
@@ -992,7 +993,7 @@ _debugt 05 $_DATE_
 _umount_rmdir()
 {
  test "$*" || return 1
- [ "$DISPLAY" ] && { test "$mountPOINT" && rox -D "$mountPOINT"; }
+ [ "$DISPLAY" ] && { test -d "$mountPOINT" && rox -D "$mountPOINT"; }
  _debug "_umount_rmdir:mountpoint $Q $*";
  mountpoint $Q "$*" || rmdir "$@" 2>>$ERR;
 }
