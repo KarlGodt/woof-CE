@@ -66,19 +66,20 @@ FILE="$1"
 [ -e "$FILE" ] || usage 1 "$FILE does not exist."
 [ -f "$FILE" ] || usage 1 "$FILE is not a regular file."
 
+
 cp "$FILE" /root/changes
 
 while read -r line; do
-[ "$line" ] || continue
-echo "$line"
+ [ "$line" ] || continue
+  [ "$DEBUG" ] && echo "$line"
 
 NEW_LINE=`echo "$line" | sed 's%\(.*=\)\"\(\`.*\`\)\"\(.*\)%\1\2\3%'`
 NEW_LINE=`echo "$NEW_LINE" | sed 's%\*%\\\\\*%g' | sed 's%\\\%\\\\\\\\%g'`
 
 line=`echo "$line" | sed 's/\\\/\\\\\\\\/g'`
 
-echo "\"s~${line}~${NEW_LINE}~\""
-echo LINE $LINENO
+ [ "$DEBUGX" ] && echo "\"s~${line}~${NEW_LINE}~\""
+ [ "$DEBUG"  ] && echo LINE $LINENO
 
 sed -i "s~${line}~${NEW_LINE}~" /root/changes
 [ "$?" = 0 ] || exit
@@ -90,7 +91,7 @@ EOI
 }
 
 
-Version='1.1-kill Macpup_Opera_2-Puppy_Linux_431-KRG'
+Version='1.1.1-kill Macpup_Opera_2-Puppy_Linux_431-KRG'
 
 usage(){
 MSG="
@@ -126,13 +127,13 @@ echo "$MSG"
 exit $1
 }
 
-OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=$Q;DBG='';
+OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=--quiet;DBG='';
 
 while getopts Vhvd opt; do
  case $opt in
   V) echo -e "\n$0: Version '$Version'\nTry -h for more info.\n";exit 0;;
   h) usage 0;;
-  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERBOSE=1;Q='';QUIET=$Q;DBG=-d;;
+  v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERBOSE=1;Q='';QUIET=$Q;DBG=-d;;
   d) set -x;;
   *) :;;
   esac
@@ -149,12 +150,12 @@ while [ "$1" ];do
 CASEPARAM=$1;shift
 
 case "$CASEPARAM" in
-help|-*help|-h) usage 0
+*help|-h) usage 0
 ;;
-version|-*version|-V)
+*version|-V)
 echo -e "\n$0: Version '$Version'\nTry -h for more info.\n";exit 0
 ;;
-codecheck|-*codecheck|checkcode|-*checkcode)
+*check*)
 #BASH set -n
 bn=${0##*/}
 cp $0 /tmp/
@@ -168,48 +169,48 @@ Normally uses ash, this had been done in bash,
 because ash has no -n parameter"
 exit 0
 ;;
-debug|-*debug|-d) set -x
+*debug|-d) set -x
 ;;
-verbose|-*verbose|-v) VERBOSE=1
+*verbose|-v) VERBOSE=1
 VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;Q='';QUIET=$Q;DBG=-d
 ;;
 
-stop)
-pidof -o $$ -o %PPID ${ME_PROGRAM##*/} || { echo " NOT Running.";exit 0; }
+*stop)
+ pidof -o $$ -o %PPID ${ME_PROGRAM##*/} || { echo " NOT Running.";exit 0; }
+  for pid in $ME_OTHER_PIDS; do
+   kill $pid
+    RETVAL=$((RETVAL+$?))
+     done
+    test "$RETVAL" || RETVAL=0
+   pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && RETVAL=1
+  echo
+ exit "$RETVAL"
+;;
+
+*restart)
 for pid in $ME_OTHER_PIDS; do
-kill $pid
-RETVAL=$((RETVAL+$?))
-done
-test "$RETVAL" || RETVAL=0
-pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && RETVAL=1
-echo
-exit "$RETVAL"
+ echo $pid
+  kill $pid
+   done
+  sleep 3
+ echo
+  pidof  ${ME_PROGRAM##*/}
+ echo
+  pidof -o $$ -o %PPID ${ME_PROGRAM##*/}
+  pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
+ break
 ;;
 
-restart)
-for pid in $ME_OTHER_PIDS; do
-echo $pid
-kill $pid
-done
-sleep 3
-echo
-pidof  ${ME_PROGRAM##*/}
-echo
-pidof -o $$ -o %PPID ${ME_PROGRAM##*/}
-pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
-break
+*start)
+ pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
+  break
 ;;
 
-start)
-pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
-break
-;;
-
-status)
+*status)
 echo -n "$ME_PROGRAM : "
-[ "`echo $ME_OTHER_PIDS | wc -w`" = 1 ] && IS=is || IS=are
-[ "$ME_OTHER_PIDS" ] && echo "$ME_OTHER_PIDS $IS already running." || echo "not already running."
-exit 0
+ [ "`echo $ME_OTHER_PIDS | wc -w`" = 1 ] && IS=is || IS=are
+  [ "$ME_OTHER_PIDS" ] && echo "$ME_OTHER_PIDS $IS already running." || echo "not already running."
+   exit 0
 ;;
 
 esac
@@ -221,7 +222,7 @@ get_jobs_pids(){
 ps-FULL -o ppid,lwp,tty,start,s,psr,pcpu,args -C ${ME_PROGRAM##*/} --no-headers | while read PPid Pid rest ; do
 Pids="$Pids
 $Pid"
-echo "$Pids" | grep $QUIET -w "$PPid" && echo "$Pid"
+echo "$Pids" | grep $Q -w "$PPid" && echo "$Pid"
 done
 }
 
@@ -371,7 +372,7 @@ auto_unmount_func() {
  for oneMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
-   sync
+   pidof sync >>$OUT || sync
    umount $oneMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
@@ -402,7 +403,7 @@ format_size_func() {
  [ "${SIZE//[[:alpha:][:punct:]]/}" = '00' ] && SIZE=0
 }
 
-create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
    [ "$1" ] && DRV_NAME="$1"
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
@@ -571,10 +572,10 @@ $COORD_X $COORD_Y"
 #OLD_DRV_NAME="$DRIVE_NAME"
 }
 
-add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
+add_pinboard_func() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
  [ "$1" ] && DRV_NAME="$1"
 
- free_coord_simple   #${ONEDRVNAME}
+ free_coord_simple   #${oneDRVNAME}
 
  [ "$DEBUG" ] && echo "Passing X='$COORD_X' Y='$COORD_Y' to rox -R"
 
@@ -624,17 +625,17 @@ create_icon_func() {
 fi   ## was# ICONPARTITIONS true
 
 
- while read -r ONEDRVINFO
+ while read -r oneDRVINFO
  do
-  [ "$ONEDRVINFO" ] || continue
+  [ "$oneDRVINFO" ] || continue
 
-  PART_NAME=`echo -n "$ONEDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  PART_NAME=`echo -n "$oneDRVINFO" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   [ "$DEBUG" ] && echo "DEV_NAME=$DEV_NAME' PART_NAME=$PART_NAME'"
 
-  FSTYPE=`echo -n "$ONEDRVINFO" | cut -f 2 -d '|'`
+  FSTYPE=`echo -n "$oneDRVINFO" | cut -f 2 -d '|'`
   [ "$DEBUG" ] && echo "FSTYPE=$FSTYPE'"
 
-  SIZE=`echo -n "$ONEDRVINFO" | cut -f 3 -d '|'`
+  SIZE=`echo -n "$oneDRVINFO" | cut -f 3 -d '|'`
 
   drvPATTERN='^/dev/'"${PART_NAME}"' ' #important, a space on end!
 
@@ -660,7 +661,7 @@ ${DRV_DESCRIPTION}"
    <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>
    <Item option=\"mountro\" icon=\"gtk-harddisk\"><Label>Read-Only (re)mount of ${PART_NAME}</Label></Item>
    <Item option=\"fsck_$FSTYPE\" icon=\"gtk-execute\"><Label>Fsck ${PART_NAME} (if not mounted)</Label></Item>"
-   create_appinfo_func $PART_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME or PART_NAME
+   create_appinfo_func $PART_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME or PART_NAME
 
   [ "$DEBUG" ] && echo "DBG drvPATTERN=$drvPATTERN"
 
@@ -676,7 +677,7 @@ ${DRV_DESCRIPTION}"
      icon_mounted_func $PART_NAME $DRV_CATEGORY #see functions4puppy4.
      [ "$DEBUG" ] && echo 'returned from icon_mounted_func'
     fi
-   add_pinboard_func $PART_NAME #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE.
+   add_pinboard_func $PART_NAME #needs oneDRVNAME, DRV_CATEGORY, FSTYPE.
   else icon_unmounted_func $PART_NAME $DRV_CATEGORY;add_pinboard_func $PART_NAME
  fi
  done<<EOI
@@ -688,7 +689,7 @@ EOI
 remove_pinboard_func() { #needs DEV_NAME (name of entire drive)
  [ "$1" ] && DRV_NAME="$1"
  case $DRV_NAME in
- hd*|sd*|mmc*)
+ hd*|mmc*|scd*|sd*)
  DRV_NAME=`echo $DRV_NAME | tr -d '/' | sed 's#dev##g' | sed 's/[0-9]*$//'`;;
  fd*|sr*|*)
  DRV_NAME=`echo $DRV_NAME | tr -d '/' | sed 's#dev##g'`;;
@@ -720,12 +721,13 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
  #passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
- for ONEKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
+ for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
  do
-  ONEKEEP_SPEC=`modinfo -F filename ${ONEKEEP_MOD}`
-  ONEKEEP_PATH=`dirname $ONEKEEP_SPEC`
-  mkdir -p /tmp${ONEKEEP_PATH}
-  cp -af ${ONEKEEP_SPEC} /tmp${ONEKEEP_PATH}/
+  oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
+  #oneKEEP_PATH=`dirname $oneKEEP_SPEC`
+  oneKEEP_PATH-${oneKEEP_SPEC%/*}
+  test -d /tmp${oneKEEP_PATH} || mkdir -p /tmp${oneKEEP_PATH}
+  cp -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" != "" ];then
   rm -rf ${DEL_LAYER}/lib/modules
@@ -741,8 +743,19 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
 
 free_initrd_func() { #UniPup, runs entirely in initramfs.
  SIZEFREEK=`free | grep '^Total:' | tr -s ' ' | cut -f 4 -d ' '`
- SIZEFREEM=$(($SIZEFREEK / 1024))
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
+ test "$SIZEFREEK" || {
+    SIZEFREEM_=`free -m |  awk '{ if (match($1, "Mem.*")) || (match($1, "Swap.*")) print $4}'`
+   for m_ in $SIZEFREEM_; do SIZEFREEM=$((SIZEFREEM+m_)); done
+ }
+ test "$SIZEFREEM" || {
+    test "$SIZEFREEK" || {
+        SIZEFREEK_=`free |  awk '{ if (match($1, "Mem.*")) || (match($1, "Swap.*")) print $4}'`
+         for k_ in $SIZEFREEK_; do SIZEFREEK=$((SIZEFREEK+m_)); done
+    }
+      test "$SIZEFREEK" &&  SIZEFREEM=$(($SIZEFREEK / 1024))
+ }
+
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ "$PREVSIZEFREEM" = "$SIZEFREEM" ] && return
  #save to a file, freememapplet can read this...
  echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
@@ -758,7 +771,8 @@ free_func() { #called every 4 seconds.
   ;;
  esac
  WARNMSG=""
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
+ #[ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ "$PREVSIZEFREEM" -eq $SIZEFREEM ] && return
  if [ "$SIZEFREEM" -lt 10 ];then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
@@ -787,7 +801,7 @@ free_func() { #called every 4 seconds.
 savepuppy_func(){
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." &
   YAFPID=$!
-  sync
+  pidof sync >>$OUT || sync
   nice -n 19 /usr/sbin/snapmergepuppy
   kill $YAFPID
 }
@@ -796,8 +810,8 @@ free_flash_func(){ #PUPMODE 3,7,13. called every 3 seconds.
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
  SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
- [ -s /tmp/pup_event_sizefreem ] && PREVSIZEFREEM=`cat /tmp/pup_event_sizefreem`
- [ -s /tmp/pup_event_sizetmpm ] && PREVSIZETMPM=`cat /tmp/pup_event_sizetmpm`
+ [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
+ [ -s /tmp/pup_event_sizetmpm ]  && read PREVSIZETMPM  </tmp/pup_event_sizetmpm
  [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
  if [ $SIZEFREEM -lt 10 ];then
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
@@ -922,31 +936,31 @@ else
 
  #show all drives on desktop... w476 add ext4...
 
-while read -r ONEDRV
+while read -r oneDRV
 #IFS='|' while read -r DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
  do
- [ "$ONEDRV" ] || continue
+ [ "$oneDRV" ] || continue
  #test "$DRV_NAME" || continue
 
- [ "$DEBUG" ] && echo "ONEDRV=$ONEDRV'"
+ [ "$DEBUG" ] && echo "oneDRV=$oneDRV'"
  #[ "$DEBUG" ] && echo "DRV_NAME=$DRVNAME' DRV_CATEGORY=$DRV_CATEGORY' DRV_DESCRIPTION=$DRV_DESCRIPTION'"
 
-  DEV_NAME=`echo -n "$ONEDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  DEV_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   #DRV_NAME=${DRV_NAME##*/}
 
-  DRV_CATEGORY=`echo "$ONEDRV" | cut -f2 -d'|'`
-  DRV_DESCRIPTION=`echo "$ONEDRV" | cut -f3 -d'|'`
+  DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
+  DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
 
   create_icon_func $DEV_NAME #startup #needs PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
   #create_icon_func $DRV_NAME
 
-  #ONEDRVNAME="$DEV_NAME"
+  #oneDRVNAME="$DEV_NAME"
   if [ ! -d $drive_iconDIR/drive_${DEV_NAME} ] ; then
    mkdir -p $drive_iconDIR/drive_${DEV_NAME}
    /bin/cp -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DRV_NAME}/AppRun
    INFO="Puppy drive manager"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
+   create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
 
  done<<EOI
@@ -1005,13 +1019,13 @@ done
 }
 CURPOS1=1
 CURPOS2=1
-echo "POWERTIMEOUT=$POWERTIMEOUT'"
+[ "$VERBOSE" ] && echo "POWERTIMEOUT='$POWERTIMEOUT'"
 [ "$POWERTIMEOUT" -ne 0 ] && function_powertimeout &
 
 case $PUPMODE in
 3|7|13)
    FREE_FUNCTION='free_flash_func'
-   echo "RAMSAVEINTERVAL=$RAMSAVEINTERVAL'"
+   [ "$VERBOSE" ] && echo "RAMSAVEINTERVAL='$RAMSAVEINTERVAL'"
    [ "$RAMSAVEINTERVAL" -ne 0 ] && function_ramsaveinterval &
  ;;
 16|24|17|25) #unipup.
@@ -1036,27 +1050,27 @@ if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
   echo "MAIN loop not same"
   BLOCKSADD=`echo "$PROBEDISK2_LOOP_NEW" | /bin/grep -v "$PROBEDISK2_LOOP_OLD"`
   BLOCKSREM=`echo "$PROBEDISK2_LOOP_OLD" | /bin/grep -v "$PROBEDISK2_LOOP_NEW"`
-  echo "BLOCKSADD=$BLOCKSADD'"
-  echo "BLOCKSREM=$BLOCKSREM'"
+  [ "$VERBOSE" ] && echo "BLOCKSADD=$BLOCKSADD'"
+  [ "$VERBOSE" ] && echo "BLOCKSREM=$BLOCKSREM'"
 
   if [ "$BLOCKSADD" ] ; then
-   while read -r ADD ; do
-   [ "$ADD" ]|| continue
-   DEV_NAME=`echo -n "$ADD" | cut -f 1 -d '|' | cut -f3 -d'/'`
-   DRV_CATEGORY=`echo -n "$ADD" | cut -f 2 -d '|'`
-   DRV_DESCRIPTION=`echo -n "$ADD" | cut -f 3 -d '|' | tr -s ' '`
-
+   while read -r aADD ; do
+   [ "$aADD" ] || continue
+   DEV_NAME=`echo -n "$aADD" | cut -f 1 -d '|' | cut -f3 -d'/'`
+   DRV_CATEGORY=`echo -n "$aADD" | cut -f 2 -d '|'`
+   DRV_DESCRIPTION=`echo -n "$aADD" | cut -f 3 -d '|' | tr -s ' '`
+   [ "$VERBOSE" ] && echo DEV_NAME=$DEV_NAME DRV_CATEGORY=$DRV_CATEGORY DRV_DESCRIPTION=$DRV_DESCRIPTION
    [ "$ICONDESK" = "true" ] && create_icon_func $DEV_NAME
    #uses DEV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && $drive_iconDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
-  done<<EOI
+  done<<EoI
 $(echo "$BLOCKSADD")
-EOI
+EoI
 
   elif [ "$BLOCKSREM" ] ; then
-   while read -r REM ; do
-   [ "$REM" ] || continue
-    DEV_NAME=`echo "$REM" | cut -f1 -d'|' | cut -f3 -d'/'`
+   while read -r aREM ; do
+   [ "$aREM" ] || continue
+    DEV_NAME=`echo "$aREM" | cut -f1 -d'|' | cut -f3 -d'/'`
     [ "$DEV_NAME" ] || continue
    if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, refresh it.
     killall gtkdialog_pmount
@@ -1076,8 +1090,8 @@ fi
  [ "$VERBOSE" ] && echo "$0:Hotplug detected ?:"
  PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
  PROBEDISK2_LOOP_NEW=`probedisk_simple`
- [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_OLD=$PROBEDISK_LOOP_OLD'"
- [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_NEW=$PROBEDISK_LOOP_NEW'"
+ [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_OLD='$PROBEDISK_LOOP_OLD'"
+ [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_NEW='$PROBEDISK_LOOP_NEW'"
  [ "$VERBOSE" ] && echo
  ####### three second timeout procesing #########
 
