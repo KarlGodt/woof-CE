@@ -2,7 +2,9 @@
 #(c) copyright Barry Kauler 2008, puppylinux.com
 #2008 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v404 first release. Rewritten from scratch, aiming for simplicity and speed.
+
 # 21 comments here. rerwin mentioned one time.
+
 #v431 secondary uevent replay, fix for old kernels < 2.6.24
 
 ########################################################################
@@ -100,7 +102,7 @@ if [ -n "$DISPLAY" ] ; then
 [ "$1" = codecheck ] || usage 1
 :
 fi
-[ "$1" = codecheck ] && set -n ##2012-05-22
+[ "$1" = codecheck ] && { set -x;set -n; } ##2012-05-22
 ###</KRG 2011-11-02>
 
 export LANG=C
@@ -138,7 +140,8 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
-loadswap_func() { #w481 made into a function.
+loadswap_func(){
+    #w481 made into a function.
  STATUS=0;SWAPON=no
  echo "LOAD SWAP"
  #load a swap partition...
@@ -812,21 +815,21 @@ klogd -c 5
 
 echo -n "    Loading kernel modules..." >/dev/console
 
-#### prepare config files #############
+#Stub to care for cmdline parameters
+# better a tmp one, but OK for now ..?
+CMDL_MOD_P=`grep -o '[[:alnum:]_-]*\.[^[:blank:]]*' /proc/cmdline`
+if test "$CMDL_MOD_P"; then
+ for aENTRY in $CMDL_MOD_P
+  do
+   MODULE=${aENTRY%%.*}
+   PARAMS=${aENTRY#*.}
+   echo "#Entry created for $KERNEL_RELEASE `date +%F-%T`
+options $PARAMS" >>/etc/modprobe.d/${MODULE}.conf
+  done
+fi
+
 #MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
 MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
-
-#v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
-BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
-                        echo "$BLACKLISTVARS"  >/tmp/pup_event_skiplist.conf
-[ "$noDriversList" ] && echo "$noDriversList" >>/tmp/pup_event_skiplist.conf
-
-[ -f /etc/modprobe.conf ] &&     cat /etc/modprobe.conf           >/tmp/pup_event_modprobe.conf
-[ -d /etc/modprobe.d ] && { for f in /etc/modprobe.d/*;do cat $f >>/tmp/pup_event_modprobe.conf;done; }
-
-#...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
-touch /tmp/pup_event_module_devpath.log
-#### prepare config files #############
 
 ######### force loading of pcmcia usb hid #################
 if test "$PUPMODE" = 2; then #v423 full hd install.
@@ -849,9 +852,26 @@ fi
 if [ -x /sbin/photplug ];
 then
  echo '/sbin/photplug' > /proc/sys/kernel/hotplug
+
 #my intention is for puppy to work with either of these...
 elif [ -x /sbin/udevd ];
 then
+#### prepare config files #############
+#v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
+BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
+                        echo "$BLACKLISTVARS"  >/tmp/pup_event_skiplist.conf
+[ "$noDriversList" ] && echo "$noDriversList" >>/tmp/pup_event_skiplist.conf
+
+[ -f /etc/modprobe.conf ] &&     cat /etc/modprobe.conf           >/tmp/pup_event_modprobe.conf
+[ -d /etc/modprobe.d ] && { for f in /etc/modprobe.d/*;do cat $f >>/tmp/pup_event_modprobe.conf;done; }
+
+#...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
+touch /tmp/pup_event_module_devpath.log
+
+  #alsa
+[ -f /tmp/pup_event_alsa_cnt ] || echo '0' > /tmp/pup_event_alsa_cnt
+  #alsa
+#### prepare config files #############
  rm -rf /dev/.udev/*/*  ##krg
  [ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
 elif [ -x "`which pup_event_backend_d`" ];
@@ -883,12 +903,8 @@ else #1 #MODALIASES normal
 if [ "$WC" -lt 25 ]; then  #initrd.gz loads 10 modules plus some extra #2
 
 echo "Running the modaliases add by rc.sysinit"
-echo "
+test -e /tmp/pup_event_module_devpath.log && echo "
 Running the modaliases add by rc.sysinit" >> /tmp/pup_event_module_devpath.log
-
-  #alsa
-[ -f /tmp/pup_event_alsa_cnt ] || echo '0' > /tmp/pup_event_alsa_cnt
-  #alsa
 
   #permissions check
 if [ "$VERBOSE" ];then
@@ -897,9 +913,10 @@ ls -l /;ls -l /root;ls -l /tmp;ls -l /var;echo "BEFORE loading main modules"
 fi
   #permissions check
 
-  #prepare for pup_event_backend_modprobe , which tries to exit if already loaded
-touch /tmp/pup_event_module_devpath.log #do it here, not everytime in pup_event_backend_modprobe
-  #prepare for pup_event_backend_modprobe
+#
+#  #prepare for pup_event_backend_modprobe , which tries to exit if already loaded
+#touch /tmp/pup_event_module_devpath.log #do it here, not everytime in pup_event_backend_modprobe
+#  #prepare for pup_event_backend_modprobe
 
 ### TRIGGER udev #############
 MODULECNT=0
@@ -928,7 +945,7 @@ do
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -en "\r\\033[1;36m${MODULECNT}$Black0" >/dev/console
-  fi #3
+ fi #3
 done
 #MODALIAS2=`ls -1v /sys/*/*/*/*/modalias`
 oldMODALIAS="$MODALIAS1"
@@ -1180,11 +1197,23 @@ echo "USER SELECTED MODULES"
  echo -n "Loading user-selected modules..." >/dev/console
  for MODULE in $ADDLIST
  do
-  MPARAMS=""
+  #MPARAMS=""
+  unset MPARAMS CML_MOD_P aENTRY PARAMS_
   if [ "`echo -n "$MODULE" | tr ':' ' ' | wc -w`" -gt 1 ];then
    MPARAMS=`echo -n "$MODULE" | cut -f 2-9 -d ':' | tr ':' ' '`
    MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
   fi
+  #2014-10-27 let cmdline parameters override ADDLIST
+   CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+    if test "$CML_MOD_P"; then
+     for aENTRY in $CML_MOD_P;
+      do
+       PARAMS_=${aENTRY#*$MODULE}
+       PARAMS_=`echo "$PARAMS_" | sed 's%^\.*%%'`
+       PARAMS_=${PARAMS_//,/ }
+       MPARAMS="$MPARAMS $PARAMS_"
+      done
+    fi
   echo -en " \\033[1;36m$MODULE$Black0" >/dev/console
   echo "Loading module $MODULE $MPARAMS"
   firmware_module_func #install firmware tarball. see functions4puppy4.
@@ -1433,7 +1462,7 @@ special_mnt_func(){
 mkdir -p /SPECIAL_MNT
 #for i in `cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | cut -f 2 -d ' '` ; do
 
-validFS=`cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|debugfs|exofs|coda|auofs|jffs2|ubifs|mtd_inodefs' | cut -f 2 -d ' '`
+validFS=`grep '^nodev' /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|debugfs|exofs|coda|auofs|jffs2|ubifs|mtd_inodefs' | cut -f 2 -d ' '`
 for i in $validFS ; do
 
 [ -n "`busybox mount | grep "$i"`" ] && continue
@@ -1503,7 +1532,7 @@ fi
 
 
 dmesg          >/tmp/bootkernel.log
-cp /var/log/messages /tmp/boot.messages
+cp /var/log/messages   /tmp/boot.messages
 cp /var/log/messages.0 /tmp/boot.messages.0
 echo `uptime` >>/tmp/bootkernel.log
 
