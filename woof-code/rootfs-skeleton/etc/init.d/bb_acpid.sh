@@ -19,10 +19,10 @@ exit $1
 }
 
 case $1 in
--h|-help|--help|help) usage 0;;
--V|--version|-version|version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
-checkcode|codecheck) set -n;shift;;
--F|force) FORCE=1;shift;;
+-h|*help|*usage) usage 0;;
+-V|*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+*check*) set -n;shift;;
+-F|*force) FORCE=1;shift;;
 esac
 
 case $2 in
@@ -47,12 +47,12 @@ modprobe -vb evdev
 
 [ "$ACPID_BIN" ] && ACPID_OPTS="`$ACPID_BIN --help 2>&1`"
 
-Config_directory=/etc/acpi       # -c
-proc_event_file=/proc/acpi/event # -e
-Log_file=/var/log/acpid.log      # -l
-Pid_file=/var/run/acpid.pid      # -p
-Action_file=/etc/acpid.conf      # -a
-Map_file=/etc/acpi.map           # -m
+Config_directory=/etc/acpi               # -c
+ proc_event_file=/proc/acpi/event        # -e
+        Log_file=/var/log/acpid.log      # -l
+        Pid_file=/var/run/acpid.pid      # -p
+     Action_file=/etc/acpid.conf         # -a
+        Map_file=/etc/acpi.map           # -m
 
 SUP_KILL_SIGS=`trap -l |sed 's|$| END|'`
 #echo "$SUP_KILL_SIGS
@@ -68,7 +68,8 @@ SUP_KILL_SIGS=`echo " "$SUP_KILL_SIGS" " |rev|sed 's|\()[0-9]*\)|\n\1|g'`
 SUP_KILL_SIGS=`echo $SUP_KILL_SIGS" " |sed 's|DNE|\n|g'|rev|tr -s ' '`
 #echo "$SUP_KILL_SIGS
 #"
-usage (){
+
+usage(){
 echo "$2
 "
 echo "
@@ -108,7 +109,7 @@ Supported kill signals:
 
 ############### MAIN ####################
 case $1 in
-start|Start|START|-start|--start)
+*start|*Start|*START)
 shift
 ALREADY_RUNNING=`pidof $ACPID_BIN |tr ' ' '\n' | grep -vw '1' |tr '\n' ' '`
 
@@ -142,7 +143,7 @@ exit $STATUS
 
 
 ############### STOP #####################
-stop|Stop|STOP|-stop|--stop)
+*stop|*Stop|*STOP)
 shift
 ACPID_PID=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
 [ "$ACPID_PID" ] || exit 0
