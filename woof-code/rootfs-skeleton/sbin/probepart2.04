@@ -15,7 +15,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -70,8 +70,8 @@ set +e
 ##HEAD
 trap "exit 1" HUP INT QUIT KILL TERM
 
-[ -L /dev/fd ] && ln -snf /proc/self/fd /dev/  ##+++2013-07-07
-[ -d /dev/fd ] || ln -s /proc/self/fd /dev/fd ##+++2013-07-07
+[ -L /dev/fd ] && ln -snf /proc/self/fd /dev/    ##+++2013-07-07
+[ -d /dev/fd ] || ln -snf /proc/self/fd /dev/fd  ##+++2013-07-07
 
 OUT=/dev/null;ERR=$OUT
 DEBUG=Y
@@ -83,6 +83,7 @@ VERBOSE=Y
 Version='2.04.01'
 Version='2.04.02'
 Version='2.04.03'
+Version='2.04.04'  #exFAT support
 
 usage(){
 USAGE_MSG="
@@ -159,8 +160,22 @@ disktype_func(){
      disktype /dev/"$1" 2>>$ERR |grep -iE -o '.* file system|swap|squashfs' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'  ##+edit2 support detection of squashfs
 }
 
+blkid_func(){  #2014-11-02 exFAT
+     [ "$DEBUG" ] && echo "blkid_func '$*'" >&2
+     fsT=`busybox blkid /dev/"$1" 2>>$ERR | grep -w "^/dev/$1" | grep -o ' TYPE="[^"]*"' | cut -f2 -d'"'`
+     case "$fsT" in
+     *reiser*|*Reiser*|*REISER*) fsT=`blkid /dev/"$1" 2>>$ERR | grep -o ' TYPE="[^"]*"' | cut -f2 -d'"'`
+     ;;
+     esac
+     echo "$fsT"
+     [ "$DEBUG" ] && echo "$fsT" >&2
+}
+
 filesystem_func(){  ##+++edit1
     [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
+    [ "$FSTYPE" ] || FSTYPE=unknown
+    [ "$FSTYPE" = 'unknown' ] && FSTYPE=`blkid_func    "$1"`
+    [ "$FSTYPE" ] || FSTYPE=unknown
     [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
     [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2 added none to please pmount thanks to Keef
 }
