@@ -1,20 +1,28 @@
 #!/bin/sh
-# Karl Reimer Godt in June 2012
+# Karl Reimer Godt in November 2014
 # usual Puppy license
 
 #echo "$0 :HALLO"
 #xmessage "$0: HALLO"
 
-pidof sync || sync
+_TMP_=/tmp
+_FEAT_=acpi
+tmpDIR=${_TMP_}/${_FEAT_}/${0##*/}
+rm -r "$tmpDIR"
+mkdir -p "$tmpDIR"
+
+TIMEOUT=30
 
 test "`pidof xinit X Xorg Xvesa Xfbdev`" && {
  test "$DISPLAY" || export DISPLAY=:0
  }
 
 Version='1.0 Puppy_Racy_5.3 KRG'
+Version='2.0 luci-218 KRG'
+TITLE="${0##*/} $Version"
 
 usage(){
-MSG="
+USAGE_MSG="
 $0 [help]
 Script to suspend or hibernate
 called by busybox applet 'acpid'.
@@ -35,92 +43,415 @@ simple 'echo \"\$state\" >/sys/power/state' .
 Full acpid pkg available : unknown.
 "
 if [ "$2" ];then
-MSG="$MSG
+USAGE_MSG="$USAGE_MSG
 
 $2
 "
 fi
-echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg blue3 "$MSG"
+echo "$USAGE_MSG"
+[ "$DISPLAY" ] && xmessage \
+                        -bg blue3 \
+                        -fg white  \
+                        -title "$TITLE" \
+                        "$USAGE_MSG"
 exit $1
 }
+
 case $1 in
 -h|*help|*usage) usage 0;;
-*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+*version|-V) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
 "") :;;
 *) usage 1 "Unknown Parameter '$1'";;
 esac
 
+pidof sync || sync
+
+_toggle_pm_async(){
+
+test -f /sys/power/pm_async || return 1
+
+read PM_ASYNC </sys/power/pm_async
+cat /sys/power/pm_async
+
+xmessage \
+ -buttons "Yes - Toggle:200,NO NO NO - keep it as is:201" \
+ -bg green1 \
+ -fg white  \
+ -title "$TITLE" \
+ "The current value in
+ /sys/power/pm_async
+ is set to '$PM_ASYNC'
+
+ Do you want to toggle it ?
+"
+case $? in 200)
+ HAVE_ASYNC_TOGGLE=Y;;
+ #case $PM_ASYNC in
+ #0) echo 1 >/sys/power/pm_async;;
+ #1) echo 0 >/sys/power/pm_async;;
+ #*) echo "UNSUPPORTED pm_async value '$PM_ASYNC'";;
+ #esac;;
+esac
+#cat /sys/power/pm_async
+}
+
+_set_image_size(){
+test -f /sys/power/image_size || return 3
+
+MEM_USED=0
+while read oneUSED
+do
+ MEM_USED=$((MEM_USED+oneUSED))
+done <<EoI
+`free -m | grep -iE 'Mem:|Swap:' |awk '{print $3}'`
+EoI
+
+LARGEST_SWAP_K=`grep -viE 'file|deleted' /proc/swaps | awk '{if (match($1, "^/dev")) print $3}' | sort -n | tail -n1`
+
+LARGEST_SWAP_P=`grep -viE 'file|deleted' /proc/swaps | awk "{if (\\$3 == "$LARGEST_SWAP_K") print \\$1}"`
+
+LARGEST_SWAP_M=$((LARGEST_SWAP_K/1024))
+
+read IMG_SZ_B </sys/power/image_size
+[ "$IMG_SZ_B" ] || IMG_SZ_B=0
+
+IMG_SZ_K=$((IMG_SZ_B/1024))
+IMG_SZ_M=$((IMG_SZ_B/1024/1024))
+
+R_MIN=50
+[ "$LARGEST_SWAP_M" ] && R_MAX=$LARGEST_SWAP_M || R_MAX=1000
+R_DEF=500
+[ "$IMG_SZ_M" ] && {
+R_MIN=$((IMG_SZ_M/10))
+[ "$LARGEST_SWAP_M" ] && R_MAX=$LARGEST_SWAP_M || R_MAX=$((IMG_SZ_M*2))
+R_DEF=$IMG_SZ_M
+}
+
+RBOX_TXT=`gettext "You are currently using
+'$MEM_USED' MiB of RAM.
+
+Your largest Swap Partition has a size of
+'$LARGEST_SWAP_M' MiB.
+
+and is/are
+'$LARGEST_SWAP_P'
+
+The default hibernation image size is currently set to
+'$R_DEF' MiB.
+
+The kernel source uses 500 MB image_size as default.
+The kernel compresses the image though.
+"`
+
+Xdialog \
+ -stdout \
+ -title "$TITLE" \
+ -backtitle "Select PM Ram2Swap Image Size"  \
+ -rangebox \
+ "$RBOX_TXT" \
+ 0x0 \
+ $R_MIN $R_MAX $R_DEF \
+ >"$tmpDIR"/pm_image_size.choice
+
+case $? in
+0) :;;
+*) return 4;;
+esac
+
+read IMG_SZ_CHOICE <"$tmpDIR"/pm_image_size.choice
+cat "$tmpDIR"/pm_image_size.choice
+[ "$IMG_SZ_CHOICE" ] || return 5
+
+IMG_SZ_CHOICE_B=$((IMG_SZ_CHOICE*1024*1024))
+
+HAVE_IMAGE_SIZE=Y
+#echo $IMG_SZ_CHOICE_B >/sys/power/image_size
+#[ $? = 0 ] || return 6
+#cat /sys/power/image_size
+}
+
+_select_swap_partition(){
+#function to select a particular swap partition
+local SWAPS_ SWAPS dev sizB sizK sizM
+
+#get current swap partitions - files would need extra GUI (?)
+# could use fdisk also, but fdisk is also not reliable
+#in case partition reformatted to a different f.s.
+# probably should use probepart next version ..
+SWAPS_=`grep -viE 'file|deleted' /proc/swaps | awk '{ print $1":"$3}'`
+[ "$SWAPS_" ] || return 3
+
+#create menubox list - filter partitions too small
+echo "IMG_SZ_CHOICE='$IMG_SZ_CHOICE'"
+while read dev sizK
+do
+[ "$dev" -a "$sizK" ] || continue
+ #sizM=$((sizB/1024/1024))
+ sizM=$((sizK/1024))
+ [ "$sizM" -lt $IMG_SZ_CHOICE ] && continue
+ SWAPS="$SWAPS
+ ${dev##*/} ${dev}:${sizM}MB "
+done <<EoI
+`echo "$SWAPS_" |tr ':' ' '`
+EoI
+
+#find out swap with highest priority
+defSWAP_=`grep -vE 'file|deleted' /proc/swaps | awk '{ if (match($1, "/dev/")) print}' | sort -k5 | head -n1`
+echo "defSWAP_='$defSWAP_'"
+
+defSWAP_P=${defSWAP_%%[[:blank:]]*}
+echo "defSWAP_P='$defSWAP_P'"
+
+defSWAP_S=`echo "$defSWAP_" | awk '{print $3}'`
+echo "defSWAP_S='$defSWAP_S'"
+
+defSWAP_M=$((defSWAP_S/1024))
+echo "defSWAP_M='$defSWAP_M'"
+
+if [ "$defSWAP_M" -ge $IMG_SZ_CHOICE ]; then
+ defSWAP="default ${defSWAP_P}:${defSWAP_M}MB"
+ SWAPS="$SWAPS
+ $defSWAP "
+fi
+
+#remove empty lines
+SWAPS=`echo "$SWAPS" | sed '/^$/d'`
+
+echo "'$SWAPS'"
+
+Xd_MENU_HIGHT=`echo "$SWAPS" | wc -l`
+Xd_MENU_HIGHT=$((Xd_MENU_HIGHT+1))
+
+SELECT_PART_BTITLE=`gettext "Hibernation"`
+SELECT_PART_MSG=`gettext "
+Select which swap partition
+to hibernate to :
+"`
+
+Xdialog \
+-stdout \
+-title "$TITLE" \
+-backtitle "$SELECT_PART_BTITLE" \
+-menubox \
+"SELECT_PART_MSG" \
+0x0 $Xd_MENU_HIGHT \
+ $SWAPS \
+>"$tmpDIR"/swap_partition.choice
+
+case $? in
+0) :;;
+*) return 0;; #exit;;
+esac
+
+read SWAP_CHOICE <"$tmpDIR"/swap_partition.choice
+echo "$SWAP_CHOICE"
+[ "$SWAP_CHOICE" ] || return 5
+
+case $SWAP_CHOICE in
+default)
+SWAP_CHOICE="${defSWAP_P##*/}"
+;;
+esac
+
+echo "$SWAP_CHOICE"
+[ -b /dev/$SWAP_CHOICE ] || return 7
+
+#MajMin_=`stat -c %t":"%T /dev/$SWAP_CHOICE`
+MajMin_=`stat -c "0x"%t" 0x"%T /dev/$SWAP_CHOICE`
+echo "MajMin_='$MajMin_'"
+#[ "${MajMin_//:/}" ] || return 8
+MajMin=`printf %d":"%d $MajMin_`
+echo "MajMin='$MajMin'"
+HAVE_SWAP_PARTITION=Y
+#echo "$MajMin" >/sys/power/resume
+#[ $? = 0 ] || exit 9
+#exit
+}
+
 loop_umount_func(){
+local LOOP_MSG xPID xxPID mloop
+LOOP_MSG=`gettext "Unmounting files..."`
+#xmessage -bg green1 -fg pink -title "$TITLE" "$LOOP_MSG" & xPID=$!
 M_LOOP=`mount | grep '/dev/loop' |grep -v '/initrd'`
 M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
 M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+[ "$M_LOOP" ] && xmessage -bg green1 -fg pink -title "$TITLE" "$LOOP_MSG" & xPID=$!
 for mloop in $M_LOOP;do
+ sleep 1
+ xmessage -bg pink -fg green4 -title "$TITLE" "umount $mloop ..." & xxPID=$!
 umount $mloop
 [ $? -ne 0 ] && { [ "$DISPLAY" ] && xmessage -bg red2 "Please umount '$mloop' manually and try again";exit 0; }
+ kill $xxPID
 done
+kill $xPID
 }
 
 part_umount_func(){
+local PART_MSG xPID xxPID mpart
+PART_MSG=`gettext "Unmounting partitions..."`
+#xmessage -bg green4 -fg pink -title "$TITLE" "$PART_MSG" & xPID=$!
 M_DEV=`mount | grep '/dev/[shfmd]+[0-9]' |grep -v '/initrd'`
 M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
 M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
 M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
+[ "$M_POI" ] && xmessage -bg green4 -fg pink -title "$TITLE" "$PART_MSG" & xPID=$!
 for mpart in $M_POI;do
+ sleep 1
+ xmessage -bg pink -fg green1 -title "$TILE" "umount $mpart ..." & xxPID=$!
 umount "$mpart"
-[ $? -ne 0 ] && { [ "$DISPLAY" ] && xmessage -bg red2 "Please umount '$mpart' manually and try again";exit 0; }
+[ $? -ne 0 ] && { [ "$DISPLAY" ] && xmessage -bg red2 -title "$TITLE" "Please umount '$mpart' manually and try again";exit 0; }
+ kill $xxPID
 done
+kill $xPID
 }
 
 restore_mounts(){
+[ "$M_DEV" ] || return 0
+local PART_MSG part FS_TYPE dirn xPID xxPID
+
+PART_MSG=`gettext "Restoring mounts ..."`
+xmessage -bg green2 -fg pink -title "$TITLE" "$PART_MSG" & xPID=$!
+
 for part in $M_DEV;do
+sleep 1
+ xmessage -bg pink -fg green2 -title "$TITLE" "mount $part ..." & xxPID=$!
 FS_TYPE=`guess_fstype $part`
+[ "$FS_TYPE" ] || FS_TYPE=unknown
+
 dirn=${part##*/}
 mkdir -p /mnt/$dirn
+[ "$FS_TYPE" = unknown ] && {
+ mount $part /mnt/$dirn
+ true
+ } || {
 mount -t $FS_TYPE $part /mnt/$dirn
+ }
+ kill $xxPID
 done
+kill $xPID
 }
 
 ACPITOOL=`which acpitool`
-states_avail=`cat /sys/power/state`
-states_avail=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:disk!;s!mem!S3 PM_SLEEP:mem!'`
+states_avail_=`cat /sys/power/state`
+states_avail=`echo "$states_avail_" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:&!;s!mem!S3 PM_SLEEP:&!;s!standby!S1 CPU running:&!'`
+
+for oneSTATE in $states_avail_; do
+ case $oneSTATE in
+ *freeze*)  xmBUTTONS="${xmBUTTONS},Freeze:190";;
+ *standby*) xmBUTTONS="${xmBUTTONS},Standby:201";;
+ *mem*)     xmBUTTONS="${xmBUTTONS},RAM Sleep:203";;
+ *disk*)    xmBUTTONS="${xmBUTTONS},Hibernate:204";;
+ *) echo "Unhandled STATE '$oneSTATE'";;
+ esac
+done
+
+xmBUTTONS="$xmBUTTONS},ESCAPE GUI:200"
+xmBUTTONS=`echo "$xmBUTTONS" | sed 's%^[,]*%%;s%[,]*$%%'`
+
 
 aplay /usr/share/audio/2barks.au
 
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
 
 if [ "$DISPLAY" ];then
-xmessage -bg red1 "$0
+
+xmessage \
+-timeout 10 \
+-bg red1 \
+-title "$TITLE" \
+"$0
 Available states:
 $states_avail
 "
 
-xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 "Busybox acpid :
-Do you want to go into ACPI PM SLEEP mode ?"
+STATE_MENU_MSG=`gettext "Busybox acpid :
+Do you want to go into ACPI PM SLEEP mode ?
+
+Note: Timesout in $TIMEOUT to poweroff force"`
+
+#-buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" \
+#
+
+xmessage \
+-timeout $TIMEOUT \
+-buttons "$xmBUTTONS" \
+-bg blue3 \
+-fg white \
+-title "$TITLE" \
+"$STATE_MENU_MSG"
+
 ANSWER=$?
 fi
 
 [ "$ANSWER" ] || ANSWER=203
 
 if [ "$ANSWER" = 200 ]; then #QUIT
-:
+exit 0
 
 elif [ "$ANSWER" = 0 ]; then #timeout, assume frozen system, poweroff then
 
  test "$DISPLAY" && {
- exec wmpoweroff
+ exec wmpoweroff force
+ false
  } || {
- exec poweroff
+ exec poweroff force
  }
+fi
 
-elif [ "$ANSWER" = 203 ];then # RAM
+test -x /etc/acpi/wakealarm.sh && {
 
-#echo 3 > /proc/sys/vm/drop_caches
+test -f /proc/driver/rtc && \
+PROC_RTC=`cat /proc/driver/rtc`
+
+SET_WAKEALARM_MSG=`gettext "Do you want to
+set the rtc driver wakealarm ?
+
+It is currently set to
+
+$PROC_RTC
+"`
+
+xmessage   \
+-bg yellow \
+-fg black  \
+-buttons "No:201,Yes:200" \
+-title "$TITLE" \
+"$SET_WAKEALARM_MSG"
+case $? in
+200)
+/etc/acpi/wakealarm.sh
+;;esac
+
+}
+
 pidof sync || sync
+
+if [ "$ANSWER" = 201 ]; then
+
+echo standby >/sys/power/state
+
+elif [ "$ANSWER" = 190 ]; then
+
+echo freeze >/sys/power/state
+
+else
+
 loop_umount_func
 part_umount_func
 pidof sync || sync
 sleep 1
+
+fi
+
+
+if [ "$ANSWER" = 203 ];then # RAM
+
+#echo 3 > /proc/sys/vm/drop_caches
+#pidof sync || sync
+#loop_umount_func
+#part_umount_func
+#pidof sync || sync
+#sleep 1
 
    if [ "$ACPITOOL" ];then
 
@@ -133,13 +464,14 @@ echo 'mem' >/sys/power/state
 elif [ "$ANSWER" = 204 ];then # DISK
 
 #echo 3 > /proc/sys/vm/drop_caches
-pidof sync || sync
-loop_umount_func
-part_umount_func
-pidof sync || sync
-sleep 1
+#pidof sync || sync
+#loop_umount_func
+#part_umount_func
+#pidof sync || sync
+#sleep 1
 
-   if [ "$ACPITOOL" ];then
+__old_define_resume_partition__(){
+  # if [ "$ACPITOOL" ];then
    PROC_SWAPS=`cat /proc/swaps |sed '1d'|awk '{print $1}'`
       for swap in $PROC_SWAPS;do
        RESUME=`blkid $swap |grep -iE 'Winter|Hiber|Resume'`
@@ -152,28 +484,65 @@ sleep 1
        [ "$RESUME" ] && break
       done
     fi
-      if [ "$RESUME" ];then
+    if [ "$RESUME" ];then
          for swap in $PROC_SWAPS;do
       [ "$swap" = "$RESUME" ] && continue
       swapoff $swap
          done
       swapon $RESUME
-      fi
+    fi
+}
+
+
+
+_toggle_pm_async        || { echo "$? retunred from _toggle_pm_async";       exit 11; }
+_set_image_size         || { echo "$? returned from _set_image_size";        exit 12; }
+_select_swap_partition || { echo "$? returned from _select_swap_partition"; exit 13; }
+
+if [ "$HAVE_ASYNC_TOGGLE" ]; then
+#:
+ case $PM_ASYNC in
+ 0) echo 1 >/sys/power/pm_async;;
+ 1) echo 0 >/sys/power/pm_async;;
+ *) echo "UNSUPPORTED pm_async value '$PM_ASYNC'";;
+ esac
+cat /sys/power/pm_async
+fi
+
+if [ "$HAVE_IMAGE_SIZE" ]; then
+#:
+echo $IMG_SZ_CHOICE_B >/sys/power/image_size
+[ $? = 0 ] || return 6
+cat /sys/power/image_size
+fi
+
+if [ "$HAVE_SWAP_PARTITION" ]; then
+#:
+echo "$MajMin" >/sys/power/resume
+[ $? = 0 ] || { echo "Failure @echo '$MajMin' to /sys/power/resume"; exit 7; }
+cat /sys/power/resume
+#exit
+fi
+
+#{ echo "TEST EXIT"; exit; }
 
       pidof sync || sync
       sleep 1
+
+if [ "$ACPITOOL" ];then
       acpitool -S
 
+__old_swapon__(){
       sleep 1
       for swap in $PROC_SWAPS;do
       swapon $swap
       done
-      if [ "$RESUME" ];then
-       if test cat /proc/swaps |sed '1d' |wc -l -gt 1;then
-        swapoff $RESUME
-       fi
-      fi
-
+      if  [ "$RESUME" ];then
+        if test cat /proc/swaps |sed '1d' |wc -l -gt 1;then
+         swapoff $RESUME
+        fi
+      fi #[ "$RESUME" ]
+}
    else #acpitool
 echo 'disk' >/sys/power/state
    fi
@@ -187,11 +556,17 @@ sleep 5
 restore_mounts
 
 case $ANSWER in
+190)
+[ "$DISPLAY" ] && xmessage -timeout 9 -title "Freeze Wakeup" "RETURNED from Freeze state"
+;;
+201)
+[ "$DISPLAY" ] && xmessage -timeout 9 -title "Standby Wakeup" "RETURNED from S1 RAM standby"
+;;
 203)
-[ "$DISPLAY" ] && xmessage "RETURNED from RAM light sleep"
+[ "$DISPLAY" ] && xmessage -timeout 9 -title "Sleep Wakeup" "RETURNED from S3 RAM light sleep"
 ;;
 204)
-[ "$DISPLAY" ] && xmessage "RETURNED from DISK winter sleep"
+[ "$DISPLAY" ] && xmessage -timeout 9 -title "Soft Off Wakeup" "RETURNED from S4 DISK winter sleep"
 ;;
 *) :;;
 esac
@@ -202,8 +577,11 @@ if test "$RTC0_WAKE_ALARM_TIME_PRE"; then
 
  if test "$((RTC0_WAKE_ALARM_TIME_PRE))" -ge "$((CURRENT_SINCE_EPOCH_POST-60))"
  then
-  if test -x /etc/acpi/wakealarm/wakealarm.sh; then
-   exec /etc/acpi/wakealarm/wakealarm.sh &
+  if test "$((RTC0_WAKE_ALARM_TIME_PRE))" -le $((CURRENT_SINCE_EPOCH_POST))
+   then
+    if test -x /etc/acpi/wakealarm/wakealarm.sh ; then
+          exec /etc/acpi/wakealarm/wakealarm.sh &
+    fi
   fi
  fi
 
