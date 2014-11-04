@@ -3,9 +3,14 @@
 
 . /etc/rc.d/f4puppy5
 
-
-
 #GLOBAL variables:
+Version='1.0.0-luci218-Dell755'
+
+_TMP_=/tmp
+_FEAT_=acpi
+tmpDIR=${_TMP_}/${_FEAT_}/${0##*/}
+rm -r "$tmpDIR"
+mkdir -p "$tmpDIR"
 
 #oldIFS=$"$IFS"
 #IFS=$'\n'
@@ -166,7 +171,7 @@ Xdialog \
  -calendar \
  "$CAL_TXT" \
  0 0 $KERNEL_DAY $KERNEL_MONTH $KERNEL_YEAR \
- >/tmp/user_selected_date \
+ >"$tmpDIR"/user_selected_date \
 
 _check_gui_return_value_if_canceled $?
 
@@ -183,15 +188,15 @@ Xdialog \
  -timebox \
  "$TBX_TXT" \
  0 0 $KERNEL_HOURS $KERNEL_MINUTES $KERNEL_SECONDS \
- >/tmp/user_selected_time
+ >"$tmpDIR"/user_selected_time
 
 _check_gui_return_value_if_canceled $?
 
-cat  /tmp/user_selected_date
-cat  /tmp/user_selected_time
+cat  "$tmpDIR"/user_selected_date
+cat  "$tmpDIR"/user_selected_time
 
-IFS=$'/' read SELECTED_DAY SELECTED_MONTH SELECTED_YEAR </tmp/user_selected_date
-IFS=$':' read SELECTED_HOUR SELECTED_MINUTE SELECTED_SECOND </tmp/user_selected_time
+IFS=$'/' read SELECTED_DAY SELECTED_MONTH SELECTED_YEAR <"$tmpDIR"/user_selected_date
+IFS=$':' read SELECTED_HOUR SELECTED_MINUTE SELECTED_SECOND <"$tmpDIR"/user_selected_time
 
 echo $SELECTED_DAY $SELECTED_MONTH $SELECTED_YEAR
 echo $SELECTED_HOUR $SELECTED_MINUTE $SELECTED_SECOND
