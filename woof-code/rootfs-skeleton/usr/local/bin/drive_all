@@ -56,8 +56,13 @@ _trap
 ### use pmount.mo
 ### also used in /usr/local/bin/drive_all
 m_30="FAILURE! In the case of removable media, the most
-common reason is the media is not currently inserted.
-If so, please remedy."
+common reason is that the media is NOT currently inserted
+( removed while being mounted ) .
+If so, please remedy.
+
+Another case are mounted files
+on that particular partition .
+"
 m_31="KILL"
 m_32="EXIT"
 m_33="FAILURE!"
@@ -67,7 +72,8 @@ m_35="If you press the \"${m_31}\" button, Puppy will attempt to
 kill the offending programs for you. Only do this as a
 last resort. "
 m_36="Firstly you should try to close the programs
-manually, so do not press \"${m_31}\"."
+andor unmount mounted files manually,
+so do not press \"${m_31}\"."
 m_37="PLEASE PRESS THE \"${m_32}\" BUTTON!"
 m_38="OK"
 m_39="Remove medium, then press '$m_38'"
@@ -110,6 +116,9 @@ unmount_func() {
  pidof sync || sync
  sleep 1
 
+WHICH_FUSER=`which fuser`
+readlink -f $WHICH_FUSER | grep $Q -i busybox && fVERB= || fVERB=-v
+
  while [ 1 ];do
   /bin/umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
@@ -126,20 +135,34 @@ unmount_func() {
   umPATTERN=" on ${MNTPT} type "
   [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0="`fuser -v -m "$MNTPT" 2>&1`"
-   if [ "$EXTRAMSG0" = "" ];then
+
+   EXTRA_MSG_0="`fuser $fVERB -m "$MNTPT" 2>&1`"
+
+   [ "${EXTRA_MSG_0//[[:digit:][ cre]]/}" ] || {
+
+   for aPID in $EXTRA_MSG_0
+   do
+   EXTRA_MSG_0_="$EXTRA_MSG_0_
+    `ps -A -o pid,args | awk \"{ if (\\$1 == $aPID) print }\"`"
+   done
+   EXTRA_MSG_0_=`echo "$EXTRA_MSG_0_" | sed '/^$/d'`
+        }
+
+   [ "$EXTRA_MSG_0_" ] && EXTRA_MSG_0="$EXTRA_MSG_0_"
+
+   if [ "$EXTRA_MSG_0" = "" ];then
     gxmessage -bg "#ff8080" -title "$m_50: ERROR" -center "$m_30"
    else
     gxmessage -bg "#ff99ff" -title "$m_01" -center -buttons "$m_31":10,"$m_32":20 "$m_33
 $m_34
-$EXTRAMSG0
+$EXTRA_MSG_0
 
 $m_35
 $m_36
 $m_37"
 
     if [ $? -eq 10 ];then
-     fuser -k -m "$MNTPT"
+     fuser $fVERB -k -m "$MNTPT"
      continue
     fi
    fi
