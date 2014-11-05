@@ -10,10 +10,10 @@ version) _VERSION_=$version; VERSION=$version; Version=$version;;
 esac
 }
 
-test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.2
-test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.2
-test "$Version"   && _assign_version Version   ||   Version=0.0.2
-test "$version"   && _assign_version version   ||   version=0.0.2
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.2b
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.2b
+test "$Version"   && _assign_version Version   ||   Version=0.0.2b
+test "$version"   && _assign_version version   ||   version=0.0.2b
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 test "$MY_SELF" || MY_SELF="$0"
 
@@ -76,7 +76,7 @@ _check_for_terminal()
 {
 local MSG
 MSG="Need a contolling terminal"
-tty >$OUT || {
+tty >>$OUT || {
 echo -n "Pid of X server:"
 pidof X && xmessage -br red "$MSG"; exit 2; } || {
 echo "$MSG"; exit 2; }
@@ -170,15 +170,15 @@ $ADD_PARAMETERS
 "
 }
 
-OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=-q;DBG=''
+OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=--quiet;DBG=''
 _parse_basic_parameters()
 {
 OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=-q;DBG=''
 case $1 in
--h|-H|-*help) _usage 0 "$ADD_HELP_MSG";;
--V|-*version) _version;;
--v|-*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET='';DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
--d|-*debug)   set -x; [ "$TWO_DEBUG" ] || DO_SHIFT=$((DO_SHIFT+1));;
+-h|-H|*help|*usage) _usage 0 "$ADD_HELP_MSG";;
+-V|*version) _version;;
+-v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET='';DBG=-d;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
+-d|*debug)   set -x; [ "$TWO_DEBUG" ] || DO_SHIFT=$((DO_SHIFT+1));;
 esac
 }
 
@@ -311,8 +311,8 @@ for oneARG in $*
 do
 case $oneARG
 in
--*help|help) _usage 0;;
--*version|version) _version;;
+*help|help) _usage 0;;
+*version|version) _version;;
 *) :;;
 esac
 done
@@ -433,21 +433,21 @@ shift
 #echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
 #echo "`eval echo \\$$*`"
 
-QUIET=-q
+Q=-q
 if test "$gOPT" = '-v'; then
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
 fi
 }
 
 #================= Check /tmp if read-write ==================================
 _check_proc()
 {
-  mountpoint -q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  mountpoint $Q /proc && return $? || {
+  busybox mount $VERB $VERB -o remount,rw /dev/root/ /
   test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
 }
@@ -455,9 +455,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount $VERB $VERB -o remount,rw /dev/root/ /
  mkdir -p /tmp
- chmod 1777 /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -467,17 +467,19 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint -q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+mountpoint $Q /tmp && {
+awk '{if ($2 == "/tmp") print}' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root ' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
  }
 }
 
 #============= Avoid multiple instances of sync ==============================
+[ "`which sync`" ] && alias sync="`which sync`" #busybox standalone shell would
+                                          # not show a sync process id otherwise
 _sync()
 {
-pidof sync || sync
+pidof sync >>$OUT || sync
 }
 
 #=============== LOGLEVEL / DEBUG MESSAGES ==================================
@@ -617,7 +619,7 @@ test "$typeCOM" = "$whichCOM" && {
 #========= make nodes in /dev if /dev not mounted ============================
 _mkdevices()
 {
-mountpoint -q /dev && return 0
+mountpoint $Q /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
@@ -704,13 +706,13 @@ else { _warn "Unknown filetype '$*' - neither Link, pipe, Socket, block, char, f
 #=============== Rotate Logs =================================================
 _log_rotate()
 {
-test "$*" || { _err "_log_rotate:Need filename to rotate"; return 1; }
+test "$*"    || { _err "_log_rotate:Need filename to rotate"; return 1; }
 test -f "$*" || { _err "_log_rotate: '$*' not a regular file"; return 1; }
 nrLOGS=`ls -1v "$*".[0-9]* | wc -l`
 _debug "nrLOGS='$nrLOGS'"
 while read oneLOG
 do
-test "$oneLOG" || continue
+test "$oneLOG"    || continue
 test -f "$oneLOG" || continue
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
 mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
@@ -991,7 +993,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -1276,8 +1278,8 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
-grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }
 test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
@@ -1425,7 +1427,7 @@ _get_yaf_args()
 {
 for exe in pupmessage gtkdialog-splash yaf-splash gxmessage xmessage; do
 YAF=`which $exe`
-test "$YAF" || continue
+test "$YAF"    || continue
 test -L "$YAF" && continue
 case $YAF in
 
@@ -1561,7 +1563,7 @@ _pidof()
 local RV
 case $1 in
 -q) shift;
-pidof $* >$OUT; return $?
+pidof $* >>$OUT; return $?
 ;;
 *)
 echo -n "pids of $*:"
