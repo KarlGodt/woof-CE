@@ -350,8 +350,9 @@ xmBUTTONS=`echo "$xmBUTTONS" | sed 's%^[,]*%%;s%[,]*$%%'`
 
 
 aplay /usr/share/audio/2barks.au
-
+sleep 1
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
+cat /sys/class/rtc/rtc0/wakealarm
 
 if [ "$DISPLAY" ];then
 
@@ -380,10 +381,11 @@ xmessage \
 -title "$TITLE" \
 "$STATE_MENU_MSG"
 
-ANSWER=$?
+     ANSWER=$?
+ [ "$ANSWER" ] || ANSWER=203  #RAM
+else ANSWER=0
 fi
 
-[ "$ANSWER" ] || ANSWER=203
 
 if [ "$ANSWER" = 200 ]; then #QUIT
 exit 0
@@ -421,7 +423,8 @@ case $? in
 200)
 /etc/acpi/wakealarm.sh
 ;;esac
-
+read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
+cat /sys/class/rtc/rtc0/wakealarm
 }
 
 pidof sync || sync
@@ -555,6 +558,9 @@ fi
 sleep 5
 restore_mounts
 
+aplay /usr/share/audio/2barks.au
+sleep 1
+
 case $ANSWER in
 190)
 [ "$DISPLAY" ] && xmessage -timeout 9 -title "Freeze Wakeup" "RETURNED from Freeze state"
@@ -573,18 +579,28 @@ esac
 
 read CURRENT_SINCE_EPOCH_POST </sys/class/rtc/rtc0/since_epoch
 
+echo "CURRENT_SINCE_EPOCH_POST   ='$CURRENT_SINCE_EPOCH_POST'"
+echo "CURRENT_SINCE_EPOCH_POST-60='$((CURRENT_SINCE_EPOCH_POST-60))'"
+echo "RTC0_WAKE_ALARM_TIME_PRE   ='$RTC0_WAKE_ALARM_TIME_PRE'"
+
 if test "$RTC0_WAKE_ALARM_TIME_PRE"; then
 
  if test "$((RTC0_WAKE_ALARM_TIME_PRE))" -ge "$((CURRENT_SINCE_EPOCH_POST-60))"
  then
   if test "$((RTC0_WAKE_ALARM_TIME_PRE))" -le $((CURRENT_SINCE_EPOCH_POST))
    then
+
     if test -x /etc/acpi/wakealarm/wakealarm.sh ; then
           exec /etc/acpi/wakealarm/wakealarm.sh &
+    else echo "/etc/acpi/wakealarm/wakealarm.sh not executable"
     fi
+
+  else   echo " RTC0_WAKE_ALARM_TIME_PRE greater than CURRENT_SINCE_EPOCH_POST"
   fi
+ else    echo " RTC0_WAKE_ALARM_TIME_PRE value too low"
  fi
 
+else     echo " No RTC0_WAKE_ALARM_TIME_PRE"
 fi
 
 exit 0
