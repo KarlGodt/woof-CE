@@ -18,11 +18,16 @@ test "`pidof xinit X Xorg Xvesa Xfbdev`" && {
  }
 
 Version='1.0 Puppy_Racy_5.3 KRG'
-Version='2.0 luci-218 KRG'
-TITLE="${0##*/} $Version"
+Version='2.2.1 luci-218 KRG'
+TITLE="${0##*/} $Version"  #Xdialog xmessage -title option
+
+# Xmessage app-default config file
+if test -f /etc/acpi/X11/app-defaults/Xmessage; then
+export XAPPLRESDIR=/etc/acpi/X11/app-defaults
+fi
 
 usage(){
-USAGE_MSG="
+USAGE_MSG=`gettext "
 $0 [help]
 Script to suspend or hibernate
 called by busybox applet 'acpid'.
@@ -41,11 +46,11 @@ Uses acpitool if installed, otherwise the
 simple 'echo \"\$state\" >/sys/power/state' .
 
 Full acpid pkg available : unknown.
-"
+"`
 if [ "$2" ];then
 USAGE_MSG="$USAGE_MSG
 
-$2
+`gettext \"$2\"`
 "
 fi
 echo "$USAGE_MSG"
@@ -57,33 +62,52 @@ echo "$USAGE_MSG"
 exit $1
 }
 
+# Redirection and quiet variables
+OUT=/dev/null; ERR=/dev/null; Q=-q; QUIET=--quiet
 case $1 in
 -h|*help|*usage) usage 0;;
-*version|-V) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+*version|-V)    echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+*check*)       set -n;;
+*verbose|-v)  VERBOSE=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose;
+              DEBUG=1;   DBG=-d;  L_DBG=--debug; OUT=/dev/stdout; ERR=/dev/stderr
+             Q=''; QUIET='';
+            ;;
+*debug|-d) DEBUG=2; DBG=-d; L_DBG=--debug; set -x;;
 "") :;;
 *) usage 1 "Unknown Parameter '$1'";;
 esac
 
+xmPRINT=                     # pass -print to xmessage
+[ "$VERBOSE" -o "$DEBUG" ] && xmPRINT=-print
+
 pidof sync || sync
 
+# Functions
 _toggle_pm_async(){
 
 test -f /sys/power/pm_async || return 1
 
 read PM_ASYNC </sys/power/pm_async
-cat /sys/power/pm_async
+cat /sys/power/pm_async  #DEBUG
 
-xmessage \
- -buttons "Yes - Toggle:200,NO NO NO - keep it as is:201" \
- -bg green1 \
- -fg white  \
- -title "$TITLE" \
- "The current value in
+PM_ASYNC_MSG=`gettext "The current value in
  /sys/power/pm_async
  is set to '$PM_ASYNC'
 
  Do you want to toggle it ?
-"
+"`
+
+BUTTONS_TGL_MSG=`gettext "Yes - Toggle:200,NO NO NO - keep it as is:201"`
+defBUTTON=`gettext "NO NO NO - keep it as is"`
+
+xmessage \
+ $xmPRINT \
+ -buttons "$BUTTONS_TGL_MSG" \
+ -default "$defBUTTON" \
+ -bg green1 \
+ -fg white  \
+ -title "$TITLE" \
+ "$PM_ASYNC_MSG"
 case $? in 200)
  HAVE_ASYNC_TOGGLE=Y;;
  #case $PM_ASYNC in
@@ -195,7 +219,7 @@ done <<EoI
 `echo "$SWAPS_" |tr ':' ' '`
 EoI
 
-#find out swap with highest priority
+#find out swap with highest priority ( default SWAP )
 defSWAP_=`grep -vE 'file|deleted' /proc/swaps | awk '{ if (match($1, "/dev/")) print}' | sort -k5 | head -n1`
 echo "defSWAP_='$defSWAP_'"
 
@@ -331,10 +355,13 @@ done
 kill $xPID
 }
 
+# Test if acpitool available
 ACPITOOL=`which acpitool`
+# Get supported ACPI states
 states_avail_=`cat /sys/power/state`
-states_avail=`echo "$states_avail_" |tr ' ' '\n'|sed 's!disk!S4 Hibernation:&!;s!mem!S3 PM_SLEEP:&!;s!standby!S1 CPU running:&!'`
+states_avail=`echo "$states_avail_" |tr ' ' '\n' |sed 's!disk!S4 Hibernation:&!;s!mem!S3 PM_SLEEP:&!;s!standby!S1 CPU running:&!'`
 
+# Create Menu buttons for supported ACPI states
 for oneSTATE in $states_avail_; do
  case $oneSTATE in
  *freeze*)  xmBUTTONS="${xmBUTTONS},Freeze:190";;
@@ -347,23 +374,31 @@ done
 
 xmBUTTONS="$xmBUTTONS},ESCAPE GUI:200"
 xmBUTTONS=`echo "$xmBUTTONS" | sed 's%^[,]*%%;s%[,]*$%%'`
+defBUTTON=`gettext "ESCAPE GUI"`
 
-
-aplay /usr/share/audio/2barks.au
+aplay /usr/share/audio/2barks.au  # make some noise
 sleep 1
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
-cat /sys/class/rtc/rtc0/wakealarm
+cat /sys/class/rtc/rtc0/wakealarm  #DEBUG
 
+# if DISPLAY use GUIs, else poweroff ( for now )
 if [ "$DISPLAY" ];then
 
+echo "$states_avail" #DEBUG
+
+STATES_AVAIL_MSG=`gettext "$0
+Available states:
+
+$states_avail
+
+"`
+
 xmessage \
+$xmPRINT  \
 -timeout 10 \
 -bg red1 \
 -title "$TITLE" \
-"$0
-Available states:
-$states_avail
-"
+"$STATES_AVAIL_MSG"
 
 STATE_MENU_MSG=`gettext "Busybox acpid :
 Do you want to go into ACPI PM SLEEP mode ?
@@ -374,8 +409,10 @@ Note: Timesout in $TIMEOUT to poweroff force"`
 #
 
 xmessage \
+$xmPRINT  \
 -timeout $TIMEOUT \
 -buttons "$xmBUTTONS" \
+-default "$defBUTTON" \
 -bg blue3 \
 -fg white \
 -title "$TITLE" \
@@ -384,14 +421,16 @@ xmessage \
      ANSWER=$?
  [ "$ANSWER" ] || ANSWER=203  #RAM
 else ANSWER=0
-fi
+fi # DISPLAY or not DISPLAY
 
 
 if [ "$ANSWER" = 200 ]; then #QUIT
 exit 0
 
-elif [ "$ANSWER" = 0 ]; then #timeout, assume frozen system, poweroff then
-
+elif [ "$ANSWER" = 0 ]; then # if DISPLAY: timeout expired,
+                             # assume frozen system, poweroff force
+                             # if not DISPLAY: just poweroff force for now;
+                             # needs a text-mode dialog then ( TODO )
  test "$DISPLAY" && {
  exec wmpoweroff force
  false
@@ -400,6 +439,27 @@ elif [ "$ANSWER" = 0 ]; then #timeout, assume frozen system, poweroff then
  }
 fi
 
+
+# Run wakealarm setting GUI if available
+_ask_rerun_wakealarm_gui(){
+# function
+RERUN_WAKEALARM_GUI_MSG=`gettext "Something went wrong..
+Do you want to re-run the Wakealarm Settings Program ?"`
+
+RERUN_WAKEALARM_GUI_BUTTONS=`gettext "Yes:200,No:201,Exit:202"`
+local defBUTTON
+defBUTTON=`gettext "No"`
+
+xmessage \
+$xmPRINT  \
+-bg cyan  \
+-buttons "$RERUN_WAKEALARM_GUI_BUTTONS" \
+-default "$defBUTTON" \
+-title "$TITILE" \
+"$RERUN_WAKEALARM_GUI_MSG"
+return $?
+}
+
 test -x /etc/acpi/wakealarm.sh && {
 
 test -f /proc/driver/rtc && \
@@ -407,24 +467,50 @@ PROC_RTC=`cat /proc/driver/rtc`
 
 SET_WAKEALARM_MSG=`gettext "Do you want to
 set the rtc driver wakealarm ?
-
-It is currently set to
-
-$PROC_RTC
 "`
 
+if [ "$PROC_RTC" ]; then
+SET_WAKEALARM_MSG="$SET_WAKEALARM_MSG
+`gettext \"It is currently set to\"`
+
+$PROC_RTC
+
+"
+fi
+
+BUTTONS_SET_WAKEALARM=`gettext "No:201,Yes:200"`
+defBUTTON=`gettext "Yes"`
+
 xmessage   \
+$xmPRINT    \
 -bg yellow \
 -fg black  \
--buttons "No:201,Yes:200" \
+-buttons "$BUTTONS_SET_WAKEALARM" \
+-default "$defBUTTON" \
 -title "$TITLE" \
 "$SET_WAKEALARM_MSG"
 case $? in
 200)
 /etc/acpi/wakealarm.sh
+ case $? in 0) :;;
+ *)
+   while [ 1 = 1 ]; do
+  _ask_rerun_wakealarm_gui
+  case $? in
+  200) /etc/acpi/wakealarm.sh && break;; #OK
+  201) break;;
+  202) exit $((cEXIT+1));;
+  *)
+  ;;esac
+  done
+ ;;esac
 ;;esac
+
+# RTC0_WAKE_ALARM_TIME_PRE is used at the end of this script
+# to check if waked up by schedule or by user interference before
+# interupt could be triggered
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
-cat /sys/class/rtc/rtc0/wakealarm
+cat /sys/class/rtc/rtc0/wakealarm  #DEBUG
 }
 
 pidof sync || sync
@@ -496,39 +582,39 @@ __old_define_resume_partition__(){
     fi
 }
 
-
-
+# Run Settings GUIs
 _toggle_pm_async        || { echo "$? retunred from _toggle_pm_async";       exit 11; }
 _set_image_size         || { echo "$? returned from _set_image_size";        exit 12; }
 _select_swap_partition || { echo "$? returned from _select_swap_partition"; exit 13; }
 
+# Set choose settings
 if [ "$HAVE_ASYNC_TOGGLE" ]; then
 #:
  case $PM_ASYNC in
  0) echo 1 >/sys/power/pm_async;;
  1) echo 0 >/sys/power/pm_async;;
- *) echo "UNSUPPORTED pm_async value '$PM_ASYNC'";;
+ *) echo "UNSUPPORTED pm_async value '$PM_ASYNC'";;  #DEBUG
  esac
-cat /sys/power/pm_async
+cat /sys/power/pm_async  #DEBUG
 fi
 
 if [ "$HAVE_IMAGE_SIZE" ]; then
 #:
 echo $IMG_SZ_CHOICE_B >/sys/power/image_size
-[ $? = 0 ] || return 6
-cat /sys/power/image_size
+[ $? = 0 ] || { echo "Failure @echo '$IMG_SZ_CHOICE_B' to /sys/power/image_size"; exit 6; }
+cat /sys/power/image_size #DEBUG
 fi
 
 if [ "$HAVE_SWAP_PARTITION" ]; then
 #:
 echo "$MajMin" >/sys/power/resume
 [ $? = 0 ] || { echo "Failure @echo '$MajMin' to /sys/power/resume"; exit 7; }
-cat /sys/power/resume
-#exit
+cat /sys/power/resume  #DEBUG
 fi
 
 #{ echo "TEST EXIT"; exit; }
 
+# Now actually suspend to disk
       pidof sync || sync
       sleep 1
 
@@ -555,33 +641,36 @@ else
 :
 fi
 
-sleep 5
-restore_mounts
+sleep 6         # sleep 6 seconds that the kernel needs to return from S3
+pidof mplayer && killall -9 mplayer
+restore_mounts # restore mounted partitions
 
-aplay /usr/share/audio/2barks.au
+aplay /usr/share/audio/2barks.au & # make some wake up noise
 sleep 1
 
+# Welcome Back message
 case $ANSWER in
 190)
-[ "$DISPLAY" ] && xmessage -timeout 9 -title "Freeze Wakeup" "RETURNED from Freeze state"
+[ "$DISPLAY" ] && xmessage $xmPRINT -timeout 9 -title "Freeze Wakeup" "RETURNED from Freeze state"
 ;;
 201)
-[ "$DISPLAY" ] && xmessage -timeout 9 -title "Standby Wakeup" "RETURNED from S1 RAM standby"
+[ "$DISPLAY" ] && xmessage $xmPRINT -timeout 9 -title "Standby Wakeup" "RETURNED from S1 RAM standby"
 ;;
 203)
-[ "$DISPLAY" ] && xmessage -timeout 9 -title "Sleep Wakeup" "RETURNED from S3 RAM light sleep"
+[ "$DISPLAY" ] && xmessage $xmPRINT -timeout 9 -title "Sleep Wakeup" "RETURNED from S3 RAM light sleep"
 ;;
 204)
-[ "$DISPLAY" ] && xmessage -timeout 9 -title "Soft Off Wakeup" "RETURNED from S4 DISK winter sleep"
+[ "$DISPLAY" ] && xmessage $xmPRINT -timeout 9 -title "Soft Off Wakeup" "RETURNED from S4 DISK winter sleep"
 ;;
 *) :;;
 esac
 
+# Test if wakeup triggered by rtc driver
 read CURRENT_SINCE_EPOCH_POST </sys/class/rtc/rtc0/since_epoch
 
-echo "CURRENT_SINCE_EPOCH_POST   ='$CURRENT_SINCE_EPOCH_POST'"
-echo "CURRENT_SINCE_EPOCH_POST-60='$((CURRENT_SINCE_EPOCH_POST-60))'"
-echo "RTC0_WAKE_ALARM_TIME_PRE   ='$RTC0_WAKE_ALARM_TIME_PRE'"
+echo "CURRENT_SINCE_EPOCH_POST   ='$CURRENT_SINCE_EPOCH_POST'"        #DEBUG
+echo "CURRENT_SINCE_EPOCH_POST-60='$((CURRENT_SINCE_EPOCH_POST-60))'" #DEBUG
+echo "RTC0_WAKE_ALARM_TIME_PRE   ='$RTC0_WAKE_ALARM_TIME_PRE'"         #DEBUG
 
 if test "$RTC0_WAKE_ALARM_TIME_PRE"; then
 
@@ -590,17 +679,20 @@ if test "$RTC0_WAKE_ALARM_TIME_PRE"; then
   if test "$((RTC0_WAKE_ALARM_TIME_PRE))" -le $((CURRENT_SINCE_EPOCH_POST))
    then
 
-    if test -x /etc/acpi/wakealarm/wakealarm.sh ; then
-          exec /etc/acpi/wakealarm/wakealarm.sh &
-    else echo "/etc/acpi/wakealarm/wakealarm.sh not executable"
+    if test -x /etc/acpi/wakealarm/wakealarm_cmd ; then
+          exec /etc/acpi/wakealarm/wakealarm_cmd &
+    else echo "/etc/acpi/wakealarm/wakealarm_cmd not executable" #DEBUG
     fi
 
-  else   echo " RTC0_WAKE_ALARM_TIME_PRE greater than CURRENT_SINCE_EPOCH_POST"
+  else   echo " RTC0_WAKE_ALARM_TIME_PRE greater than CURRENT_SINCE_EPOCH_POST" #DEBUG
+   exec /etc/acpi/wakealarm.sh &
   fi
- else    echo " RTC0_WAKE_ALARM_TIME_PRE value too low"
+ else    echo " RTC0_WAKE_ALARM_TIME_PRE value too low" #DEBUG
  fi
 
-else     echo " No RTC0_WAKE_ALARM_TIME_PRE"
+else     echo " No RTC0_WAKE_ALARM_TIME_PRE" #DEBUG
 fi
 
+###END###
 exit 0
+###END###
