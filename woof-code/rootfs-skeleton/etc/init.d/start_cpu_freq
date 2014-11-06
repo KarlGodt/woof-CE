@@ -1,35 +1,48 @@
-#!/bin/sh
+#!/bin/ash
 #BK got this from http://murga-linux.com/puppy/viewtopic.php?t=55417&start=15
 # but added test for /proc/acpi, bios-date, processor-manufacturer.
 # added extra code provided by pakt.
 #100603 gamble, any CPU >=2007 can handle acpi-cpufreq, or it will fail to load.
 
-#disable freq scaling for older computers...
+
 [ ! -d /proc/acpi ] && exit
+
+#disable freq scaling for older computers...
 [ `dmidecode -s "bios-release-date" | cut -f 3 -d '/'` -lt 7 ] && exit #<2006 100603: <2007
 
-#INTEL='p4-clockmod speedstep-centrino speedstep-ich'
-#VIA='longhaul e_powersaver'
-#CYRIX='gx-suspmod'
-FREQMODS="acpi-cpufreq"
+# INTEL='p4-clockmod speedstep-centrino speedstep-ich'
+# VIA='longhaul e_powersaver'
+# CYRIX='gx-suspmod'
 
-case "$1" in
- start)
-  #CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
+#        CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
   #case $CPUMAN in
   # intel) FREQMODS="${INTEL} acpi-cpufreq" ;;
   # via)   FREQMODS="${VIA} acpi-cpufreq" ;;
   # cyrix) FREQMODS="${CYRIX} acpi-cpufreq" ;;
   #esac
-  for ONEMOD in $FREQMODS
+
+FREQMODS="acpi-cpufreq"
+
+GOV_MODS="cpufreq_conservative
+cpufreq_ondemand
+cpufreq_performance
+cpufreq_powersave
+cpufreq_userspace"
+
+SELECTED_GOV=cpufreq_ondemand
+
+case "$1" in
+ start)
+  for oneMOD in $FREQMODS
   do
-   modprobe $ONEMOD
+   modprobe $VERB $oneMOD
    if [ $? -eq 0 ];then
-    modprobe cpufreq_ondemand
+    modprobe $VERB $SELECTED_GOV
     if [ $? -eq 0 ];then
-     for CPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]' | tr '\n' ' '`
+     for aCPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]'`
      do
-      echo ondemand >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      test -w /sys/devices/system/cpu/$aCPUNUM/cpufreq/scaling_governor || continue
+      echo ${SELECTED_GOV#*_} >/sys/devices/system/cpu/$aCPUNUM/cpufreq/scaling_governor
      done
      #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
      #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
@@ -37,7 +50,7 @@ case "$1" in
      #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq
      break
     else
-     rmmod $ONEMOD
+     rmmod $oneMOD
     fi
    fi
   done
