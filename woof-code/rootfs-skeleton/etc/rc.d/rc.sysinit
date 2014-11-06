@@ -107,11 +107,11 @@ status_func() {
 loadswap_func() { #w481 made into a function.
  echo "LOAD SWAP"
  #load a swap partition...
- for ONESWAP in `fdisk -l | grep -i ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
+ for oneSWAP in `fdisk -l | grep -i ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
  do
-  [ "`blkid $ONESWAP |grep -Ei 'hiber|resume|winter|deep'`" ] && continue
-  echo -n "Loading swap partition $ONESWAP..." >/dev/console
-  swapon $ONESWAP
+  [ "`blkid $oneSWAP |grep -Ei 'hiber|resume|winter|deep'`" ] && continue
+  echo -n "Loading swap partition $oneSWAP..." >/dev/console
+  swapon $oneSWAP
   status_func $?
   [ $? -eq 0 ] && SWAPON="yes"
  done
@@ -146,9 +146,9 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount -t proc none /proc;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t proc proc /proc;STATUS=$(( $STATUS + $? ))
 if test "$PUPMODE" = 2; then #w468
- busybox mount -o remount,rw /;STATUS=$(( $STATUS + $? ))
+ busybox mount $VERB $VERB -o remount,rw /;STATUS=$(( $STATUS + $? ))
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 ##+++2012-01-29
@@ -158,7 +158,7 @@ openvt -c 11 autologinroot
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 #if [ ! "$DISPLAY" ];then
 rm -rf /tmp/*  ##+++2011-11-30 implemented again
-rm -rf /tmp/.[[:alnum:]]*  ##+++2012-05-28
+rm -rf /tmp/.[[:alnum:]_-]*  ##+++2012-05-28
 #fi
 #redirect all output to a log file (must do after remount rw)...
 #[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
@@ -167,18 +167,18 @@ exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm -f /etc/mtab
-ln -s /proc/mounts /etc/mtab
+ln $VERB -s /proc/mounts /etc/mtab
 
 mkdir -p /dev/pts ####KRG for DEVTMPFS KERNEL
-busybox mount /dev/pts ;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB /dev/pts ;STATUS=$(( $STATUS + $? ))
 mkdir -p /sys
-busybox mount -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
-QTRFREERAM=`expr $FREERAM \/ 4`
-[ -d /dev/shm ] || mkdir /dev/shm ####KRG for DEVTMPFS KERNEL
-mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
+QTRFREERAM=$(( FREERAM / 4 ))
+[ -d /dev/shm ] || mkdir -p /dev/shm ####KRG for DEVTMPFS KERNEL
+mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
 
 mountpointDEV='';
 haveMDEV=YES;
@@ -201,8 +201,8 @@ KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
 [ $loglevel ] && LOGLEVEL=$loglevel #boot param.
-[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
-[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
+[ $pmedia ]  && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+[ $pdev1 ]  && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
 
 #w469 may need to run 'depmod'...
 #live-cd may have been built without the modules.* files.
@@ -210,20 +210,19 @@ KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
 if [ ! -f /lib/modules/${KERNVER}/modules.dep ];then
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
  [ -d /lib/modules/${KERNVER}/initrd ] && NEEDGUNZIP="yes"
-else
- if [ -d /lib/modules/${KERNVER}/initrd ];then
+elif [ -d /lib/modules/${KERNVER}/initrd ];then
   #100127 remove leading '/' from '/initrd/' for comaptibility with depmod-FULL...
   if [ "`cat /lib/modules/${KERNVER}/modules.dep | cut -f 1 -d ':' | grep  'initrd/'`" = "" ];then
    NEEDDEPMOD="yes" #w469 files may not be there to save space.
    NEEDGUNZIP="yes"
   fi
- fi
 fi
+
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
- #for ONEMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #for oneMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
- # gunzip $ONEMOD
+ # gunzip $oneMOD
  #done
  gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
 fi
@@ -249,7 +248,7 @@ playbootnoise &
 
 ###+++2013-03-22
 [ $layerfs ] && LAYERFS=$layerfs #boot param.
-[ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
+[ $LAYERFS ] || LAYERFS=aufs     #aufs or unionfs
 [ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
 
 #######################VERSION UPDATE##########################
@@ -258,7 +257,7 @@ echo "VERSION UPDATE"
 echo -n "Updating..." >/dev/console
 
 /etc/rc.d/rc.update $PUPMODE
-sync
+pidof sync || sync
 status_func $STATUS
 
 #################LOAD KERNEL MODULES################
@@ -266,6 +265,7 @@ echo "LOAD KERNEL MODULES"
 echo -n "Loading kernel modules..." >/dev/console
 #100126 moved to /etc/init.d/00sys_logger...
 syslogd -m 0
+syslogd -L -l 7 -s 1024 -b 99 -O /var/log/syslog-7
 klogd
 #MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
 MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
@@ -307,7 +307,7 @@ for i in $INITSTATE ; do echo -n "$i " ; cat "$i" ; done
 [ -z "$INITSTATE" ] && echo 'No initstate files in /sys ...'
 WC=`echo "$INITSTATE" | wc -l`
 
-daemons(){ ##+++2012-01-28
+_daemons(){ ##+++2012-01-28
 if [ -x "`which pup_event_backend_modprobe_protect`" ] ; then
 if [ ! "`pidof pup_event_backend_modprobe_protect`" ];then
 nice -n -3 pup_event_backend_modprobe_protect --daemon &
@@ -344,7 +344,7 @@ sleep 0.1
 
 if [ "$WC" -lt 20 ] ; then  ###Modules not loaded yet ?
 
-daemons ##+++2012-01-28
+_daemons ##+++2012-01-28
 
 #replay uevents from /sys...
 c=0;d=0;e='module'  ##+++2011-11-08
@@ -352,7 +352,7 @@ oldIFS="$IFS"
 IFS=$'\n'
 for oneMODALIAS in $MODALIASES
 do
- #ONEPATH="`dirname $ONEMODALIAS`"
+ #onePATH="`dirname $oneMODALIAS`"
  onePATH="${oneMODALIAS%/*}"
  if [ -e "${onePATH}/uevent" ]; then
   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
@@ -382,7 +382,8 @@ if test "$PUPMODE" = 2; then
  modprobe -v squashfs
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
- ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`"
+ #ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " "`"
+  ATADRIVES=`grep -o 'sd[a-z]$' /proc/partitions`  ##+-+2014-11-05
  if [ -e /proc/ide ];then
   echo "SATADRIVES='${ATADRIVES}'" >> /etc/rc.d/PUPSTATE #kernel supports /dev/hd*.
  else
@@ -390,7 +391,7 @@ if test "$PUPMODE" = 2; then
  fi
 fi
 
-[ ! -d /proc/acpi ] && modprobe -v apm #v406
+[ -d /proc/acpi ] || modprobe -v apm #v406
 
 ##modprobe fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
 
@@ -416,7 +417,7 @@ rm -f /mnt/home 2>/dev/null
 if [ ! -d /initrd ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
- ln -s / /mnt/home
+ ln $VERB -s / /mnt/home
 else
  if [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
@@ -425,9 +426,9 @@ else
    #on /initrd/pup_ro1 (tmpfs on pup_rw for restricted writes) or directly on /initrd/pup_rw
    #and we do not really want users to access it as it is a unionfs layer. Instead, they are
    #already accessing it as "/".
-   ln -s / /mnt/home
+   ln $VERB -s / /mnt/home
   else
-   ln -s /initrd${PUP_HOME} /mnt/home
+   ln $VERB -s /initrd${PUP_HOME} /mnt/home
   fi
  fi
 fi
@@ -447,7 +448,7 @@ if [ "$PCIPCMCIA" != "" ];then #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
  while [ $WAITCNT -lt 10 ];do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" != "" ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$(( WAITCNT + 1 ))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
@@ -458,7 +459,7 @@ if [ "$PCIUSB" != "" ];then #this may be slow to respond.
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ];do
   [ `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l` -ge $PCIUSBNUM ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$(( WAITCNT + 1 ))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
@@ -471,11 +472,11 @@ fi
 if [ $KERNMAJ -lt 24 ];then #v431
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
- for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+ for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="`dirname $ONEMODALIAS`"
-  if [ -e ${ONEPATH}/uevent ];then
-   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  onePATH="`dirname $oneMODALIAS`"
+  if [ -e ${onePATH}/uevent ];then
+   echo add > ${onePATH}/uevent #generates an 'add' uevent.
    sleep 0.02
   fi
  done
@@ -484,12 +485,12 @@ else
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/ssb/devices ] && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
- for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
+ for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="`dirname $ONEUEVENT`"
+  onePATH="`dirname $oneUEVENT`"
   #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e ${ONEPATH}/modalias ] && [ "`grep 'MODALIAS' $ONEUEVENT`" = "" ] && continue
-  echo add > $ONEUEVENT
+  [ ! -e ${onePATH}/modalias ] && [ "`grep 'MODALIAS' $oneUEVENT`" = "" ] && continue
+  echo add > $oneUEVENT
   sleep 0.02
  done
 fi
@@ -502,7 +503,7 @@ if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" != "" ];then #see 
  while [ $WAITCNT -lt 15 ];do
   [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$(( WAITCNT + 1 ))
   echo -n " $WAITCNT" >/dev/console
  done
  #precaution, make sure have got them all... v412 need sort -u...
@@ -511,7 +512,7 @@ if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" != "" ];then #see 
   AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l`
   [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$(( WAITCNT + 1 ))
   echo -n " $WAITCNT" >/dev/console
  done
 fi
@@ -573,7 +574,7 @@ if [ -h /dev/modem ];then
   ;;
   /dev/*) #wrong format.
    DEVM="`echo -n "$DEVM" | cut -f 3,4 -d '/'`"
-   ln -snf $DEVM /dev/modem
+   ln $VERB -snf $DEVM /dev/modem
   ;;
  esac
  case $DEVM in
@@ -603,13 +604,13 @@ if [ -d /proc/acpi/battery ]; then
 fi
 
 #100814 100903 record cumulative tx/rx, see also network_tray and rc.shutdown...
-UPDATE_MONTH="`date +%b`"
-CURRENT_MONTH="`cat /var/local/sns/current_month`"
+UPDATE_MONTH="`LC_TIME=C date +%b`"
+read CURRENT_MONTH </var/local/sns/current_month
 [ ! "$CURRENT_MONTH" ] && CURRENT_MONTH='none'
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
- for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
-  echo -n 0 > /var/local/${ONECOUNT}x_bytes_month
+ for oneCOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
+  echo 0 > /var/local/${oneCOUNT}x_bytes_month
  done
 fi
 
@@ -702,17 +703,17 @@ OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*'
 #[[ "$OPTICALS" =~ "$DVDTYPE" ]] || DVDTYPE=""
 [ "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" ] || CDBURNERTYPE="" #no longer exists.
 #[[ "$OPTICALS" =~ "$CDBURNERTYPE" ]] || CDBURNERTYPE=""
-for ONEOPTICAL in $OPTICALS
+for oneOPTICAL in $OPTICALS
 do
- ONENUM="`echo -n "$ONEOPTICAL" | cut -c 3`"
- [ "$CDTYPE" = "" ] && CDTYPE="$ONEOPTICAL"
- [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$ONEOPTICAL" #100131
- [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL" #100131
- OPTCNT=`expr $OPTCNT + 1`
+ oneNUM="`echo -n "$oneOPTICAL" | cut -c 3`"
+ [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL"
+ [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$oneOPTICAL" #100131
+ [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL" #100131
+ OPTCNT=$((OPTCNT + 1))
 done
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
-[ "$CDTYPE" ] && ln -sf /dev/$CDTYPE /dev/cdrom
-[ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
+[ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE /dev/cdrom
+[ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
 [ "$DVDTYPE" -a "`echo "$DVDTYPE" |grep 'scd'`" ] && hdparm -d1 /dev/$DVDTYPE
 
@@ -722,12 +723,12 @@ test -d /dev/input || mkdir -p /dev/input
 test -c /dev/input/mice || { rm -rf /dev/input/mice; mknod /dev/input/mice c 13 63; }
 if [ ! -f /etc/mousedevice ];then
  echo -n "input/mice" > /etc/mousedevice
- #ln -snf input/mice /dev/mouse
+ #ln $VERB -snf input/mice /dev/mouse
 else
  [ "`cat /etc/mousedevice`" = "psaux" ] && echo -n "input/mice" > /etc/mousedevice
 fi
 read MOUSEDEVICE_ </etc/mousedevice
-ln -snf $MOUSEDEVICE_ /dev/mouse
+ln $VERB -snf $MOUSEDEVICE_ /dev/mouse
 
 
 #recognise keyboard...moved into xorgwizard
@@ -809,7 +810,7 @@ echo 'nox' > /tmp/X.status
 fi
 
 [ -c /dev/ppp ] || mknod /dev/ppp c 108 0
-[ -L /dev/mouse ] || ln -s /dev/input/mice /dev/mouse
+[ -L /dev/mouse ] || ln $VERB -s /dev/input/mice /dev/mouse
 [ -c /dev/mem ] || mknod /dev/mem c 1 1
 
 
