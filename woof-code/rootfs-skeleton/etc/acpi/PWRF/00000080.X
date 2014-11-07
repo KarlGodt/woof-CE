@@ -1,5 +1,7 @@
 #!/bin/ash
 
+
+
 . /etc/rc.d/f4puppy5
 
 aplay /usr/share/audio/2barks.au
@@ -31,12 +33,12 @@ HIBER=1;MODE=DISK;mode=disk
 for param in $@;do
 case $1 in
 
-*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
-*help) usage 0;;
+*version|-V) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+*help|*usage|-h) usage 0;;
 
 *checkcode|*codecheck)   set -n; shift;;
 *debug)                  set -x; shift;;
-*verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
+*verbose|-v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
 
 *hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
 *sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
