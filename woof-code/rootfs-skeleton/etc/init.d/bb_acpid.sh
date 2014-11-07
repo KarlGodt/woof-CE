@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-Version='1.0 Macpup_O2-Puppy_Linux_431 KRG'
+Version='1.0.1 Macpup_O2-Puppy_Linux_431 KRG'
 usage(){
 MSG="
 $0 [start|stop] [help|version]
@@ -111,7 +111,7 @@ Supported kill signals:
 case $1 in
 *start|*Start|*START)
 shift
-ALREADY_RUNNING=`pidof $ACPID_BIN |tr ' ' '\n' | grep -vw '1' |tr '\n' ' '`
+ALREADY_RUNNING=`pidof $ACPID_BIN |tr ' ' '\n' | grep -vw '1' |tr '\n' ' ' | sed 's!^\ *!!;s!\ *$!!'`
 
 if [ ! "$FORCE" ];then
 [ "`echo "$ALREADY_RUNNING" |wc -w`" -ge 1 ] && { echo "Another instance of '$ACPID_BIN' already running with PID '$ALREADY_RUNNING'"; exit 1; }
@@ -130,7 +130,7 @@ $ACPID_BIN -c $Config_directory \
 fi
 
 sleep 3
-ACPID_PID=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
+ACPID_PID=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' ' | sed 's!^\ *!!;s!\ *$!!'`
 if [ "$ACPID_PID" ];then
                         echo "$0: STARTED '$ACPID_BIN' with PID '$ACPID_PID'";STATUS=0
 else
@@ -145,7 +145,7 @@ exit $STATUS
 ############### STOP #####################
 *stop|*Stop|*STOP)
 shift
-ACPID_PID=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
+ACPID_PID=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' ' | sed 's!^\ *!!;s!\ *$!!'`
 [ "$ACPID_PID" ] || exit 0
 if [ "$1" ];then
                 if [ "$2" ];then
@@ -158,7 +158,7 @@ if [ "$1" ];then
 else
 kill -1 $ACPID_PID
 sleep 3
-ACPID_PID_2=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
+ACPID_PID_2=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' ' | sed 's!^\ *!!;s!\ *$!!'`
 [ "$ACPID_PID_2" ] || { echo "$0: STOPPED pid '$ACPID_PID'";exit 0; }
 #kill -2 $ACPID_PID_2
 #sleep 3
@@ -170,8 +170,8 @@ ACPID_PID_2=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
 for s in `seq 1 1 64`;do
 kill -$s $ACPID_PID_2
 sleep 3
-ACPID_PID_3=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' '`
-[ "$ACPID_PID_3" ] || { echo "$0: STOPPED pid '$ACPID_PID' with signal '$c'";exit 0; }
+ACPID_PID_3=`pidof $ACPID_BIN |tr ' ' '\n' |grep -vw '1' |tr '\n' ' ' | sed 's!^\ *!!;s!\ *$!!'`
+[ "$ACPID_PID_3" ] || { echo "$0: STOPPED pid '$ACPID_PID' with signal '$s'";exit 0; }
 done
 echo "$0: FAILED to stop PID '$ACPID_PID' for '$ACPID_BIN'"
 exit 1
