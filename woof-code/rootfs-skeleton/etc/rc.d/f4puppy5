@@ -414,7 +414,7 @@ _parse_basic_parameters()
 [ "$OUT" ]   || OUT=/dev/null;
 [ "$ERR" ]   || ERR=$OUT;
 [ "$Q" ]     || Q=-q;
-[ "$QUIET" ] || QUIET=$Q;
+[ "$QUIET" ] || QUIET=--quiet;
 [ "$DBG" ]   || DBG=''
 [ "$L_DBG" ] || L_DBG=''
 [ "$A_DBG" ] || A_DBG=''
@@ -858,11 +858,11 @@ shift
 #echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
 #echo "`eval echo \\$$*`"
 
-QUIET=-q
+Q=-q
 if test "$gOPT" = '-v'; then
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
 fi
 }
 
@@ -893,16 +893,18 @@ _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
 mountpoint $Q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw none /tmp; return $?; }
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
 grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
  }
 }
 
 #============= Avoid multiple instances of sync ==============================
+# busybox NOFORK and SH_STANDALONE sync do not emit a PID
+[ "`which sync`" ] && alias sync="`which sync`"
 _sync()
 {
-pidof sync >$OUT || sync
+pidof sync >>$OUT || sync
 }
 
 #=============== LOGLEVEL / DEBUG MESSAGES ==================================
@@ -1143,7 +1145,7 @@ _print_pretty    "**   EXTREME" "$Black1" "$Black0" "$White0" "$BackBlack0" "$*"
 alias _debugap=_debugep
 alias _debug2p=_debugep
 alias _debugxp=_debugep
-alias -p >$OUT 2>$ERR
+alias -p >>$OUT 2>$ERR
 
 # simple functions with date and timestamp:
 _date_FT(){ _DATE_FT_=`date +%F-%T`; }
@@ -1307,6 +1309,63 @@ test -L "$*" && return 3
 test -d "$*" && return 0
 return 1
 }
+
+_test_drwx()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -w "$*" -a -x "$*" && return 0
+return 1
+}
+
+_test_drx()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -x "$*" && return 0
+return 1
+}
+
+_test_dwx()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -w "$*" -a -x "$*" && return 0
+return 1
+}
+
+_test_drw()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_dr()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" && return 0
+return 1
+}
+
+_test_dw()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_dx()
+{
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -d "$*" -a -x "$*" && return 0
+return 1
+}
+
 _test_p()
 {
 test -e "$*" || return 2
@@ -1319,6 +1378,63 @@ _test_S()
 test -e "$*" || return 2
 test -L "$*" && return 3
 test -S "$*" && return 0
+return 1
+}
+
+_test_c(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -c "$*" && return 0
+return 1
+}
+
+_test_crw(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -c "$*" -a -r "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_cr(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -c "$*" -a -r "$*" && return 0
+return 1
+}
+
+_test_cw(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -c "$*" -a -w "$*" && return 0
+return 1
+}
+
+
+_test_b(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -b "$*" && return 0
+return 1
+}
+
+_test_brw(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -b "$*" -a -r "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_br(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -b "$*" -a -r "$*" && return 0
+return 1
+}
+
+_test_bw(){
+test -e "$*" || return 2
+test -L "$*" && return 3
+test -b "$*" -a -w "$*" && return 0
 return 1
 }
 
@@ -1785,9 +1901,9 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
     test -f /proc/modules && {
-    grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; }
+    grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; }
     } || { modprobe $VERB squashfs; sleep 1; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }; }
@@ -2131,9 +2247,9 @@ for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep $QUIET -viE 'perl|python|murgaLua_Dynamic|Pascal|C\+\+| C ' || continue
+   file "$file" | grep -i text | grep $Q -viE 'perl|python|murgaLua_Dynamic|Pascal|C\+\+| C ' || continue
 
-   grep $QUIET 'f4puppy5' "$file" && continue
+   grep $Q 'f4puppy5' "$file" && continue
 
    PERM=`stat -c %a "$file"`
    [ "${PERM//[0-6]/}" ] || continue
