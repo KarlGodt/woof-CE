@@ -52,12 +52,14 @@ fi
 while read -r option rest; do
 [ "$option" ] || continue
 case $option in
--a) OPT_a=1;;
--c) OPT_c=1;;
--e) OPT_e=1;;
--l) OPT_l=1;;
--M) OPT_M=1;;
--p) OPT_p=1;;
+-a) sOPT_a=1;;
+-c) sOPT_c=1;;
+##
+#-e) sOPT_e=1;;
+-l) sOPT_l=1;;
+-M) sOPT_M=1;;
+-p) sOPT_p=1;;
+-e) sOPT_e=1;;
 esac
 done <<EoI
 `echo "$ACPID_OPTS"`
@@ -65,40 +67,59 @@ EoI
 
 Action_file=/etc/acpid.conf      # -a
 Config_directory=/etc/acpi       # -c
-proc_event_file=/proc/acpi/event # -e
+## proc event and evdev event option better be last options ..?
+#proc_event_file=/proc/acpi/event # -e
+#evdev_event_file=                # no option prefix
 Log_file=/var/log/acpid.log      # -l
 Map_file=/etc/acpi.map           # -m
 Pid_file=/var/run/acpid.pid      # -p
+proc_event_file=/proc/acpi/event # -e
+evdev_event_file=                # no option prefix
 
-[ "$OPT_a" ] || unset Action_file
-[ "$OPT_c" ] || unset Config_directory
-[ "$OPT_e" ] || unset proc_event_file
-[ "$OPT_l" ] || unset Log_file
-[ "$OPT_M" ] || unset Map_file
-[ "$OPT_p" ] || unset Pid_file
+[ "$sOPT_a" ] || unset Action_file
+[ "$sOPT_c" ] || unset Config_directory
+##
+#[ "$sOPT_e" ] || unset proc_event_file
+[ "$sOPT_l" ] || unset Log_file
+[ "$sOPT_M" ] || unset Map_file
+[ "$sOPT_p" ] || unset Pid_file
+[ "$sOPT_e" ] || unset proc_event_file
 
 if test "$Config_directory"; then
 _test_dr "$Config_directory" || exit 10
+fi
+
+##
+#if test "$proc_event_file"; then
+#_test_fr "$proc_event_file" || exit 11
+#fi
+
+#if test "$evdev_event_file"; then
+#_test_fr "$evdev_event_file" || exit 12
+#fi
+
+if test "$Log_file"; then
+_test_dw "${Log_file%/*}" || exit 13
+fi
+
+if test "$Pid_file"; then
+_test_dw "${Pid_file%/*}" || exit 14
+fi
+
+if test "$Action_file"; then
+_test_fr "$Action_file" || exit 15
+fi
+
+if test "$Map_file"; then
+_test_fr "$Map_file" || exit 16
 fi
 
 if test "$proc_event_file"; then
 _test_fr "$proc_event_file" || exit 11
 fi
 
-if test "$Log_file"; then
-_test_dw "${Log_file%/*}" || exit 12
-fi
-
-if test "$Pid_file"; then
-_test_dw "${Pid_file%/*}" || exit 13
-fi
-
-if test "$Action_file"; then
-_test_fr "$Action_file" || exit 14
-fi
-
-if test "$Map_file"; then
-_test_fr "$Map_file" || exit 15
+if test "$evdev_event_file"; then
+_test_fr "$evdev_event_file" || exit 12
 fi
 
 modprobe -vr evbug
@@ -110,7 +131,9 @@ echo "$0: BUSYBOX_VERSION='$BUSYBOX_VERSION'"
 
 case $BUSYBOX_VERSION in
 v1.[0-9].*|v1.1[0-3]*)   _exit 3 "Applet acpid should not be enabled for '$BUSYBOX_VERSION'; was first introduced with v1.14";;
+#Usage: acpid [-d] [-c CONFDIR] [-l LOGFILE] [-e PROC_EVENT_FILE] [EVDEV_EVENT_FILE]...
 v1.14*|v1.15*|v1.16*|v1.17*)                               ;; #OLD simple code
+#Usage: acpid [-d] [-c CONFDIR] [-l LOGFILE] [-a ACTIONFILE] [-M MAPFILE] [-e PROC_EVENT_FILE] [-p PIDFILE]
 v1.18*|v1.19*)          unset proc_event_file              ;; #NEW -a and -M code, -e option does not work anymore, PROBLEMS with high load
 v1.20*|v1.21*|v1.22*)   unset proc_event_file              ;; #NEW -a and -M code, -e option does not work anymore
 *) echo "Unhandled busybox version '$BUSYBOX_VERSION'";;
@@ -184,13 +207,18 @@ if [ "$*" ];then
 $ACPID_BIN $@
 else
 
+[ "$Log_file" ] && { [ -s "$Log_file" ] && _log_rotate "$Log_file"; true; } || { [ -s /var/log/acpid.log ] && _log_rotate /var/log/acpid.log; }
+
 set --
 [ "$Config_directory" ] && set - "$@" -c "$Config_directory"
-[ "$proc_event_file" ]  && set - "$@" -e "$proc_event_file"
+##
+#[ "$proc_event_file" ]  && set - "$@" -e "$proc_event_file"
 [ "$Log_file" ]         && set - "$@" -l "$Log_file"
 [ "$Pid_file" ]         && set - "$@" -p "$Pid_file"
 [ "$Action_file" ]      && set - "$@" -a "$Action_file"
 [ "$Map_file" ]         && set - "$@" -M "$Map_file"
+[ "$proc_event_file" ]  && set - "$@" -e "$proc_event_file"
+[ "$evdev_event_file" ] && set - "$@" "$evdev_event_file"
 
 echo "$0: '$@'"
 
