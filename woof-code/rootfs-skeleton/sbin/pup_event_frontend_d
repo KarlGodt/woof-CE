@@ -354,8 +354,10 @@ _free(){
  if [ "$ZDRVINIT" = "yes" ];then                         #full set of modules present, moved from initrd.
   if [ -d /initrd/pup_rw/lib/modules/all-firmware ];then #have not yet deleted modules.
    #calc the "virtual" free space (would have if modules not there...)
-   VIRTUALFREEM=`expr $SIZEFREEM + $SIZE_MODS_M`
-   VIRTUALFREEM=`expr $VIRTUALFREEM - 1`                 #allow for some mods will not be deleted.
+   #VIRTUALFREEM=`expr $SIZEFREEM + $SIZE_MODS_M`
+     VIRTUALFREEM=$(( SIZEFREEM + SIZE_MODS_M ))
+   #VIRTUALFREEM=`expr $VIRTUALFREEM - 1`                 #allow for some mods will not be deleted.
+     VIRTUALFREEM=$(( VIRTUALFREEM - 1 ))
   fi
  fi
 
@@ -403,8 +405,10 @@ _free_flash(){
  if [ "$ZDRVINIT" = "yes" ]; then #full set of modules present at bootup.
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware ];then #have not yet deleted modules.
    #calc the "virtual" free space (would have if modules not there...)
-   VIRTUALFREEM=`expr $SIZEFREEM + $SIZE_MODS_M`
-   VIRTUALFREEM=`expr $VIRTUALFREEM - 1` #allow for some mods will not be deleted.
+   #VIRTUALFREEM=`expr $SIZEFREEM + $SIZE_MODS_M`
+     VIRTUALFREEM=$(( SIZEFREEM + SIZE_MODS_M ))
+   #VIRTUALFREEM=`expr $VIRTUALFREEM - 1` #allow for some mods will not be deleted.
+     VIRTUALFREEM=$(( VIRTUALFREEM - 1 ))
   fi
  fi
 
@@ -544,7 +548,8 @@ sleep 2 #let the dust settle after X has started.
 #w471 slow cpus need more delay (well, rox does)...
 DELAYFACTOR=0
 CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
-[ "$CPUMHZ" -a $CPUMHZ -gt 100 ] && DELAYFACTOR=`expr 1100 \/ $CPUMHZ`
+#[ "$CPUMHZ" -a $CPUMHZ -gt 100 ] && DELAYFACTOR=`expr 1100 \/ $CPUMHZ`
+ [ "$CPUMHZ" -a $CPUMHZ -gt 100 ] && DELAYFACTOR=$(( 1100 / CPUMHZ ))
 [ $DELAYFACTOR -gt 0 ] && sleep $DELAYFACTOR
 #define ESPIPE      29  /* Illegal seek */
 if [ "$DISPLAY" = "" ]; then return 29 || exit 29; fi #X not running.
@@ -627,10 +632,12 @@ funcSCRN_VARS
 
 funcRAM_POWER(){
 [ "$RAMSAVEINTERVAL" = "" ] && RAMSAVEINTERVAL=30 #412
-RAMSAVEINTERVAL=`expr $RAMSAVEINTERVAL \* 60` #convert minutes to seconds.
+#RAMSAVEINTERVAL=`expr $RAMSAVEINTERVAL \* 60` #convert minutes to seconds.
+ RAMSAVEINTERVAL=$(( RAMSAVEINTERVAL * 60 ))
 
 [ "$POWERTIMEOUT" = "" ] && POWERTIMEOUT=0 #w007
-POWERTIMEOUT=`expr $POWERTIMEOUT \* 60` #convert minutes to seconds.
+#POWERTIMEOUT=`expr $POWERTIMEOUT \* 60` #convert minutes to seconds.
+ POWERTIMEOUT=$(( POWERTIMEOUT * 60 ))
 }
 funcRAM_POWER
 ################# orig to function #################################
@@ -653,11 +660,12 @@ _format_size(){
   SIZE=`LANG=$OLDLANG dc $SIZE 1048576 \/ p` #100613 dc o/p '.' if LANG=C.
   SIZE="`LANG=$OLDLANG printf "%.1f" $SIZE`GB" #100613
  else
-  if [ $SIZE -gt 99 ];then
-   SIZE="`expr $SIZE \/ 1024`MB"
+  if [ $SIZE -gt 1024 ];then
+   #SIZE="`expr $SIZE \/ 1024`MB"
+    SIZE="$(( SIZE / 1024 ))"'MB'
   else
    SIZE=`LANG=$OLDLANG dc $SIZE 1024 \/ p` #100613
-   SIZE="`LANG=$OLDLANG printf "%.1f" $SIZE`MB" #100613
+   SIZE="`LANG=$OLDLANG printf "%.3f" $SIZE`MB" #100613
   fi
  fi
  [ "$SIZE" = "0.0MB" ] && SIZE="0"
@@ -1097,25 +1105,36 @@ _create_icon(){
  done
  IFS="$oldIFS"
 
- #always create a handler for entire drive, even if no icon displayed...
- if [ ! -d $HOME/.pup_event/drive_${DISK_NAME} ];then
-  if [ -e /sys/block/${DISK_NAME} ]; then
-     mkdir -p $HOME/.pup_event/drive_${DISK_NAME}
-   cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${DISK_NAME}/AppRun
+ #always create a handler for entire Drive and Partition1, even if no icon displayed...
+ for aP in "" 1;
+ do
+ if [ ! -d $HOME/.pup_event/drive_${DISK_NAME}$aP ];then
+
+  if [ -e /sys/block/${DISK_NAME}$aP ]; then
 
    #SIZE=`cat /sys/block/${DRV_NAME}/size`
-   read SIZE </sys/block/${DISK_NAME}/size
+   read SIZE </sys/block/${DISK_NAME}$aP/size
    SIZE=$(($SIZE/2))     #get KB.
+
+  elif   [ -e /sys/block/${DISK_NAME}/${DISK_NAME}$aP ]; then
+   read SIZE </sys/block/${DISK_NAME}/${DISK_NAME}$aP/size
+   SIZE=$(($SIZE/2))     #get KB.
+
+  else continue
+  fi
+
    _format_size $SIZE #formats SIZE for display.
+
+   mkdir -p $HOME/.pup_event/drive_${DISK_NAME}$aP
+   cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${DISK_NAME}$aP/AppRun
 
    INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
    #v424 add item to unmount all mounted partitions...
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
-   oneDRVNAME="$DISK_NAME"
+   oneDRVNAME="${DISK_NAME}$aP"
    _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
-  fi
  fi
-
+ done
 unset DISK_PARTITIONS onePART MNTSTATUS
 unset oneDRVNAME DISK_NAME DISK_CATEGORY drvPATTERN FSTYPE INFO SIZE MOREITEMS
 }
@@ -1257,7 +1276,8 @@ LINEP=D005;echo "$0 line '`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`' PO
 
 POWERTIMEOUT_FUNCS(){
 __powertimeout__(){
-    MINUTECNT=`expr $MINUTECNT + 4`
+    #MINUTECNT=`expr $MINUTECNT + 4`
+     MINUTECNT=$(( MINUTECNT+4 ))
     if [ $MINUTECNT -gt 59 ];then
     [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
     MINUTECNT=0
@@ -1271,7 +1291,8 @@ _powertimeout(){
 if [ "$POWERTIMEOUT" != '0' -o "$AUTOUNMOUNT" = "true" -o "$BAT_0" = '1' ];then #w007 power-off computer after inactivity.
 _powertimeout(){
   #MOUSECNT=`expr $MOUSECNT + 4`
-  MINUTECNT=`expr $MINUTECNT + 4`
+  #MINUTECNT=`expr $MINUTECNT + 4`
+   MINUTECNT=$((MINUTECNT + 4))
   if [ $MINUTECNT -gt 59 ];then #come in here every minute...
     MINUTECNT=0
    if [ "$BAT_0" = '1' ];then
