@@ -1,0 +1,219 @@
+#!/bin/ash
+#
+# New header by Karl Reimer Godt, September 2014
+  _TITLE_="pup_probepart8"
+_VERSION_=1.0omega
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/sbin/probepart9"
+MY_PID=$$
+
+test -f /etc/rc.d/f4puppy5 && {
+[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
+
+
+###
+#
+###
+
+
+trap "exit 1" HUP INT QUIT KILL TERM
+echo "DEBUG='$DEBUG'" >&2
+
+OUT=/dev/null;ERR=$OUT
+
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+[ "$DEBUG" = "2" ] && set -x
+
+Version='1.1'
+
+usage(){
+USAGE_MSG="
+$0 [ PARAMETERS ]
+
+example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+
+PARAMETERS:
+-V|--version : showing version information
+-H|--help : show this usage information
+
+-b   : show size in bits
+-B   : Bytes
+-kb  : 1000-kilo bits
+-mb  : 1000-mega bits
+-gb  : 1000-giga bits
+-Kib : 1024-kilo bits
+-Mib : 1024-mega bits
+-Gib : 1024-giga bits
+-kB  : 1000-kilo Bytes
+-mB  : 1000-mega Bytes
+-gB  : 1000-giga Bytes
+-KiB : 1024-kilo Bytes
+-MiB : 1024-mega Bytes
+-GiB : 1024-giga Bytes
+-k : show sizes in kilobytes (KiB) #compat.
+-m : show sizes in megabytes (MiB) #compat.
+Without one of the above parameters it is the value found in
+/sys/class/block/drive/size
+; usually as blocksize=512 formatted to bits .
+
+$2
+"
+echo "$USAGE_MSG"
+exit $1
+}
+
+__deprecated_get_options__(){
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+
+##
+SIZE_FACTOR=1
+SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-kib|\-mib|\-gib'`
+  [ "$SIZE_PARAM" = '-b' ] && SIZE_FACTOR=1
+  [ "$SIZE_PARAM" = '-B' ] && SIZE_FACTOR=8
+ [ "$SIZE_PARAM" = '-kb' ] && SIZE_FACTOR=$((1*1000))
+ [ "$SIZE_PARAM" = '-mb' ] && SIZE_FACTOR=$((1*1000*1000))
+ [ "$SIZE_PARAM" = '-gb' ] && SIZE_FACTOR=$((1*1000*1000*1000))
+ [ "$SIZE_PARAM" = '-KB' ] && SIZE_FACTOR=$((8*1000))
+ [ "$SIZE_PARAM" = '-MB' ] && SIZE_FACTOR=$((8*1000*1000))
+ [ "$SIZE_PARAM" = '-GB' ] && SIZE_FACTOR=$((8*1000*1000*1000))
+[ "$SIZE_PARAM" = '-kib' ] && SIZE_FACTOR=$((1*1024))
+[ "$SIZE_PARAM" = '-mib' ] && SIZE_FACTOR=$((1*1024*1024))
+[ "$SIZE_PARAM" = '-gib' ] && SIZE_FACTOR=$((1*1024*1024*1024))
+[ "$SIZE_PARAM" = '-KIB' ] && SIZE_FACTOR=$((8*1024))
+  [ "$SIZE_PARAM" = '-k' ] && SIZE_FACTOR=$((8*1024))  ##compat.
+[ "$SIZE_PARAM" = '-MIB' ] && SIZE_FACTOR=$((8*1024*1024))
+  [ "$SIZE_PARAM" = '-m' ] && SIZE_FACTOR=$((8*1024*1024))  ##compat.
+[ "$SIZE_PARAM" = '-GIB' ] && SIZE_FACTOR=$((8*1024*1024*1024))
+}
+
+SIZE_FACTOR=1
+while [ $# -gt 0 ]; do
+case $1 in
+*help|-H|-h) usage 0;;
+*version|-V) echo "$0 -version $Version";exit 0;;
+-b)SIZE_FACTOR=1;;
+-B)SIZE_FACTOR=8;;
+-kb)SIZE_FACTOR=$((1*1000));;
+-mb)SIZE_FACTOR=$((1*1000*1000));;
+-gb)SIZE_FACTOR=$((1*1000*1000*1000));;
+-kB)SIZE_FACTOR=$((8*1000));;
+-mB)SIZE_FACTOR=$((8*1000*1000));;
+-gB)SIZE_FACTOR=$((8*1000*1000*1000));;
+-kib)SIZE_FACTOR=$((1*1024));;
+-mib)SIZE_FACTOR=$((1*1024*1024));;
+-gib)SIZE_FACTOR=$((1*1024*1024*1024));;
+-K[Ii]B|-k)SIZE_FACTOR=$((8*1024));;
+-M[Ii]B|-m)SIZE_FACTOR=$((8*1024*1024));;
+-G[Ii]B)SIZE_FACTOR=$((8*1024*1024*1024));;
+*) echo "Notice : Unrecognized option '$1'." >&2;;
+esac
+shift
+done
+
+_do_disktype(){
+    disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
+}
+
+DEBUG=
+DEBUGX=
+
+_get_filesystem(){
+    #[ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`  #+++2013-12-27 awful fd hack...
+    [ "$FSTYPE" ]  || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
+    #[ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
+
+      # 2014-10-29 blkid for reiser4  #2014-11-02 busybox blkid for exFAT
+      _debugx "FSTYPE='$FSTYPE'"   >&2
+     [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`blkid /dev/"$1" |grep -o ' TYPE="[[:alnum:]_]*"' | cut -f2 -d'"'` || FSTYPE=unknown; }
+      _debugx "FSTYPE='$FSTYPE'"   >&2
+      case $FSTYPE in   ## reiser v3 or v4
+      *reiser*|*Reiser*|*REISER*)  FSTYPE=`_command blkid /dev/"$1" |grep -o ' TYPE="[[:alnum:]_]*"' | cut -f2 -d'"'`
+      _debugx "FSTYPE='$FSTYPE'"   >&2
+      esac
+
+     [ "$FSTYPE" ] || FSTYPE=unknown
+       _debug "FSTYPE='$FSTYPE'" >&2
+
+     case $REMOVEABLE in
+     1)  _debug $1 is REMOVEABLE   >&2
+        _debugx "FSTYPE='$FSTYPE'" >&2
+     [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs'` && FSTYPE=`echo "$FSTYPE" | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYPE='not inserted'; }
+
+    ;;
+    0)  _debug $1 is not REMOVEABLE >&2
+     :
+    ;;
+    *)  _debug $1 has set '$REMOVEABLE' as REMOVEABLE >&2
+     :
+    ;;
+    esac
+    [ "$FSTYPE" ]  || FSTYPE=unknown
+}
+
+_do_cddetect(){
+    case $1 in fd*) return;; esac  #removable, [[ bash = x* ]]; not ash
+    cddetect_quick -d/dev/"$1" &>$OUT && FSTYPE=`_do_disktype "$1"` || FSTYPE='not inserted'
+}
+
+FDISK=`LC_ALL=C fdisk -l |grep '^/dev/' |tr -s '[[:blank:]]' |sed 's!\(/dev/[[:alnum:]]*\) \([[:digit:]]*\) \(.*\)!\1 N \2 \3!'`
+
+while read maj min drive rest; do
+[ "$maj" ]   || continue
+[ "$min" ]   || continue
+[ "$drive" ] || continue
+SIZE='';FSTYPE='';
+[ -f /sys/class/block/$drive/size ] || continue
+read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
+[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+SIZE=$((SIZE/SIZE_FACTOR))
+REMOVEABLE=0
+
+case $drive in
+*[0-9])
+
+ if   [ -r /sys/class/block/$drive/removable ]; then
+ read REMOVEABLE </sys/class/block/$drive/removable
+ elif [ -r /sys/class/block/$drive/device/removable ]; then
+ read REMOVEABLE </sys/class/block/$drive/device/removable
+ fi
+
+ [ "$REMOVEABLE" = 0 ] || _do_cddetect "$drive"
+  _get_filesystem "$drive"
+  echo "/dev/$drive|$FSTYPE|$SIZE" >&1
+;;
+
+*)
+if [ -d /sys/class/block/$drive/device ]; then
+ read REMOVEABLE </sys/class/block/$drive/removable
+ if [ "$REMOVEABLE" = 1 ]; then
+ if grep $Q -w '5' /sys/class/block/$drive/device/type >>$OUT; then
+ _do_cddetect "$drive"
+ _get_filesystem "$drive"
+ echo "/dev/$drive|$FSTYPE|$SIZE" >&1
+ fi;fi
+fi
+;;
+esac
+
+done </proc/diskstats
+
+# Very End of this file 'sbin/probepart7' #
+###END###
