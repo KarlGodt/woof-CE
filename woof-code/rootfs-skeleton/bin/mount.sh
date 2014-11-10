@@ -26,9 +26,9 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=1
-DEBUGX=1
-test "$DEBUG" && { Q='';QUIET=$Q; }
+DEBUG=
+DEBUGX=
+test "$DEBUG" && { unset Q QUIET; }
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
@@ -255,7 +255,8 @@ _debugt 9d $_DATE_
  test "$noROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
-         mountpoint $Q "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
+         rox -D "${eoneMOUNTPOINT}"
+         mountpoint $Q "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || :
          }
         }
  _debugt 9c $_DATE_
@@ -598,6 +599,10 @@ if test "$deviceORpoint"; then
  if test -b $deviceORpoint; then
   grep $Q -w "${deviceORpoint##*/}" /proc/partitions && {
    _info "found '${deviceORpoint##*/}' in /proc/partitions"
+  _FS_TYPE_=`guess_fstype $deviceORpoint`
+  case $_FS_TYPE_ in
+  xfs) HAVE_XFS=1;;
+  esac
   } || {
    _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
  # grep $Q -w ${deviceORpoint} /proc/mounts && _exit 3 "'${deviceORpoint}' already mounted"
@@ -937,7 +942,7 @@ case $OPT in
  RV=$?
  return $RV
 ;;
--B|-c|-F|-l|-L*|-M|-p|-R|-T*|-U*)
+-B|-c|-F|-l|-L*|-M|-p|-R|-T*|-U*|-t*xfs*)
  _notice "Using mount-FULL"
  _do_mount_full "$@"
  RV=$?
@@ -945,8 +950,14 @@ case $OPT in
 ;;
 esac
 done
+
+if [ "$HAVE_XFS" ]; then
+_info Using mount-FULL "$@"
+_do_mount_full "$@"
+else
 _info Using busybox mount "$@"
 _do_mount_bb "$@"
+fi
 RV=$?
 return $RV
 }
@@ -1000,6 +1011,7 @@ _umount_rmdir()
 
 _update()
 {
+ _debug "DISPLAY='$DISPLAY'"
  test "$DISPLAY" && _update_partition_icon
  test "$WHAT" = umount || return 0
  _debugt 04 $_DATE_
