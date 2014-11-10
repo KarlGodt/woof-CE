@@ -12,14 +12,44 @@ version) _VERSION_=$version; VERSION=$version; Version=$version;;
 esac
 }
 
-test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.4
-test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.4
-test "$Version"   && _assign_version Version   ||   Version=0.0.4
-test "$version"   && _assign_version version   ||   version=0.0.4
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.5
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.5
+test "$Version"   && _assign_version Version   ||   Version=0.0.5
+test "$version"   && _assign_version version   ||   version=0.0.5
 
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
+#test "$MY_SELF" || MY_SELF="$0"
+MY_SELFR=`readlink -f "$0"`
+MY_SELF0="$0"
+
+[ "$WARN" ]    || WARN=1
+[ "$WARN" ]    && WARNING="$WARN"
+[ "$WARNING" ] || WARNING=1
+_warn(){
+test "$WARN" || return 1
+echo -e "$0:WARNING:$*"
+}
+
+if test "$MY_SELFR" -a "$MY_SELF0"; then
+test "$MY_SELFR" = "$MY_SELF0" && MY_SELF="$MY_SELF0" || {
+_warn "readlink \$0 is not same as \$0"
+MY_SELF="$MY_SELFR"
+}
+
+elif test "$MY_SELFR"; then
+_warn "Could not determine \$0"
+MY_SELF="$MY_SELFR"
+
+elif test "$MY_SELF0"; then
+_warn "Could not determine readlik -f \$0"
+MY_SELF="$MY_SELF0"
+
+else
+_warn "Could not determine \$0 and readlink -f \$0"
 test "$MY_SELF" || MY_SELF="$0"
+fi
+
 case "$MY_SELF" in
 ./*) MY_SELF=`pwd`/"$MY_SELF";;
 esac
@@ -27,6 +57,8 @@ case ${MY_SELF##*/} in
 ash|bash|sh) EXIT=return;;
 *)           EXIT=exit;;
 esac
+
+[ "$MY_PID" ] || MY_PID=$$
 
 # colours
  Black0='\033[0;30m'
@@ -168,11 +200,24 @@ return $?
 
 _check_if_already_running()
 {
-local PROGRAM
+local PROGRAM TTY_
 test "$*" && PROGRAM="$*" || PROGRAM=$MY_SELF
+TTY_=`tty`
+
+#echo "$$:%PPID:$PPID"
+#pidof -o $$ -o %PPID "${PROGRAM##*/}"
+#echo "PROGRAM='$PROGRAM'"
+
 #pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
 pidof -o $$ -o %PPID "${PROGRAM##*/}" >>$OUT && {
+        case "$TTY_" in
+        *not*a*tty*)
+        echo "Program '$PROGRAM' already running."
+        ;;
+        *)
         echo -e "\\033[1F\\033[7G""Program '$PROGRAM' already running."
+        ;;
+        esac
         return 1
  }
 return 0
@@ -205,6 +250,11 @@ tty >>$OUT || {
 pidof X >>$OUT && xmessage -br red "$MSG"; $EXIT 2; } || {
 echo "$MSG"; $EXIT 2; }
 return $?
+}
+
+_who_is_X_user(){
+_X_USER_=`ps -o pid,ppid,user,group,args | awk '{if (match($5, ".*X$") && $6 == ":0") print $3}'`
+echo "$_X_USER_"
 }
 
 _exit()
@@ -541,7 +591,8 @@ EoI
 
 _string_to_octal()
 {
-DEBUG=1
+oldDEBUG="$DEBUG"
+DEBUG=
 
 #oldIFS=$"$IFS"
 #IFS='\012'
@@ -629,7 +680,147 @@ fi
 
 echo "$oSTRING"
 #IFS=$"$oldIFS"
+DEBUG="$oldDEBUG"
 }
+
+_square(){
+
+test $# = 2              || { _err "_square : Usage _square BASE EXPO";   return 3; }
+test "${1//[[:digit:]]}" && { _err "_square : \$1 needs to be a :digit:"; return 4; }
+test "${2//[[:digit:]]}" && { _err "_square : \$2 needs to be a :digit:"; return 5; }
+
+local b s number i
+
+b=$1
+s=$2
+
+number=1
+for i in `seq 1 1 $s`
+do
+number=$((number*b))
+done
+echo $number
+}
+
+_oct2dec(){
+
+test $# = 1 || { _err "_oct2dec: Usage: _oct2dec 0[0-7]*" >&2; return 3; }
+
+case $1 in
+0[0-7]*):;;
+0*) _err " needs [0-7] range"; return 4;;
+*) _err " needs 0 prefix";
+   return 5
+;;
+esac
+
+#test "${1//[0-7]/} && { _err " [0-7] only"; return 6; }
+
+local octNUMBER_ roctNUMBER_ octNUMBER__ h c aO_ aO base dec sq
+
+octNUMBER_=${1#*0}
+test "${octNUMBER//[0-7]/}" && { _err " [0-7] only" >&2; return 6; }
+_debug "$octNUMBER_"  >&2
+roctNUMBER_=`echo "$octNUMBER_" | rev | sed -r 's/(.)/\1 /g'`
+_debug "$roctNUMBER_" >&2
+
+octNUMBER__=`echo "$octNUMBER_" | sed -r 's/(.)/\1 /g'`
+_debug "$octNUMBER__" >&2
+
+echo
+h=0
+c=0
+for aO_ in $roctNUMBER_
+do
+   base=$((8*h))
+   case $aO_ in
+   [0-8]) aO=$aO_    ;;
+   *) _err "Wrong $aO_ -- not between 0-7" >&2; return 6;;
+   esac
+
+  test $c = 0 && {
+
+  dec=$((dec+(1*aO)))
+
+  } || {
+
+  sq=`_square 8 $c`
+  _debugx sq=$sq  >&2
+  dec=$(((sq*aO)+dec))
+
+        }
+
+  _debug dec=$dec >&2
+  c=$((c+1))
+
+
+done
+echo $dec
+}
+
+
+_hex2dec(){
+
+test $# = 1 || { _err "_hex2dec: Usage: _hex2dec 0x[:xdidgit:]*" >&2; return 3; }
+case $1 in
+0x[[:xdigit:]]*):;;
+0x*) _err " not in :xdigit: range"; return 4;;
+*) _err "needs 0x prefix" >&2 ;
+   return 5
+;;
+esac
+
+#test "${1//[[:xdigit:]]/} && { _err " [[:xdigit:]] only"; return 6; }
+
+local hexNUMBER_ rhexNUMBER_ hexNUMBER__ h c aH_ aH base dec sq
+
+hexNUMBER_=${1#*0x}
+test "${hexNUMBER//[[:xdigit:]]/}" && { _err " [[:xdigit:]] only" >&2; return 6; }
+_debug "$hexNUMBER_" >&2
+
+rhexNUMBER_=`echo "$hexNUMBER_" | rev | sed -r 's/(.)/\1 /g'`
+_debug "$rhexNUMBER_" >&2
+
+hexNUMBER__=`echo "$hexNUMBER_" | sed -r 's/(.)/\1 /g'`
+_debug "$hexNUMBER__" >&2
+
+h=0
+c=0
+for aH_ in $rhexNUMBER_
+do
+   base=$((16*h))
+   case $aH_ in
+   [0-9]) aH=$aH_    ;;
+   a) aH=10        ;;
+   b) aH=11      ;;
+   c) aH=12    ;;
+   d) aH=13  ;;
+   e) aH=14;;
+   f) aH=15;;
+   *) _err "Wrong $aH_ --not between 0-9a-f"; return 6;;
+   esac
+
+  test $c = 0 && {
+
+  dec=$((dec+(1*aH)))
+
+  } || {
+
+  sq=`_square 16 $c`
+  _debugx sq=$sq  >&2
+  dec=$(((sq*aH)+dec))
+
+        }
+
+  _debug dec=$dec >&2
+  c=$((c+1))
+
+
+done
+echo $dec
+}
+
+
 
 __getopt()
 {
@@ -886,6 +1077,8 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 }
 
 #============= Avoid multiple instances of sync ==============================
+# busybox CONFIG_FEATURE_ SH_STANDALONE=y and SH_NOFORK=y do not emit a PID
+[ "`which sync`" ] && alias sync="`which sync`"
 _sync()
 {
 pidof sync >>$OUT || sync
@@ -1333,6 +1526,62 @@ test -d "$*" && return 0
 return 1
 }
 
+_test_dr()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" && return 0
+return 1
+}
+
+_test_dw()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_dx()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*"  -a -x "$*" && return 0
+return 1
+}
+
+_test_drw()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -w "$*" && return 0
+return 1
+}
+
+_test_drx()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -x "$*" && return 0
+return 1
+}
+
+ _test_dwx()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -w "$*" -a -x "$*" && return 0
+return 1
+}
+
+ _test_drwx()
+{
+test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -L "$*" && return 3
+test -d "$*" -a -r "$*" -a -w "$*" -a -x "$*" && return 0
+return 1
+}
+
 _test_p()
 {
 test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
@@ -1421,10 +1670,10 @@ else { _warn "Unknown filetype '$@' - neither Link, pipe, Socket, file nor direc
 }
 
 #=============== Rotate Logs =================================================
-_log_rotate()
+__log_rotate__()
 {
-test "$*"    || { _err "_log_rotate:Need filename to rotate";  return 1; }
-test -f "$*" || { _err "_log_rotate: '$*' not a regular file"; return 1; }
+test "$*"    || { _err "__log_rotate:Need filename to rotate";  return 1; }
+test -f "$*" || { _err "__log_rotate: '$*' not a regular file"; return 1; }
 
 local nrLOGS oneLOG
 nrLOGS=`ls -1v "$*".[0-9]* | wc -l`
@@ -1445,6 +1694,86 @@ EoI
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.1"
 mv $VERB "$*" "${*}.1"
+}
+
+__log_rotate()
+{
+test "$*"    || { _err "__log_rotate:Need filename to rotate";  return 1; }
+test -f "$*" || { _err "__log_rotate: '$*' not a regular file"; return 1; }
+
+local nrLOGS oneLOG
+nrLOGS=`ls -1v "$*".[0-9]* | wc -l`
+_debug "nrLOGS='$nrLOGS'"
+while read oneLOG
+do
+   test "$oneLOG" || continue
+test -f "$oneLOG" || continue
+
+nrLOGS=$((nrLOGS-1))
+_debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
+mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+#nrLOGS=$((nrLOGS-1))
+
+done <<EoI
+`ls -1v "$*".[0-9]* | tac`
+EoI
+
+test -e "${*}.0" && { _err "Something went wrong"; return 1 ; }
+_info "moving $* --> ${*}.0"
+mv $VERB "$*" "${*}.0"
+}
+
+_log_rotate()
+{
+test "$*"    || { _err "_log_rotate:Need filename to rotate";  return 1; }
+test -f "$*" || { _err "_log_rotate: '$*' not a regular file"; return 1; }
+
+local max rotates r n
+max=0
+rotates=`ls -1 "$*".[0-9]* |cut -f3 -d.`
+
+for r in $rotates ; do
+[ "$r" -gt $max ] && max=$r
+done
+
+## start at last number (max) and rotate down
+for n in `seq $max -1 0` ; do
+#[ -e "$*".$n ] && mv $VERB "$*".$n "$*".$((n+1))
+ [ -e "$errlog".$n ] || continue
+ #grep -q -Ei 'warning|error|warnung|fehler' "$*".$n || { rm "$*".$n; continue; }
+ mv $VERB "$*".$n "$*".$((n+1))
+done
+
+#[ -f "$*" ] && mv $VERB "$*" "$*".0
+ [ -f "$*" ] && { cat "$*" >>"$*".0; rm "$*"; }
+
+}
+
+_rotate_err_log(){
+ local errlog max rotates r n
+
+errlog=make-errs.log
+test -e "$errlog" || { _return 4 "'$errlog does not exist."; return $?; }
+
+## get max number
+max=0
+rotates=`ls -1 "$errlog".[0-9]* |cut -f3 -d.`
+
+for r in $rotates ; do
+[ "$r" -gt $max ] && max=$r
+done
+
+## start at last number (max) and rotate down
+for n in `seq $max -1 0` ; do
+#[ -e "$errlog".$n ] && mv $VERB "$errlog".$n "$errlog".$((n+1))
+ [ -e "$errlog".$n ] || continue
+ grep -q -Ei 'warning|error|warnung|fehler' "$errlog".$n || { rm "$errlog".$n; continue; }
+ mv $VERB "$errlog".$n "$errlog".$((n+1))
+done
+
+#[ -f "$errlog" ] && mv $VERB "$errlog" "$errlog".0
+ [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0; rm "$errlog"; }
+
 }
 
 __set_bool_right(){
@@ -2368,6 +2697,187 @@ return $RV
 esac
 }
 
+__get_jobs__(){
+
+DEBUG=
+DEBUGX=
+[ "$MY_PID" ] || MY_PID=$$
+local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
+
+[ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
+
+ _debug "COMMANDO='$COMMANDO'"
+ PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
+# PiDS="$PiDS
+#`_command ps -o pid,ppid,s,args -C ${MY_SELF##*/} --no-headers`"
+ _debug "PiDS='$PiDS'"
+# ProcPiD=`echo "$PiDS" | awk '{print $1}'`
+  ProcPids=`ps -o pid,ppid,s,args`
+ _debug "ProcPiD='$ProcPiD'"
+
+while read pid ppid rest
+#while read pid
+ do
+  _debugx "pid=$pid ppid=$ppid MY_PID=$MY_PID unused=$rest"
+  #[ "`echo "$ProcPiD" | grep -w "$ppid" | grep -vEw 'grep|read|echo|while|do|done|ps'`" ] && echo "$pid"
+  #[ "`echo "$PiDS" | awk "{ if (\\$2 == $ppid) print}"`" ] && echo $pid
+  #  echo "$PiDS" | awk "{ if (\$1 == $pid && \$2 == $MY_PID) print}"
+  # [ "`echo "$PiDS" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+   _debugx `echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`
+   [ "`echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+#done <<EoI
+#$(echo "$ProcPids")
+#EoI
+  done <<EoI
+$(echo "$PiDS" | tac)
+EoI
+return 0
+
+}
+
+__get_jobs(){
+
+DEBUG=
+DEBUGX=
+[ "$MY_PID" ] || MY_PID=$$
+local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
+
+[ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
+
+ _debug "COMMANDO='$COMMANDO'"
+ PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
+ _debug "PiDS='$PiDS'"
+
+  ProcPids=`ps -o pid,ppid,s,args`
+ _debug "ProcPiD='$ProcPiD'"
+
+while read pid ppid rest
+#while read pid
+ do
+  _debugx "pid=$pid ppid=$ppid MY_PID=$MY_PID unused=$rest"
+  #[ "`echo "$ProcPiD" | grep -w "$ppid" | grep -vEw 'grep|read|echo|while|do|done|ps'`" ] && echo "$pid"
+  #[ "`echo "$PiDS" | awk "{ if (\\$2 == $ppid) print}"`" ] && echo $pid
+  #  echo "$PiDS" | awk "{ if (\$1 == $pid && \$2 == $MY_PID) print}"
+  # [ "`echo "$PiDS" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+  # _debugx `echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`
+  # [ "`echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+  echo "$ProcPids" | awk "{ if (\$1 == $pid && \$2 == $MY_PID) print \$1}"
+
+#done <<EoI
+#$(echo "$ProcPids")
+#EoI
+  done <<EoI
+$(echo "$PiDS" | tac)
+EoI
+return 0
+
+}
+
+_get_jobs__(){
+
+DEBUG=
+DEBUGX=
+[ "$MY_PID" ] || MY_PID=$$
+local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
+
+[ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
+
+ _debug "COMMANDO='$COMMANDO'"
+ PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
+ _debug "PiDS='$PiDS'"
+
+  ProcPids=`ps -o pid,ppid,s,args`
+ _debug "ProcPiD='$ProcPiD'"
+
+while read pid ppid rest
+#while read pid
+ do
+  _debugx "pid=$pid ppid=$ppid MY_PID=$MY_PID unused=$rest"
+  # [ "`echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+  echo "$ProcPids" | awk "{ if (\$1 == $pid && \$2 == $MY_PID) print \$1}"
+
+#done <<EoI
+#$(echo "$ProcPids")
+#EoI
+  done <<EoI
+$(echo "$PiDS" | tac)
+EoI
+return 0
+
+}
+
+_get_jobs(){
+
+DEBUG=
+DEBUGX=
+[ "$MY_PID" ] || MY_PID=$$
+local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
+
+[ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
+
+ _debug "COMMANDO='$COMMANDO'"
+ PiDS=`_command ps -o pid,ppid,s,args --no-headers | awk "{ if (\\$2 == $MY_PID) print}"`
+ _debug "PiDS='$PiDS'"
+
+  ProcPids=`ps -o pid,ppid,s,args`
+ _debug "ProcPiD='$ProcPiD'"
+
+while read pid ppid rest
+#while read pid
+ do
+  _debugx "pid=$pid ppid=$ppid MY_PID=$MY_PID unused=$rest"
+  # [ "`echo "$ProcPids" | awk "{ if (\\$1 == $pid && \\$2 == $MY_PID) print}"`" ] && echo $pid
+  echo "$ProcPids" | awk "{ if (\$1 == $pid && \$2 == $MY_PID) print \$1}"
+
+#done <<EoI
+#$(echo "$ProcPids")
+#EoI
+  done <<EoI
+$(echo "$PiDS" | tac)
+EoI
+return 0
+
+}
+
+_get_jobs(){
+
+DEBUG=
+DEBUGX=
+[ "$MY_PID" ] || MY_PID=$$
+local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
+
+[ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
+
+ _debug "COMMANDO='$COMMANDO'"
+ MY_CHILDREN_PIDS=`_command ps -o pid,ppid,s,args --no-headers k -start_time | awk "{ if (\\$2 == $MY_PID) print \\$1}"`
+
+ for oCP in $MY_CHILDREN_PIDS; do
+   _command ps -o pid,ppid,s,args --no-headers k -start_time | awk "{ if (\$2 == $oCP) print \$1}"
+   echo $oCP
+ done
+
+return 0
+
+}
+
+_kill_jobs(){
+
+local KILL_PIDS pid
+KILL_PIDS=`_get_jobs $* 2>>$ERR` || return 3
+
+for pid in $KILL_PIDS
+do
+ _debug "pid=$pid"
+ _command ps -p $pid --no-header && kill -9 $pid
+done
+
+for pid in `jobs -p`;
+do
+ _debug "pid='$pid'"
+ _command ps -p $pid --no-header && kill -9 $pid
+done
+}
+
 _batch_diff1()
 {
 local SIMPLE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2
@@ -2559,6 +3069,7 @@ fi
 
 _batch_diff3()
 {
+oldDEBUG=$DEBUG
 DEBUG=1
 local SIMPLE INVERT REMOVE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
 _debug "_batch_diff2: '$*'" >&2
@@ -2684,7 +3195,7 @@ done <<EoI
 EoI
 
 fi
-
+DEBUG="$oldDEBUG"
 }
 
 _add_header()
