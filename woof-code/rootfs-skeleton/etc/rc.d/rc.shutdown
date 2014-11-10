@@ -188,8 +188,9 @@ fi
 
 
 . /etc/DISTRO_SPECS #v412
-[ "$SHUT_HOW" ] || SHUT_HOW='shutting down'  ##+++2013-03-10
-SHUT_HOW2=`echo "${SHUT_HOW//ing/}" | tr -s 't'`
+# SHUT_HOW variable passed by /sbin/reboot ( SHUT_HOW=rebooting )
+[ "$SHUT_HOW" ] || SHUT_HOW='shutting down'        ##+++2013-03-10
+SHUT_HOW2=`echo "${SHUT_HOW//ing/}" | tr -s 't'`   ## 'reboot' or 'shut down'
 echo "${DISTRO_NAME} ${DISTRO_VERSION} is now ${SHUT_HOW}..." > /dev/console
 
 [ "$FORCE" ] || {
@@ -264,7 +265,7 @@ esac; }
 
 
 ################## kill zombies ######################################################
-killzombies() {
+killzombies(){
    MYPID=$$    #120514
   PARENT=$PPID #120514
    sleep 1     #newer fuser
@@ -276,6 +277,9 @@ killzombies() {
   #[ "$oneBAD" = "$MYPID" ] && continue #120514 precaution.
   #[ "$oneBAD" = "$PARENT" ] && continue #120514 precaution.
   #[ "$oneBAD" = "1" ] && continue
+  case $oneZOMBIE in
+   1|"$MY_PID"|"$PARENT") continue;;
+  esac
   [ "$VERBOSE" ] && echo "$ZOMBIES" | grep -Fw "$oneZOMBIE"
   echo "Killing zombie process $oneZOMBIE"
   /bin/ps --no-headers -p $oneZOMBIE && kill $oneZOMBIE 2>>$ERR
@@ -1180,8 +1184,8 @@ do
  [ "$oneSTRAY" ] || continue
   echo "$oneSTRAY"
   echo -en "\\033[1;34mUnmounting '$oneSTRAY' ... \\033[0;39m" >/dev/console
-  busybox fuser -m -k "$oneSTRAY"
-  killzombies #v3.99
+  [ "$FORCE" ] || busybox fuser -m -k "$oneSTRAY"
+  [ "$FORCE" ] || killzombies #v3.99
    #sync
   if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" ]; then
   #fusermount version: 2.7.0 [options] mountpoint
@@ -1205,8 +1209,17 @@ while read oneSTRAY REST   #Filename Type Size Used Priority
 do
  #[[ "$oneSTRAY" =~ '/dev/' ]] || continue
  #[[ "$oneSTRAY" =~ 'deleted' ]] && continue
- [ "${oneSTRAY%/*}" = '/dev/' ] || continue
- [ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
+ #[ "${oneSTRAY%/*}" = '/dev/' ] || continue
+ #[ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
+ case $oneSTRAY in
+ /dev/*) :;;
+ *) continue;;
+ esac
+
+ case $REST in
+ *deleted*|*Deleted*|*DELETED*) continue;;
+ esac
+
  echo -e '\033[0;36m'"Swapoff '$oneSTRAY'"'\033[0;39m' >/dev/console
  swapoff "$oneSTRAY"
 done </proc/swaps
@@ -1218,14 +1231,14 @@ done </proc/swaps
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 #
 # Stop udev & loggers
-
+_pidof pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
 killall udevd &>$OUT
 
 rm -rf /dev/.udev
 
 killall klogd   &>$ERR  ##busybox applet
 killall syslogd &>$ERR  ##busybox applet
-_pidof pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
+
 ################### Udev ##################################################
 
 [ -d /initrd ] && [ ! "`ls -1A /initrd`" ] && rmdir /initrd
@@ -1271,16 +1284,16 @@ fi
 #${DISTRO_FILE_PREFIX}save.2fs.
 #at least, attempt to kill anything running in the ntfs partition...
 #(i don't think anything will be, only /dev/loop1 (${DISTRO_FILE_PREFIX}save.2fs), but just in case)
-MYPID=$$ #120514
+MYPID=$$     #120514
 PARENT=$PPID #120514
-[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}" #v2.16rc
+[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}"   #v2.16rc
 [ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
 if [ "`busybox mount | grep "$ABSPUPHOME"`" ]; then
  #BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`
  BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v -E 'kernel|COMMAND|^$' |awk '{print $3}' | grep -vwE "1|$MYPID|$PARENT"`
  for oneBAD in $BADPIDS
  do
-  #[ "$oneBAD" = "$MYPID" ] && continue #120514 precaution.
+  #[ "$oneBAD" = "$MYPID" ]  && continue #120514 precaution.
   #[ "$oneBAD" = "$PARENT" ] && continue #120514 precaution.
   #[ "$oneBAD" = "1" ] && continue
   echo "Killing process $oneBAD..."
