@@ -2,34 +2,23 @@
 #* Karl Reimer Godt in June 2012
 #* usual Puppy license
 Version='1.1 Puppy_Linux_Macpup_Foxy3 KRG'
+Version='2.1 Puppy_Linux_Macpup_Foxy3 KRG'
 
-#* Variables acpid_bin, acpi dir,
-#* triggering event file, log file, pid file,
-#* key map file, action conf file
+. /etc/rc.d/f4puppy5
+
+#* Variables
  ACPID_BIN=`which acpid`
  bn_acpid=${ACPID_BIN##*/}
- Config_directory=/etc/acpi       # -c
 
- #1.19.4 does not work wit -e /proc/acpi/event
- proc_event_file=/dev/input/event4     # -e
- event=${proc_event_file##*/}
- Log_file=/var/log/acpid_${event}.log  # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
-
- #acpid: invalid option -- 'p'
- #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
- #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
- Pid_file=/var/run/acpid_${event}.pid      # -p
- Action_file=/etc/acpi/keyboard/acpid-keyboard.conf # -a
- Map_file=/etc/acpi/keyboard/acpid-keyboard.map     # -M
-
-_usage(){
+# REM : Help message
+ _usage(){
 MSG="
 $0 [start|stop]
 Starts busybox acpid daemon
 and triggers events of keyboard keys
-mapped in  '$Map_file'
+mapped in  '\$Map_file'
 to actions
-defined in '$Action_file'
+defined in '\$Action_file'
 "
 if [ "$2" ];then
 MSG="$MSG
@@ -42,14 +31,111 @@ echo "$MSG"
 exit $1
 }
 
+# REM : Sanity checks
  [ "$ACPID_BIN" ] || _usage 1 "No (executable) '$ACPID_BIN' installed?"
  [ "`readlink "$ACPID_BIN" | grep -i 'busybox'`" ] || _usage 1 "$0: Laucher for busybox acpid applet."
 
+ BB_BIN=`readlink -f "$ACPID_BIN"`
+
+# REM : Parse options
  case $1 in
- *help) _usage 0;;
- *version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+ -h|*help|*usage) _usage 0;;
+ -V|*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+ esac
+
+
+ Config_directory=/etc/acpi       # -c
+
+ #1.19.4 does not work wit -e /proc/acpi/event
+ proc_event_file=                 # -e
+ event_file=                      # /dev/input/event*
+ Log_file=/var/log/acpid_mkbd.log                # -l
+ Pid_file=/var/run/acpid_mkbd.pid                 # -p
+ Map_file=/etc/acpi/keyboard/acpid-keyboard.map    # -M
+ Action_file=/etc/acpi/keyboard/acpid-keyboard.conf # -a
+
+ # REM : Need to check busybox version
+ BB_VERSION=`"$BB_BIN" | head -n1 | awk '{print $2}'`
+ case $BB_VERSION in
+ # very old version up to v1.13
+ v0.*|v1.[0-9].*|v1.1[1-3].*) _err "acpid applet should not be enabled for '$BB_VERSION'"
+ ;;
+ # first introduction of acpid in v.14
+ v1.1[4-7].*)  _notice "Busybox Version '$BB_VERSION' : old simple acpid code"
+               unset Map_file Action_file
+ ;;
+ # code changed significantally to use -a and -M options
+ # code has bug that occupies one CPU 100% if USB event devices change while running
+ v1.18.*|v1.19.*) _warn "Busybox Version '$BB_VERSION': buggy acpid code"
+
+ ;;
+ # code fixed for changing event devices
+ v1.[2-9][0-9].*) _info "Busybox Version '$BB_VERSION' : new acpid code"
+
+ ;;
+ *) _exit 4 "ERROR : Unhandled Busybox Version '$BB_VERSION'"
+
+ ;;
+ esac
+
+# REM : Test if pidfile support enabled in busybox
+  "$BB_BIN" bbconfig | grep $Q 'CONFIG_FEATURE_PIDFILE=y' || unset Pid_file
+
+
+# REM : more sanity checks
+ if test    "$Config_directory"; then
+  _test_drx "$Config_directory" || _warn "'$Config_directory' not read-executable"
+
+ fi
+
+ if test   "${Log_file}"; then
+  _test_dw "${Log_file%/*}" || _warn "'$Log_file' directory either not a directory or writable"
+
+ fi
+
+ if test   "${Pid_file}"; then
+  _test_dw "${Pid_file%/*}" || _warn "'$Pid_file' directory either not a directory or writable"
+
+ fi
+
+ if test   "$Map_file"; then
+  _test_fr "$Map_file"    || _warn "'$Map_file' either not a file or readable"
+
+ fi
+
+ if test   "$Action_file"; then
+  _test_fr "$Action_file" || _warn "'$Action_file' either not a file or readable"
+
+ fi
+
+
+
+__old__too__(){
+ #devKBD_EVENTS=`grep -o 'kbd event[0-9]*' /proc/bus/input/devices`
+ devKBD_EVENTS=`sed -n '/Name=/,/Handlers=/p' /proc/bus/input/devices | sed 's!Handlers=.*!&\n__DELIM__!' | tr -d '\n' | sed 's!__DELIM__!\n!g' | grep -v -i -E 'mouse|pcspkr|beep' | grep -o 'Handlers=kbd.*'`
+}
+
+case $1 in
 
  *start)
+
+shift
+
+__old_too__(){
+ while read uKBD _event_
+  do
+  proc_event_file="/dev/input/$_event_"
+
+ event=${proc_event_file##*/}
+ Log_file=/var/log/acpid_${event}.log  # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
+
+ #acpid: invalid option -- 'p'
+ #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
+ #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
+ Pid_file=/var/run/acpid_${event}.pid      # -p
+ Action_file=/etc/acpi/keyboard/acpid-keyboard.conf # -a
+ Map_file=/etc/acpi/keyboard/acpid-keyboard.map     # -M
+
  __old__(){
  if pidof ${ACPID_BIN##*/} ;then
  echo "$ACPID_BIN Already running."
@@ -68,22 +154,63 @@ exit $1
  }
 
  shift
- if ps | grep "$Config_directory" | grep "$Log_file" | grep "$Action_file" | grep "$Map_file";then
+ if ps | grep -w "$Config_directory" | grep -w "$Log_file" | grep -w "$Action_file" | grep -w "$Map_file";then
  echo "$ACPID_BIN '$Config_directory' '$Log_file' '$Action_file' '$Map_file' already running."
+ #exit 4
  else
+
+if test -s "$Log_file"; then
+ _log_rotate "$Log_file"
+fi
+
  export DISPLAY=':0'
+# with
+# \  # -e "$proc_event_file" \
+# :
+#13364     1 13364 ?        12:42:56       59:09 S   1  0.0   /bin/acpid -c /etc/acpi -l /var/log/acpid_event4.log -a /etc/acpi/keyboard/acpid-keyboard.conf -M /etc/acpi/keyboard/acpid-keyboard.map
  $ACPID_BIN $* \
       -c "$Config_directory" \
       -l "$Log_file"        \
       -a "$Action_file"     \
       -M "$Map_file"        \
- \  # -e "$proc_event_file" \
+         "$proc_event_file" \
  $*
 
  sleep 2
  echo -n "Started '$ACPID_BIN' :"
  ps | grep "$Config_directory" | grep "$Log_file" | grep "$Action_file" | grep "$Map_file" || echo "FAILED."
+
+ test -s "$Log_file" && cat "$Log_file"
+
  fi
+
+done <<EoI
+`echo "$devKBD_EVENTS"`
+EoI
+
+}
+
+# REM : set the supported acpid options
+ set --
+ [ "$event_file" ]       && set - "$event_file" $*
+ [ "$proc_event_file" ]  && set - -e "$proc_event_file" $*
+ [ "$Config_directory" ] && set - -c "$Config_directory" $*
+ [ "$Log_file" ]         && set - -l "$Log_file" $*
+ [ "$Pid_file" ]         && set - -p "$Pid_file" $*
+ [ "$Map_file" ]         && set - -M "$Map_file" $*
+ [ "$Action_file" ]      && set - -a "$Action_file" $*
+
+ _notice "$0: '$*'"
+ "$ACPID_BIN" $*
+
+ sleep 2
+
+ grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
+ _debug "grepP='$grepP'"
+ echo -n "Starting '$ACPID_BIN' :"
+ ps | grep "$ACPID_BIN" | grep "$grepP" || echo FAILED
+
+ test -s "$Log_file" && cat "$Log_file"
 
  ;;
 
@@ -116,10 +243,30 @@ exit $1
  fi
  }
 
-RUNNING=`ps | grep "$Config_directory" | grep "$Log_file" | grep "$Action_file" | grep "$Map_file"`
+shift
+
+__old_too__(){
+
+ while read uKBD _event_
+  do
+  proc_event_file="/dev/input/$_event_"
+
+ event=${proc_event_file##*/}
+ Log_file=/var/log/acpid_${event}.log  # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
+
+ #acpid: invalid option -- 'p'
+ #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
+ #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
+ Pid_file=/var/run/acpid_${event}.pid      # -p
+ Action_file=/etc/acpi/keyboard/acpid-keyboard.conf # -a
+ Map_file=/etc/acpi/keyboard/acpid-keyboard.map     # -M
+
+RUNNING=`ps | grep -w ${ACPID_BIN} | grep -w "$Config_directory" | grep -w "$Log_file" | grep -w "$Action_file" | grep -w "$Map_file"`
+
 if test "$RUNNING"; then
  procPID=`echo "$RUNNING" | awk '{print $1}'`
- for n in `seq 1 1 4`;do
+ #for n in `seq 1 1 4`;do
+  for n in `seq 3 1 15`; do
  kill -$n $procPID
  sleep 1
  ps | grep -w "$procPID" | grep -v grep || break
@@ -128,14 +275,15 @@ if test "$RUNNING"; then
     read pid_file_pid < "$Pid_file"
     [ "$pid_file_pid" ] || pid_file_pid=999999999999999 #fake, hopefully never used :oops:
     if ps | grep -w "$pid_file_pid" | grep -v grep;then
-     for n in `seq 1 1 4`;do
+     #for n in `seq 1 1 4`;do
+      for n in `seq 3 1 15`; do
        kill -$n $pid_file_pid  #MARKER
        sleep 1
        ps | grep -w "$pid_file_pid" | grep -v grep || break
      done
     fi
  fi
- if ps | grep -w "$procPID" | grep -v grep || ps | grep -w "$pid_file_pid" | grep -v grep; then
+ if ps | grep -w "$procPID" | grep -v grep; then
   echo "FAILED to stop '$ACPID_BIN' '$Config_directory' '$Log_file' '$Action_file' '$Map_file' ."
    else
     echo "$ACPID_BIN '$Config_directory' '$Log_file' '$Action_file' '$Map_file' stopped."
@@ -143,7 +291,62 @@ if test "$RUNNING"; then
 fi
 
  rm -f "$Pid_file"
+
+done <<EoI
+`echo "$devKBD_EVENTS"`
+EoI
+}
+
+ # REM : set the supported acpid options
+ set --
+ [ "$event_file" ]       && set - "$event_file" $*
+ [ "$proc_event_file" ]  && set - -e "$proc_event_file" $*
+ [ "$Config_directory" ] && set - -c "$Config_directory" $*
+ [ "$Log_file" ]         && set - -l "$Log_file" $*
+ [ "$Pid_file" ]         && set - -p "$Pid_file" $*
+ [ "$Map_file" ]         && set - -M "$Map_file" $*
+ [ "$Action_file" ]      && set - -a "$Action_file" $*
+
+ if test "$Pid_file"; then
+  if test -f "$Pid_file"; then
+   read BB_ACPID_PID <"$Pid_file"
+   kill $BB_ACPID_PID
+   [ $? = 0 ] && {
+       _info "killed '$BB_ACPID_PID'"
+       rm -f "$Pid_file"
+       exit 0
+   }
+  fi
+ fi
+
+ grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
+ _debug "grepP='$grepP'"
+ ps | grep "$ACPID_BIN" | grep $Q "$grepP" || { _notice "'$ACPID_BIN' '$*' not running"; exit 20; }
+
+while read onePID rest_
+do
+ [ "$onePID" ] || continue
+ for n in `seq 3 1 15`;
+ do
+  kill -$n $onePID
+  sleep 1
+  ps | grep -w "$onePID" | grep $Q -v grep || break
+ done
+
+done <<EoI
+`ps | grep "$ACPID_BIN" | grep "$grepP"`
+EoI
+
+ ps | grep "$ACPID_BIN" | grep $Q "$grepP" && {
+               _warn "FAILED to stop '$ACPID_BIN' '$*'"
+  true; } || { _info "Stopped '$ACPID_BIN' '$*'"; }
+
+ test -s "$Log_file" && cat "$Log_file"
+
  ;;
+
  "") _usage 1 "Need Parameter start,stop,help,version.";;
  *) _usage 1 "Unknown Parameter '$1' . Try '$0 help' .";;
  esac
+
+
