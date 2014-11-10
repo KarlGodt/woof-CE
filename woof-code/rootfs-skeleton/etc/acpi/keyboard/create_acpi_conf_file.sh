@@ -29,20 +29,20 @@ if test -f "$ACPI_DIR"/"$CONF_FILE" ; then
 else
 
  test -f /usr/include/linux/input.h \
- && _INPUT_H=/usr/include/linux/input.h
+ && _INPUT_H_=/usr/include/linux/input.h
  test -f /usr/include/uapi/linux/input.h \
- && _INPUT_H=/usr/include/uapi/linux/input.h
+ && _INPUT_H_=/usr/include/uapi/linux/input.h
 
 fi
 
- test -f "$_INPUT_H" && return 0 || return 1
+ test -f "$_INPUT_H_" && return 0 || return 1
 
 }
 
 _create_keycodes_variable(){
 
 KEYCODES_=`\
-grep '^#define KEY_[[:alnum:]_]*[[:blank:]]*[0-9]*' "$_INPUT_H" |
+grep '^#define KEY_[[:alnum:]_]*[[:blank:]]*[0-9]*' "$_INPUT_H_" |
  grep -oEe 'KEY_[[:alnum:]_]*[[:blank:]]*[[:digit:]]*$|\
 KEY_[[:alnum:]_]*[[:blank:]]*[[:digit:]]??[[:blank:]]?.*' \
 | grep -v '0x'`
