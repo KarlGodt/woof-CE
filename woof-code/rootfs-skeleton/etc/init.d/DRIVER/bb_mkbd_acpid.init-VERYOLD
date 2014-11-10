@@ -1,0 +1,118 @@
+#!/bin/ash
+#* Karl Reimer Godt in June 2012
+#* usual Puppy license
+Version='1.1 Puppy_Linux_Macpup_Foxy3 KRG'
+Version='2.1 Puppy_Linux_Macpup_Foxy3 KRG'
+
+. /etc/rc.d/f4puppy5
+
+#* Variables acpid_bin
+ ACPID_BIN=`which acpid`
+ bn_acpid=${ACPID_BIN##*/}
+
+ _usage(){
+MSG="
+$0 [start|stop]
+Starts busybox acpid daemon
+and triggers events of keyboard keys
+mapped in  '\$Map_file'
+to actions
+defined in '\$Action_file'
+"
+if [ "$2" ];then
+MSG="$MSG
+
+$2
+"
+fi
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue3 "$MSG"
+exit $1
+}
+
+ [ "$ACPID_BIN" ] || _usage 1 "No (executable) '$ACPID_BIN' installed?"
+ [ "`readlink "$ACPID_BIN" | grep -i 'busybox'`" ] || _usage 1 "$0: Laucher for busybox acpid applet."
+
+ case $1 in
+ -h|*help*usage) _usage 0;;
+ -V|*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+ esac
+
+#* Variables acpi dir,
+#* triggering event file, log file, pid file,
+#* key map file, action conf file
+ Config_directory=/etc/acpi               # -c
+ Log_file=/var/log/acpid_mkbd_VERYOLD.log # -l
+ Pid_file=/var/run/acpid_mkbd_VERYOLD.pid # -p
+ Map_file=/etc/acpi.map                   # -M
+ Action_file=/etc/acpid.conf              # -a
+
+#1.19.4 does not work wit -e /proc/acpi/event
+ proc_event_file=/dev/input/event4     # -e
+      event_file=/dev/input/event4
+
+
+case $1 in
+
+*start)
+
+shift
+
+ if pidof ${ACPID_BIN##*/} ;then
+ echo "$ACPID_BIN Already running."
+ else
+ export DISPLAY=':0'
+ $ACPID_BIN -c "$Config_directory" \
+  -l "$Log_file" \
+  -a "$Action_file" \
+  -M "$Map_file" \
+  $event_file
+
+#  -e "$proc_event_file" $event_file
+
+ sleep 2
+ echo -n "Started '$ACPID_BIN' :"
+ pidof ${ACPID_BIN##*/} || echo "FAILED."
+ fi
+
+ ;;
+
+*stop)
+
+ shift
+
+ if pidof ${ACPID_BIN##*/};then
+  for n in `seq 1 1 4`;do
+  kill -$n `pidof ${ACPID_BIN##*/}`
+  sleep 1
+  pidof ${ACPID_BIN##*/} || break
+  done
+    if [ -f "$Pid_file" ];then
+    read pid_file_pid < "$Pid_file"
+    [ "$pid_file_pid" ] || pid_file_pid=999999999999999 #fake, hopefully never used :oops:
+    if ps | grep -w "$pid_file_pid" | grep -v grep;then
+     for n in `seq 1 1 4`;do
+       kill -$n $pid_file_pid  #MARKER
+       sleep 1
+       pidof ${ACPID_BIN##*/} || break
+      done
+    fi
+    fi
+   if pidof ${ACPID_BIN##*/};then
+    echo "FAILED to stop '$ACPID_BIN' ."
+   else
+    echo "$ACPID_BIN stopped."
+   fi
+ else
+ echo "$ACPID_BIN not running."
+ fi
+
+ test -f "$Pid_file" && rm -f "$Pid_file"
+
+ ;;
+
+ "") _usage 1 "Need Parameter start,stop,help,version.";;
+ *) _usage 1 "Unknown Parameter '$1' . Try '$0 help' .";;
+ esac
+
+
