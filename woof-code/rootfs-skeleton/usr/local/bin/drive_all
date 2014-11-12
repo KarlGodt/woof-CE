@@ -72,7 +72,7 @@
 ########################################################################
 
   _TITLE_=puppy_drive_all
-_VERSION_=1.0omega
+_VERSION_=2.0-Fox3-Dell755
 _COMMENT_="Default AppRun for the Partition Icons on Desktop."
 
 MY_SELF="$0"
@@ -126,23 +126,42 @@ unmount_func() {
   #rare ocassion, partition got unmounted before umount runs above...
   umPATTERN=" ${MNTPT} "
   MOUNT_=`busybox mount | grep "$umPATTERN"`
-  umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
-  _NESTEDS=`busybox mount | grep "$umPATTERN_2"`
   [ "${MOUNT_}" ] || umVAL=0
 
   if [ $umVAL -ne 0 ];then
-   EXTRAMSG0=`fuser -v -m "$MNTPT"`
+   # use fuser binary that supports -v option, bb fuser does not
+   EXTRAMSG0=`_command fuser -v -m "$MNTPT" 2>&1`
+
+   # detect loop mounts using the default filemnt mount directory syntax
+   umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
+   NESTEDS_=`busybox mount | grep "$umPATTERN_2"`
+
+   if [ "$NESTEDS_" ]; then
+   EXTRAMSG0="$EXTRAMSG0
+$NESTEDS_ "
+   fi
+
+   # another attempt to detect loop mounts ##+++2014-11-10
+   FILE_MOUNTS_=`losetup -a || losetup`
+   FILE_MOUNTS=`echo "$FILE_MOUNTS_" | grep -w "$MNTPT"`
+
+   if [ "$FILE_MOUNTS" ]; then
+   EXTRAMSG0="$EXTRAMSG0
+$FILE_MOUNTS"
+   fi
+
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
-If so, please remedy."
+If so, please remedy.
+"
    else
+   # Reset irritating fuser message "kernel", which likely means 'lo' driver
    [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
     xmessage -bg "#ff00ff" -title "KILL, KILL..." -center \
  -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
 using /dev/${oneDRVNAME}. Here they are:
-${_NESTEDS}
-PIDS or APPS :
+PIDS , apps or file mounts :
 $EXTRAMSG0
 
 If you press the \"KILL\" button, Puppy will attempt to
