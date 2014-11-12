@@ -54,6 +54,8 @@
 Version='1.1-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 
+xmTITLE="PuppyFileMount"
+
 usage (){
 MSG="
 $0 [-V|-v|-d|-h|-l] FILENAME.sfs
@@ -68,7 +70,7 @@ loop image, iso and squashfs files
 -l) log to /tmp/filemnt.log
 "
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg lightgreen "$MSG"
+[ "$DISPLAY" ] && xmessage -bg lightgreen -title "$xmTITLE" "$MSG"
 exit $1
 }
 [[ "$1" =~ 'help' ]] && usage 0
@@ -155,11 +157,11 @@ if [ ! -d "$mntPT" ] ;then # 5 ### file's not mounted, mount it
 check_already_mounted_func(){
 
   #BK check if already mounted elsewhere...
-  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' ' | tr '\n' ' '`
+  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
   do
 
-   MNTDIMG=`losetup-FULL $oneLOOP | cut -f 2 -d '(' | cut -f 1 -d ')'`
-   IMGBASE=`basename "$MNTDIMG"`
+   IMG_MTP=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+   IMGBASE=`basename "$IMG_MTP"`
     #TODO 64 chars
     #bash-3.2# losetup-FULL /dev/loop1
     #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
@@ -170,11 +172,44 @@ check_already_mounted_func(){
 
     if [ "$IMGBASE" = "$imgFileBASE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
 
+     # If frugal install check if it is in use
+     case "$IMG_MTP" in
+     */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy"
+     esac
+
      if [ -n "$DISPLAY" ] ; then #66
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it to another mount point ?"
+xmessage -buttons "
+
+Just
+Quit
+-->:190,
+
+Open ROX-
+Filer window
+-->:191,
+
+Open
+console
+-->:192,
+
+Just Unmount
+$IMGBASE
+-->:193,
+
+Unmount all
+$IMGBASE
+-->:194,
+
+Mount an-
+other time
+-->:199
+" -title "$xmTITLE" "$imgFILE
+is already mounted $IN_USE_BY_PUPPY .
+Do you want to unmount it
+or mount it to another mount point ?"
+
 RETVAL=$?
+
 if [ "$RETVAL" = "190" ] ; then #666  ##Quit
      exit
 
@@ -240,7 +275,9 @@ fi # 5
 
 if [ -z "$UNMOUNT" ] ; then #55 == yes || [ -n "$MOUNT" ] == again
 
-  Ext=`echo "$imgFILE" |sed 's/^.*\.//'`    # get file type from extention
+  # get file type from extension
+  #Ext=`echo "$imgFILE" |sed 's/^.*\.//'`
+  Ext=${imgFILE##*.}
   if [ "$Ext" = '2fs' ] ;then #7
    Type='ext2'
   elif [ "$Ext" = '3fs' ] ;then
@@ -276,30 +313,37 @@ if [ -z "$UNMOUNT" ] ; then #55 == yes || [ -n "$MOUNT" ] == again
    DISK_TYPE=`disktype "${imgFILE}"`
    if [ "`echo "${DISK_TYPE}" | grep "$SFSSTR"`" = "" ];then #8.1
     xmessage -bg orange1 "$DISK_TYPE"
-    if [ $KERNELSUBVER -gt 28 ];then #8.1.1
+    if [ $KERNEL_MAJ = 2 -a $KERNELSUBVER -gt 28 ] || [ $KERNEL_MAJ -gt 2 ];then #8.1.1
      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be an older version 3.x squashfs file, not usable.
-All Linux kernels 2.6.29 or later require version 4.x squashfs files.
+All Linux kernels around 2.6.29 or later require version 4.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
     else #8.1.1
-     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is a newer version 4.x squashfs file, not usable.
-All Linux kernels 2.6.28 or earlier require version 3.x squashfs files.
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be a newer version 4.x squashfs file, not usable.
+All Linux kernels around 2.6.28 or earlier require version 3.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
     fi #8.1.1
     exit
    fi #8.1
   fi #8
 
-  echo -e "\n$0 : Mount: $imgFILE\n"
+  #Crate loop device if neccessary
+  _mk_free_loop
+
+  #Finally mount it
+  #echo -e "\n$0 : Mount: $imgFILE\n"
   mkdir -p "$mntPT"
-  echo '-------------'
+  #echo '-------------'
+  _debug "\n$0 : Mount: '$imgFILE'\n"
   mount $VERB -t $Type -o loop "$imgFILE" "$mntPT"
   Err=$?     ##+++2011-10-27
-  echo '-------------'
+  #echo '-------------'
   sleep 2s
   if [ $Err -eq 0 ] || [ -n "`mount | grep "$mntPT"`" ];then #9
    if [ -n "$DISPLAY" ] ; then #99
     yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
    fi #99
+  else
+   [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"  ##+++2011-10-27 2014-11-11
   fi #9
 
  else #55   [ -n "$UNMOUNT" ]                   ### file's mounted, unmount it
@@ -321,21 +365,23 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
        done
 
   sleep 2s
-  echo '------------'
+  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" &
+  #echo '------------'
+  _debug "\n$0 : UnMount: '$imgFILE'\n"
   umount "$mntPT"
   Err=$?
-  echo '------------'
-  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
+  #echo '------------'
+  #[ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
    sleep 2s  ##+++2011-10-27
 
- echo -e "\n$0 UnMount: $imgFILE\n"
+   #echo -e "\n$0 UnMount: $imgFILE\n"
 
-   [ -d "$mntPT" ] && [ -z "`ls "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
+   [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
  fi #55
 
  if [ "$Err" -gt 0 ] ;then          # ERROR: mount/unmount # 9999
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned <$Err> ... mounting or unmounting $mntPT"
-  [ -d "$mntPT" ] && [ -z "`ls "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"  ##+++2011-10-27
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting $mntPT"
+  #[ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"  ##+++2011-10-27
  fi # 9999
 
 
