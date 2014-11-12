@@ -261,7 +261,16 @@ echo "$MSG"; $EXIT 2; }
 return $?
 }
 
+__who_is_X_user__(){
+XUSER=`_who_is_X_user` || { _return 4 "Could not determine XUSER"; return $?; }
+_info "XUSER='$XUSER'"
+test -f /etc/passwd || { _return 5 "/etc/passwd not a regular file"; return $?; }
+XUSER_HOME=`awk -F':' "{if (\\$1 == \"$XUSER\") print \\$6}" /etc/passwd`
+_info "XUSER_HOME='$XUSER_HOME'"
+}
+
 _who_is_X_user(){
+mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
 _X_USER_=`ps -o pid,ppid,user,group,args | awk '{if (match($5, ".*X$") && $6 == ":0") print $3}'`
 echo "$_X_USER_"
 }
@@ -1479,10 +1488,11 @@ test "$typeCOM" = "$whichCOM" && {
 }
 
 #========= make nodes in /dev if /dev not mounted ============================
-_mkdevices()
+_mk_block_devices()
 {
 mountpoint $Q /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
+test -f /proc/partitions || { _return 4 "/proc/partitions does not exist"; return $?; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
   [ "$maj" -a "$min" -a "$dev" ] || continue
@@ -2439,6 +2449,7 @@ DEBUG=$oldDEBUG
 }
 
 _ps_p(){
+mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
 ps -A -o pid | grep -v 'grep' | grep $Q -w "$*"
 return $?
 }
@@ -2447,6 +2458,7 @@ __kill_pid(){
 test "$*" || { _return 4 "_kill_pid: Usage: _kill_pid SIG PID"; return $?; }
 test "$2" && kSIG="$2"
 test "$1" && gPID="$1"
+mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
 ps -A -o pid | grep -v 'grep' | grep $Q -w "$gPID" && kill $kSIG $gPID
 return $?
 }
@@ -2510,6 +2522,7 @@ _check_gettext
 
 _killzombies()
 {
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -vE 'grep|\|\|\|' | awk '{print $1}'`"
  ZOMBIES=`_command ps -H -A | awk '{if ($3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs") print $1}'`
  ZOMBIES=`_command ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'`
@@ -2744,6 +2757,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
+ mountpoint $Q /proc || { _return 4 "/proc not mounted"; return $?; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
 # PiDS="$PiDS
 #`_command ps -o pid,ppid,s,args -C ${MY_SELF##*/} --no-headers`"
@@ -2782,6 +2796,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
@@ -2820,6 +2835,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
@@ -2853,6 +2869,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  PiDS=`_command ps -o pid,ppid,s,args --no-headers | awk "{ if (\\$2 == $MY_PID) print}"`
  _debug "PiDS='$PiDS'"
 
@@ -2886,6 +2903,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  MY_CHILDREN_PIDS=`_command ps -o pid,ppid,s,args --no-headers k -start_time | awk "{ if (\\$2 == $MY_PID) print \\$1}"`
 
  for oCP in $MY_CHILDREN_PIDS; do
@@ -2901,6 +2919,8 @@ _kill_jobs(){
 
 local KILL_PIDS pid
 KILL_PIDS=`_get_jobs $* 2>>$ERR` || return 3
+
+mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
 
 for pid in $KILL_PIDS
 do
