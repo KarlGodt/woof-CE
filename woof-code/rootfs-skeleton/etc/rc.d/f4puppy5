@@ -12,14 +12,19 @@ version) _VERSION_=$version; VERSION=$version; Version=$version;;
 esac
 }
 
-test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.5
-test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.5
-test "$Version"   && _assign_version Version   ||   Version=0.0.5
-test "$version"   && _assign_version version   ||   version=0.0.5
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.5z
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.5z
+test "$Version"   && _assign_version Version   ||   Version=0.0.5z
+test "$version"   && _assign_version version   ||   version=0.0.5z
 
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
+# Handle $0 :
 #test "$MY_SELF" || MY_SELF="$0"
+# Handle login shell
+case $0 in
+-*) MY_SELF="$0";;
+*)
 MY_SELFR=`readlink -f "$0"`
 MY_SELF0="$0"
 
@@ -33,7 +38,7 @@ echo -e "$0:WARNING:$*"
 
 if test "$MY_SELFR" -a "$MY_SELF0"; then
 test "$MY_SELFR" = "$MY_SELF0" && MY_SELF="$MY_SELF0" || {
-_warn "readlink \$0 is not same as \$0"
+_warn "readlink -f \$0 is not same as \$0"
 MY_SELF="$MY_SELFR"
 }
 
@@ -49,12 +54,16 @@ else
 _warn "Could not determine \$0 and readlink -f \$0"
 test "$MY_SELF" || MY_SELF="$0"
 fi
+;;
+esac
 
+# Handle relative path
 case "$MY_SELF" in
 ./*) MY_SELF=`pwd`/"$MY_SELF";;
 esac
+# Handle terminal
 case ${MY_SELF##*/} in
-ash|bash|sh) EXIT=return;;
+ash|bash|dash|hush|msh|sh|-sh|-ash|-bash|-dash|-hush|-msh) EXIT=return;;
 *)           EXIT=exit;;
 esac
 
@@ -2331,6 +2340,7 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+[ -f /proc/modules ] &&
 grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }
@@ -2428,13 +2438,32 @@ INFO=$oldINFO
 DEBUG=$oldDEBUG
 }
 
+_ps_p(){
+ps -A -o pid | grep -v 'grep' | grep $Q -w "$*"
+return $?
+}
 
+__kill_pid(){
+test "$*" || { _return 4 "_kill_pid: Usage: _kill_pid SIG PID"; return $?; }
+test "$2" && kSIG="$2"
+test "$1" && gPID="$1"
+ps -A -o pid | grep -v 'grep' | grep $Q -w "$gPID" && kill $kSIG $gPID
+return $?
+}
+
+_kill_pid(){
+test "$*" || { _return 4 "_kill_pid: Usage: _kill_pid SIG PID"; return $?; }
+test "$2" && kSIG="$2"
+test "$1" && gPID="$1"
+_ps_p "$gPID" && kill $kSIG $gPID
+return $?
+}
 
 
 #================ Make free loop device ======================================
-_mk_free_loop()
+__mk_free_loop()
 {
-  FREE_LOOP=`losetup -f`  # find free and create loop
+  FREE_LOOP=`losetup -f 2>>$ERR`  # find free and create loop
   [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
   LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
   LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
@@ -2442,6 +2471,14 @@ _mk_free_loop()
   mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
   }
 }
+
+_mk_free_loop(){
+    losetup -f >>$OUT 2>>$ERR || {
+    read NR <<EoI
+`echo $(ls /dev/loop[0-9]*) | wc -w`
+EoI
+    mknod /dev/loop$((NR+1)) b 7 $((NR+1))
+}; }
 
 #================ Check GETTEXT ==============================================
 _check_gettext()
