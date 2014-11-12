@@ -30,8 +30,8 @@ _check_if_already_running ${0##*/} || {
   }
   sleep 10
   rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do kill $aP_; done
-  exit 1
+  for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  exit 4
 }
 
 # REM : Set DISPLAY variable if event listener ( acpid )
@@ -89,14 +89,14 @@ fi
 echo "$MSG"
 [ "$DISPLAY" ] && xmessage -bg blue3 -fg white -title "POWERBUTTON HELP" "$MSG"
 rm -f "$tmpDIR"/acpi_button_count
-for aP_ in `jobs -p`; do kill $aP_; done
+for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
 exit $1
 }
 
 # REM : Parse Options
 case $1 in
 *help) _usage 0;;
-*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f "$tmpDIR"/acpi_button_count;for aP_ in `jobs -p`; do kill $aP_; done; exit 0;;
+*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f "$tmpDIR"/acpi_button_count;for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done; exit 0;;
 "") :;;
 *force)    :;; #from enlightenment Bereitschaftsmodus
 kbd_event) :;; #from /etc/acpi/keyboard/actions/116 (just for information from where)
@@ -116,13 +116,14 @@ _loop_umount_func(){
 
 oldDEBUG="$DEBUG"
 DEBUG=
-M_LOOP=`mount | grep -E '^/dev/loop[0-9]? ' |grep -v '/initrd'`
+M_LOOP=`mount | grep -E '^/dev/loop[0-9]* ' |grep -v '/initrd'`
 M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
 M_LOOP=`echo "$M_LOOP" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
 
 for mloop_ in $M_LOOP;
 do
     unset yPID _yPID
+    sleep 1
     #_yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
     _yaf_splash -bg pink1 -text "Unmounting $mloop_ ..."
     yPID=$!
@@ -133,8 +134,10 @@ do
     /bin/umount $VERB -r "$mloop_"
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";
 rm -f "$tmpDIR"/acpi_button_count;
-for aP_ in `jobs -p`; do kill $aP_; done
-exit 0; }
+sleep 10
+for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+exit 10; }
+
     sleep 1
     echo "yPID='$yPID'"
     echo "_yPID='$_yPID'"
@@ -271,6 +274,7 @@ do
     #esac
 
     unset yPID _yPID
+    sleep 1
     #_yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
     _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..."
     yPID=$!
@@ -285,8 +289,9 @@ do
     /bin/umount $VERB -r "$mpart_"
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON UMOUNT FAIL" "Please umount '$mpart_' manually and try again";
 rm -f "$tmpDIR"/acpi_button_count;
-for aP_ in `jobs -p`; do kill $aP_; done
-exit 0; }
+sleep 10
+for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+exit 20; }
 
     ## Solution Nr. 2 Reasonable sleep :
     #case $mpart_ in
@@ -311,8 +316,8 @@ exit 0; }
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
            _xmessage -bg red -title "$MY_SELF" "$MSG"
            rm -f "$tmpDIR"/acpi_button_count
-           for aP_ in `jobs -p`; do kill $aP_; done
-           exit 5
+           for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           exit 21
       }
       _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
@@ -372,6 +377,7 @@ do
     #esac
 
     unset yPID _yPID
+    sleep 1
     #_yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
      _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..."
      yPID=$!
@@ -480,16 +486,16 @@ do
  _debug "oneD='$oneD'"
 
  if [ -f "$oneD/../uevent" ]; then
-  _debug "`cat "$oneD"/../uevent`"
+  _debug "`grep -H '.*' "$oneD"/../uevent 2>&1`"
   source "$oneD/../uevent"
  fi
  if [ -f "$oneD/../product" ]; then
-  _debug "`cat "$oneD"/../product`"
+  _debug "`grep -H '.*' "$oneD"/../product 2>&1`"
   grep $Q -Ei 'Keyboard'          "$oneD/../product" && IS_KBD=YES
   grep $Q -Ei 'Mouse|Transceiver' "$oneD/../product" && IS_MOU=YES
  fi
  if [ -f "$oneD/../interface" ]; then
-  _debug "`cat "$oneD"/../interface`"
+  _debug "`grep -H '.*' "$oneD"/../interface 2>&1`"
   grep $Q -Ei 'Keyboard'          "$oneD/../interface" && IS_KBD=YES
   grep $Q -Ei 'Mouse|Transceiver' "$oneD/../interface" && IS_MOU=YES
  fi
@@ -606,7 +612,7 @@ unset CLASS PROTOCOL CURR_WAKEUP_SETTING
 #<[uapi/]linux/usb/ch9.h>
 #define USB_CLASS_HID           3
     read CLASS <"$oneD"/../bInterfaceClass
-   _debug "`cat "$oneD"/../bInterfaceClass`"
+   _debug "`grep -H '.*' "$oneD"/../bInterfaceClass 2>&1`"
    case $CLASS in
    03|3) :;;
    *) _notice "Unhandled USB_CLASS '$CLASS'"
@@ -617,7 +623,7 @@ unset CLASS PROTOCOL CURR_WAKEUP_SETTING
 #define USB_INTERFACE_PROTOCOL_KEYBOARD 1
 #define USB_INTERFACE_PROTOCOL_MOUSE    2
    read PROTOCOL <"$oneD"/../bInterfaceProtocol
-     _debug "`cat "$oneD"/../bInterfaceProtocol`"
+     _debug "`grep -H '.*' "$oneD"/../bInterfaceProtocol 2>&1`"
    case $PROTOCOL in
    01|1) :;;
    02|2) :;;
@@ -626,7 +632,7 @@ unset CLASS PROTOCOL CURR_WAKEUP_SETTING
    esac
 
    read CURR_WAKEUP_SETTING <"$oneD"/wakeup
-   _debug "`cat "$oneD"/wakeup`"
+   _debug "`grep -H '.*' "$oneD"/wakeup 2>&1`"
    case $PROTOCOL in
    01|1)
     case $CURR_WAKEUP_SETTING in
@@ -709,15 +715,15 @@ do
     _debug "$oneD"
 
     #[ -f "$oneD"/../uevent ]       && _debugx "$oneD/../uevent:      `cat "$oneD"/../uevent`"
-     [ -f "$oneD"/../uevent ]       && _debugx "`grep -H '.*' $oneD/../uevent`"
+     [ -f "$oneD"/../uevent ]       && _debugx "`grep -H '.*' $oneD/../uevent 2>&1`"
     #[ -f "$oneD"/../class ]        && _info   "$oneD/../class:       `cat "$oneD"/../class`"
-     [ -f "$oneD"/../class ]        && _info   "`grep -H '.*' $oneD/../class`"
+     [ -f "$oneD"/../class ]        && _info   "`grep -H '.*' $oneD/../class 2>&1`"
     #[ -f "$oneD"/../vendor ]       && _info   "$oneD/../vendor:      `cat "$oneD"/../vendor`"
-     [ -f "$oneD"/../vendor ]       && _info   "`grep -H '.*' $oneD/../vendor`"
+     [ -f "$oneD"/../vendor ]       && _info   "`grep -H '.*' $oneD/../vendor 2>&1`"
     #[ -f "$oneD"/../manufacturer ] && _info   "$oneD/../manufacturer:`cat "$oneD"/../manufacturer`"
-     [ -f "$oneD"/../manufacturer ] && _info   "`grep -H '.*' $oneD/../manufacturer`"
+     [ -f "$oneD"/../manufacturer ] && _info   "`grep -H '.*' $oneD/../manufacturer 2>&1`"
     #[ -f "$oneD"/../product ]      && _info   "$oneD/../product:     `cat "$oneD"/../product`"
-     [ -f "$oneD"/../product ]      && _info   "`grep -H '.*' $oneD/../product`"
+     [ -f "$oneD"/../product ]      && _info   "`grep -H '.*' $oneD/../product 2>&1`"
 
 unset CLASS PROTOCOL CURR_WAKEUP_SETTING AM_HID AM_KBD AM_MOU oneCF onePF
 
@@ -776,16 +782,16 @@ EoI
 
    read CURR_WAKEUP_SETTING <"$oneD__"/wakeup
                  #_info "$oneD__/wakeup:`cat "$oneD__"/wakeup`"
-                 _info "`grep -H '.*' $oneD__/wakeup`"
+                 _info "`grep -H '.*' $oneD__/wakeup 2>&1`"
                  #_info "$oneD__/control:`cat "$oneD__"/control`"
-                 _info "`grep -H '.*' $oneD__/control`"
+                 _info "`grep -H '.*' $oneD__/control 2>&1`"
                  if test -f "$oneD__/autosuspend_delay_ms" ; then
                  #_info "$oneD__/autosuspend_delay_ms:`cat "$oneD__"/autosuspend_delay_ms`"
-                 _info "` grep -H '.*' $oneD__/autosuspend_delay_ms`"
+                 _info "`grep -H '.*' $oneD__/autosuspend_delay_ms 2>&1`"
                  fi
                  if test -f "$oneD__/autosuspend"; then
                  #_info "$oneD__/autosuspend:`cat "$oneD__"/autosuspend`"
-                 _info "` grep -H '.*' $oneD__/autosuspend`"
+                 _info "`grep -H '.*' $oneD__/autosuspend 2>&1`"
                  fi
    read CURR_CONTROL_SETTING <"$oneD__"/control
 
@@ -825,16 +831,16 @@ EoI
 
    esac
                  #_info "$oneD__/wakeup:`cat "$oneD__"/wakeup`"
-                 _info "`grep -H '.*' $oneD__/wakeup`"
+                 _info "`grep -H '.*' $oneD__/wakeup 2>&1`"
                  #_info "$oneD__/control:`cat "$oneD__"/control`"
-                 _info "`grep -H '.*' $oneD__/control`"
+                 _info "`grep -H '.*' $oneD__/control 2>&1`"
                  if test -f "$oneD__/autosuspend_delay_ms" ; then
                  #_info "$oneD__/autosuspend_delay_ms:`cat "$oneD__"/autosuspend_delay_ms`"
-                 _info "`grep -H '.*' $oneD__/autosuspend_delay_ms`"
+                 _info "`grep -H '.*' $oneD__/autosuspend_delay_ms 2>&1`"
                  fi
                  if test -f "$oneD__/autosuspend"; then
                  #_info "$oneD__/autosuspend:`cat "$oneD__"/autosuspend`"
-                 _info "`grep -H '.*' $oneD__/autosuspend`"
+                 _info "`grep -H '.*' $oneD__/autosuspend 2>&1`"
                  fi
 
    done
@@ -1049,7 +1055,7 @@ echo "yPID='$yPID'"
  case $RV in
  0) :;;
  *) jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l;
-    for aP_ in `jobs -p`; do kill $aP_; done
+    for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
  exit 0;;
  esac
 
@@ -1058,9 +1064,12 @@ echo "yPID='$yPID'"
  #exit
 
 #IFS=$"$oldIFS"
-jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
-for aP_ in `jobs -p`; do kill $aP_; done;    jobs -l
 
+# kill jobs ..
+jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
+for aP_ in `jobs -p`; do
+ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+jobs -l
 
 case $CHOICE_LINE in
 *FREEZE*|*Freeze*|*freeze*) ANSWER=190;;
@@ -1068,8 +1077,8 @@ case $CHOICE_LINE in
 *Standby*|*standby*)        ANSWER=201;;
 *RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
 *Hibernation*|*hiber*)      ANSWER=204;;
-"") ANSWER=3; for aP_ in `jobs -p`; do kill $aP_; done;exit;;
-*)  ANSWER=4; for aP_ in `jobs -p`; do kill $aP_; done;exit;;
+"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
+*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
 esac
 
 return $ANSWER
@@ -1170,7 +1179,7 @@ to switch off the mouse..."
 # REM : Just Exit
 if [ "$ANSWER" = 200 ];then
  rm -f "$tmpDIR"/acpi_button_count
- for aP_ in `jobs -p`; do kill $aP_; done
+ for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
 exit 0
 
 # REM : S3 RAM sleep
@@ -1180,7 +1189,7 @@ _mouse_message & fPID=$!
 _set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
 #_set_usb_power_sysfs_values && _mouse_message
 wait $fPID
-
+sleep 2
 
 _handle_no_console_suspend(){    ##2014-10-18
 test -f  /sys/module/printk/parameters/console_suspend || { _notice "File
@@ -1192,7 +1201,7 @@ grep $Q -w no_console_suspend /proc/cmdline && {
  # echo -n 'Content of sysfs file
  #    /sys/module/printk/parameters/console_suspend:'
  #cat /sys/module/printk/parameters/console_suspend
-  grep -H '.*' /sys/module/printk/parameters/console_suspend
+  grep -H '.*' /sys/module/printk/parameters/console_suspend 2>&1
  fi
 echo N >/sys/module/printk/parameters/console_suspend
 return $?
@@ -1223,6 +1232,7 @@ _mouse_message & fPID=$!
 #_set_usb_power_sysfs_values && _mouse_message
 _set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
 wait $fPID
+sleep 2
 
 pidof sync >>$OUT || sync
 _loop_umount_func
@@ -1286,6 +1296,7 @@ _mouse_message & fPID=$!
 _set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
 #_set_usb_power_sysfs_values && _mouse_message
 wait $fPID
+sleep 2
 
     echo standby >/sys/power/state
 
@@ -1295,6 +1306,7 @@ _mouse_message & fPID=$!
 _set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
 #_set_usb_power_sysfs_values && _mouse_message
 wait $fPID
+sleep 2
 
     echo freeze >/sys/power/state
 
@@ -1305,7 +1317,7 @@ else # timeout 0, error 1
    sleep 5
    pidof poweroff rc.shutdown >>$OUT || exec /sbin/poweroff force
   rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do kill $aP_; done
+  for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
  exit $?
  else
   exec /sbin/poweroff force
@@ -1329,6 +1341,6 @@ esac
 
 rm -f "$tmpDIR"/acpi_button_count
 sleep 5
-for aP_ in `jobs -p`; do kill $aP_; done
+for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
 
 exit 0
