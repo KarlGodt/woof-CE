@@ -1153,6 +1153,10 @@ fi
 _DATE_=`date +%F`
 ### sort logs ###
 funcPUPPY_UDEV_HELPER(){
+# if photplug , just return
+#test -s /tmp/photplug.log && return 0
+grep $Q 'photplug' /proc/sys/kernel/hotplug && return 0
+
 FILE=`grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe) | grep -vE '<|>'`
 test "$FILE" && eval $FILE
 FILE1="${FILE%=*}"
@@ -1175,6 +1179,53 @@ fi
 }
 funcPUPPY_UDEV_HELPER &
 ### sort logs ###
+
+# REM : Create some stub FASTBOOTMODULES file ( see pup_event_backend_modprobe )
+_emerg_break(){
+test "$*" || { _return 4 "_emerg_break: Usage: _emerg_break BREAKCOUNT"; return $?; }
+bCOUNT=$1
+cbCOUNT=$((cbCOUNT+1))
+case $cbCOUNT in $bCOUNT) unset cbCOUNT; break;; esac
+}
+
+_create_fastbootmodules_list(){
+
+BOARD_INFO=`dmidecode | grep -m3 -iE 'manufacturer|product|serial number' | awk -F':' '{print $2}'`
+BOARD_INFO=`echo $BOARD_INFO`
+[ "$BOARD_INFO" ] || BOARD_INFO=`dmidecode | grep -m3 -iE 'UUID' | awk -F':' '{print $2}'`
+[ "$BOARD_INFO" ] || { _return 5 "Could not determine info about board by dmidecode"; return $?; }
+
+while [ "`pidof photplug pup_event_backend_modprobe`" ]; do sleep 2; _emerg_break 9; done
+
+mkdir -p /etc/modules/"$KERNEL_RELEASE"
+mkdir -p /etc/modules/"$BOARD_INFO"
+mkdir -p /etc/modules/"$KERNEL_RELEASE"/"$BOARD_INFO"
+mkdir -p /etc/modules/"$BOARD_INFO"/"$KERNEL_RELEASE"
+
+if test "$PUPMODE" = 5; then
+ if test -r /proc/modules; then
+ [ -e "/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst" ] || \
+ { awk '{print $1}' /proc/modules | tac >"/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst"
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst" "/etc/modules/${KERNEL_RELEASE}"/auto_detected_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst"  /etc/modules/"$BOARD_INFO"/auto_detected_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst" "/etc/modules/${KERNEL_RELEASE}"/"$BOARD_INFO"/auto_detected_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_detected_moules.lst"  /etc/modules/"$BOARD_INFO"/"${KERNEL_RELEASE}"/auto_detected_moules.lst
+ }
+ fi
+else
+ if test -r /proc/modules; then
+ [ -e "/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst" ] || \
+ { awk '{print $1}' /proc/modules | tac >"/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst"
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst" "/etc/modules/${KERNEL_RELEASE}"/auto_loaded_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst"  /etc/modules/"$BOARD_INFO"/auto_loaded_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst" "/etc/modules/${KERNEL_RELEASE}"/"$BOARD_INFO"/auto_loaded_moules.lst
+ cp $VERB -a "/etc/modules/${KERNEL_RELEASE}^auto_loaded_moules.lst"  /etc/modules/"$BOARD_INFO"/"${KERNEL_RELEASE}"/auto_loaded_moules.lst
+ }
+ fi
+fi
+
+}
+ _create_fastbootmodules_list &
 
 ### capture bootscreen ###
 [ -e /dev/vcs1 ] || { mknod /dev/vcs1 c 7 1; sleep 1; }
