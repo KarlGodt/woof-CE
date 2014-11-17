@@ -127,7 +127,7 @@ openvt -c 11 autologinroot
 ##+++2012-01-29
 }
 
-status_func() {
+status_func(){
  _CHAR=${1//[[:digit:]]/}
  if [ "$_CHAR" ];then echo -e "\\033[32G\\033[1;36m${_CHAR}$Black0" >/dev/console
  set -- 0
@@ -323,7 +323,13 @@ echo "Making the filesystem usable..." >/dev/console #need this redirection!
 if test "$PUPMODE" = 2; then
  busybox mount $VERB $VERB -o remount,rw /dev/root /
  STATUS=$((STATUS+$?))
+
+ ## reset older variables ( ie KERNEL_RELEASE )
+ #VARIABLES=`awk -F'=' '{print $1}' /etc/rc.d/PUPSTATE`
+ unset PUPMODE KERNEL_RELEASE PDEV1 DEV1FS PUP_HOME SATADRIVES USBDRIVES
+
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
+ source /etc/rc.d/PUPSTATE
 fi
 
 [ -e /proc/mounts ] || busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$((STATUS+$?))
@@ -346,8 +352,8 @@ fi
 pfix_func
 
 [ $loglevel ]   && LOGLEVEL=$loglevel #boot param.
-[ "$LOGLEVEL" ] || LOGLEVEL=2  ##+++2011-12-04 for UDEV_LOG
-[ $pmedia ]     && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+[ "$LOGLEVEL" ] || LOGLEVEL=2        ##+++2011-12-04 for UDEV_LOG
+[ $pmedia ]     && PMEDIA=$pmedia  #boot parameter, broad category of boot media. ex: cd.
 [ $pdev1 ]      && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
 failsafe_func
 
@@ -421,8 +427,8 @@ mdev -s || haveMDEV='';
 
  #PUPSTATE
 #w478 moved this code above call to rc.update...
-KERNEL_RELEASE=`uname -r`
-KERNMAJ=`echo -n "$KERNEL_RELEASE" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
+[ "$KERNEL_RELEASE" ] ||          KERNEL_RELEASE=`uname -r`
+[ "$KERNMAJ" ] || KERNMAJ=`echo "$KERNEL_RELEASE" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
 echo "KERNEL_RELEASE='$KERNEL_RELEASE'" >> /etc/rc.d/PUPSTATE
 
 fsckme_func(){
@@ -430,14 +436,16 @@ if [ ! "$PDEV1" ];then
 PDEV1=`basename $(rdev | cut -f 1 -d ' ' | sed 's#/dev/##')`
 
 MAJh=`stat -c %t /dev/$PDEV1`
-#MAJd=$(( 16#$MAJh ))
-MAJh=`echo "$MAJh" | tr '[a-z]' '[A-Z]'`
-MAJd=`echo "ibase=16;$MAJh" | bc -l`
+#MAJd=$(( 16#$MAJh ))  ##bash
+#MAJh=`echo "$MAJh" | tr '[a-z]' '[A-Z]'`
+#MAJd=`echo "ibase=16;$MAJh" | bc -l`
+MAJd=`printf %d 0x$MAJh`
 
 MINh=`stat -c %T /dev/$PDEV1`
-#MINd=$(( 16#$MINh ))
-MINh=`echo "$MINh" | tr '[a-z]' '[A-Z]'`
-MINd=`echo "ibase=16;$MINh" | bc -l`
+#MINd=$(( 16#$MINh ))  ##bash
+#MINh=`echo "$MINh" | tr '[a-z]' '[A-Z]'`
+#MINd=`echo "ibase=16;$MINh" | bc -l`
+MINd=`printf %d 0x$MINh`
 
 POSSIBLE=`LANG=C ls -l /dev |awk '{print $5" "$6" "$10}' |grep "${MAJd},[[:blank:]]*${MINd} " |awk '{print $3}'`
 for p in $POSSIBLE;do
@@ -515,7 +523,7 @@ status_func $STATUS;STATUS=0
 echo -n "Sanity Checks " >/dev/console
 echo "Sanity Checks "
 
-mkmissing_tty_func() {
+mkmissing_tty_func(){
 test "$haveMDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
@@ -542,7 +550,7 @@ for i in `seq 0 15` ; do
 done
 };mkmissing_tty_func;STATUS=$((STATUS+$?));echo -n "0 STATUS=$STATUS "
 
-firmware_dep_func() {
+firmware_dep_func(){
 if test ! -f /etc/modules/firmware.dep.$KERNEL_RELEASE; then
 FWF=`find /etc/modules -type f -name "firmware.*" | head -n 1`
 echo "copying firmware.dep"
@@ -569,7 +577,7 @@ fi
 sync
 };firmware_dep_func;STATUS=$((STATUS+$?));echo -n "2 STATUS=$STATUS "
 
-modprobe_conf_func() {
+modprobe_conf_func(){
 
 mkdir -p /etc/mult_kernels
 mkdir -p /etc/modprobe.d
@@ -634,7 +642,7 @@ fi
 };modprobe_conf_func;STATUS=$((STATUS+$?));echo -n "3 STATUS=$STATUS "
 load_average '0x0e'
 
-fbcon_func() {
+fbcon_func(){
 if [ -n "`modprobe -l | grep 'fbcon'`" ]; then
 if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]'`" != "" ]; then
 if [ -z "`lsmod | grep 'fbcon'`" ] ; then  ##for /sbin/init
@@ -824,34 +832,15 @@ if test "$CMDL_MOD_P"; then
    MODULE=${aENTRY%%.*}
    PARAMS=${aENTRY#*.}
    echo "#Entry created for $KERNEL_RELEASE `date +%F-%T`
-options $PARAMS" >>/etc/modprobe.d/${MODULE}.conf
+options $MODULE $PARAMS" >>/etc/modprobe.d/${MODULE}.conf
   done
 fi
 
-#MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
-MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
-
-######### force loading of pcmcia usb hid #################
-if test "$PUPMODE" = 2; then #v423 full hd install.
-                             #v423 have this in 'init', probably need here too...
- if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
-  [ -z "`lsmod | grep 'yenta_socket'`" ] && modprobe $modprobeSYSLOG $modprobeCONFIG yenta-socket
-  [ $? -eq 0 ] && sleep 2
- fi
- #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
- # this is contrary to my understanding all these years, but oh well, let's do it...
- ELSPCI=`elspci -l` #jesses great little utility.
- [ "`echo "$ELSPCI" | grep '0C0320' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG ehci-hcd
- #...perhaps a udev rule could have done this?
- [ "`echo "$ELSPCI" | grep '0C0310' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG ohci-hcd
- [ "`echo "$ELSPCI" | grep '0C0300' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG uhci-hcd
-fi
-######### force loading of pcmcia usb hid #################
-
 ######### launch udev ############################
+_launch_udev(){
 if [ -x /sbin/photplug ];
 then
- echo '/sbin/photplug' > /proc/sys/kernel/hotplug
+ echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 
 #my intention is for puppy to work with either of these...
 elif [ -x /sbin/udevd ];
@@ -881,7 +870,31 @@ else
  :
 fi
 sleep 0.1
+}
 ######### launch udev ############################
+
+_detect_and_load_drivers(){
+#MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
+MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
+
+######### force loading of pcmcia usb hid #################
+if test "$PUPMODE" = 2; then #v423 full hd install.
+                             #v423 have this in 'init', probably need here too...
+ if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
+  [ -z "`lsmod | grep 'yenta_socket'`" ] && modprobe $modprobeSYSLOG $modprobeCONFIG yenta-socket
+  [ $? -eq 0 ] && sleep 2
+ fi
+ #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
+ # this is contrary to my understanding all these years, but oh well, let's do it...
+ ELSPCI=`elspci -l` #jesses great little utility.
+ [ "`echo "$ELSPCI" | grep '0C0320' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG ehci-hcd
+ #...perhaps a udev rule could have done this?
+ [ "`echo "$ELSPCI" | grep '0C0310' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG ohci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0300' | grep '<>$'`" != "" ] && modprobe $modprobeSYSLOG $modprobeCONFIG uhci-hcd
+fi
+######### force loading of pcmcia usb hid #################
+
+_launch_udev
 load_average '2x0a'
 ######### check if already loaded by init or sbin/init #####
   #vars
@@ -978,6 +991,39 @@ echo 'Skipping first uevent part , more than 25 modules already loaded ...'
 fi #2
 
 fi #1
+
+}  ##_detect_and_load_drivers(){ #END
+
+
+##+++2014-11-07/08
+MACHINE=`_make_board_id`
+
+if test "$PUPMODE" = 5; then
+    echo "PUPMODE is '$PUPMODE'"
+_detect_and_load_drivers
+else
+ echo "PUPMODE is '$PUPMODE'"
+
+# bootsysinit.log :
+#/etc/rc.d/rc.update : PUPMODE='2' KERNVER='2.6.30.9-i586-dpup005-Celeron2G' XSTATUS=''
+#'/etc/modules/2.6.31.14-KRG-i586-pae-300Hz-slub-flatmem-8cpu-dirty-modules@DellInc.-OptiPlex755-J8J844J.lst' is NOT regular file
+
+ if test -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
+  echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
+
+  _launch_udev
+  while read oneM modOPS;
+  do
+   [ "$oneM" ] || continue
+    modprobe -b $VERB $oneM $modOPS
+  done <"/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+
+ else
+  echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is NOT regular file"
+ _detect_and_load_drivers
+ fi
+fi
+
 
 ###permissions
 if [ "$VERBOSE" ];then
@@ -1462,10 +1508,10 @@ special_mnt_func(){
 mkdir -p /SPECIAL_MNT
 #for i in `cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | cut -f 2 -d ' '` ; do
 
-validFS=`grep '^nodev' /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|debugfs|exofs|coda|auofs|jffs2|ubifs|mtd_inodefs' | cut -f 2 -d ' '`
+validFS=`grep '^nodev' /proc/filesystems | grep -vEw 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|debugfs|exofs|coda|auofs|jffs2|ubifs|mtd_inodefs' | awk '{print $2}'`
 for i in $validFS ; do
 
-[ -n "`busybox mount | grep "$i"`" ] && continue
+grep $Q -w "$i" /proc/mounts && continue
 DIR=`echo "$i"` # | sed 's#fs$##'`
 
 ##2011-10-31 2.6.37.4-KRG-i486-StagingDrivers-2 : grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs'
@@ -1588,6 +1634,19 @@ echo `uptime` >>/tmp/bootkernel.log
  fi
 
 ############ PUPSTATE ####################################
+
+_make_fastmodules_list(){
+if test "$PUPMODE" != 5; then
+ if test ! -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
+  awk '{print $1}' /proc/modules | tac >"/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+ else
+ echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
+ fi
+else
+ echo "PUPMODE '$PUPMODE', skipping creation of modules@.lst"
+fi
+}
+[ -f /proc/modules ] && { _make_fastmodules_list; true; } || { echo "no /proc/modules"; false; }
 
 load_average 'FxFF'
 #that's it. next stop is /etc/profile...
