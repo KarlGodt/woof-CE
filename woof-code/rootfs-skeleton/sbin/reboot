@@ -27,6 +27,8 @@ _trap
 # End new header
 #
 
+source /etc/DISTRO_SPECS
+
 #ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';QUIET='-q'; ##+++2012-03-10
 #[ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;QUIET=''; }
 
@@ -45,6 +47,7 @@ busybox reboot options:
 
 /etc/rc.d/rc.shutdown --help ; }
 
+# REM: Process parameter option arguments
 PARAMETERS="$@"
 #PARAMETERS=`echo "$PARAMETERS" | tr '[[:upper:]]' '[[:lower:]]'`
 for param_ in $PARAMETERS; do
@@ -77,39 +80,88 @@ if [ "`pidof X`" ]; then
 exec wmreboot $PARAMETERS
 fi
 
+# REM: PROC_CMDLINE is used at the final reboot message at the end,
+#      needs to be read here before rc.shutdown umount's -a unmounts /proc
+read PROC_CMDLINE </proc/cmdline
+
+# REM: now run rc.shutdown...
 retVAL=''
 SHUT_HOW='rebooting' /etc/rc.d/rc.shutdown $PARAMETERS || retVAL=$?
 if [ "$retVAL" ];then
 case $retVAL in
-199) echo;return 0 2>$ERR || exit 0;;
+199)
+ # REM: 199 special exit code in rc.shutdown in interactive mode
+ #      to cancel reboot process
+ # REM: return || exit in case rc.shutdown is sourced ..
+ echo;return 0 2>$ERR || exit 0;;
 *)
-echo -e "\n\e[1;31m""ERROR: < $retVAL > canceling rc.shutdown""\e[0;39m"
-return $retVAL 2>$ERR || exit $retVAL
+ # REM: either reboot anyway despite errors or exit now.. (TODO)
+ echo -e "\n\e[1;31m""ERROR: < $retVAL > canceling rc.shutdown""\e[0;39m"
+ # REM: return || exit in case rc.shutdown is sourced ..
+ return $retVAL 2>$ERR || exit $retVAL
 ;;
 esac
 fi
 
-#BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) multi-call binary.
-#
-#Usage: reboot [-d DELAY] [-n] [-f]
-#
-#Reboot the system
-#
-#Options:
-#   -d SEC  Delay interval
-#   -n  Do not sync
-#   -f  Force (don't go through init)
-#
+# REM: unused function - it is here for easy memory :
+__say__busybox__reboot__options__(){
+cat >&1 <<EoI
 
-BB_REBOOT="$BB_REBOOT -f -n"
-KERNEL_MAJOR=`uname -r |cut -f1 -d.`
-KERNEL_THREE=`uname -r |cut -f3 -d. |grep -o -e '^[0-9]*'`
+BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) multi-call binary.
+
+Usage: reboot [-d DELAY] [-n] [-f]
+
+Reboot the system
+
+Options:
+   -d SEC  Delay interval
+   -n  Do not sync
+   -f  Force (don't go through init)
+
+EoI
+}
+
+# REM: Now a bunch of testing code to work around
+#      reboot stalls or hangs (halts) oe whatever
+#      on Dell Optiplex
+BB_REBOOT="$BB_REBOOT -f -n"  # set default to -f -n
+
+# REM: need VERSION and PATCHLEVEL and if 2.6 SUBLEVEL;
+#      because 2.6.30 reboots without problems,
+#      but 2.6.31 already shows halt (ACPI S1 standby) behaviour ..
+type -t _kernel_version5 >>$OUT && _kernel_version5 || {
+
+    #KERNEL_MAJOR=`uname -r |cut -f1 -d.`
+    #KERNEL_THREE=`uname -r |cut -f3 -d. |grep -o -e '^[0-9]*'`
+   K_VERSION=`uname -r |cut -f1 -d.`
+K_PATCHLEVEL=`uname -r |cut -f2 -d.`
+  K_SUBLEVEL=`uname -r |cut -f3 -d. |grep -o -e '^[0-9]*'`
+}
+
 #if [ "$KERNEL_MAJOR" -eq 2 -a "$KERNEL_THREE" -lt 37 ] ; then
-if [ "$KERNEL_MAJOR" -eq 2 -a "$KERNEL_THREE" -lt 34 ] ; then
+#if [ "$KERNEL_MAJOR" -eq 2 -a "$KERNEL_THREE" -lt 34 ] ; then
+#if [ "$KERNEL_MAJOR" -eq 2 -a "$KERNEL_THREE" -lt 31 ] ; then
+if [ $K_VERSION -eq 2 -a $K_PATCHLEVEL -eq 6 -a $K_SUBLEVEL -lt 31 ]; then
 BB_REBOOT="${BB_REBOOT/ \-f \-n/}"
 fi
+
 echo -e "\\033[1;33m
 $KERNEL_RELEASE for $DISTRO_NAME $DISTRO_VERSION
+with setup: $PROC_CMDLINE
+...
 Executing /bin/busybox reboot '$BB_REBOOT'
 :\\033[0;39m"
-exec /bin/busybox reboot $BB_REBOOT
+
+# REM: rc.shutdown does umount -a at the very end,
+#      so if /proc is in /etc/fstab (which is the default)
+#      /proc should be unmounted here
+if mountpoint $Q /proc; then
+        ps | awk '{if ($1 == 1) print}' | grep 'init' | grep -v 'grep'  ##DEBUG
+ if [ "`ps | awk '{if ($1 == 1) print}' | grep 'init' | grep -v 'grep'`" ]; then
+  kill -9 1 || exec /bin/busybox reboot $BB_REBOOT   ##TEST using kill pid nr. 1
+ else          exec /bin/busybox reboot $BB_REBOOT
+ fi
+else          exec /bin/busybox reboot $BB_REBOOT
+fi
+
+/bin/busybox reboot $BB_REBOOT  ##TEST do not use exec
