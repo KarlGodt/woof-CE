@@ -1,12 +1,31 @@
 #!/bin/ash
 
+#==================
+#
+# ACPI managing script
+# Has dialog (xmessage) to select between
+# detected ACPI Power Management (PM) states
+# supported by the current running kernel
+# The linux kernel has various ACPI configuration
+# options and Puppy Linux default kernels mostly
+# came with just S3 RAM sleep enabled.
+#
+#==================
 
-
+# REM: f4puppy5 short for functions4puppy5
 . /etc/rc.d/f4puppy5
 
+# REM: make some noise to inform that things are going on..
 aplay /usr/share/audio/2barks.au
 
+# REM: Version and usage section...
 Version='1.0 Macpup_O2-Puppy_Linux_431 KRG'
+Version='1.1 Macpup_O2-Puppy_Linux_431 KRG' ## wakealarm_cmd handling stub added
+                                            ## lots of comments/remarks added
+                                            ## added poweroff menu entry
+                                            ## xmessage layout fixes
+                                            ## ACPI_S4_RESUME_PARTITION variable instead of SWAP_TO_USE
+Version='1.2 Macpup_O2-Puppy_Linux_431 KRG' ## Building site /sys/power/resume handling
 
 usage(){
 MSG="
@@ -22,45 +41,49 @@ $KERN_VER
 $AVAIL_MODES
 "
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg white4 "$MSG"
+[ "$DISPLAY" ] && xmessage -bg white4 -title "00000080.X" "$MSG"
 exit $1
 }
 
 
-
+# REM: option paramete arguments processing...
 out=/dev/null;err=$out
 HIBER=1;MODE=DISK;mode=disk
 for param in $@;do
 case $1 in
 
-*version|-V) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
-*help|*usage|-h) usage 0;;
+-?version|-V) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+-?help|-?usage|-h) usage 0;;
 
-*checkcode|*codecheck)   set -n; shift;;
-*debug)                  set -x; shift;;
-*verbose|-v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
+-?checkcode|-?codecheck)   set -n; shift;;
+-?debug)                  set -x; shift;;
+-?verbose|-v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
 
-*hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
-*sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
-resume=/dev/*) SWAP_TO_USE=${1#*=};  shift;;
-/dev/*) SWAP_TO_USE=$1;              shift;;
+-?hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
+-?sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
+-?resume=/dev/*) ACPI_S4_RESUME_PARTITION=${1#*=};  shift;;
+/dev/*)          ACPI_S4_RESUME_PARTITION=$1;       shift;;
 
 *) :;;
 
 esac;done
 
-echo "$0"
+# REM: UTS_RELEASE actually ... VERSION in Makefile is first number,
+#      `make kernelversion' prints VERSION.PATCHLEVEL.SUBLEVEL.EXTRALEVEL
+KERN_VER=`uname -r`
+echo "$0:$*:$$:`date +%F~%T`:$KERN_VER"  ##DEBUG
 
+# prevent multiple sync running ...
 pidof sync >>$OUT || sync
 
-KERN_VER=`uname -r`
-#AVAIL_MODES=$(</sys/power/state)
-read AVAIL_MODES </sys/power/state
-BUTTONS="Let me outa here:200"
+# REM: create menu ...
+#AVAIL_MODES=$(</sys/power/state)  ##bash syntax
+read AVAIL_MODES </sys/power/state #ash and bash
+BUTTONS="Power Off:205,Let me outa here:200"
 for m in $AVAIL_MODES;do
 case $m in
 standby)
-BUTTONS="Powerdown to Standby:201,${BUTTONS}"
+BUTTONS="Running Standby:201,${BUTTONS}"
 ;;
 mem)
 BUTTONS="REST in RAM:203,${BUTTONS}"
@@ -70,7 +93,8 @@ BUTTONS="Hiber on DISK:204,${BUTTONS}"
 ;;
 esac;done
 
-
+# REM: use pidof X in case we have currently switched to console;
+#      DISPLAY would not work there .
 #if [ "$DISPLAY" ];then
 if pidof X; then
 
@@ -82,7 +106,7 @@ ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
   _info "X server found running on '$ttyX'"
   #sanity checks ..
   test -c /dev/"$ttyX" && {
-   _debug "OK, /dev/'$ttyX' is a chaacter special device"
+   _debug "OK, /dev/'$ttyX' is a character special device"
    nrVT=${ttyX##*[[:alpha:][:punct:]_]}
    case $nrVT in
     [1-9]|[1-9][0-9]) chvt $nrVT
@@ -92,7 +116,7 @@ ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
     *) _err "'$nrVT' not in range of 1-9 | 10-99";;
    esac
    true
-  } || { _warn "dev/'$ttyX' not a character special file .. WHAT ??"; }
+  } || { _warn "/dev/'$ttyX' not a character special file .. WHAT ??"; }
 }
 
 # busybox ps
@@ -113,33 +137,49 @@ ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) pr
     *) _err "'$nrVT' not in range of 1-9 | 10-99";;
    esac
    true
-  } || { _warn "dev/'$ttyX' not a character special file .. WHAT ??"; }
+  } || { _warn "'$ttyX' not a character special file .. WHAT ??"; }
 #...2014-10-25
 
     [ "$DISPLAY" ] || export DISPLAY=':0'
     #xmessage -buttons "Hiber on DISK:204,Rest in RAM:203,Let me outa here:200" "
     xmessage -timeout 30 -buttons "$BUTTONS" -title "`pwd`/$0" "
-acpid daemon triggered '$0' :
-Kernel : $KERN_VER
-available modes: $AVAIL_MODES
+    acpid daemon triggered '$0'      :
+    Kernel : $KERN_VER
+    ACPI Support:
+                Available modes: $AVAIL_MODES
 Power Button Pressed ?
 
-Note: Timesout in 30 seconds with wmpoweroff.
+                        Note: Timesout in 30 seconds with wmpoweroff.
 "
     ANSWER=$?  ##+++2012-06-01 added menu
     #exit
     case $ANSWER in
-    205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ;;
-    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';;
-    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"';;
-    200) exit 0;;
-    "")  exit 0;;
-    *)   wmpoweroff;; #exit 0;;
+    201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;
+    descr='Power Management Light Sleep Standby "S1"'
+
+    ;;
+    203) HIBER='';SLEEP=1; MODE=RAM;mode=mem;
+    descr='Power Management Sleep aka Low Power Sleep in RAM "S1-3 (BIOS Setting)"'
+
+    ;;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;
+    descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'
+
+    ;;
+    205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff;
+    descr='Power Management normal poweroff (the power cable stays attached)'
+    exec wmpoweroff
+    ;; #exit 0;;
+    200) echo "OK, getting out now.. Bye Bye!";exit 0
+    ;;
+    "")  echo "BUG? No ANSWER ..?";exit 0
+    ;;
+    *) exec wmpoweroff;; #exit 0;;
     esac
 
 else #X not running, read console
 
-
+# REM: need to change tty to catch input or do you have a better idea ..?
 lastTTY=`_last_logged_in_on_tty | awk '{print $3}'`
 lTTYnr=${lastTTY##*[[:alpha:][:punct:]_]}
 chvt $lTTYnr
@@ -174,37 +214,43 @@ if [ ! "$SELECT" ]; then
      esac
 else
  case $SELECT in
-    205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ; break;;
-    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'; break;;
-    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"'; break;;
-    201) echo "try again ..." >>/dev/${lastTTY##*/} ; continue;;
-    200) exit 0;;
-    "")  exit 0;;
+    201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby; descr='Power Management Light Sleep Standby "S1"' ;                             break;;
+    203) HIBER='';SLEEP=1; MODE=RAM;mode=mem;         descr='Power Management Sleep aka Low Power Sleep in RAM "S1-3 (BIOS Setting)"'; break;;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;       descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';          break;;
+    205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff;descr='Power Management Normal Poweroff (the power cable stays attached)';     break;;
+    206) echo "try again ..." >>/dev/${lastTTY##*/} ; continue;;
+    200) echo "OK, will leave now.. Bye Bye!";exit 0;;
+    "")  echo "BUG? Got no SELECT ..?";exit 0;;
     *)   :;;  #/sbin/poweroff;; ##exit 0;;
  esac
 
 fi
 done
 
-exit
+exit #TESTING
 
 fi #pidof X
+# REM: So now have ANSWER or SELECT
 
-
-[ "$DISPLAY" ] && xmessage -bg blue -fg yellow "Power button pressed ..
+# REM: message and some noise ..
+[ "$DISPLAY" ] && xmessage -bg blue -fg yellow -timeout 9 -title "00000080.X" "Power button pressed ..
 Preparing to suspend to $MODE .." &
 
 aplay /usr/share/audio/2barks.au
 
+# REM: shutdown pppd internet connection ..?
 [ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -2 `pidof pppd`;sleep 1; }
 
+# REM: unmount almost everything unmountable...
+_unmount_all(){
 
+# REM: unmount last mounts first ...
 MNTDPARTS=`tac /proc/mounts`
 readonly MNTDPARTS
 ##REMARK1 : fuser -c /dev/sda4 would return ntfs-3g PID but -c [||-m] /mnt/sda4 not  ##+++2011-10-27
 
 echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
-
+# REM: filter out rootfs, pseudo-file-systems and frugal layer mounts ...
 STRAYPARTL=`echo "$MNTDPARTS" |grep -vE ' /dev | /dev/shm | /dev/pts | devpts | /proc | /sys | proc | sysfs | *tmpfs  | *ramfs | rootfs |/dev/root | usbfs | unionfs | /initrd| on / '`
 
 readonly STRAYPARTL
@@ -216,9 +262,14 @@ pidof sync || sync
 for oneSTRAY in $STRAYPARTMP  ##in MountPoints
 do
  [ "$oneSTRAY" ] || continue
+
+__old__space__care__code__(){
  #Prepare the vars :
  oneSTRAY="${oneSTRAY//·/ }"
  oneSTRAY=${oneSTRAY//\"/}
+}
+ # REM: use echo -e to handle \0octal entries
+ oneSTRAY=`echo -e "$oneSTRAY"`
 
  echo -e "\e[1;31mUnmounting '$oneSTRAY'...\e[0;39m"
 
@@ -231,14 +282,19 @@ do
  else
  noROX=1 /bin/umount $VERB -r "$oneSTRAY"  ##unmounts MountPoint
  echo -e "\e[1;31m'$?'\e[0;39m"
- sleep 1
+ #sleep 1
  fi
+ sleep 1
 done
+}
+_unmount_all
 
 pidof sync >>$OUT || sync
 
+#### S4/204
 if [ "$HIBER" ];then
 
+# REM: Error message macro:
 show_swaps(){
 echo "$2
 "
@@ -249,7 +305,7 @@ $SWAPS
 
 `free`
 "
-[ "$DISPLAY" ] && xmessage -bg red -fg white "Aborted hibernation shutdown
+[ "$DISPLAY" ] && xmessage -bg red -fg white -title "00000080.X" "Aborted hibernation shutdown
 due for more RAM to send to SWAP than SWAP available" &
 aplay /usr/share/audio/2barks.au
 exit $1
@@ -259,8 +315,12 @@ exit $1
 SWAPS_LONG=`fdisk -l |grep -i 'swap'`
 SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
 
-SWAPS_ON=`cat /proc/swaps |sed '1d'`
+SWAPS_ON=`cat /proc/swaps |sed '1d' | grep -v 'deleted'`
 
+# REM: /sys/power/image_size has default 500MB in bytes
+#      gzip compression is 2-4 times of source
+#      500 MB * 2.5 would make 1,250 MB RAM content a 500MB resume image
+#      I assume 1:1 and compare free Mem and Swap lines...
 #MEM_USED=`free |grep -i 'Mem' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $3}'`
 MEM_USED=`free | awk '/Mem:/ {print $3}'`
 #SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
@@ -269,59 +329,117 @@ SWAP_FREE=`free | awk '/Swap:/ {print $4}'`
 [ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to DISK due to free swap lesser than used mem"
 
 
-#
-if [ "$SWAP_TO_USE" ];then
 
-[ "`echo "$SWAPS_LONG" |grep "^$SWAP_TO_USE"`" ] || show_swaps 1 "'$SWAP_TO_USE' seems not to be a regular swap partition"
-#[ "`echo "$SWAPS" |grep -w "$SWAP_TO_USE"`" ] || show_swaps 1 "'$SWAP_TO_USE' seems not to be a regular swap partition"
-{ for swap in $SWAPS_ON;do swapoff $swap;sleep 1s;pidof sync || sync;done;swapon $SWAP_TO_USE; }
-FIRST_SWAP=$SWAP_TO_USE
+# Sanity checks..
+# REM: /sys/power/resume may be already set
+# or set by CONFIG_PM_STD_PARTITION in kernel .config
+read RESUME_MAJ_MIN </sys/power/resume
 
-else
+ if test "$RESUME_MAJ_MIN"; then
 
-FIRST_SWAP=`echo "$SWAPS" |head -n1`
+  # need to transform digits to hex .. DAMN ...
+  RESUME_MAJ=${RESUME_MAJ_MIN%:*}
+  RESUME_MIN=${RESUME_MAJ_MIN#*:}
 
-for swap in $SWAPS;do
+  RESUME_MAJh=`printf %x $RESUME_MAJ`
+  RESUME_MINh=`printf %x $RESUME_MIN`
+# get the /dev/<resume partition>
+ RESUME_DEVICE=`stat -c %t":"%T" "%n /dev/* | grep -m1 "^${RESUME_MAJh}:${RESUME_MINh}" | awk '{print $2}'`
+# Sanity checks...
+  [ -b "$RESUME_DEVICE" ] || unset RESUME_DEVICE RESUME_MAJ_MIN RESUME_MAJ RESUME_MIN
+  guess_fstype "$RESUME_DEVICE" | grep $Q -i swap || unset RESUME_DEVICE RESUME_MAJ_MIN RESUME_MAJ RESUME_MIN
+ [ "$RESUME_DEVICE" ] || { _warn "RESUME_DEVICE='$RESUME_DEVICE' had to be unset"; echo "" >/sys/power/resume; }
+ fi
 
-SWAP_LABEL_RESUME=`blkid $swap |grep -iE 'Resume|Hiber' |cut -f1 -d':'`
-[ "$SWAP_LABEL_RESUME" ] && { FIRST_SWAP=$SWAP_LABEL_RESUME;break; }
+# ACPI_S4_RESUME_PARTITION : parameter option to this script
+# or environment variable (still todo..)
+ if test "$ACPI_S4_RESUME_PARTITION"; then
+  [ -b "$ACPI_S4_RESUME_PARTITION" ] || unset ACPI_S4_RESUME_PARTITION
+  guess_fstype "$ACPI_S4_RESUME_PARTITION" | grep $Q -i swap || unset ACPI_S4_RESUME_PARTITION
+  [ "$ACPI_S4_RESUME_PARTITION" ] || _warn "ACPI_S4_RESUME_PARTITION='$ACPI_S4_RESUME_PARTITION' had to be unset"
+ fi
 
-done
+ if [ "$ACPI_S4_RESUME_PARTITION" ];then
 
-SWAPS_TO_TURN_OFF=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
-echo "Swapping off all unneeded swaps..."
-for swap in $SWAPS_TO_TURN_OFF;do swapoff $swap;sleep 1s;pidof sync || sync;done
+  # REM: handle /sys/power/resume entry...
+  if [ "$RESUME_DEVICE" ]; then
+      ACPI_S4_RESUME_PARTITION_MAJh=`stat -c %t $ACPI_S4_RESUME_PARTITION`
+      ACPI_S4_RESUME_PARTITION_MINh=`stat -c %T $ACPI_S4_RESUME_PARTITION`
+   if
+   [ "$ACPI_S4_RESUME_PARTITION_MAJh" = "$RESUME_MAJh" ] && \
+   [ "$ACPI_S4_RESUME_PARTITION_MINh" = "$RESUME_MINh" ]
+   then
+   _info "OK, ACPI_S4_RESUME_PARTITION should be identical with RESUME_DEVICE"
+   else
+   _warn "ACPI_S4_RESUME_PARTITION seems not to be identical with RESUME_DEVICE, using ACPI_S4_RESUME_PARTITION for /sys/power/resume"
+   ACPI_S4_RESUME_PARTITION_MAJ=`printf %d 0x$ACPI_S4_RESUME_PARTITION_MAJh`
+   ACPI_S4_RESUME_PARTITION_MIN=`printf %d 0x$ACPI_S4_RESUME_PARTITION_MINh`
+   echo "${ACPI_S4_RESUME_PARTITION_MAJ}:${ACPI_S4_RESUME_PARTITION_MIN}" >/sys/power/resume
+   [ $? = 0 ] || _exit 98 "#%^&!!@#!"  ##TODO
+   fi
+  fi
 
-fi #swap_to_use
+ [ "`echo "$SWAPS_LONG" |grep "^$ACPI_S4_RESUME_PARTITION"`" ] || show_swaps 1 "'$ACPI_S4_RESUME_PARTITION' seems not to be a regular swap partition"
+#[ "`echo "$SWAPS" |grep -w "$ACPI_S4_RESUME_PARTITION"`" ] || show_swaps 1 "'$ACPI_S4_RESUME_PARTITION' seems not to be a regular swap partition"
+ { for swap in $SWAPS_ON;do swapoff $swap;sleep 1s;pidof sync || sync;done;
+   swapon $ACPI_S4_RESUME_PARTITION;
+   [ $? = 0 ] || _exit 99 "#%^&!!@#!"; }  ##TODO
+   FIRST_SWAP=$ACPI_S4_RESUME_PARTITION
+
+ else # no ACPI_S4_RESUME_PARTITION...
+
+ FIRST_SWAP=`echo "$SWAPS" |head -n1`
+
+# REM: test if we have a swap partition labeled partly hiber or resume and use this ...
+ for swap in $SWAPS;do
+ SWAP_LABEL_RESUME=`blkid $swap |grep -iE 'Resume|Hiber' |cut -f1 -d':'`
+ [ "$SWAP_LABEL_RESUME" ] && { FIRST_SWAP=$SWAP_LABEL_RESUME;break; }
+ done
+
+# turn off swaps
+ SWAPS_TO_TURN_OFF=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
+ echo "Swapping off all unneeded swaps..."
+ for swap in $SWAPS_TO_TURN_OFF;do swapoff $swap;sleep 1s;pidof sync || sync;done
+
+ fi #ACPI_S4_RESUME_PARTITION
 
 SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
 
 [ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to RAM due to free swap lesser than used mem"
 
 echo 'disk' >/sys/power/state 2>>/tmp/acpi.err
-[ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err
+[ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err  ##DEBUG
 
-sleep 30s
-echo "$0: HELLO AGAIN '$USER'"
+sleep 3s
+echo "$0: HELLO AGAIN '$USER'"  ##DEBUG
 SWAPS_LONG=`fdisk -l |grep -i 'swap'`
 SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
 
 SWAPS_TO_TURN_ON=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
 for swap in $SWAPS_TO_TURN_ON;do swapon $swap;sleep 1s;done
 
-free
+free ##DEBUG
 
-[ "$DISPLAY" ] && xmessage -bg green -fg white "HELLO AGAIN !
+# REM: welcome back message ...
+[ "$DISPLAY" ] && xmessage -bg green -fg white -title "00000080.X" "HELLO AGAIN !
 And WELCOME BACK '$USER'
 on '$HOSTNAME' '$MACHTYPE'" &
 aplay /usr/share/audio/2barks.au
+### End HIBERNATION CODE ###
 
-else #hiber
+
+else # !hiber
+  #     S3/203
   if [ "$SLEEP" ];then
 echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
-[ $? -ne 0 ] && xmessage -bg red -file /tmp/acpi.err || {
+# either debug or when back bark
+[ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err || {
   aplay /usr/share/audio/2barks.au
 
+  # REM: some cooling 5 seconds here...
+  sleep 5
+  # REM : restore mounts again
+  #       use \n as IFS to care for special chars like space in path/to/mountpoint
   oldIFS="$IFS"
   IFS=$'\n'
   for oneLINE in $STRAYPARTL
@@ -334,11 +452,14 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 
    test "$_device_" -a "$_mntpnt_" -a "$_fstype_" -a "$_mntops_" || continue
 
+    # noROX env variable for mount.sh
    grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && noROX=1
 
+   # Remount it if still in proc/mounts ( umount -r option )
    if grep $Q -w "$_mntpnt_" /proc/mounts; then
     noROX=$noROX /bin/mount $VERB -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
    else
+   # mount it again
     noROX=$noROX /bin/mount $VERB -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
    fi
 
@@ -348,9 +469,39 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
   IFS="$oldIFS"
 
    }
+
+ # REM: S1
+ elif [ "$MODE" = "STANDBY" ]; then
+
+  sleep 2
+  echo standby >/sys/power/state
+  sleep 2
+
+ # REM: S5
+ elif [ "$MODE" = "SOFT_OFF" ]; then
+
+  sleep 2
+  exec wmpoweroff
+
+ # Dont know what this is, k3.9.9 has this ..?
+ elif [ "$MODE" = "FREEZE" ]; then
+
+  sleep 2
+  echo freeze >/sys/power/state
+  sleep2
+
   fi
+
 fi
 
-exit 0
 
+echo "$0:$*:$$:`date +%F~%T`:$KERN_VER"  ##DEBUG
+
+###END###
+# REM: /etc/acpi/wakealarm/wakealarm_cmd : run script when waked up
+#      by RTC driver setting in /sys/class/rtc/*/*
+if test -x /etc/acpi/wakealarm/wakealarm_cmd; then
+ exec /etc/acpi/wakealarm/wakealarm_cmd &
+fi
+exit 0
 ###END###
