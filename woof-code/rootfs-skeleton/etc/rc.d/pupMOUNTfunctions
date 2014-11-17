@@ -1,3 +1,4 @@
+#!/bin/ash
 
 test "$HOME" = '/' && HOME=/root
 stateDIR="$HOME/Choices/Puppy"
@@ -81,3 +82,497 @@ icon_remove_func() {
  </env:Body>
 </env:Envelope>"  | rox -R
 }
+
+
+### 2014-11-15 ###
+
+# REM: _unmount_all_devices :
+#      Function to unmount all devices
+#      Usually at shutdown one of the last steps
+#      Accepts <device=comma,separated,list,of,device,types> parameter
+#      where device types are ad,fd,hd,loop,mmcblk,*ram,sd,scd,sr,xd,...,and so on
+#      fd: floopy, loop: file mounts, sd: todays hdds, sr: todays cdrom drives
+#      See linux kernel source Documentation/devices.txt for more info
+#      Other parameters are passed as they are to umount line
+_unmount_all_devices(){
+
+test -f /proc/mounts || return 4
+
+local DEV_CHOICE dev_ mountpoint_ fstyp_ mountops_
+
+# REM: choice filter option
+#      device=ad|fd|hd|loop|mmcblk|*ram|sd|scd|sr|xd
+#      comma separated list of device types to unmount
+case "$1" in
+device=*)
+DEV_CHOICE=`echo "${1#*=}" | sed 's!,!\*|!g;s!$!\*!' | tr -s '\*' | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
+
+shift
+;;
+esac
+
+[ "$DEV_CHOICE" ] && echo "DEBUG: DEV_CHOICE='$DEV_CHOICE'" ##DEBUG
+
+while read dev_ mountpoint_ fstyp_ mountops_
+do
+
+ # REM: skip /dev/root and pseudo-file-systems
+ case "$dev_" in
+ *root*) continue;;
+ /dev/*):;;
+ *) continue;;
+ esac
+
+ # REM: skip /initrd in frugal mode
+ case $mountpoint_ in
+ *initrd*) continue;;
+ esac
+
+ # REM: apply DEV_CHOICE
+ if test "$DEV_CHOICE"; then
+
+  case "$dev_" in
+  /dev/${DEV_CHOICE}) :;;
+  *) continue;;
+  esac
+
+ fi
+
+ # REM: sync only if no other sync is running
+ #      to prevent hangs
+ pidof sync || sync
+
+ ## REM: translate \0octal entries
+ mountpoint_=`echo -e "$mountpoint_"`
+
+ # REM: fuser checking done in /bin/umount script
+ __check_fusers__(){
+ echo "checking for users of $mountpoint_ :"
+ fuser -m "$mountpoint_" && continue
+ ## fuser returns 0 if users, 1 if no users
+
+ ## busybox lsof does show all open files on system
+ #lsof "$mountpoint_"
+  }
+
+ ## REM: device could be mounted on other mountpoints,
+ ##      so do not unmount /dev/<device>
+ #umount $VERB $* "$dev_"
+ /bin/umount $VERB $* "$mountpoint_"
+
+  if test $? != 0; then
+  #give some message
+   :
+   :
+  #no idea what to say today ...
+  fi
+
+# REM: Use tac to unmount submounts first
+done <<EoI
+`tac /proc/mounts`
+EoI
+}
+
+
+_check_proc_mounts(){
+
+if [ "$VERBOSE" ]; then
+grep -H '.*' /proc/mounts && { return 0; true; } || { _return 4 "/proc/mounts has no content"; return $?; false; }
+else
+test -f /proc/mounts && { return 0; true; }  || { _return 5 "/proc/mounts not a regular file"; return $?; false; }
+fi
+return $?
+
+}
+
+##/dev/adxy
+_say_mounted_atari_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/ad[a-z]?[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_atari_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/ad[a-z]?[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_atari_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/ad[a-z]?[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/amiraid/arxpy
+_say_mounted_amiraid_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/amiraid/ar[0-9]??|^/dev/amiraid/ar[0-9]??p[0-9]?' /proc/mounts
+return $?
+}
+
+_say_mounted_amiraid_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/amiraid/ar[0-9]??|^/dev/amiraid/ar[0-9]??p[0-9]?' /proc/mounts
+return $?
+}
+
+_say_mounted_amiraid_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/amiraid/ar[0-9]??|^/dev/amiraid/ar[0-9]??p[0-9]?' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/blockromx
+_say_mounted_rom_flash_ro_translation_layer(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/blockrom[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_rom_flash_ro_translation_layer_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/blockrom[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_rom_flash_ro_translation_layer_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/blockrom[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/sdxy
+_say_mounted_scsi_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/sd[a-z]?[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_scsi_hdd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/sd[a-z]?[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_scsi_hdd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/sd[a-z]?[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/sry
+_say_mounted_scsi_cd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/sr[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_scsi_cd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/sr[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_scsi_cd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/sr[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/scdy
+_say_mounted_ide_scsi_cd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/scd[0-9]??|/dev/sr/scd[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ide_scsi_cd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/scd[0-9]??|/dev/sr/scd[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ide_scsi_cd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/scd[0-9]??|/dev/sr/scd[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/hday
+_say_mounted_ide_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/hd[a-z][0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ide_hdd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/hd[a-z][0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ide_hdd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/hd[a-z][0-9]??' /proc/mounts | awk '{print $2'} | grep '.*'
+return $?
+}
+
+##/dev/xday
+_say_mounted_mfm_rll_ide_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/xd[a-z][0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_mfm_rll_ide_hdd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/xd[a-z][0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_mfm_rll_ide_hdd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/xd[a-z][0-9]??' /proc/mounts | awk '{print $2'} | grep '.*'
+return $?
+}
+
+##/dev/hdx
+_say_mounted_ide_hdd(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/hd[a-z]??' /proc/mounts | grep -v '[0-9]*$'
+return $?
+}
+
+_say_mounted_ide_hdd_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/hd[a-z]??' /proc/mounts | grep -v '[0-9]*$'
+return $?
+}
+
+_say_mounted_ide_hdd_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/hd[a-z]??' /proc/mounts | grep -v '[0-9]*$' | awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/fdx
+_say_mounted_floppy(){
+_check_proc_mounts || return 4
+
+grep -wE '^/dev/fd[0-7]|^/dev/fd[0-7][dhqu][0-9]???|^/dev/fd[0-7]CompaQ' /proc/mounts
+return $?
+}
+
+_say_mounted_floppy_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/fd[0-7]|^/dev/fd[0-7][dhqu][0-9]???|^/dev/fd[0-7]CompaQ' /proc/mounts
+return $?
+}
+
+_say_mounted_floppy_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/fd[0-7]|^/dev/fd[0-7][dhqu][0-9]???|^/dev/fd[0-7]CompaQ' /proc/mounts |awk '{print $2}' | grep '.*'
+return $?
+}
+
+##/dev/loopx
+_say_mounted_loop(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/loop[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_loop_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/loop[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_loop_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/loop[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/mdx
+_say_mounted_raid(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/md[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_raid_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/md[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_raid_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/md[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/mmcxpy
+_say_mounted_multi_media_card(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/mmcblk[0-9]??p[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_multi_media_card_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/mmcblk[0-9]??p[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_multi_media_card_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/mmcblk[0-9]??p[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/mtdblockx
+_say_mounted_memory_technology_device(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/mtdblock[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_memory_technology_device_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/mtdblock[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_memory_technology_device_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/mtdblock[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/nbdx
+_say_mounted_network_device(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/nbd[0-9]??|^/dev/nb[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_network_device_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/nbd[0-9]??|^/dev/nb[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_network_device_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/nbd[0-9]??|^/dev/nb[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/ramx
+_say_mounted_ram(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/ram[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ram_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/ram[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_ram_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/ram[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+##/dev/zram*
+_say_mounted_zram(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/zram[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_zram_block_special_files(){
+_check_proc_mounts || return 4
+
+grep -oE '^/dev/zram[0-9]??' /proc/mounts
+return $?
+}
+
+_say_mounted_zram_mountpoint_directories(){
+_check_proc_mounts || return 4
+
+grep -E '^/dev/zram[0-9]??' /proc/mounts | awk '{print $2}' | grep '.*'
+return $?
+}
+
+
+
+
