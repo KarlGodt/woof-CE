@@ -30,34 +30,34 @@ HIBER=1;MODE=DISK;mode=disk
 for param in $@;do
 case $1 in
 
-*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
-*help) usage 0;;
+-?version|version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+-?help|help) usage 0;;
 
-*checkcode|*codecheck)   set -n; shift;;
-*debug)                  set -x; shift;;
-*verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
+-?checkcode|-?codecheck|checkcode|codecheck)   set -n; shift;;
+-?debug|debug)                  set -x; shift;;
+-?verbose|verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;out=/dev/stdout;err=/dev/stderr;shift;;
 
-*hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
-*sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
-resume=/dev/*) SWAP_TO_USE=${1#*=};  shift;;
+-?hiber|hiber) HIBER=1;MODE=DISK;mode=disk; shift;;
+-?sleep|sleep) SLEEP=1;MODE=RAM;mode=mem;   shift;;
+-?resume=/dev/*) SWAP_TO_USE=${1#*=};  shift;;
 /dev/*) SWAP_TO_USE=$1;              shift;;
 
 *) :;;
 
 esac;done
 
-echo "$0"
+echo "$0:$*:$$:`date +%F~%T:`uname -r`"
 
 pidof sync >>$OUT || sync
 
 KERN_VER=`uname -r`
 #AVAIL_MODES=$(</sys/power/state)
 read AVAIL_MODES </sys/power/state
-BUTTONS="Let me outa here:200"
+BUTTONS="Power Off:205,Let me outa here:200"
 for m in $AVAIL_MODES;do
 case $m in
 standby)
-BUTTONS="Powerdown to Standby:201,${BUTTONS}"
+BUTTONS="Running Standby:201,${BUTTONS}"
 ;;
 mem)
 BUTTONS="REST in RAM:203,${BUTTONS}"
@@ -79,7 +79,7 @@ ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
   _info "X server found running on '$ttyX'"
   #sanity checks ..
   test -c /dev/"$ttyX" && {
-   _debug "OK, /dev/'$ttyX' is a chaacter special device"
+   _debug "OK, /dev/'$ttyX' is a character special device"
    nrVT=${ttyX##*[[:alpha:][:punct:]_]}
    case $nrVT in
     [1-9]|[1-9][0-9]) chvt $nrVT
@@ -89,7 +89,7 @@ ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
     *) _err "'$nrVT' not in range of 1-9 | 10-99";;
    esac
    true
-  } || { _warn "dev/'$ttyX' not a character special file .. WHAT ??"; }
+  } || { _warn "/dev/'$ttyX' not a character special file .. WHAT ??"; }
 }
 
 # busybox ps
@@ -110,25 +110,38 @@ ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) pr
     *) _err "'$nrVT' not in range of 1-9 | 10-99";;
    esac
    true
-  } || { _warn "dev/'$ttyX' not a character special file .. WHAT ??"; }
+  } || { _warn "'$ttyX' not a character special file .. WHAT ??"; }
 #...2014-10-25
 
     [ "$DISPLAY" ] || export DISPLAY=':0'
     #xmessage -buttons "Hiber on DISK:204,Rest in RAM:203,Let me outa here:200" "
     xmessage -timeout 30 -buttons "$BUTTONS" -title "`pwd`/$0" "
-acpid daemon triggered '$0' :
-Kernel : $KERN_VER
-available modes: $AVAIL_MODES
+    acpid daemon triggered '$0'     :
+    Kernel : $KERN_VER
+    ACPI Support:
+                Available modes: $AVAIL_MODES
+
 Power Button Pressed ?
 
-Note: Timesout in 30 seconds with wmpoweroff.
+                        Note: Timesout in 30 seconds with wmpoweroff.
 "
     ANSWER=$?  ##+++2012-06-01 added menu
     exit
     case $ANSWER in
-    205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ;;
-    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';;
-    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"';;
+    201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;
+                                                    descr='Power Management Light Sleep Standby "S1"'
+                                                    ;;
+    203) HIBER='';SLEEP=1; MODE=RAM;mode=mem;
+                                                    descr='Power Management Sleep aka Low Power Sleep in RAM "S1-3 (BIOS Setting)"'
+                                                    ;;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;
+                                                    descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'
+                                                    ;;
+    205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff;
+                                                    descr='Power Management System poweroff (power supply cable still attached)'
+                                        exec wmpoweroff
+                                                    ;;
+
     200) exit 0;;
     "")  exit 0;;
     *)   wmpoweroff;; #exit 0;;
@@ -198,10 +211,31 @@ if [ ! "$SELECT" ]; then
      esac
 else
  case $SELECT in
-    205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ; break;;
-    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'; break;;
-    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"'; break;;
-    201) echo "try again ..." >>/dev/${lastTTY##*/} ; continue;;
+    201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;
+
+    descr='Power Management Light Sleep Standby "S1"' ;
+
+    break
+    ;;
+    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;
+
+    descr='Power Management Sleep aka Low Power Sleep in RAM "S1-3 (BIOS Setting)"';
+
+    break
+    ;;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;
+
+    descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';
+
+    break
+    ;;
+    205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff
+
+    descr='Power Management Soft Power Off (power supply cable still attached)' ;
+
+    break
+    ;;
+    206) echo "try again ..." >>/dev/${lastTTY##*/} ; continue;;
     200) exit 0;;
     "")  exit 0;;
     *)   :;;  #/sbin/poweroff;; ##exit 0;;
@@ -246,10 +280,19 @@ if [ ! "$SELECT" ]; then
      esac
 else
  case $SELECT in
-    205) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;descr='Power Management SOFT OFF "S5"' ; break;;
-    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'; break;;
-    203) SLEEP=1; HIBER='';MODE=RAM;mode=mem;descr='Power Management Sleep aka Light Sleep in RAM "S1-3 (BIOS Setting)"'; break;;
-    201) echo "201 -- try again ..."  ; continue;;
+    201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;
+                                                    descr='Power Management Light Sleep Standby "S1"' ;
+                                                    break;;
+    203) HIBER='';SLEEP=1; MODE=RAM;mode=mem;
+                                                    descr='Power Management Sleep aka Low Power Sleep in RAM "S1-3 (BIOS Setting)"';
+                                                    break;;
+    204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;
+                                                    descr='Power Management Hibernate aka Suspend to Swap Partition "S4"';
+                                                    break;;
+    205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff;
+                                                    descr='Power Management Soft Power Off (power supply cable still attached)' ;
+                                                    break;;
+    206) echo "206 -- try again ..."  ; continue;;
     200) exit 0;;
     "")  exit 0;;
     *)   :;;  #/sbin/poweroff;; ##exit 0;;
@@ -438,7 +481,26 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
   IFS="$oldIFS"
 
    }
+
+elif [ "$MODE" = "STANDBY" ]; then
+
+    sleep 2
+    echo standby >/sys/power/state
+    sleep 2
+
+elif [ "$MODE" = "FREEZE" ]; then
+
+    sleep 2
+    echo freeze >/sys/power/state
+    sleep 2
+
+elif [ "$MODE" = "SOFT_OFF" ]; then
+
+    sleep 2
+    exec /sbin/poweroff
+
   fi
+
 fi
 
 exit 0
