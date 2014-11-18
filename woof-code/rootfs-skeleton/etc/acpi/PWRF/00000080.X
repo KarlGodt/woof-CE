@@ -37,7 +37,7 @@ OPTIONS:
 [hiber|sleep|resume=/dev/SWAP|/dev/SWAP]
 
 Available Modes :
-$KERN_VER
+$KERN_REL
 $AVAIL_MODES
 "
 echo "$MSG"
@@ -70,8 +70,8 @@ esac;done
 
 # REM: UTS_RELEASE actually ... VERSION in Makefile is first number,
 #      `make kernelversion' prints VERSION.PATCHLEVEL.SUBLEVEL.EXTRALEVEL
-KERN_VER=`uname -r`
-echo "$0:$*:$$:`date +%F~%T`:$KERN_VER"  ##DEBUG
+KERN_REL=`uname -r`
+echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
 
 # prevent multiple sync running ...
 pidof sync >>$OUT || sync
@@ -79,17 +79,26 @@ pidof sync >>$OUT || sync
 # REM: create menu ...
 #AVAIL_MODES=$(</sys/power/state)  ##bash syntax
 read AVAIL_MODES </sys/power/state #ash and bash
+# REM: Default buttons:
 BUTTONS="Power Off:205,Let me outa here:200"
+
 for m in $AVAIL_MODES;do
 case $m in
 standby)
-BUTTONS="Running Standby:201,${BUTTONS}"
+# REM: k2.6.31 did not wake up until now from S1
+ #_kernel_version
+ case "$KERN_REL" in
+ 2.6.31.*) :;;
+ *)
+BUTTONS="Runng Standby S1:201,${BUTTONS}"
+ ;;
+ esac
 ;;
 mem)
-BUTTONS="REST in RAM:203,${BUTTONS}"
+BUTTONS="Rest  in  RAM S3:203,${BUTTONS}"
 ;;
 disk)
-BUTTONS="Hiber on DISK:204,${BUTTONS}"
+BUTTONS="Hiber on DISK S4:204,${BUTTONS}"
 ;;
 esac;done
 
@@ -144,7 +153,7 @@ ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) pr
     #xmessage -buttons "Hiber on DISK:204,Rest in RAM:203,Let me outa here:200" "
     xmessage -timeout 30 -buttons "$BUTTONS" -title "`pwd`/$0" "
     acpid daemon triggered '$0'      :
-    Kernel : $KERN_VER
+    Kernel : $KERN_REL
     ACPI Support:
                 Available modes: $AVAIL_MODES
 Power Button Pressed ?
@@ -190,7 +199,7 @@ echo -e "\nPowerbutton pressed:\n" >/dev/${lastTTY##*/}
 
 cat >>/dev/${lastTTY##*/} <<EoI
 acpid daemon triggered '$0' :
-Kernel : $KERN_VER
+Kernel : $KERN_REL
 available modes: $AVAIL_MODES
 Power Button Pressed ?
 
@@ -294,6 +303,8 @@ pidof sync >>$OUT || sync
 #### S4/204
 if [ "$HIBER" ];then
 
+# REM: Now comes a bunch of sanity checks ...
+
 # REM: Error message macro:
 show_swaps(){
 echo "$2
@@ -312,10 +323,15 @@ exit $1
 }
 
 #prepare vars:
+
+__determine_swaps_using_fdisk__(){
 SWAPS_LONG=`fdisk -l |grep -i 'swap'`
 SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
+}
 
-SWAPS_ON=`cat /proc/swaps |sed '1d' | grep -v 'deleted'`
+SWAPS=`_find_swap_devices`
+
+SWAPS_ON=`grep -v 'deleted' /proc/swaps |sed '1d'`
 
 # REM: /sys/power/image_size has default 500MB in bytes
 #      gzip compression is 2-4 times of source
@@ -325,10 +341,10 @@ SWAPS_ON=`cat /proc/swaps |sed '1d' | grep -v 'deleted'`
 MEM_USED=`free | awk '/Mem:/ {print $3}'`
 #SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
 SWAP_FREE=`free | awk '/Swap:/ {print $4}'`
-
+# REM: NOTE: This now is complete swap space of all current used swaps
+# TODO: Need to calculate the swap space of the used swap partition further down ...
+#       And filter out available swaps with too little space (<500MB or <RAM)
 [ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to DISK due to free swap lesser than used mem"
-
-
 
 # Sanity checks..
 # REM: /sys/power/resume may be already set
@@ -343,7 +359,7 @@ read RESUME_MAJ_MIN </sys/power/resume
 
   RESUME_MAJh=`printf %x $RESUME_MAJ`
   RESUME_MINh=`printf %x $RESUME_MIN`
-# get the /dev/<resume partition>
+# get the /dev/<resume partition> (CONFIG_PM_STD_PARTITION in kernel .config)
  RESUME_DEVICE=`stat -c %t":"%T" "%n /dev/* | grep -m1 "^${RESUME_MAJh}:${RESUME_MINh}" | awk '{print $2}'`
 # Sanity checks...
   [ -b "$RESUME_DEVICE" ] || unset RESUME_DEVICE RESUME_MAJ_MIN RESUME_MAJ RESUME_MIN
@@ -390,7 +406,7 @@ read RESUME_MAJ_MIN </sys/power/resume
 
  FIRST_SWAP=`echo "$SWAPS" |head -n1`
 
-# REM: test if we have a swap partition labeled partly hiber or resume and use this ...
+# REM: test if there is a swap partition labeled partly 'hiber' or 'resume' use this ...
  for swap in $SWAPS;do
  SWAP_LABEL_RESUME=`blkid $swap |grep -iE 'Resume|Hiber' |cut -f1 -d':'`
  [ "$SWAP_LABEL_RESUME" ] && { FIRST_SWAP=$SWAP_LABEL_RESUME;break; }
@@ -412,11 +428,18 @@ echo 'disk' >/sys/power/state 2>>/tmp/acpi.err
 
 sleep 3s
 echo "$0: HELLO AGAIN '$USER'"  ##DEBUG
+
+__determine_swaps_using_fdisk_after__(){
 SWAPS_LONG=`fdisk -l |grep -i 'swap'`
 SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
+}
+
+SWAPS=`_find_swap_devices`
 
 SWAPS_TO_TURN_ON=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
-for swap in $SWAPS_TO_TURN_ON;do swapon $swap;sleep 1s;done
+for swap in $SWAPS_TO_TURN_ON;do
+grep $Q -w "^$swap" /proc/swaps && continue
+swapon $swap;sleep 1s;done
 
 free ##DEBUG
 
@@ -483,7 +506,7 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
   sleep 2
   exec wmpoweroff
 
- # Dont know what this is, k3.9.9 has this ..?
+ # Don't know what this is, k3.9.9 has this ..?
  elif [ "$MODE" = "FREEZE" ]; then
 
   sleep 2
@@ -495,7 +518,7 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 fi
 
 
-echo "$0:$*:$$:`date +%F~%T`:$KERN_VER"  ##DEBUG
+echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
 
 ###END###
 # REM: /etc/acpi/wakealarm/wakealarm_cmd : run script when waked up
