@@ -1,0 +1,627 @@
+#!/bin/ash
+
+[ "$HAVE_F4PUPPY5KERNEL" ] && return 0
+
+# REM: Kernel and kernel driver related functions
+#
+
+# REM:
+
+#================= KERNEL VERSION and SFS VERSION ============================
+
+#VERSION = 3
+#PATCHLEVEL = 13
+#SUBLEVEL = 3
+#EXTRAVERSION =
+#Mounting Squashfs 1.x filesystems IS supported by the 2.0 kernel patch.
+#Mounting 2.0 filesystems is supported by Squashfs 2.1.
+#Squashfs 3.0 supports 2.x filesystems.  Support for 1.x filesystems
+#will be added in the future.
+#3.2: Unsquashfs now supports Squashfs 2.x filesystems.
+#Welcome to Squashfs 4.0.  This is an initial tools only release to
+#support users of the 2.6.29 kernel
+#Later releases will probably contain kernel patches supporting 4.0
+#layouts for earlier kernels.
+
+_kernel_version()
+{
+local oldINFO=$INFO oldDEBUG=$DEBUG
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset SFSSTR SFSMAJOR squashXZ
+
+if test "$*"; then
+KERNELVER="$@"
+else
+KERNELVER=`uname -r`
+fi
+KERNEL="$KERNELVER"
+KERNVER="$KERNELVER"
+KERNEL_RELEASE="$KERNELVER"
+
+SFSSTR='squashfs, version 4'
+SFSMAJOR=4
+squashXZ=YES
+
+if vercmp $KERNELVER ge 3.0;then #111016
+:    # if vercmp not installed would run else
+_info "Kernel 3.0 or greater"
+else # assume 2.6
+ #test $? = 127 && { _warn "_kernel_version:Is vercomp installed in PATH? -- using _kernel_version2 instead..."; _kernel_version2; }
+ #echo $?
+ #which vercmp || _kernel_version2
+case $KERNELVER in
+2.6.*)
+ _info "Kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+   SFSSTR='squashfs, version 3'
+   SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+ squashXZ=NOT
+ fi
+;;
+*) _err "_kernel_version:UNHANDLED KERNELVER '$KERNELVER'";;
+esac
+fi 2>>$ERR #if vercmp is not installed :P
+
+#kVERSION="$K_VERSION"
+#kPATCHLEVEL="$K_PATCHLEVEL"
+#kSUBLEVEL="$K_SUBLEVEL"
+#kEXTRAVERSION="$K_EXTRAVERSION"
+#kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version:KERNELVER='$KERNELVER'"
+_info "_kernel_version:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
+}
+
+
+
+
+
+
+
+
+_kernel_version2()
+{
+local oldINFO=$INFO oldDEBUG=$DEBUG
+#INFO=1
+#DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRAVERSION K_LOCALVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+if test "$*"; then
+KERNELVER="$@"
+else
+KERNELVER=`uname -r`
+fi
+KERNEL="$KERNELVER"
+KERNVER="$KERNELVER"
+KERNEL_RELEASE="$KERNELVER"
+
+SFSSTR='squashfs, version 3'
+SFSMAJOR=3
+squashXZ=NOT
+
+ifsv='.-_'
+#ifsv='[[:punct:]]' # also [:punct:] does not work
+ifsv='^°!"§$%&/()=?`¹²³¼½¬{[]}\ß´+*~#-_.:·,;'"'"  # '\' seems not to work , even as '\\' '\\\' '\\\\'
+
+      K_VERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion localversion;echo $kversion; }` ##code from /usr/sbin/laptop_mode, Maintainer: Bart Samwel (bart@samwel.tk)
+   K_PATCHLEVEL=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel localversion;echo $patchlevel; }`
+     K_SUBLEVEL=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel localversion;echo $sublevel; }`
+   KERNELSUBVER="$K_SUBLEVEL"
+
+ #test "$K_VERSION" || _err "_kernel_version2:Could not get K_VERSION"
+ _check_content K_VERSION
+ #test "${K_VERSION//[[:digit:]]/}" && _warn "_kernel_version2:Got '$K_VERSION' with other than :digit:"
+ _check_content2 onlydigit "$K_VERSION"
+
+ if test $K_VERSION = 3; then
+  _info "Newer kernel 3 series"
+  K_LOCALVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel localversion;echo $localversion; }`
+ elif
+ test $K_VERSION = 2; then
+  _info "Older Kernel 2 series"
+  K_EXTRAVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel extraversion localversion;echo $extraversion; }`
+  K_LOCALVERSION=`echo "$KERNVER" | { IFS="$ifsv" read kversion patchlevel sublevel extraversion localversion;echo $localversion; }`
+ else
+  _err "Unhandled K_VERSION '$K_VERSION'"
+ fi
+
+[ "$K_EXTRAVERSION" ] || K_EXTRAVERSION=0
+[ "${K_EXTRAVERSION//[[:digit:]]/}" ] && { K_LOCALVERSION="$K_EXTRAVERSION $K_LOCALVERSION";K_EXTRAVERSION=0; }
+KERNELSUBSUBVER="$K_EXTRAVERSION"
+
+case $K_VERSION in
+3) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
+2)
+        case $K_PATCHLEVEL in
+        6)
+                case $K_SUBLEVEL in
+                29|30|31|32|33|34|35|36|37) SFSSTR='squashfs, version 4';SFSMAJOR=4;;
+                38|39) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
+                28)
+                    case $K_EXTRAVERSION in
+                    47) SFSSTR='squashfs, version 4';;
+                    esac
+                ;;
+                *) _notice "Old 2.6 kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' sublevel '$K_SUBLEVEL' .";;
+                esac;;
+        0|1|2|3|4|5) _crit "Unhandled kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' .";;
+        *) _alert "Unhandled kernel version '$K_VERSION' patchlevel '$K_PATCHLEVEL' .";;
+        esac;;
+*) _emerg "Unhandled kernel version '$K_VERSION' .";;
+esac
+
+kVERSION="$K_VERSION"
+kPATCHLEVEL="$K_PATCHLEVEL"
+kSUBLEVEL="$K_SUBLEVEL"
+kEXTRAVERSION="$K_EXTRAVERSION"
+kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version2:KERNELVER='$KERNELVER'"
+_info "_kernel_version2:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version2:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version2:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version2:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version3()
+{
+local oldINFO=$INFO oldDEBUG=$DEBUG
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset VERSIONS LOCALVERSION K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRAVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+test -f /proc/config.gz || modprobe -v configs
+test -f /proc/config.gz && {
+
+ if test "$*"; then
+ KERNELVER="$@"
+ fi
+
+ VERSIONS=`zcat /proc/config.gz | grep -m2 -iE '# Linux.*kernel.*|CONFIG_LOCALVERSION=".*"'`
+ test "$KERNELVER" || KERNELVER=`echo "$VERSIONS" | grep -m1 -i '# Linux.*kernel.*' | awk '{print $3}'`
+ LOCALVERSION=`echo "$VERSIONS" | grep -m1 -i 'CONFIG_LOCALVERSION=".*"' | cut -f2 -d=`
+_debug "KERNELVER='$KERNELVER'"
+_debug "LOCALVERSION='$LOCALVERSION'"
+ test "$KERNELVER" || KERNELVER="`uname -r`"
+ KERNEL_RELEASE="$KERNELVER"
+ KERNVER="$KERNELVER"
+ KERNEL="$KERNELVER"
+
+ SFSSTR='squashfs, version 4'
+ SFSMAJOR=4
+ squashXZ=YES
+
+ if test "`echo "$KERNELVER" | grep '^3\.[0-9]\.'`"; then #111016
+ _info "Kernel 3. series"
+ K_VERSION=${KERNELVER:0:1}
+ K_PATCHLEVEL=${KERNELVER:2:1}
+ K_SUBLEVEL=${KERNELVER:4:1}
+
+ KERNELSUBVER=$K_SUBLEVEL
+ KERNELSUBSUBVER=0
+
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
+ _info "Kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+  SFSSTR='squashfs, version 3'
+  SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+  squashXZ=NOT
+ fi
+
+ else # assume 2.6
+ _warn "Assuming kernel 2.6 series"
+ KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
+ KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
+ test "$KERNELSUBVER" || KERNELSUBVER=0
+ test "${KERNELSUBVER//[[:digit:]]/}" && KERNELSUBVER=0
+ test "$KERNELSUBSUBVER" || KERNELSUBSUBVER=0
+ test "${KERNELSUBSUBVER//[[:digit:]]/}" && KERNELSUBSUBVER=0
+
+ if [ $KERNELSUBVER -eq 27 -a ! $KERNELSUBSUBVER -eq 47 ] || [ $KERNELSUBVER -le 26 ] || [ $KERNELSUBVER -eq 28 ];then
+  SFSSTR='squashfs, version 3'
+  SFSMAJOR=3
+ fi
+ if test $KERNELSUBVER -le 37; then
+  squashXZ=NOT
+ fi
+fi
+
+
+kVERSION="$K_VERSION"
+kPATCHLEVEL="$K_PATCHLEVEL"
+kSUBLEVEL="$K_SUBLEVEL"
+kEXTRAVERSION="$K_EXTRAVERSION"
+kLOCALVERSION="$K_LOCALVERSION"
+
+_notice "_kernel_version3:KERNELVER='$KERNELVER'"
+_info "_kernel_version3:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version3:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version3:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version3:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
+return 0
+ } || _kernel_version
+INFO=$oldINFO;DEBUG=$oldDEBUG
+}
+
+
+_kernel_version4()
+{
+local oldINFO=$INFO oldDEBUG=$DEBUG
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION
+unset SFSSTR SFSMAJOR squashXZ
+
+_process_kernel_2dotX()
+{
+squashXZ=NOT
+case $kVERSION in
+0|1) _crit "TODO: Unhandled kVERSION '$kVERSION'"; return 1;;
+2)
+  case $kPATCHLEVEL in
+  0|2|4|5) _warn "TODO: Unhandled kVERSION '$kVERSION' kPATCHLEVEL '$kPATCHLEVEL'"; return 1;;
+  6) test "$kSUBLEVEL" -ge 38 && squashXZ=YES
+     test "$kSUBLEVEL" -gt 28 && return 0
+     case $kSUBLEVEL in
+      27) test "$kEXTRAVERSION" -eq 47 && return 0
+          return 1;;
+     esac
+  ;;
+  esac
+;;
+esac
+return 1
+}
+
+_eval_sfsversion()
+{
+case $1 in
+1) SFSSTR='squashfs, version 3';SFSMAJOR=3; test "$squashXZ" || squashXZ=NOT;;
+*) SFSSTR='squashfs, version 4';SFSMAJOR=4; test "$squashXZ" || squashXZ=YES;;
+esac
+}
+
+if test "$*"; then
+KERNEL="$@"
+else
+KERNEL=`uname -r`
+fi
+
+_old(){
+case "$KERNEL" in
+0.*|1.*|2.*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION <<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+echo kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+;;
+*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION <<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+echo kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+;;
+esac
+}
+
+_new(){
+_debug "case \"$KERNEL\" start"
+oldIFS="$IFS"
+#IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄä:;'"'"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"  #bash-3.2 does not like * as IFS in case
+_debug "case \"$KERNEL\" start"
+case "$KERNEL" in
+0*|1*|2*) _debug "HANDLED KERNEL='$KERNEL'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION <<EoI
+`echo "$KERNEL"`
+EoI
+;;
+3*) _debug "HANDLED KERNEL='$KERNEL'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION <<EoI
+`echo "$KERNEL"`
+EoI
+;;
+*) _debug "UNHANDLED KERNEL='$KERNEL'"
+;;
+esac
+_debug "case \"$KERNEL\" end"
+IFS="$oldIFS"
+}
+
+#_old
+_new
+
+_info kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+
+test "$kSUBLEVEL" || kSUBLEVEL=0
+test "$kEXTRAVERSION" || kEXTRAVERSION=0
+KERNVER="$KERNEL"
+KERNELVER="$KERNEL"
+KERNEL_RELEASE="$KERNEL"
+
+KERNELSUBVER="$kSUBLEVEL"
+KERNELSUBSUBVER="$kEXTRAVERSION"
+
+K_VERSION="$kVERSION"
+K_PATCHLEVEL="$kPATCHLEVEL"
+K_SUBLEVEL="$kSUBLEVEL"
+K_EXTRAVERSION="$kEXTRAVERSION"
+K_LOCALVERSION="$kLOCALVERSION"
+
+test "$kVERSION" -le 2 && { _process_kernel_2dotX; _eval_sfsversion $?; } || _eval_sfsversion 0
+_debug "_kernel_version4:End"
+
+_notice "_kernel_version4:KERNELVER='$KERNELVER'"
+_info "_kernel_version4:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version4:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version4:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version4:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
+}
+
+
+
+
+
+
+
+
+
+
+
+_kernel_version5()
+{
+local oldINFO=$INFO oldDEBUG=$DEBUG
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION
+
+if test "$*"; then
+KERNEL="$@"
+else
+KERNEL=`uname -r`
+fi
+KERNEL_RELEASE="$KERNEL"
+KERNELVER="$KERNEL"
+KERNVER="$KERNEL"
+
+unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
+
+if test ! "$*"; then
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+    test -f /proc/modules && {
+    grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; }
+    } || { modprobe $VERB squashfs; sleep 1; }
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+}; }
+test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
+
+SFS_MAJOR=`echo ${SFS_STR##* } | cut -b 1`
+test "${SFS_MAJOR//[[:digit:]]/}" && SFS_MAJOR='';
+test "$SFS_MAJOR" || { _warn "Could not determine squashfs major version, assuming '4'"; SFS_MAJOR=4; }
+
+SFS_STR="squashfs, $SFS_STR"
+
+else
+:
+fi
+
+squashXZ=NOT
+case "$KERNEL" in
+3.*) squashXZ=YES
+test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+test "$SFS_MAJOR" || SFS_MAJOR=4
+;;
+2.6.*) case $KERNEL in
+     2.6.38*|2.6.39*) squashXZ=YES
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.29*|2.6.3[0-7]*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.28*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     2.6.27.47)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     *)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     esac
+;;
+*) _warn "_kernel_version5:UNHANDLED kernel version '$KERNEL' , assuming squashXZ=$squashXZ";;
+esac
+
+SFSSTR="$SFS_STR"
+SFSMAJOR="$SFS_MAJOR"
+
+case "$KERNEL" in
+0.*|1.*) _warn "Unhandled kernel version 0* and 1*";;
+2.6*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+
+    if ! test "$kEXTRAVERSION"; then
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+    fi
+
+IFS="$oldIFS"
+;;
+2.[0-5].*) _warn "Unhandled kernel version 2.[0-5].*";;
+3.*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+;;
+esac
+
+_info kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+
+test "$kSUBLEVEL" || kSUBLEVEL=0
+test "$kEXTRAVERSION" || kEXTRAVERSION=0
+KERNVER="$KERNEL"
+KERNELVER="$KERNEL"
+KERNEL_RELEASE="$KERNEL"
+
+KERNELSUBVER="$kSUBLEVEL"
+KERNELSUBSUBVER="$kEXTRAVERSION"
+
+K_VERSION="$kVERSION"
+K_PATCHLEVEL="$kPATCHLEVEL"
+K_SUBLEVEL="$kSUBLEVEL"
+K_EXTRAVERSION="$kEXTRAVERSION"
+K_LOCALVERSION="$kLOCALVERSION"
+
+_notice "_kernel_version5:KERNELVER='$KERNELVER'"
+_info "_kernel_version5:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version5:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version5:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version5:squashXZ='$squashXZ'"
+INFO=$oldINFO;DEBUG=$oldDEBUG
+}
+
+
+# REM: want to unload all unused kernel drivers
+#      to find out if that helps with reboot problems
+_unload_all_modules(){
+
+# REM: leave function if FORCE
+[ "$FORCE" ] && return 0
+# REM: sanity check
+_test_fr /proc/modules || return 4
+
+# REM: big fat unload loop
+# REM: 'c' is emergeny break count to prevent never ending loop - currently set to '9'
+c=0
+while [ unloading ];
+do
+
+ sleep 1
+[ "`awk '{ if ($3 == 0) print}' /proc/modules`" ] ||  { echo "Only used drivers remain";break; }
+
+  #while [ 1 ];                 #does not work
+  #do                           #or if it works
+  #read module vms users rest   #prints empty lines to screen
+
+  # REM : /proc/modules gets updated by the kernel,
+  #       so better to use a procMODULES list variable...
+  sleep 1
+  procMODULES=`cat /proc/modules`
+
+  while
+  read module vms users rest
+  do
+
+   [ "$module" ]    || { echo "No module";break; }
+   [ "$users" = 0 ] || { echo "'$module' in use by '$rest'";continue; }
+
+   # REM: keep usb and hid drivers if USB input devices (keyboard) input needed later on
+   #      also keep unix module - it reloads anyways all the time
+   case $module in
+    *usb*|*hci*|*hcd*|*hid*|evdev|unix) echo "Skipping unloading of '$module'";continue;;
+   esac
+
+   # REM: use modprobe -r instead of rmmod
+   #      because it removes also drivers that the driver depends on
+   #      fork it to prevent hangs
+   echo -e "\\033[1;33m"
+   /sbin/modprobe $VERB -r $module & #>/dev/console 2>&1
+   sleep 1
+   echo -e "\\033[0;39m"
+
+  # REM : /proc/modules gets updated by the kernel,
+  #       so better use a LIST variable...
+  #done</proc/modules
+  done<<EoI
+`echo "$procMODULES"`
+EoI
+
+[ "`awk '{ if ($3 == 0) print}' /proc/modules | grep -vE '*usb*|*hci*|*hcd*|*hid*|evdev|unix'`" ] || \
+                             { echo "Only used or ^unused hid|usb drivers remain"; break; }
+
+ c=$((c+1))
+case $c in 9) echo "_unload_all_modules:BREAKING for ninth loop";break;; esac
+
+done
+}
+
+
+###END###
+_HAVE_F4PUPPY5KERNEL_=1  ## WARN : DO NOT EXPORT !!
+  HAVE_F4PUPPY5KERNEL=1
+###END###
