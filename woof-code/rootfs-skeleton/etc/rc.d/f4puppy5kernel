@@ -3,7 +3,7 @@
 [ "$HAVE_F4PUPPY5KERNEL" ] && return 0
 
 # REM: Kernel and kernel driver related functions
-#
+#      and devices related functions
 
 # REM:
 
@@ -620,6 +620,81 @@ case $c in 9) echo "_unload_all_modules:BREAKING for ninth loop";break;; esac
 done
 }
 
+#========= make nodes in /dev if /dev not mounted and maintained by kernel ============================
+_mkdevices()
+{
+mountpoint $Q /dev && return 0
+test "`type mdev`" && { mdev -s; return $?; }
+ while read maj min siz dev ; do
+  [ "${maj//[[:digit:]]/}" ] && continue
+  [ "$maj" -a "$min" -a "$dev" ] || continue
+  test -b /dev/$dev || mknod /dev/$dev b $maj $min
+ done</proc/partitions
+}
+
+#================ Make free loop device ======================================
+_mk_free_loop()
+{
+  FREE_LOOP=`losetup -f`  # find free and create loop
+  [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
+  LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
+  LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+  LOOP_NEW=$(( $LOOP_LAST + 1 )) && mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+  }
+}
+
+##================ SWAP  ======================================
+
+_say_swap_devices(){
+    local device
+    # REM: variable would be like '/sys/class/block/sda1'
+    #      so needs basename
+    #      could use `ls -1d /sys/class/block/*` - which would be similar
+    #      or `ls /sys/class/block`
+    #      or `ls -1v /sys/class/block`
+    #      or ..?
+    for device in /sys/class/block/*
+    do
+    device=${device##*/}
+    _debugx $device >>$ERR
+    [ -b /dev/$device ] || continue
+    case $device in
+    *ram*|*loop*|*mtd*|*fd*|*sr*|*scd*) continue;;
+    esac
+    #guess_fstype /dev/$device 2>>$ERR | grep $Q -i swap >>$ERR || continue
+    blkid /dev/$device | grep -w "^/dev/$device" | grep $Q -i ' TYPE="swap"' >>$ERR || continue
+    echo "/dev/$device"
+    done
+    # REM: guess_fsype has problems with device major 259
+    #      for partition numbers >15 (SCSI)
+    #          partition numbers >63 (IDE) <?? not tested>
+    # REM: older busybox blkid had no /dev/<device> argument processing ...
+}
+
+__say_swap_devices__(){
+    local device
+    for device in /sys/class/block/*
+    do
+    # REM: variable would be like '/sys/class/block/sda1'
+    #      so needs basename
+    #      could use `ls -1d /sys/class/block/*` - which would be similar
+    #      or `ls /sys/class/block`
+    #      or `ls -1v /sys/class/block`
+    #      or ..?
+    device=${device##*/}
+    [ -b /dev/$device ] || continue
+    case $device in
+    *ram*|*loop*|*mtd*|*fd*|*sr*|*scd*) continue;;
+    esac
+    # REM: guess_fsype has problems with device major 259
+    #      for partition numbers >15 (SCSI)
+    #          partition numbers >63 (IDE) <?? not tested>
+    #guess_fstype /dev/$device | grep $Q -i swap >>$ERR || continue
+    # REM: older busybox blkid had no /dev/<device> argument processing ...
+    blkid /dev/$device | grep -w "^/dev/$device" | grep $Q -i ' Type="swap"' >>$ERR || continue
+    echo "/dev/$device"
+    done
+}
 
 ###END###
 _HAVE_F4PUPPY5KERNEL_=1  ## WARN : DO NOT EXPORT !!
