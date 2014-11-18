@@ -1,0 +1,444 @@
+#!/bin/ash
+
+[ "$HAVE_F4PUPPY5GIT" ] && return 0
+
+# REM: GIT or SVN or CVS related help functions
+#      like batch diffs and such
+
+# REM:
+
+_add_header()
+{
+local _AUTHOR_ _MONTH_ _YEAR_ file PERM
+_AUTHOR_="Karl Reimer Godt"
+_MONTH_="September"
+_YEAR_="2014"
+
+pwd
+
+cd `pwd`/woof-code/rootfs-skeleton/ || { echo "Could not change into `pwd`/woof-code/rootfs-skeleton/"; $EXIT 1; }
+
+for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
+do
+   [ -L "$file" ] && continue
+   [ -f "$file" ] || continue
+   file "$file" | grep -i text | grep $Q -viE 'perl|python|murgaLua_Dynamic|Pascal|C\+\+| C ' || continue
+
+   grep $Q 'f4puppy5' "$file" && continue
+
+   PERM=`stat -c %a "$file"`
+   [ "${PERM//[0-6]/}" ] || continue
+
+   SHELLBANG=`head -n1 "$file"`
+   case "$SHELLBANG" in
+   '#!'*) :;;
+   *) continue;;
+   esac
+
+   echo "$file"
+
+   cat >/tmp/${file##*/} <<EoI
+$SHELLBANG
+#
+# New header by $_AUTHOR_, $_MONTH_ $_YEAR_
+  _TITLE_="Puppy_${file##*/}"
+_VERSION_=1.0omega
+_COMMENT_="\$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/$file"
+MY_PID=\$\$
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="\$_COMMENT_"
+_parse_basic_parameters "\$@"
+[ "\$DO_SHIFT" ] && [ ! "\${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in \`seq 1 1 \$DO_SHIFT\`; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
+EoI
+
+   cat "$file" | sed '1d' >>/tmp/${file##*/}
+
+   if test ! "$DRY"; then
+    rm "$file"
+    mv $VERB /tmp/${file##*/} "$file"
+    chmod $VERB $PERM "$file"
+   fi
+
+done
+}
+
+_remove_header()
+{
+ local _AUTHOR_ _MONTH_ _YEAR_ file PERM
+_AUTHOR_="Karl Reimer Godt"
+_MONTH_="September"
+_YEAR_="2014"
+
+ pwd
+
+cd `pwd`/woof-code/rootfs-skeleton/ || { echo "Could not change into `pwd`/woof-code/rootfs-skeleton/"; $EXIT 1; }
+
+for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
+do
+   [ -L "$file" ] && continue
+   [ -f "$file" ] || continue
+   file "$file" | grep -i text | grep $Q -viE 'perl|python' || continue
+
+   grep $Q "# New header by $_AUTHOR_, $_MONTH_ $_YEAR_" "$file" || continue
+
+   PERM=`stat -c %a "$file"`
+   [ "${PERM//[0-6]/}" ] || continue
+   echo "$file"
+
+   sed '/# New header by Karl Reimer Godt, September 2014/,/# End new header/ d' "$file" >/tmp/${file##*/}
+   sed -i '2,3 d' /tmp/${file##*/}
+
+   mv $VERB /tmp/${file##*/} "$file"
+   chmod $VERB $PERM "$file"
+done
+}
+
+_batch_diff1()
+{
+local SIMPLE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2
+_debug "_batch_diff1: '$*'" >&2
+
+test "$*"    || { _err "Usage: _batch_diff [ -s ] DIR"; $EXIT 1; }
+
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+
+test -d "$@" || { _err "'$@' not a directory";          $EXIT 1; }
+
+cd "$@"      || { _err "Could not change into '$@'";    $EXIT 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+#FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+#FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+     test "$oneF1" = "$oneF2" && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+}
+
+_batch_diff2()
+{
+local SIMPLE INVERT FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
+_debug "_batch_diff2: '$*'" >&2
+
+test "$*" || { _err "Usage: _batch_diff2 [ -s |& -i ] DIR"; $EXIT 1; }
+
+
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+test "$1" = '-i' && { INVERT=YES; shift; }
+test "$1" = '-s' && { SIMPLE=YES; shift; }
+
+test -d "$@" || { _err "'$@' not a directory";  $EXIT 1; }
+
+cd "$@" || { _err "Could not change into '$@'"; $EXIT 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+if test "$INVERT"; then
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF2" "$oneF1"
+
+     else
+      diff -up "$oneF2" "$oneF1"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+else
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+
+    [ "$oneF2" ] || continue
+
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+fi
+
+}
+
+_batch_diff3()
+{
+#DEBUG=1
+local SIMPLE INVERT REMOVE FILES1_ FILES1 FILES2_ FILES2 aF oneF1 oneF2 alreadyDONE
+_debug "_batch_diff2: '$*'" >&2
+
+test "$*" || { _err "Usage: _batch_diff3 [ -s -i | -r ] DIR"; $EXIT 1; }
+
+while [ "$2" ]; do
+case "$1" in
+-s) SIMPLE=YES;;
+-i) INVERT=YES;;
+-r) REMOVE=YES;;
+esac
+shift
+done
+
+test -d "$@" || { _err "'$@' not a directory";  $EXIT 1; }
+
+cd "$@" || { _err "Could not change into '$@'"; $EXIT 1; }
+
+FILES1_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES1_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES1="$FILES1
+$aF"
+done
+IFS="$oldIFS"
+
+FILES1=`echo "$FILES1" | tac | sed "1 d" | sed '/^$/d' | tac`
+_debug "$FILES1"
+
+FILES2_=`ls -1dv *`
+
+oldIFS="$IFS"
+IFS=$'\n'
+for aF in $FILES2_
+do
+[ -p "$aF" -o -S "$aF" -o -L "$aF" -o -d "$aF" ] && continue
+[ -f "$aF" ] || continue
+FILES2="$FILES2
+$aF"
+done
+IFS="$oldIFS"
+
+FILES2=`echo "$FILES2" | sed "1 d" | sed '/^$/d'`
+_debug "$FILES2"
+
+if test "$INVERT"; then
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+    [ "$oneF2" ] || continue
+
+    [ -e "$oneF2" ] || continue
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$REMOVE"; then
+      diff -q "$oneF2" "$oneF1" && rm "$oneF2"
+
+     elif test "$SIMPLE"; then
+      diff -q -s "$oneF2" "$oneF1"
+
+     else
+      diff -up "$oneF2" "$oneF1"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+else
+
+while read -r oneF1
+do
+  [ "$oneF1" ] || continue
+
+  while read -r oneF2
+  do
+
+    [ "$oneF2" ] || continue
+
+    [ -e "$oneF2" ] || continue
+    [ "$oneF1" = "$oneF2" ] && continue
+    [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
+
+     if test "$REMOVE"; then
+      diff -q "$oneF1" "$oneF2" && rm "$oneF2"
+
+     elif test "$SIMPLE"; then
+      diff -q -s "$oneF1" "$oneF2"
+
+     else
+      diff -up "$oneF1" "$oneF2"
+
+     fi
+
+  done << EoII
+`echo "$FILES2"`
+EoII
+
+[ "$alreadyDONE" ] && alreadyDONE="$alreadyDONE
+$oneF1" || alreadyDONE="$oneF1"
+
+done <<EoI
+`echo "$FILES1"`
+EoI
+
+fi
+
+}
+
+_say_pending_commits(){
+pendingCOMMITS=`LC_ALL=C git commit`
+git commit
+case "$pendingCOMMITS" in
+*clean) return 0;;
+*)      return 4;;
+esac
+return $?
+}
+
+###END###
+_HAVE_F4PUPPY5GIT_=1  ## WARN : DO NOT EXPORT !!
+  HAVE_F4PUPPY5GIT=1
+###END###
