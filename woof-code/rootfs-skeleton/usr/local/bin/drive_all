@@ -170,9 +170,24 @@ FSTYPE=""
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
 _debug "\$0:$0 -- \$*: '$*' \$#=$#"
-oneDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+
+# make MY_SELF absolute
+echo "MY_SELF='$MY_SELF'"
+unset MY_SELF
+echo "MY_SELF='$MY_SELF'"
+case "$0" in
+*./*|*../*)
+ MY_SELF=`readlink -f "$0"`
+ echo "MY_SELF='$MY_SELF'"
+;;
+esac
+[ "$MY_SELF" ] || MY_SELF="$0" # precaution
+echo "MY_SELF='$MY_SELF'"
+
+oneDRVNAME=`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 _info "oneDRVNAME='$oneDRVNAME'"
 
+_run_pmount_too(){
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
@@ -181,12 +196,18 @@ if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive
  fi
  exec pmount ${DRV_CATEGORY}
 fi
+}
+_run_pmount_too $*
 
+_run_eventmanager(){
 if [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
  #v405 'desktop' param, cutdown tabs for desktop drive icons only...
  exec eventmanager desktop
 fi
+}
+_run_eventmanager $*
 
+_unmount_drive(){
 if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  mPATTERN='^/dev/'"$oneDRVNAME"' '
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
@@ -200,7 +221,10 @@ is in use by Puppy. You cannot unmount it."
  unmount_func
  exit
 fi
+}
+_unmount_drive $*
 
+_unmount_all(){
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 if [ "$1" = "unmountall" ];then
  #for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
@@ -212,6 +236,8 @@ if [ "$1" = "unmountall" ];then
  done
  exit $?
 fi
+}
+_unmount_all $*
 
 #w002 left-mouse-click to unmount...
 #info: params passed to this script:
@@ -258,6 +284,7 @@ DRV_CATEGORY="${1}"
 [ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
 [ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
 
+_run_pmount(){
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
 if [ "$oneDRVNAME" = "drives" ];then
@@ -267,7 +294,10 @@ if [ "$oneDRVNAME" = "drives" ];then
  fi
  exec pmount $DRV_CATEGORY
 fi
+}
+_run_pmount $*
 
+_run_handler(){
 #decision... we can bring up a "handler" window, that explains things, good for beginners.
 #or jump direct to most appropriate target application, or do nothing.
 #for now only have AUTOTARGET=true go direct to most appropriate target app,
@@ -279,7 +309,10 @@ if [ "$AUTOTARGET" = "false" ];then
  fi
  exec pmount $DRV_CATEGORY
 fi
+}
+_run_handler $*
 
+__just_mount_ro__(){
 case $DRV_CATEGORY in  ##+++2014-10-16
 *mountro)
          grep -w "^/dev/$oneDRVNAME" /proc/mounts && {
@@ -292,7 +325,38 @@ case $DRV_CATEGORY in  ##+++2014-10-16
     exit $?
 ;;
 esac
+}
 
+_simple_toggle_ro_rw_mount(){
+  # first test if oneDRVNAME is mounted already
+  amiMOUNTED=`grep -w "^/dev/$oneDRVNAME" /proc/mounts`
+
+  # if not mounted, mount it
+  test "$amiMOUNTED" || {
+  /bin/mount $VERB -o ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  #return $?
+  exit $?
+  }
+
+  # test currently rw or ro mount
+  if
+  test "`echo "$amiMOUNTED" | awk '{if ( $4 == "rw" || match($4, "rw,.*") || match($4, ".*,rw,.*") ) print}'`"
+  then  # should be current rw mount
+  /bin/mount -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  else  # should be current ro mount
+  /bin/mount -o remount,rw /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  fi
+  exit $?
+}
+
+case $DRV_CATEGORY in  ##+++2014-11-08
+*mntro|*mountro|*toggle_mount|*mount_toggle)
+_simple_toggle_ro_rw_mount
+exit $?
+;;
+esac
+
+### FSCK Menu entry ###
 _notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE'"
 case $DRV_CATEGORY in ##+++2014-10-18
 *fsck_*)
@@ -317,7 +381,9 @@ exit $RV
  exit $?
 ;;
 esac
+### FSCK Menu entry ###
 
+_run_media_handler(){
 #oh, now have to analyse the media, decide what app to run...
 if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
  srPATTERN='^/dev/'"$oneDRVNAME"' '
@@ -349,7 +415,10 @@ if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
  [ "$FSTYPE" = 'unknown' ] && FSTYPE="iso9660"
  [ "$FSTYPE" ] || FSTYPE="iso9660"
 fi
+}
+_run_media_handler $*
 
+_big_mount_function(){
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
@@ -401,6 +470,8 @@ if [ "$FSTYPE" != "" ];then
   exec rox -x "$MNTPT" -d "$MNTPT"
  fi
 fi
+}
+_big_mount_function $*
 
 pmount_last_resort(){
 #NOTE: if pmount already running, don't really want to kill then restart,
@@ -411,6 +482,10 @@ if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
 fi
 exec pmount ${DRV_CATEGORY}
 }
+
+xmessage -bg orange2 -title "drive_all" "Err.. :Ooops:
+Could not start any handler for
+$*"
 
 _debug "END of script."
 ###END###
