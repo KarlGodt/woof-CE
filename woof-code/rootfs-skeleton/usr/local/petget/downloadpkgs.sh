@@ -144,6 +144,7 @@ echo $LINENO >&2
    OLDLOCALDIR=`cat /var/log/petlocaldir`
    [ -d $OLDLOCALDIR ] && LOCALDIR="$OLDLOCALDIR"
   fi
+  # REM: Xdialog dselect
   LOCALDIR=`Xdialog --backtitle "Note: Files not displayed, only directories" --title "Choose local directory" --stdout --no-buttons --dselect "$LOCALDIR" 0 0`
   [ $? -ne 0 ] && exit 1
   [ "$LOCALDIR" != "" ] && echo "$LOCALDIR" > /var/log/petlocaldir
