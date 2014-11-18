@@ -8,20 +8,27 @@ MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
-#Xdialog --title "Monitoring tail of $1" --smooth --fixed-font --no-cancel --ok-label "Exit" --tailbox $1 18 95
+[ "$*" ] || set - /tmp/xerrs.log
+[ -f "$*" -a -r "$*" ] || _exit 4 "'$*' either does not exist, is not a file andor not readable"
 
-test "$*" && {
-    :
-} || {
+_xdialog_tailbox(){
+# REM: Xdialog tailbox
+Xdialog --title "Monitoring tail of $@" --smooth --fixed-font --no-cancel --ok-label "Exit" --tailbox "$@" 18 95
+}
+
+_console_tail_log(){
 LINES1=0
 LINES2=0
 while [ 1 ];do
- LINES2=`wc -l /tmp/xerrs.log | awk '{print $1}'`
+ LINES2=`wc -l "$@" | awk '{print $1}'`
  if [ $LINES2 -gt $LINES1 ];then
   LINESDIFF=`expr $LINES2 - $LINES1`
-  tail -n $LINESDIFF /tmp/xerrs.log
+  tail -n $LINESDIFF "$@"
   LINES1=$LINES2
  fi
  sleep 1
 done
 }
+
+[ "$DISPLAY" ] && { _xdialog_tailbox; true; } || _console_tail_log
+
