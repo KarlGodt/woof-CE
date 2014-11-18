@@ -220,15 +220,32 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 ### kill ###
 killzombies(){
  [ "$FORCE" ] && return 0
+ # REM: original code by BK
+ #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+
+ # REM: use awk to try to handle leading space BUG: will print ||123
+ #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`"
+
+ # REM: reworked 2014-11-17
+ #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g;s/^|*//' | grep -v '|||' | awk '{print $1}'`
+
+ # REM use sed to eliminate leading space
  #ZOMBIES=`ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
- ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+
+ # REM: use /bin/ps in case $0 ash and configured SH_STANDALONE || NOFORK
+ #ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+
+ # REM: 2014-11-17
+ # using ps -o stat and awk match Z instead grep defunct
+ ZOMBIES=`ps -A -o pid,stat,args | awk '{if ( match($2, "Z[<NLsl+]*") || $2 == "Z" ) print $1}'`
+
  for oneZOMBIE in $ZOMBIES
  do
   case $oneZOMBIE in
   1) continue;;
   esac
   #[ "$OUT" == '/dev/console' ] && __debug "$( echo "Killing parentless zombie process $ONEZOMBIE" )"
-  __debug "$( echo "Killing parentless zombie process $oneZOMBIE" )"
+  __debug "$( echo "Killing (?parentless?) zombie process $oneZOMBIE" )"
   __debug "$( ps |grep -w $oneZOMBIE |grep -v grep )"
   /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE
   __debug "$( ps |grep -w $oneZOMBIE |grep -v grep )"
@@ -1515,6 +1532,12 @@ do
   #while [ 1 ];                 #does not work
   #do                           #or if it works
   #read module vms users rest   #prints empty lines to screen
+
+  # REM : /proc/modules gets updated by the kernel,
+  #       so better to use a procMODULES list variable...
+  sleep 1
+  procMODULES=`cat /proc/modules`
+
   while
   read module vms users rest
   do
@@ -1536,7 +1559,12 @@ do
    sleep 1
    echo -e "\\033[0;39m"
 
-  done</proc/modules
+  # REM : /proc/modules gets updated by the kernel,
+  #       so better use a LIST variable...
+  #done</proc/modules
+  done<<EoI
+`echo "$procMODULES"`
+EoI
 
 [ "`awk '{ if ($3 == 0) print}' /proc/modules | grep -vE '*usb*|*hci*|*hcd*|*hid*|evdev|unix'`" ] || \
                              { echo "Only used or ^unused hid|usb drivers remain"; break; }
