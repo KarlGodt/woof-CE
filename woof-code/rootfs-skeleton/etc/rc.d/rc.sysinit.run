@@ -16,43 +16,49 @@
 #        nodrivers
 #        noalsa soundcards alsa
 #        userdrivers kerneldrivers
-#        IN failsafe_func still BIG TODO
+#        IN failsafe_func
+#        *** still BIG TODO ***
 #
 # 01.1 : added norcsysinit bootparam to dropout
 #   .2 : added rm -rf /tmp/* in case of flag files still there after hard reset
 #        TODO : put into /sbin/init
 #
-# 02.0 : mkmissing_tty_func
+# 02   : functions:
+#   .0 : mkmissing_tty_func
 #   .1 : check_frugal_full_func
 #   .2 : check_full_frugal_dev_func
 #   .3 : mkmissing_blockdev_func
-#   .4 : dev_maj_259_func  #first_func
-#   .5 : device_nodes_fork_func #first_func
+#   .4 : dev_maj_259_func        #first_func  #OUT??
+#   .5 : device_nodes_fork_func  #first_func
 #   .6 : mk_missing_var_dev_func
 #   .7 : pupstate_prev_func
 #   .8 : firmware_dep_func
 #   .9 : modprobe_conf_func
 #
-# 03.0 : fbcon_func
-# 04.0 : moved start of klogd and syslogd further up
-#   .1 : MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d`  ##added sort -d to make output in logfiles more similar
+# 03
+#   .0 : fbcon_func
+#
+# 04
+#   .0 : moved start of syslogd and klogd further up before module loading in case modprobe --syslog parameter (does it actually work??)
+#   .1 : MODALIASES=`ls /sys/bus/*/devices/*/modalias | sort -d` added sort -d to make output in logfiles more similar ( <OUT>, CPU or kernel does not care )
 #   .2 : renamed /tmp/pup_event_modprobe.conf to /tmp/pup_event_skiplist.conf
-#        TODO: merge contents of modprobe.conf into this /tmp/pup_event_modprobe.conf
-#   .3 : forced loading of uhci_hcd and ohci_hcd
-#   .4 : added rm -rf /dev/.udev/*/* before launchig udevd
+#        TODO: merge contents of modprobe.conf into this /tmp/pup_event_modprobe.conf <DONE??>
+#   .3 : forced loading of uhci_hcd and ohci_hcd cause usb-keybord may need it
+#   .4 : added rm -rf /dev/.udev/*/* before launchig udevd <DONE??>
 #   .5 : added INITSTATE=`find /sys -name "initstate"`
 #        to prevent to load modules if already 25 are loaded (by /sbin/init)
 #   .6 : added warning if no modalias files are found
-#        AND skip the loading of the main modules
-#   .7 : implemented message to console about how many busses detected and modules loaded
+#        AND skip the loading of the main modules then <??>
+#   .7 : implemented message to console about how many busses detected and modules loaded <DONE>
 #
 # 05.0
+# 06.0
 #
-# 07.  : cat /proc/cmdline | grep -i 'nox' added nox kernel parameter for PUPMODE=2
-#        special_mnt_func : for cgroups debugfs an others
-#        fsckme_func TODO: rename to fsckme_flg_func
-#        root_link_func
-#        pup_eve_bac_mod_func sort logfile func
+# 07.0 : cat /proc/cmdline | grep -i 'nox' added nox kernel parameter for PUPMODE=2 <DONE?>
+#        special_mnt_func : for cgroups, debugfs an other pseudo-file-systems (educational)
+#        fsckme_func TODO: rename to fsckme_flg_func <DONE??>
+#        root_link_func  <DONE>
+#        pup_eve_bac_mod_func sort logfile func <DONE>
 #
 # /dev/hda8:
 # LABEL="MacPup431_O2"
@@ -73,28 +79,35 @@
 # $LANG=de_DE@euro
 # today=Do·27.·Okt·22:45:42·GMT-1·2011
 #
-#
+# TODO: ADDLIST_PRE and ADDLIST_POST in /sbin/bootmanager
 #
 #
 #
 ########################################################################
 
 Version='1.1-simple Macpup_O2-Puppy-Linux-431 KRG'
+Version='2.0-Macpup_O2-Puppy-Linux-431 KRG'
+
 usage(){
-MSG="
-$0
+    local usageMSG
+usageMSG="`gettext \"
+$0 [ --code-check ]
 Script that gets automatically executed by busybox init
 at boottime. Second program after /sbin/init at full
 installations, third after /init of initrd.gz and /sbin/init
 at frugal installations.
 Responsible to load drivers, setup the network,
 run setup scripts in /etc/init.d via rc.services,
-do various hardwaresetup ie mouse, dvd device.
+do various hardwaresetup; ie mouse, dvd devices.
+Only parameter accepted : --code-check (set's -n).\"`
 "
-echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg yellow3 "$MSG"
+[ "$2" ] && usageMSG="$usageMSG
+`gettext \"$2\"`"
+echo "$usageMSG"
+[ "$DISPLAY" ] && xmessage -bg yellow3 "$usageMSG"
 exit $1
 }
+__old_parameter_digesting__(){
 [ "$1" -a "$1" != codecheck ] && usage 0
 ###<KRG 2011-11-02>
 if [ -n "$DISPLAY" ] ; then
@@ -103,6 +116,20 @@ if [ -n "$DISPLAY" ] ; then
 :
 fi
 [ "$1" = codecheck ] && { set -x;set -n; } ##2012-05-22
+}
+ ##<KRG 2011-11-17>
+case "$1" in
+*code*check*|*check*|*check*code*)
+ set -n
+ ;;
+"") :
+  ;;
+*) [ "$DISPLAY" ] && RV=5 || RV=4
+           usage "$RV" "$1 (of $*) not recognized"
+  ;;
+esac
+ [ "$DISPLAY" ] && { usage 7 "Refusing to run in X"; true; } || true
+ ##</KRG 2011-11-17>
 ###</KRG 2011-11-02>
 
 export LANG=C
@@ -140,20 +167,50 @@ status_func(){
  return $1 #return with same status as entry param.
 }
 
+_find_swap_devices(){
+    local device
+    for device in /sys/class/block/*
+    do
+    # REM: variable would be like '/sys/class/block/sda1'
+    #      so needs basename
+    #      could use `ls -1d /sys/class/block/*` - which would be similar
+    #      or `ls /sys/class/block`
+    #      or `ls -1v /sys/class/block`
+    #      or ..?
+    device=${device##*/}
+    [ -b /dev/$device ] || continue
+    case $device in
+    *ram*|*loop*|*mtd*|*fd*|*sr*|*scd*) continue;;
+    esac
+    # REM: guess_fsype has problems with device major 259
+    #      for partition numbers >15 (SCSI)
+    #          partition numbers >63 (IDE) <?? not tested>
+    #guess_fstype /dev/$device | grep $Q -i swap >>$ERR || continue
+    # REM: older busybox blkid had no /dev/<device> argument processing ...
+    blkid /dev/$device | grep -w "$device" | grep $Q -i swap >>$ERR || continue
+    echo "/dev/$device"
+    done
+}
+
 loadswap_func(){
     #w481 made into a function.
  STATUS=0;SWAPON=no
  echo "LOAD SWAP"
  #load a swap partition...
+ # REM: fdisk shows MBR partition tables but partitions may be reformatted later
+ #      or even setup with wrong fs entries from the beginning ..
+ __find_swap_fdisk__(){
  SWAPS=`fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
+ }
+ SWAPS=`_find_swap_devices`
  [ "$SWAPS" ] && echo -n "Loading swap partition " >/dev/console
- for ONESWAP in $SWAPS
+ for oneSWAP in $SWAPS
  do
-  [ "`blkid $ONESWAP | grep -iE 'Resume|Hiber'`" ] && continue
-  [ "$W_SWAPS" ] && { [ "`echo "$W_SWAPS" | grep -w $ONESWAP`" ] || continue; }
-  #echo -n "Loading swap partition $ONESWAP..." >/dev/console
-  echo -ne "\\033[1;35m"" ${ONESWAP##*/}""$Black0"  >/dev/console
-  swapon $ONESWAP
+  [ "`blkid $oneSWAP | grep -iE 'Resume|Hiber'`" ]               && continue
+  [ "$W_SWAPS" ] && { [ "`echo "$W_SWAPS" | grep -w $oneSWAP`" ] || continue; }
+  #echo -n "Loading swap partition $oneSWAP..." >/dev/console
+  echo -ne "\\033[1;35m"" ${oneSWAP##*/}""$Black0"  >/dev/console
+  swapon $oneSWAP
   STATUS=$((STATUS+$?))
   [ $STATUS -eq 0 ] && SWAPON="yes"
  done
@@ -690,9 +747,9 @@ elif [ -d /lib/modules/${KERNEL_RELEASE}/initrd ];then
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
- #for ONEMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #for oneMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
- # gunzip $ONEMOD
+ # gunzip $oneMOD
  #done
  gunzip -f -r /lib/modules/${KERNEL_RELEASE}/initrd #w482 shinobar.
  STATUS=$((STATUS+$?));echo -n "7 STATUS=$STATUS "
@@ -840,11 +897,13 @@ fi
 _launch_udev(){
 if [ -x /sbin/photplug ];
 then
+ grep $Q 'photplug' /proc/sys/kernel/hotplug && return 0
  echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 
 #my intention is for puppy to work with either of these...
 elif [ -x /sbin/udevd ];
 then
+pidof $Q udevd && return 0
 #### prepare config files #############
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
@@ -951,7 +1010,7 @@ fi
 #for oneMODALIAS in $MODALIAS1
 for oneMODALIAS in $MODALIAS
 do
- #ONEPATH=`dirname $ONEMODALIAS`
+ #onePATH=`dirname $oneMODALIAS`
  onePATH="${oneMODALIAS%/*}"
  if [ -e "${onePATH}/uevent" ];then #3
   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
@@ -983,7 +1042,7 @@ LSMODCNT=`wc -l /proc/modules | awk '{print $1}'`
 ### show status message on screen ##################
 
   #to distinguish first module loading part from usb/pcmcia/ssb part further down
-echo >> /tmp/pup_event_module_devpath.log
+  [ -f /tmp/pup_event_module_devpath.log ] && echo >> /tmp/pup_event_module_devpath.log
   #to distinguish
 
 else #2
@@ -1007,6 +1066,59 @@ else
 # bootsysinit.log :
 #/etc/rc.d/rc.update : PUPMODE='2' KERNVER='2.6.30.9-i586-dpup005-Celeron2G' XSTATUS=''
 #'/etc/modules/2.6.31.14-KRG-i586-pae-300Hz-slub-flatmem-8cpu-dirty-modules@DellInc.-OptiPlex755-J8J844J.lst' is NOT regular file
+
+############## USER SELECTED MODULES ##################
+
+_load_user_selected_modules(){
+if [ "$safeBoot" = "2" ] || [ "$safeBoot" -ne "0" -a "$safeBoot" -ne "4" ] ; then
+echo "USER SELECTED MODULES"
+ #the user can select extra modules to load in the BootManager...
+ if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
+ echo -n "Loading user-selected modules..." >/dev/console
+ for MODULE in $ADDLIST
+ do
+  #MPARAMS=""
+  unset MPARAMS CML_MOD_P aENTRY PARAMS_
+  if [ "`echo -n "$MODULE" | tr ':' ' ' | wc -w`" -gt 1 ];then
+   MPARAMS=`echo -n "$MODULE" | cut -f 2-9 -d ':' | tr ':' ' '`
+   MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
+  fi
+  #2014-10-27 let cmdline parameters override ADDLIST
+   CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+    if test "$CML_MOD_P"; then
+     for aENTRY in $CML_MOD_P;
+      do
+       PARAMS_=${aENTRY#*$MODULE}
+       PARAMS_=`echo "$PARAMS_" | sed 's%^\.*%%'`
+       PARAMS_=${PARAMS_//,/ }
+       MPARAMS="$MPARAMS $PARAMS_"
+      done
+    fi
+  echo -en " \\033[1;36m$MODULE$Black0" >/dev/console
+  echo "Loading module $MODULE $MPARAMS"
+  firmware_module_func #install firmware tarball. see functions4puppy4.
+  #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
+  [ "$MODULE" != "mwave" ] && modprobe $VERB $modprobeSYSLOG $modprobeFIRST_TIME $MODULE $MPARAMS  ##+2011-10-31 added -v and --first-time
+ done
+ status_func 0
+ fi
+fi
+}
+
+# REM: 2014-11-17
+#      Try to split loading of explicitely desired kernel driver modules
+#      into a pre and post part ( some modules might need to load before
+#      autodetected drivers are loaded and some afterwards ).
+#      Variables are ADDLIST_PRE and ADDLIST_POST
+if [ "$ADDLIST_PRE" ]; then
+ unset ADDLIST
+ ADDLIST="$ADDLIST_PRE"
+ _launch_udev
+ _load_user_selected_modules
+ . /etc/rc.d/MODULESCONFIG  ## Need to source again in case ADDLIST has changed
+                            ## to ADDLIST_PRE for backwards-compatibility using
+                            ## ADDLIST as fallback in ADDLIST_POST part of this script ..
+fi
 
  if test -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
   echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
@@ -1188,7 +1300,7 @@ modprobe -l | grep '[eoux]hci_hcd' && {
  fi
 
  #echo safeBoot=$safeBoot 5
- echo >> /tmp/pup_event_module_devpath.log
+ [ -f  /tmp/pup_event_module_devpath.log ] && echo >> /tmp/pup_event_module_devpath.log
  ################ LOAD pcmcia usb ssb #############
 
 
@@ -1236,6 +1348,7 @@ load_average '3xff'
 
 
 ############## USER SELECTED MODULES ##################
+__load_user_selected_modules__(){
 if [ "$safeBoot" = "2" ] || [ "$safeBoot" -ne "0" -a "$safeBoot" -ne "4" ] ; then
 echo "USER SELECTED MODULES"
  #the user can select extra modules to load in the BootManager...
@@ -1269,6 +1382,22 @@ echo "USER SELECTED MODULES"
  status_func 0
  fi
 fi
+}
+
+# REM: 2014-11-17
+#      Try to split loading of explicitely desired kernel driver modules
+#      into a pre and post part ( some modules might need to load before
+#      autodetected drivers are loaded and some afterwards ).
+#      Variables are ADDLIST_PRE and ADDLIST_POST
+. /etc/rc.d/MODULESCONFIG ## Need to source a second time for now
+                          ## in case ADDLIST had changed to ADDLIST_PRE
+if [ "$ADDLIST_POST" ]; then
+ unset ADDLIST
+ ADDLIST="$ADDLIST_POST"
+ _load_user_selected_modules
+elif [ "$ADDLIST" ]; then
+ _load_user_selected_modules
+fi
 
 #echo safeBoot=$safeBoot 8
 if [ "$safeBoot" -ge "4" ] ; then
@@ -1277,11 +1406,12 @@ if [ "$safeBoot" -ge "4" ] ; then
 load_average '4xff'
 
 ############# mount /proc/bus/usb #################
-echo -n "MOUNT /proc/bus/usb "
+
 #had hoped to retire this, but HardInfo needs it...
 #if [ "`lsmod | grep '^usbcore'`"  ];then
 case $KERNEL_RELEASE in
 2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
+ echo -n "MOUNT /proc/bus/usb "
  busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
  echo "<$?>"
 esac
@@ -1649,5 +1779,11 @@ fi
 [ -f /proc/modules ] && { _make_fastmodules_list; true; } || { echo "no /proc/modules"; false; }
 
 load_average 'FxFF'
-#that's it. next stop is /etc/profile...
+
+# REM: Force exitcode 0; otherwise rc.sysinit wrapper might
+#      run rc.sysinit.emerg also.
+#      If come here, everything should be almost setup fine.
+#      Look into /tmp/bootsysinit.log for errors..
+exit 0
+# That's it. Next stop is /etc/profile... ( by login )
 ### END ###
