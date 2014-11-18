@@ -202,7 +202,7 @@ getInterfaceList(){
 }
 
 #=============================================================================
-refreshMainWindowInfo ()
+refreshMainWindowInfo()
 {
   # Dougal: comment out and move to the showLoadModuleWindow -- only used there...
   #findLoadedModules
@@ -269,7 +269,7 @@ ${INTERFACEBUTTONS}
 } # end refreshMainWindowInfo
 
 #=============================================================================
-buildMainWindow ()
+buildMainWindow()
 {
     echo "${TOPMSG}" > /tmp/net-setup_TOPMSG.txt
 
@@ -564,14 +564,15 @@ showLoadModuleWindow()
 } # end of showLoadModuleWindow
 
 #=============================================================================
-tryLoadModule ()
+tryLoadModule()
 {
     #  Dougal: this used to be called with the argument quoted, which was
     #+ bad, since if the user specifies parameters, the grep will return
     #+ false, while the driver might already be loaded! Trying to reload
     #+ will then not do anything, I assume... so remove quotes (in loadSpecificModule).
     MODULE_NAME="$1"
-    if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+    if grep $Q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+        # REM : Xdialog msgbox
         Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
                 --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
         echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
@@ -583,6 +584,7 @@ tryLoadModule ()
             case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
              *) echo "$@" >> /etc/networkusermodules ;;
             esac
+            # REM: Xdialog msgbox
             Xdialog --left --wrap --stdout --title "$L_TITLE_Netwiz_Hardware" --msgbox "$L_MESSAGE_Driver_Success_p1 $MODULE_NAME $L_MESSAGE_Driver_Success_p2" 0 0
             return 0
         else
@@ -706,7 +708,7 @@ $ERROR"
 } # end askWhichInterfaceForNdiswrapper
 
 #=============================================================================
-loadNdiswrapperModule ()
+loadNdiswrapperModule()
 {
     #  Dougal: ask the user if there's an interface for the HW, so we know
     #+ to remove the driver for it.
@@ -751,6 +753,7 @@ loadNdiswrapperModule ()
         #if ! grep "^${NATIVEMOD}$" "$BLACKLIST_FILE" ;then
         . /etc/rc.d/MODULESCONFIG
         case $SKIPLIST in *" $NATIVEMOD "*|*" ${NATIVEMOD//_/-} "*) ;; *)
+          # REM: Xdialog yesno
           Xdialog --title "$L_TITLE_Puppy_Network_Wizard" --yesno \
 "$L_MESSAGE_Blacklist_Nativemod_p1 ${NATIVEMOD} $L_MESSAGE_Blacklist_Nativemod_p2" 0 0
           if [ $? -eq 0 ] ; then
@@ -766,15 +769,16 @@ loadNdiswrapperModule ()
 } # end loadNdiswrapperModule
 
 #=============================================================================
-#loadSpecificModule ()
-#{
-    #RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
-    #if [ $? -eq 0 ];then
-        #tryLoadModule "${RESPONSE}"
-    #fi
-#} # end loadSpecificModule
+__loadSpecificModule__()
+{
+    # REM: Xdialog inputbox
+    RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
+    if [ $? -eq 0 ];then
+        tryLoadModule "${RESPONSE}"
+    fi
+} # end __loadSpecificModule__
 
-loadSpecificModule (){
+loadSpecificModule(){
   export NETWIZ_Load_Specific_Module_Window="<window title=\"$L_TITLE_Load_A_Module\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
   <text>
@@ -846,10 +850,12 @@ autoLoadModule ()
     sleep 2
     if $SOMETHINGWORKED
     then
+        # REM : Xdialog msgbox
         Xdialog --left --wrap --title "$L_TITLE_Puppy_Network_Wizard" --msgbox "$L_MESSAGE_Success_Loading_Module_p1 $WHATWORKED $L_MESSAGE_Success_Loading_Module_p2" 0 0
         echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
     else
         MALREADY="$(cat /tmp/loadedeth.txt)"
+        # REM: Xdialog msgbox
         Xdialog --msgbox "${L_MESSAGE_No_Module_Loaded}\n${MALREADY}" 0 0
         return 1
     fi
@@ -1013,7 +1019,7 @@ findLoadedModules ()
             esac
         done
   ) | Xdialog --title "$L_TITLE_Puppy_Network_Wizard" --progress "$L_PROGRESS_Checking_Loaded_Modules" 0 0 $COUNT_MOD
-
+      # REM: Xdialog progress
 } # end of findLoadedModules
 #=============================================================================
 testInterface()
@@ -1058,7 +1064,7 @@ $ERROR
     fi
     echo "${UNPLUGGED}" > /tmp/net-setup_UNPLUGGED.txt
   ) | Xdialog --title "$L_TITLE_Network_Wizard" --progress "$L_PROGRESS_Testing_Interface ${INTERFACE}" 0 0 5
-
+      # REM: Xdialog progress
   UNPLUGGED=$(cat /tmp/net-setup_UNPLUGGED.txt)
 
   if [ "$UNPLUGGED" != "false" ];then #BK1.0.7
@@ -1156,6 +1162,7 @@ showConfigureInterfaceWindow()
 $L_TOPMSG_Configuration_Offer_Try_Again"
       else
         RETVALUE=1
+        # REM: Xdialog yesno
         Xdialog --yesno "$(eval echo $L_TOPMSG_Configuration_Successful)
 $L_TOPMSG_Configuration_Offer_To_Save" 0 0
         if [ $? -eq 0 ] ; then
@@ -1301,37 +1308,37 @@ configureWireless()
 
 #=============================================================================
 # this expanded and moved to wag-profiles.sh, so can be used by rc.network
-#setupDHCP()
-#{
-    #{
-        ## Must kill old dhcpcd first
-        #killDhcpcd "$INTERFACE"
-        #sleep 5
-        #if dhcpcd -d -I '' "$INTERFACE"
-        #then
-            #HAS_ERROR=0
-        #else
-            #HAS_ERROR=1
-        #fi
-        #echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
-        #echo "XXXX"
-    #} | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
-#DHCP server to respond. Please wait patiently..." 0 0 0
+__setupDHCP__()
+{
+    {
+        # Must kill old dhcpcd first
+        killDhcpcd "$INTERFACE"
+        sleep 5
+        if dhcpcd -d -I '' "$INTERFACE"
+        then
+            HAS_ERROR=0
+        else
+            HAS_ERROR=1
+        fi
+        echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
+        echo "XXXX"
+    } | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
+DHCP server to respond. Please wait patiently..." 0 0 0
+      # REM: Xdialog infobox |piped-to
+  HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
 
-  #HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
+  if [ $HAS_ERROR -eq 0 ]
+  then
+    # Dougal: not sure about this -- maybe add something? need to know we've used it
+    MODECOMMANDS=""
+  else
+    MODECOMMANDS=""
+    # need to kill dhcpcd, since it keeps running even with an error!
+    killDhcpcd "$INTERFACE"
+  fi
 
-  #if [ $HAS_ERROR -eq 0 ]
-  #then
-    ## Dougal: not sure about this -- maybe add something? need to know we've used it
-    #MODECOMMANDS=""
-  #else
-    #MODECOMMANDS=""
-    ## need to kill dhcpcd, since it keeps running even with an error!
-    #killDhcpcd "$INTERFACE"
-  #fi
-
-  #return $HAS_ERROR
-#} #end of setupDHCP
+  return $HAS_ERROR
+} #end of __setupDHCP__
 
 #=============================================================================
 showStaticIPWindow()
@@ -1492,8 +1499,13 @@ validateStaticIP()
     fi
 
     if [ "${ERROR_MSG}" != "" ] ; then
-        #Xdialog --left --title "$L_TITLE_Netwiz_Static_IP" \
-                #   --msgbox "Some of the addresses provided are invalid\n${ERROR_MSG}" 0 0
+
+        __xdialog_error_msg__(){
+            # REM: Xdialog msgbox
+        Xdialog --left --title "$L_TITLE_Netwiz_Static_IP" \
+                   --msgbox "Some of the addresses provided are invalid\n${ERROR_MSG}" 0 0
+        }
+
         # change \n to newlines for gtkdialog...
         ERROR_MSG="$(echo -e "$ERROR_MSG" )"
         giveErrorDialog "$L_MESSAGE_Bad_addresses
@@ -1505,6 +1517,7 @@ $ERROR_MSG
     DEFAULTMASK=$(ipcalc --netmask "$IP_ADDRESS" | cut -d= -f2)
 
     if [ "x${NETMASK}" != "x${DEFAULTMASK}" ] ; then
+        # REM: Xdialog yesno
         Xdialog --center --title "$L_TITLE_Netwiz_Static_IP" \
                     --yesno "$L_MESSAGE_Bad_Netmask" 0 0
         if [ $? -eq 1 ] ; then
@@ -1527,8 +1540,13 @@ $ERROR_MSG
     fi
 
     if [ "x${HOSTNET}" != "x${GATENET}" ] ; then
-        #Xdialog --center --wrap --title "$L_TITLE_Netwiz_Static_IP" \
-                #   --msgbox "Your gateway $GATEWAY is not on this network! Please try again.\n(You may have entered your address, gateway or netmask incorrectly.)" 0 0  0 0
+
+        __xdialog_error_msg__(){
+            # REM: Xdialog msgbox
+        Xdialog --center --wrap --title "$L_TITLE_Netwiz_Static_IP" \
+                   --msgbox "Your gateway $GATEWAY is not on this network! Please try again.\n(You may have entered your address, gateway or netmask incorrectly.)" 0 0  0 0
+        }
+
         giveErrorDialog "$L_MESSAGE_Bad_Gateway_p1 $GATEWAY $L_MESSAGE_Bad_Gateway_p2"
         return 1
     fi
@@ -1580,6 +1598,7 @@ setupStaticIP()
             # Dougal: add getting error message
             ERROR=$(route add -net default gw "$GATEWAY" 2>&1)
             if [ $? -eq 0 ];then #0=ok.
+                # REM: Xdialog msgbox
                 Xdialog --center --title "$L_TITLE_Netwiz_Static_IP" --msgbox "$(eval echo $L_MESSAGE_Route_Set)" 0 0
                 MODECOMMANDS="${MODECOMMANDS}\nGATEWAY='$GATEWAY'"
             else
