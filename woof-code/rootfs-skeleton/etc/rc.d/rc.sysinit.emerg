@@ -1,0 +1,66 @@
+#!/bin/ash
+
+
+echo "Running Emergency sysinit script ... Oops ??"
+
+#Mount everything
+mount -o remount,rw /dev/root /
+
+mkdir -p /proc /sys /dev/pts /tmp
+ mount -t proc proc /proc
+
+mkdir -p /sys
+ mount -t sysfs sysfs /sys
+
+mkdir -p /dev/pts
+ mount -t devpts devpts /dev/pts
+
+mkdir -p /tmp
+ mount -t tmpfs tmpfs /tmp
+
+#Emergency console
+mkdir -p /dev/vc;
+rm -f /dev/vc/11;
+mknod /dev/vc/11 c 4 11
+openvt -c 11 autologinroot
+chvt 11
+
+#Load input drivers
+modprobe -l | grep -E 'ev|hcd|hci|hid|kbd|mouse|usb' | sort -d |
+while read oneM
+do
+oneM=`basename "$oneM" .ko*`  || continue
+modprobe -v -b "$oneM"
+done
+mdev -s
+
+_mkmissing_tty(){
+
+[ -c /dev/tty ] || mknod /dev/tty c 5 0
+[ -d /dev/vc ]  || mkdir /dev/vc
+
+VTInittab=`grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
+for i in $VTInittab; do
+[ -c /dev/vc/$i ] || { rm -f /dev/vc/$i; mknod /dev/vc/$i c 4 $i; }
+[ -c /dev/tty$i ] || { rm -f /dev/tty$i; mknod /dev/tty$i c 4 $i; }
+done
+
+[ -c /dev/console ] || { rm -f /dev/console; mknod /dev/console c 5 1; }
+[ -c /dev/zero ] || { rm -f /dev/zero; mknod /dev/zero c 1 5; }
+[ -c /dev/null ] || { rm -f /dev/null; mknod /dev/null c 1 3; }
+
+[ -d /dev/pts ]  || { rm -f /dev/pts; mkdir /dev/pts; }
+[ -c /dev/ptmx ] || { rm -f /dev/ptmx; mknod /dev/ptmx c 5 2; }
+
+for i in $(seq 0 4); do
+[ -c /dev/ptyp$i ] || { rm -f /dev/ptyp$i; mknod /dev/ptyp$i c 2 $i; }
+done
+
+[ -d /dev/fb ] || mkdir /dev/fb
+for i in `seq 0 11`; do
+[ -c /dev/fb$i ]  || mknod /dev/fb$i c 29 $i
+[ -L /dev/fb/$i ] || ln -s ../fb$i /dev/fb/$i
+done
+}; _mkmissing_tty
+
+### END ###
