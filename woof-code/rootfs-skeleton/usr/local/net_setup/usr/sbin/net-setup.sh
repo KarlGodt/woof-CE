@@ -35,9 +35,9 @@ cd "${CURDIR}"
 
 # Check if output should go to the console
 if [ "${1}" == "-d" ] ; then
-	DEBUG_OUTPUT=/dev/stdout
+    DEBUG_OUTPUT=/dev/stdout
 else
-	DEBUG_OUTPUT=/dev/null
+    DEBUG_OUTPUT=/dev/null
 fi
 
 ## Dougal: put this into a variable
@@ -51,59 +51,59 @@ BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 
 showMainWindow()
 {
-	MAIN_RESPONSE=""
+    MAIN_RESPONSE=""
 
-	while true
-	do
+    while true
+    do
 
-		buildMainWindow
-		I=$IFS; IFS="" #v2.21 BK window size...
-		WINHEIGHT=450   										#rerwin
-		WINWIDTH=540
-		EXTRAHEIGHT=`echo "$INTERFACE_INTERFACE" | wc -l`
-		WINHEIGHT=`expr $EXTRAHEIGHT \* 10 + $WINHEIGHT`
-		if [ $BIGGESTCNT -gt 40 ];then
-		 WIDTHEXTRA=`expr $BIGGESTCNT - 40`
-		 WIDTHEXTRA=`expr $WIDTHEXTRA \* 8`
-		 WINWIDTH=`expr $WINWIDTH + $WIDTHEXTRA`
-		fi
-		WINGEOM="${WINWIDTH}x${WINHEIGHT}"
-		
-		#BK: important gtkdialog v0.7.20 or later needed...
-		for STATEMENTS in  $(gtkdialog3 --geometry=$WINGEOM --program Puppy_Network_Setup); do
-			eval $STATEMENTS 2>/dev/null
-		done
-		IFS=$I
-		unset Puppy_Network_Setup
+        buildMainWindow
+        I=$IFS; IFS="" #v2.21 BK window size...
+        WINHEIGHT=450                                           #rerwin
+        WINWIDTH=540
+        EXTRAHEIGHT=`echo "$INTERFACE_INTERFACE" | wc -l`
+        WINHEIGHT=`expr $EXTRAHEIGHT \* 10 + $WINHEIGHT`
+        if [ $BIGGESTCNT -gt 40 ];then
+         WIDTHEXTRA=`expr $BIGGESTCNT - 40`
+         WIDTHEXTRA=`expr $WIDTHEXTRA \* 8`
+         WINWIDTH=`expr $WINWIDTH + $WIDTHEXTRA`
+        fi
+        WINGEOM="${WINWIDTH}x${WINHEIGHT}"
+
+        #BK: important gtkdialog v0.7.20 or later needed...
+        for STATEMENTS in  $(gtkdialog3 --geometry=$WINGEOM --program Puppy_Network_Setup); do
+            eval $STATEMENTS 2>/dev/null
+        done
+        IFS=$I
+        unset Puppy_Network_Setup
 
 #begin rerwin
-		#Interpret client-option checkbox; allow duid only if supported.
-		[ "$CHKBOXDUID" = "true" ] && [ -d /var/lib/dhcpcd -o ! -d /etc/dhcpc ] && touch /root/.dhcpcd.duid || rm /root/.dhcpcd.duid 2> /dev/null   #rerwin
-		[ -d /etc/dhcpc -a ! -d /var/lib/dhcpcd ] && CHECKDUID="false" || CHECKDUID=$CHKBOXDUID  #Update check-state in case user returns to main dialog - but force uncheck if running older dhcpcd.
+        #Interpret client-option checkbox; allow duid only if supported.
+        [ "$CHKBOXDUID" = "true" ] && [ -d /var/lib/dhcpcd -o ! -d /etc/dhcpc ] && touch /root/.dhcpcd.duid || rm /root/.dhcpcd.duid 2> /dev/null   #rerwin
+        [ -d /etc/dhcpc -a ! -d /var/lib/dhcpcd ] && CHECKDUID="false" || CHECKDUID=$CHKBOXDUID  #Update check-state in case user returns to main dialog - but force uncheck if running older dhcpcd.
 #end rerwin
 
-		# Dougal: this is simpler than all the grep business.
-		# Could integrate into main case-structure, but not sure about MAIN_RESPONSE
-		case "$EXIT" in 
-		  Interface_*) INTERFACE=${EXIT#Interface_} ; MAIN_RESPONSE=13 ;;
-		  *) MAIN_RESPONSE=${EXIT} ;;
-		esac
-		
-		# Dougal: blank the "Done" button, in case we go to 13 and back
-		DONEBUTTON=""
-			
-		case $MAIN_RESPONSE in
-			10) showLoadModuleWindow ;;
-			17) saveNewModule ;;
-			18) unloadNewModule ;;
-			19) break ;;
-			13) showConfigureInterfaceWindow ${INTERFACE} ;;
-			66) AutoloadUSBmodules ;;
-			#21) showHelp  ;;
-			abort) break ;;
-		esac
+        # Dougal: this is simpler than all the grep business.
+        # Could integrate into main case-structure, but not sure about MAIN_RESPONSE
+        case "$EXIT" in
+          Interface_*) INTERFACE=${EXIT#Interface_} ; MAIN_RESPONSE=13 ;;
+          *) MAIN_RESPONSE=${EXIT} ;;
+        esac
 
-	done
+        # Dougal: blank the "Done" button, in case we go to 13 and back
+        DONEBUTTON=""
+
+        case $MAIN_RESPONSE in
+            10) showLoadModuleWindow ;;
+            17) saveNewModule ;;
+            18) unloadNewModule ;;
+            19) break ;;
+            13) showConfigureInterfaceWindow ${INTERFACE} ;;
+            66) AutoloadUSBmodules ;;
+            #21) showHelp  ;;
+            abort) break ;;
+        esac
+
+    done
 
 } # end of showMainWindow
 
@@ -111,8 +111,8 @@ showMainWindow()
 #=============================================================================
 refreshMainWindowInfo ()
 {
-	# Dougal: comment out and move to the showLoadModuleWindow -- only used there...
-	#findLoadedModules
+    # Dougal: comment out and move to the showLoadModuleWindow -- only used there...
+    #findLoadedModules
 
   #we need to know what ethernet interfaces are there...
   INTERFACE_NUM=`ifconfig -a | grep -Fc 'Link encap:Ethernet'`
@@ -131,9 +131,9 @@ refreshMainWindowInfo ()
   for INTERFACE in ${INTERFACES}
   do
     [ "$INTERFACE" ] || continue
-    # Dougal: use function for finding/setting info to be used in tree (below) 
+    # Dougal: use function for finding/setting info to be used in tree (below)
     findInterfaceInfo $INTERFACE
-    
+
     ## Dougal: use a tree to display interface info
     INTERFACE_DATA="$INTERFACE_DATA <item>$INTERFACE|$INTTYPE|$FI_DRIVER|$TYPE: $INFO</item>"
     #v2.21 BK...
@@ -151,11 +151,11 @@ refreshMainWindowInfo ()
     INTERFACEBUTTONS="
 ${INTERFACEBUTTONS}
 <vbox>
-	<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-	<button>
-		<label>${INTERFACE}</label>
-		<action>EXIT:Interface_${INTERFACE}</action>
-	</button>	
+    <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+    <button>
+        <label>${INTERFACE}</label>
+        <action>EXIT:Interface_${INTERFACE}</action>
+    </button>
 </vbox>"
   done
 
@@ -169,15 +169,15 @@ ${INTERFACEBUTTONS}
      5) HEIGHT=175 ;;
      6) HEIGHT=200 ;;
     esac
-    
-    
+
+
 #    <tree>
-#    	<label>Interface|Type|Module|Device description</label>
-#    	$INTERFACE_DATA
-#    	<height>$HEIGHT</height><width>350</width>
-#    	<variable>SELECTED_INTERFACE</variable>
-#  	</tree>
-    
+#       <label>Interface|Type|Module|Device description</label>
+#       $INTERFACE_DATA
+#       <height>$HEIGHT</height><width>350</width>
+#       <variable>SELECTED_INTERFACE</variable>
+#   </tree>
+
     INTERFACEDESCRS="
     <hbox spacing=\"10\">
       <text use-markup=\"true\"><label>\"<b>Interface</b>
@@ -193,9 +193,9 @@ $INTERFACE_INFO\"</label></text>
     </hbox>
 "
     INTERFACEBUTTONS="
-  	<hbox>
-  		$INTERFACEBUTTONS
-  	</hbox>"
+    <hbox>
+        $INTERFACEBUTTONS
+    </hbox>"
   fi
 
   if [ $INTERFACE_NUM -eq 0 ];then
@@ -213,7 +213,7 @@ To test or configure it, click on its button."  > /tmp/net-setup_MSGINTERFACES.t
 To test or configure an interface, click on its button."  > /tmp/net-setup_MSGINTERFACES.txt
   fi
 
-	#echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
+    #echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
  #${LOADEDETH}" > /tmp/net-setup_MSGMODULES.txt
 
 #Rerwin: Initialize Client-identification option.
@@ -224,56 +224,56 @@ To test or configure an interface, click on its button."  > /tmp/net-setup_MSGIN
 #=============================================================================
 buildMainWindow ()
 {
-	echo "${TOPMSG}" > /tmp/net-setup_TOPMSG.txt
+    echo "${TOPMSG}" > /tmp/net-setup_TOPMSG.txt
 
 
-	export Puppy_Network_Setup="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
+    export Puppy_Network_Setup="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
-	
-	<text><label>\"
+
+    <text><label>\"
 `cat /tmp/net-setup_TOPMSG.txt`
 \"</label></text>
-	
-	<frame  Interfaces >
-		<vbox>
-			<text>
-				<label>\"`cat /tmp/net-setup_MSGINTERFACES.txt`\"</label>
-			</text>
-			${INTERFACEDESCRS}
-			${INTERFACEBUTTONS}
-			<checkbox>
-			 <label>Identify all interfaces to the network as representing the same computer.</label>
-			 <variable>CHKBOXDUID</variable>
-			 <default>$CHECKDUID</default>
-			</checkbox>
-		</vbox>
-	</frame>
-	
-	<frame  Network modules >
-	  ${USB_MODULE_BUTTON}
-	  ${MODULEBUTTONS}
-	</frame>
-	<hbox>
-		<button help>
-			<action>man 'net_setup' &> /dev/null & </action>
-		</button>
-		<button>
-			 <label>Exit</label>
-			 <input file icon=\"gtk-quit\"></input>
-			 <action>EXIT:19</action>
-		</button>
-	</hbox>
+
+    <frame  Interfaces >
+        <vbox>
+            <text>
+                <label>\"`cat /tmp/net-setup_MSGINTERFACES.txt`\"</label>
+            </text>
+            ${INTERFACEDESCRS}
+            ${INTERFACEBUTTONS}
+            <checkbox>
+             <label>Identify all interfaces to the network as representing the same computer.</label>
+             <variable>CHKBOXDUID</variable>
+             <default>$CHECKDUID</default>
+            </checkbox>
+        </vbox>
+    </frame>
+
+    <frame  Network modules >
+      ${USB_MODULE_BUTTON}
+      ${MODULEBUTTONS}
+    </frame>
+    <hbox>
+        <button help>
+            <action>man 'net_setup' &> /dev/null & </action>
+        </button>
+        <button>
+             <label>Exit</label>
+             <input file icon=\"gtk-quit\"></input>
+             <action>EXIT:19</action>
+        </button>
+    </hbox>
 </vbox>
 </window>"
-}      							#rerwin - inserted checkbox
+}                               #rerwin - inserted checkbox
 
 #=============================================================================
 showLoadModuleWindow()
 {
-	findLoadedModules
-	echo -n "" > /tmp/ethmoduleyesload.txt
-	MODULELIST=`cat /etc/networkmodules | sort | tr "\n" " "`
-	# Dougal: create list of modules (pipe delimited)
+    findLoadedModules
+    echo -n "" > /tmp/ethmoduleyesload.txt
+    MODULELIST=`cat /etc/networkmodules | sort | tr "\n" " "`
+    # Dougal: create list of modules (pipe delimited)
 sort /etc/networkmodules | tr '"' '|' | tr ':' '|' | sed 's%|$%%g' | tr -s ' ' >/tmp/module-list
 
 #v411 BK msg for ndiswrapper...
@@ -300,9 +300,9 @@ If not (or you are unsure, or want to use Ndiswrapper to load a Windows driver),
    <vbox>
     <pixmap><input file>$BLANK_IMAGE</input></pixmap>
     <button>
-   	 <label>Load</label>
-	 <input file stock=\"gtk-apply\"></input>
-	 <action>EXIT:load</action>
+     <label>Load</label>
+     <input file stock=\"gtk-apply\"></input>
+     <action>EXIT:load</action>
     </button>
    </vbox>
   </hbox>
@@ -313,7 +313,7 @@ If not (or you are unsure, or want to use Ndiswrapper to load a Windows driver),
     <height>200</height><width>550</width>
     <variable>NEW_MODULE</variable>
   </tree>
-  
+
  </vbox>
  <vbox>
  <text><label>\"     \"</label></text>
@@ -323,7 +323,7 @@ If not (or you are unsure, or want to use Ndiswrapper to load a Windows driver),
 Click <b>Ndiswrapper</b> to use a Windows driver.
 Click <b>Auto-probe</b> to try loading ALL the modules in the list.
 
-Example1: ne io=0x000, 
+Example1: ne io=0x000,
 Example2: arlan  io=0x300 irq=11
 (Example1 works for most ISA cards and does some autoprobing of io and irq)
 ${NDISWRAPPERWARNING}\"</label>
@@ -336,87 +336,87 @@ ${NDISWRAPPERWARNING}\"</label>
     <label>\"     \"</label>
    </text>
    <button>
-	<label>Specify</label>
-	<input file icon=\"gtk-index\"></input>
-	<action>EXIT:specify</action>
+    <label>Specify</label>
+    <input file icon=\"gtk-index\"></input>
+    <action>EXIT:specify</action>
    </button>
    <button>
-	<label>Ndiswrapper</label>
-	<input file icon=\"gtk-execute\"></input>
-	<action>EXIT:ndiswrapper</action>
+    <label>Ndiswrapper</label>
+    <input file icon=\"gtk-execute\"></input>
+    <action>EXIT:ndiswrapper</action>
    </button>
    <button>
-	<label>Auto-probe</label>
-	<input file icon=\"gtk-refresh\"></input>
-	<action>EXIT:auto</action>
+    <label>Auto-probe</label>
+    <input file icon=\"gtk-refresh\"></input>
+    <action>EXIT:auto</action>
    </button>
   </vbox>
   </hbox>
   </vbox>
-  
+
   </notebook>
   <hbox>
    <button cancel></button>
-  </hbox> 
+  </hbox>
  </vbox>
 </window>"
 
   I=$IFS; IFS=""
   for STATEMENTS in  $(gtkdialog3 --program LOAD_MODULE_DIALOG); do
-	eval $STATEMENTS 2>/dev/null
+    eval $STATEMENTS 2>/dev/null
   done
   IFS=$I
   unset LOAD_MODULE_DIALOG
-  
+
   case "$EXIT" in
-    auto)	autoLoadModule ;;
-    ndiswrapper)	loadNdiswrapperModule ;;
-    specify)	loadSpecificModule ;;
-    load)	if [ "$NEW_MODULE" ] ; then
-    		  tryLoadModule ${NEW_MODULE} 
-    		else
-    		  TOPMSG="REPORT ON LOADING OF MODULE: No module was selected" 
-    		fi ;;
+    auto)   autoLoadModule ;;
+    ndiswrapper)    loadNdiswrapperModule ;;
+    specify)    loadSpecificModule ;;
+    load)   if [ "$NEW_MODULE" ] ; then
+              tryLoadModule ${NEW_MODULE}
+            else
+              TOPMSG="REPORT ON LOADING OF MODULE: No module was selected"
+            fi ;;
     cancel) TOPMSG="REPORT ON LOADING OF MODULE: No module was loaded"  ;;
   esac
 
   NEWLOADED="`cat /tmp/ethmoduleyesload.txt`"
   NEWLOADf1=${NEWLOADED%% *} #remove any extra params.
   if [ "${NEWLOADED}" ];then
-	##### add new code here: find new interface, then give window naming it
-	##### and offering to save/unload
-	##### ONLY AFTER that refresh main window   
-	NEW_NUM=`ifconfig -a | grep -Fc "Link encap:Ethernet"`
-	NEW_INTERFACES=""
-	NEW_DATA=""
-	NEW_INTERFACES_FRAME=""
-	if [ $NEW_NUM -gt $INTERFACE_NUM ] ; then # got a new interface
-	  let DIFF=NEW_NUM-INTERFACE_NUM
-	  
-	  for ANEW in `ifconfig -a | grep -F 'Link encap:Ethernet' |cut -f1 -d' '`
-	  do 
-	    case "$INTERFACES" in *$ANEW*) continue ;; esac
-	    # If we got here, it's a new one
-	    NEW_INTERFACES="$NEW_INTERFACES $ANEW"
-	  done
-	  
+    ##### add new code here: find new interface, then give window naming it
+    ##### and offering to save/unload
+    ##### ONLY AFTER that refresh main window
+    NEW_NUM=`ifconfig -a | grep -Fc "Link encap:Ethernet"`
+    NEW_INTERFACES=""
+    NEW_DATA=""
+    NEW_INTERFACES_FRAME=""
+    if [ $NEW_NUM -gt $INTERFACE_NUM ] ; then # got a new interface
+      let DIFF=NEW_NUM-INTERFACE_NUM
+
+      for ANEW in `ifconfig -a | grep -F 'Link encap:Ethernet' |cut -f1 -d' '`
+      do
+        case "$INTERFACES" in *$ANEW*) continue ;; esac
+        # If we got here, it's a new one
+        NEW_INTERFACES="$NEW_INTERFACES $ANEW"
+      done
+
       echo -n "" > /tmp/net-setup-interface-info-tmp #v411
-      
-	  for ANEW in $NEW_INTERFACES
-	  do
-	    # get info for it
-	    findInterfaceInfo $ANEW
-	    # add to code for new interface dialog
-	    NEW_DATA="$NEW_DATA <item>$ANEW|$INTTYPE|$FI_DRIVER|$TYPE: $INFO</item>"
-	  done
-	  # Set message telling about new interfaces
-	  if [ $DIFF -eq 1 ] ; then
-	    NEW_MESSAGE="The following new interface has been found"
-	  else
-	    NEW_MESSAGE="The following new interfaces have been found"
-	  fi
-	  # create the frame with the new interfaces
-	  case "$DIFF" in
+
+      for ANEW in $NEW_INTERFACES
+      do
+        # get info for it
+        findInterfaceInfo $ANEW
+        # add to code for new interface dialog
+        NEW_DATA="$NEW_DATA <item>$ANEW|$INTTYPE|$FI_DRIVER|$TYPE: $INFO</item>"
+      done
+      # Set message telling about new interfaces
+      if [ $DIFF -eq 1 ] ; then
+        NEW_MESSAGE="The following new interface has been found"
+      else
+        NEW_MESSAGE="The following new interfaces have been found"
+      fi
+      # create the frame with the new interfaces
+      case "$DIFF" in
        1) HEIGHT=65 ;;
        2) HEIGHT=100 ;;
        3) HEIGHT=125 ;;
@@ -428,83 +428,83 @@ ${NDISWRAPPERWARNING}\"</label>
   <frame  New interfaces >
     <text><label>$NEW_MESSAGE</label></text>
     <tree>
-    	<label>Interface|Type|Module|Device description</label>
-    	$NEW_DATA
-    	<height>$HEIGHT</height><width>400</width>
-    	<variable>SELECTED_INTERFACE</variable>
-  	</tree>
+        <label>Interface|Type|Module|Device description</label>
+        $NEW_DATA
+        <height>$HEIGHT</height><width>400</width>
+        <variable>SELECTED_INTERFACE</variable>
+    </tree>
   </frame>
-  
+
     <text>
       <label>\"Click the 'Save' button to save the selection, so that Puppy will automatically load $NEWLOADf1 at bootup.
 Click Cancel to just go back and configure the new interface.\"</label>
     </text>
     <hbox>
-	  
-	  <button>
-		<label>Save</label>
-		<input file icon=\"gtk-save\"></input>
-		<action>EXIT:save</action>
-	  </button>
-    
+
+      <button>
+        <label>Save</label>
+        <input file icon=\"gtk-save\"></input>
+        <action>EXIT:save</action>
+      </button>
+
   "
-	
-	else
-	  NEW_INTERFACES_CODE="
+
+    else
+      NEW_INTERFACES_CODE="
   <text><label>No new interfaces were detected.</label></text>
   <text><label>\" \"</label></text>
-  
+
     <text>
       <label>\"Click the 'Unload' button to unload the new module and try to load another one.\"</label>
-    </text>    
+    </text>
     <hbox>
-	  <button>
-	    <label>Unload</label>
-	    <input file stock=\"gtk-undo\"></input>
-	    <action>EXIT:unload</action>
-	  </button>
+      <button>
+        <label>Unload</label>
+        <input file stock=\"gtk-undo\"></input>
+        <action>EXIT:unload</action>
+      </button>
     "
-	fi #if [ $NEW_NUM -gt $INTERFACE_NUM ] 
-	# give dialog with two buttons and appropriate message
-	export NEW_MODULE_DIALOG="<window title=\"New module loaded\" icon-name=\"gtk-execute\" window-position=\"1\">
+    fi #if [ $NEW_NUM -gt $INTERFACE_NUM ]
+    # give dialog with two buttons and appropriate message
+    export NEW_MODULE_DIALOG="<window title=\"New module loaded\" icon-name=\"gtk-execute\" window-position=\"1\">
 <vbox>
   <pixmap><input file>$BLANK_IMAGE</input></pixmap>
   <text><label>The following new module has been loaded: $NEWLOADf1</label></text>
   <pixmap><input file>$BLANK_IMAGE</input></pixmap>
   $NEW_INTERFACES_CODE
-  
+
    <button cancel></button>
-  </hbox> 
+  </hbox>
 </vbox>
 </window>"
-	
-	# Run new dialog
-	I=$IFS; IFS=""
+
+    # Run new dialog
+    I=$IFS; IFS=""
     for STATEMENTS in  $(gtkdialog3 --program NEW_MODULE_DIALOG); do
-	  eval $STATEMENTS 2>/dev/null
+      eval $STATEMENTS 2>/dev/null
     done
     IFS=$I
     unset NEW_MODULE_DIALOG
-    
+
     # Do what we're asked
     case "$EXIT" in
-     save) 
-       saveNewModule 
+     save)
+       saveNewModule
        TOPMSG="New module information saved"
        ;;
-     unload) 
-       unloadNewModule 
+     unload)
+       unloadNewModule
        TOPMSG="New module unloaded"
        ;;
      *) TOPMSG="Cancelled"
        ;;
     esac
-	
-	# refresh main
-	refreshMainWindowInfo
-	# set new message for main dialog
-	#TOPMSG="REPORT ON LOADING OF MODULE: Module '$NEWLOADf1' successfully loaded"
-	
+
+    # refresh main
+    refreshMainWindowInfo
+    # set new message for main dialog
+    #TOPMSG="REPORT ON LOADING OF MODULE: Module '$NEWLOADf1' successfully loaded"
+
     else
       BGCOLOR="#ffc0c0"
       TOPMSG="REPORT ON LOADING OF MODULE: No module was loaded"
@@ -514,135 +514,141 @@ Click Cancel to just go back and configure the new interface.\"</label>
 #=============================================================================
 tryLoadModule ()
 {
-	MODULE_NAME="$1"
-	if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
-		Xdialog --screen-center --title "Puppy Network Wizard: hardware" \
-		        --msgbox "The driver is already loaded.\nThat does not mean it will actually work though!\nAfter clicking OK, see if a new interface\nhas been detected." 0 0
-		echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
-		return 0
-	else
-		if modprobe ${MODULE_NAME}
-		then
-			echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
-			case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
-			 *) echo "${MODULE_NAME}" >> /etc/networkusermodules ;;
-			esac
-			Xdialog --left --wrap --stdout --title "Puppy Network Wizard: hardware" --msgbox "Module ${MODULE_NAME} has loaded successfully.\nThat does not mean it will actually work though!\nAfter clicking OK, see if a new interface\nhas been detected." 0 0
-			return 0
-		else
-			Xdialog --stdout --msgbox "Loading ${MODULE_NAME} failed; try a different driver." 0 0
-			return 1
-		fi
-	fi
+    MODULE_NAME="$1"
+    if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+        # REM: Xdialog msgbox
+        Xdialog --screen-center --title "Puppy Network Wizard: hardware" \
+                --msgbox "The driver is already loaded.\nThat does not mean it will actually work though!\nAfter clicking OK, see if a new interface\nhas been detected." 0 0
+        echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
+        return 0
+    else
+        if modprobe ${MODULE_NAME}
+        then
+            echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
+            case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
+             *) echo "${MODULE_NAME}" >> /etc/networkusermodules ;;
+            esac
+            # REM: Xdialog msgbox
+            Xdialog --left --wrap --stdout --title "Puppy Network Wizard: hardware" --msgbox "Module ${MODULE_NAME} has loaded successfully.\nThat does not mean it will actually work though!\nAfter clicking OK, see if a new interface\nhas been detected." 0 0
+            return 0
+        else
+            # REM: Xdialog msgbox
+            Xdialog --stdout --msgbox "Loading ${MODULE_NAME} failed; try a different driver." 0 0
+            return 1
+        fi
+    fi
 } # end tryLoadModule
 
 #=============================================================================
 loadNdiswrapperModule ()
 {
-	showNdiswrapperGUI
-	if [ $? -eq 0 ] ; then
-	    ndiswrapper -m
-	    
-	    #v4.00 bugfix...
-	    NATIVEMOD=""
-	    nwINTERFACE="`grep '^alias .* ndiswrapper$' /etc/modprobe.conf | cut -f 2 -d ' '`" #most likely 'wlan0'
-	    #if this interface is already claimed by a native linux driver,
-	    #then get rid of it...
-	    if [ -e /sys/class/net/$nwINTERFACE -a "$nwINTERFACE" != "" ];then
-	     NATIVEMOD="`readlink /sys/class/net/${nwINTERFACE}/device/driver/module`"
-	     NATIVEMOD="`basename $NATIVEMOD`"
-	     if [ "$NATIVEMOD" != "ndiswrapper" ];then
-	      #note 'ndiswrapper -l' also returns the native linux module.
-	      nwiPATTERN='^'"$nwINTERFACE"' '
-	      if [ "`iwconfig | grep "$nwiPATTERN" | grep 'IEEE' | grep 'ESSID'`" != "" ];then
-	       rmmod $NATIVEMOD
-	       sleep 6
-	       [ $INTERFACE_NUM -ge 0 ] && INTERFACE_NUM=`expr $INTERFACE_NUM - 1` 
-	       #...needed later to determine that number of interfaces has changed with ndiswrapper.
-	       INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' '`"
-	       #...also needed later.
-	      fi
-	     else
-	      NATIVEMOD=""
-	     fi
-	    fi
-	    
-		tryLoadModule "ndiswrapper"
-		ndRETVAL=$?
-		
-		#v4.00...
-		if [ $ndRETVAL -eq 0 ];then
-		 #well let's be radical, blacklist the native driver...
-		 if [ "$NATIVEMOD" != "" ];then
-		  skmPATTERN='^SKIPLIST.* '"$NATIVEMOD"' '
-		  if [ "`grep "$skmPATTERN" /etc/rc.d/MODULESCONFIG`" = "" ];then
-		   skipPATTERN="s/^SKIPLIST=\"/SKIPLIST=\" ${NATIVEMOD} /"
-		   sed "$skipPATTERN" /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-		   cp -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+    showNdiswrapperGUI
+    if [ $? -eq 0 ] ; then
+        ndiswrapper -m
+
+        #v4.00 bugfix...
+        NATIVEMOD=""
+        nwINTERFACE="`grep '^alias .* ndiswrapper$' /etc/modprobe.conf | cut -f 2 -d ' '`" #most likely 'wlan0'
+        #if this interface is already claimed by a native linux driver,
+        #then get rid of it...
+        if [ -e /sys/class/net/$nwINTERFACE -a "$nwINTERFACE" != "" ];then
+         NATIVEMOD="`readlink /sys/class/net/${nwINTERFACE}/device/driver/module`"
+         NATIVEMOD="`basename $NATIVEMOD`"
+         if [ "$NATIVEMOD" != "ndiswrapper" ];then
+          #note 'ndiswrapper -l' also returns the native linux module.
+          nwiPATTERN='^'"$nwINTERFACE"' '
+          if [ "`iwconfig | grep "$nwiPATTERN" | grep 'IEEE' | grep 'ESSID'`" != "" ];then
+           rmmod $NATIVEMOD
+           sleep 6
+           [ $INTERFACE_NUM -ge 0 ] && INTERFACE_NUM=`expr $INTERFACE_NUM - 1`
+           #...needed later to determine that number of interfaces has changed with ndiswrapper.
+           INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' '`"
+           #...also needed later.
+          fi
+         else
+          NATIVEMOD=""
+         fi
+        fi
+
+        tryLoadModule "ndiswrapper"
+        ndRETVAL=$?
+
+        #v4.00...
+        if [ $ndRETVAL -eq 0 ];then
+         #well let's be radical, blacklist the native driver...
+         if [ "$NATIVEMOD" != "" ];then
+          skmPATTERN='^SKIPLIST.* '"$NATIVEMOD"' '
+          if [ "`grep "$skmPATTERN" /etc/rc.d/MODULESCONFIG`" = "" ];then
+           skipPATTERN="s/^SKIPLIST=\"/SKIPLIST=\" ${NATIVEMOD} /"
+           sed "$skipPATTERN" /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
+           cp -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
            . /etc/rc.d/MODULESCONFIG
-		   Xdialog --title "Network Wizard" --msgbox "WARNING: the ${NATIVEMOD} module has been added to the SKIPLIST variable\nin /etc/rc.d/MODULESCONFIG as it conflicts with ndiswrapper. This will\nprevent the module from loading at bootup. However, if you decide that\nyou do not want to use ndiswrapper, open MODULESCONFIG in a text editor\nand remove the string ' ${NATIVEMOD} ' in the SKIPLIST variable." 0 0
-		  fi
-		 fi
-		fi
-		
-		return $ndRETVAL
-	fi
+           Xdialog --title "Network Wizard" --msgbox "WARNING: the ${NATIVEMOD} module has been added to the SKIPLIST variable\nin /etc/rc.d/MODULESCONFIG as it conflicts with ndiswrapper. This will\nprevent the module from loading at bootup. However, if you decide that\nyou do not want to use ndiswrapper, open MODULESCONFIG in a text editor\nand remove the string ' ${NATIVEMOD} ' in the SKIPLIST variable." 0 0
+          fi
+         fi
+        fi
+
+        return $ndRETVAL
+    fi
 } # end loadNdiswrapperModule
 
 #=============================================================================
 loadSpecificModule ()
 {
-	RESPONSE=$(Xdialog --stdout --title "Puppy Network Wizard: hardware" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
-	if [ $? -eq 0 ];then
-		tryLoadModule "${RESPONSE}"
-	fi
+    # REM: Xdialog inputbox
+    RESPONSE=$(Xdialog --stdout --title "Puppy Network Wizard: hardware" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
+    if [ $? -eq 0 ];then
+        tryLoadModule "${RESPONSE}"
+    fi
 } # end loadSpecificModule
 
 #=============================================================================
 autoLoadModule ()
 {
-	#this is the autoloading...
-	SOMETHINGWORKED=false
-	#clear
-	for CANDIDATE in $NETWORK_MODULES
-	do
+    #this is the autoloading...
+    SOMETHINGWORKED=false
+    #clear
+    for CANDIDATE in $NETWORK_MODULES
+    do
 
-		#if have pcmcia, do not try loading the others...
-		MDOIT="no"
-		case "$CANDIDATE" in 
-		 *_cs*)	[ "$MPCMCIA" = "yes" ] && MDOIT="yes" ;;
-		 *)		[ "$MPCMCIA" = "yes" ] || MDOIT="yes" ;;
-		esac
-		
-		#also, do not try if it is already loaded...?
-		grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+        #if have pcmcia, do not try loading the others...
+        MDOIT="no"
+        case "$CANDIDATE" in
+         *_cs*) [ "$MPCMCIA" = "yes" ] && MDOIT="yes" ;;
+         *)     [ "$MPCMCIA" = "yes" ] || MDOIT="yes" ;;
+        esac
 
-		#in case of false-hits, ignore anything already tried this session...
-		grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+        #also, do not try if it is already loaded...?
+        grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
 
-		if [ "$MDOIT" = "yes" ];then
-			echo; echo "*** Trying $CANDIDATE."
-			if modprobe $CANDIDATE
-			then
-				SOMETHINGWORKED=true
-				WHATWORKED=$CANDIDATE
-				#add it to the log for this session...
-				echo "$CANDIDATE" >> /tmp/logethtries.txt
-				break
-			fi
-		fi
+        #in case of false-hits, ignore anything already tried this session...
+        grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
 
-	done
-	sleep 2
-	if $SOMETHINGWORKED
-	then
-		Xdialog --left --wrap --msgbox "Success loading the $WHATWORKED module. That does not mean it will actually work though!\nAfter clicking OK, back on the main window if you see a new active interface\nproceed to configure it.\n\nNOTE: it is possible that a module loads ok, but it is a false hit, that is, does\nnot actually work with your network adaptor. In that case, try autoprobing again. This\nscript will remember the previous attempts (until you exit this script) and will\njump over them.\nIf you do get false hits, let us know about it on the Puppy Discussion Forum!" 0 0
-		echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
-	else
-		MALREADY="`cat /tmp/loadedeth.txt`"
-		Xdialog --msgbox "No module loaded successfully.\n\nNote however that these modules are already loaded:\n${MALREADY}" 0 0
-		return 1
-	fi
+        if [ "$MDOIT" = "yes" ];then
+            echo; echo "*** Trying $CANDIDATE."
+            if modprobe $CANDIDATE
+            then
+                SOMETHINGWORKED=true
+                WHATWORKED=$CANDIDATE
+                #add it to the log for this session...
+                echo "$CANDIDATE" >> /tmp/logethtries.txt
+                break
+            fi
+        fi
+
+    done
+    sleep 2
+    if $SOMETHINGWORKED
+    then
+        # REM: Xdialog msgbox
+        Xdialog --left --wrap --msgbox "Success loading the $WHATWORKED module. That does not mean it will actually work though!\nAfter clicking OK, back on the main window if you see a new active interface\nproceed to configure it.\n\nNOTE: it is possible that a module loads ok, but it is a false hit, that is, does\nnot actually work with your network adaptor. In that case, try autoprobing again. This\nscript will remember the previous attempts (until you exit this script) and will\njump over them.\nIf you do get false hits, let us know about it on the Puppy Discussion Forum!" 0 0
+        echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
+    else
+        MALREADY="`cat /tmp/loadedeth.txt`"
+        # REM: Xdialog msgbox
+        Xdialog --msgbox "No module loaded successfully.\n\nNote however that these modules are already loaded:\n${MALREADY}" 0 0
+        return 1
+    fi
 } # end autoLoadModule
 
 #=============================================================================
@@ -650,33 +656,33 @@ findLoadedModules ()
 {
   echo -n " " > /tmp/loadedeth.txt
 
-	LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
-	NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2> ${DEBUG_OUTPUT} | cut -f1 -d' ' | tr '\n' ' ') "
+    LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
+    NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2> ${DEBUG_OUTPUT} | cut -f1 -d' ' | tr '\n' ' ') "
 
   COUNT_MOD=0
   for MOD in $LOADED_MODULES
-  do	let COUNT_MOD=COUNT_MOD+1
+  do    let COUNT_MOD=COUNT_MOD+1
   done
 
   (
-		for AMOD in $LOADED_MODULES
-		do
-			echo "X"
-			# Dougal: use a case structure for globbing
-			# Also try and retain original module names (removed "tr '-' '_')
-			case "$NETWORK_MODULES" in 
-			 *" $AMOD "*)
-			   echo "$AMOD" >> /tmp/loadedeth.txt
-			   echo -n " " >> /tmp/loadedeth.txt #space separation
-			   ;;
-			 *" ${AMOD/_/-} "*) # kernel shows module with underscore...
-			  echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
-			  echo -n " " >> /tmp/loadedeth.txt #space separation
-			  ;;
-			esac
-		done
+        for AMOD in $LOADED_MODULES
+        do
+            echo "X"
+            # Dougal: use a case structure for globbing
+            # Also try and retain original module names (removed "tr '-' '_')
+            case "$NETWORK_MODULES" in
+             *" $AMOD "*)
+               echo "$AMOD" >> /tmp/loadedeth.txt
+               echo -n " " >> /tmp/loadedeth.txt #space separation
+               ;;
+             *" ${AMOD/_/-} "*) # kernel shows module with underscore...
+              echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
+              echo -n " " >> /tmp/loadedeth.txt #space separation
+              ;;
+            esac
+        done
   ) | Xdialog --title "Puppy Network Wizard" --progress "Checking loaded modules" 0 0 $COUNT_MOD
-
+        # REM: Xdialog progress
 } # end of findLoadedModules
 
 #=============================================================================
@@ -684,31 +690,32 @@ testInterface()
 {
   INTERFACE=$1
 
-	(
-		UNPLUGGED="false"
-		ifconfig $INTERFACE | grep " UP " &> ${DEBUG_OUTPUT}
-		if [ ! $? -eq 0 ];then #=0 if found
-			ifconfig $INTERFACE up
-		fi
-		#BK1.0.7 improved link-beat detection...
-		echo "X"
-		if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
-		  sleep 2
-		  echo "X"
-		  if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
-			sleep 2
-			echo "X"
-			if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
-			  sleep 2
-			  echo "X"
-			  if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
-			    UNPLUGGED="true"
-			  fi
-			fi
-		  fi
-		fi
-		echo "${UNPLUGGED}" > /tmp/net-setup_UNPLUGGED.txt
+    (
+        UNPLUGGED="false"
+        ifconfig $INTERFACE | grep " UP " &> ${DEBUG_OUTPUT}
+        if [ ! $? -eq 0 ];then #=0 if found
+            ifconfig $INTERFACE up
+        fi
+        #BK1.0.7 improved link-beat detection...
+        echo "X"
+        if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
+          sleep 2
+          echo "X"
+          if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
+            sleep 2
+            echo "X"
+            if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
+              sleep 2
+              echo "X"
+              if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
+                UNPLUGGED="true"
+              fi
+            fi
+          fi
+        fi
+        echo "${UNPLUGGED}" > /tmp/net-setup_UNPLUGGED.txt
   ) | Xdialog --title "Puppy Network Wizard" --progress "Testing Interface ${INTERFACE}" 0 0 4
+        # REM: Xdialog progress
 
   UNPLUGGED=$(cat /tmp/net-setup_UNPLUGGED.txt)
 
@@ -736,7 +743,7 @@ that the ethernet cable is plugged in."
 'Puppy was able to find a live network'
 
 You can proceed to acquire an IP address."
-		RETTEST=0
+        RETTEST=0
   fi
 
   return ${RETTEST}
@@ -777,10 +784,10 @@ showConfigureInterfaceWindow()
         else
          TOPMSG="NETWORK CONFIGURATION OF $INTERFACE COMPLETED"
         fi
-       
-		  break
+
+          break
           ;;
-      66) # Dougal: add "Done" button to exit (there was a wrong message) 
+      66) # Dougal: add "Done" button to exit (there was a wrong message)
           exit
           ;;
       10) # AutoDHCP
@@ -805,27 +812,28 @@ showConfigureInterfaceWindow()
           break
           ;;
     esac
-	
-	# Dougal: define the "Done" button here, so it doesn't appear the first time around...
-	DONEBUTTON="<button>
-					<label>Done</label>
-					<input file stock=\"gtk-apply\"></input>
-					<action>EXIT:66</action>
-				</button>"
-	
+
+    # Dougal: define the "Done" button here, so it doesn't appear the first time around...
+    DONEBUTTON="<button>
+                    <label>Done</label>
+                    <input file stock=\"gtk-apply\"></input>
+                    <action>EXIT:66</action>
+                </button>"
+
     if [ $RETVALUE -eq 10 ] || [ $RETVALUE -eq 11 ] ; then
       if [ $RETSETUP -ne 0 ] ; then
         TOPMSG="NETWORK CONFIGURATION OF $INTERFACE UNSUCCESSFUL!
 Try again, click 'Back' to try a different interface or click 'Done' to give up for now."
       else
         RETVALUE=1
+        # REM: Xdialog yesno
         Xdialog --yesno "NETWORK CONFIGURATION OF $INTERFACE SUCCESSFUL!
 
 Do you want to save this configuration?
 
 If you want to keep this configuration for next boot: click 'Yes'.
 If you just want to use this configuration for this session: click 'No'." 0 0
-		if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ] ; then
           saveInterfaceSetup ${INTERFACE}
           TOPMSG="NETWORK CONFIGURATION OF $INTERFACE SUCCESSFUL!
 The configuration has been saved to file /etc/${INTERFACE}mode.
@@ -848,59 +856,59 @@ If there are no more interfaces to setup and configure, just click 'Done' to get
 #=============================================================================
 buildConfigureInterfaceWindow ()
 {
-	export Puppy_Network_Setup="<window title=\"Configure network interface ${INTERFACE}\" icon-name=\"gtk-network\" window-position=\"1\">
+    export Puppy_Network_Setup="<window title=\"Configure network interface ${INTERFACE}\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
-	<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-	<text><label>\"${TOPMSG}\"</label></text>
-	${WIRELESSSECTION}
-	<frame  Test interface >
-		<hbox>
-			<text><label>\"${TESTMSG}\"</label></text>
-			<vbox>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-				<button>
-					<label>Test ${INTERFACE}</label>
-					<action>EXIT:13</action>
-				</button>
-			</vbox>
-		</hbox>
-	</frame>
-	<frame  Configure interface >
-		<hbox>
-			<text><label>\"${DHCPMSG}\"</label></text>
-			<vbox>
-				<text><label>\" \"</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-				<button>
-					<label>Auto DHCP</label>
-					<action>EXIT:10</action>
-				</button>
-			</vbox>
-		</hbox>
-		<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-		<hbox>
-			<text><label>\"${STATICMSG}\"</label></text>
-			<vbox>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-				<button>
-					<label>Static IP</label>
-					<action>EXIT:11</action>
-				</button>
-			</vbox>
-		</hbox>
-	</frame>
-	<hbox>
-		$DONEBUTTON
-		<button help>
-			<action>man 'net_setup' &> /dev/null & </action>
-		</button>
-		${SAVE_SETUP_BUTTON}
-		<button>
-			<label>Back</label>
-			<input file stock=\"gtk-go-back\"></input>
-			<action>EXIT:19</action>
-		</button>
-	</hbox>
+    <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+    <text><label>\"${TOPMSG}\"</label></text>
+    ${WIRELESSSECTION}
+    <frame  Test interface >
+        <hbox>
+            <text><label>\"${TESTMSG}\"</label></text>
+            <vbox>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+                <button>
+                    <label>Test ${INTERFACE}</label>
+                    <action>EXIT:13</action>
+                </button>
+            </vbox>
+        </hbox>
+    </frame>
+    <frame  Configure interface >
+        <hbox>
+            <text><label>\"${DHCPMSG}\"</label></text>
+            <vbox>
+                <text><label>\" \"</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+                <button>
+                    <label>Auto DHCP</label>
+                    <action>EXIT:10</action>
+                </button>
+            </vbox>
+        </hbox>
+        <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+        <hbox>
+            <text><label>\"${STATICMSG}\"</label></text>
+            <vbox>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+                <button>
+                    <label>Static IP</label>
+                    <action>EXIT:11</action>
+                </button>
+            </vbox>
+        </hbox>
+    </frame>
+    <hbox>
+        $DONEBUTTON
+        <button help>
+            <action>man 'net_setup' &> /dev/null & </action>
+        </button>
+        ${SAVE_SETUP_BUTTON}
+        <button>
+            <label>Back</label>
+            <input file stock=\"gtk-go-back\"></input>
+            <action>EXIT:19</action>
+        </button>
+    </hbox>
 </vbox>
 </window>"
 }
@@ -908,36 +916,36 @@ buildConfigureInterfaceWindow ()
 #=============================================================================
 initializeConfigureInterfaceWindow ()
 {
-	TOPMSG="OK, let's try to configure ${INTERFACE}."
+    TOPMSG="OK, let's try to configure ${INTERFACE}."
 
-	TESTMSG="You should make sure that ${INTERFACE} is connected to a 'live' network.
+    TESTMSG="You should make sure that ${INTERFACE} is connected to a 'live' network.
 After you confirm that, you can configure the interface."
 
-	DHCPMSG="The easiest way to configure the network is by using a DHCP server (usually provided by your network). This will enable Puppy to query the server at bootup and automatically be assigned an IP address. The 'dhcpcd' client daemon program is launched and network access happens automatically."
+    DHCPMSG="The easiest way to configure the network is by using a DHCP server (usually provided by your network). This will enable Puppy to query the server at bootup and automatically be assigned an IP address. The 'dhcpcd' client daemon program is launched and network access happens automatically."
 
-	STATICMSG="If a DHCP server is not available, you will have to do everything manually by setting a static IP, but this script will make it easy."
+    STATICMSG="If a DHCP server is not available, you will have to do everything manually by setting a static IP, but this script will make it easy."
 
-	checkIfIsWireless ${INTERFACE}
+    checkIfIsWireless ${INTERFACE}
 
-	if [ "$IS_WIRELESS" ] ; then
-		WIRELESSSECTION="<frame  Configure wireless network >
+    if [ "$IS_WIRELESS" ] ; then
+        WIRELESSSECTION="<frame  Configure wireless network >
 <hbox>
-	<text><label>\"Puppy found that ${INTERFACE} is a wireless interface.
+    <text><label>\"Puppy found that ${INTERFACE} is a wireless interface.
 To connect to a wireless network, you must first set the wireless network parameters by clicking on the 'Wireless' button, then assign an IP address to it, either with DHCP or Static IP (see below).\"</label></text>
-	<vbox>
-		<text><label>\" \"</label></text>
-		<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-		<button>
-			<label>Wireless</label>
-			<action>EXIT:14</action>
-		</button>
-	</vbox>
+    <vbox>
+        <text><label>\" \"</label></text>
+        <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+        <button>
+            <label>Wireless</label>
+            <action>EXIT:14</action>
+        </button>
+    </vbox>
 </hbox>
 </frame>"
-	else
-		WIRELESSSECTION=""
-	fi
-	SAVE_SETUP_BUTTON=""
+    else
+        WIRELESSSECTION=""
+    fi
+    SAVE_SETUP_BUTTON=""
 }
 
 #=============================================================================
@@ -956,59 +964,60 @@ checkIfIsWireless ()
 #=============================================================================
 configureWireless()
 {
-	INTERFACE=$1
-	showProfilesWindow ${INTERFACE}
-	if [ $? -eq 0 ] ; then
-		testInterface ${INTERFACE}
-	else
-		TOPMSG="WIRELESS CONFIGURATION OF $INTERFACE CANCELED!
+    INTERFACE=$1
+    showProfilesWindow ${INTERFACE}
+    if [ $? -eq 0 ] ; then
+        testInterface ${INTERFACE}
+    else
+        TOPMSG="WIRELESS CONFIGURATION OF $INTERFACE CANCELED!
 To connect to a wireless network you have to select a profile to use'. "
-	fi
+    fi
 }
 
 #=============================================================================
 setupDHCP()
 {
-	{
-		# Must kill old dhcpcd first
-		dhcpcd -k "$INTERFACE"
-		#v3.91 later pkgs use /var by default...
-		if [ -d /etc/dhcpc ];then
-		 rm /etc/dhcpc/dhcpcd-${INTERFACE}.* &>/dev/null #if left over from last session, causes trouble.
-		else
+    {
+        # Must kill old dhcpcd first
+        dhcpcd -k "$INTERFACE"
+        #v3.91 later pkgs use /var by default...
+        if [ -d /etc/dhcpc ];then
+         rm /etc/dhcpc/dhcpcd-${INTERFACE}.* &>/dev/null #if left over from last session, causes trouble.
+        else
 #begin rerwin - Retain duid, if any, so all interfaces can use it (per ipv6) or delete it if using MAC address as client ID.    rerwin
-		 rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>/dev/null  #.info
+         rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>/dev/null  #.info
 #end rerwin
-		 rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
-		fi
-		sleep 5
+         rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
+        fi
+        sleep 5
 
 #begin rerwin - select type of client ID and set up for common duid for pup-save or within partition.
-		if [ -f /root/.dhcpcd.duid ];then  #Use default if indicated, or MAC address, as client ID
-		 if [ -s /mnt/home/.common.duid -o -s /root/.dhcpcd.duid ];then  #a partition-common duid exists.
-	 	  [ ! -d /var/lib/dhcpcd ] && mkdir /var/lib/dhcpcd
-		  [ -s /mnt/home/.common.duid ] && cp /mnt/home/.common.duid /var/lib/dhcpcd/dhcpcd.duid || cp /root/.dhcpcd.duid /var/lib/dhcpcd/dhcpcd.duid  #use partition-common duid.
-		 #else let dhcpcd use previously acquired duid or create new one
-		 fi
-		 dhcpcd -d $INTERFACE
-		else
-		 rm -f /var/lib/dhcpcd/dhcpcd.duid 2>/dev/null  #.duid
-		 [ -d /etc/dhcpc ] && dhcpcd -d $INTERFACE || dhcpcd -d -I '' $INTERFACE   #Use option safe for older dhcpcd, if might be present
-		fi
-		if [ $? -eq 0 ] ; then
+        if [ -f /root/.dhcpcd.duid ];then  #Use default if indicated, or MAC address, as client ID
+         if [ -s /mnt/home/.common.duid -o -s /root/.dhcpcd.duid ];then  #a partition-common duid exists.
+          [ ! -d /var/lib/dhcpcd ] && mkdir /var/lib/dhcpcd
+          [ -s /mnt/home/.common.duid ] && cp /mnt/home/.common.duid /var/lib/dhcpcd/dhcpcd.duid || cp /root/.dhcpcd.duid /var/lib/dhcpcd/dhcpcd.duid  #use partition-common duid.
+         #else let dhcpcd use previously acquired duid or create new one
+         fi
+         dhcpcd -d $INTERFACE
+        else
+         rm -f /var/lib/dhcpcd/dhcpcd.duid 2>/dev/null  #.duid
+         [ -d /etc/dhcpc ] && dhcpcd -d $INTERFACE || dhcpcd -d -I '' $INTERFACE   #Use option safe for older dhcpcd, if might be present
+        fi
+        if [ $? -eq 0 ] ; then
 #end rerwin
-			HAS_ERROR=0
+            HAS_ERROR=0
 #begin rerwin - Save copy of duid, if any, for use during reboot and as partition-common duid.
-			cp /var/lib/dhcpcd/dhcpcd.duid /root/.dhcpcd.duid 2>/dev/null
-			[ -d /mnt/home -a ! -s /mnt/home/.common.duid ] && cp /var/lib/dhcpcd/dhcpcd.duid /mnt/home/.common.duid 2>/dev/null
+            cp /var/lib/dhcpcd/dhcpcd.duid /root/.dhcpcd.duid 2>/dev/null
+            [ -d /mnt/home -a ! -s /mnt/home/.common.duid ] && cp /var/lib/dhcpcd/dhcpcd.duid /mnt/home/.common.duid 2>/dev/null
 #end rerwin
-		else
-			HAS_ERROR=1
-		fi
-		echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
-		echo "XXXX"
-	} | Xdialog --no-buttons --title "Puppy Network Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
+        else
+            HAS_ERROR=1
+        fi
+        echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
+        echo "XXXX"
+    } | Xdialog --no-buttons --title "Puppy Network Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
 DHCP server to respond. Please wait patiently..." 0 0 0
+        # REM: Xdialog infobox
 
   HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
 
@@ -1031,139 +1040,139 @@ fi"   #Use default if indicated, or MAC address, as client ID.  #rerwin
     MODECOMMANDS=""
   fi
 
-	return ${HAS_ERROR}
+    return ${HAS_ERROR}
 } #end of setupDHCP
 
 #=============================================================================
 showStaticIPWindow()
 {
-	IP_ADDRESS="`ifconfig ${INTERFACE} | grep 'inet addr' | sed 's/.*inet addr://' | cut -d" " -f1`"
-	NETMASK="`ifconfig ${INTERFACE} | grep 'inet addr' | sed 's/.*Mask://'`"
-	GATEWAY="`iproute | grep default | cut -d" " -f3`"
-	DNS_SERVER1="`grep nameserver /etc/resolv.conf | head -n1 | cut -d" " -f2`"
-	DNS_SERVER2="`grep nameserver /etc/resolv.conf | tail -n1 | cut -d" " -f2`"
-	
-	EXIT=""
-	while true
-	do
+    IP_ADDRESS="`ifconfig ${INTERFACE} | grep 'inet addr' | sed 's/.*inet addr://' | cut -d" " -f1`"
+    NETMASK="`ifconfig ${INTERFACE} | grep 'inet addr' | sed 's/.*Mask://'`"
+    GATEWAY="`iproute | grep default | cut -d" " -f3`"
+    DNS_SERVER1="`grep nameserver /etc/resolv.conf | head -n1 | cut -d" " -f2`"
+    DNS_SERVER2="`grep nameserver /etc/resolv.conf | tail -n1 | cut -d" " -f2`"
 
-		buildStaticIPWindow
-		I=$IFS; IFS=""
-		for STATEMENTS in  $(gtkdialog3 --program Puppy_Network_Setup); do
-			eval $STATEMENTS
-		done
-		IFS=$I
-		unset Puppy_Network_Setup
+    EXIT=""
+    while true
+    do
 
-		case "$EXIT" in
-			abort|Cancel) # close window
-				break
-				;; # Do Nothing, It will exit without doing anything
-			#"21" ) # Help
-				#showHelp
-				#;;
-			"OK" ) # OK
-				validateStaticIP
-				if [ $? -eq 0 ] ; then
-					setupStaticIP
-					[ $? -ne 0 ] && EXIT=""
-				else
-					EXIT=""
-				fi
-				break
-				;;
-		esac
-	done
-	
-	if [ "${EXIT}" = "OK" ] ; then
-		return 0
-	else
-		return 1
-	fi
+        buildStaticIPWindow
+        I=$IFS; IFS=""
+        for STATEMENTS in  $(gtkdialog3 --program Puppy_Network_Setup); do
+            eval $STATEMENTS
+        done
+        IFS=$I
+        unset Puppy_Network_Setup
+
+        case "$EXIT" in
+            abort|Cancel) # close window
+                break
+                ;; # Do Nothing, It will exit without doing anything
+            #"21" ) # Help
+                #showHelp
+                #;;
+            "OK" ) # OK
+                validateStaticIP
+                if [ $? -eq 0 ] ; then
+                    setupStaticIP
+                    [ $? -ne 0 ] && EXIT=""
+                else
+                    EXIT=""
+                fi
+                break
+                ;;
+        esac
+    done
+
+    if [ "${EXIT}" = "OK" ] ; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 #=============================================================================
 buildStaticIPWindow()
 {
-	[ -z "$IP_ADDRESS" ] && IP_ADDRESS="0.0.0.0"
-	[ -z "$NETMASK" ] && NETMASK="255.255.255.0"
-	[ -z "$GATEWAY" ] && GATEWAY="0.0.0.0"
-	[ -z "$DNS_SERVER1" ] && DNS_SERVER1="0.0.0.0"
-	[ -z "$DNS_SERVER2" ] && DNS_SERVER2="0.0.0.0"
+    [ -z "$IP_ADDRESS" ] && IP_ADDRESS="0.0.0.0"
+    [ -z "$NETMASK" ] && NETMASK="255.255.255.0"
+    [ -z "$GATEWAY" ] && GATEWAY="0.0.0.0"
+    [ -z "$DNS_SERVER1" ] && DNS_SERVER1="0.0.0.0"
+    [ -z "$DNS_SERVER2" ] && DNS_SERVER2="0.0.0.0"
 
-	export Puppy_Network_Setup="<window title=\"Set Static IP\" icon-name=\"gtk-network\" window-position=\"1\">
+    export Puppy_Network_Setup="<window title=\"Set Static IP\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
-	<text><label>\"Enter your static IP parameters:
+    <text><label>\"Enter your static IP parameters:
 - If you are using a router check your router's
-status page to get these values. 
+status page to get these values.
 - If you connect directly to your modem you will
 need to get these values from your ISP.
 
 Please enter all addresses in dotted-quad decimal
-format (xxx.xxx.xxx.xxx). other formats will 
+format (xxx.xxx.xxx.xxx). other formats will
 not be recognized.
 \"</label></text>
-	<frame  Static IP parameters >
-		<hbox>
-			<vbox>
-				<text><label>IP address:</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			</vbox>
-			<entry>
-				<variable>IP_ADDRESS</variable>
-				<default>${IP_ADDRESS}</default>
-			</entry>
-		</hbox>
-		<hbox>
-			<vbox>
-				<text><label>Net Mask:</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			</vbox>
-			<entry>
-				<variable>NETMASK</variable>
-				<default>${NETMASK}</default>
-			</entry>
-		</hbox>
-		<hbox>
-			<vbox>
-				<text><label>Gateway:</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			</vbox>
-			<entry>
-				<variable>GATEWAY</variable>
-				<default>${GATEWAY}</default>
-			</entry>
-		</hbox>
-	</frame>
-	<frame  DNS parameters >
-		<hbox>
-			<vbox>
-				<text><label>Primary:</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			</vbox>
-			<entry>
-				<variable>DNS_SERVER1</variable>
-				<default>${DNS_SERVER1}</default>
-			</entry>
-		</hbox>
-		<hbox>
-			<vbox>
-				<text><label>Secondary:</label></text>
-				<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			</vbox>
-			<entry>
-				<variable>DNS_SERVER2</variable>
-				<default>${DNS_SERVER2}</default>
-			</entry>
-		</hbox>
-	</frame>
-	<hbox>
-		<button help>
-			<action>man 'net_setup' &> /dev/null & </action>
-		</button>
-		<button ok></button>
-		<button cancel></button>
-	</hbox>
+    <frame  Static IP parameters >
+        <hbox>
+            <vbox>
+                <text><label>IP address:</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            </vbox>
+            <entry>
+                <variable>IP_ADDRESS</variable>
+                <default>${IP_ADDRESS}</default>
+            </entry>
+        </hbox>
+        <hbox>
+            <vbox>
+                <text><label>Net Mask:</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            </vbox>
+            <entry>
+                <variable>NETMASK</variable>
+                <default>${NETMASK}</default>
+            </entry>
+        </hbox>
+        <hbox>
+            <vbox>
+                <text><label>Gateway:</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            </vbox>
+            <entry>
+                <variable>GATEWAY</variable>
+                <default>${GATEWAY}</default>
+            </entry>
+        </hbox>
+    </frame>
+    <frame  DNS parameters >
+        <hbox>
+            <vbox>
+                <text><label>Primary:</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            </vbox>
+            <entry>
+                <variable>DNS_SERVER1</variable>
+                <default>${DNS_SERVER1}</default>
+            </entry>
+        </hbox>
+        <hbox>
+            <vbox>
+                <text><label>Secondary:</label></text>
+                <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            </vbox>
+            <entry>
+                <variable>DNS_SERVER2</variable>
+                <default>${DNS_SERVER2}</default>
+            </entry>
+        </hbox>
+    </frame>
+    <hbox>
+        <button help>
+            <action>man 'net_setup' &> /dev/null & </action>
+        </button>
+        <button ok></button>
+        <button cancel></button>
+    </hbox>
 </vbox>
 </window>"
 }
@@ -1171,110 +1180,116 @@ not be recognized.
 #=============================================================================
 validateStaticIP()
 {
-	ERROR_MSG=""
-	if ! validip "${IP_ADDRESS}" ; then
-		ERROR_MSG="${ERROR_MSG}\n- Invalid IP Address"
-	fi
-	if ! validip "${NETMASK}" ; then
-		ERROR_MSG="${ERROR_MSG}\n- Invalid Netmask"
-	fi
-	if [ ! -z "$GATEWAY" ] ; then
-		if ! validip "${GATEWAY}"  ; then
-			ERROR_MSG="${ERROR_MSG}\n- Invalid Gateway address"
-		fi
-	fi
-	if ! validip "${DNS_SERVER1}"  ; then
-		ERROR_MSG="${ERROR_MSG}\n- Invalid DNS server 1 address"
-	fi
-	if ! validip "${DNS_SERVER2}"  ; then
-		ERROR_MSG="${ERROR_MSG}\n- Invalid DNS server 2 address"
-	fi
-	
-	if [ "x${ERROR_MSG}" != "x" ] ; then
-	  Xdialog --left --title "Puppy Network Wizard: Static IP" \
-	  				--msgbox "Some of the addresses provided are invalid\n${ERROR_MSG}" 0 0
-	  return 1
-	fi	
+    ERROR_MSG=""
+    if ! validip "${IP_ADDRESS}" ; then
+        ERROR_MSG="${ERROR_MSG}\n- Invalid IP Address"
+    fi
+    if ! validip "${NETMASK}" ; then
+        ERROR_MSG="${ERROR_MSG}\n- Invalid Netmask"
+    fi
+    if [ ! -z "$GATEWAY" ] ; then
+        if ! validip "${GATEWAY}"  ; then
+            ERROR_MSG="${ERROR_MSG}\n- Invalid Gateway address"
+        fi
+    fi
+    if ! validip "${DNS_SERVER1}"  ; then
+        ERROR_MSG="${ERROR_MSG}\n- Invalid DNS server 1 address"
+    fi
+    if ! validip "${DNS_SERVER2}"  ; then
+        ERROR_MSG="${ERROR_MSG}\n- Invalid DNS server 2 address"
+    fi
+
+    if [ "x${ERROR_MSG}" != "x" ] ; then
+        # REM: Xdialog  msgbox
+      Xdialog --left --title "Puppy Network Wizard: Static IP" \
+                    --msgbox "Some of the addresses provided are invalid\n${ERROR_MSG}" 0 0
+      return 1
+    fi
 
   DEFAULTMASK=$(ipcalc --netmask "${IP_ADDRESS}" | cut -d= -f2)
-  
+
   if [ "x${NETMASK}" != "x${DEFAULTMASK}" ] ; then
-	  Xdialog --center --title "Puppy Network Wizard: Static IP" \
-	  				--yesno "WARNING:\nYour netmask does not correspond to your network address class.\n\nAre you sure it is correct?" 0 0
-	  if [ $? -eq 1 ] ; then
-	  	return 1
-	  fi
+        # REM: Xdialog yesno
+      Xdialog --center --title "Puppy Network Wizard: Static IP" \
+                    --yesno "WARNING:\nYour netmask does not correspond to your network address class.\n\nAre you sure it is correct?" 0 0
+      if [ $? -eq 1 ] ; then
+        return 1
+      fi
   fi
 
-	# Check that network is right
-	if [ -z "$GATEWAY" ];then
-		# It is legitimate not to have a gateway at all.  In that case, it
-		# doesn't have a network. :-)
-		unset HOSTNET
-		unset GATENET
+    # Check that network is right
+    if [ -z "$GATEWAY" ];then
+        # It is legitimate not to have a gateway at all.  In that case, it
+        # doesn't have a network. :-)
+        unset HOSTNET
+        unset GATENET
   else
-		HOSTNUM=$(dotquad "$IP_ADDRESS") 
-		MASKNUM=$(dotquad "$NETMASK")
-		GATENUM=$(dotquad "$GATEWAY")
-		HOSTNET=$(and "$MASKNUM" "$HOSTNUM")
-		GATENET=$(and "$MASKNUM" "$GATENUM")
+        HOSTNUM=$(dotquad "$IP_ADDRESS")
+        MASKNUM=$(dotquad "$NETMASK")
+        GATENUM=$(dotquad "$GATEWAY")
+        HOSTNET=$(and "$MASKNUM" "$HOSTNUM")
+        GATENET=$(and "$MASKNUM" "$GATENUM")
  fi
 
-	if [ "x${HOSTNET}" != "x${GATENET}" ] ; then
-  	Xdialog --center --wrap --title "Puppy Network Wizard: Static IP" \
-  					--msgbox "Your gateway $GATEWAY is not on this network! Please try again.\n(You may have entered your address, gateway or netmask incorrectly.)" 0 0  0 0
-  	return 1
-	fi
-	
-	return 0
+    if [ "x${HOSTNET}" != "x${GATENET}" ] ; then
+    # REM: Xdialog msgbox
+    Xdialog --center --wrap --title "Puppy Network Wizard: Static IP" \
+                    --msgbox "Your gateway $GATEWAY is not on this network! Please try again.\n(You may have entered your address, gateway or netmask incorrectly.)" 0 0  0 0
+    return 1
+    fi
+
+    return 0
 } #end of staticIPSetup
 
 #=============================================================================
 setupStaticIP()
 {
-	BROADCAST=$(ipcalc -b ${IP_ADDRESS} ${NETMASK} | cut -d= -f2)
+    BROADCAST=$(ipcalc -b ${IP_ADDRESS} ${NETMASK} | cut -d= -f2)
 
-	ifconfig ${INTERFACE} down
+    ifconfig ${INTERFACE} down
 
-	CONVO="ifconfig ${INTERFACE} ${IP_ADDRESS} netmask ${NETMASK} broadcast ${BROADCAST} up"
-	CONVG="route add -net default gw ${GATEWAY}"
+    CONVO="ifconfig ${INTERFACE} ${IP_ADDRESS} netmask ${NETMASK} broadcast ${BROADCAST} up"
+    CONVG="route add -net default gw ${GATEWAY}"
 
   # do the work
   ifconfig ${INTERFACE} ${IP_ADDRESS} netmask ${NETMASK} broadcast ${BROADCAST} up
-  
+
   if [ $? -eq 0 ];then
-		MODECOMMANDS="${CONVO}"
-		# Configure a nameserver, if we're supposed to.
-		# This now replaces any existing resolv.conf, which
-		# we will try to back up.
-		if [ "${DNS_SERVER1}" != "0.0.0.0" ] ; then
-			mv -f /etc/resolv.conf /etc/resolv.conf.$$
-			echo "nameserver ${DNS_SERVER1}" > /etc/resolv.conf
-			if [ "${DNS_SERVER2}" != "0.0.0.0" ] ; then
-				echo "nameserver ${DNS_SERVER2}" >> /etc/resolv.conf
-			fi
-		fi
+        MODECOMMANDS="${CONVO}"
+        # Configure a nameserver, if we're supposed to.
+        # This now replaces any existing resolv.conf, which
+        # we will try to back up.
+        if [ "${DNS_SERVER1}" != "0.0.0.0" ] ; then
+            mv -f /etc/resolv.conf /etc/resolv.conf.$$
+            echo "nameserver ${DNS_SERVER1}" > /etc/resolv.conf
+            if [ "${DNS_SERVER2}" != "0.0.0.0" ] ; then
+                echo "nameserver ${DNS_SERVER2}" >> /etc/resolv.conf
+            fi
+        fi
 
    # add default route, if we're supposed to
-		if [ "$GATEWAY" ] ; then
-			route add -net default gw "$GATEWAY"
-			if [ $? -eq 0 ];then #0=ok.
-				Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Default route set through $GATEWAY." 0 0
-				MODECOMMANDS="${MODECOMMANDS}\n${CONVG}"
-			else
-				Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Could not set default route through $GATEWAY.  Please try again.\n\nNote that Puppy has tried to do this:\n${CONVG}" 0 0
-				ifconfig "$INTERFACE" down
-				return 1
-			fi
-		fi
+        if [ "$GATEWAY" ] ; then
+            route add -net default gw "$GATEWAY"
+            if [ $? -eq 0 ];then #0=ok.
+                # REM: Xdialog msgbox
+                Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Default route set through $GATEWAY." 0 0
+                MODECOMMANDS="${MODECOMMANDS}\n${CONVG}"
+            else
+                # REM: Xdialog msgbox
+                Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Could not set default route through $GATEWAY.  Please try again.\n\nNote that Puppy has tried to do this:\n${CONVG}" 0 0
+                ifconfig "$INTERFACE" down
+                return 1
+            fi
+        fi
 
-  	return 0
+    return 0
   else
-		Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Interface configuration failed; please try again.\n\nWhat Puppy has just tried to do is this:\n${CONVO} \n\nIf you think that this is incorrect for your system, and you can come up\nwith something else that works, let me know and maybe I can modify this\nnetwork setup script." 0 0
-		ifconfig "$INTERFACE" down
-		MODECOMMANDS=""
-		return 1
-	fi
+        # REM: Xdialog msgbox
+        Xdialog --center --title "Puppy Network Wizard: Static IP" --msgbox "Interface configuration failed; please try again.\n\nWhat Puppy has just tried to do is this:\n${CONVO} \n\nIf you think that this is incorrect for your system, and you can come up\nwith something else that works, let me know and maybe I can modify this\nnetwork setup script." 0 0
+        ifconfig "$INTERFACE" down
+        MODECOMMANDS=""
+        return 1
+    fi
 } #end of setupStaticIP
 
 #=============================================================================
@@ -1286,7 +1301,7 @@ saveNewModule()
   fi
   TOPMSG="MODULE '$NEWLOADED' RECORDED IN /etc/ethernetmodules
 Puppy will read this when booting up."
-	setDefaultMODULEBUTTONS
+    setDefaultMODULEBUTTONS
 }
 
 
@@ -1303,7 +1318,7 @@ Also, '$NEWLOADED' removed from /etc/ethernetmodules (if it was there)."
 
   setDefaultMODULEBUTTONS
 
-	refreshMainWindowInfo
+    refreshMainWindowInfo
 
 }
 
@@ -1323,16 +1338,16 @@ setDefaultMODULEBUTTONS ()
 {
   MODULEBUTTONS="
 <hbox>
-	<text>
-		<label>\"If it appears the driver module for a network adaptor isn't loaded, or you want a different one (such as a Windows driver with Ndiswrapper) click on the 'Load module' button.\"</label>
-	</text>
-	<vbox>
-		<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-		<button>
-			<label>Load module</label>
-			<action>EXIT:10</action>
-		</button>
-	</vbox>
+    <text>
+        <label>\"If it appears the driver module for a network adaptor isn't loaded, or you want a different one (such as a Windows driver with Ndiswrapper) click on the 'Load module' button.\"</label>
+    </text>
+    <vbox>
+        <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+        <button>
+            <label>Load module</label>
+            <action>EXIT:10</action>
+        </button>
+    </vbox>
 </hbox>"
 }
 
@@ -1341,19 +1356,19 @@ setDefaultMODULEBUTTONS ()
 setDefaultUSB_MODULE_BUTTON()
 {
   USB_MODULE_BUTTON="
-  	<hbox>
-		<text>
-			<label>\"If you have connected a USB network device after booting, the appropriate module is probably not loaded.
+    <hbox>
+        <text>
+            <label>\"If you have connected a USB network device after booting, the appropriate module is probably not loaded.
 Press the 'Autoload USB' button to (try and) autoload modules for such devices.\"</label>
-		</text>
-		<vbox>
-			<pixmap><input file>$BLANK_IMAGE</input></pixmap>
-			<button>
-				<label>Autoload USB</label>
-				<action>EXIT:66</action>
-			</button>
-		</vbox>
-	</hbox>"
+        </text>
+        <vbox>
+            <pixmap><input file>$BLANK_IMAGE</input></pixmap>
+            <button>
+                <label>Autoload USB</label>
+                <action>EXIT:66</action>
+            </button>
+        </vbox>
+    </hbox>"
 }
 
 #=============================================================================
@@ -1363,7 +1378,7 @@ AutoloadUSBmodules()
  NEWMODULES=""
  # Run the script
 
- #load-usb-modules.sh	v2.21 Bk...
+ #load-usb-modules.sh   v2.21 Bk...
 [ -s /tmp/new-usb-modules ] && rm -f /tmp/new-usb-modules
 KERNELVER="`uname -r`"
 . /etc/rc.d/MODULESCONFIG
@@ -1385,12 +1400,12 @@ do
   [ "`echo -n "$SKIPLIST" | grep "$SKIPPATTERN"`" != "" ] && continue
   #rt73 module gets picked but in some cases rt2570 has same IDs and should be used...
   [ "$USBMODULE" = "rt73" ] && [ "$USBMODULE2" = "rt2570" ] && USBMODULE="rt2570"
-  modprobe $USBMODULE  
+  modprobe $USBMODULE
   [ $? -eq 0 ] && echo -n "$USBMODULE " >> /tmp/new-usb-modules
  fi
 done
- 
- 
+
+
  #sleep 1
  NONE_MESSAGE="No new USB modules loaded. Maybe try the 'Load module' button to manually select a module for your device."
  # Check for new modules
@@ -1419,14 +1434,14 @@ done
 }
 
 #=============================================================================
-# Dougal: a function to find info about interface: 
+# Dougal: a function to find info about interface:
 #v2.21 BK modified...
 findInterfaceInfo()
 {
   local INT="$1"
-  TYPE="" 
+  TYPE=""
   INFO=""
-  
+
   FI_DRIVER="`readlink /sys/class/net/$INT/device/driver`"
   FI_DRIVER="`basename "$FI_DRIVER"`"
   FIPATTERN="^$FI_DRIVER "
@@ -1453,10 +1468,10 @@ findInterfaceInfo()
   else
     INTTYPE="Ethernet"
   fi
-  
+
   #v411 BK: save info to file...
   echo "$INTTYPE $INT $TYPE $FI_DRIVER '$FINALINFO'" >> /tmp/net-setup-interface-info-tmp
-  
+
 
 } # end findInterfaceInfo
 
@@ -1480,7 +1495,7 @@ saveInterfaceSetup()
 #=============================================================================
 #showHelp()
 #{
-  #man "net_setup" &> /dev/null & 
+  #man "net_setup" &> /dev/null &
 #}
 
 
