@@ -79,6 +79,7 @@ USERNAME=$PREFIX`(date ;cat /proc/cpuinfo)|md5sum|sed -e's/^\(......\).*$/\1/'`
 # Prompt for Nick if -v option used
 if test "$1" = "-v"
 then
+  # REM : Xdialog inputbox
   NEWNAME=`Xdialog $XDIALOGOPTIONS --inputbox "$PROMPT" 0 0 "$USERNAME"`
   if test "$?" -eq 0
   then
