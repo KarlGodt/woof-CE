@@ -249,7 +249,7 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
 _debugt 9d $_DATE_
 
- test "$noROX" && : || { _pidof $Q ROX-Filer && {
+ test "$ignoreROX" && : || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
          rox -D "${eoneMOUNTPOINT}"
@@ -325,7 +325,7 @@ case $WHAT in
   busybox $WHAT $device "$mountpoint" -t $fstype -o $mntops
   RV=$?
   STATUS=$((STATUS+RV))
-  noROX=1
+  ignoreROX=1
   test "$RV" = 0 && _update_partition_icon || rmdir "$mountpoint"
  ;;
 
