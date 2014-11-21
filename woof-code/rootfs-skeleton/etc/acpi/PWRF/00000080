@@ -2,30 +2,43 @@
 # Karl Reimer Godt in November 2014
 # usual Puppy license
 
-#echo "$0 :HALLO"
-#xmessage "$0: HALLO"
 
+## echo "$0 :HALLO"      ##DEBUG
+## xmessage "$0: HALLO"  ##DEBUG
+
+# REM: GLOBAL variables
+# REM: Use a temporaty directory
+#      to prevent scattering of files
 _TMP_=/tmp
 _FEAT_=acpi
 tmpDIR=${_TMP_}/${_FEAT_}/${0##*/}
 rm -r "$tmpDIR"
 mkdir -p "$tmpDIR"
 
+# REM: TIMEOUT used for GUIs
+#       to workaround impossible input
+#       and to poweroff when kernel/X hangs
 TIMEOUT=30
 
+# REM: export DISPLAY in case triggering
+#      program (acpid) was launched before
+#      X which sets DISPLAY environment variable to its tty
 test "`pidof xinit X Xorg Xvesa Xfbdev`" && {
  test "$DISPLAY" || export DISPLAY=:0
  }
 
 Version='1.0 Puppy_Racy_5.3 KRG'
 Version='2.2.1 luci-218 KRG'
+Version='2.2.2 luci-218 KRG' # REMARKS added
+
 TITLE="${0##*/} $Version"  #Xdialog xmessage -title option
 
-# Xmessage app-default config file
+# REM: Xmessage app-default config file to play with settings
 if test -f /etc/acpi/X11/app-defaults/Xmessage; then
 export XAPPLRESDIR=/etc/acpi/X11/app-defaults
 fi
 
+# REM: usual usage message
 usage(){
 USAGE_MSG=`gettext "
 $0 [help]
@@ -65,14 +78,14 @@ exit $1
 # Redirection and quiet variables
 OUT=/dev/null; ERR=/dev/null; Q=-q; QUIET=--quiet
 case $1 in
--h|*help|*usage) usage 0;;
-*version|-V)    echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
+-h|-?help|-?usage) usage 0;;
+-?version|-V)    echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
 *check*)       set -n;;
-*verbose|-v)  VERBOSE=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose;
+-?verbose|-v)  VERBOSE=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose;
               DEBUG=1;   DBG=-d;  L_DBG=--debug; OUT=/dev/stdout; ERR=/dev/stderr
              Q=''; QUIET='';
             ;;
-*debug|-d) DEBUG=2; DBG=-d; L_DBG=--debug; set -x;;
+-?debug|-d) DEBUG=2; DBG=-d; L_DBG=--debug; set -x;;
 "") :;;
 *) usage 1 "Unknown Parameter '$1'";;
 esac
@@ -80,11 +93,17 @@ esac
 xmPRINT=                     # pass -print to xmessage
 [ "$VERBOSE" -o "$DEBUG" ] && xmPRINT=-print
 
+# REM: Just sync if no other sync is running
+#      If ash configured NOFORK or SH_STANDALONE
+#       sync needs to be aliased /bin/sync
+#       so pidof sees a pid
 pidof sync || sync
 
-# Functions
-_toggle_pm_async(){
 
+# REM: Functions
+_toggle_pm_async(){
+# REM : Toggle the value in /sys/power/pm_async
+#       can be either
 test -f /sys/power/pm_async || return 1
 
 read PM_ASYNC </sys/power/pm_async
@@ -109,14 +128,19 @@ xmessage \
  -title "$TITLE" \
  "$PM_ASYNC_MSG"
 case $? in 200)
+ # REM: Actually handle it short before
+ #      suspending, so set a global variable
  HAVE_ASYNC_TOGGLE=Y;;
+ # REM: First code - needs be done later in case of aborting
  #case $PM_ASYNC in
  #0) echo 1 >/sys/power/pm_async;;
  #1) echo 0 >/sys/power/pm_async;;
  #*) echo "UNSUPPORTED pm_async value '$PM_ASYNC'";;
  #esac;;
+
 esac
-#cat /sys/power/pm_async
+
+#cat /sys/power/pm_async ##DEBUG
 }
 
 _set_image_size(){
@@ -355,8 +379,14 @@ done
 kill $xPID
 }
 
-# Test if acpitool available
-ACPITOOL=`which acpitool`
+# REM: Test if acpitool would work
+if test -e /proc/acpi/sleep; then
+ if acpitool >>$OUT 2>>$OUT; then
+ # Test if acpitool available
+ ACPITOOL=`which acpitool`
+ fi
+fi
+
 # Get supported ACPI states
 states_avail_=`cat /sys/power/state`
 states_avail=`echo "$states_avail_" |tr ' ' '\n' |sed 's!disk!S4 Hibernation:&!;s!mem!S3 PM_SLEEP:&!;s!standby!S1 CPU running:&!'`
@@ -381,7 +411,7 @@ sleep 1
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
 cat /sys/class/rtc/rtc0/wakealarm  #DEBUG
 
-# if DISPLAY use GUIs, else poweroff ( for now )
+# REM: IF f DISPLAY use GUIs, else poweroff ( for now (TODO) )
 if [ "$DISPLAY" ];then
 
 echo "$states_avail" #DEBUG
@@ -427,9 +457,9 @@ fi # DISPLAY or not DISPLAY
 if [ "$ANSWER" = 200 ]; then #QUIT
 exit 0
 
-elif [ "$ANSWER" = 0 ]; then # if DISPLAY: timeout expired,
-                             # assume frozen system, poweroff force
-                             # if not DISPLAY: just poweroff force for now;
+elif [ "$ANSWER" = 0 ]; then # REM: If DISPLAY: timeout expired,
+                             # assume frozen system and poweroff force
+                             # If not DISPLAY: just poweroff force for now;
                              # needs a text-mode dialog then ( TODO )
  test "$DISPLAY" && {
  exec wmpoweroff force
@@ -440,7 +470,7 @@ elif [ "$ANSWER" = 0 ]; then # if DISPLAY: timeout expired,
 fi
 
 
-# Run wakealarm setting GUI if available
+# REM: Run wakealarm setting GUI if available
 _ask_rerun_wakealarm_gui(){
 # function
 RERUN_WAKEALARM_GUI_MSG=`gettext "Something went wrong..
@@ -513,16 +543,19 @@ read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
 cat /sys/class/rtc/rtc0/wakealarm  #DEBUG
 }
 
-pidof sync || sync
+pidof sync || sync  #sync if no other sync
 
 if [ "$ANSWER" = 201 ]; then
-
+# REM: Standby turns of monitor and keeps the fan running
 echo standby >/sys/power/state
 
 elif [ "$ANSWER" = 190 ]; then
-
+# REM: Don't know what this is
 echo freeze >/sys/power/state
 
+# REM: Unmount everything in case
+#      battery drained out or other nasty things happen while
+#      S4 or S3
 else
 
 loop_umount_func
@@ -536,11 +569,6 @@ fi
 if [ "$ANSWER" = 203 ];then # RAM
 
 #echo 3 > /proc/sys/vm/drop_caches
-#pidof sync || sync
-#loop_umount_func
-#part_umount_func
-#pidof sync || sync
-#sleep 1
 
    if [ "$ACPITOOL" ];then
 
