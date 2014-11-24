@@ -25,7 +25,7 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=
+DEBUG=1
 DEBUGX=
 test "$DEBUG" && QUIET='';
 
@@ -35,7 +35,7 @@ test "$LANG" = C || {
     echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8; }
 _info "using '$LANG_ROX'"
 
-#busybox mountpoint does not recognice after
+#busybox mountpoint does not recognize after
 #mount --bind / /tmp/ROOTFS
 #/tmp/ROOTFS as mountpoint ...
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
@@ -578,10 +578,16 @@ _info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW
 
 ( test "$*" -o "$opUUID" -o "$opLABEL" || test "$opT" -o "$opSHOWL" ) || _exit 1 "No positional parameters left."
 
+
+# REM: If only one pos param,
+#      Assuming being a /dev/<device> or mountpoint ...
 case $# in
 1)
 deviceORpoint=`echo -e $@`
 _debug "deviceORpoint='$deviceORpoint'"
+# REM: only one pos param left
+#      test if it exists...
+test -e "$deviceORpoint" || unset deviceORpoint
 ;;
 esac
 _debugt 86 $_DATE_
@@ -710,6 +716,24 @@ grepP="${deviceORpoint// /\\\\040} "
 _debug "grepP='$grepP'"
 mountPOINT=`echo "$mountBEFORE" | grep -F "$grepP" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
+_debug "mountPOINT='$mountPOINT'"
+
+# REM: Want to close ROX-Filer window anyway
+#      If for example -r option provided additionally
+#      So more than one pos param and deviceORpoint was not set
+else
+
+ # REM: Try everything in $*
+ for p_ in $*
+ do
+ _debugx "$p_"
+ p_e=`echo -e "$p_"`
+ _debugx "$p_e"
+ # REM: Assuming one mountpoint for now
+ test -d "$p_e" && { mountPOINT="$p_e"; break; }
+ done
+
+unset p_ p_e
 _debug "mountPOINT='$mountPOINT'"
 fi
         if test -d "$mountPOINT"; then
