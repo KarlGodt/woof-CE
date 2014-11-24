@@ -33,6 +33,9 @@ Version='1.3 Macpup_O2-Puppy_Linux_431 KRG' ## Complete rework of S4 hibernation
                                             ## Small xmessage GUI usability improvements
                                             ##  ( -default , -timeout and mouse wakeup hint )
                                             ## Disabled fusermount umount part
+Version='1.4 Macpup_O2-Puppy_Linux_431 KRG' ## S1 handling
+                                            ## restore mounts for all modes
+                                            ## Typo su(s)pend
 
 usage(){
 MSG="
@@ -418,6 +421,30 @@ sleep 0.2
 done
 }
 
+_verify_resume_partition(){
+# ACPI_S4_RESUME_PARTITION : parameter option to this script
+# or environment variable (still todo..)
+[ "$ACPI_S4_RESUME_PARTITION" ] || return 6
+
+ if test "$ACPI_S4_RESUME_PARTITION"; then
+  [ -b "$ACPI_S4_RESUME_PARTITION" ] || {
+      _warn "$ACPI_S4_RESUME_PARTITION not a block special device";
+      unset ACPI_S4_RESUME_PARTITION; }
+ fi
+
+ if test "$ACPI_S4_RESUME_PARTITION"; then
+   #guess_fstype "$ACPI_S4_RESUME_PARTITION" | grep $Q -i swap || unset ACPI_S4_RESUME_PARTITION
+   blkid $ACPI_S4_RESUME_PARTITION | grep $Q -i ' TYPE="swap"' || {
+   _warn "ACPI_S4_RESUME_PARTITION='$ACPI_S4_RESUME_PARTITION' had to be unset"
+   unset ACPI_S4_RESUME_PARTITION; }
+ else
+  return 5
+ fi
+
+[ "$ACPI_S4_RESUME_PARTITION" ] && return 0
+return 4
+}
+
 _swapon_resume_partition(){
 test "$ACPI_S4_RESUME_PARTITION" || return 4
 
@@ -462,6 +489,7 @@ or Bye button to return into session..
 Xdialog -cancel-label "Bye" -ok-label "Aye" -yesno "$ACK_MSG" 0x0
 [ "$?" = 0 ] || { _swapon_all_swap_partitions; exit 11; }
 
+# REM: better be done in main
 #echo disk >/sys/power/state
 }
 
@@ -481,6 +509,8 @@ _xd_choose_swap
 #      and echo's disk >/sys/power/state
 _final_acknowledgement
 
+# REM: Big moment
+echo disk >/sys/power/state
 # REM:
 _swapon_all_swap_partitions
 }
@@ -565,10 +595,32 @@ Power Button Pressed ?
     ;;
     204) HIBER=1; SLEEP='';MODE=DISK;mode=disk;
     descr='Power Management Hibernate aka Suspend to Swap Partition "S4"'
-    _xd_choose_swap
-     # REM: non-zero ??
-     [ "$?" = 0 ] || _unknown_error "_main:_xd_choose_swap returned non-zero"
+
+    # REM: If ACPI_S4_RESUME_PARTITION env var or parameter to this script,
+    #       attempt to check if valid swap partition ...
+    #      _verify_resume_partition unsets ACPI_S4_RESUME_PARTITION if invalid
+    [ "$ACPI_S4_RESUME_PARTITION" ] && _verify_resume_partition
+
+    # REM: if _verify_resume_partition does not unset ACPI_S4_RESUME_PARTITION
+    if [ "$ACPI_S4_RESUME_PARTITION" ]; then
+      # _final_acknowledgement needs this:
+      _swap_array_ash
+
+    # REM: else run choice GUI _xd_choose_swap
+    else
+
+      _xd_choose_swap
+      # REM: non-zero ??
+      [ "$?" = 0 ] || _unknown_error "_main:_xd_choose_swap returned non-zero"
+    fi
+
+     # REM: _final_acknowledgement calls
+     #       _swapoff_all_swap_partitions,
+     #      then _swapon_resume_partition
+     #       which also sets /sys/power/resume entry,
+     #      and then presents GUI to go on or leave :
      _final_acknowledgement
+
     ;;
     205) HIBER='';SLEEP='';MODE=SOFT_OFF;mode=softoff;
     descr='Power Management normal poweroff (the power cable stays attached)'
@@ -638,6 +690,7 @@ fi #pidof X
 
 #===================================================================================================================================
 # REM: message and some noise ..
+if [ "$MODE" != "SOFT_OFF" ]; then
 xmPREPARE_TMOUT=30
 [ "$DISPLAY" ] && xmessage -bg blue -fg yellow -timeout $xmPREPARE_TMOUT -title "00000080.X" -nearmouse -default "okay" "Power button pressed ..
 Preparing system to suspend to $MODE .
@@ -649,7 +702,7 @@ Should mount everything again with
 pre-mount options when awaking ... (hopefully)
 
 Note : If you have an USB mouse attached,
-       you should turn it off before supend happens,
+       you should turn it off before suspend happens,
        not afterwards . Moving the mouse a tiny bit may
        not wake up the system, but the USB hub and light up
        any LEDs connected to it ...
@@ -657,11 +710,14 @@ Note : If you have an USB mouse attached,
 Note : Timesout in $xmPREPARE_TMOUT ...
        ( else press Enter )
 " & xPID=$!
-
+fi
 aplay /usr/share/audio/2barks.au
+#===================================================================================================================================
+
 
 # REM: shutdown pppd internet connection ..?
 [ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -2 `pidof pppd`;sleep 1; }
+
 
 # REM: unmount almost everything unmountable...
 _unmount_all(){
@@ -835,6 +891,7 @@ read RESUME_MAJ_MIN </sys/power/resume
  [ "$RESUME_DEVICE" ] || { _warn "RESUME_DEVICE='$RESUME_DEVICE' had to be unset"; echo "" >/sys/power/resume; }
  fi
 
+_verify_resume_partition(){
 # ACPI_S4_RESUME_PARTITION : parameter option to this script
 # or environment variable (still todo..)
  if test "$ACPI_S4_RESUME_PARTITION"; then
@@ -842,7 +899,7 @@ read RESUME_MAJ_MIN </sys/power/resume
   guess_fstype "$ACPI_S4_RESUME_PARTITION" | grep $Q -i swap || unset ACPI_S4_RESUME_PARTITION
   [ "$ACPI_S4_RESUME_PARTITION" ] || _warn "ACPI_S4_RESUME_PARTITION='$ACPI_S4_RESUME_PARTITION' had to be unset"
  fi
-
+}
  if [ "$ACPI_S4_RESUME_PARTITION" ];then
 
   # REM: handle /sys/power/resume entry...
@@ -942,6 +999,9 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 [ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err || {
   #aplay /usr/share/audio/2barks.au
 
+  :
+
+__restore_mounts__(){
   # REM: some cooling 5 seconds here...
   sleep 5
 
@@ -976,13 +1036,18 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
   IFS="$oldIFS"
 
    }
+
+  :
+
+ }
 #===================================================================================================================================
 
 #===================================================================================================================================
  # REM: S1
  elif [ "$MODE" = "STANDBY" ]; then
 
-  kill $xPID
+  #kill $xPID
+  wait $xPID
   sleep 2
   echo standby >/sys/power/state
   sleep 2
@@ -997,7 +1062,8 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
  # Don't know what this is, k3.9.9 has this ..?
  elif [ "$MODE" = "FREEZE" ]; then
 
-  kill $xPID
+  #kill $xPID
+  wait $xPID
   sleep 2
   echo freeze >/sys/power/state
   sleep2
@@ -1010,16 +1076,63 @@ fi
 
 echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
 aplay /usr/share/audio/2barks.au
-xmessage -timeout $xmPREPARE_TMOUT -default "okay" -nearmouse -bg green -fg yellow "WELCOME BACK, $USER !" & xPID=$!
+BACK_MSG=`gettext "WELCOME BACK, $USER !"`
+xmessage -timeout "$xmPREPARE_TMOUT" -default "okay" -nearmouse -bg seagreen -fg yellow "$BACK_MSG" & xPID=$!
 
-_pidof_pid $xPID && wait $xPID
+_restore_mounts(){
+  # REM: some cooling 5 seconds here...
+  sleep 5
 
-###END###
+  # REM : restore mounts again
+  #       use \n as IFS to care for special chars like space in path/to/mountpoint
+  oldIFS="$IFS"
+  IFS=$'\n'
+  for oneLINE in $STRAYPARTL
+  do
+   _device_=${oneLINE%% *}
+   _mntpnt_=`echo "$oneLINE" | awk '{print $2}'`
+   _mntpnt_=`echo -e "$_mntpnt_"`
+   _fstype_=`echo "$oneLINE" | awk '{print $3}'`
+   _mntops_=`echo "$oneLINE" | awk '{print $4}'`
+
+   test "$_device_" -a "$_mntpnt_" -a "$_fstype_" -a "$_mntops_" || continue
+
+    # ignoreROX env variable for mount.sh
+   grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && ignoreROX=1
+
+   # Remount it if still in proc/mounts ( umount -r option )
+   if grep $Q -w "$_mntpnt_" /proc/mounts; then
+    ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
+   else
+   # mount it again
+    ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
+   fi
+
+   sleep 0.2
+   unset ignoreROX
+  done
+  IFS="$oldIFS"
+
+   }
+_restore_mounts
+
+#_pidof_pid $xPID && wait $xPID
+
+
+### END ###
 # REM: /etc/acpi/wakealarm/wakealarm_cmd : run script when waked up
 #      by RTC driver setting in /sys/class/rtc/*/*
 #      ** TODO **
 if test -x /etc/acpi/wakealarm/wakealarm_cmd; then
  exec /etc/acpi/wakealarm/wakealarm_cmd &
 fi
+
+_pidof_pid $xPID && wait $xPID
+
+# REM: Newline for the acpid.log
+#      to have a delimiter for next invocation
+echo "$BACK_MSG
+"
+
 exit 0
-###END###
+### END ###
