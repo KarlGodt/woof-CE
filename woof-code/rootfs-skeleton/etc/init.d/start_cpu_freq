@@ -1,5 +1,5 @@
 #!/bin/sh
-#BK got this from http://murga-linux.com/puppy/viewtopic.php?t=55417&start=15
+# BK got this from http://murga-linux.com/puppy/viewtopic.php?t=55417&start=15
 # but added test for /proc/acpi, bios-date, processor-manufacturer.
 # added extra code provided by pakt.
 #100603 gamble, any CPU >=2007 can handle acpi-cpufreq, or it will fail to load.
@@ -22,38 +22,57 @@ if [ "$FLAGEXIT" = "yes" ];then #101014
  exit
 fi
 
-#INTEL='p4-clockmod speedstep-centrino speedstep-ich'
-#VIA='longhaul e_powersaver'
-#CYRIX='gx-suspmod'
-FREQMODS="acpi-cpufreq"
 
+AMD='powernow-k6 powernow-k7 powernow-k8'
+CYRIX='gx-suspmod'
+INTEL='p4-clockmod speedstep-centrino speedstep-ich'
+NVIDIA='cpufreq-nforce2'
+# description:    LongRun driver for Transmeta Crusoe and Efficeon processors.
+TRANSM='longrun'
+VIA='longhaul e_powersaver'
+
+FREQMOD="acpi-cpufreq"
+FREQMOD_OPS='acpi_pstate_strict=1'
+GOVERNOR='ondemand'      # REM: conservative, ondemand, performance, powersave
+GOVERNOR_OPS=''
 case "$1" in
  start)
-  #CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
-  #case $CPUMAN in
-  # intel) FREQMODS="${INTEL} acpi-cpufreq" ;;
-  # via)   FREQMODS="${VIA} acpi-cpufreq" ;;
-  # cyrix) FREQMODS="${CYRIX} acpi-cpufreq" ;;
-  #esac
-  for ONEMOD in $FREQMODS
+
+  _detect_cpu_manufacturer(){
+  CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
+  case $CPUMAN in
+   amd)    mFREQMODS="${AMD}" ;;
+   cyrix)   mFREQMODS="${CYRIX}" ;;
+   intel)    mFREQMODS="${INTEL}" ;;
+   nvidia)    mFREQMODS="${NVIDIA}" ;;
+   transmeta) mFREQMODS="${TRANSM}" ;;
+   via)       mFREQMODS="${VIA}" ;;
+  esac
+  }
+  _detect_cpu_manufacturer
+
+  for oneMOD in $mFREQMODS
   do
-   modprobe $ONEMOD
-   if [ $? -eq 0 ];then
-    modprobe cpufreq_ondemand
+   sleep 1
+   modprobe $VERB $oneMOD
+   [ "$?" = 0 ] || continue
+   #if [ $? -eq 0 ];then
+    modprobe $VERB $FREQMOD $FREQMOD_OPS
+     [ "$?" = 0 ] || break
+    modprobe $VERB cpufreq_${GOVERNOR} $GOVERNOR_OPS
     if [ $? -eq 0 ];then
-     for CPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]' | tr '\n' ' '`
+     for cpuD in `ls -1v /sys/devices/system/cpu/ | grep 'cpu[0-9]'`
      do
-      echo ondemand >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      [ -w /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor ] || continue
+      echo $GOVERNOR >/sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor
+      [ "$?" = 0 ] && echo "$0:issued '$GOVERNOR' to /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor"
      done
-     #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
-     #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-     #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq
-     #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq
+
      break
     else
-     rmmod $ONEMOD
+     rmmod $oneMOD
     fi
-   fi
+   #fi
   done
  ;;
 esac
