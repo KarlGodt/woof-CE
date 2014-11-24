@@ -147,7 +147,7 @@ echo "$1: `uptime`"
 
 eleventh_console(){  ##+++2012-06-01 was here changed into function, has to be called after remount,rw /
 ##+++2012-01-29
-test -d /dev/vc || mkdir -p /dev/vc;
+test -d /dev/vc || mkdir $VERB -p /dev/vc;
 rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
 #rm /dev/vc11; mknod /dev/vc11 c 4 11    # major 4 are tty[0-9]*
 openvt -c 11 autologinroot
@@ -455,11 +455,11 @@ fi
  #permissions
 
  #mount
-mkdir -p /dev/pts
+mkdir $VERB -p /dev/pts
     echo "Mounting /dev/pts"
 busybox mount $VERB $VERB -t devpts devpts /dev/pts ;STATUS=$(( $STATUS + $? ))
     echo "STATUS='$STATUS'"
-mkdir -p /sys
+mkdir $VERB -p /sys
     echo "Mounting /sys"
 busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$(( $STATUS + $? ))
     echo "STATUS='$STATUS'"
@@ -472,14 +472,14 @@ test -f /sys/kernel/debug/dynamic_debug/control && echo -n 'module usb_storage +
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' |awk '{print $4}'` #w481
 if test "$PUPMODE" = 2; then #weird, only full-hd install needs this for xfdiff.
  QTRFREERAM=`expr $FREERAM \/ 4`
- test -d /dev/shm || mkdir -p /dev/shm
+ test -d /dev/shm || mkdir $VERB -p /dev/shm
  mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS+$?))
 fi
  #mount
 
 mountpointDEV='';
 haveMDEV=YES;
-grep $Q ' /dev ' /proc/mounts 2>$ERR && mountpointDEV=YES
+grep $Q ' /dev ' /proc/mounts 2>>$ERR && mountpointDEV=YES
 mdev -s || haveMDEV='';
 
  #PUPSTATE
@@ -584,7 +584,7 @@ mkmissing_tty_func(){
 test "$haveMDEV" && return 0
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
-mkdir -p /dev/vc
+mkdir $VERB -p /dev/vc
  INITTAB=`cat /etc/inittab | grep -o -E 'tty[0-9*]|vc/[0-9*]' | grep -v -E '^#|^[[:blank:]*]#' | sort -u`
 INITTABS=`echo "$INITTAB" | grep -o '[0-9*]$'`
 for i in $INITTABS; do
@@ -597,11 +597,11 @@ done
 [ -c /dev/zero ]  || { rm -f /dev/zero;mknod /dev/zero c 1 5; }
 [ -c /dev/mem ]  || { rm -f /dev/mem; mknod /dev/mem c 1 1;  }
 
-mkdir -p /dev/fb          #busybox fbset command needs this
+mkdir $VERB -p /dev/fb          #busybox fbset command needs this
 for i in `seq 0 11` ; do
 [ ! -L /dev/fb/$i ] && [ -c /dev/fb$i ] && ln $VERB -s ../fb$i /dev/fb/$i
 done
-mkdir -p /dev/loop
+mkdir $VERB -p /dev/loop
 for i in `seq 0 15` ; do
 [ -c /dev/loop$i ] && { [-h /dev/loop/$i ] || ln $VERB -s ../loop$i /dev/loop/$i; }
 done
@@ -636,8 +636,8 @@ sync
 
 modprobe_conf_func(){
 
-mkdir -p /etc/mult_kernels
-mkdir -p /etc/modprobe.d
+mkdir $VERB -p /etc/mult_kernels
+mkdir $VERB -p /etc/modprobe.d
 
 if test -f /tmp/modprobe.conf ; then #1 #/sbin/init
 
@@ -670,7 +670,7 @@ fi
 
 
 #if test ! -d /etc/mult_kernels/rc.d ; then
-mkdir -p /etc/mult_kernels/rc.d
+mkdir $VERB -p /etc/mult_kernels/rc.d
 #fi
 
 if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE ; then
@@ -876,10 +876,13 @@ klogd -c 5
 
 #### log ###
 
-. /etc/rc.d/MODULESCONFIG #modules loading configuration.
 
-echo -n "    Loading kernel modules..." >/dev/console
+#### LOAD DRIVERS #######################################
+#. /etc/rc.d/MODULESCONFIG #modules loading configuration.
 
+#echo -n "    Loading kernel modules..." >/dev/console
+
+_create_module_conf_from_cmdline(){
 #Stub to care for cmdline parameters
 # better a tmp one, but OK for now ..?
 CMDL_MOD_P=`grep -o '[[:alnum:]_-]*\.[^[:blank:]]*' /proc/cmdline`
@@ -892,6 +895,8 @@ if test "$CMDL_MOD_P"; then
 options $MODULE $PARAMS" >>/etc/modprobe.d/${MODULE}.conf
   done
 fi
+}
+_create_module_conf_from_cmdline
 
 ######### launch udev ############################
 _launch_udev(){
@@ -990,7 +995,7 @@ fi
 #touch /tmp/pup_event_module_devpath.log #do it here, not everytime in pup_event_backend_modprobe
 #  #prepare for pup_event_backend_modprobe
 
-### TRIGGER udev #############
+### TRIGGER uevent #############
 MODULECNT=0
 MODALIAS=MODALIAS; MODALIAS1=MODALIAS1; MODALIAS2=''; oldMODALIAS=''
 
@@ -1023,7 +1028,8 @@ done
 oldMODALIAS="$MODALIAS1"
 [ "$MODULECNT" -gt 999 ] && break
 done
-### TRIGGER udev #############
+### TRIGGER uevent #############
+
 load_average '2x0c'
 ### show status message on screen ##################
 #echo >/dev/console ##2011-12-27 added >/dev/console
@@ -1051,11 +1057,14 @@ fi #2
 
 fi #1
 
-}  ##_detect_and_load_drivers(){ #END
+}  ###_detect_and_load_drivers(){ #END
 
 
 ##+++2014-11-07/08
 MACHINE=`_make_board_id`
+
+. /etc/rc.d/MODULESCONFIG   #modules loading configuration.
+echo -n "    Loading kernel modules..." >/dev/console
 
 if test "$PUPMODE" = 5; then
     echo "PUPMODE is '$PUPMODE'"
@@ -1070,13 +1079,13 @@ else
 ############## USER SELECTED MODULES ##################
 
 _load_user_selected_modules(){
-if [ "$safeBoot" = "2" ] || [ "$safeBoot" -ne "0" -a "$safeBoot" -ne "4" ] ; then
-echo "USER SELECTED MODULES"
- #the user can select extra modules to load in the BootManager...
- if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
- echo -n "Loading user-selected modules..." >/dev/console
- for MODULE in $ADDLIST
- do
+  if [ "$safeBoot" = "2" ] || [ "$safeBoot" -ne "0" -a "$safeBoot" -ne "4" ] ; then
+  echo "USER SELECTED MODULES"
+  #the user can select extra modules to load in the BootManager...
+  if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
+  echo -n "Loading user-selected modules..." >/dev/console
+  for MODULE in $ADDLIST
+  do
   #MPARAMS=""
   unset MPARAMS CML_MOD_P aENTRY PARAMS_
   if [ "`echo -n "$MODULE" | tr ':' ' ' | wc -w`" -gt 1 ];then
@@ -1094,39 +1103,42 @@ echo "USER SELECTED MODULES"
        MPARAMS="$MPARAMS $PARAMS_"
       done
     fi
-  echo -en " \\033[1;36m$MODULE$Black0" >/dev/console
-  echo "Loading module $MODULE $MPARAMS"
-  firmware_module_func #install firmware tarball. see functions4puppy4.
-  #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
-  [ "$MODULE" != "mwave" ] && modprobe $VERB $modprobeSYSLOG $modprobeFIRST_TIME $MODULE $MPARAMS  ##+2011-10-31 added -v and --first-time
- done
- status_func 0
- fi
-fi
-}
+    echo -en " \\033[1;36m$MODULE$Black0" >/dev/console
+    echo "Loading module $MODULE $MPARAMS"
+    firmware_module_func #install firmware tarball. see functions4puppy4.
+    #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
+    [ "$MODULE" != "mwave" ] && modprobe $VERB $modprobeSYSLOG $modprobeFIRST_TIME $MODULE $MPARAMS  ##+2011-10-31 added -v and --first-time
+    done
+    status_func 0
+   fi
+  fi
+ }
 
-# REM: 2014-11-17
-#      Try to split loading of explicitely desired kernel driver modules
-#      into a pre and post part ( some modules might need to load before
-#      autodetected drivers are loaded and some afterwards ).
-#      Variables are ADDLIST_PRE and ADDLIST_POST
-if [ "$ADDLIST_PRE" ]; then
- unset ADDLIST
- ADDLIST="$ADDLIST_PRE"
- _launch_udev
- _load_user_selected_modules
- . /etc/rc.d/MODULESCONFIG  ## Need to source again in case ADDLIST has changed
+ # REM: 2014-11-17
+ #      Try to split loading of explicitely desired kernel driver modules
+ #      into a pre and post part ( some modules might need to load before
+ #      autodetected drivers are loaded and some afterwards ).
+ #      Variables are ADDLIST_PRE and ADDLIST_POST
+ if [ "$ADDLIST_PRE" ]; then
+  unset ADDLIST
+  ADDLIST="$ADDLIST_PRE"
+  _launch_udev
+  _load_user_selected_modules
+  . /etc/rc.d/MODULESCONFIG  ## Need to source again in case ADDLIST has changed
                             ## to ADDLIST_PRE for backwards-compatibility using
                             ## ADDLIST as fallback in ADDLIST_POST part of this script ..
-fi
+ fi
 
  if test -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
   echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
 
   _launch_udev
+  c=0
   while read oneM modOPS;
   do
    [ "$oneM" ] || continue
+    c=$((c+1))
+    echo -en "\r\\033[1;36m${c}$Black0" >/dev/console
     modprobe -b $VERB $oneM $modOPS
   done <"/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
 
@@ -1136,6 +1148,7 @@ fi
  fi
 fi
 
+unset c
 
 ###permissions
 if [ "$VERBOSE" ];then
@@ -1471,7 +1484,7 @@ fi
 
 ############## RC.NETWORK ###
 #v411 can use old network wizard (from 403, based on 400)...
-CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>$ERR` #ex: eth0mode, wlan0mode.
+CHECKOLDWIZ=`ls -1 /etc/*[0-9]mode 2>>$ERR` #ex: eth0mode, wlan0mode.
 if [ "$CHECKOLDWIZ" != "" -a -d /usr/local/net_setup ];then
  #note, old wizard is located in /usr/local/net_setup.
  /usr/local/net_setup/etc/rc.d/rc.network &
@@ -1529,7 +1542,7 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$CDTYPE" ]       && ln $VERB -sf /dev/$CDTYPE  /dev/cdrom
 [ "$DVDTYPE" ]      && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE"  >/etc/cdburnerdevice
-[ "$DVDTYPE" ]      && hdparm $L_VERB -d1 /dev/$DVDTYPE >$OUT 2>&1
+[ "$DVDTYPE" ]      && hdparm $L_VERB -d1 /dev/$DVDTYPE >>$OUT 2>&1
  #optical
 
  #mouse
@@ -1547,7 +1560,7 @@ elif [ "`cat /etc/mousedevice`" = "psaux" ]; then
  echo "input/mice" > /etc/mousedevice
 fi
 read MOUSE_DEVICE </etc/mousedevice || MOUSE_DEVICE="input/mice"
-test -d /dev/input      || mkdir /dev/input
+test -d /dev/input      || mkdir $VERB /dev/input
 test -c /dev/input/mice || { rm -f /dev/input/mice; mknod /dev/input/mice c 13 63; }
 ln $VERB -snf $MOUSE_DEVICE /dev/mouse
  #mouse
@@ -1635,7 +1648,7 @@ root_link_func
  #mount
 
 special_mnt_func(){
-mkdir -p /SPECIAL_MNT
+mkdir $VERB -p /SPECIAL_MNT
 #for i in `cat /proc/filesystems | tr '\t' ' ' | tr -s ' ' | grep '^nodev' | cut -f 2 -d ' '` ; do
 
 validFS=`grep '^nodev' /proc/filesystems | grep -vEw 'bdev|sockfs|pipefs|anon_inodefs|aufs|fuse|nfs|nfs4|nfsd|inotifyfs|debugfs|exofs|coda|auofs|jffs2|ubifs|mtd_inodefs' | awk '{print $2}'`
@@ -1647,7 +1660,7 @@ DIR=`echo "$i"` # | sed 's#fs$##'`
 ##2011-10-31 2.6.37.4-KRG-i486-StagingDrivers-2 : grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs'
 ##2011-11-09 2.6.37.4-KRG-i486-StagingDrivers-2 : grep -v -E -w 'aufs|fuse'
 
-[ -d /SPECIAL_MNT/$DIR ] || mkdir -p /SPECIAL_MNT/$DIR
+[ -d /SPECIAL_MNT/$DIR ] || mkdir $VERB -p /SPECIAL_MNT/$DIR
 mount $VERB $VERB -t $i none /SPECIAL_MNT/$DIR
 
 done
