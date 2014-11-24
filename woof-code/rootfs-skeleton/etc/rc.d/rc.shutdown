@@ -1404,16 +1404,22 @@ FTPs=`ps |grep ftp |grep -v grep |awk '{print $1}'`
 for s in $FTPs;do kill -4 $s;done
 }
 
+# REM: kill some daemons that escaped /etc/init.d/* stop ...
 [ "`pidof hiawatha`" ] && killall hiawatha
    [ "`pidof acpid`" ] && killall acpid
-                                  dmesg >/tmp/shutdownkernel.log
-   [ "`pidof klogd`" ] && killall klogd
-   [ "`pidof udevd`" ] && { killall udevd;cd /dev/.udev;rm -r `ls -1A /dev/.udev/`;cd $HOME; }
-                          cp -a /var/log/messages /tmp/shutdownmessages.log
- [ "`pidof syslogd`" ] && killall syslogd
-   [ "`pidof klogd`" ] && kill -4 `pidof klogd`
-   [ "`pidof acpid`" ] && kill -4 `pidof acpid`
 
+   [ "`pidof udevd`" ] && { killall udevd;cd /dev/.udev;rm -r `ls -1A /dev/.udev/`;cd $HOME; }
+
+   dmesg >/tmp/shutdownkernel.log
+   [ "`pidof klogd`" ] && killall klogd
+
+# REM: did killing succeed ??
+   [ "`pidof acpid`" ] && kill -4 `pidof acpid`
+   [ "`pidof klogd`" ] && kill -4 `pidof klogd`
+
+# REM: want syslogd shutdown last to catch exit messages of other daemons incl klogd
+ cp -a /var/log/messages /tmp/shutdownmessages.log
+ [ "`pidof syslogd`" ] && killall syslogd
 
 ##+++2011-12-02
 __debug "`ls -l / | head -n10`"
@@ -1451,9 +1457,9 @@ fi
 [ "$FORCE" ] || { pidof sync >>$OUT || { sync; sleep 2; }; }
 case $PUPMODE in
 2)
-_umount_root_pupmode_2(){
+_mount_root_ro_pupmode_2(){
 echo "Mounting '/' read-only ... "
-mount $VERB $VERB -s -o remount,ro /
+mount $VERB $VERB -s -o remount,ro /dev/root /
 MAIN_RET_VAL=$?
 }
 MAIN_RET_VAL=0
@@ -1520,6 +1526,7 @@ _unload_all_modules(){
 # REM: sanity check
 _test_fr /proc/modules || return 4
 
+echo -e "\nUnloding kernel drivers..."
 # REM: big fat unload loop
 # REM: 'c' is emergeny break count to prevent never ending loop - currently set to '9'
 c=0
@@ -1527,7 +1534,7 @@ while [ unloading ];
 do
 
  sleep 1
-[ "`awk '{ if ($3 == 0) print}' /proc/modules`" ] ||  { echo "Only used drivers remain";break; }
+[ "`awk '{ if ($3 == 0) print}' /proc/modules`" ] || { [ "$DEBUG" ] && echo "Only used drivers remain";break; }
 
   #while [ 1 ];                 #does not work
   #do                           #or if it works
@@ -1539,25 +1546,25 @@ do
   procMODULES=`cat /proc/modules`
 
   while
-  read module vms users rest
+  read module vms nr_users users state address
   do
 
-   [ "$module" ]    || { echo "No module";break; }
-   [ "$users" = 0 ] || { echo "'$module' in use by '$rest'";continue; }
+   [ "$module" ]    || { [ "$DEBUG" ] && echo "No module";break; }
+   [ "$nr_users" = 0 ] || { [ "$DEBUG" ] && echo "'$module' in use by '$users'";continue; }
 
    # REM: keep usb and hid drivers if USB input devices (keyboard) input needed later on
    #      also keep unix module - it reloads anyways all the time
    case $module in
-    *usb*|*hci*|*hcd*|*hid*|evdev|unix) echo "Skipping unloading of '$module'";continue;;
+    *usb*|*hci*|*hcd*|*hid*|evdev|unix) [ "$DEBUG" ] && echo "Skipping unloading of '$module'";continue;;
    esac
 
    # REM: use modprobe -r instead of rmmod
    #      because it removes also drivers that the driver depends on
    #      fork it to prevent hangs
-   echo -e "\\033[1;33m"
-   /sbin/modprobe $VERB -r $module & #>/dev/console 2>&1
+   echo -en "\\033[1;33m"
+   /sbin/modprobe $VERB -r $module &
    sleep 1
-   echo -e "\\033[0;39m"
+   echo -en "\\033[0;39m"
 
   # REM : /proc/modules gets updated by the kernel,
   #       so better use a LIST variable...
@@ -1567,7 +1574,7 @@ do
 EoI
 
 [ "`awk '{ if ($3 == 0) print}' /proc/modules | grep -vE '*usb*|*hci*|*hcd*|*hid*|evdev|unix'`" ] || \
-                             { echo "Only used or ^unused hid|usb drivers remain"; break; }
+                             { [ "$VERBOSE" ] && echo "Only used or ^unused hid|usb^ drivers remain"; break; }
 
  c=$((c+1))
 case $c in 9) echo "_unload_all_modules:BREAKING for ninth loop";break;; esac
