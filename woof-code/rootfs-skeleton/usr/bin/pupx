@@ -48,17 +48,22 @@ case $ENVIRONMENT_LANG in
     *)  export LANGUAGE="english" ;; #english for contries without translation
 esac
 . $SHAREDIR/locale/english.po #always run to fill gaps in translation
-[ -f "$SHAREDIR/locale/${LANGUAGE}.po" ] && . $SHAREDIR/locale/${LANGUAGE}.po 2> /dev/null
+[ -f "$SHAREDIR/locale/${LANGUAGE}.po" ] && . $SHAREDIR/locale/${LANGUAGE}.po 2>>$ERR
 #
 # end language section
 #######################################################################
 
+# REM: xset one of the very few bins
+#       that don't need '-' dash pre-fix for args
 XSETQ=`xset q`
 
+# REM: get current Mouse settings
 MOUSEACCEL10=`echo "$XSETQ" | grep '  acceleration:' | grep ' threshold:' | tr -s ' ' | cut -f 3 -d ' ' | cut -f 1 -d '/'`
 MOUSEACCELDIV=`echo "$XSETQ" | grep '  acceleration:' | grep ' threshold:' | tr -s ' ' | cut -f 3 -d ' ' | cut -f 2 -d '/'`
 MOUSEACCEL=`dc ${MOUSEACCEL10} ${MOUSEACCELDIV} div p`
 MOUSETHRESHOLD=`echo "$XSETQ" | grep '  acceleration:' | grep ' threshold:' | tr -s ' ' | cut -f 5 -d ' '`
+
+# REM: get current Keyboard settings
 KEYBOARDVOL=`echo "$XSETQ" | grep 'key click percent: ' | tr -s ' ' | cut -f 8 -d ' '`
 KEYBOARDAUTO=`echo "$XSETQ" | grep ' auto repeat: ' | tr -s ' ' | cut -f 4 -d ' '`
 if [ "$KEYBOARDAUTO" = "on" ];then
@@ -72,10 +77,10 @@ fi
 KEYBOARDDELAY=`echo "$XSETQ" | grep ' auto repeat delay: ' | tr -s ' ' | cut -f 5 -d ' '`
 KEYBOARDRATE=`echo "$XSETQ" | grep ' auto repeat delay: ' | grep 'repeat rate:' | tr -s ' ' | cut -f 8 -d ' '`
 
-#Screen Saver:
-#  prefer blanking:  yes    allow exposures:  yes
-#  timeout:  0    cycle:  200
-#Colors:
+# REM: get current Screen Saver settings
+#       Screen Saver:
+#        prefer blanking:  yes    allow exposures:  yes
+#        timeout:  0    cycle:  200
 
 SCREENSAVERDELAY=`echo "$XSETQ" | grep ' timeout: ' | grep ' cycle: ' | tr -s ' ' | cut -f 3 -d ' '`
 SCREENSAVERFLAG='yes'
@@ -89,22 +94,27 @@ SCREENSAVERBLANKING=`echo "$XSETQ" | grep ' prefer blanking: ' | tr -s ' ' | cut
 SCREENSAVEREXPOSURES=`echo "$XSETQ" | grep ' allow exposures: ' | tr -s ' ' | cut -f 7 -d ' '`
 
 #*********
+# REM: handle dpms ( older Xorg-1.3 vesa driver does not do dpms )
+
+# REM: get current dpms entries from xorg.conf
 #DPMS_XORG_CONF=`grep -i -e 'Option([[:blank:]]*)"DPMS"' /etc/X11/xorg.conf`
 DPMS_XORG_CONF=`grep -i -e 'Option[[:blank:]]*"DPMS"' /etc/X11/xorg.conf`
-echo "DPMS_XORG_CONF='$DPMS_XORG_CONF'"
+echo "DPMS_XORG_CONF='$DPMS_XORG_CONF'"  ##DEBUG
+
 #if [ "`grep -i -e '"Option"[[:blank:]]*"DPMS"' /etc/X11/xorg.conf`" ];then
 if [ "`echo "$DPMS_XORG_CONF"`" ];then
- echo "DPMS in xorg.conf"
+ echo "DPMS in xorg.conf"  ##DEBUG
   if [ "`echo "$DPMS_XORG_CONF" |grep -vEe '^#|^([[:blank:]]*)#'`" ] ; then
-   echo "DPMS not commented"
+   echo "DPMS not commented"  ##DEBUG
+
   ##not commented
-##*xset q example output :
-#DPMS (Energy Star):
-#  Standby: 100    Suspend: 200    Off: 300
-#  DPMS is Enabled
-#  Monitor is On
-#File paths:
+  ##*xset q example output :
+   # DPMS (Energy Star):
+   #  Standby: 100    Suspend: 200    Off: 300
+   #  DPMS is Enabled
+   #  Monitor is On
 ##*
+
 #DPMS_FUZZ=`echo "$XSETQ" |sed -n '/^DPMS (Energy Star):/,/^File paths/ p' | grep -e '^[[:blank:]]*'`
 DPMS_FUZZ=`echo "$XSETQ" |sed -n '/^DPMS (Energy Star):/,/^File paths/ p' |sed "1 d; $ d"`
 STANDBY=`echo "$DPMS_FUZZ" |grep -i 'standby' |awk '{print $2}'`
@@ -113,17 +123,18 @@ OFF=`echo "$DPMS_FUZZ" |grep -i 'off' |awk '{print $6}'`
 ENABLED=`echo "$DPMS_FUZZ" |grep -i 'DPMS is' |awk '{print $3}'`
 MONITOR=`echo "$DPMS_FUZZ" |grep -i 'Monitor is' |awk '{print $3}'`
 
-##bash-3.00# ddcprobe | grep dpms
-##dpms: RGB, active off, suspend, standby
+    # REM: ddcprobe recognizes dpms
+    ##bash-3.00# ddcprobe | grep dpms
+    ##dpms: RGB, active off, suspend, standby
 
-until [ "$DDC_DPMS" ] ; do
-DDC_PROBE=`ddcprobe | grep '^dpms'`
-sleep 1
-c=$((c+1)); [ $c = 5 ] && break
-done
-if [ "$DDC_DPMS" ] ; then
-:
-fi
+    until [ "$DDC_DPMS" ] ; do
+    DDC_PROBE=`ddcprobe | grep '^dpms'`
+    sleep 1
+    c=$((c+1)); [ $c = 5 ] && break
+    done
+    if [ "$DDC_DPMS" ] ; then
+        :
+    fi
 
   else
   ##commented -: to enable edit xorg.conf
@@ -152,10 +163,11 @@ fi
 echo '#!/bin/sh
 MOUSEACCX10=`dc ${1} 10 mul p`
 xset m ${MOUSEACCX10}/10 ${2}
+[ "$?" = 0 ] || : # TODO: Handle error
 echo -n "m ${MOUSEACCX10}/10 ${2}" >> "$tmpDIR"/pupx_finalparams
 [ $3 ] && exit
 Xdialog --title "Mouse settings" --msgbox "Mouse acceleration set to ${1}\nMouse threshold set to ${2}\n(for this session only)" 0 0' > "$tmpDIR"/pupx_mouseaccel.sh
-chmod 777 "$tmpDIR"/pupx_mouseaccel.sh
+chmod $VERB 0777 "$tmpDIR"/pupx_mouseaccel.sh
 
 #apply-now script for setting keyboard...
 echo '#!/bin/sh
@@ -172,10 +184,11 @@ else
  KEYBOARDPARAMS="rate $KEYBOARDDELAY $KEYBOARDRATE"
 fi
 xset c $KEYBOARDVOL r $KEYBOARDPARAMS
+[ "$?" = 0 ] || : # TODO: Handle error
 echo -n " c $KEYBOARDVOL r $KEYBOARDPARAMS"  >> "$tmpDIR"/pupx_finalparams
 [ $5 ] && exit
 Xdialog --title "Keyboard settings" --msgbox "Keyclick volume set to ${KEYBOARDVOL}\nAuto-repeat set to ${KEYBOARDPARAMS}\n(for this session only)" 0 0' > "$tmpDIR"/pupx_keyboard.sh
-chmod 777 "$tmpDIR"/pupx_keyboard.sh
+chmod $VERB 0777 "$tmpDIR"/pupx_keyboard.sh
 
 #v426 add '-dpms' when turn off screensaver...
 #"$tmpDIR"/pupx_screen.sh \$SCREENSAVERFLAG \$SCREENSAVERDELAY \$SCREENSAVERCYCLE \$SCREENSAVERBLANKING \$SCREENSAVEREXPOSURES
@@ -194,14 +207,15 @@ else
  [ "$SCREENSAVERBLANKING" = "true" ] && SCREENSAVERBLANKING=blank
  [ "$SCREENSAVEREXPOSURES" = "false" ] && SCREENSAVEREXPOSURES=noexpose
  [ "$SCREENSAVEREXPOSURES" = "true" ] && SCREENSAVEREXPOSURES=expose
- SCREENSAVERPARAMS="s $SCREENSAVERDELAY $SCREENSAVERCYCLE s $SCREENSAVERBLANKING s $SCREENSAVEREXPOSURES"
+ SCREENSAVERPARAMS="s $SCREENSAVERDELAY $SCREENSAVERCYCLE s $SCREENSAVERBLANKING s $SCREENSAVEREXPOSURES +dpms"
 fi
 xset $SCREENSAVERPARAMS
+[ "$?" = 0 ] || : # TODO: Handle error
 echo -n " $SCREENSAVERPARAMS"  >> "$tmpDIR"/pupx_finalparams
 [ $6 ] && exit
 Xdialog --title "Screensaver settings" --msgbox "Screensaver parameters set to:\n${SCREENSAVERDELAY} ${SCREENSAVERCYCLE} ${SCREENSAVERBLANKING} ${SCREENSAVEREXPOSURES}\n(for this session only)" 0 0
 ' > "$tmpDIR"/pupx_screen.sh
-chmod 777 "$tmpDIR"/pupx_screen.sh
+chmod $VERB 0777 "$tmpDIR"/pupx_screen.sh
 
 
 export MAIN_DIALOG="<window title=\"$LOC_MAIN\" icon-name=\"video-display\">
@@ -376,9 +390,9 @@ export MAIN_DIALOG="<window title=\"$LOC_MAIN\" icon-name=\"video-display\">
    <button>
     <input file stock=\"gtk-apply\"></input>
     <label>$LOC_APPLY</label>
-    <action>$tmpDIR/pupx_mouseaccel.sh \$MOUSEACCEL \$MOUSETHRESHOLD &</action>
-    <action>$tmpDIR/pupx_keyboard.sh \$KEYBOARDVOL \$KEYBOARDAUTO \$KEYBOARDDELAY \$KEYBOARDRATE &</action>
-    <action>$tmpDIR/pupx_screen.sh \$SCREENSAVERFLAG \$SCREENSAVERDELAY \$SCREENSAVERCYCLE \$SCREENSAVERBLANKING \$SCREENSAVEREXPOSURES &</action>
+    <action>$tmpDIR/pupx_mouseaccel.sh \"\$MOUSEACCEL\" \"\$MOUSETHRESHOLD\" &</action>
+    <action>$tmpDIR/pupx_keyboard.sh \"\$KEYBOARDVOL\" \"\$KEYBOARDAUTO\" \"\$KEYBOARDDELAY\" \"\$KEYBOARDRATE\" &</action>
+    <action>$tmpDIR/pupx_screen.sh \"\$SCREENSAVERFLAG\" \"\$SCREENSAVERDELAY\" \"\$SCREENSAVERCYCLE\" \"\$SCREENSAVERBLANKING\" \"\$SCREENSAVEREXPOSURES\" &</action>
    </button>
    <button ok>
     <action type=\"exit\">save settings</action>
@@ -392,25 +406,29 @@ RETPARAMS=`gtkdialog3 --program=MAIN_DIALOG`
 
 eval "$RETPARAMS"
 
-echo "$RETPARAMS"
+[ "$VERBOSE" -o "$DEBUG" ] && echo "$RETPARAMS"
 
-[ "$EXIT" != "save settings" ] && exit
+[ "$EXIT" != "save settings" ] && exit 0
 
 echo -n "" > "$tmpDIR"/pupx_finalparams
-"$tmpDIR"/pupx_mouseaccel.sh $MOUSEACCEL $MOUSETHRESHOLD quiet
-"$tmpDIR"/pupx_keyboard.sh $KEYBOARDVOL $KEYBOARDAUTO $KEYBOARDDELAY $KEYBOARDRATE quiet
-"$tmpDIR"/pupx_screen.sh $SCREENSAVERFLAG $SCREENSAVERDELAY $SCREENSAVERCYCLE $SCREENSAVERBLANKING $SCREENSAVEREXPOSURES quiet
-sync
+"$tmpDIR"/pupx_mouseaccel.sh "$MOUSEACCEL" "$MOUSETHRESHOLD" quiet
+"$tmpDIR"/pupx_keyboard.sh "$KEYBOARDVOL" "$KEYBOARDAUTO" "$KEYBOARDDELAY" "$KEYBOARDRATE" quiet
+"$tmpDIR"/pupx_screen.sh "$SCREENSAVERFLAG" "$SCREENSAVERDELAY" "$SCREENSAVERCYCLE" "$SCREENSAVERBLANKING" "$SCREENSAVEREXPOSURES" quiet
+_sync
 echo -n "xset " > $HOME/.xset.sh
 cat "$tmpDIR"/pupx_finalparams >> $HOME/.xset.sh
 chmod +x $HOME/.xset.sh
+$HOME/.xset.sh
+[ "$?" = 0 ] || : #TODO: handle error
 #...this is evaluated at bootup by $HOME/.xinitrc
 
 # Cleanup
-#rm -f "$tmpDIR"/pupx_mouseaccel.sh
-#rm -f "$tmpDIR"/pupx_keyboard.sh
-#rm -f "$tmpDIR"/pupx_screen.sh
-#rm -f "$tmpDIR"/pupx_finalparams
+[ "$VERBOSE" -o "$DEBUG" ] || {
+rm -f "$tmpDIR"/pupx_mouseaccel.sh
+rm -f "$tmpDIR"/pupx_keyboard.sh
+rm -f "$tmpDIR"/pupx_screen.sh
+rm -f "$tmpDIR"/pupx_finalparams
+}
 
 ###END###
 
