@@ -112,9 +112,23 @@ SCREENSAVEREXPOSURES="`echo "$XSETQ" | grep ' allow exposures: ' | tr -s ' ' | c
 #apply-now script for setting mouse params...
 if ! _test_fx "$appDIR"/pupx_mouseaccel.sh; then
 echo "#!/bin/sh
+
+__old__code__(){
 MOUSEACCX10=\`dc \${1} 10 mul p\`
 xset m \${MOUSEACCX10}/10 \${2}
 echo -n \"m \${MOUSEACCX10}/10 \${2}\" >> $appDIR/pupx_finalparams
+}
+
+MOUSEAXXL=\"\$1\"
+MOUSETRSH=\"\$2\"
+
+[ \"\$MOUSEAXXL\" ] || MOUSEAXXL=2
+[ \"\$MOUSETRSH\" ] || MOUSETRSH=4
+
+MOUSEACCX10=\`dc \${MOUSEAXXL} 10 mul p\`
+xset m \${MOUSEACCX10}/10 \${MOUSETRSH}
+[ \$? = 0 ] && echo -n \"m \${MOUSEACCX10}/10 \${2}\" >> $appDIR/pupx_finalparams
+
 [ \$3 ] && exit
 Xdialog --title \"Mouse settings\" --msgbox \"Mouse acceleration set to \${1}\\nMouse threshold set to \${2}\\n(for this session only)\" 0 0
 " > "$appDIR"/pupx_mouseaccel.sh
@@ -128,16 +142,25 @@ KEYBOARDVOL=\$1
 KEYBOARDAUTO=\$2
 KEYBOARDDELAY=\$3
 KEYBOARDRATE=\$4
+
+[ \"\$KEYBOARDVOL\" ]   || KEYBOARDVOL=0
+[ \"\$KEYBOARDAUTO\" ]  || KEYBOARDAUTO=false
+[ \"\$KEYBOARDDELAY\" ] || KEYBOARDDELAY=660
+[ \"\$KEYBOARDRATE\" ]  || KEYBOARDRATE=25
+
 KEYBOARDDELAY=\`echo -n \$KEYBOARDDELAY | cut -f 1 -d '.'\`
 KEYBOARDRATE=\`echo -n \$KEYBOARDRATE | cut -f 1 -d '.'\`
 [ \$KEYBOARDVOL -eq 0 ] && KEYBOARDVOL=off
+
 if [ \"\$KEYBOARDAUTO\" = \"false\" ];then
  KEYBOARDPARAMS=\"off\"
 else
  KEYBOARDPARAMS=\"rate \$KEYBOARDDELAY \$KEYBOARDRATE\"
 fi
+
 xset c \$KEYBOARDVOL r \$KEYBOARDPARAMS
 echo -n \" c \$KEYBOARDVOL r \$KEYBOARDPARAMS\"  >> $appDIR/pupx_finalparams
+
 [ \$5 ] && exit
 Xdialog --title \"Keyboard settings\" --msgbox \"Keyclick volume set to \${KEYBOARDVOL}\\nAuto-repeat set to \${KEYBOARDPARAMS}\\n(for this session only)\" 0 0
 " > "$appDIR"/pupx_keyboard.sh
@@ -153,6 +176,13 @@ SCREENSAVERDELAY=\$2
 SCREENSAVERCYCLE=\$3
 SCREENSAVERBLANKING=\$4
 SCREENSAVEREXPOSURES=\$5
+
+[ \"\$SCREENSAVERFLAG\" ]  || SCREENSAVERFLAG=false
+[ \"\$SCREENSAVERDELAY\" ] || SCREENSAVERDELAY=0
+[ \"\$SCREENSAVERCYCLE\" ] || SCREENSAVERCYCLE=0
+[ \"\$SCREENSAVERBLANKING\" ] || SCREENSAVERBLANKING=false
+[ \"\$SCREENSAVEREXPOSURES\" ] || SCREENSAVEREXPOSURES=false
+
 SCREENSAVERDELAY=\`echo -n \$SCREENSAVERDELAY | cut -f 1 -d '.'\`
 SCREENSAVERCYCLE=\`echo -n \$SCREENSAVERCYCLE | cut -f 1 -d '.'\`
 if [ \"\$SCREENSAVERFLAG\" = \"false\" ];then
@@ -344,9 +374,9 @@ MAIN_DIALOG="<window title=\"$LOC_MAIN\" icon-name=\"video-display\">
    <button>
     <input file stock=\"gtk-apply\"></input>
     <label>$LOC_APPLY</label>
-    <action>$appDIR/pupx_mouseaccel.sh \$MOUSEACCEL \$MOUSETHRESHOLD &</action>
-    <action>$appDIR/pupx_keyboard.sh \$KEYBOARDVOL \$KEYBOARDAUTO \$KEYBOARDDELAY \$KEYBOARDRATE &</action>
-    <action>$appDIR/pupx_screen.sh \$SCREENSAVERFLAG \$SCREENSAVERDELAY \$SCREENSAVERCYCLE \$SCREENSAVERBLANKING \$SCREENSAVEREXPOSURES &</action>
+    <action>$appDIR/pupx_mouseaccel.sh \"\$MOUSEACCEL\" \"\$MOUSETHRESHOLD\" &</action>
+    <action>$appDIR/pupx_keyboard.sh \"\$KEYBOARDVOL\" \"\$KEYBOARDAUTO\" \"\$KEYBOARDDELAY\" \"\$KEYBOARDRATE\" &</action>
+    <action>$appDIR/pupx_screen.sh \"\$SCREENSAVERFLAG\" \"\$SCREENSAVERDELAY\" \"\$SCREENSAVERCYCLE\" \"\$SCREENSAVERBLANKING\" \"\$SCREENSAVEREXPOSURES\" &</action>
    </button>
    <button ok>
     <action type=\"exit\">save settings</action>
@@ -365,14 +395,23 @@ _debug "$RETPARAMS"
 [ "$EXIT" != "save settings" ] && exit 0
 
 echo -n "" > "$appDIR"/pupx_finalparams
-"$appDIR"/pupx_mouseaccel.sh $MOUSEACCEL $MOUSETHRESHOLD quiet
-"$appDIR"/pupx_keyboard.sh $KEYBOARDVOL $KEYBOARDAUTO $KEYBOARDDELAY $KEYBOARDRATE quiet
-"$appDIR"/pupx_screen.sh $SCREENSAVERFLAG $SCREENSAVERDELAY $SCREENSAVERCYCLE $SCREENSAVERBLANKING $SCREENSAVEREXPOSURES quiet
+"$appDIR"/pupx_mouseaccel.sh "$MOUSEACCEL" "$MOUSETHRESHOLD" quiet
+"$appDIR"/pupx_keyboard.sh "$KEYBOARDVOL" "$KEYBOARDAUTO" "$KEYBOARDDELAY" "$KEYBOARDRATE" quiet
+"$appDIR"/pupx_screen.sh "$SCREENSAVERFLAG" "$SCREENSAVERDELAY" "$SCREENSAVERCYCLE" "$SCREENSAVERBLANKING" "$SCREENSAVEREXPOSURES" quiet
 _sync
+
+#...this is evaluated at bootup by $HOME/.xinitrc
 echo -n "xset " > $HOME/.xset.sh
 cat "$appDIR"/pupx_finalparams >> $HOME/.xset.sh
 chmod +x $HOME/.xset.sh
-#...this is evaluated at bootup by $HOME/.xinitrc
+"$HOME"/.xset.sh
+[ "$?" = 0 ] || { xmessage -bg red "Oops:
+Something went wrong...
+Please try again with different settings.
+Bug report: http://www.murga-linux.com/puppy
+"
+ exec "$MY_SELF"
+ }
 
 # Cleanup
 [ "$VERBOSE" ] || rm -f "$tmpDIR"/pupx_mouseaccel.sh "$tmpDIR"/pupx_keyboard.sh "$tmpDIR"/pupx_screen.sh "$tmpDIR"/pupx_finalparams
