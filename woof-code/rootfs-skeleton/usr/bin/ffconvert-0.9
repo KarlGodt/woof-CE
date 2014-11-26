@@ -1,0 +1,1297 @@
+#!/bin/sh
+# FFConvert - a frontend of ffmpeg
+# 2 Jul 2010 by shinobar <shino@pos.to>
+VERSION="0.9"
+CREDIT="FFConvert v.$VERSION"
+TITLE=$CREDIT
+
+export LANG=C
+
+usage(){
+	TYPE_A_FFMPEG=`type -a ffmpeg`
+	[ "$TYPE_A_FFMPEG" ] || TYPE_A_FFMPEG='ERROR:) NONE:('
+	echo "
+	$0 [path/to/media_filename.ext|-h|--help]
+	Shellscript with GUI (GraphicalUserInterface)
+	to convert multi-media-files using ffmpeg binary .
+	Currently installed ffmpeg binaries :
+	$TYPE_A_FFMPEG
+
+	Supports a large variety of video and audio formats
+	and codecs . See ffmpeg -codecs|-formats|-h
+	resp. man ffmpeg .
+	"
+    exit 0
+}
+
+[ "$1" = '-h' -o "$1" = '--help' ] && usage
+
+#FFMPEGBIN=/usr/bin/ffmpeg
+#[ -f /usr/local/bin/ffmpeg ] && FFMPEGBIN=/usr/local/bin/ffmpeg
+#FFMPEGS=`type -a ffmpeg`
+#FFMPEGS=`echo "$FFMPEGS" |awk '{print $3}'`
+if [ ! "$FFMPEGBIN" ];then
+FFMPEGS=`type -aP ffmpeg`
+echo $FFMPEGS
+if [ "$FFMPEGS" ];then
+DIRNAME=''
+for c in $FFMPEGS;do
+DIRNAME=`dirname "$c"`
+echo $DIRNAME
+OTHER=`find "$DIRNAME" -type f -iname "ffmpeg*"`
+echo $OTHER
+[ "$OTHER" ] && FFMPEGS="$FFMPEGS
+$OTHER"
+done
+FFMPEGS=`echo "$FFMPEGS" |sort -u`
+for c in $FFMPEGS;do
+file $c |grep -viw 'link' || false
+ case $? in
+ 0):;;
+ *) sedp0=`echo "$c" | sed 's,\([[:punct:]]\),\\\\\1,g'`
+    echo "$sedp0"
+    #FFMPEGS=`echo "$FFMPEGS" | sed "s,$sedp0,,"`;;
+	FFMPEGS=`echo "$FFMPEGS" | sed "/${sedp0}$/d"`
+esac;done
+else
+FFMPEGS=None;fi
+
+case $FFMPEGS in
+None) xmessage -bg red "Seems ffmpeg is not installed .
+Please install ffmpeg package .
+Exiting $CREDIT"
+exit 1;;
+*)
+FFMPEGITEMS=''
+for c in $FFMPEGS;do
+#checkffmpeg=`file "$c" | grep -viw 'link'`
+FFMPEGITEMS="$FFMPEGITEMS
+<item>$c</item>";done
+FFMPEGITEMS=`echo "$FFMPEGITEMS" | sed '/^$/d'`
+export BIN_CHOICE="
+<window title=\"$CREDIT\">
+<vbox>
+<hbox>
+<text><label>Found several ffmpegs on your system.</label></text>
+</hbox>
+<hbox>
+<text><label>Please select the one you want to work with:</label></text>
+</hbox>
+<hbox>
+<combobox width-request=\"400\">
+<variable>FFMPEGBINC</variable>
+$FFMPEGITEMS
+</combobox>
+<button ok></button>
+</hbox>
+</vbox>
+</window>"
+CHOICE=`gtkdialog3 --program=BIN_CHOICE`
+#[ "$?" != '0' ] && exit "$?"
+#echo $?
+echo "$CHOICE" | grep -wi 'OK' || exit
+FFMPEGBIN=`echo "$CHOICE" | head -n1| sed '/FFMPEGBINC/s|.*="\(.*\)"|\1|'`
+echo "$FFMPEGBIN"
+echo "$FFMPEGBIN" >>/tmp/ffconvert_ffmpegbin.choice
+OLD_FFMPEGBIN=`tail -2 /tmp/ffconvert_ffmpegbin.choice | head -n 1`
+if [ "$FFMPEGBIN" != "$OLD_FFMPEGBIN" ];then
+rm /tmp/make_combo*;fi
+;;
+esac
+
+#FFMPEGVERS=`$FFMPEGBIN -version 2>&1 |head -n1 |awk '{print $3}' |tr -d ','`
+
+$FFMPEGBIN -version
+#/usr/bin/ffmpeg-0.5.8-mov: relocation error: /usr/bin/ffmpeg-0.5.8-mov: symbol sws_getContext, version LIBAVCODEC_52 not defined in file libavcodec.so.52 with link time reference
+
+#ffmpeg 0.9.1
+#libavutil    51. 32. 0 / 51. 32. 0
+#libavcodec   53. 42. 4 / 53. 42. 4
+#libavformat  53. 24. 2 / 53. 24. 2
+#libavdevice  53.  4. 0 / 53.  4. 0
+#libavfilter   2. 53. 0 /  2. 53. 0
+#libswscale    2.  1. 0 /  2.  1. 0
+#libpostproc  51.  2. 0 / 51.  2. 0
+
+#ffmpeg version 0.8.10, Copyright (c) 2000-2011 the FFmpeg developers
+#  built on Jan 14 2012 18:42:48 with gcc 4.2.2
+#  configuration: --enable-x11grab --enable-pic --enable-zlib --enable-bzlib --enable-gpl
+#  libavutil    51.  9. 1 / 51.  9. 1
+#  libavcodec   53.  8. 0 / 53.  8. 0
+#  libavformat  53.  5. 0 / 53.  5. 0
+#  libavdevice  53.  1. 1 / 53.  1. 1
+#  libavfilter   2. 23. 0 /  2. 23. 0
+#  libswscale    2.  0. 0 /  2.  0. 0
+#  libpostproc  51.  2. 0 / 51.  2. 0
+#ffmpeg 0.8.10
+#libavutil    51.  9. 1 / 51.  9. 1
+#libavcodec   53.  8. 0 / 53.  8. 0
+#libavformat  53.  5. 0 / 53.  5. 0
+#libavdevice  53.  1. 1 / 53.  1. 1
+#libavfilter   2. 23. 0 /  2. 23. 0
+#libswscale    2.  0. 0 /  2.  0. 0
+#libpostproc  51.  2. 0 / 51.  2. 0
+
+#ffmpeg version 0.7.11, Copyright (c) 2000-2011 the FFmpeg developers
+#  built on Jan 14 2012 17:32:09 with gcc 4.2.2
+#  configuration: --enable-x11grab --enable-pic --enable-zlib --enable-bzlib --enable-gpl
+#  libavutil    50. 43. 0 / 50. 43. 0
+#  libavcodec   52.123. 0 / 52.123. 0
+#  libavformat  52.111. 0 / 52.111. 0
+#  libavdevice  52.  5. 0 / 52.  5. 0
+#  libavfilter   1. 80. 0 /  1. 80. 0
+#  libswscale    0. 14. 1 /  0. 14. 1
+#  libpostproc  51.  2. 0 / 51.  2. 0
+#ffmpeg 0.7.11
+#libavutil    50. 43. 0 / 50. 43. 0
+#libavcodec   52.123. 0 / 52.123. 0
+#libavformat  52.111. 0 / 52.111. 0
+#libavdevice  52.  5. 0 / 52.  5. 0
+#libavfilter   1. 80. 0 /  1. 80. 0
+#libswscale    0. 14. 1 /  0. 14. 1
+#libpostproc  51.  2. 0 / 51.  2. 0
+
+#/usr/bin/ffmpeg_SVN-r22815: Symbol `av_pix_fmt_descriptors' has different size in shared object, consider re-linking
+#FFmpeg version SVN-r22815, Copyright (c) 2000-2010 the FFmpeg developers
+#  built on Apr  8 2010 21:20:40 with gcc 4.2.2
+#
+#  libavutil     50.14. 0 / 50.15. 1
+#  libavcodec    52.66. 0 / 52.72. 2
+#  libavformat   52.61. 0 / 52.64. 2
+#  libavdevice   52. 2. 0 / 52. 2. 0
+#  libavfilter    1.18. 0 /  1.19. 0
+#  libswscale     0.10. 0 /  0.11. 0
+#  libpostproc   51. 2. 0 / 51. 2. 0
+#FFmpeg SVN-r22815
+#libavutil     50.14. 0 / 50.15. 1
+#libavcodec    52.66. 0 / 52.72. 2
+#libavformat   52.61. 0 / 52.64. 2
+#libavdevice   52. 2. 0 / 52. 2. 0
+#libavfilter    1.18. 0 /  1.19. 0
+#libswscale     0.10. 0 /  0.11. 0
+#libpostproc   51. 2. 0 / 51. 2. 0
+
+#FFmpeg version 0.6.5, Copyright (c) 2000-2010 the FFmpeg developers
+#  built on Mar 27 2012 03:39:43 with gcc 4.2.2
+#  configuration: --bindir=/usr/bin --libdir=/usr/lib --datadir=/usr/share --enable-shared --enable-gpl --enable-version3 --enable-nonfree --enable-postproc --enable-avfilter --enable-avfilter-lavf --enable-pthreads --enable-x11grab --enable-gray --enable-runtime-cpudetect --enable-hardcoded-tables --enable-memalign-hack --enable-bzlib --enable-libdc1394 --enable-libfaac --enable-libfaad --enable-libfaadbin --enable-libmp3lame --enable-libspeex --enable-libtheora --enable-libvorbis --enable-zlib --enable-sram
+#  WARNING: library configuration mismatch
+
+#  libavutil     50.15. 1 / 50.15. 1
+#  libavcodec    52.72. 2 / 52.72. 2
+#  libavformat   52.64. 2 / 52.64. 2
+#  libavdevice   52. 2. 0 / 52. 2. 0
+#  libavfilter    1.19. 0 /  1.19. 0
+#  libswscale     0.11. 0 /  0.11. 0
+#  libpostproc   51. 2. 0 / 51. 2. 0
+#FFmpeg 0.6.5
+#libavutil     50.15. 1 / 50.15. 1
+#libavcodec    52.72. 2 / 52.72. 2
+#libavformat   52.64. 2 / 52.64. 2
+#libavdevice   52. 2. 0 / 52. 2. 0
+#libavfilter    1.19. 0 /  1.19. 0
+#libswscale     0.11. 0 /  0.11. 0
+#libpostproc   51. 2. 0 / 51. 2. 0
+
+#FFmpeg version 0.6.5, Copyright (c) 2000-2010 the FFmpeg developers
+#  built on Jan 13 2012 18:07:57 with gcc 4.2.2
+#  configuration:
+#  libavutil     50.15. 1 / 50.15. 1
+#  libavcodec    52.72. 2 / 52.72. 2
+#  libavformat   52.64. 2 / 52.64. 2
+#  libavdevice   52. 2. 0 / 52. 2. 0
+#  libswscale     0.11. 0 /  0.11. 0
+#FFmpeg 0.6.5
+#libavutil     50.15. 1 / 50.15. 1
+#libavcodec    52.72. 2 / 52.72. 2
+#libavformat   52.64. 2 / 52.64. 2
+#libavdevice   52. 2. 0 / 52. 2. 0
+#libswscale     0.11. 0 /  0.11. 0
+
+#FFmpeg version 0.5.8, Copyright (c) 2000-2009 Fabrice Bellard, et al.
+#  configuration:
+#  libavutil     49.15. 0 / 49.15. 0
+#  libavcodec    52.20. 1 / 52.20. 1
+#  libavformat   52.31. 0 / 52.31. 0
+#  libavdevice   52. 1. 0 / 52. 1. 0
+#  built on Mar 21 2012 06:51:28, gcc: 4.2.2
+#FFmpeg 0.5.8
+#libavutil     49.15. 0 / 49.15. 0
+#libavcodec    52.20. 1 / 52.20. 1
+#libavformat   52.31. 0 / 52.31. 0
+
+FFMPEGVERS=`$FFMPEGBIN -version 2>/dev/null|grep -i '^ffmpeg'`
+
+echo "FFMPEGVERS='$FFMPEGVERS'"
+
+#exit
+fi ##NOT FFMPEGBIN
+SOURCEFILE=""
+[ "$1" -a -f "$1" ] && SOURCEFILE="$1"
+[ ! "$SOURCEFILE" ] && SOURCEFILE="`pwd`"
+
+# additional options
+DEFVPREFIRST="fastfirstpass"
+DEFVPREFINAL="hq"
+ADDOPTIONS=""
+X264OPTIONS="-threads 0"
+CONFFILE="$HOME/.config/ffconvert/ffconvert.rc"
+DATADIR="/usr/share"
+PRESETFILE="$DATADIR/ffconvert/preset"
+PRESETDIR="$DATADIR/ffconvert/preset.d"
+USERPRESETDIR="$HOME/.config/ffconvert/presets"
+ICONS="/usr/local/lib/X11/mini-icons"
+ONLINEDOC="http://ffmpeg.org/ffmpeg-doc.html"
+TEXTVIEWER="defaulttextviewer"
+#PLAYER="defaultmediaplayer"
+for P in defaultmediaplayer ffplay mplayer gxine; do
+  which "$P" &>/dev/null && PLAYER=$P && break
+done
+#which ffplay &>/dev/null && PLAYER="ffplay"
+if [ "$BROWSER" = "" ];then
+  for P in defaultbrowser defaulthtmlviewer firefox google-chrome seamonkey gtkmoz; do
+    which "$P" &>/dev/null && BROWSER=$P && break
+  done
+fi
+MYNAME=$(basename $0)
+export TEXTDOMAIN=$MYNAME
+export DIALOG
+waitsplash() {
+  [ "$XPID" != "" ] && kill $XPID >/dev/null 2>&1
+  XPID=""
+  #LANG=$LANGORG	# recover lang environment
+  [ "$1" = "start" -o "$1" = "progress" ] || return
+  PBAR=""
+  if [ "$1" = "progress" ]; then
+    PBAR="<progressbar>
+      <input>while [ -f $COUNTFILE ]; do tail -n 1 $COUNTFILE; sleep 1; done</input>
+     </progressbar>"
+  fi
+  shift	# remove $1
+  S=$(gettext "Wait a moment ...")
+  [ "$*" ] && S="$*\\n$S"
+  DIALOG="<window title=\"$TITLE\" $TITLEICON><vbox>
+  <hbox>
+  <pixmap><input file>$ICONS/mini-clock.xpm</input></pixmap>
+  <text><input>echo -e -n \"$S\"</input></text>
+  </hbox>
+  $PBAR
+  </vbox></window>"
+  gtkdialog3 -p DIALOG  >/dev/null &
+  XPID=$!
+  #LANG=C	# to be faster
+}
+
+errmsg () {
+  #echo $0 $@ >&2
+  [ "$XPID" != "" ] && kill $XPID >/dev/null 2>&1
+  MARK="error"
+  TIMEOUT=0
+  BUTTONS="<hbox>$EXTRABUTTON<button ok></button></hbox>"
+  case "$1" in
+   error)  MARK="error";shift;;
+   warning) MARK="warning";shift;;
+   info) MARK="info";shift;;
+   yesno) MARK="question";shift
+		[ "$YESLABEL" ] || YESLABEL=$(gettext "Yes")
+		[ "$NOLABEL" ] || NOLABEL=$(gettext "No")
+		[ "$YESSYMBOL" ] || YESSYMBOL="gtk-yes"
+		[ "$NOSYMBOL" ] || NOSYMBOL="gtk-no"
+		BUTTONS="<hbox>
+    <button><label>$YESLABEL</label><input file stock=\"$YESSYMBOL\"></input><action>EXIT:Yes</action></button>
+    $EXTRABUTTON
+	<button><label>$NOLABEL</label><input file stock=\"$NOSYMBOL\"></input><action>EXIT:No</action></button></hbox>"
+		;;
+   timeout) MARK="info";shift
+            if echo "$1" | grep -q '^[0-9][0-9]*$'; then
+              TIMEOUT=$1; shift
+            else
+              TIMEOUT=10
+            fi
+            [ $TIMEOUT -lt 5 ] && BUTTONS=""
+            ;;
+  esac
+  ERRMSG="$*"
+  [ "$ERRMSG" = "" ] && ERRMSG=$(gettext "An error occured")
+  DIALOG="<window title=\"$TITLE\" $TITLEICON><vbox>
+    <hbox>
+    <pixmap  icon_size=\"5\"><input file stock=\"gtk-dialog-$MARK\"></input></pixmap>
+    <text><input>echo -e -n \"$ERRMSG\"</input></text>
+    </hbox>
+	$BUTTONS
+	</vbox></window>"
+  if [ $TIMEOUT -eq 0 ]; then
+   gtkdialog3 -p DIALOG
+   return
+  else
+   gtkdialog3 -p DIALOG  >/dev/null &
+   XPID=$!
+   for I in $(seq 1 $TIMEOUT);do
+     # 28feb10 to see exact PID
+     ps | grep -qw "^[[:blank:]]*$XPID" || break
+     sleep 1
+   done
+   [ "$XPID" != "" ] && kill $XPID && XPID=""
+  fi
+}
+
+waitsplash start $(printf "$(gettext 'Launching %s')" "$CREDIT")
+
+# check ffmpeg ability
+FALL=$($FFMPEGBIN -formats 2>/dev/null)
+N1=$(echo "$FALL"|cat -n| grep 'Codecs:'|cut -f1| tr -dc '[0-9]')
+N2=$(echo "$FALL"|cat -n| grep 'Supported file protocols:'|cut -f1| tr -dc [0-9])
+if [ "$N1" ]; then
+  #FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]*E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
+  #FORMATS=$(echo "$FALL"| grep '^[ D]*E'|awk '{print $2}')
+  #FORMATS=$(echo "$FALL"| grep '^[ D]*E' |sed 's/^ *//;s/^D /D-/;s/^E/-E/;s/\([DE-][DE-]\) \([[:alnum:]]*\) \(.*\)/\1_\2/')
+  FORMATS=$(echo "$FALL"| grep '^ [ D][ E] ' |sed 's/^ *//;s/^D /D-/;s/^E/-E/' |awk '{print $1"_"$2}')
+  NR_F=`echo "$FORMATS" | wc -l`
+  if [ "$N2" ]; then
+    CODECS=$(echo "$FALL"| head -n $(($N2 - 1))|tail -n $(($N2 - $N1)))
+  fi
+else
+  #FORMATS=$(echo "$FALL"| grep '^[ D]*E'|sed -e 's/^[ A-Z]*[ ]*//' |cut -d ' ' -f1)
+  #FORMATS=$(echo "$FALL"| grep '^[ D]*E'|awk '{print $2}')
+  #FORMATS=$(echo "$FALL"| grep '^[ D]*E' |sed 's/^ *//;s/° D /D-/;s/^E/-E/;s/\([DE-][DE-]\) \([[:alnum:]]*\) \(.*\)/\1_\2/')
+  FORMATS=$(echo "$FALL"| grep '^ [ D][ E] ' |sed 's/^ *//;s/^D /D-/;s/^E/-E/' |awk '{print $1"_"$2}')
+  NR_F=`echo "$FORMATS" | wc -l`
+  CODECS=$($FFMPEGBIN -codecs 2>/dev/null)
+fi
+echo 'FORMATS:'
+echo "$FORMATS"
+echo
+echo 'CODECS:'
+echo "$CODECS"
+#VCODECS=$(echo "$CODECS"|grep '^[ D]*EV'|awk '{print $2}')
+#OK:VCODECS=$(echo "$CODECS"|grep -e '^ [DE ]*V' |sed 's/^[[:blank:]]*//;s/^[A-Z]* //g;s/^[A-Z]* //g;s/^[A-Z]* //g' |awk '{print $1}')
+#VCODECS=$(echo "$CODECS"|grep -e '^ [DE ]*V' |sed 's/^[[:blank:]]*//;s/^[DE ][EVAS ][VAS ][SD ][DT ][T ]//'|awk '{print $1}')
+#VCODECS=$(echo "$CODECS"|grep '^ [D ]EV' |sed 's/^[[:blank:]]*//;s/^[DE ][EVAS ][VAS ][SD ][DT ][T ]//'|awk '{print $1}')
+#VCODECS=$(echo "$CODECS"|grep '^ [D ]EV' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/[VAS ][SD ][DT ][T ]//'|awk '{print $1"_"$2}')
+#VCODECS=$(echo "$CODECS"|grep -e '^ [DE ]*V' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/^V/--V/;s/[VAS ][SD ][DT ][T ]//'|awk '{print $1"_"$2}')
+VCODECS=$(echo "$CODECS"|grep -e '^ [DE ]*V' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/^V/--V/;s/V /V-/;s/V- /V--/;s/V-- /V---/;s/S /S-/;s/S- /S--/;s/D /D-/'|awk '{print $1"_"$2}')
+
+#ACODECS=$(echo "$CODECS"|grep -e '^ [DE ]*A' |sed 's/^[[:blank:]]*//;s/^[A-Z]* //g;s/^[A-Z]* //g' |awk '{print $1}')
+#ACODECS=$(echo "$CODECS"|grep '^[ D]*EA'|awk '{print $2}')
+#ACODECS=$(echo "$CODECS"|grep '^ [D ]EA' |sed 's/^[[:blank:]]*//;s/^[DE ][EVAS ][VAS ][SD ][DT ][T ]//'|awk '{print $1}')
+#ACODECS=$(echo "$CODECS"|grep '^ [D ]EA' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/[AVS ][SD ][DT ][T ]//'|awk '{print $1"_"$2}')
+#ACODECS=$(echo "$CODECS"|grep -e '^ [DE ]*A' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/^A/--A/;s/[AVS ][SD ][DT ][T ]//'|awk '{print $1"_"$2}')
+ACODECS=$(echo "$CODECS"|grep -e '^ [DE ]*A' |sed 's/^[[:blank:]]*//;s/^D /D-/;s/^E/-E/;s/^A/--A/;s/A /A-/;s/A- /A--/;s/A-- /A---/;s/S /S-/;s/S- /S--/;s/D /D-/'|awk '{print $1"_"$2}')
+
+VCT=`echo "$VCODECS" |wc -l`
+ACT=`echo "$ACODECS" |wc -l`
+echo 'VCODECS:'
+echo "$VCODECS"
+echo "TOTAL of encoding '$VCT' video codecs supported by $FFMPEGBIN"
+echo
+echo 'ACODECS:'
+echo "$ACODECS"
+echo "TOTAL of encoding '$ACT' audio codecs supported by $FFMPEGBIN"
+echo
+#echo "$FORMATS" >&2
+#echo "$CODECS" >&2
+H264=$(echo "$VCODECS" | grep 'libx264')
+AAC=$(echo "$ACODECS" | grep 'libfaac')
+MP3=$(echo "$ACODECS" | grep 'libmp3lame')
+CUSTOM=$(gettext 'Custom'|tr ' ' '@')
+COPY=$(gettext 'Copy'|tr ' ' '@')
+NONE=$(gettext 'None'|tr ' ' '@')
+SAME=$(gettext 'Same as source'|tr ' ' '@')
+NOSPEC=$(gettext 'Not specify'|tr ' ' '@')
+MONO=$(gettext 'mono')
+STEREO=$(gettext 'stereo')
+#[ "$DEFDIR" ] && DEFAULTDIR="<default>$DEFDIR</default>" || DEFAULTDIR=""
+#[ "$DEFOPTIONS" ] && DEFAULTOPTIONS="<default>$DEFOPTIONS</default>" || DEFAULTOPTIONS=""
+
+# load conf
+echo "Reading configuration file '$CONFFILE' ..."
+[ -f "$CONFFILE" ] && source "$CONFFILE"
+#[ ! "$SOURCEFILE" ] SOURCEFILE=$LASTSOURCEDIR
+DEFPRESET=$(echo "$DEFPRESET"|tr '_ ' '@')
+[ "$DEFPRESET" ] || DEFPRESET="@"
+DEFVCODEC=$(echo "$DEFVCODEC"|tr ' ' '@')
+DEFQUALITY=$(echo "$DEFQUALITY"|tr ' ' '@')
+DEFVBITRATE=$(echo "$DEFVBITRATE"|tr ' ' '@')
+DEFSCREEN=$(echo "$DEFSCREEN"|tr ' ' '@')
+DEFASPECT=$(echo "$DEFASPECT"|tr ' ' '@')
+DEFFRAMERATE=$(echo "$DEFFRAMERATE"|tr ' ' '@')
+DEFACODEC=$(echo "$DEFACODEC"|tr ' ' '@')
+DEFSAMPLEING=$(echo "$DEFSAMPLEING"|tr ' ' '@')
+DEFCHANNEL=$(echo "$DEFCHANNEL"|tr ' ' '@')
+
+EXTRABUTTON=""
+#THUMBNAILSIZE="128x96"	### enable thumbnail
+THUMBNAILPOS=10
+THUMBNAIL="/tmp/${MYNAME}_thumbnail.png"
+MAKETHUMB="\$FFMPEGBIN -i \$FILE1 -vcodec png -s $THUMBNAILSIZE -ss $THUMBNAILPOS -dframes 1 -an $THUMBNAIL &>/dev/null;"
+SHOWTHUMB="<pixmap><input file>$THUMBNAIL</input></pixmap>"
+if [ "$THUMBNAILSIZE" = "" ]; then
+  MAKETHUMB=""
+  SHOWTHUMB=""
+fi
+export INFO_DIALOG="<window title=\"$TITLE $(gettext 'Source')\"><vbox>
+$SHOWTHUMB
+<text selectable=\"true\"><input>\$FFMPEGBIN -i \"\$FILE1\" 2>&1 |grep -E '(#|Duration)' || echo \$(printf \"\$(gettext 'No video nor audio stream in %s.')\" \"\$FILE1\")</input></text>
+<hbox><button ok></button></hbox></vbox></window>"
+
+
+# presets
+echo "Presets ..."
+[ -d "$PRESETDIR" ] && PRESETS=$(cd "$PRESETDIR";ls|tr '_ ' '@') || PRESETS=""
+#PRESETS2=$(cat "$PRESETFILE"| cut -d',' -f1|tr ' ' '@')
+PRESETS2=$(cat "$PRESETFILE"| sed 's|, -|, (-|;s|$|)|' |tr ' ' '@')
+if [ "$PRESETS2" ]; then
+  PRESETS="$PRESETS
+$PRESETS2"
+fi
+USERPRESETS=""
+#[ -d "$USERPRESETDIR" ] && USERPRESETS=$(cd "$USERPRESETDIR";ls|tr '_ ' '@') || USERPRESETS=""
+#[ "$DEFPRESET" ] || DEFPRESET="@"
+#PRESETCOMBO=$(make_combo $DEFPRESET $USERPRESETS $PRESETS)
+user_presets() {
+ [ -d "$USERPRESETDIR" ] && (cd "$USERPRESETDIR";ls|tr '_ ' '@')
+}
+make_dialog2() {
+  IMVISIBLE="<visible>disabled</visible>"
+  [ -f "$SOURCEFILE" ] && IMVISIBLE=""
+ # user presets
+ USERPRESETS=$(user_presets)
+ echo "<window title=\"$CREDIT  (with $FFMPEGVERS)\" icon-name=\"gtk-convert\">
+<vbox>
+  <hbox>
+	<text><label>$(gettext 'Source file')</label></text>
+      <entry tooltip-text=\"$(gettext 'Type or drag the source video file here.')\" editable=\"true\" accept=\"filename\">
+        <variable>FILE1</variable>
+        $(make_default \"$SOURCEFILE\")
+        <action>enable:INFO_BUTTON</action>
+        <action>enable:PLAY_BUTTON</action>
+        <action>enable:CONVERT_BUTTON</action>
+      </entry>
+      <button tooltip-text=\"$(gettext 'Browse and select the source video file.')\">
+        <input file stock=\"gtk-open\"></input>
+        <variable>FILE_BROWSE_FILENAME</variable>
+		<action type=\"fileselect\">FILE1</action>
+      </button>
+      <button tooltip-text=\"$(gettext 'Property of the source video file.')\" >
+        <label>$(gettext 'Info.')</label><input file stock=\"gtk-info\"></input>
+        <variable>INFO_BUTTON</variable>$IMVISIBLE
+        <action>[ \"\$FILE1\" ] && ($MAKETHUMB gtkdialog3 -p INFO_DIALOG >/dev/null &)</action>
+      </button>
+      <button tooltip-text=\"$(gettext 'Play back the source video file.')\" >
+        <label>$(gettext 'Play')</label><input file stock=\"gtk-media-play\"></input>
+        <variable>PLAY_BUTTON</variable>$IMVISIBLE
+        <action>[ \"\$FILE1\" ] && $PLAYER \$FILE1 &>/dev/null &</action>
+      </button>
+   </hbox>
+   <hbox>
+   <checkbox tooltip-text=\"$(gettext 'Tik if you want to convert all files with same extention in the same directory.')\" >
+   <variable>WHOLEDIR1</variable>
+   <label>$(gettext 'All files in the same directory')</label>
+   $(make_default \"$DEFWHOLEDIR\")
+   </checkbox>
+   <checkbox tooltip-text=\"$(gettext 'Tik to overwrite the destination files if they are exist.')\" >
+   <variable>OVERWRITE1</variable>
+   <label>$(gettext 'Overwrite files')</label>
+   $(make_default \"$DEFOVERWRITE\")
+   </checkbox>
+   </hbox>
+   <hbox>
+	<text><label>$(gettext 'Dest. dir.')</label></text>
+      <entry tooltip-text=\"$(gettext 'Type or select the destination directory here.')\" editable=\"true\" accept=\"directory\">
+        <variable>DIR1</variable>
+		$(make_default \"$DEFDIR\")
+      </entry>
+      <button tooltip-text=\"$(gettext 'Browse and select the destination directory.')\">
+        <input file stock=\"gtk-directory\"></input>
+        <variable>FILE_BROWSE_DIRECTORY</variable>
+        <action type=\"fileselect\">DIR1</action>
+      </button>
+   </hbox>
+   <hbox>
+      <text><label>$(gettext 'Preset')</label></text>
+      <combobox tooltip-text=\"$(gettext 'Select preset options.')\"  width-request=\"720\">
+        <variable>PRESET1</variable>
+        $(make_combo PRESET $DEFPRESET $USERPRESETS $PRESETS)
+      </combobox>
+      <button tooltip-text=\"$(gettext 'Load preset options.')\">
+        <input file stock=\"gtk-apply\"></input>
+        <label>$(gettext 'Load')</label>
+        <variable>PRESET_BUTTON</variable>
+		<action>EXIT:Preset</action>
+      </button>
+      <button tooltip-text=\"$(gettext 'Save preset options.')\">
+        <input file stock=\"gtk-save-as\"></input>
+        <label>$(gettext 'Save')</label>
+        <variable>SAVE_BUTTON</variable>
+		<action>EXIT:Save</action>
+      </button></hbox>
+
+<hbox>"
+echo "<vbox><frame $(gettext 'Codecs Description')>
+<text><label>\" D.....
+ = Decoding supported
+ .E....
+ = Encoding supported
+ ..V...
+ = Video codec
+ ..A...
+ = Audio codec
+ ..S...
+ = Subtitle codec
+ ...S..
+ = Supports draw_horiz_band
+ ....D.
+ = Supports direct rendering method 1
+ .....T
+ = Supports weird frame truncation
+ ------\"
+</label></text></frame></vbox>"
+if [ "$VDISABLE" = "" ]; then
+  echo "<frame $(gettext 'Video')>
+<hbox>
+<text><label>[ $VCT ] $(gettext 'Codec')</label></text>
+<combobox>
+<variable>VCODEC1</variable>
+$(make_combo - vcodec1 $DEFVCODEC $COPY $NONE $H264 mpeg4 $VCODECS)
+$VVISIBLE
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Quality')</label></text>
+<combobox>
+<variable>QUALITY1</variable>
+$(make_combo - quality $DEFQUALITY $SAME $NOSPEC  $(seq 2 1 31))
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Bitrate') (kbps)</label></text>
+<combobox>
+<variable>VBITRATE1</variable>
+$(make_combo - bitrate $DEFVBITRATE 200 500 1000 1150 $(seq 1500 500 8000) $(seq 10000 2000 20000))
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Screen size')</label></text>
+<combobox>
+<variable>SCREEN1</variable>
+$(make_combo - screensize $DEFSCREEN $SAME 128x96 160x120 176x144 320x200 320x240 352x240 352x288 352x480 352x576 640x350 640x480 704x576 720x480 720x576 800x600 852x480 1024x768 1280x720 1280x1024 1366x768 1600x1024 1600x1200 1920x1080 1920x1200 2048x1536 2560x1600 2560x2048 3200x2048 3840x2400 5120x4096 6400x4096 7680x4800)
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Aspect')</label></text>
+<combobox>
+<variable>ASPECT1</variable>
+$(make_combo - aspect $DEFASPECT $NOSPEC 4:3 19:6)
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Frame rate')(fps)</label></text>
+<combobox>
+<variable>FRAMERATE1</variable>
+$(make_combo - framerate $DEFFRAMERATE $SAME 15 24 25 29.97 30 59.94)
+</combobox>
+</hbox>
+<hbox>
+	<text><label>$(gettext 'Adv. options')</label></text>
+      <entry tooltip-text=\"$(gettext 'Type additional options for video codec here.')\" editable=\"true\">
+        <variable>VOPTIONS1</variable>
+        $(make_default $DEFVOPTIONS)
+      </entry>
+   </hbox>
+</frame>"
+fi
+echo "<vbox>
+<frame $(gettext 'Audio')>"
+if [ "$ADISABLE" = "" ]; then
+  echo "<hbox>
+<text><label>[ $ACT ] $(gettext 'Codec')</label></text>
+<combobox>
+<variable>ACODEC1</variable>
+$(make_combo - acodec1 $DEFACODEC $COPY $NONE $AAC $MP3 mp2 $ACODECS)
+$AVISIBLE
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Bitrate')(kbps)</label></text>
+<combobox>
+<variable>ABITRATE1</variable>
+$(make_combo abitrate $DEFABITRATE 64 96 128 192 224 256 384 448)
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Sampling')(Hz)</label></text>
+<combobox>
+<variable>SAMPLING1</variable>
+$(make_combo sampling $DEFSAMPLING $SAME 44100 48000)
+</combobox>
+</hbox>
+<hbox>
+	<text><label>$(gettext 'Channels')</label></text>
+      <combobox tooltip-text=\"$(gettext 'Select the number of audio channel.')\" editable=\"true\">
+        <variable>CHANNEL1</variable>
+        $(make_combo channels $DEFCHANNEL $SAME $MONO $STEREO)
+      </combobox>
+   </hbox>
+   <hbox>
+	<text><label>$(gettext 'Adv. options')</label></text>
+      <entry tooltip-text=\"$(gettext 'Type additional options for audio codec here.')\" editable=\"true\">
+        <variable>AOPTIONS1</variable>
+        $(make_default $DEFAOPTIONS)
+      </entry>
+   </hbox>"
+else
+  echo "<text><input>echo -en \"$(gettext 'No audio stream')\"</input></text>"
+fi
+echo "</frame>
+<hbox><text><label>[$NR_F] $(gettext 'File format')</label></text>
+<combobox tooltip-text=\"$(gettext 'Select the target file format.')\" >
+<variable>FORMAT1</variable>
+$(make_combo - fileformat $DEFFORMAT avi mpeg mp3 mp4 $FORMATS)
+</combobox>
+</hbox>
+<hbox>
+<text><label>$(gettext 'Processing')</label></text>
+<combobox tooltip-text=\"$(gettext '1-pass for quick, 2-pass for slow but high quality.')\">
+<variable>PASS1</variable>
+$(make_combo - processing $DEFPASS 2-pass 1-pass)
+</combobox>
+</hbox>
+</vbox>
+</hbox>
+
+<hbox>
+    <button>
+        <label>$(gettext 'Convert')</label><input file stock=\"gtk-convert\"></input>
+        <variable>CONVERT_BUTTON</variable>$IMVISIBLE
+        <action>EXIT:OK</action>
+    </button>
+    <button tooltip-text=\"$(gettext 'Browse the ffmpeg document on the internet.')\">
+        <input file stock=\"gtk-help\"></input>
+		<action>$BROWSER $ONLINEDOC &>/dev/null &</action>
+    </button>
+    <button><label>$(gettext 'Quit')</label><input file stock=\"gtk-quit\"></input><action>EXIT:Abort</action></button>
+</hbox>
+</vbox>
+</window>"
+}
+make_combo() {
+	echo "function make_combo ..." >&2
+	LANG=C	# for speed up
+  ADDNULL=""
+  if [ "$1" = '-' ] ; then #&&
+  ADDNULL="yes" #&&
+  shift
+  fi
+  filename="$1";shift
+  if [ -f /tmp/make_combo_"$filename" ];then
+	cat /tmp/make_combo_"$filename"
+	else
+  CHOICE=""
+  LIST="$@"
+  [ "$ADDNULL" = "" ] || echo "$@" | grep -q "$NULL" || LIST="$@ $NULL"
+  echo 'LIST:' >&2
+  echo "$LIST" >&2
+  CHOICE=`echo "$LIST" |tr ' ' '\n' |sed 's?\(.*\)?<item>\1</item>?' |tr '@' ' '`
+#for ONEITEM in $LIST;do
+#  NEWITEM=$(echo $ONEITEM|tr '@' ' ')
+#  echo "$CHOICE" | grep -q "<item>$NEWITEM</item>" && continue
+#  CHOICE="$CHOICE
+#  <item>$NEWITEM</item>"
+#done
+  echo "$CHOICE" >/tmp/make_combo_"$filename"
+  cat /tmp/make_combo_"$filename"
+  fi
+}
+make_default() {
+	P="$@";# echo $P >&2
+	[ "$P" != "" -a "$P" != '""'  ] || return
+	echo -n "<default>$P</default>"
+}
+
+load_preset() {
+    # load preset
+    rm /tmp/make_combo*
+    PRESET1=`echo "$PRESET1" | cut -f1 -d','`
+    PRESETLINE=""
+    if [ "$PRESET1" ]; then
+      F=$(echo "$PRESET1"| tr '@ /' '_')
+      for D in "$USERPRESETDIR" "$PRESETDIR"; do
+         [ -f "$D/$F" ] && PRESETLINE=$(grep -v '^#' $D/$F| head -n 1) && break
+      done
+      if [ "$PRESETLINE" = "" -a -f  "$PRESETFILE" ]; then
+         PRESETLINE=$(grep "^$PRESET1[, ]" "$PRESETFILE"| cut -d',' -f2)
+      fi
+    fi
+    if [ "$PRESETLINE" ]; then
+       opt2defvar $PRESETLINE
+       DEFPRESET=$(echo "$PRESET1"| tr ' ' '@')
+       return 0
+    else
+      errmsg $(gettext 'No preset found.')
+      return 1
+    fi
+}
+# save new preset
+save_preset() {
+      NEWPRESET=$(echo "$PRESET1"| tr '_ ' '@')
+      USERPRESETS=$(user_presets)
+      [ "$USERPRESETS" ] && echo "$USERPRESETS"| grep -qx "$NEWPRESET" && DUPE="yes" || DUPE=""
+      NEWPRESET=$(echo "$NEWPRESET"|tr '@_' ' ')
+      MSG=$(gettext 'Save as the new preset?')
+      [ "$DUPE" ] && MSG=$(gettext 'Same name already exists.\nReplace the preset?')
+      MAIN_DIALOG="<window title=\"$CREDIT\" icon-name=\"gtk-save-as\"><vbox>
+    <hbox>
+    <text><label>$(gettext 'Preset name')</label></text>
+    <entry tooltip-text=\"$(gettext 'Type new preset name to save.')\">
+    <variable>NEWPRESET1</variable>
+    $(make_default \"$NEWPRESET\")
+    </entry>
+    </hbox>
+    <text><input>echo -en \"$MSG\"</input></text>
+    <hbox>
+    <button ok></button>
+    <button cancel></button>
+    </hbox>
+    </vbox></window>"
+    eval $(gtkdialog3)
+    [ "$EXIT" = "OK" ] || return
+    var2opt
+    F=$(echo "$NEWPRESET1"| tr '@ /' '_')
+    PRESET1=$(echo "$F"| tr '_' ' ')
+    if [ "$USERPRESETDIR" ]; then
+      mkdir -p "$USERPRESETDIR"
+      F="$USERPRESETDIR/$F"
+    fi
+    echo -n "$OPTSAVE" > $F
+}
+source_property() {
+  SRCINFO=$($FFMPEGBIN -i "$FILE1" 2>&1 |grep -E '(#|Duration)')
+  VSTREAM=$(echo "$SRCINFO"|grep 'Stream .*Video')
+  ASTREAM=$(echo "$SRCINFO"|grep 'Stream .*Audio')
+  if [ "$VSTREAM" = "" -a "$ASTREAM" = "" ]; then
+    [ "$1" = "skip" ] || errmsg $(printf "$(gettext 'No video nor audio stream in %s.')" "$FILE1")
+    return 1
+  fi
+  [ "$VSTREAM" ] && NOVIDEO="" || NOVIDEO="true"
+  [ "$ASTREAM" ] && NOAUDIO="" || NOAUDIOO="true"
+  #[ "$NOVIDEO" ] && DEFVCODEC="$NONE" && VCODEC1="$NONE"
+  #[ "$NOAUDIO" ] && DEFACODEC="$NONE" && ACODEC1="$NONE"
+  return 0
+}
+target2defvar() {
+ 	case "$1" in
+	*vcd) DEFFORMAT=mpeg
+	    DEFVCODEC=mpeg1video
+	    DEFVBITRATE=1150
+	    DEFACODEC=mp2
+	    DEFABITRATE=224
+	    DEFSAMPLING=44100
+	    CHANNEL=2
+	    DEFSCREEN=352x240
+	    DEFFRAMERATE=29.97
+		;;
+	*dvd)  DEFFORMAT=mpeg
+	    DEFVCODEC=mpeg2video
+	    DEFVBITRATE=6000
+	    DEFACODEC=ac3
+	    DEFABITRATE=448
+	    DEFSAMPLING=48000
+	    CHANNEL=2
+	    DEFSCREEN=720x480
+	    DEFFRAMERATE=29.97
+		;;
+	esac
+	case "$1" in
+	pal-vcd) DEFSCREEN=352x288
+	    DEFFRAMERATE=25
+		;;
+	pal-dvd) DEFSCREEN=720x576
+	    DEFFRAMERATE=25
+		;;
+	esac
+  case "$CHANNEL" in
+  1) DEFCHANNEL=$MONO;;
+  2) DEFCHANNEL=$STEREO;;
+  *) DEFCHANNEL=$CHANNEL;;
+  esac
+}
+opt2defvar() {
+  [ $# -gt 0 ] || return
+  DEFVOPTIONS=""
+  DEFAOPTIONS=""
+  VAFLAG="V"
+  VDISABLE=""
+  ADISABLE=""
+  #[ "$VDISABLE" ] && VAFLAG="A"
+  #[ "$ADISABLE" ] && VAFLAG="V"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+    -f) shift; DEFFORMAT=$1;;
+    -target) shift; target2defvar "$1";;
+    -vcodec) shift; DEFVCODEC=$1;;
+    -acodec) shift; DEFACODEC=$1;;
+    -vn) VAFALG="A";DEFVCODEC=$NONE;VDISABLE="true";;
+    -an) VAFLAG="V";DEFACODEC=$NONE;ADISABLE="true";;
+    -qscale) shift; DEFQUALITY=$1;;
+    -sameq) DEFQUALITY=$SAME;;
+    -b) shift; DEFVBITRATE=$(echo "$1"|tr -dc '0-9');;
+    -s) shift; DEFSCREEN=$1;;
+    -r) shift; DEFFRAMERATE=$(echo "$1"|tr -dc '0-9.');;
+    -ab) shift; DEFABITRATE=$(echo "$1"|tr -dc '0-9');;
+    -ar) shift; DEFSAMPLING=$(echo "$1"|tr -dc '0-9');;
+    -ac) shift; CHANNEL=$1;;
+    -aspect)  shift;DEFASPECT=$(echo "$1"|tr -dc '0-9.:');;
+    -aframes|-aq|-alang|-atag|-absf) DEFAOPTIONS="$DEFAOPTIONS $1 $2";shift;;
+    -newaudio) DEFAOPTIONS="$DEFAOPTIONS $1";;
+    *)
+		if [ "`echo "$2" | grep '^\-'`" ];then
+			[ "$VAFLAG" = "V" ] && DEFVOPTIONS="$DEFVOPTIONS $1" ||  DEFAOPTIONS="$DEFAOPTIONS $1"
+		else
+			[ "$VAFLAG" = "V" ] && DEFVOPTIONS="$DEFVOPTIONS $1 $2" ||  DEFAOPTIONS="$DEFAOPTIONS $1 $2"
+		fi
+	 shift
+		;;
+    esac
+    shift
+  done
+  case "$CHANNEL" in
+  1) DEFCHANNEL=$MONO;;
+  2) DEFCHANNEL=$STEREO;;
+  *) DEFCHANNEL=$CHANNEL;;
+  esac
+}
+var2opt() {
+	echo "
+	function var2opt :"
+PASS=$(echo $PASS1 |tr -dc '1-2')
+echo ACODEC1=$ACODEC1 VCODEC1=$VCODEC1 FORMAT1=$FORMAT1
+ACODEC1=`echo "$ACODEC1" | sed 's#^[D-][-E][AVS-][-S][-[D][-T]_##'`
+VCODEC1=`echo "$VCODEC1" | sed 's#^[D-][-E][AVS-][-S][-[D][-T]_##'`
+FORMAT1=`echo "$FORMAT1" | sed 's#^[D-][-E]_##'`
+echo ACODEC1=$ACODEC1 VCODEC1=$VCODEC1 FORMAT1=$FORMAT1
+case "$ACODEC1" in
+"$COPY") #ACODEC1="-acodec copy";; # -acodec codec
+          ACODEC1='copy';;
+           # Force audio codec to codec. Use the "copy" special value to specify
+           # that the raw codec data must be copied as is.
+
+#"$NONE") ACODEC1="-an";; # -an Disable audio recording
+esac
+
+case "$ACODEC1" in
+#"$COPY") AOPTIONS="-acodec copy";; # -acodec codec
+           # Force audio codec to codec. Use the "copy" special value to specify
+           # that the raw codec data must be copied as is.
+
+"$NONE") AOPTIONS="-an";; # -an Disable audio recording
+*) AB=$(echo $ABITRATE1 |tr -dc '0-9.')
+	[ "$AB" ] && AB="-ab ${AB}k"  # -ab bitrate
+           # Set the audio bitrate in kbit/s (default = 64).
+
+	AR=$(echo "$SAMPLING1"| tr -dc '0-9.k')
+	[ "$AR" ] && AR="-ar $AR"  # -ar freq
+           # Set the audio sampling frequency (default = 44100 Hz).
+
+	[ "$SAMPLING1" = "$COPY" ] && AR=""
+	case $(echo "$CHANNEL1"|tr ' ' '@') in
+	$MONO) AC="-ac 1";;
+	$STEREO) AC="-ac 2";;
+	*) AC=$(echo "$CHANNEL1"| tr -dc '0-9')
+	  [ "$AC" ] && AC="-ac $AC"  # -ac channels
+           # Set the number of audio channels (default = 1).
+           ;;
+	esac
+	[ "$CHANNEL" ] && AC="-ac $CHANNEL"
+	[ "$CHANNEL" = "$COPY" ] && AC=""
+	AOPTIONS="-acodec $ACODEC1 $AB $AR $AC $AOPTIONS1"
+	;;
+esac
+
+case "$VCODEC1" in
+"$COPY") PASS=1; #VCODEC1="-vcodec copy";;  # -vcodec codec
+           VCODEC1='copy';;
+           # Force video codec to codec. Use the "copy" special value to tell
+           # that the raw codec data must be copied as is.
+
+#"$NONE") PASS=1; VCODEC1="-vn";;  # -vn Disable video recording.
+esac
+
+case "$VCODEC1" in
+#"$COPY") PASS=1; VOPTIONS="-vcodec copy";;  # -vcodec codec
+           # Force video codec to codec. Use the "copy" special value to tell
+           # that the raw codec data must be copied as is.
+
+"$NONE") PASS=1; VOPTIONS="-vn";;  # -vn Disable video recording.
+*)  VB=$(echo $VBITRATE1 |tr -cd '[0-9.]')
+	[ "$VB" ] && VB="-b ${VB}k"  # -b bitrate
+          # Set the video bitrate in bit/s (default = 200 kb/s).
+
+	Q=$(echo $QUALITY1|tr -cd '[0-9.]')
+	if [ "$Q" ]; then
+		Q="-qscale  $Q"  # -qscale q
+           # Use fixed video quantizer scale (VBR).
+
+	else
+		[ "$VB" ] || Q="-sameq"  # -sameq
+           # Use same video quality as source (implies VBR).
+
+	fi
+	S=$(echo $SCREEN1|tr -cd '[0-9x]')
+	[ "$S" ] && S="-s $S"  # -s size
+           #Set frame size. The format is wxh (ffserver default = 160x128, ffm-
+           #peg default = same as source).  The following abbreviations are
+           #recognized:
+           # sqcif   128x96
+           # qcif    176x144
+           # cif     352x288
+           # 4cif    704x576
+
+	A=$(echo $ASPECT1|tr -cd '[0-9.:]')
+	[ "$A" ] && A="-aspect $A"  #  -aspect aspect
+           # Set aspect ratio (4:3, 16:9 or 1.3333, 1.7777).
+
+	R=$(echo $FRAMERATE1|tr -cd '[0-9.]')
+	[ "$R" ] && R="-r $R"  # -r fps
+           # Set frame rate (Hz value, fraction or abbreviation), (default =
+           # 25).
+
+    [ "$VCODEC1" = "libx264" ] &&  ADDOPTIONS="$ADDOPTIONS $X264OPTIONS"
+	for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
+		FOUND="yes"
+		[ -f $D/$VCODEC1-$DEFVPREFIRST.ffpreset ] && break
+		FOUND=""
+	done
+	[ "$FOUND" ] && VPREFIRST="-vpre $DEFVPREFIRST" || VPREFIRST=""
+	# -vpre pattern not found
+	for D in $HOME/.ffmpeg /usr/share/ffmpeg ; do
+		FOUND="yes"
+		[ -f $D/$VCODEC1-$DEFVPREFINAL.ffpreset ] && break
+		FOUND=""
+	done
+	[ "$FOUND" ] && VPREFINAL="-vpre $DEFVPREFINAL" || VPREFINAL=""
+	VOPT="$Q $VB $S $A $R $VOPTIONS1"
+	VOPTFIRST="-vcodec $VCODEC1 $VPREFIRST $ADDOPTIONS $VOPT -an"
+	VOPTFINAL="-vcodec $VCODEC1 $VPREFINAL $ADDOPTIONS $VOPT"
+	VOPTIONS="-vcodec $VCODEC1 $VOPT"
+ 	;;
+esac
+echo "
+PASS1='$PASS1'
+PASS='$PASS'
+ACODEC1='$ACODEC1'
+AOPTIONS='$AOPTIONS'
+ABITRATE1='$ABITRATE1'
+AB='$AB'
+SAMPLING1='$SAMPLING1'
+AR='$AR'
+CHANNEL1='$CHANNEL1'
+AC='$AC'
+CHANNEL='$CHANNEL'
+AC='$AC'
+AOPTIONS='$AOPTIONS'
+
+VCODEC1='$VCODEC1'
+PASS='$PASS'
+VOPTIONS='$VOPTIONS'
+VBITRATE1='$VBITRATE1'
+VB='$VB'
+QUALITY1='$QUALITY1'
+Q='$Q'
+SCREEN1='$SCREEN1'
+S='$S'
+ASPECT1='$ASPECT1'
+A='$A'
+FRAMERATE1='$FRAMERATE1'
+R='$R'
+ADDOPTIONS='$ADDOPTIONS'
+FOUND='$FOUND'
+VPREFINAL='$VPREFINAL'
+VOPT='$VOPT'
+VOPTFIRST='$VOPTFIRST'
+VOPTFINAL='$VOPTFINAL'
+VOPTIONS='$VOPTIONS'
+"
+
+#-f fmt          Force format.
+#-i filename     input filename
+#-y  Overwrite output files.
+
+OPTFIRST="-i \"$FILE1\" -y -f $FORMAT1 $VOPTFIRST -an /dev/null "
+OPTFINAL="-i \"$FILE1\" -y -f $FORMAT1 $VOPTFINAL $AOPTIONS \"$DESTFILE\""
+OPTSAVE="-f $FORMAT1 $VOPTIONS $AOPTIONS"
+
+echo "
+OPTFIRST='$OPTFIRST'
+OPTFINAL='$OPTFINAL'
+OPTSAVE='$OPTSAVE'
+"
+
+}
+var2def() {
+#THUMBNAILSIZE="128x96"
+DEFDIR="$DIR1"
+DEFPRESET=$(echo "$PRESET1"| tr ' ' '@')
+DEFFORMAT="$FORMAT1"
+DEFVCODEC="$VCODEC1"
+#DEFVPREFIRST="$DEFVPREFIRST"
+#DEFVPREFINAL="$DEFVPREFINAL"
+#ADDOPTIONS="$ADDOPTIONS"
+#X264OPTIONS="$X264OPTIONS"
+DEFQUALITY="$QUALITY1"
+DEFVBITRATE="$VBITRATE1"
+DEFSCREEN="$SCREEN1"
+DEFASPECT="$ASPECT1"
+DEFFRAMERATE="$FRAMERATE1"
+DEFVOPTIONS="$VOPTIONS1"
+DEFACODEC="$ACODEC1"
+DEFABITRATE="$ABITRATE1"
+DEFSAMPLEING="$SAMPLING1"
+DEFCHANNEL="$CHANNEL1"
+DEFAOPTIONS="$AOPTIONS1"
+DEFPASS="$PASS1"
+}
+# save conf
+save_conf() {
+  mkdir -p $(dirname "$CONFFILE")
+  cat <<EOF > "$CONFFILE"
+#THUMBNAILSIZE="128x96"
+DEFWHOLEDIR="$WHOLEDIR1"
+DEFOVERWRITE="$OVERWRITE1"
+DEFDIR="$DIR1"
+DEFPRESET="$PRESET1"
+DEFFORMAT="$FORMAT1"
+DEFVCODEC="$VCODEC1"
+#DEFVPREFIRST="$DEFVPREFIRST"
+#DEFVPREFINAL="$DEFVPREFINAL"
+#ADDOPTIONS="$ADDOPTIONS"
+#X264OPTIONS="$X264OPTIONS"
+DEFQUALITY="$QUALITY1"
+DEFVBITRATE="$VBITRATE1"
+DEFSCREEN="$SCREEN1"
+DEFASPECT="$ASPECT1"
+DEFFRAMERATE="$FRAMERATE1"
+DEFVOPTIONS="$VOPTIONS1"
+DEFACODEC="$ACODEC1"
+DEFABITRATE="$ABITRATE1"
+DEFSAMPLING="$SAMPLING1"
+DEFCHANNEL="$CHANNEL1"
+DEFAOPTIONS="$AOPTIONS1"
+DEFPASS="$PASS1"
+EOF
+}
+
+#echo "$MAIN_DIALOG" >&2
+#waitsplash stop
+# phase 1
+echo "Craeting main window ..."
+export MAIN_DIALOG	#="$DIALOG1"
+while true; do
+  MAIN_DIALOG=$(make_dialog2)
+  waitsplash stop
+  eval $(gtkdialog3)
+  rm -f $THUMBNAIL $LOGFILE
+  [ "$INFOPID" ] && XPID=$(cat $INFOPID 2>/dev/null)
+  [ "$XPID" ] && kill $XPID
+  XPID=""
+  if [ "$EXIT" = "Preset" ]; then
+    waitsplash start
+    load_preset
+    continue
+  fi
+  if [ "$EXIT" = "Save" ]; then
+    save_preset
+    var2def
+    continue
+  fi
+  if [ "$EXIT" != "OK" ];then ## || exit
+  rm /tmp/make_combo_*
+  exit 0
+  fi
+  # validity check
+  WHOLEDIR="$WHOLEDIR1"
+  if [ -d "$FILE1" ]; then
+    MSG=$(printf "$(gettext '%s is a directory.')" "$FILE1")
+    MSG="$MSG\\n$(gettext 'Convert all files in this directory?')"
+    eval $(errmsg yesno "$MSG")
+    echo $EXIT
+    [ "$EXIT" = "Yes" ] || continue
+    WHOLEDIR="true"
+    SRCDIR="$FILE1"
+    SOURCES=$(cd "$SRCDIR";ls|tr ' ' '/')
+  elif [ ! -f "$FILE1" ]; then
+   if [ "$FILE1" ]; then
+     errmsg $(printf "$(gettext '%s not found.')" "$FILE1")
+   else
+     errmsg $(gettext 'Souce file not specified.')
+   fi
+   continue
+  else
+    source_property || continue
+    [ "$NOVIDEO" ] && DEFVCODEC="$NONE" && VCODEC1="$NONE"
+    [ "$NOAUDIO" ] && DEFACODEC="$NONE" && ACODEC1="$NONE"
+    SRCDIR=$(dirname "$FILE1")
+    sedpatSRCDIR=`echo "$SRCDIR" | sed 's#\/#\\\/#'`
+    sed -i "s/LASTSOURCEDIR=.*/LASTSOURCEDIR=$sedpatSRCDIR/" $CONFFILE
+    B=$(basename "$FILE1")
+    E=$(echo "$B"| cut -d'.' -f2)
+    SOURCES=$(echo "$B"|tr ' ' '/')
+   # look up whole directory
+   if [ "$WHOLEDIR1" = "true" ]; then
+     echo "cd \"$SRCDIR\";ls \"*.$E\""
+     SOURCES=$(cd "$SRCDIR";ls *.$E | grep -v "$B"|tr ' ' '/')
+     SOURCES="$B
+$SOURCES"
+   fi
+  fi
+  # destination
+  DESTDIR="$DIR1"
+  if [ ! -d "$DIR1" ]; then
+   if [ "$DIR1" ]; then
+     if [ -f "$DIR1" ]; then
+       errmsg $(printf "%s is not a directory." "$DIR1")
+     else
+		ERRMSG=$(printf "%s not exists." "$DIR1")
+		ERRMSG="$ERRMSG\\n$(gettext 'Create new directory?')"
+		eval $(errmsg yesno $ERRMSG)
+		[ "$EXIT" = "Yes" ] || continue
+		mkdir -p "$DIR1"
+		break
+     fi
+   else
+     DESTDIR="$SRCDIR"
+     break
+     #errmsg $(gettext 'Destination directory not specified.')
+   fi
+   continue
+  fi
+  break
+done
+# save conf
+save_conf
+# extention
+FORMAT1=`echo "$FORMAT1" | sed 's#^[D-][-E]_##'`
+EXT1=$FORMAT1
+case $FORMAT1 in
+  mpeg|dvd|svcd|vcd) EXT1="mpg";;
+  ipod) EXT1="mp4";;
+  ogg) EXT1="ogv"
+     [ "$VCODEC1" = "$NONE" ] && EXT1="oga"
+  ;;
+esac
+# convert loop
+NFILES=$(echo "$SOURCES"| wc -l)
+REST=$NFILES
+NCONV=0
+for ITEM in $SOURCES; do
+ BASE1=$(echo $ITEM|tr '/' ' ')
+ SRCFILE="$BASE1"
+ [ "$SRCDIR" ] && SRCFILE="$SRCDIR/$BASE1"
+ FILE1="$SRCFILE"
+ # source validity
+ SKIP=""
+ [ $NFILES -gt 1 ] && SKIP="skip"
+ source_property $SKIP
+ if [ $? != 0 ]; then
+   REST=$(expr $REST - 1)
+   continue
+ fi
+ # destination
+ #EXT9=$(echo "$BASE1" |rev|cut -d'.' -f1|rev)
+ #EXT9="${BASE1##*\.}"
+ #ROOT1=$(echo "$BASE1" | sed "s#\.$EXT9$##")
+ ROOT1="${BASE1%\.*}"
+ DESTFILE="$DESTDIR/$ROOT1.$EXT1"
+ [ "$SRCFILE" = "$DESTFILE" ] && DESTFILE="$DESTDIR/${ROOT1}_cvt.$EXT1"
+ if [ -s "$DESTFILE" ]; then
+   if [ "$OVERWRITE1" != "true" -a $NFILES -gt 1 ]; then
+    continue
+   fi
+   if [ $NFILES -eq 1 ]; then
+     EXTRABUTTON=""
+     ERRMSG=$(printf "$(gettext '%s already exists.')" "$DESTFILE")
+     ERRMSG="$ERRMSG\\n$(gettext 'Replace it?')"
+     YESLABEL="$(gettext 'Replace')"
+     NOLABEL="$(gettext 'Quit')"
+     NOSYMBOL="gtk-quit"
+   eval $(errmsg yesno $ERRMSG)
+   [ "$EXIT" = "Yes" ] || exec $0 "$RCFILE"
+   fi
+ fi
+ # make options
+ var2opt
+
+ # prepair work space
+
+ ROOT2=$(echo "$ROOT1"|tr ' ' '_')
+ WORKDIR="$DESTDIR/ffconvert_tmp_$ROOT2"
+ CMDFILE="/tmp/ffconvert_$ROOT2.sh"
+ TMPFILE="/tmp/ffconvert_$ROOT2.tmp"
+ echo '#!/bin/sh' > "$CMDFILE"
+ if [ "$PASS" = "2" ]; then
+  mkdir -p "$WORKDIR"
+  echo "cd \"$WORKDIR\"
+$FFMPEGBIN -pass 1 $OPTFIRST && $FFMPEGBIN -pass 2 $OPTFINAL" >> "$CMDFILE"
+ else
+ echo "$FFMPEGBIN $OPTFINAL" >> "$CMDFILE"
+ fi
+ echo "STATUS=\$?
+echo -n \$STATUS > \"$TMPFILE\"
+[ \"\$STATUS\" = \"0\" ] && exit
+echo -n $(gettext 'Press [ENTER] to exit :')
+read REP"  >> "$CMDFILE"
+ cat "$CMDFILE" >&2	# for debugging
+ chmod +x "$CMDFILE"
+ rxvt -bg orange -fg black -geometry 80x14 -e "$CMDFILE"
+ rm -fR "$WORKDIR"
+#(cd "$DESTDIR"; rm -f $ROOT1*.log *_2pass.log*)
+#rm -f "$CMDFILE"
+#mv "$CMDFILE" "$CMDFILE"."`date +%T`"
+ STATUS=$(cat "$TMPFILE")
+ #rm -f "$TMPFILE"
+ REST=$(expr $REST - 1)
+ if [ "$STATUS" != "0" ]; then
+  rm -f "$DESTFILE"
+  MSG1=$(gettext 'An error occured.')
+  MSG2=$(printf "$(gettext 'You can check the generated command in %s.')" "$CMDFILE")
+  EXTRABUTTON="<button><input file stock=\"gtk-file\"></input><label>$(gettext 'Look up')</label><action>$TEXTVIEWER \"$TMPFILE\" &</action><action>$TEXTVIEWER \"$CMDFILE\" &</action></button>"
+  if [ $REST -gt 0 ]; then
+    MSG3=$(gettext 'Skip this file and continue?')
+    YESLABEL="$(gettext 'Skip')"
+    NOLABEL="$(gettext 'Quit')"
+    NOSYMBOL="gtk-quit"
+    eval $(errmsg yesno "$MSG1\\n$MSG2\\n\\n$MSG3")
+    #rm -f "$CMDFILE"
+    [ "$EXIT" = "Yes" ] || exec $0 "$SRCFILE"
+  else
+    errmsg "$MSG1\\n$MSG2"
+    #rm -f "$CMDFILE"
+    #exit 1
+    exec $0 "$SRCFILE"
+  fi
+ else
+   NCONV=$(expr $NCONV + 1)
+ fi
+ #rm -f "$CMDFILE"
+done
+EXTRABUTTON=""
+if [ $NCONV -eq 0 ]; then
+  errmsg $(gettext 'No files converted.')
+  #exit
+fi
+if [ $NCONV -gt 1 ]; then
+   EXTRABUTTON="<button><input file stock=\"gtk-open\"></input><label>$(gettext 'Brawse')</label><action>EXIT:Brawse</action></button>"
+  eval $(errmsg info $(printf "$(gettext '%s files successfully converted in %s.')" $NCONV "$DESTDIR"))
+  [ "$EXIT" = "Brawse" ]  && rox "$DESTDIR" &
+fi
+EXTRABUTTON="<button><input file stock=\"gtk-media-play\"></input><label>$(gettext 'Play')</label><action>EXIT:Play</action></button>"
+eval $(errmsg info $(printf "$(gettext 'Successfully converted into %s.')"  "$DESTFILE"))
+[ "$EXIT" = "Play" ] && $PLAYER "$DESTFILE" &>/dev/null &
+
+DATE=`date +%T`
+mv "$CMDFILE" "$CMDFILE"."$DATE"
+echo "DESTDIR=$DESTDIR"
+cp "$CMDFILE"."$DATE" "$DESTDIR"
+echo "SRCFILE=$SRCFILE"
+echo "BASE1=$BASE1"
+FFMPEGBIN=$FFMPEGBIN FFMPEGVERS=$FFMPEGVERS exec $0 "$SRCFILE"
+
+
