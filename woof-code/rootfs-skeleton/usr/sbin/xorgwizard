@@ -485,12 +485,16 @@ EndSection"
      #DBGecho "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 9;#DBG
      NR=`echo $IDENTIFIER | tr -d '[[:alpha:][:punct:]]'`
      test "$NR" || NR=W
+
+     # REM: Not needed here because aLINE is EndSection
      case $aLINE in
      *EndSection*) aLINE="#$aLINE";;
      *)            aLINE="#\t$aLINE";;
      esac
+
      TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!;s!^#*\(.*\)!#\1!;s!^#*$!!'`
                                         #| sed 's!^[^#][[:alnum:][:punct:]]*!#!`
+     # REM: Comment everything ...
      TEMPSECTION="$TEMPSECTION
 #\tHorizSync    HORIZSYNC${NR}
 #\tVertRefresh  VERTREFRESH${NR}
@@ -585,6 +589,7 @@ $aLINE
 
  if [ "$XSECTION" = "Device" ]; then
   case $IDENTIFIER in
+    # REM: Only figure out Card0 ...
   Card0)
    FBODY=${aLINE%\"*}; FBODY=${FBODY##*\"}
     case "$aLINE" in
@@ -601,6 +606,7 @@ $aLINE
         *Screen[0-9]*Bottom?Of*Screen0*) aLINE="#$aLINE" ;;
     esac
     ;;
+    # REM: Disable all other cards for now...
   Card[1-9])
    ADD_TAB=NO
    #DBGecho -e "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 1;#DBG
@@ -617,6 +623,7 @@ $aLINE
      *)            aLINE="#\t$aLINE" ;;
     esac
     ;;
+  # REM: ??
   *) :;;
   esac
  fi
@@ -684,12 +691,12 @@ get_edid_func
 XVESALISTOK="yes"
 TIMINGOK="yes"
 if [ -s "$tmpDir"/ddcprobeoem.txt ]; then   #v3.99 begin
- if [ ! -f /etc/xorgoverrides ] || ! grep -q -f "$tmpDir"/ddcprobeoem.txt /etc/xorgoverrides; then
+ if [ ! -f /etc/xorgoverrides ] || ! grep $Q -f "$tmpDir"/ddcprobeoem.txt /etc/xorgoverrides; then
   echo "`cat "$tmpDir"/ddcprobeoem.txt`" >> /etc/xorgoverrides  #append new signature if user canceled out from hung Xvesa
-  sync
+  _sync
  fi
 fi
-if [ -f /etc/xorgoverrides ] && grep -q -f /etc/xorgoverrides "$tmpDir"/ddcprobe.txt; then   #v3.99 end
+if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$tmpDir"/ddcprobe.txt; then   #v3.99 end
  #HORIZSYNC=""
  #VERTREFRESH=""
  XVESALISTOK="no" #'Xvesa -listmodes' hangs.
@@ -1516,74 +1523,91 @@ For now, keep going with using the Generic driver
  ##### INTEL OR NV #####
 
  #w482 allow switch between intel_drv.so and i810OLD_drv.so...
+ # REM: Added nv/nvidia/nouveau switches
  EXTRABUTTON=""
  EXTRALABEL=""
  ALTERNATIVE_DRV_MSG=""
  TRYDRV=''
  NVIDIA_CARD='';INTEL_CARD=''
-if [ "`grep -i 'NVIDIA' /etc/X11/xorg.conf |grep -E 'Driver|VendorName|BoardName|PuppyHardwareProfile'`" ];then
- echo "Is NVIDIA card"
- NVIDIA_CARD=1
- NVIDIA=`find /usr/lib/xorg/modules/drivers -type f -name nvidia_drv.so`
- NOUVEAU=`find /usr/lib/xorg/modules/drivers -type f -name nouveau_drv.so`
- echo "
- NVIDIA='$NVIDIA'
- NOUVEAU='$NOUVEAU'"
 
+if [ "`grep -i 'NVIDIA' /etc/X11/xorg.conf |grep -E 'Driver|VendorName|BoardName|PuppyHardwareProfile'`" ];then
+ echo "Is NVIDIA card"  ##DEBUG
+ NVIDIA_CARD=1
+ NVIDIA_DRV=`find /usr/lib/xorg/modules/drivers -type f -name nvidia_drv.so`
+ NOUVEAU_DRV=`find /usr/lib/xorg/modules/drivers -type f -name nouveau_drv.so`
+ echo "
+ NVIDIA_DRV='$NVIDIA_DRV'
+ NOUVEAU_DRV='$NOUVEAU_DRV'" #DEBUG
+
+# REM: Nvidia Menu is a choice menu
+##     TODOs: vesa is provided as --extra-button, so could clean up here AND change to --menu
+#     If vesa    provide nv
+#     If nv      provide nouveau else nvidea else vesa
+#     If nouveau provide nvidia  else vesa
+#     If nvidia  provide nv
  if [ "${CARD0DRIVER}" = "vesa" ];then
    TRYDRV='nv'
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label nv_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is nv nvidia video driver that might work better...'
+ATTN: There is "nv" nvidia video driver that might work better...'
+
  elif [ "${CARD0DRIVER}" = "nv" ];then
-   if [ "$NOUVEAU" ];then
+
+   if [ "$NOUVEAU_DRV" ];then
     TRYDRV='nouveau'
     EXTRABUTTON='--extra-button'
     EXTRALABEL='--extra-label nouveau_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is nouveau nvidia video driver that might work better...'
-   elif [ "$NVIDIA" ];then
+ATTN: There is "nouveau" nvidia video driver that might work better...'
+
+   elif [ "$NVIDIA_DRV" ];then
     TRYDRV='nvidia'
     EXTRABUTTON='--extra-button'
     EXTRALABEL='--extra-label nouveau_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is nvidia nvidia video driver that might work better...'
+ATTN: There is "nvidia" nvidia video driver that might work better...'
+
    else
     TRYDRV='vesa'
     EXTRABUTTON='--extra-button'
     EXTRALABEL='--extra-label vesa_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is generic vesa video driver that might work better...'
+ATTN: There is generic "vesa" video driver that might work better...'
    fi
+
  elif [ "${CARD0DRIVER}" = "nvidia" ];then
    TRYDRV='nv'
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label nv_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is nv nvidia video driver that might work better...'
+ATTN: There is "nv" nvidia video driver that might work better...'
+
  elif [ "${CARD0DRIVER}" = "nouveau" ];then
-   if [ "$NVIDIA" ];then
+
+   if [ "$NVIDIA_DRV" ];then
     TRYDRV='nvidia'
     EXTRABUTTON='--extra-button'
     EXTRALABEL='--extra-label nouveau_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is nvidia nvidia video driver that might work better...'
+ATTN: There is "nvidia" nvidia video driver that might work better...'
+
    else
     TRYDRV='vesa'
     EXTRABUTTON='--extra-button'
     EXTRALABEL='--extra-label vesa_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is generic vesa video driver that might work better...'
+ATTN: There is generic "vesa" video driver that might work better...'
    fi
  fi
 
+# REM: INTEL
 elif [ "`grep -i 'INTEL' /etc/X11/xorg.conf |grep -E 'Driver|VendorName|BoardName|PuppyHardwareProfile'`" ];then
- echo "Is INTEL card"
+ echo "Is INTEL card" ##DEBUG
  INTEL_CARD=1
  I810OLD=`find /usr/lib/xorg/modules/drivers -type l -name i810_drv.so`
- echo
- echo "I810OLD='$I810OLD'"
+ echo                       #DEBUG
+ echo "I810OLD='$I810OLD'"  #DEBUG
 
  if [ "$I810OLD" != "" ]; then
   if [ "${CARD0DRIVER}" = "intel" ];then
@@ -1591,27 +1615,44 @@ elif [ "`grep -i 'INTEL' /etc/X11/xorg.conf |grep -E 'Driver|VendorName|BoardNam
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label Old:i810_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is an older Intel i810 driver that might work better...'
+ATTN: There is an older Intel "i810" driver that might work better...'
   elif [ "${CARD0DRIVER}" = "i810" ];then
    TRYDRV='intel'
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label New:intel_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is an newer Intel video driver that might work better...'
+ATTN: There is a newer Intel "intel" video driver that might work better...'
   elif [ "${CARD0DRIVER}" = "vesa" ];then
    if [ "`grep -i 'intel' /etc/X11/xorg.conf | grep -E 'Driver|VendorName|BoardName|PuppyHardwareProfile'`" ];then
    TRYDRV='intel'
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label New:intel_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is intel video driver that might work better...'
+ATTN: There is "intel" video driver that might work better...'
    fi #vesa||intel
   fi #i810|intel|vesa
  fi #i810old
 
 fi #nvidia|intel|vesa
 
-  dialog --colors --no-collapse ${EXTRABUTTON} --title "Xorg Video Wizard" --yes-label "Tweak_xorg.conf" --no-label "vesa" ${EXTRALABEL} --yesno "
+# REM: dialog has a bug
+#       that switches yes-no label buttons to ok-cancel label buttons
+#       if --extra-button provided
+#        dialog --version Version: 1.0-20060221
+# TESTLINE: dialog --extra-button --ok-label "Ja" --cancel-label "STORN" --extra-label "ANNERS" --yesno "Waehle" 0 0  #OK
+# TESTLINE: dialog --extra-button --yes-label "Ja" --no-label "STORN" --extra-label "ANNERS" --yesno "Waehle" 0 0     #NOT OK
+# TESTLINE: dialog --yes-label "Ja" --no-label "STORN" --extra-label "ANNERS" --yesno "Waehle" 0 0                    #OK
+if [ "$EXTRABUTTON" = "" ]; then
+  YES_LBL='--yes-label'
+   NO_LBL='--no-label'
+else
+  YES_LBL='--ok-label'
+   NO_LBL='--cancel-label'
+fi
+
+# REM: Now run dialog to ask to either
+#       edit xorg.conf, use vesa driver or alternative driver
+  dialog --colors --no-collapse ${EXTRABUTTON} --title "Xorg Video Wizard" ${YES_LBL} "Tweak_xorg.conf" ${NO_LBL} "vesa" ${EXTRALABEL} --yesno "
 \Z4Before continuing to tweaking xorg.conf, one other thing to consider:
 Xorg has a dozen or so drivers for particular video hardware, which
 optimises performance for the matching hardware, but sometimes a
@@ -1630,7 +1671,7 @@ So, if you have already tried '\Zbtweaking\ZB' or you know that the Xorg
 \Zbgeneric driver\ZB. Click '\Z1v\Z0\Zbesa\ZB\Z4' to change Xorg to using the
 generic driver, otherwise press ahead and try tweaking...${ALTERNATIVE_DRV_MSG}\Zn" 0 0
   RV6=$?
-  [ "$RV6" = '-1' -o "$RV6" -eq 255 ] && break
+  [ "$RV6" = "" -o "$RV6" = '-1' -o "$RV6" = 255 ] && break
   SUBSTDRV="$CARD0DRIVER"
   [ "$RV6" = '1' ] && SUBSTDRV='vesa'
   [ "$RV6" -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
