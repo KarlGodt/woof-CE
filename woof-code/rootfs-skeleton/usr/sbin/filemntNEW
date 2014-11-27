@@ -1,0 +1,485 @@
+#!/bin/ash
+# ROX App.: Click image files to mount & unmount. by: Terry Becker    aka: SunBurnt
+# File types = ".2fs, .3fs, .sfs, .iso, & initrd.gz".
+#v423 detect wrong squashfs version 3.x or 4.x.
+#v424 advise of sfs-version-converter.
+
+###KRG Fr 31. Aug 23:34:58 GMT+1 2012
+
+Version='2.0.0-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
+test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+
+xmTITLE="PuppyFileMount"
+
+usage(){
+MSG="
+$0 [-V|-v|-d|-h|-l] FILENAME.sfs
+Script to mount and unmount
+loop image, iso and squashfs files
+[ by simple left click ] .
+
+-V) show version
+-v) verbose
+-d) debug
+-h) show this usage
+-l) log to /tmp/filemnt.log
+"
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg lightgreen -title "$xmTITLE" "$MSG"
+exit $1
+}
+case $@ in
+*-?help|*-?"help "*|-?help) usage 0;;
+-?version) echo -e "\n$0: Version '$Version'\n";exit 0;;
+esac
+OUT=/dev/null;ERR=$OUT
+while getopts Vvdhl opt;do
+case $opt in
+V) echo -e "\n$0: Version '$Version'\n";exit 0;;
+v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;ERR=/dev/stderr;OUT=/dev/stdout;shift;;
+d) DEBUG=1;set -x;shift;;
+h) usage 0;;
+l) shift;exec 1>>/tmp/filemnt.log 2>&1;;
+*) :;;
+esac;done
+
+
+#v423...
+KERNELVER=`uname -r`
+KERNEL_MAJ=${KERNELVER:0:1}
+KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-'`
+SFSSTR='squashfs, version 4'
+if [ "$KERNEL_MAJ" -lt 3 ]; then
+[ "$KERNELSUBVER" -lt 29 ] && SFSSTR='squashfs, version 3'
+fi
+
+# REM: Variables
+MOUNT_DIR=/mnt  # parent dir there where files should be mounted
+
+DEBUG=1
+
+if test -f "$@"; then
+   imgFILE="$@"
+
+else
+# REM: Filter filename parameter from other possible
+#       parameters (--help,.. etc)
+while [ $# != 0 ]; do
+ if test -e "$1"
+ then imgFILE="$1"
+ else
+ posPARAMS="$posPARAMS $1"
+ fi
+ shift
+done
+
+set - $posPARAMS
+
+fi
+
+# REM: Need to handle relative path
+#imgFILE=`readlink -f "$imgFILE"`
+imgFILE=`realpath "$imgFILE"`
+
+ case "$imgFILE" in
+ ./*|../*)
+     dn_imgFILE=${imgFILE%/*}
+     [ "$dn_imgFILE" = '.' ] && dn_imgFILE=''
+     bn_imgFILE=${imgFILE##*/}
+     imgFILE=`pwd`/"$dn_imgFILE"/"$bn_imgFILE"
+     ;;
+ */*)
+     dn_imgFILE=${imgFILE%/*}
+     bn_imgFILE=${imgFILE##*/}
+     ;;
+  *)
+     dn_imgFILE=`pwd`
+     bn_imgFILE="$imgFILE"
+     ;;
+ esac
+
+test -e "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
+test -e "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
+
+echo "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
+echo "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
+
+
+# REM: Try to handle initrd files.
+#      These may be compressed.
+#      As of 2010 and later, Puppy Linux initrd are cpio archives.
+#      Before, they seem to have been ext2 file-system files.
+
+# REM: First some functions...
+
+_change_into_dir_where_initrd_is(){
+ parentDIR="${imgFILE%/*}"
+ cd "$parentDIR" || _exit 5 "Could not change into '$parentDIR'"
+ return $?
+}
+
+_make_backup_of_initrd(){
+test -e "$*" || return 6
+test -e "$*".bak && mv $VERB -f "$*".bak "$*".bak.old
+cp $VERB -a "$*" "$*".bak
+return $?
+}
+
+_make_backup_of_initrd_dir_tree(){
+test -e "$*".bak && mv $VERB -f "$*".bak "$*".bak.old
+test -e "$*" && mv $VERB -f "$*" "$*".bak
+}
+
+_create_and_change_into_initrd_dir_tree(){
+test -e "$*" && rm -rf "$*"
+mkdir -p "$*"
+cd "$*" || _exit 7 "Could nor change into directory `pwd`/./initrd-tree"
+}
+
+_where_am_i(){
+case `pwd` in
+*${*}) :;;
+*) return 8;;
+esac
+return 0
+}
+
+_unpack_initrd_cpio(){
+echo "$*"
+COMPRESS="$1"
+case $COMPRESS in
+gz)   dec_cat=zcat;;
+bz2)  dec_cat=bzcat;;
+lzo)  dec_cat=lzcat;;
+lzma) dec_cat=lzmacat;;
+xz)   dec_cat=xzcat;;
+no)   dec_cat=cat;;
+*)    echo "Unhandled compression '$COMPRESS'"
+esac
+
+shift
+echo "$*"
+test -e "$*" || return 8
+which $dec_cat >>$OUT || return 9
+$dec_cat "$*" | cpio -i -d
+return $?
+}
+
+_is_initrd_cpio(){
+ disktype "$imgFILE" | grep $Q -i 'cpio' && return 0
+ return 1
+}
+
+_is_initrd_fs(){
+ disktype "$imgFILE" | grep $Q -i 'File system' && return 0
+ return 1
+}
+
+# REM: Variables
+INTRD_DIR_TREE="initrd-tree" # name of the initrd_dir_tree to extract files from initrd
+
+case "$imgFILE" in
+*initrd*)
+# REM: Prepare the working directory
+_change_into_dir_where_initrd_is
+_make_backup_of_initrd "$imgFILE"
+_make_backup_of_initrd_dir_tree "$INTRD_DIR_TREE"
+_create_and_change_into_initrd_dir_tree "$INTRD_DIR_TREE"
+_where_am_i || _exit 9 "Something feels wrong in this directory '`pwd`'"
+
+# REM: Define compression from extension
+case "$imgFILE" in
+*initrd*.gz)   COMPRESS=gz;;
+*initrd*.bz2)  COMPRESS=bz2;;
+*initrd*.lzo)  COMPRESS=lzo;;
+*initrd*.lza|*initrd*.lzm|*initrd*.lzma|*initrd*.lz)  COMPRESS=lzma;;
+*initrd*.xz)   COMPRESS=xz;;
+*initrd*)      COMPRESS=no;;
+*) _err "Unhandled extension of '$bn_imgFILE'";;
+esac
+
+
+# REM: Is initrd a file-system
+#      or cpio archive
+if  _is_initrd_cpio; then
+ _unpack_initrd_cpio "$COMPRESS" "$imgFILE"
+ [ $? = 0 ] || { echo "something went wrong ..."; false; }
+
+elif _is_initrd_fs; then
+
+   :  echo TODO
+else
+_err "Unhandled file type for '$imgFILE' - neither cpio or file-system"
+fi
+
+exit $?
+;;
+esac
+
+
+mntPT="${MOUNT_DIR}/$bn_imgFILE"
+
+echo "mntPT='$mntPT'"
+
+grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
+grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
+
+_create_new_folder_name(){
+while read path_to_folder
+do
+echo $path_to_folder
+c=$((c+1))
+test -e "$path_to_folder".$c && continue
+mntPT="$path_to_folder".$c
+break
+done << EoI
+`ls -1dv "$*"*`
+EoI
+}
+
+_check_already_mounted(){
+
+  #BK check if already mounted elsewhere...
+  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
+  do
+
+   IMG_MTP=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+   IMGBASE=`basename "$IMG_MTP"`
+    #TODO 64 chars
+    #bash-3.2# losetup-FULL /dev/loop1
+    #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
+                            #1234567890123456789012345678901234567890123456789012345678901234
+
+    echo "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
+    #not perfect, but paths may be symlinks...
+
+    if [ "$IMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
+
+     # If frugal install check if it is in use
+     case "$IMG_MTP" in
+     */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
+     esac
+
+     if [ -n "$DISPLAY" ] ; then #66
+xmessage -buttons "
+
+Just
+Quit
+-->:190,
+
+Open ROX-
+Filer window
+-->:191,
+
+Open
+console
+-->:192,
+
+Just Unmount
+$IMGBASE
+-->:193,
+
+Unmount all
+$IMGBASE
+-->:194,
+
+Mount an-
+other time
+-->:199
+" -title "$xmTITLE" "$imgFILE
+is already mounted $IN_USE_BY_PUPPY .
+Do you want to unmount it
+or mount it to another mount point ?"
+
+RETVAL=$?
+
+if [ "$RETVAL" = "190" ] ; then #666  ## Quit
+     exit
+
+elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
+       mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       rox "$mntPT"
+       exit
+
+elif [ "$RETVAL" = "192" ] ; then #666  ## console
+       mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       cd "$mntPT"
+       _debug "`pwd`"
+       rxvt &
+       exit
+
+elif [ "$RETVAL" = "193" ] ; then #666  ## umount
+       UNMOUNT='yes'
+       mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       return
+
+elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
+       UNMOUNT='yes'
+       mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       _debug 1 "$mntPT"
+       MntPt2=`echo "$mntPT" | sed "1 d"` ## only umount all others exect one
+       _debug 2 "$MntPt2"
+
+       for i in $MntPt2 ; do
+       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       _debug "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       _debug "$LOOPD"
+       #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
+       USEapps=`fuser -m "$MntPt2"`   ##+++2011-10-27
+       _notice 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
+       _debugx 4 "$USEapps"
+
+       # REM: kill signal - use your preferred signal
+       #      Supported signals are listed by 'help trap'
+       SIG=2
+       for j in $USEapps ; do
+       _debugx "fuser claims '$j' is using '$mntPT'"
+       kill -$SIG $j
+       done
+
+       [ -n "$DISPLAY" ] && rox -D "$i"
+       /bin/umount "$i"
+       #sleep 2
+       #rmdir "$i"
+       done
+
+       mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       return
+
+else #666
+     MOUNT='again'
+     return
+fi   ###666
+else ##66      ##+++2011-10-27 to fix call from without X running
+UNMOUNT='yes'  ##+++2011-10-27
+fi ##66
+fi #6
+done
+
+}
+
+_check_already_mounted
+
+
+if [ -z "$UNMOUNT" ] ; then
+
+  # get file type from extension
+  #Ext=`echo "$imgFILE" |sed 's/^.*\.//'`
+  Ext=${imgFILE##*.}
+ case "$imgFILE" in
+ *.2fs|*.ext2|*.ext2fs.img) Type=ext2;;
+ *.3fs|*.ext3|*.ext3fs.img) Type=ext3;;
+ *.4fs|*.ext4|*.ext4fs.img) Type=ext4;;
+ *.sfs|*.squashfs|*.sqfs|*.squashfs.img) Type=squashfs;;
+ *.iso|*.ISO|*.Iso)
+   #Fatdog fat16 first and iso9660 second  ###+++2013-03-02
+   TYPES=`disktype "$imgFILE" |grep 'file system'`
+   if [ "`echo "$TYPES" |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | grep -i 'UDF'`" ]; then
+    Type=udf
+   else
+    Type=iso9660
+   fi
+  ;;
+  *)
+   Type=`disktype "$imgFILE" |grep 'file system' |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'` ##+++2012-06-04 udf or iso9660
+   #Type='iso9660' ##---2012-06-04
+   # BK
+   #elif [ "$imgFILE" = 'initrd.gz' ] ;then
+   # Type='ext2'
+   # gunzip $imgFILE             # handle gzip image file
+   # imgFILE="echo "$imgFILE" |sed 's/.gz$//'"
+  ;;
+  esac
+
+  #v423 detect wrong squashfs version...
+  if [ "$Type" = "squashfs" ];then
+   DISK_TYPE=`disktype "${imgFILE}"`
+   if [ "`echo "${DISK_TYPE}" | grep "$SFSSTR"`" = "" ];then
+    xmessage -bg orange1 "$DISK_TYPE"
+    if [ $KERNEL_MAJ = 2 -a $KERNELSUBVER -gt 28 ] || [ $KERNEL_MAJ -gt 2 ];then
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be an older version 3.x squashfs file, not usable.
+All Linux kernels around 2.6.29 or later require version 4.x squashfs files.
+Note, there is an SFS-version-converter in the Utility menu, run that first."
+    else
+     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be a newer version 4.x squashfs file, not usable.
+All Linux kernels around 2.6.28 or earlier require version 3.x squashfs files.
+Note, there is an SFS-version-converter in the Utility menu, run that first."
+    fi
+    exit 0
+   fi
+  fi
+
+  # REM: Older pups need to mknod a /dev/loop
+  #      Since kernel 3.1 they are automatically created by the kernel
+  _mk_free_loop  # see f4puppy5
+
+  # REM: if choosen mount again
+  [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
+  echo "mntPT='$mntPT'"  ##DEBUG
+  #: mkdir -p "$mntPT"    ## mount.sh should do this
+
+  # REM: New problem in case of additional mount 2014-11-27,
+  #      mount complains that /dev/loop is in use - don't know why ...
+  freeLOOP=`losetup -f`
+  losetup $freeLOOP "$imgFILE"
+
+  _debug "\n$0 : Mount: '$Type' '$freeLOOP' '$mntPT'\n"
+  /bin/mount $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
+
+  __old_mount_code_that_worked_flawless_until_today__() {
+  _debug "\n$0 : Mount: '$Type' '$imgFILE' '$mntPT'\n"
+  /bin/mount $VERB -t $Type -o loop "$imgFILE" "$mntPT"; }
+
+  Err=$?
+
+  if [ "$Err" -eq 0 ]; then
+   if [ -n "$DISPLAY" ] ; then #99
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+   fi
+  elif [ -n "`mount | grep "$mntPT"`" ];then
+   :
+  else
+   : sleep 2s
+   losetup -d $freeLOOP
+   #: [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }
+  fi
+
+ else
+
+   [ -n "$DISPLAY" ] && {
+    #:rox -D "$mntPT"
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $bn_imgFILE" &
+   }
+       GREP=`echo "$mntPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       _debug 1 "$GREP"
+       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       _debug 2 "$LOOPD"
+       #USEapps=`fuser -c $LOOPD`   ##---2011-10-27
+       USEapps=`fuser -m "$mntPT"`  ##---2011-10-27
+       _notice 3 "$USEapps"
+       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
+       _debugx 4 "$USEapps"
+
+       # REM: kill signal - use your preferred signal
+       #      Supported signals are listed by 'help trap'
+       SIG=2
+       for j in $USEapps; do
+       _debugx "fuser claims '$j' is using '$mntPT'"
+       kill -$SIG $j
+       done
+
+  _debug "\n$0 : UnMount: '$imgFILE'\n"
+  /bin/umount "$mntPT"
+  Err=$?
+  #: [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
+ fi
+
+ if [ "$Err" -gt 0 ] ;then
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting '$mntPT'"
+ fi
+
+
+# Very End of this file 'usr/sbin/filemnt' #
+###END###
