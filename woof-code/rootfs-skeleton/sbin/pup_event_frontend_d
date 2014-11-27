@@ -216,12 +216,15 @@ return "$?";fi; }
 stop_func(){
  local aPID
  _debug "\$\$='$$'"
+
 __while_loop__(){
- pidof -o $$ -o %PPID ${0##*/} | tr ' ' '\n' | while read aPID; do
+ pidof -o $$ -o %PPID ${0##*/} |
+ tr ' ' '\n' | while read aPID; do
  _debug "aPID='$aPID'";
- /bin/ps -welF | grep -w $aPID
+ /bin/ps -welF | grep -w $aPID  ##DEBUG
  kill -9 $aPID; done
 }
+
  MY_PIDS=`pidof -o $$ -o %PPID ${0##*/}`
  for aPID in $MY_PIDS; do
  [ $aPID = 1 ] && continue
@@ -283,18 +286,34 @@ fi
 ########### battery #########################################
 
 
-################# ORIG #####################################
+################# ORIG ######################################
 #v424 experiment, automatic unmounting...
 _auto_unmount(){
  #for ONEMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
- for oneMNTPT in `grep '^/dev/[fhms][md]' /proc/mounts | grep -vE '^/dev/md|/initrd/' | awk '{print $2}'`
+ for oneMNTPT in `grep '^/dev/[fhms]\{1\}[mcd]\{1,2\}' /proc/mounts | grep -vE '^/dev/md|/initrd/' | awk '{print $2}'`
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
    pidof sync >>$OUT || sync
    /bin/umount $VERB "$oneMNTPT"; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ "$umVAL" -ne 0 ];then
-    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+
+    #ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+    # REM: example output of
+    #      /bin/ps -H -A |sed 's/^[[:blank:]]*//g;s/  /|/g'
+    #      3721 ?||||S|||0:00||||||| gnome-pty-helper
+    #      2014-11-26 TODO
+    #
+    # REM: filter out 'grep' itself...
+    #      /bin/ps -H -A | grep '<defunct>'
+    #      21133 pts/17   S+     0:00                 grep <defunct>
+
+    # REM: attempt to use the grep -v '|||' switch ...
+    #ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep <defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '[DRSTWX]\{1\}|||[0-9]\+:[0-9]\+' | cut -f 1 -d ' '`
+
+    # REM: attempt to use the grep -v '|||' switch ...
+    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep <defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '[0-9]\+:[0-9]\+|||' | cut -f 1 -d ' '`
+
     for oneZOMBIE in $ZOMBIES
     do
      /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE 2>>$ERR
@@ -332,20 +351,24 @@ _free(){
 #called every 4 seconds.
  case $PUPMODE in
   6|12) #frugal to whole partition|frugal to save-file (on HDD)
-   SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+   #SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+    SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
   ;;
   *)
-   SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
+   #SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
+    SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
   ;;
  esac
  WARNMSG=""
+ [ "$SIZEFREEM" ] || WARNMSG="Could not determine free space using df plus filters"
  [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ $PREVSIZEFREEM -eq $SIZEFREEM ] && return
  if [ $SIZEFREEM -lt 10 ];then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    _delete /initrd/pup_rw #save layer is at top, delete mods.
   else
-   WARNMSG="WARNING: Personal storage getting full, strongly recommend you resize it or delete files!"
+   WARNMSG="$WARNMSG
+   WARNING: Personal storage getting full, strongly recommend you resize it or delete files!"
   fi
  fi
 
@@ -372,9 +395,17 @@ _free(){
 
 _free_flash(){
 #PUPMODE 3,7,13. called every 4 seconds. 3=full on internal flash, 7 frugal to whole partition, 13=frugal to save-file
+# WARNMSG=""
+ #SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
+  SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_ro1") print $4}' | tail -n1`
+ # SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+   SIZETMPM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
+
  WARNMSG=""
- SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
-  SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+ [ "$SIZEFREEM" ] || WARNMSG="Could not determine free space in save-file using df and filters"
+  [ "$SIZETMPM" ] || WARNMSG="$WARNMSG
+Could not determine free space in /tmp layer"
+
  [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ -s /tmp/pup_event_sizetmpm ]  && read PREVSIZETMPM  </tmp/pup_event_sizetmpm
  [ "$PREVSIZEFREEM" = $SIZEFREEM -a "$PREVSIZETMPM" = $SIZETMPM ] && return
@@ -383,21 +414,26 @@ _free_flash(){
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    _delete /initrd/pup_ro1 #delete modules in save layer only.
   else
-   WARNMSG="WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
+   WARNMSG="$WARNMSG
+   WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
    pidof resizepfile.sh >>$OUT || resizepfile.sh &
   fi
  fi
 
+ # REM: try freeing ^unused^ RAM
  if [ $SIZETMPM -lt 5 ]; then
   echo '3' >/proc/sys/vm/drop_caches && { sleep 2;
-  SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+  #SIZETMPM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
+   SIZETMPM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
     }
  fi
+
  if [ $SIZETMPM -lt 5 ]; then
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    _delete /initrd/pup_rw #delete modules in top tmpfs layer only.
   else
-   WARNMSG="WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
+   WARNMSG="$WARNMSG
+   WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
   fi
  fi
 
@@ -445,7 +481,7 @@ _delete(){
  do
   oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
   oneKEEP_PATH=`dirname $oneKEEP_SPEC`
-  mkdir -p /tmp/${oneKEEP_PATH}
+  mkdir $VERB -p /tmp/${oneKEEP_PATH}
   cp $VERB -af ${oneKEEP_SPEC} /tmp/${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" != "" ];then
@@ -547,7 +583,8 @@ export LANG=C #w004
 sleep 2 #let the dust settle after X has started.
 #w471 slow cpus need more delay (well, rox does)...
 DELAYFACTOR=0
-CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
+#CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
+ CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d '[:blank:]' | cut -f 2 -d ':' | cut -f 1 -d '.'`
 #[ "$CPUMHZ" -a $CPUMHZ -gt 100 ] && DELAYFACTOR=`expr 1100 \/ $CPUMHZ`
  [ "$CPUMHZ" -a $CPUMHZ -gt 100 ] && DELAYFACTOR=$(( 1100 / CPUMHZ ))
 [ $DELAYFACTOR -gt 0 ] && sleep $DELAYFACTOR
@@ -623,7 +660,13 @@ KERNEL_RELEASE=`uname -r`
 funcSCRN_VARS(){
 #KRG
 
-SCRNXY=`xwininfo -root 2>&1 | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'` #orig
+# REM: -e PATTERN, --regexp=PATTERN
+#              Use  PATTERN as the pattern.
+#              This is useful to protect patterns
+#              beginning with hyphen-minus (-).
+#              (-e is specified by POSIX.)
+
+SCRNXY=`xwininfo -root 2>&1 | grep -oe '-geometry .\+' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'` #orig
 case "$SCRNXY" in *unable*to*open*display*) _exit 177 "'$SCRNXY'";; esac
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'` #orig
 SCRN_Y=`echo -n "$SCRNXY" | cut -f 2 -d 'x'` #orig
@@ -711,10 +754,12 @@ funcHOME
 funcJWM(){
 CWM=`cat /etc/windowmanager`
 if [ "$CWM" = "jwm" ]; then
-JwmL=`grep -E -i 'Tray | autohide | insert | x | y | insert' $HOME/.jwmrc-tray`
-JWMTpos=`echo $JwmL | grep -o 'y=.*$' | cut -f 1 -d ' ' | cut -f 2 -d '"'`
+JwmL=`grep -E -i 'Tray | autohide=| insert=| x=| y=| insert=' $HOME/.jwmrc-tray`
+# REM: using cut cut
+JWMTpos=`echo "$JwmL" | grep -o ' y=.*$' | cut -f 2 -d ' ' | cut -f 2 -d '"'`
 [ -z "$JWMTpos" ] && JWMTpos="-1"
-HEIGHT=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
+# REM: using tr cut
+HEIGHT=`echo "$JwmL" | grep -o ' height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
 fi
 [ -z "$HEIGHT" ] && HEIGHT=28
 
@@ -728,7 +773,9 @@ funcJWM
 
 funcROX(){
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
-PIN_GRID_STEP=`grep -m1 "pinboard_grid_step" "$CONFFILEROX" | sed -e "s/ *<[^>]*>//g"`
+#PIN_GRID_STEP=`grep -m1 "pinboard_grid_step" "$CONFFILEROX" | sed -e "s/ *<[^>]*>//g"`
+# REM: filter comment lines
+PIN_GRID_STEP=`sed -n '/<!--/,/-->/!p' "$CONFFILEROX" | grep -m1 "pinboard_grid_step" | sed -e "s/ *<[^>]*>//g"`
 [ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=16 #16=medium.
 [ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=16 #precaution.
 
@@ -739,11 +786,35 @@ JWMT_Yvar=$((((JWMT_Yvar/PIN_GRID_STEP2)+1)*PIN_GRID_STEP2))
 [ -z "$ICON_PLACE_START_GAP" ]   && ICON_PLACE_START_GAP=32
 [ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
 if [ -z "$ICON_PLACE_SPACING" ] ; then
-DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o -e '[[:digit:]]*' | head -n 1`  ##+2012-11-05 added -e to grep -o
+#DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o -e '[[:digit:]]*' | head -n 1`  ##+2012-11-05 added -e to grep -o
+# REM: was under the impression, that --regex would mean someting special, but is not...
+#      * is short for {0,}
+#      + is short for {1,}
+DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o '[[:digit:]]\+' | head -n 1`
+
+
+# REM: help set in bash:
+#      -u  Treat unset variables as an error when substituting.
+
+#   bash-3.00# ICON_PLACE_SPACING=$(( (( $DriveIconsize / $PIN_GRID_STEP ) + 1 ) * $PIN_GRID_STEP ))
+#   bash: ((  /  ) + 1 ) *  : syntax error: operand expected (error token is "/  ) + 1 ) *  ")
+#   bash-3.00# ICON_PLACE_SPACING=$(( (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP ))
+#   bash: (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP : division by 0 (error token is ") + 1 ) * PIN_GRID_STEP ")
+
+#   bash-3.00# set -u
+#   bash-3.00# ICON_PLACE_SPACING=$(( (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP ))
+#   bash: DriveIconsize: unbound variable
+#   bash-3.00# ICON_PLACE_SPACING=$(( (( $DriveIconsize / $PIN_GRID_STEP ) + 1 ) * $PIN_GRID_STEP ))
+#   bash: DriveIconsize: unbound variable
+
 ICON_PLACE_SPACING=$(( (( $DriveIconsize / $PIN_GRID_STEP ) + 1 ) * $PIN_GRID_STEP ))
 fi
 
 VALSY=$(( $SCRN_Y / $PIN_GRID_STEP ))
+
+# REM: experimental, for what I cannot remember for now...
+#      PGSYvals used in ICON_PLACE_ORIENTATION "bottom" in free_coord
+#      using ICON_PLACE_ORIENTATION "top" since a very long time ...
 for i in `seq 1 $VALSY` ; do PGSYvals="$PGSYvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
 _debug $VALSY
 _debug $PGSYvals
@@ -752,20 +823,22 @@ for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \
 }
 funcROX
 
-
+# REM: want the effective usable X and Y of screen
+#      fontsize may be very big and clash with jwm taskbar/tray
 funcMAX_XY(){
 
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
-FONT_SIZE=`grep 'name="label_font">.*<' $CONFFILEROX |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
+FONT_SIZE=`grep 'name="label_font">.*<' "$CONFFILEROX" |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
 _debug "FONTSIZE='$FONT_SIZE'"
 
+# REM: ROX-Filer handles icons from middle of icon, not start of icon ( or end of icon )
 ICON_X=48;icon_x=$((ICON_X/2))
 ICON_Y=$((FONT_SIZE+48));icon_y=$((ICON_Y/2))
 
 #MAX_X=`expr $SCRN_X - 32`
 #MAX_Y=`expr $SCRN_Y - 48` ##+++2012-01-19
 MAX_X=$(($SCRN_X-icon_x))  #24 half icon size of 48
-MAX_Y=$(($SCRN_Y-icon_y)) #49 full iconsize, 24 label
+MAX_Y=$(($SCRN_Y-icon_y))  #49 full iconsize, 24 label
 }
 funcMAX_XY
 
@@ -855,9 +928,10 @@ free_coord() {
  #find a free place on desktop. v410 avoid exact overlapping icons...
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
- #sleep 1
- COORDSGRID1=`grep -o ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin` # | sed 's/[0-9]"/"/g'`"
- COORDSGRID2=`grep -o ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin`
+
+ #sleep 1 ##DEBUG
+ COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' $HOME/Choices/ROX-Filer/PuppyPin` # | sed 's/[0-9]"/"/g'`"
+ COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' $HOME/Choices/ROX-Filer/PuppyPin`
  COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
  _debug "$COORDSGRID" | head -n 2
 
@@ -1018,13 +1092,13 @@ _create_icon(){
  if [ "$ICONPARTITIONS" = "true" ];then
   #display an icon for each partition... w476 add ext4...
   #[ "$1" ] || _PROBEPART_=`probepart -k | grep -iEv "\|swap\||/dev/[hnmflr].*\|none\||/dev/sd.*\|none\||\|not inserted\||\|extended\||ext'd.*\||\|none detected\||/dev/sr.*\|none\|"`
-  [ "$1" = startup ] && shift || _PROBEPART_=`probepart -k | grep -iEv "\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\|"`
+  [ "$1" = startup ] && { shift; true; } || _PROBEPART_=`probepart -k | grep -iEv "\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\|"`
   drvPATTERN='^/dev/'"${DISK_NAME}" #important, no space on end!
   DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
 
   #w482 k2.6.25.16 /proc/partitions (read by probepart) can be slow to update...
   diCNT=0
-  if [ "`echo "$DISK_NAME" | grep -E '^sd|^mmc|^sr'`" ];then
+  if [ "`echo "$DISK_NAME" | grep -E '^sd|^mmc|^sr|^scd'`" ];then
    while [ "$DISK_PARTITIONS" = "" ];
    do
     diCNT=$((diCNT+1))
@@ -1040,6 +1114,9 @@ _create_icon(){
     test -e /sys/block/$DISK_NAME/${DISK_NAME}p1 || break
     ;;
     sr*)
+      :
+    ;;
+    scd*)
       :
     ;;
     esac
@@ -1059,7 +1136,7 @@ _create_icon(){
         SIZE=`echo "$onePART" | cut -f 3 -d '|'`
   drvPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
   if [ ! -d $HOME/.pup_event/drive_${oneDRVNAME} ];then
-      mkdir $HOME/.pup_event/drive_${oneDRVNAME}
+      mkdir $VERB $HOME/.pup_event/drive_${oneDRVNAME}
    cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${oneDRVNAME}/AppRun
    if [ -e /sys/block/${oneDRVNAME} ];then
     #device is an entire drive.
@@ -1127,7 +1204,7 @@ _create_icon(){
 
    _format_size $SIZE #formats SIZE for display.
 
-   mkdir -p $HOME/.pup_event/drive_${DISK_NAME}$aP
+   mkdir $VERB -p $HOME/.pup_event/drive_${DISK_NAME}$aP
    cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${DISK_NAME}$aP/AppRun
 
    INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
@@ -1189,7 +1266,7 @@ funcPUPEVENTSTART(){
 ######################################################################
 #stuff to setup at entry...
 
-mkdir -p $HOME/.pup_event
+mkdir $VERB -p $HOME/.pup_event
 #build the desktop icons...
 DISK_CATEGORY='drive'
 
@@ -1343,7 +1420,7 @@ POWERTIMEOUT_FUNCS
 
 ##+++2013-07-07
 #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
-ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram|^zram' > /tmp/pup_event_frontend_block2
+ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
 cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 ##+++2013-07-07
 
@@ -1361,7 +1438,7 @@ do
 
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
- ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram|^zram' > /tmp/pup_event_frontend_block2
+ ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
  if [ -f /tmp/pup_event_frontend_block_request ];then #w015 (see gparted_shell, puppyinstaller, bootflash)
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
@@ -1405,8 +1482,8 @@ do
 
   cp $VERB -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-   BLOCKSADD=`echo "$BLOCKDIFF" | grep -oe '^\+[[:alnum:]]*' | sed 's%^\+%%'`
-   BLOCKSREM=`echo "$BLOCKDIFF" | grep -oe '^\-[[:alnum:]]*' | sed 's%^\-%%'`
+   BLOCKSADD=`echo "$BLOCKDIFF" | grep -o '^\+[[:alnum:]]\+' | sed 's%^\+%%'`
+   BLOCKSREM=`echo "$BLOCKDIFF" | grep -o '^\-[[:alnum:]]\+' | sed 's%^\-%%'`
 
    _PROBEDISK_=`probedisk2`
    DRVS_OPTICAL=`echo "$_PROBEDISK_" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
@@ -1484,12 +1561,12 @@ if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
     rm /tmp/pup_event_manager.flg
  if [[ -f /tmp/pup_event_icon_change_flag ]]; then  #KRG
 
-    Floppies=`ls /sys/block | grep 'fd[0-9]' | sort -r`
+    Floppies=`ls /sys/block | grep 'fd[0-9]\+' | sort -r`
 
     if [ -d /proc/ide ] ; then
-    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^mmc' | sort -r`
+    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^scd|^mmc' | sort -r`
     else
-    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^mmc'`
+    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^scd|^mmc'`
     fi
 
     for DRV_NAME in $Drives drives; do
