@@ -26,7 +26,7 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=
+DEBUG=1
 DEBUGX=
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -228,7 +228,7 @@ DEBUGT=$o_DEBUGT
 test -f /proc/mounts && mountAFTER=`cat /proc/mounts`
 _debugt 99 $_DATE_
 test "$mountBEFORE" -a "$mountAFTER" && {
-        grepMA=`echo "$mountAFTER"  | sed 's!\\\!\\\\\\\!g'` || exit
+        grepMA=`echo "$mountAFTER"  | sed 's!\\\!\\\\\\\!g'` || _exit 33 "sed failed to escape backslash"
         grepMB=`echo "$mountBEFORE" | sed 's!\\\!\\\\\\\!g'`
         updateWHATA=`echo "$mountAFTER"  | _command grep -v "$grepMB"`
         updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA"`
@@ -658,7 +658,8 @@ o_posPAR="$posPAR"
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && _debugx "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir -p "$posPAR"; }
+   test -e "$posPAR" && _debugx "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint..";
+   LANG=$LANG_ROX mkdir -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
@@ -1006,7 +1007,7 @@ _umount_rmdir()
  test "$*" || return 1
  [ "$DISPLAY" ] && { test -d "$mountPOINT" && rox -D "$mountPOINT"; }
  _debug "_umount_rmdir:mountpoint $Q $*";
- mountpoint $Q "$*" || rmdir "$@" 2>>$ERR;
+ mountpoint $Q "$*" || rmdir "$@" #2>>$ERR;
 }
 
 _update()
@@ -1031,6 +1032,7 @@ EoI
 _debugt 01 $_DATE_
 }
 
+_debug "mountPOINT='$mountPOINT'"
 test "$RETVAL" = 0 && { _update || :; } || _umount_rmdir "$mountPOINT"
 _debugt 00 $_DATE_
 test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
