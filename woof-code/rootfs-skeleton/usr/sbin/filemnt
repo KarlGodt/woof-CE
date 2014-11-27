@@ -210,51 +210,58 @@ or mount it to another mount point ?"
 
 RETVAL=$?
 
-if [ "$RETVAL" = "190" ] ; then #666  ##Quit
+if [ "$RETVAL" = "190" ] ; then #666  ## Quit
      exit
 
-elif [ "$RETVAL" = "191" ] ; then #666  ##ROX-Filer
+elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        rox "$mntPT"
        exit
 
-elif [ "$RETVAL" = "192" ] ; then #666  ##console
+elif [ "$RETVAL" = "192" ] ; then #666  ## console
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        cd "$mntPT"
-       pwd
+       _debug "`pwd`"
        rxvt &
        exit
 
-elif [ "$RETVAL" = "193" ] ; then #666  ##umount
+elif [ "$RETVAL" = "193" ] ; then #666  ## umount
        UNMOUNT='yes'
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        return
 
-elif [ "$RETVAL" = "194" ] ; then #666  ##umount ALL $IMGBASE
+elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
        UNMOUNT='yes'
        mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       echo 1 "$mntPT"
-       MntPt2=`echo "$mntPT" | sed "1 d"` ##only umount all others exect one
-       echo 2 "$MntPt2"
+       _debug 1 "$mntPT"
+       MntPt2=`echo "$mntPT" | sed "1 d"` ## only umount all others exect one
+       _debug 2 "$MntPt2"
+
        for i in $MntPt2 ; do
        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       echo "$GREP"
+       _debug "$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       echo "$LOOPD"
+       _debug "$LOOPD"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
        USEapps=`fuser -m "$MntPt2"`   ##+++2011-10-27
-       echo 3 "$USEapps"
+       _notice 3 "$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
-       echo 4 "$USEapps"
+       _debugx 4 "$USEapps"
+
+       # REM: kill signal - use your preferred signal
+       #      Supported signals are listed by 'help trap'
+       SIG=2
        for j in $USEapps ; do
-       echo $i
-       kill -1 $j
+       _debugx "fuser claims '$j' is using '$mntPT'"
+       kill -$SIG $j
        done
-       [ -n "$DISPLAY" ] && rox -D $i
-       umount $i
-       sleep 2
-       rmdir $i
+
+       [ -n "$DISPLAY" ] && rox -D "$i"
+       /bin/umount "$i"
+       #sleep 2
+       #rmdir "$i"
        done
+
        mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
        return
 
@@ -278,34 +285,35 @@ if [ -z "$UNMOUNT" ] ; then #55 == yes || [ -n "$MOUNT" ] == again
   # get file type from extension
   #Ext=`echo "$imgFILE" |sed 's/^.*\.//'`
   Ext=${imgFILE##*.}
-  if [ "$Ext" = '2fs' ] ;then #7
+  if [ "$Ext" = '2fs' ]; then #7
    Type='ext2'
-  elif [ "$Ext" = '3fs' ] ;then
+  elif [ "$Ext" = '3fs' ]; then
    Type='ext3'
-  elif [  "$imgFileBASE" = 'ext3fs.img' ];then
+  elif [  "$imgFileBASE" = 'ext3fs.img' ]; then
    Type='ext3'
-  elif [ "$Ext" = '4fs' ] ;then #v423 planning for the future!
+  elif [ "$Ext" = '4fs' ]; then #v423 planning for the future!
    Type='ext4'
-  elif [ "$Ext" = 'sfs' -o "$Ext" = 'squashfs' -o "$Ext" = 'sqfs' ] ;then
+  elif [ "$Ext" = 'sfs' -o "$Ext" = 'squashfs' -o "$Ext" = 'sqfs' ]; then
    Type='squashfs'
-  elif [ "$imgFileBASE" = 'squashfs.img' ];then
+  elif [ "$imgFileBASE" = 'squashfs.img' ]; then
    Type='squashfs'
-  elif [ "$Ext" = 'iso' ] ;then
+  elif [ "$Ext" = 'iso' ]; then
    #Fatdog fat16 first and iso9660 second  ###+++2013-03-02
    TYPES=`disktype "$imgFILE" |grep 'file system'`
-   if [ "`echo "$TYPES" |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | grep -i 'UDF'`" ];then
+   if [ "`echo "$TYPES" |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | grep -i 'UDF'`" ]; then
     Type=udf
    else
     Type=iso9660
    fi
-   else
+
+  else
    Type=`disktype "$imgFILE" |grep 'file system' |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'` ##+++2012-06-04 udf or iso9660
    #Type='iso9660' ##---2012-06-04
-  # BK
-  #elif [ "$imgFILE" = 'initrd.gz' ] ;then
-  # Type='ext2'
-  # gunzip $imgFILE             # handle gzip image file
-  # imgFILE="echo "$imgFILE" |sed 's/.gz$//'"
+   # BK
+   #elif [ "$imgFILE" = 'initrd.gz' ] ;then
+   # Type='ext2'
+   # gunzip $imgFILE             # handle gzip image file
+   # imgFILE="echo "$imgFILE" |sed 's/.gz$//'"
   fi #7
 
   #v423 detect wrong squashfs version...
@@ -330,57 +338,59 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   _mk_free_loop
 
   #Finally mount it
-  #echo -e "\n$0 : Mount: $imgFILE\n"
+
   mkdir -p "$mntPT"
-  #echo '-------------'
+
   _debug "\n$0 : Mount: '$imgFILE'\n"
   mount $VERB -t $Type -o loop "$imgFILE" "$mntPT"
   Err=$?     ##+++2011-10-27
-  #echo '-------------'
-  sleep 2s
-  if [ $Err -eq 0 ] || [ -n "`mount | grep "$mntPT"`" ];then #9
+
+  if [ "$Err" -eq 0 ] || [ -n "`mount | grep "$mntPT"`" ];then #9
    if [ -n "$DISPLAY" ] ; then #99
-    yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imgFileBASE icon again to unmount it" & #BK
    fi #99
   else
-   [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"  ##+++2011-10-27 2014-11-11
+   sleep 2s
+   [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }  ##+++2011-10-27 2014-11-11
   fi #9
 
  else #55   [ -n "$UNMOUNT" ]                   ### file's mounted, unmount it
 
-   [ -n "$DISPLAY" ] && rox -D "$mntPT" #BK
-
+   [ -n "$DISPLAY" ] && { rox -D "$mntPT" #BK
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" &
+   }
        GREP=`echo "$mntPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       echo 1 "$GREP"
+       _debug 1 "$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       echo 2 "$LOOPD"
+       _debug 2 "$LOOPD"
        #USEapps=`fuser -c $LOOPD`   ##---2011-10-27
        USEapps=`fuser -m "$mntPT"`  ##---2011-10-27
-       echo 3 "$USEapps"
+       _notice 3 "$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
-       echo 4 "$USEapps"
-       for j in $USEapps ; do
-       echo $i
-       kill -1 $j
+       _debugx 4 "$USEapps"
+
+       # REM: kill signal - use your preferred signal
+       #      Supported signals are listed by 'help trap'
+       SIG=2
+       for j in $USEapps; do
+       _debugx "fuser claims '$j' is using '$mntPT'"
+       kill -$SIG $j
        done
 
-  sleep 2s
-  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" &
+  #sleep 2s
   #echo '------------'
   _debug "\n$0 : UnMount: '$imgFILE'\n"
   umount "$mntPT"
   Err=$?
   #echo '------------'
   #[ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imgFileBASE" #BK
-   sleep 2s  ##+++2011-10-27
-
-   #echo -e "\n$0 UnMount: $imgFILE\n"
+  #sleep 2s  ##+++2011-10-27
 
    [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
  fi #55
 
  if [ "$Err" -gt 0 ] ;then          # ERROR: mount/unmount # 9999
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting $mntPT"
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting '$mntPT'"
   #[ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"  ##+++2011-10-27
  fi # 9999
 
