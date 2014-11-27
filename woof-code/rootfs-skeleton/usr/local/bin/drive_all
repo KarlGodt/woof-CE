@@ -111,11 +111,31 @@ killzombies(){
 }
 
 unmount_func() {
- pidof sync || sync  ##2012-06-05
+ #pidof sync || sync  ##2012-06-05
  rox -D "$MNTPT"
- #sync
+
+ # REM: syncs to disks  ...
+ awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ _pidof sync || sync
+ awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+
+ # REM: sleep handling only for USB drives
+ #        to better ensure reads/writes to usb are completed ..
+ readlink /sys/block/$oneDRVNAME | grep $Q 'usb' && {
  sleep 2 ##2012-06-05
+
+ # REM: linux/Documentation/ABI/testing/procfs-diskstats
+ #      12 - I/Os currently in progress
+ #       3 - device name
+ IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ [ "$IOs" ] || IOs=0
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
+ while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`; done
+ [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
+ }
+
  while [ 1 ];do
+  yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID_=$!
   /bin/umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
@@ -142,7 +162,9 @@ $NESTEDS_ "
    fi
 
    # another attempt to detect loop mounts ##+++2014-11-10
-   FILE_MOUNTS_=`losetup -a || losetup`
+   # losetup: Ungültige Option -- a
+   # BusyBox v1.21.1
+   FILE_MOUNTS_=`losetup -a 2>>$ERR || losetup`
    FILE_MOUNTS=`echo "$FILE_MOUNTS_" | grep -w "$MNTPT"`
 
    if [ "$FILE_MOUNTS" ]; then
@@ -159,7 +181,7 @@ If so, please remedy.
    # Reset irritating fuser message "kernel", which likely means 'lo' driver
    [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
     xmessage -bg "#ff00ff" -title "KILL, KILL..." -center \
- -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
+ -buttons KILL:10,EXIT:20 -default "EXIT" "FAILURE! One or more processes (programs) are currently
 using /dev/${oneDRVNAME}. Here they are:
 PIDS , apps or file mounts :
 $EXTRAMSG0
@@ -180,6 +202,7 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
     sr[0-9]*|scd[0-9]*|hd[a-d]) eject /dev/$oneDRVNAME;;
    esac
   fi
+  [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
   break
  done
 }
@@ -196,6 +219,7 @@ MOUNT_OPTS=
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
+# REM: TODO : however a script may run ./AppRun ...
 oneDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 _debug "oneDRVNAME='$oneDRVNAME'"
 
@@ -221,16 +245,18 @@ elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
 is in use by Puppy. You cannot unmount it."
   exit 201
  fi
+ #yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID=$!
  unmount_func
+ #[ "$yPID" ] && { /bin/ps -p $yPID >>$OUT 2>>$ERR && kill $yPID; }
  exit $?
 
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 elif [ "$1" = "unmountall" ];then
  for MNTPT in `mount | tac | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
-  yaf-splash -bg seagreen -text "Unmounting '$MNTPT' .." &yPID=$!
+  #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
   unmount_func
-  kill $yPID >>$OUT 2>>$ERR
+  #kill $yPID >>$OUT 2>>$ERR
   sleep 1
  done
  exit $?
@@ -324,6 +350,17 @@ case $DRV_CATEGORY in  ##+++2014-10-16
 *mountro)
          grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && {
 
+ # REM: linux/Documentation/ABI/testing/procfs-diskstats
+ #      12 - I/Os currently in progress
+ #       3 - device name
+ awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats  ##DEBUG
+ IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ [ "$IOs" ] || IOs=0
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
+ while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`; done
+ [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
+
+
    if grep -w "^/dev/$oneDRVNAME" /proc/mounts | awk '{print $4}' | grep $Q -w rw
  then
         /bin/mount -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
@@ -403,6 +440,7 @@ if [ "$FSTYPE" != "" ];then
  dPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`/bin/df | grep "$dPATTERN"`" = "" ];then
   #not mounted...
+  yaf-splash -bg purple2 -text "Mounting '$oneDRVNAME' ..." & yPID=$!
   mkdir -p /mnt/$oneDRVNAME
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
@@ -429,7 +467,14 @@ if [ "$FSTYPE" != "" ];then
     RETVAL1=$?
     ;;
    *)
+    # REM: file-system type not needed usually,
+    #       but may be useful if changed, ie from ext2 to ext3 ..
     FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
+    # REM: If all fs-types are compiled into kernel could check for
+    #      fs support
+    #       else unset FSTYPE and try without FSTYPE
+    #       mount-FULL is quite capable to detect fs automatically
+    #        and load fs-driver if not inside kernel (already loaded)
     grep $Q -w "$FSTYPE" /proc/filesystems || unset FSTYPE
     [ "$FSTYPE" ] && {
     /bin/mount $MOUNT_OPTS -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
@@ -442,6 +487,7 @@ if [ "$FSTYPE" != "" ];then
   [ $RETVAL1 -eq 0 ] && : #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
   WARN_MSG=`dmesg | tail -n5 | grep -w "($oneDRVNAME)" | grep $Q -E 'emerg|alert|crit|error|warning'`
   [ "$WARN_MSG" ] && xmessage -title "DRIVE_ALL MOUNT WARNING" "$WARN_MSG" &
+  /bin/ps -p $yPID >>$OUT && kill $yPID
   exit $RETVAL1
  else
   #mounted...
