@@ -471,7 +471,7 @@ _mkmissing_tty(){
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 [ -d /dev/vc ]  || mkdir /dev/vc
 
-VTInittab=`grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
+VTInittab=`grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]+#|^\t+#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]+$|vc[0-9]+' | grep -o '[0-9]\+$'`
 for i in $VTInittab; do
 [ -c /dev/vc/$i ] || { rm -f /dev/vc/$i; mknod /dev/vc/$i c 4 $i; }
 [ -c /dev/tty$i ] || { rm -f /dev/tty$i; mknod /dev/tty$i c 4 $i; }
@@ -517,7 +517,7 @@ _load_average '1x0f'
 } #MY_ADDITIONAL_PART
 ##MULTI-CORE +++2012-05-08
 
-echo `date`
+echo MY_ADDITIONAL_PART:`date`
 PROCESSORS=`grep ^processor /proc/cpuinfo |wc -l`
 [ "$PROCESSORS" -gt '1' ] && { echo "'$PROCESSORS' processors detected"; M_CORE=$PROCESSORS; }
 if [ "$M_CORE" ]; then
@@ -527,7 +527,7 @@ else
 echo "Not forking MY_ADDITIONAL_PART"
 MY_ADDITIONAL_PART
 fi
-echo `date`
+echo MY_ADDITIONAL_PART:`date`
 ##MULTI-CORE +++2012-05-08
 _load_average '1x00'
 #_file_system_state 9
@@ -545,10 +545,8 @@ if [ -d /lib/modules/${KERNEL_RELEASE}/initrd ]; then
    NEEDDEPMOD="yes" #w469 files may not be there to save space.
    NEEDGUNZIP="yes"
  fi
-else
-   if [ "`grep '/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" ]; then
+elif [ "`grep '/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" ]; then
     NEEDDEPMOD="yes"
-   fi
 fi
 
 if [ "$NEEDGUNZIP" = "yes" ]; then
@@ -623,24 +621,38 @@ echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 elif [ -x /sbin/udevd ]; then  ##2011-10-27 changed -f to -x
  [ "$LOGLEVEL" ] || LOGLEVEL=7
  [ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
+
+ # REM: create alsa_cnt file ('cnt' stands for 'count')
+ #      pup_event_backend_modprobe script uses this file
  [ -f /tmp/puppy_udev_helper_alsa_cnt ] || echo '0' > /tmp/puppy_udev_helper_alsa_cnt
 
+ # REM: The leading and tailing :space: in the variables in MODULESCONFIG file
+ #      needs investigating...
  BLACKLISTVARS=`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`
+
+ # REM: pup_event_backend_modprobe script uses these files
  echo "$BLACKLISTVARS" > "$PUPPY_TMP_MODPROBE_CONF"
  echo "$BLACKLISTVARS" > /tmp/pup_event_skiplist.conf
+
+ # REM: use everything from  modprobe.conf & modprobe.d
  [ -f /etc/modprobe.conf ] && cat /etc/modprobe.conf >> "$PUPPY_TMP_MODPROBE_CONF"
  if [ -d /etc/modprobe.d ]; then
-  cat /etc/modprobe.d/* >>"$PUPPY_TMP_MODPROBE_CONF"
+  ls -A /etc/modprobe.d/* >>$OUT 2>>$ERR && cat /etc/modprobe.d/* >>"$PUPPY_TMP_MODPROBE_CONF"
  fi
 
 else
-[ -z "`pidof pup_event_backend_d`" ] &&  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
+ #hotplug daemon. my homebrew replacement for udevd.
+[ -z "`pidof pup_event_backend_d`" ] &&  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 &
 fi
 sleep 0.1
 
 . /etc/rc.d/MODULESCONFIG
 
 #MODALIASES=`ls /sys/bus/*/devices/*/modalias`
+# REM: Use everything in /sys
+#       i915 does not get detected otherwise
+#        Xorg had loaded i915 back then apparently
+#
  MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
 
 if [ "$PUPMODE" = 2 ]; then
@@ -678,7 +690,8 @@ funcUSER_SELECTED_MODULES(){
 
   #2014-10-27 let cmdline parameters override ADDLIST
    unset CML_MOD_P aENTRY PARAMS_
-   CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+   #CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+   CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]\+" /proc/cmdline`
     if test "$CML_MOD_P"; then
      for aENTRY in $CML_MOD_P;
       do
@@ -811,7 +824,8 @@ echo "WAIT MODULES LOADED"
 echo -n "Waiting for modules to complete loading..." >/dev/console
 WAITCNT=0
 bb_modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729' && {
-PCIPCMCIA=`elspci -l | grep -o '060700'`
+#PCIPCMCIA=`elspci -l | grep -o '060700'`
+ PCIPCMCIA=`elspci -l | grep -w '060700'`
 if [ "$PCIPCMCIA" != "" ]; then #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
  while [ "$WAITCNT" -lt 5 ]; do
@@ -825,13 +839,18 @@ fi
 :;
 }
 #note, if initrd then usb-storage will have already loaded...
-bb_modprobe -l | grep '[eoux]hci[-_]hcd' && {
+bb_modprobe -l | grep '[eoux]\{1\}hci[-_]hcd' && {
+
 PCIUSB=`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`
+# REM: example output from elspci -l:
+#        00:1d.7 0C0320 8086:293A <ehci_hcd>
+#        00:1d.2 0C0300 8086:2936 <uhci_hcd>
+
 if [ "$PCIUSB" != "" ]; then #this may be slow to respond.
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ "$WAITCNT" -lt 5 ]; do
-  [ "`lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
+  [ "`lsmod | grep -o -E '^ehci_hcd|^ohci_hcd|^uhci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
   #WAITCNT=`expr $WAITCNT + 1`
   WAITCNT=$((WAITCNT+2))
   sleep 2
@@ -864,8 +883,10 @@ _retrigger_uevent(){
 for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
   onePATH="${oneUEVENT%/*}"
-  #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
+  # REM: the check for 'modalias' file is maybe needed for old kernel?...
+  #[ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
+  [ -e "${onePATH}/modalias" ] || continue
+  [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
   echo 'added '"${oneUEVENT}" >> /tmp/bootmodules.txt
   echo add > "$oneUEVENT"
   sleep 0.02
@@ -894,6 +915,7 @@ if [ "`grep 'usb_storage' /tmp/puppy_udev_helper_module_devpath.log`" != "" ]; t
   WAITCNT=$((WAITCNT+2))
   echo -n " $WAITCNT" >/dev/console
  done
+
  #precaution, make sure have got them all... v412 need sort -u...
  #USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
  USBSTORAGES=`/bin/dmesg | grep "scsi.* : usb\-storage" | sort -u | wc -l` #wc -l says 0 if NULL
@@ -930,7 +952,8 @@ if [ "$ADDLIST" != "" ]; then #variable is in /etc/rc.d/MODULESCONFIG
 
    #2014-10-27 let cmdline parameters override ADDLIST
    unset CML_MOD_P aENTRY PARAMS_
-   CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+   #CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]*" /proc/cmdline`
+    CML_MOD_P=`grep -o "$MODULE\.[^[:blank:]]\+" /proc/cmdline`
     if test "$CML_MOD_P"; then
      for aENTRY in $CML_MOD_P;
       do
@@ -957,7 +980,7 @@ fi
 fbcon_func() {
 if [ -n "`bb_modprobe -l | grep 'fbcon'`" ]; then
 if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]'`" != "" ]; then
-if [ ! "`grep 'fbcon' "$PUPPY_TMP_MODPROBE_CONF" |grep -vEe '^#|^([[:blank:]]*)#' |tail -n1 |grep 'blacklist'`" ]; then
+if [ ! "`grep 'fbcon' "$PUPPY_TMP_MODPROBE_CONF" |grep -vEe '^#|^([[:blank:]]+)#' |tail -n1 |grep 'blacklist'`" ]; then
 if [ ! "$NO_FBCON" ]; then
 echo >> /dev/console
 modinfo fbcon > /dev/console
@@ -1033,7 +1056,7 @@ echo -n "Recognising media devices..." >/dev/console
 echo -n ' optical' >/dev/console
 
 opticalCNT=1; CDTYPE=""; DVDTYPE=""; CDBURNERTYPE=""
-OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*'`
+OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*'`
 
 [ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
 [ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
@@ -1048,7 +1071,8 @@ do
  [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL"
  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
- opticalCNT=`expr $opticalCNT + 1`
+ #opticalCNT=`expr $opticalCNT + 1`
+  opticalCNT=$((opticalCNT+1))
 done
 
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
@@ -1153,28 +1177,35 @@ fi
 _DATE_=`date +%F`
 ### sort logs ###
 funcPUPPY_UDEV_HELPER(){
-# if photplug , just return
+# REM: If photplug , just return
 #test -s /tmp/photplug.log && return 0
 grep $Q 'photplug' /proc/sys/kernel/hotplug && return 0
 
+# REM: Still fiddling with a nice but not too long log filename...
 FILE=`grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe) | grep -vE '<|>'`
 test "$FILE" && eval $FILE
 FILE1="${FILE%=*}"
 test "$FILE1" && FILE2=`eval echo \\$$FILE1`
+
  if [ -f "$FILE2" ]; then
  #while [ "`pidof rc.services pup_event_backend_modprobe photplug`" ]; do sleep 1; done
  while [ "`pidof pup_event_backend_modprobe photplug`" ]; do sleep 1; done
  sleep 0.1s  ## 120s ##5s
  #_DATE_=`date +%F`
+
+ # REM: sort by numbers pid and time
  echo 'Sorting now this log file by '`readlink -f "$0"` >> "$FILE2"
  cat "$FILE2" | sort -g -k 1,3 -t ' ' >"${FILE2}".sorted
+
+ # REM: add a blank line after each pid block
  PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
   for i in $PIDS; do
-  #echo PID  "$i"
+  #echo PID  "$i" ##DEBUG
   Line=`grep -n -w "^$i" "${FILE2}".sorted | tail -n 1 | cut -f 1 -d ':'`
-  #echo Line "$Line"
+  #echo Line "$Line" ##DEBUG
   sed -i".$_DATE_" "$Line a\ " "${FILE2}".sorted
   done
+
 fi
 }
 funcPUPPY_UDEV_HELPER &
@@ -1191,7 +1222,7 @@ case $cbCOUNT in $bCOUNT) unset cbCOUNT; break;; esac
 _create_fastbootmodules_list(){
 
 BOARD_INFO=`dmidecode | grep -m3 -iE 'manufacturer|product|serial number' | awk -F':' '{print $2}'`
-BOARD_INFO=`echo $BOARD_INFO`
+BOARD_INFO=`echo $BOARD_INFO` ##DEBUG
 [ "$BOARD_INFO" ] || BOARD_INFO=`dmidecode | grep -m3 -iE 'UUID' | awk -F':' '{print $2}'`
 [ "$BOARD_INFO" ] || { _return 5 "Could not determine info about board by dmidecode"; return $?; }
 
