@@ -1,8 +1,8 @@
 #!/bin/sh
 #BK 2007, original idea from sunburnt
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
-#written for Puppy 2.16.
 #
+# Written for Puppy 2.16.
 # /etc/rc.d/BOOTCONFIG has variable EXTRASFSLIST='kde.sfs devx_216.sfs'
 # ...space-delimited list of .sfs files to be loaded.
 # ...must be located at same place as the pup_save file (in /mnt/home)
@@ -14,17 +14,23 @@
 #
 #v4.02  bugfix, modules now .ko.gz.
 #v4.02  /lib/modules/modules.dep.<kernver> no more.
+#
 #v403   yeslist_func, parameters may be added to modules.
 #v409   bugfix, list of sfs files was picking up non-sfs files.
 #v411   bugfix, when choose to add more than one module.
 #v412   /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+#
 #w001   pup files renamed to woofr001.sfs, woofsave.2fs.
 #w007   renamed to woof-007.sfs
-#w015   allow 6 extra sfs files, up from 3. w020 zdrv fix.
+#w015   allow 6 extra sfs files, up from 3.
+#w020   zdrv fix.
+#
 #w478   file prefix 'pup2' got screened out.
+#
 #v423   need to check sfs 3.x or 4.x.
 #v424   do away with checkbox that overrides user choice and loads _nnn.sfs only.
 #v424   advise of sfs-version-converter.
+#
 #100125 manage system services at bootup.
 
 
@@ -231,16 +237,19 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
 
  RETTAGS=`cat /tmp/bmrettags.txt`
 
+ __old_exxtrasfslist__(){
  #v424 remove...
- #if [ "`echo "$RETTAGS" | grep 'unchecked'`" = "" ];then
- # #auto mode, remove EXTRASFSLIST entry from BOOTCONFIG...
- # if [ -f /etc/rc.d/BOOTCONFIG ];then
- #  grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
- #  cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
- # fi
- # return 0
- #fi
- #RETTAGS=`echo -n "$RETTAGS" | sed -e 's/unchecked//g' | sed -e 's/checked//g' | sed -e 's/ $//g'`
+ if [ "`echo "$RETTAGS" | grep 'unchecked'`" = "" ];then
+  #auto mode, remove EXTRASFSLIST entry from BOOTCONFIG...
+  if [ -f /etc/rc.d/BOOTCONFIG ];then
+   grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
+   cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
+  fi
+  return 0
+ fi
+ RETTAGS=`echo -n "$RETTAGS" | sed -e 's/unchecked//g' | sed -e 's/checked//g' | sed -e 's/ $//g'`
+ }
+
  RETTAGS=`echo -n "$RETTAGS" | sed -e 's/ $//g'`
 
  [ ! -e /etc/rc.d/BOOTCONFIG ] && touch /etc/rc.d/BOOTCONFIG
@@ -642,17 +651,36 @@ EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list ma
  ADDLIST=`cat $TMP_DIR/modules_addlist_edit_out`
  ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
  #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
- #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
 
+ #now update /etc/rc.d/MODULESCONFIG...
+ grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG >/tmp/MODULESCONFIG
+ mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ echo "ADDLIST='${ADDLIST}'" >>/etc/rc.d/MODULESCONFIG
+
+__old_mult_kernels__(){
  if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
  grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > /tmp/MODULESCONFIG
  mv -f /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  echo "ADDLIST='${ADDLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  fi
+}
 
+ mkdir -p /etc/mult_kernels/rc.d
+ cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+
+ # update /etc/modprobe.d/ /etc/mult_kernels/modprobe.d
+ mkdir -p /etc/modprobe.d/
+ mkdir -p /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE
+
+ for oneADD in $ADDLIST
+ do
+ mod=${oneADD%%:*}
+ prm=${oneADD#*:}
+ [ "$prm" = "$mod" ] && unset prm
+ echo "options $mod $prm" >/etc/modprobe.d/$mod.conf
+ cp /etc/modprobe.d/$mod.conf /etc/modprobe.d/$KERNEL_RELEASE-$mod.conf
+ cp /etc/modprobe.d/$mod.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/
+ done
 
 } #end addlist_func
 
