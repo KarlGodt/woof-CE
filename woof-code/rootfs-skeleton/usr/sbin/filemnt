@@ -58,10 +58,12 @@ MOUNT_DIR=/mnt  # parent dir there where files should be mounted
 
 DEBUG=1
 
-if test -f "$@"; then
+if test -f "$*"; then
    imgFILE="$@"
+   echo "$0:$*:Is file"
 
 else
+   echo "$0:$*:Is NOT file"
 # REM: Filter filename parameter from other possible
 #       parameters (--help,.. etc)
 while [ $# != 0 ]; do
@@ -76,6 +78,10 @@ done
 set - $posPARAMS
 
 fi
+
+echo "$0:$*:$imgFILE"
+
+test "$imgFILE" || _exit 3 "Need existing filename ..."
 
 # REM: Need to handle relative path
 #imgFILE=`readlink -f "$imgFILE"`
@@ -98,8 +104,10 @@ imgFILE=`realpath "$imgFILE"`
      ;;
  esac
 
-test -e "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
-test -e "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
+#test -e "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
+test -f  "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
+#test -e "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
+test -f "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
 
 echo "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
 echo "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
@@ -178,14 +186,18 @@ _is_initrd_fs(){
 # REM: Variables
 INTRD_DIR_TREE="initrd-tree" # name of the initrd_dir_tree to extract files from initrd
 
-case "$imgFILE" in
-*initrd*)
+_prepare(){
 # REM: Prepare the working directory
 _change_into_dir_where_initrd_is
 _make_backup_of_initrd "$imgFILE"
 _make_backup_of_initrd_dir_tree "$INTRD_DIR_TREE"
 _create_and_change_into_initrd_dir_tree "$INTRD_DIR_TREE"
 _where_am_i || _exit 9 "Something feels wrong in this directory '`pwd`'"
+}
+
+case "$imgFILE" in
+*initrd*)
+
 
 # REM: Define compression from extension
 case "$imgFILE" in
@@ -202,17 +214,22 @@ esac
 # REM: Is initrd a file-system
 #      or cpio archive
 if  _is_initrd_cpio; then
+ _prepare
  _unpack_initrd_cpio "$COMPRESS" "$imgFILE"
  [ $? = 0 ] || { echo "something went wrong ..."; false; }
+   exit $?
 
 elif _is_initrd_fs; then
-
+    echo "$imgFILE seems to contain a file system"
    :  echo TODO
+
+
 else
 _err "Unhandled file type for '$imgFILE' - neither cpio or file-system"
+exit 2
 fi
 
-exit $?
+
 ;;
 esac
 
