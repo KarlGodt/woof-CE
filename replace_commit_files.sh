@@ -30,7 +30,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  cd "$CURRENT_DIR/$ONE_DIR" || _error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
- FILES=`ls -1v`
+ FILES=`ls -1vA`
 
  while read ONE_FILE; do
  #echo "ONE_FILE='$ONE_FILE'"
