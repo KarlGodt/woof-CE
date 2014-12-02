@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# REM: Debug function for speed
+#      Prints ss:nnn nnn nnn
+#      Accepts $1 label to identify value in log
+#       and $2 date of same output, usually last _DATE_, which is not local
 DEBUGT=
 _debugt(){  #$1 label #$2 time
 
@@ -18,28 +22,37 @@ fi
 }
 
 _debugt 8F
+
+# REM: No parameters, exec bb mount
 test "$*" || exec busybox mount
+
 _debugt 8E $_DATE_
+
+# REM: f4puppy5 short for functions4puppy5
+#      f4puppy5 has _debug, _info, _warn and others
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
+# REM: These global vars are set in f4puppy5
+#      Now possible to set them witout affecting other progs
 Q=-q
 QUIET=--quiet
-DEBUG=1
+DEBUG=
 DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
+# REM: Need to check for LANG=C ..
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
 test "$LANG" = C || {
     echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8; }
 _info "using '$LANG_ROX'"
 
-#busybox mountpoint does not recognize after
-#mount --bind / /tmp/ROOTFS
-#/tmp/ROOTFS as mountpoint ...
-#but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
-#so using function with grep instead
+# REM: busybox mountpoint does not recognize after
+#      mount --bind / /tmp/ROOTFS
+#      /tmp/ROOTFS as mountpoint ...
+#      but does for mount --bind /sys /tmp/SYSFS and bind mount of /proc ..???
+#      so using function with grep instead
 mountpoint(){
  test -f /proc/mounts || return 3
  test "$*" || return 2
@@ -51,6 +64,7 @@ mountpoint(){
  grep $QUIET_ " $* " /proc/mounts
  return $?; }
 
+# REM: /proc may be not mounted already (boot)
 _check_proc()
 {
  _debug "_check_proc:mountpoint $Q /proc"
@@ -62,6 +76,7 @@ _check_proc()
  }
 }
 
+# REM: /tmp is needed for shell here-document <<EoI
 _check_tmp()
 {
  test -d /tmp && return $? || {
@@ -72,6 +87,7 @@ _check_tmp()
  }
 }
 
+# REM: /tmp needs to be read-write for here-document
 _check_tmp_rw()
 {
  _check_proc
@@ -79,13 +95,17 @@ _check_tmp_rw()
 
 _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+# REM: grep -w /tmp would als grep /tmp/anothermountpoint
+#grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+# REM: using awk being more precise
+awk '{if ($2 == "/tmp") print $4}' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
 grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
  }
 
 }
 
+# REM: special chars like :space: are printed as \0octals in /proc/mounts
 _string_to_octal()
 {
 _debug "_string_to_octal:$*" >&2
@@ -141,6 +161,7 @@ echo "$oSTRING"
 
 }
 
+# REM: format output of _string_to_octal() '\012' '\0' newlines
 _posparams_to_octal()
 {
         _debug "_posparams_to_octal:$@"
@@ -157,6 +178,7 @@ posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
 }
 
+# REM: getopt the positional parameters for :space: handling
 _get_options()
 {
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
@@ -201,12 +223,17 @@ _debugx "positional parameters='$posPARAMS'"
 _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
 }
+
+# REM:_get_options() wants only "$@" to work correctly
 #_get_options "$*"
 #_get_options $*
 #_get_options $@
 _get_options "$@"
 _debugt 8C $_DATE_
 
+# REM: Need to know mounts before doing anything
+#      to confirm success/partial success for ROX-Filer PinBoard drive icons handling
+#      and file manager windows
 test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
 _update_partition_icon()
@@ -1022,6 +1049,7 @@ esac
 _notice "RETVAL=$RETVAL"
 _debugt 05 $_DATE_
 
+# REM: want a tidy /mnt/ directory with only mounted directories
 _umount_rmdir()
 {
  test "$*" || return 1
@@ -1030,16 +1058,24 @@ _umount_rmdir()
  mountpoint $Q "$*" || rmdir "$@";
 }
 
+# REM: _update switch for _update_partition_icon
+#      And switch for umount/mount
+#       to remove unused mountpoints for tidynes sakes
 _update()
 {
  test "$DISPLAY" && _update_partition_icon
+ # REM: if mount return
  test "$WHAT" = umount || return 0
  _debugt 04 $_DATE_
+ # REM: ignore pseudo-file-systems
  test "`echo "$mountPOINT" | grep -E '/dev|/proc|/sys|/tmp'`" && return 0
+ # REM: remove mountpoint if possible
  test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
  _debugt 03 $_DATE_
+ # REM: for here-document
  _check_tmp_rw || return 59
  _debugt 02 $_DATE_
+ # REM: Remove all empty directories in /mnt if possible
  while read -r oneDIR
  do
  _debug "oneDIR='$oneDIR'" >&2
@@ -1051,8 +1087,15 @@ EoI
 _debugt 01 $_DATE_
 }
 
+# REM: if mount/umount returned 0, then run _update
+#      else run _umount_rmdir
+#      because mountpoint directory should not be mounted
+#      TODO: mount has several exit codes,
+#            being <64 some mount succeeded>  one of them
 test "$RETVAL" = 0 && _update || _umount_rmdir "$mountPOINT"
 _debugt 00 $_DATE_
+# REM: absolute /etc/mtab link set in rc.sysinit
+#      TODO: decide if it should be relative ...?
 test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf ../proc/mounts /etc/mtab
 _debugt 00
 exit $RETVAL
