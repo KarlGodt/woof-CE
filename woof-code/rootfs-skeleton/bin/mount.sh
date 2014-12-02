@@ -42,10 +42,14 @@ DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
+[ "$LANG_ROX" ] || LANG_ROX=C
 # REM: Need to check for LANG=C ..
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
 test "$LANG" = C || {
     echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8; }
+# REM: gdk/gtk may complain if files are not in /usr/share/locale/*utf8/    
+test -e /usr/lib/locale/"$LANG_ROX"/LC_MESSAGES || LANG_ROX=$LANG
+test -e /usr/lib/locale/"$LANG_ROX"/LC_MESSAGES || LANG_ROX=C
 _info "using '$LANG_ROX'"
 
 # REM: busybox mountpoint does not recognize after
@@ -98,9 +102,9 @@ mountpoint $Q /tmp && {
 # REM: grep -w /tmp would als grep /tmp/anothermountpoint
 #grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
 # REM: using awk being more precise
-awk '{if ($2 == "/tmp") print $4}' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+awk '{if ($2 == "/tmp") print $4}' /proc/mounts | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep -w '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
  }
 
 }
