@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_filemnt"
@@ -43,6 +43,10 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 Version='1.1-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'
 Version='1.2-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Added lots of remarks
                                                           ## reordere the code a little (sleep, rmdir mountPT, yaf-splash, few if)
+Version='1.3-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Create MOUNT_EXE and UMOUNT_EXE variables
+                                                          ## and some functions to let mount.sh handle
+                                                          ##  creation and deletion of mountpoint directories
+                                                          ##  and close/open ROX-Filer windows
 usage (){
 MSG="
 $0 [-h -V -l ] FILENAME.EXT
@@ -92,11 +96,82 @@ if [ "$KERNEL_MAJOR" -lt 3 ] ; then
 fi
 }
 
+# REM: INFO, DEBUG, DEBUGX unset by default in f4puppy5
 INFO=1
 DEBUG=1
 DEBUGX=1
 
-# REM: Main parameter is a filename .
+# REM: Some more global variables
+#      MOUNT_EXE : either /bin/mount, busybox mount, mount-FULL .
+#       Since it does not need to update any partition icons,
+#       would not need to use mount script.
+#       mount script could manage ROX-Filer windows,
+#       mkdir mountpoint directory
+#      UMOUNT_EXE : either /bin/umount. busybox umount, umount-FULL
+#       umount script coulfd take care of file-system users,
+#        ROX-Filer windows and rmdir mountpoint directory
+MOUNT_EXE='busybox mount'
+UMOUNT_EXE='busybox umount'
+
+# REM: kill file-system users reported by fuser tool
+#      unset it in case of mount.sh (interferes with function
+#      _close_rox_window)
+KILL_FS_USERS='YES'
+case $UMOUNT_EXE in
+/bin/umount) KILL_FS_USERS='NO';;
+esac
+
+# REM: mount.sh should take care of ROX-Filer windows
+_open_rox_window(){
+[ "$*" ]       || return 1
+[ "$DISPLAY" ] || return 0
+case $MOUNT_EXE in
+/bin/mount) return 0;;
+esac
+rox -d "$@"
+return $?
+}
+_close_rox_window(){
+[ "$*" ]       || return 1
+[ "$DISPLAY" ] || return 0
+case $UMOUNT_EXE in
+/bin/umount) return 0;;
+esac
+rox -D "$@"
+return $?
+}
+# REM: mount.sh should take care of creating mountpoint directory
+_create_mountpoint(){
+[ "$*" ] || return 1
+case $MOUNT_EXE in
+/bin/mount) return 0;;
+esac
+mkdir $VERB -p "$@"
+return $?
+}
+# REM: mount.sh should take care of removing mountpoint directory
+_remove_mountpoint(){
+sleep 2
+[ -d "$@" ]             || { _return 0 "$@ is not a directory"; return $?; }
+mountpoint $Q "$@"      && { _return 1 "$@ is recognized as mountpoint"; return $?; }
+[ "`ls -A "$@"`" ]      && { _return 1 "$@ has content"; return $?; }
+
+if [ "$UNMOUNT" ]; then
+ case $UMOUNT_EXE in
+ /bin/umount) return 0;;
+ esac
+else
+ case $MOUNT_EXE in
+ /bin/mount) return 0;;
+ esac
+fi
+rmdir $VERB "$@"
+return $?
+}
+
+
+
+# REM: Main parameter to this script is a filename .
 #      Absolute path preferred
  imageFILE="$1"
  _info "imageFILE='$imageFILE'"
@@ -106,6 +181,7 @@ DEBUGX=1
 
 # REM: But if not absolute /path/to/filename,
 #      add pwd to it to make it absolute
+#      insead could use realpath or readlink -f|-e for this...
  if [ "`dirname "$imageFILE"`" = '\.' ] ;then  #2012-06-02
   imageFILE=`pwd``echo "$imageFILE" |sed 's/^\.//'` #2012-06-02
  fi
@@ -195,23 +271,36 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
        _debug "mountPT2='$mountPT2'"
 
        for i in $mountPT2 ; do
-       GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "$GREP"
-       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       _debug "$LOOPD"
-       USEapps=`fuser -c $LOOPD`
-       _debugx "fuser -c $LOOPD claims pids: '$USEapps'"
-       USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
-       _debug "USEapps='$USEapps'"
-        for j in $USEapps ; do
-        _debugx "$i: $j"
-        kill -1 $j
-        done
+
+       # REM: make killing optional
+       if [ "$KILL_FS_USERS" = "YES" ]; then
+       # REM: Close ROX-Filer windows before they are detected by fuser
+       #       kill window pid would kill ROX-Filer completely (black pinboard)
+       [ "$DISPLAY" ] && rox -D "$i"
+       #_close_rox_window "$i"
+        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+        _debug "$GREP"
+        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+        _debug "$LOOPD"
+        USEapps=`_command fuser -c $LOOPD`
+        _debugx "_command fuser -c $LOOPD claims these pids: '$USEapps'"
+        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
+        _debug "USEapps='$USEapps'"
+         for j in $USEapps ; do
+         _debugx "$i: $j"
+         kill -1 $j
+         done
+        fi
+
        _debug "'$i'"
-       [ -n "$DISPLAY" ] && rox -D "$i"
-       umount "$i"
-       sleep 2
-       rmdir "$i"
+       #[ -n "$DISPLAY" ] && rox -D "$i"
+       $UMOUNT_EXE "$i"
+       [ "$?" = 0 ] || continue
+       #  REM: Refresh rox
+       #[ "$DISPLAY" ] && rox -x "${mountPT%/*}"
+       #sleep 2
+       #rmdir "$i"
+       _remove_mountpoint "$i"
        done
 
        mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
@@ -219,6 +308,10 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
        return 0
 
  else #BUTTONS 199
+     # REM: If mount on another mountpoint
+     #       mount-FULL uses a new available loop device,
+     #       busybox mount fails because it uses the same loop device for the imgFILE
+     #       busybox mount would need losetup /dev/loopY imgFILE beforehand
      MOUNT='again'
      return 0
  fi #BUTTONS
@@ -249,9 +342,10 @@ unset UNMOUNT
 if [ -z "$UNMOUNT" ] ; then #UNMOUNT
 
   # REM: Probaly a good idea to pass file-system-type to mount
-  #      The code now uses extension MIME-Type .
+  #      The code now uses extension MIME-Type (noted in /usr/share/mime/globs) .
   #      TODO: Better use disktype first and if that fails fall back using
   #       extension or mount without passing -t option to let mount guess f.s.-type...
+  #     TODO2 : Better use case instead if test
   Ext=`echo "$imageFILE" |sed 's/^.*\.//'`    # get file type from extention
   if [ "$Ext" = '2fs' ] ;then #Ext
    Type='ext2'
@@ -316,7 +410,7 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 
  # REM: Older kernels before 3.1 need check if loopdevice available :
 
- # REM: just could tell user that it is not possible ...
+ # REM: just could tell user that it is not possible to mount more than Y loop devices ...
   # if [ "`losetup -a |wc -l`" -ge 8 ];then #loopdevice count
    # xmessage -bg red3 "Sorry, all loopdevices in use.
    #Please unmount some and try again."
@@ -329,28 +423,62 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   mknod /dev/loop$NEW_LOOP b 7 $NEW_LOOP
   fi
 
-  _info "$0:mount: $imageFILE"
-  mkdir -p "$mountPT" ##2012-06-02
+  _info "about to $MOUNT_EXE '$imageFILE' on '$mountPT'"
+  #mkdir -p "$mountPT" ##2012-06-02
+  _create_mountpoint "$mountPT"
 
   # REM: Type or not Type ...
+  # REM: If mount on another mountpoint
+  #       mount-FULL uses a new available loop device,
+  #       busybox mount fails because it uses the same loop device for the imgFILE
+  #       busybox mount would need losetup /dev/loop imgFILE beforehand
+  case $MOUNT_EXE in
+  *mount-FULL*)
   if [ "$Type" ]; then
-   mount -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
+   $MOUNT_EXE -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
   else
-   mount -o loop "$imageFILE" "$mountPT" ##2014-12-01
+   $MOUNT_EXE -o loop "$imageFILE" "$mountPT" ##2014-12-01
   fi
   Err=$?  # if should pass error code of last commands here ...
+  ;;
+  *)
+    newLOOP=`losetup -f`
+    _debug "newLOOP='$newLOOP'"
+    if [ -b "$newLOOP" ]; then
+    losetup $newLOOP "$imageFILE"
+    fi
+    if [ $? = 0 ]; then
+    _notice "about to $MOUNT_EXE '$newLOOP' on '$mountPT'"
+   if [ "$Type" ]; then
+    $MOUNT_EXE -t $Type -o loop "$newLOOP" "$mountPT" ##2012-06-02
+   else
+    $MOUNT_EXE -o loop "$newLOOP" "$mountPT" ##2014-12-01
+   fi
+    Err=$?
+    else  # REM: fallback though should error 255 ...
+   if [ "$Type" ]; then
+    $MOUNT_EXE -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
+   else
+    $MOUNT_EXE -o loop "$imageFILE" "$mountPT" ##2014-12-01
+   fi
+    Err=$?   # if should pass error code of last commands here ..
+    fi
+
+  ;;
+  esac
 
   # REM: If error code 0 reported or mountPT in mount output, pop up a message
   if [ "$Err" -eq 0 ] || [ -n "`mount | grep "$mountPT"`" ];then #MOUNT OK
    if [ -n "$DISPLAY" ] ; then #DISPLAY
     #rox -d "$mountPT" # mount good, run rox filer
-    yaf-splash -timeout 6 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imageFILEBASE icon again to unmount it" & #BK
+    _open_rox_window "$mountPT"
+    yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg green -text "SUCCESS! Click $imageFILEBASE icon again to unmount it" & #BK
    fi #DISPLAY
   fi #MOUNT OK
 
  # REM: Some sleep neccessary because rmdir might fail if too
  #      soon after mount/umount finished - especially on SMP systems
- sleep 2s
+ #sleep 2s
 
  if [ "$Err" -gt 0 ] ;then  #MOUNT FAIL     # ERROR: mount/unmount
   [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "mounting '$mountPT' returned '$Err'"
@@ -358,9 +486,9 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   # REM: check to remove created directory
   #      grep needs some backslash escaping unfortunately (\+, \? expression - see man grep)
   #      So simply escape all :punct: -- should work
-  grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
-  [ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
-
+  #grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
+  #[ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
+  _remove_mountpoint "$mountPT"
  fi #MOUNT FAIL
 
 #fi  #loopdevice count
@@ -370,19 +498,23 @@ INFO=1
 DEBUG=1
 DEBUGX=1
 
-   [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imageFILEBASE" & #BK
+   [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting  $imageFILEBASE" & #BK
 
    # REM: Close ROX-Filer windows to avoid unmount failure
    #      because the window keeps the mountpoint busy
-   [ -n "$DISPLAY" ] && rox -D "$mountPT" #BK
+   _close_rox_window "$mountPT"
 
-       # REM: Some crude code to kill f.s users ...
+     # REM: Some crude code to kill f.s users ...
+     # REM: Make it optional
+     if [ "$KILL_FS_USERS" = "YES" ]; then
+       [ -n "$DISPLAY" ] && rox -D "$mountPT" #BK
+
        GREP=`echo "$mountPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
        _debug "$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
        _debug "$LOOPD"
-       USEapps=`fuser -c $LOOPD`
-       _debugx "fuser -c claims '$USEapps' are using '$LOOPD'"
+       USEapps=`_command fuser -c $LOOPD`
+       _debugx "_command fuser -c claims these pids '$USEapps' are using '$LOOPD'"
        # REM: Want numbers only ...
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
        _debug "f.s users: $USEapps"
@@ -391,10 +523,12 @@ DEBUGX=1
        kill -1 $j
        done
 
-  # REM: Some sleep here beforehand of umount to let dust settle
-  sleep 2s
-  _info "$0: umount: $imageFILE"
-  umount "$mountPT" ##2012-06-02
+      # REM: Some sleep here beforehand of umount to let dust settle
+      sleep 2s
+     fi
+
+  _info "$UMOUNT_EXE: $imageFILE"
+  $UMOUNT_EXE -d "$mountPT" ##2012-06-02
   Err=$?
 
  # REM: Error handling...
@@ -405,9 +539,10 @@ DEBUGX=1
 
   # REM: remove mountPT directory if not anymore in mount output
   # REM: Some sleep again beforehand...
-  sleep 2s
-  grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
-  [ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
+  #sleep 2s
+  #grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
+  #[ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
+  _remove_mountpoint "$mountPT"
 
 fi #UNMOUNT
 
