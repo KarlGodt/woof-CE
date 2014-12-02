@@ -35,79 +35,79 @@ IFS=$'\n'
 
 #when progressbar recieve 100%, it executes <action>
 if [ -f $WORKDIR/refresh_playlist ]; then
-	echo 100
-	rm $WORKDIR/refresh_playlist
-	exit 0
+        echo 100
+        rm $WORKDIR/refresh_playlist
+        exit 0
 fi
 
 FILE=($(<"/$WORKDIR/PLAYLIST"))
 #make sure to give some output
 TMP="`head -n 1 $WORKDIR/ffmpeg_output`"
 if [ $TMP = pmusic_stop ] || [ ! -s $WORKDIR/ffmpeg_output ]; then
-	echo " |0:00|" > $WORKDIR/OLD_TIME
-	echo 0
-	echo "»»» Pmusic «««"
+        echo " |0:00|" > $WORKDIR/OLD_TIME
+        echo 0
+        echo "»»» Pmusic «««"
 elif [ ! "`grep -F 'kbits' $WORKDIR/ffmpeg_output`" ]; then
-	echo " |0:00|" > $WORKDIR/OLD_TIME
-	echo 0
-	if [ ! -f "$FILE" ] && [ ! "`echo "$FILE" | grep '://'`" ]; then #file has been renamed/moved --> not found
-		echo "$LOC507"
-	else
-		echo "$LOC202" #buffering
-	fi
+        echo " |0:00|" > $WORKDIR/OLD_TIME
+        echo 0
+        if [ ! -f "$FILE" ] && [ ! "`echo "$FILE" | grep '://'`" ]; then #file has been renamed/moved --> not found
+                echo "$LOC507"
+        else
+                echo "$LOC202" #buffering
+        fi
 else
-	#if new song (time (with decimals) differ from last played), then read song info
-	DURATION="`grep -m 1 -F "$FILE" $WORKDIR/playlist | cut -d'|' -f1`"
-	if [ ! "`grep -F "$DURATION" $WORKDIR/ffmpeg_length`" ]; then
-		#read song name
-		NOW_PLAYING="`grep -m 1 -F "$FILE" $WORKDIR/playlist | cut -d'|' -f2`"
-		LENGTH_MIN="`echo ${DURATION%:*} | sed -e "s/^0//"`" #leading 0 makes sum octal.
-		LENGTH_SEC="`echo ${DURATION#*:} | sed -e "s/^0//"`"
-		TMP=$(($LENGTH_MIN*60))
-		LENGTH=$(($TMP+$LENGTH_SEC))
-		echo "$DURATION|$LENGTH" > $WORKDIR/ffmpeg_length
-		echo "$NOW_PLAYING|$FILE" > $WORKDIR/ffmpeg_NOW_PLAYING
-	else
-		LENGTH=`cut -f2 -d'|' $WORKDIR/ffmpeg_length`
-		NOW_PLAYING="`cut -d'|' -f1 $WORKDIR/ffmpeg_NOW_PLAYING`"
-	fi
-	#---
-	FFMPEG_OUTPUT=`tail -c 120 $WORKDIR/ffmpeg_output`
-	SEC_PLAYED=`echo "$FFMPEG_OUTPUT" | cut -d'=' -f 3 | cut -d ' ' -f 1 | cut -d . -f 1`
-	if [ "$NOW_PLAYING" ] && [ "$LENGTH" ] && [ "`expr $SEC_PLAYED + 1 2> /dev/null`" ] && [ ! "`echo "$SEC_PLAYED" | grep '10000000000' > /dev/null`" ] && [ ! "`echo "$FFMPEG_OUTPUT" | grep 'invalid'`" ]; then
-		#find percent for progress bar
-		SEC_SKIPPED=($(<"$WORKDIR/SS"))
-		[ ! $SEC_SKIPPED ] && SEC_SKIPPED=0
-		SEC_PLAYED=$(($SEC_PLAYED+$SEC_SKIPPED))
-		PERCENT=$(($SEC_PLAYED*100/$LENGTH))
-		PERCENT_BAR=$(($PERCENT+1))
-		[ $PERCENT_BAR -gt 100 ] && exit
+        #if new song (time (with decimals) differ from last played), then read song info
+        DURATION="`grep -m 1 -F "$FILE" $WORKDIR/playlist | cut -d'|' -f1`"
+        if [ ! "`grep -F "$DURATION" $WORKDIR/ffmpeg_length`" ]; then
+                #read song name
+                NOW_PLAYING="`grep -m 1 -F "$FILE" $WORKDIR/playlist | cut -d'|' -f2`"
+                LENGTH_MIN="`echo ${DURATION%:*} | sed -e "s/^0//"`" #leading 0 makes sum octal.
+                LENGTH_SEC="`echo ${DURATION#*:} | sed -e "s/^0//"`"
+                TMP=$(($LENGTH_MIN*60))
+                LENGTH=$(($TMP+$LENGTH_SEC))
+                echo "$DURATION|$LENGTH" > $WORKDIR/ffmpeg_length
+                echo "$NOW_PLAYING|$FILE" > $WORKDIR/ffmpeg_NOW_PLAYING
+        else
+                LENGTH=`cut -f2 -d'|' $WORKDIR/ffmpeg_length`
+                NOW_PLAYING="`cut -d'|' -f1 $WORKDIR/ffmpeg_NOW_PLAYING`"
+        fi
+        #---
+        FFMPEG_OUTPUT=`tail -c 120 $WORKDIR/ffmpeg_output`
+        SEC_PLAYED=`echo "$FFMPEG_OUTPUT" | cut -d'=' -f 3 | cut -d ' ' -f 1 | cut -d . -f 1`
+        if [ "$NOW_PLAYING" ] && [ "$LENGTH" ] && [ "`expr $SEC_PLAYED + 1 2> /dev/null`" ] && [ ! "`echo "$SEC_PLAYED" | grep '10000000000' > /dev/null`" ] && [ ! "`echo "$FFMPEG_OUTPUT" | grep 'invalid'`" ]; then
+                #find percent for progress bar
+                SEC_SKIPPED=($(<"$WORKDIR/SS"))
+                [ ! $SEC_SKIPPED ] && SEC_SKIPPED=0
+                SEC_PLAYED=$(($SEC_PLAYED+$SEC_SKIPPED))
+                PERCENT=$(($SEC_PLAYED*100/$LENGTH))
+                PERCENT_BAR=$(($PERCENT+1))
+                [ $PERCENT_BAR -gt 100 ] && exit
 
-		#show elapsed (default) or remaining time 
-		[ -f $WORKDIR/ffmpeg_TIME_FORMAT ] && SEC_PLAYED=$(($LENGTH-$SEC_PLAYED))
-		#calculate time of seconds played
-		TIME_MIN=$(($SEC_PLAYED/60))
-		TIME_SEC=$(($SEC_PLAYED-($TIME_MIN*60)))
-		[ $TIME_SEC -lt 10 ] && TIME_SEC="0$TIME_SEC" #ensure 2 digits for seconds
-		#---
-		echo $PERCENT_BAR
-		if [ `cut -b 1 $WORKDIR/ffmpeg_NOW_PLAYING` -le 9 2> /dev/null ]; then #first char is a number. This bugs progress bar.
-			echo "|  $NOW_PLAYING  |$TIME_MIN:$TIME_SEC|"
-		else
-			echo " $NOW_PLAYING  |$TIME_MIN:$TIME_SEC|"
-		fi
-		#keep values incase of invalid output next loop
-		echo "  |$TIME_MIN:$TIME_SEC|" > $WORKDIR/OLD_TIME
-		echo $PERCENT_BAR > $WORKDIR/PERCENT_BAR
-	else #no time is detected
-		cat $WORKDIR/PERCENT_BAR
-		if [ "$NOW_PLAYING" ]; then
-			TMP=($(<"$WORKDIR/OLD_TIME"))
-			echo " $NOW_PLAYING$TMP"
-		else
-			echo "»»» Pmusic «««"
-		fi
-	fi
+                #show elapsed (default) or remaining time
+                [ -f $WORKDIR/ffmpeg_TIME_FORMAT ] && SEC_PLAYED=$(($LENGTH-$SEC_PLAYED))
+                #calculate time of seconds played
+                TIME_MIN=$(($SEC_PLAYED/60))
+                TIME_SEC=$(($SEC_PLAYED-($TIME_MIN*60)))
+                [ $TIME_SEC -lt 10 ] && TIME_SEC="0$TIME_SEC" #ensure 2 digits for seconds
+                #---
+                echo $PERCENT_BAR
+                if [ `cut -b 1 $WORKDIR/ffmpeg_NOW_PLAYING` -le 9 2> /dev/null ]; then #first char is a number. This bugs progress bar.
+                        echo "|  $NOW_PLAYING  |$TIME_MIN:$TIME_SEC|"
+                else
+                        echo " $NOW_PLAYING  |$TIME_MIN:$TIME_SEC|"
+                fi
+                #keep values incase of invalid output next loop
+                echo "  |$TIME_MIN:$TIME_SEC|" > $WORKDIR/OLD_TIME
+                echo $PERCENT_BAR > $WORKDIR/PERCENT_BAR
+        else #no time is detected
+                cat $WORKDIR/PERCENT_BAR
+                if [ "$NOW_PLAYING" ]; then
+                        TMP=($(<"$WORKDIR/OLD_TIME"))
+                        echo " $NOW_PLAYING$TMP"
+                else
+                        echo "»»» Pmusic «««"
+                fi
+        fi
 fi
 sleep 1
 
