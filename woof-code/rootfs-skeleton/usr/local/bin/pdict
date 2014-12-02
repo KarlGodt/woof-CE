@@ -51,16 +51,76 @@ for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
 _trap
 } || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
+
+[ "`which dict`" ] || {
+    xmessage -bg red "$(gettext 'Sorry, no "dict" found in PATH .
+Please install "dict" binary.
+Aborting.')"
+ exit 1
+}
+
+tmpDIR=/tmp/pdict
+mkdir -p "$tmpDIR"
+
 WIDTH=550; HEIGHT=700
 
 echo -n "" > /tmp/pdict-results.txt
 
+# Use local dicod server if it is running and no internet connection available
+if ! [ "`ifconfig | grep -E '^wlan|^eth|^ppp'`" ]; then
+ if _pidof $Q dicod; then
+  hostP=-h
+  hostURL=127.0.0.1
+  portP=-p
+  hostPORT=2628      #default 2628, see /etc/dicod.conf if changed
+ fi
+fi
+
+VERB=-v
+DICTLIST=`dict $VERB $hostP $hostURL -p $hostPORT --dbs`
+DEBUG=1
+_debug "DICTLIST='$DICTLIST'"
+
+if ! [ "$DICTLIST" ]; then
+ xmessage -bg red -title "${0##*/}" "WARNING: Could not receive any databases"
+fi
+
+
+__home_dict_dbs(){
 if [ "`ls $HOME/.dict_dbs`" = "" ]; then
-  `dict --dbs > $HOME/.dict_dbs`
+#  `dict --dbs > $HOME/.dict_dbs`
+    dict --dbs > $HOME/.dict_dbs
 fi
 
 DICTLIST="`cat $HOME/.dict_dbs`"
+}
+
+
 COMBOCONTENT="`echo "$DICTLIST" | grep -v '^Databases available:' | sed -e 's/^/<item>/' | sed -e 's/$/<\/item>/'`"
+
+
+if [ "$hostURL" = '127.0.0.1' ]; then
+ _debug "hostURL='$hostURL' (127.0.0.1)"
+else
+ _debug "hostURL='$hostURL' (else)"
+ COMBOCONTENT="<item>all        Search all databases</item>
+ ${COMBOCONTENT}"
+fi
+
+true
+
+echo '#/bin/sh' > "$tmpDIR"/pdict-func1
+echo "dict $VERB $hostP $hostURL $portP $hostPORT \\
+ -d \$2 \$1 >$tmpDIR/pdict-results.txt 2>&1
+
+echo                          >>$tmpDIR/pdict.log
+echo \"Lookup for    :\$1\"   >>$tmpDIR/pdict.log
+echo \"dict database :\$2\"   >>$tmpDIR/pdict.log
+cat $tmpDIR/pdict-results.txt >>$tmpDIR/pdict.log
+"  >> "$tmpDIR"/pdict-func1
+chmod $VERB 0755 "$tmpDIR"/pdict-func1
+
+
 
 export MAIN_DIALOG="
 <window title=\"Pdict dictionary and thesaurus\" icon-name=\"gtk-info\">
@@ -80,7 +140,7 @@ export MAIN_DIALOG="
 
    <button>
     <label>dict</label>
-    <action>dict -d \${DB%  *} \$WORD &>/tmp/pdict-results.txt</action>
+    <action>dict -d \"\${DB%  *}\" \"\$WORD\" &>/tmp/pdict-results.txt</action>
     <action>refresh:INFO</action>
    </button>
 
