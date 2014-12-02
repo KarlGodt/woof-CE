@@ -6,7 +6,7 @@
 #
 #sed 's/[[:space:]]/·/g' ;
 #echo "$j" | tr '·' '[[:space:]]' :
-#/proc/irq/18/SiS[	SI7012
+#/proc/irq/18/SiS[  SI7012
 #
 #sed 's/[[:space:]]/;/g' ;
 #echo "$j" | tr ';' '[[:space:]]' :
@@ -26,8 +26,11 @@ SYSTEM="$SYSTEM
 ##+++2011-11-07
 
 if [ -d $RMD/$KV ]; then # && mv $RMD/$KV $RMD/$KV.bac
-F=`ls $RMD | grep $KV`
+F=`ls -1v $RMD | grep "$KV"`
 for i in $F; do
+(( a++ ))
+done
+while [ -e $RMD/$KV.$a ]; do
 (( a++ ))
 done
 mv $RMD/$KV $RMD/$KV.$a
