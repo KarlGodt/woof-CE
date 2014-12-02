@@ -41,7 +41,8 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 # TODO much, kernel 3.x, support more filesystems, port npierce improvements, port encryption mounting
 
 Version='1.1-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'
-
+Version='1.2-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Added lots of remarks
+                                                          ## reordere the code a little (sleep, rmdir mountPT, yaf-splash, few if)
 usage (){
 MSG="
 $0 [-h -V -l ] FILENAME.EXT
@@ -68,6 +69,19 @@ v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/s
 *) :;;
 esac;done
 
+
+# REM: Need to know about the kernel version
+#     because since around kernel 2.6.29
+#     squashfs version became version 4.x
+#     Older squashfs version was 3.x
+#     and introduced around kernel version 2.4.20
+
+# REM: Since the kernel version and squashfs version
+#      are used in other scripts ( bootmanager ),
+#      I use a function from f4puppy5 .
+_kernel_version4
+
+_kernel_version_filemnt(){
 #v423...
 KERNELVER=`uname -r`
 KERNEL_MAJOR=`echo -n "$KERNELVER" | cut -f 1 -d '.'`
@@ -76,112 +90,168 @@ SFSSTR='squashfs, version 4'
 if [ "$KERNEL_MAJOR" -lt 3 ] ; then
 [ $KERNELSUBVER -lt 29 ] && SFSSTR='squashfs, version 3'
 fi
+}
 
+INFO=1
+DEBUG=1
+DEBUGX=1
+
+# REM: Main parameter is a filename .
+#      Absolute path preferred
  imageFILE="$1"
- echo "imageFILE='$imageFILE'"
+ _info "imageFILE='$imageFILE'"
  if [ -z "$imageFILE" ];then echo "Need parameter or filename. Try -h for little more info.";exit 1 ;fi
  [ -f "$imageFILE" ] || { echo "'$imageFILE' seems not to exist (in $PWD)";exit 1; }
  #if [ "`basename "$imageFILE"`" = 'initrd' ] ;then gzip -9 $imageFILE;imageFILE="${imageFILE}.gz";WoExt=Y;fi #2012-06-02
 
+# REM: But if not absolute /path/to/filename,
+#      add pwd to it to make it absolute
  if [ "`dirname "$imageFILE"`" = '\.' ] ;then  #2012-06-02
   imageFILE=`pwd``echo "$imageFILE" |sed 's/^\.//'` #2012-06-02
  fi
 
+# REM: Need a mountpoint directory name
  mountPT='/mnt/'`echo "$imageFILE" |sed "s#^\.##g" |sed "s#/#+#g"`
+ _debug "old mountpoint would be: '$mountPT'"
  ##NEW##
  mountPT='/mnt/'`basename "$imageFILE"`.$$
+ _info "new mountpoint is '$mountPT'"
  mountPTBASE="${mountPT%%\.*}"
+ _debug "mountPTBASE='$mountPTBASE'"
  ##NEW##
 
+# REM: imageFILEBASE is used to compare if that file is already
+#      mounted with another loop device further down
 imageFILEBASE=`basename "$imageFILE"` #BK
 
-if [ ! -d "$mountPT" ] ;then #! -d mountPT
+# REM: Crude logic if the mountpoint is not a directory
+#      Todo test -e beforehand ...
+#if [ ! -d "$mountPT" ] ;then #! -d mountPT
 
 check_already_mounted_func(){
 
   #BK check if already mounted elsewhere...
-  for oneLOOP in `mount | grep ^[\'\"/]*dev/loop | cut -f 1 -d ' '`
+  # REM: Had mount quoting output like lspci -m
+  for oneLOOP in `mount | grep ^[\'\"/]\\\+dev/loop | cut -f 1 -d ' '`
   do
 
-   echo "ONELOOP='$oneLOOP'" #DEBUG
+   _debug "ONELOOP='$oneLOOP'" #DEBUG
+
+   # REM: Care for the quoted output and get rid of enclosing quotes
    oneLOOP=`echo "$oneLOOP" |sed s,^[\"\'],,| sed s,[\"\']$,,`
 
-   MNTDIMG=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
-   IMGBASE=`basename "$MNTDIMG"`
+   # REM: Don't know why we use losetup-FULL for this,
+   #      busybox losetup does it right too and without enclosing parenthesis ...
+   oneMNTDIMG=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
 
-    echo "IMGBASE='$IMGBASE' imageFILEBASE='$imageFILEBASE'" #DEBUG
+   # REM: A loop mount could be loaded into the current frugal OS
+   #      or be just mounted.
+   #     If it is loaded, add some extra message
+   unset ANDINUSEBYPUPPY
+   case "$oneMNTDIMG" in
+   /initrd/*) ANDINUSEBYPUPPY='and in use by Puppy';;
+   esac
+
+   # REM: Now compare bot base names ...
+   oneIMGBASE=`basename "$oneMNTDIMG"`
+
+    _debug "oneIMGBASE='$oneIMGBASE' imageFILEBASE='$imageFILEBASE'" #DEBUG
     #not perfect, but paths may be symlinks...
 
-    if [ "$IMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
+    if [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
 
      if [ -n "$DISPLAY" ] ; then #DISPLAY
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" "$imageFILE
-is already mounted and in-use by Puppy .
+xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $oneIMGBASE:194,Mount another time:199" "$imageFILE
+is already mounted $ANDINUSEBYPUPPY .
 Do you want to unmount it or mount it to another mount point ?"
 RETVAL=$?
 if [ "$RETVAL" = "190" ] ; then #BUTTONS
      exit 0
 
  elif [ "$RETVAL" = "191" ] ; then #BUTTONS
-     mountPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     _debug "ROX-Filer: mountPT='$mountPT'"
      rox "$mountPT"
      exit $?
 
  elif [ "$RETVAL" = "192" ] ; then #BUTTONS
-     mountPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
      cd "$mountPT"
-     pwd
+     _info "`pwd`"
      rxvt &
      exit $?
 
  elif [ "$RETVAL" = "193" ] ; then #BUTTONS
        UNMOUNT='yes'
-       mountPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       _debug "mountPT='$mountPT'"
        return 0
 
  elif [ "$RETVAL" = "194" ] ; then #BUTTONS
        UNMOUNT='yes'
-       mountPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       echo 1 "$mountPT"
+       mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
+       _debug "mountPY='$mountPT'"
        mountPT2=`echo "$mountPT" | sed "1 d"`
-       echo 2 "$mountPT2"
+       _debug "mountPT2='$mountPT2'"
+
        for i in $mountPT2 ; do
        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       echo "$GREP"
+       _debug "$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       echo "$LOOPD"
+       _debug "$LOOPD"
        USEapps=`fuser -c $LOOPD`
-       echo 3 "$USEapps"
+       _debugx "fuser -c $LOOPD claims pids: '$USEapps'"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
-       echo 4 "$USEapps"
-       for j in $USEapps ; do
-       echo "$i: $j"
-       kill -1 $j
-       done
+       _debug "USEapps='$USEapps'"
+        for j in $USEapps ; do
+        _debugx "$i: $j"
+        kill -1 $j
+        done
+       _debug "'$i'"
        [ -n "$DISPLAY" ] && rox -D "$i"
        umount "$i"
        sleep 2
        rmdir "$i"
        done
-       mountPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+
+       mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
+       _debug "mountPT='$mountPT'"
        return 0
 
-else #BUTTONS
+ else #BUTTONS 199
      MOUNT='again'
      return 0
-fi #BUTTONS
+ fi #BUTTONS
 
+else
+  # REM: DISPLAY unset so assuming tty terminal
+  #      No select right now
+  #      Unmount it
+  UNMOUNT='yes'
 fi #DISPLAY
+
+else
+# REM: not mounted elsewhere, so continue
+: continue
 fi #MOUNTED ELSEWHERE
+
 done
 
 }
-check_already_mounted_func
 
-fi #! -d mountPT
+unset UNMOUNT
+[ -d "$mountPT" ] || check_already_mounted_func
 
+#fi #! -d mountPT
+
+# REM: Simple UNMOUNT variable: If not set to anything
+#      start mount procedure
 if [ -z "$UNMOUNT" ] ; then #UNMOUNT
 
+  # REM: Probaly a good idea to pass file-system-type to mount
+  #      The code now uses extension MIME-Type .
+  #      TODO: Better use disktype first and if that fails fall back using
+  #       extension or mount without passing -t option to let mount guess f.s.-type...
   Ext=`echo "$imageFILE" |sed 's/^.*\.//'`    # get file type from extention
   if [ "$Ext" = '2fs' ] ;then #Ext
    Type='ext2'
@@ -194,16 +264,27 @@ if [ -z "$UNMOUNT" ] ; then #UNMOUNT
   elif [ "$Ext" = 'iso' ] ;then #Ext
    Type=`disktype "$imageFILE" | grep -m1 'file system' |awk '{print $1}' |tr '[[:upper:]]' '[[:lower:]]'`
    [ "$Type" ] || Type='iso9660'  #fallback
+
+  # REM: Older initrds were a simple ext2 fs container that needed root=/dev/ram0
+  #      kernel parameter. init is /sbin/init in such containers.
+  #      With cpio archive support init is on rootfs-top :
+  #      TODO : handle other copressions ...
   elif [ "$imageFILEBASE" = 'initrd.gz' -o "$imageFILEBASE" = 'initrd' ] ;then
+
+   # REM: gunzip removes the .gz extension
    if [ "$imageFILEBASE" = 'initrd.gz' ];then
     gunzip "$imageFILE"               # handle gzip image file
     imageFILE=`echo "$imageFILE" |sed 's/.gz$//'`
    fi
+
+   # REM : Do not attempt to mount it if no f.s. inside (cpio archive)
    Type=`disktype "$imageFILE" | grep -m1 'file system' |awk '{print $1}' |tr '[[:upper:]]' '[[:lower:]]'`
    if [ ! "$Type" ];then #! TYPE
     [ "$DISPLAY" ] && xmessage -bg red "Sorry, no file system inside initrd." &
     echo "Sorry, no file system inside initrd."
-    if [ "$imageFILEBASE" = 'initrd.gz' ];then
+    # REM: For now gzip it back again.
+    #      Todo: Could unpack it ...
+    if [ "$imageFILEBASE" = 'initrd' ];then
      gzip -9 "$imageFILE"
     fi
     exit 1
@@ -221,11 +302,11 @@ if [ -z "$UNMOUNT" ] ; then #UNMOUNT
 
     elif [ ! "`echo "$DISK_TYPE" | grep "$SFSSTR"`" ];then #DISK_TYPE
      if [ $KERNELSUBVER -gt 28 ];then #KERNEL 2.6.29+
-      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is an older version 3.x squashfs file, not usable.
+      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This seems to be an older version 3.x squashfs file, not usable.
 All Linux kernels 2.6.29 or later require version 4.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
      else #KERNEL 2.6.29-
-      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This is a newer version 4.x squashfs file, not usable.
+      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This seems to be a newer version 4.x squashfs file, not usable.
 All Linux kernels 2.6.28 or earlier require version 3.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
      fi #KERNEL 2.6.28/29
@@ -233,25 +314,33 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
     fi #DISK_TYPE
   fi #squashfs
 
- #check if loopdevice available :
+ # REM: Older kernels before 3.1 need check if loopdevice available :
 
-# if [ "`losetup -a |wc -l`" -ge 8 ];then #loopdevice count
-# xmessage -bg red3 "Sorry, all loopdevices in use.
-#Please unmount some and try again."
+ # REM: just could tell user that it is not possible ...
+  # if [ "`losetup -a |wc -l`" -ge 8 ];then #loopdevice count
+   # xmessage -bg red3 "Sorry, all loopdevices in use.
+   #Please unmount some and try again."
 
-# else #loopdevice count
+  # else #loopdevice count
 
-  LAST_LOOP=`losetup -a |cut -f1 -d: |grep -o -e '[0-9]*' | sort -n |tail -n1`
+  LAST_LOOP=`losetup -a |cut -f1 -d: |grep -o -e '[0-9]\+' | sort -n |tail -n1`
   NEW_LOOP=$((LAST_LOOP+1))
   if [ ! -b /dev/loop$NEW_LOOP ] ; then
   mknod /dev/loop$NEW_LOOP b 7 $NEW_LOOP
   fi
 
-  echo "$0:mount: $imageFILE"
+  _info "$0:mount: $imageFILE"
   mkdir -p "$mountPT" ##2012-06-02
-  mount -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
-  Err=$?
-  sleep 2s
+
+  # REM: Type or not Type ...
+  if [ "$Type" ]; then
+   mount -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
+  else
+   mount -o loop "$imageFILE" "$mountPT" ##2014-12-01
+  fi
+  Err=$?  # if should pass error code of last commands here ...
+
+  # REM: If error code 0 reported or mountPT in mount output, pop up a message
   if [ "$Err" -eq 0 ] || [ -n "`mount | grep "$mountPT"`" ];then #MOUNT OK
    if [ -n "$DISPLAY" ] ; then #DISPLAY
     #rox -d "$mountPT" # mount good, run rox filer
@@ -259,9 +348,16 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
    fi #DISPLAY
   fi #MOUNT OK
 
- if [ "$Err" -gt 0 ] ;then  #MOUNT FAIL     # ERROR: mount/unmount
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR... mounting $mountPT returned $Err"
+ # REM: Some sleep neccessary because rmdir might fail if too
+ #      soon after mount/umount finished - especially on SMP systems
+ sleep 2s
 
+ if [ "$Err" -gt 0 ] ;then  #MOUNT FAIL     # ERROR: mount/unmount
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "mounting '$mountPT' returned '$Err'"
+
+  # REM: check to remove created directory
+  #      grep needs some backslash escaping unfortunately (\+, \? expression - see man grep)
+  #      So simply escape all :punct: -- should work
   grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
   [ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
 
@@ -270,38 +366,52 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 #fi  #loopdevice count
 
 else #UNMOUNT               ### file's mounted, unmount it
+INFO=1
+DEBUG=1
+DEBUGX=1
 
+   [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imageFILEBASE" & #BK
+
+   # REM: Close ROX-Filer windows to avoid unmount failure
+   #      because the window keeps the mountpoint busy
    [ -n "$DISPLAY" ] && rox -D "$mountPT" #BK
 
+       # REM: Some crude code to kill f.s users ...
        GREP=`echo "$mountPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       echo 1 "$GREP"
+       _debug "$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       echo 2 "$LOOPD"
+       _debug "$LOOPD"
        USEapps=`fuser -c $LOOPD`
-       echo 3 "$USEapps"
+       _debugx "fuser -c claims '$USEapps' are using '$LOOPD'"
+       # REM: Want numbers only ...
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
-       echo 4 "$USEapps"
+       _debug "f.s users: $USEapps"
        for j in $USEapps ; do
-       echo -n "$j "
+       _debugx "$j "
        kill -1 $j
        done
 
+  # REM: Some sleep here beforehand of umount to let dust settle
   sleep 2s
+  _info "$0: umount: $imageFILE"
   umount "$mountPT" ##2012-06-02
   Err=$?
-  sleep 2s
-  [ -n "$DISPLAY" ] && yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $imageFILEBASE" #BK
 
-  echo "$0: umount: $imageFILE"
+ # REM: Error handling...
+ if [ "$Err" -gt 0 ] ;then  #UMOUNT FAIL # ERROR: mount/unmount
+  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned '$Err' ... unmounting '$mountPT'"
+ fi #UMOUNT FAIL
+
+
+  # REM: remove mountPT directory if not anymore in mount output
+  # REM: Some sleep again beforehand...
+  sleep 2s
   grepP=`echo "$mountPT" |sed 's|\([[:punct:]]\)|\\\\\1|g'`
   [ -d "$mountPT" -a "`busybox mount | grep "$grepP"`" = "" ] && rmdir "$mountPT"
-
- if [ "$Err" -gt 0 ] ;then  #UMOUNT FAIL # ERROR: mount/unmount
-  [ -n "$DISPLAY" ] && xmessage -bg red -title "ERROR..." "Returned $Err ... unmounting $mountPT"
- fi #UMOUNT FAIL
 
 fi #UNMOUNT
 
 
 exit $Err
 
+### END ###
