@@ -1,6 +1,6 @@
 #! /bin/bash
 # arj-wrap.sh - bash arj wrapper for xarchive frontend
-# Copyright (C) 2005 Michael Shigorin <mike@altlinux.org> 
+# Copyright (C) 2005 Michael Shigorin <mike@altlinux.org>
 # based on zip-wrap.sh Copyright (C) 2005 Lee Bigelow <ligelowbee@yahoo.com>
 # and uarj mcextfs by Viatcheslav Odintsov (2:5020/181)
 #                  (C) 2002 ARJ Software Russia.
@@ -9,12 +9,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -27,7 +27,8 @@ E_UNSUPPORTED=65
 EXTS="arj"
 
 # Programs to wrap
-ARJ_PROG="arj -+ -ja1 -r"
+#ARJ_PROG="arj -+ -ja1 -r"
+ARJ_PROG="arj"
 
 # Awk program to use
 AWK_PROGS="mawk gawk awk"
@@ -78,57 +79,57 @@ case "$opt" in
                 printf "%s;" $ext
             done
         else
-            echo command $ARJ_PROG not found >>/tmp/xarchive_errs.log 
+            echo command $ARJ_PROG not found >>/tmp/xarchive_errs.log
             echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
         ;;
 
-    -o) # open: mangle output of arj cmd for xarchive 
+    -o) # open: mangle output of arj cmd for xarchive
         # format of arj output:
         # 001) ANKETA.FRG
-        #   3 MS-DOS          356        121 0.340 92-04-12 11:39:46                  1  
-        
-	$ARJ_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID-0} '{ 
-		if (($0 ~ /^[0-9]+\) .*/)||($0 ~ /^------------ ---------- ---------- -----/)){
-			if (filestr ~ /^[0-9]+\) .*/) {
-				printf "%s;%d;%s;%d;%d;%02d-%02d-%02d;%02d:%02d;%s\n", file, size, perm, uid, gid, date[1], date[3], date[2], time[1], time[2], symfile
-				perm=""
-				file=""
-				symfile=""
-				filestr=""
-			}
-		}
+        #   3 MS-DOS          356        121 0.340 92-04-12 11:39:46                  1
 
-		if ($0 ~ /^[0-9]+\) .*/) {
-			filestr=$0
-			sub(/^[0-9]*\) /, "")
-			file=$0
-			uid=uuid
-			gid=0
-		}
+        $ARJ_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID-0} '{
+                if (($0 ~ /^[0-9]+\) .*/)||($0 ~ /^------------ ---------- ---------- -----/)){
+                        if (filestr ~ /^[0-9]+\) .*/) {
+                                printf "%s;%d;%s;%d;%d;%02d-%02d-%02d;%02d:%02d;%s\n", file, size, perm, uid, gid, date[1], date[3], date[2], time[1], time[2], symfile
+                                perm=""
+                                file=""
+                                symfile=""
+                                filestr=""
+                        }
+                }
 
-		if ($0 ~ /^.* [0-9]+[\t ]+[0-9]+ [0-9]\.[0-9][0-9][0-9] [0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].*/) {
-			size=$3
-			split($6, date, "-")
-			split($7, time, ":")
-			if ($8 ~ /^[rwx-]/) {perm=$8;} else {perm="-rw-r--r--"}
-		}
+                if ($0 ~ /^[0-9]+\) .*/) {
+                        filestr=$0
+                        sub(/^[0-9]*\) /, "")
+                        file=$0
+                        uid=uuid
+                        gid=0
+                }
 
-		if ($0 ~ /^[\t ]+SymLink -> .*/) {
-			symfile = $3
-			perm="l"substr(perm, 2)
-		} else {symfile="-"}
+                if ($0 ~ /^.* [0-9]+[\t ]+[0-9]+ [0-9]\.[0-9][0-9][0-9] [0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9].*/) {
+                        size=$3
+                        split($6, date, "-")
+                        split($7, time, ":")
+                        if ($8 ~ /^[rwx-]/) {perm=$8;} else {perm="-rw-r--r--"}
+                }
 
-		if ($0 ~ /^[\t ]+Owner: UID [0-9]+\, GID [0-9]+/) {
-			uid=$3
-			gid=$5
-			owner=1
-		}
-	}'
-	exit
-	;;
+                if ($0 ~ /^[\t ]+SymLink -> .*/) {
+                        symfile = $3
+                        perm="l"substr(perm, 2)
+                } else {symfile="-"}
+
+                if ($0 ~ /^[\t ]+Owner: UID [0-9]+\, GID [0-9]+/) {
+                        uid=$3
+                        gid=$5
+                        owner=1
+                }
+        }'
+        exit
+        ;;
 
     -a) # add:  to archive passed files
         # we only want to add the file's basename, not
@@ -142,7 +143,7 @@ case "$opt" in
         exit
         ;;
 
-    -n) # new: create new archive with passed files 
+    -n) # new: create new archive with passed files
         # create will only be passed the first file, the
         # rest will be "added" to the new archive
         cd "$(dirname "$1")"
@@ -150,12 +151,12 @@ case "$opt" in
         exit
         ;;
 
-    -r) # remove: from archive passed files 
+    -r) # remove: from archive passed files
         $ARJ_PROG $REMOVE_OPTS "$archive" "$@"
         exit
         ;;
 
-    -e) # extract: from archive passed files 
+    -e) # extract: from archive passed files
         # xarchive will put is the right extract dir
         # so we just have to extract.
         $ARJ_PROG $EXTRACT_OPTS "$archive" "$@"
@@ -168,12 +169,12 @@ case "$opt" in
         ;;
 
      *) echo "error, option $opt not supported"
-        echo "use one of these:" 
-        echo "-i                #info" 
-        echo "-o archive        #open" 
-        echo "-a archive files  #add" 
-        echo "-n archive file   #new" 
-        echo "-r archive files  #remove" 
-        echo "-e archive files  #extract" 
+        echo "use one of these:"
+        echo "-i                #info"
+        echo "-o archive        #open"
+        echo "-a archive files  #add"
+        echo "-n archive file   #new"
+        echo "-r archive files  #remove"
+        echo "-e archive files  #extract"
         exit
 esac
