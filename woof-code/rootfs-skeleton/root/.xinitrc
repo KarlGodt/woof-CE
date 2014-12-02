@@ -47,7 +47,8 @@ if [ -f $usermodmap ]; then
     xmodmap $usermodmap
 fi
 
-CURRENTWM="`cat /etc/windowmanager`"
+#CURRENTWM="`cat /etc/windowmanager`"
+read CURRENTWM </etc/windowmanager
 if [ "$CURRENTWM" = "startkde" ];then
  /sbin/pup_event_frontend_d & #130525
  exec startkde
@@ -73,14 +74,15 @@ fi
 if [ -f /etc/xrandrindex ];then
   #v3.99 workround for dual monitors, 'head -n 1'....
   XRANDRDEFAULT="$(xrandr -q | grep '\*' | tr -s ' ' | grep '^ [0-9]' | cut -f 2,3 -d ' ' | cut -f 1 -d '*' | tr ' ' '@' | head -n 1)" #130202 return 1024x768@60.0
-  XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution. #130202 now vertxhoriz@freq (refer quicksetup).
+  #XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution. #130202 now vertxhoriz@freq (refer quicksetup).
+  read XRANDRINDEX </etc/xrandrindex
   #but do not switch if default is already this resolution....
   if [ "$XRANDRINDEX" = "$XRANDRDEFAULT" ];then
    rm -f /etc/xrandrindex
   else
-   NEW_XY="$(echo -n "$XRANDRINDEX" | cut -f 1 -d '@')" #130202
-   NEW_VFREQ="$(echo -n "$XRANDRINDEX" | cut -f 2 -d '@')" #130202
-   xrandr -s $NEW_XY -r $NEW_VFREQ #130202
+   NEW_XY="$(echo -n "$XRANDRINDEX" | cut -f 1 -d '@')"     #130202
+   NEW_VFREQ="$(echo -n "$XRANDRINDEX" | cut -f 2 -d '@')"  #130202
+   xrandr -s $NEW_XY -r $NEW_VFREQ                           #130202
   fi
 fi
 
@@ -88,13 +90,17 @@ if [ -f $HOME/.xset.sh ];then
  #this is created by /usr/bin/pupx...
  eval "$HOME/.xset.sh"
 else
- ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
- #if [ "`readlink /usr/bin/X`" != "Xorg" ];then
- # #xset fp+ /usr/lib/X11/fonts/Type1/
- # #xset fp+ /usr/lib/X11/fonts/TTF/
- # xset fp+ /usr/share/fonts/default/Type1/
- # xset fp+ /usr/share/fonts/default/TTF/
- #fi
+
+_xset_fontpath(){
+ #Xorg has fontpath settings in /etc/X11/xorg.conf from xorg.conf0...
+ if [ "`readlink /usr/bin/X`" != "Xorg" ];then
+  #xset fp+ /usr/lib/X11/fonts/Type1/
+  #xset fp+ /usr/lib/X11/fonts/TTF/
+  xset fp+ /usr/share/fonts/default/Type1/
+  xset fp+ /usr/share/fonts/default/TTF/
+ fi
+}
+ # REM: Set some screen saver deafault
  xset s 600 600 s blank
 fi
 
@@ -126,10 +132,10 @@ else
  rox -p $HOME/Choices/ROX-Filer/PuppyPin
 fi
 
-/sbin/pup_event_frontend_d & #130525 moved down.
+exec /sbin/pup_event_frontend_d & #130525 moved down.
 
 #v2.0.0
-/usr/sbin/delayedrun &
+exec /usr/sbin/delayedrun &
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
@@ -170,22 +176,24 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
  [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
 
+_rox_problem(){
 ##w468 rox may not start old hardware, try again... 120517 bring this back...
-##PS="`ps`"
-##if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
-#if ! busybox pidof ROX-Filer;then
-# touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
-# sleep 0.5
-# if ! busybox pidof ROX-Filer;then #check again.
-#  rox -p /root/Choices/ROX-Filer/PuppyPin
-# fi
-#fi
+#PS="`ps`"
+#if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
+if ! busybox pidof ROX-Filer;then
+ touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
+ sleep 0.5
+ if ! busybox pidof ROX-Filer;then #check again.
+  rox -p /root/Choices/ROX-Filer/PuppyPin
+ fi
+fi
+}
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM  && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+which $CURRENTWM  && { echo "`which $CURRENTWM`" >/etc/windowmanager; exec `which $CURRENTWM`; }
 [ -x $CURRENTWM ] && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
 echo 'jwm' >/etc/windowmanager
 exec jwm
