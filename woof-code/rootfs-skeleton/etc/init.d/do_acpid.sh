@@ -59,7 +59,7 @@ Supported kill signals:
 [ "$ACPID_OPTS" ] || usage 1 "even busybox acpid seems not to work "
 
 case $1 in
-start|Start|START|-start|--start)
+*start|*Start|*START)
 shift
 
 test -d /dev/input || mkdir -p /dev/input
@@ -96,7 +96,8 @@ test -f /var/log/acpid.log && cat /var/log/acpid.log
 fi
 exit $STATUS
 ;;
-stop|Stop|STOP|-stop|--stop)
+
+*stop|*Stop|*STOP)
 shift
 [ "$ACPID_BIN" = "busybox acpid" ] && { echo "Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
 ps |grep 'busybox acpid' |grep -v 'grep' && { echo "Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
