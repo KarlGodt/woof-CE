@@ -583,6 +583,8 @@ Power Button Pressed ?
                         Note: Timesout in 30 seconds with wmpoweroff.
 "
     ANSWER=$?  ##+++2012-06-01 added menu
+
+    _debug "You selected '$ANSWER'"
     #exit  ##TEST
     case $ANSWER in
     201) HIBER='';SLEEP='';MODE=STANDBY;mode=standby;
@@ -950,6 +952,7 @@ SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
 } ###__old_resume_partition_code__(){ #END
 
 
+ _notice "About to perform hibernation..."
 #_final_acknowledgement
 #kill $xPID
 
@@ -991,6 +994,8 @@ aplay /usr/share/audio/2barks.au
 else # !hiber
   #     S3/203
   if [ "$SLEEP" ];then
+
+  _notice "About to perform S3 sleep..."
   #kill $xPID
   wait $xPID
   sleep 1
@@ -1046,6 +1051,7 @@ __restore_mounts__(){
  # REM: S1
  elif [ "$MODE" = "STANDBY" ]; then
 
+  _notice "About to perform standby..."
   #kill $xPID
   wait $xPID
   sleep 2
@@ -1055,6 +1061,7 @@ __restore_mounts__(){
  # REM: S5
  elif [ "$MODE" = "SOFT_OFF" ]; then
 
+  _notice "About to perform wmpoweroff..."
   kill $xPID
   sleep 2
   exec wmpoweroff
@@ -1062,6 +1069,7 @@ __restore_mounts__(){
  # Don't know what this is, k3.9.9 has this ..?
  elif [ "$MODE" = "FREEZE" ]; then
 
+  _notice "About to perform freeze..."
   #kill $xPID
   wait $xPID
   sleep 2
