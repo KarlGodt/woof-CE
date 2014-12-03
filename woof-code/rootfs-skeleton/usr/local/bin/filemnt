@@ -7,6 +7,14 @@
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
 Version='2.0.0-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
+Version='2.5.0-getopts Puppy-Linux-luci-218 KRG' ## Complete overhaul
+                                                 ## manage different mount executables
+                                                 ## manage filenames longer than 62 characters
+                                                 ## Xdialog gui or xmessage gui
+                                                 ## manage initrd files
+                                                 ## Added lots of remarks
+                                                 ## support for f4puppy5
+
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 
 xmTITLE="PuppyFileMount"
@@ -48,6 +56,9 @@ _kernel_version5 ## f4puppy5
 
 # REM: Variables
 MOUNT_DIR=/mnt  # parent dir there where files should be mounted
+
+MOUNT_EXE='/bin/mount'    # /bin/mount  is a script, also possible: 'mount-FULL' ,  'busybox mount'
+UMOUNT_EXE='/bin/umount'  # /bin/umount is a script, also possible: 'umount-FULL' , 'busybox umount'
 
 DEBUG=1
 
@@ -245,7 +256,11 @@ _debug "mntPT='$mntPT'"  ##DEBUG
 grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
 grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
 
+# REM: _create_new_folder_name()
+#      function to create another mountpoint
+#      for GUI entry
 _create_new_folder_name(){
+test "$*" || { _return 4 "Usage: _create_new_folder_name DIRECTORY"; return $?; }
 while read path_to_folder
 do
 _debug "_create_new_folder_name:$path_to_folder"  ##DEBUG
@@ -258,59 +273,163 @@ done << EoI
 EoI
 }
 
+
+# REM: functions if rox and creating/deleting of mountpoint directories
+#      is not handled by mount/umount script ...
+_open_filer_window(){
+[ "$DISPLAY" ] || return 6
+case $MOUNT_EXE in
+/bin/mount) return 0;;
+esac
+test "$*"    || return 4
+test -d "$*" || return 5
+rox -d "$*"
+}
+
+_close_filer_window(){
+[ "$DISPLAY" ] || return 6
+case $UMOUNT_EXE in
+/bin/umount) return 0;;
+esac
+test "$*"    || return 4
+test -d "$*" || return 5
+rox -D "$*"
+}
+
+_mkdir_mountpoint(){
+case $MOUNT_EXE in
+/bin/mount) return 0;;
+esac
+test "$*" || return 4
+mkdir $VERB -p "$*"
+}
+
+_rmdir_mountpoint(){
+# REM: here need to split in case mount fails
+if [ "$UNMOUNT" ]; then
+ case $UMOUNT_EXE in
+ /bin/umount) return 0;;
+ esac
+else
+ case $MOUNT_EXE in
+ /bin/mount) return 0;;
+ esac
+fi
+
+test "$*"    || return 4
+test -d "$*" || return 5
+sleep 2
+rmdir $VERB "$*"
+}
+
+
 _check_already_mounted(){
 
   #BK check if already mounted elsewhere...
   for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
   do
 
+  # REM: Aug 2010 introduced /sys/class/block/loopX/loop/backing_file  :
+
+   #Author: Milan Broz <mbroz@redhat.com>
+   #Date:   Mon Aug 23 15:16:00 2010 +0200
+   #
+   #  loop: add some basic read-only sysfs attributes
+   #
+   #  Create /sys/block/loopX/loop directory and provide these attributes:
+   #   - backing_file
+   #   - autoclear
+   #   - offset
+   #   - sizelimit
+   #
+   #  This loop directory is present only if loop device is configured.
+   #
+   #  To be used in util-linux-ng (and possibly elsewhere like udev rules)
+   #  where code need to get loop attributes from kernel (and not store
+   #  duplicate info in userspace).
+   #
+   #  Moreover loop ioctls are not even able to provide full backing
+   #  file info because of buffer limits.
+
+   unset oneIMGF
+
+   # REM: So if /sys/class/block/${oneLOOP##*/}/loop/backing_file
+   #      exists, use it :
+   if _test_fr     /sys/class/block/${oneLOOP##*/}/loop/backing_file; then
+    read oneIMGF </sys/class/block/${oneLOOP##*/}/loop/backing_file
+
+       # REM: that file might contain error messages ...
+       test -f "$oneIMGF" || unset oneIMGF
+   fi
+
+
+   if test ! "$oneIMGF"; then
+   # REM: else use losetup... or above code fails
+
    # REM: Now try to get the basename of the file associated with oneLOOP
    #      Older losetup-FULL had no -a option,
    #        so need to test all associated loop devices each one at a time...
    #       Also had no --version option ...
-   IMG_FILE=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
-   IMGBASE=`basename "$IMG_FILE"`
-    #TODO 64 chars
+   oneIMGF=`losetup-FULL "$oneLOOP" | awk '{print $3}' | sed 's!^(!!;s!)$!!'`
+   fi
+
+   # REM: error conditions
+   _debug "oneIMGF='$oneIMGF'"
+   test "$oneIMGF" || continue
+
+    oneIMGBASE=`basename "$oneIMGF"`
+    #TODO 62/63/64/65 chars
     #bash-3.2# losetup-FULL /dev/loop1
     #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
-                            #1234567890123456789012345678901234567890123456789012345678901234
+                             #123456789012345678901234567890123456789012345678901234567890123
 
-    _debug "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
+
+
+
+    _debug "oneIMGBASE='$oneIMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
     #not perfect, but paths may be symlinks...
 
     # REM: losetup prints 65 chars incl. '(' ')'
-    #if [ "$IMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
+    #if [ "$oneIMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
 
-    # REM: and losetup-FULL ends with * for the last of the 64 chars and beyound
-     case "$IMG_FILE" in
+    # REM: and losetup-FULL ends with * for the last of the ?62?/?63?/?64? chars and beyound
+     case "$oneIMGF" in
       *\*)
-         c64_IMG_FILE=${IMG_FILE:0:62}
+        # REM: tests gave 62 chars are printed and the 63th is wildcard
+        #      so limit to 62 chars
+          c64_oneIMGF=${oneIMGF:0:62}
           c64_imgFILE=${imgFILE:0:62}
-         _debug "c64_IMG_FILE='$c64_IMG_FILE' c64_imgFILE='$c64_imgFILE'" #TEST
+         _debug "c64_oneIMGF='$c64_oneIMGF' c64_imgFILE='$c64_imgFILE'" #TEST
 
-      # REM: but adds a * even if it is straight 63-65 chars ...
-      #   c64_IMGBASE=`echo "${c64_IMG_FILE##*/}" | sed 's%.$%%'`
+      # REM: but adds a * even if it is straight 62-65 chars ...
+      #   c64_oneIMGBASE=`echo "${c64_oneIMGF##*/}" | sed 's%.$%%'`
       #c64_bn_imgFILE=`echo "${c64_imgFILE##*/}" | sed 's%.$%%'`
-         c64_IMGBASE=`echo "${c64_IMG_FILE##*/}"`
-      c64_bn_imgFILE=`echo "${c64_imgFILE##*/}"`
+         c64_oneIMGBASE=`echo "${c64_oneIMGF##*/}"`
+         c64_bn_imgFILE=`echo "${c64_imgFILE##*/}"`
 
       ;;
      *)
+         # REM: could limit to 62 chars for now like above case *\*)
+          #c64_oneIMGF=${oneIMGF:0:62}
+          #c64_imgFILE=${imgFILE:0:62}
+          #c64_oneIMGBASE=`echo "${c64_oneIMGF##*/}"`
+          #c64_bn_imgFILE=`echo "${c64_imgFILE##*/}"`
 
-         c64_IMG_FILE=${IMG_FILE:0:62}
-          c64_imgFILE=${imgFILE:0:62}
-         c64_IMGBASE=`echo "${c64_IMG_FILE##*/}"`
-      c64_bn_imgFILE=`echo "${c64_imgFILE##*/}"`
+          c64_oneIMGBASE=`echo "${oneIMGF##*/}"`
+          c64_bn_imgFILE=`echo "${imgFILE##*/}"`
       ;;
      esac
 
-      _debug "c64_IMGBASE='$c64_IMGBASE' c64_bn_imgFILE='$c64_bn_imgFILE'" #TEST
+      _debug "c64_oneIMGBASE='$c64_oneIMGBASE' c64_bn_imgFILE='$c64_bn_imgFILE'" #TEST
 
-     if [ "$c64_IMGBASE" = "$c64_bn_imgFILE" ];then
-     # If frugal install check if it is in use
-     case "$IMG_MTP" in
-     */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
-     esac
+     if [ "$c64_oneIMGBASE" = "$c64_bn_imgFILE" ]; then #6
+
+      # REM: If frugal install check if it is in use
+      IMG_MNTPT=`busybox mount | grep "$c64_oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+      _debug "IMG_MNTPT='$IMG_MNTPT'"
+      case "$IMG_MNTPT" in
+      */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
+      esac
 
      if [ -n "$DISPLAY" ] ; then #66
 
@@ -331,11 +450,11 @@ console
 -->:192,
 
 Just Unmount
-$IMGBASE
+$oneIMGBASE
 -->:193,
 
 Unmount all
-$IMGBASE
+$oneIMGBASE
 -->:194,
 
 Mount an-
@@ -389,39 +508,45 @@ esac
    fi
 
   if [ "$RETVAL" = "190" ] ; then #666  ## Quit
-     exit
+     exit 0
 
   elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
-       mntPT=`busybox mount | grep "$c64_IMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       rox "$mntPT"
-       exit
+       mntPT=`busybox mount | grep "$c64_oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       _open_filer_window "$mntPT"
+       exit $?
 
   elif [ "$RETVAL" = "192" ] ; then #666  ## console
-       mntPT=`busybox mount | grep "$c64_IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       mntPT=`busybox mount | grep "$c64_oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
        cd "$mntPT"
        _debug "`pwd`"
        rxvt &
-       exit
+       exit $?
 
   elif [ "$RETVAL" = "193" ] ; then #666  ## umount
        UNMOUNT='yes'
-       mntPT=`busybox mount | grep "$c64_IMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       return
+       mntPT=`busybox mount | grep "$c64_oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       return 0
 
-  elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
+  elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $oneIMGBASE
        UNMOUNT='yes'
-       mntPT=`busybox mount | grep "$c64_IMGBASE" | cut -f 3 -d ' '`
+       mntPT=`busybox mount | grep "$c64_oneIMGBASE" | cut -f 3 -d ' '`
        _debug "194:$mntPT"
        MntPt2=`echo "$mntPT" | sed "1 d"` ## only umount all others exect one
        _debug "194:$MntPt2"
 
        for i in $MntPt2 ; do
+
+       # REM: closing filer widow needs be done here already,
+       #      otherwise pid gets detected by fuser
+       #      and that would kill rox completely incl. pinboard
+       _close_filer_window "$i"
+
        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
        _debug "194:$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
        _debug "194:$LOOPD"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
-       USEapps=`fuser -m "$MntPt2"`   ##+++2011-10-27
+       USEapps=`fuser -m "$i"`   ##+++2011-10-27
        _notice "194:fuser:$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
        _debugx "194:fuser:$USEapps"
@@ -434,13 +559,13 @@ esac
        kill -$SIG $j
        done
 
-       [ -n "$DISPLAY" ] && rox -D "$i"
-       /bin/umount "$i"
+       $UMOUNT_EXE "$i"
+       [ $? = 0 ] || continue
        #sleep 2
-       #rmdir "$i"
+       _rmdir_mountpoint "$i"
        done
 
-       mntPT=`busybox mount | grep "$c64_IMGBASE" | cut -f 3 -d ' '`
+       mntPT=`busybox mount | grep "$c64_oneIMGBASE" | cut -f 3 -d ' '`
        [ "$mntPT" ] && return 0
        return 1
 
@@ -526,21 +651,24 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   # REM: if choosen mount again
   [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
   _debug "mntPT='$mntPT'"  ##DEBUG
-  #: mkdir -p "$mntPT"    ## mount.sh should do this
+  _mkdir_mountpoint "$mntPT"    ## mount.sh should do this
 
   # REM: New problem in case of additional mount 2014-11-27,
   #      mount complains that /dev/loop is in use - don't know why ...
+  #      2014-12-03: Now I know - it is mount-FULL searching automatically
+  #       for a free loop device and using it,
+  #       busybox mount does not !!
   freeLOOP=`losetup -f`
   [ -b $freeLOOP ] && losetup $freeLOOP "$imgFILE" && {
 
-  _debug "\n$0 : Mount: '$Type' '$freeLOOP' '$mntPT'\n"
-  /bin/mount $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
+  _debug "\n$MOUNT_EXE: '$Type' '$freeLOOP' '$mntPT'\n"
+  $MOUNT_EXE $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
    Err=$?
   } || {
 
   __old_mount_code_that_worked_flawless_until_today__(){
-  _debug "\n$0 : Mount: '$Type' '$imgFILE' '$mntPT'\n"
-  /bin/mount $VERB -t $Type -o loop "$imgFILE" "$mntPT";
+  _debug "\n$MOUNT_EXE: '$Type' '$imgFILE' '$mntPT'\n"
+  $MOUNT_EXE $VERB -t $Type -o loop "$imgFILE" "$mntPT";
    Err=$?
    }
   __old_mount_code_that_worked_flawless_until_today__
@@ -553,9 +681,12 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   elif [ -n "`mount | grep "$mntPT"`" ];then
    :
   else
-   : sleep 2s
+   # REM: In case of mount error,
+   #      disassociale loop device and
+   #      remove created directory
+   #: sleep 2s
    losetup -d $freeLOOP
-   #: [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }
+   _rmdir_mountpoint "$mntPT"
   fi
 
 
@@ -583,10 +714,10 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
        kill -$SIG $j
        done
 
-  _debug "\n$0 : UnMount: '$imgFILE'\n"
-  /bin/umount "$mntPT"
+  _debug "\n$UMOUNT_EXE: '$mntPT'\n"
+  $UMOUNT_EXE "$mntPT"
   Err=$?
-  #: [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
+  _rmdir_mountpoint "$mntPT"
  fi
 
  if [ "$Err" -gt 0 ] ;then
