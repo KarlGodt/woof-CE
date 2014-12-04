@@ -48,7 +48,7 @@ _debugt 8D $_DATE_
 #       without disturbing other scripts that use f4puppy5
 Q=-q
 QUIET=--quiet
-DEBUG=1
+DEBUG=
 DEBUGX=
 test "$DEBUG" && QUIET='';
 INFO=1
