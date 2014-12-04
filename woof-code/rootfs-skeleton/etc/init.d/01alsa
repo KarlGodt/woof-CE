@@ -1,45 +1,158 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler april 2009, puppylinux.com
 #called from /etc/rc.d/rc.services at bootup, with 'start' param.
 #called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
-#101120, 101121 simplification.
-#110111 shinobar: for reliable sound detection on HP Compac nc4010.
-#110113 tweak delay. 110216 tweak delay.
-#110506 /usr/sbin/alsaconf has 'restart' option, might need to reprobe modules. for now, just 'start|restart'.
-#111229 add test file /etc/asound.state exists.
-#120103 karl godt: fix unloading modules. refer: http://www.murga-linux.com/puppy/viewtopic.php?t=71767&start=390
-#120222 revert 111229. 120223 shinobar: better fix.
-#120226 01micko: added 'Master Front' entries. 120318 bumped it up, 75% to 100%.
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â12:51:06ÂGMT+1Â2011
+#
+#
+#
+#
+#
+########################################################################
+
+
+PROG='/etc/init.d/alsa';PROGPAT="$PROG"
+EXIT='return || exit'
+
+. /etc/rc.d/f4puppy5
+
+# REM: modprobe hangs when /sys not mounted
+#      and killall -9 modprobe fails if /proc not mounted
+#      Problem occured when shutdown process gets canceled somewhere
+#      (killed or exited) and re-run of rc.shutdown that runs the scripts in
+#       /etc/init.d/ with stop parameter would then run alsa
+#       that would  call
+#        aconnect --removeall
+#        amixer set Master mute 
+#       which both load a bunch of kernel drivers again
+#       thus would hang the whole shutdown process here
+#       while trying to modprobe -r the sound modules
+_mount_proc_and_sys(){
+test -f /proc/mounts          || mount $VERB $VERB -t proc proc /proc	
+grep $Q ' /sys ' /proc/mounts || mount $VERB $VERB -t sysfs sysfs /sys	
+}
+_mount_proc_and_sys
 
 case "$1" in
- start|restart)
-  #110217 remove this test, seems to be a problem some people report file not created but snd ok...
-  #if [ -f /tmp/rc_d_rc_services_alsa_ok ];then #101121 see rc.services.
-   #if [ "`lsmod | grep '^snd_'`" != "" ];then
-   rm -f /var/lock/subsys/alsasound 2> /dev/null #or alsa will not start.
+ start)
+
+  echo "Starting now $PROGPAT ..."
+
+  # REM: Sound had always been a problem in Puppy
+  #       so if not PUPMODE 5 there should exist an entry
+  #       in /etc/modprobe.conf with alias sound-card-0
+  #       created by /sbin/pup_event_backend_modprobe
+  #      So try to load that alias
+  #      If run from xterm, be interactive
+  CNT=0
+  while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do
+  echo -e "\e[0;31m""  No Sound Modules found `date`""\e[0;39m"
+ 
+  if [ "`tty`" = 'not a tty' ];then
+  sleep 3
+  else
+   # REM: just hit 20 times space bar or some key with content
+   read -s -n1 -t3 -p "Hit 20x spacebar or any regular key " k
+   #echo "'$k'"
+   if [ "$k" ];then
+   echo "modprobe snd-card-0 as last attempt"
+   modprobe $VERB snd-card-0
+   break
+   fi
+  fi
+  
+  CNT=$(( $CNT + 1 ))
+  if [ "$CNT" = "20" ] ; then
+  echo "modprobe snd-card-0 as last attempt"
+  modprobe $VERB snd-card-0
+  break
+  fi
+  done
+
+  if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then
+  echo -e "\e[0;31m""Still no Sound Modules found `date`""\e[0;39m"
+  $EXIT
+  fi
+
+  echo -e "\e[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\e[0;39m"
+   rm -f /var/lock/subsys/alsasound
    #sometimes these don't all load...
-   modprobe snd-mixer-oss
-   modprobe snd-seq-oss
-   modprobe snd-pcm-oss
-   for I in $(seq 4); do #110111 shinobar: for reliable sound detection on HP Compac nc4010.
-    sleep 0.5 #110113 reduce 1 to 0.5. 110216 move up.
-    [ -c /dev/mixer ] && break #note, /dev/mixer is deleted in /etc/rc.d/rc.sysinit.
-   done 
-   if [ ! -f /etc/asound.state ];then
+   [ -z "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] && modprobe $VERB snd-mixer-oss
+   [ -z "`lsmod | grep 'snd[-_]seq[-_]oss'`" ] && modprobe $VERB snd-seq-oss
+   [ -z "`lsmod | grep 'snd[-_]pcm[-_]oss'`" ] && modprobe $VERB snd-pcm-oss
+
+   # REM: Sound had always been a problem in Puppy
+   #      What had changed was that alsa used /dev/snd subdirectory up to
+   #       its version 1.20
+   #       Then alsa started to use /dev directly 
+   #       For now create char devices in both directories
+   D=`find /sys -type d -name "*sound*"`
+   POOL=''
+    for i in $D ; do
+     ##echo $i ;
+     DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr ':' '@' | tr ' ' '@' -exec echo \; ` ;
+     POOL="$POOL $DEV" ;
+    done
+   POOL=`echo $POOL | rev`
+   test -d /dev/snd || mkdir $VERB -p /dev/snd
+    for i in $POOL ; do
+     NODE=`echo $i | cut -f 3 -d '@'`
+     NODE=`echo $NODE | rev`
+     NODE=`basename $(dirname $(echo $NODE) )`
+     MAJ=`echo $i | cut -f 2 -d '@'`
+     MAJ=`echo $MAJ | rev`
+     Min=`echo $i | cut -f 1 -d '@'`
+     Min=`echo $Min| rev`
+     echo "$NODE" "$MAJ" "$Min"  #DEBUG
+     rm -f /dev/$NODE
+     mknod /dev/$NODE c $MAJ $Min
+     rm -f /dev/snd/$NODE
+     mknod /dev/snd/$NODE c $MAJ $Min
+    done
+
+   CARD=`ls -1 /proc/asound 2>/dev/null | grep '[A-Z]' | tr '\n' '|' | sed 's,|$,,'`
+   if [ -n  "`grep -E "$CARD" /etc/asound.state 2>/dev/null`" ] ; then
+
+    alsactl -f /etc/asound.state restore
+
+   else
+
     #try and set all levels workable...
     #set_mixers #in functions4puppy4
-    #101015 BK had to add ,0 after Front...
-    #110823 pemasu: add this set Speaker 75 % unmute
-    #120226 01micko: added 'Master Front' entries...
-	amixer -s -q <<EOF
+        amixer -s -q <<EOF
 set Master 75% unmute
 set Master -12dB
 set 'Master Mono' 75% unmute
 set 'Master Mono' -12dB
-set 'Master Front' 100% unmute
-set 'Master Front' -12dB
-set Front,0 75% unmute
-set Front,0 -12dB
+set Front 75% unmute
+set Front -12dB
 set PCM 90% unmute
 set PCM 0dB
 set Synth 90% unmute
@@ -64,42 +177,77 @@ set Headphone -12dB
 set Playback 100% unmute
 set "SB Live Analog/Digital Output Jack" off
 set "Audigy Analog/Digital Output Jack" off
-set Speaker 75% unmute
 EOF
-	[ $? -eq 0 ] && alsactl -f /etc/asound.state store #120223 shinobar
-   else
-    alsactl -f /etc/asound.state restore #from /etc/asound.state.
+
+        alsactl -f /etc/asound.state store
    fi
-  #fi
- ;;
+
+  if [ -n "$DISPLAY" ] ; then
+   if [ -n "`which retrovol`" ] ; then
+    [ -z "`pidof retrovol`" ] && exec retrovol &
+   fi
+  fi
+ echo "... $PROGPAT $@ finished"
+ echo `lsmod | grep snd`  ##DEBUG
+  ;;
+  
  stop)
-  [ -f /etc/asound.state ] && alsactl -f /etc/asound.state store #saves to /etc/asound.state. 111229 add test file exists. 120222 revert. 120223 restore.
+ echo "stopping now $PROGPAT ..."
+ # echo `lsmod | grep snd`  ##DEBUG
+
+ if [ -n "$DISPLAY" ] ; then
+ [ -n "`pidof retrovol`" ] && killall retrovol
+ rm -f /var/run/retrovol.pid
+ fi
+
+  alsactl -f /etc/asound.state store #saves to /etc/asound.state.
   # Kill processes holding open sound devices...
-  fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >/dev/null 2>&1
-  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* >/dev/null 2>&1
-  [ -d /dev/snd ] && fuser -k /dev/snd/* >/dev/null 2>&1
+  fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >>$OUT 2>&1
+  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* >>$OUT 2>&1
+  [ -d /dev/snd ]         && fuser -k /dev/snd/*         >>$OUT 2>&1
   # remove all sequencer connections if any
-  [ -f /proc/asound/seq/clients -a -x aconnect ] && aconnect --removeall
+  [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
   # mute master to avoid clicks at unload
-  amixer set Master mute >/dev/null 2>&1
-  # remove all sound modules... 120103...
-  #lsmod | grep "^snd" | grep -Ev "(snd-page-alloc|snd_page_alloc)" |
-  c=0
-  while [ "`lsmod | grep 'snd_'`" ];do
-   lsmod | grep "^snd" | grep '0 $' | grep -Ev "(snd-page-alloc|snd_page_alloc)" |
-   while read line
-   do
-    #rmmod `echo $line | cut -d ' ' -f 1`
-    modprobe -rv `echo $line | cut -d ' ' -f 1`
-   done
-   c=$((c+1));[ "$c" = '6' ] && break #precaution if neverending loop
+  amixer set Master mute >>$OUT 2>&1  ###KRG loads a bunch of modules###ORIG
+  
+  # remove all sound modules
+  CNT=0  ###KRG
+  while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
+  echo
+  echo 'still soundmodules loaded'
+  lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |
+  while read line
+  do
+         echo -ne "\e[1;33m$line \e[0;39m"
+     #rmmod -f -w "$line"
+         modprobe $VERB -r "$line"  & ##+++2012-01-28 ##+ 2014-12-04 fork it
+     sleep 0.1
   done
+  CNT=$(( $CNT + 1 ))  ###KRG
+  [ "$CNT" = "5" ] && echo -e "\e[1;34m"'breaking now'"\e[0;39m" && break
+  done
+  
   # remove the 2.2 soundcore module (if possible)
-  rmmod soundcore 2> /dev/null
-  rmmod gameport 2> /dev/null
+  rmmod soundcore 2>>$ERR
+  rmmod gameport  2>>$ERR
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
+  
+  echo "... $PROGPAT $@ finished :"
+  
+  smods=`lsmod | grep snd`
+  if [ ! "$smods" ];then 
+  echo -e "\\033[1;32mAll soundmodules unloaded\\033[0;39m";
+  else echo -e "\\033[0;33mStill Modules loaded :$smods\\033[0;39m";
+       [ "$DISPLAY" ] && echo -e "\\033[1;35mTry again\\033[0;39m";
+  fi  ##+++2012-01-28
+ 
+ ;;
+ *)
+ echo -e "\e[0;31m""Useage of $PROG :""\e[0;39m"
+ echo "'$PROG start' to start and restore alsa settings"
+ echo "'$PROG stop' to unload sound modules , killall sound users and store last alsa settings"
+ echo -e "\e[0;32m""For additional help check 'man alsactl' , 'aconnect' , 'amixer'""\e[0;39m"
  ;;
 esac
 
-###END###
