@@ -85,6 +85,23 @@ BAREVIEW="bareview"
 
 sleep 2 #let the dust settle first.
 
+#v2.16 popup a warning if booting from usb flash...
+#if [ "$PMEDIA" = "usbflash" -a "$PUPMODE" != 5 ];then
+case $PUPMODE in
+7|13) PUPPY_ON_USB=1;;
+5) case $PMEDIA in
+    *usb*) PUPPY_ON_USB=1;; #old Puppies do not unmount host partition though pfix=ram :(
+   esac;;
+esac
+
+if test "$PUPPY_ON_USB"; then
+ yaf-splash ${FONTSIZEPARAM} -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" & 
+ X1PID=$!
+ X1RET=$?
+ sleep 3
+ [ $X1RET -eq 0 ] && kill $X1PID 2>$ERR
+fi
+
 read WM </etc/windowmanager
 [ "$WM" ] || WM=jwm
 until pidof ${WM##*/};do
@@ -132,6 +149,27 @@ NUMCOLOR=`echo $ColorNormalTaskBarApp|grep "rgb:"`
  ;;
 esac
 
+
+#v2.16 popup the BootManager if an extra SFS file added (once only)...
+if [ "$PUPMODE" != 5 -a "$PUPMODE" != 2 ];then
+  . /etc/rc.d/BOOTCONFIG
+  #if EXTRASFSLIST variable not there, then auto-load of SFS files (meaning, user
+  # has probably never run the BootManager)...
+  if [ "`grep '^EXTRASFSLIST' /etc/rc.d/BOOTCONFIG`" = "" ];then
+   #see /initrd/init which writes these to BOOTCONFIG..
+   if [ "$LASTUNIONRECORD" != "" ];then
+    if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then
+     bootmanager extrasfs quiet &
+    fi
+   fi
+  fi
+fi
+
+
+[ "`which freememapplet_tray`" -a ! "`pidof freememapplet_tray`" ] && exec freememapplet_tray &
+[ "`which fbxkb`" -a ! "`pidof fbxkb`" ] && exec fbxkb &
+[ "`which network_tray`" -a ! "`pidof network_tray`" ] && exec network_tray &
+
 #this goes into the tray...
 CURRPS="`ps`"
 #if [ "`echo "$CURRPS" | grep -E 'lxpanel|fbpanel'`" != "" ];then
@@ -143,14 +181,31 @@ if [ "$BLINK_TRAY" != "" ];then
  sleep 0.1
 fi
 #fi
+
+(
 if [ "`which retrovol`" != "" -a "`pidof retrovol`" = "" ];then
+ # REM: wait for /etc/init.d/alsa ...
+ while [ ! -d /dev/snd ]; do sleep 1; c=$((c+1)); [ $c = 9 ] && break; done; c=
+ while [ 1 ]; do ls -A /dev/snd/* >>$OUT 2>>$ERR && break; sleep 1; c=$((c+1)); [ $c = 9 ] && break; done; c=
+ 
  if [ "`retrovol -help 2>&1 | grep '\-show'`" != "" ];then
   exec retrovol ${BGOPT} &  #100119 tray volume control by pizzasgood. 100504
  else
   exec retrovol -hide ${BGOPT} &  #100413 versions after 0.2. 100504
  fi
 fi
+) & retrovolPID=$!
 
+#v2.17 suggested by andrei...
+if [ -d $HOME/Startup ];then
+ for a in $HOME/Startup/*
+ do
+  [ -f "$a" -a -x "$a" ] && { echo $a
+  exec $a &
+}
+  sleep 1
+ done
+fi
 #offer to popup a getting-started html page...
 #the test for /etc/videomode is for when Xvesa has finished choosing a resolution...
 if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
@@ -207,52 +262,6 @@ if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
  fi
 fi
 
-#v2.16 popup the BootManager if an extra SFS file added (once only)...
-if [ "$PUPMODE" != 5 -a "$PUPMODE" != 2 ];then
-  . /etc/rc.d/BOOTCONFIG
-  #if EXTRASFSLIST variable not there, then auto-load of SFS files (meaning, user
-  # has probably never run the BootManager)...
-  if [ "`grep '^EXTRASFSLIST' /etc/rc.d/BOOTCONFIG`" = "" ];then
-   #see /initrd/init which writes these to BOOTCONFIG..
-   if [ "$LASTUNIONRECORD" != "" ];then
-    if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then
-     bootmanager extrasfs quiet
-    fi
-   fi
-  fi
-fi
-
-#v2.16 popup a warning if booting from usb flash...
-#if [ "$PMEDIA" = "usbflash" -a "$PUPMODE" != 5 ];then
-case $PUPMODE in
-7|13) PUPPY_ON_USB=1;;
-5) case $PMEDIA in
-    *usb*) PUPPY_ON_USB=1;; #old Puppies do not unmount host partition though pfix=ram :(
-   esac;;
-esac
-
-if test "$PUPPY_ON_USB"; then
- yaf-splash ${FONTSIZEPARAM} -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
- X1PID=$!
- X1RET=$?
- sleep 3
- [ $X1RET -eq 0 ] && kill $X1PID 2>$ERR
-fi
-
-[ "`which freememapplet_tray`" -a ! "`pidof freememapplet_tray`" ] && exec freememapplet_tray &
-[ "`which fbxkb`" -a ! "`pidof fbxkb`" ] && exec fbxkb &
-[ "`which network_tray`" -a ! "`pidof network_tray`" ] && exec network_tray &
-
-#v2.17 suggested by andrei...
-if [ -d $HOME/Startup ];then
- for a in $HOME/Startup/*
- do
-  [ -f "$a" -a -x "$a" ] && { echo $a
-  exec $a &
-}
-  sleep 1
- done
-fi
-
+wait $retrovolPID
 exit $?
 ###END###
