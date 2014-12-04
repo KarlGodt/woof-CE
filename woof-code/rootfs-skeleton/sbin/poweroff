@@ -29,14 +29,14 @@ _trap
 
 PROG='/sbin/poweroff'
 debugging_variables(){
-ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';QUIET='-q'; ##+++2012-03-10
-[ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;QUIET=''; }
+ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';Q='-q'; ##+++2012-03-10
+[ "$DEBUG" ] && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;Q=''; }
 }
 #debugging_variables
 __old_option_parser__(){
-echo "$@" | grep $QUIET -iE '\-h|help|usage' && { echo -e "\\033[0;32m`file $0`\nPuppy Linux Wrapper that calls busybox poweroff:\\033[0;39m\n";exec /bin/busybox poweroff --help; }  ##+++2013-03-11
-echo "$@" | grep $QUIET -iE 'verbose|debug' && { DEBUG=Y; debugging_variables; }
-echo "$@" | grep $QUIET -iE 'test|check' && { DEBUG=Y; debugging_variables;set -n; }
+echo "$@" | grep $Q -iE '\-h|help|usage' && { echo -e "\\033[0;32m`file $0`\nPuppy Linux Wrapper that calls busybox poweroff:\\033[0;39m\n";exec /bin/busybox poweroff --help; }  ##+++2013-03-11
+echo "$@" | grep $Q -iE 'verbose|debug' && { DEBUG=Y; debugging_variables; }
+echo "$@" | grep $Q -iE 'test|check' && { DEBUG=Y; debugging_variables;set -n; }
 }
 
 usage(){
@@ -64,16 +64,24 @@ exit $1
 
 for p_ in $@; do
 case $p_ in
-*help|-h|*usage)
+-?help|-h|-?usage)
 /etc/rc.d/rc.shutdown $p_
 usage 0 ;;
-*force|*debug|*verbose) RC="$RC $p_" ;;
+-?force) RC="$RC $p_";   FORCE=1;;
+-?debug|-?verbose) RC="$RC $p_" ;;
 *) POFF="$POFF $p_" ;;
 esac;done
 
+if [ ! "$FORCE" ]; then
 pidof X 1>$OUT 2>$ERR && { echo "X is still running. Please run wm${0##*/}. Exiting script.";exit 1; }
+fi
 
-interactive(){
+if [ ! "$FORCE" ]; then
+# REM: function to ask for confirmation
+#      NOTE: Enable it if you want to
+#       Made it while experimenting with the
+#        POWERTIMEOUT code in eventmamager and pup_event_frontend_d
+_confirm_poweroff(){
 #sleep 5
 echo "Really want to poweroff ?"
 read -t 60 K
@@ -84,21 +92,53 @@ echo
 exit 0
 fi
 }
+# NOTE: Enable it if you want to
+#_confirm_poweroff
+fi #FORCE
 
+if [ ! "$FORCE" ]; then
+# REM: for the last message on screen get some variables
+test -f /etc/DISTRO_SPECS && . /etc/DISTRO_SPECS
+_kernel_version3
+test -f /proc/cmdline && read kCMDLINE </proc/cmdline
+fi # FORCE
+
+# REM: Run rc.shutdown ...
 /etc/rc.d/rc.shutdown
 Err=$?
+
+if [ ! "$FORCE" ]; then
+# REM: Handle exit code ( rc.shutdown may crash )
+#       exitcode 199 reserved for debug_i functin in rc.shutdown
 [ "$Err" = 199 ] && exit 0
+# REM: rc.shutdown should have exit 0 as last code line
+#      to confirm that it ran completely until the last code line
 if [ "$Err" -ne 0 ] ; then
-        if [ -n "`mount | grep /proc`" ] ; then
+        # REM: Now have other exitcode than 0 or 199
+        #       telling that something went wrong
+        echo
         echo -e "\\033[0;31m""Something went wrong running /etc/rc.d/rc.shutdown""\\033[0;39m"
         echo -e "\\033[1;31m""Error returncode is '$Err'""\\033[0;39m"
         echo
-fi
+        echo 'Still mounted:'
+        mount
+     
   exit $Err
 fi
+fi #FORCE
 
-echo "Executing busybox poweroff $POFF
+if [ ! "$FORCE" ]; then
+echo "
+$DISTRO_NAME $DISTRO_VERSION $KERNEL_VERSION
+$kCMDLINE
+:
+Executing busybox poweroff $POFF
 :"
+else
+set --  # REM: -- unsets parameter line, - not
+POFF='-n -f'
+fi #FORCE
+
 exec /bin/busybox poweroff $POFF
 # Very End of this file 'sbin/poweroff' #
 ###END###
