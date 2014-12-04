@@ -61,22 +61,24 @@ Supported kill signals:
 case $1 in
 *start|*Start|*START)
 shift
+test -d /etc/acpi || mkdir $VERB /etc/acpi
 
-test -d /dev/input || mkdir -p /dev/input
+test -d /dev/input || mkdir $VERB -p /dev/input
 test -c /dev/input/event0 || {
-rm -rf /dev/input/event0
+rm $VERB -rf /dev/input/event0
 test -c /dev/event0 && {
-cp -a /dev/event0 /dev/input/
+cp $VERB -a /dev/event0 /dev/input/
 } || {
 mknod /dev/input/event0 c 13 64
 }
 }
 
-test -c /dev/input/event0 || { echo "Failed to create /dev/input/event0"; exit 3; }
+test -c /dev/input/event0 || { echo "$0:Failed to create /dev/input/event0"; exit 3; }
 
-ALREADY_RUNNING=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
+ALREADY_RUNNING=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
+[ "$ALREADY_RUNNING" ] || ALREADY_RUNNING=`ps | grep "$ACPID_BIN" | grep -v grep`
 [ "$ALREADY_RUNNING" = 1 ] && ALREADY_RUNNING=''
-[ "`echo "$ALREADY_RUNNING" |wc -w`" -ge 1 ] && { echo "Another instance of '$ACPID_BIN' already running with PID '$ALREADY_RUNNING'"; exit 1; }
+[ "`echo "$ALREADY_RUNNING" |wc -w`" -ge 1 ] && { echo "$0:Another instance of '$ACPID_BIN' already running with PID '$ALREADY_RUNNING'"; exit 1; }
 case "$@" in
 '') [ -e /proc/acpi/event ] && {
 $ACPID_BIN -e /proc/acpi/event
@@ -86,8 +88,9 @@ $ACPID_BIN
 *) $ACPID_BIN $@;;
 esac
 sleep 3
-ACPID_PID=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
+ACPID_PID=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
 [ "$ACPID_PID" = 1 ] && ACPID_PID=''
+[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep` 
 if [ "$ACPID_PID" ];then
                                                 echo "$0: STARTED '$ACPID_BIN' with PID '$ACPID_PID'";STATUS=0
 else
@@ -99,12 +102,16 @@ exit $STATUS
 
 *stop|*Stop|*STOP)
 shift
-[ "$ACPID_BIN" = "busybox acpid" ] && { echo "Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
-ps |grep 'busybox acpid' |grep -v 'grep' && { echo "Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
 
-ACPID_PID=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
+_coward_not_kill_pid_nr_1(){
+[ "$ACPID_BIN" = "busybox acpid" ] && { echo "$0:Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
+ps |grep $Q 'busybox acpid' |grep -v 'grep' && { echo "$0:Cowardly refusing to kill busybox (init) .Exit .";exit 2; }
+}
+
+ACPID_PID=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
 [ "$ACPID_PID" = 1 ] && ACPID_PID=''
-[ "$ACPID_PID" ] || { echo "acpid not running.";exit 0; }
+[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep | awk '{print $1}'` 
+[ "$ACPID_PID" ] || { echo "$0:$ACPID_BIN not running.";exit 0; }
 if [ "$1" ];then
                                 if [ "$2" ];then
                                         kill $1 $2 $ACPID_PID
@@ -116,11 +123,13 @@ if [ "$1" ];then
 else
 kill -1 $ACPID_PID
 sleep 3
-ACPID_PID_2=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
+ACPID_PID_2=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
+[ "$ACPID_PID_2" ] || ACPID_PID_2=`ps | grep "$ACPID_BIN" | grep -v grep` 
 [ "$ACPID_PID_2" ] || { echo "$0: STOPPED '$ACPID_PID'";exit 0; }
 kill -2 $ACPID_PID_2
 sleep 3
-ACPID_PID_3=`pidof ${ACPID_BIN##*/} |sed 's| 1$||;s| 1 | |'`
+ACPID_PID_3=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
+[ "$ACPID_PID_3" ] || ACPID_PID_3=`ps | grep "$ACPID_BIN" | grep -v grep` 
 [ "$ACPID_PID_3" ] || { echo "$0: STOPPED '$ACPID_PID'; last PID had been '$ACPID_PID_2'";exit 0; }
 echo "$0: FAILED to stop PID '$ACPID_PID' for '$ACPID_BIN'"
 exit 1
