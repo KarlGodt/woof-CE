@@ -107,19 +107,8 @@ echo "$MSG"
 exit $1
 }
 
-OUT=/dev/null;ERR=$OUT;QUIET='-q'
+OUT=/dev/null;ERR=$OUT;Q='-q';QUIET=--quiet
 
-__old_getopts__(){  #BEGIN #OUT
-while getopts Vhvd opt; do
- case $opt in
-  V) echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0;;
-  h) usage 0;;
-  v) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERBOSE=1;QUIET='';;
-  d) set -x;;
-  *) :;;
-  esac
-done
-}  ###__old_getopts__(){  #END
 
 PIDPROG=$$
 
@@ -197,136 +186,6 @@ fi
 [ $? = 1 ] && exit 1
 
 
-__old_crap__(){  #BEGIN #OUT
-while [ "$1" ];do
-CASEPARAM=$1
-
-case "$CASEPARAM" in
-help|-*help|-h) usage 0
-;;
-version|-*version|version|-V)
-echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0
-;;
-codecheck|-*codecheck|checkcode|-*checkcode)
-#BASH set -n
-bn=${0##*/}
-cp $0 /tmp/
-sed -i '1d' /tmp/"$bn"
-sed -i '1i\#!/bin/bash -n' /tmp/"$bn"
-/tmp/"$bn" $PARAMETER_LINE
-echo "<$?>"
-echo "Codecheck finished"
-echo "Attention :
-Normally uses ash, this had been done in bash,
-because ash has no -n parameter"
-exit 0
-;;
-debug|-*debug|-d) set -x
-;;
-verbose|-*verbose|-v) VERBOSE=1
-VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
-;;
-*) break;;
-esac
-shift
-done
-
-while [ "$1" ];do
-CASEPARAM=$1
-case "$CASEPARAM" in
-stop)
-echo "PIDPROG='$PIDPROG'
-"
-
-if [ "$VERBOSE" ];then
-PSP=`ps-FULL --no-headers -C pup_event_frontend_d |awk '{print $1}' |grep -vw "$PIDPROG"`
-else
-PSP=`ps-FULL --no-headers -C pup_event_frontend_d |grep -v '<defunct>' |awk '{print $1}' |grep -vw "$PIDPROG"`
-fi
-PSPDEFUNCT=`ps-FULL --no-headers -C pup_event_frontend_d |awk '{print $1" "$5" "$6}'`
-
-echo "ps-FULL --no-headers -C pup_event_frontend_d:
-$PSP
-"
-
-for i in $PSP ; do
-
-echo "PID='$i'"
-
-for j in `seq 0 1 64`;do
-
-echo -n "SIG='$j' to "
-echo "$PSPDEFUNCT" |grep -w "^$i"
-
-if [ -z "`ps |awk '{print $1}' | grep -w "$i"`" ];then
-break
-fi
-
-kill -$j $i
-sleep 0.5
-done
-done
-echo
-exit "$?"
-;;
-
-restart)
-
-PSP=`ps-FULL --no-headers -C pup_event_frontend_d |awk '{print $1}' |grep -vw "$PIDPROG"`
-
-for i in $PSP ; do
-kill -1 $i 2>$ERR
-sleep 2
-done
-exec pup_event_frontend_d $PRIVATE_OPTIONS start  ##+++2012-07-26 added PRIVATE_OPTIONS
-
-;;
-
-status)
-echo -n "$ME_PROGRAM : "
-OTHER_PIDS=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
-[ "$OTHER_PIDS" ] && echo "$OTHER_PIDS are already running." || echo "not already running."
-exit 0
-;;
-
-start|*) break;;
-esac
-done #while $2  or $1
-
-while [ "$1" ];do
-CASEPARAM=$1
-
-case "$CASEPARAM" in
-help|-*help|-h) usage 0
-;;
-version|-*version|version|-V)
-echo -e "\n$0: Version '$Version'\nTry -h for more info\n";exit 0
-;;
-codecheck|-*codecheck|checkcode|-*checkcode)
-#BASH set -n
-bn=${0##*/}
-cp $0 /tmp/
-sed -i '1d' /tmp/"$bn"
-sed -i '1i\#!/bin/bash -n' /tmp/"$bn"
-/tmp/"$bn" $PARAMETER_LINE
-echo "<$?>"
-echo "Codecheck finished"
-echo "Attention :
-Normally uses ash, this had been done in bash,
-because ash has no -n parameter"
-exit 0
-;;
-debug|-*debug|-d) set -x
-;;
-verbose|-*verbose|-v) VERBOSE=1
-VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;QUIET=''
-;;
-*) break;;
-esac
-shift
-done
-}  ###__old_crap__(){  #END
-
 ###END OLD HEADER###
 
 OLDLANG=$LANG #100613
@@ -365,15 +224,14 @@ SAVECNT=0
 MOUSECNT=0 #w007
 MINUTECNT=0 #w007
 CURPOS1="" #w007
-##echo -n "" > /tmp/pup_event_frontend_d_curpos.log #w007
 
 ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
 . /etc/rc.d/PUPSTATE
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
 KERNVER=`uname -r`
-. /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
+. /etc/eventmanager.conf #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
 . /etc/rc.d/functions4puppy4
-#mkdir -p $HOME/Choices/Puppy
+
 SCRNXY=`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'`
 SCRN_Y=`echo -n "$SCRNXY" | cut -f 2 -d 'x'`
@@ -472,22 +330,19 @@ free_coord() {
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
  COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' "$HOME"/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
- case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
+ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager.conf
   bottom)
-   COORD_Y=$(( $SCRN_Y - $ICON_PLACE_EDGE_GAP )) #default 64, see /etc/eventmanager
+   COORD_Y=$(( $SCRN_Y - $ICON_PLACE_EDGE_GAP )) #default 64, see /etc/eventmanager.conf
    COORD_Y=$(( ( ( $COORD_Y + $PIN_GRID_STEP2 ) / $PIN_GRID_STEP ) * $PIN_GRID_STEP ))
-   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
+   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager.conf
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   # REM: disable this code ... otherwise icons pile up at end of second line
-   #xyCNT=0 #precaution.
+
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     COORD_X=$(( $COORD_X + $ICON_PLACE_SPACING ))
     if [ $COORD_X -gt $MAX_X ];then #start next line up.
-     # REM: disable this code ... otherwise icons pile up at end of second line
-     #xyCNT=`expr $xyCNT + 1`
-     #[ $xyCNT -gt 1 ] && break
+
      COORD_Y=$(( $COORD_Y - $ICON_PLACE_SPACING ))
      COORD_X=$ICON_PLACE_START_GAP
     fi
@@ -497,18 +352,15 @@ free_coord() {
   top)
    COORD_Y=$ICON_PLACE_EDGE_GAP
    COORD_Y=$(( ( ( $COORD_Y + $PIN_GRID_STEP2 ) / $PIN_GRID_STEP ) * $PIN_GRID_STEP ))
-   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
+   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager.conf
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   # REM: disable this code ... otherwise icons pile up at end of second line
-   #xyCNT=0 #precaution.
+
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     COORD_X=$(( $COORD_X + $ICON_PLACE_SPACING ))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
-     # REM: disable this code ... otherwise icons pile up at end of second line
-     #xyCNT=`expr $xyCNT + 1`
-     #[ $xyCNT -gt 1 ] && break
+
      COORD_Y=$(( $COORD_Y + $ICON_PLACE_SPACING ))
      COORD_X=$ICON_PLACE_START_GAP
     fi
@@ -516,13 +368,12 @@ free_coord() {
    done
   ;;
   left)
-   COORD_X=$ICON_PLACE_EDGE_GAP #default 64, see /etc/eventmanager
-   COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
+   COORD_X=$ICON_PLACE_EDGE_GAP #default 64, see /etc/eventmanager.conf
+   COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager.conf
    #COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
    COORD_Y=$(( ( (COORD_Y+PIN_GRID_STEP2) /PIN_GRID_STEP)*PIN_GRID_STEP))
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   # REM: disable this code ... otherwise icons pile up at end of second line
-   #xyCNT=0 #precaution.
+
    while [ 1 ];do
     #xgPATTERN="`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`"
     xgPATTERN="${xPATTERN//[0-9]\"/\"}"
@@ -531,12 +382,7 @@ free_coord() {
     #COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
     COORD_Y=$((COORD_Y+ICON_PLACE_SPACING))
     if [ $COORD_Y -gt $MAX_Y ];then #start next row. ##FIXME
-     # REM: disable this code ... otherwise icons pile up at end of second line
-     ##xyCNT=`expr $xyCNT + 1` ##FIXME
-     #xyCNT=$((xyCNT+1))
-     #[ $xyCNT -gt 1 ] && break ##FIXME
-     # REM: disable expr, errors might crash program
-     #COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
+
      COORD_X=$((COORD_X+ICON_PLACE_SPACING))
      COORD_Y=$ICON_PLACE_START_GAP
     fi
@@ -544,20 +390,17 @@ free_coord() {
    done
   ;;
   right)
-   COORD_X=$(( $SCRN_X - $ICON_PLACE_EDGE_GAP )) #default 64, see /etc/eventmanager
-   COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
+   COORD_X=$(( $SCRN_X - $ICON_PLACE_EDGE_GAP )) #default 64, see /etc/eventmanager.conf
+   COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager.conf
    COORD_Y=$(( ( ( $COORD_Y + $PIN_GRID_STEP2 ) / $PIN_GRID_STEP ) * $PIN_GRID_STEP ))
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   # REM: disable this code ... otherwise icons pile up at end of second line
-   #xyCNT=0 #precaution.
+
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     COORD_Y=$(( $COORD_Y + $ICON_PLACE_SPACING ))
     if [ $COORD_Y -gt $MAX_Y ];then #start next row back.
-     # REM: disable this code ... otherwise icons pile up at end of second line
-     #xyCNT=`expr $xyCNT + 1`
-     #[ $xyCNT -gt 1 ] && break
+
      COORD_X=$(( $COORD_X - $ICON_PLACE_SPACING ))
      COORD_Y=$ICON_PLACE_START_GAP
     fi
@@ -589,6 +432,7 @@ add_pinboard_func() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
 }
 
 probepart_func() {
+#w476 add ext4...
 #PROBEPART=`probepart -k $@ | grep -E 'not inserted|\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|udf\||\|jfs\||\|reiser'`
 PROBEPART=`probepart -k $@ | grep -viE "swap|EXTENDED|EXT'D"`
 }
@@ -688,7 +532,7 @@ ${DRV_DESCRIPTION}"
    create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
   [ "$DEBUG" ] && echo DBG drvPATTERN $drvPATTERN
-  if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.
+  if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.conf.
    [ "$DEBUG" ] && echo ICONDESKtrue
    if [ "$ICONPARTITIONS" = "true" ];then
     [ "$DEBUG" ] && echo ICONPARTITIONStrue
@@ -761,8 +605,11 @@ remove_pinboard_func() { #needs PART_NAME (name of entire drive)
  done
 }
 
-#note that init script in initrd takes care of restoring modules if enough space.
-delete_func() { #called from free_func() and free_flash_func(). delete modules to create more free space.
+
+delete_func(){
+ #called from free_func() and free_flash_func().
+ #delete modules to create more free space.
+ #note that init script in initrd takes care of restoring modules if enough space.
  #passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
@@ -900,15 +747,7 @@ while [ running ] ; do
 # disc inserted
 # 0
 
- # [ "$CDSTATUS2" != "0" ] && [ -d $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} ] && rm $VERB -rf $HOME/Choices/Puppy/.pup_event/drive_${PART_NAME} #v410 ensure no drive directory if drive empty.
- #echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${PART_NAME}
- #[ ! -f /tmp/pup_event_frontend_identify1_${PART_NAME} ] && cp $VERB /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
 
- #CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${PART_NAME}`
-
- #[ "$CDSTATUS1" = "$CDSTATUS2" ] && { [ "$DEBUG" ] && echo "cdstatus1 same as cdstatus2 , executing return now";return; }
-
- #cp -f /tmp/pup_event_frontend_identify2_${PART_NAME} /tmp/pup_event_frontend_identify1_${PART_NAME}
  #if [ "$CDSTATUS2" = "0" ];then
   if [ "$CDSTATUS_NEW_$PART_NAME" != "$CDSTATUS_OLD_$PART_NAME" ] ; then
   opticalPATTERN='^/dev/'"${PART_NAME}"'|'
@@ -970,8 +809,8 @@ done
 
 ######################################################################
 #stuff to setup at entry...
-probedisk2_func(){
-
+__probedisk2_func__(){
+# REM: wanted to replace empty drive info (3rd field with something)
 PROBEDISK=`probedisk2`
 
 PROBEDISK=`echo "$PROBEDISK" | tr " " "_" | sed 's/_$//g'` ##+- 2011-12-03
@@ -1001,10 +840,16 @@ if [ "$i" = "$WCP" ] ; then break ; fi
 done
 PROBEDISK=`cat /tmp/PROBEDISKnew.txt | sed '/^$/d'`
 rm -f /tmp/PROBEDISKnew.txt
-echo "$PROBEDISK"
+echo "$PROBEDISK"  ##DEBUG
+}
+
+probedisk2_func(){
+PROBEDISK=`probedisk2`
 }
 
 clear_desk_icons_func(){
+#replacement for /sbin/clean_desk_icons
+#no parameters
 drives=`grep '/\.pup_event/drive_*' $HOME/Choices/ROX-Filer/PuppyPin | grep -o 'label=".*"' | cut -f2 -d '=' | tr -d '"' | awk '{print $1}'`
 for item in $drives; do
 [ "$item" ] || continue
@@ -1018,7 +863,7 @@ clear_desk_icons_func
 
 
 pup_event_frontend_d_start_func(){
-echo "pup_event_frontend_d_start_func BEGIN"
+echo "pup_event_frontend_d_start_func BEGIN"  #DEBUG
 
 #build the desktop icons...
 DRV_CATEGORY='drive'
@@ -1030,7 +875,7 @@ DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d
 #v407 same thing for all optical drives...
 DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'`
 if [ "$ICONDESK" = "false" ];then
-echo "ICONDESK is false" ##>> /dev/tty$DBGCONS
+echo "ICONDESK is false" ##DEBUG
  #only show a single 'drives' icon on desktop...
  PART_NAME='drives'
  DRV_CATEGORY='any' #see pmount.
@@ -1050,34 +895,9 @@ else
   else
   [ "$DEBUG" ] && echo "ICONPARTITIONS='$ICONPARTITIONS'"
 
- #show all drives on desktop... w476 add ext4...
+ #show all drives on desktop...
 
-# probepart_func
 
-#        if [ -n "$CD0ICON" -a "$CD0ICON" = "true" ]; then
-#
-#        drives=`ls /sys/block 2>$ERR`
-#        CDdrV=`echo "drives" | grep 'sr' | sort -r`
-#        for i in $CDdrV; do
-#        PROBEPART="/dev/$i|unknown|unknown
-#$PROBEPART"
-#        done
-#        fi
-
-#        if [ "$FD0ICON" = "true" ]; then
-        ###---2011-12-03 does not work on one FDD
-#        FloppyDrives=`ls /sys/block 2>/dev/null | grep -w -e 'fd[0-9]*'`
-#        FDRV=`echo "$FloppyDrives"`
-        ###+++2022-12-03
-#        for i in $FDRV; do
-#        PROBEDISK="/dev/$i|floppy|Legacy_floppy_drive
-#$PROBEDISK"
-#   PROBEPART="/dev/$i|vfat|1440
-#$PROBEPART"
-#        done
-#    fi
-
-# DRIVES=`echo "$PROBEPART" | cut -f 1,2,3 -d '|'`
 
 # for oneDRV in $DRIVES #`echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_' | tr '\n' ' '`
 while read -r oneDRV
@@ -1087,22 +907,8 @@ while read -r oneDRV
 
  PART_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
 
-  #      if [ "`echo $PART_NAME | grep 'sd'`" != "" -o "`echo $PART_NAME | grep 'hd'`" != "" ]; then
-
-  #MainDrvName=`echo $PART_NAME | sed 's/[0-9].*//'`
-  #      else
-
-  #MainDrvName=`echo $PART_NAME`
-  #      fi
-
-  #DRV_CATEGORY=`echo "$PROBEDISK" | grep $MainDrvName | cut -f 2 -d '|'`
-
-  #DRV_DESCRIPTION=`echo "$PROBEDISK" | grep $MainDrvName | cut -f 3 -d '|'`
-
   DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
   DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
-
-  #[ "`echo "$PROBEPART" | grep -w "$PART_NAME"`" ] || continue #precaution (such as CD not inserted).
 
   create_icon_func #startup #needs PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
 
@@ -1115,13 +921,13 @@ fi;fi
 
 pup_event_frontend_d_start_func
 
-if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.
- killall hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
+if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.conf.
+ killall $Q hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
  #...kill hotplug2stdout, as that will cause pup_eventd_backend_d to die.
- [ -f /sbin/udevd ] && killall udevd #alternative to pup_event_backend_d.
- exit
+ [ "`pidof udevd`" ] && killall $Q udevd #alternative to pup_event_backend_d.
+ exit 0
 fi
-[ "$HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
+[ "$HOTPLUGON" = "false" ] && exit 0 #turn off all frontend hotplug support. see /etc/eventmanager.conf.
 
 
 
@@ -1176,12 +982,12 @@ while [ running ] ; do
 sleep 3
 done
 }
-echo "RAMSAVEINTERVAL=$RAMSAVEINTERVAL'"
-[ "$RAMSAVEINTERVAL" -ne 0 ] && function_ramsaveinterval &
+echo "RAMSAVEINTERVAL=$RAMSAVEINTERVAL'"  ##DEBUG
+[ "$RAMSAVEINTERVAL" -ne 0 ] && function_ramsaveinterval & rsiPID=$!
 
 function_powertimeout(){
 while [ running ] ; do
- echo $0
+ #echo $0:function_powertimeout  ##DEBUG
   MOUSECNT=$((MOUSECNT + 3))
   MINUTECNT=$((MINUTECNT + 3))
 
@@ -1195,10 +1001,16 @@ while [ running ] ; do
    aplay /usr/share/audio/2barks.au
    sleep 1s
    aplay /usr/share/audio/2barks.au
-   xmessage -bg red -timeout 60 -buttons "YES:190,No:191" -fn "-misc-dejavu sans-*-*-*-*-*-*-*-*-*" 'Really powering off now ?'
+   xmessage -bg red -timeout 60 -buttons "YES:190,No:191" -fn "-misc-dejavu sans-*-*-*-*-*-*-*-*-*" -title "Puppy Event" 'Power-timeout reached .
+Your mouse did not move for '"$POWERTIMEOUT"' seconds.
+
+                Do you really want to power off now ?
+
+   Note: Timesout in 60 seconds to poweroff the computer...
+'
 
     REPLY=$?
-    echo $REPLY
+    echo $REPLY  ##DEBUG
     if [ "$REPLY" = "190" -o "$REPLY" = "0" ] ; then
     wmpoweroff &
     fi
@@ -1211,8 +1023,8 @@ done
 }
 CURPOS1=1
 CURPOS2=1
-echo "POWERTIMEOUT=$POWERTIMEOUT'"
-[ "$POWERTIMEOUT" -ne 0 ] && function_powertimeout &
+echo "POWERTIMEOUT=$POWERTIMEOUT'"  ##DEBUG
+[ "$POWERTIMEOUT" -ne 0 ] && function_powertimeout & ptoPID=$!
 
 poll_removable_func(){
 if [ "$ICONDESK" != "false" ]; then
@@ -1238,20 +1050,18 @@ EOI
 fi
 }
 
-#PROBEDISK2_LOOP_NEW="$PROBEDISK"
-#PROBEDISK2_LOOP_OLD="$PROBEDISK"
+
 PROBEDISK2_LOOP_NEW=`probedisk2`
 PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
 
 ###################################################################
-#now go into a two-second loop...
+#now go into a three-second loop...
 while [ 1 ]
 do
  sleep 3
 
  #########check hotplug block event##########
- #PROBEDISK2_LOOP_NEW=`probedisk2`
- #[ "$PROBEDISK2_LOOP_OLD" ] || PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
+
 
 if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
  ######### hotplug detected : #########
@@ -1274,8 +1084,6 @@ if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
    fi #uses PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION
 
    [ "$HOTPLUGNOISY" = "true" ] && $drvDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
-   #[ "`echo "$ADD" | grep -i '|optical|'`" ] &&  probe_optical_func $PART_NAME &
-   #[ "`echo "$ADD" | grep -i '|floppy|'`" ] &&  probe_floppy_func $PART_NAME &
 
   done<<EOI
 $(echo "$BLOCKSADD")
@@ -1301,65 +1109,55 @@ EOI
 fi
  ######### hotplug detected #########
 
- #echo $LINENO $TOGGLE
- #if [ "$TOGGLE" -eq 0 ];then #slow down to every 4 seconds.
- # TOGGLE=1
- # echo -e "\\033[0;31msleep 2\\033[0;39m"
- # continue
- # else
- # TOGGLE=0
- # echo -e "\\033[1;31msleep 4\\033[0;39m"
- #fi
+
  PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
  PROBEDISK2_LOOP_NEW=`probedisk2`
  echo "PROBEDISK_LOOP_OLD=$PROBEDISK_LOOP_OLD'"
  echo "PROBEDISK_LOOP_NEW=$PROBEDISK_LOOP_NEW'"
 
- #######four second timeout procesing#########
 
- #SAVECNT=`expr $SAVECNT + 3`
- #if [ "$RAMSAVEINTERVAL" -ne 0 -a "$SAVECNT" -gt "$RAMSAVEINTERVAL" ];then
- # touch /tmp/snapmergepuppyrequest #request to savepuppy_func.
- # SAVECNT=0
- #fi
-
- #if [ "$POWERTIMEOUT" -ne 0 ];then #w007 power-off computer after inactivity.
- # MOUSECNT=$((MOUSECNT + 3))
- # MINUTECNT=$((MINUTECNT + 3))
-
- # if [ "$MINUTECNT" -gt 59 ];then #come in here every minute...
- #  MINUTECNT=0
- #  CURPOS=`getcurpos`
- #  [ "$CURPOS2" ] || CURPOS2="$CURPOS"
- #  [ "$CURPOS" != "$CURPOS2" ] && MOUSECNT=0
-
- #  if [ "$MOUSECNT" -gt "$POWERTIMEOUT" ] ; then
- #  echo  MOUSECNT=$MOUSECNT POWERTIMEOUT=$POWERTIMEOUT
- #  aplay /usr/share/audio/2barks.au
- #  sleep 1s
- #  aplay /usr/share/audio/2barks.au
- #  xmessage -bg red -timeout 60 -buttons "YES:190,No:191" -fn "-misc-dejavu sans-*-*-*-*-*-*-*-*-*" 'Really powering off now ?'
-
- #   REPLY=$?
- #   echo $REPLY
- #   if [ "$REPLY" = "190" -o "$REPLY" = "0" ] ; then
- #   wmpoweroff &
- #   fi
- #  fi
- # fi
- #fi
- #some apps should not be disturbed by this background stuff...
-
- #echo $LINENO $TOGGLE
  if test -f "/tmp/pup_event_icon_change_flag" ;then #1
  clear_desk_icons_func
- [ -f /etc/eventmanager ] && . /etc/eventmanager
+ [ -f /etc/eventmanager.conf ] && . /etc/eventmanager.conf
  POWERTIMEOUT=$(($POWERTIMEOUT * 60));RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60))
  pup_event_frontend_d_start_func
  sleep 1
  rm $VERB -f /tmp/pup_event_icon_change_flag
+
+ # REM: Restart forked ramsave interval function
+   echo "RAMSAVEINTERVAL=$RAMSAVEINTERVAL'"
+   if [ "$RAMSAVEINTERVAL" -ne 0 ]; then
+
+    if ps -o pid | grep -w "$rsiPID" | grep $Q -v grep; then
+     kill -9 $rsiPID
+     Err=$?
+    else Err=0
+    fi
+
+    if [ "$Err" = 0 ]; then
+     function_ramsaveinterval & rsiPID=$!
+    fi
+   fi
+ # REM: Restart forked powertimeout function
+   CURPOS1=1
+   CURPOS2=1
+   echo "POWERTIMEOUT=$POWERTIMEOUT'"
+ if [ "$POWERTIMEOUT" -ne 0 ]; then
+
+   if ps -o pid | grep -w "$ptoPID" | grep $Q -v grep; then
+     kill -9 $ptoPID
+     Err=$?
+    else Err=0
+   fi
+
+   if [ "$Err" = 0 ]; then
+     function_powertimeout & ptoPID=$!
+   fi
+  fi
+  Err=
  fi #1
 
+ #some apps should not be disturbed by this background stuff...
  #echo $TOGGLE
  RUNPS=`ps`
  #w482 add xorriso...
@@ -1380,29 +1178,9 @@ fi
    free_func
   ;;
  esac
-# echo "probe_parts at end of loop"
-# [ "$ICONDESK" = "false" ] && continue #v405 see /etc/eventmanager
- #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
-# while read -r oneOPTICAL ; do
-#  [ "$oneOPTICAL" ] || continue
-#  oneOPTICAL=`echo "${oneOPTICAL%%|*}" | cut -f3 -d'/'`
-#  probe_optical_func $oneOPTICAL
-#  sleep 2s
-# done<<EOI
-#$(echo "$PROBEDISK2_LOOP_NEW" | grep -i '|optical|')
-#EOI
 
- #v407 poll to see if a ls120 or zip floppy diskette inserted...
-# while read -r oneFLOPPY ; do
-#  [ "$oneFLOPPY" ] || continue
-#  oneFLOPPY=`echo "${oneFLOPPY%%|*}" | cut -f3 -d'/'`
-#  probe_floppy_func $oneFLOPPY
-# done<<EOI
-#$(echo "$PROBEDISK2_LOOP_NEW" | grep -i '|floppy|')
-#EOI
-
+#3 second loop.
 done
-#4 second loop.
 
 echo
 
