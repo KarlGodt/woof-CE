@@ -48,8 +48,8 @@ _debugt 8D $_DATE_
 #       without disturbing other scripts that use f4puppy5
 Q=-q
 QUIET=--quiet
-DEBUG=
-DEBUGX=
+DEBUG=1
+DEBUGX=1
 test "$DEBUG" && QUIET='';
 INFO=1
 
@@ -146,7 +146,9 @@ _debug "_string_to_octal:STRING='$STRING'" >&2
 
 while read -r oneCHAR
 do
-oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+#oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+oneCHAR=${oneCHAR#\"}
+oneCHAR=${oneCHAR%\"}
 oCHAR=`printf %o \'"$oneCHAR"`
 
 oSTRING=$oSTRING"\\0$oCHAR"
@@ -167,7 +169,9 @@ do
  while read -r oneCHAR
  do
  _debugx "oneCHAR='$oneCHAR'"   >&2
- oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ #oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ oneCHAR=${oneCHAR#\"}
+ oneCHAR=${oneCHAR%\"}
  _debug "oneCHAR='$oneCHAR'"    >&2
  oCHAR=`printf %o \'"$oneCHAR"`
  _debug "oCHAR='$oCHAR'"        >&2
