@@ -47,7 +47,7 @@ LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
 test "$LANG" = C || {
     echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8; }
-# REM: gdk/gtk may complain if files are not in /usr/share/locale/*utf8/    
+# REM: gdk/gtk may complain if files are not in /usr/share/locale/*utf8/
 test -e /usr/lib/locale/"$LANG_ROX"/LC_MESSAGES || LANG_ROX=$LANG
 test -e /usr/lib/locale/"$LANG_ROX"/LC_MESSAGES || LANG_ROX=C
 _info "using '$LANG_ROX'"
@@ -123,7 +123,9 @@ _debug "_string_to_octal:STRING='$STRING'" >&2
 
 while read -r oneCHAR
 do
-oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+#oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+oneCHAR=${oneCHAR#\"}
+oneCHAR=${oneCHAR%\"}
 oCHAR=`printf %o \'"$oneCHAR"`
 
 oSTRING=$oSTRING"\\0$oCHAR"
@@ -143,7 +145,9 @@ do
  while read -r oneCHAR
  do
  _debugx "oneCHAR='$oneCHAR'"   >&2
- oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ #oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
+ oneCHAR=${oneCHAR#\"}
+ oneCHAR=${oneCHAR%\"}
  _debug "oneCHAR='$oneCHAR'"    >&2
  oCHAR=`printf %o \'"$oneCHAR"`
  _debug "oCHAR='$oCHAR'"        >&2
