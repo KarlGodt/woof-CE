@@ -337,10 +337,13 @@ cat_proc_func
 
 ######FIN
 rox $RMD/$KV &
+
+_open_files_with_geany(){
 for i in $RMD/$KV/* ; do
 geany $i &
 sleep 1s #10
 done
+}
 
 exit
 #####END
