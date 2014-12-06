@@ -81,7 +81,7 @@ unmount_func(){
 
  while [ 1 ];do
 
-  umount "$MNTPT" ; umVAL=$?
+  /bin/umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
    #ZOMBIES=`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
@@ -91,7 +91,7 @@ unmount_func(){
     echo "Killing parentless zombie process $oneZOMBIE"
     kill $oneZOMBIE
    done
-   umount "$MNTPT" ; umVAL=$?
+   /bin/umount "$MNTPT" ; umVAL=$?
   fi
 
   #rare ocassion, partition got unmounted before umount runs above...
@@ -130,6 +130,11 @@ ${LOOP_MSG_} $device $path_to_file"
 `echo "$LOOPS_ALL"`
 EoI
 
+ # REM: TODO: umount loop devices too
+ # fi
+ # umount "$MNTPT" ; umVAL=$?
+ # if  [ $umVAL -ne 0 ];then
+
    EXTRA_FUSER_MSG0=`fuser -v -m "$MNTPT" 2>&1`
 
 EXTRA_MSG0="$EXTRA_LOOP_MSG0
@@ -138,11 +143,14 @@ $EXTRA_FUSER_MSG0"
    EXTRA_MSG0=`echo "$EXTRA_MSG0" | sed '/^$/d'`
 
    if [ "$EXTRA_MSG0" = "" ];then
-    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
+    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center -title 'FAILURE!' "Failed to unmount $MNTPT
+
+In the case of removable media, the most
 common reason is the media is not currently inserted.
 If so, please remedy."
    else
-    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 "FAILURE! One or more processes (programs) are currently
+    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 -title 'FAILURE!' "Failed to unmount $MNTPT
+ One or more processes (programs) are currently
 using /dev/${oneDRVNAME}. Here they are:
 $EXTRA_MSG0
 
@@ -175,17 +183,23 @@ _debug "\$0:$0 -- \$*: '$*' \$#=$#"
 echo "MY_SELF='$MY_SELF'"
 unset MY_SELF
 echo "MY_SELF='$MY_SELF'"
+
 case "$0" in
 *./*|*../*)
  MY_SELF=`readlink -f "$0"`
  echo "MY_SELF='$MY_SELF'"
 ;;
 esac
+
 [ "$MY_SELF" ] || MY_SELF="$0" # precaution
 echo "MY_SELF='$MY_SELF'"
 
+#extract drive name from end of the script name...
+#note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
+#however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
 oneDRVNAME=`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 _info "oneDRVNAME='$oneDRVNAME'"
+
 
 _run_pmount_too(){
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
@@ -218,6 +232,7 @@ if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
 is in use by Puppy. You cannot unmount it."
   exit
  fi
+ [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
  unmount_func
  exit
 fi
@@ -228,11 +243,13 @@ _unmount_all(){
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 if [ "$1" = "unmountall" ];then
  #for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
- for MNTPT in `awk '{if (match($1, "/dev/.*[0-9]$") || $1 == "/dev/[fmsh].*[0-9]") print $1}' /proc/mounts`
+ for MNTPT in `awk '{if (match($1, "/dev/.*[0-9]$") || $1 == "/dev/[fmsh].*[0-9]") print $3}' /proc/mounts`
  do
  #MNTPT=`echo "$MNTPT" | tr '\`' ' '`
+  [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
   _info "umountall: Attempt to unmount MNTPT='$MNTPT'"
   unmount_func
+  wait $yPID
  done
  exit $?
 fi
@@ -430,7 +447,7 @@ if [ "$FSTYPE" != "" ];then
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    mount -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
    FAT|Fat|FAT*|Fat*|fat*|vfat)
@@ -448,14 +465,14 @@ if [ "$FSTYPE" != "" ];then
       ;;
      esac
     fi
-    mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    /bin/mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
     RETVAL1=$?
     ;;
    *)
     FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
     MOUNT_OPT=rw                   ##+++2013-04-23
     [ "$FSTYPE" = iso9660 -o "$FSTYPE" = udf ] && MOUNT_OPT=ro
-    mount -t $FSTYPE -o $MOUNT_OPT /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount -t $FSTYPE -o $MOUNT_OPT /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
   esac
