@@ -1,0 +1,301 @@
+2.4 Sleeping State Definitions
+Sleeping states (Sx states) are types of sleeping states within the global sleeping state, G1. The Sx states are
+briefly defined below. For a detailed definition of the system behavior within each Sx state, see section
+7.3.4, “System \_Sx States.” For a detailed definition of the transitions between each of the Sx states, see
+section 15.1, “Sleeping States.”
+S1 Sleeping State
+     The S1 sleeping state is a low wake latency sleeping state. In this state, no system context is lost (CPU
+     or chip set) and hardware maintains all system context.
+S2 Sleeping State
+     The S2 sleeping state is a low wake latency sleeping state. This state is similar to the S1 sleeping state
+     except that the CPU and system cache context is lost (the OS is responsible for maintaining the caches
+     and CPU context). Control starts from the processor’s reset vector after the wake event.
+S3 Sleeping State
+     The S3 sleeping state is a low wake latency sleeping state where all system context is lost except
+     system memory. CPU, cache, and chip set context are lost in this state. Hardware maintains memory
+     context and restores some CPU and L2 configuration context. Control starts from the processor’s reset
+     vector after the wake event.
+S4 Sleeping State
+     The S4 sleeping state is the lowest power, longest wake latency sleeping state supported by ACPI. In
+     order to reduce power to a minimum, it is assumed that the hardware platform has powered off all
+     devices. Platform context is maintained.
+S5 Soft Off State
+     The S5 state is similar to the S4 state except that the OS does not save any context. The system is in
+     the “soft” off state and requires a complete boot when it wakes. Software uses a different state value to
+     distinguish between the S5 state and the S4 state to allow for initial boot operations within the BIOS to
+     distinguish whether or not the boot is going to wake from a saved memory image.
+
+7.3.4.1 System \_S0 State (Working)
+While the system is in the S0 state, it is in the system working state. The behavior of this state is defined as:
+• The processors are in the C0, C1, C2, or C3 states. The processor-complex context is maintained and
+    instructions are executed as defined by any of these processor states.
+• Dynamic RAM context is maintained and is read/write by the processors.
+• Devices states are individually managed by the operating software and can be in any device state (D0,
+    D1, D2, or D3).
+• Power Resources are in a state compatible with the current device states.
+Transition into the S0 state from some system sleeping state is automatic, and by virtue that instructions are
+being executed OSPM, assumes the system to be in the S0 state.
+7.3.4.2 System \_S1 State (Sleeping with Processor Context Maintained)
+While the system is in the S1 sleeping state, its behavior is the following:
+• The processors are not executing instructions. The processor-complex context is maintained.
+• Dynamic RAM context is maintained.
+• Power Resources are in a state compatible with the system S1 state. All Power Resources that supply a
+    System-Level reference of S0 are in the OFF state.
+• Devices states are compatible with the current Power Resource states. Only devices that solely
+    reference Power Resources that are in the ON state for a given device state can be in that device state.
+    In all other cases, the device is in the D3 (off) state 10 .
+• Devices that are enabled to wake the system and that can do so from their current device state can
+    initiate a hardware event that transitions the system state to S0. This transition causes the processor to
+    continue execution where it left off.
+To transition into the S1 state, the OSPM must flush all processor caches.
+7.3.4.3 System \_S2 State
+The S2 sleeping state is logically lower than the S1 state and is assumed to conserve more power. The
+behavior of this state is defined as:
+• The processors are not executing instructions. The processor-complex context is not maintained.
+• Dynamic RAM context is maintained.
+• Power Resources are in a state compatible with the system S2 state. All Power Resources that supply a
+     System-Level reference of S0 or S1 are in the OFF state.
+• Devices states are compatible with the current Power Resource states. Only devices that solely
+     reference Power Resources that are in the ON state for a given device state can be in that device state.
+     In all other cases, the device is in the D3 (off) state.
+• Devices that are enabled to wake the system and that can do so from their current device state can
+     initiate a hardware event that transitions the system state to S0. This transition causes the processor to
+     begin execution at its boot location. The BIOS performs initialization of core functions as needed to
+     exit an S2 state and passes control to the firmware resume vector. See section 15.3.2, “BIOS
+     Initialization of Memory,” for more details on BIOS initialization.
+Because the processor context can be lost while in the S2 state, the transition to the S2 state requires that
+the operating software flush all dirty cache to dynamic RAM (DRAM).
+10
+   Or it is at least assumed to be in the D3 state by its device driver. For example, if the device doesn’t
+explicitly describe how it can stay in some state non-off state while the system is in a sleeping state, the
+operating software must assume that the device can lose its power and state.
+                              Hewlett-Packard/Intel/Microsoft/Phoenix/Toshiba
+7.3.4.4 System \_S3 State
+The S3 state is logically lower than the S2 state and is assumed to conserve more power. The behavior of
+this state is defined as follows:
+• The processors are not executing instructions. The processor-complex context is not maintained.
+• Dynamic RAM context is maintained.
+• Power Resources are in a state compatible with the system S3 state. All Power Resources that supply a
+     System-Level reference of S0, S1, or S2 are in the OFF state.
+• Devices states are compatible with the current Power Resource states. Only devices that solely
+     reference Power Resources that are in the ON state for a given device state can be in that device state.
+     In all other cases, the device is in the D3 (off) state.
+• Devices that are enabled to wake the system and that can do so from their current device state can
+     initiate a hardware event that transitions the system state to S0. This transition causes the processor to
+     begin execution at its boot location. The BIOS performs initialization of core functions as necessary to
+     exit an S3 state and passes control to the firmware resume vector. See section 15.3.2, “BIOS
+     Initialization of Memory,” for more details on BIOS initialization.
+From the software viewpoint, this state is functionally the same as the S2 state. The operational difference
+can be that some Power Resources that could be left ON to be in the S2 state might not be available to the
+S3 state. As such, additional devices may need to be in a logically lower D0, D1, D2, or D3 state for S3
+than S2. Similarly, some device wake events can function in S2 but not S3.
+Because the processor context can be lost while in the S3 state, the transition to the S3 state requires that
+the operating software flush all dirty cache to DRAM.
+7.3.4.5 System \_S4 State
+While the system is in this state, it is in the system S4 sleeping state. The state is logically lower than the
+S3 state and is assumed to conserve more power. The behavior of this state is defined as follows:
+• The processors are not executing instructions. The processor-complex context is not maintained.
+• DRAM context is not maintained.
+• Power Resources are in a state compatible with the system S4 state. All Power Resources that supply a
+     System-Level reference of S0, S1, S2, or S3 are in the OFF state.
+• Devices states are compatible with the current Power Resource states. In other words, all devices are in
+     the D3 state when the system state is S4.
+• Devices that are enabled to wake the system and that can do so from their device state in S4 can initiate
+     a hardware event that transitions the system state to S0. This transition causes the processor to begin
+     execution at its boot location.
+After OSPM has executed the _PTS control method and has put the entire system state into main memory,
+there are two ways that OSPM may handle the next phase of the S4 state transition; saving and restoring
+main memory. The first way is to use the operating system’s drivers to access the disks and file system
+structures to save a copy of memory to disk and then initiate the hardware S4 sequence by setting the
+SLP_EN register bit. When the system wakes, the firmware performs a normal boot process and transfers
+control to the OS via the firmware_waking_vector loader. The OS then restores the system’s memory and
+resumes execution.
+The alternate method for entering the S4 state is to utilize the BIOS via the S4BIOS transition. The BIOS
+uses firmware to save a copy of memory to disk and then initiates the hardware S4 sequence. When the
+system wakes, the firmware restores memory from disk and wakes OSPM by transferring control to the
+FACS waking vector.
+The S4BIOS transition is optional, but any system that supports this mechanism must support entering the
+S4 state via the direct OS mechanism. Thus the preferred mechanism for S4 support is the direct OS
+mechanism as it provides broader platform support. The alternate S4BIOS transition provides a way to
+achieve S4 support on operating systems that do not have support for the direct method.
+                             Hewlett-Packard/Intel/Microsoft/Phoenix/Toshiba
+7.3.4.6 System \_S5 State (Soft Off)
+ The S5 state is similar to the S4 state except that OSPM does not save any context. The system is in the
+soft off state and requires a complete boot when awakened (BIOS and OS). Software uses a different state
+value to distinguish between this state and the S4 state to allow for initial boot operations within the BIOS
+to distinguish whether or not the boot is going to wake from a saved memory image. OSPM does not
+disable wake events before setting the SLP_EN bit when entering the S5 system state. This provides
+support for remote management initiatives by enabling Remote Start capability. An ACPI-compliant OS
+must provide an end user accessible mechanism for disabling all wake devices, with the exception of the
+system power button, from a single point in the user interface.
+2.2 Global System State Definitions
+Global system states (Gx states) apply to the entire system and are visible to the user.
+Global system states are defined by six principal criteria:
+    1. Does application software run?
+    2. What is the latency from external events to application response?
+    3. What is the power consumption?
+    4. Is an OS reboot required to return to a working state?
+    5. Is it safe to disassemble the computer?
+    6. Can the state be entered and exited electronically?
+Following is a list of the system states:
+G3 Mechanical Off
+    A computer state that is entered and left by a mechanical means (for example, turning off the system’s
+    power through the movement of a large red switch). Various government agencies and countries
+    require this operating mode. It is implied by the entry of this off state through a mechanical means that
+    no electrical current is running through the circuitry and that it can be worked on without damaging the
+    hardware or endangering service personnel. The OS must be restarted to return to the Working state.
+    No hardware context is retained. Except for the real-time clock, power consumption is zero.
+G2/S5 Soft Off
+    A computer state where the computer consumes a minimal amount of power. No user mode or system
+    mode code is run. This state requires a large latency in order to return to the Working state. The
+    system’s context will not be preserved by the hardware. The system must be restarted to return to the
+    Working state. It is not safe to disassemble the machine in this state.
+G1 Sleeping
+    A computer state where the computer consumes a small amount of power, user mode threads are not
+    being executed, and the system “appears” to be off (from an end user’s perspective, the display is off,
+    and so on). Latency for returning to the Working state varies on the wake environment selected prior to
+    entry of this state (for example, whether the system should answer phone calls). Work can be resumed
+    without rebooting the OS because large elements of system context are saved by the hardware and the
+    rest by system software. It is not safe to disassemble the machine in this state.
+G0 Working
+    A computer state where the system dispatches user mode (application) threads and they execute. In this
+    state, peripheral devices (peripherals) are having their power state changed dynamically. The user can
+    select, through some UI, various performance/power characteristics of the system to have the software
+    optimize for performance or battery life. The system responds to external events in real time. It is not
+    safe to disassemble the machine in this state.
+ 20 Advanced Configuration and Power Interface Specification
+ S4 Non-Volatile Sleep
+      A special global system state that allows system context to be saved and restored (relatively slowly)
+      when power is lost to the motherboard. If the system has been commanded to enter S4, the OS will
+      write all system context to a file on non-volatile storage media and leave appropriate context markers.
+      The machine will then enter the S4 state. When the system leaves the Soft Off or Mechanical Off state,
+      transitioning to Working (G0) and restarting the OS, a restore from a NVS file can occur. This will
+      only happen if a valid non-volatile sleep data set is found, certain aspects of the configuration of the
+      machine have not changed, and the user has not manually aborted the restore. If all these conditions are
+      met, as part of the OS restarting, it will reload the system context and activate it. The net effect for the
+      user is what looks like a resume from a Sleeping (G1) state (albeit slower). The aspects of the machine
+      configuration that must not change include, but are not limited to, disk layout and memory size. It
+      might be possible for the user to swap a PC Card or a Device Bay device, however.
+      Notice that for the machine to transition directly from the Soft Off or Sleeping states to S4, the system
+      context must be written to non-volatile storage by the hardware; entering the Working state first so that
+      the OS or BIOS can save the system context takes too long from the user’s point of view. The
+      transition from Mechanical Off to S4 is likely to be done when the user is not there to see it.
+      Because the S4 state relies only on non-volatile storage, a machine can save its system context for an
+      arbitrary period of time (on the order of many years).
+                                 Table 2-1 Summary of Global Power States
+                                                                                  Safe to
+Global            Software                         Power           OS restart     disassemble       Exit state
+system state      runs         Latency             consumption     required       computer          electronically
+G0 Working        Yes          0                   Large           No             No                Yes
+G1 Sleeping       No           >0, varies with     Smaller         No             No                Yes
+                               sleep state
+G2/S5 Soft        No           Long                Very near 0     Yes            No                Yes
+Off
+G3                No           Long                RTC battery     Yes            Yes               No
+Mechanical
+Off
+ Notice that the entries for G2/S5 and G3 in the Latency column of the above table are “Long.” This implies
+ that a platform designed to give the user the appearance of “instant-on,” similar to a home appliance device,
+ will use the G0 and G1 states almost exclusively (the G3 state may be used for moving the machine or
+ repairing it).
+2.3 Device Power State Definitions
+Device power states are states of particular devices; as such, they are generally not visible to the user. For
+example, some devices may be in the Off state even though the system as a whole is in the Working state.
+Device states apply to any device on any bus. They are generally defined in terms of four principal criteria:
+• Power consumption. How much power the device uses.
+• Device context. How much of the context of the device is retained by the hardware. The OS is
+     responsible for restoring any lost device context (this may be done by resetting the device).
+• Device driver. What the device driver must do to restore the device to full on.
+• Restore time. How long it takes to restore the device to full on.
+The device power states are defined below, although very generically. Many devices do not have all four
+power states defined. Devices may be capable of several different low-power modes, but if there is no user-
+perceptible difference between the modes, only the lowest power mode will be used. The Device Class
+Power Management Specifications, included in Appendix A of this specification, describe which of these
+power states are defined for a given type (class) of device and define the specific details of each power state
+for that device class. For a list of the available Device Class Power Management Specifications, see
+“Appendix A: Device Class Specifications.”
+D3 Off
+     Power has been fully removed from the device. The device context is lost when this state is entered, so
+     the OS software will reinitialize the device when powering it back on. Since device context and power
+     are lost, devices in this state do not decode their address lines. Devices in this state have the longest
+     restore times. All classes of devices define this state.
+D2
+     The meaning of the D2 Device State is defined by each device class. Many device classes may not
+     define D2. In general, D2 is expected to save more power and preserve less device context than D1 or
+     D0. Buses in D2 may cause the device to lose some context (for example, by reducing power on the
+     bus, thus forcing the device to turn off some of its functions).
+D1
+     The meaning of the D1 Device State is defined by each device class. Many device classes may not
+     define D1. In general, D1 is expected to save less power and preserve more device context than D2.
+D0 Fully-On
+     This state is assumed to be the highest level of power consumption. The device is completely active
+     and responsive, and is expected to remember all relevant context continuously.
+                                Table 2-2 Summary of Device Power States
+  Device State          Power Consumption         Device Context Retained    Driver Restoration
+  D0 - Fully-On        As needed for              All                        None
+                        operation
+  D1                    D0>D1>D2>D3               >D2                        <D2
+  D2                    D0>D1>D2>D3               <D1                        >D1
+  D3 - Off             0                          None                       Full initialization and load
+Note: Devices often have different power modes within a given state. Devices can use these modes as long
+as they can automatically transparently switch between these modes from the software, without violating
+the rules for the current Dx state the device is in. Low-power modes that adversely affect performance (in
+other words, low speed modes) or that are not transparent to software cannot be done automatically in
+hardware; the device driver must issue commands to use these modes.
+                            Hewlett-Packard/Intel/Microsoft/Phoenix/Toshiba
+2.5 Processor Power State Definitions
+Processor power states (Cx states) are processor power consumption and thermal management states within
+the global working state, G0. The Cx states possess specific entry and exit semantics and are briefly defined
+below. For a more detailed definition of each Cx state, see section 8.1, “Processor Power States.”
+C0 Processor Power State
+     While the processor is in this state, it executes instructions.
+C1 Processor Power State
+     This processor power state has the lowest latency. The hardware latency in this state must be low
+     enough that the operating software does not consider the latency aspect of the state when deciding
+     whether to use it. Aside from putting the processor in a non-executing power state, this state has no
+     other software-visible effects.
+C2 Processor Power State
+     The C2 state offers improved power savings over the C1 state. The worst-case hardware latency for
+     this state is provided via the ACPI system firmware and the operating software can use this
+     information to determine when the C1 state should be used instead of the C2 state. Aside from putting
+     the processor in a non-executing power state, this state has no other software-visible effects.
+C3 Processor Power State
+     The C3 state offers improved power savings over the C1 and C2 states. The worst-case hardware
+     latency for this state is provided via the ACPI system firmware and the operating software can use this
+     information to determine when the C2 state should be used instead of the C3 state. While in the C3
+     state, the processor’s caches maintain state but ignore any snoops. The operating software is
+     responsible for ensuring that the caches maintain coherency.
+                              Hewlett-Packard/Intel/Microsoft/Phoenix/Toshiba
+2.6 Device and Processor Performance State Definitions
+Device and Processor performance states (Px states) are power consumption and capability states within the
+active/executing states, C0 for processors and D0 for devices. The Px states are briefly defined below. For a
+more detailed definition of each Px state from a processor perspective, see section 8.4.4, “Processor
+Performance Control.” For a more detailed definition of each Px state from a device perspective see section
+3.6, “Device and Processor Performance States,” and the device class specifications in Appendix A.
+P0 Performance State
+     While a device or processor is in this state, it uses its maximum performance capability and may
+     consume maximum power.
+P1 Performance State
+     In this performance power state, the performance capability of a device or processor is limited below
+     its maximum and consumes less than maximum power.
+Pn Performance State
+     In this performance state, the performance capability of a device or processor is at its minimum level
+     and consumes minimal power while remaining in an active state. State n is a maximum number and is
+     processor or device dependent. Processors and devices may define support for an arbitrary number of
+     performance states not to exceed 16.
+Copyright © 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Hewlett-Packard Corporation,
+Intel Corporation, Microsoft Corporation, Phoenix Technologies Ltd., Toshiba Corporation
+All rights reserved.
+INTELLECTUAL PROPERTY DISCLAIMER
+THIS SPECIFICATION IS PROVIDED “AS IS” WITH NO WARRANTIES WHATSOEVER INCLUDING
+ANY WARRANTY OF MERCHANTABILITY, FITNESS FOR ANY PARTICULAR PURPOSE, OR ANY
+WARRANTY OTHERWISE ARISING OUT OF ANY PROPOSAL, SPECIFICATION, OR SAMPLE.
+NO LICENSE, EXPRESS OR IMPLIED, BY ESTOPPEL OR OTHERWISE, TO ANY INTELLECTUAL
+PROPERTY RIGHTS IS GRANTED OR INTENDED HEREBY.
+HP, INTEL, MICROSOFT, PHOENIX, AND TOSHIBA DISCLAIM ALL LIABILITY, INCLUDING
+LIABILITY FOR INFRINGEMENT OF PROPRIETARY RIGHTS, RELATING TO IMPLEMENTATION
+OF INFORMATION IN THIS SPECIFICATION. HP, INTEL, MICROSOFT, PHOENIX, AND TOSHIBA DO
+NOT WARRANT OR REPRESENT THAT SUCH IMPLEMENTATION(S) WILL NOT INFRINGE SUCH
+RIGHTS.
+Microsoft, Win32, Windows, and Windows NT are registered trademarks of Microsoft Corporation.
+All other product names are trademarks, registered trademarks, or service marks of their respective owners.
