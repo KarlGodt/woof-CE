@@ -923,8 +923,8 @@ case $PUPMODE in
    mkdir -p /mnt/$xPDEV
    mount $VERB $VERB -t $xDEVFS /dev/$xPDEV /mnt/$xPDEV
    if [ ! $? -eq 0 ];then
-    echo "ERROR: unable to mount /dev/$xPDEV, cannot save." >/dev/console
-    exit
+    echo -e "\\033[0;31mERROR: unable to mount /dev/$xPDEV, cannot save...\\033[0;39m" >/dev/console
+    exit  ##TODO
    fi
    DEV1MNT="/mnt/$xPDEV"
   fi
@@ -1055,7 +1055,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
        cp $VERB -f "$oneSFS" "$saveMOUNT_POINT"/
        [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
       else
-       echo "Insufficient space! Cannot copy '$BASESFS'" >/dev/console
+       echo -e "\\033[1;31mInsufficient space! Cannot copy '$BASESFS'\\033[0;39m" >/dev/console
        break
       fi
      done
@@ -1078,16 +1078,16 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   multisavefunc
   ;;
  2)
-  echo "$PDEV1 mounted directly, session already saved." >/dev/console
+  echo -e "\\033[0;32m$PDEV1 mounted directly, session already saved.\\033[0;39m" >/dev/console
   ;;
  12)
-  echo "`basename $SAVEFILE` mounted directly top layer, session already saved." >/dev/console
+  echo -e "\\033[0;32m`basename $SAVEFILE` mounted directly top layer, session already saved.\\033[0;39m" >/dev/console
   ;;
  6)
-  echo "$PDEV1 mounted directly top layer, session already saved." >/dev/console
+  echo -e "\\033[0;32m$PDEV1 mounted directly top layer, session already saved.\\033[0;39m" >/dev/console
   ;;
  5) #v2.02 first boot.
-  echo "Session not saved" >/dev/console
+  echo -e "\\033[0;35mSession not saved\\033[0;39m" >/dev/console
   _sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
@@ -1096,7 +1096,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
  *)
-  echo "Session not saved" >/dev/console
+  echo -e "\\033[0;31mUnhandled PUPMODE '$PUPMODE' :Session not saved ...\\033[0;39m" >/dev/console
   sleep 2
   ;;
 esac
@@ -1129,15 +1129,18 @@ fi
 mkdir -p    /root/my-documents/boot
 rm -rf      /root/my-documents/boot/tmp.old
 cp $VERB -a /tmp /root/my-documents/boot/tmp.old
+
 ###+++2011-12-04
 rm -f  /var/lock/LCK*
 rm -f  /var/run/*.pid
 rm -rf /root/tmp/* /root/tmp/.[[:alnum:]]* 1>>$OUT 2>>$ERR  #...note, not screening this out in any of above save modes.
+
 if [ "$PUPMODE" != "2" ]; then
-    echo "removing thumbnails" > /dev/console
+    echo -e "\\033[0;33mRemoving thumbnails...\\033[0;39m" > /dev/console
     rm -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
+
 else #KRG
-FP=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`/bin/df | grep -m1 -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
  if test "$FP" -lt 5; then
   echo -e "\\033[0;31mFull install , free space lesser than 5%; removing thumbnails\\033[0;39m" >/dev/console
   rm -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
@@ -1223,7 +1226,7 @@ else
  _status $?
 fi
 done
-}
+}  ###__old_unmount__(){
 
 ### 2014-11-15 ###
 
@@ -1324,7 +1327,7 @@ swapoff -a  #busybox swapoff -a works only if swaps are in mtab or ftab
 STRAYPARTD=`cat /proc/swaps | grep "/dev/" | grep -v 'deleted' | cut -f 1 -d " "`
 for oneSTRAY in $STRAYPARTD
 do
- echo -e "\\033[0;34mSwapoff $oneSTRAY\\033[0;39m " #>/dev/console
+ echo -e "\\033[0;34mSwapoff $oneSTRAY\\033[0;39m " >/dev/console
  swapoff $VERB "$oneSTRAY" &
 done
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
@@ -1354,25 +1357,37 @@ if [ "`busybox mount | grep "$absPUP_HOME"`" != "" ];then
 fi
 ### kill ###
 
+
 ### unmounting frugal save file or partition ###
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ];then
  [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
   SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
+
+ echo -en "\\033[1;33mAttempting to remount $SAVEDEV /initrd${SAVE_LAYER} type $SAVEFS read-only..\\033[0;39m" >/dev/console
  busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>>$ERR
+ _status $?
+
+ echo -en "\\033[1;33mAttempting to unmount /initrd/${SAVE_LAYER} ..\\033[0;39m." >/dev/console
  umount-FULL $VERB -i -n -l /initrd/${SAVE_LAYER} 2>>$ERR  #-l is lazy unmount.
+ _status $?
+
 fi
 ### unmounting frugal save file or partition ###
+
 
 ### unmounting evtl ntfs ###
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
 MNTFUSE=`mount | grep 'fuse' | head -n 1 |awk -F '"' '{print $4}'`
 if [ "$MNTFUSE" != "" ];then
  #v2.17 hairywill found the -u is required with -z...
+ echo -en "\\033[1;33mAttempting to unmount $MNTFUSE ...\\033[0;39m" >/dev/console
  fusermount -z -u $MNTFUSE
+ _status $?
 fi
 ### unmounting evtl ntfs ###
+
 
 ###+++2011-12-04
 [ "$FORCE" ] || {
@@ -1390,6 +1405,8 @@ sleep 5s
  fi
 fi
 }
+
+
 
 [ "$FORCE" ] || {
 ##+++2013-04-29
@@ -1458,34 +1475,38 @@ fi
 case $PUPMODE in
 2)
 _mount_root_ro_pupmode_2(){
-echo "Mounting '/' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/root /
 MAIN_RET_VAL=$?
+_status $MAIN_RET_VAL
 }
 MAIN_RET_VAL=0
 ;;
 3)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
 ;;
 5)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ... " >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
+_status $MAIN_RET_VAL
 ;;
 6)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
+_status $MAIN_RET_VAL
 ;;
 7)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
+_status $MAIN_RET_VAL
 ;;
 12)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
  case $MAIN_RET_VAL in
@@ -1496,9 +1517,10 @@ MAIN_RET_VAL=$?
  esac
 ;;
 13)
-echo "Mounting '/dev/$PDEV1' read-only ... "
+echo -e "\\033[1;33mAttempting to mount '/dev/$PDEV1' read-only ...\\033[0;39m" >/dev/console
 mount $VERB $VERB -s -o remount,ro /dev/$PDEV1
 MAIN_RET_VAL=$?
+_status $MAIN_RET_VAL
 ;;
 77)  ## Multi Session DVD
 :
