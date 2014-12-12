@@ -163,6 +163,313 @@ fi
 }
 
 
+#================ Make free loop device ======================================
+__mk_free_loop()
+{
+  FREE_LOOP=`losetup -f 2>>$ERR`  # find free and create loop
+  [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
+  LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
+  LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+  LOOP_NEW=$(( $LOOP_LAST + 1 ))
+  mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+  }
+}
+
+_mk_free_loop(){
+    losetup -f >>$OUT 2>>$ERR || {
+    read NR <<EoI
+`echo $(ls /dev/loop[0-9]*) | wc -w`
+EoI
+    mknod /dev/loop$((NR+1)) b 7 $((NR+1))
+}; }
+
+_killzombies()
+{
+ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
+ ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -vE 'grep|\|\|\|' | awk '{print $1}'`"
+ ZOMBIES=`_command ps -H -A | awk '{if ($3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs") print $1}'`
+ ZOMBIES=`_command ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'`
+ for oneZOMBIE in $ZOMBIES
+ do
+  _command ps --no-header -p $oneZOMBIE || continue
+  _notice " :Killing (parentless) zombie process '$oneZOMBIE' ..."
+  kill $oneZOMBIE
+ done
+}
+
+#================= Check /tmp if read-write ==================================
+_check_proc()
+{
+  mountpoint $Q /proc && return $? || {
+  busybox mount $VERB $VERB -o remount,rw /dev/root/ /
+  test -d /proc || mkdir -p /proc
+  busybox mount $VERB $VERB -t proc proc /proc
+  return $?
+ }
+}
+
+_check_tmp()
+{
+ test -d /tmp && return $? || {
+ local STATUS_
+ busybox mount $VERB $VERB -o remount,rw /dev/root/ /
+ STATUS_=$((STATUS_+$?))
+ mkdir -p /tmp
+ STATUS_=$((STATUS_+$?))
+ chmod $VERB 1777 /tmp
+ STATUS_=$((STATUS_+$?))
+ return $STATUS_
+ }
+}
+
+_check_tmp_rw()
+{
+_check_proc || _crit "Difficulties with /proc  .."
+_check_tmp  || _crit "Difficulties with /tmp  .."
+
+mountpoint $Q /tmp && {
+grep  ' /tmp ' /proc/mounts    | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp;   return $?; }
+ } || {
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
+ }
+}
+
+#============= Avoid multiple instances of sync ==============================
+# busybox CONFIG_FEATURE_ SH_STANDALONE=y and SH_NOFORK=y do not emit a PID
+[ "`which sync`" ] && alias sync="`which sync`"
+_sync()
+{
+pidof sync >>$OUT || sync
+}
+
+_part_umount_func(){
+
+rootSCREEN_XY=`_get_screen_resolution`     || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ #rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+
+                    local M_POI M_OPS mpart_ yPID
+
+ MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "`
+
+ M_POI=`echo "$MOUNTED" | awk '{print $2}'`
+ M_POI=`echo -e "$M_POI"`
+
+ M_OPS=`echo "$MOUNTED" | awk '{print $4}'`
+ M_OPS=`echo -e "$M_OPS"`
+
+ M_DEV=`echo "$MOUNTED" | awk '{print $1}'`
+ M_DEV=`echo -e "$M_DEV"`
+
+for mpart_ in $M_POI;
+do
+
+    ## BIG PROBLEM un-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/umount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 5 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 1 Exit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # xmessage -bg orange "Slow drive '$mpart_' is mounted ..!
+    # Please un-mount it manually,
+    # and try to put the machine to sleep again !!"
+    # exit 1
+    #;;
+    #esac
+
+    ## Solution Nr. 3 Omit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    yaf-splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+
+    ##Solution Nr. 2 and 4 Reasonable or BIG sleep :
+    case $mpart_ in
+    */sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    esac
+
+    /bin/umount $VERB -r "$mpart_"
+[ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mpart_' manually and try again";exit 0; }
+
+    ## Solution Nr. 2 Reasonable sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 15 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 15 seconds.." &
+    # sleep 15;;
+    #esac
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg pink3 -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to stop the drive
+    case $mpart_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      hdparm $L_VERB -C /dev/${mpart_##*/} | grep $Q 'active' && {
+           MSG="ERROR: Drive '/dev/${mpart_##*/}' still recognized as active.
+           Exiting $PWD/$0."
+           MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
+           xmessage -bg red -title "$MY_SELF" "$MSG"
+           exit 5
+      }
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C stop /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB -Y /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+    sleep 1
+    kill $yPID
+done
+}
+
+_restore_mounts(){
+
+rootSCREEN_XY=`_get_screen_resolution`     || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ #rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+
+                    local part_ basn FS_TYPE reMOUNT mntOPS yPID
+
+for part_ in $M_DEV;
+do
+
+    ## BIG PROBLEM re-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/mount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 4 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 2 and 3 Omit to un- and or re-mount :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    yaf-splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+
+        grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
+        mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
+            [ "$mntOPS" ] || mntOPS=rw
+        FS_TYPE=`guess_fstype $part_`
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to wake-up the drive
+    case $part_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C start $part_
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB --idle-immediate $part_
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+        basn=${part_##*/}
+        mkdir -p /mnt/$basn
+
+[ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
+} || {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE $part_ /mnt/$basn || false
+}
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg purple3 -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    sleep 1
+    kill $yPID
+    unset reMOUNT mntOPS FS_TYPE
+done
+}
+
+_unmount_all_block_devices(){
+
+MNTDPARTS=`mount |tac`
+
+echo -e "\\033[1;35m""Unmounting stray filesystems:""\\033[0;39m"
+
+STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E ' /dev | /dev/pts | /proc | /sys | tmpfs | rootfs |/dev/root | usbfs | unionfs | /initrd/[^ ]* | on / '`
+
+while read oneSTRAY
+do
+ [ "$oneSTRAY" ] || continue
+  echo "$oneSTRAY"
+  echo -en "\\033[1;34mUnmounting '$oneSTRAY' ... \\033[0;39m" >/dev/console
+  [ "$FORCE" ] || busybox fuser -m -k "$oneSTRAY"
+  [ "$FORCE" ] || killzombies #v3.99
+  if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" ]; then
+  #fusermount version: 2.7.0 [options] mountpoint
+   fusermount -u "$oneSTRAY" ##unmounts MountPoint
+   status_func $?
+   sleep 1
+ else
+  umount $VERB $VERB -r "$oneSTRAY"  ##unmounts MountPoint
+  _status $?
+  sleep 1
+ fi
+done <<EoI
+$(echo "$STRAYPARTL" |sed 's#.* on /#/#;s# type [[:alnum:]_]* (.*)$##')
+EoI
+
+}
+
 ### END ###
  HAVE_PUPPY_FUNCTIONS4MOUNT=1
 _HAVE_PUPPY_FUNCTIONS4MOUNT_=1
