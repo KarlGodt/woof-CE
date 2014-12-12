@@ -169,12 +169,12 @@ _status(){
  [ "$_TTY_" = 'not a tty' ] && _TTY_=/dev/console
 
  _CHARS_=${1//[[:digit:]]/}
- if [ "$_CHARS_" ];then echo -e "\\033[60G\\033[1;36m${_CHARS_}$Normal0" >$_TTY_
+ if [ "$_CHARS_" ];then echo -e "\\033[60G${Cyan1}${_CHARS_}$Normal0" >$_TTY_
  set -- 0
  elif [ "$1" = 0 ];then
-  /bin/echo -e "\\033[72G\\033[1;32mdone$Normal0"   >$_TTY_ #green [done] msg.
+  /bin/echo -e "\\033[72G${Green0}done$Normal0"   >$_TTY_ #green [done] msg.
  else
-  /bin/echo -e "\\033[70G\\033[1;31mfailed$Normal0" >$_TTY_ #red [failed].
+  /bin/echo -e "\\033[70G${Red0}failed$Normal0" >$_TTY_ #red [failed].
   STATUS=0
  fi
 
@@ -253,7 +253,7 @@ pidof "${*##*/}" >>$OUT && { _info " '$*' running."; return 0; } || { _info " '$
 _check_for_terminal()
 {
 local MSG
-MSG="Need a contolling terminal"
+MSG="Need a controlling terminal"
 tty >>$OUT || {
 [ "$OUT" = 'dev/null' ] || echo -n "Pid of X server:"
 pidof X >>$OUT && xmessage -br red "$MSG"; $EXIT 2; } || {
@@ -2543,7 +2543,7 @@ DEBUG=$oldDEBUG
 
 _ps_p(){
 mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
-ps -A -o pid | grep -v 'grep' | grep $Q -w "$*"
+ps -A -o pid | grep $Q -w "$*"
 return $?
 }
 
@@ -2770,7 +2770,7 @@ test "$1" && { RV="$1"; shift; } || RV=1
 test "$*" && { MSG="$0:$*"; shift; }
 test "$MSG" || MSG="$0:GTKdialog GUI crashed. Please run with -d option"
 
-if _pidof -q X; then
+if _pidof $Q X; then
 xmessage -bg red "$MSG"
 else
 _err "$MSG"
@@ -2812,7 +2812,7 @@ test "$1" && { RV="$1"; shift; } || RV=1
 test "$*" && { MSG="$0:$*"; shift; }
 test "$MSG" || MSG="$0:eval failed. Probably due to faulty input."
 
-if _pidof -q X; then
+if _pidof $Q X; then
 xmessage -bg red "$MSG"
 else
 _err "$MSG"
@@ -2828,11 +2828,17 @@ _pidof()
 {
 local RV
 case $1 in
--q) shift;
+-q|-?quiet) shift;
 pidof ${*##*/} >/dev/null; return $?
 ;;
 *)
+
+if test  "$*" = "`which $*`"; then
 echo -n "Pids of '$*' ( ${*##*/} ) :"
+else
+echo -n "Pids of '$*' :"
+fi
+
 pidof ${*##*/}; RV=$?
 test "$RV" = 0 || echo
 return $RV
@@ -3654,6 +3660,72 @@ do
     unset reMOUNT mntOPS FS_TYPE
 done
 }
+
+
+_unload_all_modules(){
+lsmod
+echo '
+#Start:#'
+
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+while [ "$unusedK_MODULES" ];
+do
+
+# while [ unloading ]
+#  do
+
+while   read module vms users rest
+ do
+    echo $module $users
+    case $module in
+     usblp|mac_hid) :;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        esac
+         case $users in
+          0) :;;
+           *) continue;;
+          esac
+
+    _command modprobe $VERB -r "$module"
+   sleep 1
+
+ done </proc/modules
+
+sleep 1
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+unset HAVE_UNLOADABLE_MODULE
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+ while read mod_
+  do
+   echo $mod_
+    case $mod_ in
+     usblp|mac_hid) HAVE_UNLOADABLE_MODULE=1;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        *) HAVE_UNLOADABLE_MODULE=1;;
+         esac
+  done <<EoI
+`echo "$unusedK_MODULES"`
+EoI
+
+ test  "$HAVE_UNLOADABLE_MODULE" || break
+    echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+# END while [ "$unusedK_MODULES" ];
+done
+
+echo '
+#FIN:#'
+lsmod
+}
+
+
+
 
 ###END###
 _HAVE_F4PUPPY5_=1
