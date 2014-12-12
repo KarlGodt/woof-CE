@@ -36,24 +36,25 @@
 #
 ########################################################################
 
+# REM : Kill loged in consoles to force
+#        writing to history file ..?
 currentconsole=`tty`
 echo "currentconsole='$currentconsole'"
 curr="${currentconsole##*/}"
-#curr="${currentconsole//\/dev\//}" #bb-ash v1.14.4 no
 #if [ "$curr" != 'tty1' ];then chvt 1;fi
 CONS=`/bin/ps -f -C sh |grep tty|grep -vw "$curr" |awk '{print $2}'`
 for pid in $CONS;do
 kill -1 $pid
-sleep 1s;pidof sync || sync
+sleep 1s;
 done
 
 KERNEL_RELEASE=`uname -r` ##+++2012-04-11
 
 PROG='/etc/rc.d/rc.shutdown.local'
 echo  -e "\\033[0;35m""$PROG""\\033[0;39m" >/dev/console
-echo BACKUP begin
+
 ###backup system information files
-backup_func() {
+_make_backups(){
 # $HOME/my-documents/SYSTEM-BAKS
 BackupDir=$HOME/my-documents/SYSTEM-BAKS/"`date +%d%b%Y`".$$
 if [ ! -d "$BackupDir" ]; then
@@ -103,47 +104,8 @@ echo
 ls -l /dev >> $BackupDir/Notes
 echo >>       $BackupDir/Notes
 }
-backup_func
-echo BACKUP end
+_make_backups
 echo -e "\\033[0;35m""Finished Backup part""\\033[0;39m" >/dev/console
-
-
-
-##clean /mnt directory for filemnt directories
-clean_mnt_dir_func() {
-MNTD=`find /mnt -maxdepth 1 -type d \( -name "*+*" -o -name "*.*.[0-9]*" \)`
-for i in $MNTD; do
-[ "`ls -A $i`" ] || rmdir "$i"
-done
-}
-clean_mnt_dir_func
-
-
-
-
-echo DEV begin
-##backup /dev directory
-clean_dev_func() {
-#[ ! -d /var/db/`uname -r`/dev ] && mkdir -p /var/db/`uname -r`/dev
-#if [ ! -d /var/db/`uname -r`/dev ];then  ##+++2012-04-10
-[ -d "/var/db/$KERNEL_RELEASE/dev" ] || mkdir -p "/var/db/$KERNEL_RELEASE/dev"
-D=`find /dev -type c`
-for i in $D; do
-#d=`dirname $i`
-d="${i%/*}"  ##+++2012-04-11
-[ -d "/var/db/$KERNEL_RELEASE/$d" ] || mkdir -p "/var/db/$KERNEL_RELEASE/$d"
-
-#mv $i /var/db/`uname -r`/$i
-#rm $i
-[ -e "/var/db/$KERNEL_RELEASE/$i" ] || cp -a "$i" "/var/db/$KERNEL_RELEASE/$i"  ##2012-03-15 added -u, no changed -u for -a  ##+++2012-04-11 added test and KERNEL_VERSION for `uname -r`
-# no hangs somewhere after hid0raw
-done
-#fi  ###---2012-04-11 took out again
-}
-clean_dev_func
-#[ -d /dev/.udev ] && rm -f -r /dev/.udev
-echo DEV end
-
 
 
 ##????
@@ -152,17 +114,6 @@ echo DEV end
 
 
 
-##create fsckme file for testing
-PART=`busybox rdev | sed 's#\ .*## ; s#/dev/##' `
-FS=`mount | grep '/dev/root on / type' | tr -s ' ' | cut -f 5 -d ' '`
-#echo "$PART"','"$FS"',' > /etc/fsckme.flag
-#echo "$PART"','"$FS"',' > /var/lock/fsckme.flag
-
-remove_fsckme_func(){
-#find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
-rm -f /var/lock/fsckme*  ##+++2014-01-02
-}
-remove_fsckme_func
 
 
 
@@ -208,7 +159,9 @@ fi
 
 
 acpi_debug_func(){
+    test -w /sys/module/acpi/parameters/debug_level && \
 echo 0x00000004 > /sys/module/acpi/parameters/debug_level
+test -w  /sys/module/acpi/parameters/debug_layer
 echo 0x00000000 > /sys/module/acpi/parameters/debug_layer
 }
 #acpi_debug_func
