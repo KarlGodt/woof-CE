@@ -43,16 +43,7 @@ l) shift;exec 1>>/tmp/filemnt.log 2>&1;;
 *) :;;
 esac;done
 
-__kernel_version__(){
-#v423...
-KERNELVER=`uname -r`
-KERNEL_MAJ=${KERNELVER:0:1}
-KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-'`
-SFSSTR='squashfs, version 4'
-if [ "$KERNEL_MAJ" -lt 3 ]; then
-[ "$KERNELSUBVER" -lt 29 ] && SFSSTR='squashfs, version 3'
-fi
-}
+
 _kernel_version5 ## f4puppy5
 
 # REM: Variables
@@ -62,10 +53,10 @@ DEBUG=1
 
 if test -f "$*"; then
    imgFILE="$@"
-   echo "$0:$*:Is file"  ##DEBUG
+   _debug "$0:$*:Is file"  ##DEBUG
 
 else
-   echo "$0:$*:Is NOT file"  ##DEBUG
+   _debug "$0:$*:Is NOT file"  ##DEBUG
 # REM: Filter filename parameter from other possible
 #       parameters (--help,.. etc)
 while [ $# != 0 ]; do
@@ -81,14 +72,23 @@ set - $posPARAMS
 
 fi
 
-echo "$0:$*:$imgFILE"  ##DEBUG
+_info "$0:$*:$imgFILE"  ##DEBUG
 
 test "$imgFILE" || _exit 3 "Need existing filename ..."
 
 # REM: Need to handle relative path
+#      regular readlink -e should print absolute path if file exists
+#      regular readlink -f should print absolute path if parent directory of directory or file exists
+#       ( if I understand "-f, --canonicalize
+#              canonicalize  by  following  every symlink in every component of
+#              the given name recursively; all  but  the  last  component  must
+#              exist" correctly
+#      busybox readlink has no -e option
+#                       but a  -f option that works as -e
 #imgFILE=`readlink -f "$imgFILE"`
 imgFILE=`realpath "$imgFILE"`
 
+# REM: Sanity checks
  case "$imgFILE" in
  ./*|../*)
      dn_imgFILE=${imgFILE%/*}
@@ -106,13 +106,14 @@ imgFILE=`realpath "$imgFILE"`
      ;;
  esac
 
+# REM: Sanity checks
 #test -e "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
 test -f  "$imgFILE" || imgFILE=`pwd`/"$bn_imgFILE"
 #test -e "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
 test -f "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
 
-echo "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
-echo "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
+_debugx "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
+_debugx "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
 
 
 # REM: Try to handle initrd files.
@@ -142,7 +143,7 @@ test -e "$*" && mv $VERB -f "$*" "$*".bak
 
 _create_and_change_into_initrd_dir_tree(){
 test -e "$*" && rm -rf "$*"
-mkdir -p "$*"
+mkdir $VERB -p "$*"
 cd "$*" || _exit 7 "Could nor change into directory `pwd`/./initrd-tree"
 }
 
@@ -155,7 +156,7 @@ return 0
 }
 
 _unpack_initrd_cpio(){
-echo "$*" ##DEBUG
+_info "_unpack_initrd_cpio:$*" ##DEBUG
 COMPRESS="$1"
 case $COMPRESS in
 gz)   dec_cat=zcat;;
@@ -165,10 +166,11 @@ lzma) dec_cat=lzmacat;;
 xz)   dec_cat=xzcat;;
 no)   dec_cat=cat;;
 *)    echo "Unhandled compression '$COMPRESS'"
+      return 10;;
 esac
 
 shift
-echo "$*"  ##DEBUG
+_debug "$*"  ##DEBUG
 test -e "$*" || return 8
 which $dec_cat >>$OUT || return 9
 $dec_cat "$*" | cpio -i -d
@@ -222,8 +224,8 @@ if  _is_initrd_cpio; then
    exit $?
 
 elif _is_initrd_fs; then
-    echo "$imgFILE seems to contain a file system"  ##DEBUG
-   :  echo TODO
+    _info "$imgFILE seems to contain a file system"  ##DEBUG
+    # REM: further down it will be mounted
 
 
 else
@@ -238,7 +240,7 @@ esac
 
 mntPT="${MOUNT_DIR}/$bn_imgFILE"
 
-echo "mntPT='$mntPT'"  ##DEBUG
+_debug "mntPT='$mntPT'"  ##DEBUG
 
 grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
 grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
@@ -246,7 +248,7 @@ grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
 _create_new_folder_name(){
 while read path_to_folder
 do
-echo $path_to_folder  ##DEBUG
+_debug "_create_new_folder_name:$path_to_folder"  ##DEBUG
 c=$((c+1))
 test -e "$path_to_folder".$c && continue
 mntPT="$path_to_folder".$c
@@ -262,6 +264,7 @@ _check_already_mounted(){
   for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
   do
 
+   # REM: Now try to get the basename of the file associated with oneLOOP
    IMG_MTP=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
    IMGBASE=`basename "$IMG_MTP"`
     #TODO 64 chars
@@ -269,7 +272,7 @@ _check_already_mounted(){
     #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
                             #1234567890123456789012345678901234567890123456789012345678901234
 
-    echo "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
+    _debug "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
     #not perfect, but paths may be symlinks...
 
     if [ "$IMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
@@ -350,54 +353,54 @@ esac
 
 }
 
-  if which Xdialog >>$OUT; then _xdialog_menu
-elif which xmessage>>$OUT; then _xmessage_menu
-else UNMOUNT='yes'; RETVAL=193
-  fi
+   if which Xdialog >>$OUT; then _xdialog_menu
+ elif which xmessage>>$OUT; then _xmessage_menu
+ else UNMOUNT='yes'; RETVAL=193
+   fi
 
- if [ "$RETVAL" = "190" ] ; then #666  ## Quit
+  if [ "$RETVAL" = "190" ] ; then #666  ## Quit
      exit
 
- elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
+  elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        rox "$mntPT"
        exit
 
- elif [ "$RETVAL" = "192" ] ; then #666  ## console
+  elif [ "$RETVAL" = "192" ] ; then #666  ## console
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        cd "$mntPT"
        _debug "`pwd`"
        rxvt &
        exit
 
- elif [ "$RETVAL" = "193" ] ; then #666  ## umount
+  elif [ "$RETVAL" = "193" ] ; then #666  ## umount
        UNMOUNT='yes'
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        return
 
- elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
+  elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
        UNMOUNT='yes'
        mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       _debug 1 "$mntPT"
+       _debug "194:$mntPT"
        MntPt2=`echo "$mntPT" | sed "1 d"` ## only umount all others exect one
-       _debug 2 "$MntPt2"
+       _debug "194:$MntPt2"
 
        for i in $MntPt2 ; do
        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "$GREP"
+       _debug "194:$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       _debug "$LOOPD"
+       _debug "194:$LOOPD"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
        USEapps=`fuser -m "$MntPt2"`   ##+++2011-10-27
-       _notice 3 "$USEapps"
+       _notice "194:fuser:$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
-       _debugx 4 "$USEapps"
+       _debugx "194:fuser:$USEapps"
 
        # REM: kill signal - use your preferred signal
        #      Supported signals are listed by 'help trap'
        SIG=2
        for j in $USEapps ; do
-       _debugx "fuser claims '$j' is using '$mntPT'"
+       _debugx "fuser claims PID '$j' is using '$mntPT'"
        kill -$SIG $j
        done
 
@@ -408,28 +411,40 @@ else UNMOUNT='yes'; RETVAL=193
        done
 
        mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       return
+       [ "$mntPT" ] && return 0
+       return 1
 
- else #666
+  else   #666
      MOUNT='again'
-     return
- fi   ###666
-else ##66      ##+++2011-10-27 to fix call from without X running
-UNMOUNT='yes'  ##+++2011-10-27
-fi ##66
+     return 0
+  fi   ###666
+
+ else ##66
+ # REM: Without X, no sophisticated GUI - just unmount
+ UNMOUNT='yes'  ##+++2011-10-27
+ # REM: END DISPLAY test
+ fi ##66
+
+else : # do nothing
+# REM: END basename comparisons of files printed by losetup and imgFILE
 fi #6
+
+# REM: check /dev/loop in proc/mounts
 done
 
 }
 
 _check_already_mounted
 
-
+# REM: UNMOUNT is not set until it gets set by GUI or automatically if no DISPLAY
 if [ -z "$UNMOUNT" ] ; then
+ # REM: mount imgFILE
 
+  # REM: Do not use a Ext variable, case is better
   # get file type from extension
   #Ext=`echo "$imgFILE" |sed 's/^.*\.//'`
-  Ext=${imgFILE##*.}
+  #Ext=${imgFILE##*.}
+
  case "$imgFILE" in
  *.2fs|*.ext2|*.ext2fs.img) Type=ext2;;
  *.3fs|*.ext3|*.ext3fs.img) Type=ext3;;
@@ -469,6 +484,7 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 All Linux kernels around 2.6.28 or earlier require version 3.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
     fi
+    _err "Wrong squashfs version"
     exit 0
    fi
   fi
@@ -479,7 +495,7 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 
   # REM: if choosen mount again
   [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
-  echo "mntPT='$mntPT'"  ##DEBUG
+  _debug "mntPT='$mntPT'"  ##DEBUG
   #: mkdir -p "$mntPT"    ## mount.sh should do this
 
   # REM: New problem in case of additional mount 2014-11-27,
@@ -512,27 +528,28 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
    #: [ -d "$mntPT" ] && { [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"; }
   fi
 
- else
 
+ else
+ # REM: unmount imgFILE using mntPT
    [ -n "$DISPLAY" ] && {
     #:rox -D "$mntPT"
     yaf-splash -timeout 3 -font "8x16" -outline 0 -margin 4 -bg orange -text "Unmounting $bn_imgFILE" &
    }
        GREP=`echo "$mntPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug 1 "$GREP"
+       _debug "unmount:$GREP"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       _debug 2 "$LOOPD"
+       _debug "unmount:$LOOPD"
        #USEapps=`fuser -c $LOOPD`   ##---2011-10-27
        USEapps=`fuser -m "$mntPT"`  ##---2011-10-27
-       _notice 3 "$USEapps"
+       _notice "unmount:fuser:$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
-       _debugx 4 "$USEapps"
+       _debugx "unmount:fuser:$USEapps"
 
        # REM: kill signal - use your preferred signal
        #      Supported signals are listed by 'help trap'
        SIG=2
        for j in $USEapps; do
-       _debugx "fuser claims '$j' is using '$mntPT'"
+       _debugx "fuser claims PID '$j' is using '$mntPT'"
        kill -$SIG $j
        done
 
@@ -546,6 +563,6 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   [ -n "$DISPLAY" ] && xmessage -bg red -title "$xmTITLE" "Error... Returned <$Err> ... mounting or unmounting '$mntPT'"
  fi
 
-
+exit $Err
 # Very End of this file 'usr/sbin/filemnt' #
 ###END###
