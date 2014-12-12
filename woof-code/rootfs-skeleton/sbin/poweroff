@@ -72,12 +72,61 @@ exec wmpoweroff "$@"
 #wmpoweroff "$@"  #kills X, WM, pup_event
 fi
 
+# REM : Give final reboot message containing OS, KERNEL and kCMDLINE
+TIME_OUT=5s
+# REM: Reboot problems with Dell computers ... :(
+# REM: Reboot worked for kernel 2.6.30 , but not later ones .. :(
+. /etc/DISTRO_SPECS
+. /etc/rc.d/f4puppy5
+_kernel_version5
+case $KERNEL_RELEASE in
+2.6.3[1-9]*|3*) RBOOT="$RBOOT -f -n";;
+esac
+read KERNEL_CMDLINE </proc/cmdline # before umount -ar in rc.shutdown
+
+
 /etc/rc.d/rc.shutdown "$RC"
 RV=$?
 [ "$RV" = '199' -a ! "$FORCE" ] && { echo "$0:Bailing out."               >/dev/console; exit 0; }
 [ "$RV" != '0' -a ! "$FORCE" ]  && { echo "rc.shutdown exited with '$RV'" >/dev/console; exit 1; }
 
-echo -e '\033[1;34m'"Executing /bin/busybox poweroff '$POFF'"'\033[0;39m' >/dev/console
+
+__unmount_ar__(){
+# REM: could add -l --lazy option..?
+busybox umount $VERB $VERB -ar 2>>$ERR
+
+if [ "$DEBUG" ]; then
+echo -e '\033[0;36m'"unmounted all -r  Tried to remount devices as read-only if mount is busy"'\033[0;39m'
+test -e /proc/mounts && { ps | grep -v '\['; mount; }
+fi
+}
+
+__bb_poweroff__help__(){
+    cat >&1 <<EoI
+BusyBox v1.21.1 (2013-07-11 04:56:32 GMT+1) multi-call binary.
+
+Usage: poweroff [-d DELAY] [-n] [-f]
+
+Halt and shut off power
+
+    -d SEC  Delay interval
+    -n  Do not sync
+    -f  Force (don't go through init)
+EoI
+}
+
+echo -e '\033[1;34m'"$DISTRO_NAME $DISTRO_VERSION
+$KERNEL_RELEASE
+$KERNEL_CMDLINE :
+Executing busybox poweroff '$POFF' in '$TIME_OUT' sec..."'\033[0;39m'
+
+#echo -e '\033[1;34m'"Executing /bin/busybox poweroff '$POFF'"'\033[0;39m' >/dev/console
+
+# REM : Finally poweroff ...
+sleep $TIME_OUT
+echo -e '\0007' ##BEEP
+
+/bin/busybox poweroff $POFF
 exec /bin/busybox poweroff $POFF
 
 # Very End of this file 'sbin/poweroff' #
