@@ -33,6 +33,276 @@ firmware_module_func(){
     fi
 }
 
+
+#========= make nodes in /dev if /dev not mounted ============================
+_mk_block_devices()
+{
+mountpoint $Q /dev && return 0
+test "`type mdev`" && { mdev -s; return $?; }
+test -f /proc/partitions || { _return 4 "/proc/partitions does not exist"; return $?; }
+ while read maj min siz dev ; do
+  [ "${maj//[[:digit:]]/}" ] && continue
+  [ "$maj" -a "$min" -a "$dev" ] || continue
+  test -b /dev/$dev || mknod /dev/$dev b $maj $min
+ done </proc/partitions
+}
+
+
+_kernel_version5()
+{
+oldINFO=$INFO oldDEBUG=$DEBUG
+INFO=1
+DEBUG=1
+
+unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
+unset kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION
+
+if test "$*"; then
+KERNEL="$@"
+else
+KERNEL=`uname -r`
+fi
+KERNEL_RELEASE="$KERNEL"
+KERNELVER="$KERNEL"
+KERNVER="$KERNEL"
+UNAME_R="$KERNEL"
+
+unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
+
+if test ! "$*"; then
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+[ -f /proc/modules ] &&
+grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+}
+test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
+
+SFS_MAJOR=`echo ${SFS_STR##* } | cut -b 1`
+test "${SFS_MAJOR//[[:digit:]]/}" && SFS_MAJOR='';
+test "$SFS_MAJOR" || { _warn "Could not determine squashfs major version, assuming '4'"; SFS_MAJOR=4; }
+
+SFS_STR="squashfs, $SFS_STR"
+
+else
+:
+fi
+
+squashXZ=NOT
+case "$KERNEL" in
+3.*) squashXZ=YES
+test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+test "$SFS_MAJOR" || SFS_MAJOR=4
+;;
+2.6.*) case $KERNEL in
+     2.6.38*|2.6.39*) squashXZ=YES
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.29*|2.6.3[0-7]*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     2.6.28*)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     2.6.27.47)
+     test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=4
+     ;;
+     *)
+     test "$SFS_STR" || SFS_STR="squashfs, version 3.0"
+     test "$SFS_MAJOR" || SFS_MAJOR=3
+     ;;
+     esac
+;;
+*) _warn "_kernel_version5:UNHANDLED kernel version '$KERNEL' , assuming squashXZ=$squashXZ";;
+esac
+
+SFSSTR="$SFS_STR"
+SFSMAJOR="$SFS_MAJOR"
+
+case "$KERNEL" in
+0.*|1.*|2.*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+;;
+*)
+oldIFS="$IFS"
+IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
+read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
+`echo "$KERNEL"`
+EoI
+IFS="$oldIFS"
+;;
+esac
+
+_info kVERSION=$kVERSION kPATCHLEVEL=$kPATCHLEVEL kSUBLEVEL=$kSUBLEVEL kEXTRAVERSION=$kEXTRAVERSION kLOCALVERSION=$kLOCALVERSION
+
+test "$kSUBLEVEL" || kSUBLEVEL=0
+test "$kEXTRAVERSION" || kEXTRAVERSION=0
+KERNVER="$KERNEL"
+KERNELVER="$KERNEL"
+KERNEL_RELEASE="$KERNEL"
+UNAME_R="$KERNEL"
+
+KERNELSUBVER="$kSUBLEVEL"
+KERNELSUBSUBVER="$kEXTRAVERSION"
+
+K_VERSION="$kVERSION"
+K_PATCHLEVEL="$kPATCHLEVEL"
+K_SUBLEVEL="$kSUBLEVEL"
+K_EXTRAVERSION="$kEXTRAVERSION"
+K_LOCALVERSION="$kLOCALVERSION"
+
+_notice "_kernel_version5:KERNELVER='$KERNELVER'"
+_info "_kernel_version5:KERNELSUBVER='$KERNELSUBVER'"
+_info "_kernel_version5:KERNELSUBSUBVER='$KERNELSUBSUBVER'"
+_notice "_kernel_version5:SFSSTR='$SFSSTR' SFSMAJOR='$SFSMAJOR'"
+_notice "_kernel_version5:squashXZ='$squashXZ'"
+
+INFO=$oldINFO
+DEBUG=$oldDEBUG
+}
+
+
+_unload_all_modules(){
+[ "$VERBOSE" ] && {
+ lsmod
+ echo '_unload_all_modules
+ #Start:#'
+ }
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+while [ "$unusedK_MODULES" ];
+do
+
+# while [ unloading ]
+#  do
+
+while   read module vms users rest
+ do
+    echo $module $users
+    case $module in
+     usblp|mac_hid) :;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        esac
+         case $users in
+          0) :;;
+           *) continue;;
+          esac
+
+    _command modprobe $VERB -r "$module"
+   sleep 1
+
+ done </proc/modules
+
+sleep 1
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+unset HAVE_UNLOADABLE_MODULE
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+ while read mod_
+  do
+   echo $mod_
+    case $mod_ in
+     usblp|mac_hid) HAVE_UNLOADABLE_MODULE=1;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        *) HAVE_UNLOADABLE_MODULE=1;;
+         esac
+  done <<EoI
+`echo "$unusedK_MODULES"`
+EoI
+
+ test  "$HAVE_UNLOADABLE_MODULE" || break
+    echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+# END while [ "$unusedK_MODULES" ];
+done
+
+[ "$VERBOSE" ] && {
+ echo '_unload_all_modules
+ #FIN:#'
+ lsmod
+ }
+}
+
+ __unload_drivers(){
+######## Unload all unused modules ... ####################
+[ "$VERBOSE" ] && {
+ lsmod
+ echo '__unload_drivers
+ #Start:#'
+ }
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+while [ "$unusedK_MODULES" ];
+do
+
+# while [ unloading ]
+#  do
+ while read module vms users rest
+  do
+   echo $module $users
+    case $module in
+     usblp|mac_hid) :;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|*kbd*|unix) continue;;
+       "") break;;
+        esac
+         case $users in
+          0) :;;
+           *) continue;;
+          esac
+
+    echo -en "\\033[1;33m"
+    _command modprobe -vr "$module"
+   sleep 1
+    echo -e "\\033[0;39m"
+
+  done </proc/modules
+
+sleep 1
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+unset HAVE_UNLOADABLE_MODULE
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+ while read mod_
+  do
+   echo $mod_
+    case $mod_ in
+     usblp|mac_hid) HAVE_UNLOADABLE_MODULE=1;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|*kbd*|unix) continue;;
+       "") break;;
+        *) HAVE_UNLOADABLE_MODULE=1;;
+         esac
+  done <<EoI
+`echo "$unusedK_MODULES"`
+EoI
+
+ test  "$HAVE_UNLOADABLE_MODULE" || break
+    echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+# END while [ "$unusedK_MODULES" ];
+done
+
+[ "$VERBOSE" ] && {
+ echo '__unload_drivers
+ #FIN:#'
+ lsmod
+ }
+}
+
 ### END ###
  HAVE_PUPPY_FUNCTIONS4KERNEL=1
 _HAVE_PUPPY_FUNCTIONS4KERNEL_=1
