@@ -147,13 +147,15 @@ echo "$1" >>$OUT
 _ask_to_quit(){
 [ "$FORCE" ] && return 0
 exec 1>/dev/console 2>&1
-echo "$1" >$OUT
-echo -n "
-Quit ? Press 'q' :" >$OUT
+echo -e "\\033[1;33m
+$1
+\\033[0;39m" >$OUT
+echo -en "\\033[1;35m""Want to stop the shutdown process ? Press 'q' if you want to :""\\033[0;39m" >$OUT
 read -t 5 -n1 Q_K
 echo
 #[ "$Q_K" = 'q' ] && exit 199
-echo "$Q_K" | grep $QUIET -i 'q' && exit 199
+#echo "$Q_K" | grep $QUIET -i 'q' && exit 199
+case $Q_K in q|Q) exit 199;; esac
 exec 1>$OUT 2>$ERR
 }
 
@@ -209,7 +211,9 @@ PSUBDIR="`dirname "$PUPSFSFILE"`"
 
 . /etc/rc.d/functions4puppy #v3.01
 
-killzombies() {
+killzombies(){
+ 
+ [ "$FORCE" ] && return 0
  #sleep 2
 
  #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
@@ -225,7 +229,11 @@ __raus__(){
  #while read pid tty status rest ; do
 while read pid status; do
  [ "$pid" -a "$status" ] || continue
- [ "$status" = 'Z' ] || continue
+ #[ "$status" = 'Z' ] || continue
+ case $status in
+  Z*) :;;
+  *) continue;;
+ esac
  kill $pid
 done << EOI
 $(/bin/ps -A -H -o pid,s | grep -w Z)
@@ -237,11 +245,11 @@ EOI
 choosesizefunc(){
  local KFREE SIZELIST NUM CHOICES FLABEL SLABEL aCHOICE KSIZE
  KFREE=$1 ; SIZELIST="" ; NUM=1 ; CHOICES=""
- FLABEL="`expr $KFREE \/ 1024`MB"
+ FLABEL="$(( KFREE / 1024))MB"
  [ $KFREE -ge 1048576 ] && FLABEL="`dc $KFREE 1048576 \/ p`GB"
  for aCHOICE in 32 64 128 256 512 768 1024 1280
  do
-  KSIZE=`expr $aCHOICE \* 1024`
+  KSIZE=$(( aCHOICE * 1024 ))
   SLABEL="${aCHOICE}MB"
   [ $ACHOICE -ge 1024 ] && SLABEL="`dc $aCHOICE 1024 \/ p`GB"
   if [ $KSIZE -lt $KFREE ];then
@@ -252,7 +260,7 @@ choosesizefunc(){
    CHOICES="$CHOICES$KFREE "
    break
   fi
-  NUM=`expr $NUM + 1`
+  NUM=$(( NUM + 1 ))
  done
  dialog --no-collapse --no-cancel --default-item "5" --menu "Please choose the size you would like for the personal save file.\nNote, 512M is good choice, or highest if that not available.\nSelect choice, then press ENTER key..." 0 0 0 $SIZELIST >/dev/console 2>/tmp/sizetag.txt
  NUM=`cat /tmp/sizetag.txt`
@@ -261,7 +269,7 @@ choosesizefunc(){
  SIZEPFILE=$aCHOICE #global variable.
 } # end of choosesizefunc()
 
-pupsavefunc() {
+pupsavefunc(){
  #v2.02 ntfs uses /dev/fuse so '/dev/$SAVEPART' no good for grep...
  SMNTPT="`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
  #[ "$SMNTPT" = "" ] && SMNTPT="`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`"
@@ -366,7 +374,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   local BLA=1 #; local SFFIX=`echo "$SAVEFILE" | tail -c 5`
   while [ -f $SMNTPT$SAVEFILE ]; do
    SAVEFILE="$PSUBDIR/${MNAMEONLY}-${BLA}.${SFEXT}"
-   BLA=`expr $BLA + 1`
+   BLA=$(( BLA + 1 ))
   done
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   NAMEONLY="`basename $SAVEFILE`"
@@ -375,8 +383,8 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  #we should check to see that there is enough space on the partition...
  PARTFREE=`/bin/df | grep "$SMNTPT" | tr -s " " | head -n 1 | cut -f 4 -d " "`
  [ ! $PARTFREE ] && PARTFREE=0
- [ $PARTFREE -lt 32768 ] && PARTFREE=`expr $PARTFREE - 1024` #leave some slack space.
- [ $PARTFREE -gt 32768 ] && PARTFREE=`expr $PARTFREE - 8192` #leave some slack space.
+ [ $PARTFREE -lt 32768 ] && PARTFREE=$(( PARTFREE - 1024 )) #leave some slack space.
+ [ $PARTFREE -gt 32768 ] && PARTFREE=$(( PARTFREE - 8192 )) #leave some slack space.
  SIZEPFILE=524288 #512M = 524288K
  [ $SIZEPFILE -gt  $PARTFREE ] && SIZEPFILE=$PARTFREE
  #v2.02 dougal has code to choose size of save file...
@@ -394,7 +402,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  fi
 
  #v2.02,v2.13 final sanity check...
- AAAMB=`expr $SIZEPFILE \/ 1024`
+ AAAMB=$((SIZEPFILE / 1024))
  while [ 1 ];do
   dialog --colors --no-collapse --extra-button --ok-label "YES, SAVE"  --extra-label "CHANGE FOLDER" --cancel-label "DO NOT SAVE" --yesno "\Z1FINAL SANITY CHECK:
  Partition you are saving to:      $SAVEPART
@@ -459,7 +467,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  return 0
 } #end pupsavefunc
 
-choosepartfunc() {
+choosepartfunc(){
  #dialog to choose what partition to create ${DISTRO_FILE_PREFIX}save.2fs on...
  [ ! "$PMEDIA" ]      && PCHOOSE="yes"
  [ "$PMEDIA" = "cd" ]  && PCHOOSE="yes"
@@ -627,7 +635,7 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
 } #end choosepartfunc
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ ! "`pidof snapmergepuppy | grep '[0-9]'`" = "" ];do
+while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
  sleep 1
 done
 killall savepuppyd 2>>$ERR
@@ -645,7 +653,7 @@ cd /
 [ "$FORCE" ] || _sync
 
 _kill_xapps(){
-pidof $Q X >>$OUT && {
+pidof X >>$OUT && {
  # REM: Should be handled by wmreboot/wmpoweroff,
  #      just a precaution...
  echo -e "\\033[0;31mKilling X and all X apps...\\033[0;39m"  ##DEBUG
@@ -701,10 +709,13 @@ fi
 
 [ "$FORCE" ] || {
 #v2.16 some packages have a service script that requires stopping...
-for service_script in /etc/init.d/*
+#for service_script in /etc/init.d/*
+for service_script in `ls -1v /etc/init.d/* | sort -r`
 do
   [ -f "$service_script" ] || continue
-  [ -x $service_script ] && $service_script stop
+  [ -x $service_script ] && { 
+   $service_script stop &
+   sleep 1; }
 done
 #note, /etc/rc.d/rc.services does same, with 'start' parameter.
 }
@@ -772,7 +783,7 @@ fi
 }
 _shutdown_pcmcia
 
-pidof pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop ##2012-06-22
+pidof pup_event_backend_modprobe_protect >>$OUT && pup_event_backend_modprobe_protect --stop & ##2012-06-22
 killall $Q acpid >>$OUT 2>&1   ##2012-06-22
 killall $Q udevd >>$OUT 2>&1   #100615
 killall $Q klogd >>$OUT 2>&1   ##+++2011-11-27
@@ -1058,7 +1069,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
      do
       BASESFS="`basename $oneSFS`"
       FILESIZEB=`stat -c %s $oneSFS`
-      FILESIZEK=`expr $FILESIZEB \/ 1024 + 2048` #2MB slack.
+      FILESIZEK=$(( (FILESIZEB / 1024) + 2048)) #2MB slack.
       BPATTERN=" $SMNTPT"'$'
       DRVFREEK=`/bin/df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
       if [ $DRVFREEK -gt $FILESIZEK ];then
@@ -1095,8 +1106,8 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
  6)
   echo -e "\\033[1;32m$PDEV1 mounted directly top layer, session already saved.\\033[0;39m" >/dev/console
   ;;
- 5) #v2.02 first boot.
-  echo "Session not saved" >/dev/console
+ 5) #v2.02 first boot. User has choosen not to save, so PUPMODE not changed from 5 to 32 or 128
+  echo -e "\\033[0;35mSession not saved\\033[0;39m" >/dev/console
   [ "$FORCE" ] || _sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
@@ -1104,7 +1115,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
  *)
-  echo "Session not saved" >/dev/console
+  echo -e "\\033[0;31mUnhandled PUPMODE '$PUPMODE' , session not saved\\033[0;39m" >/dev/console
   sleep 2
   ;;
 esac
@@ -1117,6 +1128,7 @@ esac
 #echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
 
 rm $VERB -f /var/lock/LCK*
+
 for pidf in /var/run/*.pid; do
 [ -f $pidf ] || continue
 [ -s $pidf ] || continue
@@ -1124,18 +1136,18 @@ read procID <$pidf
 [ "$procID" ] || continue
 /bin/ps --no-header -p $procID && kill $procID
 done
-
 rm $VERB -f /var/run/*.pid
+
 rm $VERB -rf /root/tmp/* 2>>$ERR #...note, not screening this out in any of above save modes.
 
 echo "PUPMODE='$PUPMODE'" >/dev/console  ##DEBUG
 if [ "$PUPMODE" != "2" ]; then
-echo "removing thumbnails" > /dev/console
+echo -e "\\033[0;33mremoving thumbnails\\033[0;39m" >/dev/console
 rm $VERB -rf /root/.thumbnails/*
 else
-FP=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`/bin/df | grep -m1 -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if test "$FP" -lt 5; then
-echo -e "\\033[0;33mFull install , free space lesser than 5%; removing thumbnails\\033[0;39m"
+echo -e "\\033[0;33mFull install , free space lesser than 5%; removing thumbnails\\033[0;39m" >/dev/console
 rm $VERB -rf /root/.thumbnails/*
 else
 echo -e "\\033[0;32mFull install , free space more than 5%; leaving thumbnails ok\\033[0;39m"
@@ -1146,7 +1158,7 @@ echo
 echo "UDEV:"  #DEBUG
 UDEV=`find /dev/.udev/ -type f -o -type l`
 echo "$UDEV
-" |tail -n1
+" |tail -n10
 
 rm $VERB -rf /dev/.udev/*
 echo "END UDEV"  #DEBUG
@@ -1194,17 +1206,17 @@ do
  fi
  [ "$FORCE" ] || killzombies #v3.99
  [ "$FORCE" ] || _sync
- umount $VERB $VERB -r "$oneSTRAY"
+ umount $VERB $VERB -lr "$oneSTRAY"
 done << EOI
 $(echo "$STRAYPARTD")
 EOI
 
-swapoff -a #works only if swaps are in mtab or ftab
+swapoff -a #busybox swapoff -a works only if swaps are in mtab or ftab
 #v2.13 menno suggests this improvement...
 STRAYPARTD="`cat /proc/swaps | grep "^/dev/"  | grep -v 'deleted' | cut -f 1 -d " "`"
 for oneSTRAY in $STRAYPARTD
 do
- echo "Swapoff $oneSTRAY" >/dev/console
+ echo -e "\\033[0;36mSwapoff $oneSTRAY\\033[0;39m" >/dev/console
  swapoff $VERB $oneSTRAY
 done
 [ "$FORCE" ] || _sync
@@ -1224,8 +1236,12 @@ if [ "`busybox mount | grep "$ABSPUPHOME"`" != "" ];then
  BADPIDS="`fuser -m $ABSPUPHOME 2>/dev/null`" #100107
  for oneBAD in $BADPIDS
  do
-  echo "Killing process $oneBAD..."
+ case $oneBAD in
+  1|$$|$PPID) continue;;
+ esac
+  echo "Killing process pid $oneBAD..."
   kill $oneBAD
+  [ $? = 0 ] && continue
   sleep 1
   kill -9 $oneBAD 2>>$ERR
   [ "$FORCE" ] || _sync
@@ -1244,17 +1260,28 @@ if [ "$SAVE_LAYER" ];then
  uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts) #ex: aufs
  if [ "$uniFS" == "aufs" -a "$SAVE_LAYER" == "/pup_rw" ]; then
   #i think only work if prepended dir is a separate f.s...
-  if [ "`mount | grep '^tmpfs on /tmp '`" != "" ];then #created in initrd.   
-   echo -e "\\033[1;36mAttempting to unmount /initrd'$SAVE_LAYER' ...\\033[0;39m"
+  if [ "`mount | grep '^tmpfs on /tmp '`" != "" ];then #created in initrd.
+
+   echo -en "\\033[1;36mAttempting to remount '/' type '$uniFS' on '/tmp/unrootfs' ...\\033[0;39m" >/dev/console
    mkdir $VERB -p /tmp/unrootfs
-   busybox mount $VERB $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
+
+   busybox mount $VERB $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / / 
+   _status $?
+
    [ "$FORCE" ] || _sync
   fi
  fi
  [ "$SAVEFS" -a "$SAVEDEV" ] || return 1
+
+ echo -en "\\033[1;36mAttempting to remount '$SAVEDEV' on /initrd'$SAVE_LAYER' type '$SAVEFS' read-only ...\\033[0;39m" >/dev/console
  busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>>$ERR
+ _status $?
+
  grep $Q " /initrd${SAVE_LAYER} " /proc/mounts || return 1
+
+ echo -en "\\033[1;36mAttempting to unmount /initrd'$SAVE_LAYER' ...\\033[0;39m" >/dev/console
  umount-FULL -i -n -l /initrd${SAVE_LAYER} 2>>$ERR #-l is lazy unmount.
+ _status $?
 fi
 }
 _unmount_save_layer
@@ -1263,15 +1290,19 @@ _unmount_save_layer
 MNTFUSE="`busybox mount | grep 'fuse' | head -n 1 | cut -f 3 -d ' '`"
 if [ "$MNTFUSE" != "" ];then
  #v2.17 hairywill found the -u is required with -z...
+ echo -en "\\033[1;33mAttempting to unmount '$MNTFUSE' .." >/dev/console
  fusermount -z -u $MNTFUSE
+ _status $?
 else
  _not_used_unmount_pdev1(){
   if [ "$PDEV1" ];then #from PUPSTATE
-   APATTERN="/dev/$PDEV1 "
+   APATTERN="^/dev/${PDEV1} "
    if [ "`busybox mount | grep "$APATTERN"`" != "" ];then
    #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
    #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
+   echo -en "\\033[1;33mAttempting to unmount /dev/'$PDEV1' ..." >/dev/console
    umount-FULL -i -n -l /dev/$PDEV1
+   _status $?
    fi
   fi
  }
@@ -1279,17 +1310,17 @@ else
 fi
 
 _ask_to_quit "
-Mounts before my_final_umount:
+Mounts before _my_final_umount() :
 `mount`"
 
-my_final_unmount(){
+_my_final_unmount(){
 [ "$FORCE" ] || _sync
 case $PUPMODE in
-2|3) mount $VERB $VERB -o remount,ro /;;
+2|3) /bin/mount $VERB $VERB -o remount,ro /dev/root /;;
 *) :;;
 esac
 }
-my_final_unmount
+_my_final_unmount
 
 _ask_to_quit "
 Mounts before umount -ar
@@ -1304,6 +1335,6 @@ busybox umount $VERB $VERB -ar #> /dev/null 2>&1
 #      to not confuse poweroff and reboot scripts
 #       if they handle return codes
 exit 0
-# REM: Now /sbin/poweroff or /sbin/reboot 
+# REM: Now /sbin/poweroff or /sbin/reboot
 #      should handle further
 ###the end###
