@@ -76,25 +76,30 @@
 ########################################################################
 
 [ "$CODECHECK" -o "$CHECKCODE" ] && set -n
+. /etc/rc.d/f4puppy5
+
 #...comment-out for now. note, TZ now set in rc.country.
 export LANG=C
 
-load_average(){
+_wait_load_average(){
+WAITLOAD=$1
+[ "$WAITLOAD" ] || WAITLOAD=3
+[ "${WAITLOAD//[0-9]/}" ] && WAITLOAD=3
 c=0
-until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ];do
+until [ "`cut -f 1 -d '.' /proc/loadavg`" -lt $WAITLOAD ];do
 LOAD=`cat /proc/loadavg`;c=$((c+1))
 #echo -ne "\rWaiting for load average to drop below 3 :`cat /proc/loadavg` ";
-echo -e "Waiting for load average to drop below 3 : $LOAD ";
+echo -e "Waiting for load average to drop below '$WAITLOAD' : $LOAD ";
 #echo -ne "\rWaiting for load average to drop below 3 :`cat /proc/loadavg` " >/dev/console
-echo -ne "\rWaiting for load average to drop below 3 : $LOAD " >/dev/console
+echo -ne "\rWaiting for load average to drop below '$WAITLOAD' : $LOAD " >/dev/console
 sleep 2s;done  ###+++2011-11-30
 [ "$c" -gt 0 ] && echo >/dev/console
 c=0
 }
 
-_load(){ echo "Uptime: `uptime`"; }
+_say_load(){ echo "Uptime: `uptime`"; }
 
-status_func() {
+status_func(){
  if [ $1 -eq 0 ];then
   /bin/echo -e "\\033[72G\\033[1;32mdone\\033[0;39m" >/dev/console #green [done] msg.
  else
@@ -104,13 +109,13 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
-loadswap_func() { #w481 made into a function.
- echo "LOAD SWAP"
+loadswap_func(){ #w481 made into a function.
+ echo "Activating SWAP"
  #load a swap partition...
  for oneSWAP in `fdisk -l | grep -i ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
  do
   [ "`blkid $oneSWAP |grep -Ei 'hiber|resume|winter|deep'`" ] && continue
-  echo -n "Loading swap partition $oneSWAP..." >/dev/console
+  echo -n "Activating swap partition $oneSWAP..." >/dev/console
   swapon $oneSWAP
   status_func $?
   [ $? -eq 0 ] && SWAPON="yes"
@@ -146,15 +151,21 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount $VERB $VERB -t proc proc /proc;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t proc proc /proc;STATUS=$(( STATUS + $? ))
+
 if test "$PUPMODE" = 2; then #w468
- busybox mount $VERB $VERB -o remount,rw /dev/root /;STATUS=$(( $STATUS + $? ))
+ busybox mount $VERB $VERB -o remount,rw /dev/root /;STATUS=$(( STATUS + $? ))
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
+ unset SATADRIVES ATADRIVES PUP_HOME PDEV1 DEV1FS
+else
+[ -d /initrd -a "`which chattr`" ] && chattr +i /initrd
 fi
+
 ##+++2012-01-29
 mkdir $VERB -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
 openvt -c 11 autologinroot
 ##+++2012-01-29
+
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 #if [ ! "$DISPLAY" ];then
 rm -rf /tmp/*  ##+++2011-11-30 implemented again
@@ -170,15 +181,15 @@ rm -f /etc/mtab
 ln $VERB -s /proc/mounts /etc/mtab
 
 mkdir $VERB -p /dev/pts ####KRG for DEVTMPFS KERNEL
-busybox mount $VERB $VERB /dev/pts ;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB /dev/pts ;STATUS=$(( STATUS + $? ))
 mkdir $VERB -p /sys
-busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$(( STATUS + $? ))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
 QTRFREERAM=$(( FREERAM / 4 ))
 [ -d /dev/shm ] || mkdir $VERB -p /dev/shm ####KRG for DEVTMPFS KERNEL
-mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
+mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( STATUS + $? ))
 
 mountpointDEV='';
 haveMDEV=YES;
@@ -235,7 +246,7 @@ fi
 ###+++2013-03-22
 playbootnoise(){
     [ -e /etc/rc.d/haileyharly.wav ] || return 0
-    modprobe -v snd-card-0 && {
+    modprobe $VERB snd-card-0 && {
     alsactl -f /etc/asound.state restore && {
     until pidof X; do
     aplay /etc/rc.d/haileyharly.wav || return 0
@@ -282,27 +293,27 @@ if test "$PUPMODE" = 2; then #v423 full hd install.
 #if [ -n "`grep 'KRG version' /sbin/init`" ] ; then
 
  #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin. have this in 'init' also...
- [ "`modinfo floppy 2>/dev/null`" ]  && modprobe -v floppy
- [ "`modinfo psmouse 2>/dev/null`" ] && modprobe -v psmouse
+ [ "`modinfo floppy 2>/dev/null`" ]  && modprobe $VERB floppy
+ [ "`modinfo psmouse 2>/dev/null`" ] && modprobe $VERB psmouse
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
-  /sbin/modprobe -v --config /tmp/pup_event_modprobe.conf yenta-socket
+  /sbin/modprobe $VERB --config /tmp/pup_event_modprobe.conf yenta-socket
   [ $? -eq 0 ] && sleep 2
  fi
  #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  # this is contrary to my understanding all these years, but oh well, let's do it...
  ELSPCI="`elspci -l`" #jesses great little utility.
- [ "`echo "$ELSPCI" | grep '0C0320'`" ] && /sbin/modprobe -v --config /tmp/pup_event_modprobe.conf ehci-hcd
- [ "`echo "$ELSPCI" | grep '0C0310'`" ] && /sbin/modprobe -v --config /tmp/pup_event_modprobe.conf ohci-hcd ####KRG
- [ "`echo "$ELSPCI" | grep '0C0300'`" ] && /sbin/modprobe -v --config /tmp/pup_event_modprobe.conf uhci-hcd ####KRG
+ [ "`echo "$ELSPCI" | grep '0C0320'`" ] && /sbin/modprobe $VERB --config /tmp/pup_event_modprobe.conf ehci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0310'`" ] && /sbin/modprobe $VERB --config /tmp/pup_event_modprobe.conf ohci-hcd ####KRG
+ [ "`echo "$ELSPCI" | grep '0C0300'`" ] && /sbin/modprobe $VERB --config /tmp/pup_event_modprobe.conf uhci-hcd ####KRG
  #...perhaps a udev rule could have done this?
  fi
-[ "`lsmod | grep -E 'uhci|ohci|ehci'`" != "" ] && modprobe -v usbhid ####KRG
+[ "`lsmod | grep -E 'ehci|ohci|uhci|xhci'`" != "" ] && modprobe $VERB usbhid ####KRG
 #091221 rerwin: not required anymore...
 ##v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 #echo -n '0' > /tmp/pup_event_alsa_cnt
 #100228 udevd calls /sbin/pup_event_backend_modprobe, which uses its 'access protection' service to serialize concurrent access to shared resources.
-_load
+_say_load
 INITSTATE=`find /sys -name "initstate"`
 for i in $INITSTATE ; do echo -n "$i " ; cat "$i" ; done
 [ -z "$INITSTATE" ] && echo 'No initstate files in /sys ...'
@@ -371,20 +382,20 @@ do
  fi
 done
 IFS="$oldIFS"
-_load
+_say_load
 fi ###Modules not loaded yet ?
 
 #if [ ! -d /initrd ];then #full hd installation.
 if test "$PUPMODE" = 2; then
- modprobe -v nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
- modprobe -v nls_iso8859-1 # "
- modprobe -v fuse
- modprobe -v $LAYERFS #unionfs or aufs.
- modprobe -v squashfs
+ modprobe $VERB nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
+ modprobe $VERB nls_iso8859-1 # "
+ modprobe $VERB fuse
+ modprobe $VERB $LAYERFS #unionfs or aufs.
+ modprobe $VERB squashfs
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
  #ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " "`"
-  ATADRIVES=`grep -o 'sd[a-z]$' /proc/partitions`  ##+-+2014-11-05
+  ATADRIVES=`grep -o 'sd[a-z]$' /proc/partitions | tr '\n' ' '`  ##+-+2014-11-05
  if [ -e /proc/ide ];then
   echo "SATADRIVES='${ATADRIVES}'" >> /etc/rc.d/PUPSTATE #kernel supports /dev/hd*.
  else
@@ -392,12 +403,12 @@ if test "$PUPMODE" = 2; then
  fi
 fi
 
-[ -d /proc/acpi ] || modprobe -v apm #v406
+[ -d /proc/acpi ] || modprobe $VERB apm #v406
 
 ##modprobe fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
 
 status_func 0
-load_average
+_wait_load_average
 ######################LOAD SWAP#####################
 [ "$SWAPON" != "yes" ] && loadswap_func
 
@@ -414,13 +425,12 @@ fi
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
-rm -f /mnt/home 2>/dev/null
+rm -f /mnt/home 2>>$ERR
 if [ ! -d /initrd ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln $VERB -s / /mnt/home
-else
- if [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
+elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
    #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
    #in the case of the persistent storage being the partition itself, this will be mounted
@@ -431,10 +441,9 @@ else
   else
    ln $VERB -s /initrd${PUP_HOME} /mnt/home
   fi
- fi
 fi
 
-load_average
+_wait_load_average
 #################MISC. SYSTEM SETUP#################
 
 
@@ -459,7 +468,7 @@ if [ "$PCIUSB" != "" ];then #this may be slow to respond.
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ];do
-  [ `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l` -ge $PCIUSBNUM ] && break
+  [ `lsmod | grep -o -E '^ehci_hcd|^ohci_hcd|^uhci_hcd|^xhci_hcd' | wc -l` -ge $PCIUSBNUM ] && break
   WAITCNT=$(( WAITCNT + 1 ))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
@@ -490,7 +499,7 @@ else
  do
   onePATH="`dirname $oneUEVENT`"
   #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e ${onePATH}/modalias ] && [ "`grep 'MODALIAS' $oneUEVENT`" = "" ] && continue
+  [ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
   echo add > $oneUEVENT
   sleep 0.02
  done
@@ -499,7 +508,7 @@ fi
 #wait for usb-storage drives to become available...(already done if initrd)
 #note, pup_event_backend_d and udevd both log to this file when load modules
 # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
-if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" != "" ];then #see pup_event_backend_d
+if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath.log`" != "" ];then #see pup_event_backend_d
  echo -n " usb-storage"  >/dev/console
  while [ $WAITCNT -lt 15 ];do
   [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
@@ -523,7 +532,7 @@ sleep 1 #v411 a bit extra. rerwin reports usb mouse detection problem some hardw
 
 status_func 0
 
-load_average
+_wait_load_average
 ################WAIT MODULES LOADED##################
 
 ##############USER SELECTED MODULES##################
@@ -551,7 +560,7 @@ if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
   timeout -t 10 pup_event_backend_modprobe_protect --module=$MODULE  ##timeout does not work with passing DEBUG=1 command parameter before command
   prot=$?
   echo "returnvalue of modprobe_protect='$prot'"
-  [ "$prot" = 0 ] && modprobe -v $MODULE $MPARAMS
+  [ "$prot" = 0 ] && modprobe $VERB $MODULE $MPARAMS
   fi
   ###+-+2011-11-06
  done
@@ -559,7 +568,7 @@ if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
 fi
 
 if [ ! "$NO_FBCON" -a ! "$FBCON_FIRST" ];then
-modprobe -v fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
+modprobe $VERB fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
 fi
 ##############USER SELECTED MODULES##################
 
@@ -580,25 +589,29 @@ if [ -h /dev/modem ];then
  esac
  case $DEVM in
   ttyS[0-9]) #apparently setserial can crash with other modems.
-   setserial -v -b /dev/modem auto_irq skip_test autoconfig
+   setserial $VERB -b /dev/modem auto_irq skip_test autoconfig
   ;;
  esac
 fi
 
 #had hoped to retire this, but HardInfo needs it...
+case $KERNVER in
+2.*|3.[0-4].*)
 #[ "`lsmod | grep '^usbcore'`" != "" ] &&
 mkdir $VERB -p /proc/bus/usb  ##+++2013-03-22 changed to default to
 busybox mount $VERB $VERB -t usbfs none /proc/bus/usb
+;;
+esac
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
-modprobe -v battery
+modprobe $VERB battery
 if [ -d /proc/acpi/battery ]; then
  results="`find /proc/acpi/battery -mindepth 1 -type d`"
  if [ ! -z "$results" ]; then
-  modprobe -v ac
-  modprobe -v thermal
-  modprobe -v fan
+  modprobe $VERB ac
+  modprobe $VERB thermal
+  modprobe $VERB fan
  else
   rmmod battery
  fi
@@ -715,7 +728,7 @@ done
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE /dev/cdrom
 [ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
-[ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
+[ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" > /etc/cdburnerdevice
 [ "$DVDTYPE" -a "`echo "$DVDTYPE" |grep 'scd'`" ] && hdparm -d1 /dev/$DVDTYPE
 
 echo -n ' input' >/dev/console #100131
@@ -723,10 +736,10 @@ echo -n ' input' >/dev/console #100131
 test -d /dev/input || mkdir $VERB -p /dev/input
 test -c /dev/input/mice || { rm -rf /dev/input/mice; mknod /dev/input/mice c 13 63; }
 if [ ! -f /etc/mousedevice ];then
- echo -n "input/mice" > /etc/mousedevice
+ echo "input/mice" > /etc/mousedevice
  #ln $VERB -snf input/mice /dev/mouse
 else
- [ "`cat /etc/mousedevice`" = "psaux" ] && echo -n "input/mice" > /etc/mousedevice
+ [ "`cat /etc/mousedevice`" = "psaux" ] && echo "input/mice" > /etc/mousedevice
 fi
 read MOUSEDEVICE_ </etc/mousedevice
 ln $VERB -snf $MOUSEDEVICE_ /dev/mouse
@@ -763,7 +776,7 @@ if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then #pup_rw is tmpfs
  fi
 fi
 ############MISC DESKTOP STUFF##################
-load_average
+_wait_load_average
 
 ###################PERSONAL BOOT SCRIPT######################
 echo "PERSONAL BOOT SCRIPT"
@@ -779,16 +792,17 @@ fi
 ##### fsckme.flg
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
 if test "$PUPMODE" = 2; then #if no /initrd, full hd install.
- [ $PDEV1 ] || PDEV1="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
- [ $DEV1FS ] || DEV1FS="`mount | grep ' on / ' | grep '^/dev/' | cut -f 5 -d ' '`"
- if [ "$PDEV1" -a "$DEV1FS" ];then
+ [ $PDEV1 ] || PDEV1="`/bin/df | grep ' /$' | grep -m1 '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+ #[ $DEV1FS ] || DEV1FS="`mount | grep ' on / ' | grep -m1 '^/dev/' | cut -f 5 -d ' '`"
+  [ $DEV1FS ] || DEV1FS=`awk '/^\/dev\/root \/ / { print $3 }' /proc/mounts` 
+if [ "$PDEV1" -a "$DEV1FS" ];then
   [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" = "" ]  && echo "PDEV1='$PDEV1'"   >> /etc/rc.d/PUPSTATE
   [ "`grep '^DEV1FS' /etc/rc.d/PUPSTATE`" = "" ] && echo "DEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE
   #this file gets removed by rc.shutdown if a proper shutdown...
-  echo -n "${PDEV1},${DEV1FS}," > /fsckme.err #ex: sda7,ext3,
+  echo "${PDEV1},${DEV1FS}," > /fsckme.err #ex: sda7,ext3,
  fi
 else
- [ "$PUPSAVE" ] && echo -n "$PUPSAVE" > /initrd${PUP_HOME}/fsckme.err #ex: sda7,ext3,/pupsave-10MAR2010.2fs
+ [ "$PUPSAVE" ] && echo "$PUPSAVE" > /initrd${PUP_HOME}/fsckme.err #ex: sda7,ext3,/pupsave-10MAR2010.2fs
 fi
 
 fsckme_func_rc_shutdown(){ ###krg Mar112011:turned into func to call at end of script
@@ -804,10 +818,25 @@ date >> /tmp/bootkernel.log.`date +%d%b%Y`
 cp /var/log/messages /tmp/boot.messages
 cp /var/log/messages.0 /tmp/boot.messages.0
 
+__previous_X_status__(){
 if [ -z "`cat /proc/cmdline | grep -i 'nox'`" ]; then
 echo 'X' > /tmp/X.status
 else
 echo 'nox' > /tmp/X.status
+fi
+}
+
+if [ -z "`grep -iE 'pfix=nox|pfix=.*,nox' /proc/cmdline`" ]; then
+# REM: 2014-12-12
+#      Reverse the existance of /tmp/bootcnt.touch
+#      Formerly if the file did not exist, /etc/profile would
+#      create it and start xwin
+#      Now create it here and if it exist, 
+#      remove it by /etc/profile and start xwin
+# TODO: handle multiple autologinroot in /etc/inittab to prevent
+#        races of several xwin executions ( also here for F11 console )
+# TODO: handle /init in initrd.gz 
+touch /tmp/bootcnt.touch
 fi
 
 [ -c /dev/ppp ]   || mknod /dev/ppp c 108 0
