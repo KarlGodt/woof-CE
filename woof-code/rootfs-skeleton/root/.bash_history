@@ -2388,3 +2388,73 @@ diff -uraNd grub-0.94 grub-0.95
 diff -uraNd grub-0.94 grub-0.95 >grub-0.94_0.95.diff
 help2man
 geany `which pupzip`
+./replace_commit_files.sh 
+type -path rpm2cpio
+ash 
+grep splashimage *
+grep gfxmenu *
+grep -r gfxmenu *
+grep -r splashimage *
+grep -r viewport *
+pupzip /mnt/sdb7/boot/temporary/trustedgrub-1.1.0-14.1.src.rpm
+grep 'GNU GRUB' *
+geany /usr/local/bin/drive_all
+geany /etc/rc.d/f4puppy5
+source /etc/rc.d/f4puppy5
+__get_jobs
+xmessage "HELLO" &
+__get_jobs
+DEBUG=1
+__get_jobs
+echo $MY_SELF
+echo $0
+ps | grep bash
+tty
+jobs
+jobs -l
+ps | grep bash
+__get_jobs xmessage
+mount
+mount /dev/sr1
+umount /mnt/sr1
+mount /dev/sr1
+umount /mnt/sr1
+dpkg-deb ./grub-installer_1.07.1_i386.udeb .
+dpkg-deb -x ./grub-installer_1.07.1_i386.udeb .
+dpkg-deb --help
+dpkg-deb -x ./grub-installer_1.07.1_i386.udeb ./
+dpkg-deb -x ./grub-installer_1.07.1_i386.udeb /tmp
+dpkg-deb -X ./grub-installer_1.07.1_i386.udeb /tmp
+dpkg-deb -I ./grub-installer_1.07.1_i386.udeb 
+mkdir _install
+dpkg-deb -X ./grub-installer_1.07.1_i386.udeb ./_install
+dpkg-deb -c ./grub-installer_1.07.1_i386.udeb 
+dpkg-deb -c ./lilo-installer_1.07_i386.udeb 
+dpkg-deb -I ./lilo-installer_1.07_i386.udeb 
+dpkg-deb --help
+dpkg-deb -X -D ./lilo-installer_1.07_i386.udeb .
+dpkg-deb -D -X ./lilo-installer_1.07_i386.udeb .
+dpkg-deb -D --fsys-tarfile ./lilo-installer_1.07_i386.udeb .
+dpkg-deb -D --fsys-tarfile ./lilo-installer_1.07_i386.udeb
+dpkg-deb -D -w ./lilo-installer_1.07_i386.udeb
+dpkg-deb -D -W ./lilo-installer_1.07_i386.udeb
+dpkg-deb -D -f ./lilo-installer_1.07_i386.udeb
+dpkg-deb -D --new -X ./lilo-installer_1.07_i386.udeb .
+dpkg-deb -D --old -X ./lilo-installer_1.07_i386.udeb .
+top
+mount
+pidof mount
+mount /dev/sr1
+mount
+/mnt/home/root/.pup_event/drive_sr1/AppRun
+uname -runame -r
+uname -r
+cat /proc/cmdline
+echo /tmp/grub-disk_0.95+cvs20040624-17sarge1_all/usr/share/grub-disk/grub-0.95-i386-pc.iso | wc -L
+losetup
+losetup -a
+busybox losetup -a
+busybox losetup
+mount
+umount //mnt/grub-0.95-i386-pc.iso
+filemnt /tmp/grub-disk_0.95+cvs20040624-17sarge1_all/usr/share/grub-disk/grub-0.95-i386-pc.iso
