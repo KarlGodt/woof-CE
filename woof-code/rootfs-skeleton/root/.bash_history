@@ -2271,3 +2271,8 @@ bootmanager
 
 Thu Dec 11 23:53:05 GMT+1 2014
 
+./replace_commit_files.sh 
+info grub2
+
+Sat Dec 13 01:56:16 GMT+1 2014
+
