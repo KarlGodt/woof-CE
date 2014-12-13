@@ -1,8 +1,17 @@
 #!/bin/sh
 PROG='/etc/profile'
 
+# REM: Do not source further if HAVE_PROFILE 
+#      Mainly /root/.bashrc would source /etc/profile all the time
 [ "$HAVE_PROFILE" ] && return 0
 
+# REM: For F11 console do not process further
+#      NO : sorting .log file gives pidof rc.sysinit too
+#[ "`pidof rc.sysinit`" ] && return 0
+# REM: Do not exit profile - would be respawned by /etc/inittab entry (I think)
+#      Always use return
+
+# REM: /etc/.bashrc now has all the environment variables
 [ -f /etc/.bashrc -a -r /etc/.bashrc ] && . /etc/.bashrc
 
 ####profile.d
@@ -19,6 +28,7 @@ for profile_script in /etc/profile.d/* ; do #w482 any files.
   #fi
 done
 unset profile_script
+
 #if [ ! -f /etc/profile.d/firstun ] ; then #krg
 #echo `date` >> /etc/profile.d/firstun
 #fi
@@ -32,21 +42,27 @@ if [ -r /etc/profile.local ] ; then
  . /etc/profile.local
 fi
 
+# REM: /etc/resolutionfix if hardware had changed would be
+#      at the wrong place here without HW detection ....
+#      But on the other hand would be OK here if booted with nox parameter
+#      and the HW had not changed
 #v2.12
-#xorgwizard creates this file, run once only...
-if [ ! -f /tmp/bootcnt.touch ];then
- [ -f /etc/resolutionfix ] && eval `cat /etc/resolutionfix`
-fi
+# xorgwizard and xwin create this file, run once only...
+#if [ ! -f /tmp/bootcnt.touch ];then
+# [ -f /etc/resolutionfix ] && eval `cat /etc/resolutionfix`
+#fi
+
 echo '1 : '"`date +%M:%S:%N`"
 if [ ! -f /usr/bin/X ];then
 echo '100 : '"`date +%M:%S:%N`"
  #v2.00r1 now support a text-mode-only puppy...
  if [ -f /usr/local/bin/elinks ];then
  echo '110 : '"`date +%M:%S:%N`"
-  if [ ! -f /tmp/bootcnt.touch ];then
+  if [ -f /tmp/bootcnt.touch ];then
    echo '120 : '"`date +%M:%S:%N`"
-   touch /tmp/bootcnt.touch
-   exec /usr/local/bin/elinks file:///usr/share/doc/index.html
+   #touch /tmp/bootcnt.touch
+    rm -f /tmp/bootcnt.touch  
+exec /usr/local/bin/elinks file:///usr/share/doc/index.html
   fi
  else
   echo
@@ -56,30 +72,39 @@ echo '100 : '"`date +%M:%S:%N`"
  fi
 else
 ##echo '101 : '"`date +%M:%S:%N`"
- #want to go straight into X on bootup only...
+
+#want to go straight into X on bootup only...
+
 # if [ ! -f /tmp/bootcnt.touch ];then
 # touch /tmp/bootcnt.touch
 # echo '200 : '"`date +%M:%S:%N`"
-if [ "`basename $(tty)`" = "tty1" ] ; then
 
-if [ ! -f /tmp/bootcnt.touch ];then
-touch /tmp/bootcnt.touch
-##echo '200 : '"`date +%M:%S:%N`"
+# REM:
+ if [ "`basename $(tty)`" = "tty1" ] ; then
 
-   #touch /tmp/bootcnt.touch
+  if [ -f /tmp/bootcnt.touch ];then
+  #touch /tmp/bootcnt.touch
+  rm -f /tmp/bootcnt.touch
+  ##echo '200 : '"`date +%M:%S:%N`"
+
+  
    #aplay -N /usr/share/audio/2barks.au
    etad=`date +%d%b%Y`
    dmesg > /tmp/bootkernel.log.profile.$etad
    echo >> /tmp/bootkernel.log.profile.$etad
    date >> /tmp/bootkernel.log.profile.$etad
-   if [ -z "`cat /proc/cmdline | grep -i 'nox'`" ] ; then
+   
+# REM: Handle nox parameter 
+#      Now reverted /tmp/bootcnt.touch  2014-12-12
+#      Created in rc.sysinit if nox not found in /proc/cmdline
+#   if [ -z "`cat /proc/cmdline | grep -i 'nox'`" ] ; then
     echo -e "\\033[1;34m""Starting now xwin from '$PROG' '$0'""\\033[0;39m"
     echo '300 : '"`date +%M:%S:%N`"
     sleep 5s
     exec xwin
-   else
-    echo -e "\\033[1;34m""Booted with nox parameter . Staying in console mode""\\033[0;39m"
-   fi
+#   else
+#    echo -e "\\033[1;34m""Booted with nox parameter . Staying in console mode""\\033[0;39m"
+#   fi
 
   ##else
   ##echo -e "\\033[0;31m""xwin had started already by '$PROG' and '$0'""\\033[0;39m"
