@@ -57,7 +57,7 @@ until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ];do echo -ne "\rWaiting
 #NUMXWINS=`pidof xwin | wc -w` #w478
 #[ $NUMXWINS -gt 1 ] && exit   #w478
 
-XWINS=`ps -C xwin`
+XWINS=`/bin/ps -C xwin`
 NUMXWINS=$(( $(echo "$XWINS" | wc -l) -1))
 PROGPID=$$
 PROGTTY=`basename $(tty)`
@@ -550,7 +550,7 @@ if [ "$KEYMAPNOW" != "$KEYMAPPREV" ];then
     fi
    fi
   fi
-  currXKEYMAP="`grep '#xkeymap0' /etc/X11/xorg.conf | tr '\t' ' ' | tr -s ' ' | cut -f 4 -d '"'`" #'geany fix
+  currXKEYMAP=`grep '#xkeymap0' /etc/X11/xorg.conf | tr '\t' ' ' | tr -s ' ' | cut -f 4 -d '"'`
   if [ "$currXKEYMAP" != "$XKEYMAP" ];then
    skPATTERN="s%.*#xkeymap0%    Option      \"XkbLayout\" \"${XKEYMAP}\" #xkeymap0%"
    sed -i -e "${skPATTERN}" /etc/X11/xorg.conf #100130
@@ -588,11 +588,49 @@ _warn "Could not secure remove /dev/dri/card0"
  }
 }
 
+rm -f /tmp/wmexitmode.txt
+
+# REM: Do 915resolution here, not in /etc/profile in case booted as pfix=nox 
+#       with different video setup
+_get_since_epoch(){
+read SINCE_EPOCH </sys/class/rtc/rtc0/since_epoch
+echo "$SINCE_EPOCH" >&2
+}
+_get_etc_resolutionfix_access_time_since_epoch(){
+ETC_RESO_FIX_ACC_TIME_SINCE_EPO=`stat -c %X /etc/resolutionfix`
+echo "ETC_RESO_FIX_ACC_TIME_SINCE_EPO=$ETC_RESO_FIX_ACC_TIME_SINCE_EPO" >&2
+}
+_get_uptime_seconds(){
+IFS='. ' read UPTIME_SECONDS ms RUNNING_SECONDS rms </proc/uptime
+echo "UPTIME_SECONDS=$UPTIME_SECONDS" >&2
+}
+
+_uptime_since_epoch(){
+ _get_since_epoch
+ _get_uptime_seconds
+echo $(( SINCE_EPOCH - UPTIME_SECONDS ))
+}
+
+_eval_etc_resolutionfix(){
+LAST_BOOT=`_uptime_since_epoch`
+echo "LAST_BOOT='$LAST_BOOT'" >&2
+_get_etc_resolutionfix_access_time_since_epoch
+if test $ETC_RESO_FIX_ACC_TIME_SINCE_EPO -le $LAST_BOOT; then
+ # REM: Not accessed in this boot
+ #[ -f /etc/resolutionfix ] && eval `cat /etc/resolutionfix`
+ [ -f /etc/resolutionfix ] && { . /etc/resolutionfix; touch -a /etc/resolutionfix; }
+fi
+
+# REM: TODO modify time change
+
+}
+[ -f /etc/resolutionfix ] && _eval_etc_resolutionfix
+
 #finally, start X...
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
 #but if PC hangs, XLOADED will still be true, so will know it is broken.
 echo "true" >/var/lock/XLOADED
-rm -f /tmp/wmexitmode.txt
+
 
 case $HAVEX in
  Xvesa)
