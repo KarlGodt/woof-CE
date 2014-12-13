@@ -261,11 +261,12 @@ _debugt 9d $_DATE_
         }
  _debugt 9c $_DATE_
 
+ # REM: Remember myself: Have renamed DRV_CATEGORY to DISK_CATEGORY since it uses probedisk(2) not probedrive
  case $oneUPDATE in
  *loop*|*md*|*mtd*|*nbd*|*ram*|*zram*) _debug "Got loop, md, mtd, nbd, ram, zram -- won't update partition icon"; skipICON=YES ; continue;;
- /dev/fd[0-9]*)                     DRV_CATEGORY=floppy ;;
- /dev/sr*|/dev/scd*|/dev/hd[a-d])   DRV_CATEGORY=optical;;
- /dev/mmc*)                         DRV_CATEGORY=card   ;;
+ /dev/fd[0-9]*)                     DISK_CATEGORY=floppy ;;
+ /dev/sr*|/dev/scd*|/dev/hd[a-d])   DISK_CATEGORY=optical;;
+ /dev/mmc*)                         DISK_CATEGORY=card   ;;
  /dev/*) DISK_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
          _debug "DISK_CATEGORY='$DISK_CATEGORY'"
          test "$DISK_CATEGORY" || continue;;
