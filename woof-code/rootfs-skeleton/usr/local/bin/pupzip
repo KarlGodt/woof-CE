@@ -232,9 +232,12 @@ echo "FULLSPEC='$FULLSPEC'"
   fi
 
  else
+ # REM: Some files like trustedgrub-1.1.0-14.1.src.rpm
+ #      Have lots of dots, try to get the to the last
+ #      Could use |rev|cut|rev also I think
   AEXT="$AFILE"
-  while [ ! "`echo -n "$AEXT" | grep '\.'`" = "" ];do
-   AEXT=`echo -n "$AEXT" | cut -f 2-6 -d '.'`
+  while [ "`echo -n "$AEXT" | grep '\.'`" != "" ];do
+   AEXT=`echo -n "$AEXT" | cut -f 2- -d '.'`
   done
  fi
 
@@ -244,8 +247,10 @@ echo "FULLSPEC='$FULLSPEC'"
  #drops here with AEXT=extension.
  case $AEXT in
   rpm|RPM)
-   mkdir /tmp/temprpm
-   cd /tmp/temprpm || exit 1
+   # REM: create a temp dir and extract the .rpm
+   mkdir /tmp/tmp_rpm
+   cd /tmp/tmp_rpm || exit 1
+   # REM: into it
    $RPM2CPIO "$FULLSPEC" | cpio -d -i -m
    if [ ! $? -eq 0 ];then
     exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the RPM file.
@@ -253,13 +258,33 @@ Suggestion: install unrpm.pup DotPup package, which contains an alternative
 RPM extraction program, that PupZip will automatically use if present."
    fi
    sync
-   tar -c -f /tmp/temprpm.tar .
-   test $? = 0 && rm -rf /tmp/temprpm
+   # REM: No error, so continue
+   #      with creating a temp tar file outside the extraction directory
+   #tar -c -f /tmp/temprpm.tar .
+   # REM: Give the temporary tar file a better name
+   UCFILE=${AFILE%.$AEXT}
+   UCFILE=`basename "$UCFILE"`
+   tar -c -f /tmp/"${UCFILE}".tar .
+   tarRV=$?
+   # REM: Remove the now unneeded temporary extraction directory
+   [ "$DEBUG" ] || { test $tarRV = 0 && rm -rf /tmp/tmp_rpm/; }
+   # REM: Now create an extraction directory,
+   #      so xarchive does not scatter everything in toplevel of /tmp
+   mkdir -p /tmp/"${UCFILE}"/
+   mv $VERB /tmp/"${UCFILE}".tar /tmp/"${UCFILE}"/
+   # REM: TODO evealuate errors ...
    cd /
-   $XARCHIVE /tmp/temprpm.tar
-   test $? = 0 && rm -f /tmp/temprpm.tar
+   # REM: Now run xarchive
+   #$XARCHIVE /tmp/temprpm.tar
+   $XARCHIVE /tmp/"${UCFILE}"/"${UCFILE}".tar
+   xarRV=$?
+   #test $? = 0 && rm -f /tmp/temprpm.tar
+   # REM: Now can remove temporary tar file to free RAM
+   [ "$DEBUG" ] || { test $xarRV = 0 && rm -rf /tmp/"${UCFILE}"/"${UCFILE}".tar; }
    cd $CDIR
-   exit
+   # REM: Now open ROX-Filer window there if has content
+   [ -d /tmp/"${UCFILE}"/ -a "`ls -A /tmp/"${UCFILE}"/`" ] && rox -d /tmp/"${UCFILE}"/
+   exit $xarRV
    ;;
 
 #v4.00 remove...
