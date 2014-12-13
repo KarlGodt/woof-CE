@@ -2276,3 +2276,115 @@ info grub2
 
 Sat Dec 13 01:56:16 GMT+1 2014
 
+./replace_commit_files.sh 
+git commit
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "OK, If your mouse receiver is
+attached to a keyboard integrated hub,
+
+and you don't want to wake the system by mouse moves,
+
+or light up any LEDs on the keyboard,
+
+then you have $MOUSEMSG_TT seconds from now,
+to switch off the mouse..."
+MOUSEMSG_TT=30
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "OK, If your mouse receiver is
+attached to a keyboard integrated hub,
+
+and you don't want to wake the system by mouse moves,
+
+or light up any LEDs on the keyboard,
+
+then you have $MOUSEMSG_TT seconds from now,
+to switch off the mouse..."
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is
+ attached to a keyboard integrated hub,
+
+ and you don't want to wake the system by mouse moves,
+
+ or light up any LEDs on the keyboard,
+
+ then you have $MOUSEMSG_TT seconds from now,
+ to switch off the mouse..."
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is
+ attached to a keyboard integrated hub,
+
+ and you don't want to wake the system by mouse moves,
+
+ or light up any LEDs on the keyboard,
+
+ then you have $MOUSEMSG_TT seconds from now,
+ to switch off the mouse..."
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is \
+ attached to a keyboard integrated hub, \
+
+ and you don't want to wake the system by mouse moves, \
+
+ or light up any LEDs on the keyboard, \
+
+ then you have $MOUSEMSG_TT seconds from now, \
+ to switch off the mouse..."
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is ""
+ ""attached to a keyboard integrated hub, ""
+
+ ""and you don't want to wake the system by mouse moves, ""
+
+ ""or light up any LEDs on the keyboard, ""
+
+ ""then you have $MOUSEMSG_TT seconds from now, ""
+ ""to switch off the mouse..."
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "
+| OK, If your mouse receiver is                         |
+| attached to a keyboard integrated hub,                |
+|                                                       |
+| and you don't want to wake the system by mouse moves, |
+|                                                       |
+| or light up any LEDs on the keyboard,                 |
+|                                                       |
+| then you have $MOUSEMSG_TT seconds from now,          |
+| to switch off the mouse...                            |
+_________________________________________________________"
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "_________________________________________________________
+| OK, If your mouse receiver is                         |
+| attached to a keyboard integrated hub,                |
+|                                                       |
+| and you don't want to wake the system by mouse moves, |
+|                                                       |
+| or light up any LEDs on the keyboard,                 |
+|                                                       |
+| then you have $MOUSEMSG_TT seconds from now,                  |
+| to switch off the mouse...                            |
+_________________________________________________________"
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
+| OK, If your mouse receiver is                         |
+| attached to a keyboard integrated hub,                |
+|                                                       |
+| and you don't want to wake the system by mouse moves, |
+|                                                       |
+| or light up any LEDs on the keyboard,                 |
+|                                                       |
+| then you have $MOUSEMSG_TT seconds from now,                   |
+| to switch off the mouse...                            |
+_________________________________________________________"
+yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
+| OK, If your mouse receiver is                         |
+| attached to a keyboard integrated hub,                |
+|                                                       |
+| and you don't want to wake the system by mouse moves, |
+|                                                       |
+| or light up any LEDs on the keyboard,                 |
+|                                                       |
+| then you have $MOUSEMSG_TT seconds from now,                    |
+| to switch off the mouse...                            |
+---------------------------------------------------------"
+grep boot_loader_name *
+grep -r boot_loader_name ../*
+git log
+git branch
+git tag
+grep viewport *
+diff -urAnd grub-0.94 grub-0.95
+diff -uraNd grub-0.94 grub-0.95
+diff -uraNd grub-0.94 grub-0.95 >grub-0.94_0.95.diff
+help2man
+geany `which pupzip`
