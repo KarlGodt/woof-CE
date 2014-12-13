@@ -60,7 +60,7 @@ _trap
 #        modprobe -c | grep it87 = ''
 #
 # 06.0 : finally checking lsmod before modprobing
-#        because updates in /tmp/pup_event_module_devpath_log
+#        because updates in /tmp/pup_event_module_devpath.log
 #        can be too slow (older Puppy4 series)
 #
 # 07.0 : added usage and debug func
@@ -137,7 +137,7 @@ case $content in
 [ "$RULEMODULE" ] || usage;;
 esac
 done
-
+#echo 01
 [ -z "`echo "$*"`" -a "$MODALIAS" == "" ] && usage
 #echo "RULEMODULE='$RULEMODULE'"
 #[ "$FASTBOOTMODULESLIST" ] && exit 1 #fastboot, see /etc/rc.d/MODULESCONFIG.
@@ -148,7 +148,7 @@ TIME="date +%M.%S.%N"
 debug "$(echo $$ 0.0.0 `$TIME` `cat /proc/loadavg` )"
 until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ] ; do sleep 2s;done  ###+++2011-11-30
 debug "$(echo $$ 0.0.1 `$TIME` `cat /proc/loadavg` )"
-
+#echo 02
 
 #echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS" $LocalLOG
 #echo $$ 2.0 `$TIME` 'MODALIAS='"$MODALIAS" $($LocalLOG) #does also not work with backticks
@@ -156,7 +156,7 @@ debug "$(echo $$ 2.0 `$TIME` "MODALIAS='$MODALIAS'")"
 
 #v432 Provide for optional preferences for internal use...
 PREFEXTRAS=""
-
+#echo 03
 touch /tmp/pup_event_modprobe.conf  ##+++2011-11-09 #11-22 was /tm/pup_event_modprobe.conf
 #find a matching module... (/etc/pup_event_modprobe.conf created in rc.sysinit)
 MODULE="`/sbin/modprobe --config /tmp/pup_event_modprobe.conf --show-depends $MODALIAS 2>/dev/null | tail -n 1 | rev | cut -f 1 -d '/' | rev | cut -f 1 -d '.' | tr '\-' '_'`"
@@ -176,7 +176,7 @@ fi
 fi
 fi
 #debug "$(echo $$ 3.1 `$TIME` "MODULE='$MODULE'")"
-
+#echo 04
 [ "$RULEMODULE" ] && [ "$MODULE" = "" -o "$MODULE" = "usb_storage" ] && MODULE="$RULEMODULE" #w463 Use module from argument
 debug "$(echo $$ 3.2 `$TIME` "MODULE='$MODULE'")"
 
@@ -186,18 +186,19 @@ debug "$(echo $$ 3.3 `$TIME` $MODULE in FASTBOOTMODULESLIST .. exit 1 ..)"
 exit 1
 fi
 ###+++2011-11-09
-
+#echo 05
 [ "$MODULE" ] || { debug "$(echo $$ 3.5 `$TIME` 'Still no MODULE .. exit 1 ..')";exit 1; }
 #[ "$MODULE" = "usb_storage" ] && exit 1 #loaded explicitly in boot scripts.
 
-touch /tmp/pup_event_module_devpath_log
+touch /tmp/pup_event_module_devpath.log
 if [ "`grep 'pup_event_backend_modprobe_protect \-\-module' $0`" ]; then
-pidof pup_event_backend_modprobe_protect >>$out || {
+ps -o pid,args | grep pup_event_backend_modprobe_protect | grep $Q -e --daemon || {
 exec pup_event_backend_modprobe_protect --daemon >>$out 2>>$err &
 sleep 2
+START_PROTECT_DAEMON=1
 }
 fi
-
+#echo 06
 #v432 Ensure module procesing done only once, except for usb-storage (needed to find hybrid-device co-driver).
 #[ "$MODULE" != "usb_storage" ] \
  #&& ! pup_event_backend_modprobe_protect --module=$MODULE \
@@ -214,7 +215,7 @@ debug "$(echo $$ 3.5 `$TIME` "pup_event_backend_modprobe_protect --module='$MODU
 exit 0
 fi
 fi
-
+#echo 07
 . /etc/rc.d/PUPSTATE
 . /etc/rc.d/MODULESCONFIG
 KERNVER=`uname -r`
@@ -224,7 +225,7 @@ CONFFILE='/etc/modprobe.conf'
 [ -f /etc/modprobe.d/puppy.conf ]     && CONFFILE='/etc/modprobe.d/puppy.conf'
 ALSACONF="$CONFFILE"
 [ -f /etc/modprobe.d/alsa-base.conf ] && ALSACONF='/etc/modprobe.d/alsa-base.conf'
-
+#echo 08
 setup_alsa_func() { #uses MODULE.
  #if a sound module, preconfigure alsa (/etc/init.d/alsa will start it)...
 
@@ -286,7 +287,7 @@ setup_alsa_func() { #uses MODULE.
   pup_event_backend_modprobe_protect --unlock=modprobeconf >>$out 2>>$err #v432
  #fi
 }
-
+#echo 09
 pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
  #returns 0 if ok to load module, changes MODULE if required.
 
@@ -349,7 +350,7 @@ pci_fixup_func() { #w463 needs MODALIAS, MODULE, RULEMODULE
   && PREFEXTRAS="${PREFEXTRAS} ${PREFHSFALSA}"
  return 0
 }
-
+#echo 0a
 firmware_module_func() {
  #global MODULE is name of module, global KERNVER.
  altMODULE="`echo -n "$MODULE" | tr '_' '-'`"
@@ -367,18 +368,18 @@ firmware_module_func() {
   pup_event_backend_modprobe_protect --firmware=$FIRMPKG || return 0
 
   if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-   cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >>$out 2>&1
+   cp $VERB -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >>$out 2>&1
    cd /tmp
    tar -zxf ${FIRMPKG}.tar.gz >>$out 2>&1
   fi
 
   if [ -d /tmp/${FIRMPKG} ];then
-   /bin/cp -a --remove-destination /tmp/${FIRMPKG}/* / 2>>$err
+   /bin/cp $VERB -a --remove-destination /tmp/${FIRMPKG}/* / 2>>$err
   fi
   #in case firmware is not a .tar.gz tarball...
 
   if [ -d /lib/modules/all-firmware/${FIRMPKG} ];then #w478
-   /bin/cp -a --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* / 2>>$err
+   /bin/cp $VEBR -a --remove-destination /lib/modules/all-firmware/${FIRMPKG}/* / 2>>$err
   fi
 
   if [ -f /pinstall.${FIRMPKG}.sh ];then
@@ -391,7 +392,7 @@ firmware_module_func() {
 
  fi
 }
-
+#echo 1
 case "$MODALIAS" in
  pci:*)
   pci_fixup_func #w463 needs MODALIAS, MODULE, RULEMODULE
@@ -401,12 +402,12 @@ case "$MODALIAS" in
   #v432 For USB hybrid storage/modem devices, ensure storage driver loaded, then modem driver (on repeated event, if necessary).
   if [ "$MODULE" = "usb_storage" ] \
     && [ "`lsmod | grep '^usb_storage `" != "" ];then #v433
-   PREFUSBSTG=" usb_storage:cdc_acm|`grep -w 'usbserial.ko' /lib/modules/$KERNVER/modules.dep | grep -o '^[^:]*' | rev | cut -f 1 -d / | rev | tr '\n' '|'`hso" #v433
+   PREFUSBSTG=" usb_storage:cdc_acm|`grep -Fw 'usbserial.ko' /lib/modules/$KERNVER/modules.dep | grep -o '^[^:]*' | rev | cut -f 1 -d / | rev | tr '\n' '|'`hso" #v433
    PREFEXTRAS="${PREFEXTRAS} ${PREFUSBSTG}"
   fi
  ;;
 esac
-
+#echo 2
 #v404 preferences list, ex rt2500usb and rt73usb both hits, then choose latter...
 modPATTERN='^'"$MODULE"':'
 
@@ -416,7 +417,7 @@ PREFHIT="`echo -n "${PREFLIST}${PREFEXTRAS}" | tr -s ' ' | tr ' ' '\n' | grep "$
 
 debug "$(echo $$ 7.0 `$TIME` "PREFHIT='$PREFHIT'")"
 
-
+echo 3
 if [ "$PREFHIT" != "" ];then
  debug "$(echo $$ 8.0 `$TIME` "PREFHIT='$PREFHIT'")"
  prefMODULES="`echo -e -n "$PREFHIT" | cut -f 2 -d ':' | tr '|' '\n'`"
@@ -459,7 +460,7 @@ if [ "$PREFHIT" != "" ];then
 else
 debug "$(echo $$ 8.0 `$TIME` 'no preflist defined')"
 fi
-
+#echo 4
 #installs a firmware tarball (once only. loading firmware is something else)...
 firmware_module_func
 
@@ -468,10 +469,10 @@ setup_alsa_func #MODULE and CNTSND are used in this func.
 [ "$START_PROTECT_DAEMON" ] && pup_event_backend_modprobe_protect --stop >>$out 2>>$err &
 
 sed -i "s|^\(DBG .*\)|$$ 8\.9 \1|" $out
-
+#echo 5
 if [ -z "`lsmod | grep "$MODULE"`" ] ; then
 #log to file. rc.modules2 needs this info to find out if any modaliases missed (also above)...
-echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath_log
+echo "MODULE=$MODULE DEVPATH=$DEVPATH" >> /tmp/pup_event_module_devpath.log
 debug "$(echo -e $$ 9.0 `$TIME` "\e[32m"'Finally modprobing '"$MODULE""\e[39m")"
 debug "$(echo $$ 0.0.8 `$TIME` `cat /proc/loadavg` )"
 debug "$(echo $$ 9.1 `$TIME` `cat /proc/loadavg` )"
