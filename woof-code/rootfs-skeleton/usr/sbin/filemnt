@@ -228,13 +228,17 @@ check_already_mounted_func(){
    /initrd/*) ANDINUSEBYPUPPY='and in use by Puppy';;
    esac
 
-   # REM: Now compare bot base names ...
+   # REM: Now compare both base names ...
    oneIMGBASE=`basename "$oneMNTDIMG"`
 
     _debug "oneIMGBASE='$oneIMGBASE' imageFILEBASE='$imageFILEBASE'" #DEBUG
     #not perfect, but paths may be symlinks...
 
-    if [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
+   # REM: Use losetup -j additionally
+   ass_imageFILE=`losetup -j "$imageFILE" 2>>$ERR`
+
+
+    if [ "$ass_imageFILE" ] || [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
 
      if [ -n "$DISPLAY" ] ; then #DISPLAY
 xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $oneIMGBASE:194,Mount another time:199" "$imageFILE
@@ -359,6 +363,7 @@ if [ -z "$UNMOUNT" ] ; then #UNMOUNT
    Type=`disktype "$imageFILE" | grep -m1 'file system' |awk '{print $1}' |tr '[[:upper:]]' '[[:lower:]]'`
    [ "$Type" ] || Type='iso9660'  #fallback
 
+  #===== INITRD CODE =====#
   # REM: Older initrds were a simple ext2 fs container that needed root=/dev/ram0
   #      kernel parameter. init is /sbin/init in such containers.
   #      With cpio archive support init is on rootfs-top :
@@ -383,10 +388,27 @@ if [ -z "$UNMOUNT" ] ; then #UNMOUNT
     fi
     exit 1
    fi #! TYPE
+   #===== INITRD CODE =====#
+
+  else
+   # REM: No extension nor some initrd*
+   Type=`disktype "$imageFILE" | grep -iE 'file system|Linux squashfs,'`
+    case $Type in
+    *squashfs*) Type=squashfs;;
+    *):;;  ## TODO
+    esac
+
   fi #Ext
+
+ if [ "$Type" ]; then
+ _notice "Detected Type='$Type'"
+ else
+ _warn "Could not detect f.s. Type='$Type'"
+ fi
 
   #v423 detect wrong squashfs version...
   if [ "$Type" = "squashfs" ];then #squashfs
+  _info "Is squashfs"
    DISK_TYPE=`disktype "${imageFILE}" 2>&1`
     if [ "`echo "$DISK_TYPE" | grep -i permission`" ];then #DISK_TYPE
      xmessage -bg red2 "CHECK Permissions :
@@ -406,6 +428,8 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
      fi #KERNEL 2.6.28/29
      exit $?
     fi #DISK_TYPE
+  else
+  _info "Not squashfs"
   fi #squashfs
 
  # REM: Older kernels before 3.1 need check if loopdevice available :
