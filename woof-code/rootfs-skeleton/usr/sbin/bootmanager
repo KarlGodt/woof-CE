@@ -121,7 +121,7 @@ if [ "$PUPMODE" = "77" ];then
 # fi
 fi
 
-extrasfs_func() {
+extrasfs_func(){
 
  UNMOUNTME=""
  #if [ "$PUPMODE" = "77" ];then
@@ -248,7 +248,7 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
 
 } #end extrasfs_func
 
-blacklist_func() {
+blacklist_func(){
  #blacklisting of modules at bootup.
  . /etc/rc.d/MODULESCONFIG
  MODLIST=""
@@ -275,9 +275,55 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
  mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
+
+
+# REM: Handle FASTBOOTMODULESLIST
+MACHINE=`_make_board_id`
+
+ if test -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
+  echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
+
+ # First make a backup
+ cp -a "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK"
+
+ # Now remove the module entries if therein
+ for blMOD in $SKIPLIST; do
+
+ sed -i"BAC" "s/^${blMOD}$//" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+ [ $? = 0 ] || {
+     cp "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+     SAY_BLACKLIST_ERROR='Removing from FASTBOOTMODULESLIST'
+     break
+  }
+ done
+
+ sed -i"BAC" '/^$/ d' "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+ [ $? = 0 ] || {
+    cp "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+    SAY_BLACKLIST_ERROR='Altering FASTBOOTMODULESLIST'
+  }
+
+  # REM: Handle sed errors .. does not handle copy errors
+  if [ "$SAY_BLACKLIST_ERROR" ]; then
+   rox -x /etc/modules/ -d /etc/modules/
+   sleep 1
+   xmessage -bg red -title 'BootManager Error' "Something went wrong
+$SAY_BLACKLIST_ERROR
+
+Please checkout the file ${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+   exit 4
+
+  else
+  # REM: Everything went fine, remove the backup files
+   [ "$DEBUG" ] || rm -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAC"
+  fi
+
+ fi
+# REM: END Handle FASTBOOTMODULESLIST
+
 } #end blacklist_func
 
-addlist_func() {
+addlist_func(){
  #choose extra modules to load at bootup.
 
  TTY=`tty`
@@ -397,14 +443,54 @@ addlist_func() {
   done
  fi
 
+# REM: Handle FASTBOOTMODULESLIST
+MACHINE=`_make_board_id`
 
+ if test -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"; then
+  echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
 
+ # First make a backup
+ cp -a "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK"
+
+  # REM: Now add the module on top to be loaded first using `sed -i '1 \'`
+  for addMOD in $ADDLIST
+
+  do
+
+  _onlyMODULE_=${addMOD%%:*}
+
+  sed -i"BAC" '1 \\'"$_onlyMODULE_" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+  [ $? = 0 ] || {
+     cp "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+     SAY_BLACKLIST_ERROR='Adding to FASTBOOTMODULESLIST'
+     break
+  }
+
+  done
+
+  # REM: Handle sed errors .. does not handle copy errors
+  if [ "$SAY_BLACKLIST_ERROR" ]; then
+   rox -x /etc/modules/ -d /etc/modules/
+   sleep 1
+   xmessage -bg red -title 'BootManager Error' "Something went wrong
+$SAY_BLACKLIST_ERROR
+
+Please checkout the file ${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+   exit 4
+
+  else
+  # REM: Everything went fine, remove the backup files
+   [ "$DEBUG" ] || rm -f "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAC"
+  fi
+
+ fi
+# REM: END Handle FASTBOOTMODULESLIST
 
 } #end addlist_func
 
 #  \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\"
 
-preflist_func() {
+preflist_func(){
  xPREFLIST=`echo -n "$PREFLIST" | sed -e 's/^ //' | tr ' ' '\n'`
  echo "$xPREFLIST" > /tmp/bootmanager_preflist
  xxPREFLIST="`Xdialog --backtitle \"Sometimes two modules are eligible for the same hardware,\n
