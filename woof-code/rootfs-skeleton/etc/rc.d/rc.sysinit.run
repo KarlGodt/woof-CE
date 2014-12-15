@@ -288,7 +288,7 @@ pfix=*)
    nofb:*)          :;;
    nofbcon) NO_FBCON=1;         :;;
    fbconfirst) FBCON_FIRST=1;;
-   nox)        echo 'nox' > /tmp/X.status;;
+   nox)        echo 'nox' > /var/lock/boot2X.status;;
    xorgwizard) mv /etc/X11/xorg.conf /etc/X11/xorg.conf-"`date`";;
 
    esac;done
@@ -471,7 +471,7 @@ test -f /sys/kernel/debug/dynamic_debug/control && echo -n 'module usb_storage +
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' |awk '{print $4}'` #w481
 if test "$PUPMODE" = 2; then #weird, only full-hd install needs this for xfdiff.
- QTRFREERAM=`expr $FREERAM \/ 4`
+ QTRFREERAM=$((FREERAM / 4))
  test -d /dev/shm || mkdir $VERB -p /dev/shm
  mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS+$?))
 fi
@@ -480,7 +480,7 @@ fi
 mountpointDEV='';
 haveMDEV=YES;
 grep $Q ' /dev ' /proc/mounts 2>>$ERR && mountpointDEV=YES
-mdev -s || haveMDEV='';
+mdev -s 2>>$ERR || haveMDEV='';
 
  #PUPSTATE
 #w478 moved this code above call to rc.update...
@@ -1220,7 +1220,7 @@ echo "WAIT MODULES LOADED"
  echo -n " pcmcia"  >/dev/console
  while [ $WAITCNT -lt 10 ];do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" != "" ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
@@ -1234,8 +1234,8 @@ modprobe -l | grep '[eoux]hci_hcd' && {
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
   while [ $WAITCNT -lt 10 ];do
-  [ "`lsmod | grep -w -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  [ "`lsmod | grep -w -E '^ehci_hcd|^ohci_hcd|^uhci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
+  WAITCNT=$((WAITCNT + 1 ))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
   done
@@ -1332,7 +1332,7 @@ modprobe -l | grep '[eoux]hci_hcd' && {
   [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
   [ "`dmesg | grep 'usb-storage .*: scan complete'`" != "" ]     && break
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   echo -n " $WAITCNT" >/dev/console
   done
  #precaution, make sure have got them all... v412 need sort -u...
@@ -1343,7 +1343,7 @@ modprobe -l | grep '[eoux]hci_hcd' && {
    AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage .*: scan complete" | wc -l`
    [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
    sleep 1
-   WAITCNT1=`expr $WAITCNT1 + 1`  ###+2011-10-31 changed WAITCNT to WAITCNT1
+   WAITCNT1=$((WAITCNT1 + 1))  ###+2011-10-31 changed WAITCNT to WAITCNT1
    echo -n " $WAITCNT1" >/dev/console  ###+2011-10-31 changed WAITCNT to WAITCNT
   done
  fi
@@ -1536,7 +1536,7 @@ do
  [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL"
  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ]      && DVDTYPE="$oneOPTICAL"
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
- OPTCNT=`expr $OPTCNT + 1`
+ OPTCNT=$((OPTCNT + 1))
 done
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$CDTYPE" ]       && ln $VERB -sf /dev/$CDTYPE  /dev/cdrom
@@ -1711,9 +1711,10 @@ WHOAMI='$WHO'
 
  #X
 if [ -z "`grep -i -w 'nox' /proc/cmdline`" ]; then  ##+2012-02-02 added -w
-echo 'X'   > /tmp/X.status
+echo 'X'   > /var/lock/boot2X.status
+touch /tmp/bootcnt.txt
 else
-echo 'nox' > /tmp/X.status
+echo 'nox' > /var/lock/boot2X.status
 fi
  #X
 ################### PERSONAL BOOT SCRIPT ######################
@@ -1757,7 +1758,7 @@ echo `uptime` >>/tmp/bootkernel.log
 
  #ATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
- SATADRIVES=`ls -1 /sys/block | grep '^sd'`
+ SATADRIVES=`ls -1v /sys/block | grep '^sd'`
 
  for i in $SATADRIVES; do
   LinkTarget=`readlink -f /sys/block/$i`
@@ -1786,7 +1787,7 @@ if test "$PUPMODE" != 5; then
  echo "'/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst' is regular file"
  fi
 else
- echo "PUPMODE '$PUPMODE', skipping creation of modules@.lst"
+ echo "PUPMODE '$PUPMODE', skipping creation of modules@${MACHINE}.lst"
 fi
 }
 [ -f /proc/modules ] && { _make_fastmodules_list; true; } || { echo "no /proc/modules"; false; }
