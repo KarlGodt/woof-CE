@@ -615,7 +615,8 @@ if [ -z "$UNMOUNT" ] ; then
    fi
   ;;
   *)
-   Type=`disktype "$imgFILE" |grep 'file system' |head -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'` ##+++2012-06-04 udf or iso9660
+   _notice "Unhandled extension '${imgFILE##*.}'"
+   Type=`disktype "$imgFILE" |grep -oiE '^[^[[:blank:]]+ file system|^Linux squashfs' |head -n1 |awk '{print $1" "$2}' | sed 's/Linux//;s/file system//' | awk '{print $1}' |tr '[A-Z]' '[a-z]'` ##+++2012-06-04 udf or iso9660
    #Type='iso9660' ##---2012-06-04
    # BK
    #elif [ "$imgFILE" = 'initrd.gz' ] ;then
@@ -625,13 +626,16 @@ if [ -z "$UNMOUNT" ] ; then
   ;;
   esac
 
+_info "Type='$Type'"
+
   #v423 detect wrong squashfs version...
   if [ "$Type" = "squashfs" ];then
    DISK_TYPE=`disktype "${imgFILE}"`
    if [ "`echo "${DISK_TYPE}" | grep "$SFSSTR"`" = "" ];then
     xmessage -bg orange1 "$DISK_TYPE"
-    if [ $KERNEL_MAJ = 2 -a $KERNELSUBVER -gt 28 ] || [ $KERNEL_MAJ -gt 2 ];then
-     [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be an older version 3.x squashfs file, not usable.
+    #if [ $KERNEL_MAJ = 2 -a $KERNELSUBVER -gt 28 ] || [ $KERNEL_MAJ -gt 2 ];then
+    if [ $K_VERSION = 2 -a $K_SUBLEVEL -gt 28 ] || [ $K_VERSION -gt 2 ]; then
+        [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be an older version 3.x squashfs file, not usable.
 All Linux kernels around 2.6.29 or later require version 4.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
     else
@@ -642,6 +646,9 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
     _err "Wrong squashfs version"
     exit 0
    fi
+ 
+  else
+   :
   fi
 
   # REM: Older pups need to mknod a /dev/loop
@@ -661,15 +668,30 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   freeLOOP=`losetup -f`
   [ -b $freeLOOP ] && losetup $freeLOOP "$imgFILE" && {
 
-  _debug "\n$MOUNT_EXE: '$Type' '$freeLOOP' '$mntPT'\n"
-  $MOUNT_EXE $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
-   Err=$?
-  } || {
+   if [ "$Type" ]; then
+    _debug "\n$MOUNT_EXE: '$Type' '$freeLOOP' '$mntPT'\n"
+    $MOUNT_EXE $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
+    Err=$?
+   else
+    _warn "Could not detect file-system type"
+    _debug "\n$MOUNT_EXE: '$freeLOOP' '$mntPT'\n"
+    $MOUNT_EXE $VERB -o loop "$freeLOOP" "$mntPT"
+    Err=$?
+   fi
+   } || {
 
   __old_mount_code_that_worked_flawless_until_today__(){
-  _debug "\n$MOUNT_EXE: '$Type' '$imgFILE' '$mntPT'\n"
-  $MOUNT_EXE $VERB -t $Type -o loop "$imgFILE" "$mntPT";
+  if [ "$Type" ]; then
+   _debug "\n$MOUNT_EXE: '$Type' '$imgFILE' '$mntPT'\n"
+   $MOUNT_EXE $VERB -t $Type -o loop "$imgFILE" "$mntPT";
    Err=$?
+  else
+    _warn "Could not detect file-system type"
+    _debug "\n$MOUNT_EXE: '$freeLOOP' '$mntPT'\n"
+    $MOUNT_EXE $VERB -o loop "$freeLOOP" "$mntPT"
+    Err=$?
+   fi
+
    }
   __old_mount_code_that_worked_flawless_until_today__
   }
