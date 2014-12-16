@@ -2528,3 +2528,8 @@ file BEFB8d01
 head -n10 BEFB8d01 
 hexedit BEFB8d01 
 find -size +4M
+./replace_commit_files.sh 
+cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]*'
+cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]\+'
+jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]*'
+jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]\+'
