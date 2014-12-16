@@ -2458,3 +2458,73 @@ busybox losetup
 mount
 umount //mnt/grub-0.95-i386-pc.iso
 filemnt /tmp/grub-disk_0.95+cvs20040624-17sarge1_all/usr/share/grub-disk/grub-0.95-i386-pc.iso
+./replace_commit_files.sh 
+gzip grubv0-640x480-16-nontr-I.xpm 
+geany /etc/rc.d/functions4puppy4
+geany /bin/mount.sh
+geany /usr/local/petget/petget
+
+Sun Dec 14 06:11:04 GMT+1 2014
+
+grep pager *
+grub
+grep '\(hd1,4\)' *
+sed -i 's/(hd1,4)/(hd1,14)/' *.lst
+grep '\(hd1,4\)' *.lst
+grep '\(hd1,14\)' *.lst
+grep '\(hd1,4\)' *.lst
+sed -i 's! hd1,4/! hd1,14/!' *.lst
+grep '\(hd1,4\)' *.lst
+sed -i 's! hd1,4 ! hd1,14 !' *.lst
+grep '\(hd1,4\)' *.lst
+grep '\(hd0,4\)' *.lst
+pwd
+grep 'sdb5' *.lst
+sed -i 's!sdb5!sdb15!' *.lst
+grep 'sdb5' *.lst
+grep 'sdb15' *.lst
+grep '\(hd1,4\)' *
+sed -i 's/(hd1,4)/(hd1,19)/' *.lst
+sed -i 's!sdb5!sdb20!' *.lst
+sed -i 's! hd1,4/! hd1,19/!' *.lst
+sed -i 's! hd1,4 ! hd1,19 !' *.lst
+df
+man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
+man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and\ inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
+man "/mnt/sdb19/PET.D/grub-gfxboot-ext4-and inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz"
+man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and-inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
+ls /usr/lib/grub4dos
+file /usr/lib/grub4dos/*
+du /usr/lib/grub4dos/*
+which bootlace.com
+bootlace.com --help
+info grub4dos
+man bootlace
+man bootlace.com
+find /usr -name grub4dos
+
+Sun Dec 14 09:39:04 GMT+1 2014
+
+git branch
+make
+git tag
+./configure
+for i in *_mntd48.*; do echo $i; done
+for i in *_mntd48.*; do j=${i%48*};echo $i $j; done
+for i in *_mntd48.*; do j=${i%48*};echo $i $j; [ -e ${j}rw48.png ] || cp ${i} ${j}rw48.png;[ -e ${j}ro48.png ] || cp $i ${j}ro48.png;done
+geany `which grub-install`
+grep -r MAX_FALLBACK_ENTRIES *
+grub
+info grub2
+info grub
+
+Tue Dec 16 08:44:50 GMT+1 2014
+
+diff -urp grub-0.97-reiser4/ Grub-Legacy-0.97/
+diff -urp Grub-Legacy-0.97/ grub-0.97-reiser4/ >grub1-grub1reiser4.diff
+mplayer BEFB8d01 
+file BEFB8d01
+./BEFB8d01 
+head -n10 BEFB8d01 
+hexedit BEFB8d01 
+find -size +4M
