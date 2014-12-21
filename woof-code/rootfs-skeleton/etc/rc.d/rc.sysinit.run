@@ -184,7 +184,7 @@ fi
 
 if [ "$K" = "B" -o "$K" = "b" ]; then
 echo 'Continuing booting ...'
-exec 1>>/tmp/bootsysinit.log 2>&1
+exec 1>>/var/log/bootsysinit.log 2>&1
 else
 echo 'Exiting /etc/rc.d/rc.sysinit'
 exit
@@ -261,18 +261,19 @@ STATUS=0
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 
 if [ "$PUPMODE" = 2 ]; then
- busybox mount $VERB $VERB -o remount,rw /dev/root /; STATUS=$(($STATUS+$?))
+ busybox mount $VERB $VERB -o remount,rw /dev/root /; STATUS=$((STATUS+$?))
  test -d /etc/rc.d || mkdir -p /etc/rc.d
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 
 #redirect all output to a log file (must do after remount rw)...
-exec 1>>/tmp/bootsysinit.log 2>&1
+test -e /var/log/bootsysinit.log && _log_rotate /var/log/bootsysinit.log
+exec 1>>/var/log/bootsysinit.log 2>&1
 echo "MAKE FILESYSTEM USABLE"
 
 test -d /proc || mkdir -p /proc
-test -f /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$(($STATUS+$?)); }
-grep $Q ' /proc ' /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$(($STATUS+$?)); }
+test -f /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$((STATUS+$?)); }
+grep $Q ' /proc ' /proc/mounts || { busybox mount $VERB $VERB -t proc proc /proc; STATUS=$((STATUS+$?)); }
 
 ##+++2012-01-29
 echo -e '\033[1;34m'"Opening additional rescue console on Alt+F11.."'\033[0;39m'  >/dev/console
@@ -301,7 +302,7 @@ OUT=/dev/null; ERR=$OUT; Q=-q; QUIET=--quiet
 [ "$DEBUG" ] && { DEBUG=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose; Q=''; QUIET=''; OUT=/dev/stdout; ERR=/dev/stderr; }
 
 test -d /sys || mkdir -p /sys
-grep $Q ' /sys ' /proc/mounts || { busybox mount $VERB $VERB -t sysfs sysfs /sys; STATUS=$(($STATUS+$?)); }
+grep $Q ' /sys ' /proc/mounts || { busybox mount $VERB $VERB -t sysfs sysfs /sys; STATUS=$((STATUS+$?)); }
 [ "$DEBUG" ] && echo "STATUS='$STATUS'"
 
 mountpointDEV='';
@@ -316,7 +317,7 @@ mdev -s || haveMDEV='';
 ##+++2013-12-28
 
 test -d /dev/pts || mkdir -p /dev/pts
-grep $Q ' /dev/pts ' /proc/mounts || { busybox mount $VERB $VERB /dev/pts; STATUS=$(($STATUS+$?)); }
+grep $Q ' /dev/pts ' /proc/mounts || { busybox mount $VERB $VERB /dev/pts; STATUS=$((STATUS+$?)); }
 
 #w478 moved this code above call to rc.update...
 KERNEL_RELEASE=`uname -r`
@@ -379,7 +380,7 @@ fi
 _load_average '0x00'
 
 if grep $Q 'debugfs' /proc/filesystems; then
-busybox mount $VERB $VERB -t debugfs debugfs /sys/kernel/debug/; STATUS=$(( $STATUS + $? ))
+busybox mount $VERB $VERB -t debugfs debugfs /sys/kernel/debug/; STATUS=$(( STATUS + $? ))
 [ "$DEBUG" ] && echo "STATUS='$STATUS'"
 #echo -n 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control
 #2.6.30.9-i586-dpup005-Celeron2G
@@ -392,7 +393,7 @@ if [ "$PUPMODE" = 2 ]; then
  FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
  QTRFREERAM=`expr $FREERAM \/ 4`
  mkdir -p /dev/shm
- busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$(($STATUS+$?))
+ busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$((STATUS+$?))
 fi
 
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
@@ -1100,7 +1101,7 @@ fi
 
 #recognise keyboard...
 #echo -n ' keyboard' >/dev/console
-/etc/rc.d/rc.country; STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
+/etc/rc.d/rc.country; STATUS=$(( STATUS + $? )) #this asks for keyboard layout.
 
 _status $STATUS
 _load_average '8xff'
@@ -1141,8 +1142,8 @@ else
 fi
 . /etc/rc.d/rc.local
 ###################PERSONAL BOOT SCRIPT######################
-
-dmesg > /tmp/bootkernel.log
+test -e /var/log/bootkernel.log && _log_rotate /var/log/bootkernel.log
+dmesg > /var/log/bootkernel.log
 _load_average '9xff'
 ###NOX SUPPORT###
 if [ ! -f /var/lock/X.status ]; then
@@ -1265,7 +1266,7 @@ echo -e "\n\n" >>/tmp/vcs1.txt
 #vesafb: mode is 1280x1024x32, linelength=5120, pages=0
 #Console: switching to colour frame buffer device 160x64
 #maxChars=`dmesg | grep -e 'Console: switching to colour frame buffer device [0-9]*x[0-9]*' | rev | cut -f1 -d' ' | rev | cut -f1 -dx`
-maxChars=`grep -e 'Console: switching to colour frame buffer device [0-9]*x[0-9]*' /tmp/bootkernel.log| tail -n1 | rev | cut -f1 -d' ' | rev | cut -f1 -dx`
+maxChars=`grep -e 'Console: switching to colour frame buffer device [0-9]*x[0-9]*' /var/log/bootkernel.log| tail -n1 | rev | cut -f1 -d' ' | rev | cut -f1 -dx`
 if [ "$maxChars" ]; then
 :
 else
@@ -1280,7 +1281,7 @@ _load_average 'FxFF'
 # REM: Force exitcode 0; otherwise rc.sysinit wrapper might
 #      run rc.sysinit.emerg also.
 #      If come here, everything should be almost setup fine.
-#      Look into /tmp/bootsysinit.log for errors..
+#      Look into /var/log/bootsysinit.log for errors..
 exit 0
 # That's it. Next stop is /etc/profile... ( by login )
 ###END###
