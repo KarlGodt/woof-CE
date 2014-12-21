@@ -43,6 +43,25 @@ setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_to
 fbxkb &
 }
 
+# REM: Lupu Puppy 528 with openbox wm
+case $CURRENTWM in 
+*openbox*) if which fbpanel >>$OUT; then
+			#a bit of a hack: when 3builddistro runs fixmenus, which calls variconlinks,
+			#which populates /var/local/icons with symlinks, /usr/local/lib/X11/pixmaps
+			#is not yet populated (happens at first boot, from default icon theme)...
+			[ -e /var/local/icons/home48.png ] || ln -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
+            exec fbpanel &
+           fi
+           if which lxpanel >>$OUT; then
+            exec lxpanel &
+           fi
+;;
+jwm|icewm|startxfce4|startfluxbox) :
+;;
+esac
+
+
+
 #v2.11 GuestToo suggested this improvement...
 # test CURRENTWM in PATH:
 which $CURRENTWM  && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
