@@ -59,7 +59,7 @@ _trap
 #
 # CHANGES by Karl Reimer Godt :
 # 01.0 : Implemented parameters start,stop,restart .
-# 02.0 : Added support for recognition of /tmp/pup_event_icon_change_flag
+# 02.0 : Added support for recognition of /tmp/pup_event_change_icons.flg
 #        to support redraw of drive icons without having to restart X .
 # 03.0 : Added support for recognition of jwm tray height ...
 #        STILL TODO !! ie now have
@@ -75,7 +75,7 @@ _trap
 #        Renamed HOTPLUGON to DESKDAEMON .
 #        Took care of single 'drives' icon .
 #        Introduced /tmp/pup_event_manager.flg
-#         prior to /tmp/pup_event_icon_change_flag .
+#         prior to /tmp/pup_event_change_icons.flg .
 #
 # 06.0 : Added support for battery check .
 # 07.0 : Added default funcCLEAN_DESK_ICONS to
@@ -139,8 +139,8 @@ rm             /tmp/restart_pup_event_frontend_d
 }
 #trap "_make_restart;exit 0" HUP
 
-trap "echo $0:PID=$$::Stop.;exit 1" INT QUIT ABRT KILL TERM
-trap "echo HUP >/tmp/pup_event_manager.flg >/tmp/pup_event_icon_change_flag" HUP
+trap "echo $0:PID=$$::Stop.;exit 1"  INT QUIT ABRT KILL TERM
+trap "echo HUP >/tmp/pup_event_manager.flg; echo HUP >/tmp/pup_event_change_icons.flg"  HUP
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
@@ -253,7 +253,9 @@ return "$RV" || exit "$RV";;
 *start|"")
 :;;
 
-*reload) echo HUP >/tmp/pup_event_manager.flg >/tmp/pup_event_icon_change_flag; exit $?;;
+*reload) echo HUP    >/tmp/pup_event_manager.flg
+         echo reload >/tmp/pup_event_change_icons.flg;
+         exit $?;;
 
 *help) usage 0;;
 *version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
@@ -580,7 +582,9 @@ export LANG=C #w004
 #do multiple overlapping writes to /tmp/pup_event_backend_s. Even with 2.6.25.x, plugging
 #in two USB drives at once can cause this. So, dropping that, going back to primitive,
 #simple polling loop.
-sleep 2 #let the dust settle after X has started.
+
+#sleep 2 #let the dust settle after X has started.
+
 #w471 slow cpus need more delay (well, rox does)...
 DELAYFACTOR=0
 #CPUMHZ=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'`
@@ -629,7 +633,7 @@ done
 
 
 ################# ORIG #########################################################
-#v404 /usr/sbin/video-wizard (Xvesa) does create /tmp/pup_event_icon_change_flag
+#v404 /usr/sbin/video-wizard (Xvesa) does create /tmp/pup_event_change_icons.flg
 #which /sbin/clean_desk_icons reads via .xinirc when X starts, to wipe all drive icons.
 #however I think it would be good to test here also if X mode not yet settled on...
 if [ -f /tmp/videomode ];then #only exists during X resolution setup.
@@ -851,12 +855,12 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
    COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
     case "$JWMTpos" in
-   0)  #top
-   JWMT_Yvar=0
-   ;;
-   *)
-   :
-   ;;
+     0)  #top
+      JWMT_Yvar=0
+      ;;
+     *)
+     :
+    ;;
     esac
    COORD_YSt=$(( SCRN_Y - ICON_PLACE_EDGE_GAP - JWMT_Yvar ))
    #COORD_YSt=$(( $SCRN_Y - $JWMT_Yvar ))
@@ -871,14 +875,14 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   [ "$DEBUG" ] && { LINEP=D0511;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP` funcSTART_XY_ICON_VALUES"; }
   COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
     case "$JWMTpos" in
-   0)
-   _debug "funcSTART_XY_ICON_VALUES:top JWMTpos='$JWMTpos' ICON_PLACE_START_GAP='$ICON_PLACE_START_GAP' ICON_PLACE_EDGE_GAP='$ICON_PLACE_EDGE_GAP' JWMT_Yvar='$JWMT_Yvar'"
-   :
-   ;;
-   *)
-   _debug "funcSTART_XY_ICON_VALUES:top: JWMTpos='$JWMTpos'"
-   JWMT_Yvar=0
-   ;;
+     0)
+       _debug "funcSTART_XY_ICON_VALUES:top JWMTpos='$JWMTpos' ICON_PLACE_START_GAP='$ICON_PLACE_START_GAP' ICON_PLACE_EDGE_GAP='$ICON_PLACE_EDGE_GAP' JWMT_Yvar='$JWMT_Yvar'"
+       :
+      ;;
+     *)
+     _debug "funcSTART_XY_ICON_VALUES:top: JWMTpos='$JWMTpos'"
+     JWMT_Yvar=0
+    ;;
     esac
    COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar ))
    _debug "funcSTART_XY_ICON_VALUES:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
@@ -891,12 +895,13 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
    left)
    COORD_X=$ICON_PLACE_START_GAP #EDGEdefault 64, see /etc/eventmanager
     case "$JWMTpos" in
-   0)
-   :
-   ;;
-   *)
-   MAX_Y=$((MAX_Y-JWMT_Yvar));JWMT_Yvar=$((JWMT_Yvar*-1))
-   ;;
+     0)
+       :
+      ;;
+     *)
+     MAX_Y=$((MAX_Y-JWMT_Yvar));
+     #JWMT_Yvar=$((JWMT_Yvar*-1))
+    ;;
     esac
    COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar ))
    COORD_Y=$COORD_YSt
@@ -909,12 +914,13 @@ case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
     COORD_X=$((SCRN_X - ICON_PLACE_START_GAP))
    _debug "funcSTART_XY_ICON_VALUES:right: JWMTpos='$JWMTpos'"
     case "$JWMTpos" in
-   0) #TOP
-   :
-   ;;
-   *)
-   MAX_Y=$((MAX_Y-JWMT_Yvar));JWMT_Yvar=$((JWMT_Yvar*-1))
-   ;;
+     0) #TOP
+        :
+       ;;
+     *)
+     MAX_Y=$((MAX_Y-JWMT_Yvar));
+     #JWMT_Yvar=$((JWMT_Yvar*-1))
+    ;;
     esac
    COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar )) #default 64, see /etc/eventmanager
    COORD_Y=$COORD_YSt
@@ -940,6 +946,7 @@ free_coord() {
  COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
  _debug "$COORDSGRID" | head -n 2
 
+ local DEBUG=1
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
 
@@ -952,7 +959,7 @@ free_coord() {
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
     _debug "    xgPATTERN=$xgPATTERN"
 
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { echo breaking now;break; }
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
     #COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
     COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
     if [ "$COORD_X" -gt "$MAX_X" ];then #start next line up.
@@ -982,7 +989,7 @@ free_coord() {
    xyCNT=0 #precaution.
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
     #COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
      COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
@@ -1002,7 +1009,7 @@ free_coord() {
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
     _debug "xgPATTERN=$xgPATTERN"
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
     #COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
      COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
@@ -1024,7 +1031,7 @@ free_coord() {
    xyCNT=0 #precaution.
    while [ 1 ];do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
     #COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
      COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
@@ -1270,7 +1277,8 @@ done << _EOI
 $(grep -o '/\.pup_event/drive.*' $HOME/Choices/ROX-Filer/PuppyPin |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
 _EOI
 rm -rf $HOME/.pup_event/*
-
+rm -f /tmp/pup_event_change_icons.flg
+rm -f /tmp/pup_event_manager.flg
 unset DRV_NAME part
 }
 funcCLEAN_DESK_ICONS
@@ -1572,7 +1580,7 @@ if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
     funcRAM_POWER
     POWERTIMEOUT_FUNCS
     rm /tmp/pup_event_manager.flg
- if [[ -f /tmp/pup_event_icon_change_flag ]]; then  #KRG
+ if [[ -f /tmp/pup_event_change_icons.flg ]]; then  #KRG
 
     Floppies=`ls /sys/block | grep 'fd[0-9]\+' | sort -r`
 
@@ -1598,7 +1606,7 @@ if [[ -f /tmp/pup_event_manager.flg ]];then ###2012-01-18
     funcSTART_XY_ICON_VALUES
     funcPUPEVENTSTART
     sleep 1
-    rm -f /tmp/pup_event_icon_change_flag
+    rm -f /tmp/pup_event_change_icons.flg
 
 fi;fi
 
