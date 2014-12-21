@@ -2533,3 +2533,318 @@ cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]*'
 cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]\+'
 jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]*'
 jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]\+'
+git commit
+git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; done
+git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; git add "$f" && git commit -m "$f: grep '+*' fixes";sleep 2;done
+pwd
+cd ../../
+./replace_commit_files.sh 
+ls /usr/share/i18n/layouts
+ls /usr/share/i18n/
+ls /proc/dma
+cat /proc/dma
+cat /proc/interrupts 
+grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^#|^[[:blank:]]*#'
+ERR=/dev/stdout
+grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^#|^[[:blank:]]*#'
+grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^[[:blank:]]*#'
+geany usr/sbin/pmount
+geany usr/sbin/pupdial
+geany usr/sbin/partview2.03
+cat $HOME/.Xresources | grep -vEe '^Xft\.dpi:|^[[:blank:]]*Xft\.dpi:'
+cat $HOME/.Xresources | grep -vEe '^[[:blank:]]*Xft\.dpi:'
+cat $HOME/.Xresources | grep -Ee '^[[:blank:]]*Xft\.dpi:'
+geany usr/sbin/set-xftdpi
+geany usr/sbin/petget
+geany usr/sbin/ptooltips
+xrandr -q | grep '*' | egrep "[0-9]+[ ]*x[ ]*[0-9]+" -o
+xrandr -q | grep '*'
+xrandr -q | grep '\*'
+xrandr -q | grep '*' | egrep -o "[0-9]+[ ]*x[ ]*[0-9]+"
+geany usr/sbin/xorgwizard
+geany usr/bin/new2dir
+geany usr/bin/xwin
+geany sbin/init
+VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'
+VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
+DEVROOTDRIVE=/dev/sdb5
+VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
+echo "$VARS" | grep 'Check interval' | tr '\n' ' '
+interC=`echo "$VARS" | grep 'Check interval' | tr '\n' ' '`
+echo "$interC"
+echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]*'
+echo "$interC" | tr -s ' ' | cut -f 3 -d ' '
+echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]+'
+echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]\+'
+geany usr/local/jwmconfig2/virtualDesk
+geany usr/local/jwmconfig2/panel-buttons
+geany usr/local/jwmconfig2/gtk2jwm
+geany usr/local/jwmconfig2/taskbarPlace
+geany usr/local/jwmconfig3/virtualDesk
+geany usr/local/jwmconfig3/panel-buttons
+geany usr/sbin/keymap-set
+geany usr/sbin/usb_modeswitch.sh
+geany usr/sbin/alsaconf
+geany usr/sbin/partview
+grep -H -r -m1 'grep .*\*' *
+grep -H -r -m1 'grep .*\*' * 2>/dev/null
+geany /sbin/pup_event_frontend_d
+geany /etc/rc.d/f4puppy5
+which input-wizard
+file /usr/sbin/input-wizard
+geany /usr/sbin/input-wizard
+`jwm -v 2>/dev/null | grep -o -e 'vsvn\-[0-9]\+'
+jwm -v 2>/dev/null | grep -o -e 'vsvn\-[0-9]\+'
+jwm -v
+jwm -v 2>/dev/null | grep -o -E -e 'vsvn-[0-9]+|vgit-[0-9]+'
+/sbin/pup_event_frontend_d restart
+find /usr -name xmodmap
+/usr/X11R7-2013-12-28/bin/xmodmap -pp
+ash
+xmodmap -pp
+xmodmap -pp | grep -E " *[0-9] *[0-9]"
+xmodmap -pp | grep -E " +[0-9] +[0-9]"
+input-wizard
+/sbin/pup_event_frontend_d restart
+
+Tue Dec 16 15:02:33 GMT+1 2014
+
+
+Tue Dec 16 15:09:10 GMT+1 2014
+
+
+Tue Dec 16 17:54:20 GMT+1 2014
+
+ffconvert
+freecraft
+grep -r -m1 -I viewport *
+patch <../grub-fedora-9.patch 
+pwd
+pwd
+ls /boot/COMPILE/Patch.d/centos/grub-0.97-93.el6.src/grub-0.97/stage2/fsys_ext2fs.c
+pwd
+ls -d
+ls -d .
+ls -d *
+ls stage2/fat.h
+ls ./stage2/fat.h
+pwd
+patch -p1 <grub-fedora-9.patch 
+tar -c -z -f grub-0.97-fedora-9patched.tar.gz grub-0.97-fedora-9patched/
+find -name "*xpm*"
+uname -r
+grep tinfo *
+grep -i tinfo *
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/grub/grub
+./configure --prefix=`pwd`/_install0
+autoreconf
+./configure --prefix=`pwd`/_install0
+make
+make clean
+make.tgl
+make
+make.tgl
+make
+make install
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo xterm
+echo -e '\033[27m'
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt100
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt101
+/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt102
+find /usr -name "libtinfo*"
+infocmp
+type -a gcc
+file /usr/bin/gcc
+file /usr/local/bin/gcc
+/usr/bin/gcc --version
+/usr/local/bin/gcc --version
+geany /usr/include/reiser4/*
+./configure --prefix=`pwd`/_install0
+make.tgl
+make
+patch -p <grub_0.97-29ubuntu50.diff 
+pwd
+patch -p1 <grub_0.97-29ubuntu50.diff 
+pwd
+rox
+patch -p1 <grub_0.97-29ubuntu53.diff 
+ls debian
+ls -1 debian
+ls -1 debian/
+ls -1 debian/patches/
+while read oneLINE; do echo "$oneLINE"; done <debian/00list
+while read oneLINE; do echo "$oneLINE"; done <debian/patches/00list
+while read oneLINE; do test "$oneLINE" || continue;echo "$oneLINE"; done <debian/patches/00list
+while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; done <debian/patches/00list
+while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; patch -p1 <debian/patches/$oneLINE || break;done <debian/patches/00list
+while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; done <debian/patches/00list
+while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; patch -p1 <debian/patches/$oneLINE || break;done <debian/patches/00list
+geany /usr/include/stdio.h
+find -name "stddef.h"
+find /usr -name "stddef.h"
+./configure --prefix=`pwd`/_install0
+make
+geany stage2/char_io.c
+pwd
+make
+make clean
+./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include"
+make
+make clean
+./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include -I/usr/lib/gcc/i486-t2-linux-gnu/4.2.2/include/"
+make
+make clean
+make
+make clean
+make
+grep -m3 va_list /usr/include/*
+grep -m1 va_list /usr/include/*
+geany /usr/include/stdarg.h
+geany /usr/include/stdio.h
+tar -c -z -f grub-0.97-ubuntu29-50.tar.gz grub-0.97-ubuntu29-50/
+tar -c -z -f grub-0.97-ubuntu29-53.tar.gz grub-0.97-ubuntu29-53/
+rox
+make install
+./configure --prefix=`pwd`/_install0
+make
+make clean
+./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include -I/usr/lib/gcc/i486-t2-linux-gnu/4.2.2/include/"
+make
+make.tgl
+make install
+for i in *.patch; do echo $i; done
+for i in *.patch; do echo $i; patch -p1 <$i || break;done
+for i in *.patch; do echo $i; patch -p1 <$i;done
+./configure --prefix=`pwd`/_install0
+make.tgl
+make
+make.tgl
+make install
+/root/COMPILE/grub-0.97-slackware/_install0/sbin/grub
+grub
+mktmp --help
+mktemp --help
+mktemp -u -d -t today
+mktemp -u -d -p today
+mount -a
+mount -a -o ro
+ps | grep mplayer
+
+Wed Dec 17 14:52:50 GMT+1 2014
+
+/usr/multimedia/bin/aqualung /mnt/sdc12/MSC.d/p1/1E373d01
+mplayer /mnt/sdc12/MSC.d/p1/1E373d01
+geany /usr/local/bin/defaultaudioplayer
+mplayer -help
+man maplayer
+man mplayer
+find /usr -wholename "*/man/*/mplayer*"
+man /usr/share/man/man1/mplayer.1.gz
+
+Thu Dec 18 12:38:57 GMT+1 2014
+
+pwd
+mkdir /proc
+mkdir ./proc
+mkdir ./sys
+mount -t proc proc ./proc
+mount -t sysfs sysfs ./sys
+chroot . ./ash
+umount ./sys
+umount ./proc
+umount ./dev
+mount
+pwd
+mkdir ./dev
+mount -t ramfs devramfs ./dev
+umount ./dev
+mount -o bind /dev ./dev
+mount /dev/sdc1
+pwd
+ln -s /mnt ./mnt
+ldd /root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub
+mount
+pwd
+mount -o bind /proc ./proc
+mount -o bind /sys ./sys
+mount -o bind /dev ./dev
+chroot . ash
+umount ./dev
+mount
+pwd
+mount -o bind /dev ./dev
+mount -o bind /proc ./proc
+mount -o bind /sys ./sys
+chroot . ash
+umount ./dev
+ldd *
+pwd
+mount --bind /dev ./dev
+mount --bind /proc ./porc
+mount --bind /proc ./proc
+umount ./porc
+mount --bind /sys ./sys
+chroot . ash
+umount ./dev
+mount
+umount /root/COMPILE/grub-0.97-slackware/_install0/mnt/sdc8
+
+Fri Dec 19 21:05:33 GMT+1 2014
+
+geany /etc/rc.d/rc.shutdown
+geany /usr/bin/xwin
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.sysinit.run
+ash
+git branch
+git log --grep kbd
+git log --grep hotplug
+Xorg -help
+geany /etc/X11/xorg.conf
+df
+
+Sat Dec 20 06:07:01 GMT+1 2014
+
+geany /etc/rc.d/f4puppy5
+mount /dev/sda1
+geany /etc/rc.d/rc.sysinit.run
+man xorg.conf
+echo $PATH
+PATH=/var/bin:$PATH
+man xorg.conf
+find /usr -wholename "*/man/*/xorg.conf*"
+man /usr/share/man/man5/xorg.conf.5.gz
+exit
+
+Sat Dec 20 18:23:32 GMT+1 2014
+
+geany /usr/bin/xwin
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.sysinit.run
+mount /dev/sda1
+
+Sat Dec 20 23:10:14 GMT+1 2014
+
+geany /etc/rc.d/f4puppy5
+
+Sat Dec 20 23:32:02 GMT+1 2014
+
+grin ls -l 
+date
+mount /dev/sda1
+
+Sun Dec 21 05:51:01 GMT+1 2014
+
+geany `which plogout`
+geany /usr/bin/gojwmgo
+geany /usr/bin/goe17go
+which restartwm
+geany /usr/bin/restartwm
+geany /usr/bin/wmexit
+geany /usr/bin/wmpoweroff
+geany /usr/bin/wmreboot
+geany /geany /etc/X11/xorg.conf0
+Xorg --version
+Xorg -version
+geany /etc/profile.d/06_shell 
