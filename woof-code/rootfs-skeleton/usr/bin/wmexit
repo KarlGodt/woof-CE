@@ -50,12 +50,15 @@ ps | grep freemem | grep -v grep | while read pid rest; do [ "$pid" ] || continu
 ps | grep inotify | grep -v grep | while read pid rest; do [ "$pid" ] || continue; kill -9 $pid ; done
 }
 
-#/sbin/pup_event_frontend_d will quit if this file exists...
+
+killSIG4pup_event='-3'
 _pidof pup_event_frontend_d && {
+killall -SIGQUIT pup_event_frontend_d
+}
+
+#/sbin/pup_event_frontend_d will quit if this file exists...
 echo "exit $@" > /tmp/wmexitmode.txt       #xwin needs wmexitmode.txt
 echo "exit $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
-killall pup_event_frontend_d
-}
 
 # Old pup_event_frontend_d code ..
 __wait_for_frontend_d__(){
@@ -72,10 +75,16 @@ while [ "$PSPEFD" != "" ];do
  [ $KCNT -gt 60 ] && break #30 secs.
  PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 done
-sleep 0.2
 }  ###__wait_for_frontend_d__(){ #END
 
-# sync (?)
+sleep 0.2
+
+# REM: Killing pup_event_frontend_d triggers also
+#      trap HUP line in pup_event_frontend_d,
+#      here in script, not in terminal
+rm /tmp/pup_event_manager.flg
+rm /tmp/pup_event_change_icons.flg
+
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
 # xfce4-panel ..
@@ -108,12 +117,12 @@ for aPID in $fPIDS; do [ "${aPID//[[:digit:]]/}" ] && continue; kill -9 $aPID; d
 }
 
 # Send kill signal to WM
-read CURRENTWM </etc/windowmanager && kill -9 `pidof $CURRENTWM`
+read CURRENTWM </etc/windowmanager && kill -9 `pidof ${CURRENTWM##*/}` 2>>$ERR
 
 # Send kill signals to X
-killall X >$OUT 2>$ERR #default is SIGTERM.
+killall X >>$OUT 2>>$ERR            #default is SIGTERM.
 sleep 1
-pidof X >$OUT && exec killall -9 X #make sure X is killed.
+pidof X >>$OUT && exec killall -9 X #make sure X is killed.
 
 exit $STATUS
 # Very End of this file 'usr/bin/wmexit' #
