@@ -2848,3 +2848,115 @@ geany /geany /etc/X11/xorg.conf0
 Xorg --version
 Xorg -version
 geany /etc/profile.d/06_shell 
+git commit
+./replace_commit_files.sh 
+ash
+for x in {,/usr,/usr/local,/opt}/{,/*}/{bin,sbin} {$HOME/my-applications,/root/my-applications}/{bin,sbin} ; do echo $x; done
+echo $PATH
+unset PATH
+echo $PATH
+/etc/profile.d/06_shell 
+echo $PATH
+/etc/profile.d/06_shell 
+echo $PATH
+source /etc/profile.d/06_shell 
+echo $PATH
+geany /etc/rc.d/f4puppy5
+unset PATH
+echo $PATH
+source /etc/profile.d/06_shell 
+echo $PATH
+unset PATH
+echo $PATH
+/etc/profile.d/06_shell 
+echo $PATH
+/etc/profile.d/06_shell 
+echo $PATH
+source /etc/profile.d/06_shell 
+help type
+type which
+type -t which
+type -P which
+unset PATH
+echo $PATH
+source /etc/profile.d/06_shell 
+echo $PATH
+source /etc/profile.d/06_shell 
+unset PATH
+source /etc/profile.d/06_shell 
+/etc/profile.d/06_shell 
+unset PATH
+/etc/profile.d/06_shell 
+unset PATH
+echo $PATH
+/etc/profile.d/06_shell 
+echo $PATH
+source /etc/profile.d/06_shell 
+/etc/profile.d/06_shell 
+echo $PATH
+find /usr -wholename "*/man/*/*xorg.conf*"
+man /usr/X11R7.7-1.10.6-BIG/share/man/man5/xorg.conf.5
+man 5 xorg.conf
+LC_ALL=C man xorg.conf
+LANG=C man xorg.conf
+man --help
+man -f xorg.conf
+man -k xorg.conf
+man -w
+man -w xorg.conf
+ls /usr/X11R7.7-1.7.7-BIG/
+ls /usr/X11R7.7-1.7.7-BIG/man
+ls /usr/X11R7.7-1.7.7-BIG/man/man4
+man -C /etc/man.conf -w xorg.conf
+man xorg.conf
+geany /etc/man.conf
+find /usr -name "xorg.conf*"
+which man
+file /var/bin/man
+strace /var/bin/man xorg.conf
+strace /var/bin/man xorg.conf 2>man_xorg_conf.strace
+geany man_xorg_conf.strace
+find /usr -name "xorg.conf*"
+file /usr/share/man
+rox -d /usr/hare/man
+rox -d /usr/share/man
+man xorg.conf
+grep -r -H -i hotplug *
+grep -r AutoAddDevices *
+exit
+
+Sun Dec 21 13:08:14 GMT+1 2014
+
+geany /etc/rc.d/rc.sysinit.run
+geany /sbin/pup_event_frontend_d
+geany /usr/bin/wmrestart
+geany /usr/bin/wmexit
+geany /usr/bin/wmreboot
+geany /usr/bin/wmpoweroff
+geany /usr/bin/restartwm
+geany /usr/bin/xwin
+trap -l
+man trap
+help trap
+trap -p
+ash
+killall -SIGHUP pup_event_frontend_d
+killall -1 pup_event_frontend_d
+killall -HUP pup_event_frontend_d
+ash
+ps | grep pup
+/sbin/pup_event_backend_modprobe_protect --stop
+ps | grep pup
+ps | grep pup
+trap -l
+/root/PupEvent/pup_event_frontend_d
+ps -C pup_event_frontend_d -o pid
+ps -C pup_event_frontend_d --no-header -o pid
+geany /usr/bin/xwin
+geany /usr/sbin/xorgwizard
+geany /sbin/clean_desk_icons 
+geany /usr/sbin/eventmanager
+cp -i /sbin/pup_event_frontend_d /sbin/pup_event_frontend_d-2014-12-21
+eventmanager
+pup_event_frontend_d restart
+pup_event_frontend_d restart
