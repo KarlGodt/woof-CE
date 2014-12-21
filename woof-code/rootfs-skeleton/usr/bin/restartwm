@@ -27,8 +27,8 @@ _trap
 }
 
 NEXTWM="$1"
-PREVIOUSWM="`cat /etc/windowmanager`"
-[ "$NEXTWM" = "" ] && NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
+read PREVIOUSWM </etc/windowmanager
+[ "$NEXTWM" ] || NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
 echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
 
 # Popup a short messsage if DISPLAY - if run from terminal, DISPLAY is not set
@@ -38,11 +38,14 @@ echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
 #echo "$NEXTWM" > /tmp/wmexitmode.txt
 #echo "$NEXTWM" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 
+killSIG4pup_event='-3'
+killSIG4pup_event='-SIGQUIT'
 _pidof pup_event_frontend_d && {
+killall $killSIG4pup_event pup_event_frontend_d
+}
+
 echo "restart $@" > /tmp/wmexitmode.txt       #xwin needs wmexitmode.txt
 echo "restart $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
-killall pup_event_frontend_d
-}
 
 # Old pup_event_frontend_d code ..
 __wait_for_frontend_d__(){
@@ -58,10 +61,18 @@ while [ "$PSPEFD" != "" ];do
  [ $KCNT -gt 60 ] && break #30 secs.
  PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 done
-sleep 0.2
 }
 
-sync
+sleep 0.2
+
+# REM: Killing pup_event_frontend_d triggers also
+#      trap HUP line in pup_event_frontend_d,
+#      here in script, not in terminal
+rm /tmp/pup_event_manager.flg
+rm /tmp/pup_event_change_icons.flg
+
+
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -69,12 +80,13 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
-kill -9 `pidof $PREVIOUSWM` #w478
+kill -9 `pidof ${PREVIOUSWM##*/}` #w478
 ##e17
 pidof tempget && kill -2 `pidof tempget`
 
-killall X #default is SIGTERM.
-sleep 1           #v1.0.7
+killall X 2>>$ERR  #default is SIGTERM.
+sleep 1            #v1.0.7
 #exec killall -9 X #v1.0.7 make sure X is killed.
+
 # Very End of this file 'usr/bin/restartwm' #
 ###END###
