@@ -2960,3 +2960,106 @@ cp -i /sbin/pup_event_frontend_d /sbin/pup_event_frontend_d-2014-12-21
 eventmanager
 pup_event_frontend_d restart
 pup_event_frontend_d restart
+./replace_commit_files.sh 
+git commit
+git add woof-code/rootfs-skeleton/etc/man.conf
+git commit -m '/etc/man.conf: Added.'
+
+Sun Dec 21 15:58:28 GMT+1 2014
+
+grub
+mtpaint
+mtpaint-3.31
+
+Sun Dec 21 20:35:20 GMT+1 2014
+
+ps | grep fb
+killall fbxkb
+fbxkb
+
+Mon Dec 22 11:29:30 GMT+1 2014
+
+
+Tue Dec 23 06:41:17 GMT+1 2014
+
+oneFS=securityfs
+echo ${oneFS%fs}
+ls /sys/kernel/debug/
+ls /sys/kernel/debug/usb
+cat /proc/filesystems
+cat /proc/filesystems | grep sel
+
+Tue Dec 23 11:31:42 GMT+1 2014
+
+grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log
+grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log | awk '{print $NF}'
+grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
+grep -m1 -e .*=.*\.lo[g\'\"]+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
+grep -m1 -e .*=.*\.lo[g\'\"]\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
+grep -m1 -E -e .*=.*\.lo[g\'\"]\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
+grep -m1 -e .*=.*\.lo[g\'\"]\\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
+grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log| tail -n1 | awk '{print $NF}' | cut -f1 -dx
+geany /usr/bin/xwin
+find -type f
+find -type f -not -name "*ORIG"
+find -type f -not -name "*ORIG" | while read f; do absf=${f#./}; echo $absf; done
+find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; done
+find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash' || continue;done
+find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;done
+find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;diff -qs $f $absf;echo;done
+find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;diff -qs $f $absf || echo $f:$absf >>/root/difffiles.lst;echo;done
+diff -up ./bin/mount.sh /bin/mount.sh
+diff -up ./etc/rc.d/functions4puppy4 /etc/rc.d/functions4puppy4
+diff -up ./etc/rc.d/f4puppy5 /etc/rc.d/f4puppy5
+diff -up ./root/.xinitrc /root/.xinitrc
+diff -up ./usr/bin/xorgwizard /usr/bin/xorgwizard
+diff -up ./usr/sbin/xorgwizard /usr/sbin/xorgwizard
+diff -up ./usr/bin/xwin /usr/bin/xwin
+geany /etc/init/vc8
+find /usr/lib -xdev -type f -name vesa_drv.so
+find /usr/lib/X11 -xdev -type f -name vesa_drv.so
+find -L /usr/lib/X11 -xdev -type f -name vesa_drv.so
+ls /usr/lib/X11
+ls -F /usr/lib/X11
+ls -F /usr/lib/X11/*
+find -L /usr/lib/xorg -xdev -type f -name vesa_drv.so
+find -L /usr/lib/ -xdev -type f -name vesa_drv.so
+file /usr/lib/X11/
+file /usr/lib/X11
+file /usr/lib/X11/../X11R7/lib/X11
+file /usr/lib/../X11R7/lib/X11
+ls /usr/lib/../X11R7/lib/X11
+ls /usr/lib/../X11R7/lib/xorg
+ls /usr/lib/../X11R7/lib/xorg/modules
+ls /usr/lib/../X11R7/lib/xorg/modules/drivers
+SPECVESA=`find -L /usr/lib -xdev -type f -name vesa_drv.so | head -n1`
+if [ "$SPECVESA" ]; then  DRVRSPATH=`dirname $SPECVESA`; DRVRCURR=`grep '#card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | tail -n1 | cut -f 2 -d '"'`; if [ "$DRVRCURR" ]; then ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv.so"; fi; fi
+ls -1 $DRVRSPATH/* | grep -w "$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep -w "/$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  "$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  "/$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  -w "/$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  -w "\/$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  -w "\\/$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv.*"
+ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv"
+ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv.so"
+ls -1 $DRVRSPATH/* | grep  -w "$DRVRCURR[-_]drv.so"
+
+Tue Dec 23 14:17:09 GMT+1 2014
+
+man xrdb
+man xrbd
+find /usr -name "*xrbd*"
+find /usr -name "*xrdb*"
+geany .Xdefaults
+xrdb
+xrdb --help
+xrdb -n
+sed -n 43p *
+for i in * ;do sed -n 43p $i;done
+for i in * ;do echo ;echo $i;sed -n 43p $i;done
+find /usr -iname "Xdefaults"
+find /usr -iname ".Xdefaults"
+find /usr -iname ".Xdefaults*"
+find /usr -iname "Xdefaults*"
