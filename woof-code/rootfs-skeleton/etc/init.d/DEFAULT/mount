@@ -12,16 +12,19 @@ test -d /nodev || mkdir /nodev
 for oneFS in $NODEV ; do
       echo
  echo "$oneFS"
- DIR=`echo "$oneFS" | sed 's#fs$##'`
 
  if test -z "`grep -Fw "$oneFS" /proc/mounts`"; then
 
- test "$1" = start || continue
+  test "$1" = start || continue
 
    case $oneFS in
+
     debugfs) test -d /sys/kernel/debug        || { mkdir -p /sys/kernel/debug || continue; };        /bin/mount $VERB -t debugfs         nodev /sys/kernel/debug;
+    # REM: /proc/bus/usb also at /sys/kernel/debug/usb
+    # REM: dmesg output for usb-storage now needs to be enabled
     echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
     ;;
+
     fusectl) test -d /sys/fs/fuse/connections || { mkdir -p /sys/fs/fuse/connections || continue; }; /bin/mount $VERB -t fusectl fusectl /sys/fs/fuse/connections;;
 binfmt_misc) test -d /proc/sys/fs/binfmt_misc || { mkdir -p /proc/sys/fs/binfmt_misc || continue; }; /bin/mount $VERB -t binfmt_misc     nodev /proc/sys/fs/binfmt_misc;;
  securityfs) test -d /sys/kernel/security     || { mkdir -p /sys/kernel/security || continue; };     /bin/mount $VERB -t securityfs      nodev /sys/kernel/security;;
@@ -30,32 +33,40 @@ binfmt_misc) test -d /proc/sys/fs/binfmt_misc || { mkdir -p /proc/sys/fs/binfmt_
   hugetlbfs) test -d /mnt/huge                || { mkdir -p /mnt/huge || continue; };                /bin/mount $VERB -t hugetlbfs       none  /mnt/huge;;
     # pstore) test -d /sys/fs/pstore           || { mkdir -p /sys/fs/pstore || continue; };           /bin/mount $VERB -t pstore          nodev /sys/fs/pstore;;
       pstore) test -d /dev/pstore           || { mkdir -p /dev/pstore || continue; };           /bin/mount $VERB -t pstore          nodev /dev/pstore;;
-ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs) :;;
-      #mount: wrong fs type, bad option, bad superblock on /nodev, ...
+
+ubifs|mtd_inodefs|exofs|autofs|nfs4|nfs|coda|bdev|sockfs|pipefs|anon_inodefs|aufs|unionfs) :;;
+    #mount: wrong fs type, bad option, bad superblock on /nodev, ...
+
     jffs2) :;;   #mount: /nodev is not a block device
     fuse)  :;;   #bin/sh: /nodev: is a directory
-    ram*|tmp*) :;;
-    rootfs)    :;;
+    *ram*|*tmp*) :;; # devtmpfs
+    rootfs)      :;;
+
 #mqueue) test -d /proc/sys/fs/mqueue || mkdir -p /proc/sys/fs/mqueue; /bin/mount -v -t mqueue nodev /proc/sys/fs/mqueue;;
-   nfsd) test -d /proc/fs/nfsd || { mkdir -p /proc/fs/nfsd || continue; }; /bin/mount $VERB -t nfsd nodev /proc/fs/nfsd;;
+
+   nfsd) test -d /proc/fs/nfsd || { mkdir -p /proc/fs/nfsd || continue; }; /bin/mount $VERB -t nfsd nfsd /proc/fs/nfsd;;
+
     *)
+    #DIR=`echo "$oneFS" | sed 's/fs$//'`
+    DIR=${oneFS%fs}
     test -d /dev/fs/$DIR || { mkdir -p /dev/fs/$DIR || continue; }
-    /bin/mount $VERB -t $oneFS nodev /dev/fs/$DIR
+    /bin/mount $VERB -t $oneFS $oneFS /dev/fs/$DIR
     ;;
    esac
 
-else
+ else
 
  test "$1" = stop || continue
+
  while read -r _device_ _mountpoint_ _filesystem_ _rest_
- do
- case $_filesystem_ in
- rootfs|proc|sysfs|devramfs|devtmpfs|devpts|tmpfs|ramfs|*tmpfs|*ramfs) continue;;
- esac
- _mountpoint_=`echo -e "$_mountpoint_"`
- /bin/umount $VERB "$_mountpoint_"
- done <<EoI
-`grep -Fw "$oneFS" /proc/mounts`
+  do
+   case $_filesystem_ in
+    rootfs|proc|sysfs|devpts|*tmpfs|*ramfs|aufs|unionfs) continue;;
+   esac
+   _mountpoint_=`echo -e "$_mountpoint_"`
+   /bin/umount $VERB "$_mountpoint_"
+  done <<EoI
+`grep -m1 -Fw "$oneFS" /proc/mounts`
 EoI
 
  fi
@@ -73,7 +84,7 @@ for _oneFS_ in $_nFS_
 do
 
 case $_oneFS_ in
-sysfs|proc|devtmpfs|tmpfs|*tmpfs|ramfs|*ramfs|rootfs|devpts) continue;;
+sysfs|proc|*tmpfs|*ramfs|rootfs|devpts|aufs|unionfs) continue;;
 esac
 
 _mntPTs_=`grep " $_oneFS_ " /proc/mounts | awk '{print $2}'`
