@@ -1145,9 +1145,24 @@ $f2
 
 $f1
 
+echo
+
+echo "$0:$*"
+echo "\$0:\$*"
+
+startVT=\`busybox ps -o tty,args | grep openvt | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | head -n1\`
+currVT=\`busybox ps -o tty,args | grep console_select | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | tail -n1\`
+
+echo "Start VT: \$startVT "
+echo "Current VT: \$currVT "
+
+echo "\$startVT" >$tmpDIR/startVT.nr
+echo "\$currVT" >$tmpDIR/currVT.nr
+
+echo
 ___do_xmessage
 echo \$? >$tmpDIR/ANSWER.txt
-deallocvt
+#deallocvt \$currVT
 exit \$?
 EoI
 
@@ -1155,16 +1170,33 @@ EoI
 #       Switch of virtual terminal is neccessary to
 #       be able to handle input
 chmod $VERB 0754 "$tmpDIR"/console_select.sh
+rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
 export BUTTONS_GUI EMERG_TIMEOUT
+
+# REM: Needs to wait
 openvt $VERB -s -w "$tmpDIR"/console_select.sh
+# openvt $VERB -s "$tmpDIR"/console_select.sh
+
 test -s "$tmpDIR"/ANSWER.txt && read ANSWER <"$tmpDIR"/ANSWER.txt
 
 echo "ANSWER='$ANSWER'"
 
 sleep 1
-deallocvt
+
+test -s "$tmpDIR"/startVT.nr && read startVT <"$tmpDIR"/startVT.nr
+test -s "$tmpDIR"/currVT.nr  && read currVT  <"$tmpDIR"/currVT.nr
+
+case $startVT in
+[0-9]*) chvt $startVT;;
+esac
+
 sleep 1
-fi
+
+case $currVT in
+[0-9]*) deallocvt $currVT;;
+esac
+
+fi # pidof X / no pidof X
 
 
 LINEP=F001
@@ -1196,6 +1228,13 @@ yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "-------------------
 if [ "$ANSWER" = 200 ];then
  rm -f "$tmpDIR"/acpi_button_count
  for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+
+# REM: TODO get current vt and switch to it
+#      if triggered from console outside X
+#      and X not running
+#_pidof X || chvt 1 # works but should return to last terminal nr
+_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+[ "$DEBUG" ] || rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/currVT.nr "$tmpDIR"/startVT.nr
 exit 0
 
 # REM : S3 RAM sleep
@@ -1361,8 +1400,19 @@ _xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter s
 *) :;;
 esac
 
+# REM: TODO get current vt and switch to it
+#      if triggered from console outside X
+#      and X not running
+#_pidof X || chvt 1 # works but should return to last terminal nr
+_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+
+[ "$DEBUG" ] || {
+rm -f "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+rm -f "$tmpDIR"/ANSWER.txt
 rm -f "$tmpDIR"/acpi_button_count
+}
+
 sleep 5
-for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
 
 exit 0
