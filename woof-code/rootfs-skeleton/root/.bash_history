@@ -3104,3 +3104,10 @@ ash
 ps | grep acpi
 /etc/init.d/DRIVER/bb_mkbd_acpid.init 
 /etc/init.d/DRIVER/bb_mkbd_acpid.init start
+./replace_commit_files.sh 
+find -name openvt.c
+fgconsole
+tty
+chmod +x /root/get_fgconsole.sh 
+/root/get_fgconsole.sh
+exec /root/get_fgconsole.sh
