@@ -678,8 +678,8 @@ _debug "\\033[0;31m""Begin mouse part One""\\033[0;39m"
 #v411 restored after removal in v407...
 #update xorg.conf if mouse has changed...
 
-MOUSEDEV=`cat /etc/mousedevice` #autodetected in rc.sysinit
-OLDMOUSEDEV=`cat /etc/oldmousedevice` #set in rc.sysinit
+read MOUSEDEV </etc/mousedevice #autodetected in rc.sysinit
+read OLDMOUSEDEV </etc/oldmousedevice #set in rc.sysinit
 
 if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then # 5.0
 
@@ -687,23 +687,29 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then # 5.0
 
   if [ -f /etc/X11/xorg.conf ]; then # 5.1.1.0
 
-   case `cat /etc/mousedevice | cut -c 1-4` in
+   case `cut -c 1-4 /etc/mousedevice` in
     "inpu") #"input/mice", usb
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp2
+     _notice "input/mice, will change mouse0protocol to \"IMPS/2\""
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp0; mRV=$?
      ;;
     "ttyS") #ttyS0,1,2,3, serial
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp2
+     _notice "ttyS, will change mouse0protocol to \"Microsoft\""
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp0; mRV=$?
      ;;
     *)
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp2
+     _notice "Unknown device, will change mouse0protocol to \"auto\""
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > "$tmpDIR"/xorg.conf.tmp0; mRV=$?
      ;;
    esac
-  _sync
-   _info "Copying $tmpDIR/xorg.conf.tmp2 /etc/X11/xorg.conf"
-   cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf One
-  _sync
-   [ "$VERBOSE" ] || rm -f "$tmpDIR"/xorg.conf.tmp2
-
+   if [ $mRV = 0 ]; then
+    _sync
+    _info "Copying $tmpDIR/xorg.conf.tmp0 /etc/X11/xorg.conf"
+    cp $VERB -f "$tmpDIR"/xorg.conf.tmp0 /etc/X11/xorg.conf # CP new xorg.conf One
+    [ $? = 0 ] && _info "Success replacing mouseprotocol in xorg.conf"
+    [ "$VERBOSE" ] || rm -f "$tmpDIR"/xorg.conf.tmp0
+   else
+    _warn "Could not change mouse protocoll entry in xorg.conf"
+   fi
   fi # 5.1.1.0
  fi # 5.1.0
 
@@ -713,9 +719,9 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then # 5.0
 fi # 5.0
 
 #v408 k2.6.25.16 has serial driver as a module...
-[ "`grep 'ttyS' /etc/mousedevice`" != "" ] && modprobe sermouse
+[ "`grep 'ttyS' /etc/mousedevice`" ] && modprobe $VERB sermouse 2>>$ERR
 #v411 precaution...
-[ "`grep 'input/mice' /etc/mousedevice`" != "" ] && modprobe usbhid
+[ "`grep 'input/mice' /etc/mousedevice`" ] && modprobe $VERB usbhid 2>>$ERR
 
 #ask about scrollwheel... DO NOT ASK, ASSUME YES...
 if [ ! -f /etc/mousebuttons ]; then # 6.0
@@ -723,13 +729,19 @@ if [ ! -f /etc/mousebuttons ]; then # 6.0
  #dialog --yesno "Do you have a wheel/scroll type of mouse?" 0 0
  #if [ $? -eq 0 ];then
   echo "5" > /etc/mousebuttons
-  _notice "The file /etc/mousebuttons has been created, with content \"5\"."
+  _notice "The file /etc/mousebuttons has been created, with content \"5\" ."
 
   if [ -f /etc/X11/xorg.conf ]; then # 6.1.0
-   cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$tmpDIR"/xorg.conf.tmp
-  _sync
-   _info "Copying $tmpDIR/xorg.conf.tmp /etc/X11/xorg.conf"
-   cp $VERB -f "$tmpDIR"/xorg.conf.tmp /etc/X11/xorg.conf # CP new xorg.conf Two-1
+   cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$tmpDIR"/xorg.conf.tmp1
+   if [ $? = 0 ]; then
+   _sync
+   _info "Copying $tmpDIR/xorg.conf.tmp1 /etc/X11/xorg.conf"
+   cp $VERB -f "$tmpDIR"/xorg.conf.tmp1 /etc/X11/xorg.conf # CP new xorg.conf Two
+   [ $? = 0 ] && _info "Using 5 buttons in xorg.conf"
+   [ "$DEBUG" ] || rm "$tmpDIR"/xorg.conf.tmp1
+   else
+    _warn "Could not set mouse buttons to \"5\" in xorg.conf"
+   fi
   fi # 6.1.0
 
  #else # 6.0
@@ -737,9 +749,9 @@ if [ ! -f /etc/mousebuttons ]; then # 6.0
  # echo -e "...you chose \"no\"."
  # echo -e "The file /etc/mousebuttons has been created, with content \"3\"."
  # if [ -f /etc/X11/xorg.conf ];then
- #  cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' > "$tmpDIR"/xorg.conf.tmp
+ #  cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' > "$tmpDIR"/xorg.conf.tmp1
  #  sync
- #  cp $VERB -f "$tmpDIR"/xorg.conf.tmp /etc/X11/xorg.conf # CP new xorg.conf Two-2
+ #  cp $VERB -f "$tmpDIR"/xorg.conf.tmp1 /etc/X11/xorg.conf # CP new xorg.conf Two
  # fi
  #fi
 
@@ -751,7 +763,7 @@ _debug "\\033[0;34m""End mouse part One""\\033[0;39m"
 _debug "\\033[0;31m""Begin mouse part Two""\\033[0;39m"
 MOUSEBUTTONS=3
 if [ -e /etc/mousebuttons ]; then # 11.0
- MOUSEBUTTONS=`cat /etc/mousebuttons`
+ read MOUSEBUTTONS </etc/mousebuttons
 fi # 11.0
 #v2.02 fix bug discovered by Dougal...
 if [ $MOUSEBUTTONS -eq 2 ]; then # 12.0
@@ -768,7 +780,7 @@ test -L /dev/mouse      || ln $VERB -sf input/mice /dev/mouse
 #0.9.8
 XEXTRAOPTIONS=""
 if [ -e /etc/xextraoptions ]; then # 13.0
- XEXTRAOPTIONS=`cat /etc/xextraoptions`
+ read XEXTRAOPTIONS </etc/xextraoptions
 fi # 13.0
 
 #v424 bad hack, i somehow get /dev/mouse pointing to psaux when chose a serial mouse, don't know why...
@@ -806,29 +818,36 @@ if [ -f /usr/bin/Xorg ]; then #-f /usr/bin/Xorg
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then #X->Xorg  ##KRG
   #find location of video chip drivers...
 
-  SPECVESA=`find -L /usr/lib -xdev -type f -name vesa_drv.so | head -n1` #### was empty
+  SPECVESA=`find -L /usr/lib /usr/X11/lib -xdev -type f -name vesa_drv.so | head -n1` #### was empty
   #### find /usr/ -noleaf -mount -type f -name vesa_drv.so would not be empty ####
   if [ "$SPECVESA" ]; then #vesa_drv.so available
-   _debug "SPECVESA='$SPECVESA' and not empty"
+   _debug "Found vesa driver at '$SPECVESA'"
    DRVRSPATH=`dirname $SPECVESA`
    #get current driver...
-   DRVRCURR=`grep '#card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | tail -n1 | cut -f 2 -d '"'`
+   DRVRCURR=`grep 'Driver .* #card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | head -n1 | cut -f 2 -d '"'`
 
    if [ "$DRVRCURR" ]; then #driver entry in xorg.conf
-    _debug "DRVRCURR='$DRVRCURR' and not empty"
+    _info "Curent Xorg Driver entry is '$DRVRCURR'"
     #if [ ! -f $DRVRSPATH/${DRVRCURR}_drv.so ];then
     #one driver is mtx_drv.o hmmm, okay do it this way (pakt)...
-    ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv.so" >>$OUT
+    ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv" >>$OUT
     RV=$?
     _debug "ls -1 $DRVRSPATH/* returned:$RV"
     if [ $RV -ne 0 ]; then #driver_not_in_dir
-     _err "Could not find '$DRVRCURR' in '$DRVRSPATH'"
+     _err "Could not list '$DRVRCURR' in '$DRVRSPATH'"
      _warn "Will replace '$DRVRCURR' in xorg.conf with \"vesa\""
      sedPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
      cat /etc/X11/xorg.conf | sed -e "$sedPATTERN" > "$tmpDIR"/xorg.conf.tmp2
-     _sync
-     _info "Using vesa_drv.so:Copying $tmpDIR/xorg.conf.tmp2 /etc/X11/xorg.conf (2nd occurence in script)"
-     cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf Three
+     if [ $? = 0 ]; then
+      _sync
+      _info "Using vesa_drv.so:Copying $tmpDIR/xorg.conf.tmp2 /etc/X11/xorg.conf"
+      cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf Three
+      [ $? = 0 ] && _info "Done changing Driver entry in xorg.conf"
+      [ "$DEBUG" ] || rm "$tmpDIR"/xorg.conf.tmp2
+     else
+      _warn "Could not change xorg.conf"
+      _warn "Please look into $tmpDIR/xorg.conf.tmp2 for hints"
+     fi
     fi #driver_not_in_dir
    fi #driver_entry_in_xorg.conf
   fi #vesa_drv.so available
@@ -918,6 +937,8 @@ _debug "\\033[0;32m""Begin starting X part""\\033[0;39m"
 echo "true" > /var/lock/XLOADED
 rm -f /tmp/wmexitmode.txt
 rm -f "$tmpDIR"/wmexitmode.txt
+
+rm -f /tmp/bootcnt.txt
 
 case $X_SERVER in
  Xvesa) #### Xvesa part Three ###
