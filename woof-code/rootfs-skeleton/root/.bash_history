@@ -3178,3 +3178,11 @@ echo "$M_LOOP"
 yaf-splash -help
  yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information" &
 ash
+./replace_commit_files.sh 
+git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/
+mount -o remount,ro /dev/sda2 /mnt/sda2
+fuser -m /mnt/sda2
+fuser -c /dev/sda2
+losetup
+losetup -a
+yaf-splash -bg green -text "Exiting to prompt..." &
