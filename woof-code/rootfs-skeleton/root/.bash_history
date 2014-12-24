@@ -3117,3 +3117,64 @@ file ./busybox
 pwd
 ldd pwd
 busybox-slacko5571 
+./replace_commit_files.sh 
+grep grab *
+xsetpointer -help
+man xsetpointer
+xsetpointer -l
+man yaf-splash
+man xmessgae
+man xmessage
+man xrefresh
+man cvt
+cvt
+cvt 1920 1080
+man xmodmap
+man xlib
+xrender -help
+xrandr -help
+xset -help
+xwininfo --help
+xmessage -help
+yaf-splash -help
+yaf-splash -geometry 1920x1020 -text "HELLO"
+yaf-splash -geometry 1920x1020 -transparent -text "HELLO"
+yaf-splash -geometry 1920x1020  -text "HELLO"
+XIGrabEnter=1 xmessage "HELLO"
+XIGrabFocusIn=1 xmessage "HELLO"
+XIGrabFocusIn=:0 xmessage "HELLO"
+xmessage -buttons "OK:100,NO" -default "NO" "HELLO"
+xmessage -buttons "OK:100,NO" -default "NO" "HELLO";echo $?
+xmessage -maxwidth 1920 "HELLO"
+xmessage -maxWidth 1920 "HELLO"
+xmessage -geometry 1920+1020 "HELLO"
+xmessage -geometry 0x0+1920+1020 "HELLO"
+xmessage -geometry 1x1+1920+1020 "HELLO"
+xmessage -geometry 1920x1020 "HELLO"
+find -iname "*grab*"
+geany /usr/bin/wmexit
+man /usr/X11R6/man/man3/XF86MiscSetMouseSettings.3x
+geany /etc/rc.d/f4puppy5
+source /etc/rc.d/f4puppy5
+_get_screen_resolution
+man yaf-splash
+yaf-splash --help
+yaf-splash -geometry 1920x1080 -text "SOME YAF SPLASH TEXT"
+yaf-splash -geometry 1920x1080 -text "SOME yet another fine YAF SPLASH TEXT"
+yaf-splash -geometry 1920x1080 -transparent -text "SOME yet another fine YAF SPLASH TEXT"
+yaf-splash -transparent -text "SOME yet another fine YAF SPLASH TEXT"
+yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT"
+yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT" &
+exec yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT" &
+ls /etc/event*
+geany /etc/event*
+mount | grep -E '^/dev/loop[0-9]*'
+mount | grep -E '^/dev/loop[0-9p]*'
+mount | grep -E '^/dev/loop[0-9p]+'
+M_LOOP=`mount | grep -E '^/dev/loop[0-9p]+ ' |grep -v '/initrd'`
+M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
+M_LOOP=`echo "$M_LOOP" |grep -o ' on .\+ type ' |sed -r 's!( on )(.*)( type )!\2!'`
+echo "$M_LOOP"
+yaf-splash -help
+ yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information" &
+ash
