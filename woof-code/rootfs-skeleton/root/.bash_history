@@ -3063,3 +3063,44 @@ find /usr -iname "Xdefaults"
 find /usr -iname ".Xdefaults"
 find /usr -iname ".Xdefaults*"
 find /usr -iname "Xdefaults*"
+./replace_commit_files.sh 
+git commit
+git commit 2>&1| while read f;do [ -e "$f" ] || continue;echo $f;done
+git commit 2>&1| while read f;do [ -e "$f" ] || continue;echo $f;git add $f;done
+git commit -m '/usr/local/lib/X11/themes/Original/ : Several _mntdro48.png and _mntdrw48.png added.'
+
+Tue Dec 23 17:37:22 GMT+1 2014
+
+
+Tue Dec 23 19:36:36 GMT+1 2014
+
+SPECVESA=`find -L /usr/lib /usr/X11/lib -xdev -type f -name vesa_drv.so | head -n1`
+DRVRSPATH=`dirname $SPECVESA`
+DRVRCURR=`grep 'Driver .* #card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | head -n1 | cut -f 2 -d '"'`
+ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv"
+readlink --help
+cut -c 1-4 /etc/mousedevice
+readlink -qs /usr/bin/X
+readlink -s /usr/bin/X
+readlink -q /usr/bin/X
+ash
+
+Tue Dec 23 21:20:14 GMT+1 2014
+
+help deallocvt
+deallocvt --help
+openvt --help
+freevt
+busybox | grep vt
+chvt --help
+ps -A -o tty,args
+
+Wed Dec 24 09:29:25 GMT+1 2014
+
+busybox ps -o tty,args
+busybox ps -o tty,args|cut -f2 -d','
+busybox ps -o tty,args|awk -F'[ ,]' '{print $2}'
+ash
+ps | grep acpi
+/etc/init.d/DRIVER/bb_mkbd_acpid.init 
+/etc/init.d/DRIVER/bb_mkbd_acpid.init start
