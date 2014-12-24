@@ -21,10 +21,20 @@ _parse_basic_parameters "$@"
 _trap
 }
 
+ # Popup a short messsage if DISPLAY - if run from terminal, DISPLAY is not set
+[ "$DISPLAY" ] && yaf-splash -bg green -text "Exiting to prompt..." &
+
+killSIG4pup_event='-3'
+_pidof pup_event_frontend_d && {
+killall -SIGQUIT pup_event_frontend_d
+}
+
 #/sbin/pup_event_frontend_d will quit if this file exists...
-echo -n "exit" > /tmp/wmexitmode.txt
-echo -n "exit" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
-sleep 1s
+echo "exit $@" > /tmp/wmexitmode.txt
+echo "exit $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
+
+# Old pup_event_frontend_d code ..
+__wait_for_frontend_d__(){
 #give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
@@ -37,9 +47,17 @@ while [ "$PSPEFD" != "" ];do
  [ $KCNT -gt 60 ] && break #30 secs.
  PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
 done
+}
+
 sleep 0.2
 
-sync
+# REM: Killing pup_event_frontend_d triggers also
+#      trap HUP line in pup_event_frontend_d,
+#      here in script, not in terminal
+rm /tmp/pup_event_manager.flg
+rm /tmp/pup_event_change_icons.flg
+
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -48,14 +66,18 @@ if [ "`pidof xfce4-panel`" != "" ];then
 fi
 
 #w003
-CURRENTWM="`cat /etc/windowmanager`"
-kill -9 `pidof $CURRENTWM`
+read CURRENTWM </etc/windowmanager
+pidof ${CURRENTWM##*/} && kill -9 `pidof ${CURRENTWM##*/}`
+# e17
+pidof tempget >>$OUT && kill -2 `pidof tempget`
 
+sleep 1
 ##exec killall $PREVIOUSWM
 ##exec killall X
+pidof X || exit 0
 killall X #default is SIGTERM.
 sleep 1
-#exec killall -9 X #make sure X is killed.
+exec killall -9 X #make sure X is killed.
 
 # Very End of this file 'usr/sbin/exitprompt' #
 ###END###
