@@ -1057,7 +1057,7 @@ echo "yPID='$yPID'"
  case $RV in
  0) :;;
  *) jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l;
-    for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+    for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
  exit 0;;
  esac
 
@@ -1070,7 +1070,7 @@ echo "yPID='$yPID'"
 # kill jobs ..
 jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
 for aP_ in `jobs -p`; do
-ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
 jobs -l
 
 case $CHOICE_LINE in
@@ -1079,8 +1079,8 @@ case $CHOICE_LINE in
 *Standby*|*standby*)        ANSWER=201;;
 *RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
 *Hibernation*|*hiber*)      ANSWER=204;;
-"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
-*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
+"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
+*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
 esac
 
 return $ANSWER
@@ -1123,11 +1123,13 @@ else  # pidof X / no pidof X
 
 unset DISPLAY
 
+# REM: First attemp:
 #openvt $VERB -s ___do_xmessage
 #openvt $VERB -s
 #sleep 1
 #___do_xmessage
 
+# REM: second attempt using external script
 # REM : Get the  ___do_xmessage and  __xmessage functions
 #       out of this script and create a script in /tmp that uses them
 myREALPATH=`realpath "$0"`
@@ -1141,15 +1143,20 @@ unset DISPLAY
 
 source /etc/rc.d/f4puppy5
 
+# REM: functions:
+# __xmessage:
 $f2
-
+# ___do_xmessage:
 $f1
+
 
 echo
 
+# REM: DEBUG
 echo "$0:$*"
 echo "\$0:\$*"
 
+# REM: ps does not work for me if triggered without controlling terminal
 startVT=\`busybox ps -o tty,args | grep openvt | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | head -n1\`
 currVT=\`busybox ps -o tty,args | grep console_select | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | tail -n1\`
 
@@ -1159,21 +1166,37 @@ echo "Current VT: \$currVT "
 echo "\$startVT" >$tmpDIR/startVT.nr
 echo "\$currVT" >$tmpDIR/currVT.nr
 
+# REM: Now comes the select ^GUI^
 echo
 ___do_xmessage
 echo \$? >$tmpDIR/ANSWER.txt
+# REM: Need to do it later after script exits
 #deallocvt \$currVT
+# REM: echo should return 0; otherwise /tmp not read-write
 exit \$?
 EoI
+
+# REM: of course make script writable
+chmod $VERB 0754 "$tmpDIR"/console_select.sh
+
+# REM: remove output files to prevent old values used
+rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+
+# REM: export the variables, so they do not need to be written into
+#      console_select.sh
+export BUTTONS_GUI EMERG_TIMEOUT
+
+# REM: Needs fgconsole enabled in BBCONFIG of busybox
+#       fgconsole works also without controlling tty
+#       Need that value because openvt -sw does not work for me
+#       to automatically switch back after script exits
+[ "`which fgconsole`" ] && startVT=`fgconsole`
 
 # REM : Now run script while switching VT
 #       Switch of virtual terminal is neccessary to
 #       be able to handle input
-chmod $VERB 0754 "$tmpDIR"/console_select.sh
-rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
-export BUTTONS_GUI EMERG_TIMEOUT
-
-# REM: Needs to wait
+# REM: Needs to wait otherwise would immediately switch back to
+#       startVT, but with -w it does not work for me to switch back
 openvt $VERB -s -w "$tmpDIR"/console_select.sh
 # openvt $VERB -s "$tmpDIR"/console_select.sh
 
@@ -1183,7 +1206,7 @@ echo "ANSWER='$ANSWER'"
 
 sleep 1
 
-test -s "$tmpDIR"/startVT.nr && read startVT <"$tmpDIR"/startVT.nr
+[ "$startVT" ] || { test -s "$tmpDIR"/startVT.nr && read startVT <"$tmpDIR"/startVT.nr; }
 test -s "$tmpDIR"/currVT.nr  && read currVT  <"$tmpDIR"/currVT.nr
 
 case $startVT in
