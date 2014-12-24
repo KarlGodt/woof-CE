@@ -3111,3 +3111,9 @@ tty
 chmod +x /root/get_fgconsole.sh 
 /root/get_fgconsole.sh
 exec /root/get_fgconsole.sh
+./replace_commit_files.sh 
+./busybox
+file ./busybox
+pwd
+ldd pwd
+busybox-slacko5571 
