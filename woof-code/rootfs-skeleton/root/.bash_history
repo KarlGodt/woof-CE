@@ -3186,3 +3186,114 @@ fuser -c /dev/sda2
 losetup
 losetup -a
 yaf-splash -bg green -text "Exiting to prompt..." &
+./replace_commit_files.sh 
+geany `which plogout`
+geany /usr/sbin/exitprompt
+chkmap
+chmod +x /bin/chkmap
+chkmap de
+file /usr/share/kbd/keymaps/i386/qwertz/de.map
+geany /usr/share/kbd/keymaps/i386/qwertz/de.map
+find /usr -name "de.gz"
+find /usr -wholename "*map*"
+find /usr/share -wholename "*map*"
+find /usr/bin -wholename "*map*"
+find /usr/sbin -wholename "*map*"
+man makemap
+git pull 
+git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/
+
+Thu Dec 25 11:18:11 GMT+1 2014
+
+patch -p1 <grub_0.97-47lenny2.diff 
+mv grub-0.97 grub-0.97-lenny
+tar xzf grub-0.97-lenny.tar.gz grub-0.97-lenny
+tar czf grub-0.97-lenny.tar.gz grub-0.97-lenny
+patch -p1 <grub_0.97-16.1~bpo.1.diff 
+tar czf grub-0.97-Sarge-bpo.tar.gz grub-0.97-Sarge-bpo
+patch -p1 <grub_0.97-27etch1.diff 
+tar czf grub-0.97-etch.tar.gz grub-0.97-etch
+patch -p1<grub_0.97-64.diff 
+tar czf grub-0.97-squeeze.tar.gz grub-0.97-squeeze
+patch -p1 <grub_0.97-67.diff 
+tar czf grub-0.97-Wheezy.tar.gz grub-0.97-Wheezy/
+patch -p1 <grub_0.97-29ubuntu60.diff 
+patch -p1 <grub_0.97-29ubuntu60.10.04.2.diff 
+tar -czf grub-0.97-lucid.tar.gz grub-0.97-lucid 
+tar -czf grub-0.97-lucid-bpo.tar.gz grub-0.97-lucid-bpo 
+patch -p1 <grub_0.97-29ubuntu66.diff 
+tar -czf grub-0.97-Precise.tar.gz grub-0.97-Precise/
+./Apply_patches 
+type -a patch
+./Apply_patches 
+pwd
+cd ..
+ls
+cd grub-0.97-156.4.src/
+tar czf grub-0.97-Suse11.1-156.4.tar.gz grub-0.97-Suse11.1-156.4/
+grep gfxmenu *
+autoreconf --force --install
+EXTRACFLAGS=' -fno-stack-protector -fno-strict-aliasing -minline-all-stringops -fno-asynchronous-unwind-tables -fno-unwind-tables'
+CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=%{_infodir} --mandir=%{_mandir} --datadir=/usr/lib   --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
+CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=/usr/share/info --mandir=/usr/share/man --datadir=/usr/lib   --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
+make.tgl
+make
+make clean
+make.tgl
+CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=`pwd`/_install_diskless  --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
+make.tgl
+make
+make.tgl
+make install
+make clean
+CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=%{_infodir} --mandir=%{_mandir} --datadir=/usr/lib   --disable-auto-linux-mem-opt --disable-ffs --disable-ufs2
+CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=`pwd`/_install  --disable-auto-linux-mem-opt --disable-ffs --disable-ufs2
+echo $EXTRACFLAGS 
+make.tgl
+make
+make.tgl
+make install
+uname -r
+  
+uname -r
+_mouse_message(){ yaf-splash -bg yellow $mmsgGEOMETRY -fg black $genYAFOPS -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
+| OK, so if your mouse receiver is                      |
+| attached to a keyboard integrated hub,                |
+|                                                       |
+| and you don't want to wake the system by mouse moves, |
+|                                                       |
+| or light up any LEDs on the keyboard dito,            |
+|                                                       |
+| then you have $MOUSEMSG_TT seconds from now,                    |
+| to switch off the mouse...                            |
+|                                                       |
+| Note: Unmounting of partitions may still go on        |
+|       in the background .                             |
+| When switched off mouse, press any keyboard key ...   |
+---------------------------------------------------------"; }
+source /etc/rc.d/f4puppy5
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+MOUSEMSG_TT=30
+genYAFOPS='-outline 0'
+_mouse_message
+     _get_screen_resolution
+mmsgGEOMETRY="-geometry $rootSCREEN_XY"
+_mouse_message
+                                      
+_mouse_message
+         kkkll
+sleep 10 && _mouse_message
+fbsplsh --help
+fbsplash --help
+test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm
+test -f /boot/grub/boot-splash.ppm;echo $?
+fbsplash
+test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm -d `tty`
+tty
+test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm -d /dev/pts/3
+geany /sbin/init
+help
+help suspend
