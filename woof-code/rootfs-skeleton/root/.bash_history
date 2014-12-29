@@ -3297,3 +3297,223 @@ test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm -d 
 geany /sbin/init
 help
 help suspend
+./replace_commit_files.sh 
+top
+
+Thu Dec 25 20:08:34 GMT+1 2014
+
+ls /dev/inpu*
+ls -l /dev/inpu*
+ls -l /dev/in*
+ls -l /dev/ev*
+ls -l /dev/m*
+ls -l /dev/input/mouse0 /dev/mouse0
+ln -s /dev/input/mouse0 /dev/mouse0
+ls -l /dev/m*
+grep -i mouse /var/log/xwin/Xorg.3.7.10-KRG-i486-smp-pae-lzo-mini.2014-12-25-20\:08\:35.log 
+ls -l /dev/m*
+ls -l /dev/min*
+ls -l /dev/in*
+ls /proc/bus/input
+ls /proc/bus/input/devices
+grep -i mouse  /proc/bus/input/devices
+grep -B10 -A10 -i mouse  /proc/bus/input/devices
+less /proc/bus/input/devices
+ wmexit
+uname -r
+env x='{ :; }; while [ 2 ];do echo background program running;sleep 10;done' geany 
+env x='{ :; }; while [ 1 ];do echo background program running;sleep 10;done' geany 
+env x='{ :; };' geany 
+env x='{ while [ 1 ];do echo background program running;sleep 10; done; };' geany 
+x
+env x='{ while [ 1 ];do echo background program running;sleep 10; done; }' geany 
+env x='{ while [ 1 ];do echo background program running;sleep 10; done; }'
+x
+env x='{ while [ 1 ];do echo background program running;sleep 10; done; }' bash -c geany
+env x='{ while [ 1 ];do echo background program running;sleep 10; done; } ; echo vulnerable' bash -c geany
+x
+eval x
+ $x
+eval $x
+echo $x
+env x='{ :; } ; echo vulnerable' bash -c geany
+env x='{ :; } ; echo vulnerable' bash -c "echo This is a test"
+env x='{ :; } ; echo vulnerable; bash -c' echo "This is a test"
+env x='{ :; }  echo vulnerable; bash -c' echo "This is a test"
+env x='{ :; }  echo vulnerable bash -c' echo "This is a test"
+env x='{ :; }  echo vulnerable' bash -c echo "This is a test"
+env x='{ :; };  echo vulnerable' bash -c echo "This is a test"
+env x='{ :; };  echo vulnerable bash -c' echo "This is a test"
+env x='{ :; };echo vulnerable bash -c' echo "This is a test"
+env x='{ :; };echo vulnerable; bash -c' echo "This is a test"
+env x='{ :; };echo vulnerable' bash -c echo "This is a test"
+export PATH=`pwd`/bin:`pwd`/sbin:$PATH
+echo $PATH
+export LD_LIBRARY_PATH=`pwd`/lib:$LD_LIBRARY_PATH
+wine
+wine /mnt/sdb1/Program Files/ABBYY FineReader 6.0 Sprint/Sprint.exe
+wine "/mnt/sdb1/Program Files/ABBYY FineReader 6.0 Sprint/Sprint.exe"
+wine "/mnt/sdb1/Program Files/Crossfire GTK Client/GTKClient.exe"
+wine "/mnt/sdb1/Program Files/Internet Explorer/iexplore.exe"
+wine "/mnt/sdb1/Program Files/Mozilla Firefox/firefox.exe"
+find -size +6m
+find -size +6M
+hexedit /mnt/sdb1/Users/User/Music/FD136d01
+file /Desktop-Hintergrund-640x480x16+A-dith.xpm
+ffmpeg-sc-sh-0.8.10 -help
+ffmpeg-sc-sh-0.8.10 -help 2>&1 | grep -i mtv
+
+Fri Dec 26 18:46:18 GMT+1 2014
+
+grub
+mplayer "/mnt/sdd1/Dokumente und Einstellungen/Admin/Eigene Dateien/Eigene Videos/Video 1.MOV"
+df
+smartctl -A /dev/sdd
+smartctl -A -d sat /dev/sdd
+echo $((7497/24))
+mplayer "/mnt/sdd1/Dokumente und Einstellungen/Admin/desktop/bushido/18 Nichts Ist F?r Immer.m4a"
+ffplay "/mnt/sdd1/Dokumente und Einstellungen/Admin/desktop/bushido/18 Nichts Ist F?r Immer.m4a"
+mplayer "/mnt/sdd1/Dokumente und Einstellungen/Admin/desktop/bushido/16 Schick Mir Einen Engel.m4a"
+
+Fri Dec 26 21:07:46 GMT+1 2014
+
+for i in *.jpg; do echo $i; done
+for i in *.jpg; do echo "$i"; done
+for i in *.jpg; do echo "$i"; convert "$i" "$i".png;done
+for i in *.png; do mv "$i" ./PNG/; done
+for i in *; do base=${i%%.*};echo $base-640x480.png;done
+for i in *; do base=${i%%.*};convert -geometry 640x480 "$i" "$base"-640x480.png;done
+F=`ls *640x480*`
+echo $F
+convert $F albanyouth.gif
+convert -adjoin $F albanyouth.gif
+for i in *; do mv "$i" "${i// /_/}"; done
+for i in *; do mv "$i" "${i// /_}"; done
+F=`ls *640x480*`
+echo $F
+convert -adjoin $F albanyouth.gif
+convert -adjoin -delay 5 $F albanyouth.gif
+convert -adjoin -delay 5000 $F albanyouth.gif
+convert -adjoin -delay 50 $F albanyouth.gif
+convert -adjoin -delay 500 $F albanyouth.gif
+man conjure
+man convert
+conjure --help
+
+Sat Dec 27 17:07:17 GMT+1 2014
+
+wmexit
+uname /r
+uname -r
+xmodmap pp
+xmodmap -pp
+xmodmap -pp | ./busybox-orig sed -n '/ *[0-9] *[0-9]/p'
+./configure --prefix=`pwd`/_install
+make
+./configure --prefix=`pwd`/_install
+make
+info /root/COMPILE/Sed/sed-3.01/_install/info/sed.info
+xmodmap -pp | ./sed -n '/ *[0-9] *[0-9]/p'
+info grep
+man grep
+info /root/COMPILE/Sed/sed-4.0.7/_install/info/sed.info
+./configure --prefix=`pwd`/_install
+make
+make install
+./configure --prefix=`pwd`/_install
+make
+make install
+xmodmap -pp
+xmodmap -pp | sed -n '/ *[0-9] *[0-9]/p'
+xmodmap -pp | busybox sed -n '/ *[0-9] *[0-9]/p'
+xmodmap -pp | busybox_1.18.3_STATIC_upx9_648KB sed -n '/ *[0-9] *[0-9]/p'
+xmodmap -pp | ./busybox-1.1.3-ST-99all-1897KB sed -n '/ *[0-9] *[0-9]/p'
+chroot .
+
+Sun Dec 28 15:08:38 GMT+1 2014
+
+geany /sbin/init
+fbsplash --help
+uname -r
+
+Sun Dec 28 15:30:44 GMT+1 2014
+
+ASH
+ash
+_do_fbsplash(){ [ "$FBSPLASH_DONE" ] && return 1; PICURE=/boot/grub/boot-splash.ppm; test "$1" && PICTURE="$1"; test -f "$PICTURE" || return 2; DEVICE=/dev/fb0; test "$2" && DEVICE="$2"; test -e "$DEVICE" || return 3; fbsplash -s "$PICTURE" -d "$DEVICE"; if test $? = 0; then FBSPLASH_DONE=1; return 0; fi; return $?; }
+_do_fbsplash; echo $?
+ls /boot/grub/boot-splash.ppm
+echo $PICTURE
+echo $DEVICE
+_do_fbsplash "/boot/grub/boot-splash.ppm" "/dev/fb0"
+_do_fbsplash "/boot/grub/boot-splash.ppm" "/dev/fb0"; echo $?
+_do_fbsplash "/boot/grub/boot-splash1.ppm" "/dev/fb0"; echo $?
+echo $FBSPLASH_DONE 
+FBSPLASH_DONE=
+_do_fbsplash "/boot/grub/boot-splash1.ppm" "/dev/fb0"; echo $?
+echo $FBSPLASH_DONE 
+_do_fbsplash "/boot/grub/boot-splash.ppm" "/dev/fb0"; echo $?
+echo $FBSPLASH_DONE 
+FBSPLASH_DONE=
+_do_fbsplash "/boot/grub/boot-splash.ppm" ""; echo $?
+echo $FBSPLASH_DONE 
+_do_fbsplash "" ""; echo $?
+FBSPLASH_DONE=
+_do_fbsplash "" ""; echo $?
+FBSPLASH_DONE=
+_do_fbsplash ""; echo $?
+FBSPLASH_DONE=
+_do_fbsplash; echo $?
+FBSPLASH_DONE=
+_do_fbsplash; echo $?
+_do_fbsplash(){ [ "$FBSPLASH_DONE" ] && return 1; PICURE=/boot/grub/boot-splash.ppm; test "$1" && PICTURE="$1"; test -f "$PICTURE" || return 1; DEVICE=/dev/fb0; test "$2" && DEVICE="$2"; test -e "$DEVICE" || return 1; fbsplash -s "$PICTURE" -d "$DEVICE"; if test $? = 0; then FBSPLASH_DONE=1; return 0; fi; return $?; }
+_do_fbsplash;echo $?
+
+Sun Dec 28 15:42:57 GMT+1 2014
+
+
+Sun Dec 28 17:41:48 GMT+1 2014
+
+grub --batch <<EoI >>/tmp/md5crypt.txt
+type -a grub
+info grub
+
+Sun Dec 28 20:24:44 GMT+1 2014
+
+uname /r
+uname -r
+
+Sun Dec 28 22:43:27 GMT+1 2014
+
+info grub
+grep -r -m1 grub_open *
+grep get_cmdline *
+pwd
+./configure --help
+chmod +x configure
+chmod +x config.sub
+chmod +x config.guess
+./configure --help
+./configure --prefix=`pwd`/_install
+make.tgl
+make
+make install
+/boot/COMPILE/Grub-Again/Grub4dos/grub4dos-0.4.4/_install/lib/grub/i386-pc/bootlace.com --help
+chmod +x --help
+chmod +x 2014
+chmod +x grub
+pwd
+chmod +x /boot/COMPILE/Grub-Again/Grub4dos/grub4dos-0.4.4/_install/lib/grub/i386-pc/bootlace.com
+/boot/COMPILE/Grub-Again/Grub4dos/grub4dos-0.4.4/_install/lib/grub/i386-pc/bootlace.com --help
+grep -r -i title *
+
+Mon Dec 29 13:18:42 GMT+1 2014
+
+mksquashfs4 COMPILE/ grub-everything.sfs
+mksquashfs4 Sed/ SED.sfs
+
+Mon Dec 29 14:44:18 GMT+1 2014
+
+
+Mon Dec 29 15:31:34 GMT+1 2014
+
