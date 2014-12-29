@@ -87,7 +87,33 @@ export LANG=C
 export LC_ALL=C  ##+++2012-09-06 for mkfs.ext2
 
 # REM: Try to show bootsplash picture
-test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm
+#test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm
+#=================================================================
+# function _do_fbsplash :
+#  Checks pre-requisites optional PIC_FILENAME and DEVICE parameters
+#  and global FBSPLASH_DONE variable set
+#  ad runs (busybox) fbsplash
+# invocation :
+# [ FBSPLASH_DONE=""|any ] _do_fbsplash [ PICTURE ] [ DEVICE ]
+# If no parameters given, uses
+# /boot/grub/boot-splash.ppm as first option
+# and /dev/fb0 as second option .
+_do_fbsplash(){
+[ "$FBSPLASH_DONE" ] && return 1
+PICTURE=/boot/grub/boot-splash.ppm
+test "$1" && PICTURE="$1"
+test -f "$PICTURE" || return 2
+DEVICE=/dev/fb0
+test "$2" && DEVICE="$2"
+test -e "$DEVICE" || return 3
+fbsplash -s "$PICTURE" -d "$DEVICE"
+if test $? = 0; then
+FBSPLASH_DONE=1
+return 0
+fi
+return $?
+}
+_do_fbsplash
 
 alias modprobe='/sbin/modprobe -b'  ##+++2012-01-30  ##+2013-07-13 PATH/
 
@@ -114,7 +140,7 @@ busybox mount $VERB $VERB -t proc proc /proc
 fi
 
 if [ -d /sys ]; then
-grep -q ' /sys ' /proc/mounts || busybox mount $VERB $VERB  -t sysfs sysfs /sys
+grep $Q ' /sys ' /proc/mounts || busybox mount $VERB $VERB  -t sysfs sysfs /sys
 else
 busybox mount $VERB $VERB -o -remount,rw /dev/root /
 mkdir -p /sys
@@ -122,17 +148,21 @@ busybox mount $VERB $VERB -t sysfs none /sys
 #busybox mount $VERB $VERB -o -remount,ro /
 fi
 
+_do_fbsplash
+
 if [ ! -d /dev ]; then
 busybox mount $VERB $VERB -o remount,rw /dev/root /
 mkdir /dev
 fi
 
-grep -q ' /dev ' /proc/mounts || {
+_do_fbsplash
+
+grep $Q ' /dev ' /proc/mounts || {
   mount $VERB $VERB -t ramfs devramfs /dev
 }
 
   test -e /dev/pts || mkdir -p /dev/pts
-  grep -q ' /dev/pts ' /proc/mounts || mount $VERB $VERB -t devpts devpts /dev/pts
+  grep $Q ' /dev/pts ' /proc/mounts || mount $VERB $VERB -t devpts devpts /dev/pts
 
   test -e /dev/fd || ln $VERB -snf /proc/self/fd /dev/fd
   test -e /dev/stdin  || ln $VERB -snf fd/0 /dev/stdin
@@ -161,6 +191,8 @@ grep -q ' /dev ' /proc/mounts || {
   done
   IFS="$oldIFS"
  }
+
+_do_fbsplash
 
 TTY=`tty`
 test "$TTY" = 'not a tty' && TTY=/dev/console
