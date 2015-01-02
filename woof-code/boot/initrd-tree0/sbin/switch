@@ -2,9 +2,44 @@
 #if have dropped to a shell in initramfs, type 'exec switch' to keep going.
 
 sync
-umount /proc/bus/usb
-umount /sys
-umount /proc
 
+_unmount_pseudofs(){
+umount "$*"/proc/bus/usb
+umount "$*"/sys
+umount "$*"/proc
+}
+
+_move_pseudofs(){
+mkdir -p ./sys
+mount $VERB $VERB -o move /sys ./sys
+mkdir -p ./proc
+mount $VERB $VERB -o move /proc ./proc
+grep ' /dev ' /proc/mounts && { mkdir -p ./dev; mount $VERB $VERB -o move /dev ./dev; }
+}
+
+#if grep ramfs /proc/mounts | grep -F ' / '; then
+if ! grep '^/dev/root ' /proc/mounts; then
 #now using cpio archive for initramfs 'initial ramdisk'...
+_unmount_pseudofs
 exec switch_root /pup_new /sbin/init
+else
+# assuming old-style
+cd /pup_new
+test -e bin/chroot || cp -a ../bin/chroot bin/
+_move_pseudofs
+mkdir -p oldstyle_initramdisk
+pivot_root . oldstyle_initramdisk
+
+mount | grep oldstyle_initramdisk | while read dev on mnt type fs mops n m;
+ do
+ sleep 1
+  case "$mnt" in
+  *oldstyle_initramdisk*)
+  umount -lr "$mnt"
+  ;;
+  esac
+ done
+
+sleep 1
+exec chroot . /sbin/init
+fi
