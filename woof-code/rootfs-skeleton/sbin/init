@@ -99,6 +99,9 @@ export PATH  ##+++2012-02-06 hwclock command not found in /etc/rc.d/rc.country i
 export LANG=C
 alias modprobe='modprobe -b'  ##+++2012-01-30
 
+ERR=/proc/self/fd/2
+OUT=/proc/self/fd/1
+
 Red='\033[0;31m'
 RED='\033[1;31m'
 Gre='\033[0;32m'
@@ -150,8 +153,8 @@ if [ "$PUPMODE" = 2 ] ; then
   if [ -d /tmp ] ; then
   rm -rf /var/tmp  ##2012-02-08
   mkdir -p /var/tmp  ##2012-02-06
-  mv -f /tmp/[[:alnum:]]* /var/tmp/  ##2012-01-08
-  mv -f /tmp/.[[:alnum:]]* /var/tmp/ ##+++2013-10-03
+  mv -f /tmp/[[:alnum:]]* /var/tmp/  2>>$ERR ##2012-01-08
+  mv -f /tmp/.[[:alnum:]]* /var/tmp/ 2>>$ERR ##+++2013-10-03
   else
   mkdir /tmp
   fi
@@ -314,7 +317,7 @@ Key=`echo "$K" | tr '[A-Z]' '[a-z]'`
 if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ] ; then
 echo -e "$BLU"'dropping to console now , partition still mounted !'"$Res"
 cd /
-mount -o remount,ro /
+mount -o remount,ro /dev/root /
 sleep $((SLEEP*1))s
 exec chroot . ash
 fi
@@ -353,7 +356,7 @@ case $DEV1FS in
 #if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ] ; then
 #echo -e "$BLU"'dropping to console now , partition still mounted !'"$Res"
 #cd /
-#mount -o remount,ro /
+#mount -o remount,ro /dev/root /
 #sleep $((SLEEP*1))s
 #exec chroot . sh
 #fi
@@ -718,6 +721,7 @@ sleep 5s  ###DBG
 ##CONTINUE_FUNC
 ###KRG ask for debug mode
 out=/dev/null;err=/dev/null
+OUT=$out;ERR=$err
 ASK_DEBUG_FUNC(){
 /etc/rc.d/rc.country
 DebugVal=0
@@ -784,16 +788,16 @@ ext2|ext3|ext4)
 if [ -z "$2" ] ; then
 echo -e "$BLU""Checking Partition $1 in -n mode
 if required binaries are useable . Please wait""$Res"
-[ "$DebugVal" = "0" ] && RETFSCK=`e2fsck -C 0 -n "$1" 2>/dev/null` || Err=$?
-[ "$DebugVal" -ge "1" ] && RETFSCK=`e2fsck -C 0 -n "$1"` || Err=$?
+[ "$DebugVal" = "0" ] && { RETFSCK=`e2fsck -C 0 -n "$1" 2>/dev/null` || Err=$?; }
+[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C 0 -n "$1"` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Fsck returned'="$Err""$Res"
 else
 echo -e "$BLU""Checking Partition $1 in normal mode
 if required binaries are useable . Please wait""$Res"
 [ "$DebugVal" = "0" ] && e2fsck -C 0 -p "$1"
-[ "$DebugVal" = "0" ] && RETFSCK=`e2fsck -C 0 -n "$1" 2>/dev/null` || Err=$?
+[ "$DebugVal" = "0" ] && { RETFSCK=`e2fsck -C 0 -n "$1" 2>/dev/null` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && e2fsck -C 0 "$1"
-[ "$DebugVal" -ge "1" ] && RETFSCK=`e2fsck -C 0 -n "$1"` || Err=$?
+[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C 0 -n "$1"` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Fsck returned'="$Err""$Res"
 fi
 CLEAN=`echo "$RETFSCK" | tail -n 1 | grep -i -o 'clean'`
@@ -820,9 +824,9 @@ echo -e "$Res"
 }
 
 FIRST_FSCK_FUNC(){
-[ -n "`mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && mount -o remount,ro /
+[ -n "`mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && mount -o remount,ro /dev/root /
 FSCK_FUNC "/dev/$PDEV1"
-mount -o remount,rw /
+mount -o remount,rw /dev/root /
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ] ; then
 echo -e "$BLU""Booting installation ..."
 echo -e "$Res"
@@ -885,6 +889,9 @@ SIMPLEDRIVENAME=`basename $oneDRV`
 mkdir -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting '"$Res"$oneDRV' on '"$Res"/mnt/$SIMPLEDRIVENAME
 mount -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
+[ $? = 0 ] || {
+    rmdir /mnt/$SIMPLEDRIVENAME 2>>$ERR
+    continue; }
 SFS=`find /mnt/$SIMPLEDRIVENAME -maxdepth 3 -type f -name "*.sfs" | grep -i -E 'luma|luci|lupu|pup|pu' | grep -v -E 'devx|\+mnt\+'`
 
 ###check found sfs part
@@ -894,7 +901,7 @@ sleep 1s
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Unmounting again '"$Res"$oneDRV
 umount -lr $oneDRV
 sleep 1s
-rmdir /mnt/$SIMPLEDRIVENAME
+rmdir /mnt/$SIMPLEDRIVENAME 2>>$ERR
 continue  ##for 0
 
 else  ##if 99
@@ -951,7 +958,7 @@ else  ##if 99
  else #100
  Err=99999
  echo -e "$Red""Mounting $oneSFS failed""$Res"
- umount -lr /mnt/$bneSFS
+ umount -lr /mnt/$bneSFS 2>>$ERR
  sleep 1s
  rmdir /mnt/$bneSFS
  FOUND=''
@@ -1029,20 +1036,20 @@ REPOCLMin=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 3 -d '.'`
 if [ -n "$REPOGLIBC" ] ; then #4.1.1
 if [ "$REPOCLMAJ" -gt "$CURRCLMAJ" ] ; then ##4.2
 echo -e "$Red""LIBC major = '$REPOCLMAJ' larger than '$CURRCLMAJ'""$Res"
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ERR
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 continue
 elif [ "$REPOCLMAJ" -eq "$CURRCLMAJ" ] && [ "$REPOCLMin" -gt "$CURRCLMin" ] ; then ##4.2
 echo -e "$Red""LIBC minor = '$REPOCLMin' larger than '$CURRCLMin'""$Res"
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ERR
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 continue
 else ##4.2
 echo -e "$Gre""Found '$REPOGLIBC' and should match '$CURRGLIBC'""$Res"
 echo -e "$BLU""Fscking $oneDRV just in case ....""$Res"
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ERR
 sleep 2s
 fi ##4.2
 
@@ -1066,7 +1073,7 @@ rmdir /mnt/$SIMPLEDRIVENAME
 fi  ##5
 else
 echo -e "$Red"'No GLIBC found on '"$Res"$oneDRV
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ERR
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 continue
@@ -1074,14 +1081,14 @@ fi  ##4.1.1
 else ##4.1
 echo -e "$RED"'No , $DISTRO_NAME or $DISTRO_VERSION not available'"$Res"
 echo 'Trying next if possible ....'
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ERR
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 fi  ##4.1
 fi  ##4
 else #3
 echo -e "$Ora"'Apparently no Puppy Linux full installation on '"$Res""$oneDRV"
-umount -lr $oneDRV
+umount -lr $oneDRV 2>>$ER
 sleep 1s
 rmdir /mnt/$SIMPLEDRIVENAME
 fi  ##3
@@ -1138,7 +1145,7 @@ sleep $((SLEEP*5))s  ###KRG
 CHECK_ALTERNATE_REPO_FUNC
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'$REPO='"$Res""$REPO"
 
-[ -z "`mount | grep -Fw '/' | grep '(rw)'`" ] && mount -o remount,rw /
+[ -z "`mount | grep -Fw '/' | grep '(rw)'`" ] && mount -o remount,rw /dev/root /
 
 CHECK_DEV_NODES_FUNC(){
 #####KRG
@@ -1237,7 +1244,7 @@ echo -e "$Res"
 echo
 echo 'dropping to console now , partition still mounted !'
 cd /
-mount -o remount,ro /
+mount -o remount,ro /dev/root /
 sleep $((SLEEP*2))s
 exec chroot . ash
 fi  #1
@@ -1282,7 +1289,7 @@ MAKE_RAM9_FUNC
 
   mount -t ext2 /dev/ram0 /mnt/ram0
   mount -t ext2 /dev/ram9 /mnt/ram9  ###KRG
-  ###KRGbusybox mount -o remount,rw /  ##KRG just for chroot
+  ###KRGbusybox mount -o remount,rw /dev/root /  ##KRG just for chroot
   sleep $((SLEEP*2))s  ###KRG
 
   #populate the ramdisk...
@@ -1645,7 +1652,7 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'1_mounts :'"$Res" && mount && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*3))s  ###DBG
 
-  ##busybox mount -o remount,ro /
+  ##busybox mount -o remount,ro /dev/root /
   #[ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""2_mounts after remounting ro '/' :""\\033[0;39m" && busybox mount && echo  ###DBG
   #[ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
@@ -1766,7 +1773,7 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
   echo -e "$Res"
   sleep 5s
-  mount -o remount,ro /  ###KRG
+  mount -o remount,ro /dev/root /  ###KRG
   CONTINUE_FUNC
   exec busybox init  ###should be something like umount -ar ; reboot reboot -f###KRG
   #exec busybox reboot -f
