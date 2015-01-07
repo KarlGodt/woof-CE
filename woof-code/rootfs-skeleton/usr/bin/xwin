@@ -50,6 +50,13 @@ _info "Executing '$0' with options '$*' ..."
 #ps |grep -v '\[' | tr '\n' '·'
 #uptime
 
+# REM: In case of frugal install tmp does not get retained if poweroff
+#       So no log files to view (Slacko5571 Xorg freezes)
+#      Now want them in /var/log
+stateDIR='/var'
+logDIR="$stateDIR/log/xwin"
+test -d "$logDIR" || mkdir -p "$logDIR"
+
 Version='1.1-getopts Puppy-Linux-4.3.1 KRG'
 
 usage(){
@@ -238,7 +245,7 @@ if [ -z "`echo "$XWINSsorted" |head -n1 |awk '{print $2}' | grep -w "$PROGPID"`"
 
  exit 24
 fi
-}
+}  ###__deprecatedNUMXWINS__(){
 
 _pidof $Q -o $$ -o %PPID ${0##*/} && _exit 1 "Already running."
 
@@ -333,7 +340,7 @@ fi
 fi
 fi
 fi
-}
+}  ###__old_parameter_part__(){
 
 if [ "$1" -a "`echo "$1" |grep -vE '^\-|^\+'`" ];then
 if [ "$WINDOW_MANAGER" ];then
@@ -574,19 +581,19 @@ _debug `date` "3: finished checking for mouse"
 if [ -f /usr/bin/Xorg ];then
  if [ -f /etc/X11/xorg.conf ];then
   #find location of video chip drivers...
-  SPECVESA=`find -L /usr/lib -xdev -type f -name vesa_drv.so`
+  SPECVESA=`find -L /usr/lib -xdev -type f -name vesa_drv.so | head -n1`
   if [ "$SPECVESA" ];then
-   DRVRSPATH=`dirname $SPECVESA`
+   DRVRSPATH=`dirname "$SPECVESA"`
    #get current driver...
-   DRVRCURR=`cat /etc/X11/xorg.conf | grep '#card0driver' | cut -f 2 -d '"'` #'
+   DRVRCURR=`grep -m 1 '#card0driver' /etc/X11/xorg.conf | cut -f 2 -d '"'`
    if [ "$DRVRCURR" ];then
     #if [ ! -f $DRVRSPATH/${DRVRCURR}_drv.so ];then
     #one driver is mtx_drv.o hmmm, okay do it this way (pakt)...
     _debug "OUT='$OUT'"
-    ls -1 $DRVRSPATH/* | grep $DRVRCURR >$OUT
+    ls -1 $DRVRSPATH/* | grep $DRVRCURR | grep $Q '_drv\.so' >$OUT
     if [ $? -ne 0 ];then
-     _warn "Altering xorg.conf to use vesa driver"
-     sPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
+     _warn "Altering /etc/X11/xorg.conf to use the \"vesa\" driver instead '$DRVRCURR'"
+     sPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/"
      cat /etc/X11/xorg.conf | sed -e "$sPATTERN" > /tmp/xorg.conf.tmp2
      _sync
      cp -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
@@ -708,7 +715,7 @@ if [ "$haveXVESA" ] ; then
     echo "not worked (or it did but you did not press the OK button in the"
     echo "Video-wizard). It is not feasible to run Puppy at any lower resolution"
     echo -e "or color. If you want to try again, type \"xwin\" at the prompt."
-    echo "It may be helpful to look in /tmp/xerrs.txt for error messages"
+    echo "It may be helpful to look in $logDIR/xerrs.txt for error messages"
     rm -f /tmp/videomode
     rm -f /tmp/Xflag
     echo "0x0111 640x480x16" > /etc/videomode #desparate.
@@ -745,7 +752,7 @@ if [ $MOUSEBUTTONS -eq 2 ];then
  #the problem is, if /etc/xextraoptions has '-2button' which turns on middle-button
  #emulation, if leave MOUSEBUTTONS=2 then the right button does not work.
  #have to pass '3' to Xvesa, meaning effectively 3 buttons available...
- [ ! "`cat /etc/xextraoptions | grep ' \-2button'`" = "" ] && MOUSEBUTTONS=3
+ [ "`cat /etc/xextraoptions | grep ' \-2button'`" != "" ] && MOUSEBUTTONS=3
 fi
 
 #0.9.8
@@ -775,7 +782,8 @@ echo "true" > /var/lock/XLOADED
 rm -f /tmp/wmexitmode.txt
 
 _info "haveX='$haveX'"
-test -e /tmp/xerrs.$haveX.log && mv $VERB /tmp/xerrs.$haveX.log /tmp/xerrs.$haveX.log-prev
+#test -e "$logDIR"/xerrs.$haveX.log && mv $VERB "$logDIR"/xerrs.$haveX.log "$logDIR"/xerrs.$haveX.log-prev
+test -e "$logDIR"/xerrs.$haveX.log && _log_rotate "$logDIR"/xerrs.$haveX.log
 
 case $haveX in
  #Xvesa|Xvesa*|Xnvidia|Xnvidia*|Xchips|Xephyr|Xepson|Xfake|Xfbdev|Xi810|Xmach64|Xmga|Xneomagic|Xnest|Xpm2|Xrt28|Xsdl|Xsmi|Xvfb|Xvia)
@@ -788,38 +796,38 @@ case $haveX in
    SPOPTION='-sp /usr/lib/xserver/SecurityPolicy'
   #fi
   #sleep 5
-  #startx $VIDMODE $MOUSEDEV > /tmp/xerrs.txt 2>&1
+  #startx $VIDMODE $MOUSEDEV > "$logDIR"/xerrs.txt 2>&1
   #Puppy 0.8.4 no need for startx script...
   VID_FREQ=`echo -n "$VID_SCRN" | cut -f 4 -d "x"`
   if [ ! "$VID_FREQ" ];then
    echo "$VID_MODE" > /tmp/currentvideomode
    echo "Starting X with video mode '$VID_MODE' and mouse '$MOUSEDEV'..."
    #w460 added -fp and -sp options...
-   /usr/bin/xinit /root/.xinitrc -- -mode $VID_MODE $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > /tmp/xerrs.$haveX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -mode $VID_MODE $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$logDIR"/xerrs.$haveX.log 2>&1
    RETval1=$?
   else
    echo "Starting X with video mode '$VID_SCRN' and mouse '$MOUSEDEV'..."
    #also, want to have adjustable frequency, VIDSCRN=widthxheightxdepthxfreq...
    echo "$VID_SCRN" > /tmp/currentvideomode
-   /usr/bin/xinit /root/.xinitrc -- -screen $VID_SCRN $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > /tmp/xerrs.$haveX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -screen $VID_SCRN $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$logDIR"/xerrs.$haveX.log 2>&1
    RETval1=$?
   fi
   ;;
  Xfbdev)  ##no -mode option : Fatal server error:no screens found XIO:  fatal IO error 104 (Connection reset by peer) on X server ":0.0" after 0 requests (0 known processed) with 0 events remaining.
 
   echo "Starting X with Xfbdev Kdrive X server, mouse $MOUSEDEV..."
-  /usr/bin/xinit /root/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS > /tmp/xerrs.$haveX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
  Xi810) #v1.0.7
   echo "Starting X with Xi810 Kdrive X server, mouse $MOUSEDEV..."
   #echo "(experimental, currently fixed to 1024x768x16x72 in /usr/bin/xwin)"
-   /usr/bin/xinit /root/.xinitrc -- -screen $VID_SCRN -mouse /dev/mouse,$MOUSEBUTTONS > /tmp/xerrs.$haveX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -screen $VID_SCRN -mouse /dev/mouse,$MOUSEBUTTONS > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
  XF86_SVGA)
   echo "Starting X, specs in /etc/X11/XF86Config, startup apps /root/.xinitrc..."
-  /usr/bin/xinit /root/.xinitrc -- -bpp 16 > /tmp/xerrs.$haveX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- -bpp 16 > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
 
@@ -836,23 +844,23 @@ case $haveX in
   XORG_DISABLE_VID_MODE='';           #-disableVidMode
 
 #= Colours:
- XORG_BPP='';        #-bpp 24            ## use -depth or -fbbpp
- XORG_DEPTH='';      #-depth 24          ## values 1,4,8,15,16,24
- XORG_FBBPP='';      #-fbbpp 32          ## values 1,8,16,24,32
- XORG_PIXMAP24='';   #-pixmap24
- XORG_PIXMAP32='';   #-pixmap32
- XORG_WEIGHT='';     #-weight 565        ## for 16 bpp, default 565
+  XORG_BPP='';        #-bpp 24            ## use -depth or -fbbpp
+  XORG_DEPTH='';      #-depth 24          ## values 1,4,8,15,16,24
+  XORG_FBBPP='';      #-fbbpp 32          ## values 1,8,16,24,32
+  XORG_PIXMAP24='';   #-pixmap24
+  XORG_PIXMAP32='';   #-pixmap32
+  XORG_WEIGHT='';     #-weight 565        ## for 16 bpp, default 565
 
- XORG_FIP_PIXELS=''; #-flipPixels
+  XORG_FIP_PIXELS=''; #-flipPixels
 
- XORG_GAMMA='';  #-gamma 1.0         ##      range 0.1 - 10, default 1.0
- XORG_BGAMMA=''; #-bgamma 1.0        ## blue range 0.1 - 10, default 1.0
- XORG_GGAMMA=''; #-ggamma 1.0        ##green range 0.1 - 10, default 1.0
- XORG_RGAMMA=''; #-rgamma 1.0        ##  red range 0.1 - 10, default 1.0
+  XORG_GAMMA='';  #-gamma 1.0         ##      range 0.1 - 10, default 1.0
+  XORG_BGAMMA=''; #-bgamma 1.0        ## blue range 0.1 - 10, default 1.0
+  XORG_GGAMMA=''; #-ggamma 1.0        ##green range 0.1 - 10, default 1.0
+  XORG_RGAMMA=''; #-rgamma 1.0        ##  red range 0.1 - 10, default 1.0
 
 #= Config file:
-   XORG_NOSILK='';                 #-nosilk   ### Input
-   XORG_ALLOW_MOUSE_OPEN_FAIL='';  #-allowMouseOpenFail
+  XORG_NOSILK='';                 #-nosilk   ### Input
+  XORG_ALLOW_MOUSE_OPEN_FAIL='';  #-allowMouseOpenFail
   XORG_CONFIG='';                  #-config /etc/X11/xorg.conf   ### Root bit different than User
   XORG_KEYBOARD='';               #-keyboard Keyboard0      ## use xorg.conf entry of NAME   ### XorgConf
   XORG_LAYOUT='';                #-layout X.org Configured ## use xorg.conf entry of NAME   ### XorgConf
@@ -867,7 +875,7 @@ case $haveX in
   XORG_KEEPTTY='';        #-keeptty
   XORG_ISOLATE_DEVICE=''; #-isolateDevice PCI:9:8:7 ## bustype:bus:device:function (ie PCI:1:0:0)
 
-  XORG_LOGFILE='';     #-logfile /var/log/Xorg.0.log  ### Root
+  XORG_LOGFILE='-logfile /var/log/Xorg.0.log';     #-logfile /var/log/Xorg.0.log  ### Root
   XORG_LOGVERBOSE='';  #-logverbose 3  ## default 3
   XORG_QUIET='';       #-quiet  ## verbosity 0
   XORG_VERBOSE='';     #-verbose 0  ## verbosity to stderr, default 0
@@ -915,30 +923,42 @@ _info "Using xorg options '$XORG_OPTIONS'"
   test -c /dev/input/mice || mknod /dev/input/mice 13 63
   ln -snf $MOUSE_DEVICE /dev/mouse
 
+  # REM: Need to check /dev/input/event* also
+
+
+  # REM: Rotate various log files
+ __rotate_xerrs_log__(){
   # LOG FILES
-  OLD_LOGS=`ls -1rv /tmp/xerrs.$haveX.log* 2>$ERR`
+  OLD_LOGS=`ls -1rv "$logDIR"/xerrs.$haveX.log* 2>$ERR`
   for oneLOG_FILE in $OLD_LOGS; do
     case $oneLOG_FILE in
 
-        /tmp/xerrs.$haveX.log.[0-9]*)
+        "$logDIR"/xerrs.$haveX.log.[0-9]*)
 
     LOG_NR=${oneLOG_FILE##*.}
     NEW_NR=$((LOG_NR+1)) || continue
-    while test -e /tmp/xerrs.$haveX.log.$NEW_NR; do
+    while test -e "$logDIR"/xerrs.$haveX.log.$NEW_NR; do
                         NEW_NR=$((NEW_NR+1)); done
         mv $oneLOG_FILE ${oneLOG_FILE%.*}.$NEW_NR
    ;;
 
-  /tmp/xerrs.$haveX.log) mv /tmp/xerrs.$haveX.log /tmp/xerrs.$haveX.log.0
+  "$logDIR"/xerrs.$haveX.log) mv "$logDIR"/xerrs.$haveX.log "$logDIR"/xerrs.$haveX.log.0
   ;;
     esac
   done
+  }
 
-
+   __configured_usr_X11__(){
        if [ -f /usr/X11/var/log/Xorg.0.log ]; then
    _log_rotate /usr/X11/var/log/Xorg.0.log
        fi
+   }
 
+  if test "$XORG_LOGFILE"; then
+   if [ -f "${XORG_LOGFILE#-logfile }" ]; then
+    _log_rotate "${XORG_LOGFILE#-logfile }"
+   fi
+  fi
 
   # XORG VERSION
   _XORG_SERVER_VERSION_=`Xorg -version 2>&1 | grep 'X\.Org X Server .*' | grep -oe '[.0-9]*$'`
@@ -1039,29 +1059,29 @@ _info "Using xorg options '$XORG_OPTIONS'"
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
   #     if have '-nolisten tcp'. until find out why, this workaround...
   if [ "$KERNEL_RELEASE" = "2.6.18.8" ]; then
-   /usr/bin/xinit $XINIT_RC -- -ignoreABI -config $XORG_CONF -br > /tmp/xerrs.$haveX.log 2>&1
+   /usr/bin/xinit $XINIT_RC -- $XORG_OPTIONS -ignoreABI -config $XORG_CONF -br > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   else
-   /usr/bin/xinit $XINIT_RC -- -ignoreABI -config $XORG_CONF -br -nolisten tcp > /tmp/xerrs.$haveX.log 2>&1
+   /usr/bin/xinit $XINIT_RC -- $XORG_OPTIONS -ignoreABI -config $XORG_CONF -br -nolisten tcp > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   fi
   ;;
 #************************ XORG XORG XORG XORG **************************************************************#
 
  Xephyr|Xnest) #Xephyr cannot open host display. Is DISPLAY set?
-  /usr/bin/xinit /root/.xinitrc -- :1  > /tmp/xerrs.$haveX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :1  > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
  Xfake) ##runs OK , .xinitrc gets sourced stopable by C+C|C+A+c|d ; does not create a X window environment
-  /usr/bin/xinit /root/.xinitrc -- :0  > /tmp/xerrs.$haveX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :0  > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
  Xvfb)  ## kind of ^fake^ driver
-  /usr/bin/xinit /root/.xinitrc -- > /tmp/xerrs.$haveX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
  *)
- /usr/bin/xinit /root/.xinitrc -- > /tmp/xerrs.$haveX.log 2>&1
+ /usr/bin/xinit /root/.xinitrc -- > "$logDIR"/xerrs.$haveX.log 2>&1
   RETval1=$?
   ;;
 esac
@@ -1076,9 +1096,9 @@ echo "false" > /var/lock/XLOADED #see note above.
 
 echo '$@='"'$@'"
 if [ "`echo "$@" | grep -E -e '\-v|\-verbose'`" ] ; then
- echo -e "\e[1;33m""Dumping first and last 10 lines of /tmp/xerrs.${haveX}.log:""\e[0;39m"
- head -n 10 /tmp/xerrs.$haveX.log
- tail -n 10 /tmp/xerrs.$haveX.log
+ echo -e "\e[1;33m""Dumping first and last 10 lines of "$logDIR"/xerrs.${haveX}.log:""\e[0;39m"
+ head -n 10 "$logDIR"/xerrs.$haveX.log
+ tail -n 10 "$logDIR"/xerrs.$haveX.log
  echo
 fi
 
@@ -1113,9 +1133,9 @@ fi
 #NUMXWINS=`pidof xwin | wc -w` #see above and below...
 
 card_error_func(){
-#if [ -n "`grep -i -e 'No[[:blank:]]*matching[[:blank:]]*cards[[:blank:]]*found' /tmp/xerrs.log`" ] ; then
-if [ "`grep 'Fatal server error:' /tmp/xerrs.${haveX}.log`" ];then
-  if [ -n "`grep -i 'No matching cards found' /tmp/xerrs.${haveX}.log`" ] ; then
+#if [ -n "`grep -i -e 'No[[:blank:]]*matching[[:blank:]]*cards[[:blank:]]*found' "$logDIR"/xerrs.log`" ] ; then
+if [ "`grep 'Fatal server error:' "$logDIR"/xerrs.${haveX}.log`" ];then
+  if [ -n "`grep -i 'No matching cards found' "$logDIR"/xerrs.${haveX}.log`" ] ; then
     echo -e "\e[0;31m""'$haveX' could not detect the graphics card .""\e[0;39m"
    if [ "$haveX" != "Xorg" ] ; then
     if [ -x /usr/bin/Xorg ] ; then
@@ -1144,14 +1164,14 @@ if [ "`grep 'Fatal server error:' /tmp/xerrs.${haveX}.log`" ];then
    fi  #haveX = Xorg
   else #other error
   echo -e "\\033[0;31mHmmm... Seems failure occurred ...
-\\033[1;31mShowing /tmp/xerrs.${haveX}.log in less viewer.
+\\033[1;31mShowing $logDIR/xerrs.${haveX}.log in less viewer.
 \\033[0;32mType 'q' to quit less-viewer.
 \\033[1;35mPress any key to start less:\\033[0;39m "
   read -s -n1 -t20 LESS_SHOW_ERR_LOG_KEY
-  less -I -n /tmp/xerrs.${haveX}.log
+  less -I -n "$logDIR"/xerrs.${haveX}.log
   fi
 else #not 'Fatal server error:'
-: #less /tmp/xerrs.${HAVEX}.log
+: #less "$logDIR"/xerrs.${HAVEX}.log
 fi
 }
 [ "$ONCE" ] && { echo "card_error_func 1";card_error_func;exit $?; }
