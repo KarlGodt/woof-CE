@@ -138,6 +138,14 @@ HAVEX='yes'
 ## Dougal: put this into a variable
 BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 
+tmpDIR=/tmp/net_setup
+rm -rf "$tmpDIR"
+mkdir -p "$tmpDIR"
+
+# KRG: common dhcpcd options
+##  -L, --noipv4ll  Don't use IPv4LL at all
+DHCPCD_COMMON_OPS='-L'
+
 #=============================================================================
 #============= FUNCTIONS USED IN THE SCRIPT ==============
 #=============================================================================
@@ -155,7 +163,7 @@ showMainWindow()
 
         I=$IFS; IFS=""
         for STATEMENT in  $(gtkdialog3 --program NETWIZ_Main_Window); do
-            eval $STATEMENT 2>$ERR
+            eval $STATEMENT 2>>$ERR
         done
         IFS=$I
         clean_up_gtkdialog NETWIZ_Main_Window
@@ -400,7 +408,7 @@ showLoadModuleWindow()
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_LOAD_MODULE_DIALOG); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_LOAD_MODULE_DIALOG
@@ -532,7 +540,7 @@ showLoadModuleWindow()
     # Run new dialog
     I=$IFS; IFS=""
     for STATEMENT in  $(gtkdialog3 --program NETWIZ_NEW_MODULE_DIALOG); do
-      eval $STATEMENT 2>$ERR
+      eval $STATEMENT 2>>$ERR
     done
     IFS=$I
     clean_up_gtkdialog NETWIZ_NEW_MODULE_DIALOG
@@ -729,7 +737,7 @@ loadNdiswrapperModule()
       NATIVEMOD=${NATIVEMOD##*/}
       if [ "$NATIVEMOD" != "ndiswrapper" ];then
         #note 'ndiswrapper -l' also returns the native linux module.
-        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep -q 'ESSID' ;then
+        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep $Q 'ESSID' ;then
           rmmod "$NATIVEMOD"
           sleep 6
           [ $INTERFACE_NUM -gt 0 ] && INTERFACE_NUM=$((INTERFACE_NUM-1))
@@ -800,7 +808,7 @@ loadSpecificModule(){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Load_Specific_Module_Window); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Load_Specific_Module_Window
@@ -829,10 +837,10 @@ autoLoadModule ()
         esac
 
         #also, do not try if it is already loaded...?
-        grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
 
         #in case of false-hits, ignore anything already tried this session...
-        grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
 
         if [ "$MDOIT" = "yes" ];then
             echo; echo "*** Trying $CANDIDATE."
@@ -865,7 +873,7 @@ autoLoadModule ()
 # A function to add a module to the SKIPLIST
 blacklist_module(){
   MODULE="$1"
-  if grep -Fq 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
+  if grep -F $Q 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
     sed -i "s/^SKIPLIST=.*/SKIPLIST=\"$SKIPLIST ${MODULE//_/-} \"/" /etc/rc.d/MODULESCONFIG
   else
     echo "SKIPLIST=\" ${MODULE//_/-} \"" >>/etc/rc.d/MODULESCONFIG
@@ -963,7 +971,7 @@ unloadSpecificModule(){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Unload_Module_Window); do
-    eval $STATEMENT 2>$ERR
+    eval $STATEMENT 2>>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Unload_Module_Window
@@ -1042,20 +1050,20 @@ $ERROR
     fi
     #BK1.0.7 improved link-beat detection...
     echo "X"
-    if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+    if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
       sleep 2
       echo "X"
-      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
         sleep 2
         echo "X"
-        if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+        if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
           sleep 2
           echo "X"
-          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
             # add ethtool test, just in case it helps at times...
             sleep 1
             echo "X"
-            if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+            if ! ethtool "$INTERFACE" | grep -F $Q 'Link detected: yes' ; then
               UNPLUGGED="true"
             fi
           fi
@@ -1282,7 +1290,7 @@ checkIfIsWireless ()
 
   if [ -d "/sys/class/net/$INTERFACE/wireless" ] || \
      [ "$INTMODULE" = "prism2_usb" ] || \
-     grep -q "$INTERFACE" /proc/net/wireless
+     grep $Q "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
   return 1
@@ -1582,7 +1590,7 @@ setupStaticIP()
         # we will try to back up.
         if [ "$DNS_SERVER1" != "0.0.0.0" ] ; then
             # remove old backups
-            rm /etc/resolv.conf.[0-9][0-9]* 2>$ERR
+            rm /etc/resolv.conf.[0-9][0-9]* 2>>$ERR
             # backup previous one
             mv -f /etc/resolv.conf /etc/resolv.conf.old
             echo "nameserver $DNS_SERVER1" > /etc/resolv.conf
@@ -1697,7 +1705,7 @@ findInterfaceInfo()
    */bus/usb*) TYPE="usb" ;;
    */bus/ieee1394*) TYPE="firewire" ;;
    *) # pcmcia and pci apparently both appear as pci...
-      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep -q 'pcmcia:' ; then
+      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep $Q 'pcmcia:' ; then
         TYPE="pcmcia"
       else
         TYPE="pci"
@@ -1708,7 +1716,7 @@ findInterfaceInfo()
 
   if [ -d "/sys/class/net/$INT/wireless" ] || \
      [ "$FI_DRIVER" = "prism2_usb" ] || \
-     grep -q "$INT" /proc/net/wireless
+     grep $Q "$INT" /proc/net/wireless
   then INTTYPE="$L_INTTYPE_Wireless"
   else INTTYPE="$L_INTTYPE_Ethernet"
   fi
@@ -1834,12 +1842,25 @@ saveInterfaceSetup()
 #=============================================================================
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
-    rm -f /tmp/ethmoduleyesload.txt 2>$ERR
-    rm -f /tmp/loadedeth.txt 2>$ERR
-#   rm -f /tmp/wag-profiles_iwconfig.sh 2>$ERR
-    rm -f /tmp/net-setup_* 2>$ERR
-    rm -f /tmp/wpa_status.txt 2>$ERR
-    rm -f /tmp/net-setup_scan*.tmp 2>$ERR
+    rm -f /tmp/ethmoduleyesload.txt 2>>$ERR
+    rm -f /tmp/loadedeth.txt        2>>$ERR
+#   rm -f /tmp/wag-profiles_iwconfig.sh 2>>$ERR
+    rm -f /tmp/net-setup_*         2>>$ERR
+    rm -f /tmp/wpa_status.txt      2>>$ERR
+    rm -f /tmp/net-setup_scan*.tmp 2>>$ERR
+}
+
+#=============================================================================
+# HELP_COMMAND stub ( no help available yet )
+test "$HELP_COMMAND" && {
+timeout -t2 $HELP_COMMAND
+test $? = 0 || unset HELP_COMMAND
+                     }
+test "$HELP_COMMAND" || HELP_COMMAND="yaf-splash -bg red -text 'Sorry, no help available yet'"
+
+showHelp()
+{
+  pman "net_setup" &> /dev/null &
 }
 
 #=============================================================================
@@ -1866,11 +1887,13 @@ _parse_basic_parameters "$@"
 _trap
 }
 
+
+
 # Cleanup older temp files (in case didn't exit nicely last time)
 cleanUpTmp
 
 # Do we have pcmcia hardware?...
-if elspci -l | grep -E -q '60700|60500' ; then
+if elspci -l | grep -E $Q '60700|60500' ; then
   MPCMCIA="yes"
 fi
 
