@@ -39,17 +39,17 @@ exec dbus-uuidgen --ensure &
 fi
 
 __keyboard__(){
-setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:lwin_toggle,lv3:ralt_switch
 fbxkb &
 }
 
 # REM: Lupu Puppy 528 with openbox wm
-case $CURRENTWM in 
+case $CURRENTWM in
 *openbox*) if which fbpanel >>$OUT; then
-			#a bit of a hack: when 3builddistro runs fixmenus, which calls variconlinks,
-			#which populates /var/local/icons with symlinks, /usr/local/lib/X11/pixmaps
-			#is not yet populated (happens at first boot, from default icon theme)...
-			[ -e /var/local/icons/home48.png ] || ln -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
+            #a bit of a hack: when 3builddistro runs fixmenus, which calls variconlinks,
+            #which populates /var/local/icons with symlinks, /usr/local/lib/X11/pixmaps
+            #is not yet populated (happens at first boot, from default icon theme)...
+            [ -e /var/local/icons/home48.png ] || ln -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
             exec fbpanel &
            fi
            if which lxpanel >>$OUT; then
