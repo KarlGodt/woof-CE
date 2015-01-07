@@ -1,14 +1,14 @@
 #!/bin/ash
 #(c) Copyright bkauler 2006,2007 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
-#updated aug 2007 for v2.20, save in a folder.
+# Updated aug 2007 for v2.20, save in a folder.
 #BK updated 20,22 sept 2007 v2.22, multisession bugfix.
 #v3.01 BK 10 oct 2007, attempted bugfixes for funny CD drive.
 #v3.01 BK 11 oct 2007, removed multisavefunc() to functions4puppy.
 #v3.02 BK 1 nov 2007, can change folder of pup_save file.
 #v3.97 BK feb 2008: restore support for pcmcia-cs package.
 #v3.97 BK 5 mar 2008, handle PSAVEMARK, see /etc/rc.d/PUPSTATE, init script.
-#REMOVEDv3.98 BK 2 apr 2008: 'mke2fs -O none' for encrypted pup_save, fix mntg bug.
+# REMOVEDv3.98 BK 2 apr 2008: 'mke2fs -O none' for encrypted pup_save, fix mntg bug.
 #v3.99 7apr2008: fix zombie process prevents partition unmount.
 #v411 run rc.alsa as it also unloads modules (if not done, prevents shutdown some systems).
 #v411 bring down network interfaces, as sometimes prevent poweroff.
@@ -59,22 +59,24 @@
 
 ###################### HEADER 0 #################################
 Version='1.1-simple Macpup_F3-Puppy_Linux_430/2 KRG'
+. /etc/rc.d/f4puppy5
 
 leave_func(){
 [ "$VERBOSE" ] || exec 1>/dev/console 2>&1
 echo -n "OK, just before
-$1
-Press 'E' and ENTER if don't want to shutdown :" >/dev/console
+$*
+Press 'E' and ENTER if don't want to shutdown : " >/dev/console
 read -t $T_OUT EXIT_KEY
 [ "$EXIT_KEY" ] || EXIT_KEY='C' #for continue
-if [ "$EXIT_KEY" = 'E' -o "$EXIT_KEY" = 'e' ];then
-exit 199;fi
-[ "$VERBOSE"] || exec 1>$OUT 2>&1
+if [ "$EXIT_KEY" = 'E' -o "$EXIT_KEY" = 'e' ]; then
+exit 199; fi
+[ "$VERBOSE" ] || { test -e $OUT && exec 1>>$OUT 2>&1; }
+echo
 }
 
 rcsd=/etc/rc.d/rc.shutdown
 get_lineno(){
-    if [ "$1" ] ; then
+    if [ "$1" ]; then
     echo `grep -h -n -w -m1 "$1" "$rcsd" |cut -f1 -d':'`
     else
     echo 'UNKNOWN'
@@ -85,9 +87,9 @@ continue_func(){
 [ "$VERBOSE" ] || exec 1>/dev/console 2>&1
 echo -n "OK, just before
 $1
-Press any key to continue .." >$OUT
+Press any key to continue .." >>$OUT
 read -t 30 -n1 CONT_KEY
-[ "$VERBOSE"] || exec 1>$OUT 2>&1
+[ "$VERBOSE" ] || exec 1>>$OUT 2>&1
 }
 
 usage(){
@@ -116,18 +118,20 @@ exit $1
 }
 
 OUT=/dev/null;ERR=$OUT;T_OUT=1
-for p in $@;do #echo $p
+for p in $@; do #echo $p
 case $p in
-help|usage) usage 0;;
-force) FORCE=1;;
-debug) DEBUG=1;set-x;T_OUT=$((T_OUT+30));;
-verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;T_OUT=$((T_OUT+15));;
+*help|*usage) usage 0;;
+*force) FORCE=1;;
+*debug) DEBUG=1;set-x;T_OUT=$((T_OUT+30));;
+*verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;T_OUT=$((T_OUT+15));;
 *) echo -e "\\033[0;31mWrong Parameter '$p' .\\033[0;39m"; usage 1;;
-esac;done
+esac; done
 
-[ "$DISPLAY" ] && { [ ! "$FORCE" ] && { echo "Please run wmpoweroff|wmreboot. Exiting script.";exit 1; }; } #case accidentially clicking on it
+#DEBUG=1
 
-[ -f /etc/rc.d/rc.shutdown.local.startZero ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
+[ "$DISPLAY" ] && { [ ! "$FORCE" ] && { echo "Please run wmpoweroff|wmreboot. Exiting script."; exit 1; }; } #case accidentially clicking on it
+
+[ -f /etc/rc.d/rc.shutdown.local.startZero -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
 ###################### HEADER 0 #################################
 
 ################# SNAPMERGE DIALOG ##############################
@@ -137,11 +141,11 @@ save_session(){
 dialog --yesno "Save this session?" 0 0 >/dev/console
 if [ $? -eq 0 ]; then
 case $1 in
-3|7) echo "Saving session to $PDEV1..." >/dev/console ;;
+3|7)  echo "Saving session to $PDEV1..."                  >/dev/console ;;
 13|*) echo "Saving session to $SAVEFILE (${SAVEPART})..." >/dev/console ;;
 esac
 /usr/sbin/snapmergepuppy /initrd/pup_ro1 /initrd/pup_rw
-sync
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 sleep 1
 fi
 }
@@ -149,7 +153,7 @@ fi
 #w482 use xorriso if it is installed (see also functions4puppy)...
 CDRECORD='cdrecord'
 MKISOFS='mkisofs'
-if [ "`which xorriso`" != "" ];then
+if [ "`which xorriso`" ]; then
  CDRECORD='xorrecord'
  MKISOFS='xorrisofs' #growisofs reads this variable.
 fi
@@ -158,14 +162,14 @@ export CDRECORD MKISOFS
 
 ############ PUPSTATE PUPMODE ##########################
 #variables created at bootup by init script in initrd...
-[ ! -f /etc/rc.d/PUPSTATE ] && [ -f /etc/rc.d/PUPSTATE.prev ] && { cp -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE;sleep 1; }  ###KRG
+[ ! -f /etc/rc.d/PUPSTATE ] && [ -f /etc/rc.d/PUPSTATE.prev ] && { cp $VERB -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE;sleep 1; }  ###KRG
 
 . /etc/rc.d/PUPSTATE #v2.02
 Err=$?
 
 echo "PUPMODE='$PUPMODE'"
-if [ -z "$PUPMODE" ] ; then  ###KRG
-if [ -n "`rdev`" -o -n "`busybox rdev`" ] ; then
+if [ -z "$PUPMODE" ]; then  ###KRG
+if [ -n "`rdev`" -o -n "`busybox rdev`" ]; then
 echo '        rdev='`rdev`
 echo 'busybox rdev='`busybox rdev`
 PUPMODE=2
@@ -174,28 +178,37 @@ PUPMODE=12
 fi
 fi
 
-if [ ! "$VERBOSE" ];then
+if [ ! "$VERBOSE" ]; then
 #v2.20b make shutdown less verbose...
 clear
-[ "$PUPMODE" = 5 ] && exec 1>$OUT 2>&1
+[ "$PUPMODE" = 5 ] && exec 1>>$OUT 2>&1
 fi
 
 ############ PUPSTATE PUPMODE ##########################
 
 
 . /etc/DISTRO_SPECS #v412
-[ "$SHUT_HOW" ] || SHUT_HOW='shutting down'  ##+++2013-03-10
-SHUT_HOW2=`echo "${SHUT_HOW//ing/}" | tr -s 't'`
+# SHUT_HOW variable passed by /sbin/reboot ( SHUT_HOW=rebooting )
+[ "$SHUT_HOW" ] || SHUT_HOW='shutting down'        ##+++2013-03-10
+SHUT_HOW2=`echo "${SHUT_HOW//ing/}" | tr -s 't'`   ## 'reboot' or 'shut down'
 echo "${DISTRO_NAME} ${DISTRO_VERSION} is now ${SHUT_HOW}..." > /dev/console
 
+[ "$FORCE" ] || {
+if test "`which mplayer`" -a -f /etc/rc.d/Flashgonxet; then
+mplayer -really-quiet -vo fbdev2 /etc/rc.d/Flashgonxet &
+fi
+}
 
 ########### Personal shutdown scripts #########################
-if [ -f /etc/rc.d/rc.shutdown.local.startOne ] ; then  ###KRG
+[ "$FORCE" ] || {
+if [ -f /etc/rc.d/rc.shutdown.local.startOne ]; then  ###KRG
 . /etc/rc.d/rc.shutdown.local.startOne
-else
-[ -f /etc/rc.d/rc.shutdown.local.start ] && . /etc/rc.d/rc.shutdown.local.start
-[ -f /etc/rc.d/rc.shutdown.local ] && . /etc/rc.d/rc.shutdown.local
+elif [ -f /etc/rc.d/rc.shutdown.local.start ]; then
+. /etc/rc.d/rc.shutdown.local.start
+elif [ -f /etc/rc.d/rc.shutdown.local ]; then
+. /etc/rc.d/rc.shutdown.local
 fi
+}
 ########### Personal shutdown scripts #########################
 
 
@@ -203,10 +216,14 @@ ORIGPUPMODE=$PUPMODE #v2.22
 
 
 ##### VERBOSE ############################
-if [ "$VERBOSE" ];then
-echo "Executing /etc/rc.d/rc.shutdown..."
-echo "FILESYSTEM STATE : "
+if [ "$VERBOSE" ]; then
+echo -e '\033[0;36m'"Executing /etc/rc.d/rc.shutdown..."'\033[0;39m'
+echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
+if test "$PUPMODE" = 2; then
 dumpe2fs `rdev` | grep -i 'state'
+elif test "$PDEV1"; then
+dumpe2fs /dev/$PDEV1 | grep -i 'state'
+fi
 echo
 fi
 ##### VERBOSE ############################
@@ -233,7 +250,7 @@ PSUBDIR=`dirname "$PUPSFSFILE"`
 
 
 ########### Personal shutdown scripts #########################
-[ -f /etc/rc.d/rc.shutdown.local.startTwo ] && . /etc/rc.d/rc.shutdown.local.startTwo
+[ -f /etc/rc.d/rc.shutdown.local.startTwo -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startTwo
 ########### Personal shutdown scripts #########################
 
 
@@ -248,21 +265,24 @@ esac; }
 
 
 ################## kill zombies ######################################################
-killzombies() {
-   MYPID=$$ #120514
+killzombies(){
+   MYPID=$$    #120514
   PARENT=$PPID #120514
-   sleep 1  #newer fuser
+   sleep 1     #newer fuser
  ZOMBIES=`/bin/ps -H -A | grep '<defunct>' |grep -v grep`
  ZOMBIPIDS=`echo "$ZOMBIES" |awk '{print $1}' | grep -vwE "1|$MYPID|$PARENT"`
 
- for ONEZOMBIE in $ZOMBIEPIDS
+ for oneZOMBIE in $ZOMBIEPIDS
  do
-  #[ "$ONEBAD" = "$MYPID" ] && continue #120514 precaution.
-  #[ "$ONEBAD" = "$PARENT" ] && continue #120514 precaution.
-  #[ "$ONEBAD" = "1" ] && continue
-  [ "$VERBOSE" ] && echo "$ZOMBIES" |grep -w "$ONEZOMBIE"
-  echo "Killing zombie process $ONEZOMBIE"
-  kill $ONEZOMBIE 2>$ERR
+  #[ "$oneBAD" = "$MYPID" ] && continue #120514 precaution.
+  #[ "$oneBAD" = "$PARENT" ] && continue #120514 precaution.
+  #[ "$oneBAD" = "1" ] && continue
+  case $oneZOMBIE in
+   1|"$MY_PID"|"$PARENT") continue;;
+  esac
+  [ "$VERBOSE" ] && echo "$ZOMBIES" | grep -Fw "$oneZOMBIE"
+  echo "Killing zombie process $oneZOMBIE"
+  /bin/ps --no-headers -p $oneZOMBIE && kill $oneZOMBIE 2>>$ERR
   [ "$VERBOSE" ] && sleep 2
  done
 }
@@ -271,14 +291,14 @@ killzombies() {
 
 #################### Snapmergepuppy ##############################
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ "`pidof snapmergepuppy`" ];do
+while [ "`pidof snapmergepuppy`" ]; do
  a=$(( $a + 1 ))
    [ "$VERBOSE" ] && echo -n "snapmergepuppy still running "
    [ "$VERBOSE" ] && echo -n '.'
  sleep 1
 done
    [ "$VERBOSE" ] && echo
-killall savepuppyd 2>$ERR
+killall savepuppyd 2>>$ERR
 #################### Snapmergepuppy ##############################
 
 
@@ -293,25 +313,25 @@ killall savepuppyd 2>$ERR
 
 
 cd /
-sync
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
 
 ################### kill X ########
 #just a precaution...
-echo "Killing X and all X apps..."
-killall -9 X >$OUT 2>$ERR
+echo -e '\033[0;33m'"Killing X and all X apps..."'\033[0;39m'
+killall -9 X >>$OUT 2>>$ERR
 sleep 1
-killall -3 X >$OUT 2>$ERR
-sync
+killall -3 X >>$OUT 2>>$ERR
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 [ "$VERBOSE" ] && LINEP=D005 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################### kill X ########
 
 
 ################### dillo ################
 #MU warns may need to do this for dillo...
-killall file.dpi 2>$ERR
-killall bookmarks.dpi 2>$ERR
-killall dpid 2>$ERR
+killall file.dpi      2>>$ERR
+killall bookmarks.dpi 2>>$ERR
+killall dpid          2>>$ERR
 [ "$VERBOSE" ] && LINEP=D006 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################### dillo ################
 
@@ -325,7 +345,7 @@ do
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 }
-/etc/rc.d/rc.services stop
+[ "$FORCE" ]   || /etc/rc.d/rc.services stop
 [ "$VERBOSE" ] && LINEP=D007 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
 ################# rc.services ######################################
 
@@ -333,28 +353,28 @@ done
 ################# PCMCIA ################################
 pcmcia_func() {
 #v3.97 deprecated, for pcmcia-cs package...
-if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
+if [ -f /sbin/cardmgr ]; then #pcmcia-cs package installed.
  if [ "`lsmod | grep -E '^i82092|^tcic|^i82365|^yenta_socket'`" != "" ];then
   #got this out of rc.pcmcia, modified...
   echo -n "Shutting down PCMCIA services: "
-  if [ -s /var/run/cardmgr.pid ] ; then
+  if [ -s /var/run/cardmgr.pid ]; then
    PID=`cat /var/run/cardmgr.pid`
    kill $PID
-   for N in 1 2 3 4 ; do
-    kill -0 $PID 2>$ERR || break #-0 is test only.
+   for N in 1 2 3 4; do
+    kill -0 $PID 2>>$ERR || break #-0 is test only.
     sleep 1
    done
   fi
-  if [ -s /var/lib/pcmcia/cardmgr.pid ] ; then
+  if [ -s /var/lib/pcmcia/cardmgr.pid ]; then
    PID=`cat /var/lib/pcmcia/cardmgr.pid`
    kill $PID
-   for N in 1 2 3 4 ; do
-    kill -0 $PID 2>$ERR || break #-0 is test only.
+   for N in 1 2 3 4; do
+    kill -0 $PID 2>>$ERR || break #-0 is test only.
     sleep 1
    done
   fi
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
-  rmmod tcic 2>$ERR || rmmod i82365 2>$ERR || rmmod yenta_socket 2>$ERR || rmmod i82092 2>$ERR
+  rmmod tcic 2>>$ERR || rmmod i82365 2>>$ERR || rmmod yenta_socket 2>>$ERR || rmmod i82092 2>>$ERR
   echo "done."
   rm -f /var/lock/subsys/pcmcia
  fi
@@ -384,7 +404,7 @@ choosepartfunc() {
  [ "$DEV1FS" = "msdos" ]  && DEV1FS="vfat" #v2.14
  [ "$DEV1FS" = "xxx" ]    && PCHOOSE="yes" #v2.16.1
 
- if [ "$PSAVEMARK" != "" ];then #v3.97 see /etc/rc.d/PUPSTATE
+ if [ "$PSAVEMARK" ]; then #v3.97 see /etc/rc.d/PUPSTATE
   devnameonly=`echo -n "$PDEV1" | sed -e 's/[0-9]*$//'`
   SAVEPART="${devnameonly}${PSAVEMARK}" #partition that will-have ${DISTRO_FILE_PREFIX}save.
   spPATTERN='/dev/'"$SAVEPART"'|'
@@ -394,15 +414,15 @@ choosepartfunc() {
   return 0
  fi
 
- if [ "$PCHOOSE" != "yes" ];then
-  SAVEFS="$DEV1FS"
+ if [ "$PCHOOSE" != "yes" ]; then
+    SAVEFS="$DEV1FS"
   SAVEPART="$PDEV1"
   SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs" #v2.13 was .3fs
-  PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
+   PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
   return 0
  fi
 
- if [ ! "`lsmod | grep '^usb'`" = "" ];then
+ if [ ! "`lsmod | grep '^usb'`" = "" ]; then
   FDMSG1="NOTE: cannot save to floppy disk on this PC, USB allowed."
  else
   FDMSG1="NOTE: no USB interface this PC, but can save to floppy disk."
@@ -418,15 +438,15 @@ $FDMSG1\Zn
 Press ENTER key to continue..." 0 0 >/dev/console
  [ ! $? -eq 0 ] && return 1 #v2.02 abort.
  #v2.14 change msdos to vfat...
- PARTSLIST=`probepart -m 2> /dev/null | grep '^/dev/' | grep --extended-regexp 'ext[0-9]|jfs|xfs|reiser|minix|msdos|vfat|ntfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`
+ PARTSLIST=`probepart -m 2>/dev/null | grep '^/dev/' | grep -E 'ext[0-9]|jfs|xfs|reiser|minix|msdos|vfat|ntfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`
 
  #only support save session to floppy if pc is non-usb...
- if [ "`lsmod | grep '^usb_storage'`" = "" ];then #k2.6 note the underscore.
+ if [ "`lsmod | grep '^usb_storage'`" = "" ]; then #k2.6 note the underscore.
   #problem using dmesg here as it is a fifo buffer, stuff at bootup gets deleted
   #while puppy is being used, prior to shutdown... so, use /var/log/messages...
-  if [ ! "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" = "" ];then
-   if [ ! "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" = "" ];then
-    if [ "$PARTSLIST" = "" ];then
+  if [ ! "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" = "" ]; then
+   if [ ! "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" = "" ]; then
+    if [ "$PARTSLIST" = "" ]; then
      PARTSLIST="/dev/fd0|vfat|1.4" #v2.14 change msdos to vfat.
     else #v2.14 ditto...
      PARTSLIST="${PARTSLIST}
@@ -437,7 +457,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
  fi
 
  #v2.02 nothing to save to...
- if [ "$PARTSLIST" = "" ];then
+ if [ "$PARTSLIST" = "" ]; then
   #clear
   echo "No suitable partitions to save to." >/dev/console
   sleep 5
@@ -448,26 +468,26 @@ Press ENTER key to continue..." 0 0 >/dev/console
  rm -f /tmp/schoices.txt
  DEFTAG=""
  echo "$PARTSLIST" |
- while read APART
+ while read aPART
  do
-  ATAG=`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
-  ASIZE=`echo -n "$APART" | cut -f 3 -d '|'`
-  AFS=`echo -n "$APART" | cut -f 2 -d '|'`
-  AFREE=`/bin/df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
-  if [ ! "$AFREE" ];then
-   mount -t $AFS /dev/$ATAG /mnt/data >$OUT 2>$ERR
+   aTAG=`echo -n "$aPART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+  aSIZE=`echo -n "$aPART" | cut -f 3 -d '|'`
+    aFS=`echo -n "$aPART" | cut -f 2 -d '|'`
+  aFREE=`/bin/df -m | grep "/dev/$aTAG" | tr -s " " | cut -f 4 -d " "`
+  if [ ! "$aFREE" ]; then
+   mount $VERB $VERB -t $AFS /dev/$aTAG /mnt/data >>$OUT 2>>$ERR
    #v2.10 need to put in a check that it is not mounted ro. the
    #mount script will fallback to ro for ntfs if rw mnt fails...
    RETMNTVAL=$?
-   if [ $RETMNTVAL -eq 0 ];then
-    if [ "`mount | grep '(rw' | grep '/mnt/data'`" = "" ];then
-     umount /mnt/data
+   if [ $RETMNTVAL -eq 0 ]; then
+    if [ "`mount | grep '(rw' | grep '/mnt/data'`" = "" ]; then
+     umount $VERB $VERB /mnt/data
      RETMNTVAL=1
     else
      #v2.12 if the ntfs rw mount was forced (see /bin/mount script) it is unwise to use...
      ERRMSG1=""
      [ -s /tmp/ntfsmnterr.txt ] && ERRMSG1=`cat /tmp/ntfsmnterr.txt | grep 'Dirty volume mount'`
-     if [ ! "$ERRMSG1" = "" ];then
+     if [ ! "$ERRMSG1" = "" ]; then
       [ "$VERBOSE" ] && continue_func
       dialog --colors --msgbox "\Z1WARNING:
 The ntfs-3g driver has determined that the NTFS filesystem
@@ -483,24 +503,24 @@ Press ENTER key to continue..." 0 0 >/dev/console
     fi
    fi
    [ -f /tmp/ntfsmnterr.txt ] && rm -f /tmp/ntfsmnterr.txt
-   if [ $RETMNTVAL -eq 0 ];then
-    if [ "$ATAG" = "fd0" ];then
-     FFREE=`/bin/df -k | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
-     AFREE=`dc $FFREE 1000 \/ p`
+   if [ $RETMNTVAL -eq 0 ]; then
+    if [ "$aTAG" = "fd0" ]; then
+     FFREE=`/bin/df -k | grep "/dev/$aTAG" | tr -s " " | cut -f 4 -d " "`
+     aFREE=`dc $FFREE 1000 \/ p`
     else
      #v2.02 for ntfs cannot use /dev/$ATAG, use mnt point in grep...
-     AFREE=`/bin/df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`
+     aFREE=`/bin/df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`
     fi
-    #umount /dev/$ATAG  v2.02 must use mnt point for ntfs...
-    umount /mnt/data
+    #umount /dev/$aTAG  v2.02 must use mnt point for ntfs...
+    umount $VERB $VERB /mnt/data
    fi
   fi
-  [ "$ATAG" = "$PDEV1" ] && DEFTAG=" --default-item $ATAG" #v2.13
-  [ ! "$AFREE" = "0" ] && echo "${ATAG} \"Filesystem: $AFS  Size: ${ASIZE}M  Free: ${AFREE}M\" \\" >> /tmp/schoices.txt
+  [ "$aTAG" = "$PDEV1" ] && DEFTAG=" --default-item $aTAG" #v2.13
+  [ ! "$aFREE" = "0" ] && echo "${aTAG} \"Filesystem: $aFS  Size: ${aSIZE}M  Free: ${aFREE}M\" \\" >> /tmp/schoices.txt
  done
 
- SCHOICES=`cat /tmp/schoices.txt 2>$ERR`
- if [ "$SCHOICES" = "" ];then
+ SCHOICES=`cat /tmp/schoices.txt 2>>$ERR`
+ if [ "$SCHOICES" = "" ]; then
   #clear
   echo "No suitable partitions to save to." >/dev/console
   sleep 5
@@ -518,17 +538,17 @@ Note, next time Puppy boots, this file, with all saved personal data,
 will be automatically loaded.
 
 UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 ' >> /tmp/savedlg
- echo "$SCHOICES"  >> /tmp/savedlg
+ echo "$SCHOICES"       >> /tmp/savedlg
  echo ' 2>/tmp/tag.txt' >> /tmp/savedlg
- chmod 755 /tmp/savedlg
+ chmod $VERB 0755          /tmp/savedlg
 
  #seems some people have problem, do not select anything...
- [ "$VERBOSE" ] && continue_func
- while [ 1 ];do
+ [ "$VERBOSE" -a ! "$FORCE" ] && continue_func
+ while [ 1 ]; do
   /tmp/savedlg >/dev/console
   SAVEPART=`cat /tmp/tag.txt | head -n 1` #head is in case of errs in output.
-  if [ "`echo -n "$SAVEPART" | grep --extended-regexp '^hd|^sd|^sc|^fd'`" = "" ];then
-   [ "$VERBOSE" ] && continue_func
+  if [ "`echo -n "$SAVEPART" | grep -E '^hd|^sd|^sc|^fd'`" = "" ]; then
+   [ "$VERBOSE" -a ! "$FORCE" ] && continue_func
    dialog --colors --msgbox "\Zb\Z1ERROR: you did not choose any partition.
    Press ENTER key to try again...
    Press ESC key to shutdown without saving...\Zn" 0 0 >/dev/console
@@ -548,18 +568,18 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
 ####################### choose size func #############################################
 #v2.02 dougal contributed this...
 choosesizefunc(){
- local KFREE SIZELIST NUM CHOICES FLABEL SLABEL ACHOICE KSIZE
+ local KFREE SIZELIST NUM CHOICES FLABEL SLABEL aCHOICE KSIZE
  KFREE=$1 ; SIZELIST="" ; NUM=1 ; CHOICES=""
  FLABEL="`expr $KFREE \/ 1024`MB"
  [ $KFREE -ge 1048576 ] && FLABEL="`dc $KFREE 1048576 \/ p`GB"
- NEEDED_SIZE=`du -B MB -s /initrd/pup_rw |awk '{print $1} |tr -d '[[:alpha:]]'`
- for ACHOICE in 32 64 128 256 512 768 1024 1280
+ NEEDED_SIZE=`du -B MB -s /initrd/pup_rw |awk '{print $1}' |tr -d '[[:alpha:]]'`
+ for aCHOICE in 32 64 128 256 512 768 1024 1280
  do
   [ "$ACHOICE" -le "$NEEDED_SIZE" ] && continue
   KSIZE=`expr $ACHOICE \* 1024`
   SLABEL="${ACHOICE}MB"
-  [ $ACHOICE -ge 1024 ] && SLABEL="`dc $ACHOICE 1024 \/ p`GB"
-  if [ $KSIZE -lt $KFREE ];then
+  [ $aCHOICE -ge 1024 ] && SLABEL="`dc $aCHOICE 1024 \/ p`GB"
+  if [ $KSIZE -lt $KFREE ]; then
    SIZELIST="$SIZELIST$NUM $SLABEL "
    CHOICES="$CHOICES$KSIZE "
   else
@@ -574,7 +594,7 @@ choosesizefunc(){
  NUM=`cat /tmp/sizetag.txt`
  ACHOICE=`echo -n "$CHOICES" | cut -f $NUM -d ' '`
  #return $ACHOICE
- SIZEPFILE=$ACHOICE #global variable.
+ SIZEPFILE=$aCHOICE #global variable.
 } # end of choosesizefunc()
 ####################### choose size func #############################################
 ############################## choose and make pupsave ################################
@@ -583,12 +603,12 @@ pupsavefunc() {
  SMNTPT=`mount | grep "/dev/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  #[ "$SMNTPT" = "" ] && SMNTPT=`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  [ "$SMNTPT" = "" ] && SMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
-  [ "$VERBOSE" ] && LINEP=D101 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
- if [ "$SMNTPT" = "" ];then
+  [ "$VERBOSE" ]    && LINEP=D101 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
+ if [ "$SMNTPT" = "" ]; then
   #v2.02 was mntg on /tmp/savepup, but if error and not unmounted, contents
   #of /tmp gets deleted, wiping entire partition!!!
-  mkdir /mnt/$SAVEPART 2>$ERR #/tmp/savepup
-  mount -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART #/tmp/savepup
+  mkdir -p /mnt/$SAVEPART 2>>$ERR #/tmp/savepup
+  mount $VERB $VERB -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART #/tmp/savepup
   SMNTPT="/mnt/$SAVEPART" #"/tmp/savepup"
  fi
   [ "$VERBOSE" ] && LINEP=D102 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
@@ -604,11 +624,11 @@ pupsavefunc() {
   SFEXT="2fs"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  #fi
- NAMEONLY=`basename $SAVEFILE`
+ NAMEONLY=`basename "$SAVEFILE"`
  [ "$VERBOSE" ] && LINEP=D1D2 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
  [ "$VERBOSE" ] && continue_func
- #v2.21 customise the name of the ${DISTRO_FILE_PREFIX}save file...
- MYUSERNAME="`dialog --stdout --nocancel --inputbox "Would you like to customise the name
+  #v2.21 customise the name of the ${DISTRO_FILE_PREFIX}save file...
+ MYUSERNAME=`dialog --stdout --nocancel --inputbox "Would you like to customise the name
 of the '${DISTRO_FILE_PREFIX}save.${SFEXT}' file?
 This is optional, but it is convenient
 if you have lots of '${DISTRO_FILE_PREFIX}save' files
@@ -617,8 +637,9 @@ at startup. For example, if you enter
 'john' here, the file will become
 '${DISTRO_FILE_PREFIX}save-john.${SFEXT}'.
 Type any characters you wish,
-then press ENTER key:" 0 0 ""`"
- if [ "$MYUSERNAME" != "" ];then
+then press ENTER key:" 0 0`
+
+if [ "$MYUSERNAME" ]; then
   MYUSERNAME=`echo -n "$MYUSERNAME" | tr ' ' '_' | tr '-' '_' | sed -e 's/[^a-zA-Z0-9_]//g'`
   NAMEONLY="${DISTRO_FILE_PREFIX}save-${MYUSERNAME}.${SFEXT}"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
@@ -647,27 +668,27 @@ ${DISTRO_NAME} installation.
 Unless you have a good reason to use encryption, it is recommended not
 to, to avoid the overhead. Recommend choose <NORMAL>..." 0 0 >/dev/console
  RETVAL=$?
- if [ $RETVAL -eq 1 -o $RETVAL -eq 3 ];then
+ if [ $RETVAL -eq 1 -o $RETVAL -eq 3 ]; then
   [ "$VERBOSE" ] && continue_func
-  while [ 1 ];do
+  while [ 1 ]; do
   MYPASSWORD="`dialog --stdout --insecure --nocancel --passwordbox "Please choose a password.
 This must be remembered and
 entered at every bootup." 0 0`"
    [ "$MYPASSWORD" ] && break
   done
-  modprobe cryptoloop
-  if [ $RETVAL -eq 1 ];then
+  modprobe $VERB cryptoloop
+  if [ $RETVAL -eq 1 ]; then
    DENSITY="a" #heavy aes encryption
    CRYPTO='-e aes'
-   modprobe aes_generic #v407 aes name change.
+   modprobe $VERB aes_generic #v407 aes name change.
    #v407 did not explicitly load these two before, but do so in init script...
-   modprobe crypto_blkcipher #v407 blkcipher name change.
-   modprobe cbc
+   modprobe $VERB crypto_blkcipher #v407 blkcipher name change.
+   modprobe $VERB cbc
   else
    DENSITY="x" #light xor encryption.
    CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
   fi
-  if [ "$MYUSERNAME" != "" ];then
+  if [ "$MYUSERNAME" ]; then
    NAMEONLY="${DISTRO_FILE_PREFIX}save_crypt${DENSITY}-${MYUSERNAME}.${SFEXT}"
   else
    NAMEONLY="${DISTRO_FILE_PREFIX}save_crypt${DENSITY}.${SFEXT}"
@@ -675,7 +696,7 @@ entered at every bootup." 0 0`"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
- MNAMEONLY=`basename $SAVEFILE .${SFEXT}`
+ MNAMEONLY=`basename "$SAVEFILE" .${SFEXT}`
   [ "$VERBOSE" ] && LINEP=D104 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
  #fitzhugh found this problem...
  #v2.10 Dougal provided code to save with different name...
@@ -686,14 +707,14 @@ There already exists a ${NAMEONLY} file on the partition you
 chose. To create another one, with a slightly different name
 (such as ${MNAMEONLY}-1.${SFEXT}), select <SAVE>...
 To quit without saving, select <No>..." 0 0 >/dev/console
-  [ ! $? -eq 0 ] && return 1
+  [ $? -eq 0 ] || return 1
   local BLA=1 #; local SFFIX=`echo "$SAVEFILE" | tail -c 5`
   while [ -f $SMNTPT$SAVEFILE ]; do
-   SAVEFILE="$PSUBDIR/${MNAMEONLY}-${BLA}.${SFEXT}"
-   BLA=`expr $BLA + 1`
+   SAVEFILE="$PSUBDIR/${MNAMEONLY}-${COUNT}.${SFEXT}"
+   COUNT=`expr $COUNT + 1`
   done
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
-  NAMEONLY=`basename $SAVEFILE`
+  NAMEONLY=`basename "$SAVEFILE"`
  fi
   [ "$VERBOSE" ] && LINEP=D105 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
  #we should check to see that there is enough space on the partition...
@@ -705,13 +726,13 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  [ $SIZEPFILE -gt  $PARTFREE ] && SIZEPFILE=$PARTFREE
  #v2.02 dougal has code to choose size of save file...
  [ $PARTFREE -gt 32768 ] && choosesizefunc $PARTFREE #sets SIZEPFILE
- if [ ! "`echo -n $SAVEFILE | grep '\.3fs'`" = "" ];then #ext3 f.s. needs minimum size.
+ if [ "`echo -n $SAVEFILE | grep '\.3fs'`" ]; then #ext3 f.s. needs minimum size.
   [ $SIZEPFILE -lt 5000 ] && return 1 #precaution. rerwin discovered this.
  fi
   [ "$VERBOSE" ] && LINEP=D106 echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"
  #v2.20
  SAVEPATH=`dirname $SAVEFILE`
- if [ ! -d ${SMNTPT}${SAVEPATH} ];then
+ if [ ! -d ${SMNTPT}${SAVEPATH} ]; then
   SAVEFILE="/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   SAVEPATH="/"
@@ -722,7 +743,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  [ "$SFEXT" = "2fs" ] && AAAFS="ext2"
  AAAMB=`expr $SIZEPFILE \/ 1024`
  [ "$VERBOSE" ] && continue_func
- while [ 1 ];do
+ while [ 1 ]; do
   dialog --colors --no-collapse --extra-button --ok-label "YES, SAVE"  --extra-label "CHANGE FOLDER" --cancel-label "DO NOT SAVE" --yesno "\Z1FINAL SANITY CHECK:
  Partition you are saving to:      $SAVEPART
  The filesystem of $SAVEPART partition: $SAVEFS
@@ -737,7 +758,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   SANITYRET=$?
   [ $SANITYRET -ne 0 -a $SANITYRET -ne 3 ] && return 1
   [ $SANITYRET -eq 0 ] && break
-  if [ $SANITYRET -eq 3 ];then #change folder.
+  if [ $SANITYRET -eq 3 ]; then #change folder.
    NEWSAVEPATH=`dialog --stdout --no-cancel --inputbox "Edit path. '/' means top-level of partition. You are only allowed to save one-deep, for example: '/puppy300'. If folder does not exist, it will be created. Spaces are not allowed. If uncertain, just press the ENTER key." 0 0 "$SAVEPATH"`
    [ "$NEWSAVEPATH" = "" ] && NEWSAVEPATH="$SAVEPATH"
    [ "`echo -n "$NEWSAVEPATH" | cut -b 1`" != "/" ] && NEWSAVEPATH="/${NEWSAVEPATH}"
@@ -751,17 +772,17 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   fi
  done
  [ -f ${SMNTPT}${SAVEPATH} ] && return 1 #abort. must be a directory.
- [ ! -d ${SMNTPT}${SAVEPATH} ] && mkdir ${SMNTPT}${SAVEPATH}
- [ ! -d ${SMNTPT}${SAVEPATH} ] && return 1 #some kind of error, abort.
+ [ -d ${SMNTPT}${SAVEPATH} ] || mkdir -p ${SMNTPT}${SAVEPATH}
+ [ -d ${SMNTPT}${SAVEPATH} ] || return 1 #some kind of error, abort.
 
  JOPT=""
  [ "$SAVEPART" = "fd0" ] && SIZEPFILE=`expr $SIZEPFILE - 16`
  [ "$SFEXT" = "3fs" ] && JOPT='-j'
  echo "Creating '$NAMEONLY' in '/dev/$SAVEPART' , please wait awhile..." >/dev/console
  dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
- sync
+ [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
  echo "Creating a '$AAAFS' filesystem in '$NAMEONLY' ..." >/dev/console
- if [ "$CRYPTO" = "" ];then
+ if [ "$CRYPTO" = "" ]; then
   mke2fs -q $JOPT -m 0 -F ${SMNTPT}$SAVEFILE
   #...default is f.s. auto checked every 26 mounts or 180 days. tune2fs to change.
  else
@@ -770,30 +791,30 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   [ "$DEVLOOP" = "" ] && return 1
   #'-p 0' means read password from stdin...
   #v2.17 crap, '-p 0' works for aes, not for xor encryption....
-  if [ "$CRYPTO" = '-E 1' ];then #light xor encr.
+  if [ "$CRYPTO" = '-E 1' ]; then #light xor encr.
    echo "Note, a bug in one of the Linux utility programs requires you to reenter" >/dev/console
    echo "the password in the case of light encryption..." >/dev/console
   fi
   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
   [ ! $? -eq 0 ] && return 1
   mke2fs -q $JOPT -m 0 $DEVLOOP #REMOVEDv3.98 added '-O none', fix mntg fail at boot.
-  sync
+  [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
   losetup -d $DEVLOOP
  fi
- sync
+ [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
  return 0
 } #end pupsavefunc
 ############################## choose and make pupsave ################################
 ###################### PUPMODE 5 ########################################
 pupmode_5_func() {
 #first time booted puppy, there may not have been any persistent storage.
-if [ $PUPMODE -eq 5 ];then #ifpupmode5
+if [ $PUPMODE -eq 5 ]; then #ifpupmode5
  #v2.16.1 pxe boot, humongous initrd, have PDEV1='' DEV1FS=''...
 
  #3.97...
  xDEVFS="$DEV1FS"
  xPDEV="$PDEV1"
- if [ "$PSAVEMARK" != "" -a "$PDEV1" != "" ];then #v3.97 see /etc/rc.d/PUPSTATE
+ if [ "$PSAVEMARK" -a "$PDEV1" ]; then #v3.97 see /etc/rc.d/PUPSTATE
   devnameonly=`echo -n "$PDEV1" | sed -e 's/[0-9]*$//'`
   SAVEPART="${devnameonly}${PSAVEMARK}" #partition that will-have ${DISTRO_FILE_PREFIX}save.
   spPATTERN='/dev/'"$SAVEPART"'|'
@@ -805,7 +826,7 @@ if [ $PUPMODE -eq 5 ];then #ifpupmode5
  [ ! "$DEV1FS" ] && DEV1FS='xxx' #this will enable choice of create a save-file.
   #if it is a linux partition, can offer to save to PDEV1 or create a ${DISTRO_FILE_PREFIX}save.2fs file...
   #if vfat, create a ${DISTRO_FILE_PREFIX}save.2fs file...
-  if [ "`echo -n "$xDEVFS" | grep --extended-regexp "ext[0-9]|xfs|jfs|reiser|minix|ufs|btrfs|hfs|ocfs"`" != "" ];then
+  if [ "`echo -n "$xDEVFS" | grep -E "ext[0-9]|xfs|jfs|reiserfs|minix|ufs|btrfs|hfs|ocfs"`" ]; then
    [ "$VERBOSE" ] && continue_func
    dialog --extra-button --ok-label "SAVE TO A FILE"  --extra-label "SAVE TO ${xPDEV}" --cancel-label "DO NOT SAVE" --yesno "You can now choose to save the personal session files to file, named ${DISTRO_FILE_PREFIX}save.2fs. Or, if $xPDEV partition is not being used by anything else (no other operating system) then you can choose to save the session files direct to the partition. Either way, your choice will be remembered at next bootup.
 
@@ -813,8 +834,8 @@ Which to choose? Partition: you immediately get the entire partition available f
 
 Select <SAVE TO A FILE> (just press ENTER key) to create a ${DISTRO_FILE_PREFIX}save.2fs file, select <SAVE TO ${PDEV1}> (TAB then ENTER) to save direct to partition, or <DO NOT SAVE> to shutdown with saving session..." 0 0 >/dev/console
    SAVECHOICE=$?
-   if [ "$SAVECHOICE" = "0" ];then
-    choosepartfunc && pupsavefunc && PUPMODE=128 #v2.02 128=yes, save it.
+   if [ "$SAVECHOICE" = "0" ]; then
+    choosepartfunc && { pupsavefunc && PUPMODE=128 || exit 234; } || exit 233 #v2.02 128=yes, save it.
    else
     #dialog --yes-label "SAVE_TO_${PDEV1}" --no-label "QUIT" --yesno "Press ENTER key to save session files direct to $PDEV1 partition, else press TAB then ENTER to not save session..." 0 0
     #[ $? -eq 0 ] && PUPMODE=32
@@ -831,8 +852,8 @@ Do you want to create a ${DISTRO_FILE_PREFIX}save.2fs file?
 
 Select <SAVE> (just press ENTER key) to create ${DISTRO_FILE_PREFIX}save.2fs and save to it, or select <No> (TAB then ENTER) to not save session..." 0 0 >/dev/console
     SAVECHOICE=$?
-    if [ "$SAVECHOICE" = "0" ];then
-     choosepartfunc && { pupsavefunc;PUPMODE=128; } #v2.02 128=yes, save it.
+    if [ "$SAVECHOICE" = "0" ]; then
+     choosepartfunc && { pupsavefunc && PUPMODE=128 || exit 234; } || exit 233 #v2.02 128=yes, save it.
     fi
     ;;
    iso9660)
@@ -845,16 +866,16 @@ Select <SAVE TO FILE> (just press ENTER key) to choose a partition to save the s
 Select <SAVE TO CD> (TAB then ENTER) to save session to CD/DVD (multisession) (EXPERIMENTAL)...
 Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
     SAVECHOICE=$?
-    if [ "$SAVECHOICE" = "0" ];then
-     choosepartfunc && { pupsavefunc;PUPMODE=128; } #v2.02 yes, save it.
-    else
+    if [ "$SAVECHOICE" = "0" ]; then
+     choosepartfunc && { pupsavefunc && PUPMODE=128 || exit 234; } || exit 233 #v2.02 yes, save it.
+    #else
      #dialog --no-label "NO_SAVE" --yes-label "SAVE_TO_CD" --yesno "Press ENTER key to save session back to multisession CD/DVD (the iso must have been burnt to CD/DVD in multisession mode), else press TAB then ENTER keys to shut down without saving session..." 0 0
-     if [ "$SAVECHOICE" = "3" ];then #v2.13 3=save session to cd.
+    elif [ "$SAVECHOICE" = "3" ]; then #v2.13 3=save session to cd.
       PUPMODE=77
       SAVEPART="$PDEV1"
      else
       echo "Shutting down without saving..." >/dev/console
-     fi
+    #fi
     fi
     ;;
   esac
@@ -869,52 +890,50 @@ pupmode_5_func
 #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
 #note, rc.sysinit in puppy 3.01 had code to create a pupswap.swp, not in 4.x series.
 swapfile_func() {
+ [ "$FASTPARTS" ] || return 0 #see /etc/rc.d/PUPSTATE
  localSMNTPT="$1"
  localSAVEPART="$2"
- if [ ! -f ${localSMNTPT}/pupswap.swp ];then
-  if [ "$FASTPARTS" ];then #see /etc/rc.d/PUPSTATE
+ [ -f ${localSMNTPT}/pupswap.swp ] && return 0
    TOTALRAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '`
-   if [ $TOTALRAM -lt 262145 ];then #was 128000, bump up <=256MB.
+   if [ $TOTALRAM -lt 262145 ]; then #was 128000, bump up <=256MB.
     TOTALSWAP=`free | grep 'Swap:' | tr -s ' ' | cut -f 3 -d ' '`
-    if [ $TOTALSWAP -eq 0 ];then
+    if [ $TOTALSWAP -eq 0 ]; then
      spPATTERN="$localSAVEPART"'|'
-     if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" ];then
+     if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" ]; then
       smPATTERN=' '"$localSMNTPT"'$'
       FREESAVEM=`/bin/df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
       SWPSIZE=""
       [ $FREESAVEM -gt 100 ] && SWPSIZE="50"
       [ $FREESAVEM -gt 200 ] && SWPSIZE="100"
       [ $FREESAVEM -gt 500 ] && SWPSIZE="200"
-      if [ "$SWPSIZE" ];then
+      if [ "$SWPSIZE" ]; then
        echo  >/dev/console
        echo "A swapfile named 'pupswap.swp' is being created in partition ${localSAVEPART}," >/dev/console
        echo "of size ${SWPSIZE}MB. This will be loaded at next boot, to ease the low-RAM" >/dev/console
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of="${localSMNTPT}"/pupswap.swp bs=1048576 count=$SWPSIZE
-       if [ $? -eq 0 ];then
-        sync
+       if [ $? -eq 0 ]; then
+        [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
         mkswap "${localSMNTPT}"/pupswap.swp
        fi
-       if [ $? -ne 0 ];then
-        rm -f "${localSMNTPT}"/pupswap.swp 2>$ERR
+       if [ $? -ne 0 ]; then
+        rm -f "${localSMNTPT}"/pupswap.swp 2>>$ERR
     echo "...error, unable to create swapfile." >/dev/console
        fi
-       sync
+       [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
       fi
      fi
     fi
    fi
-  fi
- fi
 } #end swapfile_func
 [ "$VERBOSE" ] && echo "SWAPFILE FUNC END" #DBG
 ####################### create swap file #####################################################
 
 
 ############# Pupsave ###############################################
-if [ "$PUPSAVE" != "" ];then
+if [ "$PUPSAVE" ]; then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
- SAVEFS=`echo -n "$PUPSAVE" | cut -f 2 -d ','`
+   SAVEFS=`echo -n "$PUPSAVE" | cut -f 2 -d ','`
  SAVEPART=`echo -n "$PUPSAVE" | cut -f 1 -d ','`
  SAVEFILE=`echo -n "$PUPSAVE" | cut -f 3 -d ','`
 fi
@@ -933,7 +952,7 @@ case $PUPMODE in
   ;;
 
   3) #PDEV1. full install on internal flash drive: rw=tmpfs ro1=PDEV1
-   save_session 3
+  save_session 3
   ;;
 
   6) #frugal on HDD complete partiton: rw=PDEV1 ro1=main.sfs
@@ -941,14 +960,14 @@ case $PUPMODE in
   ;;
 
   7) #PDEV1 and PUPSFS. frugal on USB partition rw=tmpfs ro1=PDEV1 ro2=main.sfs
-   save_session 7
+  save_session 7
   ;;
 
   12) #save-file on HDD frugal: rw=pup-save.2fs ro2=main.sfs
-  echo "`basename $SAVEFILE` mounted directly top layer, session already saved." >/dev/console
+  echo "`basename "$SAVEFILE"` mounted directly top layer, session already saved." >/dev/console
   ;;
 
- 13) #PDEV1 and PUPSFS and PUPSAVE, save-file on USB: rw=tmpfs ro1=pup-save.2fs ro2=main.sfs
+  13) #PDEV1 and PUPSFS and PUPSAVE, save-file on USB: rw=tmpfs ro1=pup-save.2fs ro2=main.sfs
   #/initrd/pup_rw has tmpfs, pup_ro1 has ${DISTRO_FILE_PREFIX}save.2fs file (PUPSAVE), pup_ro2 has PUPSFS file.
   #the above are in unionfs at /.
   save_session 13
@@ -956,17 +975,17 @@ case $PUPMODE in
 
  5) #v2.02 first boot. No save choosen.
   echo "Session not saved" >/dev/console
-  sync
+  [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
-  [ "$SMNTPT" ] && umount "$SMNTPT" 2>$ERR
+  [ "$SMNTPT" ] && umount $VERB $VERB "$SMNTPT" 2>>$ERR
   #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
-  32) #first shutdown, save back to PDEV1. v3.97: xPDEV #save to partition
+32) #first shutdown, save back to PDEV1. v3.97: xPDEV #save to partition
   DEV1MNT=`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`
   if [ "$DEV1MNT" = "" ];then
    mkdir -p /mnt/"$xPDEV"
-   mount -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV"
+   mount $VERB $VERB -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV"
    if [ ! $? -eq 0 ];then
     echo "ERROR: unable to mount '/dev/$xPDEV' , cannot save." >/dev/console
     exit
@@ -974,25 +993,25 @@ case $PUPMODE in
    DEV1MNT="/mnt/$xPDEV"
   fi
   #RDIRS=`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`
-  RDIRS=`/bin/find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"` #|grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost"
-  #for ONEDIR in $RDIRS
-  while read ONEDIR
+  RDIRS=`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"` #|grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost"
+  #for oneDIR in $RDIRS
+  while read oneDIR
   do
-   cp -a "$ONEDIR" "${DEV1MNT}"/
-  done<<EOI
+   cp $VERB -a "$oneDIR" "${DEV1MNT}"/
+  done <<EOI
 $(echo "$RDIRS")
 EOI
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
-  cp -af /etc/DISTRO_SPECS "${DEV1MNT}"/etc/
-  sync
+  cp $VERB -af /etc/DISTRO_SPECS "${DEV1MNT}"/etc/
+  [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func "$DEV1MNT" $xPDEV
 
-  umount "$DEV1MNT" 2>$ERR
+  umount $VERB $VERB "$DEV1MNT" 2>>$ERR
   ;;
- 128) #1st shutdown, save to ${DISTRO_FILE_PREFIX}save.2fs.
+128) #1st shutdown, save to ${DISTRO_FILE_PREFIX}save.2fs.
   #partition already mounted on $SMNTPT.
   echo "Saving session to $SAVEFILE file on $SAVEPART partition..." >/dev/console
   mkdir /tmp/save1stpup
@@ -1001,7 +1020,7 @@ EOI
   [ ! "`echo -n "$SAVEFILE" | grep "2fs"`" = "" ] && FILEFS="ext2"
 
   if [ "$CRYPTO" = "" ];then
-   mount -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
+   mount $VERB $VERB -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
   else
    #note: loop2 is kept available for scripts to use. but, do this to find free one...
    DEVLOOP=`losetup-FULL -f`
@@ -1013,7 +1032,7 @@ EOI
    fi
    echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
    [ ! $? -eq 0 ] && exit 1
-   mount -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
+   mount $VERB $VERB -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
   fi
 
   #floppy disk has little space. snapmergepuppy handles this for subsequent saves, but for now,
@@ -1022,20 +1041,21 @@ EOI
    RDIRS="/initrd/pup_rw/etc"
   else
    #RDIRS=`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`
-   RDIRS=`/bin/find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"`
+   RDIRS=`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"`
   fi
-  #for ONEDIR in $RDIRS
-  while read ONEDIR
+  #for oneDIR in $RDIRS
+  while read oneDIR
   do
-   BASENAME=`basename "$ONEDIR"` #v2.16exp3
+   #BASENAME=`basename "$oneDIR"` #v2.16exp3
+   BASENAME="${oneDIR##*/}"
    mkdir -p /tmp/save1stpup/"${BASENAME}" #v2.16exp3 likely already created above.
-   cp -a "$ONEDIR"/* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp3
-   [ "$BASENAME" = "root" ] && cp -a "$ONEDIR"/.[0-9a-zA-Z]* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp4
-  done<<EOI
+   cp $VERB -a "$oneDIR"/* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp3
+   [ "$BASENAME" = "root" ] && cp $VERB -a "$oneDIR"/.[0-9a-zA-Z]* /tmp/save1stpup/"${BASENAME}"/ #v2.16exp4
+  done <<EOI
 $(echo "$RDIRS")
 EOI
-  sync
-  umount /tmp/save1stpup
+  [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
+  umount $VERB $VERB /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
   if [ "$DEV1FS" = "iso9660" ];then #test if booted off cd.
@@ -1065,30 +1085,31 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
     [ "$VERBOSE" ] || clear >/dev/console
     if [ $RETVAL -eq 0 ];then
      echo "Please wait, accessing CD drive..." >/dev/console
-     APATTERN="/dev/$PDEV1 "
+     aPATTERN="/dev/$PDEV1 "
      CDMNTPT=`mount | grep "$APATTERN" | cut -f 3 -d ' '`
      mkdir -p /mnt/$PDEV1
      if [ "$CDMNTPT" = "" ];then
-      mount -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1"
+      mount $VERB $VERB -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1"
       CDMNTPT="/mnt/$PDEV1"
      fi
-     for ONESFS in `/bin/find "$CDMNTPT" -maxdepth 1 -type f -name \*.sfs | grep -v ' ' | tr '\n' ' '`
+     for oneSFS in `find "$CDMNTPT" -maxdepth 1 -type f -name \*.sfs | grep -v ' '`
      do
-      BASESFS=`basename "$ONESFS"`
-      FILESIZEB=`stat --format=%s $ONESFS`
+      #BASESFS=`basename "$oneSFS"`
+      BASESFS="${oneSFS##*/}"
+      FILESIZEB=`stat -c %s $oneSFS`
       FILESIZEK=`expr $FILESIZEB \/ 1024 + 2048` #2MB slack.
       BPATTERN=" $SMNTPT"'$'
       DRVFREEK=`/bin/df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
       if [ $DRVFREEK -gt $FILESIZEK ];then
        echo "Copying $BASESFS..." >/dev/console
-       cp -f "$ONESFS" "$SMNTPT"/
-       sync
+       cp $VERB -f "$oneSFS" "$SMNTPT"/
+       [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
       else
        echo "Insufficient space! Cannot copy $BASESFS" >/dev/console
        break
       fi
      done
-     busybox umount "$CDMNTPT"
+     busybox umount $VERB $VERB "$CDMNTPT"
     fi
    fi
   fi
@@ -1096,7 +1117,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func "$SMNTPT" "$SAVEPART"
 
-  umount "$SMNTPT" 2>$ERR
+  umount $VERB $VERB "$SMNTPT" 2>>$ERR
   ;;
  69) #save to folder on multisession CD/DVD (including 1st shutdown). (5+64=69) NOT used
   multisavefunc  #/etc/rc.d/functions4puppy
@@ -1124,21 +1145,21 @@ esac
 
 rm -f /var/lock/LCK*
 rm -f /var/run/*.pid
-rm -rf /root/tmp/* 2>$ERR #...note, not screening this out in any of above save modes.
+rm -rf /root/tmp/* 2>>$ERR #...note, not screening this out in any of above save modes.
 
-if test "$PUPMODE" != "2" ; then
+if test "$PUPMODE" != "2"; then
 FP=`/bin/df | grep '/pup_rw' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if [ "$FP" -gt 89 ]; then
 echo "Frugal Install ,free space less than 11%; removing thumbnails" > /dev/console
-rm -rf /root/.thumbnails/* 2>$ERR
+rm -rf /root/.thumbnails/* 2>>$ERR
 else
 echo "Frugal Install ,free space more than 10%; leaving thumbnails ok "
 fi
 else
-FP=`/bin/df | grep -w '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if test "$FP" -lt 5; then
 echo "Full install , free space lesser than 5%; removing thumbnails"
-rm -rf /root/.thumbnails/* 2>$ERR
+rm -rf /root/.thumbnails/* 2>>$ERR
 else
 echo "Full install , free space more than 5%; leaving thumbnails ok"
 fi
@@ -1149,50 +1170,123 @@ fi
 [ "$VERBOSE" ] && echo "RM UNEEDED FILES END"
 #################### RM unneded (tmp) files #######################################
 
-sync
+######## Unload all unused modules ... ####################
+
+lsmod
+echo '
+#Start:#'
+
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+while [ "$unusedK_MODULES" ];
+do
+
+# while [ unloading ]
+#  do
+
+while   read module vms users rest
+ do
+    echo $module $users
+    case $module in
+     usblp|mac_hid) :;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        esac
+         case $users in
+          0) :;;
+           *) continue;;
+          esac
+
+    _command modprobe -vr "$module"
+   sleep 1
+
+ done </proc/modules
+
+sleep 1
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+unset HAVE_UNLOADABLE_MODULE
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+ while read mod_
+  do
+   echo $mod_
+    case $mod_ in
+     usblp|mac_hid) HAVE_UNLOADABLE_MODULE=1;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|unix) continue;;
+       "") break;;
+        *) HAVE_UNLOADABLE_MODULE=1;;
+         esac
+  done <<EoI
+`echo "$unusedK_MODULES"`
+EoI
+
+ test  "$HAVE_UNLOADABLE_MODULE" || break
+    echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+# END while [ "$unusedK_MODULES" ];
+done
+
+echo '
+#FIN:#'
+lsmod
+
+######## Unload all unused modules ... ####################
+
+[ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
 ################### Umount everything #############################################################
 MNTDPARTS=`mount |tac`
 
 echo -e "\\033[1;35m""Unmounting stray filesystems:""\\033[0;39m"
 
-STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E '/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / '`
+STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E ' /dev | /dev/pts | /proc | /sys | tmpfs | rootfs |/dev/root | usbfs | unionfs | /initrd/[^ ]* | on / '`
 
-while read ONESTRAY
+while read oneSTRAY
 do
- [ "$ONESTRAY" ] || continue
- echo "$ONESTRAY"
- echo -en "\\033[1;34mUnmounting '$ONESTRAY' ... \\033[0;39m" >/dev/console
- busybox fuser -m -k "$ONESTRAY"
- killzombies #v3.99
- #sync
- if [ "`busybox mount | grep "$ONESTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
- #fusermount version: 2.7.0 [options] mountpoint
- fusermount -u "$ONESTRAY" ##unmounts MountPoint
- status_func $?
- sleep 1
+ [ "$oneSTRAY" ] || continue
+  echo "$oneSTRAY"
+  echo -en "\\033[1;34mUnmounting '$oneSTRAY' ... \\033[0;39m" >/dev/console
+  [ "$FORCE" ] || busybox fuser -m -k "$oneSTRAY"
+  [ "$FORCE" ] || killzombies #v3.99
+   #sync
+  if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" ]; then
+  #fusermount version: 2.7.0 [options] mountpoint
+   fusermount -u "$oneSTRAY" ##unmounts MountPoint
+   status_func $?
+   sleep 1
  else
- umount -r "$ONESTRAY"  ##unmounts MountPoint
- status_func $?
- sleep 1
+  umount $VERB $VERB -r "$oneSTRAY"  ##unmounts MountPoint
+  status_func $?
+  sleep 1
  fi
-done<<EOI
-$(echo "$STRAYPARTL" |sed 's#.* on /#/#;s# type [[:alnum:]]* (.*)$##')
-EOI
+done <<EoI
+$(echo "$STRAYPARTL" |sed 's#.* on /#/#;s# type [[:alnum:]_]* (.*)$##')
+EoI
 
-swapoff -a #works only if swaps are in mtab or ftab
+swapoff -a #bb swapoff -a works only if swaps are in /etc/mtab or fstab
 #v2.13 menno suggests this improvement...
 #STRAYPARTD=`cat /proc/swaps | grep '/dev/' | grep -vi 'deleted' | cut -f 1 -d " " | tr "\n" " "`
-#for ONESTRAY in $STRAYPARTD
-while read ONESTRAY REST   #Filename Type Size Used Priority
+#for oneSTRAY in $STRAYPARTD
+while read oneSTRAY REST   #Filename Type Size Used Priority
 do
- #[[ "$ONESTRAY" =~ '/dev/' ]] || continue
- #[[ "$ONESTRAY" =~ 'deleted' ]] && continue
- [ "${ONESTRAY%/*}" = '/dev/' ] || continue
- [ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
- echo "Swapoff '$ONESTRAY'" >/dev/console
- swapoff "$ONESTRAY"
-done</proc/swaps
+ #[[ "$oneSTRAY" =~ '/dev/' ]] || continue
+ #[[ "$oneSTRAY" =~ 'deleted' ]] && continue
+ #[ "${oneSTRAY%/*}" = '/dev/' ] || continue
+ #[ "`echo "${REST}" | grep -i 'deleted'`" ] && continue
+ case $oneSTRAY in
+ /dev/*) :;;
+ *) continue;;
+ esac
+
+ case $REST in
+ *deleted*|*Deleted*|*DELETED*) continue;;
+ esac
+
+ echo -e '\033[0;36m'"Swapoff '$oneSTRAY'"'\033[0;39m' >/dev/console
+ swapoff "$oneSTRAY"
+done </proc/swaps
 #sync
 ################### Umount everything #############################################################
 
@@ -1201,50 +1295,52 @@ done</proc/swaps
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 #
 # Stop udev & loggers
-
+_pidof pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
 killall udevd &>$OUT
 
 rm -rf /dev/.udev
 
-killall klogd &>$ERR    ##busybox applet
+killall klogd   &>$ERR  ##busybox applet
 killall syslogd &>$ERR  ##busybox applet
-pup_event_backend_modprobe_protect --stop &    ##+++2011-11-10
+
 ################### Udev ##################################################
 
 [ -d /initrd ] && [ ! "`ls -1A /initrd`" ] && rmdir /initrd
 
-if [ -f /etc/rc.d/rc.shutdown.local.endOne ] ; then
+[ "$FORCE" ] || {
+if [ -f /etc/rc.d/rc.shutdown.local.endOne ]; then
 . /etc/rc.d/rc.shutdown.local.endOne
-else
-[ -f /etc/rc.d/rc.shutdown.local.end ] && . /etc/rc.d/rc.shutdown.local.end  ###KRG
+elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
+ . /etc/rc.d/rc.shutdown.local.end  ###KRG
 fi
+}
 
-[ "$DEBUG" ] && leave_func "unmounting /dev/root"
+[ "$DEBUG" -a ! "$FORCE" ] && leave_func "unmounting /dev/root"
 
 ############# Umount 2 ####################################
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
-  sync;sleep 4
+  [ "$FORCE" ] || { pidof sync >>$OUT || { sync; sleep 4; }; }
   case $PUPMODE in
    2)   pupFS=$(awk '/\/dev\/root/ {print $3}' /proc/mounts)
-      mount -o remount,ro -t $pupFS /dev/root /
+      mount $VERB $VERB -o remount,ro -t $pupFS /dev/root /
       #sync
       ;;
    *) uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts)
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
       if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
         mkdir -p /tmp/unrootfs
-        sync
-        mount -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
+        [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
+        mount $VERB $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
         #sync
       fi
-      mount -o remount,ro /initrd${SAVE_LAYER}
+      mount $VERB $VERB -o remount,ro /initrd${SAVE_LAYER}
       #sync
       ;;
   esac
 fi
 #
-#<!-- /code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823 -->
+#</code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 
 
 #note, there is a problem with unmounting, especially ntfs as it cannot be remounted
@@ -1252,22 +1348,22 @@ fi
 #${DISTRO_FILE_PREFIX}save.2fs.
 #at least, attempt to kill anything running in the ntfs partition...
 #(i don't think anything will be, only /dev/loop1 (${DISTRO_FILE_PREFIX}save.2fs), but just in case)
-MYPID=$$ #120514
+MYPID=$$     #120514
 PARENT=$PPID #120514
-[ "$PUP_HOME" ] && ABSPUPHOME="/initrd${PUP_HOME}" #v2.16rc
+[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}"   #v2.16rc
 [ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
-if [ "`busybox mount | grep "$ABSPUPHOME"`" ];then
+if [ "`busybox mount | grep "$ABSPUPHOME"`" ]; then
  #BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`
- BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v --extended-regexp 'kernel|COMMAND|^$' |awk '{print $3}' | grep -vwE "1|$MYPID|$PARENT" | tr '\n' ' '`
- for ONEBAD in $BADPIDS
+ BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v -E 'kernel|COMMAND|^$' |awk '{print $3}' | grep -vwE "1|$MYPID|$PARENT"`
+ for oneBAD in $BADPIDS
  do
-  #[ "$ONEBAD" = "$MYPID" ] && continue #120514 precaution.
-  #[ "$ONEBAD" = "$PARENT" ] && continue #120514 precaution.
-  #[ "$ONEBAD" = "1" ] && continue
-  echo "Killing process $ONEBAD..."
-  kill $ONEBAD 2>$ERR
+  #[ "$oneBAD" = "$MYPID" ]  && continue #120514 precaution.
+  #[ "$oneBAD" = "$PARENT" ] && continue #120514 precaution.
+  #[ "$oneBAD" = "1" ] && continue
+  echo "Killing process $oneBAD..."
+  kill    $oneBAD 2>>$ERR
   sleep 1
-  kill -9 $ONEBAD 2>$ERR
+  kill -9 $oneBAD 2>>$ERR
   #sync
  done
  killzombies #v3.99
@@ -1275,48 +1371,129 @@ fi
 
 
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
-if [ "$SAVE_LAYER" ];then  ##PupSave ie /pup_rw
-echo "SAVE_LAYER='$SAVE_LAYER'"
- sync
- SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
- SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
- busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>$ERR
- umount-FULL -i -n -l /initrd/${SAVE_LAYER} 2>$ERR #-l is lazy unmount.
+if [ "$SAVE_LAYER" ]; then  ##PupSave ie /pup_rw
+_debug "SAVE_LAYER='$SAVE_LAYER'"
+ [ "FORCE" ] || { pidof sync >>$OUT || sync; }
+ SAVEDEV=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 1 -d ' '`
+  SAVEFS=`grep " /initrd${SAVE_LAYER} " /proc/mounts | cut -f 3 -d ' '`
+ busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>>$ERR
+ umount-FULL $VERB -i -n -l /initrd/${SAVE_LAYER} 2>>$ERR #-l is lazy unmount.
  Err=$?  ###KRG
- echo $Err  ###DBG
- if [ "$Err" != 0 ] ; then
- busybox umount -l /initrd/${SAVE_LAYER}
+ _debug "umount-FULL returned '$Err'"  ###DBG
+ if [ "$Err" != 0 ]; then
+ busybox umount $VERB $VERB -l /initrd/${SAVE_LAYER}
  fi
 fi
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
 MNTFUSE=`busybox mount | grep 'fuse' | head -n 1 |sed 's|.* on \(.*\) type .*|\1|`  ##would need a loop I guess
-if [ "$MNTFUSE" != "" ];then
+if [ "$MNTFUSE" ]; then
  #v2.17 hairywill found the -u is required with -z...
  fusermount -z -u "$MNTFUSE"  ##MountPoint
-
 fi
 ############# Umount 2 ####################################
 
+pidof mplayer >>$OUT && killall mplayer
+pidof acpid   >>$OUT && killall acpid
 
-if [ "$DEBUG" ];then
+######## Unload all unused modules ... ####################
+
+lsmod
+echo '
+#Start:#'
+
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+while [ "$unusedK_MODULES" ];
+do
+
+# while [ unloading ]
+#  do
+ while read module vms users rest
+  do
+   echo $module $users
+    case $module in
+     usblp|mac_hid) :;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|*kbd*|unix) continue;;
+       "") break;;
+        esac
+         case $users in
+          0) :;;
+           *) continue;;
+          esac
+
+    echo -en "\\033[1;33m"
+    _command modprobe -vr "$module"
+   sleep 1
+    echo -e "\\033[0;39m"
+
+  done </proc/modules
+
+sleep 1
+
+unusedK_MODULES=`awk '{ if ($3 == "0") print $1}' /proc/modules`
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+unset HAVE_UNLOADABLE_MODULE
+ echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+ while read mod_
+  do
+   echo $mod_
+    case $mod_ in
+     usblp|mac_hid) HAVE_UNLOADABLE_MODULE=1;;
+      *usb*|*hid*|ev*|*hcd*|*hci*|*kbd*|unix) continue;;
+       "") break;;
+        *) HAVE_UNLOADABLE_MODULE=1;;
+         esac
+  done <<EoI
+`echo "$unusedK_MODULES"`
+EoI
+
+ test  "$HAVE_UNLOADABLE_MODULE" || break
+    echo HAVE_UNLOADABLE_MODULE=$HAVE_UNLOADABLE_MODULE
+
+# END while [ "$unusedK_MODULES" ];
+done
+
+echo '
+#FIN:#'
+lsmod
+
+######## Unload all unused modules ... ####################
+
+
+
+
+if [ "$DEBUG" ]; then
+ps | grep -v '\['
 mount
-echo -n "FILESYSTEM STATE : "
-dumpe2fs `rdev` | grep -i 'state'
-echo
+ echo -en '\033[0;36m'"FILESYSTEM STATE : "'\033[0;39m'
+ if test "$PUPMODE" = 2; then
+ dumpe2fs `rdev` | grep -i 'state'
+ elif test "$PDEV1"; then
+ dumpe2fs /dev/$PDEV1 | grep -i 'state'
+ fi
+ echo
 echo "ENDING NOW"  ###DBG
 fi
 
-busybox umount -ar 2>$ERR
-if [ "$DEBUG" ];then
-echo "unmounted all -r  Try to remount devices as read-only if mount is busy"
-mount
-echo -n "FILESYSTEM STATE : "
-dumpe2fs `rdev` | grep -i 'state'
-fi
-[ -f /etc/rc.d/rc.shutdown.local.endZero ] && /etc/rc.d/rc.shutdown.local.endZero
+# REM: could add -l --lazy option..?
+busybox umount $VERB $VERB -ar 2>>$ERR
 
-[ "$DEBUG" ] && leave_func "exiting at the very end...?"
+if [ "$DEBUG" ]; then
+echo -e '\033[0;36m'"unmounted all -r  Tried to remount devices as read-only if mount is busy"'\033[0;39m'
+test -e /proc/mounts && { ps | grep -v '\['; mount; }
+ echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
+ if test "$PUPMODE" = 2; then
+ dumpe2fs `rdev` | grep -i 'state'
+ elif test "$PDEV1"; then
+ dumpe2fs /dev/$PDEV1 | grep -i 'state'
+ fi
+fi
+
+[ -f /etc/rc.d/rc.shutdown.local.endZero -a ! "$FORCE" ] && /etc/rc.d/rc.shutdown.local.endZero
+
+[ "$DEBUG" -a ! "$FORCE" ] && leave_func "exiting at the very end"
 
 #force exitmode 0 now
 exit 0
