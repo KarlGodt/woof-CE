@@ -77,11 +77,19 @@ _trap
 # exit
 #fi
 
+tmpDIR=/tmp/sns
+rm -rf "$tmpDIR"
+mkdir -p "$tmpDIR"
+
+IFPLUGSTATUS18=ifplugstatus-0.18
+IFPLUGSTATUS18=ifplugstatus-0.25
+IFPLUGSTATUS18=ifplugstatus-0.28
+
 GTKDIALOGEXE="gtkdialog"
 [ "`which gtkdialog4`" ] && GTKDIALOGEXE="gtkdialog4"
 
 BIGGESTCNT=0
-echo -n '' > /tmp/sns_interfaces
+echo -n '' > "$tmpDIR"/sns_interfaces
 INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' '`"
 for INTERFACE in $INTERFACES #exs: wlan0 eth0
 do
@@ -133,7 +141,7 @@ do
   <button><label>${INTERFACE}</label><action type=\"exit\">Interface_${INTERFACE}</action></button>"
  #save all data about each interface on one line...
  #ex: wlan1|Wireless|ath5k|pci|Support for 5xxx series of Atheros 802.11 wireless LAN cards
- echo "${INTERFACE}|${IF_INTTYPE}|${IF_DRIVER}|${IF_BUS}|${IF_INFO}" >> /tmp/sns_interfaces
+ echo "${INTERFACE}|${IF_INTTYPE}|${IF_DRIVER}|${IF_BUS}|${IF_INFO}" >> "$tmpDIR"/sns_interfaces
 done
 ALL_IF_INTERFACE="`echo -n "$ALL_IF_INTERFACE" | sed -e 's%^|%%' | tr '|' '\n'`"
 ALL_IF_INTTYPE="`echo -n "$ALL_IF_INTTYPE" | sed -e 's%^|%%' | tr '|' '\n'`"
@@ -154,9 +162,19 @@ $ALL_IF_BUS\"</label></text>
 $ALL_IF_INFO\"</label></text>
     </hbox>"
 
+_kill_dhcpcds(){
+# usage _kill_dhcpcds INTERFACE
+test "$1" || return 4
+ps -A -o pid,args | grep dhcpcd | grep -Fe "$1" | grep -v grep | while read pid rest;
+do
+ps -p $pid && kill $pid
+done
+}
+
 #test if connected to internet...
 FLAGINTERNETSTATUS='no'
 WORKINGIF=''
+
 if [ "`pidof dhcpcd`" != "" ];then
  if [ "`grep -v '^#' /etc/resolv.conf`" != "" ];then
   PSALL="`ps`"
@@ -170,6 +188,7 @@ if [ "`pidof dhcpcd`" != "" ];then
   done
  fi
 fi
+
 if [ "$FLAGINTERNETSTATUS" == "yes" ];then
  WORKINGIF="`echo -n "$WORKINGIF" | sed -e 's% $%%'`"
  MSGWIF="interface '${WORKINGIF}'"
@@ -191,50 +210,50 @@ fi
 
 #120107 new 'Profile' frame...
 PROFILE_XML=""
-echo "<b>$(gettext 'Interface')</b>" >/tmp/sns_I_P;  echo "<b>$(gettext 'Type')</b>" >/tmp/sns_T_P; echo "<b>$(gettext 'Driver')</b>" >/tmp/sns_D_P; echo "<b>$(gettext 'Bus')</b>" >/tmp/sns_B_P; echo "<b>$(gettext 'Hardware')</b>" >/tmp/sns_M_P; echo "" >/tmp/sns_S_P; echo "" >/tmp/sns_DEL_BTN; echo "" >/tmp/sns_CNT_P; echo "<b>$(gettext 'Security')</b>" >/tmp/sns_SEC_P
+echo "<b>$(gettext 'Interface')</b>" >"$tmpDIR"/sns_I_P;  echo "<b>$(gettext 'Type')</b>" >"$tmpDIR"/sns_T_P; echo "<b>$(gettext 'Driver')</b>" >"$tmpDIR"/sns_D_P; echo "<b>$(gettext 'Bus')</b>" >"$tmpDIR"/sns_B_P; echo "<b>$(gettext 'Hardware')</b>" >"$tmpDIR"/sns_M_P; echo "" >"$tmpDIR"/sns_S_P; echo "" >"$tmpDIR"/sns_DEL_BTN; echo "" >"$tmpDIR"/sns_CNT_P; echo "<b>$(gettext 'Security')</b>" >"$tmpDIR"/sns_SEC_P
 if [ -s /etc/simple_network_setup/connections ];then
  CNT=0
- [ "grep '|Wireless|' /etc/simple_network_setup/connections" != "" ] && echo "<b>$(gettext 'Network')</b>" >/tmp/sns_S_P
+ [ "grep '|Wireless|' /etc/simple_network_setup/connections" != "" ] && echo "<b>$(gettext 'Network')</b>" >"$tmpDIR"/sns_S_P
  cat /etc/simple_network_setup/connections |
  while read oneCONNECTION
  do
   CNT=$(($CNT + 1))
-  echo "<b>$CNT</b>" >> /tmp/sns_CNT_P
+  echo "<b>$CNT</b>" >> "$tmpDIR"/sns_CNT_P
   INTERFACE_P="`echo -n "$oneCONNECTION" | cut -f 1 -d '|'`"
-  echo "$INTERFACE_P" >> /tmp/sns_I_P
+  echo "$INTERFACE_P" >> "$tmpDIR"/sns_I_P
   TYPE_P="`echo -n "$oneCONNECTION" | cut -f 2 -d '|'`"
-  echo "$TYPE_P" >> /tmp/sns_T_P
+  echo "$TYPE_P" >> "$tmpDIR"/sns_T_P
   DRIVER_P="`echo -n "$oneCONNECTION" | cut -f 3 -d '|'`"
-  echo "$DRIVER_P" >> /tmp/sns_D_P
+  echo "$DRIVER_P" >> "$tmpDIR"/sns_D_P
   BUS_P="`echo -n "$oneCONNECTION" | cut -f 4 -d '|'`"
-  echo "$BUS_P" >> /tmp/sns_B_P
+  echo "$BUS_P" >> "$tmpDIR"/sns_B_P
   MAC_P="`echo -n "$oneCONNECTION" | cut -f 6 -d '|'`"
-  echo "$MAC_P" >> /tmp/sns_M_P
+  echo "$MAC_P" >> "$tmpDIR"/sns_M_P
   if [ "$TYPE_P" = "Wireless" ];then
    SSID_P="`echo -n "$oneCONNECTION" | cut -f 12 -d '|'`"
-   echo "$SSID_P" >> /tmp/sns_S_P
+   echo "$SSID_P" >> "$tmpDIR"/sns_S_P
    SEC_P="`echo -n "$oneCONNECTION" | cut -f 14 -d '|'`"
    [ "$SEC_P" = "" ] && SEC_P="none"
-   echo "$SEC_P" >> /tmp/sns_SEC_P
+   echo "$SEC_P" >> "$tmpDIR"/sns_SEC_P
   else
-   echo "" >> /tmp/sns_S_P
-   echo "" >> /tmp/sns_SEC_P
+   echo "" >> "$tmpDIR"/sns_S_P
+   echo "" >> "$tmpDIR"/sns_SEC_P
   fi
   if [ $CNT -gt 12 ];then
-   echo "<i>more...</i>"  >> /tmp/sns_I_P
+   echo "<i>more...</i>"  >> "$tmpDIR"/sns_I_P
    break
   fi
-  echo "<button><label>${CNT}</label><action>grep -v '${oneCONNECTION}' /etc/simple_network_setup/connections > /tmp/sns_action1</action><action>mv -f /tmp/sns_action1 /etc/simple_network_setup/connections</action><action type=\"exit\">EXITRESTART></action></button>" >> /tmp/sns_DEL_BTN
+  echo "<button><label>${CNT}</label><action>grep -v '${oneCONNECTION}' /etc/simple_network_setup/connections > $tmpDIR/sns_action1</action><action>mv -f $tmpDIR/sns_action1 /etc/simple_network_setup/connections</action><action type=\"exit\">EXITRESTART></action></button>" >> "$tmpDIR"/sns_DEL_BTN
  done
  if [ "$FLAGINTERNETSTATUS" = "yes" ];then
   CONNECTBTN_XML="<button><label>$(gettext 'DISCONNECT NOW')</label><action>/usr/sbin/networkdisconnect</action><action type=\"exit\">EXITNOW</action></button>"
  else
-  CONNECTBTN_XML="<button><label>$(gettext 'CONNECT NOW')</label><action>/usr/sbin/networkdisconnect</action><action>/usr/local/simple_network_setup/rc.network start & </action><action>yaf-splash -timeout 2 -bg orange -close never -fontsize large -text \"Please wait...\"</action><action type=\"exit\">EXITNOW</action></button>"
+  CONNECTBTN_XML="<button><label>$(gettext 'CONNECT NOW')</label><action>/usr/sbin/networkdisconnect</action><action>/usr/local/simple_network_setup/rc.network start & </action><action>yaf-splash -timeout 2 -bg orange -text \"Please wait...\"</action><action type=\"exit\">EXITNOW</action></button>"
  fi
  PROFILE_XML="<frame $(gettext 'Profiles')>
  <text><label>$(gettext 'Connection profiles have previously been created with SNS. These are:')</label></text>
- <hbox spacing=\"10\"><text use-markup=\"true\"><label>\"`cat /tmp/sns_CNT_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_I_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_T_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_D_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_B_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_M_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_S_P`\"</label></text><text use-markup=\"true\"><label>\"`cat /tmp/sns_SEC_P`\"</label></text></hbox>
- <hbox><text><label>$(gettext 'Delete:')</label></text>`cat /tmp/sns_DEL_BTN`
+ <hbox spacing=\"10\"><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_CNT_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_I_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_T_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_D_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_B_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_M_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_S_P`\"</label></text><text use-markup=\"true\"><label>\"`cat $tmpDIR/sns_SEC_P`\"</label></text></hbox>
+ <hbox><text><label>$(gettext 'Delete:')</label></text>`cat $tmpDIR/sns_DEL_BTN`
    <text><label>\"          \"</label></text>
    ${CONNECTBTN_XML}
    <hbox><button><input file>/usr/local/lib/X11/mini-icons/mini-question.xpm</input><action>/usr/local/simple_network_setup/help_profiles &</action></button></hbox>
@@ -250,7 +269,7 @@ export WIN1_DLG="<window title=\"$(gettext 'Simple Network Setup')\" icon-name=\
    ${MSGSTATUS}
    <hbox>
      <text><label>$(gettext 'Detailed network interface Information:')</label></text>
-     <button><input file>/usr/local/lib/X11/mini-icons/info16.xpm</input><action>ipinfo &</action></button>
+     <button><input file>/usr/local/lib/X11/mini-icons/info16.xpm</input><action>exec ipinfo &</action></button>
    </hbox>
  </frame>
  ${PROFILE_XML}
@@ -265,11 +284,11 @@ export WIN1_DLG="<window title=\"$(gettext 'Simple Network Setup')\" icon-name=\
 RETSTRING="`${GTKDIALOGEXE} --program=WIN1_DLG --center`" ###main window###
 
 echo "$RETSTRING"
-EXIT="`echo "$RETSTRING" | grep '^EXIT' | cut -f2 -d'"'`" #'geany
+EXIT=`echo "$RETSTRING" | grep '^EXIT' | cut -f2 -d'"'`
 [ "`echo "$EXIT" | grep 'EXITRESTART'`" != "" ] && exec sns ###restarting sns###
 [ "`echo "$EXIT" | grep 'Interface'`" = "" ] && exit
 
-INTERFACE="`echo -n "$EXIT" | cut -f2 -d '_'`" #ex: wlan1
+INTERFACE="`echo "$EXIT" | grep -m 1 Interface | cut -f2 -d '_'`" #ex: wlan1
 
 if [ "$INTERFACE" == "Windows" ];then #100313
  if [ -d /etc/ndiswrapper ];then
@@ -337,7 +356,7 @@ if [ "`ifconfig | grep "$ifPATTERN"`" != "" ];then
 fi
 
 fPATTERN='^'"${INTERFACE}"'|'
-IFDATA="`grep "$fPATTERN" /tmp/sns_interfaces`"
+IFDATA="`grep "$fPATTERN" "$tmpDIR"/sns_interfaces`"
 IF_INTTYPE="`echo "$IFDATA" | cut -f2 -d'|'`" #ex: Wireless
 IF_DRIVER="`echo "$IFDATA" | cut -f3 -d'|'`" #ex: ath5k
 IF_BUS="`echo "$IFDATA" | cut -f4 -d'|'`" #ex: pci
@@ -348,31 +367,31 @@ MACADDRESS="`ifconfig $INTERFACE | grep -o 'HWaddr .*' | cut -f 2 -d ' '`"
 if [ "$IF_INTTYPE" == "Wireless" ];then
  #scan for networks...
  FLAGERR=
- rm -f /tmp/sns_scan_radiobuttons
- rm -f /tmp/sns_scan_rawoneline
- rm -f /tmp/sns_scan_oneline
+ rm -f "$tmpDIR"/sns_scan_radiobuttons
+ rm -f "$tmpDIR"/sns_scan_rawoneline
+ rm -f "$tmpDIR"/sns_scan_oneline
  #xmessage -center -bg orange -buttons "" "Please wait, scanning for wireless networks..." &
  yaf-splash -placement center -bg orange -text "$(gettext 'Please wait, scanning for wireless networks...')" &
  PIDXMSG=$!
  echo "Information about this interface:
  Interface: $INTERFACE  Driver: $IF_DRIVER  Bus: $IF_BUS  MacAddress: $MACADDRESS
  Description: $IF_INFO
- " > /tmp/sns_wireless_log
+ " > "$tmpDIR"/sns_wireless.log
  [ "`iwconfig $INTERFACE | grep "$INTERFACE" | grep "ESSID"`" != "" ] && iwconfig $INTERFACE essid off
- echo "STEP1a: ifconfig $INTERFACE up" >> /tmp/sns_wireless_log
- ifconfig $INTERFACE up >> /tmp/sns_wireless_log 2>&1
+ echo "STEP1a: ifconfig $INTERFACE up" >> "$tmpDIR"/sns_wireless.log
+ ifconfig $INTERFACE up >> "$tmpDIR"/sns_wireless.log 2>&1
  if [ $? -ne 0 ];then
   FLAGERR=1
  else
   sleep 2 #100513 increase from 1.
-  echo "STEP1b: iwlist $INTERFACE scan" >> /tmp/sns_wireless_log
+  echo "STEP1b: iwlist $INTERFACE scan" >> "$tmpDIR"/sns_wireless.log
   SCANRESULT="`iwlist $INTERFACE scan`" ###SCANNING### 110203
   if [ "`echo "$SCANRESULT" | grep 'Scan completed'`" = "" ];then #100513 110203
    sleep 2
    SCANRESULT="`iwlist $INTERFACE scan`" ###SCANNING### 110203
   fi
-  echo "$SCANRESULT" >> /tmp/sns_wireless_log
-  echo "STEP1c: ifconfig $INTERFACE down" >> /tmp/sns_wireless_log
+  echo "$SCANRESULT" >> "$tmpDIR"/sns_wireless.log
+  echo "STEP1c: ifconfig $INTERFACE down" >> "$tmpDIR"/sns_wireless.log
   ifconfig $INTERFACE down #100313
   #convert each found network into a single line... 110203
   SRLINES="`echo "$SCANRESULT" | grep -v 'Scan completed' | tr '|' ' ' | tr '\n' '|' | sed -e 's%       Cell %\n%g' | tr -s ' '`"
@@ -391,9 +410,9 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    CELL_ESSID=`echo -n "$oneLINE" | grep -o ' ESSID:.*' | cut -f 2 -d '"'`
    CELL_ENCRYPTIONKEY="`echo -n "$oneLINE" | grep -o 'Encryption key:.*' | cut -f 2 -d ':' | cut -f1 -d '|'`" #ex: off
    CELLMSG="Name: $CELL_ESSID  Encryption: $CELL_ENCRYPTIONKEY  Strength: $CELL_QUALITY"
-   echo "<radiobutton><label>${CELLMSG}</label><variable>RADIO_${CELL_NUMBER}</variable></radiobutton>" >> /tmp/sns_scan_radiobuttons
-   echo "$oneLINE" >> /tmp/sns_scan_rawoneline
-   echo "${CELL_NUMBER}|${CELL_ADDRESS}|${CELL_CHANNEL}|${CELL_QUALITY}|${CELL_ENCRYPTIONKEY}|${CELL_ESSID}" >> /tmp/sns_scan_oneline
+   echo "<radiobutton><label>${CELLMSG}</label><variable>RADIO_${CELL_NUMBER}</variable></radiobutton>" >> "$tmpDIR"/sns_scan_radiobuttons
+   echo "$oneLINE" >> "$tmpDIR"/sns_scan_rawoneline
+   echo "${CELL_NUMBER}|${CELL_ADDRESS}|${CELL_CHANNEL}|${CELL_QUALITY}|${CELL_ENCRYPTIONKEY}|${CELL_ESSID}" >> "$tmpDIR"/sns_scan_oneline
   done
 
   #my wpa_supplicant only supports: wext hostap atmel wired ralink roboswitch
@@ -403,15 +422,15 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    *)         WPA_DRIVER="wext" ;;
   esac
 
-  if [ ! -f /tmp/sns_scan_radiobuttons ];then
+  if [ ! -f "$tmpDIR"/sns_scan_radiobuttons ];then
    FRAME1="<frame $(gettext 'Wireless networks')><text><label>\" \"</label></text><text><label>$(gettext 'No wireless networks found')</label></text></frame><text><label>\" \"</label></text>"
    FRAME2=""
    WIN2MSG1=""
    WIN2BUT1=""
   else
    WIN2MSG1="<text><label>`gettext \"Choose which network you want to use, type of encryption, then click 'CONNECT' button:\"`</label></text>"
-   RADIOBUTTONS="`cat /tmp/sns_scan_radiobuttons`"
-   if [ `cat /tmp/sns_scan_radiobuttons | wc -l` -lt 12 ];then #130221
+   RADIOBUTTONS="`cat "$tmpDIR"/sns_scan_radiobuttons`"
+   if [ `cat "$tmpDIR"/sns_scan_radiobuttons | wc -l` -lt 12 ];then #130221
     FRAME1="<frame $(gettext 'Wireless networks')><text><label>\" \"</label></text>${RADIOBUTTONS}<text><label>\" \"</label></text></frame>"
    else
     #130221 vertical scrollbar...
@@ -467,7 +486,7 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
 
   CELL_NUMBER="`echo "$RETSTRING" | grep '^RADIO' | grep 'true' | cut -f1 -d'=' | cut -f2 -d'_'`" #ex: 01
   cnPATTERN='^'"$CELL_NUMBER"'|'
-  CELLDATA="`grep "$cnPATTERN" /tmp/sns_scan_oneline`"
+  CELLDATA="`grep "$cnPATTERN" "$tmpDIR"/sns_scan_oneline`"
   CELL_ADDRESS="`echo -n "$CELLDATA" | cut -f2 -d'|'`"
   CELL_CHANNEL="`echo -n "$CELLDATA" | cut -f3 -d'|'`"
   CELL_QUALITY="`echo -n "$CELLDATA" | cut -f4 -d'|'`"
@@ -483,12 +502,12 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    #xmessage -center -bg orange -buttons "" "Please wait, attempting to connect to '${CELL_ESSID}'..." &
    yaf-splash -placement center -bg orange -text "$(gettext 'Please wait, attempting to connect to') '${CELL_ESSID}'..." &
    PIDX=$!
-   echo "STEP2: iwconfig $INTERFACE mode managed" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE mode managed  >> /tmp/sns_wireless_log 2>&1
-   echo "STEP3: iwconfig $INTERFACE channel $CELL_CHANNEL" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE channel $CELL_CHANNEL  >> /tmp/sns_wireless_log 2>&1
-   echo "STEP4: iwconfig $INTERFACE essid \"$CELL_ESSID\"" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE essid "$CELL_ESSID"  >> /tmp/sns_wireless_log 2>&1
+   echo "STEP2: iwconfig $INTERFACE mode managed" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE mode managed  >> "$tmpDIR"/sns_wireless.log 2>&1
+   echo "STEP3: iwconfig $INTERFACE channel $CELL_CHANNEL" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE channel $CELL_CHANNEL  >> "$tmpDIR"/sns_wireless.log 2>&1
+   echo "STEP4: iwconfig $INTERFACE essid \"$CELL_ESSID\"" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE essid "$CELL_ESSID"  >> "$tmpDIR"/sns_wireless.log 2>&1
 
    #test essid is associated...
    if [ $? -ne 0 ];then
@@ -509,7 +528,7 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
      if [ "$CELL_ENCRYPTIONKEY" == "on" ];then
       case $BUTSEC in
        WEP)
-        echo "STEP5: iwconfig $INTERFACE key $oneFIX $SEC_KEY" >> /tmp/sns_wireless_log
+        echo "STEP5: iwconfig $INTERFACE key $oneFIX $SEC_KEY" >> "$tmpDIR"/sns_wireless.log
         iwconfig $INTERFACE key $oneFIX $SEC_KEY
        ;;
        WPAPSK) #very simple, handles all ciphers.
@@ -553,20 +572,20 @@ network={
       esac
      fi
 
-     echo "STEP5a: ifconfig $INTERFACE up" >> /tmp/sns_wireless_log
+     echo "STEP5a: ifconfig $INTERFACE up" >> "$tmpDIR"/sns_wireless.log
      ifconfig $INTERFACE up
 
      if [ "$RUNWPASUPP" = "yes" ];then
-      echo "STEP5b: wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c\"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}\"" >> /tmp/sns_wireless_log
-      wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}" >> /tmp/sns_wireless_log 2>&1
+      echo "STEP5b: wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c\"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}\"" >> "$tmpDIR"/sns_wireless.log
+      wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}" >> "$tmpDIR"/sns_wireless.log 2>&1
       wCNT=0
       while [ 1 ];do
        [ "`wpa_cli -i $INTERFACE status | grep '^bssid=[0-9a-f]'`" != "" ] && break
        sleep 1
        wCNT=`expr $wCNT + 1`
        if [ $wCNT -gt 20 ];then
-        echo "Running: wpa_cli -i ${INTERFACE} status" >> /tmp/sns_wireless_log
-        wpa_cli -i $INTERFACE status >> /tmp/sns_wireless_log 2>&1
+        echo "Running: wpa_cli -i ${INTERFACE} status" >> "$tmpDIR"/sns_wireless.log
+        wpa_cli -i $INTERFACE status >> "$tmpDIR"/sns_wireless.log 2>&1
         #FLAGERR=5
         #100314 http://wiki.archlinux.org/index.php/WPA_supplicant has following advice...
         #really weird, works for my wg311 ndiswrapper driver. but must have the ap_scan sequence 2 1 0...
@@ -608,11 +627,11 @@ network={
        sleep 1
        sCNT=`expr $sCNT + 1`
        if [ $sCNT -gt 20 ];then
-        echo "" >> /tmp/sns_wireless_log #100320
-        echo "ERROR, TIMEOUT. Have not got an Access Point." >> /tmp/sns_wireless_log #100320
-        echo "Result of 'iwconfig ${INTERFACE}':" >> /tmp/sns_wireless_log #100320
-        iwconfig ${INTERFACE} >> /tmp/sns_wireless_log 2>&1 #100320
-        echo "" >> /tmp/sns_wireless_log #100320
+        echo "" >> "$tmpDIR"/sns_wireless.log #100320
+        echo "ERROR, TIMEOUT. Have not got an Access Point." >> "$tmpDIR"/sns_wireless.log #100320
+        echo "Result of 'iwconfig ${INTERFACE}':" >> "$tmpDIR"/sns_wireless.log #100320
+        iwconfig ${INTERFACE} >> "$tmpDIR"/sns_wireless.log 2>&1 #100320
+        echo "" >> "$tmpDIR"/sns_wireless.log #100320
         FLAGERR=7
         break
        fi
@@ -642,8 +661,9 @@ network={
        do
         [ "$iterDHCPCD" = "a" ] && DHCPCDFIX=""
         [ "$iterDHCPCD" = "b" ] && DHCPCDFIX="-I ''" #some dhcp servers require empty Client ID (default is macaddress).
-        echo "STEP6${iterDHCPCD}: dhcpcd $DHCPCDFIX $INTERFACE" >> /tmp/sns_wireless_log
-        dhcpcd $DHCPCDFIX $(dhcpcd_dropwait_option) $INTERFACE >> /tmp/sns_wireless_log 2>&1 ####DHCP CLIENT#### 121117
+        pidof dhcpcd && _kill_dhcpcds $INTERFACE
+        echo "STEP6${iterDHCPCD}: dhcpcd $DHCPCDFIX $INTERFACE" >> "$tmpDIR"/sns_wireless.log
+        dhcpcd $DHCPCDFIX $(dhcpcd_dropwait_option) $INTERFACE >> "$tmpDIR"/sns_wireless.log 2>&1 ####DHCP CLIENT#### 121117
         mCNT=0
         while [ 1 ];do
          MODTIME2="`stat -c %Y /etc/resolv.conf`"
@@ -671,13 +691,13 @@ network={
        else
 
         #success!
-        echo "$INTERFACE" > /tmp/sns_interface_success #101118
+        echo "$INTERFACE" > "$tmpDIR"/sns_interface_success #101118
         #100413 have one pc where blinky did not start. try again...
         [ "`which blinky_tray`" ] && [ "`pidof blinky_tray`" = "" ] && blinky_tray &
         essidPATTERN='|'"$CELL_ESSID"'|'
         touch /etc/simple_network_setup/connections
-        grep -v "$essidPATTERN" /etc/simple_network_setup/connections > /tmp/sns_temp2
-        mv -f /tmp/sns_temp2 /etc/simple_network_setup/connections
+        grep -v "$essidPATTERN" /etc/simple_network_setup/connections > "$tmpDIR"/sns_temp2
+        mv -f "$tmpDIR"/sns_temp2 /etc/simple_network_setup/connections
         case $SEC_MGMT in
          WEP) ENCODEPROTO="$oneFIX"; WPA_DRIVER="" ;; #exs: restricted, open
          *) ENCODEPROTO="$WPA_ENC" ;; #exs: AES, TKIP
@@ -748,7 +768,7 @@ ${ERR_EXTRA1}\"</label></text>
   <text><label>\"  \"</label></text>
   <hbox>
    <text><label>$(gettext 'View log of attempted connection:')</label></text>
-   <button><label>$(gettext 'LOG')</label><action>echo ' ' >> /tmp/sns_wireless_log</action><action>echo '*********************************************************' >> /tmp/sns_wireless_log</action><action>echo 'LAST 10 LINES of /var/log/messages:' >> /tmp/sns_wireless_log</action><action>tail -n 10 /var/log/messages >> /tmp/sns_wireless_log</action><action>defaulttextviewer /tmp/sns_wireless_log & </action></button>
+   <button><label>$(gettext 'LOG')</label><action>echo ' ' >> $tmpDIR/sns_wireless.log</action><action>echo '*********************************************************' >> $tmpDIR/sns_wireless.log</action><action>echo 'LAST 10 LINES of /var/log/messages:' >> $tmpDIR/sns_wireless.log</action><action>tail -n 10 /var/log/messages >> $tmpDIR/sns_wireless.log</action><action>defaulttextviewer $tmpDIR/sns_wireless.log & </action></button>
   </hbox>
   <text><label>\"  \"</label></text>
   <hbox>
@@ -772,22 +792,23 @@ if [ "$IF_INTTYPE" == "Wired" ];then
  echo "Information about this interface:
  Interface: $INTERFACE  Driver: $IF_DRIVER  Bus: $IF_BUS  MacAddress: $MACADDRESS
  Description: $IF_INFO
- " > /tmp/sns_wired_log
+ " > "$tmpDIR"/sns_wired.log
 
  MODTIME1="1"; MODTIME2="1"
- ifconfig $INTERFACE up >> /tmp/sns_wired_log 2>&1
+ ifconfig $INTERFACE up >> "$tmpDIR"/sns_wired.log 2>&1
  [ $? -eq 0 ] && MODTIME2="0"
  if [ "$MODTIME2" == "0" ];then
-  if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected'; then
+  if ! $IFPLUGSTATUS18 "$INTERFACE" | grep -F $Q 'link beat detected'; then
    sleep 1
-   if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected'; then
+   if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected'; then
     sleep 1
-    if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected'; then
+    if ! $IFPLUGSTATUS18 "$INTERFACE" | grep -F $Q 'link beat detected'; then
      sleep 1
-     if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected'; then
+     if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected'; then
       # add ethtool test, just in case it helps at times...
       sleep 1
-      if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes'; then
+      if ! ethtool "$INTERFACE" | grep -F $Q 'Link detected: yes'; then
+      echo "ifconfig $INTERFACE down"
        ifconfig $INTERFACE down
        kill $PIDXX
        export WIN4_DLG="<window title=\"$(gettext 'Simple Network Setup')\" icon-name=\"gtk-network\">
@@ -809,15 +830,16 @@ if [ "$IF_INTTYPE" == "Wired" ];then
     fi
    fi
   fi
+  pidof dhcpcd && _kill_dhcpcds $INTERFACE
   MODTIME1="`stat -c %Y /etc/resolv.conf`"
   DHCPCDFIX=""
-  dhcpcd $INTERFACE >> /tmp/sns_wired_log 2>&1
+  dhcpcd $INTERFACE >> "$tmpDIR"/sns_wired.log 2>&1
   MODTIME2="`stat -c %Y /etc/resolv.conf`"
   [ "`grep -v '^#' /etc/resolv.conf`" == "" ] && MODTIME2=$MODTIME1 #fail.
   if [ "$MODTIME2" = "$MODTIME1" ];then #100325 fail, try again.
    DHCPCDFIX="-I ''"
    dhcpcd --release $INTERFACE
-   dhcpcd -I '' $INTERFACE >> /tmp/sns_wired_log 2>&1
+   dhcpcd -I '' $INTERFACE >> "$tmpDIR"/sns_wired.log 2>&1
    MODTIME2="`stat -c %Y /etc/resolv.conf`"
    [ "`grep -v '^#' /etc/resolv.conf`" == "" ] && MODTIME2=$MODTIME1 #fail.
   fi
@@ -844,8 +866,8 @@ if [ "$IF_INTTYPE" == "Wired" ];then
   MACADDRESS="`ifconfig $INTERFACE | grep -o 'HWaddr .*' | cut -f 2 -d ' '`"
   aPATTERN='|'"$MACADDRESS"'|'
   touch /etc/simple_network_setup/connections
-  grep -v "$aPATTERN" /etc/simple_network_setup/connections > /tmp/sns_temp2
-  mv -f /tmp/sns_temp2 /etc/simple_network_setup/connections
+  grep -v "$aPATTERN" /etc/simple_network_setup/connections > "$tmpDIR"/sns_temp2
+  mv -f "$tmpDIR"/sns_temp2 /etc/simple_network_setup/connections
   echo "${IFDATA}|${MACADDRESS}|${DHCPCDFIX}|" >> /etc/simple_network_setup/connections
  else
   ifconfig $INTERFACE down
@@ -859,7 +881,7 @@ if [ "$IF_INTTYPE" == "Wired" ];then
   <text><label>\"  \"</label></text>
   <hbox>
    <text><label>$(gettext 'View log of attempted connection:')</label></text>
-   <button><label>$(gettext 'LOG')</label><action>defaulttextviewer /tmp/sns_wired_log &</action></button>
+   <button><label>$(gettext 'LOG')</label><action>defaulttextviewer $tmpDIR/sns_wired.log &</action></button>
   </hbox>
   <text><label>\"  \"</label></text>
   <hbox>
