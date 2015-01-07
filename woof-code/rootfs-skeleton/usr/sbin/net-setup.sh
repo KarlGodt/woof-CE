@@ -139,6 +139,12 @@ HAVEX='yes'
 ## Dougal: put this into a variable
 BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 
+tmpDIR=/tmp/net_setup
+rm -rf "$tmpDIR"
+mkdir -p "$tmpDIR"
+
+DHCPCD_COMMON_OPS="-L"
+
 #=============================================================================
 #============= FUNCTIONS USED IN THE SCRIPT ==============
 #=============================================================================
@@ -208,7 +214,7 @@ refreshMainWindowInfo ()
   # Dougal: comment out and move to the showLoadModuleWindow -- only used there...
   #findLoadedModules
   getInterfaceList
-  #rm -f /tmp/interface-modules
+  #rm -f "$tmpDIR"/interface-modules
 
   for INTERFACE in $INTERFACES
   do
@@ -254,35 +260,35 @@ ${INTERFACEBUTTONS}
 
   case $INTERFACE_NUM in
     0) # no interfaces
-      echo "$L_ECHO_No_Interfaces_Message" > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_No_Interfaces_Message" > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
     1) # only one
-      echo "$L_ECHO_One_Interface_Message"  > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_One_Interface_Message"  > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
     *) # more than one interface
-      echo "$L_ECHO_Multiple_Interfaces_Message"  > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_Multiple_Interfaces_Message"  > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
   esac
 
     #echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
- #${LOADEDETH}" > /tmp/net-setup_MSGMODULES.txt
+ #${LOADEDETH}" > "$tmpDIR"/net-setup_MSGMODULES.txt
 
 } # end refreshMainWindowInfo
 
 #=============================================================================
 buildMainWindow ()
 {
-    echo "${TOPMSG}" > /tmp/net-setup_TOPMSG.txt
+    echo "${TOPMSG}" > "$tmpDIR"/net-setup_TOPMSG.txt
 
 
     export NETWIZ_Main_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
 
-    <text><label>\"$(cat /tmp/net-setup_TOPMSG.txt)\"</label></text>
+    <text><label>\"$(cat $tmpDIR/net-setup_TOPMSG.txt)\"</label></text>
     <frame  $L_FRAME_Interfaces >
         <vbox>
             <text>
-                <label>\"$(cat /tmp/net-setup_MSGINTERFACES.txt)\"</label>
+                <label>\"$(cat $tmpDIR/net-setup_MSGINTERFACES.txt)\"</label>
             </text>
 
             ${INTERFACEBUTTONS}
@@ -311,10 +317,10 @@ buildMainWindow ()
 showLoadModuleWindow()
 {
   findLoadedModules
-  echo -n "" > /tmp/ethmoduleyesload.txt
+  echo -n "" > "$tmpDIR"/ethmoduleyesload.txt
   MODULELIST=$(cat /etc/networkmodules | sort | tr "\n" " ")
   # Dougal: create list of modules (pipe delimited)
-  sort /etc/networkmodules | tr '"' '|' | tr ':' '|' | sed 's%|$%%g' | tr -s ' ' >/tmp/module-list
+  sort /etc/networkmodules | tr '"' '|' | tr ':' '|' | sed 's%|$%%g' | tr -s ' ' >"$tmpDIR"/module-list
 
   export NETWIZ_LOAD_MODULE_DIALOG="<window title=\"$L_TITLE_Load_Network_Module\" icon-name=\"gtk-execute\" window-position=\"1\">
 <vbox>
@@ -336,7 +342,7 @@ showLoadModuleWindow()
    <pixmap><input file>$BLANK_IMAGE</input></pixmap>
    <tree>
     <label>$L_LABEL_Module_Tree_Header</label>
-    <input>cat /tmp/module-list</input>
+    <input>cat $tmpDIR/module-list</input>
     <height>200</height><width>550</width>
     <variable>NEW_MODULE</variable>
    </tree>
@@ -420,9 +426,9 @@ showLoadModuleWindow()
     cancel) TOPMSG="$L_TOPMSG_Load_Module_Cancel"  ;;
   esac
 
-  #NEWLOADED="$(cat /tmp/ethmoduleyesload.txt)"
+  #NEWLOADED="$(cat "$tmpDIR"/ethmoduleyesload.txt)"
   #NEWLOADf1=${NEWLOADED%% *} #remove any extra params.
-  read NEWLOADED </tmp/ethmoduleyesload.txt
+  read NEWLOADED <"$tmpDIR"/ethmoduleyesload.txt
   NEWLOADf1=${NEWLOADED%% *}
   if [ "${NEWLOADED}" ];then
     ##### add new code here: find new interface, then give window naming it
@@ -572,15 +578,15 @@ tryLoadModule ()
     #+ false, while the driver might already be loaded! Trying to reload
     #+ will then not do anything, I assume... so remove quotes (in loadSpecificModule).
     MODULE_NAME="$1"
-    if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+    if grep $Q "$MODULE_NAME" "$tmpDIR"/loadedeth.txt ; then
         Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
                 --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
-        echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
+        echo -n "${MODULE_NAME}" > "$tmpDIR"/ethmoduleyesload.txt
         return 0
     else
         # Dougal: this had just "$MODULE_NAME", change to include parameters
         if ERROR=$(modprobe $@ 2>&1) ; then
-            echo -n "$*" > /tmp/ethmoduleyesload.txt
+            echo -n "$*" > "$tmpDIR"/ethmoduleyesload.txt
             case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
              *) echo "$@" >> /etc/networkusermodules ;;
             esac
@@ -728,7 +734,7 @@ loadNdiswrapperModule ()
       NATIVEMOD=${NATIVEMOD##*/}
       if [ "$NATIVEMOD" != "ndiswrapper" ];then
         #note 'ndiswrapper -l' also returns the native linux module.
-        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep -q 'ESSID' ;then
+        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep $Q 'ESSID' ;then
           rmmod "$NATIVEMOD"
           sleep 6
           [ $INTERFACE_NUM -gt 0 ] && INTERFACE_NUM=$((INTERFACE_NUM-1))
@@ -826,10 +832,10 @@ autoLoadModule ()
         esac
 
         #also, do not try if it is already loaded...?
-        grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" "$tmpDIR"/loadedeth.txt && MDOIT="no"
 
         #in case of false-hits, ignore anything already tried this session...
-        grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" "$tmpDIR"/logethtries.txt && MDOIT="no"
 
         if [ "$MDOIT" = "yes" ];then
             echo; echo "*** Trying $CANDIDATE."
@@ -838,7 +844,7 @@ autoLoadModule ()
                 SOMETHINGWORKED=true
                 WHATWORKED=$CANDIDATE
                 #add it to the log for this session...
-                echo "$CANDIDATE" >> /tmp/logethtries.txt
+                echo "$CANDIDATE" >> "$tmpDIR"/logethtries.txt
                 break
             fi
         fi
@@ -848,9 +854,9 @@ autoLoadModule ()
     if $SOMETHINGWORKED
     then
         Xdialog --left --wrap --title "$L_TITLE_Puppy_Network_Wizard" --msgbox "$L_MESSAGE_Success_Loading_Module_p1 $WHATWORKED $L_MESSAGE_Success_Loading_Module_p2" 0 0
-        echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
+        echo -n "$WHATWORKED" > "$tmpDIR"/ethmoduleyesload.txt
     else
-        MALREADY="$(cat /tmp/loadedeth.txt)"
+        MALREADY="$(cat "$tmpDIR"/loadedeth.txt)"
         Xdialog --msgbox "${L_MESSAGE_No_Module_Loaded}\n${MALREADY}" 0 0
         return 1
     fi
@@ -860,7 +866,7 @@ autoLoadModule ()
 # A function to add a module to the SKIPLIST
 blacklist_module(){
   MODULE="$1"
-  if grep -Fq 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
+  if grep -F $Q 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
     sed -i "s/^SKIPLIST=.*/SKIPLIST=\"$SKIPLIST ${MODULE//_/-} \"/" /etc/rc.d/MODULESCONFIG
   else
     echo "SKIPLIST=\" ${MODULE//_/-} \"" >>/etc/rc.d/MODULESCONFIG
@@ -923,7 +929,7 @@ unloadSpecificModule(){
   do
     [ "$ONE" ] || continue
     LOADED_ITEMS="$LOADED_ITEMS <item>$ONE</item>"
-  done</tmp/loadedeth.txt
+  done<"$tmpDIR"/loadedeth.txt
 
   # see if there's anything at all...
   if [ ! "$LOADED_ITEMS" ] ; then
@@ -967,7 +973,7 @@ unloadSpecificModule(){
   if [ "$EXIT" = "Unload" ] ; then
     if [ "$COMBOBOX" ] ; then #making sure there was something
       if ERROR=$(rmmod $COMBOBOX 2>&1) ; then # it worked, remove from list
-        sed -i "/^ $COMBOBOX*/d" /tmp/loadedeth.txt
+        sed -i "/^ $COMBOBOX*/d" "$tmpDIR"/loadedeth.txt
         # ask the user about blacklisting
         offerToBlacklistModule "$COMBOBOX"
         # need to refresh the main gui, since # of interfaces has changed
@@ -986,7 +992,7 @@ $ERROR"
 #=============================================================================
 findLoadedModules ()
 {
-  echo -n " " > /tmp/loadedeth.txt
+  echo -n " " > "$tmpDIR"/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
   NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
@@ -1004,12 +1010,12 @@ findLoadedModules ()
             # Also try and retain original module names (removed "tr '-' '_')
             case "$NETWORK_MODULES" in
              *" $AMOD "*)
-               echo "$AMOD" >> /tmp/loadedeth.txt
-               echo -n " " >> /tmp/loadedeth.txt #space separation
+               echo "$AMOD" >> "$tmpDIR"/loadedeth.txt
+               echo -n " " >> "$tmpDIR"/loadedeth.txt #space separation
                ;;
              *" ${AMOD/_/-} "*) # kernel shows module with underscore...
-              echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
-              echo -n " " >> /tmp/loadedeth.txt #space separation
+              echo "${AMOD/_/-}" >> "$tmpDIR"/loadedeth.txt
+              echo -n " " >> "$tmpDIR"/loadedeth.txt #space separation
               ;;
             esac
         done
@@ -1037,30 +1043,30 @@ $ERROR
     fi
     #BK1.0.7 improved link-beat detection...
     echo "X"
-    if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+    if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
       sleep 2
       echo "X"
-      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
         sleep 2
         echo "X"
-        if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+        if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
           sleep 2
           echo "X"
-          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
             # add ethtool test, just in case it helps at times...
             sleep 1
             echo "X"
-            if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+            if ! ethtool "$INTERFACE" | grep -F $Q 'Link detected: yes' ; then
               UNPLUGGED="true"
             fi
           fi
         fi
       fi
     fi
-    echo "${UNPLUGGED}" > /tmp/net-setup_UNPLUGGED.txt
+    echo "${UNPLUGGED}" > "$tmpDIR"/net-setup_UNPLUGGED.txt
   ) | Xdialog --title "$L_TITLE_Network_Wizard" --progress "$L_PROGRESS_Testing_Interface ${INTERFACE}" 0 0 5
 
-  UNPLUGGED=$(cat /tmp/net-setup_UNPLUGGED.txt)
+  UNPLUGGED=$(cat "$tmpDIR"/net-setup_UNPLUGGED.txt)
 
   if [ "$UNPLUGGED" != "false" ];then #BK1.0.7
     #no cable plugged in, no network connection possible...
@@ -1276,7 +1282,7 @@ checkIfIsWireless ()
 
   if [ -d "/sys/class/net/$INTERFACE/wireless" ] || \
      [ "$INTMODULE" = "prism2_usb" ] || \
-     grep -q "$INTERFACE" /proc/net/wireless
+     grep $Q "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
   return 1
@@ -1314,12 +1320,12 @@ configureWireless()
         #else
             #HAS_ERROR=1
         #fi
-        #echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
+        #echo "${HAS_ERROR}" > "$tmpDIR"/net-setup_HAS_ERROR.txt
         #echo "XXXX"
     #} | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
 #DHCP server to respond. Please wait patiently..." 0 0 0
 
-  #HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
+  #HAS_ERROR=$(cat "$tmpDIR"/net-setup_HAS_ERROR.txt)
 
   #if [ $HAS_ERROR -eq 0 ]
   #then
@@ -1679,7 +1685,7 @@ findInterfaceInfo()
    */bus/usb*) TYPE="usb" ;;
    */bus/ieee1394*) TYPE="firewire" ;;
    *) # pcmcia and pci apparently both appear as pci...
-      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep -q 'pcmcia:' ; then
+      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep $Q 'pcmcia:' ; then
         TYPE="pcmcia"
       else
         TYPE="pci"
@@ -1690,7 +1696,7 @@ findInterfaceInfo()
 
   if [ -d "/sys/class/net/$INT/wireless" ] || \
      [ "$FI_DRIVER" = "prism2_usb" ] || \
-     grep -q "$INT" /proc/net/wireless
+     grep $Q "$INT" /proc/net/wireless
   then INTTYPE="$L_INTTYPE_Wireless"
   else INTTYPE="$L_INTTYPE_Ethernet"
   fi
@@ -1727,11 +1733,11 @@ findInterfaceInfo()
      #fi
      ## 2) try looking for info in /proc/bus/usb/devices
      #if [ -n "$DEVICE" -a -n "$VENDOR" ] ; then
-       #grep -Fi -A2 "Vendor=$VENDOR ProdID=$DEVICE" /proc/bus/usb/devices | grep '^S:' >/tmp/proc-info
-       ### /tmp/proc-info can be blank, have lines with bad info or lines with good info...
-       #local MANU=`grep -F 'Manufacturer=' /tmp/proc-info | cut -d= -f2`
-       #local PROD=`grep -F 'Product=' /tmp/proc-info | cut -d= -f2`
-       #rm /tmp/proc-info
+       #grep -Fi -A2 "Vendor=$VENDOR ProdID=$DEVICE" /proc/bus/usb/devices | grep '^S:' >"$tmpDIR"/proc-info
+       ### "$tmpDIR"/proc-info can be blank, have lines with bad info or lines with good info...
+       #local MANU=`grep -F 'Manufacturer=' "$tmpDIR"/proc-info | cut -d= -f2`
+       #local PROD=`grep -F 'Product=' "$tmpDIR"/proc-info | cut -d= -f2`
+       #rm "$tmpDIR"/proc-info
        ### need to somehow decide if info (assuming we got it) is good
        ### (maybe if we have MANU or not)
        #if [ -n "$MANU" -a -n "$PROD" ] ; then
@@ -1790,11 +1796,11 @@ saveInterfaceSetup()
 
 # create config file
 
-  #if [ -e "/tmp/wireless-config" ] ; then
+  #if [ -e "$tmpDIR/wireless-config" ] ; then
   if checkIfIsWireless "$INTERFACE" ; then
     # Dougal: only need to do this once
     if [ ! -s "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf" ] ; then
-      #cp -a /tmp/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
+      #cp -a "$tmpDIR"/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
       echo -e "INT_WPA_DRV='$PROFILE_WPA_DRV'\nUSE_WLAN_NG='$USE_WLAN_NG'" > ${WLAN_INTERFACES_DIR}/$HWADDRESS.conf
     fi
     # create interface config file
@@ -1816,12 +1822,12 @@ saveInterfaceSetup()
 #=============================================================================
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
-    rm -f /tmp/ethmoduleyesload.txt 2>$ERR
-    rm -f /tmp/loadedeth.txt 2>$ERR
-#   rm -f /tmp/wag-profiles_iwconfig.sh 2>$ERR
-    rm -f /tmp/net-setup_* 2>$ERR
-    rm -f /tmp/wpa_status.txt 2>$ERR
-    rm -f /tmp/net-setup_scan*.tmp 2>$ERR
+    rm -f "$tmpDIR"/ethmoduleyesload.txt 2>$ERR
+    rm -f "$tmpDIR"/loadedeth.txt 2>$ERR
+#   rm -f "$tmpDIR"/wag-profiles_iwconfig.sh 2>$ERR
+    rm -f "$tmpDIR"/net-setup_* 2>$ERR
+    rm -f "$tmpDIR"/wpa_status.txt 2>$ERR
+    rm -f "$tmpDIR"/net-setup_scan*.tmp 2>$ERR
 }
 
 #=============================================================================
@@ -1833,7 +1839,7 @@ cleanUpTmp(){
 cleanUpTmp
 
 # Do we have pcmcia hardware?...
-if elspci -l | grep -E -q '60700|60500' ; then
+if elspci -l | grep -E $Q '60700|60500' ; then
   MPCMCIA="yes"
 fi
 
