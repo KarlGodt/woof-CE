@@ -85,8 +85,16 @@ for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
 _trap
 } || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
+tmpDIR=/tmp/sns
+rm -rf "$tmpDIR"
+mkdir -p "$tmpDIR"
+
+IFPLUGSTATUS018=ifplugstatus-0.18
+IFPLUGSTATUS018=ifplugstatus-0.25
+IFPLUGSTATUS018=ifplugstatus-0.28
+
 BIGGESTCNT=0
-echo -n '' > /tmp/sns_interfaces
+echo -n '' > "$tmpDIR"/sns_interfaces
 INTERFACES="`ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' '`"
 for INTERFACE in $INTERFACES #exs: wlan0 eth0
 do
@@ -94,9 +102,13 @@ do
  #fix k2.6.27.47 anomaly...
  [ "$IF_DRIVER" = "ath5k_pci" ] && [ "`lsmod | grep '^ath5k '`" != "" ] && IF_DRIVER='ath5k'
  dPATTERN="^$IF_DRIVER "
+
+ if test -s /etc/networkmodules; then
  WHATWEWANT="`grep "$dPATTERN" /etc/networkmodules | tr '|' '_' | tr '"' '|'`" #'geany
  IF_BUS="`echo -n "$WHATWEWANT" | cut -f 2 -d '|' | cut -f 1 -d ':'`" #ex: usb
  IF_INFO="`echo -n "$WHATWEWANT" | cut -f 2 -d '|' | tr -s ' ' | cut -f 2-29 -d ' '`" #ex: Ralink RT73 USB Wireless LAN driver
+ fi
+
  [ "$IF_BUS" = "" ] && IF_BUS="x"
  [ "$IF_INFO" = "" ] && IF_INFO="x"
  if [ "$IF_DRIVER" == "ndiswrapper" ];then
@@ -138,7 +150,7 @@ do
   <button><label>${INTERFACE}</label><action type=\"exit\">Interface_${INTERFACE}</action></button>"
  #save all data about each interface on one line...
  #ex: wlan1|Wireless|ath5k|pci|Support for 5xxx series of Atheros 802.11 wireless LAN cards
- echo "${INTERFACE}|${IF_INTTYPE}|${IF_DRIVER}|${IF_BUS}|${IF_INFO}" >> /tmp/sns_interfaces
+ echo "${INTERFACE}|${IF_INTTYPE}|${IF_DRIVER}|${IF_BUS}|${IF_INFO}" >> "$tmpDIR"/sns_interfaces
 done
 ALL_IF_INTERFACE="`echo -n "$ALL_IF_INTERFACE" | sed -e 's%^|%%' | tr '|' '\n'`"
 ALL_IF_INTTYPE="`echo -n "$ALL_IF_INTTYPE" | sed -e 's%^|%%' | tr '|' '\n'`"
@@ -230,10 +242,10 @@ fi
 RETSTRING="`gtkdialog3 --geometry=${WINWIDTH}x0 --program=WIN1_DLG --center`" ###main window###
 
 echo "$RETSTRING"
-EXIT="`echo "$RETSTRING" | grep '^EXIT' | cut -f2 -d'"'`" #'geany
+EXIT=`echo "$RETSTRING" | grep '^EXIT' | cut -f2 -d'"'`
 [ "`echo "$EXIT" | grep 'Interface'`" = "" ] && exit
 
-INTERFACE="`echo -n "$EXIT" | cut -f2 -d '_'`" #ex: wlan1
+INTERFACE="`echo "$EXIT" | grep -m1 'Interface' | cut -f2 -d '_'`" #ex: wlan1
 
 if [ "$INTERFACE" == "Windows" ];then #100313
  if [ -d /etc/ndiswrapper ];then
@@ -301,7 +313,7 @@ if [ "`ifconfig | grep "$ifPATTERN"`" != "" ];then
 fi
 
 fPATTERN='^'"${INTERFACE}"'|'
-IFDATA="`grep "$fPATTERN" /tmp/sns_interfaces`"
+IFDATA="`grep "$fPATTERN" "$tmpDIR"/sns_interfaces`"
 IF_INTTYPE="`echo "$IFDATA" | cut -f2 -d'|'`" #ex: Wireless
 IF_DRIVER="`echo "$IFDATA" | cut -f3 -d'|'`" #ex: ath5k
 IF_BUS="`echo "$IFDATA" | cut -f4 -d'|'`" #ex: pci
@@ -312,31 +324,31 @@ MACADDRESS="`ifconfig $INTERFACE | grep -o 'HWaddr .*' | cut -f 2 -d ' '`"
 if [ "$IF_INTTYPE" == "Wireless" ];then
  #scan for networks...
  FLAGERR=
- rm -f /tmp/sns_scan_radiobuttons
- rm -f /tmp/sns_scan_rawoneline
- rm -f /tmp/sns_scan_oneline
+ rm -f "$tmpDIR"/sns_scan_radiobuttons
+ rm -f "$tmpDIR"/sns_scan_rawoneline
+ rm -f "$tmpDIR"/sns_scan_oneline
  #xmessage -center -bg orange -buttons "" "Please wait, scanning for wireless networks..." &
  yaf-splash -placement center -bg orange -text "Please wait, scanning for wireless networks..." &
  PIDXMSG=$!
  echo "Information about this interface:
  Interface: $INTERFACE  Driver: $IF_DRIVER  Bus: $IF_BUS  MacAddress: $MACADDRESS
  Description: $IF_INFO
- " > /tmp/sns_wireless_log
+ " > "$tmpDIR"/sns_wireless.log
  [ "`iwconfig $INTERFACE | grep "$INTERFACE" | grep "ESSID"`" != "" ] && iwconfig $INTERFACE essid off
- echo "STEP1a: ifconfig $INTERFACE up" >> /tmp/sns_wireless_log
- ifconfig $INTERFACE up >> /tmp/sns_wireless_log 2>&1
+ echo "STEP1a: ifconfig $INTERFACE up" >> "$tmpDIR"/sns_wireless.log
+ ifconfig $INTERFACE up >> "$tmpDIR"/sns_wireless.log 2>&1
  if [ $? -ne 0 ];then
   FLAGERR=1
  else
   sleep 2 #100513 increase from 1.
-  echo "STEP1b: iwlist $INTERFACE scan" >> /tmp/sns_wireless_log
+  echo "STEP1b: iwlist $INTERFACE scan" >> "$tmpDIR"/sns_wireless.log
   SCANRESULT="`iwlist $INTERFACE scan | grep -v 'Scan completed'`" ###SCANNING###
   if [ "$SCANRESULT" = "" ];then #100513
    sleep 2
    SCANRESULT="`iwlist $INTERFACE scan | grep -v 'Scan completed'`" ###SCANNING###
   fi
-  echo "$SCANRESULT" >> /tmp/sns_wireless_log
-  echo "STEP1c: ifconfig $INTERFACE down" >> /tmp/sns_wireless_log
+  echo "$SCANRESULT" >> "$tmpDIR"/sns_wireless.log
+  echo "STEP1c: ifconfig $INTERFACE down" >> "$tmpDIR"/sns_wireless.log
   ifconfig $INTERFACE down #100313
   #convert each found network into a single line...
   SRLINES="`echo "$SCANRESULT" | tr '|' ' ' | tr '\n' '|' | sed -e 's%       Cell %\n%g' | tr -s ' '`"
@@ -353,9 +365,9 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    CELL_ESSID="`echo -n "$oneLINE" | grep -o ' ESSID:.*' | cut -f 2 -d '"'`" #'geany
    CELL_ENCRYPTIONKEY="`echo -n "$oneLINE" | grep -o 'Encryption key:.*' | cut -f 2 -d ':' | cut -f1 -d '|'`" #ex: off
    CELLMSG="Name: $CELL_ESSID  Encryption: $CELL_ENCRYPTIONKEY  Strength: $CELL_QUALITY"
-   echo "<radiobutton><label>${CELLMSG}</label><variable>RADIO_${CELL_NUMBER}</variable></radiobutton>" >> /tmp/sns_scan_radiobuttons
-   echo "$oneLINE" >> /tmp/sns_scan_rawoneline
-   echo "${CELL_NUMBER}|${CELL_ADDRESS}|${CELL_CHANNEL}|${CELL_QUALITY}|${CELL_ENCRYPTIONKEY}|${CELL_ESSID}" >> /tmp/sns_scan_oneline
+   echo "<radiobutton><label>${CELLMSG}</label><variable>RADIO_${CELL_NUMBER}</variable></radiobutton>" >> "$tmpDIR"/sns_scan_radiobuttons
+   echo "$oneLINE" >> "$tmpDIR"/sns_scan_rawoneline
+   echo "${CELL_NUMBER}|${CELL_ADDRESS}|${CELL_CHANNEL}|${CELL_QUALITY}|${CELL_ENCRYPTIONKEY}|${CELL_ESSID}" >> "$tmpDIR"/sns_scan_oneline
   done
 
   #my wpa_supplicant only supports: wext hostap atmel wired ralink roboswitch
@@ -365,14 +377,14 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    *)         WPA_DRIVER="wext" ;;
   esac
 
-  if [ ! -f /tmp/sns_scan_radiobuttons ];then
+  if [ ! -f "$tmpDIR"/sns_scan_radiobuttons ];then
    FRAME1="<frame Wireless networks><text><label>\" \"</label></text><text><label>No wireless networks found</label></text></frame><text><label>\" \"</label></text>"
    FRAME2=""
    WIN2MSG1=""
    WIN2BUT1=""
   else
    WIN2MSG1="<text><label>Choose which network you want to use, type of encryption, then click 'CONNECT' button:</label></text>"
-   RADIOBUTTONS="`cat /tmp/sns_scan_radiobuttons`"
+   RADIOBUTTONS="`cat $tmpDIR/sns_scan_radiobuttons`"
    FRAME1="<frame Wireless networks><text><label>\" \"</label></text>${RADIOBUTTONS}<text><label>\" \"</label></text></frame>"
    FRAME2="<frame Encryption>
    <hbox>
@@ -422,7 +434,7 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
 
   CELL_NUMBER="`echo "$RETSTRING" | grep '^RADIO' | grep 'true' | cut -f1 -d'=' | cut -f2 -d'_'`" #ex: 01
   cnPATTERN='^'"$CELL_NUMBER"'|'
-  CELLDATA="`grep "$cnPATTERN" /tmp/sns_scan_oneline`"
+  CELLDATA="`grep "$cnPATTERN" "$tmpDIR"/sns_scan_oneline`"
   CELL_ADDRESS="`echo -n "$CELLDATA" | cut -f2 -d'|'`"
   CELL_CHANNEL="`echo -n "$CELLDATA" | cut -f3 -d'|'`"
   CELL_QUALITY="`echo -n "$CELLDATA" | cut -f4 -d'|'`"
@@ -438,12 +450,12 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
    #xmessage -center -bg orange -buttons "" "Please wait, attempting to connect to '${CELL_ESSID}'..." &
    yaf-splash -placement center -bg orange -text "Please wait, attempting to connect to '${CELL_ESSID}'..." &
    PIDX=$!
-   echo "STEP2: iwconfig $INTERFACE mode managed" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE mode managed  >> /tmp/sns_wireless_log 2>&1
-   echo "STEP3: iwconfig $INTERFACE channel $CELL_CHANNEL" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE channel $CELL_CHANNEL  >> /tmp/sns_wireless_log 2>&1
-   echo "STEP4: iwconfig $INTERFACE essid \"$CELL_ESSID\"" >> /tmp/sns_wireless_log
-   iwconfig $INTERFACE essid "$CELL_ESSID"  >> /tmp/sns_wireless_log 2>&1
+   echo "STEP2: iwconfig $INTERFACE mode managed" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE mode managed  >> "$tmpDIR"/sns_wireless.log 2>&1
+   echo "STEP3: iwconfig $INTERFACE channel $CELL_CHANNEL" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE channel $CELL_CHANNEL  >> "$tmpDIR"/sns_wireless.log 2>&1
+   echo "STEP4: iwconfig $INTERFACE essid \"$CELL_ESSID\"" >> "$tmpDIR"/sns_wireless.log
+   iwconfig $INTERFACE essid "$CELL_ESSID"  >> "$tmpDIR"/sns_wireless.log 2>&1
 
    #test essid is associated...
    if [ $? -ne 0 ];then
@@ -464,7 +476,7 @@ if [ "$IF_INTTYPE" == "Wireless" ];then
      if [ "$CELL_ENCRYPTIONKEY" == "on" ];then
       case $BUTSEC in
        WEP)
-        echo "STEP5: iwconfig $INTERFACE key $oneFIX $SEC_KEY" >> /tmp/sns_wireless_log
+        echo "STEP5: iwconfig $INTERFACE key $oneFIX $SEC_KEY" >> "$tmpDIR"/sns_wireless.log
         iwconfig $INTERFACE key $oneFIX $SEC_KEY
        ;;
        WPAPSK) #very simple, handles all ciphers.
@@ -508,20 +520,20 @@ network={
       esac
      fi
 
-     echo "STEP5a: ifconfig $INTERFACE up" >> /tmp/sns_wireless_log
+     echo "STEP5a: ifconfig $INTERFACE up" >> "$tmpDIR"/sns_wireless.log
      ifconfig $INTERFACE up
 
      if [ "$RUNWPASUPP" = "yes" ];then
-      echo "STEP5b: wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c\"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}\"" >> /tmp/sns_wireless_log
-      wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}" >> /tmp/sns_wireless_log 2>&1
+      echo "STEP5b: wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c\"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}\"" >> "$tmpDIR"/sns_wireless.log
+      wpa_supplicant -B -D${WPA_DRIVER} -i${INTERFACE} -c"/etc/simple_network_setup/wpa_supplicant.conf-${CELL_ESSID}-${MACADDRESS}" >> "$tmpDIR"/sns_wireless.log 2>&1
       wCNT=0
       while [ 1 ];do
        [ "`wpa_cli -i $INTERFACE status | grep '^bssid=[0-9a-f]'`" != "" ] && break
        sleep 1
        wCNT=`expr $wCNT + 1`
        if [ $wCNT -gt 20 ];then
-        echo "Running: wpa_cli -i ${INTERFACE} status" >> /tmp/sns_wireless_log
-        wpa_cli -i $INTERFACE status >> /tmp/sns_wireless_log 2>&1
+        echo "Running: wpa_cli -i ${INTERFACE} status" >> "$tmpDIR"/sns_wireless.log
+        wpa_cli -i $INTERFACE status >> "$tmpDIR"/sns_wireless.log 2>&1
         #FLAGERR=5
         #100314 http://wiki.archlinux.org/index.php/WPA_supplicant has following advice...
         #really weird, works for my wg311 ndiswrapper driver. but must have the ap_scan sequence 2 1 0...
@@ -563,11 +575,11 @@ network={
        sleep 1
        sCNT=`expr $sCNT + 1`
        if [ $sCNT -gt 20 ];then
-        echo "" >> /tmp/sns_wireless_log #100320
-        echo "ERROR, TIMEOUT. Have not got an Access Point." >> /tmp/sns_wireless_log #100320
-        echo "Result of 'iwconfig ${INTERFACE}':" >> /tmp/sns_wireless_log #100320
-        iwconfig ${INTERFACE} >> /tmp/sns_wireless_log 2>&1 #100320
-        echo "" >> /tmp/sns_wireless_log #100320
+        echo "" >> "$tmpDIR"/sns_wireless.log #100320
+        echo "ERROR, TIMEOUT. Have not got an Access Point." >> "$tmpDIR"/sns_wireless.log #100320
+        echo "Result of 'iwconfig ${INTERFACE}':" >> "$tmpDIR"/sns_wireless.log #100320
+        iwconfig ${INTERFACE} >> "$tmpDIR"/sns_wireless.log 2>&1 #100320
+        echo "" >> "$tmpDIR"/sns_wireless.log #100320
         FLAGERR=7
         break
        fi
@@ -597,8 +609,8 @@ network={
        do
         [ "$iterDHCPCD" = "a" ] && DHCPCDFIX=""
         [ "$iterDHCPCD" = "b" ] && DHCPCDFIX="-I ''" #some dhcp servers require empty Client ID (default is macaddress).
-        echo "STEP6${iterDHCPCD}: dhcpcd $DHCPCDFIX $INTERFACE" >> /tmp/sns_wireless_log
-        dhcpcd $DHCPCDFIX $INTERFACE >> /tmp/sns_wireless_log 2>&1 ####DHCP CLIENT####
+        echo "STEP6${iterDHCPCD}: dhcpcd $DHCPCDFIX $INTERFACE" >> "$tmpDIR"/sns_wireless.log
+        dhcpcd $DHCPCDFIX $INTERFACE >> "$tmpDIR"/sns_wireless.log 2>&1 ####DHCP CLIENT####
         mCNT=0
         while [ 1 ];do
          MODTIME2="`stat -c %Y /etc/resolv.conf`"
@@ -630,8 +642,8 @@ network={
         [ "`which blinky_tray`" ] && [ "`pidof blinky_tray`" = "" ] && blinky_tray &
         essidPATTERN='|'"$CELL_ESSID"'|'
         touch /etc/simple_network_setup/connections
-        grep -v "$essidPATTERN" /etc/simple_network_setup/connections > /tmp/sns_temp2
-        mv -f /tmp/sns_temp2 /etc/simple_network_setup/connections
+        grep -v "$essidPATTERN" /etc/simple_network_setup/connections > "$tmpDIR"/sns_temp2
+        mv -f "$tmpDIR"/sns_temp2 /etc/simple_network_setup/connections
         case $SEC_MGMT in
          WEP) ENCODEPROTO="$oneFIX"; WPA_DRIVER="" ;; #exs: restricted, open
          *) ENCODEPROTO="$WPA_ENC" ;; #exs: AES, TKIP
@@ -702,7 +714,7 @@ ${ERR_EXTRA1}\"</label></text>
   <text><label>\"  \"</label></text>
   <hbox>
    <text><label>View log of attempted connection:</label></text>
-   <button><label>LOG</label><action>echo ' ' >> /tmp/sns_wireless_log</action><action>echo '*********************************************************' >> /tmp/sns_wireless_log</action><action>echo 'LAST 10 LINES of /var/log/messages:' >> /tmp/sns_wireless_log</action><action>tail -n 10 /var/log/messages >> /tmp/sns_wireless_log</action><action>defaulttextviewer /tmp/sns_wireless_log & </action></button>
+   <button><label>LOG</label><action>echo ' ' >> $tmpDIR/sns_wireless.log</action><action>echo '*********************************************************' >> $tmpDIR/sns_wireless.log</action><action>echo 'LAST 10 LINES of /var/log/messages:' >> $tmpDIR/sns_wireless.log</action><action>tail -n 10 /var/log/messages >> $tmpDIR/sns_wireless.log</action><action>defaulttextviewer $tmpDIR/sns_wireless.log & </action></button>
   </hbox>
   <text><label>\"  \"</label></text>
   <hbox>
@@ -726,22 +738,22 @@ if [ "$IF_INTTYPE" == "Wired" ];then
  echo "Information about this interface:
  Interface: $INTERFACE  Driver: $IF_DRIVER  Bus: $IF_BUS  MacAddress: $MACADDRESS
  Description: $IF_INFO
- " > /tmp/sns_wired_log
+ " > "$tmpDIR"/sns_wired.log
 
  MODTIME1="1"; MODTIME2="1"
- ifconfig $INTERFACE up >> /tmp/sns_wired_log 2>&1
+ ifconfig $INTERFACE up >> "$tmpDIR"/sns_wired.log 2>&1
  [ $? -eq 0 ] && MODTIME2="0"
  if [ "$MODTIME2" == "0" ];then
-  if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+  if ! $IFPLUGSTATUS018 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
    sleep 1
-   if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+   if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
     sleep 1
-    if ! ifplugstatus-0.18 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+    if ! $IFPLUGSTATUS018 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
      sleep 1
-     if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+     if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
       # add ethtool test, just in case it helps at times...
       sleep 1
-      if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+      if ! ethtool "$INTERFACE" | grep -F $Q 'Link detected: yes' ; then
        ifconfig $INTERFACE down
        kill $PIDXX
        export WIN4_DLG="<window title=\"Simple Network Setup\" icon-name=\"gtk-network\">
@@ -765,13 +777,13 @@ if [ "$IF_INTTYPE" == "Wired" ];then
   fi
   MODTIME1="`stat -c %Y /etc/resolv.conf`"
   DHCPCDFIX=""
-  dhcpcd $INTERFACE >> /tmp/sns_wired_log 2>&1
+  dhcpcd $INTERFACE >> "$tmpDIR"/sns_wired.log 2>&1
   MODTIME2="`stat -c %Y /etc/resolv.conf`"
   [ "`grep -v '^#' /etc/resolv.conf`" == "" ] && MODTIME2=$MODTIME1 #fail.
   if [ "$MODTIME2" = "$MODTIME1" ];then #100325 fail, try again.
    DHCPCDFIX="-I ''"
    dhcpcd --release $INTERFACE
-   dhcpcd -I '' $INTERFACE >> /tmp/sns_wired_log 2>&1
+   dhcpcd -I '' $INTERFACE >> "$tmpDIR"/sns_wired.log 2>&1
    MODTIME2="`stat -c %Y /etc/resolv.conf`"
    [ "`grep -v '^#' /etc/resolv.conf`" == "" ] && MODTIME2=$MODTIME1 #fail.
   fi
@@ -791,15 +803,17 @@ if [ "$IF_INTTYPE" == "Wired" ];then
 </window>"
   RETSTR5="`gtkdialog3 --program=WIN5_DLG --center`"
   if [ "`echo "$RETSTR5" | grep '^CHK_SNSDEF' | grep 'true'`" != "" ];then
+   mv /usr/local/bin/defaultconnect /usr/local/bin/defaultconnectBAK
    echo -e '#!/bin/sh\nexec sns' > /usr/local/bin/defaultconnect
   else
+   mv /usr/local/bin/defaultconnect /usr/local/bin/defaultconnectBAK
    echo -e '#!/bin/sh\nexec connectwizard' > /usr/local/bin/defaultconnect
   fi
   MACADDRESS="`ifconfig $INTERFACE | grep -o 'HWaddr .*' | cut -f 2 -d ' '`"
   aPATTERN='|'"$MACADDRESS"'|'
   touch /etc/simple_network_setup/connections
-  grep -v "$aPATTERN" /etc/simple_network_setup/connections > /tmp/sns_temp2
-  mv -f /tmp/sns_temp2 /etc/simple_network_setup/connections
+  grep -v "$aPATTERN" /etc/simple_network_setup/connections > "$tmpDIR"/sns_temp2
+  mv -f "$tmpDIR"/sns_temp2 /etc/simple_network_setup/connections
   echo "${IFDATA}|${MACADDRESS}|${DHCPCDFIX}|" >> /etc/simple_network_setup/connections
  else
   ifconfig $INTERFACE down
@@ -813,7 +827,7 @@ if [ "$IF_INTTYPE" == "Wired" ];then
   <text><label>\"  \"</label></text>
   <hbox>
    <text><label>View log of attempted connection:</label></text>
-   <button><label>LOG</label><action>defaulttextviewer /tmp/sns_wired_log & </action></button>
+   <button><label>LOG</label><action>defaulttextviewer $tmpDIR/sns_wired.log & </action></button>
   </hbox>
   <text><label>\"  \"</label></text>
   <hbox>
