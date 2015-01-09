@@ -391,7 +391,7 @@ esac
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
        _debug "194:$LOOPD"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
-       USEapps=`fuser -m "$MntPt2"`   ##+++2011-10-27
+       USEapps=`fuser -m "$i"`   ##+++2011-10-27
        _notice "194:fuser:$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
        _debugx "194:fuser:$USEapps"
@@ -475,9 +475,43 @@ if [ -z "$UNMOUNT" ] ; then
   #v423 detect wrong squashfs version...
   if [ "$Type" = "squashfs" ];then
    DISK_TYPE=`disktype "${imgFILE}"`
+   _debug $DISK_TYPE
+
+   # use unsquashfs -s
+   # v3
+   FILE_HEADER3=`unsquashfs3 -s "${imgFILE}" 2>&1`
+   _debug $FILE_HEADER3
+   case "$FILE_HEADER3" in
+    *Filesystem*on*is*\(4:0\),*which*is*a*later*filesystem*version*than*I*support!*)
+     IS_SQUASH=YES
+     IS_SQUASH3=MAYBE
+     IS_SQUASH4=YES
+     ;;
+   esac
+   # v4
+   FILE_HEADER4=`unsquashfs4 -s "${imgFILE}" 2>&1`
+   _debug $FILE_HEADER4
+   case "$FILE_HEADER4" in
+    *Found*a*valid*SQUASHFS*4:0*superblock*on*.*)
+     IS_SQUASH=YES
+     IS_SQUASH3=
+     IS_SQUASH4=YES
+     ;;
+   esac
+
+   _debugx IS_SQUASH=$IS_SQUASH IS_SQUASH3=$IS_SQUASH3 IS_SQUASH4=$IS_SQUASH4
+
+   # maybe it is not a squashfs file
+   test "$IS_SQUASH" = YES -o "`echo "$DISK_TYPE" | grep -i squash`" || {
+    MSG_ERR_NO_SQUASH=`gettext "Could not confirm being a squashfs file"`
+    _warning "$MSG_ERR_NO_SQUASH"
+    xmessage -bg red "$MSG_ERR_NO_SQUASH"
+    exit 4
+   }
+
    if [ "`echo "${DISK_TYPE}" | grep "$SFSSTR"`" = "" ];then
     xmessage -bg orange1 "$DISK_TYPE"
-    if [ $KERNEL_MAJ = 2 -a $KERNELSUBVER -gt 28 ] || [ $KERNEL_MAJ -gt 2 ];then
+    if [ $K_VERSION = 2 -a $KERNELSUBVER -gt 28 ] || [ $K_VERSION -gt 2 ];then
      [ -n "$DISPLAY" ] && xmessage -center -bg '#FFC0C0' "NOTICE: This may be an older version 3.x squashfs file, not usable.
 All Linux kernels around 2.6.29 or later require version 4.x squashfs files.
 Note, there is an SFS-version-converter in the Utility menu, run that first."
