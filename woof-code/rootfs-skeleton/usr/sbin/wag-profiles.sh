@@ -198,13 +198,18 @@ tmpDIR=/tmp/net_setup
 #rm -rf "$tmpDIR"
 mkdir -p "$tmpDIR"
 
+# KRG: common dhcpcd options
+##  -L, --noipv4ll  Don't use IPv4LL at all
+DHCPCD_COMMON_OPS='-L'
+
 #=============================================================================
 setupDHCP()
 {
     # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
-    local MAX_TIME='30'
-    # by how much we multiply the time to get percentage (3 for 30 seconds max time)
-    local I_MULTIPLY='3'
+    local MAX_TIME='20'
+    # by how much we multiply the time to get percentage (3 for 30 seconds MAX_TIME)
+    #local I_MULTIPLY='5'
+    local I_MULTIPLY=$((100/MAX_TIME))
     if [ "$HAVEX" = "yes" ]; then
         # Create a temporary fifo to pass messages to progressbar (can't just pipe to it)
         local PROGRESS_OUTPUT="$tmpDIR"/progress-fifo$$
@@ -223,7 +228,7 @@ setupDHCP()
    <button>
      <label>$L_BUTTON_Abort</label>
      <input file icon=\"gtk-stop\"></input>
-     <action>kill \$(ps ax | grep \"dhcpcd -d -I  $INTERFACE\" | awk '{print \$1}')</action>
+     <action>kill \$(ps ax | grep \"dhcpcd\" | grep -e \"-d -I  $INTERFACE\" | awk '{print \$1}')</action>
      <action>EXIT:Abort</action>
    </button>
   </hbox>
@@ -243,12 +248,12 @@ setupDHCP()
         # (It could have just been a loop, but the code is clearer this way...)
         # $1 - XPID, so we know if the user aborted
         dhcpcdProgress(){
-            for i in $(seq 1 $MAX_TIME)
+            for i in $(seq 4 1 $MAX_TIME)
             do
-                sleep 1
+                #sleep 1
                 # see if user aborted
                 if [ "$HAVEX" = "yes" ]; then
-                    pidof gtkdialog3 2>&1 |grep -q "$1" || return
+                    pidof gtkdialog3 2>&1 |grep $Q "$1" || return
                     # exit the function
                 else
                     if [ -f "$TmpMarker" ] ; then
@@ -259,6 +264,7 @@ setupDHCP()
                 #  i*3 will only get us up to 90% at 30 sec, but still... this
                 #+ could be tweaked and obviously needs to be adjusted to the max time
                 echo $((i*$I_MULTIPLY))
+                sleep 1
             done
         }
 
@@ -266,7 +272,7 @@ setupDHCP()
         dhcpcdProgress "$XPID" &
 
         # Run dhcpcd. The output goes to the text in the progressbar...
-        if dhcpcd -d -I '' "$INTERFACE" 2>&1
+        if dhcpcd $DHCPCD_COMMON_OPS -t $MAX_TIME -d -I '' "$INTERFACE" 2>&1
         then
             HAS_ERROR=0
         else
@@ -276,7 +282,7 @@ setupDHCP()
         echo "$HAS_ERROR" > "$tmpDIR"/net-setup_HAS_ERROR.txt
         # close progressbar
         if [ "$HAVEX" = "yes" ] ; then
-            pidof gtkdialog3 2>&1 | grep -q "$XPID" && echo "100"
+            pidof gtkdialog3 2>&1 | grep $Q "$XPID" && echo "100"
         else
             touch "$TmpMarker"
         fi
@@ -1289,7 +1295,7 @@ killDhcpcd(){
     # release dhcpcd
     dhcpcd -k "$INTERFACE" 2>$ERR
     # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
-    kill $(ps ax | grep "dhcpcd -d -I  $INTERFACE" | awk '{print $1}') 2>$ERR
+    kill $(ps ax | grep "dhcpcd" | grep -e "-d -I  $INTERFACE" | awk '{print $1}') 2>$ERR
     }
     # clean up if needed
     ## Dougal: check /var first, since /etc/dhcpc might exist in save file from the past...
@@ -1484,7 +1490,7 @@ validateWpaAuthentication(){
         sleep 1
         # see if user aborted
         if [ "$2" ] ; then
-          pidof gtkdialog3 2>&1 |grep -q "$2" || return 2
+          pidof gtkdialog3 2>&1 |grep $Q "$2" || return 2
         fi
         # change to lower case, to make it more clear when displayed
         RESULT=$(wpa_cli -i "$1" status 2>>$DEBUG_OUTPUT |grep 'wpa_state=' | tr A-Z a-z |tr '_' ' ')
@@ -1726,7 +1732,7 @@ checkIsPCMCIA(){
 #=============================================================================
 waitForPCMCIA(){
     # see if this is a pcmcia device at all
-    #grep -q "^pcmcia:" /sys/class/net/$INTERFACE/device/modalias || return
+    #grep $Q "^pcmcia:" /sys/class/net/$INTERFACE/device/modalias || return
     #case $INTMODULE in *_cs) ;; *) return ;; esac
     export NETWIZ_Wait_For_PCMCIA_Dialog="<window title=\"$L_TITLE_Network_Wizard\" window-position=\"1\">
  <progressbar>
