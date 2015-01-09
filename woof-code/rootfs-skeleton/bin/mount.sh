@@ -27,8 +27,10 @@ _debugt 8D $_DATE_
 Q=-q
 QUIET=--quiet
 DEBUG=1
-DEBUGX=
+DEBUGX=1
 test "$DEBUG" && { unset Q QUIET; }
+
+_debug "$@:$*"
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
@@ -85,21 +87,25 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 
 }
 
-__string_to_octal__()
+__string_to_octal()
 {
-_debug "_string_to_octal:$*" >&2
+_debug "__string_to_octal:$*" >&2
 unset oSTRING
 if test "$*"; then
 STRING_ORIG="$*"
 
 STRING=`echo "$STRING_ORIG" | sed 's!\(.\)!"\1"\n!g'`
-_debug "_string_to_octal:STRING='$STRING'" >&2
+_debug "__string_to_octal:STRING='$STRING'" >&2
 
 
 while read -r oneCHAR
 do
+
+#test "$oneCHAR" || oneCHAR=$'"\n"'
+test "$oneCHAR" && {
 oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
-oCHAR=`printf %o \'"$oneCHAR"`
+oCHAR=`printf "%o" \'"$oneCHAR"`
+} || oCHAR=12
 
 oSTRING=$oSTRING"\\0$oCHAR"
 
@@ -114,14 +120,18 @@ do
 #test "$oneLINE" || continue
  _debug "oneLINE='$oneLINE'" >&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
- _debugx "STRING='$STRING'" >&2
+ _debugx "STRING='$STRING'"  >&2
  while read -r oneCHAR
  do
  _debugx "oneCHAR='$oneCHAR'" >&2
+ #test "$oneCHAR" || oneCHAR='" "'
+ test "$oneCHAR" && {
+ _debugx "oneCHAR='$oneCHAR'" >&2
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
- _debug "oneCHAR='$oneCHAR'" >&2
- oCHAR=`printf %o \'"$oneCHAR"`
- _debug "oCHAR='$oCHAR'" >&2
+ _debug "oneCHAR='$oneCHAR'"  >&2
+ oCHAR=`printf "%o" \'"$oneCHAR"`
+ _debug "oCHAR='$oCHAR'"      >&2
+ } || oCHAR=12
  #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
@@ -148,7 +158,8 @@ _posparams_to_octal()
 #test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
 #posPARAMS=`cat /tmp/posPARAMS.od`
 
-posPARAMS=`echo "$@" | _string_to_octal`
+#posPARAMS=`echo "$@" | _string_to_octal`
+ posPARAMS=`__string_to_octal "$@"`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
@@ -168,9 +179,9 @@ umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-o
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
 _debug "               options='$getOPS'"
 
- #longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ #longOPS=`echo "$getOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  longOPS=${getOPS% -- *}
- longOPS=`echo "$longOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ longOPS=`echo "$longOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  test "${longOPS//[[:blank:]]/}" || longOPS='';
 _info "           long options='$longOPS'"
 
@@ -625,7 +636,7 @@ if test "$deviceORpoint"; then
  _debug "$WHAT:"$@
 fi
 c=0
-for posPAR in $*; do  #hope, only file/device AND mountpoint left
+for posPAR in `echo -e "$@"`; do  #hope, only file/device AND mountpoint left
 c=$((c+1))
 _debug "posPAR='$posPAR'"
 case $posPAR in
@@ -637,12 +648,13 @@ adfs|affs|autofs|cifs|coda|coherent|cramfs|debugfs|devpts)       :;;
 efs|ext|ext2|ext3|ext4|hfs|hfsplus|hpfs|iso9660|jfs|minix)         :;;
 msdos|ncpfs|nfs|nfs4|ntfs|proc|qnx4|ramfs|reiserfs|romfs)            :;;
 smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
+fuse*) :;;
 
 *) test $c = $# || continue
    if test -f /proc/filesystems; then
    if test ! "`grep 'nodev' /proc/filesystems | grep $posPAR`"; then
-      #if test "`echo "$*" | grep -e '\-\-[[:alpha:]]*'`" = ""; then
-   grep $Q -Fw "$posPAR" /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
+      #if test "`echo "$*" | grep -Ee '--[[:alpha:]]+'`" = ""; then
+   grep -Fw "$posPAR" /proc/mounts | grep $Q -vi fuse && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
       #fi
       _debug "c=$c \$#=$# "$posPAR
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
@@ -656,20 +668,28 @@ o_posPAR="$posPAR"
    mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
    _debugx "mountPOINT='$mountPOINT'"
+
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
+
+   _debugx "testing -b $posPAR"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && _debugx "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint..";
+
+   _debugx "testing -e $posPAR"
+   test -e "$posPAR" && { _debugx "`ls -lv "$posPAR"`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
    LANG=$LANG_ROX mkdir -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
+
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
    _debugx "ocposPAR='$ocposPAR'"
+
 #ocposPAR=`echo $ocposPAR | tr -d ' '`
 #ocposPAR=`echo "$ocposPAR" | sed 's!\\012!\n!g'`
 #_debugx "            ocposPAR='$ocposPAR'"
 ocposPAR=`echo "$ocposPAR" | sed 's!\\\\0$!!g'`
 _debug "             ocposPAR='$ocposPAR'"
+
    #test -b $oposPAR && set - $@ "$ocposPAR"
    #_debug "posPAR:$*"
    test -b $o_posPAR && posPARAMS="$posPARAMS $ocposPAR"
@@ -678,7 +698,16 @@ esac
 done
 c=0
 ;;
-umount) :;;
+umount)
+ # handle unmounting of no-existent dir
+ # give better error message instead 'invalid argument'
+  if test "$deviceORpoint"; then
+   test -b "$deviceORpoint" || {
+    mountpoint "$deviceORpoint" || { _warn "'$deviceORpoint' not a current mountpoint"; }
+   }
+  fi
+
+ :;;
 *) _exit 40 "Unhandled '$WHAT' -- use 'mount' or 'umount' ."
 ;;
 esac
@@ -688,8 +717,8 @@ case $WHAT in
 umount)
 if test "$deviceORpoint"; then
  mountpoint $Q /proc && {
- NTFSMNTPT=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
- NTFSMNTDV=`_command ps -eF | grep -o 'ntfs\-3g.*' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
+ NTFSMNTPT=`_command ps -eF | grep -Eo 'ntfs\-3g.+' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
+ NTFSMNTDV=`_command ps -eF | grep -Eo 'ntfs\-3g.+' | grep -w "$deviceORpoint" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
  _debug "NTFSMNTPT='$NTFSMNTPT' NTFSMNTDV='$NTFSMNTDV'"
  }
 fi
