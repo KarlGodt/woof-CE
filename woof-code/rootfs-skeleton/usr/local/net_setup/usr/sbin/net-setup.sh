@@ -515,7 +515,7 @@ Click Cancel to just go back and configure the new interface.\"</label>
 tryLoadModule()
 {
     MODULE_NAME="$1"
-    if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+    if grep $Q "$MODULE_NAME" /tmp/loadedeth.txt ; then
         Xdialog --screen-center --title "Puppy Network Wizard: hardware" \
                 --msgbox "The driver is already loaded.\nThat does not mean it will actually work though!\nAfter clicking OK, see if a new interface\nhas been detected." 0 0
         echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
@@ -615,10 +615,10 @@ autoLoadModule()
         esac
 
         #also, do not try if it is already loaded...?
-        grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
 
         #in case of false-hits, ignore anything already tried this session...
-        grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
 
         if [ "$MDOIT" = "yes" ];then
             echo; echo "*** Trying $CANDIDATE."
@@ -692,16 +692,16 @@ testInterface()
         fi
         #BK1.0.7 improved link-beat detection...
         echo "X"
-        if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
+        if ! ifplugstatus ${INTERFACE} | grep -F $Q 'link beat detected' ;then
           sleep 2
           echo "X"
-          if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
+          if ! ifplugstatus-0.25 ${INTERFACE} | grep -F $Q 'link beat detected' ;then
             sleep 2
             echo "X"
-            if ! ifplugstatus ${INTERFACE} | grep -F -q 'link beat detected' ;then
+            if ! ifplugstatus ${INTERFACE} | grep -F $Q 'link beat detected' ;then
               sleep 2
               echo "X"
-              if ! ifplugstatus-0.25 ${INTERFACE} | grep -F -q 'link beat detected' ;then
+              if ! ifplugstatus-0.25 ${INTERFACE} | grep -F $Q 'link beat detected' ;then
                 UNPLUGGED="true"
               fi
             fi
@@ -948,7 +948,7 @@ checkIfIsWireless()
   INTMODULE=`readlink /sys/class/net/$INTERFACE/device/driver`
   INTMODULE=${INTMODULE##*/}
 
-  if grep -q "${INTERFACE}" /proc/net/wireless || [ "$INTMODULE" = "prism2_usb" ] ; then
+  if grep $Q "${INTERFACE}" /proc/net/wireless || [ "$INTMODULE" = "prism2_usb" ] ; then
     IS_WIRELESS="true"
   fi
 }
@@ -1397,7 +1397,7 @@ done
  if [ -s /tmp/new-usb-modules ] ; then
    # check if new modules are actually for network devices...
    for AMOD in `cat /tmp/new-usb-modules`
-   do grep -q "^$AMOD" /etc/networkmodules && NEWMODULES="$NEWMODULES $AMOD"
+   do grep $Q "^$AMOD" /etc/networkmodules && NEWMODULES="$NEWMODULES $AMOD"
    done
    # now see if there's really a new one
    if [ "$NEWMODULES" ] ; then
@@ -1448,7 +1448,7 @@ findInterfaceInfo()
   done
   INFO="$FINALINFO "
 
-  if grep -q "$INT" /proc/net/wireless || [ "$FI_DRIVER" = "prism2_usb" ] ; then
+  if grep $Q "$INT" /proc/net/wireless || [ "$FI_DRIVER" = "prism2_usb" ] ; then
     INTTYPE="Wireless"
   else
     INTTYPE="Ethernet"
