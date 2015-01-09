@@ -318,6 +318,7 @@ showProfilesWindow()
 {
     INTERFACE="$1"
     # Dougal: find driver and set WPA driver from it
+    if test -e /sys/class/net/$INTERFACE; then
     INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
     INTMODULE=${INTMODULE##*/}
     case "$INTMODULE" in
@@ -344,6 +345,11 @@ showProfilesWindow()
        ;;
     esac
 
+    else
+    ERR_MSG_NO_IFACE=`gettext "Sorry, no $INTERFACE available in sysfs"`
+    xmessage -bg red "$ERR_MSG_NO_IFACE"
+    exit 0
+    fi
     # Dougal: add usage of wlan-ng, for prism2_usb module
     case "$INTMODULE" in prism2_*) USE_WLAN_NG="yes" ;; esac
 
@@ -448,25 +454,26 @@ showProfilesWindow()
 } # end showProfilesWindow
 
 #=============================================================================
-#giveNoWPADialog(){
-    #export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
- #<vbox>
-  #<pixmap icon_size=\"6\">
-      #<input file stock=\"gtk-dialog-info\"></input>
-    #</pixmap>
-  #<text>
-    #<label>${L_TEXT_No_Wpa_p1}${INTMODULE}${L_TEXT_No_Wpa_p2}</label>
-  #</text>
-  #<hbox>
-    #<button ok></button>
-  #</hbox>
- #</vbox>
-#</window>"
 
-    #gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
-    #clean_up_gtkdialog NETWIZ_No_WPA_Dialog
-    #unset NETWIZ_No_WPA_Dialog
-#}
+__old_giveNoWPADialog__(){
+    export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
+ <vbox>
+  <pixmap icon_size=\"6\">
+      <input file stock=\"gtk-dialog-info\"></input>
+    </pixmap>
+  <text>
+    <label>${L_TEXT_No_Wpa_p1}${INTMODULE}${L_TEXT_No_Wpa_p2}</label>
+  </text>
+  <hbox>
+    <button ok></button>
+  </hbox>
+ </vbox>
+</window>"
+
+    gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
+    clean_up_gtkdialog NETWIZ_No_WPA_Dialog
+    unset NETWIZ_No_WPA_Dialog
+}
 
 giveNoWPADialog(){
     export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
@@ -540,7 +547,7 @@ giveNoWPADialog(){
     [ -z "$ENTRY2" ] && ENTRY2=wext
     echo "$ENTRY1:$ENTRY2" >> $Extra_WPA_Modules_File
     CARD_WPA_DRV="$ENTRY2"
-}
+}  ###giveNoWPADialog(){ #END
 
 #=============================================================================
 refreshProfilesWindowInfo()
@@ -800,7 +807,7 @@ buildProfilesWindow()
     </hbox>
 </vbox>
 </window>"
-}
+}  ###buildProfilesWindow(){ #END
 
 #=============================================================================
 setNoEncryptionFields()
@@ -886,7 +893,7 @@ setWpaFields()
     </entry>
 </hbox>
 "
-}
+}  ###setWpaFields(){ #END
 
 #=============================================================================
 # Dougal: removed NWID code from top of advanced fields
@@ -958,7 +965,7 @@ buildProfilesWindowButtons()
 } # end buildProfileWindowButtons
 
 #=============================================================================
-setupNewProfile ()
+setupNewProfile()
 {
     PROFILE_TITLE=""
     PROFILE_ESSID=""
@@ -1120,7 +1127,7 @@ deleteProfile(){
 
 #=============================================================================
 ## Dougal: we don't need all the mess here if not using one config file...
-saveProfiles ()
+saveProfiles()
 {
     CURRENT_PROFILE=$( echo "$NEW_PROFILE_DATA" | grep -F "TITLE=" | cut -d= -f2 | tr -d '"' )
     # Dougal: the templates aren't named after the mac address... (none)
@@ -1194,7 +1201,7 @@ Shared key must be either
         fi #if [ $KEY_SIZE -lt 8 ] || [ $KEY_SIZE -gt 64 ] ; then
     fi #if [ $? -eq 0 ] ; then #check for hex
     return 0
-}
+}  ###getWpaPSK(){ #END
 
 #=============================================================================
 # A function that gives an error message using gtkdialog
@@ -1220,8 +1227,9 @@ giveErrorDialog(){
     gtkdialog3 --program NETWIZ_ERROR_DIALOG >$OUT 2>&1
     clean_up_gtkdialog NETWIZ_ERROR_DIALOG
     unset NETWIZ_ERROR_DIALOG
-}
+}  ###giveErrorDialog(){ #END
 
+#=============================================================================
 __giveNoNetworkDialog__(){
     export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
  <vbox>
@@ -1243,10 +1251,10 @@ network, then create a profile for it.\"</label>
     gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >$OUT 2>&1
     clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
     unset NO_NETWORK_ERROR_DIALOG
-}
+}  ##__giveNoNetworkDialog__(){ #END
 
 #=============================================================================
-useProfile ()
+useProfile()
 {
     case $PROFILE_ENCRYPTION in
         WPA|WPA2)
@@ -1263,7 +1271,7 @@ useProfile ()
 } # end useProfile
 
 #=============================================================================
-killWpaSupplicant ()
+killWpaSupplicant()
 {
     # If there are supplicant processes for the current interface, kill them
     [ -d /var/run/wpa_supplicant ] || return
@@ -1285,6 +1293,7 @@ killWpaSupplicant ()
     [ -e /var/run/wpa_supplicant/$INTERFACE ] && rm -rf /var/run/wpa_supplicant/$INTERFACE
 } # end killWpaSupplicant
 
+#=============================================================================
 # Dougal: put this into a function, for maintainability and so it can be used in setupDHCP
 killDhcpcd(){
     [ "$INTERFACE" ] || INTERFACE="$1"
@@ -1299,7 +1308,7 @@ killDhcpcd(){
         kill $( cat /var/run/dhcpcd-${INTERFACE}.pid )
         rm -f /var/run/dhcpcd-${INTERFACE}.* 2>>$ERR
       fi
-      #begin rerwin - Retain duid, if any, so all interfaces can use
+#begin rerwin - Retain duid, if any, so all interfaces can use
       #it (per ipv6) or delete it if using MAC address as client ID.    rerwin
       rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>>$ERR  #.info
 #end rerwin
@@ -1356,6 +1365,7 @@ $ERROR
     fi
     return $?
 } # end cleanUpInterface
+
 #=============================================================================
 ## Dougal: function to kill stray processes
 ## dialog variable passed as param
@@ -1367,7 +1377,7 @@ clean_up_gtkdialog(){
 }
 
 #=============================================================================
-useIwconfig ()
+useIwconfig()
 {
   #(
     # Dougal: give the text message even when using dialog (for debugging)
@@ -1470,6 +1480,7 @@ useWlanctl(){
     return 0
   #) | Xdialog --title "Puppy Ethernet Wizard" --progress "Saving profile" 0 0 3
 } # end useWlanctl
+
 #=============================================================================
 # function to validate that the wpa_supplicant authentication process was successful.
 # $1: interface name
@@ -1520,8 +1531,9 @@ validateWpaAuthentication(){
     done
     return 1
 } # end validateWpaAuthentication
+
 #=============================================================================
-useWpaSupplicant ()
+useWpaSupplicant()
 {
     # add an option for running some parts only from the wizard
     if [ "$1" = "wizard" ] ; then
@@ -1823,19 +1835,23 @@ buildScanWindow()
         echo "X"
 
         ScanListFile=$(du -b "$tmpDIR"/net-setup_scan*.tmp |sort -n | tail -n1 |cut -f2)
+
+        __unusedd_try_again__(){
         # Dougal: if nothing found, try again!
         # (put the retry here, so progress is more even in bar...)
-        #case "$SCANALL" in *'No scan results'*)
-        #if grep -F $Q 'No scan results' $ScanListFile ; then
-        #  sleep 1
-          #SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
-        #  iwlist "$INTERFACE" scan >"$tmpDIR"/net-setup_scan3.tmp 2>>$DEBUG_OUTPUT
-        #  ScanListFile="$tmpDIR/net-setup_scan3.tmp"
-          #;;
-        #esac
-        #fi
-        #SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
-        #echo "$SCAN_LIST" > "$tmpDIR"/net-setup_scanlist
+        if grep -F $Q 'No scan results' $ScanListFile ; then
+        case "$SCANALL" in *'No scan results'*)
+          sleep 1
+          SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
+          iwlist "$INTERFACE" scan >"$tmpDIR"/net-setup_scan3.tmp 2>>$DEBUG_OUTPUT
+          ScanListFile="$tmpDIR/net-setup_scan3.tmp"
+          ;;
+        esac
+        fi
+        SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
+        echo "$SCAN_LIST" > "$tmpDIR"/net-setup_scanlist
+        }
+
         echo "$ScanListFile" > "$tmpDIR"/net-setup_scanlistfile
         CELL_LIST=$(grep -Eo "Cell [0-9]+" $ScanListFile | cut -f2 -d " ")
         #if [ -z "$SCAN_LIST" ]; then
@@ -1903,7 +1919,7 @@ gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG
 clean_up_gtkdialog NETWIZ_SCAN_ERROR_DIALOG
 exit 0
 ' > "$tmpDIR"/net-setup_scanwindow
-}
+}  ##createNoNetworksDialog(){ #END
 
 #=============================================================================
 createRetryScanDialog(){
@@ -1945,7 +1961,7 @@ Cancel) exit 0 ;;
 retry) exit 111 ;;
 esac
 ' > "$tmpDIR"/net-setup_scanwindow
-}
+}  ###createRetryScanDialog(){ #END
 
 #=============================================================================
 createRetryPCMCIAScanDialog(){
@@ -1987,7 +2003,7 @@ Cancel) exit 0 ;;
 retry) exit 101 ;;
 esac
 ' > "$tmpDIR"/net-setup_scanwindow
-}
+}  ###createRetryPCMCIAScanDialog(){ #END
 
 #=============================================================================
 # Dougal: put this into a function, so we can use it at boot time
@@ -2019,7 +2035,8 @@ runPrismScan()
       return 1
     fi
     return 0
-}
+}   ##runPrismScan(){ #END
+
 #=============================================================================
 buildPrismScanWindow()
 {
@@ -2126,28 +2143,31 @@ getCellParameters()
     CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
     CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
     CELL_ENC_TYPE="$CELL_ENCRYPTION"
+
+    __dont_work_get_cell_enc__(){
     ## comment out all below code: IE: output isn't reliable (reports WPA as WPA2 at times)
     # Dougal: add this to let the user know the type of encryption
-    #CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
-    ## Need to also check for wpa_ie/rsn_ie
-    #if [ "$CELL_ENCRYPTION" = "on" ] ;then
-      #if [ "$CELL_ENC_TYPE" ] ; then # IE: might appear twice: with WPA and WPA2...
-        #case "$CELL_ENC_TYPE" in
-          #*WPA2*) CELL_ENC_TYPE="WPA2" ;;
-          #*WPA*) CELL_ENC_TYPE="WPA" ;;
-          #*) CELL_ENC_TYPE="on" ;; # this just in case...
-        #esac
-      #else
-        #CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'Extra:')
-        #case "$CELL_ENC_TYPE" in
-          #*Extra:rsn_ie*) CELL_ENC_TYPE="WPA2" ;;
-          #*Extra:wpa_ie*) CELL_ENC_TYPE="WPA" ;;
-          #*) CELL_ENC_TYPE="WEP" ;; #else it's wep
-        #esac
-      #fi
-    #else
-      #CELL_ENC_TYPE="off"
-    #fi
+    CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
+    # Need to also check for wpa_ie/rsn_ie
+    if [ "$CELL_ENCRYPTION" = "on" ] ;then
+      if [ "$CELL_ENC_TYPE" ] ; then # IE: might appear twice: with WPA and WPA2...
+        case "$CELL_ENC_TYPE" in
+          *WPA2*) CELL_ENC_TYPE="WPA2" ;;
+          *WPA*) CELL_ENC_TYPE="WPA" ;;
+          *) CELL_ENC_TYPE="on" ;; # this just in case...
+        esac
+      else
+        CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'Extra:')
+        case "$CELL_ENC_TYPE" in
+          *Extra:rsn_ie*) CELL_ENC_TYPE="WPA2" ;;
+          *Extra:wpa_ie*) CELL_ENC_TYPE="WPA" ;;
+          *) CELL_ENC_TYPE="WEP" ;; #else it's wep
+        esac
+      fi
+    else
+      CELL_ENC_TYPE="off"
+    fi
+   }
 
 } # end of getCellParameters
 
@@ -2192,8 +2212,8 @@ Get_Cell_Parameters(){
     CELL_ENC_TYPE="$CELL_ENCRYPTION"
 
 } # end of Get_Cell_Parameters
-#=============================================================================
 
+#=============================================================================
 getPrismCellParameters()
 {
     CELL=$1
@@ -2210,6 +2230,9 @@ getPrismCellParameters()
 #=============================================================================
 #=============== START OF SCRIPT BODY ====================
 #=============================================================================
+
+#DEBUG_OUTPUT="/dev/stdout"
+[ ! "${DEBUG_OUTPUT}" ] && DEBUG_OUTPUT="/dev/null"
 
 # If ran by itself it shows the interface, Otherwise it's only used as a function library
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
@@ -2229,12 +2252,24 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-    INTERFACE="$1"
-    DEBUG_OUTPUT="/dev/stderr"
-    showProfilesWindow "$1"
+_get_localization(){
+mo=net-setup.mo
+#lng=${LANG%.*}
+# always start by sourceing the English version (to fill in gaps)
+. "/usr/share/locale/en/LC_MESSAGES/$mo"
+if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
+  . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
+elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
+  . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
 fi
-#DEBUG_OUTPUT="/dev/stdout"
-[ ! "${DEBUG_OUTPUT}" ] && DEBUG_OUTPUT="/dev/null"
+}
+
+    INTERFACE=wlan0
+    test "$1" && INTERFACE="$1"
+    DEBUG_OUTPUT="/dev/stderr"
+    _get_localization
+    showProfilesWindow "$INTERFACE"
+fi
 
 #=============================================================================
 #=============== END OF SCRIPT BODY ====================
