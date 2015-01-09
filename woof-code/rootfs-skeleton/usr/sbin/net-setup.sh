@@ -136,6 +136,10 @@ HAVEX='yes'
 ## Dougal: put this into a variable
 BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 
+# KRG: common dhcpcd options
+##  -L, --noipv4ll  Don't use IPv4LL at all
+DHCPCD_COMMON_OPS='-L'
+
 #=============================================================================
 #============= FUNCTIONS USED IN THE SCRIPT ==============
 #=============================================================================
@@ -569,7 +573,7 @@ tryLoadModule()
     #+ false, while the driver might already be loaded! Trying to reload
     #+ will then not do anything, I assume... so remove quotes (in loadSpecificModule).
     MODULE_NAME="$1"
-    if grep -q "$MODULE_NAME" "$tmpDIR"/loadedeth.txt ; then
+    if grep $Q "$MODULE_NAME" "$tmpDIR"/loadedeth.txt ; then
         Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
                 --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
         echo -n "${MODULE_NAME}" > "$tmpDIR"/ethmoduleyesload.txt
@@ -725,7 +729,7 @@ loadNdiswrapperModule()
       NATIVEMOD=${NATIVEMOD##*/}
       if [ "$NATIVEMOD" != "ndiswrapper" ];then
         #note 'ndiswrapper -l' also returns the native linux module.
-        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep -q 'ESSID' ;then
+        if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep $Q 'ESSID' ;then
           rmmod "$NATIVEMOD"
           sleep 6
           [ $INTERFACE_NUM -gt 0 ] && INTERFACE_NUM=$((INTERFACE_NUM-1))
@@ -823,10 +827,10 @@ autoLoadModule()
         esac
 
         #also, do not try if it is already loaded...?
-        grep -q "$CANDIDATE" "$tmpDIR"/loadedeth.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" "$tmpDIR"/loadedeth.txt && MDOIT="no"
 
         #in case of false-hits, ignore anything already tried this session...
-        grep -q "$CANDIDATE" "$tmpDIR"/logethtries.txt && MDOIT="no"
+        grep $Q "$CANDIDATE" "$tmpDIR"/logethtries.txt && MDOIT="no"
 
         if [ "$MDOIT" = "yes" ];then
             echo; echo "*** Trying $CANDIDATE."
@@ -1034,16 +1038,16 @@ $ERROR
     fi
     #BK1.0.7 improved link-beat detection...
     echo "X"
-    if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+    if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
       sleep 2
       echo "X"
-      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+      if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
         sleep 2
         echo "X"
-        if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+        if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
           sleep 2
           echo "X"
-          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+          if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
             # add ethtool test, just in case it helps at times...
             sleep 1
             echo "X"
@@ -1273,7 +1277,7 @@ checkIfIsWireless()
 
   if [ -d "/sys/class/net/$INTERFACE/wireless" ] || \
      [ "$INTMODULE" = "prism2_usb" ] || \
-     grep -q "$INTERFACE" /proc/net/wireless
+     grep $Q "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
   return 1
@@ -1305,7 +1309,7 @@ __moved_setupDHCP__()
         # Must kill old dhcpcd first
         killDhcpcd "$INTERFACE"
         sleep 5
-        if dhcpcd -d -I '' "$INTERFACE"
+        if dhcpcd $DHCPCD_COMMON_OPS -d -I '' "$INTERFACE"
         then
             HAS_ERROR=0
         else
@@ -1676,7 +1680,7 @@ findInterfaceInfo()
    */bus/usb*) TYPE="usb" ;;
    */bus/ieee1394*) TYPE="firewire" ;;
    *) # pcmcia and pci apparently both appear as pci...
-      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep -q 'pcmcia:' ; then
+      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep $Q 'pcmcia:' ; then
         TYPE="pcmcia"
       else
         TYPE="pci"
@@ -1687,7 +1691,7 @@ findInterfaceInfo()
 
   if [ -d "/sys/class/net/$INT/wireless" ] || \
      [ "$FI_DRIVER" = "prism2_usb" ] || \
-     grep -q "$INT" /proc/net/wireless
+     grep $Q "$INT" /proc/net/wireless
   then INTTYPE="$L_INTTYPE_Wireless"
   else INTTYPE="$L_INTTYPE_Ethernet"
   fi
@@ -1847,7 +1851,7 @@ showHelp()
 cleanUpTmp
 
 # Do we have pcmcia hardware?...
-if elspci -l | grep -E -q '60700|60500' ; then
+if elspci -l | grep -E $Q '60700|60500' ; then
   MPCMCIA="yes"
 fi
 
