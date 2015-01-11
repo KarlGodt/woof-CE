@@ -16,7 +16,7 @@ trap "fusermount -uz $MOUNT_POINT; exit 0" KILL TERM ABRT
 #      Puppy /bin/mount is a wrapper script that may return non-zero
 #      or even stop while processing code
 #     This is neccessary since fusermount calls mount -f and expects 0
-#     as return value . mount -f does not do anything
+#     as return value . NOTE: mount -f does not do anything (fake, not force)
 test -L /bin/mount || _exit 5 "Needs /bin/mount being symbolic link"
 
 OLD_TARG=`realpath /bin/mount`
@@ -28,6 +28,9 @@ test -f /bin/mountMTP || echo 'exit 0' >/bin/mountMTP
 ln $VERB -sf mountMTP /bin/mount
 test $? = 0 || _exit 6 "Failed to link /bin/mount -> mountMTP"
 
+# REM: If called from external program, needs returnvalues
+test "`which go-mtpfs`" || _exit 7 "go-mtpfs not installed in PATH"
+
 # REM: Now start go-mtpfs
 #     Needs forking to able to re-link original mount wrapper
 #     Otherwise further mounts will fail :D
@@ -37,3 +40,6 @@ go-mtpfs $GO_MTPFS_OPS /mntf/MTPdev &
 # Give it some time...?
 sleep 5
 ln $VERB -sf "$OLD_TARG" /bin/mount
+
+# REM: If called from external program, needs returnvalues
+_pidof $Q go-mtpfs && exit 0 || exit 1
