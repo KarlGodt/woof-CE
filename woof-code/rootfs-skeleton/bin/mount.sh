@@ -675,8 +675,11 @@ o_posPAR="$posPAR"
    _debugx "testing -b $posPAR"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
 
+   _debugx "testing -d $posPAR"
+   test -d "$posPAR" -a ! "`ls -A "$posPAR"`" && mountPOINT="$posPAR"
+
    _debugx "testing -e $posPAR"
-   test -e "$posPAR" && { _debugx "`ls -lv "$posPAR"`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
+   test -e "$posPAR" && { _debugx "`ls -lAv "$posPAR"`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
    LANG=$LANG_ROX mkdir -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
 
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
