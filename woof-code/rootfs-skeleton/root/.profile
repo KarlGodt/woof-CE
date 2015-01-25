@@ -1,10 +1,16 @@
 #120221 moved this code here from /etc/profile, also take 'exec' prefix off call to xwin.
 
+# still handled in /etc/profile
+return 0
+
 if [ ! -f /usr/bin/X ];then
  #v2.00r1 now support a text-mode-only puppy...
  if [ -f /usr/local/bin/elinks ];then
-  if [ ! -f /tmp/bootcnt.txt ];then
-   touch /tmp/bootcnt.txt
+ # revert logic
+ # if [ ! -f /tmp/bootcnt.txt ];then
+ #  touch /tmp/bootcnt.txt
+  if [ -f /tmp/bootcnt.txt ];then
+   rm -f /tmp/bootcnt.txt
    #exec /usr/local/bin/elinks file:///usr/share/doc/index.html
    #/usr/local/bin/elinks file:///usr/share/doc/index.html & #110804 110807
    /usr/local/bin/elinks file:///usr/share/doc/index.html
@@ -20,9 +26,12 @@ else
   xorgwizard-cli
  fi
  #want to go straight into X on bootup only...
- if [ ! -f /tmp/bootcnt.txt ];then
-  touch /tmp/bootcnt.txt
+ # revert logic
+ #if [ ! -f /tmp/bootcnt.txt ];then
+ # touch /tmp/bootcnt.txt
   # aplay -N /usr/share/audio/bark.au
+ if [ -f /tmp/bootcnt.txt ];then
+  rm -f /tmp/bootcnt.txt
   dmesg > /tmp/bootkernel.log
   #exec xwin
   #xwin & #110804 110807
