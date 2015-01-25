@@ -1,2566 +1,3 @@
-dosfsck -n /dev/sdc1
-dosfsck -n -v /dev/sdc1
-dosfsck -n -v /dev/sdc2
-dosfsck -n -v /dev/sdd1
-ps | grep strace
-top
-
-Mon Nov 10 22:56:41 GMT+1 2014
-
-dmesg | grep -i squash | grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -o 'version.*'
-dmesg | grep -i squash*'
-dmesg | grep -i squash
-modprobe -v squashfs
-dmesg | grep -i squash
-dmesg | grep -i squash | busybox grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -oi  'version.*'
-dmesg | grep -i squash | grep -oi  'version.*'
-dmesg | grep -i squash | grep -io  'version.*'
-dmesg | grep -i squash | grep -i -o  'version.*'
-dmesg | grep -i squash | busybox grep -i -o  'version.*'
-ls -1v /dev/loop* | wc -l
-ls -1v /dev/loop*
-ls -1v /dev/loop[0-9]*
-ls -1v /dev/loop[0-9]* | wc -l
-ls -1v /dev/loop[0-9]*
-echo `ls -1v /dev/loop[0-9]*`
-echo `ls -1v /dev/loop[0-9]*` | grep -w
-cat Xmessage*
-xmessage "HELLO"
-strace xmessage "HELLO"
-xmessage "HELLO"
-scrollHorizontal=Never xmessage "HELLO"
-message.scrollHorizontal=Never xmessage "HELLO"
-"message.scrollHorizontal"=Never xmessage "HELLO"
-xmessage "HELLO"
-geany /usr/bin/xwin
-geany /usr/bin/filemnt
-geany /usr/sbin/filemnt
-ls /sys/devices/pci0000:00/power/wakeup
-ls /sys/devices/pci0000:00/power/
-cat /sys/devices/pci0000:00/power/autosuspend
-cat /sys/devices/pci0000:00/power/autosuspend_delay
-cat /sys/devices/pci0000:00/power/autosuspend_delay_ms
-grep -H '.*'  /sys/devices/pci0000:00/power/autosuspend_delay_ms
-grep -H -E '|.*'  /sys/devices/pci0000:00/power/autosuspend_delay_ms
-grep -H -E '|.*'  /sys/devices/pci0000:00/power/autosuspend_delay_ms 2>&1
-ash
-ls /sys/devices/pci0000:00/power/
-grep -H '.*' /sys/devices/pci0000:00/power/*
-F=`grep -H '.*' /sys/devices/pci0000:00/power/*`
-echo "$F"
-F=`grep -H '.*' /sys/devices/pci0000:00/power/* 2>&1`
-echo "$F"
-F=` grep -H '.*' /sys/devices/pci0000:00/power/* 2>&1`
-echo "$F"
-ash
-F=` grep -s -H '.*' /sys/devices/pci0000:00/power/* 2>&1`
-echo "$F"
-ps -o pid | grep -v grep | grep $yPID
-ps -o pid | grep -v grep | grep -w "$yPID"
-yPID=1
-ps -o pid | grep -v grep | grep -w "$yPID"
-ps -o pid | grep -v grep
-ps -A -o pid | grep -v grep
-ps -A -o pid | grep -v grep | grep -w "$yPI"
-ps -A -o pid | grep -v grep | grep -w "$yPID"
-ps -A -o pid | grep -v grep | grep -w "$yPID"; echo $?
-yPID=1001
-ps -A -o pid | grep -v grep | grep -w "$yPID"; echo $?
-dmesg | grep -i squash | grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -o 'version.*'
-dmesg | grep -i squash*'
-dmesg | grep -i squash
-modprobe -v squashfs
-dmesg | grep -i squash
-dmesg | grep -i squash | busybox grep -o -i 'version.*'
-dmesg | grep -i squash | busybox grep -oi  'version.*'
-dmesg | grep -i squash | grep -oi  'version.*'
-dmesg | grep -i squash | grep -io  'version.*'
-dmesg | grep -i squash | grep -i -o  'version.*'
-dmesg | grep -i squash | busybox grep -i -o  'version.*'
-ls -1v /dev/loop* | wc -l
-ls -1v /dev/loop*
-ls -1v /dev/loop[0-9]*
-ls -1v /dev/loop[0-9]* | wc -l
-ls -1v /dev/loop[0-9]*
-echo `ls -1v /dev/loop[0-9]*`
-echo `ls -1v /dev/loop[0-9]*` | grep -w
-echo `ls -1v /dev/loop[0-9]*` | wc -w
-echo `ls /dev/loop[0-9]*` | wc -w
-echo `ls /dev/loop[0-9]*`
-echo `ls /dev/loop[0-9]*` | wc -w
-read NR <<EoI
-echo $NR
-read NR <<EoI
-echo $NR
-losetup -f; echo $?
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" -title "$xmTITLE" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it
-to another mount point ?
-"
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192" -buttons "Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" -title "$xmTITLE" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it
-to another mount point ?
-"
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" -title "$xmTITLE" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it
-to another mount point ?
-"
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,\nUnmount:193,Unmount all $IMGBASE:194,Mount another time:199" -title "$xmTITLE" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it
-to another mount point ?
-"
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,
-Unmount:193,Unmount all $IMGBASE:194,Mount another time:199" -title "$xmTITLE" "$imgFILE
-is already mounted and in-use by Puppy .
-Do you want to unmount it or mount it
-to another mount point ?
-"
-for i in yellow green blue red; do yaf-splash -bg $i -text "   Hello from color $i   " &yPID=$! ; done
-for i in yellow green ; do yaf-splash -bg $i -text "   Hello from color $i   " &yPID=$! ; done
-for i in yellow green ; do yaf-splash -bg $i -text "   Hello from color $i   " &yPID=$! ; sleep 3;done
-fuser -v -m /mnt/sda2
-mount
-mount | grep -E '^/dev/loop[0-9]? ' |grep -v '/initrd'
-mount | grep -E '^/dev/loop[0-9]\? ' |grep -v '/initrd'
-mount | grep -E '^/dev/loop[0-9]* ' |grep -v '/initrd'
-mount | grep -E '^/dev/loop[0-9]+ ' |grep -v '/initrd'
-mount | grep -E '^/dev/loop[0-9]* ' |grep -v '/initrd'
-mount | grep -E '^/dev/loop[0-9]? ' |grep -v '/initrd'
-mount | grep -e '^/dev/loop[0-9]? ' |grep -v '/initrd'
-mount | grep -Ee '^/dev/loop[0-9]? ' |grep -v '/initrd'
-mount | grep -Ee '^/dev/loop[0-9]\? ' |grep -v '/initrd'
-mount | grep -G '^/dev/loop[0-9]? ' |grep -v '/initrd'
-mount | grep -G '^/dev/loop[0-9]\? ' |grep -v '/initrd'
-mount
-geany /usr/bin/xwin
-source /etc/rc.d/f4puppy5
-_notice "\\033[0;31m"'Has hardware profile changed ?'"\\033[0;39m"
-lsmod
-uname -r
-ddcprobe
-dmidecode| grep -i capacity
-free
-find -type f
-dmidecode
-df
-modprobe -l | grep apm
-modprobe -v apm
-pwd
-grep -m3 init *
-grep -m3 __init *
-grep -r -m3 __init *
-grep -r -m3 __init * >/root/kernel_doc___init.lst
-grep -r -m3 __setup *
-find -name "*.h" -exec grep -H -m1 '_init' {} \;
-find -name "*.h" -exec grep -H -m1 -w '__init' {} \;
-find -name "*.h" -exec grep -H -m1 -w 'INIT' {} \;
-find -name "*.h" -exec grep -H -m1 -w 'INIT' {} \; >/root/kernel_INIT.lst
-find /sys -name ".*"
-find /sys -name ".*" >kernel_sysfs_hidden_files.lst
-
-Tue Nov 11 13:14:03 GMT+1 2014
-
-which strace
-cat /proc/cmdline
-
-Tue Nov 11 14:35:07 GMT+1 2014
-
-awk '{print $1}' /proc/modules
-grep 'photplug' /proc/sys/kernel/hotplug
-dmidecode | grep -m3 iE 'maunfacturer|product|serial'
-dmidecode | grep -m3 -iE 'maunfacturer|product|serial'
-dmidecode | grep -m3 -iE 'manufacturer|product|serial'
-dmidecode | grep -m3 -iE 'manufacturer|product|serial number'
-dmidecode | grep -m3 iE 'manufacturer|product|serial number' | awk -F':' '{print $1}'
-dmidecode | grep -m3 -iE 'manufacturer|product|serial number' | awk -F':' '{print $1}'
-dmidecode | grep -m3 -iE 'manufacturer|product|serial number' | awk -F':' '{print $2}'
-dmidecode | grep -m3 -iE 'UUID"
-dmidecode | grep -m3 -iE 'UUID'
-/root/_create_fstbootmodules_list.sh
-time /root/_create_fstbootmodules_list.sh
-echo ABC >/tmpa.tst /tmp/b.tst /tmp/c.tst
-;s /tmp/*.tst
-ls /tmp/*.tst
-echo ABC >/tmp/a.tst /tmp/b.tst /tmp/c.tst
-ls /tmp/*.tst
-echo ABC >/tmp/a.tst >/tmp/b.tst >/tmp/c.tst
-ls /tmp/*.tst
-grep -H '.*'  /tmp/*.tst
-echo ABC >/tmp/a.tst /tmp/b.tst /tmp/c.tst
-grep -H '.*'  /tmp/*.tst
-time /root/_create_fstbootmodules_list.sh
-ddcprobe
-uname -r
-ddcprobe
-uname -r
-df
-
-Tue Nov 11 18:51:33 GMT+1 2014
-
-awk '{ if ($3 == "0") print $1}' /proc/modules
-cat /proc/modules
-geany /etc/rc.d/rc.shutdown
-ps -A grep while
-ps -A | grep while
-ps -A | grep read
-ps | grep _unnload
-ps | grep _unload
-kill -9 27186
-ps | grep _unload
-top
-chmod +x _unload_unused_modules.sh 
-./_unload_unused_modules.sh 
-ps
-./_unload_unused_modules.sh 
-
-Tue Nov 11 19:23:01 GMT+1 2014
-
-./heroes3
-df
-./heroes3
-pwd
-mount
-./heroes3
-ddcprobe
-/mnt/heroes-3_5.5.sfs.12962/usr/local/games/Heroes3/heroes3
-ddcprobe
-
-Tue Nov 11 20:16:55 GMT+1 2014
-
-ddcprobe
-
-Tue Nov 11 21:53:13 GMT+1 2014
-
-/mnt/heroes-3_5.5.sfs.17760/usr/local/games/Heroes3/heroes3
-uname -r
-./heroes3
-ddcprobe
-
-Tue Nov 11 22:14:42 GMT+1 2014
-
-/mnt/heroes-3_5.5.sfs.12763/usr/local/games/Heroes3/heroes3
-./heroes3
-ddcprobe
-serace -o /dev/null ddcprobe
-strace -o /dev/null ddcprobe
-
-Tue Nov 11 22:26:31 GMT+1 2014
-
-/mnt/heroes-3_5.5.sfs.13026/usr/local/games/Heroes3/heroes3
-./heroes3
-./heroes2
-./heroes3
-/mnt/sda7/CHROOT.D/usr/local/games/Heroes3/heroes3
-chroot .
-pwd
-mount -o bind /dev ./dev
-mount -o bind /sys ./sys
-mount -o bind /proc ./proc
-chroot .
-cp -a /usr/bin/strace .
-Xorg --version
-Xorg -version
-which strace
-ddcprobe
-ddcprobe
-xterm-266
-cp -a /proc/config.gz .
-mkdir "`uname -r`"
-ls /proc/con*
-modprobe -v configs
-pwd
-ls -l /dev/sda
-ls -l /dev/sr0
-uname -r
-diff -up /mnt/sdb19/src/CONFIGS/3.6.11-KRG-iP4CelXeon-smp-pae-1000lzo/config /mnt/sdb19/src/CONFIGS/3.9.9-KRG-iCore2-smp-pae-srv1000gz/config >config_3.6.11-3.9.9_.diff
-guvcview
-uname -r
-pwd
-umount -l ./proc
-umount -l ./dev
-ls -l /dev/sd*
-
-Wed Nov 12 00:15:35 GMT+1 2014
-
-ls -l /dev/sd*
-./replace_commit_files.sh 
-
-Wed Nov 12 10:20:09 GMT+1 2014
-
-wmexit
-geany /boot/grub/menu-3.7.10.lst 
-geany /sbin/pup_event_frontend_d
-xwininfo -root
-Xorg -help
-man Xorg
-wmexit
-grep -i mouse /proc/bus/input/devices
-grep -A 10 -i mouse /proc/bus/input/devices
-grep -A 10 -ikbd /proc/bus/input/devices
-grep -A 10 -i kbd /proc/bus/input/devices
-grep -i event /proc/bus/input/devices
-grep -B4 -i event /proc/bus/input/devices
-wmexit
-ls -l /dev/sd*
-modprobe -l | grep cpu
-modprobe -v cpuid
-modinfo cpuid
-geany /etc/rc.d/rc.sysinit
-geany /etc/rc.d/rc.sysinit.run
-geany /sbin/init
-top
-ddcprobe
-
-Wed Nov 12 15:02:16 GMT+1 2014
-
-./update_files_from_running_system 
-uname -r
-modprobe -l | grep ipmi
-modprobe -l | grep ram
-modprobe -l | grep apei
-modinfo einj
-modprobe -l | grep apei
-modinfo erst-dbg
-modprobe -v erst-dbg
-modprobe -l | grep apei
-modprobe -v einj
-geany /etc/rc.d/f4puppy5
-geany /bin/mount.sh
-geany /etc/rc.d/rc.sysinit
-geany /etc/rc.d/rc.sysinit.run
-geany /sbin/init
-dmesg
-umount ./smack
-which mountpoint
-tupe -a mountpoint
-type -a mountpoint
-file /bin/mountpoint
-file /usr/local/bin/mountpoint
-grep selinux /usr/local/bin/mountpoint
-grep this /usr/local/bin/mountpoint
-strings /usr/local/bin/mountpoint | grep this
-grep -r XUSER /etc/
-grep mount *
-cd ..
-grep -r 'do this'  *
-grep -r '-t proc'  *
-grep -r '\-t proc'  *
-find -name "*mdev*"
-grep -r -m3 'selinuxfs' *
-find /etc -iname "*selinux*"
-find /etc -iname "*sec*"
-ls /etc/securetty/*
-ls /etc/securetty*
-ls /etc/security
-which ps
-file /bin/ps
-grep mount /bin/ps-FULL
-pwd
-cd ..
-find -name "mount.c"
-mount 
-grep 'mount' *
-grep 'Error,' *
-grep -i 'Error,' *
-grep -i 'do this' *
-pwd
-cd ..
-pwd
-grep -r -i 'do this' *
-grep -r -i 'do this' * | grep -v '\*'
-grep -r -i 'Error' * | grep -v '\*'
-grep -r -i 'Error,' * | grep -v '\*'
-pwd
-cd ..
-grep -r -i 'mount -t proc' * | grep -v '\*'
-dmesg --help
-dmesg
-ls /tmp*
-mkdir /tmp/mount.d
-cd /tmp/mount.d
-mkdir /dev/pstore
-/bin/mount -v -t pstore nodev /dev/pstore
-mkdir smack
-/bin/mount -v -t smackfs nodev smack
-dmesg | grep -i sel
-dmesg | head
-dmesg | grep -i sec
-dmesg | grep -i security
-dmesg | grep -A 10 -i security
-dmesg | grep -i mount
-ddcprobe
-uname -r
-NewKernelStats.sh 
-uname -r
-bbconfig | grep -i sel
-./update_files_from_running_system 
-geany /etc/rc.d/rc.shutdown
-
-Wed Nov 12 19:35:21 GMT+1 2014
-
-uname -r
-top
-kill 4723
-top
-kill -9 4723
-top
-/mnt/heroes-3_5.5.sfs.3990/usr/local/games/Heroes3/heroes3
-ddcprobe
-cat /proc/cmdline
-
-Wed Nov 12 20:23:38 GMT+1 2014
-
-uname -r
-cat /proc/cmdline
-modprobe -l | grep ipmi
-grep TICK_ONESHOT /etc/modules/DOTconfig*
-grep NO_HZ /etc/modules/DOTconfig*
-grep HIGH_RES_TIMERS /etc/modules/DOTconfig*
-geany `which wmexit`
-ddd
-./update_files_from_running_system 
-
-Wed Nov 12 22:01:48 GMT+1 2014
-
-uname -r
-cat /proc/cmdline
-dcprobe
-dccprobe
-ddcprobe
-
-Wed Nov 12 23:17:52 GMT+1 2014
-
-
-Thu Nov 13 01:14:36 GMT+1 2014
-
-
-Thu Nov 13 01:43:04 GMT+1 2014
-
-uname -r
-cat /proc/cpuinfo
-diff DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-i486-smp-pae-lzo-little
-diff -up DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-i486-smp-pae-lzo-little >DIFF-DOTconfig.diff
-geany DIFF-DOTconfig.diff 
-make.tgl
-make clean
-make menuconfig
-ls DOT*
-diff DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 .confug
-diff DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 .config
-diff -s DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 .config
-make menuconfig
-diff -s DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 .config
-make help
-rm .config
-make menuconfig
-make help
-make listnewconfig
-find /lib/modules -name ".config"
-find /lib/modules -name "*.config"
-make localmodconfig
-make menuconfig
-cp -a .config LOCAL_MOD_CONFIG-`uname -r`
-make menuconfig
-cp -a DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 .config
-make menuconfig
-make.tgl
-make
-./make_install.sh 
-make help
-make kernelversion
-date
-geany /usr/include/ctype.h
-geany /usr/include/selinux/selinux.h
-geany /usr/include/selinux/*.h
-find /usr/{local/lib,lib} -name "libselinux*"
-file /usr/lib/libselinux.so
-find /lib -name "libselinux*"
-file /lib/libselinux.so.1
-grep -i mount /lib/libselinux.so.1
-strings /lib/libselinux.so.1 | grep -i mount
-grep -r SELINUX_ENABLE * 
-grep -r SELINUX * 
-grep -r ENABLE_SELINUX * 
-grep -r ENABLE_SELINUX * >/root/bb_ENABLE_SELINUX.lst
-grep -r selinux_init_load_policy * 
-
-Thu Nov 13 15:06:33 GMT+1 2014
-
-dmesg
-pidof sync
-ps
-uname -r
-ddcprobe
-uname -r
-top
-cp -a /lib/modules/3.5.0-KRG-iCore2-smp-pae-srv1000gz .
-cp -a /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz .
-cp -a /lib/modules/3.7.10-KRG-i486-smp-pae-lzo-little .
-cp -a /mnt/sdb6/lib/modules/2.6.31.14-KRG-i486-rev11.0-2014-11-08-dirty .
-cp -a /lib/modules/3.6.11-KRG-i586-bonenkamp-64Gb-jump_label .
-df
-./Script_create_firmware.sh 
-./Script
-make.tgl
-make menuconfig
-make kernelrelease
-mkdir DOTconfig.d
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-underberg250
-make menuconfig
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-underberg300
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-underberg1000
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-ramzotti
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-ramazotti
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-ramazotti250
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-ramazotti300
-make menuconfig
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-ramazotti1000
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-averna
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-averna250
-make menuconfig
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-averna300
-make menuconfig
-make kernelrelease
-cp .config DOTconfig.d/DOTconfig-3.7.10-KRG-i686-averna1000
-cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d .
-cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/Code-Plex-KRG-Woof.d .
-cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PuppyLinux-WoofCE.Pull.d .
-cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodtFork.Pull.d ./test/
-cp -a /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodtFork-NEW.Pull.d .
-df
-git branch
-cp -a /mnt/sdb6/root/GitHub.d/KarlGodt_WoofFork.Pull.d .
-cp -a /mnt/sdb6/root/GitHub.d/KarlGodt_WoofFork.Push.d .
-top
-cp -a /mnt/sdb7/root/GitHub.d/KarlGodt_WoofFork.Pull.d .
-cp -a /mnt/sdb7/root/GitHub.d/KarlGodt_WoofFork.Push.d .
-grep ßi local .config
-grep -i local .config
-grep -i local ../.config
-grep -i local DOT*
-owd
-pwd
-grep -i local .config
-cd ../
-grep -i local .config
-stat .config
-grep -i local .config
-pwd
-grep -i local .config
-pwd
-make kernelrelease
-pwd
-grep 'auto\.conf' Makefile
-stat DOTconfig*
-smartctl -A /dev/sda
-smartctl -A /dev/sdb
-echo $((3600/24))
-ash
-pwd
-cd ..
-find -name "Makefile.clean"
-find -name "Makefile" | wc -l
-for Ö in (ö do echo "$
-for Ö in *; do echo "$Ö"; done
-locale
-for Datei in *; do echo "$Datei"; done
-for Datäei in *; do echo "$Datäei"; done
-for Datei in *; do echo "$Datei"; done
-df
-de
-df
-eventmanager
-df
-git help config
-pwd
-git branch
-./update_files.sh 
-git commit
-git add update_files.sh
-git commit -m 'update_files.sh: Added.'
-geany /usr/bin/eventmanager
-geany /usr/sbin/eventmanager
-readlink -f /bin/make
-readlink -f /bin/make |grep '\.sh$'
-readlink -f /bin/make |grep -G '.sh$'
-readlink -f /bin/make |grep -G '.sh'
-readlink -f /bin/make |grep -G '.sh$'
-readlink -f /bin/make |grep -G '.sh'
-readlink -f /bin/make |grep  '.sh'
-echo "ABC.QAZ...WERT"
-echo "ABC.QAZ...WERT" | grep '.W'
-echo "ABC.QAZ...WERT" | grep '.A'
-echo "ABC.QAZ...WERT" | grep -G '.A'
-echo "ABC.QAZ...WERT" | grep -F '.A'
-echo "ABC.QAZ...WERT" | grep -F '.W'
-echo "ABC.QAZ...WERT" | grep -F '.sh'
-echo "ABC.QAZ...WERT" | grep -F '.WERT$'
-echo "ABC.QAZ...WERT" | grep -EF '.WERT$'
-A=--version
-case $A in -?version) echo A maybe -version or --version;;esac
-case $A in -+version) echo A maybe -version or --version;;esac
-case $A in -\+version) echo A maybe -version or --version;;esac
-A=---version
-case $A in -?version) echo A maybe -version or --version;;esac
-readlink -f /bin/make | grep '\.sh$'
-readlink -f /bin/make | busybox grep '\.sh$'
-readlink -f /bin/make
-uptime
-./Script
-tail make-errs.logs.all
-tail ./make-errs.logs.all
-tail ../make-errs.logs.all
-tail -n200 ../make-errs.logs.all
-rm ../make-errs.logs.all
-df
-./Script
-pwd
-./Script
-geany /bin/make.sh
-./Script
-htop
-mount
-
-Sat Nov 15 01:10:08 GMT+1 2014
-
-ddcprobe
-top
-uname -r
-uname -r
-top
-
-Sat Nov 15 02:56:58 GMT+1 2014
-
-uname -r
-uname -r
-top
-
-Sat Nov 15 03:57:14 GMT+1 2014
-
-uname -r
-uname -r
-
-Sat Nov 15 04:18:04 GMT+1 2014
-
-NewKernelStats.sh 
-busybox reboot --help
-geany /sbin/reboot
-uname -r
-uname -r
-uname -r
-top
-
-Sat Nov 15 05:33:50 GMT+1 2014
-
-NewKernelStats.sh 
-uname -r
-ddcprobe
-free
-uname -r
-geany /usr/sbin/bootmanager
-bootmanager
-NewKernelStats.sh 
-uname -r
-NewKernelStats.sh 
-./script
-./Script
-
-Sat Nov 15 14:04:14 GMT+1 2014
-
-cd /tmp
-source /etc/rc.d/f4puppy5
-_say_jwm_taskbar_autohide 
-_say_jwm_taskbar_border 
-_say_jwm_taskbar_halign 
-_say_jwm_taskbar_height 
-_say_jwm_taskbar_insert 
-_say_jwm_taskbar_layout 
-_say_jwm_taskbar_tray_line 
-_say_jwm_taskbar_valign 
-_say_jwm_taskbar_width 
-_say_jwm_taskbar_x
-_say_jwm_taskbar_y
-uname -r
-lsmod | grep pcspkr
-geany /root/.jwmrc-tray
-=grep '<Tray .*>' "$HOME"/.jwmrc-tray | grep -vE '^#|^[[:blank:]]*#' | tail -n1
-grep '<Tray .*>' "$HOME"/.jwmrc-tray | grep -vE '^#|^[[:blank:]]*#' | tail -n1
-diff DOTconfig-3.7.10-KRG-i\[56\]86-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 
-diff DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-i486-smp-pae-lzo-klein-O2 
-diff -up DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-i486-smp-pae-lzo-klein-O2 >diff.fiff
-diff DOTconfig-3.7.10-KRG-i\[56\]86-smp-lzo-klein-O2 DOTconfig-3.7.10-KRG-pentiumpro-smp-lzo-klein-O2 
-NewKernelStats.sh 
-/etc/init.d/DRIVER/z99_alsa stop
-modprobe -v snd-hda-intel
-/etc/init.d/DRIVER/z99_alsa start
-
-Sun Nov 16 21:26:34 GMT+1 2014
-
-NewKernelStats.sh 
-make menuconfig
-defaultmediaplayer /mnt/sda1/VID/FlashM4uHFa
-ls /etc/modules/DOTconfig
-ls /etc/modules/DOTconfig*
-uname -r
-which vlc
-/etc/acpi/wakealarm.sh
-find /sys -name since_epoch
-cat /sys/devices/pnp0/00:05/rtc/rtc0/since_epoch
-/etc/acpi/wakealarm.sh
-aplay /usr/share/audio/2barks.au
-uname -r
-ddcprobe
-pwd
-
-Mon Nov 17 16:32:21 GMT+1 2014
-
-cat /proc/cmdline
-uname -r
-NewKernelStats.sh 
-
-Mon Nov 17 17:14:15 GMT+1 2014
-
-modprobe -l | grep kbd
-type -a xz
-/usr/local/bin/xz --version
-/root/my-applications/bin/xz --version
-pwd
-exit
-find /usr -iname "*lzma*"
-pwd
-find /usr -iname "*lzma*" |sort >lzma.files.list
-find /usr -iname "*lzo*" |sort >lzo.files.list
-find /usr -iname "*xz*" |sort >lzo.files.list
-find /usr -iname "*xz*" |sort >xz.files.list
-find /usr -iname "*lzo*" |sort >lzo.files.list
-find /usr -iname "*gcc-*"
-find /usr -name "i686*"
-
-Fri Nov 21 21:15:35 GMT+1 2014
-
-pwd
-echo $MACHTYPE
-uname -m
-uname --help
-uname -v
-uname -r
-uname -p
-uname -i
-uname -s
-uname -o
-readlink /usr/local/bin/i686-pc-linux-gnu-gcc
-readlink -e /usr/local/bin/i686-pc-linux-gnu-gcc
-gcc --help
-man gcc
-chmod +x /root/choose_gcc_version.sh 
-/root/choose_gcc_version.sh 
-ls /usr/local/bin/i686-pc-linux-gnu-gcc*
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-3.3.6 /usr/local/bin/i686-pc-linux-gnu-gcc-3.3.6-3.3.6
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-3.3.6-3.3.6
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.0.4 /usr/local/bin/i686-pc-linux-gnu-gcc-4.0.4-4.0.4
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.0.4-4.0.4
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.2.4 /usr/local/bin/i686-pc-linux-gnu-gcc-4.2.4-4.2.4
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.2.4-4.2.4
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.3.6 /usr/local/bin/i686-pc-linux-gnu-gcc-4.3.6-4.3.6
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.3.6-4.3.6
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.4.7 /usr/local/bin/i686-pc-linux-gnu-gcc-4.4.7-4.4.7
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.4.7-4.4.7
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.5.4 /usr/local/bin/i686-pc-linux-gnu-gcc-4.5.4-4.5.4
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.5.4-4.5.4
-diff -qs /usr/local/bin/i686-pc-linux-gnu-gcc-4.6.3 /usr/local/bin/i686-pc-linux-gnu-gcc-4.6.3-4.6.3
-ls /usr/local/bin/i686-pc-linux-gnu-gcc*
-rm /usr/local/bin/i686-pc-linux-gnu-gcc-4.6.3-4.6.3
-ls /usr/local/bin/i686-pc-linux-gnu-gcc*
-ls /usr/local/bin/i686-pc-linux-gnu-g++*
-ls /usr/local/bin/i686-pc-linux-gnu-c++*
-mv /usr/local/bin/i686-pc-linux-gnu-gcc-3.4.5 /usr/local/bin/i686-pc-linux-gnu-gcc3-3.4.5
-mv /usr/local/bin/i686-pc-linux-gnu-gcc-3.4.6 /usr/local/bin/i686-pc-linux-gnu-gcc3-3.4.6
-ls /usr/local/bin/i686-pc-linux-gnu-g++*
-ls /usr/local/bin/i686-pc-linux-gnu-gcc*
-ls /usr/local/bin/i686-pc-linux-gnu-gcc-*
-ls /usr/local/bin/i686-pc-linux-gnu-g++-*
-ls /usr/local/bin/i686-pc-linux-gnu-c++-*
-ln -sf i686-pc-linux-gnu-c++-4.6.3 /usr/local/bin/i686-pc-linux-gnu-c++
-ln -sf i686-pc-linux-gnu-g++-4.6.3 /usr/local/bin/i686-pc-linux-gnu-g++
-ln -sf i686-pc-linux-gnu-gcc-4.6.3 /usr/local/bin/i686-pc-linux-gnu-gcc
-/root/choose_gcc_version.sh 
-/usr/bin/gcc --version
-which i486-t2-linux-gnu-gcc
-/usr/bin/i486-t2-linux-gnu-gcc --version
-/usr/bin/i486-t2-linux-gnu-gcc-4.2.2 --version
-ln -sf i486-t2-linux-gnu-gcc-4.2.2 /usr/bin/i486-t2-linux-gnu-gcc
-mv /usr/bin/i486-t2-linux-gnu-g++ /usr/bin/i486-t2-linux-gnu-g++-4.2.2 
-mv /usr/bin/i486-t2-linux-gnu-c++ /usr/bin/i486-t2-linux-gnu-c++-4.2.2 
-ln -s i486-t2-linux-gnu-c++-4.2.2 /usr/bin/i486-t2-linux-gnu-c++
-ln -s i486-t2-linux-gnu-g++-4.2.2 /usr/bin/i486-t2-linux-gnu-g++
-which i486-t2-linux-gnu-gcc
-ls /usr/bin/i486*
-ls -1  /usr/bin/i486*
-ls -1  /usr/bin/gcc*
-ls -1  /usr/bin/g++*
-ls -1  /usr/bin/c++*
-/usr/bin/c++filt --help
-/usr/bin/c++ --help
-ls -1  /usr/bin/c++*
-ls -1  /usr/bin/g++*
-ls -1  /usr/bin/gcc*
-/usr/bin/gcc --version
-ls /usr/bin/i486*
-ln -sf i486-t2-linux-gnu-gcc /usr/bin/gcc
-ln -sf i486-t2-linux-gnu-g++-4.2.2 /usr/bin/g++
-ln -sf i486-t2-linux-gnu-c++-4.2.2 /usr/bin/c++
-/usr/bin/gcc --version
-/root/choose_gcc_version.sh 
-ln -sf i686-pc-linux-gnu-gcc-4.6.3  /usr/local/bin/i686-pc-linux-gnu-gcc
-rm /usr/local/bin/i686-pc-linux-gnu-gcc
-ln -sf i686-pc-linux-gnu-gcc-4.6.3  /usr/local/bin/i686-pc-linux-gnu-gcc
-/root/choose_gcc_version.sh 
-file `which gcc`
-file `which g++`
-file `which c++`
-/root/choose_gcc_version.sh 
-/usr/local/bin/gcc --version
-/usr/local/bin/g++ --version
-/usr/local/bin/c++ --version
-file /usr/local/bin/gcc
-/usr/bin/gcc --version
-ln -sf i486-t2-linux-gnu-c++-4.2.2 /usr/bin/c++
-ln -sf i486-t2-linux-gnu-g++-4.2.2 /usr/bin/g++
-ln -sf i486-t2-linux-gnu-gcc /usr/bin/gcc
-/usr/local/bin/c++ --version
-/usr/bin/gcc --version
-/root/choose_gcc_version.sh 
-gcc --version
-/root/choose_gcc_version.sh 
-i686-pc-linux-gnu
-i686-pc-linux-gnu-g++ --version
-i686-pc-linux-gnu-c++ --version
-file --version
-file /usr/local/bin/i686-pc-linux-gnu-g++
-ldd /usr/local/bin/i686-pc-linux-gnu-g++
-LC_ALL=C ld --help
-./config.guess
-ls /usr/libexec/gcc/i486-t2-linux-gnu/4.2.2/
-ls - 1 /usr/libexec/gcc/i486-t2-linux-gnu/4.2.2/
-ls -1 /usr/libexec/gcc/i486-t2-linux-gnu/4.2.2/
-file /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/collect2
-ldd /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/collect2
-ls /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/
-ls -l /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/
-ldd /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/crt*
-strings /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/crtend.o
-grep __libc_csu_fini /usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/*
-grep __libc_csu_fini /usr/i486*
-ls /usr/i486*
-ls -d /usr/i486*
-ls -d /usr/i486*/bin
-ls /usr/i486*/bin
-ls -d /usr/lib/i486*
-ls -d /usr/lib/gcc*
-ls /usr/lib/gcc*
-ls /usr/lib/gcc*/*
-ls -d /usr/lib/gcc*/*
-ls -d /usr/lib/gcc*/*/*
-ls -d /usr/lib/gcc*/*/*/*
-find /usr -name "collect2"
-/usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/collect2 --gelp
-/usr/local/lib/gcc-lib/i686-pc-linux-gnu/3.3.6/collect2 --help
-readlink `which gcc`
-which gcc
-ls /usr/bin/gcc*
-ls /usr/bin/i4*
-file /usr/bin/i486-t2-linux-gnu-c++
-ln -sf i486-t2-linux-gnu-gcc /usr/bin/gcc
-make menuconfig
-gcc --version
-make clean
-make menuconfig
-gcc --version
-make menuconfig
-file /usr/lib/crt1.o
-ls -l /usr/lib/c*
-ls -l /usr/lib/cr*
-ls -l /lib/cr*
-ls -l /lib/libg*
-ls -l /lib/libc*
-diff -qs /usr/lib/crtn.o-F3orig /usr/lib/crtn.o-OPT-2.5.1
-ldd /usr/local/bin/i686-pc-linux-gnu-gcc-3.3.6
-ldd /usr/local/bin/ld
-type -a ld
-diff -qs /usr/local/bin/ld /usr/local/i686-pc-linux-gnu/bin/ld
-/usr/local/bin/ld --help
-find /usr -iname "*i686*"
-find -name "crtl.o"
-find -name "crt1.o"
-find /usr -name "crt1.o*"
-pwd
-grep -I -r __libc_csu_fini *
-grep  -r __libc_csu_fini *
-ldd csu/Scrt1.o
-echo $PATH
-which ld
-file /usr/bin/ld
-file /usr/local/bin/ld
-/usr/local/bin/ld --version
-/usr/local/i686-pc-linux-gnu/bin/ld
-/usr/local/i686-pc-linux-gnu/bin/ld --version
-grep -r -I 
-grep -r -I __libc_csu_fini *
-grep fini *
-hostinfo
-arch
-oslevel
-df
-
-Tue Nov 25 16:19:53 GMT+1 2014
-
-killall aplay
-pidof login rc.launchxwin X
-ps | grep -w 6263
-./update_files.sh
-./update_files_from_running_system 
-pupx
-modprobe -l | grep cpufreq
-modprobe -l | grep cpufreq | sort
-modprobe -l | grep cpufreq_  | sort
-for cpu in /sys/devices/system/cpu/cpu[0-9]*/*; do echo $cpu ; done
-for cpu in /sys/devices/system/cpu/cpu[0-9]*/; do echo $cpu ; done
-modinfo longrun
-modinfo longhaul
-modinfo gx-suspmod
-modinfo pcc-cpufreq
-modinfo mperf
-modinfo freq-table
-modinfo e_powersaver
-modinfo cpufreq-stats
-modinfo cpufreq-nforce2
-grep -H '.*' /sys/devices/cpu
-grep -H '.*' /sys/devices/cpu/*
-grep -H '.*' /sys/devices/cpu/cpu0/*
-ls /sys/devices
-grep -H '.*' /sys/devices/system/cpu/cpu0/*
-grep -H '.*' /sys/devices/system/cpu/cpu0/*/*
-grep -H '.*' /sys/devices/system/cpu/*/*
-grep -H '.*' /sys/devices/system/cpu/*/
-grep -H '.*' /sys/devices/system/cpu/*
-ls /sys/devices/system/cpu/
-ls /sys/devices/system/cpu/cpufreq
-ls /sys/devices/system/cpu/cpufreq/ondemand/
-ls -l /sys/devices/system/cpu/cpufreq/ondemand/
-grep cpufreq /proc/modules
-geany `which pupx`
-ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram|^zram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram|^zram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^?ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^zram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^?ram'
-modprobe -l | grep ram
-modinfo nvram
-modprobe -v nvram
-ls -1v /sys/block | grep -vE '^loop'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^+ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^\+ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^\?ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{0,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{1,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^\{1,\}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{1,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{0,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|\^{0,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|\^{1,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{1,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{,0}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{,1}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{,2}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{0,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^{1,}ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^+ram'
-ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram'
-grep '^/dev/[fhms][mcd]' /proc/mounts
-grep '^/dev/[fhms][mcd][""d]' /proc/mounts
-grep '^/dev/[fhms][mcd][d]' /proc/mounts
-grep '^/dev/[fhms][mcd]\+' /proc/mounts
-grep '^/dev/[fhms]\+[mcd]\+' /proc/mounts
-grep -o '^/dev/[fhms]\+[mcd]\+' /proc/mounts
-A=/dev/scd0p1
-echo "$A" | grep -o '^/dev/[fhms]\+[mcd]\+'
-echo "$A" | grep '^/dev/[fhms]\+[mcd]\+'
-echo "$A" | grep '^/dev/[fhms]\{1\}[mcd]\{1,2}'
-echo "$A" | grep '^/dev/[fhms]\{1\}[mcd]\{1,2\}'
-A='\+'
-echo "$A"
-A='\*'
-echo "$A"
-/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v 'S|||[0-9]\+:[0-9]\+' | cut -f 1 -d ' '
-/bin/ps -H -A | grep '<defunct>'
-/bin/ps -H -A | grep '<defunct>' | grep -v 'grep <defunct>' 
-/bin/ps -H -A | grep '<defunct>' | grep -v 'grep <defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '[DRSTWX]\{1\}|||[0-9]\+:[0-9]\+' | cut -f 1 -d ' '
-/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '[DRSTWX]\{1\}|||[0-9]\+:[0-9]\+' | cut -f 1 -d ' '
-/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g;s/  /|/g' | grep -v '[DRSTWX]\{1\}|||[0-9]\+:[0-9]\+'
-ash\
-ash
-xrandr | grep -o -m 1 'current [0-9]* x [0-9]*,' | awk -F' ' '{print $NF}'
-xrandr | grep 'current [0-9]* x [0-9]*,' | awk -F' ' '{print $NF}'
-xrandr | grep 'current [0-9]* x [0-9]*,'
-xrandr | grep 'current \[0-9\]* x \[0-9\]*,'
-xrandr | grep -e 'current [0-9]* x [0-9]*,'
-xrandr | grep -E 'current [0-9]* x [0-9]*,'
-A=`xrandr | grep -E 'current [0-9]* x [0-9]*,'`
-echo "$A"
-echo "$A" | grep '[[0-9]]*'
-echo "$A" | grep -o '[[0-9]]*'
-echo "$A" | grep -o '[[0-9]]?'
-echo "$A" | grep -o '[[0-9]]\?'
-echo "$A" | grep -o '[[0-9]]\+'
-echo "$A" | grep -o '[[0-9]]+'
-echo "$A" | grep -o '[[0-9]]\+*'
-echo "$A" | grep -o '[[0-9]]*'
-echo "$A" | grep -o '[0-9]*'
-echo "$A" | grep -o '[0-9]\+'
-echo "$A" | grep -o '[0-9]\?'
-echo "$A" | grep -o '[0-9]\*'
-grep 'grep.*[0-9]' *
-grep 'grep.*\[0-9\]' *
-cp -a /usr/bin/ffconvert .
-cp /usr/bin/ffconvert .
-cp `readlink /usr/bin/ffconvert` .
-cp `readlink -f /usr/bin/ffconvert` .
-for i in *; do readlink $i; done
-for i in *; do currRL=`readlink $i`; echo "$currRL"; done
-for i in *; do currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;done
-for i in *; do currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i semms absolute;done
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i semms absolute;done
-pwd
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;done
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;bnLT=${currRL##*/}; echo $bnLT;done
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;bnLT=${currRL##*/}; echo $bnLT; ln -v ../../../../../usr/bin/$bnLT $i;done
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;bnLT=${currRL##*/}; echo $bnLT; ln -v -s ../../../../../usr/bin/$bnLT $i;done
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;bnLT=${currRL##*/}; echo $bnLT; ln -v -sf ../../../../../usr/bin/$bnLT $i;done
-type -a inkscapelite
-type -a gimp
-readlink *
-for i in *; do readlink $i; done
-pwd
-cd ../../../../../
-pwd
-ls usr/bin
-cd ../../
-pwd
-git commit
-git add woof-code/rootfs-skeleton/usr/bin/ffconvert-0.9
-git add woof-code/rootfs-skeleton/usr/bin/ffconvert
-git commit -m '/usr/bin/ffconvert-0.9: Added with link /usr/bin/ffconvert .'
-git commit 2>&1 | while reaf l f; do [ -e "$f" ] || continue; echo "$f"; done
-git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; done
-git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; git add "$f" && git commit -m "$f: Changed this link from absolute path to relative path";done
-git commit
-git commit 2>&1 | while read l f; do  echo "$f"; git add "$f" && git commit -m "$f: Changed this link from absolute path to relative path";done
-git commit
-uname -r
-cp -a /usr/local/bin/mozstart .
-cd ../../../../../
-pwd
-git commit
-git add /usr/local/bin/mozstart
-git add woof-code/rootfs-skeleton/usr/local/bin/mozstart
-git commit -m '/usr/local/bin/mozstart: Added.'
-type -a puppydownload
-type -a EmbeddedBookmarks
-geany /usr/local/bin/EmbeddedBookmarks
-git commit
-git commit 2>&1 | while read l f; do  echo "$f";done
-git commit 2>&1 | while read f; do  echo "$f";done
-git commit 2>&1 | while read f; do  [ -e "$f" ] || continue;echo "$f";done
-git commit 2>&1 | while read f; do  [ -e "$f" ] || continue;echo "$f"; git add "$f" && git commit -m "$f: Added from original .sfs .";done
-for i in *; do echo $i; done
-for i in *; do echo $i; ls /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/local/bin/$i;done
-for i in *; do echo $i; file "$i" | grep -iw -E 'ELF|LSB' && continue;ls /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/local/bin/$i;done
-for i in *; do echo $i; file "$i" | grep -iw -E 'ELF|LSB' && continue;ls /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/local/bin/$i && continue; echo;echo $i needs to be added to git; echo;done
-for i in *; do echo $i; file "$i" | grep -iw -E 'ELF|LSB|link' && continue;ls /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/local/bin/$i && continue; echo;echo $i needs to be added to git; echo;done
-dmidecode --help
-dmidecode -u
-/root/_board_info.sh 
-ls /sys/devices/system/cpu/$core/cpufreq/
-ls /sys/devices/system/cpu/$core/cpufreq/*/
-ls /sys/devices/system/cpu/cpu0/cpufreq/*/
-ls /sys/devices/system/cpu/cpu0/cpufreq/*
-/etc/init.d/DRIVER/start_cpu_freq 
-grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/
-grep -H '.*' /sys/devices/system/cpu/cpufreq//
-grep -H '.*' /sys/devices/system/cpu/cpufreq/ondemand/
-/etc/init.d/DRIVER/start_cpu_freq 
-/etc/init.d/DRIVER/start_cpu_freq start
-ls -1v /sys/devices/system/cpu/ | grep 'cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -E '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -G '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -e '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -oe '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -E '^cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep -E '^cpu[:digit:]*'
-ls -1v /sys/devices/system/cpu/ | grep -E '^cpu[:digit:]'
-ls -1v /sys/devices/system/cpu/ | grep -E 'cpu[:digit:]'
-ls -1v /sys/devices/system/cpu/ | grep -E 'cpu[[:digit:]]'
-ls -1v /sys/devices/system/cpu/ | grep -E 'cpu[[:digit:]]*'
-ls -1v /sys/devices/system/cpu/ | grep -E 'cpu[[:digit:]]?'
-ls -1v /sys/devices/system/cpu/ | grep -e 'cpu[[:digit:]]?'
-ls -1v /sys/devices/system/cpu/ | grep  'cpu[[:digit:]]?'
-ls -1v /sys/devices/system/cpu/ | grep  'cpu[[:digit:]]+'
-ls -1v /sys/devices/system/cpu/ | grep  -E 'cpu[[:digit:]]+'
-ls -1v /sys/devices/system/cpu/ | grep  -E 'cpu[[0-9]]+'
-ls -1v /sys/devices/system/cpu/ | grep  -E 'cpu[0-9]+'
-ls -1v /sys/devices/system/cpu/ | grep  -E 'cpu[0-9]*'
-ls -1v /sys/devices/system/cpu/ | grep  -E 'cpu[[0-9]]*'
-geany /sbin/pup_event_frontend_d
-geany /sbin/pup_event_backend_modprobe
-man wc
-geany `which eventmanager`
-eventmanager
-FALL=$(ffmpeg -formats 2>/dev/null)
-echo "$FALL"
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]*E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]\+E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]\{2\}E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]\{1\}E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]\{2\}E'|sed -e 's/^[ A-Z]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-locale
-FORMATS=$(echo "$FALL"| head -n $(($N1 - 1))| grep '^[ D]\{2\}E'|sed -e 's/^[ DE]*[ ]//' |cut -d ' ' -f1)
-echo "$FORMATS"
-echo "$FALL"| grep '^ [ D][ E] ' |sed 's/^ *//;s/^D /D-/;s/^E/-E/' |awk '{print $1"_"$2}'
-cat --help
-which ffconvert
-file /usr/bin/ffconvert
-geany /usr/bin/ffconvert-0.9
-geany /usr/bin/ffconvert-0.7_orig
-grep -r 'grep.*\[0-9\]' *
-ln --help
-for i in *; do [ -L "$i" ] || continue;currRL=`readlink $i`; echo "$currRL"; case $currRL in .*|..*) continue;;esac;echo $i seems absolute;bnLT=${currRL##*/}; echo $bnLT; ln -v -sf ../../../../usr/bin/$bnLT $i;done
-file /usr/bin/mozstart
-which mozstart
-file /usr/local/bin/mozstart
-geany /usr/local/bin/mozstart
-man ps
-cut --help
-busybox cut --help
-echo "$JwmL" | grep -o ' height=.*$' | tr -d ' ' | cut -f 2 -d '"'
-/bin/df -m | grep -m1 ' /$'
-/bin/df -m | awk '{if ($NF == "/") print}'
-/bin/df -m | awk '{if ($6 == "/") print}'
-time /bin/df -m | awk '{if ($6 == "/") print}'
-time /bin/df -m | grep -m1 ' /$'
-time /bin/df -m | awk '{if ($6 == "/") print}'
-df
-time SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
-time SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
-time SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
-time SIZEFREEM=`/bin/df -m | grep -m1 ' /$' | tr -s ' ' | cut -f 4 -d ' '`
-time SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
-time SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/") print $4}'`
-ash
-/bin/ps -H -A |sed 's/^[[:blank:]]*//g;s/  /|/g'
-grep '^/dev/[fhms][md]' /proc/mounts
-grep '^/dev/[fhms]\{1\}[md]' /proc/mounts
-grep '^/dev/[fhms]\{1\}[md]\{1\}' /proc/mounts
-grep '^/dev/[fhms]\+[md]\{1\}' /proc/mounts
-grep '^/dev/[fhms]\+[md]\+' /proc/mounts
-grep '^/dev/[fhms]\?[md]\?' /proc/mounts
-grep '^/dev/' /proc/mounts
-grep '^\</dev/' /proc/mounts
-grep '\</dev/' /proc/mounts
-grep '</dev/' /proc/mounts
-grep '^</dev/' /proc/mounts
-grep '^\</dev/' /proc/mounts
-grep '^\</dev/sda1\>' /proc/mounts
-grep '^</dev/sda1>' /proc/mounts
-grep '^/dev/sda1' /proc/mounts
-grep '^/dev/sda1\b' /proc/mounts
-grep '^\b/dev/sda1\b' /proc/mounts
-grep '^\b/dev/sda1' /proc/mounts
-grep '\b/dev/sda1' /proc/mounts
-grep '/dev/sda1\b' /proc/mounts
-grep -w '/dev/sda1\b' /proc/mounts
-grep -w '/mnt/sda1\b' /proc/mounts
-grep -w '\b/mnt/sda1\b' /proc/mounts
-grep -w '\b/mnt/sda1' /proc/mounts
-grep -w '\B/mnt/sda1' /proc/mounts
-grep -w '\B/mnt/sda1\b' /proc/mounts
-grep '\B/mnt/sda1\b' /proc/mounts
-grep -o '\B/mnt/sda1\b' /proc/mounts
-grep -o '\</mnt/sda1\>' /proc/mounts
-grep  '\</mnt/sda1\>' /proc/mounts
-grep  '</mnt/sda1\>' /proc/mounts
-grep  '</mnt/sda1>' /proc/mounts
-grep  '< /mnt/sda1 >' /proc/mounts
-grep  '\< /mnt/sda1 \>' /proc/mounts
-grep  '\<  \>' /proc/mounts
-grep  '\< \>' /proc/mounts
-grep  '\<\>' /proc/mounts
-grep  '\<\>' /tmp/test
-touch /tmp/test
-grep  '\<\>' /tmp/test
-grep  '\< \>' /tmp/test
-echo "" >/tmp/test
-grep  '\< \>' /tmp/test
-grep  '\<\>' /tmp/test
-echo " " >/tmp/test
-grep  '\<\>' /tmp/test
-grep  '\< \>' /tmp/test
-grep  '\B \>' /tmp/test
-grep  '\B \b' /tmp/test
-grep  ' ' /tmp/test
-grep  '\b ' /tmp/test
-grep  ' \b' /tmp/test
-type -a ffplay
-file /usr/bin/ffplay
-ls -1v /sys/devices/system/cpu/ | grep -E 'cpu[[0-9]]*'
-ash
-chmod +x /root/_board_info.sh 
-/root/_board_info.sh
-dmidecode -s "processor-frequency"
-string='processor‐version'
-dmidecode -s "$string"
-string='processor\‐version'
-dmidecode -s "$string"
-string='processor‐version'
-dmidecode -s $string
-/root/_board_info.sh
-type -a dmidecode
-file /usr/sbin/dmidecode
-file /usr/local/sbin/dmidecode
-/usr/local/sbin/dmidecode --version
-/usr//sbin/dmidecode --version
-/root/_board_info.sh
-ps | grep man
-man dmidecode
-which less
-file /usr/bin/less
-man dmidecode
-LC_PAPER=C man dmidecode
-LC_CTYPE=C man dmidecode
-LC_ALL=C man dmidecode
-expoer LC_ALL=C
-export LC_ALL=C
-man dmidecode
-busybox man dmidecode
-man --help
-man -d dmidecode
-man -D dmidecode
-grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]+$|vc[0-9]+' | grep -o '[0-9]+$'
-grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]+$|vc[0-9]+' | grep -o '[0-9]\+$'
-A=tty11
-echo "$A" | grep -o [0-9]\+$'
-echo "$A" | grep -o '[0-9]\+$'
-grep -E 'tty|vc' /etc/inittab | grep -v -E '^#|^[[:blank:]]+#|^\t+#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]+$|vc[0-9]+' | grep -o '[0-9]\+$'
-grep -E 'tty|vc' /etc/inittab
-grep ^processor /proc/cpuinfo |wc -l
-grep ^processor /proc/cpuinfo
-depmod --help
-depmod-FULL --help
-source /etc/rc.d/MODULESCONFIG 
-echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n'
-echo "$SKIPLIST"
-echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /'
-echo "'$SKIPLIST'"
-SKIPLIST="${SKIPLIST} "
-echo "'$SKIPLIST'"
-echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /'
-ls -A /etc/modprobe.d/*
-elspci -l | grep -o -E '0C0300|0C0310|0C0320'
-elspci -l | grep -m1 -E '0C0300|0C0310|0C0320'
-elspci -l | grep -E '0C0300|0C0310|0C0320'
-modprobe -l | grep '[eoux]\{1\}hci[-_]hcd'
-modprobe -l | grep '[eoux]hci[-_]hcd'
-elspci -l
-elspci -l | grep '<>$'
-dmidecode | grep -m3 -iE 'manufacturer|product|serial number'
-LANG=C ln --help
-LC_ALL=C ln --help
-uname --help
-LC_ALL=C ld --help
-ln --help
-history | grep man
-history | grep help
-gcc --help
-ls --help
-dmidecode --help
-ps -A -H
-ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||'
-ps -H -A | grep '<defunct>' | sed -e 's/  /|/g'
-ps -H -A | sed -e 's/  /|/g'
- ls /sys/*/system/cpu/cpufreq
- ls /sys/*/system/cpu/
- ls /sys/*/system/cpu/cpu0
- ls /sys/*/system/cpu/cpu0/cpufreq
-grep -H '.*'  /sys/*/system/cpu/cpu0/cpufreq/*
-echo ondemand >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 
-grep -H '.*'  /sys/*/system/cpu/cpu1/cpufreq/*
-echo ondemand >/sys/devices/system/cpu/cpu1/cpufreq/scaling_governor 
-help set
-ICON_PLACE_SPACING=$(( (( $DriveIconsize / $PIN_GRID_STEP ) + 1 ) * $PIN_GRID_STEP ))
-ICON_PLACE_SPACING=$(( (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP ))
-set -u
-ICON_PLACE_SPACING=$(( (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP ))
-ICON_PLACE_SPACING=$(( (( $DriveIconsize / $PIN_GRID_STEP ) + 1 ) * $PIN_GRID_STEP ))
-man grep
-LANG=C man grep
-LC_ALL=C man grep
-/etc/init.d/DRIVER/start_cpu_freq 
-/etc/init.d/DRIVER/start_cpu_freq start
-echo 40000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
-ls /sys/devices/system/cpu/cpu0/cpufreq/ondemand/
-ls /sys/devices/system/cpu/cpu0/cpufreq/
-grep -H '.*' /sys/devices/system/cpu/cpu0/cpufreq/*
-ls -l /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_transition_latency
-grep -H '.*' /sys/devices/system/cpu/cpufreq/ondemand/*
-echo 25 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
-grep -H '.*' /sys/devices/system/cpu/cpufreq/ondemand/*
-modprobe -v acpi-cpufreq
-ls /sys/*/sysytem
-ls /sys/*/system
-ls /sys/*/system/cpu
-ls /sys/*/system/cpu/cpufreq
-modprobe -v cpufreq_ondemand
-ls /sys/*/system/cpu/cpufreq
-pupx
-geany /usr/local/bin/drive_all
-time mount /dev/sda1
-time umount /dev/sda1
-dmesg
-rox /proc
-ps | grep AppRun
-kill -9 510
-ps | grep AppRun
-pup_event_frontend_d restart
-grep sda1 /proc/diskstats
-pup_event_frontend_d restart
-grep sdc /proc/diskstats
-grep sdc /proc/*stat*
-cat /proc/stat
-cat /proc/io*
-grep sdc /proc/*stat*
-grep sdc /proc/*stat* | awk '{print S9}'
-grep sdc /proc/*stat* | awk '{print $9}'
-grep sda /proc/*stat* | awk '{print $9}'
-grep sdb /proc/*stat* | awk '{print $9}'
-grep sdb /proc/*stat* | awk '{print $12}'
-grep sdb /proc/*stat* | awk '{print}'
-grep sdb /proc/*stat* | awk '{print $0}'
-grep sdb /proc/*stat* | awk '{print $1}'
-grep sdb /proc/*stat* | awk '{print $2}'
-grep sdb /proc/*stat* | awk '{print $3}'
-grep sdb /proc/*stat* | awk '{print $4}'
-grep sdb /proc/*stat* | awk '{print $5}'
-grep sdb19 /proc/*stat* | awk '{print $5}'
-grep sdb19 /proc/*stat* | awk '{print}'
-grep sdb19 /proc/diskstats | awk '{print}'
-grep sdb19 /proc/diskstats | awk '{print $12}'
-grep sdb19 /proc/diskstats | awk '{print $15}'
-grep sdb19 /proc/diskstats | awk '{print $14}'
-awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats
-oneDRVNAME=sdb19
-awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats
-top
-make menuconfig
-make.tgl
-manke clean
-make clean
-make menuconfig
-git branch
-git branch -a
-git log --grep losetup
-readlink /sys/block/$oneDRVNAME
-readlink /sys/block/sdb
-readlink /sys/block/sdc
-readlink /sys/block/sdc | grep usb
-pup_event_frontend_d restart
-pup_event_frontend_d restart
-pup_event_frontend_d restart
-
-Thu Nov 27 01:03:19 GMT+1 2014
-
-uname -r
-ddcprobe
-make menuconfig
-make clean
-make menuconfig
-rime umount /dev/sdb20
-iime umount /dev/sdb20
-time umount /dev/sdb20
-time mount /dev/sdb20
-time umount /dev/sdb20
-defaultmediaplayer "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-gnome-mplayer --help
-type -a mplayer
-type -a mplayer~
-/usr/local/bin/mplayer~ --version
-/usr/local/bin/mplayer --version
-/usr/local/bin/mplayer -version
-file /usr/local/bin/mplayer
-file /usr/local/bin/mplayer~
-ls -ls /usr/local/bin/mplayer
-ls -ls /usr/local/bin/mplayer~
-du -s -BM /usr/local/bin/mplayer~
-mplayer "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-mplayer~ "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-mplayer "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-ls -l /usr/loacal/bin/mplayer
-ls -l /usr/local/bin/mplayer
-ls -l /usr/local/bin/mplayer~
-strace mplayer "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv" 2>mplayer-X11-error.strace
-pwd
-mplayer --help vo
-mplayer -vo help
-mplayer -vo xv "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-mplayer -vo x11 "/mnt/sda1/VID/MSC/Deutsch/Seeed - &quot;Ding&quot; (Official Video) - YouTube.flv"
-top
-killall -9 heroes3
-filemnt "/mnt/sda2/PUPSFS/boswars-2.6.1-linux_431.sfs"
-uname -r
-./update_files_from_running_system 
-cat /proc/partitons
-cat /proc/partitions
-mkfs.ext2 /dev/loop5p1
-mkfs.ext2 /dev/loop5p2
-mkfs.ext2 /dev/loop5p3
-mkfs.ext2 /dev/loop5p5
-mkfs.ext2 /dev/loop5p6
-mkfs.ext2 /dev/loop5p7
-time mount -o loop -t ext2 /dev/loop5p1
-df
-pwd
-dmesg
-losetup /dev/loop5 ./loopfile.zero 
-losetup
-losetup -a
-busybox losetup 
-fdisk /dev/loop5
-partprobe -s
-fdisk /dev/loop5
-type -a fdisk
-/usr/local/sbin/fdisk /dev/loop5
-partprobe -s /dev/loop5
-mount
-umount /dev/loop5p1
-mount
-uname -r
-top
-killall mplayer
-top
-geany /usr/sbin/filemnt
-
-Thu Nov 27 13:26:18 GMT+1 2014
-
-time mount /dev/sdb20
-time umount -r /dev/sdb20
-
-Thu Nov 27 17:14:53 GMT+1 2014
-
-test -d /mnt/dpup-010-rc1-k2.6.32.24.iso
-test -d /mnt/dpup-010-rc1-k2.6.32.24.iso; echo $?
-filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-time filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-umount /dev/loop0
-umount /dev/loop1
-time filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-time filemntOLD /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-time filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-grep loop /proc/mountd
-grep loop /proc/mounts
-time filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-time filemnt --help
-time filemnt -help
-time filemnt --version
-time filemnt /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-file loopfile.zero
-./filemntNEW2 ./initrd.gz
-filemntNEW2 ./initrd.gz
-chmod +x /usr/sbin/filemntNEW2
-filemntNEW2 ./initrd.gz
-file ./initrd.gz
-disktype ./initrd.gz
-filemntNEW2 ./initrd.gz
-filemntNEW2 ./initrd.gz; echo $?
-mktemp --help
-mktemp -d -p `pwd` filemntXXXXXX
-cp -a `which filemntNEW2` filemntNEW
-cp /usr/bin/filemntNEW /usr/sbin/filemntNEW.scribble
-cp /usr/sbin/filemntNEW /usr/sbin/filemntNEW.scribble
-cp /usr/bin/filemntNEW2 /usr/bin/filemntNEW
-cp /usr/sbin/filemntNEW2 /usr/sbin/filemntNEW
-geany /usr/sbin/filemntNEW
-git commit
-git commit
-./update_files_from_running_system 
-git commit
-git add woof-code/rootfs-skeleton/usr/sbin/filemntNEW
-git commit -m '/usr/sbin/filemntNEW: Added to replace filemnt'
-git mv woof-code/rootfs-skeleton/usr/sbin/filemnt woof-code/rootfs-skeleton/usr/sbin/filemntOLD
-git commit
-./update_files_from_running_system 
-diff /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/sbin/filemntOLD /usr/sbin/filemntOLD
-touch /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/usr/sbin/filemntOLD
-./update_files_from_running_system 
-./update_files.sh 
-./replace_commit_files.sh 
-geany /etc/rc.d/f4puppy5
-geany /usr/sbin/filemntOLD
-time for i in `seq 1 1 10000`; do realpath /bin/bash; done
-time for i in `seq 1 1 10000`; do readlink -f /bin/bash; done
-./update_files_from_running_system 
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-losetup -a
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-geany /bin/mount.sh
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-losetup -f
-umount /dev/loop1
-umount /dev/loop0
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-losetup -d
-losetup -a
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-losetup -a
-mount
-losetup -d /dev/loop1
-losetup -d /dev/loop2
-losetup -d /dev/loop3
-filemntNEW2 /mnt/sda2/PUPPY-ISOs/2.6.32/dpup-010-rc1-k2.6.32.24.iso
-dd if=/dev/zero of=initrd.ext2 bs=1024 count=$((5*1024))
-mkfs.ext2 initrd.ext2
-file initrd.ext2 
-cp initrd.ext2 initrd.ext3
-cp initrd.ext2 initrd.ext4
-tube2fs -j initrd.ext3
-tune2fs -j initrd.ext3
-mkfs.ext4 initrd.ext4
-file initrd.ext*
-gzip -9 initrd.ext3
-file initrd.ext*
-disktype initrd.ext*
-type -a filemnt
-cp -ai /usr/sbin/filemnt /usr/sbin/filemntOLD
-for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`;   do echo $oneLOOP; done
-losetup-FULL /dev/loop1
-losetup-FULL /dev/loop0
-cp -ai /usr/sbin/filemntOLD /usr/sbin/filemnt
-diff /usr/sbin/filemnt /usr/sbin/filemntOLD
-diff /usr/sbin/filemnt /usr/sbin/filemntNEW
-diff /usr/sbin/filemnt /usr/sbin/filemntNEW2
-diff /usr/sbin/filemntNEW /usr/sbin/filemntNEW2
-mv /usr/sbin/filemntNEW2 /usr/sbin/filemnt
-cp -ai /usr/bin/filemnt .
-cp -ai /usr/sbin/filemnt .
-./update_files_from_running_system 
-git commit
-git add woof-code/rootfs-skeleton/usr/sbin/filemnt
-git commit -m '/usr/sbin/filemnt: Re-added.'
-
-Fri Nov 28 00:22:06 GMT+1 2014
-
-filemnt initrd.gz 
-filemnt initrd.ext2
-filemnt ./initrd.ext2
-pwd
-cd ..
-filemnt ./initrd.ext2
-filemnt initrd.ext2
-df
-df -T
-for i in *; do test [ -f "$i" ] || continue;echo "$i"; done
-for i in *; do [ -f "$i" ] || continue;echo "$i"; done
-for i in *; do [ -f "$i" ] || continue; ls -1 ./*/"$i";echo "$i"; done
-for i in *; do [ -f "$i" ] || continue; ls -1 ./*/"$i"; echo $?;echo ""; done
-uname -r
-modinfo slram
-./replace_commit_files.sh 
-./check_perms.sh 
-stat --help
-uname -r
-diff /mnt/sdb6/bin/mount.sh /bin/mount.sh >mount_sh.diff
-diff -up /mnt/sdb6/bin/mount.sh /bin/mount.sh >mount_sh.diff
-
-Fri Nov 28 11:38:01 GMT+1 2014
-
-git commit
-./update_files_from_running_system 
-mount
-NewKernelStats.sh 
-filemnt ./heroes-3_5.5.sfs 
-Xdialog -title "$TITLE" -stdout -menu 0x0 5 "TEXT" "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu 0x0 5 "TEXT" "Quit" "do_nothing_-_just_leave" "ROX" "open_ROX-Filer_window" "console" "open_rxvt_console_window" "unmount" "just_unmount_$bn_imgFILE" "unmountall" "unmount_all_$bn_imgFILE" "mountagain" "mount_$bn_imgFILE_again"
-Xdialog -title "$TITLE" -stdout -menubox 0x0 5 "TEXT" "Quit" "do_nothing_-_just_leave" "ROX" "open_ROX-Filer_window" "console" "open_rxvt_console_window" "unmount" "just_unmount_$bn_imgFILE" "unmountall" "unmount_all_$bn_imgFILE" "mountagain" "mount_$bn_imgFILE_again"
-TITLE=menu
-Xdialog -title "$TITLE" -stdout -menubox 0x0 5 "TEXT" "Quit" "do_nothing_-_just_leave" "ROX" "open_ROX-Filer_window" "console" "open_rxvt_console_window" "unmount" "just_unmount_$bn_imgFILE" "unmountall" "unmount_all_$bn_imgFILE" "mountagain" "mount_$bn_imgFILE_again"
-bn_imgFILE=puppysfs
-Xdialog -title "$TITLE" -stdout -menubox 0x0 5 "TEXT" "Quit" "do_nothing_-_just_leave" "ROX" "open_ROX-Filer_window" "console" "open_rxvt_console_window" "unmount" "just_unmount_$bn_imgFILE" "unmountall" "unmount_all_$bn_imgFILE" "mountagain" "mount_$bn_imgFILE_again"
-Xdialog -title "$TITLE" -stdout -menubox 0x0 5 "TEXT" "Quit" "do_nothing_-_just_leave"
-Xdialog -title "$TITLE" -stdout -menubox "TEXT" 0x0 5  "Quit" "do_nothing_-_just_leave"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 0x0 5 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 0x50 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 0x90 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 50x90 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 150x90 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -menu "TEXT" 250x190 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -nocancel -menu "TEXT" 250x190 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-Xdialog -title "$TITLE" -stdout -no-cancel -menu "TEXT" 250x190 7 "Quit" "do nothing - just leave" "ROX" "open ROX-Filer window" "console" "open rxvt console window" "unmount" "just unmount $bn_imgFILE" "unmountall" "unmount all $bn_imgFILE" "mountagain" "mount $bn_imgFILE again"
-filemnt /mnt/sda2/PUPSFS/heroes-3_5.5.sfs
-
-Fri Nov 28 20:26:43 GMT+1 2014
-
-./update_files_from_running_system 
-./replace_commit_files.sh 
-git commit
-git add check_perms.sh
-git commit -m 'check_perms.sh: Added to compare permissions and ownerships 
-of files in GIT with the ones currently in OS.'
-git commit
-git add replace_commit_files.sh
-git commit -m 'replace_commit_files.sh: Added -A switch to ls -1v for hidden files.'
-git add update_files_from_running_system
-git commit -m 'update_files_from_running_system: Added echo $? to cp -ai;
-needs to figure out handling if not copied what to do...'
-git commit
-ddcprobe
-uname -r
-make menuconfig
-NewKernelStats.sh 
-uname -r
-
-Fri Nov 28 23:29:42 GMT+1 2014
-
-NewKernelStats.sh 
-git commit
-git config user.email karlgodt@excite.de
-git config user.name KarlGodt
-git commit
-git add kernel-kit
-git commit -m 'kernel-kit: Initial commit for branch Fox3-Dell755
-to remove old git commit messages to reduce size of git repository.'
-git commit
-git add woof-arch
-git commit -m 'woof-arch: Initial commit for branch Fox3-Dell755
-to remove old git commit messages to reduce size of git repository.'
-git commit
-git add woof-code
-git commit -m 'woof-code: Initial commit for branch Fox3-Dell755
-to remove old git commit messages to reduce size of git repository.'
-git commit
-git add woof-distro
-git commit -m 'woof-distro: Initial commit for branch Fox3-Dell755
-to remove old git commit messages to reduce size of git repository.'
-git branch
-git checkout -b Fox3-Dell755
-git branch
-rox
-git init
-filemnt heroes-3_5.5.sfs 
-git pull --dry-run /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
-git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
-filemnt ./heroes-3_5.5.sfs 
-uname -r
-geany /usr/local/bin/drive_all
-geany /bin/mount.sh
-git help pull
-git help fetch
-git help merge
-git help clone
-git help daemon
-git help config
-git help remote
-modprobe -l | grep scsi
-uname -r
-grep -H ATA_VERBOSE_ERROR /etc/modules/DOTconfig*
-grep -H SCSI_CONSTANTS  /etc/modules/DOTconfig*
-sdparm --long --all /dev/sdc
-sdparm --verbose --long --all /dev/sdc
-man -w
-ls /usr/local/share/man
-file /usr/local/share/man
-man -w
-man hexedit
-echo HALLO >>/dev/sdc4
-echo HALLO3 >>/dev/sdc4
-dd if=/dev/sdc4 of=sdc4.dd bs=1 count=512
-hexedit sdc4.dd
-man hexedit
-find /usr -wholename "*/man/*/hex*"
-man /usr/local/man/man1/hexedit.1
-find /usr -wholename "*/man/*/hex*"
-man --version
-man --help
-man -w
-mandb --help
-mandb --version
-strace man -w
-smartctl -A /dev/sdc
-smartctl -d sat -A /dev/sdc
-smartctl -d  help
-smartctl -d scsi -A /dev/sdc
-smartctl -d ata -A /dev/sdc
-hdparm -I /dev/sdc
-hdparm -I /dev/sdc >hdparm_I_AGFA16Gb.txt
-hdparm -I /dev/sdc >hdparm_I_AGFA16Gb.txt 2>&1
-geany 1
-geany hdparm_I_AGFA16Gb.txt
-hdparm -I /dev/sdc >hdparm_I_AGFA16Gb.txt
-geany hdparm_I_AGFA16Gb.txt
-hdparm -I /dev/sdc
-hdparm -iI /dev/sdc
-sdparm -e --all --long
-sdparm -e --all --long >sdparm_e__all__long.txt
-sdparm /dev/sdc
-sdparm --all /dev/sdc
-sdparm -e all
-sdparm -e --all
-sdparm -e --all | grep 'read'
-sdparm -e --all | grep 'write'
-sdparm -e --all >sdparm_e__all.txt
-geany sdparm_e__all.txt
-sdparm -e --all | grep '^[[:blank:]]\+[A-Z]\+' | awk '{print $1}'
-sdparm -e --all | grep '^[[:blank:]]\+[A-Z]\+' | awk '{print $1}' | while read STR; do echo $STR; done
-sdparm -e --all | grep '^[[:blank:]]\+[A-Z]\+' | awk '{print $1}' | while read STR; do echo $STR; sdparm -g $STR /dev/sdc; sleep 0.1;done
-man sdparm
-dmesg | tail -n20
-dmesg | tail
-dmesg | tail -n20
-dmesg | tail
-fdisk /dev/sdc
-make menuconfig
-realpath /sys/block/sdc
-realpath --help
-ln -s /tmp/non-existant link
-realpath link
-readlink link
-readlink -e link
-readlink -f link
-busybox readlink -f link
-busybox readlink -f link; echo $?
-readlink -f link; echo $?
-man readlink
-mount /dev/sdc9
-umount /mnt/sdc9
-fdisk /dev/sdc9
-uname -r
-partprobe -s /dev/sdc9
-partprobe -s /dev/sdc
-partprobe -s /dev/sdc9
-fdisk /dev/sdc9
-fdisk -l /dev/sdx
-fdisk -l /dev/sdc
-fdisk /dev/sdc10
-cat/proc/partitions
-cat /proc/partitions
-/etc/init.d/SOFTWARE/dictd start
-/etc/init.d/SOFTWARE/dicod start
-pdict
-exit
-info grub
-
-Sun Nov 30 14:24:47 GMT+1 2014
-
-fdisk /dev/sdb
-fdisk -l /dev/sdb
-/etc/init.d/SOFTWARE/dicod start
-geany /boot/grub/menu-chainloader.lst 
-ls /usr/bin/dic*
-/usr/bin/dictl --help
-/usr/bin/dico --help
-fdisk /dev/sda
-fdisk -l /dev/sda
-partprobe -s /dev/sda
-partprobe -s /dev/sdb
-fdisk -l /dev/sdc
-blkid | sort
-for i in menu*.lst; do echo $i; done
-find /usr -name "libdic*"
-pdict
-geany `which pdict`
-dictd
-dicod
-grub
-dmesg
-
-Sun Nov 30 20:03:42 GMT+1 2014
-
-pupx
-xset q
-for i in menu*.lst; do geany $i; sleep 1; done
-geany /etc/rc.d/rc.shutdown
-pupFS=$(awk '{if ($1 == "/dev/root") print $3}' /proc/mounts)
-echo $pupFS
-ABSPUPHOME="/initrd${PUP_HOME}"
-if [ "`awk "{if (\\$2 == \"$ABSPUPHOME\") print}"`" ]; then echo Y;fi
-if [ "`awk "{if (\\$2 == \"$ABSPUPHOME\") print}" /proc/mounts`" ]; then echo Y;fi
-if [ "`awk "{if (\\$2 == "$ABSPUPHOME") print}" /proc/mounts`" ]; then echo Y;fi
-if [ "`awk "{if (\\$2 == \\"$ABSPUPHOME\\") print}" /proc/mounts`" ]; then echo Y;fi
-awk "{if {\\$2 == \"/initrd${SAVE_LAYER}\") print $3}" /proc/mounts
-SAVEFS=`awk "{if {\\$2 == \"/initrd${SAVE_LAYER}\") print $3}" /proc/mounts`
-SAVEFS=`awk "{if (\\$2 == \"/initrd${SAVE_LAYER}\") print $3}" /proc/mounts`
-SAVEFS=`awk "{if (\$2 == \"/initrd${SAVE_LAYER}\") print $3}" /proc/mounts`
-cat /proc/mounts
-awk '{if ($1 == '/dev/root') print /proc/mounts
-awk '{if ($1 == '/dev/root') print}' /proc/mounts
-awk '{if ($2 == '/') print}' /proc/mounts
-awk '{if ($2 == "/") print}' /proc/mounts
-awk '{if ($1 == "/dev/root") print $3}' /proc/mounts
-pupFS=`awk '{if ($1 == '/dev/root') print $3}' /proc/mounts`
- devROOT=`rdev | cut -f1 -d' '`
-echo $pupFS
-echo $pupFS 
-echo $devROOT
-uname -r
-geany /sbin/reboot
-killall --help
-
-Sun Nov 30 22:34:39 GMT+1 2014
-
-uname -r
-fsck -n /dev/sdb6
-fsck  /dev/sdb6
-echo -e '^G'
-echo -e '\\033[G'
-echo -e '\\033[Gm'
-echo -e '\033[G'
-echo -e '\033[G50'
-echo -e '\033[50G'
-echo -e '\033[0G'
-beep
-echo -e '\033[^G'
-echo -e '\0007'
-echo -e '\00007'
-echo -e '\0007'
-echo -e '\0006'
-echo -e '\0008'
-echo -e '\0009'
-echo -e '\0010'
-echo -e '\0011'
-echo -e '\0012'
-echo -e '\0013'
-echo -e '\0014'
-echo -e '\0015'
-echo -e '\0016'
-echo -e '\0017'
-echo -e '\0020'
-echo -e '\0021'
-echo -e '\0022'
-echo -e '0x0022'
-echo -e '\0x0022'
-echo -e '\0x022'
-printf  %c 0x022
-printf  %c 0x007
-printf  %c 0x0
-printf  %c 0x1
-printf  %c 0x2
-printf  %c 0x3
-printf  %s 0x3
-printf  %c 0x3
-printf  %c 0x123
-printf  %c 0x0123
-printf  %c 0x012
-printf  %c 0x12
-printf  %d 0x12
-printf  %d \0123
-printf  %d \012
-printf  %d \019
-printf  %d \017
-printf  %d \020
-printf  %d \097
-printf  %d \077
-man ms-sys
-ms-sys --help
-find /usr -wholepath "*/man/*/ms-sys*"
-find /usr -wholename "*/man/*/ms-sys*"
-ls /dev/ram0
-ls /dev/ram1
-ms-sys -m /dev/ram1
-ms-sys -m -f /dev/ram1
-cd /tmp
-mkdir ram1
-cd ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -9 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -d -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -1 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -2 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -3 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -4 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -5 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-ms-sys -6 -f /dev/ram1
-dd if=/dev/ram1 of=ram1 bs=1 count=512
-hexdump -C ram1
-NewKernelStats.sh 
-info grub
-
-Mon Dec 1 03:56:05 GMT+1 2014
-
-geany /bin/mount.sh
-geany /sbin/init
-
-Mon Dec 1 04:22:57 GMT+1 2014
-
-for i in menu*.lst; do echo $i; geany $i; sleep 1;done
-NewKernelStats.sh 
-
-Mon Dec 1 06:05:12 GMT+1 2014
-
-fsck -n /dev/sdb6
-fsck  /dev/sdb6
-grep -H USB_SUSPEND /etc/modules/DOT*
-df
-mksquashfs ASM ASM-O2.sfs
-mksquashfs BLADE BLADE-O2.sfs
-mksquashfs Gpart Gpart-O2.sfs
-mksquashfs HDPARM HDPARRM-9.4x-O2.sfs
-mksquashfs MUSL MUSL-O2.sfs
-mksquashfs SOUND SOUND-O2.sfs
-mksquashfs SYSLINUX SYSLINUX-O2.sfs
-mksquashfs LINCITY LINCITY-O2.sfs
-for i in *; do echo $i; done
-for i in *; do [ -d "$i" ] || continue;echo $i; done
-for i in *; do [ -d "$i" ] || continue;[ -e "$i"-O2.sfs ] && continue;echo $i; done
-for i in *; do [ -d "$i" ] || continue;[ -e "$i"-O2.sfs ] && continue;echo $i; mksquashfs "$i" "$i"-O2.sfs;sleep 5;done
-for i in *; do echo $i; done
-for i in *; do [ -d "$i" ] || continue; [ "$i" = OLD ] && continue;echo $i; done
-for i in *; do [ -d "$i" ] || continue; [ "$i" = OLD ] && continue;echo $i; mksquashfs $i $i-O2.sfs; sleep 5;done
-df
-git branch
-git tag
-git checkout grub-legacy
-grep -i viewport *
-grep -r -i -I viewport *
-pwd
-gti log --grep viewport
-git log --grep viewport
-git log
-git branch
-git checkout master
-git branch
-rox
-grep -r -i -I viewport *
-grep -r -i -I -m1 viewport *
-grep -r -i -I -m1 viewport * | while read f r; do echo $f; done
-grep -r -i -I -m1 viewport * | while read f r; do f=${f%%:*};echo $f; done
-grep -r -i -I -m1 viewport * | while read f r; do f=${f%%:*};echo $f; geany $f; sleep 1;done
-info grub
-greub
-grub
-grep -i -I enter *
-pwd
-grep -H USB_SUSPEND ./DOT*
-grep -i splash *
-grep -r -i splash *
-grep -r -i title *
-grep -r -i splash *
-grep -r -i view *
-info grub
-man modprobe
-echo $PATH
-PATH=/var/bin:/var/sbin:$PATH
-man modprobe
-modprobe --help
-
-Fri Dec 5 07:00:48 GMT+1 2014
-
-chroot .
-help chroot
-chroot --help
-chroot . /bin/ash
-dumpe2fs -h /mnt/initrd.ext2
-mount
-dumpe2fs /dev/loop0
-ls -l /mnt/initramdisk.ext2/dev/ram*
-mount
-df
-umount /dev/loop0
-fsck -n /mnt/sdb7/JUMP-6/initramdisk.ext2
-fsck -f -v -n /mnt/sdb7/JUMP-6/initramdisk.ext2
-fsck -f -v /mnt/sdb7/JUMP-6/initramdisk.ext2
-dumpe2fs -J /mnt/sdb7/JUMP-6/initramdisk.ext2
-dumpe2fs -h /mnt/sdb7/JUMP-6/initramdisk.ext2
-dumpe2fs -h /dev/loop1
-info grub
-git log
-git log --grep initrd
-yes
-NewKernelStats.sh 
-
-Fri Dec 5 09:05:58 GMT+1 2014
-
-cpio -id <initrd
-cpio -id <initrd
-mount -o loop -t minix /
-rox /JUMP-2/
-mount -o loop -t minix /JUMP-2/initrd.mnx /mnt/initrd.mnx
-cpio -id <initrd
-man switch_root
-switch_root --help
-man pivot_root
-find /usr -name "pivot_root*"
-man /usr/local/share/man/man8/pivot_root.8
-dd if=/dev/zero of=initrd.ext3 bs=1024 count=((6*1024))
-dd if=/dev/zero of=initrd.ext3 bs=1024 count=$((6*1024))
-dd if=/dev/zero of=initrd.ext4 bs=1024 count=$((8*1024))
-dd if=/dev/zero of=initrd.rfs3 bs=1024 count=$((7*1024))
-dd if=/dev/zero of=initrd.mnx bs=1024 count=$((4*1024))
-mkfs.ext3 initrd.ext3
-mkfs.ext4 initrd.ext4
-mkreiserfs initrd.rfs3
-mkreiserfs -f initrd.rfs3
-rm initrd.rfs3
-dd if=/dev/zero of=initrd.rfs3 bs=1024 count=$((17*1024))
-mkreiserfs -f initrd.rfs3
-rm initrd.rfs3
-dd if=/dev/zero of=initrd.rfs3 bs=1024 count=$((34*1024))
-mkreiserfs -f initrd.rfs3
-mkfs.minix initrd.mnx
-df
-mount -o loop -t reiserfs initrd.rfs3 /mnt/initrd.rfs3
-df
-umount /mnt/initrd.rfs3
-rm initrd.rfs3
-dd if=/dev/zero of=initrd.rfs3 bs=1024 count=$((40*1024))
-mkreiserfs -f initrd.rfs3
-mount -o loop -t reiserfs initrd.rfs3 /mnt/initrd.rfs3
-df
-df
-geany /sbin/init
-echo $((13824/1024))
-uname -r
-mount
-
-Fri Dec 5 10:44:40 GMT+1 2014
-
-mount -o loop -t reiserfs initrd.rfs3 /mnt/initrd.rfs3
-mount -o loop -t minix /JUMP-2/initrd.mnx /mnt/initrd.mnx
-yes
-
-Fri Dec 5 12:12:37 GMT+1 2014
-
-mount -o loop -t minix /JUMP-2/initrd.mnx /mnt/initrd.mnx
-mount -o loop -t reiserfs initrd.rfs3 /mnt/initrd.rfs3
-chroot .
-chroot . /bin/ash
-find -name chroot
-
-Mon Dec 8 22:16:15 GMT+1 2014
-
-geany /rtc/rc.d/rc.shutdown
-geany /etc/rc.d/rc.shutdown
-geany /sbin/poweroff
-geany /sbin/reboot
-busybox poweroff --help
-
-Mon Dec 8 23:37:20 GMT+1 2014
-
-geany /sbin/pup_event_backend_modprobe_protect
-source /etc/rc.d/f4puppy5
-_pidof -q pup_event_backend_modprobe_protect
-_pidof  pup_event_backend_modprobe_protect
-_pidof  pup_event_backend_modprobe_protect; echo $?
-_pidof --quiet pup_event_backend_modprobe_protect; echo $?
-_pidof -q pup_event_backend_modprobe_protect; echo $?
-_pidof --quiet pup_event_backend_modprobe_protect; echo $?
-_pidof  pup_event_backend_modprobe_protect; echo $?
-/bin/ps -elF | grep -eE 'pup_event_backend_modprobe_protect[ ]+--daemon' | grep -v 'grep'
-/bin/ps -elF
-/bin/ps -elF | grep -Ee 'pup_event_backend_modprobe_protect[ ]+--daemon' | grep -v 'grep'
-/bin/ps -elF | grep -eE 'pup_event_backend_modprobe_protect[ ]+--daemon' | grep -v 'grep'
-pup_event_backend_modprobe_protect --stop
-/bin/ps -elF | grep -eE 'pup_event_backend_modprobe_protect[ ]+--daemon' | grep -v 'grep'
-/bin/ps -elF | grep -Ee 'pup_event_backend_modprobe_protect[ ]+--daemon' | grep -v 'grep'
-pup_event_backend_modprobe_protect --daemon
-
-Tue Dec 9 00:55:55 GMT+1 2014
-
-
-Tue Dec 9 01:15:45 GMT+1 2014
-
-git branch
-git log --grep reboot
-
-Tue Dec 9 01:47:15 GMT+1 2014
-
-ls -l /dev/sda*
-ls -l /dev/sdb*
-
-Tue Dec 9 07:28:37 GMT+1 2014
-
-echo -en "\rsnapmergepuppy still running "
-while [ 1 ]; do echo -en "\rsnapmergepuppy still running "; echo -n '.'; slepp 1; done
-while [ 1 ]; do echo -en "\rsnapmergepuppy still running "; echo -n '.'; sleep 1; done
-while [ 1 ]; do a-$(( a = 1 ));echo -en "\rsnapmergepuppy still running "; echo -n $a; sleep 1; done
-while [ 1 ]; do a=$(( a + 1 ));echo -en "\rsnapmergepuppy still running "; echo -n $a; sleep 1; done
-git branch
-git commit
-git checkout linux-3.9.y
-git log --grep reboot
-echo $((16*60))
-df
-dd if=/dev/sdc of=/mnt/sdc/boot/mbr.dd bs=1 count=512
-dd if=/dev/sdc of=/mnt/sdc1/boot/mbr.dd bs=1 count=512
-hexedit /mnt/sdc1/boot/mbr.dd
-info grub2
-
-Wed Dec 10 02:41:26 GMT+1 2014
-
-git branch -a
-git checkout grub-legacy
-git log
-autom4te --help
-autom4te --version
-./autogen.sh
-autoconf --version
-file `which autom4te`
-type -a autom4ate
-type -a autom4te
-file /usr/bin/autom4te
-file /usr/local/bin/autom4te
-/usr/local/bin/autom4te
-/usr/local/bin/autom4te --version
-which autom4te-2.67
-which autom4te-2.68
-mv /usr/bin/autom4te /usr/bin/autom4te-2.59
-ln -s autom4te-2.67 /usr/bin/autom4te
-./autogen.sh
-ln -s ../local/bin/autom4te-2.68 /usr/bin/autom4te
-ln -sf ../local/bin/autom4te-2.68 /usr/bin/autom4te
-autom4te --version
-./autogen.sh
-./autogen.sh 
-make clean
-git commit
-git tag -l
-git checkount 1.99
-git checkout 1.99
-./autogen.sh 
-autoreconf -vi
-./configure
-type -a m4
-/usr/bin/m4 --version
-/usr/local/bin/m4 --version
-file /usr/bin/m4
-mv /usr/bin/m4 /usr/bin/m4OLD
-m4
-type -a m4
-ln -s ../local/bin/m4 /usr/bin/m4
-make clean
-make distclean
-make
-make -i clean
-make -k clean
-make
-make -k
-ldd linux.mod
-find -name "*.img"
-rm "*.module"
-ls -1 "*.module"
-ls -1 *.module
-rm *.module
-grp xput *
-grep xput *
-
-Thu Dec 11 01:58:47 GMT+1 2014
-
-uname -r
-cat /proc/cmdline
-gzip -c -7 cloud-640x480x16.xpm >gz7-cloud-640x480x16.xpm
-gzip -c -7 cloud-640x480x16.xpm >gz7-cloud-640x480x16.xpm.gz
-
-Thu Dec 11 02:22:39 GMT+1 2014
-
-ls /mnt/home/boot/grub/grubv0-640x480-16-nontr-I.xpm
-ls /boot/grub/grubv0-640x480-16-nontr-I.xpm
-ls /boot/grub/grubv0-640x480-16-nontr-I.xpm| wc -m
-ls /boot/grub/grubv0-640x480-16-nontr-I.xpm| wc -b
-ls /boot/grub/grubv0-640x480-16-nontr-I.xpm| wc -c
-ls /boot/grub/grubv0-640x480-16-nontr-I.xpm| wc -L
-echo "11121106901411144444444664CC44414141121121213212221222224213212212212120B612122212121212212212219C2222276222225F82323233323B5333323352332333253333333236393232322222222222223233623233333353633D533333333953333335357555555B557778DDDC77757777789CFFD8B777775B878777B8777878888788AA788DDC855568363333332538933363233337535335335537333333336ED955555555537835333338653393358332753333333333332333363623333333338333753337537388335387365533333333983333357335533333357335555575555877787888B7877778888B888AA8888887887887777887777788AA887C56566663636636446C24365434634242242424242424242414141119D41111110411101141111011101010101010110401044011101010100101"
-echo "11121106901411144444444664CC44414141121121213212221222224213212212212120B612122212121212212212219C2222276222225F82323233323B5333323352332333253333333236393232322222222222223233623233333353633D533333333953333335357555555B557778DDDC77757777789CFFD8B777775B878777B8777878888788AA788DDC855568363333332538933363233337535335335537333333336ED955555555537835333338653393358332753333333333332333363623333333338333753337537388335387365533333333983333357335533333357335555575555877787888B7877778888B888AA8888887887887777887777788AA887C56566663636636446C24365434634242242424242424242414141119D41111110411101141111011101010101010110401044011101010100101" | wc -L
-echo "11121106901411144444444664CC44414141121121213212221222224213212212212120B612122212121212212212219C2222276222225F82323233323B5333323352332333253333333236393232322222222222223233623233333353633D533333333953333335357555555B557778DDDC77757777789CFFD8B777775B878777B8777878888788AA788DDC855568363333332538933363233337535335335537333333336ED955555555537835333338653393358332753333333333332333363623333333338333753337537388335387365533333333983333357335533333357335555575555877787888B7877778888B888AA8888887887887777887777788AA887C56566663636636446C24365434634242242424242424242414141119D41111110411101141111011101010101010110401044011101010100101" | wc -c
-
-Thu Dec 11 02:45:22 GMT+1 2014
-
-geany /sbin/pup_event_backend_modprobe_protect
-grep -r -I 'unknown operand' *
-ash
-exit
-ps | grep pup
-pup_event_backend_modprobe_protect --stop
-[ "$VERBOSE" -o "$DEBUG" ]
-[ "$VERBOSE" - o "$DEBUG" ]
-ash
-
-Thu Dec 11 03:50:25 GMT+1 2014
-
-
-Thu Dec 11 05:33:17 GMT+1 2014
-
-
-Thu Dec 11 06:54:22 GMT+1 2014
-
-
-Thu Dec 11 07:17:18 GMT+1 2014
-
-grub
-
-Thu Dec 11 07:38:37 GMT+1 2014
-
-
-Thu Dec 11 08:10:29 GMT+1 2014
-
-
-Thu Dec 11 09:22:24 GMT+1 2014
-
-/bin/df
-A=/path/to/file/
-echo ${A%/}
-echo ${A%%/}
-B=/path/to/file////
-echo ${B%%/}
-echo ${B%/}
-echo ${A%/}
-echo ${A%%/}
-ash
-free
-bootmanager
-
-Thu Dec 11 23:53:05 GMT+1 2014
-
-./replace_commit_files.sh 
-info grub2
-
-Sat Dec 13 01:56:16 GMT+1 2014
-
-./replace_commit_files.sh 
-git commit
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "OK, If your mouse receiver is
-attached to a keyboard integrated hub,
-
-and you don't want to wake the system by mouse moves,
-
-or light up any LEDs on the keyboard,
-
-then you have $MOUSEMSG_TT seconds from now,
-to switch off the mouse..."
-MOUSEMSG_TT=30
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "OK, If your mouse receiver is
-attached to a keyboard integrated hub,
-
-and you don't want to wake the system by mouse moves,
-
-or light up any LEDs on the keyboard,
-
-then you have $MOUSEMSG_TT seconds from now,
-to switch off the mouse..."
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is
- attached to a keyboard integrated hub,
-
- and you don't want to wake the system by mouse moves,
-
- or light up any LEDs on the keyboard,
-
- then you have $MOUSEMSG_TT seconds from now,
- to switch off the mouse..."
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is
- attached to a keyboard integrated hub,
-
- and you don't want to wake the system by mouse moves,
-
- or light up any LEDs on the keyboard,
-
- then you have $MOUSEMSG_TT seconds from now,
- to switch off the mouse..."
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is \
- attached to a keyboard integrated hub, \
-
- and you don't want to wake the system by mouse moves, \
-
- or light up any LEDs on the keyboard, \
-
- then you have $MOUSEMSG_TT seconds from now, \
- to switch off the mouse..."
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text " OK, If your mouse receiver is ""
- ""attached to a keyboard integrated hub, ""
-
- ""and you don't want to wake the system by mouse moves, ""
-
- ""or light up any LEDs on the keyboard, ""
-
- ""then you have $MOUSEMSG_TT seconds from now, ""
- ""to switch off the mouse..."
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "
-| OK, If your mouse receiver is                         |
-| attached to a keyboard integrated hub,                |
-|                                                       |
-| and you don't want to wake the system by mouse moves, |
-|                                                       |
-| or light up any LEDs on the keyboard,                 |
-|                                                       |
-| then you have $MOUSEMSG_TT seconds from now,          |
-| to switch off the mouse...                            |
-_________________________________________________________"
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "_________________________________________________________
-| OK, If your mouse receiver is                         |
-| attached to a keyboard integrated hub,                |
-|                                                       |
-| and you don't want to wake the system by mouse moves, |
-|                                                       |
-| or light up any LEDs on the keyboard,                 |
-|                                                       |
-| then you have $MOUSEMSG_TT seconds from now,                  |
-| to switch off the mouse...                            |
-_________________________________________________________"
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
-| OK, If your mouse receiver is                         |
-| attached to a keyboard integrated hub,                |
-|                                                       |
-| and you don't want to wake the system by mouse moves, |
-|                                                       |
-| or light up any LEDs on the keyboard,                 |
-|                                                       |
-| then you have $MOUSEMSG_TT seconds from now,                   |
-| to switch off the mouse...                            |
-_________________________________________________________"
-yaf-splash -bg yellow -fg black -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
-| OK, If your mouse receiver is                         |
-| attached to a keyboard integrated hub,                |
-|                                                       |
-| and you don't want to wake the system by mouse moves, |
-|                                                       |
-| or light up any LEDs on the keyboard,                 |
-|                                                       |
-| then you have $MOUSEMSG_TT seconds from now,                    |
-| to switch off the mouse...                            |
----------------------------------------------------------"
-grep boot_loader_name *
-grep -r boot_loader_name ../*
-git log
-git branch
-git tag
-grep viewport *
-diff -urAnd grub-0.94 grub-0.95
-diff -uraNd grub-0.94 grub-0.95
-diff -uraNd grub-0.94 grub-0.95 >grub-0.94_0.95.diff
-help2man
-geany `which pupzip`
-./replace_commit_files.sh 
-type -path rpm2cpio
-ash 
-grep splashimage *
-grep gfxmenu *
-grep -r gfxmenu *
-grep -r splashimage *
-grep -r viewport *
-pupzip /mnt/sdb7/boot/temporary/trustedgrub-1.1.0-14.1.src.rpm
-grep 'GNU GRUB' *
-geany /usr/local/bin/drive_all
-geany /etc/rc.d/f4puppy5
-source /etc/rc.d/f4puppy5
-__get_jobs
-xmessage "HELLO" &
-__get_jobs
-DEBUG=1
-__get_jobs
-echo $MY_SELF
-echo $0
-ps | grep bash
-tty
-jobs
-jobs -l
-ps | grep bash
-__get_jobs xmessage
-mount
-mount /dev/sr1
-umount /mnt/sr1
-mount /dev/sr1
-umount /mnt/sr1
-dpkg-deb ./grub-installer_1.07.1_i386.udeb .
-dpkg-deb -x ./grub-installer_1.07.1_i386.udeb .
-dpkg-deb --help
-dpkg-deb -x ./grub-installer_1.07.1_i386.udeb ./
-dpkg-deb -x ./grub-installer_1.07.1_i386.udeb /tmp
-dpkg-deb -X ./grub-installer_1.07.1_i386.udeb /tmp
-dpkg-deb -I ./grub-installer_1.07.1_i386.udeb 
-mkdir _install
-dpkg-deb -X ./grub-installer_1.07.1_i386.udeb ./_install
-dpkg-deb -c ./grub-installer_1.07.1_i386.udeb 
-dpkg-deb -c ./lilo-installer_1.07_i386.udeb 
-dpkg-deb -I ./lilo-installer_1.07_i386.udeb 
-dpkg-deb --help
-dpkg-deb -X -D ./lilo-installer_1.07_i386.udeb .
-dpkg-deb -D -X ./lilo-installer_1.07_i386.udeb .
-dpkg-deb -D --fsys-tarfile ./lilo-installer_1.07_i386.udeb .
-dpkg-deb -D --fsys-tarfile ./lilo-installer_1.07_i386.udeb
-dpkg-deb -D -w ./lilo-installer_1.07_i386.udeb
-dpkg-deb -D -W ./lilo-installer_1.07_i386.udeb
-dpkg-deb -D -f ./lilo-installer_1.07_i386.udeb
-dpkg-deb -D --new -X ./lilo-installer_1.07_i386.udeb .
-dpkg-deb -D --old -X ./lilo-installer_1.07_i386.udeb .
-top
-mount
-pidof mount
-mount /dev/sr1
-mount
-/mnt/home/root/.pup_event/drive_sr1/AppRun
-uname -runame -r
-uname -r
-cat /proc/cmdline
-echo /tmp/grub-disk_0.95+cvs20040624-17sarge1_all/usr/share/grub-disk/grub-0.95-i386-pc.iso | wc -L
-losetup
-losetup -a
-busybox losetup -a
-busybox losetup
-mount
-umount //mnt/grub-0.95-i386-pc.iso
-filemnt /tmp/grub-disk_0.95+cvs20040624-17sarge1_all/usr/share/grub-disk/grub-0.95-i386-pc.iso
-./replace_commit_files.sh 
-gzip grubv0-640x480-16-nontr-I.xpm 
-geany /etc/rc.d/functions4puppy4
-geany /bin/mount.sh
-geany /usr/local/petget/petget
-
-Sun Dec 14 06:11:04 GMT+1 2014
-
-grep pager *
-grub
-grep '\(hd1,4\)' *
-sed -i 's/(hd1,4)/(hd1,14)/' *.lst
-grep '\(hd1,4\)' *.lst
-grep '\(hd1,14\)' *.lst
-grep '\(hd1,4\)' *.lst
-sed -i 's! hd1,4/! hd1,14/!' *.lst
-grep '\(hd1,4\)' *.lst
-sed -i 's! hd1,4 ! hd1,14 !' *.lst
-grep '\(hd1,4\)' *.lst
-grep '\(hd0,4\)' *.lst
-pwd
-grep 'sdb5' *.lst
-sed -i 's!sdb5!sdb15!' *.lst
-grep 'sdb5' *.lst
-grep 'sdb15' *.lst
-grep '\(hd1,4\)' *
-sed -i 's/(hd1,4)/(hd1,19)/' *.lst
-sed -i 's!sdb5!sdb20!' *.lst
-sed -i 's! hd1,4/! hd1,19/!' *.lst
-sed -i 's! hd1,4 ! hd1,19 !' *.lst
-df
-man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
-man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and\ inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
-man "/mnt/sdb19/PET.D/grub-gfxboot-ext4-and inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz"
-man /mnt/sdb19/PET.D/grub-gfxboot-ext4-and-inode256-compatible/grub-gfxboot_0.97-36mepis1/usr/share/man/man8/grub.8.gz
-ls /usr/lib/grub4dos
-file /usr/lib/grub4dos/*
-du /usr/lib/grub4dos/*
-which bootlace.com
-bootlace.com --help
-info grub4dos
-man bootlace
-man bootlace.com
-find /usr -name grub4dos
-
-Sun Dec 14 09:39:04 GMT+1 2014
-
-git branch
-make
-git tag
-./configure
-for i in *_mntd48.*; do echo $i; done
-for i in *_mntd48.*; do j=${i%48*};echo $i $j; done
-for i in *_mntd48.*; do j=${i%48*};echo $i $j; [ -e ${j}rw48.png ] || cp ${i} ${j}rw48.png;[ -e ${j}ro48.png ] || cp $i ${j}ro48.png;done
-geany `which grub-install`
-grep -r MAX_FALLBACK_ENTRIES *
-grub
-info grub2
-info grub
-
-Tue Dec 16 08:44:50 GMT+1 2014
-
-diff -urp grub-0.97-reiser4/ Grub-Legacy-0.97/
-diff -urp Grub-Legacy-0.97/ grub-0.97-reiser4/ >grub1-grub1reiser4.diff
-mplayer BEFB8d01 
-file BEFB8d01
-./BEFB8d01 
-head -n10 BEFB8d01 
-hexedit BEFB8d01 
-find -size +4M
-./replace_commit_files.sh 
-cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]*'
-cat /root/.jwmrc-tray | grep -v -x '^[[:blank:]]\+'
-jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]*'
-jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]\+'
-git commit
-git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; done
-git commit 2>&1 | while read l f; do [ -e "$f" ] || continue; echo "$f"; git add "$f" && git commit -m "$f: grep '+*' fixes";sleep 2;done
-pwd
-cd ../../
-./replace_commit_files.sh 
-ls /usr/share/i18n/layouts
-ls /usr/share/i18n/
-ls /proc/dma
-cat /proc/dma
-cat /proc/interrupts 
-grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^#|^[[:blank:]]*#'
-ERR=/dev/stdout
-grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^#|^[[:blank:]]*#'
-grep -m 1 -x 'gtk\-font\-name.*' $HOME/.gtkrc-2.0 2>$ERR | grep -v -E -e '^[[:blank:]]*#'
-geany usr/sbin/pmount
-geany usr/sbin/pupdial
-geany usr/sbin/partview2.03
-cat $HOME/.Xresources | grep -vEe '^Xft\.dpi:|^[[:blank:]]*Xft\.dpi:'
-cat $HOME/.Xresources | grep -vEe '^[[:blank:]]*Xft\.dpi:'
-cat $HOME/.Xresources | grep -Ee '^[[:blank:]]*Xft\.dpi:'
-geany usr/sbin/set-xftdpi
-geany usr/sbin/petget
-geany usr/sbin/ptooltips
-xrandr -q | grep '*' | egrep "[0-9]+[ ]*x[ ]*[0-9]+" -o
-xrandr -q | grep '*'
-xrandr -q | grep '\*'
-xrandr -q | grep '*' | egrep -o "[0-9]+[ ]*x[ ]*[0-9]+"
 geany usr/sbin/xorgwizard
 geany usr/bin/new2dir
 geany usr/bin/xwin
@@ -3516,4 +953,1101 @@ Mon Dec 29 14:44:18 GMT+1 2014
 
 
 Mon Dec 29 15:31:34 GMT+1 2014
+
+./replace_commit_files.sh 
+make
+info ./grub.info
+make info
+make pdf
+
+Wed Dec 31 13:51:29 GMT+1 2014
+
+./ApplyPatches.sh 
+find -name "*.rej"
+tar czf grub-0.95-fedora-13.tar.gz grub-0.95-fedora-13/
+pwd
+./ApplyPatches.sh 
+tar czf grub-0.97-fedora-5.tar.gz grub-0.97-fedora-5/
+./ApplyPatches.sh 
+tar czf grub-0.97-fedora8-19.tar.gz grub-0.97-fedora8-19/
+./ApplyPatches.sh 
+tar czf grub-0.97-fedora-13.tar.gz grub-0.97-fedora-13/
+./ApplyPatches.sh 
+tar czf grub-0.97-fedora9-33.tar.gz grub-0.97-fedora9-33/
+./ApplyPatches.sh 
+tar czf grub-0.97-fedora14-66.tar.gz grub-0.97-fedora14-66/
+./ApplyPatches.sh 
+tar czf grub-0.97-mandriva2008.1-22.tar.gz grub-0.97-mandriva2008.1-22/
+tar czf grub-0.97-mandriva2008.0-20.tar.gz grub-0.97-mandriva2008.0-20/
+./ApplyPatches.sh 
+tar czf grub-0.97-mandriva2009.0-24.tar.gz grub-0.97-mandriva2009.0-24/
+./ApplyPatches.sh 
+tar czf grub-0.97-mandriva2010.0-29.tar.gz grub-0.97-mandriva2010.0-29/
+./ApplyPatches.sh 
+tar czf grub-0.97-mandriva2009.1-25.tar.gz grub-0.97-mandriva2009.1-25/
+
+./ApplyPatches.sh 
+tar czf grub-0.97-mandriva2010.1-30.tar.gz grub-0.97-mandriva2010.1-30/
+geany /etc/rc.d/f4puppy5
+man patch
+make
+ls ..
+patch -p1 -bz .mandriva <../gfxboot-3.3.18-mdv.patch 
+make
+./mkbootmsg --help
+./mkblfont --help
+./mkblfont -v
+./addblack --help
+./bin2c --help
+./bincode --help
+make
+make
+make -i
+patch -Np1 -i ../special-devices.patch
+patch -Np1 -i ../i2o.patch
+patch -Np1 -i ../more-raid.patch
+patch -Np1 -i ../intelmac.patch
+patch -Np1 -i ../grub-inode-size.patch
+patch -Np1 -i ../ext4.patch
+patch -Np1 -i ../grub-0.97-ldflags-objcopy-remove-build-id.patch
+patch -Np1 -i ../automake-pkglib.patch
+patch -Np1 -i ../grub-0.97-graphics.patch
+tar czf grub-0.97-arch-splash.tar.gz grub-0.97-arch-splash/
+./ApplyPatches.sh 
+./ApplyPatches.sh 
+script --help
+script patch.log
+script patch.log
+
+Thu Jan 1 16:02:10 GMT+1 2015
+
+
+Thu Jan 1 23:07:04 GMT+1 2015
+
+geany /usr/sbin/filemnt
+geany '/root/my-roxapps/unknown_mime_handler.sh'
+git commit
+git add init
+git commit -m '/init: Added old-style pivot_root switch.
+Revert bootcnt.txt logic.'
+gtit add sbin/switch
+git add sbin/switch
+git commit -m '/sbin/switch: Added old-style pivot_root switch.'
+git add initOLD
+git add sbin/switchOLD
+git commit -m 'initOLD, sbin/switchOLD : Code backup.'
+cd ..
+pwd
+git commit
+git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/
+fixitup
+
+Fri Jan 2 20:01:14 GMT+1 2015
+
+./0D665d01 
+find -size +5M
+find -size +10M
+find -size +2M
+
+Sat Jan 3 18:28:43 GMT+1 2015
+
+find -size +2M
+find -maxdepth 7 -name "*{ED7BA470-8E54-465E-825C-99712043E01C}"
+find -maxdepth 8 -name "*{ED7BA470-8E54-465E-825C-99712043E01C}"
+find -maxdepth 9 -name "*{ED7BA470-8E54-465E-825C-99712043E01C}"
+find -maxdepth 9 -name "*ED7BA470-8E54-465E-825C-99712043E01C*"
+find -name "*ED7BA470-8E54-465E-825C-99712043E01C*"
+find -iname "*ED7BA470-8E54-465E-825C-99712043E01C*"
+guvcview 
+
+Sun Jan 4 10:29:15 GMT+1 2015
+
+convert --hlp
+for i in *; do echo $i; done
+for i in *; do echo $i; convert -geometry 160x120 $i $i-160x120.gif;done
+GF=`ls -1 *.gif`
+echo $GF
+convert -adjoin -delay 200 $GF sample.gif
+convert -adjoin -loop 0 -delay 200 $GF sample0.gif
+convert -adjoin -loop 1 -delay 200 $GF sample1.gif
+convert -adjoin -loop -1 -delay 200 $GF sample-1.gif
+convert -geometry 100x100 sample-1.gif sample-1-100x100.gif
+convert -geometry 80x80 sample-1.gif sample-1-80x80.gif
+guvcview 
+
+Tue Jan 6 00:59:14 GMT+1 2015
+
+mount
+
+Tue Jan 6 16:39:53 GMT+1 2015
+
+qqqqqq[]
+xkbconfigmanager 
+dmesg
+modinfo ehci-pci
+modprobe -vr mei
+modprobe -l | grep android
+modprobe -v logger
+modprobe -v timed_gpio
+modprobe -l | grep i2c
+modprobe -v i2c-gpio
+modprobe -v i2c-pii4x
+modprobe -v i2c-piix4
+modprobe -v i2c-intel-mid
+modprobe -v i2c-pca-platform
+modprobe -v i2c-i801
+modprobe -v i2c-hid
+modprobe -v i2c-smbus
+grep -i android *
+uname -r
+probedisk2
+probepart
+dmesg | tail
+dmesg 
+
+Tue Jan 6 22:00:03 GMT+1 2015
+
+mount
+mount /dev/sr1
+pppoe-discovery 
+pppoe-discovery --help
+pppoe-discovery -h
+pppoe-sniff -h
+pppoe-sniff
+pppoe-start
+mkdir test
+cd test
+ftpget --help
+ftpget 192.168.1.1 /bin/busybox
+ftpget -P 21 192.168.1.1 /bin/busybox
+ftpget -P 21 192.168.1.1 /bin/b*
+ftpget -P 21 192.168.1.1 /bin/
+ftpget -P 21 192.168.1.1 /sbin
+ftpget -P 21 192.168.1.1 /
+tftp --help
+tftp -g -r /bin/busybox 192.168.1.1 21
+ls
+pwd
+ftp --help
+ftp -h
+man telnet
+man sshd
+man ssh
+sns
+echo $((1024x64))
+echo $((1024*64))
+
+Wed Jan 7 03:34:24 GMT+1 2015
+
+geany /usr/sbin/sns
+geany /etc/resolv.conf
+geany `which netsetup.sh`
+geany `which net-setup.sh`
+net-setup.sh 
+grep -e 'net-setup' /usr/share/applications/*
+geany /usr/local/net_setup/usr/sbin/net-setup.sh
+which net-setup.sh
+geany /usr/sbin/net-setup.sh
+which sns
+type -a ifplugstatus
+file /sbin/ifplugstatus
+chmod +x /etc/dhcpcd.sh
+geany `which ipinfo`
+sns
+geany /usr/local/simple_network_setup/rc.network
+sns
+ifconfig
+ifconfig -a
+sns
+net-setup.sh 
+ps | grep dhcpcd
+ps | grep dhcpcd
+killall dhcpcd
+ps | grep dhcpcd
+killall dhcpcd
+ps | grep dhcpcd
+killall dhcpcd
+top
+killall -9 superscan
+man dhcpcd
+
+Wed Jan 7 13:21:31 GMT+1 2015
+
+./update_files.sh 
+geany /usr/sbin/wag-profiles.sh 
+geany /usr/sbin/ndiswrapperGUI.sh 
+net-setup.sh
+sns
+ps | grep dhcpcd
+man dhcpcd
+man -w gzip
+man -w gzip;echo $?
+man -w netsetup;echo $?
+net-setup.sh
+man net-setup;echo $?
+man man
+net-setup.sh
+man net_setup
+man net
+man netsetup
+man net-setup
+net-setup.sh
+type -a net-setup.sh
+/usr/sbin/net-setup.sh
+help timeout
+timeout --help
+/usr/sbin/net-setup.sh
+
+Thu Jan 8 20:45:15 GMT+1 2015
+
+./configure
+./configure --help
+./configure
+make
+./configure
+./autogen.sh 
+./configure
+./autogen.sh 
+./configure
+make
+./configure
+make
+./configure
+./configure
+probedisk
+probedisk2
+probepart
+modprobe -l | grep android
+modinfo logger
+modprobe -v logger
+modinfo timed_gpio
+modprobe -v timed_gpio
+modprobe -l | grep usb
+modprobe -l | grep scsi
+modprobe -l | grep ide
+modprobe -l | grep ata
+modprobe -l | grep sata
+modprobe -l | grep scsi
+modprobe -l | grep scsi | while read mod; do echo $mod;done
+modprobe -l | grep scsi | while read mod; do echo $mod;insmod /lib/modules/`uname -r`/$mod;sleep 1;done
+modprobe -v i2o_scsi
+modprobe -l | grep scsi | while read mod; do echo $mod;busybox insmod /lib/modules/`uname -r`/$mod;sleep 1;done
+type -a insmod
+file /bininsmod
+file /bin/insmod
+modprobe -l | grep scsi | while read mod; do echo $mod;/sbin/insmod /lib/modules/`uname -r`/$mod;sleep 1;done
+strace /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz/kernel/drivers/target/iscsi/iscsi_target_mod.ko
+strace /sbun/insmod /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz/kernel/drivers/target/iscsi/iscsi_target_mod.ko
+strace /sbin/insmod /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz/kernel/drivers/target/iscsi/iscsi_target_mod.ko
+insmod --help
+/sbin/insmod --help
+man insmod
+make
+./dog
+./dog --help
+fixitup
+dmesg
+lsusb
+lspci
+dmesg
+/tmp/go-mtpfs-20130628/go-mtpfs-20130628/usr/bin/go-mtpfs
+/tmp/go-mtpfs-20130628/go-mtpfs-20130628/usr/bin/go-mtpfs --help
+/mnt/sdb19/PET.D/Android/go-mtpfs-20130628/go-mtpfs-20130628/usr/bin/go-mtpfs --help
+dmesg
+modprobe -vr mei
+killall -9 go-mtpfs
+killall -9 mount
+umount -f /mnt/MTPdevice
+umount /mnt/MTPdevice
+mount
+cat /etc/mtab
+file /etc/mtab
+cat /etc/mtab
+cat /etc/fstab
+ls /mnt/MTPdevice
+file /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+umount -f /mnt/MTPdevice
+ls /bin/mount
+ls /bin/mount*
+ln -sf mount-old /bin/mount
+go-mtpfs /mnt/MTPdevice
+ln -sf mount-orig /bin/mount
+go-mtpfs /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+fusermount --version
+go-mtpfs --help
+go-mtpfs --android=true /mnt/MTPdevice
+go-mtpfs -android=true /mnt/MTPdevice
+pwd
+ls
+source /etc/profile
+pwd
+help pushd
+dirs
+help popd
+popd
+pwd
+fixitup
+killall ROX-Filer
+killall -9 ROX-Filer
+fixitup
+pidof mount
+killall -9 mount
+mount-old
+killall -9 mount
+umount -f /mnt/MTPdevice
+killall -9 mount
+umount -f /mnt/MTPdevice
+pwd
+mount
+./mtpdevice
+./mtpdevice mount
+./mtpdevice umount
+./mtpdevice mount
+./mtpdevice
+./mtpdevice mount
+./mtpdevice
+./mtpdevice mount
+/mnt/sdb19/PET.D/Android/mtp_detect-0.8-exper-noarch/mtp_detect-0.8-exper-noarch/usr/sbin/mtpdevice
+ls
+pwd
+/mnt/pup_420-sfs4.sfs/usr/bin/fusermount
+/mnt/pup_420-sfs4.sfs/usr/bin/fusermount --version
+ln -sf mount-FULL /bin/mount
+go-mtpfs /mnt/MTPdevice
+grep Locked /etc/mtab
+grep Locked /etc/fstab
+ln -sf mount.sh /bin/mount
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs
+grep loop /proc/mounts
+mkdir /mnt/q
+mount-FULL -o loop /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs /mnt/q
+mount-FULL -type squashfs -o loop /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs /mnt/q
+mount-FULL -t squashfs -o loop /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs /mnt/q
+filemntOLD /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+geany `which filemnt`
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+disktypr /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+disktype /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+file /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/zdrv.sfs
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs
+tail -n2 /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs
+hexedit /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs
+./update_files_from_running_system 
+filemnt /mnt/sda1/PUPPY_SFS/fd64_611/initrd.d/kernel-modules.sfs
+file /mnt/sda1/PUPPY_SFS/fd64_611/initrd.d/kernel-modules.sfs
+disktype /mnt/sda1/PUPPY_SFS/fd64_611/initrd.d/kernel-modules.sfs
+ls bin/fus*
+ls sbin/fus*
+cd ..
+ls sbin/fus*
+pwd
+ls bin/fus*
+bin/fusermount --help
+type -a fusermount
+/sbin/fusermount --version
+/usr/bin/fusermount --version
+file /usr/bin/fusermount
+file /sbin/fusermount
+./update_files_from_running_system 
+cd /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/
+ls
+ls -s
+unsquashfs4 puppy.sfs 
+unsquashfs3 puppy.sfs 
+unsquashfs --help
+unsquashfs -l puppy.sfs
+unsquashfs3 -l puppy.sfs
+unsquashfs3 -l puppy.sfs;echo $?
+unsquashfs3 -s puppy.sfs;echo $?
+unsquashfs4 -s puppy.sfs;echo $?
+filemnt /mnt/sdb19/ISO.D/PUPPY/Quirky-1.3/puppy.sfs
+filemnt ./zdrv.sfs
+hexedit ./zdrv.sfs
+go-mtpfs /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+killall -9 mount
+mount -i -f -t fuse.Locked(DeviceFs(Arch -o rw,nosuid,nodev Locked(DeviceFs(Arch /mnt/MTPdevice
+mount -i -f -t fuse.Locked(DeviceFs(Arch -o rw,nosuid,nodev 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mount -i -f -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mount /dev/sdb15
+umount /dev/sdb15
+mount /dev/sdb15 /mnt/sdb15
+umount -lrf /mnt/sdb15
+a=$"\"\n\""
+echo "'$a'"
+a=$"\n"
+echo "'$a'"
+a=$"\\n"
+echo "'$a'"
+a=$'\n'
+echo "'$a'"
+a=$'"\n"'
+echo "'$a'"
+printf "%o" \'
+killall mkdir
+killall -9 mkdir
+killall -9 grep
+killall -9 awk
+killall -9 test
+killall -ls
+killall ls
+killall -9 ls
+killall -9 mount
+echo -e " \0114\0157\0143\0153\0145\0144\050\0104\0145\0166\0151\0143\0145\0106\0163\050\0101\0162\0143\0150 \057\0155\0156\0164\057\0115\0124\0120\0144\0145\0166\0151\0143\0145"
+echo -e "'\012'"
+mkdir -p /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+dmesg
+mount
+uname -r
+rox --help
+killall ROX-Filer
+killall -9 ROX-Filer
+fixitup
+killall -9 ls
+killall -9 find
+ps
+kill -9 5069
+kill -9 5260
+kill -9 5402
+killall vlc
+ps
+killall -9 mount
+ps
+mount
+ls /mnt
+ls /mnt/MTPdevice
+file /mnt/MTPdevice
+which go-mtpfs
+ldd /root/my-applications/bin/go-mtpfs
+find /usr -name "libusb*"
+find /usr -name "libusb*" | sort -d
+file /usr/local/lib/libusb.so
+file /usr/local/lib/libusb-1.0.so
+file /usr/local/lib/libusb
+file /usr/local/lib/libusb-0.1.so.4
+killall -9 fuser
+killall -9 umount
+killall -9 fuser
+killall -9 umount
+mount
+killall -9 umount
+mount
+ls /mnt/MTPdevice
+killall fusermount
+ps | grep fusermount
+killall -9 fusermount
+mount
+killall -9 fusermount
+killall -9 umount
+mount
+killall -9 umount
+mount
+rox
+killall ROX-Filer
+killall -9 ROX-Filer
+fixitup
+mount
+umount -l /dev/loop0
+mount
+umount -l /dev/loop7
+umount -l /dev/loop6
+umount -l /dev/loop5
+umount -l /dev/loop4
+umount -l /dev/loop3
+umount -l /dev/loop1
+mount
+umount /dev/sdb2
+umount /mnt/sdb2
+umount /mnt/sdb1
+fusermount -u /mnt/MTPdevice
+umount -f /mnt/MTPdevice
+umount -lfr /mnt/MTPdevice
+geany /bin/mount.sh
+mount
+umount /mnt/MTPdevice
+mount
+umount /mnt/sdb7
+mount
+umount /mnt/sda1
+mount
+umount /mnt/sdb19
+geany /etc/rc.d/f4puppy5
+
+Fri Jan 9 03:24:42 GMT+1 2015
+
+killall -9 mkdir
+killall -9 grep
+ps
+killall -9 mount
+mount
+git log
+git log --grep usb
+git log --grep usb_ch9.h
+git log --grep 'Dec.*2006'
+git log --grep 'Linux 2\.6'
+./update_files.sh
+geany /root/.profile
+ls woof-code/rootfs-skeleton/usr/sbin/pman
+ls woof-code/rootfs-skeleton/usr/bin/pman
+file woof-code/rootfs-skeleton/usr/bin/pman
+file /usr/bin/pman
+which pman
+diff z99_alsa DRIVER/z99_alsa 
+diff mount DEFAULT/mount 
+./Xorg -version
+./Xorg-1.3.0.0 -version
+./Xorg-1.3.0. -version
+./Xorg-1.3.0 -version
+./Xorg-1-3-0-0 -version
+./Xorg --version
+./Xorg -version
+killall -9 ls
+grep -i endpoint /usr/include/linux/*
+ls -d /usr/include*
+grep -i endpoint /usr/include_orig/linux/*
+grep -i endpoint /usr/include/linux/usb/*
+grep -i endpoint /usr/include_orig/linux/usb/*
+grep -i endpoint /usr/include_orig/linux/*
+ls /mnt
+ls /mnt/MTPdevice
+killall -9 mount
+killall -9 fusermount
+grep -i endpoint /usr/lib/libusb*
+grep -i endpoint /usr/local/lib/libusb*
+ps
+killall -9 mkdir
+killall -9 ls
+mount
+ls /mnt/MTPdevice
+mount
+killall ls
+killall -9 ls
+mount
+ps | grep mount
+killall fusermount
+killall -9 fusermount
+mount
+ps | grep mount
+killall -9 mount
+mount
+ps | grep mount
+ls /mnt/MTPdevice
+find /usr -name "libusb*" | sort
+go-mtpfs /mnt/MTPdevice
+mkdir -p /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+ls /mnt
+ls /mnt/MTPdevice
+dmesg
+uname /r
+uname -r
+dmesg
+ls /mnt/MTPdevice
+ls /mnt/MTPdevice/"Interner Speicher"
+ls /mnt/MTPdevice/"Interner Speicher"/System
+ls /mnt/MTPdevice/"Interner Speicher"/Android
+ls /mnt/MTPdevice/SD-Karte
+ls -a /mnt/MTPdevice/SD-Karte
+ls /mnt/MTPdevice/"Interner Speicher"/Android
+ls -a /mnt/MTPdevice/"Interner Speicher"
+ls -a /mnt/MTPdevice/"Interner Speicher"/System
+ls -a /mnt/MTPdevice/"Interner Speicher"/tools
+ls -a /mnt/MTPdevice/"Interner Speicher"/Android
+ls -a /mnt/MTPdevice/"Interner Speicher"/Android/obb
+ls -a /mnt/MTPdevice/"Interner Speicher"/Android/data
+man fusermount
+fusermount --help
+ln -sf mount-mtp /bin/mount
+mount
+mount.sh
+tail -n1 /proc/mounts
+man mount
+killall -9 strace
+killall -9 fusermount
+mount
+killall -9 fusermount
+mount
+killall -9 fusermount
+killall -9 mount
+mount
+killall -9 mount
+mount
+mount-FULL --help
+mount-FULL --version
+mount-FULL
+mount
+ps | grep mount
+ps | grep umount
+ps | grep fuse
+fusermount -uz /mnt/MTPdevice
+mount
+mount-FULL
+fusermount -uz /mnt/MTPdevice
+go-mtpfs /mnt/MTPdevice
+probedisk
+strace go-mtpfs /mnt/MTPdevice
+strace go-mtpfs /mnt/MTPdevice 2>go_mtpfs_ptp.strace
+pwd
+strace go-mtpfs /mnt/MTPdevice 2>go_mtpfs_mtp.strace
+mkdir /mnt/MTPdevice
+strace go-mtpfs /mnt/MTPdevice 2>go_mtpfs_mtp.strace
+ps | grep mount
+killall -9 mount
+ps | grep mount
+mount
+ls /sys/fs/fuse
+ls /sys/fs/fuse/connections
+go-mtpfs -help
+go-mtpfs -debug=usb -allow-other=true /mnt/MTPdevice
+go-mtpfs -debug=fuse -allow-other=true /mnt/MTPdevice
+fusermount -uz /mnt/MTPdevice
+umount -lf /mnt/MTPdevice
+go-mtpfs -debug=fuse -allow-other=true /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs -debug=fuse -allow-other=true /mnt/MTPdevice
+mount -i -f -t fuse.Locked(DeviceFs(Arch -o rw,nosuid,nodev,allow_other Locked(DeviceFs(Arch /mnt/MTPdevice
+mount -i -f -t fuse.Locked(DeviceFs(Arch -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mount -i -f -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mount -f -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mount -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+mount -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+/sbin/fusermount /mnt/MTPdevice -o subtype='Locked(DeviceFs(Arch'
+ln -sf mount-FULL /bin/mount
+/sbin/fusermount /mnt/MTPdevice -o subtype='Locked(DeviceFs(Arch'
+mount -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+mount -t 'fuse.Locked(DeviceFs(Arch' -o rw,nosuid,nodev,allow_other 'Locked(DeviceFs(Arch' /mnt/MTPdevice
+dmesg | tail
+go-mtpfs -debug=data -allow-other=true /mnt/MTPdevice
+go-mtpfs -help
+go-mtpfs -debug=mtp -allow-other=true /mnt/MTPdevice
+chmod +x /bin/mount-mtp
+go-mtpfs -debug=mtp -allow-other=true /mnt/MTPdevice
+dmesg 
+go-mtpfs -debug=mtp -allow-other=true /mnt/MTPdevice
+go-mtpfs -debug=usb -allow-other=true /mnt/MTPdevice
+mkdir /mnt/MTPdevice
+go-mtpfs -debug=usb -allow-other=true /mnt/MTPdevice
+dmesg
+dmesg
+dmesg
+killall udevd
+adevadm --trgger
+udevadm --trgger
+udevadm --trigger
+udevadm --help
+udevadm trigger
+udevd --help
+udevd --version
+pidof udevd
+udevd --daemon
+udevadm trigger
+udevd --daemon
+udevadm trigger
+udevd --daemon
+udevadm trigger
+ln -sf mount.sh /bin/mount
+umount /mnt/sdb14
+umount /mnt/sdb1
+mount /dev/sdb14
+mount /dev/sdb1
+umount /mnt/sdb1
+mount -t ntfs /dev/sdb1
+geany /var/log/xwin/Xerrs.2.6.31.14-core2-Flens-Gold-dirty.2015-01-09-03\:24\:46.Xorg.log 
+mount
+umount /dev/sdb1
+umount /dev/sdb14
+mount
+umount /dev/loop1
+umount /dev/loop0
+mount
+umount /dev/sdb19
+mount
+timeout -s 9 -t 4 umount -lf /mnt/MTPdevice
+timeout --help
+timeout -t 4 -s 9 umount -lf /mnt/MTPdevice
+timeout -t 4 -s 9 /bin/umount -lf /mnt/MTPdevice
+timeout -t 4 -s 9 /bin/umount /mnt/MTPdevice
+umount /dev/sdb19
+grep 'grep .* \*' /bin/mount.sh
+grep 'grep.*\*' /bin/mount.sh
+
+Sat Jan 10 07:46:13 GMT+1 2015
+
+git commit
+git add woof-code/rootfs-skeleton/bin/mount-mtp
+git add woof-code/rootfs-skeleton/bin/mountMTP
+git add woof-code/rootfs-skeleton/bin/mountMTP.sh
+git add woof-code/rootfs-skeleton/bin/umountMTP
+git commit -m '(u)mountMTP : Scripts added for MTP mounts.'
+mountMTP
+umountMTP
+mountMTP
+umountMTP
+geany /usr/sbin/
+geany /usr/local/bin/defaultaudioplayer
+aqualung --help
+mount6
+mount
+
+Sun Jan 11 11:16:28 GMT+1 2015
+
+ffplay "/mnt/sdc11/MSC.d/p7/VIDEOS/TRASH/THUNDHERSTRUCK LIVE - Rockin' the Rivers 2007 (SD).RoQ"
+ffplay "/mnt/sdc11/MSC.d/p7/VIDEOS/TRASH/THUNDHERSTRUCK-All girl AC-DC tribute band (Low).mpeg2video"
+./ffconvert_FlashW0uJfx.sh 
+mkdir /root/test
+./ffconvert_FlashW0uJfx.sh 
+ffconvert
+lame -h
+lame --preset help
+lame --longhelp
+mpg123 -h
+type -a ffmpeg
+/usr/bin/ffmpeg
+file /usr/bin/ffmpeg
+/usr/local/bin/ffmpeg
+type -a ffmpeg
+type -a ffconvert
+file /usr/bin/ffconvert
+geany /usr/bin/ffconvert-0.9
+ffmpeg -i /mnt/sda1/VID/MSC/Flash.d/FlashW0uJfx.mp4
+ffmpeg-0.5.8-mov -i /mnt/sda1/VID/MSC/Flash.d/FlashW0uJfx.mp4
+ffmpeg-0.5.13 -i /mnt/sda1/VID/MSC/Flash.d/FlashW0uJfx.mp4
+ffmpeg-0.6.7 -i /mnt/sda1/VID/MSC/Flash.d/FlashW0uJfx.mp4
+ffmpeg-sc-0.6.5 -i /mnt/sda1/VID/MSC/Flash.d/FlashW0uJfx.mp4
+ffconvert
+man lame
+LC_ALL=C man lame
+lavinfo
+mencoder --help
+mencoder -help
+man mencoder
+mencoder -oac help
+mencoder -of help
+man ffmpeg
+which lav2avi.sh
+geany /usr/local/bin/lav2avi.sh
+lavtrans --help
+lav2mpeg --help
+mpeg2enc --help
+sox FlashVh1Zth.mp4 FlashVh1Zth.mp3
+ffmpeg -codecs
+ps | grep -i aqua
+which aqualung
+file /usr/bin/aqualung
+geany /usr/bin/aqualung
+aqualung-new
+ffmpeg -formats
+LC_ALL=C man ffmpeg
+ffmpeg /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4
+ffmpeg -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.9.3 -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.15 -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -acodec copy /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+aqualung --play /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -acodec mp3 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -acodec aac /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -strict experimental -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -acodec aac /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental #-acodec aac /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental -acodec aac /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+aqualung --play /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental -acodec msmpeg /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental -acodec msmpeg4 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental -acodec mp1 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.8.10-pic -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp4 -f mp3  -strict experimental -acodec mp2 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+aqualung --play /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashVh1Zth.mp3
+ffmpeg-0.9.3 -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp4 -f mp3  -strict experimental -acodec mp2 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp3
+ffmpeg-0.8.15 -i /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp4 -f mp3  -strict experimental -acodec mp2 /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp3
+defaultaudioplayer /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp3
+aqualung --play /mnt/sda1/VID/MSC/Flash.d/Saxon/FlashW0uJfx.mp3
+man sox
+man /usr/local/man/man1/cue2toc.1
+man --help
+man -f mp3
+man -k mp3
+man -K mp3
+for i in *; do realpath $i; done
+for i in *.mp4; do realpath $i; done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;echo $bnF;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;lame $i $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder $i $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder -i $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder -oac mp3 $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder -oac mp3lame $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder -oac mp3lame -of mp3 $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;mencoder -oac mp3lame -of mpeg $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;ffmpeg -i $i -o $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;ffmpeg -i $i $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;echo $bnF;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;lame -b 128 -2 $i $bnF.mp3;done
+for i in *.mp4; do F=`realpath $i`; bnF=`basename $F .mp4`;lame -b 128 -mj $i $bnF.mp3;done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 $nf.mp3; sleep 1; done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+file 352D26E1d01
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4) echo IS MP4;;*Flash*) echo is flash;;esac;done
+file 352D26E1d01
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+ffmpeg-0.8.15 -i FlashC0mPIo.flv -f mp3 -acodec mp2 -ac 2 FlashC0mPIo.mp3
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;;*Flash*) echo is flash;;esac;done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file $i`; case $F in *MPEG*v4*) echo IS MP4;mv $i $i.mp4;;*Flash*) echo is flash; mv $i $i.flv;;esac;done
+for i in *.mp4; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do nf=`basename $i .mp4`; ffmpeg-0.8.15 -i $i -f mp3 -acodec mp2 -ac 2 -y $nf.mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp4; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+for i in *; do case $i in *.*)continue;;esac;echo $i; F=`file "$i"`; case $F in *MPEG*v4*) echo IS MP4;mv "$i" "$i".mp4;;*Flash*) echo is flash; mv $i "$i".flv;;esac;done
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/MA/ || break; sleep 3; done
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/JoanJet/ || break; sleep 3; done
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/Billy/ || break; sleep 3; done
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/Motörhead/ || break; sleep 3; done
+for i in *.mp3; do cp -au "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/Motörhead/ || break; sleep 3; done
+for i in *.mp3; do cp -au "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/JoanJet/ || break; sleep 3; done
+for i in *.mp3; do cp -au "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/Genesis/ || break; sleep 3; done
+mkdir 70s
+mkdir Billy
+mkdir Crow
+mkdir JoanJet
+mkdir MA
+mkdir Motörhead
+mkdir Genesis
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/Crow/ || break; sleep 3; done
+for i in *.mp3; do cp -a "$i" /mntf/MTPdev/SD-Karte/MSC/2015-01-11/70s/ || break; sleep 3; done
+mountMTP
+umountMTP
+mount
+umountMTP
+mountMTP
+for i in *.flv; do nf=`basename "$i" .mp4`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+man ffmpeg
+for i in *.flv; do nf=`basename "$i" .flv`; ffmpeg-0.8.15 -i "$i" -f mp3 -acodec mp2 -ac 2 -y "$nf".mp3; sleep 1; done
+umountMTP
+mountMTP
+umountMTP
+mount
+
+Mon Jan 12 18:23:12 GMT+1 2015
+
+
+Tue Jan 13 14:21:06 GMT+1 2015
+
+for i in *; do case $i in *.*) continue;;esac;echo $i;done
+for i in *; do case $i in *.*) continue;;esac;file $i;done
+for i in *; do case $i in *.*) continue;;esac;mv "$i" "$i".mp4;done
+cd /mntf/MTPdev/NAND\ FLASH/
+ls
+vd VideoClips/
+cd VideoClips/
+ls
+for i in Flash*;do echo $i; done
+for i in Flash*;do mv "$i" "$i".mp4; done
+pwd
+umountMTP
+mountMTP
+dmesg
+busybox top
+echo $((5319/1600))
+echo $((5319/2666))
+echo $((5319/2600))
+ls /cproc/c*
+ls /proc/c*
+cat /proc/cmdline
+ls -l /proc/c*
+find /sys -type d -name "cpu*"
+cd /sys/devices/system/cpu/
+ls -l
+cat uevent
+cat release
+cat present
+cat possible 
+cat online 
+cat offline 
+cat modalias 
+cat kernel_max 
+cd cpu0
+ls -l
+cd topology
+ls -l
+cat core_id
+cat core_siblings
+cat core_siblings_list 
+cat physical_package_id 
+cat thread_siblings
+cat thread_siblings_list
+cat /proc/cpuinfo
+grep -h -I '.\+' /proc/*
+grep -h -I '.\+' /proc/[^k]*
+grep -H -I '.\+' /proc/[^k]*
+grep -H -I '.\+' /proc/[^k]* >/root/proc.txt
+lsusb
+geany /et/rc.d/rc.sysinit.run
+geany /etc/rc.d/rc.sysinit.run
+grep -i 'nox' /proc/cmdline
+geany /usr/bin/xwin
+basename $(readlink -f $(which X))
+wine
+which wirelesswizard
+file /usr/sbin/wirelesswizard
+geany /usr/sbin/wirelesswizard
+which wag
+
+Wed Jan 14 18:39:14 GMT+1 2015
+
+for i in }< do file $i< done
+for i in *; do file $i; done
+for i in *; do mv "$i" "$i".flv; done
+for i in *; do file $i; done
+for i in *; do file $i | grep -i flash || continue; done
+for i in *; do file $i 2>&1 | grep -i 'flash video' || continue; done
+for i in *; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in *; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in *; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in Flash*; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in *; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in Flash*; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in Flash*; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in Flash*; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in Flash*; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in Flash*; do case $i in *.*)continue;;esac;file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in *; do case $i in *.*)continue;;esac;file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in *; do case $i in *.*)continue;;esac;file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in plugin*; do file $i 2>&1 | grep -i 'flash video' || continue; mv "$i" "$i".flv;done
+for i in plugin*; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+for i in Flash*; do file $i 2>&1 | grep -i 'MPEG' || continue; mv "$i" "$i".mp4;done
+
+Sun Jan 18 14:50:37 GMT+1 2015
+
+geany /usr/bin/xwin
+for i in *.mp4;do test -e "$i" || continue; echo "$i"; done
+for i in *.mp4;do test -e "$i" || continue; echo "$i"; cp "$i" "/mntf/MTPdev/NAND FLASH/VideoClips/AcDc"/;done
+for i in *.flv;do test -e "$i" || continue; echo "$i"; cp "$i" "/mntf/MTPdev/NAND FLASH/VideoClips/AcDc"/;done
+umountMTP
+mountMTP
+for i in *; do test -d "$i" || continue;echo $i; done
+for i in *; do test -d "$i" || continue;echo $i; for j in "$i"/.swf; do test -e "$j" || continue; echo "$j";done;done
+for i in *; do test -d "$i" || continue;echo $i; for j in "$i"/*.swf; do test -e "$j" || continue; echo "$j";done;done
+for i in *; do test -d "$i" || continue;echo $i; for j in "$i"/*.swf; do test -e "$j" || continue; echo "$j";bn=${j%.*}; echo "$bn";done;done
+for i in *; do test -d "$i" || continue;echo $i; for j in "$i"/*.swf; do test -e "$j" || continue; echo "$j";bn=${j%.*}; echo "$bn";mv "$j" "$bn".flv;done;done
+who
+which who
+file /bin/who
+who --help
+who -aH
+
+Fri Jan 23 21:14:36 GMT+1 2015
+
+fixitup
+find size +2M
+find -size +2M
+file ./6/6B/35DEFd01
+file ./6/EE/BB2CBd01
+file ./D/52/46AF2d01
+defaultmediaplayer ./D/52/46AF2d01
+du -s -BM .
+find -size +2M
+file ./A/6A/CC8E6d01
+file ./6/6B/35DEFd01
+file ./6/EE/BB2CBd01
+find -size +2M
+pwd
+cd ../..
+ls
+cd 8eguvdtc.3.5/
+ls
+cd Cache/
+find -size +2M
+cat ,
+cat .
+cat plugin-crossdomain.xml 
+pwd
+ls
+ls /sys/class/net
+ls /sys/class/net/eth1
+ls -F /sys/class/net/eth1
+ls -F /sys/class/net/eth1/*
+ls -F /sys/class/net/eth1/statistics
+cat /sys/class/net/eth1/statistics/rx_bytes
+cat /sys/class/net/eth1/statistics/tx_bytes
+cat /sys/class/net/eth1/statistics/rx_bytes
+cat /sys/class/net/eth1/statistics/tx_bytes
+cat /sys/class/net/eth1/statistics/rx_bytes
+cat /sys/class/net/eth1/statistics/tx_bytes
+cat /sys/class/net/eth1/statistics/rx_bytes
+echo $((41469799/8))
+echo $((41469799/1024))
+cat /sys/class/net/eth1/statistics/rx_bytes
+cat /sys/class/net/eth1/statistics/tx_bytes
+cat /sys/class/net/eth1/statistics/rx_bytes
+killall sylpheed
+sylpheed
+net-setup.sh
+./autorun.sh
+ifconfig -a
+
+Sat Jan 24 15:34:24 GMT+1 2015
 
