@@ -56,7 +56,7 @@ __check_proc__()
 {
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  busybox mount -o remount,rw /dev/root /
   test -d /proc || mkdir -p /proc
   busybox mount -t proc none /proc
   return $?
@@ -66,7 +66,7 @@ __check_proc__()
 __check_tmp__()
 {
  test -d /tmp && return $? || {
- busybox mount $VERB $VERB -o remount,rw /dev/root/ /
+ busybox mount $VERB $VERB -o remount,rw /dev/root /
  mkdir -p /tmp
  chmod $VERB 1777 /tmp
  return $?
@@ -82,7 +82,7 @@ _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
 grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
  }
 
 }
@@ -753,7 +753,7 @@ fi
                 for aPID in `fuser -m "$mountPOINT"`
                 do
                 fsUSERS="$fsUSERS
-`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -v 'grep'`
+`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -vE 'grep|xmessage'`
                 "
                 done
                 echo "$fsUSERS"
