@@ -1,0 +1,77 @@
+#! /bin/bash
+
+source /etc/rc.d/f4puppy5
+
+COUNTDOWN=0
+COUNT=1
+echo "running" > /tmp/pstopwatch-status
+
+if [ "$bCOUNTDOWN" = true ]; then
+    #countdown to sync stopwatch to a whole second
+    SEC_START=`date +%s`
+    #COUNTDOWN=3
+    #COUNT=1
+    #echo "running" > /tmp/pstopwatch-status
+    while [ $COUNT -lt 5 ] && [ "`cat /tmp/pstopwatch-status`" != "stop" ]; do
+        SEC_NOW=`date +%s`
+        #SECONDS=`expr $SEC_NOW - $SEC_START`
+         SECONDS=$((SEC_NOW - SEC_START))
+        if [ "$SECONDS" = $COUNT ] && [ $SECONDS -gt 0 ]; then
+            echo "00:0$COUNTDOWN:00" >> /tmp/pstopwatch-clock
+            if [ $COUNT -lt 4 ]; then
+                $COMMAND_BEEP_LOW >>$OUT 2>>$ERR
+            fi
+            #COUNTDOWN=`expr $COUNTDOWN - 1`
+             COUNTDOWN=$((COUNTDOWN - 1))
+            #COUNT=`expr $COUNT + 1`
+             COUNT=$((COUNT + 1))
+        fi
+    done
+    $COMMAND_BEEP_HIGH >>$OUT 2>>$ERR &
+fi
+
+#start actual clock
+SEC_START=`date +%s`
+MIN=0
+while [ "`cat /tmp/pstopwatch-status`" != "stop" ]; do
+    #tenth
+    NANOSEC=`date +%N`
+    TENTH=`expr $NANOSEC / 10000000 | cut -d"." -f1`
+    #TENTH=`echo $((NANOSEC / 10000000)) | cut -d"." -f1` #098334605: value too great for base (error token is "098334605")
+    if [ `echo $TENTH | wc -c` = 2 ]; then TENTH="0""$TENTH"; fi #always 2 digits
+
+    #seconds
+    SEC_NOW=`date +%s`
+    #SEC=`expr $SEC_NOW - $SEC_START`
+     SEC=$((SEC_NOW - SEC_START))
+    #SEC_PAST=`expr $MIN \* 60`
+     SEC_PAST=$((MIN * 60))
+    #SECONDS=`expr $SEC - $SEC_PAST`
+     SECONDS=$((SEC - SEC_PAST))
+    #minutes
+    #MIN=`expr $SEC / 60`
+     MIN=$((SEC / 60))
+    MIN=`echo "$MIN" | cut -d. -f1` #truncate decimals
+    if [ `echo $MIN | wc -c` = 2 ]; then MIN="0""$MIN"; fi #always 2 digits
+    #---
+    if [ "$TENTH_SHOW" = true ]; then TENTH=":$TENTH"; else TENTH=":00"; usleep 100000; fi
+    if [ `echo $SECONDS | wc -c` = 2 ]; then NULL="0"; else NULL=""; fi #workaround 2 digits
+        if [ `echo "$MIN:$NULL$SECONDS$TENTH"` != `tail -1 /tmp/pstopwatch-clock` ]; then
+        echo "$MIN:$NULL$SECONDS$TENTH" >> /tmp/pstopwatch-clock
+    fi
+    #check for alarm
+    if [ "$TIMER" ]; then
+        TIMER_MIN=`echo "$TIMER" | cut -d ':' -f 1`
+        TIMER_SEC=`echo "$TIMER" | cut -d ':' -f 2`
+        if [ "$TIMER_MIN" -le $MIN ] && [ "$TIMER_SEC" -le $SECONDS ]; then
+            TMP=`ps`
+            if [ ! "`echo "$TMP" | grep $COMMAND_ALARM`" ]; then
+                $COMMAND_ALARM >>$OUT 2>>$ERR &
+            fi
+        fi
+    fi
+done
+
+#xmessage -bg green -title "pstopwatch" -file /tmp/pstopwatch-clock
+StopTime=`tail -n1 /tmp/pstopwatch-clock`
+xmessage -bg green -title "pstopwatch" "$StopTime"

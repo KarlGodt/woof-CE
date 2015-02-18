@@ -1,0 +1,129 @@
+#! /bin/bash
+#pStopWatch
+#Copyright 2008
+#Sigmund Berglund
+
+#------------------------------
+#pStopWatch is released under the GNU General Public License (GPL). You have the right to use and modify this software in any way you like, so long as any derivative works remain under a GPL license.
+
+#This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY.
+#See the GNU General Public License homepage for more details. <http://www.gnu.org/licenses/>.
+#------------------------------
+
+VERSION=0.6
+
+source /etc/rc.d/f4puppy5
+
+export TENTH_SHOW=true
+
+#export COMMAND_BEEP_LOW='aplay /usr/share/audio/beep_low.wav'
+#export COMMAND_BEEP_HIGH='aplay /usr/share/audio/beep_high.wav'
+#export COMMAND_ALARM='aplay /usr/share/audio/beep_high.wav'
+
+export COMMAND_BEEP_LOW
+export COMMAND_BEEP_HIGH
+export COMMAND_ALARM
+
+export FONT_NAME=Mono
+export FONT_SIZE=60
+export LOC_START=Start
+export LOC_STOP=Stop
+export LOC_HEADER='Stop Watch'
+export AUTOSTART=false
+export WINDOW_SIZE=350x145
+export bCOUNTDOWN=false
+export TIMER=""
+export CLOCK_ALARM=""
+
+#parameters
+while [ $# != 0 ]; do
+    I=1
+    while [ $I -le `echo $# | wc -c` ]; do #check -xft
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep c` ]; then export COUNTDOWN=false; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep C` ]; then
+            export CLOCK=true
+            export BUTTON_STOP='--no-buttons'
+            export AUTOSTART=true
+            export WINDOW_SIZE=350x100
+        fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep f` ]; then
+            export FONT_NAME=`echo $2 | cut -d ':' -f 1`
+            export FONT_SIZE=`echo $2 | cut -d ':' -f 2`
+            shift
+        fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep l` ]; then
+            export LOC_START=`echo $2 | cut -d ':' -f 1`
+            export LOC_STOP=`echo $2 | cut -d ':' -f 2`
+            export LOC_HEADER=`echo $2 | cut -d ':' -f 3`
+            shift
+        fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep s` ]; then export TENTH_SHOW=false; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep w` ]; then
+            export WINDOW_SIZE=${2/:/x}
+        fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep x` ]; then export AUTOSTART=true; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep y` ]; then export BUTTON_STOP='--no-buttons'; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep h` ]; then
+echo 'Usage: pstopwatch [OPTION]
+
+Options
+  -a [command /path/file]
+                  alternative sound: alarm
+  -A HH:MM        alarm at HOUR:MINUTE. requires -C
+  -b [command /path/file]
+                  alternative sound: beep low
+  -B [command /path/file]
+                  alternative sound: beep high
+  -c              no countdown - no sync with system time. Use with -s
+  -C              start with ordinary clock. Forces -xy
+  -f [font:size]  set font-type and fontsize
+  -h              show this help message
+  -l [start:stop:header]
+                  Language support. Local variables for Start:Stop:Window-title
+  -s              count with seconds, not tenth as default
+  -t MM:SS        stopwatch alarm after MINUTES:SECONDS
+  -v              show pStopWatch version
+  -w X:Y          window size HORIZONTAL:VERTICAL
+  -x              auto start
+  -y              no stop-button. Must be killed external.'
+            exit 0
+        fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep a` ]; then export COMMAND_ALARM=$2;     shift; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep A` ]; then export CLOCK_ALARM=$2;       shift; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep b` ]; then export COMMAND_BEEP_LOW=$2;  shift; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep B` ]; then export COMMAND_BEEP_HIGH=$2; shift; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep t` ]; then export TIMER=$2;             shift; fi
+        if [ `echo $1 | grep -v '/' | grep -v ':' | grep v` ]; then echo pStopWatch $VERSION;    exit 0; fi
+        shift
+        I=`expr $I + 1`
+    done
+done
+if [ ! "$BUTTON_STOP" ]; then export BUTTON_STOP='--buttons-style text --no-ok --cancel-label '"$LOC_STOP"; fi
+
+#check if valid
+if [ ! "`echo $WINDOW_SIZE | grep 'x'`" ]; then WINDOW_SIZE=0x0; fi
+#---
+
+APPDIR="`dirname $0`"
+[ "$APPDIR" = "." ] && APPDIR="`pwd`"
+export APPDIR="$APPDIR"
+
+#build gtkrc
+cat $APPDIR/gtkrc > /tmp/pstopwatch-gtkrc
+echo '
+style "text"
+{   font_name="'$FONT_NAME $FONT_SIZE'"
+    fg[NORMAL]      = "#FF0000"
+    base[NORMAL]    = "#000000" }
+class "*ist*"   style "text"
+style "special"
+{   font_name="Sans bold 20"
+    fg[NORMAL]      = "#0C574E" }
+class "*b*" style "special"' >> /tmp/pstopwatch-gtkrc
+cp $APPDIR/blank.png /tmp/
+export GTK2_RC_FILES=/tmp/pstopwatch-gtkrc
+
+test -s /tmp/pstopwatch-clock || echo -e "\n\n\n00:00:00" > /tmp/pstopwatch-clock
+$APPDIR/pstopwatch_mainloop
+
+
