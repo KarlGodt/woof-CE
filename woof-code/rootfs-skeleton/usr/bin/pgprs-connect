@@ -79,8 +79,9 @@ _update_month
 
 [ "$T_1" ] || T_1=1  #TMOUT if set to a value greater than zero, TMOUT is treated as the default timeout for the read builtin
 
-mkdir -p /tmp/networking  ##++2013-05-07
-jobs >>$OUT && TTY=`tty` || TTY=/tmp/networking/firewall.out
+tmpDIR=/tmp/networking
+mkdir -p "$tmpDIR"  ##++2013-05-07
+jobs >>$OUT && TTY=`tty` || TTY="$tmpDIR"/firewall.out
 [ "$VERBOSE" ] && echo "TTY='$TTY'"
 
 [ "$VERBOSE" ] && echo "$0:Line='$LINENO'"
@@ -104,7 +105,7 @@ echo
 _clean_up_var
 }
 
-trap "cleanup;exit" INT TERM HUP QUIT ABRT KILL
+trap "_cleanup;exit" INT TERM HUP QUIT ABRT KILL
 
 
 ##############################################################################################################
@@ -114,7 +115,7 @@ trap "cleanup;exit" INT TERM HUP QUIT ABRT KILL
 
 _check_modem_function_1(){
 DEV_USED=`grep '^/dev/.*' /etc/ppp/peers/gprsmm`
-[ "$DEV_USED" ] || { echo "Could not find a device (ie /dev/ttyUSB0) entry in
+[ "$DEV_USED" ] || { echo "Could not find a device (ie /dev/ttyUSBXY) entry in
 '/etc/ppp/peers/gprsmm' file " ;dmesg |grep tty;read -n1 -p "Press any key to exit " E_KEY;echo;exit 1; }
 
 [ "$VERBOSE" ] && echo "DEV_USED='$DEV_USED'"
@@ -131,10 +132,10 @@ _check_modem_function_1
 
 echo "About the modem :"
 timeout -s HUP -t 6 modem-stats $DEV_USED
-[ "$?" -ne 0 ] && { echo "Hmmm... Seems to need Repluging...";exit 1; }
+[ "$?" -ne 0 ] && { [ "$FORCE" ] || { echo "Hmmm... Seems to need Repluging...";exit 1; }; }
 sleep 2s
 
-modem-stats -c 'ATZ' $DEV_USED
+busybox timeout -s HUP -t 6 modem-stats -c 'ATZ' $DEV_USED
 if [ "$DEV_USED" ];then
 [ "$NO_CHECKS" ] || { echo "Checking '$DEV_USED' .. please wait up to 30 seconds";MODEM_STATS=`busybox timeout -s HUP -t 30 modem-stats -c 'AT+CPIN?' $DEV_USED`; }
 fi
@@ -154,14 +155,17 @@ fi
 
 [ "$GPRSMM_FILE" ] || GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
 
-  if [ "`echo "$MODEM_STATS" |grep '+CPIN: SIM PIN'`" ];then
+  if [ "`echo "$MODEM_STATS" |grep '\+CPIN: SIM PIN'`" ];then
 GPRSMM_FILE=/etc/ppp/peers/gprsmm_pin #gprs-connect-chatmm-pin
 
-elif [ "`echo "$MODEM_STATS" |grep '+CPIN: SIM PUK'`" ];then
+elif [ "`echo "$MODEM_STATS" |grep '\+CPIN: SIM PUK'`" ];then
 GPRSMM_FILE=/etc/ppp/peers/gprsmm_puk #gprs-connect-chatmm-puk
 
-elif [ "`echo "$MODEM_STATS" |grep '+CPIN: READY'`" ];then
+elif [ "`echo "$MODEM_STATS" |grep '\+CPIN: READY'`" ];then
 GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
+
+#elif [ "`echo "$MODEM_STATS" |grep 'OK'`" ];then
+#GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
 
 else #+CPIN: READY
 #GPRSMM_FILE=/etc/ppp/peers/gprsmm #gprs-connect-chatmm
