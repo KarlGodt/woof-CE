@@ -2051,3 +2051,322 @@ ifconfig -a
 
 Sat Jan 24 15:34:24 GMT+1 2015
 
+./git_pull_all_directories-03.sh 
+./replace_commit_files.sh 
+git branch
+git push krg Fox3-Dell755
+git remote -v
+git push MSkrg Fox3-Dell755
+cfclient-1.10.0
+gcfclient2-1.11.0-sdl-dmeta2-O2 
+gcfclient1-1.11.0
+net-setup.sh 
+ps | grep mbb
+ifconfig
+ifconfig /a
+ifconfig -a
+ifconfig
+ifconfig -a
+
+Mon Jan 26 12:36:40 GMT+1 2015
+
+./Script-cp2android 
+umountMTP
+mountMTP
+modprobe -v usb-video
+modprobe -l | grep usb
+modprobe -l | grep usb | grep video
+modprobe -v usbvision
+mountMTP
+dmesg
+guvcview
+modprobe -v usb-storage
+dmesg
+modprobe -v ptp
+modprobe -l | grep mtp
+modprobe -l | grep ptp
+modinfo ptp
+find -name "FlashwgVN*"
+find -name "FlashwgVN*"
+
+Wed Feb 18 18:09:45 GMT+1 2015
+
+probedisk
+ls -l /mnt/sdc1/swapfile.swp
+chmod +w /mnt/sdc1/swapfile.swp
+ls -l /mnt/sdc1/swapfile.swp
+chmod 0777 /mnt/sdc1/swapfile.swp
+ls -l /mnt/sdc1/swapfile.swp
+mount
+swapon /mnt/sdc1/swapfile.swp
+cat /proc/swaps
+swapoff /mnt/sdc1/swapfile.swp
+cat /proc/swaps
+chown
+chown root:ystem /mnt/sdc1/swapfile.swp
+chown root:system /mnt/sdc1/swapfile.swp
+ls -l /mnt/sdc1/swapfile.swp
+chown -c root:system /mnt/sdc1/swapfile.swp
+swapon /mnt/sdc1/swapfile.swp
+file /mnt/sdc1/swapfile.swp
+blkid /mnt/sdc1/swapfile.swp
+disktype /mnt/sdc1/swapfile.swp
+disktype /dev/sdb21
+probedisk
+probedisk2
+probepart /d&dev&sdc
+probepart -d/dev/sdc
+probepart -d /dev/sdc
+probepart /dev/sdc
+file /sbin/probepart
+probepart2.09
+probepart2.09 /dev/sdc
+grep -r -i port *
+grep -r -i -m3 port *
+grep -r -i port * | grep -v -E 'report|support'
+grep -r -i port * | grep -v -i -E 'report|support'
+grep -r -i port * | grep -v -i -E 'report|support|export'
+find -name "*port*"
+mount
+umount /mnt/sdc1
+fuser -m /mnt/sdc1
+cat /proc/swaps
+swapoff /mnt/sdc1/swapfile.swp
+cat /proc/swaps
+umount /mnt/sdc1
+dd if=/dev/zero of=swapfile.swp bs=$((1024*1024)) count=512
+mkswap --help
+mkswap -L SWAP /mnt/sdc1/swapfile.swp
+swapon /mnt/sdc1/swapfile.swp
+swapon /mnt/sdd1/swapfile.swp
+cat /proc/swaps
+swapoff /mnt/sdc1/swapfile.swp
+swapoff /mnt/sdd1/swapfile.swp
+cat /proc/swaps
+probedisk
+geany /bin/mount
+geany /etc/rc.d/f4puppy5
+geany /usr/local/bin/drive_all
+./update_files_from_running_system 
+grep pstopwatch *
+git commit
+git add pstopwatch/
+git commit -m '/usr/local/pstopwatch: Added.'
+ps | grep -v '\['
+xmessage --help
+xmessage -help
+ptimer
+pstopwatch
+which ptimer
+file /usr/local/bin/ptimer
+geany /usr/local/bin/ptimer
+geany /usr/local/ptimer/ptimer
+./android
+mount
+pstopwatch 
+df
+
+Fri Feb 20 17:17:23 GMT+1 2015
+
+mountMTP
+umountMTP
+df
+
+Mon Mar 2 23:32:27 GMT+1 2015
+
+mountMTP
+cp -a "/mntf/MTPdev/NAND FLASH" /mnt/sdc1/
+df
+ls /sys/block
+umountMTP
+umount /mnt/sdc1
+umount /mnt/sdd1
+dmesg
+
+Thu Mar 5 17:38:50 GMT+1 2015
+
+pgprs-connect
+  geany /usr/bin/pgprs-connect
+pgprs-connect -F
+Thu Mar 5 17:38:50 GMT+1 2015
+exit
+wget https://www.youtube.com/v/1FlQCtg96SQ
+wget --no-check-certificate https://www.youtube.com/v/1FlQCtg96SQ
+pwd
+/android
+./android
+free
+df
+ps | grep fire
+top
+unzip --help
+type -a unzip
+file /usr/bin/unzip
+/usr/bin/unzip --help
+/usr/bin/unzip -t /root/Android/android-sdk-linux/temp/docs-21_r01.zip
+df
+du /root/Android/android-sdk-linux/temp/android-17_r03.zip
+du -BM /root/Android/android-sdk-linux/temp/android-17_r03.zip
+du /root/Android/android-sdk-linux/temp/docs-21_r01.zip
+ps | grep java
+du /root/Android/android-sdk-linux/temp/docs-21_r01.zip
+type -a cp
+file /bin/cp
+cp --help
+cp -au /root/Android /mnt/sdb16
+help fc
+fc -l
+fc fc -l make
+fc fc -l make make
+man fc
+fc --help
+info fc
+mountMTP
+umountMTP
+umountMTP
+dmesg
+ls -l /dev/ttyUSB*
+ls -l /dev/ttyA*
+ls -l /dev/tty*
+ls -l /dev/[A-Z]*
+lsusb
+dmesg | grep cfs
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+lsusb
+geany /usr/sbin/usb_modeswitch.sh
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+dmesg
+cat /var/log/xwin/Xerrs.3.9.9-KRG-iCore2-smp-pae-srv1000gz.2015-03-05-17\:38\:51.Xorg.log 
+probepart
+man mount
+modprobe -l | grep -i zte
+modprobe -v zte_ev
+modprobe -v option
+dmesg
+modem-stats /dev/ttyUSB0
+modem-stats /dev/ttyUSB1
+modem-stats /dev/ttyUSB2
+modprobe -vr mei
+mount
+mount /dev/sr2
+modem-stats -c 'AT+CMGL' /dev/ttyUSB2
+modem-stats -c 'AT+CMGL' /dev/ttyUSB1
+modem-stats -c 'AT+CMGL' /dev/ttyUSB0
+modem-stats -c 'AT+CMGF?' /dev/ttyUSB2
+modem-stats -c 'AT+CMGR' /dev/ttyUSB2
+modem-stats -c 'AT+CMGR=1' /dev/ttyUSB2
+modem-stats -c 'AT+CMGR?' /dev/ttyUSB2
+modem-stats -c 'AT+CMGF?' /dev/ttyUSB2
+modem-stats -c 'AT+CMGF=?' /dev/ttyUSB2
+modem-stats -c 'AT+CMGF=1' /dev/ttyUSB2
+modem-stats -c 'AT+CMGL' /dev/ttyUSB2
+geany /sbin/pup_event_frontend_d
+geany /tmp/usb_modeswitch.log
+modprobe -l | grep option
+pgprs-connect -F
+dmesg
+ppgprs-setup
+pgprs-setup
+pgprs-connect
+dmesg
+pgprs-shell
+file /usr/sbin/pgprs-shell
+pgprs-setup
+723
+modem-stats /dev/ttyUSB1
+modem-stats -c AT*CLAC /dev/ttyUSB1
+modem-stats -c 'AT+CLAC' /dev/ttyUSB1
+modem-stats -c 'AT+CPIN?' /dev/ttyUSB1
+modem-stats -c 'AT+CSMS?' /dev/ttyUSB1
+modem-stats -c 'AT+GCSMS?' /dev/ttyUSB1
+modem-stats -c 'AT+GCSMS?' /dev/ttyUSB0
+modem-stats -c 'AT+GCSMS?' /dev/ttyUSB2
+modem-stats -c 'AT+CSMS?' /dev/ttyUSB0
+modem-stats -c 'AT+CMER?' /dev/ttyUSB1
+modem-stats -c 'AT+CMGR?' /dev/ttyUSB1
+modem-stats -c 'AT+CMGR' /dev/ttyUSB1
+modem-stats -c 'AT+CMGS' /dev/ttyUSB1
+modem-stats -c 'AT+CMGS?' /dev/ttyUSB1
+modem-stats -c 'AT+CRSM?' /dev/ttyUSB1
+modem-stats -c 'AT+CRSM' /dev/ttyUSB1
+modem-stats -c 'AT+CRSM=0' /dev/ttyUSB1
+modem-stats -c 'AT+CRSM?' /dev/ttyUSB0
+modem-stats -c 'AT+CRSM?' /dev/ttyUSB2
+modem-stats -c 'AT+CLAC' /dev/ttyUSB2
+modem-stats -c 'AT+CLAC' /dev/ttyUSB0
+modem-stats -c 'AT+CLAC' /dev/ttyUSB1
+dmesg
+modem-stats -c 'AT+CLAC' /dev/ttyUSB1
+find /root/.mozilla/ -type d -iname cache
+find /root/.mozilla/firefox/2y8awogj.16.0b3/Cache -size +2M
+find /root/.mozilla/firefox/47p0emkb.default/Cache -size +2M
+find /root/.mozilla/firefox/2y8awogj.16.0b3/Cache -size +2M | while read file; do file $file; done
+defaultmediaplayer /root/.mozilla/firefox/2y8awogj.16.0b3/Cache/D/52/46AF2d01
+defaultmediaplayer /root/.mozilla/firefox/2y8awogj.16.0b3/Cache/2/A6/44557d01
+defaultmediaplayer /root/.mozilla/firefox/2y8awogj.16.0b3/Cache/3/B4/DD688d01
+defaultmediaplayer /root/.mozilla/firefox/2y8awogj.16.0b3/Cache/5/39/F3AB5d01
+find /root/.mozilla/ -type d -iname cache
+find /root/.mozilla/firefox/8eguvdtc.3.5/Cache  -size +2M | while read file; do file $file; done
+
+Fri Mar 6 21:58:27 GMT+1 2015
+
+lsusb
+mv /root/Android /mnt/sdb19/
+cp -au /root/Android /mnt/sdb16/
+dmesg
+lsusb
+ /usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+lsmod | grep option
+modprobe -l | grep zte
+modprobe -v zte_ev
+lsusb
+elinks
+df
+./android
+./android
+df
+lynx
+geany /etc/ppp/pap-secrets
+type -a cut
+file /bin/cut
+modem-stats /dev/ttyUSB1
+modem-stats /dev/ttyUSB2
+pgprs-setup
+pgprs-connect
+pgprs-connect -F
+pgprs-setup
+geany /usr/bin/pgprs-setup
+pgprs-setup
+pgprs-connect -F
+geany /etc/ppp/scripts/pgprs-functions
+pgprs-setup
+pgprs-connect -F
+geany /usr/bin/pgprs-connect
+pgprs-connect -F
+pgprs-setup
+pgprs-connect -F
+pgprs-setup
+pgprs-connect -F
+uname -r
+lsmod | grep ztw
+lsmod | grep zte
+modinfo zte_ev
+dmesg
+modprobe -vr mei
+dmesg
+lsusb
+history | grep usb_modeswitch
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+geany /usr/sbin/usb_modeswitch.sh
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x0039 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+history | grep usb_modeswitch
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x0039 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+/usr/sbin/usb_modeswitch.sh -v 0x19d2 -p 0x2000 -V 0x19d2 -P 0x0031 -M '55534243123456782000000080000c85010101180101010101000000000000'
+dmesg
+probedisk
+probepart
+./android
+
+Fri Mar 13 10:49:01 GMT+1 2015
+
