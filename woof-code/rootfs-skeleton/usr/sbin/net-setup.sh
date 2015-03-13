@@ -123,7 +123,7 @@ fi
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir -p $NETWORK_INTERFACES_DIR
+[ -d "$NETWORK_INTERFACES_DIR" ] || mkdir -p "$NETWORK_INTERFACES_DIR"
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -131,7 +131,7 @@ NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
 #  Dougal: need some elegant way to find out if we're running from X
 #+ (pidof X isn't good, since we might be running in the background at boot...)
 # for now, just set it from here (wag-profiles isn't really used alone)
-HAVEX='yes'
+[ "$DISPLAY" -a "`pidof X`" ] && HAVEX='yes'
 
 ## Dougal: put this into a variable
 BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
@@ -143,8 +143,8 @@ DHCPCD_COMMON_OPS='-L'
 #=============================================================================
 #============= FUNCTIONS USED IN THE SCRIPT ==============
 #=============================================================================
-. ${APPDIR}/ndiswrapperGUI.sh
-. ${APPDIR}/wag-profiles.sh
+_test_fr ${APPDIR}/ndiswrapperGUI.sh && . ${APPDIR}/ndiswrapperGUI.sh
+_test_fr ${APPDIR}/wag-profiles.sh   && . ${APPDIR}/wag-profiles.sh
 
 showMainWindow()
 {
@@ -175,15 +175,15 @@ showMainWindow()
 
         case $MAIN_RESPONSE in
             10) showLoadModuleWindow ;;
+            13) showConfigureInterfaceWindow "$INTERFACE" ;;
             17) saveNewModule ;;
             18) unloadNewModule ;;
             19) break ;;
-            13) showConfigureInterfaceWindow "$INTERFACE" ;;
-            66) AutoloadUSBmodules ;;
             21) showHelp  ;;
+            66) AutoloadUSBmodules ;;
             abort) break ;;
         esac
-
+    sleep 1
     done
 
 } # end of showMainWindow
@@ -194,9 +194,9 @@ getInterfaceList(){
   INTERFACE_NUM=$(ifconfig -a | grep -Fc 'Link encap:Ethernet')
   INTERFACES="$(ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' ')"
   # Dougal: this is for ethernet-over-firewire
-  for ONE in $(grep -w 24 /sys/class/net/*/type | cut -d '/' -f5) ; do
-    case $INTERFACES in *$ONE*) continue ;; esac
-    INTERFACES="$INTERFACES $ONE"
+  for oneTYPE in $(grep -w 24 /sys/class/net/*/type | cut -d '/' -f5) ; do
+    case $INTERFACES in *$oneTYPE*) continue ;; esac
+    INTERFACES="$INTERFACES $oneTYPE"
     INTERFACE_NUM=$((INTERFACE_NUM+1))
   done
   INTERFACEBUTTONS=""
@@ -258,10 +258,10 @@ ${INTERFACEBUTTONS}
       echo "$L_ECHO_No_Interfaces_Message" > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
     1) # only one
-      echo "$L_ECHO_One_Interface_Message"  > "$tmpDIR"/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_One_Interface_Message" > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
     *) # more than one interface
-      echo "$L_ECHO_Multiple_Interfaces_Message"  > "$tmpDIR"/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_Multiple_Interfaces_Message" > "$tmpDIR"/net-setup_MSGINTERFACES.txt
       ;;
   esac
 
@@ -433,7 +433,7 @@ showLoadModuleWindow()
     OLD_INTERFACES="$INTERFACES"
     OLD_NUM="$INTERFACE_NUM"
     # Dougal: add sleeping a few seconds, in case it takes time to initialize
-    for i in $(seq 1 10)
+    for i in $(seq 1 1 10)
     do
       #NEW_NUM=$(ifconfig -a | grep -Fc "Link encap:Ethernet")
       getInterfaceList
@@ -640,12 +640,12 @@ giveAcxDialog(){
 #=============================================================================
 askWhichInterfaceForNdiswrapper(){
     TEMP=""
-    for ONE in $INTERFACES
+    for oneIF in $INTERFACES
     do
-      [ "$ONE" ] || continue
+      [ "$oneIF" ] || continue
       TEMP="$TEMP
     <button>
-      <label>$ONE</label>
+      <label>$oneIF</label>
       <action>EXIT:$ONE</action>
     </button>"
     done
@@ -710,6 +710,7 @@ $ERROR"
 #=============================================================================
 loadNdiswrapperModule()
 {
+    MODPROBE_CONF=/etc/modprobe.conf
     #  Dougal: ask the user if there's an interface for the HW, so we know
     #+ to remove the driver for it.
     askWhichInterfaceForNdiswrapper || return
@@ -718,7 +719,7 @@ loadNdiswrapperModule()
     ndiswrapper -m
     #v4.00 bugfix...
     NATIVEMOD=""
-    nwINTERFACE="$(grep '^alias .* ndiswrapper$' /etc/modprobe.conf | cut -f 2 -d ' ')"
+    nwINTERFACE="$(grep '^alias .* ndiswrapper$' $MODPROBE_CONF | cut -f 2 -d ' ')"
     #most likely 'wlan0'
     #if this interface is already claimed by a native linux driver,
     #then get rid of it...
@@ -861,7 +862,7 @@ autoLoadModule()
 # A function to add a module to the SKIPLIST
 blacklist_module(){
   MODULE="$1"
-  if grep -Fq 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
+  if grep -F $Q 'SKIPLIST=' /etc/rc.d/MODULESCONFIG ; then
     sed -i "s/^SKIPLIST=.*/SKIPLIST=\"$SKIPLIST ${MODULE//_/-} \"/" /etc/rc.d/MODULESCONFIG
   else
     echo "SKIPLIST=\" ${MODULE//_/-} \"" >>/etc/rc.d/MODULESCONFIG
@@ -920,10 +921,10 @@ offerToBlacklistModule(){
 unloadSpecificModule(){
   TOPMSG=""
   LOADED_ITEMS=""
-  while read ONE
+  while read oneETH
   do
-    [ "$ONE" ] || continue
-    LOADED_ITEMS="$LOADED_ITEMS <item>$ONE</item>"
+    [ "$oneETH" ] || continue
+    LOADED_ITEMS="$LOADED_ITEMS <item>$oneETH</item>"
   done<"$tmpDIR"/loadedeth.txt
 
   # see if there's anything at all...
@@ -1051,7 +1052,7 @@ $ERROR
             # add ethtool test, just in case it helps at times...
             sleep 1
             echo "X"
-            if ! ethtool "$INTERFACE" | grep -Fq 'Link detected: yes' ; then
+            if ! ethtool "$INTERFACE" | grep -F $Q 'Link detected: yes' ; then
               UNPLUGGED="true"
             fi
           fi
@@ -1624,7 +1625,7 @@ saveNewModule()
 unloadNewModule()
 {
   # unload newly loaded module
-  modprobe -r "$NEWLOADED"
+  modprobe $VERB -r "$NEWLOADED"
   grep -v "$NEWLOADED" /etc/ethernetmodules > /etc/ethernetmodules.tmp
   #sync
   mv -f /etc/ethernetmodules.tmp /etc/ethernetmodules
@@ -1700,10 +1701,12 @@ findInterfaceInfo()
    pci|pcmcia) # pci device, get info from scanpci
      ## Try and replace below with actually getting the device and vendor values
      #DEVICE=$(cat /sys/class/net/$INT/device/device)
-     read DEVICE <  /sys/class/net/$INT/device/device
+     [ -e /sys/class/net/$INT/device/device ] && read DEVICE < /sys/class/net/$INT/device/device
      #VENDOR=$(cat /sys/class/net/$INT/device/vendor)
-     read VENDOR < /sys/class/net/$INT/device/vendor
+     [ -e /sys/class/net/$INT/device/vendor ] && read VENDOR < /sys/class/net/$INT/device/vendor
+     if [ "$DEVICE" -a "$VENDOR" ] ; then
      INFO=$(scanpci | grep -Fi -A1 "vendor $VENDOR device $DEVICE" | tail -n1 | cut -d' ' -f1-3,5- | tr -d '[]' | sed 's%Corporation%%g ; s%Co\.%%g ; s%Ltd\.%%g ; s%Inc\.%%g ; s% ,%,%g' | tr -s ' ')
+     fi
      #DEVICE=${DEVICE#*:}
      #local BUS=${DEVICE%:*}
      #local CARD=${DEVICE#*:} ; CARD=${CARD%.*}
@@ -1713,7 +1716,9 @@ findInterfaceInfo()
      if [ ! "$INFO" ];then
        DEVICE=$(readlink /sys/class/net/$INT/device)
        DEVICE=${DEVICE#*:}
+       if [ "$DEVICE" ]; then
        INFO=$(lspci | grep -m1 "^${DEVICE} " | cut -d: -f3- | sed 's%Corporation%%g ; s%Co\.%%g ; s%Ltd\.%%g ; s% ,%,%g ; s%(rev [0-9a-z].)%%g' | tr -s ' ')
+       fi
      fi
      ;;
    usb)
@@ -1752,14 +1757,14 @@ findInterfaceInfo()
      # possible alternative to all the above:
      # get the link to the device in dir in /sys/devices
      # (we only want the part of the top dir for it, like usb1/1-8
-     local DEV_LINK=$(readlink /sys/class/net/$INT/device | grep -o ".*/usb[0-9]/[0-9]-[0-9]*")
+     [ -e /sys/class/net/$INT/device ] && local DEV_LINK=$(readlink /sys/class/net/$INT/device | grep -o ".*/usb[0-9]/[0-9]-[0-9]*")
      if [ -z "$DEV_LINK" ] ; then
        DEV_LINK=$(readlink /sys/class/net/$INT | grep -o ".*/usb[0-9]/[0-9]-[0-9]*")
-       read PROD < /sys/class/net/$DEV_LINK/product
-       read MANU < /sys/class/net/$DEV_LINK/manufacturer
+       [ -e /sys/class/net/$DEV_LINK/product ]      && read PROD < /sys/class/net/$DEV_LINK/product
+       [ -e /sys/class/net/$DEV_LINK/manufacturer ] && read MANU < /sys/class/net/$DEV_LINK/manufacturer
      else
-       read PROD < /sys/class/net/$INT/$DEV_LINK/product
-       read MANU < /sys/class/net/$INT/$DEV_LINK/manufacturer
+       [ -e /sys/class/net/$INT/$DEV_LINK/product ]      && read PROD < /sys/class/net/$INT/$DEV_LINK/product
+       [ -e /sys/class/net/$INT/$DEV_LINK/manufacturer ] && read MANU < /sys/class/net/$INT/$DEV_LINK/manufacturer
      fi
      if [ -n "$MANU" -a -n "$PROD" ] ; then
        case "$PROD" in
@@ -1772,8 +1777,8 @@ findInterfaceInfo()
      ;;
    pcmcia) # I have no idea... try something generic
      # 1) find device and vendor:
-     DEVICE=$(cat /sys/class/net/$INT/device/device)
-     local VENDOR=$(cat /sys/class/net/$INT/device/vendor)
+     [ -e /sys/class/net/$INT/device/device ] && DEVICE=$(cat /sys/class/net/$INT/device/device)
+     [ -e /sys/class/net/$INT/device/vendor ] && local VENDOR=$(cat /sys/class/net/$INT/device/vendor)
      # maybe use lspcmcia?
      ;;
    firewire)
