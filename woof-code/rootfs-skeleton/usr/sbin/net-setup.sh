@@ -200,9 +200,9 @@ getInterfaceList(){
   INTERFACE_NUM=$(ifconfig -a | grep -Fc 'Link encap:Ethernet')
   INTERFACES="$(ifconfig -a | grep -F 'Link encap:Ethernet' | cut -f1 -d' ' | tr '\n' ' ')"
   # Dougal: this is for ethernet-over-firewire
-  for ONE in $(grep -w 24 /sys/class/net/*/type | cut -d '/' -f5) ; do
-    case $INTERFACES in *$ONE*) continue ;; esac
-    INTERFACES="$INTERFACES $ONE"
+  for oneIF in $(grep -w 24 /sys/class/net/*/type | cut -d '/' -f5) ; do
+    case $INTERFACES in *$oneIF*) continue ;; esac
+    INTERFACES="$INTERFACES $oneIF"
     INTERFACE_NUM=$((INTERFACE_NUM+1))
   done
   INTERFACEBUTTONS=""
@@ -648,13 +648,13 @@ giveAcxDialog(){
 #=============================================================================
 askWhichInterfaceForNdiswrapper(){
     TEMP=""
-    for ONE in $INTERFACES
+    for oneIF in $INTERFACES
     do
-      [ "$ONE" ] || continue
+      [ "$oneIF" ] || continue
       TEMP="$TEMP
     <button>
-      <label>$ONE</label>
-      <action>EXIT:$ONE</action>
+      <label>$oneIF</label>
+      <action>EXIT:$oneIF</action>
     </button>"
     done
     # don't ask if there are no interfaces at all...
@@ -932,10 +932,10 @@ offerToBlacklistModule(){
 unloadSpecificModule(){
   TOPMSG=""
   LOADED_ITEMS=""
-  while read ONE
+  while read oneETH
   do
-    [ "$ONE" ] || continue
-    LOADED_ITEMS="$LOADED_ITEMS <item>$ONE</item>"
+    [ "$oneETH" ] || continue
+    LOADED_ITEMS="$LOADED_ITEMS <item>$oneETH</item>"
   done<"$tmpDIR"/loadedeth.txt
 
   # see if there's anything at all...
@@ -1727,10 +1727,12 @@ findInterfaceInfo()
    pci|pcmcia) # pci device, get info from scanpci
      ## Try and replace below with actually getting the device and vendor values
      #DEVICE=$(cat /sys/class/net/$INT/device/device)
-     read DEVICE <  /sys/class/net/$INT/device/device
+     [ -e /sys/class/net/$INT/device/device ] && read DEVICE < /sys/class/net/$INT/device/device
      #VENDOR=$(cat /sys/class/net/$INT/device/vendor)
-     read VENDOR < /sys/class/net/$INT/device/vendor
+     [ -e /sys/class/net/$INT/device/vendor ] && read VENDOR < /sys/class/net/$INT/device/vendor
+     if [ "$DEVICE" -a "$VENDOR" ]; then
      INFO=$(scanpci | grep -Fi -A1 "vendor $VENDOR device $DEVICE" | tail -n1 | cut -d' ' -f1-3,5- | tr -d '[]' | sed 's%Corporation%%g ; s%Co\.%%g ; s%Ltd\.%%g ; s%Inc\.%%g ; s% ,%,%g' | tr -s ' ')
+     fi
      #DEVICE=${DEVICE#*:}
      #local BUS=${DEVICE%:*}
      #local CARD=${DEVICE#*:} ; CARD=${CARD%.*}
@@ -1782,11 +1784,11 @@ findInterfaceInfo()
      local DEV_LINK=$(readlink /sys/class/net/$INT/device | grep -o ".*/usb[0-9]/[0-9]-[0-9]*")
      if [ -z "$DEV_LINK" ] ; then
        DEV_LINK=$(readlink /sys/class/net/$INT | grep -o ".*/usb[0-9]/[0-9]-[0-9]*")
-       read PROD < /sys/class/net/$DEV_LINK/product
-       read MANU < /sys/class/net/$DEV_LINK/manufacturer
+       [ -e /sys/class/net/$DEV_LINK/product ]      && read PROD < /sys/class/net/$DEV_LINK/product
+       [ -e /sys/class/net/$DEV_LINK/manufacturer ] && read MANU < /sys/class/net/$DEV_LINK/manufacturer
      else
-       read PROD < /sys/class/net/$INT/$DEV_LINK/product
-       read MANU < /sys/class/net/$INT/$DEV_LINK/manufacturer
+       [ -e /sys/class/net/$INT/$DEV_LINK/product ]      && read PROD < /sys/class/net/$INT/$DEV_LINK/product
+       [ -e /sys/class/net/$INT/$DEV_LINK/manufacturer ] && read MANU < /sys/class/net/$INT/$DEV_LINK/manufacturer
      fi
      if [ -n "$MANU" -a -n "$PROD" ] ; then
        case "$PROD" in
@@ -1800,8 +1802,8 @@ findInterfaceInfo()
 
    pcmcia) # I have no idea... try something generic
      # 1) find device and vendor:
-     DEVICE=$(cat /sys/class/net/$INT/device/device)
-     local VENDOR=$(cat /sys/class/net/$INT/device/vendor)
+     [ -e /sys/class/net/$INT/device/device ] && DEVICE=$(cat /sys/class/net/$INT/device/device)
+     [ -e /sys/class/net/$INT/device/vendor ] && local VENDOR=$(cat /sys/class/net/$INT/device/vendor)
      # maybe use lspcmcia?
      ;;
    firewire)
@@ -1847,8 +1849,8 @@ saveInterfaceSetup()
   else
     #echo -e "${MODECOMMANDS}" > /etc/${INTERFACE}mode
     # Dougal: maybe append? in case used both for dhcp and static.
-    echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
-    test $? = 0 && MSG_SAV_IF_SETUP=`gettext "Saved to ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf"`
+    echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/${HWADDRESS}.conf
+    test $? = 0 && MSG_SAV_IF_SETUP=`gettext "Saved to ${NETWORK_INTERFACES_DIR}/${HWADDRESS}.conf"`
   fi
 
 
@@ -1877,7 +1879,7 @@ test "$HELP_COMMAND" || HELP_COMMAND="yaf-splash -bg red -text 'Sorry, no help a
 
 showHelp()
 {
-  pman "net_setup" &> /dev/null &
+  pman "net_setup" &>$OUT &
 }
 
 #=============================================================================
