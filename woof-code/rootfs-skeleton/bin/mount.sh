@@ -1,5 +1,7 @@
 #!/bin/ash
 
+IS_MULTICALL=1
+
 source /etc/rc.d/f4puppy5
 DEBUGT=
 __debugt__(){  #$1 label #$2 time
