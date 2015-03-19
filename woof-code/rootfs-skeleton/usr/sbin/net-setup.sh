@@ -646,7 +646,7 @@ askWhichInterfaceForNdiswrapper(){
       TEMP="$TEMP
     <button>
       <label>$oneIF</label>
-      <action>EXIT:$ONE</action>
+      <action>EXIT:$oneIF</action>
     </button>"
     done
     # don't ask if there are no interfaces at all...
