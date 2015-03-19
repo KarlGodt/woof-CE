@@ -2020,3 +2020,12 @@ which hwclock
 /etc/rc.d/rc.country -h
 /etc/rc.d/rc.country -s
 ls /usr/share/kbd/keymaps/i386/
+./replace_commit_files.sh 
+geany /usr/sbin/chooselocale
+/etc/rc.d/rc.country
+rm /etc/kmap
+rm /etc/keymap
+/etc/rc.d/rc.country
+
+Thu Mar 19 11:19:53 GMT+1 2015
+
