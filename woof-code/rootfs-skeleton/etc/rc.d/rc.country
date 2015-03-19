@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright 2007 Barry Kauler
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v405 called from rc.sysinit.
@@ -71,9 +71,21 @@ exit $1
 #
 ########################################################################
 
-usage(){
+_version(){
+echo -e "\n$MY_SELF:VERSION $Version\n";exit $?
+}
+
+_usage(){
 echo "
-    $0 [any arg]
+    $0 [any_arg]
+[pkeys=LANG] $0 [showmaps|help|CLI,force,any|version]
+    -s show available keyboard maps
+    -S show wholepath of maps
+    -h show this help
+    -V show version
+    -v be more verbose
+    -D debug by set -x
+    -d increase logging level
 
     starts setting keyboardlayout for console
     AND localtime for RAM boot, First boot
@@ -88,31 +100,145 @@ echo "
 exit 11
 }
 
+# REM: Where are the keymap files ..
+case `uname -m` in
+*x64*) :;;  # TODO
+*) xARCH=i386;;
+esac
+
+if [ -d /usr/share/kbd/keymaps/$xARCH/ ]; then
+KEYMAP_DIR=/usr/share/kbd/keymaps/$xARCH/
+lsKMP="$KEYMAP_DIR"'[^i]*/*'
+elif [ -d /lib/keymaps/ ]; then
+KEYMAP_DIR=/lib/keymaps/
+lsKMP="$KEYMAP_DIR"'*'
+else
+ _warn "Could not determine keymaps directory"
+fi
+
 TTY=/dev/console
 TTY_=`tty`
 if [ "$TTY_" = '?' -o "$TTY_" = 'not a tty' ];then
 TTY_="$TTY";fi
 TTY="$TTY_"
 _info "$0: using $TTY"
-if [ "`echo $@ |grep 'help'`" ];then usage;fi
+
 if [ "$DISPLAY" -a "$TTY" = '/dev/console' ];then
 xmessage "PLEASE run '$0' from terminal console" &
 #define EWOULDBLOCK EAGAIN  /* Operation would block */
 exit 11;fi
 
+_show_available_maps(){
+echo "Currently installed keyboard maps
+found in '$KEYMAP_DIR' directory :"
+#ls -1 "$lsKMP" | sed 's|\.[[:alnum:]]*$||' |tr '\n' '\t';RV=$?
+
+ case "$1" in
+ -S)
+   ls -1 $lsKMP  ; RV=$?
+  ;;
+  -s|*)
+   ls -1 $lsKMP | sed 's|\.[[:alnum:]]*$||' | grep -o [[:alnum:]_-]\\+$ |tr '\n' '\t'; RV=$?
+   echo
+  ;;
+ esac
+
+exit $RV
+}
+
+__simple_option_parsing__(){
+case $1 in
+-h|*help|*usage) _usage;;
+-s|-S|*show*|*key*|*map*) _show_available_maps $1 ;;
+-V|*version) echo -e "\n$MY_SELF:VERSION $Version\n";exit $?;;
+esac
+
+if [ "$#" -gt 1 ]; then
+while [ "$#" != 1 ]; do
+case $1 in
+-v|*verbose) VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;
+                INFO=1;DBG=-d;L_DBG=--debug;A_DBG=-debug
+                OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+                ;;
+-d|*debug)   set -x;;
+esac
+shift
+done
+fi
+}
+
+_do_options_parsing(){
+set - $@
+ echo "_do_options_parsing:$@"
+ while getopts sShHvVdD oneOPT; do
+ case $oneOPT in
+ s|S) SHOW_MAPS=$oneOPT;;
+ h|H) SHOW_HELP=1;;
+ V)   SHOW_VERSION=1;;
+ v)   VERBOSE=$((VERBOSE+1));;
+ d)   DEBUG=$((DEBUG+1));;
+ D)   SHOW_SETX=1;;
+ esac
+ done
+}
+
+for param in $*
+do
+echo $param
+case $param in
+ *show*|*map*|*key*) SHOW_MAPS=$param; shift;;
+ *help|*usage) SHOW_HELP=1; shift;;
+ *version)   SHOW_VERSION=1; shift;;
+ *verbose)   VERBOSE=$((VERBOSE+1)); shift;;
+ *debug)   DEBUG=$((DEBUG+1)); shift;;
+ *DEBUG)   SHOW_SETX=1; shift;;
+ *cli|*Cli|*CLI) :;;
+-[[:alnum:]]*)
+  _do_options_parsing $param; shift;
+ ;;
+*) :;;
+esac
+done
+
+[ "$SHOW_SETX" ] && set -x
+[ "$SHOW_HELP" ] && _usage
+[ "$SHOW_VERSION" ] && _version
+[ "$SHOW_MAPS" ] && _show_available_maps -$SHOW_MAPS
+[ "$VERBOSE" ] && {
+    VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;
+                INFO=1;DBG=-d;L_DBG=--debug;A_DBG=-debug
+                OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+}
+[ "$DEBUG" ] && [ "$DEBUG" != 1 ] && DEBUGX=1
+
+#TTY=/dev/console
+#TTY_=`tty`
+#if [ "$TTY_" = '?' -o "$TTY_" = 'not a tty' ];then
+#TTY_="$TTY";fi
+#TTY="$TTY_"
+#_info "$0: using $TTY"
+
+#if [ "`echo $@ |grep 'help'`" ];then usage;fi
+
+#if [ "$DISPLAY" -a "$TTY" = '/dev/console' ];then
+#xmessage "PLEASE run '$0' from terminal console" &
+##define EWOULDBLOCK EAGAIN  /* Operation would block */
+#exit 11;fi
+
 CHANGE=;
 [ "$pkeys" ] && PKEYS="$pkeys" #boot parameter
 _info "pkeys='$PKEYS'"
+
 if [ -f /etc/keymap ];then
 currentkeymap=`cat /etc/keymap |sed 's#\.map$##'`
 _info "currentkeymap='$currentkeymap'"
-if [ "$pkeys" ];then
-PKEYS="$pkeys"
-if [ "$currentkeymap" != "$PKEYS" ];then
-#set go
-_notice "$0:Changing '$currentkeymap' to '$PKEYS'"
-CHANGE=on
-echo "$PKEYS" > /etc/keymap #boot param.
+ if [ "$pkeys" ];then
+ PKEYS="$pkeys"
+  if [ "$currentkeymap" != "$PKEYS" ];then
+  #set go
+  _notice "$0:Changing '$currentkeymap' to '$PKEYS'"
+ CHANGE=on
+  echo "$PKEYS" > /etc/keymap #boot param.
 fi;fi;fi
 
 . /etc/rc.d/PUPSTATE
@@ -121,9 +247,12 @@ fi;fi;fi
 STATUS=0
 
 #[ $pkeys ] && PKEYS=$pkeys #boot parameter
-if [ "$1" ];then rm -f /etc/keymap;unset pkeys PKEYS
-sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile;fi
-_debug '$1='"'""$1""'"
+#if [ "$1" ];then rm -f /etc/keymap;unset pkeys PKEYS
+#sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile;fi
+
+
+
+_debug "\$1='$1'"
 _debug "pkeys='$pkeys'"
 _debug "PKEYS='$PKEYS'"
 
@@ -134,9 +263,14 @@ askkbdlayout ()
  CODEPAGE=""
  while :; do
   echo -n "" >/tmp/keybdlist.txt
-  for aFILE in `ls /usr/share/kbd/keymaps/i386/[^i]*/*`
+  #for aFILE in `ls /usr/share/kbd/keymaps/i386/[^i]*/*`
+  for aFILE in `ls $lsKMP`
   do
-   aKMAP=`basename $aFILE | sed -e 's/.map$//g'` #us, fr, br, etc.
+   #aKMAP=`basename $aFILE | sed -e 's/.map$//g'` #us, fr, br, etc.
+   #aKMAP=`basename $aFILE .gz | sed -e 's/.map$//g'` #us, fr, br, etc.
+   aKMAP=${aFILE##*/}
+   aKMAP=${aKMAP%.*}  #.map
+   aKMAP=${aKMAP%.*}  #.gz
    #hmmm, very slow way to do this...
    case $aKMAP in
     us)    aCNTRY=" (USA)";;
@@ -185,6 +319,7 @@ askkbdlayout ()
   [ $? != 0 ] && return 1
   [ "$DEBUG" ] || clear > $TTY 2>&1 #clear screen
   KEYBOARD=`cat /tmp/kbdextlayout.txt`
+  _info "Selected '$KEYBOARD'"
   case $KEYBOARD in
    cz|hu101|pl|ro_win|sk-qwerty|croat|cz-us-qwertz|hu|slovene)
     FONTMAP=/usr/share/kbd/consolefonts/lat2-12.psfu
@@ -198,13 +333,82 @@ askkbdlayout ()
     ;;
   esac
  done
+
+ __simple__(){
+ if test -d /usr/share/kbd/; then
  KEYBOARD=$KEYBOARD.map  #.gz
+ elif test -f "$KEYMAP_DIR"/$KEYBOARD.gz; then
+ KEYBOARD=$KEYBOARD.gz
+ else
+ :
+ fi
+ }
+
+ local DEBUGX=1
+ KEYBOARD_FILE=`find "$KEYMAP_DIR" -not -type d -name "$KEYBOARD*"`
+ case "$KEYBOARD_FILE" in
+  '') :;; #TODO not found
+  *)
+  # REM: found several hits, ie: KEYBOARD=de : de.gz , de-latin1 , de.map , de.map.bz2
+  if test "`echo "$KEYBOARD_FILE" | wc -l`" -gt 1; then
+   echo "$KEYBOARD_FILE" | grep $Q "${KEYBOARD}$" && KEYBOARD_FILE=`echo "$KEYBOARD_FILE" | grep "${KEYBOARD}$"`
+  fi
+   _debugx "KEYBOARD_FILE='$KEYBOARD_FILE'"
+  if test "`echo "$KEYBOARD_FILE" | wc -l`" -gt 1; then
+   echo "$KEYBOARD_FILE" | grep $Q "${KEYBOARD}\.[[:alnum:]]\+$" && KEYBOARD_FILE=`echo "$KEYBOARD_FILE" | grep "${KEYBOARD}\.[[:alnum:]\.]\+$"`
+  fi
+  _debugx "KEYBOARD_FILE='$KEYBOARD_FILE'"
+  # REM: FALLBACK
+  if test "`echo "$KEYBOARD_FILE" | wc -l`" -gt 1; then
+  KEYBOARD_FILE=`echo "$KEYBOARD_FILE" | sort -d | head -n1`
+  fi
+  _debugx "KEYBOARD_FILE='$KEYBOARD_FILE'"
+  ;;
+  esac
+  _debug "KEYBOARD_FILE='$KEYBOARD_FILE'"
+
+  KEYBOARD=${KEYBOARD_FILE##*/}
+
  return 0
 }
 
-[ $PKEYS ] && echo "$PKEYS" >/etc/keymap #boot param.
+if [ "$PKEYS" ]; then
+ echo "$PKEYS" >/etc/keymap #boot param.
+elif [ "$1" ]; then
+ sed -i 's,^LANG=.*,LANG=SET_new,' /etc/profile
+fi
+
+_run_askkbdlayout(){
+ while :; do
+   askkbdlayout #this is extended menu, func above.
+   #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
+   if [ $? -eq 0 ];then
+    KMAP="$KEYBOARD"
+    break
+   else #cancel, error exit.
+    _warn "Defaulting to us keyboard map..."
+    KMAP="us"
+   fi
+ done #end while loop.
+
+ echo "$KMAP" > /etc/keymap
+ _notice "You have chosen \"$KMAP\" keyboard map." >$TTY
+ _notice "Note, this information is saved in file /etc/keymap" >$TTY
+
+ if [ "$FONTMAP" ];then
+  _notice "FONTMAP='$FONTMAP' written to /etc/fontmap"
+  echo "$FONTMAP" > /etc/fontmap
+ fi
+ if [ "$CODEPAGE" ];then
+  _notice "CODEPAGE='$CODEPAGE' written to /etc/codepage"
+  echo "$CODEPAGE" > /etc/codepage
+ fi
+}
 
 if [ ! -e /etc/keymap ];then
+_notice "/etc/keymap does not exist"
+
+ __run_askkbdlayout__(){
  while :; do
    askkbdlayout #this is extended menu, func above.
    #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
@@ -218,67 +422,295 @@ if [ ! -e /etc/keymap ];then
    fi
  done #end while loop.
  echo "$KMAP"      >/etc/keymap
- echo "You have chosen \"$KMAP\" keyboard map."
- echo "Note, this information is saved in file /etc/keymap"
+ _notice "You have chosen \"$KMAP\" keyboard map."
+ _notice "Note, this information is saved in file /etc/keymap"
  if [ "$FONTMAP" ];then
   echo "$FONTMAP"  >/etc/fontmap
  fi
  if [ "$CODEPAGE" ];then
   echo "$CODEPAGE" >/etc/codepage
  fi
-fi
+ }
+
+ _run_askkbdlayout
+
+fi #[ ! -e /etc/keymap ]
+
+STATUS=1
 
 if [ -e /etc/keymap ];then
  if [ $PKEYS ];then
   echo "$PKEYS"    >/etc/keymap
-  echo -n "Loading \"$PKEYS\" keyboard map... "
-  gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
+  _info "Loading \"$PKEYS\" keyboard map... "
+  #gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
+
+  __long_code__(){
+  if    [ -f "$KEYMAP_DIR"/$PKEYS.gz ]; then
+   gzip -dcf "$KEYMAP_DIR"/$PKEYS.gz | loadkmap ;STATUS=$?
+  elif   [ -f "$KEYMAP_DIR"/$PKEYS.bz2 ]; then
+   bzip2 -dcf "$KEYMAP_DIR"/$PKEYS.bz2 | loadkmap ;STATUS=$?
+  elif  [ -f "$KEYMAP_DIR"/$PKEYS.lzo ]; then
+   lzop -dcf "$KEYMAP_DIR"/$PKEYS.lzo | loadkmap ;STATUS=$?
+  elif  [ -f "$KEYMAP_DIR"/$PKEYS.lzma ]; then
+   lzma -dcf "$KEYMAP_DIR"/$PKEYS.lzma | loadkmap ;STATUS=$?
+  elif [ -f "$KEYMAP_DIR"/$PKEYS.xz ]; then
+    xz -dcf "$KEYMAP_DIR"/$PKEYS.xz | loadkmap ;STATUS=$?
+  elif        [ -f "$KEYMAP_DIR"/$PKEYS.Z ]; then
+   uncompress -dcf "$KEYMAP_DIR"/$PKEYS.Z | loadkmap ;STATUS=$?
+  elif  [ -f "$KEYMAP_DIR"/$PKEYS.cpio ]; then
+   cpio -dcf "$KEYMAP_DIR"/$PKEYS.cpio | loadkmap ;STATUS=$?
+  elif [ -f "$KEYMAP_DIR"/$PKEYS ]; then
+        cat "$KEYMAP_DIR"/$PKEYS | loadkmap ;STATUS=$?
+  fi
+  }
+
+  mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$PKEYS*"`
+  _debug "mapFILE='$mapFILE'"
+
+  case "$mapFILE" in
+  '') :;; #TODO not found
+  *)
+  # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   echo "$mapFILE" | grep $Q "${PKEYS}$" && mapFILE=`echo "$mapFILE" | grep "${PKEYS}$"`
+  fi
+   _debugx "mapFILE='$mapFILE'"
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   echo "$mapFILE" | grep $Q "${PKEYS}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${PKEYS}\.[[:alnum:]\.]\+$"`
+  fi
+  _debugx "mapFILE='$mapFILE'"
+  # REM: FALLBACK
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+  mapFILE=`echo "$mapFILE" | sort -d | head -n1`
+  fi
+  _debugx "mapFILE='$mapFILE'"
+  ;;
+  esac
+  _debug "mapFILE='$mapFILE'"
+
+  #_determine_compression "$KEYMAP_DIR"/$PKEYS.map >$TTY 2>&1
+  #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${PKEYS}${COMP_EXT} | loadkmap ;STATUS=$?
+
+  case $mapFILE in
+  '')
+  _warn "Could not find a keyboard map file for '$PKEYS' in '$KEYMAP_DIR'"
+  rm -f /etc/keymap
+  unset pkeys PKEYS
+  exec "$0"
+  ;;
+  *.map*)
+  loadkeys $VERB ${PKEYS}.map ;STATUS=$?
+  ;;
+  *)
+  _determine_compression "$mapFILE" >$TTY 2>&1
+  [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
+  ;;
+  esac
+
  else
   KMAP=`cat /etc/keymap`
   cat /etc/keymap | grep "\\.map" >>$OUT 2>&1 #looking for .map
-  if [ $? -eq 0 ];then #=0 found.
+  if [ $? -eq 0 -a -d /usr/share/kbd -a "`which loadkeys`" ];then #=0 found.
    #key layout maps are in /usr/share/kbd, using "kbd" package...
    KMAP=`basename $KMAP .map`
-   echo -en "Loading \"$KMAP\" keyboard map... "
+   _info "Loading \"$KMAP\" keyboard map... "
    loadkeys ${KMAP}.map ;STATUS=$?
-   #xwin also set these...
-   FONTMAP=`cat /etc/fontmap`
-   #echo -e "Loading fontmap \"${FONTMAP}\"..."
-   #setfont $FONTMAP   #cat "$FONTMAP" | loadfont
-   #...this needs work. messes up font set required by dialog program. see also /usr/X11R7/bin/xwin.
-   #um, also have /etc/codepage, don't know how to do anything with that.
-  else
+
+   __set_font__(){
+    #xwin also set these...
+    #...this needs work. messes up font set required by dialog program. see also /usr/X11R7/bin/xwin.
+    #um, also have /etc/codepage, don't know how to do anything with that.
+    FONTMAP=`cat /etc/fontmap`
+    echo -e "Loading fontmap \"${FONTMAP}\"..."
+    if test "`which setfont`"; then
+     setfont $FONTMAP
+    elif test "`which loadfont`"; then
+     cat "$FONTMAP" | loadfont
+    fi
+   }
+
+  elif [ "`which loadkmap`" ]; then
    #this is the technique up to Puppy v0.8.6. KMAP is just a 2-letter code...
-   echo -ne "Loading \"$KMAP\" keyboard map... "
-   gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap ;STATUS=$?
+   _info "Loading \"$KMAP\" keyboard map... "
+   #gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap ;STATUS=$?
+
+   #_determine_compression "$KEYMAP_DIR"/$KMAP >$TTY 2>&1
+   #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${KMAP}${COMP_EXT} | loadkmap ;STATUS=$?
+
+   mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$KMAP*"`
+   _debug "mapFILE='$mapFILE'"
+
+   case "$mapFILE" in
+   '') :;; #TODO not found
+   *)
+   # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}$"`
+   fi
+    _debugx "mapFILE='$mapFILE'"
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   # REM: FALLBACK
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   mapFILE=`echo "$mapFILE" | sort -d | head -n1`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   ;;
+   esac
+   _debug "mapFILE='$mapFILE'"
+
+   case $mapFILE in
+   '')
+   _warn "Could not find a keyboard map file for '$PKEYS' in '$KEYMAP_DIR'"
+   rm -f /etc/keymap
+   unset pkeys PKEYS
+   exec "$0"
+   ;;
+   *.map*)
+   loadkeys $VERB ${KMAP}.map ;STATUS=$?
+   ;;
+   *)
+   _determine_compression "$mapFILE" >$TTY 2>&1
+   [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
+   ;;
+   esac
+
+  else
+   _err "neiter loadkeys and loadkmap installed in PATH"
+
   fi
  fi
+
+elif  [ "`which loadkmap`" ]; then
+ _notice "Loading \"us\" (USA) keyboard map... "
+ #gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
+
+ #_determine_compression "$KEYMAP_DIR"/us >$TTY 2>&1
+ #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${KMAP}${COMP_EXT} | loadkmap ;STATUS=$?
+
+   KMAP=us
+   mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$KMAP*"`
+   _debug "mapFILE='$mapFILE'"
+
+   case "$mapFILE" in
+   '') :;; #TODO not found
+   *)
+   # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}$"`
+   fi
+    _debugx "mapFILE='$mapFILE'"
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   # REM: FALLBACK
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   mapFILE=`echo "$mapFILE" | sort -d | head -n1`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   ;;
+   esac
+   _debug "mapFILE='$mapFILE'"
+
+   case $mapFILE in
+   '')
+   _warn "Could not find a keyboard map file for '$KMAP' in '$KEYMAP_DIR'"
+   rm -f /etc/keymap
+   unset pkeys PKEYS
+   exec "$0"
+   ;;
+   *.map*)
+   loadkeys $VERB ${KMAP}.map ;STATUS=$?
+   ;;
+   *)
+   _determine_compression "$mapFILE" >$TTY 2>&1
+   [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
+   ;;
+   esac
+
 else
- echo -n "Loading \"us\" (USA) keyboard map... "
- gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
+ _err "neiter loadkeys and loadkmap installed in PATH"
+
+fi
+
+if test "$STATUS" = 0; then
+_info "Success loading keymap."
+else
+_warn "Failed loading keymap..."
 fi
 
 
 #need to set Linux system time/date, from hardware clock...
-hwclock --hctosys --localtime || hwclock --hctosys --localtime --directisa
+
+_info "Setting hwclock --hctosys (to) --localtime " >$TTY
+
+test -c /dev/rtc0 || {
+    _warn "/dev/rtc0 not a character special device ..
+Attempting to create it..." >$TTY
+test -c /dev/rtc/rtc0 && ln -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /dev/rtc0 c 253 0; }
+}
+
+#hwclock --hctosys --localtime || hwclock --hctosys --localtime --directisa
+
+_command hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG && {
+    _info "OK:Setting:hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG" >$TTY
+    } || {
+        _warn "Attempt to 'hwclock --hctosys --localtime --directisa --debug'" >$TTY
+        _command hwclock --hctosys --localtime --directisa --debug && {
+            _notice "OK using 'hwclock --hctosys --localtime --directisa --debug'" >$TTY
+            } || { _err "FAILED  to set even 'hwclock --hctosys --localtime --directisa --debug'" >$TTY; }
+        }
 #...--hctosys reads cmos clock to system.
 #...--localtime means that cmos clock is set to local-time.
-
+DEBUG=1
 #w001 creates locale files in /usr/lib/locale...
-LANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
-[ ! "$LANG" ] && LANG=empty_string
-_debug "LANG='$LANG'"
-if [ "`locale -a | grep "$LANG"`" = "" ];then
+LANG_=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
+[ ! "$LANG_" ] && LANG_=empty_string
+_debug "LANG_='$LANG_'"
+
+LANG__=$LANG_
+
+#if [ "`locale -a | grep "$LANG"`" = "" ];then
+
+case "$LANG_" in
+*utf8|*UTF8|*utf-8|*UTF-8)
+baseLANG=${LANG_:0:5}
+LANG__="${baseLANG}.utf8|${baseLANG}.UTF8|${baseLANG}.utf-8|${baseLANG}.UTF-8"
+;;
+esac
+
+_debug `locale -a | grep -E "$LANG__"`
+
+if [ "`locale -a | grep -E "$LANG__"`" = "" ];then
+ _notice "LANG_='$LANG_' not found in locale -a output"      >$TTY
+   _info "Running 'chooselocale cli' AND 'timezone-set cli'" >$TTY
+
+ __set_default__en_US_utf8__(){
+  BASELANG=`basename $gLANG .utf8`
+  if [ -f /usr/share/i18n/locales/$BASELANG ];then
+   localedef $VERB -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
+  else
+   [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef $VERB -f UTF-8 -i en_US --no-archive en_US.utf8
+  fi
+ }
+
  #BASELANG=`basename $LANG .utf8`
  #if [ -f /usr/share/i18n/locales/$BASELANG ];then
  # localedef -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.utf8
  #else
  # [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8
  #fi
- /usr/sbin/chooselocale cli > $TTY
- /usr/sbin/timezone-set cli > $TTY
+
+ /usr/sbin/chooselocale $* cli > $TTY
+
+ /usr/sbin/timezone-set $* cli > $TTY
+
 fi
 
+_debug "$0: END"
+return $STATUS 2>$ERR || exit $STATUS
 
-exit $STATUS
 ###END###
