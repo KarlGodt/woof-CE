@@ -2029,3 +2029,65 @@ rm /etc/keymap
 
 Thu Mar 19 11:19:53 GMT+1 2015
 
+ln -s libpng12.so.0 /usr/lib/libpng14.so.14
+./freedroidRPG
+find /usr -name "libpng*"
+./freedroidRPG
+./replace_commit_files.sh 
+source /etc/rc.d/f4puppy5
+_command hwclock --help
+type -p hwclock
+which hwclock
+rm /bin/hwclock
+type -a hwclock
+file /bin/hwclock
+file /sbin/hwclock
+file /usr/local/sbin/hwclock
+/etc/rc.d/rc.country
+pkeys=fr /etc/rc.d/rc.country
+pkeys=dk /etc/rc.d/rc.country
+pkeys=de /etc/rc.d/rc.country
+pkeys=dk /etc/rc.d/rc.country
+pkeys=fr /etc/rc.d/rc.country
+pkeys=de /etc/rc.d/rc.country
+rm /etc/keymap
+/etc/rc.d/rc.country
+cat /etc/keymap
+rm /etc/keymap
+/etc/rc.d/rc.country
+cat /etc/keymap
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -h
+/etc/rc.d/rc.country -V
+pkeys=abcde /etc/rc.d/rc.country
+pkeys=de /etc/rc.d/rc.country
+pkeys=abcde /etc/rc.d/rc.country
+cat /etc/keymap
+pkeys=fr /etc/rc.d/rc.country
+pkeys=abcde /etc/rc.d/rc.country
+pkeys=de /etc/rc.d/rc.country
+pkeys=de /etc/rc.d/rc.country -v
+pkeys=abcde /etc/rc.d/rc.country -v
+pkeys=de /etc/rc.d/rc.country -v
+pkeys=abcde /etc/rc.d/rc.country -v
+pkeys=de /etc/rc.d/rc.country -v
+pkeys=abcde /etc/rc.d/rc.country -v
+pkeys=de /etc/rc.d/rc.country -v
+pkeys=abcde /etc/rc.d/rc.country -v
+pkeys=abcde /etc/rc.d/rc.country -v cli
+grep LANG /etc/profile
+pkeys=de /etc/rc.d/rc.country -v cli
+ /etc/rc.d/rc.country -v cli
+cat /etc/keymap
+rm /etc/keymap
+ /etc/rc.d/rc.country -v cli
+rm /etc/keymap
+ /etc/rc.d/rc.country -v cli
+rm /etc/keymap
+ /etc/rc.d/rc.country -v cli
+rm /etc/keymap
+ /etc/rc.d/rc.country -v cli
+grep LANG /etc/profile
+ /etc/rc.d/rc.country -v
+ /etc/rc.d/rc.country -v cli
