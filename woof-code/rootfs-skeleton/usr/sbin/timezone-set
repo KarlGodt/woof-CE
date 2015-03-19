@@ -36,6 +36,10 @@ fi
 _trap
 }
 
+DEBUG=1
+_debug "$*"
+#sleep 10
+
 export LANG=C
 
 XSTATUS="no"
@@ -63,6 +67,7 @@ if [ "`echo -n "$DEFTAG" | grep 'GMT'`" ];then
 DEFTAG=`echo -n "$DEFTAG" | sed -e 's%Etc/%%'`
 fi
 
+echo -n -e " \\033[1;35mBuilding timezone database, please wait... \\033[0;39m" #purple text.
 ZONEINFO=`find /usr/share/zoneinfo -type f | grep -v '\.tab$' | sed -e 's%/usr/share/zoneinfo/%%' | sed -e 's%Etc/%%' | tr ' ' '_' | sort`
 
 ZONECHOICES=""
@@ -106,7 +111,10 @@ do
  esac
  ZONECHOICES="${ZONECHOICES}${oneZONE} \"${oneDESCR}\" "
 done
-echo "DEFTAG='$DEFTAG'"
+_debug "DEFTAG='$DEFTAG'"
+
+[ "$VERBOSE" -o "$DEBUG" ] && { read -p "  Press ENTER to continue >" CONT_KEY; echo; }
+
 if [ "$XSTATUS" = "yes" ];then
  ZONEDLG="Xdialog --stdout --title \"Puppy timezone selector\" --default-item $DEFTAG --menubox \"Please choose your timezone.\\nIf a city/region/country in your timezone is not listed, choose a GMT<number>\" 0 0 0 $ZONECHOICES"
  eval $ZONEDLG >/tmp/zoneretval
@@ -137,7 +145,24 @@ rm -f /etc/TZ #don't think need this anymore. also removed from /etc/profile.
 #.../etc/profile now reads /etc/localtime and exports TZ variable.
 
 #need to set Linux system time/date, from hardware clock...
-hwclock --debug --hctosys --localtime
+_info "Setting hwclock --hctosys (to) --localtime "
+
+test -c /dev/rtc0 || {
+    _warn "/dev/rtc0 not a character special device ..
+Attempting to create it..."
+test -c /dev/rtc/rtc0 && ln -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /dev/rtc0 c 253 0; }
+}
+
+#_command hwclock $L_DBG --hctosys --localtime
+
+_command hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG && {
+    _info "OK:Setting:hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG"
+    } || {
+        _warn "Attempt to 'hwclock --hctosys --localtime --directisa --debug'"
+        _command hwclock --hctosys --localtime --directisa --debug && {
+            _notice "OK using 'hwclock --hctosys --localtime --directisa --debug'"
+            } || { _err "FAILED  to set even 'hwclock --hctosys --localtime --directisa --debug'"; }
+        }
 #...--hctosys reads cmos clock to system, referencing /usr/share/zoneinfo/localtime
 #...--localtime means that cmos clock is set to local-time.
 
