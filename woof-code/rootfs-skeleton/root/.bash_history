@@ -2091,3 +2091,20 @@ rm /etc/keymap
 grep LANG /etc/profile
  /etc/rc.d/rc.country -v
  /etc/rc.d/rc.country -v cli
+./replace_commit_files.sh 
+geany /usr/sbin/timezone-set
+geany  /usr/sbin/chooselocale
+geany /sin/mount.sh
+geany /bin/mount.sh
+mount -t ext4
+mount
+mount -t ext4
+mount -t aufs
+mount -t ext4
+A=`mount -t ext4`
+echo "$A"
+A=`mount -t ext4`
+echo "$A"
+mount
+mount -t ext4
+mount -t aufs
