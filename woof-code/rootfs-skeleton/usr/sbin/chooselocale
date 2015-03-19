@@ -69,15 +69,15 @@ OUT='/dev/null';ERR=$OUT;Q=-q;QUIET=--quiet
 
 while getopts dvlh opt_;do
 case $opt_ in
-d) DEBUG='on';  set -x;;
+d) DEBUG='on';  set -x; shift;;
 v) VERBOSE=1;VERB='-v';L_VERB='--verbose';A_VERB='-verbose';
    Q=''; QUIET='';
-   OUT=/dev/sdtout;ERR=/dev/stderr ;;
-f) OVER_RIDE=1;;
+   OUT=/dev/sdtout;ERR=/dev/stderr ; shift;;
+f) OVER_RIDE=1; shift;;
 l) CLI_P=`echo "$@" | tr ' ' '\n' |grep '^\-' |grep 'l' |tr -d 'l'|tr '\n' ' '|sed 's/- //g'`
    exec logsave -a /tmp/chooselocale.log "$0" $CLI_P;;
-h) usage 0;;
-*) usage 1;;
+h) usage 0; shift;;
+*) usage 1; shift;;
 esac;done
 while [ "$2" ];do shift;done
 
@@ -86,6 +86,7 @@ export LANG
 
 PARAM1=""
 [ $1 ] && PARAM1="$1"
+_debug "PARAM1='$PARAM1'"
 
 . /etc/DISTRO_SPECS
 
@@ -114,7 +115,7 @@ XSTATUS="cli"
 _debug "XSTATUS='$XSTATUS'"
 
 if [ "$XSTATUS" != "x" ];then
- echo -n -e " \\033[1;35mplease wait...\\033[0;39m" #purple text.
+ echo -n -e " \\033[1;35mBuilding locale database, please wait...\\033[0;39m" #purple text.
 fi
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
@@ -126,7 +127,7 @@ LANGUAGEDESCR='aa:Afar ab:Abkhazian af:Africaans sq:Albanian ar:Arabic hy:Armeni
 REGIONDESCR='AA:ArabicCountries AE:UAE AL:Yugoslavia AR:Argentina AT:Austria AU:Australia BE:Belgium BG:Bularia BH:Bahrain BN:Brunei BO:Bolvia BR:Brazil BZ:Belize CA:Canada CH:Switzerland CL:Chile CN:PeoplesRepublicChina CO:Columbia CR:CostaRica CY:Cyprus CZ:CzechRepublic DE:Germany DK:Denmark DO:DominicanRepublic EC:Ecuador EE:Estonia ES:Spain DO:Dominican DZ:Algeria EC:Ecuador EG:Egypt FI:Finland FR:France GB:GreatBritain GR:Greece GT:Guatemalia HK:HongKong HN:Honduras HR:Croatia HU:Hungary ID:Indonesia IE:Ireland IL:Israel IN:India IQ:Iraq IS:Iceland IT:Italy JM:Jamaica JO:Jordan JP:Japan KR:Korea KW:Kuwait KZ:Kazakhstan LB:Lebanon LI:Liechtenstein LU:Luxembourg LY:Libya MA:Morocco MC:Monaco MK:Macedonia MO:Macau MY:Malasia MX:Mexico NI:Nicaragua NL:Netherlands NO:Norway NZ:NewZealand OM:Oman PA:Panama PE:Peru PH:Philippines PL:Poland PR:PuertoRico PT:Portugal PY:Paraguay QA:Qatar RO:Romania RU:Russia SA:SaudiArabia SE:Sweden SG:Singapore SK:Slovakia SY:Syria TH:Thailand TN:Tunisia TR:Turkey TW:Taiwan ZA:SouthAfrica TT:Trinidad US:USA PE:Peru SV:ElSalvador MX:Mexico NI:Nicaragua UY:Uruguay VE:Venezuela YE:Yemen YU:Yugoslavia ZA:SouthAfrica'
 
 #if [ ! -f /usr/share/i18n/dialog_table ];then
-if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
+if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" -o ! -s /usr/share/i18n/dialog_table_${XSTATUS} -o ! -f /usr/share/i18n/dialog_table_${XSTATUS} -o ! "`grep '[[:alnum:]]' /usr/share/i18n/dialog_table_${XSTATUS}`" ];then #w478
  CHOICES=""; ON=""; OFF=""; xPID=""
  if [ "$XSTATUS" = "x" ];then
   ON="on"
@@ -182,6 +183,7 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
  echo -n "$CHOICES" > /usr/share/i18n/dialog_table_${XSTATUS} #w478
  [ "$xPID" != "" ] && kill $xPID
 else
+  _info "NOT composeonly or NOT x or usable file"
  CHOICES=`cat /usr/share/i18n/dialog_table_${XSTATUS}` #w478
 fi
 
@@ -189,20 +191,36 @@ if [ "$PARAM1" = "composeonly" ];then #w470
  exit
 fi
 
+#if [ "$XSTATUS" != "x" ];then
+#echo -e "\\033[1;32m"" OK.""\\033[0;39m"
+#fi
+
 CHECKUTF8='off'
 [ "$UTF8" != "" ] && CHECKUTF8='on'
 
+_debugx " \\033[1;35mTesting CHOICES variable, please wait...\\033[0;39m" #purple text.
+## REM: shell substitution takes a few seconds ..
+#test "${CHOICES// /}" || _warn "Could not process locale choices from dialog_table_${XSTATUS}"
+## REM: So using echo | grep
+test "`echo "$CHOICES" | grep [[:alnum:]]`" || _warn "Could not process locale choices from dialog_table_${XSTATUS}"
+_debugx "\\033[1;32m"" OK.""\\033[0;39m"
+_debugx "CHOICES='$CHOICES'"
+
+
 if [ "$XSTATUS" = "x" ];then
+ _debug " \\033[1;35mBuilding Xdialog GUI, please wait...\\033[0;39m" #purple text.
  echo "#!/bin/sh
 Xdialog --left --stdout --wrap --title \"Country setup\" --check \"UTF-8 encoding (apps faster without)\" ${CHECKUTF8} --radiolist \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 30 50 40 $CHOICES >/tmp/chooselocale-choice
 exit \$?" > /tmp/xdialog-chooselocale
 else
+ echo -n -e " \\033[1;35mBuilding dialog GUI, please wait...\\033[0;39m" #purple text.
  echo "#!/bin/sh
 dialog --aspect 10 --title \"Country setup\" --menu \"The locale setting provides money, date and font localization for your country. The current choice is ${BASELANG}. Make a choice to suit your country...\" 0 0 0 ${CHOICES} 2>/tmp/chooselocale-choice
 exit \$?" > /tmp/xdialog-chooselocale
 fi
 chmod $VERB 0777 /tmp/xdialog-chooselocale
 [ "$VERBOSE" -o "$DEBUG" ] && { read -p "Press ENTER to continue" CONT_KEY; echo; }
+_debug "\\033[1;32m"" OK.""\\033[0;39m"
 /tmp/xdialog-chooselocale
 [ $? -ne 0 ] && exit 49
 
