@@ -1,490 +1,3 @@
-geany usr/sbin/xorgwizard
-geany usr/bin/new2dir
-geany usr/bin/xwin
-geany sbin/init
-VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'
-VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
-DEVROOTDRIVE=/dev/sdb5
-VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
-echo "$VARS" | grep 'Check interval' | tr '\n' ' '
-interC=`echo "$VARS" | grep 'Check interval' | tr '\n' ' '`
-echo "$interC"
-echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]*'
-echo "$interC" | tr -s ' ' | cut -f 3 -d ' '
-echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]+'
-echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]\+'
-geany usr/local/jwmconfig2/virtualDesk
-geany usr/local/jwmconfig2/panel-buttons
-geany usr/local/jwmconfig2/gtk2jwm
-geany usr/local/jwmconfig2/taskbarPlace
-geany usr/local/jwmconfig3/virtualDesk
-geany usr/local/jwmconfig3/panel-buttons
-geany usr/sbin/keymap-set
-geany usr/sbin/usb_modeswitch.sh
-geany usr/sbin/alsaconf
-geany usr/sbin/partview
-grep -H -r -m1 'grep .*\*' *
-grep -H -r -m1 'grep .*\*' * 2>/dev/null
-geany /sbin/pup_event_frontend_d
-geany /etc/rc.d/f4puppy5
-which input-wizard
-file /usr/sbin/input-wizard
-geany /usr/sbin/input-wizard
-`jwm -v 2>/dev/null | grep -o -e 'vsvn\-[0-9]\+'
-jwm -v 2>/dev/null | grep -o -e 'vsvn\-[0-9]\+'
-jwm -v
-jwm -v 2>/dev/null | grep -o -E -e 'vsvn-[0-9]+|vgit-[0-9]+'
-/sbin/pup_event_frontend_d restart
-find /usr -name xmodmap
-/usr/X11R7-2013-12-28/bin/xmodmap -pp
-ash
-xmodmap -pp
-xmodmap -pp | grep -E " *[0-9] *[0-9]"
-xmodmap -pp | grep -E " +[0-9] +[0-9]"
-input-wizard
-/sbin/pup_event_frontend_d restart
-
-Tue Dec 16 15:02:33 GMT+1 2014
-
-
-Tue Dec 16 15:09:10 GMT+1 2014
-
-
-Tue Dec 16 17:54:20 GMT+1 2014
-
-ffconvert
-freecraft
-grep -r -m1 -I viewport *
-patch <../grub-fedora-9.patch 
-pwd
-pwd
-ls /boot/COMPILE/Patch.d/centos/grub-0.97-93.el6.src/grub-0.97/stage2/fsys_ext2fs.c
-pwd
-ls -d
-ls -d .
-ls -d *
-ls stage2/fat.h
-ls ./stage2/fat.h
-pwd
-patch -p1 <grub-fedora-9.patch 
-tar -c -z -f grub-0.97-fedora-9patched.tar.gz grub-0.97-fedora-9patched/
-find -name "*xpm*"
-uname -r
-grep tinfo *
-grep -i tinfo *
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/grub/grub
-./configure --prefix=`pwd`/_install0
-autoreconf
-./configure --prefix=`pwd`/_install0
-make
-make clean
-make.tgl
-make
-make.tgl
-make
-make install
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo xterm
-echo -e '\033[27m'
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt100
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt101
-/mnt/home/root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub-terminfo vt102
-find /usr -name "libtinfo*"
-infocmp
-type -a gcc
-file /usr/bin/gcc
-file /usr/local/bin/gcc
-/usr/bin/gcc --version
-/usr/local/bin/gcc --version
-geany /usr/include/reiser4/*
-./configure --prefix=`pwd`/_install0
-make.tgl
-make
-patch -p <grub_0.97-29ubuntu50.diff 
-pwd
-patch -p1 <grub_0.97-29ubuntu50.diff 
-pwd
-rox
-patch -p1 <grub_0.97-29ubuntu53.diff 
-ls debian
-ls -1 debian
-ls -1 debian/
-ls -1 debian/patches/
-while read oneLINE; do echo "$oneLINE"; done <debian/00list
-while read oneLINE; do echo "$oneLINE"; done <debian/patches/00list
-while read oneLINE; do test "$oneLINE" || continue;echo "$oneLINE"; done <debian/patches/00list
-while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; done <debian/patches/00list
-while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; patch -p1 <debian/patches/$oneLINE || break;done <debian/patches/00list
-while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; done <debian/patches/00list
-while read oneLINE; do test "$oneLINE" || continue;case $oneLINE in \#*)continue;;esac;echo "$oneLINE"; patch -p1 <debian/patches/$oneLINE || break;done <debian/patches/00list
-geany /usr/include/stdio.h
-find -name "stddef.h"
-find /usr -name "stddef.h"
-./configure --prefix=`pwd`/_install0
-make
-geany stage2/char_io.c
-pwd
-make
-make clean
-./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include"
-make
-make clean
-./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include -I/usr/lib/gcc/i486-t2-linux-gnu/4.2.2/include/"
-make
-make clean
-make
-make clean
-make
-grep -m3 va_list /usr/include/*
-grep -m1 va_list /usr/include/*
-geany /usr/include/stdarg.h
-geany /usr/include/stdio.h
-tar -c -z -f grub-0.97-ubuntu29-50.tar.gz grub-0.97-ubuntu29-50/
-tar -c -z -f grub-0.97-ubuntu29-53.tar.gz grub-0.97-ubuntu29-53/
-rox
-make install
-./configure --prefix=`pwd`/_install0
-make
-make clean
-./configure --prefix=`pwd`/_install0 CFLAGS="-I/usr/include -I/usr/lib/gcc/i486-t2-linux-gnu/4.2.2/include/"
-make
-make.tgl
-make install
-for i in *.patch; do echo $i; done
-for i in *.patch; do echo $i; patch -p1 <$i || break;done
-for i in *.patch; do echo $i; patch -p1 <$i;done
-./configure --prefix=`pwd`/_install0
-make.tgl
-make
-make.tgl
-make install
-/root/COMPILE/grub-0.97-slackware/_install0/sbin/grub
-grub
-mktmp --help
-mktemp --help
-mktemp -u -d -t today
-mktemp -u -d -p today
-mount -a
-mount -a -o ro
-ps | grep mplayer
-
-Wed Dec 17 14:52:50 GMT+1 2014
-
-/usr/multimedia/bin/aqualung /mnt/sdc12/MSC.d/p1/1E373d01
-mplayer /mnt/sdc12/MSC.d/p1/1E373d01
-geany /usr/local/bin/defaultaudioplayer
-mplayer -help
-man maplayer
-man mplayer
-find /usr -wholename "*/man/*/mplayer*"
-man /usr/share/man/man1/mplayer.1.gz
-
-Thu Dec 18 12:38:57 GMT+1 2014
-
-pwd
-mkdir /proc
-mkdir ./proc
-mkdir ./sys
-mount -t proc proc ./proc
-mount -t sysfs sysfs ./sys
-chroot . ./ash
-umount ./sys
-umount ./proc
-umount ./dev
-mount
-pwd
-mkdir ./dev
-mount -t ramfs devramfs ./dev
-umount ./dev
-mount -o bind /dev ./dev
-mount /dev/sdc1
-pwd
-ln -s /mnt ./mnt
-ldd /root/COMPILE/grub-0.97-fedora-9patched/_install0/sbin/grub
-mount
-pwd
-mount -o bind /proc ./proc
-mount -o bind /sys ./sys
-mount -o bind /dev ./dev
-chroot . ash
-umount ./dev
-mount
-pwd
-mount -o bind /dev ./dev
-mount -o bind /proc ./proc
-mount -o bind /sys ./sys
-chroot . ash
-umount ./dev
-ldd *
-pwd
-mount --bind /dev ./dev
-mount --bind /proc ./porc
-mount --bind /proc ./proc
-umount ./porc
-mount --bind /sys ./sys
-chroot . ash
-umount ./dev
-mount
-umount /root/COMPILE/grub-0.97-slackware/_install0/mnt/sdc8
-
-Fri Dec 19 21:05:33 GMT+1 2014
-
-geany /etc/rc.d/rc.shutdown
-geany /usr/bin/xwin
-geany /etc/rc.d/rc.sysinit
-geany /etc/rc.d/rc.sysinit.run
-ash
-git branch
-git log --grep kbd
-git log --grep hotplug
-Xorg -help
-geany /etc/X11/xorg.conf
-df
-
-Sat Dec 20 06:07:01 GMT+1 2014
-
-geany /etc/rc.d/f4puppy5
-mount /dev/sda1
-geany /etc/rc.d/rc.sysinit.run
-man xorg.conf
-echo $PATH
-PATH=/var/bin:$PATH
-man xorg.conf
-find /usr -wholename "*/man/*/xorg.conf*"
-man /usr/share/man/man5/xorg.conf.5.gz
-exit
-
-Sat Dec 20 18:23:32 GMT+1 2014
-
-geany /usr/bin/xwin
-geany /etc/rc.d/rc.sysinit
-geany /etc/rc.d/rc.sysinit.run
-mount /dev/sda1
-
-Sat Dec 20 23:10:14 GMT+1 2014
-
-geany /etc/rc.d/f4puppy5
-
-Sat Dec 20 23:32:02 GMT+1 2014
-
-grin ls -l 
-date
-mount /dev/sda1
-
-Sun Dec 21 05:51:01 GMT+1 2014
-
-geany `which plogout`
-geany /usr/bin/gojwmgo
-geany /usr/bin/goe17go
-which restartwm
-geany /usr/bin/restartwm
-geany /usr/bin/wmexit
-geany /usr/bin/wmpoweroff
-geany /usr/bin/wmreboot
-geany /geany /etc/X11/xorg.conf0
-Xorg --version
-Xorg -version
-geany /etc/profile.d/06_shell 
-git commit
-./replace_commit_files.sh 
-ash
-for x in {,/usr,/usr/local,/opt}/{,/*}/{bin,sbin} {$HOME/my-applications,/root/my-applications}/{bin,sbin} ; do echo $x; done
-echo $PATH
-unset PATH
-echo $PATH
-/etc/profile.d/06_shell 
-echo $PATH
-/etc/profile.d/06_shell 
-echo $PATH
-source /etc/profile.d/06_shell 
-echo $PATH
-geany /etc/rc.d/f4puppy5
-unset PATH
-echo $PATH
-source /etc/profile.d/06_shell 
-echo $PATH
-unset PATH
-echo $PATH
-/etc/profile.d/06_shell 
-echo $PATH
-/etc/profile.d/06_shell 
-echo $PATH
-source /etc/profile.d/06_shell 
-help type
-type which
-type -t which
-type -P which
-unset PATH
-echo $PATH
-source /etc/profile.d/06_shell 
-echo $PATH
-source /etc/profile.d/06_shell 
-unset PATH
-source /etc/profile.d/06_shell 
-/etc/profile.d/06_shell 
-unset PATH
-/etc/profile.d/06_shell 
-unset PATH
-echo $PATH
-/etc/profile.d/06_shell 
-echo $PATH
-source /etc/profile.d/06_shell 
-/etc/profile.d/06_shell 
-echo $PATH
-find /usr -wholename "*/man/*/*xorg.conf*"
-man /usr/X11R7.7-1.10.6-BIG/share/man/man5/xorg.conf.5
-man 5 xorg.conf
-LC_ALL=C man xorg.conf
-LANG=C man xorg.conf
-man --help
-man -f xorg.conf
-man -k xorg.conf
-man -w
-man -w xorg.conf
-ls /usr/X11R7.7-1.7.7-BIG/
-ls /usr/X11R7.7-1.7.7-BIG/man
-ls /usr/X11R7.7-1.7.7-BIG/man/man4
-man -C /etc/man.conf -w xorg.conf
-man xorg.conf
-geany /etc/man.conf
-find /usr -name "xorg.conf*"
-which man
-file /var/bin/man
-strace /var/bin/man xorg.conf
-strace /var/bin/man xorg.conf 2>man_xorg_conf.strace
-geany man_xorg_conf.strace
-find /usr -name "xorg.conf*"
-file /usr/share/man
-rox -d /usr/hare/man
-rox -d /usr/share/man
-man xorg.conf
-grep -r -H -i hotplug *
-grep -r AutoAddDevices *
-exit
-
-Sun Dec 21 13:08:14 GMT+1 2014
-
-geany /etc/rc.d/rc.sysinit.run
-geany /sbin/pup_event_frontend_d
-geany /usr/bin/wmrestart
-geany /usr/bin/wmexit
-geany /usr/bin/wmreboot
-geany /usr/bin/wmpoweroff
-geany /usr/bin/restartwm
-geany /usr/bin/xwin
-trap -l
-man trap
-help trap
-trap -p
-ash
-killall -SIGHUP pup_event_frontend_d
-killall -1 pup_event_frontend_d
-killall -HUP pup_event_frontend_d
-ash
-ps | grep pup
-/sbin/pup_event_backend_modprobe_protect --stop
-ps | grep pup
-ps | grep pup
-trap -l
-/root/PupEvent/pup_event_frontend_d
-ps -C pup_event_frontend_d -o pid
-ps -C pup_event_frontend_d --no-header -o pid
-geany /usr/bin/xwin
-geany /usr/sbin/xorgwizard
-geany /sbin/clean_desk_icons 
-geany /usr/sbin/eventmanager
-cp -i /sbin/pup_event_frontend_d /sbin/pup_event_frontend_d-2014-12-21
-eventmanager
-pup_event_frontend_d restart
-pup_event_frontend_d restart
-./replace_commit_files.sh 
-git commit
-git add woof-code/rootfs-skeleton/etc/man.conf
-git commit -m '/etc/man.conf: Added.'
-
-Sun Dec 21 15:58:28 GMT+1 2014
-
-grub
-mtpaint
-mtpaint-3.31
-
-Sun Dec 21 20:35:20 GMT+1 2014
-
-ps | grep fb
-killall fbxkb
-fbxkb
-
-Mon Dec 22 11:29:30 GMT+1 2014
-
-
-Tue Dec 23 06:41:17 GMT+1 2014
-
-oneFS=securityfs
-echo ${oneFS%fs}
-ls /sys/kernel/debug/
-ls /sys/kernel/debug/usb
-cat /proc/filesystems
-cat /proc/filesystems | grep sel
-
-Tue Dec 23 11:31:42 GMT+1 2014
-
-grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log
-grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log | awk '{print $NF}'
-grep -m1 -e .*=.*\.lo[g\'\"]*$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
-grep -m1 -e .*=.*\.lo[g\'\"]+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
-grep -m1 -e .*=.*\.lo[g\'\"]\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
-grep -m1 -E -e .*=.*\.lo[g\'\"]\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
-grep -m1 -e .*=.*\.lo[g\'\"]\\+$ $(which pup_event_backend_modprobe) | grep -vE '<|>'
-grep -e 'Console: switching to colour frame buffer device [0-9]\+x[0-9]\+' /var/log/bootkernel.log| tail -n1 | awk '{print $NF}' | cut -f1 -dx
-geany /usr/bin/xwin
-find -type f
-find -type f -not -name "*ORIG"
-find -type f -not -name "*ORIG" | while read f; do absf=${f#./}; echo $absf; done
-find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; done
-find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash' || continue;done
-find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;done
-find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;diff -qs $f $absf;echo;done
-find -type f -not -name "*ORIG" | while read f; do absf=${f#.}; echo $absf; [ -e "$absf" ] || continue; file $f | grep -E 'shell|ash|bash|text' || continue;diff -qs $f $absf || echo $f:$absf >>/root/difffiles.lst;echo;done
-diff -up ./bin/mount.sh /bin/mount.sh
-diff -up ./etc/rc.d/functions4puppy4 /etc/rc.d/functions4puppy4
-diff -up ./etc/rc.d/f4puppy5 /etc/rc.d/f4puppy5
-diff -up ./root/.xinitrc /root/.xinitrc
-diff -up ./usr/bin/xorgwizard /usr/bin/xorgwizard
-diff -up ./usr/sbin/xorgwizard /usr/sbin/xorgwizard
-diff -up ./usr/bin/xwin /usr/bin/xwin
-geany /etc/init/vc8
-find /usr/lib -xdev -type f -name vesa_drv.so
-find /usr/lib/X11 -xdev -type f -name vesa_drv.so
-find -L /usr/lib/X11 -xdev -type f -name vesa_drv.so
-ls /usr/lib/X11
-ls -F /usr/lib/X11
-ls -F /usr/lib/X11/*
-find -L /usr/lib/xorg -xdev -type f -name vesa_drv.so
-find -L /usr/lib/ -xdev -type f -name vesa_drv.so
-file /usr/lib/X11/
-file /usr/lib/X11
-file /usr/lib/X11/../X11R7/lib/X11
-file /usr/lib/../X11R7/lib/X11
-ls /usr/lib/../X11R7/lib/X11
-ls /usr/lib/../X11R7/lib/xorg
-ls /usr/lib/../X11R7/lib/xorg/modules
-ls /usr/lib/../X11R7/lib/xorg/modules/drivers
-SPECVESA=`find -L /usr/lib -xdev -type f -name vesa_drv.so | head -n1`
-if [ "$SPECVESA" ]; then  DRVRSPATH=`dirname $SPECVESA`; DRVRCURR=`grep '#card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | tail -n1 | cut -f 2 -d '"'`; if [ "$DRVRCURR" ]; then ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv.so"; fi; fi
-ls -1 $DRVRSPATH/* | grep -w "$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep -w "/$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  "$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  "/$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  -w "/$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  -w "\/$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  -w "\\/$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv.*"
-ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv"
-ls -1 $DRVRSPATH/* | grep  -w '/'"$DRVRCURR[-_]drv.so"
-ls -1 $DRVRSPATH/* | grep  -w "$DRVRCURR[-_]drv.so"
-
-Tue Dec 23 14:17:09 GMT+1 2014
-
 man xrdb
 man xrbd
 find /usr -name "*xrbd*"
@@ -2370,3 +1883,140 @@ probepart
 
 Fri Mar 13 10:49:01 GMT+1 2015
 
+echo $((25*160))
+sylpheed
+net-setup.sh
+geany `which net-setup.sh`
+net-setup.sh
+lsmod | grep cdc
+modprobe /l | grep cdc
+modprobe -l | grep cdc
+lsmod | grep cdc
+echo AQIFvrfQNmJ28K-zLXsFIGxQ0SqsDlyu2GpkGstmgdrC4qAqE-Ou6A56JrT31Xzadaugpj5EbTskpi4ZFAfHAYr3g7CKqnxhDXBvDEhPqDjVF9hvy_o24TWaCerbaokG_VoMGKEWdWoKsSZcUD2iN8J4n7bqTP7_dVzAM5BL0DV8GfhttC1zPtclHJtB0wUFTJWlNfVzTsiJokjz3ewPwwnhXWo0a1scsuCQUGzZaTTwP88g9gYJyACbxg8F1c-Ny37JvmiP2ES5lSh8bSmQyrrWSIvjqHC7X_PBvjprrTmt-d_Yk706GJg6uqP0ULpnWoEE7ids5zmtBmZbsmYwUbMTR5IQ2JtXQ14JGHe7X-unPGsut3xRSQiHf9W16WwePQgYtDGhfzvfBt7FTidbeG6ziCcAi5AZ8xMVM33opgD7eFjCzyTBC0wOzRap5F4PoZrH9beFgFxwhwgs-1D-KYV1b5OdmD6TBALY3tF3ad5UDfgedonRHb2vei4JGkyjE5Lygvc_E2HV4y-OVybZbbA_mumbrl3yYo96LIT2buZN0Mg1CA4rkGc7T8Qf2I0F09-x-kX_0itU6FB_-ASX9f1N8cFDehvpThZJvMMy4saVdcRNzi5CHzpd2WfP5UzRZtWwoHbnNPsPqDs8_pcl6AOuvbWeDqkfkEHbQSKo-neXb3-ydGKgoDNHn9Jk1BJSsNOCDDEISniqOX8q5W7sUE9PGmiAFc6Pq3oSf-kV8cMkY-CjAV_4HwEJxPCkvSeIDin75i6KeUb-7oMaRFa1RaKbps5V5AQ00mpZF5BaZcQf5TLn_zltm9XCFOjkGtINx_l7aaOadXWobygybuycQiDOxv54w1fS7Q0ZETOHHd1Az-B3PQw4o1qLpI5uZTCgVCMkmK1453Q-T4UjBA3Ce_LEC5e2qSFQtMilCpGu_AGtUiB-tJgzi7TsLfDi46I_jsnJFMvxIUanMCU2m1pdWP_kLeD9MgNiPmGF9VQepKtARXP7Vs46vXcWbVzOOG3VlJVuZhuEPzYDtHb6EXfMqa6Ncmba-xxDj8I8TsQ-xt8TlacafZEYhcCycpvo0qq9OJ6uaXR7kdHJn8y_ab6LuS8tH3HJqBoNWO5ZwqiQ9JUdza-oFQvMjTuApgUxmPdzgFzRu_VeAZcqnFWtxCM4dXKplejxZLWAwlJEnZ0LknBNx130qEkOdtAsYM3MfRS3PHwEs8P5xgNztFnOsKjSyLGiVSL1HwsRXvk8W8nvHzfWVwkd9ViAX_rkK7uKMgKYL7v7945kSf5bCuF8Jnv4rE0RZ5FUDXKMDL6KTPqVUHCBJK1w_-a39mmzD7vv-kZ1muqZOgglsRYVdPLJoWA_vcRM1Oo8KKF7xh_boixjEZu1UdK2nGkl32qRhrvPktYlBO9eVU4z2IG8ZT-joW1D3WRPoRTBvwKW_migx0MeHZRtGtOMHwij0TauJy8x446cAFgnGG_PdprfLalwhHckjlaCfeK7lyH6fngEbIW5XyYXopfitJ1Mm51vVssBTmmc_X2enL9Hmdu_Fxv_OgoOJiB_klP8UJz7O9-aCeSmsy4KuEa0c0zFQp3gqCJLa01st2MN-6jOA7F2R--8y-kOAWZ7poqirH-suK33oZ_IHvuUhuJIsQwVQ7zYryWNtSmmQAV0C48SbP0Z8fZDRh5L1awhuJ821v2iMVUwzr4-bdalxxjJmshei-OEyP4XyNyuYST_IJpO2zLLlrv0IO6KKLtLpLPme1v8BoSjr_Q9f8TWeXXS1vtRETitYeMjiv3hF2cJuK5vXNDSNwAzQdrEuPkN6GvoYXWq3lltIUJ2g-CJ6syZeyjPlxTJbUYz86Xuc7S2QVOMv9fwrMzX5jQnBZMs9hjBaG68TQAIDtSboiOJhHSXZaAbZxi-YmSfcN9O3QDU6LUEWf2MBh95vnGZvafvPEi8cGbWMRsrY01jUULqydboWmIUV5hoIDe6Mio9yqOfAYtySjmLz3M4TkD-2_6E2PZ_omS73lUrMx95ld146gSbBDdpMaPTPFLnG5uQ1Zy6MavV4ejHzyJmdgKgdZFBHKq81iwF2lweZqL24r96AG7pmHw5OBRDWch3N2H82E8
+echo AQIFvrfQNmJ28K-zLXsFIGxQ0SqsDlyu2GpkGstmgdrC4qAqE-Ou6A56JrT31Xzadaugpj5EbTskpi4ZFAfHAYr3g7CKqnxhDXBvDEhPqDjVF9hvy_o24TWaCerbaokG_VoMGKEWdWoKsSZcUD2iN8J4n7bqTP7_dVzAM5BL0DV8GfhttC1zPtclHJtB0wUFTJWlNfVzTsiJokjz3ewPwwnhXWo0a1scsuCQUGzZaTTwP88g9gYJyACbxg8F1c-Ny37JvmiP2ES5lSh8bSmQyrrWSIvjqHC7X_PBvjprrTmt-d_Yk706GJg6uqP0ULpnWoEE7ids5zmtBmZbsmYwUbMTR5IQ2JtXQ14JGHe7X-unPGsut3xRSQiHf9W16WwePQgYtDGhfzvfBt7FTidbeG6ziCcAi5AZ8xMVM33opgD7eFjCzyTBC0wOzRap5F4PoZrH9beFgFxwhwgs-1D-KYV1b5OdmD6TBALY3tF3ad5UDfgedonRHb2vei4JGkyjE5Lygvc_E2HV4y-OVybZbbA_mumbrl3yYo96LIT2buZN0Mg1CA4rkGc7T8Qf2I0F09-x-kX_0itU6FB_-ASX9f1N8cFDehvpThZJvMMy4saVdcRNzi5CHzpd2WfP5UzRZtWwoHbnNPsPqDs8_pcl6AOuvbWeDqkfkEHbQSKo-neXb3-ydGKgoDNHn9Jk1BJSsNOCDDEISniqOX8q5W7sUE9PGmiAFc6Pq3oSf-kV8cMkY-CjAV_4HwEJxPCkvSeIDin75i6KeUb-7oMaRFa1RaKbps5V5AQ00mpZF5BaZcQf5TLn_zltm9XCFOjkGtINx_l7aaOadXWobygybuycQiDOxv54w1fS7Q0ZETOHHd1Az-B3PQw4o1qLpI5uZTCgVCMkmK1453Q-T4UjBA3Ce_LEC5e2qSFQtMilCpGu_AGtUiB-tJgzi7TsLfDi46I_jsnJFMvxIUanMCU2m1pdWP_kLeD9MgNiPmGF9VQepKtARXP7Vs46vXcWbVzOOG3VlJVuZhuEPzYDtHb6EXfMqa6Ncmba-xxDj8I8TsQ-xt8TlacafZEYhcCycpvo0qq9OJ6uaXR7kdHJn8y_ab6LuS8tH3HJqBoNWO5ZwqiQ9JUdza-oFQvMjTuApgUxmPdzgFzRu_VeAZcqnFWtxCM4dXKplejxZLWAwlJEnZ0LknBNx130qEkOdtAsYM3MfRS3PHwEs8P5xgNztFnOsKjSyLGiVSL1HwsRXvk8W8nvHzfWVwkd9ViAX_rkK7uKMgKYL7v7945kSf5bCuF8Jnv4rE0RZ5FUDXKMDL6KTPqVUHCBJK1w_-a39mmzD7vv-kZ1muqZOgglsRYVdPLJoWA_vcRM1Oo8KKF7xh_boixjEZu1UdK2nGkl32qRhrvPktYlBO9eVU4z2IG8ZT-joW1D3WRPoRTBvwKW_migx0MeHZRtGtOMHwij0TauJy8x446cAFgnGG_PdprfLalwhHckjlaCfeK7lyH6fngEbIW5XyYXopfitJ1Mm51vVssBTmmc_X2enL9Hmdu_Fxv_OgoOJiB_klP8UJz7O9-aCeSmsy4KuEa0c0zFQp3gqCJLa01st2MN-6jOA7F2R--8y-kOAWZ7poqirH-suK33oZ_IHvuUhuJIsQwVQ7zYryWNtSmmQAV0C48SbP0Z8fZDRh5L1awhuJ821v2iMVUwzr4-bdalxxjJmshei-OEyP4XyNyuYST_IJpO2zLLlrv0IO6KKLtLpLPme1v8BoSjr_Q9f8TWeXXS1vtRETitYeMjiv3hF2cJuK5vXNDSNwAzQdrEuPkN6GvoYXWq3lltIUJ2g-CJ6syZeyjPlxTJbUYz86Xuc7S2QVOMv9fwrMzX5jQnBZMs9hjBaG68TQAIDtSboiOJhHSXZaAbZxi-YmSfcN9O3QDU6LUEWf2MBh95vnGZvafvPEi8cGbWMRsrY01jUULqydboWmIUV5hoIDe6Mio9yqOfAYtySjmLz3M4TkD-2_6E2PZ_omS73lUrMx95ld146gSbBDdpMaPTPFLnG5uQ1Zy6MavV4ejHzyJmdgKgdZFBHKq81iwF2lweZqL24r96AG7pmHw5OBRDWch3N2H82E8 | wc -L
+echo AQIFvrfQNmJ28K-zLXsFIGxQ0SqsDlyu2GpkGstmgdrC4qAqE-Ou6A56JrT31Xzadaugpj5EbTskpi4ZFAfHAYr3g7CKqnxhDXBvDEhPqDjVF9hvy_o24TWaCerbaokG_VoMGKEWdWoKsSZcUD2iN8J4n7bqTP7_dVzAM5BL0DV8GfhttC1zPtclHJtB0wUFTJWlNfVzTsiJokjz3ewPwwnhXWo0a1scsuCQUGzZaTTwP88g9gYJyACbxg8F1c-Ny37JvmiP2ES5lSh8bSmQyrrWSIvjqHC7X_PBvjprrTmt-d_Yk706GJg6uqP0ULpnWoEE7ids5zmtBmZbsmYwUbMTR5IQ2JtXQ14JGHe7X-unPGsut3xRSQiHf9W16WwePQgYtDGhfzvfBt7FTidbeG6ziCcAi5AZ8xMVM33opgD7eFjCzyTBC0wOzRap5F4PoZrH9beFgFxwhwgs-1D-KYV1b5OdmD6TBALY3tF3ad5UDfgedonRHb2vei4JGkyjE5Lygvc_E2HV4y-OVybZbbA_mumbrl3yYo96LIT2buZN0Mg1CA4rkGc7T8Qf2I0F09-x-kX_0itU6FB_-ASX9f1N8cFDehvpThZJvMMy4saVdcRNzi5CHzpd2WfP5UzRZtWwoHbnNPsPqDs8_pcl6AOuvbWeDqkfkEHbQSKo-neXb3-ydGKgoDNHn9Jk1BJSsNOCDDEISniqOX8q5W7sUE9PGmiAFc6Pq3oSf-kV8cMkY-CjAV_4HwEJxPCkvSeIDin75i6KeUb-7oMaRFa1RaKbps5V5AQ00mpZF5BaZcQf5TLn_zltm9XCFOjkGtINx_l7aaOadXWobygybuycQiDOxv54w1fS7Q0ZETOHHd1Az-B3PQw4o1qLpI5uZTCgVCMkmK1453Q-T4UjBA3Ce_LEC5e2qSFQtMilCpGu_AGtUiB-tJgzi7TsLfDi46I_jsnJFMvxIUanMCU2m1pdWP_kLeD9MgNiPmGF9VQepKtARXP7Vs46vXcWbVzOOG3VlJVuZhuEPzYDtHb6EXfMqa6Ncmba-xxDj8I8TsQ-xt8TlacafZEYhcCycpvo0qq9OJ6uaXR7kdHJn8y_ab6LuS8tH3HJqBoNWO5ZwqiQ9JUdza-oFQvMjTuApgUxmPdzgFzRu_VeAZcqnFWtxCM4dXKplejxZLWAwlJEnZ0LknBNx130qEkOdtAsYM3MfRS3PHwEs8P5xgNztFnOsKjSyLGiVSL1HwsRXvk8W8nvHzfWVwkd9ViAX_rkK7uKMgKYL7v7945kSf5bCuF8Jnv4rE0RZ5FUDXKMDL6KTPqVUHCBJK1w_-a39mmzD7vv-kZ1muqZOgglsRYVdPLJoWA_vcRM1Oo8KKF7xh_boixjEZu1UdK2nGkl32qRhrvPktYlBO9eVU4z2IG8ZT-joW1D3WRPoRTBvwKW_migx0MeHZRtGtOMHwij0TauJy8x446cAFgnGG_PdprfLalwhHckjlaCfeK7lyH6fngEbIW5XyYXopfitJ1Mm51vVssBTmmc_X2enL9Hmdu_Fxv_OgoOJiB_klP8UJz7O9-aCeSmsy4KuEa0c0zFQp3gqCJLa01st2MN-6jOA7F2R--8y-kOAWZ7poqirH-suK33oZ_IHvuUhuJIsQwVQ7zYryWNtSmmQAV0C48SbP0Z8fZDRh5L1awhuJ821v2iMVUwzr4-bdalxxjJmshei-OEyP4XyNyuYST_IJpO2zLLlrv0IO6KKLtLpLPme1v8BoSjr_Q9f8TWeXXS1vtRETitYeMjiv3hF2cJuK5vXNDSNwAzQdrEuPkN6GvoYXWq3lltIUJ2g-CJ6syZeyjPlxTJbUYz86Xuc7S2QVOMv9fwrMzX5jQnBZMs9hjBaG68TQAIDtSboiOJhHSXZaAbZxi-YmSfcN9O3QDU6LUEWf2MBh95vnGZvafvPEi8cGbWMRsrY01jUULqydboWmIUV5hoIDe6Mio9yqOfAYtySjmLz3M4TkD-2_6E2PZ_omS73lUrMx95ld146gSbBDdpMaPTPFLnG5uQ1Zy6MavV4ejHzyJmdgKgdZFBHKq81iwF2lweZqL24r96AG7pmHw5OBRDWch3N2H82E8 | wc -c
+echo AQIFvrfQNmJ28K-zLXsFIGxQ0SqsDlyu2GpkGstmgdrC4qAqE-Ou6A56JrT31Xzadaugpj5EbTskpi4ZFAfHAYr3g7CKqnxhDXBvDEhPqDjVF9hvy_o24TWaCerbaokG_VoMGKEWdWoKsSZcUD2iN8J4n7bqTP7_dVzAM5BL0DV8GfhttC1zPtclHJtB0wUFTJWlNfVzTsiJokjz3ewPwwnhXWo0a1scsuCQUGzZaTTwP88g9gYJyACbxg8F1c-Ny37JvmiP2ES5lSh8bSmQyrrWSIvjqHC7X_PBvjprrTmt-d_Yk706GJg6uqP0ULpnWoEE7ids5zmtBmZbsmYwUbMTR5IQ2JtXQ14JGHe7X-unPGsut3xRSQiHf9W16WwePQgYtDGhfzvfBt7FTidbeG6ziCcAi5AZ8xMVM33opgD7eFjCzyTBC0wOzRap5F4PoZrH9beFgFxwhwgs-1D-KYV1b5OdmD6TBALY3tF3ad5UDfgedonRHb2vei4JGkyjE5Lygvc_E2HV4y-OVybZbbA_mumbrl3yYo96LIT2buZN0Mg1CA4rkGc7T8Qf2I0F09-x-kX_0itU6FB_-ASX9f1N8cFDehvpThZJvMMy4saVdcRNzi5CHzpd2WfP5UzRZtWwoHbnNPsPqDs8_pcl6AOuvbWeDqkfkEHbQSKo-neXb3-ydGKgoDNHn9Jk1BJSsNOCDDEISniqOX8q5W7sUE9PGmiAFc6Pq3oSf-kV8cMkY-CjAV_4HwEJxPCkvSeIDin75i6KeUb-7oMaRFa1RaKbps5V5AQ00mpZF5BaZcQf5TLn_zltm9XCFOjkGtINx_l7aaOadXWobygybuycQiDOxv54w1fS7Q0ZETOHHd1Az-B3PQw4o1qLpI5uZTCgVCMkmK1453Q-T4UjBA3Ce_LEC5e2qSFQtMilCpGu_AGtUiB-tJgzi7TsLfDi46I_jsnJFMvxIUanMCU2m1pdWP_kLeD9MgNiPmGF9VQepKtARXP7Vs46vXcWbVzOOG3VlJVuZhuEPzYDtHb6EXfMqa6Ncmba-xxDj8I8TsQ-xt8TlacafZEYhcCycpvo0qq9OJ6uaXR7kdHJn8y_ab6LuS8tH3HJqBoNWO5ZwqiQ9JUdza-oFQvMjTuApgUxmPdzgFzRu_VeAZcqnFWtxCM4dXKplejxZLWAwlJEnZ0LknBNx130qEkOdtAsYM3MfRS3PHwEs8P5xgNztFnOsKjSyLGiVSL1HwsRXvk8W8nvHzfWVwkd9ViAX_rkK7uKMgKYL7v7945kSf5bCuF8Jnv4rE0RZ5FUDXKMDL6KTPqVUHCBJK1w_-a39mmzD7vv-kZ1muqZOgglsRYVdPLJoWA_vcRM1Oo8KKF7xh_boixjEZu1UdK2nGkl32qRhrvPktYlBO9eVU4z2IG8ZT-joW1D3WRPoRTBvwKW_migx0MeHZRtGtOMHwij0TauJy8x446cAFgnGG_PdprfLalwhHckjlaCfeK7lyH6fngEbIW5XyYXopfitJ1Mm51vVssBTmmc_X2enL9Hmdu_Fxv_OgoOJiB_klP8UJz7O9-aCeSmsy4KuEa0c0zFQp3gqCJLa01st2MN-6jOA7F2R--8y-kOAWZ7poqirH-suK33oZ_IHvuUhuJIsQwVQ7zYryWNtSmmQAV0C48SbP0Z8fZDRh5L1awhuJ821v2iMVUwzr4-bdalxxjJmshei-OEyP4XyNyuYST_IJpO2zLLlrv0IO6KKLtLpLPme1v8BoSjr_Q9f8TWeXXS1vtRETitYeMjiv3hF2cJuK5vXNDSNwAzQdrEuPkN6GvoYXWq3lltIUJ2g-CJ6syZeyjPlxTJbUYz86Xuc7S2QVOMv9fwrMzX5jQnBZMs9hjBaG68TQAIDtSboiOJhHSXZaAbZxi-YmSfcN9O3QDU6LUEWf2MBh95vnGZvafvPEi8cGbWMRsrY01jUULqydboWmIUV5hoIDe6Mio9yqOfAYtySjmLz3M4TkD-2_6E2PZ_omS73lUrMx95ld146gSbBDdpMaPTPFLnG5uQ1Zy6MavV4ejHzyJmdgKgdZFBHKq81iwF2lweZqL24r96AG7pmHw5OBRDWch3N2H82E8 | wc -b
+echo AQIFvrfQNmJ28K-zLXsFIGxQ0SqsDlyu2GpkGstmgdrC4qAqE-Ou6A56JrT31Xzadaugpj5EbTskpi4ZFAfHAYr3g7CKqnxhDXBvDEhPqDjVF9hvy_o24TWaCerbaokG_VoMGKEWdWoKsSZcUD2iN8J4n7bqTP7_dVzAM5BL0DV8GfhttC1zPtclHJtB0wUFTJWlNfVzTsiJokjz3ewPwwnhXWo0a1scsuCQUGzZaTTwP88g9gYJyACbxg8F1c-Ny37JvmiP2ES5lSh8bSmQyrrWSIvjqHC7X_PBvjprrTmt-d_Yk706GJg6uqP0ULpnWoEE7ids5zmtBmZbsmYwUbMTR5IQ2JtXQ14JGHe7X-unPGsut3xRSQiHf9W16WwePQgYtDGhfzvfBt7FTidbeG6ziCcAi5AZ8xMVM33opgD7eFjCzyTBC0wOzRap5F4PoZrH9beFgFxwhwgs-1D-KYV1b5OdmD6TBALY3tF3ad5UDfgedonRHb2vei4JGkyjE5Lygvc_E2HV4y-OVybZbbA_mumbrl3yYo96LIT2buZN0Mg1CA4rkGc7T8Qf2I0F09-x-kX_0itU6FB_-ASX9f1N8cFDehvpThZJvMMy4saVdcRNzi5CHzpd2WfP5UzRZtWwoHbnNPsPqDs8_pcl6AOuvbWeDqkfkEHbQSKo-neXb3-ydGKgoDNHn9Jk1BJSsNOCDDEISniqOX8q5W7sUE9PGmiAFc6Pq3oSf-kV8cMkY-CjAV_4HwEJxPCkvSeIDin75i6KeUb-7oMaRFa1RaKbps5V5AQ00mpZF5BaZcQf5TLn_zltm9XCFOjkGtINx_l7aaOadXWobygybuycQiDOxv54w1fS7Q0ZETOHHd1Az-B3PQw4o1qLpI5uZTCgVCMkmK1453Q-T4UjBA3Ce_LEC5e2qSFQtMilCpGu_AGtUiB-tJgzi7TsLfDi46I_jsnJFMvxIUanMCU2m1pdWP_kLeD9MgNiPmGF9VQepKtARXP7Vs46vXcWbVzOOG3VlJVuZhuEPzYDtHb6EXfMqa6Ncmba-xxDj8I8TsQ-xt8TlacafZEYhcCycpvo0qq9OJ6uaXR7kdHJn8y_ab6LuS8tH3HJqBoNWO5ZwqiQ9JUdza-oFQvMjTuApgUxmPdzgFzRu_VeAZcqnFWtxCM4dXKplejxZLWAwlJEnZ0LknBNx130qEkOdtAsYM3MfRS3PHwEs8P5xgNztFnOsKjSyLGiVSL1HwsRXvk8W8nvHzfWVwkd9ViAX_rkK7uKMgKYL7v7945kSf5bCuF8Jnv4rE0RZ5FUDXKMDL6KTPqVUHCBJK1w_-a39mmzD7vv-kZ1muqZOgglsRYVdPLJoWA_vcRM1Oo8KKF7xh_boixjEZu1UdK2nGkl32qRhrvPktYlBO9eVU4z2IG8ZT-joW1D3WRPoRTBvwKW_migx0MeHZRtGtOMHwij0TauJy8x446cAFgnGG_PdprfLalwhHckjlaCfeK7lyH6fngEbIW5XyYXopfitJ1Mm51vVssBTmmc_X2enL9Hmdu_Fxv_OgoOJiB_klP8UJz7O9-aCeSmsy4KuEa0c0zFQp3gqCJLa01st2MN-6jOA7F2R--8y-kOAWZ7poqirH-suK33oZ_IHvuUhuJIsQwVQ7zYryWNtSmmQAV0C48SbP0Z8fZDRh5L1awhuJ821v2iMVUwzr4-bdalxxjJmshei-OEyP4XyNyuYST_IJpO2zLLlrv0IO6KKLtLpLPme1v8BoSjr_Q9f8TWeXXS1vtRETitYeMjiv3hF2cJuK5vXNDSNwAzQdrEuPkN6GvoYXWq3lltIUJ2g-CJ6syZeyjPlxTJbUYz86Xuc7S2QVOMv9fwrMzX5jQnBZMs9hjBaG68TQAIDtSboiOJhHSXZaAbZxi-YmSfcN9O3QDU6LUEWf2MBh95vnGZvafvPEi8cGbWMRsrY01jUULqydboWmIUV5hoIDe6Mio9yqOfAYtySjmLz3M4TkD-2_6E2PZ_omS73lUrMx95ld146gSbBDdpMaPTPFLnG5uQ1Zy6MavV4ejHzyJmdgKgdZFBHKq81iwF2lweZqL24r96AG7pmHw5OBRDWch3N2H82E8 | wc -m
+./replace_commit_files.sh 
+git branch
+git remote -v
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+/etc/rc.d/rc.country
+tty
+exit
+/etc/rc.d/rc.country
+type -a hwclock
+file /bin/hwclock
+/etc/rc.d/rc.country
+file /dev/rtc0
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -s | grep -o [[:alnum:]_-]$
+/etc/rc.d/rc.country -s | grep -o [[:alnum:]_-]\+$
+/etc/rc.d/rc.country -s | grep -o [[:alnum:]_-]+$
+/etc/rc.d/rc.country -s | grep -o [[:alnum:]_-]*$
+/etc/rc.d/rc.country -s | grep -o [[:alnum:]_-]\\+$
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -h
+/etc/rc.d/rc.country new
+/etc/rc.d/rc.country -d new
+/etc/rc.d/rc.country -d any
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -h
+/etc/rc.d/rc.country --help
+/etc/rc.d/rc.country --version
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -d -s
+/etc/rc.d/rc.country -ds
+/etc/rc.d/rc.country -Sd
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -dS
+/etc/rc.d/rc.country -DS
+/etc/rc.d/rc.country -Dh
+/etc/rc.d/rc.country --help
+/etc/rc.d/rc.country --version
+/etc/rc.d/rc.country --help
+/etc/rc.d/rc.country -X
+locale
+ls /usr/lib/locale
+/etc/rc.d/rc.country -cli
+pkeys=fr /etc/rc.d/rc.country
+pkeys=dk /etc/rc.d/rc.country
+pkeys=dk /etc/rc.d/rc.country -D
+pkeys=de /etc/rc.d/rc.country -v
+pkeys=de /etc/rc.d/rc.country -d
+/etc/rc.d/rc.country -d
+pkeys=de /etc/rc.d/rc.country
+grep LANG /etc/profile
+/etc/rc.d/rc.country -d new
+rm /etc/keymap
+/etc/rc.d/rc.country -d new
+pkeys=dk /etc/rc.d/rc.country
+locale -a | grep -i set
+pkeys=de /etc/rc.d/rc.country
+ /etc/rc.d/rc.country
+/usr/sbin/chooselocale
+/usr/sbin/chooselocale -D cli
+/usr/sbin/chooselocale -d cli
+cat /usr/share/i18n/dialog_table_x
+cat /usr/share/i18n/dialog_table_cli
+/usr/sbin/chooselocale -d cli
+/usr/sbin/chooselocale cli
+ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'
+/usr/sbin/chooselocale cli
+grep LANG /etc/profile
+/usr/sbin/chooselocale
+grep LANG /etc/profile
+/usr/sbin/chooselocale
+exit
+/mnt/sdb5/tmp/xdialog-chooselocale
+/tmp/xdialog-chooselocale
+pwd
+/mnt/sdb5/tmp/xdialog-chooselocale
+mount
+ls /mnt/sdb5/tmp/xdialog-chooselocale
+ls /mnt/sdb5/tmp/
+ls /mnt/sdb5/
+ls /mnt/
+exit
+pwd
+/usr/sbin/chooselocale
+killall Xdialog
+killall dialog
+ps | grep 23852
+date
+help getopts
+tty
+/etc/rc.d/rc.country
+cat /etc/keymap
+rm /etc/keymap
+/etc/rc.d/rc.country
+sakura
+exit
+
+Thu Mar 19 02:16:05 GMT+1 2015
+
+geany /etc/rc.d/rc.counrty
+geany /etc/rc.d/rc.country
+geany /etc/rc.d/f4puppy5
+/etc/rc.d/rc.country
+rm /etc/keymap
+/etc/rc.d/rc.country
+pkeys=fr /etc/rc.d/rc.country
+pkeys=dk /etc/rc.d/rc.country
+pkeys=abcde /etc/rc.d/rc.country
+/etc/rc.d/rc.country
+grep LANG /etc/profile
+/etc/rc.d/rc.country -s
+/etc/rc.d/rc.country -S
+/etc/rc.d/rc.country -D
+/etc/rc.d/rc.country -v
+which hwclock
+/etc/rc.d/rc.country -h
+/etc/rc.d/rc.country -s
+ls /usr/share/kbd/keymaps/i386/
