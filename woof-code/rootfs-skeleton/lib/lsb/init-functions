@@ -1,3 +1,4 @@
+#!/bin/sh
 # /lib/lsb/init-functions for Debian -*- shell-script -*-
 #
 #Copyright (c) 2002-08 Chris Lawrence
@@ -41,7 +42,7 @@ start_daemon () {
             p)  pidfile="$OPTARG";;
         esac
     done
-    
+
     shift $(($OPTIND - 1))
     if [ "$1" = '--' ]; then
         shift
@@ -63,7 +64,7 @@ pidofproc () {
     local pidfile line i pids= status specified pid
     pidfile=
     specified=
-    
+
     OPTIND=1
     while getopts p: opt ; do
         case "$opt" in
@@ -107,7 +108,7 @@ killproc () {
     local pidfile sig status base i name_param is_term_sig
     pidfile=
     name_param=
-    is_term_sig=no
+    is_kill_sig_term=no
 
     OPTIND=1
     while getopts p: opt ; do
@@ -119,7 +120,11 @@ killproc () {
 
     base=${1##*/}
     if [ ! $pidfile ]; then
+        if [ -f /var/run/$base.pid ]; then
         name_param="--name $base --pidfile /var/run/$base.pid"
+        else
+        name_param="--name $base"
+        fi
     else
         name_param="--pidfile $pidfile"
     fi
@@ -127,18 +132,24 @@ killproc () {
     sig=$(echo ${2:-} | sed -e 's/^-\(.*\)/\1/')
     sig=$(echo $sig | sed -e 's/^SIG\(.*\)/\1/')
     if [ -z "$sig" -o "$sig" = 15 -o "$sig" = TERM ]; then
-        is_term_sig=yes
+        is_kill_sig_term=yes
     fi
     status=0
-    if [ ! "$is_term_sig" = yes ]; then
+    if [ "$is_kill_sig_term" != yes ]; then
+        echo "NOT kill signal TERM"
         if [ -n "$sig" ]; then
+            echo "    using --signal $sig option"
             /sbin/start-stop-daemon --stop --signal "$sig" --quiet $name_param || status="$?"
         else
+            echo "NOT using --signal option"
             /sbin/start-stop-daemon --stop --quiet $name_param || status="$?"
         fi
     else
+        echo "    kill signal TERM"
         /sbin/start-stop-daemon --stop --quiet --oknodo $name_param || status="$?"
+
     fi
+
     if [ "$status" = 1 ]; then
         if [ -n "$sig" ]; then
             return 0
@@ -265,7 +276,7 @@ log_daemon_msg () {
         echo -n "$1:"
         return
     fi
-    
+
     echo -n "$1: $2"
     log_daemon_msg_post "$@"
 }
