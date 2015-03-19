@@ -17,6 +17,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" = "2" ] && set -x
 
 Version='1.1'
+Version='1.5'
 
 usage(){
 USAGE_MSG="
@@ -169,34 +170,44 @@ fi
 
 _do_options_parsing(){
 set - $@
- echo "_do_options_parsing:$@"
+ _debug "_do_options_parsing:$@"
+ local SUCCESS=1 FAILURE=0
  while getopts sShHvVdD oneOPT; do
  case $oneOPT in
- s|S) SHOW_MAPS=$oneOPT;;
- h|H) SHOW_HELP=1;;
- V)   SHOW_VERSION=1;;
- v)   VERBOSE=$((VERBOSE+1));;
- d)   DEBUG=$((DEBUG+1));;
- D)   SHOW_SETX=1;;
+ s|S) SHOW_MAPS=$oneOPT;SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ h|H) SHOW_HELP=1;SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ V)   SHOW_VERSION=1;SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ v)   VERBOSE=$((VERBOSE+1));SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ d)   DEBUG=$((DEBUG+1));SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ D)   SHOW_SETX=1;SUCCESS=$((SUCESS-1)); POS_PARAMS="$POS_PARAMS -$oneOPT";;
+ *) _warn "Unhandled option '$oneOPT'"; FAILURE=$((FAILURE+1));;
  esac
  done
+
+ test "$SUCCESS" -le 0 && SUCCESS=0
+
+ if test "$SUCCESS" = 0 -a "$FAILURE" = 0; then return 0
+ elif test "$SUCCESS" = 0 -a "$FAILURE" -ge 1; then return 1
+ elif test "$SUCCESS" -ge 1 -a "$FAILURE" -ge 1; then return 2
+ fi
+
 }
 
 for param in $*
 do
-echo $param
+_debugx $param
 case $param in
- *show*|*map*|*key*) SHOW_MAPS=$param; shift;;
- *help|*usage) SHOW_HELP=1; shift;;
- *version)   SHOW_VERSION=1; shift;;
- *verbose)   VERBOSE=$((VERBOSE+1)); shift;;
- *debug)   DEBUG=$((DEBUG+1)); shift;;
- *DEBUG)   SHOW_SETX=1; shift;;
+ *show*|*map*|*key*) SHOW_MAPS=$param; POS_PARAMS="$POS_PARAMS $param";shift;;
+ *help|*usage) SHOW_HELP=1;  POS_PARAMS="$POS_PARAMS $param";shift;;
+ *version)   SHOW_VERSION=1;  POS_PARAMS="$POS_PARAMS $param";shift;;
+ *verbose)   VERBOSE=$((VERBOSE+1));  POS_PARAMS="$POS_PARAMS $param";shift;;
+ *debug)   DEBUG=$((DEBUG+1));  POS_PARAMS="$POS_PARAMS $param";shift;;
+ *DEBUG)   SHOW_SETX=1;  POS_PARAMS="$POS_PARAMS $param";shift;;
  *cli|*Cli|*CLI) :;;
 -[[:alnum:]]*)
-  _do_options_parsing $param; shift;
+  _do_options_parsing $param; test $? = 0 && shift;
  ;;
-*) :;;
+*) POS_PARAMS="$POS_PARAMS $param";;
 esac
 done
 
@@ -255,6 +266,86 @@ STATUS=0
 _debug "\$1='$1'"
 _debug "pkeys='$pkeys'"
 _debug "PKEYS='$PKEYS'"
+
+
+_find_keymap_file(){
+
+  local SUCCESS=1 FAILURE=1
+
+  mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$@*"`
+  _debug "mapFILE='$mapFILE'"
+
+  case "$mapFILE" in
+  '') :;; #TODO not found
+  *)
+  # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   echo "$mapFILE" | grep $Q "${@}$" && mapFILE=`echo "$mapFILE" | grep "${@}$"`
+  fi
+   _debugx "mapFILE='$mapFILE'"
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   echo "$mapFILE" | grep $Q "${@}\.[[:alnum:]\.]\+$" && mapFILE=`echo "$mapFILE" | grep "${@}\.[[:alnum:]\.]\+$"`
+  fi
+  _debugx "mapFILE='$mapFILE'"
+  # REM: FALLBACK
+  if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+  mapFILE=`echo "$mapFILE" | sort -d | head -n1`
+  fi
+  _debugx "mapFILE='$mapFILE'"
+  ;;
+  esac
+  _debug "mapFILE='$mapFILE'"
+
+  if [ -f "$mapFILE" ]; then return 0
+  elif [ "$mapFILE" ];  then return 1
+  else                       return 2
+  fi
+}
+
+_load_keymap_file(){
+
+  local SUCCESS=1 FALURE=1 STATUS=1
+
+  case "$mapFILE" in
+  '')
+  _warn "Could not find a keyboard map file for '$@' in '$KEYMAP_DIR'"
+  rm -f /etc/keymap
+  unset pkeys PKEYS
+  exec "$0"
+  ;;
+  *.map*)
+  loadkeys $VERB ${@}.map ;STATUS=$?
+  ;;
+  *)
+  _determine_compression "$mapFILE" >$TTY 2>&1
+  [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
+  ;;
+  esac
+
+  return $STATUS
+}
+
+ _rerun_keyboard_setup(){
+  DEBUG=1
+  _debug "_rerun_keyboard_setup:$@"
+  local MAP=$1; shift
+  _warn "Could not find a keyboard map file for '$MAP' in '$KEYMAP_DIR'"
+  rm -f /etc/keymap
+  unset pkeys PKEYS
+
+  exec "$0" $@
+}
+
+_evaluate_find_keymap_file(){
+  local RV=$1; shift
+  local MAP=$1; shift
+  case $RV in
+  0) _load_keymap_file $MAP ;STATUS=$?;;
+  1) _warn "Selected $PKEYS not found as regular map file"; _rerun_keyboard_setup $MAP $POS_PARAMS;;
+  2) _err "Could not find a map file for $PKEYS"; _rerun_keyboard_setup $MAP $POS_PARAMS;;
+  *) _alert "Unhandled return-value $?"; _rerun_keyboard_setup $MAP $POS_PARAMS;;
+  esac
+}
 
 askkbdlayout ()
 {
@@ -344,6 +435,7 @@ askkbdlayout ()
  fi
  }
 
+ __find_map_file_KEYBOARD__(){
  local DEBUGX=1
  KEYBOARD_FILE=`find "$KEYMAP_DIR" -not -type d -name "$KEYBOARD*"`
  case "$KEYBOARD_FILE" in
@@ -355,7 +447,7 @@ askkbdlayout ()
   fi
    _debugx "KEYBOARD_FILE='$KEYBOARD_FILE'"
   if test "`echo "$KEYBOARD_FILE" | wc -l`" -gt 1; then
-   echo "$KEYBOARD_FILE" | grep $Q "${KEYBOARD}\.[[:alnum:]]\+$" && KEYBOARD_FILE=`echo "$KEYBOARD_FILE" | grep "${KEYBOARD}\.[[:alnum:]\.]\+$"`
+   echo "$KEYBOARD_FILE" | grep $Q "${KEYBOARD}\.[[:alnum:]\.]\+$" && KEYBOARD_FILE=`echo "$KEYBOARD_FILE" | grep "${KEYBOARD}\.[[:alnum:]\.]\+$"`
   fi
   _debugx "KEYBOARD_FILE='$KEYBOARD_FILE'"
   # REM: FALLBACK
@@ -368,6 +460,15 @@ askkbdlayout ()
   _debug "KEYBOARD_FILE='$KEYBOARD_FILE'"
 
   KEYBOARD=${KEYBOARD_FILE##*/}
+  }
+
+  _find_keymap_file "$KEYBOARD"
+  case $? in
+  0)  KEYBOARD=${mapFILE##*/};;
+  1)  _warn "Selected $KEYBOARD not found as regular map file";;
+  2)  _err "Could not find a map file for $KEYBOARD";;
+  *)  _alert "Unhandled return-value $?";;
+  esac
 
  return 0
 }
@@ -439,7 +540,7 @@ fi #[ ! -e /etc/keymap ]
 STATUS=1
 
 if [ -e /etc/keymap ];then
- if [ $PKEYS ];then
+ if [ "$PKEYS" ];then
   echo "$PKEYS"    >/etc/keymap
   _info "Loading \"$PKEYS\" keyboard map... "
   #gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
@@ -464,6 +565,7 @@ if [ -e /etc/keymap ];then
   fi
   }
 
+  __find_map_file_PKEYS__(){
   mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$PKEYS*"`
   _debug "mapFILE='$mapFILE'"
 
@@ -476,7 +578,7 @@ if [ -e /etc/keymap ];then
   fi
    _debugx "mapFILE='$mapFILE'"
   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
-   echo "$mapFILE" | grep $Q "${PKEYS}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${PKEYS}\.[[:alnum:]\.]\+$"`
+   echo "$mapFILE" | grep $Q "${PKEYS}\.[[:alnum:]\.]\+$" && mapFILE=`echo "$mapFILE" | grep "${PKEYS}\.[[:alnum:]\.]\+$"`
   fi
   _debugx "mapFILE='$mapFILE'"
   # REM: FALLBACK
@@ -487,10 +589,22 @@ if [ -e /etc/keymap ];then
   ;;
   esac
   _debug "mapFILE='$mapFILE'"
+  }
+
+  _find_keymap_file $PKEYS
+  _evaluate_find_keymap_file $? $PKEYS $@
+  #case $? in
+  #0) _load_keymap_file $PKEYS ;STATUS=$?;;
+  #1) _warn "Selected $PKEYS not found as regular map file"; _rerun_keyboard_setup $@;;
+  #2) _err "Could not find a map file for $PKEYS"; _rerun_keyboard_setup $@;;
+  #*) _alert "Unhandled return-value $?"; _rerun_keyboard_setup $@;;
+  #esac
+
 
   #_determine_compression "$KEYMAP_DIR"/$PKEYS.map >$TTY 2>&1
   #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${PKEYS}${COMP_EXT} | loadkmap ;STATUS=$?
 
+  __load_map_file_PKEYS__(){
   case $mapFILE in
   '')
   _warn "Could not find a keyboard map file for '$PKEYS' in '$KEYMAP_DIR'"
@@ -506,6 +620,7 @@ if [ -e /etc/keymap ];then
   [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
   ;;
   esac
+  }
 
  else
   KMAP=`cat /etc/keymap`
@@ -514,7 +629,7 @@ if [ -e /etc/keymap ];then
    #key layout maps are in /usr/share/kbd, using "kbd" package...
    KMAP=`basename $KMAP .map`
    _info "Loading \"$KMAP\" keyboard map... "
-   loadkeys ${KMAP}.map ;STATUS=$?
+   loadkeys $VERB ${KMAP}.map ;STATUS=$?
 
    __set_font__(){
     #xwin also set these...
@@ -537,6 +652,7 @@ if [ -e /etc/keymap ];then
    #_determine_compression "$KEYMAP_DIR"/$KMAP >$TTY 2>&1
    #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${KMAP}${COMP_EXT} | loadkmap ;STATUS=$?
 
+   __fin_map_file_KMAP__(){
    mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$KMAP*"`
    _debug "mapFILE='$mapFILE'"
 
@@ -549,7 +665,7 @@ if [ -e /etc/keymap ];then
    fi
     _debugx "mapFILE='$mapFILE'"
    if test "`echo "$mapFILE" | wc -l`" -gt 1; then
-    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
+    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]\.]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
    fi
    _debugx "mapFILE='$mapFILE'"
    # REM: FALLBACK
@@ -560,61 +676,9 @@ if [ -e /etc/keymap ];then
    ;;
    esac
    _debug "mapFILE='$mapFILE'"
+   }
 
-   case $mapFILE in
-   '')
-   _warn "Could not find a keyboard map file for '$PKEYS' in '$KEYMAP_DIR'"
-   rm -f /etc/keymap
-   unset pkeys PKEYS
-   exec "$0"
-   ;;
-   *.map*)
-   loadkeys $VERB ${KMAP}.map ;STATUS=$?
-   ;;
-   *)
-   _determine_compression "$mapFILE" >$TTY 2>&1
-   [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
-   ;;
-   esac
-
-  else
-   _err "neiter loadkeys and loadkmap installed in PATH"
-
-  fi
- fi
-
-elif  [ "`which loadkmap`" ]; then
- _notice "Loading \"us\" (USA) keyboard map... "
- #gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
-
- #_determine_compression "$KEYMAP_DIR"/us >$TTY 2>&1
- #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${KMAP}${COMP_EXT} | loadkmap ;STATUS=$?
-
-   KMAP=us
-   mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$KMAP*"`
-   _debug "mapFILE='$mapFILE'"
-
-   case "$mapFILE" in
-   '') :;; #TODO not found
-   *)
-   # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
-   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
-    echo "$mapFILE" | grep $Q "${KMAP}$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}$"`
-   fi
-    _debugx "mapFILE='$mapFILE'"
-   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
-    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
-   fi
-   _debugx "mapFILE='$mapFILE'"
-   # REM: FALLBACK
-   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
-   mapFILE=`echo "$mapFILE" | sort -d | head -n1`
-   fi
-   _debugx "mapFILE='$mapFILE'"
-   ;;
-   esac
-   _debug "mapFILE='$mapFILE'"
-
+   __load_map_file_KMAP__(){
    case $mapFILE in
    '')
    _warn "Could not find a keyboard map file for '$KMAP' in '$KEYMAP_DIR'"
@@ -630,6 +694,84 @@ elif  [ "`which loadkmap`" ]; then
    [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
    ;;
    esac
+   }
+
+   _find_keymap_file $KMAP
+   _evaluate_find_keymap_file $? $KMAP $@
+   #case $? in
+   #0) _load_keymap_file $KMAP ;STATUS=$?;;
+   #1) _warn "Selected $KMAP not found as regular map file"; _rerun_keyboard_setup $@;;
+   #2) _err "Could not find a map file for $KMAP"; _rerun_keyboard_setup $@;;
+   #*) _alert "Unhandled return-value $?"; _rerun_keyboard_setup $@;;
+   #esac
+
+  else
+   _err "neiter loadkeys and loadkmap installed in PATH"
+
+  fi
+ fi
+
+elif  [ "`which loadkmap`" ]; then
+ _notice "Loading fallback \"us\" (USA) keyboard map... "
+ #gzip -dcf /lib/keymaps/us.gz | loadkmap ;STATUS=$?
+
+ #_determine_compression "$KEYMAP_DIR"/us >$TTY 2>&1
+ #[ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$KEYMAP_DIR"/${KMAP}${COMP_EXT} | loadkmap ;STATUS=$?
+
+   KMAP=us
+
+   __find_map_file_US__(){
+   mapFILE=`find "$KEYMAP_DIR" -not -type d -name "$KMAP*"`
+   _debug "mapFILE='$mapFILE'"
+
+   case "$mapFILE" in
+   '') :;; #TODO not found
+   *)
+   # REM: found several hits, ie: pkeys=de : de.gz , de-latin1
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}$"`
+   fi
+    _debugx "mapFILE='$mapFILE'"
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+    echo "$mapFILE" | grep $Q "${KMAP}\.[[:alnum:]\.]\+$" && mapFILE=`echo "$mapFILE" | grep "${KMAP}\.[[:alnum:]\.]\+$"`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   # REM: FALLBACK
+   if test "`echo "$mapFILE" | wc -l`" -gt 1; then
+   mapFILE=`echo "$mapFILE" | sort -d | head -n1`
+   fi
+   _debugx "mapFILE='$mapFILE'"
+   ;;
+   esac
+   _debug "mapFILE='$mapFILE'"
+   }
+
+   __load_map_file_US__(){
+   case $mapFILE in
+   '')
+   _warn "Could not find a keyboard map file for '$KMAP' in '$KEYMAP_DIR'"
+   rm -f /etc/keymap
+   unset pkeys PKEYS
+   exec "$0"
+   ;;
+   *.map*)
+   loadkeys $VERB ${KMAP}.map ;STATUS=$?
+   ;;
+   *)
+   _determine_compression "$mapFILE" >$TTY 2>&1
+   [ $? = 0 ] && $COMPRESSOR $UNCOMPRESS_OPT $STDOUT_OPT "$mapFILE" | loadkmap ;STATUS=$?
+   ;;
+   esac
+   }
+
+   _find_keymap_file $KMAP
+   _evaluate_find_keymap_file $? $KMAP $@
+   #case $? in
+   #0) _load_keymap_file $KMAP;STATUS=$?;;
+   #1) _warn "Selected $KMAP not found as regular map file"; _rerun_keyboard_setup $@;;
+   #2) _err "Could not find a map file for $KMAP"; _rerun_keyboard_setup $@;;
+   #*) _alert "Unhandled return-value $?"; _rerun_keyboard_setup $@;;
+   #esac
 
 else
  _err "neiter loadkeys and loadkmap installed in PATH"
@@ -654,7 +796,7 @@ test -c /dev/rtc/rtc0 && ln -sf rtc/rtc0 /dev/rtc0 || { rm -f /dev/rtc0; mknod /
 }
 
 #hwclock --hctosys --localtime || hwclock --hctosys --localtime --directisa
-
+DEBUG=1
 _command hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG && {
     _info "OK:Setting:hwclock -f /dev/rtc0 --hctosys --localtime $L_DBG" >$TTY
     } || {
