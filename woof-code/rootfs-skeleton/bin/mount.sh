@@ -29,8 +29,8 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=1
-DEBUGX=1
+DEBUG=
+DEBUGX=
 test "$DEBUG" && { unset Q QUIET; }
 
 _debug "$@:$*"
