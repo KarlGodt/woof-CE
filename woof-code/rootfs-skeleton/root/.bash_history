@@ -1,126 +1,3 @@
-man xrdb
-man xrbd
-find /usr -name "*xrbd*"
-find /usr -name "*xrdb*"
-geany .Xdefaults
-xrdb
-xrdb --help
-xrdb -n
-sed -n 43p *
-for i in * ;do sed -n 43p $i;done
-for i in * ;do echo ;echo $i;sed -n 43p $i;done
-find /usr -iname "Xdefaults"
-find /usr -iname ".Xdefaults"
-find /usr -iname ".Xdefaults*"
-find /usr -iname "Xdefaults*"
-./replace_commit_files.sh 
-git commit
-git commit 2>&1| while read f;do [ -e "$f" ] || continue;echo $f;done
-git commit 2>&1| while read f;do [ -e "$f" ] || continue;echo $f;git add $f;done
-git commit -m '/usr/local/lib/X11/themes/Original/ : Several _mntdro48.png and _mntdrw48.png added.'
-
-Tue Dec 23 17:37:22 GMT+1 2014
-
-
-Tue Dec 23 19:36:36 GMT+1 2014
-
-SPECVESA=`find -L /usr/lib /usr/X11/lib -xdev -type f -name vesa_drv.so | head -n1`
-DRVRSPATH=`dirname $SPECVESA`
-DRVRCURR=`grep 'Driver .* #card0driver' /etc/X11/xorg.conf | grep -vE '^[[:blank:]]*#' | head -n1 | cut -f 2 -d '"'`
-ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv"
-readlink --help
-cut -c 1-4 /etc/mousedevice
-readlink -qs /usr/bin/X
-readlink -s /usr/bin/X
-readlink -q /usr/bin/X
-ash
-
-Tue Dec 23 21:20:14 GMT+1 2014
-
-help deallocvt
-deallocvt --help
-openvt --help
-freevt
-busybox | grep vt
-chvt --help
-ps -A -o tty,args
-
-Wed Dec 24 09:29:25 GMT+1 2014
-
-busybox ps -o tty,args
-busybox ps -o tty,args|cut -f2 -d','
-busybox ps -o tty,args|awk -F'[ ,]' '{print $2}'
-ash
-ps | grep acpi
-/etc/init.d/DRIVER/bb_mkbd_acpid.init 
-/etc/init.d/DRIVER/bb_mkbd_acpid.init start
-./replace_commit_files.sh 
-find -name openvt.c
-fgconsole
-tty
-chmod +x /root/get_fgconsole.sh 
-/root/get_fgconsole.sh
-exec /root/get_fgconsole.sh
-./replace_commit_files.sh 
-./busybox
-file ./busybox
-pwd
-ldd pwd
-busybox-slacko5571 
-./replace_commit_files.sh 
-grep grab *
-xsetpointer -help
-man xsetpointer
-xsetpointer -l
-man yaf-splash
-man xmessgae
-man xmessage
-man xrefresh
-man cvt
-cvt
-cvt 1920 1080
-man xmodmap
-man xlib
-xrender -help
-xrandr -help
-xset -help
-xwininfo --help
-xmessage -help
-yaf-splash -help
-yaf-splash -geometry 1920x1020 -text "HELLO"
-yaf-splash -geometry 1920x1020 -transparent -text "HELLO"
-yaf-splash -geometry 1920x1020  -text "HELLO"
-XIGrabEnter=1 xmessage "HELLO"
-XIGrabFocusIn=1 xmessage "HELLO"
-XIGrabFocusIn=:0 xmessage "HELLO"
-xmessage -buttons "OK:100,NO" -default "NO" "HELLO"
-xmessage -buttons "OK:100,NO" -default "NO" "HELLO";echo $?
-xmessage -maxwidth 1920 "HELLO"
-xmessage -maxWidth 1920 "HELLO"
-xmessage -geometry 1920+1020 "HELLO"
-xmessage -geometry 0x0+1920+1020 "HELLO"
-xmessage -geometry 1x1+1920+1020 "HELLO"
-xmessage -geometry 1920x1020 "HELLO"
-find -iname "*grab*"
-geany /usr/bin/wmexit
-man /usr/X11R6/man/man3/XF86MiscSetMouseSettings.3x
-geany /etc/rc.d/f4puppy5
-source /etc/rc.d/f4puppy5
-_get_screen_resolution
-man yaf-splash
-yaf-splash --help
-yaf-splash -geometry 1920x1080 -text "SOME YAF SPLASH TEXT"
-yaf-splash -geometry 1920x1080 -text "SOME yet another fine YAF SPLASH TEXT"
-yaf-splash -geometry 1920x1080 -transparent -text "SOME yet another fine YAF SPLASH TEXT"
-yaf-splash -transparent -text "SOME yet another fine YAF SPLASH TEXT"
-yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT"
-yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT" &
-exec yaf-splash  -text "SOME yet another fine YAF SPLASH TEXT" &
-ls /etc/event*
-geany /etc/event*
-mount | grep -E '^/dev/loop[0-9]*'
-mount | grep -E '^/dev/loop[0-9p]*'
-mount | grep -E '^/dev/loop[0-9p]+'
 M_LOOP=`mount | grep -E '^/dev/loop[0-9p]+ ' |grep -v '/initrd'`
 M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
 M_LOOP=`echo "$M_LOOP" |grep -o ' on .\+ type ' |sed -r 's!( on )(.*)( type )!\2!'`
@@ -2108,3 +1985,20 @@ echo "$A"
 mount
 mount -t ext4
 mount -t aufs
+./replace_commit_files.sh 
+
+Thu Mar 19 14:21:13 GMT+1 2015
+
+mount -t ext4
+mount-FULL -t sysfs
+mount-FULL -t sysfs proc
+mount-FULL -t sysfs -t proc
+mount-FULL -t sysfs
+busybox mount -t sysfs
+busybox mount -t sysfs proc
+busybox mount -t sysfs -t proc
+wget --help
+
+Fri Mar 20 16:39:06 GMT+1 2015
+
+net-setup.sh
