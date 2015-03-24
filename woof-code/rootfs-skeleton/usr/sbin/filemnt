@@ -40,6 +40,9 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 # KRG better error message for wrong squashfs, .squashfs and .sqfs extensions
 # TODO much, kernel 3.x, support more filesystems, port npierce improvements, port encryption mounting
 
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+
 Version='1.1-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'
 Version='1.2-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Added lots of remarks
                                                           ## reordere the code a little (sleep, rmdir mountPT, yaf-splash, few if)
@@ -47,6 +50,18 @@ Version='1.3-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Create MOUNT_EXE an
                                                           ## and some functions to let mount.sh handle
                                                           ##  creation and deletion of mountpoint directories
                                                           ##  and close/open ROX-Filer windows
+Version='1.4-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## 3 BUGFIXES : 
+                                                          ##  -false added to losetup -f test return value 
+                                                          ##  -use imageFILEBASE instead oneIMGBASE in check_already_mounted_func 
+                                                          ##   because losetup -j could override testing all loop devices
+                                                          ##  -typos in comments and debug output 
+                                                          ## 3 functions added :
+                                                          ##  _losetup : switch to correct losetup usage
+                                                          ##  _test_bb_version : helper for losetup
+                                                          ##  _fuser : switch to correct fuser usage                                                         
+
+Version='1.5-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Add sfs_load interface
+                                                          
 usage (){
 MSG="
 $0 [-h -V -l ] FILENAME.EXT
@@ -72,6 +87,28 @@ d) DEBUG=1;set -x;;
 v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;;
 *) :;;
 esac;done
+
+_ask_to_load(){
+if [ "`which sfs_load`" ]; then
+case $PUPMODE in
+
+''|2|3) :;;
+*) 
+  LOAD_MSG=`gettext "Do you want insert/load/integrate the 
+$imageFILEBASE into the current running 
+$DISTRO_NAME $DISTRO_VERSION ?
+Or do you just want to mount it to look inside ? 
+"`   
+  xmessage -buttons "Insert:100,Mount:101" "$LOAD_MSG"
+  case $? in
+  100) exec sfs_load "$@";;
+  *) :;;
+  esac
+;;
+
+esac
+fi
+}
 
 
 # REM: Need to know about the kernel version
@@ -120,6 +157,222 @@ KILL_FS_USERS='YES'
 case $UMOUNT_EXE in
 /bin/umount) KILL_FS_USERS='NO';;
 esac
+
+# REM: Need to find out fuser version, older fuser supported -c option
+#      which was usually more correct
+FUSER_BIN=`which fuser`
+ if [ "$FUSER_BIN" ]; then
+  case `realpath "$FUSER_BIN"` in
+  *busybox*) versFUSER=new;;
+  *)
+    #FUSER_VERS=`$FUSER_BIN --version 2>&1 | head -n1`
+    FUSER_VERS=`$FUSER_BIN -V 2>&1 | head -n1`
+    FUSER_VERS=`echo "$FUSER_VERS" | grep -o '[[:digit:][:punct:]]\+$'`
+   case $FUSER_VERS in
+   22*) versFUSER=new;; #MacPup529 has 22.15, MacPup Opera2 upgraded to 22.5
+   *)   versFUSER=old;;
+   esac
+   ;;
+  esac
+ else
+  FUSER_BIN=:
+ fi
+
+_debug "FUSER_BIN=$FUSER_BIN versFUSER=$versFUSER FUSER_VERS=$FUSER_VERS"
+
+_fuser(){
+local GREP LOOPD MNTD
+
+case "$@" in
+/dev/loop*)
+        GREP=`echo "$@" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+        _debug "GREP='$GREP'" >&2
+        MNTD=$(busybox mount | grep "^$GREP" | cut -f 3 -d ' ')
+        _debug "MNTD='$MNTD'" >&2
+        LOOPD="$@"
+;;
+*)
+        GREP=`echo "$@" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+        _debug "GREP='$GREP'" >&2
+        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+        _debug "LOOPD='$LOOPD'" >&2
+        MNTD="$@"
+;;
+esac
+
+case $versFUSER in
+new) $FUSER_BIN -m "$MNTD";;
+old) $FUSER_BIN -c "$LOOPD";;
+*)   $FUSER_BIN -m "$MNTD";;
+esac
+return $?
+}
+
+# REM: Handle losetup-FULL versions
+versLOSETUP_FULL=new
+LOSETUP_FULL=`which losetup-FULL`
+if test "$LOSETUP_FULL"; then
+# REM: losetup-FULL has no --version option
+ LOSETUP_FULL_VERS=`losetup-FULL 2>>$ERR`
+ if [ $? = 0 ]; then
+ versLOSETUP_FULL=old
+ else
+  LOSETUP_FULL_VERS=`losetup-FULL -a 2>>$ERR`
+  if [ $? = 0 ]; then
+  versLOSETUP_FULL=new
+  else
+  versLOSETUP_FULL=very_old
+  fi
+ fi
+else LOSETUP_FULL=:
+fi
+
+
+# REM: Handle losetup versions
+versLOSETUP=busybox_new
+LOSETUP=`which losetup`
+# REM: Also Busybox losetup
+BB_VERS=`busybox | head -n1`
+
+_test_bb_version(){
+           case $BB_VERS in
+           '')           return 1   ;;
+           *v0.*)        return 1   ;;
+           *v1.[0-9].*)  return 1   ;;
+           *v1.1[0-9].*) return 1   ;;
+           *v1.2[2-9].*) return 0   ;;
+           *)            return 0   ;;
+           esac
+}
+
+if test "$LOSETUP"; then
+case "`realpath $LOSETUP`" in
+*busybox*) #BB_VERS=`busybox | head -n1`
+           #case $BB_VERS in
+           #'') :;;
+           #*v0.*)        versLOSETUP=busybox_old;;
+           #*v1.[0-9].*)  versLOSETUP=busybox_old;;
+           #*v1.1[0-9].*) versLOSETUP=busybox_old;;
+           #*v1.2[2-9].*) versLOSETUP=busybox_new;;
+           #*)            versLOSETUP=busybox_new;;
+           #esac
+           _test_bb_version && versLOSETUP=busybox_new || versLOSETUP=busybox_old
+;;
+*)
+ versLOSETUP=new
+ LOSETUP_VERS=`losetup-FULL 2>>$ERR`
+ if [ $? = 0 ]; then
+ versLOSETUP=old
+ else
+  LOSETUP_VERS=`losetup-FULL -a 2>>$ERR`
+  if [ $? = 0 ]; then
+  versLOSETUP=new
+  else
+  versLOSETUP=very_old
+  fi
+ fi
+;;
+esac
+
+else LOSETUP=:
+fi
+
+_losetup(){
+
+local loparam=$1
+shift
+
+case $loparam in
+'')
+    case "$versLOSETUP_FULL" in
+    busybox_new) busybox losetup -a && return $?;;
+    busybox_old) busybox losetup && return $?;;
+    ver_new)     losetup-FULL -a && return $?;;
+    new)         losetup-FULL -a && return $?;;
+    old)      _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;return;;
+    very_old) _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;return;;
+    *)        _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;return;;
+    esac
+
+    case "$versLOSETUP" in
+    busybox_new) busybox losetup -a;;
+    busybox_old) busybox losetup;;
+    ver_new)     losetup -a;;
+    new)         losetup -a;;
+    old)      _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;;
+    very_old) _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;;
+    *)        _test_bb_version && busybox losetup -a "$@" || busybox losetup "$@" ;;
+    esac
+
+;;
+-a)
+    case "$versLOSETUP_FULL" in
+    busybox_new)  busybox losetup $loparam "$@" && return $?;;
+    busybox_old)  busybox losetup "$@" && return $?;;
+    ver_new)      losetup-FULL $loparam "$@" && return $?;;
+    new)          losetup-FULL $loparam "$@" && return $?;;
+    old)          losetup-FULL $loparam "$@" && return $?;;
+    very_old)     losetup-FULL $loparam "$@" && return $?;;
+    *)        _test_bb_version && busybox losetup $loparam "$@" || busybox losetup "$@" ;return ;;
+    esac
+
+    case "$versLOSETUP" in
+    busybox_new) busybox losetup $loparam "$@";;
+    busybox_old) busybox losetup "$@";;
+    ver_new)     losetup $loparam "$@";;
+    new)         losetup $loparam "$@";;
+    old)      _test_bb_version && busybox losetup $loparam "$@" || busybox losetup "$@" ;;
+    very_old) _test_bb_version && busybox losetup $loparam "$@" || busybox losetup "$@" ;;
+    *)        _test_bb_version && busybox losetup $loparam "$@" || busybox losetup "$@" ;;
+    esac
+
+;;
+-j)
+    case "$versLOSETUP_FULL" in
+    busybox_new) _warn "-j option may not be supported by busybox losetup" >>$ERR; losetup $loparam "$@" && return $?;;
+    busybox_old) _warn "-j option not supported by busybox losetup"        >>$ERR; losetup $loparam "$@" && return $?;;
+    ver_new) losetup-FULL $loparam "$@" && return $?;;
+    new)     losetup-FULL $loparam "$@" && return $?;;
+    old)      _warn "-j option may not be supported by losetup-FULL" >>$ERR; losetup $loparam "$@" && return $?;;
+    very_old) _warn "-j option not supported by losetup-FULL"        >>$ERR; losetup $loparam "$@" && return $?;;
+    *)       losetup-FULL $loparam "$@" && return $?;;
+    esac
+
+    case "$versLOSETUP" in
+    busybox_new) busybox losetup $loparam "$@" ;;
+    busybox_old) busybox losetup $loparam "$@" ;;
+    ver_new)             losetup $loparam "$@" ;;
+    new)                 losetup $loparam "$@" ;;
+    old)                 losetup $loparam "$@" ;;
+    very_old)            losetup $loparam "$@";;
+    *)                   losetup $loparam "$@";;
+    esac
+
+;;
+*)
+    case "$versLOSETUP_FULL" in
+    busybox_new) busybox losetup $loparam "$@" && return $?;;
+    busybox_old) busybox losetup $loparam "$@" && return $?;;
+    ver_new)        losetup-FULL $loparam "$@" && return $?;;
+    new)            losetup-FULL $loparam "$@" && return $?;;
+    old)            losetup-FULL $loparam "$@" && return $?;;
+    very_old)       losetup-FULL $loparam "$@" && return $?;;
+    *)              losetup-FULL $loparam "$@" && return $?;;
+    esac
+
+    case "$versLOSETUP" in
+    busybox_new) busybox losetup $loparam "$@";;
+    busybox_old) busybox losetup $loparam "$@";;
+    ver_new)             losetup $loparam "$@";;
+    new)                 losetup $loparam "$@";;
+    old)                 losetup $loparam "$@";;
+    very_old)            losetup $loparam "$@";;
+    *)                   losetup $loparam "$@";;
+    esac
+;;
+esac
+
+}
 
 # REM: mount.sh should take care of ROX-Filer windows
 _open_rox_window(){
@@ -200,6 +453,9 @@ return $?
 #      mounted with another loop device further down
 imageFILEBASE=`basename "$imageFILE"` #BK
 
+# REM: If sfs_load found in PATH, ask if to run it
+_ask_to_load "$@"
+
 # REM: Crude logic if the mountpoint is not a directory
 #      Todo test -e beforehand ...
 #if [ ! -d "$mountPT" ] ;then #! -d mountPT
@@ -211,14 +467,20 @@ check_already_mounted_func(){
   for oneLOOP in `mount | grep ^[\'\"/]\\\+dev/loop | cut -f 1 -d ' '`
   do
 
-   _debug "ONELOOP='$oneLOOP'" #DEBUG
+   _debug "oneLOOP='$oneLOOP'" #DEBUG
 
    # REM: Care for the quoted output and get rid of enclosing quotes
    oneLOOP=`echo "$oneLOOP" |sed s,^[\"\'],,| sed s,[\"\']$,,`
 
+   if test -f /sys/block/${oneLOOP##*/}/loop/backing_file; then
+    read oneMNTDIMG </sys/block/${oneLOOP##*/}/loop/backing_file
+   else
    # REM: Don't know why we use losetup-FULL for this,
    #      busybox losetup does it right too and without enclosing parenthesis ...
-   oneMNTDIMG=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+   #oneMNTDIMG=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+   oneMNTDIMG=`_losetup "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+   fi
+   _debug "oneMNTDIMG='$oneMNTDIMG'"
 
    # REM: A loop mount could be loaded into the current frugal OS
    #      or be just mounted.
@@ -234,14 +496,29 @@ check_already_mounted_func(){
     _debug "oneIMGBASE='$oneIMGBASE' imageFILEBASE='$imageFILEBASE'" #DEBUG
     #not perfect, but paths may be symlinks...
 
+    case $oneMNTDIMG in
+    *\*) _warn "truncated output by losetup"
+        lengthONEMNTDIMG=`echo "$oneMNTDIMG" | wc -L`
+        _notice "'$oneMNTDIMG' is '$lengthONEMNTDIMG' characters or more"
+        :
+        ;;
+    esac
+
    # REM: Use losetup -j additionally
-   ass_imageFILE=`losetup -j "$imageFILE" 2>>$ERR`
+   #ass_imageFILE=`losetup-FULL -j "$imageFILE" 2>>$ERR`
+   ass_imageFILE=`_losetup -j "$imageFILE" 2>>$ERR`
+   _debug "ass_imageFILE='$ass_imageFILE'"
+   case "$ass_imageFILE" in
+   /dev/loop*) :;;
+   *) unset ass_imageFILE;;
+   esac
 
 
     if [ "$ass_imageFILE" ] || [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
 
      if [ -n "$DISPLAY" ] ; then #DISPLAY
-xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $oneIMGBASE:194,Mount another time:199" "$imageFILE
+#xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $oneIMGBASE:194,Mount another time:199" "$imageFILE
+xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $imageFILEBASE:194,Mount another time:199" "$imageFILE
 is already mounted $ANDINUSEBYPUPPY .
 Do you want to unmount it or mount it to another mount point ?"
 RETVAL=$?
@@ -249,13 +526,15 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
      exit 0
 
  elif [ "$RETVAL" = "191" ] ; then #BUTTONS
-     mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
      _debug "ROX-Filer: mountPT='$mountPT'"
      rox "$mountPT"
      exit $?
 
  elif [ "$RETVAL" = "192" ] ; then #BUTTONS
-     mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+     mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
      cd "$mountPT"
      _info "`pwd`"
      rxvt &
@@ -263,15 +542,17 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
 
  elif [ "$RETVAL" = "193" ] ; then #BUTTONS
        UNMOUNT='yes'
-       mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       mountPT=`busybox mount | grep "$imageFILEBASE" | tail -n 1 | cut -f 3 -d ' '`
        _debug "mountPT='$mountPT'"
        return 0
 
  elif [ "$RETVAL" = "194" ] ; then #BUTTONS
        UNMOUNT='yes'
-       mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
-       _debug "mountPY='$mountPT'"
-       mountPT2=`echo "$mountPT" | sed "1 d"`
+       #mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
+       mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
+       _debug "mountPT='$mountPT'"
+       mountPT2=`echo "$mountPT" | sed "1 d" | tac`
        _debug "mountPT2='$mountPT2'"
 
        for i in $mountPT2 ; do
@@ -282,23 +563,27 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
        #       kill window pid would kill ROX-Filer completely (black pinboard)
        [ "$DISPLAY" ] && rox -D "$i"
        #_close_rox_window "$i"
-        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-        _debug "$GREP"
-        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-        _debug "$LOOPD"
-        USEapps=`_command fuser -c $LOOPD`
-        _debugx "_command fuser -c $LOOPD claims these pids: '$USEapps'"
+       # GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       # _debug "$GREP"
+       # LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       # _debug "$LOOPD"
+       # USEapps=`_command fuser -c $LOOPD`
+       # _debugx "_command fuser -c $LOOPD claims these pids: '$USEapps'"
+       USEapps=`_fuser "$i"`
+       _debugx "_fuser \"$i\" claims these pids: '$USEapps'"
         USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
         _debug "USEapps='$USEapps'"
          for j in $USEapps ; do
          _debugx "$i: $j"
+         case $j in 1|$$) continue;; esac
          kill -1 $j
+         #kill -0 $j
          done
         fi
 
        _debug "'$i'"
        #[ -n "$DISPLAY" ] && rox -D "$i"
-       $UMOUNT_EXE "$i"
+       $UMOUNT_EXE -d "$i"
        [ "$?" = 0 ] || continue
        #  REM: Refresh rox
        #[ "$DISPLAY" ] && rox -x "${mountPT%/*}"
@@ -307,7 +592,8 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
        _remove_mountpoint "$i"
        done
 
-       mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
+       #mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
+       mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
        _debug "mountPT='$mountPT'"
        return 0
 
@@ -502,12 +788,15 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 
   # else #loopdevice count
 
-  LAST_LOOP=`losetup -a |cut -f1 -d: |grep -o -e '[0-9]\+' | sort -n |tail -n1`
+  #LAST_LOOP=`(losetup -a || losetup) 2>/dev/null`
+  LAST_LOOP=`_losetup`
+  LAST_LOOP=`echo "$LAST_LOOP" |cut -f1 -d: |grep -o -e '[0-9]\+' | sort -n |tail -n1`
+  if [ "$LAST_LOOP" -a ! "${LAST_LOOP//[[:digit:]]/}" ]; then
   NEW_LOOP=$((LAST_LOOP+1))
   if [ ! -b /dev/loop$NEW_LOOP ] ; then
   mknod /dev/loop$NEW_LOOP b 7 $NEW_LOOP
   fi
-
+  fi
   _info "about to $MOUNT_EXE '$imageFILE' on '$mountPT'"
   #mkdir -p "$mountPT" ##2012-06-02
   _create_mountpoint "$mountPT"
@@ -527,10 +816,13 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   Err=$?  # if should pass error code of last commands here ...
   ;;
   *)
-    newLOOP=`losetup -f`
+    #newLOOP=`losetup -f`
+    newLOOP=`_losetup -f`
     _debug "newLOOP='$newLOOP'"
     if [ -b "$newLOOP" ]; then
-    losetup $newLOOP "$imageFILE"
+    #losetup $newLOOP "$imageFILE"
+    _losetup $newLOOP "$imageFILE"
+    else false
     fi
     if [ $? = 0 ]; then
     _notice "about to $MOUNT_EXE '$newLOOP' on '$mountPT'"
@@ -594,18 +886,22 @@ DEBUGX=1
      if [ "$KILL_FS_USERS" = "YES" ]; then
        [ -n "$DISPLAY" ] && rox -D "$mountPT" #BK
 
-       GREP=`echo "$mountPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "$GREP"
-       LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       _debug "$LOOPD"
-       USEapps=`_command fuser -c $LOOPD`
-       _debugx "_command fuser -c claims these pids '$USEapps' are using '$LOOPD'"
+       #GREP=`echo "$mountPT" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
+       #_debug "$GREP"
+       #LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
+       #_debug "$LOOPD"
+       #USEapps=`_command fuser -c $LOOPD`
+       #_debugx "_command fuser -c claims these pids '$USEapps' are using '$LOOPD'"
+       USEapps=`_fuser "$mountPT"`
+       _debugx "_fuser \"$mountPT\" claims these pids: '$USEapps'"
        # REM: Want numbers only ...
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
        _debug "f.s users: $USEapps"
        for j in $USEapps ; do
        _debugx "$j "
+       case $j in 1|$$) continue;; esac
        kill -1 $j
+       #kill -0 $j
        done
 
       # REM: Some sleep here beforehand of umount to let dust settle
