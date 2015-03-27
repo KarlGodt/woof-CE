@@ -142,7 +142,11 @@ case ${REPLYX} in
    ;;
 esac
 
-echo -n "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
+if [ "$PSUBDIR" ]; then
+echo "$KILOBIG" > /initrd${PUP_HOME}/"$PSUBDIR"/pupsaveresize.txt
+else
+echo "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
+fi
 
 xmessage -center -bg "orange" -title "Resize personal storage file" "Okay, you have chosen to increase $NAMEPFILE by $KILOBIG Kbytes,
 however as the file is currently in use, it will happen at reboot.
