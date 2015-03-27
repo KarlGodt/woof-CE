@@ -2001,3 +2001,5 @@ exit
 
 Fri Mar 27 03:35:42 GMT+1 2015
 
+geany /usr/local/bin/drive_all
+geany /mnt/sdb6/usr/sbin/filemnt
