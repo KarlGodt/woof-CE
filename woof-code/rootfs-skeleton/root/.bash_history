@@ -1,200 +1,3 @@
-M_LOOP=`mount | grep -E '^/dev/loop[0-9p]+ ' |grep -v '/initrd'`
-M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
-M_LOOP=`echo "$M_LOOP" |grep -o ' on .\+ type ' |sed -r 's!( on )(.*)( type )!\2!'`
-echo "$M_LOOP"
-yaf-splash -help
- yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information" &
-ash
-./replace_commit_files.sh 
-git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/
-mount -o remount,ro /dev/sda2 /mnt/sda2
-fuser -m /mnt/sda2
-fuser -c /dev/sda2
-losetup
-losetup -a
-yaf-splash -bg green -text "Exiting to prompt..." &
-./replace_commit_files.sh 
-geany `which plogout`
-geany /usr/sbin/exitprompt
-chkmap
-chmod +x /bin/chkmap
-chkmap de
-file /usr/share/kbd/keymaps/i386/qwertz/de.map
-geany /usr/share/kbd/keymaps/i386/qwertz/de.map
-find /usr -name "de.gz"
-find /usr -wholename "*map*"
-find /usr/share -wholename "*map*"
-find /usr/bin -wholename "*map*"
-find /usr/sbin -wholename "*map*"
-man makemap
-git pull 
-git pull /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/
-
-Thu Dec 25 11:18:11 GMT+1 2014
-
-patch -p1 <grub_0.97-47lenny2.diff 
-mv grub-0.97 grub-0.97-lenny
-tar xzf grub-0.97-lenny.tar.gz grub-0.97-lenny
-tar czf grub-0.97-lenny.tar.gz grub-0.97-lenny
-patch -p1 <grub_0.97-16.1~bpo.1.diff 
-tar czf grub-0.97-Sarge-bpo.tar.gz grub-0.97-Sarge-bpo
-patch -p1 <grub_0.97-27etch1.diff 
-tar czf grub-0.97-etch.tar.gz grub-0.97-etch
-patch -p1<grub_0.97-64.diff 
-tar czf grub-0.97-squeeze.tar.gz grub-0.97-squeeze
-patch -p1 <grub_0.97-67.diff 
-tar czf grub-0.97-Wheezy.tar.gz grub-0.97-Wheezy/
-patch -p1 <grub_0.97-29ubuntu60.diff 
-patch -p1 <grub_0.97-29ubuntu60.10.04.2.diff 
-tar -czf grub-0.97-lucid.tar.gz grub-0.97-lucid 
-tar -czf grub-0.97-lucid-bpo.tar.gz grub-0.97-lucid-bpo 
-patch -p1 <grub_0.97-29ubuntu66.diff 
-tar -czf grub-0.97-Precise.tar.gz grub-0.97-Precise/
-./Apply_patches 
-type -a patch
-./Apply_patches 
-pwd
-cd ..
-ls
-cd grub-0.97-156.4.src/
-tar czf grub-0.97-Suse11.1-156.4.tar.gz grub-0.97-Suse11.1-156.4/
-grep gfxmenu *
-autoreconf --force --install
-EXTRACFLAGS=' -fno-stack-protector -fno-strict-aliasing -minline-all-stringops -fno-asynchronous-unwind-tables -fno-unwind-tables'
-CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=%{_infodir} --mandir=%{_mandir} --datadir=/usr/lib   --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
-CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=/usr/share/info --mandir=/usr/share/man --datadir=/usr/lib   --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
-make.tgl
-make
-make clean
-make.tgl
-CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=`pwd`/_install_diskless  --disable-auto-linux-mem-opt --enable-diskless   --enable-{3c50{3,7},3c5{0,2}9,3c595,3c90x,cs89x0,davicom,depca,eepro{,100},epic100}   --enable-{exos205,lance,ne,ne2100,ni{50,52,65}00,ns8390}   --enable-{rtl8139,sk-g16,smc9000,tiara,tulip,via-rhine,w89c840,wd}
-make.tgl
-make
-make.tgl
-make install
-make clean
-CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=/usr --infodir=%{_infodir} --mandir=%{_mandir} --datadir=/usr/lib   --disable-auto-linux-mem-opt --disable-ffs --disable-ufs2
-CFLAGS="$RPM_OPT_FLAGS -Os -DNDEBUG -W -Wall -Wpointer-arith $EXTRACFLAGS" ./configure   --prefix=`pwd`/_install  --disable-auto-linux-mem-opt --disable-ffs --disable-ufs2
-echo $EXTRACFLAGS 
-make.tgl
-make
-make.tgl
-make install
-uname -r
-  
-uname -r
-_mouse_message(){ yaf-splash -bg yellow $mmsgGEOMETRY -fg black $genYAFOPS -timeout $MOUSEMSG_TT -text "---------------------------------------------------------
-| OK, so if your mouse receiver is                      |
-| attached to a keyboard integrated hub,                |
-|                                                       |
-| and you don't want to wake the system by mouse moves, |
-|                                                       |
-| or light up any LEDs on the keyboard dito,            |
-|                                                       |
-| then you have $MOUSEMSG_TT seconds from now,                    |
-| to switch off the mouse...                            |
-|                                                       |
-| Note: Unmounting of partitions may still go on        |
-|       in the background .                             |
-| When switched off mouse, press any keyboard key ...   |
----------------------------------------------------------"; }
-source /etc/rc.d/f4puppy5
-rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
- rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
- _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
- rootCENTER_Y=$((_Y_ / 2))
-MOUSEMSG_TT=30
-genYAFOPS='-outline 0'
-_mouse_message
-     _get_screen_resolution
-mmsgGEOMETRY="-geometry $rootSCREEN_XY"
-_mouse_message
-                                      
-_mouse_message
-         kkkll
-sleep 10 && _mouse_message
-fbsplsh --help
-fbsplash --help
-test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm
-test -f /boot/grub/boot-splash.ppm;echo $?
-fbsplash
-test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm -d `tty`
-tty
-test -f /boot/grub/boot-splash.ppm && fbsplash -s /boot/grub/boot-splash.ppm -d /dev/pts/3
-geany /sbin/init
-help
-help suspend
-./replace_commit_files.sh 
-top
-
-Thu Dec 25 20:08:34 GMT+1 2014
-
-ls /dev/inpu*
-ls -l /dev/inpu*
-ls -l /dev/in*
-ls -l /dev/ev*
-ls -l /dev/m*
-ls -l /dev/input/mouse0 /dev/mouse0
-ln -s /dev/input/mouse0 /dev/mouse0
-ls -l /dev/m*
-grep -i mouse /var/log/xwin/Xorg.3.7.10-KRG-i486-smp-pae-lzo-mini.2014-12-25-20\:08\:35.log 
-ls -l /dev/m*
-ls -l /dev/min*
-ls -l /dev/in*
-ls /proc/bus/input
-ls /proc/bus/input/devices
-grep -i mouse  /proc/bus/input/devices
-grep -B10 -A10 -i mouse  /proc/bus/input/devices
-less /proc/bus/input/devices
- wmexit
-uname -r
-env x='{ :; }; while [ 2 ];do echo background program running;sleep 10;done' geany 
-env x='{ :; }; while [ 1 ];do echo background program running;sleep 10;done' geany 
-env x='{ :; };' geany 
-env x='{ while [ 1 ];do echo background program running;sleep 10; done; };' geany 
-x
-env x='{ while [ 1 ];do echo background program running;sleep 10; done; }' geany 
-env x='{ while [ 1 ];do echo background program running;sleep 10; done; }'
-x
-env x='{ while [ 1 ];do echo background program running;sleep 10; done; }' bash -c geany
-env x='{ while [ 1 ];do echo background program running;sleep 10; done; } ; echo vulnerable' bash -c geany
-x
-eval x
- $x
-eval $x
-echo $x
-env x='{ :; } ; echo vulnerable' bash -c geany
-env x='{ :; } ; echo vulnerable' bash -c "echo This is a test"
-env x='{ :; } ; echo vulnerable; bash -c' echo "This is a test"
-env x='{ :; }  echo vulnerable; bash -c' echo "This is a test"
-env x='{ :; }  echo vulnerable bash -c' echo "This is a test"
-env x='{ :; }  echo vulnerable' bash -c echo "This is a test"
-env x='{ :; };  echo vulnerable' bash -c echo "This is a test"
-env x='{ :; };  echo vulnerable bash -c' echo "This is a test"
-env x='{ :; };echo vulnerable bash -c' echo "This is a test"
-env x='{ :; };echo vulnerable; bash -c' echo "This is a test"
-env x='{ :; };echo vulnerable' bash -c echo "This is a test"
-export PATH=`pwd`/bin:`pwd`/sbin:$PATH
-echo $PATH
-export LD_LIBRARY_PATH=`pwd`/lib:$LD_LIBRARY_PATH
-wine
-wine /mnt/sdb1/Program Files/ABBYY FineReader 6.0 Sprint/Sprint.exe
-wine "/mnt/sdb1/Program Files/ABBYY FineReader 6.0 Sprint/Sprint.exe"
-wine "/mnt/sdb1/Program Files/Crossfire GTK Client/GTKClient.exe"
-wine "/mnt/sdb1/Program Files/Internet Explorer/iexplore.exe"
-wine "/mnt/sdb1/Program Files/Mozilla Firefox/firefox.exe"
-find -size +6m
-find -size +6M
-hexedit /mnt/sdb1/Users/User/Music/FD136d01
-file /Desktop-Hintergrund-640x480x16+A-dith.xpm
-ffmpeg-sc-sh-0.8.10 -help
-ffmpeg-sc-sh-0.8.10 -help 2>&1 | grep -i mtv
-
-Fri Dec 26 18:46:18 GMT+1 2014
-
-grub
-mplayer "/mnt/sdd1/Dokumente und Einstellungen/Admin/Eigene Dateien/Eigene Videos/Video 1.MOV"
-df
 smartctl -A /dev/sdd
 smartctl -A -d sat /dev/sdd
 echo $((7497/24))
@@ -2002,3 +1805,199 @@ wget --help
 Fri Mar 20 16:39:06 GMT+1 2015
 
 net-setup.sh
+./replace_commit_files.sh 
+git branch
+git remote -v
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+mkdir DEVX-aprilx86_64
+cd DEVX-aprilx86_64
+cp ../devx-7.0.1-april64.pet .
+pet2tgz devx-7.0.1-april64.pet 
+tar -xzf devx-7.0.1-april64.tar.gz 
+mksquashfs devx-7.0.1-april64/ devx-7.0.1-april64.sfs
+./android
+find -type f -name "*.pack"
+find -type f -name "*.jar"
+find -type f -name "*.jar" | wc -l
+find -type f -name "*.pack" | wc -l
+find -type f -name "*.pack" | while read aP; do echo $aP; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP;unpack200 -v $aP;sleep 1; done
+find -name jexec
+pwd
+cd ..
+pwd
+cd ..
+pwd
+. etc/init.d/jexec
+find -type f -name "*.pack"
+find -type f -name "*.jar"
+find -type f -name "*.jar" | wc -l
+find -type f -name "*.pack" | wc -l
+find -type f -name "*.pack" | while read aP; do echo $aP; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP;unpack200 -v $aP;sleep 1; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP;unpack200 -v $aP ${aP%.*}.jar;;sleep 1; done
+find -type f -name "*.pack" | while read aP; do echo $aP ; test -e ${aP%.*}.jar && continue; echo $aP;unpack200 -v $aP ${aP%.*}.jar;sleep 1; done
+pwd
+unpack200 --help
+grep -m1 'JEXEC=[[:alnum:][:punct:]]\+' /etc/init.d/jexec
+pwd
+..
+cd ..
+pwd
+cd ..
+pwd
+cd..
+pwd
+grep -m1 'JEXEC=[[:alnum:][:punct:]]\+' /etc/init.d/jexec
+grep -m1 'JEXEC=[[:alnum:][:punct:]]\+' etc/init.d/jexec
+cd ..
+grep -m1 'JEXEC=[[:alnum:][:punct:]]\+' etc/init.d/jexec
+JEXEC=`grep -m1 'JEXEC=[[:alnum:][:punct:]]\+' etc/init.d/jexec`
+echo "$JEXEC"
+eval "$JEXEC"
+echo "$JEXEC"
+pwd
+cd ..
+pwd
+ls
+mksquashfs jdk-7u75-sys-i586.sfs/ ../jdk-7u75-sys-i586.sfs
+./android
+pwd
+cd gitXORG.d/
+./git_pull_all_directories-02.sh 
+df
+./git_pull_all_directories-03.sh 
+crossfire-client-gtk-1.12.svn 
+crossfire-client-gtk2-1.70.0 
+crossfire-client-gtk2-1.60.0 
+crossfire-client-gtk2-1.70.0 
+ping --help
+ping -c4 www.google.com
+
+Sat Mar 21 15:59:19 GMT+1 2015
+
+geany /usr/sbin/filemnt
+geany /usr/sbin/resizepfile.sh 
+chroot .
+chroot . /bin/sh
+geany /usr/sbin/filemnt
+
+Sun Mar 22 15:48:56 GMT+1 2015
+
+chroot . /bin/sh
+PSUBDIR=/PUPPY_SFS/LHP-503
+echo "$PSUBDIR" | tr -s '/'
+MAXD=`echo "$PSUBDIR" | tr -s '/'`
+echo "$MAXD"
+MAXD=`echo "$MAXD" | sed 's%^/*%%;s%/*$%%'`
+echo "$MAXD"
+MAXD="/${MAXD}/"
+echo "$MAXD"
+MAXD=`echo "$MAXD" | grep -o '/' | wc -L`
+echo "$MAXD"
+MAXD=`echo "$MAXD" | grep -o '/' | wc -l`
+echo "$MAXD"
+MAXDS=`echo "$PSUBDIR" | tr -s '/'`
+MAXDS=`echo "$MAXDS" | sed 's%^/*%%;s%/*$%%'`
+MAXDS="/${MAXDS}/"
+echo "$MAXDS" | grep -o '/' | wc -l
+killall sakura
+
+Sun Mar 22 21:07:41 GMT+1 2015
+
+e2fsck -v -n /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
+e2fsck -v /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
+e2fsck -v -f /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
+mkfs.edxt2 --version
+mkfs.ext2 --version
+mke2fs
+mke2fs --version
+mke2fs -V
+cd /
+while read dev mnt fs mops n m;  do  sleep 1;   case "$mnt" in   *oldstyle_initramdisk*)   umount -lr "$mnt";   ;;   esac;  done<./proc/mounts
+ffff
+ff
+while read dev mnt fs mops n m;  do  sleep 1;  echo $mnt;  done<./proc/mounts
+cat /proc/mounts
+
+Sun Mar 22 22:20:32 GMT+1 2015
+
+cpio -id <initrd
+dd if=/dev/zero of=initrd.ext2 bs=1024 count=13000
+mkfs.ext2 initrd.ext2
+fsck initrd.ext2
+e2fsck initrd.ext2
+e2fsck -f initrd.ext2
+mount
+dmesg
+
+Mon Mar 23 10:56:38 GMT+1 2015
+
+cp -au . /mnt/sda1/PUPPY_SFS/LHpup443/unsquash/spup-443/usr/share/locale
+grep ^Failed spup-443.out.txt 
+grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo $FILE; done
+grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo "$FILE" >/dev/null; test -e "$FILE" || echo "$FILE";done
+grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo "$FILE" >/dev/null; FILE=${FILE%,};test -e "$FILE" || echo "$FILE";done
+./busybox 
+mksquashfs spup-443/ spup-443.sfs
+df
+mksquashfs --help
+man unsquashfs
+unsquashfs --help
+unsquashfs -s 0spup-443.sfs 
+unsquashfs -s 0spup-443.sfs >0spup-443.sfs.txt
+unsquashfs -ll 0spup-443.sfs >>0spup-443.sfs.txt
+unsquashfs //help
+unsquashfs --help
+unsquashfs -s spup-443.sfs 
+pwd
+unsquashfs -d spup-443 spup-443.sfs 
+rm spup-443/
+rm -r spup-443/
+unsquashfs -n -d spup-443 spup-443.sfs >>spup-443.out.txt 2>&1
+/mnt/0spup-443.sfs/bin/busybox
+info chroot
+info pivot_root
+man 2 pivot_root
+man chroot
+man pivot_root
+
+Tue Mar 24 01:05:37 GMT+1 2015
+
+mount
+cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
+ls /mnt
+mount /dev/sdb5
+mkdir /mnt/sdb19
+cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
+ls
+git commit
+echo $PATH
+export PATH=/usr/SVC/bin:$PATH
+git commit
+git add woof-code/boot/initrd-tree0/init
+git commit -m "initrd-tree0/init: Added some code to make old-style initrd ext2 image possible.
+This works in a combination of pivot_root and chroot .
+Also code added to take care for accidental full install boot ( not tested ).
+Some code cleanups and unneeded stability improvements."
+git branch
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+exit
+mount /dev/sdb19
+mount
+cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
+git commit
+export PATH=/usr/SVC/bin:$PATH
+git commit
+git add woof-code/boot/initrd-tree0/init
+git commit -m 'initrd-tree0/init: Code cleanups, and one BUGFIX mounting rootfs'
+git branch
+git push krg Fox3-Dell755
+exit
+
+Fri Mar 27 03:35:42 GMT+1 2015
+
