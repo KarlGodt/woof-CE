@@ -25,7 +25,8 @@ _debugt 8F
 
 # REM: No parameters, exec bb mount
 test "$*" || exec busybox mount
-
+# REM: sfs_load needs this
+test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@" # "$*" does not work here
 _debugt 8E $_DATE_
 
 # REM: f4puppy5 short for functions4puppy5
