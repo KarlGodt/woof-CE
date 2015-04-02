@@ -2,6 +2,8 @@
 
 . /etc/rc.d/f4puppy5
 
+VERSION=1.9
+
 _say_help(){
 MSG="
 $0 [ help | version ]
@@ -86,11 +88,15 @@ esac
 
 _run_pmount(){
     [ "`pidof gtkdialog_pmount`" ] && killall gtkdialog_pmount >>$OUT 2>>$ERR && sleep 0.1
+    echo _run_pmount >&2
     if [ "$*" ]; then
-    exec pmount "${*#*_}"
+    echo _run_pmount pmount "$*" "${@#*_}" >&2
+    exec /usr/sbin/pmount ${@#*_}
     else
-    exec pmount
+    echo _run_pmount pmount >&2
+    exec /usr/sbin/pmount
     fi
+
 }
 
 _run_event_manager(){
@@ -312,27 +318,31 @@ for ap in $*
 do
  case $ap in
  -*|+*)        _parse_positional_parameters $ap;;
- pmount_*)     _run_pmount $ap;;
- eventmanager) _run_event_manager;;
- unmount)            _do_simple_unmount $ap;;
- unmountall)         _do_unmount_all;;
- *mountro*|*toggle*) _do_toggle_mount_ro_rw $ap;;
- fsck_*)             _do_fsck $ap;;
- all|drive|drives|card|floppy|optical|usbdrv) [ "$2" ] || _run_pmount $ap;;
- help)    _say_help;;
- version) _say_version;;
+ pmount_*)     DO_WHAT="_run_pmount $ap";;
+ eventmanager) DO_WHAT="_run_event_manager";;
+ unmount)            DO_WHAT="_do_simple_unmount $ap";;
+ unmountall)         DO_WHAT="_do_unmount_all";;
+ *mountro*|*toggle*) DO_WHAT="_do_toggle_mount_ro_rw $ap";;
+ fsck_*)             DO_WHAT="_do_fsck $ap";;
+ all|drive|drives|card|floppy|optical|usbdrv) [ "$2" ] || DO_WHAT="_run_pmount $ap";;
+ help)    DO_WHAT="_say_help";;
+ version) DO_WHAT="_say_version";;
  debug)   _set_debug_level;;
  verbose) _set_verbose_level;;
  *) # file-systems
     unset FSTYPE
     grep $Q -w "$ap" /proc/filesystems && FSTYPE=$ap || {
-    modinfo "$ap" >>$OUT 2>>$ERR && FSTYPE=$ap; }
-    [ "$FSTYPE" ] || _say_unhandled_parameter $ap
+    modinfo "$ap" 1>>$OUT 2>>$ERR && FSTYPE=$ap; }
+    [ "$FSTYPE" ] || DO_WHAT="_say_unhandled_parameter $ap"
  ;;
  esac
 done
 
-
+case "$DO_WHAT" in
+'') :;;
+*)  echo "'$DO_WHAT'" >&2; $DO_WHAT; echo >&2;;
+esac
+echo "NOW cdrom" >&2
 case "$oneDRVNAME" in scd*|sr*|hd[a-z])
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
@@ -364,7 +374,7 @@ case "$oneDRVNAME" in scd*|sr*|hd[a-z])
  [ "$FSTYPE" ] || FSTYPE="iso9660"
 ;;
 esac
-
+echo "NOW PARTITION" >&2
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
@@ -416,7 +426,7 @@ if [ "$FSTYPE" != "" ];then
   exec rox -x "$MNTPT" -d "$MNTPT"
  fi
 fi
-
+echo "NOW xmessage" >&2
 xmessage -bg orange2 -title "drive_all" "Err.. :Ooops:
 Could not start any handler for
 '$oneDRVNAME'  or  '$*'"
