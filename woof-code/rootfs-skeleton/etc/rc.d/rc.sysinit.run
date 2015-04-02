@@ -736,25 +736,68 @@ echo "`date` KRG part ended ..."
 #w469 may need to run 'depmod'...
 #live-cd may have been built without the modules.* files.
 #initrd init script copied modules to /lib/modules/<kernver>/initrd/.
+__test_depmod__(){
 if [ ! -f /lib/modules/${KERNEL_RELEASE}/modules.dep ];then
+ test -d  /lib/modules/$KERNEL_RELEASE || mkdir -p /lib/modules/$KERNEL_RELEASE
+ touch    /lib/modules/${KERNEL_RELEASE}/modules.dep
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
- [ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && NEEDGUNZIP="yes"
+ #[ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && NEEDGUNZIP="yes"
+ [ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && NEEDGUNZIP="gzip"
 elif [ -d /lib/modules/${KERNEL_RELEASE}/initrd ];then
-  if [ "`grep -E '^initrd/|/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" = "" ];then
-   NEEDDEPMOD="yes" #w469 files may not be there to save space.
-   NEEDGUNZIP="yes"
+ #if ls -1 /lib/modules/${KERNEL_RELEASE}/initrd/*/* 2>>$ERR   | grep $Q '.ko.gz' || \
+ #   ls -1 /lib/modules/${KERNEL_RELEASE}/initrd/*/*/* 2>>$ERR | grep $Q '.ko.gz'; then
+  #if [ "`grep -E '^initrd/|/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" = "" ];then
+  FIND_KOGZ=`find /lib/modules/${KERNEL_RELEASE}/initrd/ -iname "*.ko*"`
+  if [ "$FIND_KOGZ" ]; then
+   for oneKO in $FIND_KOGZ
+   do
+    case $oneKO in
+    *.gz)   case $NEEDGUNZIP in *gzip*):;;*)     NEEDGUNZIP="$NEEDGUNZIP gzip";;    esac;;
+    *.bz2)  case $NEEDGUNZIP in *bzip2*):;;*)    NEEDGUNZIP="$NEEDGUNZIP bzip2";;   esac;;
+    *.lzo)  case $NEEDGUNZIP in *lzo*):;;*)      NEEDGUNZIP="$NEEDGUNZIP lzo";;     esac;;
+    *.lzma) case $NEEDGUNZIP in *lzma*):;;*)     NEEDGUNZIP="$NEEDGUNZIP lzma";;    esac;;
+    *.xz)   case $NEEDGUNZIP in *xz*):;;*)       NEEDGUNZIP="$NEEDGUNZIP xz";;      esac;;
+    *.Z)    case $NEEDGUNZIP in *compress*):;;*) NEEDGUNZIP="$NEEDGUNZIP compress";;esac;;
+    *.ko)   case $NEEDGUNZIP in *no*):;;*)       NEEDGUNZIP="$NEEDGUNZIP no";;      esac;;
+    *)      case $NEEDGUNZIP in *no*):;;*)       NEEDGUNZIP="$NEEDGUNZIP no";;      esac;;
+    esac
+   done
+    if [ "`grep -E '^initrd/|/initrd/' /lib/modules/${KERNEL_RELEASE}/modules.dep`" = "" ];then
+    NEEDDEPMOD="yes" #w469 files may not be there to save space.
+    #NEEDGUNZIP="yes"
+    fi
   fi
+ #fi
 fi
-if [ "$NEEDGUNZIP" = "yes" ];then
+}
+
+__run_gunzip__(){
+#if [ "$NEEDGUNZIP" = "yes" ];then
+for oneZIP in $NEEDGUNZIP; do
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
  #for oneMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
  # gunzip $oneMOD
  #done
- gunzip -f -r /lib/modules/${KERNEL_RELEASE}/initrd #w482 shinobar.
+ #gunzip -f -r /lib/modules/${KERNEL_RELEASE}/initrd #w482 shinobar.
+  #if test "$oneZIP" = no ; then continue; fi
+  #test "$oneZIP" = no && continue
+  case $oneZIP in no) continue;;
+  gzip) $oneZIP -d -f -r /lib/modules/${KERNEL_RELEASE}/initrd ;; #w482 shinobar.
+  *) FIND_KOGZ=`find /lib/modules/${KERNEL_RELEASE}/initrd/ -iname "*.ko*"`
+    for oneKO in $FIND_KOGZ
+     do
+      $oneZIP -d $oneKO
+     done
+  ;;
+  esac
  STATUS=$((STATUS+$?));echo -n "7 STATUS=$STATUS "
-fi
+done
+#fi
+}
 
+
+__run_depmod__(){
 #w481 now building with busybox depmod, in module-init-tools have depmod-FULL, so comment out...
 ##w481 workaround for crappy depmod. First boot 64MB ram no swap, only 14660 free ram, due to
 ##tmpfs top layer (about 26MB). depmod gives 'out of memory'. so delay until after swap loaded...
@@ -764,12 +807,82 @@ if [ "$NEEDDEPMOD" = "yes" ];then
  depmod
  STATUS=$((STATUS+$?));echo -n "8 STATUS=$STATUS "
 fi
+}
+
+[ -f /lib/modules/${KERNEL_RELEASE}/modules.dep ] || {
+     test -d  /lib/modules/$KERNEL_RELEASE || mkdir -p /lib/modules/$KERNEL_RELEASE
+     touch /lib/modules/${KERNEL_RELEASE}/modules.dep
+}
+
+[ -d /lib/modules/${KERNEL_RELEASE}/initrd ] && {
+    find /lib/modules/${KERNEL_RELEASE}/initrd -iname "*.ko.*" |
+    while read oneKO
+    do
+     case $oneKO in
+     *.gz) gzip -d -r -f /lib/modules/${KERNEL_RELEASE}/initrd; break;;
+     *.ko) continue;;
+     *)    case $oneKO in
+           *.bz2)  bzip2 -d $oneKO;;
+           *.lzo)  lzop  -d $oneKO;;
+           *.lzma) lzma  -d $oneKO;;
+           *.xz)   xz    -d $oneKO;;
+           *.Z) uncompress  $oneKO;;
+           *) continue;;
+           esac
+      ;;
+     esac
+    done
+    find /lib/modules/${KERNEL_RELEASE}/initrd -iname "*.ko.*" |
+    while read oneKO
+    do
+     case $oneKO in
+     #*.gz) gzip -d -r -f /lib/modules/${KERNEL_RELEASE}/initrd; break;;
+     *.ko) continue;;
+     *)    case $oneKO in
+           *.bz2)  bzip2 -d $oneKO;;
+           *.lzo)  lzop  -d $oneKO;;
+           *.lzma) lzma  -d $oneKO;;
+           *.xz)   xz    -d $oneKO;;
+           *.Z) uncompress  $oneKO;;
+           *) continue;;
+           esac
+      ;;
+     esac
+    done
+}
+
+
+#if test -d     /lib/modules/${KERNEL_RELEASE}/initrd; then
+test -d /lib/modules/${KERNEL_RELEASE}/initrd || mkdir -p /lib/modules/${KERNEL_RELEASE}/initrd
+if ls   /lib/modules/${KERNEL_RELEASE}/initrd/* 1>>$OUT 2>>$ERR; then
+ rm -f         /lib/modules/${KERNEL_RELEASE}/initrd/modules.*
+ gzip -d -r -f /lib/modules/${KERNEL_RELEASE}/initrd
+ cp -au        /lib/modules/${KERNEL_RELEASE}/initrd/* /lib/modules/${KERNEL_RELEASE}/
+ test $? = 0 && rm -rf                                 /lib/modules/${KERNEL_RELEASE}/initrd
+ depmod
+ #mkdir -p      /lib/modules/${KERNEL_RELEASE}/initrd  # for /init
+fi
+[ -f /lib/modules/${KERNEL_RELEASE}/modules.dep ] || depmod
+
 ###########  DEMPOD  ##############################
 
+__unneeded_layerfs__(){
  # boot params
 [ $layerfs ] && LAYERFS=$layerfs #boot param.
 [ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
 [ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+}
+
+_ass_layerfs(){ #from init
+    local tLAYERFS fs
+[ "$layerfs" ] && tLAYERFS=$layerfs
+    for fs in $tLAYERFS aufs unionfs
+    do
+     grep $Q -w "$fs" /proc/filesystems && { LAYERFS=$fs; break; }
+     [ "`modinfo $fs 2>/dev/null`" ] && { LAYERFS=$fs; break; }
+    done
+}
+
  # boot params
 echo -e "\nSTATUS='$STATUS'"
 status_func $STATUS;STATUS=0
@@ -881,6 +994,8 @@ klogd -c 5
 #. /etc/rc.d/MODULESCONFIG #modules loading configuration.
 
 #echo -n "    Loading kernel modules..." >/dev/console
+
+#test -d /lib/modules/$KERNEL_RELEASE/ || mkdir -p /lib/modules/$KERNEL_RELEASE
 
 _create_module_conf_from_cmdline(){
 #Stub to care for cmdline parameters
@@ -1177,7 +1292,7 @@ if [ "$PUPMODE" = 2 ];then
  modprobe $modprobeSYSLOG nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
  modprobe $modprobeSYSLOG nls_iso8859-1 # "
  modprobe $modprobeSYSLOG fuse
- modprobe $modprobeSYSLOG $LAYERFS #unionfs or aufs.
+ #modprobe $modprobeSYSLOG $LAYERFS #unionfs or aufs.
  modprobe $modprobeSYSLOG squashfs
 fi
 
