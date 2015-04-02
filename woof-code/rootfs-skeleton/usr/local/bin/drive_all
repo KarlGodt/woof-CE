@@ -1,0 +1,422 @@
+#!/bin/ash
+
+. /etc/rc.d/f4puppy5
+
+_say_help(){
+MSG="
+$0 [ help | version ]
+$0 [ pmount_ | eventmanager | unmount | unmountall | mountro | fsck_ ]
+   [ DRIVECATEGORY = '' | all | card | floppy | optical | usbdrv | drive ]
+   [ option1 [ FILE_SYSTEM_TYPE ]]
+"
+echo "$MSG
+$2"
+exit $1
+}
+
+_say_version(){
+    echo "$VERSION" >&1
+    echo "Type --help for info" >&2
+    exit 0
+}
+
+_say_unhandled_parameter(){
+    echo "Unhandled parameter '$*'" >&2
+    echo "If it was a file-system type, make sure the driver is available" >&2
+    echo "Type --help for usage"    >&2
+    exit 4
+}
+
+_set_debug_level(){
+    DEBUG=$((DEBUG+1))
+    OUT=/dev/stderr; ERR=/dev/stderr
+    [ "$DEBUG" = 2 ] && DEBUGX=1
+    [ "$DEBUG" = 3 ] && set -x
+}
+
+_set_verbose_level(){
+    VERBOSE=$((VERBOSE+1))
+    case $VERBOSE in
+    1) WARN=1
+    OUT=/dev/stdout; ERR=/dev/stderr
+    VERB=-v;L_VERB=--verbose;A_VERB=-verbose
+    DBG=-d; L_DBG=--debug;   A_DBG=-debug
+    unset Q QUIET S SILENT
+    ;;
+    2) NOTICE=1;;
+    3) INFO=1;;
+    4) DEBUG=1;;
+    *) DEBUGX=1;;
+    esac
+}
+
+_parse_long_options(){
+test "$*" || return 3
+case $1 in
+*help)     _say_help 0;;
+*version)  _say_version;;
+*debug)    _set_debug_level;;
+*verbose)  _set_verbose_level;;
+*)         _say_unhandled_parameter $*;;
+esac
+}
+
+_parse_short_options(){
+    test "$*" || return 3
+    while getopt hVdv oneOP
+    do
+     case $oneOP in
+     h) _say_help 0;;
+     V) _say_version;;
+     d) _set_verbose_level;;
+     v) _set_verbose_level;;
+     *) _say_unhandled_parameter -$oneOP;;
+     esac
+    done
+}
+
+_parse_positional_parameters(){
+test "$*" || return 3
+case $1 in
+ --*|++*) _parse_long_options  $*;;
+ -*|+*)   _parse_short_options $*;;
+ *)   _say_unhandled_parameter $*;;
+esac
+}
+
+_run_pmount(){
+    [ "`pidof gtkdialog_pmount`" ] && killall gtkdialog_pmount >>$OUT 2>>$ERR && sleep 0.1
+    if [ "$*" ]; then
+    exec pmount "${*#*_}"
+    else
+    exec pmount
+    fi
+}
+
+_run_event_manager(){
+[ "`pidof eventmanager`" ] && killall -9 eventmanager >>$OUT 2>>$ERR && sleep 0.1
+exec eventmanager desktop
+}
+
+unmount_func(){
+ rox -D "$MNTPT"
+
+ ##+++2013-04-23 sync crap
+ if test "`mount |grep -m1 "$MNTPT" | grep '(rw'`" != "" ; then
+ pidof sync || { sync; sleep 2; }
+ fi
+
+ #while [ 1 ];do
+ while :;do
+
+  /bin/umount -dlr "$MNTPT" ; umVAL=$?
+  #fix zombie process prevents partition unmount, invisible to fuser...
+  if [ $umVAL -ne 0 ];then
+   #ZOMBIES=`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
+   ZOMBIES=`ps -H -A | grep '<defunct>' | grep -v 'grep' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
+   for oneZOMBIE in $ZOMBIES
+   do
+    echo "Killing parentless zombie process $oneZOMBIE"
+    kill $oneZOMBIE
+   done
+   /bin/umount -dlr "$MNTPT" ; umVAL=$?
+  fi
+
+  #rare ocassion, partition got unmounted before umount runs above...
+  umPATTERN="${MNTPT} "
+  [ "`busybox mount | grep "$umPATTERN"`" = "" ] && umVAL=0
+  if [ $umVAL -ne 0 ];then
+   #find loop mounts on that partition ..
+   local LOOPS_ALL mntHEX device_ device dev_hex_inode_ dev_hex_ dev_hex inode path_to_file_ path_to_file
+
+   LOOPS_ALL=`/sbin/losetup -a` || LOOPS_ALL=`/sbin/losetup`
+   mntHEX=`stat -c %D "$MNTPT"`
+
+   while read device_ dev_hex_inode_ path_to_file_
+   do
+   case "$device_" in "") continue;; esac
+    device=${device_%:*}
+
+    dev_hex_=${dev_hex_inode_%:*}
+     dev_hex=${dev_hex_//[\[\]]/}
+     #case $dev_hex in [$mntHEX]) :;; *) continue;; esac
+     [ "$dev_hex" = "$mntHEX" ] || continue
+
+    inode=${dev_hex_inode_##*:}
+
+    path_to_file=${path_to_file_%)*}
+    path_to_file=${path_to_file#*(}
+
+                                                _debug "$device $dev_hex $inode $path_to_file"
+                 # stat -c %D" "%n /mnt/* | awk "{if  (\$1 == \"$dev_hex\") print}"  #DEBUG
+        LOOP_MSG_=`stat -c %D" "%n /mnt/* | awk "{if (\\$1 == \"$dev_hex\") print}"`
+_info "$LOOP_MSG_ $device $path_to_file"
+     EXTRA_LOOP_MSG0="$EXTRA_LOOP_MSG0
+${LOOP_MSG_} $device $path_to_file"
+
+   done<<EoI
+`echo "$LOOPS_ALL"`
+EoI
+
+ # REM: TODO: umount loop devices too
+ # fi
+ # umount "$MNTPT" ; umVAL=$?
+ # if  [ $umVAL -ne 0 ];then
+
+   EXTRA_FUSER_MSG0=`fuser -v -m "$MNTPT" 2>&1`
+
+EXTRA_MSG0="$EXTRA_LOOP_MSG0
+$EXTRA_FUSER_MSG0"
+
+   EXTRA_MSG0=`echo "$EXTRA_MSG0" | sed '/^$/d'`
+
+   if [ "$EXTRA_MSG0" = "" ];then
+    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center -title 'FAILURE!' "Failed to unmount $MNTPT
+
+In the case of removable media, the most
+common reason is the media is not currently inserted.
+If so, please remedy."
+   else
+    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center -buttons KILL:10,EXIT:20 -title 'FAILURE!' "Failed to unmount $MNTPT
+ One or more processes (programs) are currently
+using /dev/${oneDRVNAME}. Here they are:
+$EXTRA_MSG0
+
+If you press the \"KILL\" button, Puppy will attempt to
+kill the offending programs for you. Only do this as a
+last resort. Firstly you should try to close the programs
+manually, so do not press \"KILL\".
+PLEASE PRESS THE \"EXIT\" BUTTON!"
+    if [ $? -eq 10 ];then
+     fuser -k -m "$MNTPT"
+     continue
+    fi
+   fi
+  else
+   #[ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+    case $oneDRVNAME in scd*|sr*|hd[a-z]) eject /dev/$oneDRVNAME;; esac
+  fi
+  break
+ done
+}
+
+_do_simple_unmount(){
+
+ mPATTERN='^/dev/'"$oneDRVNAME"' '
+ #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
+ MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+ [ "$MNTPT" = "" ] && exit 1 #precaution.
+ if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
+  xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
+is in use by Puppy. You cannot unmount it."
+  exit 2
+ fi
+ [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
+ unmount_func
+ exit $?
+}
+
+_do_unmount_all(){
+#v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
+ #for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
+ for MNTPT in `awk '{if (match($1, "/dev/.*[0-9]$") || $1 == "/dev/[fhlms].*[0-9]") print $2}' /proc/mounts | tac`
+ do
+ case $MNTPT in /initrd/*) continue;; esac
+ oneDRVNAME=`grep -w "$MNTPT" /proc/mounts | awk '{print $1}'`
+ oneDRVNAME=${oneDRVNAME##*/}
+ MNTPT=`echo -e "$MNTPT"`
+ #MNTPT=`echo "$MNTPT" | tr '\`' ' '`
+ test -d "$MNTPT" -a -e /dev/"$oneDRVNAME" || continue
+  [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
+  _info "umountall: Attempt to unmount MNTPT='$MNTPT'"
+  unmount_func
+  wait $yPID
+ done
+ exit $?
+}
+
+_do_toggle_mount_ro_rw(){
+  # first test if oneDRVNAME is mounted already
+  amiMOUNTED=`grep -w "^/dev/$oneDRVNAME" /proc/mounts`
+
+  # if not mounted, mount it
+  test "$amiMOUNTED" || {
+  /bin/mount $VERB -o ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  #return $?
+  exit $?
+  }
+
+  # test currently rw or ro mount
+  if
+  test "`echo "$amiMOUNTED" | awk '{if ( $4 == "rw" || match($4, "rw,.*") || match($4, ".*,rw,.*") ) print}'`"
+  then  # should be current rw mount
+  /bin/mount -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  else  # should be current ro mount
+  /bin/mount -o remount,rw /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME"
+  fi
+  exit $?
+}
+
+_do_fsck(){
+
+grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && _exit 10 "Found '$oneDRVNAME' in /proc/mounts"
+ FSTYPE=${DRV_CATEGORY#*_}
+ _notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE'"
+ [ "$FSTYPE" ] || _exit 11 "Missing FSTYPE"
+echo '#!/bin/sh
+fsck -C0 -v /dev/'"$oneDRVNAME"'
+RV=$?
+if [ "$RV" = 0 ]; then
+echo "Removing fsckme flag file ..."
+/bin/mount /dev/'"$oneDRVNAME"'
+[ $? = 0 ] && find /mnt/'"$oneDRVNAME"' -maxdepth 3 -iname "*fsckme*" -delete
+fi
+read -p "Press enter to close this window" CloseKey
+exit $RV
+'                >/tmp/fsck-$oneDRVNAME.sh
+ chmod $VERB 0744 /tmp/fsck-$oneDRVNAME.sh
+
+ rxvt -title "Fsck $oneDRVNAME" -e /tmp/fsck-$oneDRVNAME.sh
+ exit $?
+
+}
+
+INFO=1
+DEBUG=1
+DBEBUGX=1
+echo "$0:$*" >&2
+
+case "$0" in
+*./*|*../*)
+ MY_SELF=`readlink -f "$0"`
+ _info "MY_SELF='$MY_SELF'"
+;;
+esac
+
+[ "$MY_SELF" ] || MY_SELF="$0" # precaution
+_notice "MY_SELF='$MY_SELF'"
+
+#extract drive name from end of the script name...
+#note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
+#however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
+oneDRVNAME=`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+_info "oneDRVNAME='$oneDRVNAME'"
+
+[ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
+
+case $1 in
+'') _run_pmount;;
+esac
+
+for ap in $*
+do
+ case $ap in
+ -*|+*)        _parse_positional_parameters $ap;;
+ pmount_*)     _run_pmount $ap;;
+ eventmanager) _run_event_manager;;
+ unmount)            _do_simple_unmount;;
+ unmountall)         _do_unmount_all;;
+ *mountro*|*toggle*) _do_toggle_mount_ro_rw;;
+ fsck_*)             _do_fsck;;
+ all|drive|drives|card|floppy|optical|usbdrv) [ "$2" ] || _run_pmount $ap;;
+ help)    _say_help;;
+ version) _say_version;;
+ debug)   _set_debug_level;;
+ verbose) _set_verbose_level;;
+ *) # file-systems
+    unset FSTYPE
+    grep $Q -w "$ap" /proc/filesystems && FSTYPE=$ap || {
+    modinfo "$ap" >>$OUT 2>>$ERR && FSTYPE=$ap; }
+    [ "$FSTYPE" ] || _say_unhandled_parameter $ap
+ ;;
+ esac
+done
+
+
+case "$oneDRVNAME" in scd*|sr*|hd[a-z])
+ srPATTERN='^/dev/'"$oneDRVNAME"' '
+ if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
+  cddetect -q -d/dev/${oneDRVNAME}
+  RETVAL=$?
+  case $RETVAL in
+  3) #iso file: normal data cd.
+   true
+   ;;
+  1) #audio
+   ln -snf /dev/${oneDRVNAME} /dev/cdrom
+   exec defaultmediaplayer cdda://
+   ;;
+  5|6|7|8) #video dvd
+   ln -snf /dev/${oneDRVNAME} /dev/dvd
+   exec defaultmediaplayer dvd://
+   ;;
+  0) #failed to detect type.
+   #cddetect does not work properly for dvd's, try something else...
+   if [ "`dvd+rw-mediainfo /dev/$oneDRVNAME | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
+    ln -snf /dev/${oneDRVNAME} /dev/dvd
+    exec defaultmediaplayer dvd://
+   fi
+   ;;
+  esac
+ fi
+ FSTYPE=`guess_fstype /dev/${oneDRVNAME}`
+ [ "$FSTYPE" = 'unknown' ] && FSTYPE="iso9660"
+ [ "$FSTYPE" ] || FSTYPE="iso9660"
+;;
+esac
+
+#if dropped down here, it is likely to be a data partition...
+#if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
+#if [ "$ICONPARTITIONS" = "true" ];then
+if [ "$FSTYPE" != "" ];then
+ dPATTERN='^/dev/'"$oneDRVNAME"' '
+ if [ "`df | grep "$dPATTERN"`" = "" ];then
+  #not mounted...
+  mkdir -p /mnt/$oneDRVNAME
+  case $FSTYPE in
+   NTFS|Ntfs|ntfs)
+    #'mount' is a script that takes care of mounting ntfs...
+    /bin/mount -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    RETVAL1=$?
+    ;;
+   FAT|Fat|FAT*|Fat*|fat*|vfat)
+    #w476 modify codepage and iocharset (note: this code also in /usr/sbin/pmount)...
+    #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
+    NLS_PARAM=''
+    if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
+     KEYMAP=`cat /etc/keymap | cut -f 1 -d '.'`
+     case $KEYMAP in
+      de|be|br|dk|es|fi|fr|it|no|se|pt)
+       NLS_PARAM=',codepage=850'
+      ;;
+      slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
+       NLS_PARAM=',codepage=852,iocharset=iso8859-2'
+      ;;
+     esac
+    fi
+    /bin/mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    RETVAL1=$?
+    ;;
+   *)
+    FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
+    MOUNT_OPT=rw                   ##+++2013-04-23
+    [ "$FSTYPE" = iso9660 -o "$FSTYPE" = udf ] && MOUNT_OPT=ro
+    /bin/mount -t $FSTYPE -o $MOUNT_OPT /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    RETVAL1=$?
+    ;;
+  esac
+  [ $RETVAL1 -eq 0 ] && exec rox -x /mnt/$oneDRVNAME #-d /mnt/$oneDRVNAME
+ else
+  #mounted...
+  MNTPT=`df | grep "$dPATTERN" | tr -s ' ' | cut -f6- -d ' '`
+  if [ -h /mnt/home ];then
+   [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
+  fi
+  #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
+  exec rox -x "$MNTPT" -d "$MNTPT"
+ fi
+fi
+
+xmessage -bg orange2 -title "drive_all" "Err.. :Ooops:
+Could not start any handler for
+'$oneDRVNAME'  or  '$*'"
