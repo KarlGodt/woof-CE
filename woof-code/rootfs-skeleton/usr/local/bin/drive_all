@@ -15,7 +15,7 @@ ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -53,8 +53,8 @@ Version=1.1-KRG-MacPup_O2
 usage(){
 MSG="
 $0 [ help | version ]
-$0 [ pmount_ | eventmanager | unmount | unmountall ]
-   [ DRIVECATEGORY ]
+$0 [ pmount_ | eventmanager | unmount | unmountall | mountro | fsck_ ]
+   [ DRIVECATEGORY = '' | all | card | floppy | optical | usbdrv | drive ]
    [ option1 [ FILE_SYSTEM_TYPE ]]
 "
 echo "$MSG
@@ -79,9 +79,9 @@ unmount_func(){
  pidof sync || { sync; sleep 2; }
  fi
 
- while [ 1 ];do
-
-  /bin/umount -lr "$MNTPT" ; umVAL=$?
+ #while [ 1 ];do
+ while:; do
+  /bin/umount -dlr "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
    #ZOMBIES=`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`
@@ -91,7 +91,7 @@ unmount_func(){
     echo "Killing parentless zombie process $oneZOMBIE"
     kill $oneZOMBIE
    done
-   /bin/umount -lr "$MNTPT" ; umVAL=$?
+   /bin/umount -dlr "$MNTPT" ; umVAL=$?
   fi
 
   #rare ocassion, partition got unmounted before umount runs above...
@@ -165,7 +165,8 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
     fi
    fi
   else
-   [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+   #[ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
+    case $oneDRVNAME in scd*|sr*|hd[a-z]) eject /dev/$oneDRVNAME;; esac
   fi
   break
  done
@@ -180,19 +181,19 @@ FSTYPE=""
 _debug "\$0:$0 -- \$*: '$*' \$#=$#"
 
 # make MY_SELF absolute
-echo "MY_SELF='$MY_SELF'"
+_debugx "MY_SELF='$MY_SELF'"
 unset MY_SELF
-echo "MY_SELF='$MY_SELF'"
+_debugx "MY_SELF='$MY_SELF'"
 
 case "$0" in
 *./*|*../*)
  MY_SELF=`readlink -f "$0"`
- echo "MY_SELF='$MY_SELF'"
+ _info "MY_SELF='$MY_SELF'"
 ;;
 esac
 
 [ "$MY_SELF" ] || MY_SELF="$0" # precaution
-echo "MY_SELF='$MY_SELF'"
+_notice "MY_SELF='$MY_SELF'"
 
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
@@ -245,9 +246,12 @@ if [ "$1" = "unmountall" ];then
  #for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
  for MNTPT in `awk '{if (match($1, "/dev/.*[0-9]$") || $1 == "/dev/[fhlms].*[0-9]") print $2}' /proc/mounts | tac`
  do
+ case $MNTPT in /initrd/*) continue;; esac
  oneDRVNAME=`grep -w "$MNTPT" /proc/mounts | awk '{print $1}'`
+ oneDRVNAME=${oneDRVNAME##*/}
  MNTPT=`echo -e "$MNTPT"`
  #MNTPT=`echo "$MNTPT" | tr '\`' ' '`
+ test -d "$MNTPT" -a -e /dev/"$oneDRVNAME" || continue
   [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
   _info "umountall: Attempt to unmount MNTPT='$MNTPT'"
   unmount_func
@@ -266,41 +270,43 @@ _unmount_all $*
 # right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=eventmanager 2=
 #in first ex $1 can be drive,floppy,usbdrv,optical,card.
 
+__deprecated_unmount__(){
 #v424 have removed this dlg box. maybe make it optional in the future...
-#if [ $2 ];then
-# #if partition already mounted, offer to unmount it...
-# mPATTERN='^/dev/'"$oneDRVNAME"' '
-# MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
-# if [ "$MNTPT" != "" ];then
-#  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
-#   #it is allowed to be unmounted (not in use by woof)...
-#   xmessage -bg "orange" -title "Puppy drive manager" -center -buttons " NO :11,Unmount ${oneDRVNAME}:10,Unmount all:12" "Do you want to unmount ${oneDRVNAME}?
-#It is currently mounted on ${MNTPT}"
-#   UMNTFLG=$?
-#   if [ $UMNTFLG -eq 10 ];then
-#    unmount_func
-#   exit
-#   fi
-#   if [ $UMNTFLG -eq 12 ];then
-#    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
-#   do
-#    unmount_func
-#   done
-#    exit
-#   fi
-#  fi
-# fi
-#fi
+if [ $2 ];then
+ #if partition already mounted, offer to unmount it...
+ mPATTERN='^/dev/'"$oneDRVNAME"' '
+ MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+ if [ "$MNTPT" != "" ];then
+  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
+   #it is allowed to be unmounted (not in use by woof)...
+   xmessage -bg "orange" -title "Puppy drive manager" -center -buttons " NO :11,Unmount ${oneDRVNAME}:10,Unmount all:12" "Do you want to unmount ${oneDRVNAME}?
+It is currently mounted on ${MNTPT}"
+   UMNTFLG=$?
+   if [ $UMNTFLG -eq 10 ];then
+    unmount_func
+   exit
+   fi
+   if [ $UMNTFLG -eq 12 ];then
+    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
+   do
+    unmount_func
+   done
+    exit
+   fi
+  fi
+ fi
+fi
+}
 
 DRV_CATEGORY="${1}"
 [ "$DRV_CATEGORY" = "" ]    && DRV_CATEGORY="drive" #precaution.
 [ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
 [ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
-[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
+[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ]             && ICONDESK="true"
 [ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
-[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
-[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
+[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ]     && HOTPLUGNOISY="false"
+[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ]         && AUTOTARGET="true"
 [ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
 
 _run_pmount(){
@@ -368,13 +374,17 @@ _simple_toggle_ro_rw_mount(){
   exit $?
 }
 
+_test_toggle(){
 case $DRV_CATEGORY in  ##+++2014-11-08
 *mntro|*mountro|*toggle_mount|*mount_toggle)
 _simple_toggle_ro_rw_mount
 exit $?
 ;;
 esac
+}
+_test_toggle
 
+_do_fsck(){
 ### FSCK Menu entry ###
 _notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE'"
 case $DRV_CATEGORY in ##+++2014-10-18
@@ -401,10 +411,13 @@ exit $RV
 ;;
 esac
 ### FSCK Menu entry ###
+}
+_do_fsck
 
 _run_media_handler(){
 #oh, now have to analyse the media, decide what app to run...
-if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
+#if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
+case "$oneDRVNAME" in scd*|sr*|hd[a-z])
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
   cddetect -q -d/dev/${oneDRVNAME}
@@ -417,13 +430,13 @@ if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
    ln -snf /dev/${oneDRVNAME} /dev/cdrom
    exec defaultmediaplayer cdda://
    ;;
-  5) #video dvd
+  5|6|7|8) #video dvd
    ln -snf /dev/${oneDRVNAME} /dev/dvd
    exec defaultmediaplayer dvd://
    ;;
   0) #failed to detect type.
    #cddetect does not work properly for dvd's, try something else...
-   if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
+   if [ "`dvd+rw-mediainfo /dev/$oneDRVNAME | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
     ln -snf /dev/${oneDRVNAME} /dev/dvd
     exec defaultmediaplayer dvd://
    fi
@@ -433,7 +446,9 @@ if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
  FSTYPE=`guess_fstype /dev/${oneDRVNAME}`
  [ "$FSTYPE" = 'unknown' ] && FSTYPE="iso9660"
  [ "$FSTYPE" ] || FSTYPE="iso9660"
-fi
+;;
+esac
+#fi
 }
 _run_media_handler $*
 
