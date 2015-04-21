@@ -37,6 +37,9 @@ if [ -f $usermodmap ]; then
     xmodmap $usermodmap
 fi
 
+DEFAULTWM=enlightenment_start
+test -f /etc/windowmanager || { rm -f /etc/windowmanager; echo $DEFAULTWM >/etc/windowmanager; }
+
 CURRENTWM="`cat /etc/windowmanager`"
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
@@ -146,6 +149,7 @@ fi
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
+_restart_rox(){
 ##w468 rox may not start old hardware, try again...
 PS="`ps`" #reanimated krg Mar2011
 if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
@@ -153,11 +157,28 @@ if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
  sleep 0.2
  /usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin
 fi #reanimated krg Mar2011
+}
+_restart_rox
 
+_old_start_wm(){
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
 [ -x $CURRENTWM ] && exec $CURRENTWM
 exec jwm
+}
+
+_start_wm(){
+test "$*" || return 1	
+#echo "${*##*/}" >/etc/windowmanager	
+#exec "${*##*/}"	
+echo "$*" >/etc/windowmanager
+exec "$@"
+}
+
+which $CURRENTWM  && _start_wm $CURRENTWM
+[ -x $CURRENTWM ] && _start_wm $CURRENTWM 
+_start_wm $DEFAULTWM
+_start_wm jwm
 
 ###END###
