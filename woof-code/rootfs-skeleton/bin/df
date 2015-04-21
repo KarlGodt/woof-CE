@@ -2,25 +2,59 @@
 #(c) Barry Kauler 2009, licence GPL2
 #w482 fix for /dev/root.
 
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
 DF="busybox df"
 [ "`which df-FULL`" != "" ] && DF="df-FULL"
+
+#150420: df only works on entries in /proc/mounts
+test -e /proc/mounts || busybox mount -t proc proc /proc >&2
+#150420 Slacko64: manpage of rdev claims rdev only works on i386 arch ,
+# but df-FULL now shows real root device when root=/dev/sdaX sdaX is mounted on another mountpoint once temporarily
+
+_force_root_mount(){
+    tMNTPT=$((RANDOM));
+    mkdir "/etc/$tMNTPT" || return 1
+    mount-FULL -o ro $ROOTD "/etc/$tMNTPT" || return 2
+    ( sleep 3 && busybox umount -lr "/etc/$tMNTPT"
+    sleep 3 && rmdir "/etc/$tMNTPT" ) #&
+}
+
+ROOTD=`grep -o 'root=[^[:blank:]]\+' /proc/cmdline | cut -f2- -d'='`
+if test -b "$ROOTD"; then
+
+#grep $Q "^$ROOTD " /proc/mounts >&2 || { (
+#    tMNTPT=$((RANDOM));
+#    mkdir "/etc/$tMNTPT";
+#    mount-FULL -o ro $ROOTD "/etc/$tMNTPT"
+#    ( sleep 1 && umount -lr "/etc/$tMNTPT" && sleep 3 && rmdir "/etc/$tMNTPT" ) &
+#    ) >&2; }
+
+grep $Q "^$ROOTD " /proc/mounts >&2 || _force_root_mount >&2
+else true
+fi
 
 RETSTUFF="`$DF $@`"
 RETVAL=$?
 
+__hack_what__(){
 #hack to remove two conflicting entries mounted on / ...
-#if [ "`echo "$RETSTUFF" | grep '^rootfs '`" != "" ];then
-# if [ "`echo "$RETSTUFF" | grep '^/dev/root '`" != "" ];then
-#  RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
-# fi
-#fi
+if [ "`echo "$RETSTUFF" | grep '^rootfs '`" != "" ];then
+ if [ "`echo "$RETSTUFF" | grep '^/dev/root '`" != "" ];then
+  RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
+ fi
+fi
+}
+
 RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
 
+__old_real_rootdevice__(){
 #replace /dev/root with correct root partition...
 #rdev is a busybox applet...
 ROOTPARTITION="`$(which rdev) | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`"
 nPATTERN="s%^/dev/root %${ROOTPARTITION} %"
 [ "$ROOTPARTITION" ] && RETSTUFF="`echo "$RETSTUFF" | sed -e "$nPATTERN"`"
+}
 
 echo "$RETSTUFF"
 exit $RETVAL
