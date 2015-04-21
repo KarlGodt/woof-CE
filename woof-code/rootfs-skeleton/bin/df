@@ -15,15 +15,20 @@ test -e /proc/mounts || busybox mount -t proc proc /proc >&2
 _force_root_mount(){
     tMNTPT=$((RANDOM));
     mkdir "/etc/$tMNTPT" || return 1
-    mount-FULL -o ro $ROOTD "/etc/$tMNTPT" || return 2
+    mount-FULL $ROOTD "/etc/$tMNTPT" || { rmdir "/etc/$tMNTPT"; return 2; }
     ( sleep 3 && busybox umount -lr "/etc/$tMNTPT"
     sleep 3 && rmdir "/etc/$tMNTPT" ) #&
 }
 
-ROOTD=`grep -o 'root=[^[:blank:]]\+' /proc/cmdline | cut -f2- -d'='`
+ARCHTEK=`uname -m`
+
+case $ARCHTEK in
+x86_64)
+ROOTD=`grep -o 'root=[^[:blank:]]\+' /proc/cmdline | cut -f2- -d'=' | grep -v 'ram0$'`
 if test -b "$ROOTD"; then
 
-#grep $Q "^$ROOTD " /proc/mounts >&2 || { (
+#grep $Q "^$ROOTD " /proc/mounts >&2 || {
+##	(
 #    tMNTPT=$((RANDOM));
 #    mkdir "/etc/$tMNTPT";
 #    mount-FULL -o ro $ROOTD "/etc/$tMNTPT"
@@ -36,6 +41,11 @@ fi
 
 RETSTUFF="`$DF $@`"
 RETVAL=$?
+;;
+*)
+
+ RETSTUFF="`$DF $@`"
+ RETVAL=$?
 
 __hack_what__(){
 #hack to remove two conflicting entries mounted on / ...
@@ -48,13 +58,16 @@ fi
 
 RETSTUFF="`echo "$RETSTUFF" | grep -v '^rootfs '`"
 
-__old_real_rootdevice__(){
+_i386_real_rootdevice(){
 #replace /dev/root with correct root partition...
 #rdev is a busybox applet...
 ROOTPARTITION="`$(which rdev) | grep ' /$' | cut -f 1 -d ' ' | grep -E '/dev/sd|/dev/hd|/dev/mmc'`"
 nPATTERN="s%^/dev/root %${ROOTPARTITION} %"
 [ "$ROOTPARTITION" ] && RETSTUFF="`echo "$RETSTUFF" | sed -e "$nPATTERN"`"
 }
+_i386_real_rootdevice
+;;
+esac
 
 echo "$RETSTUFF"
 exit $RETVAL
