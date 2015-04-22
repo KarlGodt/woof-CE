@@ -69,6 +69,8 @@
 # Update: Feb. 8th 2009: Clean up static ip info from profile if changed (PaulBx1 suggested)
 # Update: Feb. 22nd: change the backing up of resolve.conf so it only saves as resolv.conf.old
 # Update: Mar. 19th: add wireless scan files to cleanUpTmp, change shebang to bash
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
 APPDIR="$(dirname $0)"
