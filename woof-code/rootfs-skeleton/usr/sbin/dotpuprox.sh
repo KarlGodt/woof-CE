@@ -1,4 +1,6 @@
 #!/bin/sh
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 # dotpup handler 0.0.4 - GuestToo - Feb 24, 2007
 # this is NOT a package management system
