@@ -3,6 +3,8 @@
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html).
 #calc free space in which to create/save files. called by freememapplet (in taskbar).
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
 
 #variables created at bootup by /initrd/usr/sbin/init...
