@@ -2,6 +2,8 @@
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #make the pup_save.2fs file bigger.
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #v555 pup files renamed to woofr555.sfs, woofsave.2fs.
 
 #variables created at bootup by /initrd/usr/sbin/init...
