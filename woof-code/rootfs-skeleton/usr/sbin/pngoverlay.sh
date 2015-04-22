@@ -5,6 +5,8 @@
 #requires netpbm svn rev 1543 or later, with pamcomp -mixtransparency
 #requires three params, 1st and 2nd must exist:
 # bottom-image top-image output-image
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #overlays the two images, with common areas of transparency in output image.
 
 [ ! $3 ] && exit 1
