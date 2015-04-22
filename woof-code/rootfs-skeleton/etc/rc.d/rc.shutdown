@@ -96,6 +96,7 @@ fi
 [ -f /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE #v2.02
 [ -z "$PUPMODE" -a -n "`rdev`" ] && PUPMODE=2
 . /etc/DISTRO_SPECS #v412
+. /etc/rc.d/f4puppy5
 
 echo "${DISTRO_NAME} $DISTRO_VERSION is now shutting down..." > /dev/console
 
@@ -127,7 +128,7 @@ cat_console(){
 }
 
 killzombies() {
- ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+ ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -o '[0-9]\+.*' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
 
   /bin/ps -H -A | grep '<defunct>' >/dev/console
   cat_console
@@ -342,7 +343,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  [ "$SFEXT" = "3fs" ] && JOPT='-j'
  echo "Creating $NAMEONLY in /dev/$SAVEPART, please wait awhile..." >/dev/console
  dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
- sync
+ _sync
  echo "Creating a $AAAFS filesystem in $NAMEONLY..." >/dev/console
  if [ "$CRYPTO" = "" ]; then
   mke2fs -q $JOPT -m 0 -F ${SMNTPT}$SAVEFILE
@@ -360,10 +361,10 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
   [ $? -eq 0 ] || return 1
   mke2fs -q $JOPT -m 0 $DEVLOOP #REMOVEDv3.98 added '-O none', fix mntg fail at boot.
-  sync
+  _sync
   losetup -d $DEVLOOP
  fi
- sync
+ _sync
  return 0
 } #end pupsavefunc
 
@@ -550,23 +551,23 @@ killall savepuppyd
 [ "`lsmod | grep '^ath_pci'`" ] && rmmod ath_pci
 
 cd /
-sync
+_sync
 #just a precaution...
 echo "Killing X and all X apps..."
 killall -9 X 1>$out 2>$err #> /dev/null 2>&1
 sleep 1
 killall -3 X 1>$out 2>$err #> /dev/null 2>&1
-sync
+_sync
 
 #MU warns may need to do this for dillo...
-killall file.dpi 1>$out 2>$err #2>/dev/null
+killall file.dpi      1>$out 2>$err #2>/dev/null
 killall bookmarks.dpi 1>$out 2>$err #2>/dev/null
-killall dpid 1>$out 2>$err #2>/dev/null
+killall dpid          1>$out 2>$err #2>/dev/null
 
 #v2.16 some packages have a service script that requires stopping...
-for service_script in /etc/init.d/*
+for service_script in `ls -1d /etc/init.d/* | tac`
 do
-  [ -x $service_script ] && $service_script stop
+  [ -f $service_script -a -x $service_script ] && exec $service_script stop & sleep 0.5
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 
@@ -711,7 +712,7 @@ swapfile_func() {
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of=${localSMNTPT}/pupswap.swp bs=1048576 count=$SWPSIZE
        if [ $? -eq 0 ]; then
-        sync
+        _sync
         mkswap ${localSMNTPT}/pupswap.swp
        fi
        if [ $? -ne 0 ]; then
@@ -719,7 +720,7 @@ swapfile_func() {
         rm -f ${localSMNTPT}/pupswap.swp 1>$out 2>$err
         echo "...error, unable to create swapfile." >/dev/console
        fi
-       sync
+       _sync
       fi
      fi
     fi
@@ -744,7 +745,7 @@ fi
 case $PUPMODE in
  5) #v2.02 first boot.
   echo "Session not saved" >/dev/console
-  sync
+  _sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
   #[ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
@@ -770,7 +771,7 @@ case $PUPMODE in
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
   cp -af /etc/DISTRO_SPECS ${DEV1MNT}/etc/
-  sync
+  _sync
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func $DEV1MNT $xPDEV
@@ -815,7 +816,7 @@ case $PUPMODE in
    cp -a $ONEDIR/* /tmp/save1stpup/${BASENAME}/ #v2.16exp3
    [ "$BASENAME" = "root" ] && cp -a $ONEDIR/.[0-9a-zA-Z]* /tmp/save1stpup/${BASENAME}/ #v2.16exp4
   done
-  sync
+  _sync
   umount /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
@@ -863,7 +864,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       if [ $DRVFREEK -gt $FILESIZEK ]; then
        echo "Copying $BASESFS..." >/dev/console
        cp -f $ONESFS $SMNTPT/
-       sync
+       _sync
       else
        echo "Insufficient space! Cannot copy $BASESFS" >/dev/console
        break
@@ -955,7 +956,7 @@ fi #KRG
 [ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
 }
 
-sync
+_sync
 
 
 retired_unmount_partitions(){
@@ -978,7 +979,7 @@ ONESTRAYMountpoint=`echo "$STRAYPARTitionsAndMountpoints" | grep "$ONESTRAY" | c
  #fuser -k -c $ONESTRAYDisk  ##2011-10-27 took off to prevent ntfs-3g gets killed
  fuser -k -m $ONESTRAYMountpoint
  killzombies #v3.99
- sync
+ _sync
  ##ONESTRAYM=`echo "$STRAYPART" | grep "$ONESTRAY" | cut -f 2 -d ' '`
  umount -r $ONESTRAY
 done
@@ -1006,7 +1007,7 @@ do
   [ "$xFUSER" ] && fuser -k -m "$MOUNT_POINT"
  fi
   killzombies #v3.99
- sync
+ _sync
  umount -r "$MOUNT_POINT" #120103 karl godt.
 done
 
@@ -1022,7 +1023,7 @@ do
  echo "Swapoff $ONESTRAY" >/dev/console
  swapoff $ONESTRAY
 done
-sync
+_sync
 
 #rm -f /tmp/wmexitmode.txt
 
@@ -1041,7 +1042,7 @@ if [ "`busybox mount | grep "$ABSPUPHOME"`" ]; then
   kill $ONEBAD
   sleep 1
   kill -9 $ONEBAD
-  sync
+  _sync
  done
  killzombies #v3.99
 fi
@@ -1050,7 +1051,7 @@ mv -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev
 
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ]; then
- sync
+ _sync
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
  SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
