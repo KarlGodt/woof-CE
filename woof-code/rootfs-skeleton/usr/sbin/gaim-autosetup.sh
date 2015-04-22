@@ -16,6 +16,8 @@
 #                           
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 # bugfix bk 2006
