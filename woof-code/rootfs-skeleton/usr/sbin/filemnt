@@ -401,15 +401,16 @@ _guess_file_fstype()
   Type=`guess_fstype "$file_toMOUNT"`
   if test -z "$Type" -o "$Type" = 'unknown'; then
    Ext=`echo "$file_toMOUNT" |sed 's/^.*\.//'`        # get file type from extention
-   if [ "$Ext" = '2fs' ] ;then #7
+   if [ "$Ext" = '2fs' -o "$Ext" = 'ext2' ] ;then #7
     Type='ext2'
-   elif [ "$Ext" = '3fs' ] ;then
+   elif [ "$Ext" = '3fs' -o "$Ext" = 'ext3' ] ;then
     Type='ext3'
-   elif [ "$Ext" = '4fs' ] ;then #v423 planning for the future!
+   elif [ "$Ext" = '4fs' -o "$Ext" = 'ext4'  ] ;then #v423 planning for the future!
     Type='ext4'
    elif [ "$Ext" = 'sfs' -o "$Ext" = 'sqfs' -o "$Ext" = 'squashfs' ] ;then
     Type='squashfs'
    elif [ "$Ext" = 'iso' ] ;then
+    disktype "$file_toMOUNT" #debug for udf
     Type='iso9660'
    # BK
    #elif [ "$imgFile" = 'initrd.gz' ] ;then
@@ -443,9 +444,14 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
    fi #8.1
    }
   fi #8
+} #_out_out_out
+
+_info "_guess_file_fstype:$file_toMOUNT:$Type"
+test "$Type" || return 3
+test "$Type" = 'unknown' && return 4
+return 0
 }
-}
-_guess_file_fstype
+_guess_file_fstype || _exit 5 "Could not determine filesystem-type of $file_toMOUNT"
 
 test "$Type" = 'squashfs' && _handle_squashfs
 
@@ -454,8 +460,10 @@ _mk_free_loop_device()
 local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
   test -c /dev/loop-control || { rm -f /dev/loop-control; mknod /dev/loop-control c 10 237; }
   FREE_LOOP=`losetup -f`
+  #test "$FREE_LOOP" || return 7
   [ -b "$FREE_LOOP" ] || {
-        _info "No free loop devices available.. Attempt to create one.."
+        _warn "No free loop devices available.. Attempt to create one.."
+        test -b /dev/loop0 || { which mdev && mdev -s || mknod /dev/loop0 b 7 0; }
         LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
         LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
         LOOP_NEW=$(( $LOOP_LAST + 1 ))
@@ -464,7 +472,7 @@ local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
         test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
  }
 }
-_mk_free_loop_device
+_mk_free_loop_device #|| _exit $? "No free loop devices available."
 
 _encrypted()
 {
