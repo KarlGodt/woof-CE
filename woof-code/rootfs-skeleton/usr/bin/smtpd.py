@@ -1,4 +1,6 @@
 #!/usr/bin/python
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
 """An RFC 2821 smtp proxy.
 
 Usage: %(program)s [options] [localhost:localport [remotehost:remoteport]]
