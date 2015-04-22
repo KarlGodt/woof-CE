@@ -3,8 +3,9 @@
 . /etc/rc.d/f4puppy5
 
 DO_UPDATE_SYSTEM=
+FORCE_SYSTEM_REPLACE=
 DO_UPDATE_GIT=1
-FORCE_GIT_REPLACE=
+FORCE_GIT_REPLACE=1
 ONLY_SCRIPTS=1
 DRY_RUN=
 CREATE_CHECK_FILE=
@@ -99,7 +100,7 @@ if test "$modS" -gt "$modF"; then
 	 dirG=".${sysF%/*}"
 	 mkdir -p "$dirG"
 
-	 /bin/cp -a --remove-destination --backup=numbered "$sysF" "$dirG"/
+	 /bin/cp -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
@@ -123,6 +124,7 @@ _force_replace_files_in_git(){
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
       echo "Failed replacing gitfile"
+      exho "Exiting."
       exit 9
      fi
  fi
@@ -130,9 +132,10 @@ _force_replace_files_in_git(){
 }
 
 if test "$FORCE_GIT_REPLACE" ; then
- _force_replace_files_in_git
+ test -d "$oneF" || _force_replace_files_in_git
+ continue
 else
- _update_git
+ test -d "$oneF" || _update_git
 fi
 
 _update_system(){
