@@ -1,4 +1,6 @@
 #!/bin/ash
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 
 MY_SELF="$0"
