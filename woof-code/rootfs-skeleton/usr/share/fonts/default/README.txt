@@ -44,18 +44,3 @@ On some web pages, DejaVu fonts do not render properly. Ligatures such
 as 'ffi' and 'fi' overlap but are not supposed to when separate chars.
 I applied a patch to the DejaVu v2.13 .sfd source and generated .ttf files.
 This patch turns off the ligatures. (sources044)
-
-------------------
-Woof, June 13 2010
-
-Have updated DejaVu sans fonts, v5.31
-
-Compiled from source with hacked Makefile to only create "LGC" reduced fonts but
-retain proper font naming without "LGC". 
-Manually install to /usr/share/fonts/default/TTF/
-
-And in that dir run:
-# mkfontscale
-# mkfontdir
-
-fc-cache also needs to be run, but i have done that in 3builddistro.
