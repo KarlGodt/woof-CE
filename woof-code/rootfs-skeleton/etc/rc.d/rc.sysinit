@@ -237,13 +237,13 @@ echo 'safeBoot='"$safeBoot" >/dev/console
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 
     #echo "Mounting /proc"
-busybox mount -t proc none /proc ;STATUS=$(( $STATUS + $? ))
+test -e /proc/mounts || busybox mount -t proc proc /proc ;STATUS=$(( STATUS + $? ))
     #echo 'STATUS='"$STATUS"
 
 if [ ! -d /initrd ]; then #w468
     #echo ' Mounting rw / and others'
  busybox mount -o remount,rw /
- STATUS=$(( $STATUS + $? ))
+ STATUS=$(( STATUS + $? ))
     #echo 'STATUS='"$STATUS"
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
@@ -267,25 +267,25 @@ exec 1>/tmp/bootsysinit.log."$_DATE_" 2>&1
 
 [ -d /dev/pts ] || mkdir -p /dev/pts
     echo "Mounting /dev/pts"
-busybox mount /dev/pts ;STATUS=$(( $STATUS + $? ))
+busybox mount /dev/pts ;STATUS=$(( STATUS + $? ))
     echo 'STATUS='"$STATUS"
 [ -d /sys ] || mkdir /sys
     echo "Mounting /sys"
-busybox mount -t sysfs none /sys ;STATUS=$(( $STATUS + $? ))
+busybox mount -t sysfs sysfs /sys ;STATUS=$(( STATUS + $? ))
     echo 'STATUS='"$STATUS"
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481  ##2011-10-20 TODO:-f4 instead of -f5
 if [ ! -d /initrd ]; then #weird, only full-hd install needs this for xfdiff.
- QTRFREERAM=`expr $FREERAM \/ 4`
+ QTRFREERAM=$((FREERAM / 4))
  [ -d /dev/shm ] || mkdir -p /dev/shm
- mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( $STATUS + $? ))
+ busybox mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( STATUS + $? ))
 fi
 
 #w478 moved this code above call to rc.update...
 KERNVER=`uname -r`
 KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
-echo 'KERNVER='$KERNVER >> /etc/rc.d/PUPSTATE
+echo "KERNVER='$KERNVER'" >> /etc/rc.d/PUPSTATE
 
 echo "`date` KRG part starts ... from $0"
 
@@ -797,7 +797,7 @@ DIR="$fs"
 case $fs in
 debugfs)
 [ -d /sys/kernel/debug ] || mkdir -p /sys/kernel/debug;
-busybox mount -t debugfs nodev /sys/kernel/debug;
+busybox mount -t debugfs debugfs /sys/kernel/debug;
 echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
 ;;
 *)
@@ -817,7 +817,7 @@ if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
  echo -n " pcmcia"
  while [ $WAITCNT -lt 10 ]; do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
   echo -n " $WAITCNT"
@@ -843,7 +843,7 @@ if [ "$PCIUSB" ]; then #this may be slow to respond.
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ]; do
   [ "`lsmod | grep -w -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
   echo -n " $WAITCNT"
@@ -920,7 +920,7 @@ if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_e
  while [ $WAITCNT -lt 15 ]; do
   [ "`dmesg | grep 'usb\-storage.*scan complete'`" ] && break
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   echo -n " $WAITCNT" >/dev/console
   echo -n " $WAITCNT"
  done
@@ -931,7 +931,7 @@ if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_e
   AVAILABLEUSBSTORAGES=`/bin/dmesg | grep -o "usb\-storage.*scan complete.*" | wc -l`
   [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
   sleep 1
-  WAITCNT1=`expr $WAITCNT1 + 1`  ###+2011-10-31 changed WAITCNT to WAITCNT1
+  WAITCNT1=$((WAITCNT1 + 1))  ###+2011-10-31 changed WAITCNT to WAITCNT1
   echo -n " $WAITCNT1" >/dev/console  ###+2011-10-31 changed WAITCNT to WAITCNT
   echo -n " $WAITCNT1"
  done
@@ -991,7 +991,8 @@ if [ "$safeBoot" -ge "4" ]; then
 [ -z "`lsmod | grep 'fbcon'`" ] && fbcon_func
 
 #had hoped to retire this, but HardInfo needs it...
-[ "`lsmod | grep '^usbcore'`" ] && busybox mount -t usbfs none /proc/bus/usb
+#[ "`lsmod | grep '^usbcore'`" ] && busybox mount -t usbfs usbfs /proc/bus/usb
+[ -d /proc/bus/usb ] && busybox mount -t usbfs usbfs /proc/bus/usb
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
@@ -1064,13 +1065,14 @@ do
  [ "$CDTYPE" = "" ] && CDTYPE="$ONEOPTICAL"
  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$ONEOPTICAL"
  [ ! "$CDBURNERTYPE" -a "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL"
- OPTCNT=`expr $OPTCNT + 1`
+ OPTCNT=$((OPTCNT + 1))
 done
 rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$CDTYPE" ] && ln -sf /dev/$CDTYPE /dev/cdrom
 [ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
-[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE
+#[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE
+case $DVDTYE in hd*) hdparm -d1 /dev/$DVDTYPE;; esac
 
 #w468 simplify...
 ##w463 i think time has come to dump the old 'psaux'. use /dev/input/mice for both usb
@@ -1088,7 +1090,7 @@ fi
 
 #recognise keyboard...
 #echo -n ' keyboard' >/dev/console
-/etc/rc.d/rc.country ;STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
+/etc/rc.d/rc.country ;STATUS=$(( STATUS + $? )) #this asks for keyboard layout.
 
 status_func $STATUS
 
