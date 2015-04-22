@@ -1,6 +1,38 @@
 For Puppy 4.1+
 --------------
 
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda8:
+# LABEL="MacPup431_O2"
+# UUID="6d9a8e91-c301-4ff8-9875-97ec708cbee8"
+# TYPE="ext3"
+# DISTRO_NAME='Puppy'
+# DISTRO_VERSION=431
+# DISTRO_BINARY_COMPAT='puppy'
+# DISTRO_FILE_PREFIX='pup'
+# DISTRO_COMPAT_VERSION='4'
+# PUPMODE=2
+# KERNVER=2.6.30.9-i586-dpup005-Celeron2G
+# PUP_HOME='/'
+# SATADRIVES='·'
+# USBDRIVES='·'
+# Linux·puppypc·2.6.30.9-i586-dpup005-Celeron2G·#6·SMP·Sat·Jan·15·13:35:51·GMT-8·2011·i686·GNU/Linux
+# Xserver=/usr/X11R7/bin/Xorg
+# $LANG=de_DE@euro
+# today=Do·27.·Okt·22:46:24·GMT-1·2011
+#
+#
+#
+#
+#
+########################################################################
+
+
 Firewall:
 
 When the firewall is installed, it will be in /etc/rc.d
