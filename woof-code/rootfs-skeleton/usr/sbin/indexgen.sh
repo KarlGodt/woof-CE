@@ -7,6 +7,8 @@
 #w016 support/find_homepages (in Woof) used to manually update HOMEPAGEDB variable.
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 #w464 reintroduce dropdown help for all builtin packages.
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
 
 export LANG=C
