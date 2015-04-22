@@ -1,6 +1,12 @@
 #!/bin/ash
 
-VERSION=0.0.1
+# source only once
+[ "$_HAVE_F4PUYYP5_" ] && return 0
+
+Q=-q;QUIET=--quiet;S=-s;SILENT=--silent
+OUT=/dev/null;ERR=/dev/null
+
+VERSION=0.0.1.1
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
 _test_f()
@@ -59,7 +65,7 @@ cd "$ME_DIR"
 
 _check_if_already_running()
 {
-pidof -o $$ -o %PPID "${0##*/}" && {
+pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
         echo "Already running."
         exit 1
  }
@@ -70,9 +76,9 @@ _check_for_terminal()
 {
 local MSG
 MSG="Need a contolling terminal"
-tty >/dev/null || {
+tty >>$OUT || {
 echo -n "Pid of X server:"
-pidof X && xmessage -br red "$MSG"; exit 2; } || {
+pidof X >>$OUT && xmessage -br red "$MSG"; exit 2; } || {
 echo "$MSG"; exit 2; }
 return $?
 }
@@ -303,22 +309,22 @@ esac
 shift
 
 #test "`echo "$*" | grep -E "$gPATTERN"`" && return 0 || return $EWRONGCONTENT
-#echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
+#echo "$*" | grep $Q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
 #echo "`eval echo \\$$*`"
 
-QUIET=-q
+Q=-q
 if test "$gOPT" = '-v'; then
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
 fi
 }
 
 #================= Check /tmp if read-write ==================================
 _check_proc()
 {
-  mountpoint -q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  mountpoint $Q /proc && return $? || {
+  busybox mount -o remount,rw /dev/root /
   test -d /proc || mkdir -p /proc
   busybox mount -t proc none /proc
   return $?
@@ -328,7 +334,7 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount -o remount,rw /dev/root /
  mkdir -p /tmp
  chmod 1777 /tmp
  return $?
@@ -340,17 +346,17 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint -q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+mountpoint $Q /tmp && {
+grep -F ' /tmp ' /proc/mounts  | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
  }
 }
 
 #============= Avoid multiple instances of sync ==============================
 _sync()
 {
-pidof sync || sync
+pidof sync >>$OUT || sync
 }
 
 #=============== LOGLEVEL / DEBUG MESSAGES ==================================
@@ -415,7 +421,7 @@ test "$DEBUGX" || return 0
 echo "$0:DEBUGX:$@"
 }
 
-DEBUGT=1
+DEBUGT=
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -497,7 +503,7 @@ test "$typeCOM" = "$whichCOM" && {
 #========= make nodes in /dev if /dev not mounted ============================
 _mkdevices()
 {
-mountpoint -q /dev && return 0
+mountpoint $Q /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
@@ -623,7 +629,7 @@ case $KERNELVER in
 ;;
 *) _err "_kernel_version:UNHANDLED KERNELVER '$KERNELVER'";;
 esac
-fi 2>/dev/null #if vercmp is not installed :P
+fi 2>$ERR #if vercmp is not installed :P
 
 #kVERSION="$K_VERSION"
 #kPATCHLEVEL="$K_PATCHLEVEL"
@@ -815,7 +821,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -1100,8 +1106,8 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
-grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }
 test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
@@ -1384,10 +1390,14 @@ _pidof()
 {
 case $1 in
 -q) shift;
-pidof $* >/dev/null; return $?
+pidof $* >>$OUT; return $?
 ;;
 *)
 pidof $*;return $?
 ;;
 esac
 }
+
+### END ###
+_HAVE_F4PUYYP5_=1
+### END ###
