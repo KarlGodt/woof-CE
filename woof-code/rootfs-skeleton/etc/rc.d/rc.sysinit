@@ -125,7 +125,8 @@ export LANG=C
 
 fsstate_func(){
 #t "`rdev`" || return $PUPMODE
-t "$PUPMODE" = 2 || return 0
+t "$PUPMODE" = 2   || return 0
+t -b /dev/"$PDEV1" || return 1
 echo -n "FILESYSTEM STATE:: $* : "
 dumpe2fs /dev/$PDEV1 | grep -i 'STATE'
 echo
@@ -190,15 +191,19 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-/bin/mount -t proc none /proc  >/dev/null;
-STATUS=$(($STATUS+$?))
+test -e /proc/mounts || busybox mount -t proc proc /proc
+STATUS=$((STATUS+$?))
 
 if t "$PUPMODE" = 2; then #w468
- /bin/mount -o remount,rw / >/dev/null
+ busybox mount -o remount,rw /dev/root /
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
+ t "$PDEV1" && echo "PDEV1='$PDEV1'" >>/etc/rc.d/PUPSTATE || {
+  devROOT=`rdev | awk '{print $1}'`
+  t -b "$devROOT" && PDEV1=${devROOT##*/} && echo "PDEV1='$PDEV1'" >>/etc/rc.d/PUPSTATE;
+  }
 fi
 QUIET=-q
-grep '/dev/root' /proc/mounts | grep $QUIET -w 'rw' || /bin/mount -o remount,rw /dev/root / >/dev/null
+grep '/dev/root' /proc/mounts | grep $QUIET -w 'rw' || busybox mount -o remount,rw /dev/root / >/dev/null
 
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
@@ -225,9 +230,9 @@ test "$PUPMODE" = 2 && _make_tmp_no_mount
 #t "$LOGLEVEL" || exec 1>/tmp/bootsysinit.log 2>&1
 exec 1>/tmp/bootsysinit.log 2>&1
 t -d /dev/pts || mkdir /dev/pts
-/bin/mount /dev/pts; STATUS=$(($STATUS+$?)) # uses fstab
-mkdir -p /sys
-/bin/mount -t sysfs none /sys; STATUS=$(($STATUS+$?))
+grep $Q ' /dev/pts ' /proc/mounts || busybox mount /dev/pts; STATUS=$((STATUS+$?)) # uses fstab
+t -d /sys || mkdir -p /sys
+t -e /sys/bus || busybox mount -t sysfs sysfs /sys; STATUS=$((STATUS+$?))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 #FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
@@ -239,8 +244,8 @@ EOI
 if t "$PUPMODE" = 2; then
  QTRFREERAM=`expr $FREERAM \/ 4` # google-chrome also
  t -d /dev/shm || mkdir /dev/shm
- /bin/mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm;
- STATUS=$(($STATUS+$?))
+ grep $Q ' /dev/shm ' /proc/mounts || busybox mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm;
+ STATUS=$((STATUS+$?))
 fi
 
 mountpoint $QUIET /dev &&  {
@@ -714,7 +719,7 @@ if t "`busybox modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729'
  echo -n " pcmcia"  >/dev/console
  while t $WAITCNT -lt 10;do
   t "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
@@ -727,7 +732,7 @@ if t "`busybox modprobe -l | grep '[eoux]hci[-_]hcd'`"; then
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while t $WAITCNT -lt 10;do
   t `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l` -ge $PCIUSBNUM && break
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
@@ -775,7 +780,7 @@ if t "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`"; then #see pup_eve
   #[ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
    t "`dmesg | grep 'usb\-storage.*scan complete'`" && break #usb-storage 1-1:1.0: scan complete
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT +1 ))
   echo -n " $WAITCNT" >/dev/console
  done
  #precaution, make sure have got them all... v412 need sort -u...
@@ -787,7 +792,7 @@ if t "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`"; then #see pup_eve
   AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb\-storage.*scan complete" | wc -l`
   t $AVAILABLEUSBSTORAGES -ge $USBSTORAGES && break
   sleep 1
-  WAITCNT=`expr $WAITCNT + 1`
+  WAITCNT=$((WAITCNT + 1))
   echo -n " $WAITCNT" >/dev/console
  done
 fi
@@ -860,7 +865,8 @@ if t -h /dev/modem; then
 fi
 
 #had hoped to retire this, but HardInfo needs it...
-t "`lsmod | grep '^usbcore'`" && /bin/mount -t usbfs none /proc/bus/usb
+#t "`lsmod | grep '^usbcore'`" && /bin/mount -t usbfs usbfs /proc/bus/usb
+t -d /proc/bus/usb && busybox mount -t usbfs usbfs /proc/bus/usb
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
@@ -917,7 +923,8 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 t "$CDTYPE" && ln -sf /dev/$CDTYPE /dev/cdrom
 t "$DVDTYPE" && ln -sf /dev/$DVDTYPE /dev/dvd
 t "$CDBURNERTYPE" && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
-t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE
+#t "$DVDTYPE" && hdparm -d1 /dev/$DVDTYPE
+case $DVDTYPE in hd*) hdparm -d1 /dev/$DVDTYPE;; esac
 status_func $STATUS
 timestamp_func "RECOGNISE MEDIA DEVICES."
 
@@ -933,7 +940,7 @@ fi
 
 #recognise keyboard...
 echo -n 'Setting keyboard' >/dev/console
-/etc/rc.d/rc.country ;STATUS=$(( $STATUS + $? )) #this asks for keyboard layout.
+/etc/rc.d/rc.country ;STATUS=$(( STATUS + $? )) #this asks for keyboard layout.
 status_func $STATUS
 timestamp_func "INPUT mouse, keyboard."
 
@@ -942,23 +949,39 @@ timestamp_func "INPUT mouse, keyboard."
 ############MISC DESKTOP STUFF##################
 
 if t "$PUPMODE" = "77";then #77=multisession cd/dvd.
- if t "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = ""; then
-  echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
+ if t "`grep "savesession" /root/Choices/ROX-Filer/PuppyPin`" = ""; then
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+  echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >>/tmp/PuppyPin-CPY
   pidof sync || sync
   cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
+ else true
+ fi
+else
+ if t "`grep "savesession" /root/Choices/ROX-Filer/PuppyPin`" != ""; then
+  grep -v 'label="save">/usr/sbin/savesession-dvd' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+  pidof sync || sync
+  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+ else true
  fi
 fi
 
 #save button on desktop when booted from flash drive...
 if t $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13;then #pup_rw is tmpfs.
- if t "`cat /root/Choices/ROX-Filer/PuppyPin | grep "save2flash"`" = ""; then
-  echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
-  pidof sync || sync
+ if t "`grep "save2flash" /root/Choices/ROX-Filer/PuppyPin`" = ""; then
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+  echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >>/tmp/PuppyPin-CPY
+    pidof sync || sync
   cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
+ else true
+ fi
+else
+ if t "`grep "save2flash" /root/Choices/ROX-Filer/PuppyPin`" != ""; then
+  grep -v 'label="save">/usr/sbin/save2flash' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+    pidof sync || sync
+  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+ else true
  fi
 fi
 
@@ -975,16 +998,17 @@ fi
 . /etc/rc.d/rc.local
 timestamp_func 'rc.local.'
 
-dmesg > /tmp/bootkernel.log
-
 timestamp_func 'X.status ..'
-if t "`basename $(readlink -f $(which X))`" != "Xorg"; then
-echo 'nox' > /tmp/X.status
-elif t -n "`cat /proc/cmdline | grep -i 'nox'`"; then
-echo 'nox' > /tmp/X.status
-else
-echo 'X' > /tmp/X.status
-fi
+#if t "`basename $(readlink -f $(which X))`" != "Xorg"; then
+case `readlink -f $(which X)` in
+*Xorg*) if t -n "`grep -i 'nox' /proc/cmdline`"; then
+         echo 'nox' > /tmp/X.status
+        else
+         echo 'X' > /tmp/X.status
+        fi
+       ;;
+*)     echo 'nox' > /tmp/X.status;;
+esac
 timestamp_func 'X.status.'
 
 timestamp_func 'fsckme.flg ..'
@@ -996,9 +1020,9 @@ fi
 timestamp_func 'fsckme.flg.'
 
 timestamp_func 'DEVICES ..'
-t -c /dev/ppp || mknod /dev/ppp c 108 0
+t -c /dev/ppp   || mknod /dev/ppp c 108 0
 t -L /dev/mouse || ln -s /dev/input/mice /dev/mouse
-t -c /dev/mem || mknod /dev/mem c 1 1
+t -c /dev/mem   || mknod /dev/mem c 1 1
 t -L /dev/modem || ln -s /dev/ttyUSB0 /dev/modem
 timestamp_func 'DEVICES.'
 
@@ -1025,5 +1049,6 @@ echo "pup_eve_bac_mod_func `date`"
 }
 pup_eve_bac_mod_func &
 
+dmesg > /tmp/bootkernel.log
 #that's it. next stop is /etc/profile...
 ###END###
