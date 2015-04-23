@@ -185,6 +185,9 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
  [ -f /usr/bin/fbpanel ] && fbpanel &
  [ -f /usr/bin/lxpanel ] && lxpanel &
 fi
+
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+
 echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 echo "$0:exec '$CURRENTWM'"
 exec $CURRENTWM
