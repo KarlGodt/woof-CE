@@ -156,8 +156,8 @@ PSUBDIR="`dirname "$PUPSFSFILE"`"
 
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ ! "`pidof snapmergepuppy | grep '[0-9]'`" = "" ];do
- a=$(( $a + 1 ))
+while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
+ a=$(( a + 1 ))
  echo 'snapmergepuppy still running :'"$a"
  sleep 1
 done
@@ -206,9 +206,9 @@ killall dpid
 #echo LINE 587 516  ###DBG
 
 #v2.16 some packages have a service script that requires stopping...
-for service_script in /etc/init.d/*
+for service_script in `ls -1dv /etc/init.d/* | tac`
 do
-  [ -f $service_script -a -x $service_script ] && $service_script stop
+  [ -f $service_script -a -x $service_script ] && exec $service_script stop & sleep 0.5
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 #echo LINE 594 523  ###DBG
@@ -221,20 +221,24 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   #got this out of rc.pcmcia, modified...
   echo -n "Shutting down PCMCIA services: "
   if [ -s /var/run/cardmgr.pid ] ; then
-   PID=`cat /var/run/cardmgr.pid`
+   read PID </var/run/cardmgr.pid
+   if "$PID"; then
    kill $PID
    for N in 1 2 3 4 ; do
     kill -0 $PID || break #-0 is test only.
     sleep 1
    done
+   fi
   fi
   if [ -s /var/lib/pcmcia/cardmgr.pid ] ; then
-   PID=`cat /var/lib/pcmcia/cardmgr.pid`
+   read PID </var/lib/pcmcia/cardmgr.pid
+   if "$PID"; then
    kill $PID
    for N in 1 2 3 4 ; do
     kill -0 $PID || break #-0 is test only.
     sleep 1
    done
+   fi
   fi
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
   /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
@@ -255,8 +259,8 @@ echo "END IF PUPMODE 5" #DBG
 
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
- SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
+   SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
@@ -279,21 +283,21 @@ rm -f /var/run/*.pid
 rm -rf /root/tmp 2> /dev/null #...note, not screening this out in any of above save modes.
 
 if test "$PUPMODE" != "2" ; then  ###KRG
-FP=`_command df | grep '/pup_rw' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
-if [ "$FP" -gt 89 ]; then  ###KRG
-echo "Frugal Install ,free space less than 11%; removing thumbnails" > /dev/console  ###DBG
-rm -rf /root/.thumbnails/* 2> /dev/null
+ FP=`_command df | grep '/pup_rw' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
+ if [ "$FP" -gt 89 ]; then  ###KRG
+ echo "Frugal Install ,free space less than 11%; removing thumbnails" > /dev/console  ###DBG
+ rm -rf /root/.thumbnails/* 2> /dev/null
+ else  ###KRG
+ echo "Frugal Install ,free space more than 10%; leaving thumbnails ok "
+ fi  ###KRG
 else  ###KRG
-echo "Frugal Install ,free space more than 10%; leaving thumbnails ok "
-fi  ###KRG
-else  ###KRG
-FP=`_command df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
-if test "$FP" -lt 5; then  ###KRG
-echo "Full install , free space lesser than 5%; removing thumbnails"  ###KRG
-rm -rf /root/.thumbnails/* 2> /dev/null  ###KRG
-else  ###KRG
-echo "Full install , free space more than 5%; leaving thumbnails ok"  ###KRG
-fi  ###KRG
+ FP=`_command df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
+ if test "$FP" -lt 5; then  ###KRG
+ echo "Full install , free space lesser than 5%; removing thumbnails"  ###KRG
+ rm -rf /root/.thumbnails/* 2> /dev/null  ###KRG
+ else  ###KRG
+ echo "Full install , free space more than 5%; leaving thumbnails ok"  ###KRG
+ fi  ###KRG
 fi  ###KRG
 sleep 3
 pidof sync || sync
@@ -305,12 +309,14 @@ MNTDPARTS="`mount|tac`"
 
 #echo
 ##REMARK1 : fuser -c /dev/sda4 would return ntfs-3g PID but -c [||-m] /mnt/sda4 not  ##+++2011_10_27
-echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
+#echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
 echo "$MNTDPARTS"
-STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E "/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / |^devramfs |^devtmpfs "`
+#STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E "/dev/pts|/proc|/sys|tmpfs|rootfs|/dev/root|usbfs|unionfs|/initrd| on / |^devramfs |^devtmpfs "`
+STRAYPARTL=`echo "$MNTDPARTS" |grep -v -E " on /dev[ /]+|/proc|/sys|tmpfs|ramfs|rootfs|/dev/root|usbfs|unionfs| on /initrd[ /]+| on / type "`
 echo "$STRAYPARTL"
 STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 3 -d " "`  ##2011_10_27 BUG though inside doublequotes , $TRAYPARTL needs doubblequotes
 echo "$STRAYPARTMP"  ##2011_10_27 BUG echo"$STRAYPARTMP"
+[ "$STRAYPARTMP" ] && echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
 for oneSTRAY in $STRAYPARTMP  ##in MountPoints
 do
  echo -e "\e[1;31mUnmounting STRAY $oneSTRAY...\e[0;39m"
@@ -341,12 +347,14 @@ pidof sync || sync
 #
 # Stop udev & loggers
 
-pidof udevd && killall udevd
-pidof klogd && killall klogd       ## busybox applet
-pidof syslogd && killall syslogd   ## busybox applet
 pidof tempget && killall tempget   ## e17 daemon
 #killall pup_event_backend_modprobe_protect  ##+++2011-10-27
 #which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
+pidof udevd && killall udevd
+pidof klogd && killall klogd       ## busybox applet
+pidof syslogd && killall syslogd   ## busybox applet
+
+
 
 remove_fsckme_func(){
 find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
@@ -414,7 +422,7 @@ if [ "$SAVE_LAYER" ];then  ##PupSave ie /pup_rw
 echo '$SAVE_LAYER='"$SAVE_LAYER"
  pidof sync || sync
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
- SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
+  SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
  umount-FULL -v -i -n -l /initrd/${SAVE_LAYER}  #-l is lazy unmount.
  Err=$?
@@ -464,5 +472,5 @@ dumpe2fs `rdev` | grep -i 'state'
 }
 
 [ -f /etc/rc.d/rc.shutdown.local.end0 ] && . /etc/rc.d/rc.shutdown.local.end0
-sleep 20
+sleep 2
 #the end#
