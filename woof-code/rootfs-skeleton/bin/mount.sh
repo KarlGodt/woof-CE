@@ -19,6 +19,7 @@ fi
 
 _debugt 8F
 test "$*" || exec busybox mount
+test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
 _debugt 8E $_DATE_
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
@@ -52,7 +53,7 @@ _check_proc()
 {
  _debug "_check_proc:mountpoint $QUIET /proc"
   mountpoint $QUIET /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  busybox mount -o remount,rw /dev/root /
   test -d /proc || mkdir -p /proc
   busybox mount -t proc none /proc
   return $?
@@ -62,7 +63,7 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount -o remount,rw /dev/root /
  mkdir -p /tmp
  chmod 1777 /tmp
  return $?
@@ -78,7 +79,12 @@ _debug "_check_tmp_rw:mountpoint $QUIET /tmp"
 mountpoint $QUIET /tmp && {
 grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+  ROOTD=`/bin/df | grep -m1 ' /$' | awk '{print $1}'`
+  if [ -b "$ROOTD" ]; then
+   grep $Q "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+  else
+   grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+  fi
  }
 
 }
