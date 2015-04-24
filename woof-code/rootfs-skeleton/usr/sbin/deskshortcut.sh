@@ -1,8 +1,6 @@
 #!/bin/sh
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #this is very primitive script to create desktop shortcut.
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 
 while [ 1 ]
