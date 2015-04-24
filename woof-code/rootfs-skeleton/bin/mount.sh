@@ -22,7 +22,6 @@ test "$*" || exec busybox mount
 test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
 _debugt 8E $_DATE_
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 _debugt 8D $_DATE_
 
 Q=-q
