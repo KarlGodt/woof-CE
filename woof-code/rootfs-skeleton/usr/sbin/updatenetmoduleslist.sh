@@ -4,8 +4,6 @@
 #w474 bugfix for 2.6.29 kernel, modules.dep different format.
 #w478 old k2.6.18.1 has madwifi modules (ath_pci.ko) in /lib/modules/2.6.18.1/net.
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 KERNVER="`uname -r`"
 KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
