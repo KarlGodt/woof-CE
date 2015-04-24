@@ -4,6 +4,8 @@
 #calc free space in which to create/save files. called by freememapplet (in taskbar).
 #v3.95 freememapplet_xlib does not call this, instead /usr/sbin/savepuppyd does.
 #v3.95 savepuppyd no longer calls this. calcfreespace.sh no longer used.
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE #v2.02
