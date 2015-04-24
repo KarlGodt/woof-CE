@@ -66,9 +66,10 @@ echo "$0:|$@|" >&2
 
 
 ###KRG : changed order @start ; wideded the loop @stop [ still leaves snd,soundcore,ac_97_bus ] ; added suport for retrovol@$DISPLAY
+. /etc/rc.d/f4puppy5
 
 ###<KRG>
-PROG='/etc/init.d/alsa'
+PROG='/etc/init.d/alsa_snd'
 if [ ! -f "$PROG" ] ; then
 PROG=''
 [ ! -e "`which alsa`" ] && PROG='alsa'
@@ -95,7 +96,7 @@ case "$1" in
   while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do
   echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
   sleep 3
-  CNT=$(( $CNT + 1 ))
+  CNT=$(( CNT + 1 ))
   if [ "$CNT" = "20" ] ; then
   modprobe snd-card-0
   break
@@ -123,6 +124,7 @@ case "$1" in
      DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr ':' '@' | tr ' ' '@' -exec echo \; ` ;
      POOL="$POOL $DEV"
     done
+   test -d /dev/snd || mkdir $VERB -p /dev/snd
    POOL=`echo $POOL | rev`
     for i in $POOL ; do
      NODE=`echo $i | cut -f 3 -d '@'`
@@ -133,9 +135,9 @@ case "$1" in
      Min=`echo $i | cut -f 1 -d '@'`
      Min=`echo $Min | rev`
      echo "$NODE" "$MAJ" "$Min"
-     rm /dev/$NODE  ###KRG 2>/dev/null
+     rm -f /dev/$NODE
      mknod /dev/$NODE c $MAJ $Min
-     rm /dev/snd/$NODE  ###KRG 2>/dev/null
+     rm -f /dev/snd/$NODE
      mknod /dev/snd/$NODE c $MAJ $Min
     done  ###</KRG>
 
@@ -184,7 +186,8 @@ EOF
   ###<KRG>
   if [ -n "$DISPLAY" ] ; then
    if [ -n "`which retrovol`" ] ; then
-    [ -z "`pidof retrovol`" ] && retrovol &
+    HIDE=-hide
+    [ -n "`pidof retrovol`" ] || retrovol $HIDE &
    fi
   fi
  echo "... $PROGPAT $@ finished"   ###</KRG>
@@ -202,8 +205,8 @@ EOF
   alsactl -f /etc/asound.state store #saves to /etc/asound.state.
   # Kill processes holding open sound devices...
   fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >/dev/null 2>&1
-  [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/* >/dev/null 2>&1
-  [ -d /dev/snd ] && fuser -k /dev/snd/* >/dev/null 2>&1
+  [ -d /proc/asound/dev ] && fuser $VERB -k /proc/asound/dev/* >/dev/null 2>&1
+  [ -d /dev/snd ] && fuser $VERB -k /dev/snd/* >/dev/null 2>&1
   # remove all sequencer connections if any
   [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
   # mute master to avoid clicks at unload
@@ -218,16 +221,16 @@ EOF
   do
          echo -n "$line "  ###KRG
      ###KRGrmmod -f -w "$line"
-     modprobe -r $line  ###KRG
+     modprobe $VERB -r $line  ###KRG
      sleep 0.1  ###KRG
   done
-  CNT=$(( $CNT + 1 ))  ###KRG
+  CNT=$(( CNT + 1 ))  ###KRG
   [ "$CNT" = "9" ] && echo -e "\\033[1;34m"'breaking now'"\\033[0;39m" && break  ###KRG precaution###KRG
   done  ###KRG
 
   # remove the 2.2 soundcore module (if possible)
   rmmod soundcore 2> /dev/null
-  rmmod gameport 2> /dev/null
+  rmmod gameport  2> /dev/null
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
   echo "... $PROGPAT $@ finished"  ###KRG
