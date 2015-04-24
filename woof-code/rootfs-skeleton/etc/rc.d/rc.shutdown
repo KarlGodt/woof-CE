@@ -87,11 +87,11 @@ pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
 echo "Executing /etc/rc.d/rc.shutdown..."
 
 [ -f /etc/rc.d/rc.shutdown.local.start0 ] && . /etc/rc.d/rc.shutdown.local.start0  ###KRG
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
-test -f /etc/rc.d/functions4shutdown && source /etc/rc.d/functions4shutdown
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+test -f /etc/rc.d/functions4shutdown && . /etc/rc.d/functions4shutdown
 
 #variables created at bootup by init script in initrd...
-[ ! -f /etc/rc.d/PUPSTATE -a -f /etc/rc.d/PUPSTATE.prev ] && cp -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE && sleep 1  ###KRG
+[ ! -f /etc/rc.d/PUPSTATE -a -f /etc/rc.d/PUPSTATE.prev ] && cp $VERB -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE && sleep 1  ###KRG
 
 test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE #v2.02
 Err=$?
@@ -125,6 +125,7 @@ if [ "`which xorriso`" != "" ];then
  MKISOFS='xorrisofs' #growisofs reads this variable.
 fi
 export CDRECORD MKISOFS
+. /etc/rc.d/functions4puppy #v3.01 #multisession functions
 
 [ -f /etc/puppyversion ] && PUPPYVERSION="`cat /etc/puppyversion`"  ###KRG added test ###is it needed here?? ##2011_10_27 /etc/puppyversion seems to be a quite old old conf file
 . /etc/DISTRO_SPECS #v412
@@ -139,21 +140,14 @@ fi
 
 ORIGPUPMODE=$PUPMODE #v2.22
 
-#echo LINE 130 63  ###DBG
-
 #v2.20 if ${DISTRO_FILE_PREFIX}rxxx.sfs is in a subdirectory, default to saving in it...
 PUPSFSFILE="`echo "$PUPSFS" | cut -f 3 -d ','`"
 PSUBDIR="`dirname "$PUPSFSFILE"`"
 [ "$PSUBDIR" = "/" ] && PSUBDIR=""
-#echo LINE 135 68  ###DBG
 
 #for a full hd install, only setting PUPMODE (=2). no /initrd, no initrd.gz.
 
-. /etc/rc.d/functions4puppy #v3.01 #multisession functions
-#echo LINE 139 72  ###DBG
-
 [ -f /etc/rc.d/rc.shutdown.local.start2 ] && . /etc/rc.d/rc.shutdown.local.start2
-
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
 while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
@@ -161,9 +155,9 @@ while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
  echo 'snapmergepuppy still running :'"$a"
  sleep 1
 done
-killall savepuppyd
+_pidof $Q savepuppyd && killall savepuppyd
 
-which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &
+which pup_event_backend_modprobe_protect >>$OUT && pup_event_backend_modprobe_protect --stop &
 
 _old_alsa(){
 #rc.local0 can read this...
@@ -205,13 +199,16 @@ killall bookmarks.dpi
 killall dpid
 #echo LINE 587 516  ###DBG
 
+_stop_services(){
 #v2.16 some packages have a service script that requires stopping...
 for service_script in `ls -1dv /etc/init.d/* | tac`
 do
   [ -f $service_script -a -x $service_script ] && exec $service_script stop & sleep 0.5
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
-#echo LINE 594 523  ###DBG
+}
+/etc/rc.d/rc.services stop
+
 
 _unload_pcmcia()
 {
@@ -253,9 +250,7 @@ _unload_pcmcia
 
 
 _pupmode5
-echo "END IF PUPMODE 5" #DBG
-
-
+#echo "END IF PUPMODE 5" #DBG
 
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
@@ -329,11 +324,11 @@ do
  #fusermount version: 2.7.0 [options] mountpoint
  fusermount -u $oneSTRAY ##unmounts MountPoint
  else
- _command umount -r $oneSTRAY  ##unmounts MountPoint
+ _command umount $VERB -r $oneSTRAY  ##unmounts MountPoint
  fi
 done
 
-swapoff -a #busybox swapoff -a works only if swaps are in mtab or fstab
+swapoff -a $VERB #busybox swapoff -a works only if swaps are in mtab or fstab
 #v2.13 menno suggests this improvement...
 STRAYPARTD=`grep "/dev/" /proc/swaps | grep -v 'deleted' | cut -f 1 -d " "`
 for oneSTRAY in $STRAYPARTD
@@ -379,12 +374,12 @@ if [ $PUPMODE -ne 5 ]; then
    *)   uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts)
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
       if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
-        mkdir -p /tmp/unrootfs
+        mkdir $VERB -p /tmp/unrootfs
         pidof sync || sync
-        mount -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
+        mount $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
         pidof sync || sync
       fi
-      mount -o remount,ro /initrd${SAVE_LAYER}
+      mount $VERB -o remount,ro /initrd${SAVE_LAYER}
       pidof sync || sync
       ;;
   esac
@@ -423,17 +418,17 @@ echo '$SAVE_LAYER='"$SAVE_LAYER"
  pidof sync || sync
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
   SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
- busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
- umount-FULL -v -i -n -l /initrd/${SAVE_LAYER}  #-l is lazy unmount.
+ busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
+ umount-FULL $V -i -n -l /initrd/${SAVE_LAYER}  #-l is lazy unmount.
  Err=$?
  #echo $Err  ###DBG
  if [ "$Err" != 0 ] ; then
- _command umount -l /initrd/${SAVE_LAYER}
+ _command umount $VERB -l /initrd/${SAVE_LAYER}
  fi
 fi
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
-MNTFUSE=`busybox mount | grep 'fuse' | head -n 1 | cut -f 3 -d ' '`  ##would need a loop I guess
+MNTFUSE=`busybox mount | grep -E ' fuse | fuseblk ' | head -n 1 | cut -f 3 -d ' '`  ##would need a loop I guess
 if [ "$MNTFUSE" != "" ];then
  #v2.17 hairywill found the -u is required with -z...
  fusermount -z -u $MNTFUSE  ##MountPoint
@@ -442,7 +437,7 @@ elif [ "$PDEV1" ];then #from PUPSTATE
   if [ "`busybox mount | grep "$dPATTERN"`" != "" ];then
    #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
    #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
-   : || umount-FULL -v -i -n -l /dev/$PDEV1
+   : || umount-FULL $VERB -i -n -l /dev/$PDEV1
   fi
 fi
 
@@ -461,8 +456,8 @@ echo
 }
 
 echo "ENDING NOW"  ###DBG
-#KRGbusybox umount -ar > /dev/null 2>&1
-busybox umount -ar
+#KRGbusybox umount $VERB $VERB -ar > /dev/null 2>&1
+busybox umount $VERB $VERB -ar
 echo "unmounted all -r  -- Tried to remount devices as read-only if mount is busy"
 test -f /proc/mounts && mount ###DBG
 
