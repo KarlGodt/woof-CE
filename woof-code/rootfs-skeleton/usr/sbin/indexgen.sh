@@ -8,6 +8,8 @@
 #w019 now have /root/.packages/PKGS_HOMEPAGES
 #w464 reintroduce dropdown help for all builtin packages.
 #v423 file PKGS_HOMEPAGES is now a db of all known pkgs, not just in puppy.
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 export LANG=C
 . /etc/DISTRO_SPECS #has DISTRO_BINARY_COMPAT, DISTRO_COMPAT_VERSION
