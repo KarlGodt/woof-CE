@@ -45,7 +45,6 @@
 
 LONG_NETWORK_NAME=""
 SHORT_NETWORK_NAME=""
-. /etc/rc.d/f4puppy5
 LOCAL_NETWORK=""
 
 ###########################################################
@@ -2117,7 +2116,6 @@ for NETWORK in \$BLACKLIST; do
 	iptables -t filter -I FORWARD -s \$NET -p tcp \$PORT -j DROP
 	iptables -t filter -I FORWARD -d \$NET -p tcp \$PORT -j DROP
       fi
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
       iptables -t filter -I INPUT -s \$NET -p tcp \$PORT -j DROP
       iptables -t filter -I INPUT -d \$NET -p tcp \$PORT -j DROP
       iptables -t filter -I OUTPUT -s \$NET -p tcp \$PORT -j DROP
