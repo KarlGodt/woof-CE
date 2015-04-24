@@ -67,6 +67,9 @@
 #v406 a really gross workaround for now. rerwin found that the /etc/init.d/slomodem
 #script was running before slusb had properly loaded (on a slow PC). As this
 #problem could occur for any init.d script, a big sleep here...
+
+case $1 in
+''| start)
 sleep 3
 
 LSMODS=`lsmod | cut -f 1 -d ' ' | grep -v -w -E 'snd|processor|ac'`
@@ -75,8 +78,9 @@ echo "$i"
 find /etc/init.d/ -maxdepth 1 \( -type f -o -type l \) -iname "*$i*" -exec echo chmoding +x {} \; -exec chmod +x {} \;
 done
 
-LSMODS2=`echo "$LSMODS" | tr '\n' '|' | sed 's#|$##'`
+LSMODS2=`echo "$LSMODS" | tr '\n' '|' | sed 's#|*$##'`
 echo LSMODS2="$LSMODS2"
+
 for i in /etc/init.d/FIRMWARE/* ; do
 #if [ -z "`echo "$LSMODS" | grep -i "$(basename "$i")"`" ] ; then
 
@@ -87,31 +91,85 @@ for i in /etc/init.d/FIRMWARE/* ; do
   echo "chmod +x $i"
  chmod +x "$i"
  fi
+
 done
 
 for_func(){
 for service_script in /etc/init.d/*
 do
- [ -x $service_script ] && echo "$service_script" && $service_script start
+ [ -x $service_script ] && echo "$service_script" && exec $service_script start & sleep 0.1
 done
 unset service_script
 
 for service_script in /etc/init.d/DEFAULT/*
 do
- [ -x $service_script ] && echo "$service_script" && $service_script start
+ [ -x $service_script ] && echo "$service_script" && exec $service_script start & sleep 0.1
 done
 unset service_script
 
 for service_script in /etc/init.d/FIRMWARE/*
 do
- [ -x $service_script ] && echo "$service_script" && $service_script start
+ [ -x $service_script ] && echo "$service_script" && exec $service_script start & sleep 0.1
 done
 unset service_script
 }
-
-find -L /etc/init.d/ \
+_random_find_and_start(){
+/bin/find -H /etc/init.d/ \
 \( -type f -o -type l \) \
 \( -perm /777 -o -perm /775 -o -perm /771 -o -perm /755 -o -perm /751 -o -perm /711 \) \
 -exec echo {} \; -exec {} start \;
+}
+
+#SCR=`/bin/find -H /etc/init.d/ \
+#\( -type f -o -type l \) \
+#\( -perm /777 -o -perm /775 -o -perm /771 -o -perm /755 -o -perm /751 -o -perm /711 \)`
+
+SCR=`/bin/find -H /etc/init.d/ \
+ \( -type f -o -type l \) \
+ \( -perm -u=x \)`
+
+SCR=`echo "$SCR" | sort`
+for service_script in $SCR;
+do
+ test -d "$service_script" && continue
+ echo "Starting $service_script.."
+ exec $service_script start & sleep 0.1
+done
+;;
+
+stop)
+
+_random_find_and_stop(){
+/bin/find -H /etc/init.d/ \
+\( -type f -o -type l \) \
+\( -perm /777 -o -perm /775 -o -perm /771 -o -perm /755 -o -perm /751 -o -perm /711 \) \
+-exec echo {} \; -exec {} stop \;
+}
+
+#SCR=`/bin/find -H /etc/init.d/ \
+#\( -type f -o -type l \) \
+#\( -perm /777 -o -perm /775 -o -perm /771 -o -perm /755 -o -perm /751 -o -perm 711 \)`
+
+SCR=`/bin/find -H /etc/init.d/ \
+ \( -type f -o -type l \) \
+ \( -perm -u=x \)`
+
+
+SCR=`echo "$SCR" | /bin/sort -R`
+#echo "$SCR"
+
+for service_script in $SCR;
+do
+ test -d "$service_script" && continue
+ test -x "$service_script" || continue
+ echo "Stopping $service_script.."
+ exec $service_script stop & sleep 0.1
+done
+
+
+;;
+esac
+
+echo
 
 ###END###
