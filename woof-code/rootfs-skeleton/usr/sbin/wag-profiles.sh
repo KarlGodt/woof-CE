@@ -1,6 +1,4 @@
 # This function library is a descendant of the Wifi Access Gadget
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
-. /etc/rc.d/f4puppy5
 # created by Keenerd. It went to several modifications to finally
 # be fully integrated into the ethernet/network wizard.
 #v430 tempestuous: update for 2.6.30.5 kernel.
