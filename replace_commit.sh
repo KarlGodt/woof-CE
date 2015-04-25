@@ -2,13 +2,34 @@
 
 . /etc/rc.d/f4puppy5
 
-DO_UPDATE_SYSTEM=
-FORCE_SYSTEM_REPLACE=
-DO_UPDATE_GIT=1
-FORCE_GIT_REPLACE=1
-ONLY_SCRIPTS=1
-DRY_RUN=
-CREATE_CHECK_FILE=
+# DO_UPDATE_SYSTEM set to anything to replace system files with newer git files
+[ "$DO_UPDATE_SYSTEM" ] || DO_UPDATE_SYSTEM=1
+# FORCE_SYSTEM_REPLACE set to anything to replace system files with the git files
+[ "$FORCE_SYSTEM_REPLACE" ] || FORCE_SYSTEM_REPLACE= #TODO
+
+# DO_UPDATE_GIT set to anything to replace git files with newer system files
+[ "$DO_UPDATE_GIT" ] || DO_UPDATE_GIT=1
+# FORCE_GIT_REPLACE set to anything to replace git files with system files
+[ "$FORCE_GIT_REPLACE" ] || FORCE_GIT_REPLACE=
+
+# ONLY_SCRIPTS set to anything to ommit list of non-sh files
+[ "$ONLY_SCRIPTS" ] || ONLY_SCRIPTS=1
+
+# ONLY_SCRIPTS # returns 1 if fileextension is non-script
+_test_only_scripts(){
+case $oneF in
+*.xpm|*.svg|*.png|*.jpg|*.gif|*.DirIcon|*.gz|*.bz2|*.xz|*.ttf|*.pfb|*.afm|*.au|*.wav|*.mp3|*.ogg)
+test "$ONLY_SCRIPTS" && return 1
+;;
+esac
+return 0
+}
+
+# DRY_RUN set to anything to give usual test output but continue loop before copying anything
+[ "$DRY_RUN" ] || DRY_RUN=
+
+# CREATE_CHECK_FILE set to anything to write list to CHECK_LIST_FILE
+[ "$CREATE_CHECK_FILE" ] || CREATE_CHECK_FILE=
 CHECK_LIST_FILE="$HOME/git_check.lst"
 rm -f "$CHECK_LIST_FILE"
 
@@ -23,11 +44,14 @@ do
 sysF=`echo "$oneF" | sed 's%.%%'`
 #echo "$sysF"
 
-case $oneF in
-*.xpm|*.svg|*.png|*.jpg|*.gif|*.DirIcon|*.gz|*.bz2|*.xz|*.ttf|*.pfb|*.afm|*.au|*.wav|*.mp3|*.ogg)
-test "$ONLY_SCRIPTS" && continue
-;;
-esac
+# ONLY_SCRIPTS
+#case $oneF in
+#*.xpm|*.svg|*.png|*.jpg|*.gif|*.DirIcon|*.gz|*.bz2|*.xz|*.ttf|*.pfb|*.afm|*.au|*.wav|*.mp3|*.ogg)
+#test "$ONLY_SCRIPTS" && continue
+#;;
+#esac
+_test_only_scripts || continue
+
 #echo
 test -e "$sysF" || { echo "$sysF does not exist"; continue; }
 #echo "$sysF"
@@ -60,9 +84,9 @@ echo "$sysF"
 test -d "$oneF" || { diff -qs "$oneF" "$sysF" && continue; }
 
 if test "$modS" -gt "$modF"; then
- echo "would update gitfile"
+ test -d "$sysF" || echo "would update gitfile"
 elif test "$modS" -lt "$modF"; then
- echo "would update sysfile"
+ test -d "$oneF" || echo "would update sysfile"
 else
  #echo "modtime of git and sysfile are same"
  continue
@@ -98,9 +122,9 @@ if test "$modS" -gt "$modF"; then
  if test "$DO_UPDATE_GIT"; then
 
 	 dirG=".${sysF%/*}"
-	 mkdir -p "$dirG"
+	 mkdir $VERB -p "$dirG"
 
-	 /bin/cp -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
+	 /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
@@ -117,9 +141,9 @@ _force_replace_files_in_git(){
  if test "$DO_UPDATE_GIT"; then
 
 	 dirG=".${sysF%/*}"
-	 mkdir -p "$dirG"
+	 mkdir $VERB -p "$dirG"
 
-	 /bin/cp -a --remove-destination --backup=numbered "$sysF" "$dirG"/
+	 /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
@@ -143,9 +167,9 @@ if test "$modS" -lt "$modF"; then
  if test "$DO_UPDATE_SYSTEM"; then
 
     dirS=`echo "${oneF%/*}" | sed 's%^\.%%'`
-    mkdir -p "$dirS"
+    mkdir $VERB -p "$dirS"
 
-    #/bin/cp -a --remove-destination --backup=numbered "$oneF" "$dirS"/
+    /bin/cp $VERB -a --remove-destination --backup=numbered "$oneF" "$dirS"/
  fi
 
 fi
