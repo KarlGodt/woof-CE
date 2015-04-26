@@ -658,6 +658,8 @@ VERTREFRESH="$VERTREFRESH0"
 
 #want to choose a resolution and color-depth...
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
+
+__old__ddcprobe_part__(){
 #DDCPROBE=`ddcprobe | grep -v 'timing: [0123456789]x'`
 #DDCPROBE=`ddcprobe`
 ddcprobe >"$tmpDir"/ddcprobe.txt
@@ -673,6 +675,16 @@ case "`cat "$tmpDir"/ddcprobe.txt`" in *edidfail*)
  ;;
 esac
 
+[ "`grep '[[:alnum:]]' "$tmpDir"/ddcprobe.txt`" ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$tmpDir"/ddcprobe.strace_o2 ddcprobe >"$tmpDir"/ddcprobe.txt
+   else
+  ddcprobe >"$tmpDir"/ddcprobe.txt
+ fi
+}
+##+++2012-09-16 2014-11-11
+
+
 get_edid_func(){
 which get-edid || return 0
 which edid-decode || return 0
@@ -683,7 +695,65 @@ edid-decode "$tmpDir"/get-edid.out >"$tmpDir"/ddcprobe.txt
 fi
 }
 get_edid_func
+}
 
+ddcprobe_func(){
+_edebug "\\033[0;31m""ddcprobe_func";
+
+# +++2014-11-11 strace seems to help segfauting ddcprobe
+ if [ "`which strace`" ]; then
+  DDCPROBE=`strace -o "$tmpDir"/ddcprobe.strace_o ddcprobe`
+ else
+  DDCPROBE=`ddcprobe`
+ fi
+ echo "$DDCPROBE" > "$tmpDir"/ddcprobe.txt
+
+##+++2012-09-16 2014-11-11
+[ -s "$tmpDir"/ddcprobe.txt ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$tmpDir"/ddcprobe.strace_o2 ddcprobe >"$tmpDir"/ddcprobe.txt
+   else
+  ddcprobe >"$tmpDir"/ddcprobe.txt;
+ fi
+}
+[ "`grep '[[:alnum:]]' "$tmpDir"/ddcprobe.txt`" ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$tmpDir"/ddcprobe.strace_o2 ddcprobe >"$tmpDir"/ddcprobe.txt
+   else
+  ddcprobe >"$tmpDir"/ddcprobe.txt
+ fi
+}
+##+++2012-09-16 2014-11-11
+
+  sleep 2s
+  case "`cat "$tmpDir"/ddcprobe.txt`" in *edidfail*)
+   _notice "ddcprobe failed to determine the video";
+   _info "Trying again..";
+   sleep 1
+   DDCPROBE=`ddcprobe`
+   echo "$DDCPROBE" > "$tmpDir"/ddcprobe.txt
+   sleep 1s
+   ;;
+  esac
+
+get_edid_func(){
+   which get-edid >>$OUT || return 0
+which edid-decode >>$OUT || return 0
+if [ ! -s "$tmpDir"/ddcprobe.txt ]; then
+get-edid 1>"$tmpDir"/get-edid.out 2>"$tmpDir"/get-edid-2.txt
+[ "$?" = 0 ] || return 0
+edid-decode "$tmpDir"/get-edid.out >"$tmpDir"/ddcprobe.txt
+fi
+}
+get_edid_func
+
+if [ -n "`grep -i 'edidfail' "$tmpDir"/ddcprobe.txt`" ]; then
+echo -e "\\033[0;31m""ddcprobe still failed to determine the video.."
+echo -e "\\033[0;39m""Exiting $0 now.""\\033[0;39m"
+exit 20
+fi
+}
+ddcprobe_func
 
 #v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
 #v3.96 added trident line...
@@ -1226,18 +1296,18 @@ fi
 ## end Kirk's code
 
 #v2.13 want a hardware profile so can bootup on different PCs...
-PROFILECHIP=`grep -m1 '^oem: ' $tmpDir/ddcprobe.txt | cut -f 2 -d ' ' | sed 's/[[:punct:]]/_/g'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
-PROFILEVENDOR=`grep -m1 '^vendor: ' $tmpDir/ddcprobe.txt |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
+   PROFILECHIP=`grep -m1 '^oem: ' $tmpDir/ddcprobe.txt     |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
+ PROFILEVENDOR=`grep -m1 '^vendor: ' $tmpDir/ddcprobe.txt  |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
 PROFILEPRODUCT=`grep -m1 '^product: ' $tmpDir/ddcprobe.txt |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
 [ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
 ## Dougal: maybe add "^monitorname: "??
 #PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$tmpDir"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
-PROFILEMONITOR=`grep '^monitorid: ' $tmpDir/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep -m1 -iE '^monitorname: |^Monitor name: ' $tmpDir/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep -m1 -iE '^monitorrange: |^Monitor ranges .*:' $tmpDir/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' $tmpDir/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' $tmpDir/ddcprobe.txt  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' $tmpDir/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^dtiming: ' "$tmpDir"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep  -m1 -iE '^manufacture: |^Manufacturer: ' $tmpDir/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' $tmpDir/ddcprobe.txt     | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' "$tmpDir"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 
 #bash-3.00# ddcprobe
