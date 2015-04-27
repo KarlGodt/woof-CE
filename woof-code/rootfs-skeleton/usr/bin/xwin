@@ -26,31 +26,6 @@ echo "$0 start...:"
 #w479 k2.6.18.8 need awful hack, Xorg, '-nolisten tcp' causes hang!
 #v424 bad hack to fix serial mouse.
 
-
-PIDOFS=`pidof -o $$ -o %PPID xwin`
-PIDOFS="${PIDOFS} "`pidof -o $$ -o %PPID xinit`
-PIDOFS="${PIDOFS} `pidof -o $$ -o %PPID X`"
-echo "PIDOFS=$PIDOFS'"
-[[ "${PIDOFS//[[:blank:]]/}" ]] && {
-    echo -e '\033[0;31m'"More than one instance of X running : $PIDOFS -- exiting."'\033[0;39m'
-    exit
-}
-##+++2012-04-03
-
-if [ -n "$DISPLAY" ]; then
- echo -e '\033[1;31m'"More than one instance of X running : $DISPLAY .Exiting."'\033[0;39m'
- xmessage -bg red "More than one instance of X running : $DISPLAY -- exit"
- exit
-else
-echo -e '\033[1;33m'"This script will run X windows for you..."'\033[0;39m'
-fi
-
-#echo '$HOME    : '"$HOME" > /dev/tty3 #DBG
-#echo 'pwd      : '"`pwd`" > /dev/tty3 #DBG
-if test "$HOME" != "/root"; then #KRG
-cd ~/   #v3.98 Ensure current directory is root, in case changed at command prompt, so rox icon and menu item open only at home directory. rerwin
-fi #KRG
-
 #variables created at bootup by init script in initrd...
 . /etc/rc.d/PUPSTATE #v2.02
 #PUPMODE=current operating configuration,
@@ -60,6 +35,7 @@ fi #KRG
 
 KERNELVER=`uname -r` #w479
 
+__parse_parameters(){
 #0.9.9 enables to start a specific w.m. from commandline...
 #if [ "$@" ] && [ "`echo "$@" | tr ' ' '\n' | grep -v '^\-'`" = "" ];then
 params0="$@"
@@ -97,16 +73,285 @@ fi
 fi
 fi
 fi
+}
+
+OUT=/dev/null; ERR=/dev/null
+Q=-q;QUIET=--quiet;S=-s;SILENT=--silent
+
+_say_help(){
+echo "$0 HELP:"
+
+exit $1
+}
+
+_say_version(){
+echo "$0 VERSION $VERSION"
+exit $1
+}
+
+_windowmanager(){
+local WM="$*"
+
+case $WM in
+    *jwm*|*xfce*|*fvwm*|*icewm*|*openbox*|*twm*|*blackbox*|*enlightenment*|*kde*)
+    which "$WM" >>$OUT || _exit 3 "'$WM' windowmanager not available in PATH"
+    echo "$WM" >/etc/windowmanager
+    [ $? = 0 ] && _info "20 Wrote '$WM' into /etc/windowmanager" || _warn "Unable to write '$WM' to /etc/windowmanager"
+    ;;
+    *)
+     echo "Unhandled or unknown windowmanager '$WM'"
+     echo "If you think that is a wrong assumption,"
+     echo "alter the case test in this file $0 ."
+     exit 1
+    ;;
+esac
+
+}
+
+_xserver(){
+    local XSERV="$*"
+    which "$XSERV" >>$OUT || _exit 4 "'$XSERV' xserver not available in PATH"
+
+    case "$XSERV" in
+    /usr/bin/X) :;;
+    *) CURRX=`realpath /usr/bin/X`
+       REALX=`realpath "$XSERV"`
+       ln $VERB -sf "$REALX" /usr/bin/X
+       test $? = 0 || ln $VERB -sf $CURRX /usr/bin/X
+    ;;
+    esac
+
+
+}
+
+_conffile(){
+    local CONFFILE="$*"
+    test -e "$CONFFILE" >>$OUT || _exit 5 "'$CONFFILE' is not existent"
+}
+
+_set_verbose(){
+    VERBOSE=$((VERBOSE+1))
+    VERB="$VERB -v"; L_VERB="$L_VERB --verbose"; A_VERB="$A_VERB -verbose"
+    Q=''; QUIET=''; S=''; SILENT=''
+    OUT=/dev/stdout; ERR=/dev/stderr
+}
+
+_set_debug(){
+    DEBUG=$((DEBUG+1))
+    DBG="$DBG -d"; L_DEBUG="$L_DEBUG --debug"; A_DEBUG="$A_DEBUG -debug"
+    OUT=/dev/stderr;ERR=/dev/stderr
+}
+
+_long_opt(){
+
+local ano cont
+#cont=0
+echo "$0:_long_opt:$*"
+for ano in $*; do
+    echo ano=$ano
+    shift
+    echo "\$*=$*"
+    #echo cont=$cont
+    #test $cont = 1 && { cont=0; continue; }
+    case $ano in
+    --help)    _say_help 0;;
+    --version) _say_version 0;;
+    --verbose) _set_verbose
+    ;;
+    --debug)   _set_debug
+    ;;
+    --DEBUG) set -x;;
+    --windowmanager=*)
+    WM=${ano#*--windowmanager=}
+    eval WM=$WM
+    _windowmanager "$WM"
+    ;;
+    --windowmanager)
+    WM="$1"
+    eval WM=$WM
+    shift
+    SHIFTS=$((SHIFTS+1))
+    _windowmanager "$WM"
+    ;;
+    --xserver=*)
+    XSERV=${ano#*--xserver=}
+    eval XSERV=$XSERV
+    _xserver "$XSERV"
+    ;;
+    --xserver)
+    XSERV="$1"
+    eval XSERV=$XSERV
+    shift
+    SHIFTS=$((SHIFTS+1))
+    _xserver "$XSERV"
+    ;;
+    --configfile=*)
+    CONFFILE=${ano#*--configfile=}
+    eval CONFFILE=$CONFFILE
+    _conffile "$CONFFILE"
+    ;;
+    --configfile)
+    CONFFILE="$1"
+    eval CONFFILE=$CONFFILE
+    shift
+    SHIFTS=$((SHIFTS+1))
+     _conffile "$CONFFILE"
+    ;;
+    --*) _exit 6 "Unrecognized option '$ano'";;
+    *) :;;
+    esac
+done
+}
+
+_getopts(){
+
+local ano OPT
+
+#echo "$0:_getopt:$*"
+#set - $*
+#echo "$0:_getopt:$*"
+
+#for ano in $*; do case $ano in --*) _long_opt $*;; esac; done
+
+local OPTIND
+echo "$0:_getopts:$*"
+echo OPTIND=$OPTIND
+for ano in $*
+do
+echo ano=$ano
+shift
+case $ano in -*):;;*) continue;;esac
+#shift
+set - "$ano" $*
+echo \$*=$*
+while getopts hVvdDw:s:c: OPT 2>>$ERR #--parameter-error message suppressing
+do
+ echo "OPT=$OPT"
+ case $OPT in
+ h) _say_help 0;; #help
+ V) _say_version 0;; #Version
+ v) _set_verbose
+    ;;
+ d) _set_debug
+    ;;
+ D) set -x;;
+ w) WM="$OPTARG"
+    _windowmanager "$WM"
+    ;;
+ s) XSERV="$OPTARG"
+    _xserver "$XSERV"
+    ;;
+ c) CONFFILE="$OPTARG"
+    _conffile "$CONFFILE"
+    ;;
+ -*) :;;
+ *\?*) :;; #_exit 7 "Unsupported option '$*'";;
+ *) echo "Unsupported option '$OPT'"
+    exit 1
+    ;;
+ esac
+done
+echo OPTIND=$OPTIND
+done
+echo OPTIND=$OPTIND
+}
+
+_test_for_dash_parameters(){
+local NON_LONG
+SHIFTS=1
+echo \$*=$*
+for oOP in $*
+do
+test $SHIFTS -gt 1 && { SHIFTS=$((SHIFTS-1)); continue; }
+#SHIFTS=1
+case $oOP in
+--*) _long_opt $*
+     echo \$*=$*
+     echo SHIFTS=$SHIFTS
+     shift $SHIFTS
+     echo \$*=$*
+      ;; #shift 1; _long_opt $oOP $*;;
+-*)  NON_LONG="$NON_LONG $oOP"; shift;; #:;;            #shift;; #:;; #_getopts $*;;
+*) NON_LONG="$NON_LONG $oOP"; shift ;; #:;;
+esac
+done
+
+test "$NON_LONG" && _getopts $NON_LONG
+#unset $NON_LONG
+}
+_test_for_dash_parameters $*
+
+unset SHIFTS
+
+#set - $NON_LONG
+#_getopts $*
+
+echo \$*=$*
+echo
+echo LAST loop
+cont=0
+for oOP in $*
+do
+echo oOP=$oOP
+echo \$*=$*
+echo cont=$cont
+test $cont = 1 && { cont=0; continue; }
+case $oOP in
+--windowmanager|--xserver|--configfile) shift ; cont=1;; #continue 2;;
+--*) :;; #shift;;
+-w|-s|-c) shift ; cont=1;; #continue 2;;
+-*) :;; #shift;; #_getopts $oOP;;
+\?) _say_help 0;;
+*) #:;;
+   WM="$oOP"
+   eval WM=$WM
+   _windowmanager $*
+  ;;
+esac
+shift
+echo cont=$cont
+#cont=0
+done
+#set +fB
+
 
 echo "`date` 1: passed checking for other instances of xwin running or parameters"
+
+#PIDOFS=`pidof -o $$ -o %PPID xwin`
+#PIDOFS="${PIDOFS} "`pidof -o $$ -o %PPID xinit`
+#PIDOFS="${PIDOFS} `pidof -o $$ -o %PPID X`"
+PIDOFS=`pidof -o $$ -o %PPID ${0##*/} xinit X`
+echo "PIDOFS=$PIDOFS'"
+[[ "${PIDOFS//[[:blank:]]/}" ]] && {
+    echo -e '\033[0;31m'"More than one instance of X running : $PIDOFS -- exiting."'\033[0;39m'
+    exit
+}
+##+++2012-04-03
+
+if [ -n "$DISPLAY" ]; then
+ echo -e '\033[1;31m'"More than one instance of X running : $DISPLAY .Exiting."'\033[0;39m'
+ xmessage -bg red "More than one instance of X running : $DISPLAY -- exit"
+ exit
+else
+echo -e '\033[1;33m'"This script will run X windows for you..."'\033[0;39m'
+fi
+
+#echo '$HOME    : '"$HOME" > /dev/tty3 #DBG
+#echo 'pwd      : '"`pwd`" > /dev/tty3 #DBG
+if test "$HOME" != "/root"; then #KRG
+cd ~/   #v3.98 Ensure current directory is root, in case changed at command prompt, so rox icon and menu item open only at home directory. rerwin
+fi #KRG
+
 #v1.0.7
 HAVEX=`readlink /usr/bin/X`
 HAVEX=`basename $HAVEX`
 
-if [ "$HAVEX" = "XF86_SVGA" ]; then
+#if [ "$HAVEX" = "XF86_SVGA" ]; then
+case $HAVEX in *XF86_SVGA*)
  #xf86config v3.3.6 creates config file at /etc, wrong place...
  [ -f /etc/XF86Config ] && mv $VERB -f /etc/XF86Config /etc/X11/XF86Config
-fi
+;; esac
+#fi
 
 HAVEXvesa=''
 HAVEXvesa=`echo $HAVEX | grep -v -E 'Xorg|XF86_SVGA|Xfbdev|Xvfb|Xfake|Xnest'`
@@ -137,6 +382,7 @@ if [ "$HAVEXvesa" ]; then
   fi
  fi
 fi
+
 #Repeat earlier tests in case Xserver now Xorg and to retain indentation levels.
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$HAVEXvesa" ]; then
