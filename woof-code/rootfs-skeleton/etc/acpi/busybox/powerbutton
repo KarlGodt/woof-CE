@@ -1,0 +1,1485 @@
+#!/bin/ash
+# Karl Reimer Godt in June 2012
+# usual Puppy license
+Version='1.1 Puppy_Macpup-Foxy3 KRG'
+echo "
+$0:$Version:$*:`date`:$$:%PPID:$PPID"
+. /etc/rc.d/f4puppy5
+echo "${0##*/}"
+
+_test_fr /etc/acpi/busybox/powerbutton.conf && source /etc/acpi/busybox/powerbutton.conf
+# REM : Global variables
+
+#
+[ "$EMERG_TIMEOUT" ] || EMERG_TIMEOUT=120
+                   # emergency timeout was first 30 , then 60,
+                   # now long enough to read help
+
+#
+[ "$MOUSEMSG_TT" ] || MOUSEMSG_TT=30
+                   # timeout for mouse message
+                   # was 10 seconds, now long enough to read msg
+
+# General yaf-splash options:
+[ "$genYAFOPS" ] || genYAFOPS='-outline 1'
+# REM: outline 1 is okay but does not fill the letters with fg color
+                  #      values 2 and above are blurry
+
+# REM : Use a sub-directory in /tmp
+[ "$tmpDIR" ] || tmpDIR=/tmp/acpi
+mkdir -p "$tmpDIR"
+
+# REM: Source /etc/eventmanager
+#       Using ICON_PLACE_ORIENTATION to place yaf-messages u/mount
+_test_fr /etc/default/eventmanager && source /etc/default/eventmanager
+_test_fr /etc/default/eventmanager.conf && source /etc/default/eventmanager.conf
+_test_fr /etc/eventmanager.def && source /etc/eventmanager.def
+_test_fr /etc/eventmanager && source /etc/eventmanager
+_test_fr /etc/eventmanager.conf && source /etc/eventmanager.conf
+case $ICON_PLACE_ORIENTATION in
+bottom) mnt_yafPLACEMENT='-placement bottom';;
+top   ) mnt_yafPLACEMENT='-placement top';;
+left  ) mnt_yafPLACEMENT='-placement left';;
+right ) mnt_yafPLACEMENT='-placement right';;
+esac
+echo will test multiple pressings
+# REM : function to feel more than one power-button events
+# Power button pressed 5 times in 10 seconds : do poweroff force
+_check_if_already_running ${0##*/} || {
+ [ -f "$tmpDIR"/acpi_button_count ] && {
+     read BUTTONcnt <"$tmpDIR"/acpi_button_count
+     BUTTONcnt=$((BUTTONcnt+1))
+     echo $BUTTONcnt >"$tmpDIR"/acpi_button_count
+     true
+    } || echo 2 >"$tmpDIR"/acpi_button_count
+  [ "$BUTTONcnt" = 5 ] && {
+      ( sleep 2; killall -9 ${0##*/} ) &
+      : exec /sbin/poweroff force
+  }
+  sleep 10
+  rm -f "$tmpDIR"/acpi_button_count
+  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  exit 4
+}
+
+# REM : Set DISPLAY variable if event listener ( acpid )
+#       started before xinit started X
+test "$DISPLAY" || { pidof X >>$OUT && export DISPLAY=':0'; }
+echo test DISPLAY
+
+# REM : _xmessage() to switch if no DISPLAY
+#       if DISPLAY then run xmessage
+#       if NO DISPLAY then use echo
+_xmessage(){
+
+[ "$DISPLAY" ] && {
+ xmessage "$@" & _xPID=$!
+ trap "kill $_xPID; return" INT KILL TERM
+ true
+ } || {
+ echo "${*##*-title}"
+ }
+}
+
+# REM : If DEBUG then bark and say that we are running
+if [ "$DEBUG" ]; then
+_xmessage -timeout 10 -title "POWERBUTTON ACKNOWLEDGE" "HELLO from `pwd`/$0"
+aplay /usr/share/audio/2barks.au && sleep 2
+fi
+
+# REM : Help Text
+_usage(){
+MSG="
+$0 [help|version]
+Script to suspend or hibernate
+called by busybox applet 'acpid'.
+Busybox acpid since version 1.18 needs
+the 'evdev' kernelmodule loaded , but
+seems not to need the 'button' module.
+Works only with the Powerbutton,
+not with closing the lid.
+Please don't call busybox applets with
+'busybox appletname' . Closing commands like
+kill could accidentaly kill busybox init, which
+would result in immedeate reboot. Always call it with
+the [/path/to/link/]appletname.
+
+Uses acpitool if installed, otherwise the
+simple 'echo \"\$state\" >/sys/power/state' .
+
+Full acpid pkg available : unknown.
+"
+if [ "$2" ];then
+MSG="$MSG
+
+$2
+"
+fi
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue3 -fg white -title "POWERBUTTON HELP" "$MSG"
+rm -f "$tmpDIR"/acpi_button_count
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+exit $1
+}
+
+# REM : Parse Options
+case $1 in
+*help) _usage 0;;
+*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f "$tmpDIR"/acpi_button_count;for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done; exit 0;;
+"") :;;
+*force)    :;; #from enlightenment Bereitschaftsmodus
+kbd_event) :;; #from /etc/acpi/keyboard/actions/116 (just for information from where)
+*) _usage 1 "Unknown Parameter '$1'";;
+esac
+echo case options
+
+# REM : DEBUG sync hangs
+LINEP=BEFORESYNC01
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+pidof sync >>$OUT || sync
+LINEP=AFTERSYNC01
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+# REM : unmount file mounts
+_loop_umount_func(){
+                    local M_LOOP mloop_ yPID
+
+oldDEBUG="$DEBUG"
+DEBUG=
+M_LOOP=`mount | grep -E '^/dev/loop[0-9p]+ ' |grep -v '/initrd'`
+M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
+M_LOOP=`echo "$M_LOOP" |grep -o ' on .\+ type ' |sed -r 's!( on )(.*)( type )!\2!'`
+
+for mloop_ in $M_LOOP;
+do
+    unset yPID _yPID
+    sleep 1
+    #_yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." & yPID=$!
+    _yaf_splash -bg pink1 $mnt_yafPLACEMENT -text "Unmounting $mloop_ ..."
+    yPID=$!
+    #_yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." &
+    echo " yPID='$yPID'"
+    echo "_yPID='$_yPID'"
+
+    /bin/umount $VERB -r "$mloop_"
+[ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";
+rm -f "$tmpDIR"/acpi_button_count;
+sleep 10
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+exit 10; }
+
+    sleep 1
+    echo "yPID='$yPID'"
+    echo "_yPID='$_yPID'"
+    kill $yPID
+    #kill $_yPID
+    unset yPID _yPID
+done
+DEBUG="$oldDEBUG"
+}
+
+# REM : DEBUG
+LINEP=A001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+# REM : Placement for xmessages on screen
+__old_place__(){
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ #rootCENTER_Y=`expr $(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}') / 2`
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+}
+
+# REM : Switch yaf-splash
+#       If DISPLAY do yaf-spladh message
+#       If NO DISPLAY just echo
+_yaf_splash(){
+
+[ "$DISPLAY" ] && {
+ yaf-splash $genYAFOPS "$@" & _yPID=$!
+#yaf-splash "$@"
+ trap "kill $_yPID; return" INT KILL TERM
+  true
+ } || {
+ echo "${*##*-text}"
+ }
+}
+
+
+# REM : xmessage Menu to select desired ACPI state
+#       Called by  ___do_xmessage if NO pidof X
+#       Was used before using Xdialog
+#       Now is used if X is not running
+__xmessage(){ #BEGIN
+
+local RV SELECT
+unset RV SELECT
+
+[ "$DISPLAY" ] && {
+ xmessage "$@"
+ return $?
+ } || {
+
+# openvt -s
+ sleep 1
+ echo "${*##*-title}"
+ echo "
+$BUTTONS_GUI
+"
+ while [ selecting ];
+ do
+  read -t$EMERG_TIMEOUT -p "Select one of the above numbers #: " SELECT
+   RV=$?
+   if [ ! "$SELECT" ]; then
+    case $RV in
+    0) continue;;
+    1)  exec /sbin/poweroff force;;
+    *) echo RV=$RV; continue;;
+    esac
+   else
+    case $SELECT in
+     204|203|201|200|190) break;;
+     *) echo "Error - wrong entry '$SELECT'";;
+    esac
+   fi
+  sleep 1
+ done
+return $SELECT
+ }
+
+}  ###__xmessage(){ #END
+
+
+# REM : Unmount partitions before ACPI SLEEP
+#       to prevent FS-corruption of partitions
+#       in case f.ex. S3 sleep gets terminated by power loss
+_part_umount_func(){
+                    local M_POI M_OPS mpart_ yPID
+oldDEBUG="$DEBUG"
+DEBUG=
+#M_DEV=`mount | grep -E '^/dev/[shfmdr][^ ]*[0-9]? ' |grep -vE '/initrd|^/dev/root|rootfs|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd'`
+#M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
+#M_DEV=`awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?$")) print $1}' /proc/mounts`
+##M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]].*[0-9]?$" /proc/mounts`
+#M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? " /proc/mounts`
+ MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "`
+#M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+ M_POI=`echo "$MOUNTED" | awk '{print $2}'`
+ M_POI=`echo -e "$M_POI"`
+ M_OPS=`echo "$MOUNTED" | awk '{print $4}'`
+ M_OPS=`echo -e "$M_OPS"`
+#M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
+ M_DEV=`echo "$MOUNTED" | awk '{print $1}'`
+ M_DEV=`echo -e "$M_DEV"`
+
+for mpart_ in $M_POI;
+do
+
+    ## BIG PROBLEM un-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/umount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 5 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 1 Exit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # xmessage -bg orange "Slow drive '$mpart_' is mounted ..!
+    # Please un-mount it manually,
+    # and try to put the machine to sleep again !!"
+    # exit 1
+    #;;
+    #esac
+
+    ## Solution Nr. 3 Omit :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    unset yPID _yPID
+    sleep 1
+    #_yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
+    _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} $mnt_yafPLACEMENT -text "Unmounting $mpart_ ..."
+    yPID=$!
+    echo " yPID='$yPID'"
+    echo "_yPID='$_yPID'"
+
+    ##Solution Nr. 2 and 4 Reasonable and BIG sleep :
+    case $mpart_ in
+    */sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    esac
+
+    /bin/umount $VERB -r "$mpart_"
+[ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON UMOUNT FAIL" "Please umount '$mpart_' manually and try again";
+rm -f "$tmpDIR"/acpi_button_count;
+sleep 10
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+exit 20; }
+
+    ## Solution Nr. 2 Reasonable sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 15 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 15 seconds.." &
+    # sleep 15;;
+    #esac
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $mpart_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to stop the drive
+    case $mpart_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      hdparm $L_VERB -C /dev/${mpart_##*/} | grep $Q 'active' && {
+           MSG="ERROR: Drive '/dev/${mpart_##*/}' still recognized as active.
+           Exiting ${PWD}/${0}."
+           MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
+           _xmessage -bg red -title "$MY_SELF" "$MSG"
+           rm -f "$tmpDIR"/acpi_button_count
+           for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           exit 21
+      }
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C stop /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB -Y /dev/${mpart_##*/}
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+    sleep 1
+    echo " yPID='$yPID'"
+    echo "_yPID='$yPID'"
+    kill $yPID
+    #kill $_yPID
+    unset yPID _yPID
+done
+DEBUG="$oldDEBUG"
+}
+LINEP=B001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+# REM : Restore mounts after being brought up again
+_restore_mounts(){
+                    local part_ basn FS_TYPE reMOUNT mntOPS yPID
+oldDEBUG="$DEBUG"
+DEBUG=
+for part_ in $M_DEV;
+do
+
+    ## BIG PROBLEM re-mounting slow devices like CD drives and Floppy drives!
+    ## Puppy's /bin/mount may run probedisk2
+    ## with guess_fstype and disktype to determine the file-system type
+    ## and both spin-up the CD drive, disktype really heavily.
+    ## My old worn out CD drive takes up to two minutes before stopping spinning.
+    ## Un-mounting works, but re-mounting after waking up leads to kernel driver errors.
+    ## 4 Solutions, I could think of:
+    ## S1 : Demanding the USER to un-mount manually and try again and exit.
+    ## S2 : Unmount the drives with a reasonable sleep of 30 seconds, and omitting them to re-mount after wake-up.
+    ## S3 : Omitting un- and remounting the drives completely
+    ## S4 : BIG sleep of 150 seconds after un-mounting and re-mounting.
+    ## S5 : Use hdparm and sdparm
+
+    ## Solution Nr. 2 and 3 Omit to un- and or re-mount :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 1; continue;;
+    #esac
+
+    unset yPID _yPID
+    sleep 1
+    #_yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
+     _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} $mnt_yafPLACEMENT -text "Restoring mount of $part_ ..."
+     yPID=$!
+     echo " yPID='$yPID'"
+     echo "_yPID='$_yPID'"
+
+        grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
+        mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
+            [ "$mntOPS" ] || mntOPS=rw
+        FS_TYPE=`guess_fstype $part_`
+
+    ##Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
+    #esac
+
+    ## Solution Nr. 5 use hdparm and or sdparm to wake-up the drive
+    case $part_ in
+     */sr[0-9]*|*/scd[0-9]*)
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      sdparm $VERB -C start $part_
+      sleep 17
+     ;;
+
+     */hd[a-d])
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 8
+      hdparm $L_VERB --idle-immediate $part_
+      sleep 17
+     ;;
+
+     */fd[0-9]*)
+      _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
+      sleep 25
+     ;;
+    esac
+
+        basn=${part_##*/}
+        mkdir -p /mnt/"$basn"
+
+[ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS             "$part_" /mnt/"$basn" || true
+} || {
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE "$part_" /mnt/"$basn" || false
+}
+
+    ## Solution Nr. 4 BIG sleep :
+    #case $part_ in
+    #*/sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d])
+    # yaf-splash -timeout 150 -bg purple3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 150 seconds.." &
+    # sleep 150;;
+    #esac
+
+    sleep 1
+    echo " yPID='$yPID'"
+    echo "_yPID='$_yPID'"
+    kill $yPID
+    #kill $_yPID
+    unset yPID _yPID
+    unset reMOUNT mntOPS FS_TYPE
+done
+DEBUG="$oldDEBUG"
+}
+LINEP=C001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+# REM : Set sys-FS values for USB */power/ files
+#       control
+#       level
+#       wakeup
+#       autosuspend
+#       NOTE : Old function
+__set_usb_power_sysfs_values__(){
+
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+OTH_WAKEUP_ENABLED=1
+
+# control : autosuspend values : on = never autosuspend , auto = let kernel decide
+local KBD_CONTROL MOU_CONTROL OTH_CONTROL
+KBD_CONTROL=on
+MOU_CONTROL=auto
+OTH_CONTROL=auto
+
+# delay : seconds/milliseconds to pass by idle before autosuspending
+local KBD_DELAY KBD_DELAY_MS MOU_DELAY MOU_DELAY_MS OTH_DELAY OTH_DELAY_MS
+KBD_DELAY=360  # seconds
+KBD_DELAY_MS=$((KBD_DELAY*1000))
+MOU_DELAY=360  # seconds
+MOU_DELAY_MS=$((MOU_DELAY*1000))
+OTH_DELAY=360  # seconds
+OTH_DELAY_MS=$((OTH_DELAY*1000))
+
+
+ls -1d /sys/bus/usb/devices/*/power/ | while read oneD;
+do
+  [ -f "$oneD"/control ] || continue  #+++2.6.34 35
+  [ -f "$oneD"/level   ] || continue  #+++2.6.22 level and control same , depr. 2.6.35
+  [ -f "$oneD"/wakeup  ] || continue  #
+     #2.6.21/2.6.22            #2.6.37/2.6.38
+  [ -f "$oneD"/autosuspend -o -f "$oneD"/autosuspend_delay_ms ] || continue
+
+ _debug "oneD='$oneD'"
+
+ if [ -f "$oneD/../uevent" ]; then
+  _debug "`grep -H '.*' "$oneD"/../uevent 2>&1`"
+  source "$oneD/../uevent"
+ fi
+ if [ -f "$oneD/../product" ]; then
+  _debug "`grep -H '.*' "$oneD"/../product 2>&1`"
+  grep $Q -Ei 'Keyboard'          "$oneD/../product" && IS_KBD=YES
+  grep $Q -Ei 'Mouse|Transceiver' "$oneD/../product" && IS_MOU=YES
+ fi
+ if [ -f "$oneD/../interface" ]; then
+  _debug "`grep -H '.*' "$oneD"/../interface 2>&1`"
+  grep $Q -Ei 'Keyboard'          "$oneD/../interface" && IS_KBD=YES
+  grep $Q -Ei 'Mouse|Transceiver' "$oneD/../interface" && IS_MOU=YES
+ fi
+
+ _debugx "$(ls -1v "$oneD"/* | while read oneF; do [ -f "$oneF" ] || continue; echo -n "$oneF"':';cat "$oneF"; done)"
+
+
+  read HAVE_WAKEUP <"$oneD"/wakeup
+
+   if [ "$IS_KBD" ]; then
+  case $HAVE_WAKEUP in
+  enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+  esac
+
+ elif [ "$IS_MOU" ]; then
+  case $HAVE_WAKEUP in
+  enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for '$oneD'";;
+  esac
+
+ else
+  case $HAVE_WAKEUP in
+  enabled)   [ "$OTH_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+  disabled)  [ "$OTH_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+  "") _notice "wakeup NOT implemented for '$oneD'";;
+  esac
+  fi
+
+  read HAVE_CONTROL <"$oneD"/control
+
+    if [ "$IS_KBD" ]; then
+   case $HAVE_CONTROL in
+   on)    [ "$KBD_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$KBD_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$KBD_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+
+  elif [ "$IS_MOU" ]; then
+   case $HAVE_CONTROL in
+   on)    [ "$MOU_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$MOU_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$MOU_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+
+  else
+   case $HAVE_CONTROL in
+   on)    [ "$OTH_CONTROL" = on ] || echo auto >"$oneD"/control;;
+   auto)  [ "$OTH_CONTROL" = on ] && echo on   >"$oneD"/control;;
+   #auto)  [ "$OTH_CONTROL" = on ] || echo on   >"$oneD"/control;;
+   esac
+  fi
+
+  read HAVE_LEVEL <"$oneD"/level
+  _debug "HAVE_LEVEL='$HAVE_LEVEL'"
+
+  if [ -f "$oneD"/autosuspend ] ; then
+   read HAVE_DELAY <"$oneD"/autosuspend
+   _debug "HAVE_DELAY='$HAVE_DELAY'"
+
+   if [ "$IS_KBD" ]; then
+    [ "$KBD_DELAY" = $HAVE_DELAY ] || echo $KBD_DELAY >"$oneD"/autosuspend
+   elif [ "$IS_MOU" ]; then
+    [ "$MOU_DELAY" = $HAVE_DELAY ] || echo $MOU_DELAY >"$oneD"/autosuspend
+   else
+    [ "$OTH_DELAY" = $HAVE_DELAY ] || echo $OTH_DELAY >"$oneD"/autosuspend
+   fi
+
+  elif [ -f "$oneD"/autosuspend_delay_ms ]; then
+   read HAVE_DELAY <"$oneD"/autosuspend_delay_ms
+   _debug "HAVE_DELAY='$HAVE_DELAY'"
+
+   if [ "$IS_KBD" ]; then
+    [ "$KBD_DELAY_MS" = $HAVE_DELAY ] || echo $KBD_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   elif [ "$IS_MOU" ]; then
+    [ "$MOU_DELAY_MS" = $HAVE_DELAY ] || echo $MOU_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   else
+    [ "$OTH_DELAY_MS" = $HAVE_DELAY ] || echo $OTH_DELAY_MS >"$oneD"/autosuspend_delay_ms
+   fi
+  fi
+
+  unset HAVE_WAKEUP HAVE_CONTROL HAVE_LEVEL HAVE_DELAY IS_KBD IS_MOU
+
+ echo
+done
+
+local HAVE_WAKEUP HAVE_CONTROL HAVE_LEVEL HAVE_DELAY IS_KBD IS_MOU
+}
+
+# REM : Unused
+_set_usb_power_sysfs_valuesSTUB(){
+
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+#OTH_WAKEUP_ENABLED=1  ##unused
+
+local CLASS PROTOCOL
+
+ ls -1d /sys/bus/usb/devices/*/power/ | while read oneD;
+do
+   _debugx "$oneD"
+   [ -f "$oneD"/wakeup ] || continue
+
+   [ -f "$oneD"/../bInterfaceClass ]    || continue
+   [ -f "$oneD"/../bInterfaceProtocol ] || continue
+   _debug "$oneD"
+
+unset CLASS PROTOCOL CURR_WAKEUP_SETTING
+
+#<[uapi/]linux/usb/ch9.h>
+#define USB_CLASS_HID           3
+    read CLASS <"$oneD"/../bInterfaceClass
+   _debug "`grep -H '.*' "$oneD"/../bInterfaceClass 2>&1`"
+   case $CLASS in
+   03|3) :;;
+   *) _notice "Unhandled USB_CLASS '$CLASS'"
+      continue;;
+   esac
+
+#<[uapi/]linux/hid.h>
+#define USB_INTERFACE_PROTOCOL_KEYBOARD 1
+#define USB_INTERFACE_PROTOCOL_MOUSE    2
+   read PROTOCOL <"$oneD"/../bInterfaceProtocol
+     _debug "`grep -H '.*' "$oneD"/../bInterfaceProtocol 2>&1`"
+   case $PROTOCOL in
+   01|1) :;;
+   02|2) :;;
+   *) _notice "Unhandled USB_INTERFACE_PROTOCOL '$PROTOCOL'"
+      continue;;
+   esac
+
+   read CURR_WAKEUP_SETTING <"$oneD"/wakeup
+   _debug "`grep -H '.*' "$oneD"/wakeup 2>&1`"
+   case $PROTOCOL in
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+    esac
+    ;;
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for '$oneD'";;
+    esac
+    ;;
+   esac
+
+done
+}
+
+# REM : Working function
+_set_usb_power_sysfs_values(){
+oldDEBUG=$DEBUG
+DEBUG=1
+
+KERNEL_RELEASE=`uname -r`
+if test -f /etc/modules/DOTconfig-$KERNEL_RELEASE; then
+ ##source /etc/modules/DOTconfig-$KERNEL_RELEASE || return 0
+ ##[ "$CONFIG_USB_SUSPEND" = y ] || return 0
+ ##[ "$CONFIG_USB_SUSPEND" ]     || return 0
+ #grep -w 'CONFIG_USB_SUSPEND' /etc/modules/DOTconfig-$KERNEL_RELEASE | grep $Q 'is not set' && return 0
+ grep $Q -w '# CONFIG_USB_SUSPEND' /etc/modules/DOTconfig-$KERNEL_RELEASE && return 9
+ _info "CONFIG_USB_SUSPEND apparently enabled in /etc/modules/DOTconfig-$KERNEL_RELEASE"
+elif modprobe $VERB configs; then
+ zcat /proc/config.gz | grep $Q -w '# CONFIG_USB_SUSPEND' && return 8
+ _notice "Loaded configs.ko kernel module and found CONFIG_USB_SUSPEND enabled in /proc/config.gz"
+elif [ -f /proc/config.gz ]; then
+ zcat /proc/config.gz | grep $Q -w '# CONFIG_USB_SUSPEND' && return 7
+ _info "Found CONFIG_USB_SUSPEND enabled in /proc/config.gz"
+fi
+
+# wake up enabled : Device can trigger wake up while S3 RAM sleep
+local KBD_WAKEUP_ENABLED MOU_WAKEUP_ENABLED OTH_WAKEUP_ENABLED
+KBD_WAKEUP_ENABLED=1
+MOU_WAKEUP_ENABLED=
+#OTH_WAKEUP_ENABLED=1  ##unused
+case $KBD_WAKEUP_ENABLED in
+TRUE|True|true|ON|On|on|YES|Yes|yes|Y|y|1)    KBD_WAKEUP_ENABLED=1;;
+FALSE|False|false|OFF|Off|off|NO|No|no|N|n|0) KBD_WAKEUP_ENABLED='';;
+esac
+
+# control : autosuspend values : on = never autosuspend , auto = let kernel decide
+local KBD_CONTROL MOU_CONTROL OTH_CONTROL
+KBD_CONTROL=on
+MOU_CONTROL=auto
+#OTH_CONTROL=auto
+case $KBD_CONTROL in
+TRUE|True|true|ON|On|on|YES|Yes|yes|Y|y|1)    KBD_CONTROL='on';;
+FALSE|False|false|OFF|Off|off|NO|No|no|N|n|0) KBD_CONTROL='auto';;
+esac
+case $MOU_CONTROL in
+TRUE|True|true|ON|On|on|YES|Yes|yes|Y|y|1)    MOU_CONTROL='on';;
+FALSE|False|false|OFF|Off|off|NO|No|no|N|n|0) MOU_CONTROL='auto';;
+esac
+
+
+local CLASS PROTOCOL AM_HID AM_KBD AM_MOU oneCF onePF
+
+ ls -1d /sys/bus/usb/devices/*/power/ | tac | while read oneDIR;
+do
+   oneD=`readlink -f "$oneDIR"`
+   _debugx "$oneD"
+   [ -f "$oneD"/wakeup ] || continue
+   _debug "$oneD"
+
+   #[ -f "${oneD}../bInterfaceClass" ]    || continue
+   #[ -f "${oneD}../bInterfaceProtocol" ] || continue
+    ls -1 "${oneD}"/../*/bInterfaceClass    >>$OUT 2>>$ERR  || continue
+    ls -1 "${oneD}"/../*/bInterfaceProtocol >>$OUT 2>>$ERR  || continue
+    _debug "$oneD"
+
+    #[ -f "$oneD"/../uevent ]       && _debugx "$oneD/../uevent:      `cat "$oneD"/../uevent`"
+     [ -f "$oneD"/../uevent ]       && _debugx "`grep -H '.*' $oneD/../uevent 2>&1`"
+    #[ -f "$oneD"/../class ]        && _info   "$oneD/../class:       `cat "$oneD"/../class`"
+     [ -f "$oneD"/../class ]        && _info   "`grep -H '.*' $oneD/../class 2>&1`"
+    #[ -f "$oneD"/../vendor ]       && _info   "$oneD/../vendor:      `cat "$oneD"/../vendor`"
+     [ -f "$oneD"/../vendor ]       && _info   "`grep -H '.*' $oneD/../vendor 2>&1`"
+    #[ -f "$oneD"/../manufacturer ] && _info   "$oneD/../manufacturer:`cat "$oneD"/../manufacturer`"
+     [ -f "$oneD"/../manufacturer ] && _info   "`grep -H '.*' $oneD/../manufacturer 2>&1`"
+    #[ -f "$oneD"/../product ]      && _info   "$oneD/../product:     `cat "$oneD"/../product`"
+     [ -f "$oneD"/../product ]      && _info   "`grep -H '.*' $oneD/../product 2>&1`"
+
+unset CLASS PROTOCOL CURR_WAKEUP_SETTING AM_HID AM_KBD AM_MOU oneCF onePF
+
+#<[uapi/]linux/usb/ch9.h>
+#define USB_CLASS_HID           3
+    #read CLASS <"$oneD"../bInterfaceClass
+   #_debug "`cat "$oneD"../bInterfaceClass`"
+   #ls -1 "${oneD}"../*/bInterfaceClass | while read oneCF;
+   while read oneCF
+   do
+     read CLASS <"$oneCF"
+    _debug "$oneCF:`cat "$oneCF"`"
+    case $CLASS in
+     03|3) AM_HID=YES;;
+     *) _notice "Unhandled USB_CLASS '$CLASS'"
+        continue;;
+    esac
+   done <<EoI
+`ls -1v "${oneD}"/../*/bInterfaceClass`
+EoI
+   [ "$AM_HID" ] || continue
+
+#<[uapi/]linux/hid.h>
+#define USB_INTERFACE_PROTOCOL_KEYBOARD 1
+#define USB_INTERFACE_PROTOCOL_MOUSE    2
+   #read PROTOCOL <"$oneD"../bInterfaceProtocol
+   #  _debug "`cat "$oneD"../bInterfaceProtocol`"
+   #ls -1 "${oneD}"../*/bInterfaceProtocol | while read onePF;
+   while read onePF
+   do
+     read PROTOCOL <"$onePF"
+       _debug "$onePF:`cat "$onePF"`"
+   case $PROTOCOL in
+   01|1) AM_KBD=YES;;
+   02|2) AM_MOU=YES;;
+   *) _notice "Unhandled USB_INTERFACE_PROTOCOL '$PROTOCOL'"
+      continue;;
+   esac
+
+   oneD_="$oneD"
+   oneD__="$oneD_"
+   while [ "$oneD__" != "/power" ]; do
+
+    oneD_=${oneD_%/*}
+   oneD__=${oneD_%/*}/power
+   _debugx " oneD_='$oneD_'"
+   _debugx "oneD__='$oneD__'"
+   test -f "$oneD__"/wakeup -a -f "$oneD__"/control || { _debug "No control and wakeup files in oneD__='$oneD__'"; continue; }
+
+   case $oneD__ in
+   ""|./power|../power|/power|power) _debug "breaking oneD__='$oneD__'"; break;;
+   esac
+   case $oneD_ in
+   ""|./|../|/) _debug "breaking oneD_='$oneD_'"; break;;
+   esac
+
+   read CURR_WAKEUP_SETTING <"$oneD__"/wakeup
+                 #_info "$oneD__/wakeup:`cat "$oneD__"/wakeup`"
+                 _info "`grep -H '.*' $oneD__/wakeup 2>&1`"
+                 #_info "$oneD__/control:`cat "$oneD__"/control`"
+                 _info "`grep -H '.*' $oneD__/control 2>&1`"
+                 if test -f "$oneD__/autosuspend_delay_ms" ; then
+                 #_info "$oneD__/autosuspend_delay_ms:`cat "$oneD__"/autosuspend_delay_ms`"
+                 _info "`grep -H '.*' $oneD__/autosuspend_delay_ms 2>&1`"
+                 fi
+                 if test -f "$oneD__/autosuspend"; then
+                 #_info "$oneD__/autosuspend:`cat "$oneD__"/autosuspend`"
+                 _info "`grep -H '.*' $oneD__/autosuspend 2>&1`"
+                 fi
+   read CURR_CONTROL_SETTING <"$oneD__"/control
+
+   case $PROTOCOL in
+
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD__"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD__"/wakeup;;
+    "") _notice "wakeup NOT implemented for mouse '$oneD__'";;
+    *)  _warn   "Unhandled CURR_WAKEUP_SETTING '$CURR_WAKEUP_SETTING'";;
+    esac
+
+    case $CURR_CONTROL_SETTING in
+    on)   [ "$MOU_CONTROL" = on ] || echo auto >"$oneD__"/control;;
+    auto) [ "$MOU_CONTROL" = on ] && echo on   >"$oneD__"/control;;
+    "")  _warn "CURR_CONTROL_SETTING empty";;
+    *)   _warn "Unhandled CURR_CONTROL_SETTING '$CURR_CONTROL_SETTING'";;
+    esac
+    ;;
+
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD__"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD__"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD__'";;
+    *)  _warn   "Unhandled CURR_WAKEUP_SETTING '$CURR_WAKEUP_SETTING'";;
+    esac
+
+    case $CURR_CONTROL_SETTING in
+    on)   [ "$KBD_CONTROL" = on ] || echo auto >"$oneD__"/control;;
+    auto) [ "$KBD_CONTROL" = on ] && echo on   >"$oneD__"/control;;
+    "")  _warn "CURR_CONTROL_SETTING empty";;
+    *)   _warn "Unhandled CURR_CONTROL_SETTING '$CURR_CONTROL_SETTING'";;
+    esac
+    ;;
+
+   esac
+                 #_info "$oneD__/wakeup:`cat "$oneD__"/wakeup`"
+                 _info "`grep -H '.*' $oneD__/wakeup 2>&1`"
+                 #_info "$oneD__/control:`cat "$oneD__"/control`"
+                 _info "`grep -H '.*' $oneD__/control 2>&1`"
+                 if test -f "$oneD__/autosuspend_delay_ms" ; then
+                 #_info "$oneD__/autosuspend_delay_ms:`cat "$oneD__"/autosuspend_delay_ms`"
+                 _info "`grep -H '.*' $oneD__/autosuspend_delay_ms 2>&1`"
+                 fi
+                 if test -f "$oneD__/autosuspend"; then
+                 #_info "$oneD__/autosuspend:`cat "$oneD__"/autosuspend`"
+                 _info "`grep -H '.*' $oneD__/autosuspend 2>&1`"
+                 fi
+
+   done
+
+   done <<EoI
+`ls -1v "${oneD}"/../*/bInterfaceProtocol`
+EoI
+
+__fall_through__(){ #BEGIN
+   [ "$AM_KBD" -o "$AM_MOU" ] || continue
+
+   read CURR_WAKEUP_SETTING <"$oneD"/wakeup
+   _debug "`cat "$oneD"/wakeup`"
+   case $PROTOCOL in
+   01|1)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$KBD_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$KBD_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for kbd '$oneD'";;
+    esac
+    ;;
+   02|2)
+    case $CURR_WAKEUP_SETTING in
+    enabled)   [ "$MOU_WAKEUP_ENABLED" ] || echo disabled >"$oneD"/wakeup;;
+    disabled)  [ "$MOU_WAKEUP_ENABLED" ] && echo enabled  >"$oneD"/wakeup;;
+    "") _notice "wakeup NOT implemented for mouse '$oneD'";;
+    esac
+    ;;
+   esac
+}  ###__fall_through__(){ #END
+
+done
+RV=$?
+DEBUG="$oldDEBUG"
+_notice "_set_usb_power_sysfs_values: RV='$RV'"
+return $RV
+}  ###_set_usb_power_sysfs_values(){ #END
+#_set_usb_power_sysfs_values
+
+# REM : Get supported ACPI Main states
+#       And other GLOBAL variables
+ACPITOOL=`which acpitool`           # Use acpitool if available - Why?
+states_avail=`cat /sys/power/state`
+states_avail_=`echo "$states_avail" |tr ' ' '\n'|sed 's!disk!S4 Hibernation on disk!;s!mem!S3 PM_SLEEP in mem!;s!standby!S1 Stand By!'`
+LINEP=D001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+if [ "$DEBUG" ]; then
+_xmessage -timeout 20 -bg red1 -title "POWERBUTTON STATES" "$0
+Available states:
+$states_avail_
+"
+aplay /usr/share/audio/2barks.au && sleep 2
+fi
+
+LINEP=E001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+# REM : Make menu list for supported ACPI states :
+for st_ in $states_avail
+do
+    case $st_ in
+    *freeze*)   BUTTON_FREEZE=freeze:190
+                XdmbTAG_FREEZE="\"Freeze\" \"EXP\" \"{ same as Standby ? }\""
+    ;;
+    *standby*)  BUTTON_STANDBY="Standby:201"
+                XdmbTAG_STANDBY="\"Standby\" \"ACPI-S1\" \"{ monitor off, fan still runs }\""
+    ;;
+    *mem*)      BUTTON_MEM="RAM sleep:203"
+                XdmbTAG_MEM="\"RAM Sleep\" \"ACPI-S3\" \"{ normal rest in ram }\""
+    ;;
+    *disk*)     BUTTON_DISK="hibernate on swap partition:204"
+                XdmbTAG_DISK="\"Hibernation\" \"ACPI-S4\" \"{ poweroff and put RAM-Image into swap }\""
+    ;;
+        *)          _warn "Unhandled ACPI state '$st_'";;
+    esac
+done
+
+
+test "$BUTTON_DISK"    && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_DISK"
+test "$BUTTON_MEM"     && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_MEM"
+test "$BUTTON_STANDBY" && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_STANDBY"
+test "$BUTTON_FREEZE"  && BUTTONS_GUI="${BUTTONS_GUI},$BUTTON_FREEZE"
+
+BUTTONS_GUI="${BUTTONS_GUI},DO NOTHING:200"
+BUTTONS_GUI=`echo "$BUTTONS_GUI" | sed 's%^,*%%;s%,*$%%'`
+
+test "$XdmbTAG_FREEZE"  && Xd_MENU="$Xd_MENU
+ $XdmbTAG_FREEZE \\"
+test "$XdmbTAG_STANDBY" && Xd_MENU="$Xd_MENU
+ $XdmbTAG_STANDBY \\"
+test "$XdmbTAG_MEM"     && Xd_MENU="$Xd_MENU
+ $XdmbTAG_MEM \\"
+test "$XdmbTAG_DISK"    && Xd_MENU="$Xd_MENU
+ $XdmbTAG_DISK"
+
+ Xd_MENU=" \"Do Nothing\" \"just leave\" \"{quit and skip any further code}\" \\
+ $Xd_MENU"
+#Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d;s!$!   \\\!'`
+ Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d'`
+echo
+echo "Xd_MENU='$Xd_MENU'"
+echo
+
+# REM : If no pidof X
+___do_xmessage(){ #BEGIN
+  #xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
+ __xmessage -timeout $EMERG_TIMEOUT -buttons "$BUTTONS_GUI" -bg blue3 -fg white -title "POWERBUTTON MENU" "Busybox acpid :
+Do you want to go into one of the ACPI PM SLEEP modes ?
+Note : Timesout in $EMERG_TIMEOUT seconds to poweroff normally."
+ANSWER=$?
+return $ANSWER
+}  ###___do_xmessage(){ #END
+
+# REM : Make Xdialog Menu
+#       GLOBAL variables
+Xd_TITLE="Powerbutton GUI"
+Xd_BTITLE="Powerbutton MENU"
+Xd_TEXT="NOTE: Timesout int $EMERG_TIMEOUT seconds
+to poweroff forcibly
+
+Choose one of the \n
+Entries below :"
+Xd_HELP="ACPI Power-Save Modes :\n
+                                \n
+S1: Just switches off the monitor .\n
+                                   \n
+S3: Sleeps in Random-Access-Memory   \n
+    and will, as long as power is supplied, \n
+    return to desktop when the  \n
+    power button is pressed again.   \n
+    Some buggy kernels will panic though.. \n
+                                           \n
+S4: Writes an Image of the current Memory  \n
+    to a Swap-Partition or -File and then  \n
+    shutdown to halts or poweroffs the computer. \n
+                                                 \n
+    To restore the Session, boot with            \n
+    'resume=/dev/[hs]d[a-z][0-9]'                \n
+    boot parameter,                              \n
+    where '/dev/sdaX' should be the
+    first swap partition.                        \n
+                                                 \n
+    A swap file would additionally need the       \n
+    'resume_offset=' kernel parameter              \n
+( See Documentation/power/swsusp-and-swap-files.txt \n
+      in the kernel source ) .                      \n
+"
+
+# REM:    Now MENU
+_do_menu_Xdialog_menubox(){
+
+__one_subshell__(){
+( now_=`date +%s`;twoM=$((now_+120));
+  yaf-splash -placement top -bg red -countdown $twoM &
+  sleep 110
+  aplay /usr/share/audio/2barks.au ) &
+jPID=$!
+echo "jPID='$jPID'"
+}
+
+( now_=`date +%s`;twoM=$((now_+120));
+  yaf-splash -placement top -bg red -countdown $twoM ) &
+yPID=$!
+
+( sleep 110;
+  aplay /usr/share/audio/2barks.au ) &
+jPID=$!
+echo "jPID='$jPID'"
+
+#oldIFS=$"IFS"
+#IFS=$'\n'
+#unset IFS
+
+rm -f "$tmpDIR"/acpi_Xd_MENU.out
+
+# REM : Create external file for Xdialog is a bit nasty
+#       parsing <list> from the current shell
+cat > "$tmpDIR"/acpi_Xd_MENU.sh <<EoI
+#!/bin/ash
+
+ Xdialog  \\
+ --backtitle "$Xd_BTITLE" \\
+ --title     "$Xd_TITLE" \\
+ --screen-center \\
+ --stdout \\
+ --separator ":"    \\
+ --separate-output   \\
+ --buttons-style text \\
+ --timeout $EMERG_TIMEOUT \\
+ --item-help  \\
+ --default-item "RAM Sleep" \\
+ --help "$Xd_HELP" \\
+ --ok-label "Aye Dare" \\
+ --cancel-label "Naye Darn" \\
+ --menubox "$Xd_TEXT" \\
+ 0 0 6 \\
+ $Xd_MENU  \\
+  >$tmpDIR/acpi_Xd_MENU.out
+exit \$?
+EoI
+
+chmod $VERB 0774 "$tmpDIR"/acpi_Xd_MENU.sh
+"$tmpDIR"/acpi_Xd_MENU.sh
+ RV=$?
+ echo "Xdialog return value: '$RV'"
+
+#yPID=`ps | grep 'yaf\-splash' | grep '\-placement' | grep top | grep '\-countdown'`
+#yPID=`echo "$yPID" | awk '{print $1}'`
+echo "yPID='$yPID'"
+
+ case $RV in
+ 0) :;;
+ *) jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l;
+    for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ exit 0;;
+ esac
+
+ CHOICE_LINE=`tail -n1 "$tmpDIR"/acpi_Xd_MENU.out`
+ echo "CHOICE_LINE='$CHOICE_LINE'"
+ #exit
+
+#IFS=$"$oldIFS"
+
+# kill jobs ..
+jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
+for aP_ in `jobs -p`; do
+ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+jobs -l
+
+case $CHOICE_LINE in
+*FREEZE*|*Freeze*|*freeze*) ANSWER=190;;
+*Do*Nothing*|*do*nothing*)  ANSWER=200;;
+*Standby*|*standby*)        ANSWER=201;;
+*RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
+*Hibernation*|*hiber*)      ANSWER=204;;
+"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
+*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
+esac
+
+return $ANSWER
+}
+
+aplay /usr/share/audio/2barks.au
+
+# REM : Switch to use  either
+#       _do_menu_Xdialog_menubox
+#       or
+#       console_select.sh
+if pidof X >>$OUT ; then
+  # REM : Get and switch to TTY X is currently using
+  #       In case iser is on some console
+  ttyX_=`busybox ps -o pid,tty,args | awk '{if (match($2, "4,[0-9]?")) print "tty:"$2" "$3" "$4" "$5}' | grep -w 'X' | tail -n1`
+  ttyX=${ttyX_%% *}
+  ttyX=${ttyX#*:}
+
+  case $ttyX in
+  tty[0-9]*)    vtNR=${ttyX##*tty};;
+  [0-9],[0-9]*) maj=${ttyX%,*}; min=${ttyX#*,}
+             #devTTY=`stat -c %t" "%T" "%n /dev/tty* | awk "{if (\$1 == $maj && \$2 == $min) print \$3}"`
+              devTTY=`stat -c %t" "%T" "%n /dev/tty* | awk "{if (\\$1 == $maj && \\$2 == $min) print \\$3}"`
+              vtNR=${devTTY//[^[:digit:]]/}
+              ;;
+  esac
+ # REM : Now switch
+ test "$vtNR" && { chvt $vtNR; sleep 1; }
+
+# REM : Some XxY values to place messages on screen
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+
+ #REM : Now do Xdialog
+ _do_menu_Xdialog_menubox
+
+else  # pidof X / no pidof X
+
+unset DISPLAY
+
+# REM: First attemp:
+#openvt $VERB -s ___do_xmessage
+#openvt $VERB -s
+#sleep 1
+#___do_xmessage
+
+# REM: second attempt using external script
+# REM : Get the  ___do_xmessage and  __xmessage functions
+#       out of this script and create a script in /tmp that uses them
+myREALPATH=`realpath "$0"`
+f1=`sed -n '/^___do_xmessage(){ #BEGIN/,/^}  ###___do_xmessage(){ #END/p' "$myREALPATH"`
+f2=`sed -n '/^__xmessage(){ #BEGIN/,/^}  ###__xmessage(){ #END/p' "$myREALPATH"`
+
+cat >"$tmpDIR"/console_select.sh <<EoI
+#!/bin/ash
+
+unset DISPLAY
+
+source /etc/rc.d/f4puppy5
+
+# REM: functions:
+# __xmessage:
+$f2
+# ___do_xmessage:
+$f1
+
+
+echo
+
+# REM: DEBUG
+echo "$0:$*"
+echo "\$0:\$*"
+
+# REM: ps does not work for me if triggered without controlling terminal
+startVT=\`busybox ps -o tty,args | grep openvt | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | head -n1\`
+currVT=\`busybox ps -o tty,args | grep console_select | grep -vE 'grep' | awk -F'\[\ ,\]' '{print \$2}' | tail -n1\`
+
+echo "Start VT: \$startVT "
+echo "Current VT: \$currVT "
+
+echo "\$startVT" >$tmpDIR/startVT.nr
+echo "\$currVT" >$tmpDIR/currVT.nr
+
+# REM: Now comes the select ^GUI^
+echo
+___do_xmessage
+echo \$? >$tmpDIR/ANSWER.txt
+# REM: Need to do it later after script exits
+#deallocvt \$currVT
+# REM: echo should return 0; otherwise /tmp not read-write
+exit \$?
+EoI
+
+# REM: of course make script writable
+chmod $VERB 0754 "$tmpDIR"/console_select.sh
+
+# REM: remove output files to prevent old values used
+rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+
+# REM: export the variables, so they do not need to be written into
+#      console_select.sh
+export BUTTONS_GUI EMERG_TIMEOUT
+
+# REM: Needs fgconsole enabled in BBCONFIG of busybox
+#       fgconsole works also without controlling tty
+#       Need that value because openvt -sw does not work for me
+#       to automatically switch back after script exits
+[ "`which fgconsole`" ] && startVT=`fgconsole`
+
+# REM : Now run script while switching VT
+#       Switch of virtual terminal is neccessary to
+#       be able to handle input
+# REM: Needs to wait otherwise would immediately switch back to
+#       startVT, but with -w it does not work for me to switch back
+openvt $VERB -s -w "$tmpDIR"/console_select.sh
+# openvt $VERB -s "$tmpDIR"/console_select.sh
+
+test -s "$tmpDIR"/ANSWER.txt && read ANSWER <"$tmpDIR"/ANSWER.txt
+
+echo "ANSWER='$ANSWER'"
+
+sleep 1
+
+[ "$startVT" ] || { test -s "$tmpDIR"/startVT.nr && read startVT <"$tmpDIR"/startVT.nr; }
+test -s "$tmpDIR"/currVT.nr  && read currVT  <"$tmpDIR"/currVT.nr
+
+case $startVT in
+[0-9]*) chvt $startVT;;
+esac
+
+sleep 1
+
+case $currVT in
+[0-9]*) deallocvt $currVT;;
+esac
+
+fi # pidof X / no pidof X
+
+
+LINEP=F001
+echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+
+__mouse_message__old__(){
+_yaf_splash -bg yellow -fg black -timeout 10 -text "OK, If your mouse receiver is
+attached to a keyboard integrated hub, and you don't
+want to wake the system by mouse moves,
+then you have 10 seconds from now,
+to switch off the mouse..."
+}
+
+# REM: Attempt to create a mouse-grab window using full display
+#mmsgGEOMETRY="-geometry `_get_screen_resolution`"
+mmsgGEOMETRY="-geometry $rootSCREEN_XY"
+[ "${mmsgGEOMETRY#-geometry }" ] || unset mmsgGEOMETRY
+
+_mouse_message(){
+yaf-splash -bg yellow $mmsgGEOMETRY -fg black $genYAFOPS -timeout $MOUSEMSG_TT -text "+---------------------------------------------------------+
+| OK, so if your mouse receiver is                        |
+| attached to a keyboard integrated hub,                  |
+|                                                         |
+| and you don't want to wake the system by mouse moves,   |
+|                                                         |
+| or light up any LEDs on the keyboard dito,              |
+|                                                         |
+| then you have $MOUSEMSG_TT seconds from now,                      |
+| to switch off the mouse...                              |
+|                                                         |
+| Note: Unmounting of partitions may still go on          |
+|       in the background .                               |
+|                                                         |
+| Note: Due to a bug or feature in yaf-splash,            |
+|       it is possible to press any keyboard key,         |
+|       to close this splash and shorten the timeout,     |
+|       if no input accepting app like xterm or an editor |
+|       is covering the root screen background            |
+|       when switched off the mouse.                      |
++---------------------------------------------------------+"
+}
+
+# REM : Just Exit
+if [ "$ANSWER" = 200 ];then
+ rm -f "$tmpDIR"/acpi_button_count
+ for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+
+# REM: TODO get current vt and switch to it
+#      if triggered from console outside X
+#      and X not running
+#_pidof X || chvt 1 # works but should return to last terminal nr
+_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+[ "$DEBUG" ] || rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/currVT.nr "$tmpDIR"/startVT.nr
+exit 0
+
+# REM : S3 RAM sleep
+elif [ "$ANSWER" = 203 ];then
+
+_mouse_message & fPID=$!
+_set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
+#_set_usb_power_sysfs_values && _mouse_message
+#wait $fPID
+#sleep 2
+
+_handle_no_console_suspend(){    ##2014-10-18
+test -f  /sys/module/printk/parameters/console_suspend || { _notice "File
+/sys/module/printk/parameters/console_suspend
+not in sysfs."; return 1; }
+
+grep $Q -w no_console_suspend /proc/cmdline && {
+ if [ "$VERBOSE" ]; then
+ # echo -n 'Content of sysfs file
+ #    /sys/module/printk/parameters/console_suspend:'
+ #cat /sys/module/printk/parameters/console_suspend
+  grep -H '.*' /sys/module/printk/parameters/console_suspend 2>&1
+ fi
+echo N >/sys/module/printk/parameters/console_suspend
+return $?
+ }
+return $?
+}
+_handle_no_console_suspend    ##2014-10-18
+
+pidof sync >>$OUT || sync
+_loop_umount_func
+_part_umount_func
+pidof sync >>$OUT || sync
+sleep 1
+
+wait $fPID
+sleep 2
+
+   if [ "$ACPITOOL" -a -e /proc/acpi/sleep ];then
+    acpitool -s
+   else
+    echo 'mem' >/sys/power/state
+   fi
+
+sleep 5
+_restore_mounts
+
+
+
+elif [ "$ANSWER" = 204 ];then
+_mouse_message & fPID=$!
+#_set_usb_power_sysfs_values && _mouse_message
+_set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
+#wait $fPID
+#sleep 2
+
+pidof sync >>$OUT || sync
+_loop_umount_func
+_part_umount_func
+pidof sync >>$OUT || sync
+sleep 1
+
+   #if [ "$ACPITOOL" ];then
+   PROC_SWAPS=`cat /proc/swaps |sed '1d'|awk '{print $1}'`
+      for swap in $PROC_SWAPS;do
+       RESUME=`blkid $swap |grep -iE 'Winter|Hiber|Resume'`
+       [ "$RESUME" ] && break
+      done
+    if [ ! "$RESUME" ];then
+    FDISK_SWAPS=`fdisk -l |grep -i swap|awk '{print $1}'`
+      for swap in $FDISK_SWAPS;do
+       RESUME=`blkid $swap |grep -iE 'Winter|Hiber|Resume'`
+       [ "$RESUME" ] && break
+      done
+    fi
+      if [ "$RESUME" ];then
+         for swap in $PROC_SWAPS;
+         do
+            [ "$swap" = "$RESUME" ] && continue
+            swapoff $swap
+         done
+      swapon $RESUME
+      fi
+
+      pidof sync >>$OUT || sync
+      sleep 1
+
+      wait $fPID
+      sleep 2
+
+      if [ "$ACPITOOL" ];then
+       acpitool -S
+      else
+       echo 'disk' >/sys/power/state
+      fi
+
+      sleep 1
+      for swap in $PROC_SWAPS;
+      do
+       swapon $swap
+      done
+
+      if [ "$RESUME" ];then
+       if test cat /proc/swaps |sed '1d' |wc -l -gt 1;then
+        swapoff $RESUME
+       fi
+      fi
+
+   #else #acpitool
+   #  echo 'disk' >/sys/power/state
+   #fi
+
+sleep 5
+_restore_mounts
+
+elif [ "$ANSWER" = 201 ]; then  #standby
+
+_mouse_message & fPID=$!
+_set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
+#_set_usb_power_sysfs_values && _mouse_message
+wait $fPID
+sleep 2
+
+    echo standby >/sys/power/state
+
+elif [ "$ANSWER" = 190 ]; then  #freeze
+
+_mouse_message & fPID=$!
+_set_usb_power_sysfs_values || _warn "CONFIG_USB_SUSPEND not enabled for '$KERNEL_RELEASE'"
+#_set_usb_power_sysfs_values && _mouse_message
+wait $fPID
+sleep 2
+
+    echo freeze >/sys/power/state
+
+else # timeout 0, error 1
+ unset DISPLAY
+ if test "`pidof X`"; then
+  wmpoweroff force
+   sleep 5
+   pidof poweroff rc.shutdown >>$OUT || exec /sbin/poweroff force
+  rm -f "$tmpDIR"/acpi_button_count
+  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ exit $?
+ else
+  exec /sbin/poweroff force
+ fi
+fi
+
+#sleep 5
+aplay /usr/share/audio/2barks.au
+case $ANSWER in
+201)
+_xmessage -title "POWERBUTTON READY MESSAGE" "RETURNED from STANDBY"
+;;
+203)
+_xmessage -title "POWERBUTTON WAKEUP MESSAGE" "RETURNED from RAM light sleep"
+;;
+204)
+_xmessage -title "POWERBUTTON WELCOME BACK MESSAGE" "RETURNED from DISK winter sleep"
+;;
+*) :;;
+esac
+
+# REM: TODO get current vt and switch to it
+#      if triggered from console outside X
+#      and X not running
+#_pidof X || chvt 1 # works but should return to last terminal nr
+_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+
+[ "$DEBUG" ] || {
+rm -f "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+rm -f "$tmpDIR"/ANSWER.txt
+rm -f "$tmpDIR"/acpi_button_count
+}
+
+sleep 5
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+
+exit 0
