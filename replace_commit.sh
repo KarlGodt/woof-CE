@@ -21,6 +21,9 @@ case $oneF in
 *.xpm|*.svg|*.png|*.jpg|*.gif|*.DirIcon|*.gz|*.bz2|*.xz|*.ttf|*.pfb|*.afm|*.au|*.wav|*.mp3|*.ogg)
 test "$ONLY_SCRIPTS" && return 1
 ;;
+*issue*|*MODULESCONFIG*|*PUPSTATE*|*modprobe*|*/.bash*|*/.ash*|*history*)
+test "$ONLY_SCRIPTS" && return 1
+;;
 esac
 return 0
 }
@@ -121,10 +124,10 @@ _update_git(){
 if test "$modS" -gt "$modF"; then
  if test "$DO_UPDATE_GIT"; then
 
-	 dirG=".${sysF%/*}"
-	 mkdir $VERB -p "$dirG"
+     dirG=".${sysF%/*}"
+     mkdir $VERB -p "$dirG"
 
-	 /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
+     /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
@@ -140,10 +143,10 @@ _force_replace_files_in_git(){
 
  if test "$DO_UPDATE_GIT"; then
 
-	 dirG=".${sysF%/*}"
-	 mkdir $VERB -p "$dirG"
+     dirG=".${sysF%/*}"
+     mkdir $VERB -p "$dirG"
 
-	 /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
+     /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
       git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
      else
