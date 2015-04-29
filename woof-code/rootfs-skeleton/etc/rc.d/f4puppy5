@@ -9,18 +9,113 @@ OUT=/dev/null;ERR=/dev/null
 VERSION=0.0.1.1
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
+# Handle $0 :
+#test "$MY_SELF" || MY_SELF="$0"
+# Handle login shell
+case $0 in
+-*) MY_SELF="$0";;
+*)
+MY_SELFR=`readlink -f "$0"`
+MY_SELF0="$0"
+
+[ "$WARN" ]    || WARN=1
+[ "$WARN" ]    && WARNING="$WARN"
+[ "$WARNING" ] || WARNING=1
+_warn(){
+test "$WARN" || return 1
+echo -e "$0:WARNING:$*"  >&2
+}
+
+if test "$MY_SELFR" -a "$MY_SELF0"; then
+test "$MY_SELFR" = "$MY_SELF0" && MY_SELF="$MY_SELF0" || {
+[ "IS_MULTICALL" ] || _warn "readlink -f \$0 is not same as \$0"
+MY_SELF="$MY_SELFR"
+}
+
+elif test "$MY_SELFR"; then
+_warn "Could not determine \$0"
+MY_SELF="$MY_SELFR"
+
+elif test "$MY_SELF0"; then
+_warn "Could not determine readlik -f \$0"
+MY_SELF="$MY_SELF0"
+
+else
+_warn "Could not determine \$0 and readlink -f \$0"
+test "$MY_SELF" || MY_SELF="$0"
+fi
+;;
+esac
+
+# Handle relative path
+case "$MY_SELF" in
+./*) MY_SELF=`pwd`/"$MY_SELF";;
+esac
+# Handle terminal
+case ${MY_SELF##*/} in
+ash|bash|dash|hush|msh|sh|-sh|-ash|-bash|-dash|-hush|-msh) EXIT=return;;
+*)           EXIT=exit;;
+esac
+
+[ "$MY_PID" ] || MY_PID=$$
+
 _test_f()
 {
 test -L "$*" && return 1
 test -f "$*" && return 0
 return 1
 }
+
+_test_fr()
+{
+test -L "$*" && return 1
+test -f "$*" -a -r "$*"
+}
+
+
+_test_fw()
+{
+test -L "$*" && return 1
+test -f "$*" -a -w "$*"
+}
+
+_test_frw()
+{
+test -L "$*" && return 1
+test -f "$*" -a -r "$*" -a -w "$*"
+}
+
 _test_d()
 {
 test -L "$*" && return 1
 test -d "$*" && return 0
 return 1
 }
+
+_test_dr()
+{
+test -L "$*" && return 1
+test -d "$*" -a -r "$*"
+}
+
+_test_dw()
+{
+test -L "$*" && return 1
+test -d "$*" -a -w "$*"
+}
+
+_test_drw()
+{
+test -L "$*" && return 1
+test -d "$*" -a -r "$*" -a -w "$*"
+}
+
+_test_drx()
+{
+test -L "$*" && return 1
+test -d "$*" -a -r "$*" -a -x "$*"
+}
+
 _test_p()
 {
 test -L "$*" && return 1
@@ -67,9 +162,10 @@ _check_if_already_running()
 {
 pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
         echo "Already running."
-        exit 1
+        #exit 1
+        return 1
  }
-return $?
+return 0
 }
 
 _check_for_terminal()
@@ -1396,6 +1492,32 @@ pidof $* >>$OUT; return $?
 pidof $*;return $?
 ;;
 esac
+}
+
+
+_lineno(){
+## Usage like :
+#LINEP=D001
+#[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+## Or
+#LINEP=D001;[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+    if [ "$1" ]; then
+    echo `grep -h -n -w -m1 "$1" "$MY_SELF" |cut -f1 -d':'`" (tag '$*')"
+    else
+    echo 'UNKNOWN -- missing $1'
+    fi
+}
+
+_get_screen_resolution(){
+ local RV
+ ROOT_SCREEN_DIM_=`xwininfo -root`
+ RV=$?
+ ROOT_SCREEN_DIM_=`echo "$ROOT_SCREEN_DIM_" | tac | grep -vE '^[#!;]|^[[:blank:]]*[#!;]|^[/\*][/\*]|^[[:blank:]]*[/\*][/\*]' | grep -m1 '\-geometry'`
+ RV=$((RV+$?))
+_ROOT_SCREEN_DIM_=`echo "$ROOT_SCREEN_DIM_" | awk '{print $2}'`
+ RV=$((RV+$?))
+echo ${_ROOT_SCREEN_DIM_}
+ return $RV
 }
 
 ### END ###
