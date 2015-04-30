@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/ash +i
 #brilliant replacement for yaf-splash, written by mave, june 2010.
 #gpl license see: /usr/share/doc/legal/gpl-2.0.txt
 #BK added '-placement', '-close'.
@@ -7,14 +7,34 @@
 #100604 name /tmp/yaf-splash same as original, as some scripts have 'pidof yaf-splash' or 'killall yaf-splash'.
 #100917 if old yaf-splash installed, and '-font' param, execute old yaf-splash.
 #100929 my god, this is clumsy: above did not work, fixed.
-#110318 added option for any pixmap, use with caution, recommended less than 48x48 px in size 01micko, 
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+#110318 added option for any pixmap, use with caution, recommended less than 48x48 px in size 01micko,
 #however vovchik tested with larger gifs with success
 
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
+_close_jobs(){
+#for aP_ in `jobs -p`; do test "$aP_" || continue; ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill -9 $aP_; done
+#for aP_ in `pidof "${0##*/}"`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+pidof yaf-splash       && killall -9 yaf-splash
+pidof gtkdialog-splash && killall -9 gtkdialog-splash
+}
+
+trap "echo \"$0:Caught Signal\"; _close_jobs; exit" HUP INT QUIT TRAP ABRT KILL TERM
+
+# this script does not handle some regular yaf-splash options, so switch if possible
+YAF_BIN=/usr/X11/bin/yaf-splash
 FIXEDPARAMS=""
-if [ -f /usr/X11R7/bin/yaf-splash ];then #100917
- if [ "`echo "$*" | grep ' \-font '`" != "" ];then
+
+if [ -f "$YAF_BIN" ];then #100917
+ if [ "`echo "$*" | grep -E '\-font |\-countdown|\-nocountdown|\-geometry'`" != "" ];then
+
+   #echo "$YAF_BIN $*"
+   #exec $YAF_BIN $*
+    echo "$YAF_BIN $@"
+    #exec $YAF_BIN "$@" &
+    $YAF_BIN "$@"
+    exit $?
   #100929 insert double-quote chars at begin/end of text string...
   for ONEPARA in "${1}" "${2}" "${3}" "${4}" "${5}" "${6}" "${7}" "${8}" "${9}" "${10}" "${11}" "${12}" "${13}" "${14}" "${15}"
   do
@@ -25,9 +45,13 @@ if [ -f /usr/X11R7/bin/yaf-splash ];then #100917
     FIXEDPARAMS="$FIXEDPARAMS"' "'"${ONEPARA}"'"'
    fi
   done
-  eval "/usr/X11R7/bin/yaf-splash ${FIXEDPARAMS}"
-  exit
+  echo "$0:$YAF_BIN ${FIXEDPARAMS}"
+  eval "$YAF_BIN ${FIXEDPARAMS}"
+  exit $?
+
+ else true
  fi
+else false
 fi
 
 #ignore scripts that do 'killall gtkdialog3'...
@@ -36,10 +60,11 @@ GTKDIALOG3="`which gtkdialog3`"
 [ ! "$GTKDIALOG3" ] && exit
 [ ! -f /tmp/yaf-splash ] && ln -s $GTKDIALOG3 /tmp/yaf-splash
 
-ROOTGEOM="`xwininfo -root | grep -o ' \\-geometry .*' | cut -f 3 -d ' '`" #ex: 1280x800+0+0
+export LD_LIBRARY_PATH=/usr/X11/lib:$LD_LIBRARY_PATH
+ROOTGEOM="`xwininfo -root | grep -o ' \-geometry .*' | cut -f 3 -d ' '`" #ex: 1280x800+0+0
 ROOTX=`echo -n "$ROOTGEOM" | cut -f 1 -d 'x'`
 ROOTY=`echo -n "$ROOTGEOM" | cut -f 1 -d '+' | cut -f 2 -d 'x'`
-CENTERX=`expr $ROOTX \/ 2`
+CENTERX=$((ROOTX / 2))
 
 helptext="\ngtkdialog-splash\n
 \n
@@ -50,33 +75,33 @@ Thanks for Puppy!\n
 \n
 usage: gtkdialog-splash [OPTIONS] [-timeout SEC] -text TEXT | -kill PID \n
 \n
-	-text EXPRESSION\n
-	-timeout COUNT (in seconds)\n
-	-icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none)\n
-	OR <path/to/pixmap> \n
-	-bg COLOR (background color red, blue, yellow..., default: grey)\n
-	-fg COLOR (font color, default: black)\n
+    -text EXPRESSION\n
+    -timeout COUNT (in seconds)\n
+    -icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none)\n
+    OR <path/to/pixmap> \n
+    -bg COLOR (background color red, blue, yellow..., default: grey)\n
+    -fg COLOR (font color, default: black)\n
     -placement center|mouse|top|bottom|top-left|bottom-left (default center)\n
     -close never|mouseover|box (default is mouseover)\n
-	-deco TITLE (shows windows decorations, with title)\n
-	-fontsize SIZE (small, medium, large, x-large, default: medium)\n\n
-	-kill PID (process ID called before: \tPID=0 auto-search fo the last one,\n
-	  \t\t\t\t\tPID=xxxxx kill the last one read by PID=\$!)
-	\n"
-	
-	
+    -deco TITLE (shows windows decorations, with title)\n
+    -fontsize SIZE (small, medium, large, x-large, default: medium)\n\n
+    -kill PID (process ID called before: \tPID=0 auto-search fo the last one,\n
+      \t\t\t\t\tPID=xxxxx kill the last one read by PID=\$!)
+    \n"
+
+
 params=$@
-	
-if [ ${#params} -eq 0 ]; then	# no options, no text, so print info/help...
-	echo -e $helptext
-	exit
+
+if [ ${#params} -eq 0 ]; then   # no options, no text, so print info/help...
+    echo -e $helptext
+    exit
 fi
 
 BasePIDFile="/tmp/GTKDIALOG-SPLASH"
 dummy=SECONDS
 text=""
 timeout=0
-bg="grey"	
+bg="grey"
 fg="black"
 icon=""
 fontsize="medium" # small, medium, large, x-large
@@ -90,104 +115,104 @@ optarg=$dummy
 
 for arg in "$@";
  do
-	if [ $optarg == "TEXT" ]		# getting optional argument of a parameter
-	then
-		text=$arg
-		optarg=$dummy
-	elif [ $optarg == "PLACEMENT" ]
-	then
+    if [ $optarg == "TEXT" ]        # getting optional argument of a parameter
+    then
+        text=$arg
+        optarg=$dummy
+    elif [ $optarg == "PLACEMENT" ]
+    then
         placement=$arg
-		optarg=$dummy
-	elif [ $optarg == "CLOSE" ]
-	then
+        optarg=$dummy
+    elif [ $optarg == "CLOSE" ]
+    then
         close=$arg
-		optarg=$dummy
-	elif [ $optarg == "TITLE" ]
-	then
+        optarg=$dummy
+    elif [ $optarg == "TITLE" ]
+    then
         title=$arg
-		optarg=$dummy
-	elif [ $optarg == "TIMEOUT" ]
-	then
-		timeout=$arg
-		optarg=$dummy
-	elif [ $optarg == "BG" ]
-	then
-		bg=$arg
-		optarg=$dummy
-	elif [ $optarg == "FG" ]
-	then
-		fg=$arg
-		optarg=$dummy
-	elif [ $optarg == "ICON" ]
-	then
-		icon="<pixmap>
+        optarg=$dummy
+    elif [ $optarg == "TIMEOUT" ]
+    then
+        timeout=$arg
+        optarg=$dummy
+    elif [ $optarg == "BG" ]
+    then
+        bg=$arg
+        optarg=$dummy
+    elif [ $optarg == "FG" ]
+    then
+        fg=$arg
+        optarg=$dummy
+    elif [ $optarg == "ICON" ]
+    then
+        icon="<pixmap>
           <input file stock=\"$arg\"></input>
         </pixmap>"
-        [ "`echo $arg | grep '^gtk'`" = "" ]&& icon="<pixmap> 
+        [ "`echo $arg | grep '^gtk'`" = "" ]&& icon="<pixmap>
           <input file>\"$arg\"</input>
         </pixmap>" #110318
-		optarg=$dummy
-	elif [ $optarg == "KILL" ]
-	then
-		pid=$arg
-		if [ ${#pid} -eq -1 ]
-		then
-			dlgPID=`ps|grep -w 'GTKDIALOG_SPLASH'`
-			kill $dlgPID 2>/dev/null
-		else
-			TmpFile=$BasePIDFile${pid}
-			dlgPID="`cat $TmpFile`"
-			kill $dlgPID 2>/dev/null
-			rm -f $TmpFile
-			exit
-		fi
-	elif [ $optarg == "FONTSIZE" ]
-	then
-		fontsize=$arg
-		optarg=$dummy
-	else
-		case $arg in
-		-kill)
-			optarg="KILL"
-			;;
-		-text)
-			optarg="TEXT"
-			;;
-		-timeout)
-			optarg="TIMEOUT"
-			;;
-		-bg)
-			optarg="BG"
-			;;
-		-fg)
-			optarg="FG"
-			;;
-		-icon)
-			optarg="ICON"
-			;;
-		-fontsize)
-			optarg="FONTSIZE"
-			;;
-		-placement)
-			optarg="PLACEMENT"
-			;;
-		-close)
-			optarg="CLOSE"
-			;;
-		-deco)
-			deco="true"
+        optarg=$dummy
+    elif [ $optarg == "KILL" ]
+    then
+        pid=$arg
+        if [ ${#pid} -eq -1 ]
+        then
+            dlgPID=`ps|grep -w 'GTKDIALOG_SPLASH'`
+            kill $dlgPID 2>/dev/null
+        else
+            TmpFile=$BasePIDFile${pid}
+            dlgPID="`cat $TmpFile`"
+            kill $dlgPID 2>/dev/null
+            rm -f $TmpFile
+            exit
+        fi
+    elif [ $optarg == "FONTSIZE" ]
+    then
+        fontsize=$arg
+        optarg=$dummy
+    else
+        case $arg in
+        -kill)
+            optarg="KILL"
+            ;;
+        -text)
+            optarg="TEXT"
+            ;;
+        -timeout)
+            optarg="TIMEOUT"
+            ;;
+        -bg)
+            optarg="BG"
+            ;;
+        -fg)
+            optarg="FG"
+            ;;
+        -icon)
+            optarg="ICON"
+            ;;
+        -fontsize)
+            optarg="FONTSIZE"
+            ;;
+        -placement)
+            optarg="PLACEMENT"
+            ;;
+        -close)
+            optarg="CLOSE"
+            ;;
+        -deco)
+            deco="true"
             [ ! "$close" ] && close="never"
             optarg="TITLE"
-			;;
-		-help | --help)
-			echo -e $helptext
-			exit
-			;;
-		esac
-	fi
+            ;;
+        -help | --help)
+            echo -e $helptext
+            exit
+            ;;
+        esac
+    fi
  done
 
-[ ! "$close" ] && close='mouseover'
+#[ ! "$close" ] && close='mouseover'
 
 #process placement, default is center...
 WINPLACE=''
@@ -199,7 +224,7 @@ case $placement in
   WINTYPE=2
  ;;
  top|top-right)
-  X=`expr $CENTERX - 200` #not accurate
+  X=$((CENTERX - 200)) #not accurate
   Y=0
   WINTYPE=10
  ;;
@@ -209,13 +234,13 @@ case $placement in
   WINTYPE=10
  ;;
  bottom|bottom-right)
-  X=`expr $CENTERX - 200` #not accurate
-  Y=`expr $ROOTY - 70`
+  X=$((CENTERX - 200)) #not accurate
+  Y=$((ROOTY - 70))
   WINTYPE=10
  ;;
  bottom-left)
   X=0
-  Y=`expr $ROOTY - 70`
+  Y=$((ROOTY - 70))
   WINTYPE=10
  ;;
 esac
@@ -223,6 +248,13 @@ esac
 #process close of window, default is mouseover...
 CLOSETAG1=''
 CLOSETAG2='<action signal="enter-notify-event" type="exit">Exit on mouse-over</action>'
+
+test "$close" || {
+
+pidof powerbutton && close=never
+
+}
+
 case $close in
  never)
   CLOSETAG2=''
@@ -235,8 +267,8 @@ esac
 
 gtkrc="style \"gtkdialog-splash\"
 {
-	bg[NORMAL]		= \"$bg\"
-	fg[NORMAL]		= \"$fg\"
+    bg[NORMAL]      = \"$bg\"
+    fg[NORMAL]      = \"$fg\"
 }
 class \"*\" style \"gtkdialog-splash\""
 
@@ -246,7 +278,7 @@ export GTK2_RC_FILES=/tmp/gtkdialog-splash_gtkrc:/root/.gtkrc-2.0
 
 #      <action signal=\"button-press-event\" type=\"exit\">Exit on mouse click</action>
 
-export GTKDIALOG_SPLASH="	
+export GTKDIALOG_SPLASH="
 <window title=\"${title}\" icon-name=\"gtk-preferences\" resizable=\"false\" decorated=\"${deco}\" ${WINPLACE}>
       <hbox>
         ${icon}
@@ -278,7 +310,7 @@ pidPATTERN="^${dlgPID} "
 while [ $timeout -ne 0 ];do #100604
  sleep 1
  ALLPS="`ps`"
- timeout=`expr $timeout - 1`
+ timeout=$((timeout - 1))
  [ "`echo "$ALLPS" | sed -e 's%^ *%%' | grep "$pidPATTERN"`" == "" ] && exit #already killed.
 done
 kill $dlgPID
