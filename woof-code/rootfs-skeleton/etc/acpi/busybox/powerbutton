@@ -42,6 +42,46 @@ top   ) mnt_yafPLACEMENT='-placement top';;
 left  ) mnt_yafPLACEMENT='-placement left';;
 right ) mnt_yafPLACEMENT='-placement right';;
 esac
+
+_kill_jobs(){
+#local aP_ asP_ atP_
+#local IFS=$'\n'
+jobs -l; #kill -9 $warnPID; kill -9 $yPID; sleep 2; jobs -l;
+    #unset Q
+    echo "jobs -l | awk -F' ' '{print \$2}' :"
+    jobs -l | awk -F' ' '{print $2}'
+    echo
+    #for aP_ in `jobs -l | awk -F' ' '{print $2}'`; do
+    jobs -l | awk -F' ' '{print $2}' | tac | while read aP_;
+    do
+    echo "aP_=$aP_"
+    test "$aP_" || continue;
+    echo "aP_=$aP_"
+     #ps -A -o pid,ppid,args | grep -vE "grep|$$|[[:blank:]]*1[[:blank:]]" | tac | grep $Q -w "$aP_" && kill -9 $aP_; done
+     #for asP_ in `ps -A -o pid,ppid,args | grep -vE "grep|[[:blank:]]*1[[:blank:]]+[0-9]+.*init" | grep -w "$aP_" | tac | awk '{print $1}'`
+     #for asP_ in `ps -A -o pid,ppid,args | grep -vE "grep" | grep -w "$aP_" | tac`
+     ps -A -o pid,ppid,args | grep -v "grep" | grep -w "$aP_" | tac | while read asP_
+     do
+     echo "asP_=$asP_"
+     asP_=`echo "$asP_" | awk -F' ' '{print $1"|"$2}'`
+     echo "asP_=$asP_"
+     case $asP_ in *\||\|*) continue;; esac
+      #for atP_ in `ps -A -o pid,ppid,args | grep -vE "grep" | grep -wE "$asP_" | tac`
+      ps -A -o pid,ppid,args | grep -vE "grep" | grep -wE "$asP_" | tac | while read atP_
+      do
+      echo "atP_=$atP_"
+      atP_=`echo "$atP_" | awk -F ' ' '{print $1}'`
+      echo "atP_=$atP_" \$\$=$$
+      test $atP_ = 1 -o $atP_ = $$ && continue
+      /bin/ps --no-header -p $atP_ && kill -9 $atP_
+      done
+     #kill -9 $asP_;
+     done
+    done
+ echo
+jobs -l
+}
+
 echo will test multiple pressings
 # REM : function to feel more than one power-button events
 # Power button pressed 5 times in 10 seconds : do poweroff force
@@ -58,7 +98,8 @@ _check_if_already_running ${0##*/} || {
   }
   sleep 10
   rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  _kill_jobs
   exit 4
 }
 
@@ -118,14 +159,19 @@ fi
 echo "$MSG"
 [ "$DISPLAY" ] && xmessage -bg blue3 -fg white -title "POWERBUTTON HELP" "$MSG"
 rm -f "$tmpDIR"/acpi_button_count
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit $1
 }
 
 # REM : Parse Options
 case $1 in
 *help) _usage 0;;
-*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f "$tmpDIR"/acpi_button_count;for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done; exit 0;;
+*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";
+          rm -f "$tmpDIR"/acpi_button_count;
+          #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+          _kill_jobs
+          exit 0;;
 "") :;;
 *force)    :;; #from enlightenment Bereitschaftsmodus
 kbd_event) :;; #from /etc/acpi/keyboard/actions/116 (just for information from where)
@@ -165,7 +211,8 @@ do
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";
 rm -f "$tmpDIR"/acpi_button_count;
 sleep 10
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit 10; }
 
     sleep 1
@@ -321,7 +368,8 @@ do
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON UMOUNT FAIL" "Please umount '$mpart_' manually and try again";
 rm -f "$tmpDIR"/acpi_button_count;
 sleep 10
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit 20; }
 
     ## Solution Nr. 2 Reasonable sleep :
@@ -347,7 +395,8 @@ exit 20; }
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
            _xmessage -bg red -title "$MY_SELF" "$MSG"
            rm -f "$tmpDIR"/acpi_button_count
-           for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           _kill_jobs
            exit 21
       }
       _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
@@ -1039,8 +1088,8 @@ yPID=$!
 
 ( sleep 110;
   aplay /usr/share/audio/2barks.au ) &
-jPID=$!
-echo "jPID='$jPID'"
+warnPID=$!
+echo "warnPID='$warnPID'"
 
 #oldIFS=$"IFS"
 #IFS=$'\n'
@@ -1085,8 +1134,25 @@ echo "yPID='$yPID'"
 
  case $RV in
  0) :;;
- *) jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l;
-    for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ *) jobs -l; #kill -9 $warnPID; kill -9 $yPID; sleep 2; jobs -l;
+    unset Q
+    __kill_jobs__(){
+    for aP_ in `jobs -p`; do
+    test "$aP_" || continue;
+    #ps -A -o pid,ppid,args | grep -vE "grep|$$|[[:blank:]]*1[[:blank:]]" | tac | grep $Q -w "$aP_" && kill -9 $aP_; done
+     for asP_ in `ps -A -o pid,ppid,args | grep -vE "grep|[[:blank:]]*1[[:blank:]]+[0-9]+.*init" | grep -w "$aP_" | tac | awk '{print $1}'`
+     do
+     echo "$asP_"
+     kill -9 $asP_;
+     done
+    done
+    }
+    _kill_jobs
+ echo
+ #jobs -l
+ pidof yaf-splash
+ #pidof gtkdialog-splash
+ #jobs -l
  exit 0;;
  esac
 
@@ -1097,9 +1163,19 @@ echo "yPID='$yPID'"
 #IFS=$"$oldIFS"
 
 # kill jobs ..
-jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
+#jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
+__kill_jobs__(){
 for aP_ in `jobs -p`; do
-ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+#ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_;
+test "$aP_" || continue;
+    for asP_ in `ps -A -o pid,ppid,args | grep -vE "grep|[[:blank:]]*1[[:blank:]]+[0-9]+.*init" | grep -w "$aP_" | tac | awk '{print $1}'`
+     do
+     echo "$asP_"
+     kill -9 $asP_;
+    done
+done;
+}
+_kill_jobs
 jobs -l
 
 case $CHOICE_LINE in
@@ -1108,8 +1184,10 @@ case $CHOICE_LINE in
 *Standby*|*standby*)        ANSWER=201;;
 *RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
 *Hibernation*|*hiber*)      ANSWER=204;;
-"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
-*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
+"") ANSWER=3; #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+    _kill_jobs;exit 30;;
+*)  ANSWER=4; #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+    _kill_jobs;exit 31;;
 esac
 
 return $ANSWER
@@ -1294,7 +1372,8 @@ yaf-splash -bg yellow $mmsgGEOMETRY -fg black $genYAFOPS -timeout $MOUSEMSG_TT -
 # REM : Just Exit
 if [ "$ANSWER" = 200 ];then
  rm -f "$tmpDIR"/acpi_button_count
- for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ _kill_jobs
 
 # REM: TODO get current vt and switch to it
 #      if triggered from console outside X
@@ -1340,6 +1419,7 @@ sleep 1
 
 wait $fPID
 sleep 2
+#exit
 
    if [ "$ACPITOOL" -a -e /proc/acpi/sleep ];then
     acpitool -s
@@ -1445,7 +1525,8 @@ else # timeout 0, error 1
    sleep 5
    pidof poweroff rc.shutdown >>$OUT || exec /sbin/poweroff force
   rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  #for aP_ in `jobs -p`; do ps -A -o pid,ppid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+   _kill_jobs
  exit $?
  else
   exec /sbin/poweroff force
@@ -1480,6 +1561,6 @@ rm -f "$tmpDIR"/acpi_button_count
 }
 
 sleep 5
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
-
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit 0
