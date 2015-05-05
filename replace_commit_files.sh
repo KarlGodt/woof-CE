@@ -1,4 +1,21 @@
-#!/bin/sh
+#!/bin/ash
+
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+. /etc/rc.d/f4puppy5
+
+_help(){
+echo "$0:"
+echo "Batch script to find dirs in woof-code/rootfs-skeleton/"
+echo "and contents in these dirs by ls -1vA ."
+echo "diff -q these contents and continue if diff returns zero."
+echo "Otherwise use stat -c %Y to test modification times of"
+echo "both files in GIT and SYSTEM and updating either"
+echo "Git if System is newer OR System if Git is newer."
+exit 0
+}
+
+case $1 in ''):;;*) _help;;esac
 
 _error(){
     _exit_=$1; shift

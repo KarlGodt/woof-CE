@@ -1,9 +1,29 @@
 #!/bin/ash
 
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+. /etc/rc.d/f4puppy5
+
+_help(){
+echo "$0:"
+echo "find . -type f in cd ./woof-code/rootfs-skeleton in GIT"
+echo "Either adds interactively to   SYSTEM if not there."
+echo " Or removes interactively from GIT    if not added to SYSTEM."
+echo "diff -qs both files AND continues if zero return value."
+echo "Asks to add to GIT or to SYSTEM."
+echo
+echo "TODO: AUTO_UPDATE_GIT variable"
+exit 0
+}
+
+case $1 in ''):;;*) _help;;esac
+
 ME_PROG=`readlink -f "$0"`
 ME_DIR="${ME_PROG%/*}"
 cd "$ME_DIR" || exit 4
 
+# global variables:
+AUTO_UPDATE_GIT=
 
 # Am I at the right branch ?
 BRANCH=Fox3-Dell755
@@ -74,7 +94,7 @@ diff -qs "$oneGITF" "$oneOSF" && continue
 
 # ignore some file types ...
 case $oneGITF in
-*.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splas)
+*.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splash*)
 continue
 ;;
 esac
