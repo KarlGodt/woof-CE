@@ -24,19 +24,19 @@
 
 #ChangeLog ----------------------------------------------------------------------
 #2010-06-13  Alexander .S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
-#		* 0.0.1: First Version.
-#		* 0.0.2: Added a few more formats.
-#		* 0.0.3: Tidyed up comments.
-#		* 0.0.4: Removed support for z gz bz bz2 because I could not open tar.gz files any more. I think "tar-wrap.sh" can deal them.
+#       * 0.0.1: First Version.
+#       * 0.0.2: Added a few more formats.
+#       * 0.0.3: Tidyed up comments.
+#       * 0.0.4: Removed support for z gz bz bz2 because I could not open tar.gz files any more. I think "tar-wrap.sh" can deal them.
 
 #2010-09-23  Alexander .S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
-#		* 0.0.5: In version 0.0.4 I failed to remove support for z. So I have now done it.
+#       * 0.0.5: In version 0.0.4 I failed to remove support for z. So I have now done it.
 
 #2010-12-06  Alexander .S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
-#		* 0.0.6: Added support for "lha".
+#       * 0.0.6: Added support for "lha".
 
 echo >>/tmp/xarchive_errs.log
-
+echo "$0:$*" >>/tmp/xarchive_errs.log
 # set up exit status variables
 E_UNSUPPORTED=65
 
@@ -95,43 +95,43 @@ case "$opt" in
                 printf "%s;" $ext
             done
         else
-            echo command $P7Z_PROG not found >>/tmp/xarchive_errs.log 
+            echo command $P7Z_PROG not found >>/tmp/xarchive_errs.log
             echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
         ;;
 
-    -o) # open: mangle output of 7za cmd for xarchive 
+    -o) # open: mangle output of 7za cmd for xarchive
         # format of 7za output:
-	# ------------------- ----- ------------ ------------  ------------
-	# 1992-04-12 11:39:46 ....A          356               ANKETA.FRG
-        
-	$P7Z_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID-0} '
-	BEGIN { flag=0; }
-	/^-------/ { flag++; if (flag > 1) exit 0; next }
-	{
-		if (flag == 0) next
+    # ------------------- ----- ------------ ------------  ------------
+    # 1992-04-12 11:39:46 ....A          356               ANKETA.FRG
 
-		year=substr($1, 1, 4)
-		month=substr($1, 6, 2)
-		day=substr($1, 9, 2)
-		time=substr($2, 1, 5)
+    $P7Z_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID-0} '
+    BEGIN { flag=0; }
+    /^-------/ { flag++; if (flag > 1) exit 0; next }
+    {
+        if (flag == 0) next
 
-		if (index($3, "D") != 0) {attr="drwxr-xr-x"}
-		else if (index($3, ".") != 0) {attr="-rw-r--r--"}
+        year=substr($1, 1, 4)
+        month=substr($1, 6, 2)
+        day=substr($1, 9, 2)
+        time=substr($2, 1, 5)
 
-		size=$4
+        if (index($3, "D") != 0) {attr="drwxr-xr-x"}
+        else if (index($3, ".") != 0) {attr="-rw-r--r--"}
 
-		$0=substr($0, 54)
-		if (NF > 1) {name=$0}
-		else {name=$1}
-		gsub(/\\/, "/", name)
+        size=$4
 
-		printf "%s;%d;%s;%d;%d;%d-%02d-%02d;%s;-\n", name, size, attr, uid, 0, year, month, day, time
-	}'
-	exit
-	;;
+        $0=substr($0, 54)
+        if (NF > 1) {name=$0}
+        else {name=$1}
+        gsub(/\\/, "/", name)
+
+        printf "%s;%d;%s;%d;%d;%d-%02d-%02d;%s;-\n", name, size, attr, uid, 0, year, month, day, time
+    }'
+    exit
+    ;;
 
     -a) # add:  to archive passed files
         # we only want to add the file's basename, not
@@ -145,7 +145,7 @@ case "$opt" in
         exit $wrapper_status
         ;;
 
-    -n) # new: create new archive with passed files 
+    -n) # new: create new archive with passed files
         # create will only be passed the first file, the
         # rest will be "added" to the new archive
         cd "$(dirname "$1")"
@@ -153,22 +153,22 @@ case "$opt" in
         exit
         ;;
 
-    -r) # remove: from archive passed files 
-    	wrapper_status=0
-    	while [ "$1" ]; do
-		$P7Z_PROG $OPEN_OPTS "$archive" 2>/dev/null \
-		| grep -q "[.][/]" >&/dev/null && EXFNAME=*./"$1" || EXFNAME="$1"
-		$P7Z_PROG $REMOVE_OPTS "$archive" "$EXFNAME" 2>&1 \
-		| grep -q E_NOTIMPL &> /dev/null && {
-			echo -e "Function not implemented: 7z cannot delete files from solid archive." >&2
-			wrapper_status=$E_UNSUPPORTED
-		}
-		shift 1;
-	done
+    -r) # remove: from archive passed files
+        wrapper_status=0
+        while [ "$1" ]; do
+        $P7Z_PROG $OPEN_OPTS "$archive" 2>/dev/null \
+        | grep -q "[.][/]" >&/dev/null && EXFNAME=*./"$1" || EXFNAME="$1"
+        $P7Z_PROG $REMOVE_OPTS "$archive" "$EXFNAME" 2>&1 \
+        | grep -q E_NOTIMPL &> /dev/null && {
+            echo -e "Function not implemented: 7z cannot delete files from solid archive." >&2
+            wrapper_status=$E_UNSUPPORTED
+        }
+        shift 1;
+    done
         exit $wrapper_status
         ;;
 
-    -e) # extract: from archive passed files 
+    -e) # extract: from archive passed files
         # xarchive will put is the right extract dir
         # so we just have to extract.
         $P7Z_PROG $EXTRACT_OPTS "$archive" "$@"
@@ -181,12 +181,12 @@ case "$opt" in
         ;;
 
      *) echo "error, option $opt not supported"
-        echo "use one of these:" 
-        echo "-i                #info" 
-        echo "-o archive        #open" 
-        echo "-a archive files  #add" 
-        echo "-n archive file   #new" 
-        echo "-r archive files  #remove" 
-        echo "-e archive files  #extract" 
+        echo "use one of these:"
+        echo "-i                #info"
+        echo "-o archive        #open"
+        echo "-a archive files  #add"
+        echo "-n archive file   #new"
+        echo "-r archive files  #remove"
+        echo "-e archive files  #extract"
         exit
 esac
