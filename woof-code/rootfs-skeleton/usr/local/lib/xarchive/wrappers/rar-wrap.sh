@@ -1,26 +1,26 @@
 #! /bin/bash
 # rar-wrap.sh - bash rar wrapper for xarchive
-# Copyright (C) 2005 Lee Bigelow <ligelowbee@yahoo.com> 
-# 
+# Copyright (C) 2005 Lee Bigelow <ligelowbee@yahoo.com>
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 echo >>/tmp/xarchive_errs.log
-
+echo "$0:$*" >>/tmp/xarchive_errs.log
 # set up exit status variables
 E_UNSUPPORTED=65
 
-# Supported file extentions for rar 
+# Supported file extentions for rar
 EXTS="rar cbr"
 
 # Program to wrap
@@ -80,14 +80,14 @@ case "$opt" in
                 printf "%s;" $ext
             done
         else
-            echo command $RAR_PROG not found >>/tmp/xarchive_errs.log 
-            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log 
+            echo command $RAR_PROG not found >>/tmp/xarchive_errs.log
+            echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
         ;;
 
-    -o) # open: mangle output of rar cmd for xarchive 
+    -o) # open: mangle output of rar cmd for xarchive
         # format of rar output:
 #-------------------------------------
 # bookmarks/mozilla_bookmarks.html
@@ -96,18 +96,18 @@ case "$opt" in
 #       (or  11512     5231  45% 28-02-05 16:19 .....S     F3F3477F m3b 2.9)
 #            1         2     3   4        5     6          7        8   9
 #-------------------------------------
-        
+
         $RAR_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID} '
-        # The body of info we wish to process starts with a dashed line 
+        # The body of info we wish to process starts with a dashed line
         # so set a flag to signal when to start and stop processing.
         # The name is on one line with the info on the next so toggle
-        # a line flag letting us know what kinda info to get.  
+        # a line flag letting us know what kinda info to get.
         BEGIN { flag=0; line=0 }
         /^------/ { flag++; if (flag > 1) exit 0; next} #line starts with dashs
         {
           if (flag == 0) next #not in the body yet so grab the next line
           if (line == 0) #this line contains the name
-          { 
+          {
             name=substr($0,2) #strip the single space from start of name
             line++  #next line will contain the info so increase the flag
             next
@@ -117,7 +117,7 @@ case "$opt" in
             size=$1
             date=$4
             time=$5
-            
+
             #modify attributes to read more unix like if they are not
             if (index($6, "D") != 0) {attr="drwxr-xr-x"}
             else if (index($6, ".") != 0) {attr="-rw-r--r--"}
@@ -149,7 +149,7 @@ case "$opt" in
         exit $wrapper_status
         ;;
 
-    -n) # new: create new archive with passed files 
+    -n) # new: create new archive with passed files
         # create will only be passed the first file, the
         # rest will be "added" to the new archive
         if [ "$RAR_PROG" = "unrar" ]; then
@@ -160,7 +160,7 @@ case "$opt" in
         exit
         ;;
 
-    -r) # remove: from archive passed files 
+    -r) # remove: from archive passed files
         if [ "$RAR_PROG" = "unrar" ]; then
             exit $E_UNSUPPORTED
         fi
@@ -168,7 +168,7 @@ case "$opt" in
         exit
         ;;
 
-    -e) # extract: from archive passed files 
+    -e) # extract: from archive passed files
         # xarchive will put is the right extract dir
         # so we just have to extract.
         $RAR_PROG $EXTRACT_OPTS "$archive" "$@"
@@ -181,12 +181,12 @@ case "$opt" in
         ;;
 
      *) echo "error, option $opt not supported"
-        echo "use one of these:" 
-        echo "-i                #info" 
-        echo "-o archive        #open" 
-        echo "-a archive files  #add" 
-        echo "-n archive file   #new" 
-        echo "-r archive files  #remove" 
-        echo "-e archive files  #extract" 
+        echo "use one of these:"
+        echo "-i                #info"
+        echo "-o archive        #open"
+        echo "-a archive files  #add"
+        echo "-n archive file   #new"
+        echo "-r archive files  #remove"
+        echo "-e archive files  #extract"
         exit
 esac
