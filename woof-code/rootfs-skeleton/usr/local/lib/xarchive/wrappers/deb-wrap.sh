@@ -1,26 +1,26 @@
 #! /bin/bash
 # deb-wrap.sh - bash deb wrapper for xarchive frontend
-# Copyright (C) 2005 Lee Bigelow <ligelowbee@yahoo.com> 
-# 
+# Copyright (C) 2005 Lee Bigelow <ligelowbee@yahoo.com>
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 echo >>/tmp/xarchive_errs.log
-
+echo "$0:$*" >>/tmp/xarchive_errs.log
 # set up exit status variables
 E_UNSUPPORTED=65
 
-# Supported file extentions for tar 
+# Supported file extentions for tar
 EXTS="deb"
 
 # Setup awk program
@@ -70,17 +70,17 @@ case "$opt" in
                 printf "%s;" $ext
             done
         else
-            echo program $DEB_PROG not found >>/tmp/xarchive_errs.log 
+            echo program $DEB_PROG not found >>/tmp/xarchive_errs.log
             echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
         ;;
 
-    -o) # open: mangle output of dpkg-deb cmd for xarchive 
+    -o) # open: mangle output of dpkg-deb cmd for xarchive
         # format of output:
 # lrwxrwxrwx USR/GRP       0 2005-05-12 00:32:03 file -> /path/to/link
-# -rw-r--r-- USR/GRP    6622 2005-04-22 12:29:14 file 
+# -rw-r--r-- USR/GRP    6622 2005-04-22 12:29:14 file
 # 1          2          3    4          5        6
         $DEB_PROG $OPEN_OPTS "$archive" | $AWK_PROG '
         {
@@ -91,7 +91,7 @@ case "$opt" in
           size=$3
           date=$4
           time=$5
-          
+
           #this method works with filenames that start with a space (evil!)
           #split line a time and a space
           split($0,linesplit, $5 " ")
@@ -113,17 +113,17 @@ case "$opt" in
         exit $E_UNSUPPORTED
         ;;
 
-    -n) # create new archive unsupported 
+    -n) # create new archive unsupported
         # use appropriate dpkg tools to build debs
         exit $E_UNSUPPORTED
         ;;
 
-    -r) # removing from archive unsupported 
+    -r) # removing from archive unsupported
         # use appropriate dpkg tools to modify debs
         exit $E_UNSUPPORTED
         ;;
 
-    -e) # extract: from archive passed files 
+    -e) # extract: from archive passed files
         # convert deb to a temporary tar file
         tmptar="$(mktemp -t tartmp.XXXXXX)"
         $DEB_PROG $CONVERT_OPTS "$archive" > "$tmptar"
@@ -136,12 +136,12 @@ case "$opt" in
         ;;
 
      *) echo "error, option $opt not supported"
-        echo "use one of these:" 
-        echo "-i                #info" 
-        echo "-o archive        #open" 
-        echo "-a archive files  #add" 
-        echo "-n archive file   #new" 
-        echo "-r archive files  #remove" 
-        echo "-e archive files  #extract" 
+        echo "use one of these:"
+        echo "-i                #info"
+        echo "-o archive        #open"
+        echo "-a archive files  #add"
+        echo "-n archive file   #new"
+        echo "-r archive files  #remove"
+        echo "-e archive files  #extract"
         exit
 esac
