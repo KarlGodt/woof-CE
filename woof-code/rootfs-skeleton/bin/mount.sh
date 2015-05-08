@@ -82,7 +82,7 @@ grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { b
  } || {
   ROOTD=`/bin/df | grep -m1 ' /$' | awk '{print $1}'`
   if [ -b "$ROOTD" ]; then
-   grep $Q "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+   grep "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
   else
    grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
   fi
@@ -255,7 +255,7 @@ _debugt 9d $_DATE_
  test "$noROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
-         mountpoint $Q "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
+         mountpoint $Q "${eoneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
          }
         }
  _debugt 9c $_DATE_
