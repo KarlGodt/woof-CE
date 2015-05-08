@@ -76,13 +76,13 @@ exec 1>>/tmp/filemnt.log 2>&1
 echo
 echo '----------------------------------------------------------------------'
 
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
-QUIET=-q
+Q=-q
 INFO=1
 DEBUG=1
-test "$DEBUG" && QUIET='';
+test "$DEBUG" && Q='';
 
 _out_out(){
 _kernel_version3 || {
@@ -171,7 +171,7 @@ _disassociate_loopdevices()
   do
   test "$device" || continue
   device=`echo "$device" | sed 's!:$!!'`
-  grep $QUIET -w "^$device" /proc/mounts || losetup -d $device
+  grep $Q -w "^$device" /proc/mounts || losetup -d $device
   done<<EoI
 `busybox losetup $BBLA`
 EoI
@@ -402,11 +402,11 @@ _guess_file_fstype()
   Type=`guess_fstype "$file_toMOUNT"`
   if test -z "$Type" -o "$Type" = 'unknown'; then
    Ext=`echo "$file_toMOUNT" |sed 's/^.*\.//'`        # get file type from extention
-   if [ "$Ext" = '2fs' ] ;then #7
+   if [ "$Ext" = '2fs' -o "$Ext" = 'ext2' ] ;then #7
     Type='ext2'
-   elif [ "$Ext" = '3fs' ] ;then
+   elif [ "$Ext" = '3fs' -o "$Ext" = 'ext3' ] ;then
     Type='ext3'
-   elif [ "$Ext" = '4fs' ] ;then #v423 planning for the future!
+   elif [ "$Ext" = '4fs' -o "$Ext" = 'ext4' ] ;then #v423 planning for the future!
     Type='ext4'
    elif [ "$Ext" = 'sfs' -o "$Ext" = 'sqfs' -o "$Ext" = 'squashfs' ] ;then
     Type='squashfs'
@@ -453,9 +453,11 @@ test "$Type" = 'squashfs' && _handle_squashfs
 _mknod_free_loop_device()
 {
         local RV LOOPS_ALL LOOP_LAST LOOP_NEW
-LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
+test -e /dev/loop0 || mknod /dev/loop0 b 7 0
+#LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
+LOOPS_ALL=`ls -1dv /dev/loop* |sed 's%[^[:digit:]]%%g'`
         LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
-        LOOP_NEW=$(( $LOOP_LAST + 1 ))
+        LOOP_NEW=$(( LOOP_LAST + 1 ))
         mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
         RV=$?
         test $RV = 0 && _notice "Created /dev/loop$LOOP_NEW ." || _warn "Probably could not create /dev/loop$LOOP_NEW ."
@@ -473,7 +475,7 @@ local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
             _warn "$FREE_LOOP is not a block device file."
             [ -d "$FREE_LOOP" ] && {
                 _info "$FREE_LOOP is a directory."
-                mountpoint $QUIET "$FREE_LOOP" && _warn "$FREE_LOOP is considered mountpoint." || {
+                mountpoint $Q "$FREE_LOOP" && _warn "$FREE_LOOP is considered mountpoint." || {
                     _notice "$FREE_LOOP appears not to be a mountpoint, attempting to remove it."
                     rmdir "$FREE_LOOP" && _mknod_free_loop_device || _err "Could not remove directory $FREE_LOOP"; }
             } || {
@@ -485,7 +487,7 @@ local FREE_LOOP LOOPS_ALL LOOP_LAST LOOP_NEW
         #_info "No free loop devices available.. Attempt to create one.."
         #LOOPS_ALL=`ls -1 /dev/loop* |sed 's%[^[:digit:]]%%g' | sort -n`
         #LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
-        #LOOP_NEW=$(( $LOOP_LAST + 1 ))
+        #LOOP_NEW=$(( LOOP_LAST + 1 ))
         #mknod /dev/loop$LOOP_NEW b 7 $LOOP_NEW
         #test $? = 0 && _notice "Created /dev/loop$LOOP_NEW" || _warn "Could not create /dev/loop$LOOP_NEW"
         _info "No free loop device available, or '$FREE_LOOP' does not exist."
@@ -570,9 +572,24 @@ _encrypted()
 #kernel/arch/x86/crypto/aesni-intel.ko
 #kernel/arch/x86/crypto/salsa20-i586.ko
 
+     _init_crypt_save_file(){
+      local fCRYPT=$1 Err=1
+      test "$fCRYPT" || return 1
+
+      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+      Err=$?
+
+      if [ $Err -eq 0 ];then
+       echo "$MYPASS" | losetup-FULL -p 0 -e $fCRYPT $DEVLOOP "$file_toMOUNT"
+       Err=$?
+      fi
+      return $Err
+     }
+
   case $Type in
    ext2|ext3|ext4)
     case "$file_toMOUNTbase" in
+
      *_cryptx.*) #light encryption.
       CRYPTO='light'
       modprobe $VERB cryptoloop
@@ -580,13 +597,16 @@ _encrypted()
       #losetup-FULL -E 1 $DEVLOOP $imgFile
       Err=$?
      ;;
+
      *_crypta.*) #heavy encryption.
-      CRYPTO='heavy'
+      CRYPTO='aes'
+
       for mod in cryptoloop aes_generic aes crypto_blkcipher blkcipher cbc
       do
-      modprobe -l | grep $QUIET "/${mod}.ko$" || continue
+      modprobe -l | grep $Q "/${mod}.ko$" || continue
       modprobe $VERB $mod
       done
+
       #modprobe cryptoloop
       #modprobe aes_generic 2>/dev/null #v407 aes name change.
       #modprobe aes 2>/dev/null #for older kernel <2.6.25
@@ -611,60 +631,93 @@ _encrypted()
 #define LO_CRYPT_CRYPTOAPI      18
 #define MAX_LO_CRYPT            20
 
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e aes $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e aes $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_cryptblowfish*|*_cryptbf*) CRYPTO=BLOWFISH
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e blowfish $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_cryptblowfish*|*_cryptbf*) CRYPTO=blowfish
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e blowfish $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_crypttwofish*|*_crypttf*) CRYPTO=TWOFISH
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e twofish $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_crypttwofish*|*_crypttf*) CRYPTO=twofish
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e twofish $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_cryptarc4*|*_cryptarc*) CRYPTO=ARC4
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e arc4 $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_cryptarc4*|*_cryptarc*) CRYPTO=arc4
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e arc4 $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_cryptanubis*|*_cryptan*) CRYPTO=Anubis
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e anubis $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_cryptanubis*|*_cryptan*) CRYPTO=anubis
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e anubis $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_cryptserpent*|*_crypts*) CRYPTO=Serpent
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e serpent $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_cryptserpent*|*_crypts*) CRYPTO=serpent
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e serpent $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
-     *_cryptcamellia*|*_cryptc*) CRYPTO=Camellia
-      MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
-      Err=$?
-      if [ $Err -eq 0 ];then
-       echo "$MYPASS" | losetup-FULL -p 0 -e camellia $DEVLOOP "$file_toMOUNT"
-       Err=$?
-      fi
+
+     *_cryptcamellia*|*_cryptc*) CRYPTO=camellia
+
+        _init_crypt_save_file_(){
+        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${file_toMOUNTbase}:" 0 0`"
+        Err=$?
+        if [ $Err -eq 0 ];then
+        echo "$MYPASS" | losetup-FULL -p 0 -e camellia $DEVLOOP "$file_toMOUNT"
+        Err=$?
+        fi
+        }
+      _init_crypt_save_file $CRYPTO; Err=$?
      ;;
     esac
    ;;
@@ -680,12 +733,13 @@ _mount_loop_file()
   echo '-------------'
 
  if [ "$CRYPTO" ];then
-   _debug "CRYPTO='$CRYPTO' Err='$Err'"
+   _debug "CRYPTO='$CRYPTO' Err='$Err' Type='$Type' DEVLOOP='$DEVLOOP' 'MntPt='$MntPt'"
    [ $Err -eq 0 ] && { /bin/mount -t $Type $DEVLOOP "$MntPt"; Err=$?; }
 
   else #normal, no encryption... 130204 mavrothal: fix spaces in imgFile...
 
   freeLOOP=`losetup -f`
+  _debug "freeLOOP='$freeLOOP' file_toMOUNT='$file_toMOUNT' Type='$Type' MntPt='$MntPt'"
   losetup $freeLOOP "$file_toMOUNT"
   Err=$?
   #/bin/mount -t $Type -o loop "$file_toMOUNT" "$MntPt"
