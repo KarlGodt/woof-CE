@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright Barry Kauler 2007
 #Now LGPL 2007
 #run like this: # new2dir make install
@@ -10,7 +10,9 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
-if [ ! $1 -o "`echo "$1" | grep -iE 'help|\-h'`" ];then
+VERB=-v
+
+if [ ! "$*" -o "`echo "$*" | grep -iE 'help|\-h'`" ];then
  echo "This script is used in the last step when installing a source"
  echo "or binary package. For example:"
  echo "# new2dir make install"
@@ -43,11 +45,13 @@ if [ "`echo "$PKGDIR" | grep '[\-_\.][0-9]'`" = "" ];then
  exit
 fi
 
+
+
 fixfilelistfunc() {
  #$1 is file to remove, as doesn't exist.
- echo " ...${1} has been deleted."
+ echo " ...${1} did not copy successfully ."
  grep -v "$1" /tmp/${EXE_PKGNAME}.files >> /tmp/${EXE_PKGNAME}.files.tmp
- mv -f /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
+ mv $VERB -f /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
 }
 
 echo
@@ -67,11 +71,11 @@ echo " If $PKGDIR is incorrect you must now exit with CTRL-C and close this"
 echo " rxvt terminal window then rename the directory."
 echo -n "Type response now: "
 read REPLY1
-[ ! "$REPLY1" = "" ] && PKGDIR="$REPLY1"
+[ "$REPLY1" != "" ] && PKGDIR="$REPLY1"
 if [ ! -d "$PKGDIR" ];then
  echo
  echo "$PKGDIR does not exist, exiting script."
- exit
+ exit 1
 fi
 echo "Okay, using $PKGDIR"
 
@@ -96,13 +100,13 @@ echo "Okay, using $CPUTYPE"
 #would like to create different targets for exe, doc, dev, nls components...
 EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
 EXE_PKGNAME="`basename $EXE_TARGETDIR`"
-RELPATH="`dirname $EXE_TARGETDIR`"
+DIR_NAME_EXE_TARGETDIR="`dirname $EXE_TARGETDIR`"
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
 xNAMEONLY="`echo -n "$xPKGDIR" | sed -e 's/\-[0-9].*$//g'`"
 #...if that fails, do it the old way...
 [ "$xNAMEONLY" = "$xPKGDIR" ] && xNAMEONLY="`echo "$xPKGDIR" | cut -f 1 -d "-"`"
-NAMEONLY="${RELPATH}/${xNAMEONLY}"
+NAMEONLY="${DIR_NAME_EXE_TARGETDIR}/${xNAMEONLY}"
 #abasename="`basename ${PKGDIR}`"
 apattern="s/${xNAMEONLY}\\-//g"
 VERONLY="`echo -n "$xPKGDIR" | sed -e "$apattern"`"
@@ -113,10 +117,20 @@ DEV_PKGNAME="`basename $DEV_TARGETDIR`"
 NLS_TARGETDIR="${NAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
 NLS_PKGNAME="`basename $NLS_TARGETDIR`"
 
-#rm -rf "$EXE_TARGETDIR" 2>/dev/null
-#rm -rf "$DOC_TARGETDIR" 2>/dev/null
-#rm -rf "$DEV_TARGETDIR" 2>/dev/null
-#rm -rf "$NLS_TARGETDIR" 2>/dev/null
+#test -d "$EXE_TARGETDIR" && mv -n "$EXE_TARGETDIR" "$EXE_TARGETDIR"-OLD
+#test -d "$DOC_TARGETDIR" && mv -n "$DOC_TARGETDIR" "$DOC_TARGETDIR"-OLD
+#test -d "$DEV_TARGETDIR" && mv -n "$DEV_TARGETDIR" "$DEV_TARGETDIR"-OLD
+#test -d "$NLS_TARGETDIR" && mv -n "$NLS_TARGETDIR" "$NLS_TARGETDIR"-OLD
+
+for d in "$EXE_TARGETDIR" "$DOC_TARGETDIR" "$DEV_TARGETDIR" "$NLS_TARGETDIR"
+do
+test -d "$d" && mv $VERB -n "$d" "${d}OLD"
+done
+
+for d in "$EXE_TARGETDIR" "$DOC_TARGETDIR" "$DEV_TARGETDIR" "$NLS_TARGETDIR"
+do
+test -d "$d" && { echo "$d exists. Please cleanup manually ( remove / move the directory(s) ) ."; exit; }
+done
 
 echo
 echo -en "\\033[1;31mStep 3" #red
@@ -150,16 +164,31 @@ read SPLITPETS
 [ "$SPLITPETS" = "2" ] && SPLITPETS="exe,dev"
 [ "$SPLITPETS" = "3" ] && SPLITPETS="exe,dev,doc,nls"
 EXESPLIT="";DOCSPLIT="";DEVSPLIT="";NLSSPLIT=""
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && EXESPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && DOCSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && DEVSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && NLSSPLIT="yes"
+
+#for s in exe dev doc nls
+for s in EXE DEV DOC NLS
+do
+[ "`echo "$SPLITPETS" | grep -i "$s"`" ] && eval ${s}SPLIT=yes
+done
+
+#[ "`echo "$SPLITPETS" | grep 'exe'`" != "" ] && EXESPLIT="yes"
+#[ "`echo "$SPLITPETS" | grep 'doc'`" != "" ] && DOCSPLIT="yes"
+#[ "`echo "$SPLITPETS" | grep 'dev'`" != "" ] && DEVSPLIT="yes"
+#[ "`echo "$SPLITPETS" | grep 'nls'`" != "" ] && NLSSPLIT="yes"
 
 
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && if [ ! -d "$EXE_TARGETDIR" ]; then  mkdir "$EXE_TARGETDIR" ; fi
-#[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && mkdir "$DOC_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && mkdir "$DEV_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && mkdir "$NLS_TARGETDIR"
+#for s in exe dev doc nls
+for s in EXE DEV DOC NLS
+do
+[ "`echo "$SPLITPETS" | grep -i "$s"`" ] && { case $s in
+EXE) mkdir $VERB -p "$EXE_TARGETDIR";;DEV) mkdir $VERB -p "$DEV_TARGETDIR";;
+DOC) mkdir $VERB -p "$DOC_TARGETDIR";;NLS) mkdir $VERB -p "$NLS_TARGETDIR";;esac; }
+done
+
+#[ "`echo "$SPLITPETS" | grep 'exe'`" != "" ] && mkdir $VERB -p "$EXE_TARGETDIR"
+#[ "`echo "$SPLITPETS" | grep 'doc'`" != "" ] && mkdir $VERB -p "$DOC_TARGETDIR"
+#[ "`echo "$SPLITPETS" | grep 'dev'`" != "" ] && mkdir $VERB -p "$DEV_TARGETDIR"
+#[ "`echo "$SPLITPETS" | grep 'nls'`" != "" ] && mkdir $VERB -p "$NLS_TARGETDIR"
 
 echo
 echo -en "\\033[1;31mStep 4" #red
@@ -173,155 +202,181 @@ echo "(and optionally ${DEV_TARGETDIR}, ${DOC_TARGETDIR}, ${NLS_TARGETDIR})"
 echo -n "Press ENTER key to continue: "
 read goforit
 
-installwatch -o /tmp/pkginstall.list ${@}
+installwatch -o /tmp/pkginstall.list "${@}"
 
 sync
+
+rm -f "${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}".files
 #create list of installed files...
 #v2.17 bug, if sometimes logs files in the pkg installing from, have added
 # filter out $UPONE...
 # BUGPATTERN='&'"$UPONE"
 # no, just filter out /mnt and /initrd...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' >> ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
 #...list will only have created files, not created directories, so an empty
 #   directory won't get recorded.
 
 #bad if we miss out installing an empty directory...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' >> /tmp/${EXE_PKGNAME}.dirs
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' >> /tmp/${EXE_PKGNAME}.dirs
 
 sync
 #pick up created symlinks...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
 
 sync
 #problem if there is a post-install script that moves or renames a file...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' >> /tmp/${EXE_PKGNAME}.moved.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' >> /tmp/${EXE_PKGNAME}.moved.files
 #find out if any installed file got moved/renamed...
 if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
- for ONEMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
+ for oneMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
  do
-  #ONEORIG="`echo -n "$ONEMOVED" | cut -f 1 -d '&'`"
-  #ONENEW="`echo -n "$ONEMOVED" | cut -f 2 -d '&'`"
-  #grep -v "$ONEORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
-  #echo "$ONENEW" >> /tmp/${EXE_PKGNAME}.files
+  #oneORIG="`echo -n "$oneMOVED" | cut -f 1 -d '&'`"
+  #oneNEW="`echo -n "$oneMOVED" | cut -f 2 -d '&'`"
+  #grep -v "$oneORIG" ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
+  #echo "$oneNEW" >> /tmp/${EXE_PKGNAME}.files
   #sync
-  #mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
-  ONEORIG="$ONEORIG
-${ONEMOVED%\&*}"
-  ONENEW="$ONENEW
-${ONEMOVED#*\&}"
+  #mv $VERB -f /tmp/${EXE_PKGNAME}.files ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
+  oneORIG="$oneORIG
+${oneMOVED%\&*}"
+  oneNEW="$oneNEW
+${oneMOVED#*\&}"
  done
- echo "$ONEORIG" | sed '/^$/d' >/tmp/${EXE_PKGNAME}.old.files
- grep -v -f /tmp/${EXE_PKGNAME}.old.files ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
- echo "$ONENEW" | sed '/^$/d' >>/tmp/${EXE_PKGNAME}.files
- cp -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+ echo "$oneORIG" | sed '/^$/d' >/tmp/${EXE_PKGNAME}.old.files
+ grep -v -f /tmp/${EXE_PKGNAME}.old.files ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
+ echo "$oneNEW" | sed '/^$/d' >>/tmp/${EXE_PKGNAME}.files
+ cp $VERB -f /tmp/${EXE_PKGNAME}.files ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
 fi
 
+sort -u ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
+cp $VERB -f /tmp/${EXE_PKGNAME}.files ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
 
 sync
 echo
 echo -en "\\033[1;31mStep 5" #red
 echo -e "\\033[0;39m"
 
-TEXT_FILES_EXT='asc|html|txt|xml|h|pc|c|cc|pdf|sh'
-COMPR_FILES_EXT='tar|gz|bz2|lz|xz|sfs'
-FS_FILES_EXT='ext2|ext3|ext4|xfs|rfs|jfs'
-IMG_FILES_EXT='gif|jpg|jpeg|tif|tiff|png|pnm|bmp'
+TEXT_FILES_EXT='asc|html|xhtml|xls|xml|txt|hpc|c|cc|cpp|sh|pdf|dvi|gs'
+COMPR_FILES_EXT='tar|gz|bz2|lz|xz|sfs|lzo|lzma|lzm|Z'
+FS_FILES_EXT='ext2|ext3|ext4|xfs|rfs|jfs|2fs|3fs|4fs'
+IMG_FILES_EXT='gif|jpg|jpeg|tif|tiff|png|pnm|bmp|xpm'
 LIB_FILES_EXT='a|la|mo'
+
 NON_STRIP_EXT="$TEXT_FILES_EXT|$COMPR_FILES_EXT|$FS_FILES_EXT|$IMG_FILES_EXT|$LIB_FILES_EXT"
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | sed 's!|!\$|!g;s!|!|\\\.!g'`
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
 
 #fixfilelistfunc() uses this...
-cp -af ${RELPATH}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
+cp $VERB -af ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
 #...a post-install script could delete files, which fixfilelistfunc fixes.
-cat ${RELPATH}/${EXE_PKGNAME}.files |
+
+#cat ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files |
 while read oneFILE
 do
  test "`echo "oneFILE" | grep "$CURRDIR"`" && continue
 
- ONEBASE="${oneFILE##*/}"
- ONEPATH="${oneFILE%/*}"
+ oneBASE="${oneFILE##*/}"
+ onePATH="${oneFILE%/*}"
  echo "Processing ${oneFILE}"
 
  #strip the file...
  if [ ! -h "$oneFILE" ];then #make sure it isn't a symlink
   if [ ! "`echo "$oneFILE" | grep -iE "$NON_STRIP_EXT|/man/|/info/"`" ]; then
-   echo "Checking for strip .." >&2
+   echo "Strip: CHECK .." >&2
    fileFILE=`file "$oneFILE"`
-  [ ! "`echo "$fileFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$oneFILE"
-  [ ! "`echo "$fileFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$oneFILE"
+  [ "`echo "$fileFILE" | grep 'ELF' | grep 'shared object'`" != "" ] && strip $VERB --strip-debug "$oneFILE"
+  [ "`echo "$fileFILE" | grep 'ELF' | grep 'executable'`" != "" ] && strip $VERB --strip-unneeded "$oneFILE"
+  else echo "Strip: BLACKLISTED "
   fi
+ else echo "Strip: LINK "
  fi
  sync
 
  if [ "$NLSSPLIT" = "yes" ];then
   #find out if this is an international language file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/'`" = "" ];then
-   mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
-   cp -af "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  if [ "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" != "" ];then
+   mkdir $VERB -p "${NLS_TARGETDIR}/${onePATH}"
+   cp $VERB -af "$oneFILE" "${NLS_TARGETDIR}/${onePATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    continue
   fi
  fi
 
  if [ "$DOCSPLIT" = "yes" ];then
   #find out if this is a documentation file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
-   mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
-   cp -af "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  if [ "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
+   mkdir $VERB -p "${DOC_TARGETDIR}/${onePATH}"
+   cp $VERB -af "$oneFILE" "${DOC_TARGETDIR}/${onePATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    continue
   fi
  fi
 
  if [ "$DEVSPLIT" = "yes" ];then
   #find out if this is development file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
-   mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-   cp -af "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  if [ "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
+   mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+   cp $VERB -af "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    continue
   fi
   #find *.so symlink files...
   if [ -h "$oneFILE" ];then #-h tests for symlink
-   if [ ! "`echo -n "$oneFILE" | grep '\.so$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+   if [ "`echo -n "$oneFILE" | grep '\.so$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    cp $VERB -af "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     continue
    fi
   fi
   #find various config files...
-  if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\-config$|config.sh$|Conf.sh$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  if [ "`echo -n "$oneBASE" | grep -iE '\-config$|config.sh$|Conf.sh$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    cp $VERB -af "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
-  if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -af "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  if [ "`echo -n "$oneBASE" | grep -E '\.a$|\.la$|\.m4$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    cp $VERB -af "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     continue
   fi
  fi
 
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
-  mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
-  cp -af "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
-  [ $? -ne 0 ] && fixfilelistfunc $oneFILE
+  mkdir $VERB -p "${EXE_TARGETDIR}/${onePATH}"
+  cp $VERB -af "$oneFILE" "${EXE_TARGETDIR}/${onePATH}/"
+  [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
   #fix for empty directories...
-  cat /tmp/${EXE_PKGNAME}.dirs |
-  while read ANEWDIR
+  #cat /tmp/${EXE_PKGNAME}.dirs |
+  while read aNEWDIR
   do
-   [ "`ls -1 $ANEWDIR`" = "" ] && mkdir -p ${EXE_TARGETDIR}${ANEWDIR}
-  done
+   [ "`ls -1 $aNEWDIR`" = "" ] && mkdir $VERB -p ${EXE_TARGETDIR}${aNEWDIR}
+  done </tmp/${EXE_PKGNAME}.dirs
  fi
-done
+done <"${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}".files
+
 sync
-cp -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+
+cp $VERB -af /tmp/${EXE_PKGNAME}.files ${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files
+
+VERB=-v
+for f in config.log config.err config.h make_errs.log
+do
+if test -e "$f"; then
+echo DIR_NAME_EXE_TARGETDIR=$DIR_NAME_EXE_TARGETDIR
+echo EXE_TARGETDIR=$EXE_TARGETDIR
+echo EXE_PKGNAME=$EXE_PKGNAME
+echo "${EXE_TARGETDIR}"/etc/"$EXE_PKGNAME"/compile
+ mkdir $VERB  -p "${EXE_TARGETDIR}"/etc/"$EXE_PKGNAME"/compile
+ cp -a $VERB "$f" "${EXE_TARGETDIR}"/etc/"$EXE_PKGNAME"/compile/
+else
+ echo "$f does not exist in `pwd`"
+fi
+done
+
 
 echo
 echo -en "\\033[1;31mFinished" #red
@@ -330,11 +385,11 @@ echo "$EXE_TARGETDIR is now fully populated."
 [ -d "$DEV_TARGETDIR" ] && echo "$DEV_TARGETDIR has also been populated."
 [ -d "$DOC_TARGETDIR" ] && echo "$DOC_TARGETDIR has also been populated."
 [ -d "$NLS_TARGETDIR" ] && echo "$NLS_TARGETDIR has also been populated."
-echo "${RELPATH}/${EXE_PKGNAME}.files has a list of the installed files."
+echo "${DIR_NAME_EXE_TARGETDIR}/${EXE_PKGNAME}.files has a list of the installed files."
 echo "You might want to go into it and trim the fat or whatever,"
 echo "but basically it is now ready to be converted to a PET"
 echo "package. Just do this:"
-echo "# cd ${RELPATH}"
+echo "# cd ${DIR_NAME_EXE_TARGETDIR}"
 echo "# dir2pet $EXE_PKGNAME"
 
 echo
@@ -345,7 +400,7 @@ echo -n "Type response here: "
 read nextphase
 [ "$nextphase" = "" ] && exit
 
-cd ${RELPATH}
+cd ${DIR_NAME_EXE_TARGETDIR}
 if [ -d ${xNAMEONLY}-${VERONLY}-${CPUTYPE} ];then
  dir2pet ${xNAMEONLY}-${VERONLY}-${CPUTYPE} && {
  echo -n "${xNAMEONLY}-${VERONLY}-${CPUTYPE}.pet created. Press ENTER to continue: "
