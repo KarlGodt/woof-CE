@@ -90,6 +90,9 @@ echo "Executing /etc/rc.d/rc.shutdown..."
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 test -f /etc/rc.d/functions4shutdown && . /etc/rc.d/functions4shutdown
 
+test "$OUT" || OUT=/dev/null
+test "$ERR" || ERR=/dev/null
+
 #variables created at bootup by init script in initrd...
 [ ! -f /etc/rc.d/PUPSTATE -a -f /etc/rc.d/PUPSTATE.prev ] && cp $VERB -f /etc/rc.d/PUPSTATE.prev /etc/rc.d/PUPSTATE && sleep 1  ###KRG
 
@@ -300,6 +303,7 @@ echo "RM UNEEDED FILES END"  ###KRG
 
 [ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
 
+__retired_umount_straypartitions__(){
 MNTDPARTS="`mount|tac`"
 
 #echo
@@ -327,8 +331,27 @@ do
  _command umount $VERB -r $oneSTRAY  ##unmounts MountPoint
  fi
 done
+}
+
+tac /proc/mounts |
+while read -r dev m fs ops n nn
+do
+case $m in /|/initrd|/initrd/*|/dev|/sys|/proc|/tmp|/run)continue;;esac
+case $fs in *rootfs*|*ramfs*|*tmpfs*|*usbfs*|*aufs*|*unionfs*)continue;;esac
+ m=`busybox echo -e "$m"`
+ case $m in //*):;;
+  *) fsUSERS=`fuser -m "$MOUNT_POINT" 2>/dev/null`
+     [ "$fsUSERS" ] && fuser -k -m "$m";;
+ esac
+ _killzombies
+ pidof sync >/dev/null || sync
+ echo -e "\\033[1;33m""Unmounting '$m' ...""\\033[0;39m" >/dev/console
+ umount -lr "$m"
+done
+
 
 swapoff -a $VERB #busybox swapoff -a works only if swaps are in mtab or fstab
+_retired_swapoff(){
 #v2.13 menno suggests this improvement...
 STRAYPARTD=`grep "/dev/" /proc/swaps | grep -v 'deleted' | cut -f 1 -d " "`
 for oneSTRAY in $STRAYPARTD
@@ -336,6 +359,20 @@ do
  echo "Swapoff $oneSTRAY" >/dev/console
  swapoff $oneSTRAY
 done
+}
+
+if test -f /proc/swaps; then
+while read -r f t s u p
+do
+case $f in *deleted*|Filename|'')continue;;esac
+ echo "Swapoff $f" >/dev/console
+ f=`busybox echo -e "$f"`
+ swapoff "$f"
+done <<EoI
+`tac /proc/swaps`
+EoI
+fi
+
 pidof sync || sync
 
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
@@ -468,4 +505,6 @@ dumpe2fs `rdev` | grep -i 'state'
 
 [ -f /etc/rc.d/rc.shutdown.local.end0 ] && . /etc/rc.d/rc.shutdown.local.end0
 sleep 2
+# force exitcode 0
+exit 0
 #the end#
