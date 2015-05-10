@@ -9,6 +9,11 @@ MY_REAL=`readlink -f "$0"`  # BB readlink does not know the -e option
 BN_SELF="${MY_SELF##*/}"    #basename ie poweroff, reboot
 BN_REAL="${MY_REAL##*/}"    #basename ie shutdown
 
+TTY=`tty`
+test -c "$TTY" || TTY=/dev/console
+
+
+
 which_shutdown(){
 
   if [ "`which hard-reboot`" ]; then
@@ -131,8 +136,20 @@ assign_options $*
 
 /etc/rc.d/rc.shutdown $RC_SHUTDOWN_OPTS
 case $? in
-0) :;;
-*) :;;
+0) :
+   $SHUTDOWN_DO $SHUTOWN_OPTS
+   ;;
+*) :
+   #non-zero: an error occured
+   #maybe killed by fuser or killzombies
+   echo -e "$COLOR_RED""An Error Occurred." >"$TTY"
+   echo -e "$COLOR_red""Will return to X desktop." >"$TTY"
+   sleep 5s
+   mountpoint $Q /dev/pts || mount -t devpts devpts /dev/pts
+   mountpoint $Q /sys     || mount -t sysfs sysfs /sys
+   mountpoint $Q /proc    || mount -t proc proc /proc
+   exec xwin
+   ;;
 esac
 
-$SHUTDOWN_DO $SHUTOWN_OPTS
+#$SHUTDOWN_DO $SHUTOWN_OPTS
