@@ -5,7 +5,7 @@ _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
 #unset LANG LC_ALL
-local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
+local _TIME_ LC_NUMERIC=C LANG= LC_ALL= LC_TIME=C
 _DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
 #_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
 if test "$2"; then
@@ -19,6 +19,7 @@ fi
 
 _debugt 8F
 test "$*" || exec busybox mount
+test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
 _debugt 8E $_DATE_
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
@@ -27,6 +28,9 @@ QUIET=-q
 DEBUG=1
 DEBUGX=1
 test "$DEBUG" && QUIET='';
+
+LANG_ROX=$LANG
+echo $LANG | grep $QUIET -i 'utf' || LANG_ROX=$LANG.UTF-8
 
 #busybox mountpoint does not recognice after
 #mount --bind / /tmp/ROOTFS
@@ -47,7 +51,7 @@ _check_proc()
 {
  _debug "_check_proc:mountpoint $QUIET /proc"
   mountpoint $QUIET /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
+  busybox mount -o remount,rw /dev/root /
   test -d /proc || mkdir -p /proc
   busybox mount -t proc none /proc
   return $?
@@ -57,7 +61,7 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
+ busybox mount -o remount,rw /dev/root /
  mkdir -p /tmp
  chmod 1777 /tmp
  return $?
@@ -73,7 +77,12 @@ _debug "_check_tmp_rw:mountpoint $QUIET /tmp"
 mountpoint $QUIET /tmp && {
 grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+ROOTD=`/bin/df | grep -m1 ' /$' | awk '{print $1}'`
+if [ -b "$ROOTD" ]; then
+grep $Q "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+else
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $QUIET -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+fi
  }
 
 }
@@ -105,13 +114,14 @@ else
 while read -r oneLINE
 do
 #test "$oneLINE" || continue
- echo "'oneLINE=$oneLINE'" >&2
+ echo "oneLINE='$oneLINE'" >&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
  echo "STRING='$STRING'" >&2
  while read -r oneCHAR
  do
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
  oCHAR=`printf %o \'"$oneCHAR"`
+ #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
 
@@ -136,6 +146,7 @@ umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-o
  mount_longOPS=all,no-canonicalize,fake,fork,fstab:,internal-only,show-labels,no-mtab,options:,test-opts:,read-only,types:,source:,target,verbose,rw,read-write,label,uuid,help,version
  mount_longOPS="$mount_longOPS",bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable
 
+ _verbose "Processing optins using busybox's 'getopt' applet..."
   #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
 _debug "               options='$getOPS'"
@@ -152,14 +163,17 @@ echo "$@" | _string_to_octal >/tmp/posPARAMS.od
 test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
 posPARAMS=`cat /tmp/posPARAMS.od`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
-posPARAMS=`echo "$posPARAMS" | sed 's!\\012!\n!g'`
+posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
 }
 
 
- longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ #longOPS=`echo "$getOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+ longOPS=${getOPS% -- *}
+ longOPS=`echo "$longOPS" | grep -oe '\-\-[^ ]*' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
+
  test "${longOPS//[[:blank:]]/}" || longOPS='';
 _info "           long options='$longOPS'"
 
@@ -179,10 +193,22 @@ posPARAMS=${getOPS#*-- }
 _debugx "positional parameters='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!--$!!'`
 _debugx "positional parameters='$posPARAMS'"
-posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g;s%'%%g"`
+#posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g;s%'\\\\\''%\\\\\'%g;s%^'%%;s%'$%%"`
+
+posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g"`
+_debugx "positional parameters='$posPARAMS'"
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\\\\\\\'%g"`
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\\\\\\\!%g"`
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\\\\\\\ %g"`
+_debugx "positional parameters='$posPARAMS'"
+posPARAMS=`echo "$posPARAMS" | sed "s%^'%%;s%'$%%"`
+_debugx "positional parameters='$posPARAMS'"
+
+
 test "$posPARAMS" = "$shortOPS" && posPARAMS='' || _debugx "posPARAMS NOT same as shortOPS";
 _debugx "positional parameters='$posPARAMS'"
-_string_to_octal "$posPARAMS"
+#_string_to_octal "$posPARAMS"
+_posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
 
 _debug '1*:'"$*"
@@ -300,7 +326,7 @@ case $WHAT in
 
   test "$fstype" = swap && continue
   grep $QUIET -w "${device##*/}" /proc/partitions || continue
-  test -d "$mountpoint" || mkdir -p "$mountpoint"
+  test -d "$mountpoint" || LANG=$LANG_ROX mkdir -p "$mountpoint"
   _debug "_parse_fstab:$WHAT:mountpoint $QUIET \"$mountpoint\""
   mountpoint $QUIET "$mountpoint" && continue
 
@@ -361,6 +387,10 @@ case $0 in
 *) _exit 38 "No such '$0' -- use 'mount' or 'umount' .";;
 esac
 _debugt 89 $_DATE_
+
+_builtin_getopts()
+{
+local noSHIFT oneOPT opO_ARGS opT_ARGS mLABEL ops fd uLABEL opAF_ARGS
 opN=-n;
 case $WHAT in
 umount)
@@ -426,6 +456,7 @@ umount)
   #_parse_short_ops_m()
   #{
   #_debug "_parse_short_ops_m $allOPS"
+ _verbose "Processing options using getopts shell builtin.."
  while getopts $allOPS oneOPT; do
  noSHIFT=NO
  _debug "oneOPT='$oneOPT'"
@@ -487,7 +518,7 @@ umount)
    shift
   ;;
   T) # altern. fstab file
-   opAF=-T
+   #opAF=-T
    opAF_ARGS="$OPTARG"
    opAF="-T $opAF_ARGS"
    shift
@@ -516,7 +547,11 @@ umount)
 ;;
  *) _exit 39 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
+OPTIND=1 # reset OPTIND to be able to process again
+}
+_builtin_getopts "$@" # used to switch -a -L -U -t ntfs -t vfat
 _debugt 88 $_DATE_
+
 _debug '3*:'$*
 while test 1 = 1; do
 [[ "$1" = '--' ]] && shift || break
@@ -552,6 +587,7 @@ exit 0
 
 fi
 _debugt 87 $_DATE_
+
 _debug "7@:"$@
 while test 1 = 1; do
 test "$1" == '--' && shift || break
@@ -571,6 +607,7 @@ _debug "deviceORpoint='$deviceORpoint'"
 ;;
 esac
 _debugt 86 $_DATE_
+
 case $WHAT in
 mount)
 if test "$deviceORpoint"; then
@@ -593,10 +630,10 @@ if test "$deviceORpoint"; then
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
   mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
-  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; mkdir -p "$mountPOINT"; }
+  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
-	 posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
-	  }
+         posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
+          }
  _debug "$WHAT:"$@
 fi
 c=0
@@ -627,10 +664,12 @@ o_ocposPAR="$posPAR"
 o_posPAR="$posPAR"
       _debug "c=$c \$#=$# "$posPAR
    test -e /etc/fstab || touch /etc/fstab
-   mountPOINT=`grep $QUIET -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
+   grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
+   mountPOINT=`grep -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
+   #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
    test "$mountPOINT" && posPAR="$mountPOINT"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; }
+   test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
@@ -747,7 +786,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
@@ -786,7 +825,7 @@ __out(){
          test "$RETVAL" = 0 && _debug "OK."
                 }
 
-        mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$@";
+        LANG=$LANG_ROX mkdir -p /mnt/${@##*/}; set - $@ /mnt/${@##*/}; _debug "ntfs:$@";
         }
 
        test "$RETVAL" || RETVAL=0
@@ -840,7 +879,7 @@ __out(){
         if test "$opUUID"; then
          MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
-         test -d "$oneMTP" || mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
          done
         fi
         if test "$opLABEL"; then
@@ -850,7 +889,7 @@ __out(){
          MntPoints=$(grep -w "$lONLY" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
          _debug "oneMTP='$oneMTP'"
-         test -d "$oneMTP" || mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
          done
         fi
        _notice "$WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL"
@@ -916,7 +955,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
@@ -929,7 +968,7 @@ done
          test "$RETVAL" = 0 && _debug "OK."
                 }
 
-        mkdir -p "/mnt/${@##*/}"; set - $@ "/mnt/${@##*/}"; _debug "ntfs:$@";
+        LANG=$LANG_ROX mkdir -p "/mnt/${@##*/}"; set - $@ "/mnt/${@##*/}"; _debug "ntfs:$@";
         }
 
        test "$RETVAL" || RETVAL=0
@@ -1014,7 +1053,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
@@ -1030,8 +1069,8 @@ done
           ;;
          esac
         fi
-       _notice busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
-               busybox mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
+       _notice busybox mount -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
+               busybox mount -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
        RETVAL=$?
        return $RETVAL
 }
@@ -1086,14 +1125,14 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 done
 
         if test "$opUUID"; then
          MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
-         test -d "$oneMTP" || mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
          done
         fi
         if test "$opLABEL"; then
@@ -1103,7 +1142,7 @@ done
          MntPoints=$(grep -w "$lONLY" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
          _debug "oneMTP='$oneMTP'"
-         test -d "$oneMTP" || mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
          done
         fi
         _notice $WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
@@ -1164,7 +1203,7 @@ for onePAR in $posPARAMS
 do
 echo -e "$onePAR"
 ePAR="`echo -e "$onePAR"`"
-ePAR=${ePAR//\\/}
+#ePAR=${ePAR//\\/}
 set - $@ "$ePAR"
 #set - $@ $ePAR
 done
@@ -1260,7 +1299,7 @@ shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
 _debugx "shortOPS='$shortOPS'"
 _debugx " longOPS='$longOPS'"
 #set  - $longOPS $shortOPS `echo -e $@`
-set -
+set --
 set - $longOPS $shortOPS $@ #$opVERB $opALL $opC $opDRY $opD $opND $opFORK $opLABEL $opMO $opPASS $opRB $opUUID $opT $opAF $opSHOWL $opVERB
 _debugx 'A*:'$*
 _debugx 'A@:'$@
