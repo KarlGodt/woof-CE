@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #make the pup_save.2fs file bigger.
 #v412 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
@@ -77,20 +77,20 @@ Press OK to exit..."
 [ ! "$PUPSAVE" ] && exit #precaution
 [ ! "$PUP_HOME" ] && exit #precaution.
 
-SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
-SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
-SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+SAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+SAVEPART="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+SAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
 NAMEPFILE="`basename $SAVEFILE`"
 
 HOMELOCATION="/initrd${PUP_HOME}${SAVEFILE}"
-SIZEFREE=`df -m | grep "$PERSISTMNTPT" | tr -s " " | cut -f 4 -d " "` #free space in ${DISTRO_FILE_PREFIX}save.3fs
+SIZEFREE=`/bin/df -m | grep "$PERSISTMNTPT" | tr -s " " | cut -f 4 -d " "` #free space in ${DISTRO_FILE_PREFIX}save.3fs
 ACTUALSIZK=`ls -sk $HOMELOCATION | tr -s " " | cut -f 1 -d " "` #total size of ${DISTRO_FILE_PREFIX}save.3fs
 if [ ! $ACTUALSIZK ];then
  ACTUALSIZK=`ls -sk $HOMELOCATION | tr -s " " | cut -f 2 -d " "`
 fi
 ACTUALSIZE=`expr $ACTUALSIZK \/ 1024`
 APATTERN="/dev/${SAVEPART} "
-PARTFREE=`df -m | grep "$APATTERN" | tr -s " " | cut -f 4 -d " "`
+PARTFREE=`/bin/df -m | grep "$APATTERN" | tr -s " " | cut -f 4 -d " "`
 
 
 REPORTACTION="Welcome to the Puppy Resize personal storage file utility!"
@@ -153,7 +153,7 @@ case ${REPLYX} in
    ;;
 esac
 
-echo -n "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
+echo "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
 #PUPSAVE='sda4,ntfs,/RACY_01/warysave_crypta-MaxCrypt_2011_10_04.2fs'
 pupSaveFile=${PUPSAVE##*\,}  ## '##*delim' deletes everything from the beginning 
 #( left to right ) until and inclusive the last  delim ( , )
@@ -165,8 +165,8 @@ saveFile=${PUPSAVE##*\/}     ##  == basename
 # needed to create a unique pupsaveresize.$saveFile.txt only for the particular
 # savefile in question
 ##############################PUP_HOME='/mnt/dev_save'
-#echo -n "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
-echo -n "$KILOBIG,$pupSaveFile" > /initrd${PUP_HOME}${psubDir}/pupsaveresize.$saveFile.txt
+#echo "$KILOBIG" > /initrd${PUP_HOME}/pupsaveresize.txt
+echo "$KILOBIG,$pupSaveFile" > /initrd${PUP_HOME}${psubDir}/pupsaveresize.$saveFile.txt
 
 xmessage -center -bg "orange" -title "Resize personal storage file" "Okay, you have chosen to increase $NAMEPFILE by $KILOBIG Kbytes,
 however as the file is currently in use, it will happen at reboot.

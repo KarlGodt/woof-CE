@@ -97,7 +97,7 @@ fi
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir -p $NETWORK_INTERFACES_DIR
+[ -d $NETWORK_INTERFACES_DIR ] || mkdir $VERB -p $NETWORK_INTERFACES_DIR
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -282,7 +282,7 @@ buildMainWindow ()
 showLoadModuleWindow()
 {
   findLoadedModules
-  echo -n "" > /tmp/ethmoduleyesload.txt
+  echo "" > /tmp/ethmoduleyesload.txt
   MODULELIST=$(cat /etc/networkmodules | sort | tr "\n" " ")
   # Dougal: create list of modules (pipe delimited)
   sort /etc/networkmodules | tr '"' '|' | tr ':' '|' | sed 's%|$%%g' | tr -s ' ' >/tmp/module-list
@@ -546,12 +546,12 @@ tryLoadModule ()
 	if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
 		Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
 		        --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
-		echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
+		echo "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
 		return 0
 	else
 		# Dougal: this had just "$MODULE_NAME", change to include parameters
 		if ERROR=$(modprobe $@ 2>&1) ; then
-			echo -n "$*" > /tmp/ethmoduleyesload.txt
+			echo "$*" > /tmp/ethmoduleyesload.txt
 			case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
 			 *) echo "$@" >> /etc/networkusermodules ;;
 			esac
@@ -819,7 +819,7 @@ autoLoadModule ()
 	if $SOMETHINGWORKED
 	then
 		Xdialog --left --wrap --title "$L_TITLE_Puppy_Network_Wizard" --msgbox "$L_MESSAGE_Success_Loading_Module_p1 $WHATWORKED $L_MESSAGE_Success_Loading_Module_p2" 0 0
-		echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
+		echo "$WHATWORKED" > /tmp/ethmoduleyesload.txt
 	else
 		MALREADY="$(cat /tmp/loadedeth.txt)"
 		Xdialog --msgbox "${L_MESSAGE_No_Module_Loaded}\n${MALREADY}" 0 0
@@ -957,7 +957,7 @@ $ERROR"
 #=============================================================================
 findLoadedModules ()
 {
-  echo -n " " > /tmp/loadedeth.txt
+  echo " " > /tmp/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
   NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
@@ -976,11 +976,11 @@ findLoadedModules ()
 			case "$NETWORK_MODULES" in 
 			 *" $AMOD "*)
 			   echo "$AMOD" >> /tmp/loadedeth.txt
-			   echo -n " " >> /tmp/loadedeth.txt #space separation
+			   echo " " >> /tmp/loadedeth.txt #space separation
 			   ;;
 			 *" ${AMOD/_/-} "*) # kernel shows module with underscore...
 			  echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
-			  echo -n " " >> /tmp/loadedeth.txt #space separation
+			  echo " " >> /tmp/loadedeth.txt #space separation
 			  ;;
 			esac
 		done
@@ -1544,7 +1544,7 @@ setupStaticIP()
 			# remove old backups
 			rm /etc/resolv.conf.[0-9][0-9]* 2>/dev/null
 			# backup previous one
-			mv -f /etc/resolv.conf /etc/resolv.conf.old
+			mv $VERB -f /etc/resolv.conf /etc/resolv.conf.old
 			echo "nameserver $DNS_SERVER1" > /etc/resolv.conf
 			if [ "$DNS_SERVER2" != "0.0.0.0" ] ; then
 				echo "nameserver $DNS_SERVER2" >> /etc/resolv.conf
@@ -1603,7 +1603,7 @@ unloadNewModule()
   modprobe -r "$NEWLOADED"
   grep -v "$NEWLOADED" /etc/ethernetmodules > /etc/ethernetmodules.tmp
   #sync
-  mv -f /etc/ethernetmodules.tmp /etc/ethernetmodules
+  mv $VERB -f /etc/ethernetmodules.tmp /etc/ethernetmodules
   TOPMSG="$L_TOPMSG_Module_Unloaded_p1 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p2 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p3"
 
   setDefaultMODULEBUTTONS
@@ -1771,7 +1771,7 @@ saveInterfaceSetup()
   if checkIfIsWireless "$INTERFACE" ; then
     # Dougal: only need to do this once
     if [ ! -s "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf" ] ; then
-      #cp -a /tmp/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
+      #cp $VERB -a /tmp/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
       echo -e "INT_WPA_DRV='$PROFILE_WPA_DRV'\nUSE_WLAN_NG='$USE_WLAN_NG'" > ${WLAN_INTERFACES_DIR}/$HWADDRESS.conf
     fi
     # create interface config file

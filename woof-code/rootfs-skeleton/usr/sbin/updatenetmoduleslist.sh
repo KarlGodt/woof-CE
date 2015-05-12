@@ -6,8 +6,8 @@
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
 KERNVER="`uname -r`"
-KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
-KERNMAJVER=`echo -n $KERNVER | cut -f 2 -d '.'` #6
+KERNSUBVER=`echo $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
+KERNMAJVER=`echo $KERNVER | cut -f 2 -d '.'` #6
 DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
 
 echo "Updating /etc/networkmodules..."
@@ -45,7 +45,7 @@ RAWLIST="$OFFICIALLIST
 $EXTRALIST"
 
 #the list has to be cutdown to genuine network interfaces only...
-echo -n "" > /tmp/networkmodules
+echo "" > /tmp/networkmodules
 echo "$RAWLIST" |
 while read ONERAW
 do

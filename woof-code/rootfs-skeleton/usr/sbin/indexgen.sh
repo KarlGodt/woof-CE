@@ -47,7 +47,7 @@ PKGINFO1="`ls -1 /usr/share/applications | sed -e 's%^%/usr/share/applications/%
 
 EXCLLISTsd=" 0rootfs_skeleton autologin bootflash burniso2cd cd/dvd check configure desktop format network pupdvdtool wallpaper pbackup pburn pcdripper pdict pdisk pdvdrsab pmetatagger pschedule pstopwatch prename pprocess pmirror pfind pcdripper pmount puppy pupctorrent pupscan pupx pwireless set text "
 
-cp -f /usr/share/doc/index.html.top /tmp/newinfoindex.xml
+cp $VERB -f /usr/share/doc/index.html.top /tmp/newinfoindex.xml
 
 #dropdown menu for apps in menu...
 echo '<p>Applications available in the desktop menu:</p>' >>/tmp/newinfoindex.xml
@@ -104,7 +104,7 @@ echo '</select>
 # HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
 # REALHOME="`echo "$HOMEPAGEDB" | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`"
 # [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
-# xONEINFO="`echo -n "$ONEINFO" | sed 's%|%:  %'`"
+# xONEINFO="`echo "$ONEINFO" | sed 's%|%:  %'`"
 # echo "<option value=\"${HOMESITE}\">${xONEINFO}" >> /tmp/newinfoindex.xml
 #done
 #echo '</select>
@@ -133,7 +133,7 @@ echo '</select>
 
 #now complete the index.html file...
 cat /usr/share/doc/index.html.bottom >> /tmp/newinfoindex.xml
-mv -f /tmp/newinfoindex.xml /usr/share/doc/index.html
+mv $VERB -f /tmp/newinfoindex.xml /usr/share/doc/index.html
 
 
 ###END###

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #this is very primitive script to create desktop shortcut.
 
@@ -11,13 +11,13 @@ RETSTR=`Xdialog --wmclass "desktopshortcut" --title "Create desktop shortcut" --
 RETVAL=$?
 case $RETVAL in
  0) #ok
-  PROGFILE=`echo -n "$RETSTR" | cut -f 1 -d "|"`
-  PROGPIXMAP=`echo -n "$RETSTR" | cut -f 2 -d "|"`
+  PROGFILE=`echo "$RETSTR" | cut -f 1 -d "|"`
+  PROGPIXMAP=`echo "$RETSTR" | cut -f 2 -d "|"`
   SEDSTUFF="s/SHORTCUTSSTART/SHORTCUTSSTART\n*FvwmButtons $PROGFILE $PROGPIXMAP Exec \"$PROGFILE\" $PROGFILE/g"
   cat /root/.fvwm95rc | sed -e "$SEDSTUFF" > /tmp/fvwm95rc
   sync
-  mv -f /root/.fvwm95rc /root/.fvwm95rc.bak
-  mv -f /tmp/fvwm95rc /root/.fvwm95rc
+  mv $VERB -f /root/.fvwm95rc /root/.fvwm95rc.bak
+  mv $VERB -f /tmp/fvwm95rc /root/.fvwm95rc
   sync
   break
   ;;

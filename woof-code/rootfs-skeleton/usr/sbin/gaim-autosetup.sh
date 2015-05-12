@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # gaim-autosetup.sh -- generates autologin configuration for GAIM 
 #                      so that starting GAIM will log user into #puppylinux

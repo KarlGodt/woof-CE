@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 
 MSGDEPS="the 'dotpuphandler' PET package."
 [ "`which puppybasic`" = "" ] && MSGDEPS="the 'dotpuphandler' and 'puppybasic' PET packages."

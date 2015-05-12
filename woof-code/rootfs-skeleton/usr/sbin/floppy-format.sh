@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Format floppy disks
 #Copyright (c) Barry Kauler 2004 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)

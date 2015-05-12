@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Scanner Wizard (c) Barry Kauler 2003 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 
@@ -63,51 +63,51 @@ if [ -e /etc/scanner ];then
  CURRENTSCANNER="`cat /etc/scanner | cut -f 1 -d ":"`"
 # STATUS$CURRENTSCANNER="on"
 case "$CURRENTSCANNER" in
- abaton ) STATUSabaton="on" ;;
- agfafocus ) STATUSagfafocus="on" ;;
- apple ) STATUSapple="on" ;;
- artec ) STATUSartec="on" ;;
+ abaton )       STATUSabaton="on" ;;
+ agfafocus )    STATUSagfafocus="on" ;;
+ apple )        STATUSapple="on" ;;
+ artec )        STATUSartec="on" ;;
  artec_eplus48u ) STATUSartec_eplus48u="on" ;;
- as6e ) STATUSas6e="on" ;;
- avision ) STATUSavision="on" ;;
- bh ) STATUSbh="on" ;;
- canon ) STATUScanon="on" ;;
- canon630u ) STATUScanon630u="on" ;;
- canon_pp ) STATUScanon_pp="on" ;;
- coolscan ) STATUScoolscan="on" ;;
- coolscan2 ) STATUScoolscan2="on" ;;
- epson ) STATUSepson="on" ;;
- fujitsu ) STATUSfujitsu="on" ;;
- gt68xx ) STATUSgt68xx="on" ;;
- hp ) STATUShp="on" ;;
- hpsj5s ) STATUShpsj5s="on" ;;
- ibm ) STATUSibm="on" ;;
- leo ) STATUSleo="on" ;;
- ma1509 ) STATUSma1509="on" ;;
- matsushita ) STATUSmatsushita="on" ;;
- microtek ) STATUSmicrotek="on" ;;
- microtek2 ) STATUSmicrotek2="on" ;;
- mustek ) STATUSmustek="on" ;;
- mustek_pp ) STATUSmustek_pp="on" ;;
- mustek_usb ) STATUSmustek_usb="on" ;;
- nec ) STATUSnec="on" ;;
- pie ) STATUSpie="on" ;;
- plustek ) STATUSplustek="on" ;;
- ricoh ) STATUSricoh="on" ;;
- s9036 ) STATUSs9036="on" ;;
- sceptre ) STATUSsceptre="on" ;;
- sharp ) STATUSsharp="on" ;;
- sm3600 ) STATUSsm3600="on" ;;
- snapscan ) STATUSsnapscan="on" ;;
- sp15c ) STATUSsp15c="on" ;;
- st400 ) STATUSst400="on" ;;
- tamarack ) STATUStamarack="on" ;;
- teco1 ) STATUSteco1="on" ;;
- teco2 ) STATUSteco2="on" ;;
- teco3 ) STATUSteco3="on" ;;
- umax ) STATUSumax="on" ;;
- umax1220u ) STATUSumax1220u="on" ;;
- umax_pp ) STATUSumax_pp="on" ;;
+ as6e )         STATUSas6e="on" ;;
+ avision )      STATUSavision="on" ;;
+ bh )           STATUSbh="on" ;;
+ canon )        STATUScanon="on" ;;
+ canon630u )    STATUScanon630u="on" ;;
+ canon_pp )     STATUScanon_pp="on" ;;
+ coolscan )     STATUScoolscan="on" ;;
+ coolscan2 )    STATUScoolscan2="on" ;;
+ epson )        STATUSepson="on" ;;
+ fujitsu )      STATUSfujitsu="on" ;;
+ gt68xx )       STATUSgt68xx="on" ;;
+ hp )           STATUShp="on" ;;
+ hpsj5s )       STATUShpsj5s="on" ;;
+ ibm )          STATUSibm="on" ;;
+ leo )          STATUSleo="on" ;;
+ ma1509 )       STATUSma1509="on" ;;
+ matsushita )   STATUSmatsushita="on" ;;
+ microtek )     STATUSmicrotek="on" ;;
+ microtek2 )    STATUSmicrotek2="on" ;;
+ mustek )       STATUSmustek="on" ;;
+ mustek_pp )    STATUSmustek_pp="on" ;;
+ mustek_usb )   STATUSmustek_usb="on" ;;
+ nec )          STATUSnec="on" ;;
+ pie )          STATUSpie="on" ;;
+ plustek )      STATUSplustek="on" ;;
+ ricoh )        STATUSricoh="on" ;;
+ s9036 )        STATUSs9036="on" ;;
+ sceptre )      STATUSsceptre="on" ;;
+ sharp )        STATUSsharp="on" ;;
+ sm3600 )       STATUSsm3600="on" ;;
+ snapscan )     STATUSsnapscan="on" ;;
+ sp15c )        STATUSsp15c="on" ;;
+ st400 )        STATUSst400="on" ;;
+ tamarack )     STATUStamarack="on" ;;
+ teco1 )        STATUSteco1="on" ;;
+ teco2 )        STATUSteco2="on" ;;
+ teco3 )        STATUSteco3="on" ;;
+ umax )         STATUSumax="on" ;;
+ umax1220u )    STATUSumax1220u="on" ;;
+ umax_pp )      STATUSumax_pp="on" ;;
 esac
 fi
 
@@ -162,7 +162,7 @@ RESULTOK="`Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" --st
 STATUSRET=$?
 
 if [ $STATUSRET -eq 0 ];then
- echo -n "$RESULTOK" > /etc/scanner
+ echo "$RESULTOK" > /etc/scanner
 # Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" \
 # --infobox "NOTE: Your choice will only take effect after rebooting" \
 # 8 50 10000 2> /dev/null

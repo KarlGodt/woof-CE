@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #used by probepart.
 #read device, example '/dev/hda4' from stdin.
