@@ -2,6 +2,16 @@
 
 INTERACTIVE=1
 
+. /etc/rc.d/f4puppy5
+
+MY_SELF=`realpath "$0"`
+MY_DIR=${MY_SELF%/*}
+echo "$MY_SELF $MY_DIR"
+cd "$MY_DIR"
+pwd
+
+
+
 DIR=../woof-code/rootfs-skeleton
 
 test -d "$DIR" || exit 1
@@ -25,6 +35,8 @@ case "$gitFILE" in
 */.gitignore) rm "$gitFILE" && git rm "$gitFILE"; continue;;
 esac
 
+echo;echo >"$TTY"
+
 #echo "gitFILE='$gitFILE'"
 
 sysFILE=${gitFILE#*$DIR}
@@ -33,7 +45,7 @@ echo "$sysFILE"
 
 gitDIR=${gitFILE%/*}
 sysDIR=${sysFILE%/*}
-test -d "$sysDIR" || mkdir -p "$sysDIR"
+test -d "$sysDIR" || mkdir $VERB -p "$sysDIR"
 
 (
 echo "gitDIR=$gitDIR"
@@ -59,14 +71,22 @@ rightsGIT=`stat -c %a  "$gitFILE"`
   if test "$CAN_WRITE_TO_GIT"; then
   if test "$INTERACTIVE"; then
    if test "$TTY"; then
-   cp -ia "$sysFILE" "$gitDIR" <"$TTY" || rmdir "$gitDIR"
+   echo;echo >"$TTY"
+   echo "modSYS=$modSYS modGIT=$modGIT";echo "modSYS=$modSYS modGIT=$modGIT" >"$TTY"
+   diff -qs "$gitFILE" "$sysFILE" && { touch $VERB "$gitFILE" "$sysFILE"; continue; }
+   diff -up "$gitFILE" "$sysFILE";diff -up "$gitFILE" "$sysFILE" >"$TTY"
+   echo;echo >"$TTY"
+   echo "modSYS=$modSYS modGIT=$modGIT";echo "modSYS=$modSYS modGIT=$modGIT" >"$TTY"
+   echo;echo >"$TTY"
+   cp $VERB -ia "$sysFILE" "$gitDIR" <"$TTY" || rmdir "$gitDIR"
    else
    echo "Need controlling terminal to copy interactively."
    fi
   else
-   cp -a "$sysFILE" "$gitDIR"
+   cp $VERB -a "$sysFILE" "$gitDIR"
   fi
   else
+  echo "Having no write access for $gitDIR"
   echo "Having no write access for $gitDIR" >"$TTY"
   fi
 
@@ -74,12 +94,16 @@ rightsGIT=`stat -c %a  "$gitFILE"`
   if test "$CAN_WRITE_TO_GIT"; then
   if test "$INTERACTIVE"; then
    if test "$TTY"; then
-   cp -ia "$sysFILE" "$gitDIR" <"$TTY" || rmdir "$gitDIR"
+   echo;echo >"$TTY"
+   #diff -up "$gitFILE" "$sysFILE"
+   echo "rightsSYS=$rightsSYS rightsGIT=$rightsGIT";echo "rightsSYS=$rightsSYS rightsGIT=$rightsGIT" >"$TTY"
+   echo;echo >"$TTY"
+   cp $VERB -ia "$sysFILE" "$gitDIR" <"$TTY" || rmdir "$gitDIR"
    else
    echo "Need controlling terminal to copy interactively."
    fi
   else
-   cp -a "$sysFILE" "$gitDIR"
+   cp $VERB -a "$sysFILE" "$gitDIR"
   fi
   else
   echo "Having no write access for $gitDIR" >"$TTY"
@@ -100,12 +124,12 @@ else
  if test "$CAN_WRITE_TO"; then
  if test "$INTERACTIVE"; then
   if test "$TTY"; then
-   cp -ia "$gitFILE" "$sysDIR" <"$TTY" || rmdir "$sysDIR"
+   cp $VERB -ia "$gitFILE" "$sysDIR" <"$TTY" || rmdir "$sysDIR"
   else
    echo "Need controlling terminal to copy interactively."
   fi
  else
-   cp -a "$gitFILE" "$sysDIR"
+   cp $VERB -a "$gitFILE" "$sysDIR"
  fi
  else
   echo "Having no write access for $sysDIR" >"$TTY"
