@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
@@ -14,13 +14,13 @@ export TEXTDOMAINDIR=/usr/share/locale
 export CONFIG
 FNAME="`basename "$1"`"
 FPATH="$1"
-echo $FPATH | grep '^/' > /dev/null || FPATH="`pwd`/$1" # absolute path
+echo $FPATH | grep '^/' >$OUT || FPATH="`pwd`/$1" # absolute path
 which eval_gettext || alias eval_gettext='gettext'
 MSG=`which gxmessage` || MSG=xmessage
-[ -d $CONFIG ] || mkdir $CONFIG
+[ -d $CONFIG ] || mkdir $VERB $CONFIG
 
 # workaround for MU
-if ! pidof xinit-dummy > /dev/null
+if ! pidof xinit-dummy >$OUT
 then
   /usr/X11R6/bin/xinit-dummy &
 fi
@@ -41,7 +41,7 @@ fi
 
 export DPDIR="$DPDIR/DotPupTmpDir"
 
-if ! echo "$DPDIR" | grep '/DotPupTmpDir' > /dev/null
+if ! echo "$DPDIR" | grep '/DotPupTmpDir' >$OUT
 then
   MSG1="`eval_gettext "ERROR!"`"
   $MSG -title "$TITLE2" -center "$MSG1
@@ -98,7 +98,7 @@ fi
 # ----- setup clean workspace
 
 dotpuprmtmpdir
-mkdir "$DPDIR"
+mkdir $VERB "$DPDIR"
 
 # sanity check, is it writable?
 echo 5514549 > "$DPDIR/t155145492.txt"
@@ -135,7 +135,7 @@ then
   # busybox does not like crlf or *
   dos2unix -u md5sum.txt
   sed 's/\*//g' md5sum.txt > t155145492.txt
-  mv -f  t155145492.txt md5sum.txt
+  mv $VERB -f  t155145492.txt md5sum.txt
 fi
 
 if ! md5sum -c md5sum.txt
@@ -170,7 +170,7 @@ $MSG4"
       *) exec dotpuprmtmpdir ;;
     esac
   fi
-  chmod a+x dotpup.sh
+  chmod $VERB a+x dotpup.sh
   "$DPDIR/dotpup.sh"
   # popup a message if an error code was returned??
 fi
