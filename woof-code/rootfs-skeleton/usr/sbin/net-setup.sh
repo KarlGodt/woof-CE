@@ -98,7 +98,7 @@ fi
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir -p $NETWORK_INTERFACES_DIR
+[ -d $NETWORK_INTERFACES_DIR ] || mkdir $VERB -p $NETWORK_INTERFACES_DIR
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -128,7 +128,7 @@ showMainWindow()
 
 		I=$IFS; IFS=""
 		for STATEMENT in  $(gtkdialog3 --program NETWIZ_Main_Window); do
-			eval $STATEMENT 2>/dev/null
+			eval $STATEMENT 2>$ERR
 		done
 		IFS=$I
 		clean_up_gtkdialog NETWIZ_Main_Window
@@ -226,25 +226,25 @@ ${INTERFACEBUTTONS}
 
   case $INTERFACE_NUM in 
     0) # no interfaces
-      echo "$L_ECHO_No_Interfaces_Message" > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_No_Interfaces_Message" >/tmp/net-setup_MSGINTERFACES.txt
       ;;
     1) # only one
-      echo "$L_ECHO_One_Interface_Message"  > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_One_Interface_Message"  >/tmp/net-setup_MSGINTERFACES.txt
       ;;
     *) # more than one interface
-      echo "$L_ECHO_Multiple_Interfaces_Message"  > /tmp/net-setup_MSGINTERFACES.txt
+      echo "$L_ECHO_Multiple_Interfaces_Message"  >/tmp/net-setup_MSGINTERFACES.txt
       ;;
   esac
 
 	#echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
- #${LOADEDETH}" > /tmp/net-setup_MSGMODULES.txt
+ #${LOADEDETH}" >/tmp/net-setup_MSGMODULES.txt
 
 } # end refreshMainWindowInfo
 
 #=============================================================================
 buildMainWindow ()
 {
-	echo "${TOPMSG}" > /tmp/net-setup_TOPMSG.txt
+	echo "${TOPMSG}" >/tmp/net-setup_TOPMSG.txt
 
 
 	export NETWIZ_Main_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
@@ -267,7 +267,7 @@ buildMainWindow ()
 	</frame>
 	<hbox>
 		<button help>
-			<action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+			<action>$HELP_COMMAND >$OUT 2>&1 & </action>
 		</button>
 		<button>
 			 <label>$L_BUTTON_Exit</label>
@@ -283,7 +283,7 @@ buildMainWindow ()
 showLoadModuleWindow()
 {
   findLoadedModules
-  echo -n "" > /tmp/ethmoduleyesload.txt
+  echo "" >/tmp/ethmoduleyesload.txt
   MODULELIST=$(cat /etc/networkmodules | sort | tr "\n" " ")
   # Dougal: create list of modules (pipe delimited)
   sort /etc/networkmodules | tr '"' '|' | tr ':' '|' | sed 's%|$%%g' | tr -s ' ' >/tmp/module-list
@@ -373,7 +373,7 @@ showLoadModuleWindow()
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_LOAD_MODULE_DIALOG); do
-	eval $STATEMENT 2>/dev/null
+	eval $STATEMENT 2>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_LOAD_MODULE_DIALOG
@@ -505,7 +505,7 @@ showLoadModuleWindow()
 	# Run new dialog
 	I=$IFS; IFS=""
     for STATEMENT in  $(gtkdialog3 --program NETWIZ_NEW_MODULE_DIALOG); do
-	  eval $STATEMENT 2>/dev/null
+	  eval $STATEMENT 2>$ERR
     done
     IFS=$I
     clean_up_gtkdialog NETWIZ_NEW_MODULE_DIALOG
@@ -544,17 +544,17 @@ tryLoadModule ()
 	#+ false, while the driver might already be loaded! Trying to reload
 	#+ will then not do anything, I assume... so remove quotes (in loadSpecificModule).
 	MODULE_NAME="$1"
-	if grep -q "$MODULE_NAME" /tmp/loadedeth.txt ; then
+	if grep $Q "$MODULE_NAME" /tmp/loadedeth.txt ; then
 		Xdialog --screen-center --title "$L_TITLE_Netwiz_Hardware" \
 		        --msgbox "$L_MESSAGE_Driver_Loaded" 0 0
-		echo -n "${MODULE_NAME}" > /tmp/ethmoduleyesload.txt
+		echo "${MODULE_NAME}" >/tmp/ethmoduleyesload.txt
 		return 0
 	else
 		# Dougal: this had just "$MODULE_NAME", change to include parameters
-		if ERROR=$(modprobe $@ 2>&1) ; then
-			echo -n "$*" > /tmp/ethmoduleyesload.txt
+		if ERROR=$(modprobe $VERB $@ 2>&1) ; then
+			echo "$*" >/tmp/ethmoduleyesload.txt
 			case "$NETWORK_MODULES" in *" $MODULE_NAME "*) ;;
-			 *) echo "$@" >> /etc/networkusermodules ;;
+			 *) echo "$@" >>/etc/networkusermodules ;;
 			esac
 			Xdialog --left --wrap --stdout --title "$L_TITLE_Netwiz_Hardware" --msgbox "$L_MESSAGE_Driver_Success_p1 $MODULE_NAME $L_MESSAGE_Driver_Success_p2" 0 0
 			return 0
@@ -700,7 +700,7 @@ loadNdiswrapperModule ()
 	  NATIVEMOD=${NATIVEMOD##*/}
 	  if [ "$NATIVEMOD" != "ndiswrapper" ];then
 	    #note 'ndiswrapper -l' also returns the native linux module.
-	    if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep -q 'ESSID' ;then
+	    if iwconfig | grep "^${nwINTERFACE} " | grep 'IEEE' | grep $Q 'ESSID' ;then
 	      rmmod "$NATIVEMOD"
 	      sleep 6
 	      [ $INTERFACE_NUM -gt 0 ] && INTERFACE_NUM=$((INTERFACE_NUM-1))
@@ -720,7 +720,7 @@ loadNdiswrapperModule ()
 	#v4.00...
 	if [ $ndRETVAL -eq 0 ];then
 	  #well let's be radical, blacklist the native driver...
-	  if [ "$NATIVEMOD" != "" ];then
+	  if [ "$NATIVEMOD" ]; then
 		#if ! grep "^${NATIVEMOD}$" "$BLACKLIST_FILE" ;then
 		. /etc/rc.d/MODULESCONFIG
 		case $SKIPLIST in *" $NATIVEMOD "*|*" ${NATIVEMOD//_/-} "*) ;; *)
@@ -741,7 +741,7 @@ loadNdiswrapperModule ()
 #=============================================================================
 #loadSpecificModule ()
 #{
-	#RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2> /dev/null)
+	#RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2>$ERR)
 	#if [ $? -eq 0 ];then
 		#tryLoadModule "${RESPONSE}"
 	#fi
@@ -769,7 +769,7 @@ loadSpecificModule (){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Load_Specific_Module_Window); do
-	eval $STATEMENT 2>/dev/null
+	eval $STATEMENT 2>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Load_Specific_Module_Window
@@ -798,19 +798,19 @@ autoLoadModule ()
 		esac
 		
 		#also, do not try if it is already loaded...?
-		grep -q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
+		grep $Q "$CANDIDATE" /tmp/loadedeth.txt && MDOIT="no"
 
 		#in case of false-hits, ignore anything already tried this session...
-		grep -q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
+		grep $Q "$CANDIDATE" /tmp/logethtries.txt && MDOIT="no"
 
 		if [ "$MDOIT" = "yes" ];then
 			echo; echo "*** Trying $CANDIDATE."
-			if modprobe "$CANDIDATE"
+			if modprobe $VERB "$CANDIDATE"
 			then
 				SOMETHINGWORKED=true
 				WHATWORKED=$CANDIDATE
 				#add it to the log for this session...
-				echo "$CANDIDATE" >> /tmp/logethtries.txt
+				echo "$CANDIDATE" >>/tmp/logethtries.txt
 				break
 			fi
 		fi
@@ -820,7 +820,7 @@ autoLoadModule ()
 	if $SOMETHINGWORKED
 	then
 		Xdialog --left --wrap --title "$L_TITLE_Puppy_Network_Wizard" --msgbox "$L_MESSAGE_Success_Loading_Module_p1 $WHATWORKED $L_MESSAGE_Success_Loading_Module_p2" 0 0
-		echo -n "$WHATWORKED" > /tmp/ethmoduleyesload.txt
+		echo "$WHATWORKED" >/tmp/ethmoduleyesload.txt
 	else
 		MALREADY="$(cat /tmp/loadedeth.txt)"
 		Xdialog --msgbox "${L_MESSAGE_No_Module_Loaded}\n${MALREADY}" 0 0
@@ -930,7 +930,7 @@ unloadSpecificModule(){
 
   I=$IFS; IFS=""
   for STATEMENT in  $(gtkdialog3 --program NETWIZ_Unload_Module_Window); do
-	eval $STATEMENT 2>/dev/null
+	eval $STATEMENT 2>$ERR
   done
   IFS=$I
   clean_up_gtkdialog NETWIZ_Unload_Module_Window
@@ -958,10 +958,10 @@ $ERROR"
 #=============================================================================
 findLoadedModules ()
 {
-  echo -n " " > /tmp/loadedeth.txt
+  echo " " >/tmp/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
-  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2>/dev/null | cut -f1 -d' ' | tr '\n' ' ') "
+  NETWORK_MODULES=" $(cat /etc/networkmodules /etc/networkusermodules  2>$ERR | cut -f1 -d' ' | tr '\n' ' ') "
 
   COUNT_MOD=0
   for MOD in $LOADED_MODULES
@@ -976,12 +976,12 @@ findLoadedModules ()
 			# Also try and retain original module names (removed "tr '-' '_')
 			case "$NETWORK_MODULES" in 
 			 *" $AMOD "*)
-			   echo "$AMOD" >> /tmp/loadedeth.txt
-			   echo -n " " >> /tmp/loadedeth.txt #space separation
+			   echo "$AMOD" >>/tmp/loadedeth.txt
+			   echo " " >>/tmp/loadedeth.txt #space separation
 			   ;;
 			 *" ${AMOD/_/-} "*) # kernel shows module with underscore...
-			  echo "${AMOD/_/-}" >> /tmp/loadedeth.txt
-			  echo -n " " >> /tmp/loadedeth.txt #space separation
+			  echo "${AMOD/_/-}" >>/tmp/loadedeth.txt
+			  echo " " >>/tmp/loadedeth.txt #space separation
 			  ;;
 			esac
 		done
@@ -1009,16 +1009,16 @@ $ERROR
 	fi
 	#BK1.0.7 improved link-beat detection...
 	echo "X"
-	if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+	if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
 	  sleep 2
 	  echo "X"
-	  if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+	  if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
 		sleep 2
 		echo "X"
-		if ! ifplugstatus "$INTERFACE" | grep -F -q 'link beat detected' ;then
+		if ! ifplugstatus "$INTERFACE" | grep -F $Q 'link beat detected' ;then
 		  sleep 2
 		  echo "X"
-		  if ! ifplugstatus-0.25 "$INTERFACE" | grep -F -q 'link beat detected' ;then
+		  if ! ifplugstatus-0.25 "$INTERFACE" | grep -F $Q 'link beat detected' ;then
 		    # add ethtool test, just in case it helps at times...
 		    sleep 1
 		    echo "X"
@@ -1029,7 +1029,7 @@ $ERROR
 		fi
 	  fi
 	fi
-	echo "${UNPLUGGED}" > /tmp/net-setup_UNPLUGGED.txt
+	echo "${UNPLUGGED}" >/tmp/net-setup_UNPLUGGED.txt
   ) | Xdialog --title "$L_TITLE_Network_Wizard" --progress "$L_PROGRESS_Testing_Interface ${INTERFACE}" 0 0 5
 
   UNPLUGGED=$(cat /tmp/net-setup_UNPLUGGED.txt)
@@ -1194,7 +1194,7 @@ buildConfigureInterfaceWindow ()
 	<hbox>
 		$DONEBUTTON
 		<button help>
-			<action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+			<action>$HELP_COMMAND >$OUT 2>&1 & </action>
 		</button>
 		${SAVE_SETUP_BUTTON}
 		<button>
@@ -1248,7 +1248,7 @@ checkIfIsWireless ()
 
   if [ -d "/sys/class/net/$INTERFACE/wireless" ] || \
      [ "$INTMODULE" = "prism2_usb" ] || \
-     grep -q "$INTERFACE" /proc/net/wireless
+     grep $Q "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
   return 1
@@ -1286,7 +1286,7 @@ configureWireless()
 		#else
 			#HAS_ERROR=1
 		#fi
-		#echo "${HAS_ERROR}" > /tmp/net-setup_HAS_ERROR.txt
+		#echo "${HAS_ERROR}" >/tmp/net-setup_HAS_ERROR.txt
 		#echo "XXXX"
 	#} | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
 #DHCP server to respond. Please wait patiently..." 0 0 0
@@ -1428,7 +1428,7 @@ buildStaticIPWindow()
 	</frame>
 	<hbox>
 		<button help>
-			<action>$HELP_COMMAND > /dev/null 2>&1 & </action>
+			<action>$HELP_COMMAND >$OUT 2>&1 & </action>
 		</button>
 		<button ok></button>
 		<button cancel></button>
@@ -1464,7 +1464,7 @@ validateStaticIP()
 		ERROR_MSG="${ERROR_MSG}\n- $L_ERROR_Invalid_DNS2"
 	fi
 	
-	if [ "${ERROR_MSG}" != "" ] ; then
+	if [ "${ERROR_MSG}" ]; then
 	  	#Xdialog --left --title "$L_TITLE_Netwiz_Static_IP" \
 	  			#	--msgbox "Some of the addresses provided are invalid\n${ERROR_MSG}" 0 0
 	  	# change \n to newlines for gtkdialog...
@@ -1537,12 +1537,12 @@ setupStaticIP()
 		# we will try to back up.
 		if [ "$DNS_SERVER1" != "0.0.0.0" ] ; then
 			# remove old backups
-			rm /etc/resolv.conf.[0-9][0-9]* 2>/dev/null
+			rm /etc/resolv.conf.[0-9][0-9]* 2>$ERR
 			# backup previous one
-			mv -f /etc/resolv.conf /etc/resolv.conf.old
-			echo "nameserver $DNS_SERVER1" > /etc/resolv.conf
+			mv $VERB -f /etc/resolv.conf /etc/resolv.conf.old
+			echo "nameserver $DNS_SERVER1" >/etc/resolv.conf
 			if [ "$DNS_SERVER2" != "0.0.0.0" ] ; then
-				echo "nameserver $DNS_SERVER2" >> /etc/resolv.conf
+				echo "nameserver $DNS_SERVER2" >>/etc/resolv.conf
 			fi
 		fi
 		MODECOMMANDS="$MODECOMMANDS\nDNS_SERVER1='$DNS_SERVER1'"
@@ -1585,7 +1585,7 @@ saveNewModule()
 {
   # save newly loaded module
   if ! grep "$NEWLOADED" /etc/ethernetmodules ;then
-    echo "$NEWLOADED" >> /etc/ethernetmodules
+    echo "$NEWLOADED" >>/etc/ethernetmodules
   fi
   TOPMSG="$L_TOPMSG_Module_Saved_p1 '$NEWLOADED' $L_TOPMSG_Module_Saved_p2"
   setDefaultMODULEBUTTONS
@@ -1595,10 +1595,10 @@ saveNewModule()
 unloadNewModule()
 {
   # unload newly loaded module
-  modprobe -r "$NEWLOADED"
-  grep -v "$NEWLOADED" /etc/ethernetmodules > /etc/ethernetmodules.tmp
+  modprobe $VERB -r "$NEWLOADED"
+  grep -v "$NEWLOADED" /etc/ethernetmodules >/etc/ethernetmodules.tmp
   #sync
-  mv -f /etc/ethernetmodules.tmp /etc/ethernetmodules
+  mv $VERB -f /etc/ethernetmodules.tmp /etc/ethernetmodules
   TOPMSG="$L_TOPMSG_Module_Unloaded_p1 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p2 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p3"
 
   setDefaultMODULEBUTTONS
@@ -1609,7 +1609,7 @@ unloadNewModule()
 #=============================================================================
 validip() {
   # uses dotquad.c to parse $1 as a dotted-quad IP address
-  if dotquad "$1" > /dev/null 2>&1
+  if dotquad "$1" >$OUT 2>&1
   then
 	return 0
   else
@@ -1651,7 +1651,7 @@ findInterfaceInfo()
    */bus/usb*) TYPE="usb" ;;
    */bus/ieee1394*) TYPE="firewire" ;;
    *) # pcmcia and pci apparently both appear as pci...
-      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep -q 'pcmcia:' ; then
+      if grep "^${FI_DRIVER##*/} " /etc/networkmodules |grep $Q 'pcmcia:' ; then
         TYPE="pcmcia"
       else
         TYPE="pci"
@@ -1662,7 +1662,7 @@ findInterfaceInfo()
   
   if [ -d "/sys/class/net/$INT/wireless" ] || \
      [ "$FI_DRIVER" = "prism2_usb" ] || \
-     grep -q "$INT" /proc/net/wireless 
+     grep $Q "$INT" /proc/net/wireless 
   then INTTYPE="$L_INTTYPE_Wireless"
   else INTTYPE="$L_INTTYPE_Ethernet"
   fi
@@ -1689,8 +1689,8 @@ findInterfaceInfo()
      ;;
    usb) # need to try and find info from both /proc/bus/usb/devices and lsusb
      ## 1) find device and vendor:
-     #DEVICE=`cat /sys/class/net/$INT/device/device 2>/dev/null`
-     #local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>/dev/null`
+     #DEVICE=`cat /sys/class/net/$INT/device/device 2>$ERR`
+     #local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>$ERR`
      ## those files might not exist...try getting by module name
      #if [ -z "$DEVICE" -o -z "$VENDOR" ] ; then
        #local DEVINFO="`grep -F -B5 "Driver=$FI_DRIVER" /proc/bus/usb/devices | grep  '^P' | tr ' ' '\n' | grep -E 'Vendor|ProdID' | tr '\n' ' '`"
@@ -1713,7 +1713,7 @@ findInterfaceInfo()
          #esac
        #else
          ## 3) try looking is lsusb output:
-         #INFO="`lsusb -d $VENDOR:$DEVICE 2>/dev/null| head -n1 | cut -d' ' -f7-`"
+         #INFO="`lsusb -d $VENDOR:$DEVICE 2>$ERR| head -n1 | cut -d' ' -f7-`"
        #fi
      #fi
      
@@ -1766,7 +1766,7 @@ saveInterfaceSetup()
   if checkIfIsWireless "$INTERFACE" ; then
     # Dougal: only need to do this once
     if [ ! -s "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf" ] ; then
-      #cp -a /tmp/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
+      #cp $VERB -a /tmp/wireless-config "${WLAN_INTERFACES_DIR}/$HWADDRESS.conf"
       echo -e "INT_WPA_DRV='$PROFILE_WPA_DRV'\nUSE_WLAN_NG='$USE_WLAN_NG'" > ${WLAN_INTERFACES_DIR}/$HWADDRESS.conf
     fi
     # create interface config file
@@ -1778,7 +1778,7 @@ saveInterfaceSetup()
 	sed -i '/^STATIC_IP=.*/d ; /^IP_ADDRESS=.*/d ; /^NETMASK=.*/d ; /DNS_SERVER^.*/d ; /^GATEWAY=.*/d ' "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
     echo -e "${MODECOMMANDS}" >>"${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
   else
-    #echo -e "${MODECOMMANDS}" > /etc/${INTERFACE}mode
+    #echo -e "${MODECOMMANDS}" >/etc/${INTERFACE}mode
     # Dougal: maybe append? in case used both for dhcp and static.
     echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
   fi
@@ -1788,12 +1788,12 @@ saveInterfaceSetup()
 #=============================================================================
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
-	rm -f /tmp/ethmoduleyesload.txt 2>/dev/null
-	rm -f /tmp/loadedeth.txt 2>/dev/null
-#	rm -f /tmp/wag-profiles_iwconfig.sh 2>/dev/null
-	rm -f /tmp/net-setup_* 2>/dev/null
-	rm -f /tmp/wpa_status.txt 2>/dev/null
-	rm -f /tmp/net-setup_scan*.tmp 2>/dev/null
+	rm -f /tmp/ethmoduleyesload.txt 2>$ERR
+	rm -f /tmp/loadedeth.txt 2>$ERR
+#	rm -f /tmp/wag-profiles_iwconfig.sh 2>$ERR
+	rm -f /tmp/net-setup_* 2>$ERR
+	rm -f /tmp/wpa_status.txt 2>$ERR
+	rm -f /tmp/net-setup_scan*.tmp 2>$ERR
 }
 
 #=============================================================================
@@ -1805,7 +1805,7 @@ cleanUpTmp(){
 cleanUpTmp
 
 # Do we have pcmcia hardware?...
-if elspci -l | grep -E -q '60700|60500' ; then
+if elspci -l | grep -E $Q '60700|60500' ; then
   MPCMCIA="yes"
 fi
 
@@ -1822,7 +1822,7 @@ showMainWindow
 cleanUpTmp
 
 #v411 BK hack to remove old network wizard configs so rc.sysinit won't use them if old wizard installed...
-[ "`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`" != "" ] && rm -f /etc/*[0-9]mode
+[ "`ls -1 /etc/network-wizard/network/interfaces 2>$ERR`" ] && rm -f /etc/*[0-9]mode
 
 #=============================================================================
 #================ END OF SCRIPT BODY =====================
