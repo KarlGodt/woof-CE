@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Format floppy disks
 #Copyright (c) Barry Kauler 2004 www.goosee.com/puppy
 . /etc/rc.d/f4puppy5
@@ -106,7 +106,7 @@ echo "disk, is also a method for wiping any existing files."
 while :; do
 
 MNTDMSG=" "
-mount | grep "/dev/fd0" > /dev/null 2>&1
+mount | grep "/dev/fd0" >$OUT 2>&1
 if [ $? -eq 0 ];then #=0 if string found
  CURRENTMNT="`mount | grep "/dev/fd0" | cut -f 3 -d ' '`"
  #this tells Rox to close any window with this directory and subdirectories open...
