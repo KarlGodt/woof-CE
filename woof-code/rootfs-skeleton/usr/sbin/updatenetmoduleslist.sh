@@ -8,8 +8,8 @@
 #v423 now using busybox depmod, which generates modules.dep in "old" format.
 
 KERNVER="`uname -r`"
-KERNSUBVER=`echo -n $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
-KERNMAJVER=`echo -n $KERNVER | cut -f 2 -d '.'` #6
+KERNSUBVER=`echo $KERNVER | cut -f 3 -d '.' | cut -f 1 -d '-'` #29
+KERNMAJVER=`echo $KERNVER | cut -f 2 -d '.'` #6
 DRIVERSDIR="/lib/modules/$KERNVER/kernel/drivers/net"
 
 echo "Updating /etc/networkmodules..."
@@ -17,7 +17,7 @@ echo "Updating /etc/networkmodules..."
 DEPFORMAT='new'
 [ $KERNSUBVER -lt 29 ] && [ $KERNMAJVER -eq 6 ] && DEPFORMAT='old'
 #v423 need better test, as now using busybox depmod...
-[ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" != "" ] && DEPFORMAT='old'
+[ "`grep '^/lib/modules' /lib/modules/${KERNVER}/modules.dep`" ] && DEPFORMAT='old'
 
 if [ "$DEPFORMAT" = "old" ];then
  OFFICIALLIST="`cat /lib/modules/${KERNVER}/modules.dep | grep "^/lib/modules/$KERNVER/kernel/drivers/net/" | sed -e 's/\.gz:/:/' | cut -f 1 -d ':'`"
@@ -47,27 +47,27 @@ RAWLIST="$OFFICIALLIST
 $EXTRALIST"
 
 #the list has to be cutdown to genuine network interfaces only...
-echo -n "" > /tmp/networkmodules
+echo "" >/tmp/networkmodules
 echo "$RAWLIST" |
 while read ONERAW
 do
- [ "$ONERAW" = "" ] && continue #precaution
+ [ "$ONERAW" ] || continue #precaution
  ONEBASE="`basename $ONERAW .ko`"
- modprobe -vn $ONEBASE >/dev/null 2>&1
+ modprobe $VERB -vn $ONEBASE >$OUT 2>&1
  ONEINFO="`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`"
  ONETYPE="`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`"
  ONEDESCR="`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`"
  if [ "$ONETYPE" = "pci" -o "$ONETYPE" = "pcmcia" -o "$ONETYPE" = "usb" ];then
   echo "Adding $ONEBASE"
-  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
+  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >>/tmp/networkmodules
  fi
  #v408 add b43legacy.ko...
  if [ "$ONETYPE" = "ssb" ];then
   echo "Adding $ONEBASE"
-  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >> /tmp/networkmodules
+  echo -e "$ONEBASE \"$ONETYPE: $ONEDESCR\"" >>/tmp/networkmodules
  fi
 done
 
-sort -u /tmp/networkmodules > /etc/networkmodules
+sort -u /tmp/networkmodules >/etc/networkmodules
 
 ###end###
