@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 # 10 Feb 2010 by shinobar (Masaki Shinomiya <shino@pos.to>)
 # 15 Feb 2010 remove include dir etc. from list
 # 18 Jul 2010 work without layouts file, remove error messages from dialog reply
@@ -42,7 +42,7 @@ xmap() {
     uk) M="gb";;	#united kingdom
     wa*) M="be";;	#wangbe
     *)  M=$(echo $M|cut -b 1-2)
-        echo "$SYMBOLS" | grep -q "$M" || M="us"
+        echo "$SYMBOLS" | grep $Q "$M" || M="us"
       ;;
   esac
   echo $M
@@ -57,12 +57,12 @@ makelist() {
         M=$(echo $MP| tr '1' '-'| cut -d'-' -f1)
         M=$(xmap $M)
         M=$(grep "^[[:blank:]]*$M " /usr/share/i18n/layouts| sed -e 's/^[[:blank:]]*[a-z-]*[ ]*//')
-        echo -n "$MP"
-        [ "$M" != "" ] && echo " ($M)" || echo " ."
+        echo "$MP"
+        [ "$M" ] && echo " ($M)" || echo " ."
       done
     else
       #echo "$OLDMAP"
-      #[ "$DEFMAP" != "" ] && echo "$DEFMAP" 
+      #[ "$DEFMAP" ] && echo "$DEFMAP" 
       #echo "$MAPS"
       for MP in $OLDMAP $DEFMAP $MAPS; do
         echo "$MP ."
@@ -75,8 +75,8 @@ LANGORG=$LANG
 LANG=C
 
 #120627
-#MAPS=$(find  /usr/share/kbd/keymaps/i386/[^i]* -name '*.map' -not -name 'defkeymap*' -printf '%f\n'  2>/dev/null)
-#[ "$MAPS" != "" ] && MAPS=$(echo "$MAPS"| sed -e 's,^.*/,,'|sort) || \
+#MAPS=$(find  /usr/share/kbd/keymaps/i386/[^i]* -name '*.map' -not -name 'defkeymap*' -printf '%f\n'  2>$ERR)
+#[ "$MAPS" ] && MAPS=$(echo "$MAPS"| sed -e 's,^.*/,,'|sort) || \
 #  MAPS=$(ls -1 /lib/keymaps| sed -e 's,.gz,,')
 KMAPPATH='/lib/keymaps'
 [ -d /usr/share/kbd/keymaps/i386 ] && KMAPPATH='/usr/share/kbd/keymaps/i386'
@@ -94,7 +94,7 @@ else
 fi
 OLDMAP=""
 [ -f /etc/keymap ] && OLDMAP=$(cat /etc/keymap)
-[ "$OLDMAP" = "" ] && OLDMAP="us"
+[ "$OLDMAP" ] || OLDMAP="us"
 [ "$DISPLAY" ] && XSTATUS="yes" || XSTATUS=""
 
 # options
@@ -106,13 +106,13 @@ case "$1" in
     makelist
     exit ;;
   *-lo*) # load keymap according /etc/keymap
-    NEWMAP=$(cat /etc/keymap 2>/dev/null)
+    NEWMAP=$(cat /etc/keymap 2>$ERR)
     VERBOSE="yes"
     ;;
   *-x*)
     XOPT="yes"
     shift
-    [ "$1" != "" ] ||  NEWMAP=$(cat /etc/keymap 2>/dev/null)
+    [ "$1" != "" ] ||  NEWMAP=$(cat /etc/keymap 2>$ERR)
    ;;
   cli) XSTATUS=""; shift;;
   -ver)	echo "$MYNAME ver.-$VERSION"; exit;;
@@ -144,12 +144,12 @@ XKEYMAP=$(basename $NEWMAP .kmap) #120627
 XKEYMAP=$(basename $XKEYMAP .map)
 MODEL="pc102"
 VARIANT=""
-if ! echo "$SYMBOLS" | grep -q "$XKEYMAP"; then 
+if ! echo "$SYMBOLS" | grep $Q "$XKEYMAP"; then 
   XK1=$(echo $XKEYMAP | cut -d'-' -f1)
   XK2=$(echo $XKEYMAP | cut -d'-' -f2)
   XK3=$(echo $XKEYMAP | cut -d'-' -f3)
   XKEYMAP=$(xmap $XK1)
-  if [ "$XK2" != "" ]; then
+  if [ "$XK2" ]; then
     for K in $XK1 $XK2 $XK3; do
       case "$K" in
         dvorak|qwerty|qwertz) VARIANT="$K";;
@@ -174,12 +174,12 @@ if [ "$XOPT" = "yes" ]; then
 fi
 
 # update
-if [ "$NEW" != "" ];then
+if [ "$NEW" ]; then
   NEWMAP=$NEW
   #[ "$NEWMAP" = "$OLDMAP" ] && exit 0
   [ "$VERBOSE" ] && echo -ne "Loading \"$NEWMAP\" keyboard map... "
-  echo -n $NEWMAP > /etc/keymap
-  cp -f /etc/keymap /etc/keymap_previous	# prevent xwin rewrites
+  echo $NEWMAP >/etc/keymap
+  cp $VERB -f /etc/keymap /etc/keymap_previous	# prevent xwin rewrites
   case $NEWMAP in
     *.map|*.kmap) loadkeys $NEWMAP || exit 1 #120627
     ;;
@@ -188,15 +188,15 @@ if [ "$NEW" != "" ];then
   esac
 elif [ -s /usr/share/i18n/layouts ]; then
   NEW=$(grep -w "$NEWMAP" /usr/share/i18n/layouts| head -n 1 | tr -s ' ' |cut -d ' ' -f2)
-  [ "$NEW" != "" ] && echo "Warning: The keymap '$NEW' does not act on the console(without X)." >&2
+  [ "$NEW" ] && echo "Warning: The keymap '$NEW' does not act on the console(without X)." >&2
 fi
-[ "$NEW" != "" ] && NEWMAP=$NEW || exit 1
-echo -n $NEWMAP > /etc/keymap
+[ "$NEW" ] && NEWMAP=$NEW || exit 1
+echo $NEWMAP >/etc/keymap
 
 #[ "$NEWMAP" = "$OLDMAP" ] && exit 0
 # apply xkeymap now
 XVARIANT=""
-[ "$VARIANT" != "" ] && XVARIANT="-variant $VARIANT"
+[ "$VARIANT" ] && XVARIANT="-variant $VARIANT"
 setxkbmap -rules xorg -model "$MODEL" -layout "$LAYOUT" $XVARIANT || exit 1
 
 # rewrite xorg.conf
@@ -212,7 +212,7 @@ OLDLAYOUT=$(echo $W|tr -d '"')
 ALINE=$(grep -i '^[[:blank:]]*Option.*XkbVariant' $F| head -n 1| cut -d'#' -f1)
 for W in $ALINE; do :; done	# set last word to W
 OLDVARIANT=$(echo $W|tr -d '"')
-#[ "$OLDMODEL" =  "" -a "$OLDLAYOUT" = "" ] && exit
+#[ "$OLDMODEL" =  "" -a "$OLDLAYOUT" ] || exit
 # rewrite xorg.conf
 if [ "$MODEL" != "$OLDMODEL" -o "$LAYOUT" != "$OLDLAYOUT" -o "$VARIANT" != "$OLDVARIANT" ]; then
   (while read ALINE; do
@@ -228,7 +228,7 @@ if [ "$MODEL" != "$OLDMODEL" -o "$LAYOUT" != "$OLDLAYOUT" -o "$VARIANT" != "$OLD
    echo "    Option         \"XkbRules\" \"xorg\""
    echo "    Option         \"XkbModel\" \"$MODEL\""
    echo "    Option         \"XkbLayout\" \"$LAYOUT\" #xkeymap0"
-   [ "$VARIANT" != "" ] && echo "    Option         \"XkbVariant\" \"$VARIANT\""
+   [ "$VARIANT" ] && echo "    Option         \"XkbVariant\" \"$VARIANT\""
    if [ "$FOUND" = "" ]; then
    echo 'EndSection'
    fi
@@ -236,5 +236,5 @@ if [ "$MODEL" != "$OLDMODEL" -o "$LAYOUT" != "$OLDLAYOUT" -o "$VARIANT" != "$OLD
 	 echo $ALINE| grep -v '^[[:blank:]]*Option.*Xkb' && break
    done
    while read ALINE; do echo $ALINE; done) <$F >$TMPF
-  [ -s $TMPF ] && mv -f $F $F.bak && mv $TMPF $F
+  [ -s $TMPF ] && mv $VERB -f $F $F.bak && mv $VERB $TMPF $F
 fi
