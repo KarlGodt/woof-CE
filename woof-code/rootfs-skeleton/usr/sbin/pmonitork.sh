@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 # log a file tail
