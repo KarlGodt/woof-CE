@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler 2007 LGPL
 #v405 overhauled.
 #v408 rerwin: bugfix.
@@ -18,8 +18,8 @@ if [ -h /dev/modem ];then
 fi
 
 #a fallback if user runs this script directly...
-[ "$DEVM" = "" ] && [ "$MODEMDEV" = "" ] && exit
-[ "$DEVM" = "" ] && [ "$MODEMDEV" != "" ] && DEVM="$MODEMDEV"
+[ "$DEVM" ] || [ "$MODEMDEV" ] || exit
+[ "$DEVM" ] || [ "$MODEMDEV" ] && DEVM="$MODEMDEV"
 
 if [ "$PARAM2" = "initonly" ];then
  MSGSUCCESS="Okay, the modem was probed and it responded, confirming that it does exist,\n
@@ -51,12 +51,12 @@ chat_with_func() { #device passed in.
  rm -f /tmp/answer.txt
  #TODO maybe send +++ to return modem to command-mode.
  #hangs if modem unplugged or turned off (contrary to what docs say)...
- modem-stats -c "ATZ" $1 > /tmp/answer.txt &
+ modem-stats -c "ATZ" $1 >/tmp/answer.txt &
  sleep 5 #v413
  killall modem-stats
  if [ -e /tmp/answer.txt ];then
   if [ -s /tmp/answer.txt ];then #nonzero size.
-   grep "^OK" /tmp/answer.txt > /dev/null 2>&1
+   grep "^OK" /tmp/answer.txt >$OUT 2>&1
    [ $? -eq 0 ] && return 0 #success
   fi
  fi
@@ -64,14 +64,14 @@ chat_with_func() { #device passed in.
 }
 
 modem_test_func() {
- [ "$DEVM" = "" ] && DEVM='invalid'
+ [ "$DEVM" ] || DEVM='invalid'
  #case $DEVM in
  #tty*)
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Verifying modem is present..." &
   X8PID=$! #v413
   rm -f /tmp/.pupdial_pin_sent
   IRQM=$(irq_from_device_func /dev/${DEVM})
-  fuser -k /dev/${DEVM} 2>/dev/null #kill processing attached to device.
+  fuser -k /dev/${DEVM} 2>$ERR #kill processing attached to device.
   chat_with_func /dev/$DEVM
   if [ $? -eq 0 ];then
    kill $X8PID #v413
@@ -82,18 +82,18 @@ modem_test_func() {
     if [ $? -eq 0 ];then
      yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, updating settings..." &
      X9PID=$!
-     ln -snf $DEVM /dev/modem
+     ln $VERB -snf $DEVM /dev/modem
      #aPATTERN="s%^Modem = .*%Modem = ${DEVM}%"
      aPATTERN="s%^Modem = .*%Modem = /dev/${DEVM}%"  #v408 rerwin
-     sed -e "$aPATTERN" /etc/wvdial.conf > /tmp/wvdial.conf.tmp
-     [ $? -eq 0 ] && mv -f /tmp/wvdial.conf.tmp /etc/wvdial.conf
-     waitmax 29 gen_modem_init_string > /dev/null #writes to /tmp/mymodeminitstring
+     sed -e "$aPATTERN" /etc/wvdial.conf >/tmp/wvdial.conf.tmp
+     [ $? -eq 0 ] && mv $VERB -f /tmp/wvdial.conf.tmp /etc/wvdial.conf
+     waitmax 29 gen_modem_init_string >$OUT #writes to /tmp/mymodeminitstring
      if [ -s /tmp/mymodeminitstring ];then
       INITSTRING="`cat /tmp/mymodeminitstring | tr '&' '~'`" #sed problem with &
       bPATTERN="s/^Init3.*/Init3 = ${INITSTRING}/" #v413
-      sed -e "$bPATTERN" /etc/wvdial.conf > /tmp/wvdial.conf.tmp
+      sed -e "$bPATTERN" /etc/wvdial.conf >/tmp/wvdial.conf.tmp
       if [ $? -eq 0 ];then
-       cat /tmp/wvdial.conf.tmp | tr '~' '&' > /etc/wvdial.conf #restore &
+       cat /tmp/wvdial.conf.tmp | tr '~' '&' >/etc/wvdial.conf #restore &
       fi
      fi
      kill $X9PID
