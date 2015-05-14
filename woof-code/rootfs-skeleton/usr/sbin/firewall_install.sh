@@ -86,7 +86,7 @@ if [ "$EUID" != "0" ]; then
 fi
 
 # remove the TMPFILE ...
-rm -rf $TMPFILE > /dev/null 2>&1
+rm -rf $TMPFILE >$OUT 2>&1
 
 # Define a default LONG_NETWORK_NAME if none exists.  This will be ignored if
 # there is no corresponding LOCAL_NETWORK.
@@ -105,7 +105,7 @@ fi
 
 goodbye()
 {
-  rm -f $TMPFILE > /dev/null 2>&1
+  rm -f $TMPFILE >$OUT 2>&1
   clear
   echo "Configuration terminated.  Goodbye."
   exit
@@ -557,7 +557,7 @@ while [ "$status" != "exit" ]; do
 	echo "A copy of the Linux Firewall initialization script preconfigured by this"
 	echo "program is located in $FW_TMPFILE"
 	echo
-	rm -f $TMPFILE > /dev/null 2>&1
+	rm -f $TMPFILE >$OUT 2>&1
 	exit 1
       fi
 
@@ -566,7 +566,7 @@ while [ "$status" != "exit" ]; do
       if [ "$AUTO" == "on" ]; then
          echo "Done."
       else
-         echo -n "Press any key to continue ... "
+         echo "Press any key to continue ... "
          read -rsn1
       fi
     fi
@@ -586,10 +586,10 @@ while [ "$status" != "exit" ]; do
     if [ "$status" == "255" ]; then goodbye
     elif [ "$status" == "0" ]; then
       if [ -f $FW_INSTALL ]; then
-        mv $FW_INSTALL ${FW_INSTALL}.old
+        mv $VERB $FW_INSTALL ${FW_INSTALL}.old
       fi
 
-      mv $FW_TMPFILE $FW_INSTALL
+      mv $VERB $FW_TMPFILE $FW_INSTALL
       status=$?
       if [ "$status" != "0" ]; then
 	clear
@@ -599,12 +599,12 @@ while [ "$status" != "exit" ]; do
 	echo "A copy of the Linux Firewall initialization script preconfigured by this"
 	echo "program is located in $FW_TMPFILE."
 	echo
-	rm -f $TMPFILE > /dev/null 2>&1
+	rm -f $TMPFILE >$OUT 2>&1
 	exit 1
       fi
 
       if [ -f /etc/rc.d/rc.local ]; then
-        grep $FW_INSTALL /etc/rc.d/rc.local > /dev/null 2>&1 || cat << EOF >> /etc/rc.d/rc.local
+        grep $FW_INSTALL /etc/rc.d/rc.local >$OUT 2>&1 || cat << EOF >>/etc/rc.d/rc.local
 
 if [ -x $FW_INSTALL ]; then
   $FW_INSTALL $INIT
@@ -631,7 +631,7 @@ EOF
 	echo "changes to take effect."
 	echo
 	echo "For more information, please visit:   http://projectfiles.com/firewall/"
-	rm -f $TMPFILE > /dev/null 2>&1
+	rm -f $TMPFILE >$OUT 2>&1
 	exit
       else
 	clear
@@ -644,7 +644,7 @@ EOF
 	echo "A copy of the Linux Firewall initialization script preconfigured by this"
 	echo "program is located in $FW_TMPFILE."
 	echo
-	rm -f $TMPFILE > /dev/null 2>&1
+	rm -f $TMPFILE >$OUT 2>&1
 	exit 1
       fi
     fi
@@ -657,7 +657,7 @@ EOF
     ### Place the following AFTER the escaped firewall script ...
      #FIREWALL_END_OF_FILE
      #  
-     #  chmod $FW_PERM $FW_TMPFILE
+     #  chmod $VERB $FW_PERM $FW_TMPFILE
      #  status="test"
      #  ;;
      #
@@ -821,7 +821,7 @@ exit_failure() {
 
 # Sanity checking section
 
-echo -n "-> Performing sanity checks."
+echo "-> Performing sanity checks."
 
 # Make sure we are running the script with root privileges.
 
@@ -842,30 +842,30 @@ fi
 
 if [ "\$1" == "stop" ] || [ "\$1" == "clear" ]; then
   echo " [ PASSED ]" 
-  iptables -t filter -F > /dev/null 2>&1
-  iptables -t filter -X > /dev/null 2>&1
-  iptables -t nat -F > /dev/null 2>&1
-  iptables -t nat -X > /dev/null 2>&1
-  iptables -t mangle -F > /dev/null 2>&1
-  iptables -t mangle -X > /dev/null 2>&1
-  iptables -t filter -P INPUT ACCEPT > /dev/null 2>&1
-  iptables -t filter -P OUTPUT ACCEPT > /dev/null 2>&1
-  iptables -t filter -P FORWARD ACCEPT > /dev/null 2>&1
-  iptables -t nat -P PREROUTING ACCEPT > /dev/null 2>&1
-  iptables -t nat -P POSTROUTING ACCEPT > /dev/null 2>&1
-  iptables -t nat -P OUTPUT ACCEPT  > /dev/null 2>&1
-  iptables -t mangle -P POSTROUTING ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P OUTPUT ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P PREROUTING ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P INPUT ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P FORWARD ACCEPT > /dev/null 2>&1
-  if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/proc/modules" ]; then
+  iptables -t filter -F >$OUT 2>&1
+  iptables -t filter -X >$OUT 2>&1
+  iptables -t nat -F >$OUT 2>&1
+  iptables -t nat -X >$OUT 2>&1
+  iptables -t mangle -F >$OUT 2>&1
+  iptables -t mangle -X >$OUT 2>&1
+  iptables -t filter -P INPUT ACCEPT >$OUT 2>&1
+  iptables -t filter -P OUTPUT ACCEPT >$OUT 2>&1
+  iptables -t filter -P FORWARD ACCEPT >$OUT 2>&1
+  iptables -t nat -P PREROUTING ACCEPT >$OUT 2>&1
+  iptables -t nat -P POSTROUTING ACCEPT >$OUT 2>&1
+  iptables -t nat -P OUTPUT ACCEPT  >$OUT 2>&1
+  iptables -t mangle -P POSTROUTING ACCEPT >$OUT 2>&1
+  iptables -t mangle -P OUTPUT ACCEPT >$OUT 2>&1
+  iptables -t mangle -P PREROUTING ACCEPT >$OUT 2>&1
+  iptables -t mangle -P INPUT ACCEPT >$OUT 2>&1
+  iptables -t mangle -P FORWARD ACCEPT >$OUT 2>&1
+  if !(( \`which modprobe $VERB 2>&1 | grep -c "which: no modprobe $VERB in"\` )) && [ -a "/proc/modules" ]; then
     for MODULE in ipt_TTL iptable_mangle ipt_mark ipt_MARK ipt_MASQUERADE \\
                   ip_nat_irc ip_nat_ftp ipt_LOG ipt_limit ipt_REJECT \\
 		  ip_conntrack_irc ip_conntrack_ftp ipt_state iptable_nat \\
 		  iptable_filter ip_tables; do
       if (( \`lsmod | grep -c "\$MODULE"\` )); then
-	rmmod \$MODULE > /dev/null 2>&1
+	rmmod \$MODULE >$OUT 2>&1
       fi
     done
   fi
@@ -929,7 +929,7 @@ fi
 # Create DUMP_TCP_ON_INIT function
 
 dump_tcp() {
-  echo -n "-> Dumping current TCP sessions...."
+  echo "-> Dumping current TCP sessions...."
   if [ "\$1" != "fast" ]; then
    sleep 1	# Allow a few moments for that last message to be delivered before we reset remote connections.
   fi
@@ -941,9 +941,9 @@ dump_tcp() {
       DEST=\`echo "\$NET" | sed -n \$((COUNT+1))~20p | cut -d= -f2 | head -1\`
       PORTS=\`echo "\$NET" | sed -n \$((COUNT+2))~20p | cut -d= -f2 | head -1\`
       DPORTS=\`echo "\$NET" | sed -n \$((COUNT+3))~20p | cut -d= -f2 | head -1\`
-      iptables -I INPUT -s \$ADDRESS -d \$DEST -p tcp --sport \$PORTS --dport \$DPORTS -j REJECT --reject-with tcp-reset
+      iptables -I INPUT -s \$ADDRESS -d \$DEST -p tcp $VERB --sport \$PORTS --dport \$DPORTS -j REJECT --reject-with tcp-reset
       if [ "\$IS_ROUTER" == "yes" ]; then
-	iptables -I FORWARD -s \$ADDRESS -d \$DEST -p tcp --sport \$PORTS --dport \$DPORTS -j REJECT --reject-with tcp-reset
+	iptables -I FORWARD -s \$ADDRESS -d \$DEST -p tcp $VERB --sport \$PORTS --dport \$DPORTS -j REJECT --reject-with tcp-reset
       fi
       TAB=\$((TAB+1))
     fi
@@ -960,23 +960,23 @@ if [ "\$1" == "fast" ]; then
     exit_failure \$1
   fi
   echo " [ SKIPPED ]"
-  echo "1" > /proc/sys/net/ipv4/conf/all/rp_filter
+  echo "1" >/proc/sys/net/ipv4/conf/all/rp_filter
   for INTERFACE in \$NO_RP_FILTER_INTERFACES; do
-    echo "0" > /proc/sys/net/ipv4/conf/\$INTERFACE/rp_filter
+    echo "0" >/proc/sys/net/ipv4/conf/\$INTERFACE/rp_filter
   done
   cat \$CONFIG | sed -n 40~1p | iptables-restore
   if [ -n "\$DYNAMIC_INTERFACES" ]; then
-    echo "1" > /proc/sys/net/ipv4/ip_dynaddr
+    echo "1" >/proc/sys/net/ipv4/ip_dynaddr
   else
-    echo "0" > /proc/sys/net/ipv4/ip_dynaddr
+    echo "0" >/proc/sys/net/ipv4/ip_dynaddr
   fi
   if [ "\$LOGGING" == "yes" ]; then
-    echo "1" > /proc/sys/net/ipv4/conf/all/log_martians
+    echo "1" >/proc/sys/net/ipv4/conf/all/log_martians
   fi
   if [ -n "\$INTERNAL_INTERFACES" ] || [ -n "\$PORT_FORWARDS" ]; then
-    echo "1" > /proc/sys/net/ipv4/ip_forward
+    echo "1" >/proc/sys/net/ipv4/ip_forward
   else
-    echo "0" > /proc/sys/net/ipv4/ip_forward
+    echo "0" >/proc/sys/net/ipv4/ip_forward
   fi
   echo "-> Firewall configuration complete.  No sanity checking was performed."
   if [ "\$DUMP_TCP_ON_INIT" == "yes" ]; then
@@ -1158,7 +1158,7 @@ for PARAM in PERMIT BLACKLIST; do
   done
 done
 
-echo -n "."
+echo "."
 
 # Remove entries with ports and put them in their own variable.
 
@@ -1383,7 +1383,7 @@ for INTERFACE in \$IGNORE_INTERFACES; do
 done
 EXTERNAL_INTERFACES=\`echo \$EXTERNAL_INTERFACES\`	# Remove whitespace.
 
-echo -n "."
+echo "."
 
 # Divide internal and external interfaces into static and dynamic groups.
 
@@ -1466,10 +1466,10 @@ if [ -n "\$STATIC_NAT_INTERFACES" ]; then
     ADDRESS=\`ifconfig | grep "^\$INTERFACE\\ " -A1 | grep "inet" | cut -d: -f2 | cut -d\\  -f1 | head -1\`
     if [ -z "\$ADDRESS" ]; then
       echo " [ WAIT ]"
-      echo -n "-> \$INTERFACE has no IP address.  Waiting for DHCP"
+      echo "-> \$INTERFACE has no IP address.  Waiting for DHCP"
       for COUNT in 1 2 3 4 5 6 7 8 9 10; do
 	sleep 1
-	echo -n "."
+	echo "."
 	ADDRESS=\`ifconfig | grep "^\$INTERFACE\\ " -A1 | grep "inet" | cut -d: -f2 | cut -d\\  -f1 | head -1\`
 	if [ -n "\$ADDRESS" ]; then
 	  echo " [ FOUND ]"
@@ -1492,7 +1492,7 @@ if [ -n "\$STATIC_NAT_INTERFACES" ]; then
 	  fi
 	fi
       done
-      echo -n "-> Continuing sanity checks.."
+      echo "-> Continuing sanity checks.."
     else
       MOD_STATIC_NAT_INTERFACES="\$MOD_STATIC_NAT_INTERFACES \$INTERFACE"
       if [ -n "\$FIREWALL_IP" ]; then
@@ -1509,13 +1509,13 @@ if [ -n "\$STATIC_NAT_INTERFACES" ]; then
   NAT_ADDRESSES=\`echo \$NAT_ADDRESSES\`
 fi
 
-echo -n "."
+echo "."
 
-# Determine if this is a modular kernel, if so modprobe the required modules.
+# Determine if this is a modular kernel, if so modprobe $VERB the required modules.
 
-if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/proc/modules" ]; then
+if !(( \`which modprobe $VERB 2>&1 | grep -c "which: no modprobe $VERB in"\` )) && [ -a "/proc/modules" ]; then
   if (( \`lsmod | grep -c "ipchains"\` )); then
-    rmmod ipchains > /dev/null 2>&1
+    rmmod ipchains >$OUT 2>&1
   fi
   REQUIRED_MODULES="ip_tables ip_conntrack ipt_state iptable_filter ip_conntrack_irc ip_conntrack_ftp"
   if [ "\$RFC_1122_COMPLIANT" == "yes" ]; then
@@ -1547,10 +1547,10 @@ if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/pr
     #BK v3.94 some of the module names may be old names, but are an alias to
     #the actual module name. for example ip_conntrack_ftp is now an alias to
     #nf_conntrack_ftp. modinfo can report the alias, but only after the module
-    #is fetched from the zdrv file. The following modprobe -l only lists actual
+    #is fetched from the zdrv file. The following modprobe $VERB -l only lists actual
     #module names not aliases. Fix: comment out the if...
-    #if (( \`modprobe -l | grep -c "\$MODULE"\` )); then
-      modprobe \$MODULE > /dev/null 2>&1
+    #if (( \`modprobe $VERB -l | grep -c "\$MODULE"\` )); then
+      modprobe $VERB \$MODULE >$OUT 2>&1
     #fi
   done
 fi
@@ -1714,7 +1714,7 @@ if [ -n "\$INTERNAL_NETWORKS" ]; then
   done
 fi
 
-echo -n "."
+echo "."
 
 # Sanity check ALLOW_INBOUND and DENY_OUTBOUND and compare against INTERNAL_NETWORKS.
 
@@ -1913,7 +1913,7 @@ if [ -n "\$STATIC_INTERNAL_INTERFACES" ] && [ "\$TRUST_ROUTED_NETWORKS" != "yes"
   EXTERNAL_ADDRESSES="\$EXTERNAL_ADDRESSES \$INTERNAL_ADDRESSES"
 fi
 
-echo -n "."
+echo "."
 
 # Check that rp_filter interfaces are valid.
 
@@ -2053,25 +2053,25 @@ fi
 # -- Firewall Section -- #
 ##########################
 
-echo -n "-> Building firewall."
+echo "-> Building firewall."
 
 # Let no packets slip by while we are configuring the firewall.
 
-echo "0" > /proc/sys/net/ipv4/ip_forward
+echo "0" >/proc/sys/net/ipv4/ip_forward
 
 # Enable kernel level reverse path filtering.
 
-echo "1" > /proc/sys/net/ipv4/conf/all/rp_filter
+echo "1" >/proc/sys/net/ipv4/conf/all/rp_filter
 for INTERFACE in \$NO_RP_FILTER_INTERFACES; do
-  echo "0" > /proc/sys/net/ipv4/conf/\$INTERFACE/rp_filter
+  echo "0" >/proc/sys/net/ipv4/conf/\$INTERFACE/rp_filter
 done
 
 # Enable kernel level dynamic address handling.
 
 if [ -n "\$DYNAMIC_INTERFACES" ]; then
-  echo "1" > /proc/sys/net/ipv4/ip_dynaddr
+  echo "1" >/proc/sys/net/ipv4/ip_dynaddr
 else
-  echo "0" > /proc/sys/net/ipv4/ip_dynaddr
+  echo "0" >/proc/sys/net/ipv4/ip_dynaddr
 fi
 
 # Set default policies.
@@ -2094,9 +2094,9 @@ if !(( \`iptables -t mangle -F 2>&1 | grep -c "Table does not exist"\` )); then
   iptables -t mangle -X
   iptables -t mangle -P PREROUTING ACCEPT
   iptables -t mangle -P OUTPUT ACCEPT
-  iptables -t mangle -P POSTROUTING ACCEPT > /dev/null 2>&1	# New 2.4.18 builtin mangle chains
-  iptables -t mangle -P INPUT ACCEPT > /dev/null 2>&1
-  iptables -t mangle -P FORWARD ACCEPT > /dev/null 2>&1
+  iptables -t mangle -P POSTROUTING ACCEPT >$OUT 2>&1	# New 2.4.18 builtin mangle chains
+  iptables -t mangle -P INPUT ACCEPT >$OUT 2>&1
+  iptables -t mangle -P FORWARD ACCEPT >$OUT 2>&1
 fi
 
 # Drop traffic to and from blacklisted networks.
@@ -2175,7 +2175,7 @@ fi
 # Set logging preferences.  Do not log broadcasts.
 
 if [ "\$LOGGING" == "yes" ]; then
-  echo "1" > /proc/sys/net/ipv4/conf/all/log_martians
+  echo "1" >/proc/sys/net/ipv4/conf/all/log_martians
   iptables -t filter -N LOGME
   iptables -t filter -I TRUSTED -j LOGME
   for BROADCAST in \$BCAST_LIST; do
@@ -2183,13 +2183,13 @@ if [ "\$LOGGING" == "yes" ]; then
   done
   iptables -t filter -A LOGME -p icmp -m limit --limit \$LOG_LIMIT --limit-burst \$LOG_BURST -j LOG --log-level \$LOG_LEVEL \\
          --log-prefix "firewall: "
-  iptables -t filter -A LOGME -p tcp -m limit --limit \$LOG_LIMIT --limit-burst \$LOG_BURST -j LOG --log-level \$LOG_LEVEL \\
+  iptables -t filter -A LOGME -p tcp $VERB -m limit --limit \$LOG_LIMIT --limit-burst \$LOG_BURST -j LOG --log-level \$LOG_LEVEL \\
            --log-prefix "firewall: "
   iptables -t filter -A LOGME -p udp -m limit --limit \$LOG_LIMIT --limit-burst \$LOG_BURST -j LOG --log-level \$LOG_LEVEL \\
            --log-prefix "firewall: "
 fi
 
-echo -n "."
+echo "."
 
 # Accept icmp-echo-request packets if RFC-1122 compliance option is enabled.  Limit logging of icmp packets.
 
@@ -2346,7 +2346,7 @@ for ITEM in \$OPEN_PORTS \$TRUSTED_PORTS; do
   fi
 done
 
-echo -n "."
+echo "."
 
 # For routers, allow routing of internal and routed networks on internal interfaces.  Fix traceroutes under DNAT info-leak-bug.
 
@@ -2449,7 +2449,7 @@ if [ "\$IS_ROUTER" == "yes" ]; then
 	    -p icmp --icmp-type echo-request -j DNAT --to-destination \$INSIDE
 	  fi
 	  if [ "\$PORTS" == "any" ]; then
-	    iptables -t nat -A PREROUTING \$NETWORK -d \$OUTSIDE -p tcp -j DNAT --to-destination \$INSIDE
+	    iptables -t nat -A PREROUTING \$NETWORK -d \$OUTSIDE -p tcp $VERB -j DNAT --to-destination \$INSIDE
 	    iptables -t nat -A PREROUTING \$NETWORK -d \$OUTSIDE -p udp -j DNAT --to-destination \$INSIDE
 	  else
 	    if [ "\$PROTOCOL" == "tcp" ] || [ "\$PROTOCOL" == "udp" ]; then
@@ -2523,7 +2523,7 @@ if [ "\$IS_ROUTER" == "yes" ]; then
   done
 fi
 
-echo -n "."
+echo "."
 
 # Configure port forwarding.
 
@@ -2537,7 +2537,7 @@ for FORWARD in \$PORT_FORWARDS; do
   fi
   DPORTS=\`echo "\$PORTS" | cut -d- -f1,2 --output-delimiter=":"\`
   # Support DNAT for locally generated connections, new in iptables 1.2.6a and kernel 2.4.19 
-  iptables -t nat -A OUTPUT -o lo -p \$PROTOCOL --dport \$IN_PORTS -j DNAT --to-destination \$DEST:\$PORTS > /dev/null 2>&1
+  iptables -t nat -A OUTPUT -o lo -p \$PROTOCOL --dport \$IN_PORTS -j DNAT --to-destination \$DEST:\$PORTS >$OUT 2>&1
   COUNT="0"
   while (( \`echo "\${INTERFACE_TAB[\$((COUNT + 1))]}" | grep -c "."\` )); do
     COUNT=\$((COUNT + 1))
@@ -2644,7 +2644,7 @@ fi
 # Now that everything is configured we can enable ip_forward for routers.
 
 if [ "\$IS_ROUTER" == "yes" ]; then
-  echo "1" > /proc/sys/net/ipv4/ip_forward 
+  echo "1" >/proc/sys/net/ipv4/ip_forward 
 fi
 
 # Print exit message.
@@ -2719,8 +2719,8 @@ return
 
 EOF
   iptables-save >> \$CONFIG
-  chown root:root \$CONFIG
-  chmod 600 \$CONFIG
+  chown $VERB root:root \$CONFIG
+  chmod $VERB 600 \$CONFIG
   echo "-> Firewall configuration saved to \$CONFIG"
 fi
 
@@ -2733,7 +2733,7 @@ fi
 # Done!
 FIREWALL_END_OF_FILE
   
-  chmod $FW_PERM $FW_TMPFILE
+  chmod $VERB $FW_PERM $FW_TMPFILE
   status="test"
   ;;
 
