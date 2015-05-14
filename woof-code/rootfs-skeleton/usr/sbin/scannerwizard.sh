@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Scanner Wizard (c) Barry Kauler 2003 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 . /etc/rc.d/f4puppy5
@@ -159,16 +159,16 @@ RESULTOK="`Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" --st
  "teco3" "Relisys, Plustek,Piotech,Trust" $STATUSteco3 \
  "umax" "Umax, Linotype Hell,Vobis,Edge,Epson,Escom,Escort,Genius,Nikon" $STATUSumax \
  "umax1220u" "Umax" $STATUSumax1220u \
- "umax_pp" "Umax" $STATUSumax_pp  2> /dev/null`"
+ "umax_pp" "Umax" $STATUSumax_pp  2>/dev/null`"
 
 STATUSRET=$?
 
 if [ $STATUSRET -eq 0 ];then
- echo -n "$RESULTOK" > /etc/scanner
+ echo "$RESULTOK" >/etc/scanner
 # Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" \
 # --infobox "NOTE: Your choice will only take effect after rebooting" \
-# 8 50 10000 2> /dev/null
+# 8 50 10000 2>$ERR
  Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" \
  --infobox "SCRIPT NOT FINISHED. DOESN'T ACTUALLY DO ANYTHING!" \
- 8 50 10000 2> /dev/null
+ 8 50 10000 2>$ERR
 fi
