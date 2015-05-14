@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Format floppy disks
 #Copyright (c) Barry Kauler 2004 www.goosee.com/puppy
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
@@ -26,7 +26,7 @@ FD="fd1"
 Kind=''
 fi
 
-mkdir -p /mnt/fd1
+mkdir $VERB -p /mnt/fd1
 mount /dev/fd1 /mnt/fd1 2>/tmp/floppyformat.txt.$$
 IN="`cat /tmp/floppyformat.txt.$$`"
 echo $IN
@@ -119,7 +119,7 @@ Kind=''
 fi
 
 ####krg----part to test if floppy is mounted---->>>>
-mkdir -p /mnt/fd1
+mkdir $VERB -p /mnt/fd1
 mount /dev/fd1 /mnt/fd1 2>/tmp/floppyformat.txt.$$
 IN="`cat /tmp/floppyformat.txt.$$`"
 if test "$IN" = ""; then
@@ -192,7 +192,7 @@ echo "disk, is also a method for wiping any existing files."
 while :; do
 
 MNTDMSG=" "
-mount | grep "/dev/fd*" > /dev/null 2>&1
+mount | grep "/dev/fd*" >$OUT 2>&1
 if [ $? -eq 0 ];then #=0 if string found
 
  CURRENTMNT="`mount | grep "/dev/fd*" | cut -f 3 -d ' '`"
