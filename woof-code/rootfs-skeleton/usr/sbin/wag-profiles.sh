@@ -178,16 +178,16 @@ echo "$0:'$*'" >&2
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 PROFILES_DIR='/etc/network-wizard/wireless/profiles'
-[ -d $PROFILES_DIR ] || mkdir -p $PROFILES_DIR
+[ -d $PROFILES_DIR ] || mkdir $VERB -p $PROFILES_DIR
 # wpa_supplicant.conf files
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 WPA_SUPP_DIR='/etc/network-wizard/wireless/wpa_profiles'
-[ -d $WPA_SUPP_DIR ] || mkdir -p $WPA_SUPP_DIR
+[ -d $WPA_SUPP_DIR ] || mkdir $VERB -p $WPA_SUPP_DIR
 # configuration data for wireless interfaces (like if they support wpa)
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'
-[ -d $WLAN_INTERFACES_DIR ] || mkdir -p $WLAN_INTERFACES_DIR
+[ -d $WLAN_INTERFACES_DIR ] || mkdir $VERB -p $WLAN_INTERFACES_DIR
 
 # a file where WPA-supporting modules not included in the default list can be added
 Extra_WPA_Modules_File='/etc/network-wizard/wpa_modules'
@@ -303,7 +303,7 @@ setupDHCP()
   </hbox>
  </vbox>
 </window>"
-                gtkdialog3 --program=Dhcpcd_Progress_Dialog <$PROGRESS_OUTPUT >/dev/null &
+                gtkdialog3 --program=Dhcpcd_Progress_Dialog <$PROGRESS_OUTPUT >$OUT &
                 local XPID=$!
         else
                 local PROGRESS_OUTPUT=$DEBUG_OUTPUT
@@ -347,7 +347,7 @@ setupDHCP()
                         HAS_ERROR=1
                 fi
                 # we're in a subshell, so variables set here will not be seen outside...
-                echo "$HAS_ERROR" > /tmp/net-setup_HAS_ERROR.txt
+                echo "$HAS_ERROR" >/tmp/net-setup_HAS_ERROR.txt
                 # close progressbar
                 if [ "$HAVEX" = "yes" ] ; then
                         pidof gtkdialog3 2>&1 | grep $Q "$XPID" && echo "100"
@@ -399,7 +399,7 @@ echo "'$0':function showProfilesWindow:'$*' start"
          rt61|rt73) CARD_WPA_DRV="ralink" ;;
          r8180|r8187) CARD_WPA_DRV="ipw" ;;
          # Dougal: all lines below are "wext" (split and alphabetized for readability)
-         ath_pci) modprobe wlan_tkip ; CARD_WPA_DRV="wext" ;;
+         ath_pci) modprobe $VERB wlan_tkip ; CARD_WPA_DRV="wext" ;;
          ath5k*|ath9k*|b43|b43legacy|bcm43xx) CARD_WPA_DRV="wext" ;;
          ipw2100|ipw2200|ipw3945|iwl3945|iwl4965|iwl5100|iwlagn) CARD_WPA_DRV="wext" ;;
          ndiswrapper|p54pci|p54usb|rndis_wlan) CARD_WPA_DRV="wext" ;;
@@ -536,7 +536,7 @@ echo "'$0':function showProfilesWindow:'$*' end"
  #</vbox>
 #</window>"
 
-        #gtkdialog3 --program NETWIZ_No_WPA_Dialog >/dev/null 2>&1
+        #gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
         #clean_up_gtkdialog NETWIZ_No_WPA_Dialog
         #unset NETWIZ_No_WPA_Dialog
 #}
@@ -1247,7 +1247,7 @@ saveWpaProfile(){
         WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
         if [ ! -e "$WPA_CONF" ] ; then
                 # copy template
-                cp -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
+                cp $VERB -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
         fi
         # need to escape the original phrase for sed
         ## (need to be escaped twice (extra \\) if we want the result escaped)
@@ -1348,7 +1348,7 @@ giveErrorDialog(){
  #</vbox>
 #</window>"
 
-        #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >/dev/null 2>&1
+        #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >$OUT 2>&1
         #clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
         #unset NO_NETWORK_ERROR_DIALOG
 #}
@@ -1383,9 +1383,9 @@ killWpaSupplicant ()
 
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
-        #       rm /var/run/wpa_supplicant/$INTERFACE* > /dev/null 2>&1
+        #       rm /var/run/wpa_supplicant/$INTERFACE* >$OUT 2>&1
         #       for SUPPLICANT_PID in $SUPPLICANT_PIDS ; do
-        #               kill $SUPPLICANT_PID > /dev/null 2>&1
+        #               kill $SUPPLICANT_PID >$OUT 2>&1
         #       done
         #       sleep 5 # to wait for the supplicant to shutdown
         #fi
@@ -1404,9 +1404,9 @@ killDhcpcd()
         [ "$INTERFACE" ] || INTERFACE="$1"
 
         # release dhcpcd
-        #dhcpcd -k "$INTERFACE" 2>/dev/null
+        #dhcpcd -k "$INTERFACE" 2>$ERR
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
-        #kill $(ps ax | grep "dhcpcd -d -I  $INTERFACE" | awk '{print $1}') 2>/dev/null
+        #kill $(ps ax | grep "dhcpcd -d -I  $INTERFACE" | awk '{print $1}') 2>$ERR
         # clean up if needed
         ## Dougal: check /var first, since /etc/dhcpc might exist in save file from the past...
 
@@ -1420,7 +1420,7 @@ killDhcpcd()
           #it (per ipv6) or delete it if using MAC address as client ID.    rerwin
           rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* #2>/dev/null  #.info
 #end rerwin
-          #rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
+          #rm -f /var/run/dhcpcd-${INTERFACE}.* 2>$ERR #.pid
 
         elif [ -d /etc/dhcpc ];then
           if [ -s /etc/dhcpc/dhcpcd-${INTERFACE}.pid ] ; then
@@ -1471,7 +1471,7 @@ echo "$0:cleanUpInterface '$*' `date` $LINENO"
 fi
 
         # stop dhcpcd
-        #killall dhcpcd 2>/dev/null
+        #killall dhcpcd 2>$ERR
         # flush routing table
         #ip route flush dev "$1"
         # bring interface up again
@@ -1656,7 +1656,7 @@ validateWpaAuthentication()
                     ;;
                 esac
                 # echo X for progress dialog
-                #echo -n "X"
+                #echo "X"
                 #sleep 1
                 ELAPSED=$(($(date +%s)-$START_TIME))
         done
@@ -1676,7 +1676,7 @@ useWpaSupplicant ()
                 WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
                 if [ ! -e "$WPA_CONF" ] ; then
                         # copy template
-                        #cp -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
+                        #cp $VERB -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
                         # no, now this is done while saving, give message if failed
                         giveErrorDialog "$L_MESSAGE_No_Wpaconfig_p1
 $WPA_CONF
@@ -1769,8 +1769,8 @@ $L_MESSAGE_No_Wpaconfig_p2"
                 esac
 
                 # Dougal: close the -n above
-                echo  >> $DEBUG_OUTPUT 2>&1
-                #echo -n "$WPA_STATUS" > /tmp/wpa_status.txt
+                echo >> $DEBUG_OUTPUT 2>&1
+                #echo "$WPA_STATUS" >/tmp/wpa_status.txt
                 #echo "---" >> ${TMPLOG} 2>&1
         ) >>$PROGRESS_OUTPUT
         ####################################################################
@@ -1877,7 +1877,7 @@ checkIsPCMCIA(){
 #=============================================================================
 waitForPCMCIA(){
         # see if this is a pcmcia device at all
-        #grep -q "^pcmcia:" /sys/class/net/$INTERFACE/device/modalias || return
+        #grep $Q "^pcmcia:" /sys/class/net/$INTERFACE/device/modalias || return
         #case $INTMODULE in *_cs) ;; *) return ;; esac
         echo "running NETWIZ_Wait_For_PCMCIA_Dialog..."
         export NETWIZ_Wait_For_PCMCIA_Dialog="<window title=\"$L_TITLE_Network_Wizard\" window-position=\"1\">
@@ -1967,7 +1967,7 @@ buildScanWindow()
 
                 #  Dougal: use files for the scan results, so we can try a few times
                 #+ and see which is biggest (sometimes not all networks show)
-                rm -f /tmp/net-setup_scan*.tmp >/dev/null 2>&1
+                rm -f /tmp/net-setup_scan*.tmp >$OUT 2>&1
 
                 iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
                 echo "X"
@@ -1994,9 +1994,9 @@ buildScanWindow()
                 #fi
 
                 SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
-                echo "$SCAN_LIST" > /tmp/net-setup_scanlist
+                echo "$SCAN_LIST" >/tmp/net-setup_scanlist
 
-                echo "$ScanListFile" > /tmp/net-setup_scanlistfile
+                echo "$ScanListFile" >/tmp/net-setup_scanlistfile
 
                 CELL_LIST=$(grep -Eo "Cell [0-9]+" "$ScanListFile" | cut -f2 -d " ")
                 #CELL_LIST=$(grep -Eo "Cell [0-9]+" /tmp/net-setup_scanlist | cut -f2 -d " ")
@@ -2010,7 +2010,7 @@ buildScanWindow()
                         if [ "$1" = "retry" ] ; then # we're on the second try already
                                 echo "Running createNoNetworksDialog" >&2
                                 createNoNetworksDialog
-                                #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " > /tmp/net-setup_scanwindow
+                                #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " >/tmp/net-setup_scanwindow
                         elif [ -n "$IsPCMCIA" ] ; then
                                 echo "Running createRetryPCMCIAScanDialog" >&2
                                 createRetryPCMCIAScanDialog
@@ -2032,7 +2032,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
                         done
 
                         echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" --radiolist \"$L_TEXT_Scanwindow\"  20 60 4  \
-        ${SCANWINDOW_BUTTONS} 2> /dev/null" > /tmp/net-setup_scanwindow
+        ${SCANWINDOW_BUTTONS} 2>$ERR" >/tmp/net-setup_scanwindow
                 fi
                 echo "X"
         )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog #>/dev/null
@@ -2077,7 +2077,7 @@ export NETWIZ_SCAN_ERROR_DIALOG="<window title=\"'"$L_TITLE_Puppy_Network_Wizard
 gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG
 clean_up_gtkdialog NETWIZ_SCAN_ERROR_DIALOG
 exit 0
-' > /tmp/net-setup_scanwindow
+' >/tmp/net-setup_scanwindow
 }
 
 #=============================================================================
@@ -2120,7 +2120,7 @@ case $EXIT in
 Cancel) exit 0 ;;
 retry) exit 111 ;;
 esac
-' > /tmp/net-setup_scanwindow
+' >/tmp/net-setup_scanwindow
 }
 
 #=============================================================================
@@ -2163,7 +2163,7 @@ case $EXIT in
 Cancel) exit 0 ;;
 retry) exit 101 ;;
 esac
-' > /tmp/net-setup_scanwindow
+' >/tmp/net-setup_scanwindow
 }
 
 #=============================================================================
@@ -2182,7 +2182,7 @@ runPrismScan()
            minchanneltime=200 maxchanneltime=250 >/tmp/prism-scan-all #2>/dev/null
         echo "X"
         # get number of access points (make sure we get integer)
-        POINTNUM=$(grep -F 'numbss=' /tmp/prism-scan-all 2>/dev/null | cut -d= -f2 | grep [0-9])
+        POINTNUM=$(grep -F 'numbss=' /tmp/prism-scan-all 2>$ERR | cut -d= -f2 | grep [0-9])
         rm /tmp/prism-scan-all #>/dev/null 2>&1
         ## Dougal: not sure about this -- need a way to make sure we get something
         #if grep -F 'resultcode=success' /tmp/prism-scan-all ; then
@@ -2216,7 +2216,7 @@ buildPrismScanWindow()
           do
             grep -Fq 'resultcode=success' /tmp/prism-scan$P || continue
             getPrismCellParameters $P
-            [ "$CELL_ESSID" = "" ] && CELL_ESSID="$L_SCANWINDOW_Hidden_SSID"
+            [ "$CELL_ESSID" ] || CELL_ESSID="$L_SCANWINDOW_Hidden_SSID"
                 # might add test here for some params, then maybe skip
                 SCANWINDOW_BUTTONS="${SCANWINDOW_BUTTONS} \"$P\" \"${CELL_ESSID} (${CELL_MODE}; ${L_SCANWINDOW_Encryption}${CELL_ENCRYPTION})\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}\""
           done
@@ -2225,9 +2225,9 @@ buildPrismScanWindow()
         fi
         if [ "$SCANWINDOW_BUTTONS" ] ; then
                 echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" --radiolist \"$L_TEXT_Prism_Scan\"  20 60 4  \
-        ${SCANWINDOW_BUTTONS} 2> /dev/null" > /tmp/net-setup_scanwindow
+        ${SCANWINDOW_BUTTONS} 2>$ERR" >/tmp/net-setup_scanwindow
         else
-          #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " > /tmp/net-setup_scanwindow
+          #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " >/tmp/net-setup_scanwindow
           if [ "$1" = "retry" ] ; then # we're on the second try already
                 createNoNetworksDialog
           elif [ -n "$IsPCMCIA" ] ; then
