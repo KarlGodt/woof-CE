@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
@@ -190,7 +190,7 @@ convert () {
     if test "x$tmp_drive" = x; then
         echo "$1 does not have any corresponding BIOS drive." 1>&2
         # If /boot is on a RAID device, provide more information
-        if mdadm --detail "$bootdir_device" >/dev/null 2>&1; then
+        if mdadm --detail "$bootdir_device" >$OUT 2>&1; then
             echo "You can run grub-install on your RAID device [$bootdir_device]," 1>&2
             echo "or you can define [$1] in [$device_map]." 1>&2
         fi
@@ -204,13 +204,13 @@ convert () {
         linux*)
             echo "$tmp_drive" | sed "s%)$%,`expr $tmp_part - 1`)%" ;;
         gnu*)
-            if echo $tmp_part | grep "^s" >/dev/null; then
+            if echo $tmp_part | grep "^s" >$OUT; then
                 tmp_pc_slice=`echo $tmp_part \
                     | sed "s%s\([0-9]*\)[a-z]*$%\1%"`
                 tmp_drive=`echo "$tmp_drive" \
                     | sed "s%)%,\`expr "$tmp_pc_slice" - 1\`)%"`
             fi
-            if echo $tmp_part | grep "[a-z]$" >/dev/null; then
+            if echo $tmp_part | grep "[a-z]$" >$OUT; then
                 tmp_bsd_partition=`echo "$tmp_part" \
                     | sed "s%[^a-z]*\([a-z]\)$%\1%"`
                 tmp_drive=`echo "$tmp_drive" \
@@ -218,13 +218,13 @@ convert () {
             fi
             echo "$tmp_drive" ;;
         freebsd* | kfreebsd*-gnu)
-            if echo $tmp_part | grep "^s" >/dev/null; then
+            if echo $tmp_part | grep "^s" >$OUT; then
                 tmp_pc_slice=`echo $tmp_part \
                     | sed "s%s\([0-9]*\)[a-h]*$%\1%"`
                 tmp_drive=`echo "$tmp_drive" \
                     | sed "s%)%,\`expr "$tmp_pc_slice" - 1\`)%"`
             fi
-            if echo $tmp_part | grep "[a-h]$" >/dev/null; then
+            if echo $tmp_part | grep "[a-h]$" >$OUT; then
                 tmp_bsd_partition=`echo "$tmp_part" \
                     | sed "s%s\{0,1\}[0-9]*\([a-h]\)$%\1%"`
                 tmp_drive=`echo "$tmp_drive" \
@@ -232,7 +232,7 @@ convert () {
             fi
             echo "$tmp_drive" ;;
         netbsd* | knetbsd*-gnu)
-            if echo $tmp_part | grep "^[abe-p]$" >/dev/null; then
+            if echo $tmp_part | grep "^[abe-p]$" >$OUT; then
                 tmp_bsd_partition=`echo "$tmp_part" \
                     | sed "s%\([a-p]\)$%\1%"`
                 tmp_drive=`echo "$tmp_drive" \
@@ -274,7 +274,7 @@ resolve_symlink () {
 find_device () {
     # For now, this uses the program `df' to get the device name, but is
     # this really portable?
-    tmp_fname=`df $1/ | sed -n 's%.*\(/dev/[^   ]*\).*%\1%p'`
+    tmp_fname=`/bin/df $1/ | sed -n 's%.*\(/dev/[^   ]*\).*%\1%p'`
 
     if test -z "$tmp_fname"; then
         echo "Could not find device for $1" 2>&1
@@ -379,8 +379,8 @@ fi
 # Stage 1.5 does not exist.
 
 # Create the GRUB directory if it is not present.
-test -d "$bootdir" || mkdir "$bootdir" || exit 1
-test -d "$grubdir" || mkdir "$grubdir" || exit 1
+test -d "$bootdir" || mkdir $VERB "$bootdir" || exit 1
+test -d "$grubdir" || mkdir $VERB "$grubdir" || exit 1
 
 # If --recheck is specified, remove the device map, if present.
 if test $recheck = yes; then
@@ -401,7 +401,7 @@ else
     $grub_shell --batch $no_floppy --device-map=$device_map <<EOF >$log_file
 quit
 EOF
-    if grep "Error [0-9]*: " $log_file >/dev/null; then
+    if grep "Error [0-9]*: " $log_file >$OUT; then
         cat $log_file 1>&2
         exit 1
     fi
@@ -474,7 +474,7 @@ for file in ${grubdir}/stage1 ${grubdir}/stage2 ${grubdir}/*stage1_5; do
 done
 for file in \
     ${pkglibdir}/stage1 ${pkglibdir}/stage2 ${pkglibdir}/*stage1_5; do
-    cp -f $file ${grubdir} || exit 1
+    cp $VERB -f $file ${grubdir} || exit 1
 done
 
 # Make a default file.
@@ -505,9 +505,9 @@ for file in ${grubdir}/stage1 ${grubdir}/stage2 ${grubdir}/*stage1_5; do
 dump ${root_drive}${tmp} ${img_file}
 quit
 EOF
-        if grep "Error [0-9]*: " $log_file >/dev/null; then
+        if grep "Error [0-9]*: " $log_file >$OUT; then
             :
-        elif cmp $file $img_file >/dev/null; then
+        elif cmp $file $img_file >$OUT; then
             break
         fi
         sleep 1
@@ -530,12 +530,12 @@ test -n "$mklog" && log_file=`$mklog`
 sync
 
 # Now perform the installation.
-if echo "$install_device" | grep -qs "^/dev/md[0-9]" 2>/dev/null; then
+if echo "$install_device" | grep -qs "^/dev/md[0-9]" 2>$ERR; then
         # installing to an md device; write an MBR to each disk in the RAID
-        echo -n > $log_file
-        for disk in $(mdadm --detail "$install_device" 2>/dev/null | \
-                        grep " active sync " 2>/dev/null | \
-                        sed "s/^.* active sync\s*//" 2>/dev/null \
+        echo > $log_file
+        for disk in $(mdadm --detail "$install_device" 2>$ERR | \
+                        grep " active sync " 2>$ERR | \
+                        sed "s/^.* active sync\s*//" 2>$ERR \
         ); do
                 dev=$(echo "$disk" | sed "s/[0-9]\+$//")
                 bootpart=${disk#$dev}
@@ -559,7 +559,7 @@ quit
 EOF
 fi
 
-if grep "Error [0-9]*: " $log_file >/dev/null || test $debug = yes; then
+if grep "Error [0-9]*: " $log_file >$OUT || test $debug = yes; then
     cat $log_file 1>&2
     exit 1
 fi
@@ -568,11 +568,11 @@ if test "`which dpkg-query`"; then
 dpkg-query -W -f '${Version}\n' grub > ${grubdir}/installed-version
 fi
 
-grep -q '[[:alnum:][:punct:]]' $log_file || rm -f $log_file
+grep $Q '[[:alnum:][:punct:]]' $log_file || rm -f $log_file
 
 echo "Installation finished. No error reported."
 
-if echo "$install_device" | grep -qs "^/dev/md[0-9]" 2>/dev/null; then
+if echo "$install_device" | grep -qs "^/dev/md[0-9]" 2>$ERR; then
     # Displaying device.map when installing to a RAID device is misleading
     exit 0
 fi
