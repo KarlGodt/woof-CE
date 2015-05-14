@@ -31,7 +31,7 @@ PKGINFO1="`ls -1 /usr/share/applications | sed -e 's%^%/usr/share/applications/%
 ##builtin pet pkgs...
 #if [ ! -f /tmp/petget_builtin_pet ];then
 # BUILTIN_PET_NAMES="`echo "$PKGS_SPECS_TABLE" | grep '^yes' | cut -f 2,3 -d '|' | grep '|$' | sed -e 's%^%|%'`" #ex: '|abiword|'
-# echo "$BUILTIN_PET_NAMES" > /tmp/petget_builtin_pet
+# echo "$BUILTIN_PET_NAMES" >/tmp/petget_builtin_pet
 #fi
 #BUILTIN_PET_INFO="`grep --file=/tmp/petget_builtin_pet /root/.packages/Packages-puppy-* | cut -f 2-9 -d ':' | cut -f 2,10 -d '|'`"
 ##builtin compatible-distro pkgs...
@@ -49,7 +49,7 @@ PKGINFO1="`ls -1 /usr/share/applications | sed -e 's%^%/usr/share/applications/%
 
 EXCLLISTsd=" 0rootfs_skeleton autologin bootflash burniso2cd cd/dvd check configure desktop format network pupdvdtool wallpaper pbackup pburn pcdripper pdict pdisk pdvdrsab pmetatagger pschedule pstopwatch prename pprocess pmirror pfind pcdripper pmount puppy pupctorrent pupscan pupx pwireless set text "
 
-cp -f /usr/share/doc/index.html.top /tmp/newinfoindex.xml
+cp $VERB -f /usr/share/doc/index.html.top /tmp/newinfoindex.xml
 
 #dropdown menu for apps in menu...
 echo '<p>Applications available in the desktop menu:</p>' >>/tmp/newinfoindex.xml
@@ -63,16 +63,16 @@ do
  NAMEONLY="`echo "$ONEINFO" | cut -f 1 -d ' ' | tr [A-Z] [a-z]`"
  EXPATTERN=" $NAMEONLY "
  nEXPATTERN="^$NAMEONLY "
- [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
+ [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" ] && continue
  HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
  REALHOME="`cat /root/.packages/PKGS_HOMEPAGES | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`"
- [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
- echo "<option value=\"${HOMESITE}\">${ONEINFO}" >> /tmp/newinfoindex.xml
+ [ "$REALHOME" ] && HOMESITE="$REALHOME"
+ echo "<option value=\"${HOMESITE}\">${ONEINFO}" >>/tmp/newinfoindex.xml
 done
 echo '</select>
 </form>
 </center>
-' >> /tmp/newinfoindex.xml
+' >>/tmp/newinfoindex.xml
 
 #w464 dropdown list of all builtin pkgs...
 echo '<p>Complete list of packages (in Puppy or not):</p>' >>/tmp/newinfoindex.xml
@@ -80,13 +80,13 @@ echo '<center>
 <form name="form2">
 <select name="site2" size="1" onchange="javascript:formHandler2()">
 ' >>/tmp/newinfoindex.xml
-sed -e 's% %|%' -e 's%$%|%' /root/.packages/PKGS_HOMEPAGES > /tmp/pkgs_homepages_mod
-printcols /tmp/pkgs_homepages_mod 2 1 | sed -e 's%^%<option value="%' -e 's%|$%#%' -e 's%|%">%' -e 's%#$%%' >> /tmp/newinfoindex.xml
+sed -e 's% %|%' -e 's%$%|%' /root/.packages/PKGS_HOMEPAGES >/tmp/pkgs_homepages_mod
+printcols /tmp/pkgs_homepages_mod 2 1 | sed -e 's%^%<option value="%' -e 's%|$%#%' -e 's%|%">%' -e 's%#$%%' >>/tmp/newinfoindex.xml
 sync
 echo '</select>
 </form>
 </center>
-' >> /tmp/newinfoindex.xml
+' >>/tmp/newinfoindex.xml
 
 #w012 commented out...
 ##dropdown menu for all installed pkgs...
@@ -98,21 +98,21 @@ echo '</select>
 #echo "$PKGINFODB" |
 #while read ONEINFO
 #do
-# [ "$ONEINFO" = "" ] && continue
+# [ "$ONEINFO" ] || continue
 # NAMEONLY="`echo "$ONEINFO" | cut -f 1 -d '|' | tr [A-Z] [a-z]`"
 # EXPATTERN=" $NAMEONLY "
 # nEXPATTERN="^$NAMEONLY "
-# [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
+# [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" ] && continue
 # HOMESITE="http://en.wikipedia.org/wiki/${NAMEONLY}"
 # REALHOME="`echo "$HOMEPAGEDB" | grep -i "$nEXPATTERN" | head -n 1 | cut -f 2 -d ' '`"
-# [ "$REALHOME" != "" ] && HOMESITE="$REALHOME"
-# xONEINFO="`echo -n "$ONEINFO" | sed 's%|%:  %'`"
-# echo "<option value=\"${HOMESITE}\">${xONEINFO}" >> /tmp/newinfoindex.xml
+# [ "$REALHOME" ] && HOMESITE="$REALHOME"
+# xONEINFO="`echo "$ONEINFO" | sed 's%|%:  %'`"
+# echo "<option value=\"${HOMESITE}\">${xONEINFO}" >>/tmp/newinfoindex.xml
 #done
 #echo '</select>
 #</form>
 #</center>
-#' >> /tmp/newinfoindex.xml
+#' >>/tmp/newinfoindex.xml
 
 ##dropdown menu for all executables...
 #echo '<p>All executable files in Puppy:</p>' >>/tmp/newinfoindex.xml
@@ -123,19 +123,19 @@ echo '</select>
 #echo "$PKGINFONODESCR" |
 #while read ONEINFO
 #do
-# [ "`echo "$ONEINFO" | grep -E 'NOTUSED|FULL|\.bin$|config$|README|OLD|\.glade$'`" != "" ] && continue
+# [ "`echo "$ONEINFO" | grep -E 'NOTUSED|FULL|\.bin$|config$|README|OLD|\.glade$'`" ] && continue
 # EXPATTERN=" $ONEINFO "
-# [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" != "" ] && continue
-# echo "<option value=\"http://linux.die.net/man/${ONEINFO}\">${ONEINFO}</option>" >> /tmp/newinfoindex.xml
+# [ "`echo "$EXCLLISTsd" | grep -i "$EXPATTERN"`" ] && continue
+# echo "<option value=\"http://linux.die.net/man/${ONEINFO}\">${ONEINFO}</option>" >>/tmp/newinfoindex.xml
 #done
 #echo '</select>
 #</form>
 #</center>
-#' >> /tmp/newinfoindex.xml
+#' >>/tmp/newinfoindex.xml
 
 #now complete the index.html file...
-cat /usr/share/doc/index.html.bottom >> /tmp/newinfoindex.xml
-mv -f /tmp/newinfoindex.xml /usr/share/doc/index.html
+cat /usr/share/doc/index.html.bottom >>/tmp/newinfoindex.xml
+mv $VERB -f /tmp/newinfoindex.xml /usr/share/doc/index.html
 
 
 ###END###
