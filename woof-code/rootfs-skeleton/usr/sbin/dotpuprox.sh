@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 MSGDEPS="the 'dotpuphandler' PET package."
-[ "`which puppybasic`" = "" ] && MSGDEPS="the 'dotpuphandler' and 'puppybasic' PET packages."
+[ "`which puppybasic`" ] || MSGDEPS="the 'dotpuphandler' and 'puppybasic' PET packages."
 
 xmessage "DotPup packages (files with .pup extension) are an older
 package system superceded by PET packages. If you want to
