@@ -23,21 +23,40 @@
 #       (The Short-Description should already be a good hint.)
 ### END INIT INFO
 
-#HWAPP=/usr/local/MobileBrServ/mbbservice
-HWAPP=/usr/local/MobileBrServ/mbbdaemon
+HWAPP=/usr/local/MobileBrServ/mbbservice
+#HWAPP=/usr/local/MobileBrServ/mbbdaemon
+#HWAPP=`realpath "$HWAPP"`
+
 HWADDR='00:1E:10:1F:00:00'
 ETH_ADDR='eth1'
+
+KERNEL_DRIVER=cdc-ether
+KERNEL_DRIVER=`echo "$KERNEL_DRIVER" | tr '-' '_'`
+
+VERB=-v #verbose for modprobe
+#Q=-q    #quiet   for grep, modprobe
+#DBG=-d  #debug   for dhcpcd
+
+DHCPCD=`which dhcpcd`       # else dhcpcd
+IFCONFIG='busybox ifconfig' # "    ifconfig
+MODPROBE='busybox modprobe' # "    modprobe
+
 
 test -x $HWAPP || { echo "$HWAPP not installed";
         if [ "$1" = "stop" ]; then exit 0;
         else exit 5; fi; }
 
 
-# Default: Assume sysvinit binaries exist
+# Default: Assume SuSE sysvinit patched binaries exist
+# start_daemon : unused
 start_daemon() { /sbin/start_daemon ${1+"$@"}; }
-killproc()     { /sbin/killall -s${2} ${1##*/}; }
-pidofproc()    { /sbin/pidof         ${*##*/}; }
+#killproc()     { /sbin/killall -s${2} ${1##*/}; }
+killproc()     { killall -${2} ${1##*/}; }
+#pidofproc()    { /sbin/pidof         ${*##*/}; }
+pidofproc()    { pidof         ${*##*/}; }
 checkproc()    { /sbin/checkproc    ${1+"$@"}; }
+
+
 if test -e /etc/rc.status; then
     # SUSE rc script library
     . /etc/rc.status
@@ -64,7 +83,10 @@ else
             fi
         }
         # TODO: Add checking for lockfiles
-        checkproc() { return pidofproc ${1+"$@"} >/dev/null 2>&1; }
+        #checkproc() { return pidofproc ${1+"$@"} >/dev/null 2>&1; }
+        #checkproc() { return `pidofproc ${1+"$@"}` ; }
+        checkproc() { pidofproc ${1+"$@"}; return $?; }
+
     elif test -e /etc/init.d/functions; then
         # RHAT
         . /etc/init.d/functions
@@ -77,8 +99,9 @@ else
                 failure "  [${_SMSG[${_RC_RV}]}] "
             fi
         }
-        checkproc() { return status ${1+"$@"}; }
-        start_daemon() { return daemon ${1+"$@"}; }
+        checkproc() { return `status ${1+"$@"}`; }
+        #start_daemon: unused
+        start_daemon() { return `daemon ${1+"$@"}`; }
     else
         # emulate it
         echo_rc() { echo "  [${_SMSG[${_RC_RV}]}] "; }
@@ -86,6 +109,7 @@ else
     rc_reset() { _RC_RV=0; }
     rc_failed()
     {
+        rc_reset
         if test -z "$1"; then
             _RC_RV=1;
         elif test "$1" != "0"; then
@@ -122,49 +146,115 @@ rc_reset
 
 case "$1" in
     start)
+
+        checkproc ${HWAPP##*/}
+        #echo $?
+        checkRV=$?
+        echo "checkRV='$checkRV'"
+        if test $checkRV = 0; then
+        #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
+        #pidof ${HWAPP##*/}
+        _pidof ${HWAPP##*/}
+        echo
+        case $checkRV in 0) echo "Already running.";;3) echo "Not running.";;4) echo "Unknown.";;esac
+        exit 0
+        fi
+
+        if test -f /proc/modules; then
+        if ! grep $Q "$KERNEL_DRIVER" /proc/modules; then
+         #modprobe $VERB $Q -b $KERNEL_DRIVER
+         $MODPROBE $VERB $Q -b $KERNEL_DRIVER
+         sleep 1
+        else
+         true
+        fi
+        else
+        _warn "/proc/modules not existent. Is /proc mounted ?"
+        fi
+
         echo -n "Starting $HWAPP .. "
         #exec $HWAPP > /dev/null 2>&1
-        $HWAPP
+        #$HWAPP
+        start_daemon -p "/var/run/${HWAPP##*/}.pid" -n 2 $HWAPP
         rc_status -v
         [ $? = 0 ] || exit 1
         sleep 1
         if
-        ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        #ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        $IFCONFIG $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
         then
-        echo "Bringing ifconfig $ETH_ADDR up .. "
+        echo -n "Bringing ifconfig $ETH_ADDR up .. "
          if
-         ifconfig $ETH_ADDR up
+         #ifconfig $ETH_ADDR up
+         $IFCONFIG $ETH_ADDR up
          then
          rc_status -v
          sleep 1
-         echo "Starting dhcpcd -d $ETH_ADDR .. "
-         dhcpcd -d $ETH_ADDR
-         rc_status -v
+
+     #-n, --renew
+     #        Notifies an existing dhcpcd process running on the interface to
+     #        renew it's lease. If dhcpcd is not running, then it starts up as
+     #        normal.
+
+     #-p, --persistent
+     #        dhcpcd normally deconfigures the interface and configuration when
+     #        it exits.  Sometimes, this isn't desirable if for example you
+     #        have root mounted over NFS.  You can use this option to stop this
+     #        from happening.
+
+         echo -n "Starting dhcpcd $DBG $ETH_ADDR .. "
+         #dhcpcd -d $ETH_ADDR
+         $DHCPCD $DBG -n $ETH_ADDR
+         #rc_status -v
          else
-         rc_status -v
+         #rc_status -v
+         false
          fi
         else
         echo "'$HWADDR' and '$ETH_ADDR' do not match ."
+        false
         fi
+        rc_status -v
+        test $? = 0 || $0 stop
 
         ;;
     stop)
 
+        checkproc ${HWAPP##*/}
+        #echo $?
+        checkRV=$?
+        echo "checkRV='$checkRV'"
+        if test $checkRV != 0; then
+        #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
+        #pidof ${HWAPP##*/}
+        _pidof ${HWAPP##*/}
+        echo
+        case $checkRV in 0) echo "Already running.";;3) echo "Not running.";;4) echo "Unknown.";;esac
+        exit 0
+        fi
+
         if
-        pidof dhcpcd
+        _pidof $Q dhcpcd
         then
-        echo "Terminating dhcpcd .. "
-        killall dhcpcd
+        echo -n "Terminating $DHCPCD $DBG -x $ETH_ADDR .. "
+        #killall dhcpcd
+        $DHCPCD $DBG -x $ETH_ADDR
         rc_status -v
         fi
 
-        echo "Bringing ifconfig $ETH_ADDR down .. "
-        ifconfig $ETH_ADDR down
+        echo -n "Bringing ifconfig $ETH_ADDR down .. "
+        #ifconfig $ETH_ADDR down
+        $IFCONFIG $ETH_ADDR down
         rc_status -v
+
+        # override start-stop-daemon
+        #killproc()     { /sbin/killall -s${2} ${1##*/}; }
+        killproc()     { killall -${2} ${1##*/}; }
 
         echo -n "Shutting down $HWAPP .. "
         killproc $HWAPP TERM
         rc_status -v
+        rm -f /var/run/${HWAPP##*/}.pid
 
         ;;
     restart)
