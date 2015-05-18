@@ -1323,7 +1323,7 @@ configureWireless()
                 ## Must kill old dhcpcd first
                 #killDhcpcd "$INTERFACE"
                 #sleep 5
-                #if dhcpcd -d -I '' "$INTERFACE"
+                #if dhcpcd $DBG -I '' "$INTERFACE"
                 #then
                         #HAS_ERROR=0
                 #else
