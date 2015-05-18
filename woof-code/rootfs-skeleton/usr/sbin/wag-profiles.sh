@@ -297,7 +297,7 @@ setupDHCP()
    <button>
      <label>$L_BUTTON_Abort</label>
      <input file icon=\"gtk-stop\"></input>
-     <action>kill \$(ps ax | grep \"dhcpcd -d -I $IPV4LL $INTERFACE\" | awk '{print \$1}')</action>
+     <action>kill \$(ps ax | grep \"dhcpcd $DBG -I $IPV4LL $INTERFACE\" | awk '{print \$1}')</action>
      <action>EXIT:Abort</action>
    </button>
   </hbox>
@@ -340,7 +340,7 @@ setupDHCP()
                 dhcpcdProgress "$XPID" &
 
                 # Run dhcpcd. The output goes to the text in the progressbar...
-                if dhcpcd -d -I '' $IPV4LL "$INTERFACE" 2>&1
+                if dhcpcd $DBG -I '' $IPV4LL "$INTERFACE" 2>&1
                 then
                         HAS_ERROR=0
                 else
@@ -1406,7 +1406,7 @@ killDhcpcd()
         # release dhcpcd
         #dhcpcd -k "$INTERFACE" 2>$ERR
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
-        #kill $(ps ax | grep "dhcpcd -d -I  $INTERFACE" | awk '{print $1}') 2>$ERR
+        #kill $(ps ax | grep "dhcpcd $DBG -I  $INTERFACE" | awk '{print $1}') 2>$ERR
         # clean up if needed
         ## Dougal: check /var first, since /etc/dhcpc might exist in save file from the past...
 
