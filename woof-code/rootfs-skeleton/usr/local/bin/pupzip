@@ -6,8 +6,10 @@
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
 
-echo '$1' "$1"
-echo '$@' "$@"
+. /etc/rc.d/f4puppy5
+
+echo "\$1='$1'"
+echo "\$@='$@'"
 PARAMIN="$@"
 echo "PARAMIN='$PARAMIN'"
 CDIR="`pwd`"
@@ -16,10 +18,10 @@ echo "CDIR='$CDIR'"
 
 #VAR_1="\"`echo "$1"`\""
 VAR_1=`echo "$1" | sed 's#^#"#; s#$#"#'`  # was playing with space in filenames
-
 echo "$0:'$VAR_1'"
 
 #w474
+__deprecated_delta_bfe_switch__(){
 if [ "`echo -n "$1" | grep '\.delta$'`" != "" ];then
 echo XDELTA-FILE
  exec xdelta_gui "$1"
@@ -28,7 +30,14 @@ if [ "`echo -n "$1" | grep '\.bfe$'`" != "" ];then
 echo BFEcrypt FILE
  exec bcrypt_gui "$1"
 fi
-old(){
+}
+
+case "$1" in
+*.delta) exec xdelta_gui "$1";;
+*.bfe)   exec bcrypt_gui "$1";;
+esac
+
+__deprecated_tar_switch__(){
 #v2.11 G2 has suggested this...
 if [[ "`echo "$1" | grep -i '\.gz$'`" != "" ]] ;then
 echo GZ FILE
@@ -180,23 +189,28 @@ ok_msg(){
 
 #alias mountpoint='busybox mountpoint'
 #alias
-for ext in gz bz2 lz lza lzma lzma2 lzo lzop xz Z
+for ext in gz bz2 lz lza lzm lzma lzma2 lzo lzop xz Z
 do
 
-[ "`echo "$*" | grep "\.tar\.$ext$"`" ] && break # goto xarchive
-[ "`echo "$*" | grep "\.$ext$"`" ] || continue
+#[ "`echo "$*" | grep "\.tar\.$ext$"`" ] && break # goto xarchive
+#[ "`echo "$*" | grep "\.$ext$"`" ] || continue
+case $* in
+*.tar.$ext) break;;  # goto xarchive
+*.$ext)     :;;
+*)          continue;;
+esac
 
 case $ext in
-gz)   DEC_BIN=gzip;DEC_OPTS=-d;;
-bz2)  DEC_BIN=bzip2;DEC_OPTS=-d;;
-lz|lza|lzm|lzma|lzma2) DEC_BIN=lzma -d;DEC_OPTS=-d;;
-lzo|lzop) DEC_BIN=lzop;DEC_OPTS=-d;;
-xz) DEC_BIN=xz;DEC_OPTS=-d;;
-Z)  DEC_BIN=uncompress;DEC_OPTS='';;
+gz)   DEC_BIN=gzip;     DEC_OPTS=-d;;
+bz2)  DEC_BIN=bzip2;    DEC_OPTS=-d;;
+lz|lza|lzm|lzma|lzma2)  DEC_BIN=lzma -d;DEC_OPTS=-d;;
+lzo|lzop) DEC_BIN=lzop; DEC_OPTS=-d;;
+xz)  DEC_BIN=xz;        DEC_OPTS=-d;;
+Z)   DEC_BIN=uncompress;DEC_OPTS='';;
 *) : ;;#TODO
 esac
 
-#check space
+#check free space in installation
 DIRS=`echo "$CDIR" | tr '/' '\n'`
 #alias mountpoint='busybox mountpoint'
 #alias
@@ -306,18 +320,18 @@ fi
 
 #the full alternatives, dotpups by GuestToo...
 DPKGDEB="dpkg-deb"
-[ ! "`which dpkg-deb2`" = "" ] && echo line 80 && DPKGDEB="dpkg-deb2"
-RPM2CPIO="rpm2cpio2"
-[ ! "`which rpm2cpio2`" = "" ] && echo line 82 && RPM2CPIO="rpm2cpio2"
+[ ! "`which dpkg-deb2`" = "" ] && echo line 323 && DPKGDEB="dpkg-deb2"
+RPM2CPIO="rpm2cpio"
+[ ! "`which rpm2cpio2`" = "" ] && echo line 325 && RPM2CPIO="rpm2cpio2"
 
 if [ "$PARAMIN" = "" ];then
  #just start xarchive...
- echo NO PARAMIN $PARAMIN starting XARCHIVE
+ echo "NO PARAMIN='$PARAMIN' -- starting '$XARCHIVE'"
  exec $XARCHIVE
 fi
 
 if [ "$XARCHIVE" = "xarchive" ];then
-echo XARCHIVE $XARCHIVE
+echo "XARCHIVE='$XARCHIVE'"
  MSGE="Drag and drop invocation of XArchive is achieved by dragging any file or
 directory the \"pupzip\" icon on the desktop. If you drag one of the
 recognised archived files, such as .tar.gz, .rpm, .deb, .zip, .tar.bz2,
@@ -326,14 +340,14 @@ it. If you drag an ordinary file to the desktop icon, such as for example
 \"myfile.txt\", a XArchive will popup a dialog asking if you want to add
 it to an existing archive or create a new one."
 else
-echo somethingelse
+echo "something else: XARCHIVE='$XARCHIVE'"
  MSGE="There is support for drag-and-drop of archive files to the desktop icon,
 however not for files and directories -- for that you need to have
 XArchiver installed, the preferred archiver program for Puppy."
 fi
 
 if [ "$PARAMIN" = "--help" ];then
-echo PARAMIN is HELP
+echo "PARAMIN is HELP"
  xmessage -bg "orange" -center -title "PupZip: help" "
 This is a frontend to $XARCHIVE, which in turn is a frontend to the
 archiver utilities in Puppy (such as gzip, bzip2, dpkg, rpm, zip).
@@ -349,7 +363,7 @@ fi
 
 
 NORMFILE="`echo -n "$PARAMIN" | grep -iv "\\.tar" | grep -iv "\\.bz" | grep -iv "\\.gz" | grep -iv "\\.rpm" | grep -iv "\\.deb" | grep -iv "\\.zip" | grep -iv "\\.tgz" | grep -iv "\\.tbz"`"
-echo NORMFILE $NORMFILE
+echo "NORMFILE='$NORMFILE'"
 if [ "$NORMFILE" = "" ];then
  #it is an archive file...
  echo NORMFILE is empty
@@ -377,14 +391,15 @@ if [ "$NORMFILE" = "" ];then
  else
   AEXT="$AFILE"
   while [ ! "`echo -n "$AEXT" | grep '\.'`" = "" ];do
-   AEXT="`echo -n "$AEXT" | cut -f 2-6 -d '.'`"
+   AEXT="`echo -n "$AEXT" | cut -f 2- -d '.'`"
   done
  fi
  #drops here with AEXT=extension.
  case $AEXT in
   rpm|RPM)
-   mkdir /tmp/temprpm
-   cd /tmp/temprpm
+   rm -rf /tmp/temprpm-${FULLSPEC##*/}.dir
+   mkdir $VERB -p /tmp/temprpm-${FULLSPEC##*/}.dir/${FULLSPEC##*/}.dir
+   cd /tmp/temprpm-${FULLSPEC##*/}.dir/${FULLSPEC##*/}.dir
    $RPM2CPIO "$FULLSPEC" | cpio -d -i -m
    if [ ! $? -eq 0 ];then
     exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the RPM file.
@@ -392,6 +407,26 @@ Suggestion: install unrpm.pup DotPup package, which contains an alternative
 RPM extraction program, that PupZip will automatically use if present."
    fi
    sync
+   cd ..
+   rm -f /tmp/${FULLSPEC##*/}.tar.gz
+   tar $VERB -c -z -f /tmp/${FULLSPEC##*/}.tar.gz ./${FULLSPEC##*/}.dir
+   #rm -rf /tmp/temprpm
+   cd /
+   $XARCHIVE $VERB /tmp/${FULLSPEC##*/}.tar.gz
+   #rm -f /tmp/temprpm.tar
+   cd $CDIR
+   exit
+   ;;
+#v4.00 remove...
+  deb|DEB)
+   :
+   __old_func__(){
+   mkdir /tmp/temprpm
+   cd /tmp/temprpm
+   $DPKGDEB -x "$FULLSPEC"
+   if [ ! $? -eq 0 ];then
+    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the DEB file."
+   fi
    tar -c -f /tmp/temprpm.tar .
    rm -rf /tmp/temprpm
    cd /
@@ -399,23 +434,8 @@ RPM extraction program, that PupZip will automatically use if present."
    rm -f /tmp/temprpm.tar
    cd $CDIR
    exit
+        }
    ;;
-#v4.00 remove...
-#  deb|DEB)
-#   mkdir /tmp/temprpm
-#   cd /tmp/temprpm
-#   $DPKGDEB -x "$FULLSPEC"
-#   if [ ! $? -eq 0 ];then
-#    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the DEB file."
-#   fi
-#   tar -c -f /tmp/temprpm.tar .
-#   rm -rf /tmp/temprpm
-#   cd /
-#   $XARCHIVE /tmp/temprpm.tar
-#   rm -f /tmp/temprpm.tar
-#   cd $CDIR
-#   exit
-#   ;;
  esac
  exec $XARCHIVE "$PARAMIN"
 else
