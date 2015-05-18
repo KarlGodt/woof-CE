@@ -291,7 +291,7 @@ Key=`echo "$K" | tr '[A-Z]' '[a-z]'`
 if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ] ; then
 echo -e "\\033[1;34m"'dropping to console now , partition still mounted !'"\\033[0;39m"
 cd /
-busybox mount $VERB $VERB -o remount,ro /
+busybox mount $VERB $VERB -o remount,ro /dev/root /
 sleep $((SLEEP*1))s
 exec chroot . sh
 fi
@@ -691,22 +691,22 @@ ASK_DEBUG_FUNC
 ###+++2011-11-15
 null_or_console(){
 if [[ $DebugVal == '0' ]] ; then
- directOut='/dev/null'  ##2>&1
+ OUT='/dev/null'  ##2>&1
 elif [[ $DebugVal == '1' ]] ; then
- directOut='/dev/null'
+ OUT='/dev/null'
 else
- directOut='/dev/console'
+ OUT='/dev/console'
 fi
-echo "directOut='$directOut'"
-echo "directOut='$directOut'" > $directOut  ##-2011-11-25 was > $directOutD
+echo "OUT='$OUT'"
+echo "OUT='$OUT'" > $OUT  ##-2011-11-25 was > $directOutD
 }
 null_or_console
 ###+++2011-11-15
 
 ##+++2013-05-11
 kill_daemons(){
-killall udevd
-killall pup_event_backend_modprobe_protect
+killall udevd >$OUT
+killall pup_event_backend_modprobe_protect >$OUT
 sleep 1
 }
 kill_daemons
@@ -770,9 +770,9 @@ echo -e "\\033[0;39m"
 }
 
 FIRST_FSCK_FUNC(){
-[ -n "`busybox mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /
+[ -n "`busybox mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /dev/root /
 FSCK_FUNC "/dev/$PDEV1"
-busybox mount $VERB $VERB -o remount,rw /
+busybox mount $VERB $VERB -o remount,rw /dev/root /
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ] ; then
 echo -e "\\033[1;34m""Booting installation ..."
 echo -e "\\033[0;39m"
@@ -825,9 +825,9 @@ if [ -z "$CLEAN" ] ; then  #0
 if [ -n "$Err" ] && [ "$Err" -ne 0 ] ; then #1
 
 FIND_SFS_FUNC(){
-##busybox mount $VERB $VERB -o remount,ro /
+##busybox mount $VERB $VERB -o remount,ro /dev/root /
 CHECK_FOR_ALT_PART_FUNC  #TODO simplfy ?
-##busybox mount $VERB $VERB -o remount,rw /
+##busybox mount $VERB $VERB -o remount,rw /dev/root /
 CURR_GLIBC_FUNC
 modprobe squashfs
 
@@ -1114,7 +1114,7 @@ sleep $((SLEEP*5))s  ###KRG
 CHECK_ALTERNATE_REPO_FUNC
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'$REPO='"\\033[0;39m""$REPO"
 
-[ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount $VERB $VERB -o remount,rw /
+[ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount $VERB $VERB -o remount,rw /dev/root /
 
 CHECK_DEV_NODES_FUNC(){
 #####KRG
@@ -1214,7 +1214,7 @@ echo -e "\\033[0;39m"
 echo
 echo 'dropping to console now , partition still mounted !'
 cd /
-busybox mount $VERB $VERB -o remount,ro /
+busybox mount $VERB $VERB -o remount,ro /dev/root /
 sleep $((SLEEP*2))s
 exec chroot . sh
 fi  #1
@@ -1245,11 +1245,11 @@ CHECK_RAM0_FUNC(){
 }
 CHECK_RAM0_FUNC
 
-mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram0
+mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram0 >$OUT
 
 MAKE_RAM9_FUNC(){
   [ ! -b /dev/ram9 -o "`ls -l /dev/ram9 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram9 | cut -f 5,6 -d ' '`" != "1, 9" ] && rm -f /dev/ram9 && mknod /dev/ram9 b 1 9  ###KRG
-  mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram9
+  mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram9 >$OUT
   sleep $((SLEEP*2))s
 }
 MAKE_RAM9_FUNC
@@ -1259,7 +1259,7 @@ MAKE_RAM9_FUNC
 
   busybox mount $VERB $VERB -t ext2 /dev/ram0 /mnt/ram0
   busybox mount $VERB $VERB -t ext2 /dev/ram9 /mnt/ram9  ###KRG
-  ###KRGbusybox mount $VERB $VERB -o remount,rw /  ##KRG just for chroot
+  ###KRGbusybox mount $VERB $VERB -o remount,rw /dev/root /  ##KRG just for chroot
   sleep $((SLEEP*2))s  ###KRG
 
   #populate the ramdisk...
@@ -1492,15 +1492,15 @@ if [ -z "`mount | grep -o /old_root`" ] ; then
 echo -e "\\033[1;32m""OK. /old_root was unmounted successfully .""\\033[0;32m"" Fscking $PDEV1  ...
 Depending on size of installation, might take a while""\\033[0;39m"
 if [ "$DebugVal" -ge "1" ] ; then
-e2fsck -v -f /dev/${PDEV1}
+e2fsck -C 0 -v -f /dev/${PDEV1}
 else
-e2fsck -f -y /dev/${PDEV1}
+e2fsck -C 0 -f -y /dev/${PDEV1}
 fi
 else
 echo -e "\\033[0;31m""Whatever cause ... /old_root or $PDEV1 still mounted!"
 echo -e "\\033[0;33m""Performing read-only filesystem check ... ""\\033[0;39m"
-[ "$DebugVal" -ge "1" ] && e2fsck -n -f -v /dev/${PDEV1}
-[ "$DebugVal" = "0" ] && e2fsck -n -f /dev/${PDEV1}
+[ "$DebugVal" -ge "1" ] && e2fsck -C 0 -n -f -v /dev/${PDEV1}
+[ "$DebugVal" = "0" ] && e2fsck -C 0 -n -f /dev/${PDEV1}
 fi
 sync
 echo
@@ -1519,19 +1519,19 @@ if [ $? = 0 ] ; then ##+++2013-12-07
   rm $i
  done
 
-  [ -f /mnt/${PDEV1}/etc/.XLOADED ] && rm /mnt/${PDEV1}/etc/.XLOADED
+  [ -f /mnt/${PDEV1}/var/lock/XLOADED ] && rm /mnt/${PDEV1}/var/lock/XLOADED
   [ -f /mnt/${PDEV1}/tmp/bootcnt* ] && rm /mnt/${PDEV1}/tmp/bootcnt*
   rm -f /var/log/X*
   rm -f /var/lock/LCK*
   rm -f /var/run/*.pid
 
- SOCK=`find /mnt/${PDEV1}/var -xdev -type s | tr "\n" " "`
+ SOCK=`find /mnt/${PDEV1}/var -xdev -type s`
  for i in $SOCK ; do
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
   rm -f $i
  done
 
- PIPE=`find /mnt/${PDEV1}/var -xdev -type p | tr "\n" " "`
+ PIPE=`find /mnt/${PDEV1}/var -xdev -type p`
  for i in $PIPE ; do
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""removing ""$i""\\033[0;39m"
   rm -f $i
@@ -1637,7 +1637,7 @@ fi
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'1_mounts :'"\\033[0;39m" && busybox mount && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*3))s  ###DBG
 
-  ##busybox mount $VERB $VERB -o remount,ro /
+  ##busybox mount $VERB $VERB -o remount,ro /dev/root /
   #[ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""2_mounts after remounting ro '/' :""\\033[0;39m" && busybox mount $VERB $VERB && echo  ###DBG
   #[ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
@@ -1688,12 +1688,12 @@ fi
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'2_mounts :'"\\033[0;39m" && busybox mount && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*4))s  ###DBG
 
-  busybox killall -9 pup_event_backend_d > $directOut
-  busybox killall -9 pup_event_backend_modprobe_protect > $directOut
-  busybox killall -9 udevd > $directOut
+  busybox killall -9 pup_event_backend_d > $OUT
+  busybox killall -9 pup_event_backend_modprobe_protect > $OUT
+  busybox killall -9 udevd > $OUT
 
   echo -e "\\033[1;34m"'Unmounting everything beneath /old_root/* ...'"\\033[0;39m"
-  OR=`mount | grep '/old_root/' | cut -f 3 -d ' ' | sort -r`
+  OR=`mount | grep '/old_root/' | cut -f 3 -d ' ' | tac`
   for i in $OR ; do
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'unmounting '"\\033[0;39m""$i"  ###DBG
   if [ "$DebugVal" = "0" ] ; then
@@ -1706,7 +1706,7 @@ fi
   busybox umount $VERB $VERB -lr $i
   fi
   sleep 1s
-  [ -d "/old_root/mnt/`basename $i`" ] && rmdir $VERB /old_root/mnt/`basename $i`
+  [ -d "/old_root/mnt/${i##*/}" ] && rmdir $VERB /old_root/mnt/${i##*/}
   fi
   done
   busybox mount $VERB $VERB -o remount,ro /old_root
@@ -1749,10 +1749,10 @@ fi
   echo -e "\\033[0;39m"
   echo '#DUMMY' > /etc/rc.d/rc.sysinit
   chmod 0775 /etc/rc.d/rc.sysinit
-  exec chroot . sh -c "exec busybox init" <dev/console >dev/console 2>&1
+  exec chroot . sh -c "exec busybox init" <dev/console >/dev/console 2>&1
 
   else
-  exec chroot . sh -c "exec busybox init" <dev/console >dev/console 2>&1
+  exec chroot . sh -c "exec busybox init" <dev/console >/dev/console 2>&1
   fi
   #...the ramdisk is setup so that /etc/rc.d/rc.sysinit will run, which does the f.s. check.
  ;;
@@ -1761,7 +1761,7 @@ fi
   echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
   echo -e "\\033[0;39m"
   sleep 5s
-  mount -o remount,ro /  ###KRG
+  mount -o remount,ro /dev/root /  ###KRG
   exec busybox init  ###should be something like umount -ar ; reboot ###KRG
  ;;
 esac
