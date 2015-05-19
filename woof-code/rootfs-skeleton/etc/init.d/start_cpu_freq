@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #BK got this from http://murga-linux.com/puppy/viewtopic.php?t=55417&start=15
 # but added test for /proc/acpi, bios-date, processor-manufacturer.
 # added extra code provided by pakt.
@@ -6,6 +6,7 @@
 #101014 improve test for older computers, and fix menu --well no probably not the latter.
 #101114 rerwin: refine usage of dmidecode.
 
+__deprecated_early_exit__(){
 #disable freq scaling for older computers...
 #[ ! -d /proc/acpi ] && FLAGEXIT='yes'
 if [ ! -d /proc/acpi ];then #101114
@@ -21,29 +22,41 @@ if [ "$FLAGEXIT" = "yes" ];then #101014
 # fi
  exit
 fi
+}
 
-#INTEL='p4-clockmod speedstep-centrino speedstep-ich'
-#VIA='longhaul e_powersaver'
-#CYRIX='gx-suspmod'
-FREQMODS="acpi-cpufreq"
+MIN_BIOS_YEAR=2007
+[ -d /proc/acpi ] || { echo "$0:No /proc/acpi directory."; exit 0; }
+[ `dmidecode -s "bios-release-date" | cut -f 3 -d '/'` -ge $MIN_BIOS_YEAR ] || { echo "Bios likely older than year $MIN_BIOS_YEAR";exit 0; }
+
+GOVERN_DEFAULT=cpufreq_ondemand #cpufreq_powersave cpufreq_conservative cpufreq_performance
+GOVERNORS='cpufreq_powersave cpufreq_conservative cpufreq_performance cpufreq_ondemand'
+
+INTEL='p4-clockmod speedstep-centrino speedstep-ich'
+VIA='longhaul e_powersaver'
+CYRIX='gx-suspmod'
+
+#CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
+CPUMAN=`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]'`
+  case $CPUMAN in
+   *intel*) FREQMODS="${INTEL} acpi-cpufreq" ;;
+   *via*)   FREQMODS="${VIA} acpi-cpufreq" ;;
+   *cyrix*) FREQMODS="${CYRIX} acpi-cpufreq" ;;
+  esac
+
+test "$FREQMODS" || FREQMODS="acpi-cpufreq"
 
 case "$1" in
  start)
-  #CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
-  #case $CPUMAN in
-  # intel) FREQMODS="${INTEL} acpi-cpufreq" ;;
-  # via)   FREQMODS="${VIA} acpi-cpufreq" ;;
-  # cyrix) FREQMODS="${CYRIX} acpi-cpufreq" ;;
-  #esac
-  for ONEMOD in $FREQMODS
+  for oneMOD in $FREQMODS
   do
-   modprobe $ONEMOD
+   modprobe $VERB $Q $oneMOD
    if [ $? -eq 0 ];then
-    modprobe cpufreq_ondemand
+    modprobe $VERB $Q $GOVERN_DEFAULT
     if [ $? -eq 0 ];then
-     for CPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]' | tr '\n' ' '`
+     for CPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]\+'`
      do
-      echo ondemand >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      test -w /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor || continue
+      echo ${GOVERN_DEFAULT#*_} >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
      done
      #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
      #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
@@ -51,10 +64,16 @@ case "$1" in
      #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq
      break
     else
-     rmmod $ONEMOD
+     rmmod $VERB $ONEMOD
     fi
    fi
   done
  ;;
+stop)
+  for oneMOD in $GOVERN_DEFAULT $GOVERNORS $FREQMODS
+  do
+   modprobe $VERB $Q -r $oneMOD
+  done
+;;
 esac
 
