@@ -1,10 +1,10 @@
-#!/bin/sh -e
-echo "$0:|$@|" >&2
-# 
+#!/bin/ash -e
+echo "$0:$@" >&2
+#
 # smartmontools init.d startup script
 #
 # (C) 2003,04,07 Guido Günther <agx@sigxcpu.org>
-# 
+#
 # loosely based on the init script that comes with smartmontools which is
 # copyrighted 2002 by Bruce Allen <smartmontools-support@lists.sourceforge.net>
 #
@@ -19,22 +19,26 @@ echo "$0:|$@|" >&2
 
 SMARTCTL=/usr/sbin/smartctl
 DAEMON=/usr/sbin/smartd
-PIDFILE=/var/run/smartd.pid
 [ -x $SMARTCTL ] || exit 0
-[ -x $DAEMON ] || exit 0
-. /lib/lsb/init-functions
-
+[ -x $DAEMON ]   || exit 0
+PIDFILE=/var/run/smartd.pid
+QUIETMODE=errorsonly
+[ -r /etc/default/smartmontools ] && . /etc/default/smartmontools
+smartd_opts="--pidfile $PIDFILE $smartd_opts"
 RET=0
 
-[ -r /etc/default/smartmontools ] && . /etc/default/smartmontools
+if test -f /lib/lsb/init-functions; then . /lib/lsb/init-functions
+elif test -f /etc/init.d/functions; then . /etc/init.d/functions
+fi
 
-smartd_opts="--pidfile $PIDFILE $smartd_opts"
+#start-stop-daemon options
+QUIET=--quiet
 
 enable_smart() {
   log_action_begin_msg "Enabling S.M.A.R.T."
   for device in $enable_smart; do
       log_action_cont_msg "$device"
-      if ! $SMARTCTL --quietmode=errorsonly --smart=on $device; then
+      if ! $SMARTCTL --quietmode=$QUIETMODE --smart=on $device; then
           log_action_cont_msg "(failed)"
           RET=2
       fi
@@ -56,7 +60,7 @@ running_pid()
     # Check if a given process pid's cmdline matches a given name
     pid=$1
     name=$2
-    [ -z "$pid" ] && return 1 
+    [ -z "$pid" ] && return 1
     [ ! -d /proc/$pid ] &&  return 1
     cmd=`cat /proc/$pid/cmdline | tr "\000" "\n"|head -n 1 |cut -d : -f 1`
     # Is this the expected child?
@@ -79,56 +83,56 @@ running()
 case "$1" in
   start)
         [ -n "$enable_smart" ] && enable_smart
-	if check_start_smartd_option; then
+        if check_start_smartd_option; then
 
-	    log_daemon_msg "Starting S.M.A.R.T. daemon" "smartd"
-	    if running; then
-	        log_progress_msg "already running"
-	        log_end_msg 0
-	        exit 0
-	    fi
-	    rm -f $PIDFILE
-	    if start-stop-daemon --start --quiet --pidfile $PIDFILE \
-	                --exec $DAEMON -- $smartd_opts; then 
-	        log_end_msg 0
-	    else
-	        log_end_msg 1
-	        RET=1
-	    fi
-	fi
-	;;
+            log_daemon_msg "Starting S.M.A.R.T. daemon" "smartd"
+            if running; then
+                log_progress_msg "already running"
+                log_end_msg 0
+                exit 0
+            fi
+            rm -f $PIDFILE
+            if start-stop-daemon --start $QUIET --pidfile $PIDFILE \
+                        --exec $DAEMON -- $smartd_opts; then
+                log_end_msg 0
+            else
+                log_end_msg 1
+                RET=1
+            fi
+        fi
+        ;;
   stop)
-	log_daemon_msg "Stopping S.M.A.R.T. daemon" "smartd"
-	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE
-	log_end_msg 0
-	;;
+        log_daemon_msg "Stopping S.M.A.R.T. daemon" "smartd"
+        start-stop-daemon --stop $QUIET --oknodo --pidfile $PIDFILE
+        log_end_msg 0
+        ;;
   reload|force-reload)
-	  log_daemon_msg "Reloading S.M.A.R.T. daemon" "smartd"
-	if start-stop-daemon --stop --quiet --signal 1 \
-	                --pidfile $PIDFILE; then
-	    log_end_msg 0
-	else
-	    log_end_msg 1
-	    RET=1
-	fi
-	  ;;
+          log_daemon_msg "Reloading S.M.A.R.T. daemon" "smartd"
+        if start-stop-daemon --stop $QUIET --signal 1 \
+                        --pidfile $PIDFILE; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+            RET=1
+        fi
+          ;;
   restart)
-	if check_start_smartd_option; then
-	    log_daemon_msg "Restarting S.M.A.R.T. daemon" "smartd"
-	    start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
-	    rm -f $PIDFILE
-	    if start-stop-daemon --start --quiet --pidfile $PIDFILE \
-	                --exec $DAEMON -- $smartd_opts; then 
-	        log_end_msg 0
-	    else
-	        log_end_msg 1
-	        RET=1
-	    fi
-	fi
+        if check_start_smartd_option; then
+            log_daemon_msg "Restarting S.M.A.R.T. daemon" "smartd"
+            start-stop-daemon --stop $QUIET --oknodo --retry 30 --pidfile $PIDFILE
+            rm -f $PIDFILE
+            if start-stop-daemon --start $QUIET --pidfile $PIDFILE \
+                        --exec $DAEMON -- $smartd_opts; then
+                log_end_msg 0
+            else
+                log_end_msg 1
+                RET=1
+            fi
+        fi
         ;;
   *)
-	echo "Usage: /etc/init.d/smartmontools {start|stop|restart|reload|force-reload}"
-	exit 1
+        echo "Usage: /etc/init.d/smartmontools {start|stop|restart|reload|force-reload}"
+        exit 1
 esac
 
 exit $RET
