@@ -1,5 +1,5 @@
-#!/bin/sh
-echo "$0:|$@|" >&2
+#!/bin/ash
+echo "$0:$@" >&2
 ### BEGIN INIT INFO
 # Provides:          acpid
 # Required-Start:    $remote_fs $syslog
@@ -7,7 +7,7 @@ echo "$0:|$@|" >&2
 # X-Start-Before:    kdm gdm xdm hal
 # X-Stop-After:      kdm gdm xdm hal
 # Default-Start:     2 3 4 5
-# Default-Stop:      
+# Default-Stop:
 # Short-Description: Start the Advanced Configuration and Power Interface daemon
 # Description:       Provide a socket for X11, hald and others to multiplex
 #                    kernel ACPI events.
@@ -19,12 +19,19 @@ ACPID="/usr/sbin/acpid"
 DEFAULTS="/etc/default/acpid"
 
 # Check for daemon presence
-[ -x "$ACPID" ] || exit 0
+[ -x "$ACPID" ] || { echo "'$ACPID' not executable"; exit 0; }
 
+# modprobe options
+SYSLOG=-s #-L
+VERB=-v
+Q=-q
 OPTIONS=""
 MODULES=""
 # Include acpid defaults if available
 [ -r "$DEFAULTS" ] && . "$DEFAULTS"
+
+# start-stop-daemon
+QUIET=--quiet
 
 # Get lsb functions
 . /lib/lsb/init-functions
@@ -46,7 +53,8 @@ load_modules() {
     # and a bug in modprobe --all --quiet which doesn't load all modules and
     # exits with non-zero exit status Debian #504088
     unset MODPROBE_OPTIONS
-    modprobe --all --use-blacklist -L $MODULES 2>/dev/null
+    #modprobe --all --use-blacklist $SYSLOG $MODULES 2>$ERR
+    modprobe -a -b $SYSLOG $VERB $Q $MODULES 2>$ERR
     log_end_msg $?
 }
 
@@ -54,12 +62,12 @@ case "$1" in
   start)
     load_modules || true
     log_begin_msg "Starting ACPI services..."
-    start-stop-daemon --start --quiet --oknodo --exec "$ACPID" -- $OPTIONS
+    start-stop-daemon --start $QUIET --oknodo --exec "$ACPID" -- $OPTIONS
     log_end_msg $?
     ;;
   stop)
     log_begin_msg "Stopping ACPI services..."
-    start-stop-daemon --stop --quiet --oknodo --retry 2 --exec "$ACPID"
+    start-stop-daemon --stop $QUIET --oknodo --retry 2 --exec "$ACPID"
     log_end_msg $?
     ;;
   restart)
@@ -67,7 +75,7 @@ case "$1" in
     sleep 1
     $0 start
     ;;
-  reload|force-reload) 
+  reload|force-reload)
     log_begin_msg "Reloading ACPI services..."
     start-stop-daemon --stop --signal 1 --exec "$ACPID"
     log_end_msg $?
