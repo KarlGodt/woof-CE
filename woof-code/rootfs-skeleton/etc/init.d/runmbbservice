@@ -84,23 +84,29 @@ if test -e /etc/rc.status; then
 else
     export LC_ALL=POSIX
     _cmd=$1
-    declare -a _SMSG
+    #declare -a _SMSG # -a      to make NAMEs arrays (if supported)
     if test "${_cmd}" = "status"; then
-        _SMSG=(running dead dead unused unknown reserved)
+        #_SMSG=(running dead dead unused unknown reserved)
+        _SMSG="running dead dead unused unknown reserved"
         _RC_UNUSED=3
     else
-        _SMSG=(done failed failed missed failed skipped unused failed failed reserved)
+        #_SMSG=(done failed failed missed failed skipped unused failed failed reserved)
+        _SMSG="done failed failed missed failed skipped unused failed failed reserved"
         _RC_UNUSED=6
     fi
+
     if test -e /lib/lsb/init-functions; then
         # LSB
         #. /lib/lsb/init-functions
 
         echo_rc(){
+            local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
             if test ${_RC_RV} = 0; then
-                log_success_msg "  [${_SMSG[${_RC_RV}]}] "
+                #log_success_msg "  [${_SMSG[${_RC_RV}]}] "
+                log_success_msg "  [$MSG] "
             else
-                log_failure_msg "  [${_SMSG[${_RC_RV}]}] "
+                #log_failure_msg "  [${_SMSG[${_RC_RV}]}] "
+                log_failure_msg "  [$MSG] "
             fi
         }
 
@@ -115,10 +121,13 @@ else
 
         echo_rc(){
             #echo -n "  [${_SMSG[${_RC_RV}]}] "
+            local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
             if test ${_RC_RV} = 0; then
-                success "  [${_SMSG[${_RC_RV}]}] "
+                #success "  [${_SMSG[${_RC_RV}]}] "
+                success "  [$SMSG] "
             else
-                failure "  [${_SMSG[${_RC_RV}]}] "
+                #failure "  [${_SMSG[${_RC_RV}]}] "
+                failure "  [$SMSG] "
             fi
         }
 
@@ -131,7 +140,11 @@ else
 
     else
         # emulate it
-        echo_rc() { echo "  [${_SMSG[${_RC_RV}]}] "; }
+        echo_rc() {
+                local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
+                #echo "  [${_SMSG[${_RC_RV}]}] ";
+                echo "  [$SMSG] ";
+                }
     fi
 
     rc_reset() { _RC_RV=0; }
@@ -161,7 +174,7 @@ else
         return ${_RC_RV}
     }
 
-    rc_exit() { exit ${_RC_RV}; }
+    rc_exit() { return ${_RC_RV} 2>$ERR || exit ${_RC_RV}; }
 
     # rc_active: unused
     rc_active(){
@@ -215,7 +228,7 @@ case "$1" in
         rc_status -v
         [ $? = 0 ] || exit 1
         sleep 1
-
+        echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
         # modeswitching needs some time ...
         #VEND_ID=12d1
         #PROD_ID_INACT=157d
@@ -231,7 +244,7 @@ case "$1" in
         test $c = 9 && break
         #echo -n "."
         done
-        test "$Q" || echo
+        test "$Q" && echo
         sleep 2
 
         #lsusb | grep $Q "$VEND_ID"
@@ -344,7 +357,53 @@ case "$1" in
         killproc  $HWAPP HUP
         rc_status -v
         ;;
-    *)
+
+    status) #rc_status -u
+             STATE=`busybox ps -o stat,args | grep "${HWAPP##*/}" | grep -v grep`
+_print_state_codes(){
+        cat >&1 <<EoI
+PROCESS STATE CODES
+Here are the different values that the s, stat and state output specifiers
+(header "STAT" or "S") will display to describe the state of a process.
+D    Uninterruptible sleep (usually IO)
+R    Running or runnable (on run queue)
+S    Interruptible sleep (waiting for an event to complete)
+T    Stopped, either by a job control signal or because it is being traced.
+W    paging (not valid since the 2.6.xx kernel)
+X    dead (should never be seen)
+Z    Defunct ("zombie") process, terminated but not reaped by its parent.
+
+For BSD formats and when the stat keyword is used, additional characters may
+be displayed:
+<    high-priority (not nice to other users)
+N    low-priority (nice to other users)
+L    has pages locked into memory (for real-time and custom IO)
+s    is a session leader
+l    is multi-threaded (using CLONE_THREAD, like NPTL pthreads do)
++    is in the foreground process group
+EoI
+}
+       for i in $STATE; do
+       case $i in
+       D) echo  "Waiting for IO";;
+       R) echo "Running or in Queue";;
+       S) echo "Running and waiting";;
+       T) echo "Stopped";;
+       W) echo "Paging";;
+       X) echo "Dead";;
+       Z) echo "Zombie";;
+       '<') echo "High priority";;
+       N) echo "Low priority";;
+       L) echo "Pages locked in MEM";;
+       s) echo "Session leader";;
+       l) echo "Multi-threaded";;
+       +) echo "In foreground";;
+       *) :;;
+       esac
+        done
+        ;;
+
+    *)  rc_status -u
         echo "Usage: $0 {start|stop|restart|force-reload|reload}"
         exit 1
         ;;
