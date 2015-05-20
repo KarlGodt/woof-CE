@@ -2,8 +2,66 @@
 
 [ "$_HAVE_F4PUPPY5_" ] && return 0
 
-VERSION=0.0.1
+VERSION=0.0.2
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
+
+test "$OUT" || OUT=/dev/null
+test "$ERR" || ERR=/dev/null
+
+# Handle $0 :
+#test "$MY_SELF" || MY_SELF="$0"
+# Handle login shell
+case $0 in
+-*) MY_SELF="$0";;
+*)
+MY_SELFR=`readlink -f "$0"`
+MY_SELF0="$0"
+
+if test "$MY_SELFR" -a "$MY_SELF0"; then
+test "$MY_SELFR" = "$MY_SELF0" && MY_SELF="$MY_SELF0" || {
+[ "IS_MULTICALL" ] || _warn "readlink -f \$0 is not same as \$0"
+MY_SELF="$MY_SELFR"
+}
+
+elif test "$MY_SELFR"; then
+_warn "Could not determine \$0"
+MY_SELF="$MY_SELFR"
+
+elif test "$MY_SELF0"; then
+_warn "Could not determine readlik -f \$0"
+MY_SELF="$MY_SELF0"
+
+else
+_warn "Could not determine \$0 and readlink -f \$0"
+test "$MY_SELF" || MY_SELF="$0"
+fi
+;;
+esac
+
+# Handle relative path
+case "$MY_SELF" in
+./*) MY_SELF=`pwd`/"$MY_SELF";;
+esac
+# Handle terminal
+case ${MY_SELF##*/} in
+ash|bash|dash|hush|msh|sh|-sh|-ash|-bash|-dash|-hush|-msh) EXIT=return;;
+*)           EXIT=exit;;
+esac
+
+[ "$MY_PID" ] || MY_PID=$$
+
+_lineno(){
+## Usage like :
+#LINEP=D001
+#[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+## Or
+#LINEP=D001;[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+    if [ "$1" ]; then
+    echo `grep -h -n -w -m1 "$1" "$MY_SELF" |cut -f1 -d':'`" (tag '$*')"
+    else
+    echo 'UNKNOWN -- missing $1'
+    fi
+}
 
 _cd_program_dir()
 {
@@ -12,13 +70,41 @@ ME_DIR=${ME_PROG%/*}
 cd "$ME_DIR"
 }
 
+__check_if_already_running()
+{
+pidof -o $$ -o %PPID "${0##*/}" && {
+        echo "Already running."
+        #exit 1
+        return 1
+ }
+#return $?
+return 0
+}
+
 _check_if_already_running()
+{
+local RV S PROGRAM="$0"
+test "$1" in '-q' && { S=1; OUT=/dev/null; shift; }
+test "$*" && PROGRAM="$*"
+pidof -o $$ -o %PPID "${PROGRAM##*/}" >$OUT
+RV=$?
+case $RV in
+0) test "$S" || echo "Already running.";;
+1) test "$S" || echo "Not running."    ;;
+*) test "$S" || echo "Other error."    ;;
+esac
+return $RV
+}
+
+_exit_if_already_running()
 {
 pidof -o $$ -o %PPID "${0##*/}" && {
         echo "Already running."
         exit 1
+        #return 1
  }
-return $?
+#return $?
+return 0
 }
 
 _check_for_terminal()
@@ -561,6 +647,12 @@ _test_drw()
 {
 test -L "$*" && return 1
 test -d "$*" -a -r "$*" -a -w "$*"
+}
+
+_test_drx()
+{
+test -L "$*" && return 1
+test -d "$*" -a -r "$*" -a -x "$*"
 }
 
 __test_p()
