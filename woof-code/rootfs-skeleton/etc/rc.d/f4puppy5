@@ -1,7 +1,14 @@
 #!/bin/ash
 
-VERSION=0.0.1
+[ "$_HAVE_F4PUPPY5_" ] && return 0
+
+VERSION=0.0.2
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
+
+unalias -a
+
+test "$OUT" || OUT=/dev/null
+test "$ERR" || ERR=/dev/null
 
 _test_f()
 {
@@ -40,14 +47,14 @@ do
 test "$oneLOG" || continue
 test -f "$oneLOG" || continue
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
 nrLOGS=$((nrLOGS-1))
 done<<EoI
 `ls -1v "$*".[0-9]* | tac`
 EoI
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.1"
-mv "$*" "${*}.1"
+mv $VERB "$*" "${*}.1"
 }
 
 _cd_program_dir()
@@ -57,7 +64,7 @@ ME_DIR=${ME_PROG%/*}
 cd "$ME_DIR"
 }
 
-_check_if_already_running()
+_exit_if_already_running()
 {
 pidof -o $$ -o %PPID "${0##*/}" && {
         echo "Already running."
@@ -66,13 +73,25 @@ pidof -o $$ -o %PPID "${0##*/}" && {
 return $?
 }
 
+_check_if_already_running()
+{
+local RV
+pidof -o $$ -o %PPID "${0##*/}"
+RV=$?
+case $RV in
+0)echo "Already running.";;
+*):;;
+esac
+return $RV
+}
+
 _check_for_terminal()
 {
 local MSG
 MSG="Need a contolling terminal"
 tty >/dev/null || {
 echo -n "Pid of X server:"
-pidof X && xmessage -br red "$MSG"; exit 2; } || {
+pidof X >$OUT && xmessage -br red "$MSG"; exit 2; } || {
 echo "$MSG"; exit 2; }
 return $?
 }
@@ -303,24 +322,24 @@ esac
 shift
 
 #test "`echo "$*" | grep -E "$gPATTERN"`" && return 0 || return $EWRONGCONTENT
-#echo "$*" | grep -q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
+#echo "$*" | grep $Q -E "$gPATTERN" && return 0 || return $EWRONGCONTENT
 #echo "`eval echo \\$$*`"
 
-QUIET=-q
+Q=-q
 if test "$gOPT" = '-v'; then
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
-echo "`eval echo \\$$*`" | grep $QUIET $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
 fi
 }
 
 #================= Check /tmp if read-write ==================================
 _check_proc()
 {
-  mountpoint -q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root/ /
-  test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  mountpoint $Q /proc && return $? || {
+  busybox mount $VERB $VERB -o remount,rw /dev/root /
+  test -d /proc || mkdir $VERB -p /proc
+  busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
 }
@@ -328,9 +347,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root/ /
- mkdir -p /tmp
- chmod 1777 /tmp
+ busybox mount $VERB $VERB -o remount,rw /dev/root /
+ mkdir $VERB -p /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -340,10 +359,10 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint -q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw none /tmp; return $?; }
+mountpoint $Q /tmp && {
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root/ /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
  }
 }
 
@@ -492,7 +511,7 @@ test "$typeCOM" = "$whichCOM" && {
 #========= make nodes in /dev if /dev not mounted ============================
 _mkdevices()
 {
-mountpoint -q /dev && return 0
+mountpoint $Q /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ] && continue
@@ -539,14 +558,14 @@ do
 test "$oneLOG" || continue
 test -f "$oneLOG" || continue
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
 nrLOGS=$((nrLOGS-1))
 done<<EoI
 `ls -1v "$*".[0-9]* | tac`
 EoI
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.1"
-mv "$*" "${*}.1"
+mv $VERB "$*" "${*}.1"
 }
 
 
@@ -857,7 +876,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep -q '^2\.6'; then
+ elif echo "$KERNELVER" | grep $Q '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -1142,8 +1161,8 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-test "$SFS_STR" || { ( busybox modprobe -l | grep $QUIET '/squashfs.ko' ) && {
-grep $QUIET 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }
 test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
@@ -1426,10 +1445,14 @@ _pidof()
 {
 case $1 in
 -q) shift;
-pidof $* >/dev/null; return $?
+pidof $* >$OUT; return $?
 ;;
 *)
 pidof $*;return $?
 ;;
 esac
 }
+
+### END ###
+_HAVE_F4PUPPY5_=1
+### END ###
