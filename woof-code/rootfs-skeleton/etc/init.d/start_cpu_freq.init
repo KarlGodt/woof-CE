@@ -24,13 +24,61 @@ if [ "$FLAGEXIT" = "yes" ];then #101014
 fi
 }
 
-MIN_BIOS_YEAR=2007
+. /etc/rc.d/f4puppy5
+
+test "$VERB" || VERB=-v # -v verbose
+test "$Q"    || Q=      # -q quiet
+
+test "$MIN_BIOS_YEAR" || MIN_BIOS_YEAR=2007
 [ -d /proc/acpi ] || { echo "$0:No /proc/acpi directory."; exit 0; }
 [ `dmidecode -s "bios-release-date" | cut -f 3 -d '/'` -ge $MIN_BIOS_YEAR ] || { echo "Bios likely older than year $MIN_BIOS_YEAR";exit 0; }
 
-GOVERN_DEFAULT=cpufreq_ondemand #cpufreq_powersave cpufreq_conservative cpufreq_performance
-GOVERNORS='cpufreq_powersave cpufreq_conservative cpufreq_performance cpufreq_ondemand'
+KERNVER=`uname -r`
 
+sysPATH=/sys/devices/system/cpu
+
+# setable values
+#Processor Information
+#       Socket Designation: CPU 1
+#       Type: Central Processor
+#       Family: <OUT OF SPEC>
+#       Manufacturer: Intel
+#       ID: CA 06 01 00 FF FB EB BF
+#       Version: Intel(R) Atom(TM) CPU D525   @ 1.80GHz
+#       Voltage: 1.1 V
+#       External Clock: 200 MHz
+#       Max Speed: 1800 MHz
+#       Current Speed: 1800 MHz
+#       Status: Populated, Enabled
+#scaling_available_frequencies:225000 450000 675000 900000 1125000 1350000 1575000 1800000
+FREQ_MIN=       #
+FREQ_MAX=       #
+FREQ_SPEED=     #
+
+#GOVERN_DEFAULT=cpufreq_userspace #cpufreq_powersave cpufreq_conservative cpufreq_performance cpufreq_ondemand cpufreq_userspace
+GOVERNORS='cpufreq_userspace cpufreq_performance cpufreq_ondemand cpufreq_conservative cpufreq_powersave'
+
+# REM: tests if acpi driver is already loaded or build in and active:
+_debug "ERR='$ERR'"
+if ls -1 "$sysPATH"/*/*/scaling_governor 1>$OUT 2>$ERR; then
+#ls -1 "$sysPATH"/*/*/scaling_governor | while read oF; do echo -n "$oF:"; read GOVERN_DEFAULT<"$oF"; echo "$GOVERN_DEFAULT";done
+ while read oF; do test -L "${oF%/*}" && continue; echo -n "$oF:"; read GOVERN_DEFAULT<"$oF"; echo "$GOVERN_DEFAULT";
+ done <<EoI
+`ls -1 "$sysPATH"/*/*/scaling_governor`
+EoI
+fi
+_info "GOVERN_DEFAULT='$GOVERN_DEFAULT'"
+
+if ls -1 "$sysPATH"/*/*/scaling_available_frequencies 1>$OUT 2>$ERR; then
+ while read oF; do test -L "${oF%/*}" && continue; echo -n "$oF:"; read SPEED_AVAIL<"$oF"; echo "$SPEED_AVAIL";
+ done <<EoI
+`ls -1 "$sysPATH"/*/*/scaling_available_frequencies`
+EoI
+fi
+_info "SPEED_AVAIL='$SPEED_AVAIL'"
+
+
+test "$FREQMODS" || FREQMODS="acpi-cpufreq"
 INTEL='p4-clockmod speedstep-centrino speedstep-ich'
 VIA='longhaul e_powersaver'
 CYRIX='gx-suspmod'
@@ -38,12 +86,15 @@ CYRIX='gx-suspmod'
 #CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
 CPUMAN=`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]'`
   case $CPUMAN in
-   *intel*) FREQMODS="acpi-cpufreq ${INTEL}" ;;
-   *via*)   FREQMODS="acpi-cpufreq ${VIA}" ;;
-   *cyrix*) FREQMODS="acpi-cpufreq ${CYRIX}" ;;
+   #*intel*) FREQMODS="acpi-cpufreq ${INTEL}" ;;
+   *intel*) FREQMODS="$FREQMODS ${INTEL}" ;;
+   #*via*)   FREQMODS="acpi-cpufreq ${VIA}" ;;
+   *via*)   FREQMODS="$FREQMODS ${VIA}" ;;
+   #*cyrix*) FREQMODS="acpi-cpufreq ${CYRIX}" ;;
+   *cyrix*) FREQMODS="$FREQMODS ${CYRIX}" ;;
   esac
 
-test "$FREQMODS" || FREQMODS="acpi-cpufreq"
+#test "$FREQMODS" || FREQMODS="acpi-cpufreq"
 
 case "$1" in
  start)
@@ -51,29 +102,94 @@ case "$1" in
   do
    modprobe $VERB $Q $oneMOD
    if [ $? -eq 0 ];then
-    modprobe $VERB $Q $GOVERN_DEFAULT
+    #for aMOD in $GOVERN_DEFAULT $GOVERNORS NONE
+    for aMOD in $GOVERNORS NONE
+    do
+
+    case $aMOD in
+    NONE)
+     case $oneMOD in
+      p4[_-]clockmod):;;
+      *) rmmod $oneMOD;;
+     esac
+     break
+     ;;
+     $GOVERN_DEFAULT|${GOVERN_DEFAULT#*_}|cpufreq[_-]$GOVERN_DEFAULT) continue;;
+    esac
+
+    grep $Q "$aMOD" /lib/modules/$KERNVER/modules.dep || continue
+
+    #modprobe $VERB $Q $GOVERN_DEFAULT
+    echo -n "modprobe $VERB $Q $aMOD :"
+    modprobe $VERB $Q $aMOD
     if [ $? -eq 0 ];then
+     sleep 1
      for CPUNUM in `ls -1 /sys/devices/system/cpu/ | grep 'cpu[0-9]\+'`
      do
-      test -w /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor || continue
-      echo ${GOVERN_DEFAULT#*_} >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      #sleep 1
+      freqPATH="$sysPATH"/$CPUNUM/cpufreq
+      test -L "$freqPATH" && continue #sibling thread link to core
+
+      if test "$VERBOSE" -o "$DEBUG"; then
+       #cat "$freqPATH"/*
+       grep -H '.*' "$freqPATH"/*
+       ls -lvs "$freqPATH"/
+      fi
+
+      #test -r /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor && grep -H '.*' /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      #test -w /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor || continue
+      #test "$GOVERN_DEFAULT" && echo ${GOVERN_DEFAULT#*_} >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_governor
+      #test -r /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_min_freq && grep -H '.*' /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_min_freq
+      #test -w /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_min_freq || continue
+      #test "$FREQ_MIN" && echo "$FREQ_MIN" >/sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_min_freq
+      #test -r /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_max_freq && grep -H '.*' /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_max_freq
+      #test -w /sys/devices/system/cpu/$CPUNUM/cpufreq/scaling_max_freq || continue
+      #test "$FREQ_MAX" && echo "$FREQ_MAX" >/sys/devices/cpu/$CPUNUM/cpufreq/scaling_max_freq
+
+      #writable files : scaling_governor scaling_max_freq scaling_min_freq scaling_setspeed
+      #test "$GOVERN_DEFAULT" -a -w "$freqPATH"/scaling_governor && echo ${GOVERN_DEFAULT#*_} >"$freqPATH"/scaling_governor
+      test "$aMOD"       -a -w "$freqPATH"/scaling_governor       && { echo ${aMOD#*_} >"$freqPATH"/scaling_governor || echo "failed writing '${aMOD#*_}' to $freqPATH/scaling_governor"; }
+      test "$FREQ_MIN"   -a -w "$freqPATH"/scaling_min_freq     && { echo "$FREQ_MIN" >"$freqPATH"/scaling_min_freq || echo "failed writing '$FREQ_MIN' to $freqPATH/scaling_min_freq"; }
+      test "$FREQ_MAX"   -a -w "$freqPATH"/scaling_max_freq   && { echo "$FREQ_MAX"  >"$freqPATH"/scaling_max_freq || echo "failed writing '$FREQ_MAX' to $freqPATH/scaling_max_freq";  }
+      test "$FREQ_SPEED" -a -w "$freqPATH"/scaling_setspeed && { echo "$FREQ_SPEED" >"$freqPATH"/scaling_setspeed || echo "failed writing '$FREQ_SPEED' to $freqPATH/scaling_setspeed"; }
+
+      if test "$VERBOSE" -o "$DEBUG"; then
+       grep -H '.*' "$freqPATH"/*
+       ls -lvs "$freqPATH"/
+      fi
+
      done
-     #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
-     #echo  > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-     #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq
-     #echo  > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq
-     break
+     echo ' [done] '
+     break 2
     else
-     rmmod $oneMOD
+     # we do nothing here since busybox rmmod hangs while unloading
+     _unload_driver(){
+      case $oneMOD in
+       p4[_-]clockmod):;;
+       *) rmmod $oneMOD;;
+      esac
+     }
+     # _unload_driver
+     :
     fi
+   done
+
    fi
   done
  ;;
 stop)
+  # we do nothing here since busybox modprobe hangs while unloading
+  _unload_acpi_drivers(){
   for oneMOD in $GOVERN_DEFAULT $GOVERNORS $FREQMODS
   do
+   oneMOD=`echo "$oneMOD" | tr '-' '_'`
+   grep $Q "$oneMOD" /proc/modules || continue
+   case $oneMOD in p4[_-]clockmod)continue;;esac
    modprobe $VERB $Q -r $oneMOD
   done
+ }
+ # _unload_acpi_drivers
+ :
 ;;
 esac
 
