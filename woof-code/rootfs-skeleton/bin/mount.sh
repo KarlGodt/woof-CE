@@ -19,7 +19,7 @@ fi
 
 _debugt 8F
 test "$*" || exec busybox mount
-test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
+test "$#" = 2 -a "$1" = '-t' && exec busybox mount $VERB $VERB "$@"
 _debugt 8E $_DATE_
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
@@ -32,7 +32,9 @@ test "$DEBUG" && Q='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 #echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
-echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8
+case $LANG_ROX in C) :;;
+ *) echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8;;
+esac
 _info "using '$LANG_ROX'"
 
 #busybox mountpoint does not recognice after
@@ -54,9 +56,9 @@ _check_proc()
 {
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root /
+  busybox mount $VERB $VERB -o remount,rw /dev/root /
   test -d /proc || mkdir $VERB -p /proc
-  busybox mount -t proc proc /proc
+  busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
 }
@@ -64,9 +66,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root /
+ busybox mount $VERB $VERB -o remount,rw /dev/root /
  mkdir $VERB -p /tmp
- chmod 1777 /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -78,13 +80,13 @@ _check_tmp_rw()
 
 _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
   ROOTD=`/bin/df | grep -m1 ' /$' | awk '{print $1}'`
   if [ -b "$ROOTD" ]; then
-   grep "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+   grep "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
   else
-   grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+   grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
   fi
  }
 
@@ -252,7 +254,7 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
 _debugt 9d $_DATE_
 
- test "$noROX" || { _pidof $Q ROX-Filer && {
+ test "$noROX" -o "$NO_ROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
          mountpoint $Q "${eoneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
@@ -333,10 +335,10 @@ case $WHAT in
 
 umount)
   case $opT in
-  -t) echo "$opT_ARGS" | grep -q -w "$fstype" || continue ;;
+  -t) echo "$opT_ARGS" | grep $Q -w "$fstype" || continue ;;
   esac
   case $opO in
-  -O) echo "$mntops" | grep -q -E "$opO_ARGS" || continue ;;
+  -O) echo "$mntops" | grep $Q -E "$opO_ARGS" || continue ;;
   esac
 
   _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
@@ -364,7 +366,7 @@ EoI
     }
 
   #echo $device
-  grep -q -w "^$device" /proc/mounts || continue
+  grep $Q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
 *) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
@@ -651,7 +653,7 @@ o_posPAR="$posPAR"
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
+   test -e "$posPAR" && ls -lv "$posPAR" 1>$OUT 2>$ERR || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
