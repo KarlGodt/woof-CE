@@ -1,0 +1,394 @@
+#!/bin/ash
+#===
+#
+#---
+
+
+########################################################################
+#
+#
+#
+#
+#
+# /dev/hda7
+# /dev/hda7:
+# LABEL="/"
+# UUID="429ee1ed-70a4-43a5-89f8-33496c489260"
+# TYPE="ext4"
+# DISTRO_NAME='LucidÂPuppy'
+# DISTRO_VERSION=218
+# DISTRO_MINOR_VERSION=00
+# DISTRO_BINARY_COMPAT='ubuntu'
+# DISTRO_FILE_PREFIX='luci'
+# DISTRO_COMPAT_VERSION='lucid'
+# DISTRO_KERNEL_PET='linux_kernel-2.6.33.2-tickless_smp_patched-L3.pet'
+# PUPMODE=2
+# SATADRIVES=''
+# PUP_HOME='/'
+# PDEV1='hda7'
+# DEV1FS='ext4'
+# LinuxÂpuppypcÂ2.6.31.14Â#1ÂMonÂJanÂ24Â21:03:21ÂGMT-8Â2011Âi686ÂGNU/Linux
+# Xserver=/usr/bin/Xorg
+# $LANG=en_US
+# today=TueÂOctÂ25Â12:47:53ÂGMT+1Â2011
+#
+# TODO1:
+#$RETVAL12=0
+#Mount Return Value=0 Display=
+#ash: /dev/root: unknown operand
+#sysfs
+#rootfs
+#bdev|sockfs|pipefs|anon_inodefs|nfs|nfs4|inotifyfs[2.6.33.2]
+#mount: wrong fs type, bad option, bad superblock on none,
+#sockfs
+#mount: wrong fs type, bad option, bad superblock on none,
+#pipefs
+#mount: wrong fs type, bad option, bad superblock on none,
+#anon_inodefs
+#mount: wrong fs type, bad option, bad superblock on none,
+#nfs
+#mount: directory to mount not in host:dir format
+#$RETVAL12=32
+#Mount Return Value=32 Display=
+#nfs4
+#mount: wrong fs type, bad option, bad superblock on none,
+#Starting now /etc/init.d/alsa ...
+#[0;31mNo Sound Modules found Tue Nov  8 14:17:28 GMT+1 2011[0;39m
+#PID Sorting
+#
+#
+#
+########################################################################
+
+
+KERNVER=`uname -r`
+
+status_func() {
+ if [ $1 -eq 0 ];then
+  /bin/echo -e "\\033[72G\\033[1;32mdone\\033[0;39m" >/dev/console #green [done] msg.
+ else
+  /bin/echo -e "\\033[70G\\033[1;31mfailed\\033[0;39m" >/dev/console #red [failed].
+  STATUS=0
+ fi
+ return $1 #return with same status as entry param.
+}
+
+UPDATINGDEVFUNC(){
+echo -n "Updating Device nodes " > /dev/console
+STATUS=0
+CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
+echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
+rm /dev/$SDEV
+STATUS=$(( $STATUS + $? ))
+mknod /dev/$SDEV b $MAJ $MIN
+STATUS=$(( $STATUS + $? ))
+echo -n '.' > /dev/console
+done
+status_func $STATUS
+}
+UPDATINGDEVFUNC
+uptime
+
+
+check_root_func() {
+if test -e /dev/root ; then #1
+echo "former existing /dev/root :"
+echo `ls -l /dev/root`
+fi #1
+rm -f /dev/root
+FRUGAL=''
+FULL=''
+
+RDMFR=`mount | grep -w '/initrd/mnt/dev_save'`
+
+RDMFU=`mount | grep -Fw '/' | grep -v -E 'rootfs|unionfs|aufs'`
+
+##[ -n "$RDMFR" ] && FRUGAL="Y"
+##[ -n "$RDMFU" ] && FULL="Y"
+
+RDDFFR=`/bin/df | grep -Fw '/' | grep -E 'rootfs|unionfs|aufs'`
+
+RDDFFU=`/bin/df | grep -Fw '/' | grep -v -E 'rootfs|unionfs|aufs'`
+
+##[ -n "$RDDFFR" ] && FRUGAL="$FRUGAL:Y"
+##[ -n "$RDDFFU" ] && FULL="$FULL:Y"
+
+##RDRDEVFR=`busybox rdev`   ###TODO would stay emty
+RDRDEV=`busybox rdev | cut -f 1 -d ' '`   ###TODO like /dev/sda3 /
+
+rootpartition_fr=''
+#if [ "$FRUGAL" = "Y:Y" -a -z "$RDRDEVFR" ] ; then #2
+if [ -z "$RDRDEV" ] ; then  ##+2011-11-06 bug rdrdv to rdrdev = missing 'E'
+rootpartition_fr=`dmesg | grep 'loop[0-9]*' | grep -i 'mounted' | tr -s ' ' | cut -f 2 -d ' ' | tr -d '(' | tr -d ')' | tr -d ':'`
+#fi #2
+else
+#if [ -z "$rootpartition_fr" -a -n "$RDRDEVFU" ] ; then #3
+rootpartition_full=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#\.$##'`
+RDMAJ=`echo $rootpartition_full | cut -f 1 -d ':'`
+RDMin=`echo $rootpartition_full | cut -f 2 -d ':'`
+if [ -n "$RDMAJ" ] && [ -n "$RDMin" ] ; then #3.1
+#LSLDR=`ls -l /dev/ | grep -E 'hd|sd' | tr -s ' ' | cut -f 5,6,9,10 -d ' ' | grep -w "^$RDMAJ" | grep -w "$RDMin"`
+LSLDR=`ls -l /dev/ | grep -E 'hd|sd' | tr -s ' ' | cut -f 5,6,9,10 -d ' ' | grep -w "^${RDMAJ}, ${RDMin}"`
+
+#SRD=`echo $LSLDR | tr -s ' ' | cut -f 9,10 -d ' ' | cut -f 2 -d ' ' | sed 's#/dev/##'`
+SRD=`echo "$LSLDR" | tr -s ' ' |rev|cut -f 1 -d ' ' |rev| sed 's#/dev/##'`  ##+-changed 2011-11-06
+fi #3.1
+fi #3
+
+if test "$SRD" != "" ; then #4
+ln -s $SRD /dev/root
+else #4
+if test "$rootpartition_fr" != "" ; then #4.1
+ln -s $rootpartition_fr /dev/root
+fi #4.1
+fi #4
+
+###<2011-11-06>
+if test ! -L /dev/root ; then  ##2011-11-08 changed -l to -L
+if test -n "$SRD" ; then
+ln -s $SRD /dev/root
+fi
+fi
+###</2011-11-06>
+}
+check_root_func
+uptime
+make_root_link_func_1() {
+RL=`ls -l /dev/root`
+DRL=${RL:0:1}
+if [ "$DLR" = "" ] ; then #1
+RD=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#\.$##'`
+fi #1
+if test "$RD" != "" ; then #2
+RMAJ=`echo $RD | cut -f 1 -d ':'`
+RDMin=`echo $RD | cut -f 2 -d ':'`
+fi #2
+if [ -n "$RDMAJ" ] && [ -n "$RDMin" ] ; then #3
+LSLDR=`ls -l /dev/ | grep -E 'hd|sd' | tr -s ' ' | cut -f 5,6,9,10 -d ' ' | grep -w "^$RDMAJ" | grep -w "$RDMin"`
+#SRD=`echo $LSLDR | tr -s ' ' | cut -f 9,10 -d ' ' | cut -f 2 -d ' '`
+SRD=`echo $LSLDR | tr -s ' ' | cut -f 3 -d ' '`
+fi #3
+if test -e /dev/root ; then #4
+echo `ls -l /dev/root`
+fi #4
+
+rm -f /dev/root
+ROOTDEVICEM=`mount | grep -Fw '/' | grep -v 'rootfs' | cut -f 1 -d ' '`
+ROOTDEVICEDF=`/bin/df | grep -Fw '/' | grep -v -E 'union|root' | tr -s ' ' | cut -f 1 -d ' '`
+if [ "$ROOTDEVICEM" != "/dev/root" ] && [ "$ROOTDEVICEM" = "$ROOTDEVICEDF" ] ; then #5
+###+2011-11-06   M was missing bug
+ln -s $ROOTDEVICEM /dev/root
+elif test "$ROOTDEVICEDF" != "" ; then #5
+ln -s "$ROOTDEVICEDF" /dev/root
+elif test -n "$SRD" ; then  ###+++2011-11-06
+ln -s $SRD /dev/root  ###+++2011-11-06
+else #5
+if test "$RD" != "" ; then #5.1
+ln -s $SRD /dev/root
+fi #5.1
+
+fi #5
+}
+uptime
+mkmissing_tty_func() {
+[ ! -c /dev/tty ] && rm -f /dev/tty && mknod /dev/tty c 5 0
+[ ! -d /dev/vc ] && rm -f -r /dev/vc && mkdir /dev/vc
+
+INITTAB=`cat /etc/inittab | grep -o -E 'tty[0-9]*|vc[0-9].*' | grep -v -E '^#|^[[:blank:]]#' | sort -u`
+INITTABS=`echo "$INITTAB" | grep -o '[0-9]*$'`
+for i in $INITTABS; do
+[ ! -c /dev/tty$i ] && rm -f /dev/tty$i && mknod /dev/tty$i c 4 $i
+[ ! -c /dev/vc/$i ] && rm -f /dev/vc/$i && mknod /dev/vc/$i c 4 $i
+done
+
+[ ! -c /dev/console ] && rm -f /dev/console && mknod /dev/console c 5 1
+[ ! -c /dev/null ] && rm -f /dev/null && mknod /dev/null c 1 3
+[ ! -c /dev/zero ] && rm -f /dev/zero && mknod /dev/zero c 1 5
+
+[ ! -d /dev/pts ] && rm -f /dev/pts && mkdir /dev/pts
+[ ! -c /dev/ptmx ] && rm -f /dev/ptmx && mknod /dev/ptmx c 5 2
+
+for i in $(seq 0 4); do
+[ ! -c /dev/ptyp$i ] && rm -f /dev/ptyp$i && mknod /dev/ptyp$i c 2 $i
+done
+
+[ ! -d /dev/fb ] && mkdir /dev/fb
+for i in $(seq 0 4); do
+[ ! -h /dev/fb/$i ] && ln -s ../fb$i /dev/fb/$i
+done
+
+}
+mkmissing_tty_func
+uptime
+
+mk_missing_var_dev_func() {
+if test -f /var/db/dev_nodes/dev_"$KERNVER".tar.gz ; then
+tar -C / -xzf /var/db/dev_nodes/dev_"$KERNVER".tar.gz
+mv /var/db/dev_nodes/dev_"$KERNVER" /tmp/dev
+cp -a -r /tmp/dev /
+sync
+rm -r /tmp/dev
+else
+if test -f /var/db/boot/dev_nodes.lst; then
+DDB="`cat /var/db/boot/dev_nodes.lst`"
+cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
+[ -z "$DEV" ] && DEV="$T"
+KIND=${PERM:0:1}
+MAJ=`echo $MAY | tr -d ','`
+DN=`dirname $DEV`
+[ ! -d $DN ] && mkdir $DN
+[ ! -$KIND $DEV ] && echo making $DEV && mknod $DEV $KIND $MAJ $Min
+done
+fi
+fi
+}
+##mk_missing_var_dev_func
+uptime
+
+pupstate_prev_func() {
+if test "`grep -x KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER" ; then
+if test ! -f /lib/modules/$KERNVER/modules.dep -o ! -f /lib/modules/$KERNVER/modules.symbols -o ! -f /lib/modules/$KERNVER/modules.alias ; then
+echo "Detected booting other kernel than last time" >> /dev/console
+echo "Have to run depmod, please wait some 10 seconds" >> /dev/console
+depmod
+depmod-FULL
+fi
+fi
+}
+pupstate_prev_func
+uptime
+
+firmware_dep_func() {
+if test ! -f "/etc/modules/firmware.dep.$KERNVER" ; then
+echo "copying firmware.dep" > /dev/console
+FM=`find /etc/modules -name "firmware.dep*" | head -n1`
+if test -n "$FM" ; then
+cp "$FM" "/etc/modules/firmware.dep.$KERNVER"
+fi
+fi
+
+fwd=`find /lib/modules/$KERNVER -maxdepth 2 -name "firmware*" | head -n1`
+if test -d "$fwd" ; then
+if test ! -f $fwd/firmware-$KERNVER.txt ; then
+echo "$KERNVER" >> $fwd/firmware-$KERNVER.txt
+fi
+
+rm -r -f /lib/firmware
+cp -r "$fwd" /lib/
+fi
+lfwd=`find /lib -maxdepth 1 -type d -name "firmware*"`
+currlfw=`echo "$lfwd" | grep "$KERNVER"`
+if test -n "$currlfw" ; then
+mv "$currlfw" /lib/firmware
+fi
+
+if test ! -d /lib/firmware ; then
+if test -f /lib/firmware.tar.gz ; then
+tar -C / -xzf /lib/firmware.tar.gz
+fi
+fi
+sync
+if test ! -d /lib/firmware ; then
+anylibfirmware=`find /lib -maxdepth 1 -type d -name "firmware*" | sort | head -n 1`
+[ -n "$anylibfirmware" ] && mv $anylibfirmware /lib/firmware
+fi
+
+}
+firmware_dep_func
+uptime
+
+mondprobe_conf_func() {
+if test ! -d /etc/mult_kernels ; then #0
+mkdir /etc/mult_kernels
+fi #0
+if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then #1
+cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+else #1
+if test -f /etc/modprobe.conf ; then #1.1
+[ ! -f /etc/mult_kernels/modprobe.conf.$KERNVER ] && cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+fi #1.1
+fi #1
+if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then #2
+rm -f -r /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+else #2
+if test -d /etc/modprobe.d ; then #2.1
+[ ! -d /etc/mult_kernels/modprobe.d.$KERNVER ] && cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+fi #2.1
+fi #2
+}
+#mondprobe_conf_func  ##-2011-11-07 for done in /sbin/init
+uptime
+
+fbcon_func() {
+if [ -n "`modprobe -l | grep 'fbcon'`" ]; then
+if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=7[0-9][0-9]'`" ]; then
+modinfo fbcon > /dev/console
+[ -z "$DISPLAY" ] && modprobe --first-time fbcon  ##+2011-08 added testfor display AND first-time
+fi
+fi
+}
+#fbcon_func
+uptime
+
+modprobe_floppy_func() {
+if [ -n "`modprobe -l | grep 'floppy'`" ]; then
+modprobe floppy
+fi
+}
+modprobe_floppy_func
+uptime
+
+modprobe_conf_func() {
+if test ! -d /etc/mult_kernels ; then #0
+mkdir /etc/mult_kernels
+fi #0
+if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then #1
+cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+else #1
+if test -f /etc/modprobe.conf ; then #1.1
+[ ! -f /etc/mult_kernels/modprobe.conf.$KERNVER ] && cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+fi #1.1
+fi #1
+if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then #2
+rm -f -r /etc/modprobe.d
+cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+else #2
+if test -d /etc/modprobe.d ; then #2.1 ##beneath little different than first modprobe_conf_func
+[ ! -d /etc/mult_kernels/modprobe.d.$KERNVER ] && mkdir /etc/mult_kernels/modprobe.d.$KERNVER
+cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+fi #2.1
+fi #2
+}
+#modprobe_conf_func  ##-2011-11-07 for done in /sbin/init
+uptime
+
+etc_rcd_fuc(){
+[ ! -d /etc/mult_kernels/rc.d ] && mkdir /etc/mult_kernels/rc.d
+if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG ] ; then
+cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+else
+cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
+fi
+}
+etc_rcd_fuc
+uptime
+
+none_fs_func(){
+#NFS=`cat /proc/filesystems | tr  '\t' ' ' | cut -f 2 -d ' '`
+NFS=`cat /proc/filesystems | grep nodev | tr  '\t' ' ' | cut -f 2 -d ' '| grep -v -E -w 'bdev|sockfs|pipefs|anon_inodefs|nfs|nfs4|inotifyfs|aufs|fuse'` ##+2011-11-08 added 'bdev|sockfs|pipefs|anon_inodefs|nfs|nfs4' ##+++2012-05-27 added aufs,fuse
+[ ! -d /nodev ] && mkdir /nodev
+for i in $NFS ; do
+echo $i
+if [ -z "`busybox mount | grep "$i"`" ] ; then
+[ ! -d /nodev/$i ] && mkdir /nodev/$i
+mount -t $i none /nodev/$i
+fi
+done
+}
+none_fs_func
+uptime
+
+
+
+
