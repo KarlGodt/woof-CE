@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #Serializes access to the backend_modprobe protect_data file by processing gate-keeping requests for particular resources and entities. Databases are maintained internally and in some cases written to a file.  Takes input from single named pipe and returns status in caller-created pipe:
 # 0 = first claimer, OK to process for entity
 # 1 - not first, abort processing of entity.
@@ -6,29 +6,35 @@
 SVCNAME="pup_event_backend_modprobe_protect"
 echo $SVCNAME
 OPTION="$1"
-echo "DBG \$1=$1 'OPTION='$OPTION"
+echo "DBG \$*='$*' 'OPTION='$OPTION"
 [ "$OPTION" ] || OPTION="--help"
 
 
 start_daemon_func(){
 if [ "$OPTION" != "--help" ]; then
  if [ ! -p /tmp/${SVCNAME}_pipe ]; then
- mkfifo /tmp/${SVCNAME}_pipe
+     rm -f /tmp/${SVCNAME}_pipe
+    mkfifo /tmp/${SVCNAME}_pipe
  exec $SVCNAME --daemon &
-fi; fi
+ return 5
+ else true
+ fi
+else true || false
+fi
+
 }
 
 claim_resource_entity_func() {
 echo "DBG claim_resource_entity_func '$1' START"
  #Requires OPTION, SVCNAME, and argument:  M(odule), R(eplaced module), U(sbserial dependent), F(irmware), S(nd-card), D(evice_major_number), L(ock).
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { rm -f /tmp/${SVCNAME}_pipe-$PPID; mkfifo /tmp/${SVCNAME}_pipe-$PPID; }
  RESOURCE="$1"
  ENTITY="`echo "$OPTION" | cut -f 2 -d '='`"
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
  echo "add $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
 #  echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
- [ "$RESOURCE" != "L" ] && rm /tmp/${SVCNAME}_pipe-$PPID
+ [ "$RESOURCE" = "L" ] || rm -f /tmp/${SVCNAME}_pipe-$PPID
  [ "`echo "$REPLY" | cut -f 2-4 -d ' '`" != "$PPID $RESOURCE $ENTITY" ] \
   && echo "ERROR ($PPID): Invalid reply from daemon'  REPLY: '$REPLY'" >> /tmp/${SVCNAME}.log \
   && return 2
@@ -38,7 +44,7 @@ return `echo "$REPLY" | cut -f 1 -d ' '`
 
 check_firmware_count_func() {
  #Requires SVCNAME
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { rm -f /tmp/${SVCNAME}_pipe-$PPID; mkfifo /tmp/${SVCNAME}_pipe-$PPID; }
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
  echo "testzero $PPID F null" >/tmp/${SVCNAME}_pipe
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
@@ -52,14 +58,14 @@ echo "DBG check_firmware_count_func '$1' REPLY='$REPLAY' END"
 
 check_entity_claimed_func() {
  #Requires OPTION, SVCNAME, and argument:  M(odule), F(irmeare), S(nd-card), D(evice_major_number), L(ock).
- [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+ [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { rm -f /tmp/${SVCNAME}_pipe-$PPID; mkfifo /tmp/${SVCNAME}_pipe-$PPID; }
  RESOURCE="$1"
  ENTITY="`echo "$OPTION" | cut -f 2 -d '='`"
 #  echo "DEBUG ($PPID): Request PPID: $PPID  RESOURCE: $RESOURCE ENTITY: $ENTITY" >> /tmp/${SVCNAME}.log #debug
  echo "check $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
  read REPLY </tmp/${SVCNAME}_pipe-$PPID
 #  echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
- rm /tmp/${SVCNAME}_pipe-$PPID
+ rm -f /tmp/${SVCNAME}_pipe-$PPID
  [ "`echo "$REPLY" | cut -f 2-4 -d ' '`" != "$PPID $RESOURCE $ENTITY" ] \
   && echo "ERROR ($PPID): Invalid reply from daemon'  REPLY: '$REPLY'" >> /tmp/${SVCNAME}.log \
   && return 2
@@ -72,14 +78,14 @@ echo "DBG check_entity_claimed_func '$1' REPLY='$REPLAY' END"
 
 case $OPTION in
  module=* )
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG option module=\\* new START"
   ENTITY="" #make visible here
   claim_resource_entity_func M
   [ $? -eq 0 ] || echo 'returncode -ne 0' && exit 1
   altMODULE="`echo -n "$ENTITY" | tr '_' '-'`"
   FPATTERN='/'"${ENTITY}"'\.ko|/'"${altMODULE}"'\.ko'
-  grep -E "$FPATTERN" /lib/modules/`uname -r`/modules.dep | grep '/usbserial.ko' | cut -f 1 -d : | grep -q -E "$FPATTERN" \
+  grep -E "$FPATTERN" /lib/modules/`uname -r`/modules.dep | grep '/usbserial\.ko' | cut -f 1 -d : | grep -q -E "$FPATTERN" \
    && claim_resource_entity_func U
   echo "DBG option new module= END"
   exit 0
@@ -87,7 +93,7 @@ case $OPTION in
 
 
  --module=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG OPTION='$OPTION' --module=\* START"
   ENTITY="" #make visible here
   claim_resource_entity_func M
@@ -116,7 +122,7 @@ case $OPTION in
   ;;
 
  --replacedmod=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --replacedmod=\\* START"
   claim_resource_entity_func R
   echo "DBG $0 --replacedmod=\\* END ; exit 0"
@@ -124,27 +130,31 @@ case $OPTION in
   ;;
 
  --modcheck=usbserial)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --modcheck=usbserial START"
-  [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+  [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { rm -f /tmp/${SVCNAME}_pipe-$PPID; mkfifo /tmp/${SVCNAME}_pipe-$PPID; }
   RESOURCE="U"
   ENTITY="usbserial"
   MAXRETRIES=60; RETRIES=0
   while true;do
-   [ $RETRIES -ge $MAXRETRIES ] && break
+   RETRIES=$((RETRIES + 1))
+   [ $RETRIES -gt $MAXRETRIES ] && break
+   sleep 1
+   #test -e /tmp/${SVCNAME}_pipe || continue
    echo "checkgroup $PPID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe
+   #test -e /tmp/${SVCNAME}_pipe-$PPID || continue
    read REPLY </tmp/${SVCNAME}_pipe-$PPID
-#   echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
+   #echo "DEBUG ($PPID): REPLY: $REPLY" >> /tmp/${SVCNAME}.log #debug
    [ "`echo "$REPLY" | cut -f 2-4 -d ' '`" != "$PPID $RESOURCE $ENTITY" ] \
     && echo "ERROR ($PPID): Invalid reply from daemon'  REPLY: '$REPLY'" >> /tmp/${SVCNAME}.log \
     && STATUS=1 \
     && break
    STATUS=`echo "$REPLY" | cut -f 1 -d ' '`
    [ $STATUS -eq 0 ] && break
-   RETRIES=`expr $RETRIES + 1`
-   sleep 1
+   #RETRIES=$((RETRIES + 1))
+   #sleep 1
   done
-  rm /tmp/${SVCNAME}_pipe-$PPID
+  rm -f /tmp/${SVCNAME}_pipe-$PPID
   if [ $RETRIES -ge $MAXRETRIES ];then
    echo "ERROR ($PPID): Loading of usbserial-dependent module(s) timed out after 1 minute" >> /tmp/${SVCNAME}.log
    echo "DBG $0 --modcheck=usbserial exiting 1"
@@ -157,7 +167,7 @@ case $OPTION in
   ;;
 
  --modcheck=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --modcheck=\\* START"
   ENTITY="" #make visible here
   check_entity_claimed_func M || echo 'returncode -ne 0' && exit 1
@@ -181,7 +191,7 @@ case $OPTION in
   exit 0
   ;;
  --firmware=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --firmware=\\* START"
   claim_resource_entity_func F
   retValCREF_F=$?
@@ -189,7 +199,7 @@ case $OPTION in
   exit $retValCREF_F
   ;;
  --fwdone)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --fwdone START"
   echo "decrement $PPID F null" >/tmp/${SVCNAME}_pipe
   echo "DBG $0 --fwdone END ; exit 0"
@@ -197,7 +207,7 @@ case $OPTION in
   ;;
 
  --fwcomplete)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --fwcomplete START"
   MAXRETRIES=60;   RETRIES=0
   while [ -e /tmp/.usb_modeswitch_active ] \
@@ -219,7 +229,7 @@ case $OPTION in
   ;;
 
  --snd_card_number=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --snd_card_number=\\* START"
   claim_resource_entity_func S
   retValCREF_S=$?
@@ -228,7 +238,7 @@ case $OPTION in
   ;;
 
  --device_major_number=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --device_major_number=\\* START"
   claim_resource_entity_func D
   retValCREF_D=$?
@@ -237,7 +247,7 @@ case $OPTION in
   ;;
 
  --lock=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --lock=\\* START"
   ENTITY="" #make visible here
   MAXRETRIES=60;   RETRIES=0
@@ -245,7 +255,7 @@ case $OPTION in
    [ $RETRIES -ge $MAXRETRIES ] && break
    sleep 1; RETRIES=`expr $RETRIES + 1`
   done
-  rm /tmp/${SVCNAME}_pipe-$PPID
+  rm -f /tmp/${SVCNAME}_pipe-$PPID
   STATUS=0
   if [ $RETRIES -ge $MAXRETRIES ];then
    echo "ERROR ($PPID): Lock timeout after 1 minute for lock $ENTITY" >> /tmp/${SVCNAME}.log
@@ -258,7 +268,7 @@ case $OPTION in
   ;;
 
  --unlock=*)
-  start_daemon_func
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
   echo "DBG $0 --unlock=\\* START"
   ENTITY="`echo "$OPTION" | grep '=' | cut -f 2 -d '='`"
   [ "$ENTITY" != "" ] \
@@ -293,13 +303,13 @@ EOT
   ;;
 
  --dump)
-  start_daemon_func
-  [ `ps -C pup_event_backend_modprobe_protect | grep -c ''` -gt 3 ] \
+  start_daemon_func; case $? in 5) sleep 2s;; *) echo "got returnvalue $?";;esac
+  [ `/bin/ps -C pup_event_backend_modprobe_protect | grep -c ''` -gt 3 ] \
    || exit 1
-  [ ! -p /tmp/${SVCNAME}_pipe-$PPID ] && mkfifo /tmp/${SVCNAME}_pipe-$PPID
+  [ -p /tmp/${SVCNAME}_pipe-$PPID ] || { rm -f /tmp/${SVCNAME}_pipe-$PPID; mkfifo /tmp/${SVCNAME}_pipe-$PPID; }
   echo "dump $PPID" >/tmp/${SVCNAME}_pipe
   read REPLY </tmp/${SVCNAME}_pipe-$PPID
-  rm /tmp/${SVCNAME}_pipe-$PPID
+  rm -f /tmp/${SVCNAME}_pipe-$PPID
   [ "`echo "$REPLY" | cut -f 2 -d ' '`" != "$PPID" ] \
    && echo "ERROR ($PPID): Invalid reply from daemon'  REPLY: '$REPLY'" >> /tmp/${SVCNAME}.log \
    && exit 2
@@ -312,13 +322,14 @@ EOT
 
  --daemon)
   if [ ! -p /tmp/${SVCNAME}_pipe ]; then
-  mkfifo /tmp/${SVCNAME}_pipe
+   rm -f /tmp/${SVCNAME}_pipe
+   mkfifo /tmp/${SVCNAME}_pipe
   fi
   #Inpipe request syntax: action PID resource entity
   # action: add delete decrement testzero check checkgroup help dump quit
   # resource: M R U F S D L
   # entity: modulename firmwarename number text-string
-  trap "rm -f /tmp/${SVCNAME}_pipe; exit" INT TERM EXIT
+  trap "rm -f /tmp/${SVCNAME}_pipe*; exit" INT TERM EXIT
   KERNVER="`uname -r`"
   LISTM=" "; LISTR=" "; LISTU=" "; LISTF=" "; LISTS=" "; LISTD=" "; LISTL=" "; LISTFNEW=""
   FILEF="/etc/modules/firmware.inst.$KERNVER"
@@ -326,6 +337,40 @@ EOT
    && LISTF=" `cat $FILEF | tr '\n' ' '` " \
    && LISTF="`echo -n "$LISTF" | tr -s ' '`"
   COUNTF=0
+        _check_resource(){
+        case $RESOURCE in
+        M)
+         LISTM="$LISTM$ENTITY "
+        ;;
+        R)
+         LISTR="$LISTR$ENTITY "
+        ;;
+        U)
+         LISTU="$LISTU$ENTITY "
+         ;;
+        F)
+         if [ "`echo "$LISTL" | grep -w 'firmwareinst'`" != "" ];then
+          LISTFNEW="${LISTFNEW}$ENTITY "
+         else
+          LISTF="${LISTF}$ENTITY "
+          echo -n "$LISTF" | tr ' ' '\n' > ${FILEF}
+         fi
+         COUNTF=`expr $COUNTF + 1`
+         ;;
+        S)
+         LISTS="${!LIST}$ENTITY "
+         ;;
+        D)
+         LISTD="${!LIST}$ENTITY "
+         ;;
+        L)
+         LISTL="${!LIST}$ENTITY "
+         ;;
+        *)
+        echo "  DEBUG (daemon): Invalid RESOURCE: $RESOURCE" >> /tmp/${SVCNAME}.log
+         ;;
+       esac
+       }
 
   while true; do
    REQUESTS="`cat </tmp/${SVCNAME}_pipe`"
@@ -379,8 +424,9 @@ EOT
        esac
        echo "`date | tr -s ' ' | cut -f 4 -d ' '` Request from PID $CLIENTID GRANTED for resource $RESOURCE $ENTITY" >> /tmp/${SVCNAME}.log
       fi
+      echo "$STATUS $CLIENTID $RESOURCE $ENTITY" >>/tmp/${SVCNAME}.log
       echo "$STATUS $CLIENTID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe-$CLIENTID
-      ;;
+      ;; #add
      delete)
       SEDSCRIPT="s/ ${ENTITY} / /"
       LISTL="`echo -n "$LISTL" | sed -e "$SEDSCRIPT"`"
@@ -410,8 +456,45 @@ EOT
        || STATUS=1
       echo "$STATUS $CLIENTID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe-$CLIENTID
       ;;
+
      checkgroup)
+     echo "action checkgroup: RESOURCE='$RESOURCE'"
       STATUS=0
+      case $RESOURCE in
+        M)
+         LISTM="$LISTM$ENTITY "
+        ;;
+        R)
+         LISTR="$LISTR$ENTITY "
+        ;;
+        U)
+         LISTU="$LISTU$ENTITY "
+         ;;
+        F)
+         if [ "`echo "$LISTL" | grep -w 'firmwareinst'`" != "" ];then
+          LISTFNEW="${LISTFNEW}$ENTITY "
+         else
+          LISTF="${LISTF}$ENTITY "
+          echo -n "$LISTF" | tr ' ' '\n' > ${FILEF}
+         fi
+         COUNTF=`expr $COUNTF + 1`
+         ;;
+        S)
+         LISTS="${!LIST}$ENTITY "
+         ;;
+        D)
+         LISTD="${!LIST}$ENTITY "
+         ;;
+        L)
+         LISTL="${!LIST}$ENTITY "
+         ;;
+        *)
+        echo "  DEBUG (daemon): Invalid RESOURCE: $RESOURCE" >> /tmp/${SVCNAME}.log
+         ;;
+       esac
+       echo "`date | tr -s ' ' | cut -f 4 -d ' '` Request from PID $CLIENTID GRANTED for resource $RESOURCE $ENTITY" >> /tmp/${SVCNAME}.log
+
+      echo "$STATUS $CLIENTID $RESOURCE $ENTITY" >>/tmp/${SVCNAME}.log
       if [ "$RESOURCE" = "U" -a "$ENTITY" = "usbserial" ];then
        REPLIST="`echo "$LISTR" | tr ' ' '\n' | sed /^$/d`"
        USLIST="`echo "$LISTU" | tr ' ' '\n' | sed /^$/d | sort -u`"
@@ -420,13 +503,14 @@ EOT
        LSMODSTRG="`lsmod | cut -f 1 -d ' ' | grep -F -w "$USLIST" | sort -u | tr '\n' ' '`"
        USSTRG="`echo "$USLIST" | tr '\n' ' '`"
        [ "$LSMODSTRG" != "$USSTRG" ] && STATUS=1
-#       echo -e "DEBUG ($PPID): REPLIST: $REPLIST  USLIST: $USLIST\nLSMODSTRG: $LSMODSTRG\nUSSTRG: $USSTRG" >> /tmp/${SVCNAME}.log   #DEBUG
+       echo -e "DEBUG ($PPID): REPLIST: $REPLIST  USLIST: $USLIST\nLSMODSTRG: $LSMODSTRG\nUSSTRG: $USSTRG" >> /tmp/${SVCNAME}.log   #DEBUG
       fi
+      echo -e "DEBUG ($PPID): REPLIST='$REPLIST' USLIST='$USLIST' LSMODSTRG='$LSMODSTRG' USSTRG='$USSTRG'"
       echo "$STATUS $CLIENTID $RESOURCE $ENTITY" >/tmp/${SVCNAME}_pipe-$CLIENTID
       ;;
      dump)
       echo -e "SUMMARY (daemon):\nLoaded modules: ${LISTM}\nReplaced modules: ${LISTR}\nUsbserial-dependent modules: ${LISTU}\nInstalled firmware: ${LISTF}\nUsed sound card numbers: ${LISTS}\nUsed 'experimental' device major numbers: ${LISTD}\nLocked files or other entities: ${LISTL}\nFirmware installation count: $COUNTF" >> /tmp/${SVCNAME}.log
-      echo -e "Pending request processes:\n`ps aux | grep 'backend_modprobe_protect --' | grep -v ' grep ' | grep -v '\--daemon' | grep -v '\--dump' | tr -s ' ' | cut -f 2,13 -d ' '`" >> /tmp/${SVCNAME}.log
+      echo -e "Pending request processes:\n`/bin/ps aux | grep 'backend_modprobe_protect --' | grep -v ' grep ' | grep -v '\--daemon' | grep -v '\--dump' | tr -s ' ' | cut -f 2,13 -d ' '`" >> /tmp/${SVCNAME}.log
       sync
       echo "0 $CLIENTID" >/tmp/${SVCNAME}_pipe-$CLIENTID
       ;;
