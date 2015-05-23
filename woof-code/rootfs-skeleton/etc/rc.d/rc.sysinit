@@ -134,27 +134,28 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount -t proc none /proc ;STATUS=$((STATUS + $? ))
+busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$((STATUS + $? ))
 
 if [ ! -d /initrd ];then #w468
- busybox mount -o remount,rw /
+ busybox mount $VERB $VERB -o remount,rw /
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
 rm -rf /tmp/*  ##+++2011-11-30 implemented again
+#redirect all output to a log file (must do after remount rw)...
+#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
+exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
+
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm -f /etc/mtab
 ln $VERB -s /proc/mounts /etc/mtab
 
-#redirect all output to a log file (must do after remount rw)...
-#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
-exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 [ ! -d /dev/pts ] && mkdir $VERB /dev/pts ####KRG for DEVTMPFS KERNEL
-busybox mount /dev/pts ;STATUS=$((STATUS + $? ))
-mkdir $VERB /sys 2>/dev/null
-busybox mount -t sysfs none /sys ;STATUS=$((STATUS + $? ))
+busybox mount $VERB $VERB /dev/pts ;STATUS=$((STATUS + $? ))
+mkdir $VERB -p /sys
+busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$((STATUS + $? ))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
@@ -531,7 +532,7 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
  do
   MPARAMS=""
   if [ `echo -n "$MODULE" | tr ':' ' ' | wc -w` -gt 1 ];then
-   MPARAMS="`echo "$MODULE" | cut -f 2-9 -d ':' | tr ':' ' '`"
+   MPARAMS="`echo "$MODULE" | cut -f 2- -d ':' | tr ':' ' '`"
    MODULE="`echo "$MODULE" | cut -f 1 -d ':'`"
   fi
   echo -n " $MODULE" >/dev/console
@@ -542,9 +543,9 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
   #[ "$MODULE" != "mwave" ] && pup_event_backend_modprobe_protect --module=$MODULE && modprobe $MODULE $MPARAMS #v432
   if [ "$MODULE" != "mwave" ] ; then
   if pidof pup_event_backend_modprobe_protect; then
-  pup_event_backend_modprobe_protect --module=$MODULE
-  prot=$?
-  echo "returnvalue of modprobe_protect='$prot'"
+   pup_event_backend_modprobe_protect --module=$MODULE
+   prot=$?
+   echo "returnvalue of modprobe_protect='$prot'"
   fi
   modprobe $MODULE $MPARAMS
   uptime
@@ -573,13 +574,14 @@ if [ -h /dev/modem ];then
  esac
  case $DEVM in
   ttyS[0-9]) #apparently setserial can crash with other modems.
-   setserial -v -b /dev/modem auto_irq skip_test autoconfig
+   setserial $Q $VERB -b /dev/modem auto_irq skip_test autoconfig
   ;;
  esac
 fi
 
 #had hoped to retire this, but HardInfo needs it...
-[ "`lsmod | grep '^usbcore'`" ] && busybox mount -t usbfs none /proc/bus/usb
+#[ "`lsmod | grep '^usbcore'`" ] && busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
+test -d /proc/bus/usb && busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
@@ -609,22 +611,28 @@ fi
 
 #100227 choose default network tool...
 NETCHOICE='other' #100304
-DEFAULTCONNECT="`cat /usr/local/bin/defaultconnect | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
-[ "`grep 'gprs' /usr/local/bin/defaultconnect`" ] && DEFAULTCONNECT='pgprs-connect'
-[ "$DEFAULTCONNECT" = "gkdial" ] && DEFAULTCONNECT="pupdial" #for older pups.
+#DEFAULTCONNECT="`cat /usr/local/bin/defaultconnect | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
+#[ "`grep 'gprs' /usr/local/bin/defaultconnect`" ] && DEFAULTCONNECT='pgprs-connect'
+DEFAULTCONNECT=`grep 'DEFAULT=' /usr/local/bin/defaultconnect | grep -v '^[[:blank:]]*#' | tail -n1 | sed 's/\(.*DEFAULT=\)\(.*\)/DEFAULTCONNECT=\2/'`
+eval $DEFAULTCONNECT
+echo "DEFAULTCONNECT='$DEFAULTCONNECT'"
+#[ "$DEFAULTCONNECT" = "gkdial" ] && DEFAULTCONNECT="pupdial" #for older pups.
 case $DEFAULTCONNECT in
- Pwireless2)
-  NETCHOICE='Pwireless2'
- ;;
- net-setup.sh)
-  NETCHOICE='net-setup.sh'
- ;;
- net_wiz_classic)
-  NETCHOICE='net_wiz_classic'
- ;;
- sns)
-  NETCHOICE='sns'
- ;;
+# Pwireless2)
+#  NETCHOICE='Pwireless2'
+# ;;
+# net-setup.sh)
+#  NETCHOICE='net-setup.sh'
+# ;;
+# net_wiz_classic)
+#  NETCHOICE='net_wiz_classic'
+# ;;
+# sns)
+#  NETCHOICE='sns'
+# ;;
+gkdial) DEFAULTCONNECT=pupdial;;
+Pwireless2|net-setup.sh|net_wiz_classic|sns) NETCHOICE="$DEFAULTCONNECT";;
+
  *) #try determine which tool was used to setup networking...
   if [ -s /etc/simple_network_setup/connections ];then #100306
    NETCHOICE='sns'
@@ -636,41 +644,45 @@ case $DEFAULTCONNECT in
     CHECKNEWWIZ="`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`"
     if [ "$CHECKNEWWIZ" ]; then
      NETCHOICE='net-setup.sh'
+    elif [ -f /usr/local/Pwireless2/interface ]; then
+     NETCHOICE='Pwireless2' #100304
     else
-     [ -f /usr/local/Pwireless2/interface ] && NETCHOICE='Pwireless2' #100304
+     unset NETCHOICE
     fi
    fi
   fi
  ;;
 esac
-[ -f /etc/init.d/Pwireless2 ] && chmod 644 /etc/init.d/Pwireless2 #prevent jemimah's script from running. 100304 100513
+
+[ -f /etc/init.d/Pwireless2 ] && chmod $VERB 644 /etc/init.d/Pwireless2 #prevent jemimah's script from running. 100304 100513
+echo "NETCOICE='$NETCHOICE'"
 case $NETCHOICE in
  Pwireless2)
   #this only sets up interface 'lo'...
-  /etc/rc.d/rc.network_basic
+  . /etc/rc.d/rc.network_basic
   #jemimah's script is in /etc/init.d/Pwireless2
-  chmod 755 /etc/init.d/Pwireless2 #make executable so it will run.
+  chmod $VERB 755 /etc/init.d/Pwireless2 #make executable so it will run.
   #i want to run it right now, as a separate process (rc.services will ignore it)...
-  /etc/init.d/Pwireless2 start &
+  exec /etc/init.d/Pwireless2 start &
  ;;
  net-setup.sh)
-  /etc/rc.d/rc.network &
+  exec /etc/rc.d/rc.network &
  ;;
  net_wiz_classic)
   #note, old wizard is located in /usr/local/net_setup.
-  /usr/local/net_setup/etc/rc.d/rc.network &
+  exec /usr/local/net_setup/etc/rc.d/rc.network &
  ;;
  sns) #100306
-  /etc/rc.d/rc.network_basic #this only sets up interface 'lo'.
-  /usr/local/simple_network_setup/rc.network &
+  . /etc/rc.d/rc.network_basic #this only sets up interface 'lo'.
+  exec /usr/local/simple_network_setup/rc.network &
  ;;
  *)
-  #100628 shinobar: launch rc.network if eth0 is usable
   #this only sets up interface 'lo'...
-  RCNETWORK=/etc/rc.d/rc.network_basic
+  test -e /etc/rc.d/rc.network_basic && RCNETWORK=/etc/rc.d/rc.network_basic
+  #100628 shinobar: launch rc.network if eth0 is usable
   # eth0 usable?
-  /sbin/ifconfig eth0 > /dev/null 2>&1 && [ -x /etc/rc.d/rc.network ] && RCNETWORK=/etc/rc.d/rc.network
-  $RCNETWORK &
+  /sbin/ifconfig eth0 >$OUT 2>&1 && [ -x /etc/rc.d/rc.network ] && RCNETWORK=/etc/rc.d/rc.network
+  exec $RCNETWORK &
  ;;
 esac
 
@@ -685,13 +697,13 @@ echo -n "Recognising media devices..." >/dev/console
 #recognise optical drives...
 echo -n ' optical' >/dev/console
 OPTCNT=1;CDTYPE="";DVDTYPE="";CDBURNERTYPE=""
-OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`"
+OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*' | tr '\t' ' '`"
 [ -L /dev/cdrom ] && CDTYPE="`readlink /dev/cdrom | cut -f 3 -d '/'`"
-[ -L /dev/dvd ]  && DVDTYPE="`readlink /dev/dvd   | cut -f 3 -d '/'`"
+[ -L /dev/dvd ]   && DVDTYPE="`readlink /dev/dvd  | cut -f 3 -d '/'`"
 [ -f /etc/cdburnerdevice ] && CDBURNERTYPE="`cat /etc/cdburnerdevice`"
-[ "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ] && CDTYPE="" #no longer exists.
-[ "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
-[ "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
+echo "$OPTICALS" | grep $Q "$CDTYPE"  ||  CDTYPE="" #no longer exists.
+echo "$OPTICALS" | grep $Q "$DVDTYPE" || DVDTYPE="" #no longer exists.
+echo "$OPTICALS" | grep $Q "$CDBURNERTYPE" || CDBURNERTYPE="" #no longer exists.
 for ONEOPTICAL in $OPTICALS
 do
  ONENUM="`echo -n "$ONEOPTICAL" | cut -c 3`"
@@ -707,11 +719,16 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE #>/dev/null 2>&1
 
 echo ' input' >/dev/console #100131
-if [ ! -f /etc/mousedevice ];then
+if [ ! -f /etc/mousedevice ]; then
  echo "input/mice" > /etc/mousedevice
+ test -c /dev/input/mice || mknod /dev/input/mice c 13 63
+ ln $VERB -snf input/mice /dev/mouse
+elif [ "`cat /etc/mousedevice`" = "psaux" ]; then
+ echo "input/mice" > /etc/mousedevice
+ test -c /dev/input/mice || mknod /dev/input/mice c 13 63
  ln $VERB -snf input/mice /dev/mouse
 else
- [ "`cat /etc/mousedevice`" = "psaux" ] && echo "input/mice" > /etc/mousedevice
+ true
 fi
 
 #recognise keyboard...moved into xorgwizard
@@ -772,11 +789,11 @@ fi
 
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
 if [ ! -d /initrd ];then #if no /initrd, full hd install.
- [ ! $PDEV1 ] && PDEV1="`/bin/df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
- [ ! $DEV1FS ] && DEV1FS="`mount | grep ' on / ' | grep '^/dev/' | cut -f 5 -d ' '`"
+ [ $PDEV1 ] || PDEV1="`/bin/df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+ [ $DEV1FS ] || DEV1FS="`mount | grep ' on / type ' | grep '^/dev/' | cut -f 5 -d ' '`"
  if [ "$PDEV1" -a "$DEV1FS" ];then
-  [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" = "" ] && echo "PDEV1='$PDEV1'" >> /etc/rc.d/PUPSTATE
-  [ "`grep '^DEV1FS' /etc/rc.d/PUPSTATE`" = "" ] && echo "DEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE
+  [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" ]  || echo "PDEV1='$PDEV1'" >> /etc/rc.d/PUPSTATE
+  [ "`grep '^DEV1FS' /etc/rc.d/PUPSTATE`" ] || echo "DEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE
   #this file gets removed by rc.shutdown if a proper shutdown...
   echo "${PDEV1},${DEV1FS}," > /fsckme.err #ex: sda7,ext3,
  fi
@@ -793,9 +810,11 @@ _DATE_=`date +%F`
 #dmesg > /tmp/bootkernel.log.`date +%d%b%Y`
 #echo >> /tmp/bootkernel.log.`date +%d%b%Y`
 #date >> /tmp/bootkernel.log.`date +%d%b%Y`
-dmesg > /tmp/bootkernel.log."$_DATE_"
-echo >> /tmp/bootkernel.log."$_DATE_"
-date >> /tmp/bootkernel.log."$_DATE_"
+
+# done in /etc/profile
+#dmesg > /tmp/bootkernel.log."$_DATE_"
+#echo >> /tmp/bootkernel.log."$_DATE_"
+#date >> /tmp/bootkernel.log."$_DATE_"
 
 cp $VERB /var/log/messages /tmp/boot.messages
 cp $VERB /var/log/messages.0 /tmp/boot.messages.0
@@ -803,11 +822,12 @@ cp $VERB /var/log/messages.0 /tmp/boot.messages.0
 #if [ -z "`cat /proc/cmdline | grep -i 'nox'`" ]; then
 if [ -z "`grep -i 'nox' /proc/cmdline`" ]; then
 echo 'X' > /tmp/X.status
+touch /tmp/bootcnt.touch
 else
 echo 'nox' > /tmp/X.status
 fi
 
-[ -c /dev/ppp ] || mknod /dev/ppp c 108 0
+[ -c /dev/ppp ]   || mknod /dev/ppp c 108 0
 [ -L /dev/mouse ] || ln $VERB -s /dev/input/mice /dev/mouse
 #[ ! -c /dev/mem ] && mknod /dev/mem c 1 1
 [ -c /dev/mem ] || mknod /dev/mem c 1 1
