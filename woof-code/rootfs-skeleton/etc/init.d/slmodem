@@ -5,11 +5,12 @@
 # detecting pci (slamr.ko) and usb (slusb.ko) smartlink modems.
 #v406 RE Prioritize and select modem type to test based on ($0) call name (USB='_slmodemusb', PCI='slmodem', ALSA='~slmodemsnd').
 
+case $1 in start)
 #v405 if a different modem selected, quit...
 [ -h /dev/modem ] && [ "`readlink /dev/modem`" != "ttySL0" ] && exit
 
-[ ! $1 ] && exit
-[ "$1" != "start" ] && exit
+#[ ! $1 ] && exit
+#[ "$1" != "start" ] && exit
 [ "` ps aux | grep ' \/usr\/sbin\/slmodemd '`" != "" ] && exit #v406 Ensure SL daemon used by only one modem type
 
 ALLCOUNTRIES="|`/usr/sbin/slmodemd --countrylist 2>&1 | cut -f 2 -d ' ' | tr '\n' '|'`"
@@ -23,42 +24,60 @@ if [ -f /etc/countryinfo ];then
  [ "`echo -n "$ALLCOUNTRIES" | grep "$GPATTERN"`" != "" ] && OPTCOUNTRY="--country=${COUNTRY_NAME}"
 fi
 
+MY_SELF=${0##*/}
+
 # slamr.ko is a driver for Smartlink PCI modems....
+
+case $MY_SELF in
+*slmodem*) :;;
+*) exit 0;;
+esac
+
+case $MY_SELF in
+slmodem)
 #if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "slmodem" ] && [ "`lsmod | grep '^slamr '`" != "" ];then  #v3.98 - skip if for USB version of modem.
 #v406 If called as 'slmodem', test for PCI SL modem.
 #if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "slmodem" -a "`lsmod | grep '^slamr '`" != "" ];then  #v406 - skip if not for PCI modem.
-if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "slmodem" ] \
-  && /sbin/pup_event_backend_modprobe_protect --modcheck=slamr ;then  #v432 v406 - skip if not for PCI modem.
- #note, ungrab-winmodem.ko has to be loaded before slamr.ko, but 
+#if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "slmodem" ] \
+#  && /sbin/pup_event_backend_modprobe_protect --modcheck=slamr ;then  #v432 v406 - skip if not for PCI modem.
+
+if /sbin/pup_event_backend_modprobe_protect --modcheck=slamr ;then
+ #note, ungrab-winmodem.ko has to be loaded before slamr.ko, but
  #'modprobe slamr' executed by rc.modules will run the pinstall.sh script
  #in the slmodem firmware package in zdrv, which modifies /etc/modprobe.conf
  #to cause ungrab-winmodem to load first.
- echo "#/bin/sh" > /usr/sbin/slmodemdshell
- echo "/usr/sbin/slmodemd $OPTCOUNTRY /dev/slamr0" >> usr/sbin/slmodemdshell
+ echo "#/bin/sh" > /usr/sbin/slmodemd_shell
+ echo "/usr/sbin/slmodemd $OPTCOUNTRY /dev/slamr0" >> /usr/sbin/slmodemd_shell
  sync
- chmod 755 /usr/sbin/slmodemdshell
- ln -snf ttySL0 /dev/modem
- /usr/sbin/slmodemdshell &
+ chmod $VERB 755 /usr/sbin/slmodemd_shell
+ ln $VERB -snf ttySL0 /dev/modem
+ exec /usr/sbin/slmodemd_shell &
  exit
 fi
+;;
 
 # slusb.ko is a usb modem driver...
+_slmodemusb)
 #if [ "`lsmod | grep '^slusb '`" != "" ];then
 #v406 If called as '_slmodemusb', test for USB SL modem.
 #if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "_slmodemusb" -a "`lsmod | grep '^slusb '`" != "" ];then  #v406 - skip if not for USB modem.
-if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "_slmodemusb" ] \
-  && /sbin/pup_event_backend_modprobe_protect --modcheck=slusb ;then #v432 v406 - skip if not for USB modem.
- echo "#/bin/sh" > /usr/sbin/slmodemdshell
- echo "/usr/sbin/slmodemd $OPTCOUNTRY /dev/slusb0" >> usr/sbin/slmodemdshell
+#if [ "`echo $0 | sed -e 's%/etc/init.d/%%'`" = "_slmodemusb" ] \
+#  && /sbin/pup_event_backend_modprobe_protect --modcheck=slusb ;then #v432 v406 - skip if not for USB modem.
+
+if /sbin/pup_event_backend_modprobe_protect --modcheck=slusb ;then
+ echo "#/bin/sh" > /usr/sbin/slmodemd_shell
+ echo "/usr/sbin/slmodemd $OPTCOUNTRY /dev/slusb0" >> /usr/sbin/slmodemd_shell
  sync
- chmod 755 /usr/sbin/slmodemdshell
- ln -snf ttySL0 /dev/modem
- /usr/sbin/slmodemdshell &
+ chmod $VERB 755 /usr/sbin/slmodemd_shell
+ ln $VERB -snf ttySL0 /dev/modem
+ exec /usr/sbin/slmodemd_shell &
  exit
 fi
+;;
 
+\~slmodemsnd)
 #v406 If called as '~slmodemsnd', test for ALSA SL modem.
-[ "`echo $0 | sed -e 's%/etc/init.d/%%'`" != "~slmodemsnd" ] && exit #v406
+#[ "`echo $0 | sed -e 's%/etc/init.d/%%'`" != "~slmodemsnd" ] && exit #v406
 
 ALSAMODEMINFO="`cat /proc/asound/pcm 2>/dev/null | grep ' Modem :'`"
 [ "$ALSAMODEMINFO" = "" ] && exit
@@ -71,13 +90,13 @@ if /sbin/pup_event_backend_modprobe_protect --modcheck=snd_via82xx_modem \
   || /sbin/pup_event_backend_modprobe_protect --modcheck=snd_intel8x0m ;then #v432
 #if [ "`lsmod | grep -E '^snd_via82xx_modem|^snd_atiixp_modem|^snd_intel8x0m'`" != "" ];then
  #[ -e /dev/ttySL0 ] && rm -f /dev/ttySL0
- echo "#/bin/sh" > /usr/sbin/slmodemdshell
- echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa modem:1" >> usr/sbin/slmodemdshell
+ echo "#/bin/sh" > /usr/sbin/slmodemd_shell
+ echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa modem:1" >> /usr/sbin/slmodemd_shell
  sync
- chmod 755 /usr/sbin/slmodemdshell
- /usr/sbin/slmodemdshell &
+ chmod $VERB 755 /usr/sbin/slmodemd_shell
+ exec /usr/sbin/slmodemd_shell &
  sleep 1 #precaution
- [ -e /dev/ttySL0 ] && ln -snf ttySL0 /dev/modem
+ [ -e /dev/ttySL0 ] && ln $VERB -snf ttySL0 /dev/modem
  exit
 fi
 
@@ -87,31 +106,36 @@ if /sbin/pup_event_backend_modprobe_protect --modcheck=snd_hda_intel ;then #v432
  #[ -e /dev/ttySL0 ] && rm -f /dev/ttySL0
  #may work with hw:0,1 or hw:0,6...
  SNDHW='hw:0,1'
- [ "`echo -n "$ALSAMODEMINFO" | cut -f 1 -d ':' | grep '00\-06'`" != "" ] && SNDHW='hw:0,6' 
- echo "#/bin/sh" > /usr/sbin/slmodemdshell
- #echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa hw:0,1 2>/tmp/slmodemderr.log" >> usr/sbin/slmodemdshell
- #echo -n '[ "`grep "No such device" /tmp/slmodemderr.log`" != "" ] && ' >> usr/sbin/slmodemdshell
- #echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa hw:0,6" >> usr/sbin/slmodemdshell
- echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa $SNDHW" >> usr/sbin/slmodemdshell
+ [ "`echo -n "$ALSAMODEMINFO" | cut -f 1 -d ':' | grep '00\-06'`" != "" ] && SNDHW='hw:0,6'
+ echo "#/bin/sh" > /usr/sbin/slmodemd_shell
+ #echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa hw:0,1 2>/tmp/slmodemderr.log" >> usr/sbin/slmodemd_shell
+ #echo -n '[ "`grep "No such device" /tmp/slmodemderr.log`" != "" ] && ' >> usr/sbin/slmodemd_shell
+ #echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa hw:0,6" >> usr/sbin/slmodemd_shell
+ echo "/usr/sbin/slmodemd $OPTCOUNTRY --alsa $SNDHW" >> /usr/sbin/slmodemd_shell
  sync
- chmod 755 /usr/sbin/slmodemdshell
- /usr/sbin/slmodemdshell &
+ chmod $VERB 755 /usr/sbin/slmodemd_shell
+ exec /usr/sbin/slmodemd_shell &
  sleep 1 #precaution
- [ -e /dev/ttySL0 ] && ln -snf ttySL0 /dev/modem
+ [ -e /dev/ttySL0 ] && ln $VERB -snf ttySL0 /dev/modem
  exit
 fi
 
 if [ "`lsmod | grep '^snd_ali5451'`" != "" ];then
  #[ -e /dev/ttySL0 ] && rm -f /dev/ttySL0
- echo "#/bin/sh" > /usr/sbin/slmodemdshell
- echo "/usr/sbin/slmodemd -s $OPTCOUNTRY --alsa hw:0,1" >> usr/sbin/slmodemdshell
+ echo "#/bin/sh" > /usr/sbin/slmodemd_shell
+ echo "/usr/sbin/slmodemd -s $OPTCOUNTRY --alsa hw:0,1" >> /usr/sbin/slmodemd_shell
  sync
- chmod 755 /usr/sbin/slmodemdshell
- /usr/sbin/slmodemdshell &
+ chmod $VERB 755 /usr/sbin/slmodemd_shell
+ exec /usr/sbin/slmodemd_shell &
  sleep 1 #precaution
- [ -e /dev/ttySL0 ] && ln -snf ttySL0 /dev/modem
+ [ -e /dev/ttySL0 ] && ln $VERB -snf ttySL0 /dev/modem
  exit
 fi
 
+;;
+esac
+;;
+stop):;;
+esac
 
 ###END###
