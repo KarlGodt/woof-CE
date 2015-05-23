@@ -146,7 +146,7 @@ umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-o
  mount_longOPS=all,no-canonicalize,fake,fork,fstab:,internal-only,show-labels,no-mtab,options:,test-opts:,read-only,types:,source:,target,verbose,rw,read-write,label,uuid,help,version
  mount_longOPS="$mount_longOPS",bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable
 
- _verbose "Processing optins using busybox's 'getopt' applet..."
+ _debug "Processing optins using busybox's 'getopt' applet..."
   #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
 _debug "               options='$getOPS'"
@@ -456,7 +456,7 @@ umount)
   #_parse_short_ops_m()
   #{
   #_debug "_parse_short_ops_m $allOPS"
- _verbose "Processing options using getopts shell builtin.."
+ _debug "Processing options using getopts shell builtin.."
  while getopts $allOPS oneOPT; do
  noSHIFT=NO
  _debug "oneOPT='$oneOPT'"
