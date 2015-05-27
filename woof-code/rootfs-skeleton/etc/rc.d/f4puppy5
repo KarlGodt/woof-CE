@@ -10,24 +10,104 @@ unalias -a
 test "$OUT" || OUT=/dev/null
 test "$ERR" || ERR=/dev/null
 
+# Handle $0 :
+#test "$MY_SELF" || MY_SELF="$0"
+# Handle login shell
+case "$0" in
+-*) MY_SELF="$0";;
+*)
+MY_SELFR=`readlink -f "$0"`
+MY_SELF0="$0"
+
+if test "$MY_SELFR" -a "$MY_SELF0"; then
+test "$MY_SELFR" = "$MY_SELF0" && MY_SELF="$MY_SELF0" || {
+[ "IS_MULTICALL" ] || _warn "readlink -f \$0 is not same as \$0"
+MY_SELF="$MY_SELFR"
+}
+
+elif test "$MY_SELFR"; then
+_warn "Could not determine \$0"
+MY_SELF="$MY_SELFR"
+
+elif test "$MY_SELF0"; then
+_warn "Could not determine readlik -f \$0"
+MY_SELF="$MY_SELF0"
+
+else
+_warn "Could not determine \$0 and readlink -f \$0"
+test "$MY_SELF" || MY_SELF="$0"
+fi
+;;
+esac
+
+# Handle relative path
+case "$MY_SELF" in
+./*) MY_SELF=`pwd`/"$MY_SELF";;
+esac
+# Handle terminal
+case "${MY_SELF##*/}" in
+ash|bash|dash|hush|msh|sh|-sh|-ash|-bash|-dash|-hush|-msh) EXIT=return;;
+*)           EXIT=exit;;
+esac
+
+[ "$MY_PID" ] || MY_PID=$$
+
 _test_f()
 {
 test -L "$*" && return 1
 test -f "$*" && return 0
 return 1
 }
-_test_d()
+
+__test_f()
+{
+test -L "$*" && return 1
+test -f "$*" && return 0
+return 1
+}
+_test_f()
+{
+test -L "$*" && return 1
+test -f "$*"
+}
+_test_fx()
+{
+test -L "$*" && return 1
+test -f "$*" -a -x "$*"
+}
+_test_fw()
+{
+test -L "$*" && return 1
+test -f "$*" -a -w "$*"
+}
+_test_fr()
+{
+test -L "$*" && return 1
+test -f "$*" -a -r "$*"
+}
+
+
+
+__test_d()
 {
 test -L "$*" && return 1
 test -d "$*" && return 0
 return 1
 }
+_test_d()
+{
+test -L "$*" && return 1
+test -d "$*"
+}
+
 _test_p()
 {
 test -L "$*" && return 1
 test -p "$*" && return 0
 return 1
 }
+
+
 _test_S()
 {
 test -L "$*" && return 1
@@ -35,6 +115,30 @@ test -S "$*" && return 0
 return 1
 }
 
+_lineno(){
+## Usage like :
+#LINEP=D001
+#[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+## Or
+#LINEP=D001;[ "$VERBOSE" ] && echo "$DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
+    if [ "$1" ]; then
+    echo `grep -h -n -w -m1 "$1" "$MY_SELF" |cut -f1 -d':'`" (tag '$*')"
+    else
+    echo 'UNKNOWN -- missing $1'
+    fi
+}
+
+_get_screen_resolution(){
+ local RV
+ ROOT_SCREEN_DIM_=`xwininfo -root`
+ RV=$?
+ ROOT_SCREEN_DIM_=`echo "$ROOT_SCREEN_DIM_" | tac | grep -vE '^[#!;]|^[[:blank:]]*[#!;]|^[/\*][/\*]|^[[:blank:]]*[/\*][/\*]' | grep -m1 '\-geometry'`
+ RV=$((RV+$?))
+_ROOT_SCREEN_DIM_=`echo "$ROOT_SCREEN_DIM_" | awk '{print $2}'`
+ RV=$((RV+$?))
+echo ${_ROOT_SCREEN_DIM_}
+ return $RV
+}
 
 _log_rotate()
 {
