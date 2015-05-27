@@ -29,7 +29,9 @@
 
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+echo draw 2 "$0 is started:"
+echo draw 2 "PID $$ PPID $PPID"
+echo draw 2 "ARGUMENTS:$*"
 
 # *** Setting defaults *** #
 GEM='';  #set empty default
@@ -93,7 +95,7 @@ if test ! "$NUMBER"; then
 echo draw 3 "Need a number of items to alch."
 exit 1
 elif test "$NUMBER" = 0; then
-echo draw 3 "Number must be notg ZERO."
+echo draw 3 "Number must be not ZERO."
 exit 1
 elif test "$NUMBER" -lt 0; then
 echo draw 3 "Number must be greater than ZERO."
