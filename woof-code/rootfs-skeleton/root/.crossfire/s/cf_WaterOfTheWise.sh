@@ -277,10 +277,13 @@ echo "issue 1 1 east"
 sleep ${SLEEP}s
 
 
-f_check_if_on_cauldron
+#f_check_if_on_cauldron
+f_check_on_cauldron
 
-
-echo "issue 1 1 use_skill alchemy"
+sleep 1
+#echo "issue 1 1 use_skill alchemy"
+echo "issue 0 0 use_skill alchemy"
+sleep 0.5s
 echo "issue 1 1 apply"
 sleep 0.5s
 
