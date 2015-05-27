@@ -160,7 +160,7 @@ RESULTOK="`Xdialog --wmclass "scannerwizard" --title "Puppy scanner wizard" --st
  "teco3" "Relisys, Plustek,Piotech,Trust" $STATUSteco3 \
  "umax" "Umax, Linotype Hell,Vobis,Edge,Epson,Escom,Escort,Genius,Nikon" $STATUSumax \
  "umax1220u" "Umax" $STATUSumax1220u \
- "umax_pp" "Umax" $STATUSumax_pp  2>$ERR`"
+ "umax_pp" "Umax" $STATUSumax_pp  2>/dev/null`"
 
 STATUSRET=$?
 
