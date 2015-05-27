@@ -1689,8 +1689,8 @@ findInterfaceInfo()
      ;;
    usb) # need to try and find info from both /proc/bus/usb/devices and lsusb
      ## 1) find device and vendor:
-     #DEVICE=`cat /sys/class/net/$INT/device/device 2>$ERR`
-     #local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>$ERR`
+     #DEVICE=`cat /sys/class/net/$INT/device/device 2>/dev/null`
+     #local VENDOR=`cat /sys/class/net/$INT/device/vendor 2>/dev/null`
      ## those files might not exist...try getting by module name
      #if [ -z "$DEVICE" -o -z "$VENDOR" ] ; then
        #local DEVINFO="`grep -F -B5 "Driver=$FI_DRIVER" /proc/bus/usb/devices | grep  '^P' | tr ' ' '\n' | grep -E 'Vendor|ProdID' | tr '\n' ' '`"
@@ -1822,7 +1822,7 @@ showMainWindow
 cleanUpTmp
 
 #v411 BK hack to remove old network wizard configs so rc.sysinit won't use them if old wizard installed...
-[ "`ls -1 /etc/network-wizard/network/interfaces 2>$ERR`" ] && rm -f /etc/*[0-9]mode
+[ "`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`" ] && rm -f /etc/*[0-9]mode
 
 #=============================================================================
 #================ END OF SCRIPT BODY =====================
