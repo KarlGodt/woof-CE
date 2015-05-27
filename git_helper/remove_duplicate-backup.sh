@@ -47,9 +47,11 @@ echo
  c=$((c+1))
  y=`echo "$b2" | sed -n "$c p"`
 
+  test -e "$x" -a -e "$y" || continue
  diff -qs "$x" "$y" || continue
 
  echo "$x $y :Would remove one file" >$TTY
+ test -e "$x" && rm "$x"
 
  done
 
