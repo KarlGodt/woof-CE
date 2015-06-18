@@ -128,11 +128,16 @@ MAIN_FUNC
 }
 
 ####ALIASES
-alias ls='ls -F'
-alias ps='ps -elF'
-alias grni='grep -n -i'
-alias head='head -n 20'
-alias tail='tail -n 20'
+#alias ls='ls -F'
+alias ls='/bin/ls -F'
+#alias ps='ps -elF'
+alias ps='/bin/ps -elF'
+#alias grni='grep -n -i'
+alias grni='/bin/grep -n -i'
+#alias head='head -n 20'
+alias head='/bin/head -n 20'
+#alias tail='tail -n 20'
+alias tail='/bin/tail -n 20'
 #####
 
 ### /etc/profile part
