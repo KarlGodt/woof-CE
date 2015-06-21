@@ -119,12 +119,58 @@ busybox mount $VERB $VERB -o remount,rw /dev/root /
    mkdir $VERB /tmp
  fi
  chmod 1777 /tmp
-###+++2011-11-10
-mountpoint -q /dev || {
-test "`which mdev`" && {
-test -d /dev || mkdir $VERB /dev
-mount -t ramfs devramfs /dev
-        mdev -s; } ; } ###+++2014-06-25
+ ###+++2011-11-10
+
+ _dev_std(){
+ ln $VERB -snf ../proc/self/fd /dev/fd
+ ln $VERB -sf fd/0 /dev/stdin
+ ln $VERB -sf fd/1 /dev/stdout
+ ln $VERB -sf fd/2 /dev/stderr
+ return 0
+ }
+
+ _dev_console(){
+ test -c /dev/console || mknod /dev/console c 5 1
+ test -c /dev/null    || mknod /dev/null    c 1 3
+ return 0
+ }
+
+ mountpoint -q /dev && {
+ _dev_std
+ #_dev_console
+ true
+         } || {
+ test -d /dev || mkdir $VERB /dev
+ mount $VERB $VERB -t ramfs devramfs /dev
+ _dev_std ; _dev_console ;
+
+ test "`which mdev`" && {
+ #_dev_std ; _dev_console ;
+ mdev -s; true
+ } || {
+
+  oldIFS="$IFS"
+     IFS=$'\n'
+     find /sys -type f -name uevent -perm 644 |
+     while read oneFILE
+     do
+     unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
+     source "$oneFILE" 2>>$ERR  || continue
+     test "$MAJOR" -a "$MINOR"      || continue
+     test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+     test "$DEVMODE" && DEVMODE=-m\ $DEVMODE
+     test -e /dev/$DEVPATH/$DEVNAME || {
+     test "$DEVTYPE" = disk -o "$DEVTYPE" = partition && K=b || K=c
+     test ${DEVNAME%/*} = $DEVNAME || { test -d /dev/$DEVPATH/${DEVNAME%/*} || mkdir $VERB -p /dev/$DEVPATH/${DEVNAME%/*}; }
+     mknod $DEVMODE /dev/$DEVPATH/$DEVNAME $K $MAJOR $MINOR
+      }
+     done
+    IFS="$oldIFS"
+    #_dev_std
+
+          } ###+++2014-06-25 mdev
+         }  # +++2015-06-19 manual
+
 
 else
 STATUS=0
@@ -655,7 +701,7 @@ sleep 5s  ###DBG
 ##CONTINUE_FUNC
 ###KRG ask for debug mode
 ASK_DEBUG_FUNC(){
-test -x /etc/rc.d/rc.country && /etc/rc.d/rc.country
+test -x /etc/rc.d/rc.country && /etc/rc.d/rc.country # set correct keyboard layout
 DebugVal=0
 echo -e "\\033[0;39m"
 echo "Do you think $0 DEBUG MODE is required ?"
@@ -679,12 +725,12 @@ echo 'Have FUN !'
 elif [ "$K" = "Y" ] ; then
 DebugVal=2
 echo -e "\\033[0;31m"'Debug Mode '"$DebugVal"' turned on'
-echo 'Have FUN !'
+echo 'Have FUN !!'
 else
 DebugVal=0
 echo -e "\\033[0;35m"'Keeping in Silent Screen Mode'
 fi
-TimeOut=$(( ($DebugVal + 1) * 20 ))
+TimeOut=$(( (DebugVal + 1) * 20 ))
 
 SLEEP=$((DebugVal+1))
 [ "$DebugVal" -ge "1" ] && echo && echo -e "\\033[0;33m"'TimeOut='"\\033[0;39m""$TimeOut""\\033[0;33m"' , additional_sleep_value='"\\033[0;39m""$SLEEP"
@@ -693,27 +739,36 @@ echo -e "\\033[0;39m"
 ASK_DEBUG_FUNC
 
 ###+++2011-11-15
-null_or_console(){
+_null_or_console(){
 if [[ $DebugVal == '0' ]] ; then
  OUT='/dev/null'  ##2>&1
+ ERR='/dev/null'
 elif [[ $DebugVal == '1' ]] ; then
  OUT='/dev/null'
+ ERR='/dev/console'
+elif [[ $DebugVal == '2' ]] ; then
+ OUT='/dev/console'
+ ERR='/dev/console'
 else
  OUT='/dev/console'
+ ERR='/dev/console'
+ _warn "_null_or_console:Unhandled DebugVal '$DebugVal'"
+ _warn "Setting OUT to '$OUT' , ERR to '$ERR'"
 fi
-echo "OUT='$OUT'"
-echo "OUT='$OUT'" > $OUT  ##-2011-11-25 was > $directOutD
+_debug "OUT='$OUT' ERR='$ERR'"
+_debug "OUT='$OUT'" > $OUT  ##-2011-11-25 was > $directOutD
+_debug "ERR='$ERR'" > $ERR
 }
-null_or_console
+_null_or_console
 ###+++2011-11-15
 
 ##+++2013-05-11
-kill_daemons(){
-killall udevd >$OUT
-killall pup_event_backend_modprobe_protect >$OUT
+_kill_daemons(){
+pidof udevd >$OUT && killall udevd >$OUT 2>$ERR
+pidof pup_event_backend_modprobe_protect >$OUT && killall pup_event_backend_modprobe_protect >$OUT 2>$ERR
 sleep 1
 }
-kill_daemons
+_kill_daemons
 ##+++2013-05-11
 
 FSCK_FUNC(){
