@@ -39,7 +39,10 @@ VEND_ID=12d1
 PROD_ID_INACT=157d
 PROD_ID_ACTIV=14dc
 
-VERB=-v #verbose for modprobe
+# if mbbservice fails to lauch ( 64-bit ) , try usb_modeswitch
+USB_MODESWITCH_MsgContent="55534243123456780000000000000011062000000101000100000000000000"
+
+VERB=-v  #verbose for modprobe
 #Q=-q    #quiet   for grep, modprobe
 #DBG=-d  #debug   for dhcpcd
 
@@ -226,7 +229,18 @@ case "$1" in
         #$HWAPP
         start_daemon -p "/var/run/${HWAPP##*/}.pid" -n 2 $HWAPP
         rc_status -v
-        [ $? = 0 ] || exit 1
+        [ $? = 0 ] || {
+            if test "`which usb_modeswitch`"; then
+            # in case of failure, fall back using usb_modeswitch
+            echo "Falling back using usb_modeswitch .. "
+            usb_modeswitch -W -v $VEND_ID -p $PROD_ID_INACT -V $VEND_ID -P $PROD_ID_ACTIV -M "$USB_MODESWITCH_MsgContent"
+            rc_status -v
+            [ $? = 0 ] ||exit 1;
+            else
+            echo "usb_modeswitch as fall-back not installed"
+            fi
+            }
+
         sleep 1
         echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
         # modeswitching needs some time ...
