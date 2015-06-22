@@ -191,6 +191,29 @@ EoI
     }
 fi
 
+_count_rx_tx_bytes(){
+
+read TX_FILE <<EoI
+`find /sys -type f -path "*/net/$ETH_ADDR/statistics/tx_bytes"`
+EoI
+
+test -f "$TX_FILE" && read TX_BYTES < $TX_FILE
+
+read RX_FILE <<EoI
+`find /sys -type f -path "*/net/$ETH_ADDR/statistics/rx_bytes"`
+EoI
+
+test -f "$RX_FILE" && read RX_BYTES < $RX_FILE
+
+mkdir -p /var/local/sns/${HWAPP##*/}/
+
+(
+echo "`date +%F`"':UP   Bytes:'$TX_BYTES
+echo "`date +%F`"':DOWN Bytes:'$RX_BYTES
+) > /var/local/sns/${HWAPP##*/}/statistics
+
+}
+
 # Reset status of this service
 rc_reset
 
@@ -329,6 +352,9 @@ case "$1" in
         exit 0
         fi
 
+        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+
         if
         _pidof $Q dhcpcd
         then
@@ -352,6 +378,8 @@ case "$1" in
         rc_status -v
         rm -f /var/run/${HWAPP##*/}.pid
 
+        _count_rx_tx_bytes
+
         ;;
     restart)
         $0 stop
@@ -373,7 +401,7 @@ case "$1" in
         ;;
 
     status) #rc_status -u
-             STATE=`busybox ps -o stat,args | grep "${HWAPP##*/}" | grep -v grep`
+             STATE=`busybox ps -o stat,args | grep "${HWAPP##*/}" | grep -vE "grep|/init\.d/"`
 _print_state_codes(){
         cat >&1 <<EoI
 PROCESS STATE CODES
@@ -398,6 +426,7 @@ l    is multi-threaded (using CLONE_THREAD, like NPTL pthreads do)
 EoI
 }
        for i in $STATE; do
+       [ "$DEBUG" ] && echo -n "$i:"
        case $i in
        D) echo "Waiting for IO";;
        R) echo "Running or in Queue";;
@@ -418,7 +447,7 @@ EoI
         ;;
 
     *)  rc_status -u
-        echo "Usage: $0 {start|stop|restart|force-reload|reload}"
+        echo "Usage: $0 {start|stop|restart|force-reload|reload|status}"
         exit 1
         ;;
 esac
