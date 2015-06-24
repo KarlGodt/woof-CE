@@ -16,104 +16,203 @@
 # Default-Stop:      0 1 6
 # Short-Description: runmbbservice  daemon providing cx
 # Description:       Start runmbbservice to allow XY and provide YZ
-#   continued on second line by '#<TAB>'
-#   should contain enough info for the runlevel editor
-#   to give admin some idea what this service does and
-#   what it's needed for ...
-#   (The Short-Description should already be a good hint.)
+#       continued on second line by '#<TAB>'
+#       should contain enough info for the runlevel editor
+#       to give admin some idea what this service does and
+#       what it's needed for ...
+#       (The Short-Description should already be a good hint.)
 ### END INIT INFO
 
+. /etc/rc.d/f4puppy5
+
 HWAPP=/usr/local/MobileBrServ/mbbservice
+#HWAPP=/usr/local/MobileBrServ/mbbdaemon
+#HWAPP=`realpath "$HWAPP"`
+
 HWADDR='00:1E:10:1F:00:00'
-ETH_ADDR='eth1'
+ETH_ADDR_DEFAULT='eth1'
+
+KERNEL_DRIVER=cdc-ether
+KERNEL_DRIVER=`echo "$KERNEL_DRIVER" | tr '-' '_'`
+
+VEND_ID=12d1
+PROD_ID_INACT=157d
+PROD_ID_ACTIV=14dc
+
+# if mbbservice fails to lauch ( 64-bit ) , try usb_modeswitch
+USB_MODESWITCH_MsgContent="55534243123456780000000000000011062000000101000100000000000000"
+
+VERB=-v  #verbose for modprobe
+#Q=-q    #quiet   for grep, modprobe
+#DBG=-d  #debug   for dhcpcd
+
+DEBUG=1
+
+DHCPCD=`which dhcpcd`       # else dhcpcd
+IFCONFIG='busybox ifconfig' # "    ifconfig
+MODPROBE='busybox modprobe' # "    modprobe
+
 
 test -x $HWAPP || { echo "$HWAPP not installed";
-    if [ "$1" = "stop" ]; then exit 0;
-    else exit 5; fi; }
+        if [ "$1" = "stop" ]; then exit 0;
+        else exit 5; fi; }
 
 
-# Default: Assume sysvinit binaries exist
-start_daemon() { /sbin/start_daemon ${1+"$@"}; }
-killproc()     { /sbin/killall   -$2 ${1##*/}; }
-pidofproc()    { /sbin/pidof         ${1##*/}; }
-checkproc()    { /sbin/checkproc    ${1+"$@"}; }
+# Default: Assume SuSE sysvinit patched binaries exist
+# start_daemon : unused
+type -t start_daemon >$OUT || start_daemon() { /sbin/start_daemon ${1+"$@"}; }
+
+#killproc()     { /sbin/killall -s${2} ${1##*/}; }
+KILLPROC=`which killproc`
+test "$KILLPROC" || KILLPROC=killall
+_debug "KILLPROC='$KILLPROC'"
+type -t killproc >$OUT || killproc()     { case $KILLPROC in killall) $KILLPROC -${2} ${1##*/};;*) $KILLPROC $VERB ${1+"$@"} ;;esac; }
+
+
+#pidofproc()    { /sbin/pidof         ${*##*/}; }
+PIDOFPROC=`which pidofproc`
+test "$PIDOFPROC" || PIDOFPROC=pidof
+_debug "PIDOFPROC='$PIDOFPROC'"
+type -t pidofproc >$OUT || pidofproc()    { case $PIDOFPROC in pidof) $PIDOFPROC ${*##*/} ;;*) $PIDOFPROC $VERB ${1+"$@"} ;;esac; }
+
+CHECKPROC=`which checkproc`
+test "$CHECKPROC" || CHECKPROC=pidof
+_debug "CHECKPROC='$CHECKPROC'"
+type -t checkproc >$OUT || checkproc()    { case $CHECKPROC in pidof) $CHECKPROC "${@##*/}" ;; *) $CHECKPROC $VERB ${1+"$@"} ;;esac; }
+
+
 if test -e /etc/rc.status; then
     # SUSE rc script library
     . /etc/rc.status
 else
     export LC_ALL=POSIX
     _cmd=$1
-    declare -a _SMSG
+    #declare -a _SMSG # -a      to make NAMEs arrays (if supported)
     if test "${_cmd}" = "status"; then
-    _SMSG=(running dead dead unused unknown reserved)
-    _RC_UNUSED=3
+        #_SMSG=(running dead dead unused unknown reserved)
+        _SMSG="running dead dead unused unknown reserved"
+        _RC_UNUSED=3
     else
-    _SMSG=(done failed failed missed failed skipped unused failed failed reserved)
-    _RC_UNUSED=6
+        #_SMSG=(done failed failed missed failed skipped unused failed failed reserved)
+        _SMSG="done failed failed missed failed skipped unused failed failed reserved"
+        _RC_UNUSED=6
     fi
+
     if test -e /lib/lsb/init-functions; then
-    # LSB
+        # LSB
         . /lib/lsb/init-functions
-    echo_rc()
-    {
-        if test ${_RC_RV} = 0; then
-        log_success_msg "  [${_SMSG[${_RC_RV}]}] "
-        else
-        log_failure_msg "  [${_SMSG[${_RC_RV}]}] "
-        fi
-    }
-    # TODO: Add checking for lockfiles
-    checkproc() { return pidofproc ${1+"$@"} >/dev/null 2>&1; }
+
+        echo_rc(){
+            local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
+            if test ${_RC_RV} = 0; then
+                #log_success_msg "  [${_SMSG[${_RC_RV}]}] "
+                log_success_msg "  [$MSG] "
+            else
+                #log_failure_msg "  [${_SMSG[${_RC_RV}]}] "
+                log_failure_msg "  [$MSG] "
+            fi
+        }
+
+        # TODO: Add checking for lockfiles
+        #checkproc() { return pidofproc ${1+"$@"} >/dev/null 2>&1; }
+        #checkproc() { return `pidofproc ${1+"$@"}` ; }
+        checkproc() { pidofproc ${1+"$@"}; return $?; }
+
     elif test -e /etc/init.d/functions; then
-    # RHAT
-    . /etc/init.d/functions
-    echo_rc()
-    {
-        #echo -n "  [${_SMSG[${_RC_RV}]}] "
-        if test ${_RC_RV} = 0; then
-        success "  [${_SMSG[${_RC_RV}]}] "
-        else
-        failure "  [${_SMSG[${_RC_RV}]}] "
-        fi
-    }
-    checkproc() { return status ${1+"$@"}; }
-    start_daemon() { return daemon ${1+"$@"}; }
+        # RHAT
+        . /etc/init.d/functions
+
+        echo_rc(){
+            #echo -n "  [${_SMSG[${_RC_RV}]}] "
+            local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
+            if test ${_RC_RV} = 0; then
+                #success "  [${_SMSG[${_RC_RV}]}] "
+                success "  [$SMSG] "
+            else
+                #failure "  [${_SMSG[${_RC_RV}]}] "
+                failure "  [$SMSG] "
+            fi
+        }
+
+        #checkproc() { return `status ${1+"$@"}`; }
+        checkproc() { status ${1+"$@"}; return $?; }
+
+        #start_daemon: unused
+        #start_daemon() { return `daemon ${1+"$@"}`; }
+        start_daemon() { daemon ${1+"$@"}; return $?; }
+
     else
-    # emulate it
-    echo_rc() { echo "  [${_SMSG[${_RC_RV}]}] "; }
+        # emulate it
+        echo_rc() {
+                local MSG=`echo "${_SMSG}" | cut -f $((_RC_RV + 1)) -d ' '`
+                #echo "  [${_SMSG[${_RC_RV}]}] ";
+                echo "  [$SMSG] ";
+                }
     fi
+
     rc_reset() { _RC_RV=0; }
-    rc_failed()
-    {
-    if test -z "$1"; then
-        _RC_RV=1;
-    elif test "$1" != "0"; then
-        _RC_RV=$1;
+
+    rc_failed(){
+        rc_reset
+        if test -z "$1"; then
+            _RC_RV=1;
+        elif test "$1" != "0"; then
+            _RC_RV=$1;
         fi
-    return ${_RC_RV}
+        return ${_RC_RV}
     }
-    rc_check()
-    {
-    return rc_failed $?
+
+    # rc_check: unused
+    rc_check(){
+        return rc_failed $?
     }
-    rc_status()
-    {
-    rc_failed $?
-    if test "$1" = "-r"; then _RC_RV=0; shift; fi
-    if test "$1" = "-s"; then rc_failed 5; echo_rc; rc_failed 3; shift; fi
-    if test "$1" = "-u"; then rc_failed ${_RC_UNUSED}; echo_rc; rc_failed 3; shift; fi
-    if test "$1" = "-v"; then echo_rc; shift; fi
-    if test "$1" = "-r"; then _RC_RV=0; shift; fi
-    return ${_RC_RV}
+
+    rc_status(){
+        rc_failed $?
+        if test "$1" = "-r"; then _RC_RV=0; shift; fi
+        if test "$1" = "-s"; then rc_failed 5; echo_rc; rc_failed 3; shift; fi
+        if test "$1" = "-u"; then rc_failed ${_RC_UNUSED}; echo_rc; rc_failed 3; shift; fi
+        if test "$1" = "-v"; then echo_rc; shift; fi
+        if test "$1" = "-r"; then _RC_RV=0; shift; fi
+        return ${_RC_RV}
     }
-    rc_exit() { exit ${_RC_RV}; }
-    rc_active()
-    {
-    if test -z "$RUNLEVEL"; then read RUNLEVEL REST < <(/sbin/runlevel); fi
-    if test -e /etc/init.d/S[0-9][0-9]${1}; then return 0; fi
-    return 1
+
+    rc_exit() { return ${_RC_RV} 2>$ERR || exit ${_RC_RV}; }
+
+    # rc_active: unused
+    rc_active(){
+        #if test -z "$RUNLEVEL"; then read RUNLEVEL REST < <(/sbin/runlevel); fi
+        if test -z "$RUNLEVEL"; then read RUNLEVEL REST <<EoI
+        $(/sbin/runlevel)
+EoI
+        fi
+        if test -e /etc/init.d/S[0-9][0-9]${1}; then return 0; fi
+        return 1
     }
 fi
+
+_count_rx_tx_bytes(){
+
+read TX_FILE <<EoI
+`find /sys -type f -path "*/net/$ETH_ADDR/statistics/tx_bytes"`
+EoI
+
+test -f "$TX_FILE" && read TX_BYTES < $TX_FILE
+
+read RX_FILE <<EoI
+`find /sys -type f -path "*/net/$ETH_ADDR/statistics/rx_bytes"`
+EoI
+
+test -f "$RX_FILE" && read RX_BYTES < $RX_FILE
+
+mkdir -p /var/local/sns/${HWAPP##*/}/
+
+(
+echo "`date +%F`"':UP   Bytes:'$TX_BYTES
+echo "`date +%F`"':DOWN Bytes:'$RX_BYTES
+) >> /var/local/sns/${HWAPP##*/}/statistics
+
+}
 
 # Reset status of this service
 rc_reset
@@ -121,71 +220,235 @@ rc_reset
 
 case "$1" in
     start)
-    echo -n "Starting $HWAPP "
-    #exec $HWAPP  > /dev/null 2>&1
-    $HWAPP
-    rc_status -v
-    [ $? = 0 ] || exit 1
+
+        #checkproc ${HWAPP##*/}
+        #echo $?
+        checkproc ${HWAPP}
+        checkRV=$?
+        echo "checkRV='$checkRV'"
+        if test $checkRV = 0; then
+        #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
+        #pidof ${HWAPP##*/}
+        _pidof ${HWAPP##*/}
+        echo
+        case $checkRV in 0) echo "Already running.";;3) echo "Not running.";;4) echo "Unknown.";;esac
+        exit 0
+        fi
+
+        if test -f /proc/modules; then
+        if ! grep $Q "$KERNEL_DRIVER" /proc/modules; then
+         #modprobe $VERB $Q -b $KERNEL_DRIVER
+         $MODPROBE $VERB $Q -b $KERNEL_DRIVER
+         sleep 1
+        else
+         true
+        fi
+        else
+        _warn "/proc/modules not existent. Is /proc mounted ?"
+        fi
+
+        echo -n "Starting $HWAPP .. "
+        #exec $HWAPP > /dev/null 2>&1
+        #$HWAPP
+        start_daemon -p "/var/run/${HWAPP##*/}.pid" -n 2 $HWAPP
+        rc_status -v
+        [ $? = 0 ] || {
+            if test "`which usb_modeswitch`"; then
+            # in case of failure, fall back using usb_modeswitch
+            echo "Falling back using usb_modeswitch .. "
+            usb_modeswitch -W -v $VEND_ID -p $PROD_ID_INACT -V $VEND_ID -P $PROD_ID_ACTIV -M "$USB_MODESWITCH_MsgContent"
+            rc_status -v
+            [ $? = 0 ] ||exit 1;
+            else
+            echo "usb_modeswitch as fall-back not installed"
+            fi
+            }
+
         sleep 1
+        echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
+        # modeswitching needs some time ...
+        #VEND_ID=12d1
+        #PROD_ID_INACT=157d
+        #PROD_ID_ACTIV=14dc
+        lsusb | grep "$VEND_ID" | grep $Q -E "${PROD_ID_INACT}|${PROD_ID_ACTIV}" && echo -n "Waiting for modeswitch " || echo -n "Is the Modem plugged in ?"
+        while
+        [ "`lsusb | grep "$VEND_ID" | grep "$PROD_ID_INACT"`" ]
+        do
+        echo -n "."
+        sleep 1
+        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV" && break
+        c=$((c+1))
+        test $c = 9 && break
+        #echo -n "."
+        done
+        test "$Q" && echo
+        sleep 2
+
+        #lsusb | grep $Q "$VEND_ID"
+        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_INACT"
+        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+
+        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+        rc_status -v
+        test $? = 0 || exit 0 # assume not plugged in
+
+        # fixed eth address does not work, if mutilpe eth drivers load in random order
+        #$IFCONFIG -a | grep -i ".*HWaddr $HWADDR"
+        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+
         if
-        ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        #ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        $IFCONFIG $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
         then
-        echo "Bringing ifconfig $ETH_ADDR up .. "
+        echo -n "Bringing ifconfig $ETH_ADDR up .. "
          if
-         ifconfig $ETH_ADDR up
+         #ifconfig $ETH_ADDR up
+         $IFCONFIG $ETH_ADDR up
          then
          rc_status -v
          sleep 1
-         echo "Starting dhcpcd -d $ETH_ADDR .. "
-         dhcpcd -d $ETH_ADDR
-         rc_status -v
+
+     #-n, --renew
+     #        Notifies an existing dhcpcd process running on the interface to
+     #        renew it's lease. If dhcpcd is not running, then it starts up as
+     #        normal.
+
+     #-p, --persistent
+     #        dhcpcd normally deconfigures the interface and configuration when
+     #        it exits.  Sometimes, this isn't desirable if for example you
+     #        have root mounted over NFS.  You can use this option to stop this
+     #        from happening.
+
+         echo -n "Starting dhcpcd $DBG $ETH_ADDR .. "
+         #dhcpcd -d $ETH_ADDR
+         $DHCPCD $DBG -n $ETH_ADDR
+         #rc_status -v
          else
-         rc_status -v
+         #rc_status -v
+         false
          fi
         else
         echo "'$HWADDR' and '$ETH_ADDR' do not match ."
+        false
         fi
+        rc_status -v
+        test $? = 0 || $0 stop
 
-    ;;
+        ;;
     stop)
+
+        #checkproc ${HWAPP##*/}
+        #echo $?
+        checkproc ${HWAPP}
+        checkRV=$?
+        echo "checkRV='$checkRV'"
+        if test $checkRV != 0; then
+        #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
+        #pidof ${HWAPP##*/}
+        _pidof ${HWAPP##*/}
+        echo
+        case $checkRV in 0) echo "Already running.";;3) echo "Not running.";;4) echo "Unknown.";;esac
+        exit 0
+        fi
+
+        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+
         if
-        pidof dhcpcd
+        _pidof $Q dhcpcd
         then
-        echo "Terminating dhcpcd .. "
-        killall dhcpcd
+        echo -n "Terminating $DHCPCD $DBG -x $ETH_ADDR .. "
+        #killall dhcpcd
+        $DHCPCD $DBG -x $ETH_ADDR
         rc_status -v
         fi
 
-        echo "Bringing ifconfig $ETH_ADDR down .. "
-        ifconfig $ETH_ADDR down
+        echo -n "Bringing ifconfig $ETH_ADDR down .. "
+        #ifconfig $ETH_ADDR down
+        $IFCONFIG $ETH_ADDR down
         rc_status -v
 
-    echo -n "Shutting down $HWAPP "
-    killproc $HWAPP TERM
-    rc_status -v
+        # override start-stop-daemon
+        #killproc()     { /sbin/killall -s${2} ${1##*/}; }
+        #killproc()     { killall -${2} ${1##*/}; }
 
-    ;;
+        echo -n "Shutting down $HWAPP .. "
+        killproc $HWAPP TERM
+        rc_status -v
+        rm -f /var/run/${HWAPP##*/}.pid
+
+        _count_rx_tx_bytes
+
+        ;;
     restart)
-    $0 stop
-    $0 start
-
-    rc_status
-    ;;
+        $0 stop
+        sleep 1
+        $0 start
+        rc_status
+        ;;
 
     force-reload)
-    echo -n "Reload service runmbbservice "
-    killproc $HWAPP HUP
-    rc_status -v
-    ;;
+        echo -n "Reload service runmbbservice "
+        killproc  $HWAPP HUP
+        rc_status -v
+        ;;
 
     reload)
-    echo -n "Reload service runmbbservice "
-    killproc $HWAPP HUP
-    rc_status -v
-    ;;
-    *)
-    echo "Usage: $0 {start|stop|restart|force-reload|reload}"
-    exit 1
-    ;;
+        echo -n "Reload service runmbbservice "
+        killproc  $HWAPP HUP
+        rc_status -v
+        ;;
+
+    status) #rc_status -u
+             STATE=`busybox ps -o stat,args | grep "${HWAPP##*/}" | grep -vE "grep|/init\.d/"`
+_print_state_codes(){
+        cat >&1 <<EoI
+PROCESS STATE CODES
+Here are the different values that the s, stat and state output specifiers
+(header "STAT" or "S") will display to describe the state of a process.
+D    Uninterruptible sleep (usually IO)
+R    Running or runnable (on run queue)
+S    Interruptible sleep (waiting for an event to complete)
+T    Stopped, either by a job control signal or because it is being traced.
+W    paging (not valid since the 2.6.xx kernel)
+X    dead (should never be seen)
+Z    Defunct ("zombie") process, terminated but not reaped by its parent.
+
+For BSD formats and when the stat keyword is used, additional characters may
+be displayed:
+<    high-priority (not nice to other users)
+N    low-priority (nice to other users)
+L    has pages locked into memory (for real-time and custom IO)
+s    is a session leader
+l    is multi-threaded (using CLONE_THREAD, like NPTL pthreads do)
++    is in the foreground process group
+EoI
+}
+       for i in $STATE; do
+       [ "$DEBUG" ] && echo -n "$i:"
+       case $i in
+       D) echo "Waiting for IO";;
+       R) echo "Running or in Queue";;
+       S) echo "Running and waiting";;
+       T) echo "Stopped";;
+       W) echo "Paging";;
+       X) echo "Dead";;
+       Z) echo "Zombie";;
+       '<') echo "High priority";;
+       N) echo "Low priority";;
+       L) echo "Pages locked in MEM";;
+       s) echo "Session leader";;
+       l) echo "Multi-threaded";;
+       '+') echo "In foreground";;
+       *) :;;
+       esac
+        done
+        ;;
+
+    *)  rc_status -u
+        echo "Usage: $0 {start|stop|restart|force-reload|reload|status}"
+        exit 1
+        ;;
 esac
 rc_exit
