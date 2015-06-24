@@ -67,7 +67,7 @@ done
 
 echo unwatch drawinfo
 
-PETS_KILL=`echo "$PETS_HAVE" | grep -v -E "$PETS_KEEP"`
+PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i "$PETS_KEEP"`
 echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
 
 
