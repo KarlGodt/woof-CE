@@ -29,7 +29,8 @@
 
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+echo draw 2 "$0 has started.."
+echo draw 2 "PARAM:$* PID:$$ PPID :$PPID"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -66,6 +67,28 @@ echo draw 3 "Need <number> ie: script $0 50 ."
         exit 1
 }
 
+echo request stat cmbt
+#read REQ_CMBT
+#snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
+read Req Stat Cmbt WC AC DAM SPEED W_SPEED
+echo draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
+case $SPEED in
+1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
+2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
+3[0-9][0-9][0-9][0-9]) USLEEP=1300000;;
+4[0-9][0-9][0-9][0-9]) USLEEP=1200000;;
+5[0-9][0-9][0-9][0-9]) USLEEP=1100000;;
+6[0-9][0-9][0-9][0-9]) USLEEP=1000000;;
+7[0-9][0-9][0-9][0-9]) USLEEP=900000;;
+8[0-9][0-9][0-9][0-9]) USLEEP=800000;;
+9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
+*) USLEEP=600000;;
+esac
+echo draw 10 "USLEEP=$USLEEP:SPEED=$SPEED"
+
+USLEEP=$(( USLEEP- ((SPEED/10000)*1000) ))
+echo draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
+
 
 # *** Actual script to pray multiple times *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -74,7 +97,8 @@ for one in `seq 1 1 $NUMBER`
 do
 
 echo "issue 1 1 use_skill praying"
-sleep 1s
+#sleep 1s
+usleep $USLEEP
 
 done
 
