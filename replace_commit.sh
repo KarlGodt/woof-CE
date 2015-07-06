@@ -57,6 +57,11 @@ _test_only_scripts || continue
 
 #echo
 test -e "$sysF" || { echo "$sysF does not exist"; continue; }
+readlink -f "$oneF" || { echo "$oneF may be broken (relative) Link"; continue; }
+case $oneF in
+*.~*) echo "$oneF is backup"; continue;;
+esac
+
 #echo "$sysF"
 
 modF=`stat -c %Y "$oneF"`
@@ -162,7 +167,7 @@ if test "$FORCE_GIT_REPLACE" ; then
  test -d "$oneF" || _force_replace_files_in_git
  continue
 else
- test -d "$oneF" || _update_git
+ test -d "$oneF" || _update_gitupdateWHAT
 fi
 
 _update_system(){
