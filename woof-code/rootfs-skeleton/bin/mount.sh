@@ -1,6 +1,6 @@
 #!/bin/ash
 
-DEBUGT=
+test "$DEBUGT" || DEBUGT=
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -8,6 +8,7 @@ test "$DEBUGT" || return 0
 local _TIME_ LC_NUMERIC=C LC_TIME=C LANG= LC_ALL=
 _DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
 #_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
+(
 if test "$2"; then
 _TIME_=`dc $_DATE_ $2 \- p`
 echo "$0:TIME:$1:$_TIME_"
@@ -15,6 +16,7 @@ else
 #echo "$0:TIME:$*:`date +%s.%N | sed 's:.*\(..\..*\):\1:'`"
 echo "$0:TIME:$*:$_DATE_"
 fi
+) >&2
 }
 
 _debugt 8F
@@ -25,9 +27,10 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 _debugt 8D $_DATE_
 
-Q=-q
-DEBUG=
-DEBUGX=
+
+test "$Q" || Q=-q
+test "$DEBUG" || DEBUG=
+test "$DEBUGX" || DEBUGX=
 test "$DEBUG" && Q='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -237,10 +240,11 @@ _debugt 99 $_DATE_
 test "$mountBEFORE" -a "$mountAFTER" && {
         grepMA=`echo "$mountAFTER" | sed 's!\\\!\\\\\\\!g'` || exit
         grepMB=`echo "$mountBEFORE" | sed 's!\\\!\\\\\\\!g'`
-        updateWHATA=`echo "$mountAFTER" | _command grep -v "$grepMB"`
-        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA"`
+        updateWHATA=`echo "$mountAFTER"  | _command grep -v "$grepMB" | awk '{print $1" "$2" "$3}'`
+        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA" | awk '{print $1" "$2" "$3}'`
         updateWHAT="$updateWHATA
-$updateWHATB" ; }
+$updateWHATB"
+updateWHAT=`echo "$updateWHAT" | sort -u`; }
 _debugt 9f $_DATE_
 
  _check_tmp_rw || return 56
@@ -257,7 +261,7 @@ _debugt 9d $_DATE_
  test "$noROX" -o "$NO_ROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
-         mountpoint $Q "${eoneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || rox -D "${eoneMOUNTPOINT}"
+         mountpoint $Q "${eoneMOUNTPOINT}" && { rox -D "${eoneMOUNTPOINT}"; rox -d "${eoneMOUNTPOINT}"; true; } || rox -D "${eoneMOUNTPOINT}"
          }
         }
  _debugt 9c $_DATE_
