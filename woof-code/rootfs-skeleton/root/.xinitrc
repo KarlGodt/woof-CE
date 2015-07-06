@@ -1,7 +1,9 @@
 #!/bin/sh
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
+. /etc/rc.d/f4puppy5
 . /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
@@ -9,7 +11,7 @@ fi
 
 #v4.01 BK daemon to handle kernel uevents...
 /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-/sbin/pup_event_frontend_d & #v403
+exec /sbin/pup_event_frontend_d & #v403
 
 #w482 reshape background image if widescreen...
 [ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
@@ -21,41 +23,36 @@ sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 # merge in defaults and keymaps
 
-if [ -f $sysresources ]; then
-    xrdb -merge -nocpp $sysresources
-fi
+[ -f $sysresources ]  && xrdb -merge -nocpp $sysresources
 
-if [ -f $sysmodmap ]; then
-    xmodmap $sysmodmap
-fi
+[ -f $userresources ] && xrdb -merge -nocpp $userresources
 
-if [ -f $userresources ]; then
-    xrdb -merge -nocpp $userresources
-fi
+[ -f $sysmodmap ]     && xmodmap $sysmodmap
 
-if [ -f $usermodmap ]; then
-    xmodmap $usermodmap
-fi
+[ -f $usermodmap ]    && xmodmap $usermodmap
+
 
 DEFAULTWM=enlightenment_start
 test -f /etc/windowmanager || { rm -f /etc/windowmanager; echo $DEFAULTWM >/etc/windowmanager; }
 
-CURRENTWM="`cat /etc/windowmanager`"
+read CURRENTWM </etc/windowmanager
+
+if [ -e /tmp/videomode ];then #xvesa only: testing a video mode
+ exec video-wizard &
+fi
+
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
 fi
 
-
 #0.9.8 sync selection-buffer and clipboard. only useful for older apps
 #such as rxvt that use the selection-buffer...
-[ -f /usr/bin/autocutsel ] && /usr/bin/autocutsel &
+[ -f /usr/bin/autocutsel ] && exec /usr/bin/autocutsel &
 #...disadvantage of this is it creates a little square bottom-right of screen.
 
-if [ -e /tmp/videomode ];then #xvesa only: testing a video mode
- video-wizard &
-fi
-
-[ -f /usr/local/bin/agenda_chk ] && agenda_chk &
+[ -f /usr/local/bin/agenda_chk ] && exec agenda_chk &
 
 #v1.0.7 set by xrandrshell, part of xorg wizard... v3.99...
 if [ -f /etc/xrandrindex ];then
@@ -82,7 +79,7 @@ else
  # xset fp+ /usr/share/fonts/default/Type1/
  # xset fp+ /usr/share/fonts/default/TTF/
  #fi
- xset s 600 600 s blank
+ xset s 600 600 s blank # set screensaver defaults
 fi
 
 #v1.0.7 also see /etc/rc.d/rc.local0
@@ -106,12 +103,12 @@ fi
 #/usr/local/bin/rox -p=
 
 #v2.0.0
-/usr/sbin/delayedrun &
+exec /usr/sbin/delayedrun &
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
  IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ ! "$IDLETIME" = "0" ] && unclutter -idle $IDLETIME &
+ [ ! "$IDLETIME" = "0" ] && exec unclutter -idle $IDLETIME &
 fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -134,20 +131,20 @@ fi
 #v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
 if [ -f /usr/bin/absvolume ];then
  if [ "$MENU_BG" = "" ];then
-  absvolume &
+  exec absvolume &
  else
-  absvolume -bg $MENU_BG &
+  exec absvolume -bg $MENU_BG &
  fi
 fi
 
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
 if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
- [ -f /usr/bin/fbpanel ] && fbpanel &
- [ -f /usr/bin/lxpanel ] && lxpanel &
+ [ -f /usr/bin/fbpanel ] && exec fbpanel &
+ [ -f /usr/bin/lxpanel ] && exec lxpanel &
 fi
 
-setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+#setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 _restart_rox(){
 ##w468 rox may not start old hardware, try again...
@@ -169,15 +166,18 @@ exec jwm
 }
 
 _start_wm(){
-test "$*" || return 1	
-#echo "${*##*/}" >/etc/windowmanager	
-#exec "${*##*/}"	
+test "$*" || return 1
+#echo "${*##*/}" >/etc/windowmanager
+#exec "${*##*/}"
 echo "$*" >/etc/windowmanager
 exec "$@"
 }
 
+# freememapplet if wm restarted
+ps | grep inotifywait | grep sizefreem | while read pid rest; do kill $pid; done
+
 which $CURRENTWM  && _start_wm $CURRENTWM
-[ -x $CURRENTWM ] && _start_wm $CURRENTWM 
+[ -x $CURRENTWM ] && _start_wm $CURRENTWM
 _start_wm $DEFAULTWM
 _start_wm jwm
 
