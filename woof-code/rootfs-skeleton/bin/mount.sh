@@ -1,6 +1,7 @@
 #!/bin/ash
 
-DEBUGT=
+test "$DEBUGT" || DEBUGT=
+
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -8,6 +9,7 @@ test "$DEBUGT" || return 0
 local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
 _DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
 #_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
+(
 if test "$2"; then
 _TIME_=`dc $_DATE_ $2 \- p`
 echo "$0:TIME:$1:$_TIME_"
@@ -15,9 +17,10 @@ else
 #echo "$0:TIME:$*:`date +%s.%N | sed 's:.*\(..\..*\):\1:'`"
 echo "$0:TIME:$*:$_DATE_"
 fi
+) >&2
 }
 
-_debugt 8F >&2
+_debugt 8F #>&2
 test "$*" || exec busybox mount
 test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
 _debugt 8E $_DATE_
@@ -25,9 +28,9 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 _debugt 8D $_DATE_
 
-Q=-q
-DEBUG=
-DEBUGX=
+test "$Q" || Q=-q
+test "$DEBUG"  || DEBUG=
+test "$DEBUGX" || DEBUGX=
 test "$DEBUG" && Q='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -92,13 +95,13 @@ fi
 
 _string_to_octal()
 {
-_debug "_string_to_octal:$*" >&2
+_debug "_string_to_octal:$*" #>&2
 unset oSTRING
 if test "$*"; then
 STRING_ORIG="$*"
 
 STRING=`echo "$STRING_ORIG" | sed 's!\(.\)!"\1"\n!g'`
-_debug "_string_to_octal:STRING='$STRING'" >&2
+_debug "_string_to_octal:STRING='$STRING'" #>&2
 
 
 while read -r oneCHAR
@@ -117,9 +120,9 @@ else
 while read -r oneLINE
 do
 #test "$oneLINE" || continue
- #echo "oneLINE='$oneLINE'" >&2
+ #echo "oneLINE='$oneLINE'" #>&2
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
- #echo "STRING='$STRING'" >&2
+ #echo "STRING='$STRING'" #>&2
  while read -r oneCHAR
  do
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
@@ -240,13 +243,14 @@ _debugt 99 $_DATE_
 test "$mountBEFORE" -a "$mountAFTER" && {
         grepMA=`echo "$mountAFTER" | sed 's!\\\!\\\\\\\!g'` || exit
         grepMB=`echo "$mountBEFORE" | sed 's!\\\!\\\\\\\!g'`
-        updateWHATA=`echo "$mountAFTER" | _command grep -v "$grepMB"`
-        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA"`
+        updateWHATA=`echo "$mountAFTER"  | _command grep -v "$grepMB" | awk '{print $1" "$2" "$3}'`
+        updateWHATB=`echo "$mountBEFORE" | _command grep -v "$grepMA" | awk '{print $1" "$2" "$3}'`
         #updateWHATA=`echo "$mountAFTER" | _command grep -v "$mountBEFORE"`
         #updateWHATB=`echo "$mountBEFORE" | _command grep -v "$mountAFTER"`
 
         updateWHAT="$updateWHATA
-$updateWHATB" ; }
+$updateWHATB"
+updateWHAT=`echo "$updateWHAT" | sort -u` ; }
 _debugt 9f $_DATE_
  _check_tmp_rw || return 56
 _debugt 9e $_DATE_
@@ -255,7 +259,7 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
  test "$oneUPDATE" || continue
  eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
- _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
+ _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" #>&2
 _debugt 9d $_DATE_
  test "$noROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
@@ -661,7 +665,7 @@ _debug "o_posPAR='$o_posPAR'"
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
    test "$mountPOINT" && posPAR="$mountPOINT"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
-   test -e "$posPAR" && ls -lv "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
+   test -e "$posPAR" && ls -lv "$posPAR" >$OUT || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
@@ -1134,7 +1138,7 @@ _update()
  _debugt 02 $_DATE_
  while read -r oneDIR
  do
- _debug "oneDIR='$oneDIR'" >&2
+ _debug "oneDIR='$oneDIR'" #>&2
  test "$oneDIR" || continue
  #test "`echo "$oneDIR" | grep -E '/proc|/sys'`" && continue
  _umount_rmdir "$oneDIR"
