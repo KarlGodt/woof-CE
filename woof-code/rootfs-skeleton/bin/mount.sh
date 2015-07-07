@@ -718,7 +718,7 @@ fi
                 for aPID in `fuser -m "$mountPOINT"`
                 do
                 fsUSERS="$fsUSERS
-`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -v 'grep'`
+`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -vE 'grep|message|splash'`
                 "
                 done
                 echo "$fsUSERS"
