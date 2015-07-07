@@ -13,17 +13,17 @@
 #w002 left click to unmount a partition.
 #w476 fix codepage for vfat f.s.
 
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 #w002 extracted as a func...
 unmount_func() {
  rox -D "$MNTPT"
  sync
- while [ 1 ];do
+ while :;do
   /bin/umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
-   ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+   ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`"
    for oneZOMBIE in $ZOMBIES
    do
     echo "Killing parentless zombie process $oneZOMBIE"
@@ -37,7 +37,7 @@ unmount_func() {
   if [ $umVAL -ne 0 ];then
    #EXTRAMSG0="`_command fuser -v -m $MNTPT 2>&1`"
    fsUSERS=`fuser -m "$MNTPT"`
-   EXTRAMSG0=`for i in $fsUSERS; do ps | grep -w $i | grep -v grep;done`
+   EXTRAMSG0=`for i in $fsUSERS; do ps | grep -w $i | grep -vE 'grep|message|splash';done`
    if [ "$EXTRAMSG0" = "" ];then
     xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
 common reason is the media is not currently inserted.
@@ -86,10 +86,10 @@ test "$oneDRVNAME" || _exit 2 "ERROR -- no oneDRVNAME"
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>>$ERR
   sleep 0.1
  fi
- echo 79 >&2
+ LINEPATTERN=0006;_lineno $LINEPATTERN
  exec pmount ${DRV_CATEGORY}
 fi
 
@@ -114,7 +114,7 @@ fi
 
 #v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
 if [ "$1" = "unmountall" ];then
- for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/nbd|^/dev/md|^/dev/mtd' | cut -f 3 -d ' ' | grep -vE '^/initrd/|^/$'`
+ for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/nbd|^/dev/md|^/dev/mtd' | cut -f 3 -d ' ' | grep -vE '^/initrd/|^/$' | tac`
  do
   unmount_func
   STATUS=$((STATUS+$?))
@@ -130,31 +130,33 @@ fi
 # right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=eventmanager 2=
 #in first ex $1 can be drive,floppy,usbdrv,optical,card.
 
+__unmount_dialog__(){
 #v424 have removed this dlg box. maybe make it optional in the future...
-#if [ $2 ];then
-# #if partition already mounted, offer to unmount it...
-# mPATTERN='^/dev/'"$oneDRVNAME"' '
-# MNTPT="`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
-# if [ "$MNTPT" != "" ];then
-#  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
-#   #it is allowed to be unmounted (not in use by woof)...
-#   xmessage -bg "orange" -title "Puppy drive manager" -center -buttons " NO :11,Unmount ${oneDRVNAME}:10,Unmount all:12" "Do you want to unmount ${oneDRVNAME}?
-#It is currently mounted on ${MNTPT}"
-#   UMNTFLG=$?
-#   if [ $UMNTFLG -eq 10 ];then
-#    unmount_func
-#       exit
-#   fi
-#   if [ $UMNTFLG -eq 12 ];then
-#    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
-#       do
-#        unmount_func
-#       done
-#    exit
-#   fi
-#  fi
-# fi
-#fi
+if [ $2 ];then
+ #if partition already mounted, offer to unmount it...
+ mPATTERN='^/dev/'"$oneDRVNAME"' '
+ MNTPT="`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
+ if [ "$MNTPT" != "" ];then
+  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
+   #it is allowed to be unmounted (not in use by woof)...
+   xmessage -bg "orange" -title "Puppy drive manager" -center -buttons " NO :11,Unmount ${oneDRVNAME}:10,Unmount all:12" "Do you want to unmount ${oneDRVNAME}?
+It is currently mounted on ${MNTPT}"
+   UMNTFLG=$?
+   if [ $UMNTFLG -eq 10 ];then
+    unmount_func
+       exit
+   fi
+   if [ $UMNTFLG -eq 12 ];then
+    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tac`
+       do
+        unmount_func
+       done
+    exit
+   fi
+  fi
+ fi
+fi
+}
 
 DRV_CATEGORY="${1}"
 [ "$DRV_CATEGORY" = "" ] && DRV_CATEGORY="drive" #precaution.
@@ -162,7 +164,7 @@ DRV_CATEGORY="${1}"
 
 [ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
 [ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
-[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
+[ $RAMSAVEINTERVAL ] || RAMSAVEINTERVAL=30
 [ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
 [ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
 [ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
@@ -171,10 +173,10 @@ DRV_CATEGORY="${1}"
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
 if [ "$oneDRVNAME" = "drives" ];then
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>>$ERR
   sleep 0.1
  fi
- echo 164 >&2
+ LINEPATTERN=000A;_lineno $LINEPATTERN
  exec pmount $DRV_CATEGORY
 fi
 
@@ -184,10 +186,10 @@ fi
 # =false always start Pmount.
 if [ "$AUTOTARGET" = "false" ];then
  if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>/dev/null
+  killall gtkdialog_pmount 2>>$ERR
   sleep 0.1
  fi
- echo 177 >&2
+ LINEPATTERN=000B;_lineno $LINEPATTERN
  exec pmount $DRV_CATEGORY
 fi
 
@@ -222,7 +224,7 @@ if [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ];then
  test "$FSTYPE" || FSTYPE=iso9660
  test "$FSTYPE" = "unknown" && FSTYPE=iso9660
 fi
-echo 212 >&2
+LINEPATTERN=000C;_lineno $LINEPATTERN
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
@@ -278,10 +280,10 @@ fi
 # just want to bring the window up if it's minimised ...how?
 
 if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
- killall gtkdialog_pmount 2>/dev/null
+ killall gtkdialog_pmount 2>>$ERR
  sleep 0.1
 fi
-echo 271 >&2
+LINEPATTERN=0FFF;_lineno $LINEPATTERN
 exec pmount ${DRV_CATEGORY}
 
 ###END###
