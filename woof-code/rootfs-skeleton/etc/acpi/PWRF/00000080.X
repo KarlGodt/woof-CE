@@ -36,6 +36,8 @@ Version='1.3 Macpup_O2-Puppy_Linux_431 KRG' ## Complete rework of S4 hibernation
 Version='1.4 Macpup_O2-Puppy_Linux_431 KRG' ## S1 handling
                                             ## restore mounts for all modes
                                             ## Typo su(s)pend
+Version='1.5 Macpup_O2-Puppy_Linux_431 KRG' ## _sound_off AND _sound_on functions added
+
 
 usage(){
 MSG="
@@ -87,6 +89,15 @@ echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
 
 # prevent multiple sync running ...
 pidof sync >>$OUT || sync
+
+
+_sound_off(){
+ amixer set Master,0 off
+}
+
+_sound_on(){
+ amixer set Master,0 on
+}
 
 # REM: create menu ...
 #AVAIL_MODES=$(</sys/power/state)  ##bash syntax
@@ -713,6 +724,7 @@ Note : Timesout in $xmPREPARE_TMOUT ...
        ( else press Enter )
 " & xPID=$!
 fi
+_sound_on
 aplay /usr/share/audio/2barks.au
 #===================================================================================================================================
 
@@ -844,6 +856,7 @@ $SWAPS
 "
 [ "$DISPLAY" ] && xmessage -bg red -fg white -title "00000080.X" "Aborted hibernation shutdown
 due for more RAM to send to SWAP than SWAP available" &
+_sound_on
 aplay /usr/share/audio/2barks.au
 exit $1
 }
@@ -957,6 +970,7 @@ SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
 #kill $xPID
 
 _pidof_pid $xPID && wait $xPID
+_sound_off
 sleep 1
 
 echo 'disk' >/sys/power/state 2>>/tmp/acpi.err
@@ -985,6 +999,7 @@ __welcome_back_message__(){
 [ "$DISPLAY" ] && xmessage -bg green -fg white -title "00000080.X" "HELLO AGAIN !
 And WELCOME BACK '$USER'
 on '$HOSTNAME' '$MACHTYPE'" &
+_sound_on
 aplay /usr/share/audio/2barks.au
 }
 ### End HIBERNATION CODE ###
@@ -998,11 +1013,12 @@ else # !hiber
   _notice "About to perform S3 sleep..."
   #kill $xPID
   wait $xPID
+  _sound_off
   sleep 1
 echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 # if fails, debug
 [ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err || {
-  #aplay /usr/share/audio/2barks.au
+  #_sound_on && aplay /usr/share/audio/2barks.au
 
   :
 
@@ -1054,6 +1070,7 @@ __restore_mounts__(){
   _notice "About to perform standby..."
   #kill $xPID
   wait $xPID
+  _sound_off
   sleep 2
   echo standby >/sys/power/state
   sleep 2
@@ -1072,6 +1089,7 @@ __restore_mounts__(){
   _notice "About to perform freeze..."
   #kill $xPID
   wait $xPID
+  _sound_off
   sleep 2
   echo freeze >/sys/power/state
   sleep2
@@ -1083,6 +1101,7 @@ fi
 
 
 echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
+_sound_on
 aplay /usr/share/audio/2barks.au
 BACK_MSG=`gettext "WELCOME BACK, $USER !"`
 xmessage -timeout "$xmPREPARE_TMOUT" -default "okay" -nearmouse -bg seagreen -fg yellow "$BACK_MSG" & xPID=$!
