@@ -72,10 +72,10 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      if test "$MODIFIED2" -ge "$MODIFIED1"; then
      echo "'$ONE_FILE' in WOOF directory newer - replacing the one in system ..."
-     cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM/"
+     /bin/cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM/"
      continue
      else
-     cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
+     /bin/cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
      fi
 
      sleep 1
