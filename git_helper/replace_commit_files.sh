@@ -4,6 +4,8 @@
 . /etc/DISTRO_SPECS
 . /etc/rc.d/f4puppy5
 
+_cd_program_dir || exit
+
 DIR_PRE='../'
 
 _help(){
