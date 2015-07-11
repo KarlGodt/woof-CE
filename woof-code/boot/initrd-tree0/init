@@ -157,6 +157,135 @@
 
 #/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
 
+__ass_layerfs(){
+    LAYERFS=aufs
+[ $layerfs ] && LAYERFS=$layerfs
+[ "`modinfo $LAYERFS 2>/dev/null`" = "" ] && {
+    grep $Q -w "$LAYERFS" /proc/filesystems || unset LAYERFS
+    }
+if test "$LAYERFS" ; then
+:
+else
+LAYERFS=unionfs
+[ $layerfs ] && LAYERFS=$layerfs
+[ "`modinfo $LAYERFS 2>/dev/null`" = "" ] && {
+    grep $Q -w "$LAYERFS" /proc/filesystems || unset LAYERFS
+    }
+fi
+if test "$LAYERFS" ; then
+:
+else
+for FS in aufs unionfs
+ do
+ grep $Q -w "$FS" /proc/filesystems && { LAYERFS=$FS; break; }
+ [ "`modinfo $FS 2>/dev/null`" ] && { LAYERFS=$FS; break; }
+
+ done
+fi
+
+#[ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
+#[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+}
+
+_ass_layerfs(){
+    local tLAYERFS fs
+[ "$layerfs" ] && tLAYERFS=$layerfs
+    for fs in $tLAYERFS aufs unionfs
+    do
+     grep $Q -w "$fs" /proc/filesystems && { LAYERFS=$fs; break; }
+     [ "`modinfo $fs 2>/dev/null`" ] && { LAYERFS=$fs; break; }
+    done
+}
+
+_load_drivers_main(){
+###################LOAD MODULES TO ACCESS DRIVES#####################
+echo -n "Loading drivers needed to access disk drives" > /dev/console #STEP ONE
+
+#_load_serial_removable_driver(){
+_load_drive_drivers(){
+#100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
+#[ "`modinfo floppy 2>/dev/null`" != "" ]  && modprobe floppy
+#[ "`modinfo psmouse 2>/dev/null`" != "" ] && modprobe psmouse
+
+#w462 if present, load it. enables recognition of drives attached to parallel port.
+#[ "`modinfo ppa 2>/dev/null`" != "" ] && modprobe ppa #also loads parport.ko
+#modprobe sr_mod > /dev/null 2>&1 #v3.93 now built-in to kernel.
+
+for ONEDRVMOD in floppy ppa sr_mod psmouse
+do
+ [ "`modinfo $ONEFSMOD 2>/dev/null`" != "" ] && modprobe $ONEDRVMOD
+done
+}
+_load_drive_drivers
+#_load_serial_removable_driver
+
+ELSPCI="`elspci -l`" #jesses great little utility.
+
+_load_pcmcia_drivers(){
+#v403 pcmcia drive support. i think this may need extra delay though...
+if [ "`echo "$ELSPCI" | grep '060700'`" != "" ];then
+ modprobe yenta_socket
+ #...may have to add on a couple of seconds, need to test with a pcmcia drive.
+ #v412 yeah, my pccard-usb adaptor needs delay before elspci recognises 0C0310 (ohci-hcd) interface...
+ echo -n "." > /dev/console
+ sleep 2
+fi
+}
+_load_pcmcia_drivers
+
+_load_ehci_drivers(){
+#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid...
+[ "`echo "$ELSPCI" | grep '0C0320'`" != "" ] && modprobe ehci-hcd
+}
+_load_ehci_drivers
+
+_ass_layerfs
+
+_load_fs_drivers(){
+#121227 extra f.s. drivers may be modules (quirky6)... 130216 add f2fs...
+for ONEFSMOD in ext2 ext3 ext4 fat msdos vfat ntfs reiserfs udf f2fs squashfs $LAYERFS fuse
+do
+ [ "`modinfo $ONEFSMOD 2>/dev/null`" != "" ] && modprobe $ONEFSMOD
+done
+}
+_load_fs_drivers
+
+echo -n "." > /dev/console
+
+_load_other_drivers(){
+MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
+for ONEMODALIAS in $MODALIASES
+do
+  modprobe -v $ONEMODALIAS #-v means verbose.
+  #[ $? -eq 0 ] && echo -n "." > /dev/console
+done
+}
+_load_other_drivers
+
+_load_mmc_drivers(){
+#091222 some mmc/sd interfaces need this...
+#(above code loop may have loaded sdhci/sdhci_pci or tifm_core/tifm_7xx1)
+[ "`lsmod | grep '^sdhci'`" != "" ] && modprobe mmc_core && modprobe mmc_block
+[ "`lsmod | grep '^tifm'`" != "" ]  && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
+}
+_load_mmc_drivers
+
+#modprobe squashfs
+
+#filesystems...
+_load_codepage_drivers(){
+modprobe nls_cp437     2>/dev/null #needed by windows filesystems.
+modprobe nls_iso8859-1 2>/dev/null #needed by linux filesystems.
+}
+_load_codepage_drivers
+
+#modprobe $LAYERFS #unionfs or aufs.
+#modprobe fuse #for ntfs-3g driver.
+
+###################LOAD MODULES TO ACCESS DRIVES#####################
+}
+
+
 _test_kernel_param_root(){
 
 if test "$root"; then
@@ -167,13 +296,17 @@ if test "$root"; then
  case "$root" in
  /dev/ram0) return 0;;
  *)
-    test -e "$root" || return 0
+    #test -e "$root" || return 0
     if [ -f /proc/mounts ]; then
     :
     else
     mount -t proc proc /proc
     mount -t sysfs sysfs /sys
     fi
+
+    _load_drivers_main
+    test -e "$root" || return 0
+
     mount -o ro "$root" /mnt/data || return 0
     test -e /mnt/data/etc/DISTRO_SPECS || {
     umount -lr /mnt/data
@@ -256,6 +389,20 @@ PUPDESKFLG=1 #130515 this may be changed to 0 by 3builddistro.
 ##130612 detect CONFIG_DEVTMPFS=y and CONFIG_DEVTMPFS_MOUNT=y...
 #DEVTMPFSFLG=`gunzip -c /proc/config.gz | grep 'CONFIG_DEVTMPFS.*=y' | wc -l`
 DEVTMPFSFLG=0 #130618 set it from 3builddistro.
+
+_do_devtmpfs(){
+# always use DEVTMPFS now.
+if grep $Q -w devtmpfs /proc/filesystems; then
+DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+ if grep $Q ' /dev ' /proc/mounts; then
+ :
+ else
+ mount -t devtmpfs devtmpfs /dev
+ fi
+fi
+#DEVTMPFSFLG=1 #130618 set it from 3builddistro.
+}
+_do_devtmpfs
 
 #100911 simple filenames specified in DISTRO_SPECS: DISTRO_ZDRVSFS, DISTRO_PUPPYSFS...
 ZDRVSFS="$DISTRO_ZDRVSFS"
@@ -644,6 +791,7 @@ ZDRVINIT='no'
 if [ -f /lib/modules/$KERNELVER/modules.dep ]; then
 [ `cat /lib/modules/$KERNELVER/modules.dep  | wc -l` -gt 200 ] && ZDRVINIT='yes'
 else
+[ -d /lib/modules/$KERNELVER ] || mkdir -p /lib/modules/$KERNELVER
 touch /lib/modules/$KERNELVER/modules.dep
 fi
 
@@ -717,6 +865,7 @@ fi
 
 [ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
 
+__load_drivers_main__(){
 ###################LOAD MODULES TO ACCESS DRIVES#####################
 echo -n "Loading drivers needed to access disk drives" > /dev/console #STEP ONE
 
@@ -768,6 +917,9 @@ modprobe nls_iso8859-1 2>/dev/null #needed by linux filesystems.
 #modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
 modprobe $LAYERFS #unionfs or aufs.
 modprobe fuse #for ntfs-3g driver.
+}
+
+_load_drivers_main
 
 #110126 define ATADRIVES as all internal ide/pata/sata (and mmc) drives (not usb), except optical...
 #110710 rewritten to handle kernel with usb driver built-in...
@@ -1732,7 +1884,7 @@ if [ "$PUPSAVE" != "" ];then
    #done
    for ONEEXTRA in $EXTRASFSLIST ; do
     ONEBASE="`basename $ONEEXTRA`"
-    echo "$ONEBASE" | grep -qE '^z|^pup[_-]' && continue
+    echo "$ONEBASE" | grep -qE '^z|^pup[_-]'   && continue
     echo "/tmp/EXTRASFSS" | grep -q "$ONEBASE" && continue # avoid loading duplicates.
     [ "$xPSUBDIR" != "" ] && [ -s "$SFSSDIR$xPSUBDIR/$ONEBASE" ] && echo "$SFSSDIR$xPSUBDIR/$ONEBASE" >> /tmp/EXTRASFSS && continue
     [ -s "$SFSSDIR/$ONEBASE" ] && echo "$SFSSDIR/$ONEBASE" >> /tmp/EXTRASFSS && continue
