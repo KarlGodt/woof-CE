@@ -4,6 +4,8 @@
 . /etc/DISTRO_SPECS
 . /etc/rc.d/f4puppy5
 
+DIR_PRE='../'
+
 _help(){
 echo "$0:"
 echo "Batch script to find dirs in woof-code/rootfs-skeleton/"
@@ -33,7 +35,7 @@ CURRENT_DIR=`pwd`
 cd "$CURRENT_DIR"
 
 #DIRS=`find  -type d`
-DIRS=`find woof-code/rootfs-skeleton -type d`
+DIRS=`find ${DIR_PRE}woof-code/rootfs-skeleton -type d`
 
 
 while read ONE_DIR; do
@@ -41,8 +43,9 @@ while read ONE_DIR; do
 test "$ONE_DIR" || continue
 
 #ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
-ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
-#echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
+ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed "s!^${DIR_PRE}woof-code/rootfs-skeleton!!"`
+_debugx "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
+
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  cd "$CURRENT_DIR/$ONE_DIR" || _error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
@@ -50,7 +53,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
  FILES=`ls -1vA`
 
  while read ONE_FILE; do
- #echo "ONE_FILE='$ONE_FILE'"
+ _debugx "ONE_FILE='$ONE_FILE'"
  test "$ONE_FILE" || continue
 
  test -f "$ONE_DIR_IN_SYSTEM/$ONE_FILE" || continue
@@ -58,7 +61,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  case $ONE_FILE in
  *.gz|*.xpm|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|*.jpg|fonts.*|*.pcf|*.png|*.so|*.so.conf|*.svg|yaf-splash)
- echo "Skipping '$ONE_FILE'"; continue;;
+ _notice "Skipping '$ONE_FILE'"; continue;;
  esac
 
  [ -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ] && {
@@ -72,10 +75,10 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      if test "$MODIFIED2" -ge "$MODIFIED1"; then
      echo "'$ONE_FILE' in WOOF directory newer - replacing the one in system ..."
-     /bin/cp -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM/"
+     /bin/cp $VERB -a --remove-destination ./"$ONE_FILE" "$ONE_DIR_IN_SYSTEM/"
      continue
      else
-     /bin/cp -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
+     /bin/cp $VERB -a --remove-destination "$ONE_DIR_IN_SYSTEM/$ONE_FILE" .
      fi
 
      sleep 1
@@ -90,7 +93,7 @@ by the one found currently in the system." || _error_cont 1 "git commit failed."
 
      cd "$CURRENT_DIR/$ONE_DIR" || _error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
-    } || { echo "$ONE_DIR_IN_SYSTEM/$ONE_FILE : No such so."; }
+    } || { _err "$ONE_DIR_IN_SYSTEM/$ONE_FILE : No such so."; }
 
  done <<EOI
 `echo "$FILES"`
