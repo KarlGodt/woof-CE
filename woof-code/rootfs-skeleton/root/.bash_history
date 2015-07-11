@@ -3103,3 +3103,79 @@ top
 
 Sat Jul 11 06:06:17 GMT+1 2015
 
+git commit
+git add woof-code/boot/initrd-tree0/init
+git commit -m 'initrd-tree0/init : Changes.'
+./update_files_from_running_system 
+./replace_commit_files.sh 
+git commit
+git add replace_commit_files.sh
+git commit -m 'replace_commit_files.sh: Use /bin/cp .'
+./replace_commit_files.sh 
+git rm woof-code/rootfs-skeleton/root/.retrovolrc 
+git commit -m '/root/.retrovolrc: removed.'
+git log
+git commit
+git add woof-code/rootfs-skeleton/etc/init.d/runmbbservice
+git commit -m '/etc/init.d/runmbbservice: Added.'
+git remote
+git branch
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git branch
+git checkout Fox3-Dell755
+git remote
+git pull
+geany /mnt/sdb6/etc/init.d/runmbbservice 
+crossfire-client-gtk-1.12.svn 
+df /
+ps | grep git
+kill 13728
+ps | grep git
+kill 5689
+ps | grep git
+kill 12027
+ps | grep git
+kill 18731
+ps | grep git
+kill 611
+./_run_all_git.sh 
+killall git
+fsck -nv /dev/sda9
+fsck -fnv /dev/sda9
+fsck -fv /dev/sda9
+fsck -fDv /dev/sda9
+fsck -fDv -E fragcheck /dev/sda9
+git branch
+git checkout Fox3-Dell755
+gir remote
+git remote
+git pull
+git remote
+git branch
+git pull
+git pull krg Fox3-Dell755
+git log
+git remote
+git branch
+git pull
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+grep --help
+jwm -reload
+jwm -restart
+geany /root/.jwmrc-tray
+man grep
+LC_ALL=C man grep
+jwmconfig3
+jwmconfig3
+jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]\+'
+which jwmconfig3
+file /usr/local/bin/jwmconfig3
+geany /usr/local/bin/jwmconfig3
+geany /usr/local/jwmconfig3/jwmConfigMgr 
+git commit
+pwd
+git mv taskbarConfig.hight taskbarConfig.hide
+. ./func
+git mv path variables
