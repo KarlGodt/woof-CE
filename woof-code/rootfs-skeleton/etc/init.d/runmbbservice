@@ -1,0 +1,325 @@
+#!/bin/bash
+
+# Copyright (c) 2008 Huawei Technologies, C
+# All rights reserved.
+#
+# Authors: Franko Fang <huananhu@huawei.com>
+#
+
+### BEGIN INIT INFO
+# Provides:          runmbbservice
+# Required-Start:    $syslog $local_fs
+# Should-Start:
+# Required-Stop:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: runmbbservice  daemon providing cx
+# Description:       Start runmbbservice to allow XY and provide YZ
+#   continued on second line by '#<TAB>'
+#   should contain enough info for the runlevel editor
+#   to give admin some idea what this service does and
+#   what it's needed for ...
+#   (The Short-Description should already be a good hint.)
+### END INIT INFO
+
+HWAPP=/usr/local/MobileBrServ/mbbservice
+
+HW_ADDR='00:1E:10:1F:00:00'
+ETH_IFACE_DEF=eth1
+KERNEL_DRIVER='cdc-ether'
+
+USB_ID_VEND=12d1
+USB_ID_PROD_MODE_STORAGE=157d
+USB_ID_PROD_MODE_MODEM=14dc
+
+
+test -x $HWAPP || { echo "$HWAPP not installed";
+    if [ "$1" = "stop" ]; then exit 0;
+    else exit 5; fi; }
+
+[ "$DEBUG" ] && echo LINENO=32
+. /etc/rc.d/f4puppy5
+[ "$DEBUG" ] && echo LINENO=34
+# Default: Assume sysvinit binaries exist
+#start_daemon() { /sbin/start_daemon ${1+"$@"}; }
+#killproc()     { /sbin/killproc     ${1+"$@"}; }
+#killproc()     { /sbin/killproc    -${2} ${1}; }
+#pidofproc()    { /sbin/pidofproc    ${1+"$@"}; }
+#checkproc()    { /sbin/checkproc    ${1+"$@"}; }
+
+start_daemon() { /sbin/start_daemon "$*"; }
+killproc()     { echo "default function killproc" ;/sbin/kill -$2 $1; }
+pidofproc()    { /sbin/pidof    "$*"; }
+checkproc()    { pidofproc "$*"; }
+
+[ "$DEBUG" ] && echo LINENO=45
+if test -e /etc/rc.status; then
+    # SUSE rc script library
+    . /etc/rc.status
+    [ "$DEBUG" ] && echo LINENO=49
+else
+    [ "$DEBUG" ] && echo LINENO=51
+    export LC_ALL=POSIX
+    _cmd=$1
+    declare -a _SMSG
+    if test "${_cmd}" = "status"; then
+    _SMSG=(running dead dead unused unknown reserved)
+    _RC_UNUSED=3
+    else
+    _SMSG=(done failed failed missed failed skipped unused failed failed reserved)
+    _RC_UNUSED=6
+    fi
+[ "$DEBUG" ] && echo LINENO=62
+    if test -e /lib/lsb/init-functions; then
+    # LSB
+        [ "$DEBUG" ] && echo LINENO=65
+        . /lib/lsb/init-functions
+        [ "$DEBUG" ] && echo LINENO=67
+    echo_rc()
+    {
+        if test ${_RC_RV} = 0; then
+        log_success_msg "  [${_SMSG[${_RC_RV}]}] "
+        else
+        log_failure_msg "  [${_SMSG[${_RC_RV}]}] "
+        fi
+    }
+    # TODO: Add checking for lockfiles
+    checkproc() { return pidofproc ${1+"$@"} >$OUT 2>$ERR; }
+[ "$DEBUG" ] && echo 77
+    elif test -e /etc/init.d/functions; then
+    # RHAT
+    [ "$DEBUG" ] && echo LINENO=81
+    . /etc/init.d/functions
+    [ "$DEBUG" ] && echo LINENO=83
+    echo_rc()
+    {
+        #echo -n "  [${_SMSG[${_RC_RV}]}] "
+        if test ${_RC_RV} = 0; then
+        success "  [${_SMSG[${_RC_RV}]}] "
+        else
+        failure "  [${_SMSG[${_RC_RV}]}] "
+        fi
+    }
+
+    checkproc() { return status ${1+"$@"}; }
+    start_daemon() { return daemon ${1+"$@"}; }
+[ "$DEBUG" ] && echo LINENO=96
+    else
+    # emulate it
+    echo_rc() { echo "  [${_SMSG[${_RC_RV}]}] "; }
+    fi
+
+    rc_reset() { _RC_RV=0; }
+
+    rc_failed()
+    {
+    if test -z "$1"; then
+        _RC_RV=1;
+    elif test "$1" != "0"; then
+        _RC_RV=$1;
+        fi
+    return ${_RC_RV}
+    }
+[ "$DEBUG" ] && echo LINENO=111
+    rc_check()
+    {
+    return rc_failed $?
+    }
+
+    rc_status()
+    {
+    rc_failed $?
+    if test "$1" = "-r"; then _RC_RV=0; shift; fi
+    if test "$1" = "-s"; then rc_failed 5; echo_rc; rc_failed 3; shift; fi
+    if test "$1" = "-u"; then rc_failed ${_RC_UNUSED}; echo_rc; rc_failed 3; shift; fi
+    if test "$1" = "-v"; then echo_rc; shift; fi
+    if test "$1" = "-r"; then _RC_RV=0; shift; fi
+    return ${_RC_RV}
+    }
+[ "$DEBUG" ] && echo LINENO=129
+    rc_exit() { exit ${_RC_RV}; }
+
+    rc_active()
+    {
+    if test -z "$RUNLEVEL"; then read RUNLEVEL REST < <(/sbin/runlevel); fi
+    if test -e /etc/init.d/S[0-9][0-9]${1}; then return 0; fi
+    return 1
+    }
+
+fi
+[ "$DEBUG" ] && echo LINENO=140
+
+_load_driver(){
+:
+test -f /proc/modules || { _warn "/proc/modules does not exist";
+_notice "Is /proc mounted ?"; return 4; }
+grep $Q -w "$KERNEL_DRIVER" /proc/modules || modprobe $V "$KERNEL_DRIVER"
+}
+
+_test_modem(){
+    :
+lsusb | grep "$USB_ID_VEND" | grep $Q "$*"
+}
+
+_wait_for_modeswitch(){
+:
+_test_modem $USB_ID_PROD_MODE_MODEM && {
+echo -n "modeswitch of the modem $USB_ID_VEND:$USB_ID_PROD_MODE_MODEM"; return 0; }
+
+echo -n "Waiting for modeswitch of the modem $USB_ID_VEND:$USB_ID_PROD_MODE_STORAGE .. "
+local c=0
+while :;
+do
+_test_modem $USB_ID_PROD_MODE_MODEM && break
+sleep 2
+c=$((c+1))
+test "$c" = 9 && return 3
+done
+}
+
+_get_iface(){
+:
+ifconfig -a | grep "$HW_ADDR" | awk '{print $1}'
+}
+
+_bring_eth_up(){
+    :
+ETH=`_get_iface`
+test "$ETH" || ETH=$ETH_IFACE_DEF
+test "$ETH" || return 2
+ifconfig | grep $Q $ETH && return 0
+echo -n "bringing interface $ETH up .. "
+ifconfig $ETH up
+rc_status "-v"
+}
+
+_bring_eth_down(){
+    :
+ETH=`_get_iface`
+test "$ETH" || ETH=$ETH_IFACE_DEF
+test "$ETH" || return 2
+ifconfig | grep $Q $ETH || return 0
+echo -n "bringing interface $ETH down .. "
+ifconfig $ETH down
+rc_status "-v"
+}
+
+_dhcpcd_start(){
+    :
+ETH=`_get_iface`
+test "$ETH" || ETH=$ETH_IFACE_DEF
+test "$ETH" || return 2
+echo -n "Starting dhcpcd $DBG $ETH .. "
+ dhcpcd $DBG $ETH
+rc_status "-v"
+}
+
+_dhcpcd_restart(){
+    :
+ETH=`_get_iface`
+test "$ETH" || ETH=$ETH_IFACE_DEF
+test "$ETH" || return 2
+echo -n "Starting dhcpcd $DBG -n $ETH .. "
+ dhcpcd $DBG -n $ETH
+rc_status "-v"
+}
+
+_dhcpcd_term(){
+    :
+ETH=`_get_iface`
+test "$ETH" || ETH=$ETH_IFACE_DEF
+test "$ETH" || return 2
+echo -n "Closing dhcpcd $DBG -x $ETH .. "
+ dhcpcd $DEB -x $ETH
+rc_status "-v"
+}
+
+# Reset status of this service
+rc_reset
+
+ARCHTEK=`uname -m`
+
+case "$1" in
+
+   start)
+
+    case $ARCHTEK in
+    i[0-9]86)
+    :
+    echo -n "Starting runmbbservice "
+    #exec $HWAPP >$OUT 2>$ERR
+    $HWAPP ; #startRV=$?
+    rc_status "-v"
+    #[ "$startRV" = 0 ] && echo " DONE " || echo "FAILED"
+     case $? in 0) :;; *) :
+     #start usb_modeswitch if available
+     :
+     ;;
+     esac
+
+     #_wait_for_modeswitch
+     #rc_status "-v"
+     #test "$?" = 0 && _bring_eth_up && _dhcpcd_start
+
+    ;;
+
+    *) #64bit
+     #start usb_modeswitch if available
+    :
+    ;;
+    esac
+
+     _wait_for_modeswitch
+     rc_status "-v"
+     test "$?" = 0 && { _load_driver; } && { _bring_eth_up; } && { _dhcpcd_start; }
+
+    ;;
+
+   stop)
+    echo -n "Shutting down runmbbservice: "
+    [ "$DEBUG" ] &&  echo LINENO=155
+    #killproc "-TERM" $HWAPP
+    #killproc "" TERM $HWAPP
+    killproc $HWAPP TERM; #killRV=$?
+    rc_status "-v"
+    [ "$DEBUG" ] &&  echo LINENO=159
+    #[ "$killRV" = 0 ] && echo " DONE " || echo "FAILED"
+
+    #rc_status "-v"
+    [ "$DEBUG" ] &&  echo LINENO=163
+     _bring_eth_down
+     _dhcpcd_term
+    ;;
+
+   restart)
+    $0 stop
+    $0 start
+
+    rc_status
+    ;;
+
+   force-reload)
+    pidof ${HWAPP##*/} >>$OUT && {
+    echo -n "Reloading service runmbbservice "
+    #killproc "-HUP" $HWAPP
+     killproc $HWAPP HUP
+    rc_status "-v"
+    } || echo "$HWAPP not running"
+    ;;
+
+   reload)
+    pidof ${HWAPP##*/} >>$OUT && {
+    echo -n "Reloading service runmbbservice "
+    #killproc "-HUP" $HWAPP
+     killproc $HWAPP HUP
+    rc_status "-v"
+    } || echo "$HWAPP not running"
+    ;;
+
+    *)
+    echo "Usage: $0 {start|stop|restart|force-reload|reload}"
+    exit 1
+    ;;
+esac
+rc_exit
