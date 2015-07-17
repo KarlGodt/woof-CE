@@ -5,6 +5,8 @@ echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
 
 # *** Check for parameters *** #
+
+__old_check__(){
 #[ "$*" ] && {
 if test "$*"; then
 PARAM_1="$1"
@@ -33,9 +35,28 @@ echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
         exit 1
 }
 
+} ###__old_check__(){
+
+_say_help_and_exit(){
+echo draw 5 "Script to kill pets except the ones"
+echo draw 5 "given on parameter line."
+echo draw 2 "Syntax:"
+echo draw 5 "$0 pet1 pet2 .."
+echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
+echo draw 5 "for ex. green slime to green_slime ."
+exit 0
+}
+
+case $* in
+'')     echo draw 3 "Script needs pets to keep as argument."
+        echo draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
+         _say_help_and_exit;;
+h|*help) _say_help_and_exit;;
+*) :;;
+esac
 
 keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
-keepPETS="`echo "$keepPETS" | tr ' ' '|'`"
+keepPETS="`echo "$keepPETS" | tr '[ ,]' '|'`"
 keepPETS="`echo "$keepPETS" | tr '_' ' '`"
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
 
@@ -53,10 +74,15 @@ echo "issue 1 1 showpets"
 while [ 1 ]; do
 
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_pets.rpl
+echo "watch drawinfo REPLY='$REPLY'" >>/tmp/cf_pets.rpl
 
+case $REPLY in
+#*" - level "*) # filter in case of disturbing drawinfos ie Y times killed
+*-*level*)      # filter in case of disturbing drawinfos ie Y times killed
 PETS_HAVE="$REPLY
 $PETS_HAVE"
+;;
+esac
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -67,6 +93,8 @@ done
 
 echo unwatch drawinfo
 
+echo "PETS_HAVE='$PETS_HAVE'" >>/tmp/cf_pets.rpl
+echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
 PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i "$PETS_KEEP"`
 echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
 
@@ -102,8 +130,16 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
+[ "$DEBUG" ] && echo draw 3 "$PETS_KILL" #DEBUG
+
 while read onePET
 do
+
+[ "$onePET" ] || continue # empty onePET would kill all pets
+
+case $onePET in
+*have*no*pet*) break;; # stop if we have no pets
+esac
 
 echo draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"
