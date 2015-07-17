@@ -2277,3 +2277,120 @@ git log | grep powerbutton
 git log | grep -B4 powerbutton
 git log | grep -B4 -A1 powerbutton
 git branch
+./git_helper/update_files_from_running_system 
+./git_helper/replace_commit_files.sh 
+amixer set Line,0 10
+amixer set Line,0 20
+amixer set Line,0 30
+amixer set Line,0 40
+amixer set Line,0 20
+amixer set Line,0 10
+arecord -l
+arecord -L
+amixer
+amixer Master,0
+amixer --help
+amixer sget Master,0
+ash
+cat /sys/class/rtc/rtc0/since_epoch
+date +%s
+cat /sys/class/rtc/rtc0/time
+cat /sys/class/rtc/rtc0/date
+/etc/acpi/wakealarm/wakealarm_wake.sh
+which mplayer
+/etc/acpi/wakealarm/wakealarm_wake.sh
+/etc/init.d/runmbbservice restart
+cd woof-code/rootfs-skeleton/root
+mkdir .crossfire
+git commit
+git add woof-code/rootfs-skeleton/etc/acpi/wakealarm.sh
+git add woof-code/rootfs-skeleton/etc/acpi/wakealarm/
+git add woof-code/rootfs-skeleton/usr/share/applications/set_wakealarm.desktop
+git commit -m 'set_wakealarm: Added .desktop file
+and
+/etc/acpi/ scripts
+wakealarm.sh that runs busybox/powerbutton at the end
+wakealarm/wakealarm_wake.sh
+ that both are executed at wakeup event.
+'
+git commit
+git add woof-code/rootfs-skeleton/etc/acpi/busybox/powerbuttonK
+git add woof-code/rootfs-skeleton/etc/acpi/busybox/powerbuttonX
+git commit -m '/etc/acpi/busybox/powerbuttonK
+and
+/etc/acpi/busybox/powerbuttonX
+added.
+'
+pwd
+git branch
+git remote
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+git commit
+git add woof-code/rootfs-skeleton/root/.crossfire/
+git commit -m '/root/.crossfire/: Directory added with
+keys file
+s/ directory for client scripts
+scripts/ directory for script stubs
+.'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+/etc/acpi/wakealarm.sh
+ 
+man date
+date --help
+crossfire
+crossfire-client-gtk-1.12.svn 
+crossfire-client-gtk1-1.12.svn 
+crossfire-client-gtk1v2-1.12.svn 
+crossfire-client-gtk2-1.12.svn 
+crossfire-client-gtk2-1.70.0 
+export GTKRC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+export GTK2RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0 
+export GTKRC2_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0 
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0 
+du -cs -BM /root
+df
+grep GTK *
+type -a date
+busybox date
+/usr/local/bin/date
+/usr/local/bin/date +%s
+busybox date +%s
+busybox date -u +%s
+busybox date +%s
+busybox date +%s; busybox date -u +%s
+/usr/local/bin/date +%s;/usr/local/bin/date -u +%s
+busybox date -R +%s; busybox date -R +%s
+busybox date -R -u +%s; busybox date -R -u +%s
+/usr/local/bin/date -R +%s;/usr/local/bin/date -R -u +%s
+/usr/local/bin/date -R +%s;/usr/local/bin/date -R  +%s
+/usr/local/bin/date -R;/usr/local/bin/date -R
+/usr/local/bin/date -R ;/usr/local/bin/date -u +%s
+/usr/local/bin/date --rfc-3339
+/usr/local/bin/date --rfc-3339=date
+/usr/local/bin/date --rfc-3339=seconds
+/usr/local/bin/date --rfc-3339=ns
+fixmenus
+jwm -reload
+pwd
+grep -r -i wave *
+crossfire-client-gtk-1.12.svn 
+LC_TIME=C date +%s
+cat /sys/class/rtc/rtc0/since_epoch
+LC_TIME=C date +%s
+date +%s
+LC_ALL=C date +%s
+LC_TIME=C date +%s
+echo $((3600/60))
+/etc/acpi/wakealarm.sh
+echo abc,wert,qaz desxc dfg hji,123 | tr '[ ,]' '|'
+pwd
+branch
+git branch
+git checkout Fox3-GreatWallU310-KRGall
+git checkout Opera2-GreatWallU310-KRGall-2013-11-23
+git checkout luci218-GreatWallU310-KRGall-2013-11-24
