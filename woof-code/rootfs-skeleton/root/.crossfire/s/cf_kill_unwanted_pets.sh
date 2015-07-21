@@ -69,9 +69,11 @@ OLD_REPLY="";
 REPLY="";
 
 echo watch drawinfo
+sleep 1
 echo "issue 1 1 showpets"
 
-while [ 1 ]; do
+#while [ 1 ]; do
+while :; do
 
 read -t 1 REPLY
 echo "watch drawinfo REPLY='$REPLY'" >>/tmp/cf_pets.rpl
