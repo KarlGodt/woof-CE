@@ -2598,3 +2598,4 @@ Tue Jul 21 10:28:32 GMT+1 2015
 
 ifconfig
 /etc/init.d/runmbbservice restart
+./git_helper/replace_commit_files.sh 
