@@ -2394,3 +2394,207 @@ git branch
 git checkout Fox3-GreatWallU310-KRGall
 git checkout Opera2-GreatWallU310-KRGall-2013-11-23
 git checkout luci218-GreatWallU310-KRGall-2013-11-24
+git mv s/cf_request_inv.sh scripts/
+git commit
+git rm s/inv
+git mv s/cf_watch_monitor.sh scripts/
+git mv s/cf_watch_request_items_inv.sh scripts/
+git commit
+git add s/cf_cast_spell.sh s/cf_fire_item.sh
+git commit
+git add scripts/inv scripts/req_stats.sh
+git commit
+git add KARL.crossfire.metalforge.net.keys Karl.crossfire.metalforge.net.keys Karl_.crossfire.metalforge.net.keys Trollo.crossfire.metalforge.net.keys karl.crossfire.metalforge.net.keys karl.localhost.keys crossfire_gtkrc-2.0
+git commit
+cd ../../../
+pwd
+cd ..
+pwd
+./git_helper/replace_commit_files.sh 
+git branch
+git remote
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+git branch
+git checkout Fox3-Dell755
+git remote
+git pull
+git remote
+git branch
+git pull
+git branch
+git remote
+git pull
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0 
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk-1.12.svn 
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.12.svn 
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk-1.12.svn 
+crossfire-client-gtk2-1.70.0 
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0 
+diff -up glade-gtk2-1.12.svn/chthonic.glade glade-gtk2-1.70.0/chthonic.glade 
+diff -up glade-gtk2-1.12.svn/chthonic.glade glade-gtk2-1.70.0/chthonic.glade >glade-112svn-1700_chthonic.diff
+crossfire
+which crossfire
+whereis
+whereis crossfire
+file /usr/local/bin/crossfire
+ls /usr/local/bin/crossfire
+ls /usr/local/bin/crossfire/bin
+rmdir /usr/local/bin/crossfire
+rmdir /usr/local/bin/crossfire/bin
+rmdir /usr/local/bin/crossfire
+which crossfire-client-gtk1v2-1.12.svn
+which crossfire-client-gtk2-1.70.0
+mv start_cpu_freq cpu_freq_scaling.init
+mv cpu_freq_scaling.init ./Driver
+mv ./Driver cpu_freq_scaling.init
+mv cpu_freq_scaling.init ./DRIVER
+mv start_cpu_freq cpu_freq_scaling.init
+git commit
+git commit --short
+git add cpu_freq_scaling.init
+git commit
+git mv start_cpu_freq cpu_freq_scaling.init
+pwd
+git commit
+git mv cpu_freq_scaling.init start_cpu_freqORIG
+modinfo cpufreq_governor
+modinfo cpufreq_ondemand
+ls -ld /sys/devices/system/cpu/cpu0/cpufreq
+ls -ld /sys/devices/system/cpu/cpu0/cpufreq/
+ls -ld /sys/devices/system/cpu/cpu0/cpufreq/*
+cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_transition_latency
+ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/
+ls -l /sys/devices/system/cpu/cpufreq/ondemand/
+cat /sys/devices/system/cpu/cpufreq/ondemand/ignore_nice_load 
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_down_factor 
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate_min
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 25 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 225 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 99 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 100 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 125 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 1 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 1 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 10 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 20 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 15 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 11 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 10 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 110 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 101 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+echo 100 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 
+ls -l /sys/devices/system/cpu/cpufreq/ondemand/
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 20000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 200000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 2000000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 20000000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 200000000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 2000000000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 20000000000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate_min
+echo 0 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate_min
+echo 200000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate_min
+echo 0 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 200000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+cat /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate
+echo 20000 >/sys/devices/system/cpu/cpufreq/ondemand/sampling_rate_min
+echo 99 >/sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+cat /sys/devices/system/cpu/cpufreq/ondemand/up_threshold
+ls /sys/devices/system/cpu/cpufreq/ondemand/
+/etc/init.d/runmbbservice restart
+cfclient
+./cfclient
+diff /root/my-applications/sbin/cfclient ./cfclient
+cfclient
+diff /root/my-applications/sbin/cfclient ./cfclient
+diff -qs /root/my-applications/sbin/cfclient ./cfclient
+cfclient
+ifconfig
+top
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk1v2-1.12.svn 
+pidof crossfire-client-gtk1v2-1.12.svn
+kill -9 16354
+crossfire-client-gtk2-1.70.0 
+crossfire-client-gtk2-1.70.0 -server crossfire.metalforge.net
+crossfire-client-gtk2-1.12.svn -server crossfire.metalforge.net
+realpath /usr/local/share/crossfire-client/glade
+ifconfig
+ln -snf glade-gtk2-1.12.svn glade-gtk2
+cfclient
+export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
+crossfire-client-gtk2-1.70.0
+crossfire-client-gtk2-1.12.svn
+/etc/init.d/runmbbservice restart
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice restart
+grep -I -i reset *
+pupx
+/etc/init.d/runmbbservice restart
+man xorg.conf
+git mv bb_mkbd_acpid.init-OLD bb_mkbd_acpid.initOLD
+git mv bb_mkbd_acpid.init-VERYOLD bb_mkbd_acpid.initVERYOLD
+git commit
+which xlsfonts
+type -a xlsfonts
+xlsfonts --help
+find /usr -name "*xlsfonts*"
+
+Mon Jul 20 10:22:16 GMT+1 2015
+
+df
+partprobe
+probepart
+probedisk
+mount /dev/sdc1
+mount /dev/sdd1
+/etc/init.d/runmbbservice restart
+killall fbxkb
+exec fbxkb &
+cfclient
+ifconfig
+
+Tue Jul 21 02:54:24 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+echo $((48*40))
+
+Tue Jul 21 10:28:32 GMT+1 2015
+
+ifconfig
+/etc/init.d/runmbbservice restart
