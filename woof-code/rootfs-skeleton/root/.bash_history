@@ -2599,3 +2599,59 @@ Tue Jul 21 10:28:32 GMT+1 2015
 ifconfig
 /etc/init.d/runmbbservice restart
 ./git_helper/replace_commit_files.sh 
+git branch
+git commit
+git add woof-code/rootfs-skeleton/root/my-applications/bin/cfclient
+git commit -m '/root/my-applications/bin/cfclient: Added. For crossfire.'
+./git_helper/replace_commit_files.sh 
+git remote
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+/etc/init.d/runmbbservice restart
+grep -r -i tarifvertrag * | grep -i dachdecker
+grep -r -i tarifvertrag * | while read file rest; do echo $file; done
+grep -r -i tarifvertrag * | while read file rest; do echo ${file%:*}; done
+grep -r -i tarifvertrag * | while read file rest; do echo ${file%:*};grep -i dachdecker ${file%:*}; done
+grep -r -i tarifvertrag * | while read file rest; do grep -i dachdecker ${file%:*}; done
+grep -r -i tarifvertrag * | while read file rest; do grep -H -i dachdecker ${file%:*}; done
+grep -m1 -r -i tarifvertrag *
+grep -r -m 1 -i dachdecker *
+grep -r -i 'Schlechtwetter' *
+ifconfig
+cfclient
+cfclient
+
+Thu Jul 23 10:59:50 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+/etc/init.d/runmbbservice restart
+
+Fri Jul 24 03:01:11 GMT+1 2015
+
+ifconfig
+ifconfig -a
+ifconfig
+ifconfig -a
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.sysinit.run
+geany /sbin/init
+mkdir -v /tmp/verboseMKDIR
+mkdir -v -v /tmp/verboseMKDIR
+mkdir -v -p /tmp/verboseMKDIR
+rmdir -v /tmp/verboseMKDIR
+touch /tmp/touch1
+rm -v /tmp/touch1
+/etc/init.d/runmbbservice restart
+ifconfig eth2 up
+ifconfig eth1 up
+ifconfig eth0 up
+ifconfig eth0 down
+/etc/init.d/runmbbservice restart
+ifconfig
+cfclient
+man alsactl
+man aplay
+
+Sat Jul 25 11:58:39 GMT+1 2015
+
