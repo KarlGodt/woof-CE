@@ -1,5 +1,7 @@
 #!/bin/ash
 
+export PATH=/bin:/usr/bin
+
 DEBUG=1
 LOGGING=1
 
