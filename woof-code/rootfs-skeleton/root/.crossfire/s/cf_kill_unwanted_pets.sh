@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=/bin:/usr/bin
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
@@ -55,11 +57,15 @@ h|*help) _say_help_and_exit;;
 *) :;;
 esac
 
+echo "\$*='$*'" >>/tmp/cf_pets.rpl
 keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
 keepPETS="`echo "$keepPETS" | tr '[ ,]' '|'`"
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
 keepPETS="`echo "$keepPETS" | tr '_' ' '`"
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
-
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
 echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
 
