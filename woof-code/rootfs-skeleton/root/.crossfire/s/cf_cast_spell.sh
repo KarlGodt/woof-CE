@@ -24,6 +24,8 @@
 # * Also high armour class and armour resistances may be of some use
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
 
+export PATH=/bin:/usr/bin
+
 # *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
 # *** common editable variables
 VERBOSE=1  # be a bit talkactive
