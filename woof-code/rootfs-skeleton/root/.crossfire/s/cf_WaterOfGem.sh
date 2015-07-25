@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=/bin:/usr/bin
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
