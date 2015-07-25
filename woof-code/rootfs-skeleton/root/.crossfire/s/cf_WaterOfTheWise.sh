@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=/bin:/usr/bin
+
 # *** Here begins program *** #
 echo drawextinfo 2 1 1 "$0 is started.."
 
