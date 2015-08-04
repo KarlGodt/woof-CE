@@ -1,5 +1,6 @@
 #!/bin/ash
 
+export PATH=/bin:/usr/bin
 
 rm -f /tmp/cf_inv.*
 
