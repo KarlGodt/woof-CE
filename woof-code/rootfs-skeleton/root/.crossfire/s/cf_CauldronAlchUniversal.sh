@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=/bin:/usr/bin
+
 exec 2>>/tmp/cf_script.err
 
 # *** Here begins program *** #
