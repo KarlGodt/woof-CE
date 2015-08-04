@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export PATH=/bin:/usr/bin
 
 #echo "`env`" >>/tmp/cf_script.env
 
