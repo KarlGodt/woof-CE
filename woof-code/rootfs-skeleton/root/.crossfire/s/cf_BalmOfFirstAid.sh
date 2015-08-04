@@ -1,5 +1,7 @@
 #!/bin/ash
 
+export PATH=/bin:/usr/bin
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
