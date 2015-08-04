@@ -26,6 +26,7 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
+export PATH=/bin:/usr/bin
 
 
 # *** Here begins program *** #
