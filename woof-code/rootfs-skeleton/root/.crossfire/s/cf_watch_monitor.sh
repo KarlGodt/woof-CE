@@ -1,5 +1,6 @@
 #!/bin/ash
 
+export PATH=/bin:/usr/bin
 
 mv -f /tmp/cf_watch_monitor.txt /tmp/cf_watch_monitor.txt.0
 
