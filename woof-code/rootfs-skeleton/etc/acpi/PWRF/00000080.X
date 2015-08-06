@@ -15,7 +15,16 @@
 # REM: f4puppy5 short for functions4puppy5
 . /etc/rc.d/f4puppy5
 
+_sound_off(){
+ amixer set Master,0 off
+}
+
+_sound_on(){
+ amixer set Master,0 on
+}
+
 # REM: make some noise to inform that things are going on..
+_sound_on
 aplay /usr/share/audio/2barks.au
 
 # REM: Version and usage section...
@@ -37,7 +46,7 @@ Version='1.4 Macpup_O2-Puppy_Linux_431 KRG' ## S1 handling
                                             ## restore mounts for all modes
                                             ## Typo su(s)pend
 Version='1.5 Macpup_O2-Puppy_Linux_431 KRG' ## _sound_off AND _sound_on functions added
-
+Version='1.6 Macpup_O2-Puppy_Linux_431 KRG' ## Code cleanup
 
 usage(){
 MSG="
@@ -89,15 +98,6 @@ echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
 
 # prevent multiple sync running ...
 pidof sync >>$OUT || sync
-
-
-_sound_off(){
- amixer set Master,0 off
-}
-
-_sound_on(){
- amixer set Master,0 on
-}
 
 # REM: create menu ...
 #AVAIL_MODES=$(</sys/power/state)  ##bash syntax
@@ -541,26 +541,6 @@ if pidof X; then
   # REM: regular ps outputs 'human readable' tty
   #      busybox ps tells major and minor of tty
 
-  __bin_ps__(){
-   ttyALL=`ps -A -o pid,ppid,tty,args | awk '{if (match($3, "tty[0-9]?")) print}'`
-   _debugx "ttyALL='$ttyALL'"
-   ttyX=`echo "$ttyALL" | awk '{if ($4 == "X" && $5 == ":0") print $3}' | head -n1`
-   _info "X server found running on '$ttyX'"
-   #sanity checks ..
-   test -c /dev/"$ttyX" && {
-   _debug "OK, /dev/'$ttyX' is a character special device"
-   nrVT=${ttyX##*[[:alpha:][:punct:]_]}
-   case $nrVT in
-    [1-9]|[1-9][0-9]) chvt $nrVT
-                      RV=$?;
-    [ $RV = 0 ] && { _debug "OK, switched to tty${nrVT}"; } || { _err "chvt '$nrVT' returned with '$RV' exitcode"; }
-    ;;
-    *) _err "'$nrVT' not in range of 1-9 | 10-99";;
-   esac
-   true
-   } || { _warn "/dev/'$ttyX' not a character special file .. WHAT ??"; }
-  }
-
  # busybox ps
  ttyALL=`busybox ps -A -o pid,ppid,tty,args | awk '{if (match($3, "4,[0-9]?")) print}'`
   _debugx "ttyALL='$ttyALL'"
@@ -743,11 +723,11 @@ readonly MNTDPARTS
 
 echo -e "\e[1;35m""Unmounting stray filesystems:""\e[0;39m"
 # REM: filter out rootfs, pseudo-file-systems and frugal layer mounts ...
-STRAYPARTL=`echo "$MNTDPARTS" |grep -vE ' /dev | /dev/shm | /dev/pts | devpts | /proc | /sys | proc | sysfs | *tmpfs  | *ramfs | rootfs |/dev/root | usbfs | unionfs | /initrd| on / '`
+STRAYPARTL=`echo "$MNTDPARTS" |grep -vE ' /dev | /dev/shm | /dev/pts | devpts | /proc | /sys | proc | sysfs | *tmpfs  | *ramfs | rootfs |/dev/root | usbfs | unionfs | /initrd| / '`
 
 readonly STRAYPARTL
 
-STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 2 -d " "` ### |sed 's# type.*##' | tr ' ' '·'`
+STRAYPARTMP=`echo "$STRAYPARTL" | cut -f 2 -d " "`
 
 pidof sync || sync
 
@@ -759,11 +739,6 @@ do
  [ "$oneSTRAY" ] || continue
  unset yPID  #yaf PID
 
-__old__space__care__code__(){
- #Prepare the vars :
- oneSTRAY="${oneSTRAY//·/ }"
- oneSTRAY=${oneSTRAY//\"/}
-}
  # REM: use echo -e to handle \0octal entries
  #      !MUST! be done after test if ntfs or not
  #      because otherwise mountpoint entry from /proc/mounts
@@ -775,45 +750,6 @@ __old__space__care__code__(){
  #echo -e "\e[1;31mUnmounting '$oneSTRAY'...\e[0;39m"
 
  pidof sync >>$OUT || sync
-
- # REM: fusermount disabled, because if it calls umount -i
- #      it would probably not be able to transform -z into -l
- #      and -o ro into -O ro -- busybox umount does not understand
- #                              -o or -O anyways ....
- __use_fusermount__(){
- # ntfs or not:
- # REM: lame grep attempt
- #if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
-
- #awk "{if (\$2 == \"$oneSTRAY\" && ( match(\$3, \".*fuse.*\") || match(\$3, \".*ntfs.*\") )) print}" /proc/mounts ## DEBUG
- if [ "`awk "{if (\\$2 == \\"$oneSTRAY\\" && ( match(\\$3, \\".*fuse.*\\") || match(\\$3, \\".*ntfs.*\\") )) print}" /proc/mounts`" ]; then
-
- # REM: now translate \0octals ...
- oneSTRAY=`echo -e "$oneSTRAY"`
-
- echo -e "\e[1;31mfusermount unmounting '$oneSTRAY'...\e[0;39m"
- [ "$DISPLAY" ] && yaf-splash -bg purple -text "Unmounting '$oneSTRAY'..." & yPID=$!
-
- # REM: fusermount version: 2.7.0 [options] mountpoint
- # REM: ignoreROX env var for mount.sh, mainly for nodev file-systems...
- ignoreROX=1 fusermount -u "$oneSTRAY"   ##unmounts MountPoint
-
- else
-
- # REM: now translate \0octals ...
- oneSTRAY=`echo -e "$oneSTRAY"`
-
- echo -e "\e[1;31mUnmounting '$oneSTRAY'...\e[0;39m"
- [ "$DISPLAY" ] && yaf-splash -bg purple -text "Unmounting '$oneSTRAY'..." & yPID=$!
-
- ignoreROX=1 /bin/umount $VERB -r "$oneSTRAY"  ##unmounts MountPoint
- echo -e "\e[1;31m'$?'\e[0;39m"
- #sleep 1
- fi
-
- sleep 1
- [ "$yPID" -a "`ls -d /proc/$yPID`" ] && kill $yPID
- }  ###__use_fusermount__(){
 
   # REM: now translate \0octals ...
  oneSTRAY=`echo -e "$oneSTRAY"`
@@ -840,131 +776,6 @@ pidof sync >>$OUT || sync
 #### S4/204
 if [ "$HIBER" ];then
 
-__old_resume_partition_code__(){
-# REM: Now comes a bunch of sanity checks ...
-
-# REM: Error message macro:
-show_swaps(){
-echo "$2
-"
-
-echo "
-Currently available swap partitions :
-$SWAPS
-
-`free`
-"
-[ "$DISPLAY" ] && xmessage -bg red -fg white -title "00000080.X" "Aborted hibernation shutdown
-due for more RAM to send to SWAP than SWAP available" &
-_sound_on
-aplay /usr/share/audio/2barks.au
-exit $1
-}
-
-#prepare vars:
-
-__determine_swaps_using_fdisk__(){
-SWAPS_LONG=`fdisk -l |grep -i 'swap'`
-SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
-}
-
-SWAPS=`_find_swap_devices`
-
-SWAPS_ON=`grep -v 'deleted' /proc/swaps |sed '1d'`
-
-# REM: /sys/power/image_size has default 500MB in bytes
-#      gzip compression is 2-4 times of source
-#      500 MB * 2.5 would make 1,250 MB RAM content a 500MB resume image
-#      I assume 1:1 and compare free Mem and Swap lines...
-#MEM_USED=`free |grep -i 'Mem' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $3}'`
-MEM_USED=`free | awk '/Mem:/ {print $3}'`
-#SWAP_FREE=`free |grep -i 'Swap' |tr -s ' ' |sed 's/^[[:blank:]]*//' |awk '{print $4}'`
-SWAP_FREE=`free | awk '/Swap:/ {print $4}'`
-# REM: NOTE: This now is complete swap space of all current used swaps
-# TODO: Need to calculate the swap space of the used swap partition further down ...
-#       And filter out available swaps with too little space (<500MB or <RAM)
-[ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to DISK due to free swap lesser than used mem"
-
-# Sanity checks..
-# REM: /sys/power/resume may be already set
-# or set by CONFIG_PM_STD_PARTITION in kernel .config
-read RESUME_MAJ_MIN </sys/power/resume
-
- if test "$RESUME_MAJ_MIN"; then
-
-  # need to transform digits to hex .. DAMN ...
-  RESUME_MAJ=${RESUME_MAJ_MIN%:*}
-  RESUME_MIN=${RESUME_MAJ_MIN#*:}
-
-  RESUME_MAJh=`printf %x $RESUME_MAJ`
-  RESUME_MINh=`printf %x $RESUME_MIN`
-# get the /dev/<resume partition> (CONFIG_PM_STD_PARTITION in kernel .config)
- RESUME_DEVICE=`stat -c %t":"%T" "%n /dev/* | grep -m1 "^${RESUME_MAJh}:${RESUME_MINh}" | awk '{print $2}'`
-# Sanity checks...
-  [ -b "$RESUME_DEVICE" ] || unset RESUME_DEVICE RESUME_MAJ_MIN RESUME_MAJ RESUME_MIN
-  guess_fstype "$RESUME_DEVICE" | grep $Q -i swap || unset RESUME_DEVICE RESUME_MAJ_MIN RESUME_MAJ RESUME_MIN
- [ "$RESUME_DEVICE" ] || { _warn "RESUME_DEVICE='$RESUME_DEVICE' had to be unset"; echo "" >/sys/power/resume; }
- fi
-
-_verify_resume_partition(){
-# ACPI_S4_RESUME_PARTITION : parameter option to this script
-# or environment variable (still todo..)
- if test "$ACPI_S4_RESUME_PARTITION"; then
-  [ -b "$ACPI_S4_RESUME_PARTITION" ] || unset ACPI_S4_RESUME_PARTITION
-  guess_fstype "$ACPI_S4_RESUME_PARTITION" | grep $Q -i swap || unset ACPI_S4_RESUME_PARTITION
-  [ "$ACPI_S4_RESUME_PARTITION" ] || _warn "ACPI_S4_RESUME_PARTITION='$ACPI_S4_RESUME_PARTITION' had to be unset"
- fi
-}
- if [ "$ACPI_S4_RESUME_PARTITION" ];then
-
-  # REM: handle /sys/power/resume entry...
-  if [ "$RESUME_DEVICE" ]; then
-      ACPI_S4_RESUME_PARTITION_MAJh=`stat -c %t $ACPI_S4_RESUME_PARTITION`
-      ACPI_S4_RESUME_PARTITION_MINh=`stat -c %T $ACPI_S4_RESUME_PARTITION`
-   if
-   [ "$ACPI_S4_RESUME_PARTITION_MAJh" = "$RESUME_MAJh" ] && \
-   [ "$ACPI_S4_RESUME_PARTITION_MINh" = "$RESUME_MINh" ]
-   then
-   _info "OK, ACPI_S4_RESUME_PARTITION should be identical with RESUME_DEVICE"
-   else
-   _warn "ACPI_S4_RESUME_PARTITION seems not to be identical with RESUME_DEVICE, using ACPI_S4_RESUME_PARTITION for /sys/power/resume"
-   ACPI_S4_RESUME_PARTITION_MAJ=`printf %d 0x$ACPI_S4_RESUME_PARTITION_MAJh`
-   ACPI_S4_RESUME_PARTITION_MIN=`printf %d 0x$ACPI_S4_RESUME_PARTITION_MINh`
-   echo "${ACPI_S4_RESUME_PARTITION_MAJ}:${ACPI_S4_RESUME_PARTITION_MIN}" >/sys/power/resume
-   [ $? = 0 ] || _exit 98 "#%^&!!@#!"  ##TODO
-   fi
-  fi
-
- [ "`echo "$SWAPS" |grep "^$ACPI_S4_RESUME_PARTITION"`" ] || show_swaps 1 "'$ACPI_S4_RESUME_PARTITION' seems not to be a regular swap partition"
-#[ "`echo "$SWAPS" |grep -w "$ACPI_S4_RESUME_PARTITION"`" ] || show_swaps 1 "'$ACPI_S4_RESUME_PARTITION' seems not to be a regular swap partition"
- { for swap in $SWAPS_ON;do swapoff $swap;sleep 1s;pidof sync || sync;done;
-   swapon $ACPI_S4_RESUME_PARTITION;
-   [ $? = 0 ] || _exit 99 "#%^&!!@#!"; }  ##TODO
-   FIRST_SWAP=$ACPI_S4_RESUME_PARTITION
-
- else # no ACPI_S4_RESUME_PARTITION...
-
- FIRST_SWAP=`echo "$SWAPS" |head -n1`
-
-# REM: test if there is a swap partition labeled partly 'hiber' or 'resume' use this ...
- for swap in $SWAPS;do
- SWAP_LABEL_RESUME=`blkid $swap |grep -iE 'Resume|Hiber' |cut -f1 -d':'`
- [ "$SWAP_LABEL_RESUME" ] && { FIRST_SWAP=$SWAP_LABEL_RESUME;break; }
- done
-
-# turn off swaps
- SWAPS_TO_TURN_OFF=`echo "$SWAPS" |grep -vw "$FIRST_SWAP"`
- echo "Swapping off all unneeded swaps..."
- for swap in $SWAPS_TO_TURN_OFF;do swapoff $swap;sleep 1s;pidof sync || sync;done
-
- fi #ACPI_S4_RESUME_PARTITION
-
-SWAP_FREE=`free |grep -i 'Swap' |awk '{print $4}'`
-
-[ "$SWAP_FREE" -ge "$MEM_USED" ] || show_swaps 1 "Cowardly refusing to suspent to RAM due to free swap lesser than used mem"
-} ###__old_resume_partition_code__(){ #END
-
-
  _notice "About to perform hibernation..."
 #_final_acknowledgement
 #kill $xPID
@@ -979,10 +790,6 @@ echo 'disk' >/sys/power/state 2>>/tmp/acpi.err
 sleep 3s
 echo "$0: HELLO AGAIN '$USER'"  ##DEBUG
 
-__determine_swaps_using_fdisk_after__(){
-SWAPS_LONG=`fdisk -l |grep -i 'swap'`
-SWAPS=`echo "$SWAPS_LONG" |awk '{print $1}'`
-}
 
 SWAPS=`_find_swap_devices`
 
@@ -993,15 +800,6 @@ swapon $swap;sleep 1s;done
 
 free ##DEBUG
 
-# REM: now at the very end of script
-__welcome_back_message__(){
-# REM: welcome back message ...
-[ "$DISPLAY" ] && xmessage -bg green -fg white -title "00000080.X" "HELLO AGAIN !
-And WELCOME BACK '$USER'
-on '$HOSTNAME' '$MACHTYPE'" &
-_sound_on
-aplay /usr/share/audio/2barks.au
-}
 ### End HIBERNATION CODE ###
 #===================================================================================================================================
 
@@ -1019,44 +817,6 @@ echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 # if fails, debug
 [ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err || {
   #_sound_on && aplay /usr/share/audio/2barks.au
-
-  :
-
-__restore_mounts__(){
-  # REM: some cooling 5 seconds here...
-  sleep 5
-
-  # REM : restore mounts again
-  #       use \n as IFS to care for special chars like space in path/to/mountpoint
-  oldIFS="$IFS"
-  IFS=$'\n'
-  for oneLINE in $STRAYPARTL
-  do
-   _device_=${oneLINE%% *}
-   _mntpnt_=`echo "$oneLINE" | awk '{print $2}'`
-   _mntpnt_=`echo -e "$_mntpnt_"`
-   _fstype_=`echo "$oneLINE" | awk '{print $3}'`
-   _mntops_=`echo "$oneLINE" | awk '{print $4}'`
-
-   test "$_device_" -a "$_mntpnt_" -a "$_fstype_" -a "$_mntops_" || continue
-
-    # ignoreROX env variable for mount.sh
-   grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && ignoreROX=1
-
-   # Remount it if still in proc/mounts ( umount -r option )
-   if grep $Q -w "$_mntpnt_" /proc/mounts; then
-    ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
-   else
-   # mount it again
-    ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
-   fi
-
-   sleep 0.2
-   unset ignoreROX
-  done
-  IFS="$oldIFS"
-
-   }
 
   :
 
