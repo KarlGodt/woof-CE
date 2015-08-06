@@ -3,12 +3,12 @@
 #==================
 #
 # ACPI managing script
-# Has dialog (xmessage) to select between
-# detected ACPI Power Management (PM) states
-# supported by the current running kernel
-# The linux kernel has various ACPI configuration
-# options and Puppy Linux default kernels mostly
-# came with just S3 RAM sleep enabled.
+#  Has dialog (xmessage) to select between
+#   detected ACPI Power Management (PM) states
+#   supported by the current running kernel
+#  The linux kernel has various ACPI configuration
+#   options and Puppy Linux default kernels mostly
+#   came with just S3 RAM sleep enabled.
 #
 #==================
 
@@ -24,8 +24,8 @@ _sound_on(){
 }
 
 # REM: make some noise to inform that things are going on..
-_sound_on
-aplay /usr/share/audio/2barks.au
+#_sound_on
+test -e  /usr/share/audio/2barks.au && _sound_on && aplay /usr/share/audio/2barks.au
 
 # REM: Version and usage section...
 Version='1.0 Macpup_O2-Puppy_Linux_431 KRG'
@@ -47,6 +47,9 @@ Version='1.4 Macpup_O2-Puppy_Linux_431 KRG' ## S1 handling
                                             ## Typo su(s)pend
 Version='1.5 Macpup_O2-Puppy_Linux_431 KRG' ## _sound_off AND _sound_on functions added
 Version='1.6 Macpup_O2-Puppy_Linux_431 KRG' ## Code cleanup
+Version='1.7 Macpup_O2-Puppy_Linux_431 KRG' ## function stubs for ifconfig -- don't know if that is really needed
+                                            ##  until now not shutting down eth1 and dhcpcd were working OK after wakeup
+                                            ##  cannot see use in shutting them down until now
 
 usage(){
 MSG="
@@ -705,12 +708,85 @@ Note : Timesout in $xmPREPARE_TMOUT ...
 " & xPID=$!
 fi
 _sound_on
-aplay /usr/share/audio/2barks.au
+test -e  /usr/share/audio/2barks.au && _sound_on && aplay /usr/share/audio/2barks.au
 #===================================================================================================================================
 
+#=======================================
+# REM: shutdown  internet connection ..?
 
-# REM: shutdown pppd internet connection ..?
+_list_active_ifaces(){
+IFACE_ACTIVE=`ifconfig | sed -n '/^[[:alnum:]]/ p' | awk '{print $1}'`
+echo "$IFACE_ACTIVE"
+}
+
+_ifconfig_down(){
+
+_list_active_ifaces
+
+for iface in $IFACE_ACTIVE
+do
+case $iface in lo) continue;;
+esac
+ifconfig $VERB $iface down
+
+done
+}
+
+# REM: shutdown dhcpcd
+_close_dhcpcd(){
+
+for iface in $$IFACE_ACTIVE
+do
+case $iface in eth*) :;; *)continue;;
+esac
+dhcpcd $DBG -k $iface
+#dhcpcd $DBG -x $iface
+done
+
+#[ "`pidof dhcpcd`" ] && { echo "Shutting down dhcpcd" ;kill -2 `pidof dhcpcd`;sleep 1; }
+}
+
+# REM: shutdown pppd
+_close_pppd(){
 [ "`pidof pppd`" ] && { echo "Shutting down pppd" ;kill -2 `pidof pppd`;sleep 1; }
+}
+
+
+_ifconfig_up(){
+
+for iface in $IFACE_ACTIVE
+do
+case $iface in lo) continue;;
+esac
+ifconfig $VERB $iface up
+
+done
+}
+
+# REM: start dhcpcd
+_start_dhcpcd(){
+for iface in $$IFACE_ACTIVE
+do
+case $iface in eth*) :;; *)continue;;
+esac
+dhcpcd $DBG $iface && break
+
+done
+}
+
+# REM: start pppd
+_start_pppd(){
+for iface in $$IFACE_ACTIVE
+do
+case $iface in ppp*) :;; *)continue;;
+esac
+pgprs-connect && break
+#pppd $PPPD_DEBUG $PPPD_RECORD $PPPD_REC_FILE call gprsmm
+#un=${iface#*ppp}; pppd unit $un
+done
+}
+
+#=======================================
 
 
 # REM: unmount almost everything unmountable...
@@ -816,7 +892,7 @@ else # !hiber
 echo 'mem' >/sys/power/state 2>>/tmp/acpi.err
 # if fails, debug
 [ $? -ne 0 ] && xmessage -bg red -title "00000080.X" -file /tmp/acpi.err || {
-  #_sound_on && aplay /usr/share/audio/2barks.au
+  #test -e  /usr/share/audio/2barks.au && _sound_on && aplay /usr/share/audio/2barks.au
 
   :
 
@@ -861,8 +937,8 @@ fi
 
 
 echo "$0:$*:$$:`date +%F~%T`:$KERN_REL"  ##DEBUG
-_sound_on
-aplay /usr/share/audio/2barks.au
+#_sound_on
+test -e  /usr/share/audio/2barks.au && _sound_on && aplay /usr/share/audio/2barks.au
 BACK_MSG=`gettext "WELCOME BACK, $USER !"`
 xmessage -timeout "$xmPREPARE_TMOUT" -default "okay" -nearmouse -bg seagreen -fg yellow "$BACK_MSG" & xPID=$!
 
