@@ -26,7 +26,7 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
-
+ export PATH=/bin:/usr/bin
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -174,6 +174,7 @@ echo "issue 1 1 apply flint and steel"
  test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test  "`echo "$REPLY" | grep 'used up flint and steel'`" && f_exit 2
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
