@@ -55,7 +55,7 @@ test -x $HWAPP || { echo "$HWAPP not installed";
     else exit 5; fi; }
 
 
-# Default: Assume sysvinit binaries exist
+# Default: Assume SuSE patched sysvinit binaries exist
 start_daemon() { /sbin/start_daemon ${1+"$@"}; }
 #killproc()     { /sbin/killproc     ${1+"$@"}; }
 killproc()     { /sbin/kill        -${2} ${1##*/}; }
@@ -124,11 +124,11 @@ else
     rc_status()
     {
     rc_failed $?
-    if test "$1" = "-r"; then _RC_RV=0; shift; fi
-    if test "$1" = "-s"; then rc_failed 5; echo_rc; rc_failed 3; shift; fi
-    if test "$1" = "-u"; then rc_failed ${_RC_UNUSED}; echo_rc; rc_failed 3; shift; fi
-    if test "$1" = "-v"; then echo_rc; shift; fi
-    if test "$1" = "-r"; then _RC_RV=0; shift; fi
+    if test "$1" = "-r"; then _RC_RV=0; shift;
+    elif test "$1" = "-s"; then rc_failed 5; echo_rc; rc_failed 3; shift;
+    elif test "$1" = "-u"; then rc_failed ${_RC_UNUSED}; echo_rc; rc_failed 3; shift;
+    elif test "$1" = "-v"; then echo_rc; shift;
+    elif test "$1" = "-r"; then _RC_RV=0; shift; fi
     return ${_RC_RV}
     }
     rc_exit() { exit ${_RC_RV}; }
@@ -156,7 +156,7 @@ lsusb | grep "$USB_ID_VEND" | grep $Q "$*"
 _wait_for_modeswitch(){
 :
 _test_modem $USB_ID_PROD_MODE_MODEM && {
-echo -n "modeswitch of the modem $USB_ID_VEND:$USB_ID_PROD_MODE_MODEM"; return 0; }
+echo -n "modeswitch of the modem $USB_ID_VEND:$USB_ID_PROD_MODE_MODEM "; return 0; }
 
 echo -n "Waiting for modeswitch of the modem $USB_ID_VEND:$USB_ID_PROD_MODE_STORAGE .. "
 local c=0
@@ -202,7 +202,12 @@ ETH=`_get_iface`
 test "$ETH" || ETH=$ETH_IFACE_DEF
 test "$ETH" || return 2
 echo -n "Starting dhcpcd $DBG $ETH .. "
+if ps | grep dhcpcd | grep $Q $ETH ; then
+ echo -n "dhcpcd for $ETH already running "
+ _RC_RV=5
+else
  dhcpcd $DBG $ETH
+fi
 rc_status "-v"
 }
 
@@ -222,8 +227,20 @@ ETH=`_get_iface`
 test "$ETH" || ETH=$ETH_IFACE_DEF
 test "$ETH" || return 2
 echo -n "Closing dhcpcd $DBG -x $ETH .. "
- dhcpcd $DEB -x $ETH
+ if ps | grep dhcpcd | grep $Q $ETH ; then
+ { dhcpcd $DEB -x $ETH; }
+ else echo -n "dhcpcd not running for $ETH "
+ _RC_RV=5
+ fi
 rc_status "-v"
+}
+
+_start_firewall(){
+
+if test -x /etc/rc.d/rc.firewall; then
+ /etc/rc.d/rc.firewall start
+fi
+rc_status -v
 }
 
 # Reset status of this service
@@ -232,15 +249,18 @@ rc_reset
 ARCHTEK=`uname -m`
 
 case "$1" in
-    start)
+    -start|--start|start)
 
     case $ARCHTEK in
     i[0-9]86)
     :
     echo -n "Starting $HWAPP .. "
     #exec $HWAPP > /dev/null 2>&1
+    if pidof ${HWAPP##*/} >$OUT; then :
+    else
     $HWAPP
     rc_status -v
+    fi
      case $? in 0) :;; *) :
      #start usb_modeswitch if available
      :
@@ -257,7 +277,7 @@ case "$1" in
 
      _wait_for_modeswitch
      rc_status "-v"
-     test "$?" = 0 && { _load_driver; } && { _bring_eth_up; } && { _dhcpcd_start; }
+     test "$?" = 0 && { _load_driver; } && { _bring_eth_up; } && { _dhcpcd_start; } && { _start_firewall; }
 
     __old__start_interface__(){
     sleep 2
@@ -275,10 +295,15 @@ case "$1" in
 
     ;; #start
 
-    stop)
+    -*stop|stop)
     echo -n "Shutting down $HWAPP .. "
+    if pidof ${HWAPP##*/} >$OUT; then
     #killproc -TERM $HWAPP
      killproc $HWAPP TERM
+    else
+     echo -n "Not running "
+     _RC_RV=5
+    fi
     rc_status -v
 
     _bring_eth_down
@@ -297,26 +322,37 @@ case "$1" in
      fi
      }
     }
+
+    _start_firewall
     ;; #stop
 
-    restart)
+    -*restart|restart)
     $0 stop
     $0 start
 
     rc_status
     ;;
 
-    force-reload)
-    echo -n "Reload service runmbbservice "
+    -*force-reload|force-reload)
+    echo -n "Reload of service ${HWAPP##*/} "
+    if pidof ${HWAPP##*/} >$OUT; then
     #killproc -HUP $HWAPP
      killproc $HWAPP HUP
-    rc_status -v
+    else
+     exec $0 start
+    fi
+     rc_status -v
     ;;
 
-    reload)
-    echo -n "Reload service runmbbservice "
+    -*reload|reload)
+    echo -n "Reload of service ${HWAPP##*/} "
+    if pidof ${HWAPP##*/} >$OUT; then
     #killproc -HUP $HWAPP
      killproc $HWAPP HUP
+    else
+    echo -n "Not running "
+    _RC_RV=5
+    fi
     rc_status -v
     ;;
     *)
