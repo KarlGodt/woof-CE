@@ -118,16 +118,16 @@ for oneDRV in $ALLDRVS
 do
   case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
-     read MEDIA </proc/ide/$oneDRV/media
+     test -f /proc/ide/$oneDRV/media && read MEDIA </proc/ide/$oneDRV/media
      [ "$MEDIA" = "disk" ]  && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
-     read INFO </proc/ide/$oneDRV/model
+     test -f /proc/ide/$oneDRV/model && read INFO </proc/ide/$oneDRV/model
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
-     read VENDOR </sys/block/$oneDRV/device/vendor
-     read MODEL </sys/block/$oneDRV/device/model
-     INFO="$VENDOR$MODEL"
+     test -f /sys/block/$oneDRV/device/vendor && read VENDOR </sys/block/$oneDRV/device/vendor
+     test -f /sys/block/$oneDRV/device/model  && read MODEL  </sys/block/$oneDRV/device/model
+     INFO="$VENDOR $MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$oneDRV" | cut -b 1-3` "
 
      #log if usb drive (not a sata drive)... v4.01...
@@ -139,31 +139,36 @@ do
       mv -f /tmp/usb-drive-log-probedisk-tmp $HOME/.pup_event/usb-drive-log-probedisk
       #find out if a usb floppy drive...
 
-      if [ -e /sys/block/${oneDRV}/size ];then
+      if [ -f /sys/block/${oneDRV}/size ];then
        [ "`cat /sys/block/${oneDRV}/size`" = "2880" ] && MEDIA="floppy"
       fi
 
-      if [ -e /sys/block/${oneDRV}/device/model ];then
+      if [ -f /sys/block/${oneDRV}/device/model ];then
        [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${oneDRV}/device/model`" != "" ] && MEDIA="floppy"
       fi
 
-     else
+     #else
       #find out if it is a removable internal drive (zip, ls120, etc)...
-      if [ -e /sys/block/${oneDRV}/removable ];then
+      elif [ -e /sys/block/${oneDRV}/removable ];then
        grep $Q -w '1' /sys/block/${oneDRV}/removable && MEDIA="floppy"
-      fi
+     #fi
      fi
 
    ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="optical"
-     read VENDOR </sys/block/$oneDRV/device/vendor
-     read MODEL </sys/block/$oneDRV/device/model
-     INFO="$VENDOR$MODEL"
+     test -f /sys/block/$oneDRV/device/vendor && read VENDOR </sys/block/$oneDRV/device/vendor
+     test -f /sys/block/$oneDRV/device/model  && read MODEL  </sys/block/$oneDRV/device/model
+     test "$VENDOR" || VENDOR='V unk'
+     test "$MODEL"  || MODEL='P unk'
+     INFO="$VENDOR $MODEL"
    ;;
    mmc*) #/dev/mmcblk0
      MEDIA="card"
-     INFO="MMC/SD: `cat /sys/block/$oneDRV/device/name`"
+     #INFO="MMC/SD: `cat /sys/block/$oneDRV/device/name`"
+     test -f /sys/block/$oneDRV/device/name && read NAME </sys/block/$oneDRV/device/name
+     test "$NAME" || NAME='VP unk'
+     INFO="MMC/SD: $NAME"
    ;;
     fd*)
      MEDIA='floppy'
