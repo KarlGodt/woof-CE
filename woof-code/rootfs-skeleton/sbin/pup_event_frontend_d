@@ -523,6 +523,7 @@ _probe_optical(){
   #DRV_DESCRIPTION="$VENDOR $MODEL"
   opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
   DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
+  test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
   _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $HOME/.pup_event/drive_${DRV_NAME}/AppRun optical & #handler script.
 #KRG else
@@ -565,6 +566,7 @@ _probe_floppy(){
    #DRV_DESCRIPTION=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
    read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model | tr -s ' '
   fi
+  test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
   _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && $HOME/.pup_event/drive_${DRV_NAME}/AppRun floppy & #handler script.
 #KRG else
@@ -1115,7 +1117,7 @@ _create_icon(){
  if [ "$ICONPARTITIONS" = "true" ];then
   #display an icon for each partition... w476 add ext4...
   #[ "$1" ] || _PROBEPART_=`probepart -k | grep -iEv "\|swap\||/dev/[hnmflr].*\|none\||/dev/sd.*\|none\||\|not inserted\||\|extended\||ext'd.*\||\|none detected\||/dev/sr.*\|none\|"`
-  [ "$1" = startup ] && { shift; true; } || _PROBEPART_=`probepart -k | grep -iEv "\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\|"`
+  [ "$1" = startup ] && { shift; true; } || _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
   drvPATTERN='^/dev/'"${DISK_NAME}" #important, no space on end!
   DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
 
@@ -1127,7 +1129,7 @@ _create_icon(){
     diCNT=$((diCNT+1))
     [ "$diCNT" -gt 13 ] && break ##+-=2013-07-07
     sleep 2  ##ZTE MODEM sr2 slow in updating values > increased count 3>13, sleep 1>2
-    _PROBEPART_=`probepart -k | grep -iEv "\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\|"`
+    _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
     DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
     case $DISK_NAME in
     sd*)
@@ -1161,7 +1163,7 @@ _create_icon(){
   if [ ! -d $HOME/.pup_event/drive_${oneDRVNAME} ];then
       mkdir $VERB $HOME/.pup_event/drive_${oneDRVNAME}
    cp $VERB -af /usr/local/bin/drive_all $HOME/.pup_event/drive_${oneDRVNAME}/AppRun
-   if [ -e /sys/block/${oneDRVNAME} ];then
+   if [ -e /sys/block/${oneDRVNAME}/size ];then
     #device is an entire drive.
     #SIZE=`cat /sys/block/${oneDRVNAME}/size`
     read SIZE </sys/block/${oneDRVNAME}/size
@@ -1180,9 +1182,15 @@ _create_icon(){
    fi
    #v424 add item to unmount all partitions... 2014-10-16 item for ro mount
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${oneDRVNAME} (if currently mounted)</Label></Item>
-   <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>
+   <Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
+
+   case $FSTYPE in btrfs|ext[2-4]|f2fs|jfs|xfs|*reiser*|*fat*|ntfs)
+   MOREITEMS="$MOREITEMS
    <Item option=\"mountro\" icon=\"gtk-harddisk\"><Label>Toggle Read-Only/Read-Write (re)mount of ${oneDRVNAME}</Label></Item>
    <Item option=\"fsck_$FSTYPE\" icon=\"gtk-execute\"><Label>Fsck ${oneDRVNAME} (if not mounted)</Label></Item>"
+   ;;
+   esac
+
    _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
 
@@ -1212,13 +1220,13 @@ _create_icon(){
  do
  if [ ! -d $HOME/.pup_event/drive_${DISK_NAME}$aP ];then
 
-  if [ -e /sys/block/${DISK_NAME}$aP ]; then
+  if [ -e /sys/block/${DISK_NAME}$aP/size ]; then
 
    #SIZE=`cat /sys/block/${DRV_NAME}/size`
    read SIZE </sys/block/${DISK_NAME}$aP/size
    SIZE=$((SIZE/2))     #get KB.
 
-  elif   [ -e /sys/block/${DISK_NAME}/${DISK_NAME}$aP ]; then
+  elif   [ -e /sys/block/${DISK_NAME}/${DISK_NAME}$aP/size ]; then
    read SIZE </sys/block/${DISK_NAME}/${DISK_NAME}$aP/size
    SIZE=$((SIZE/2))     #get KB.
 
@@ -1324,7 +1332,7 @@ if [ "$ICONDESK" = "false" ]; then
 else
  #show all drives on desktop... w476 add ext4...
  #_PROBEPART_=`probepart -k | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser\||\|reiserfs\||\|udf\|'`
-  _PROBEPART_=`probepart -k | grep -viE "\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\|"`
+  _PROBEPART_=`probepart -k $NO_FLOPPY | grep -viE "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
 
  if [ "$FD0ICON" = "true" ]; then #see /etc/eventmanager
 __fd_done_by_probedisk2__(){
@@ -1509,7 +1517,19 @@ do
    BLOCKSADD=`echo "$BLOCKDIFF" | grep -o '^\+[[:alnum:]]\+' | sed 's%^\+%%'`
    BLOCKSREM=`echo "$BLOCKDIFF" | grep -o '^\-[[:alnum:]]\+' | sed 's%^\-%%'`
 
-   _PROBEDISK_=`probedisk2`
+   case $BLOCKSADD in
+   ''|fd*) :;;
+   *) NO_FLOPPY=--ignore-floppy
+   ;;
+   esac
+
+   case $BLOCKSREM in
+   '')  :;;
+   fd*) :;;
+   *) NO_FLOPPY=--ignore-floppy
+   ;;
+   esac
+
    DRVS_OPTICAL=`echo "$_PROBEDISK_" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
     DRVS_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
 
@@ -1544,7 +1564,7 @@ _EOI
 
  fi
 
- unset DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH
+ unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH
  unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM
  #######four second timeout procesing#########
  if [ $TOGGLE -eq 0 ];then #slow down to every 4 seconds.
