@@ -175,6 +175,7 @@ echo "issue 1 1 apply flint and steel"
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test  "`echo "$REPLY" | grep 'used up flint and steel'`" && f_exit 2
+ test  "`echo "$REPLY" | grep 'Could not find any match to the flint and steel.'`" && f_exit 2
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
