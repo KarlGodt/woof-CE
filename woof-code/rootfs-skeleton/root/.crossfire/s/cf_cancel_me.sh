@@ -108,7 +108,7 @@ case $tmpR in
 '') break;;
 esac
 test "$oR" = "$tmpR" && break
-oR=$tmpR
+oR="$tmpR"
 sleep 0.1
 done
 echo unwatch drawinfo
@@ -117,7 +117,7 @@ echo unwatch drawinfo
 
 __check_if_item_is_active "$ROD"
 
-test "$HAVE_ITEM_APPLIED" || echo "issue 1 1 apply -a $ROD"
+test "$HAVE_ITEM_APPLIED" || { echo "issue 1 1 apply -a $ROD"; sleep 1s; }
 
 _simple_apply_item(){
 echo "issue 1 1 apply -u $ROD"
@@ -126,6 +126,43 @@ echo "issue 1 1 apply -a $ROD"
 }
 
 
+__check_range_attack(){
+
+local ITEM="$*" oR tmpR c
+test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
+
+
+c=0
+echo watch drawinfo
+while :;
+do
+test $c = 5 && break
+
+sleep 0.1
+echo request range
+ while :;
+ do
+ read -t 1 tmpR
+ case $tmpR in
+ *"$ITEM"*) RANGE_ITEM_APPLIED=YES; break 2;;
+ '') break;;
+ esac
+ test "$oR" = "$tmpR" && break
+ oR="$tmpR"
+
+ done
+c=$((c+1))
+sleep 0.1
+test "$RANGE_ITEM_APPLIED" || echo issue 1 1 rotateshoottype
+done
+
+echo unwatch drawinfo
+}
+
+__check_range_attack "$ROD"
+
+if test "$RANGE_ITEM_APPLIED"; then
+
 for one in `seq 1 1 $NUMBER`
 do
 
@@ -133,6 +170,7 @@ echo "issue 1 1 fire center"
 sleep 1s
 
 done
+fi
 
 echo "issue 1 1 fire_stop"
 
