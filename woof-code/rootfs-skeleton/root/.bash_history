@@ -1,724 +1,3 @@
-chroot . /bin/sh
-PSUBDIR=/PUPPY_SFS/LHP-503
-echo "$PSUBDIR" | tr -s '/'
-MAXD=`echo "$PSUBDIR" | tr -s '/'`
-echo "$MAXD"
-MAXD=`echo "$MAXD" | sed 's%^/*%%;s%/*$%%'`
-echo "$MAXD"
-MAXD="/${MAXD}/"
-echo "$MAXD"
-MAXD=`echo "$MAXD" | grep -o '/' | wc -L`
-echo "$MAXD"
-MAXD=`echo "$MAXD" | grep -o '/' | wc -l`
-echo "$MAXD"
-MAXDS=`echo "$PSUBDIR" | tr -s '/'`
-MAXDS=`echo "$MAXDS" | sed 's%^/*%%;s%/*$%%'`
-MAXDS="/${MAXDS}/"
-echo "$MAXDS" | grep -o '/' | wc -l
-killall sakura
-
-Sun Mar 22 21:07:41 GMT+1 2015
-
-e2fsck -v -n /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
-e2fsck -v /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
-e2fsck -v -f /mnt/sda1/PUPPY_SFS/tahr-6.0-CE/initrd.ext2
-mkfs.edxt2 --version
-mkfs.ext2 --version
-mke2fs
-mke2fs --version
-mke2fs -V
-cd /
-while read dev mnt fs mops n m;  do  sleep 1;   case "$mnt" in   *oldstyle_initramdisk*)   umount -lr "$mnt";   ;;   esac;  done<./proc/mounts
-ffff
-ff
-while read dev mnt fs mops n m;  do  sleep 1;  echo $mnt;  done<./proc/mounts
-cat /proc/mounts
-
-Sun Mar 22 22:20:32 GMT+1 2015
-
-cpio -id <initrd
-dd if=/dev/zero of=initrd.ext2 bs=1024 count=13000
-mkfs.ext2 initrd.ext2
-fsck initrd.ext2
-e2fsck initrd.ext2
-e2fsck -f initrd.ext2
-mount
-dmesg
-
-Mon Mar 23 10:56:38 GMT+1 2015
-
-cp -au . /mnt/sda1/PUPPY_SFS/LHpup443/unsquash/spup-443/usr/share/locale
-grep ^Failed spup-443.out.txt 
-grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo $FILE; done
-grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo "$FILE" >/dev/null; test -e "$FILE" || echo "$FILE";done
-grep ^Failed spup-443.out.txt | while read f t w FILE rest; do echo "$FILE" >/dev/null; FILE=${FILE%,};test -e "$FILE" || echo "$FILE";done
-./busybox 
-mksquashfs spup-443/ spup-443.sfs
-df
-mksquashfs --help
-man unsquashfs
-unsquashfs --help
-unsquashfs -s 0spup-443.sfs 
-unsquashfs -s 0spup-443.sfs >0spup-443.sfs.txt
-unsquashfs -ll 0spup-443.sfs >>0spup-443.sfs.txt
-unsquashfs //help
-unsquashfs --help
-unsquashfs -s spup-443.sfs 
-pwd
-unsquashfs -d spup-443 spup-443.sfs 
-rm spup-443/
-rm -r spup-443/
-unsquashfs -n -d spup-443 spup-443.sfs >>spup-443.out.txt 2>&1
-/mnt/0spup-443.sfs/bin/busybox
-info chroot
-info pivot_root
-man 2 pivot_root
-man chroot
-man pivot_root
-
-Tue Mar 24 01:05:37 GMT+1 2015
-
-mount
-cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
-ls /mnt
-mount /dev/sdb5
-mkdir /mnt/sdb19
-cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
-ls
-git commit
-echo $PATH
-export PATH=/usr/SVC/bin:$PATH
-git commit
-git add woof-code/boot/initrd-tree0/init
-git commit -m "initrd-tree0/init: Added some code to make old-style initrd ext2 image possible.
-This works in a combination of pivot_root and chroot .
-Also code added to take care for accidental full install boot ( not tested ).
-Some code cleanups and unneeded stability improvements."
-git branch
-git push krg Fox3-Dell755
-git push MSkrg Fox3-Dell755
-exit
-mount /dev/sdb19
-mount
-cd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d
-git commit
-export PATH=/usr/SVC/bin:$PATH
-git commit
-git add woof-code/boot/initrd-tree0/init
-git commit -m 'initrd-tree0/init: Code cleanups, and one BUGFIX mounting rootfs'
-git branch
-git push krg Fox3-Dell755
-exit
-
-Fri Mar 27 03:35:42 GMT+1 2015
-
-geany /usr/local/bin/drive_all
-geany /mnt/sdb6/usr/sbin/filemnt
-man hdparm
-opticalCNT=1; CDTYPE=""; DVDTYPE=""; CDBURNERTYPE=""
-OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*'`
-[ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
-[ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
-[ -f /etc/cdburnerdevice ] && CDBURNERTYPE=`cat /etc/cdburnerdevice`
-[ "$CDTYPE" -a "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]  && CDTYPE=""  #no longer exists.
-[ "$DVDTYPE" -a "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
-[ "$CDBURNERTYPE" -a "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
-for oneOPTICAL in $OPTICALS; do  oneNUM=`echo -n "$oneOPTICAL" | cut -c 3`;  [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL";  [ "$CDTYPE" -a "$DVDTYPE" ]  && CDTYPE="$oneOPTICAL"  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL";  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"   opticalCNT=$((opticalCNT+1)); done
-rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
-[ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE  /dev/cdrom
-[ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
-[ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" >/etc/cdburnerdevice
-[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE
-opticalCNT=1; CDTYPE=""; DVDTYPE=""; CDBURNERTYPE=""
-OPTICALS=`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*'`
-[ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
-[ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
-[ -f /etc/cdburnerdevice ] && CDBURNERTYPE=`cat /etc/cdburnerdevice`
-[ "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]  && CDTYPE=""  #no longer exists.
-[ "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
-[ "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
-for oneOPTICAL in $OPTICALS; do  oneNUM=`echo -n "$oneOPTICAL" | cut -c 3`;  [ "$CDTYPE" = "" ]  && CDTYPE="$oneOPTICAL"  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL";  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"   opticalCNT=$((opticalCNT+1)); done
-rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
-[ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE  /dev/cdrom
-[ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
-[ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" >/etc/cdburnerdevice
-[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE 
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g'
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]'
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info
-grep '.*' /proc/sys/dev/cdrom/info
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c 1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c 2
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c 3
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c 3
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c 2
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c 1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | head -n1 | sed -e 's/[^01]//g' | cut -c 1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | head -n1 | sed -e 's/[^01]//g' | cut -c 2
-rm /devcdrom
-rm /dev/cdrom
-rm /dev/dvd
-ls -l /dev/cdrom
-ls -l /dev/dvd
-cat /etc/cdburnerdevice 
-ls -l /etc/cdburnerdevice
-grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*'
-grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*|hd.*' | grep ""
-ls -l /dev/dvd
-ls -l /dev/cdrom
-ls -l /dev/cdrom
-ls -l /dev/dvd
-ln -s sr0 /dev/sr0
-ln -s sr0 /dev/dvd
-gxine
-cddetect
-cddetect --help
-eventmanager
-./replace_commit_files.sh 
-unrar --help
-unrar --version
-type -a unrar
-find /usr -name "libgcc*"
-find /usr -name "libbfd*"
-
-Mon Mar 30 01:39:05 GMT+1 2015
-
-grep $Q " $*/dev " /proc/mounts
-echo "$*"
-grep $Q " /dev " /proc/mounts
-grep " /dev " /proc/mounts
-grep " $*/dev " /proc/mounts
-rmdir initrd*
-losetup
-losetup -a
-mount
-
-Mon Mar 30 22:24:07 GMT+1 2015
-
-ls -l /dev/cdrom
-ls -l /dev/dvd
-disktype /dev/sr0
-mount /dev/sr0
-umount /dev/sr0
-pidof ROX-Filer
-fixitup
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2 -oac copy -ovc lavc -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -ovc lavc -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -oac mp4 -ovc lavc -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -oac lavc -ovc lavc -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222-90.mp4 -o VID_20150330_225222-180.mp4 -vf rotate=2  -oac lavc -ovc lavc -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -oac pcm -ovc raw -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222-90.mp4 -o VID_20150330_225222-180.mp4 -vf rotate=2  -oac pcm -ovc raw -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -oac faad -ovc copy -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2  -oac faac -ovc copy -lavcopts vcodec=mpeg4
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -vf rotate=2 
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lacv
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,spp=0 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,spp=6 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,uspp=6 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,uspp=6 -ovc lavc -lavdopts idct=99
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=128 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=64 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=33 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=32 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=24 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2,lavc=1 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lavc -faac quality=100
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lavc -lavcopts format=YVU9
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lavc -lavcopts format=422P
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.mp4 -nosound -vf rotate=2 -ovc lavc -lavcopts
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.avi -nosound -vf rotate=2 -ovc copy
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.avi -nosound -vf rotate=2 -ovc lavc
-mencoder VID_20150330_225222.3gp -o VID_20150330_225222-90.avi -nosound -vf rotate=2 -ovc vfw
-probedisk
-mount /dev/sdc1
-umount /mnt/sdc1
-mount /dev/sdc1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT
-opticalCNT=1
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g'
-grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n'
-vlc /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vo rotate=1 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=1 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=2 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=3 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=0 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=4 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=5 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=0 -vf rotate=0 /mnt/sda1/boot/VID_20150330_225222.3gp
-mplayer -vf rotate=0 -vf rotate=1 /mnt/sda1/boot/VID_20150330_225222.3gp
-find /usr -wholepath "*/man/*/ffmpeg*"
-find /usr -path "*/man/*/ffmpeg*"
-man /usr/multimedia/share/man/man1/ffmpeg.1
-mencoder
-mencoder --help
-mencoder -vc help
-mencoder -ivc help
-mencoder -ovc help
-mplayer -of help
-mencoder -of help
-mencoder -ovc help
-mencoder -oac help
-mencoder -vc help
-mencoder -ac help
-man vlc
-vlc-wrapper 
-man cvlc
-cvlc
-cvlc --help
-cvlc --help --advanced
-cvlc -H
-cvlc -H | grep rotate
-cvlc -H | grep output
-cvlc -H | grep file
-mpg123
-man mencoder
-man ffmpeg
-man xrandr
-man mplayer
-man bash
-exit
-. /etc/profile
-/var/bin/man mount.aufs
-which mount.aufs
-type -a mount.aufs
-file /sbin/mount.aufs
-. /etc/profie
-. /etc/profile
-echo $PATH
-/var/bin/man mount.cifs
-exit
-. /etc/profile
-man aufs
-busybox man aufs
-man mount
-busybox man mount
-echo $PATH
-/var/bin/man mount
-exit
-smartctl
-which smartctl
-file /usr/sbin/smartctl
-ldd /usr/sbin/smartctl
-echo $((4802/24))
-
-Sat Apr 11 16:42:22 GMT+1 2015
-
-man find
-find /mnt/home -maxdepth 1
-find -H /mnt/home -maxdepth 1
-find -P /mnt/home -maxdepth 1
-find -L /mnt/home -maxdepth 1
-find -L /mnt/home/recLINKS/ -maxdepth 1
-find -L /mnt/home/recLINKS/ -maxdepth 3
-find -H /mnt/home/recLINKS/ -maxdepth 3
-find -P /mnt/home/recLINKS/ -maxdepth 3
-find -H /mnt/home/recLINKS/ -maxdepth 3
-find /mnt/home/recLINKS/ -maxdepth 3
-find /mnt/home/recLINKS/ -maxdepth 3 -type f
-find -H /mnt/home/recLINKS/ -maxdepth 3 -type f
-find -P /mnt/home/recLINKS/ -maxdepth 3 -type f
-find -L /mnt/home/recLINKS/ -maxdepth 3 -type f
-for i in `seq 1 1 10`; do mkdir d$i;done
-for i in `seq 1 1 10`; do ln -s d$i l$i;done
-for i in `seq 1 1 10`; do ln -s . d$i/l$i;done
-for i in `seq 1 1 10`; do ln -s ../ d$i/L$i;done
-
-Sat Apr 11 17:38:32 GMT+1 2015
-
-fsck -n -f -v /dev/sda1
-fsck -v /dev/sda1
-mount -dev-sda1
-mount /dev/sda1
-
-Sat Apr 11 18:17:08 GMT+1 2015
-
-
-Sat Apr 11 18:46:37 GMT+1 2015
-
-
-Tue Apr 14 20:49:57 GMT+1 2015
-
-dd if=/dev/zero of=initrh.ext2 bs=1024 count=220000
-mkfs.ext2 initrh.ext2
-mount
-umount /dev/loop0
-umount /dev/loop1
-
-Wed Apr 15 14:45:04 GMT+1 2015
-
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm macpup_550.sfs 
-rmdir *
-rm -rf /dev
-rm -rf dev
-rm -rf bin
-rm -rf etc
-rm -r *
-pwd
-mount /mnt/sda1/PUPPY_SFS/Slacko-5.5/initrd.ext2
-mount
-filemnt /mnt/sda1/PUPPY_SFS/Slacko-5.5/initrd.ext2
-mdev -s
-ls -l /dev/loop*
-filemnt /mnt/sda1/PUPPY_SFS/Slacko-5.5/initrd.ext2
-pwd
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-find . | cpio -o -H newc >/newinitrdRAMFS/initrh
-gzip -9 /newinitrdRAMFS/initrh
-rm -r *
-cd ..
-mount
-losetup
-losetup -a
-mount | grep ram
-umount /initrdRAMFS
-umount /newinitrdRAMFS/
-umount /initrdRAMFS
-umount /dev/loop7
-umount /dev/loop6
-umount /dev/loop5
-umount /dev/loop4
-umount /dev/loop3
-umount /dev/loop2
-umount /dev/loop1
-umount /dev/loop0
-mount -t ramfs ramfs /initrdRAMFS
-mkdir /newinitrdRAMFS
-mount -t ramfs ramfs /newinitrdRAMFS
-pwd
-info cpio
-type -a cpio
-/bin/cpio --version
-/usr/local/bin/cpio --version
-tzpe /a cpio
-type -a cpio
-file /bin/cpio
-./configure
-make
-make install
-which e4defrag
-file /usr/sbin/e4defrag
-fileinfo
-fileinfo /mnt/home/PUPPY_SFS/Slacko-5.5/initrh.gz
-which filefrag
-which e2freefrag
-exit
-
-Thu Apr 16 11:56:50 GMT+1 2015
-
-./git_pull_all_directories-02.sh 
-ifconfig
-ifconfig /a
-ifconfig /-a
-ifconfig -a
-ifconfig eth1 up
-dhcpcd -d -I ''
-dhcpcd -d eth1
-./git_pull_all_directories-03.sh 
-killall mount
-mount /dev/sde1
-mount-FULL /dev/sde1 /mnt/sde1
-mount
-umount /mnt/sde2
-umount /mnt/sde5
-umount /mnt/sde6
-umount /mnt/sde7
-mount
-umount /dev/sdb18
-blkid /dev/sdd
-blkid /dev/sdd7
-blkid /dev/sdd6
-disktype /dev/sdd7
-quess_fstype /dev/sdd7
-guess_fstype /dev/sdd7
-guess_fstype-static /dev/sdd7
-guess_fstype-orig /dev/sdd7
-guess_fstype-dyn /dev/sdd7
-guess_fstype-mut -noserv /dev/sdd7
-guess_fstype-mut --noserv /dev/sdd7
-pid of mut
-pidof mut
-mut --exit
-guess_fstype-mut /dev/sdd7
-mut --exit
-probedisk
-probepart
-mount
-umount /dev/loop9
-umount /dev/loop8
-umount /dev/loop7
-umount /dev/loop6
-umount /dev/loop5
-umount /dev/loop4
-umount /dev/loop3
-mount
-umount /dev/loop2
-umount /dev/loop1
-umount /dev/loop0
-mount
-umount /dev/sdd1
-umount /dev/sdd5
-umount /dev/sde2
-mount
-killall 'busybox mount'
-ps | grep busybox
-kill -9 13963
-kill -15 13963
-ps | grep busybox
-pidof sync
-top
-killall -9 wmpoweroff
-killall yaf-splash
-wmpoweroff
-
-Sun Apr 26 14:15:53 GMT+1 2015
-
-geany /usr/bin/xwin
-geany /usr/bin/xorgwizard
-geany /usr/sbin/xorgwizard
-git diff 57064a476fb62fb159377d2ea20b9359cac8cc08 c7869af1de258aedd8473a2b8cd924549c09c26e
-git help mv
-git diff c7869af1de258aedd8473a2b8cd924549c09c26e 30428e873b9ed1af98b80449a4c0f527e0c020d5
-git diff 30428e873b9ed1af98b80449a4c0f527e0c020d5 4bb381eae7c392c330ba8f4ac18fe25406c199db
-git commit --dry-run
-git mv add_end.sh script-fixes.d/
-for i in add*; do echo $i; done
-for i in add*; do test -e script-fixes.d/$i && continue;echo $i; done
-for i in add*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in insert*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in mark*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in change*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in check*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in fix*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in grep*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in jump*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in remove*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-for i in repair*; do test -e script-fixes.d/$i && continue;echo $i; git mv $i script-fixes.d/;done
-git commit --dry-run
-git commit
-git commit --dry-run
-git add woof-code/3builddistro
-git commit -m "woof-code/3builddistro: Likely :space: cleanup by opening in geany."
-git log
-./update_files_from_running_system 
-git log
-
-Sun Apr 26 16:49:54 GMT+1 2015
-
-
-Sun Apr 26 16:53:23 GMT+1 2015
-
-fixitup
-find /usr -iname "*greenapparatus*"
-find /usr -iname "*Themes*"
-pcur 
-find -name "index.theme"
-find -name "index.theme" -exec grep -i inherits {} \;
-find -name "index.theme" -print -exec grep -i inherits {} \;
-mkdir core
-touch core/index.theme
-find /usr -iname "*greenapparatus*"
-find -name "*theme*"
-killall ROX-Filer
-rox -p /root/Choices/ROX-Filer/PuppyPin
-killall ROX-Filer
-rox -p /root/Choices/ROX-Filer/PuppyPin
-killall ROX-Filer
-rox -p /root/Choices/ROX-Filer/PuppyPin
-geany
-killall ROX-Filer
-ps | grep -i ROX
-killall ROX-Filer/ROX-Filer-2.10-MpF3-II-OK
-killall ROX-Filer-2.10-MpF3-II-OK
-rox -p /root/Choices/ROX-Filer/PuppyPin
-grp -i greenapparatus *
-grep -i greenapparatus *
-grep -i greenapparatus libXcursor.*
-grep -i green libXcursor.*
-strace /usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK 
-/usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK 
-/usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK  -p /root/Choices/ROX-Filer/PuppyPin
-killall ROX-Filer
-/usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK  -p /root/Choices/ROX-Filer/PuppyPin
-killall ROX-Filer
-strace /usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK  -p /root/Choices/ROX-Filer/PuppyPin 2>ROXFILER.strace
-geany ROXFILER.strace
-killall ROX-Filer
-pidof ROX-Filer
-ps | grep -i rox
-killall ROX-Filer-2.10-MpF3-II-OK
-strace -s 128 /usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK  -p /root/Choices/ROX-Filer/PuppyPin 2>ROXFILER.strace
-killall ROX-Filer-2.10-MpF3-II-OK
-/usr/local/apps/ROX-Filer/ROX-Filer-2.10-MpF3-II-OK  -p /root/Choices/ROX-Filer/PuppyPin
-strace --help
-find /usr -name "libgtk*"
-find /usr -name "libgtk*" -print -exec grep -i greenapparatus {} \;
-find /usr -name "libgdk*"
-find /usr -name "libgdk*" -print -exec grep -i greenappaatus {} \;
-fdisk -l /dev/sde
-mount /dev/sde1
-killall acpid
-busybox ?| head -na1
-busybox | head -n1
-top
-uname -r
-echo mem >/sys/power/state
-df
-df -k
-df -m
-./android
-grep NEWSCHED DOT*
-grep NEWSCHED /etc/modules/DOT*
-find -name "*adb*"
-find -name "*abd*"
-pwd
-cd ,,
-cd ..
-pwd
-cd platform-tools
-./adb --help
-cd ../platform-tools-21/
-./adb
-make menuconfig
-cat /proc/bus/input/devices
-ls -l /dev/mouse
-ls -l /dev/input
-uname /r
-uname -r
-ls /sys/class/block
-dmesg
-
-Fri May 1 08:34:10 GMT+1 2015
-
-history | grep mp3
-cd /mnt/sdb19/
-exit
-
-Fri May 1 22:48:19 GMT+1 2015
-
-chroot .
-dmesg
-lsusb
-lsusb -v
-dmesg | tail -n20
-pwd
-dmesg
-dmesg|tail -n20
-ls /sys/block
-ls /sys/class/block
-cat /proc/partitions
-top
-killall -9 fastboot
-mount -o bind /proc ./proc
-mount -o bind /sys ./sys
-mount -o bind /dev ./dev
-mount -o bind /mnt/sdb19 ./mnt/sdb19
-pwd
-wget http://www.mediafire.com/download/ioag3bc3fwc0kcv/Root+Motorola+Fire+XT.zip
-ifconfig
-ifconfig eth1 up
-dhcpcd -d eth1
-probepart
-modprobe -v mmc_block
-modprobe -l | grep mmc
-modprobe -l | grep mtd
-dmesg
-modprobe -vr mei
-dmesg
-ls /sys/block
-ls /sys/class/block
-ls /sys/block
-ls /sys/class/block
-./adb devices
-killall sdb
-killall adb
-./adb devices
-pwd
-exit
-./adb devices
-./adb version
-uname -r
-./adb devices -l
-mount
-mount --bind /mnt/sdb19 ./mnt/sdb19
-chroot .
-geany /bin/mount.sh
-geany /usr/local/bin/drive_all
-mount
-exit
-pup_event_frontend_d restart
-exit
-ps | grep acpi
-
-Sat May 2 17:40:38 GMT+1 2015
-
-gcc -o zergRush zergRush.c
-gcc -o zergRush zergRush.c 2>gcc_zergRush.errs
-./adb devices -l
-./adb shell
-unzip Superuser-3.0.7-efgh-signed.zip 
-/etc/rc.d/runmbbservice
-/etc/init.d/runmbbservice
-/etc/init.d/runmbbservice start
-geany /usr/local/bin/rox
-grep socket_local_client /lib/*
-grep socket_local_client /usr/lib/*
-grep socket_local_client /usr/local/lib/*
-gcc -o zergRush zergRush.c
-wget https://android.googlesource.com/platform/system/core/+/master/include/private/android_filesystem_config.h
-wget --no-check-certificate https://android.googlesource.com/platform/system/core/+/master/include/private/android_filesystem_config.h
-gcc -o zergRush zergRush.c
-grep dlopen /lib/*
-gcc -o zergRush zergRush.c -lc
-gcc -o zergRush zergRush.c -ldl
-tar -c -f zergRush_headers.tar android_filesystem_capability.h android_filesystem_config.h sockets.h system_properties.h 
-gzip -9 zergRush_headers.tar 
-find -name "*.h"
-unzip --help
-type -a unzip
-/usr/bin/unzip --help
-cp -a Superuser.apk Superuser.zip
-Unzip Superuser.zip
-unzip Superuser.zip
-grep -m3 -w stat /usr/include/*
-probepart9 -d/dev/sde1
-probepart9 -d /dev/sde1
-file /sbin/probepart
-geany /sbin/probepart9
-probedisk
-probepart -d/dev/sde
-dosfsck --help
-dosfsck -n -v /dev/sde1
-dosfsck -v /dev/sde1
-probepart -d/dev/sde1
-probepart -d /dev/sde1
-probepart -d/dev/sde1
-geany /etc/rc.d/rc.shutdown
-mount -o bind /dev ./dev
-mount -o bind /sys ./sys
-mount -o bind /proc ./proc
-chroot .
 mount -o bind /mnt/sdb19 ./mnt/sdb19
 diff -qs /root/Downloads/Android/Superuser-3.0.7-efgh-signed.zip /mnt/sdf1/SU/Superuser-3.0.7-efgh-signed.zip
 diff -qs /root/Downloads/Android/su-2.3.6.3-efgh-signed.zip /mnt/sdf1/SU/su-2.3.6.3-efgh-signed.zip 
@@ -2655,3 +1934,701 @@ man aplay
 
 Sat Jul 25 11:58:39 GMT+1 2015
 
+/etc/init.d/runmbbservice restart
+git commit
+./git_helper//replace_commit_files.sh 
+git commit
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+cfclient
+rox /usr/local/share/crossfire-client
+cfcclient
+cfclient
+/etc/init.d/runmbbservice restart
+
+Sun Jul 26 03:16:17 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+cfclient
+find -name "*horn*"
+find -name "*.trs"
+grep -r -i "eorlingas" *
+grep -r -i "aerlingas" *
+grep -r -i "lingas" *
+pwd
+
+Mon Jul 27 09:14:48 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+cfclient
+echo $((13000000*100))
+echo $((13000000*100/150000000))
+grep -r -i supreme *
+grep -r -i live *
+grep -r -i supreme *
+grep -r -i keyevm
+grep -r -i keyevm *
+pwd
+grep -r -i maji *
+grep -r -i Midane *
+pwd
+grep -r -i scornmlabhouse193 *
+grep -r -B3 -A3 -i scornmlabhouse193 *
+grep -r -i supreme *
+find -iname "*redtown*"
+find -iname "*town*"
+grep -r -i restoration *
+find /root -maxdepth 4 -mmin -20
+cfclient
+
+Wed Jul 29 07:46:03 GMT+1 2015
+
+cfclient
+/etc/init.d/runmbbservice restart
+echo $((180*2*2))
+echo $((10000/720))
+cfclient
+
+Sat Aug 1 12:41:55 GMT+1 2015
+
+./_run_all_git.sh 
+cfclient
+cfclient
+/etc/init.d/runmbbservice restart
+man dhcpcd
+login
+/var/bin/man dhcpcd
+
+Tue Aug 11 23:30:15 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+ 
+
+Wed Aug 12 20:48:52 GMT+1 2015
+
+find /sys -path "*/ehci_hcd/parameters"
+ls /sys/module/ehci_hcd/parameters
+cat /sys/module/ehci_hcd/parameters/park
+
+Thu Aug 13 07:52:47 GMT+1 2015
+
+modinfo ehci_hcd
+modinfo ehci-hcd
+man 4 mouse
+man 4 evdev
+find /sys -name "*ehci*"
+ls /sys/module/ehci_hcd/parameters/
+uname -r
+cat /sys/module/ehci_hcd/parameters/park
+echo 3 >/sys/module/ehci_hcd/parameters/park
+ls /sys/bus/platform/drivers/ehci-platform
+ls /sys/bus/pci/drivers/ehci-pci
+ls /sys/bus/pci/drivers/ehci-pci/0000\:00\:1a.7
+ls /sys/bus/pci/drivers/ehci-pci/0000\:00\:1a.7/driver
+ls /sys/bus/pci/drivers/ehci-pci/0000\:00\:1a.7/usb1
+ifconfig
+cat /sys/module/ehci_hcd/parameters/park
+/etc/init.d/runmbbservice restart
+dc 400 400 \+
+dc 400 400 \+ p
+dc 25 60 \* 48 \* p
+dc 25 100 \* 48 \* p
+dc 38 60 \* 48 \* p
+dc 38 100 \* 48 \* p
+dc 38 200 \* 48 \* p
+dc 38 7 \* 8 \* p
+dc 390000 87 \/ p
+dc 38 70 \* 48 \* p
+dc 38 75 \* 48 \* p
+dc 38 80 \* 48 \* p
+pupx
+grep USB_SUSPEND /etc/modules/DOT*
+cfclient
+dc 48 100 \* p
+dc 56 100 \* p
+https://www.youtube.com/watch?v=peMquT24Ek0
+/etc/init.d/runmbbservice restart
+
+Fri Aug 14 22:36:34 GMT+1 2015
+
+ps | grep git
+kill 20582
+./git_pull_all_directories-03.sh 
+man timeout
+ps | grep git
+kill 28558
+ps | grep git
+./_run_all_git.sh 
+elinks
+
+Sun Aug 16 04:05:24 GMT+1 2015
+
+pupx
+which grub-install
+cfclient
+cfclient
+cfcclient
+cfclient
+ps | grep cross
+tty
+/etc/init.d/runmbbservice restart
+cfclient
+grep -r -w apply *
+grep -I -r -w apply *
+grep -I -r -w aflags *
+grep -I -r 'AP_' *
+grep -I -r ' AP_' *
+find -name "*apply*"
+find -name "*command*"
+grep -I -r 'Could not find' *
+grep -I -r 'Could not find any' *
+grep -I -r 'command_inv' *
+find -name "*apply*"
+grep -I -r -w apply *
+grep -I -r -w command_inv *
+grep -I -r -w inv *
+grep -i key *
+grep -i magistrate *
+grep -i cdcexittomystarea1ky *
+grep -i Valdak *
+pwd
+cd ..
+pwd
+cd ..
+cd navar_city/
+grep -r -i 'ali barbra' *
+cd ..
+grep -r -i 'ali barbra' *
+grep -r -i 'barbra' *
+pwd
+find -name "*siren*"
+/etc/init.d/runmbbservice restart
+ifconfig
+top
+cfclient
+git branch
+pidof geany
+killall geany
+pidof geany
+killall -9 geany
+pidof geany
+kill -9 25241
+geany
+pidof geany
+ps | grep 25241
+ps | grep 19265
+./update_files.sh 
+git commit
+./git_helper/update_files_from_running_system 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+
+Sun Aug 30 00:34:08 GMT+1 2015
+
+mount
+while :;do ping -c 5 google.com && break; sleep 10;date;echo;done
+ping -c bing.com
+ping -c 5 bing.com
+ping -c 5 google.com
+cat /etc/resolv.conf
+ping -c 5 google.com
+ping -c 5 google.com;echo $?
+date
+ping -c 5 hi.link;echo $?
+lsmod | grep cdc
+ifconfig
+ping -c 5 google.com;echo $?
+ifconfig
+killall dhcpcd
+killall mbbservice
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+ifconfig
+/etc/init.d/runmbbservice restart
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+
+Sun Aug 30 10:03:55 GMT+1 2015
+
+geany /sbin/pup_event_frontend_d
+file /sbin/probedisk2
+geany /sbin/probedisk2
+file /sbin/probepart
+geany /sbin/probepart9
+geany /etc/init.d/runmbbservice
+pup_event_frontend_d --restart
+probepart
+probepart --no-floppy
+fdisk -l
+probepart --no-floppy
+probedisk2
+probedisk2 --ignore-floppy
+kill -l
+man kill
+/etc/init.d/runmbbservice --restart
+/etc/init.d/runmbbservice restart
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice --stop
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice --stop
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice --stop
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice --start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice --start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -force-reload
+pidof mbbservice
+/etc/init.d/runmbbservice --reload
+/etc/init.d/runmbbservice -start
+pidof mbbservice
+kill --help
+kill -1 1067
+pidof mbbservice
+/etc/init.d/runmbbservice -start
+pidof mbbservice
+kill -4 3775
+pidof mbbservice
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -restart
+ls /dev
+ls /dev/usb
+man ip
+ip show
+ip link show
+ip route show
+ip address show
+ip rule list
+ip neigh show
+ip -f link link show
+ip -f inet link show
+ip maddr show
+type -a ip
+man ifconfig
+ifconfig
+fuxitup
+fixitup
+pidof mbbservice
+ls /sys/block
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice -start
+ls /tmp
+cat /tmp/pup_event_frontend_block1
+cat /tmp/pup_event_frontend_block2
+ls /sys/block
+ls /sys/class/block
+ps | grep pup
+tes -e /sys/block/sda1/
+test -e /sys/block/sda1/
+test -e /sys/block/sda1/; echo $?
+test -e /sys/block/sda/; echo $?
+test -e /sys/block/sdx/; echo $?
+test -e /sys/block//; echo $?
+test -d /sys/block//; echo $?
+ps | grep pup
+ifconfig
+/etc/init.d/runmbbservice -start
+/etc/init.d/runmbbservice -stop
+/etc/init.d/runmbbservice -start
+probepart
+
+Sun Aug 30 18:34:08 GMT+1 2015
+
+probepart -k $NO_FLOPPY | grep -viE "loop[0-9p]\||ram[0-9]\||mtd[0-9]\||nbd[0-9]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"
+probepart -k $NO_FLOPPY | grep -viE "loop[0-9p]\||ram[0-9p]\||mtd[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"
+probepart
+pup_event_frontend_d restart
+ps | grep pup
+pup_event_frontend_d restart
+lsmod | grep usb
+lsmod | grep option
+modprobe -v option
+ls /dev/ttyUSB*
+probedisk2
+probedisk
+probedisk | cut -f3 -d '|'
+probedisk2 | cut -f3 -d '|'
+probedisk2
+time probedisk2
+time probedisk
+probedisk
+probedisk2
+lsusb
+/etc/init.d/runmbbservice restart
+
+Sun Aug 30 23:25:03 GMT+1 2015
+
+
+Tue Sep 1 20:30:39 GMT+1 2015
+
+man amixer
+amixer $Q set Master,0 100%
+aplay /usr/share/audio/2barks.au
+amixer $Q set Master,0 70%
+aplay /usr/share/audio/2barks.au
+amixer $Q set Master,0 80%
+aplay /usr/share/audio/2barks.au
+amixer $Q set Master,0 90%
+aplay /usr/share/audio/2barks.au
+amixer $Q set Master,0 100%
+aplay /usr/share/audio/2barks.au
+amixer $Q set Master,0 90%
+amixer $Q set Master,0 80%
+amixer $Q set Master,0 90%
+amixer $Q set Master,0 100%
+
+Fri Sep 4 17:21:37 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+
+Sat Sep 5 08:49:15 GMT+1 2015
+
+./update_files.sh 
+git branch
+git remote
+git push MSkrg Fox3-Dell755
+git push krg Fox3-Dell755
+./git_pull_all_directories-03.sh 
+./_run_all_git.sh 
+./git_pull_all.sh 
+ps | grep git
+kill 6989
+ps | grep git
+kill 20673
+ps | grep git
+kill 21466
+ps | grep git
+kill 30121
+/etc/init.d/runmbbservice restart
+
+Sat Sep 5 14:47:08 GMT+1 2015
+
+/etc/init.d/runmbbservice restart
+wget icanzip.com
+fuser -c /dev/dsp
+ps | grep mixer
+ps | grep sound
+ps | grep snd
+ps | grep play
+defaultmediaplayer /root/Videos/FlashLXZthT
+killall firefox
+amixer set Master,0 off
+echo mem >/sys/power/state
+amixer set Master,0 on
+
+Mon Sep 7 15:24:35 GMT+1 2015
+
+echo $((29000000000/365/80000000))
+echo $((29000000000/365))
+wget -c http://www.milchindustrie.de/uploads/tx_news/Quotenrueckblick_ZMB_2015_01.pdf
+wget -c http://www.milchindustrie.de/uploads/tx_news/ZahlenDatenFakten_2011_2012_Homepage_01.pdf
+grep racoon *
+cfclient
+fixitup
+/etc/init.d/runmbbservice restart
+
+Wed Sep 9 17:13:01 GMT+1 2015
+
+defaultmediaplayer 
+pwd
+defaultmediaplayer 49B22d01 
+mplayer 49B22d01 
+for i in *: do mv $i $i.jpg;done
+for i in *: do mv $i $i.jpg ;done
+for i in *; do mv $i $i.jpg ;done
+file *
+file *
+file * | while read line; do case $line in *JPEG*|*PNG*) echo ${line%%:*};;*):;;esac;done
+./Script
+mkdir /root/FFpics
+./Script
+./Script 
+cp EAF9Bd01 BV01/
+cp C7943d01 BV01/
+cp ABF98d01 BV01/
+cp E2999d01 BV01/
+cp 5BF1Ad01 BV01/
+cp F39A4d01 BV01/
+cp 27BBAd01 BV01/
+cp 33BFCd01 BV01/
+cp 84E70d01 BV01/
+cp 44BFAd01 BV01/
+cp 1A28Bd01 BV01/
+cp F1D73d01 BV01/
+echo $((275*8))
+cfclient
+cfclient
+A='(very fast movement)(see invisible)(spellcaster)(Spell abilities:)(dragonbreath ability)(fear ability)(armour +30)(resist fire +100)(resist electricity +100)(resist cold -30)(resist confusion +30)(resist acid +100)(resist drain +100)(re'
+echo "$A" | wc -L
+grep -r -I 256 *
+pwd
+cd ..
+grep -r -I 256 *
+grep -r -i 'port' *
+grep -r -i -w 'port' *
+pwd
+cd ../wolfsburg
+pwd
+grep -r -w pwill *
+cd ..
+pwd
+grep -r -w pwill *
+mkdir /root/FFpics2
+./Script
+cp /root/FFpics2/6ADF2d01 /root/FFpics/BV01/
+
+Sat Sep 12 06:58:35 GMT+1 2015
+
+cfclient
+ps | grep crossfire
+find /sys -type f -iname "*addr*"
+ls /sys/devices/pci0000:00/0000:00:19.0/net
+find /sys -type f -iname "*eth1*"
+find /sys -type d -iname "*eth1*"
+ls /sys/devices/pci0000:00/0000:00:1d.7/usb2/2-6/2-6.2/2-6.2:1.0/net/eth1
+grep '.*' /sys/devices/pci0000:00/0000:00:1d.7/usb2/2-6/2-6.2/2-6.2:1.0/net/eth1/*
+ls -F /sys/devices/pci0000:00/0000:00:1d.7/usb2/2-6/2-6.2/2-6.2:1.0/net/eth1
+ls -F /sys/devices/pci0000:00/0000:00:1d.7/usb2/2-6/2-6.2/2-6.2:1.0/net/eth1/statistics
+grep -H '.*' /sys/devices/pci0000:00/0000:00:1d.7/usb2/2-6/2-6.2/2-6.2:1.0/net/eth1/statistics/*
+ps | grep crossfire
+/usr/games/crossfire/bin/crossfire -help
+wget --help
+cd /tmp
+wget -O icanhazip.txt icanhazip.com
+read IP <icanhazip.txt
+echo $IP
+cfclient
+killall crossfire
+cfclient
+cfclient
+find -name "*finger*"
+find -name "*wounds*"
+find -name "*death*"
+find -name "*restore*"
+find -name "*restor*"
+grep -r drain *
+grep -r supreme *
+pwd
+cd ..
+grep -r supreme *
+grep -r area_dragon_pass_cdc *
+grep -r area_dragon_pass_cdc *
+which cfclient
+geany /root/my-applications/sbin/cfclient
+ifconfig |grep inet |tail -n1 |awk '{print $2}' |cut -f2 -d:
+ifconfig |grep inet
+ifconfig |grep 'inet addr:' |tail -n1 |awk '{print $2}' |cut -f2 -d:
+cd /tmp
+wget icanhazip.com
+cat index.html 
+
+Mon Sep 14 10:10:16 GMT+1 2015
+
+make
+make
+make html
+cfclient
+kill -l
+cfclient
+grep -r -I path_denied *
+grep -r -I PATH_LIGHT *
+grep -r -I PATH_MIND *
+grep -r -I -i cast_consecrate *
+grep -r -I -i abjuration *
+grep -r -I -i spellpath *
+grep -I -i -r path *
+grep -I -r itches *
+grep -I -r -w itches *
+grep -I -r -w subtype *
+which cfclient
+geany /root/my-applications/sbin/cfclient
+geany /bin/ps
+cfclient
+jobs
+kill
+cfclient
+/etc/init.d/runmbbservice restart
+
+Tue Sep 15 22:42:17 GMT+1 2015
+
+
+Wed Sep 16 10:36:47 GMT+1 2015
+
+./_run_all_git.sh 
+./git_pull_all_directories-03.sh 
+ps | grep git
+find ./.git -name "*tmp*"
+find ./.git -name "*tmp*" -exec ls -s {} \;
+find ./.git -name "*tmp*" -exec ls -l {} \;
+find ./.git -name "*tmp*" -exec ls -s {} \;
+find ./.git -name "*tmp*" -exec ls -l {} \;
+ps | grep git
+kill 15780
+git branch
+git branch -r
+git checkout linux-4.1.y
+git checkout linux-4.2.y
+git pull
+git checkout linux-4.0.y
+git pull
+git checkout linux-3.19.y
+git pull
+git checkout linux-3.14.y
+git pull
+git checkout linux-3.12.y
+git pull
+git checkout linux-3.10.y
+git pull
+git checkout linux-3.4.y
+git pull
+git pull linux-3.4.y
+git remote
+git pull gitKernelOrgStable linux-3.4.y
+git checkout linux-3.2.y
+git pull
+git checkout linux-3.0.y
+git checkout linux-3.18.y
+git pull
+git checkout linux-4.1.y
+git checkout linux-4.2.y
+git pull
+git checkout linux-4.3.y
+git branch -r
+git checkout master
+./git_pull_all_directories-02.sh 
+git branch
+git checkout master
+git remote
+git pull aufs4-stdlone master
+git branch -r
+git pull
+git branch -r
+git branch
+git pull
+git branch
+git pull
+git checkout master
+git checkout next
+git pull
+git checkout master
+git pull
+git remote
+git pull grub-http master
+git checkout multiboot2
+git pull
+git branch
+git pull
+git remote
+git pull grub-http
+git branch -r
+git branch
+git checkout server-1.17-branch
+git checkout server-1.16-branch
+git checkout server-1.15-branch
+git checkout server-1.14-branch
+git pull
+git checkout server-1.13-branch
+git pull
+git checkout server-1.12-branch
+git checkout server-1.11-branch
+git checkout server-1.10-branch
+git checkout server-1.9-branch
+git checkout server-1.8-branch
+git checkout server-1.7-branch
+git checkout server-1.13-branch
+git checkout server-1.7-branch
+git checkout server-1.13-branch
+git checkout server-1.17-branch
+git remote
+git remote -v
+git branch
+git pull
+git branch
+git branch -r
+git pull
+git branch
+git branch -r
+git branch
+git checkout mesa_7_7_branch
+git pull
+git remote
+git pull mesa
+git pull mesa mesa_7_7_branch
+git pull mesa mesa_7_8_branch
+git checkout mesa_7_8_branch
+git checkout mesa_7_6_branch
+git pull mesa mesa_7_6_branch
+ps | grep git
+kill 13087
+ps | grep git
+kill 30432
+ps | grep git
+kill 32051
+./git_pull_all.sh 
+git branch -r
+git checkout 3.2-fixes
+git checkout master
+git checkout feature/syeh/screen-targets
+git checkout feature/thellstrom/render-nodes
+git checkout feature/thellstrom/screen-target-merge
+git checkout vmwgfx-old-hardware
+git checkout vmwgfx_2_0_branch
+git checkout master
+git checkout vmwgfx_2_0_branch
+git pull
+git remote
+git branch
+git pull vmwgfx vmwgfx_2_0_branch
+git checkout master
+git reset --hard 3a7a3f59fd88b1375c203529b073e9fc1327890e
+git branch
+git remote
+git pull vmwgfx feature/thellstrom/screen-target-merge
+git branch
+git checkout master
+git pull
+git branch
+git log
+git branch
+git branch -r
+git pull
+git branch -r
+git pull
+git branch -r
+git pull
+git branch -r
+git branch
+git pull
+git branch
+git branch -r
+git remote
+netstat
+netstat
+ps | grep git
+netstat
+ps | grep crossfire
+killall crossfire
+ps | grep crossfire
+netstat
+netstat
+netstat
