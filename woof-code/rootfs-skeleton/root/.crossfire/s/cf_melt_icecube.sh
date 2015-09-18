@@ -90,7 +90,7 @@ OLD_REPLY=
 echo watch drawinfo
 echo "issue 1 1 mark icecube"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
@@ -115,12 +115,13 @@ OLD_REPLY=
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep 'used up'`" && break 3
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -144,7 +145,7 @@ OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 mark icecube"
-while [ 1 ]; do
+while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
@@ -169,12 +170,13 @@ OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep 'used up'`" && break 3
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
