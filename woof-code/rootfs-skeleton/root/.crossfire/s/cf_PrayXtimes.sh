@@ -29,6 +29,18 @@ export PATH=/bin:/usr/bin
 #                                 *   errors. Overrides NDI_ALL. */
 
 
+# Global variables
+PAUSE_CHECK_FOOD=10 # number between praying attemts to check foodlevel.
+                    #  1 would mean check every pray, which is too much
+EAT_FOOD=waybread   # set to desired food to eat ie food, mushroom, booze, .. etc.
+FOOD_DEF=$EAT_FOOD     # default
+MIN_FOOD_LEVEL_DEF=200 # default minimum. 200 starts to beep. waybread has foodvalue of 500 .
+                       # 999 is max foodlevel
+
+HP_MIN_DEF=20          # minimum HP to return home. Lowlevel charakters probably need this set.
+
+DEBUG=1; #set to ANYTHING ie "1" to enable, empty to disable
+
 
 # *** Here begins program *** #
 echo draw 2 "$0 has started.."
@@ -73,7 +85,7 @@ echo request stat cmbt
 #read REQ_CMBT
 #snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read Req Stat Cmbt WC AC DAM SPEED W_SPEED
-echo draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
+[ "$DEBUG" ] && echo draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
 case $SPEED in
 1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
 2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
@@ -86,21 +98,160 @@ case $SPEED in
 9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
 *) USLEEP=600000;;
 esac
-echo draw 10 "USLEEP=$USLEEP:SPEED=$SPEED"
+[ "$DEBUG" ] && echo draw 10 "USLEEP=$USLEEP:SPEED=$SPEED"
 
 USLEEP=$(( USLEEP- ((SPEED/10000)*1000) ))
-echo draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
+[ "$DEBUG" ] && echo draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
 
+
+_check_hp_and_return_home(){
+
+test "$1" && local currHP=$1
+test "$2" && local currHPMin=$2
+
+test "$currHP"     || local currHP=$HP
+test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
+test "$currHPMin"  || local currHPMin=$((MHP/10))
+
+[ "$DEBUG" ] && echo draw 3 currHP=$currHP currHPMin=$currHPMin
+if test "$currHP" -le $currHPMin; then
+echo issue 1 1 apply -a rod of word of recall
+echo issue 1 1 fire center ## Todo check if already applied and in inventory
+echo issue 1 1 fire_stop
+echo unwatch drawinfo
+exit
+fi
+
+unset HP
+}
+
+#Food
+
+_cast_create_food_and_eat(){
+
+local lEAT_FOOD
+
+test "$*" && lEAT_FOOD="$@"
+test "$EAT_FOOD" || lEAT_FOOD=$FOOD_DEF
+test "$EAT_FOOD" || lEAT_FOOD=food
+
+echo issue pickup 0
+sleep 1
+echo issue 1 1 cast create food $lEAT_FOOD
+sleep 1
+echo issue 1 1 fire center ## Todo handle bungling the spell
+sleep 0.1
+echo issue 1 1 fire_stop
+sleep 1
+
+echo issue 1 1 apply ## Todo check if food is there on tile
+
+}
+
+_apply_horn_of_plenty_and_eat(){
+
+echo issue 1 1 apply -a Horn of Plenty
+sleep 1
+echo issue 1 1 fire center ## Todo handle bungling
+echo issue 1 1 fire_stop
+sleep 1
+echo issue 1 1 apply ## Todo check if food is there on tile
+
+}
+
+
+_eat_food(){
+
+test "$*" && EAT_FOOD="$@"
+test "$EAT_FOOD" || EAT_FOOD=waybread
+
+#_check_food_inventory ## Todo: check if food is in INV
+
+echo issue 1 1 apply $EAT_FOOD
+
+}
+
+_check_food_level(){
+
+#c=$((c+1))
+#test $C -lt $PAUSE_CHECK_FOOD && return
+#c=0
+
+test "$*" && MIN_FOOD_LEVEL="$@"
+test "$MIN_FOOD_LEVEL" || MIN_FOOD_LEVEL=200
+
+local FOOD_LVL='';
+
+echo watch drawinfo
+sleep 1
+echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
+while :;
+do
+unset FOOD_LVL
+read -t1 Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
+test "$Re" = request || continue
+
+test "$FOOD_LVL" || break
+test "${FOOD_LVL//[[:digit:]]/}" && break
+
+[ "$DEBUG" ] && echo draw 3 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+
+if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+ #_eat_food
+ _cast_create_food_and_eat $EAT_FOOD
+
+ sleep 2
+ unset FOOD_LVL
+ read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
+ [ "$DEBUG" ] && echo draw 3 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+
+ test "$FOOD_LVL" || break
+ test "${FOOD_LVL//[[:digit:]]/}" && break
+
+
+
+ #return $?
+ break
+fi
+
+test "${FOOD_LVL//[[:digit:]]/}" || break
+test "$FOOD_LVL" && break
+test "$oF" = "$FOOD_LVL" && break
+
+oF="$FOOD_LVL"
+sleep 0.1
+done
+
+
+
+echo unwatch drawinfo
+
+}
+
+
+
+#Food
 
 # *** Actual script to pray multiple times *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
+c=0
 for one in `seq 1 1 $NUMBER`
 do
 
 echo "issue 1 1 use_skill praying"
 #sleep 1s
 usleep $USLEEP
+
+c=$((c+1))
+test $c -ge $PAUSE_CHECK_FOOD && {
+c=0
+_check_food_level
+#_check_hp_and_return_home $HP $HP_MIN_DEF
+_check_hp_and_return_home $HP
+unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
+unset Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
+}
 
 done
 
