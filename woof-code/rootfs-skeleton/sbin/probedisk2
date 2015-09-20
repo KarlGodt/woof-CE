@@ -39,33 +39,6 @@ _trap
 #v403 fixed excessive spaces in description field.
 #v406 support for old kernel, /proc/ide, /dev/hd*.
 
-__old_default_info_header__(){
-#************
-#KRG
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = 2 ] && set -x
-
-Version=1.1-KRG-MacPup_O2
-
-usage(){
-MSG="
-$0 [ help | version ]
-"
-echo "$MSG
-$2"
-exit $1
-}
-
-[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0
-[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
-trap "exit" HUP INT QUIT ABRT KILL TERM
-
-#KRG
-#************
-}
 
 ########################################################################
 #
@@ -103,128 +76,144 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #ATADRIVES is all ide/sata drives (not usb) (which all have /dev/sd notation).
 #if old kernel supporting /dev/hd* then using SATADRIVES variable...
 
-###<KRG+2011_10_28>
+###<KRG+2011-10-28>
 INTERNAL_SD_DRIVES1="$SATADRIVES
-$ATADRIVES"                       ##+++2011_10_28
-INTERNAL_SD_DRIVES=`echo "$INTERNAL_SD_DRIVES1" | sort -u | sort -d`  ##+++2011_10_28
-#[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"  ##+-+2011_10_28
-###</KRG+2011_10_28>
+$ATADRIVES"                       ##+++2011-10-28
+INTERNAL_SD_DRIVES=`echo "$INTERNAL_SD_DRIVES1" | sort -u | sort -d`  ##+++2011-10-28
+#[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"  ##+-+2011-10-28
+###</KRG+2011-10-28>
 
 ###+-+2012-01-22 Changed /root to $HOME
 home="$HOME"
 [ "$home" = '/' ] && home='/root'
-if [ -f $home/.usb-drive-log-probedisk ];then #force /proc upate mechanism
- for ONEUSBDRV in `cat $home/.usb-drive-log-probedisk | tr '\n' ' '`
+STATE_DIR="$home/.pup_event"
+if [ -f "$STATE_DIR"/usb-drive-log-probedisk ];then #force /proc upate mechanism
+ for oneUSBDRV in `cat "$STATE_DIR"/usb-drive-log-probedisk`
  do
   #disktype /dev/$ONEUSBDRV > /dev/null 2>&1
-  dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v4.01 faster.
+  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v4.01 faster.
  done
 fi
 
 #mounted drives/partitions...
 #MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc' | tr '\n' ' '`
-MNTDDEVS=`mount | cut -f 2 -d '"' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd' | tr '\n' ' '`
+#MNTDDEVS=`mount | cut -f 2 -d '"' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
+MNTDDEVS=`grep -o '^/dev/[^ ]\+' /proc/mounts | grep -oE 'hd.*|sd.*|scd.*|sr.*|mmc.*|fd.*'`
 
 #crap, right now, /sys/block does not show my hdb cd/dvd drive, but it is in
 #/proc/ide. pathetic kernel! oh well...
 if [ ! -e /proc/ide ];then #v3.97
- ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^hd|^fd' | tr '\n' ' '`
+ ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^hd|^fd'`
 else
- ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd' | tr '\n' ' '``ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`
+ ALLDRVS="`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd'`
+`ls -1 /proc/ide | grep '^hd'`"
 fi
 #note: after further testing, the 2.6.21.5 kernel exhibits inconsistent behaviour for hd devices, best to avoid.
 
-for ONEDRV in $ALLDRVS
+for oneDRV in $ALLDRVS
 do
-  case $ONEDRV in
+  unset MEDIA INFO VENDOR MODEL
+  #MEDIA=;INFO=;VENDOR=;MODEL=;
+  case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
-     MEDIA=`cat /proc/ide/$ONEDRV/media`
-     [ "$MEDIA" = "disk" ] && MEDIA="drive"
+     #MEDIA=`cat /proc/ide/$oneDRV/media`
+     test -f /proc/ide/$oneDRV/media && read MEDIA </proc/ide/$oneDRV/media
+     [ "$MEDIA" = "disk" ]  && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
-     [ "$MEDIA" = "" ] && MEDIA='noInfo@procIde'  ##+++2011_10_28
-     INFO=`cat /proc/ide/$ONEDRV/model`
+     [ "$MEDIA" = "" ] && MEDIA='noInfo@procIde'  ##+++2011-10-28
+     #INFO=`cat /proc/ide/$oneDRV/model`
+     test -f /proc/ide/$oneDRV/model && read INFO </proc/ide/$oneDRV/model
+     [ "$INFO" ] || INFO='noInfo@procIde'
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
-     VENDOR=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`
-     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
-     MODEL=`cat /sys/block/$ONEDRV/device/model | tr -s ' '`
-     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
-     INFO="$VENDOR$MODEL"
-     DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
+     test -f /sys/block/$oneDRV/device/vendor && read VENDOR </sys/block/$oneDRV/device/vendor
+     [ "$VENDOR" ] || VENDOR='noInfo@sysBlock'  ##+++2011-10-28
+     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     test -f /sys/block/$oneDRV/device/model  && read MODEL  </sys/block/$oneDRV/device/model
+     [ "$MODEL" ]  || MODEL='noInfo@sysBlock'   ##+++2011-10-28
+     INFO="$VENDOR $MODEL"
+     DRVNAMES="$DRVNAMES `echo -n "$oneDRV" | cut -b 1-3` "
 
      #log if usb drive (not a sata drive)... v4.01...
-     if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
+     if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$oneDRV"`" = "" ];then
       MEDIA="usbdrv" #v4.01
-      echo "$ONEDRV" >> $home/.usb-drive-log-probedisk
-      sort -u $home/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
-      mv -f /tmp/usb-drive-log-probedisk-tmp $home/.usb-drive-log-probedisk
+      echo "$oneDRV" >> "$STATE_DIR"/usb-drive-log-probedisk
+      sort -u "$STATE_DIR"/usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
+      cp -f /tmp/usb-drive-log-probedisk-tmp "$STATE_DIR"/usb-drive-log-probedisk
       #find out if a usb floppy drive...
-      if [ -e /sys/block/${ONEDRV}/size ];then
-       [ "`cat /sys/block/${ONEDRV}/size`" = "2880" ] && MEDIA="floppy"
+      if [ -e /sys/block/${oneDRV}/size ];then
+       [ "`cat /sys/block/${oneDRV}/size`" = "2880" ] && MEDIA="floppy"
       fi
       #if the floppy diskette not inserted, try this fallback test...
       #some examples: Vendor: NEC Model: USB UF000x Rev: 1.50, Sony USB Floppy Drive, rev 1.10/5.01,
       # MITUMI USB FDD, VenDor: TEAC Model: FD-05PUB, Vendor: COMPAQ Model: USB EXT FLOPPY
-      if [ -e /sys/block/${ONEDRV}/device/model ];then
-       [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${ONEDRV}/device/model`" != "" ] && MEDIA="floppy"
+      if [ -e /sys/block/${oneDRV}/device/model ];then
+       [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${oneDRV}/device/model`" != "" ] && MEDIA="floppy"
       fi
      else
       #find out if it is a removable internal drive (zip, ls120, etc)...
-      if [ -e /sys/block/${ONEDRV}/removable ];then
-       [ "`cat /sys/block/${ONEDRV}/removable`" = "1" ] && MEDIA="floppy"
+      if [ -e /sys/block/${oneDRV}/removable ];then
+       [ "`cat /sys/block/${oneDRV}/removable`" = "1" ] && MEDIA="floppy"
       fi
      fi
 
    ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="optical"
-     VENDOR=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`
-     MODEL=`cat /sys/block/$ONEDRV/device/model | tr -s ' '`
-     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
-     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
-     INFO="$VENDOR$MODEL"
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '`
+     test -f /sys/block/$oneDRV/device/vendor && read VENDOR </sys/block/$oneDRV/device/vendor
+     #MODEL=`cat /sys/block/$oneDRV/device/model | tr -s ' '`
+     test -f /sys/block/$oneDRV/device/model  && read MODEL  </sys/block/$oneDRV/device/model
+     [ "$VENDOR" ] || VENDOR='noInfo@sysBlock'   ##+++2011-10-28
+     [ "$MODEL" ]  ||  MODEL='noInfo@sysBlock'   ##+++2011-10-28
+     #INFO="${VENDOR% *} ${MODEL#* }"
+     INFO="$VENDOR $MODEL"
    ;;
    mmc*) #/dev/mmcblk0
      MEDIA="card"
-     NAME=`cat /sys/block/$ONEDRV/device/name`
-     [ -z "$NAME" ] && NAME='-noInfo@sysBlock'   ##+++2011_10_28
-     #INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
+     #NAME=`cat /sys/block/$oneDRV/device/name`
+     test -f /sys/block/$oneDRV/device/name && read NAME </sys/block/$oneDRV/device/name
+     [ "$NAME" ] || NAME='noInfo@sysBlock'   ##+++2011-10-28
+     #INFO="MMC/SD: `cat /sys/block/$oneDRV/device/name`"
+     #INFO="MMC/SD: ${NAME#* }"
      INFO="MMC/SD: $NAME"
    ;;
    fd*)
      MEDIA='floppy'
      VENDOR='Legacy'
      MODEL='3"5 inch'
-     INFO="$VENDOR ${MODEL}"
+     #INFO="${VENDOR% *} ${MODEL#* }"
+     INFO="$VENDOR $MODEL"
    ;;
    *)
      continue
    ;;
   esac
-  echo "/dev/$ONEDRV|$MEDIA|$INFO"
+  echo "/dev/$oneDRV|$MEDIA|$INFO"
 
 done
 
 #find out if a mounted device has been unplugged...
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
-for ONEMNTD in $MNTDDEVS
+for oneMNTD in $MNTDDEVS
 do
- case $ONEMNTD in
+ case $oneMNTD in
   hd*|sd*|sr*|fd*)
-   MNTDDRV="`echo -n "$ONEMNTD" | cut -b 1-3`"
+   MNTDDRV="`echo -n "$oneMNTD" | cut -b 1-3`"
    ;;
   scd*)
-   MNTDDRV="`echo -n "$ONEMNTD" | cut -b 1-4`"
+   MNTDDRV="`echo -n "$oneMNTD" | cut -b 1-4`"
    ;;
   mmc*)
-   MNTDDRV="`echo -n "$ONEMNTD" | cut -b 1-7`"
+   MNTDDRV="`echo -n "$oneMNTD" | cut -b 1-7`"
    ;;
  esac
  #prints to system log and to stderr...
  #echo "$MNTDDRV"
- [ "`echo "$ALLDRVS" | grep -w "$MNTDDRV"`" = "" ] && logger -s "PROBEDISK WARNING: unplugged $ONEMNTD still known mounted."
+ [ "`echo "$ALLDRVS" | grep -w "$MNTDDRV"`" ] || logger -s "PROBEDISK WARNING: unplugged $oneMNTD still known mounted."
 done
 #echo "$ALLDRVS"
 ###END###
