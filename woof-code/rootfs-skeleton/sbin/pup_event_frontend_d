@@ -67,7 +67,7 @@ FILE="$1"
 [ -f "$FILE" ] || usage 1 "$FILE is not a regular file."
 
 
-cp "$FILE" /root/changes
+cp $VERB "$FILE" /root/changes
 
 while read -r line; do
  [ "$line" ] || continue
@@ -159,7 +159,7 @@ echo -e "\n$0: Version '$Version'\nTry -h for more info.\n";exit 0
 *check*)
 #BASH set -n
 bn=${0##*/}
-cp $0 /tmp/
+cp $VERB $0 /tmp/
 sed -i '1d' /tmp/"$bn"
 sed -i '1i\#!/bin/bash -n' /tmp/"$bn"
 /tmp/"$bn" $PARAMETER_LINE
@@ -367,24 +367,24 @@ PREVSIZEFREEM=0
 
 ###<KRG>
 stateDIR="$HOME/Choices/Puppy"
-drive_iconDIR="$stateDIR"/.pup_event
+drive_iconDIR="$stateDIR"/pup_event
 mkdir -p "$drive_iconDIR"
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
- for oneMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
+ for oneMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/mtd|^/dev/nbd|^/dev/md' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
-  if [ "`fuser -v -m $oneMNTPT`" = "" ];then
+  if [ ! "`fuser -v -m $oneMNTPT`" ];then
    pidof sync >>$OUT || sync
-   umount $oneMNTPT ; umVAL=$?
+   /bin/umount $oneMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
-    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
+    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | awk '{print $1}'`
     for oneZOMBIE in $ZOMBIES
     do
-     kill $oneZOMBIE
+     /bin/ps --no-header -p $oneZOMBIE >$OUT && kill $oneZOMBIE
     done
-    umount "$oneMNTPT" ; umVAL=$?
+    /bin/umount "$oneMNTPT" ; umVAL=$?
    fi
   fi
  done
@@ -424,11 +424,11 @@ create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
 }
 
  PIN_GRID_STEP=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
- [ $PIN_GRID_STEP ] || PIN_GRID_STEP=16       #16=medium.
+ [ $PIN_GRID_STEP ]       || PIN_GRID_STEP=16       #16=medium.
  [ $PIN_GRID_STEP -le 0 ] && PIN_GRID_STEP=16 #precaution.
- PIN_GRID_STEP2=`expr $PIN_GRID_STEP \/ 2`
- MAX_X=`expr $SCRN_X - 96`
- MAX_Y=`expr $SCRN_Y - 96`
+ PIN_GRID_STEP2=$((PIN_GRID_STEP / 2))
+ MAX_X=$((SCRN_X - 96))
+ MAX_Y=$((SCRN_Y - 96))
 [ "$DEBUG" ] && echo "PIN_GRID_STEP=$PIN_GRID_STEP PIN_GRID_STEP2=$PIN_GRID_STEP2"
 
 
@@ -448,7 +448,7 @@ free_coord_normal(){
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
     COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
     if [ $COORD_X -gt $MAX_X ];then #start next line up.
      xyCNT=`expr $xyCNT + 1`
@@ -467,7 +467,7 @@ free_coord_normal(){
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
     COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
      xyCNT=`expr $xyCNT + 1`
@@ -511,7 +511,7 @@ free_coord_normal(){
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
     COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
     if [ $COORD_Y -gt $MAX_Y ];then #start next row back.
      xyCNT=`expr $xyCNT + 1`
@@ -537,7 +537,7 @@ free_coord_normal(){
 free_coord_simple(){
  #DRIVE_NAME="$1"
  #LAST_PLACE=`grep -m1 -w "\.pup_event/drive_${OLD_DRV_NAME}" /root/Choices/ROX-Filer/PuppyPin`
- LAST_PLACE=`grep -m1 '\.pup_event/drive_' $HOME/Choices/ROX-Filer/PuppyPin`
+ LAST_PLACE=`grep -m1 '\pup_event/drive_' $HOME/Choices/ROX-Filer/PuppyPin`
  [ "$LAST_PLACE" ] && { COORD_X=`echo "$LAST_PLACE" | cut -f2 -d'"'`; COORD_Y=`echo "$LAST_PLACE" | cut -f4 -d'"'`; }
  #echo "'$OLD_DRV_NAME' $DRIVE_NAME
 echo "'$LAST_PLACE'
@@ -642,9 +642,11 @@ fi   ## was# ICONPARTITIONS true
 
   drvPATTERN='^/dev/'"${PART_NAME}"' ' #important, a space on end!
 
-  if [ ! -d $drive_iconDIR/drive_${PART_NAME} ];then
+  if [ ! -d $drive_iconDIR/drive_${PART_NAME} ]; then
    mkdir -p $drive_iconDIR/drive_${PART_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
-   cp -af /usr/local/bin/drive_all $drive_iconDIR/drive_${PART_NAME}/AppRun
+   /bin/cp $VERB -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${PART_NAME}/AppRun
+  else
+    echo -e "\\033[1;33m""$drive_iconDIR/drive_${DEV_NAME} EXTST ...""\\033[0;39m"
   fi
 
    if [ "$FSTYPE" != 0 -a "$SIZE" != 0 ] ; then
@@ -672,8 +674,8 @@ ${DRV_DESCRIPTION}"
  icon_unmounted_func $PART_NAME $DRV_CATEGORY;add_pinboard_func $PART_NAME
  elif [ "$ICONPARTITIONS" = "true" ];then
       [ "$DEBUG" ] && echo "ICONPARTITIONS true"
-    MNTSTATUS=`/bin/df | grep "$drvPATTERN"`
-    if [ "$MNTSTATUS" = "" ];then
+    MNTSTATUS=`/bin/df | grep -m1 "$drvPATTERN"`
+    if [ ! "$MNTSTATUS" ];then
      icon_unmounted_func $PART_NAME $DRV_CATEGORY #see functions4puppy4.
     else
      [ "$DEBUG" ] && echo 'starting now icon_mounted_func'
@@ -698,7 +700,7 @@ remove_pinboard_func() { #needs DEV_NAME (name of entire drive)
  DRV_NAME=`echo $DRV_NAME | tr -d '/' | sed 's#dev##g'`;;
  esac
 
- ppPATTERN='\.pup_event/drive_'"$DRV_NAME"'.*'
+ ppPATTERN='\pup_event/drive_'"$DRV_NAME"'.*'
 
  ALLNAMES=`grep -o "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin | cut -f 3 -d '_' | cut -f 1 -d '<' | sort -r`
 
@@ -730,9 +732,9 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
   #oneKEEP_PATH=`dirname $oneKEEP_SPEC`
   oneKEEP_PATH-${oneKEEP_SPEC%/*}
   test -d /tmp${oneKEEP_PATH} || mkdir -p /tmp${oneKEEP_PATH}
-  cp -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
+  cp $VERB -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
- if [ "$DEL_LAYER" != "" ];then
+ if [ "$DEL_LAYER" ];then
   rm -rf ${DEL_LAYER}/lib/modules
  else
   if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then
@@ -740,7 +742,7 @@ delete_func() { #called from free_func() and free_flash_func(). delete modules t
   fi
   rm -rf /lib/modules
  fi
- cp -af /tmp/lib/modules /lib/modules
+ cp $VERB -af /tmp/lib/modules /lib/modules
  depmod -a
 }
 
@@ -795,7 +797,7 @@ free_func() { #called every 4 seconds.
  #save to a file, freememapplet can read this...
  echo "$VIRTUALFREEM" > /tmp/pup_event_sizefreem
  [ "$PUPMODE" -eq 5 -o "$PUPMODE" -eq 2 ] && return 0 #5=first boot, no msgs at top of screen.
- if [ "$WARNMSG" != "" ];then
+ if [ "$WARNMSG" ];then
   killall yaf-splash
   yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
  fi
@@ -812,7 +814,7 @@ savepuppy_func(){
 free_flash_func(){ #PUPMODE 3,7,13. called every 3 seconds.
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
- SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
+  SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
  [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ -s /tmp/pup_event_sizetmpm ]  && read PREVSIZETMPM  </tmp/pup_event_sizetmpm
  [ $PREVSIZEFREEM -eq $SIZEFREEM -a $PREVSIZETMPM -eq $SIZETMPM ] && return
@@ -841,7 +843,7 @@ free_flash_func(){ #PUPMODE 3,7,13. called every 3 seconds.
  echo "$SIZETMPM" > /tmp/pup_event_sizetmpm
  #save to a file, freememapplet can read this...
  echo "$VIRTUALFREEM" > /tmp/pup_event_sizefreem
- if [ "$WARNMSG" != "" ];then
+ if [ "$WARNMSG" ];then
   killall yaf-splash
   yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
  fi
@@ -850,7 +852,7 @@ savepuppy_func
 
 ######################################################################
 #stuff to setup at entry...
-probedisk2_func(){
+__probedisk2_func__(){
 
 PROBEDISK=`probedisk2`
 
@@ -884,8 +886,13 @@ rm -f /tmp/PROBEDISKnew.txt
 echo "$PROBEDISK"
 }
 
+probedisk2_func(){
+    PROBEDISK=`probedisk2`
+ [ "$DEBUG" ] && echo "$PROBEDISK"
+}
+
 clear_desk_icons_func(){
-drives=`grep '/\.pup_event/drive_*' $HOME/Choices/ROX-Filer/PuppyPin | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`
+drives=`grep '/\pup_event/drive_*' $HOME/Choices/ROX-Filer/PuppyPin | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`
 
 for item in $drives; do
 DEV_NAME="$item"
@@ -948,22 +955,24 @@ while read -r oneDRV
  [ "$DEBUG" ] && echo "oneDRV=$oneDRV'"
  #[ "$DEBUG" ] && echo "DRV_NAME=$DRVNAME' DRV_CATEGORY=$DRV_CATEGORY' DRV_DESCRIPTION=$DRV_DESCRIPTION'"
 
-  DEV_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+         DEV_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   #DRV_NAME=${DRV_NAME##*/}
 
-  DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
+     DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
   DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
 
   create_icon_func $DEV_NAME #startup #needs PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
   #create_icon_func $DRV_NAME
 
   #oneDRVNAME="$DEV_NAME"
-  if [ ! -d $drive_iconDIR/drive_${DEV_NAME} ] ; then
+  if [ ! -d $drive_iconDIR/drive_${DEV_NAME} ]; then
    mkdir -p $drive_iconDIR/drive_${DEV_NAME}
-   /bin/cp -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DRV_NAME}/AppRun
+   /bin/cp $VERB -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DEV_NAME}/AppRun
    INFO="Puppy drive manager"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    create_appinfo_func $DEV_NAME #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   else
+    echo -e "\\033[1;31m""$drive_iconDIR/drive_${DEV_NAME} EXTST ...""\\033[0;39m"
   fi
 
  done<<EOI
@@ -1018,7 +1027,7 @@ while :; do
     REPLY=$?
     echo $REPLY
     if [ "$REPLY" = "190" -o "$REPLY" = "0" ] ; then
-    wmpoweroff &
+    exec wmpoweroff &
     fi
    fi
  CURPOS2="$CURPOS1"
