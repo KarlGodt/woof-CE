@@ -10,8 +10,12 @@
 #[ ! -d /proc/acpi ] && FLAGEXIT='yes'
 if [ ! -d /proc/acpi ];then #101114
  FLAGEXIT='yes'
+elif [ `dmidecode -s "bios-release-date" | cut -f 3 -d '/' | rev | cut -c 1,2 | rev | sed 's%^0*%%'` -lt 7 ]; then
+ FLAGEXIT='yes' #<2006 100603: <2007 101014
+elif [ "$1" = start ]; then
+ echo "$0: Enabling cpufrequency scaling..."
 else
- [ `dmidecode -s "bios-release-date" | cut -f 3 -d '/' | rev | cut -c 1,2 | rev` -lt 7 ] && FLAGEXIT='yes' #<2006 100603: <2007 101014
+ FLAGEXIT='yes'
 fi
 
 if [ "$FLAGEXIT" = "yes" ];then #101014
@@ -27,6 +31,9 @@ __remove_cpu_freq_dot_desktop__(){
  exit
 fi
 
+case "$1" in
+ start)
+
 # REM: TODO scaling_min_freq scaling_max_freq
 _alter_scaling_min(){
 echo "$2" > /sys/devices/system/cpu/$1/cpufreq/scaling_min_freq
@@ -36,57 +43,58 @@ _alter_scaling_max(){
 echo "$2" > /sys/devices/system/cpu/$1/cpufreq/scaling_max_freq
 }
 
+test -r /etc/default/cpu_scaling.conf && . /etc/default/cpu_scaling.conf
 
-AMD='powernow-k6 powernow-k7 powernow-k8'
-CYRIX='gx-suspmod'
-INTEL='p4-clockmod speedstep-centrino speedstep-ich'
-NVIDIA='cpufreq-nforce2'
+[ "$AMD" ]    || AMD='powernow-k6 powernow-k7 powernow-k8'
+[ "$CYRIX" ]  || CYRIX='gx-suspmod'
+[ "$INTEL" ]  || INTEL='p4-clockmod speedstep-centrino speedstep-ich'
+[ "$NVIDIA" ] || NVIDIA='cpufreq-nforce2'
 # description:    LongRun driver for Transmeta Crusoe and Efficeon processors.
-TRANSM='longrun'
-VIA='longhaul e_powersaver'
+[ "$TRANSM" ] || TRANSM='longrun'
+[ "$VIA" ]    || VIA='longhaul e_powersaver'
 
-FREQMOD="acpi-cpufreq"
-FREQMOD_OPS='acpi_pstate_strict=1'
-GOVERNOR='ondemand'      # REM: conservative, ondemand, performance, powersave
-GOVERNOR_OPS=''
-case "$1" in
- start)
+[ "$FREQMOD" ]      || FREQMOD="acpi-cpufreq"
+[ "$FREQMOD_OPS" ]  || FREQMOD_OPS='acpi_pstate_strict=1'
+[ "$GOVERNOR" ]     || GOVERNOR='ondemand'      # REM: conservative, ondemand, performance, powersave
+[ "$GOVERNOR_OPS" ] || GOVERNOR_OPS=''
+
+
 
   _detect_cpu_manufacturer(){
   CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
   case $CPUMAN in
-   amd)    mFREQMODS="${AMD}" ;;
-   cyrix)   mFREQMODS="${CYRIX}" ;;
-   intel)    mFREQMODS="${INTEL}" ;;
-   nvidia)    mFREQMODS="${NVIDIA}" ;;
-   transmeta) mFREQMODS="${TRANSM}" ;;
-   via)       mFREQMODS="${VIA}" ;;
+   amd)    mFREQMODS_="${AMD}" ; mFREQMODOPTS_='';;
+   cyrix)   mFREQMODS_="${CYRIX}" ;mFREQMODOPTS_='';;
+   intel)    mFREQMODS_="${INTEL}" ;mFREQMODOPTS_='';;
+   nvidia)    mFREQMODS_="${NVIDIA}" ;mFREQMODOPTS_='';;
+   transmeta) mFREQMODS_="${TRANSM}" ;mFREQMODOPTS_='';;
+   via)       mFREQMODS_="${VIA}" ;mFREQMODOPTS_='';;
   esac
   }
   _detect_cpu_manufacturer
 
+[ "$mFREQMODS_" ]    && mFREQMODS="$mFREQMODS_"
+[ "$mFREQMODOPTS_" ] && mFREQMODOPTS="$mFREQMODOPTS_"
+
   for oneMOD in $mFREQMODS
   do
    sleep 1
-   modprobe $VERB $oneMOD
-   [ "$?" = 0 ] || continue
-   #if [ $? -eq 0 ];then
+   DEPS0=`modprobe -D $oneMOD | sed 's%.*/%%;s%\..*$%%'`
+   modprobe $VERB $oneMOD $mFREQMODOPTS
+   [ "$?" = 0 ] || { rmmod $VERB $DEPS0; continue; }
+    DEPS1=`modprobe -D $FREQMOD | sed 's%.*/%%;s%\..*$%%'`
     modprobe $VERB $FREQMOD $FREQMOD_OPS
-     [ "$?" = 0 ] || break
+     [ "$?" = 0 ] || { rmmod $VERB $DEPS1 $oneMOD $DEPS0; break; }
+    DEPS2=`modprobe -D cpufreq_${GOVERNOR} | sed 's%.*/%%;s%\..*$%%'`
     modprobe $VERB cpufreq_${GOVERNOR} $GOVERNOR_OPS
-    if [ $? -eq 0 ];then
+     [ $? -eq 0 ] || { rmmod  $VERB $DEPS2 $FREQMOD $DEPS1 $oneMOD $DEPS0; break; }
      for cpuD in `ls -1v /sys/devices/system/cpu/ | grep 'cpu[0-9]'`
      do
       [ -w /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor ] || continue
       echo $GOVERNOR >/sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor
-      [ "$?" = 0 ] && echo "$0:issued '$GOVERNOR' to /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor"
+      [ "$?" = 0 ] && { echo "$0:Issued '$GOVERNOR' to /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor"; continue; }
+      echo "$0:Failure setting '$GOVERNOR' into /sys/devices/system/cpu/$cpuD/cpufreq/scaling_governor"
      done
-
-     break
-    else
-     rmmod $oneMOD
-    fi
-   #fi
   done
  ;;
 esac
