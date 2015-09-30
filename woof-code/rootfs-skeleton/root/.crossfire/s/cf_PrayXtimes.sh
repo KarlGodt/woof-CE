@@ -343,6 +343,7 @@ _check_food_level
 _check_hp_and_return_home $HP
 unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
 unset Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
+echo draw 5 "$((NUMBER-one)) prayings left"
 }
 
 done
