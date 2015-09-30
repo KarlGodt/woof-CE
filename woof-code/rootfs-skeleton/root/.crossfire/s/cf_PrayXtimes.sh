@@ -103,7 +103,21 @@ esac
 USLEEP=$(( USLEEP- ((SPEED/10000)*1000) ))
 [ "$DEBUG" ] && echo draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
 
+#** the messages in the msgpane may pollute **#
+#** need to catch msg to discard them into an unused variable **#
+_empty_message_stream(){
+local REPLY
+while :;
+do
+read -t 1 REPLY
+test "$REPLY" || break
+[ "$DEBUG" ] && echo draw 3 "_empty_message_stream:$REPLY"
+unset REPLY
+sleep 0.1
+done
+}
 
+#** we may get attacked and die **#
 _check_hp_and_return_home(){
 
 local REPLY
@@ -118,15 +132,13 @@ test "$currHPMin"  || local currHPMin=$((MHP/10))
 [ "$DEBUG" ] && echo draw 3 currHP=$currHP currHPMin=$currHPMin
 if test "$currHP" -le $currHPMin; then
 
-read -t 1 REPLY
+_empty_message_stream
 echo issue 1 1 apply -a rod of word of recall
-unset REPLY
-read -t 1 REPLY
+_empty_message_stream
 
 echo issue 1 1 fire center ## Todo check if already applied and in inventory
 echo issue 1 1 fire_stop
-unset REPLY
-read -t 1 REPLY
+_empty_message_stream
 
 echo unwatch drawinfo
 exit
@@ -137,50 +149,79 @@ unset HP
 
 #Food
 
+_check_mana_for_create_food(){
+
+local REPLY
+echo issue 1 0 cast create
+
+while :;
+do
+unset REPLY
+read -t 1 REPLY
+[ "$DEBUG" ] && echo draw 3 "_check_mana_for_create_food:$REPLY"
+case $REPLY in
+*ready*the*spell*create*food*) return 0;;
+*create*food*)
+MANA_NEEDED=`echo "$REPLY" | awk '{print $NF}'`
+test "$SP" -ge "$MANA_NEEDED" && return 0
+;;
+'') break;;
+*) sleep 0.1; continue;;
+esac
+
+sleep 0.1
+done
+
+return 1
+}
+
 _cast_create_food_and_eat(){
 
-local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4
+local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
 test "$*" && lEAT_FOOD="$@"
 test "$EAT_FOOD" || lEAT_FOOD=$FOOD_DEF
 test "$EAT_FOOD" || lEAT_FOOD=food
 
-echo issue pickup 0
+#while :;
+#do
+#_check_mana_for_create_food && break || { sleep 10; continue; }
+#done
 
-for i in `seq 1 1 2`; do
-sleep 1
-read -t 1 REPLY1
-[ "$DEBUG" ] && echo draw 3 "REPLY1=$REPLY1"
-unset REPLY1
-done
+echo issue 1 1 pickup 0
+_empty_message_stream
 
+# TODO : Check MANA
 echo issue 1 1 cast create food $lEAT_FOOD
+_empty_message_stream
 
-for i in `seq 1 1 2`; do
-sleep 1
-read -t 1 REPLY2
-[ "$DEBUG" ] && echo draw 3 "REPLY2=$REPLY2"
-unset REPLY2
+while :;
+do
+echo issue 1 1 fire_stop
+sleep 0.1
+
+while :;
+do
+_check_mana_for_create_food && break || { sleep 10; continue; }
 done
 
-echo issue 1 1 fire center ## Todo handle bungling the spell
 sleep 0.1
+echo issue 1 1 fire center ## Todo handle bungling the spell
+
+unset BUNGLE
+sleep 0.1
+read -t 1 BUNGLE
+test "`echo "$BUNGLE" | grep -i 'bungle'`" || break
+sleep 0.1
+done
+
 echo issue 1 1 fire_stop
 sleep 1
+_empty_message_stream
 
-for i in `seq 1 1 2`; do
-read -t 1 REPLY3
-[ "$DEBUG" ] && echo draw 3 "REPLY3=$REPLY3"
-unset REPLY3
-done
 
 echo issue 1 1 apply ## Todo check if food is there on tile
-for i in `seq 1 1 2`; do
-sleep 1
-read -t 1 REPLY4
-[ "$DEBUG" ] && echo draw 3 "REPLY4=$REPLY4"
-unset REPLY4
-done
+_empty_message_stream
 
 }
 
@@ -253,18 +294,13 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  _cast_create_food_and_eat $EAT_FOOD
 
  sleep 1
- unset REPLY
- read -t 1 REPLY
+ _empty_message_stream
  sleep 1
- unset FOOD_LVL
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  #sleep 0.1
  sleep 1
  read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
  [ "$DEBUG" ] && echo draw 3 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
-
- #test "$FOOD_LVL" || break
- #test "${FOOD_LVL//[[:digit:]]/}" && break
 
  #return $?
  break
