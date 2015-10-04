@@ -18,14 +18,15 @@ MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".req
-ON_LOG="$TMP_DIR"/"$MY_BASE".ion
+REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
+ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
 
-exec 2>>"$TMP_DIR"/"$MY_BASE".err
+exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
 
 # *** Here begins program *** #
 echo drawextinfo 2 "$0 is started.."
+echo draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
