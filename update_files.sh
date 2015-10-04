@@ -18,7 +18,7 @@ exit 0
 
 case $1 in ''):;;*) _help;;esac
 
-ME_PROG=`readlink -f "$0"`
+ME_PROG=`realpath "$0"`
 ME_DIR="${ME_PROG%/*}"
 cd "$ME_DIR" || exit 4
 
@@ -30,7 +30,7 @@ BRANCH=Fox3-Dell755
 git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
 
 
-cd ./woof-code/rootfs-skeleton || exit 6
+cd .././woof-code/rootfs-skeleton || exit 6
 pwd
 
 TTY=`tty`
