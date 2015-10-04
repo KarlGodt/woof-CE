@@ -2,6 +2,28 @@
 
 export PATH=/bin:/usr/bin
 
+# *** PARAMETERS *** #
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
+# Log file path in /tmp
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+TMP_DIR=/tmp/crossfire
+mkdir -p "$TMP_DIR"
+REPLY_LOG="$TMP_DIR"/"$MY_BASE".rpl
+REQUEST_LOG="$TMP_DIR"/"$MY_BASE".req
+ON_LOG="$TMP_DIR"/"$MY_BASE".ion
+
+exec 2>>"$TMP_DIR"/"$MY_BASE".err
+
 # *** Here begins program *** #
 echo drawextinfo 2 "$0 is started.."
 
@@ -49,7 +71,7 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -63,6 +85,98 @@ exit 1
 }
 
 echo drawextinfo 7  "Done."
+
+_check_space_to_move(){
+# *** Check for 4 empty space to DIRB ***#
+
+unset REPLY OLD_REPLY
+echo drawinfo 5 "Checking for space to move..."
+
+echo request map pos
+
+echo watch request
+
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch request
+
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+unset REPLY OLD_REPLY
+
+echo request map $R_X $R_Y
+
+echo watch request
+
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+
+test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch request
+
+done
+
+else
+
+echo drawinfo 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo drawinfo 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo drawinfo 7 "OK."
+}
+
+_check_space_to_move
 
 # *** Actual script to alch the desired water of the wise           *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -85,8 +199,15 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-rm -f /tmp/cf_script.rpl # empty old log file
+# *** instead echo issue all the time make it a function
+issue(){
+    echo issue "$@"
+    sleep 0.2
+}
 
+rm -f "$REPLY_LOG" # empty old log file
+rm -f "$REQUEST_LOG"
+rm -f "$ON_LOG"
 
 # *** Readying rod of word of recall - just in case *** #
 
@@ -99,11 +220,12 @@ echo request items actv
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -113,17 +235,12 @@ fi
 
 echo drawextinfo 7 "Done."
 
-issue(){
-    echo issue "$@"
-    sleep 0.2
-}
-
 # *** EXIT FUNCTIONS *** #
 f_exit(){
-issue 1 1 west
-issue 1 1 west
-issue 1 1 east
-issue 1 1 east
+issue 1 1 $DIRB
+issue 1 1 $DIRB
+issue 1 1 $DIRF
+issue 1 1 $DIRF
 sleep 1s
 echo drawextinfo 3  "Exiting $0."
 echo unwatch
@@ -155,7 +272,7 @@ echo request stat cmbt
 
 while :; do
 read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+echo "$ANSWER" >>"$REQUEST_LOG"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -170,8 +287,10 @@ PL_SPEED="0.${PL_SPEED:0:2}"
 
 echo drawextinfo 7 "" "" "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
 echo drawextinfo 7  "Player speed is $PL_SPEED"
+
   if test $PL_SPEED -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0
 elif test $PL_SPEED -gt 50; then
@@ -210,17 +329,18 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "TEST if cauldron is empty:" >>/tmp/cf_script.rpl
+echo "TEST if cauldron is empty:" >>"$REPLY_LOG"
 issue 1 1 get
 
 while :; do
 read -t 2 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -237,10 +357,10 @@ echo drawextinfo 7  "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
-issue 1 1 west
-issue 1 1 west
-issue 1 1 east
-issue 1 1 east
+issue 1 1 $DIRB
+issue 1 1 $DIRB
+issue 1 1 $DIRF
+issue 1 1 $DIRF
 
 sleep ${SLEEP}s
 
@@ -267,13 +387,14 @@ issue 1 1 drop 7 water
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -281,11 +402,11 @@ echo unwatch drawinfo
 #echo unwatch drawextinfo
 sleep ${SLEEP}s
 
-issue 1 1 west
-issue 1 1 west
+issue 1 1 $DIRB
+issue 1 1 $DIRB
 
-issue 1 1 east
-issue 1 1 east
+issue 1 1 $DIRF
+issue 1 1 $DIRF
 
 sleep ${SLEEP}s
 
@@ -300,11 +421,12 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -326,11 +448,13 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && : || :
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -339,10 +463,10 @@ echo unwatch drawinfo
 
 sleep ${SLEEP}s
 
-issue 1 1 west
-issue 1 1 west
-issue 1 1 west
-issue 1 1 west
+issue 1 1 $DIRB
+issue 1 1 $DIRB
+issue 1 1 $DIRB
+issue 1 1 $DIRB
 
 sleep ${SLEEP}s
 
@@ -378,10 +502,10 @@ fi
 
 sleep ${DELAY_DRAWINFO}s
 
-issue 1 1 east
-issue 1 1 east
-issue 1 1 east
-issue 1 1 east
+issue 1 1 $DIRF
+issue 1 1 $DIRF
+issue 1 1 $DIRF
+issue 1 1 $DIRF
 
 
 sleep ${SLEEP}s
@@ -394,14 +518,14 @@ UNDER_ME_LIST='';
 
 while :; do
 read -t 2 UNDER_ME
-echo "$UNDER_ME" >>/tmp/cf_script.ion
+echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 test "$UNDER_ME" || break
-
+unset UNDER_ME
 sleep 0.1s
 done
 
