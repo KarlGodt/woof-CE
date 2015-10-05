@@ -42,6 +42,18 @@ HP_MIN_DEF=20          # minimum HP to return home. Lowlevel charakters probably
 DEBUG=1; #set to ANYTHING ie "1" to enable, empty to disable
 
 
+# Log file path in /tmp
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+TMP_DIR=/tmp/crossfire
+mkdir -p "$TMP_DIR"
+REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
+ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+
+exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+
+
 # *** Here begins program *** #
 echo draw 2 "$0 has started.."
 echo draw 2 "PARAM:$* PID:$$ PPID :$PPID"
@@ -51,7 +63,7 @@ echo draw 2 "PARAM:$* PID:$$ PPID :$PPID"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to pray given number times."
 echo draw 5 "Syntax:"
@@ -60,7 +72,7 @@ echo draw 5 "For example: 'script $0 50'"
 echo draw 5 "will issue 50 times the use_skill praying command."
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
@@ -132,4 +144,5 @@ echo draw 5 "$((NUMBER-one)) prayings left"
 done
 
 # *** Here ends program *** #
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
 echo draw 2 "$0 is finished."
