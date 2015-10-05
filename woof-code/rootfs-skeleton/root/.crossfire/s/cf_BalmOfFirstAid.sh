@@ -327,4 +327,5 @@ done  # *** MAINLOOP *** #
 
 
 # *** Here ends program *** #
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
 echo draw 2 "$0 is finished."
