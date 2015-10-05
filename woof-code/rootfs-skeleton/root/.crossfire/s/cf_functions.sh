@@ -4,17 +4,41 @@
 . /etc/rc.d/f4puppy5
 
 
-issue(){
+_set_global_variables(){
+TMOUT=1    # read -t timeout
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
+# Log file path in /tmp
+#MY_SELF=`realpath "$0"` ## needs to be in main script
+#MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
+TMP_DIR=/tmp/crossfire
+mkdir -p "$TMP_DIR"
+REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
+REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
+ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
+
+exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+}
+
+_is(){
     echo issue "$@"
     sleep 0.2
 }
 
 # *** EXIT FUNCTIONS *** #
-f_exit(){
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_exit(){
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep ${SLEEP}s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -26,17 +50,17 @@ beep -l 1000 -f 700
 exit $1
 }
 
-f_emergency_exit(){
-issue 1 1 apply rod of word of recall
-issue 1 1 fire center
+_emergency_exit(){
+_is 1 1 apply rod of word of recall
+_is 1 1 fire center
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
-issue 1 1 fire_stop
+_is 1 1 fire_stop
 beep -l 1000 -f 700
 exit $1
 }
 
-f_exit_no_space(){
+_exit_no_space(){
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
@@ -49,12 +73,14 @@ _check_if_on_cauldron(){
 echo drawinfo 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
+UNDER_ME_LIST='';
 echo request items on
+#echo watch request
 
 while :; do
 #unset UNDER_ME
 read -t $TMOUT UNDER_ME
-#echo "$UNDER_ME" >>"$ON_LOG"
+echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -70,11 +96,14 @@ beep -l 1000 -f 700
 exit 1
 }
 
+#echo unwatch request
 echo drawinfo 7 "OK."
 }
 
 _check_for_space(){
 # *** Check for 4 empty space to DIRB ***#
+
+local REPLY_MAP OLD_REPLY
 
 echo drawinfo 5 "Checking for space to move..."
 
@@ -132,7 +161,7 @@ echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
-test "$IS_WALL" = 0 || f_exit_no_space 1
+test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -165,6 +194,8 @@ echo drawinfo 7 "OK."
  _prepare_rod_of_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
+local RECALL OLD_REPLY REPLY
+
 echo drawinfo 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -187,8 +218,8 @@ unset REPLY
 sleep 0.1s
 done
 
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-issue 1 1 apply rod of word of recall
+if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
+_is 1 1 apply rod of word of recall
 fi
 
 echo unwatch request
@@ -200,6 +231,7 @@ echo drawinfo 6 "Done."
 _get_player_speed(){
 echo drawinfo 5 "Processing Player's speed..."
 
+local ANSWER OLD_ANSWER PL_SPEED
 ANSWER=
 OLD_ANSWER=
 
@@ -252,16 +284,18 @@ echo drawinfo 6 "Done."
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
-SLEEP=3           # setting defaults
-DELAY_DRAWINFO=6
+local REPLY OLD_REPLY REPLY_ALL
 
-issue 0 1 pickup 0  # precaution otherwise might pick up cauldron
+[ "$SLEEP" ] || SLEEP=3           # setting defaults
+[ "$DELAY_DRAWINFO" ] || DELAY_DRAWINFO=6
+
+_is 0 1 pickup 0  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
 
 
 echo drawinfo 5 "Checking for empty cauldron..."
 
-issue 1 1 apply
+_is 1 1 apply
 sleep ${SLEEP}s
 
 OLD_REPLY="";
@@ -270,7 +304,7 @@ REPLY="";
 
 echo watch drawinfo
 
-issue 1 1 get
+_is 1 1 get
 
 #echo watch drawinfo
 
@@ -290,7 +324,7 @@ done
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
 echo drawinfo 3 "Cauldron NOT empty !!"
 echo drawinfo 3 "Please empty the cauldron and try again."
-f_exit 1
+_exit 1
 }
 
 echo unwatch drawinfo
@@ -328,11 +362,11 @@ test "$currHPMin"  || local currHPMin=$((MHP/10))
 if test "$currHP" -le $currHPMin; then
 
 _empty_message_stream
-echo issue 1 1 apply -a rod of word of recall
+_is 1 1 apply -a rod of word of recall
 _empty_message_stream
 
-echo issue 1 1 fire center ## Todo check if already applied and in inventory
-echo issue 1 1 fire_stop
+_is 1 1 fire center ## Todo check if already applied and in inventory
+_is 1 1 fire_stop
 _empty_message_stream
 
 echo unwatch drawinfo
@@ -347,7 +381,7 @@ unset HP
 _check_mana_for_create_food(){
 
 local REPLY
-echo issue 1 0 cast create
+_is 1 0 cast create
 
 while :;
 do
@@ -383,16 +417,16 @@ test "$EAT_FOOD" || lEAT_FOOD=food
 #_check_mana_for_create_food && break || { sleep 10; continue; }
 #done
 
-echo issue 1 1 pickup 0
+_is 1 1 pickup 0
 _empty_message_stream
 
 # TODO : Check MANA
-echo issue 1 1 cast create food $lEAT_FOOD
+_is 1 1 cast create food $lEAT_FOOD
 _empty_message_stream
 
 while :;
 do
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.1
 
 while :;
@@ -401,7 +435,7 @@ _check_mana_for_create_food && break || { sleep 10; continue; }
 done
 
 sleep 0.1
-echo issue 1 1 fire center ## Todo handle bungling the spell
+_is 1 1 fire center ## Todo handle bungling the spell
 
 unset BUNGLE
 sleep 0.1
@@ -410,12 +444,12 @@ test "`echo "$BUNGLE" | grep -i 'bungle'`" || break
 sleep 0.1
 done
 
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 1
 _empty_message_stream
 
 
-echo issue 1 1 apply ## Todo check if food is there on tile
+_is 1 1 apply ## Todo check if food is there on tile
 _empty_message_stream
 
 }
@@ -424,18 +458,18 @@ _apply_horn_of_plenty_and_eat(){
 local REPLY
 
 read -t 1 REPLY
-echo issue 1 1 apply -a Horn of Plenty
+_is 1 1 apply -a Horn of Plenty
 sleep 1
 unset REPLY
 read -t 1 REPLY
 
-echo issue 1 1 fire center ## Todo handle bungling
-echo issue 1 1 fire_stop
+_is 1 1 fire center ## Todo handle bungling
+_is 1 1 fire_stop
 sleep 1
 unset REPLY
 read -t 1 REPLY
 
-echo issue 1 1 apply ## Todo check if food is there on tile
+_is 1 1 apply ## Todo check if food is there on tile
 unset REPLY
 read -t 1 REPLY
 }
@@ -451,7 +485,7 @@ test "$EAT_FOOD" || EAT_FOOD=waybread
 #_check_food_inventory ## Todo: check if food is in INV
 
 read -t 1 REPLY
-echo issue 1 1 apply $EAT_FOOD
+_is 1 1 apply $EAT_FOOD
 unset REPLY
 read -t 1 REPLY
 }
@@ -509,10 +543,7 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-
-
 echo unwatch drawinfo
-
 }
 
 
