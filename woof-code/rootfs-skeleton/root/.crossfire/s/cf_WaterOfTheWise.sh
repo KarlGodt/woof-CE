@@ -63,6 +63,9 @@ echo drawextinfo 3  "Need <number> ie: script $0 3 ."
         exit 1
 }
 
+test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
+
+_check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
 echo drawextinfo 4  "Checking if on cauldron..."
@@ -86,6 +89,9 @@ exit 1
 }
 
 echo drawextinfo 7  "Done."
+}
+
+_check_if_on_cauldron
 
 _check_space_to_move(){
 # *** Check for 4 empty space to DIRB ***#
@@ -260,7 +266,7 @@ exit $1
 
 
 # *** Getting Player's Speed *** #
-
+_get_player_speed(){
 echo drawextinfo 4 "Processing Player's Speed..."
 
 SLEEP=4           # setting defaults
@@ -311,10 +317,12 @@ SLEEP=5; DELAY_DRAWINFO=10
 fi
 
 echo drawextinfo 7  "Done."
+}
+_get_player_speed
 
 
 # *** Check if cauldron is empty *** #
-
+_check_if_cauldron_empty(){
 echo drawextinfo 4  "Checking if cauldron is empty..."
 
 issue 1 1 pickup 0  # precaution otherwise might pick up cauldron
@@ -355,6 +363,9 @@ f_exit 1
 echo unwatch drawinfo
 
 echo drawextinfo 7  "OK ! Cauldron IS empty."
+}
+
+_check_if_cauldron_empty
 
 sleep ${SLEEP}s
 
