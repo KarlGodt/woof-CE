@@ -81,6 +81,8 @@ echo draw 3 "Need <number> ie: script $0 50 ."
         exit 1
 }
 
+test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
+
 echo request stat cmbt
 #read REQ_CMBT
 #snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
@@ -105,7 +107,7 @@ USLEEP=$(( USLEEP- ((SPEED/10000)*1000) ))
 
 #** the messages in the msgpane may pollute **#
 #** need to catch msg to discard them into an unused variable **#
-_empty_message_stream(){
+__empty_message_stream(){
 local REPLY
 while :;
 do
@@ -118,7 +120,7 @@ done
 }
 
 #** we may get attacked and die **#
-_check_hp_and_return_home(){
+__check_hp_and_return_home(){
 
 local REPLY
 
@@ -149,7 +151,7 @@ unset HP
 
 #Food
 
-_check_mana_for_create_food(){
+__check_mana_for_create_food(){
 
 local REPLY
 echo issue 1 0 cast create
@@ -175,7 +177,7 @@ done
 return 1
 }
 
-_cast_create_food_and_eat(){
+__cast_create_food_and_eat(){
 
 local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
@@ -225,7 +227,7 @@ _empty_message_stream
 
 }
 
-_apply_horn_of_plenty_and_eat(){
+__apply_horn_of_plenty_and_eat(){
 local REPLY
 
 read -t 1 REPLY
@@ -246,7 +248,7 @@ read -t 1 REPLY
 }
 
 
-_eat_food(){
+__eat_food(){
 
 local REPLY
 
@@ -261,7 +263,7 @@ unset REPLY
 read -t 1 REPLY
 }
 
-_check_food_level(){
+__check_food_level(){
 
 #c=$((c+1))
 #test $C -lt $PAUSE_CHECK_FOOD && return
