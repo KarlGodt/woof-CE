@@ -33,6 +33,23 @@ _is(){
     sleep 0.2
 }
 
+_draw(){
+    local COLOUR="$1"
+    test "$COLOUR" || COLOUR=1 #set default
+    shift
+    local MSG="$@"
+    echo draw $COLOUR "$MSG"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    echo draw 3 "$@"
+}
+
+_log(){
+   test "$LOGGING"
+}
+
 # *** EXIT FUNCTIONS *** #
 _exit(){
 _is 1 1 $DIRB
