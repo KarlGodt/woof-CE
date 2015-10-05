@@ -328,4 +328,5 @@ echo drawextinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_
 done
 
 # *** Here ends program *** #
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
 echo drawextinfo 2  "$0 is finished."
