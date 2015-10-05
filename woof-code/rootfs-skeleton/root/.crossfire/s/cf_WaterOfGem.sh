@@ -334,13 +334,15 @@ if test "$NOTHING" = 0; then
 fi
 
 #DELAY_DRAWINFO=2
-sleep ${DELAY_DRAWINFO}s
+#sleep ${DELAY_DRAWINFO}s
 
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
-sleep 1s
+
+sleep ${DELAY_DRAWINFO}s
+#sleep ${SLEEP}s
 
 _check_if_on_cauldron
 
