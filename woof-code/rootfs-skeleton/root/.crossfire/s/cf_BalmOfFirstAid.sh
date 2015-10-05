@@ -70,8 +70,10 @@ echo draw 3 "Need <number> ie: script $0 4 ."
 echo drawinfo 7 "OK."
 
 
-# *** Check if standing on a cauldron *** #
+test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
+# *** Check if standing on a cauldron *** #
+__check_if_on_cauldron(){
 echo drawinfo 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
@@ -92,18 +94,22 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+beep -l 1000 -f 700
 exit 1
 }
 
 echo drawinfo 7 "OK."
+}
 
-issue(){
+_check_if_on_cauldron
+
+_issue(){
     echo issue "$@"
     sleep 0.2
 }
 
 # *** EXIT FUNCTIONS *** #
-f_exit(){
+_f_exit(){
 issue 1 1 $DIRB
 issue 1 1 $DIRB
 issue 1 1 $DIRF
@@ -115,22 +121,25 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+beep -l 1000 -f 700
 exit $1
 }
 
-f_emergency_exit(){
+_f_emergency_exit(){
 issue 1 1 apply rod of word of recall
 issue 1 1 fire center
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
 issue 1 1 fire_stop
+beep -l 1000 -f 700
 exit $1
 }
 
-f_exit_no_space(){
+_f_exit_no_space(){
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
+beep -l 1000 -f 700
 exit $1
 }
 
@@ -138,6 +147,7 @@ rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
+__check_for_space(){
 # *** Check for 4 empty space to DIRB ***#
 
 echo drawinfo 5 "Checking for space to move..."
@@ -224,7 +234,9 @@ exit 1
 fi
 
 echo drawinfo 7 "OK."
+}
 
+_check_for_space
 
 # *** Monitoring function *** #
 # *** Todo ...            *** #
@@ -236,6 +248,8 @@ read -t $TMOUT ERRORMSGS
 sleep 0.1s
 done
 }
+
+
 
 
 
@@ -263,6 +277,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 
+__prepare_ro_of_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
 echo drawinfo 5 "Preparing for recall if monsters come forth..."
@@ -295,7 +310,11 @@ echo unwatch request
 
 echo drawinfo 6 "Done."
 
+}
 
+_prepare_rod_of_recall
+
+__check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 SLEEP=3           # setting defaults
@@ -314,9 +333,11 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
+echo watch drawinfo
+
 issue 1 1 get
 
-echo watch drawinfo
+#echo watch drawinfo
 
 while :; do
 #unset REPLY
@@ -340,6 +361,9 @@ f_exit 1
 echo unwatch drawinfo
 
 echo drawinfo 7 "OK ! Cauldron IS empty."
+}
+
+_check_empty_cauldron
 
 issue 1 1 $DIRB
 issue 1 1 $DIRB
@@ -348,7 +372,7 @@ issue 1 1 $DIRF
 
 
 # *** Getting Player's Speed *** #
-
+__get_player_speed(){
 echo drawinfo 5 "Processing Player's speed..."
 
 ANSWER=
@@ -398,6 +422,9 @@ SLEEP=5; DELAY_DRAWINFO=10; TMOUT=2
 fi
 
 echo drawinfo 6 "Done."
+}
+
+_get_player_speed
 
 success=0
 # *** Now LOOPING *** #
