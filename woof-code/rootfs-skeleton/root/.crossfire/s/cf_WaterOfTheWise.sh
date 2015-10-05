@@ -67,125 +67,8 @@ echo drawextinfo 3  "Need <number> ie: script $0 3 ."
 
 test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
-__check_if_on_cauldron(){
-# *** Check if standing on a cauldron *** #
-
-echo drawextinfo 4  "Checking if on cauldron..."
-UNDER_ME='';
-echo request items on
-
-while :; do
-read UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>"$ON_LOG"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawextinfo 3  "Need to stand upon cauldron!"
-exit 1
-}
-
-echo drawextinfo 7  "Done."
-}
-
-_check_if_on_cauldron
-
-__check_space_to_move(){
-# *** Check for 4 empty space to DIRB ***#
-
-unset REPLY OLD_REPLY
-echo drawinfo 5 "Checking for space to move..."
-
-echo request map pos
-
-echo watch request
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-echo unwatch request
 
 
-PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
-PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
-
-if test "$PL_POS_X" -a "$PL_POS_Y"; then
-
-if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
-
-for nr in `seq 1 1 4`; do
-
-case $DIRB in
-west)
-R_X=$((PL_POS_X-nr))
-R_Y=$PL_POS_Y
-;;
-east)
-R_X=$((PL_POS_X+nr))
-R_Y=$PL_POS_Y
-;;
-north)
-R_X=$PL_POS_X
-R_Y=$((PL_POS_Y-nr))
-;;
-south)
-R_X=$PL_POS_X
-R_Y=$((PL_POS_Y+nr))
-;;
-esac
-
-unset REPLY OLD_REPLY
-
-echo request map $R_X $R_Y
-
-echo watch request
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-
-test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
-test "$IS_WALL" = 0 || f_exit_no_space 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-echo unwatch request
-
-done
-
-else
-
-echo drawinfo 3 "Received Incorrect X Y parameters from server"
-exit 1
-
-fi
-
-else
-
-echo drawinfo 3 "Could not get X and Y position of player."
-exit 1
-
-fi
-
-echo drawinfo 7 "OK."
-}
-
-_check_space_to_move
 
 # *** Actual script to alch the desired water of the wise           *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -209,14 +92,15 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 # *** instead echo issue all the time make it a function
-__issue(){
-    echo issue "$@"
-    sleep 0.2
-}
+
 
 rm -f "$REPLY_LOG" # empty old log file
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
+
+_check_if_on_cauldron
+
+_check_space_to_move
 
 # *** Readying rod of word of recall - just in case *** #
 
@@ -244,129 +128,13 @@ fi
 
 echo drawextinfo 7 "Done."
 
-# *** EXIT FUNCTIONS *** #
-__f_exit(){
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-sleep 1s
-echo drawextinfo 3  "Exiting $0."
-echo unwatch
-echo unwatch drawinfo
-exit $1
-}
-
-__f_emergency_exit(){
-issue 1 1 apply rod of word of recall
-issue 1 1 fire center
-echo drawextinfo 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
-issue 1 1 fire_stop
-exit $1
-}
 
 
 # *** Getting Player's Speed *** #
-__get_player_speed(){
-echo drawextinfo 4 "Processing Player's Speed..."
-
-SLEEP=4           # setting defaults
-DELAY_DRAWINFO=8
-
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
-
-while :; do
-read -t 1 ANSWER
-echo "$ANSWER" >>"$REQUEST_LOG"
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
-done
-
-echo unwatch request
-
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
-echo drawextinfo 7 "" "" "Player speed is $PL_SPEED"
-
-#PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
-echo drawextinfo 7  "Player speed is $PL_SPEED"
-
-  if test $PL_SPEED -gt 60; then
-SLEEP=0.4; DELAY_DRAWINFO=1.0
-elif test $PL_SPEED -gt 50; then
-SLEEP=0.6; DELAY_DRAWINFO=1.2
-elif test $PL_SPEED -gt 40; then
-SLEEP=0.8; DELAY_DRAWINFO=1.6
-elif test $PL_SPEED -gt 35; then
-SLEEP=1; DELAY_DRAWINFO=2
-elif test $PL_SPEED -gt 28; then
-SLEEP=2; DELAY_DRAWINFO=4
-elif test $PL_SPEED -gt 15; then
-SLEEP=3; DELAY_DRAWINFO=6
-elif test $PL_SPEED -gt 10; then
-SLEEP=4; DELAY_DRAWINFO=8
-elif test $PL_SPEED -ge 0; then
-SLEEP=5; DELAY_DRAWINFO=10
-fi
-
-echo drawextinfo 7  "Done."
-}
 _get_player_speed
 
 
 # *** Check if cauldron is empty *** #
-__check_if_cauldron_empty(){
-echo drawextinfo 4  "Checking if cauldron is empty..."
-
-issue 1 1 pickup 0  # precaution otherwise might pick up cauldron
-sleep ${SLEEP}s
-
-issue 1 1 apply
-sleep 0.5s
-
-#echo watch drawextinfo
-echo watch drawinfo
-
-OLD_REPLY="";
-REPLY_ALL='';
-REPLY="";
-
-echo "TEST if cauldron is empty:" >>"$REPLY_LOG"
-issue 1 1 get
-
-while :; do
-read -t 2 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-REPLY_ALL="$REPLY
-$REPLY_ALL"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo drawextinfo 3 "" "Cauldron NOT empty !!"
-echo drawextinfo 3 " " "Please empty the cauldron and try again."
-f_exit 1
-}
-
-#echo unwatch drawextinfo
-echo unwatch drawinfo
-
-echo drawextinfo 7  "OK ! Cauldron IS empty."
-}
-
 _check_if_cauldron_empty
 
 sleep ${SLEEP}s
