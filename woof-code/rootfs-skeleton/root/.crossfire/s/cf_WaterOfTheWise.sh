@@ -4,6 +4,8 @@ export PATH=/bin:/usr/bin
 
 # *** PARAMETERS *** #
 
+TMOUT=1    # read -t timeout
+
 DIRB=west  # direction back to go
 
 case $DIRB in
@@ -65,7 +67,7 @@ echo drawextinfo 3  "Need <number> ie: script $0 3 ."
 
 test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
-_check_if_on_cauldron(){
+__check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
 echo drawextinfo 4  "Checking if on cauldron..."
@@ -93,7 +95,7 @@ echo drawextinfo 7  "Done."
 
 _check_if_on_cauldron
 
-_check_space_to_move(){
+__check_space_to_move(){
 # *** Check for 4 empty space to DIRB ***#
 
 unset REPLY OLD_REPLY
@@ -207,7 +209,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 # *** instead echo issue all the time make it a function
-issue(){
+__issue(){
     echo issue "$@"
     sleep 0.2
 }
@@ -243,7 +245,7 @@ fi
 echo drawextinfo 7 "Done."
 
 # *** EXIT FUNCTIONS *** #
-f_exit(){
+__f_exit(){
 issue 1 1 $DIRB
 issue 1 1 $DIRB
 issue 1 1 $DIRF
@@ -255,7 +257,7 @@ echo unwatch drawinfo
 exit $1
 }
 
-f_emergency_exit(){
+__f_emergency_exit(){
 issue 1 1 apply rod of word of recall
 issue 1 1 fire center
 echo drawextinfo 3 "Emergency Exit $0 !"
@@ -266,7 +268,7 @@ exit $1
 
 
 # *** Getting Player's Speed *** #
-_get_player_speed(){
+__get_player_speed(){
 echo drawextinfo 4 "Processing Player's Speed..."
 
 SLEEP=4           # setting defaults
@@ -322,7 +324,7 @@ _get_player_speed
 
 
 # *** Check if cauldron is empty *** #
-_check_if_cauldron_empty(){
+__check_if_cauldron_empty(){
 echo drawextinfo 4  "Checking if cauldron is empty..."
 
 issue 1 1 pickup 0  # precaution otherwise might pick up cauldron
@@ -379,6 +381,7 @@ sleep ${SLEEP}s
 
 echo drawextinfo 4 "OK... Might the Might be with You!"
 
+success=0
 # *** Now LOOPING *** #
 
 for one in `seq 1 1 $NUMBER`
@@ -457,12 +460,13 @@ issue 7 1 get
 OLD_REPLY="";
 REPLY="";
 NOTHING=0
+SLAG=0
 
 while :; do
 read -t 1 REPLY
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && : || :
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -483,33 +487,34 @@ issue 1 1 $DIRB
 sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
-
-issue 1 1 use_skill sense curse
-issue 1 1 use_skill sense magic
-issue 1 1 use_skill alchemy
+ if test "$SLAG" = 0; then
+ issue 1 1 use_skill sense curse
+ issue 1 1 use_skill sense magic
+ issue 1 1 use_skill alchemy
 
 sleep ${SLEEP}s
 
-issue 0 1 drop water of the wise    # issue 1 1 drop drops only one water
-issue 0 1 drop waters of the wise
+ issue 0 1 drop water of the wise    # issue 1 1 drop drops only one water
+ issue 0 1 drop waters of the wise
 
-issue 0 1 drop water "(cursed)"
-issue 0 1 drop waters "(cursed)"
+ issue 0 1 drop water "(cursed)"
+ issue 0 1 drop waters "(cursed)"
 
-issue 0 1 drop water "(magic)"
-issue 0 1 drop waters "(magic)"
+ issue 0 1 drop water "(magic)"
+ issue 0 1 drop waters "(magic)"
 
-issue 0 1 drop water "(cursed) (magic)"
-issue 0 1 drop waters "(cursed) (magic)"
+ issue 0 1 drop water "(cursed) (magic)"
+ issue 0 1 drop waters "(cursed) (magic)"
 
-#issue 0 1 drop water (magic) (cursed)
-#issue 0 1 drop waters (magic) (cursed)
-#issue 0 1 drop water (unidentified)
-#issue 0 1 drop waters (unidentified)
-
-issue 0 1 drop slag
-#issue 0 1 drop slags"
-
+ #issue 0 1 drop water (magic) (cursed)
+ #issue 0 1 drop waters (magic) (cursed)
+ #issue 0 1 drop water (unidentified)
+ #issue 0 1 drop waters (unidentified)
+ success=$((success+1))
+ else
+ issue 0 1 drop slag
+ #issue 0 1 drop slags"
+ fi
 fi
 
 sleep ${DELAY_DRAWINFO}s
@@ -550,7 +555,7 @@ f_exit 1
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawextinfo 4 " " " " "Elapsed $TIME s, still $TRIES_STILL to go..."
+echo drawextinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
 
 done
 
