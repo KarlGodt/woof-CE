@@ -103,13 +103,13 @@ echo drawinfo 7 "OK."
 
 _check_if_on_cauldron
 
-_issue(){
+__issue(){
     echo issue "$@"
     sleep 0.2
 }
 
 # *** EXIT FUNCTIONS *** #
-_f_exit(){
+__f_exit(){
 issue 1 1 $DIRB
 issue 1 1 $DIRB
 issue 1 1 $DIRF
@@ -125,7 +125,7 @@ beep -l 1000 -f 700
 exit $1
 }
 
-_f_emergency_exit(){
+__f_emergency_exit(){
 issue 1 1 apply rod of word of recall
 issue 1 1 fire center
 echo draw 3 "Emergency Exit $0 !"
@@ -135,7 +135,7 @@ beep -l 1000 -f 700
 exit $1
 }
 
-_f_exit_no_space(){
+__f_exit_no_space(){
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
