@@ -8,6 +8,7 @@ echo draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** PARAMETERS *** #
 
+__set_global_variables(){
 TMOUT=1    # read -t timeout
 
 DIRB=east  # direction back to go
@@ -20,8 +21,8 @@ south) DIRF=north;;
 esac
 
 # Log file path in /tmp
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
+#MY_SELF=`realpath "$0"`
+#MY_BASE=${MY_SELF##*/}
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
 REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
@@ -29,6 +30,14 @@ REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
 ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
 
 exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+}
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
 
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
@@ -70,7 +79,7 @@ echo draw 3 "Need <number> ie: script $0 4 ."
 echo drawinfo 7 "OK."
 
 
-test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
 rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
@@ -84,7 +93,7 @@ _check_for_space
 
 # *** Monitoring function *** #
 # *** Todo ...            *** #
-f_monitor_malfunction(){
+_monitor_malfunction(){
 
 while :; do
 read -t $TMOUT ERRORMSGS
@@ -125,10 +134,10 @@ _prepare_rod_of_recall
 
 _check_empty_cauldron
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 
 # *** Getting Player's Speed *** #
@@ -142,12 +151,12 @@ do
 
 TIMEB=`date +%s`
 
-issue 1 1 apply
+_is 1 1 apply
 sleep ${SLEEP}s
 
 echo watch drawinfo
 
-issue 1 1 drop 1 water of the wise
+_is 1 1 drop 1 water of the wise
 
 #echo watch drawinfo
 
@@ -158,9 +167,9 @@ while :; do
 #unset REPLY
 read -t $TMOUT REPLY
 echo "Water of the Wise:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -170,7 +179,7 @@ done
 
 sleep ${SLEEP}s
 
-issue 1 1 drop 1 mandrake root
+_is 1 1 drop 1 mandrake root
 
 OLD_REPLY="";
 REPLY="";
@@ -179,9 +188,9 @@ while :; do
 #unset REPLY
 read -t $TMOUT REPLY
 echo "mandrake root:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -193,15 +202,15 @@ echo unwatch drawinfo
 
 sleep ${SLEEP}s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep ${SLEEP}s
 
 #echo watch drawinfo
 
-issue 1 1 use_skill alchemy
+_is 1 1 use_skill alchemy
 
 echo watch drawinfo
 
@@ -212,7 +221,7 @@ while :; do
 #unset REPLY
 read -t $TMOUT REPLY
 echo "alchemy:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _emergency_exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -222,13 +231,13 @@ done
 
 #echo unwatch drawinfo
 
-issue 1 1 apply
+_is 1 1 apply
 sleep ${SLEEP}s
 
 
 #echo watch drawinfo
 
-issue 1 1 get
+_is 1 1 get
 
 #echo watch drawinfo
 
@@ -256,23 +265,23 @@ echo unwatch drawinfo
 
 sleep ${SLEEP}s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
 sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
         if test "$SLAG" = 0; then
-        issue 1 1 use_skill sense curse
-        issue 1 1 use_skill sense magic
-        issue 1 1 use_skill alchemy
+        _is 1 1 use_skill sense curse
+        _is 1 1 use_skill sense magic
+        _is 1 1 use_skill alchemy
         sleep ${SLEEP}s
 
-        issue 0 1 drop balm
+        _is 0 1 drop balm
         success=$((success+1))
         else
-        issue 0 1 drop slag
+        _is 0 1 drop slag
         fi
 elif test "$NOTHING" = "-1"; then
       :   # emergency drop to prevent new created items droped in cauldron
@@ -281,13 +290,13 @@ fi
 
 sleep ${DELAY_DRAWINFO}s
 
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep ${SLEEP}s
 
-
+__check_if_on_cauldron_two(){
 #echo watch request
 
 echo request items on
@@ -312,10 +321,13 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
-f_exit 1
-}
+_exit 1
+ }
 
 echo unwatch request
+}
+
+_check_if_on_cauldron
 
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
