@@ -210,7 +210,7 @@ _is 1 1 use_skill alchemy
 
 OLD_REPLY="";
 REPLY="";
-NOTHING=0
+#NOTHING=0
 
 while :; do
 read -t 1 REPLY
