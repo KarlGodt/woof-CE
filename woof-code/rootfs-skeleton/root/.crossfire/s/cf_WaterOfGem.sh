@@ -8,6 +8,7 @@ export PATH=/bin:/usr/bin
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
+__set_global_variables(){
 TMOUT=1    # read -t timeout
 
 DIRB=west  # direction back to go
@@ -20,8 +21,8 @@ south) DIRF=north;;
 esac
 
 # Log file path in /tmp
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
+#MY_SELF=`realpath "$0"`
+#MY_BASE=${MY_SELF##*/}
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
 REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
@@ -29,8 +30,14 @@ REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
 ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
 
 exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+}
 
-test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
 
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
@@ -142,14 +149,16 @@ UNDER_ME='';
 echo request items on
 
 while :; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
+unset UNDER_ME
+sleep 0.1
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
@@ -163,10 +172,10 @@ _check_if_on_cauldron
 _check_for_space
 _check_empty_cauldron
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 _get_player_speed
 _prepare_rod_of_recall
@@ -191,13 +200,13 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-issue 1 1 pickup 0  # precaution
+_is 1 1 pickup 0  # precaution
 
 __f_exit(){
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -219,11 +228,11 @@ do
 
 TIMEB=`date +%s`
 
-issue 1 1 apply
+_is 1 1 apply
 
 echo watch drawinfo
 
-issue 1 1 drop 1 water of the wise
+_is 1 1 drop 1 water of the wise
 
 OLD_REPLY="";
 REPLY="";
@@ -231,32 +240,34 @@ REPLY="";
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
 sleep 1s
 
-issue 1 1 drop 3 $GEM
+_is 1 1 drop 3 $GEM
 
 OLD_REPLY="";
 REPLY="";
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
-#test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-#test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && _exit 1
+#test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+#test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -264,18 +275,18 @@ echo unwatch drawinfo
 
 sleep 1s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep 1s
 
-issue 1 1 use_skill alchemy
-issue 1 1 apply
+_is 1 1 use_skill alchemy
+_is 1 1 apply
 
 echo watch drawinfo
 
-issue 1 1 get
+_is 1 1 get
 
 OLD_REPLY="";
 REPLY="";
@@ -284,12 +295,13 @@ SLAG=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
 test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
+unset REPLY
 sleep 0.1s
 done
 
@@ -297,37 +309,37 @@ echo unwatch drawinfo
 
 sleep 1s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
 sleep 1s
 
 [ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'"
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
-  issue 1 1 use_skill sense curse
-  issue 1 1 use_skill sense magic
-  issue 1 1 use_skill alchemy
+  _is 1 1 use_skill sense curse
+  _is 1 1 use_skill sense magic
+  _is 1 1 use_skill alchemy
   sleep 1s
 
- issue 1 1 drop water of $GEM
- issue 1 1 drop water "(cursed)"
- issue 1 1 drop water "(magic)"
+ _is 1 1 drop water of $GEM
+ _is 1 1 drop water "(cursed)"
+ _is 1 1 drop water "(magic)"
  success=$((success+1))
  else
- issue 0 1 drop slag
+ _is 0 1 drop slag
  fi
 fi
 
 #DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep 1s
 
 _check_if_on_cauldron
@@ -340,4 +352,5 @@ echo drawinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SIL
 done
 
 # *** Here ends program *** #
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
 echo draw 2 "$0 is finished."
