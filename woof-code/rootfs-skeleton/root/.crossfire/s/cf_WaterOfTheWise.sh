@@ -4,6 +4,7 @@ export PATH=/bin:/usr/bin
 
 # *** PARAMETERS *** #
 
+__set_global_variables(){
 TMOUT=1    # read -t timeout
 
 DIRB=west  # direction back to go
@@ -16,8 +17,8 @@ south) DIRF=north;;
 esac
 
 # Log file path in /tmp
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
+#MY_SELF=`realpath "$0"`
+#MY_BASE=${MY_SELF##*/}
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
 REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
@@ -25,6 +26,15 @@ REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
 ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
 
 exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+}
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
+
 
 # *** Here begins program *** #
 echo drawextinfo 2 "$0 is started.."
@@ -65,7 +75,7 @@ echo drawextinfo 3  "Need <number> ie: script $0 3 ."
         exit 1
 }
 
-test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
+#test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
 
 
@@ -122,8 +132,8 @@ unset REPLY
 sleep 0.1s
 done
 
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-issue 1 1 apply rod of word of recall
+if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
+_is 1 1 apply rod of word of recall
 fi
 
 echo drawextinfo 7 "Done."
@@ -139,10 +149,10 @@ _check_if_cauldron_empty
 
 sleep ${SLEEP}s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 sleep ${SLEEP}s
 
@@ -160,20 +170,20 @@ TIMEB=`date +%s`
 OLD_REPLY="";
 REPLY="";
 
-issue 1 1 apply
+_is 1 1 apply
 sleep 0.5s
 
 #echo watch drawextinfo
 echo watch drawinfo
 
-issue 1 1 drop 7 water
+_is 1 1 drop 7 water
 
 while :; do
 read -t 1 REPLY
 echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -185,18 +195,18 @@ echo unwatch drawinfo
 #echo unwatch drawextinfo
 sleep ${SLEEP}s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
 
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 sleep ${SLEEP}s
 
 #echo watch drawextinfo
 echo watch drawinfo
 
-issue 1 1 use_skill alchemy
+_is 1 1 use_skill alchemy
 
 OLD_REPLY="";
 REPLY="";
@@ -205,7 +215,7 @@ NOTHING=0
 while :; do
 read -t 1 REPLY
 echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_exit 1
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -217,13 +227,13 @@ done
 echo unwatch drawinfo
 
 
-issue 1 1 apply
+_is 1 1 apply
 sleep 0.5s
 
 #echo watch drawextinfo
 echo watch drawinfo
 
-issue 7 1 get
+_is 7 1 get
 
 OLD_REPLY="";
 REPLY="";
@@ -247,55 +257,56 @@ echo unwatch drawinfo
 
 sleep ${SLEEP}s
 
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
-issue 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
 
 sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
- issue 1 1 use_skill sense curse
- issue 1 1 use_skill sense magic
- issue 1 1 use_skill alchemy
+ _is 1 1 use_skill sense curse
+ _is 1 1 use_skill sense magic
+ _is 1 1 use_skill alchemy
 
 sleep ${SLEEP}s
 
- issue 0 1 drop water of the wise    # issue 1 1 drop drops only one water
- issue 0 1 drop waters of the wise
+ _is 0 1 drop water of the wise    # _is 1 1 drop drops only one water
+ _is 0 1 drop waters of the wise
 
- issue 0 1 drop water "(cursed)"
- issue 0 1 drop waters "(cursed)"
+ _is 0 1 drop water "(cursed)"
+ _is 0 1 drop waters "(cursed)"
 
- issue 0 1 drop water "(magic)"
- issue 0 1 drop waters "(magic)"
+ _is 0 1 drop water "(magic)"
+ _is 0 1 drop waters "(magic)"
 
- issue 0 1 drop water "(cursed) (magic)"
- issue 0 1 drop waters "(cursed) (magic)"
+ _is 0 1 drop water "(cursed) (magic)"
+ _is 0 1 drop waters "(cursed) (magic)"
 
- #issue 0 1 drop water (magic) (cursed)
- #issue 0 1 drop waters (magic) (cursed)
- #issue 0 1 drop water (unidentified)
- #issue 0 1 drop waters (unidentified)
+ #_is 0 1 drop water (magic) (cursed)
+ #_is 0 1 drop waters (magic) (cursed)
+ #_is 0 1 drop water (unidentified)
+ #_is 0 1 drop waters (unidentified)
  success=$((success+1))
  else
- issue 0 1 drop slag
- #issue 0 1 drop slags"
+ _is 0 1 drop slag
+ #_is 0 1 drop slags"
  fi
 fi
 
 sleep ${DELAY_DRAWINFO}s
 
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
-issue 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 
 sleep ${SLEEP}s
 sleep ${DELAY_DRAWINFO}s
 
+__check_if_on_cauldron_two(){
 echo request items on
 
 UNDER_ME='';
@@ -316,9 +327,11 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo drawextinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
-f_exit 1
+_exit 1
+ }
 }
 
+_check_if_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
