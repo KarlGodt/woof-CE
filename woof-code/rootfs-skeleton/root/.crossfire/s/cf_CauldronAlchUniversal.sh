@@ -2,43 +2,54 @@
 
 export PATH=/bin:/usr/bin
 
-exec 2>>/tmp/cf_script.err
+# *** Setting defaults *** #
+#set empty default
+C=0 #set zero as default
+
+#exec 2>>/tmp/cf_script.err
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 5 " with '$*' parameter."
-
-# *** Setting defaults *** #
-#set empty default
-C=0 #set zero as default
 
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
 echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+echo draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
+echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 
         exit 0
-        }
+;; esac
+
 
 # *** testing parameters for validity *** #
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
+
 #WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+for c in `seq $(echo "${BASH_ARGC[0]}") -2 2`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
 do
 vc=$((c-1));ivc=$((vc-1));((C++));
+#vc=$c;ivc=$((vc-1));((C++))
+echo C=$C ivc=$ivc vc=$vc >&2
 INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
@@ -95,10 +106,11 @@ echo draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_r
 }
 
 # *** Check if standing on a cauldron *** #
+__check_if_on_cauldron(){
 UNDER_ME='';
 echo request items on
 
-while [ 1 ]; do
+while :; do
 read -t 1 UNDER_ME
 sleep 0.1s
 #echo "$UNDER_ME" >>/tmp/cf_script.ion
@@ -112,10 +124,21 @@ done
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon a cauldron!"
 exit 1
+ }
 }
+
+_check_if_on_cauldron
+_check_for_space
+_check_empty_cauldron
+
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 
 # *** Check if is in inventory *** #
 
+__check_if_in_inv(){
 rm -f /tmp/cf_script.inv || exit 1
 INVTRY='';
 #echo watch request items inv
@@ -178,7 +201,12 @@ nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 esac
 test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+}
 
+__check_if_in_inv
+
+_get_player_speed
+_prepare_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
 
@@ -199,13 +227,13 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-echo "issue 1 1 pickup 0"  # precaution
+_is 1 1 pickup 0  # precaution
 
-f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+__exit(){
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -216,17 +244,23 @@ echo unwatch drawinfo
 exit $1
 }
 
-echo "issue 1 1 pickup 0"  # precaution
+#rm -f /tmp/cf_script.rpl
 
-rm -f /tmp/cf_script.rpl
+rm -f "$REPLY_LOG"    # empty old log files
+rm -f "$REQUEST_LOG"
+rm -f "$ON_LOG"
 
+success=0
+# *** MAIN LOOP *** #
 for one in `seq 1 1 $NUMBER_ALCH`
 do
+
+TIMEB=`date +%s`
 
 OLD_REPLY="";
 REPLY="";
 
-echo "issue 1 1 apply"
+_is 1 1 apply
 
 echo watch drawinfo
 
@@ -257,17 +291,18 @@ esac
 
  echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 
@@ -276,45 +311,92 @@ esac
 echo unwatch drawinfo
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
 sleep 1s
 
-echo "issue 1 1 use_skill alchemy"
+_is 1 1 use_skill alchemy
 
 # *** TODO: The cauldron burps and then pours forth monsters!
+OLD_REPLY="";
+REPLY="";
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+unset REPLY
+sleep 0.1s
+done
 
-echo "issue 1 1 apply"
-echo "issue 7 1 take"
+_is 1 1 apply
+
+
+_is 99 1 take
+# *** TODO: Get response from get to determine failure
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+unset REPLY
+sleep 0.1s
+done
+
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
 sleep 1s
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill alchemy"
-sleep 1s
+if test "$NOTHING" = 0; then
+ if test "$SLAG" = 0; then
+ _is 1 1 use_skill sense curse
+ _is 1 1 use_skill sense magic
+ _is 1 1 use_skill alchemy
+ sleep 1s
 
-echo "issue 0 1 drop $GOAL"
-echo "issue 0 1 drop slag"
-#echo "issue 0 1 drop slags"
+ _is 0 1 drop $GOAL
+ success=$((success+1))
+ else
+ _is 0 1 drop slag
+ #_is 0 1 drop slags
+ fi
+fi
 
-DELAY_DRAWINFO=2
+#DELAY_DRAWINFO=2
+#sleep ${DELAY_DRAWINFO}s
+
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+#sleep 1s
+
 sleep ${DELAY_DRAWINFO}s
+_check_if_on_cauldron
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-sleep 1s
+TRIES_STILL=$((NUMBER_ALCH-one))
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+echo drawextinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
 
 done
 
 # *** Here ends program *** #
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
 echo draw 2 "$0 is finished."
