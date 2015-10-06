@@ -213,7 +213,7 @@ echo request map $R_X $R_Y
 echo watch request
 
 while :; do
-read -t $TMOUT REPLY
+read -t $TMOUT
 echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
@@ -221,8 +221,8 @@ echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -265,12 +265,12 @@ echo watch request
 
 while :; do
 #unset REPLY
-read -t $TMOUT REPLY
+read -t $TMOUT
 echo "request items actv:$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -346,13 +346,15 @@ local REPLY OLD_REPLY REPLY_ALL
 [ "$SLEEP" ] || SLEEP=3           # setting defaults
 [ "$DELAY_DRAWINFO" ] || DELAY_DRAWINFO=6
 
-_is 0 1 pickup 0  # precaution otherwise might pick up cauldron
+_is 1 1 pickup 0  # precaution otherwise might pick up cauldron
+sleep 0.5
 sleep ${SLEEP}s
 
 
 _draw 5 "Checking for empty cauldron..."
 
 _is 1 1 apply
+sleep 0.5
 sleep ${SLEEP}s
 
 OLD_REPLY="";
@@ -367,13 +369,13 @@ _is 1 1 get
 
 while :; do
 #unset REPLY
-read -t $TMOUT REPLY
+read -t $TMOUT
 echo "get:$REPLY" >>"$REPLY_LOG"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -405,7 +407,7 @@ _empty_message_stream(){
 local REPLY
 while :;
 do
-read -t 1 REPLY
+read -t 1
 test "$REPLY" || break
 _draw 3 "_empty_message_stream:$REPLY"
 unset REPLY
@@ -452,8 +454,8 @@ _is 1 0 cast create
 
 while :;
 do
-unset REPLY
-read -t 1 REPLY
+#unset REPLY
+read -t 1
 _debug "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
@@ -466,6 +468,7 @@ test "$SP" -ge "$MANA_NEEDED" && return 0
 esac
 
 sleep 0.1
+unset REPLY
 done
 
 return 1
@@ -524,21 +527,21 @@ _empty_message_stream
 _apply_horn_of_plenty_and_eat(){
 local REPLY
 
-read -t 1 REPLY
+read -t 1
 _is 1 1 apply -a Horn of Plenty
 sleep 1
 unset REPLY
-read -t 1 REPLY
+read -t 1
 
 _is 1 1 fire center ## Todo handle bungling
 _is 1 1 fire_stop
 sleep 1
 unset REPLY
-read -t 1 REPLY
+read -t 1
 
 _is 1 1 apply ## Todo check if food is there on tile
 unset REPLY
-read -t 1 REPLY
+read -t 1
 }
 
 
@@ -551,10 +554,10 @@ test "$EAT_FOOD" || EAT_FOOD=waybread
 
 #_check_food_inventory ## Todo: check if food is in INV
 
-read -t 1 REPLY
+read -t 1
 _is 1 1 apply $EAT_FOOD
 unset REPLY
-read -t 1 REPLY
+read -t 1
 }
 
 _check_food_level(){
@@ -569,7 +572,7 @@ test "$MIN_FOOD_LEVEL" || MIN_FOOD_LEVEL=200
 local FOOD_LVL=''
 local REPLY
 
-read -t 1 REPLY # empty the stream of messages
+read -t 1  # empty the stream of messages
 
 echo watch drawinfo
 sleep 1
@@ -618,6 +621,7 @@ echo unwatch drawinfo
 
 _alch_and_get(){
 
+local REPLY OLD_REPLY
 _unknown &
 
 echo watch drawinfo
@@ -627,12 +631,12 @@ _is 1 1 use_skill alchemy
 OLD_REPLY="";
 REPLY="";
 while :; do
-read -t 1 REPLY
+read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -649,17 +653,88 @@ NOTHING=0
 SLAG=0
 
 while :; do
-read -t 1 REPLY
+read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
 test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
 
 echo unwatch drawinfo
+
+sleep ${SLEEP}s
 }
 
+_say_start_msg(){
+# *** Here begins program *** #
+_draw 2 "$0 has started.."
+_draw 2 "PID is $$ - parentPID is $PPID"
+
+# *** Check for parameters *** #
+_draw 5 "Checking the parameters ($*)..."
+}
+
+_say_end_msg(){
+# *** Here ends program *** #
+test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw
+_draw 2  "$0 has finished."
+}
+
+_check_drop_or_exit(){
+local HAVE_PUT=0
+local OLD_REPLY="";
+local REPLY="";
+while :; do
+read -t 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
+test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
+test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
+unset REPLY
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+#echo unwatch drawextinfo
+
+test "$HAVE_PUT" = 1 || _exit 1
+sleep ${SLEEP}s
+}
+
+_close_cauldron(){
+
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+
+sleep ${SLEEP}s
+}
+
+_go_cauldron_drop_alch_yeld(){
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+
+sleep ${SLEEP}s
+}
+
+_go_drop_alch_yeld_cauldron(){
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+
+sleep ${SLEEP}s
+#sleep ${DELAY_DRAWINFO}s
+}
