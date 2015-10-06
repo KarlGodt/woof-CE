@@ -6,7 +6,6 @@ export PATH=/bin:/usr/bin
 #set empty default
 C=0 #set zero as default
 
-#exec 2>>/tmp/cf_script.err
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -117,13 +116,7 @@ _check_for_space
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 # *** Check if is in inventory *** #
-
 __check_if_in_inv(){
 rm -f /tmp/cf_script.inv || exit 1
 INVTRY='';
@@ -187,8 +180,6 @@ _prepare_rod_of_recall
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-#rm -f /tmp/cf_script.rpl
-
 rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
@@ -225,12 +216,8 @@ do
 
 TIMEB=`date +%s`
 
-#OLD_REPLY="";
-#REPLY="";
-
 _is 1 1 apply
 sleep ${SLEEP}s
-#echo watch drawinfo
 
  for FOR in `seq 2 1 $C`; do
 
@@ -272,8 +259,6 @@ sleep ${SLEEP}s
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
  test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
@@ -288,24 +273,12 @@ sleep ${SLEEP}s
 #sleep 1s
 
 _close_cauldron
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 #sleep 1s
 
 _alch_and_get
-
 #sleep 1s
 
 _go_cauldron_drop_alch_yeld
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-
 #sleep 1s
 
 if test "$NOTHING" = 0; then
@@ -321,24 +294,15 @@ if test "$NOTHING" = 0; then
  else
  _failure &
  _is 0 1 drop slag
- #_is 0 1 drop slags
  fi
 else
  _disaster &
 fi
 
 _check_food_level
-
-#DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 #sleep 1s
-
 #sleep ${DELAY_DRAWINFO}s
 
 _go_drop_alch_yeld_cauldron
