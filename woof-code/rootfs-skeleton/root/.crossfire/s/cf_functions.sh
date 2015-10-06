@@ -5,10 +5,19 @@
 
 
 _set_global_variables(){
+DEBUG=1;   #set to ANYTHING ie "1" to enable, empty to disable
 TMOUT=1    # read -t timeout
 
-DIRB=west  # direction back to go
+COUNT_CHECK_FOOD=10 # number between attempts to check foodlevel.
+                    #  1 would mean check every single time, which is too much
+EAT_FOOD=waybread   # set to desired food to eat ie food, mushroom, booze, .. etc.
+FOOD_DEF=$EAT_FOOD     # default
+MIN_FOOD_LEVEL_DEF=200 # default minimum. 200 starts to beep. waybread has foodvalue of 500 .
+                       # 999 is max foodlevel
 
+HP_MIN_DEF=20          # minimum HP to return home. Lowlevel charakters probably need this set.
+
+DIRB=west  # direction back to go
 case $DIRB in
 west)  DIRF=east;;
 east)  DIRF=west;;
@@ -50,6 +59,37 @@ _log(){
    test "$LOGGING"
 }
 
+_sound(){
+    local DUR
+SOUND_DIR="$HOME"/.crossfire/sounds
+test "$2" && { DUR="$1"; shift; }
+test "$DUR" || DUR=0
+test -e "$SOUND_DIR"/${1}.raw && \
+           aplay $Q $VERB -d $DUR "$SOUND_DIR"/${1}.raw
+}
+
+_drop(){
+ _sound 0 drip &
+ echo issue 1 1 drop "$@"
+ #_sound 0 drip
+}
+
+_success(){
+ _sound 0 bugle_charge
+}
+
+_failure(){
+ _sound 0 ouch1
+}
+
+_disaster(){
+ _sound 0 Missed
+}
+
+_unknown(){
+ _sound 0 TowerClock
+}
+
 # *** EXIT FUNCTIONS *** #
 _exit(){
 _is 1 1 $DIRB
@@ -57,7 +97,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep ${SLEEP}s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
@@ -70,7 +110,7 @@ exit $1
 _emergency_exit(){
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
-echo draw 3 "Emergency Exit $0 !"
+_draw 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
 _is 1 1 fire_stop
 beep -l 1000 -f 700
@@ -78,16 +118,16 @@ exit $1
 }
 
 _exit_no_space(){
-echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw 3 "Remove that Item and try again."
-echo draw 3 "If this is a Wall, try another place."
+_draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+_draw 3 "Remove that Item and try again."
+_draw 3 "If this is a Wall, try another place."
 beep -l 1000 -f 700
 exit $1
 }
 
 # *** Check if standing on a cauldron *** #
 _check_if_on_cauldron(){
-echo drawinfo 5 "Checking if on a cauldron..."
+_draw 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
 UNDER_ME_LIST='';
@@ -108,13 +148,13 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
+_draw 3 "Need to stand upon cauldron!"
 beep -l 1000 -f 700
 exit 1
 }
 
 #echo unwatch request
-echo drawinfo 7 "OK."
+_draw 7 "OK."
 }
 
 _check_for_space(){
@@ -122,7 +162,7 @@ _check_for_space(){
 
 local REPLY_MAP OLD_REPLY
 
-echo drawinfo 5 "Checking for space to move..."
+_draw 5 "Checking for space to move..."
 
 echo request map pos
 
@@ -193,19 +233,19 @@ done
 
 else
 
-echo drawinfo 3 "Received Incorrect X Y parameters from server"
+_draw 3 "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo drawinfo 3 "Could not get X and Y position of player."
+_draw 3 "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo drawinfo 7 "OK."
+_draw 7 "OK."
 }
 
  _prepare_rod_of_recall(){
@@ -213,7 +253,7 @@ echo drawinfo 7 "OK."
 
 local RECALL OLD_REPLY REPLY
 
-echo drawinfo 5 "Preparing for recall if monsters come forth..."
+_draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -241,12 +281,12 @@ fi
 
 echo unwatch request
 
-echo drawinfo 6 "Done."
+_draw 6 "Done."
 
 }
 
 _get_player_speed(){
-echo drawinfo 5 "Processing Player's speed..."
+_draw 5 "Processing Player's speed..."
 
 local ANSWER OLD_ANSWER PL_SPEED
 ANSWER=
@@ -271,11 +311,11 @@ echo unwatch request
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 PL_SPEED="0.${PL_SPEED:0:2}"
 
-echo drawinfo 7 "Player speed is '$PL_SPEED'"
+_draw 7 "Player speed is '$PL_SPEED'"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
-echo drawinfo 7 "Player speed is '$PL_SPEED'"
+_draw 7 "Player speed is '$PL_SPEED'"
 
   if test "$PL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
@@ -295,7 +335,7 @@ elif test "$PL_SPEED" -ge 0;  then
 SLEEP=5; DELAY_DRAWINFO=10; TMOUT=2
 fi
 
-echo drawinfo 6 "Done."
+_draw 6 "Done."
 }
 
 _check_empty_cauldron(){
@@ -310,7 +350,7 @@ _is 0 1 pickup 0  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
 
 
-echo drawinfo 5 "Checking for empty cauldron..."
+_draw 5 "Checking for empty cauldron..."
 
 _is 1 1 apply
 sleep ${SLEEP}s
@@ -339,25 +379,26 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo drawinfo 3 "Cauldron NOT empty !!"
-echo drawinfo 3 "Please empty the cauldron and try again."
+_draw 3 "Cauldron NOT empty !!"
+_draw 3 "Please empty the cauldron and try again."
 _exit 1
 }
 
 echo unwatch drawinfo
 
-echo drawinfo 7 "OK ! Cauldron IS empty."
+_draw 7 "OK ! Cauldron IS empty."
 }
 
 #** the messages in the msgpane may pollute **#
 #** need to catch msg to discard them into an unused variable **#
 _empty_message_stream(){
+[ "$DEBUG" ] || return 1
 local REPLY
 while :;
 do
 read -t 1 REPLY
 test "$REPLY" || break
-[ "$DEBUG" ] && echo draw 3 "_empty_message_stream:$REPLY"
+_draw 3 "_empty_message_stream:$REPLY"
 unset REPLY
 sleep 0.1
 done
@@ -375,7 +416,7 @@ test "$currHP"     || local currHP=$HP
 test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
 test "$currHPMin"  || local currHPMin=$((MHP/10))
 
-[ "$DEBUG" ] && echo draw 3 currHP=$currHP currHPMin=$currHPMin
+[ "$DEBUG" ] && _draw 3 currHP=$currHP currHPMin=$currHPMin
 if test "$currHP" -le $currHPMin; then
 
 _empty_message_stream
@@ -404,7 +445,7 @@ while :;
 do
 unset REPLY
 read -t 1 REPLY
-[ "$DEBUG" ] && echo draw 3 "_check_mana_for_create_food:$REPLY"
+[ "$DEBUG" ] && _draw 3 "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
 *create*food*)
@@ -509,9 +550,9 @@ read -t 1 REPLY
 
 _check_food_level(){
 
-#c=$((c+1))
-#test $C -lt $PAUSE_CHECK_FOOD && return
-#c=0
+fc=$((fc+1))
+test "$fc" -lt $COUNT_CHECK_FOOD && return
+fc=0
 
 test "$*" && MIN_FOOD_LEVEL="$@"
 test "$MIN_FOOD_LEVEL" || MIN_FOOD_LEVEL=200
@@ -533,7 +574,7 @@ test "$Re" = request || continue
 test "$FOOD_LVL" || break
 test "${FOOD_LVL//[[:digit:]]/}" && break
 
-[ "$DEBUG" ] && echo draw 3 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+[ "$DEBUG" ] && _draw 3 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
 
 if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #_eat_food
@@ -546,7 +587,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #sleep 0.1
  sleep 1
  read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
- [ "$DEBUG" ] && echo draw 3 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+ [ "$DEBUG" ] && _draw 3 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
 
  #return $?
  break
@@ -563,6 +604,53 @@ done
 echo unwatch drawinfo
 }
 
-
-
 #Food
+
+
+_alch_and_get(){
+
+_unknown &
+
+echo watch drawinfo
+_is 1 1 use_skill alchemy
+
+# *** TODO: The cauldron burps and then pours forth monsters!
+OLD_REPLY="";
+REPLY="";
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+unset REPLY
+sleep 0.1s
+done
+
+
+_is 1 1 apply
+
+
+_is 99 1 take
+# *** TODO: Get response from get to determine failure
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+
+while :; do
+read -t 1 REPLY
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+unset REPLY
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+}
+
