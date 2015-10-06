@@ -12,12 +12,6 @@ test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 _set_global_variables
 
 # *** Here begins program *** #
-#_draw 2 "$0 is started.."
-#_draw 2 "PID is $$ - parentPID is $PPID"
-
-# *** Check for parameters *** #
-#_draw 5 "Checking the parameters ($*)..."
-
 _say_start_msg "$@"
 
 [ "$*" ] && {
@@ -56,9 +50,6 @@ _draw 3 "Need <number> ie: script $0 4 ."
 
 _draw 7 "OK."
 
-
-#test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
-
 rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
@@ -73,12 +64,6 @@ _check_if_on_cauldron
 _check_for_space
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 # *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
 
@@ -131,18 +116,14 @@ _is 1 1 apply
 sleep ${SLEEP}s
 
 echo watch drawinfo
-
-#_is 1 1 drop 1 water of the wise
 _drop 1 water of the wise
 
 __check_drop_or_exit(){
-#echo watch drawinfo
 
 OLD_REPLY="";
 REPLY="";
 
 while :; do
-#unset REPLY
 read -t $TMOUT REPLY
 echo "Water of the Wise:$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
@@ -150,8 +131,6 @@ test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
 test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -162,7 +141,6 @@ sleep ${SLEEP}s
 _check_drop_or_exit
 
 echo watch drawinfo
-#_is 1 1 drop 1 mandrake root
 _drop 1 mandrake root
 
 __check_drop_or_exit_two(){
@@ -171,7 +149,6 @@ local OLD_REPLY="";
 local REPLY="";
 
 while :; do
-#unset REPLY
 read -t $TMOUT REPLY
 echo "mandrake root:$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
@@ -179,8 +156,6 @@ test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
 test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -193,24 +168,12 @@ sleep ${SLEEP}s
 _check_drop_or_exit
 
 _close_cauldron
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 #sleep ${SLEEP}s
 
 _alch_and_get
-
 #sleep ${SLEEP}s
 
 _go_cauldron_drop_alch_yeld
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-
 #sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
@@ -222,12 +185,10 @@ if test "$NOTHING" = 0; then
         sleep ${SLEEP}s
 
         _is 0 1 drop balm
-        #_success &
         success=$((success+1))
         else
         _failure &
         _is 0 1 drop slag
-        #_failure &
         fi
 elif test "$NOTHING" = "-1"; then
       :   # emergency drop to prevent new created items droped in cauldron
@@ -236,13 +197,7 @@ else
 fi
 
 _check_food_level
-
 sleep ${DELAY_DRAWINFO}s
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 
 #sleep ${SLEEP}s
 
