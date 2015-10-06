@@ -2,10 +2,6 @@
 
 export PATH=/bin:/usr/bin
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 2 "PID is $$ - parentPID is $PPID"
-
 # *** PARAMETERS *** #
 
 __set_global_variables(){
@@ -39,8 +35,12 @@ test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 
 _set_global_variables
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+_draw 2 "PID is $$ - parentPID is $PPID"
+
 # *** Check for parameters *** #
-echo drawnifo 5 "Checking the parameters ($*)..."
+_draw 5 "Checking the parameters ($*)..."
 
 [ "$*" ] && {
 PARAM_1="$1"
@@ -48,35 +48,35 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in *"help"*)
 
-echo draw 5 "Script to produce water of the wise."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 NUMBER"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Balm of First Aid ."
+_draw 5 "Script to produce water of the wise."
+_draw 7 "Syntax:"
+_draw 7 "$0 NUMBER"
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Balm of First Aid ."
 
         exit 0
 ;; esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as option allowed."
+_draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 
 } || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
+_draw 3 "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo draw 3 "Need <number> ie: script $0 4 ."
+_draw 3 "Need <number> ie: script $0 4 ."
         exit 1
 }
 
-echo drawinfo 7 "OK."
+_draw 7 "OK."
 
 
 #test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
@@ -156,7 +156,8 @@ sleep ${SLEEP}s
 
 echo watch drawinfo
 
-_is 1 1 drop 1 water of the wise
+#_is 1 1 drop 1 water of the wise
+_drop 1 water of the wise
 
 #echo watch drawinfo
 
@@ -179,7 +180,8 @@ done
 
 sleep ${SLEEP}s
 
-_is 1 1 drop 1 mandrake root
+#_is 1 1 drop 1 mandrake root
+_drop 1 mandrake root
 
 OLD_REPLY="";
 REPLY="";
@@ -208,9 +210,13 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep ${SLEEP}s
 
+
+__alch_and_get(){
 #echo watch drawinfo
 
+_unknown &
 _is 1 1 use_skill alchemy
+#_unknown &
 
 echo watch drawinfo
 
@@ -261,6 +267,9 @@ sleep 0.1s
 done
 
 echo unwatch drawinfo
+}
+
+_alch_and_get
 
 
 sleep ${SLEEP}s
@@ -273,20 +282,27 @@ sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
         if test "$SLAG" = 0; then
+        _success &
         _is 1 1 use_skill sense curse
         _is 1 1 use_skill sense magic
         _is 1 1 use_skill alchemy
         sleep ${SLEEP}s
 
         _is 0 1 drop balm
+        #_success &
         success=$((success+1))
         else
+        _failure &
         _is 0 1 drop slag
+        #_failure &
         fi
 elif test "$NOTHING" = "-1"; then
       :   # emergency drop to prevent new created items droped in cauldron
-
+else
+ _disaster &
 fi
+
+_check_food_level
 
 sleep ${DELAY_DRAWINFO}s
 
@@ -320,7 +336,7 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
+_draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 _exit 1
  }
 
@@ -332,12 +348,12 @@ _check_if_on_cauldron
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
 
 
 done  # *** MAINLOOP *** #
 
 
 # *** Here ends program *** #
-test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-echo draw 2 "$0 is finished."
+test -f /root/.crossfire/sounds/su-fanf.raw && aplay $Q /root/.crossfire/sounds/su-fanf.raw
+_draw 2 "$0 is finished."
