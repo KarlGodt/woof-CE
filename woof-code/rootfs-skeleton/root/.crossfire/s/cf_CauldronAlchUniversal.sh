@@ -16,8 +16,8 @@ test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 _set_global_variables
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
+_draw 2 "$0 is started.."
+_draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -26,14 +26,14 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in *"help"*)
 
-echo draw 5 "Script to produce alchemy objects."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
-echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
+_draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 
         exit 0
 ;; esac
@@ -95,13 +95,13 @@ done
 
 
 } || {
-echo draw 3 "Script needs goal_item_name, number_of_alchemy_attempts, ingredient and numberofingredient as arguments."
+_draw 3 "Script needs goal_item_name, number_of_alchemy_attempts, ingredient and numberofingredient as arguments."
         exit 1
 }
 
 test "$1" -a "$2" -a "$3" -a "$4" || {
-echo draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_root' 1 ."
+_draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
+_draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_root' 1 ."
         exit 1
 }
 
@@ -122,7 +122,7 @@ test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon a cauldron!"
+_draw 3 "Need to stand upon a cauldron!"
 exit 1
  }
 }
@@ -147,7 +147,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
-#echo draw 3 "$INVTRY"
+#_draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -166,9 +166,9 @@ echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
 grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
 
 if [[ "`grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv`" ]]; then
-echo draw 3 "${INGRED[$C2]} in inventory."
+_draw 3 "${INGRED[$C2]} in inventory."
 else
-echo draw 3 "No ${INGRED[$C2]} in inventory."
+_draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
 fi
 
@@ -235,7 +235,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep 1s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
@@ -289,13 +289,14 @@ echo watch drawinfo
  twenty)    NUMBER[$FOR]=20;;
 esac
 
- echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _debug 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- _is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
+ #_is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
+ _drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$REPLY_LOG"
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
@@ -317,6 +318,8 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep 1s
 
+__alch_and_get(){
+_unknown &
 _is 1 1 use_skill alchemy
 
 # *** TODO: The cauldron burps and then pours forth monsters!
@@ -354,6 +357,9 @@ OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
+}
+
+_alch_and_get
 
 sleep 1s
 
@@ -365,6 +371,7 @@ sleep 1s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
+ _success &
  _is 1 1 use_skill sense curse
  _is 1 1 use_skill sense magic
  _is 1 1 use_skill alchemy
@@ -373,10 +380,15 @@ if test "$NOTHING" = 0; then
  _is 0 1 drop $GOAL
  success=$((success+1))
  else
+ _failure &
  _is 0 1 drop slag
  #_is 0 1 drop slags
  fi
+else
+ _disaster &
 fi
+
+_check_food_level
 
 #DELAY_DRAWINFO=2
 #sleep ${DELAY_DRAWINFO}s
@@ -393,10 +405,10 @@ _check_if_on_cauldron
 TRIES_STILL=$((NUMBER_ALCH-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawextinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
 
 done
 
 # *** Here ends program *** #
 test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
