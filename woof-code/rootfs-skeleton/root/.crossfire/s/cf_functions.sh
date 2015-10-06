@@ -52,7 +52,7 @@ _draw(){
 
 _debug(){
 test "$DEBUG" || return 0
-    echo draw 3 "$@"
+    echo draw 3 "DEBUG:$@"
 }
 
 _log(){
@@ -248,8 +248,8 @@ fi
 _draw 7 "OK."
 }
 
- _prepare_rod_of_recall(){
-# *** Readying rod of word of recall - just in case *** #
+_prepare_rod_of_recall(){
+# *** Unreadying rod of word of recall - just in case *** #
 
 local RECALL OLD_REPLY REPLY
 
@@ -386,6 +386,15 @@ _exit 1
 
 echo unwatch drawinfo
 
+sleep ${SLEEP}s
+
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+
+sleep ${SLEEP}s
+
 _draw 7 "OK ! Cauldron IS empty."
 }
 
@@ -416,7 +425,7 @@ test "$currHP"     || local currHP=$HP
 test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
 test "$currHPMin"  || local currHPMin=$((MHP/10))
 
-[ "$DEBUG" ] && _draw 3 currHP=$currHP currHPMin=$currHPMin
+_debug currHP=$currHP currHPMin=$currHPMin
 if test "$currHP" -le $currHPMin; then
 
 _empty_message_stream
@@ -445,7 +454,7 @@ while :;
 do
 unset REPLY
 read -t 1 REPLY
-[ "$DEBUG" ] && _draw 3 "_check_mana_for_create_food:$REPLY"
+_debug "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
 *create*food*)
@@ -574,7 +583,7 @@ test "$Re" = request || continue
 test "$FOOD_LVL" || break
 test "${FOOD_LVL//[[:digit:]]/}" && break
 
-[ "$DEBUG" ] && _draw 3 HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+_debug HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
 
 if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #_eat_food
@@ -587,7 +596,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  #sleep 0.1
  sleep 1
  read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
- [ "$DEBUG" ] && _draw 3 HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+ _debug HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
 
  #return $?
  break
