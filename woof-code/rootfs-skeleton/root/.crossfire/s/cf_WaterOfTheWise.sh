@@ -4,30 +4,6 @@ export PATH=/bin:/usr/bin
 
 # *** PARAMETERS *** #
 
-__set_global_variables(){
-TMOUT=1    # read -t timeout
-
-DIRB=west  # direction back to go
-
-case $DIRB in
-west)  DIRF=east;;
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
-esac
-
-# Log file path in /tmp
-#MY_SELF=`realpath "$0"`
-#MY_BASE=${MY_SELF##*/}
-TMP_DIR=/tmp/crossfire
-mkdir -p "$TMP_DIR"
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
-}
-
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
@@ -41,6 +17,7 @@ _draw 2 "$0 is started.."
 _draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
+_draw 5 "Checking the parameters ($*)..."
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -92,12 +69,14 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Then if some items are locked, unlock these and drop again.   *** #
 # *** Now get the number of desired water --                        *** #
 # *** only one inventory line with water(s) allowed !!              *** #
+# *** Otherwise a wand or scroll of summon water elemental may be   *** #
+# *** put into the cauldron, which would result in failure !!!!     *** #
 
 # *** Now get the number of desired water of                        *** #
 # *** seven times the number of the desired water of the wise.      *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** $DIRB of the cauldron.                                        *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
@@ -108,12 +87,27 @@ rm -f "$REPLY_LOG" # empty old log file
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
+# *** Getting Player's Speed *** #
+_get_player_speed
+# *** Check if standing on a cauldron *** #
+#_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
+# *** Check if there are 4 walkable tiles in $DIRB *** #
+_check_for_space
+# *** Check if cauldron is empty *** #
+_check_empty_cauldron
 
-_check_space_to_move
+#sleep ${SLEEP}s
 
-# *** Readying rod of word of recall - just in case *** #
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 
+#sleep ${SLEEP}s
+
+# *** Unreadying rod of word of recall - just in case *** #
+__prepare_recall(){
 _draw 4  "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
@@ -137,30 +131,17 @@ _is 1 1 apply rod of word of recall
 fi
 
 _draw 7 "Done."
+}
+
+# *** Unreadying rod of word of recall - just in case *** #
+_prepare_rod_of_recall
 
 
-
-# *** Getting Player's Speed *** #
-_get_player_speed
-
-
-# *** Check if cauldron is empty *** #
-_check_if_cauldron_empty
-
-sleep ${SLEEP}s
-
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-
-sleep ${SLEEP}s
-
+# *** Now LOOPING *** #
 
 _draw 4 "OK... Might the Might be with You!"
 
 success=0
-# *** Now LOOPING *** #
 
 for one in `seq 1 1 $NUMBER`
 do
@@ -203,61 +184,6 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 
 sleep ${SLEEP}s
-
-__alch_and_get(){
-#echo watch drawextinfo
-echo watch drawinfo
-
-_unknown &
-_is 1 1 use_skill alchemy
-
-OLD_REPLY="";
-REPLY="";
-#NOTHING=0
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-#echo unwatch drawextinfo
-echo unwatch drawinfo
-
-
-_is 1 1 apply
-sleep 0.5s
-
-#echo watch drawextinfo
-echo watch drawinfo
-
-_is 99 1 get
-
-OLD_REPLY="";
-REPLY="";
-NOTHING=0
-SLAG=0
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-#echo unwatch drawextinfo
-echo unwatch drawinfo
-}
 
 _alch_and_get
 
@@ -314,34 +240,8 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 
-
 sleep ${SLEEP}s
 sleep ${DELAY_DRAWINFO}s
-
-__check_if_on_cauldron_two(){
-echo request items on
-
-UNDER_ME='';
-UNDER_ME_LIST='';
-
-while :; do
-read -t 2 UNDER_ME
-echo "$UNDER_ME" >>"$ON_LOG"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-test "$UNDER_ME" || break
-unset UNDER_ME
-sleep 0.1s
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
-_exit 1
- }
-}
 
 _check_if_on_cauldron
 
