@@ -13,11 +13,13 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-_draw 2 "$0 is started.."
-_draw 2 "PID is $$ - parentPID is $PPID"
+#_draw 2 "$0 is started.."
+#_draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
-_draw 5 "Checking the parameters ($*)..."
+#_draw 5 "Checking the parameters ($*)..."
+_say_start_msg "$@"
+
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -116,12 +118,12 @@ REPLY="";
 echo request items actv
 
 while :; do
-read -t 1 REPLY
+read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -148,8 +150,8 @@ do
 
 TIMEB=`date +%s`
 
-OLD_REPLY="";
-REPLY="";
+#OLD_REPLY="";
+#REPLY="";
 
 _is 1 1 apply
 sleep 0.5s
@@ -160,41 +162,52 @@ echo watch drawinfo
 #_is 1 1 drop 7 water
 _drop 7 water
 
+__check_drop_or_exit(){
+local HAVE_PUT=0
 while :; do
-read -t 1 REPLY
+read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
+test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
 
 echo unwatch drawinfo
 #echo unwatch drawextinfo
+test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
+}
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
+_check_drop_or_exit
 
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+_close_cauldron
 
-sleep ${SLEEP}s
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+
+#sleep ${SLEEP}s
 
 _alch_and_get
 
-sleep ${SLEEP}s
+#sleep ${SLEEP}s
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
+_go_cauldron_drop_alch_yeld
 
-sleep ${SLEEP}s
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+
+#sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
@@ -235,13 +248,15 @@ _check_food_level
 
 sleep ${DELAY_DRAWINFO}s
 
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 
-sleep ${SLEEP}s
-sleep ${DELAY_DRAWINFO}s
+#sleep ${SLEEP}s
+#sleep ${DELAY_DRAWINFO}s
+
+_go_drop_alch_yeld_cauldron
 
 _check_if_on_cauldron
 
@@ -253,5 +268,6 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go
 done
 
 # *** Here ends program *** #
-test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-_draw 2  "$0 is finished."
+#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
+#_draw 2  "$0 is finished."
+_say_end_msg
