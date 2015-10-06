@@ -17,9 +17,11 @@ _set_global_variables
 
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
-_draw 5 " with '$*' parameter."
+_draw 2 "PID is $$ - parentPID is $PPID"
+#_draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
+_draw 5 "Checking the parameters ($*)..."
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -105,36 +107,20 @@ _draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_root'
         exit 1
 }
 
+# *** Getting Player's Speed *** #
+_get_player_speed
 # *** Check if standing on a cauldron *** #
-__check_if_on_cauldron(){
-UNDER_ME='';
-echo request items on
-
-while :; do
-read -t 1 UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon a cauldron!"
-exit 1
- }
-}
-
+#_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
+# *** Check if there are 4 walkable tiles in $DIRB *** #
 _check_for_space
+# *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 
 # *** Check if is in inventory *** #
 
@@ -205,7 +191,7 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 __check_if_in_inv
 
-_get_player_speed
+# *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
@@ -222,27 +208,9 @@ _prepare_rod_of_recall
 # *** three times the number of the desired gem.                    *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** $DIRB of the cauldron.                                        *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
-
-
-_is 1 1 pickup 0  # precaution
-
-__exit(){
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-sleep 1s
-_draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
-echo unwatch
-echo unwatch drawinfo
-exit $1
-}
 
 #rm -f /tmp/cf_script.rpl
 
@@ -289,7 +257,7 @@ echo watch drawinfo
  twenty)    NUMBER[$FOR]=20;;
 esac
 
- _debug 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _debug "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  #_is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
  _drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
@@ -310,54 +278,15 @@ esac
  done
 
 echo unwatch drawinfo
+
 sleep 1s
 
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
+
 sleep 1s
-
-__alch_and_get(){
-_unknown &
-_is 1 1 use_skill alchemy
-
-# *** TODO: The cauldron burps and then pours forth monsters!
-OLD_REPLY="";
-REPLY="";
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-_is 1 1 apply
-
-
-_is 99 1 take
-# *** TODO: Get response from get to determine failure
-OLD_REPLY="";
-REPLY="";
-NOTHING=0
-SLAG=0
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-}
 
 _alch_and_get
 
@@ -367,6 +296,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+
 sleep 1s
 
 if test "$NOTHING" = 0; then
