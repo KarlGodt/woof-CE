@@ -8,29 +8,6 @@ export PATH=/bin:/usr/bin
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
-__set_global_variables(){
-TMOUT=1    # read -t timeout
-
-DIRB=west  # direction back to go
-
-case $DIRB in
-west)  DIRF=east;;
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
-esac
-
-# Log file path in /tmp
-#MY_SELF=`realpath "$0"`
-#MY_BASE=${MY_SELF##*/}
-TMP_DIR=/tmp/crossfire
-mkdir -p "$TMP_DIR"
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
-}
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -68,13 +45,8 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-#_draw 2 "$0 is started.."
-#_draw 2 "PID is $$ - parentPID is $PPID"
-
-# *** Check for parameters *** #
-#_draw 5 "Checking the parameters ($*)..."
 _say_start_msg "$@"
-
+_debug "$@"
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -154,12 +126,6 @@ _check_if_on_cauldron
 _check_for_space
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 # *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
 
@@ -186,9 +152,6 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-
-#_is 1 1 pickup 0  # precaution
-
 rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
@@ -203,8 +166,6 @@ TIMEB=`date +%s`
 _is 1 1 apply
 
 echo watch drawinfo
-
-#_is 1 1 drop 1 water of the wise
 _drop 1 water of the wise
 
 __check_drop_or_exit(){
@@ -218,8 +179,8 @@ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -240,11 +201,9 @@ while :; do
 read -t 1 REPLY
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && _exit 1
-#test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
-#test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
 test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
+#test "$REPLY" = "$OLD_REPLY" && break
+#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -257,24 +216,12 @@ sleep 1s
 _check_drop_or_exit
 
 _close_cauldron
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 #sleep 1s
 
 _alch_and_get
-
 #sleep 1s
 
 _go_cauldron_drop_alch_yeld
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-
 #sleep 1s
 
 _debug "get:NOTHING is '$NOTHING'"
@@ -300,14 +247,7 @@ else
 fi
 
 _check_food_level
-
-##DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 
 #sleep ${DELAY_DRAWINFO}s
 ##sleep ${SLEEP}s
