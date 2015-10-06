@@ -71,7 +71,6 @@ test -e "$SOUND_DIR"/${1}.raw && \
 _drop(){
  _sound 0 drip &
  echo issue 1 1 drop "$@"
- #_sound 0 drip
 }
 
 _success(){
@@ -98,9 +97,6 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep ${SLEEP}s
 _draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
 beep -l 1000 -f 700
@@ -135,7 +131,6 @@ echo request items on
 #echo watch request
 
 while :; do
-#unset UNDER_ME
 read -t $TMOUT UNDER_ME
 echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
@@ -221,8 +216,6 @@ echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -264,13 +257,10 @@ echo request items actv
 echo watch request
 
 while :; do
-#unset REPLY
 read -t $TMOUT
 echo "request items actv:$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -374,8 +364,6 @@ echo "get:$REPLY" >>"$REPLY_LOG"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -454,7 +442,7 @@ _is 1 0 cast create
 
 while :;
 do
-#unset REPLY
+
 read -t 1
 _debug "_check_mana_for_create_food:$REPLY"
 case $REPLY in
@@ -635,8 +623,6 @@ read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -658,8 +644,6 @@ echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
 test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -696,14 +680,11 @@ test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
 test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
 
 echo unwatch drawinfo
-#echo unwatch drawextinfo
 
 test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
