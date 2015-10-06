@@ -68,11 +68,13 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-_draw 2 "$0 is started.."
-_draw 2 "PID is $$ - parentPID is $PPID"
+#_draw 2 "$0 is started.."
+#_draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
-_draw 5 "Checking the parameters ($*)..."
+#_draw 5 "Checking the parameters ($*)..."
+_say_start_msg "$@"
+
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -205,9 +207,9 @@ echo watch drawinfo
 #_is 1 1 drop 1 water of the wise
 _drop 1 water of the wise
 
+__check_drop_or_exit(){
 OLD_REPLY="";
 REPLY="";
-
 
 while :; do
 read -t 1 REPLY
@@ -223,9 +225,14 @@ sleep 0.1s
 done
 
 sleep 1s
+}
 
+_check_drop_or_exit
+
+echo watch drawinfo
 _is 1 1 drop 3 $GEM
 
+__check_drop_or_exit_two(){
 OLD_REPLY="";
 REPLY="";
 
@@ -245,23 +252,30 @@ done
 echo unwatch drawinfo
 
 sleep 1s
+}
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-sleep 1s
+_check_drop_or_exit
+
+_close_cauldron
+
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#sleep 1s
 
 _alch_and_get
 
-sleep 1s
+#sleep 1s
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
+_go_cauldron_drop_alch_yeld
 
-sleep 1s
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+
+#sleep 1s
 
 _debug "get:NOTHING is '$NOTHING'"
 
@@ -287,16 +301,18 @@ fi
 
 _check_food_level
 
-#DELAY_DRAWINFO=2
-#sleep ${DELAY_DRAWINFO}s
-
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-
+##DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
-#sleep ${SLEEP}s
+
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+
+#sleep ${DELAY_DRAWINFO}s
+##sleep ${SLEEP}s
+
+_go_drop_alch_yeld_cauldron
 
 _check_if_on_cauldron
 
@@ -308,5 +324,6 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go.
 done
 
 # *** Here ends program *** #
-test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-_draw 2 "$0 is finished."
+#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
+#_draw 2 "$0 is finished."
+_say_end_msg
