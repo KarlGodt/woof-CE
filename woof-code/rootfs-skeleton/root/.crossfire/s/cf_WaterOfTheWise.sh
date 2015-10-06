@@ -13,11 +13,6 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-#_draw 2 "$0 is started.."
-#_draw 2 "PID is $$ - parentPID is $PPID"
-
-# *** Check for parameters *** #
-#_draw 5 "Checking the parameters ($*)..."
 _say_start_msg "$@"
 
 [ "$*" ] && {
@@ -53,10 +48,6 @@ test "$1" || {
 _draw 3  "Need <number> ie: script $0 3 ."
         exit 1
 }
-
-#test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
-
-
 
 
 # *** Actual script to alch the desired water of the wise           *** #
@@ -100,12 +91,6 @@ _check_for_space
 _check_empty_cauldron
 
 #sleep ${SLEEP}s
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 #sleep ${SLEEP}s
 
 # *** Unreadying rod of word of recall - just in case *** #
@@ -122,8 +107,6 @@ read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
@@ -150,16 +133,11 @@ do
 
 TIMEB=`date +%s`
 
-#OLD_REPLY="";
-#REPLY="";
-
 _is 1 1 apply
 sleep 0.5s
 
-#echo watch drawextinfo
 echo watch drawinfo
 
-#_is 1 1 drop 7 water
 _drop 7 water
 
 __check_drop_or_exit(){
@@ -172,14 +150,11 @@ test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
 test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
 test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
 unset REPLY
 sleep 0.1s
 done
 
 echo unwatch drawinfo
-#echo unwatch drawextinfo
 test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
 }
@@ -187,26 +162,12 @@ sleep ${SLEEP}s
 _check_drop_or_exit
 
 _close_cauldron
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-
 #sleep ${SLEEP}s
 
 _alch_and_get
-
 #sleep ${SLEEP}s
 
 _go_cauldron_drop_alch_yeld
-
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-#_is 1 1 $DIRB
-
 #sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
@@ -238,20 +199,13 @@ if test "$NOTHING" = 0; then
  else
  _failure &
  _is 0 1 drop slag
- #_is 0 1 drop slags"
  fi
 else
  _disaster &
 fi
 
 _check_food_level
-
 sleep ${DELAY_DRAWINFO}s
-
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
-#_is 1 1 $DIRF
 
 #sleep ${SLEEP}s
 #sleep ${DELAY_DRAWINFO}s
