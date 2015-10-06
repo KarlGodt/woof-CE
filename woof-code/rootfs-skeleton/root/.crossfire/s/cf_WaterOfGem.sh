@@ -68,7 +68,7 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 
 # *** Check for parameters *** #
@@ -78,14 +78,14 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in *"help"*)
 
-echo draw 5 "Script to produce water of GEM."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 GEM NUMBER"
-echo draw 2 "Allowed GEM are diamond, emerald,"
-echo draw 2 "pearl, ruby, sapphire ."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Water of GEM ."
+_draw 5 "Script to produce water of GEM."
+_draw 7 "Syntax:"
+_draw 7 "$0 GEM NUMBER"
+_draw 2 "Allowed GEM are diamond, emerald,"
+_draw 2 "pearl, ruby, sapphire ."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Water of GEM ."
 
         exit 0
 ;; esac
@@ -93,7 +93,7 @@ echo draw 5 "Water of GEM ."
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :alpha: characters as first option allowed."
+_draw 3 "Only :alpha: characters as first option allowed."
         exit 1 #exit if other input than letters
         }
 
@@ -102,18 +102,18 @@ GEM="$PARAM_1"
 PARAM_2="$2"
 PARAM_2test="${PARAM_2//[[:digit:]]/}"
 test "$PARAM_2test" && {
-echo draw 3 "Only :digit: numbers as second options allowed."
+_draw 3 "Only :digit: numbers as second options allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_2
 } || {
-echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
+_draw 3 "Script needs gem and number of alchemy attempts as arguments."
         exit 1
 }
 
 test "$1" -a "$2" || {
-echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
+_draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
         exit 1
 }
 
@@ -126,19 +126,19 @@ GEM=diamond
 fi
 
 if test ! "$NUMBER"; then
-echo draw 3 "Need a number of items to alch."
+_draw 3 "Need a number of items to alch."
 exit 1
 elif test "$NUMBER" = 0; then
-echo draw 3 "Number must be notg ZERO."
+_draw 3 "Number must be notg ZERO."
 exit 1
 elif test "$NUMBER" -lt 0; then
-echo draw 3 "Number must be greater than ZERO."
+_draw 3 "Number must be greater than ZERO."
 exit 1
 fi
 
 test "$GEM" != diamond -a "$GEM" != emerald -a "$GEM" != pearl \
   -a "$GEM" != ruby -a "$GEM" != sapphire && {
-echo draw 3 "'$GEM' : Not a recognized kind of gem."
+_draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
 
@@ -162,7 +162,7 @@ sleep 0.1
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
+_draw 3 "Need to stand upon cauldron!"
 exit 1
 }
 
@@ -208,7 +208,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep 1s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
@@ -232,7 +232,8 @@ _is 1 1 apply
 
 echo watch drawinfo
 
-_is 1 1 drop 1 water of the wise
+#_is 1 1 drop 1 water of the wise
+_drop 1 water of the wise
 
 OLD_REPLY="";
 REPLY="";
@@ -281,7 +282,11 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep 1s
 
+__anlch_and_get(){
+_unknown &
 _is 1 1 use_skill alchemy
+
+
 _is 1 1 apply
 
 echo watch drawinfo
@@ -306,6 +311,9 @@ sleep 0.1s
 done
 
 echo unwatch drawinfo
+}
+
+_alch_and_get
 
 sleep 1s
 
@@ -315,10 +323,11 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 sleep 1s
 
-[ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'"
+[ "$DEBUG" ] && _draw 2 "NOTHING is '$NOTHING'"
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
+  _success &
   _is 1 1 use_skill sense curse
   _is 1 1 use_skill sense magic
   _is 1 1 use_skill alchemy
@@ -329,9 +338,14 @@ if test "$NOTHING" = 0; then
  _is 1 1 drop water "(magic)"
  success=$((success+1))
  else
+ _failure &
  _is 0 1 drop slag
  fi
+else
+ _disaster &
 fi
+
+_check_food_level
 
 #DELAY_DRAWINFO=2
 #sleep ${DELAY_DRAWINFO}s
@@ -349,10 +363,10 @@ _check_if_on_cauldron
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
 
 done
 
 # *** Here ends program *** #
 test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
