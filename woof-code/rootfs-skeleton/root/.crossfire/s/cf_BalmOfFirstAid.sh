@@ -4,30 +4,6 @@ export PATH=/bin:/usr/bin
 
 # *** PARAMETERS *** #
 
-__set_global_variables(){
-TMOUT=1    # read -t timeout
-
-DIRB=east  # direction back to go
-
-case $DIRB in
-west)  DIRF=east;;
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
-esac
-
-# Log file path in /tmp
-#MY_SELF=`realpath "$0"`
-#MY_BASE=${MY_SELF##*/}
-TMP_DIR=/tmp/crossfire
-mkdir -p "$TMP_DIR"
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
-}
-
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
@@ -86,10 +62,24 @@ rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
 
+# *** Getting Player's Speed *** #
+_get_player_speed
 # *** Check if standing on a cauldron *** #
+#_is 1 1 pickup 0  # precaution ## now done in _check_empty_cauldron
 _check_if_on_cauldron
-
+# *** Check if there are 4 walkable tiles in $DIRB *** #
 _check_for_space
+# *** Check if cauldron is empty *** #
+_check_empty_cauldron
+
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+
+# *** Unreadying rod of word of recall - just in case *** #
+_prepare_rod_of_recall
+
 
 # *** Monitoring function *** #
 # *** Todo ...            *** #
@@ -101,10 +91,6 @@ read -t $TMOUT ERRORMSGS
 sleep 0.1s
 done
 }
-
-
-
-
 
 # *** Actual script to alch the desired balm of first aid *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -120,28 +106,16 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Now get the number of desired water and mandrake root --      *** #
 # *** only one inventory line with water(s) and                     *** #
 # *** mandrake root are allowed !!                                  *** #
+# *** Otherwise a wand or scroll of summon water elemental may be   *** #
+# *** put into the cauldron, which would result in failure !!!!     *** #
 
 # *** Now get the number of desired water of the wise and           *** #
 # *** same times the number of mandrake root .                      *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** $DIRB of the cauldron.                                        *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
-
-
-_prepare_rod_of_recall
-
-_check_empty_cauldron
-
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-
-
-# *** Getting Player's Speed *** #
-_get_player_speed
 
 success=0
 # *** Now LOOPING *** #
@@ -208,76 +182,18 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
+
 sleep ${SLEEP}s
-
-
-__alch_and_get(){
-#echo watch drawinfo
-
-_unknown &
-_is 1 1 use_skill alchemy
-#_unknown &
-
-echo watch drawinfo
-
-OLD_REPLY="";
-REPLY="";
-
-while :; do
-#unset REPLY
-read -t $TMOUT REPLY
-echo "alchemy:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _emergency_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-#echo unwatch drawinfo
-
-_is 1 1 apply
-sleep ${SLEEP}s
-
-
-#echo watch drawinfo
-
-_is 1 1 get
-
-#echo watch drawinfo
-
-OLD_REPLY="";
-REPLY="";
-NOTHING=1
-SLAG=0
-
-while :; do
-#unset REPLY
-read -t $TMOUT REPLY
-echo "get:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`"      && { NOTHING=2; break; }
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && { NOTHING=0;SLAG=1; break; }
-test "`echo "$REPLY" | grep '.*You pick up the.*'`"      && { NOTHING=0; break; }
-test "$REPLY" || { NOTHING='-1'; break; }
-test "$REPLY" = "$OLD_REPLY" && { NOTHING='-1'; break; }
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-}
 
 _alch_and_get
 
-
 sleep ${SLEEP}s
 
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+
 sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
@@ -310,38 +226,8 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
+
 sleep ${SLEEP}s
-
-__check_if_on_cauldron_two(){
-#echo watch request
-
-echo request items on
-
-echo watch request
-
-UNDER_ME='';
-UNDER_ME_LIST='';
-
-while :; do
-read -t $TMOUT UNDER_ME
-echo "$UNDER_ME" >>"$ON_LOG"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break"     && break
-test "$UNDER_ME" = "scripttell exit"      && exit 1
-test "$UNDER_ME" || break
-unset UNDER_ME
-sleep 0.1s
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
-_exit 1
- }
-
-echo unwatch request
-}
 
 _check_if_on_cauldron
 
@@ -349,7 +235,6 @@ TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
-
 
 done  # *** MAINLOOP *** #
 
