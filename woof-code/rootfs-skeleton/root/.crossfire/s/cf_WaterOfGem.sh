@@ -69,9 +69,10 @@ _set_global_variables
 
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
-
+_draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
+_draw 5 "Checking the parameters ($*)..."
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -142,42 +143,22 @@ _draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
 
-
+# *** Getting Player's Speed *** #
+_get_player_speed
 # *** Check if standing on a cauldron *** #
-__check_if_on_cauldron(){
-UNDER_ME='';
-echo request items on
-
-while :; do
-read -t 1 UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>"$ON_LOG"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-unset UNDER_ME
-sleep 0.1
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-exit 1
-}
-
-}
-
+#_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
+# *** Check if there are 4 walkable tiles in $DIRB *** #
 _check_for_space
+# *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 
-_get_player_speed
+# *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
@@ -190,32 +171,21 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
 # *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Watch out to drop any GEM of great value or beauty,           *** #
+# *** otherwise drop GEM would also drop these GEMS, which          *** #
+# *** would result in several type of GEM being inside cauldron,    *** #
+# *** thus resulting in failure of an alchemy attempt.              *** #
 
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** $DIRB of the cauldron.                                        *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-_is 1 1 pickup 0  # precaution
-
-__f_exit(){
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-sleep 1s
-_draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
-echo unwatch
-echo unwatch drawinfo
-exit $1
-}
+#_is 1 1 pickup 0  # precaution
 
 rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
@@ -282,37 +252,6 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep 1s
 
-__anlch_and_get(){
-_unknown &
-_is 1 1 use_skill alchemy
-
-
-_is 1 1 apply
-
-echo watch drawinfo
-
-_is 1 1 get
-
-OLD_REPLY="";
-REPLY="";
-NOTHING=0
-SLAG=0
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-}
-
 _alch_and_get
 
 sleep 1s
@@ -321,9 +260,10 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+
 sleep 1s
 
-[ "$DEBUG" ] && _draw 2 "NOTHING is '$NOTHING'"
+_debug "get:NOTHING is '$NOTHING'"
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
