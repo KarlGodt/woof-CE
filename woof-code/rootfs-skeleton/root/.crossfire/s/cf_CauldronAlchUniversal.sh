@@ -163,6 +163,35 @@ fi
 
 done
 
+}
+
+#__check_if_in_inv
+
+# *** Unreadying rod of word of recall - just in case *** #
+_prepare_rod_of_recall
+
+# *** Actual script to alch the desired water of gem *** #
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+
+# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
+# *** Then if some items are locked, unlock these and drop again.   *** #
+
+# *** Then get the number of needed ingredients.                    *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** $DIRB of the cauldron.                                        *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
+
+#rm -f /tmp/cf_script.rpl
+
+rm -f "$REPLY_LOG"    # empty old log files
+rm -f "$REQUEST_LOG"
+rm -f "$ON_LOG"
 
 case $NUMBER_ALCH in
 one)   NUMBER_ALCH=1;;
@@ -187,36 +216,7 @@ nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 esac
 test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
-}
-
-__check_if_in_inv
-
-# *** Unreadying rod of word of recall - just in case *** #
-_prepare_rod_of_recall
-
-# *** Actual script to alch the desired water of gem *** #
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-
-# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
-# *** Then if some items are locked, unlock these and drop again.   *** #
-
-# *** Now get the number of desired water of the wise and           *** #
-# *** three times the number of the desired gem.                    *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** $DIRB of the cauldron.                                        *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-#rm -f /tmp/cf_script.rpl
-
-rm -f "$REPLY_LOG"    # empty old log files
-rm -f "$REQUEST_LOG"
-rm -f "$ON_LOG"
+_debug "NUMBER_ALCH=$NUMBER_ALCH"
 
 success=0
 # *** MAIN LOOP *** #
@@ -225,14 +225,15 @@ do
 
 TIMEB=`date +%s`
 
-OLD_REPLY="";
-REPLY="";
+#OLD_REPLY="";
+#REPLY="";
 
 _is 1 1 apply
-
-echo watch drawinfo
+sleep ${SLEEP}s
+#echo watch drawinfo
 
  for FOR in `seq 2 1 $C`; do
+
 
  case ${NUMBER[$FOR]} in
  one)   NUMBER[$FOR]=1;;
@@ -255,13 +256,15 @@ echo watch drawinfo
  eightteen) NUMBER[$FOR]=18;;
  nineteen)  NUMBER[$FOR]=19;;
  twenty)    NUMBER[$FOR]=20;;
-esac
+ esac
+
 
  _debug "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
-
+ echo watch drawinfo
  #_is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
  _drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
 
+ __check_drop_or_exit(){
  while :; do
  read -t 1 REPLY
  echo "$REPLY" >>"$REPLY_LOG"
@@ -269,35 +272,41 @@ esac
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
  test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
+ }
+
+ _check_drop_or_exit
 
  done
 
-echo unwatch drawinfo
+#echo unwatch drawinfo
 
-sleep 1s
+#sleep 1s
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+_close_cauldron
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 
-sleep 1s
+#sleep 1s
 
 _alch_and_get
 
-sleep 1s
+#sleep 1s
 
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
+_go_cauldron_drop_alch_yeld
 
-sleep 1s
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+#_is 1 1 $DIRB
+
+#sleep 1s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
@@ -321,15 +330,19 @@ fi
 _check_food_level
 
 #DELAY_DRAWINFO=2
-#sleep ${DELAY_DRAWINFO}s
+sleep ${DELAY_DRAWINFO}s
 
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
+
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
+#_is 1 1 $DIRF
 #sleep 1s
 
-sleep ${DELAY_DRAWINFO}s
+#sleep ${DELAY_DRAWINFO}s
+
+_go_drop_alch_yeld_cauldron
+
 _check_if_on_cauldron
 
 TRIES_STILL=$((NUMBER_ALCH-one))
@@ -340,5 +353,6 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go
 done
 
 # *** Here ends program *** #
-test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-_draw 2 "$0 is finished."
+#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
+#_draw 2 "$0 is finished."
+_say_end_msg
