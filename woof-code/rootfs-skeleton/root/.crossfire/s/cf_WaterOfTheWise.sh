@@ -37,8 +37,8 @@ _set_global_variables
 
 
 # *** Here begins program *** #
-echo drawextinfo 2 "$0 is started.."
-echo draw 2 "PID is $$ - parentPID is $PPID"
+_draw 2 "$0 is started.."
+_draw 2 "PID is $$ - parentPID is $PPID"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -47,31 +47,31 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in *"help"*)
 
-echo drawextinfo 5  "Script to produce water of the wise."
-echo drawextinfo 7  "Syntax:"
-echo drawextinfo 7  "$0 NUMBER"
-echo drawextinfo 5  "Allowed NUMBER will loop for"
-echo drawextinfo 5  "NUMBER times to produce NUMBER of"
-echo drawextinfo 5  "Water of the Wise ."
+_draw 5  "Script to produce water of the wise."
+_draw 7  "Syntax:"
+_draw 7  "$0 NUMBER"
+_draw 5  "Allowed NUMBER will loop for"
+_draw 5  "NUMBER times to produce NUMBER of"
+_draw 5  "Water of the Wise ."
 
         exit 0
 ;; esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo drawextinfo 3 "Only :digit: numbers as option allowed."
+_draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 
 } || {
-echo drawextinfo 3  "Script needs number of alchemy attempts as argument."
+_draw 3  "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo drawextinfo 3  "Need <number> ie: script $0 3 ."
+_draw 3  "Need <number> ie: script $0 3 ."
         exit 1
 }
 
@@ -114,7 +114,7 @@ _check_space_to_move
 
 # *** Readying rod of word of recall - just in case *** #
 
-echo drawextinfo 4  "Preparing for recall..."
+_draw 4  "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
 REPLY="";
@@ -136,7 +136,7 @@ if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
 _is 1 1 apply rod of word of recall
 fi
 
-echo drawextinfo 7 "Done."
+_draw 7 "Done."
 
 
 
@@ -157,7 +157,7 @@ _is 1 1 $DIRF
 sleep ${SLEEP}s
 
 
-echo drawextinfo 4 "OK... Might the Might be with You!"
+_draw 4 "OK... Might the Might be with You!"
 
 success=0
 # *** Now LOOPING *** #
@@ -176,7 +176,8 @@ sleep 0.5s
 #echo watch drawextinfo
 echo watch drawinfo
 
-_is 1 1 drop 7 water
+#_is 1 1 drop 7 water
+_drop 7 water
 
 while :; do
 read -t 1 REPLY
@@ -203,9 +204,11 @@ _is 1 1 $DIRF
 
 sleep ${SLEEP}s
 
+__alch_and_get(){
 #echo watch drawextinfo
 echo watch drawinfo
 
+_unknown &
 _is 1 1 use_skill alchemy
 
 OLD_REPLY="";
@@ -233,7 +236,7 @@ sleep 0.5s
 #echo watch drawextinfo
 echo watch drawinfo
 
-_is 7 1 get
+_is 99 1 get
 
 OLD_REPLY="";
 REPLY="";
@@ -254,6 +257,9 @@ done
 
 #echo unwatch drawextinfo
 echo unwatch drawinfo
+}
+
+_alch_and_get
 
 sleep ${SLEEP}s
 
@@ -266,11 +272,12 @@ sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
+ _success &
  _is 1 1 use_skill sense curse
  _is 1 1 use_skill sense magic
  _is 1 1 use_skill alchemy
 
-sleep ${SLEEP}s
+ sleep ${SLEEP}s
 
  _is 0 1 drop water of the wise    # _is 1 1 drop drops only one water
  _is 0 1 drop waters of the wise
@@ -290,10 +297,15 @@ sleep ${SLEEP}s
  #_is 0 1 drop waters (unidentified)
  success=$((success+1))
  else
+ _failure &
  _is 0 1 drop slag
  #_is 0 1 drop slags"
  fi
+else
+ _disaster &
 fi
+
+_check_food_level
 
 sleep ${DELAY_DRAWINFO}s
 
@@ -326,7 +338,7 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawextinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
+_draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 _exit 1
  }
 }
@@ -336,10 +348,10 @@ _check_if_on_cauldron
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawextinfo 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
 
 done
 
 # *** Here ends program *** #
 test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-echo drawextinfo 2  "$0 is finished."
+_draw 2  "$0 is finished."
