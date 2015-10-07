@@ -4,7 +4,7 @@ export PATH=/bin:/usr/bin
 
 # *** Setting defaults *** #
 #set empty default
-C=0 #set zero as default
+C=0 # Bash Array Counter - set zero as default
 
 
 MY_SELF=`realpath "$0"`
@@ -247,9 +247,10 @@ sleep ${SLEEP}s
 
 
  _debug "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
- echo watch drawinfo
+ #echo watch drawinfo
  #_is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
- _drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
+ #_drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
+ _drop_in_cauldron ${NUMBER[$FOR]} ${INGRED[$FOR]}
 
  __check_drop_or_exit(){
  while :; do
@@ -264,7 +265,7 @@ sleep ${SLEEP}s
  done
  }
 
- _check_drop_or_exit
+ #_check_drop_or_exit
 
  done
 
