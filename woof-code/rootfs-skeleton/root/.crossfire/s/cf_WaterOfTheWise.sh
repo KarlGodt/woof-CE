@@ -136,9 +136,10 @@ TIMEB=`date +%s`
 _is 1 1 apply
 sleep 0.5s
 
-echo watch drawinfo
+#echo watch drawinfo
 
-_drop 7 water
+#_drop 7 water
+_drop_in_cauldron 7 water
 
 __check_drop_or_exit(){
 local HAVE_PUT=0
@@ -159,7 +160,7 @@ test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
 }
 
-_check_drop_or_exit
+#_check_drop_or_exit
 
 _close_cauldron
 #sleep ${SLEEP}s
