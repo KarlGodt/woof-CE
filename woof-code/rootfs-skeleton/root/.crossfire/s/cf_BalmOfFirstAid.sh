@@ -115,8 +115,9 @@ TIMEB=`date +%s`
 _is 1 1 apply
 sleep ${SLEEP}s
 
-echo watch drawinfo
-_drop 1 water of the wise
+#echo watch drawinfo
+#_drop 1 water of the wise
+_drop_in_cauldron 1 water of the wise
 
 __check_drop_or_exit(){
 
@@ -138,10 +139,11 @@ test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
 }
 
-_check_drop_or_exit
+#_check_drop_or_exit
 
-echo watch drawinfo
-_drop 1 mandrake root
+#echo watch drawinfo
+#_drop 1 mandrake root
+_drop_in_cauldron 1 mandrake root
 
 __check_drop_or_exit_two(){
 local HAVE_PUT=0
@@ -165,7 +167,7 @@ test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
 }
 
-_check_drop_or_exit
+#_check_drop_or_exit
 
 _close_cauldron
 #sleep ${SLEEP}s
