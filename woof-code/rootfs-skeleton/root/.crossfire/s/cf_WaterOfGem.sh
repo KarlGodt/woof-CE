@@ -165,8 +165,9 @@ TIMEB=`date +%s`
 
 _is 1 1 apply
 
-echo watch drawinfo
-_drop 1 water of the wise
+#echo watch drawinfo
+#_drop 1 water of the wise
+_drop_in_cauldron 1 water of the wise
 
 __check_drop_or_exit(){
 OLD_REPLY="";
@@ -188,10 +189,11 @@ done
 sleep 1s
 }
 
-_check_drop_or_exit
+#_check_drop_or_exit
 
-echo watch drawinfo
-_is 1 1 drop 3 $GEM
+#echo watch drawinfo
+#_is 1 1 drop 3 $GEM
+_drop_in_cauldron 3 $GEM
 
 __check_drop_or_exit_two(){
 OLD_REPLY="";
@@ -213,7 +215,7 @@ echo unwatch drawinfo
 sleep 1s
 }
 
-_check_drop_or_exit
+#_check_drop_or_exit
 
 _close_cauldron
 #sleep 1s
