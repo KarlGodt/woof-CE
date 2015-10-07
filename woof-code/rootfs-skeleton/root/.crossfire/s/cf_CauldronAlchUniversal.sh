@@ -245,32 +245,11 @@ sleep ${SLEEP}s
  twenty)    NUMBER[$FOR]=20;;
  esac
 
-
  _debug "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
- #echo watch drawinfo
- #_is 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
- #_drop ${NUMBER[$FOR]} ${INGRED[$FOR]}
+
  _drop_in_cauldron ${NUMBER[$FOR]} ${INGRED[$FOR]}
 
- __check_drop_or_exit(){
- while :; do
- read -t 1 REPLY
- echo "$REPLY" >>"$REPLY_LOG"
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
- test "$REPLY" || break
- unset REPLY
- sleep 0.1s
  done
- }
-
- #_check_drop_or_exit
-
- done
-
-#echo unwatch drawinfo
-
 #sleep 1s
 
 _close_cauldron
@@ -318,6 +297,4 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go
 done
 
 # *** Here ends program *** #
-#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-#_draw 2 "$0 is finished."
 _say_end_msg
