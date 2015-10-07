@@ -136,31 +136,7 @@ TIMEB=`date +%s`
 _is 1 1 apply
 sleep 0.5s
 
-#echo watch drawinfo
-
-#_drop 7 water
 _drop_in_cauldron 7 water
-
-__check_drop_or_exit(){
-local HAVE_PUT=0
-while :; do
-read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-test "$HAVE_PUT" = 1 || _exit 1
-sleep ${SLEEP}s
-}
-
-#_check_drop_or_exit
 
 _close_cauldron
 #sleep ${SLEEP}s
@@ -223,6 +199,4 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go
 done
 
 # *** Here ends program *** #
-#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-#_draw 2  "$0 is finished."
 _say_end_msg
