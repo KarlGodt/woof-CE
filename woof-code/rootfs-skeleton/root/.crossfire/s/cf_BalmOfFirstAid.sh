@@ -115,59 +115,9 @@ TIMEB=`date +%s`
 _is 1 1 apply
 sleep ${SLEEP}s
 
-#echo watch drawinfo
-#_drop 1 water of the wise
 _drop_in_cauldron 1 water of the wise
 
-__check_drop_or_exit(){
-
-OLD_REPLY="";
-REPLY="";
-
-while :; do
-read -t $TMOUT REPLY
-echo "Water of the Wise:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-test "$HAVE_PUT" = 1 || _exit 1
-sleep ${SLEEP}s
-}
-
-#_check_drop_or_exit
-
-#echo watch drawinfo
-#_drop 1 mandrake root
 _drop_in_cauldron 1 mandrake root
-
-__check_drop_or_exit_two(){
-local HAVE_PUT=0
-local OLD_REPLY="";
-local REPLY="";
-
-while :; do
-read -t $TMOUT REPLY
-echo "mandrake root:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-test "$HAVE_PUT" = 1 || _exit 1
-sleep ${SLEEP}s
-}
-
-#_check_drop_or_exit
 
 _close_cauldron
 #sleep ${SLEEP}s
@@ -215,6 +165,4 @@ done  # *** MAINLOOP *** #
 
 
 # *** Here ends program *** #
-#test -f /root/.crossfire/sounds/su-fanf.raw && aplay $Q /root/.crossfire/sounds/su-fanf.raw
-#_draw 2 "$0 is finished."
 _say_end_msg
