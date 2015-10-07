@@ -165,57 +165,9 @@ TIMEB=`date +%s`
 
 _is 1 1 apply
 
-#echo watch drawinfo
-#_drop 1 water of the wise
 _drop_in_cauldron 1 water of the wise
 
-__check_drop_or_exit(){
-OLD_REPLY="";
-REPLY="";
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && _exit 1
-test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-sleep 1s
-}
-
-#_check_drop_or_exit
-
-#echo watch drawinfo
-#_is 1 1 drop 3 $GEM
 _drop_in_cauldron 3 $GEM
-
-__check_drop_or_exit_two(){
-OLD_REPLY="";
-REPLY="";
-
-while :; do
-read -t 1 REPLY
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && _exit 1
-test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#OLD_REPLY="$REPLY"
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-
-sleep 1s
-}
-
-#_check_drop_or_exit
 
 _close_cauldron
 #sleep 1s
@@ -266,6 +218,4 @@ _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go.
 done
 
 # *** Here ends program *** #
-#test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-#_draw 2 "$0 is finished."
 _say_end_msg
