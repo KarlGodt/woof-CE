@@ -25,6 +25,8 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
+SOUND_DIR="$HOME"/.crossfire/sounds
+
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
@@ -61,33 +63,28 @@ _log(){
 
 _sound(){
     local DUR
-SOUND_DIR="$HOME"/.crossfire/sounds
+#SOUND_DIR="$HOME"/.crossfire/sounds
 test "$2" && { DUR="$1"; shift; }
 test "$DUR" || DUR=0
 test -e "$SOUND_DIR"/${1}.raw && \
            aplay $Q $VERB -d $DUR "$SOUND_DIR"/${1}.raw
 }
 
-_drop(){
- _sound 0 drip &
- echo issue 1 1 drop "$@"
+_say_start_msg(){
+# *** Here begins program *** #
+_draw 2 "$0 has started.."
+_draw 2 "PID is $$ - parentPID is $PPID"
+
+# *** Check for parameters *** #
+_draw 5 "Checking the parameters ($*)..."
 }
 
-_success(){
- _sound 0 bugle_charge
+_say_end_msg(){
+# *** Here ends program *** #
+test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw
+_draw 2  "$0 has finished."
 }
 
-_failure(){
- _sound 0 ouch1
-}
-
-_disaster(){
- _sound 0 Missed
-}
-
-_unknown(){
- _sound 0 TowerClock
-}
 
 # *** EXIT FUNCTIONS *** #
 _exit(){
@@ -120,6 +117,96 @@ _draw 3 "If this is a Wall, try another place."
 beep -l 1000 -f 700
 exit $1
 }
+
+
+_get_player_speed(){
+_draw 5 "Processing Player's speed..."
+
+local ANSWER OLD_ANSWER PL_SPEED
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+echo watch request
+
+while :; do
+read -t $TMOUT ANSWER
+echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+echo unwatch request
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
+PL_SPEED="0.${PL_SPEED:0:2}"
+
+_draw 7 "Player speed is '$PL_SPEED'"
+
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
+_draw 7 "Player speed is '$PL_SPEED'"
+
+  if test "$PL_SPEED" -gt 60; then
+SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
+elif test "$PL_SPEED" -gt 50; then
+SLEEP=0.6; DELAY_DRAWINFO=1.2; TMOUT=1
+elif test "$PL_SPEED" -gt 40; then
+SLEEP=0.8; DELAY_DRAWINFO=1.6; TMOUT=1
+elif test "$PL_SPEED" -gt 35; then
+SLEEP=1; DELAY_DRAWINFO=2; TMOUT=2
+elif test "$PL_SPEED" -gt 25; then
+SlEEP=2; DELAY_DRAWINFO=4; TMOUT=2
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3; DELAY_DRAWINFO=6; TMOUT=2
+elif test "$PL_SPEED" -gt 10; then
+SLEEP=4; DELAY_DRAWINFO=8; TMOUT=2
+elif test "$PL_SPEED" -ge 0;  then
+SLEEP=5; DELAY_DRAWINFO=10; TMOUT=2
+fi
+
+_draw 6 "Done."
+}
+
+
+### ALCHEMY
+
+_drop_in_cauldron(){
+
+echo watch drawinfo
+
+_drop "$@"
+
+_check_drop_or_exit
+
+echo unwatch drawinfo
+}
+
+_drop(){
+ _sound 0 drip &
+ echo issue 1 1 drop "$@"
+}
+
+_success(){
+ _sound 0 bugle_charge
+}
+
+_failure(){
+ _sound 0 ouch1
+}
+
+_disaster(){
+ _sound 0 Missed
+}
+
+_unknown(){
+ _sound 0 TowerClock
+}
+
 
 # *** Check if standing on a cauldron *** #
 _check_if_on_cauldron(){
@@ -275,66 +362,14 @@ _draw 6 "Done."
 
 }
 
-_get_player_speed(){
-_draw 5 "Processing Player's speed..."
-
-local ANSWER OLD_ANSWER PL_SPEED
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
-
-echo watch request
-
-while :; do
-read -t $TMOUT ANSWER
-echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
-done
-
-echo unwatch request
-
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
-_draw 7 "Player speed is '$PL_SPEED'"
-
-#PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
-_draw 7 "Player speed is '$PL_SPEED'"
-
-  if test "$PL_SPEED" -gt 60; then
-SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
-elif test "$PL_SPEED" -gt 50; then
-SLEEP=0.6; DELAY_DRAWINFO=1.2; TMOUT=1
-elif test "$PL_SPEED" -gt 40; then
-SLEEP=0.8; DELAY_DRAWINFO=1.6; TMOUT=1
-elif test "$PL_SPEED" -gt 35; then
-SLEEP=1; DELAY_DRAWINFO=2; TMOUT=2
-elif test "$PL_SPEED" -gt 25; then
-SlEEP=2; DELAY_DRAWINFO=4; TMOUT=2
-elif test "$PL_SPEED" -gt 15; then
-SLEEP=3; DELAY_DRAWINFO=6; TMOUT=2
-elif test "$PL_SPEED" -gt 10; then
-SLEEP=4; DELAY_DRAWINFO=8; TMOUT=2
-elif test "$PL_SPEED" -ge 0;  then
-SLEEP=5; DELAY_DRAWINFO=10; TMOUT=2
-fi
-
-_draw 6 "Done."
-}
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 local REPLY OLD_REPLY REPLY_ALL
 
-[ "$SLEEP" ] || SLEEP=3           # setting defaults
-[ "$DELAY_DRAWINFO" ] || DELAY_DRAWINFO=6
+#[ "$SLEEP" ] || SLEEP=3           # setting defaults
+#[ "$DELAY_DRAWINFO" ] || DELAY_DRAWINFO=6
 
 _is 1 1 pickup 0  # precaution otherwise might pick up cauldron
 sleep 0.5
@@ -387,6 +422,104 @@ sleep ${SLEEP}s
 
 _draw 7 "OK ! Cauldron IS empty."
 }
+
+_alch_and_get(){
+
+local REPLY OLD_REPLY
+_unknown &
+
+echo watch drawinfo
+_is 1 1 use_skill alchemy
+
+# *** TODO: The cauldron burps and then pours forth monsters!
+OLD_REPLY="";
+REPLY="";
+while :; do
+read -t 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
+test "$REPLY" || break
+unset REPLY
+sleep 0.1s
+done
+
+_is 1 1 apply
+
+_is 99 1 take
+
+OLD_REPLY="";
+REPLY="";
+NOTHING=0
+SLAG=0
+
+while :; do
+read -t 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
+test "$REPLY" || break
+unset REPLY
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+
+sleep ${SLEEP}s
+}
+
+_check_drop_or_exit(){
+local HAVE_PUT=0
+local OLD_REPLY="";
+local REPLY="";
+while :; do
+read -t 1
+echo "$REPLY" >>"$REPLY_LOG"
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
+test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
+test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
+test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
+test "$REPLY" || break
+unset REPLY
+sleep 0.1s
+done
+
+#echo unwatch drawinfo
+
+test "$HAVE_PUT" = 1 || _exit 1
+sleep ${SLEEP}s
+}
+
+_close_cauldron(){
+
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+
+sleep ${SLEEP}s
+}
+
+_go_cauldron_drop_alch_yeld(){
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+_is 1 1 $DIRB
+
+sleep ${SLEEP}s
+}
+
+_go_drop_alch_yeld_cauldron(){
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+_is 1 1 $DIRF
+
+sleep ${SLEEP}s
+#sleep ${DELAY_DRAWINFO}s
+}
+
+### ALCHEMY
 
 #** the messages in the msgpane may pollute **#
 #** need to catch msg to discard them into an unused variable **#
@@ -605,117 +738,3 @@ echo unwatch drawinfo
 }
 
 #Food
-
-
-_alch_and_get(){
-
-local REPLY OLD_REPLY
-_unknown &
-
-echo watch drawinfo
-_is 1 1 use_skill alchemy
-
-# *** TODO: The cauldron burps and then pours forth monsters!
-OLD_REPLY="";
-REPLY="";
-while :; do
-read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-
-_is 1 1 apply
-
-
-_is 99 1 take
-# *** TODO: Get response from get to determine failure
-OLD_REPLY="";
-REPLY="";
-NOTHING=0
-SLAG=0
-
-while :; do
-read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-
-sleep ${SLEEP}s
-}
-
-_say_start_msg(){
-# *** Here begins program *** #
-_draw 2 "$0 has started.."
-_draw 2 "PID is $$ - parentPID is $PPID"
-
-# *** Check for parameters *** #
-_draw 5 "Checking the parameters ($*)..."
-}
-
-_say_end_msg(){
-# *** Here ends program *** #
-test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw
-_draw 2  "$0 has finished."
-}
-
-_check_drop_or_exit(){
-local HAVE_PUT=0
-local OLD_REPLY="";
-local REPLY="";
-while :; do
-read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-echo unwatch drawinfo
-
-test "$HAVE_PUT" = 1 || _exit 1
-sleep ${SLEEP}s
-}
-
-_close_cauldron(){
-
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-
-sleep ${SLEEP}s
-}
-
-_go_cauldron_drop_alch_yeld(){
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-_is 1 1 $DIRB
-
-sleep ${SLEEP}s
-}
-
-_go_drop_alch_yeld_cauldron(){
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-_is 1 1 $DIRF
-
-sleep ${SLEEP}s
-#sleep ${DELAY_DRAWINFO}s
-}
