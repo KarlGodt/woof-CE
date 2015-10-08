@@ -30,41 +30,16 @@ export PATH=/bin:/usr/bin
 
 
 # Global variables
-__variables__(){
-COUNT_CHECK_FOOD=10 # number between praying attempts to check foodlevel.
-                    #  1 would mean check every pray, which is too much
-EAT_FOOD=waybread   # set to desired food to eat ie food, mushroom, booze, .. etc.
-FOOD_DEF=$EAT_FOOD     # default
-MIN_FOOD_LEVEL_DEF=200 # default minimum. 200 starts to beep. waybread has foodvalue of 500 .
-                       # 999 is max foodlevel
-
-HP_MIN_DEF=20          # minimum HP to return home. Lowlevel charakters probably need this set.
-
-DEBUG=1; #set to ANYTHING ie "1" to enable, empty to disable
-}
-
-__set_global_variables(){
-# Log file path in /tmp
-#MY_SELF=`realpath "$0"`
-#MY_BASE=${MY_SELF##*/}
-TMP_DIR=/tmp/crossfire
-mkdir -p "$TMP_DIR"
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
-
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
-}
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
+_set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
-_draw 2 "$0 has started.."
-_draw 2 "PARAM:$* PID:$$ PPID :$PPID"
+_say_start_msg "$@"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -100,8 +75,6 @@ test "$1" || {
 _draw 3 "Need <number> ie: script $0 50 ."
         exit 1
 }
-
-#test -f "${MY_SELF%/*}"/cf_functions.sh && . "${MY_SELF%/*}"/cf_functions.sh
 
 _get_player_speed(){
 echo request stat cmbt
@@ -140,6 +113,10 @@ echo "issue 1 1 use_skill praying"
 #sleep 1s
 usleep $USLEEP
 
+_check_food_level
+_check_hp_and_return_home $HP
+
+__old_check_health(){
 c=$((c+1))
 test $c -ge $COUNT_CHECK_FOOD && {
 c=0
@@ -149,10 +126,16 @@ _check_hp_and_return_home $HP
 unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
 unset Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
 _draw 5 "$((NUMBER-one)) prayings left"
+ }
+}
+
+c=$((c+1))
+test $c -ge $COUNT_CHECK_FOOD && {
+c=0
+ _draw 5 "$((NUMBER-one)) prayings left"
 }
 
 done
 
 # *** Here ends program *** #
-test -f /root/.crossfire/sounds/su-fanf.raw && aplay /root/.crossfire/sounds/su-fanf.raw
-_draw 2 "$0 is finished."
+_say_end_msg
