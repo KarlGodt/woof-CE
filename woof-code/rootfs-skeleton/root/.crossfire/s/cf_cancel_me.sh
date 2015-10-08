@@ -4,15 +4,15 @@ export PATH=/bin:/usr/bin
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
 _set_global_variables
 
-ROD='heavy rod of cancellation'
+ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+
 
 # *** Here begins program *** #
-#echo draw 2 "$0 is started.."
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
@@ -183,4 +183,5 @@ fi
 echo "issue 1 1 fire_stop"
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+#echo draw 2 "$0 is finished."
+_say_end_msg
