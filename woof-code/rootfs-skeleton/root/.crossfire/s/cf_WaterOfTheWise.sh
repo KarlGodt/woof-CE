@@ -6,11 +6,10 @@ export PATH=/bin:/usr/bin
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
 _set_global_variables
-
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
 _say_start_msg "$@"
@@ -92,31 +91,6 @@ _check_empty_cauldron
 
 #sleep ${SLEEP}s
 #sleep ${SLEEP}s
-
-# *** Unreadying rod of word of recall - just in case *** #
-__prepare_recall(){
-_draw 4  "Preparing for recall..."
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-while :; do
-read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
-_is 1 1 apply rod of word of recall
-fi
-
-_draw 7 "Done."
-}
 
 # *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
