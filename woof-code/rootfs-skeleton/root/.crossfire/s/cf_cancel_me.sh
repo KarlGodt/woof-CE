@@ -2,24 +2,32 @@
 
 export PATH=/bin:/usr/bin
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
 
 ROD='heavy rod of cancellation'
+
+# *** Here begins program *** #
+#echo draw 2 "$0 is started.."
+_say_start_msg "$@"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to "
 echo draw 5 "apply $ROD"
 echo draw 5 "and then to fire center on oneself."
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
