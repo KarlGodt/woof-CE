@@ -222,7 +222,6 @@ _draw 5 "Checking if on a cauldron..."
 UNDER_ME='';
 UNDER_ME_LIST='';
 echo request items on
-#echo watch request
 
 while :; do
 read -t $TMOUT UNDER_ME
@@ -234,9 +233,7 @@ case $UNDER_ME in
 *scripttell*break*)     break;;
 *scripttell*exit*)    _exit 1;;
 esac
-#test "$UNDER_ME" = "request items on end" && break
-#test "$UNDER_ME" = "scripttell break" && break
-#test "$UNDER_ME" = "scripttell exit" && exit 1
+
 unset UNDER_ME
 sleep 0.1s
 done
@@ -247,7 +244,6 @@ beep -l 1000 -f 700
 exit 1
 }
 
-#echo unwatch request
 _draw 7 "OK."
 }
 
@@ -362,8 +358,7 @@ case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
 esac
-#test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-#test "$REPLY" || break
+
 unset REPLY
 sleep 0.1s
 done
@@ -384,13 +379,9 @@ _check_empty_cauldron(){
 
 local REPLY OLD_REPLY REPLY_ALL
 
-#[ "$SLEEP" ] || SLEEP=3           # setting defaults
-#[ "$DELAY_DRAWINFO" ] || DELAY_DRAWINFO=6
-
 _is 1 1 pickup 0  # precaution otherwise might pick up cauldron
 sleep 0.5
 sleep ${SLEEP}s
-
 
 _draw 5 "Checking for empty cauldron..."
 
@@ -406,10 +397,7 @@ echo watch drawinfo
 
 _is 1 1 get
 
-#echo watch drawinfo
-
 while :; do
-#unset REPLY
 read -t $TMOUT
 echo "get:$REPLY" >>"$REPLY_LOG"
 REPLY_ALL="$REPLY
@@ -457,8 +445,7 @@ case $REPLY in
 *pours*forth*monsters*) _exit 1;;
 '') break;;
 esac
-#test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
-#test "$REPLY" || break
+
 unset REPLY
 sleep 0.1s
 done
@@ -480,9 +467,7 @@ case $REPLY in
 *You*pick*up*the*slag*) SLAG=1;;
 '') break;;
 esac
-#test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-#test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
-#test "$REPLY" || break
+
 unset REPLY
 sleep 0.1s
 done
@@ -505,16 +490,10 @@ case $REPLY in
 *You*put*in*cauldron*)          HAVE_PUT=1;;
 '') break;;
 esac
-#test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-#test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-#test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-#test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-#test "$REPLY" || break
+
 unset REPLY
 sleep 0.1s
 done
-
-#echo unwatch drawinfo
 
 test "$HAVE_PUT" = 1 || _exit 1
 sleep ${SLEEP}s
@@ -569,6 +548,10 @@ done
 
 #** we may get attacked and die **#
 _check_hp_and_return_home(){
+
+hpc=$((hpc+1))
+test "$hpc" -lt $COUNT_CHECK_FOOD && return
+hpc=0
 
 local REPLY
 
