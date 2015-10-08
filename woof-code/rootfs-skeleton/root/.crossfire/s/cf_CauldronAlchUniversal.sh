@@ -126,11 +126,17 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
-#_draw 3 "$INVTRY"
-test "$INVTRY" = "" && break
-test "$INVTRY" = "request items inv end" && break
-test "$INVTRY" = "scripttell break" && break
-test "$INVTRY" = "scripttell exit" && exit 1
+_debug 3 "$INVTRY"
+case $INVTRY in
+'') break;;
+*request*items*inv*end*) break;;
+*scripttell*break*)      break;;
+*scripttell*exit*) _exit 1;;
+esac
+#test "$INVTRY" = "" && break
+#test "$INVTRY" = "request items inv end" && break
+#test "$INVTRY" = "scripttell break" && break
+#test "$INVTRY" = "scripttell exit" && exit 1
 sleep 0.01s
 done
 
