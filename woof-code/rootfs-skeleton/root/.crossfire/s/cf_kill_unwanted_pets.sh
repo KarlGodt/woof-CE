@@ -4,48 +4,13 @@ export PATH=/bin:/usr/bin
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
 _set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
-#echo draw 2 "$0 is started.."
-#echo draw 3 "with '$*' as arguments ."
 _say_start_msg "$@"
-
-# *** Check for parameters *** #
-
-__old_check__(){
-#[ "$*" ] && {
-if test "$*"; then
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
-
-echo draw 5 "Script to kill pets except the ones"
-echo draw 5 "given on parameter line."
-echo draw 2 "Syntax:"
-echo draw 5 "$0 pet1 pet2 .."
-echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
-echo draw 5 "for ex. green slime to green_slime ."
-        exit 0
-        }
-
-#} || {
-else
-echo draw 3 "Script needs pets to keep as argument."
-        exit 1
-#}
-fi
-
-test "$1" || {
-echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
-        exit 1
-}
-
-} ###__old_check__(){
 
 _say_help_and_exit(){
 echo draw 5 "Script to kill pets except the ones"
@@ -57,6 +22,7 @@ echo draw 5 "for ex. green slime to green_slime ."
 exit 0
 }
 
+# *** Check for parameters *** #
 case $* in
 '')     echo draw 3 "Script needs pets to keep as argument."
         echo draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
@@ -169,4 +135,5 @@ EoI
 
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+#echo draw 2 "$0 is finished."
+_say_end_msg
