@@ -100,6 +100,13 @@ beep -l 1000 -f 700
 exit $1
 }
 
+_just_exit(){
+echo draw 3 "Exiting $0."
+echo unwatch
+#echo unwatch drawinfo
+exit $1
+}
+
 _emergency_exit(){
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
@@ -222,9 +229,14 @@ read -t $TMOUT UNDER_ME
 echo "$UNDER_ME" >>"$ON_LOG"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
+case $UNDER_ME in
+*request*items*on*end*) break;;
+*scripttell*break*)     break;;
+*scripttell*exit*)    _exit 1;;
+esac
+#test "$UNDER_ME" = "request items on end" && break
+#test "$UNDER_ME" = "scripttell break" && break
+#test "$UNDER_ME" = "scripttell exit" && exit 1
 unset UNDER_ME
 sleep 0.1s
 done
@@ -346,8 +358,12 @@ echo watch request
 while :; do
 read -t $TMOUT
 echo "request items actv:$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-test "$REPLY" || break
+case $REPLY in
+*rod*of*word*of*recall*) RECALL=1;;
+'') break;;
+esac
+#test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
@@ -437,8 +453,12 @@ REPLY="";
 while :; do
 read -t 1
 echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
-test "$REPLY" || break
+case $REPLY in
+*pours*forth*monsters*) _exit 1;;
+'') break;;
+esac
+#test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && _exit 1
+#test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
@@ -454,10 +474,15 @@ SLAG=0
 
 while :; do
 read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
-test "$REPLY" || break
+echo "take:$REPLY" >>"$REPLY_LOG"
+case $REPLY in
+*Nothing*to*take*)   NOTHING=1;;
+*You*pick*up*the*slag*) SLAG=1;;
+'') break;;
+esac
+#test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+#test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1 || :
+#test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
@@ -473,12 +498,18 @@ local OLD_REPLY="";
 local REPLY="";
 while :; do
 read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
-test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
-test "$REPLY" || break
+echo "drop:$REPLY" >>"$REPLY_LOG"
+case $REPLY in
+*Nothing*to*drop*)                 _exit 1;;
+*There*are*only.*|*There*is*only*) _exit 1;;
+*You*put*in*cauldron*)          HAVE_PUT=1;;
+'') break;;
+esac
+#test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"  && _exit 1
+#test "`echo "$REPLY" | grep '.*There are only.*'`"   && _exit 1
+#test "`echo "$REPLY" | grep '.*There is only.*'`"    && _exit 1
+#test "`echo "$REPLY" | grep 'You put.*in cauldron'`" && HAVE_PUT=1
+#test "$REPLY" || break
 unset REPLY
 sleep 0.1s
 done
@@ -599,9 +630,10 @@ _cast_create_food_and_eat(){
 
 local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
+test "$EAT_FOOD" && lEAT_FOOD="$EAT_FOOD"
 test "$*" && lEAT_FOOD="$@"
-test "$EAT_FOOD" || lEAT_FOOD=$FOOD_DEF
-test "$EAT_FOOD" || lEAT_FOOD=food
+test "$lEAT_FOOD" || lEAT_FOOD=$FOOD_DEF
+test "$lEAT_FOOD" || lEAT_FOOD=food
 
 #while :;
 #do
