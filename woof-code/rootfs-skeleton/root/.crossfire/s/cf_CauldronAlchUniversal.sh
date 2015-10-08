@@ -9,18 +9,19 @@ C=0 # Bash Array Counter - set zero as default
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
 _set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
-_draw 2 "$0 is started.."
-_draw 2 "PID is $$ - parentPID is $PPID"
+#_draw 2 "$0 is started.."
+#_draw 2 "PID is $$ - parentPID is $PPID"
 #_draw 5 " with '$*' parameter."
+_say_start_msg "$@"
 
 # *** Check for parameters *** #
-_draw 5 "Checking the parameters ($*)..."
+#_draw 5 "Checking the parameters ($*)..."
 [ "$*" ] && {
 PARAM_1="$1"
 
@@ -133,10 +134,7 @@ case $INVTRY in
 *scripttell*break*)      break;;
 *scripttell*exit*) _exit 1;;
 esac
-#test "$INVTRY" = "" && break
-#test "$INVTRY" = "request items inv end" && break
-#test "$INVTRY" = "scripttell break" && break
-#test "$INVTRY" = "scripttell exit" && exit 1
+
 sleep 0.01s
 done
 
