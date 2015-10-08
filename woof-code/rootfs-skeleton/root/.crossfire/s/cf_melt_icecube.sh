@@ -29,13 +29,12 @@
 export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
 _set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
-#echo draw 2 "$0 is started.."
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
@@ -64,16 +63,6 @@ echo draw 3 "Only :digit: numbers as first option allowed."
 NUMBER=$PARAM_1
 
 }
-#|| {
-#echo draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
 
 __just_exit(){
 echo draw 3 "Exiting $0."
@@ -99,7 +88,6 @@ do
 REPLY=
 OLD_REPLY=
 
-#echo watch drawinfo
 echo "issue 1 1 mark icecube"
 
  while [ 1 ]; do
@@ -109,17 +97,10 @@ echo "issue 1 1 mark icecube"
  *Could*not*find*an*object*that*matches*) _just_exit 1;;
  '') break;;
  esac
- #test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
 
-#echo unwatch drawinfo
 sleep 1s
 
 NO_FAIL=
@@ -129,7 +110,6 @@ do
 REPLY=
 OLD_REPLY=
 
-#echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
 
  while [ 1 ]; do
@@ -142,17 +122,10 @@ echo "issue 1 1 apply flint and steel"
  *fail*) :;;
  *) NO_FAIL=1;;
  esac
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- ##test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
 
-#echo unwatch drawinfo
 sleep 1s
 
 done #NO_FAIL
@@ -167,7 +140,6 @@ do
 REPLY=
 OLD_REPLY=
 
-#echo watch drawinfo
 echo "issue 1 1 mark icecube"
 while [ 1 ]; do
  read -t 1 REPLY
@@ -176,17 +148,10 @@ while [ 1 ]; do
  *Could*not*find*an*object*that*matches*) _just_exit 1;;
  '') break;;
  esac
- #test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
 
-#echo unwatch drawinfo
 sleep 1s
 
 NO_FAIL=
@@ -197,7 +162,6 @@ do
 REPLY=
 OLD_REPLY=
 
-#echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
  while [ 1 ]; do
  read -t 1 REPLY
@@ -209,19 +173,10 @@ echo "issue 1 1 apply flint and steel"
  *fail*) :;;
  *) NO_FAIL=1;;
  esac
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- ##test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- ##test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test  "`echo "$REPLY" | grep 'used up flint and steel'`" && f_exit 2
- #test  "`echo "$REPLY" | grep 'Could not find any match to the flint and steel.'`" && f_exit 2
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
 
-#echo unwatch drawinfo
 sleep 1s
 
 done #NO_FAIL
@@ -232,4 +187,5 @@ done #true
 
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+#echo draw 2 "$0 is finished."
+_say_end_msg
