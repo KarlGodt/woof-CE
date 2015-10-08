@@ -2,9 +2,17 @@
 
 export PATH=/bin:/usr/bin
 
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+
+_set_global_variables
+
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 3 "with '$*' as arguments ."
+#echo draw 2 "$0 is started.."
+#echo draw 3 "with '$*' as arguments ."
+_say_start_msg "$@"
 
 # *** Check for parameters *** #
 
