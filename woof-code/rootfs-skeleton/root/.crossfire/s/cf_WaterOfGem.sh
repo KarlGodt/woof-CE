@@ -2,19 +2,17 @@
 
 export PATH=/bin:/usr/bin
 
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+_set_global_variables
 # *** PARAMETERS *** #
 
 # *** Setting defaults *** #
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
-
-
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
+# *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-
-_set_global_variables
 
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
