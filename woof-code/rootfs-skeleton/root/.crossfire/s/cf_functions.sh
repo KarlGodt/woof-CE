@@ -10,11 +10,22 @@ DEBUG=1;   #set to ANYTHING ie "1" to enable, empty to disable
 TMOUT=1    # read -t timeout
 SLEEP=1    #default sleep value, refined in _get_player_speed()
 DELAY_DRAWINFO=2  #default pause to sync, refined in _get_player_speed()
+DRAWINFO=drawinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
+case $* in
+*-version" "*) CLIENT_VERSION="$2"
+case $CLIENT_VERSION in 0.*|1.[0-9].*|1.1[0-2].*)
 DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
                      #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
                      # and except apply             :watch drawinfo 0 You open cauldron.
                      #
                      # and probably more ...? TODO!
+FUNCTION_CHECK_FOR_SPACE=_check_for_space_old_client # needs request map near
+;;
+esac
+;;
+esac
+
 COUNT_CHECK_FOOD=10 # number between attempts to check foodlevel.
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=waybread   # set to desired food to eat ie food, mushroom, booze, .. etc.
@@ -331,7 +342,7 @@ _draw 5 "Checking for space to move..."
 #            write(scripts[i].out_fd,buf,strlen(buf));
 #         }
 
-#         if (strncmp(c, "pos", 3) == 0) { // v1.70.0
+#         if (strncmp(c, "pos", 3) == 0) { // v.1.70.0
 #            char buf[1024];
 #
 #            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
@@ -385,7 +396,7 @@ done
 echo unwatch request
 
 
-PL_POS_X=`echo "$REPLY_MAP" | awk '{print $4}'`
+PL_POS_X=`echo "$REPLY_MAP" | awk '{print $4}'` #request map pos:request map pos 280 231
 PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $5}'`
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
@@ -563,7 +574,7 @@ _draw 5 "Checking for space to move..."
 #            write(scripts[i].out_fd,buf,strlen(buf));
 #         }
 
-#         if (strncmp(c, "pos", 3) == 0) { // v1.70.0
+#         if (strncmp(c, "pos", 3) == 0) { // v.1.70.0
 #            char buf[1024];
 #
 #            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
@@ -605,9 +616,9 @@ echo request map near
 
 #echo watch request
 
-# client v.170.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
+# client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
-
+#                request map near:request map     279 231  0 n n n n smooth 30 0 0 heads 4854 825 0 tails 0 0 0
 cm=0
 while :; do
 cm=$((cm+1))
@@ -623,9 +634,10 @@ done
 
 echo unwatch request
 
+_empty_message_stream
 
-PL_POS_X=`echo "$REPLY_MAP" | awk '{print $4}'`
-PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $5}'`
+PL_POS_X=`echo "$REPLY_MAP" | awk '{print $3}'` #request map near:request map 278 230  0 n n n n smooth 30 0 0 heads 4854 0 0 tails 0 0 0
+PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $4}'`
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -876,11 +888,16 @@ unset REPLY
 sleep 0.1s
 done
 
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-_draw 3 "Cauldron NOT empty !!"
-_draw 3 "Please empty the cauldron and try again."
-_exit 1
-}
+case $REPLY_ALL in
+*You*pick*up*the*cauldron*) _exit 1 "pickup 0 seems not to work in script..?";;
+*Nothing*to*take*) :;;
+*) _exit 1 "Cauldron NOT empty !!";;
+esac
+#test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+#_draw 3 "Cauldron NOT empty !!"
+#_draw 3 "Please empty the cauldron and try again."
+#_exit 1
+#}
 
 echo unwatch $DRAWINFO
 
@@ -1086,13 +1103,13 @@ _check_if_on_cauldron
 #** the messages in the msgpane may pollute **#
 #** need to catch msg to discard them into an unused variable **#
 _empty_message_stream(){
-[ "$DEBUG" ] || return 1
 local REPLY
 while :;
 do
 read -t 1
+_log "$REPLY_LOG" "_empty_message_stream:$REPLY"
 test "$REPLY" || break
-_draw 3 "_empty_message_stream:$REPLY"
+_debug "_empty_message_stream:$REPLY"
 unset REPLY
 sleep 0.1
 done
