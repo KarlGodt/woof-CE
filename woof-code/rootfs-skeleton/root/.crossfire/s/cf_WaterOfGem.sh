@@ -154,6 +154,7 @@ rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
+TIMEA=`date +%s`
 success=0
 # *** NOW LOOPING *** #
 for one in `seq 1 1 $NUMBER`
@@ -162,6 +163,8 @@ do
 TIMEB=`date +%s`
 
 _is 1 1 apply
+sleep 0.5s
+#sleep ${SLEEP}s
 
 _drop_in_cauldron 1 water of the wise
 
@@ -184,7 +187,7 @@ if test "$NOTHING" = 0; then
   _is 1 1 use_skill sense curse
   _is 1 1 use_skill sense magic
   _is 1 1 use_skill alchemy
-  sleep 1s
+  sleep ${SLEEP}s
 
  _is 1 1 drop water of $GEM
  _is 1 1 drop water "(cursed)"
@@ -198,20 +201,27 @@ else
  _disaster &
 fi
 
-_check_food_level
-sleep ${DELAY_DRAWINFO}s
+#_check_food_level
+##sleep ${DELAY_DRAWINFO}s
 
-#sleep ${DELAY_DRAWINFO}s
+##sleep ${DELAY_DRAWINFO}s
+#sleep ${SLEEP}s
+
+#_go_drop_alch_yeld_cauldron
 ##sleep ${SLEEP}s
+#sleep ${DELAY_DRAWINFO}s
+#_check_if_on_cauldron
 
-_go_drop_alch_yeld_cauldron
+_return_to_cauldron
+_loop_counter
 
-_check_if_on_cauldron
-
-TRIES_SILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
+#TRIES_SILL=$((NUMBER-one))
+#TIMEE=`date +%s`
+#TIME=$((TIMEE-TIMEB))
+#TIMEZ=$((TIMEE-TIMEA))
+#TIMEAV=$((TIMEZ/one))
+#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL ($TIMEEST m) to go..."
 
 done
 
