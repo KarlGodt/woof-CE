@@ -5,9 +5,16 @@
 
 
 _set_global_variables(){
+LOGGING=1  #set to ANYTHING ie "1" to enable, empty to disable
 DEBUG=1;   #set to ANYTHING ie "1" to enable, empty to disable
 TMOUT=1    # read -t timeout
-
+SLEEP=1    #default sleep value, refined in _get_player_speed()
+DELAY_DRAWINFO=2  #default pause to sync, refined in _get_player_speed()
+DRAWINFO=drawextinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+                     #     except use_skill alchemy :watch drawinfo 0 The cauldron emits sparks.
+                     # and except apply             :watch drawinfo 0 You open cauldron.
+                     #
+                     # and probably more ...? TODO!
 COUNT_CHECK_FOOD=10 # number between attempts to check foodlevel.
                     #  1 would mean check every single time, which is too much
 EAT_FOOD=waybread   # set to desired food to eat ie food, mushroom, booze, .. etc.
@@ -32,6 +39,7 @@ SOUND_DIR="$HOME"/.crossfire/sounds
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
 TMP_DIR=/tmp/crossfire
 mkdir -p "$TMP_DIR"
+LOGFILE="$TMP_DIR"/"$MY_BASE".$$.log
 REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl
 REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req
 ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion
@@ -58,12 +66,15 @@ test "$DEBUG" || return 0
 }
 
 _log(){
-   test "$LOGGING"
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOGFILE"
+   echo "$*" >>"$lFILE"
 }
 
 _sound(){
     local DUR
-#SOUND_DIR="$HOME"/.crossfire/sounds
 test "$2" && { DUR="$1"; shift; }
 test "$DUR" || DUR=0
 test -e "$SOUND_DIR"/${1}.raw && \
@@ -81,7 +92,16 @@ _draw 5 "Checking the parameters ($*)..."
 
 _say_end_msg(){
 # *** Here ends program *** #
-test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw
+_is 1 1 fire_stop
+test -f "$HOME"/.crossfire/sounds/su-fanf.raw && aplay $Q "$HOME"/.crossfire/sounds/su-fanf.raw &aPID=$!
+if test "$TIMEA"; then
+ TIMEE=`date +%s`
+ TIME=$((TIMEE-TIMEA))
+ TIMEM=$((TIME/60))
+ TIMES=$(( TIME - (TIMEM*60) ))
+ _draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
+fi
+test "$aPID" && wait $aPID
 _draw 2  "$0 has finished."
 }
 
@@ -93,9 +113,9 @@ _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep ${SLEEP}s
-_draw 3 "Exiting $0."
+_draw 3 "Exiting $0. $@"
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 beep -l 1000 -f 700
 exit $1
 }
@@ -103,7 +123,7 @@ exit $1
 _just_exit(){
 echo draw 3 "Exiting $0."
 echo unwatch
-#echo unwatch drawinfo
+#echo unwatch $DRAWINFO
 exit $1
 }
 
@@ -111,7 +131,7 @@ _emergency_exit(){
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 _is 1 1 fire_stop
 beep -l 1000 -f 700
 exit $1
@@ -127,6 +147,13 @@ exit $1
 
 
 _get_player_speed(){
+
+if test "$1" = '-l'; then
+ spc=$((spc+1))
+ test "$spc" -ge $COUNT_CHECK_FOOD || return 1
+ spc=0
+fi
+
 _draw 5 "Processing Player's speed..."
 
 local ANSWER OLD_ANSWER PL_SPEED
@@ -139,7 +166,8 @@ echo watch request
 
 while :; do
 read -t $TMOUT ANSWER
-echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
+#echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
+_log "$REQUEST_LOG" "request stat cmbt:$ANSWER"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -156,27 +184,40 @@ _draw 7 "Player speed is '$PL_SPEED'"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
-_draw 7 "Player speed is '$PL_SPEED'"
+_debug "Using player speed '$PL_SPEED'"
 
   if test "$PL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
 elif test "$PL_SPEED" -gt 50; then
 SLEEP=0.6; DELAY_DRAWINFO=1.2; TMOUT=1
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=0.7; DELAY_DRAWINFO=1.4; TMOUT=1
 elif test "$PL_SPEED" -gt 40; then
 SLEEP=0.8; DELAY_DRAWINFO=1.6; TMOUT=1
 elif test "$PL_SPEED" -gt 35; then
-SLEEP=1; DELAY_DRAWINFO=2; TMOUT=2
+SLEEP=1.0; DELAY_DRAWINFO=2.0; TMOUT=2
+elif test "$PL_SPEED" -gt 30; then
+SLEEP=1.5; DELAY_DRAWINFO=3.0; TMOUT=2
 elif test "$PL_SPEED" -gt 25; then
-SlEEP=2; DELAY_DRAWINFO=4; TMOUT=2
+SlEEP=2.0; DELAY_DRAWINFO=4.0; TMOUT=2
+elif test "$PL_SPEED" -gt 20; then
+SlEEP=2.5; DELAY_DRAWINFO=5.0; TMOUT=2
 elif test "$PL_SPEED" -gt 15; then
-SLEEP=3; DELAY_DRAWINFO=6; TMOUT=2
+SLEEP=3.0; DELAY_DRAWINFO=6.0; TMOUT=2
 elif test "$PL_SPEED" -gt 10; then
-SLEEP=4; DELAY_DRAWINFO=8; TMOUT=2
+SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$PL_SPEED" -ge 0;  then
-SLEEP=5; DELAY_DRAWINFO=10; TMOUT=2
+SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
+elif test "$PL_SPEED" = "";   then
+_draw 3 "WARNING: Could not set player speed. Using defaults."
+else
+_exit 1 "ERROR while processing player speed."
 fi
 
 _draw 6 "Done."
+return 0
 }
 
 
@@ -184,13 +225,23 @@ _draw 6 "Done."
 
 _drop_in_cauldron(){
 
+if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
+echo watch $DRAWINFO
+else
+echo watch $DRAWINFO
+fi
 
 _drop "$@"
 
 _check_drop_or_exit
 
+if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
+echo unwatch $DRAWINFO
+else
+echo unwatch $DRAWINFO
+fi
 }
 
 _drop(){
@@ -225,7 +276,8 @@ echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-echo "$UNDER_ME" >>"$ON_LOG"
+#echo "$UNDER_ME" >>"$ON_LOG"
+_log "$ON_LOG" "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case $UNDER_ME in
@@ -238,6 +290,12 @@ unset UNDER_ME
 sleep 0.1s
 done
 
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron.*cursed'`" && {
+_draw 3 "You stand upon a cursed cauldron!"
+beep -l 1000 -f 700
+exit 1
+}
+
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 _draw 3 "Need to stand upon cauldron!"
 beep -l 1000 -f 700
@@ -245,22 +303,79 @@ exit 1
 }
 
 _draw 7 "OK."
+return 0
 }
 
 _check_for_space(){
 # *** Check for 4 empty space to DIRB ***#
 
-local REPLY_MAP OLD_REPLY
+local REPLY_MAP OLD_REPLY NUMBERT
+test "$1" && NUMBERT="$1"
+test "$NUMBERT" || NUMBERT=4
+test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
 
 _draw 5 "Checking for space to move..."
+
+
+#         if ( strncmp(c,"pos",3)==0 ) { // v.1.10.0
+#            char buf[1024];
+#
+#            sprintf(buf,"request map pos %d %d\n",pl_pos.x,pl_pos.y);
+#            write(scripts[i].out_fd,buf,strlen(buf));
+#         }
+
+#         if ( strncmp(c,"pos",3)==0 ) { // v.1.12.0
+#            char buf[1024];
+#
+#            snprintf(buf, sizeof(buf), "request map pos %d %d\n",pl_pos.x,pl_pos.y);
+#            write(scripts[i].out_fd,buf,strlen(buf));
+#         }
+
+#         if (strncmp(c, "pos", 3) == 0) { // v1.70.0
+#            char buf[1024];
+#
+#            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
+#            write(scripts[i].out_fd, buf, strlen(buf));
+
+#        if ( strncmp(c,"near",4)==0 ) { // v.1.10.0
+#            for(y=0;y<3;++y)
+#               for(x=0;x<3;++x)
+#                  send_map(i,
+#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                     );
+#         }
+
+#        if ( strncmp(c,"near",4)==0 ) { // v.1.12.0
+#            for(y=0;y<3;++y)
+#               for(x=0;x<3;++x)
+#                  send_map(i,
+#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                     );
+#        }
+
+
+#         if (strncmp(c, "near", 4) == 0) { // v.1.70.0
+#                for (y = 0; y < 3; ++y)
+#                    for (x = 0; x < 3; ++x)
+#                        send_map(i,
+#                            x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                            y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                        );
+#         }
 
 echo request map pos
 
 echo watch request
 
+# client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
+# client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
+
 while :; do
 read -t $TMOUT REPLY_MAP
-echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
+#echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "request map pos:$REPLY_MAP"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
@@ -277,7 +392,7 @@ if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
 if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
 
-for nr in `seq 1 1 4`; do
+for nr in `seq 1 1 $NUMBERT`; do
 
 case $DIRB in
 west)
@@ -298,16 +413,342 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+    _say_map_pos_1_10_0(){
+    cat >&2 <<EoI
+    // client v.1.10.0 common/script.c
+    static void send_map(int i,int x,int y)
+    {
+    char buf[1024];
+
+    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
+    {
+        sprintf(buf,"request map %d %d unknown\n",x,y);
+        write(scripts[i].out_fd,buf,strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    sprintf(buf,"request map %d %d  %d %c %c %c %c"
+            " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+            x,y,the_map.cells[x][y].darkness,
+            'n'+('y'-'n')*the_map.cells[x][y].need_update,
+            'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
+            'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
+            'n'+('y'-'n')*the_map.cells[x][y].cleared,
+            the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
+            the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
+            the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
+        );
+        write(scripts[i].out_fd,buf,strlen(buf));
+    }
+EoI
+    }
+
+    _say_map_pos_1_12_0(){
+    cat >&2 <<EoI
+    // client v.1.12.0 common/script.c
+    static void send_map(int i,int x,int y)
+    {
+    char buf[1024];
+
+    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
+    {
+      snprintf(buf, sizeof(buf), "request map %d %d unknown\n",x,y);
+      write(scripts[i].out_fd,buf,strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
+           " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+           x,y,the_map.cells[x][y].darkness,
+           'n'+('y'-'n')*the_map.cells[x][y].need_update,
+           'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
+           'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
+           'n'+('y'-'n')*the_map.cells[x][y].cleared,
+           the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
+           the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
+           the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
+      );
+      write(scripts[i].out_fd,buf,strlen(buf));
+    }
+EoI
+    }
+
+    _say_map_pos_1_70_0(){
+    cat >&2 <<EoI
+    // client v.1.70.0 common/script.c
+    static void send_map(int i, int x, int y) {
+    char buf[1024];
+
+    if (x < 0 || y < 0 || the_map.x <= x || the_map.y <= y) {
+        snprintf(buf, sizeof(buf), "request map %d %d unknown\n", x, y);
+        write(scripts[i].out_fd, buf, strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
+        " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+        x, y, the_map.cells[x][y].darkness,
+        the_map.cells[x][y].need_update ? 'y' : 'n',
+        the_map.cells[x][y].have_darkness ? 'y' : 'n',
+        the_map.cells[x][y].need_resmooth ? 'y' : 'n',
+        the_map.cells[x][y].cleared ? 'y' : 'n',
+        the_map.cells[x][y].smooth[0], the_map.cells[x][y].smooth[1], the_map.cells[x][y].smooth[2],
+        the_map.cells[x][y].heads[0].face, the_map.cells[x][y].heads[1].face, the_map.cells[x][y].heads[2].face,
+        the_map.cells[x][y].tails[0].face, the_map.cells[x][y].tails[1].face, the_map.cells[x][y].tails[2].face
+    );
+    write(scripts[i].out_fd, buf, strlen(buf));
+    }
+EoI
+    }
+
+
 echo request map $R_X $R_Y
 
 echo watch request
 
 while :; do
 read -t $TMOUT
-echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
-
+#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+test "$IS_WALL" = 0 || _exit_no_space 1
+
+test "$REPLY" || break
+unset REPLY
+sleep 0.1s
+done
+
+echo unwatch request
+
+done
+
+else
+
+_draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+_draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+_draw 7 "OK."
+}
+
+ _check_for_space_old_client(){
+# *** Check for 4 empty space to DIRB ***#
+
+local REPLY_MAP OLD_REPLY NUMBERT cm
+test "$1" && NUMBERT="$1"
+test "$NUMBERT" || NUMBERT=4
+test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
+
+_draw 5 "Checking for space to move..."
+
+
+#         if ( strncmp(c,"pos",3)==0 ) { // v.1.10.0
+#            char buf[1024];
+#
+#            sprintf(buf,"request map pos %d %d\n",pl_pos.x,pl_pos.y);
+#            write(scripts[i].out_fd,buf,strlen(buf));
+#         }
+
+#         if ( strncmp(c,"pos",3)==0 ) { // v.1.12.0
+#            char buf[1024];
+#
+#            snprintf(buf, sizeof(buf), "request map pos %d %d\n",pl_pos.x,pl_pos.y);
+#            write(scripts[i].out_fd,buf,strlen(buf));
+#         }
+
+#         if (strncmp(c, "pos", 3) == 0) { // v1.70.0
+#            char buf[1024];
+#
+#            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
+#            write(scripts[i].out_fd, buf, strlen(buf));
+
+#        if ( strncmp(c,"near",4)==0 ) { // v.1.10.0
+#            for(y=0;y<3;++y)
+#               for(x=0;x<3;++x)
+#                  send_map(i,
+#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                     );
+#         }
+
+#        if ( strncmp(c,"near",4)==0 ) { // v.1.12.0
+#            for(y=0;y<3;++y)
+#               for(x=0;x<3;++x)
+#                  send_map(i,
+#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                     );
+#        }
+
+
+#         if (strncmp(c, "near", 4) == 0) { // v.1.70.0
+#                for (y = 0; y < 3; ++y)
+#                    for (x = 0; x < 3; ++x)
+#                        send_map(i,
+#                            x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
+#                            y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
+#                        );
+#         }
+
+echo watch request
+
+sleep 0.5
+
+echo request map near
+
+#echo watch request
+
+# client v.170.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
+# client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
+
+cm=0
+while :; do
+cm=$((cm+1))
+read -t $TMOUT REPLY_MAP
+#echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "request map near:$REPLY_MAP"
+test "$cm" = 5 && break
+test "$REPLY_MAP" || break
+test "$REPLY_MAP" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY_MAP"
+sleep 0.1s
+done
+
+echo unwatch request
+
+
+PL_POS_X=`echo "$REPLY_MAP" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $5}'`
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 $NUMBERT`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+    _say_map_pos_1_10_0(){
+    cat >&2 <<EoI
+    // client v.1.10.0 common/script.c
+    static void send_map(int i,int x,int y)
+    {
+    char buf[1024];
+
+    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
+    {
+        sprintf(buf,"request map %d %d unknown\n",x,y);
+        write(scripts[i].out_fd,buf,strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    sprintf(buf,"request map %d %d  %d %c %c %c %c"
+            " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+            x,y,the_map.cells[x][y].darkness,
+            'n'+('y'-'n')*the_map.cells[x][y].need_update,
+            'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
+            'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
+            'n'+('y'-'n')*the_map.cells[x][y].cleared,
+            the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
+            the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
+            the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
+        );
+        write(scripts[i].out_fd,buf,strlen(buf));
+    }
+EoI
+    }
+
+    _say_map_pos_1_12_0(){
+    cat >&2 <<EoI
+    // client v.1.12.0 common/script.c
+    static void send_map(int i,int x,int y)
+    {
+    char buf[1024];
+
+    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
+    {
+      snprintf(buf, sizeof(buf), "request map %d %d unknown\n",x,y);
+      write(scripts[i].out_fd,buf,strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
+           " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+           x,y,the_map.cells[x][y].darkness,
+           'n'+('y'-'n')*the_map.cells[x][y].need_update,
+           'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
+           'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
+           'n'+('y'-'n')*the_map.cells[x][y].cleared,
+           the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
+           the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
+           the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
+      );
+      write(scripts[i].out_fd,buf,strlen(buf));
+    }
+EoI
+    }
+
+    _say_map_pos_1_70_0(){
+    cat >&2 <<EoI
+    // client v.1.70.0 common/script.c
+    static void send_map(int i, int x, int y) {
+    char buf[1024];
+
+    if (x < 0 || y < 0 || the_map.x <= x || the_map.y <= y) {
+        snprintf(buf, sizeof(buf), "request map %d %d unknown\n", x, y);
+        write(scripts[i].out_fd, buf, strlen(buf));
+    }
+    /*** FIXME *** send more relevant data ***/
+    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
+        " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
+        x, y, the_map.cells[x][y].darkness,
+        the_map.cells[x][y].need_update ? 'y' : 'n',
+        the_map.cells[x][y].have_darkness ? 'y' : 'n',
+        the_map.cells[x][y].need_resmooth ? 'y' : 'n',
+        the_map.cells[x][y].cleared ? 'y' : 'n',
+        the_map.cells[x][y].smooth[0], the_map.cells[x][y].smooth[1], the_map.cells[x][y].smooth[2],
+        the_map.cells[x][y].heads[0].face, the_map.cells[x][y].heads[1].face, the_map.cells[x][y].heads[2].face,
+        the_map.cells[x][y].tails[0].face, the_map.cells[x][y].tails[1].face, the_map.cells[x][y].tails[2].face
+    );
+    write(scripts[i].out_fd, buf, strlen(buf));
+    }
+EoI
+    }
+
+
+echo request map $R_X $R_Y
+
+echo watch request
+
+while :; do
+read -t $TMOUT
+#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
 test "$REPLY" || break
@@ -353,7 +794,8 @@ echo watch request
 
 while :; do
 read -t $TMOUT
-echo "request items actv:$REPLY" >>"$REPLY_LOG"
+#echo "request items actv:$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "request items actv:$REPLY"
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
@@ -393,16 +835,43 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo watch drawinfo
+echo watch $DRAWINFO
+#sleep 0.5
 
-_is 1 1 get
+#issue <repeat> <must_send> <command>
+#- send <command> to server on behalf of client.
+#<repeat> is the number of times to execute command
+#<must_send> tells whether or not the command must sent at all cost (1 or 0).
+#<repeat> and <must_send> are optional parameters.
+#See The Issue Command for more details.
+#issue 1 0 get nugget (works as 'get 1 nugget')
+#issue 2 0 get nugget (works as 'get 2 nugget')
+#issue 1 1 get nugget (works as 'get 1 nugget')
+#issue 2 1 get nugget (works as 'get 2 nugget')
+#issue 0 0 get nugget (works as 'get nugget')
 
+#_is 1 1 get  ##gets 1 of item
+#_is 0 1 take
+#_is 0 1 get all
+#_is 0 1 get
+_is 99 1 get
+
+# Note : the commandline of the client handles take and get differently:
+# 'get  4 water' would get 4 water of every item containing water
+# 'take 4 water' ignores the number and would get all water from the topmost item containing water
+
+#cr=0
 while :; do
+#cr=$((cr+1))
 read -t $TMOUT
-echo "get:$REPLY" >>"$REPLY_LOG"
+#echo "take:$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "take:$cr:$REPLY"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
+#if test "$cr" -ge 50; then
 test "$REPLY" || break
+#break
+#fi
 unset REPLY
 sleep 0.1s
 done
@@ -413,7 +882,7 @@ _draw 3 "Please empty the cauldron and try again."
 _exit 1
 }
 
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 
 sleep ${SLEEP}s
 
@@ -429,10 +898,20 @@ _draw 7 "OK ! Cauldron IS empty."
 
 _alch_and_get(){
 
+_check_if_on_cauldron
+
 local REPLY OLD_REPLY
+local HAVE_CAULDRON=1
 _unknown &
 
+if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
+echo watch $DRAWINFO
+else
+echo watch $DRAWINFO
+fi
+
+sleep 0.5
 _is 1 1 use_skill alchemy
 
 # *** TODO: The cauldron burps and then pours forth monsters!
@@ -440,9 +919,23 @@ OLD_REPLY="";
 REPLY="";
 while :; do
 read -t 1
-echo "$REPLY" >>"$REPLY_LOG"
+#echo "$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "alchemy:$REPLY"
 case $REPLY in
-*pours*forth*monsters*) _exit 1;;
+                                                       #(level < 25)  /* INGREDIENTS USED/SLAGGED */
+                                                       #(level < 40)  /* MAKE TAINTED ITEM */
+                                                       #(level == 40) /* MAKE RANDOM RECIPE */ if 0
+                                                       #(level < 45)  /* INFURIATE NPC's */
+*The*cauldron*creates*a*bomb*) _emergency_exit 1;;     #(level < 50)  /* MINOR EXPLOSION/FIREBALL */
+                                                       #(level < 60)  /* CREATE MONSTER */
+*The*cauldron*erupts*in*flame*)     HAVE_CAULDRON=0;;  #(level < 80)  /* MAJOR FIRE */
+*The*burning*item*erupts*in*flame*) HAVE_CAULDRON=0;;  #(level < 80)  /* MAJOR FIRE */
+*turns*darker*then*makes*a*gulping*sound*) _exit 1 "Cauldron probably got cursed";;  #(level < 100) /* WHAMMY the CAULDRON */
+*Your*cauldron*becomes*darker*) _exit 1 "Cauldron probably got cursed";;  #(level < 100) /* WHAMMY the CAULDRON */
+*pours*forth*monsters*) _emergency_exit 1;;            #(level < 110) /* SUMMON EVIL MONSTERS */
+                                                       #(level < 150) /* COMBO EFFECT */
+                                                       #(level == 151) /* CREATE RANDOM ARTIFACT */
+*You*unwisely*release*potent*forces*) _emergency_exit 1;;  #else /* MANA STORM - watch out!! */
 '') break;;
 esac
 
@@ -450,9 +943,36 @@ unset REPLY
 sleep 0.1s
 done
 
+if test "$HAVE_CAULDRON" = 0; then
+ _check_if_on_cauldron && HAVE_CAULDRON=1
+ test "$HAVE_CAULDRON" = 0 && _exit 1 "Destroyed cauldron." # :D
+fi
+
 _is 1 1 apply
 
-_is 99 1 take
+#issue <repeat> <must_send> <command>
+#- send <command> to server on behalf of client.
+#<repeat> is the number of times to execute command
+#<must_send> tells whether or not the command must sent at all cost (1 or 0).
+#<repeat> and <must_send> are optional parameters.
+#See The Issue Command for more details.
+
+#_is  1 1 get  # [AMOUNT] [ITEM]
+#_is 99 1 take # [ITEM] ## take gets <repeat> of ITEM -> 99 should be enough to empty the cauldron
+
+#issue 1 0 get nugget (works as 'get 1 nugget')
+#issue 2 0 get nugget (works as 'get 2 nugget')
+#issue 1 1 get nugget (works as 'get 1 nugget')
+#issue 2 1 get nugget (works as 'get 2 nugget')
+#issue 0 0 get nugget (works as 'get nugget')
+#_is 0 1 take
+#_is 0 1 get all
+#_is 0 1 get
+_is 99 1 get
+
+# Note : the commandline of the client handles take and get differently:
+# 'get  4 water' would get 4 water of every item containing water
+# 'take 4 water' ignores the number and would get all water from the topmost item containing water
 
 OLD_REPLY="";
 REPLY="";
@@ -461,7 +981,8 @@ SLAG=0
 
 while :; do
 read -t 1
-echo "take:$REPLY" >>"$REPLY_LOG"
+#echo "take:$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "take:$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
 *You*pick*up*the*slag*) SLAG=1;;
@@ -472,7 +993,12 @@ unset REPLY
 sleep 0.1s
 done
 
+if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
+echo unwatch $DRAWINFO
+else
+echo unwatch $DRAWINFO
+fi
 
 sleep ${SLEEP}s
 }
@@ -483,11 +1009,12 @@ local OLD_REPLY="";
 local REPLY="";
 while :; do
 read -t 1
-echo "drop:$REPLY" >>"$REPLY_LOG"
+#echo "drop:$REPLY" >>"$REPLY_LOG"
+_log "$REPLY_LOG" "drop:$REPLY"
 case $REPLY in
-*Nothing*to*drop*)                 _exit 1;;
-*There*are*only.*|*There*is*only*) _exit 1;;
-*You*put*in*cauldron*)          HAVE_PUT=1;;
+*Nothing*to*drop*)                _exit 1 "Missing in inventory";;
+*There*are*only*|*There*is*only*) _exit 1 "Not enough to drop." ;;
+*You*put*in*cauldron*) HAVE_PUT=$((HAVE_PUT+1));;
 '') break;;
 esac
 
@@ -495,7 +1022,13 @@ unset REPLY
 sleep 0.1s
 done
 
-test "$HAVE_PUT" = 1 || _exit 1
+case "$HAVE_PUT" in
+0)   _exit 1 "Could not put.";;
+1)   :;;
+'')  _exit 2 "_check_drop_or_exit:ERROR:Got no content.";;
+*[[:alpha:][:punct:]]*) _exit 2 "_check_drop_or_exit:ERROR:Got no number.";;
+[2-9]*) _exit 1 "More than one stack put.";;
+esac
 sleep ${SLEEP}s
 }
 
@@ -503,10 +1036,10 @@ _close_cauldron(){
 
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+sleep ${SLEEP}s
 
 _is 1 1 $DIRF
 _is 1 1 $DIRF
-
 sleep ${SLEEP}s
 }
 
@@ -527,6 +1060,25 @@ _is 1 1 $DIRF
 
 sleep ${SLEEP}s
 #sleep ${DELAY_DRAWINFO}s
+}
+
+_check_cauldron_cursed(){
+#_is 1 1 sense curse
+_is 1 1 cast detect curse
+_is 1 1 fire 0 # 0 is center
+_is 1 1 fire_stop
+}
+
+_return_to_cauldron(){
+
+_go_drop_alch_yeld_cauldron
+
+_check_food_level
+
+_get_player_speed -l || sleep ${DELAY_DRAWINFO}s
+
+_check_if_on_cauldron
+
 }
 
 ### ALCHEMY
@@ -573,7 +1125,7 @@ _is 1 1 fire center ## Todo check if already applied and in inventory
 _is 1 1 fire_stop
 _empty_message_stream
 
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 exit
 fi
 
@@ -710,7 +1262,7 @@ local REPLY
 
 read -t 1  # empty the stream of messages
 
-echo watch drawinfo
+echo watch $DRAWINFO
 sleep 1
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
@@ -749,7 +1301,18 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 }
 
 #Food
+
+_loop_counter(){
+test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
+TRIES_STILL=$((NUMBER-one))
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+TIMEZ=$((TIMEE-TIMEA))
+TIMEAV=$((TIMEZ/one))
+TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
+}
