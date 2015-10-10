@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 export PATH=/bin:/usr/bin
 
@@ -85,7 +85,7 @@ _get_player_speed
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
 # *** Check if there are 4 walkable tiles in $DIRB *** #
-_check_for_space
+_check_for_space_old_client
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
@@ -100,8 +100,8 @@ _prepare_rod_of_recall
 
 _draw 4 "OK... Might the Might be with You!"
 
+TIMEA=`date +%s`
 success=0
-
 for one in `seq 1 1 $NUMBER`
 do
 
@@ -109,6 +109,7 @@ TIMEB=`date +%s`
 
 _is 1 1 apply
 sleep 0.5s
+#sleep ${SLEEP}s
 
 _drop_in_cauldron 7 water
 
@@ -155,20 +156,27 @@ else
  _disaster &
 fi
 
-_check_food_level
-sleep ${DELAY_DRAWINFO}s
+#_check_food_level
+##sleep ${DELAY_DRAWINFO}s
 
 #sleep ${SLEEP}s
+##sleep ${DELAY_DRAWINFO}s
+
+#_go_drop_alch_yeld_cauldron
 #sleep ${DELAY_DRAWINFO}s
+#_get_player_speed -l
+#_check_if_on_cauldron
 
-_go_drop_alch_yeld_cauldron
+_return_to_cauldron
+_loop_counter
 
-_check_if_on_cauldron
-
-TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
+#TRIES_STILL=$((NUMBER-one))
+#TIMEE=`date +%s`
+#TIME=$((TIMEE-TIMEB))
+#TIMEZ=$((TIMEE-TIMEA))
+#TIMEAV=$((TIMEZ/one))
+#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 
 done
 
