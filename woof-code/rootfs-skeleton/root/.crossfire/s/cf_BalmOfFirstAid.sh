@@ -7,12 +7,21 @@ export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables
+_set_global_variables "$@"
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
 _say_start_msg "$@"
+
+while :;
+do
+case "$1" in
+-version) shift;;
+*.*) shift;;
+*) break;;
+esac
+done
 
 [ "$*" ] && {
 PARAM_1="$1"
@@ -22,11 +31,12 @@ case "$PARAM_1" in *"help"*)
 
 _draw 5 "Script to produce water of the wise."
 _draw 7 "Syntax:"
-_draw 7 "$0 NUMBER"
+_draw 7 "$0 [ -version VERSION ] NUMBER"
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce NUMBER of"
 _draw 5 "Balm of First Aid ."
-
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
         exit 0
 ;; esac
 
@@ -61,7 +71,8 @@ _get_player_speed
 #_is 1 1 pickup 0  # precaution ## now done in _check_empty_cauldron
 _check_if_on_cauldron
 # *** Check if there are 4 walkable tiles in $DIRB *** #
-_check_for_space
+#_check_for_space
+$FUNCTION_CHECK_FOR_SPACE
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 # *** Unreadying rod of word of recall - just in case *** #
@@ -150,24 +161,8 @@ else
  _disaster &
 fi
 
-#_check_food_level
-##sleep ${DELAY_DRAWINFO}s
-#sleep ${SLEEP}s
-
-#_go_drop_alch_yeld_cauldron
-#sleep ${DELAY_DRAWINFO}s
-#_check_if_on_cauldron
-
 _return_to_cauldron
 _loop_counter
-
-#TRIES_SILL=$((NUMBER-one))
-#TIMEE=`date +%s`
-#TIME=$((TIMEE-TIMEB))
-#TIMEZ=$((TIMEE-TIMEA))
-#TIMEAV=$((TIMEZ/one))
-#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
-#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL ($TIMEEST m) to go..."
 
 done  # *** MAINLOOP *** #
 
