@@ -104,6 +104,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
+TIMEA=`date +%s`
 success=0
 # *** Now LOOPING *** #
 
@@ -113,7 +114,8 @@ do
 TIMEB=`date +%s`
 
 _is 1 1 apply
-sleep ${SLEEP}s
+sleep 0.5
+#sleep ${SLEEP}s
 
 _drop_in_cauldron 1 water of the wise
 
@@ -148,18 +150,24 @@ else
  _disaster &
 fi
 
-_check_food_level
-sleep ${DELAY_DRAWINFO}s
-
+#_check_food_level
+##sleep ${DELAY_DRAWINFO}s
 #sleep ${SLEEP}s
 
-_go_drop_alch_yeld_cauldron
-_check_if_on_cauldron
+#_go_drop_alch_yeld_cauldron
+#sleep ${DELAY_DRAWINFO}s
+#_check_if_on_cauldron
 
-TRIES_SILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL to go..."
+_return_to_cauldron
+_loop_counter
+
+#TRIES_SILL=$((NUMBER-one))
+#TIMEE=`date +%s`
+#TIME=$((TIMEE-TIMEB))
+#TIMEZ=$((TIMEE-TIMEA))
+#TIMEAV=$((TIMEZ/one))
+#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_SILL ($TIMEEST m) to go..."
 
 done  # *** MAINLOOP *** #
 
