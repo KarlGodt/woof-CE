@@ -213,6 +213,7 @@ esac
 test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 _debug "NUMBER_ALCH=$NUMBER_ALCH"
 
+TIMEA=`date +%s`
 success=0
 # *** MAIN LOOP *** #
 for one in `seq 1 1 $NUMBER_ALCH`
@@ -221,7 +222,8 @@ do
 TIMEB=`date +%s`
 
 _is 1 1 apply
-sleep ${SLEEP}s
+sleep 0.5
+#sleep ${SLEEP}s
 
  for FOR in `seq 2 1 $C`; do
 
@@ -271,7 +273,7 @@ if test "$NOTHING" = 0; then
  _is 1 1 use_skill sense curse
  _is 1 1 use_skill sense magic
  _is 1 1 use_skill alchemy
- sleep 1s
+ sleep ${SLEEP}s
 
  _is 0 1 drop $GOAL
  success=$((success+1))
@@ -283,20 +285,27 @@ else
  _disaster &
 fi
 
-_check_food_level
-sleep ${DELAY_DRAWINFO}s
+#_check_food_level
+##sleep ${DELAY_DRAWINFO}s
+#sleep ${SLEEP}s
 
-#sleep 1s
+##sleep 1s
+##sleep ${DELAY_DRAWINFO}s
+
+#_go_drop_alch_yeld_cauldron
 #sleep ${DELAY_DRAWINFO}s
+#_check_if_on_cauldron
 
-_go_drop_alch_yeld_cauldron
+_return_to_cauldron
+_loop_counter
 
-_check_if_on_cauldron
-
-TRIES_STILL=$((NUMBER_ALCH-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL to go..."
+#TRIES_STILL=$((NUMBER_ALCH-one))
+#TIMEE=`date +%s`
+#TIME=$((TIMEE-TIMEB))
+#TIMEZ=$((TIMEE-TIMEA))
+#TIMEAV=$((TIMEZ/one))
+#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 
 done
 
