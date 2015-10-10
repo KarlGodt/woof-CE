@@ -10,15 +10,21 @@ C=0 # Bash Array Counter - set zero as default
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables
+_set_global_variables "$@"
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 
 # *** Here begins program *** #
-#_draw 2 "$0 is started.."
-#_draw 2 "PID is $$ - parentPID is $PPID"
-#_draw 5 " with '$*' parameter."
 _say_start_msg "$@"
+
+while :;
+do
+case "$1" in
+-version) shift;;
+*.*) shift;;
+*) break;;
+esac
+done
 
 # *** Check for parameters *** #
 #_draw 5 "Checking the parameters ($*)..."
@@ -30,13 +36,14 @@ case "$PARAM_1" in *"help"*)
 
 _draw 5 "Script to produce alchemy objects."
 _draw 7 "Syntax:"
-_draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 7 "$0 [ -version VERSION ] ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce"
 _draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
 _draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 _draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
-
+_draw 4  "Option -version 1.12.0 and lesser"
+_draw 4  "turns on some compatibility switches."
         exit 0
 ;; esac
 
@@ -52,40 +59,51 @@ do
 vc=$((c-1));ivc=$((vc-1));((C++));
 #vc=$c;ivc=$((vc-1));((C++))
 echo C=$C ivc=$ivc vc=$vc >&2
-INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+NUMBRI[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
-case ${NUMBER[$C]} in
-1) NUMBER[$C]=one;;
-2) NUMBER[$C]=two;;
-3) NUMBER[$C]=three;;
-4) NUMBER[$C]=four;;
-5) NUMBER[$C]=five;;
-6) NUMBER[$C]=six;;
-7) NUMBER[$C]=seven;;
-8) NUMBER[$C]=eight;;
-9) NUMBER[$C]=nine;;
-10) NUMBER[$C]=ten;;
-11) NUMBER[$C]=eleven;;
-12) NUMBER[$C]=twelve;;
-13) NUMBER[$C]=thirteen;;
-14) NUMBER[$C]=fourteen;;
-15) NUMBER[$C]=fifteen;;
-16) NUMBER[$C]=sixteen;;
-17) NUMBER[$C]=seventeen;;
-18) NUMBER[$C]=eightteen;;
-19) NUMBER[$C]=nineteen;;
-20) NUMBER[$C]=twenty;;
+echo "
+INGRED[$C]='${INGRED[$C]}'"       >>/tmp/cf_script.test
+echo "NUMBRI[$C]='${NUMBRI[$C]}'" >>/tmp/cf_script.test
+
+case ${INGRED[$C]} in
+-version) ((C--));ivc=$((ivc+2));vc=$((vc+2)); continue
+esac
+
+case ${NUMBRI[$C]} in
+1) NUMBRI[$C]=one;;
+2) NUMBRI[$C]=two;;
+3) NUMBRI[$C]=three;;
+4) NUMBRI[$C]=four;;
+5) NUMBRI[$C]=five;;
+6) NUMBRI[$C]=six;;
+7) NUMBRI[$C]=seven;;
+8) NUMBRI[$C]=eight;;
+9) NUMBRI[$C]=nine;;
+10) NUMBRI[$C]=ten;;
+11) NUMBRI[$C]=eleven;;
+12) NUMBRI[$C]=twelve;;
+13) NUMBRI[$C]=thirteen;;
+14) NUMBRI[$C]=fourteen;;
+15) NUMBRI[$C]=fifteen;;
+16) NUMBRI[$C]=sixteen;;
+17) NUMBRI[$C]=seventeen;;
+18) NUMBRI[$C]=eightteen;;
+19) NUMBRI[$C]=nineteen;;
+20) NUMBRI[$C]=twenty;;
 esac
 
 echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
-echo "NUMBER[$C]='${NUMBER[$C]}'" >>/tmp/cf_script.test
+echo "NUMBRI[$C]='${NUMBRI[$C]}'
+"                                 >>/tmp/cf_script.test
 done
 
 GOAL=${INGRED[1]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
-NUMBER_ALCH=${NUMBER[1]}
+NUMBER=${NUMBRI[1]}
 
+echo "GOAL='$GOAL'"     >>/tmp/cf_script.test
+echo "NUMBER='$NUMBER'" >>/tmp/cf_script.test
 
 C=1
 for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
@@ -93,6 +111,7 @@ do
 ((C++))
 INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
 echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
+case ${INGRED[$C]} in '') ((C--)); break;;esac
 done
 
 
@@ -113,7 +132,8 @@ _get_player_speed
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
 # *** Check if there are 4 walkable tiles in $DIRB *** #
-_check_for_space
+#_check_for_space
+$FUNCTION_CHECK_FOR_SPACE
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
@@ -188,35 +208,35 @@ rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
-case $NUMBER_ALCH in
-one)   NUMBER_ALCH=1;;
-two)   NUMBER_ALCH=2;;
-three) NUMBER_ALCH=3;;
-four)  NUMBER_ALCH=4;;
-five)  NUMBER_ALCH=5;;
-six)   NUMBER_ALCH=6;;
-seven) NUMBER_ALCH=7;;
-eight) NUMBER_ALCH=8;;
-nine)  NUMBER_ALCH=9;;
-ten)   NUMBER_ALCH=10;;
-eleven)    NUMBER_ALCH=11;;
-twelve)    NUMBER_ALCH=12;;
-thirteen)  NUMBER_ALCH=13;;
-fourteen)  NUMBER_ALCH=14;;
-fifteen)   NUMBER_ALCH=15;;
-sixteen)   NUMBER_ALCH=16;;
-seventeen) NUMBER_ALCH=17;;
-eightteen) NUMBER_ALCH=18;;
-nineteen)  NUMBER_ALCH=19;;
-twenty)    NUMBER_ALCH=20;;
+case $NUMBER in
+one)   NUMBER=1;;
+two)   NUMBER=2;;
+three) NUMBER=3;;
+four)  NUMBER=4;;
+five)  NUMBER=5;;
+six)   NUMBER=6;;
+seven) NUMBER=7;;
+eight) NUMBER=8;;
+nine)  NUMBER=9;;
+ten)   NUMBER=10;;
+eleven)    NUMBER=11;;
+twelve)    NUMBER=12;;
+thirteen)  NUMBER=13;;
+fourteen)  NUMBER=14;;
+fifteen)   NUMBER=15;;
+sixteen)   NUMBER=16;;
+seventeen) NUMBER=17;;
+eightteen) NUMBER=18;;
+nineteen)  NUMBER=19;;
+twenty)    NUMBER=20;;
 esac
-test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
-_debug "NUMBER_ALCH=$NUMBER_ALCH"
+test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+_debug "NUMBER=$NUMBER"
 
 TIMEA=`date +%s`
 success=0
 # *** MAIN LOOP *** #
-for one in `seq 1 1 $NUMBER_ALCH`
+for one in `seq 1 1 $NUMBER`
 do
 
 TIMEB=`date +%s`
@@ -227,33 +247,35 @@ sleep 0.5
 
  for FOR in `seq 2 1 $C`; do
 
-
- case ${NUMBER[$FOR]} in
- one)   NUMBER[$FOR]=1;;
- two)   NUMBER[$FOR]=2;;
- three) NUMBER[$FOR]=3;;
- four)  NUMBER[$FOR]=4;;
- five)  NUMBER[$FOR]=5;;
- six)   NUMBER[$FOR]=6;;
- seven) NUMBER[$FOR]=7;;
- eight) NUMBER[$FOR]=8;;
- nine)  NUMBER[$FOR]=9;;
- ten)   NUMBER[$FOR]=10;;
- eleven)    NUMBER[$FOR]=11;;
- twelve)    NUMBER[$FOR]=12;;
- thirteen)  NUMBER[$FOR]=13;;
- fourteen)  NUMBER[$FOR]=14;;
- fifteen)   NUMBER[$FOR]=15;;
- sixteen)   NUMBER[$FOR]=16;;
- seventeen) NUMBER[$FOR]=17;;
- eightteen) NUMBER[$FOR]=18;;
- nineteen)  NUMBER[$FOR]=19;;
- twenty)    NUMBER[$FOR]=20;;
+ echo "FOR=$FOR C=$C" >>/tmp/cf_script.test
+ case ${NUMBRI[$FOR]} in
+ one)   NUMBRI[$FOR]=1;;
+ two)   NUMBRI[$FOR]=2;;
+ three) NUMBRI[$FOR]=3;;
+ four)  NUMBRI[$FOR]=4;;
+ five)  NUMBRI[$FOR]=5;;
+ six)   NUMBRI[$FOR]=6;;
+ seven) NUMBRI[$FOR]=7;;
+ eight) NUMBRI[$FOR]=8;;
+ nine)  NUMBRI[$FOR]=9;;
+ ten)   NUMBRI[$FOR]=10;;
+ eleven)    NUMBRI[$FOR]=11;;
+ twelve)    NUMBRI[$FOR]=12;;
+ thirteen)  NUMBRI[$FOR]=13;;
+ fourteen)  NUMBRI[$FOR]=14;;
+ fifteen)   NUMBRI[$FOR]=15;;
+ sixteen)   NUMBRI[$FOR]=16;;
+ seventeen) NUMBRI[$FOR]=17;;
+ eightteen) NUMBRI[$FOR]=18;;
+ nineteen)  NUMBRI[$FOR]=19;;
+ twenty)    NUMBRI[$FOR]=20;;
  esac
 
- _debug "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _debug "drop ${NUMBRI[$FOR]} ${INGRED[$FOR]}"
 
- _drop_in_cauldron ${NUMBER[$FOR]} ${INGRED[$FOR]}
+case ${NUMBRI[$FOR]} in '') break;;esac
+case ${INGRED[$FOR]} in '') break;;esac
+ _drop_in_cauldron ${NUMBRI[$FOR]} ${INGRED[$FOR]}
 
  done
 #sleep 1s
@@ -285,27 +307,8 @@ else
  _disaster &
 fi
 
-#_check_food_level
-##sleep ${DELAY_DRAWINFO}s
-#sleep ${SLEEP}s
-
-##sleep 1s
-##sleep ${DELAY_DRAWINFO}s
-
-#_go_drop_alch_yeld_cauldron
-#sleep ${DELAY_DRAWINFO}s
-#_check_if_on_cauldron
-
 _return_to_cauldron
 _loop_counter
-
-#TRIES_STILL=$((NUMBER_ALCH-one))
-#TIMEE=`date +%s`
-#TIME=$((TIMEE-TIMEB))
-#TIMEZ=$((TIMEE-TIMEA))
-#TIMEAV=$((TIMEZ/one))
-#TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
-#_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 
 done
 
