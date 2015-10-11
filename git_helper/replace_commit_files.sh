@@ -24,6 +24,7 @@ which git || error "Git not in PATH"
 #cd "$CURRENT_DIR"
 MY_SELF=`realpath "$0"`
 test -d ${MY_SELF%/*} && cd  ${MY_SELF%/*} || error "Could not change into ${MY_SELF%/*}"
+CURRENT_DIR=`pwd`
 
 DIRS=`find ../woof-code/rootfs-skeleton/ -type d -not -name ".git"`
 
