@@ -29,7 +29,7 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=
+DEBUG=1
 DEBUGX=
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -211,7 +211,7 @@ _debugx "positional parameters='$posPARAMS'"
 test "$posPARAMS" = "$shortOPS" && posPARAMS='' || _debugx "posPARAMS NOT same as shortOPS";
 _debugx "positional parameters='$posPARAMS'"
 
-_posparams_to_octal "$posPARAMS"
+test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
 }
 #_get_options "$*"
