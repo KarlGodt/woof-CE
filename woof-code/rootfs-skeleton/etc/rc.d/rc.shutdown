@@ -540,8 +540,8 @@ Press ENTER key to continue..." 0 0 >/dev/console
  if [ "`lsmod | grep '^usb_storage'`" = "" ];then #k2.6 note the underscore.
   #problem using dmesg here as it is a fifo buffer, stuff at bootup gets deleted
   #while puppy is being used, prior to shutdown... so, use /var/log/messages...
-  if [ ! "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" = "" ];then
-   if [ ! "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" = "" ];then
+  if [ "`grep "Floppy drive" /var/log/messages | grep "fd0"`" != "" ];then
+   if [ "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" != "" ];then
     if [ "$PARTSLIST" = "" ];then
      PARTSLIST="/dev/fd0|vfat|1.4" #v2.14 change msdos to vfat.
     else #v2.14 ditto...
@@ -562,7 +562,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
  fi
 
  saveCHOICES=""
- rm -f /tmp/savechoices.txt
+ rm $VERB -f /tmp/savechoices.txt
  DEFTAG=""
  echo "$PARTSLIST" |
  while read aPART
@@ -570,7 +570,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
    aTAG=`echo -n "$aPART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
   aSIZE=`echo -n "$aPART" | cut -f 3 -d '|'`
     aFS=`echo -n "$aPART" | cut -f 2 -d '|'`
-  aFREE=`/bin/df -m | grep -w "/dev/$aTAG" | tr -s " " | cut -f 4 -d " "`
+  aFREE=`/bin/df -m "/dev/$aTAG" | tail -n1 | tr -s " " | cut -f 4 -d " "`
   if [ ! "$aFREE" ];then
    mount $VERB $VERB -t $aFS /dev/$aTAG /mnt/data
    #v2.10 need to put in a check that it is not mounted ro. the
@@ -583,7 +583,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
     else
      #v2.12 if the ntfs rw mount was forced (see /bin/mount script) it is unwise to use...
      ERRMSG1=""
-     [ -s /tmp/ntfsmnterr.txt ] && ERRMSG1=`cat /tmp/ntfsmnterr.txt | grep 'Dirty volume mount'`
+     [ -s /tmp/ntfsmnterr.txt ] && ERRMSG1=`grep 'Dirty volume mount' /tmp/ntfsmnterr.txt`
      if [ "$ERRMSG1" != "" ];then
       dialog --colors --msgbox "\Z1WARNING:
 The ntfs-3g driver has determined that the NTFS filesystem
@@ -598,7 +598,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
      fi
     fi
    fi
-   [ -f /tmp/ntfsmnterr.txt ] && rm -f /tmp/ntfsmnterr.txt
+   [ -f /tmp/ntfsmnterr.txt ] && rm $VERB -f /tmp/ntfsmnterr.txt
    if [ $RETMNTVAL -eq 0 ];then
     if [ "$aTAG" = "fd0" ];then
      dFREE=`/bin/df -k | grep -w "/dev/$aTAG" | tr -s " " | cut -f 4 -d " "`
@@ -640,7 +640,7 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
  chmod 755 /tmp/savedialog
 
  #seems some people have problem, do not select anything...
- while [ 1 ];do
+ while :;do
   /tmp/savedialog >/dev/console
   #SAVEPART=`cat /tmp/tag.txt | head -n 1` #head is in case of errs in output.
   SAVEPART=`tail -n1 /tmp/tag.txt`
@@ -665,11 +665,11 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
 
 ###snapmergepuppy ###
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ "`pidof snapmergepuppy | grep '[0-9]'`" ];do
+while [ "`pidof snapmergepuppy`" ];do
  echo -en "\rWaiting for snapmergepuppy to finish .." >/dev/console
  sleep 1
 done
-pidof savepuppyd && killall savepuppyd 1>>$OUT 2>>$ERR
+pidof savepuppyd >$OUT && killall savepuppyd 1>>$OUT 2>>$ERR
 ###snapmergepuppy ###
 
 ### old rc.local0 ###
@@ -763,7 +763,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   rmmod tcic 1>>$OUT 2>>$ERR || rmmod i82365 1>>$OUT 2>>$ERR || rmmod yenta_socket 1>>$OUT 2>>$ERR || rmmod i82092 1>>$OUT 2>>$ERR
   #echo "done."
   _status DONE
-  rm -f /var/lock/subsys/pcmcia
+  rm $VERB -f /var/lock/subsys/pcmcia
  fi
 fi
 ### PCMCIA ###
@@ -882,12 +882,12 @@ swapfile_func(){
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of=${localSMNTPT}/pupswap.swp bs=1048576 count=$SWPSIZE
        if [ $? -eq 0 ];then
-        sync
+        _sync
         mkswap ${localSMNTPT}/pupswap.swp
        fi
        if [ $? -ne 0 ];then
 
-        rm -f ${localSMNTPT}/pupswap.swp 1>>$OUT 2>>$ERR
+        rm $VERB -f ${localSMNTPT}/pupswap.swp 1>>$OUT 2>>$ERR
         echo "...error, unable to create swapfile." >/dev/console
        fi
        _sync
@@ -936,7 +936,7 @@ case $PUPMODE in
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
   cp $VERB -af /etc/DISTRO_SPECS "${DEV1MNT}/etc/"
-  sync
+  _sync
 ### fill save-file ###
 
 ### SWAP FILE ###
@@ -1127,28 +1127,28 @@ fi
 
 ###+++2011-12-04
 mkdir -p    /root/my-documents/boot
-rm -rf      /root/my-documents/boot/tmp.old
+rm $VERB -rf     /root/my-documents/boot/tmp.old
 cp $VERB -a /tmp /root/my-documents/boot/tmp.old
 
 ###+++2011-12-04
-rm -f  /var/lock/LCK*
-rm -f  /var/run/*.pid
-rm -rf /root/tmp/* /root/tmp/.[[:alnum:]]* 1>>$OUT 2>>$ERR  #...note, not screening this out in any of above save modes.
+rm $VERB -f  /var/lock/LCK*
+rm $VERB -f  /var/run/*.pid
+rm $VERB -rf /root/tmp/* /root/tmp/.[[:alnum:]]* 1>>$OUT 2>>$ERR  #...note, not screening this out in any of above save modes.
 
 if [ "$PUPMODE" != "2" ]; then
     echo -e "\\033[0;33mRemoving thumbnails...\\033[0;39m" > /dev/console
-    rm -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
+    rm $VERB -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
 
 else #KRG
 FP=`/bin/df | grep -m1 -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
  if test "$FP" -lt 5; then
   echo -e "\\033[0;31mFull install , free space lesser than 5%; removing thumbnails\\033[0;39m" >/dev/console
-  rm -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
+  rm $VERB -rf /root/.thumbnails/* 1>>$OUT 2>>$ERR
  else
   echo -e "\\033[0;32mFull install , free space more than 5%; leaving thumbnails ok\\033[0;39m" >/dev/console
  fi
 fi
-[ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
+[ -f /etc/rc.d/MORESFS ] && rm $VERB /etc/rc.d/MORESFS
 
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
@@ -1284,7 +1284,7 @@ do
 
  # REM: sync only if no other sync is running
  #      to prevent hangs
- pidof sync || sync
+ pidof sync >$OUT || sync
 
  ## REM: translate \0octal entries
  mountpoint_=`echo -e "$mountpoint_"`
@@ -1322,6 +1322,7 @@ do
   #no idea what to say today ...
   fi
 
+sleep 0.1
 # REM: Use tac to unmount submounts first
 done <<EoI
 `tac /proc/mounts`
@@ -1333,11 +1334,12 @@ _unmount_all_devices -lr
 
 swapoff -a  #busybox swapoff -a works only if swaps are in mtab or ftab
 #v2.13 menno suggests this improvement...
-STRAYPARTD=`cat /proc/swaps | grep "/dev/" | grep -v 'deleted' | cut -f 1 -d " "`
+STRAYPARTD=`grep "/dev/" /proc/swaps | grep -v 'deleted' | cut -f 1 -d " "`
 for oneSTRAY in $STRAYPARTD
 do
  echo -e "\\033[0;34mSwapoff $oneSTRAY\\033[0;39m " >/dev/console
  swapoff $VERB "$oneSTRAY" &
+ sleep 0.1
 done
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
@@ -1361,6 +1363,7 @@ if [ "`busybox mount | grep "$absPUP_HOME"`" != "" ];then
   kill -9 $oneBAD 1>>$OUT 2>>$ERR
   }
   [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
+  sleep 0.1
  done
  killzombies #v3.99
 fi
@@ -1422,7 +1425,7 @@ fi
 pidof freememapplet >>$OUT && kill -9 `pidof freememapplet`
 pidof inotifywait   >>$OUT && kill -9 `pidof inotifywait`
 
-WM=`cat /etc/windowmanager |cut -b 1-6 |tr -d ' '`
+WM=`cut -b 1-6 /etc/windowmanager | tr -d ' '`
 WMpids=`ps |grep "$WM" |grep -v grep |awk '{print $1}'`
 for w in $WMpids;do kill -4 $w;done
 
@@ -1434,7 +1437,7 @@ for s in $FTPs;do kill -4 $s;done
 [ "`pidof hiawatha`" ] && killall hiawatha
    [ "`pidof acpid`" ] && killall acpid
 
-   [ "`pidof udevd`" ] && { killall udevd;cd /dev/.udev;rm -r `ls -1A /dev/.udev/`;cd $HOME; }
+   [ "`pidof udevd`" ] && { killall udevd;cd /dev/.udev;rm $VERB -r `ls -1A /dev/.udev/`;cd $HOME; }
 
    dmesg >/tmp/shutdownkernel.log
    [ "`pidof klogd`" ] && killall klogd
@@ -1479,9 +1482,9 @@ echo
 #DEBUG=1
 if [ "$DEBUG" ]; then
  DATE_=`date +%Y-%m-%d-%H-%M`
- cp -a /tmp /var/tmp-"$DATE_"
+ cp $VERB -a /tmp /var/tmp-"$DATE_"
  mksquashfs /var/tmp-"$DATE_" /var/tmp-"$DATE_".sfs 1>>$OUT 2>>$ERR
- [ $? = 0 ] && rm -r /var/tmp-"$DATE_"
+ [ $? = 0 ] && rm $VERB -r /var/tmp-"$DATE_"
 fi
 #DEBUG=$oldDEBUG
 
