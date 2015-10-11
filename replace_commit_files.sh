@@ -23,14 +23,14 @@ which git || error "Git not in PATH"
 CURRENT_DIR=`pwd`
 cd "$CURRENT_DIR"
 
-DIRS=`find woof-code/rootfs-skeleton/ -type d -not -name ".git"`
+DIRS=`find ../woof-code/rootfs-skeleton/ -type d -not -name ".git"`
 
 while read ONE_DIR; do
 _debug "ONE_DIR='$ONE_DIR'"
 test "$ONE_DIR" || continue
 
 #ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^\.*/woof-code/rootfs-skeleton!!'`
-ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^woof-code/rootfs-skeleton!!'`
+ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^../woof-code/rootfs-skeleton!!'`
 _debug "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
