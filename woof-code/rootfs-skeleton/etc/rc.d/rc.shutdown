@@ -50,17 +50,18 @@
 #
 ########################################################################
 
+PATH='/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin'  ##2011-11-18 added local for rox@umount
 
 ### INFO ###
 Version='1.1-q Macpup_O2-Puppy_Linux_431 KRG'
 
-_debugging_variables(){
+_set_debugging_variables(){
 ERR=/dev/null;OUT=$ERR;VERB='';L_VERB='';A_VERB='';Q=-q;QUIET=--quiet;DBG='';SILENCE='-s' ##+++2012-03-10
 [ "$VERBOSE" ] && { OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;Q='';QUIET='';DBG=-d;SILENCE=''; }
 [ "$DEBUG" ]   && { ERR=/dev/stderr;OUT=/dev/stdout;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;Q='';QUIET='';DBG=-d;SILENCE=''; }
 [ "$QUIET" ]   && { ERR=/dev/stderr; }
 }
-_debugging_variables
+_set_debugging_variables
 
 usage(){
 MSG=`gettext "
@@ -122,11 +123,11 @@ done
 }  ###__old_parameter_func__(){  #END
 
 echo "$@" | grep $Q -iEw '\-h|help|usage' && usage 0
-echo "$@" | grep $Q -iEw 'v|verbose' && { VERBOSE=Y;debugging_variables; }
-echo "$@" | grep $Q -iEw 'D|debug'   && { DEBUG=Y;debugging_variables; }
-echo "$@" | grep $Q -iEw 'C|T|test|check' && { DEBUG=Y;debugging_variables;set -n; }
+echo "$@" | grep $Q -iEw 'v|verbose' && { VERBOSE=Y;_set_debugging_variables; }
+echo "$@" | grep $Q -iEw 'D|debug'   && { DEBUG=Y;_set_debugging_variables; }
+echo "$@" | grep $Q -iEw 'C|T|test|check' && { DEBUG=Y;_set_debugging_variables;set -n; }
 echo "$@" | grep $Q -iEw 's|silent'  && :
-echo "$@" | grep $Q -iEw 'q|quiet'   && { QUIET=Y;debugging_variables; }
+echo "$@" | grep $Q -iEw 'q|quiet'   && { QUIET=Y;_set_debugging_variables; }
 echo "$@" | grep $Q -iEw 'F|Force'   && FORCE=On
 
 ### PRECAUTION ###
@@ -171,9 +172,6 @@ _interactive(){
 ### PERSONAL ###
 }
 
-#v2.20b make shutdown less verbose...
-#clear
-#exec 1>>$OUT 2>>$ERR
 
 ### CD/DVD ###
 #w482 use xorriso if it is installed (see also functions4puppy)...
@@ -200,7 +198,6 @@ ORIGPUPMODE=$PUPMODE #v2.22
 
 echo "Executing /etc/rc.d/rc.shutdown..."
 
-PATH='/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin'  ##2011-11-18 added local for rox@umount
 [ "$OUT" == '/dev/console' ] && __debug "$( echo -e "\033[1;34m"`which rox`"\033[0;39m" )"
 
 #PUPPYVERSION=`cat /etc/puppyversion`
@@ -364,10 +361,10 @@ entered at every bootup." 0 0`"
   if [ $RETVAL -eq 1 ];then
    DENSITY="a" #heavy aes encryption
    CRYPTO='-e aes'
-   modprobe aes_generic #v407 aes name change.
+   modprobe $Q $VERB aes_generic #v407 aes name change.
    #v407 did not explicitly load these two before, but do so in init script...
-   modprobe crypto_blkcipher #v407 blkcipher name change.
-   modprobe cbc
+   modprobe $Q $VERB crypto_blkcipher #v407 blkcipher name change.
+   modprobe $Q $VERB cbc
   else
    DENSITY="x" #light xor encryption.
    CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
@@ -858,19 +855,19 @@ fi #end ifpupmode5
 #note, rc.sysinit in puppy 3.01 had code to create a pupswap.swp, not in 4.x series.
 swapfile_func(){
 
- localSMNTPT="$1"
- localSAVEPART="$2"
+ localSMNTPT="$1"    #/mnt/sda1
+ localSAVEPART="$2"  #sda1
 
- [ ! -f ${localSMNTPT}/pupswap.swp ] || return
+ [ -f ${localSMNTPT}/pupswap.swp ] && return
  [ "$FASTPARTS" ] || return #see /etc/rc.d/PUPSTATE
    TOTALRAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '`
    [ $TOTALRAM -lt 262145 ] || return #was 128000, bump up 256MB.
     TOTALSWAP=`free | grep 'Swap:' | tr -s ' ' | cut -f 3 -d ' '`
     [ $TOTALSWAP -eq 0 ] || return
      spPATTERN="$localSAVEPART"'|'
-     if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" != "" ];then
-      smPATTERN=' '"$localSMNTPT"'$'
-      FREESAVEM=`/bin/df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
+     if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" ];then
+      #smPATTERN=' '"$localSMNTPT"'$'
+      FREESAVEM=`/bin/df -m  "$localSMNTPT" | tail -n1 | tr -s ' ' | cut -f 4 -d ' '`
       SWPSIZE=""
       [ $FREESAVEM -gt 100 ] && SWPSIZE="50"
       [ $FREESAVEM -gt 200 ] && SWPSIZE="100"
@@ -918,7 +915,7 @@ case $PUPMODE in
 
 ### fill save-file ###
  32) #first shutdown, save back to PDEV1. v3.97: xPDEV
-  DEV1MNT=`mount | grep -w "/dev/$xPDEV" |awk -F '"' '{print $4}'` #| tr -s " " | cut -f 3 -d " "`"
+  DEV1MNT=`grep -w "/dev/$xPDEV" /proc/mounts | cut -f2 -d ' '`
   if [ "$DEV1MNT" = "" ];then
    mkdir -p /mnt/$xPDEV
    mount $VERB $VERB -t $xDEVFS /dev/$xPDEV /mnt/$xPDEV
