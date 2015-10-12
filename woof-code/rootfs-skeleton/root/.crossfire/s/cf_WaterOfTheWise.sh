@@ -11,7 +11,7 @@ echo draw 2 1 1 "$0 is started.."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce water of the wise."
 echo draw 7  "Syntax:"
@@ -21,13 +21,13 @@ echo draw 5  "NUMBER times to produce NUMBER of"
 echo draw 5  "Water of the Wise ."
 
         exit 0
-        }
+;; esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
-        }
+}
 
 NUMBER=$PARAM_1
 
@@ -48,7 +48,7 @@ UNDER_ME='';
 echo request items on
 
 while [ 1 ]; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
 #echo "$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
@@ -193,6 +193,7 @@ sleep ${SLEEP}s
 echo "issue 1 1 apply"
 sleep 0.5s
 
+echo watch drawinfo
 echo watch drawextinfo
 
 OLD_REPLY="";
@@ -219,6 +220,7 @@ f_exit 1
 }
 
 echo unwatch drawextinfo
+echo unwatch drawinfo
 
 echo draw 7 1 2 "OK ! Cauldron IS empty."
 
