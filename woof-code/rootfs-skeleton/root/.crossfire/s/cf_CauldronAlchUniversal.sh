@@ -2,6 +2,8 @@
 
 export PATH=/bin:/usr/bin
 
+CAULDRON=cauldron  # forge workbench
+DELAY_DRAWINFO=2   # sleep value to sync player's speed with script speed
 exec 2>>/tmp/cf_script.err
 
 # *** Here begins program *** #
@@ -17,11 +19,11 @@ C=0 #set zero as default
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
-echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+echo draw 7 "$0 <ARTIFACT> <NUMBER> <INGREDIENTX> <NUMBERX> <INGREDIENTY> <NUMBERY> ..."
 echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce"
 echo draw 5 "ARTIFACT alch with"
@@ -29,7 +31,7 @@ echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 
@@ -94,7 +96,10 @@ echo draw 3 "or script $0 balm_of_first_aid 20 'water_of_the_wise' 1 'mandrake_r
         exit 1
 }
 
-# *** Check if standing on a cauldron *** #
+
+
+# *** Check if standing on a $CAULDRON *** #
+echo "issue 1 1 pickup 0"  # precaution
 UNDER_ME='';
 echo request items on
 
@@ -109,8 +114,8 @@ test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon a cauldron!"
+test "`echo "$UNDER_ME_LIST" | grep "$CAULDRON$"`" || {
+echo draw 3 "Need to stand upon a $CAULDRON!"
 exit 1
 }
 
@@ -143,7 +148,7 @@ echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
 grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
 
 if [[ "`grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv`" ]]; then
-echo draw 3 "${INGRED[$C2]} in inventory."
+echo draw 7 "${INGRED[$C2]} in inventory."
 else
 echo draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
@@ -193,13 +198,10 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** west of the $CAULDRON.                                        *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
 # *** HAPPY ALCHING !!!                                             *** #
-
-
-echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
 echo "issue 1 1 west"
@@ -212,24 +214,27 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
+echo unwatch drawextinfo # older clients use drawextinfo and drawinfo
+echo unwatch drawinfo    # newer clients use drawinfo
 exit $1
 }
 
+### *** MAIN LOOP *** ###
 echo "issue 1 1 pickup 0"  # precaution
-
 rm -f /tmp/cf_script.rpl
-
 for one in `seq 1 1 $NUMBER_ALCH`
 do
 
 OLD_REPLY="";
 REPLY="";
 
+# open $CAULDRON
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
+# drop ingred
  for FOR in `seq 2 1 $C`; do
 
  case ${NUMBER[$FOR]} in
@@ -262,9 +267,9 @@ esac
  while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep 'Nothing to drop'`" && f_exit 1
+ test "`echo "$REPLY" | grep 'There are only'`"  && f_exit 1
+ test "`echo "$REPLY" | grep 'There is only'`"   && f_exit 1
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -273,41 +278,48 @@ esac
 
  done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 sleep 1s
 
+# close $CAULDRON
 echo "issue 1 1 west"
 echo "issue 1 1 west"
 echo "issue 1 1 east"
 echo "issue 1 1 east"
 sleep 1s
 
+# now do alch
 echo "issue 1 1 use_skill alchemy"
 
-# *** TODO: The cauldron burps and then pours forth monsters!
+# *** TODO: The $CAULDRON burps and then pours forth monsters!
 
+# get the content of $CAULDRON
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
 sleep 1s
 
+# go away from $CAULDRON
 echo "issue 1 1 west"
 echo "issue 1 1 west"
 echo "issue 1 1 west"
 echo "issue 1 1 west"
 sleep 1s
 
+# check item
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
 sleep 1s
 
+# drop item
 echo "issue 0 1 drop $GOAL"
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
+#return to $CAULDRON
 echo "issue 1 1 east"
 echo "issue 1 1 east"
 echo "issue 1 1 east"
