@@ -28,20 +28,20 @@
 
 export PATH=/bin:/usr/bin
 
+# *** Setting defaults *** #
+DELAY_DRAWINFO=2 # sleep value to sync player's speed with script speed
+GEM='';  #set empty default
+NUMBER_ALCH=0 #set zero as default
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
-
-# *** Setting defaults *** #
-GEM='';  #set empty default
-NUMBER=0 #set zero as default
 
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce water of GEM."
 echo draw 7 "Syntax:"
@@ -53,7 +53,7 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of GEM ."
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
@@ -71,7 +71,7 @@ echo draw 3 "Only :digit: numbers as second options allowed."
         exit 1 #exit if other input than numbers
         }
 
-NUMBER=$PARAM_2
+NUMBER_ALCH=$PARAM_2
 } || {
 echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
         exit 1
@@ -90,13 +90,13 @@ GEM=diamond
 #GEM=pearl
 fi
 
-if test ! "$NUMBER"; then
+if test ! "$NUMBER_ALCH"; then
 echo draw 3 "Need a number of items to alch."
 exit 1
-elif test "$NUMBER" = 0; then
+elif test "$NUMBER_ALCH" = 0; then
 echo draw 3 "Number must be notg ZERO."
 exit 1
-elif test "$NUMBER" -lt 0; then
+elif test "$NUMBER_ALCH" -lt 0; then
 echo draw 3 "Number must be greater than ZERO."
 exit 1
 fi
@@ -112,7 +112,7 @@ UNDER_ME='';
 echo request items on
 
 while [ 1 ]; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
 #echo "$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
@@ -128,7 +128,7 @@ exit 1
 }
 
 # *** Actual script to alch the desired water of gem *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -161,17 +161,19 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+echo unwatch drawextinfo
 exit $1
 }
 
 rm -f /tmp/cf_script.rpl
 
-for one in `seq 1 1 $NUMBER`
+for one in `seq 1 1 $NUMBER_ALCH`
 do
 
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
 echo "issue 1 1 drop 1 water of the wise"
 
@@ -182,7 +184,7 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop'`"   && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
 test "$REPLY" || break
@@ -201,7 +203,7 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
+test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop|.*There are only.*|.*There is only.*'`" && f_exit 1
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
 test "$REPLY" || break
@@ -210,6 +212,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep 1s
@@ -224,6 +227,7 @@ echo "issue 1 1 use_skill alchemy"
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
 echo "issue 1 1 get"
 
@@ -241,6 +245,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep 1s
@@ -260,12 +265,11 @@ echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
 sleep 1s
 
-echo "issue 1 1 drop water of $GEM"
-echo "issue 0 1 drop slags"
+echo "issue 0 1 drop water of $GEM"
+echo "issue 0 1 drop slag"
 
 fi
 
-DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
 echo "issue 1 1 east"
