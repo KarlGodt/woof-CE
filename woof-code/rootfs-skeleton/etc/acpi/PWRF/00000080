@@ -2,7 +2,6 @@
 # Karl Reimer Godt in November 2014
 # usual Puppy license
 
-
 ## echo "$0 :HALLO"      ##DEBUG
 ## xmessage "$0: HALLO"  ##DEBUG
 
@@ -30,6 +29,7 @@ test "`pidof xinit X Xorg Xvesa Xfbdev`" && {
 Version='1.0 Puppy_Racy_5.3 KRG'
 Version='2.2.1 luci-218 KRG'
 Version='2.2.2 luci-218 KRG' # REMARKS added
+Version='2.2.3 luci-218 KRG' # sound functions added
 
 TITLE="${0##*/} $Version"  #Xdialog xmessage -title option
 
@@ -38,8 +38,17 @@ if test -f /etc/acpi/X11/app-defaults/Xmessage; then
 export XAPPLRESDIR=/etc/acpi/X11/app-defaults
 fi
 
+# REM: sound functions
+_close_sound(){
+ amixer $DBG set Master,0 off
+}
+_activate_sound(){
+ amixer $DBG set Master,0 on
+}
+
+
 # REM: usual usage message
-usage(){
+_usage(){
 USAGE_MSG=`gettext "
 $0 [help]
 Script to suspend or hibernate
@@ -78,7 +87,7 @@ exit $1
 # Redirection and quiet variables
 OUT=/dev/null; ERR=/dev/null; Q=-q; QUIET=--quiet
 case $1 in
--h|-?help|-?usage) usage 0;;
+-h|-?help|-?usage) _usage 0;;
 -?version|-V)    echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0;;
 *check*)       set -n;;
 -?verbose|-v)  VERBOSE=1; VERB=-v; L_VERB=--verbose; A_VERB=-verbose;
@@ -87,7 +96,7 @@ case $1 in
             ;;
 -?debug|-d) DEBUG=2; DBG=-d; L_DBG=--debug; set -x;;
 "") :;;
-*) usage 1 "Unknown Parameter '$1'";;
+*) _usage 1 "Unknown Parameter '$1'";;
 esac
 
 xmPRINT=                     # pass -print to xmessage
@@ -97,7 +106,7 @@ xmPRINT=                     # pass -print to xmessage
 #      If ash configured NOFORK or SH_STANDALONE
 #       sync needs to be aliased /bin/sync
 #       so pidof sees a pid
-pidof sync || sync
+pidof sync >$OUT || sync
 
 
 # REM: Functions
@@ -316,7 +325,7 @@ HAVE_SWAP_PARTITION=Y
 #exit
 }
 
-loop_umount_func(){
+_loop_umount_func(){
 local LOOP_MSG xPID xxPID mloop
 LOOP_MSG=`gettext "Unmounting files..."`
 #xmessage -bg green1 -fg pink -title "$TITLE" "$LOOP_MSG" & xPID=$!
@@ -334,7 +343,7 @@ done
 kill $xPID
 }
 
-part_umount_func(){
+_part_umount_func(){
 local PART_MSG xPID xxPID mpart
 PART_MSG=`gettext "Unmounting partitions..."`
 #xmessage -bg green4 -fg pink -title "$TITLE" "$PART_MSG" & xPID=$!
@@ -353,7 +362,7 @@ done
 kill $xPID
 }
 
-restore_mounts(){
+_restore_mounts(){
 [ "$M_DEV" ] || return 0
 local PART_MSG part FS_TYPE dirn xPID xxPID
 
@@ -406,6 +415,7 @@ xmBUTTONS="$xmBUTTONS},ESCAPE GUI:200"
 xmBUTTONS=`echo "$xmBUTTONS" | sed 's%^[,]*%%;s%[,]*$%%'`
 defBUTTON=`gettext "ESCAPE GUI"`
 
+_activate_sound
 aplay /usr/share/audio/2barks.au  # make some noise
 sleep 1
 read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
@@ -543,8 +553,9 @@ read RTC0_WAKE_ALARM_TIME_PRE </sys/class/rtc/rtc0/wakealarm
 cat /sys/class/rtc/rtc0/wakealarm  #DEBUG
 }
 
-pidof sync || sync  #sync if no other sync
+pidof sync >$OUT || sync  #sync if no other sync
 
+_close_sound
 if [ "$ANSWER" = 201 ]; then
 # REM: Standby turns of monitor and keeps the fan running
 echo standby >/sys/power/state
@@ -558,9 +569,9 @@ echo freeze >/sys/power/state
 #      S4 or S3
 else
 
-loop_umount_func
-part_umount_func
-pidof sync || sync
+_loop_umount_func
+_part_umount_func
+pidof sync >$OUT || sync
 sleep 1
 
 fi
@@ -581,10 +592,10 @@ echo 'mem' >/sys/power/state
 elif [ "$ANSWER" = 204 ];then # DISK
 
 #echo 3 > /proc/sys/vm/drop_caches
-#pidof sync || sync
-#loop_umount_func
-#part_umount_func
-#pidof sync || sync
+#pidof sync >$OUT || sync
+#_loop_umount_func
+#_part_umount_func
+#pidof sync >$OUT || sync
 #sleep 1
 
 __old_define_resume_partition__(){
@@ -613,7 +624,7 @@ __old_define_resume_partition__(){
 # Run Settings GUIs
 _toggle_pm_async        || { echo "$? retunred from _toggle_pm_async";       exit 11; }
 _set_image_size         || { echo "$? returned from _set_image_size";        exit 12; }
-_select_swap_partition || { echo "$? returned from _select_swap_partition"; exit 13; }
+_select_swap_partition  || { echo "$? returned from _select_swap_partition"; exit 13; }
 
 # Set choose settings
 if [ "$HAVE_ASYNC_TOGGLE" ]; then
@@ -643,7 +654,7 @@ fi
 #{ echo "TEST EXIT"; exit; }
 
 # Now actually suspend to disk
-      pidof sync || sync
+      pidof sync >$OUT || sync
       sleep 1
 
 if [ "$ACPITOOL" ];then
@@ -670,9 +681,13 @@ else
 fi
 
 sleep 6         # sleep 6 seconds that the kernel needs to return from S3
-pidof mplayer && killall -9 mplayer
-restore_mounts # restore mounted partitions
 
+#pidof mplayer && killall -9 mplayer
+
+
+_restore_mounts # restore mounted partitions
+
+_activate_sound
 aplay /usr/share/audio/2barks.au & # make some wake up noise
 sleep 1
 
@@ -698,7 +713,7 @@ read CURRENT_SINCE_EPOCH_POST </sys/class/rtc/rtc0/since_epoch
 
 echo "CURRENT_SINCE_EPOCH_POST   ='$CURRENT_SINCE_EPOCH_POST'"        #DEBUG
 echo "CURRENT_SINCE_EPOCH_POST-60='$((CURRENT_SINCE_EPOCH_POST-60))'" #DEBUG
-echo "RTC0_WAKE_ALARM_TIME_PRE   ='$RTC0_WAKE_ALARM_TIME_PRE'"         #DEBUG
+echo "RTC0_WAKE_ALARM_TIME_PRE   ='$RTC0_WAKE_ALARM_TIME_PRE'"        #DEBUG
 
 if test "$RTC0_WAKE_ALARM_TIME_PRE"; then
 
