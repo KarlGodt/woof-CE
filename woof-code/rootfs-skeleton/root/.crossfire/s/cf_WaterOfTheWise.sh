@@ -5,6 +5,7 @@ export PATH=/bin:/usr/bin
 
 # *** Here begins program *** #
 echo draw 2 1 1 "$0 is started.."
+echo draw 2 1 1 "$0 is started.." >&2
 
 # *** Check for parameters *** #
 [ "$*" ] && {
