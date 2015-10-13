@@ -150,11 +150,9 @@ exec 1>/dev/console 2>&1
 echo -e "\\033[1;33m
 $1
 \\033[0;39m" >$OUT
-echo -en "\\033[1;35m""Want to stop the shutdown process ? Press 'q' if you want to :""\\033[0;39m" >$OUT
+echo -en "\\033[1;35m""Want to stop the shutdown process ? Press 'q' if you want to :""\\033[0;39m" #>$OUT
 read -t 5 -n1 Q_K
 echo
-#[ "$Q_K" = 'q' ] && exit 199
-#echo "$Q_K" | grep $QUIET -i 'q' && exit 199
 case $Q_K in q|Q) exit 199;; esac
 exec 1>$OUT 2>$ERR
 }
@@ -214,17 +212,6 @@ PSUBDIR="`dirname "$PUPSFSFILE"`"
 killzombies(){
 
  [ "$FORCE" ] && return 0
- #sleep 2
-
- #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
-__raus__(){
- ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##' | cut -f 1 -d ' '`"
- for oneZOMBIE in $ZOMBIES
- do
-  echo "Killing zombie process $oneZOMBIE"
-  kill $oneZOMBIE
- done
-}
 
  #while read pid tty status rest ; do
 while read pid status; do
@@ -235,9 +222,12 @@ while read pid status; do
   *) continue;;
  esac
  kill $pid
-done << EOI
-$(/bin/ps -A -H -o pid,s | grep -w Z)
-EOI
+done<< EoI
+$(ps -o pid,stat | grep -w Z)
+EoI
+#done << EOI
+#$(/bin/ps -A -H -o pid,s | grep -w Z)
+#EOI
 
 }
 
@@ -516,8 +506,8 @@ Press ENTER key to continue..." 0 0 >/dev/console
  if [ "`lsmod | grep '^usb_storage'`" = "" ];then #k2.6 note the underscore.
   #problem using dmesg here as it is a fifo buffer, stuff at bootup gets deleted
   #while puppy is being used, prior to shutdown... so, use /var/log/messages...
-  if [ ! "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" = "" ];then
-   if [ ! "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" = "" ];then
+  if [ "`cat /var/log/messages | grep "Floppy drive" | grep "fd0"`" != "" ];then
+   if [ "`disktype /dev/fd0 | grep 'file system' | grep '^FAT'`" != "" ];then
     if [ "$PARTSLIST" = "" ];then
      PARTSLIST="/dev/fd0|vfat|1.4" #v2.14 change msdos to vfat.
     else #v2.14 ditto...
@@ -542,12 +532,13 @@ Press ENTER key to continue..." 0 0 >/dev/console
  echo "$PARTSLIST" |
  while read APART
  do
-  ATAG="`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
+   ATAG="`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
+    AFS="`echo -n "$APART" | cut -f 2 -d '|'`"
   ASIZE="`echo -n "$APART" | cut -f 3 -d '|'`"
-  AFS="`echo -n "$APART" | cut -f 2 -d '|'`"
-  AFREE="`/bin/df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`"
+
+  AFREE="`/bin/df -m /dev/$ATAG | tail -n1 | tr -s " " | cut -f 4 -d " "`"
   if [ ! "$AFREE" ];then
-   mount $VERB $VERB -t $AFS /dev/$ATAG /mnt/data > /dev/null 2>&1
+   mount $VERB $VERB -t $AFS /dev/$ATAG /mnt/data >$OUT 2>$ERR
    #v2.10 need to put in a check that it is not mounted ro. the
    #mount script will fallback to ro for ntfs if rw mnt fails...
    RETMNTVAL=$?
@@ -559,7 +550,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
      #v2.12 if the ntfs rw mount was forced (see /bin/mount script) it is unwise to use...
      ERRMSG1=""
      [ -s /tmp/ntfsmnterr.txt ] && ERRMSG1="`cat /tmp/ntfsmnterr.txt | grep 'Dirty volume mount'`"
-     if [ ! "$ERRMSG1" = "" ];then
+     if [ "$ERRMSG1" != "" ];then
       dialog --colors --msgbox "\Z1WARNING:
 The ntfs-3g driver has determined that the NTFS filesystem
 in partition /dev/$ATAG is 'dirty'. It will display in the
@@ -614,7 +605,7 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
  chmod 755 /tmp/savedlg
 
  #seems some people have problem, do not select anything...
- while [ 1 ];do
+ while :;do
   /tmp/savedlg >/dev/console
   SAVEPART="`cat /tmp/tag.txt | head -n 1`" #head is in case of errs in output.
   if [ "`echo -n "$SAVEPART" | grep -E '^hd|^sd|^sc|^fd|^mmcblk'`" = "" ];then #091222 added mmcblk
@@ -635,7 +626,7 @@ UP/DOWN ARROW keys to highlight desired choice, then press ENTER key..." 0 0 0 '
 } #end choosepartfunc
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
+while [ "`pidof snapmergepuppy`" ];do
  sleep 1
 done
 killall savepuppyd 2>>$ERR
@@ -662,11 +653,14 @@ pidof X >>$OUT && {
  killall $Q -3 X >>$OUT 2>&1
 }
 
+test "`which dillo`" && {
 #MU warns may need to do this for dillo...
-killall $Q file.dpi      2>>$ERR
-killall $Q bookmarks.dpi 2>>$ERR
-killall $Q dpid          2>>$ERR
+ killall $Q file.dpi      2>>$ERR
+ killall $Q bookmarks.dpi 2>>$ERR
+ killall $Q dpid          2>>$ERR
+ }
 }
+
 [ "$FORCE" ] || _kill_xapps
 
 [ "$FORCE" ] || _sync
@@ -691,17 +685,17 @@ ACTIVE_INTERFACE="ppp0"
 if [ "$ACTIVE_INTERFACE" ];then
  mkdir $VERB -p /var/local/$ACTIVE_INTERFACE
  if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
-  RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
-  TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
+  read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
+  read TX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes
   echo "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
   echo "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
-  RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
-  [ ! "$RX_BYTES_MONTH" ] && RX_BYTES_MONTH=0
-  RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  read RX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
+  RX_BYTES_MONTH=$((RX_BYTES_MONTH + RX_BYTES))
   echo "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
-  TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
-  [ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
-  TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  [ "$TX_BYTES_MONTH" ] || TX_BYTES_MONTH=0
+  TX_BYTES_MONTH=$((TX_BYTES_MONTH + TX_BYTES))
   echo "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
  fi
 fi
@@ -745,7 +739,7 @@ _unload_ethernet_drivers(){
 if test -f /etc/networkmodules ; then #KRG
 for i in `lsmod | cut -d' ' -f1 | tr '\n' ' '`
 do
- if grep "^$i " /etc/networkmodules; then
+ if grep $Q "^$i " /etc/networkmodules; then
   modprobe $VERB -r "$i"
  fi
 done
@@ -894,16 +888,16 @@ fi #end ifpupmode5
 swapfile_func() {
  localSMNTPT="$1"
  localSAVEPART="$2"
- if [ ! -f ${localSMNTPT}/pupswap.swp ];then
-  if [ "$FASTPARTS" ];then #see /etc/rc.d/PUPSTATE
-   TOTALRAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '`
+ [ -f ${localSMNTPT}/pupswap.swp ] && return
+ [ "$FASTPARTS" ] || return #see /etc/rc.d/PUPSTATE
+   TOTALRAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 3 -d ' '`
    if [ $TOTALRAM -lt 262145 ];then #was 128000, bump up <=256MB.
-    TOTALSWAP=`free | grep 'Swap:' | tr -s ' ' | cut -f 3 -d ' '`
+    TOTALSWAP=`free | grep -o 'Swap:.*' | tr -s ' ' | cut -f 3 -d ' '`
     if [ $TOTALSWAP -eq 0 ];then
      spPATTERN="$localSAVEPART"'|'
      if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" != "" ];then
-      smPATTERN=' '"$localSMNTPT"'$'
-      FREESAVEM=`/bin/df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
+      #smPATTERN=' '"$localSMNTPT"'$'
+      FREESAVEM=`/bin/df -m "$localSMNTPT" | tail -n1 | tr -s ' ' | cut -f 4 -d ' '`
       SWPSIZE=""
       [ $FREESAVEM -gt 100 ] && SWPSIZE="50"
       [ $FREESAVEM -gt 200 ] && SWPSIZE="100"
@@ -927,14 +921,12 @@ swapfile_func() {
      fi
     fi
    fi
-  fi
- fi
 } #end swapfile_func
 
-if [ "$PUPSAVE" != "" ];then
+if [ "$PUPSAVE" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
- SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
+   SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
@@ -964,7 +956,7 @@ case $PUPMODE in
    fi
    DEV1MNT="/mnt/$xPDEV"
   fi
-  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`"
+  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"`"
   for oneDIR in $RDIRS
   do
    cp $VERB -a $oneDIR ${DEV1MNT}/
@@ -1019,7 +1011,7 @@ case $PUPMODE in
   if [ "$SAVEPART" = "fd0" ];then
    RDIRS="/initrd/pup_rw/etc"
   else
-   RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`"
+   RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"`"
   fi
   for oneDIR in $RDIRS
   do
@@ -1134,7 +1126,7 @@ for pidf in /var/run/*.pid; do
 [ -s $pidf ] || continue
 read procID <$pidf
 [ "$procID" ] || continue
-/bin/ps --no-header -p $procID && kill $procID
+/bin/ps --no-header -p $procID >$OUT && kill $procID
 done
 rm $VERB -f /var/run/*.pid
 
@@ -1301,7 +1293,7 @@ else
    #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
    #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
    echo -en "\\033[1;33mAttempting to unmount /dev/'$PDEV1' ..." >/dev/console
-   umount-FULL -i -n -l /dev/$PDEV1
+   umount-FULL $VERB -i -n -l /dev/$PDEV1
    _status $?
    fi
   fi
