@@ -85,8 +85,13 @@ case $1 in
 '') echo draw 3 "Need parameter(s) :Use <help> to show them.";;
 *)
 echo request "$@"
-read -t 1 REQUEST_ANSWER
+while :; do
+read -t 10 REQUEST_ANSWER
 echo draw 5 "ANSWER=$REQUEST_ANSWER"
+test "$REQUEST_ANSWER" || break
+unset REQUEST_ANSWER
+sleep 0.1
+done
  case $@ in
   *resists*) _print_resists_table;;
  esac
@@ -101,5 +106,5 @@ esac
 #read -t 1 WAT_RANGE
 #echo draw 3 "RANGE=$WAT_RANGE"
 
-
+echo draw 2 "$0 has ended"
 
