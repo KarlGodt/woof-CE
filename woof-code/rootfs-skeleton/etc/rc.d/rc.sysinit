@@ -272,7 +272,7 @@ echo "VERSION UPDATE"
 echo -n "Updating..." >/dev/console
 
 /etc/rc.d/rc.update $PUPMODE
-pidof sync || sync
+pidof sync >$OUT || sync
 status_func $STATUS
 
 #################LOAD KERNEL MODULES################
@@ -488,9 +488,10 @@ if [ $KERNMAJ -lt 24 ];then #v431
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
  for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  onePATH="`dirname $oneMODALIAS`"
-  if [ -e ${onePATH}/uevent ];then
-   echo add > ${onePATH}/uevent #generates an 'add' uevent.
+  #onePATH="`dirname $oneMODALIAS`"
+  onePATH=${oneMODALIAS%/*}
+  if [ -e "${onePATH}/uevent" ];then
+   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
    sleep 0.02
   fi
  done
@@ -501,7 +502,8 @@ else
  [ -e /sys/bus/ssb/devices ] && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  onePATH="`dirname $oneUEVENT`"
+  #onePATH="`dirname $oneUEVENT`"
+  onePATH=${oneUEVENT%/*}
   #the check for 'modalias' file is maybe needed for old kernel?...
   [ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
   echo add > $oneUEVENT
@@ -796,12 +798,12 @@ fi
 ##### fsckme.flg
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
 if test "$PUPMODE" = 2; then #if no /initrd, full hd install.
- [ $PDEV1 ] || PDEV1="`/bin/df | grep ' /$' | grep -m1 '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+  [ $PDEV1 ]  || PDEV1="`/bin/df / | tail -n1 | awk '{print $1}' | cut -f 3 -d '/'`"
  #[ $DEV1FS ] || DEV1FS="`mount | grep ' on / ' | grep -m1 '^/dev/' | cut -f 5 -d ' '`"
   [ $DEV1FS ] || DEV1FS=`awk '/^\/dev\/root \/ / { print $3 }' /proc/mounts`
-if [ "$PDEV1" -a "$DEV1FS" ];then
-  [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" = "" ]  && echo "PDEV1='$PDEV1'"   >> /etc/rc.d/PUPSTATE
-  [ "`grep '^DEV1FS' /etc/rc.d/PUPSTATE`" = "" ] && echo "DEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE
+ if [ "$PDEV1" -a "$DEV1FS" ];then
+  [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" ]  || echo "PDEV1='$PDEV1'"   >> /etc/rc.d/PUPSTATE
+  [ "`grep '^DEV1FS' /etc/rc.d/PUPSTATE`" ] || echo "DEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE
   #this file gets removed by rc.shutdown if a proper shutdown...
   echo "${PDEV1},${DEV1FS}," > /fsckme.err #ex: sda7,ext3,
  fi
@@ -809,21 +811,14 @@ else
  [ "$PUPSAVE" ] && echo "$PUPSAVE" > /initrd${PUP_HOME}/fsckme.err #ex: sda7,ext3,/pupsave-10MAR2010.2fs
 fi
 
-fsckme_func_rc_shutdown(){ ###krg Mar112011:turned into func to call at end of script
-#100315 improper shutdown check. see /etc/rc.d/rc.sysinit, /init in initramfs, and /sbin/init...
-[ -f /boot/.fsckme.err ] && rm $VERB -f /boot/.fsckme.err
-[ -f /initrd${PUP_HOME}/boot/.fsckme.err ] && rm $VERB -f /initrd${PUP_HOME}/boot/.fsckme.err
-}
-##### fsckme.flg
-
 dmesg > /tmp/bootkernel.log.`date +%d%b%Y`
 echo >> /tmp/bootkernel.log.`date +%d%b%Y`
 date >> /tmp/bootkernel.log.`date +%d%b%Y`
-cp /var/log/messages /tmp/boot.messages
-cp /var/log/messages.0 /tmp/boot.messages.0
+test -e /var/log/messages   && cp $VERB /var/log/messages   /tmp/boot.messages
+test -e /var/log/messages.0 && cp $VERB /var/log/messages.0 /tmp/boot.messages.0
 
 __previous_X_status__(){
-if [ -z "`cat /proc/cmdline | grep -i 'nox'`" ]; then
+if [ -z "`grep -i 'nox' /proc/cmdline | `" ]; then
 echo 'X' > /tmp/X.status
 else
 echo 'nox' > /tmp/X.status
