@@ -10,14 +10,14 @@ ROD='heavy rod of cancellation'
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to "
 echo draw 5 "apply $ROD"
 echo draw 5 "and then to fire center on oneself."
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
