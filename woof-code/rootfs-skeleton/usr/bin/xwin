@@ -54,9 +54,12 @@ _trap
 until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ];do echo -ne "\rWaiting for load average to drop below 3 :`cat /proc/loadavg` ";sleep 2s;done;echo  ###+++2011-11-30
 #exec 2>/tmp/xwin.log.$$
 
-#NUMXWINS=`pidof xwin | wc -w` #w478
-#[ $NUMXWINS -gt 1 ] && exit   #w478
+__first_num_xwins__(){
+NUMXWINS=`pidof xwin | wc -w` #w478
+[ $NUMXWINS -gt 1 ] && exit   #w478
+}
 
+__second_num_xwins__(){
 XWINS=`/bin/ps -C xwin`
 NUMXWINS=$(( $(echo "$XWINS" | wc -l) -1))
 PROGPID=$$
@@ -74,17 +77,20 @@ elif [ -n "$DISPLAY" ] ; then
 else
 echo -e "\\033[1;33m""This script will run X windows for you...""\\033[0;39m"
 fi
+}
+
+pidof -o %PPID -o $$ ${0##*/} && { echo -e "\\033[0;31m""More than one instance of xwin running."; exit 2; }
 
 cd ~/   #v3.98 Ensure current directory is root, in case changed at command prompt, so rox icon and menu item open only at home directory. rerwin
 
 #variables created at bootup by init script in initrd...
 . /etc/rc.d/PUPSTATE #v2.02
-#PUPMODE=current operating configuration,
-#PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
-#PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
-#PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
+# PUPMODE= current operating configuration,
+# PDEV1=  the partition have booted off, DEV1FS=f.s. of PDEV1,
+# PUPSFS= pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
+# PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
 
-KERNELVER="`uname -r`" #w479
+[ "$KERNELVER" ] || KERNELVER="`uname -r`" #w479
 
 #0.9.9 enables to start a specific w.m. from commandline...
 if [ $1 ];then
@@ -94,7 +100,10 @@ fi
 
 #v1.0.7
 HAVEX="`basename $(readlink $(which X))`"
-echo '$HAVEX='"$HAVEX"
+# REM: Strip everything after the simple binary name, ie Xorg-1.10.6 -> Xorg
+HAVEX=`echo "$HAVEX" | sed 's![[:punct:]].*$!!'`
+echo "HAVEX='$HAVEX'"
+
 if [ "$HAVEX" = "XF86_SVGA" ];then
  #xf86config v3.3.6 creates config file at /etc, wrong place...
  [ -f /etc/XF86Config ] && mv -f $VERB /etc/XF86Config /etc/X11/XF86Config
@@ -305,22 +314,25 @@ read MOUSEDEVICE_ </etc/mousedevice
 ln -snf $MOUSEDEVICE_ /dev/mouse
 
 
-
+__run_alsaconf_auto__(){
 #now done in /etc/rc.d/rc.modules...
-##alsa sound setup...
-#if [ "`cat /etc/modprobe.conf | grep 'snd\-card\-0'`" = "" ];then
-# #auto option created by BK for fast operation, less questions...
-# alsaconf --auto
-#fi
+#alsa sound setup...
+if [ "`cat /etc/modprobe.conf | grep 'snd\-card\-0'`" = "" ];then
+ #auto option created by BK for fast operation, less questions...
+ alsaconf --auto
+fi
+}
 
+__load_agp_driver__(){
 #rc.modules now does this...
-##v2.0.0 load correct -agp driver...
-#AGPDRIVER="`findhostbridge`" #in /usr/sbin.
-#if [ ! "$AGPDRIVER" = "" ];then
-# [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe "$AGPDRIVER" 2>$ERR
-#fi
-##note, could write $AGPDRIVER to /etc/modprobe.preload to load it at kernel boot.
-##note, it also loads agpgart.ko.
+#v2.0.0 load correct -agp driver...
+AGPDRIVER="`findhostbridge`" #in /usr/sbin.
+if [ ! "$AGPDRIVER" = "" ];then
+ [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe "$AGPDRIVER" 2>$ERR
+fi
+#note, could write $AGPDRIVER to /etc/modprobe.preload to load it at kernel boot.
+#note, it also loads agpgart.ko.
+}
 
 
 #v2.11 find out if xorg video drvr exists, else use xorg vesa...
@@ -328,12 +340,12 @@ if [ -f /usr/bin/Xorg ];then
 
  if [ -f /etc/X11/xorg.conf ];then
   #find location of video chip drivers...
-  SPECVESA="`find /usr/lib -noleaf -mount -type f -name vesa_drv.so | head -n1`"
+  SPECVESA="`find /usr/lib -xdev -type f -name vesa_drv.so | head -n1`"
 
   if [ "$SPECVESA" ];then
    DRVRSPATH="`dirname $SPECVESA`"
    #get current driver...
-   DRVRCURR="`cat /etc/X11/xorg.conf | grep '#card0driver' | cut -f 2 -d '"'`" #'
+   DRVRCURR=`cat /etc/X11/xorg.conf | grep '#card0driver' | cut -f 2 -d '"'`
 
    if [ "$DRVRCURR" ];then
     #if [ ! -f $DRVRSPATH/${DRVRCURR}_drv.so ];then
@@ -412,21 +424,26 @@ PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -
 
 fi
 
+_deprecated_XLOADED(){
 #v1.0.7 J_Reys idea (see note further down)...
 if [ -f /var/lock/XLOADED ];then
+
+ __simple_message__(){
  #v3.98 improved handling by pizzasgood...
-# if [ "`cat /var/lock/XLOADED`" = "true" ];then
-#  #last time X ran, PC hung and had to be rebooted...
-#  echo -en "\\033[1;31m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-#  echo '
-#It seems that last time X ran, the computer hung and you had to reboot.
-#Have now dropped down to the commandline. If you want to run the Xorg
-#Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
-#(hopefully correctly this time!) type "xwin" to start X.'
-#  echo -e "\\033[0;39m"
-#  rm -f /var/lock/XLOADED #otherwise cannot start X.
-#  exit
-# fi
+ if [ "`cat /var/lock/XLOADED`" = "true" ];then
+  #last time X ran, PC hung and had to be rebooted...
+  echo -en "\\033[1;31m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  echo '
+It seems that last time X ran, the computer hung and you had to reboot.
+Have now dropped down to the commandline. If you want to run the Xorg
+Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
+(hopefully correctly this time!) type "xwin" to start X.'
+  echo -e "\\033[0;39m"
+  rm -f /var/lock/XLOADED #otherwise cannot start X.
+  exit
+ fi
+ }
+
  if [ "`cat /var/lock/XLOADED`" = "true" ];then
   #last time X ran, PC hung and had to be rebooted...
   dialog --timeout 30 --title "Warning" --yes-label "Ignore" --no-label "Commandline" --yesno "X seems to have exited uncleanly the last time you ran Puppy.  This is usually because of an improper shutdown (such as a power failure), but may be because something is broken.
@@ -452,6 +469,7 @@ Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
  fi
 
 fi
+}
 
 if [ "$HAVEX" = "Xvesa" ];then #0.9.9
  #/tmp/videomode exists if starting X with new video test mode...
@@ -508,29 +526,33 @@ if [ -e /etc/xextraoptions ];then
  XEXTRAOPTIONS="`cat /etc/xextraoptions`"
 fi
 
-##w477 hack, workaround for X exit problem. also see further down...
-#if [ -f /tmp/wmexitmode.txt ];then
-# if [ "`cat /tmp/wmexitmode.txt`" = "exit" ];then
-#  rm -f /tmp/wmexitmode.txt
-#  exit
-# fi
-#fi
+__repositioned_wemexit__(){
+#w477 hack, workaround for X exit problem. also see further down...
+if [ -f /tmp/wmexitmode.txt ];then
+ if [ "`cat /tmp/wmexitmode.txt`" = "exit" ];then
+  rm -f /tmp/wmexitmode.txt
+  exit
+ fi
+fi
+}
 
 #v424 bad hack, i somehow get /dev/mouse pointing to psaux when chose a serial mouse, don't know why...
-##[ "`grep 'ttyS' /etc/mousedevice`" != "" ] && ln -snf $MOUSEDEV /dev/mouse
+#[ "`grep 'ttyS' /etc/mousedevice`" != "" ] && ln -snf $MOUSEDEV /dev/mouse
 
 #100520 attempt fix keyboard layout not getting updated...
 [ ! -f /etc/keymap ] && echo "us" >/etc/keymap #maybe lupu needs this.
 [ ! -f /etc/keymap_previous ] && echo "us" >/etc/keymap_previous
+
 KEYMAPNOW="`cat /etc/keymap`"
 KEYMAPPREV="`cat /etc/keymap_previous`"
+
 if [ "$KEYMAPNOW" != "$KEYMAPPREV" ];then
  cp -f $VERB /etc/keymap /etc/keymap_previous
  #100520 bring this code back again...
  #100215 moved this code to /usr/sbin/input-wizard, avoid automatic overwriting of any user edit of xorg.conf...
  #100127 make sure xorg keyboard layout matches console setting (same code in xorgwizard)...
  if [ "$HAVEX" = "Xorg" ];then
-  xCONSKEYMAP="`cat /etc/keymap | cut -c 1-2`"
+  xCONSKEYMAP="`cut -c 1-2 /etc/keymap`"
   [ "$xCONSKEYMAP" = "" ] && xCONSKEYMAP="us"
   case $xCONSKEYMAP in
    az) XKEYMAP="fr" ;;     #azerty
@@ -590,7 +612,7 @@ _warn "Could not secure remove /dev/dri/card0"
 
 rm -f /tmp/wmexitmode.txt
 
-# REM: Do 915resolution here, not in /etc/profile in case booted as pfix=nox 
+# REM: Do 915resolution here, not in /etc/profile in case booted as pfix=nox
 #       with different video setup
 _get_since_epoch(){
 read SINCE_EPOCH </sys/class/rtc/rtc0/since_epoch
@@ -625,6 +647,7 @@ fi
 
 }
 [ -f /etc/resolutionfix ] && _eval_etc_resolutionfix
+
 
 #finally, start X...
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
