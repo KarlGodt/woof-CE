@@ -4,6 +4,7 @@ export PATH=/bin:/usr/bin
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
+echo draw 2 "$0 is started.." >&2
 
 # *** PARAMETERS *** #
 
@@ -271,6 +272,57 @@ echo unwatch request
 
 echo draw 6 "Done."
 
+# *** Getting Player's Speed *** #
+sleep 1 # need sleep here , else close cauldron msg get caught further down in ANSWER
+        # !afterwards! of request stat cmbt message send by the server ( likely depends on player's speed )
+
+echo draw 5 "Processing Player's speed..."
+
+SLEEP=3           # setting defaults
+DELAY_DRAWINFO=6
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+echo watch request
+
+while [ 1 ]; do
+read -t 1 ANSWER
+case $ANSWER in
+*request*stat*cmbt*)
+ANSWER_COMBAT="$ANSWER"
+;;
+esac
+echo "$ANSWER" >>/tmp/cf_request.log
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+echo unwatch request
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER_COMBAT" | awk '{print $7}'` # *** ash + bash
+PL_SPEED="0.${PL_SPEED:0:2}"
+
+echo draw 7 "Player speed is $PL_SPEED"
+
+PL_SPEED="${PL_SPEED:2:2}"
+echo draw 7 "Player speed is $PL_SPEED"
+
+if test $PL_SPEED -gt 35; then
+SLEEP=1; DELAY_DRAWINFO=2
+elif test $PL_SPEED -gt 25; then
+SLEEP=2; DELAY_DRAWINFO=4
+fi
+
+sleep 1 # need sleep here , else close cauldron msg get caught further down in ANSWER
+        # !afterwards! of request stat cmbt message send by the server ( likely depends on player's speed )
+
+echo draw 6 "Done."
 
 # *** Check if cauldron is empty *** #
 
@@ -317,55 +369,14 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-
-
-# *** Getting Player's Speed *** #
-
-echo draw 5 "Processing Player's speed..."
-
-SLEEP=3           # setting defaults
-DELAY_DRAWINFO=6
-
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
-
-echo watch request
-
-while [ 1 ]; do
-read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
-done
-
-echo unwatch request
-
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
-echo draw 7 "Player speed is $PL_SPEED"
-
-PL_SPEED="${PL_SPEED:2:2}"
-echo draw 7 "Player speed is $PL_SPEED"
-
-if test $PL_SPEED -gt 35; then
-SPEED=1; DELAY_DRAWINFO=2
-elif $PL_SPEED -gt 25; then
-SPEED=2; DELAY_DRAWINFO=4
-fi
-
-echo draw 6 "Done."
+sleep 1 # need sleep here , else close cauldron msg get caught further down in REPLY
 
 
 # *** Now LOOPING *** #
 
 for one in `seq 1 1 $NUMBER`
 do
+TIMEB=`date +%s`
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -534,7 +545,9 @@ f_exit 1
 echo unwatch request
 
 TRIES_SILL=$((NUMBER-one))
-echo draw 4 "Still $TRIES_SILL to go..."
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+echo draw 4 "Elapsed $TIME s, still $TRIES_SILL to go..."
 
 
 done  # *** MAINLOOP *** #
