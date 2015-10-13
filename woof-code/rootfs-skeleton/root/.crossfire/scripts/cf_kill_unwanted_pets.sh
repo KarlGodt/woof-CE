@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started wit pid $$ $PPID"
 echo draw 3 "with '$*' as arguments ."
@@ -34,10 +36,20 @@ echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
 }
 
 
-keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
-keepPETS="`echo "$keepPETS" | tr '[;, ]' '|'`"
-keepPETS="`echo "$keepPETS" | tr '_' ' '`"
-keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
+(
+echo
+echo "\$*='$*'"
+) >>/tmp/cf_pets.rpl
+
+#keepPETS=$(echo "$@" | busybox sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/')
+keepPETS="$@"
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+keepPETS=`echo "$keepPETS" | tr '[;, ]' '|'`
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+keepPETS=`echo "$keepPETS" | tr '_' ' '`
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
+keepPETS=`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`
+echo "keepPETS='$keepPETS'" >>/tmp/cf_pets.rpl
 
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
 echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
@@ -48,6 +60,7 @@ OLD_REPLY="";
 REPLY="";
 
 echo watch drawinfo
+sleep 1
 echo "issue 1 1 showpets"
 
 while [ 1 ]; do
@@ -55,8 +68,12 @@ while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_pets.rpl
 
+case $REPLY in
+*-*level*)
 PETS_HAVE="$REPLY
 $PETS_HAVE"
+;;
+esac
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -66,6 +83,14 @@ sleep 0.1s
 done
 
 echo unwatch drawinfo
+
+(
+echo
+echo "PETS_HAVE='$PETS_HAVE'"
+echo
+echo "PETS_KEEP='$PETS_KEEP'"
+echo
+) >> /tmp/cf_pets.rpl
 
 PETS_KILL=`echo "$PETS_HAVE" | grep level | grep -v -E -i "$PETS_KEEP"`
 echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
@@ -87,17 +112,29 @@ echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
 #awk '{out=$2; for(i=3;i<=NF;i++){out=out" "$i}; print out}'
 
 
+_bash_filter_with_cut(){
 # *** Using cut with bash buildin <<< *** #
-#PETS_KILL=`cut -f5- -d' '       <<<"$PETS_KILL"`
-#PETS_KILL=`sed 's/ - level.*//' <<<"$PETS_KILL"`
-#PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
+PETS_KILL=`cut -f5- -d' '       <<<"$PETS_KILL"`
+PETS_KILL=`sed 's/ - level.*//' <<<"$PETS_KILL"`
+PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 # *** Using cut with bash buildin <<< *** #
+}
 
+_bash_filter_while_read(){
 # *** Using while read with bash buildin <<< *** #
 PETS_KILL=`while read a b c d PETNAME_REST; do echo "$PETNAME_REST";done<<<"$PETS_KILL"`
 PETS_KILL=`sed 's/ - level.*//' <<<"$PETS_KILL"`
 PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 # *** Using while read with bash buildin <<< *** #
+}
+_bash_filter_while_read
+
+_ash_filter_while_read(){
+PETS_KILL=`while read a b c d PETNAME_REST; do echo "$PETNAME_REST";done<<EoI
+$(echo "$PETS_KILL")
+EoI`
+}
+#_ash_filter_while_read
 
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>/tmp/cf_pets.rpl
