@@ -176,46 +176,46 @@ GO_BACK=west
 GO_FORTH=east
 
 # *** Here begins program *** #
-echo drawextinfo 2 1 1 "$0 is started <$*> , pid $$ ppid $PPID"
+echo draw 2 "$0 is started <$*> , pid $$ ppid $PPID"
 
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
-echo drawextinfo 5 10 10 "Script to produce water of the wise."
-echo drawextinfo 7 10 10 "Syntax:"
-echo drawextinfo 7 10 10 "$0 NUMBER"
-echo drawextinfo 5 10 10 "Allowed NUMBER will loop for"
-echo drawextinfo 5 10 10 "NUMBER times to produce NUMBER of"
-echo drawextinfo 5 10 10 "Water of the Wise ."
+echo draw 5 "Script to produce water of the wise."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 NUMBER"
+echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Water of the Wise ."
 
         exit 0
-        }
+;; esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo drawextinfo 0x3 0x0 0x0 "Only :digit: numbers as option allowed."
+echo draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 
 } || {
-echo drawextinfo 0x003 0x001 0x001 "Script needs number of alchemy attempts as argument."
+echo draw 3 "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo drawextinfo 0x03 0x01 0x01 "Need <number> ie: script $0 3 ."
+echo draw 3  "Need <number> ie: script $0 3 ."
         exit 1
 }
 
 # *** Check if standing on a cauldron *** #
 
-echo drawextinfo 4 1 1 "Checking if on cauldron..."
+echo draw 4 "Checking if on cauldron..."
 UNDER_ME='';
 echo request items on
 
@@ -231,11 +231,11 @@ test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawextinfo 0x03 0x01 0x01 "Need to stand upon cauldron!"
+echo draw 3  "Need to stand upon cauldron!"
 exit 1
 }
 
-echo drawextinfo 0xd61417 0x01 0x01 "Done."
+echo draw 7 "Done."
 
 # *** Actual script to alch the desired water of the wise           *** #
 test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
@@ -263,7 +263,7 @@ rm -f /tmp/cf_script.rpl # empty reply old log file
 
 # *** Readying rod of word of recall - just in case *** #
 
-echo drawextinfo 0x04 0x1 0x1 "Preparing for recall..."
+echo draw 4  "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
 REPLY="";
@@ -284,7 +284,7 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo drawextinfo 7 "Done."
+echo draw 7 "Done."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -293,12 +293,12 @@ echo "issue 1 1 $GO_BACK"
 echo "issue 1 1 $GO_FORTH"
 echo "issue 1 1 $GO_FORTH"
 sleep 1s
-echo drawextinfo 0x3 0x1 0x1 "Exiting $0."
+echo draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-#echo unwatch drawextinfo
+echo unwatch drawextinfo
 echo unwatch drawinfo
 exit $1
 }
@@ -306,8 +306,8 @@ exit $1
 f_emergency_exit(){
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
-echo drawextinfo 3 1 1 "Emergency Exit $0 !"
-#echo unwatch drawextinfo
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch drawextinfo
 echo unwatch drawinfo
 echo "issue 1 1 fire_stop"
 exit $1
@@ -316,7 +316,7 @@ exit $1
 
 # *** Getting Player's Speed *** #
 
-echo drawextinfo 0xd61414 0x1 0x1 "Processing Player's Speed..."
+echo draw 4  "Processing Player's Speed..."
 
 SLEEP=4           # setting defaults
 DELAY_DRAWINFO=8
@@ -341,10 +341,10 @@ echo unwatch request
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 PL_SPEED="0.${PL_SPEED:0:2}"
 
-echo drawextinfo 7 "" "" "Player speed is $PL_SPEED"
+echo draw 7 "" "" "Player speed is $PL_SPEED"
 
 PL_SPEED="${PL_SPEED:2:2}"
-echo drawextinfo 0x07 0x01 0x01 "Player speed is $PL_SPEED"
+echo draw 7  "Player speed is $PL_SPEED"
 
   if test $PL_SPEED -gt 35; then
 SLEEP=1; DELAY_DRAWINFO=2
@@ -354,12 +354,12 @@ elif test $PL_SPEED -gt 15; then
 SLEEP=3; DELAY_DRAWINFO=6
 fi
 
-echo drawextinfo 0x7 0x2 0x2 "Done."
+echo draw 7  "Done."
 
 
 # *** Check if cauldron is empty *** #
 
-echo drawextinfo 0x4 0x3 0x3 "Checking if cauldron is empty..."
+echo draw 4  "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
@@ -367,7 +367,7 @@ sleep ${SLEEP}s
 echo "issue 1 1 apply"
 sleep 0.5s
 
-#echo watch drawextinfo
+echo watch drawextinfo
 echo watch drawinfo
 
 OLD_REPLY="";
@@ -388,18 +388,18 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo drawextinfo 3 0 0 "REPLY_ALL='"${REPLY_ALL}"'"
+echo draw 3 0 0 "REPLY_ALL='"${REPLY_ALL}"'"
 
 test "`echo "$REPLY_ALL" | grep 'Nothing to take!'`" || {
-echo drawextinfo 0x3 "" "" "Cauldron NOT empty !!"
-echo drawextinfo 0x3 " " " " "Please empty the cauldron and try again."
+echo draw 3 "" "" "Cauldron NOT empty !!"
+echo draw 3 " " " " "Please empty the cauldron and try again."
 f_exit 1
 }
 
-#echo unwatch drawextinfo
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
-echo drawextinfo 7 1 2 "OK ! Cauldron IS empty."
+echo draw 7  "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
@@ -410,7 +410,7 @@ echo "issue 1 1 $GO_FORTH"
 sleep ${SLEEP}s
 
 
-echo drawextinfo 4 2 3 "OK... Might the Might be with You!"
+echo draw 4  "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
 
@@ -425,7 +425,7 @@ REPLY="";
 echo "issue 1 1 apply"
 sleep 0.5s
 
-#echo watch drawextinfo
+echo watch drawextinfo
 echo watch drawinfo
 
 echo "issue 1 1 drop 7 water"
@@ -444,7 +444,7 @@ sleep 0.1s
 done
 
 
-#echo unwatch drawextinfo
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep ${SLEEP}s
@@ -457,7 +457,7 @@ sleep ${SLEEP}s
 
 
 
-#echo watch drawextinfo
+echo watch drawextinfo
 echo watch drawinfo
 
 echo "issue 1 1 use_skill alchemy"
@@ -476,13 +476,13 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-#echo unwatch drawextinfo
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 echo "issue 1 1 apply"
 sleep 0.5s
 
-#echo watch drawextinfo
+echo watch drawextinfo
 echo watch drawinfo
 
 echo "issue 7 1 get"
@@ -501,7 +501,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-#echo unwatch drawextinfo
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep ${SLEEP}s
@@ -569,8 +569,7 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-#echo drawextinfo 0x3 0x0 0x0 "LOOP BOTTOM: NOT ON CAULDRON!"
-echo drawextinfo 3 0 0 "LOOP BOTTOM: NOT ON CAULDRON!"
+echo draw 3  "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
 }
 
@@ -578,9 +577,9 @@ f_exit 1
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo drawextinfo 0x4 " " " " "Elapsed $TIME s, still '$TRIES_STILL' to go..."
+echo draw 4 " " " " "Elapsed $TIME s, still '$TRIES_STILL' to go..."
 
 done
 
 # *** Here ends program *** #
-echo drawextinfo 2 1 1 "$0 is finished."
+echo draw 2  "$0 is finished."
