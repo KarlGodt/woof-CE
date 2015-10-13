@@ -31,8 +31,15 @@ _trap
 export LANG=C
 . /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, ICONPARTITIONS, HOTPLUGNOISY, HOTPLUGON, FLOPPYICON.
 . /etc/rc.d/functions4puppy4
-ePUPPYPIN=`grep -v "$HOME/\.pup_event/drive_" $HOME/Choices/ROX-Filer/PuppyPin | grep -v '</pinboard>'`
 
+PUP_EVENT_DIR="$HOME/Choices/Puppy/.pup_event"
+# PUP_EVENT_DIR="$HOME/.pup_event"
+
+DEBUG=1
+
+ePUPPYPIN=`grep -v "$PUP_EVENT_DIR/drive_" $HOME/Choices/ROX-Filer/PuppyPin | grep -v '</pinboard>'`
+
+__old_change__(){
 #v403 /usr/sbin/eventmanager creates this file if all icons need to be rebuilt...
 if [ -f /tmp/pup_event_change_icons.flg ];then
  IconChange=`cat /tmp/pup_event_change_icons.flg`
@@ -42,11 +49,11 @@ _info "$IconChange"
 if [ "$IconChange" = "ICONWIPE" ]; then
  #rm -f /tmp/pup_event_change_icons.flg
 
- rm -f $HOME/Choices/ROX-Filer/PuppyPin
- echo "$ePUPPYPIN" >  $HOME/Choices/ROX-Filer/PuppyPin
+ rm $VERB -f $HOME/Choices/ROX-Filer/PuppyPin
+ echo "$ePUPPYPIN"   > $HOME/Choices/ROX-Filer/PuppyPin
  echo '</pinboard>' >> $HOME/Choices/ROX-Filer/PuppyPin
- rm -rf $HOME/.pup_event/drive_* 2>$ERR
- sync
+ rm $VERB -rf $PUP_EVENT_DIR/drive_* 2>$ERR
+ _sync
  sleep 1
 
  #rox -p $HOME/Choices/ROX-Filer/PuppyPin
@@ -116,33 +123,36 @@ if [ "$IconChange" = "ICONWIPE" ]; then
     Cleandeskicons=0
  exit
 fi
+}
 
+__old__(){
 #remove all invalid drive icons off desktop...
 echo -n "" > /tmp/pup_event_ok_pin
 if [ "$ICONDESK" = "false" ];then
  #leave single 'drives' icon on desktop...
- grep "$HOME/\.pup_event/drive_drives" $HOME/Choices/ROX-Filer/PuppyPin >> /tmp/pup_event_ok_pin
- rm -rf $HOME/.pup_event/drive_[^d]* 2>$ERR #delete all except drive_drives.
+ grep "$PUP_EVENT_DIR/drive_drives" $HOME/Choices/ROX-Filer/PuppyPin >> /tmp/pup_event_ok_pin
+ rm $VERB -rf "$PUP_EVENT_DIR"/drive_[^d]* 2>$ERR #delete all except drive_drives.
+
 else
 
  #v410 Delete drive_ directories for removed drives...
  #note, this will not detect removed optical and floppy discs (see /sbin/pup_event_frontend_d).
  #Get the directory names for the drives only, not the partitions, to avoid redundant iterations through the for-loop.
- DIR_DRVS=`ls -1 $HOME/.pup_event | sed 's/drive_//' | grep -E "^hd.$|^sd.$|^sr|^mmcblk.$"`
+ DIR_DRVS=`ls -1 $PUP_EVENT_DIR | sed 's/drive_//' | grep -E "^hd.$|^sd.$|^sr|^mmcblk.$"`
  for oneDRV in $DIR_DRVS
  do
-  [ ! -d $HOME/.pup_event/drive_$oneDRV ] && continue
-  [ ! -e /sys/block/${oneDRV} ] && rm -rf $HOME/.pup_event/drive_${oneDRV}*
+  [ -d $PUP_EVENT_DIR/drive_$oneDRV ] || continue
+  [ -e /sys/block/${oneDRV} ] || rm $VERB -rf $PUP_EVENT_DIR/drive_${oneDRV}*
  done
 
- for oneDRV in `ls -1 /sys/block | grep -vE 'loop|ram'`
+ for oneDRV in `ls -1 /sys/block | grep -vE 'loop|ram|zram|mtd'`
  do
   odPATTERN="$HOME/\\.pup_event/drive_${oneDRV}"
   OKDRV=`grep "$odPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`
   if [ "$OKDRV" = "" ];then
-   rm -rf $HOME/.pup_event/drive_${oneDRV}* 2>$ERR
+   rm $VERB -rf $PUP_EVENT_DIR/drive_${oneDRV}* 2>$ERR
   else
-   [ ! -d $HOME/.pup_event/drive_${oneDRV} ] && continue #v408
+   [ -d $PUP_EVENT_DIR/drive_${oneDRV} ] || continue #v408
    DRVCUT=`echo -n "$oneDRV" | cut -c 1,2` #v410
    [ "$DRVCUT" = "sr" ] && continue #v410 omit icon if optical drive; defer it to pup_event_frontend_d
    [ "$DRVCUT" = "sc" ] && continue #v410 scd, ditto.
@@ -155,7 +165,7 @@ else
    #note, this must be same as done in /sbin/probedisk2...
    DRVMODEL2=`cat /sys/block/$oneDRV/device/vendor | tr -s ' '``cat /sys/block/${oneDRV}/device/model | tr -s ' '`
    if [ "$DRVMODEL1" != "$DRVMODEL2" ];then
-    rm -rf $HOME/.pup_event/drive_${oneDRV}* 2>$ERR
+    rm $VERB -rf $PUP_EVENT_DIR/drive_${oneDRV}* 2>$ERR
     continue
    fi
    echo "$OKDRV" >> /tmp/pup_event_ok_pin
@@ -169,5 +179,60 @@ fi
  cat /tmp/pup_event_ok_pin >> $HOME/Choices/ROX-Filer/PuppyPin
  echo '</pinboard>' >> $HOME/Choices/ROX-Filer/PuppyPin
 #fi
+}
 
+remove_pinboard_func() { #needs name of entire drive or partition (PART_NAME)
+ local DEBUG=1
+ case $PART_NAME in
+ hd*[0-9]*|sd*[0-9]*|mmc*[0-9]*)
+ PART_NAME=`echo $PART_NAME | tr -d '/' | sed 's#dev##g'` ;;
+ hd*|sd*|mmc*)
+ PART_NAME=`echo $PART_NAME | tr -d '/' | sed 's#dev##g' | sed 's/[0-9].*//g'`;;
+ fd*|sr*|scd*|*)
+ PART_NAME=`echo $PART_NAME | tr -d '/' | sed 's#dev##g'`;;
+ esac
+
+ ppPATTERN=" label=\"$PART_NAME"
+ ppPATTERN="${ppPATTERN}.*"
+
+ if [ ! "`grep "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin`" ]; then
+ return; fi
+ ALLNAMES=`grep -o "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | sort -r` #'geany
+ _debug "remove_pinboard_func:$PART_NAME:$ALLNAMES"
+ for oneDRVNAME in $ALLNAMES
+ do
+ _debug "remove_pinboard_func:oneDRVNAME=$oneDRVNAME"
+
+  echo "<?xml version=\"1.0\"?>
+<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
+ <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
+  <PinboardRemove>
+   <Path>$PUP_EVENT_DIR/drive_${oneDRVNAME}</Path>
+  </PinboardRemove>
+ </env:Body>
+</env:Envelope>"  | rox -R
+ done
+}
+
+_do_clean(){
+while read line
+do
+test "$line" || continue
+ICONPATH=`echo "$line" | grep -o '>[^<>]*</icon>' | awk -F'[<>]' '{print $2}'`
+echo "$ICONPATH"
+rm $VERB -rf "$ICONPATH"
+PART_NAME=${ICONPATH##*drive_}
+#remove_pinboard_func       # pup_event_frontend_d
+icon_remove_func $PART_NAME # functions4puppy4
+done << EoI
+`grep '/drive_' $HOME/Choices/ROX-Filer/PuppyPin`
+EoI
+
+#grep -v '/drive_' $HOME/Choices/ROX-Filer/PuppyPin >/tmp/puppypin
+#cp $VERB /tmp/puppypin $HOME/Choices/ROX-Filer/PuppyPin
+
+}
+_do_clean
+
+_debug "Finished."
 ###END###
