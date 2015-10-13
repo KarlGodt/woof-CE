@@ -203,7 +203,7 @@ echo "$oSTRING"
 _posparams_to_octal()
 {
         _debug "_posparams_to_octal:$@"
-
+        test "$*" || return 0
 # REM: could use od binary ..
 #echo -n "$@" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\ !\\0!g;s!:$!!;/^$/d;s!^!\\0!' >/tmp/posPARAMS.od
 # REM: or write to /tmp file ...
