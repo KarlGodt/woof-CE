@@ -32,7 +32,7 @@ ONE_DIR_IN_SYSTEM=`echo "$ONE_DIR" | sed 's!^../woof-code/rootfs-skeleton!!'`
 [ "$DEBUG" ] && echo "ONE_DIR_IN_SYSTEM='$ONE_DIR_IN_SYSTEM'"
 test -d "$ONE_DIR_IN_SYSTEM" || continue
 
- cd "$CURRENT_DIR/../$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/../$ONE_DIR'"
+ cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
  FILES=`ls -1Av | grep -v '.git'`
 
@@ -57,7 +57,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
  [ -e "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ] && {
 
-         cd "$CURRENT_DIR/../$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/../$ONE_DIR'"
+         cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
          diff -q "$ONE_DIR_IN_SYSTEM/$ONE_FILE" ./"$ONE_FILE" && continue #returns 1 if differ
 
@@ -81,7 +81,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 by the one found currently in the system." || error_cont 1 "git commit failed."
          sleep 1
 
-         cd "$CURRENT_DIR/../$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/../$ONE_DIR'"
+         cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
 
         } || { echo "$ONE_DIR_IN_SYSTEM/$ONE_FILE : No such so."; }
 
