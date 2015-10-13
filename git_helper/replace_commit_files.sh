@@ -73,7 +73,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
          sleep 1
          fi
 
-         cd "$CURRENT_DIR"/../ || error 1 "Could not cd into '$CURRENT_DIR/../'"
+         cd "$CURRENT_DIR" || error 1 "Could not cd into '$CURRENT_DIR'"
 
          git add "$ONE_DIR/$ONE_FILE" || continue
 
