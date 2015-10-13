@@ -40,7 +40,7 @@ NUMBER=0 #set zero as default
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce water of GEM."
 echo draw 7 "Syntax:"
@@ -52,7 +52,7 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of GEM ."
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
@@ -171,6 +171,7 @@ do
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
 echo "issue 1 1 drop 1 water of the wise"
 
@@ -209,6 +210,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep 1s
@@ -223,6 +225,7 @@ echo "issue 1 1 use_skill alchemy"
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
 echo "issue 1 1 get"
 
@@ -240,6 +243,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 
 sleep 1s
