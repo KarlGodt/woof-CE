@@ -79,6 +79,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
 [ "$CODECHECK" -o "$CHECKCODE" ] && set -n
 . /etc/rc.d/f4puppy5
+test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 
 #...comment-out for now. note, TZ now set in rc.country.
 export LANG=C
@@ -143,10 +144,8 @@ loadswap_func(){ #w481 made into a function.
 }
 
 #if have just done a switch_root, output a 'done' message...
-[ -d /initrd ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
+[ "$PUPMODE" = 2 ] || status_func 0 #note, /initrd does not exist when a full-hd installation.
 
-
-test -f /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
 STATUS=0
 
 ##############MAKE FILESYSTEM USABLE################
@@ -163,14 +162,14 @@ else
 fi
 
 ##+++2012-01-29
-mkdir $VERB -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
+mkdir $VERB -p /dev/vc;rm $VERB -f /dev/vc/11;mknod /dev/vc/11 c 4 11
 openvt -c 11 autologinroot
 ##+++2012-01-29
 
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
 #if [ ! "$DISPLAY" ];then
-rm -rf /tmp/*  ##+++2011-11-30 implemented again
-rm -rf /tmp/.[[:alnum:]_-]*  ##+++2012-05-28
+rm $VERB -rf /tmp/*  ##+++2011-11-30 implemented again
+rm $VERB -rf /tmp/.[[:alnum:]_-]*  ##+++2012-05-28
 #fi
 #redirect all output to a log file (must do after remount rw)...
 #[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
@@ -178,7 +177,7 @@ exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
-rm -f /etc/mtab
+rm $VERB -f /etc/mtab
 ln $VERB -s /proc/mounts /etc/mtab
 
 mkdir $VERB -p /dev/pts ####KRG for DEVTMPFS KERNEL
@@ -430,8 +429,8 @@ fi
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
-rm -f /mnt/home 2>>$ERR
-if [ ! -d /initrd ];then
+rm $VERB -f /mnt/home 2>>$ERR
+if [ "$PUPMODE" = 2 ] ;then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln $VERB -s / /mnt/home
@@ -513,10 +512,10 @@ fi
 #wait for usb-storage drives to become available...(already done if initrd)
 #note, pup_event_backend_d and udevd both log to this file when load modules
 # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
-if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath.log`" != "" ];then #see pup_event_backend_d
+if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath.log`" ];then #see pup_event_backend_d
  echo -n " usb-storage"  >/dev/console
  while [ $WAITCNT -lt 15 ];do
-  [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
+  [ "`dmesg | grep 'usb-storage: device scan complete'`" ] && break
   sleep 1
   WAITCNT=$(( WAITCNT + 1 ))
   echo -n " $WAITCNT" >/dev/console
@@ -545,7 +544,7 @@ echo "USER SELECTED MODULES"
 _daemons  ##+++2012-01-28
 while [ "`pidof pup_event_backend_modprobe`" ];do sleep 2;done
 #the user can select extra modules to load in the BootManager...
-if [ "$ADDLIST" != "" ];then #variable is in /etc/rc.d/MODULESCONFIG
+if [ "$ADDLIST" ];then #variable is in /etc/rc.d/MODULESCONFIG
  echo -n "Loading user-selected modules..." >/dev/console
  for MODULE in $ADDLIST
  do
@@ -584,7 +583,7 @@ if [ -h /dev/modem ];then
  DEVM="`readlink /dev/modem`"
  case $DEVM in
   modem) #error, circular link.
-   rm -f /dev/modem
+   rm $VERB -f /dev/modem
    DEVM=""
   ;;
   /dev/*) #wrong format.
@@ -625,7 +624,7 @@ fi
 #100814 100903 record cumulative tx/rx, see also network_tray and rc.shutdown...
 UPDATE_MONTH="`LC_TIME=C date +%b`"
 read CURRENT_MONTH </var/local/sns/current_month
-[ ! "$CURRENT_MONTH" ] && CURRENT_MONTH='none'
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH='none'
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
  for oneCOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
@@ -714,7 +713,7 @@ echo -n ' optical' >/dev/console
 OPTCNT=1;CDTYPE="";DVDTYPE="";CDBURNERTYPE=""
 OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*' | tr '\t' ' '`"
 [ -L /dev/cdrom ] && CDTYPE="`readlink /dev/cdrom | cut -f 3 -d '/'`"
-[ -L /dev/dvd ] && DVDTYPE="`readlink /dev/dvd | cut -f 3 -d '/'`"
+[ -L /dev/dvd ]  && DVDTYPE="`readlink /dev/dvd | cut -f 3 -d '/'`"
 [ -f /etc/cdburnerdevice ] && CDBURNERTYPE="`cat /etc/cdburnerdevice`"
 [ "`echo "$OPTICALS" | grep "$CDTYPE"`" ] || CDTYPE="" #no longer exists.
 #[[ "$OPTICALS" =~ "$CDTYPE" ]] || CDTYPE=""
@@ -730,7 +729,7 @@ do
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL" #100131
  OPTCNT=$((OPTCNT + 1))
 done
-rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
+rm $VERB -f /dev/cdrom /dev/dvd /etc/cdburnerdevice
 [ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE /dev/cdrom
 [ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" > /etc/cdburnerdevice
@@ -739,7 +738,7 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 echo -n ' input' >/dev/console #100131
 
 test -d /dev/input || mkdir $VERB -p /dev/input
-test -c /dev/input/mice || { rm -rf /dev/input/mice; mknod /dev/input/mice c 13 63; }
+test -c /dev/input/mice || { rm $VERB -rf /dev/input/mice; mknod /dev/input/mice c 13 63; }
 if [ ! -f /etc/mousedevice ];then
  echo "input/mice" > /etc/mousedevice
  #ln $VERB -snf input/mice /dev/mouse
@@ -812,8 +811,8 @@ fi
 
 fsckme_func_rc_shutdown(){ ###krg Mar112011:turned into func to call at end of script
 #100315 improper shutdown check. see /etc/rc.d/rc.sysinit, /init in initramfs, and /sbin/init...
-[ -f /boot/.fsckme.err ] && rm -f /boot/.fsckme.err
-[ -f /initrd${PUP_HOME}/boot/.fsckme.err ] && rm -f /initrd${PUP_HOME}/boot/.fsckme.err
+[ -f /boot/.fsckme.err ] && rm $VERB -f /boot/.fsckme.err
+[ -f /initrd${PUP_HOME}/boot/.fsckme.err ] && rm $VERB -f /initrd${PUP_HOME}/boot/.fsckme.err
 }
 ##### fsckme.flg
 
