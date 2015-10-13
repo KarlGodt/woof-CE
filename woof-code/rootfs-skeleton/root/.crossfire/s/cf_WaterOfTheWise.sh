@@ -141,7 +141,7 @@ exit $1
 
 
 # *** Getting Player's Speed *** #
-
+sleep 1
 echo draw 4 "Processing Player's Speed..."
 
 SLEEP=4           # setting defaults
