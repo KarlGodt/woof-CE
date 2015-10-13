@@ -229,7 +229,7 @@ o_DEBUG=$DEBUG
 o_DEBUGX=$DEBUGX
 o_DEBUGT=$DEBUGT
 
-test -f /etc/eventmanager && . /etc/eventmanager
+test -f /etc/eventmanager.cfg && . /etc/eventmanager.cfg
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
