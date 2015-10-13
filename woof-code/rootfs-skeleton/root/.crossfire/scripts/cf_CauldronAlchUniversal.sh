@@ -15,7 +15,7 @@ C=0 #set zero as default
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in *"help"*)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
@@ -27,7 +27,7 @@ echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 
         exit 0
-        }
+;; esac
 
 # *** testing parameters for validity *** #
 
@@ -227,6 +227,7 @@ REPLY="";
 echo "issue 1 1 apply"
 
 echo watch drawinfo
+echo watch drawextinfo
 
  for FOR in `seq 2 1 $C`; do
 
@@ -271,6 +272,7 @@ esac
 
  done
 
+echo unwatch drawextinfo
 echo unwatch drawinfo
 sleep 1s
 
