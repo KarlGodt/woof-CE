@@ -32,9 +32,10 @@ _trap
 #
 ###
 
-
+DEBUGX=
+DEBUG=1
 trap "exit 1" HUP INT QUIT KILL TERM
-echo "DEBUG='$DEBUG'" >&2
+echo "$0:DEBUG='$DEBUG'" >&2
 
 OUT=/dev/null;ERR=$OUT
 
@@ -148,40 +149,40 @@ _do_disktype(){
     disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
 }
 
-DEBUG=
-DEBUGX=
-
 _get_filesystem(){
+    _debugx "6"
     if test "$NO_FLOPPY"; then
     case $1 in fd*) FSTYPE=skipped; return 0;;esac
     fi
-
+    _debugx "7"
+    _debug "guess_fstype:"
     #[ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`  #+++2013-12-27 awful fd hack...
     [ "$FSTYPE" ]  || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
     #[ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
-
+    _debug "guess_fstype^"
+     _debugx "8"
       # 2014-10-29 blkid for reiser4  #2014-11-02 busybox blkid for exFAT
-      _debugx "FSTYPE='$FSTYPE'"   >&2
+      _debugx "FSTYPE='$FSTYPE'"
      [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`blkid /dev/"$1" |grep -o ' TYPE="[[:alnum:]_]*"' | cut -f2 -d'"'` || FSTYPE=unknown; }
-      _debugx "FSTYPE='$FSTYPE'"   >&2
+      _debugx "FSTYPE='$FSTYPE'"
       case $FSTYPE in   ## reiser v3 or v4
       *reiser*|*Reiser*|*REISER*)  FSTYPE=`_command blkid /dev/"$1" |grep -o ' TYPE="[[:alnum:]_]*"' | cut -f2 -d'"'`
-      _debugx "FSTYPE='$FSTYPE'"   >&2
+      _debugx "FSTYPE='$FSTYPE'"
       esac
 
      [ "$FSTYPE" ] || FSTYPE=unknown
-       _debug "FSTYPE='$FSTYPE'" >&2
+       _debug "FSTYPE='$FSTYPE'"
 
      case $REMOVEABLE in
-     1)  _debug $1 is REMOVEABLE   >&2
-        _debugx "FSTYPE='$FSTYPE'" >&2
+     1)  _debug $1 is REMOVEABLE
+        _debugx "FSTYPE='$FSTYPE'"
      [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs'` && FSTYPE=`echo "$FSTYPE" | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYPE='not inserted'; }
 
     ;;
-    0)  _debug $1 is not REMOVEABLE >&2
+    0)  _debug $1 is not REMOVEABLE
      :
     ;;
-    *)  _debug $1 has set '$REMOVEABLE' as REMOVEABLE >&2
+    *)  _debug $1 has set '$REMOVEABLE' as REMOVEABLE
      :
     ;;
     esac
@@ -201,11 +202,12 @@ while read maj min drive rest; do
 [ "$drive" ] || continue
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
+_debugx "1"
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
 [ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
-
+_debugx "2"
 case $drive in
 *[0-9])
 
@@ -214,9 +216,11 @@ case $drive in
  elif [ -r /sys/class/block/$drive/device/removable ]; then
  read REMOVEABLE </sys/class/block/$drive/device/removable
  fi
-
+ _debugx "3"
  [ "$REMOVEABLE" = 0 ] || _do_cddetect "$drive"
+ _debugx "4"
   _get_filesystem "$drive"
+ _debugx "5"
   echo "/dev/$drive|$FSTYPE|$SIZE" >&1
 ;;
 
@@ -235,5 +239,6 @@ esac
 
 done </proc/diskstats
 
+echo "$0:END" >&2
 # Very End of this file 'sbin/probepart7' #
 ###END###
