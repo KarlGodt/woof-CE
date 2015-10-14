@@ -22,12 +22,6 @@ fi
 . /etc/rc.d/f4puppy5
 VERBOSE=1
 
-
-# REM: Available drivers
-_show_available_cpufreq_drivers(){
- modprobe -l | grep cpufreq  | sort
-}
-
 # REM: Use modinfo 'driver' ie modinfo p4-clockmod
 #       for info about the driver
 _example_list_of_cpufreq_modules(){
@@ -67,13 +61,6 @@ kernel/drivers/cpufreq/speedstep-smi.ko         ## Intel
 EoI
 }
 
-FREQMODS="acpi-cpufreq"
-
-# REM: governors
-_show_available_cpufreq_governors(){
- modprobe -l | grep cpufreq_  | sort
-}
-
 _example_list_of_cpufreq_governors(){
 cat >&1 <<EoI
 kernel/drivers/cpufreq/cpufreq_conservative.ko
@@ -103,21 +90,36 @@ cat >&1 <<EoI
 EoI
 }
 
+# REM: Available drivers
+_show_available_cpufreq_drivers(){
+ modprobe -l | grep cpufreq  | sort
+}
+
+# REM: governors
+_show_available_cpufreq_governors(){
+ modprobe -l | grep cpufreq_  | sort
+}
+
+ FREQMODS="acpi-cpufreq"
  GOVERNOR='ondemand'
  GOVERNORS='conservative ondemand performance powersave userspace'
 
+if [ "$DEBUG" ]; then
        ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/   ##DEBUG
 grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*  ##DEBUG
+fi
 
 if [ "$GOVERNOR" = 'ondemand' ]; then
- test "$TRESHOLD"         || TRESHOLD=99         # Range 11-100 %
- test "$SAMPLERATE"       || SAMPLERATE=200000   # Range 10000 Hz - CPU Hz
- test "$IGNORE_NICE_LOAD" || IGNORE_NICE_LOAD=0
+ test "$TRESHOLD"          || TRESHOLD=99         # Range 11-100 %
+ test "$SAMPLERATE"        || SAMPLERATE=200000   # Range 10000 Hz - CPU Hz
+ test "$IGNORE_NICE_LOAD"  || IGNORE_NICE_LOAD=1
+ test "$SAMPLING_DOWN_FACTOR" || SAMPLING_DOWN_FACTOR=10
 fi
 
 test "$up_threshold"     || up_threshold=$TRESHOLD
 test "$sampling_rate "   || sampling_rate=$SAMPLERATE
 test "$ignore_nice_load" || ignore_nice_load=$IGNORE_NICE_LOAD
+test "$sampling_down_factor" || sampling_down_factor=$SAMPLING_DOWN_FACTOR
 
 case "$1" in
  start)
@@ -127,10 +129,10 @@ case "$1" in
  # REM: add your driver to FREQMODS
   for oneMOD in $FREQMODS
   do
-   modprobe $VERB $oneMOD
+   modprobe $Q $VERB -b $oneMOD
    if [ $? -eq 0 ];then
     # REM: now insert driver GOVERNOR
-    modprobe $VERB cpufreq_${GOVERNOR}
+    modprobe $Q $VERB -b cpufreq_${GOVERNOR}
     if [ $? -eq 0 ];then
 
      # REM: some grep syntax that work for the purpose:
@@ -199,12 +201,12 @@ case "$1" in
      #
      #
 
-     # REM core is core and thread
+     # REM core is core and thread ( thread directory gets linked to core )
      for core in `ls -1v /sys/devices/system/cpu/ | grep -w '^cpu[0-9]\{1,\}$'`
      do
       [ "$VERBOSE" ] && ls -ld /sys/devices/system/cpu/$core/cpufreq # DEBUG
       # REM: test if LINK , then it is a thread
-      test -L /sys/devices/system/cpu/$core/cpufreq && continue
+      test -L /sys/devices/system/cpu/$core/cpufreq && continue # do not write twice or more
 
       # REM: test if governor is available
       grep $Q "${GOVERNOR}" /sys/devices/system/cpu/$core/cpufreq/scaling_available_governors || continue
@@ -219,11 +221,13 @@ case "$1" in
       fi
 
       # REM: DEBUG
+      if [ "$DEBUG" ]; then
       sleep 0.2
       #ls -l /sys/devices/system/cpu/$core/cpufreq/${GOVERNOR}/  ##DEBUG
       #grep -H '.*' /sys/devices/system/cpu/$core/cpufreq/${GOVERNOR}/*  ##DEBUG
       ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/  ##DEBUG
       grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*  ##DEBUG
+      fi
 
      done
 
@@ -243,8 +247,10 @@ case "$1" in
    fi
   done
 
+if [ "$DEBUG" ]; then
        ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/   ##DEBUG
 grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*  ##DEBUG
+fi
 
 if _test_fw /sys/devices/system/cpu/cpufreq/${GOVERNOR}/ignore_nice_load; then
 :
@@ -278,8 +284,10 @@ if _test_fw /sys/devices/system/cpu/cpufreq/${GOVERNOR}/; then
 :
 fi
 
+if [ "$DEBUG" ]; then
        ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/   ##DEBUG
 grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*  ##DEBUG
+fi
 
  ;;
 
@@ -296,9 +304,38 @@ grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*  ##DEBUG
      ( timeout -t 5 modprobe $VERB -r $oneMOD || exit 5 ) & sleep 1
     done
  ;;
+  status)
+		echo "FILES:"
+           ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/
+        echo "CONTENTS:"
+		   grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*
 
+ ;;
+  help)
+       case $2 in
+       modules) echo "EXAMPLE LIST of FREQUENZY DRIVERS:"
+				      _example_list_of_cpufreq_modules
+                echo
+                echo "LIST of available FREQUENZY DRIVERS:"
+                      _show_available_cpufreq_drivers
+                echo
+                echo "EXAMPLE LIST of  GOVERNOR DRIVERS:"
+					  _example_list_of_cpufreq_governors
+			    echo
+				echo "LIST of available GOVERNOR DRIVERS:"
+				      _show_available_cpufreq_governors
+		 ;;
+         settings)
+                echo "The ondemand driver has these defaults:"
+                _show_hard_compiled_in_settings_ondemand
+
+         ;;
+         *) :
+         ;;
+         esac
+ ;;
 *)
- echo "Usage: $0 start|stop"
+ echo "Usage: $0 start|stop|status|help [modules|settings]"
  ;;
 esac
 
