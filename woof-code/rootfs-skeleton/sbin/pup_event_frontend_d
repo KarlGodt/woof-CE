@@ -68,62 +68,23 @@ _trap
 #           --spinbox "Choose the Tray Height" 0 0 10 48 $SET_NOW 'Tray height:' 2>$TMP
 #        in /usr/local/jwmconfig2/taskbarHeight .
 #
-# 04.0 : Added support for udf .
+# 04.0 : Display all filesystems except unknown and such.
 #
 # 05.0 : Totally reworked some of my code ..
 #        Invented ZCDPOLL var also in /usr/sbin/eventmanager .
 #        Renamed HOTPLUGON to DESKDAEMON .
-#        Took care of single 'drives' icon .
+#        Took care of single 'drives' icon.
 #        Introduced /tmp/pup_event_manager.flg
 #         prior to /tmp/pup_event_change_icons.flg .
 #
-# 06.0 : Added support for battery check .
-# 07.0 : Added default funcCLEAN_DESK_ICONS to
-#        redraw desktop drive icons
+# 06.0 : Added support for battery check.
+# 07.0 : Added _clean_desk_icons() to
+#        redraw desktop drive icons each time at startup.
 #
-# #OLD /dev/sda5:
-# /dev/sda2
-# #OLD LABEL="MacPup430_F3"
-# LABEL="MacPup_F_3"
-# #OLD UUID="07443de5-1fab-4656-a3ab-7b1c14ccc8c8"
-# UUID="f7956448-f63f-44f4-a725-f15dd21add97"
-# TYPE="ext3"
-# DISTRO_VERSION=430              #481·#416·#218·#478······#####change·this·as·required#####
-# DISTRO_BINARY_COMPAT="puppy"    #"ubuntu"·#"puppy"·······#####change·this·as·required#####
-# case·$DISTRO_BINARY_COMPAT·in
-# puppy)·#built·entirely·from·Puppy·v2.x·or·v3.x·or·4.x·pet·pkgs.
-# DISTRO_NAME="Puppy"
-# DISTRO_FILE_PREFIX="pup"        #"ppa"·#"ppa4"·#"pup2"··#pup4··###CHANGE·AS·REQUIRED,·recommend·limit·four·characters###
-# DISTRO_COMPAT_VERSION="4"       #"2" #4·····###CHANGE·AS·REQUIRED,·recommend·single·digit·5,·4,·3,·or·2###
-# ;;
-# esac
-# PUPMODE=2
-# #OLD KERNVER=2.6.30.6-KRG-i486
-# KERNVER=3.4.9-KRG-iCore2-smp-pae-srv1000gz
-# ATADRIVES='·sda'
-# USB_SATAD=''
-# PUP_HOME='/'
-# #OLD Linux·puppypc·2.6.30.6-KRG-i486·#1·SMP·Sun·Jan·2·20:32:12·GMT-1·2011·i686·GNU/Linux
-# Linux puppypc 3.4.9-KRG-iCore2-smp-pae-srv1000gz #1 SMP Sun Sep 16 18:34:45 GMT+1 2012 i686 GNU/Linux
-# #OLD Xserver=/usr/X11R7/bin/Xvesa_stripped_upx9
-# Xserver=/usr/X11R7/bin/Xorg
-# #OLD $LANG=en_US
-# $LANG=de_DE.utf8
-# #OLD today=Mon·Oct·24·22:53:50·CEST·2011
-# today=Mon Sep 17 15:09:38 GMT+1 2012
 #
-# TODO1: floppy drives : fd0 shown instead of fd1 ??
-#
-# TODO2: change path to /tmp/wmexitmode.txt ~FIXED
-# TODO3: inotifywait and freememapplet ... ~looks OK
-#
-# TODO 4 : add xmessage warning if powertimeout reached ~FIXED
-# TODO 5 : truncate powertimeout logfile to powertimeout lines +10 NOT , logfile without further purpose , commented out
-# TODO 6 : source /etc/eventmanager.cfg in icon_change_flag part
-#          for changes regarding drive icons ~FIXED
-#
-# TODO 7 : fix killzombies func ~DONE
-# TODO 8 : change '$0' to 'readlink -e $0' ...
+#  Added xmessage GUI warning if powertimeout reached.
+#  Removed powertimeout MOUSE logfile.
+#  Floppy drive icon and CD icon stay on desktop even if nothing inserted.
 #
 ########################################################################
 
@@ -192,9 +153,11 @@ RETVALm=1
 PREVSIZETMPM=0
 PREVSIZEFREEM=0
 
+### *** ROX-Filer Pinboard *** ###
 PUP_EVENT_DIR="$HOME/Choices/Puppy/.pup_event"
 #PUP_EVENT_DIR="$HOME/.pup_event"
 DRIVE_ICON_DIR="/usr/local/lib/X11/pixmaps/"
+CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
 ########### define tmp dir #####
 ###+++2012-01-18
@@ -231,7 +194,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.3-simple Macpup_F3-Puppy_Linux-430/2 KRG'
+Version='1.4-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
 $0 [help|version|start|stop|restart|reload]
@@ -358,6 +321,7 @@ fi
 _remove_pinboard(){
 #needs DRV_NAME (name of entire drive)
  _debug  "_remove_pinboard:$@"
+ [ "$*" ] || return
  DRV_NAME="$1"
  _debug  "DRV_NAME=$DRV_NAME'"
  ppPATTERN=' label="'"$DRV_NAME"'.*" '
@@ -576,6 +540,7 @@ _delete_drivers(){
 # Called from _free() and _free_flash().
 # Deletes modules to create more free space.
 # passed param: /pup_rw=delete tmpfs top layer only.
+ [ "$*" ] || return
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
  for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
@@ -600,6 +565,8 @@ _delete_drivers(){
 #v407 fixed so works for sr* and hd* optical...
 _probe_optical(){
 #passed param is sr<0-9> or hd<a-z>
+ _debug "_probe_optical:$*"
+ [ "$*" ] || return
  DRV_NAME="$1"
  DRV_CATEGORY="optical"
  CDSTATUS2="0"
@@ -635,6 +602,8 @@ unset DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
 #v407 detect ls120 and zip disc inserted...
 _probe_floppy(){
 #passed param is whole drive name (exs: hdc, sdc)
+ _debug "_probe_floppy:$*"
+ [ "$*" ] || return
  DRV_NAME="$1"
  DRVMAIN=`echo -n "$DRV_NAME" | cut -c 1,2` #sd or hd.
  DRV_CATEGORY="floppy"
@@ -734,6 +703,8 @@ _format_size(){
 }
 
 _create_appinfo(){
+_debug "_create_appinfo:$*"
+test "$*" || return
 
 INFO="$1"
 DISK_CATEGORY="$2"
@@ -764,7 +735,7 @@ oneDRVNAME="$4"
 
 
 _get_jwm_vars(){
-CWM=`cat /etc/windowmanager`
+read CWM </etc/windowmanager
 if [ "$CWM" = "jwm" ]; then
 JwmL=`grep -E -i 'Tray | autohide=| insert=| x=| y=| insert=' $HOME/.jwmrc-tray`
 # REM: using cut cut
@@ -783,7 +754,7 @@ _get_jwm_vars
 
 
 _get_rox_vars(){
-CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
+
 #PIN_GRID_STEP=`grep -m1 "pinboard_grid_step" "$CONFFILEROX" | sed -e "s/ *<[^>]*>//g"`
 # REM: filter comment lines
 PIN_GRID_STEP=`sed -n '/<!--/,/-->/!p' "$CONFFILEROX" | grep -m1 "pinboard_grid_step" | sed -e "s/ *<[^>]*>//g"`
@@ -838,7 +809,7 @@ _get_rox_vars
 #      fontsize may be very big and clash with jwm taskbar/tray
 _get_max_xy(){
 
-CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
+#CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
 FONT_SIZE=`grep 'name="label_font">.*<' "$CONFFILEROX" |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
 _debug "FONTSIZE='$FONT_SIZE'"
 
@@ -1038,6 +1009,7 @@ _free_coord() {
 _add_pinboard(){
 #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
 _debug "_add_pinboard:$@"
+test "$*" || return
 oneDRVNAME="$1"
 DRV_CATEGORY="$2"
 FSTYPE="$3"
@@ -1074,38 +1046,33 @@ _create_icon(){
     _debug  "_create_icon:$@"
     #echo "DRV_NAME='$DRV_NAME' DRV_CATEGORY='$DRV_CATEGORY' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
     _debug  "DISK_NAME='$DISK_NAME' DISK_CATEGORY='$DISK_CATEGORY' DISK_DESCRIPTION='$DISK_DESCRIPTION'"
+    test "$1" -a "$2" -a "$3" || return
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
- #if a passed param $1, then _PROBEPART_ already known, inefficient to rerun here each time.
+ #if a passed param $4, then _PROBEPART_ already known, inefficient to rerun here each time.
 
- if [ "$1" = startup ]; then
- DISK_NAME="$2"
- DISK_CATEGORY="$3"
- DISK_DESCRIPTION="$4"
- else
  DISK_NAME="$1"
  DISK_CATEGORY="$2"
  DISK_DESCRIPTION="$3"
- fi
 
  DISK_PARTITIONS="${DISK_NAME}|0|0"
 
  if [ "$ICONPARTITIONS" = "true" ];then
   #display an icon for each partition... w476 add ext4...
-  [ "$1" = startup ] && { shift; true; } || _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
-  drvPATTERN='^/dev/'"${DISK_NAME}" #important, no space on end!
-  DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
+  [ "$4" = startup ] && { shift; true; } || _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
+  diskPATTERN='^/dev/'"${DISK_NAME}" #important, no space on end!
+  DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$diskPATTERN" | cut -f 1,2,3 -d '|'`
 
   #w482 k2.6.25.16 /proc/partitions (read by probepart) can be slow to update...
   diCNT=0
   if [ "`echo "$DISK_NAME" | grep -E '^sd|^mmc|^sr|^scd'`" ];then
-   while [ "$DISK_PARTITIONS" = "" ];
+   while [ "$DISK_PARTITIONS" = "" ];   # May be a Card reader without inserted card - difficult to detect
    do
     diCNT=$((diCNT+1))
     [ "$diCNT" -gt 13 ] && break ##+-=2013-07-07
     sleep 2  ##ZTE MODEM sr2 slow in updating values > increased count 3>13, sleep 1>2
     _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
-    DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
+    DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$diskPATTERN" | cut -f 1,2,3 -d '|'`
     case $DISK_NAME in
     sd*)
     test -e /sys/block/$DISK_NAME/${DISK_NAME}1  || break
@@ -1122,7 +1089,7 @@ _create_icon(){
     esac
    done
   fi
- _debug  "$DISK_PARTITIONS"
+ _debug  "DISK_PARTITIONS=$DISK_PARTITIONS"
  fi
 
  oldIFS="$IFS"
@@ -1133,7 +1100,7 @@ _create_icon(){
   oneDRVNAME=`echo "$onePART" | cut -f 1 -d '|' | cut -f 3 -d '/'`
       FSTYPE=`echo "$onePART" | cut -f 2 -d '|'`
         SIZE=`echo "$onePART" | cut -f 3 -d '|'`
-  drvPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
+  partPATTERN='^/dev/'"${oneDRVNAME}"' ' #important, a space on end!
   if [ ! -d "$PUP_EVENT_DIR"/drive_${oneDRVNAME} ];then
       mkdir $VERB "$PUP_EVENT_DIR"/drive_${oneDRVNAME}
    cp $VERB -af /usr/local/bin/drive_all "$PUP_EVENT_DIR"/drive_${oneDRVNAME}/AppRun
@@ -1165,7 +1132,7 @@ _create_icon(){
 
   if [ "$ICONDESK" = "true" ];then             #see /etc/eventmanager.cfg.
    MNTSTATUS=`/bin/df | grep -w "^/dev/$oneDRVNAME"`
-   _debug  "MNTSTATUS='$MNTSTATUS' for drvPATTERN='$drvPATTERN'"
+   _debug  "MNTSTATUS='$MNTSTATUS' for partPATTERN='$partPATTERN'"
 
    if [ "$MNTSTATUS" ];then
     icon_mounted_func   "$oneDRVNAME" "$DISK_CATEGORY"   #see functions4puppy4.
@@ -1213,8 +1180,8 @@ _create_icon(){
    _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
  fi
  done
-unset DISK_PARTITIONS onePART MNTSTATUS
-unset oneDRVNAME DISK_NAME DISK_CATEGORY drvPATTERN FSTYPE INFO SIZE MOREITEMS
+unset DISK_PARTITIONS diskPATTERN onePART MNTSTATUS
+unset oneDRVNAME DISK_NAME DISK_CATEGORY partPATTERN FSTYPE INFO SIZE MOREITEMS
 }
 
 _pup_event_startup(){
@@ -1225,7 +1192,10 @@ mkdir $VERB -p "$PUP_EVENT_DIR"
 #build the desktop icons...
 DISK_CATEGORY='drive'
 
-#KRG_PROBEDISK_=`probedisk2`
+_PROBEDISK_=`probedisk2`
+
+__format_probedisk__(){
+#KRG
 echo > /tmp/PROBEDISK2.txt #KRG  #ignores Linuxscsi_debug ;)
 #probedisk2 | grep -v -i -E 'DBG|DEBUG' | sed '/^$/d' | while read line; do
 probedisk2 | grep -v -i -E 'DBG|DEBUG'  | while read line; do
@@ -1240,6 +1210,7 @@ else
 _PROBEDISK_=`cat /tmp/PROBEDISK2.txt`
 fi
 #KRG
+}
 
 #v407 ls120/zip floppy drives are probed every 4 secs...
  DISK_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'`
@@ -1268,7 +1239,7 @@ else
   _debug  "DISK_NAME=$DISK_NAME DISK_CATEGORY=$DISK_CATEGORY DISK_DESCRIPTION=$DISK_DESCRIPTION"
   [ "`echo "$_PROBEPART_" | grep "$DISK_NAME"`" ] || continue #precaution (such as CD not inserted).
   _debug  "'$DISK_NAME' in _PROBEDISK_ and _PROBEPART_"
-  _create_icon startup "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, _PROBEPART_.
+  _create_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION" startup #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, _PROBEPART_.
  sleep 0.3
  done
 
@@ -1306,6 +1277,7 @@ _powertimeout(){
    MINUTECNT=$((MINUTECNT + POLL_PLUG_DEVICE))
   [ $MINUTECNT -ge 60 ] || return 0 #come in here every minute...
     MINUTECNT=0
+  # BATTERY
    if [ "$BAT_0" = '1' ];then
   BAT_0_CURRENT=`grep 'last full capacity:' "$BAT_0_info_file"`
   BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
@@ -1315,7 +1287,9 @@ _powertimeout(){
 better to plug in ac adapter or poweroff the laptop "
     fi #warn
    fi #bat
+   # AUTOUNMOUNT
    [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+   # POWERTIMEOUT
    if [ "$POWERTIMEOUT" -gt '0' ];then
    MOUSECNT=$((MOUSECNT+60))
    CURPOS2=`getcurpos`
@@ -1413,6 +1387,7 @@ do
    *) NO_FLOPPY=--ignore-floppy;;
    esac
 
+   _PROBEDISK_=`probedisk2`
    DISK_OPTICAL=`echo "$_PROBEDISK_" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
     DISK_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
 
@@ -1448,7 +1423,7 @@ _EOI
  fi
 
  unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH
- unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM
+ unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM _PROBEDISK_
  #######four second timeout procesing#########
  #if [ $TOGGLE -eq 0 ];then #slow down to every 4 seconds.
  # TOGGLE=1
