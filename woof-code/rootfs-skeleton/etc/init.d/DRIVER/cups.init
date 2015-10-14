@@ -1,0 +1,323 @@
+#!/bin/sh
+#
+# "$Id: cups.sh.in 6649 2007-07-11 21:46:42Z mike $"
+#
+#   Startup/shutdown script for the Common UNIX Printing System (CUPS).
+#
+#   Copyright 2007 by Apple Inc.
+#   Copyright 1997-2007 by Easy Software Products, all rights reserved.
+#
+#   These coded instructions, statements, and computer programs are the
+#   property of Apple Inc. and are protected by Federal copyright
+#   law.  Distribution and use rights are outlined in the file "LICENSE.txt"
+#   which should have been included with this file.  If this file is
+#   file is missing or damaged, see the license at "http://www.cups.org/".
+#
+
+#### OS-Dependent Information
+
+#
+#   Linux chkconfig stuff:
+#
+#   chkconfig: 235 99 00
+#   description: Startup/shutdown script for the Common UNIX \
+#                Printing System (CUPS).
+#
+
+#
+#   NetBSD 1.5+ rcorder script lines.  The format of the following two
+#   lines is very strict -- please don't add additional spaces!
+#
+# PROVIDE: cups
+# REQUIRE: DAEMON
+#
+
+  _TITLE_=Cups_Print_Init_Script
+_COMMENT_="CLI to start / stop cups daemon"
+
+MY_SELF="$0"
+
+test -f /etc/rc.d/f4puppy5 && {
+source /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+}
+
+
+#### OS-Dependent Configuration
+
+case "`uname`" in
+    IRIX*)
+        IS_ON=/sbin/chkconfig
+
+        if $IS_ON verbose; then
+            ECHO=echo
+        else
+            ECHO=:
+        fi
+        ECHO_OK=:
+        ECHO_ERROR=:
+        ;;
+
+    *BSD*)
+            IS_ON=:
+        ECHO=echo
+        ECHO_OK=:
+        ECHO_ERROR=:
+        ;;
+
+    Darwin*)
+        . /etc/rc.common
+
+        if test "${CUPS:=-YES-}" = "-NO-"; then
+            exit 0
+        fi
+
+            IS_ON=:
+        ECHO=ConsoleMessage
+        ECHO_OK=:
+        ECHO_ERROR=:
+        ;;
+
+    Linux*)
+        IS_ON=/bin/true
+        if test -f /etc/init.d/functions; then
+            . /etc/init.d/functions
+            ECHO=echo
+            ECHO_OK="echo_success"
+            ECHO_ERROR="echo_failure"
+        else
+            ECHO=echo
+            ECHO_OK=:
+            ECHO_ERROR=:
+        fi
+        ;;
+
+    *)
+        IS_ON=/bin/true
+        ECHO=echo
+        ECHO_OK=:
+        ECHO_ERROR=:
+        ;;
+esac
+
+#### OS-Independent Stuff
+
+#
+# Set the timezone, if possible...  This allows the scheduler and
+# all child processes to know the local timezone when reporting
+# dates and times to the user.  If no timezone information is
+# found, then Greenwich Mean Time (GMT) will probably be used.
+#
+
+for file in /etc/TIMEZONE /etc/rc.config /etc/sysconfig/clock; do
+    if test -f $file; then
+            . $file
+    fi
+done
+
+if test "x$ZONE" != x; then
+    TZ="$ZONE"
+fi
+
+if test "x$TIMEZONE" != x; then
+    TZ="$TIMEZONE"
+fi
+
+if test "x$TZ" != x; then
+    export TZ
+fi
+
+#
+# Don't use TMPDIR environment variable from init script, as that can
+# cause cupsd to set TempDir to a user's temporary directory instead
+# of the default...
+#
+
+unset TMPDIR
+
+
+#
+# Make sure we have the standard program directories in the path
+# since some operating systems (this means YOU HP-UX!) don't
+# provide a standard path on boot-up...
+#
+
+if test "x$PATH" = x; then
+    PATH="/bin:/usr/bin:/sbin:/usr/sbin"
+else
+    PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
+fi
+
+export PATH
+
+#
+# See if the CUPS server (cupsd) is running...
+#
+
+case "`uname`" in
+    HP-UX* | AIX* | SINIX*)
+        pids=`ps -e | awk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+        ;;
+    IRIX* | SunOS*)
+        pids=`ps -e | nawk '{if (match($4, ".*/cupsd$") || $4 == "cupsd") print $1}'`
+        ;;
+    UnixWare*)
+        pids=`ps -e | awk '{if (match($6, ".*/cupsd$") || $6 == "cupsd") print $1}'`
+        . /etc/TIMEZONE
+        ;;
+    OSF1*)
+        pids=`ps -e | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+        ;;
+    Linux* | *BSD* | Darwin*)
+        pids=`/bin/ps ax | awk '{if (match($5, ".*/cupsd$") || $5 == "cupsd") print $1}'`
+        ;;
+    *)
+        pids=""
+        ;;
+esac
+
+#
+# Start or stop the CUPS server based upon the first argument to the script.
+#
+
+test -f /var/run/cups/cupsd.pid && read CUPSD_PID </var/run/cups/cupsd.pid
+
+if test ! "$CUPSD_PID" -a "$pids"; then
+ for aPID in $pids
+  do
+  ETIMES="$ETIMES
+`ps --no-header -p $aPID -o etime,pid | sed 's%^ *%%'`"
+ done
+fi
+ETIMES=`echo "$ETIMES" | sort -n -k 2 -t '-'`
+echo "ETIMES='$ETIMES'"
+
+test "$CUPSD_PID" && pid=$CUPSD_PID || {
+pid=`echo "$ETIMES" | tail -n1 | awk '{print $2}'`
+pidsOTHER=`echo "$ETIMES" | awk '{print $2}' | grep -v -w "$pid"`
+}
+
+. /etc/rc.d/f4puppy5
+
+WHAT="$1"
+case $1 in
+    start | restart | reload)
+
+    CUPSD_OPTIONS=''
+
+    # load drivers
+    modprobe -v parport_pc 2>$ERR
+    modprobe -v lp         2>$ERR
+    modprobe -v usblp      2>$ERR
+
+    # make device nodes
+    test -e /dev/lp0 || mknod /dev/lp0 c 6 0
+    test -c /dev/lp0 || { _secure_remove /dev/lp0 && mknod /dev/lp0 c 6 0; }
+    test -e /dev/unknown-parallel0 || ln -s lp0 /dev/unknown-parallel0
+    test -L /dev/unknown-parallel0 || { _secure_demove /dev/unknown-parallel0; ln -s lp0 /dev/unknown-parallel0; }
+
+    # permissions
+    chmod 0666 /dev/urandom
+    chmod 0666 /dev/random
+
+        if $IS_ON cups; then
+
+            for aPID in $pidsOTHER; do kill $aPID; done
+
+            if test "$pid" != ""; then
+                test "$WHAT" = start && WHAT=restart
+                kill -HUP $pid
+            else
+                test "$WHAT" = restart -o "$WHAT" = reload && WHAT=start
+                prefix=/
+                exec_prefix=/usr
+                /usr/sbin/cupsd $CUPSD_OPTIONS
+                if test $? != 0; then
+                    $ECHO_FAIL
+                    $ECHO "cups: unable to $WHAT scheduler."
+                    exit 1
+                fi
+            fi
+            if test $? = 0; then
+
+             test -f /var/run/cups/cupsd.pid && read CUPSD_PID </var/run/cups/cupsd.pid
+             test "$CUPSD_PID" || CUPSD_PID=`pidof cupsd`
+
+             $ECHO_OK
+             $ECHO "cups: ${WHAT}ed scheduler with PID '$CUPSD_PID' ."
+            else
+             $ECHO_FAIL
+             $ECHO "cups: unable to $WHAT scheduler."
+            fi
+
+        else
+          $ECHO_FAIL
+          $ECHO "cups: IS_ON not true, not ${1}ed scheduler."
+        fi
+
+        ;;
+
+    stop)
+
+        for aPID in $pidsOTHER; do kill $aPID; done
+
+        if test "$pid" != ""; then
+            kill $pid
+            if test $? = 0; then
+             $ECHO_OK
+             $ECHO "cups: stopped scheduler."
+            else
+             $ECHO_FAIL
+             $ECHO "cups: unable to $1 scheduler."
+            fi
+        else
+          $ECHO_OK
+          $ECHO "cups: Not running."
+        fi
+        ;;
+
+    status)
+        if test "$pid" != ""; then
+            echo "cups: scheduler is running with PID '$pid' ."
+        else
+            echo "cups: scheduler is not running."
+        fi
+        ;;
+
+    start_msg)
+        # HP-UX non-standard...
+        echo "Starting CUPS Server"
+        ;;
+
+    stop_msg)
+        # HP-UX non-standard...
+        echo "Starting CUPS Server"
+        ;;
+
+    *)
+        echo "Usage: cups {reload|restart|start|status|stop}"
+        exit 1
+        ;;
+esac
+
+#
+# Exit with no errors.
+#
+
+exit 0
+
+
+#
+# End of "$Id: cups.sh.in 6649 2007-07-11 21:46:42Z mike $".
+#
+
