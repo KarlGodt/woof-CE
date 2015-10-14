@@ -81,10 +81,14 @@ _trap
 # 07.0 : Added _clean_desk_icons() to
 #        redraw desktop drive icons each time at startup.
 #
-#
 #  Added xmessage GUI warning if powertimeout reached.
 #  Removed powertimeout MOUSE logfile.
 #  Floppy drive icon and CD icon stay on desktop even if nothing inserted.
+#  Reordered to code of _free*() functions to lauch resizepfile.sh in case PUPMODE 12|13 .
+#  Say warnmessage even in PUPMODE 2|5 if not enough space .
+#  Run _savepuppy after _check_disturb* .
+#  Added _check_disturb*() functions.
+#  The ugly code of ps | grep is 2-5 times more leightweight than using pidof $DO_NOT_DISTURB  .
 #
 ########################################################################
 
@@ -144,10 +148,10 @@ ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
 KERNEL_RELEASE=`uname -r`
 . /etc/eventmanager.cfg #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
 . /etc/rc.d/functions4puppy4
-SIZE_MODS_M=0
+SIZE_MODS_MB=0
 if [ "$ZDRVINIT" = "yes" ];then
  #all mods were in initrd at bootup, then moved to main f.s.
- SIZE_MODS_M=`du -m -s /lib/modules | cut -f 1`
+ SIZE_MODS_MB=`du -m -s /lib/modules | cut -f 1`
 fi
 RETVALm=1
 PREVSIZETMPM=0
@@ -159,15 +163,21 @@ PUP_EVENT_DIR="$HOME/Choices/Puppy/.pup_event"
 DRIVE_ICON_DIR="/usr/local/lib/X11/pixmaps/"
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
-########### define tmp dir #####
+### *** do not check for powertimeout if these apps are running *** #
+# space delimited for loops and pidof
+DO_NOT_DISTURB='axel burniso2cd cdrecord dotpup downloadpkgs.sh gcc gcurl gimv growisofs installpkg.sh make mhwaveedit mplayer pburn pcdripper pdvdrsab petget ripoff vlc wget xfmedia xine xmms xorrecord xorriso'
+# staff delimited and regular expr escaped by \ for grep -E
+DO_NOT_DISTURB2='axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|vlc|wget|xfmedia|xine|xmms|xorrecord|xorriso'
+
+##### define tmp dir for wmexitmode.txt and loop shutdown #####
+###+++2012-01-18 ###---2015-10-14 disabled
+#if [ -d /tmp/xwin ]; then
+#TMPXWIN='/tmp/xwin'
+#else
+#TMPXWIN='/tmp'
+#fi
 ###+++2012-01-18
-if [ -d /tmp/xwin ]; then
-TMPXWIN='/tmp/xwin'
-else
-TMPXWIN='/tmp'
-fi
-###+++2012-01-18
-########### define tmp dir #####
+########### define tmp dir ###########
 
 ########### battery ##########################
 #support warning for low battery
@@ -194,7 +204,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.4-simple Macpup_F3-Puppy_Linux-430/2 KRG'
+Version='1.5-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
 $0 [help|version|start|stop|restart|reload]
@@ -392,7 +402,7 @@ EoI
  done
 }
 
-_free_initrd(){
+_free_initrd(){  #_free_ram
 #UniPup, runs entirely in initramfs.
 
  __old_freekm__(){
@@ -410,37 +420,50 @@ _free_initrd(){
  echo "$SIZEFREEM" >/tmp/pup_event_sizefreem
 }
 
-_free(){
+_free(){  # _free_savefile _free_rootfs
 #called every POLL_PLUG_DEVICE seconds.
  case $PUPMODE in
   6|12) #frugal to whole partition|frugal to save-file (on HDD)
    #SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
-    SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
+    SIZEFREESAVE_MB=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
   ;;
-  *)
+  *) # 2|5
    #SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
-    SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
+    SIZEFREESAVE_MB=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
   ;;
  esac
  WARNMSG=""
- [ "$SIZEFREEM" ] || WARNMSG="Could not determine free space using df plus filters"
+ [ "$SIZEFREESAVE_MB" ] || WARNMSG="Could not determine free space using df plus filters"
  [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
- [ $PREVSIZEFREEM -eq $SIZEFREEM ] && return
- if [ $SIZEFREEM -lt 10 ];then
-  if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
-   _delete_drivers /initrd/pup_rw #save layer is at top, delete mods.
-  else
-   WARNMSG="$WARNMSG
+ [ $PREVSIZEFREEM -eq $SIZEFREESAVE_MB ] && return
+ if [ $SIZEFREESAVE_MB -lt 10 ];then
+  WARNMSG="$WARNMSG
    WARNING: Personal storage getting full, strongly recommend you resize it or delete files!"
+  if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
+   case $PUPMODE in 6|12)
+   _delete_drivers /initrd/pup_rw #save layer is at top, delete mods.
+   ;;
+   esac
+  else
+    :
   fi
+  case $PUPMODE in 12)
+   pidof resizepfile.sh >>$OUT || resizepfile.sh &
+  ;;
+  esac
  fi
 
- VIRTUALFREEM=$SIZEFREEM
+ if [ "$WARNMSG" != "" ];then
+  killall yaf-splash >>$OUT 2>>$ERR
+  yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
+ fi
+
+ VIRTUALFREEM=$SIZEFREESAVE_MB
 
  if [ "$ZDRVINIT" = "yes" ];then                         #full set of modules present, moved from initrd.
   if [ -d /initrd/pup_rw/lib/modules/all-firmware ];then #have not yet deleted modules.
-   #calc the "virtual" free space (would have if modules not there...)
-     VIRTUALFREEM=$(( SIZEFREEM + SIZE_MODS_M ))
+     #calc the "virtual" free space (would have if modules not there...)
+     VIRTUALFREEM=$(( SIZEFREESAVE_MB + SIZE_MODS_MB ))
      #allow for some mods will not be deleted.
      VIRTUALFREEM=$(( VIRTUALFREEM - 1 ))
   fi
@@ -448,75 +471,86 @@ _free(){
 
  #save to a file, freememapplet can read this...
  echo "$VIRTUALFREEM" >/tmp/pup_event_sizefreem
- [ $PUPMODE -eq 5 -o $PUPMODE -eq 2 ] && return 0 #5=first boot, no msgs at top of screen. 2=full install
- if [ "$WARNMSG" != "" ];then
-  killall yaf-splash
-  yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
- fi
+ #[ $PUPMODE -eq 5 -o $PUPMODE -eq 2 ] && return 0 #5=first boot, no msgs at top of screen. 2=full install
+
 }
 
 _free_flash(){
 #PUPMODE 3,7,13. called every PULL_PLUG_DEVICE seconds. 3=full on internal flash, 7 frugal to whole partition, 13=frugal to save-file
 # WARNMSG=""
 
-  SIZEFREEM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_ro1") print $4}' | tail -n1`
+  SIZEFREESAVE_MB=`/bin/df -m | awk '{if ($NF == "/initrd/pup_ro1") print $4}' | tail -n1`
 
-   SIZETMPM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
+   SIZEFREETMP_MB=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
 
  WARNMSG=""
- [ "$SIZEFREEM" ] || WARNMSG="Could not determine free space in save-file using df and filters"
-  [ "$SIZETMPM" ] || WARNMSG="$WARNMSG
+ [ "$SIZEFREESAVE_MB" ] || WARNMSG="Could not determine free space in save-file using df and filters"
+  [ "$SIZEFREETMP_MB" ] || WARNMSG="$WARNMSG
 Could not determine free space in /tmp layer"
 
  [ -s /tmp/pup_event_sizefreem ] && read PREVSIZEFREEM </tmp/pup_event_sizefreem
  [ -s /tmp/pup_event_sizetmpm ]  && read PREVSIZETMPM  </tmp/pup_event_sizetmpm
- [ "$PREVSIZEFREEM" = $SIZEFREEM -a "$PREVSIZETMPM" = $SIZETMPM ] && return
+ [ "$PREVSIZEFREEM" = $SIZEFREESAVE_MB -a "$PREVSIZETMPM" = $SIZEFREETMP_MB ] && return
 
- if [ $SIZEFREEM -lt 10 ]; then
+ if [ $SIZEFREESAVE_MB -lt 10 ]; then
+  WARNMSG="$WARNMSG
+   WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    _delete_drivers /initrd/pup_ro1 #delete modules in save layer only.
+  WARNMSG="$WARNMSG
+  NOTE: Have removed drivers and firmware in /initrd/pup_ro1/lib/modules"
   else
-   WARNMSG="$WARNMSG
-   WARNING: Personal storage file getting full, strongly recommend you resize it and reboot or delete files!"
-   pidof resizepfile.sh >>$OUT || resizepfile.sh &
+   :
   fi
+  case $PUPMODE in 13)
+  pidof resizepfile.sh >>$OUT || resizepfile.sh &
+  ;;
+  esac
  fi
 
  # REM: try freeing ^unused^ RAM
- if [ $SIZETMPM -lt 5 ]; then
-  echo '3' >/proc/sys/vm/drop_caches && { sleep 2;
-
-   SIZETMPM=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
-    }
+ if [ $SIZEFREETMP_MB -lt 5 ]; then
+  echo '3' >/proc/sys/vm/drop_caches && {
+  sleep 2;
+  SIZEFREETMP_MB=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
+  }
  fi
 
- if [ $SIZETMPM -lt 5 ]; then
+ if [ $SIZEFREETMP_MB -lt 5 ]; then
+  WARNMSG="$WARNMSG
+   WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
   if [ -d /initrd/pup_rw/lib/modules/all-firmware -a "$ZDRVINIT" = "yes" ];then
    _delete_drivers /initrd/pup_rw #delete modules in top tmpfs layer only.
-  else
    WARNMSG="$WARNMSG
-   WARNING: RAM working space only ${SIZETMPM}MB, recommend a reboot which will flush the RAM"
+   NOTE: Have removed drivers and firmware in /initrd/pup_rw/lib/modules"
+  else
+  :
   fi
+  case $PUPMODE in 13)
+  pidof resizepfile.sh >>$OUT || resizepfile.sh &
+  ;;
+  esac
  fi
 
- VIRTUALFREEM=$SIZEFREEM
+ if [ "$WARNMSG" != "" ]; then
+  killall yaf-splash >>$OUT 2>>$ERR
+  yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
+ fi
+
+ VIRTUALFREEM=$SIZEFREESAVE_MB
  if [ "$ZDRVINIT" = "yes" ]; then #full set of modules present at bootup.
   if [ -d /initrd/pup_ro1/lib/modules/all-firmware ];then #have not yet deleted modules.
    #calc the "virtual" free space (would have if modules not there...)
-     VIRTUALFREEM=$(( SIZEFREEM + SIZE_MODS_M ))
+     VIRTUALFREEM=$(( SIZEFREESAVE_MB + SIZE_MODS_MB ))
    #allow for some mods will not be deleted.
      VIRTUALFREEM=$(( VIRTUALFREEM - 1 ))
   fi
  fi
 
- echo "$SIZETMPM" > /tmp/pup_event_sizetmpm
+ echo "$SIZEFREETMP_MB" > /tmp/pup_event_sizetmpm
  #save to a file, freememapplet can read this...
  echo "$VIRTUALFREEM" > /tmp/pup_event_sizefreem
 
- if [ "$WARNMSG" != "" ]; then
-  killall yaf-splash
-  yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
- fi
 }
 
 _savepuppy(){
@@ -531,7 +565,7 @@ _savepuppy(){
   YAFPID=$!
   pidof sync >>$OUT || sync
   nice -n 19 /usr/sbin/snapmergepuppy
-  kill $YAFPID
+  kill $YAFPID >>$OUT 2>>$ERR
  #fi
 }
 
@@ -1250,10 +1284,10 @@ _pup_event_startup
 
 _stop_daemon_exit_on(){
 if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.cfg.
- killall hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
+ killall hotplug2stdout >>$OUT 2>>$ERR #pup_event_backend_d #no module/firmware hotplug support.
  #...kill hotplug2stdout, as that will cause pup_eventd_backend_d to die.
- [ "`ps-FULL --no-headers -C udevd`" ] && killall udevd
- [ "`ps-FULL --no-headers -C pup_event_backend_modprobe_protect`" ] && pup_event_backend_modprobe_protect --stop
+ [ "`pidof udevd`" ] && killall udevd >>$OUT 2>>$ERR
+ [ "`pidof pup_event_backend_modprobe_protect`" ] && pup_event_backend_modprobe_protect --stop
  #exit ##+-2012-01-18
 fi
 #[ "$HOTPLUGON" = "false" ] && exit
@@ -1311,7 +1345,7 @@ in the
 and change this value .
 "
       if [ "$?" -lt '101' ];then
-      echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt
+      #echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt ## done in wmpoweroff
       exec wmpoweroff &
       fi
     fi
@@ -1320,6 +1354,33 @@ and change this value .
 fi
 }
 _which_powertimeout
+
+_check_disturb_ps_grep(){ # 25-50% less CPU signature than pidof
+local RUNPS=`ps`
+echo "$RUNPS" | grep $Q -E "$DO_NOT_DISTURB2" && return 1
+return 0
+}
+
+_check_disturb_pidof(){ # same heavy as for pidof done
+pidof $DO_NOT_DISTURB >$OUT && return 1
+return 0
+}
+
+_check_disturb_for(){  # same heavy as pidof LONG_LINE
+for a in $DO_NOT_DISTURB
+do
+pidof $a >$OUT && return 1
+done
+return 0
+}
+
+_check_disturb_ps_c(){  #heaviest
+for a in $DO_NOT_DISTURB
+do
+/bin/ps --no-heading -C $a >$OUT && return 1
+done
+return 0
+}
 
 ##+++2013-07-07
 ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
@@ -1333,8 +1394,9 @@ while :
 do
  sleep $POLL_PLUG_DEVICE
 
+ ##disable it because using kill
  #graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- [ -f "$TMPXWIN"/wmexitmode.txt ] && return  ##+2011-11-07 changed path to "$TMPXWIN"
+ #[ -f "$TMPXWIN"/wmexitmode.txt ] && return  ##+2011-11-07 changed path to "$TMPXWIN"
 
  #test for any change in /sys/block...
  ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
@@ -1412,12 +1474,12 @@ _EOI
   do
    #DEVPATH=/block/$DISK_NAME
    if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
-    killall gtkdialog_pmount 2>>$ERR
+    killall gtkdialog_pmount >>$OUT 2>>$ERR
     sleep 0.1
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    _remove_pinboard "$DISK_NAME"   #needs DRV_NAME
-   rm $VERB -rf "$PUP_EVENT_DIR"/drive_${DISK_NAME}* 2>>$ERR
+   rm $VERB -rf "$PUP_EVENT_DIR"/drive_${DISK_NAME}*
   done
 
  fi
@@ -1437,20 +1499,11 @@ _EOI
  #monitor free memory, periodic save of tmpfs top layer...
  case $PUPMODE in
   3|7|13)  #flash
-   _free_flash
-   #SAVECNT=$((SAVECNT + POLL_PLUG_DEVICE))
-   #if [ "$RAMSAVEINTERVAL" -ge 1 -a "$SAVECNT" -ge $RAMSAVEINTERVAL ];then
-   #touch /tmp/snapmergepuppyrequest #request to funcsavepuppy.
-   #SAVECNT=0
-   #fi
-   [ "$RAMSAVEINTERVAL" -ge 1 -o -f /tmp/snapmergepuppyrequest ] && _savepuppy
-  ;;
-  16|24|17|25) #unipup.
-   _free_initrd
-  ;;
-  *)
-   _free
-  ;;
+     _free_flash;;
+  5|16|24|17|25) #unipup. 2015-10-14 testing PUPMODE 5 set here
+     _free_initrd;;
+  *) #2|5 6|12 #normal harddrive
+     _free;;
  esac
 
 if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
@@ -1510,7 +1563,26 @@ fi
 
  #some apps should not be disturbed by this background stuff...
  #w482 add xorriso...
- [ "`pidof make gcc xorriso xorrecord petget wget axel dotpup gcurl gimv burniso2cd growisofs cdrecord pcdripper xfmedia ripoff pdvdrsab pburn installpkg.sh downloadpkgs.sh`" ] && continue
+ #_check_disturb_pidof  || continue
+ #[ "`pidof make gcc xorriso xorrecord petget wget axel dotpup gcurl gimv burniso2cd growisofs cdrecord pcdripper xfmedia ripoff pdvdrsab pburn installpkg.sh downloadpkgs.sh`" ] && continue
+
+ # pidof is much much more heavy on CPU in xosview, than ps, echo | grep ..
+ _check_disturb_ps_grep || continue
+ #RUNPS=`ps`
+ #[ "`echo "$RUNPS" | grep -E 'axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso'`" ] && continue
+
+ #_check_disturb_for  || continue
+ #_check_disturb_ps_c || continue
+
+ case $PUPMODE in 3|7|13)
+   #SAVECNT=$((SAVECNT + POLL_PLUG_DEVICE))
+   #if [ "$RAMSAVEINTERVAL" -ge 1 -a "$SAVECNT" -ge $RAMSAVEINTERVAL ];then
+   #touch /tmp/snapmergepuppyrequest #request to funcsavepuppy.
+   #SAVECNT=0
+   #fi
+   [ "$RAMSAVEINTERVAL" -ge 1 -o -f /tmp/snapmergepuppyrequest ] && _savepuppy
+   ;;
+ esac
 
  _powertimeout
 
