@@ -68,18 +68,23 @@ case $param in
 *) :;;
 esac;done
 
-yaf-splash -bg green -text "Preparing for reboot..." &
+# First , test if X is running ...
+_pidof X || _exit 4 "X not running"
 
-read CURRRENT_WM </etc/windowmanager
-if [ "$CURRRENT_WM" != 'enlightenment_start' ];then
+read CURRENTWM </etc/windowmanager
+if [ "$CURRENTWM" != 'enlightenment_start' ];then
 :
 #[ "$1" ] && exit 1
 fi
 
-killSIG4pup_event='-QUIT'
-killall -QUIT pup_event_frontend_d
+[ "$DISPLAY" ] && yaf-splash -bg green -text "Preparing for reboot..." &
 
-#/sbin/pup_event_frontend_d will quit if this file exists...
+. /etc/eventmanager.cfg
+_pidof pup_event_frontend_d && {
+killall -ILL pup_event_frontend_d >>$OUT 2>>$ERR
+}
+sleep $POLL_PLUG_DEVICE
+
 echo "reboot $@" > /tmp/wmexitmode.txt
 echo "reboot $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 
@@ -103,7 +108,7 @@ fi
 
 
 ##e17
-pidof tempget && kill -2 `pidof tempget`
+pidof tempget >$OUT && kill -2 `pidof tempget`
 
 [ "$FORCE" ] || {
  for _file_ in $HOME/Choices/XINIT/*; do
@@ -113,9 +118,10 @@ pidof tempget && kill -2 `pidof tempget`
 }
 
 #w003
-read CURRENTWM </etc/windowmanager
+_pidof $CURRENTWM && {
 kill -9 `pidof ${CURRENTWM##*/}`
-killall X 2>>$ERR         #default is SIGTERM.
+}
+killall X >>$OUT 2>>$ERR  #default is SIGTERM.
 sleep 1                   #v1.0.7
 exec killall -9 X 2>>$ERR #v1.0.7 make sure X is killed.
 
