@@ -9,8 +9,10 @@ PROG='/root/.xinitrc'
 if [ -d /root/Choices/XINIT ]; then
 for file in /root/Choices/XINIT/*; do
 #source /root/Choices/XINIT/bb_acpi start &
-[ -f "$file" -a -r "$file" ] && { echo "source ing '$file'"
-source "$file" start &
+[ -f "$file" -a -r "$file" ] && {
+_info  "source ing '$file'"
+. "$file" start &
+sleep 0.1
 }
 done; fi
 
@@ -22,19 +24,19 @@ if [ "$CURRENTWM" = "startkde" ]; then
  exec startkde
 fi
 
+_pidof /sbin/pup_event_frontend_d || {
+exec /sbin/pup_event_frontend_d & #v403
+}
+
 _info "CURRENTWM='$CURRENTWM'"
 if [ "$CURRENTWM" != "enlightenment_start" ] ; then
 _info 'NOT E17'
 #v4.01 BK daemon to handle kernel uevents...
-#/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-exec /sbin/pup_event_frontend_d & #v403
 rox -p /root/Choices/ROX-Filer/PuppyPin
 #relocates right-side icons to actual right-side of screen...
 /usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
 else
 _info 'E17'
-#pup_event_frontend_d stop &
-exec /sbin/pup_event_frontend_d &
 exec dbus-uuidgen --ensure &
 fi
 
