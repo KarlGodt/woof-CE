@@ -165,19 +165,9 @@ CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
 ### *** do not check for powertimeout if these apps are running *** #
 # space delimited for loops and pidof
-DO_NOT_DISTURB='axel burniso2cd cdrecord dotpup downloadpkgs.sh gcc gcurl gimv growisofs installpkg.sh make mhwaveedit mplayer pburn pcdripper pdvdrsab petget ripoff vlc wget xfmedia xine xmms xorrecord xorriso'
-# staff delimited and regular expr escaped by \ for grep -E
-DO_NOT_DISTURB2='axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|vlc|wget|xfmedia|xine|xmms|xorrecord|xorriso'
-
-##### define tmp dir for wmexitmode.txt and loop shutdown #####
-###+++2012-01-18 ###---2015-10-14 disabled
-#if [ -d /tmp/xwin ]; then
-#TMPXWIN='/tmp/xwin'
-#else
-#TMPXWIN='/tmp'
-#fi
-###+++2012-01-18
-########### define tmp dir ###########
+DO_NOT_DISTURB='axel burniso2cd cdrecord curl dotpup downloadpkgs.sh gcc gcurl gimv growisofs installpkg.sh make mhwaveedit mplayer pburn pcdripper pdvdrsab petget ripoff vlc wget xfmedia xine xmms xorrecord xorriso'
+# staff delimited and regular expr escaped by \ for grep -E ; max 15 chars
+DO_NOT_DISTURB2='axel|burniso2cd|cdrecord|curl|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|vlc|wget|xfmedia|xine|xmms|xorrecord|xorriso'
 
 ########### battery ##########################
 #support warning for low battery
@@ -204,7 +194,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.5-simple Macpup_F3-Puppy_Linux-430/2 KRG'
+Version='1.6-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
 $0 [help|version|start|stop|restart|reload]
@@ -1299,6 +1289,40 @@ _stop_daemon_exit_on
 
 LINEP=D005;echo "$0 line '`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`' POWERTIMEOUT='$POWERTIMEOUT'"
 
+_which_check_battery(){
+
+_check_battery(){
+     : #STUB
+}
+if test "$BAT_0" = '1'; then
+_check_battery(){
+
+  BAT_0_CURRENT=`grep 'last full capacity:' "$BAT_0_info_file"`
+  BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
+    if [ $BAT_0_CURRENT -le $BAT_0_WARN ];then
+    aplay /usr/share/audio/2barks.au;aplay /usr/share/audio/2barks.au
+    pupmessage -bg red -timeout 30 "Battery State is: $BAT_0_CURRENT
+better to plug in ac adapter or poweroff the laptop "
+    fi #warn
+
+}
+fi
+}
+_which_check_battery
+
+_which_autounmount(){
+
+_autounmount(){
+     : #STUB
+}
+
+if [ "$AUTOUNMOUNT" = "true" ]; then
+_autounmount(){
+  _auto_unmount
+}
+fi
+}
+_which_autounmount
 
 _which_powertimeout(){ #w007 power-off computer after inactivity.
 
@@ -1306,8 +1330,9 @@ _powertimeout(){
     :  #STUB if all of the below are disabled
 }
 
-if [ "$POWERTIMEOUT" != '0' -o "$AUTOUNMOUNT" = "true" -o "$BAT_0" = '1' ];then
-_powertimeout(){
+#if [ "$POWERTIMEOUT" != '0' -o "$AUTOUNMOUNT" = "true" -o "$BAT_0" = '1' ];then
+if [ "$POWERTIMEOUT" != '0' ]; then
+__powertimeout(){
    MINUTECNT=$((MINUTECNT + POLL_PLUG_DEVICE))
   [ $MINUTECNT -ge 60 ] || return 0 #come in here every minute...
     MINUTECNT=0
@@ -1345,18 +1370,49 @@ in the
 and change this value .
 "
       if [ "$?" -lt '101' ];then
-      #echo 'wmpoweroff' > "$TMPXWIN"/wmexitmode.txt ## done in wmpoweroff
       exec wmpoweroff &
       fi
     fi
    fi
 }
+
+_powertimeout(){
+   MINUTECNT=$((MINUTECNT + POLL_PLUG_DEVICE))
+   [ $MINUTECNT -ge 60 ] || return 0 #come in here every minute...
+   MINUTECNT=0
+   if [ "$POWERTIMEOUT" -gt '0' ];then
+   MOUSECNT=$((MOUSECNT+60))
+   CURPOS2=`getcurpos`
+   #just a log file without any further purpose :
+   [ "$CURPOS1" != "$CURPOS2" ] && MOUSECNT=0
+   CURPOS1="$CURPOS2"
+    #[ $MOUSECNT -gt $POWERTIMEOUT ] && wmpoweroff &
+    if [ "$MOUSECNT" -gt $POWERTIMEOUT ];then
+     aplay /usr/share/audio/2barks.au
+     sleep 1
+     aplay /usr/share/audio/2barks.au
+     xmessage -title "FRONTEND_D POWERTIMEOUT" -timeout 60 -bg '#F213AD' -buttons "OK_poweroff :100, NO_KEEP_PUPPY_RUNNING:101" "Choosen POWERTIMEOUT reached of
+     $((POWERTIMEOUT/60)) min .
+
+If you think it is unapropriate , please go to
+> Puppy Eventmanager
+in the
+> System Menu
+and change this value .
+"
+      if [ "$?" -lt '101' ];then
+      exec wmpoweroff &
+      fi
+    fi
+   fi
+}
+
 fi
 }
 _which_powertimeout
 
 _check_disturb_ps_grep(){ # 25-50% less CPU signature than pidof
-local RUNPS=`ps`
+local RUNPS=`ps -o comm`
 echo "$RUNPS" | grep $Q -E "$DO_NOT_DISTURB2" && return 1
 return 0
 }
@@ -1393,10 +1449,6 @@ _pup_event_daemon(){
 while :
 do
  sleep $POLL_PLUG_DEVICE
-
- ##disable it because using kill
- #graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
- #[ -f "$TMPXWIN"/wmexitmode.txt ] && return  ##+2011-11-07 changed path to "$TMPXWIN"
 
  #test for any change in /sys/block...
  ls -1 /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
@@ -1459,7 +1511,6 @@ do
   for DISK_NAME in $BLOCKSADD
   do
    [ -e /sys/block/$DISK_NAME ] || continue #precaution
-   #DEVPATH=/block/$DISK_NAME
    odPATTERN='^/dev/'"$DISK_NAME"'|'
    IFS='|' read DISK_NAME DISK_CATEGORY DISK_DESCRIPTION PARTS <<_EOI
 $(echo "$_PROBEDISK_" | grep "$odPATTERN")
@@ -1472,7 +1523,6 @@ _EOI
   ACTION=remove
   for DISK_NAME in $BLOCKSREM
   do
-   #DEVPATH=/block/$DISK_NAME
    if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
     killall gtkdialog_pmount >>$OUT 2>>$ERR
     sleep 0.1
@@ -1486,15 +1536,6 @@ _EOI
 
  unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH
  unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM _PROBEDISK_
- #######four second timeout procesing#########
- #if [ $TOGGLE -eq 0 ];then #slow down to every 4 seconds.
- # TOGGLE=1
- # continue
- #else
- # TOGGLE=0
- #fi
- #######four second timeout procesing#########
-
 
  #monitor free memory, periodic save of tmpfs top layer...
  case $PUPMODE in
@@ -1505,6 +1546,7 @@ _EOI
   *) #2|5 6|12 #normal harddrive
      _free;;
  esac
+
 
 if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
 
@@ -1543,6 +1585,7 @@ if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
 
 fi;fi
 
+_check_battery
 
 if [ "$ZCDPOLL" != "false" ];then
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
@@ -1558,28 +1601,18 @@ if [ "$ZCDPOLL" != "false" ];then
   _probe_floppy $oneFLOPPY
  done
 fi
+_autounmount
 
 [ "$1" ] && { echo "$0 daemon started ."; shift; }
 
  #some apps should not be disturbed by this background stuff...
- #w482 add xorriso...
  #_check_disturb_pidof  || continue
- #[ "`pidof make gcc xorriso xorrecord petget wget axel dotpup gcurl gimv burniso2cd growisofs cdrecord pcdripper xfmedia ripoff pdvdrsab pburn installpkg.sh downloadpkgs.sh`" ] && continue
-
  # pidof is much much more heavy on CPU in xosview, than ps, echo | grep ..
  _check_disturb_ps_grep || continue
- #RUNPS=`ps`
- #[ "`echo "$RUNPS" | grep -E 'axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso'`" ] && continue
-
  #_check_disturb_for  || continue
  #_check_disturb_ps_c || continue
 
  case $PUPMODE in 3|7|13)
-   #SAVECNT=$((SAVECNT + POLL_PLUG_DEVICE))
-   #if [ "$RAMSAVEINTERVAL" -ge 1 -a "$SAVECNT" -ge $RAMSAVEINTERVAL ];then
-   #touch /tmp/snapmergepuppyrequest #request to funcsavepuppy.
-   #SAVECNT=0
-   #fi
    [ "$RAMSAVEINTERVAL" -ge 1 -o -f /tmp/snapmergepuppyrequest ] && _savepuppy
    ;;
  esac
