@@ -6,7 +6,7 @@
 
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -21,41 +21,55 @@ _parse_basic_parameters "$@"
 _trap
 }
 
- # Popup a short messsage if DISPLAY - if run from terminal, DISPLAY is not set
+. /etc/eventmanager.cfg
+
+case $1 in
+*force) FORCE=1;;
+esac
+
+# First , test if X is running ...
+_pidof X || _exit 4 "X not running"
+
+# Popup a short messsage if DISPLAY - if run from terminal, DISPLAY is not set
 [ "$DISPLAY" ] && yaf-splash -bg green -text "Exiting to prompt..." &
 
-killSIG4pup_event='-3'
+
 _pidof pup_event_frontend_d && {
-killall -SIGQUIT pup_event_frontend_d
+# killall -SIGHUP  pup_event_frontend_d  #works to write /tmp/pup_event_change_icon.flg
+# killall -SIGINT  pup_event_frontend_d  #does not work;
+# killall -SIGQUIT pup_event_frontend_d  #does not work; seems to restart some probepart ( sends HUP )
+  killall -SIGILL  pup_event_frontend_d  #worked from kernel console, works here too selected from plogout
+# killall -SIGTRAP pup_event_frontend_d  #worked from kernel console
+# killall -SIGABRT pup_event_frontend_d  #works
+# killall -SIGBUS  pup_event_frontend_d
+# killall -SIGFPE  pup_event_frontend_d
+# killall -SIGKILL pup_event_frontend_d  #works
+# killall -SIGUSR1 pup_event_frontend_d
+# killall -SIGSEGV pup_event_frontend_d
+# killall -SIGUSR2 pup_event_frontend_d
+# killall -SIGPIPE pup_event_frontend_d
+# killall -SIGALRM pup_event_frontend_d
+# killall -SIGTERM pup_event_frontend_d  #works
 }
+
+#POLL_PLUG_DEVICE=2
+sleep $POLL_PLUG_DEVICE
+#sleep $POLL_PLUG_DEVICE
+#sleep 2
+#sleep 2
+
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
 echo "exit $@" > /tmp/wmexitmode.txt
 echo "exit $@" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
-
-# Old pup_event_frontend_d code ..
-__wait_for_frontend_d__(){
-#give time for /sbin/pup_event_frontend_d to quit.
-#w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
-#detected /tmp/wmeximode.txt, but became 'defunct'...
-KCNT=0
-PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
-#while [ "`pidof pup_event_frontend_d`" != "" ];do
-while [ "$PSPEFD" != "" ];do
- sleep 0.5
- KCNT=`expr $KCNT + 1`
- [ $KCNT -gt 60 ] && break #30 secs.
- PSPEFD="`ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
-done
-}
 
 sleep 0.2
 
 # REM: Killing pup_event_frontend_d triggers also
 #      trap HUP line in pup_event_frontend_d,
 #      here in script, not in terminal
-rm /tmp/pup_event_manager.flg
-rm /tmp/pup_event_change_icons.flg
+rm $VERB -f /tmp/pup_event_manager.flg
+rm $VERB -f /tmp/pup_event_change_icons.flg
 
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
 
@@ -64,6 +78,22 @@ if [ "`pidof xfce4-panel`" != "" ];then
  kill `pidof xfce4-panel`
  exit
 fi
+
+echo "grep:"
+# Next freememapplet kill attempt ...
+fPIDS=`ps -o pid,args | grep -E 'freemem|inotify' | grep -v grep`
+echo "grep^"
+for aPID in $fPIDS; do [ "${aPID//[[:digit:]]/}" ] && continue; kill -9 $aPID; done
+
+DEBUG=1
+# X init files ... ( were in .xinitrc )
+[ "$FORCE" ] || {
+ for _file_ in $HOME/Choices/XINIT/*; do
+    test -f $_file_ || continue
+    _debug "stopping $_file_ .."
+    source $_file_ stop
+ done
+}
 
 #w003
 read CURRENTWM </etc/windowmanager
