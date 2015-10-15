@@ -198,6 +198,24 @@ Could not determine free space in /tmp layer"
 
 }
 
+_free_initrd(){  #_free_ram
+#UniPup, runs entirely in initramfs.
+
+ __old_freekm__(){
+ SIZEFREEK=`free | grep -o '^Total:.*' | tr -s ' ' | cut -f 4 -d ' '` #BusyBox v1.4.2 initrd.gz
+ SIZEFREEM=$((SIZEFREEK/1024))
+ }
+
+ local SIZEFREEM SIZEFREEM_
+ unset SIZEFREEM SIZEFREEM_
+
+ SIZEFREEM_=`free -m | awk '{if (match($1, "Mem:") || match($1, "Swap:")) print $4}'`
+ for aVAL in $SIZEFREEM_; do SIZEFREEM=$((SIZEFREEM+aVAL)); done
+
+ #save to a file, freememapplet can read this...
+ echo "$SIZEFREEM" >/tmp/pup_event_sizefreem
+}
+
 _savepuppy(){
 #called every POLL_PLUG_DEVICE seconds.
  #if [ -f /tmp/snapmergepuppyrequest ]; then #by request.
