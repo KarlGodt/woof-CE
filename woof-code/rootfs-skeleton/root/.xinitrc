@@ -16,7 +16,6 @@ sleep 0.1
 }
 done; fi
 
-#CURRENTWM="`cat /etc/windowmanager`"
 DEFAULTWM=jwm
 test -f /etc/windowmanager || echo "$DEFAULTWM" >/etc/windowmanager
 read CURRENTWM  </etc/windowmanager
@@ -24,8 +23,10 @@ if [ "$CURRENTWM" = "startkde" ]; then
  exec startkde
 fi
 
-_pidof /sbin/pup_event_frontend_d || {
-exec /sbin/pup_event_frontend_d & #v403
+_pidof /sbin/pup_event_frontend_d && {
+exec /sbin/pup_event_frontend_d restart &
+    } || {
+exec /sbin/pup_event_frontend_d start & #v403
 }
 
 _info "CURRENTWM='$CURRENTWM'"
