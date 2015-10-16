@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Pup_event_frontend_d"
@@ -199,21 +199,30 @@ BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
 fi
 ########### battery #########################################
 
+_log_trap
 # Signal names and numbers are defined in bits/signum.h ( error codes in asm/errno-base.h and asm/errno.h )
 # killall is part of code in busybox procps/kill.c
 #trap "echo '$0:PID=$$::Stop.';exit 1"  INT SIGINT QUIT SIGQUIT ABRT SIGABRT KILL SIGKILL TERM SIGTERM
- trap "echo '$0:PID=$$:2:Stop.';exit 2"    INT  SIGINT   2  #does work in X when controlling terminal (started in console);
+
+ trap "echo '$0:PID=$$:2:Stop.';exit 2"    INT  SIGINT   2  #does work in X when controlling terminal (started in xterm);
                                                             #does not work from kernel console; does not work in exitpromt called by plogout
-#trap "echo '$0:PID=$$:2:Stop wo exit.'"   INT  SIGINT   2  #does not work, just echos
+#trap "echo '$0:PID=$$:Got signal 2:'"     INT  SIGINT   2  #does not work to kill, just echos
 #trap "echo '$0:PID=$$:3:Stop.';exit 3"    QUIT SIGQUIT  3  #no respose with controlling terminal ( bash buildin is only kill )
-#trap "echo '$0:PID=$$:3:Stop wo exit.'"   QUIT SIGQUIT  3  #no respose with controlling terminal ( bash buildin is only kill )
+ trap "echo '$0:PID=$$:Got signal 3:'"     QUIT SIGQUIT  3  #no respose with controlling terminal ( bash buildin is only kill )
  trap "echo '$0:PID=$$:4:Stop.';exit 4"    ILL  SIGILL   4  #works with and without controlling terminal, works in kernel console
 # #define SIGILL 4 /* Illegal instruction (ANSI). */ #define ESPIPE 29 /* Illegal seek */ #define EILSEQ 84 /* Illegal byte sequence */
  trap "echo '$0:PID=$$:5:Stop.';exit 5"    TRAP SIGTRAP  5
  trap "echo '$0:PID=$$:6:Stop.';exit 6"    ABRT SIGABRT  6  #works
 #trap "echo '$0:PID=$$:6:Stop wo exit.'"   ABRT SIGABRT  6  #does not work, just echos
+ trap "echo '$0:PID=$$:Got signal 7:'"     BUS  SIGBUS   7
+ trap "echo '$0:PID=$$:Got signal 8:'"     FPE  SIGFPE   8
 #trap "echo '$0:PID=$$:9:Stop.';exit 9"    KILL SIGKILL  9  #works
  trap "echo '$0:PID=$$:9:Stop wo exit.'"   KILL SIGKILL  9  #GetÃ¶tet
+# trap "echo '$0:PID=$$:Got signal 10:'"   USR1 SIGUSR1 10
+ trap "echo '$0:PID=$$:Got signal 11:'"    SEGV SIGSEGV 11
+# trap "echo '$0:PID=$$:Got signal 12:'"   USR2 SIGUSR2 12
+ trap "echo '$0:PID=$$:Got signal 13:'"    PIPE SIGPIPE 13
+ trap "echo '$0:PID=$$:Got signal 14:'"    ALRM SIGALRM 14
  trap "echo '$0:PID=$$:15:Stop.';exit 15"  TERM SIGTERM 15  #works
 #trap "echo '$0:PID=$$:15:Stop wo exit.'"  TERM SIGTERM 15  #does not work, just echos and disturbs _free funcs
 
@@ -221,8 +230,19 @@ fi
 #UngÃŒltiger Maschinenbefehl
 #132
 
+# xinit sends -SIGHUP to Xorg and .xinit, resulting to end up here too
+#trap "echo '$0:PID=$$:HUP';echo HUP >/tmp/pup_event_manager.flg; echo HUP >/tmp/pup_event_change_icons.flg"  HUP SIGHUP 1
+#trap "echo '$0:PID=$$:Got signal 1:' >&2;"  HUP SIGHUP 1
+# trying WINCH
+trap "echo '$0:PID=$$:WINCH';echo WINCH >/tmp/pup_event_manager.flg; echo WINCH >/tmp/pup_event_change_icons.flg"  WINCH SIGWINCH 28
+# 18) SIGCONT   19) SIGSTOP
+trap "echo '$0:PID=$$:CONT';echo CONT >/tmp/pup_event_manager.flg; echo CONT >/tmp/pup_event_change_icons.flg"  CONT SIGCONT 18
+trap "echo '$0:PID=$$:STOP';echo STOP >/tmp/pup_event_manager.flg; echo STOP >/tmp/pup_event_change_icons.flg"  STOP SIGSTOP 19
+#10) SIGUSR1    11) SIGSEGV 12) SIGUSR2
+#trap "echo '$0:PID=$$:10:Stop.';exit 10"  USR1 SIGUSR1 10  #works with controlling terminal
+#trap "echo '$0:PID=$$:USR1';echo USR1 >/tmp/pup_event_manager.flg; echo USR1 >/tmp/pup_event_change_icons.flg"  USR1 SIGUSR1 10
+#trap "echo '$0:PID=$$:USR2';echo USR2 >/tmp/pup_event_manager.flg; echo USR2 >/tmp/pup_event_change_icons.flg"  USR2 SIGUSR2 12
 
-trap "echo HUP >/tmp/pup_event_manager.flg; echo HUP >/tmp/pup_event_change_icons.flg"  HUP SIGHUP 1
 
 OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
@@ -249,15 +269,19 @@ exit $1
 
 #DEBUG=1
 _stop_frontends(){
- local aPID
+ local aPID c
  _debug "\$\$='$$'"
  MY_PIDS=`pidof -o $$ -o %PPID ${0##*/}`
  for aPID in $MY_PIDS; do
  [ $aPID = 1 ] && continue
+ c=$((c+1))
  kill -15 $aPID
  done
- sleep 5
+ sleep 3
+ if test "$c"; then
  pidof -o $$ -o %PPID ${0##*/} && return 4 || return 0
+ else return 1
+ fi
 }
 
 [ "$VERBOSE" ] && echo "
@@ -266,20 +290,29 @@ $PID $0 $*
 
 case "$1" in
 *stop)
-    _stop_frontends stop
+    _stop_frontends
     RV=$?;if [ "$RV" = '0' ];then
-            echo 'stopped .';else echo 'error occurred !';fi
+           echo 'stopped .';
+        elif [ "$RV" = '1' ];then
+            echo 'was not running.'
+        else echo 'error occurred !';
+        fi
 return "$RV" || exit "$RV";;
 
 *restart)
-    _stop_frontends restart
+    _stop_frontends
     RV="$?";if [ "$RV" = '0' ];then
-            echo 'stopped .';else echo 'error occurred !';return "$RV" || exit "$RV";fi;;
+               echo 'stopped .';
+            elif [ "$RV" = '1' ];then
+                echo 'was not running.'
+            else echo 'error occurred !';
+                 return "$RV" || exit "$RV";
+            fi;;
 
 *start|"")
 :;;
 
-*reload) echo HUP    >/tmp/pup_event_manager.flg
+*reload) echo WINCH  >/tmp/pup_event_manager.flg
          echo reload >/tmp/pup_event_change_icons.flg;
          exit $?;;
 
@@ -1194,7 +1227,7 @@ _create_icon(){
   fi
 
   if [ "$ICONDESK" = "true" ];then             #see /etc/eventmanager.cfg.
-   MNTSTATUS=`/bin/df | grep -w "^/dev/$oneDRVNAME"`
+   MNTSTATUS=`DEBUG='' /bin/df | grep -w "^/dev/$oneDRVNAME"`
    _debug  "MNTSTATUS='$MNTSTATUS' for partPATTERN='$partPATTERN'"
 
    if [ "$MNTSTATUS" ];then
@@ -1608,12 +1641,26 @@ _EOI
 
 
 if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
-
-    . /etc/eventmanager.cfg ###2012-01-18
+ read sigNAL </tmp/pup_event_manager.flg
+ rm $VERB /tmp/pup_event_manager.flg
+ case $sigNAL in
+ STOP) while :
+       do
+       sleep $POLL_PLUG_DEVICE
+       [ -f /tmp/pup_event_manager.flg ] && {
+           read sigNAL2 </tmp/pup_event_manager.flg
+           rm $VERB /tmp/pup_event_manager.flg
+           case $sigNAL2 in CONT) break;; esac
+       }
+       done
+ ;;
+ *) . /etc/eventmanager.cfg ###2012-01-18
     _stop_daemon_exit_on
     _get_ram_power_vars
     _which_powertimeout
-    rm $VERB /tmp/pup_event_manager.flg
+ ;;
+ esac
+ unset sigNAL sigNAL2
  if [ -f /tmp/pup_event_change_icons.flg ]; then  #KRG
 
     Floppies=`ls /sys/block | grep 'fd[0-9]\+' | sort -r`
@@ -1663,7 +1710,7 @@ fi
 
 _autounmount
 
-[ "$1" ] && { echo "$0 daemon started ."; shift; }
+[ "$1" ] && { echo "$0:$$: daemon started ."; shift; }
 
  #some apps should not be disturbed by this background stuff...
  # pidof is much much more heavy on CPU in xosview, than ps, echo | grep ..
