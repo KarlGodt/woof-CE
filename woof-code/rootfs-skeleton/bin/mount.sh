@@ -29,7 +29,7 @@ _debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=1
+DEBUG=
 DEBUGX=
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -295,21 +295,21 @@ _debugt 9d $_DATE_
     if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
      _info "_update_partition_icon:$oneUPDATE is boot partition"
      #only a partition left mntd that is in use by puppy, change green->yellow...
-     icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+     _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
     else
      _info "_update_partition_icon:$oneUPDATE is not boot partition"
      #redraw icon without "MNTD" text...
-     icon_unmounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+     _icon_unmounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
     fi
     else #umount -r re-mounted partiton read-only
-    icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+    _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
    fi
  _debugt 97 $_DATE_
  ;;
  mount)
  _debugt 96 $_DATE_
- _debugx "icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY"
-      icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY
+ _debugx "_icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY"
+      _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY
  _debugt 95 $_DATE_
  ;;
  *) _err "_update_partition_icon:'$WHAT' not handled.";;
