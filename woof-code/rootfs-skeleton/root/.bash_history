@@ -1,1704 +1,3 @@
-mount -o bind /mnt/sdb19 ./mnt/sdb19
-diff -qs /root/Downloads/Android/Superuser-3.0.7-efgh-signed.zip /mnt/sdf1/SU/Superuser-3.0.7-efgh-signed.zip
-diff -qs /root/Downloads/Android/su-2.3.6.3-efgh-signed.zip /mnt/sdf1/SU/su-2.3.6.3-efgh-signed.zip 
-mountMTP
-mkdir /mntf/MTPdev/SD-Karte/SU
-umountMTP
-mountMTP
-sync
-umountMTP
-
-Sun May 3 01:10:31 GMT+1 2015
-
-find -name "blacklist.conf"
-find -name "blacklist.conf" | while read f; do grep mei "$f" && continue; echo 'blacklist mei' >>"$f"; done
-dd if=/dev/sdc of=archos_sdcard16GB bs=1024 count=$((1024*10))
-hexedit archos_sdcard16GB 
-dd if=/dev/sdc of=archos_sdcard16GB
-echo $((2281/60))
-file archos_sdcard16GB 
-fdisk -l archos_sdcard16GB 
-mount -o loop archos_sdcard16GB /mnt/XX
-mount -t vfat -o loop archos_sdcard16GB /mnt/XX
-mount
-ls /mnt/XX
-ls /mnt/
-mount -t vfat -o loop archos_sdcard16GB /mnt/XX
-losetup 
-losetup -a
-losetup -d /dev/loop0
-mount -t vfat -o loop archos_sdcard16GB /mnt/XX
-losetup -d /dev/loop0
-losetup -a
-mount
-losetup /dev/loop1 archos_sdcard16GB 
-losetup -a
-mount /dev/loop1 /mnt/XX
-losetup /dev/loop2 archos_sdcard16GB 
-mount-FULL /dev/loop2 /mnt/XX
-mkdir /mnt/XX
-mount-FULL /dev/loop2 /mnt/XX
-ls /mnt
-ls /mnt/XX
-mount-FULL -t vfat /dev/loop2 /mnt/XX
-losetup /dev/loop3 archos_sdcard16GB 
-losetup -a
-mount-FULL -t vfat /dev/loop3 /mnt/XX
-dmesg | tail
-modprobe -vr mei
-busybox losetup
-mount
-busybox losetup -d /dev/loop3
-busybox losetup -d /dev/loop2
-busybox losetup -d /dev/loop1
-busybox losetup -d /dev/loop0
-busybox losetup
-busybox losetup -d /dev/loop0
-file archos_sdcard16GB 
-blkid archos_sdcard16GB 
-disktype archos_sdcard16GB 
-fdisk -l archos_sdcard16GB 
-mkfs.vfat --help
-type -a mkfs.vfat
-file /bin/mkfs.vfat
-rm /bin/mkfs.vfat
-file /sbin/mkfs.vfat
-rm /sbin/mkfs.vfat
-file /usr/sbin/mkfs.vfat
-which mkfs.vfat
-mkfs.vfat
-help hash 
-hash
-hash -r
-hash
-mkfs.vfat
-mkfs.vfat -help
-mkfs.vfat --help
-hash
-/usr/local/sbin/mkfs.vfat
-/usr/local/sbin/mkfs.vfat -h
-/usr/local/sbin/mkfs.vfat --help
-file /usr/local/sbin/mkfs.vfat 
-mkfs.vfat -v archos_sdcard16GB 
-fdisk -l archos_sdcard16GB 
-disktype archos_sdcard16GB 
-guess_fstype archos_sdcard16GB 
-blkid archos_sdcard16GB 
-losetup
-losetup -a
-losetup /dev/loop3 archos_sdcard16GB 
-losetup -a
-mount-FULL -t vfat /dev/loop3 /mnt/XX
-mount
-testdisk archos_sdcard16GB 
-testdisk-6.9 archos_sdcard16GB 
-ls -s archos_sdcard16GB 
-echo $((5766644/1024))
-busybox mkdosfs
-man mkdosfs
-df
-echo $((16000/15))
-echo $(1066/60))
-echo $((1066/60))
-probepart2.09 -d/dev/sdc
-./fastboot
-./fastboot erase recovery
-./fastboot flash recovery recovery.img
-./fastboot reboot
-./fastboot devices -l
-./fastboot erase recovery
-./fastboot flash recovery recovery.img
-./fastboot reboot
-./fastboot devices -l
-unzip cm-7.2.0-u8150.zip 
-wget http://www.mediafire.com/download/ioag3bc3fwc0kcv/Root+Motorola+Fire+XT.zip
-/etc/init.d/runmbbservice restart
-unzip HUAWEI-IDEOS-X3-Software_Upgrade.zip 
-pwd
-mountMTP
-umountMTP
-for i in "/mntf/MTPdev/NAND FLASH/DCIM/Camera"/IMG*; do echo "$i"; done
-for i in "/mntf/MTPdev/NAND FLASH/DCIM/Camera"/IMG*; do echo "$i"; mv -f "$i" "/mntf/MTPdev/SD card/DCIM/Camera"/; sleep 0.2;done
-for i in "/mntf/MTPdev/NAND FLASH/DCIM/Camera"/IMG*; do echo "$i"; cp -f "$i" "/mntf/MTPdev/SD card/DCIM/Camera"/; sleep 0.2;done
-mount
-./configure
-make
-make install
-find /usr/local/lib -mmin -5
-./configure
-make
-mount -o bind /dev ./dev
-mount -o bind /proc ./proc
-mount -o bind /sys ./sys
-mount -o bind /mnt/sdb19 ./mnt/sdb19
-./chroot_for_android.sh 
-ls /mnt/sdb7/root/.android
-ls /mnt/sdb7/root/.android/
-touch /mnt/sdb7/root/.android/adbkey
-touch /mnt/sdb7/root/.and*
-ls -l /mnt/sdb7/root/.and*
-geany /root/Choices/MIME-types/application_x-bittorrent
-file /root/Choices/MIME-types/application_x-bittorrent
-/root/Choices/MIME-types/application_x-bittorrent
-ls -ls /root/Choices/MIME-types/application_x-bittorrent
-/root/Choices/MIME-types/application_x-bittorrent --help
-transmission --help
-which transmission
-ls -l s /usr/bin/transmission
-ls -ls /usr/bin/transmission
-ifconfig eth1 down
-ifconfig eth1 up
-killall dhcpcd
-dhcpcd -d eth1
-ifconfig eth1 down
-killall dhcpcd
-ifconfig eth1 up
-dhcpcd -d eth1
-top
-find (proc -name "*dmi*"
-find /proc -name "*dmi*"
-find /sys -name "*dmi*"
-ls /sys/class
-ls /sys/class/dmi
-ls /sys/class/dmi/id
-cat /sys/class/dmi/id/bios_date
-ls /sys/class/diag
-ps | grep -v '\['
-ifconfig -a
-ifconfig
-ls -l *
-chgroup 
-chgrp 
-chgrp -v plugdev *
-ls -l *
-chgrp -v plugdev *
-chmod 0666 *
-ls -l *
-addgroup
-cat /etc/group
-addgroup
-addgroup -g 114 -S plugdev
-cat /etc/group
-dmesg | grep usb
-pwd
-dmesg
-./adb devices -l
-dmesg
-ifconfig eth1 down
-ifconfig eth1 UP
-ifconfig eth1 up
-dhcpcd -d eth1
-killall dhcpcd
-dhcpcd -d eth1
-ifconfig eth1 down
-ifconfig eth1 up
-killall -1 dhcpcd
-dhcpcd -d eth1
-ifconfig eth1 down
-killall -1 dhcpcd
-ifconfig eth1 up
-dhcpcd -d eth1
-dmesg | tail
-chroot .
-mount
-umount /mnt/sdb7/sys
-umount /mnt/sdb7/proc
-umount -l /mnt/sdb7/proc
-umount -l /mnt/sdb7/dev
-mount
-umount /mnt/sdb7/mnt/sdb19
-umount /mnt/sdb7
-mount
-umount -f /mnt/XX
-umount -l /dev/sda9
-
-Mon May 4 11:43:51 GMT+1 2015
-
-make -f rules
-git init
-git remote add yaffs git://www.aleph1.co.uk/yaffs2
-git pull yaffs
-git branch -r
-git branch -r | while read rb; do br=${rb#*/}; echo "$br"; done
-git branch -r | while read rb; do br=${rb#*/}; echo "$br"; git checkout --track "$br";done
-git branch -r | while read rb; do br=${rb#*/}; echo "$br"; git checkout "$br";done
-git branch -r | while read rb; do br=${rb#*/}; echo "$br"; git checkout "$br";sleep 2;done
-ls /mnt/sdd1
-dd if=/dev/sdd1 of=/dev/null bs=1 count=512
-mount /dev/sdd1
-mount
-fixitup
-killall ROX-Filer
-/etc/init.d/runmbbservice restart
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | tr ' ' '|' | tr -s '|'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | tr '\n' ' |' | tr ' ' '|' | tr -s '|'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | tr '\n' ' |' | tr ' ' '|' | tr -s '|' | sed 's%^|*%%;s%|*$%%'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | sed 's% %\$|\\\\\.'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | sed 's% %\$|\\\\\.%'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | sed 's% %\$|\\\\\.%g
-'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | sed 's% %\$|\\\\\.%g' | sed 's%^%\\\\\.%;s%$%\$' | tr '\n' '|'
-grep '^EXTS=.*' /usr/local/lib/xarchive/wrappers/*.sh | cut -f2 -d'"' | sed 's% %\$|\\\\\.%g' | sed 's%^%\\\\\.%;s%$%\$%' | tr '\n' '|'
-unzip --help
-type -a unzip
-file /usr/bin/unzip
-rm /bin/unzip
-geany `which pupzip`
-pupzip /root/Downloads/Android/ROMs/CyanMod-7.2.0/system/app/AndroidTerm.apk
-probedisk
-make -f adb.mk
-make
-./unyaffs
-./unyaffs -d /root/Downloads/Android/ROMs/CWM-Huawei_IdeosX3/recovery.img
-./unyaffs -v -d /root/Downloads/Android/ROMs/CWM-Huawei_IdeosX3/recovery.img
-./unyaffs -v -d /root/Downloads/Android/ROMs/CWM-Huawei_IdeosX3/flash.sh
-disktype recovery.img
-blkid recovery.img
-modprobe -l | grep yaf
-grep yaf /proc/filesystems
-grep -Hi yaf /etc/modules/DOT*
-./chroot_for_android.sh 
-ls /sys/block
-ls /sys/class/block
-dosfsck -v -n /dev/sdd1
-dosfsck -v -r /dev/sdd1
-sfdisk -l -sU /dev/sdd
-testdisk-6.9 /dev/sdd
-sfdisk -l -sU /dev/sdd
-partprobe -s
-man dosfsck
-dmesg
-dmesg 
-uname -r
-umount -l /mnt/sdd1
-dosfsck -n -v /dev/sdd1
-dosfsck -r -v /dev/sdd1
-dosfsck -v /dev/sdd1
-grep 0x18d1 *
-geany usb_vendors.c
-fixitup
-mount
-make menuconfig
-ls -s --block-size=1024 recovery.img
-./chroot_for_android.sh stop
-mount
-
-Tue May 5 02:50:42 GMT+1 2015
-
-make
-git init
-git remote add repobin https://android.googlesource.com/tools/repo
-git remote -v
-git pull repobin
-git config http.sslVerify false
-git pull repobin
-git branch -r | while read rb; do echo $rb; br=${rb#*/}; echo $br;git checkout $br; sleep 2;done
-git init
-gt init 
-git init
-git remote add plBUILD https://android.googlesource.com/platform/build
-git pull
-git pull plBUILD
-git config http.sslVerify false
-git pull plBUILD
-git branch -r | while read rb; do echo $rb; br=${rb#*/}; echo $br;git checkout $br; sleep 2;done
-git branch
-git checkout master
-make -f rules
-chmod +x busybox-1.17.1-armel
-mkdir tmpfs
-pwd
-exit
-mountMTP
-mount
-umount M
-umountMTP
-exit
-make
-make -k
-make -i
-git remote
-git remote -v
-git branch
-find -type d -not -name "*.git.d"
-find -maxdepth 1 -type d -not -name "*.git.d"
-./git_pull_all_directories-03.sh 
-./git_pull_all_directories-02.sh 
-git init
-git remote add cyan https://github.com/CyanogenMod/android.git
-git pull cyan
-git config ssl.Verify=false
-git config ssl.Verify false
-git pull cyan
-which git
-git config https.sslVerify false
-git config https.ssl.Verify false
-git pull cyan
-git config http.sslVerify false
-git pull cyan
-git branch -r
-git branch -r | while read rb; do echo $rb; done
-git branch -r | while read rb; do echo $rb; br=${rb#*/}; echo $br;done
-git branch -r | while read rb; do echo $rb; br=${rb#*/}; echo $br;git checkout $br; sleep 2;done
-git remote add plFrwBASE https://android.googlesource.com/platform/frameworks/base
-git config htp.sslVerify false
-git pull plFrwBASE
-git config http.sslverify false
-git pull plFrwBASE
-make -f debian/rules
-grep -i production *
-grep property_get *
-grep -m1 property_get ../*
-grep -m1 property_get ../*/*
-grep -m1 __system_property_get ../*/*
-grep -m1 __system_property_get ../*/*/*
-transmission --help
-transmission --help-gtk
-transmission /root/Downloads/Android/flashtool-0.9.18.5-linux.tar.7z.torrent
-file /root/Downloads/Android/flashtool-0.9.18.5-linux.tar.7z.torrent
-7z
-7zr 
-7zr -l /root/Downloads/Android/flashtool-0.9.18.5-linux.tar.7z
-7zr l /root/Downloads/Android/flashtool-0.9.18.5-linux.tar.7z
-which dh
-file /usr/bin/dh
-which dh_shlibdeps
-file /usr/bin/dh_shlibdeps
-geany /usr/bin/dh_shlibdeps
-which ctorrent
-file /usr/bin/ctorrent
-for i in *; do test -L "$i" && continue; echo "$i"; done
-for i in *; do test -L "$i" && continue; echo "$i"; sed -i 's%#!/bin/sh%#!/bin/ash%' "$i" || break; sleep 0.2;done
-for i in *; do test -L "$i" && continue;sed -i "2 i\DEFAULT=" "$i" || break; sleep 0.2; done
-for i in *; do test -L "$i" && continue;sed -i "3 i\OPTIONS=" "$i" || break; sleep 0.2; done
-for i in *; do test -L "$i" && continue;grep exec "$i";done
-for i in *; do test -L "$i" && continue;P=`grep exec "$i" | grep -v '#'`; echo $P;done
-for i in *; do test -L "$i" && continue;P=`grep exec "$i" | grep -v '#'`; test `echo $P | wc -l` != 1 && continue ;PR=`echo "$P" | awk '{print $2}'`; echo "$PR";done
-for i in *; do test -L "$i" && continue;P=`grep exec "$i" | grep -v '#'`; test `echo $P | wc -l` != 1 && continue ;PR=`echo "$P" | awk '{print $2}'`; echo "$PR";sed -i "s%DEFAULT=.*%DEFAULT=$PR%" "$i" || break; sleep 0.2;done
-for i in *; do test -L "$i" && continue;P=`grep exec "$i" | grep -v '#'`; test `echo $P | wc -l` != 1 && continue ;PR=`echo "$P" | awk '{print $2}'`; echo "$PR";sed -i "s%^exec $PR %exec \$DEFAULT " "$i" || break; sleep 0.2;done
-for i in *; do test -L "$i" && continue;P=`grep exec "$i" | grep -v '#'`; test `echo $P | wc -l` != 1 && continue ;PR=`echo "$P" | awk '{print $2}'`; echo "$PR";sed -i "s%^exec $PR %exec \$DEFAULT %" "$i" || break; sleep 0.2;done
-for i in *; do test -L "$i" && continue; echo "$i"; sed -i 's%#! /bin/sh%#!/bin/ash%' "$i" || break; sleep 0.2;done
-type -a mozstart
-file /usr/local/bin/mozstart
-./update_files_from_running_system 
-./update_files_from_running_system h
-git commit
-./update_files_from_running_system 
-git remote
-git branch
-git push krg Fox3-Dell755
-git push MSkrg Fox3-Dell755
-git commit
-git add woof-code/rootfs-skeleton/root/my-roxapps/
-git commit -m "/root/my-roxapps/ : Added.
-With unknown_mime_handler.sh ."
-./replace_commit_files.sh j
-./update_files.sh 
-./update_files.sh f
-./update_files.sh 
-git commit
-git add replace_commit_files.sh
-git add update_files.sh
-git add update_files_from_running_system
-git commit -m 'update_files_from_running_system,
-replace_commit_files,
-update_files.sh :
-Maintainance changes ; added help message and others.'
-git commit
-git commit 2>&1 | grep rox
-git commit 2>&1 | grep rox | while read l f; do sysf=${f#*skeleton}; echo $sysf; done
-git commit 2>&1 | grep rox | while read l f; do sysf=${f#*skeleton}; echo $sysf; cp -a "$f" "$sysf" || break;;done
-git commit 2>&1 | grep rox | while read l f; do sysf=${f#*skeleton}; echo $sysf; cp -a "$f" "$sysf" || break;done
-git commit 2>&1 | grep rox | while read l f; do sysf=${f#*skeleton}; echo $sysf; cp -a --remove-destination "$f" "$sysf" || break;done
-transmission
-git commit 2>&1 | grep rox
-git commit 2>&1 | grep rox | while read l f; do echo "$f"; done
-git commit 2>&1 | grep rox | while read l f; do echo "$f"; git add "$f";done
-git commit --dry-run
-git commit -m '/root/.config/rox.sourceforge.net/MIME-types/:
-Changed files layout .
-Will see if they work out.'
-git branch
-git push MSkrg Fox3-Dell755
-git push krg Fox3-Dell755
-pctorrent
-which pctorrent
-geany /usr/sbin/pctorrent
-pctorrent
-file /usr/bin/gtkdialog-splash
-file /usr/bin/yaf-splash
-pupzip android-platform-frameworks-base_21.orig.tar.gz 
-which xarchive
-file /usr/local/bin/xarchive
-./chroot_for_android.sh start
-./chroot_for_android.sh stop
-./chroot_for_android.sh start
-./chroot_for_android.sh stop
-mount
-./chroot_for_android.sh start
-grep -r -i 'function not implemented' *
-./update_files_from_running_system 
-git commit
-info chmod
-mkdir /tmp/d
-cd /tmp/d
-echo TEST >file.test
-ls -l file.test
-chmod 1644 file.test
-ls -l file.test
-chmod 2644 file.test
-ls -l file.test
-chmod 3644 file.test
-ls -l file.test
-chmod 4644 file.test
-ls -l file.test
-ls -l /bin/busybox*
-chmod 5644 file.test
-ls -l file.test
-chmod 6644 file.test
-ls -l file.test
-chmod 7644 file.test
-ls -l file.test
-chmod u=s file.test
-ls -l file.test
-chmod u=rwxs file.test
-ls -l file.test
-chmod 0744 file.test
-ls -l file.test
-chmod 4744 file.test
-ls -l file.test
-man chmod
-man mount
-/etc/init.d/runmbbservice reload
-pidof dhcpcd
-/etc/init.d/runmbbservice restart
-df
-df -T
-df -aT
-ps | grep adb
-killall adb
-df
-./configure
-man ./init.5
-./configure
-./split_bootimg.pl recovery.img 
-git init
-git remote add systemd git://git.freedesktop.org/systemd/
-git pull systemd
-git remote add Csystemd http://cgit.freedesktop.org/systemd/systemd
-git pull Csystemd
-git remote delete systemd
-git remote remove systemd
-git remote add systemd git://git.freedesktop.org/systemd/systemd
-git pull systemd
-git remote remove systemd
-git remote remove Csystemd
-git remote add systemd git://anongit.freedesktop.org/systemd/systemd
-git pull systemd
-git checkout master
-grep -i signature *
-./split_updata.txt.pl update.app
-which perl
-./split_updata.txt.pl update.app
-./split_updata.pl update.app
-./split_updata.pl `pwd`/update.app
-/usr/bin/perl
-./split_updata.pl `pwd`/update.app
-perl --help
-./split_updata.pl `pwd`/update.app
-./split_updata.pl "`pwd`"/update.app
-./split_updata.pl update.app
-./split_updata.pl update.app update.app
-perl --help
-./split_updata.pl update.app update.app
-perl split_updata.pl 
-perl -e split_updata.pl 
-perl -E split_updata.pl 
-perl -En split_updata.pl 
-perl -Ep split_updata.pl 
-perl --version
-./split_updata.pl update.app update.app
-type env
-type -a env
-./split_updata.pl update.app update.app
-./split_updata.pl  update.app
-./split_updata.pl  update.app updaate.app
-./split_updata.pl  update.app update.app updaate.app
-./split_updata.pl  update.app update.app
-./split_updata.pl  update.app
-mkdir initrd
-mv initrd initrd_recov.d
-cd initrd_recov.d
-zcat ../recovery.img-ramdisk.gz | cpio -id
-git init
-git remote add recov https://android.googlesource.com/platform/bootable/recovery
-git config http.sslVerify false
-git pull recov
-hexedit android-terminal-emulator-1-0-63-multi-android.apk 
-hexedit natural_notes.apk 
-hexedit Browser.apk 
-hexedit Music.apk 
-tac FileManager.apk >FileManager.apk.tac 
-hexedit FileManager.apk.tac 
-grep -r verify_file *
-grep -r Certificate *
-pwd
-grep -r verify_file
-grep -r verify_file *
-grep -r Certificate *
-mkdir initrd
-cd initrd
-zcat ../boot.img-ramdisk.gz | cpio -id
-pwd
-./split_bootimg.pl 
-./split_bootimg.pl boot.img
-./mkbootfs --help
-./mkbootimg --help
-./make_ext4fs --help
-dmesg
-tail -n1 Superuser-3.0.7-efgh-signed.zip 
-hexedit Superuser-3.0.7-efgh-signed.zip 
-pwd
-find -name "sign*"
-find -name "keytool"
-find -name "*jarsigner*"
-find -name "*keytool*"
-find -name "*zipalign*"
-./android
-find -name "*sign*"
-adb
-dmesg
-./keytool --help
-./java jar --help
-jar
-type -a jar
-file /usr/local/bin/jar
-jarsigner
-jar-3.3.6 --help
-jar-3.3.6 --version
-jar --version
-man ./init.5
-man ./init.8
-ifconfig
-id -gn
-id -un
-id -u
-man umask
-info umask
-man id
-gjarsigner --help
-./chroot_for_android.sh stop
-mount
-umount /dev/loop0
-mount
-
-Wed May 6 10:57:55 GMT+1 2015
-
-hexedit libz.so.1.2.3.3 
-rox
-rox /
-rox /; echo $?
-rox /
-rox /;echo $?
-strings /lib/libz.so.1.2.3.3 | grep ZLIB
-strings /lib/libz.so.1.2.3.3 | grep '1\.'
-strings /lib/libz.so.*.* | grep '1\.'
-for i in  /lib/libz.so.*.* ; do echo ":$i:";strings "$i" | grep '1\.'; echo; done
-rox
-ls -l libz*
-diff libz.so.1.2.3 /lib/libz.so.1.2.3.3
-diff -qs libz.so.1.2.3 /lib/libz.so.1.2.3.3
-ls -l /mnt/sdb15/lib/libz.so.1.2.3.3
-ls -l /mnt/sdb7/lib/libz.so.1.2.3.3
-file /mnt/sdb7/lib/libz.so.1.2.3.3
-grep ZLIB /tmp/libz.so.1.2.3.3
-strings /tmp/libz.so.1.2.3.3 | grep ZLIB
-hexedit /tmp/libz.so.1.2.3.3
-hexedit libz.so.1.2.3.3 
-grep 'ZLIB_1\.2\.3' /lib/libz.so
-ls -l /lib/libz.so
-grep 'ZLIB_1\.2\.3' /lib/libz.so.1.2.3
-grep 'ZLIB_1' /lib/libz.so.1.2.3
-grep 'ZLIB_' /lib/libz.so.1.2.3
-grep 'VERSION_' /lib/libz.so.1.2.3
-ls -l /lib/libz*
-file /lib/libz.so
-mount
-mount /dev/sdf1
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";cp -au "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";cp -au "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; mkdir -p "$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";mkdir -p /mnt/sdf1/"$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";cp -au "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; mkdir -p "$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";mkdir -p /mnt/sdf1/"$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/"dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";cp -au "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; mkdir -p "$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";mkdir -p /mnt/sdf1/"$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/"dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";dn=${d%/*}; echo "$dn";dn=${dn#*/mnt/sdd1/}; echo "$dn";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-df
-for i in /mnt/sdd1/*; do echo "$i"; sleep 3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";done;sleep 0.3; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | while read d; do echo "$d";cp -a "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";cp -au "$d" /mnt/sdf1/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; mkdir -p "$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";mkdir -p /mnt/sdf1/"$dn";echo "$dn:$d";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/"dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do dn=${d%/*}; dn=${dn#*/mnt/sdd1/}; echo "$dn:$d";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";dn=${d%/*}; echo "$dn";dn=${dn#*/mnt/sdd1/}; echo "$dn";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-for i in /mnt/sdd1/*; do echo "$i"; find "$i" -type d | sort | tac | while read d; do echo "$d";dn=${d%/*}; echo "$dn";dn=${dn#*/mnt/sdd1}; echo "$dn";echo "/mnt/sdf1/$dn";mkdir -p /mnt/sdf1/"$dn";cp -au "$d" /mnt/sdf1/"$dn"/;sleep 1;done;sleep 2; done
-df
-mkfs.ext2 /dev/sdf1
-mount /dev/sdf1
-df
-find -type f
-find -type f >/tmp/files32GB.lst
-while read f; do test "$f" || continue; test -f "$f" || continue; bn=${f##*/}; echo "$f"" : ""$bn"; done</tmp/files32GB.lst
-while read f; do test "$f" || continue; test -f "$f" || continue; bn=${f##*/}; echo "$f"" : ""$bn"; grep "/$bn" /tmp/files32GB.lst; echo;done</tmp/files32GB.lst
-while read f; do test "$f" || continue; test -f "$f" || continue; bn=${f##*/}; echo "$f"" : ""$bn"; grep "/$bn" /tmp/files32GB.lst; echo;done</tmp/files32GB.lst >/tmp/files32GB.doulettes.lst
-mkfs.ext2 /dev/sdf1
-mount /dev/sdf1
-umount /dev/sdf1
-export LD_NOWARN=1
-mount /dev/sdf1
-export LD_NOWARN=
-umount /dev/sdf1
-export LD_DEBUG=help
-mount /dev/sdf1
-export LD_DEBUG=
-export LD_DEBUG=versions
-umount /dev/sdf1
-man ld.so
-pwd
-man ld
-grep TT_NEWSCHED *
-info zlib
-info libz
-man libz
-man mkdosfs
-mkdir -p /mntT/sdf1
-mount-FULL -t vfat /dev/sdf1 /mntT/sdf1
-mount
-ls /mntT/sdf1
-umount-FULL -t vfat /mntT/sdf1
-dosfsck --help
-dosfsck -l -n -v /dev/sdf1
-dosfsck -l -v /dev/sdf1
-dosfsck -l -v -d / /dev/sdf1
-dosfsck -l -v /dev/sdf1
-mkfs.vfat --help
-mount
-probepart
-ls /sys/class/block/sde*
-ls -d /sys/class/block/sde*
-ls -d /sys/class/block/sdd*
-cat /proc/partitions
-man mkfs.ext2
-probedisk
-./chroot_for_android.sh start
-grep -w 71 *
-grep -w 110 *
-grep -w '\-71' *
-grep -w '71' *
-grep -r -m 3 usb_control_msg *
-grep -I -r -m 3 usb_control_msg *
-ls /sys/block
-dmesg
-killall adb
-dmesg |tail
-ifconfig
-/etc/init.d/runmbbservice restart
-grep -r 'device not accepting address' *
-./chroot_for_android.sh stop
-killall adb
-geany `which rxvt`
-rxvt
-crossfire-client-gtk-1.12.svn 
-pwd
-ls
-ls *
-tac su-2.3.6.3-efgh-signed.zip >su-2.3.6.3-efgh-signed.tac.zip 
-hexedit su-2.3.6.3-efgh-signed.tac.zip 
-tac Superuser-3.0.7-efgh-signed.zip >Superuser-3.0.7-efgh-signed.tac.zip 
-hexedit Superuser-3.0.7-efgh-signed.tac.zip 
-make menuconfig
-which dhcpcd
-type -a dhcpcd
-type -a pppd
-
-Fri May 8 23:00:33 GMT+1 2015
-
-./split_bootimg.pl boot_sirius_boot.img 
-zcat ../boot_sirius_boot.img-ramdisk.gz | cpio -id
-/bin/df /mnt/sdb19
-/bin/df -T /mnt/sdb19
-mkdir ramdisk.d
-cd ramdisk.d
-cat ../ramdisk.cpio | cpio -id
-mkdir ramdisk-recv.d
-cd ramdisk-recv.d
-zcat ../ramdisk-recovery.cpio | cpio -id
-cat ../ramdisk-recovery.cpio | cpio -id
-df /mnt/sdb19
-/etc/init.d/runmbbservice start
-/etc/init.d/runmbbservice stop
-/etc/init.d/runmbbservice start
-/etc/init.d/runmbbservice stop
-/etc/init.d/runmbbservice start
-/etc/init.d/runmbbservice stop
-pidof dhcpcd
-killall dhcpcd
-pidof dhcpcd
-killall dhcpcd
-/etc/init.d/runmbbservice stop
-/etc/init.d/runmbbservice start
-git branch
-git remote -v
-git branch -a
-git pull recov
-git branch -r
-git branch -r | while read rb; do lb=${rb#*/}; echo $lb; done
-git branch -r | while read rb; do lb=${rb#*/}; echo $lb; git checkout $lb; sleep 1;done
-find -path "*/pack/tmp_pack*"
-find -path "*/pack/tmp_pack*" -exec ls -s {} \;
-git init
-git remote add uboot https://android.googlesource.com/device/ti/bootloader/uboot
-git config http.sslverify false
-git pull uboot
-git checkout master
-rox .
-git pull uboot
-cddetect --help
-cddetect -v -d/dev/sr0
-cddetect -v -d/dev/sr0;echo $?
-mount
-mount /dev/sr0
-
-Wed May 27 18:38:05 GMT+1 2015
-
-killall firefox
-#
-killall firefox
-timeout --help
-ls -ld /sys/devices/system/cpu/$core/cpufreq
-ls -ld /sys/devices/system/cpu/cpu0/cpufreq
-probedisk
-mount /dev/sr0
-mount /dev/sr1
-guessfs_type
-guess_fstype
-guess_fstype /dev/sr0
-guess_fstype /dev/sr1
-probedisk
-grep -r -I COMMAND_LINE_SIZE *
-ifconfig
-ifconfig -a
-ifconfig eth1 up
-dhcpcd eth1
-cat /proc/cmdline >/tmp/cmdline.txt
-ls -s /tmp/cmdline.txt 
-mktmemp
-mktemp
-mktemp --help
-mktemp 2>/dev/null
-find -name "cmdline*"
-grep -I -i -r 'kernel command line'
-grep -I -i -r 'kernel command line' *
-grep -I -i -r 'kernel commandline' *
-grep -I -i -r 'kernel cmdline' *
-grep -I -i -r '[128]' *
-grep -I -i -r '\[128\]' *
-grep -I -i -r '\[256\]' *
-grep -I -i -r '\[275\]' *
-grep -I -i -r '\[276\]' *
-echo $((276-256))
-find -name "cmdline*"
-lsmod | grep acpi
-read CMDLINE </proc/cmdline
-echo "$CMDLINE"
-echo "$CMDLINE"                                 |wc -L
-echo "$CMDLINE"                                 |wc -w
-echo "$CMDLINE"                                 |wc -c
-echo "$CMDLINE"                                 |wc -b
-echo "$CMDLINE"                                 |wc -m
-echo -n "$CMDLINE"                                 |wc -m
-echo -n "$CMDLINE"                                 |wc -L
-bash_3.2 
-env
-cat /proc/cmdline
-ls -s /proc/cmdline
-read CMDLINE </proc/cmdline
-echo "$CMDLINE"
-make menuconfig
-killall firefox
-
-Thu Jul 9 16:27:54 GMT+1 2015
-
-geany /usr/local/bin/drive_all
-dvd+rw-mediainfo /dev/sr0
-dvd+rw-mediainfo /dev/sr0;echo $?
-./git_pull_all_directories-03.sh 
-geany /bin/ps
-git branch
-git remote
-git pull
-git branch
-git checkout Fox3-Dell745
-git pull
-git branch
-git checkout FOX3-ASUSTeK1005HAG
-git checkout Fox3-GreatWallU310
-git checkout Fox3-GreatWallU310-KRGall
-git pull
-git branch
-git checkout Opera2-GreatWallU310-KRGall-2013-11-23
-git pull
-git branch
-git checkout luci218-GreatWallU310-KRGall-2013-11-24
-git pull
-git branch
-git checkout luci218-Dell755
-git pull
-git branch
-git checkout Opera2-Dell755
-git pull
-git branch
-git remote
-git pull
-ping -c 5 www.bing.com
-git branch
-git remote
-git pull
-git branch
-git branch -r
-git checkout Fox3-Dell755
-git checkout Opera2-Dell755
-git pull
-git branch
-git checkout luci218-Dell755
-git pull
-git branch
-git branch -r
-git checkout luci218-GreatWallU310-KRGall-2013-11-24
-git checkout Opera2-GreatWallU310-KRGall-2013-11-23
-git checkout Fox3-GreatWallU310-KRGall
-cat /proc/cmdline
-date
-df
-du -b G -c /mnt/sdd18/Git.d/
-du -B G -S -c -s /mnt/sdd18/Git.d/
-echo $(( (31779230880 / 1024) /1024 ))
-echo $(( (31779230880 / 1024) / (1024*1024)  ))
-du -bG -c /mnt/sda9/Git.d/
-du -b G -c /mnt/sda9/Git.d/
-du -B G -c /mnt/sda9/Git.d/
-du -B G -S -c /mnt/sda9/Git.d/
-for i in *; do :; rsync -a "$i" /mnt/sda9/Git.d/; sleep 20; done
-du --help
-rsync -a /mnt/sdd18/Kernel/Firmware.d/linux-firmware .
-fsck -nv /dev/sdb18
-fsck -fnv /dev/sdb18
-fsck -Dfnv /dev/sdb18
-fsck -Dfnv -E fragcheck /dev/sdb18
-pwd
-man e2fsck
-pwd
-rsync -a /mnt/sdd16/CF/* .
-fsck -nv /dev/sda9
-fsck -fnv /dev/sda9
-fsck -Dfnv /dev/sda9
-fsck -Dfnv -E fragcheck /dev/sda9
-pwd
-df
-cddetect -d /dev/sr0
-guess_fstype /dev/sr0
-mount /dev/sr0
-cddetect -d /dev/sr0: echo $?
-cddetect -d/dev/sr0: echo $?
-cddetect -d/dev/sr0; echo $?
-cddetect_quick -d/dev/sr0; echo $?
-cddetect -d/dev/sr1; echo $?
-pwd
-df
-/etc/init.d/runmbbservice restart
-fsck -nv /dev/sdb19
-fsck -fnv /dev/sdb19
-fsck -Dfnv /dev/sdb19
-fsck -Dfnv -E fragcheck /dev/sdb19
-fsck -fv /dev/sdb19
-fsck -Dnv /dev/sdb19
-fsck -Dfv /dev/sdb19
-fsck -Dfv -E fragcheck /dev/sdb19
-probedisk
-man e2fsck
-ps | grep mount
-mount
-mount -o remount,ro /dev/sdb19 /mnt/sdb19
-mount -s -o remount,ro /dev/sdb19 /mnt/sdb19
-umount /dev/sdb19
-umount -l /dev/sdb19
-mount
-umount /dev/loop0
-mplayer /mnt/sda1/VID/MSC/WebM/06CDDd01.webm
-rsync --help | grep update\
-rsync --help | grep update
-rsync --help | grep '\-a'
-pwd
-for i in *; do :; rsync -au "$i" /mnt/sdd2/VID/; sleep 5; done
-for i in *; do :; rsync -au "$i" /mnt/sda1/VID/MSC/; sleep 5; done
-mount
-df
-pwd
-man ps
-man top
-/etc/init.d/runmbbservice restart
-ifconfig
-ps | grep dhcpcd
-killall dhcpcd
-/etc/init.d/runmbbservice restart
-mount
-locale
-LANG=de_DE abiword
-LC_ALL=de_DE abiword
-type -a abiword 
-/usr/local/bin/abiword
-/etc/init.d/runmbbservice restart
-/opt/google/google-chrome-6.0.490.1-DEV/google-chrome
-top
-
-Sat Jul 11 06:06:17 GMT+1 2015
-
-git commit
-git add woof-code/boot/initrd-tree0/init
-git commit -m 'initrd-tree0/init : Changes.'
-./update_files_from_running_system 
-./replace_commit_files.sh 
-git commit
-git add replace_commit_files.sh
-git commit -m 'replace_commit_files.sh: Use /bin/cp .'
-./replace_commit_files.sh 
-git rm woof-code/rootfs-skeleton/root/.retrovolrc 
-git commit -m '/root/.retrovolrc: removed.'
-git log
-git commit
-git add woof-code/rootfs-skeleton/etc/init.d/runmbbservice
-git commit -m '/etc/init.d/runmbbservice: Added.'
-git remote
-git branch
-git push krg Fox3-Dell755
-git push MSkrg Fox3-Dell755
-git branch
-git checkout Fox3-Dell755
-git remote
-git pull
-geany /mnt/sdb6/etc/init.d/runmbbservice 
-crossfire-client-gtk-1.12.svn 
-df /
-ps | grep git
-kill 13728
-ps | grep git
-kill 5689
-ps | grep git
-kill 12027
-ps | grep git
-kill 18731
-ps | grep git
-kill 611
-./_run_all_git.sh 
-killall git
-fsck -nv /dev/sda9
-fsck -fnv /dev/sda9
-fsck -fv /dev/sda9
-fsck -fDv /dev/sda9
-fsck -fDv -E fragcheck /dev/sda9
-git branch
-git checkout Fox3-Dell755
-gir remote
-git remote
-git pull
-git remote
-git branch
-git pull
-git pull krg Fox3-Dell755
-git log
-git remote
-git branch
-git pull
-/etc/init.d/runmbbservice stop
-/etc/init.d/runmbbservice start
-grep --help
-jwm -reload
-jwm -restart
-geany /root/.jwmrc-tray
-man grep
-LC_ALL=C man grep
-jwmconfig3
-jwmconfig3
-jwm -v 2>/dev/null | head -n1 | grep -oe '[[:digit:]]\+'
-which jwmconfig3
-file /usr/local/bin/jwmconfig3
-geany /usr/local/bin/jwmconfig3
-geany /usr/local/jwmconfig3/jwmConfigMgr 
-git commit
-pwd
-git mv taskbarConfig.hight taskbarConfig.hide
-. ./func
-git mv path variables
-grep -H -i 'vers' *
-grep -H -i 'vers' * | grep -viE 'revers|two_vers'
-git commit
-pwd
-git commit
-git add replace_commit_files.sh
-git commit -m 'replace_commit_files.sh: Be different verbose;
-be relative .
-'
-mkdir git_helper
-git mv replace_commit_files.sh git_helper/
-git commit
-./git_helper/replace_commit_files.sh 
-git tag -l
-git log
-geany /etc/rc.d/f4puppy5
-git branch
-git remote
-git push krg Fox3-Dell755
-git push MSkrg Fox3-Dell755
-./git_helper/update_files_from_running_system 
-git commit
-git add git_helper/replace_commit_files.sh
-git commit -m 'update_files_from_running_system: Fixes for relative paths .'
-git add git_helper/replace_commit_files.sh
-git commit -m 'git_helper/replace_commit_files.sh:
-git add update_files_from_running_system
-git -commit -m 'update_files_from_running_system: Fixes for relative Path .'
-git commit -m 'update_files_from_running_system: Fixes for relative Path .'
-git mv update_files_from_running_system git_helper/
-git commit
-grep -i dvd /etc/rc.d/rc.sysinit
-grep -i burn /etc/rc.d/rc.sysinit
-grep -i burn /etc/rc.d/rc.sysinit.run
-grep -i dvd /etc/rc.d/rc.sysinit.run
-ls /proc/sys/dev/cdrom/info
-cat /proc/sys/dev/cdrom/info
-fbxkb & 
-retrovol --version
-retrovol --version 2>/dev/null
-pidof glipper
-jwm -restart
-chmod +x /usr/bin/retrovol
-chmod +x /usr/bin/jwm
-jwm -restart
-pidof fbxkb
-killall fbxkb
-fbxkb
-jwm -restart
-pidof fbxkb
-jwm -restart
-pidof fbxkb
-jwm -restart
-jwm -reload
-jwm -restart
-which jwm
-file /bin/jwm
-file /usr//bin/jwm
-mv /usr/bin/jwm /usr/bin/jwm.bin
-geany /usr/bin/jwm
-geany /usr/sbin/delayedrun
-geany /usr/bin/jwm
-pidof jwm.bin
-ps | grep jwm
-jwm
-geany
-jwm -restart
-cp -a /usr/bin/jwm .
-git commit
-cd ../../
-git commit
-git add usr/bin/jwm
-git commit -m '/usr/bin/jwm: Wrapper added to handle -restart woes for some apps:
-glipper
-fbxkb
-retrovol
-'
-
-Tue Jul 14 08:56:20 GMT+1 2015
-
-git branch
-git checkout Opera2-GreatWallU310-KRGall-2013-11-23
-git checkout Fox3-Dell755
-rox
-wget -c http://www.slackware.com/~alien/slackbuilds/chromium/pkg64/13.37/chromium-37.0.2062.94-x86_64-1alien.txz
-wget -c http://www.slackware.com/~alien/slackbuilds/chromium/pkg/13.37/chromium-37.0.2062.94-i486-1alien.txz
-./google-chrome --user-data-dir=/root/.chrome/p0
-locale
-mkdir -p /root/.chrome
-mkdir -p /root/.chrome/p0
-./google-chrome --help
-find -size +2M
-file ./f_0000da
-/lib/firefox/firefox -ProfileManager
-/lib/firefox/firefox -help
-/lib/firefox/firefox -safe-mode
-file /lib/firefox/firefox
-file /lib/firefox/
-ls -l /lib/firefox/
-ls -ld /lib/firefox/
-strace /lib/firefox/firefox -ProfileManager
-dd if=/dev/sdb5 of=/boot/sb_sdb5.bin count=1 bs=512
-dd if=/dev/sdb6 of=/boot/sb_sdb6.bin count=1 bs=512
-dd if=/dev/sdb7 of=/boot/sb_sdb7.bin count=1 bs=512
-ps | grep -i fire
-crossfire
-crossfire-client-gtk-1.12.svn 
-find /usr/X11/lib -name intel_drv.so
-ls /usr/X11/lib/xorg/modules/drivers/i*
-find /usr/X11/lib -name i965*
-find /usr/X11/lib -name i*
-find /usr/X11/lib -name "i*"
-find /lib/modules/`uname -r`/ -name i915.ko
-ls /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz/kernel/drivers/gpu/
-ls /lib/modules/3.9.9-KRG-iCore2-smp-pae-srv1000gz/kernel/drivers/gpu/drm
-modinfo i915
-/etc/init.d/runmbbservice restart
-date
-pidof ROX-Filer
-fixitup
-crossfire-client-gtk-1.12.svn 
-crossfire-client-gtk-1.12.svn 
-ps | grep -i fire
-git checkout linux-3.16.y
-git checkout linux-3.17.y
-git checkout linux-3.18.y
-git checkout linux-3.19.y
-git checkout linux-4.0.y
-git checkout linux-4.1.y
-git checkout master
-git checkout linux-3.15.y
-git pull
-git checkout linux-3.14.y
-git pull
-git checkout linux-3.12.y
-git pull
-git checkout linux-3.10.y
-git pull
-git checkout linux-3.4.y
-git pull
-git checkout linux-3.2.y
-git pull
-git branch
-git checkout linux-2.6.32.y
-git pull
-git help checkout
-ps| grep -i fire
-ifconfig
-git --version
-ifconfig
-git branch
-git branch -r
-git remote
-git pull
-git pull gitKernelOrgStable
-git checkout master
-git pull
-./civ --version
-./civ 
-./freeciv1.7.2GUI.sh 
-civclient
-pidof civserver
-killall civserver
-civclient
-ls /usr/share/games/freeciv/data
-ls /usr/local/share/freeciv/data
-which freeciv_server
-file /usr/local/bin/freeciv_server
-which freeciv_client
-file /usr/local/bin/freeciv_client
-find /usr -name "*civ*"
-./civ
-./ser
-which freeciv_client
-file /usr/local/bin/freeciv_client
-./freeciv1.7.2GUI.sh 
-civclient
-which civlient
-which civclient
-file /usr/bin/civclient
-geany /usr/bin/civclient
-file /usr/bin/civclient
-civclient
-file /usr/bin/civclient.bin
-civclient
-ls /usr/games/freeciv
-ls /usr/games/freeciv/freeciv-1.7.2/
-civclient
-find -path "*/Cache/*" -size +2M
-find -path "*/Cache/*" -mmin -10
-find -path "*/Cache/*" -mmin -10 -size +2M
-find -path "*/Cache/*" -mmin -20 -size +2M
-find -path "*/Cache/*" -size +2M
-file ./47p0emkb.default/Cache/8/C5/9D3C0d01
-file ./47p0emkb.default/Cache/7/1D/65114d01
-defaultmediaplayer ./47p0emkb.default/Cache/7/1D/65114d01
-defaultmediaplayer ./47p0emkb.default/Cache/8/C5/9D3C0d01
-freeciv_client --version
-freeciv_server --version
-freeciv_server
-eix
-exit
-freeciv_client
-exit
-
-Wed Jul 15 21:07:18 GMT+1 2015
-
-diff -qs /usr/X11/lib/libX11.so.6.3.0 /mnt/sdb6/usr/X11/lib/libX11.so.6.3.0
-file /usr/X11/lib/libX11.so.6.3.0
-file /mnt/sdb6/usr/X11/lib/libX11.so.6.3.0
-ls -s /usr/X11/lib/libX11.so.6.3.0
-ls -s /mnt/sdb6/usr/X11/lib/libX11.so.6.3.0
-diff -qs /usr/games/freeciv/freeciv-1.7.2/bin/civclient /usr/local/share/freeciv/bin/civclient
-diff -qs /usr/games/freeciv/freeciv-1.7.2/bin/civclient /mnt/sdb6/usr/local/share/freeciv/bin/civclient
-diff -qs /usr/games/freeciv/freeciv-1.7.2/bin/civclient /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-/mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-LC_ALL=C /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-LC_ALL=de_DE /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-ldd /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-Xorg -version
-chroot .
-chroot .
-geany /mnt/sdb6/usr/local/share/freeciv/civ
-cp -ai /mnt/sdb6/usr/local/share/freeciv/civ /mnt/sdb6/usr/local/share/freeciv/civORIG
-fixmenus
-jwm -p
-jwm -reload
-man xosview
-man /mnt/sda9/Git.d/Xosview/xosview.1
-grep -r -i netPriority *
-grep -r -i Priority *
-freeciv_server
-freeciv_client
-ldd `which freeciv_client`
-/usr/games/freeciv/freeciv-1.7.2/bin/civclient
-ldd /usr/games/freeciv/freeciv-1.7.2/bin/civclient
-freeciv_server
-freeciv_server --help
-freeciv_server -f civgame-2400.sav
-pwd
-ifconfig eth1 down
-find /usr -name civclient
-/usr/bin/civclient
-file /usr/bin/civclient
-geeany /usr/bin/civclient
-geany /usr/bin/civclient
-/usr/bin/civclient.bin --version
-find /usr -name civclient.bin
-freeciv_client 
-file /usr/local/bin/freeciv_client 
-freeciv_client 
-geany /usr/local/bin/civclient
-file /usr/local/bin/civclient
-geany /usr/local/bin/freeciv_client
-/usr/local/bin/freeciv_client 
-/usr/local/bin/freeciv_client --version
-/usr/local/bin/freeciv_client --help
-/usr/local/bin/freeciv_client -debug 2
-mv /root/.civclientrc /root/.civclientrcOUT
-/usr/local/bin/freeciv_client -debug 2
-diff -qs /usr/games/freeciv/freeciv-1.7.2/bin/civclient /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-ls -s /usr/games/freeciv/freeciv-1.7.2/bin/civclient /mnt/sdb6/usr/local/share/freeciv/freeciv-1.7.2/bin/civclient
-ldd /usr/games/freeciv/freeciv-1.7.2/bin/civclient | sort
-chroot .
-
-Thu Jul 16 10:34:14 GMT+1 2015
-
-realpath /usr/bin/X
-freeciv_client
-df
-df -a
-freeciv_server
-
-Thu Jul 16 12:53:38 GMT+1 2015
-
-git remote
-git remote -v
-git pull
-git branch
-git remote -v
-git pull
-./git_pull_all.sh 
-git branch
-rit remote -v
-git remote -v
-git pull
-git checkout hjl/iamcu/improve
-git checkout hjl/pr58066/gcc-5-branch
-git checkout trunk
-git pull
-git checkout gcc-5-branch
-git pull
-git checkout gcc-4_9-branch
-git pull
-git branch
-git remote -v
-git pull
-git checkout users/ppalka/readline-7.0-update
-git checkout users/hjl/linux/master
-git pull
-git checkout users/hjl/compressed
-git pull
-git log
-git reset --hard 749ef8f891fb921cf7ad57062deae6fa8c13b501
-git branch | grep '\*'
-git remote
-git pull binutils users/hjl/compressed
-git checkout gdb-7.10-branch
-git checkout binutils-2_25-branch
-git pull
-git branch
-git remote
-git pull
-git checkout gtk-3-16
-git checkout wip/baedert/gtkimageview
-git checkout wip/garnacho/touchpad-gestures
-git checkou wip/gbsneto/other-locations
-git checkout wip/gbsneto/other-locations
-git checkout gtk-3-14
-git pull
-git checkout gtk-3-14
-git pull
-git remote -v
-git branch
-git branch | grep '\*'
-git pull
-./git_pull_all.sh 
-git remote -v
-git config http.sslverify false
-git branch
-git pull
-git branch
-git branch -r
-git pull
-git branch
-git remote -v
-git branch -r
-git tag -l
-git pull
-git branch
-git remote -v
-git pull
-git config http.sslverify false
-git pull
-git branch
-git remote -v
-git pull
-git branch
-git remote -v
-git pull
-git branch
-git remote -v
-git pull
-git config http.sslverify false
-git pull
-git branch
-git remote -v
-git pull
-git config http.sslverify false
-git pull
-git branch
-git remote -v
-git pull
-git branch
-git checkout aufs4.x-rcN
-git checkout aufs4.0
-git checkout master
-git remote -v
-git pull
-git checkout aufs4.1
-find -maxdepth 3 -path "*/.git/config" -exec grep -H -i github {} \;
-find -maxdepth 4 -path "*/.git/config" -exec grep -H -i github {} \;
-git branch
-git branch -r
-git remote -v
-git pull
-grep -H -I -r -i 'You asked to pull' *
-git branch
-git branch -r
-git pull
-git remote
-git pull gitKernelOrg
-git pull gitKernelOrg master
-git checkout maint
-git checkout master
-git checkout next
-git pull
-git remote
-git pull gitKernelOrg
-git branch
-git pull gitKernelOrg next
-git pull -v gitKernelOrg next
-git checkout maint
-git pull -v gitKernelOrg maint
-git checkout master
-top
-git branch
-git pull
-git remote -v
-git pull gitKernelOrgStable
-git pull gitKernelOrgStable master
-git tag
-git log
-git checkout maint
-git checkout master
-git checkout next
-git checkout pu
-git checkout todo
-git checkout master
-git branch
-git branch -r
-git remote -v
-git pull
-git pull gitGitHub
-git checkout pango-1-36
-git checkout master
-git pull
-ggit branch
-git branch
-git pull
-git branch
-git remote -v
-git pull
-git branch
-git checkout gnome-3-14
-git checkout gnome-3-16
-git checkout master
-git pull
-git checkout 1.14
-git checkout color-emoji
-git checkout 1.12
-git pull
-git branch
-git checkout master
-git pull
-git checkout 1.12
-git pull
-git branch
-git pull
-git branch
-git pull
-git branch
-git checkout glib-2-40
-git checkout glib-2-42
-git checkout glib-2-44
-git branch
-git pull
-git branch
-git pull
-git checkout gdk-pixbuf-2-30
-git help update-index
-pwd
-git checkout gtk-3-10
-git pull
-git checkout gtk-3-12
-git checkout gtk-3-14
-git checkout gtk-3-16
-git branch
-git pull
-df
-git branch
-git checkout Fox3-GreatWallU310-KRGall
-pwd
-top
-amixer set Master,0 off
-amixer set Master,0 on
-find -type -d -name "Cache"
-find -type d -name "Cache"
-find -type d -name "Cache" -exec du -c -s -BM {} \;
-du -c -s -BM /root/.opera
-du -c -s -BM /root/.cache
-du -c -s -BM /root/.mozilla
-for i in *; do test -d "$i" || continue; rmdir $i; done
-for i in *; do test -d "$i" || continue; du -cs -BM $i; done
-git branch
-git checkout FOX3-ASUSTeK1005HAG
-git checkout Fox3-GreatWallU310-KRGall
-git checkout Fox3-Dell755
-git log | grep powerbutton
-git log | grep -B4 powerbutton
-git log | grep -B4 -A1 powerbutton
-git branch
-./git_helper/update_files_from_running_system 
-./git_helper/replace_commit_files.sh 
-amixer set Line,0 10
-amixer set Line,0 20
-amixer set Line,0 30
-amixer set Line,0 40
-amixer set Line,0 20
-amixer set Line,0 10
-arecord -l
-arecord -L
-amixer
-amixer Master,0
-amixer --help
-amixer sget Master,0
-ash
-cat /sys/class/rtc/rtc0/since_epoch
-date +%s
-cat /sys/class/rtc/rtc0/time
-cat /sys/class/rtc/rtc0/date
-/etc/acpi/wakealarm/wakealarm_wake.sh
-which mplayer
-/etc/acpi/wakealarm/wakealarm_wake.sh
-/etc/init.d/runmbbservice restart
-cd woof-code/rootfs-skeleton/root
-mkdir .crossfire
-git commit
-git add woof-code/rootfs-skeleton/etc/acpi/wakealarm.sh
-git add woof-code/rootfs-skeleton/etc/acpi/wakealarm/
-git add woof-code/rootfs-skeleton/usr/share/applications/set_wakealarm.desktop
-git commit -m 'set_wakealarm: Added .desktop file
-and
-/etc/acpi/ scripts
-wakealarm.sh that runs busybox/powerbutton at the end
-wakealarm/wakealarm_wake.sh
- that both are executed at wakeup event.
-'
-git commit
-git add woof-code/rootfs-skeleton/etc/acpi/busybox/powerbuttonK
-git add woof-code/rootfs-skeleton/etc/acpi/busybox/powerbuttonX
-git commit -m '/etc/acpi/busybox/powerbuttonK
-and
-/etc/acpi/busybox/powerbuttonX
-added.
-'
-pwd
-git branch
-git remote
-git push MSkrg Fox3-Dell755
-git push krg Fox3-Dell755
-git commit
-git add woof-code/rootfs-skeleton/root/.crossfire/
-git commit -m '/root/.crossfire/: Directory added with
-keys file
-s/ directory for client scripts
-scripts/ directory for script stubs
-.'
-git push krg Fox3-Dell755
-git push MSkrg Fox3-Dell755
-/etc/acpi/wakealarm.sh
- 
-man date
-date --help
-crossfire
-crossfire-client-gtk-1.12.svn 
-crossfire-client-gtk1-1.12.svn 
-crossfire-client-gtk1v2-1.12.svn 
-crossfire-client-gtk2-1.12.svn 
-crossfire-client-gtk2-1.70.0 
-export GTKRC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
-export GTK2RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
-crossfire-client-gtk2-1.70.0 
-export GTKRC2_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
-crossfire-client-gtk2-1.70.0 
-export GTK2_RC_FILES=/root/.crossfire/crossfire_gtkrc-2.0 
-crossfire-client-gtk2-1.70.0 
-du -cs -BM /root
-df
-grep GTK *
-type -a date
-busybox date
-/usr/local/bin/date
-/usr/local/bin/date +%s
-busybox date +%s
-busybox date -u +%s
-busybox date +%s
-busybox date +%s; busybox date -u +%s
-/usr/local/bin/date +%s;/usr/local/bin/date -u +%s
-busybox date -R +%s; busybox date -R +%s
-busybox date -R -u +%s; busybox date -R -u +%s
-/usr/local/bin/date -R +%s;/usr/local/bin/date -R -u +%s
-/usr/local/bin/date -R +%s;/usr/local/bin/date -R  +%s
-/usr/local/bin/date -R;/usr/local/bin/date -R
-/usr/local/bin/date -R ;/usr/local/bin/date -u +%s
-/usr/local/bin/date --rfc-3339
-/usr/local/bin/date --rfc-3339=date
-/usr/local/bin/date --rfc-3339=seconds
-/usr/local/bin/date --rfc-3339=ns
-fixmenus
-jwm -reload
-pwd
-grep -r -i wave *
-crossfire-client-gtk-1.12.svn 
-LC_TIME=C date +%s
-cat /sys/class/rtc/rtc0/since_epoch
-LC_TIME=C date +%s
-date +%s
-LC_ALL=C date +%s
-LC_TIME=C date +%s
-echo $((3600/60))
-/etc/acpi/wakealarm.sh
-echo abc,wert,qaz desxc dfg hji,123 | tr '[ ,]' '|'
-pwd
-branch
-git branch
-git checkout Fox3-GreatWallU310-KRGall
-git checkout Opera2-GreatWallU310-KRGall-2013-11-23
-git checkout luci218-GreatWallU310-KRGall-2013-11-24
-git mv s/cf_request_inv.sh scripts/
-git commit
-git rm s/inv
-git mv s/cf_watch_monitor.sh scripts/
-git mv s/cf_watch_request_items_inv.sh scripts/
-git commit
-git add s/cf_cast_spell.sh s/cf_fire_item.sh
-git commit
-git add scripts/inv scripts/req_stats.sh
-git commit
-git add KARL.crossfire.metalforge.net.keys Karl.crossfire.metalforge.net.keys Karl_.crossfire.metalforge.net.keys Trollo.crossfire.metalforge.net.keys karl.crossfire.metalforge.net.keys karl.localhost.keys crossfire_gtkrc-2.0
-git commit
-cd ../../../
-pwd
-cd ..
-pwd
-./git_helper/replace_commit_files.sh 
-git branch
-git remote
-git push MSkrg Fox3-Dell755
-git push krg Fox3-Dell755
-git branch
-git checkout Fox3-Dell755
-git remote
-git pull
-git remote
 git branch
 git pull
 git branch
@@ -2632,3 +931,1666 @@ ps | grep crossfire
 netstat
 netstat
 netstat
+file /root/my-applications/bin/cfclient
+which cfclient
+./update_files.sh 
+git branch
+git remote
+git push krrg Fox3-Dell755
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+grep -r -i Advocate *
+grep -r -i advocate *
+grep -r -i chaos *
+./crossedit /mnt/sdb19/Var-Archives/CF/maps/scorn/temples/valriel_final
+./crossedit
+top
+man ps
+/bin/ps -o %C%p%a
+/bin/ps -o C%p%a
+/bin/ps -o %C%p%a
+/bin/ps -o %C%p%a%P
+/bin/ps -o %C%p%P%a
+netstat -a
+man netstat
+netstat -i
+netstat -s
+top
+cfclient
+pidof crossfire
+grep -r -I rotate *
+cfclient
+cfclient
+grep -r power *
+fsck -n /dev/sda1
+fsck /dev/sda1
+fsck -n /dev/sda2
+fsck /dev/sda2
+fsck -n /dev/sda9
+fsck  /dev/sda9
+fsck -n /dev/sdb18
+fsck /dev/sdb18
+fsck -n /dev/sdb19
+fsck /dev/sdb19
+mv melt_icecube.sh cf_melt_icecube.sh
+ln -sf cf_melt_icecube.sh i
+which cfclient
+git commit
+git add woof-code/rootfs-skeleton/root/my-applications/sbin/
+git commit -m '/rootfs-skeleton/root/my-applications/sbin/cfclient: Added.'
+git mv woof-code/rootfs-skeleton/root/.crossfire/s/melt_icecube.sh woof-code/rootfs-skeleton/root/.crossfire/s/cf_melt_icecube.sh
+git ln
+ln -sn cf_melt_icecube.sh woof-code/rootfs-skeleton/root/.crossfire/s/i
+ln -sf cf_melt_icecube.sh woof-code/rootfs-skeleton/root/.crossfire/s/i
+git commit
+git add woof-code/rootfs-skeleton/root/.crossfire/s/i
+git commit
+git branch
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git remote
+git branch
+git pull krg Fox3-Dell755
+diff woof-code/rootfs-skeleton/sbin/pup_event_frontend_d /sbin/pup_event_frontend_d
+diff -qs woof-code/rootfs-skeleton/sbin/pup_event_frontend_d /sbin/pup_event_frontend_d
+git branch
+git remote
+git checkout master
+git pull
+git pull MSkrg
+git checkout master
+git branch
+git checkout Opera2-Dell755
+git pull
+git branch
+git checkout luci218-Dell755
+git pull
+git branch
+git checkout luci218-GreatWallU310-KRGall-2013-11-24
+git checkout luci218-Dell755
+git checkout Opera2-Dell755
+git checkout Opera2-GreatWallU310-KRGall-2013-11-23
+git checkout Fox3-Dell755
+git pull
+git branch
+git checkout Fox3-GreatWallU310-KRGall
+git checkout Fox3-Dell755
+git branch\
+git branch
+git pull
+git checkout testing
+git pull
+git branch
+git branch -r
+git checkout fdrv
+git checkout master
+git branch
+git checkout master
+git pull
+git branch
+git checkout Fox3-Dell755
+git branch
+git branch -r
+cfclient
+cfclient
+echo $((60*25))
+grep -r create_treasure *
+grep -r -B1 create_treasure *
+cd ..
+grep -r -B1 create_treasure *
+grep -I -r 'praying' *
+grep -I pray_at_altar *
+grep -I 'pray(' *
+grep -I 'do_skill' *
+grep -I -w 'do_skill' *
+git log
+git log --grep PrayXtimes
+git log --grep -A1 PrayXtimes
+git log --grep  PrayXtimes
+git log
+git help checkout 
+git branch
+./update_files.sh 
+git branch
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+
+Sun Sep 27 20:49:27 GMT+1 2015
+
+cfclient
+netstap --tcp -p
+netstat --tcp -p
+netstat --tcp -p | grep -v '\-$'
+netstat --tcp -p | grep -v '\-[[:blank:]]*$'
+whois
+whois 204.79.197.217
+netstat --tcp -p -e
+netstat --tcp -p -e | grep -v '\-[[:blank:]]*$'
+type -a netstat
+type -a whois
+man whois
+man netstat
+
+Mon Sep 28 02:51:11 GMT+1 2015
+
+echo $((7200/135))
+pupx
+top
+Xorg -version
+readlink /usr/X11
+readlink -f /usr/X11
+ls -d /usr/X*
+readlink -f /usr/X11R6
+readlink /usr/X11R6
+readlink /usr/X11R7
+readlink /usr/X11R7.7
+cfclient
+
+Tue Sep 29 14:40:13 GMT+1 2015
+
+echo $((800*1000000))
+echo $((800000000*2))
+echo $((1600000000*12))
+pwd
+ps | grep fire
+ps | grep firefox
+killall firefox
+grp jessy *
+grep jessy *
+pwd
+git branch
+./update_files.sh 
+git remote
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git log
+top
+cfclient
+./cf_PrayXtimes.sh 
+./cf_PrayXtimes.sh 100
+grep pickup *
+type -a cfclient
+diff /root/my-applications/sbin/cfclient /root/my-applications/bin/cfclient
+cfclient
+grep -r gbug *
+grep -r Thievery *
+grep -r masterlev *
+pwd
+netstat -ta
+netstat -t
+netstat -tan
+netstat -tanp
+netstat -tanpe
+type -a cfclient
+diff /root/my-applications/bin/cfclient /root/my-applications/sbin/cfclient
+which cfclient
+hash
+help hash
+git branch
+git pull
+git checkout master
+git pull
+git branch
+git pull
+git branch
+git checkout fdrv
+git pull
+git checkout testing
+git pull
+git checkout master
+git pull
+pwd
+cd $HOME
+netstat -tanp
+date
+./update_files.sh 
+history | grep git | tail
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+ps | grep git
+kill 26584
+ps | grep git
+kill 16052
+ps | grep git
+kill 8053
+ps | grep git
+kill 31251
+ps | grep git
+kill 7906
+netstat -tanp
+./_run_all_git.sh 
+grep -I -i -r fumble *
+grep -I -i -r bungle *
+ps | grep git
+kill 31063
+./git_pull_all_directories-03.sh 
+git branch
+git pull
+git remote
+git pull gitGitHub
+git checkout master
+git pull
+git pull gitGitHub master
+git branch -r
+git checkout maint
+git pull
+git branch -r
+git checkout next
+git pull
+git branch -r
+git checkout pu
+git pull
+git branch -r
+git checkout todo
+git pull
+git checkout master
+git pull
+git log
+cfclient
+netstat --tcp -p -e
+ipinfo
+geany `which ipinfo`
+ipinfo
+netstat -tanpe
+netstat -tanpee
+netstat -tanpev
+netstat -tuanpe
+ipinfo
+cfclient
+
+Fri Oct 2 01:00:14 GMT+1 2015
+
+echo $((5000*365))
+
+Fri Oct 2 12:17:01 GMT+1 2015
+
+./ser
+./ser -f civgame-2400.sav 
+./ser -f civgame-2200.sav 
+./civ
+cd ./freeciv-1.7.2/
+ls
+./civ
+./civ --help
+./civ -name Hammurabi
+civserver
+type -a civserver
+file /usr/bin/civserver
+file /usr/local/bin/civserver
+/usr/bin/civserver --version
+/usr/local/bin/civserver --version
+echo $((6100/24))
+smartctl -A /dev/sdb
+smartctl -A /dev/sda
+ifconfig
+/etc/init.d/runmbbservice restart
+./civ
+date
+cfclient
+
+Sat Oct 3 11:01:13 GMT+1 2015
+
+./_run_all_git.sh 
+cfclient
+grep -I -r -i drawinfo *
+grep -I -r -i drawextinfo *
+cfclient
+find -path "*/.git/*/pack/tmp*"
+find -path "*/.git/*/pack/tmp*" -exec ls -s {} \;
+/etc/init.d/runmbbservice stop
+ifconfig
+./update_files.sh 
+git branch
+git branch | grep '\*'
+git pull
+git branch
+git branch | grep '\*'
+git pull
+git branch
+git branch -r
+git pull
+git branch -r
+git pull
+git branch -r
+git branch
+git branch | grep '\*'
+git pull
+git branch | grep '\*'
+git pull
+git branch | grep '\*'
+git pull
+git branch
+git pull
+git remote
+git pull gitKernelOrgStable
+git pull gitKernelOrgStable master
+/etc/init.d/runmbbservice start
+ifconfig
+netstat -tanep
+netstat -tnep
+
+Sun Oct 4 06:52:06 GMT+1 2015
+
+df /mnt/sda1
+for i in *\<_title\> ; do echo "$i"; done
+for i in *\<_title\>* ; do echo "$i"; done
+for i in *\<_title\>* ; do echo "$i"; j=${i/YouTube/}; echo "$j";done
+for i in *\<_title\>* ; do echo "$i"; j=${i/ - YouTube/}; echo "$j";done
+for i in *\<_title\>* ; do echo "$i"; j=${i/ - YouTube<_title>/}; echo "$j";done
+for i in *\<_title\>* ; do echo "$i"; j=${i/ - YouTube<_title>/}; echo "$j";mv "$i" "$j";done
+df
+./cf_BalmOfFirstAid.sh2
+./cf_BalmOfFirstAid.sh2 3
+for i in *.err; do test -s "$i" || echo "$i" has no size"; done
+for i in *.err; do test -s "$i" || echo "$i has no size"; done
+for i in *.err; do test -s "$i" || rm ?$i?; done
+for i in *.err; do test -s "$i" || rm "$i"; done
+for i in *.err; do test -s "$i" || echo "$i has no size"; done
+for i in *.err; do test -s "$i" && echo "$i has  size"; done
+top
+ps ' grpe mp
+ps | grep mp
+top
+./update_files.sh 
+git commit
+git add update_files.sh
+git commit -m 'update_files.sh: Prepare to get placed
+into git_helper/ directory.'
+git mv update_files.sh git_helper/
+git commit
+./git_helper/update_files.sh 
+git commit
+git add woof-code/rootfs-skeleton/root/.crossfire/s/cf_functions.sh
+git commit -m '/root/.crossfire/s/cf_functions.sh: Added.'
+./git_helper/update_files.sh 
+cfclient
+aplay Teeswing.raw 
+for i in *.raw; do echo "$i"; aplay "$i"; sleep 2; done
+cfclient
+cfclient
+cfclient
+echo $((4500/60))
+beep
+beep --help
+beep -l 10000
+beep -l 1000
+beep -l 1000 -f 400
+beep -l 1000 -f 700
+beep -l 1000 -f 400;beep -l 1000 -f 500; beep -l 1000 -f 600; beep -l 1000 -f 700
+beep -l 1000 -f 400;beep -l 1000 -f 500; beep -l 1000 -f 600; beep -l 1000 -f 800
+beep -l 1000 -f 400;sleep 1;beep -l 1000 -f 500; sleep 1;beep -l 1000 -f 600; sleep 1; beep -l 1000 -f 800
+man BASH
+man bash
+cfclient
+help read
+read -t 2.5 ABV
+read -t 2,5 ABV
+echo $TMOUT
+TMOUT=1
+read -t 2
+read -t 20
+echo $REPLY
+read -t 10
+echo $REPLY
+ash
+/etc/init.d/runmbbservice restart
+
+Mon Oct 5 10:23:02 GMT+1 2015
+
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+cfclient
+./git_helper/update_files.sh 
+git branch
+git pull
+git checkout Fox3-Dell755
+git pull
+git branch
+git pull
+git branch
+echo $((20*160/60))
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+ls *.sh;
+ls *.sh| while read f; do echo "$f"; done
+ls *.sh| while read f; do echo "$f"; echo '#" > "$f".conf;done
+ls *.sh| while read f; do echo "$f"; echo '#' > "$f".conf;done
+./configure --prefix=/usr/multimedia
+make
+make install
+new2dir -fr
+./configure --prefix=/usr/multimedia
+make
+make install
+new2dir -fr
+./configure --prefix=/usr/multimedia
+echo $PKG_CONFIG_PATH 
+find /usr -name "*vorbis*.pc"
+export PKG_CONFIG_PATH=/usr/multimedia/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/multimedia
+make
+make install
+new2dir -fr
+echo $((180*17/60))
+esd
+man esd
+man ffplay
+pwd
+ffplay underground.ogg 
+ffplay -vn underground.ogg 
+type -a ffplay
+/usr/local/bin/ffplay -vn underground.ogg 
+man ogg123
+ogg123 --help
+esd --beeps
+esd -beeps
+esd -beeps -v
+esd -beeps --version
+esd -beeps -V
+esd -beeps --verbose
+esd -beeps -verbose
+type -a esd
+man mpg123
+man aply
+man aplay
+wget --limit-rate=5k http://http.debian.net/debian/pool/main/v/vorbis-tools/vorbis-tools_1.4.0.orig.tar.gz
+wget --limit-rate=5k http://http.debian.net/debian/pool/main/libv/libvorbis/libvorbis_1.3.2.orig.tar.gz
+wget --limit-rate=5k http://http.debian.net/debian/pool/main/liba/libao/libao_1.1.0.orig.tar.gz
+pwd
+make clean
+export PKG_CONFIG_PATH=/usr/multimedia/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/multimedia --enable-static=yes
+make
+make install
+new2dir -fr
+find /usr -name "ladspa.h"
+geany /usr/include_latest/ladspa.h
+aplay underground.ogg 
+aplay -r 44000 underground.ogg 
+mpg123
+mpg123 menu.ogg 
+ogg123 TechBattle.ogg 
+ogg123 Ambience.ogg 
+while :;do ogg123 Ambience.ogg ; sleep 1; done
+while :;do ogg123 -d oss Ambience.ogg ; sleep 1; done
+while :;do ogg123 -d esd Ambience.ogg ; sleep 1; done
+while :;do ogg123 -d oss -f /dev/dsp Ambience.ogg ; sleep 1; done
+while :;do ogg123  -f /dev/dsp Ambience.ogg ; sleep 1; done
+while :;do ogg123  -d alsa -f /dev/dsp Ambience.ogg ; sleep 1; done
+while :;do ogg123  -d esd -f /dev/dsp Ambience.ogg ; sleep 1; done
+man aplay
+for i in *.raw ; do rcho "$i:";aplay "$i" >/dev/null; sleep 1; done
+for i in *.raw ; do echo "$i:";aplay "$i" >/dev/null; sleep 1; done
+for i in *.raw ; do echo "$i:";aplay "$i" 2>/dev/null; sleep 1; done
+aply blip.raw 
+aplay blip.raw 
+aplay boink2.raw 
+aplay drip.raw.raw 
+aplay drip.raw
+aplay gong.raw 
+aplay -q gong.raw 
+aplay -q -d 3 gong.raw 
+aplay -q -d 1 gong.raw 
+aplay -q -d 1 ouch1.raw 
+aplay -q -d 2 ouch1.raw 
+aplay -q -d 4 ouch1.raw 
+aplay -q -d 0 ouch1.raw 
+time aplay -q -d 4 ouch1.raw 
+time aplay -q -d 4 swish.raw 
+time aplay -q -d 4 TowerClock.raw
+time aplay -q -d 4 Evil_Laugh.raw 
+time aplay -q -d 4 first_try.raw 
+time aplay -q -d 4 Miss
+time aplay -q -d 4 Missed.raw 
+time aplay -q -d 4 -N Missed.raw 
+time aplay  -N Missed.raw 
+cfclient
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+cd Downloads/
+wget --limit-rate=5k http://http.debian.net/debian/pool/main/a/aqualung/aqualung_0.9~beta11.orig.tar.gz
+./configure --help
+export PKG_CONFIG_PATH=/usr/multimedia/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/multimedia --enable-static=yes
+./configure --prefix=/usr/multimedia CFLAGS='-I/usr/multimedia/include' LDFLAGS='-L/usr/multimedia/lib'
+make
+git log
+git branch -r
+git branch
+git pull
+find /usr -type d -name "aqualung"
+type -a aqualung
+file /usr/bin/aqualung
+file /usr/multimedia/bin/aqualung
+export PKG_CONFIG_PATH=/usr/multimedia/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/multimedia CFLAGS='-I/usr/multimedia/include' LDFLAGS='-L/usr/multimedia/lib'
+wget --limit-rate=5k http://downloads.sourceforge.net/aqualung/aqualung-1.0.tar.gz
+make
+make clean
+make
+./configure --help
+make
+make clean
+make
+type -a aqualung
+geany /usr/bin/aqualung
+type -a aqualung2
+type -a aqualung-new
+file /usr/local/bin/aqualung-new
+make clean
+make
+aplay TowerClock.raw 
+find /usr -name mpcdec.h
+cfclient
+./aqualung --help
+./aqualung
+/usr/multimedia/bin/aqualung
+pwd
+./aqualung
+grep 'avcodec_decode_audio2' /usr/lib/*
+grep 'avcodec_decode_audio2' /usr/multimedia/lib/*
+file /usr/lib/libavcodec.so
+file /usr/multimedia/lib/libavcodec.so
+ls /usr/multimedia/lib/libavcodec.so*
+ln -sf libavcodec.so.52 /usr/multimedia/lib/libavcodec.so
+ls /usr/multimedia/lib/libav*.so*
+ln -sf libavdevice.so.52 /usr/multimedia/lib/libavdevice.so
+ln -sf libavformat.so.52 /usr/multimedia/lib/libavformat.so
+./git_helper/update_files.sh 
+git commit
+git add woof-code/rootfs-skeleton/usr/bin/aqualung
+git commit -m '/usr/bin/aqualung: Wrapper script added.'
+grep -r -I 'command_drop' *
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git MSpush krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+cfclient
+while :; do read -t 1; c=$((c+1)); test $c = 100 && break; done
+for i in *; do test -s "$i" || rm "$i"; done
+cfclient
+./civ
+./civ -name Stalin
+./civ
+./ser -f civgame-2400.sav 
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+aqualung
+which aqualung
+aqualung
+jobs
+fossil update
+fossil config
+fossil help config 
+fossil config export all ../fossil_config 
+fossil --user=karl update
+fossil ui woof2.fossil
+pwd
+cd ..
+fossil ui woof2.fossil
+mkdir update_2015_10_06
+cd update_2015_10_06
+fossil open ../woof2.fossil
+pwd
+cd ..
+diff -r -qs woof2/ update_2015_10_06/
+diff -r -q woof2/ update_2015_10_06/
+cfclient
+git pull
+cfclient
+top
+geany /etc/eventmanager
+cfclient
+top
+ifconfig
+
+Wed Oct 7 01:24:57 GMT+1 2015
+
+cfclient
+git commit
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+./civ
+./civ -name Stalin
+./ser -f civgame-2400.sav 
+./ser -f civgame-1000.sav 
+printf "%s" "drop 1 water"
+printf "%s" "drop 1 water\n"
+printf "%s\n" "drop 1 water"
+printf "%s %d $s\n" "drop 1 water"
+printf "%s %d $s\n" drop 1 water
+printf "%s %d %s\n" drop 1 water
+printf "%s %d %s\n" drop,1,water
+printf "%s %d %s\n" drop, 1, water
+tput --help
+put --help
+git commit
+git branch
+git log
+git reset --hard bdb11b0e21499ab400813d22246ad331bb83876f
+git pull
+git remote
+git pull krg
+git branch
+git pull krg Fox3-Dell755
+git commit
+git log
+g9it merge
+git merge
+git branch
+git checkout Fox3-Dell745
+git reset --hard 99b66de00ce8956ffa2d4c261d4474181e9724be
+git pull krg Fox3-Dell755
+netstat -tanp
+netstat -tnp
+cfclient
+netstat -tp
+netstat -tap
+ps | grep wget
+netstat -tanp
+ipinfo 63.170.91.103
+host 104.238.141.75
+host 63.170.91.103
+host 104.238.141.75
+
+Thu Oct 8 13:21:24 GMT+1 2015
+
+cfclient
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+mplayer 1DF62d01.webm 
+ffplay-0.9.3 1DF62d01.webm 
+ffplay-0.8.15 1DF62d01.webm 
+ffplay-0.8.15 06CDDd01.webm 
+ffplay-0.8.15 13AE9d01.webm 
+ffplay-0.8.15 17248d01.webm 
+ffplay-0.8.15 BBB97d01.webm 
+ffplay-0.8.15 DB8A9d01.webm 
+ffplay-0.8.15 E7599d01.webm 
+ffplay-0.8.15 EA549d01.webm 
+
+Fri Oct 9 05:42:19 GMT+1 2015
+
+cfclient
+cfclient
+grep -I command_fire *
+grep -I -r command_fire ../*
+grep -I -r command_fire *
+grep -I -r fire * | grep -v crossfire
+grep -I -r clear_fire * | grep -v crossfire
+grep -I -r stop_fire * | grep -v crossfire
+echo $((9999/60))
+top
+cfclient
+top
+cfclient
+grep -r -I 'command_' *
+grep -r -I 'command_take' *
+for i in *; do test -s "$i" || rm "$i"; done
+grep -r -I command_take *
+grep -r -I _take *
+grep -r -I _get *
+man top
+qq
+cfclient
+
+Fri Oct 9 22:20:14 GMT+1 2015
+
+./crossfire-client-gtk2 -version
+grep -r -I -m3 -w drawextinfo *
+grep -r -I -m3 -w drawinfo *
+grep -r -I -m3 -i drawextinfo *
+grep -r -I -m3 -w drawextinfo *
+grep -r -I -m3 -w drawinfo *
+grep -r -I -m3 -w -i drawextinfo *
+grep -r -I -m3 -i drawextinfo *
+cfclient
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+ipinfo
+source /root/.crossfire/s/cf_functions.sh
+cfclient
+grep 'request map' *
+grep 'request map' * >req.txt
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+
+Sat Oct 10 07:42:45 GMT+1 2015
+
+cfclient
+
+Sat Oct 10 12:38:44 GMT+1 2015
+
+
+Sat Oct 10 20:15:09 GMT+1 2015
+
+geany /sbin/init
+ash
+/sbin/init check
+/sbin/init
+/sbin/init check
+/sbin/init
+/sbin/init check
+/sbin/init
+/sbin/init check
+/sbin/init
+git pull
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+ls -l /dev/ram0 | cut -b 1-3
+ls -l /dev/ram0 | cut -f 5,6 -d ' '
+/sbin/init check
+mount
+umount /dev/loop2
+umount /dev/loop1
+umount /dev/loop0
+mount
+umount /dev/sda3
+mount
+/sbin/init check
+/sbin/init
+mount
+cd /old_root
+pwd
+ls
+cd /proc
+ls
+mount
+cd /bin
+ls
+mount -t proc proc /proc
+mount
+umount -v /dev/ram9
+umount -v /dev/ram0
+mount
+umount -v /dev/loop0
+mount
+mount -o move /mnt/ram0/dev /dev
+mount -o move /mnt/ram0/sys /sys
+mount
+umount /mnt/ram0/proc
+umount -l /mnt/ram0/proc
+mount
+mount -o move /mnt/ram0/dev/pts /dev/pts
+mount
+mount -o move /mnt/ram0/dev/shm /dev/shm
+mount
+mount -o move /mnt/ram0/dev/fs/rpc_pipe /dev/fs/rpc_pipe
+mount
+mount -o move /mnt/ram0/dev/fs/ocf2_dlm /dev/fs/ocfs2_dlm
+mount -o move /mnt/ram0/dev/fs/ocfs2_dlm /dev/fs/ocfs2_dlm
+mount
+mount -o move /mnt/ram0/dev/pstore /dev/pstore
+mount
+mount -o move /mnt/ram0/dev/fs/mqueue /dev/fs/mqueue
+mount
+mount -o move /mnt/ram0/dev /dev
+mount
+cd /dev
+ls
+mount -o move /mnt/ram0/dev /dev
+mount | grep '/dev'
+umount -l /dev
+
+Sat Oct 10 22:39:39 GMT+1 2015
+
+geany /usr/bin/wmexit
+geany /usr/bin/restartwm
+geany /usr/bin/wmreboot
+geany /usr/bin/wmpoweroff
+geany /sbin/pup_event_frontend_d
+cfclient
+ps | grep pup
+/sbin/pup_event_backend_modprobe_protect --stop
+git commit
+git mv .xset.sh xset.init
+git rm start_cpu_freq 
+git commit
+git add zz_zz.init 
+git commit
+geany /usr/sbin/pupx
+geany /usr/bin/pupx
+geany /etc/rc.d/rc.launchxwin
+pupx
+pwd
+./git_helper/update_files.sh
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
++  "\033[1;35m"Please run 'xwin' manually.
++""\033[0;39m"
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
++"\033[1;35m"Please run 'xwin' manually.
+""\033[0;39m"
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+ "\033[1;35m"Please run 'xwin' manually.
+""\033[0;39m"
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+ "\033[1;35m""Please run 'xwin' manually.
+""\033[0;39m"
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+ "\033[1;35m""Please run 'xwin' manually."
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+ ""\033[1;35m""Please run 'xwin' manually."
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+  ""\033[1;35m""Please run 'xwin' manually.
+""\033[0;39m"
+echo -e "$0 : /var/lock/XLOADED is set 'true' , exiting now.
+  ""\033[1;35m""Please run 'xwin' manually.
+""\033[0;39m"
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+./civ -name Stalin
+./ser -f civgame-600.sav
+blinky
+git branch -r
+git checkout rk3288
+git  log
+git log
+git log --grep sysinit
+fsck -n /dev/sdb19
+fsck /dev/sdb19
+geany /bin/mount
+geany /etc/fstab
+./git_helper/update_files.sh 
+mount -a
+
+Sun Oct 11 03:39:43 GMT+1 2015
+
+./civ -name Stalin
+./ser -f civgame-800.sav
+./civ
+./ser
+./git_pull_all.sh 
+./git_pull_all_directories-02.sh 
+git log --grep strscpy
+man strscpy
+man strncpy
+man strlcpy
+git branch
+git pull
+git remote -v
+git pull gitKernelOrgStable
+git checkout linux-3.12.y
+git pull
+git checkout linux-3.10.y
+git pull
+git checkout linux-3.4.y
+git pull
+git checkout linux-3.2.y
+git checkout linux-3.14.y
+git pull
+git checkout linux-3.18.y
+git pull
+git checkout linux-4.0.y
+git checkout linux-4.1.y
+git pull
+git checkout linux-4.2.y
+git pull
+git branch
+git branch -r
+git checkout master
+git pull
+git log
+git pull gitKernelOrgStable master
+git log
+/etc/init.d/runmbbservice restart
+./git_pull_all.sh 
+/etc/init.d/runmbbservice stop
+/etc/init.d/runmbbservice start
+/etc/init.d/runmbbservice restart
+netstat -tuanp
+grep strscpy *
+chroot .
+find /mnt/sdb6/usr/lib -maxdepth 1 -name "*libtinfo*"
+find /mnt/sdb6/usr/lib -maxdepth 1 -name "*libtinfo*" | while read f; do cp -a "$f" /usr/lib/; done
+find /usr/lib -maxdepth 1 -name "*libtinfo*"
+find /usr/lib -maxdepth 1 -name "*libtinfo*" | while read f; do cp -a "$f" /mnt/sdb6/usr/lib/; done
+find /usr/lib -maxdepth 1 -name "less-*"
+find /usr/local/bin -maxdepth 1 -name "less-*"
+find /usr/local/bin -maxdepth 1 -name "less-*" | while read f ; do cp -a "$f" /mnt/sdb6/usr/local/bin/; done
+find /usr/lib -maxdepth 1 -name "less-*"
+find /usr/lib -maxdepth 1 -name "libtinfo*"
+find /usr/lib -maxdepth 1 -name "libtinfo*" -delete
+find /usr/local/bin -maxdepth 1 -name "less-*" -delete
+file /usr/bin/less
+less-444
+ln -sf ../local/bin/less-418 /usr/bin/less
+ln -sf ../local/bin/less-436 /usr/bin/less
+ln -sf ../local/bin/less-444 /usr/bin/less
+ln -sf less-382 /usr/bin/less
+pwd
+cd include/
+grep -r 'strscpy' *
+git branch
+grep -r 'strscpy' *
+grep -r '__must_check' *
+grep -r -m 1 '__must_check' *
+grep -r -m 1 'GCC_VERSION' *
+find -name "*strscpy*"
+pwd
+git log --grep strscpy
+q
+git log --grep strscpy
+qqq
+git log --grep strscpy
+git log
+git log --grep strscpy
+qq
+git log --grep strscpy
+less-382
+less --help
+find -name srting.h
+pwd
+find -name string.h
+pwd
+git log
+git log --grep strncpy
+which less
+type -a less
+file /usr/bin/less
+less --version
+mv /usr/bin/less /usr/bin/less-382
+ln -s less-444 /usr/bin/less
+git log --grep strncpy
+less --version
+which less-444
+ls -sf ../local/bin/less-444 /usr/bin/less
+ln -sf ../local/bin/less-444 /usr/bin/less
+less --version
+find /lib -maxdepth 1 -name libtinfow.so.5
+find /lib -maxdepth 1 -name "*libtinfow.so*"
+find /usr/lib -maxdepth 1 -name "*libtinfow.so*"
+find /usr/local/lib -maxdepth 1 -name "*libtinfow.so*"
+less-444
+less-436
+less-418
+ln -s less-382 /usr/bin/less
+ln -sf less-382 /usr/bin/less
+less --version
+find /usr -name "*libtinfo*"
+git log --grep strscpy
+git log --grep strlcpy
+git log
+pwd
+grep 'strncpy(' /usr/include/*
+grep 'strncpy (' /usr/include/*
+geany /usr/include/string.h
+type -a svn
+file /usr/bin/svn
+/usr/bin/svn --version
+file /usr/SVC/bin/svn
+/usr/SVC/bin/svn --version
+top
+./svn_co_rX.sh 
+netstat -t
+man svn
+svn --help
+find -mmin -1
+find -mmin -2
+find -mmin -20
+find -mmin -10
+find -mmin -5
+find -mmin -6
+find -mmin -7
+find -mmin -8
+find -mmin -9
+find -mmin -10
+du --help
+du -s
+pwd
+ls
+du -s
+ps | grep svn
+find -name "strncpy.c"
+grep -r __HAVE_ARCH_STRSCPY *
+cd ..
+grep -r __HAVE_ARCH_STRSCPY *
+netstat -t
+netstat -tp
+mount
+cd /mnt/sdb16
+ls
+cd ..
+cd /mnt/sdb16
+ls
+cd CROSSFIRE/
+ls
+cd crossfire-SVNr0/
+ls
+./svn_co_rX.sh 
+
+Tue Oct 13 18:44:24 GMT+1 2015
+
+pdict
+mount /dev/sdb20
+mount
+umount /mnt/sdb20
+mount /dev/sdb20
+umount /mnt/sdb20
+mount /dev/sdb20
+umount /mnt/sdb20
+mount /dev/sdb20
+umount /mnt/sdb20
+umount /mnt/sdb19
+mount /dev/sdb19
+pup_event_frontend_d restart
+cp /etc/eventmanager /etc/eventmanager.conf
+pup_event_frontend_d restart
+pup_event_frontend_dF3 start
+pup_event_frontend_dF3 restart
+geany /sbin/clean_desk_icons 
+/sbin/clean_desk_icons
+geany /usr/local/bin/rox
+geany /etc/rc.d/functions4puppy4
+geany /tmp/pup_event_ok_pin
+geany $HOME/Choices/ROX-Filer/PuppyPin
+geany /usr/sbin/eventmanager
+geany /bin/mount.sh
+pdict
+geany /usr/sbin/pdict
+/tmp/pdict-func1 -d gcide warden
+/tmp/pdict-func1 gcide warden
+dict -D
+/tmp/pdict-func1  warden gcide
+./git_helper/update_files.sh
+git commit
+git mv woof-code/rootfs-skeleton/etc/eventmanager woof-code/rootfs-skeleton/etc/eventmanager.cfg
+git commit
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+cfclient
+which cfclient
+geany /root/my-applications/bin/cfclient
+cfclient
+umount /mnt/sdb7
+mount /dev/sdb7
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+probedisk2
+time probedisk2
+time . /sbin/probedisk2
+time probedisk2
+file /dev/loop1
+guess_fstype /dev/ram0
+guess_fstype /dev/loop0
+guess_fstype /dev/loop0 2>/dev/null
+guess_fstype --help
+file /dev/ram1
+type -a guess_fstype
+file /sbin/guess_fstype
+guess_fstype-orig /dev/loop0
+guess_fstype-dyn /dev/loop0
+rox _get_home_var(){  #BEGIN
+XUSER=`_who_is_X_user` && { _info "XUSER='$XUSER'"; XUSER_HOME=`awk -F':' "{if (\\$1 == \"$XUSER\") print \\$6}" /etc/passwd`; _info "XUSER_HOME='$XUSER_HOME'"; }
+if test -d "$XUSER_HOME"; then home="$XUSER_HOME"; HOME="$XUSER_HOME"; else home="$HOME"; [ "$home" = "/" ] && home="/root"; [ "$HOME" = '/' ] && HOME="/root"; fi
+[ "$DEBUG" ] && echo "home='$home'"
+[ "$DEBUG" ] && echo "HOME='$HOME'"
+}
+# REM: Only run funcHOME if DISPLAY
+#      Otherwise disturbing messages at bootup
+rox /usr/local/lib/X11/pixmaps/
+timpe probedisk2
+time probedisk2
+probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"
+ash
+exit
+probepart
+probepart2
+/bin/df | grep -w "^/dev/$oneDRVNAME"
+oneDRVNAME=sda5
+/bin/df | grep -w "^/dev/$oneDRVNAME"
+oneDRVNAME=sdb5
+/bin/df | grep -w "^/dev/$oneDRVNAME"
+man df
+pup_event_frontend_d restart
+cat /sys/block/loop0/loop0/size
+cat /sys/block/loop/loop0/size
+pup_event_frontend_d restart
+probedisk2
+pup_event_frontend_d restart
+geany /etc/rc.d/f4puppy5
+geany /bin/probedisk2
+geany /sbin/probedisk2
+git pull
+git commit
+./git_helper/update_files.sh 
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+pup_event_frontend_d restart
+pup_event_frontend_d stop
+pup_event_frontend_dF3 restart
+pup_event_frontend_d restart
+geany /sbin/pup_event_frontend_d
+pup_event_frontend_d restart
+cp /etc/eventmanager /etc/eventmanager.cfg
+rm /etc/eventmanager
+pup_event_frontend_d restart
+df /dev/sda1
+df /dev/sda2
+df /dev/sda4
+pup_event_frontend_d restart
+git log
+./git_helper/update_files.sh 
+diff /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/root/my-applications/bin/cfclient /root/my-applications/bin/cfclient
+diff -qs /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/rootfs-skeleton/root/my-applications/bin/cfclient /root/my-applications/bin/cfclient;echo $?
+pwd
+/etc/init.d/runmbbservice restart
+git -path "*/.git/config" -type f
+git  -type f
+find -path "*/.git/config" -type f
+find -path "*/.git/config" -maxdepth 5 -type f -exec grep -H '\[branch "master"\] {} \; >find_branch_master.lst
+find -path "*/.git/config" -maxdepth 5 -type f -exec grep -H '\[branch "master"\]' {} \; >find_branch_master.lst
+find -maxdepth 5 -path "*/.git/config" -type f -exec grep -H '\[branch "master"\]' {} \; >find_branch_master.lst
+find -maxdepth 5 -path "*/.git/config" -type f  >find_git_config.lst
+grep -v -f find_branch_master.lst find_git_config.lst 
+cut -f1 -d':' find_branch_master.lst >find_branch_master2.lst 
+grep -v -f find_branch_master2.lst find_git_config.lst 
+git log
+git pull
+git remote
+git pull gitKernelOrgStable
+git pull
+git branch | grep '\*'
+git pull
+cfclient
+for f in *; do case $f in *.init*) continue;; esac; mv -v $f $f.init; done
+for f in *; do case $f in *.init*) continue;; esac; [ -d "$f" ] && continue;;mv -v $f $f.init; done
+for f in *; do case $f in *.init*) continue;; esac; [ -d "$f" ] && continue;mv -v $f $f.init; done
+git pull
+git commit
+git commit -am '/etc/init.d/ : Files renamed .init extension'
+git commit
+git add .
+git commit
+git branch | grep '\*'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+for f in *; do case $f in *.init*) continue;; esac; mv -v $f $f.init; done
+for f in *.init; do case $f in *.init*) :;; *)continue;; esac; mv -v $f ${f%.init*}; done
+/etc/init.d/DRIVER/cpu_freq_scaling.init start
+/etc/init.d/DRIVER/cpu_freq_scaling.init status
+/etc/init.d/DRIVER/cpu_freq_scaling.init help
+/etc/init.d/DRIVER/cpu_freq_scaling.init help settings
+/etc/init.d/DRIVER/cpu_freq_scaling.init help modules
+/etc/init.d/DRIVER/cpu_freq_scaling.init status
+/etc/init.d/DRIVER/cpu_freq_scaling.init start
+/etc/init.d/DRIVER/cpu_freq_scaling.init status
+/etc/init.d/DRIVER/cpu_freq_scaling.init start
+/etc/init.d/DRIVER/cpu_freq_scaling.init status
+/etc/init.d/DRIVER/cpu_freq_scaling.init start
+/etc/init.d/DRIVER/cpu_freq_scaling.init status
+netstat -tap
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+/bin/ps -o comm
+time /bin/ps -o comm
+time busybox ps
+time busybox ps -o comm
+time busybox ps -o args
+busybox ps -o abc
+busybox ps -o com
+busybox ps -o comm
+cfclient
+echo axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso
+echo 'axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso'
+echo 'axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso' | tr '|' '\n' | sort -d
+echo 'axel|burniso2cd|cdrecord|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|installpkg\.sh|make|mhwaveedit|mplayer|pburn|pcdripper|pdvdrsab|petget|ripoff|wget|xfmedia|xine|xmms|xorrecord|xorriso' | tr '|' ' '
+free -m | awk '{if (match($1, "Mem:") || match($1, "Swap:")) print $4}'
+echo 'make|gcc|xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'
+echo 'make|gcc|xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh' | tr '|' '\n'
+echo 'make|gcc|xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh' | tr '|' '\n' | sort -d
+echo 'make|gcc|xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh' | tr '|' '\n' | sort -d | tr '\n' '|'
+df -m
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+geany /usr/sbin/wmpoweroff
+geany /usr/bin/wmpoweroff
+/etc/init.d/runmbbservice.init restart
+/etc/init.d/runmbbservice.init stop
+pup_event_frontend_d start
+ps --no-heading -C make
+ps --no-heading -C make; echo $?
+pup_event_frontend_d restart
+pup_event_frontend_d stop
+pup_event_frontend_d-orig
+chmod +x /sbin/pup_event_frontend_d-orig
+pup_event_frontend_d-orig
+ln -s eventmanager.cfg /etc/eventmanager
+pup_event_frontend_d-orig
+geany /sbin/pup_event_frontend_d-orig
+pup_event_frontend_d-orig
+pup_event_frontend_d
+pup_event_frontend_d restart
+geany /usr/sbin/wmexit
+geany /usr/bin/wmexit
+busybox rm -v -f /tmp/notexistant
+ rm -v -f /tmp/notexistant
+ps | grep pup | grep -v grep
+. /etc/rc.d/f4puppy5
+_pidof pup_event_frontend_d; echo $?
+geany /etc/rc.d/f4puppy5
+killall -SIGQUIT pup_event_frontend_d
+killall -SIGINT pup_event_frontend_d
+killall -SIGKILL pup_event_frontend_d
+ps | grep pup
+killall -SIGQUIT pup_event_frontend_d
+killall -SIGINT pup_event_frontend_d
+killall -3 pup_event_frontend_d
+killall -2 pup_event_frontend_d
+killall -SIGQUIT pup_event_frontend_d
+killall -QUIT pup_event_frontend_d
+killall -3 pup_event_frontend_d
+killall -TERM pup_event_frontend_d
+killall -SIGQUIT pup_event_frontend_d
+killall -QUIT pup_event_frontend_d
+killall -3 pup_event_frontend_d
+killall -SIGINT pup_event_frontend_d
+killall -SIGABRT pup_event_frontend_d
+killall -SIGQUIT pup_event_frontend_d
+killall -3 pup_event_frontend_d
+killall -SIGTERM pup_event_frontend_d
+killall -15 pup_event_frontend_d
+killall -TERM pup_event_frontend_d
+killall -9 pup_event_frontend_d
+ps | grep pup | grep -v grep
+busybox ps | grep pup | grep -v grep
+ps -A -H | grep pup | grep -v grep
+ps -A -H | grep defuct
+ps -A -H | grep zombie
+LC_ALL=C ps -A -H | grep defuct
+LC_ALL=C ps -A -H | grep pup
+killall -15 pup_event_frontend_d
+killall -6 pup_event_frontend_d
+killall -3 pup_event_frontend_d
+killall -4 pup_event_frontend_d
+killall -2 pup_event_frontend_d
+geany /usr/bin/rxvt
+pup_event_frontend_d
+pup_event_frontend_d;echo $?
+geany /etc/eventmanager.cfg
+ps -A -H | grep pup | grep -v grep
+ps | grep pup
+geany /usr/sbin/plogout
+which exitprompt
+file /usr/sbin/exitprompt
+geany /usr/sbin/exitprompt
+pidof pup_event_frontend_d;echo $?
+killall -2 pup_evebt_frontend_d
+killall -2 pup_event_frontend_d
+pidof pup_event_frontend_d;echo $?
+killall -2 pup_event_frontend_d
+killall -6 pup_event_frontend_d
+pidof pup_event_frontend_d;echo $?
+ps -o pid
+busybox ps -o pid
+geany /usr/bin/wmreboot
+geany /usr/bin/wmpoweroff
+echo $HAVE_PROFILE 
+ps | grep pup | grep -v grep
+./git_helper/update_files.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+/etc/init.d/runmbbservice.init restart
+ls /usr/inklude/signal.h
+ls /usr/include/signal.h
+geany /usr/include/signal.h
+geany /usr/include/bits/sigset.h
+geany /usr/include/bits/signum.h
+find /usr/include -name errno.h
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.shutdown
+find -name "killall*"
+ps -o stat,com
+ps -o stat,comm
+ps -o stat,args
+ps -o s,comm
+killall5 -15 pup_event_front
+killall5  pup_event_front
+cat /etc/rc.d/PUPSTATE
+df /
+df /mnt/data
+mountpoit /mnt/data
+mountpoint /mnt/data
+man killall5
+type -a killall
+file /usr/bin/killall
+type -a killall5
+type -a kill
+/usr/local/bin/kill -l
+/usr/local/bin/kill -l HUP
+/usr/local/bin/kill -l SIGHUP
+/usr/local/bin/kill -l SIGHUP;echo $?
+/usr/local/bin/kill -l SIGHUPP;echo $?
+type -a kill
+type -a killall
+killall5 --help
+pup_event_frontend_d restart
+dd if=/dev/zero of=/root/swapfile.swp bs=1024 count=1024
+dd if=/dev/zero of=/root/swapfile.swp bs=1024 count=102400
+mkswap /root/swapfile.swp
+swapon /root/swapfile.swp
+pwd
+swapoff /root/swapfile.swp
+swapon ./swapfile.swp
+/bin/ps -A -H | grep defunct
+/bin/ps -A -H | grep -w Z
+cat /proc/swaps
+df /mnt/non
+df /mnt/non >/dev/null
+df /mnt/non 2>/dev/null
+df /mnt/ 2>/dev/null
+df /mnt 2>/dev/null
+df /mnt/x 2>/dev/null
+df /mnt/ 2>/dev/null
+df /dev/adx 2>/dev/null
+df /dev/adx
+df /dev/
+while pidof X; do sleep 1; done
+while pidof ABC; do sleep 1; done
+
+Thu Oct 15 13:42:33 GMT+1 2015
+
+man killall5
+ash
+
+Thu Oct 15 13:51:27 GMT+1 2015
+
+file /etc/rc.d/Flashgonxet
+if test "`which mplayer`" -a -f "$VIDEO" ; then echo is; fi
+VIDEO=/etc/rc.d/Flashgonxet
+if test "`which mplayer`" -a -f "$VIDEO" ; then echo is; fi
+if test "`which mplayer`" -a -f "$VIDEO"; then echo is; fi
+type -a mplayer
+
+Thu Oct 15 14:03:44 GMT+1 2015
+
+
+Thu Oct 15 14:10:02 GMT+1 2015
+
+
+Thu Oct 15 14:56:49 GMT+1 2015
+
+ps | grep pup
+chmod +x /sbin/pup_free_all.sh 
+/sbin/pup_free_all.sh
+cp -ia /sbin/pup_free_all.sh .
+git pull
+./git_helper/update_files.sh
+git commit
+git add woof-code/rootfs-skeleton/sbin/pup_free_all.sh
+git commit -m '/sbin/pup_free_all.sh: Added.
+contains code from pup_event_frontend_d.
+The check for free space should be done
+even when pup_event_frontend_d isnt running.
+_free()
+_free_flash()
+_check_disturb_ps_grep()
+_check_disturb_pidof()
+_savepuppy()
+_delete_drivers()
+.
+Just found out, that _free_initrd() is misssing .'
+git commit
+git add woof-code/rootfs-skeleton/sbin/pup_free_all.sh
+git commit -m '/sbin/pup_free_all.sh: Added 
+_free_initrd() function ( was missing ) .'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+geany /etc/eventmanager.cfg
+geany /usr/bin/restartwm
+geany /usr/bin/goe17go 
+geany /usr/bin/gojwmgo 
+file /usr/share/enlightenment/bits/windowmanager
+cat /usr/share/enlightenment/bits/windowmanager
+file /usr/local/nibbac/windowmanager
+cat /usr/local/nibbac/windowmanager
+/etc/init.d/runmbbservice.init restart
+grubconfig
+pup_event_frontend_d reload
+pup_event_frontend_d stop
+pup_event_frontend_d restart
+pup_event_frontend_d restart
+pup_event_frontend_d restart
+pup_event_frontend_d stop
+ps | grep pup
+
+Thu Oct 15 20:30:48 GMT+1 2015
+
+/etc/init.d/runmbbservice.init restart
+man df
+git branch
+git checkout master
+git pull
+git checkout testing
+git pull
+git branch
+git checkout woof-next
+git checkout fdrv
+git pull
+cd ..
+pwd
+cd ../../../
+pwd
+find -name "mdview"
+/mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PULLS/PuppyLinux-WoofCE.Pull.d/woof-arch/x86/target/rootfs-skeleton/usr/bin/mdview
+/mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PULLS/PuppyLinux-WoofCE.Pull.d/woof-arch/x86/target/rootfs-skeleton/usr/bin/mdview --help
+file /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PULLS/PuppyLinux-WoofCE.Pull.d/woof-arch/x86/target/rootfs-skeleton/usr/bin/mdview 
+ldd /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PULLS/PuppyLinux-WoofCE.Pull.d/woof-arch/x86/target/rootfs-skeleton/usr/bin/mdview 
+/mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/PULLS/PuppyLinux-WoofCE.Pull.d/woof-arch/x86/target/boot/initrd-tree0/bin/busybox
+./svn_co_rX.sh 
+df
+time df
+help local
+pup_event_frontend_d restart
+geany /bin/df
+geany /etc/rc.d/f4puppy5
+pup_event_frontend_d restart
+
+Fri Oct 16 06:39:56 GMT+1 2015
+
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.sysinit.run
+echo $KERNEL_RELEASE
+echo $HAVE_PROFILE 
+. /etc/rc.d/f4puppy5 
+_kernel_version
+_kernel_version2
+echo $KERNEL_RELEASE 
+find /lib/modules/$KERNEL_RELEASE/ -maxdepth 2 -type d -name "firmware*" | head -n 1
+/etc/init.d/runmbbservice.init restart
+geany /usr/bin/plogout
+geany /usr/sbin/plogout
+ps | grep pup
+echo 123 >/tmp/tf.t /tmp/tf2.t
+cat /tmp/tf.t
+cat /tmp/tf2.t
+echo 123 >/tmp/tf.t >/tmp/tf2.t
+cat /tmp/tf2.t
+cat /tmp/tf.t
+pip_event_frontend_d restart
+pup_event_frontend_d restart
+trap -l
+grep -i hangup *
+ps | grep pup
+exec abiword --help
+exec abiword
+exec "abiword --help"
+abiword --help
+exec abiword --help &
+ps -o pid,args | grep -E 'freemem|inotify' | grep -v grep
+busybox ps -o pid,args | grep -E 'freemem|inotify' | grep -v grep
+ps -o pid,args | grep -E 'freemem|inotify'
+ps -A -o pid,args | grep -E 'freemem|inotify'
+busybox ps -A -o pid,args | grep -E 'freemem|inotify' | grep -v grep
+trap -l
+ps | grep pup
+ash 
+pup_event_frontend_d stop
+kill -12 19924
+kill -12 8285
+kill -10 8285
+ps | grep pup
+pup_event_frontend_d stop
+trap -l
+pup_event_frontend_d stop
+pup_event_frontend_d status
+ps | grep pup
+kill -10 12841
+kill -12 20636
+kill -9 20636
+ps | grep pup | grep -v grep
+kill -15 31497
+pup_event_frontend_d start
+./git_helper/update_files_from_running_system 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+/etc/init.d/runmbbservice.init restart
+git pull
+cfclient
+ps | grep pup
+echo CONT >/tmp/pup_event_manager.flg
+kill -18 28033
+kill -19 28033
+pup_event_frontend_d restart
+pup_event_frontend_d start
+pup_event_frontend_d restart
+ps | grep pup
+ps | grep pup | grep -vw grep
+kill -28 18510
+ps | grep pup
+man ps
+kill -18 13157
+kill -19 13157
+kill -18 13157
+kill -19 13157
+ps | grep pup | grep -vw grep
+kill -15 13157
+ps | grep pup | grep -vw grep
+kill -15 13157
+kill -18 13157
+kill -18 25979
+kill -19 25979
+kill -18 25979
+kill -19 25979
+kill -9 25979
+ps | grep pup | grep -vw grep
+kill -36 25979
+kill -36 1355
+kill -36 2563
+kill -63 2563
+kill -36 2563
+kill -63 2563
+kill -9 25979
+kill -9 2563
+kill -63 25760
+kill -36 25760
+kill -63 25760
+kill -36 25760
+kill -63 25760
+kill -36 25760
+kill -63 25760
+kill -36 25760
+kill -63 25760
+kill -36 25760
+kill -63 25760
+trap -l
+pup_event_frontend_d stop
+pup_event_frontend_d start
+/etc/init.d/runmbbservice.init restart
+ps | grep pup | grep -vw grep
+kill -63 25760
+kill -63 3121
+kill -36 3121
+kill -63 3121
+
+Fri Oct 16 23:52:11 GMT+1 2015
+
+ps | grep  pup
+ifconfig
+
+Sat Oct 17 17:44:23 GMT+1 2015
+
+_clear_desk_icons(){ drives=`grep '/\pup_event/drive_*' "$PUPPY_PIN" | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`;  for item in $drives; do DEV_NAME="$item"; _debugx "removing '$DEV_NAME'"; _remove_pinboard $DEV_NAME; done; rm $VERB -fr "$drive_iconDIR"/*; _debugx "Finished _clear_desk_icons
+"; }
+_debugx(){ echo "$*" >&2 ; }
+_clear_desk_icons(){ test    "$drive_iconDIR" || return 1; test -d "$drive_iconDIR" || return 2; drives=`grep '/\pup_event/drive_*' "$PUPPY_PIN" | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`;  for item in $drives; do DEV_NAME="$item"; _debugx "removing '$DEV_NAME'"; _remove_pinboard $DEV_NAME; done; rm $VERB -fr "$drive_iconDIR"/*; _debugx "Finished _clear_desk_icons
+"; }
+_clear_desk_icons
+_clear_desk_icons; echo $?
+stateDIR="$HOME/Choices/Puppy"
+drive_iconDIR="$stateDIR"/pup_event
+echo $drive_iconDIR
+PUPPY_PIN="$HOME/Choices/ROX-Filer/PuppyPin"
+_clear_desk_icons; echo $?
+cat $PUPPY_PIN 
+_clear_desk_icons(){ test    "$drive_iconDIR" || return 1; test -d "$drive_iconDIR" || return 2; drives=`grep '\pup_event/drive_*' "$PUPPY_PIN" | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`;  for item in $drives; do DEV_NAME="$item"; _debugx "removing '$DEV_NAME'"; _remove_pinboard $DEV_NAME; done; rm $VERB -fr "$drive_iconDIR"/*; _debugx "Finished _clear_desk_icons
+"; }
+_clear_desk_icons; echo $?
+cfclient
+git diff
+git log
+git branch
+git pull
+git branch
+git checkout 1_24_stable
+git checkout master
+git log
+git checkout master
+git checkout 1_24_stable
+git log
+git checkout master
+git log
+git pull
+cfclient
+ps | grep $Q -E 'make|gcc|xorriso|xorrecord|xine|petget|wget}axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'
+ps | grep -vw 'grep' | grep $Q -E 'make|gcc|xorriso|xorrecord|xine|petget|wget}axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'
