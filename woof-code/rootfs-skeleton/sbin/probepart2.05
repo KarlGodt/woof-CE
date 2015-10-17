@@ -1,7 +1,7 @@
 #!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
-  _TITLE_="Puppy_probepart2.04"
+  _TITLE_="Puppy_probepart2.05"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
@@ -17,7 +17,7 @@ _provide_basic_parameters
 
 TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
-_parse_basic_parameters "$@"
+#_parse_basic_parameters "$@" # checks for -d for debugging, but -d is for drive in this script.
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
 
@@ -84,7 +84,8 @@ Version='2.04.01'
 Version='2.04.02'
 Version='2.04.03'
 Version='2.04.04'  #exFAT support
-Version='2.04.04'  #use case
+Version='2.04.05'  #use case
+Version='2.04.05'  #clean ups
 
 usage(){
 USAGE_MSG="
@@ -170,7 +171,7 @@ __old_size_factor__(){
 }
 
 #DEVICES=`echo "$@" | grep -o '\-d.*' |sed 's%-[[:alnum:]]*%%g;s%/dev/%%g'`  ##+++edit2
-DEVICES=`echo "$@" | grep -o '\-d.*' | sed 's%-[[:alnum:]]*%%g;s%/dev/%%g' | sed 's% %|%g' | tr -s '|' | sed 's%^|*%%;s%|*$%%'`
+DEVICES=`echo "$@" | grep -o '\-d.*' | sed 's%-[[:alnum:]]*%%g;s%/dev/%%g' | sed 's% %|%g' | tr '|' '\n' | sort -u | tr '\n' '|' | tr -s '|' | sed 's%^|*%%;s%|*$%%'`
 echo "$DEVICES" >>$OUT
 SHOWALL=`echo "$@" | grep -oE '\-A|\-\-all' |tr -d '-'` ##+++edit3
 ##ENDHEAD
@@ -181,14 +182,14 @@ disktype_func(){
 }
 
 blkid_func(){  #2014-11-02 exFAT
-     _debug "blkid_func '$*'" >&2
+     _debug "blkid_func '$*'"
      fsT=`busybox blkid /dev/"$1" 2>>$ERR | grep -w "^/dev/$1" | grep -o ' TYPE="[^"]*"' | cut -f2 -d'"'`
      case "$fsT" in
      *reiser*|*Reiser*|*REISER*) fsT=`blkid /dev/"$1" 2>>$ERR | grep -o ' TYPE="[^"]*"' | cut -f2 -d'"'`
      ;;
      esac
      echo "$fsT"
-     _debug "$fsT" >&2
+     _debug "$fsT"
 }
 
 filesystem_func(){  ##+++edit1
@@ -210,9 +211,9 @@ present_removable(){
    echo "/dev/$drive|$FSTYPE|$SIZE"
 }
 
-echo "DEBUG='$DEBUG' DEVICES='$DEVICES'" >&2
+_debug "DEBUG='$DEBUG' DEVICES='$DEVICES'"
 [ "$DEVICES" ] && FDISK_DEVICES=`echo "$DEVICES" | sed 's%^%/dev/%;s%|% /dev/%g'`
-echo "FDISK_DEVICES='$FDISK_DEVICES'" >&2
+_debug "FDISK_DEVICES='$FDISK_DEVICES'"
 LANG=$LNG FDISK=`fdisk -l $FDISK_DEVICES 2>>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:]]*[0-9]*\) \([[:digit:]]*\) \(.*\)%\1 N \2 \3%'`  ##=+-edit2 : sed + bash and the # sign ..
 
 ##MAIN
@@ -229,7 +230,6 @@ while read maj min drive rest; do
 [ "$DEVICES" ] && { [ "`echo "$drive" | grep -E "$DEVICES"`" ] || continue; }  ##+++edit2 forgot to implement it
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
-#SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*8*512)) || continue
 #[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
 [ "$SIZE" = $((2*8*512)) ] && {
@@ -251,17 +251,14 @@ REMOVEABLE=0
 case $drive in
 *[0-9])
  if [ -d /sys/class/block/$drive/device ]; then
- #REMOVEABLE=`cat /sys/class/block/$drive/removable`
  read REMOVEABLE </sys/class/block/$drive/removable
  fi
  [ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
   filesystem_func "$drive"
   echo "/dev/$drive|$FSTYPE|$SIZE"  ##edit1 wrong order for pmount
 ;;
-#else  #whole drive
 *)
  if [ -d /sys/class/block/$drive/device ]; then
- #REMOVEABLE=`cat /sys/class/block/$drive/removable`
  read REMOVEABLE </sys/class/block/$drive/removable
  if [ "$REMOVEABLE" = 1 ]; then
  if [ -f /sys/class/block/$drive/device/type ]; then  ##+++edit3
@@ -274,6 +271,5 @@ case $drive in
  fi;fi
 ;;
 esac
-#fi
 #done</proc/partitions
 done</proc/diskstats  ##-+edit3
