@@ -74,14 +74,18 @@ while getopts Vhvd opt; do
  case $opt in
   V) echo -e "\n$0: Version '$Version'\nTry -h for more info.\n";exit 0;;
   h) usage 0;;
-  v) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERBOSE=1;Q='';QUIET=$Q;DBG=-d;;
+  v) VERBOSE=$((VERBOSE+1));VERB="$VERB -v";L_VERB="$L_VERB --verbose";A_VERB="$A_VERB -verbose";
+      OUT=/dev/stdout;ERR=/dev/stderr;
+      DEBUG=$((DEBUG+1));DBG="$DBG -d";L_DBG="$L_DBG --debug";
+      unset Q QUIET
+      ;;
   d) set -x;;
   *) :;;
   esac
 done
 
 
-ME_PROGRAM=`readlink -f "$0"`  ##+-2013-08-10 should be readlink -e but busybox readlink treats -f as -e option
+ME_PROGRAM=`realpath "$0"`  ##+-2013-08-10 should be readlink -e but busybox readlink treats -f as -e option
 ME_PID=$$
 ME_OTHER_PIDS=`pidof -o $$ -o %PPID ${ME_PROGRAM##*/}`
 
@@ -113,8 +117,11 @@ exit 0
 ;;
 *debug|-d) set -x
 ;;
-*verbose|-v) VERBOSE=1
-VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;Q='';QUIET=$Q;DBG=-d
+*verbose|-v) VERBOSE=$((VERBOSE+1))
+VERB="$VERB -v";L_VERB="$L_VERB --verbose";A_VERB="$A_VERB -verbose";
+OUT=/dev/stdout;ERR=/dev/stderr;
+DEBUG=$((DEBUG+1));DBG="$DBG -d";L_DBG="$L_DBG --debug";
+unset Q QUIET
 ;;
 
 *stop)
@@ -275,6 +282,7 @@ _count_=$((_count_+1))
 fi
 
 ### VARIABLES
+POLL_INTERVALL=2 #seconds
 SAVECNT=0
 MOUSECNT=0  #w007
 MINUTECNT=0 #w007
@@ -309,7 +317,7 @@ PREVSIZEFREEM=0
 ###<KRG>
 stateDIR="$HOME/Choices/Puppy"
 drive_iconDIR="$stateDIR"/pup_event
-mkdir -p "$drive_iconDIR"
+mkdir $VERB -p "$drive_iconDIR"
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
@@ -333,8 +341,8 @@ auto_unmount_func() {
 
 _format_size() {
  [ ! "$SIZE" ] && SIZE=0
- if [ "$SIZE" -gt 1048576 ];then #1024*1024
-  SIZE=`LANG=$OLDLANG dc $SIZE 1048576 \/ p` #100613 dc o/p '.' if LANG=C.
+ if [ "$SIZE" -gt 1048576 ];then               #1024*1024
+  SIZE=`LANG=$OLDLANG dc $SIZE 1048576 \/ p`   #100613 dc o/p '.' if LANG=C.
   SIZE="`LANG=$OLDLANG printf "%.1f" $SIZE`GB" #100613
  else
   if [ "$SIZE" -gt 1024 ];then
@@ -365,7 +373,7 @@ _create_appinfo() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
 }
 
  PIN_GRID_STEP=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
- [ $PIN_GRID_STEP ]       || PIN_GRID_STEP=16       #16=medium.
+ [ $PIN_GRID_STEP ]       || PIN_GRID_STEP=16 #2=fine 16=medium 32=coarse
  [ $PIN_GRID_STEP -le 0 ] && PIN_GRID_STEP=16 #precaution.
  PIN_GRID_STEP2=$((PIN_GRID_STEP / 2))
  MAX_X=$((SCRN_X - 96))
@@ -382,19 +390,19 @@ __free_coord_normal__(){
  COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
-   COORD_Y=`expr $SCRN_Y - $ICON_PLACE_EDGE_GAP` #default 64, see /etc/eventmanager
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   COORD_Y=$((SCRN_Y - ICON_PLACE_EDGE_GAP)) #default 64, see /etc/eventmanager
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP ) * PIN_GRID_STEP))
    COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
-    COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
+    COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line up.
-     xyCNT=`expr $xyCNT + 1`
-     [ $xyCNT -gt 1 ] && break
-     COORD_Y=`expr $COORD_Y - $ICON_PLACE_SPACING`
+     xyCNT=$((xyCNT + 1))
+     #[ $xyCNT -gt 1 ] && break
+     COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
      COORD_X=$ICON_PLACE_START_GAP
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
@@ -402,42 +410,37 @@ __free_coord_normal__(){
   ;;
   top)
    COORD_Y=$ICON_PLACE_EDGE_GAP
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
-    COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
+    COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
-     xyCNT=`expr $xyCNT + 1`
-     [ $xyCNT -gt 1 ] && break
-     COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
+     xyCNT=$((xyCNT + 1))
+     #[ $xyCNT -gt 1 ] && break
+     COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
      COORD_X=$ICON_PLACE_START_GAP
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    done
   ;;
   left)
-   COORD_X=$ICON_PLACE_EDGE_GAP #default 64, see /etc/eventmanager
+   COORD_X=$ICON_PLACE_EDGE_GAP  #default 64, see /etc/eventmanager
    COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
-   #COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
-   COORD_Y=$((((COORD_Y+PIN_GRID_STEP2)/PIN_GRID_STEP)*PIN_GRID_STEP))
+   COORD_Y=$(( ((COORD_Y+PIN_GRID_STEP2)/PIN_GRID_STEP)*PIN_GRID_STEP))
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
    while :; do
     #xgPATTERN="`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`"
     xgPATTERN="${xPATTERN//[0-9]\"/\"}"
-    #[ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && break
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
-    #COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
     COORD_Y=$((COORD_Y+ICON_PLACE_SPACING))
     if [ $COORD_Y -gt $MAX_Y ];then #start next row. ##FIXME
-     #xyCNT=`expr $xyCNT + 1` ##FIXME
      xyCNT=$((xyCNT+1))
-     [ $xyCNT -gt 1 ] && break ##FIXME
-     #COORD_X=`expr $COORD_X + $ICON_PLACE_SPACING`
+     #[ $xyCNT -gt 1 ] && break ##FIXME
      COORD_X=$((COORD_X+ICON_PLACE_SPACING))
      COORD_Y=$ICON_PLACE_START_GAP
     fi
@@ -445,19 +448,18 @@ __free_coord_normal__(){
    done
   ;;
   right)
-   COORD_X=`expr $SCRN_X - $ICON_PLACE_EDGE_GAP` #default 64, see /etc/eventmanager
-   COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   COORD_X=$((SCRN_X - ICON_PLACE_EDGE_GAP)) #default 64, see /etc/eventmanager
+   COORD_Y=$ICON_PLACE_START_GAP             #default 32, see /etc/eventmanager
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    xyCNT=0 #precaution.
    while :; do
     xgPATTERN=`echo -n "$xPATTERN" |  sed 's/[0-9]"/"/g'`
     [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
-    COORD_Y=`expr $COORD_Y + $ICON_PLACE_SPACING`
+    COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
     if [ $COORD_Y -gt $MAX_Y ];then #start next row back.
-     xyCNT=`expr $xyCNT + 1`
-     [ $xyCNT -gt 1 ] && break
-     COORD_X=`expr $COORD_X - $ICON_PLACE_SPACING`
+     xyCNT=$((xyCNT + 1))
+     COORD_X=$((COORD_X - ICON_PLACE_SPACING))
      COORD_Y=$ICON_PLACE_START_GAP
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
@@ -472,36 +474,36 @@ _free_coord_simple(){
  LAST_PLACE=`grep -m1 '\pup_event/drive_' $HOME/Choices/ROX-Filer/PuppyPin`
  [ "$LAST_PLACE" ] && { COORD_X=`echo "$LAST_PLACE" | cut -f2 -d'"'`; COORD_Y=`echo "$LAST_PLACE" | cut -f4 -d'"'`; }
  #echo "'$OLD_DRV_NAME' $DRIVE_NAME
-echo "'$LAST_PLACE'
+_debug "'$LAST_PLACE'
 $COORD_X $COORD_Y"
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
-   [ "$COORD_Y" ] || COORD_Y=`expr $SCRN_Y - $ICON_PLACE_EDGE_GAP` #default 64, see /etc/eventmanager
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   [ "$COORD_Y" ] || COORD_Y=$((SCRN_Y - ICON_PLACE_EDGE_GAP)) #default 64, see /etc/eventmanager
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    [ "$COORD_X" ] && COORD_X=$((COORD_X + ICON_PLACE_SPACING)) || COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
    [ "$COORD_X" -gt $MAX_X ] && { COORD_Y=$((COORD_Y - ICON_PLACE_SPACING)) ; COORD_X=$ICON_PLACE_START_GAP ; }
-   echo COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
+   _debug COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
   ;;
   top)
    [ "$COORD_Y" ] || COORD_Y=$ICON_PLACE_EDGE_GAP
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    [ "$COORD_X" ] && COORD_X=$((COORD_X + ICON_PLACE_SPACING)) || COORD_X=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
    [ "$COORD_X" -gt $MAX_X ] && { COORD_Y=$((COORD_Y + ICON_PLACE_SPACING)) ; COORD_X=$ICON_PLACE_START_GAP ; }
-   echo COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
+   _debug COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
   ;;
   left)
    [ "$COORD_X" ] || COORD_X=$ICON_PLACE_EDGE_GAP #default 64, see /etc/eventmanager
    [ "$COORD_Y" ] && COORD_Y=$((COORD_Y + ICON_PLACE_SPACING)) || COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
-   COORD_Y=$((((COORD_Y+PIN_GRID_STEP2)/PIN_GRID_STEP)*PIN_GRID_STEP))
+   COORD_Y=$(( ((COORD_Y+PIN_GRID_STEP2)/PIN_GRID_STEP)*PIN_GRID_STEP))
    [ "$COORD_Y" -gt $MAX_Y ] && { COORD_X=$((COORD_X + ICON_PLACE_SPACING)) ; COORD_Y=$ICON_PLACE_START_GAP ; }
-   echo COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
+   _debug COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
   ;;
   right)
-   [ "$COORD_X" ] || COORD_X=`expr $SCRN_X - $ICON_PLACE_EDGE_GAP` #default 64, see /etc/eventmanager
+   [ "$COORD_X" ] || COORD_X=$((SCRN_X - ICON_PLACE_EDGE_GAP)) #default 64, see /etc/eventmanager
    [ "$COORD_Y" ] && COORD_Y=$((COORD_Y + ICON_PLACE_SPACING)) || COORD_Y=$ICON_PLACE_START_GAP #default 32, see /etc/eventmanager
-   COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*' $PIN_GRID_STEP`
+   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
    [ "$COORD_Y" -gt $MAX_Y ] && { COORD_X=$((COORD_X - ICON_PLACE_SPACING)) ; COORD_Y=$ICON_PLACE_START_GAP ; }
-   echo COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
+   _debug COORD_X=$COORD_X COORD_Y=$COORD_Y #DEBUG
   ;;
    esac
 #OLD_DRV_NAME="$DRIVE_NAME"
@@ -529,7 +531,7 @@ _add_pinboard() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
 }
 
 _probepart() {
-PROBEPART=`probepart $* -k $@ | grep -iE 'not inserted|\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|.*fat.*\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|udf\||\|jfs\||\|reiser'`
+PROBEPART=`probepart $* -k | grep -iE 'not inserted|\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|.*fat.*\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|udf\||\|jfs\||\|reiser'`
 }
 
 _create_icon() {
@@ -550,14 +552,13 @@ _create_icon() {
 
   #display an icon for each partition... w476 add ext4...
   _probepart -d/dev/$DEV_NAME ;
-  echo "$PROBEPART";
-  echo "done"
+  _debug "$PROBEPART"
+  _debug "Done."
 
   drvPATTERN="^/dev/${DEV_NAME}" #important, no space on end! #drvPATTERN='^/dev/'"${PART_NAME}"
-  #DRVINFO=`echo "$PROBEPART" | grep -w "$drvPATTERN" | cut -f 1,2,3 -d '|' | tr '\n' ' '` # grep -w
   DRVINFO=`echo "$PROBEPART" | grep "$drvPATTERN" | cut -f 1,2,3 -d '|'`
 
-fi   ## was# ICONPARTITIONS true
+ fi   ## was# ICONPARTITIONS true
 
 
  while read -r oneDRVINFO
@@ -575,7 +576,7 @@ fi   ## was# ICONPARTITIONS true
   drvPATTERN='^/dev/'"${PART_NAME}"' ' #important, a space on end!
 
   if [ ! -d $drive_iconDIR/drive_${PART_NAME} ]; then
-   mkdir -p $drive_iconDIR/drive_${PART_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
+   mkdir $VERB -p $drive_iconDIR/drive_${PART_NAME}  ##sbin/pup_event_frontend_d: line 50: can't create : nonexistent directory
    /bin/cp $VERB -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${PART_NAME}/AppRun
   else
     echo -e "\\033[1;33m""$drive_iconDIR/drive_${DEV_NAME} EXTST ...""\\033[0;39m"
@@ -661,18 +662,17 @@ _delete_drivers() { #called from _free() and _free_flash(). delete modules to cr
  for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
  do
   oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
-  #oneKEEP_PATH=`dirname $oneKEEP_SPEC`
   oneKEEP_PATH-${oneKEEP_SPEC%/*}
-  test -d /tmp${oneKEEP_PATH} || mkdir -p /tmp${oneKEEP_PATH}
+  test -d /tmp${oneKEEP_PATH} || mkdir $VERB -p /tmp${oneKEEP_PATH}
   cp $VERB -af ${oneKEEP_SPEC} /tmp${oneKEEP_PATH}/
  done
  if [ "$DEL_LAYER" ];then
-  rm -rf ${DEL_LAYER}/lib/modules
+  rm $VERB -rf ${DEL_LAYER}/lib/modules
  else
   if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then
-   rm -rf ${SAVE_LAYER}/lib/modules
+   rm $VERB -rf ${SAVE_LAYER}/lib/modules
   fi
-  rm -rf /lib/modules
+  rm $VERB -rf /lib/modules
  fi
  cp $VERB -af /tmp/lib/modules /lib/modules
  depmod -a
@@ -796,18 +796,18 @@ drives=`grep '/\pup_event/drive_*' $HOME/Choices/ROX-Filer/PuppyPin | grep -o '/
 
 for item in $drives; do
 DEV_NAME="$item"
-echo "removing '$DEV_NAME'"
+_debugx "removing '$DEV_NAME'"
 _remove_pinboard $DEV_NAME
 done
-rm -fr "$drive_iconDIR"/*
-echo "Finished _clear_desk_icons
+rm $VERB -fr "$drive_iconDIR"/*
+_debugx "Finished _clear_desk_icons
 "
 }
 _clear_desk_icons
 
 
 _start_pup_event_frontend_d(){
-echo "_start_pup_event_frontend_d BEGIN"
+_debug "_start_pup_event_frontend_d BEGIN"
 
 #build the desktop icons...
 DRV_CATEGORY='drive'
@@ -820,7 +820,7 @@ DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d
 DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'`
 
 if [ "$ICONDESK" = "false" ];then
-echo "ICONDESK is false"
+_info "ICONDESK is false"
  #only show a single 'drives' icon on desktop...
      DEV_NAME='drives'
  DRV_CATEGORY='any' #see pmount.
@@ -830,13 +830,13 @@ echo "ICONDESK is false"
 
 elif [ "$ICONPARTITIONS" = "false" ];then
 
-  _debug 'Just Maindrives'
+  _info 'Just Maindrives'
   for item in $PROBEDISK ; do
 
-   DEV_NAME=`echo "$item" |cut -f 1 -d '|' | cut -f 3 -d '/'`
-   DRV_CATEGORY=`echo "$item" |cut -f 2 -d '|'`
+          DEV_NAME=`echo "$item" |cut -f 1 -d '|' | cut -f 3 -d '/'`
+      DRV_CATEGORY=`echo "$item" |cut -f 2 -d '|'`
    DRV_DESCRIPTION=`echo "$item" |cut -f 3 -d '|'`
-   [ "$DEBUG" ] && { echo $item;echo '***'; }
+   _debug $item
    _create_icon $DEV_NAME
 
   done
@@ -850,23 +850,18 @@ while read -r oneDRV
 #IFS='|' while read -r DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
  do
  [ "$oneDRV" ] || continue
- #test "$DRV_NAME" || continue
 
  _debug "oneDRV=$oneDRV'"
- #[ "$DEBUG" ] && echo "DRV_NAME=$DRVNAME' DRV_CATEGORY=$DRV_CATEGORY' DRV_DESCRIPTION=$DRV_DESCRIPTION'"
 
-         DEV_NAME=`echo -n "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
-  #DRV_NAME=${DRV_NAME##*/}
-
+         DEV_NAME=`echo "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
      DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
   DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
 
   _create_icon $DEV_NAME #startup #needs PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
   #_create_icon $DRV_NAME
 
-  #oneDRVNAME="$DEV_NAME"
   if [ ! -d $drive_iconDIR/drive_${DEV_NAME} ]; then
-   mkdir -p $drive_iconDIR/drive_${DEV_NAME}
+   mkdir $VERB -p $drive_iconDIR/drive_${DEV_NAME}
    /bin/cp $VERB -a --remove-destination /usr/local/bin/drive_all $drive_iconDIR/drive_${DEV_NAME}/AppRun
    INFO="Puppy drive manager"
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${DEV_NAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
@@ -944,7 +939,7 @@ CURPOS2=1
 case $PUPMODE in
 3|7|13)
    FREE_FUNCTION='_free_flash'
-   [ "$VERBOSE" ] && echo "RAMSAVEINTERVAL='$RAMSAVEINTERVAL'"
+   _debug "RAMSAVEINTERVAL='$RAMSAVEINTERVAL'"
    [ "$RAMSAVEINTERVAL" -ne 0 ] && _do_ramsaveinterval &
  ;;
 16|24|17|25) #unipup.
@@ -960,25 +955,25 @@ PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
 #now go into a three-second loop...
 while :;
 do
- sleep 3
+ sleep $POLL_INTERVALL
 
 #########check hotplug block event##########
 
 if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
  ######### hotplug detected : #########
-  echo "MAIN loop not same"
+  _debug "MAIN loop not same"
   BLOCKSADD=`echo "$PROBEDISK2_LOOP_NEW" | /bin/grep -v "$PROBEDISK2_LOOP_OLD"`
   BLOCKSREM=`echo "$PROBEDISK2_LOOP_OLD" | /bin/grep -v "$PROBEDISK2_LOOP_NEW"`
-  [ "$VERBOSE" ] && echo "BLOCKSADD=$BLOCKSADD'"
-  [ "$VERBOSE" ] && echo "BLOCKSREM=$BLOCKSREM'"
+  _debug "BLOCKSADD=$BLOCKSADD'"
+  _debug "BLOCKSREM=$BLOCKSREM'"
 
   if [ "$BLOCKSADD" ] ; then
    while read -r aADD; do
    [ "$aADD" ] || continue
-   DEV_NAME=`echo -n "$aADD" | cut -f 1 -d '|' | cut -f3 -d'/'`
-   DRV_CATEGORY=`echo -n "$aADD" | cut -f 2 -d '|'`
+          DEV_NAME=`echo -n "$aADD" | cut -f 1 -d '|' | cut -f3 -d'/'`
+      DRV_CATEGORY=`echo -n "$aADD" | cut -f 2 -d '|'`
    DRV_DESCRIPTION=`echo -n "$aADD" | cut -f 3 -d '|' | tr -s ' '`
-   [ "$VERBOSE" ] && echo DEV_NAME=$DEV_NAME DRV_CATEGORY=$DRV_CATEGORY DRV_DESCRIPTION=$DRV_DESCRIPTION
+   _debug DEV_NAME=$DEV_NAME DRV_CATEGORY=$DRV_CATEGORY DRV_DESCRIPTION=$DRV_DESCRIPTION
    [ "$ICONDESK" = "true" ] && _create_icon $DEV_NAME
    #uses DEV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && $drive_iconDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
@@ -997,7 +992,7 @@ EoI
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    _remove_pinboard $DEV_NAME #needs DEV_NAME or DRV_NAME
-   rm -rf $drive_iconDIR/drive_${DEV_NAME}*
+   rm $VERB -rf $drive_iconDIR/drive_${DEV_NAME}*
   done<<EOI
 $(echo "$BLOCKSREM")
 EOI
@@ -1006,13 +1001,13 @@ EOI
 fi
 
  ######### hotplug detected #########
- [ "$VERBOSE" ] && echo "$0:Hotplug detected ?:"
+ _debug "$0:Hotplug detected ?:"
  PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
  PROBEDISK2_LOOP_NEW=`_probedisk_simple`
- [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_OLD='$PROBEDISK_LOOP_OLD'"
- [ "$VERBOSE" ] && echo "PROBEDISK_LOOP_NEW='$PROBEDISK_LOOP_NEW'"
- [ "$VERBOSE" ] && echo
- ####### three second timeout procesing #########
+ _debug "PROBEDISK_LOOP_OLD='$PROBEDISK_LOOP_OLD'"
+ _debug "PROBEDISK_LOOP_NEW='$PROBEDISK_LOOP_NEW'"
+ _debug ""
+ ####### POLL_INTERVAL second timeout procesing #########
 
  $FREE_FUNCTION
 
@@ -1023,20 +1018,16 @@ fi
  POWERTIMEOUT=$((POWERTIMEOUT * 60));RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60))
  _start_pup_event_frontend_d
  sleep 1
- rm -f /tmp/pup_event_icon_change_flag
+ rm $VERB -f /tmp/pup_event_icon_change_flag
  fi #1
 
- ##some apps should not be disturbed by this background stuff...
- #RUNPS=`ps`
- ##w482 add xorriso...
- #[ "`echo "$RUNPS" | grep -Ew 'make|gcc|xorriso|xorrecord|xine|petget|wget|axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'`" != "" ] && continue
 
  [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
 
- #$FREE_FUNCTION
+
 
 done
-#3 second loop.
+# POLL_INTERVALL loop
 
 echo
 
