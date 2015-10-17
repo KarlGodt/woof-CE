@@ -51,14 +51,30 @@ PUPPYVERSION="$DISTRO_VERSION"
 KERNVER=`uname -r`
 . /etc/rc.d/MODULESCONFIG
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager
+
+[ "$CONFFILE" ] || CONFFILE=/etc/eventmanager.cfg
+[ -f "$CONFFILE" ] && . "$CONFFILE"
+
 [ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
 [ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
 [ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
 [ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
 [ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
 [ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] && HOTPLUGON="true"
+if [ "`pidof udevd`" ]; then
 [ "$BACKENDON" != "true" -a "$BACKENDON" != "false" ] && BACKENDON="true"
+BACKEND_GUI=" <text><label>\"  \"</label></text>
+ <text><label>Automatic module and firmware loading if new hardware is detected. Turn it all off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. Pmount can still be run manually to mount and unmount partitions.</label></text>
+  <checkbox>
+   <label>Tick box for hotplug module/firmware loading</label>
+   <default>${BACKENDON}</default>
+   <variable>NEWBACKENDON</variable>
+  </checkbox>
+"
+else
+BACKENDON=false
+BACKEND_GUI=""
+fi
 [ "$FD0ICON" != "true" -a "$FD0ICON" != "false" ] && FD0ICON="true"
 [ ! $POWERTIMEOUT ] && POWERTIMEOUT=0 #w007 0=never.
 [ ! $AUTOUNMOUNT ] && AUTOUNMOUNT="false" #v424
@@ -82,7 +98,7 @@ if [ "$SHOWMODE" = "desktop" ];then
 <vbox>
 
   <text use-markup=\"true\">
-  <label>\"<b>Restart X for changes to take affect</b>\"</label></text>
+  <label>\"<b>pup_event_frontend_d configuration</b>\"</label></text>
 
 <notebook labels=\"Desktop Icons|Icon Handler|Legacy\">
 
@@ -168,24 +184,18 @@ else
 <vbox>
 
   <text use-markup=\"true\">
-  <label>\"<b>Restart X for changes to take affect</b>\"</label></text>
+  <label>\"<b>pup_event_frontend_d configuration</b>\"</label></text>
 
 <notebook labels=\"Activate|Save Session|Desktop Icons|Icon Handler|Legacy|Power\">
 
  <frame Activate Puppy Event Manager>
-  <text><label>The 'pup_event' Puppy Event Manager runs in the background and handles hotplugging of drives, including the desktop drive icons. This also includes automatic module and firmware loading if new hardware is detected. However, turn it all off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. Pmount can still be run manually to mount and unmount partitions.</label></text>
-  <checkbox>
-   <label>Tick box for hotplug module/firmware loading</label>
-   <default>${BACKENDON}</default>
-   <variable>NEWBACKENDON</variable>
-  </checkbox>
-
+  <text><label>\"The 'pup_event' Puppy Event Manager runs in the background and handles hotplugging of drives, including the desktop drive icons.   \"</label></text>
   <hbox>
-  <text><label>\"  \"</label></text>
   <vbox>
-  <text><label>If the above is ticked, then can also turn on these:</label></text>
+  <text><label>\"  \"</label></text>
+  <text><label>Hotplug events :</label></text>
   <checkbox>
-   <label>Tick box for desktop hotplug support</label>
+   <label>Tick box for desktop icons hotplug support</label>
    <default>${HOTPLUGON}</default>
    <variable>NEWHOTPLUGON</variable>
   </checkbox>
@@ -198,7 +208,7 @@ else
   </vbox>
   </hbox>
 
-
+  $BACKEND_GUI
  </frame>
 
  <frame Periodic save from RAM>
@@ -338,6 +348,7 @@ NEWPOWERTIMEOUT=`echo -n "$NEWPOWERTIMEOUT" | sed -e 's/[^0-9]//g'`
 [ "$NEWBACKENDON" = "" ] && NEWBACKENDON="true" #v412
 [ "$NEWHOTPLUGON" = "" ] && NEWHOTPLUGON="true" #v412
 [ "$NEWBACKENDON" = "false" ] && NEWHOTPLUGON="false"
+_reset_(){
 if [ "$NEWHOTPLUGON" = "false" ];then
  NEWICONDESK="false"
  NEWICONPARTITIONS="false"
@@ -345,50 +356,65 @@ if [ "$NEWHOTPLUGON" = "false" ];then
  NEWAUTOTARGET="false"
  NEWAUTOUNMOUNT="false" #v424
 fi
+}
 
-#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
-[ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] && echo "ICONPARTITIONS" > /tmp/pup_event_icon_change_flag
-[ "$ICONDESK" != "$NEWICONDESK" ] && echo "ICONDESK" > /tmp/pup_event_icon_change_flag
-[ "$NEWICONWIPE" = "true" ] && echo "ICONWIPE" > /tmp/pup_event_icon_change_flag #v411
-
-CONFIG=`cat /etc/eventmanager`
+CONFIG=`cat "$CONFFILE"`
+S=$((S+$?))
 CONFIG_OLD="$CONFIG"  ##+++2012-09-04
 
 rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL}/"
 CONFIG=`echo "$CONFIG" | sed -e "$rsPATTERN"`
-
+S=$((S+$?))
 #w007...
 ptPATTERN="s/^POWERTIMEOUT=.*/POWERTIMEOUT=${NEWPOWERTIMEOUT}/"
 CONFIG=`echo "$CONFIG" | sed -e "$ptPATTERN"`
+S=$((S+$?))
 
 idPATTERN="s/^ICONDESK=.*/ICONDESK=${NEWICONDESK}/"
 CONFIG=`echo "$CONFIG" | sed -e "$idPATTERN"`
+S=$((S+$?))
 
 ipPATTERN="s/^ICONPARTITIONS=.*/ICONPARTITIONS=${NEWICONPARTITIONS}/"
 CONFIG=`echo "$CONFIG" | sed -e "$ipPATTERN"`
+S=$((S+$?))
 
 hnPATTERN="s/^HOTPLUGNOISY=.*/HOTPLUGNOISY=${NEWHOTPLUGNOISY}/"
 CONFIG=`echo "$CONFIG" | sed -e "$hnPATTERN"`
+S=$((S+$?))
 
 atPATTERN="s/^AUTOTARGET=.*/AUTOTARGET=${NEWAUTOTARGET}/"
 CONFIG=`echo "$CONFIG" | sed -e "$atPATTERN"`
+S=$((S+$?))
 
 hoPATTERN="s/^HOTPLUGON=.*/HOTPLUGON=${NEWHOTPLUGON}/"
 CONFIG=`echo "$CONFIG" | sed -e "$hoPATTERN"`
+S=$((S+$?))
 
 boPATTERN="s/^BACKENDON=.*/BACKENDON=${NEWBACKENDON}/"
 CONFIG=`echo "$CONFIG" | sed -e "$boPATTERN"`
+S=$((S+$?))
 
 fiPATTERN="s/^FD0ICON=.*/FD0ICON=${NEWFD0ICON}/"
 CONFIG=`echo "$CONFIG" | sed -e "$fiPATTERN"`
+S=$((S+$?))
 
 auPATTERN="s/^AUTOUNMOUNT=.*/AUTOUNMOUNT=${NEWAUTOUNMOUNT}/" #v424
 CONFIG=`echo "$CONFIG" | sed -e "$auPATTERN"`
+S=$((S+$?))
 
-if [ "$CONFIG" ] ; then  ##+++2012-09-04
-echo "$CONFIG" > /etc/eventmanager
+if [ "$CONFIG" -a $S = 0 ] ; then  ##+++2012-09-04
+echo "$CONFIG" > "$CONFFILE"
+#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
+#[ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] && echo "ICONPARTITIONS" > /tmp/pup_event_icon_change.flg
+#[ "$ICONDESK" != "$NEWICONDESK" ] && echo "ICONDESK" > /tmp/pup_event_icon_change.flg
+#[ "$NEWICONWIPE" = "true" ] && echo "ICONWIPE" > /tmp/pup_event_icon_change.flg #v411
+#[ "$POWERTIMEOUT" ] && echo POWERTIMEOUT >/tmp/pup_event_icon_change.flg
+#[ "$RAMSAVEINTERVAL" ] && echo RAMSAVEINTERVAL >/tmp/pup_event_icon_change.flg
+echo updated >/tmp/pup_event_icon_change.flg
 else  ##+++2012-09-04
 xmessage -bg red "Error ocurred. Keeping previous configuration" &
 fi ##+++2012-09-04
 
+ls -l /tmp/pup_event_icon_change.flg
+cat /tmp/pup_event_icon_change.flg
 ###END###
