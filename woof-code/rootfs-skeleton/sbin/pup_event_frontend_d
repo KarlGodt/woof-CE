@@ -291,9 +291,17 @@ CURPOS1=""  #w007
 KERNVER=`uname -r`
 ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
 test -f /etc/rc.d/PUPSTATE         && . /etc/rc.d/PUPSTATE
-test -f /etc/eventmanager          && . /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
 test -f /etc/rc.d/functions4puppy4 && . /etc/rc.d/functions4puppy4
 test -f /etc/rc.d/f4puppy5         && . /etc/rc.d/f4puppy5
+
+###<KRG>
+stateDIR="$HOME/Choices/Puppy"
+drive_iconDIR="$stateDIR"/pup_event
+mkdir $VERB -p "$drive_iconDIR"
+FLAGFILE=/tmp/pup_event_icon_change.flg
+[ "$CONFFILE" ] || CONFFILE=/etc/eventmanager.cfg
+test -f "$CONFFILE" && . "$CONFFILE"
+PUPPY_PIN="$HOME/Choices/ROX-Filer/PuppyPin"
 
 SCRNXY=`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'`
@@ -314,13 +322,9 @@ RETVALm=1
 PREVSIZETMPM=0
 PREVSIZEFREEM=0
 
-###<KRG>
-stateDIR="$HOME/Choices/Puppy"
-drive_iconDIR="$stateDIR"/pup_event
-mkdir $VERB -p "$drive_iconDIR"
-
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
+ [ "$AUTOUNMOUNT" = true ] || return
  for oneMNTPT in `grep '^/dev/' /proc/mounts | grep -vE '^/dev/loop|^/dev/ram|^/dev/zram|^/dev/mtd|^/dev/nbd|^/dev/md' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
   if [ ! "`fuser -v -m $oneMNTPT`" ];then
@@ -387,7 +391,7 @@ __free_coord_normal__(){
  #find a free place on desktop. v410 avoid exact overlapping icons...
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
- COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' $HOME/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
+ COORDSGRID=`grep -o -e ' x="[0-9]*" y="[0-9]*" ' "$PUPPY_PIN" | sed 's/[0-9]"/"/g'`
  case $ICON_PLACE_ORIENTATION in #see /etc/eventmanager
   bottom)
    COORD_Y=$((SCRN_Y - ICON_PLACE_EDGE_GAP)) #default 64, see /etc/eventmanager
@@ -471,7 +475,7 @@ __free_coord_normal__(){
 _free_coord_simple(){
  #DRIVE_NAME="$1"
  #LAST_PLACE=`grep -m1 -w "\.pup_event/drive_${OLD_DRV_NAME}" /root/Choices/ROX-Filer/PuppyPin`
- LAST_PLACE=`grep -m1 '\pup_event/drive_' $HOME/Choices/ROX-Filer/PuppyPin`
+ LAST_PLACE=`grep -m1 '\pup_event/drive_' "$PUPPY_PIN"`
  [ "$LAST_PLACE" ] && { COORD_X=`echo "$LAST_PLACE" | cut -f2 -d'"'`; COORD_Y=`echo "$LAST_PLACE" | cut -f4 -d'"'`; }
  #echo "'$OLD_DRV_NAME' $DRIVE_NAME
 _debug "'$LAST_PLACE'
@@ -511,7 +515,7 @@ $COORD_X $COORD_Y"
 
 _add_pinboard() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
  [ "$1" ] && DRV_NAME="$1"
-
+ [ "`grep "/drive_${DRV_NAME}</icon>$" "$PUPPY_PIN"`" ] && return
  _free_coord_simple   #${oneDRVNAME}
 
  _debug "Passing X='$COORD_X' Y='$COORD_Y' to rox -R"
@@ -535,13 +539,15 @@ PROBEPART=`probepart $* -k | grep -iE 'not inserted|\|ext4\||\|ntfs\||\|msdos\||
 }
 
 _create_icon() {
+    DEBUG=1
  [ "$1" ] && DEV_NAME="$1"
+
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
  #if a passed param $1, then PROBEPART already known, inefficient to rerun here each time.
 
    if [ "$ICONDESK" = "false" ];then
-    DRVINFO="/dev/$DEV_NAME"'|0|0'
+    DRVINFO="/dev/$DEV_NAME"'|0|0' #we show one icon though for all drives and partitions
 
  elif [ "$ICONPARTITIONS" = "false" ];then
     read SIZE </sys/block/$DEV_NAME
@@ -560,6 +566,7 @@ _create_icon() {
 
  fi   ## was# ICONPARTITIONS true
 
+_debug "$DRVINFO"
 
  while read -r oneDRVINFO
  do
@@ -635,7 +642,7 @@ _remove_pinboard() { #needs DEV_NAME (name of entire drive)
 
  ppPATTERN='\pup_event/drive_'"$DRV_NAME"'.*'
 
- ALLNAMES=`grep -o "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin | cut -f 3 -d '_' | cut -f 1 -d '<' | sort -r`
+ ALLNAMES=`grep -o "$ppPATTERN" "$PUPPY_PIN" | cut -f 3 -d '_' | cut -f 1 -d '<' | sort -r`
 
  for ONE_PART in $ALLNAMES
  do
@@ -792,7 +799,7 @@ _probedisk2(){
 }
 
 _clear_desk_icons(){
-drives=`grep '/\pup_event/drive_*' $HOME/Choices/ROX-Filer/PuppyPin | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`
+drives=`grep '/\pup_event/drive_*' "$PUPPY_PIN" | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`
 
 for item in $drives; do
 DEV_NAME="$item"
@@ -831,7 +838,8 @@ _info "ICONDESK is false"
 elif [ "$ICONPARTITIONS" = "false" ];then
 
   _info 'Just Maindrives'
-  for item in $PROBEDISK ; do
+  #for item in $PROBEDISK ; do
+  while read -r item; do
 
           DEV_NAME=`echo "$item" |cut -f 1 -d '|' | cut -f 3 -d '/'`
       DRV_CATEGORY=`echo "$item" |cut -f 2 -d '|'`
@@ -839,7 +847,9 @@ elif [ "$ICONPARTITIONS" = "false" ];then
    _debug $item
    _create_icon $DEV_NAME
 
-  done
+  done <<EoI
+`echo "$PROBEDISK"`
+EoI
 
 else
   _debug "ICONPARTITIONS='$ICONPARTITIONS'"
@@ -853,7 +863,7 @@ while read -r oneDRV
 
  _debug "oneDRV=$oneDRV'"
 
-         DEV_NAME=`echo "$oneDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`
+         DEV_NAME=`echo "$oneDRV" | cut -f1 -d'|' | cut -f 3 -d '/'`
      DRV_CATEGORY=`echo "$oneDRV" | cut -f2 -d'|'`
   DRV_DESCRIPTION=`echo "$oneDRV" | cut -f3 -d'|'`
 
@@ -874,7 +884,7 @@ while read -r oneDRV
 $(echo "$PROBEDISK")
 EOI
 fi    #;fi
-
+_debug "_start_pup_event_frontend_d  END "
 }
 
 _start_pup_event_frontend_d
@@ -883,9 +893,8 @@ if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.
  killall hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
  #...kill hotplug2stdout, as that will cause pup_eventd_backend_d to die.
  [ "`pidof udevd`" ] && killall udevd #alternative to pup_event_backend_d.
- exit
 fi
-[ "$HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
+#[ "$HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
 
 trap "_kill_jobs;exit $?" HUP INT QUIT ABRT TRAP KILL TERM
 
@@ -951,14 +960,15 @@ esac
 PROBEDISK2_LOOP_NEW=`_probedisk_simple`
 PROBEDISK2_LOOP_OLD="$PROBEDISK2_LOOP_NEW"
 
-###################################################################
-#now go into a three-second loop...
-while :;
-do
- sleep $POLL_INTERVALL
+_which_hotplug(){
 
-#########check hotplug block event##########
+_check_hotplug_event(){
+    :
+ }
 
+if test "$HOTPLUGON" = true; then
+_check_hotplug_event(){
+DEBUG=1
 if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
  ######### hotplug detected : #########
   _debug "MAIN loop not same"
@@ -973,7 +983,7 @@ if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then
           DEV_NAME=`echo -n "$aADD" | cut -f 1 -d '|' | cut -f3 -d'/'`
       DRV_CATEGORY=`echo -n "$aADD" | cut -f 2 -d '|'`
    DRV_DESCRIPTION=`echo -n "$aADD" | cut -f 3 -d '|' | tr -s ' '`
-   _debug DEV_NAME=$DEV_NAME DRV_CATEGORY=$DRV_CATEGORY DRV_DESCRIPTION=$DRV_DESCRIPTION
+   _debug "_check_hotplug_event:DEV_NAME=$DEV_NAME DRV_CATEGORY=$DRV_CATEGORY DRV_DESCRIPTION=$DRV_DESCRIPTION"
    [ "$ICONDESK" = "true" ] && _create_icon $DEV_NAME
    #uses DEV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && $drive_iconDIR/drive_${PART_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
@@ -1008,23 +1018,36 @@ fi
  _debug "PROBEDISK_LOOP_NEW='$PROBEDISK_LOOP_NEW'"
  _debug ""
  ####### POLL_INTERVAL second timeout procesing #########
+ }
+fi
+}
 
+_which_hotplug
+###################################################################
+#now go into a three-second loop...
+while :;
+do
+ sleep $POLL_INTERVALL
+
+#########check hotplug block event##########
+
+ _check_hotplug_event
  $FREE_FUNCTION
 
- if test -f "/tmp/pup_event_icon_change_flag" ;then #1
- _clear_desk_icons
- unset COORD_X COORD_Y
- [ -f /etc/eventmanager ] && . /etc/eventmanager
+ if test -f "/tmp/pup_event_icon_change.flg" ;then #1
+ [ "$HOTPLUGON" = true ] && {
+     _clear_desk_icons
+     unset COORD_X COORD_Y
+ }
+ [ -f "$CONFFILE" ] && . "$CONFFILE"
  POWERTIMEOUT=$((POWERTIMEOUT * 60));RAMSAVEINTERVAL=$((RAMSAVEINTERVAL * 60))
+ _which_hotplug
  _start_pup_event_frontend_d
  sleep 1
- rm $VERB -f /tmp/pup_event_icon_change_flag
+ rm $VERB -f /tmp/pup_event_icon_change.flg
  fi #1
 
-
  [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
-
-
 
 done
 # POLL_INTERVALL loop
