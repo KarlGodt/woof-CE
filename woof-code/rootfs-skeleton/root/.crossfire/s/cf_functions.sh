@@ -862,7 +862,7 @@ echo watch $DRAWINFO
 #issue 2 1 get nugget (works as 'get 2 nugget')
 #issue 0 0 get nugget (works as 'get nugget')
 
-#_is 1 1 get  ##gets 1 of item
+#_is 1 1 get  ##gets 1 of topmost item
 #_is 0 1 take
 #_is 0 1 get all
 #_is 0 1 get
