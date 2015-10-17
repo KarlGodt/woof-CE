@@ -1,5 +1,9 @@
 #!/bin/ash
 
+COMMIT_MSG="Replaced
+by the one found currently in the system."
+[ "$*" ] && COMMIT_MSG="$*"
+
 . /etc/rc.d/f4puppy5
 
 [ "$VERBOSE" ] && SAME=-s
@@ -82,8 +86,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      git add "$ONE_DIR/$ONE_FILE" || continue
 
-     git commit -m "$ONE_DIR_IN_SYSTEM/$ONE_FILE : Replaced
-by the one found currently in the system." || error_cont 1 "git commit failed."
+     git commit -m "$ONE_DIR_IN_SYSTEM/$ONE_FILE : ""$COMMIT_MSG" || error_cont 1 "git commit failed."
      sleep 1
 
      cd "$CURRENT_DIR/$ONE_DIR" || error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
