@@ -636,7 +636,7 @@ _delete_drivers(){
  [ "$*" ] || return
  DEL_LAYER=$1
  #find out what modules are loaded, keep those...
- for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
+ for oneKEEP_MOD in `cut -f 1 -d ' ' /proc/modules`
  do
   oneKEEP_SPEC=`modinfo -F filename ${oneKEEP_MOD}`
   oneKEEP_PATH=${oneKEEP_SPEC%/*}
@@ -669,7 +669,6 @@ _probe_optical(){
  cddetect_quick -d/dev/${DRV_NAME} >>$OUT 2>>$ERR #very fast.
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
- #[ "$CDSTATUS2" != "0" ] && [ -d $HOME/$EXE_DIR/drive_${DRV_NAME} ] && rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} #v410 ensure no drive directory if drive empty. ##+-2012-01-18
  echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${DRV_NAME}`
@@ -680,14 +679,12 @@ _probe_optical(){
   #VENDOR=`cat /sys/block/${DRV_NAME}/device/vendor | tr -s ' '`
   #MODEL=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
   #DRV_DESCRIPTION="$VENDOR $MODEL"
-  opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
-  DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
-  test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
-  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  #opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
+  #DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
+  #test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
+  #_create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun optical & #handler script.
-#KRG else
-#KRG  rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} 2>>$ERR
-#KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
+
  fi
 unset DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
 }
@@ -720,19 +717,14 @@ _probe_floppy(){
  [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
 
  if [ "$FLOPPYSTATUS" = "0" ];then
-  if [ "$DRVMAIN" = "hd" ]; then
-   #DRV_DESCRIPTION=`cat /proc/ide/${DRV_NAME}/model`
-   read DRV_DESCRIPTION </proc/ide/${DRV_NAME}/model
-  else
-   #DRV_DESCRIPTION=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
-   read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model | tr -s ' '
-  fi
-  test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
-  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  #if [ "$DRVMAIN" = "hd" ]; then
+  # [ -f /proc/ide/${DRV_NAME}/model ] && read DRV_DESCRIPTION </proc/ide/${DRV_NAME}/model
+  #else
+  # [ -f /sys/block/${DRV_NAME}/device/model ] && read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model
+  #fi
+  #test "${DRV_DESCRIPTION// /}" || DRV_DESCRIPTION='unknown'
+  #_create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun floppy & #handler script.
-#KRG else
-#KRG  rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} 2>>$ERR
-#KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
  fi
 
 unset DRV_NAME DRVMAIN DRV_CATEGORY floppyPATTERN FLOPPYSTATUS DRV_DESCRIPTION
@@ -858,7 +850,7 @@ _debug "PIN_GRID_STEP='$PIN_GRID_STEP'"
 PIN_GRID_STEP2=$(( PIN_GRID_STEP / 2 ))
 JWMT_Yvar=$((((JWMT_Yvar/PIN_GRID_STEP2)+1)*PIN_GRID_STEP2))
 
-[ -z "$ICON_PLACE_START_GAP" ]   && ICON_PLACE_START_GAP=32
+[ -z "$ICON_PLACE_START_X_GAP" ] && ICON_PLACE_START_X_GAP=32
 [ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
 if [ -z "$ICON_PLACE_SPACING" ] ; then
 #DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o -e '[[:digit:]]*' | head -n 1`  ##+2012-11-05 added -e to grep -o
@@ -922,7 +914,7 @@ _get_icon_xy_values(){
 case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
 
   bottom)
-   COORD_X=$ICON_PLACE_START_GAP #default 32, see "$CONFFILE"
+   COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
     case "$JWMTpos" in
      0)  #top
       JWMT_Yvar=0
@@ -931,7 +923,7 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      :
     ;;
     esac
-   COORD_YSt=$(( SCRN_Y - ICON_PLACE_EDGE_GAP - JWMT_Yvar ))
+   COORD_YSt=$(( SCRN_Y - ICON_PLACE_START_Y_GAP - JWMT_Yvar ))
    #COORD_YSt=$(( $SCRN_Y - $JWMT_Yvar ))
    COORD_Y=$COORD_YSt
    _debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
@@ -942,10 +934,10 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
 
   top)
   [ "$DEBUG" ] && { LINEP=D0511;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP` _get_icon_xy_values"; }
-  COORD_X=$ICON_PLACE_START_GAP #default 32, see "$CONFFILE"
+  COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
     case "$JWMTpos" in
      0)
-       _debug "_get_icon_xy_values:top JWMTpos='$JWMTpos' ICON_PLACE_START_GAP='$ICON_PLACE_START_GAP' ICON_PLACE_EDGE_GAP='$ICON_PLACE_EDGE_GAP' JWMT_Yvar='$JWMT_Yvar'"
+       _debug "_get_icon_xy_values:top JWMTpos='$JWMTpos' ICON_PLACE_START_X_GAP='$ICON_PLACE_START_X_GAP' ICON_PLACE_START_Y_GAP='$ICON_PLACE_START_Y_GAP' JWMT_Yvar='$JWMT_Yvar'"
        :
       ;;
      *)
@@ -953,7 +945,7 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      JWMT_Yvar=0
     ;;
     esac
-   COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar ))
+   COORD_YSt=$(( ICON_PLACE_START_X_GAP + JWMT_Yvar ))
    _debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
    COORD_Y=$COORD_YSt
     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
@@ -961,7 +953,7 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
    ;;
 
    left)
-   COORD_X=$ICON_PLACE_START_GAP #EDGEdefault 64, see "$CONFFILE"
+   COORD_X=$ICON_PLACE_START_X_GAP #EDGEdefault 64, see "$CONFFILE"
     case "$JWMTpos" in
      0)
        :
@@ -971,13 +963,13 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      #JWMT_Yvar=$((JWMT_Yvar*-1))
     ;;
     esac
-   COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar ))
+   COORD_YSt=$(( ICON_PLACE_START_Y_GAP + JWMT_Yvar ))
    COORD_Y=$COORD_YSt
     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2 ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    ;;
    right)
    #default 64, see "$CONFFILE"
-    COORD_X=$((SCRN_X - ICON_PLACE_START_GAP))
+    COORD_X=$((SCRN_X - ICON_PLACE_START_X_GAP))
    _debug "_get_icon_xy_values:right: JWMTpos='$JWMTpos'"
     case "$JWMTpos" in
      0) #TOP
@@ -988,7 +980,7 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      #JWMT_Yvar=$((JWMT_Yvar*-1))
     ;;
     esac
-   COORD_YSt=$(( ICON_PLACE_EDGE_GAP + JWMT_Yvar )) #default 64, see "$CONFFILE"
+   COORD_YSt=$(( ICON_PLACE_START_X_GAP + JWMT_Yvar )) #default 64, see "$CONFFILE"
    COORD_Y=$COORD_YSt
     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP ))
    _debug "_get_icon_xy_values:right: COORD_Y='$COORD_Y'"
@@ -1036,7 +1028,7 @@ _free_coord() {
      [ -n "`echo "$PGSYvals" | grep "$TEST"`" ] && { COORD_Y=$TEST;break; }
      done
      fi
-     COORD_X=$ICON_PLACE_START_GAP
+     COORD_X=$ICON_PLACE_START_X_GAP
 
      _debug "COORD_Y='$COORD_Y' COORD_X='$COORD_X'"
     fi
@@ -1055,7 +1047,7 @@ _free_coord() {
      COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
       COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
-     COORD_X=$ICON_PLACE_START_GAP
+     COORD_X=$ICON_PLACE_START_X_GAP
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    done
@@ -1073,10 +1065,10 @@ _free_coord() {
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
       _debug "COORD_Y='$COORD_Y' MAX_Y='$MAX_Y'"
       COORD_X=$((COORD_X + ICON_PLACE_SPACING))
-     COORD_Y=$((ICON_PLACE_EDGE_GAP+JWMT_Yvar))
+     COORD_Y=$((ICON_PLACE_START_Y_GAP+JWMT_Yvar))
     fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-    _debug "$xPATTERN :JWMT_Yvar=$JWMT_Yvar ICON_PLACE_EDGE_GAP=$ICON_PLACE_EDGE_GAP"
+    _debug "$xPATTERN :JWMT_Yvar=$JWMT_Yvar ICON_PLACE_START_Y_GAP=$ICON_PLACE_START_Y_GAP"
    done
   ;;
   right)
@@ -1090,7 +1082,7 @@ _free_coord() {
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
       _debug "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
       COORD_X=$(( COORD_X - ICON_PLACE_SPACING ))
-     COORD_Y=$((ICON_PLACE_EDGE_GAP+JWMT_Yvar))
+     COORD_Y=$((ICON_PLACE_START_Y_GAP+JWMT_Yvar))
      fi
     xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
    done
@@ -1422,7 +1414,7 @@ better to plug in ac adapter or poweroff the laptop "
     fi #warn
    fi #bat
    # AUTOUNMOUNT
-   [ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+   #[ "$AUTOUNMOUNT" = "true" ] && _auto_unmount #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
    # POWERTIMEOUT
    if [ "$POWERTIMEOUT" -gt '0' ];then
    MOUSECNT=$((MOUSECNT+60))
@@ -1747,6 +1739,8 @@ fi;fi
 _check_restarts
 _check_battery
 
+__poll_cd_fd__(){ # since driveicons stay on desktop, only usefull for AUTOHANDLER
+                  # on desktops that do not support rox pinboard (e17)
 if [ "$ZCDPOLL" != "false" ];then
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
  for oneOPTICAL in $DISK_OPTICAL
@@ -1761,8 +1755,9 @@ if [ "$ZCDPOLL" != "false" ];then
   _probe_floppy $oneFLOPPY
  done
 fi
+}
 
-_autounmount
+#_autounmount
 
 [ "$1" ] && { echo "$0:$$: daemon started ."; shift; }
 
