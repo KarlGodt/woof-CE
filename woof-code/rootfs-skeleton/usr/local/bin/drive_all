@@ -71,6 +71,8 @@
 #
 ########################################################################
 
+#exec 2>>/tmp/drive_all.log
+
   _TITLE_=puppy_drive_all
 _VERSION_=2.0-Fox3-Dell755
 _COMMENT_="Default AppRun for the Partition Icons on Desktop."
@@ -101,7 +103,7 @@ _trap
 }
 
 #w002 extracted as a func...
-killzombies(){
+_killzombies(){
    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's#^[[:blank:]]*##'|sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`
    for oneZOMBIE in $ZOMBIES
    do
@@ -110,7 +112,7 @@ killzombies(){
    done
 }
 
-unmount_func() {
+_unmount() {
   #REM: Preparing for unmounting
  #pidof sync || sync  ##2012-06-05
  rox -D "$MNTPT"
@@ -143,7 +145,7 @@ unmount_func() {
   /bin/umount "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
-   killzombies
+   _killzombies
    [ -n "`busybox mount | grep "$MNTPT"`" ] && {
        [ "$DEBUG" ] || {
            # REM: get rid of multiple xmessages from umount script
@@ -221,6 +223,7 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
   #[ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
 }
 
+_notice "Called with $*"
 FSTYPE="";
 [ "$2" ] && FSTYPE="$2" #see pup_eventd
 case "$FSTYPE" in
@@ -242,9 +245,9 @@ esac
 oneDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 _debug "oneDRVNAME='$oneDRVNAME'"
 
-if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
+if [ "`echo "${1}" | grep 'pmount_'`" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
- if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
@@ -259,13 +262,13 @@ elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
  MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
  [ "$MNTPT" = "" ] && exit 200 #precaution.
- if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
+ if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
   exit 201
  fi
  #yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID=$!
- unmount_func
+ _unmount
  #[ "$yPID" ] && { /bin/ps -p $yPID >>$OUT 2>>$ERR && kill $yPID; }
  exit $?
 
@@ -274,7 +277,7 @@ elif [ "$1" = "unmountall" ];then
  for MNTPT in `mount | tac | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
  do
   #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
-  unmount_func
+  _unmount
   #kill $yPID >>$OUT 2>>$ERR
   sleep 1
  done
@@ -315,12 +318,13 @@ fi
 # fi
 #fi
 
+_debug "\$*=$*"
 DRV_CATEGORY="${1}"
    [ "$DRV_CATEGORY" = "" ] && DRV_CATEGORY="drive" #precaution.
 [ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager #written to by /usr/sbin/eventmanager
-[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
+[ -f /etc/eventmanager.cfg ] && . /etc/eventmanager.cfg #written to by /usr/sbin/eventmanager
+[ $RAMSAVEINTERVAL ] || RAMSAVEINTERVAL=30
 
 #[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ]     && AUTOTARGET="true"
 case $AUTOTARGET in
@@ -346,19 +350,7 @@ esac
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
 if [ "$oneDRVNAME" = "drives" ];then
- if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>$ERR
-  sleep 0.1
- fi
- exec pmount $DRV_CATEGORY
-fi
-
-#decision... we can bring up a "handler" window, that explains things, good for beginners.
-#or jump direct to most appropriate target application, or do nothing.
-#for now only have AUTOTARGET=true go direct to most appropriate target app,
-# =false always start Pmount.
-if [ "$AUTOTARGET" = "false" ];then
- if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
@@ -422,7 +414,7 @@ esac
 #if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
 if [ "`echo "$oneDRVNAME" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
  srPATTERN='^/dev/'"$oneDRVNAME"' '
- if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
+ if [ ! "`busybox mount | grep "$srPATTERN"`" ];then
   cddetect $Q $VERB -d/dev/${oneDRVNAME}
   __cddetect_returnvals__(){
     cat >&2 <<EoI
@@ -444,7 +436,7 @@ EoI
   0) #failed to detect type.
    #cddetect does not work properly for dvd's, try something else...
    __start_mediaplayer(){
-    if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
+    if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" ];then
      ln -snf /dev/${oneDRVNAME} /dev/dvd
      exec defaultmediaplayer dvd://
     fi
@@ -479,19 +471,20 @@ EoI
  [ "$FSTYPE" = unknown ] && unset FSTYPE
 fi
 
+_debug "FSTYPE=$FSTYPE"
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
-if [ "$FSTYPE" != "" ];then
+if [ "$FSTYPE" ];then
  dPATTERN='^/dev/'"$oneDRVNAME"' '
- if [ "`/bin/df | grep "$dPATTERN"`" = "" ];then
+ if [ ! "`/bin/df | grep "$dPATTERN"`" ];then
   #not mounted...
   yaf-splash -bg purple2 -text "Mounting '$oneDRVNAME' ..." & yPID=$!
-  mkdir -p /mnt/$oneDRVNAME
+  mkdir $VERB -p /mnt/$oneDRVNAME
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    /bin/mount $MOUNT_OPTS -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount $VERB $MOUNT_OPTS -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
    fat*|FAT*|Fat*|vfat)
@@ -509,7 +502,7 @@ if [ "$FSTYPE" != "" ];then
       ;;
      esac
     fi
-    /bin/mount $MOUNT_OPTS -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    /bin/mount $VERB $MOUNT_OPTS -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
     RETVAL1=$?
     ;;
    *)
@@ -523,9 +516,9 @@ if [ "$FSTYPE" != "" ];then
     #        and load fs-driver if not inside kernel (already loaded)
     grep $Q -w "$FSTYPE" /proc/filesystems || unset FSTYPE
     [ "$FSTYPE" ] && {
-    /bin/mount $MOUNT_OPTS -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    /bin/mount $VERB $MOUNT_OPTS -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
     } || {
-    /bin/mount $MOUNT_OPTS            /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    /bin/mount $VERB $MOUNT_OPTS            /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
     }
     RETVAL1=$?
     ;;
@@ -555,12 +548,23 @@ if [ "$FSTYPE" != "" ];then
  fi
 fi
 
+#decision... we can bring up a "handler" window, that explains things, good for beginners.
+#or jump direct to most appropriate target application, or do nothing.
+#for now only have AUTOTARGET=true go direct to most appropriate target app,
+# =false always start Pmount.
+if [ "$AUTOTARGET" = "false" ];then
+ _notice "AUTOTARGET set false, will now run pmount .."
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
+  killall gtkdialog_pmount 2>$ERR
+  sleep 0.1
+ fi
+ exec pmount $DRV_CATEGORY
+fi
 
 #NOTE: if pmount already running, don't really want to kill then restart,
 # just want to bring the window up if it's minimised ...how?
-
-if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
- killall gtkdialog_pmount 2>$ERR
+if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
+ : killall gtkdialog_pmount 2>$ERR
  sleep 0.1
 fi
 
