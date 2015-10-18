@@ -6,6 +6,11 @@
 
 _cd_program_dir || exit
 
+COMMIT_MSG=" Replaced
+ by the one found currently in the system."
+[ "$*" ] && COMMIT_MSG="$*"
+
+
 DIR_PRE='../'
 
 _help(){
@@ -19,7 +24,7 @@ echo "Git if System is newer OR System if Git is newer."
 exit 0
 }
 
-case $1 in ''):;;*) _help;;esac
+case $1 in ''):;; -*help) _help;;esac
 
 _error(){
     _exit_=$1; shift
@@ -89,8 +94,7 @@ test -d "$ONE_DIR_IN_SYSTEM" || continue
 
      git add "$ONE_DIR/$ONE_FILE" || continue
 
-     git commit -m "$ONE_DIR_IN_SYSTEM/$ONE_FILE : Replaced
-by the one found currently in the system." || _error_cont 1 "git commit failed."
+     git commit -m "$ONE_DIR_IN_SYSTEM/$ONE_FILE : ""$COMMIT_MSG" || _error_cont 1 "git commit failed."
      sleep 1
 
      cd "$CURRENT_DIR/$ONE_DIR" || _error 1 "Could not cd into '$CURRENT_DIR/$ONE_DIR'"
