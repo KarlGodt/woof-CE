@@ -71,7 +71,7 @@
 #
 ########################################################################
 
-#exec 2>>/tmp/drive_all.log
+exec 2>>/tmp/drive_all.log
 
   _TITLE_=puppy_drive_all
 _VERSION_=2.0-Fox3-Dell755
@@ -223,7 +223,13 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
   #[ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
 }
 
-_notice "Called with $*"
+_notice "Called with \$*='$*'"
+
+_debug "\$*=$*"
+DRV_CATEGORY="${1}"
+   [ "$DRV_CATEGORY" = "" ] && DRV_CATEGORY="drive" #precaution.
+[ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
+
 FSTYPE="";
 [ "$2" ] && FSTYPE="$2" #see pup_eventd
 case "$FSTYPE" in
@@ -237,91 +243,23 @@ case "$MOUNT_OPS" in
 *sync*|*time*|*auto*|*context*|*defaults*|*dev*|*exec*|*group*|*version*|*mand*|*suid*|*owner*|*mount*|ro|rw|*user*) :;;
 *) unset MOUNT_OPTS;;
 esac
-
+DEBUG=1
 #extract drive name from end of the script name...
 #note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
 #however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
 # REM: TODO : however a script may run ./AppRun ...
-oneDRVNAME=`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+#oneDRVNAME=`realpath "${0}" | sed -e 's%.*/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+oneDRVNAME=`realpath "${0}"`
+_debugx "oneDRVNAME='$oneDRVNAME'"
+oneDRVNAME=${oneDRVNAME%/*}
+_debugx "oneDRVNAME='$oneDRVNAME'"
+oneDRVNAME=${oneDRVNAME##*/}
+_debugx "oneDRVNAME='$oneDRVNAME'"
+oneDRVNAME=${oneDRVNAME##*\_}
+
 _debug "oneDRVNAME='$oneDRVNAME'"
-
-if [ "`echo "${1}" | grep 'pmount_'`" ];then #v403 chose pmount from drive icon menu.
- DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
- if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
-  killall gtkdialog_pmount 2>$ERR
-  sleep 0.1
- fi
- exec pmount ${DRV_CATEGORY}
-
-elif [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
- #v405 'desktop' param, cutdown tabs for desktop drive icons only...
- exec eventmanager desktop
-
-elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
- mPATTERN='^/dev/'"$oneDRVNAME"' '
- #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
- MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
- [ "$MNTPT" = "" ] && exit 200 #precaution.
- if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" ];then
-  xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
-is in use by Puppy. You cannot unmount it."
-  exit 201
- fi
- #yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID=$!
- _unmount
- #[ "$yPID" ] && { /bin/ps -p $yPID >>$OUT 2>>$ERR && kill $yPID; }
- exit $?
-
-#v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
-elif [ "$1" = "unmountall" ];then
- for MNTPT in `mount | tac | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
- do
-  #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
-  _unmount
-  #kill $yPID >>$OUT 2>>$ERR
-  sleep 1
- done
- exit $?
-fi
-
-#w002 left-mouse-click to unmount...
-#info: params passed to this script:
-# left-click: 0=/root/.pup_event/drive_sda3/AppRun 1=drive 2=ext3
-# right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=unmount 2=
-# right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=pmount_drive 2=
-# right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=eventmanager 2=
-#in first ex $1 can be drive,floppy,usbdrv,optical,card.
-
-#v424 have removed this dlg box. maybe make it optional in the future...
-#if [ $2 ];then
-# #if partition already mounted, offer to unmount it...
-# mPATTERN='^/dev/'"$oneDRVNAME"' '
-# MNTPT=`df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
-# if [ "$MNTPT" != "" ];then
-#  if [ "$MNTPT" != "/" -a "`echo "$MNTPT" | grep '/initrd/'`" = "" ];then
-#   #it is allowed to be unmounted (not in use by woof)...
-#   xmessage -bg "orange" -title "Puppy drive manager" -center -buttons " NO :11,Unmount ${oneDRVNAME}:10,Unmount all:12" "Do you want to unmount ${oneDRVNAME}?
-#It is currently mounted on ${MNTPT}"
-#   UMNTFLG=$?
-#   if [ $UMNTFLG -eq 10 ];then
-#    unmount_func
-#   exit
-#   fi
-#   if [ $UMNTFLG -eq 12 ];then
-#    for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
-#   do
-#    unmount_func
-#   done
-#    exit
-#   fi
-#  fi
-# fi
-#fi
-
-_debug "\$*=$*"
-DRV_CATEGORY="${1}"
-   [ "$DRV_CATEGORY" = "" ] && DRV_CATEGORY="drive" #precaution.
-[ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
+_notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE' MOUNT_OPTS='$MOUNT_OPTS'"
+[ -b /dev/"$oneDRVNAME" ] || _exit 6
 
 [ -f /etc/eventmanager.cfg ] && . /etc/eventmanager.cfg #written to by /usr/sbin/eventmanager
 [ $RAMSAVEINTERVAL ] || RAMSAVEINTERVAL=30
@@ -348,7 +286,7 @@ TRUE|True|true|Y|YES|Yes|yes|y|1|FALSE|False|false|N|NO|No|no|n|0) :;;
 esac
 
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
-#be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
+#be one icon on the desktop, labelled 'drives' and handler script is ?/usr/local/bin/drive_drives?
 if [ "$oneDRVNAME" = "drives" ];then
  if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>$ERR
@@ -356,8 +294,50 @@ if [ "$oneDRVNAME" = "drives" ];then
  fi
  exec pmount $DRV_CATEGORY
 fi
-
-case $DRV_CATEGORY in  ##+++2014-10-16
+# pmount_,eventmanager,unmount,unmountall
+#if [ "`echo "${1}" | grep 'pmount_'`" ];then #v403 chose pmount from drive icon menu.
+case $DRV_CATEGORY in
+ pmount_*)
+ DRV_CATEGORY=`echo -n "${1}" | cut -f 2 -d '_'`
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
+  killall gtkdialog_pmount 2>$ERR
+  sleep 0.1
+ fi
+ exec pmount ${DRV_CATEGORY}
+;;
+#elif [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
+eventmanager)
+ #v405 'desktop' param, cutdown tabs for desktop drive icons only...
+ exec eventmanager desktop
+;;
+#elif [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
+unmount)
+ mPATTERN='^/dev/'"$oneDRVNAME"' '
+ #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
+ MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
+ [ "$MNTPT" = "" ] && exit 200 #precaution.
+ if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" ];then
+  xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
+is in use by Puppy. You cannot unmount it."
+  exit 201
+ fi
+ #yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID=$!
+ _unmount
+ #[ "$yPID" ] && { /bin/ps -p $yPID >>$OUT 2>>$ERR && kill $yPID; }
+ exit $?
+;;
+#v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
+#elif [ "$1" = "unmountall" ];then
+unmountall)
+ for MNTPT in `mount | tac | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
+ do
+  #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
+  _unmount
+  #kill $yPID >>$OUT 2>>$ERR
+  sleep 1
+ done
+ exit $?
+;;
 *mountro)
          grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && {
 
@@ -374,24 +354,20 @@ case $DRV_CATEGORY in  ##+++2014-10-16
 
    if grep -w "^/dev/$oneDRVNAME" /proc/mounts | awk '{print $4}' | grep $Q -w rw
  then
-        /bin/mount -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+        /bin/mount $VERB -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
 
  elif grep -w "^/dev/$oneDRVNAME" /proc/mounts | awk '{print $4}' | grep $Q -w ro
  then
-        /bin/mount -o remount,rw /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+        /bin/mount $VERB -o remount,rw /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
 
  else :
    fi
         } || {
-         mkdir -p /mnt/"$oneDRVNAME"
-        /bin/mount -o         ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+         mkdir $VERB -p /mnt/"$oneDRVNAME"
+        /bin/mount $VERB -o         ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
     }
     exit $?
 ;;
-esac
-
-_notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE'"
-case $DRV_CATEGORY in ##+++2014-10-18
 *fsck_*)
 grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && _exit 10 "Found '$oneDRVNAME' in /proc/mounts"
  FSTYPE=${DRV_CATEGORY#*_}
@@ -408,11 +384,15 @@ exit $RV
  rxvt -title "Fsck $oneDRVNAME" -e /tmp/fsck-$oneDRVNAME.sh
  exit $?
 ;;
+
 esac
+#fi
+# pmount_,eventmanager,unmount,unmountall
 
 #oh, now have to analyse the media, decide what app to run...
 #if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
-if [ "`echo "$oneDRVNAME" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
+#if [ "`echo "$oneDRVNAME" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
+if [ "$DRV_CATEGORY" = optical ]; then
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ ! "`busybox mount | grep "$srPATTERN"`" ];then
   cddetect $Q $VERB -d/dev/${oneDRVNAME}
@@ -437,7 +417,7 @@ EoI
    #cddetect does not work properly for dvd's, try something else...
    __start_mediaplayer(){
     if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" ];then
-     ln -snf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
      exec defaultmediaplayer dvd://
     fi
    }
@@ -445,20 +425,20 @@ EoI
    ;;
 
   1) #audio
-     ln -snf /dev/${oneDRVNAME} /dev/cdrom
+     ln $VERB -sf /dev/${oneDRVNAME} /dev/cdrom
      exec defaultmediaplayer cdda://
    ;;
   3) #iso file: normal data cd. iso9660
      true
    ;;
   5) #video dvd
-     ln -snf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
      exec defaultmediaplayer dvd://
    ;;
   8) # udf with .wma wav files [VCD: , ] 8 ##+++2012-01-20
      # FSTYPE='udf'
      FSTYPE=`guess_fstype /dev/$oneDRVNAME`
-     ln -snf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
      exec defaultmediaplayer dvd://
    ;;
   esac
@@ -492,7 +472,7 @@ if [ "$FSTYPE" ];then
     #note, could also set iocharset=iso8859-2 (default: codepage=437, iocharset=iso8859-1)
     NLS_PARAM=''
     if [ -f /etc/keymap ];then #set in /etc/rc.d/rc.country
-     KEYMAP=`cat /etc/keymap | cut -f 1 -d '.'`
+     KEYMAP=`cut -f 1 -d '.' /etc/keymap`
      case $KEYMAP in
       de|be|br|dk|es|fi|fr|it|no|se|pt)
        NLS_PARAM=',codepage=850'
