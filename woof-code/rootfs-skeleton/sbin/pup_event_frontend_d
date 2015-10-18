@@ -159,10 +159,14 @@ PREVSIZETMPM=0
 PREVSIZEFREEM=0
 
 ### *** ROX-Filer Pinboard *** ###
-PUP_EVENT_DIR="$HOME/Choices/Puppy/pup_event"
+STATE_DIR="$HOME/Choices/Puppy"
+EXE_DIR='pup_event'
+PUP_EVENT_DIR="$STATE_DIR/$EXE_DIR"
+#PUP_EVENT_DIR="$HOME/Choices/Puppy/pup_event"
 #PUP_EVENT_DIR="$HOME/.pup_event"
 DRIVE_ICON_DIR="/usr/local/lib/X11/pixmaps/"
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
+  PUPPY_PIN="$HOME/Choices/ROX-Filer/PuppyPin"
 
 ### *** do not check for powertimeout if these apps are running *** #
 # space delimited for loops and pidof
@@ -338,7 +342,7 @@ $PROGPID
 $DAEMONS
 ............."
 PIDS=`echo "$DAEMONS" |awk '{print $2" "$3}'`
-while [ "$PIDS" != "" ]; do
+while [ "$PIDS" ]; do
 
 pids1=`echo "$PIDS" |sed -n "1 p"`
 pid1=`echo "$pids1" |awk '{print $1}'`
@@ -346,7 +350,7 @@ ppid1=`echo "$pids1" |awk '{print $2}'`
 pids2=`echo "$PIDS" |sed -n "2 p"`
 _debug "pids1='$pids1'"
 _debug "pids2='$pids2'"
-[ ! "$pids2" ] && break
+[ "$pids2" ] || break
 if [ ! "`echo "$pids2" | grep -w "$pid1"`" -a ! "`echo "$pids2" | grep -w "$ppid1"`" ];then
 
 echo "Another $0 already running .
@@ -389,15 +393,15 @@ _remove_pinboard(){
  ppPATTERN=' label="'"$DRV_NAME"'.*" '
  _debug  "ppPATTERN=$ppPATTERN"
 
- [ -z "`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`" ] && return
- allNAMES=`grep -o "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"'`
+ [ -z "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
+ allNAMES=`grep -o "$ppPATTERN" "$PUPPY_PIN" | cut -f 2 -d '"'`
  [ "$DISPLAY" ] || return
  for oneDRVNAME in $allNAMES
  do
 
  # Reset COORD_X COORD_Y
- COORD_X=`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
- COORD_Y=`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
+ COORD_X=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
+ COORD_Y=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
 
   echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
@@ -416,7 +420,7 @@ while read part;do
  DRV_NAME=$part
  _remove_pinboard "$DRV_NAME" #$DRV_NAME
 done << _EOI
-$(grep -o '/\.pup_event/drive.*' $HOME/Choices/ROX-Filer/PuppyPin |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
+$(grep -o "/$EXE_DIR/drive.*" "$PUPPY_PIN" |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
 _EOI
 rm $VERB -rf "$PUP_EVENT_DIR"/*
 rm $VERB -f /tmp/pup_event_change_icons.flg
@@ -431,7 +435,7 @@ _auto_unmount(){
  for oneMNTPT in `grep '^/dev/[fhms]\{1\}[mcd]\{1,2\}' /proc/mounts | grep -vE '^/dev/md|/initrd/' | awk '{print $2}'`
  do
   oneMNTPT=`echo -e "$oneMNTPT"`
-  if [ "`fuser -v -m $oneMNTPT`" = "" ];then
+  if [ ! "`fuser -v -m $oneMNTPT`" ]; then
    pidof sync >>$OUT || sync
    /bin/umount $VERB "$oneMNTPT"; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
@@ -508,7 +512,7 @@ _free(){  # _free_savefile _free_rootfs
   esac
  fi
 
- if [ "$WARNMSG" != "" ];then
+ if [ "$WARNMSG" ];then
   killall yaf-splash >>$OUT 2>>$ERR
   yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
  fi
@@ -587,7 +591,7 @@ Could not determine free space in /tmp layer"
   esac
  fi
 
- if [ "$WARNMSG" != "" ]; then
+ if [ "$WARNMSG" ]; then
   killall yaf-splash >>$OUT 2>>$ERR
   yaf-splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
  fi
@@ -639,7 +643,7 @@ _delete_drivers(){
   mkdir $VERB -p /tmp/${oneKEEP_PATH}
   cp $VERB -af ${oneKEEP_SPEC} /tmp/${oneKEEP_PATH}/
  done
- if [ "$DEL_LAYER" != "" ];then
+ if [ "$DEL_LAYER" ];then
   rm $VERB -rf ${DEL_LAYER}/lib/modules
  else
   if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then  #flash
@@ -661,11 +665,11 @@ _probe_optical(){
  CDSTATUS2="0"
 
  opticalPATTERN='^/dev/'"${DRV_NAME}"' '
- [ "`grep "$opticalPATTERN" /proc/mounts`" != "" ] && return #only check cd if unmounted.
+ [ "`grep "$opticalPATTERN" /proc/mounts`" ] && return #only check cd if unmounted.
  cddetect_quick -d/dev/${DRV_NAME} >>$OUT 2>>$ERR #very fast.
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
- #[ "$CDSTATUS2" != "0" ] && [ -d $HOME/.pup_event/drive_${DRV_NAME} ] && rm -rf $HOME/.pup_event/drive_${DRV_NAME} #v410 ensure no drive directory if drive empty. ##+-2012-01-18
+ #[ "$CDSTATUS2" != "0" ] && [ -d $HOME/$EXE_DIR/drive_${DRV_NAME} ] && rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} #v410 ensure no drive directory if drive empty. ##+-2012-01-18
  echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${DRV_NAME}`
@@ -682,7 +686,7 @@ _probe_optical(){
   _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun optical & #handler script.
 #KRG else
-#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>>$ERR
+#KRG  rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} 2>>$ERR
 #KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
  fi
 unset DRV_NAME DRV_CATEGORY DRV_DESCRIPTION
@@ -698,7 +702,7 @@ _probe_floppy(){
  DRV_CATEGORY="floppy"
 
  floppyPATTERN="^/dev/$DRV_NAME "
- [ "`grep "$floppyPATTERN" /proc/mounts`" != "" ] && return #mounted.
+ [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return #mounted.
 
  if [ "$DRVMAIN" = "hd" ];then
   cat /proc/ide/${DRV_NAME}/identify > /tmp/pup_event_frontend_identify2_${DRV_NAME}
@@ -709,11 +713,11 @@ _probe_floppy(){
  fi
 
  [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
- [ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" != "" ] && return
+ [ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" ] && return
  cp $VERB -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
 
  FLOPPYSTATUS=1
- [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" = "" ] && FLOPPYSTATUS=0
+ [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
 
  if [ "$FLOPPYSTATUS" = "0" ];then
   if [ "$DRVMAIN" = "hd" ]; then
@@ -727,7 +731,7 @@ _probe_floppy(){
   _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun floppy & #handler script.
 #KRG else
-#KRG  rm -rf $HOME/.pup_event/drive_${DRV_NAME} 2>>$ERR
+#KRG  rm -rf $HOME/$EXE_DIR/drive_${DRV_NAME} 2>>$ERR
 #KRG  _remove_pinboard "$DRV_NAME" #needs DRV_NAME
  fi
 
@@ -761,11 +765,11 @@ SCRN_Y=`echo -n "$SCRNXY" | cut -f 2 -d 'x'` #orig
 _get_screen_vars
 
 _get_ram_power_vars(){
-[ "$RAMSAVEINTERVAL" = "" ] && RAMSAVEINTERVAL=30 #412
+[ "$RAMSAVEINTERVAL" ] || RAMSAVEINTERVAL=30 #412
 #convert minutes to seconds.
  RAMSAVEINTERVAL=$(( RAMSAVEINTERVAL * 60 ))
 
-[ "$POWERTIMEOUT" = "" ] && POWERTIMEOUT=0 #w007
+[ "$POWERTIMEOUT" ] || POWERTIMEOUT=0 #w007
 #convert minutes to seconds.
  POWERTIMEOUT=$(( POWERTIMEOUT * 60 ))
 }
@@ -1002,8 +1006,8 @@ _free_coord() {
  #read the coords grid, code from shinobar...
 
  #sleep 1 ##DEBUG
- COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' $HOME/Choices/ROX-Filer/PuppyPin` # | sed 's/[0-9]"/"/g'`"
- COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' $HOME/Choices/ROX-Filer/PuppyPin`
+ COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"` # | sed 's/[0-9]"/"/g'`"
+ COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"`
  COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
  [ "$DEBUG" ] && echo "$COORDSGRID" | head -n 2
 
@@ -1020,7 +1024,7 @@ _free_coord() {
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
     _debug "    xgPATTERN=$xgPATTERN"
 
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
     COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
     if [ "$COORD_X" -gt "$MAX_X" ];then #start next line up.
 
@@ -1047,7 +1051,7 @@ _free_coord() {
    xyCNT=0 #precaution.
    while :;do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
      COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
       COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
@@ -1064,7 +1068,7 @@ _free_coord() {
    while :;do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
     _debug "xgPATTERN=$xgPATTERN"
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
      COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
       _debug "COORD_Y='$COORD_Y' MAX_Y='$MAX_Y'"
@@ -1081,7 +1085,7 @@ _free_coord() {
    xyCNT=0 #precaution.
    while :;do
     xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" = "" ] && { _debug "found free place at '$xgPATTERN'";break; }
+    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
      COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
       _debug "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
@@ -1108,8 +1112,8 @@ case $FSTYPE in
 esac
 
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
- ppPATTERN="/\\.pup_event/drive_${oneDRVNAME}<" ##++2012-01-18
- [ "`grep "$ppPATTERN" $HOME/Choices/ROX-Filer/PuppyPin`" != "" ] && return
+ ppPATTERN="$EXE_DIR/drive_${oneDRVNAME}<" ##++2012-01-18
+ [ "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
  _free_coord
  _debugx "XforROX='${COORD_X}' YforROX='${COORD_Y}' '$oneDRVNAME'"
  #oneDRVNAMElast="$oneDRVNAME"
@@ -1606,7 +1610,7 @@ do
  #091223 some interfaces, no change in /sys/block when insert/remove a card...
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- /usr/local/bin/drive_all will remove an invalid drive icon if clicked on.
- if [ "$BLOCKDIFF" = "" ];then
+ if [ ! "$BLOCKDIFF" ];then
   BLOCKSPROBE=""
   for oneTESTDRV in `grep '^sd' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
   do
@@ -1657,13 +1661,13 @@ $(echo "$_PROBEDISK_" | grep "$odPATTERN")
 _EOI
    DISK_NAME="${DISK_NAME##*/}"
    [ "$ICONDESK" = "true" ]     && _create_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION"  #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
-   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DISK_NAME}/AppRun ${DISK_CATEGORY} &      #handler script.
+   #[ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DISK_NAME}/AppRun ${DISK_CATEGORY} &  #handler script.
   done
 
   ACTION=remove
   for DISK_NAME in $BLOCKSREM
   do
-   if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
+   if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, refresh it.
     killall gtkdialog_pmount >>$OUT 2>>$ERR
     sleep 0.1
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
