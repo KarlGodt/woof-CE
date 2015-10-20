@@ -611,7 +611,7 @@ mount)
 if test "$deviceORpoint"; then
  _debug "$WHAT:"$@
  #test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
- if test -b $deviceORpoint; then
+ if test -b "$deviceORpoint"; then
   grep $Q -w "${deviceORpoint##*/}" /proc/partitions && {
    _info "found '${deviceORpoint##*/}' in /proc/partitions"
   _FS_TYPE_=`guess_fstype $deviceORpoint`
@@ -698,7 +698,7 @@ _debug "             ocposPAR='$ocposPAR'"
 
    #test -b $oposPAR && set - $@ "$ocposPAR"
    #_debug "posPAR:$*"
-   test -b $o_posPAR && posPARAMS="$posPARAMS $ocposPAR"
+   test -b "$o_posPAR" && posPARAMS="$posPARAMS $ocposPAR"
    fi;fi ;;
 esac
 done
