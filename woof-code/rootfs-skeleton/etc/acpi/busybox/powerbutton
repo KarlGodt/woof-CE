@@ -1,13 +1,17 @@
-#!/bin/ash -i
+#!/bin/ash
 # Karl Reimer Godt in June 2012
 # usual Puppy license
-Version='1.1 Puppy_Macpup-Foxy3 KRG'
-echo "
-$0:$Version:$*:`date`:$$:%PPID:$PPID"
-. /etc/rc.d/f4puppy5
-echo "${0##*/}"
 
-_test_fr /etc/acpi/busybox/powerbutton.conf && source /etc/acpi/busybox/powerbutton.conf
+export PATH=/usr/local/bin:$PATH
+
+Version='1.2 Puppy_Macpup-Foxy3 KRG'
+
+. /etc/rc.d/f4puppy5
+
+_notice "
+$0:$Version:$*:`date`:$$:%PPID:$PPID"
+
+_test_fr /etc/acpi/busybox/powerbutton.conf && . /etc/acpi/busybox/powerbutton.conf
 # REM : Global variables
 
 #
@@ -27,21 +31,29 @@ _test_fr /etc/acpi/busybox/powerbutton.conf && source /etc/acpi/busybox/powerbut
 
 # REM : Use a sub-directory in /tmp
 [ "$tmpDIR" ] || tmpDIR=/tmp/acpi
-mkdir -p "$tmpDIR"
+mkdir $VERB -p "$tmpDIR"
 
 # REM: Source /etc/eventmanager
 #       Using ICON_PLACE_ORIENTATION to place yaf-messages u/mount
-_test_fr /etc/default/eventmanager && source /etc/default/eventmanager
-_test_fr /etc/default/eventmanager.conf && source /etc/default/eventmanager.conf
-_test_fr /etc/eventmanager.def && source /etc/eventmanager.def
-_test_fr /etc/eventmanager && source /etc/eventmanager
-_test_fr /etc/eventmanager.conf && source /etc/eventmanager.conf
+_test_fr /etc/default/eventmanager      && . /etc/default/eventmanager
+_test_fr /etc/default/eventmanager.conf && . /etc/default/eventmanager.conf
+_test_fr /etc/eventmanager.def          && . /etc/eventmanager.def
+_test_fr /etc/eventmanager              && . /etc/eventmanager
+_test_fr /etc/eventmanager.conf         && . /etc/eventmanager.conf
+_test_fr /etc/eventmanager.cfg          && . /etc/eventmanager.cfg
 case $ICON_PLACE_ORIENTATION in
 bottom) mnt_yafPLACEMENT='-placement bottom';;
-top   ) mnt_yafPLACEMENT='-placement top';;
-left  ) mnt_yafPLACEMENT='-placement left';;
-right ) mnt_yafPLACEMENT='-placement right';;
+left  ) mnt_yafPLACEMENT='-placement left'  ;;
+right ) mnt_yafPLACEMENT='-placement right' ;;
+top|*)  mnt_yafPLACEMENT='-placement top'   ;;
 esac
+
+_kill_jobs(){
+    rm $VERB -f "$tmpDIR"/acpi_button_count
+    [ "$DEBUG" ] && jobs -l
+for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill -15 $aP_; done
+    [ "$DEBUG" ] && jobs -l
+}
 
 # REM : function to feel more than one power-button events
 # Power button pressed 5 times in 10 seconds : do poweroff force
@@ -54,11 +66,13 @@ _check_if_already_running ${0##*/} || {
     } || echo 2 >"$tmpDIR"/acpi_button_count
   [ "$BUTTONcnt" = 5 ] && {
       ( sleep 2; killall -9 ${0##*/} ) &
-      : exec /sbin/poweroff force
+      :
+      exec /sbin/poweroff force
   }
   sleep 10
-  rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  #rm $VERB -f "$tmpDIR"/acpi_button_count
+  #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  _kill_jobs
   exit 4
 }
 
@@ -90,7 +104,7 @@ _sound_on
 # REM : If DEBUG then bark and say that we are running
 if [ "$DEBUG" ]; then
 _xmessage -timeout 10 -title "POWERBUTTON ACKNOWLEDGE" "HELLO from `pwd`/$0"
-aplay /usr/share/audio/2barks.au && sleep 2
+aplay $Q $VERB /usr/share/audio/2barks.au && sleep 2
 fi
 
 # REM : Help Text
@@ -123,15 +137,20 @@ $2
 fi
 echo "$MSG"
 [ "$DISPLAY" ] && xmessage -bg blue3 -fg white -title "POWERBUTTON HELP" "$MSG"
-rm -f "$tmpDIR"/acpi_button_count
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#rm $VERB -f "$tmpDIR"/acpi_button_count
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit $1
 }
 
 # REM : Parse Options
 case $1 in
 *help) _usage 0;;
-*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";rm -f "$tmpDIR"/acpi_button_count;for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done; exit 0;;
+*version) echo -e "$0: Version '$Version'\nTry help for more info.\n";
+#rm $VERB -f "$tmpDIR"/acpi_button_count;
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+_kill_jobs
+exit 0;;
 "") :;;
 *force)    :;; #from enlightenment Bereitschaftsmodus
 kbd_event) :;; #from /etc/acpi/keyboard/actions/116 (just for information from where)
@@ -163,19 +182,20 @@ do
     _yaf_splash -bg pink1 $mnt_yafPLACEMENT -text "Unmounting $mloop_ ..."
     yPID=$!
     #_yaf_splash -bg pink1 -text "Unmounting $mloop_ ..." &
-    echo " yPID='$yPID'"
-    echo "_yPID='$_yPID'"
+    _debug " yPID='$yPID'"
+    #_debug "_yPID='$_yPID'"
 
     /bin/umount $VERB -r "$mloop_"
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON LOOP UMOUNT FAIL" "Please umount '$mloop_' manually and try again";
-rm -f "$tmpDIR"/acpi_button_count;
+#rm $VERB -f "$tmpDIR"/acpi_button_count;
 sleep 10
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit 10; }
 
     sleep 1
-    echo "yPID='$yPID'"
-    echo "_yPID='$_yPID'"
+    _debug "yPID='$yPID'"
+    #_debug "_yPID='$_yPID'"
     kill $yPID
     #kill $_yPID
     unset yPID _yPID
@@ -213,10 +233,10 @@ _yaf_splash(){
 
 
 # REM : xmessage Menu to select desired ACPI state
-#       Called by  ___do_xmessage if NO pidof X
+#       Called by  _do_acpi_menu if NO pidof X
 #       Was used before using Xdialog
 #       Now is used if X is not running
-__xmessage(){ #BEGIN
+_acpi_menu(){ #BEGIN
 
 local RV SELECT
 unset RV SELECT
@@ -253,7 +273,7 @@ $BUTTONS_GUI
 return $SELECT
  }
 
-}  ###__xmessage(){ #END
+}  ###_acpi_menu(){ #END
 
 
 # REM : Unmount partitions before ACPI SLEEP
@@ -314,8 +334,8 @@ do
     #_yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Unmounting $mpart_ ..." & yPID=$!
     _yaf_splash -bg pink -geometry +${rootCENTER_X}+${rootCENTER_Y} $mnt_yafPLACEMENT -text "Unmounting $mpart_ ..."
     yPID=$!
-    echo " yPID='$yPID'"
-    echo "_yPID='$_yPID'"
+    _debug " yPID='$yPID'"
+    #_debug "_yPID='$_yPID'"
 
     ##Solution Nr. 2 and 4 Reasonable and BIG sleep :
     case $mpart_ in
@@ -324,9 +344,10 @@ do
 
     /bin/umount $VERB -r "$mpart_"
 [ $? -ne 0 ] && { _xmessage -bg red2 -title "POWERBUTTON UMOUNT FAIL" "Please umount '$mpart_' manually and try again";
-rm -f "$tmpDIR"/acpi_button_count;
+#rm $VERB -f "$tmpDIR"/acpi_button_count;
 sleep 10
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 exit 20; }
 
     ## Solution Nr. 2 Reasonable sleep :
@@ -351,8 +372,9 @@ exit 20; }
            Exiting ${PWD}/${0}."
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
            _xmessage -bg red -title "$MY_SELF" "$MSG"
-           rm -f "$tmpDIR"/acpi_button_count
-           for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           #rm $VERB -f "$tmpDIR"/acpi_button_count
+           #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+           _kill_jobs
            exit 21
       }
       _yaf_splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) $mnt_yafPLACEMENT -text "Floppy disk or CD drive, please wait 25 seconds.." &
@@ -375,8 +397,8 @@ exit 20; }
     esac
 
     sleep 1
-    echo " yPID='$yPID'"
-    echo "_yPID='$yPID'"
+    _debug " yPID='$yPID'"
+    #_debug "_yPID='$yPID'"
     kill $yPID
     #kill $_yPID
     unset yPID _yPID
@@ -417,8 +439,8 @@ do
     #_yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
      _yaf_splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} $mnt_yafPLACEMENT -text "Restoring mount of $part_ ..."
      yPID=$!
-     echo " yPID='$yPID'"
-     echo "_yPID='$_yPID'"
+     _debug " yPID='$yPID'"
+     #_debug "_yPID='$_yPID'"
 
         grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
         mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
@@ -453,7 +475,7 @@ do
     esac
 
         basn=${part_##*/}
-        mkdir -p /mnt/"$basn"
+        mkdir $VERB -p /mnt/"$basn"
 
 [ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
   /bin/mount $VERB -o ${reMOUNT}$mntOPS             "$part_" /mnt/"$basn" || true
@@ -469,8 +491,8 @@ do
     #esac
 
     sleep 1
-    echo " yPID='$yPID'"
-    echo "_yPID='$_yPID'"
+    _debug " yPID='$yPID'"
+    #_debug "_yPID='$_yPID'"
     kill $yPID
     #kill $_yPID
     unset yPID _yPID
@@ -929,7 +951,7 @@ _xmessage -timeout 20 -bg red1 -title "POWERBUTTON STATES" "$0
 Available states:
 $states_avail_
 "
-aplay /usr/share/audio/2barks.au && sleep 2
+aplay $Q $VERB /usr/share/audio/2barks.au && sleep 2
 fi
 
 LINEP=E001
@@ -977,25 +999,25 @@ test "$XdmbTAG_DISK"    && Xd_MENU="$Xd_MENU
  $Xd_MENU"
 #Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d;s!$!   \\\!'`
  Xd_MENU=`echo "$Xd_MENU" | sed '/^$/d;/^[[:blank:]]*$/d'`
-echo
-echo "Xd_MENU='$Xd_MENU'"
-echo
+_info ""
+_info "Xd_MENU='$Xd_MENU'"
+_info ""
 
 # REM : If no pidof X
-___do_xmessage(){ #BEGIN
+_do_acpi_menu(){ #BEGIN
   #xmessage -timeout 30 -buttons "HIBERNATE On DISK:204,RAM SLEEP:203,ESCAPE GUI:200" -bg blue3 -fg white "Busybox acpid :
- __xmessage -timeout $EMERG_TIMEOUT -buttons "$BUTTONS_GUI" -bg blue3 -fg white -title "POWERBUTTON MENU" "Busybox acpid :
+ _acpi_menu -timeout $EMERG_TIMEOUT -buttons "$BUTTONS_GUI" -bg blue3 -fg white -title "POWERBUTTON MENU" "Busybox acpid :
 Do you want to go into one of the ACPI PM SLEEP modes ?
 Note : Timesout in $EMERG_TIMEOUT seconds to poweroff normally."
 ANSWER=$?
 return $ANSWER
-}  ###___do_xmessage(){ #END
+}  ###_do_acpi_menu(){ #END
 
 # REM : Make Xdialog Menu
 #       GLOBAL variables
 Xd_TITLE="Powerbutton GUI"
 Xd_BTITLE="Powerbutton MENU"
-Xd_TEXT="NOTE: Timesout int $EMERG_TIMEOUT seconds
+Xd_TEXT="NOTE: Timesout in $EMERG_TIMEOUT seconds
 to poweroff forcibly
 
 Choose one of the \n
@@ -1033,9 +1055,9 @@ __one_subshell__(){
 ( now_=`date +%s`;twoM=$((now_+120));
   yaf-splash -placement top -bg red -countdown $twoM &
   sleep 110
-  aplay /usr/share/audio/2barks.au ) &
+  aplay $Q $VERB /usr/share/audio/2barks.au ) &
 jPID=$!
-echo "jPID='$jPID'"
+_debug "jPID='$jPID'"
 }
 
 ( now_=`date +%s`;twoM=$((now_+120));
@@ -1043,15 +1065,15 @@ echo "jPID='$jPID'"
 yPID=$!
 
 ( sleep 110;
-  aplay /usr/share/audio/2barks.au ) &
+  aplay $Q $VERB /usr/share/audio/2barks.au ) &
 jPID=$!
-echo "jPID='$jPID'"
+_debug "jPID='$jPID'"
 
 #oldIFS=$"IFS"
 #IFS=$'\n'
 #unset IFS
 
-rm -f "$tmpDIR"/acpi_Xd_MENU.out
+rm $VERB -f "$tmpDIR"/acpi_Xd_MENU.out
 
 # REM : Create external file for Xdialog is a bit nasty
 #       parsing <list> from the current shell
@@ -1082,29 +1104,35 @@ EoI
 chmod $VERB 0774 "$tmpDIR"/acpi_Xd_MENU.sh
 "$tmpDIR"/acpi_Xd_MENU.sh
  RV=$?
- echo "Xdialog return value: '$RV'"
+ _debug "Xdialog return value: '$RV'"
 
 #yPID=`ps | grep 'yaf\-splash' | grep '\-placement' | grep top | grep '\-countdown'`
 #yPID=`echo "$yPID" | awk '{print $1}'`
-echo "yPID='$yPID'"
+_debug "yPID='$yPID'"
 
  case $RV in
  0) :;;
- *) jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l;
-    for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ *) jobs -l;
+    kill -9 $jPID; kill $yPID; sleep 2;
+    jobs -l;
+    #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+    _kill_jobs
  exit 0;;
  esac
 
  CHOICE_LINE=`tail -n1 "$tmpDIR"/acpi_Xd_MENU.out`
- echo "CHOICE_LINE='$CHOICE_LINE'"
+ _info "CHOICE_LINE='$CHOICE_LINE'"
  #exit
 
 #IFS=$"$oldIFS"
 
 # kill jobs ..
-jobs -l; kill -9 $jPID; kill $yPID; sleep 2; jobs -l
-for aP_ in `jobs -p`; do
-ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+jobs -l;
+kill -9 $jPID; kill $yPID; sleep 2;
+jobs -l
+#for aP_ in `jobs -p`; do
+#ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+_kill_jobs
 jobs -l
 
 case $CHOICE_LINE in
@@ -1113,14 +1141,20 @@ case $CHOICE_LINE in
 *Standby*|*standby*)        ANSWER=201;;
 *RAM*Sleep*|*RAM*sleep*)    ANSWER=203;;
 *Hibernation*|*hiber*)      ANSWER=204;;
-"") ANSWER=3; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 30;;
-*)  ANSWER=4; for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;exit 31;;
+"") ANSWER=3;
+    #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+    _kill_jobs
+    exit 30;;
+*)  ANSWER=4;
+    #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done;
+    _kill_jobs
+    exit 31;;
 esac
 
 return $ANSWER
 }
 
-aplay /usr/share/audio/2barks.au
+aplay $Q $VERB /usr/share/audio/2barks.au
 
 # REM : Switch to use  either
 #       _do_menu_Xdialog_menubox
@@ -1158,17 +1192,17 @@ else  # pidof X / no pidof X
 unset DISPLAY
 
 # REM: First attemp:
-#openvt $VERB -s ___do_xmessage
+#openvt $VERB -s _do_acpi_menu
 #openvt $VERB -s
 #sleep 1
-#___do_xmessage
+#_do_acpi_menu
 
 # REM: second attempt using external script
-# REM : Get the  ___do_xmessage and  __xmessage functions
+# REM : Get the  _do_acpi_menu and  _acpi_menu functions
 #       out of this script and create a script in /tmp that uses them
 myREALPATH=`realpath "$0"`
-f1=`sed -n '/^___do_xmessage(){ #BEGIN/,/^}  ###___do_xmessage(){ #END/p' "$myREALPATH"`
-f2=`sed -n '/^__xmessage(){ #BEGIN/,/^}  ###__xmessage(){ #END/p' "$myREALPATH"`
+f1=`sed -n '/^_do_acpi_menu(){ #BEGIN/,/^}  ###_do_acpi_menu(){ #END/p' "$myREALPATH"`
+f2=`sed -n '/^_acpi_menu(){ #BEGIN/,/^}  ###_acpi_menu(){ #END/p' "$myREALPATH"`
 
 cat >"$tmpDIR"/console_select.sh <<EoI
 #!/bin/ash
@@ -1178,9 +1212,9 @@ unset DISPLAY
 source /etc/rc.d/f4puppy5
 
 # REM: functions:
-# __xmessage:
+# _acpi_menu:
 $f2
-# ___do_xmessage:
+# _do_acpi_menu:
 $f1
 
 
@@ -1202,7 +1236,7 @@ echo "\$currVT" >$tmpDIR/currVT.nr
 
 # REM: Now comes the select ^GUI^
 echo
-___do_xmessage
+_do_acpi_menu
 echo \$? >$tmpDIR/ANSWER.txt
 # REM: Need to do it later after script exits
 #deallocvt \$currVT
@@ -1214,7 +1248,7 @@ EoI
 chmod $VERB 0754 "$tmpDIR"/console_select.sh
 
 # REM: remove output files to prevent old values used
-rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+rm $VERB -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
 
 # REM: export the variables, so they do not need to be written into
 #      console_select.sh
@@ -1236,7 +1270,7 @@ openvt $VERB -s -w "$tmpDIR"/console_select.sh
 
 test -s "$tmpDIR"/ANSWER.txt && read ANSWER <"$tmpDIR"/ANSWER.txt
 
-echo "ANSWER='$ANSWER'"
+_info "ANSWER='$ANSWER'"
 
 sleep 1
 
@@ -1298,15 +1332,16 @@ yaf-splash -bg yellow $mmsgGEOMETRY -fg black $genYAFOPS -timeout $MOUSEMSG_TT -
 
 # REM : Just Exit
 if [ "$ANSWER" = 200 ];then
- rm -f "$tmpDIR"/acpi_button_count
- for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ #rm $VERB -f "$tmpDIR"/acpi_button_count
+ #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+ _kill_jobs
 
 # REM: TODO get current vt and switch to it
 #      if triggered from console outside X
 #      and X not running
 #_pidof X || chvt 1 # works but should return to last terminal nr
-_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
-[ "$DEBUG" ] || rm -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/currVT.nr "$tmpDIR"/startVT.nr
+_pidof X >>$OUT || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+[ "$DEBUG" ] || rm $VERB -f "$tmpDIR"/ANSWER.txt "$tmpDIR"/currVT.nr "$tmpDIR"/startVT.nr
 exit 0
 
 # REM : S3 RAM sleep
@@ -1411,7 +1446,7 @@ sleep 1
       done
 
       if [ "$RESUME" ];then
-       if test cat /proc/swaps |sed '1d' |wc -l -gt 1;then
+       if test "`cat /proc/swaps |sed '1d' |wc -l`" -gt 1;then
         swapoff $RESUME
        fi
       fi
@@ -1451,8 +1486,9 @@ else # timeout 0, error 1
   wmpoweroff force
    sleep 5
    pidof poweroff rc.shutdown >>$OUT || exec /sbin/poweroff force
-  rm -f "$tmpDIR"/acpi_button_count
-  for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  #rm $VERB -f "$tmpDIR"/acpi_button_count
+  #for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+  _kill_jobs
  exit $?
  else
   exec /sbin/poweroff force
@@ -1461,7 +1497,7 @@ fi
 
 #sleep 5
 _sound_on
-aplay /usr/share/audio/2barks.au
+aplay $Q $VERB /usr/share/audio/2barks.au
 
 ## Add wakealarm support
 #test -x /etc/acpi/wakealarm_wake.sh && exec /etc/acpi/wakealarm_wake.sh &
@@ -1484,16 +1520,17 @@ esac
 #      if triggered from console outside X
 #      and X not running
 #_pidof X || chvt 1 # works but should return to last terminal nr
-_pidof X || { [ "$startVT" ] && chvt $startVT || chvt 1; }
+_pidof X >>$OUT || { [ "$startVT" ] && chvt $startVT || chvt 1; }
 
 [ "$DEBUG" ] || {
-rm -f "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
-rm -f "$tmpDIR"/ANSWER.txt
-rm -f "$tmpDIR"/acpi_button_count
+rm $VERB -f "$tmpDIR"/startVT.nr "$tmpDIR"/currVT.nr
+rm $VERB -f "$tmpDIR"/ANSWER.txt
+rm $VERB -f "$tmpDIR"/acpi_button_count
 }
 
 sleep 5
-for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+#for aP_ in `jobs -p`; do ps -A -o pid,args | grep -v grep | grep $Q -w "$aP_" && kill $aP_; done
+_kill_jobs
 
 ## Add wakealarm support
 test -x /etc/acpi/wakealarm/wakealarm_wake.sh && exec /etc/acpi/wakealarm/wakealarm_wake.sh &
