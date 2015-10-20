@@ -2,7 +2,7 @@
 
 IS_MULTICALL=1
 
-source /etc/rc.d/f4puppy5
+. /etc/rc.d/f4puppy5
 DEBUGT=
 __debugt__(){  #$1 label #$2 time
 
@@ -24,8 +24,6 @@ _debugt 8F
 test "$*" || exec busybox mount
 test "$#" = 2 -a "$1" = '-t' && exec busybox mount "$@"
 _debugt 8E $_DATE_
-#test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
-_debugt 8D $_DATE_
 
 Q=-q
 QUIET=--quiet
@@ -60,8 +58,8 @@ __check_proc__()
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
   busybox mount -o remount,rw /dev/root /
-  test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  test -d /proc || mkdir $VERB -p /proc
+  busybox mount $VERB $VERB -t proc none /proc
   return $?
  }
 }
@@ -70,7 +68,7 @@ __check_tmp__()
 {
  test -d /tmp && return $? || {
  busybox mount $VERB $VERB -o remount,rw /dev/root /
- mkdir -p /tmp
+ mkdir $VERB -p /tmp
  chmod $VERB 1777 /tmp
  return $?
  }
@@ -92,13 +90,13 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 
 __string_to_octal()
 {
-_debug "__string_to_octal:$*" >&2
+_debug "__string_to_octal:$*"
 unset oSTRING
 if test "$*"; then
 STRING_ORIG="$*"
 
 STRING=`echo "$STRING_ORIG" | sed 's!\(.\)!"\1"\n!g'`
-_debug "__string_to_octal:STRING='$STRING'" >&2
+_debug "__string_to_octal:STRING='$STRING'"
 
 
 while read -r oneCHAR
@@ -121,24 +119,24 @@ else
 while read -r oneLINE
 do
 #test "$oneLINE" || continue
- _debug "oneLINE='$oneLINE'" >&2
+ _debug "oneLINE='$oneLINE'"
  STRING=`echo "$oneLINE" | sed 's!\(.\)!"\1"\n!g'`
- _debugx "STRING='$STRING'"  >&2
+ _debugx "STRING='$STRING'"
  while read -r oneCHAR
  do
- _debugx "oneCHAR='$oneCHAR'" >&2
+ _debugx "oneCHAR='$oneCHAR'"
  #test "$oneCHAR" || oneCHAR='" "'
  test "$oneCHAR" && {
- _debugx "oneCHAR='$oneCHAR'" >&2
+ _debugx "oneCHAR='$oneCHAR'"
  oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
- _debug "oneCHAR='$oneCHAR'"  >&2
+ _debug "oneCHAR='$oneCHAR'"
  oCHAR=`printf "%o" \'"$oneCHAR"`
- _debug "oCHAR='$oCHAR'"      >&2
+ _debug "oCHAR='$oCHAR'"
  } || oCHAR=12
  #test "$oCHAR" = 134 && oCHAR=0134
 
  oSTRING=$oSTRING"\\0$oCHAR"
- _debugx "oSTRING='$oSTRING'" >&2
+ _debugx "oSTRING='$oSTRING'"
 
  done <<EoI
 `echo "$STRING"`
@@ -263,7 +261,7 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
  test "$oneUPDATE" || continue
  eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
- _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
+ _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'"
 _debugt 9d $_DATE_
 
  test "$noROX" || { _pidof $Q ROX-Filer && {
@@ -337,7 +335,7 @@ case $WHAT in
 
   test "$fstype" = swap && continue
   grep $Q -w "${device##*/}" /proc/partitions || continue
-  test -d "$mountpoint" || LANG=$LANG_ROX mkdir -p "$mountpoint"
+  test -d "$mountpoint" || LANG=$LANG_ROX mkdir $VERB -p "$mountpoint"
   _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
   mountpoint $Q "$mountpoint" && continue
 
@@ -346,7 +344,7 @@ case $WHAT in
   RV=$?
   STATUS=$((STATUS+RV))
   noROX=1
-  test "$RV" = 0 && { _update_partition_icon || :; } || rmdir "$mountpoint"
+  test "$RV" = 0 && { _update_partition_icon || :; } || rmdir $VERB "$mountpoint"
  ;;
 
 umount)
@@ -632,7 +630,7 @@ if test "$deviceORpoint"; then
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
   mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
-  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir -p "$mountPOINT"; }
+  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
          posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
           }
@@ -683,7 +681,7 @@ o_posPAR="$posPAR"
 
    _debugx "testing -e $posPAR"
    test -e "$posPAR" && { _debugx "`ls -lAv "$posPAR"`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
-   LANG=$LANG_ROX mkdir -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
+   LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
 
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
@@ -831,7 +829,7 @@ done
          test "$RETVAL" = 0 && _debug "OK."
                 }
 
-        LANG=$LANG_ROX mkdir -p "/mnt/${@##*/}"; set - $@ "/mnt/${@##*/}"; _debug "ntfs:$@";
+        LANG=$LANG_ROX mkdir $VERB -p "/mnt/${@##*/}"; set - $@ "/mnt/${@##*/}"; _debug "ntfs:$@";
         }
 
        test "$RETVAL" || RETVAL=0
@@ -912,7 +910,7 @@ done
         if test "$opUUID"; then
          MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
-         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir $VERB -p "$oneMTP"
          done
         fi
         if test "$opLABEL"; then
@@ -922,7 +920,7 @@ done
          MntPoints=$(grep -w "$lONLY" /etc/fstab | awk '{print $2}')
          for oneMTP in $MntPoints; do
          _debug "oneMTP='$oneMTP'"
-         test -d "$oneMTP" || LANG=$LANG_ROX mkdir -p "$oneMTP"
+         test -d "$oneMTP" || LANG=$LANG_ROX mkdir $VERB -p "$oneMTP"
          done
         fi
         _notice $WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
@@ -1043,7 +1041,7 @@ _umount_rmdir()
  test "$*" || return 1
  [ "$DISPLAY" ] && { test -d "$mountPOINT" && rox -D "$mountPOINT"; }
  _debug "_umount_rmdir:mountpoint $Q $*";
- mountpoint $Q "$*" || rmdir "$@" #2>>$ERR;
+ mountpoint $Q "$*" || rmdir $VERB "$@"
 }
 
 _update()
@@ -1059,7 +1057,7 @@ _update()
  _debugt 02 $_DATE_
  while read -r oneDIR
  do
- _debug "oneDIR='$oneDIR'" >&2
+ _debug "oneDIR='$oneDIR'"
  test "$oneDIR" || continue
  _umount_rmdir "$oneDIR"
  done <<EoI
@@ -1071,7 +1069,7 @@ _debugt 01 $_DATE_
 _debug "mountPOINT='$mountPOINT'"
 test "$RETVAL" = 0 && { _update || :; } || _umount_rmdir "$mountPOINT"
 _debugt 00 $_DATE_
-test "`readlink /etc/mtab`" = "/proc/mounts" || ln -sf /proc/mounts /etc/mtab
+test "`readlink /etc/mtab`" = "/proc/mounts" || ln $VERB -sf /proc/mounts /etc/mtab
 _debugt 00
 exit $RETVAL
 # Very End of this file 'bin/mount.sh' #
