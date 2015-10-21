@@ -125,7 +125,7 @@ fi
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir -p $NETWORK_INTERFACES_DIR
+[ -d $NETWORK_INTERFACES_DIR ] || mkdir $VERB -p $NETWORK_INTERFACES_DIR
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -844,7 +844,7 @@ autoLoadModule()
 
         if [ "$MDOIT" = "yes" ];then
             echo; echo "*** Trying $CANDIDATE."
-            if modprobe "$CANDIDATE"
+            if modprobe $Q $VERB "$CANDIDATE"
             then
                 SOMETHINGWORKED=true
                 WHATWORKED=$CANDIDATE
@@ -1591,9 +1591,9 @@ setupStaticIP()
         # we will try to back up.
         if [ "$DNS_SERVER1" != "0.0.0.0" ] ; then
             # remove old backups
-            rm /etc/resolv.conf.[0-9][0-9]* 2>>$ERR
+            rm $VERB /etc/resolv.conf.[0-9][0-9]* 2>>$ERR
             # backup previous one
-            mv -f /etc/resolv.conf /etc/resolv.conf.old
+            mv $VERB -f /etc/resolv.conf /etc/resolv.conf.old
             echo "nameserver $DNS_SERVER1" > /etc/resolv.conf
             if [ "$DNS_SERVER2" != "0.0.0.0" ] ; then
                 echo "nameserver $DNS_SERVER2" >> /etc/resolv.conf
@@ -1651,10 +1651,10 @@ saveNewModule()
 unloadNewModule()
 {
   # unload newly loaded module
-  modprobe -r "$NEWLOADED"
+  modprobe $Q $VERB -r "$NEWLOADED"
   grep -v "$NEWLOADED" /etc/ethernetmodules > /etc/ethernetmodules.tmp
   #sync
-  mv -f /etc/ethernetmodules.tmp /etc/ethernetmodules
+  mv $VERB -f /etc/ethernetmodules.tmp /etc/ethernetmodules
   TOPMSG="$L_TOPMSG_Module_Unloaded_p1 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p2 '$NEWLOADED' $L_TOPMSG_Module_Unloaded_p3"
 
   setDefaultMODULEBUTTONS
@@ -1764,7 +1764,7 @@ findInterfaceInfo()
        ## "$tmpDIR"/proc-info can be blank, have lines with bad info or lines with good info...
        local MANU=`grep -F 'Manufacturer=' "$tmpDIR"/proc-info | cut -d= -f2`
        local PROD=`grep -F 'Product=' "$tmpDIR"/proc-info | cut -d= -f2`
-       rm "$tmpDIR"/proc-info
+       rm $VERB "$tmpDIR"/proc-info
        ## need to somehow decide if info (assuming we got it) is good
        ## (maybe if we have MANU or not)
        if [ -n "$MANU" -a -n "$PROD" ] ; then
@@ -1861,12 +1861,12 @@ saveInterfaceSetup()
 #=============================================================================
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
-    rm -f "$tmpDIR"/ethmoduleyesload.txt 2>>$ERR
-    rm -f "$tmpDIR"/loadedeth.txt        2>>$ERR
-#   rm -f "$tmpDIR"/wag-profiles_iwconfig.sh 2>>$ERR
-    rm -f "$tmpDIR"/net-setup_*         2>>$ERR
-    rm -f "$tmpDIR"/wpa_status.txt      2>>$ERR
-    rm -f "$tmpDIR"/net-setup_scan*.tmp 2>>$ERR
+    rm $VERB -f "$tmpDIR"/ethmoduleyesload.txt 2>>$ERR
+    rm $VERB -f "$tmpDIR"/loadedeth.txt        2>>$ERR
+#   rm $VERB -f "$tmpDIR"/wag-profiles_iwconfig.sh 2>>$ERR
+    rm $VERB -f "$tmpDIR"/net-setup_*         2>>$ERR
+    rm $VERB -f "$tmpDIR"/wpa_status.txt      2>>$ERR
+    rm $VERB -f "$tmpDIR"/net-setup_scan*.tmp 2>>$ERR
 }
 
 #=============================================================================
@@ -1929,7 +1929,7 @@ showMainWindow
 cleanUpTmp
 
 #v411 BK hack to remove old network wizard configs so rc.sysinit won't use them if old wizard installed...
-[ "`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`" != "" ] && rm -f /etc/*[0-9]mode
+[ "`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`" != "" ] && rm $VERB -f /etc/*[0-9]mode
 
 #=============================================================================
 #================ END OF SCRIPT BODY =====================

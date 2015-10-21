@@ -87,7 +87,7 @@ while read ONERAW
 do
  [ "$ONERAW" = "" ] && continue #precaution
  ONEBASE=`basename $ONERAW .ko`
- modprobe -vn $ONEBASE >$OUT 2>&1
+ modprobe $Q $VERB -vn $ONEBASE >$OUT 2>&1
  ONEINFO=`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`
  ONETYPE=`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
  ONEDESCR=`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
