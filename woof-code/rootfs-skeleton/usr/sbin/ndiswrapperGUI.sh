@@ -121,7 +121,7 @@ showNdiswrapperGUI()
 {
   CONFIG_DIR=/root/.config/ndiswrapperGUI
 
-  [ -d "$CONFIG_DIR" ] || mkdir -p "$CONFIG_DIR"
+  [ -d "$CONFIG_DIR" ] || mkdir $VERB -p "$CONFIG_DIR"
   PREV_LOCATION=$(cat "$CONFIG_DIR/prev_location" 2>/dev/null)
   if [ ! "$PREV_LOCATION" ] || [ ! -d "$PREV_LOCATION" ] ; then
     INF_FILE_NAME=""

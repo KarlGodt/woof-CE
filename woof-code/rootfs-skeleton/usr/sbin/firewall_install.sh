@@ -121,7 +121,7 @@ fi
 
 goodbye()
 {
-  rm -f $TMPFILE > /dev/null 2>&1
+  rm $VERB -f $TMPFILE > /dev/null 2>&1
   clear
   echo "Configuration terminated.  Goodbye."
   exit
@@ -573,7 +573,7 @@ while [ "$status" != "exit" ]; do
     echo "A copy of the Linux Firewall initialization script preconfigured by this"
     echo "program is located in $FW_TMPFILE"
     echo
-    rm -f $TMPFILE > /dev/null 2>&1
+    rm $VERB -f $TMPFILE > /dev/null 2>&1
     exit 1
       fi
 
@@ -601,11 +601,11 @@ while [ "$status" != "exit" ]; do
     status=$?
     if [ "$status" == "255" ]; then goodbye
     elif [ "$status" == "0" ]; then
-      if [ -f $FW_INSTALL ]; then
-        mv $FW_INSTALL ${FW_INSTALL}.old
+      if [ -f "$FW_INSTALL" ]; then
+        mv $VERB $FW_INSTALL ${FW_INSTALL}.old
       fi
 
-      mv $FW_TMPFILE $FW_INSTALL
+      mv $VERB $FW_TMPFILE $FW_INSTALL
       status=$?
       if [ "$status" != "0" ]; then
     clear
@@ -615,7 +615,7 @@ while [ "$status" != "exit" ]; do
     echo "A copy of the Linux Firewall initialization script preconfigured by this"
     echo "program is located in $FW_TMPFILE."
     echo
-    rm -f $TMPFILE > /dev/null 2>&1
+    rm $VERB -f $TMPFILE > /dev/null 2>&1
     exit 1
       fi
 
@@ -647,7 +647,7 @@ EOF
     echo "changes to take effect."
     echo
     echo "For more information, please visit:   http://projectfiles.com/firewall/"
-    rm -f $TMPFILE > /dev/null 2>&1
+    rm $VERB -f $TMPFILE > /dev/null 2>&1
     exit
       else
     clear
@@ -660,7 +660,7 @@ EOF
     echo "A copy of the Linux Firewall initialization script preconfigured by this"
     echo "program is located in $FW_TMPFILE."
     echo
-    rm -f $TMPFILE > /dev/null 2>&1
+    rm $VERB -f $TMPFILE > /dev/null 2>&1
     exit 1
       fi
     fi
@@ -875,7 +875,7 @@ if [ "\$1" == "stop" ] || [ "\$1" == "clear" ]; then
   iptables -t mangle -P PREROUTING ACCEPT > /dev/null 2>&1
   iptables -t mangle -P INPUT ACCEPT > /dev/null 2>&1
   iptables -t mangle -P FORWARD ACCEPT > /dev/null 2>&1
-  if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/proc/modules" ]; then
+  if !(( \`which modprobe $Q $VERB 2>&1 | grep -c "which: no modprobe $Q $VERB in"\` )) && [ -a "/proc/modules" ]; then
     for MODULE in ipt_TTL iptable_mangle ipt_mark ipt_MARK ipt_MASQUERADE \\
                   ip_nat_irc ip_nat_ftp ipt_LOG ipt_limit ipt_REJECT \\
           ip_conntrack_irc ip_conntrack_ftp ipt_state iptable_nat \\
@@ -1527,9 +1527,9 @@ fi
 
 echo -n "."
 
-# Determine if this is a modular kernel, if so modprobe the required modules.
+# Determine if this is a modular kernel, if so modprobe $Q $VERB the required modules.
 
-if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/proc/modules" ]; then
+if !(( \`which modprobe $Q $VERB 2>&1 | grep -c "which: no modprobe $Q $VERB in"\` )) && [ -a "/proc/modules" ]; then
   if (( \`lsmod | grep -c "ipchains"\` )); then
     rmmod ipchains > /dev/null 2>&1
   fi
@@ -1563,10 +1563,10 @@ if !(( \`which modprobe 2>&1 | grep -c "which: no modprobe in"\` )) && [ -a "/pr
     #BK v3.94 some of the module names may be old names, but are an alias to
     #the actual module name. for example ip_conntrack_ftp is now an alias to
     #nf_conntrack_ftp. modinfo can report the alias, but only after the module
-    #is fetched from the zdrv file. The following modprobe -l only lists actual
+    #is fetched from the zdrv file. The following modprobe $Q $VERB -l only lists actual
     #module names not aliases. Fix: comment out the if...
     #if (( \`modprobe -l | grep -c "\$MODULE"\` )); then
-      modprobe \$MODULE > /dev/null 2>&1
+      modprobe $Q $VERB \$MODULE > /dev/null 2>&1
     #fi
   done
 fi

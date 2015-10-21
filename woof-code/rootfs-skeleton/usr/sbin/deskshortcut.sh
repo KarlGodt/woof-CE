@@ -33,8 +33,8 @@ case $RETVAL in
   SEDSTUFF="s/SHORTCUTSSTART/SHORTCUTSSTART\n*FvwmButtons $PROGFILE $PROGPIXMAP Exec \"$PROGFILE\" $PROGFILE/g"
   cat /root/.fvwm95rc | sed -e "$SEDSTUFF" > /tmp/fvwm95rc
   sync
-  mv -f /root/.fvwm95rc /root/.fvwm95rc.bak
-  mv -f /tmp/fvwm95rc /root/.fvwm95rc
+  mv $VERB -f /root/.fvwm95rc /root/.fvwm95rc.bak
+  mv $VERB -f /tmp/fvwm95rc /root/.fvwm95rc
   sync
   break
   ;;

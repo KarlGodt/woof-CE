@@ -78,7 +78,7 @@ while read oneRAW
 do
  [ "$oneRAW" = "" ] && continue #precaution
  oneBASE=`basename $oneRAW .ko`
- modprobe -vn $oneBASE >/dev/null 2>&1
+ modprobe $Q $VERB -vn $oneBASE >/dev/null 2>&1
  oneINFO=`modinfo $oneBASE | tr '\t' ' ' | tr -s ' '`
  oneTYPE=`echo "$oneINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`
  oneDESCR=`echo "$oneINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`
