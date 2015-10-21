@@ -14,8 +14,8 @@ $projectname="$ARGV[0]";
 $filename0="$projectname-$ARGV[1].tar.gz";
 $filename1="$projectname-$ARGV[2].tar.gz";
 print"\n$filename0\n"; print"$filename1\n";
-open(FH0,"tar tvf $filename0|") || die"ERROR: cannot run tar tvf $filename0\n";
-open(FH1,"tar tvf $filename1|") || die"ERROR: cannot run tar tvf $filename1\n";
+open(FH0,"tar tvf $filename0|") || die"ERROR: cannot run tar $VERB tvf $filename0\n";
+open(FH1,"tar tvf $filename1|") || die"ERROR: cannot run tar $VERB tvf $filename1\n";
 
 # while(<FH0>)  { s/woof-\w+//; if(!/\/$/ && !/->/) { push(@ar0,$_) } } close FH0;
 # while(<FH1>)  { s/woof-\w+//; if(!/\/$/ && !/->/) { push(@ar1,$_) } } close FH1;

@@ -189,16 +189,16 @@ fi
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 PROFILES_DIR='/etc/network-wizard/wireless/profiles'
-[ -d $PROFILES_DIR ] || mkdir -p $PROFILES_DIR
+[ -d $PROFILES_DIR ] || mkdir $VERB -p $PROFILES_DIR
 # wpa_supplicant.conf files
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 WPA_SUPP_DIR='/etc/network-wizard/wireless/wpa_profiles'
-[ -d $WPA_SUPP_DIR ] || mkdir -p $WPA_SUPP_DIR
+[ -d $WPA_SUPP_DIR ] || mkdir $VERB -p $WPA_SUPP_DIR
 # configuration data for wireless interfaces (like if they support wpa)
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'
-[ -d $WLAN_INTERFACES_DIR ] || mkdir -p $WLAN_INTERFACES_DIR
+[ -d $WLAN_INTERFACES_DIR ] || mkdir $VERB -p $WLAN_INTERFACES_DIR
 
 # a file where WPA-supporting modules not included in the default list can be added
 Extra_WPA_Modules_File='/etc/network-wizard/wpa_modules'
@@ -218,7 +218,7 @@ DHCPCD_COMMON_OPS='-L'
 setupDHCP()
 {
         # 7mar10:  avoid dhcpcd error writing in /var/lib/dhcpcd
-        mkdir -p /var/lib/dhcpcd && touch /var/lib/dhcpcd
+        mkdir $VERB -p /var/lib/dhcpcd && touch /var/lib/dhcpcd
         # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
         local MAX_TIME='30'
         # by how much we multiply the time to get percentage (3 for 30 seconds max time)
@@ -271,7 +271,7 @@ setupDHCP()
                                         # exit the function
                                 else
                                         if [ -f "$TmpMarker" ] ; then
-                                                rm "$TmpMarker"
+                                                rm $VERB "$TmpMarker"
                                                 return
                                         fi
                                 fi
@@ -306,7 +306,7 @@ setupDHCP()
 
 
         read HAS_ERROR < "$tmpDIR"/net-setup_HAS_ERROR.txt
-        rm "$tmpDIR"/net-setup_HAS_ERROR.txt
+        rm $VERB "$tmpDIR"/net-setup_HAS_ERROR.txt
 
         ## Clean up:
         if [ -n "$XPID" ] ;then
@@ -315,7 +315,7 @@ setupDHCP()
                 clean_up_gtkdialog Dhcpcd_Progress_Dialog
         fi
         if [ "$HAVEX" = "yes" ]; then # it's a pipe
-                rm $PROGRESS_OUTPUT
+                rm $VERB $PROGRESS_OUTPUT
         fi
         if [ $HAS_ERROR -eq 0 ]
         then
@@ -342,7 +342,7 @@ showProfilesWindow()
          rt61|rt73) CARD_WPA_DRV="ralink" ;;
          r8180|r8187) CARD_WPA_DRV="ipw" ;;
          # Dougal: all lines below are "wext" (split and alphabetized for readability)
-         ath_pci) modprobe wlan_tkip ; CARD_WPA_DRV="wext" ;;
+         ath_pci) modprobe $Q $VERB wlan_tkip ; CARD_WPA_DRV="wext" ;;
          ath5k*|ath9k*|b43|b43legacy|bcm43xx) CARD_WPA_DRV="wext" ;;
          ipw2100|ipw2200|ipw3945|iwl3945|iwl4965|iwl5100|iwlagn) CARD_WPA_DRV="wext" ;;
          ndiswrapper|p54pci|p54usb|rndis_wlan) CARD_WPA_DRV="wext" ;;
@@ -1131,7 +1131,7 @@ deleteProfile(){
         # skip the templates...
         case $PROFILE_TITLE in autoconnect|template) return ;; esac
         if [ -s "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf" ] ; then
-                rm "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+                rm $VERB "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
         fi
 } # end deleteProfile
 
@@ -1162,7 +1162,7 @@ saveWpaProfile(){
         WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
         if [ ! -e "$WPA_CONF" ] ; then
                 # copy template
-                cp -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
+                cp $VERB -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
         fi
         # need to escape the original phrase for sed
         ## (need to be escaped twice (extra \\) if we want the result escaped)
@@ -1287,7 +1287,7 @@ killWpaSupplicant ()
         [ "$INTERFACE" ] || INTERFACE="$1"
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
-        #       rm /var/run/wpa_supplicant/$INTERFACE* > /dev/null 2>&1
+        #       rm $VERB /var/run/wpa_supplicant/$INTERFACE* > /dev/null 2>&1
         #       for SUPPLICANT_PID in $SUPPLICANT_PIDS ; do
         #               kill $SUPPLICANT_PID > /dev/null 2>&1
         #       done
@@ -1295,7 +1295,7 @@ killWpaSupplicant ()
         #fi
         # Dougal: replace the above with this...
         wpa_cli -i "$INTERFACE" terminate 2>&1 |grep -v 'Failed to connect'
-        [ -e /var/run/wpa_supplicant/$INTERFACE ] && rm -rf /var/run/wpa_supplicant/$INTERFACE
+        [ -e /var/run/wpa_supplicant/$INTERFACE ] && rm $VERB -rf /var/run/wpa_supplicant/$INTERFACE
 } # end killWpaSupplicant
 
 # Dougal: put this into a function, for maintainability and so it can be used in setupDHCP
@@ -1310,11 +1310,11 @@ killDhcpcd(){
         if [ -d /var/lib/dhcpcd ] ; then
           if [ -s /var/run/dhcpcd-${INTERFACE}.pid ] ; then
             kill $( cat /var/run/dhcpcd-${INTERFACE}.pid )
-            rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null
+            rm $VERB -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null
           fi
 #begin rerwin - Retain duid, if any, so all interfaces can use
           #it (per ipv6) or delete it if using MAC address as client ID.    rerwin
-          rm -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>/dev/null  #.info
+          rm $VERB -f /var/lib/dhcpcd/dhcpcd-${INTERFACE}.* 2>/dev/null  #.info
 #end rerwin
           #rm -f /var/run/dhcpcd-${INTERFACE}.* 2>/dev/null #.pid
         fi
@@ -1322,9 +1322,9 @@ killDhcpcd(){
         if [ -d /etc/dhcpc ];then
           if [ -s /etc/dhcpc/dhcpcd-${INTERFACE}.pid ] ; then
             kill $( cat /etc/dhcpc/dhcpcd-${INTERFACE}.pid )
-            rm /etc/dhcpc/dhcpcd-${INTERFACE}.pid 2>/dev/null
+            rm $VERB /etc/dhcpc/dhcpcd-${INTERFACE}.pid 2>/dev/null
           fi
-          rm /etc/dhcpc/dhcpcd-${INTERFACE}.* 2>/dev/null
+          rm $VERB /etc/dhcpc/dhcpcd-${INTERFACE}.* 2>/dev/null
           #if left over from last session, causes trouble.
         fi
 } # end killDhcpcd
@@ -1659,11 +1659,11 @@ $L_MESSAGE_No_Wpaconfig_p2"
         unset NETWIZ_Scan_Progress_Dialog
         ###########
         if [ "$HAVEX" = "yes" ]; then # it's a pipe
-                rm $PROGRESS_OUTPUT
+                rm $VERB $PROGRESS_OUTPUT
         fi
         #cat $TMPLOG >> $DEBUG_OUTPUT
         WPA_STATUS="$(cat "$tmpDIR"/wpa_status.txt)"
-        rm "$tmpDIR"/wpa_status.txt
+        rm $VERB "$tmpDIR"/wpa_status.txt
 
         if [ "$WPA_STATUS" = "COMPLETED" ] ; then
                 return 0
@@ -1836,7 +1836,7 @@ buildScanWindow()
 
                 #  Dougal: use files for the scan results, so we can try a few times
                 #+ and see which is biggest (sometimes not all networks show)
-                rm "$tmpDIR"/net-setup_scan*.tmp >/dev/null 2>&1
+                rm $VERB "$tmpDIR"/net-setup_scan*.tmp >/dev/null 2>&1
                 iwlist "$INTERFACE" scan >"$tmpDIR"/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
                 echo "X"
 
@@ -2028,7 +2028,7 @@ runPrismScan()
         echo "X"
         # get number of access points (make sure we get integer)
         POINTNUM=$(grep -F 'numbss=' "$tmpDIR"/prism-scan-all 2>/dev/null | cut -d= -f2 | grep [0-9])
-        rm "$tmpDIR"/prism-scan-all >/dev/null 2>&1
+        rm $VERB "$tmpDIR"/prism-scan-all >/dev/null 2>&1
         ## Dougal: not sure about this -- need a way to make sure we get something
         #if grep -F 'resultcode=success' "$tmpDIR"/prism-scan-all ; then
         if [ "$POINTNUM" ] ; then
@@ -2091,7 +2091,7 @@ setupScannedProfile()
         if [ "$USE_WLAN_NG" = "yes" ] ; then
           getPrismCellParameters $CELL
           # clean up from earlier
-          rm -f "$tmpDIR"/prism-scan*
+          rm $VERB -f "$tmpDIR"/prism-scan*
         else
           #getCellParameters $CELL
           Get_Cell_Parameters $CELL

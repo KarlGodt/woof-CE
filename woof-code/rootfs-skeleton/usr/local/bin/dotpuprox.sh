@@ -15,9 +15,9 @@ MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
- source /etc/rc.d/f4puppy5 && {
+ . /etc/rc.d/f4puppy5 && {
  set +n
- source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+ . /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
 
 ADD_PARAMETER_LIST=FILENAME.pup
 ADD_PARAMETERS="File-name: /path/to/package.pup"
@@ -45,7 +45,7 @@ echo $FPATH | grep '^/' > /dev/null || FPATH="`pwd`/$1" # absolute path
 which eval_gettext || alias eval_gettext='gettext'
 MSG=`which gxmessage` || MSG=xmessage
 
-[ -d $CONFIG ] || mkdir $CONFIG
+[ -d $CONFIG ] || mkdir $VERB $CONFIG
 
 # workaround for MU
 if ! pidof xinit-dummy > /dev/null
@@ -163,7 +163,7 @@ then
   # busybox does not like crlf or *
   dos2unix -u md5sum.txt
   sed 's/\*//g' md5sum.txt > t155145492.txt
-  mv -f  t155145492.txt md5sum.txt
+  mv $VERB -f  t155145492.txt md5sum.txt
 fi
 
 if ! md5sum -c md5sum.txt
@@ -215,16 +215,16 @@ dotpuprmtmpdir
 sleep 1
 ALWAYS=$CONFIG/always-delete-dotpup
 NEVER=$CONFIG/never-delete-dotpup
-[ -r $ALWAYS ] && exec rm -f "$FPATH"
+[ -r $ALWAYS ] && exec rm $VERB -f "$FPATH"
 [ -r $NEVER ] && exit
 
 MSG2="`eval_gettext "Delete the file"`"
 MSG1="`eval_gettext "Yes,Always,Never,No"`"
 $MSG -buttons "$MSG1" -center -title "$TITLE1" "$MSG2 $FNAME ?"
 case $? in
-  101) rm -f "$FPATH" ;;
-  102) touch $ALWAYS ; rm -f $NEVER "$FPATH" ;;
-  103) touch $NEVER ; rm -f $ALWAYS ;;
+  101) rm $VERB -f "$FPATH" ;;
+  102) touch $ALWAYS ; rm $VERB -f $NEVER "$FPATH" ;;
+  103) touch $NEVER ; rm $VERB -f $ALWAYS ;;
   *) exit ;;
 esac
 

@@ -14,9 +14,9 @@ MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
- source /etc/rc.d/f4puppy5 && {
+ . /etc/rc.d/f4puppy5 && {
  set +n
- source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+ . /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
 
 ADD_PARAMETER_LIST=
 ADD_PARAMETERS=
@@ -77,7 +77,7 @@ while read ONERAW
 do
  [ "$ONERAW" = "" ] && continue #precaution
  ONEBASE="`basename $ONERAW .ko`"
- modprobe -vn $ONEBASE >/dev/null 2>&1
+ modprobe $Q $VERB -vn $ONEBASE >/dev/null 2>&1
  ONEINFO="`modinfo $ONEBASE | tr '\t' ' ' | tr -s ' '`"
  ONETYPE="`echo "$ONEINFO" | grep '^alias:' | head -n 1 | cut -f 2 -d ' ' | cut -f 1 -d ':'`"
  ONEDESCR="`echo "$ONEINFO" | grep '^description:' | head -n 1 | cut -f 2 -d ':'`"

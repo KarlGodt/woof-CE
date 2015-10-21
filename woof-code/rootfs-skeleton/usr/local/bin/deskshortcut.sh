@@ -34,9 +34,9 @@ MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
  set +e
- source /etc/rc.d/f4puppy5 && {
+ . /etc/rc.d/f4puppy5 && {
  set +n
- source /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
+ . /etc/rc.d/f4puppy5; } || echo "WARNING : Could not source /etc/rc.d/f4puyppy5 ."
 
 ADD_PARAMETER_LIST=
 ADD_PARAMETERS=
@@ -64,8 +64,8 @@ case $RETVAL in
   SEDSTUFF="s/SHORTCUTSSTART/SHORTCUTSSTART\n*FvwmButtons $PROGFILE $PROGPIXMAP Exec \"$PROGFILE\" $PROGFILE/g"
   cat $HOME/.fvwm95rc | sed -e "$SEDSTUFF" > /tmp/fvwm95rc
   sync
-  mv -f $HOME/.fvwm95rc $HOME/.fvwm95rc.bak
-  mv -f /tmp/fvwm95rc $HOME/.fvwm95rc
+  mv $VERB -f $HOME/.fvwm95rc $HOME/.fvwm95rc.bak
+  mv $VERB -f /tmp/fvwm95rc $HOME/.fvwm95rc
   sync
   break
   ;;
