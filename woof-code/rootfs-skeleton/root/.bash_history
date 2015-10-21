@@ -2594,3 +2594,403 @@ git pull
 cfclient
 ps | grep $Q -E 'make|gcc|xorriso|xorrecord|xine|petget|wget}axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'
 ps | grep -vw 'grep' | grep $Q -E 'make|gcc|xorriso|xorrecord|xine|petget|wget}axel|dotpup|mplayer|gcurl|gimv|burniso2cd|growisofs|cdrecord|pcdripper|xfmedia|xmms|ripoff|pdvdrsab|pburn|mhwaveedit|installpkg\.sh|downloadpkgs\.sh'
+git log
+./git_helper/replace_commit_files.sh "pup_event_frontend_d
+Fixes and smaller addons to make code similar to other
+installations."
+./git_helper/replace_commit_files.sh "pup_event_frontend_d
+Fixes and smaller addons to make code similar to other
+installations."
+git push krg Fox3-Dell755
+git MSpush krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+git pull
+geany /sbin/pup_event_frontend_do2
+geany /root/Choices/ROX-Filer/PuppyPin
+geany /sbin/pup_event_frontend_dl218 
+geany /bin/mount.sh
+geany /usr/sbin/eventmanager
+geany /usr/local/bin/drive_all
+geany /sbin/probedisk2
+mount
+./AppRun 
+pwd
+./AppRun 
+cd..
+cd ..
+ls
+cd drive_sdb18/
+ls
+./AppRun
+for i in `seq 1 1 10000`; do pidof aquqlung >/dev/null; done
+time for i in `seq 1 1 100`; do pidof aqualung >/dev/null; done
+time for i in `seq 1 1 1000`; do pidof aqualung >/dev/null; done
+time for i in `seq 1 1 1000`; do ps | grep -vw 'grep' | grep -q -E 'aqualung'; done
+chmod +x /root/pidof_vs_ps.sh 
+time /root/pidof_vs_ps.sh
+pdict
+git commit
+git add git_helper/replace_commit_files.sh
+git commit
+./git_helper/update_files.sh 
+grep combobox *
+echo $((65/2*2))
+echo $((A/2*2))
+echo $((10/16))
+echo $((10/16*16))
+grep combobox
+grep combobox *
+pwd
+./05.02-combo_input 
+grep <input> *
+grep '<input>' *
+./00.02-text_input 
+./05.02-combo_input 
+./AppRun
+ls /usr/local/bin/drive_drives
+git pull
+rox
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+eventmanager
+eventmanager
+cut -f 1 -d ' ' /proc/modules
+eventmanager
+eventmanager show
+eventmanager desktop
+eventmanager show
+eventmanager desktop
+eventmanager
+make
+./netplugd --help
+./netplugd -D -F
+./configure
+wget -c --limit-rate=5k http://http.debian.net/debian/pool/main/i/ifstat/ifstat_1.1.orig.tar.gz
+./configure
+make
+make clean
+wget http://http.debian.net/debian/pool/main/i/ifstat/ifstat_1.1-8.diff.gz
+./configure
+make
+./cdtool --help
+./cdctrl
+./cdctrl -d /dev/sr0
+./cdctrl --help
+make doc
+make docs
+make documentation
+make info
+make man
+man ./cdctrl.1
+man ./cdloop.1
+man ./cdtoo.1
+man ./cdtool.1
+ldd ./cdtool
+make clean
+./configure CFLAGS="-static" LDFLAGS="-static"
+make
+ldd ./cdtool
+strip ./cdtool
+strip ./cdctrl
+strip ./cdown
+strip ./cdtool2cddb
+./cdtool --help
+./cdctrl
+ls -l /dev/cdrom
+./configure CFLAGS="-static" LDFLAGS="-static"
+make
+make clean
+make
+make clean
+./configure
+make
+./cdde --help
+./src/cdde --help
+./src/cdde -b
+Imake
+imake
+make
+./wmmount
+./wmmount --help
+ps | grep udev
+killall udevd
+ps | grep udev
+ifconfig -a
+/etc/init.d/runmbbservice.init restart
+grep -r -m3 -w INT_MAX /usr/include/*
+make
+./setcd --help
+./setcd -s /dev/sr0
+wget -c http://http.debian.net/debian/pool/main/c/cdtool/cdtool_2.1.8-release.orig.tar.gz
+wget -c http://http.debian.net/debian/pool/main/c/cdde/cdde_0.3.1.orig.tar.gz
+wget -c http://http.debian.net/debian/pool/main/w/wmmount/wmmount_1.0beta2.orig.tar.gz
+rox
+grep -m3 MSIZE /usr/include/*
+grep -r -m3 MSIZE /usr/include/*
+geany /usr/include/sys/mbuf.h
+grep -r -m3 -w MSIZE /usr/include/*
+grep -r -m3 -w MSIZE /usr/include_orig/*
+geany /usr/include/sys/param.h
+ls /usr/include/X11
+ls /usr/include/X11/*
+file /usr/include/X11/*
+file /usr/include/X11/
+file /usr/include/X11
+ln -sf ../X11/include/X11 /usr/inluce/X11
+ln -sf ../X11/include/X11 /usr/inclue/X11
+ln -sf ../X11/include/X11 /usr/include/X11
+file /usr/X11/include/X11
+/etc/init.d/runmbbservice.init restart
+df
+umount /mnt
+umount -l /mnt
+df
+umount -l /mnt
+probepeart -k
+probepert -k
+probepart -k
+probedisk
+echo $((104/16))
+echo $(((104/16)*16))
+pup_event_frontend_do2
+pup_event_frontend_do2 start
+pup_event_frontend_dl218 start
+pup_event_frontend_d start
+ps | grep pup
+pup_event_frontend_do2 stop
+pup_event_frontend_d stop
+pup_event_frontend_do2 stop
+pup_event_frontend_dl218 stop
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+ps | grep pup
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d stop
+eventmanager
+pup_event_frontend_d start
+pup_event_frontend_d restart
+
+Mon Oct 19 19:13:28 GMT+1 2015
+
+ps | grep pup
+/etc/init.d/runmbbservice.init 
+/etc/init.d/runmbbservice.init restart
+
+Tue Oct 20 07:16:31 GMT+1 2015
+
+ps -o pid,ppid,user,group,args | awk '{if (match($5, ".*X$") && $6 == ":0") print $3}'
+ps -o pid,ppid,user,group,args | grep 'X$'
+ps -o pid,ppid,user,group,args | grep 'X'
+ps -o pid,ppid,user,group,args 
+ps -o pid,ppid,user,group,args | awk '{if (match($5, ".*X$") && $6 == ":0") print }'
+acpitool --help
+busybox swapoff --help]
+mtpaint
+chvt --help
+man aplay
+man amixer
+geany /bin/mount.sh
+grp -i rox acpid_mkbd*.log
+grep -i rox acpid_mkbd*.log
+grep -i rox acpid_mkbd.log*
+grep -i -m1 rox acpid_mkbd.log*
+geany /usr/local/bin/rox
+geany /usr/local/apps/ROX-Filer/AppRun
+diff mount.sh /bin/mount.sh
+diff ./mount.sh /bin/mount.sh
+pwd
+./mount.sh -t
+./mount.sh -t ext4
+./mount -t
+./mount -t ext4 /dev/sdb15 /mnt/NEW2sdb15
+mount
+umount /mnt/NEW2sdb15
+./mount -t ext4 /dev/sdb15 /mnt/NEW2sdb15
+umount /mnt/NEW2sdb15
+./mount -t ext4 /dev/sdb15 /mnt/NEW2sdb15
+umount /mnt/NEW2sdb15
+./mount -t ext4 /dev/sdb15 /mnt/NEW2sdb15
+umount /mnt/NEW2sdb15
+./mount -t ext4 /dev/sdb15 /mnt/sdb15
+diff ./mount.sh /bin/mount.sh
+diff -up ./mount.sh /bin/mount.sh >/root/mount.diff
+geany /root/mount.diff
+./git_helper/update_files.sh 
+mount -t ext4 /dev/sdb15
+umount /mnt/sdb15
+mount -t ext4 /dev/sdb15 /mnt/sdb15
+umount /mnt/sdb15
+mount -v -t ext4 /dev/sdb15 /mnt/sdb15
+mount -o remount,ro /mnt/sdb15
+busybox mount --help
+mount -o remount,ro /mnt/sdb15
+mount -o remount,rw /mnt/sdb15
+mount -r /mnt/sdb15
+test "$C" = 1; echo $?
+test $C = 1; echo $?
+mount -o remount,rw /mnt/sdb15
+mount -ro /mnt/sdb15
+mount -rw /mnt/sdb15
+mount -r /mnt/sdb15
+mount -w /mnt/sdb15
+mount -o remount,ro /mnt/sdb15
+mount -w /mnt/sdb15
+mount -r /mnt/sdb15
+mount -r /dev/sdb15
+mount -o remount,rw /dev/sdb15
+mount -r /dev/sdb15
+mount -r /dev/sdb15 /mnt/sdb15
+mount -t ext4 -r /dev/sdb15 /mnt/sdb15
+mount -t ext4 -w /dev/sdb15 /mnt/sdb15
+mount -t ext4 -w /dev/sdb16 /mnt/sdb16
+mount -t ext4 -r /dev/sdb16 /mnt/sdb16
+mount -o remount,ro /dev/sdb16 /mnt/sdb16
+umount -r /mnt/sdb16
+umount -r /mnt/sdb15
+mount
+geany /etc/acpi/wakealarm/wakealarm_wake.sh
+test -e; echo $?
+test -b; echo $?
+[ -e ]; echo $>
+[ -e ]; echo $?
+[ -e '' ]; echo $?
+[ -e "" ]; echo $?
+ash
+umount -v /mnt/sda9
+mount -v /dev/sda9
+mount -t
+mount -t etx4
+mount -t ext4
+mount -t
+mount -t etx4
+mount -t ext4
+mount -t ext
+mout -t ext4 /dev/sdb15 /mnt/NEWsdb15
+mount -t ext4 /dev/sdb15 /mnt/NEWsdb15
+mount
+mount /dev/sdb14
+mount
+cat /proc/mountd
+cat /proc/mounts
+/etc/init.d/runmbbservice.init restart
+mount -t
+mount -t ext3
+mount -t ext4
+ipinfo 
+geany /usr/sbin/ipinfo
+ping google.com
+ifconfig
+wget -O - -q icanhazip.com
+wget -O - icanhazip.com
+/etc/init.d/runmbbservice.init restart
+ifconfig
+git commit
+git push krg Fox3-Dell755
+echo $((5000*365))
+/etc/init.d/runmbbservice.init restart
+git push krg Fox3-Dell755
+ficonfig
+ifconfig
+/etc/init.d/runmbbservice.init restart
+time mount
+time mount -v /dev/sdb14
+time umount -v /dev/sdb14
+time mount -v /dev/sdb14
+time mount -t
+help getopt
+getopt --help
+getopt -- ab:c:t: ""
+getopt -- ab:c:t:
+getopt ab:c:t:
+getopt ab:c:t: "" ""
+type -a getopt
+file /bin/getopt
+/usr/local/bin/getopt
+/usr/local/bin getopt ab:c:t: "" ""
+/usr/local/bin/getopt ab:c:t: "" ""
+/usr/local/bin/getopt ab:c:t:
+/usr/local/bin/getopt -- ab:c:t:
+/usr/local/bin/getopt -- ab:c:t: " "
+/usr/local/bin/getopt -- ab:c:t: ""
+mount -t
+umount -v -l /mnt/sdb14
+mount -v -s /mnt/sdb14
+mount -v /mnt/sdb14
+mount -v -s /dev/sdb14
+mount -o remount,ro /dev/sdb14 /mnt/sdb14
+mount -t
+mount -o remount,ro /dev/sdb14 /mnt/sdb14
+type -a busybox
+mount -o remount,ro /dev/sdb14 /mnt/sdb14
+mount -t ext 4 /dev/sdb13 /mnt/NEWsdb13
+mount -t ext4 /dev/sdb13 /mnt/NEWsdb13
+mount  /dev/sdb13 /mnt/NEWsdb13
+time /bin/mount $VERB /dev/sdb14
+time /bin/umount $VERB /dev/sdb14
+time /bin/mount $VERB /dev/sdb14
+time /bin/umount $VERB /dev/sdb14
+time /bin/mount $VERB /dev/sdb14
+time /bin/umount $VERB /mnt/sdb14
+time /bin/mount $VERB /dev/sdb14
+time /bin/umount $VERB /mnt/sdb14
+time /bin/mount $VERB /dev/sdb14
+time /bin/umount $VERB /dev/sdb14
+time /bin/mount -v /dev/sdb14
+
+Wed Oct 21 07:45:57 GMT+1 2015
+
+grep -i rox *
+geany /sbin/pup_event_frontend_d
+pidof ROX-Filer
+fixitup
+fsck -n /dev/sdb14
+fsck -v /dev/sdb14
+fsck -n /dev/sdb15
+fsck -v /dev/sdb15
+fsck -n /dev/sdb16
+fsck -v /dev/sdb16
+geany /etc/rc.d/rc.shutdown
+cp --help
+grep -m1 '\$VERB' *
+./add_verb.sh 
+git commit
+git commit -a -m '/usr/sbin/: Add $VERB to mkdir et al.'
+for i in *; do [ -e /usr/sbin/$i ] || continue; cp -a --backup=numbered "$i" /usr/sbin/; done
+grep -m1 '\[ -e \$' *
+grep -m1 '\[ -f \$' *
+grep -m1 '\[ -e \$' *
+grep -m1 '\[ -d \$' *
+[ ! -d $A ]; echo $?
+[ -d $A ]; echo $?
+echo "'$A'"
+/etc/init.d/runmbbservice.init restart
+git commit
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+git log
+bootmanager
+
+Wed Oct 21 18:03:26 GMT+1 2015
+
+
+Wed Oct 21 22:02:10 GMT+1 2015
+
