@@ -27,7 +27,7 @@ _debugt 8E $_DATE_
 
 Q=-q
 QUIET=--quiet
-DEBUG=
+DEBUG=1
 DEBUGX=
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -178,6 +178,7 @@ umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-o
 
   #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
+ getoptRV=$?
 _debug "               options='$getOPS'"
 
  #longOPS=`echo "$getOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
@@ -211,11 +212,12 @@ _debugx "positional parameters='$posPARAMS'"
 
 test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
+return $getoptRV
 }
 #_get_options "$*"
 #_get_options $*
 #_get_options $@
-_get_options "$@"
+_get_options "$@" || _exit 1 "Error while processing parameters."
 _debugt 8C $_DATE_
 
 test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
@@ -628,7 +630,8 @@ if test "$deviceORpoint"; then
   mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
   _debug "mountPOINT='$mountPOINT'"
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
-  mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
+  mountpoint $Q "$mountPOINT" && {
+      test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted. Use -o remount."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
@@ -655,7 +658,8 @@ fuse*) :;;
    if test -f /proc/filesystems; then
    if test ! "`grep 'nodev' /proc/filesystems | grep $posPAR`"; then
       #if test "`echo "$*" | grep -Ee '--[[:alpha:]]+'`" = ""; then
-   grep -Fw "$posPAR" /proc/mounts | grep $Q -vi fuse && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
+   grep -Fw "$posPAR" /proc/mounts | grep $Q -vi fuse && {
+       test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted. Use -o remount."; }
       #fi
       _debug "c=$c \$#=$# "$posPAR
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
@@ -707,7 +711,7 @@ umount)
  # give better error message instead 'invalid argument'
   if test "$deviceORpoint"; then
    test -b "$deviceORpoint" || {
-    mountpoint "$deviceORpoint" || { _warn "'$deviceORpoint' not a current mountpoint"; }
+    mountpoint $Q "$deviceORpoint" || { _warn "'$deviceORpoint' not a current mountpoint"; }
    }
   fi
 
