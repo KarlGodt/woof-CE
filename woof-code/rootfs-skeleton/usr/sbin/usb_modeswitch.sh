@@ -10,7 +10,7 @@ MY_PID=$$
 DEBUG=1
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="ARGUMENTS"
 ADD_PARAMETERS=""

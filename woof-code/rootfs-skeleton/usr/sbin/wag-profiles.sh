@@ -170,7 +170,7 @@
 # ver 0.0.0
 #  basic diagnostic listing
 
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _info "being run"
 
 ## Dougal: dirs where config files go
