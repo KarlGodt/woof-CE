@@ -6,6 +6,13 @@ PROG='/root/.xinitrc'
 . /etc/rc.d/PUPSTATE
 . /etc/rc.d/f4puppy5
 
+DEFAULTWM=jwm
+test -f /etc/windowmanager || echo "$DEFAULTWM" >/etc/windowmanager
+read CURRENTWM  </etc/windowmanager
+
+_info "CURRENTWM='$CURRENTWM'"
+
+
 if [ -d /root/Choices/XINIT ]; then
 for file in /root/Choices/XINIT/*; do
 #source /root/Choices/XINIT/bb_acpi start &
@@ -16,26 +23,20 @@ sleep 0.1
 }
 done; fi
 
-DEFAULTWM=jwm
-test -f /etc/windowmanager || echo "$DEFAULTWM" >/etc/windowmanager
-read CURRENTWM  </etc/windowmanager
-if [ "$CURRENTWM" = "startkde" ]; then
- exec startkde
-fi
-
+#v4.01 BK daemon to handle kernel uevents...
 _pidof /sbin/pup_event_frontend_d && {
 exec /sbin/pup_event_frontend_d restart &
     } || {
 exec /sbin/pup_event_frontend_d start & #v403
 }
 
-_info "CURRENTWM='$CURRENTWM'"
-if [ "$CURRENTWM" != "enlightenment_start" ] ; then
+if [ "$CURRENTWM" = "startkde" ]; then
+ exec startkde
+elif [ "$CURRENTWM" != "enlightenment_start" ] ; then
 _info 'NOT E17'
-#v4.01 BK daemon to handle kernel uevents...
-rox -p /root/Choices/ROX-Filer/PuppyPin
 #relocates right-side icons to actual right-side of screen...
 /usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
+rox -p /root/Choices/ROX-Filer/PuppyPin
 else
 _info 'E17'
 exec dbus-uuidgen --ensure &
