@@ -97,7 +97,8 @@ if [ -f "$PUP_EVENT_DIR"/usb-drive-log-probedisk ];then #force /proc upate mecha
  for oneUSBDRV in `cat "$PUP_EVENT_DIR"/usb-drive-log-probedisk`
  do
   #disktype /dev/$oneUSBDRV > /dev/null 2>&1
-  dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #v4.01 faster.
+  #dd if=/dev/$oneUSBDRV of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #v4.01 faster.
+  (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
  done
 fi
 [ "$DEBUGT" ] && date +%N >&2
@@ -116,6 +117,9 @@ fi
 
 for oneDRV in $ALLDRVS
 do
+
+  test -f /sys/block/$oneDRV/size && read SIZE </sys/block/$oneDRV/size
+
   case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
      test -f /proc/ide/$oneDRV/media && read MEDIA </proc/ide/$oneDRV/media
@@ -132,20 +136,24 @@ do
 
      #log if usb drive (not a sata drive)... v4.01...
       #if [ "`/bin/find /sys/devices -name "$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
-      if [ "`readlink -f "/sys/block/$oneDRV" | grep 'usb' | grep 'block'`" != "" ] ; then
+      if [ "`readlink -f "/sys/block/$oneDRV" | grep 'usb'`" ] ; then
       MEDIA="usbdrv" #v4.01
       echo "$oneDRV" >> "$PUP_EVENT_DIR"/usb-drive-log-probedisk
       sort -u "$PUP_EVENT_DIR"/usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
       mv $VERB -f /tmp/usb-drive-log-probedisk-tmp "$PUP_EVENT_DIR"/usb-drive-log-probedisk
       #find out if a usb floppy drive...
 
-      if [ -f /sys/block/${oneDRV}/size ];then
-       [ "`cat /sys/block/${oneDRV}/size`" = "2880" ] && MEDIA="floppy"
-      fi
+      #if [ -f /sys/block/${oneDRV}/size ];then
+      # [ "`cat /sys/block/${oneDRV}/size`" = "2880" ] && MEDIA="floppy"
+      #fi
+      test "$SIZE" = 2880 && MEDIA="floppy"
 
       if [ -f /sys/block/${oneDRV}/device/model ];then
-       [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${oneDRV}/device/model`" != "" ] && MEDIA="floppy"
+       [ "`grep -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${oneDRV}/device/model`" ] && MEDIA="floppy"
       fi
+     # [ -f /sys/block/${oneDRV}/device/model ] && \
+     #  grep $Q -E ' FDD| UF000x|Floppy|USB\-FDU|^FD\-|FLOPPY' /sys/block/${oneDRV}/device/model && \
+     #   MEDIA="floppy"
 
      #else
       #find out if it is a removable internal drive (zip, ls120, etc)...
@@ -191,6 +199,7 @@ do
    else
    echo "/dev/$oneDRV|$MEDIA|$INFO"
      fi
+   unset MEDIA INFO SIZE SIZES PARTITIONS
    [ "$DEBUGT" ] && date +%N >&2
 
 done
