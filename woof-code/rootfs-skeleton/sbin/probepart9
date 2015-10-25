@@ -106,12 +106,17 @@ SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-k
 }
 
 _getopts(){
+[ "$DEVICE" ] && { echo "Omitting $*" >&2; return 1; }
     local OPTION OPTIND OPTARG OPTERR
 getopts d:: OPTION
 case $OPTION in
-d) DEVICE=$OPTARG
+d) : DEVICE="$DEVICE\\|$OPTARG"
+   : DEVICE="$DEVICE|$OPTARG"
+     DEVICE=$OPTARG
 ;;
 esac
+: DEVICE=`echo "$DEVICE" | sed 's!/dev/!!g;s!^\\\*!!;s!^|*!!;s!|*$!!'`
+DEVICE=${DEVICE##*/}
 echo "DEVICE='$DEVICE'" >&2
 }
 
@@ -135,9 +140,9 @@ case $1 in
 -K[Ii]B|-k)SIZE_FACTOR=$((8*1024));;
 -M[Ii]B|-m)SIZE_FACTOR=$((8*1024*1024));;
 -G[Ii]B)SIZE_FACTOR=$((8*1024*1024*1024));;
--d)  _getopts $1 $2;;
+-d)  _getopts $1 $2; shift;;
 -d*) _getopts $1;;
-*) echo "Notice : Unrecognized option '$1'." >&2;;
+*) _notice "Unrecognized option '$1'.";;
 esac
 shift
 done
@@ -156,9 +161,9 @@ _get_filesystem(){
     fi
     _debugx "7"
     _debug "guess_fstype:"
-    #[ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`  #+++2013-12-27 awful fd hack...
+    : [ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`  #+++2013-12-27 awful fd hack...
     [ "$FSTYPE" ]  || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
-    #[ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
+    : [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
     _debug "guess_fstype^"
      _debugx "8"
       # 2014-10-29 blkid for reiser4  #2014-11-02 busybox blkid for exFAT
@@ -200,14 +205,16 @@ while read maj min drive rest; do
 [ "$maj" ]   || continue
 [ "$min" ]   || continue
 [ "$drive" ] || continue
-SIZE='';FSTYPE='';
+: [ "$DEVICE" ] && { case $drive in ${DEVICE##*/}*) :;;*) continue;; esac; }
+[ "$DEVICE" ] && { case $DEVICE in *[0-9]) case $drive in ${DEVICE}) : echo 1 ok; :;;*) : echo 2 cont; continue;; esac;; *) case $drive in ${DEVICE}*) : echo 3 ok; :;;*) : echo 4 cont; continue;; esac;; esac; }
 [ -f /sys/class/block/$drive/size ] || continue
-_debugx "1"
+_debugx "Step 1"
+SIZE='';FSTYPE='';
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
 [ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
-_debugx "2"
+_debugx "Step 2"
 case $drive in
 *[0-9])
 
@@ -216,11 +223,11 @@ case $drive in
  elif [ -r /sys/class/block/$drive/device/removable ]; then
  read REMOVEABLE </sys/class/block/$drive/device/removable
  fi
- _debugx "3"
- [ "$REMOVEABLE" = 0 ] || _do_cddetect "$drive"
- _debugx "4"
+ _debugx "Step 3"
+ [ "$REMOVEABLE" = 0 ] || { case $drive in sr*|scd*) _do_cddetect "$drive";; esac; }
+ _debugx "Step 4"
   _get_filesystem "$drive"
- _debugx "5"
+ _debugx "Step 5"
   echo "/dev/$drive|$FSTYPE|$SIZE" >&1
 ;;
 
