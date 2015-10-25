@@ -42,7 +42,8 @@ INTERNAL_SD_DRIVES="$SATADRIVES"
 if [ -f $PUP_EVENT_DIR/usb-drive-log-probedisk ];then #force /proc upate mechanism
  for oneUSBDRV in `cat $PUP_EVENT_DIR/usb-drive-log-probedisk`
  do
-  disktype /dev/$oneUSBDRV >$OUT 2>$ERR
+  #disktype /dev/$oneUSBDRV >$OUT 2>$ERR
+  (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
  done
 fi
 
@@ -71,15 +72,20 @@ fi
 
 for oneDRV in $ALLDRVS
 do
+  read SIZE </sys/block/$oneDRV/size
   case $oneDRV in
    hd*) # ide device, look in /proc/ide for info
-     MEDIA=`cat /proc/ide/$oneDRV/media`
-     INFO=`cat /proc/ide/$oneDRV/model`
+     #MEDIA=`cat /proc/ide/$oneDRV/media`
+      read MEDIA </proc/ide/$oneDRV/media
+     #INFO=`cat /proc/ide/$oneDRV/model`
+      read INFO </proc/ide/$oneDRV/model
      ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="Direct-Access"
-     VENDOR=`cat /sys/block/$oneDRV/device/vendor`
-     MODEL=`cat /sys/block/$oneDRV/device/model`
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor`
+     read VENDOR </sys/block/$oneDRV/device/vendor
+     #MODEL=`cat /sys/block/$oneDRV/device/model`
+     read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
      DRVNAMES="$DRVNAMES `echo -n "$oneDRV" | cut -b 1-3` "
 
@@ -93,8 +99,10 @@ do
      ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="cdrom"
-     VENDOR=`cat /sys/block/$oneDRV/device/vendor`
-     MODEL=`cat /sys/block/$oneDRV/device/model`
+     #VENDOR=`cat /sys/block/$oneDRV/device/vendor`
+     read VENDOR </sys/block/$oneDRV/device/vendor
+     #MODEL=`cat /sys/block/$oneDRV/device/model`
+     read MODEL </sys/block/$oneDRV/device/model
      INFO="$VENDOR$MODEL"
      ;;
    mmc*) #/dev/mmcblk0
@@ -110,20 +118,23 @@ do
      ;;
   esac
   #PARTITINOS=`ls -1d /sys/classs/block/$oneDRV |sed 's#.*\([0-9]*$\)#\1#'`
-  PARTITIONS=`ls -1 /sys/class/block/$oneDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
-  SIZE=`cat /sys/block/$oneDRV/size`
+  PARTITIONS=`ls -1 /sys/class/block/$oneDRV |grep -o '[[:digit:]]\+' |sort -n |tr '\n' ' '`
+  #SIZE=`cat /sys/block/$oneDRV/size`
+  #read SIZE </sys/block/$oneDRV/size
   #[ "$SIZE" ] && SIZE="$((SIZE/2/1000/1000))gb"
   [ "$SIZE" ] && SIZE=`echo "scale=2;$SIZE /2 /1024 /1024" | bc -l`'gb'
   [ "$SIZE" ] || SIZE=unknown
-  INFO=`echo "$INFO" | tr '\t' ' ' |tr -s ' '`   ##+++2012-03-20 added size and unknown
-  [ "`echo "$INFO" | grep '[[:alnum:]]'`" ] || INFO=unknown
+  #INFO=`echo "$INFO" | tr '\t' ' ' |tr -s ' '`   ##+++2012-03-20 added size and unknown
+  INFO=`echo $INFO`
+  #[ "`echo "$INFO" | grep '[[:alnum:]]'`" ] || INFO=unknown
+  [ "${INFO//[[:alnum:][:blank:][:punct:]]/}" ] || INFO=unknown
   echo "/dev/$oneDRV|$MEDIA|$INFO|$SIZE|$PARTITIONS"  ##+++2012-03-18 added partitions
-
+  unset MEDIA INFO SIZE PARTITIONS
 done
 
 #mounted drives/partitions...
-MNTDDEVS=`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
-
+#MNTDDEVS=`cut -f1 -d' ' /proc/mounts | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
+MNTDDEVS=`awk -F'/' '/^\/dev\// {print $3}' /proc/mounts | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`
 #find out if a mounted device has been unplugged...
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
