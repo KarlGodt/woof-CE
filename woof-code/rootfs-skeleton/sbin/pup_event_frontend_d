@@ -413,6 +413,7 @@ _remove_pinboard(){
   </PinboardRemove>
  </env:Body>
 </env:Envelope>"  | rox -R  2>>$ERR
+ [ $? = 0 ] && { _info "${oneDRVNAME}: Removed from PuppyPin ."; true; } || _warn "Could not remove ${oneDRVNAME} from PuppyPin ."
  done
 unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
 }
@@ -812,7 +813,7 @@ oneDRVNAME="$4"
    ${MOREITEMS}
   </AppMenu>
 </AppInfo>" > "$PUP_EVENT_DIR"/drive_${oneDRVNAME}/AppInfo.xml
-
+[ $? = 0 ] && { _info "_create_appinfo:Created $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"; true; } || _warn "_create_appinfo:Could not create $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"
 #unset INFO DISK_CATEGORY MOREITEMS oneDRVNAME
 }
 ################# ORIG #####################################
@@ -1122,7 +1123,7 @@ esac
   </PinboardAdd>
  </env:Body>
 </env:Envelope>"  | rox -R  2>>$ERR
-
+[ $? = 0 ] && { _info "_add_pinboard:Added to PuppyPin: $PUP_EVENT_DIR/drive_${oneDRVNAME}"; true; } || _warn "_add_pinboard:Could not add $PUP_EVENT_DIR/drive_${oneDRVNAME} to PuppyPin"
 unset oneDRVNAME DRV_CATEGORY FSTYPE
 }
 
@@ -1159,19 +1160,24 @@ _create_icon(){
     sleep 2  ##ZTE MODEM sr2 slow in updating values > increased count 3>13, sleep 1>2
     _PROBEPART_=`probepart -k $NO_FLOPPY | grep -iEv "loop[0-9p]\||ram[0-9p]\||mtdblock[0-9p]\||nbd[0-9p]\||\|swap\||\|unknown\||\|extended\||ext'd.*\||\|none detected\||\|none\||\|skipped\|"`
     DISK_PARTITIONS=`echo "$_PROBEPART_" | grep "$diskPATTERN" | cut -f 1,2,3 -d '|'`
+    unset HAVE_PARTITION
     case $DISK_NAME in
     sd*)
-    test -e /sys/block/$DISK_NAME/${DISK_NAME}1  || break
+    #test -e /sys/block/$DISK_NAME/${DISK_NAME}1  || break
+    for p in 1 2 3 4; do
+    test -e /sys/block/$DISK_NAME/${DISK_NAME}$p  && HAVE_PARTITION=1
+    done
+    [ "$HAVE_PARTITION" ] || break
     ;;
     mmc*)
-    test -e /sys/block/$DISK_NAME/${DISK_NAME}p1 || break
+    #test -e /sys/block/$DISK_NAME/${DISK_NAME}p1 || break
+    for p in 1 2 3 4; do
+    test -e /sys/block/$DISK_NAME/${DISK_NAME}p$p && HAVE_PARTITION=1
+    done
+    [ "$HAVE_PARTITION" ] || break
     ;;
-    sr*)
-      :
-    ;;
-    scd*)
-      :
-    ;;
+    sr*|scd*) break;; #:;;
+    *)        break;; #:;;
     esac
    done
   fi
@@ -1208,7 +1214,11 @@ _create_icon(){
 
    case $FSTYPE in btrfs|ext[2-4]|f2fs|jfs|xfs|*reiser*|*fat*|ntfs)
    MOREITEMS="$MOREITEMS
-   <Item option=\"mountro\" icon=\"gtk-harddisk\"><Label>Toggle Read-Only/Read-Write (re)mount of ${oneDRVNAME}</Label></Item>
+   <Item option=\"mountro\" icon=\"gtk-harddisk\"><Label>Toggle Read-Only/Read-Write (re)mount of ${oneDRVNAME}</Label></Item>"
+   ;;
+   esac
+   case $FSTYPE in btrfs|ext[2-4]|f2fs|jfs|xfs|*reiser*)
+   MOREITEMS="$MOREITEMS
    <Item option=\"fsck_$FSTYPE\" icon=\"gtk-execute\"><Label>Fsck ${oneDRVNAME} (if not mounted)</Label></Item>"
    ;;
    esac
@@ -1238,10 +1248,10 @@ _create_icon(){
  IFS="$oldIFS"
 
  #always create a handler for entire Drive and Partition1, even if no icon displayed...
- for aP in "" 1;
+ for aP in "" 1 2 3 4;
  do
- if [ ! -d "$PUP_EVENT_DIR"/drive_${DISK_NAME}$aP ];then
-
+ #if [ ! -d "$PUP_EVENT_DIR"/drive_${DISK_NAME}$aP ];then
+     [ -d "$PUP_EVENT_DIR"/drive_${DISK_NAME}$aP ] && continue
   if [ -e /sys/block/${DISK_NAME}$aP/size ]; then
 
    read SIZE </sys/block/${DISK_NAME}$aP/size
@@ -1251,7 +1261,7 @@ _create_icon(){
    read SIZE </sys/block/${DISK_NAME}/${DISK_NAME}$aP/size
    SIZE=$((SIZE/2))     #get KB.
 
-  else continue
+  else _debugx "Kernel did not create ${DISK_NAME}$aP/size"; continue
   fi
 
    _format_size $SIZE #formats SIZE for display.
@@ -1264,7 +1274,7 @@ _create_icon(){
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    oneDRVNAME="${DISK_NAME}$aP"
    _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
- fi
+ #fi
  done
 unset DISK_PARTITIONS diskPATTERN onePART MNTSTATUS
 unset oneDRVNAME DISK_NAME DISK_CATEGORY partPATTERN FSTYPE INFO SIZE MOREITEMS
@@ -1578,11 +1588,6 @@ if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
 fi;fi
 }
 
-##+++2013-07-07
-#ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
-#cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
-##+++2013-07-07
-
 _pup_event_daemon(){
 ###################################################################
 #now go into a two-second two-second loop...
@@ -1610,21 +1615,34 @@ do
   BLOCKSPROBE=""
   for oneTESTDRV in `grep '^sd' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
   do
-   [ "`echo "$ATADRIVES" | grep "$oneTESTDRV"`" ] && continue
-   [ "`cat /sys/block/${oneTESTDRV}/removable 2>/dev/null`" = "0" ] && continue
-   if [ ! -e /sys/block/${oneTESTDRV}/${oneTESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
-    [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
-    dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
-   elif [ ! -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}1 ] ; then
-    BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
+   [ "`echo "$ATADRIVES" | grep -w "$oneTESTDRV"`" ] && continue
+   [ -d /sys/block/${oneTESTDRV} ] || continue
+   #[ "`cat /sys/block/${oneTESTDRV}/removable 2>/dev/null`" = "0" ] && continue
+      grep $Q -w '0' /sys/block/${oneTESTDRV}/removable && continue
+   for p in 1 2 3 4; do #check all possible primary partitions, since at least one primary must exist
+   if [ -e /sys/block/${oneTESTDRV}/${oneTESTDRV}$p ]; then #drive exists, but no partition (no card plugged in).
+    [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ] && HAVE_PARTITION=1 || BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
+    #dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
+   elif [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ]; then
+    BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
+   fi
+   done
+   [ "$HAVE_PARTITION" ] && unset BLOCKSPROBE
+   unset HAVE_PARTITION
+   if [ ! "$BLOCKSPROBE" ]; then
+   _debugx "Polling ${oneTESTDRV} .."
+   dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
+   #dd: can't open '/dev/sdg': No medium found
+   #dd: can't open '/dev/sdc2': No such file or directory
    fi
   done
-  [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo -n "$BLOCKSPROBE" | tr ':' '\n'`
+  [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo "$BLOCKSPROBE" | tr ':' '\n' | sort -u`
  fi
 
+ _debugx "BLOCKDIFF='$BLOCKDIFF'"
  #########hotplug block event##########
  if [ "$BLOCKDIFF" ];then
-
+ _notice "Got hotplug event.."
   cp $VERB -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
    BLOCKSADD=`echo "$BLOCKDIFF" | grep -o '^\+[[:alnum:]]\+' | sed 's%^\+%%'`
@@ -1632,49 +1650,41 @@ do
 
    case $BLOCKSADD in
    ''|fd*) :;;
-   *) NO_FLOPPY=--ignore-floppy;;
-   esac
-
-   case $BLOCKSREM in
-   '')  :;;
-   fd*) :;;
-   *) NO_FLOPPY=--ignore-floppy;;
+   *) NO_FLOPPY=--ignore-floppy;; # option for probepart in _create_icon()
    esac
 
    _PROBEDISK_=`probedisk2`
    DISK_OPTICAL=`echo "$_PROBEDISK_" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
     DISK_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
 
-  ACTION=add
-  SUBSYSTEM=block
-  DEVTYPE=disk
-  for DISK_NAME in $BLOCKSADD
+  for oneDISK_NAME in $BLOCKSADD
   do
-   [ -e /sys/block/$DISK_NAME ] || continue #precaution
-   odPATTERN='^/dev/'"$DISK_NAME"'|'
-   IFS='|' read DISK_NAME DISK_CATEGORY DISK_DESCRIPTION PARTS <<_EOI
+   [ -e /sys/block/$oneDISK_NAME ] || continue #precaution
+   odPATTERN='^/dev/'"$oneDISK_NAME"'|'
+   IFS='|' read DISK_NAME DISK_CATEGORY DISK_DESCRIPTION DISK_SIZE PARTS <<_EOI
 $(echo "$_PROBEDISK_" | grep "$odPATTERN")
 _EOI
    DISK_NAME="${DISK_NAME##*/}"
+   [ "$DISK_NAME" ] || continue
    [ "$ICONDESK" = "true" ]     && _create_icon "$DISK_NAME" "$DISK_CATEGORY" "$DISK_DESCRIPTION"  #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    #[ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DISK_NAME}/AppRun ${DISK_CATEGORY} &  #handler script.
   done
 
-  ACTION=remove
-  for DISK_NAME in $BLOCKSREM
+  for oneDISK_NAME in $BLOCKSREM
   do
    if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, refresh it.
     killall gtkdialog_pmount >>$OUT 2>>$ERR
     sleep 0.1
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
-   _remove_pinboard "$DISK_NAME"   #needs DRV_NAME
-   rm $VERB -rf "$PUP_EVENT_DIR"/drive_${DISK_NAME}*
+   _remove_pinboard "$oneDISK_NAME"   #needs DRV_NAME
+   rm $VERB -rf "$PUP_EVENT_DIR"/drive_${oneDISK_NAME}*
   done
 
  fi
 
- unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH
+ unset NO_FLOPPY oneDISK_NAME DISK_NAME DISK_CATEGORY DISK_DESCRIPTION
+ #unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH SUBSYSTEM
  unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM _PROBEDISK_
 
  #monitor free memory, periodic save of tmpfs top layer...
