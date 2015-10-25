@@ -1613,12 +1613,23 @@ do
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- /usr/local/bin/drive_all will remove an invalid drive icon if clicked on.
  if [ ! "$BLOCKDIFF" ];then
   BLOCKSPROBE=""
-  for oneTESTDRV in `grep '^sd' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
+  for oneTESTDRV in `grep -E '^sd|^mmc' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
   do
-   [ "`echo "$ATADRIVES" | grep -w "$oneTESTDRV"`" ] && continue
    [ -d /sys/block/${oneTESTDRV} ] || continue
+   [ -b /dev/$oneTESTDRV ]         || continue
+   #[ "`echo "$ATADRIVES" | grep -w "$oneTESTDRV"`" ] && continue
+     realpath /sys/block/${oneTESTDRV} | grep $Q 'usb' || continue
    #[ "`cat /sys/block/${oneTESTDRV}/removable 2>/dev/null`" = "0" ] && continue
       grep $Q -w '0' /sys/block/${oneTESTDRV}/removable && continue
+
+       #try force kernel to update:
+       (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
+       #: </dev/$oneTESTDRV >>$OUT 2>>$ERR   #ash does not send a return value if No medium found
+                                             #and thus the loop crashes, either while : | true | [ 1 ] .
+                                             #bash works.
+       #read MBR </dev/$oneTESTDRV >>$OUT 2>>$ERR  #only a bit better than dd
+       #echo change >/sys/block/${oneTESTDRV}/uevent #nothing, needs udevd to do something
+
    for p in 1 2 3 4; do #check all possible primary partitions, since at least one primary must exist
    if [ -e /sys/block/${oneTESTDRV}/${oneTESTDRV}$p ]; then #drive exists, but no partition (no card plugged in).
     [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ] && HAVE_PARTITION=1 || BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
@@ -1627,14 +1638,18 @@ do
     BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
    fi
    done
-   [ "$HAVE_PARTITION" ] && unset BLOCKSPROBE
-   unset HAVE_PARTITION
-   if [ ! "$BLOCKSPROBE" ]; then
-   _debugx "Polling ${oneTESTDRV} .."
-   dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
+   #[ "$HAVE_PARTITION" ] && unset BLOCKSPROBE
+   #unset HAVE_PARTITION
+   #if [ ! "$BLOCKSPROBE" ]; then
+   if [ "$HAVE_PARTITION" ]; then
+   unset BLOCKSPROBE HAVE_PARTITION
+   else
+   : #_debugx "Polling ${oneTESTDRV} .."
+   : #dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
    #dd: can't open '/dev/sdg': No medium found
    #dd: can't open '/dev/sdc2': No such file or directory
    fi
+
   done
   [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo "$BLOCKSPROBE" | tr ':' '\n' | sort -u`
  fi
