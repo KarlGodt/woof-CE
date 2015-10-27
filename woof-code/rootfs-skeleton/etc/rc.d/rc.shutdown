@@ -1287,9 +1287,29 @@ killall $Q syslogd &>$ERR  ##busybox applet
 
 ################### Udev ##################################################
 
+# REM: Need to handle fsckme.flg
+#      Either create one to force fsck next boot
+_create_fsckme(){
+ case $PUPMODE in
+ 2)
+ pupFS=`awk '{if ($1 == "/dev/root") print $3}' /proc/mounts | head -n1`
+ devROOT=`rdev | cut -f1 -d' '` ## could use PDEV1 i think
+ test "$pupFS" -a -b "$devROOT" && echo "${devROOT##*/},${pupFS}," >/var/lock/fsckme.flg || {
+     echo UNKNOWN,UNKNOWN >/var/lock/fsckme.flg  ## TODO: Handle wrong entries
+    }
+ ;;
+ esac
+}
+
+# REM: Or remove fsckme now before attempting to mount everything
+#       rootfs related read-only
+_remove_fsckme(){
+#find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
+rm $VERB -f /var/lock/fsckme*  ##+++2014-01-02
+}
+_remove_fsckme
 
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
-
 
 ################### Umount everything #############################################################
 # REM: handle umount in /etc/init.d/
@@ -1297,6 +1317,98 @@ c=0; while pidof umount >$OUT; do sleep 1; c=$((c+1)); [ "$c" = 9 ] && break; do
 
 ###+++2015-10-15 try killall5
 [ "`which killall5`" ] && killall5 -9 -o 1 -o $$ -o $PPID && sleep 1 #killall5 errors on -o 1 -9 syntax (signal must be first option)
+
+#note, there is a problem with unmounting, especially ntfs as it cannot be remounted
+#ro (?). A ntfs part with ${DISTRO_FILE_PREFIX}save.2fs cannot be unmounted because of the mounted
+#${DISTRO_FILE_PREFIX}save.2fs.
+#at least, attempt to kill anything running in the ntfs partition...
+#(i don't think anything will be, only /dev/loop1 (${DISTRO_FILE_PREFIX}save.2fs), but just in case)
+MYPID=$$     #120514
+PARENT=$PPID #120514
+[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}"   #v2.16rc
+[ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
+if [ "`awk "{if (\\$2 == \\"$ABSPUPHOME\\") print}" /proc/mounts`" ]; then
+ #BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`
+ BADPIDS=`_command fuser -v -m "$ABSPUPHOME" | grep -v -E 'kernel|COMMAND|^$' |awk '{print $3}' | grep -vwE "1|$MYPID|$PARENT"`
+ for oneBAD in $BADPIDS
+ do
+  echo "Killing process $oneBAD..."
+  kill    $oneBAD 2>>$ERR
+  sleep 1
+  kill -9 $oneBAD 2>>$ERR
+ done
+ _killzombies #v3.99
+fi
+
+_unmount_loop_devices(){
+LAYERFS1=aufs
+LAYERFS2=unionfs
+grep $Q "unionfs / $LAYERFS1 " /proc/mounts && LAYERFS=$LAYERFS1
+grep $Q "unionfs / $LAYERFS2 " /proc/mounts && LAYERFS=$LAYERFS2
+case $PUPMODE in 2) :;;
+*) [ "$LAYERFS" ] || _warn "Could not determine LAYERFS";;
+esac
+
+while read lodev stat filename
+do
+[ "$lodev" ] || continue
+lodev=`echo $lodev | sed 's!:$!!'`
+_debugx "lodev=$lodev filename=$filename"
+mntp=`awk "{ if ( \\$1 == \"$lodev\" )  print \\$2}" /proc/mounts`
+_debugx "mntp=$mntp"
+case $mntp in
+/initrd/*) : # mount -t aufs -o remount,del:$mntp unionfs /
+_debugx "mntp in /initrd/ directory"
+case $mntp in
+/initrd/pup_ro2)
+: #puppy_xxx.sfs
+# try to unmount dev_save
+grep $Q ' /initrd/mnt/tmpfs ' /proc/mounts && {
+    mountpoint $Q /initrd/mnt/dev_save && {
+    _notice "_unmount_loop_devices:unmounting /initrd/mnt/dev_save"
+    /bin/umount $VERB -rl /initrd/mnt/dev_save; }
+    }
+:
+;;
+#savefiles
+/initrd/pup_rw)
+ case $PUPMODE in 6|12)
+ _debug "_unmount_loop_devices:unmounting savefile"
+ /bin/mount $VERB -t $LAYERFS -o remount,del:"$mntp" unionfs / && {
+ /bin/umount -lr $VERB "$mntp"
+ }
+ :
+ ;;
+ esac
+;;
+/initrd/pup_ro1)
+ _debug "_unmount_loop_devices:unmounting savefile"
+ /bin/mount $VERB -t $LAYERFS -o remount,del:"$mntp" unionfs / && {
+ /bin/umount -lr $VERB "$mntp"
+ }
+ :
+;;
+*)
+ _debug "_unmount_loop_devices:unmounting layer $mntp"
+ /bin/mount $VERB -t $LAYERFS -o remount,del:"$mntp" unionfs / && {
+ /bin/umount -lr $VERB "$mntp"
+ }
+ :
+;; # mount -t aufs -o remount,del:$mntp unionfs /
+esac
+;;
+
+*) :
+_debug "_unmount_loop_devices:normal umount of $mntp"
+/bin/umount -lr $VERB "$mntp"
+;; #unmount normally
+esac
+echo
+done << EoI
+`losetup |tac`
+EoI
+}
+_unmount_loop_devices
 
 # REM: get mounts in reverse order to unmount nested mounts correctly
 MNTDPARTS=`mount |tac`
@@ -1320,7 +1432,7 @@ do
    status_func $?
    sleep 1
  else
-  umount $VERB $VERB -r "$oneSTRAY"  ##unmounts MountPoint
+  /bin/umount $VERB $VERB -r "$oneSTRAY"  ##unmounts MountPoint
   _status $?
   sleep 1
  fi
@@ -1364,30 +1476,8 @@ fi
 [ "$DEBUG" -a ! "$FORCE" ] && _ask_exit_script "unmounting /dev/root"
 
 
-# REM: Need to handle fsckme.flg
-#      Either create one to force fsck next boot
-_create_fsckme(){
- case $PUPMODE in
- 2)
- pupFS=`awk '{if ($1 == "/dev/root") print $3}' /proc/mounts | head -n1`
- devROOT=`rdev | cut -f1 -d' '` ## could use PDEV1 i think
- test "$pupFS" -a -b "$devROOT" && echo "${devROOT##*/},${pupFS}," >/var/lock/fsckme.flg || {
-     echo UNKNOWN,UNKNOWN >/var/lock/fsckme.flg  ## TODO: Handle wrong entries
-    }
- ;;
- esac
-}
-
-# REM: Or remove fsckme now before attempting to mount everything
-#       rootfs related read-only
-_remove_fsckme(){
-#find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
-rm $VERB -f /var/lock/fsckme*  ##+++2014-01-02
-}
-_remove_fsckme
-
-
 ############# Umount 2 ####################################
+_umount_rootfs(){
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
@@ -1397,8 +1487,10 @@ if [ $PUPMODE -ne 5 ]; then
       _remount_dev_root_ro(){
       pupFS=$(awk '{if ($1 == "/dev/root") print $3}' /proc/mounts | head -n1)
 
+      test "$pupFS" || return 1
+
       echo -ne "\\033[1;33mAttempting to remount /dev/root type $pupFS read-only...\\033[0;39m" >/dev/console
-      /bin/mount $VERB $VERB -o remount,ro -t $pupFS /dev/root /
+      /bin/mount $VERB -o remount,ro -t $pupFS /dev/root /
       _status $?
         }
         # REM: 3.5.0 did not reboot being read-only and umount -ar disabled
@@ -1431,46 +1523,30 @@ if [ $PUPMODE -ne 5 ]; then
       ;;
    *) uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts)
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
-      if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
+      #if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
+      test "$uniFS" || return 1
+      case $pupFS in *tmpfs*|*ramfs*) :;;
+      *)
         mkdir $VERB -p /tmp/unrootfs
         [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
         echo -ne "\\033[1;33mAttempting to remount / type $uniFS at /tmp/unrootfs...\\033[0;39m" >/dev/console
-        /bin/mount $VERB $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
+        /bin/mount $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
         _status $?
-      fi
+       ;;
+      esac
+      #fi
       echo -ne "\\033[1;33mAttempting to remount /initrd${SAVE_LAYER} read-only...\\033[0;39m" >/dev/console
-      /bin/mount $VERB $VERB -o remount,ro /initrd${SAVE_LAYER}
+      /bin/mount $VERB -o remount,ro /initrd${SAVE_LAYER} #device is missing, would work when in /etc/fstab(?)
       _status $?
       ;;
   esac
 fi
 #
 #</code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
+}
+_umount_rootfs
 
-
-#note, there is a problem with unmounting, especially ntfs as it cannot be remounted
-#ro (?). A ntfs part with ${DISTRO_FILE_PREFIX}save.2fs cannot be unmounted because of the mounted
-#${DISTRO_FILE_PREFIX}save.2fs.
-#at least, attempt to kill anything running in the ntfs partition...
-#(i don't think anything will be, only /dev/loop1 (${DISTRO_FILE_PREFIX}save.2fs), but just in case)
-MYPID=$$     #120514
-PARENT=$PPID #120514
-[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}"   #v2.16rc
-[ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
-if [ "`awk "{if (\\$2 == \\"$ABSPUPHOME\\") print}" /proc/mounts`" ]; then
- #BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`
- BADPIDS=`fuser -v -m "$ABSPUPHOME" | grep -v -E 'kernel|COMMAND|^$' |awk '{print $3}' | grep -vwE "1|$MYPID|$PARENT"`
- for oneBAD in $BADPIDS
- do
-  echo "Killing process $oneBAD..."
-  kill    $oneBAD 2>>$ERR
-  sleep 1
-  kill -9 $oneBAD 2>>$ERR
- done
- _killzombies #v3.99
-fi
-
-
+_unmount_save_layer(){
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ]; then  ##PupSave ie /pup_rw
 _debug "SAVE_LAYER='$SAVE_LAYER'"
@@ -1480,22 +1556,27 @@ _debug "SAVE_LAYER='$SAVE_LAYER'"
  SAVEDEV=`awk "{if (\\$2 == \"/initrd${SAVE_LAYER}\") print \\$1}" /proc/mounts`
   SAVEFS=`awk "{if (\\$2 == \"/initrd${SAVE_LAYER}\") print \\$3}" /proc/mounts`
 
+ test -b "$SAVEDEV" || return 1
+ test "$SAVEFS"     || return 2
+
  echo -ne "\\033[1;33mAttempting to remount $SAVEDEV /initrd${SAVE_LAYER} type $SAVEFS read-only...\\033[0;39m" >/dev/console
  busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>>$ERR
  _status $?
 
- echo -ne "\\033[1;33mAttempting to unmount /initrd/${SAVE_LAYER}...\\033[0;39m" >/dev/console
- umount-FULL $VERB -i -n -l /initrd/${SAVE_LAYER} 2>>$ERR #-l is lazy unmount.
+ echo -ne "\\033[1;33mAttempting to unmount /initrd${SAVE_LAYER}...\\033[0;39m" >/dev/console
+ umount-FULL $VERB -i -n -l /initrd${SAVE_LAYER} 2>>$ERR #-l is lazy unmount.
  Err=$?  ###KRG
  _status $Err
-
  _debug "umount-FULL returned '$Err'"  ###DBG
+
  if [ "$Err" != 0 ]; then
- echo -ne "\\033[1;33mAttempting to unmount /initrd/${SAVE_LAYER} again...\\033[0;39m" >/dev/console
- busybox umount $VERB $VERB -l /initrd/${SAVE_LAYER}
+ echo -ne "\\033[1;33mAttempting to unmount /initrd${SAVE_LAYER} using busybox..\\033[0;39m" >/dev/console
+ busybox umount $VERB $VERB -l /initrd${SAVE_LAYER}
  _status $?
  fi
 fi
+}
+_unmount_save_layer
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
 MNTFUSE=`busybox mount | grep 'fuse' | head -n 1 |sed 's|.* on \(.*\) type .*|\1|`  ##would need a loop I guess
@@ -1603,7 +1684,7 @@ echo -e '\033[0;36m'"unmounted all -r  Tried to remount devices as read-only if 
 test -e /proc/mounts && { ps | grep -v '\['; mount; }
 fi
 }
-__unmount_ar__
+#__unmount_ar__  ##disable call to help reboot hangs ( probably due to ro devtmpfs )
 
 if [ "$DEBUG" ]; then
  echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
