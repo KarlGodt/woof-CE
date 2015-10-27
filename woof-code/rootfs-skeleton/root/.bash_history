@@ -2994,3 +2994,391 @@ Wed Oct 21 18:03:26 GMT+1 2015
 
 Wed Oct 21 22:02:10 GMT+1 2015
 
+git commit
+./git_helper/update_files.sh 
+git pull
+git  push krg Fox3-Dell755
+git  push MSkrg Fox3-Dell755
+
+Wed Oct 21 23:52:15 GMT+1 2015
+
+time mount /dev/sdb18
+time umount /dev/sdb18
+time mount /dev/sdb19
+diff /bin/mount-orig /bin/mount_orig
+rm /bin/mount_orig
+time mount-orig /dev/sdb18
+time ( mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18 )
+mount
+ time umount_orig /mnt/sdb18
+mount
+time { mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18; }
+mount
+geany /bin/mount-orig
+time umount_orig /mnt/sdb18
+time { mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18; }
+time umount_orig /mnt/sdb18
+time { mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18; }
+time umount_orig /mnt/sdb18
+time { mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18; }
+geany /bin/unmont_orig
+geany /bin/umont_orig
+geany /bin/umount_orig
+time umount_orig /mnt/sdb18
+time { mkdir -p /mnt/sdb18; mount-orig /dev/sdb18 /mnt/sdb18; }
+time umount_orig /mnt/sdb18
+
+Thu Oct 22 08:50:13 GMT+1 2015
+
+
+Fri Oct 23 11:36:34 GMT+1 2015
+
+which puppyinstaller
+which grubconfig
+diff -up initOLD init
+git mv init init99
+git commit
+git add init
+git commit
+diff -up /mnt/initrd.ext2/init /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/boot/initrd-tree0/init
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+./add_ln_verb.sh 
+for i in *; do [ -L "$i" ] && continue; [ -e /usr/sbin/$i ] || continue; cp -a --backup=numbered "$i" /usr/sbin/;done
+diff /usr/sbin/Pudd.~1~ /usr/sbin/Pudd.~2~ 
+pwd
+./source2dot.sh 
+git commit
+git commit -a -m '/usr/sbin/: Add VERB to ln, change
+source /file to . /file .'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git pull
+
+Fri Oct 23 17:56:35 GMT+1 2015
+
+qqqqqq
+qqq
+
+Sat Oct 24 09:06:39 GMT+1 2015
+
+swapoff --help
+gparted
+git log --grep swapon
+git log --grep swapoff
+cat /proc/swaps
+busybox swapoff -v /dev/sdb22
+ls /sys/class/block/sda[0-9]
+ls -d /sys/class/block/sda[0-9]
+ls -d /sys/class/block/sda[0-9]+
+ls -d /sys/class/block/sda[0-9]\+
+ls -d /sys/class/block/sda[0-9]*
+ls -d /sys/class/block/sdb[0-9]
+ls -d /sys/class/block/sdb[0-9]*
+/etc/init.d/runmbbservice.init restart
+which swapoff
+type -a swapoff
+file /sbin/swapoff
+/etc/init.d/runmbbservice.init restart
+umount /dev/sdd1
+mount /dev/sdd1
+umount /dev/sdd1
+mount -w /dev/sdd1
+umount /dev/sdd1
+mkdir /mnt/sdd1
+mount-FULL /dev/sdd1 /mnt/sdd1
+umount /dev/sdd1
+probepart -d/dev/sdd
+file /sbin/probepart
+geany /sbin/probepart9
+probepart -d/dev/sdd
+probepart -d/dev/sdd1
+probepart -d/dev/sdb1
+probepart -d/dev/sdb10
+probepart -d/dev/sdb11
+time probepart -d/dev/sdb11
+time probepart -m -d/dev/sdb11
+time probepart -m -d/dev/sdb
+time probepart -m -d/dev/sdb1
+time probepart -m -d/dev/sdb11
+time probepart -m -d/dev/sdb11 /dev/sdb12
+time probepart -m -d/dev/sdb11 -d/dev/sdb12
+time probepart -m -d/dev/sdb11
+time probepart -m -d/dev/sdb1
+time probepart -m -d/dev/sdb1 -d/dev/sdb12
+time probepart -m -d/dev/sdb1
+time probepart -m -d/dev/sdb
+time probepart -m -d/dev/sdb1
+time probepart -m -d/dev/sdb
+time probepart -m -d/dev/sdb1 -d/dev/sdb2
+time probepart -m -d /dev/sdb1 
+time probepart -m -d sdb1 
+time probepart -m -d sdb1 sdb2
+time probepart -m -d sdb1 -d sdb2
+time probepart -m -d sdb1 sdb2
+time probepart -m -d sdb
+time probepart -m -d sdb1
+probepart -k $NO_FLOPPY 
+probepart -k --no-floppy
+probepart -k $NO_FLOPPY 
+probepart -k --no-floppy
+probepart -k $NO_FLOPPY 
+probepart -k --no-floppy
+probepart
+test -d /sys/class/block/sdb[0-9]; echo $?
+test -d /sys/class/block/sdb\[0-9\]; echo $?
+test -d "/sys/class/block/sdb[0-9]"; echo $?
+test -d "/sys/class/block/sdb[0-9]*"; echo $?
+test -d "/sys/class/block/sdb*"; echo $?
+test -d "/sys/class/block/sdb"; echo $?
+fdisk -l
+cat /sys/block/scd/size
+cat /sys/block/sdd/size
+cat /sys/block/sdc/size
+ls /sbin/pup_event_frontend_d*
+diff -up /sbin/pup_event_frontend_d-2015-10-24 /sbin/pup_event_frontend_d >>/root/pefd.diff
+geany /root/pefd.diff
+ls /sys/block
+ls /sys/block/sde
+ls -d /sys/block/sde/sde1
+diff -up /sbin/pup_event_frontend_d-2015-10-24 /sbin/pup_event_frontend_d >>/root/pefd.diff2
+geany /root/pefd.diff2
+diff -up /sbin/pup_event_frontend_d-2015-10-24 /sbin/pup_event_frontend_d >>/root/pefd2.diff
+geany /root/pefd2.diff
+mount
+mount | grep sdd1
+ls /sys/block
+prbedisk2
+probedisk2
+pup_event_frontennd_d stop
+pup_event_frontend_d stop
+probedisk
+geany /sbin/probedisk
+geany /sbin/probedisk2
+probedisk
+probedisk2
+probedisk1
+probedisk
+pup_event_frontend_d stop
+cat /sys/block/sdd/size
+cat /sys/block/sdd/sdd/size
+cat /sys/block/sdd/sdd1/size
+find /root -maxdepth 4 -name globicons
+pup_event_frontend_d stop
+pup_event_frontend_d restart
+pup_event_frontend_d start
+
+Sat Oct 24 18:34:52 GMT+1 2015
+
+geany /tmp/pup_event_frontend_block2
+geany /tmp/pup_event_frontend_block1
+[ -d /sys/block/${oneTESTDRV} ]; echo $?
+oneTESTDRV=sde
+[ -d /sys/block/${oneTESTDRV} ]; echo $?
+ls /sys/block/${oneTESTDRV}
+ls -d /sys/block/${oneTESTDRV}
+ls -d /sys/block/${oneTESTDRV}/device
+ls /sys/block/${oneTESTDRV}/device
+ls -d /sys/block/*/device
+ls -d /sys/block/sdi/
+ls /sys/block/sdi/
+ls /sys/block/sdh/
+ls /sys/block/sdg/
+ls /sys/block/sdf/
+ls /sys/block/sde/
+ls /sys/block/sdd/
+ls /sys/block/sdc/
+ls /sys/block/sdd/
+ls /sys/block/sde/
+dd if=/dev/null of=/dev/sde bs=512 count=1
+ls /sys/block/sde/
+pup_event_frontend_d restart
+pup_event_frontend_d restart
+/etc/init.d/runmbbservice.init restart
+
+Sun Oct 25 06:54:45 GMT+1 2015
+
+
+Sun Oct 25 11:43:10 GMT+1 2015
+
+pwd
+for i in *; do [ -L "$i" ] && continue; [ -e /usr/sbin/$i ] || continue; cp -a --backup=numbered "$i" /usr/sbin/; done
+diff /usr/sbin/sfsget.~3~ /usr/sbin/sfsget
+diff /usr/sbin/sfsget.~2~ /usr/sbin/sfsget.~3~
+diff /usr/sbin/sfsget.~1~ /usr/sbin/sfsget.~2~
+grep -w dd *
+ls -s *
+grep -m3 uevent *
+find -name "*uevent*"
+pwd
+cd ..
+find -name "*uevent*"
+geany /sbin/photplug
+time for i in {1..10}; do probedisk2; done
+A='+sda
+-sda
++sdb
++sdc
+-sdc
+-sdb'
+echo "$A"
+echo "$A" | sort -u
+[ -d /sys/block/sda/sda1 ]; echo $?
+D=sda
+[ -d /sys/block/$D/sda1 ]; echo $?
+[ -d /sys/block/"$D"/sda1 ]; echo $?
+[ -d "/sys/block/"$D"/sda1" ]; echo $?
+[ -d "/sys/block/$D/sda1" ]; echo $?
+[ -d "/sys/block/$D/sda" ]; echo $?
+time for i in {1..10}; do probedisk2; done
+time probedisk2
+time probedisk
+time probedisk2
+[ "" ]; echo $?
+[  ]; echo $?
+[ A  ]; echo $?
+time probedisk
+time probedisk2
+time probedisk
+time probedisk2
+time probedisk
+time probedisk2
+time probedisk
+time probedisk2
+time probedisk
+time probedisk2
+time probedisk
+time probedisk2
+time for i in {1..10}; do probedisk2; done
+time for i in {1..10}; do probedisk; done
+ash
+mount -f /dev/sde1 /mnt/sde1
+mount-FULL -f /dev/sde1 /mnt/sde1
+mount-FULL -f /dev/sde1 /mnt/sde1; echo $?
+mount-FULL -f -v /dev/sde1 /mnt/sde1; echo $?
+mount-FULL -v /dev/sde1 /mnt/sde1; echo $?
+mount-FULL -v -f /dev/sde1 /mnt/sde1; echo $?
+ls /dev/sde*
+mount-FULL -v /dev/sde1 /mnt/sde1; echo $?
+read A </dev/sde1
+read A </dev/sde1; echo $?
+echo "$A"
+read A </dev/sde1; echo $?
+man cat
+man mount
+man sync
+sync </dev/sdf; echo $?
+sync </dev/sdd; echo $?
+man dd
+./git_helper/update_files.sh 
+realpath /sys/block/sdd
+realpath /sys/block/sda
+realpath /sys/block/sdb
+realpath /sys/block/sdc
+dd if=/dev/sde of=/dev/null bs=1 count=1
+ls /sys/block/sde
+dd if=/dev/sde of=/dev/null bs=1 count=1
+sync
+ls /dev/sde
+ls /dev/sde*
+: </dev/sde
+: </dev/sde; echo $?
+: </dev/sdx; echo $?
+: </dev/sdf; echo $?
+pwd
+./git_helper/update_files.sh
+time for i in `seq 1 1 10000`; do :;done
+time for i in `seq 1 1 10000`; do true;done
+time for i in `seq 1 1 10000`; do :;done
+time for i in `seq 1 1 10000`; do true;done
+time for i in `seq 1 1 10000`; do :;done
+./git_helper/update_files.sh
+ifconfig
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+ash
+chmod +x /root/read_device.sh 
+time /root/read_device.sh 
+ls /sys/block/sde
+ls /sys/block/sde/sde1
+cat /sys/block/sde/sde1/stat
+cat /sys/block/sdi/sdi1/stat
+cat /sys/block/sdd/sdd1/removable
+cat /sys/block/sdd/removable
+ls /sys/block/sdd/
+ls /sys/block/sr1/
+cat /sys/block/sr1/removable
+ls /sys/block/sr1/
+echo change >/sys/block/sr1/uevent
+echo change >/sys/block/sde/uevent
+echo change >/sys/block/sde/sde1/uevent
+cat /sys/block/sde/sde1/uevent
+echo change >/sys/block/sde/sde1/uevent
+cat /sys/block/sde/sde1/uevent
+ls /sys/block/sde
+echo pup_event >/sys/block/sde/sde1/uevent
+echo pup_even >/sys/block/sde/sde1/uevent
+echo pup_eve >/sys/block/sde/sde1/uevent
+echo pup_ev >/sys/block/sde/sde1/uevent
+echo pup_e >/sys/block/sde/sde1/uevent
+echo pup_ >/sys/block/sde/sde1/uevent
+echo pup >/sys/block/sde/sde1/uevent
+man mount
+modinfo ext4
+grep -i -I trim *
+grep -i -I option *
+info grub
+git branch
+grep -r -i "Error Code" *
+echo change >/sys/block/${oneTESTDRV}/uevent
+oneTESTDRV=sde
+echo change >/sys/block/${oneTESTDRV}/uevent
+echo pup_event >/sys/block/${oneTESTDRV}/uevent
+echo offline >/sys/block/${oneTESTDRV}/uevent
+echo online >/sys/block/${oneTESTDRV}/uevent
+pwd
+rox; echo $?
+rox -d .
+rox -d .; echo $?
+fstrim
+fstrim --help
+man fstrim
+man mount
+mount -o discard /dev/sdb18
+mount | grep 18
+mount -o remount,barrier=yes /dev/sdb18 /mnt/sdb18
+mount -o remount,barrier=no /dev/sdb18 /mnt/sdb18
+mount -o remount,barriers=no /dev/sdb18 /mnt/sdb18
+mount -o remount,barriers /dev/sdb18 /mnt/sdb18
+mount -o remount,barriers=1 /dev/sdb18 /mnt/sdb18
+umount /mnt/sdb18
+mount -o barrier=1 /dev/sdb18
+mount | grep 18
+umount /mnt/sdb18
+mount -o barrier=0 /dev/sdb18
+mount | grep 18
+umount /mnt/sdb18
+pup_event_frontend_d restart
+pup_event_frontend_d start
+
+Mon Oct 26 22:15:19 GMT+1 2015
+
+for i in *; do [ -e /etr/rc.d/$i ] || continue; echo $i; done
+for i in *; do [ -e /etc/rc.d/$i ] || continue; echo $i; done
+for i in rc.*; do [ -e /etc/rc.d/$i ] || continue; echo $i; done
+mkdir /tmp/a
+for i in rc.*; do [ -e /etc/rc.d/$i ] || continue; echo $i diff -up /etc/rc.d/$i $i >/tmp/a/$i.diff; done
+for i in rc.*; do [ -e /etc/rc.d/$i ] || continue; echo $i; diff -up /etc/rc.d/$i $i >/tmp/a/$i.diff; done
+for i in f*; do [ -e /etc/rc.d/$i ] || continue; echo $i; done
+for i in f*; do [ -e /etc/rc.d/$i ] || continue; echo $i; diff -up /etc/rc.d/$i $i >/tmp/a/$i.diff; done
+for i in mount.sh; do [ -e /bin/$i ] || continue; echo $i; diff -up /bin/$i $i >/tmp/a/$i.diff; done
+for i in *; do [ -L $i ] && continue; [ -e /sbin/$i ] || continue; echo $i; diff -up /sbin/$i $i >/tmp/a/$i.diff; done
+for i in *; test -s $i || echo $i empty; done
+for i in *; do test -s $i || echo $i empty; done
+for i in *; do test -s $i || { echo $i empty; rm $i; } ;done
+geany /etc/rc.d/rc.shutdown
+geany /usr/bin/xwin
+geany /bin/mount.sh
+for i in *; do [ -L $i ] && continue; [ -e /usr/bin/$i ] || continue; echo $i; diff -up /usr/bin/$i $i >/tmp/a/$i.diff; done
+man setserial
