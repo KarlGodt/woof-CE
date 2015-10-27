@@ -185,13 +185,13 @@ _debug "               options='$getOPS'"
  longOPS=${getOPS% -- *}
  longOPS=`echo "$longOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  test "${longOPS//[[:blank:]]/}" || longOPS='';
-_info "           long options='$longOPS'"
+_debug "           long options='$longOPS'"
 
 shortOPS=${getOPS%%--*}
 _debugx "        short options='$shortOPS'"
 shortOPS=`echo "$shortOPS" | sed "s%'%%g"`
 test "${shortOPS//[[:blank:]]/}" || shortOPS='';
-_info "          short options='$shortOPS'"
+_debug "          short options='$shortOPS'"
 
 posPARAMS=${getOPS#*-- }
 _debugx "positional parameters='$posPARAMS'"
@@ -211,7 +211,7 @@ test "$posPARAMS" = "$shortOPS" && posPARAMS='' || _debugx "posPARAMS NOT same a
 _debugx "positional parameters='$posPARAMS'"
 
 test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
-_info "  positional parameters='$posPARAMS'"
+_debug "  positional parameters='$posPARAMS'"
 return $getoptRV
 }
 #_get_options "$*"
@@ -284,7 +284,7 @@ _debugt 9d $_DATE_
  /dev/*) DISK_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
          _debug "DISK_CATEGORY='$DISK_CATEGORY'"
          test "$DISK_CATEGORY" || continue;;
- *) _notice "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
+ *) _debug "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
  esac
  _debugt 9b $_DATE_
 
@@ -293,11 +293,11 @@ _debugt 9d $_DATE_
  _debugt 98 $_DATE_
    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
     if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
-     _info "_update_partition_icon:$oneUPDATE is boot partition"
+     _debug "_update_partition_icon:$oneUPDATE is boot partition"
      #only a partition left mntd that is in use by puppy, change green->yellow...
      _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
     else
-     _info "_update_partition_icon:$oneUPDATE is not boot partition"
+     _debug "_update_partition_icon:$oneUPDATE is not boot partition"
      #redraw icon without "MNTD" text...
      _icon_unmounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
     fi
@@ -565,7 +565,7 @@ _debug '4*:'$*
 #set - $longOPS $@
 set - $longOPS $shortOPS $posPARAMS
 _debug '5@:'$@
-_info "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
+_debug "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 test "$opALL" && _debug "opALL='$opALL'"
 
@@ -594,7 +594,7 @@ fi
 _debugt 87 $_DATE_
 
 _debug "8@:"$@
-_info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
+_debug "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 ( test "$*" -o "$opUUID" -o "$opLABEL" || test "$opT" -o "$opSHOWL" ) || _exit 1 "No positional parameters left."
 
@@ -613,7 +613,7 @@ if test "$deviceORpoint"; then
  #test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
  if test -b "$deviceORpoint"; then
   grep $Q -w "${deviceORpoint##*/}" /proc/partitions && {
-   _info "found '${deviceORpoint##*/}' in /proc/partitions"
+   _notice "found '${deviceORpoint##*/}' in /proc/partitions"
   _FS_TYPE_=`guess_fstype $deviceORpoint`
   case $_FS_TYPE_ in
   xfs) HAVE_XFS=1;;
@@ -625,7 +625,7 @@ if test "$deviceORpoint"; then
  #test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
  test -e /etc/fstab || touch /etc/fstab
  grep $Q -w "$deviceORpoint" /etc/fstab && {
-  _info "Found $deviceORpoint in /etc/fstab"
+  _notice "Found $deviceORpoint in /etc/fstab"
   #mkdir -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
   mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
   _debug "mountPOINT='$mountPOINT'"
@@ -970,19 +970,19 @@ case $OPT in
 "") :;;
 -a|-f|-i|-o*|-O*|-r|-s|-v|-w) :;;
 -t*ntfs*)
- _notice "Using ntfs-3g"
+ _info "Using ntfs-3g"
  _do_mount_ntfs_3g "$@"
  RV=$?
  return $RV
  ;;
 -t*fat*)
- _notice "vfat mount"
+ _info "vfat mount"
  _do_mount_vfat "$@"
  RV=$?
  return $RV
 ;;
 -B|-c|-F|-l|-L*|-M|-p|-R|-T*|-U*|-t*xfs*)
- _notice "Using mount-FULL"
+ _info "Using mount-FULL"
  _do_mount_full "$@"
  RV=$?
  return $RV
@@ -991,10 +991,10 @@ esac
 done
 
 if [ "$HAVE_XFS" ]; then
-_info Using mount-FULL "$@"
+_debug Using mount-FULL "$@"
 _do_mount_full "$@"
 else
-_info Using busybox mount "$@"
+_debug Using busybox mount "$@"
 _do_mount_bb "$@"
 fi
 RV=$?
@@ -1034,7 +1034,7 @@ _have_long_options "$@"
 esac
 
 case $RETVAL in
-0) _notice "RETVAL=$RETVAL";;
+0)   _info "RETVAL=$RETVAL";;
 *)    _err "RETVAL=$RETVAL";;
 esac
 
