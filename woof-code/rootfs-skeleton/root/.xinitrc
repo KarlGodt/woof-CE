@@ -35,7 +35,9 @@ if [ "$CURRENTWM" = "startkde" ]; then
 elif [ "$CURRENTWM" != "enlightenment_start" ] ; then
 _info 'NOT E17'
 #relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
+[ "$PUPMODE" = 5 ]                       && /usr/sbin/fixPuppyPin #$HOME/Choices/ROX-Filer/PuppyPin ##v1.0.7
+test -f /tmp/xorgwizard/resolutionchange && /usr/sbin/fixPuppyPin #$HOME/Choices/ROX-Filer/PuppyPin
+
 rox -p /root/Choices/ROX-Filer/PuppyPin
 else
 _info 'E17'
