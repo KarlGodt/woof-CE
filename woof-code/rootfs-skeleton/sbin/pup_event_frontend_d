@@ -189,9 +189,6 @@ BAT_0_state_file=/proc/acpi/battery/BAT0/state
 BAT_0='0'
 if [ -f "$BAT_0_info_file" ];then
 
-#BAT_0_DESIGN_CAPACITY=`grep 'design capacity:' "$BAT_0_info_file"`
-#BAT_0_DESIGN_CAPACITY="${BAT_0_DESIGN_CAPACITY//[^[:digit:]]/}"
-
 BAT_0_LAST_CAPACITY=`grep 'last full capacity:' "$BAT_0_info_file"`
 BAT_0_LAST_CAPACITY="${BAT_0_LAST_CAPACITY//[^[:digit:]]/}"
 
@@ -229,16 +226,6 @@ _log_trap
 # xinit sends -SIGHUP to Xorg and .xinitrc, resulting to end up here too
 # trying WINCH
 trap "echo '$0:PID=$$:WINCH';echo WINCH >/tmp/pup_event_manager.flg; echo WINCH >/tmp/pup_event_change_icons.flg"  WINCH SIGWINCH 28
-# 18) SIGCONT   19) SIGSTOP
-#trap "echo '$0:PID=$$:CONT';echo CONT >/tmp/pup_event_manager.flg; echo CONT >/tmp/pup_event_change_icons.flg"  CONT SIGCONT 18
-#trap "echo '$0:PID=$$:STOP';echo STOP >/tmp/pup_event_manager.flg; echo STOP >/tmp/pup_event_change_icons.flg"  STOP SIGSTOP 19
-# is like Control^D or ^X to stop a (forked) job
-# some code still functions like trap; and the pid still as T , but loop does not work anymore (fg an bg functions)
-# T    Stopped, either by a job control signal or because it is being traced.
-# 10) SIGUSR1    11) SIGSEGV 12) SIGUSR2
-#trap "echo '$0:PID=$$:10:Stop.';exit 10"  USR1 SIGUSR1 10  #works with controlling terminal, not without
-#trap "echo '$0:PID=$$:USR1';echo USR1 >/tmp/pup_event_manager.flg; echo USR1 >/tmp/pup_event_change_icons.flg"  USR1 SIGUSR1 10
-#trap "echo '$0:PID=$$:USR2';echo USR2 >/tmp/pup_event_manager.flg; echo USR2 >/tmp/pup_event_change_icons.flg"  USR2 SIGUSR2 12
 
 trap "echo '$0:PID=$$:STOP';echo STOP >/tmp/pup_event_manager.flg;"  RTMIN+1 SIGRTMIN+1 36
 trap "echo '$0:PID=$$:CONT';echo CONT >/tmp/pup_event_manager.flg;"  RTMAX-1 SIGRTMAX-1 63
@@ -247,7 +234,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.6-simple Macpup_F3-Puppy_Linux-430/2 KRG'
+Version='1.7-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
 $0 [help|version|start|stop|restart|reload]
@@ -327,10 +314,6 @@ echo "Implemented parameters : help|version|stop|restart|start|NOTHING(means sta
 return 22 || exit 22;;
 esac
 ########### parameters start stop restart ##############
-
-#define ESPIPE      29  /* Illegal seek */
-#[ "$DISPLAY" ] || return 29 || exit 29 #X not running.
-#sleep 2 #let the dust settle after X has started.
 
 ################# check if already running ############################
 ###+++2012-01-19
@@ -486,11 +469,9 @@ _free(){  # _free_savefile _free_rootfs
 #called every POLL_PLUG_DEVICE seconds.
  case $PUPMODE in
   6|12) #frugal to whole partition|frugal to save-file (on HDD)
-   #SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
     SIZEFREESAVE_MB=`/bin/df -m | awk '{if ($NF == "/initrd/pup_rw") print $4}' | tail -n1`
   ;;
   *) # 2|5
-   #SIZEFREEM=`/bin/df -m | grep -m1 ' /$'              | tr -s ' ' | cut -f 4 -d ' '`
     SIZEFREESAVE_MB=`/bin/df -m | awk '{if ($NF == "/") print $4}' | tail -n1`
   ;;
  esac
@@ -733,12 +714,7 @@ _probe_floppy(){
 unset DRV_NAME DRVMAIN DRV_CATEGORY floppyPATTERN FLOPPYSTATUS DRV_DESCRIPTION
 }
 
-
-
 ################# ORIG #####################################
-
-
-
 
 
 ################# orig to function #################
@@ -794,12 +770,12 @@ _create_appinfo(){
 _debug "_create_appinfo:$*"
 test "$*" || return
 
-INFO="$1"
+dINFO="$1"
 DISK_CATEGORY="$2"
 MOREITEMS="$3"
 oneDRVNAME="$4"
 
-#needs INFO, DISK_CATEGORY, MOREITEMS, oneDRVNAME
+#needs dINFO, DISK_CATEGORY, MOREITEMS, oneDRVNAME
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
   <Summary>${INFO}</Summary>
@@ -814,7 +790,7 @@ oneDRVNAME="$4"
   </AppMenu>
 </AppInfo>" > "$PUP_EVENT_DIR"/drive_${oneDRVNAME}/AppInfo.xml
 [ $? = 0 ] && { _info "_create_appinfo:Created $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"; true; } || _warn "_create_appinfo:Could not create $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"
-#unset INFO DISK_CATEGORY MOREITEMS oneDRVNAME
+#unset dINFO DISK_CATEGORY MOREITEMS oneDRVNAME
 }
 ################# ORIG #####################################
 
@@ -823,38 +799,42 @@ oneDRVNAME="$4"
 
 
 _get_jwm_vars(){
+    local DEBUG=1
 read CWM </etc/windowmanager
 if [ "$CWM" = "jwm" ]; then
-jwmL=`grep -E -i 'Tray | autohide=| insert=| x=| y=| insert=' $HOME/.jwmrc-tray`
+jwmL=`grep -E -i 'Tray | autohide=| insert=| x=| y=| insert=' $HOME/.jwmrc-tray | grep -vE '<!\-\-|\-\->$' | tail -n1`
 # REM: using cut cut
 jwmTPOS=`echo "$jwmL" | grep -o ' y=.*$' | cut -f 2 -d ' ' | cut -f 2 -d '"'`
 [ -z "$jwmTPOS" ] && jwmTPOS="-1"
 # REM: using tr cut
-jwmHEIGHT=`echo "$JwmL" | grep -o ' height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
+jwmHEIGHT=`echo "$jwmL" | grep -o ' height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
 fi
 [ -z "$jwmHEIGHT" ] && jwmHEIGHT=28
 
-jwmT_Yvar=10
-jwmT_Yvar=$(((SCRN_Y/500)*jwmHEIGHT))
+#jwmT_Yvar=10
+#jwmT_Yvar=$(((SCRN_Y/500)*jwmHEIGHT))
+jwmT_Yvar=$jwmHEIGHT
 _debug "jwmT_Yvar='$jwmT_Yvar'"
 }
 _get_jwm_vars
 
 
 _get_rox_vars(){
-
-#PIN_GRID_STEP=`grep -m1 "pinboard_grid_step" "$CONFFILEROX" | sed -e "s/ *<[^>]*>//g"`
 # REM: filter comment lines
 PIN_GRID_STEP=`sed -n '/<!--/,/-->/!p' "$CONFFILEROX" | grep -m1 "pinboard_grid_step" | sed -e "s/ *<[^>]*>//g"`
-[ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=32 #16=medium.
+case $PIN_GRID_STEP in 2|16|32) :;;
+*) PIN_GRID_STEP=32;;
+esac
+[ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=32 #2=fine 16=medium 32=coarse.
 [ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=32 #precaution.
 
 _debug "PIN_GRID_STEP='$PIN_GRID_STEP'"
 #PIN_GRID_STEP2=$(( PIN_GRID_STEP / 2 ))
-jwmT_Yvar=$((((jwmT_Yvar/PIN_GRID_STEP)+1)*PIN_GRID_STEP))
+#jwmT_Yvar=$((((jwmT_Yvar/PIN_GRID_STEP)+1)*PIN_GRID_STEP))
 
 [ -z "$ICON_PLACE_START_X_GAP" ] && ICON_PLACE_START_X_GAP=32
 [ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
+
 if [ -z "$ICON_PLACE_SPACING" ] ; then
 #DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o -e '[[:digit:]]*' | head -n 1`  ##+2012-11-05 added -e to grep -o
 # REM: was under the impression, that --regex would mean someting special, but is not...
@@ -872,19 +852,21 @@ fi
 #      PGSYvals used in ICON_PLACE_ORIENTATION "bottom" in _free_coord
 #      using ICON_PLACE_ORIENTATION "top" since a very long time ...
 
-#for i in `seq 1 $VALSY` ; do PGSYvals="$PGSYvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
-#_debug $VALSY
-#_debug $PGSYvals
-#VALSX=$(( SCRN_X / PIN_GRID_STEP ))
-#for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
+###for i in `seq 1 $VALSY` ; do PGSYvals="$PGSYvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
+###_debug $VALSY
+###_debug $PGSYvals
+###VALSX=$(( SCRN_X / PIN_GRID_STEP ))
+###for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
 
-case $PIN_GRID_STEP in
-2)   ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;;
-16)  ICON_PLACE_START_X_GAP=48;ICON_PLACE_START_Y_GAP=48;;
-32)  ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
-*)   ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
-esac
+#case $PIN_GRID_STEP in
+#2)   ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;;
+#16)  ICON_PLACE_START_X_GAP=48;ICON_PLACE_START_Y_GAP=48;;
+#32)  ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
+#*)   ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
+#esac
 
+ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;
+#ICON_PLACE_START_X_GAP=2;ICON_PLACE_START_Y_GAP=2; #x gets half off screen @right)
 
 }
 _get_rox_vars
@@ -892,6 +874,8 @@ _get_rox_vars
 # REM: want the effective usable X and Y of screen
 #      fontsize may be very big and clash with jwm taskbar/tray
 _get_max_xy(){
+
+_get_screen_vars
 
 #CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
 FONT_SIZE=`grep 'name="label_font">.*<' "$CONFFILEROX" |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
@@ -902,8 +886,10 @@ ICON_X=48;icon_x=$((ICON_X/2))
 ICON_Y=$((FONT_SIZE+48));icon_y=$((ICON_Y/2))
 
 ##+++2012-01-19
-MAX_X=$((SCRN_X-icon_x))  #24 half icon size of 48
-MAX_Y=$((SCRN_Y-icon_y))  #49 full iconsize, 24 label
+#MAX_X=$((SCRN_X-icon_x))  #24 half icon size of 48
+#MAX_Y=$((SCRN_Y-icon_y))  #49 full iconsize, 24 label
+MAX_X=$SCRN_X
+MAX_Y=$SCRN_Y
 }
 _get_max_xy
 
@@ -913,27 +899,42 @@ _get_icon_xy_values(){
 case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
 
   bottom)
-   COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
+
+   #COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
+
+    COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
+    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+    COORD_X=$(( COORD_X - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
+
     case "$jwmTPOS" in
      0)  #top
       jwmT_Yvar=0 ;;
      *) :;;
     esac
-    COORD_YSt=$((MAX_Y - jwmT_Yvar))
-   #COORD_YSt=$MAX_Y
-   #COORD_YSt=$(( SCRN_Y - ICON_PLACE_START_Y_GAP - jwmT_Yvar ))  #sets lower y thus higher placement
-   #COORD_YSt=$(( $SCRN_Y - $jwmT_Yvar ))
-      COORD_Y=$COORD_YSt
-   _debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
-     #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-      COORD_Y=$(( ((COORD_Y) / PIN_GRID_STEP) * PIN_GRID_STEP))
-     #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
+   #  COORD_YSt=$((MAX_Y - jwmT_Yvar))
+   # #COORD_YSt=$MAX_Y
+   # #COORD_YSt=$(( SCRN_Y - ICON_PLACE_START_Y_GAP - jwmT_Yvar ))  #sets lower y thus higher placement
+   # #COORD_YSt=$(( $SCRN_Y - $jwmT_Yvar ))
+
+      COORD_Y=$(( MAX_Y - jwmT_Yvar ))
+      COORD_Y=$(( COORD_Y - (ICON_PLACE_SPACING/2) ))
+      COORD_Y=$(( ((COORD_Y - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+   #_debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
+   #  #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
+   #   COORD_Y=$(( ((COORD_Y) / PIN_GRID_STEP) * PIN_GRID_STEP))
+   #  #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    _debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
    ;;
 
   top)
   [ "$DEBUG" ] && { LINEP=D0511;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP` _get_icon_xy_values"; }
-  COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
+  #COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
+
+   COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
+   COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+   COORD_X=$(( COORD_X - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
+
     case "$jwmTPOS" in
      0)
        _debug "_get_icon_xy_values:top jwmTPOS='$jwmTPOS' ICON_PLACE_START_X_GAP='$ICON_PLACE_START_X_GAP' ICON_PLACE_START_Y_GAP='$ICON_PLACE_START_Y_GAP' jwmT_Yvar='$jwmT_Yvar'"
@@ -942,46 +943,83 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      _debug "_get_icon_xy_values:top: jwmTPOS='$jwmTPOS'"
      jwmT_Yvar=0;;
     esac
-   COORD_YSt=$(( ICON_PLACE_START_X_GAP + jwmT_Yvar ))     #sets y higher thus lower on desktop
-   #_debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
-    _debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP='$PIN_GRID_STEP'"
-    COORD_Y=$COORD_YSt
-   #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-    COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP))
+  # COORD_YSt=$(( ICON_PLACE_START_X_GAP + jwmT_Yvar ))     #sets y higher thus lower on desktop
+  # #_debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
+  #  _debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP='$PIN_GRID_STEP'"
+  #  COORD_Y=$COORD_YSt
+  # #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
+  #  COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP))
+
+    COORD_Y=$(( 0 + jwmT_Yvar ))
+    COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
+   #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+    test $COORD_Y -lt 48 && COORD_Y=48
+    COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
    [ "$DEBUG" ] && { LINEP=D0512;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
    ;;
 
    left)
-   COORD_X=$ICON_PLACE_START_X_GAP #EDGEdefault 64, see "$CONFFILE"
+
+   #COORD_X=$ICON_PLACE_START_X_GAP #EDGEdefault 64, see "$CONFFILE"
+   COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
+   COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
     case "$jwmTPOS" in
      0)  #TOP
        :;;
      *)
      MAX_Y=$((MAX_Y-jwmT_Yvar));
+     MAX_Y=$((MAX_Y - 48))
      #jwmT_Yvar=$((jwmT_Yvar*-1))
      jwmT_Yvar=0;;
     esac
-   COORD_YSt=$(( ICON_PLACE_START_Y_GAP + jwmT_Yvar ))
-     COORD_Y=$COORD_YSt
-    #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
+  # COORD_YSt=$(( ICON_PLACE_START_Y_GAP + jwmT_Yvar ))
+  #   COORD_Y=$COORD_YSt
+  #  #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
+  #   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
+
+    COORD_Y=$(( 0 + jwmT_Yvar ))
+    COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
+   #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+    test $COORD_Y -lt 64 && COORD_Y=64 #min 48@16, 64@32
+    COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+    COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
+
    ;;
    right)
    #default 64, see "$CONFFILE"
-    COORD_X=$((SCRN_X - ICON_PLACE_START_X_GAP))
+   COORD_X=$((MAX_X - (ICON_PLACE_SPACING/2) )) #range 64-160
+   COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+   _debug right:COORD_X=$COORD_X
+   # COORD_X=$((SCRN_X - ICON_PLACE_START_X_GAP))
+   #COORD_X=$(( ((COORD_X - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+   #_debug right:COORD_X=$COORD_X
+
    _debug "_get_icon_xy_values:right: jwmTPOS='$jwmTPOS'"
     case "$jwmTPOS" in
      0) #TOP
         :;;
      *)
      MAX_Y=$((MAX_Y-jwmT_Yvar));
+     MAX_Y=$((MAX_Y - 48))
      #jwmT_Yvar=$((jwmT_Yvar*-1))
      jwmT_Yvar=0;;
     esac
-   COORD_YSt=$(( ICON_PLACE_START_X_GAP + jwmT_Yvar )) #default 64, see "$CONFFILE"
-     COORD_Y=$COORD_YSt
-    #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+  # COORD_YSt=$(( ICON_PLACE_START_Y_GAP + jwmT_Yvar )) #default 64, see "$CONFFILE"
+  #   COORD_Y=$COORD_YSt
+  #  #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+  #   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+   COORD_Y=$(( 0 + jwmT_Yvar ))
+   COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
+  #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+   test $COORD_Y -lt 64 && COORD_Y=64  # 48/16=3*16=48 | 48/32=1*32=32
+   COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+   COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
+
+   #COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
    _debug "_get_icon_xy_values:right: COORD_Y='$COORD_Y'"
 
    ;;
@@ -997,97 +1035,137 @@ _free_coord() {
  #read the coords grid, code from shinobar...
 
  #sleep 1 ##DEBUG
- COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"` # | sed 's/[0-9]"/"/g'`"
- COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"`
- COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
- [ "$DEBUG" ] && echo "$COORDSGRID" | head -n 2
+  #COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN" | sed 's/[0-9]"/"/g'`
+ ##COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"`
+  ##COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
+   #COORDSGRID="$COORDSGRID1"
+ #[ "$DEBUG" ] && echo "$COORDSGRID" | head -n 2
 
  local DEBUG=1
  case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
   bottom)
 
    _debug "_free_coord:bottom: X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
-   xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   xyCNT=0 #precaution.
+  ## xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  ##
+  ## while :;do
+  ##
+  ##  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
+  ##  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
+  ##  _debug "gPATTERN=$gPATTERN"
+  ##
+  ##  #[ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
+  ##
 
-   while :;do
-
-    xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    _debug "    xgPATTERN=$xgPATTERN"
-
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
     COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
     if [ "$COORD_X" -gt "$MAX_X" ];then #start next line up.
 
       COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
-     if [ -z "`echo "$PGSYvals" | grep "$COORD_Y"`" ] ; then
-     for i in `seq 1 $PIN_GRID_STEP` ; do
-     TEST=$(( COORD_Y - i ))
-     _debug $TEST
-     [ -n "`echo "$PGSYvals" | grep "$TEST"`" ] && { COORD_Y=$TEST;break; }
-     done
-     fi
-     COORD_X=$ICON_PLACE_START_X_GAP
+
+    ### if [ -z "`echo "$PGSYvals" | grep "$COORD_Y"`" ] ; then
+    ###    for i in `seq 1 1 $PIN_GRID_STEP` ; do
+    ###    TEST=$(( COORD_Y - i ))
+    ###    _debugx $TEST
+    ###    [ -n "`echo "$PGSYvals" | grep "$TEST"`" ] && { COORD_Y=$TEST;break; }
+    ###    done
+    ### fi
+    # COORD_X=$ICON_PLACE_START_X_GAP
+
+    COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
+    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+
 
      _debug "COORD_Y='$COORD_Y' COORD_X='$COORD_X'"
     fi
 
-    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   done
-   #echo
+  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  # done
   ;;
+
   top)
 
-   xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   xyCNT=0 #precaution.
-   while :;do
-    xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
+  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  #
+  # while :;do
+  #
+  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
+  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
+  #
+  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
      COORD_X=$((COORD_X + ICON_PLACE_SPACING))
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
       COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
-     COORD_X=$ICON_PLACE_START_X_GAP
+     #COORD_X=$ICON_PLACE_START_X_GAP
+    COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
+    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
     fi
-    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   done
+  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  # done
   ;;
+
   left)
 
    _debug "_free_coord:left: ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
-   xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   xyCNT=0 #precaution.
-   while :;do
-    xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    _debug "xgPATTERN=$xgPATTERN"
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
+  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  #
+  # while :;do
+  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
+  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
+  #  _debug "gPATTERN=$gPATTERN"
+  #
+  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
      COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
       _debug "COORD_Y='$COORD_Y' MAX_Y='$MAX_Y'"
       COORD_X=$((COORD_X + ICON_PLACE_SPACING))
-     COORD_Y=$((ICON_PLACE_START_Y_GAP+jwmT_Yvar))
-     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-    fi
-    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-    _debug "$xPATTERN :jwmT_Yvar=$jwmT_Yvar ICON_PLACE_START_Y_GAP=$ICON_PLACE_START_Y_GAP"
-   done
+     #COORD_Y=$((ICON_PLACE_START_Y_GAP+jwmT_Yvar))
+     #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+     COORD_Y=$(( 0 + jwmT_Yvar ))
+     COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
+    #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+     test $COORD_Y -lt 64 && COORD_Y=64
+     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+   fi
+  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  #  _debug "$xyPATTERN :jwmT_Yvar=$jwmT_Yvar ICON_PLACE_START_Y_GAP=$ICON_PLACE_START_Y_GAP"
+  # done
   ;;
+
   right)
 
-   xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   xyCNT=0 #precaution.
-   while :;do
-    xgPATTERN=`echo -n "$xPATTERN"` # |  sed 's/[0-9]"/"/g'`
-    [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || { _debug "found free place at '$xgPATTERN'";break; }
+  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  #
+  # while :;do
+  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
+  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
+  #
+  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
+  #
      COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
       _debug "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
       COORD_X=$(( COORD_X - ICON_PLACE_SPACING ))
-     COORD_Y=$((ICON_PLACE_START_Y_GAP+jwmT_Yvar))
-     COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-     fi
-    xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-   done
+      #COORD_X=$(( ((COORD_X - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+     COORD_Y=$(( 0 + jwmT_Yvar ))
+
+    COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) )) # 32 too low
+    #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))    # 64 too much
+     test $COORD_Y -lt 64 && COORD_Y=64
+
+     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+     #COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING ))
+     ##COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+     #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+    fi
+    #COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  # done
+  _info "COORD_X=$COORD_X COORD_Y=$COORD_Y"
   ;;
+
  esac
 }
 
@@ -1108,9 +1186,10 @@ esac
  ppPATTERN="$EXE_DIR/drive_${oneDRVNAME}<" ##++2012-01-18
  [ "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
  _free_coord
- _debugx "XforROX='${COORD_X}' YforROX='${COORD_Y}' '$oneDRVNAME'"
- #oneDRVNAMElast="$oneDRVNAME"
+
+ _info "X for ROX : '${COORD_X}' Y for ROX : '${COORD_Y}' :for: '$oneDRVNAME'"
  _debugx ""
+
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
@@ -1124,12 +1203,23 @@ esac
  </env:Body>
 </env:Envelope>"  | rox -R  2>>$ERR
 [ $? = 0 ] && { _info "_add_pinboard:Added to PuppyPin: $PUP_EVENT_DIR/drive_${oneDRVNAME}"; true; } || _warn "_add_pinboard:Could not add $PUP_EVENT_DIR/drive_${oneDRVNAME} to PuppyPin"
-unset oneDRVNAME DRV_CATEGORY FSTYPE
+
+# want to check if rox actually uses COORD_X and COORD_Y passed
+# rox has its own logic and may put the icon nearby if another icon
+# is there already
+sleep 0.1
+aENTRY=`grep "/drive_${oneDRVNAME}</icon>" "$PUPPY_PIN" | tail -n1`
+aX=`echo "$aENTRY" | cut -f2 -d'"'`
+aY=`echo "$aENTRY" | cut -f4 -d'"'`
+test $aX = $COORD_X || _warn "ROX-Filer ignored '$COORD_X' passed, uses '$aX' instead.."
+test $aY = $COORD_Y || _warn "ROX-Filer ignored '$COORD_Y' passed, uses '$aY' instead.."
+
+unset oneDRVNAME DRV_CATEGORY FSTYPE aENTRY aX aY
 }
 
-#DEBUG=1
+
 _create_icon(){
-    local DEBUG=1
+    local DEBUG=
     _debug  "_create_icon:$@"
     #echo "DRV_NAME='$DRV_NAME' DRV_CATEGORY='$DRV_CATEGORY' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
     _debug  "DISK_NAME='$DISK_NAME' DISK_CATEGORY='$DISK_CATEGORY' DISK_DESCRIPTION='$DISK_DESCRIPTION'"
@@ -1201,12 +1291,12 @@ _create_icon(){
     read SIZE </sys/block/${oneDRVNAME}/size
     SIZE=$((SIZE/2)) #get KB.
     _format_size $SIZE #formats SIZE for display.
-    INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
+    dINFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
    elif [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
-     INFO="Puppy drive manager"
+     dINFO="Puppy drive manager"
    else
     _format_size $SIZE #formats SIZE for display.
-    INFO="Filesystem: $FSTYPE Size: $SIZE"
+    dINFO="Filesystem: $FSTYPE Size: $SIZE"
    fi
    #v424 add item to unmount all partitions... 2014-10-16 item for ro mount
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${oneDRVNAME} (if currently mounted)</Label></Item>
@@ -1223,7 +1313,7 @@ _create_icon(){
    ;;
    esac
 
-   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
 
   if [ "$ICONDESK" = "true" ];then             #see "$CONFFILE".
@@ -1269,15 +1359,15 @@ _create_icon(){
    mkdir $VERB -p "$PUP_EVENT_DIR"/drive_${DISK_NAME}$aP
    cp $VERB -af /usr/local/bin/drive_all "$PUP_EVENT_DIR"/drive_${DISK_NAME}$aP/AppRun
 
-   INFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
+   dINFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
    #v424 add item to unmount all mounted partitions...
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    oneDRVNAME="${DISK_NAME}$aP"
-   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
  #fi
  done
 unset DISK_PARTITIONS diskPATTERN onePART MNTSTATUS
-unset oneDRVNAME DISK_NAME DISK_CATEGORY partPATTERN FSTYPE INFO SIZE MOREITEMS
+unset oneDRVNAME DISK_NAME DISK_CATEGORY partPATTERN FSTYPE dINFO SIZE MOREITEMS
 }
 
 _pup_event_startup(){
@@ -1293,24 +1383,6 @@ ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_fronte
 cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 ##+++2013-07-07
 _PROBEDISK_=`probedisk2`
-
-__format_probedisk__(){
-#KRG
-echo > /tmp/PROBEDISK2.txt #KRG  #ignores Linuxscsi_debug ;)
-#probedisk2 | grep -v -i -E 'DBG|DEBUG' | sed '/^$/d' | while read line; do
-probedisk2 | grep -v -i -E 'DBG|DEBUG'  | while read line; do
-[ "$line" ] || continue
-L=`echo $line | sed 's#|$#|DiskWontSay#'`
-echo "$L" >> /tmp/PROBEDISK2.txt
-done
-
-if [ -d /proc/ide ]; then
-_PROBEDISK_=`cat /tmp/PROBEDISK2.txt | sort -g`
-else
-_PROBEDISK_=`cat /tmp/PROBEDISK2.txt`
-fi
-#KRG
-}
 
 #v407 ls120/zip floppy drives are probed every 4 secs...
  DISK_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'`
@@ -1374,7 +1446,6 @@ _check_battery(){
 if test "$BAT_0" = '1'; then
 _check_battery(){
 
-  #BAT_0_CURRENT=`grep 'last full capacity:' "$BAT_0_info_file"`
   BAT_0_CURRENT=`grep 'remaining capacity:' "$BAT_0_state_file"`
   BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
     if [ $BAT_0_CURRENT -le $BAT_0_WARN ];then
@@ -1418,7 +1489,6 @@ __powertimeout(){
     MINUTECNT=0
   # BATTERY
    if [ "$BAT_0" = '1' ];then
-  #BAT_0_CURRENT=`grep 'last full capacity:' "$BAT_0_info_file"`
   BAT_0_CURRENT=`grep 'remaining capacity:' "$BAT_0_state_file"`
   BAT_0_CURRENT="${BAT_0_CURRENT//[^[:digit:]]/}"
     if [ $BAT_0_CURRENT -le $BAT_0_WARN ];then
@@ -1612,15 +1682,14 @@ do
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- /usr/local/bin/drive_all will remove an invalid drive icon if clicked on.
  if [ ! "$BLOCKDIFF" ];then
-  BLOCKSPROBE=""
+  #BLOCKSPROBE=""
   for oneTESTDRV in `grep -E '^sd|^mmc' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
   do
    [ -d /sys/block/${oneTESTDRV} ] || continue
    [ -b /dev/$oneTESTDRV ]         || continue
    #[ "`echo "$ATADRIVES" | grep -w "$oneTESTDRV"`" ] && continue
-     realpath /sys/block/${oneTESTDRV} | grep $Q 'usb' || continue
-   #[ "`cat /sys/block/${oneTESTDRV}/removable 2>/dev/null`" = "0" ] && continue
-      grep $Q -w '0' /sys/block/${oneTESTDRV}/removable && continue
+    realpath /sys/block/${oneTESTDRV} | grep $Q 'usb' || continue
+    grep $Q -w '0' /sys/block/${oneTESTDRV}/removable && continue
 
        #try force kernel to update:
        (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
@@ -1643,11 +1712,6 @@ do
    #if [ ! "$BLOCKSPROBE" ]; then
    if [ "$HAVE_PARTITION" ]; then
    unset BLOCKSPROBE HAVE_PARTITION
-   else
-   : #_debugx "Polling ${oneTESTDRV} .."
-   : #dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
-   #dd: can't open '/dev/sdg': No medium found
-   #dd: can't open '/dev/sdc2': No such file or directory
    fi
 
   done
@@ -1699,7 +1763,6 @@ _EOI
  fi
 
  unset NO_FLOPPY oneDISK_NAME DISK_NAME DISK_CATEGORY DISK_DESCRIPTION
- #unset NO_FLOPPY DISK_NAME DISK_CATEGORY DISK_DESCRIPTION ACTION DEVPATH SUBSYSTEM
  unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM _PROBEDISK_
 
  #monitor free memory, periodic save of tmpfs top layer...
@@ -1712,59 +1775,6 @@ _EOI
      _free;;
  esac
 
-__check_restarts__(){
-if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
- read sigNAL </tmp/pup_event_manager.flg
- rm $VERB /tmp/pup_event_manager.flg
- case $sigNAL in
- CONT) :;;
- STOP) while :
-       do
-       sleep $POLL_PLUG_DEVICE
-       [ -f /tmp/pup_event_manager.flg ] && {
-           read sigNAL2 </tmp/pup_event_manager.flg
-           rm $VERB /tmp/pup_event_manager.flg
-           case $sigNAL2 in CONT) break;; esac
-       }
-       done
- ;;
- WINCH|reload|*) . "$CONFFILE" ###2012-01-18
-    _stop_daemon_exit_on
-    _get_ram_power_vars
-    _which_powertimeout
- ;;
- esac
- unset sigNAL sigNAL2
- if [ -f /tmp/pup_event_change_icons.flg ]; then  #KRG
-
-    Floppies=`ls /sys/block | grep 'fd[0-9]\+' | sort -r`
-
-    if [ -d /proc/ide ] ; then
-    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^scd|^mmc' | sort -r`
-    else
-    Drives=`ls /sys/block | grep -E '^sd|^hd|^sr|^scd|^mmc'`
-    fi
-
-    for DRV_NAME in $Drives drives; do
-    _remove_pinboard "$DRV_NAME"
-    done
-    unset DRV_NAME
-    for DRV_NAME in $Floppies; do
-    _remove_pinboard "$DRV_NAME"
-    done
-    unset DRV_NAME
-
-    _get_screen_vars
-    _get_jwm_vars
-    _get_rox_vars
-    _get_max_xy
-    _get_icon_xy_values
-    _pup_event_startup
-    sleep 1
-    rm $VERB -f /tmp/pup_event_change_icons.flg
-
-fi;fi
-}
 _check_restarts
 _check_battery
 
