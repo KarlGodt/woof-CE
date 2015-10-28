@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 # Simple apply a Backup File
 # November 2010
 # KRG
@@ -6,17 +6,17 @@
 PRO="restore.sh"
 echo $$
 SCRIPT_DIR="/usr/local/jwmconfig3"
-. "$SCRIPT_DIR/path"
+test -f "$SCRIPT_DIR/variables" && . "$SCRIPT_DIR/variables"
 . /etc/rc.d/f4puppy5
 
 echo $DBG 12
 
 ##---backup--->
-cp -f "$colorFILEbak" "$colorFILEbak.0"
-cp -f "$themeFILEbak" "$themeFILEbak.0"
+cp $VERB -f "$colorFILEbak" "$colorFILEbak.0"
+cp $VERB -f "$themeFILEbak" "$themeFILEbak.0"
 
-cp -f "$colorFILEbak" "$colorFILE"
-cp -f "$themeFILEbak" "$themeFILE"
+cp $VERB -f "$colorFILEbak" "$colorFILE"
+cp $VERB -f "$themeFILEbak" "$themeFILE"
 
 # Patriot Sep 2009
   # Attempting some robustness
@@ -26,8 +26,8 @@ cp -f "$themeFILEbak" "$themeFILE"
 
   . "$SCRIPT_DIR/func" -trayapply2
 
-  sync
+  pidof sync >$OUT || sync
 
-  pidof jwm >$OUT && jwm -restart
+  pidof jwm >$OUT  && jwm -restart
 
 ###END###
