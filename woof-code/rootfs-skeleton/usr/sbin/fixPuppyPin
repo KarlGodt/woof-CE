@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #(c) Copyright Barry Kauler 2006 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #BK Aug/Sept 2007: bugfixes for v2.20, 2.21
@@ -33,24 +33,55 @@ _trap
 
 PUPPYPIN="$1"
 [ "$PUPPYPIN" = "" ] && PUPPYPIN="$HOME/Choices/ROX-Filer/PuppyPin"
+CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
-SCREENX=`xwininfo -root | grep -o '\-geometry.*x' | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
+SCREEN_X=`xwininfo -root | grep -o '\-geometry.*x' | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
 
-if [ "$SCREENX" ];then
+if [ "$SCREEN_X" ];then
 
- #find out current right side in PuppyPin...
- RIGHTX=`grep 'Xlock' $PUPPYPIN | cut -f 2 -d '"'` #'Geany fix
+PIN_GRID_STEP=`sed -n '/<!--/,/-->/!p' "$CONFFILEROX" | grep -m1 "pinboard_grid_step" | sed -e "s/ *<[^>]*>//g"`
+case $PIN_GRID_STEP in 2|16|32) :;;
+*) PIN_GRID_STEP=32;;
+esac
+[ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=32 #2=fine 16=medium 32=coarse.
+[ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=32 #precaution.
+
+ cp $VERB -f "$PUPPYPIN" /tmp/${PUPPYPIN##*/}
+ #backup
+ cp $VERB -f "$PUPPYPIN" "$PUPPYPIN"OLD
 
  #all icons on right side of screen will be relocated to correct right side...
- NEWRIGHTX=`expr $SCREENX - 32`
- if [ "$RIGHTX" ] ; then
- if [ "$RIGHTX" != "$NEWRIGHTX" ];then
-  APATTERN="s/x=\"${RIGHTX}\"/x=\"${NEWRIGHTX}\"/"
-  cat $PUPPYPIN | sed -e "$APATTERN" > /tmp/PuppyPin
-  sync
-  cp $VERB -f /tmp/PuppyPin $PUPPYPIN
+ NEWRIGHT_X_MAX=$((SCREEN_X - 32))
+ NEWRIGHT_X_MAX=$(( (NEWRIGHT_X_MAX / PIN_GRID_STEP ) * PIN_GRID_STEP ))
+
+ #find out current right side in PuppyPin...
+ for oneAPP in Xlock Trash PupZip
+ do
+ echo oneAPP=$oneAPP
+
+ #grep "/$oneAPP</icon>" "$PUPPYPIN"
+ #grep "/$oneAPP\</icon\>" "$PUPPYPIN"
+ #grep "/$oneAPP\</icon\>" "$PUPPYPIN" | grep -v '<!\-\-.*\-\->'
+ #grep "/$oneAPP\</icon\>" "$PUPPYPIN" | grep -v '<!\-\-.*\-\->' | tail -n1
+ #grep "/$oneAPP\</icon\>" "$PUPPYPIN" | grep -v '<!\-\-.*\-\->' | tail -n1 | cut -f 2 -d '"'
+
+ RIGHT_X_MAX=`grep "/$oneAPP</icon>" "$PUPPYPIN" | grep -v '<!\-\-.*\-\->' | tail -n1 | cut -f 2 -d '"'`
+ echo RIGHT_X_MAX=$RIGHT_X_MAX
+ echo NEWRIGHT_X_MAX=$NEWRIGHT_X_MAX
+ if [ "$RIGHT_X_MAX" ] ; then
+ if [ "$RIGHT_X_MAX" != "$NEWRIGHT_X_MAX" ];then
+  APATTERN="s/x=\"${RIGHT_X_MAX}\"/x=\"${NEWRIGHT_X_MAX}\"/"
+  sed -i "$APATTERN" /tmp/${PUPPYPIN##*/}
+  STATUS=$((STATUS+$?))
+  #cat $PUPPYPIN | sed -e "$APATTERN" > /tmp/PuppyPin
+  #sync
+  #cp $VERB -f /tmp/PuppyPin $PUPPYPIN
  fi
  fi
+
+ done
+ echo STATUS=$STATUS
+ test "$STATUS" = 0 && cp $VERB -f /tmp/${PUPPYPIN##*/} "$PUPPYPIN"
 
 fi
 
