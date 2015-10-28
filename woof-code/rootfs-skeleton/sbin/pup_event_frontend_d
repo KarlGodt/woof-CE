@@ -369,52 +369,6 @@ DELAYFACTOR=0
  [ $DELAYFACTOR -gt 0 ] && sleep $DELAYFACTOR
 fi
 
-_remove_pinboard(){
-#needs DRV_NAME (name of entire drive)
- _debug  "_remove_pinboard:$@"
- [ "$*" ] || return
- DRV_NAME="$1"
- _debug  "DRV_NAME=$DRV_NAME'"
- ppPATTERN=' label="'"$DRV_NAME"'.*" '
- _debug  "ppPATTERN=$ppPATTERN"
-
- [ -z "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
- allNAMES=`grep -o "$ppPATTERN" "$PUPPY_PIN" | cut -f 2 -d '"'`
- [ "$DISPLAY" ] || return
- for oneDRVNAME in $allNAMES
- do
-
- # Reset COORD_X COORD_Y
- COORD_X=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
- COORD_Y=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
-
-  echo "<?xml version=\"1.0\"?>
-<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
- <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
-  <PinboardRemove>
-   <Path>$PUP_EVENT_DIR/drive_${oneDRVNAME}</Path>
-  </PinboardRemove>
- </env:Body>
-</env:Envelope>"  | rox -R  2>>$ERR
- [ $? = 0 ] && { _info "${oneDRVNAME}: Removed from PuppyPin ."; true; } || _warn "Could not remove ${oneDRVNAME} from PuppyPin ."
- done
-unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
-}
-
-_clean_desk_icons(){
-while read part;do
- DRV_NAME=$part
- _remove_pinboard "$DRV_NAME" #$DRV_NAME
-done << _EOI
-$(grep -o "/$EXE_DIR/drive.*" "$PUPPY_PIN" |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
-_EOI
-rm $VERB -rf "$PUP_EVENT_DIR"/*
-rm $VERB -f /tmp/pup_event_change_icons.flg
-rm $VERB -f /tmp/pup_event_manager.flg
-unset DRV_NAME part
-}
-_clean_desk_icons
-
 ################# ORIG ######################################
 #v424 experiment, automatic unmounting...
 _auto_unmount(){
@@ -829,10 +783,7 @@ esac
 [ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=32 #precaution.
 
 _debug "PIN_GRID_STEP='$PIN_GRID_STEP'"
-#PIN_GRID_STEP2=$(( PIN_GRID_STEP / 2 ))
-#jwmT_Yvar=$((((jwmT_Yvar/PIN_GRID_STEP)+1)*PIN_GRID_STEP))
-
-[ -z "$ICON_PLACE_START_X_GAP" ] && ICON_PLACE_START_X_GAP=32
+#[ -z "$ICON_PLACE_START_X_GAP" ] && ICON_PLACE_START_X_GAP=32
 [ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
 
 if [ -z "$ICON_PLACE_SPACING" ] ; then
@@ -842,32 +793,13 @@ if [ -z "$ICON_PLACE_SPACING" ] ; then
 #      + is short for {1,}
 DriveIconsize=`grep -o 'DRVICON=.*' /etc/rc.d/functions4puppy4  | grep -o '[[:digit:]]\+' | head -n 1`
 
-ICON_PLACE_SPACING=$(( (( DriveIconsize / PIN_GRID_STEP ) + 1 ) * PIN_GRID_STEP ))
+ICON_PLACE_SPACING=$(( (( DriveIconsize + 1 ) / PIN_GRID_STEP ) * PIN_GRID_STEP ))
 fi
 
+#ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;
+##ICON_PLACE_START_X_GAP=2;ICON_PLACE_START_Y_GAP=2; #x gets half off screen @right)
 
-#VALSY=$(( SCRN_Y / PIN_GRID_STEP ))
-
-# REM: experimental, for what I cannot remember for now...
-#      PGSYvals used in ICON_PLACE_ORIENTATION "bottom" in _free_coord
-#      using ICON_PLACE_ORIENTATION "top" since a very long time ...
-
-###for i in `seq 1 $VALSY` ; do PGSYvals="$PGSYvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
-###_debug $VALSY
-###_debug $PGSYvals
-###VALSX=$(( SCRN_X / PIN_GRID_STEP ))
-###for i in `seq 1 $VALSX` ; do PGSXvals="$PGSXvals `echo $( dc $i $PIN_GRID_STEP \* p )`" ; done
-
-#case $PIN_GRID_STEP in
-#2)   ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;;
-#16)  ICON_PLACE_START_X_GAP=48;ICON_PLACE_START_Y_GAP=48;;
-#32)  ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
-#*)   ICON_PLACE_START_X_GAP=64;ICON_PLACE_START_Y_GAP=64;;
-#esac
-
-ICON_PLACE_START_X_GAP=32;ICON_PLACE_START_Y_GAP=32;
-#ICON_PLACE_START_X_GAP=2;ICON_PLACE_START_Y_GAP=2; #x gets half off screen @right)
-
+ICON_PLACE_SPACING=$(( ((ICON_PLACE_SPACING + 1) / PIN_GRID_STEP ) * PIN_GRID_STEP ))
 }
 _get_rox_vars
 
@@ -877,17 +809,18 @@ _get_max_xy(){
 
 _get_screen_vars
 
-#CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
-FONT_SIZE=`grep 'name="label_font">.*<' "$CONFFILEROX" |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
-_debug "FONTSIZE='$FONT_SIZE'"
+##CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"  #also deeper down in script
+#FONT_SIZE=`grep 'name="label_font">.*<' "$CONFFILEROX" |sed 's|\(.*\)>\(.*\)<\(.*\)|\2|' |rev |awk '{print $1}' |rev`
+#_debug "FONTSIZE='$FONT_SIZE'"
 
-# REM: ROX-Filer handles icons from middle of icon, not start of icon ( or end of icon )
-ICON_X=48;icon_x=$((ICON_X/2))
-ICON_Y=$((FONT_SIZE+48));icon_y=$((ICON_Y/2))
+## REM: ROX-Filer handles icons from middle of icon, not start of icon ( or end of icon )
+#ICON_X=48;icon_x=$((ICON_X/2))
+#ICON_Y=$((FONT_SIZE+48));icon_y=$((ICON_Y/2))
 
 ##+++2012-01-19
 #MAX_X=$((SCRN_X-icon_x))  #24 half icon size of 48
 #MAX_Y=$((SCRN_Y-icon_y))  #49 full iconsize, 24 label
+
 MAX_X=$SCRN_X
 MAX_Y=$SCRN_Y
 }
@@ -900,8 +833,6 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
 
   bottom)
 
-   #COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
-
     COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
     COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
     COORD_X=$(( COORD_X - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
@@ -911,25 +842,15 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
       jwmT_Yvar=0 ;;
      *) :;;
     esac
-   #  COORD_YSt=$((MAX_Y - jwmT_Yvar))
-   # #COORD_YSt=$MAX_Y
-   # #COORD_YSt=$(( SCRN_Y - ICON_PLACE_START_Y_GAP - jwmT_Yvar ))  #sets lower y thus higher placement
-   # #COORD_YSt=$(( $SCRN_Y - $jwmT_Yvar ))
 
       COORD_Y=$(( MAX_Y - jwmT_Yvar ))
       COORD_Y=$(( COORD_Y - (ICON_PLACE_SPACING/2) ))
       COORD_Y=$(( ((COORD_Y - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-
-   #_debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
-   #  #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-   #   COORD_Y=$(( ((COORD_Y) / PIN_GRID_STEP) * PIN_GRID_STEP))
-   #  #COORD_Y=$(( ((COORD_Y - PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
    _debug "_get_icon_xy_values:bottom: COORD_Y='$COORD_Y'"
    ;;
 
   top)
   [ "$DEBUG" ] && { LINEP=D0511;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP` _get_icon_xy_values"; }
-  #COORD_X=$ICON_PLACE_START_X_GAP #default 32, see "$CONFFILE"
 
    COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
@@ -943,16 +864,9 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      _debug "_get_icon_xy_values:top: jwmTPOS='$jwmTPOS'"
      jwmT_Yvar=0;;
     esac
-  # COORD_YSt=$(( ICON_PLACE_START_X_GAP + jwmT_Yvar ))     #sets y higher thus lower on desktop
-  # #_debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP2='$PIN_GRID_STEP2'"
-  #  _debug "_get_icon_xy_values:top: COORD_YSt='$COORD_YSt' PIN_GRID_STEP='$PIN_GRID_STEP'"
-  #  COORD_Y=$COORD_YSt
-  # #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-  #  COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP))
 
     COORD_Y=$(( 0 + jwmT_Yvar ))
     COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
-   #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     test $COORD_Y -lt 48 && COORD_Y=48
     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
 
@@ -961,7 +875,6 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
 
    left)
 
-   #COORD_X=$ICON_PLACE_START_X_GAP #EDGEdefault 64, see "$CONFFILE"
    COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
 
@@ -971,31 +884,21 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      *)
      MAX_Y=$((MAX_Y-jwmT_Yvar));
      MAX_Y=$((MAX_Y - 48))
-     #jwmT_Yvar=$((jwmT_Yvar*-1))
      jwmT_Yvar=0;;
     esac
-  # COORD_YSt=$(( ICON_PLACE_START_Y_GAP + jwmT_Yvar ))
-  #   COORD_Y=$COORD_YSt
-  #  #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP))
-  #   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP))
 
     COORD_Y=$(( 0 + jwmT_Yvar ))
     COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
-   #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     test $COORD_Y -lt 64 && COORD_Y=64 #min 48@16, 64@32
     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
     COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
 
    ;;
    right)
-   #default 64, see "$CONFFILE"
-   COORD_X=$((MAX_X - (ICON_PLACE_SPACING/2) )) #range 64-160
+
+   COORD_X=$((MAX_X - (ICON_PLACE_SPACING/2) )) #range 64-160 /2
    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
    _debug right:COORD_X=$COORD_X
-   # COORD_X=$((SCRN_X - ICON_PLACE_START_X_GAP))
-   #COORD_X=$(( ((COORD_X - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-   #_debug right:COORD_X=$COORD_X
-
    _debug "_get_icon_xy_values:right: jwmTPOS='$jwmTPOS'"
     case "$jwmTPOS" in
      0) #TOP
@@ -1003,25 +906,15 @@ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
      *)
      MAX_Y=$((MAX_Y-jwmT_Yvar));
      MAX_Y=$((MAX_Y - 48))
-     #jwmT_Yvar=$((jwmT_Yvar*-1))
      jwmT_Yvar=0;;
     esac
-  # COORD_YSt=$(( ICON_PLACE_START_Y_GAP + jwmT_Yvar )) #default 64, see "$CONFFILE"
-  #   COORD_Y=$COORD_YSt
-  #  #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP2) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-  #   COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
 
    COORD_Y=$(( 0 + jwmT_Yvar ))
    COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
-  #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
    test $COORD_Y -lt 64 && COORD_Y=64  # 48/16=3*16=48 | 48/32=1*32=32
    COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
    COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING )) # gets ICON_PLACE_SPACING added again in free_coord
-
-   #COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-
    _debug "_get_icon_xy_values:right: COORD_Y='$COORD_Y'"
-
    ;;
 esac
 }
@@ -1034,140 +927,217 @@ _free_coord() {
  #091208 finetune placement, also any side of screen...
  #read the coords grid, code from shinobar...
 
- #sleep 1 ##DEBUG
-  #COORDSGRID1=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN" | sed 's/[0-9]"/"/g'`
- ##COORDSGRID2=`grep -o '[[:blank:]]\+x="[0-9]\+"[[:blank:]]\+y="[0-9]\+"[[:blank:]]\+' "$PUPPY_PIN"`
-  ##COORDSGRID=`echo -e "$COORDSGRID1\n$COORDSGRID2"`
-   #COORDSGRID="$COORDSGRID1"
- #[ "$DEBUG" ] && echo "$COORDSGRID" | head -n 2
-
  local DEBUG=1
+ _debug "_free_coord:$*:$COORD_X $COOD_Y"
+
  case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
   bottom)
 
-   _debug "_free_coord:bottom: X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
-  ## xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  ##
-  ## while :;do
-  ##
-  ##  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
-  ##  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
-  ##  _debug "gPATTERN=$gPATTERN"
-  ##
-  ##  #[ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
-  ##
-
+    _debug "bottom: X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
     COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
+
     if [ "$COORD_X" -gt "$MAX_X" ];then #start next line up.
+    _notice "new X Y coordinates"
 
-      COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
-
-    ### if [ -z "`echo "$PGSYvals" | grep "$COORD_Y"`" ] ; then
-    ###    for i in `seq 1 1 $PIN_GRID_STEP` ; do
-    ###    TEST=$(( COORD_Y - i ))
-    ###    _debugx $TEST
-    ###    [ -n "`echo "$PGSYvals" | grep "$TEST"`" ] && { COORD_Y=$TEST;break; }
-    ###    done
-    ### fi
-    # COORD_X=$ICON_PLACE_START_X_GAP
+    COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
 
     COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
     COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
 
-
-
-     _debug "COORD_Y='$COORD_Y' COORD_X='$COORD_X'"
     fi
-
-  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  # done
+    _debug "bottom:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
   ;;
 
   top)
 
-  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  #
-  # while :;do
-  #
-  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
-  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
-  #
-  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
-     COORD_X=$((COORD_X + ICON_PLACE_SPACING))
+    _debug "top:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+    COORD_X=$((COORD_X + ICON_PLACE_SPACING))
+
     if [ $COORD_X -gt $MAX_X ];then #start next line down.
-      COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
-     #COORD_X=$ICON_PLACE_START_X_GAP
+    _notice "new X Y coordinates"
+
+    COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
+
     COORD_X=$((0 + (ICON_PLACE_SPACING/2) ))
     COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
     fi
-  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  # done
+    _debug "top:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
   ;;
 
   left)
 
-   _debug "_free_coord:left: ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
-  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  #
-  # while :;do
-  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
-  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
-  #  _debug "gPATTERN=$gPATTERN"
-  #
-  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
-     COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
+    _debug "left: ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
+    COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
+
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
-      _debug "COORD_Y='$COORD_Y' MAX_Y='$MAX_Y'"
-      COORD_X=$((COORD_X + ICON_PLACE_SPACING))
-     #COORD_Y=$((ICON_PLACE_START_Y_GAP+jwmT_Yvar))
-     #COORD_Y=$(( ((COORD_Y + PIN_GRID_STEP) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+     _notice "new X Y coordinates"
+
+     COORD_X=$((COORD_X + ICON_PLACE_SPACING))
+
      COORD_Y=$(( 0 + jwmT_Yvar ))
      COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) ))
-    #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
      test $COORD_Y -lt 64 && COORD_Y=64
      COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-   fi
-  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  #  _debug "$xyPATTERN :jwmT_Yvar=$jwmT_Yvar ICON_PLACE_START_Y_GAP=$ICON_PLACE_START_Y_GAP"
-  # done
+
+    fi
+    _debug "left:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+
   ;;
 
   right)
-
-  # xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  #
-  # while :;do
-  #  #gPATTERN=`echo -n "$xyPATTERN"` # |  sed 's/[0-9]"/"/g'`
-  #  gPATTERN=`echo "$xyPATTERN" | sed 's/[0-9]"/"/g'`
-  #
-  #  [ "`echo "$COORDSGRID" | grep "$gPATTERN"`" ] || { _debug "found free place at '$gPATTERN'";break; }
-  #
-     COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
+    _debug "right:COORD_X=$COORD_X COORD_Y=$COORD_Y"
+    COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     if [ "$COORD_Y" -ge "$MAX_Y" ];then #start next row back.
-      _debug "COORD_Y=$COORD_Y MAX_Y=$MAX_Y"
-      COORD_X=$(( COORD_X - ICON_PLACE_SPACING ))
-      #COORD_X=$(( ((COORD_X - 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+    _notice "new X Y coordinates"
 
-     COORD_Y=$(( 0 + jwmT_Yvar ))
+    COORD_X=$(( COORD_X - ICON_PLACE_SPACING ))
 
+    COORD_Y=$(( 0 + jwmT_Yvar ))
     COORD_Y=$(( COORD_Y + (ICON_PLACE_SPACING/2) )) # 32 too low
-    #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))    # 64 too much
-     test $COORD_Y -lt 64 && COORD_Y=64
+   #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))    # 64 too much
+    test $COORD_Y -lt 64 && COORD_Y=64
+    COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
 
-     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-
-     #COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING ))
-     ##COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-     #COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING ))
     fi
-    #COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
-  #  xyPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
-  # done
-  _info "COORD_X=$COORD_X COORD_Y=$COORD_Y"
+    _debug "right:COORD_X=$COORD_X COORD_Y=$COORD_Y"
   ;;
 
  esac
 }
+_free_coord_rem() {
+ #find a free place on desktop. v410 avoid exact overlapping icons...
+ #091208 finetune placement, also any side of screen...
+ #read the coords grid, code from shinobar...
+
+ local DEBUG=1
+ _debug "_free_coord_rem:$*:$COORD_X $COOD_Y '$oneDRVNAME'"
+
+ case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
+  bottom)
+
+    _debug "bottom: COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+    COORD_X=$(( COORD_X - ICON_PLACE_SPACING ))
+    if [ "$COORD_X" -lt 64 ];then #start next line up.
+    _notice "New X and Y coordinates.."
+
+    COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
+
+    COORD_X=$(( MAX_X - (ICON_PLACE_SPACING/2) ))
+    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+    fi
+    _debug "bottom:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+  ;;
+
+  top)
+
+    _debug "top:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+    COORD_X=$((COORD_X - ICON_PLACE_SPACING))
+
+    if [ $COORD_X -lt 64 ];then #start next line down.
+    _notice "New X and Y coordinates.."
+
+    COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
+
+    COORD_X=$(( MAX_X - (ICON_PLACE_SPACING/2) ))
+    COORD_X=$(( ((COORD_X + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+    fi
+    _debug "top:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+  ;;
+
+  left)
+
+    _debug "left: COORD_X=${COORD_X} COORD_Y=${COORD_Y}"
+    COORD_Y=$((COORD_Y - ICON_PLACE_SPACING))
+
+    if [ $COORD_Y -lt 64 ];then #start next row.
+     _notice "New X and Y coordinates.."
+
+     COORD_X=$((COORD_X - ICON_PLACE_SPACING))
+
+     COORD_Y=$(( MAX_Y - jwmT_Yvar ))
+     COORD_Y=$(( COORD_Y - (ICON_PLACE_SPACING/2) ))
+     test $COORD_Y -lt 64 && COORD_Y=64
+     COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+    fi
+    _debug "left:COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+
+  ;;
+
+  right)
+
+    _debug "right:COORD_X=$COORD_X COORD_Y=$COORD_Y"
+    COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING ))
+
+    if [ "$COORD_Y" -lt 64 ];then #start next row back.
+    _notice "New X and Y coordinates.."
+
+    COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
+
+    COORD_Y=$(( MAX_Y - jwmT_Yvar ))
+    COORD_Y=$(( COORD_Y - (ICON_PLACE_SPACING/2) )) # 32 too low
+   #COORD_Y=$(( COORD_Y - ICON_PLACE_SPACING ))    # 64 too much
+    test $COORD_Y -lt 64 && COORD_Y=64
+    COORD_Y=$(( ((COORD_Y + 1) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+
+    fi
+    _debug "right:COORD_X=$COORD_X COORD_Y=$COORD_Y"
+  ;;
+
+ esac
+}
+
+_remove_pinboard(){
+#needs DRV_NAME (name of entire drive)
+ _debug  "_remove_pinboard:$@"
+ [ "$*" ] || return
+ DRV_NAME="$1"
+ _debug  "DRV_NAME=$DRV_NAME'"
+ ppPATTERN=' label="'"$DRV_NAME"'.*" '
+ _debug  "ppPATTERN=$ppPATTERN"
+
+ [ -z "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
+ allNAMES=`grep -o "$ppPATTERN" "$PUPPY_PIN" | cut -f 2 -d '"'`
+ [ "$DISPLAY" ] || return
+ for oneDRVNAME in $allNAMES
+ do
+
+ # Reset COORD_X COORD_Y
+ #COORD_X=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
+ #COORD_Y=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
+
+ [ "$2" = startup ] || _free_coord_rem
+
+  echo "<?xml version=\"1.0\"?>
+<env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
+ <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
+  <PinboardRemove>
+   <Path>$PUP_EVENT_DIR/drive_${oneDRVNAME}</Path>
+  </PinboardRemove>
+ </env:Body>
+</env:Envelope>"  | rox -R  2>>$ERR
+ [ $? = 0 ] && { _info "${oneDRVNAME}: Removed from PuppyPin ."; true; } || _warn "Could not remove ${oneDRVNAME} from PuppyPin ."
+ done
+unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
+}
+
+_clean_desk_icons(){
+while read part;do
+ DRV_NAME=$part
+ _remove_pinboard "$DRV_NAME" startup #$DRV_NAME
+done << _EOI
+$(grep -o "/$EXE_DIR/drive.*" "$PUPPY_PIN" |sed -r 's,(.*)(drives)(.*),\2,;s,(.*drive_)(.*)(<.*),\2,')
+_EOI
+rm $VERB -rf "$PUP_EVENT_DIR"/*
+rm $VERB -f /tmp/pup_event_change_icons.flg
+rm $VERB -f /tmp/pup_event_manager.flg
+unset DRV_NAME part
+}
+_clean_desk_icons
+
 
 [ "$DEBUG" ] && { LINEP=D003;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
 _add_pinboard(){
@@ -1253,14 +1223,12 @@ _create_icon(){
     unset HAVE_PARTITION
     case $DISK_NAME in
     sd*)
-    #test -e /sys/block/$DISK_NAME/${DISK_NAME}1  || break
     for p in 1 2 3 4; do
     test -e /sys/block/$DISK_NAME/${DISK_NAME}$p  && HAVE_PARTITION=1
     done
     [ "$HAVE_PARTITION" ] || break
     ;;
     mmc*)
-    #test -e /sys/block/$DISK_NAME/${DISK_NAME}p1 || break
     for p in 1 2 3 4; do
     test -e /sys/block/$DISK_NAME/${DISK_NAME}p$p && HAVE_PARTITION=1
     done
@@ -1693,12 +1661,6 @@ do
 
        #try force kernel to update:
        (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
-       #: </dev/$oneTESTDRV >>$OUT 2>>$ERR   #ash does not send a return value if No medium found
-                                             #and thus the loop crashes, either while : | true | [ 1 ] .
-                                             #bash works.
-       #read MBR </dev/$oneTESTDRV >>$OUT 2>>$ERR  #only a bit better than dd
-       #echo change >/sys/block/${oneTESTDRV}/uevent #nothing, needs udevd to do something
-
    for p in 1 2 3 4; do #check all possible primary partitions, since at least one primary must exist
    if [ -e /sys/block/${oneTESTDRV}/${oneTESTDRV}$p ]; then #drive exists, but no partition (no card plugged in).
     [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ] && HAVE_PARTITION=1 || BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
@@ -1707,9 +1669,6 @@ do
     BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
    fi
    done
-   #[ "$HAVE_PARTITION" ] && unset BLOCKSPROBE
-   #unset HAVE_PARTITION
-   #if [ ! "$BLOCKSPROBE" ]; then
    if [ "$HAVE_PARTITION" ]; then
    unset BLOCKSPROBE HAVE_PARTITION
    fi
