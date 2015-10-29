@@ -167,8 +167,7 @@ echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 # REM : unmount file mounts
 _loop_umount_func(){
                     local M_LOOP mloop_ yPID
-
-oldDEBUG="$DEBUG"
+_store_program_logging_level
 DEBUG=
 M_LOOP=`mount | grep -E '^/dev/loop[0-9p]+ ' |grep -v '/initrd'`
 M_LOOP=`echo $M_LOOP |rev|sed 's! )!\n)!g'|rev`
@@ -200,7 +199,7 @@ exit 10; }
     #kill $_yPID
     unset yPID _yPID
 done
-DEBUG="$oldDEBUG"
+_reset_program_logging_level
 }
 
 # REM : DEBUG
@@ -281,25 +280,31 @@ return $SELECT
 #       in case f.ex. S3 sleep gets terminated by power loss
 _part_umount_func(){
                     local M_POI M_OPS mpart_ yPID
-oldDEBUG="$DEBUG"
+_store_program_logging_level
 DEBUG=
-#M_DEV=`mount | grep -E '^/dev/[shfmdr][^ ]*[0-9]? ' |grep -vE '/initrd|^/dev/root|rootfs|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd'`
-#M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
-#M_DEV=`awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?$")) print $1}' /proc/mounts`
-##M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]].*[0-9]?$" /proc/mounts`
-#M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? " /proc/mounts`
- MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "`
-#M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
- M_POI=`echo "$MOUNTED" | awk '{print $2}'`
- M_POI=`echo -e "$M_POI"`
- M_OPS=`echo "$MOUNTED" | awk '{print $4}'`
- M_OPS=`echo -e "$M_OPS"`
-#M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
+#  M_DEV=`mount | grep -E '^/dev/[shfmdr][^ ]*[0-9]? ' |grep -vE '/initrd|^/dev/root|rootfs|^/dev/ram|^/dev/md|^/dev/mtd|^/dev/nbd'`
+#  M_DEV=`echo $M_DEV |rev|sed 's! )!)\n!g'|rev`
+
+# #M_DEV=`echo "$M_DEV" |grep -o '.* on ' |sed -r 's!(.*)( on )!\1!'`
+# #M_POI=`echo "$M_DEV" |grep -o ' on .* type ' |sed -r 's!( on )(.*)( type )!\2!'`
+
+#  M_DEV=`awk '{if (match($1, "/dev/[fhms][dmr][[:alnum:]].*[0-9]?$")) print $1}' /proc/mounts`
+# #M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]].*[0-9]?$" /proc/mounts`
+#  M_DEV=`grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? " /proc/mounts`
+
+ MOUNTED=`tac /proc/mounts |grep -E "^/dev/[fhms][dmr][[:alnum:]][^ ]*[0-9]? "` # _restore_mounts() needs this MOUNTED
+
+  M_POI=`echo "$MOUNTED" | awk '{print $2}'`
+# M_POI=`echo -e "$M_POI"` #needs to done inside for loop
+# M_OPS=`echo "$MOUNTED" | awk '{print $4}'`
+# M_OPS=`echo -e "$M_OPS"` #mount options fetched in _restore_mounts() from MOUNTED variable.
+
  M_DEV=`echo "$MOUNTED" | awk '{print $1}'`
- M_DEV=`echo -e "$M_DEV"`
+ M_DEV=`echo -e "$M_DEV"` #_restore_mounts() needs this M_DEV
 
 for mpart_ in $M_POI;
 do
+    mpart_=`echo -e "$mpart_"`
 
     ## BIG PROBLEM un-mounting slow devices like CD drives and Floppy drives!
     ## Puppy's /bin/umount may run probedisk2
@@ -403,15 +408,15 @@ exit 20; }
     #kill $_yPID
     unset yPID _yPID
 done
-DEBUG="$oldDEBUG"
+_reset_program_logging_level
 }
 LINEP=B001
 echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
 
 # REM : Restore mounts after being brought up again
 _restore_mounts(){
-                    local part_ basn FS_TYPE reMOUNT mntOPS yPID
-oldDEBUG="$DEBUG"
+                    local part_ basn FS_TYPE reMOUNT mntOPS mntPT mntPTS yPID
+_store_program_logging_level
 DEBUG=
 for part_ in $M_DEV;
 do
@@ -442,10 +447,24 @@ do
      _debug " yPID='$yPID'"
      #_debug "_yPID='$_yPID'"
 
-        grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
-        mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
-            [ "$mntOPS" ] || mntOPS=rw
-        FS_TYPE=`guess_fstype $part_`
+###TODO: A device can be mounted on more than one mountpoint..
+     mntPTS=`echo "$MOUNTED" | grep -w "^$part_" | awk '{print $2}'`
+     for mntPT in $mntPTS
+     do
+        grep $Q " $mntPT " /proc/mounts && reMOUNT='remount,'
+        mntOPS=`echo "$MOUNTED" | grep -m1 " $mntPT " | awk '{print $4}'`
+        mntOPS=`echo -e "$mntOPS"`
+          [ "$mntOPS" ] || mntOPS=rw
+        FS_TYPE=`guess_fstype $part_` #TODO: Use probepart for this
+        mntPT=`echo -e "$mntPT"`
+
+       # grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
+       # mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
+       # mntOPS=`echo -e "$mntOPS"`
+       #     [ "$mntOPS" ] || mntOPS=rw
+       # FS_TYPE=`guess_fstype $part_` #TODO: Use probepart for this
+       # mntPT=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $2}'`
+       # mntPT=`echo -e "$mntPT"`
 
     ##Solution Nr. 4 BIG sleep :
     #case $part_ in
@@ -474,13 +493,13 @@ do
      ;;
     esac
 
-        basn=${part_##*/}
-        mkdir $VERB -p /mnt/"$basn"
+        test "$mntPT" || mntPT=/mnt/${part_##*/}
+        mkdir $VERB -p "$mntPT"
 
 [ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS             "$part_" /mnt/"$basn" || true
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS             "$part_" "$mntPT" || true
 } || {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE "$part_" /mnt/"$basn" || false
+  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE "$part_" "$mntPT" || false
 }
 
     ## Solution Nr. 4 BIG sleep :
@@ -496,9 +515,10 @@ do
     kill $yPID
     #kill $_yPID
     unset yPID _yPID
-    unset reMOUNT mntOPS FS_TYPE
-done
-DEBUG="$oldDEBUG"
+    unset reMOUNT mntOPS FS_TYPE mntPT
+ done #mntPTS
+done  #M_DEV
+_reset_program_logging_level
 }
 LINEP=C001
 echo "DBG line `[ $LINENO ] && echo $LINENO || _lineno $LINEP`"
@@ -713,7 +733,7 @@ done
 
 # REM : Working function
 _set_usb_power_sysfs_values(){
-oldDEBUG=$DEBUG
+_store_program_logging_level
 DEBUG=1
 
 KERNEL_RELEASE=`uname -r`
@@ -932,7 +952,7 @@ __fall_through__(){ #BEGIN
 
 done
 RV=$?
-DEBUG="$oldDEBUG"
+_reset_program_logging_level
 _notice "_set_usb_power_sysfs_values: RV='$RV'"
 return $RV
 }  ###_set_usb_power_sysfs_values(){ #END
@@ -1050,6 +1070,7 @@ S4: Writes an Image of the current Memory  \n
 
 # REM:    Now MENU
 _do_menu_Xdialog_menubox(){
+_store_program_logging_level
 
 __one_subshell__(){
 ( now_=`date +%s`;twoM=$((now_+120));
@@ -1150,7 +1171,7 @@ case $CHOICE_LINE in
     _kill_jobs
     exit 31;;
 esac
-
+_reset_program_logging_level
 return $ANSWER
 }
 
