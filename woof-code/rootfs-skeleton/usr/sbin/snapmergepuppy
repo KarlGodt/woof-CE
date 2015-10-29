@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #Barry Kauler www.puppylinux.com
 # Called from savepuppyd and rc.shutdown, to save tmpfs layer to permanent flash storage.
@@ -74,11 +74,12 @@ grep $Q " $BASE " /proc/mounts || { echo "'$BASE' not mounted"; exit 1; }
 echo "Merging $SNAP onto $BASE..."
 
 #Handle Whiteouts...
-find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
+#find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's/\.\///;s/\.wh\.//' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && [ -f /tmp/xwin/wmexitmode.txt ] && exit 0
+ [ "$N" ] || continue
  #BN=`basename "$N"`
  BN=${N##*/}
  #DN=`dirname "$N"`
@@ -97,26 +98,32 @@ do
  rm $VERB -rf "$BASE/$N"
  #if file exists on a lower layer, have to save the whiteout file...
  BLOCKFILE=""
- [ -e "/initrd/pup_ro1/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro2/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro3/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro4/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro5/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro6/$N" ] && BLOCKFILE="yes"
- [ -e "/initrd/pup_ro7/$N" ] && BLOCKFILE="yes" #v424
- [ -e "/initrd/pup_ro8/$N" ] && BLOCKFILE="yes" #v424
- [ -e "/initrd/pup_ro9/$N" ] && BLOCKFILE="yes" #v424
+ for i in `ls -d /initrd/pup_ro[0-9]*/`; do
+ [ -e "$i$N" ] && BLOCKFILE="yes"
+ done
+ #[ -e "/initrd/pup_ro1/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro2/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro3/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro4/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro5/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro6/$N" ] && BLOCKFILE="yes"
+ #[ -e "/initrd/pup_ro7/$N" ] && BLOCKFILE="yes" #v424
+ #[ -e "/initrd/pup_ro8/$N" ] && BLOCKFILE="yes" #v424
+ #[ -e "/initrd/pup_ro9/$N" ] && BLOCKFILE="yes" #v424
  [ "$BLOCKFILE" = "yes" ] && touch "${BASE}/${DN}/.wh.${BN}"
  rm $VERB -f "$SNAP/$DN/.wh.$BN" #remove whiteout file. should force aufs layer "reval".
-done
+done <<EoI
+`find . -xdev \( -regex '.*/\.wh\.[^/]*' -type f \) | sed -e 's%\.\/%%;s%\.wh\.%%'`
+EoI
 
 #Directories... v409 remove '^var'. w003 remove aufs .wh. dirs.
 #w003 /dev/.udev also needs to be screened out...
-find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
+#find . -xdev -type d | tail +2 | sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm' |
 while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && [ -f /tmp/xwin/wmexitmode.txt ] && exit 0
+ [ "$N" ] || continue
  mkdir $VERB -p "$BASE/$N"
  chmod "$BASE/$N" --reference="$N"
  OWNER=`stat -c %U "$N"`
@@ -124,15 +131,20 @@ do
  GRP=`stat -c %G "$N"`
  chgrp $GRP "$BASE/$N"
  touch "$BASE/$N" --reference="$N"
-done
+done <<EoI
+`find . -xdev -type d | tail +2 | sed -e 's%\.\/%%' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^root/tmp|^\.wh\.|/\.wh\.|^dev/\.|^dev/fd|^dev/pts|^dev/shm'`
+EoI
 
 #Copy Files... v409 remove '^var'. w003 screen out some /dev files.
-#find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
-#while read N
-#do
 
+# find . -mount -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$'  |
+# while read N
+# do
+
+#Use EoI
 FILES=`find . -xdev -not \( -regex '.*/\.wh\.[^/]*' -type f \) -not -type d |  sed -e 's/^\.\///' | grep -v -E '^mnt|^initrd|^proc|^sys|^tmp|^pup_|^zdrv_|^root/tmp|_zdrv_|^dev/\.|^dev/fd|^dev/pts|^dev/shm' | grep -v -E -i '\.thumbnails|trash|\.part$' |sort -d`
 
+#calculate beforehand...
 if [ "$DISPLAY" ]; then
     yaf-splash -display :0 -font "8x16" -outline 0 -margin 4 -bg green -text "Calculating...
 Please wait ..." &
@@ -142,12 +154,13 @@ else
 fi
 
 SIZE_OLD=0
-#for file in $FILES; do  ##--- filename with spaces
+#for file in $FILES; do
+##--- filename with spaces
 while read file
 do
 [ -d "$file" ] && continue
-SIZE=`ls -1 -s --block-size=K "$file" |awk -F 'K' '{print $1}'`; [ "$SIZE" ] || SIZE=0
-SIZE_ALL=$((SIZE_ALL+SIZE))
+SIZE=`/bin/ls -1 -s --block-size=K "$file" |awk -F 'K' '{print $1}'`; [ "$SIZE" ] || SIZE=0
+SIZE_ALL=$((SIZE_ALL+SIZE))      #tell user which the biggest file is..
 [ "$SIZE" -ge "$SIZE_OLD" ] && { BIGGEST_SIZE=$SIZE;biggest_file="$file"; }
 SIZE_OLD=$SIZE;
  done <<EOI
@@ -180,32 +193,32 @@ while read N
 do
  #v4.01 graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ "$XRUNNING" = "yes" ] && { [ -f /tmp/xwin/wmexitmode.txt ] && exit 1; }
-
+ [ "$N" ] || continue
  if [ "$SAVEPART" = "fd0" ]; then
   #not much space, so screen out more files...
-  [ "`echo -n "$N" | grep -v -E '^etc|^root'`" != "" ] && continue
-  [ "`echo -n "$N" | grep -v -E 'mozilla|printjobs|archive|cache'`" = "" ] && continue
+  [ "`echo -n "$N" | grep -v -E '^etc|^root'`" ] && continue
+  [ "`echo -n "$N" | grep -v -E 'mozilla|printjobs|archive|cache'`" ] || continue
  fi
 
- ##stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
- #FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
- #FILESIZEB=`stat -c %s "/${N}"`
- #[ ! $FILESIZEB ] && break #w003 precaution.
- #FILESIZEK=`expr $FILESIZEB \/ 1024`
- #FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
- #if [ $FILESIZEK -ge $FREEBASEK ];then
-  ##also the taskbar freemem-applet lets the user know when low.
-  #if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
-   #yaf-splash -display :0 -timeout 4 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
+ # #stop saving if not enough room left in ${DISTRO_FILE_PREFIX}save file...
+ # FREEBASEK=`df -k | grep "$BASE" | tr -s ' ' | cut -f 4 -d ' '`
+ # FILESIZEB=`stat -c %s "/${N}"`
+ # [ ! $FILESIZEB ] && break #w003 precaution.
+ # FILESIZEK=`expr $FILESIZEB \/ 1024`
+ # FILESIZEK=`expr $FILESIZEK + 200` #200K slack space.
+ # if [ $FILESIZEK -ge $FREEBASEK ];then
+ # #also the taskbar freemem-applet lets the user know when low.
+ #   if [ "$SHUTDOWN" = "no" -a "$XRUNNING" = "yes" ];then
+ #   yaf-splash -display :0 -timeout 4 -font "8x16" -outline 0 -margin 4 -bg red -text "WARNING!
 #Unable to save all files. You need to delete some." &
-  #fi
-  #break
- #fi
+ #  fi
+ #  break
+ # fi
 
- ##v2.21 -u causes trouble if timezone malconfigured...
- ##[ -L "$BASE/$N" ] && rm $VERB -f "$BASE/$N"
- ##cp -a -u -f "$N" "$BASE/$N"
- #cp -a --remove-destination "$N" "$BASE/$N"
+ # #v2.21 -u causes trouble if timezone malconfigured...
+ # #[ -L "$BASE/$N" ] && rm $VERB -f "$BASE/$N"
+ # #cp -a -u -f "$N" "$BASE/$N"
+ # cp -a --remove-destination "$N" "$BASE/$N"
  [ -L "$BASE/$N" ] && rm $VERB -f "$BASE/$N"
  if [ -L "$N" -o "$NEXTPASSTHRU" = "" ];then
   #link, or first run of snapmergepuppy. no '-u' (update) option.
@@ -214,12 +227,12 @@ do
   /bin/cp -a -u --remove-destination "$N" "$BASE/$N" #v3.02
  fi
 
- #if [ "$NEXTPASSTHRU" != "" ];then
- # cp $VERB -a -u -f "$N" "$BASE/$N"
- #else
- # cp $VERB -a -f "$N" "$BASE/$N" #no update option.
- #fi
- #flock -x -n "$N" -c rm $VERB -f "$N" #remove if file not in use
+ # if [ "$NEXTPASSTHRU" != "" ];then
+ #  cp $VERB -a -u -f "$N" "$BASE/$N"
+ # else
+ #  cp $VERB -a -f "$N" "$BASE/$N" #no update option.
+ # fi
+ # flock -x -n "$N" -c rm $VERB -f "$N" #remove if file not in use
 sleep 0.2
 done<<EOI
 $(echo "$FILES")
