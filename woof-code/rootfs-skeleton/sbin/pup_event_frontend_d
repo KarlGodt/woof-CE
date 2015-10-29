@@ -234,7 +234,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.7-simple Macpup_F3-Puppy_Linux-430/2 KRG'
+Version='1.8-simple Macpup_F3-Puppy_Linux-430/2 KRG'
 usage(){
 MSG="
 $0 [help|version|start|stop|restart|reload]
@@ -247,7 +247,7 @@ by this script. Other configuration files used :
 /etc/rc.d/PUPSTATE /etc/rc.d/functions4puppy4
 "
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -title "FRONTEND_D HELP" -bg blue3 "$MSG"
+[ "$DISPLAY" ] && exec xmessage -title "FRONTEND_D HELP" -bg blue3 "$MSG" &
 exit $1
 }
 
@@ -263,7 +263,7 @@ _stop_frontends(){
  c=$((c+1))
  kill -15 $aPID # needs 15 to kill functions in ash
  done
- sleep 3
+ sleep 3 #wait for updates in procfs
  if test "$c"; then
  pidof -o $$ -o %PPID ${0##*/} && return 4 || return 0
  else return 1
@@ -296,7 +296,9 @@ return "$RV" || exit "$RV";;
             fi;;
 
 *start|"")
-sleep 2;;
+#sleep 2 #now done before first call to _clean_desk_icons .
+:
+;;
 
 *reload) MY_PIDS=`pidof -o $$ -o %PPID ${0##*/}`
          test "$MY_PIDS" || _exit 1 "Not running."
@@ -305,10 +307,11 @@ sleep 2;;
          exit $?;;
 
 *help) usage 0;;
-*version) echo -e "\n$0: Version '$Version'\nTry help for more info\n";exit 0;;
+*version) echo -e "\n$0: Version '$Version'\nTry help for more info.\n";exit 0;;
 
 *)
-echo "Implemented parameters : help|version|stop|restart|start|NOTHING(means start)
+echo "Implemented parameters :
+ help|version|stop|reload|restart|start|NOTHING''(means start)
 "
 #define EINVAL      22  /* Invalid argument */
 return 22 || exit 22;;
@@ -317,7 +320,7 @@ esac
 
 ################# check if already running ############################
 ###+++2012-01-19
-
+DEBUG=1
 prog=$(basename $0)
 DAEMONS=`ps-FULL -f --no-headers -C "$prog"| grep -v '<defunct>'`
 PROGPID=$$
@@ -326,6 +329,9 @@ _debug "
 $PROGPID
 $DAEMONS
 ............."
+#bash-3.00# ps-FULL  -f -C pup_event_frontend_d
+#  UID   PID  PPID START TTY        TIME COMMAND
+#    0 26747 24128 15:04 pts/4      0:19 /bin/ash /sbin/pup_event_frontend_d restart
 PIDS=`echo "$DAEMONS" |awk '{print $2" "$3}'`
 while [ "$PIDS" ]; do
 
@@ -338,15 +344,19 @@ _debug "pids2='$pids2'"
 [ "$pids2" ] || break
 if [ ! "`echo "$pids2" | grep -w "$pid1"`" -a ! "`echo "$pids2" | grep -w "$ppid1"`" ];then
 
-echo "Another $0 already running .
+echo "Another $0 already running:
+$DAEMONS
 Refusing to start .
 Try > $0 restart
 "
 #define EBUSY       16  /* Device or resource busy */
 return 16 || exit 16
+else
+_debug "Is child."
 fi
 PIDS=`echo "$PIDS" |sed '1 d'`
 done
+DEBUG=
 ################# check if already running ############################
 
 ################# ORIG #########################################################
@@ -732,7 +742,7 @@ oneDRVNAME="$4"
 #needs dINFO, DISK_CATEGORY, MOREITEMS, oneDRVNAME
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
-  <Summary>${INFO}</Summary>
+  <Summary>${dINFO}</Summary>
   <About>
    <Purpose>Drive icons are part of Puppy Event Manager, see System menu</Purpose>
    <Authors>Barry Kauler LGPL 2008</Authors>
@@ -743,7 +753,7 @@ oneDRVNAME="$4"
    ${MOREITEMS}
   </AppMenu>
 </AppInfo>" > "$PUP_EVENT_DIR"/drive_${oneDRVNAME}/AppInfo.xml
-[ $? = 0 ] && { _info "_create_appinfo:Created $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"; true; } || _warn "_create_appinfo:Could not create $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"
+[ $? = 0 ] && _info "_create_appinfo:Created $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml" || _warn "_create_appinfo:Could not create $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"
 #unset dINFO DISK_CATEGORY MOREITEMS oneDRVNAME
 }
 ################# ORIG #####################################
@@ -928,12 +938,12 @@ _free_coord() {
  #read the coords grid, code from shinobar...
 
  local DEBUG=1
- _debug "_free_coord:$*:$COORD_X $COOD_Y"
+ _debug "_free_coord:$*:$COORD_X $COORD_Y '$oneDRVNAME'"
 
  case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
   bottom)
 
-    _debug "bottom: X='$COORD_X' Y='$COORD_Y' '$oneDRVNAME'"
+    _debug "bottom: COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
     COORD_X=$(( COORD_X + ICON_PLACE_SPACING ))
 
     if [ "$COORD_X" -gt "$MAX_X" ];then #start next line up.
@@ -967,7 +977,7 @@ _free_coord() {
 
   left)
 
-    _debug "left: ' x=\"${COORD_X}\" y=\"${COORD_Y}\" '"
+    _debug "left:COORD_X=\"${COORD_X}\" COORD_Y=\"${COORD_Y}\""
     COORD_Y=$((COORD_Y + ICON_PLACE_SPACING))
 
     if [ $COORD_Y -ge $MAX_Y ];then #start next row.
@@ -1011,7 +1021,7 @@ _free_coord_rem() {
  #read the coords grid, code from shinobar...
 
  local DEBUG=1
- _debug "_free_coord_rem:$*:$COORD_X $COOD_Y '$oneDRVNAME'"
+ _debug "_free_coord_rem:$*:$COORD_X $COORD_Y '$oneDRVNAME'"
 
  case $ICON_PLACE_ORIENTATION in #see "$CONFFILE"
   bottom)
@@ -1119,7 +1129,7 @@ _remove_pinboard(){
   </PinboardRemove>
  </env:Body>
 </env:Envelope>"  | rox -R  2>>$ERR
- [ $? = 0 ] && { _info "${oneDRVNAME}: Removed from PuppyPin ."; true; } || _warn "Could not remove ${oneDRVNAME} from PuppyPin ."
+ [ $? = 0 ] && _info "${oneDRVNAME}: Removed from PuppyPin ." || _warn "Could not remove ${oneDRVNAME} from PuppyPin ."
  done
 unset oneDRVNAME allNAMES ppPATTERN DRV_NAME
 }
@@ -1136,7 +1146,7 @@ rm $VERB -f /tmp/pup_event_change_icons.flg
 rm $VERB -f /tmp/pup_event_manager.flg
 unset DRV_NAME part
 }
-_clean_desk_icons
+sleep 2; _clean_desk_icons
 
 
 [ "$DEBUG" ] && { LINEP=D003;echo "`[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
@@ -1157,7 +1167,7 @@ esac
  [ "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
  _free_coord
 
- _info "X for ROX : '${COORD_X}' Y for ROX : '${COORD_Y}' :for: '$oneDRVNAME'"
+ _info "X for ROX: '${COORD_X}' :Y for ROX: '${COORD_Y}' :for: '$oneDRVNAME'"
  _debugx ""
 
  echo "<?xml version=\"1.0\"?>
@@ -1172,7 +1182,7 @@ esac
   </PinboardAdd>
  </env:Body>
 </env:Envelope>"  | rox -R  2>>$ERR
-[ $? = 0 ] && { _info "_add_pinboard:Added to PuppyPin: $PUP_EVENT_DIR/drive_${oneDRVNAME}"; true; } || _warn "_add_pinboard:Could not add $PUP_EVENT_DIR/drive_${oneDRVNAME} to PuppyPin"
+[ $? = 0 ] && _info "_add_pinboard:Added to PuppyPin: $PUP_EVENT_DIR/drive_${oneDRVNAME}" || _warn "_add_pinboard:Could not add $PUP_EVENT_DIR/drive_${oneDRVNAME} to PuppyPin"
 
 # want to check if rox actually uses COORD_X and COORD_Y passed
 # rox has its own logic and may put the icon nearby if another icon
@@ -1281,7 +1291,7 @@ _create_icon(){
    ;;
    esac
 
-   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$dINFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
   fi
 
   if [ "$ICONDESK" = "true" ];then             #see "$CONFFILE".
@@ -1331,7 +1341,7 @@ _create_icon(){
    #v424 add item to unmount all mounted partitions...
    MOREITEMS="<Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    oneDRVNAME="${DISK_NAME}$aP"
-   _create_appinfo "$INFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
+   _create_appinfo "$dINFO" "$DISK_CATEGORY" "$MOREITEMS" "$oneDRVNAME" #needs dINFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
  #fi
  done
 unset DISK_PARTITIONS diskPATTERN onePART MNTSTATUS
@@ -1350,7 +1360,14 @@ DISK_CATEGORY='drive'
 ls -1v /sys/block | grep -vE '^loop|^md|^mtd|^nbd|^*ram' > /tmp/pup_event_frontend_block2
 cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 ##+++2013-07-07
-_PROBEDISK_=`probedisk2`
+_PROBEDISK__=`probedisk2`
+#sort them:
+for k in floppy drive optical usbdrv card; do
+S=`echo "$_PROBEDISK__" | grep "|$k|"`
+test "$S" || continue
+test "$_PROBEDISK_" && _PROBEDISK_="$_PROBEDISK_
+$S" || _PROBEDISK_="$S"
+done
 
 #v407 ls120/zip floppy drives are probed every 4 secs...
  DISK_FLOPPY=`echo "$_PROBEDISK_" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'`
