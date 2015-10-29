@@ -3,7 +3,7 @@
 IS_MULTICALL=1
 
 . /etc/rc.d/f4puppy5
-DEBUGT=
+
 __debugt__(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -27,8 +27,13 @@ _debugt 8E $_DATE_
 
 Q=-q
 QUIET=--quiet
+# To prevent ROX-Filer presenting fake error messages,
+# unset lesser important messages - set to ANY if you want to
+NOTICE=
+INFO=
 DEBUG=
 DEBUGX=
+DEBUGT= #time debugging
 test "$DEBUG" && { unset Q QUIET; }
 
 _debug "$@:$*"
@@ -646,9 +651,13 @@ if test "$deviceORpoint"; then
           }
  _debug "$WHAT:"$@
 fi
+
 c=0
-for posPAR in `echo -e "$@"`; do  #hope, only file/device AND mountpoint left
+#for posPAR in `echo -e "$@"`; do  #hope, only file/device AND mountpoint left
+ for posPAR in `echo    "$@"`; do  #hope, only file/device AND mountpoint left
 c=$((c+1))
+_debug "posPAR='$posPAR'"
+posPAR=`echo -e "$posPAR"`  #need to handle space
 _debug "posPAR='$posPAR'"
 case $posPAR in
 -*)         :;; #break
