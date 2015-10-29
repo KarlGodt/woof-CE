@@ -29,10 +29,10 @@ Q=-q
 QUIET=--quiet
 # To prevent ROX-Filer presenting fake error messages,
 # unset lesser important messages - set to ANY if you want to
-NOTICE=
-INFO=
-DEBUG=
-DEBUGX=
+NOTICE=1
+INFO=1
+DEBUG=1
+DEBUGX=1
 DEBUGT= #time debugging
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -43,7 +43,7 @@ LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 [ "$LANG" = 'C' ] || { echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.utf8; }
 _info "using '$LANG_ROX'"
 
-#busybox mountpoint does not recognice after
+#busybox mountpoint does not recognize after
 #mount --bind / /tmp/ROOTFS
 #/tmp/ROOTFS as mountpoint ...
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
@@ -170,8 +170,14 @@ _store_program_logging_level
 #posPARAMS=`echo "$@" | _string_to_octal`
  posPARAMS=`__string_to_octal "$@"`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
+#try to handle newline
+posPARAMS=`echo "$posPARAMS" | sed 's!\\\0134\\\0156!NEWLINE!g'`
+
+#convert to newline again
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
+
+#get rid of \0 - why?
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
 _reset_program_logging_level
@@ -190,16 +196,17 @@ umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-o
   #getOPS=`busybox getopt -u -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getOPS=`busybox getopt -s tcsh -l help,version,bind,rbind,move,make-private,make-rprivate,make-shared,make-rshared,make-slave,make-rslave,make-unbindable,make-runbindable -- $allOPS "$@"`
  getoptRV=$?
-_debug "               options='$getOPS'"
+_debug "                options='$getOPS'"
 
  #longOPS=`echo "$getOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  longOPS=${getOPS% -- *}
+_debugx "           long options='$longOPS'"
  longOPS=`echo "$longOPS" | grep -Eoe '--[^ ]+' | tr '\n' ' ' |sed 's! --$!!;s! -- $!!;s!-- !!'`
  test "${longOPS//[[:blank:]]/}" || longOPS='';
 _debug "           long options='$longOPS'"
 
 shortOPS=${getOPS%%--*}
-_debugx "        short options='$shortOPS'"
+_debugx "          short options='$shortOPS'"
 shortOPS=`echo "$shortOPS" | sed "s%'%%g"`
 test "${shortOPS//[[:blank:]]/}" || shortOPS='';
 _debug "          short options='$shortOPS'"
@@ -211,9 +218,48 @@ _debugx "positional parameters='$posPARAMS'"
 
 posPARAMS=`echo "$posPARAMS" | sed "s%' '%'\n'%g"`
 _debugx "positional parameters='$posPARAMS'"
-posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\'%g"`
-posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`
-posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`
+
+#util-linux/getopt.c
+#if (*arg == '\'')
+#			*bufptr ++= '\'';
+#			*bufptr ++= '\\';
+#			*bufptr ++= '\'';
+#			*bufptr ++= '\'';
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\'%g"`    # ' ## tr -s "'"
+
+#else if (shell_TCSH && *arg == '!')
+#			*bufptr ++= '\'';
+#			*bufptr ++= '\\';
+#			*bufptr ++= '!';
+#			*bufptr ++= '\'';
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`    # !
+
+#else if (shell_TCSH && isspace(*arg))
+#			*bufptr ++= '\'';
+#			*bufptr ++= '\\';
+#			*bufptr ++= *arg;
+#			*bufptr ++= '\'';
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\	'%\	%g"`   # tab   011
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`    # space 040
+
+#else if (shell_TCSH && *arg == '\n')
+#			*bufptr ++= '\\';
+#			*bufptr ++= 'n';
+# posPARAMS=`echo "$posPARAMS" | sed "s%\\\\\\\n%\n%g"`    # newline 012
+#need to error out
+#if test "`echo -e "$posPARAMS" | wc -l`" -gt 1;
+# if echo "$posPARAMS" | grep $Q -Fw '\n'; then
+#  _exit 9 "Newline in positional parameters not allowed in this wrapper script.
+#Use mount binaries directly to mount newline containing files."
+# fi
+
+# else
+#			/* Just copy */
+#			*bufptr ++= *arg;
+
+##
+#posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\\'%\\\\\%g"` # \ #
+
 _debugx "positional parameters='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed "s%^'%%;s%'$%%"`
 _debugx "positional parameters='$posPARAMS'"
@@ -264,7 +310,7 @@ _debugt 9f $_DATE_
  _check_tmp_rw || return 56
 _debugt 9e $_DATE_
 
- while read -r oneUPDATE oneMOUNTPOINT REST
+ while read -r oneUPDATE oneMOUNTPOINT REST  #REST ist just in case since it is reduced to $1 and $2 above
  do
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
  test "$oneUPDATE" || continue
@@ -276,7 +322,7 @@ _debugt 9d $_DATE_
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
          rox -D "${eoneMOUNTPOINT}"
-         mountpoint $Q "${oneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || :
+         mountpoint $Q "${eoneMOUNTPOINT}" && rox -d "${eoneMOUNTPOINT}" || :
          }
         }
  _debugt 9c $_DATE_
@@ -343,7 +389,7 @@ case $WHAT in
   _debug "_parse_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
-  grep $Q -w "${device##*/}" /proc/partitions || continue
+  grep $Q -w "${device##*/}" /proc/partitions || continue   # continue if not in /proc/partitions
   test -d "$mountpoint" || LANG=$LANG_ROX mkdir $VERB -p "$mountpoint"
   _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
   mountpoint $Q "$mountpoint" && continue
@@ -612,7 +658,7 @@ _debug "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $op
 
 case $# in
 1)
-deviceORpoint=`echo -e $@`
+deviceORpoint=`echo -e "$@" | sed 's!NEWLINE!\n!g'`
 _debug "deviceORpoint='$deviceORpoint'"
 ;;
 esac
@@ -651,14 +697,14 @@ if test "$deviceORpoint"; then
           }
  _debug "$WHAT:"$@
 fi
-
+#DEBUG=1;DEBUGX=1;Q=
 c=0
 #for posPAR in `echo -e "$@"`; do  #hope, only file/device AND mountpoint left
  for posPAR in `echo    "$@"`; do  #hope, only file/device AND mountpoint left
 c=$((c+1))
 _debug "posPAR='$posPAR'"
-posPAR=`echo -e "$posPAR"`  #need to handle space
-_debug "posPAR='$posPAR'"
+#posPAR=`echo -e "$posPAR"`  #need to handle space
+#_debug "posPAR='$posPAR'"
 case $posPAR in
 -*)         :;; #break
 none|nodev) :;;
@@ -670,19 +716,33 @@ msdos|ncpfs|nfs|nfs4|ntfs|proc|qnx4|ramfs|reiserfs|romfs)            :;;
 smbfs|sysv|tmpfs|udf|ufs|umsdos|usbfs|usbdevfs|vfat|xenix|xfs|xiafs) :;;
 fuse*) :;;
 
-*) test $c = $# || continue
+*) test $c = $# || continue  # want the last parameter
    if test -f /proc/filesystems; then
-   if test ! "`grep 'nodev' /proc/filesystems | grep $posPAR`"; then
-      #if test "`echo "$*" | grep -Ee '--[[:alpha:]]+'`" = ""; then
-   grep -Fw "$posPAR" /proc/mounts | grep $Q -vi fuse && {
+
+o_ocposPAR="$posPAR"
+   posPAR=`echo -e "$posPAR" |sed 's!NEWLINE!\n!g'` #need to handle space
+   #posPAR=${posPAR//\\/}
+o_posPAR="$posPAR"
+
+   if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
+
+      #if test "`echo "$*" | grep -Ee '--[[:alpha:]]+'`" = ""; then  # no long options?
+   gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//	/\\011}"
+   gPATTERN="${gPATTERN//
+/\\012}"
+   _debugx "gPATTERN=$gPATTERN"
+   grep -Fw "${gPATTERN}" /proc/mounts | grep $Q -vi fuse && {
        test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted. Use -o remount."; }
       #fi
       _debug "c=$c \$#=$# "$posPAR
+
     #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
-o_ocposPAR="$posPAR"
-   posPAR=`echo -e "$posPAR"`
-   #posPAR=${posPAR//\\/}
-o_posPAR="$posPAR"
+
+#o_ocposPAR="$posPAR"
+#   posPAR=`echo -e "$posPAR"`
+#   #posPAR=${posPAR//\\/}
+#o_posPAR="$posPAR"
+
       _debug "c=$c \$#=$# ""$posPAR"
    test -e /etc/fstab || touch /etc/fstab
    grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
@@ -697,10 +757,11 @@ o_posPAR="$posPAR"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
 
    _debugx "testing -d $posPAR"
-   test -d "$posPAR" -a ! "`ls -A "$posPAR"`" && mountPOINT="$posPAR"
+   #test -d "$posPAR" -a ! "`ls -A "$posPAR"`" && mountPOINT="$posPAR"
+    test -d "$posPAR" && test ! "`ls -A "$posPAR" 2>$ERR`" && mountPOINT="$posPAR"
 
-   _debugx "testing -e $posPAR"
-   test -e "$posPAR" && { _debugx "`ls -lAv "$posPAR"`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
+   _debugx "testing -e $posPAR" #TODO if exist and has contents error out
+   test -e "$posPAR" && { _debugx "`ls -lAv "$posPAR" 2>&1`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
    LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
 
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
@@ -721,6 +782,7 @@ _debug "             ocposPAR='$ocposPAR'"
 esac
 done
 c=0
+#DEBUG=;DEBUGX=;Q=-q
 ;;
 umount)
  # handle unmounting of no-existent dir
@@ -755,9 +817,11 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
-grepP=${deviceORpoint// /\\\\040}
+grepP=${deviceORpoint// /\\040};grepP=${grepP//	/\\011}
+grepP="${grepP//
+/\\012}"
 _debug "grepP='$grepP'"
-mountPOINT=`echo "$mountBEFORE" | grep -w "$grepP" | cut -f 2 -d' '`
+mountPOINT=`echo "$mountBEFORE" | grep -Fw "$grepP" | cut -f 2 -d' '`
 mountPOINT=`busybox echo -e "$mountPOINT"`
 _debug "mountPOINT='$mountPOINT'"
 fi
@@ -802,7 +866,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -836,7 +900,7 @@ set --  #unset everything
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -894,7 +958,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -928,7 +992,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -966,8 +1030,9 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
+
 set - $@ "$ePAR"
 done
 _debug "_do_mount_bb:$*"
