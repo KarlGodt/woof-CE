@@ -229,7 +229,7 @@ _do_unmount_all(){
  #for MNTPT in `mount | grep '^[]\"/dev/' | grep -vE '^[]\"/dev/loop|^[]\"/dev/ram' | cut -f 4 -d '"' | grep -v '^[]\"/initrd/' | grep -v '^[]\"/$' | tr ' ' '\`'`
  for MNTPT in `awk '{if (match($1, "/dev/.*[0-9]$") || $1 == "/dev/[fhlms].*[0-9]") print $2}' /proc/mounts | tac`
  do
- case $MNTPT in /initrd/*) continue;; esac
+ case $MNTPT in /initrd/*|/) continue;; esac
  oneDRVNAME=`grep -w "$MNTPT" /proc/mounts | awk '{print $1}'`
  oneDRVNAME=${oneDRVNAME##*/}
  MNTPT=`echo -e "$MNTPT"`
@@ -270,6 +270,7 @@ _do_fsck(){
 grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && _exit 10 "Found '$oneDRVNAME' in /proc/mounts"
  FSTYPE=${1#*_}
  _notice "\$1='$1' FSTYPE='$FSTYPE'"
+ [ "$FSTYPE" = unknown ] && FSTYPE=
  [ "$FSTYPE" ] || _exit 11 "Missing FSTYPE"
 echo '#!/bin/sh
 fsck -C0 -v /dev/'"$oneDRVNAME"'
@@ -318,6 +319,7 @@ esac
 
 for ap in $*
 do
+_debug "a parameter=$ap"
  case $ap in
  -*|+*)        _parse_positional_parameters $ap;;
  pmount_*)     DO_WHAT="_run_pmount $ap";;
@@ -336,9 +338,12 @@ do
     grep $Q -w "$ap" /proc/filesystems && FSTYPE=$ap || {
     modinfo "$ap" 1>>$OUT 2>>$ERR && FSTYPE=$ap; }
     [ "$FSTYPE" ] || DO_WHAT="_say_unhandled_parameter $ap"
+    [ "$FSTYPE" = unknown ] && FSTYPE=
  ;;
  esac
 done
+
+_debug FSTYPE=$FSTYPE
 
 case "$DO_WHAT" in
 '') :;;
@@ -383,11 +388,12 @@ esac
 #if dropped down here, it is likely to be a data partition...
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
+_debug FSTYPE=$FSTYPE
 if [ "$FSTYPE" != "" ];then
  dPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ ! "`/bin/df | grep "$dPATTERN"`" ];then
   #not mounted...
-  mkdir -p /mnt/$oneDRVNAME
+  mkdir $VERB -p /mnt/$oneDRVNAME
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
@@ -435,7 +441,19 @@ if [ "$FSTYPE" != "" ];then
   exec rox -x "$MNTPT" -d "$MNTPT"
  fi
 fi
+
+_debug oneDRVNAME=$oneDRVNAME
+
+case $oneDRVNAME in
+drives|fd*|hd*|mmc*|scd*|sd*|sr*)
+ _notice "Running pmount.."
+ #exec pmount
+ _run_pmount
+ ;;
+*)
 #echo "NOW xmessage" >&2
 xmessage -bg orange2 -title "drive_all" "Err.. :Ooops:
 Could not start any handler for
 '$oneDRVNAME'  or  '$*'"
+ ;;
+esac
