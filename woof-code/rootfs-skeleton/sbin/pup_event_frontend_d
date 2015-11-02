@@ -731,8 +731,9 @@ _format_size(){
 }
 
 _create_appinfo(){
+_store_program_logging_level
 _debug "_create_appinfo:$*"
-test "$*" || return
+test "$*" || { _reset_program_logging_level; return; }
 
 dINFO="$1"
 DISK_CATEGORY="$2"
@@ -755,6 +756,7 @@ oneDRVNAME="$4"
 </AppInfo>" > "$PUP_EVENT_DIR"/drive_${oneDRVNAME}/AppInfo.xml
 [ $? = 0 ] && _info "_create_appinfo:Created $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml" || _warn "_create_appinfo:Could not create $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml"
 #unset dINFO DISK_CATEGORY MOREITEMS oneDRVNAME
+_reset_program_logging_level
 }
 ################# ORIG #####################################
 
@@ -1114,23 +1116,24 @@ _remove_pinboard(){
 _store_program_logging_level
 
  _debug  "_remove_pinboard:$@"
- [ "$*" ] || return
+ [ "$*" ] || { _reset_program_logging_level; return; }
  DRV_NAME="$1"
  _debug  "DRV_NAME=$DRV_NAME'"
  ppPATTERN=' label="'"$DRV_NAME"'.*" '
  _debug  "ppPATTERN=$ppPATTERN"
 
- [ -z "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && return
+ [ -z "`grep "$ppPATTERN" "$PUPPY_PIN"`" ] && { _reset_program_logging_level; return; }
  allNAMES=`grep -o "$ppPATTERN" "$PUPPY_PIN" | cut -f 2 -d '"'`
- [ "$DISPLAY" ] || return
+ [ "$DISPLAY" ] || { _reset_program_logging_level; return; }
  for oneDRVNAME in $allNAMES
  do
 
- # Reset COORD_X COORD_Y
- #COORD_X=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
- #COORD_Y=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
-
- [ "$2" = startup ] || _free_coord_rem
+ [ "$2" = startup ] || {
+  # Reset COORD_X COORD_Y
+   COORD_X=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' x="[0-9]+"' | cut -f2 -d '"'`
+   COORD_Y=`grep "$ppPATTERN" "$PUPPY_PIN" | grep -oE ' y="[0-9]+"' | cut -f2 -d '"'`
+   _free_coord_rem
+ }
 
   echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
@@ -1212,12 +1215,14 @@ unset oneDRVNAME DRV_CATEGORY FSTYPE aENTRY aX aY
 
 _create_icon(){
 
-    _store_program_logging_level
-    DEBUG=
+    #_store_program_logging_level
+    #DEBUG=
     _debug  "_create_icon:$@"
     #echo "DRV_NAME='$DRV_NAME' DRV_CATEGORY='$DRV_CATEGORY' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
     _debug  "DISK_NAME='$DISK_NAME' DISK_CATEGORY='$DISK_CATEGORY' DISK_DESCRIPTION='$DISK_DESCRIPTION'"
-    test "$1" -a "$2" -a "$3" || return
+    test "$1" -a "$2" -a "$3" || {
+		#_reset_program_logging_level;
+		return; }
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
  #if a passed param $4, then _PROBEPART_ already known, inefficient to rerun here each time.
@@ -1360,7 +1365,7 @@ _create_icon(){
  done
 unset DISK_PARTITIONS diskPATTERN onePART MNTSTATUS
 unset oneDRVNAME DISK_NAME DISK_CATEGORY partPATTERN FSTYPE dINFO SIZE MOREITEMS
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 _pup_event_startup(){
@@ -1664,6 +1669,7 @@ fi;fi
 _reset_program_logging_level
 }
 
+#DEBUG=1
 _pup_event_daemon(){
 
 _store_program_logging_level
@@ -1691,8 +1697,10 @@ do
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- /usr/local/bin/drive_all will remove an invalid drive icon if clicked on.
  if [ ! "$BLOCKDIFF" ];then
   #BLOCKSPROBE=""
+
   for oneTESTDRV in `grep -E '^sd|^mmc' /tmp/pup_event_frontend_block2` ##+-+2013-07-07
   do
+   _debug "about to check $oneTESTDRV:"
    [ -d /sys/block/${oneTESTDRV} ] || continue
    [ -b /dev/$oneTESTDRV ]         || continue
    #[ "`echo "$ATADRIVES" | grep -w "$oneTESTDRV"`" ] && continue
@@ -1701,23 +1709,32 @@ do
 
        #try force kernel to update:
        (true </dev/$oneTESTDRV) >>$OUT 2>>$ERR
+   _debug "Checking $oneTESTDRV for primary partitions:"
    for p in 1 2 3 4; do #check all possible primary partitions, since at least one primary must exist
    if [ -e /sys/block/${oneTESTDRV}/${oneTESTDRV}$p ]; then #drive exists, but no partition (no card plugged in).
     [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ] && HAVE_PARTITION=1 || BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
+    _debug "BLOCKSPROBE='$BLOCKSPROBE'"
     #dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 >>$OUT 2>>$ERR #try force kernel to update.
    elif [ -d "$PUP_EVENT_DIR"/drive_${oneTESTDRV}$p ]; then
     BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
    fi
-   done
    if [ "$HAVE_PARTITION" ]; then
-   unset BLOCKSPROBE HAVE_PARTITION
+   _debug "Found primary partition"
+   BLOCKSPROBE=`echo "$BLOCKSPROBE" | sed "s!+${oneTESTDRV}:!!g"`
    fi
+   unset HAVE_PARTITION
+   done
+   #if [ "$HAVE_PARTITION" ]; then
+   #_debug "Found primary partition"
+   #unset BLOCKSPROBE HAVE_PARTITION
+   #fi
 
   done
+  _debug "BLOCKSPROBE='$BLOCKSPROBE'"
   [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo "$BLOCKSPROBE" | tr ':' '\n' | sort -u` #sort sorts + above -
  fi
 
- _debugx "BLOCKDIFF='$BLOCKDIFF'"
+ _debug "BLOCKDIFF='$BLOCKDIFF'"
  #########hotplug block event##########
  if [ "$BLOCKDIFF" ];then
  _notice "Got hotplug event.."
