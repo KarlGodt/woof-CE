@@ -29,10 +29,10 @@ Q=-q
 QUIET=--quiet
 # To prevent ROX-Filer presenting fake error messages,
 # unset lesser important messages - set to ANY if you want to
-NOTICE=1
+NOTICE=
 INFO=1
 DEBUG=1
-DEBUGX=1
+DEBUGX=
 DEBUGT= #time debugging
 test "$DEBUG" && { unset Q QUIET; }
 
@@ -95,7 +95,7 @@ grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || 
 
 __string_to_octal()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 _debug "__string_to_octal:$*"
 unset oSTRING
@@ -155,12 +155,12 @@ done
 fi
 
 echo "$oSTRING"
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 _posparams_to_octal()
 {
-_store_program_logging_level
+#_store_program_logging_level
         _debug "_posparams_to_octal:$@"
 #echo -n "$@" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\ !\\0!g;s!:$!!;/^$/d;s!^!\\0!' >/tmp/posPARAMS.od
 #echo "$@" | _string_to_octal >/tmp/posPARAMS.od
@@ -180,12 +180,12 @@ _debugx "            posPARAMS='$posPARAMS'"
 #get rid of \0 - why?
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 _get_options()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
 
@@ -270,7 +270,7 @@ _debugx "positional parameters='$posPARAMS'"
 test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
 _debug "  positional parameters='$posPARAMS'"
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $getoptRV
 }
 #_get_options "$*"
@@ -283,7 +283,7 @@ test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
 _update_partition_icon()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 test -f /etc/eventmanager.cfg && . /etc/eventmanager.cfg
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
@@ -370,13 +370,13 @@ _debugt 9d $_DATE_
  done <<EoI
 `echo "$updateWHAT"`
 EoI
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 _parse_fstab()
 {
 test -f /etc/fstab || return 57
-_store_program_logging_level
+#_store_program_logging_level
 
 while read -r device mountpoint fstype mntops dump check
 do
@@ -443,7 +443,7 @@ esac
 
 done </etc/fstab
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $STATUS
 }
 
@@ -456,7 +456,7 @@ _debugt 89 $_DATE_
 
 _builtin_getopts()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 local oneOPT
 opN=-n;
@@ -614,7 +614,7 @@ umount)
 ;;
  *) _exit 39 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 _builtin_getopts "$@"
 _debugt 88 $_DATE_
@@ -893,7 +893,7 @@ mount)
 
 _do_mount_ntfs_3g()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 set --  #unset everything
 #set - $longOPS $shortOPS
@@ -945,13 +945,13 @@ done
          RETVAL=$?
          }
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_vfat()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -979,13 +979,13 @@ done
                busybox mount -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
        RETVAL=$?
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_full()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -1017,13 +1017,13 @@ done
                 $WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
        RETVAL=$?
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_bb()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -1041,13 +1041,13 @@ _debug "_do_mount_bb:$*"
               busybox $WHAT  "$@"  $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
        RETVAL=$?
 
-_reset_program_logging_level
+#_reset_program_logging_level
 return $RETVAL
 }
 
 _which_mount()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 _debug "_which_mount:$*"
 local oneOPT
@@ -1091,13 +1091,13 @@ _debug Using busybox mount "$@"
 _do_mount_bb "$@"
 fi
 RV=$?
-_reset_program_logging_level
+#_reset_program_logging_level
 return $RV
 }
 
 _have_long_options()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
 _debug "_have_long_options:$*"
 case $longOPS in
@@ -1114,7 +1114,7 @@ RV=$?
 return $RV
 ;;
 esac
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
@@ -1147,7 +1147,7 @@ _umount_rmdir()
 
 _update()
 {
-_store_program_logging_level
+#_store_program_logging_level
 
  _debug "DISPLAY='$DISPLAY'"
  test "$DISPLAY" && _update_partition_icon
@@ -1167,7 +1167,7 @@ _store_program_logging_level
 `_command find /mnt -maxdepth 1 -type d -empty`
 EoI
 _debugt 01 $_DATE_
-_reset_program_logging_level
+#_reset_program_logging_level
 }
 
 _debug "mountPOINT='$mountPOINT'"
