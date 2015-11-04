@@ -101,7 +101,7 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
 ##+++2012-05-08
-Version='1.1 Macpup_F3-Puppy-Linux-430/2 KRG'
+Version='1.2 Macpup_F3-Puppy-Linux-430/2 KRG'
 . /etc/rc.d/f4puppy5
 
 _usage(){
@@ -146,52 +146,6 @@ echo
 _load_average(){
 echo "$1:`uptime`"
 }
-
-__fsckme_func__(){
-#FSCKME=`find / -maxdepth 3 -type f -iname "*fsckme*"`  ###KRG, for Advanced /sbin/init
- FSCKME=`test -f /var/lock/fsckme* && ls /var/lock/fsckme*`
- _debug "FSCKME='$FSCKME'"  ###DBG
-if [ -n "$FSCKME" ]; then   ###KRG
-
-modprobe ehci_hcd
-modprobe ohci_hcd
-modprobe uhci_hcd
-modprobe usbhid
-
-exec 1>/dev/console 2>&1
-echo -e "\\033[1;31m"' ... '"$FSCKME"' still exists !'
-echo
-echo -e "\\033[0;31m"'Want to boot anyway [ B ],[ b ] and [ Enter ] ?'
-echo -e "\\033[1;32m"'Reboot [ R ],[ r ] and [ Enter ] ?'
-echo -e "\\033[0;32m"'Poweroff [ P ],[ p ] and [ Enter ] ?'
-echo -e "\\033[1;34m"'Or simply exit rc.sysinit [ Enter ],[ any other key and Enter ] ?'
-echo -e "\\033[1;33m"'         ( timeout 60 sec ... -> exit ) '
-echo -e "\\033[7;39m"
-echo -n '->'
-read -t 60 K
-echo -e "\\033[0;39m"
-if [ "$K" = "R" -o "$K" = "r" ]; then
-echo 'Rebooting ...'
-/bin/busybox umount $VERB $VERB -ar
-/bin/busybox reboot
-fi
-
-if [ "$K" = "P" -o "$K" = "p" ]; then
-echo "Pow'ring off the computer ..."
-/bin/busybox umount $VERB $VERB -ar
-/bin/busybox poweroff
-fi
-
-if [ "$K" = "B" -o "$K" = "b" ]; then
-echo 'Continuing booting ...'
-exec 1>>/var/log/bootsysinit.log 2>&1
-else
-echo 'Exiting /etc/rc.d/rc.sysinit'
-exit
-fi
-fi
-}
-#__fsckme_func__
 
 export LANG=C
 
@@ -313,9 +267,9 @@ grep $Q ' /dev ' /proc/mounts && mountpointDEV=YES
 mdev -s || haveMDEV='';
 ##+++2013-12-28
 [ -d /proc/self/fd ] && ln $VERB -snf /proc/self/fd /dev/fd
- [ -L /dev/stdin ]   || ln $VERB -snf fd/0 /dev/stdin
-[ -L /dev/stdout ]   || ln $VERB -snf fd/1 /dev/stdout
-[ -L /dev/stderr ]   || ln $VERB -snf fd/2 /dev/stderr
+ [ -L /dev/stdin ]   || ln $VERB -sf fd/0 /dev/stdin
+[ -L /dev/stdout ]   || ln $VERB -sf fd/1 /dev/stdout
+[ -L /dev/stderr ]   || ln $VERB -sf fd/2 /dev/stderr
 ##+++2013-12-28
 
 test -d /dev/pts || mkdir $VERB -p /dev/pts
@@ -980,7 +934,7 @@ if [ "$ADDLIST" != "" ]; then #variable is in /etc/rc.d/MODULESCONFIG
   firmware_module_func #install firmware tarball. see functions4puppy4.
   #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
   #if [ -z "`lsmod | grep "$MODULE"`" ] ; then
-  [ "$MODULE" != "mwave" ] && bb_modprobe $VERB $MODULE $MPARAMS
+  [ "$MODULE" = "mwave" ] || bb_modprobe $VERB $MODULE $MPARAMS
   #fi
  done
  _status 0
@@ -1077,16 +1031,16 @@ rm $VERB -f /dev/cdrom /dev/dvd
 
 [ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
 [ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
-[ -f /etc/cdburnerdevice ] && CDBURNERTYPE=`cat /etc/cdburnerdevice`
-[ "$CDTYPE" -a "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]   && CDTYPE=""  #no longer exists.
-[ "$DVDTYPE" -a "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
-[ "$CDBURNERTYPE" -a "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
+[ -f /etc/cdburnerdevice ] && read CDBURNERTYPE </etc/cdburnerdevice
+#[ "$CDTYPE" -a "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]   && CDTYPE=""  #no longer exists.
+#[ "$DVDTYPE" -a "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
+#[ "$CDBURNERTYPE" -a "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
 
 for oneOPTICAL in $OPTICALS
 do
- oneNUM=`echo -n "$oneOPTICAL" | cut -c 3`
+ oneNUM=`echo "$oneOPTICAL" | cut -c 3-`
  [ "$CDTYPE" ] || CDTYPE="$oneOPTICAL"
- [ "$CDTYPE" -a "$DVDTYPE" -a "$CDTYPE" = "$DVDTYPE" ] && CDTYPE="$oneOPTICAL"
+ [ "$CDTYPE" = "$DVDTYPE" ] || CDTYPE="$oneOPTICAL"
  #[ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
@@ -1094,7 +1048,7 @@ do
   opticalCNT=$((opticalCNT+1))
 done
 
-rm $VERB -f /dev/cdrom; rm $VERB -f /dev/dvd; rm $VERB -f /etc/cdburnerdevice
+rm $VERB -f /dev/cdrom /dev/dvd /etc/cdburnerdevice
 [ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE  /dev/cdrom
 [ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" >/etc/cdburnerdevice
@@ -1131,25 +1085,25 @@ _load_average '8xff'
 ############MISC DESKTOP STUFF##################
 echo "MISC. DESKTOP STUFF"
 if [ "$PUPMODE" = "77" ]; then #77=multisession cd/dvd.
- if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = "" ]; then
+ if [ "`grep "savesession" /root/Choices/ROX-Filer/PuppyPin`" = "" ]; then
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
-  sync
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin  > /tmp/PuppyPin-CPY
+  pidof sync >>$OUT || sync
   cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
 
 #save button on desktop when booted from flash drive...
-if [ "$PUPMODE" -eq 3 -o "$PUPMODE" -eq 7 -o "$PUPMODE" -eq 13 ]; then #pup_rw is tmpfs. frugal flash to part internal, *external, save-file external
- if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "save2flash"`" = "" ]; then
+case "$PUPMODE" in 3|7|13)  #pup_rw is tmpfs. frugal flash to part internal, *external, save-file external
+ if [ "`grep "save2flash" /root/Choices/ROX-Filer/PuppyPin`" = "" ]; then
   echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
   pidof sync >>$OUT || sync
   cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
- fi
-fi
+ fi ;;
+esac
 
 #_file_system_state 22
 ###################PERSONAL BOOT SCRIPT######################
