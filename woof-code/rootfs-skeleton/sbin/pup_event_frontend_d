@@ -168,19 +168,45 @@ DRIVE_ICON_DIR="/usr/local/lib/X11/pixmaps"
 CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
   PUPPY_PIN="$HOME/Choices/ROX-Filer/PuppyPin"
 
-### *** do not check for powertimeout if these apps are running *** #
+_get_skip_names(){
+### *** do not check for saveinterval if these apps are running *** #
 # space delimited for loops and pidof
+if test ! "$DO_NOT_DISTURB"; then
  DO_NOT_DISTURB='axel burniso2cd cdrecord curl dotpup downloadpkgs.sh gcc gcurl gimv growisofs grub '\
 ' installpkg.sh make mksquashfs pburn pcdripper pdvdrsab petget ppm puppyinstaller pupzip ripoff unsquashfs wget xorrecord xorriso xarchive'\
 '' #SED more into MARKER
+fi
 # staff delimited and regular expr escaped by \ for grep -E ; max 15 chars
-DO_NOT_DISTURB2='axel|burniso2cd|cdrecord|curl|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|grub'\
-'|installpkg\.sh|make|mksquashfs|pburn|pcdripper|pdvdrsab|petget|ppm|puppyinstaller|pupzip|ripoff|unsquashfs|wget|xorrecord|xorriso|xarchive'\
+DO_NOT_DISTURB2=`echo "$DO_NOT_DISTURB" | tr ' ' '|' | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
+#DO_NOT_DISTURB2='axel|burniso2cd|cdrecord|curl|dotpup|downloadpkgs\.sh|gcc|gcurl|gimv|growisofs|grub'\
+#'|installpkg\.sh|make|mksquashfs|pburn|pcdripper|pdvdrsab|petget|ppm|puppyinstaller|pupzip|ripoff|unsquashfs|wget|xorrecord|xorriso|xarchive'\
+#'' #SED more into MARKER
+
+### *** do not check for powertimeout if these apps are running *** #
+if test ! "$DO_NOT_DISTURB_VIDEO"; then
+ #DO_NOT_DISTURB_MM='ffplay gimv gmplayer gnome-mplayer gxine mhwaveedit mplayer vlc xfmedia xine xmms'
+ DO_NOT_DISTURB_VIDEO='ffplay gimv gmplayer gnome-mplayer gxine mhwaveedit mplayer '\
+'pcdripper ripoff vlc xfmedia xine xmms '\
 '' #SED more into MARKER
+fi
+DO_NOT_DISTURB_VIDEO2=`echo "$DO_NOT_DISTURB_VIDEO" | tr ' ' '|' | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
+#DO_NOT_DISTURB_MM2='ffplay|gimv|gmplayer|gnome-mplayer|gxine|mhwaveedit|mplayer|vlc|xfmedia|xine|xmms'
 
- DO_NOT_DISTURB_MM='ffplay gimv gmplayer gnome-mplayer gxine mhwaveedit mplayer vlc xfmedia xine xmms'
-DO_NOT_DISTURB_MM2='ffplay|gimv|gmplayer|gnome-mplayer|gxine|mhwaveedit|mplayer|vlc|xfmedia|xine|xmms'
+if test ! "$DO_NOT_DISTURB_DL"; then
+ DO_NOT_DISTURB_DL='axel curl dotpup gcurl installpkg.sh petget ppm puppyinstaller '\
+'wget '\
+'' #SED more into MARKER
+fi
+DO_NOT_DISTURB_DL2=`echo "$DO_NOT_DISTURB_DL" | tr ' ' '|' | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
 
+if test ! "$DO_NOT_DISTURB_DEV"; then
+ DO_NOT_DISTURB_DEV='burniso2cd cdrecord gcc growisofs make mksquashfs pburn '\
+'pupzip unsquashfs xorrecord xorriso xarchive '\
+'' #SED more into MARKER
+fi
+DO_NOT_DISTURB_DEV2=`echo "$DO_NOT_DISTURB_DEV" | tr ' ' '|' | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
+}
+_get_skip_names
 
 ########### battery ##########################
 #support warning for low battery
@@ -1573,7 +1599,7 @@ _which_powertimeout
 
 _check_disturb_ps_grep(){ # 25-50% less CPU signature than pidof
 local RUNPS=`ps -o comm`
-echo "$RUNPS" | grep -vw 'grep' | grep $Q -E "$DO_NOT_DISTURB2"
+echo "$RUNPS" | grep -vwE 'grep|info|man|pman' | grep $Q -E "$DO_NOT_DISTURB2"
 }
 
 _check_disturb_pidof(){ # same heavy as for pidof done
@@ -1605,12 +1631,44 @@ false
 if test "$DISTURB_VIDEO" = "true" ; then
 _check_disturb_video(){
 local RUNPS=`ps -o comm`
-echo "$RUNPS" | grep -vw 'grep' | grep $Q -E "$DO_NOT_DISTURB_MM2"
+echo "$RUNPS" | grep -vwE 'grep|info|man|pman' | grep $Q -E "$DO_NOT_DISTURB_VIDEO2"
  }
 fi
 
 }
 _which_check_video
+
+_which_check_dl(){
+
+_check_disturb_dl(){
+false
+ }
+
+if test "$DISTURB_DL" = "true" ; then
+_check_disturb_dl(){
+local RUNPS=`ps -o comm`
+echo "$RUNPS" | grep -vwE 'grep|info|man|pman' | grep $Q -E "$DO_NOT_DISTURB_DL2"
+ }
+fi
+
+}
+_which_check_dl
+
+ _which_check_dev(){
+
+_check_disturb_dev(){
+false
+ }
+
+if test "$DISTURB_DEV" = "true" ; then
+_check_disturb_dev(){
+local RUNPS=`ps -o comm`
+echo "$RUNPS" | grep -vwE 'grep|info|man|pman' | grep $Q -E "$DO_NOT_DISTURB_DEV2"
+ }
+fi
+
+}
+_which_check_dev
 
 _check_restarts(){
 _store_program_logging_level
@@ -1631,13 +1689,25 @@ if [ -f /tmp/pup_event_manager.flg ];then ###2012-01-18
        done
  ;;
 
- WINCH|reload|*) . "$CONFFILE" ###2012-01-18
-    _stop_daemon_exit_on
-    _get_ram_power_vars
-    _which_powertimeout
+ WINCH|reload|*) : #. "$CONFFILE" ###2012-01-18
+ #   _stop_daemon_exit_on
+ #   _get_ram_power_vars
+ #   _which_powertimeout
  ;;
  esac
  unset sigNAL sigNAL2
+
+ test -f "$CONFFILE" && . "$CONFFILE"
+
+ _get_skip_names
+ _which_check_video
+ _which_check_dl
+ _which_check_dev
+
+ _stop_daemon_exit_on
+ _get_ram_power_vars
+ _which_powertimeout
+
  if [ -f /tmp/pup_event_change_icons.flg ]; then  #KRG
 
     Floppies=`ls /sys/block | grep 'fd[0-9]\+' | sort -r`
@@ -1826,6 +1896,8 @@ fi
    ;;
  esac
 
+ _check_disturb_dl    && continue
+ _check_disturb_dev   && continue
  _check_disturb_video && continue
  _powertimeout
 
