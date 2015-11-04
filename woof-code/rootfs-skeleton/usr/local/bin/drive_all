@@ -212,7 +212,7 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
   else  # Unmount succeded
    #[ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ] && eject /dev/$oneDRVNAME
    case $oneDRVNAME in
-    sr[0-9]*|scd[0-9]*|hd[a-d]) eject /dev/$oneDRVNAME;;
+    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject /dev/$oneDRVNAME;;
    esac
   fi
 
@@ -315,7 +315,14 @@ unmount)
  mPATTERN='^/dev/'"$oneDRVNAME"' '
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
  MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6- -d ' '`
- [ "$MNTPT" = "" ] && exit 200 #precaution.
+ if [ "$MNTPT" = "" ]; then
+  #case $DRV_CATEGORY in optical)
+  case $oneDRVNAME in scd[0-9]*|sr[0-9]*|hd[a-d])
+     _command eject -T /dev/$oneDRVNAME
+     exit 201;;
+  *) exit 200;;
+  esac #precaution.
+ fi
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
@@ -406,7 +413,8 @@ esac
 if [ "$DRV_CATEGORY" = optical ]; then
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ ! "`busybox mount | grep "$srPATTERN"`" ];then
-  cddetect $Q $VERB -d/dev/${oneDRVNAME}
+  QUEST_CD=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`
+  RETVAL=$?
   __cddetect_returnvals__(){
     cat >&2 <<EoI
     sets exit value according to detected cd type:
@@ -419,9 +427,52 @@ if [ "$DRV_CATEGORY" = optical ]; then
     - SVCD        7
     - UVCD        8
     - mixed      50
+    no disk!    255
+    no disc!    255
+    tray open!  255
+    drive not ready! 255
 EoI
-                        }
-  RETVAL=$?
+}
+
+  case $QUEST_CD in
+    'tray open!')   # REM: If tray open, try to close it
+     eject -t /dev/$oneDRVNAME
+     while :; do
+     #eject -t /dev/$oneDRVNAME
+     sleep 5
+     QUEST_CD2=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`; RETVAL=$?
+     [ "$RETVAL" = 255 ] || break
+      case $QUEST_CD2 in
+      'no disk!'|'no disc!') break;; #fall through
+      'tray open!') eject -t /dev/$oneDRVNAME;;
+      'drive not ready!') :;;
+      *) _warn "Unhandled QUEST_CD2='$QUEST_CD2'";;
+      esac
+     done
+    ;;
+    'no disk!'|'no disc!')
+      #STUB should I error out or fall through to bottom ?
+     eject -t /dev/$oneDRVNAME
+     sleep 5
+     cddetect $Q $VERB -d/dev/${oneDRVNAME}; RETVAL=$?
+    #xmessage -title "$MY_SELF" "Please insert a CD/DVD first."; exit 0
+    ;;
+    'drive not ready!')
+     while :; do
+     sleep 5
+     QUEST_CD3=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`; RETVAL=$?
+     [ "$RETVAL" = 255 ] || break
+      case $QUEST_CD3 in
+      'no disk!'|'no disc!') break;; #fall through
+      'tray open!') eject -t /dev/$oneDRVNAME;;
+      'drive not ready!') :;;
+      *) _warn "Unhandled QUEST_CD3='$QUEST_CD3'";;
+      esac
+     done
+    ;;
+    *) _warn "Unhandled QUEST_CD='$QUEST_CD'";;
+  esac
+
   case $RETVAL in
 
   0) #failed to detect type.
@@ -457,7 +508,7 @@ EoI
  #[ ! "$FSTYPE" ] && FSTYPE="iso9660"
  [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$oneDRVNAME`
  [ "$FSTYPE" ] || FSTYPE=unknown
- [ "$FSTYPE" = unknown ] || FSTYPE=`blkid /dev/$oneDRVNAME | grep -m1 -w "^/dev/$oneDRVNAME" | grep -oE ' TYPE="[^"]+"' | cut -f2 -d'"'`
+ [ "$FSTYPE" = unknown ] && FSTYPE=`blkid /dev/$oneDRVNAME | grep -m1 -w "^/dev/$oneDRVNAME" | grep -oE ' TYPE="[^"]+"' | cut -f2 -d'"'`
  [ "$FSTYPE" ] || FSTYPE=unknown
  [ "$FSTYPE" = unknown ] && unset FSTYPE
 fi
