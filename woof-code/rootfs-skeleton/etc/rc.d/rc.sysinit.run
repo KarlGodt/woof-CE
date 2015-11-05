@@ -103,6 +103,13 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 ##+++2012-05-08
 Version='1.2 Macpup_F3-Puppy-Linux-430/2 KRG'
 . /etc/rc.d/f4puppy5
+export LANG=C
+
+. /etc/rc.d/functions4puppy4
+. /etc/DISTRO_SPECS
+
+alias bb_modprobe='modprobe -b'     ##+++2013-07-11
+alias modprobe='/sbin/modprobe -b'  ##+++2012-02-03
 
 _usage(){
 MSG="
@@ -147,13 +154,7 @@ _load_average(){
 echo "$1:`uptime`"
 }
 
-export LANG=C
 
-. /etc/rc.d/functions4puppy4
-. /etc/DISTRO_SPECS
-
-alias bb_modprobe='modprobe -b'     ##+++2013-07-11
-alias modprobe='/sbin/modprobe -b'  ##+++2012-02-03
 #_file_system_state 1
 
 _status() {
@@ -207,7 +208,8 @@ _loadswap() { #w481 made into a function.
 
 #if have just done a switch_root, output a 'done' message...
 #[ -d /initrd ] && _status 0 #note, /initrd does not exist when a full-hd installation.
-test -e /etc/rc.d/PUPSTATE && source /etc/rc.d/PUPSTATE || PUPMODE=2
+test -e /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2 #PUPSTATE may not exist at first boot of full install
+															    #since PUPSTATE file get (re-)created by initrd.gz
 
 #[ "$PUPMODE" = 2 ] || _status 0 ## done in /sbin/init
 STATUS=0
@@ -215,7 +217,7 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 
 #echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-
+chattr -i  /etc/rc.d/PUPSTATE
 if [ "$PUPMODE" = 2 ]; then
  busybox mount $VERB $VERB -o remount,rw /dev/root /; STATUS=$((STATUS+$?))
  test -d /etc/rc.d || mkdir $VERB -p /etc/rc.d
@@ -524,7 +526,9 @@ fi
 
 if [ "$NEEDDEPMOD" = "yes" ]; then
  echo -n ' depmod' >/dev/console
+ test -e /lib/modules/${KERNEL_RELEASE}/modules.dep && chattr -i /lib/modules/${KERNEL_RELEASE}/modules.dep
  depmod
+ chattr +i /lib/modules/${KERNEL_RELEASE}/modules.dep
 fi
 
 __unused_layerfs__(){
@@ -1269,6 +1273,9 @@ sed -i".$_DATE_" "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt
 ### capture bootscreen ###
 
 _load_average 'FxFF'
+
+#make the important file /etc/rc.d/PUPSTATE immutable again
+chattr +i /etc/rc.d/PUPSTATE
 
 # REM: Force exitcode 0; otherwise rc.sysinit wrapper might
 #      run rc.sysinit.emerg also.
