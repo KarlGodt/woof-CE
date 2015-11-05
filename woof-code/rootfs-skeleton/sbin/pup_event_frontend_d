@@ -133,10 +133,18 @@ fi;fi
 #simple polling loop.
 
 # Polling. The lesser , the more CPU usage
-POLL_FREE_MEMORY=6  # seconds to check free space in /
-POLL_PLUG_DEVICE=2  # seconds to check for plugged USB drives
+[ "$POLL_FREE_MEMORY" ]       || POLL_FREE_MEMORY=6  # seconds to check free space in /
+[ "$POLL_FREE_MEMORY" -ge 2 ] || POLL_FREE_MEMORY=2
+[ "$POLL_FREE_MEMORY" -le 9 ] || POLL_FREE_MEMORY=9
+[ "$POLL_PLUG_DEVICE" ]       || POLL_PLUG_DEVICE=2  # seconds to check for plugged USB drives if DESKDAEMON=true
+[ "$POLL_PLUG_DEVICE" -ge 1 ] || POLL_PLUG_DEVICE=1
+[ "$POLL_PLUG_DEVICE" -le 9 ] || POLL_PLUG_DEVICE=9
+[ "$POLL_ZIPCDROM" ]          || POLL_ZIPCDROM=6     # seconds to poll for CD/Floppy insertitons if ZCDPOLL=true
+[ "$POLL_ZIPCDROM" -ge 4 ]    || POLL_ZIPCDROM=4
+[ "$POLL_ZIPCDROM" -le 9 ]    || POLL_ZIPCDROM=9
 #POLL_REMOVABLE=3   # seconds to poll for CD/Floppy insertitons ZCDPOLL=true
-TOGGLE=1
+
+#TOGGLE=1
 SAVECNT=0
 MOUSECNT=0  #w007
 MINUTECNT=0 #w007
@@ -639,24 +647,31 @@ _probe_optical(){
  CDSTATUS2="0"
 
  opticalPATTERN='^/dev/'"${DRV_NAME}"' '
- [ "`grep "$opticalPATTERN" /proc/mounts`" ] && return #only check cd if unmounted.
+ [ "`grep "$opticalPATTERN" /proc/mounts`" ] && return 0 #only check cd if unmounted.
  cddetect_quick -d/dev/${DRV_NAME} >>$OUT 2>>$ERR #very fast.
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
  echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
- CDSTATUS1=`cat /tmp/pup_event_frontend_identify1_${DRV_NAME}`
- [ "$CDSTATUS1" = "$CDSTATUS2" ] && return
+ read CDSTATUS1 </tmp/pup_event_frontend_identify1_${DRV_NAME}
+ [ "$CDSTATUS1" = "$CDSTATUS2" ] && return 0
 
  cp $VERB -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
  if [ "$CDSTATUS2" = "0" ]; then
-  #VENDOR=`cat /sys/block/${DRV_NAME}/device/vendor | tr -s ' '`
-  #MODEL=`cat /sys/block/${DRV_NAME}/device/model | tr -s ' '`
-  #DRV_DESCRIPTION="$VENDOR $MODEL"
-  #opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
-  #DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
-  #test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
-  #_create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+
+  __create_cd_icon_ondemand__(){
+  read VENDOR </sys/block/${DRV_NAME}/device/vendor
+  VENDOR=`echo $VENDOR`
+  read MODEL  </sys/block/${DRV_NAME}/device/model
+  MODEL=`echo $MODEL`
+  DRV_DESCRIPTION="$VENDOR $MODEL"
+  opticalPATTERN='^/dev/'"${DRV_NAME}"'|'
+  DRV_DESCRIPTION=`echo "$_PROBEDISK_" | grep "$opticalPATTERN" | cut -f 3 -d '|'`
+  test "$DRV_DESCRIPTION" || DRV_DESCRIPTION='unknown'
+  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  }
+  test "$WANT_STATIC_CDICON" = false && __create_cd_icon_ondemand__
+
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun optical & #handler script.
 
  fi
@@ -673,31 +688,38 @@ _probe_floppy(){
  DRV_CATEGORY="floppy"
 
  floppyPATTERN="^/dev/$DRV_NAME "
- [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return #mounted.
+ [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return 0 #mounted.
 
  if [ "$DRVMAIN" = "hd" ];then
   cat /proc/ide/${DRV_NAME}/identify > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  else
   #this method not as good, as only detects disc if it has a partition...
-  floppyPATTERN=" ${DRV_NAME}"
+  floppyPATTERN=" ${DRV_NAME}$"
   grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${DRV_NAME}
  fi
 
  [ -f /tmp/pup_event_frontend_identify1_${DRV_NAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
- [ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" ] && return
+ #[ "`diff -s /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} | grep ' are identical'`" ] && return
+ diff -q /tmp/pup_event_frontend_identify1_${DRV_NAME} /tmp/pup_event_frontend_identify2_${DRV_NAME} >$OUT && return 0
+
  cp $VERB -f /tmp/pup_event_frontend_identify2_${DRV_NAME} /tmp/pup_event_frontend_identify1_${DRV_NAME}
 
  FLOPPYSTATUS=1
  [ "`disktype /dev/${DRV_NAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
 
  if [ "$FLOPPYSTATUS" = "0" ];then
-  #if [ "$DRVMAIN" = "hd" ]; then
-  # [ -f /proc/ide/${DRV_NAME}/model ] && read DRV_DESCRIPTION </proc/ide/${DRV_NAME}/model
-  #else
-  # [ -f /sys/block/${DRV_NAME}/device/model ] && read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model
-  #fi
-  #test "${DRV_DESCRIPTION// /}" || DRV_DESCRIPTION='unknown'
-  #_create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+
+  __create_floppy_icon_ondemand__(){
+  if [ "$DRVMAIN" = "hd" ]; then
+   [ -f /proc/ide/${DRV_NAME}/model ] && read DRV_DESCRIPTION </proc/ide/${DRV_NAME}/model
+  else
+   [ -f /sys/block/${DRV_NAME}/device/model ] && read DRV_DESCRIPTION </sys/block/${DRV_NAME}/device/model
+  fi
+  test "${DRV_DESCRIPTION// /}" || DRV_DESCRIPTION='unknown'
+  _create_icon "$DRV_NAME" "$DRV_CATEGORY" "$DRV_DESCRIPTION" #requires DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
+  }
+  test "$WANT_STATIC_FDICON" = false && __create_floppy_icon_ondemand__
+
   [ "$HOTPLUGNOISY" = "true" ] && "$PUP_EVENT_DIR"/drive_${DRV_NAME}/AppRun floppy & #handler script.
  fi
 
@@ -1317,7 +1339,7 @@ _create_icon(){
     read SIZE </sys/block/${oneDRVNAME}/size
     SIZE=$((SIZE/2)) #get KB.
     _format_size $SIZE #formats SIZE for display.
-    dINFO="Description: ${DISK_DESCRIPTION} Size: ${SIZE}"
+    dINFO="${DISK_DESCRIPTION} Size: ${SIZE}"
    elif [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
      dINFO="Puppy drive manager"
    else
@@ -1745,7 +1767,7 @@ _reset_program_logging_level
 DEBUG=1
 _pup_event_daemon(){
 
-_store_program_logging_level
+#_store_program_logging_level
 ###################################################################
 #now go into a two-second two-second loop...
 while :
@@ -1855,21 +1877,31 @@ _EOI
  unset BLOCKDIFF BLOCKSPROBE REMOVEBLOCK BLOCKS2 BLOCKSADD BLOCKSREM _PROBEDISK_
 
  #monitor free memory, periodic save of tmpfs top layer...
+ FREE_COUNT=$((FREE_COUNT + POLL_PLUG_DEVICE))
+ if test $FREE_COUNT -gt $POLL_FREE_MEMORY; then
+ FREE_COUNT=0
  case $PUPMODE in
   3|7|13)  #flash
      _free_flash;;
   5|16|24|17|25) #unipup. 2015-10-14 testing PUPMODE 5 set here
      _free_initrd;;
-  *) #2|5 6|12 #normal harddrive
+  *) #2|5 6|12 #normal harddrive and RAM
      _free;;
  esac
+ fi
 
 _check_restarts
 _check_battery
 
 __poll_cd_fd__(){ # since driveicons stay on desktop, only usefull for AUTOHANDLER
                   # on desktops that do not support rox pinboard (e17)
-if [ "$ZCDPOLL" != "false" ];then
+
+[ "$ZCDPOLL" = true ] || return 0
+POLL_COUNT=$((POLL_COUNT + POLL_PLUG_DEVICE))
+[ $POLL_COUNT -gt $POLL_ZIPCDROM ] || return 0
+POLL_COUNT=0
+
+#if [ "$ZCDPOLL" != "false" ];then
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
  for oneOPTICAL in $DISK_OPTICAL
  do
@@ -1882,18 +1914,19 @@ if [ "$ZCDPOLL" != "false" ];then
   [ "$oneFLOPPY" ] || continue #precaution
   _probe_floppy $oneFLOPPY
  done
-fi
+#fi
 }
 
 #_autounmount
 
-[ "$1" ] && { echo "$0:$$: daemon started ."; shift; }
+[ "$1" = start ] && { echo "$0:$$: daemon started ."; shift; }
 
  #some apps should not be disturbed by this background stuff...
  # pidof is much much more heavy on CPU in xosview, than ps, echo | grep ..
- _check_disturb_ps_grep && continue
+ #_check_disturb_ps_grep && continue
 
  case $PUPMODE in 3|7|13)
+   _check_disturb_ps_grep && continue
    [ "$RAMSAVEINTERVAL" -ge 1 -o -f /tmp/snapmergepuppyrequest ] && _savepuppy
    ;;
  esac
@@ -1903,10 +1936,12 @@ fi
  _check_disturb_video && continue
  _powertimeout
 
-done #2*2 second loop.
-_reset_program_logging_level
+done #2 second loop.
+#_reset_program_logging_level
 }
 _pup_event_daemon start
+#_pup_event_daemon & pupPID=$!
+#wait $pupPID
 RV="$?"
 echo "$0 stopped with exitcode '$RV'"
 exit "$RV"
