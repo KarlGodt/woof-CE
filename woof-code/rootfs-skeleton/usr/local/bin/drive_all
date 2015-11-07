@@ -44,11 +44,12 @@
 exec 2>>/tmp/drive_all.log
 
   _TITLE_=puppy_drive_all
-_VERSION_=2.0-Fox3-Dell755
+_VERSION_=2.1-Fox3-Dell755
 _COMMENT_="Default AppRun for the Partition Icons on Desktop."
 
 MY_SELF="$0"
 MY_PID=$$
+PARENT_PID=$PPID
 
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
@@ -123,8 +124,11 @@ _unmount() {
  while [ 1 ];do
   # REM: give a splash telling whats on, kill previous splash
   [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
+  # REM: since we loop to unmount again if fuser or loop sub mounts
+  #      umount -l does alter /proc/mounts anyway
+  grep $Q -w "$MNTPT" /proc/mounts || { _info "'$MNTPT' not listed (anymore) in /proc/mounts ."; continue; }
   yaf-splash -bg purple3 -text "Unmounting '$MNTPT' .." & yPID_=$!
-  /bin/umount "$MNTPT" ; umVAL=$?
+  /bin/umount $VERB "$MNTPT" ; umVAL=$?
   #fix zombie process prevents partition unmount, invisible to fuser...
   if [ $umVAL -ne 0 ];then
    _killzombies
@@ -134,7 +138,7 @@ _unmount() {
            xmPIDS=`ps -o pid,args | grep xmessage | grep umount | grep -v grep | awk '{print $1}'`
            for aPID in $xmPIDS; do /bin/ps -p $aPID >>$OUT 2>>$ERR && kill $aPID; done
        }
-       /bin/umount "$MNTPT"; umVAL=$?; }
+       /bin/umount $VERB "$MNTPT"; umVAL=$?; }
   fi
 
   #rare ocassion, partition got unmounted before umount runs above...
@@ -144,7 +148,7 @@ _unmount() {
 
   if [ $umVAL -ne 0 ];then
    # use fuser binary that supports -v option, bb fuser does not
-   EXTRAMSG0=`_command fuser -v -m "$MNTPT" 2>&1`
+   EXTRAMSG0=`_command fuser -v -m "$MNTPT" 2>&1 | grep -vwE 'fuser|_command|grep'`
 
    # detect loop mounts using the default filemnt mount directory syntax
    umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
@@ -174,19 +178,56 @@ If so, please remedy.
    else
    # Reset irritating fuser message "kernel", which likely means 'lo' driver
    [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
-    xmessage -bg "#ff00ff" -title "KILL, KILL..." -center \
+   [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
+    xmessage -bg "#ff00ff" -title "KILL, UNMOUNT..." -center \
  -buttons KILL:10,EXIT:20 -default "EXIT" "FAILURE! One or more processes (programs) are currently
 using /dev/${oneDRVNAME}. Here they are:
 PIDS , apps or file mounts :
 $EXTRAMSG0
 
 If you press the \"KILL\" button, Puppy will attempt to
-kill the offending programs for you. Only do this as a
-last resort. Firstly you should try to close the programs
-manually, so do not press \"KILL\".
-PLEASE PRESS THE \"EXIT\" BUTTON!"
+kill the offending programs and or unmount any sub mounts
+for you. Only do this as a last resort.
+Firstly you should try to close the programs manually,
+since fuser may also try to kill kernel processes or even init.
+For savetiness reason: PLEASE PRESS THE \"EXIT\" BUTTON!"
     if [ $? -eq 10 ];then
-     fuser -k -m "$MNTPT"
+     #fuser -k -m "$MNTPT"
+     # REM: Use code from rc.shutdown
+     BADPIDS=`_command fuser -v -m "$MNTPT" | grep -v -E 'kernel|COMMAND|^$|grep|fuser|_command' |awk '{print $3}' | grep -vwE "1|${MY_PID}|${PARENT_PID}"`
+     for oneBAD in $BADPIDS
+     do
+     _notice "Killing process $oneBAD..."
+     #kill    $oneBAD 2>>$ERR
+     sleep 1
+     kill -9 $oneBAD 2>>$ERR
+     done
+
+     while read device inode file
+     do
+     _debug "'$device' '$inode' '$file'"
+     [ "$device" ] || continue
+     device=${device%:*}
+     _debug "'$device' '$inode' '$file'"
+     test -b "$device" || continue
+     #grep -w "^$device" /proc/mounts
+     #grep -w "^$device" /proc/mounts | tac
+     #grep -w "^$device" /proc/mounts | tac | cut -f2 -d ' '
+     MOUNTPOINTS=`grep -w "^$device" /proc/mounts | tac | cut -f2 -d ' '`
+     if test "$MOUNTPOINTS"; then
+     for aMNT in $MOUNTPOINTS
+     do
+      aMNT=`echo -e "$aMNT"`
+      _debug "aMNT='$aMNT'"
+      /bin/umount $VERB -l -d "$aMNT"
+      sleep 1
+     done
+     else
+       /bin/umount $VERB -l -d "$device" || losetup -d "$device"
+     fi
+     done <<EoI
+`echo "$FILE_MOUNTS"`
+EoI
      continue
     fi
    fi
@@ -317,12 +358,13 @@ is in use by Puppy. You cannot unmount it."
 
 unmountall)
 
- while read -r oneDRVNAME MNTPT rest
+ while read -r oneDRVNAME MNTPT rest  #Note now oneDRVNAME gets /dev/ preset
  do
  [ "$MNTPT" ] || continue
  MNTPT=`echo -e "$MNTPT"`
  case $MNTPT in */initrd/*|/) continue;;esac
   #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
+  oneDRVNAME=${oneDRVNAME##*/}
   _unmount
   #kill $yPID >>$OUT 2>>$ERR
   sleep 1
