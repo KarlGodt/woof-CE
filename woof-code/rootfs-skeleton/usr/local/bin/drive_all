@@ -95,7 +95,190 @@ _killzombies(){
    done
 }
 
-_unmount() {
+_close_filer_window(){
+rox -D "$MNTPT"
+}
+
+_sync_usb(){
+ # REM: syncs to disks  ...
+ awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ _pidof sync || sync
+ awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+
+ # REM: sleep handling only for USB drives
+ #        to better ensure reads/writes to usb are completed ..
+ readlink /sys/block/$oneDRVNAME | grep $Q 'usb' && {
+ sleep 2 ##2012-06-05
+
+ # REM: linux/Documentation/ABI/testing/procfs-diskstats
+ #      12 - I/Os currently in progress
+ #       3 - device name
+ IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ [ "$IOs" ] || IOs=0
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
+ while [ "$IOs" != '0' ];
+ do sleep 2;
+ IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`;
+ done
+ [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
+ }
+}
+
+_check_if_mounted(){
+grep $Q -w "$MNTPT" /proc/mounts || { _info "'$MNTPT' not listed (anymore) in /proc/mounts ."; continue; }
+}
+
+_do_unmount(){
+_check_if_mounted || return $?
+_sync_usb
+/bin/umount $VERB "$MNTPT"
+}
+
+_get_fusers(){
+  # use fuser binary that supports -v option, bb fuser does not
+   EXTRAMSG0=`_command fuser -v -m "$MNTPT" 2>&1 | grep -vwE 'fuser|_command|grep'`
+}
+
+_get_filemnt_mounts(){
+   # detect loop mounts using the default filemnt mount directory syntax
+   umPATTERN_2=`echo "$MNTPT" |sed 's|/|\\\\+|g'`
+   NESTEDS_=`busybox mount | grep "$umPATTERN_2"`
+
+}
+
+_get_loop_mounts(){
+   # another attempt to detect loop mounts ##+++2014-11-10
+   # losetup: Ungültige Option -- a
+   # BusyBox v1.21.1
+   FILE_MOUNTS_=`losetup -a 2>>$ERR || losetup`
+   FILE_MOUNTS=`echo "$FILE_MOUNTS_" | grep -w "$MNTPT"`
+}
+
+_get_sub_mounts(){
+
+_get_filemnt_mounts
+   if [ "$NESTEDS_" ]; then
+   EXTRAMSG0="$EXTRAMSG0
+$NESTEDS_ "
+   fi
+
+_get_loop_mounts
+   if [ "$FILE_MOUNTS" ]; then
+   EXTRAMSG0="$EXTRAMSG0
+$FILE_MOUNTS"
+   fi
+}
+
+_say_error_removable(){
+    xmessage -bg "#ff8080" -title "Puppy drive manager: ERROR" -center "FAILURE! In the case of removable media, the most
+common reason is the media is not currently inserted.
+If so, please remedy.
+"
+}
+
+_say_error_kill(){
+   # Reset irritating fuser message "kernel", which likely means 'lo' driver
+   [ "$EXTRAMSG0" = 'kernel' ] && EXTRAMSG0=''
+   [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
+    xmessage -bg "#ff00ff" -title "KILL, UNMOUNT..." -center \
+ -buttons KILL:10,EXIT:20 -default "EXIT" "FAILURE! One or more processes (programs) are currently
+using /dev/${oneDRVNAME}. Here they are:
+PIDS , apps or file mounts :
+$EXTRAMSG0
+
+If you press the \"KILL\" button, Puppy will attempt to
+kill the offending programs and or unmount any sub mounts
+for you. Only do this as a last resort.
+Firstly you should try to close the programs manually,
+since fuser may also try to kill kernel processes or even init.
+For savetiness reason: PLEASE PRESS THE \"EXIT\" BUTTON!"
+    if [ $? -eq 10 ];then
+     #fuser -k -m "$MNTPT"
+     # REM: Use code from rc.shutdown
+     BADPIDS=`_command fuser -v -m "$MNTPT" | grep -v -E 'kernel|COMMAND|^$|grep|fuser|_command' |awk '{print $3}' | grep -vwE "1|${MY_PID}|${PARENT_PID}"`
+     for oneBAD in $BADPIDS
+     do
+     _notice "Killing process $oneBAD..."
+     #kill    $oneBAD 2>>$ERR
+     sleep 1
+     kill -9 $oneBAD 2>>$ERR
+     done
+
+     while read device inode file
+     do
+     _debug "'$device' '$inode' '$file'"
+     [ "$device" ] || continue
+     device=${device%:*}
+     _debug "'$device' '$inode' '$file'"
+     test -b "$device" || continue
+     #grep -w "^$device" /proc/mounts
+     #grep -w "^$device" /proc/mounts | tac
+     #grep -w "^$device" /proc/mounts | tac | cut -f2 -d ' '
+     MOUNTPOINTS=`grep -w "^$device" /proc/mounts | tac | cut -f2 -d ' '`
+     if test "$MOUNTPOINTS"; then
+     for aMNT in $MOUNTPOINTS
+     do
+      aMNT=`echo -e "$aMNT"`
+      _debug "aMNT='$aMNT'"
+      /bin/umount $VERB -l -d "$aMNT"
+      sleep 1
+     done
+     else #umount -l succeeded. no mountpoint entry in /proc/mounts .
+     # IF Program is still running: both below will fail
+     # IF Program is closed, unmount will fail but losetup -d should free the loop device
+     #                                             so the entry does not show anymore in losetup [-a] output .
+       /bin/umount $VERB -l -d "$device" || losetup -d "$device"
+     fi
+     done <<EoI
+`echo "$FILE_MOUNTS"`
+EoI
+fi
+
+}
+
+_say_error_message(){
+_get_fusers
+_get_sub_mounts
+
+   if [ "$EXTRAMSG0" = "" ];then
+   _say_error_removable
+   else
+   _say_error_kill
+   fi
+
+}
+
+_unmount_cleanup(){
+  case $oneDRVNAME in
+    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject /dev/$oneDRVNAME;;
+  esac
+  [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
+}
+
+_unmount(){
+
+while :
+do
+
+_close_filer_window
+_do_unmount
+case $? in
+0) return 0;;
+1) _killzombies;;
+*) _warn "__unmount:FIXME: Got unhanled returnvalue";;
+esac
+
+_do_unmount
+case $? in
+0) return 0;;
+1) _say_error_message;; # && { _unmount_cleanup; return 0; } ;;
+*) _warn "__unmount:FIXME: Got unhanled returnvalue";;
+esac
+
+done
+}
+
+__unmount() {
   #REM: Preparing for unmounting
  #pidof sync || sync  ##2012-06-05
  rox -D "$MNTPT"
