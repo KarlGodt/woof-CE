@@ -30,8 +30,8 @@ QUIET=--quiet
 # To prevent ROX-Filer presenting fake error messages,
 # unset lesser important messages - set to ANY if you want to
 NOTICE=
-INFO=1
-DEBUG=1
+INFO=
+DEBUG=
 DEBUGX=
 DEBUGT= #time debugging
 test "$DEBUG" && { unset Q QUIET; }
@@ -829,7 +829,7 @@ fi
         _debug "Closing ROX-Filer if necessary..."
         _pidof $Q ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
-        fuser -m "$mountPOINT" && {
+        fuser -m "$mountPOINT" >$OUT 2>$ERR && {
            if test "$opL" -o "$opF"; then
            _warn "Mountpoint is in use by above pids:"
            else
@@ -841,7 +841,11 @@ fi
 `ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -vE 'grep|xmessage'`
                 "
                 done
-                echo "$fsUSERS"
+                _debug "
+fsUSERS"
+                fsUSERS=`echo "$fsUSERS" | sort -u` ###+++2015-11-08
+                _notice "
+$fsUSERS"
            if test "$opL" -o "$opF"; then
            :
            else
