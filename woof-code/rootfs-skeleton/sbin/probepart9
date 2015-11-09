@@ -9,7 +9,7 @@ MY_SELF="/sbin/probepart9"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -199,7 +199,43 @@ _do_cddetect(){
     cddetect_quick -d/dev/"$1" &>$OUT && FSTYPE=`_do_disktype "$1"` || FSTYPE='not inserted'
 }
 
+_get_fdisk(){  #fdisk launches floppy engine, needed for ^fstype^ of ext'd partition
 FDISK=`LC_ALL=C fdisk -l |grep '^/dev/' |tr -s '[[:blank:]]' |sed 's!\(/dev/[[:alnum:]]*\) \([[:digit:]]*\) \(.*\)!\1 N \2 \3!'`
+}
+
+_get_sfdisk(){  # launches floppy engine
+FDISK=`LC_ALL=C sfdisk -l |grep '^/dev/' |tr -s '[[:blank:]]' |sed 's!\(/dev/[[:alnum:]]*\) \([[:digit:]]*\) \(.*\)!\1 N \2 \3!'`
+}
+
+_get_cfdisk(){
+ test "$DEVICE" || return 1
+#bash-3.00# cfdisk -P s /dev/sdb
+#Partition Table for /dev/sdb
+#
+#               First       Last
+# # Type       Sector      Sector   Offset    Length   Filesystem Type (ID) Flag
+#-- ------- ----------- ----------- ------ ----------- -------------------- ----
+# 1 Primary           0   101097044     63   101097045 HPFS/NTFS (07)       Boot
+# 2 Primary   101097045   202210154      0   101113110 Linux (83)           None
+# 3 Primary   202210155   404372114      0   202161960 Linux (83)           None
+# 4 Primary   404372115  1953520064      0  1549147950 Extended (05)        None
+# 5 Logical   404372115   470479589     63    66107475 Linux (83)           None
+
+#bash-3.00# cfdisk -P r /dev/sda
+#FATAL ERROR: Bad logical partition 6: enlarged logical partitions overlap
+ cfdisk -P s /dev/$DEVICE
+}
+
+_get_parted(){ # launches floppy engine
+#bash-3.00# parted -l | grep '^[ 0-9]\+'
+# 1      32.3kB  50.0GB  50.0GB  primary   ext3
+# 2      50.0GB  99.9GB  50.0GB  primary   ext3
+# 3      99.9GB  125GB   25.0GB  primary   ext3         boot
+# 4      125GB   500GB   375GB   extended
+# 5      125GB   129GB   4006MB  logical   linux-swap
+
+ parted -l
+}
 
 while read maj min drive rest; do
 [ "$maj" ]   || continue
@@ -211,7 +247,9 @@ while read maj min drive rest; do
 _debugx "Step 1"
 SIZE='';FSTYPE='';
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
-[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+[ "$SIZE" = $((2*512*8)) ] && { _get_fdisk
+SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));
+                                      FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 _debugx "Step 2"
