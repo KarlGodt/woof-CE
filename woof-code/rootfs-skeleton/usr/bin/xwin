@@ -116,6 +116,10 @@
 #
 ########################################################################
 
+if test "`echo $PATH | grep 'X11'`" = ""; then
+PATH="$PATH:/usr/X11R7/bin"
+fi
+
 ### CHDIR ###
 #cd ~/   #v3.98 Ensure current directory is root, in case changed at command prompt, so rox icon and menu item open only at home directory. rerwin
 
@@ -153,18 +157,26 @@ mkdir $VERB -p "$logDIR"
 
 #### BEGIN Ex /etc/profile part #######
 #v2.10 MU: rox crashes with DRI modules. solution:
-export XLIB_SKIP_ARGB_VISUALS=1
+# libX11 env variables
+export XLIB_SKIP_ARGB_VISUALS=1 #man XOpenDisplay , libX11/src/OpenDis.c
+#XLIBBUFFERSIZE # #define XLIBDEFAULTBUFSIZE 16384 /* 16k */
+
 #v2.02 rarsa provided this...
 #freedesktop base directory spec: standards.freedesktop.org/basedir-spec/latest/
+ # xserver/hw/xfree86/common/xf86Helper.c
+ # xserver/include/xorg-config.h.in:#undef DEFAULT_XDG_DATA_HOME
+ # xserver/hw/xfree86/man/xorg.conf.man
+ # xserver/hw/xfree86/man/Xorg.man
 export XDG_DATA_HOME="$HOME/.local/share"
 export XDG_CONFIG_HOME="$HOME/.config"
 export XDG_DATA_DIRS=/usr/share:/usr/local/share
 export XDG_CONFIG_DIRS=/etc/xdg #v2.14 changed from /usr/etc
 export XDG_CACHE_HOME="$HOME/.cache"
+
 #w468 'netpbm' utilities need to be told where rgb.txt is...
 [ -f /usr/share/X11/rgb.txt ] && export RGBDEF=/usr/share/X11/rgb.txt
 if [ ! -f /etc/system.jwmrc ]; then cp $VERB /root/.jwmrc /etc/system.jwmrc 2>>$ERR; fi
- ####  END  Ex /etc/profile part #######
+####  END  Ex /etc/profile part #######
 
 XinitXorgVars=''
 XinitXorgVars="$HOME/.xinitrc"
@@ -275,31 +287,15 @@ if [ -f /var/lock/X.status ]; then
 haveNOX=`grep -i 'nox' /var/lock/X.status`
 rm $VERB -f /var/lock/X.status
 
-if [ "$haveNOX" ]; then
-_notice "'$haveNOX' in /var/lock/X.status. Exit."
-exit 0
-else
-##+++2012-05-02
+ if [ "$haveNOX" ]; then
+ _notice "'$haveNOX' in /var/lock/X.status. Exit."
+ exit 0
+ else
+ ##+++2012-05-02
 
-_wait_for_boot_scripts(){
-##+++2012-03-03
- if [ "`pidof pup_event_backend_modprobe photplug`" ]; then ##+++2012-04-11
-  echo -n "$0:Waiting for kernel-drivers completely loaded..."
-    while [ "`pidof pup_event_backend_modprobe photplug`" ]; do
-                                        sleep 2s; done
-  echo -e "\\033[72G\\033[1;32m""done""\\033[0;39m"
- fi
- if [ "`pidof rc.services`" ]; then
-  echo -n "$0:Waiting for background service scripts to finish..."
-    while [ "`pidof rc.services`" ]; do
-                         sleep 2s; done
-  echo -e "\\033[72G\\033[1;32m""done""\\033[0;39m"
- fi  ##+++2012-04-11
-##+++2012-03-03
-}
  :
 
-fi #nox
+ fi #nox
 fi #/var/lock/X.status
 ##+++2012-05-02
 ### NOX ###
@@ -318,11 +314,6 @@ fi
 #echo -e "`cat /tmp/vcs1xwin1.txt |sed -e 's,\(.\{80\}\),\1\\n,g'`" >>/tmp/vcs1xwin1.txt
 sed -i".orig" "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1xwin1.txt
 ##+++2012-04-23
-
-
-if test "`echo $PATH | grep 'X11'`" = ""; then
-PATH="$PATH:/usr/X11R7/bin"
-fi
 
 _debug 'runlevel : '`runlevel`;
 
@@ -361,56 +352,8 @@ if [ -n "`pidof X`" ]; then
 exit 14
 fi
 
-__disable_xloaded__(){
-#### Begin XLOADED part ####
-_edebug "\\033[0;32m""Check /var/lock/XLOADED ...""\\033[0;39m"  ##+2011-11-10 was -e" ; added 0;39 back
-#v1.0.7 J_Reys idea (see note further down)...
-#elif [ -f /etc/.XLOADED ];then # 9.0
-if [ -f /var/lock/XLOADED -a -r /var/lock/XLOADED -a -w /var/lock/XLOADED ]; then # 9.0
 
- if [ "`cat /var/lock/XLOADED`" = "true" ]; then # 9.1.0
-  oldLOGLEVEL=`sysctl -A 2>>$ERR|grep 'kernel\.printk '|awk '{print $3}'`
-  sysctl -w kernel.printk=3
-  #last time X ran, PC hung and had to be rebooted...
-  ##openvt -c 10 -s -w
-  dialog --timeout 30 --title "Warning" --yes-label "Ignore" --no-label "Commandline" --yesno "X seems to have exited uncleanly the last time you ran Puppy.  This is usually because of an improper shutdown (such as a power failure), but may be because something is broken.
-
-If it was just something like a power failure, wait for 30 seconds or choose <Ignore> for normal startup of X...
-
-If there is a problem, such as X not working, choose <Commandline> to drop out to a commandline. There will then be further advice how to fix X...
-
-If undecided, wait 30 seconds for normal startup of X..." 0 0
-  if [ "$?" != 1 ]; then # 9.1.1.0
-    rm /var/lock/XLOADED
-    ##chvt 1
-  else # 9.1.1.0
-    echo -en "\\033[1;31m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-    echo '
-It seems that last time X ran, the computer hung and you had to reboot.
-Have now dropped down to the commandline. If you want to run the Xorg
-Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
-(hopefully correctly this time!) type "xwin" to start X.'
-    echo -e "\\033[0;39m"
-    rm $VERB -f /var/lock/XLOADED #otherwise cannot start X.
-    ##sleep 9s
-    ##chvt 1
-    exit 0 # exit One
-  fi # 9.1.1.0
-  #oldLOGLEVEL=`sysctl -A 2>$ERR|grep 'kernel\.printk '|awk '{print $3}'`
-   sysctl -w kernel.printk=$oldLOGLEVEL
- else # 9.1.0
-  _info "/var/lock/XLOADED is false"
- fi # 9.1.0
-fi
-##fi # 9.0
-_edebug "\\033[0;34m""End XLOADED part""\\033[0;39m"  ##+2011-11-10 added 0;39 back
-#### End XLOADED part ####
-### CHECK IF OBSTACLES FOR X ###
-}
-#else
 echo -e "\\033[1;33m""This script will run X windows for you...""\\033[0;39m"
-#fi
-
 
 
 #0.9.9 enables to start a specific w.m. from commandline...
@@ -433,8 +376,8 @@ fi
 X_SERVER=`readlink -qs /usr/bin/X`
 _debug "X_SERVER='$X_SERVER'";
 
-ddcprobe_func(){
-_edebug "\\033[0;31m""ddcprobe_func";
+_do_ddcprobe(){
+_edebug "\\033[0;31m""_do_ddcprobe";
 
 # +++2014-11-11 strace seems to help segfauting ddcprobe
  if [ "`which strace`" ]; then
@@ -472,7 +415,7 @@ _edebug "\\033[0;31m""ddcprobe_func";
    ;;
   esac
 
-get_edid_func(){
+_get_edid(){
    which get-edid >>$OUT || return 0
 which edid-decode >>$OUT || return 0
 if [ ! -s "$tmpDIR"/ddcprobe.txt ]; then
@@ -481,7 +424,7 @@ get-edid 1>"$tmpDIR"/get-edid.out 2>"$tmpDIR"/get-edid-2.txt
 edid-decode "$tmpDIR"/get-edid.out >"$tmpDIR"/ddcprobe.txt
 fi
 }
-get_edid_func
+_get_edid
 
 if [ -n "`grep -i 'edidfail' "$tmpDIR"/ddcprobe.txt`" ]; then
 echo -e "\\033[0;31m""ddcprobe still failed to determine the video.."
@@ -489,7 +432,7 @@ echo -e "\\033[0;39m""Exiting $0 now.""\\033[0;39m"
 exit 20
 fi
 }
-ddcprobe_func
+_do_ddcprobe
 
 #### Begin XF86_SVGA part One ####
 _edebug "\\033[0;31m""Begin XF86_SVGA part One""\\033[0;39m"
@@ -518,7 +461,7 @@ _debug "X_SERVER=Xvesa"
    _notice "Found to override graphics chips from /etc/xorgoverrides in $tmpDIR/ddcprobe.txt"
    rm $VERB -f /var/lock/XLOADED 2>>$ERR #not necessary, precaution.
 
-xorgwizard_func(){
+__do_xorgwizard(){
    #1st dialog offers to use Xvesa...
    _notice "Starting now xorgwizard" && sleep 9s
    /usr/sbin/xorgwizard
@@ -916,7 +859,7 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '      
  if [ ! -f /etc/X11/xorg.conf ]; then #! -f xorg.conf
   _notice "File /etc/X11/xorg.conf is not a regular file."
 
-xorgwizard_func(){
+__do_xorgwizard(){
   _info "Running xorgwizard ..." && sleep 9s
   rm $VERB -f /var/lock/XLOADED 2>>$ERR #not necessary, precaution.
   #1st dialog offers to use Xvesa...
@@ -1176,9 +1119,9 @@ esac
 _edebug "\\033[0;34m""End of X failed""\\033[0;39m"
 #### End of X failed ####
 
-exit_func(){
-EXITCNT=$(( $EXITCNT + 1 ))
-_edebug "\\033[0;32m""exit_func Nr. '$EXITCNT'"
+_do_exit(){
+EXITCNT=$(( EXITCNT + 1 ))
+_edebug "\\033[0;32m""_do_exit called '$EXITCNT' times."
 echo -n "$0:"
 echo "End."
 echo -e "\\033[0;39m"
@@ -1186,7 +1129,7 @@ echo "false" > /var/lock/XLOADED #KRG
 rm $VERB -f /var/lock/X.status
 #exit
 }
-exit_func
+_do_exit
 
 [ "$RTVAL" ] || RTVAL=0
 _debug "tty='`tty`'"
