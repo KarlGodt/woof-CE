@@ -29,10 +29,27 @@ read label col alrm_date <<EoI
 EoI
 
 
-_debug rtc_time=$rtc_time
+_debug  rtc_time=$rtc_time
 _debug alrm_time=$alrm_time
-_debug rtc_date=$rtc_date
-_debug alrm_date$alrm_date
+_debug  rtc_date=$rtc_date
+_debug alrm_date=$alrm_date
+
+#cat /proc/driver/rtc
+#rtc_time	: 16:36:59
+#rtc_date	: 2015-11-09
+#alrm_time	: 10:44:36
+#alrm_date	: ****-**-**
+
+case $rtc_time  in *[0-9]*):;; *) unset  rtc_time;;esac
+case $rtc_date  in *[0-9]*):;; *) unset  rtc_date;;esac
+case $alrm_time in *[0-9]*):;; *) unset alrm_time;;esac
+case $alrm_date in *[0-9]*):;; *) unset alrm_date;;esac
+
+_debug  rtc_time=$rtc_time
+_debug alrm_time=$alrm_time
+_debug  rtc_date=$rtc_date
+_debug alrm_date=$alrm_date
+
 
 if test $alrm_date -a $alrm_time
 then
