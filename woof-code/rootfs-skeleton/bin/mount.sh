@@ -829,11 +829,12 @@ fi
         _debug "Closing ROX-Filer if necessary..."
         _pidof $Q ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
-        fuser -m "$mountPOINT" >$OUT 2>$ERR && {
+        #fuser -m "$mountPOINT" >$OUT 2>$ERR && {
+         fuser $VERB -m "$mountPOINT" 1>&2 && {
            if test "$opL" -o "$opF"; then
-           _warn "Mountpoint is in use by above pids:"
+           _warn "^Mountpoint is in use by above pids^"
            else
-           _err "Mountpoint is in use by above pids:"
+           _err "^Mountpoint is in use by above pids^"
            fi
                 for aPID in `fuser -m "$mountPOINT"`
                 do
@@ -841,10 +842,10 @@ fi
 `ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -vE 'grep|xmessage'`
                 "
                 done
-                _debug "
+                _debug "fsUSERS=
 fsUSERS"
                 fsUSERS=`echo "$fsUSERS" | sort -u` ###+++2015-11-08
-                _notice "
+                _notice "fsUSERS=
 $fsUSERS"
            if test "$opL" -o "$opF"; then
            :
