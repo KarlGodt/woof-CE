@@ -86,7 +86,7 @@ CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
 
 #w002 extracted as a func...
-_killzombies(){
+__killzombies(){
    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed 's#^[[:blank:]]*##'|sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`
    for oneZOMBIE in $ZOMBIES
    do
@@ -95,30 +95,48 @@ _killzombies(){
    done
 }
 
+_killzombies(){
+
+   sleep 1     #newer fuser
+while read pid status; do
+     [ "$pid" -a "$status" ] || continue
+      case $status in
+      Z*) :;;
+      *) continue;;
+      esac
+      case $pid in
+      1|$$|$PPID) continue;;
+      esac
+     kill -9 $pid
+done << EoI
+$(ps -o pid,stat | grep -w Z)
+EoI
+}
+
 _close_filer_window(){
 rox -D "$MNTPT"
 }
 
 _sync_usb(){
  # REM: syncs to disks  ...
- awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ awk "{if (\$3 == \"$PARTITION\") print \$12}" /proc/diskstats ##DEBUG
  _pidof sync || sync
- awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ awk "{if (\$3 == \"$PARTITION\") print \$12}" /proc/diskstats ##DEBUG
 
  # REM: sleep handling only for USB drives
  #        to better ensure reads/writes to usb are completed ..
- readlink /sys/block/$oneDRVNAME | grep $Q 'usb' && {
+ readlink /sys/block/$PARTITION | grep $Q 'usb' && {
  sleep 2 ##2012-06-05
 
  # REM: linux/Documentation/ABI/testing/procfs-diskstats
  #      12 - I/Os currently in progress
  #       3 - device name
- IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`
  [ "$IOs" ] || IOs=0
- [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$PARTITION' to complete ..." & yioPID=$!
  while [ "$IOs" != '0' ];
  do sleep 2;
- IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`;
+ IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`;
  done
  [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
  }
@@ -182,7 +200,7 @@ _say_error_kill(){
    [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
     xmessage -bg "#ff00ff" -title "KILL, UNMOUNT..." -center \
  -buttons KILL:10,EXIT:20 -default "EXIT" "FAILURE! One or more processes (programs) are currently
-using /dev/${oneDRVNAME}. Here they are:
+using /dev/${PARTITION}. Here they are:
 PIDS , apps or file mounts :
 $EXTRAMSG0
 
@@ -251,8 +269,8 @@ _get_sub_mounts
 }
 
 _unmount_cleanup(){
-  case $oneDRVNAME in
-    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject $VERB /dev/$oneDRVNAME;;
+  case $PARTITION in
+    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject $VERB /dev/$PARTITION;;
   esac
   [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
 }
@@ -286,22 +304,22 @@ __unmount() {
  rox -D "$MNTPT"
 
  # REM: syncs to disks  ...
- awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ awk "{if (\$3 == \"$PARTITION\") print \$12}" /proc/diskstats ##DEBUG
  _pidof sync || sync
- awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats ##DEBUG
+ awk "{if (\$3 == \"$PARTITION\") print \$12}" /proc/diskstats ##DEBUG
 
  # REM: sleep handling only for USB drives
  #        to better ensure reads/writes to usb are completed ..
- readlink /sys/block/$oneDRVNAME | grep $Q 'usb' && {
+ readlink /sys/block/$PARTITION | grep $Q 'usb' && {
  sleep 2 ##2012-06-05
 
  # REM: linux/Documentation/ABI/testing/procfs-diskstats
  #      12 - I/Os currently in progress
  #       3 - device name
- IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`
  [ "$IOs" ] || IOs=0
- [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
- while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`; done
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$PARTITION' to complete ..." & yioPID=$!
+ while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`; done
  [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
  }
 
@@ -366,7 +384,7 @@ If so, please remedy.
    [ "$yPID_" ] && { /bin/ps -p $yPID_ >>$OUT 2>>$ERR && kill $yPID_; }
     xmessage -bg "#ff00ff" -title "KILL, UNMOUNT..." -center \
  -buttons KILL:10,EXIT:20 -default "EXIT" "FAILURE! One or more processes (programs) are currently
-using /dev/${oneDRVNAME}. Here they are:
+using /dev/${PARTITION}. Here they are:
 PIDS , apps or file mounts :
 $EXTRAMSG0
 
@@ -420,8 +438,8 @@ EoI
 
   else  # Unmount succeded
 
-   case $oneDRVNAME in
-    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject $VERB /dev/$oneDRVNAME;;
+   case $PARTITION in
+    sr[0-9]*|scd[0-9]*|hd[a-d]) _command eject $VERB /dev/$PARTITION;;
    esac
   fi
 
@@ -454,21 +472,20 @@ case "$MOUNT_OPS" in
 esac
 DEBUG=1
 #extract drive name from end of the script name...
-#note, when click on desktop icon, /root/.pup_event/drive_<oneDRVNAME> is executed,
-#however a script may run /root/.pup_event/drive_<oneDRVNAME>/AppRun ...
+#note, when click on desktop icon, /root/.pup_event/drive_<PARTITION> is executed,
+#however a script may run /root/.pup_event/drive_<PARTITION>/AppRun ...
 # REM: TODO : however a script may run ./AppRun ...
-#oneDRVNAME=`realpath "${0}" | sed -e 's%.*/AppRun%%' | rev | cut -f 1 -d '_' | rev`
-oneDRVNAME=`realpath "${0}"`
-_debugx "oneDRVNAME='$oneDRVNAME'"
-oneDRVNAME=${oneDRVNAME%/*}
-_debugx "oneDRVNAME='$oneDRVNAME'"
-oneDRVNAME=${oneDRVNAME##*/}
-_debugx "oneDRVNAME='$oneDRVNAME'"
-oneDRVNAME=${oneDRVNAME##*\_}
+#PARTITION=`realpath "${0}" | sed -e 's%.*/AppRun%%' | rev | cut -f 1 -d '_' | rev`
+PARTITION=`realpath "${0}"`
+_debugx "PARTITION='$PARTITION'"
+PARTITION=${PARTITION%/*}   # get rid of /AppRun
+_debugx "PARTITION='$PARTITION'"
+PARTITION=${PARTITION##*/}  # get rid of /path/to
+_debugx "PARTITION='$PARTITION'"
+PARTITION=${PARTITION##*\_} # get rid of drive_
 
-_debug "oneDRVNAME='$oneDRVNAME'"
+_debug "PARTITION='$PARTITION'"
 _notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE' MOUNT_OPTS='$MOUNT_OPTS'"
-[ -b /dev/"$oneDRVNAME" ] || _exit 6
 
 [ -f /etc/eventmanager.cfg ] && . /etc/eventmanager.cfg #written to by /usr/sbin/eventmanager
 #[ $RAMSAVEINTERVAL ] || RAMSAVEINTERVAL=30
@@ -496,7 +513,7 @@ esac
 
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
 #be one icon on the desktop, labelled 'drives' and handler script is ?/usr/local/bin/drive_drives?
-if [ "$oneDRVNAME" = "drives" ];then
+if [ "$PARTITION" = "drives" ];then
  if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>$ERR
   sleep 0.1
@@ -504,6 +521,26 @@ if [ "$oneDRVNAME" = "drives" ];then
  exec pmount $DRV_CATEGORY
 fi
 # pmount_,eventmanager,unmount,unmountall
+
+#[ -b /dev/"$PARTITION" ] || _exit 6 #TODO give message , since dev node may be deleted
+                                      #probably re-create it ?
+DRIVE_LINE=`grep "${PARTITION}$" /proc/partitions` && {
+	true; } || _exit 7
+
+_smknod(){
+#drv=$1
+#kin=$2
+#maj=$3
+#min=$4
+[ -e "$1" ] && rm $VERB -f "$1"
+mkmod "$1" "$2" "$3" "$4"
+}
+
+echo "$DRIVE_LINE" | while read maj min size drv
+do
+ [ "$maj" -a "$min" -a "$size" -a "$drv" ] || continue
+ [ -b /dev/"$drv" ] || _smknod /dev/$drv b $maj $min
+done
 
 case $DRV_CATEGORY in
  pmount_*)
@@ -521,19 +558,19 @@ eventmanager)
 ;;
 
 unmount)
- mPATTERN='^/dev/'"$oneDRVNAME"' '
+ mPATTERN='^/dev/'"$PARTITION"' '
 
  MNTPT=`/bin/df | tac | grep -m1 "$mPATTERN" | tr -s ' ' | cut -f 6- -d ' '`
  if [ "$MNTPT" = "" ]; then
   #case $DRV_CATEGORY in optical)
-  case $oneDRVNAME in scd[0-9]*|sr[0-9]*|hd[a-d])
-     _command eject $VERB -T /dev/$oneDRVNAME
+  case $PARTITION in scd[0-9]*|sr[0-9]*|hd[a-d])
+     _command eject $VERB -T /dev/$PARTITION
      exit 201;;
   *) exit 200;;
   esac #precaution.
  fi
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" ];then
-  xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
+  xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${PARTITION} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
   exit 201
  fi
@@ -544,13 +581,13 @@ is in use by Puppy. You cannot unmount it."
 
 unmountall)
 
- while read -r oneDRVNAME MNTPT rest  #Note now oneDRVNAME gets /dev/ preset
+ while read -r PARTITION MNTPT rest  #Note now PARTITION gets /dev/ preset
  do
  [ "$MNTPT" ] || continue
  MNTPT=`echo -e "$MNTPT"`
  case $MNTPT in */initrd/*|/) continue;;esac
   #yaf-splash -bg seagreen -text "Unmounting '$MNTPT' ..." & yPID=$!
-  oneDRVNAME=${oneDRVNAME##*/}
+  PARTITION=${PARTITION##*/}
   _unmount
   #kill $yPID >>$OUT 2>>$ERR
   sleep 1
@@ -561,49 +598,49 @@ EoI
 ;;
 
 *mountro)
-         grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && {
+         grep $Q -w "^/dev/$PARTITION" /proc/mounts && {
 
  # REM: linux/Documentation/ABI/testing/procfs-diskstats
  #      12 - I/Os currently in progress
  #       3 - device name
- awk "{if (\$3 == \"$oneDRVNAME\") print \$12}" /proc/diskstats  ##DEBUG
- IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`
+ awk "{if (\$3 == \"$PARTITION\") print \$12}" /proc/diskstats  ##DEBUG
+ IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`
  [ "$IOs" ] || IOs=0
- [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$oneDRVNAME' to complete ..." & yioPID=$!
- while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$oneDRVNAME\\") print \\$12}" /proc/diskstats`; done
+ [ "$IOs" = '0' ] || yaf-splash -bg orange2 -text "Waiting for IO ops on '$PARTITION' to complete ..." & yioPID=$!
+ while [ "$IOs" != '0' ]; do sleep 2; IOs=`awk "{if (\\$3 == \\"$PARTITION\\") print \\$12}" /proc/diskstats`; done
  [ "$yioPID" ] && { /bin/ps -p $yioPID >>$OUT 2>>$ERR && kill $yioPID; }
 
 
-   if grep -w "^/dev/$oneDRVNAME" /proc/mounts | awk '{print $4}' | grep $Q -w 'rw'
+   if grep -w "^/dev/$PARTITION" /proc/mounts | awk '{print $4}' | grep $Q -w 'rw'
  then
-        /bin/mount $VERB -o remount,ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+        /bin/mount $VERB -o remount,ro /dev/"$PARTITION" /mnt/"$PARTITION" || false
 
- elif grep -w "^/dev/$oneDRVNAME" /proc/mounts | awk '{print $4}' | grep $Q -w 'ro'
+ elif grep -w "^/dev/$PARTITION" /proc/mounts | awk '{print $4}' | grep $Q -w 'ro'
  then
-        /bin/mount $VERB -o remount,rw /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+        /bin/mount $VERB -o remount,rw /dev/"$PARTITION" /mnt/"$PARTITION" || false
 
  else :
    fi
         } || {
-         mkdir $VERB -p /mnt/"$oneDRVNAME"
-        /bin/mount $VERB -o         ro /dev/"$oneDRVNAME" /mnt/"$oneDRVNAME" || false
+         mkdir $VERB -p /mnt/"$PARTITION"
+        /bin/mount $VERB -o         ro /dev/"$PARTITION" /mnt/"$PARTITION" || false
     }
     exit $?
 ;;
 *fsck_*)
-grep $Q -w "^/dev/$oneDRVNAME" /proc/mounts && _exit 10 "Found '$oneDRVNAME' in /proc/mounts"
+grep $Q -w "^/dev/$PARTITION" /proc/mounts && _exit 10 "Found '$PARTITION' in /proc/mounts"
  FSTYPE=${DRV_CATEGORY#*_}
  _notice "DRV_CATEGORY='$DRV_CATEGORY' FSTYPE='$FSTYPE'"
  [ "$FSTYPE" ] || _exit 11 "Missing FSTYPE"
 echo '#!/bin/sh
-fsck -C0 -v /dev/'"$oneDRVNAME"'
+fsck -C0 -v /dev/'"$PARTITION"'
 RV=$?
 read -p "Press enter to close this window" CloseKey
 exit $RV
-'                >/tmp/fsck-$oneDRVNAME.sh
- chmod $VERB 0744 /tmp/fsck-$oneDRVNAME.sh
+'                >/tmp/fsck-$PARTITION.sh
+ chmod $VERB 0744 /tmp/fsck-$PARTITION.sh
 
- rxvt -title "Fsck $oneDRVNAME" -e /tmp/fsck-$oneDRVNAME.sh
+ rxvt -title "Fsck $PARTITION" -e /tmp/fsck-$PARTITION.sh
  exit $?
 ;;
 
@@ -617,7 +654,7 @@ esac
 #      I make a whole title list
 _update_appinfo_mediacd(){
 
-cdINFO=`disktype /dev/$oneDRVNAME`
+cdINFO=`disktype /dev/$PARTITION`
 test "$cdINFO" || return 1
 
  SIZE=`echo "$cdINFO" | grep -o 'size .*' | cut -f1-3 -d ' '`
@@ -649,19 +686,19 @@ echo "<?xml version=\"1.0\"?>
    ${mINFO}
 " >/tmp/AppInfo.xml
 
-#sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml
-sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml >>/tmp/AppInfo.xml
-test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${oneDRVNAME}/
+#sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml
+sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml >>/tmp/AppInfo.xml
+test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${PARTITION}/
 
 }
 
 #oh, now have to analyse the media, decide what app to run...
-#if [ "$oneDRVNAME" = "sr0" -o "$oneDRVNAME" = "sr1" ];then
-#if [ "`echo "$oneDRVNAME" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
+#if [ "$PARTITION" = "sr0" -o "$PARTITION" = "sr1" ];then
+#if [ "`echo "$PARTITION" |grep -E '^sr[0-9]|^scd[0-9]|^hd[a-d]$'`" ];then  ###+++2012-01-20 2014-10-16
 if [ "$DRV_CATEGORY" = optical ]; then
- srPATTERN='^/dev/'"$oneDRVNAME"' '
+ srPATTERN='^/dev/'"$PARTITION"' '
  if [ ! "`busybox mount | grep "$srPATTERN"`" ];then
-  QUEST_CD=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`
+  QUEST_CD=`cddetect $Q $VERB -d/dev/${PARTITION}`
   RETVAL=$?
   __cddetect_returnvals__(){
     cat >&2 <<EoI
@@ -685,15 +722,15 @@ EoI
 	#      busybox eject needs full path of device
   case $QUEST_CD in
     'tray open!')   # REM: If tray open, try to close it
-     eject $VERB -t /dev/$oneDRVNAME
+     eject $VERB -t /dev/$PARTITION
      while :; do
-     #eject -t /dev/$oneDRVNAME
+     #eject -t /dev/$PARTITION
      sleep 5
-     QUEST_CD2=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`; RETVAL=$?
+     QUEST_CD2=`cddetect $Q $VERB -d/dev/${PARTITION}`; RETVAL=$?
      [ "$RETVAL" = 255 ] || break
       case $QUEST_CD2 in
       'no disk!'|'no disc!') break;; #fall through
-      'tray open!') eject $VERB -t /dev/$oneDRVNAME;;
+      'tray open!') eject $VERB -t /dev/$PARTITION;;
       'drive not ready!') :;;
       *) _warn "Unhandled QUEST_CD2='$QUEST_CD2'";;
       esac
@@ -701,19 +738,19 @@ EoI
     ;;
     'no disk!'|'no disc!')
       #STUB should I error out or fall through to bottom ?
-     eject $VERB -t /dev/$oneDRVNAME
+     eject $VERB -t /dev/$PARTITION
      sleep 5
-     cddetect $Q $VERB -d/dev/${oneDRVNAME}; RETVAL=$?
+     cddetect $Q $VERB -d/dev/${PARTITION}; RETVAL=$?
     #xmessage -title "$MY_SELF" "Please insert a CD/DVD first."; exit 0
     ;;
     'drive not ready!')
      while :; do
      sleep 5
-     QUEST_CD3=`cddetect $Q $VERB -d/dev/${oneDRVNAME}`; RETVAL=$?
+     QUEST_CD3=`cddetect $Q $VERB -d/dev/${PARTITION}`; RETVAL=$?
      [ "$RETVAL" = 255 ] || break
       case $QUEST_CD3 in
       'no disk!'|'no disc!') break;; #fall through
-      'tray open!') eject $VERB -t /dev/$oneDRVNAME;;
+      'tray open!') eject $VERB -t /dev/$PARTITION;;
       'drive not ready!') :;;
       *) _warn "Unhandled QUEST_CD3='$QUEST_CD3'";;
       esac
@@ -729,7 +766,7 @@ EoI
    __start_mediaplayer(){
     if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" ];then
 
-     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${PARTITION} /dev/dvd
      exec defaultmediaplayer dvd://
     fi
    }
@@ -738,7 +775,7 @@ EoI
 
   1) #audio
      _update_appinfo_mediacd
-     ln $VERB -sf /dev/${oneDRVNAME} /dev/cdrom
+     ln $VERB -sf /dev/${PARTITION} /dev/cdrom
      exec defaultmediaplayer cdda://
    ;;
   3) #iso file: normal data cd. iso9660
@@ -746,22 +783,22 @@ EoI
    ;;
   5) #video dvd
      _update_appinfo_mediacd
-     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${PARTITION} /dev/dvd
      exec defaultmediaplayer dvd://
    ;;
   8) # udf with .wma wav files [VCD: , ] 8 ##+++2012-01-20
      # FSTYPE='udf'
-     FSTYPE=`guess_fstype /dev/$oneDRVNAME`
+     FSTYPE=`guess_fstype /dev/$PARTITION`
      _update_appinfo_mediacd
-     ln $VERB -sf /dev/${oneDRVNAME} /dev/dvd
+     ln $VERB -sf /dev/${PARTITION} /dev/dvd
      exec defaultmediaplayer dvd://
    ;;
   esac
  fi
  #[ ! "$FSTYPE" ] && FSTYPE="iso9660"
- [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$oneDRVNAME`
+ [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/$PARTITION`
  [ "$FSTYPE" ] || FSTYPE=unknown
- [ "$FSTYPE" = unknown ] && FSTYPE=`blkid /dev/$oneDRVNAME | grep -m1 -w "^/dev/$oneDRVNAME" | grep -oE ' TYPE="[^"]+"' | cut -f2 -d'"'`
+ [ "$FSTYPE" = unknown ] && FSTYPE=`blkid /dev/$PARTITION | grep -m1 -w "^/dev/$PARTITION" | grep -oE ' TYPE="[^"]+"' | cut -f2 -d'"'`
  [ "$FSTYPE" ] || FSTYPE=unknown
  [ "$FSTYPE" = unknown ] && unset FSTYPE
 fi
@@ -787,19 +824,19 @@ _format_size(){ #from pup_event_frontend_d
 _update_appinfo_mount(){
 #<Summary>Filesystem: ext4 Size: 31.5GB</Summary>
 
-case $oneDRVNAME in
-fd[0-9]*|hd[a-d]|scd[0-9]*|sr[0-9]*) DISK=$oneDRVNAME;;
-*) DISK=`echo "$oneDRVNAME" | sed 's#[0-9]*$##'`;;
+case $PARTITION in
+fd[0-9]*|hd[a-d]|scd[0-9]*|sr[0-9]*) DISK=$PARTITION;;
+*) DISK=`echo "$PARTITION" | sed 's#[0-9]*$##'`;;
 esac
 
-if test -f /sys/block/$oneDRVNAME/size; then
-read SIZE </sys/block/$oneDRVNAME/size
-DESCR=`probedisk2 | grep "^/dev/${oneDRVNAME}|" | cut -f3 -d'|'`
+if test -f /sys/block/$PARTITION/size; then
+read SIZE </sys/block/$PARTITION/size
+DESCR=`probedisk2 | grep "^/dev/${PARTITION}|" | cut -f3 -d'|'`
 SUMMARY1="<Summary>$DESCR"
 
-elif test -f /sys/block/$DISK/$oneDRVNAME/size; then
-read SIZE </sys/block/$DISK/$oneDRVNAME/size
-FSTYPE=`probepart -d/dev/$oneDRVNAME |cut -f2 -d'|'`
+elif test -f /sys/block/$DISK/$PARTITION/size; then
+read SIZE </sys/block/$DISK/$PARTITION/size
+FSTYPE=`probepart -d/dev/$PARTITION |cut -f2 -d'|'`
 SUMMARY1="<Summary>Filesystem: $FSTYPE"
 
 else
@@ -817,10 +854,10 @@ echo "<?xml version=\"1.0\"?>
  $SUMMARY1 Size: $SIZE</Summary>
 " >/tmp/AppInfo.xml
 
-sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml >>/tmp/AppInfo.xml
-test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${oneDRVNAME}/
-#if test -f $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml; then
-#sed -i "s%<Summary>.*</Summary>%<Summary>Filesystem: $FSTYPE Size: $SIZE</Summary>%" $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml
+sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml >>/tmp/AppInfo.xml
+test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${PARTITION}/
+#if test -f $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml; then
+#sed -i "s%<Summary>.*</Summary>%<Summary>Filesystem: $FSTYPE Size: $SIZE</Summary>%" $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml
 #else
 #false
 #fi
@@ -831,15 +868,15 @@ _debug "FSTYPE=$FSTYPE"
 #if it is a mountable partition then mount and open with rox. If already mntd then open in rox...
 #if [ "$ICONPARTITIONS" = "true" ];then
 if [ "$FSTYPE" ];then
- dPATTERN='^/dev/'"$oneDRVNAME"' '
+ dPATTERN='^/dev/'"$PARTITION"' '
  if [ ! "`/bin/df | grep "$dPATTERN"`" ];then
   #not mounted...
-  yaf-splash -bg purple2 -text "Mounting '$oneDRVNAME' ..." & yPID=$!
-  mkdir $VERB -p /mnt/$oneDRVNAME
+  yaf-splash -bg purple2 -text "Mounting '$PARTITION' ..." & yPID=$!
+  mkdir $VERB -p /mnt/$PARTITION
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    /bin/mount $VERB $MOUNT_OPTS -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount $VERB $MOUNT_OPTS -t ntfs /dev/$PARTITION /mnt/$PARTITION
     RETVAL1=$?
     ;;
    fat*|FAT*|Fat*|vfat)
@@ -857,7 +894,7 @@ if [ "$FSTYPE" ];then
       ;;
      esac
     fi
-    /bin/mount $VERB $MOUNT_OPTS -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    /bin/mount $VERB $MOUNT_OPTS -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$PARTITION /mnt/$PARTITION #v411
     RETVAL1=$?
     ;;
    *)
@@ -873,15 +910,15 @@ if [ "$FSTYPE" ];then
     #        autodetecting the fstype and always falls back to ocfs2
     grep $Q -w "$FSTYPE" /proc/filesystems || unset FSTYPE
     [ "$FSTYPE" ] && {
-    /bin/mount $VERB $MOUNT_OPTS -t $FSTYPE /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    /bin/mount $VERB $MOUNT_OPTS -t $FSTYPE /dev/$PARTITION /mnt/$PARTITION || false
     } || {
-    /bin/mount $VERB $MOUNT_OPTS            /dev/$oneDRVNAME /mnt/$oneDRVNAME || false
+    /bin/mount $VERB $MOUNT_OPTS            /dev/$PARTITION /mnt/$PARTITION || false
     }
     RETVAL1=$?
     ;;
   esac
-  [ $RETVAL1 -eq 0 ] && : #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
-  WARN_MSG=`dmesg | tail -n5 | grep -w "($oneDRVNAME)" | grep $Q -E 'emerg|alert|crit|error|warning'`
+  [ $RETVAL1 -eq 0 ] && : #exec rox -x /mnt/$PARTITION -d /mnt/$PARTITION
+  WARN_MSG=`dmesg | tail -n5 | grep -w "($PARTITION)" | grep $Q -E 'emerg|alert|crit|error|warning'`
   [ "$WARN_MSG" ] && xmessage -title "DRIVE_ALL MOUNT WARNING" "$WARN_MSG" &
   /bin/ps -p $yPID >>$OUT && kill $yPID
   _update_appinfo_mount
@@ -892,7 +929,7 @@ if [ "$FSTYPE" ];then
   #if [ -h /mnt/home ];then
   # [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
   #fi
-  #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
+  #exec rox -x /mnt/$PARTITION -d /mnt/$PARTITION
   oIFS="$IFS"
   IFS=$'\n'
   for aMNTPT in $MNTPT; do
@@ -933,19 +970,19 @@ fi
 
 _update_appinfo_no_media(){
 #<Summary>Filesystem: ext4 Size: 31.5GB</Summary>
-case $oneDRVNAME in
-fd[0-9]*|hd[a-d]|scd[0-9]*|sr[0-9]*) DISK=$oneDRVNAME;;
-*) DISK=`echo "$oneDRVNAME" | sed 's#[0-9]*$##'`;;
+case $PARTITION in
+fd[0-9]*|hd[a-d]|scd[0-9]*|sr[0-9]*) DISK=$PARTITION;;
+*) DISK=`echo "$PARTITION" | sed 's#[0-9]*$##'`;;
 esac
 
-if test -f /sys/block/$oneDRVNAME/size; then
-read SIZE </sys/block/$oneDRVNAME/size
-DESCR=`probedisk2 | grep "^/dev/${oneDRVNAME}|" | cut -f3 -d'|'`
+if test -f /sys/block/$PARTITION/size; then
+read SIZE </sys/block/$PARTITION/size
+DESCR=`probedisk2 | grep "^/dev/${PARTITION}|" | cut -f3 -d'|'`
 SUMMARY1="<Summary>$DESCR"
 
-elif test -f /sys/block/$DISK/$oneDRVNAME/size; then
-read SIZE </sys/block/$DISK/$oneDRVNAME/size
-FSTYPE=`probepart -d/dev/$oneDRVNAME |cut -f2 -d'|'`
+elif test -f /sys/block/$DISK/$PARTITION/size; then
+read SIZE </sys/block/$DISK/$PARTITION/size
+FSTYPE=`probepart -d/dev/$PARTITION |cut -f2 -d'|'`
 SUMMARY1="<Summary>Filesystem: $FSTYPE"
 
 else
@@ -963,11 +1000,11 @@ echo "<?xml version=\"1.0\"?>
 <AppInfo>
  $SUMMARY1 Size: $SIZE</Summary>
 " >/tmp/AppInfo.xml
-sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml >>/tmp/AppInfo.xml
-test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${oneDRVNAME}/
+sed -n '/<About>/,/<\/AppInfo>/ p' $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml >>/tmp/AppInfo.xml
+test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $PUP_EVENT_DIR/drive_${PARTITION}/
 
-#if test -f $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml; then
-#sed -i "s%<Summary>.*</Summary>%<Summary>Filesystem: $FSTYPE Size: $SIZE</Summary>%" $PUP_EVENT_DIR/drive_${oneDRVNAME}/AppInfo.xml
+#if test -f $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml; then
+#sed -i "s%<Summary>.*</Summary>%<Summary>Filesystem: $FSTYPE Size: $SIZE</Summary>%" $PUP_EVENT_DIR/drive_${PARTITION}/AppInfo.xml
 #else
 #false
 #fi
