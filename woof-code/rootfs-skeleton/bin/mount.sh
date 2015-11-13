@@ -286,7 +286,8 @@ _update_partition_icon()
 #_store_program_logging_level
 
 test -f /etc/eventmanager.cfg && . /etc/eventmanager.cfg
-test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
+#test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
+case $ICONDESK in true|True|TRUE|yes|Yes|YES|y|Y|1) :;; *) return 0;; esac
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 #test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
@@ -343,25 +344,13 @@ _debugt 9d $_DATE_
  case $WHAT in
  umount)
  _debugt 98 $_DATE_
-  # if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
-  #  if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
-  #   _debug "_update_partition_icon:$oneUPDATE is boot partition"
-  #   #only a partition left mntd that is in use by puppy, change green->yellow...
-  #   _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
-  #  else
-  #   _debug "_update_partition_icon:$oneUPDATE is not boot partition"
-  #   #redraw icon without "MNTD" text...
-  #   _icon_unmounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
-  #  fi
-  #  else #umount -r re-mounted partiton read-only
-  #  _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
-  # fi
-  if _command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "^$oneUPDATE" | grep $Q -E ' /initrd/| /$'; then
-   _debug "_update_partition_icon:$oneUPDATE is boot partition"
-   # only a partition left mntd that is in use by puppy, change green->yellow...
-   _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
-  elif _command df | grep $Q -w "^$oneUPDATE"; then
-   # umount -r re-mounted partiton read-only
+  #if _command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "^$oneUPDATE" | grep $Q -E ' /initrd/| /$'; then
+  # _debug "_update_partition_icon:$oneUPDATE is boot partition"
+  # # only a partition left mntd that is in use by puppy, change green->yellow...
+  # _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+  #elif _command df | grep $Q -w "^$oneUPDATE"; then
+  if _command df | grep $Q -w "^$oneUPDATE"; then
+   # umount -r re-mounted partiton read-only or is boot partition
    _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
   else
    _debug "_update_partition_icon:$oneUPDATE is not boot partition"
