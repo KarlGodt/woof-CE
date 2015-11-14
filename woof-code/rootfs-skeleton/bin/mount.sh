@@ -160,12 +160,7 @@ echo "$oSTRING"
 
 _posparams_to_octal()
 {
-#_store_program_logging_level
-        _debug "_posparams_to_octal:$@"
-#echo -n "$@" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\ !\\0!g;s!:$!!;/^$/d;s!^!\\0!' >/tmp/posPARAMS.od
-#echo "$@" | _string_to_octal >/tmp/posPARAMS.od
-#test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
-#posPARAMS=`cat /tmp/posPARAMS.od`
+_debug "_posparams_to_octal:$@"
 
 #posPARAMS=`echo "$@" | _string_to_octal`
  posPARAMS=`__string_to_octal "$@"`
@@ -180,12 +175,11 @@ _debugx "            posPARAMS='$posPARAMS'"
 #get rid of \0 - why?
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
-#_reset_program_logging_level
+
 }
 
 _get_options()
 {
-#_store_program_logging_level
 
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
 
@@ -246,18 +240,12 @@ posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`    # space 040
 #			*bufptr ++= '\\';
 #			*bufptr ++= 'n';
 # posPARAMS=`echo "$posPARAMS" | sed "s%\\\\\\\n%\n%g"`    # newline 012
-#need to error out
-#if test "`echo -e "$posPARAMS" | wc -l`" -gt 1;
-# if echo "$posPARAMS" | grep $Q -Fw '\n'; then
-#  _exit 9 "Newline in positional parameters not allowed in this wrapper script.
-#Use mount binaries directly to mount newline containing files."
-# fi
+# done in _posparams_to_octal
 
 # else
 #			/* Just copy */
 #			*bufptr ++= *arg;
 
-##
 #posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\\'%\\\\\%g"` # \ #
 
 _debugx "positional parameters='$posPARAMS'"
@@ -270,12 +258,9 @@ _debugx "positional parameters='$posPARAMS'"
 test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
 _debug "  positional parameters='$posPARAMS'"
 
-#_reset_program_logging_level
 return $getoptRV
 }
-#_get_options "$*"
-#_get_options $*
-#_get_options $@
+
 _get_options "$@" || _exit 1 "Error while processing parameters."
 _debugt 8C $_DATE_
 
@@ -283,11 +268,10 @@ test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
 _update_partition_icon()
 {
-#_store_program_logging_level
 
 test -f /etc/eventmanager.cfg && . /etc/eventmanager.cfg
 #test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
-case $ICONDESK in true|True|TRUE|yes|Yes|YES|y|Y|1) :;; *) return 0;; esac
+case $ICONDESK in true|True|TRUE|on|On|ON|yes|Yes|YES|y|Y|1) :;; *) return 0;; esac
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 #test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
@@ -304,10 +288,7 @@ $updateWHATB";
         updateWHAT=`echo "$updateWHAT" | awk '{print $1 " " $2}' | uniq`
 }
 
-
-
 _debugt 9f $_DATE_
-
  _check_tmp_rw || return 56
 _debugt 9e $_DATE_
 
@@ -344,11 +325,7 @@ _debugt 9d $_DATE_
  case $WHAT in
  umount)
  _debugt 98 $_DATE_
-  #if _command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "^$oneUPDATE" | grep $Q -E ' /initrd/| /$'; then
-  # _debug "_update_partition_icon:$oneUPDATE is boot partition"
-  # # only a partition left mntd that is in use by puppy, change green->yellow...
-  # _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
-  #elif _command df | grep $Q -w "^$oneUPDATE"; then
+
   if _command df | grep $Q -w "^$oneUPDATE"; then
    # umount -r re-mounted partiton read-only or is boot partition
    _icon_mounted ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
@@ -372,13 +349,11 @@ _debugt 9d $_DATE_
  done <<EoI
 `echo "$updateWHAT"`
 EoI
-#_reset_program_logging_level
 }
 
 _parse_fstab()
 {
 test -f /etc/fstab || return 57
-#_store_program_logging_level
 
 while read -r device mountpoint fstype mntops dump check
 do
@@ -445,7 +420,6 @@ esac
 
 done </etc/fstab
 
-#_reset_program_logging_level
 return $STATUS
 }
 
@@ -458,15 +432,13 @@ _debugt 89 $_DATE_
 
 _builtin_getopts()
 {
-#_store_program_logging_level
 
 local oneOPT
 opN=-n;
 case $WHAT in
 umount)
  opFL=-d;
-  #_parse_short_ops_u()
-  #{
+
  while getopts $allOPS oneOPT; do
  noSHIFT=NO
  case $oneOPT in
@@ -519,13 +491,10 @@ umount)
  test "$noSHIFT" = YES || shift
  #unset noSHIFT
  done
-  #}
-  #_parse_short_ops_u $*
+
 ;;
  mount)
-  #_parse_short_ops_m()
-  #{
-  #_debug "_parse_short_ops_m $allOPS"
+
  while getopts $allOPS oneOPT; do
  noSHIFT=NO
  _debug "oneOPT='$oneOPT'"
@@ -611,18 +580,17 @@ umount)
   test "$noSHIFT" = YES || shift
   #unset noSHIFT
  done
-  #}
-  #_parse_short_ops_m $*;;
+
 ;;
  *) _exit 39 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
-#_reset_program_logging_level
+
 }
 _builtin_getopts "$@"
 _debugt 88 $_DATE_
 
 _debug '4*:'$*
-#set - $longOPS $@
+
 set - $longOPS $shortOPS $posPARAMS
 _debug '5@:'$@
 _debug "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
@@ -670,7 +638,7 @@ case $WHAT in
 mount)
 if test "$deviceORpoint"; then
  _debug "$WHAT:"$@
- #test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir -p /mnt/${deviceORpoint##*/}
+
  if test -b "$deviceORpoint"; then
   grep $Q -w "${deviceORpoint##*/}" /proc/partitions && {
    _notice "found '${deviceORpoint##*/}' in /proc/partitions"
@@ -680,16 +648,15 @@ if test "$deviceORpoint"; then
   esac
   } || {
    _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
- # grep $Q -w ${deviceORpoint} /proc/mounts && _exit 3 "'${deviceORpoint}' already mounted"
  fi
- #test -d /mnt/${deviceORpoint##*/} || mkdir -p /mnt/${deviceORpoint##*/}
+
  test -e /etc/fstab || touch /etc/fstab
  grep $Q -w "$deviceORpoint" /etc/fstab && {
   _notice "Found $deviceORpoint in /etc/fstab"
-  #mkdir -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
+
   mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
   _debug "mountPOINT='$mountPOINT'"
-  #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir -p "$mountPOINT"; }
+
   mountpoint $Q "$mountPOINT" && {
       test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted. Use -o remount."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
@@ -699,14 +666,13 @@ if test "$deviceORpoint"; then
           }
  _debug "$WHAT:"$@
 fi
-#DEBUG=1;DEBUGX=1;Q=
+
 c=0
 #for posPAR in `echo -e "$@"`; do  #hope, only file/device AND mountpoint left
  for posPAR in `echo    "$@"`; do  #hope, only file/device AND mountpoint left
 c=$((c+1))
 _debug "posPAR='$posPAR'"
-#posPAR=`echo -e "$posPAR"`  #need to handle space
-#_debug "posPAR='$posPAR'"
+
 case $posPAR in
 -*)         :;; #break
 none|nodev) :;;
@@ -721,35 +687,23 @@ fuse*) :;;
 *) test $c = $# || continue  # want the last parameter
    if test -f /proc/filesystems; then
 
+   _debug "c=$c \$#=$# "$posPAR
 o_ocposPAR="$posPAR"
    posPAR=`echo -e "$posPAR" |sed 's!NEWLINE!\n!g'` #need to handle space
-   #posPAR=${posPAR//\\/}
 o_posPAR="$posPAR"
+   _debug "c=$c \$#=$# ""$posPAR"
 
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-
-      #if test "`echo "$*" | grep -Ee '--[[:alpha:]]+'`" = ""; then  # no long options?
    gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//	/\\011}"
    gPATTERN="${gPATTERN//
 /\\012}"
    _debugx "gPATTERN=$gPATTERN"
    grep -Fw "${gPATTERN}" /proc/mounts | grep $Q -vi fuse && {
        test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted. Use -o remount."; }
-      #fi
-      _debug "c=$c \$#=$# "$posPAR
 
-    #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir -p "$posPAR"; } ; }
-
-#o_ocposPAR="$posPAR"
-#   posPAR=`echo -e "$posPAR"`
-#   #posPAR=${posPAR//\\/}
-#o_posPAR="$posPAR"
-
-      _debug "c=$c \$#=$# ""$posPAR"
    test -e /etc/fstab || touch /etc/fstab
    grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
    mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
-   #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
    _debugx "mountPOINT='$mountPOINT'"
 
    test "$mountPOINT" && { posPAR="$mountPOINT"
@@ -759,32 +713,25 @@ o_posPAR="$posPAR"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
 
    _debugx "testing -d $posPAR"
-   #test -d "$posPAR" -a ! "`ls -A "$posPAR"`" && mountPOINT="$posPAR"
-    test -d "$posPAR" && test ! "`ls -A "$posPAR" 2>$ERR`" && mountPOINT="$posPAR"
+   test -d "$posPAR" && test ! "`ls -A "$posPAR" 2>$ERR`" && mountPOINT="$posPAR"
 
    _debugx "testing -e $posPAR" #TODO if exist and has contents error out
    test -e "$posPAR" && { _debugx "`ls -lAv "$posPAR" 2>&1`"; true; } || { _notice "Assuming '$posPAR' being mountpoint..";
    LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; mountPOINT="$posPAR"; }  ##BUGFIX 2014-11-27 need to set mountPOINT variable
 
-#ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 ocposPAR=`echo "$posPAR" | _string_to_octal`
    _debugx "ocposPAR='$ocposPAR'"
 
-#ocposPAR=`echo $ocposPAR | tr -d ' '`
-#ocposPAR=`echo "$ocposPAR" | sed 's!\\012!\n!g'`
-#_debugx "            ocposPAR='$ocposPAR'"
 ocposPAR=`echo "$ocposPAR" | sed 's!\\\\0$!!g'`
 _debug "             ocposPAR='$ocposPAR'"
 
-   #test -b $oposPAR && set - $@ "$ocposPAR"
-   #_debug "posPAR:$*"
    test -b "$o_posPAR" && posPARAMS="$posPARAMS $ocposPAR"
    fi;fi ;;
 esac
 done
 c=0
-#DEBUG=;DEBUGX=;Q=-q
+
 ;;
 umount)
  # handle unmounting of no-existent dir
@@ -831,7 +778,7 @@ fi
         _debug "Closing ROX-Filer if necessary..."
         _pidof $Q ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
-        #fuser -m "$mountPOINT" >$OUT 2>$ERR && {
+        #fuser -m "$mountPOINT" >>$OUT 2>>$ERR && {
          fuser $VERB -m "$mountPOINT" 1>&2 && {
            if test "$opL" -o "$opF"; then
            _warn "^Mountpoint is in use by above pids^"
@@ -852,8 +799,14 @@ $fsUSERS"
            if test "$opL" -o "$opF"; then
            :
            else
-                test "$DISPLAY" && xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
+                test "$DISPLAY" && {
+                # REM: Since drive_all runs umount twice, want to kill previous xmessage
+                FORMER_XMESSAGE=`ps -o pid,args | grep 'xmessage' | grep -v 'grep' | grep -e "-title $WHAT" | awk '{print $1}'`
+                for x in $FORMER_XMESSAGE; do kill $x; done
+
+					xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
 $fsUSERS" &
+				}
                 _notice "Use -l or -f option to skip this sanity check."
                 _exit 1 "Refusing to complete $WHAT $@ ."
            fi
@@ -900,10 +853,7 @@ mount)
 
 _do_mount_ntfs_3g()
 {
-#_store_program_logging_level
-
 set --  #unset everything
-#set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
@@ -952,13 +902,11 @@ done
          RETVAL=$?
          }
 
-#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_vfat()
 {
-#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -986,13 +934,11 @@ done
                busybox mount -o shortname=mixed,quiet${NLS_PARAM} "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opT $opR $opW $opI $opN $opS $opVERB
        RETVAL=$?
 
-#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_full()
 {
-#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -1024,13 +970,11 @@ done
                 $WHAT-FULL "$@" $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opFORK $opSHOWL
        RETVAL=$?
 
-#_reset_program_logging_level
 return $RETVAL
 }
 
 _do_mount_bb()
 {
-#_store_program_logging_level
 
 set --  #unset everything
 set - $longOPS $shortOPS
@@ -1048,13 +992,11 @@ _debug "_do_mount_bb:$*"
               busybox $WHAT  "$@"  $opVERB $opLABEL $opUUID $opDRY $opO $opMO $opT $opR $opW $opI $opN $opS $opVERB
        RETVAL=$?
 
-#_reset_program_logging_level
 return $RETVAL
 }
 
 _which_mount()
 {
-#_store_program_logging_level
 
 _debug "_which_mount:$*"
 local oneOPT
@@ -1098,13 +1040,12 @@ _debug Using busybox mount "$@"
 _do_mount_bb "$@"
 fi
 RV=$?
-#_reset_program_logging_level
+
 return $RV
 }
 
 _have_long_options()
 {
-#_store_program_logging_level
 
 _debug "_have_long_options:$*"
 case $longOPS in
@@ -1121,7 +1062,7 @@ RV=$?
 return $RV
 ;;
 esac
-#_reset_program_logging_level
+
 }
 
 shortOPS=`echo "$shortOPS" | sed 's! -- .*$!!'`
@@ -1154,17 +1095,19 @@ _umount_rmdir()
 
 _update()
 {
-#_store_program_logging_level
 
  _debug "DISPLAY='$DISPLAY'"
  test "$DISPLAY" && _update_partition_icon
  test "$WHAT" = umount || return 0
+
  _debugt 04 $_DATE_
  test "`echo "$mountPOINT" | grep -E '/dev|/proc|/sys|/tmp'`" && return 0
  test -d "$mountPOINT" && _umount_rmdir "$mountPOINT"
+
  _debugt 03 $_DATE_
  _check_tmp_rw || return 59
  _debugt 02 $_DATE_
+
  while read -r oneDIR
  do
  _debug "oneDIR='$oneDIR'"
@@ -1174,7 +1117,7 @@ _update()
 `_command find /mnt -maxdepth 1 -type d -empty`
 EoI
 _debugt 01 $_DATE_
-#_reset_program_logging_level
+
 }
 
 _debug "mountPOINT='$mountPOINT'"
