@@ -382,7 +382,7 @@ _get_lineno(){
     if [ "$1" ] ; then
     echo `grep -n -w -m1 "$1" "$f4p4FN" |cut -f1 -d':'`
     else
-    echo 'UNKNOWN'
+    echo 'LINENO UNKNOWN'
     fi
 }
 
@@ -1156,7 +1156,7 @@ _check_proc()
 {
   mountpoint $Q /proc && return $? || {
   busybox mount $VERB $VERB -o remount,rw /dev/root /
-  test -d /proc || mkdir -p /proc
+  test -d /proc || mkdir $VERB -p /proc
   busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
@@ -1168,7 +1168,7 @@ _check_tmp()
  local STATUS_
  busybox mount $VERB $VERB -o remount,rw /dev/root /
  STATUS_=$((STATUS_+$?))
- mkdir -p /tmp
+ mkdir $VERB -p /tmp
  STATUS_=$((STATUS_+$?))
  chmod $VERB 1777 /tmp
  STATUS_=$((STATUS_+$?))
@@ -1612,6 +1612,14 @@ _edebug(){
 test "$DEBUG" || return 0
 echo -e "$0:DEBUG:$*"  >&2
 }
+_endebug(){
+test "$DEBUG" || return 0
+echo -en "$0:DEBUG:$*" >&2
+}
+_ndebug(){
+test "$DEBUG" || return 0
+echo -n "$0:DEBUG:$*"  >&2
+}
 
 [ "$DEBUGX" ] || DEBUGX=
 _debugx(){
@@ -1622,6 +1630,14 @@ echo "$0:DEBUGX:$@"  >&2
 _edebugx(){
 test "$DEBUGX" || return 0
 echo -e "$0:DEBUGX:$*"  >&2
+}
+_endebugx(){
+test "$DEBUGX" || return 0
+echo -en "$0:DEBUGX:$*" >&2
+}
+_ndebugx(){
+test "$DEBUGX" || return 0
+echo -n "$0:DEBUGX:$*"  >&2
 }
 
  _emergdt(){ test "$EMERGENCY" || return 1; echo -e "`date +%F-%T`:$0:EMERGENGY:$*"; }
@@ -1974,7 +1990,7 @@ for n in `seq $max -1 0` ; do
 done
 
 #[ -f "$*" ] && mv $VERB "$*" "$*".0
- [ -f "$*" ] && { cat "$*" >>"$*".0; rm "$*"; }
+ [ -f "$*" ] && { cat "$*" >>"$*".0; rm $VERB "$*"; }
 
 }
 
@@ -1996,12 +2012,12 @@ done
 for n in `seq $max -1 0` ; do
 #[ -e "$errlog".$n ] && mv $VERB "$errlog".$n "$errlog".$((n+1))
  [ -e "$errlog".$n ] || continue
- grep -q -Ei 'warning|error|warnung|fehler|fatal|rule' "$errlog".$n || { rm "$errlog".$n; continue; }
+ grep -q -Ei 'warning|error|warnung|fehler|fatal|rule' "$errlog".$n || { rm $VERB "$errlog".$n; continue; }
  mv $VERB "$errlog".$n "$errlog".$((n+1))
 done
 
 #[ -f "$errlog" ] && mv $VERB "$errlog" "$errlog".0
- [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0; rm "$errlog"; }
+ [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0; rm $VERB "$errlog"; }
 
 }
 
@@ -2727,7 +2743,7 @@ alias eng_="$_eNG"
 }
 _check_gettext
 
-_killzombies()
+__killzombies()
 {
  mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
  ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -vE 'grep|\|\|\|' | awk '{print $1}'`"
@@ -2735,10 +2751,27 @@ _killzombies()
  ZOMBIES=`_command ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'`
  for oneZOMBIE in $ZOMBIES
  do
-  _command ps --no-header -p $oneZOMBIE || continue
+  _command ps --no-header -p $oneZOMBIE >>$OUT || continue
   _notice " :Killing (parentless) zombie process '$oneZOMBIE' ..."
   kill $oneZOMBIE
  done
+}
+
+_killzombies()
+{
+while read pid status; do
+     [ "$pid" -a "$status" ] || continue
+      case $status in
+      Z*) :;;
+      *) continue;;
+      esac
+      case $pid in
+      1|$$|$PPID) continue;;
+      esac
+     kill -9 $pid
+done << EoI
+$(ps -o pid,stat | grep -w Z)
+EoI
 }
 
 #===== XMESSAGE or SPLASH ====================================================
@@ -2976,7 +3009,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 #`_command ps -o pid,ppid,s,args -C ${MY_SELF##*/} --no-headers`"
  _debug "PiDS='$PiDS'"
 # ProcPiD=`echo "$PiDS" | awk '{print $1}'`
-  ProcPids=`ps -o pid,ppid,s,args`
+  ProcPids=`_command ps -o pid,ppid,s,args`
  _debug "ProcPiD='$ProcPiD'"
 
 while read pid ppid rest
@@ -3013,7 +3046,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
-  ProcPids=`ps -o pid,ppid,s,args`
+  ProcPids=`_command ps -o pid,ppid,s,args`
  _debug "ProcPiD='$ProcPiD'"
 
 while read pid ppid rest
@@ -3052,7 +3085,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
-  ProcPids=`ps -o pid,ppid,s,args`
+  ProcPids=`_command ps -o pid,ppid,s,args`
  _debug "ProcPiD='$ProcPiD'"
 
 while read pid ppid rest
@@ -3086,7 +3119,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
  PiDS=`_command ps -o pid,ppid,s,args --no-headers | awk "{ if (\\$2 == $MY_PID) print}"`
  _debug "PiDS='$PiDS'"
 
-  ProcPids=`ps -o pid,ppid,s,args`
+  ProcPids=`_command ps -o pid,ppid,s,args`
  _debug "ProcPiD='$ProcPiD'"
 
 while read pid ppid rest
@@ -3138,13 +3171,13 @@ mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
 for pid in $KILL_PIDS
 do
  _debug "pid=$pid"
- _command ps -p $pid --no-header && kill -9 $pid
+ _command ps -p $pid --no-header >>$OUT && kill -9 $pid
 done
 
 for pid in `jobs -p`;
 do
  _debug "pid='$pid'"
- _command ps -p $pid --no-header && kill -9 $pid
+ _command ps -p $pid --no-header >>$OUT && kill -9 $pid
 done
 }
 
@@ -3406,7 +3439,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff $Q "$oneF2" "$oneF1" && rm "$oneF2"
+      diff $Q "$oneF2" "$oneF1" && rm $VERB "$oneF2"
 
      elif test "$SIMPLE"; then
       diff $Q -s "$oneF2" "$oneF1"
@@ -3443,7 +3476,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff $Q "$oneF1" "$oneF2" && rm "$oneF2"
+      diff $Q "$oneF1" "$oneF2" && rm $VERB "$oneF2"
 
      elif test "$SIMPLE"; then
       diff $Q -s "$oneF1" "$oneF2"
@@ -3534,7 +3567,7 @@ EoI
    cat "$file" | sed '1d' >>/tmp/${file##*/}
    [ "$?" = 0 ] || continue
    if test ! "$DRY"; then ## DRY RUN
-    rm "$file"
+    rm $VERB "$file"
     mv $VERB /tmp/${file##*/} "$file"
     chmod $VERB $PERM "$file"
    fi
@@ -3754,7 +3787,7 @@ do
     esac
 
         basn=${part_##*/}
-        mkdir -p /mnt/$basn
+        mkdir $VERB -p /mnt/$basn
 
 [ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
   /bin/mount $VERB -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
