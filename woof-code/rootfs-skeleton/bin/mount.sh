@@ -731,7 +731,7 @@ o_ocposPAR="$posPAR"
    #posPAR=${posPAR//\\/}
 o_posPAR="$posPAR"
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-   grepP=${deviceORpoint// /\\040};grepP=${grepP// /\\011}
+   grepP=${posPAR// /\\040};grepP=${grepP// /\\011}
 grepP="${grepP//
 /\\012}"
    grep $Q -Fw "$grepP" /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
