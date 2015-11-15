@@ -58,13 +58,26 @@ _info "using '$LANG_ROX'"
 #      /tmp/ROOTFS as mountpoint ...
 #      but does for mount --bind /sys /tmp/SYSFS and bind mount of /proc ..???
 #      so using function with grep instead
+#      Furthermore /usr/local/bin/mountpoint does not recognize '/mnt/s d b 3 '
+#      but busybox mountpoint does
 mountpoint(){
  test -f /proc/mounts || return 3
  test "$*" || return 2
- local QUIET_
+ local QUIET_ mpPARAM grepP
  [ "$1" = '-q' ] && { QUIET_=-q; shift; }
+
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
- set - ${*//\\/\\\\}
+ #set - ${*//\\/\\\\}
+
+ #mpPARAM=`_string_to_octal "$@"`
+ #set - ${mpPARAM//\\/\\\\}
+
+ #grepP="${deviceORpoint// /\\\\040} "
+grepP=${*// /\\\\040};grepP=${grepP// /\\\\011}
+grepP="${grepP//
+/\\\\012}"
+ set - "$grepP"
+
  _debug "mountpoint:$*"
  grep $QUIET_ " $* " /proc/mounts
  return $?; }
@@ -124,10 +137,12 @@ _debug "_string_to_octal:STRING='$STRING'"
 
 while read -r oneCHAR
 do
+test "$oneCHAR" && {
 #oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
 oneCHAR=${oneCHAR#\"}
 oneCHAR=${oneCHAR%\"}
 oCHAR=`printf %o \'"$oneCHAR"`
+} || oCHAR=12
 
 oSTRING=$oSTRING"\\0$oCHAR"
 
@@ -146,11 +161,13 @@ do
  while read -r oneCHAR
  do
  _debugx "oneCHAR='$oneCHAR'"
+ test "$oneCHAR" && {
  #oneCHAR=`echo "$oneCHAR" | sed 's!^"!!;s!"$!!'`
  oneCHAR=${oneCHAR#\"}
  oneCHAR=${oneCHAR%\"}
  _debug "oneCHAR='$oneCHAR'"
  oCHAR=`printf %o \'"$oneCHAR"`
+ } || oCHAR=12
  _debug "oCHAR='$oCHAR'"
  #test "$oCHAR" = 134 && oCHAR=0134
 
@@ -180,8 +197,12 @@ _posparams_to_octal()
 #test -s /tmp/posPARAMS.od || _exit 5 "Something went wrong processing positional parameters."
 #posPARAMS=`cat /tmp/posPARAMS.od`
 
-posPARAMS=`echo "$@" | _string_to_octal`
+#posPARAMS=`echo "$@" | _string_to_octal` ## in case of leading and trailing space does not work using read
+posPARAMS=`_string_to_octal "$@"`
 posPARAMS=`echo $posPARAMS | tr -d ' '`
+#try to handle newline
+posPARAMS=`echo "$posPARAMS" | sed 's!\\\0134\\\0156!NEWLINE!g'`
+#convert to newline again
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
@@ -282,7 +303,7 @@ _debugt 9e $_DATE_
  do
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
  test "$oneUPDATE" || continue
- eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
+ eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT" | sed 's!NEWLINE!\n!g'`
  _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'"
 _debugt 9d $_DATE_
 
@@ -310,6 +331,7 @@ _debugt 9d $_DATE_
  case $WHAT in
  umount)
  _debugt 98 $_DATE_
+   __old_icon_unmounted_switch__(){
    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
     if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
      _info "_update_partition_icon:$oneUPDATE is boot partition"
@@ -321,6 +343,17 @@ _debugt 9d $_DATE_
      icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     fi
    fi
+   }
+
+  if _command df | grep $Q -w "^$oneUPDATE"; then
+   # umount -r re-mounted partiton read-only or is boot partition
+   icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+  else
+   _debug "_update_partition_icon:$oneUPDATE is not boot partition"
+   # redraw icon without "MNTD" text...
+   icon_unmounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
+  fi
+
  _debugt 97 $_DATE_
  ;;
  mount)
@@ -578,10 +611,13 @@ esac
 _builtin_getopts "$@"
 _debugt 88 $_DATE_
 
+_debug '4@:'$@
 _debug '4*:'$*
 #set - $longOPS $@
 set - $longOPS $shortOPS $posPARAMS
 _debug '5@:'$@
+_debug '5*:'$*
+
 _info "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW $opLABEL $opUUID $opSHOWL $opT
 
 test "$opALL" && _debug "opALL='$opALL'"
@@ -620,7 +656,8 @@ _info "9:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $opW
 #      Assuming being a /dev/<device> or mountpoint ...
 case $# in
 1)
-deviceORpoint=`echo -e "$@"`
+deviceORpoint=`echo -e "$@" | sed 's!NEWLINE!\n!g'`
+#deviceORpoint=`echo -e "$@"`
 _debug "deviceORpoint='$deviceORpoint'"
 # REM: only one pos param left
 #      test if it exists...
@@ -647,7 +684,7 @@ if test "$deviceORpoint"; then
   _info "Found $deviceORpoint in /etc/fstab"
   #mkdir $VERB -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
   mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
-  _debug "mountPOINT='$mountPOINT'"
+  _debug "fstab:mountPOINT='$mountPOINT'"
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir $VERB -p "$mountPOINT"; }
   mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
@@ -689,32 +726,29 @@ xenix|xfs|xiafs) :;;
 *) test $c = $# || continue
    if test -f /proc/filesystems; then
 o_ocposPAR="$posPAR"
-   posPAR=`echo -e "$posPAR"`
+   _debug "c=$c \$#=$# ""$posPAR"
+   posPAR=`echo -e "$posPAR" |sed 's!NEWLINE!\n!g'`
    #posPAR=${posPAR//\\/}
 o_posPAR="$posPAR"
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-      #if test "`echo "$*" | grep -e '\-\-[[:alpha:]]*'`" = ""; then
-   grep $Q -Fw "$posPAR" /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
-      #fi
-      _debug "c=$c \$#=$# "$posPAR
-    #test $c = $# && { test -e "$posPAR" || {  _notice "Assuming '$posPAR' being mountpoint.."; mkdir $VERB -p "$posPAR"; } ; }
-#o_ocposPAR="$posPAR"
-#   posPAR=`echo -e "$posPAR"`
-#   #posPAR=${posPAR//\\/}
-#o_posPAR="$posPAR"
-      _debug "c=$c \$#=$# ""$posPAR"
+   grepP=${deviceORpoint// /\\040};grepP=${grepP// /\\011}
+grepP="${grepP//
+/\\012}"
+   grep $Q -Fw "$grepP" /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
+   _debug "c=$c \$#=$# ""$posPAR"
    test -e /etc/fstab || touch /etc/fstab
    grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
    mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
-   _debugx "mountPOINT='$mountPOINT'"
+   _debugx "fstab:mountPOINT='$mountPOINT'"
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
    test -e "$posPAR" && _debug "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
-ocposPAR=`echo "$posPAR" | _string_to_octal`
+#ocposPAR=`echo "$posPAR" | _string_to_octal`
+ ocposPAR=`_string_to_octal "$posPAR"`
    _debugx "ocposPAR='$ocposPAR'"
 #ocposPAR=`echo $ocposPAR | tr -d ' '`
 #ocposPAR=`echo "$ocposPAR" | sed 's!\\012!\n!g'`
@@ -753,11 +787,15 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
-grepP="${deviceORpoint// /\\\\040} "
+#grepP="${deviceORpoint// /\\\\040} "
+grepP=${deviceORpoint// /\\040};grepP=${grepP// /\\011}
+grepP="${grepP//
+/\\012}"
 _debug "grepP='$grepP'"
-mountPOINT=`echo "$mountBEFORE" | grep -F "$grepP" | cut -f 2 -d' '`
-mountPOINT=`busybox echo -e "$mountPOINT"`
-_debug "mountPOINT='$mountPOINT'"
+mountPOINT=`echo "$mountBEFORE" | grep -Fw "$grepP" | cut -f 2 -d' '`
+_debug "umount:mountPOINT='$mountPOINT'"
+mountPOINT=`busybox echo -e "$mountPOINT" | sed 's!NEWLINE!\n!g'`
+_debug "umount:mountPOINT='$mountPOINT'"
 
 # REM: Want to close ROX-Filer window anyway
 #      If for example -r option provided additionally
@@ -767,21 +805,21 @@ else
  # REM: Try everything in $*
  for p_ in $*
  do
- _debugx "$p_"
- p_e=`echo -e "$p_"`
- _debugx "$p_e"
+ _debugx "p_=$p_"
+ p_e=`echo -e "$p_" | sed 's!NEWLINE!\n!g'`
+ _debugx "p_e=$p_e"
  # REM: Assuming one mountpoint for now
  test -d "$p_e" && { mountPOINT="$p_e"; break; }
  done
 
 unset p_ p_e
-_debug "mountPOINT='$mountPOINT'"
+_debug "umount else:mountPOINT='$mountPOINT'"
 fi
         if test -d "$mountPOINT"; then
         _debug "Closing ROX-Filer if necessary..."
         _pidof $Q ROX-Filer && rox -D "$mountPOINT";
         _debug "Showing Filesystem user PIDs of '$mountPOINT':"
-        fuser -m "$mountPOINT" && {
+        fuser $VERB -m "$mountPOINT" 1>&2 && {
            if test "$opL" -o "$opF"; then
            _warn "Mountpoint is in use by above pids:"
            else
@@ -790,15 +828,25 @@ fi
                 for aPID in `fuser -m "$mountPOINT"`
                 do
                 fsUSERS="$fsUSERS
-`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -v 'grep'`
+`ps -o pid,ppid,args | grep -wE "$aPID|^PID" | grep -vE 'grep|xmessage'`
                 "
                 done
-                echo "$fsUSERS"
+
+                _debugx "$fsUSERS"
+                fsUSERS=`echo "$fsUSERS" | sort -u` ###+++2015-11-08
+                _debug "$fsUSERS"
+
            if test "$opL" -o "$opF"; then
            :
            else
-                test "$DISPLAY" && xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
+                test "$DISPLAY" && {
+                # REM: Since drive_all runs umount twice, want to kill previous xmessage
+                FORMER_XMESSAGE=`ps -o pid,args | grep 'xmessage' | grep -v 'grep' | grep -e "-title $WHAT" | awk '{print $1}'`
+                for x in $FORMER_XMESSAGE; do kill $x; done
+
+xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
 $fsUSERS" &
+                }
                 _notice "Use -l or -f option to skip this sanity check."
                 _exit 1 "Refusing to complete $WHAT $@ ."
            fi
@@ -818,7 +866,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -851,7 +899,7 @@ set --  #unset everything
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -907,7 +955,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -939,7 +987,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
@@ -974,7 +1022,7 @@ set - $longOPS $shortOPS
 
 for onePAR in $posPARAMS
 do
-ePAR="`echo -e "$onePAR"`"
+ePAR="`echo -e "$onePAR" | sed 's!NEWLINE!\n!g'`"
 _debugx "ePAR='$ePAR'"
 set - $@ "$ePAR"
 done
