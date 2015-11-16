@@ -375,28 +375,28 @@ _parse_fstab()
 {
 test -f /etc/fstab || return 57
 
-while read -r device mountpoint fstype mntops dump check
+while read -r device mountpoint_ fstype mntops dump check
 do
 
-test "$device" -a "$mountpoint" || continue
+test "$device" -a "$mountpoint_" || continue
 test "`echo "$device" | sed 's,[^#]*,,g'`" && continue
 
 case $WHAT in
  mount)
-  _debug "_parse_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
+  _debug "_parse_fstab:$WHAT:'$device' '$mountpoint_' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
   grep $Q -w "${device##*/}" /proc/partitions || continue
-  test -d "$mountpoint" || LANG=$LANG_ROX mkdir $VERB -p "$mountpoint"
-  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
-  mountpoint $Q "$mountpoint" && continue
+  test -d "$mountpoint_" || LANG=$LANG_ROX mkdir $VERB -p "$mountpoint_"
+  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint_\""
+  mountpoint $Q "$mountpoint_" && continue
 
   mountBEFORE=`cat /proc/mounts`
-  busybox $WHAT $device "$mountpoint" -t $fstype -o $mntops
+  busybox $WHAT $device "$mountpoint_" -t $fstype -o $mntops
   RV=$?
   STATUS=$((STATUS+RV))
   ignoreROX=1
-  test "$RV" = 0 && _update_partition_icon || rmdir $VERB "$mountpoint"
+  test "$RV" = 0 && _update_partition_icon || rmdir $VERB "$mountpoint_"
  ;;
 
 umount)
@@ -407,9 +407,9 @@ umount)
   -O) echo "$mntops" | grep $Q -E "$opO_ARGS" || continue ;;
   esac
 
-  _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
+  _debug "_parse_fstab:$WHAT:mountpoint_='$mountpoint_'"
 
-                allSUB_MOUNTS=`losetup -a | grep -w "$mountpoint" | tac`
+                allSUB_MOUNTS=`losetup -a | grep -w "$mountpoint_" | tac`
                 _check_tmp_rw || return 58
                 while read -r loop nr loopmountpoint
                 do
@@ -421,11 +421,11 @@ umount)
                 `echo "$allSUB_MOUNTS"`
 EoI
 
-  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
-  mountpoint $Q "$mountpoint" && {
+  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint_\""
+  mountpoint $Q "$mountpoint_" && {
      mountBEFORE=`cat /proc/mounts`
-     _pidof $Q ROX-Filer && rox -D "$mountpoint"
-     busybox $WHAT "$mountpoint"
+     _pidof $Q ROX-Filer && rox -D "$mountpoint_"
+     busybox $WHAT "$mountpoint_"
      RV=$?
      test $RV = 0 && _update_partition_icon
      STATUS=$((STATUS+RV))
@@ -683,18 +683,24 @@ if test "$deviceORpoint"; then
   case $deviceORpoint in /dev|/)
   grep $Q -E "[[:blank:]]+$deviceORpoint[[:blank:]]+" /etc/fstab;FSTAB_RV=$?
   ;;
-  *) 
-  grep $Q -Fw "$deviceORpoint" /etc/fstab;FSTAB_RV=$? 
+  *)
+  grep $Q -Fw "$deviceORpoint" /etc/fstab;FSTAB_RV=$?
   ;;
   esac
   #test $? = 0 && {
   test "$FSTAB_RV" = 0 && {
   _info "Found $deviceORpoint in /etc/fstab"
   #mkdir $VERB -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
+  case $deviceORpoint in /dev|/)
+  mountPOINT=`grep -m1 -E "[[:blank:]]+$deviceORpoint[[:blank:]]+" /etc/fstab | awk '{print $2}'`
+  ;;
+  *)
   mountPOINT=`grep -m1 -Fw "$deviceORpoint" /etc/fstab | awk '{print $2}'`
+  ;;
+  esac
   _debug "fstab:mountPOINT='$mountPOINT'"
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir $VERB -p "$mountPOINT"; }
-  mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 31 "'$mountPOINT' already mounted."; }
+  mountpoint $Q "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 31 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
@@ -754,9 +760,15 @@ grepP="${grepP//
    test -e /etc/fstab || touch /etc/fstab
    #grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
    #_debugx "grepPAR='$grepPAR'"
-   grepPAR="$posPAR"
-   mountPOINT=`grep -m1 -Fw "$grepPAR" /etc/fstab | awk '{print $2}'`
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
+   grepPAR="$posPAR"
+   case $posPAR in /dev|/)
+   mountPOINT=`grep -m1 -F " $grepPAR " /etc/fstab | awk '{print $2}'`
+   ;;
+   *)
+   mountPOINT=`grep -m1 -Fw "$grepPAR" /etc/fstab | awk '{print $2}'`
+   ;;
+   esac
    _debugx "fstab:mountPOINT='$mountPOINT'"
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
@@ -1125,7 +1137,11 @@ _have_long_options "$@"
 *) _exit 43 "Unhandled '$WHAT' -- use 'mount' or 'umount' .";;
 esac
 
+if test "$RETVAL" = 0; then
 _notice "RETVAL=$RETVAL"
+else
+_err "RETVAL=$RETVAL"
+fi
 _debugt 05 $_DATE_
 
 # REM: want a tidy /mnt/ directory with only mounted directories
