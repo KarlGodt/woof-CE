@@ -2184,7 +2184,7 @@ ifsv='^°!"§$%&/()=?`¹²³¼½¬{[]}\ß´+*~#-_.:·,;'"'"  # '\' seems not to 
 KERNELSUBSUBVER="$K_EXTRAVERSION"
 
 case $K_VERSION in
-3) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
+[3-9]) SFSSTR='squashfs, version 4';SFSMAJOR=4;squashXZ=YES;;
 2)
         case $K_PATCHLEVEL in
         6)
@@ -2243,7 +2243,7 @@ unset KERNEL KERNVER KERNELVER KERNELSUBVER KERNELSUBSUBVER
 unset VERSIONS LOCALVERSION K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRAVERSION
 unset SFSSTR SFSMAJOR squashXZ
 
-test -f /proc/config.gz || modprobe -v configs
+test -f /proc/config.gz || modprobe $Q $VERB configs
 test -f /proc/config.gz && {
 
  if test "$*"; then
@@ -2251,7 +2251,16 @@ test -f /proc/config.gz && {
  fi
 
  VERSIONS=`zcat /proc/config.gz | grep -m2 -iE '# Linux.*kernel.*|CONFIG_LOCALVERSION=".*"'`
+
+# k 2.6.31.14:
+# # Linux kernel version: 2.6.31.14
+# CONFIG_LOCALVERSION="-KRG-i586-pae-300Hz-slub-flatmem-8cpu"
+ test "$KERNELVER" || KERNELVER=`echo "$VERSIONS" | grep -m1 -i '# Linux.*kernel version:.*' | awk '{print $NF}'`
+
+
  test "$KERNELVER" || KERNELVER=`echo "$VERSIONS" | grep -m1 -i '# Linux.*kernel.*' | awk '{print $3}'`
+
+
  LOCALVERSION=`echo "$VERSIONS" | grep -m1 -i 'CONFIG_LOCALVERSION=".*"' | cut -f2 -d=`
 _debug "KERNELVER='$KERNELVER'"
 _debug "LOCALVERSION='$LOCALVERSION'"
@@ -2407,7 +2416,7 @@ read kVERSION kPATCHLEVEL kSUBLEVEL kEXTRAVERSION kLOCALVERSION <<EoI
 `echo "$KERNEL"`
 EoI
 ;;
-3*) _debug "HANDLED KERNEL='$KERNEL'"
+[3-9]*) _debug "HANDLED KERNEL='$KERNEL'"
 read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION <<EoI
 `echo "$KERNEL"`
 EoI
@@ -2486,15 +2495,20 @@ test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
     test -f /proc/modules && {
     grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; }
     } || { modprobe $VERB squashfs; sleep 1; }
-SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
+if _test_fr /var/log/bootkernel-${KERNEL_RELEASE}.log; then
+SFS_STR=`grep -i squash /var/log/bootkernel-${KERNEL_RELEASE}.log | grep -o -i 'version.*' | cut -f1,2 -d' '`
+fi
+test "$SFS_STR" || { SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`; }
+test "$SFS_STR" || { SFS_STR=`modinfo squashfs | grep -o 'description:.*squashfs [0-9]\.[0-9],' | awk '{print $NF}' | sed 's!,$!!'`
+  test "$SFS_STR" && SFS_STR="version $SFS_STR"; }
 }; }
-test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
+test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg or modinfo, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
 
 SFS_MAJOR=`echo ${SFS_STR##* } | cut -b 1`
 test "${SFS_MAJOR//[[:digit:]]/}" && SFS_MAJOR='';
 test "$SFS_MAJOR" || { _warn "Could not determine squashfs major version, assuming '4'"; SFS_MAJOR=4; }
 
-SFS_STR="squashfs, $SFS_STR"
+test "$SFS_STR" && SFS_STR="squashfs, $SFS_STR"
 
 else
 :
@@ -2502,7 +2516,7 @@ fi
 
 squashXZ=NOT
 case "$KERNEL" in
-3.*) squashXZ=YES
+[3-9].*) squashXZ=YES
 test "$SFS_STR" || SFS_STR="squashfs, version 4.0"
 test "$SFS_MAJOR" || SFS_MAJOR=4
 ;;
@@ -2554,7 +2568,7 @@ EoI
 IFS="$oldIFS"
 ;;
 2.[0-5].*) _warn "Unhandled kernel version 2.[0-5].*";;
-3.*)
+[3-9].*)
 oldIFS="$IFS"
 IFS='.+-_AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz(){}[]&%$!?=#*~@€^"°¹²³¼½ßÜüÖöÄäÆæØøÅåÁáÀàÂâÉéÈèÊêÍíÌìÎîÓóÒòÔôÚúÙùÛû£:;'"'"
 read kVERSION kPATCHLEVEL kSUBLEVEL kLOCALVERSION<<EoI
