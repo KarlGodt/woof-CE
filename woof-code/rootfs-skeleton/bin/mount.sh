@@ -4,7 +4,7 @@
 #      Prints ss:nnn nnn nnn
 #      Accepts $1 label to identify value in log
 #       and $2 date of same output, usually last _DATE_, which is not local
-DEBUGT=
+[ "$DEBUGT" ] || DEBUGT=
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 0
@@ -36,10 +36,10 @@ _debugt 8D $_DATE_
 
 # REM: These global vars are set in f4puppy5
 #      Now possible to set them witout affecting other progs
-Q=-q
-QUIET=--quiet
-DEBUG=1
-DEBUGX=1
+[ "$Q" ] || Q=-q
+[ "$QUIET" ] || QUIET=--quiet
+[ "$DEBUG" ] || DEBUG=
+[ "$DEBUGX" ] || DEBUGX=
 test "$DEBUG" && QUIET='';
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -680,13 +680,21 @@ if test "$deviceORpoint"; then
  fi
  #test -d /mnt/${deviceORpoint##*/} || mkdir $VERB -p /mnt/${deviceORpoint##*/}
  test -e /etc/fstab || touch /etc/fstab
- grep $Q -w "$deviceORpoint" /etc/fstab && {
+  case $deviceORpoint in /dev|/)
+  grep $Q -E "[[:blank:]]+$deviceORpoint[[:blank:]]+" /etc/fstab;FSTAB_RV=$?
+  ;;
+  *) 
+  grep $Q -Fw "$deviceORpoint" /etc/fstab;FSTAB_RV=$? 
+  ;;
+  esac
+  #test $? = 0 && {
+  test "$FSTAB_RV" = 0 && {
   _info "Found $deviceORpoint in /etc/fstab"
   #mkdir $VERB -p `awk "/$deviceORpoint/ "'{print $2}' /etc/fstab`
-  mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
+  mountPOINT=`grep -m1 -Fw "$deviceORpoint" /etc/fstab | awk '{print $2}'`
   _debug "fstab:mountPOINT='$mountPOINT'"
   #test -e "$mountPOINT" || { set - $@ $mountPOINT; mkdir $VERB -p "$mountPOINT"; }
-  mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted."; }
+  mountpoint "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 31 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
@@ -734,11 +742,20 @@ o_posPAR="$posPAR"
    grepP=${posPAR// /\\040};grepP=${grepP// /\\011}
 grepP="${grepP//
 /\\012}"
-   grep $Q -Fw "$grepP" /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted."; }
+   _debugx "grepP='$grepP'"
+   case $posPAR in /dev|/)
+   grep $Q -F " $grepP " /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 33 "$posPAR already mounted."; }
+   ;;
+   *)
+   grep $Q -Fw "$grepP"  /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 34 "$posPAR already mounted."; }
+   ;;
+   esac
    _debug "c=$c \$#=$# ""$posPAR"
    test -e /etc/fstab || touch /etc/fstab
-   grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
-   mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
+   #grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
+   #_debugx "grepPAR='$grepPAR'"
+   grepPAR="$posPAR"
+   mountPOINT=`grep -m1 -Fw "$grepPAR" /etc/fstab | awk '{print $2}'`
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
    _debugx "fstab:mountPOINT='$mountPOINT'"
    test "$mountPOINT" && { posPAR="$mountPOINT"
