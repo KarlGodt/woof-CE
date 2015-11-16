@@ -36,6 +36,14 @@ PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin"
 
 . /etc/rc.d/f4puppy5
 
+backupDIR="/root/my-documents/ROLLOUT"
+[ -d "$backupDIR" ] || mkdir $VERB -p "$backupDIR"
+KERNEL_RELEASE=`uname -r`
+D=`date +%d%b%Y`
+D=`date +%Y_%m_%d`
+[ -d "$backupDIR/$KERNEL_RELEASE/$D" ] || mkdir $VERB -p "$backupDIR/$KERNEL_RELEASE/$D"
+
+
 [ -f /etc/rc.d/apm_power_off ] && . /etc/rc.d/apm_power_off
 modprobe $Q $VERB -b button
 
@@ -44,13 +52,13 @@ modprobe $Q $VERB -b button
 currentCONSOLE=`tty`
 _debug "currentCONSOLE='$currentCONSOLE'"
 
-__some_code__(){
+__get_all_open_consoles__(){
 curr="$currentconsole"  #;c=0
 if [ "$curr" != '/dev/tty1' ];then chvt 1;fi
 cons=`grep -o '^tty[0-9]*' /etc/inittab`
 CONS=`echo "$cons" | grep -o '[0-9]'`
 maxcons=`echo $CONS|rev|sed 's/^[[:blank:]]*//'|cut -f 2-99 -d ' '|rev`
-`ps -A -H -f | grep '\-sh'`
+#maxcons=`ps -A -H -f | grep '\-sh'`
 }
 
 curr="${currentCONSOLE//\/dev\//}"
@@ -62,7 +70,7 @@ pidof sync >>$OUT || sync
 echo -n "killed '$pid' "
 done
 
-__some_code2__(){ #BEGIN
+__try_writing_history__(){ #BEGIN
 for con in $maxcons ; do c=$((con+1));chvt $c
 #echo "`history|awk '{print $2}'`" >> .bash_history
 #echo "`history|awk '{print $2}'`" >> .ash_history
@@ -90,7 +98,7 @@ deallocvt $c
 chvt 1
 } ###__some_code2__(){ #END
 
-__some_code3__(){
+__force_write_history_force__(){
 echo "`history|awk '{print $2}'`" >> .bash_history
 echo "`history|awk '{print $2}'`" >> .ash_history
 echo "`history|awk '{print $2}'`" >> .history
@@ -103,6 +111,7 @@ _debugt
 
 which datum >>$OUT || datum(){ P="$1"; [ -z "$P" ] && P='s'; case $P in s) date +%Y_%m_%d ;; o) date +%d%b%Y ;; esac; }
 
+_save_history(){
 test -f /.history && { cp $VERB /.history /root/my-documents/SHELL/.TOPhistory
 mv $VERB /root/my-documents/SHELL/.TOPhistory /root/my-documents/SHELL/"dotTOPhistory`datum`"
 }
@@ -126,26 +135,18 @@ mv $VERB /root/my-documents/SHELL/.bash_history /root/my-documents/SHELL/"DOTbas
 test -f /root/.ash_history && { cp $VERB /root/.ash_history /root/my-documents/SHELL/
 mv $VERB /root/my-documents/SHELL/.ash_history /root/my-documents/SHELL/"DOTash_history`datum`"
 }
+} ##_save_history(){ #END
 
 _debugt
 
-backupDIR="/root/my-documents/ROLLOUT"
-[ -d "$backupDIR" ] || mkdir $VERB -p "$backupDIR"
-KERNEL_RELEASE=`uname -r`
-D=`date +%d%b%Y`
-D=`date +%Y_%m_%d`
-[ -d "$backupDIR/$KERNEL_RELEASE/$D" ] || mkdir $VERB -p "$backupDIR/$KERNEL_RELEASE/$D"
-
-__old_backup_tmp_files__(){
-cp $VERB -f /tmp/bootkernel* $backupDIR/$KERNEL_RELEASE/$D/
-cp $VERB -f /tmp/bootsysinit* $backupDIR/$KERNEL_RELEASE/$D/
-cp $VERB -f /tmp/xerrs* $backupDIR/$KERNEL_RELEASE/$D/
-}
-
+_save_important_files(){
 cp $VERB -f /var/log/messages $backupDIR/$KERNEL_RELEASE/$D/
-
 test -f /etc/X11/xorg.conf && cp $VERB /etc/X11/xorg.conf $backupDIR/$KERNEL_RELEASE/$D/
+}
+_save_important_files
+
 _debugt
+
 
 _make_dev_nodes_database() {
 kv=`uname -r`
@@ -170,45 +171,6 @@ fi
 #mountpoint /dev || dev_nodes_db_func
 grep $Q ' /dev ' /proc/mounts || _make_dev_nodes_database
 _debugt
-
-__private_unmount__(){
-##private unmount##
-LOOPM=`mount | grep 'loop' | grep -vE '/initrd| on / type | on "/" type ' | cut -f 4 -d '"' |tr ' ' '\`'`
-echo "$LOOPM"
-echo "----------"
-for i in $LOOPM ; do
-i=`echo "$i" |tr '\`' ' ' |sed 's|^"||;s|"$||'`
-echo "Unmounting $i"
-umount -r -d "$i"
-mountDirs="$mountDirs $i"
-done
-sleep 2s
-[ -d "$mountDirs" ] && rmdir $VERB $mountDirs
-
-LOOPD=`mount | grep 'loop' | grep -vE '/initrd| on / type | on "/" type ' | cut -f 2 -d'"'` #cut -f 1 -d ' '`
-echo "$LOOPD"
-echo "-------------"
-for i in $LOOPD ; do
-echo "Unmounting $i"
-umount -r -d "$i"
-sleep 2s
-done
-
-
-RD=`rdev | cut -f 1 -d ' '`
-#PARTD=`mount | grep 'ext[2-4]' | grep -v '^/dev/root' | cut -f 1 -d ' '`
-#PARTS=`mount | grep 'ext[2-4]' | grep -v '^/dev/root' | cut -f 3 -d ' '`
-
-PARTM=`mount | grep -E 'ext[2-4]|reiser|xfs|jfs|hfs|hsfs|vfat|ntfs' | grep -v -E '^/dev/root|/initrd| on / type | on "/" type' | cut -f 4 -d '"' |tr ' ' '\`'`
-
-for i in $PARTM ; do
-i=`echo "$i" |tr '\`' ' '`
-echo "Unmounting $i"
-umount -r "$i"
-sleep 2s
-done
-##private unmount##
-}
 
 
 ##fsckme part##
