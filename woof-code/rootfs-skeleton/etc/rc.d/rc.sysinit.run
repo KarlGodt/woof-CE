@@ -56,7 +56,6 @@
 #
 # 07.0 : cat /proc/cmdline | grep -i 'nox' added nox kernel parameter for PUPMODE=2 <DONE?>
 #        special_mnt_func : for cgroups, debugfs an other pseudo-file-systems (educational)
-#        fsckme_func TODO: rename to fsckme_flg_func <DONE??>
 #        root_link_func  <DONE>
 #        pup_eve_bac_mod_func sort logfile func <DONE>
 #
@@ -88,32 +87,11 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin
 
 Version='1.1-simple Macpup_O2-Puppy-Linux-431 KRG'
-Version='2.1-Macpup_O2-Puppy-Linux-431 KRG'
-#if have just done a switch_root, output a 'done' message...
-#[ -d /initrd ] && _say_status 0 #note, /initrd should not exist when a full-hd installation.
+Version='2.2-Macpup_O2-Puppy-Linux-431 KRG'
 
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
 . /etc/rc.d/f4puppy5
-
-#Red0='\033[0;31m'
-#Red1='\033[1;31m'
-#Green0='\033[0;32m'
-#Green1='\033[1;32m'
-#Yellow0='\033[0;33m'
-#Yellow1='\033[1;33m'
-#Blue0='\033[0;34m'
-#Blue1='\033[1;34m'
-#Pink0='\033[0;35m'
-#Pink1='\033[1;35m'
-#Cyan0='\033[0;36m'
-#Cyan1='\033[1;36m'
-#White0='\033[0;37m'
-#White1='\033[1;37m'
-#Black0='\033[0;39m'
-
-#Inv_White0='\033[0;47m'
-#Inv_White1='\033[1;47m'
 
 usage(){
     local usageMSG
@@ -135,17 +113,6 @@ echo "$usageMSG"
 exit $1
 }
 
-__old_parameter_digesting__(){
-[ "$1" -a "$1" != codecheck ] && usage 0
-###<KRG 2011-11-02>
-if [ -n "$DISPLAY" ] ; then
-#return || exit
-[ "$1" = codecheck ] || usage 1
-:
-fi
-[ "$1" = codecheck ] && { set -x;set -n; } ##2012-05-22
-}
-
  ##<KRG 2011-11-17>
 case "$1" in
 *code*check*|*check*|*check*code*)
@@ -159,7 +126,6 @@ case "$1" in
 esac
  [ "$DISPLAY" ] && { usage 7 "Refusing to run in X"; true; } || true
  ##</KRG 2011-11-17>
-###</KRG 2011-11-02>
 
 export LANG=C
 alias modprobe="modprobe $Q $VERB -b"
@@ -174,7 +140,7 @@ _say_load_average(){
 echo "$1: `uptime`"
 }
 
-eleventh_console(){  ##+++2012-06-01 was here changed into function, has to be called after remount,rw /
+_eleventh_console(){  ##+++2012-06-01 was here changed into function, has to be called after remount,rw /
 ##+++2012-01-29
 test -d /dev/vc || mkdir $VERB -p /dev/vc;
 rm $VERB -f /dev/vc/11;mknod /dev/vc/11 c 4 11
@@ -228,9 +194,6 @@ _load_swap(){
  #load a swap partition...
  # REM: fdisk shows MBR partition tables but partitions may be reformatted later
  #      or even setup with wrong fs entries from the beginning ..
- __find_swaps_fdisk__(){
- SWAPS=`fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
- }
  SWAPS=`_find_swap_devices`
  [ "$SWAPS" ] && echo -n "Loading swap partition " >/dev/console
  for oneSWAP in $SWAPS
@@ -384,7 +347,7 @@ if test "$PUPMODE" = 2; then
  STATUS=$((STATUS+$?))
 
  ## reset older variables ( ie KERNEL_RELEASE )
- #VARIABLES=`awk -F'=' '{print $1}' /etc/rc.d/PUPSTATE`
+ _debug "VARIABLES=`awk -F'=' '{print $1}' /etc/rc.d/PUPSTATE`"
  unset PUPMODE KERNEL_RELEASE PDEV1 DEV1FS PUP_HOME SATADRIVES USBDRIVES
 
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
@@ -393,9 +356,7 @@ fi
 
 [ -e /proc/mounts ] || busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$((STATUS+$?))
 
-#. /etc/rc.d/PUPSTATE
-
-eleventh_console  ##+++2012-06-01
+_eleventh_console  ##+++2012-06-01
 
  ### boot params
  # debug
@@ -426,9 +387,13 @@ fi
  ### boot params
 
  #permissions
-if [ "$VERBOSE" ];then
+_check_perms(){
+[ "$DEBUG" ] || return 0
+echo "$*"
 ls -l /;ls -l /root;ls -l /tmp;ls -l /var
-fi
+echo "$*"
+}
+_check_perms
  #permissions
 
  #mtab
@@ -451,9 +416,10 @@ exec 1>/var/log/bootsysinit.log."$Ymd" 2>&1
 _say_load_average '0x00'
 
   #permissions
-if [ "$VERBOSE" ];then
-ls -l /;ls -l /root;ls -l /tmp;ls -l /var
-fi
+#if [ "$VERBOSE" ];then
+#ls -l /;ls -l /root;ls -l /tmp;ls -l /var
+#fi
+_check_perms
  #permissions
 
  #mount
@@ -480,7 +446,7 @@ fi
  #mount
 
 mountpointDEV='';
-haveMDEV=YES;
+haveMDEV=1;
 grep $Q ' /dev ' /proc/mounts 2>>$ERR && mountpointDEV=YES
 mdev -s 2>>$ERR || haveMDEV='';
 
@@ -492,7 +458,8 @@ echo "KERNEL_RELEASE='$KERNEL_RELEASE'" >> /etc/rc.d/PUPSTATE
 
 fsckme_func(){
 if [ ! "$PDEV1" ];then
-PDEV1=`basename $(rdev | cut -f 1 -d ' ' | sed 's#/dev/##')`
+PDEV1=`basename $(/bin/rdev | cut -f 1 -d ' ' | sed 's#/dev/##')`
+test "$PDEV1" || return
 
 MAJh=`stat -c %t /dev/$PDEV1`
 #MAJd=$(( 16#$MAJh ))  ##bash
@@ -517,10 +484,11 @@ for p in $POSSIBLE;do
     PDEV1=$p ; break ; }
 done
 
-DEV1FS=`mount | grep ^[\ \'\"\/]*dev/root |tr -d '"' |cut -f 5 -d ' '`
+DEV1FS=`/bin/df -T | grep -w "^$PDEV1" | awk '{print $2}'`
 else
 : ##+++2012-05-07 TODO
 fi
+
 echo "$PDEV1"','"$DEV1FS"',' > /etc/.fsckme.flag
 grep $Q 'PDEV1' /etc/rc.d/PUPSTATE || echo -e "PDEV1='$PDEV1'\nDEV1FS='$DEV1FS'" >> /etc/rc.d/PUPSTATE  ##2011-12-16
 }
@@ -531,8 +499,7 @@ if [ "$PUPMODDE" = 2 ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln $VERB -s / /mnt/home
-else
- if [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
+elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
    #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
    #in the case of the persistent storage being the partition itself, this will be mounted
@@ -543,7 +510,6 @@ else
   else
    ln $VERB -s /initrd${PUP_HOME} /mnt/home
   fi
- fi
 fi
 . /etc/rc.d/PUPSTATE
  #PUPSTATE
@@ -705,17 +671,6 @@ fi
 };_modprobe_conf_func;STATUS=$((STATUS+$?));echo -n "3 STATUS=$STATUS "
 _say_load_average '0x0e'
 
-__load_fbcon(){
-if [ -n "`modprobe -l | grep 'fbcon'`" ]; then
-if [ "`grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]' /proc/cmdline`" != "" ]; then
-if [ -z "`lsmod | grep 'fbcon'`" ] ; then  ##for /sbin/init
-modinfo fbcon   > /dev/console
-modprobe $modprobeSYSLOG fbcon
-fi
-fi
-fi;NO_FBCON=1
-};
-
 _load_fbcon(){
 [ -n "`modprobe -l | grep 'fbcon'`" ] || return 0
 [ "`grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]' /proc/cmdline`" ] || return 0
@@ -867,7 +822,6 @@ fi
 }
 
 
-#if test -d     /lib/modules/${KERNEL_RELEASE}/initrd; then
 test -d /lib/modules/${KERNEL_RELEASE}/initrd || mkdir $VERB -p /lib/modules/${KERNEL_RELEASE}/initrd
 if ls   /lib/modules/${KERNEL_RELEASE}/initrd/* 1>>$OUT 2>>$ERR; then
  rm $VERB -f   /lib/modules/${KERNEL_RELEASE}/initrd/modules.*
@@ -875,18 +829,10 @@ if ls   /lib/modules/${KERNEL_RELEASE}/initrd/* 1>>$OUT 2>>$ERR; then
  cp $VERB -au  /lib/modules/${KERNEL_RELEASE}/initrd/* /lib/modules/${KERNEL_RELEASE}/
  test $? = 0 && rm $VERB -rf                           /lib/modules/${KERNEL_RELEASE}/initrd
  depmod
- #mkdir -p      /lib/modules/${KERNEL_RELEASE}/initrd  # for /init
 fi
 [ -f /lib/modules/${KERNEL_RELEASE}/modules.dep ] || depmod
 
 ###########  DEMPOD  ##############################
-
-__unneeded_layerfs__(){
- # boot params
-[ $layerfs ] && LAYERFS=$layerfs #boot param.
-[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
-[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
-}
 
 _ass_layerfs(){ #from init
     local tLAYERFS fs
@@ -1094,7 +1040,7 @@ _say_load_average '2x0a'
   #vars
 INITSTATE=`find /sys -name "initstate"`
        WC=`echo "$INITSTATE" | wc -l`
-echo 'WC INITSTATE='"$WC"
+echo 'wc -l INITSTATE='"$WC"
   #vars
 
   #sanity check
@@ -1114,10 +1060,11 @@ test -e /tmp/pup_event_module_devpath.log && echo "
 Running the modaliases add by rc.sysinit" >> /tmp/pup_event_module_devpath.log
 
   #permissions check
-if [ "$VERBOSE" ];then
-echo "BEFORE loading main modules"
-ls -l /;ls -l /root;ls -l /tmp;ls -l /var;echo "BEFORE loading main modules"
-fi
+#if [ "$VERBOSE" ];then
+#echo "BEFORE loading main modules"
+#ls -l /;ls -l /root;ls -l /tmp;ls -l /var;echo "BEFORE loading main modules"
+#fi
+_check_perms "BEFORE loading main modules"
   #permissions check
 
 #
@@ -1129,12 +1076,10 @@ fi
 MODULECNT=0
 MODALIAS=MODALIAS; MODALIAS1=MODALIAS1; MODALIAS2=''; oldMODALIAS=''
 
-#while [ "$MODALIAS1" != "$MODALIAS2" ]
 while [ "$MODALIAS" != "" ]
 do
 
 MODALIAS1=`ls -1v /sys/*/*/*/*/modalias`
-#if test "$MODALIAS2"; then
 if test "$oldMODALIAS"; then
  MODALIAS=`echo "$MODALIAS1" | /bin/grep -v "$oldMODALIAS"`
 else
@@ -1142,20 +1087,15 @@ else
 fi
 
 #replay uevents from /sys...
-#for oneMODALIAS in $MODALIAS1
 for oneMODALIAS in $MODALIAS
 do
- #onePATH=`dirname $oneMODALIAS`
  onePATH="${oneMODALIAS%/*}"
- #if [ -e "${onePATH}/uevent" ];then #3
   [ -e "${onePATH}/uevent" ] || continue
   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -en "\r${Cyan1}${MODULECNT}${Reset0}" >/dev/console
- #fi #3
 done
-#MODALIAS2=`ls -1v /sys/*/*/*/*/modalias`
 oldMODALIAS="$MODALIAS1"
 [ "$MODULECNT" -gt 999 ] && break
 done
@@ -1282,12 +1222,13 @@ fi
 unset c
 
 ###permissions
-if [ "$VERBOSE" ];then
-echo "
-AFTER loading main modules"
-ls -l /;ls -l /root
-ls -l /tmp;ls -l /var
-fi
+#if [ "$VERBOSE" ];then
+#echo "
+#AFTER loading main modules"
+#ls -l /;ls -l /root
+#ls -l /tmp;ls -l /var
+#fi
+_check_perms "AFTER loading main modules"
 ###permissions
 
 #we can determine ide/sata drives at this point (drivers builtin to kernel)...
@@ -1576,16 +1517,14 @@ _say_load_average '5xff'
 ############# mount /proc/bus/usb #################
 
 #had hoped to retire this, but HardInfo needs it...
-#if [ "`lsmod | grep '^usbcore'`"  ];then
+# lsusb needs it too !!
 case $KERNEL_RELEASE in
 2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
  echo -n "MOUNT /proc/bus/usb "
  busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
  echo "<$?>"
 esac
-#else
-#echo "[NONE]"
-#fi
+
 ############# mount /proc/bus/usb #################
 
 
@@ -1626,21 +1565,22 @@ fi
 
 ########## RC.SERVICES ##############
  #permissions
-if [ "$DEBUG" ]          ;then
-echo "BEFORE RC.SERVICES"
-ls -l /;ls -l /root
-ls -l /tmp;ls -l /var
-echo "BEFORE RC.SERVICES";fi
+#if [ "$DEBUG" ]          ;then
+#echo "BEFORE RC.SERVICES"
+#ls -l /;ls -l /root
+#ls -l /tmp;ls -l /var
+#echo "BEFORE RC.SERVICES";fi
+_check_perms "BEFORE RC.SERVICES"
  #permissions
 
 Ymd="$Ymd" /etc/rc.d/rc.services start $safeBoot & #run scripts in /etc/rc.d/init.d
 
  #permissions
-if [ "$DEBUG" ];then
-echo "
-AFTER RC.SERVICES"
-ls -l /;ls -l /root
-ls -l /tmp;ls -l /var;fi
+#if [ "$DEBUG" ];then
+#echo "
+#AFTER RC.SERVICES"
+#ls -l /;ls -l /root
+#ls -l /tmp;ls -l /var;fi
  #permissions
 
 echo -e "\\033[62G\\033[1;33m[backgrounded]$Reset0" >/dev/console #column 62, yellow.
@@ -1819,10 +1759,11 @@ _sort_pup_eve_bac_mod_func(){
 };_sort_pup_eve_bac_mod_func &
 
  #permissions
-if [ "$VERBOSE" ];then
-ls -l /;ls -l /root
-ls -l /tmp;ls -l /var
-fi
+#if [ "$VERBOSE" ];then
+#ls -l /;ls -l /root
+#ls -l /tmp;ls -l /var
+#fi
+_check_perms
  #permissions
 
  #who
@@ -1830,8 +1771,6 @@ WHO=`whoami`
 _info "
 WHOAMI='$WHO'
 "
-# echo -e "$Cyan1\nWHOAMI='$WHO'$Reset0" >/dev/console
- #who
 
  #log
 [ -e /dev/vcs1 ] || { mknod /dev/vcs1 c 7 1;sleep 1; }
@@ -1886,10 +1825,8 @@ echo `uptime` >>/var/log/bootkernel-${KERNEL_RELEASE}.log
 #sda
 #sdb
 
-
- #ATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
- #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
  unset USB_SATAD BLOCK_SATAD SATADRIVES USBDRIVES ATADRIVES
+
  SATADRIVES=`ls -1v /sys/block | grep '^sd'`
  for i in $SATADRIVES; do
   LinkTarget=`readlink -f /sys/block/$i`
