@@ -2,7 +2,17 @@
 
 . /etc/rc.d/f4puppy5
 
-VERSION=1.9
+stateDIR="$HOME/Choices/Puppy"
+drive_iconDIR="$stateDIR"/pup_event
+
+INFO=1
+DEBUG=1
+DBEBUGX=
+
+VERSION=1.9.2
+
+exec 2>>/tmp/drive_all.log 1>&2
+echo "$0:$*" >&2
 
 _say_help(){
 MSG="
@@ -111,7 +121,7 @@ unmount_func(){
 
  ##+++2013-04-23 sync crap
  if test "`mount |grep -m1 "$MNTPT" | grep '(rw'`" != "" ; then
- pidof sync || { sync; sleep 2; }
+ pidof sync >>$OUT || { sync; sleep 2; }
  fi
 
  #while [ 1 ];do
@@ -212,15 +222,28 @@ _do_simple_unmount(){
 
  mPATTERN='^/dev/'"$oneDRVNAME"' '
  #MNTPT=`mount | grep "$mPATTERN" | cut -f 3 -d ' '`
- MNTPT=`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`
- [ "$MNTPT" ] || exit 1 #precaution.
+ MNTPT=`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6- -d ' '`
+ #[ "$MNTPT" ] || exit 1 #precaution.
  if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
   exit 2
  fi
+
+ case $oneDRVNAME in *scd*|*sr*)
+ if test "$MNTPT"; then :
+ else eject /dev/$oneDRVNAME
+ fi
+ ;;
+ *) :;;
+ esac
+
+ if test "$MNTPT"; then
  [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
  unmount_func
+ else true
+ fi
+
  exit $?
 }
 
@@ -233,7 +256,6 @@ _do_unmount_all(){
  oneDRVNAME=`grep -w "$MNTPT" /proc/mounts | awk '{print $1}'`
  oneDRVNAME=${oneDRVNAME##*/}
  MNTPT=`echo -e "$MNTPT"`
- #MNTPT=`echo "$MNTPT" | tr '\`' ' '`
  test -d "$MNTPT" -a -e /dev/"$oneDRVNAME" || continue
   [ "$DISPLAY" ] && yaf-splash -timeout 3 -bg purple -text "Attempting to unmount $MNTPT .." & yPID=$!
   _info "umountall: Attempt to unmount MNTPT='$MNTPT'"
@@ -290,10 +312,6 @@ exit $RV
 
 }
 
-INFO=1
-DEBUG=1
-DBEBUGX=1
-echo "$0:$*" >&2
 
 case "$0" in
 *./*|*../*)
@@ -311,7 +329,7 @@ _notice "MY_SELF='$MY_SELF'"
 oneDRVNAME=`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`
 _info "oneDRVNAME='$oneDRVNAME'"
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
+[ -f /etc/eventmanager.cfg ] && . /etc/eventmanager.cfg  #written by /usr/sbin/eventmanager
 
 case $1 in
 '') _run_pmount;;
@@ -352,28 +370,76 @@ case "$DO_WHAT" in
     #echo >&2;;
     ;;
 esac
+
+# REM: Since the drive icons for cd drives stay on desktop,
+#      Tooltips need updated when hoovering over icon
+#      For Media no fstype ..
+#      I make a whole title list
+_update_appinfo_mediacd(){
+
+cdINFO=`disktype /dev/$oneDRVNAME`
+test "$cdINFO" || return 1
+
+ SIZE=`echo "$cdINFO" | grep -o 'size .*' | cut -f1-3 -d ' '`
+TITLE=`echo "$cdINFO" | grep -e 'CD-ROM.*'`
+
+TRACKS=`echo "$cdINFO" | grep '^Track'`
+
+mINFO="<Summary>
+$TITLE
+$SIZE"
+
+while read T NR MEDIA t SIZE POWER size b TIME
+do
+[ "$T" ] || continue
+mINFO="$mINFO
+$T $NR $MEDIA $SIZE $POWER $TIME"
+
+done<<EoI
+`echo "$TRACKS"`
+EoI
+
+mINFO="$mINFO
+</Summary>"
+
+mkdir $VERB -p "$drive_iconDIR"
+
+echo "<?xml version=\"1.0\"?>
+<AppInfo>
+   ${mINFO}
+" >/tmp/AppInfo.xml
+
+#sed -n '/<About>/,/<\/AppInfo>/ p' $drive_iconDIR/drive_${oneDRVNAME}/AppInfo.xml
+sed -n '/<About>/,/<\/AppInfo>/ p' $drive_iconDIR/drive_${oneDRVNAME}/AppInfo.xml >>/tmp/AppInfo.xml
+test $? = 0 && cp $VERB -f /tmp/AppInfo.xml $drive_iconDIR/drive_${oneDRVNAME}/
+
+}
+
 #echo "NOW cdrom" >&2
 case "$oneDRVNAME" in scd*|sr*|hd[a-z])
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
-  cddetect -q -d/dev/${oneDRVNAME}
+  cddetect $Q $VERB -d/dev/${oneDRVNAME}
   RETVAL=$?
   case $RETVAL in
   3) #iso file: normal data cd.
    true
    ;;
   1) #audio
-   ln -snf /dev/${oneDRVNAME} /dev/cdrom
+   _update_appinfo_mediacd
+   ln $VERB -snf /dev/${oneDRVNAME} /dev/cdrom
    exec defaultmediaplayer cdda://
    ;;
   5|6|7|8) #video dvd
-   ln -snf /dev/${oneDRVNAME} /dev/dvd
+   _update_appinfo_mediacd
+   ln $VERB -snf /dev/${oneDRVNAME} /dev/dvd
    exec defaultmediaplayer dvd://
    ;;
   0) #failed to detect type.
    #cddetect does not work properly for dvd's, try something else...
    if [ "`dvd+rw-mediainfo /dev/$oneDRVNAME | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
-    ln -snf /dev/${oneDRVNAME} /dev/dvd
+    _update_appinfo_mediacd
+    ln $VERB -snf /dev/${oneDRVNAME} /dev/dvd
     exec defaultmediaplayer dvd://
    fi
    ;;
@@ -391,13 +457,28 @@ esac
 _debug FSTYPE=$FSTYPE
 if [ "$FSTYPE" != "" ];then
  dPATTERN='^/dev/'"$oneDRVNAME"' '
- if [ ! "`/bin/df | grep "$dPATTERN"`" ];then
+ if [ "`/bin/df | grep "$dPATTERN"`" ];then
+  #mounted...
+  MNTPT=`/bin/df | grep -m1 "$dPATTERN" | tr -s ' ' | cut -f6- -d ' '`
+  case $MNTPT in /) :;;
+  *)
+  if [ -L /mnt/home ];then
+   [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
+  fi
+  ;;
+  esac
+  #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
+  exec rox -x "$MNTPT" -d "$MNTPT"
+
+ else
   #not mounted...
+
+  __old_mount_switch__(){
   mkdir $VERB -p /mnt/$oneDRVNAME
   case $FSTYPE in
    NTFS|Ntfs|ntfs)
     #'mount' is a script that takes care of mounting ntfs...
-    /bin/mount -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount $VERB -t ntfs /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
    FAT|Fat|FAT*|Fat*|fat*|vfat)
@@ -415,30 +496,21 @@ if [ "$FSTYPE" != "" ];then
       ;;
      esac
     fi
-    /bin/mount -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
+    /bin/mount $VERB -t vfat -o shortname=mixed,quiet${NLS_PARAM} /dev/$oneDRVNAME /mnt/$oneDRVNAME #v411
     RETVAL1=$?
     ;;
    *)
     FSTYPE=`echo "$FSTYPE" | tr '[[:upper:]]' '[[:lower:]]'`
     MOUNT_OPT=rw                   ##+++2013-04-23
     [ "$FSTYPE" = iso9660 -o "$FSTYPE" = udf ] && MOUNT_OPT=ro
-    /bin/mount -t $FSTYPE -o $MOUNT_OPT /dev/$oneDRVNAME /mnt/$oneDRVNAME
+    /bin/mount $VERB -t $FSTYPE -o $MOUNT_OPT /dev/$oneDRVNAME /mnt/$oneDRVNAME
     RETVAL1=$?
     ;;
   esac
+  }
+  /bin/mount $VERB -t $FSTYPE /dev/$oneDRVNAME
+  RETVAL1=$?
   [ $RETVAL1 -eq 0 ] && exec rox -x /mnt/$oneDRVNAME #-d /mnt/$oneDRVNAME
- else
-  #mounted...
-  MNTPT=`/bin/df | grep -m1 "$dPATTERN" | tr -s ' ' | cut -f6- -d ' '`
-  case $MNTPT in /) :;;
-  *)
-  if [ -L /mnt/home ];then
-   [ "`readlink /mnt/home`" = "$MNTPT" ] && MNTPT="/mnt/home"
-  fi
-  ;;
-  esac
-  #exec rox -x /mnt/$oneDRVNAME -d /mnt/$oneDRVNAME
-  exec rox -x "$MNTPT" -d "$MNTPT"
  fi
 fi
 
