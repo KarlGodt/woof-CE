@@ -963,6 +963,10 @@ _restore_mounts(){
     # ignoreROX env variable for mount.sh
    grep -w "$_fstype_" /proc/filesystems | grep $Q '^nodev' && ignoreROX=1
 
+   # like umount give yaf-splash message
+   echo -e "\e[1;31mMounting '$_device_' '$_mntpnt_' ...\e[0;39m"
+   [ "$DISPLAY" ] && yaf-splash -bg purple -text "Mounting $_device_ $_mntpnt_ ..." & yPID=$!
+
    # Remount it if still in proc/mounts ( umount -r option )
    if grep $Q -w "$_mntpnt_" /proc/mounts; then
     ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o remount,$_mntops_ "$_device_" "$_mntpnt_"
@@ -970,8 +974,11 @@ _restore_mounts(){
    # mount it again
     ignoreROX=$ignoreROX /bin/mount $VERB -t $_fstype_ -o $_mntops_ "$_device_" "$_mntpnt_"
    fi
+   echo -e "\e[1;31m'$?'\e[0;39m"
 
-   sleep 0.2
+   sleep 1
+   [ "$yPID" -a "`ls -d /proc/$yPID`" ] && kill $yPID
+
    unset ignoreROX
   done
   IFS="$oldIFS"
