@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_clean_desk_icons"
@@ -9,7 +9,7 @@ MY_SELF="/sbin/clean_desk_icons"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -34,24 +34,12 @@ _trap
 #************
 #KRG
 
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = 2 ] && set -x
-
-Version=1.1-KRG-MacPup_O2
-
-usage(){
-MSG="
-$0 [ help | version ]
-"
-echo "$MSG
-$2"
-exit $1
-}
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
-[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
-trap "exit" HUP INT QUIT ABRT KILL TERM
+Version=1.2-KRG-MacPup_O2
+echo "$0:
+This script is deprecated. Removing drive icons from PuppyPin
+now is done in pup_event_frontend_d.
+Exiting!"
+exit 0
 
 ########################################################################
 #
@@ -93,32 +81,36 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #************
 
 export LANG=C
-. /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, ICONPARTITIONS, HOTPLUGNOISY, HOTPLUGON, FLOPPYICON.
+. /etc/eventmanager.cfg  #has RAMSAVEINTERVAL, ICONDESK, ICONPARTITIONS, HOTPLUGNOISY, HOTPLUGON, FD0ICON.
 
-PIN=Choices/ROX-Filer/PuppyPin
+PUPPY_PIN="$HOME"/Choices/ROX-Filer/PuppyPin
 TMP_PIN=/tmp/pup_event_puppy_pin_ok
-DIR=.pup_event
+#DIR=.pup_event
 
 stateDIR="$HOME/Choices/Puppy"
-drive_iconDIR="$stateDIR"/.pup_event
+drive_iconDIR="$stateDIR"/pup_event
 mkdir -p "$drive_iconDIR"
 
-ePUPPYPIN=`grep -v '$HOME/.pup_event/drive.*' $HOME/$PIN | grep -v '</pinboard>'`
+DEBUG=1
+DEBUGX=1
+VERB=-v
+
+ePUPPYPIN=`grep -v "${drive_iconDIR}/drive.*" "$PUPPY_PIN" | grep -v '</pinboard>'`
 
 #v403 /usr/sbin/eventmanager creates this file if all icons need to be rebuilt...
 if [ -f /tmp/pup_event_icon_change_flag ];then
 
 ###<KRG 2011_10_28>
-ICONDESK=`grep 'ICONDESK' /tmp/pup_event_icon_change_flag`
+      ICONDESK=`grep 'ICONDESK' /tmp/pup_event_icon_change_flag`
 ICONPARTITIONS=`grep 'ICONPARTITIONS'/tmp/pup_event_icon_change_flag`
-ICONWIPE=`grep 'ICONWIPE' /tmp/pup_event_icon_change_flag`
+      ICONWIPE=`grep 'ICONWIPE' /tmp/pup_event_icon_change_flag`
 ###</KRG 2011_10_28>
 
 if [ -n "$ICONWIPE" ] ; then  ##+++2011_10_28
- rm -f /tmp/pup_event_icon_change_flag
- echo "$ePUPPYPIN" >  $HOME/$PIN
- echo '</pinboard>' >> $HOME/$PIN
- rm -rf $HOME/.pup_event/drive* 2>$ERR
+ rm $VERB -f /tmp/pup_event_icon_change_flag
+ echo "$ePUPPYPIN"   > "$PUPPY_PIN"
+ echo '</pinboard>' >> "$PUPPY_PIN"
+ rm $VERB -rf "$drive_iconDIR" 2>>$ERR
  #exit ##+-+2011_10_28
 fi     ##+++2011_10_28
 
@@ -129,53 +121,70 @@ fi
 echo -n "" > $TMP_PIN
 if [ "$ICONDESK" = "false" ];then
  #leave single 'drives' icon on desktop...
- grep "$HOME/.pup_event/drive_drives" $HOME/$PIN >> $TMP_PIN
- rm -rf $HOME/.pup_event/drive_[^d]* 2>$ERR #delete all except drive_drives.
+ grep "$drive_iconDIR" "$PUPPY_PIN" >> "$TMP_PIN"
+ rm $VERB -rf "$drive_iconDIR"/drive_[^d]* 2>>$ERR #delete all except drive_drives.
 else
 
  #v410 Delete drive_ directories for removed drives...
  #note, this will not detect removed optical and floppy discs (see /sbin/pup_event_frontend_d).
  #Get the directory names for the drives only, not the partitions, to avoid redundant iterations through the for-loop.
- mkdir -p $HOME/.pup_event
- DIR_DRVS=`ls -1 $HOME/.pup_event | sed 's/drive_//' | grep -E "^hd.$|^sd.$|^sr|^mmcblk.$" | tr '\n' ' '`
+ mkdir $VERB -p "$drive_iconDIR"
+ DIR_DRVS=`ls -1 "$drive_iconDIR" | sed 's/drive_//' | grep -E "^hd.$|^sd.$|^sr|^mmcblk.$"`
  for ONEDRV in $DIR_DRVS
  do
-  [ ! -d $HOME/.pup_event/drive_$ONEDRV ] && continue
-  [ ! -e /sys/block/${ONEDRV} ] && rm -rf $HOME/.pup_event/drive_${ONEDRV}*
+  [ -d $drive_iconDIR/drive_$ONEDRV ] || continue
+  [ -e /sys/block/${ONEDRV} ] || rm $VERB -rf $drive_iconDIR/drive_${ONEDRV}*
  done
 
- for ONEDRV in `ls -1 /sys/block | grep -vE 'loop|ram' | tr '\n' ' '`
+ for ONEDRV in `ls -1 /sys/block | grep -vE 'loop|nbf|md|mtd|ram'`
  do
-  odPATTERN="$HOME/.pup_event/drive_${ONEDRV}"
-  OKDRV=`grep "$odPATTERN" $HOME/$PIN`
+  odPATTERN="$drive_iconDIR/drive_${ONEDRV}"
+  OKDRV=`grep "$odPATTERN" "$PUPPY_PIN"`
   if [ "$OKDRV" = "" ];then
-   rm -rf $HOME/.pup_event/drive_${ONEDRV}* 2>$ERR
+   _debug "$odPATTERN not found in $PUPPY_PIN"
+   rm $VERB -rf $drive_iconDIR/drive_${ONEDRV}* 2>>$ERR
   else
-   [ ! -d $HOME/.pup_event/drive_${ONEDRV} ] && continue #v408
+   [ -d $drive_iconDIR/drive_${ONEDRV} ] || continue #v408
    DRVCUT=`echo -n "$ONEDRV" | cut -c 1,2` #v410
    [ "$DRVCUT" = "sr" ] && continue #v410 omit icon if optical drive; defer it to pup_event_frontend_d
    [ "$DRVCUT" = "sc" ] && continue #v410 scd, ditto.
    if [ "$DRVCUT" = "hd" ];then
-    MEDIACAT=`cat /proc/ide/${ONEDRV}/media`
+    read MEDIACAT </proc/ide/${ONEDRV}/media
     [ "$MEDIACAT" = "cdrom" ] && continue #v410 omit icon if optical drive; defer it to pup_event_frontend_d
    fi
+   unset DRVMODEL1 DRVMODEL2 MEDIA VENDOR MODEL
    #w014 user may have swapped removable drives while pc turned off...
-   DRVMODEL1=`grep -o '<Summary>.*Size:' $HOME/.pup_event/drive_${ONEDRV}/AppInfo.xml | cut -f 2-20 -d ' ' | rev | cut -f 2-20 -d ' ' | rev`
+   DRVMODEL1=`grep -o '<Summary>.*Size:' $drive_iconDIR/drive_${ONEDRV}/AppInfo.xml | cut -f 2-20 -d ' ' | rev | cut -f 2-20 -d ' ' | rev`
+   _debug "DRVMODEL1='$DRVMODEL1'"
    #note, this must be same as done in /sbin/probedisk2...
-   DRVMODEL2=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '``cat /sys/block/${ONEDRV}/device/model | tr -s ' '`
+   case $ONEDRV in fd*) MEDIA='floppy'; VENDOR='Legacy'; MODEL='3"5 inch'
+   DRVMODEL2="$VENDOR $MODEL";;
+   *)
+   #DRVMODEL2=`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '``cat /sys/block/${ONEDRV}/device/model | tr -s ' '`
+    test -f /sys/block/$ONEDRV/device/vendor && read VENDOR </sys/block/$ONEDRV/device/vendor
+    test -f /sys/block/$ONEDRV/device/model  && read MODEL  </sys/block/$ONEDRV/device/model
+    [ "$VENDOR" ] || VENDOR='noInfo@sysBlock'
+    [ "$MODEL" ]  || MODEL='noInfo@sysBlock'
+    DRVMODEL2="$VENDOR $MODEL"
+   ;; esac
+   _debug "DRVMODEL2='$DRVMODEL2'"
+
    if [ "$DRVMODEL1" != "$DRVMODEL2" ];then
-    rm -rf $HOME/.pup_event/drive_${ONEDRV}* 2>$ERR
+    rm $VERB -rf $drive_iconDIR/drive_${ONEDRV}* 2>>$ERR
     continue
    fi
-   echo "$OKDRV" >> $TMP_PIN
+   echo "$OKDRV" >> "$TMP_PIN"
   fi
  done
 
 fi
 
- echo "$ePUPPYPIN" >  $HOME/$PIN
- cat $TMP_PIN >> $HOME/$PIN
- echo '</pinboard>' >> $HOME/$PIN
+_debug "`cat $PUPPY_PIN`"
 
+ echo "$ePUPPYPIN"  >  "$PUPPY_PIN"
+ cat "$TMP_PIN"     >> "$PUPPY_PIN"
+ echo '</pinboard>' >> "$PUPPY_PIN"
+
+_debug "`cat $PUPPY_PIN`"
 
 ###END###
