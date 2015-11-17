@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 . /etc/rc.d/PUPSTATE
@@ -7,6 +7,11 @@
 DEFAULTWM=jwm
 _test_frs /etc/windowmanager && read CURRENTWM </etc/windowmanager
 test "$CURRENTWM" || CURRENTWM="$DEFAULTWM"
+
+userresources=$HOME/.Xresources
+usermodmap=$HOME/.Xmodmap
+sysresources=/usr/lib/X11/xinit/Xresources
+sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
@@ -21,19 +26,12 @@ fi
 #source /root/Choices/XINIT/bb_acpi start &  #MARKER
 for file in /root/Choices/XINIT/*; do
 [ "`head -n1 $file|grep '^#\!'`" ] && {
+    [ -x $file ] && {
     echo "Starting '$file'"
     source $file start &
+    }
 }
 done
-
-
-#w482 reshape background image if widescreen...
-[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
-
-userresources=$HOME/.Xresources
-usermodmap=$HOME/.Xmodmap
-sysresources=/usr/lib/X11/xinit/Xresources
-sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 # merge in defaults and keymaps
 
@@ -53,11 +51,17 @@ if [ -f $usermodmap ]; then
     xmodmap $usermodmap
 fi
 
-#CURRENTWM="`cat /etc/windowmanager`"
+#w482 reshape background image if widescreen...
+[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
+#relocates right-side icons to actual right-side of screen...
+/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+
+#v2.0.0
+/usr/sbin/delayedrun &
+
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
 fi
-
 
 #0.9.8 sync selection-buffer and clipboard. only useful for older apps
 #such as rxvt that use the selection-buffer...
@@ -74,10 +78,10 @@ fi
 if [ -f /etc/xrandrindex ];then
   #v3.99 workround for dual monitors, 'head -n 1'....
   XYDEFAULT="`xrandr | grep '\*' | tr -s " " | grep '^ [0-9]' | cut -f 2 -d " " | head -n 1`"
-  XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution.
+  read XRANDRINDEX </etc/xrandrindex #v3.99 XRANDRINDEX now is XxY resolution.
   #but do not switch if default is already this resolution....
   if [ "$XRANDRINDEX" = "$XYDEFAULT" ];then
-   rm -f /etc/xrandrindex
+   rm $VERB -f /etc/xrandrindex
   else
    xrandr -s $XRANDRINDEX
   fi
@@ -88,13 +92,15 @@ if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
  eval "/root/.xset.sh"
 else
- ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
- #if [ "`readlink /usr/bin/X`" != "Xorg" ];then
- # #xset fp+ /usr/lib/X11/fonts/Type1/
- # #xset fp+ /usr/lib/X11/fonts/TTF/
- # xset fp+ /usr/share/fonts/default/Type1/
- # xset fp+ /usr/share/fonts/default/TTF/
- #fi
+ __set_fontpath__(){
+ #Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
+ if [ "`readlink /usr/bin/X`" != "Xorg" ];then
+  #xset fp+ /usr/lib/X11/fonts/Type1/
+  #xset fp+ /usr/lib/X11/fonts/TTF/
+  xset fp+ /usr/share/fonts/default/Type1/
+  xset fp+ /usr/share/fonts/default/TTF/
+ fi
+ }
  xset s 600 600 s blank
 fi
 
@@ -103,39 +109,48 @@ if [ -f /root/.fonts/fonts.dir ];then
  xset fp+ /root/.fonts/
 fi
 
-[ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
+__run_xsetroot__(){
+#[ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
+which xsetroot >>$OUT && xsetroot -cursor_name top_left_arrow
+}
 
+__xfce_manager__(){
 #v555 w003
-#[ -f /usr/bin/xfce-mcs-manager ] && xfce-mcs-manager
-#[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
+[ -f /usr/bin/xfce-mcs-manager ] && xfce-mcs-manager
+[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
 #...no need to start it here, fvwm4 below will start it automatically.
+}
 
-#relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+__first_launch_rox__(){
+#w468 on old PCs this sometimes does not start here, try again further down...
+case $CURRENTWM in *enlightenment*)
+   /usr/local/bin/rox -p= ;;
+*)                rox -p /root/Choices/ROX-Filer/PuppyPin;;
+esac
+}
 
-#w468 on old PCs this sometimes does not start, see further down...
-#rox -p /root/Choices/ROX-Filer/PuppyPin
 
-#/usr/local/bin/rox -p=
-
-#v2.0.0
-/usr/sbin/delayedrun &
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
- IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
+ IDLETIME="`cut -f 1 -d ',' /etc/mousehide`"
  [ ! "$IDLETIME" = "0" ] && unclutter -idle $IDLETIME &
 fi
 
-##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
-#which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
+__refresh_menu__(){
+#v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
+which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
 #...no, now doing it differently, see /usr/sbin/fixmenus
+}
 
+_launch_glipper(){
 #v2.17 removed, interferes with clipboard in Composer....
 ##v2.15 disovered by GuestToo...
 #[ "`which glipper`" != "" ] && glipper &
 #v2.17 made it optional...
 [ -f /root/.glipper_on ] && /usr/local/bin/glipper &
+}
+_launch_glipper
 
 if [ "$CURRENTWM" = "xfwm4" ];then
  if [ "`which xfce4-panel`" != "" ];then
@@ -155,20 +170,48 @@ fi
 
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
-if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
+#if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
+case $CURRENTWM in *enlightenment*|jwm*|icewm*) :;;
+*)
  [ -x /usr/bin/fbpanel ] && fbpanel &
  [ -x /usr/bin/lxpanel ] && lxpanel &
-fi
+;;
+esac
+#fi
 
+_start_rox_again(){
 if [ "$CURRENTWM" != 'enlightenment_start' ];then
 ##w468 rox may not start old hardware, try again...
 PS="`ps`" #reanimated krg Mar2011
-if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
+if [ "`echo "$PS" | grep -e 'ROX-Filer'`" = "" ];then
  touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
  sleep 0.2
  /usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin
 fi #reanimated krg Mar2011
 fi
+}
+
+__start_rox(){
+/usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin
+sleep 1
+_start_rox_again
+}
+
+_start_rox(){
+    while :
+    do
+    /usr/local/bin/rox -p "$HOME"/Choices/ROX-Filer/PuppyPin
+    sleep 1
+    ps -o args | grep -e 'ROX-Filer' | grep -v grep | grep $Q "$HOME"'/Choices/ROX-Filer/PuppyPin' && break
+    done
+}
+
+case $CURRENTWM in
+*enlightenment*) :;;
+*) _start_rox &
+;;
+esac
+
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 #exec $CURRENTWM
