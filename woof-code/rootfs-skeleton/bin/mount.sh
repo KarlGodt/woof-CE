@@ -63,23 +63,17 @@ _info "using '$LANG_ROX'"
 mountpoint(){
  test -f /proc/mounts || return 3
  test "$*" || return 2
- local QUIET_ mpPARAM grepP
+ local QUIET_ grepP
  [ "$1" = '-q' ] && { QUIET_=-q; shift; }
 
- #set - `echo "$*" | sed 's!\ !\\\040!g'`
- #set - ${*//\\/\\\\}
-
- #mpPARAM=`_string_to_octal "$@"`
- #set - ${mpPARAM//\\/\\\\}
-
- #grepP="${deviceORpoint// /\\\\040} "
 grepP=${*// /\\\\040};grepP=${grepP// /\\\\011}
 grepP="${grepP//
 /\\\\012}"
  set - "$grepP"
-
  _debug "mountpoint:$*"
- grep $QUIET_ " $* " /proc/mounts
+
+ #grep $QUIET_ " $* " /proc/mounts
+ cut -f2 -d' ' /proc/mounts | grep $QUIET_ -w "^${*}$"
  return $?; }
 
 # REM: /proc may be not mounted already (boot)
