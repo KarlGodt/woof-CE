@@ -4,6 +4,9 @@
 . /etc/rc.d/PUPSTATE
 . /etc/rc.d/f4puppy5
 
+DEBUGT=1
+_debugt 00
+
 DEFAULTWM=jwm
 _test_frs /etc/windowmanager && read CURRENTWM </etc/windowmanager
 test "$CURRENTWM" || CURRENTWM="$DEFAULTWM"
@@ -16,48 +19,52 @@ sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
-
-if [ "$CURRENTWM" != 'enlightenment_start' ];then
+_debugt 10
+#if [ "$CURRENTWM" != 'enlightenment_start' ];then
 #v4.01 BK daemon to handle kernel uevents...
-/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-/sbin/pup_event_frontend_d & #v403
-fi
-
+#/sbin/clean_desk_icons #v4.02 tidy up drive icons first. Now done by pup_event_frontend_d
+_pidof $Q pup_event_frontend_d && {
+exec /sbin/pup_event_frontend_d restart &
+} || {
+exec /sbin/pup_event_frontend_d start &  #v403
+}
+#fi
+_debugt 20
 #source /root/Choices/XINIT/bb_acpi start &  #MARKER
 for file in /root/Choices/XINIT/*; do
 [ "`head -n1 $file|grep '^#\!'`" ] && {
-    [ -x $file ] && {
-    echo "Starting '$file'"
-    source $file start &
+    [ -x "$file" ] && {
+    _info "Starting '$file'"
+    source "$file" start &
     }
 }
 done
-
+_debugt 30
 # merge in defaults and keymaps
 
-if [ -f $sysresources ]; then
-    xrdb -merge -nocpp $sysresources
+if [ -f "$sysresources" ]; then
+    xrdb -merge -nocpp "$sysresources"
 fi
 
-if [ -f $sysmodmap ]; then
-    xmodmap $sysmodmap
+if [ -f "$sysmodmap" ]; then
+    xmodmap "$sysmodmap"
 fi
 
-if [ -f $userresources ]; then
-    xrdb -merge -nocpp $userresources
+if [ -f "$userresources" ]; then
+    xrdb -merge -nocpp "$userresources"
 fi
 
-if [ -f $usermodmap ]; then
-    xmodmap $usermodmap
+if [ -f "$usermodmap" ]; then
+    xmodmap "$usermodmap"
 fi
-
+_debugt 40
 #w482 reshape background image if widescreen...
-[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
+/usr/sbin/background_reshape
 #relocates right-side icons to actual right-side of screen...
 /usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
-
+_debugt 50
 #v2.0.0
-/usr/sbin/delayedrun &
+exec /usr/sbin/delayedrun &
 
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
@@ -86,7 +93,7 @@ if [ -f /etc/xrandrindex ];then
    xrandr -s $XRANDRINDEX
   fi
 fi
-
+_debugt 60
 
 if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
@@ -108,7 +115,7 @@ fi
 if [ -f /root/.fonts/fonts.dir ];then
  xset fp+ /root/.fonts/
 fi
-
+_debugt 70
 __run_xsetroot__(){
 #[ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
 which xsetroot >>$OUT && xsetroot -cursor_name top_left_arrow
@@ -134,8 +141,9 @@ esac
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
  IDLETIME="`cut -f 1 -d ',' /etc/mousehide`"
- [ ! "$IDLETIME" = "0" ] && unclutter -idle $IDLETIME &
+ [ "$IDLETIME" = "0" ] || unclutter -idle $IDLETIME &
 fi
+_debugt 80
 
 __refresh_menu__(){
 #v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -167,14 +175,14 @@ if [ -f /usr/bin/absvolume ];then
   absvolume -bg $MENU_BG &
  fi
 fi
-
+_debugt 90
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
 #if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
 case $CURRENTWM in *enlightenment*|jwm*|icewm*) :;;
 *)
- [ -x /usr/bin/fbpanel ] && fbpanel &
- [ -x /usr/bin/lxpanel ] && lxpanel &
+ which fbpanel >>$OUT && fbpanel &
+ which lxpanel >>$OUT && lxpanel &
 ;;
 esac
 #fi
@@ -211,13 +219,13 @@ case $CURRENTWM in
 *) _start_rox &
 ;;
 esac
-
+_debugt A0
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM  && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
-[ -x $CURRENTWM ] && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+which "$CURRENTWM" >>$OUT && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
+[ -x "$CURRENTWM" ] && { echo "$CURRENTWM" >/etc/windowmanager; exec $CURRENTWM; }
 echo jwm >/etc/windowmanager
 exec jwm
 
