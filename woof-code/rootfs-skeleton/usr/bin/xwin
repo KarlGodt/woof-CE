@@ -344,11 +344,11 @@ if [ "$haveXVESA" ] ; then
   # fi
   #fi
   #v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
-  [ "`dmidecode -s bios-version | grep '^CM91510'`" != "" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
+  [ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
   #v3.95 recognise more special screens...
   DMIDECODE=`dmidecode`
   #recognise EeePC Asus laptop...
-  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" != "" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" != "" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
+  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
 
   echo -e '\nIf initialization freezes here, press ctrl-c and type "xorgwizard",\nselect "Xorg", choose monitor type and choose video mode.'   #v3.99
   grep '^oem:' /tmp/ddcprobe.txt > /tmp/ddcprobeoem.txt   #v3.99 current adapter signature
@@ -452,49 +452,66 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ];then
 fi
 
 #v408 k2.6.25.16 has serial driver as a module...
-[ "`grep 'ttyS' /etc/mousedevice`" != "" ] && modprobe $VERB sermouse
+[ "`grep 'ttyS' /etc/mousedevice`" ] && modprobe $Q $VERB sermouse
 #v411 precaution...
-[ "`grep 'input/mice' /etc/mousedevice`" != "" ] && modprobe $VERB usbhid
+[ "`grep 'input/mice' /etc/mousedevice`" ] && modprobe $Q $VERB usbhid
 
 #ask about scrollwheel... DO NOT ASK, ASSUME YES...
 if [ ! -f /etc/mousebuttons ];then
- #dialog --yesno "Do you have a wheel/scroll type of mouse?" 0 0
- #if [ $? -eq 0 ];then
+
+  _force_five_mousebuttons(){
   echo "5" > /etc/mousebuttons
   echo -e "The file /etc/mousebuttons has been created, with content \"5\"."
   if [ -f /etc/X11/xorg.conf ];then
    cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > /tmp/xorg.conf.tmp
-   sync
+   _sync
    cp $VERB -f /tmp/xorg.conf.tmp /etc/X11/xorg.conf
   fi
- #else
- # echo -n "3" > /etc/mousebuttons
- # echo -e "...you chose \"no\"."
- # echo -e "The file /etc/mousebuttons has been created, with content \"3\"."
- # if [ -f /etc/X11/xorg.conf ];then
- #  cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' > /tmp/xorg.conf.tmp
- #  sync
- #  cp -f /tmp/xorg.conf.tmp /etc/X11/xorg.conf
- # fi
- #fi
+  }
+_force_five_mousebuttons
+
+__ask_for_mousebuttons(){
+ dialog --yesno "Do you have a wheel/scroll type of mouse?" 0 0
+ if [ $? -eq 0 ];then
+
+_force_five_mousebuttons
+
+ else
+  echo -n "3" > /etc/mousebuttons
+  echo -e "...you chose \"no\"."
+  echo -e "The file /etc/mousebuttons has been created, with content \"3\"."
+  if [ -f /etc/X11/xorg.conf ];then
+   cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' > /tmp/xorg.conf.tmp
+   _sync
+   cp $VERB -f /tmp/xorg.conf.tmp /etc/X11/xorg.conf
+  fi
+ fi
+}
+
 fi
 
 _debug `date` "3: finished checking for mouse"
-#now done in /etc/rc.d/rc.modules...
-##alsa sound setup...
-#if [ "`cat /etc/modprobe.conf | grep 'snd\-card\-0'`" = "" ];then
-# #auto option created by BK for fast operation, less questions...
-# alsaconf --auto
-#fi
 
+__old_alsa__(){
+#now done in /etc/rc.d/rc.modules...
+#alsa sound setup...
+if [ "`cat /etc/modprobe.conf | grep -e 'snd-card-0'`" = "" ];then
+ #auto option created by BK for fast operation, less questions...
+ alsaconf --auto
+fi
+}
+
+__old_agpdriver__(){
 #rc.modules now does this...
-##v2.0.0 load correct -agp driver...
-#AGPDRIVER=`findhostbridge` #in /usr/sbin.
-#if [ ! "$AGPDRIVER" = "" ];then
-# [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe "$AGPDRIVER" 2>/dev/null
-#fi
-##note, could write $AGPDRIVER to /etc/modprobe.preload to load it at kernel boot.
-##note, it also loads agpgart.ko.
+#v2.0.0 load correct -agp driver...
+AGPDRIVER=`findhostbridge` #in /usr/sbin.
+if [ ! "$AGPDRIVER" = "" ];then
+ [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe "$AGPDRIVER" 2>/dev/null
+fi
+#note, could write $AGPDRIVER to /etc/modprobe.preload to load it at kernel boot.
+#note, it also loads agpgart.ko.
+}
+
 
 #v2.11 find out if xorg video drvr exists, else use xorg vesa...
 if [ -f /usr/bin/Xorg ];then
