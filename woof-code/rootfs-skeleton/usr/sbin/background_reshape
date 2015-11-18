@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler 2009
 # The background image is at /usr/share/backgrounds/default.jpg
 # This may have the wrong dimensions to suit either a 'normal' or a 'widescreen' monitor.
@@ -13,26 +13,32 @@ _COMMENT_="CLI to suit background image to screen."
 MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+DEBUG=1
 
 #************
 #KRG
 
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = 2 ] && set -x
+#OUT=/dev/null;ERR=$OUT
+#[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
+#[ "$DEBUG" = 2 ] && set -x
 
 Version=1.1-KRG-MacPup_O2
 
 usage(){
 MSG="
 $0 [ help | version | FILENAME ]
-File-name: /path/to/image.jpg"
+File-name: /path/to/image.jpg
+Only works for .jpg .jpeg .JPG .JPEG files"
 echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0 "$_COMMENT_"
-[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+#[ "`echo "$1" | grep -wEi "help|\-h"`" ] && usage 0 "$_COMMENT_"
+#[ "`echo "$1" | grep -wEi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
+
+case $1 in *help|-h) usage 0 "$_COMMENT_";;
+*version|-V)  echo "$0: $Version";exit 0;;
+esac
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
 
@@ -46,18 +52,24 @@ LC_NUMERIC=C
 
 #accept optional image file as passed param...
 IMAGEFILE="/usr/share/backgrounds/default.jpg"
-#[ $1 ] && IMAGEFILE="$1"
+
 [ "$*" ] && IMAGEFILE="$@"
 
 #v423 precaution, if someone has chosen the backup original...
-[ "`echo -n "$IMAGEFILE" | grep 'ORIGINAL'`" != "" ] && exit
+[ "`echo "$IMAGEFILE" | grep 'ORIGINAL'`" ] && exit 0
 
-IMAGEPATH=`dirname $IMAGEFILE`
-mkdir -p "${IMAGEPATH}_original" #v424
-IMAGEBASE=`basename $IMAGEFILE`
-IMAGEEXT=`echo -n "$IMAGEBASE" | rev | cut -f 1 -d '.' | rev`
+#IMAGEPATH=`dirname "$IMAGEFILE"`
+#IMAGEBASE=`basename "$IMAGEFILE"`
+# IMAGEEXT=`echo "$IMAGEBASE" | rev | cut -f 1 -d '.' | rev`
 
-[ "$IMAGEEXT" != "jpg" ] && [ "$IMAGEEXT" != "jpeg" ] && [ "$IMAGEEXT" != "JPG" ] && [ "$IMAGEEXT" != "JPEG" ] && exit
+#[ "$IMAGEEXT" = "jpg" ] || [ "$IMAGEEXT" = "jpeg" ] || [ "$IMAGEEXT" = "JPG" ] || [ "$IMAGEEXT" = "JPEG" ] && exit 0
+case $IMAGEFILE in *.jpg|*.jpeg|*.JPG|*.JPEG) :;;
+*) _info "$IMAGEFILE is not a jpeg file."; exit 0;;
+esac
+
+IMAGEPATH=`dirname "$IMAGEFILE"`
+IMAGEBASE=`basename "$IMAGEFILE"`
+mkdir $VERB -p "${IMAGEPATH}_original" #v424
 
 #first boot, maybe trying different video modes, so this causes reset each time...
 if [ ! -f ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} ];then #v424
@@ -66,63 +78,65 @@ else
  cp $VERB -f ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} ${IMAGEFILE} #restore. v424
 fi
 
-IMAGEDIMS=`jpegtopnm ${IMAGEFILE} 2>/dev/null | pamfile 2>&1 | grep 'stdin:' | tr -s ' ' | cut -f 2 -d ',' | cut -f 2,4 -d ' '` #ex: 1200 800
+ IMAGEDIMS=`jpegtopnm ${IMAGEFILE} 2>/dev/null | pamfile 2>&1 | grep 'stdin:' | tr -s ' ' | cut -f 2 -d ',' | cut -f 2,4 -d ' '` #ex: 1200 800
 IMAGEHORIZ=`echo -n "$IMAGEDIMS" | cut -f 1 -d ' '`
-IMAGEVERT=`echo -n "$IMAGEDIMS" | cut -f 2 -d ' '`
+ IMAGEVERT=`echo -n "$IMAGEDIMS" | cut -f 2 -d ' '`
 
-echo "IMAGEDIMS=$IMAGEDIMS IMAGEHORIZ=$IMAGEHORIZ IMAGEVERT=$IMAGEVERT"
+_debug "IMAGEDIMS=$IMAGEDIMS IMAGEHORIZ=$IMAGEHORIZ IMAGEVERT=$IMAGEVERT"
 
-ROOTDIMS=`xwininfo -root | grep ' \-geometry ' | tr -s ' ' | cut -f 3 -d ' ' | cut -f 1 -d '+' | tr 'x' ' '`
-ROOTHORIZ=`echo -n "$ROOTDIMS" | cut -f 1 -d ' '`
-ROOTVERT=`echo -n "$ROOTDIMS" | cut -f 2 -d ' '`
+ ROOTDIMS=`xwininfo -root | grep -e ' -geometry ' | tr -s ' ' | cut -f 3 -d ' ' | cut -f 1 -d '+' | tr 'x' ' '`
+ROOTHORIZ=`echo "$ROOTDIMS" | cut -f 1 -d ' '`
+ ROOTVERT=`echo "$ROOTDIMS" | cut -f 2 -d ' '`
 
-echo "ROOTDIMS=$ROOTDIMS ROOTHORIZ=$ROOTHORIZ ROOTVERT=$ROOTVERT"
+_debug "ROOTDIMS=$ROOTDIMS ROOTHORIZ=$ROOTHORIZ ROOTVERT=$ROOTVERT"
 
 #v423...
 RATIOIMAGE=`dc $IMAGEHORIZ $IMAGEVERT div 100 mul p | cut -f 1 -d '.'`
-RATIOROOT=`dc $ROOTHORIZ $ROOTVERT div 100 mul p | cut -f 1 -d '.'`
+ RATIOROOT=`dc $ROOTHORIZ $ROOTVERT div 100 mul p | cut -f 1 -d '.'`
 
-echo "RATIOIMAGE=$RATIOIMAGE RATIOROOT=$RATIOROOT" #TEST
+_debug "RATIOIMAGE=$RATIOIMAGE RATIOROOT=$RATIOROOT" #TEST
 
-xRATIOIMAGE=`expr $RATIOIMAGE + 5` #allow for roundoff errors.
+xRATIOIMAGE=$((RATIOIMAGE + 5)) #allow for roundoff errors.
 
-echo "xRATIOIMAGE=$xRATIOIMAGE RATIOROOT=$RATIOROOT"
+_debug "xRATIOIMAGE=$xRATIOIMAGE RATIOROOT=$RATIOROOT"
 
-[ $xRATIOIMAGE -ge $RATIOROOT ] && { echo "greaterequal. exit";exit 0; }
-[ $? = 2 ] && { echo "1. test error <2> . exit.";exit 0; }
+[ $xRATIOIMAGE -ge $RATIOROOT ] && { _debug "greaterequal. exit";exit 0; }
+[ $? = 2 ] && { _warn "1. test error <2> . exit.";exit 0; }
 
 #v423 some math gymnastics involved here...
-IMGVERTSCALED=`dc $ROOTHORIZ $IMAGEHORIZ div $IMAGEVERT mul p`
-VERTDIFF=`dc $IMGVERTSCALED $ROOTVERT sub p`
+   IMGVERTSCALED=`dc $ROOTHORIZ $IMAGEHORIZ div $IMAGEVERT mul p`
+        VERTDIFF=`dc $IMGVERTSCALED $ROOTVERT sub p`
 NEWIMGVERTSCALED=`dc $IMGVERTSCALED $VERTDIFF sub p`
-NEWVERT=`dc $IMAGEHORIZ $ROOTHORIZ div $NEWIMGVERTSCALED mul p | cut -f 1 -d '.'` #v424 fix.
+         NEWVERT=`dc $IMAGEHORIZ $ROOTHORIZ div $NEWIMGVERTSCALED mul p | cut -f 1 -d '.'` #v424 fix.
 
-echo "IMGVERTSCALED=$IMGVERTSCALED VERTDIFF=$VERTDIFF NEWIMGVERTSCALED=$NEWIMGVERTSCALED NEWVERT=$NEWVERT" #TEST
+_debug "IMGVERTSCALED=$IMGVERTSCALED VERTDIFF=$VERTDIFF NEWIMGVERTSCALED=$NEWIMGVERTSCALED NEWVERT=$NEWVERT" #TEST
 
+__cut_bottom_only__(){
 #this method only cuts off the bottom of image...
-#if [ $xNEWVERT -lt $IMAGEVERT ];then
-# jpegtopnm ${IMAGEFILE} | pamdice -height=${NEWVERT} -outstem=/root/out #creates out_0_0.ppm
-# [ $? -ne 0 ] && exit
-# pnmtojpeg -quality=85 out_0_0.ppm > ${IMAGEFILE}
-# rm $VERB -f /root/out_*.ppm
-#fi
+if [ $xNEWVERT -lt $IMAGEVERT ];then
+ jpegtopnm ${IMAGEFILE} | pamdice -height=${NEWVERT} -outstem=/root/out #creates out_0_0.ppm
+ [ $? -ne 0 ] && { _err "jpegtopnm returned non-0"; exit 1; }
+ pnmtojpeg -quality=85 out_0_0.ppm > ${IMAGEFILE}
+ [ "$DEBUG" ] || rm $VERB -f /root/out_*.ppm
+fi
+}
 
 #this method cuts equal amount from top and bottom...
 
-echo "NEWVERT=$NEWVERT IMAGEVERT=$IMAGEVERT"
+_debug "NEWVERT=$NEWVERT IMAGEVERT=$IMAGEVERT"
 
 if [ $NEWVERT -lt $IMAGEVERT ];then #precaution
- [ $? = 2 ] && { echo "2. test error <2> . exit.";exit 0; }
+ [ $? = 2 ] && { _err "2. test error <2> . exit.";exit 2; }
  PAMCUT="pamcut"
- [ "`which pnmcut`" != "" ] && PAMCUT="pnmcut" #older netpbm.
- which $PAMCUT || { echo "No pamcut or pnmcut installed.";exit 1; }
- CUTVERT=`expr $IMAGEVERT - $NEWVERT`
- TOP=`expr $CUTVERT \/ 2`
- BOTTOM=`expr $NEWVERT + $TOP`
+ [ "`which pnmcut`" ] && PAMCUT="pnmcut" #older netpbm.
+ which $PAMCUT >>$OUT || { _err "No pamcut or pnmcut installed.";exit 3; }
+ CUTVERT=$((IMAGEVERT - NEWVERT))
+     TOP=$((CUTVERT / 2))
+  BOTTOM=$((NEWVERT + TOP))
 # jpegtopnm ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} | ${PAMCUT} -left=0 -right=${IMAGEHORIZ} -top=${TOP} -bottom=${BOTTOM} | pnmtojpeg -quality=85 > ${IMAGEFILE}
- jpegtopnm ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} | ${PAMCUT} -left=0 -top=${TOP} -bottom=${BOTTOM} | pnmtojpeg -quality=85 > ${IMAGEFILE}
+ ( jpegtopnm ${IMAGEPATH}_original/ORIGINAL-${IMAGEBASE} | ${PAMCUT} -left=0 -top=${TOP} -bottom=${BOTTOM} | pnmtojpeg -quality=85 > ${IMAGEFILE} ) >>$OUT 2>>$ERR
 else
-echo "greaterequal. Ok. Leaving '$IMAGEFILE' as is."
+_info "greaterequal. Ok. Leaving '$IMAGEFILE' as is."
 fi
 
 ###END###
