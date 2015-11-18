@@ -59,7 +59,7 @@ _debug "FS_SUPPORT=$gFSSUPPORT"
 
 Version='1.3.0-kill Macpup_Opera_2-Puppy_Linux_431-KRG'
 
-POLL_INTERVALL=2 #seconds
+POLL_INTERVAL=2 #seconds
 #w471 slow cpus need more delay (well, rox does)...
 DELAYFACTOR=2   #seconds
 
@@ -180,40 +180,40 @@ unset Q QUIET
 ;;
 
 *stop)
- pidof -o $$ -o %PPID ${ME_PROGRAM##*/} || { echo " NOT Running.";exit 0; }
+ pidof -o $$ -o %PPID ${ME_PROGRAM##*/} >>$OUT || { _err " NOT Running.";exit 0; }
   for pid in $ME_OTHER_PIDS; do
-   kill $pid
+   kill -9 $pid
     RETVAL=$((RETVAL+$?))
      done
     test "$RETVAL" || RETVAL=0
-   pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && RETVAL=1
-  echo
+   pidof -o $$ -o %PPID ${ME_PROGRAM##*/} >>$OUT && RETVAL=1
+  #echo
  exit "$RETVAL"
 ;;
 
 *restart)
 for pid in $ME_OTHER_PIDS; do
- echo $pid
-  kill $pid
+ _debug "pid='$pid'"
+  kill -9 $pid
    done
   sleep 3
- echo
-  pidof  ${ME_PROGRAM##*/}
- echo
-  pidof -o $$ -o %PPID ${ME_PROGRAM##*/}
-  pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
+ #echo
+  _pidof ${ME_PROGRAM##*/}
+ #echo
+  _pidof -o $$ -o %PPID ${ME_PROGRAM##*/}
+  pidof -o $$ -o %PPID ${ME_PROGRAM##*/} >>$OUT && { _err " Already Running.";exit 1; }
  break
 ;;
 
 *start|"")
- pidof -o $$ -o %PPID ${ME_PROGRAM##*/} && { echo " Already Running.";exit 1; }
+ pidof -o $$ -o %PPID ${ME_PROGRAM##*/} >>$OUT && { _err " Already Running.";exit 1; }
   break
 ;;
 
 *status)
 echo -n "$ME_PROGRAM : "
  [ "`echo $ME_OTHER_PIDS | wc -w`" = 1 ] && IS=is || IS=are
-  [ "$ME_OTHER_PIDS" ] && echo "$ME_OTHER_PIDS $IS already running." || echo "Not already running."
+  [ "$ME_OTHER_PIDS" ] && echo "$ME_OTHER_PIDS $IS already running." || echo "Not running."
    exit 0
 ;;
 *) echo "UNHANDLED CASEPARAM '$CASEPARAM'";
@@ -225,23 +225,28 @@ done
 
 
 _get_jobs_pids(){
-ps-FULL -o ppid,lwp,tty,start,s,psr,pcpu,args -C ${ME_PROGRAM##*/} --no-headers | while read PPid Pid rest; do
+(
+ps-FULL -o ppid,lwp,tty,start,s,psr,pcpu,args -C ${ME_PROGRAM##*/} --no-headers |
+while read PPid Pid rest; do
 Pids="$Pids
 $Pid"
-echo "$Pids" | grep $Q -w "$PPid" && echo "$Pid"
+echo "$Pids" | grep -q -w "$PPid" && echo "$Pid"
 done
+)
 }
 
 _kill_jobs(){
+(
 JOBS=`_get_jobs_pids`
 for Pid in $JOBS ; do
-/bin/ps -p "$Pid" && kill $Pid
+/bin/ps --no-header -p "$Pid" && kill -9 $Pid
 done
+) >>$OUT 2>>$ERR
 }
 
 _check_partition_change(){
-:
-ASK_PARTS=`ls -d /sys/block/${drive_}/${drive_}[0-9]* 2>/dev/null` #seems to hang code if 2>$ERR
+
+{ ASK_PARTS=`ls -d /sys/block/${drive_}/${drive_}[0-9]*`; }  #seems to hang code if 2>$ERR
 
 __trigger_partitions__(){
 #kernel 2.6.31 does not update using true </dev/device if card removed
@@ -253,7 +258,7 @@ for p in $ASK_PARTS
 do
 d=${p##*/}
 [ -b /dev/$d ] || continue
-(true </dev/$d)>$OUT 2>&1
+(true </dev/$d)>>$OUT 2>&1
 done
 }
 
@@ -276,6 +281,7 @@ echo $ASK_PARTS >/tmp/parts_old_$drive__
 }
 
 _probedisk_simple(){
+(
 [ "${VERBOSE}" ] && echo "$0:_probedisk_simple: Probing for drives..." >>/dev/stderr
 ALLDRIVES=`ls -1 /sys/block | grep -vE 'ram|loop|mtd|md|nbd'`
 for drive_ in $ALLDRIVES ; do
@@ -284,10 +290,10 @@ unset REMOVABLE KIND VEND MODL
 [ "$REMOVABLE" ] || REMOVABLE=0
 case $drive_ in
 sd*)
-[ "`readlink /sys/block/$drive_ | grep '/usb[/0-9]*/'`" ] && { (true </dev/$drive_)>$OUT 2>&1;
+[ "`readlink /sys/block/$drive_ | grep '/usb[/0-9]*/'`" ] && { (true </dev/$drive_);
 _check_partition_change; KIND=usbdrv; }
 if test ! "$KIND"; then
-[ "$REMOVABLE" = 0 ] && KIND=drive || { (true </dev/$drive_)>$OUT 2>&1; KIND=usbdrv; }
+[ "$REMOVABLE" = 0 ] && KIND=drive || { (true </dev/$drive_); KIND=usbdrv; }
 fi
   ;;
 sr*)
@@ -316,7 +322,7 @@ fi
    ;;
 mmc*)
 
-(true </dev/$drive_)>/dev/stderr 2>&1
+(true </dev/$drive_)
 _check_partition_change
 
 if test ! "$KIND"; then
@@ -332,9 +338,10 @@ esac
 [ "$MODL" ] || MODL=Unknown
 #PARTS=`ls -1 /sys/block/$drive/$drive[0-9]* 2>$ERR | grep -o -e '[0-9]*' |tr '\n' ' '`
 test "$KIND" || _warn "Could not provide a device kind"
-echo "$drive_|$KIND|$VEND $MODL"
+echo "$drive_|$KIND|$VEND $MODL" >&1
 done
-[ "${VERBOSE}" ] && echo " $0: Done probing." >>/dev/stderr
+[ "${VERBOSE}" ] && echo " $0: Done probing." >&2
+) 2>>$ERR
 }
 
 [ "$VERBOSE" ] && echo "$0: Header END"
@@ -349,7 +356,7 @@ _yaf_splash(){
 [ "$DISPLAY" ] && {
  yaf-splash $genYAFOPS "$@" & _yPID=$!
 #yaf-splash "$@"
- trap "kill $_yPID; return" INT KILL TERM
+ trap "kill $_yPID; return" INT
   true
  } || {
  if test "$startVT"; then
@@ -367,7 +374,7 @@ _xmessage(){
 
 [ "$DISPLAY" ] && {
  xmessage "$@" & _xPID=$!
- trap "kill $_xPID; return" INT KILL TERM
+ trap "kill $_xPID; return" INT
  true
  } || {
  if test "$startVT"; then
@@ -376,6 +383,18 @@ _xmessage(){
  echo "${*##*-title}"
  fi
  }
+}
+
+_switch_to_free_terminal(){
+# REM: Needs fgconsole enabled in BBCONFIG of busybox
+#       fgconsole works also without controlling tty
+#       Need that value because openvt -sw does not work for me
+#       to automatically switch back after script exits
+which fgconsole >>$OUT && { startVT=`fgconsole`; fgconRV=$?; }
+test "$fgconRV" = 0 || unset startVT
+which tty >>$OUT && { TTY=`tty`; ttyRV=$?; }
+test "$ttyRV" = 0 || unset TTY
+openvt -s
 }
 
 _poweroff_menu(){ #BEGIN
@@ -389,6 +408,60 @@ unset RV SELECT
  } || {
 
 # openvt -s
+
+cat >/tmp/poweroff_menu.sh <<EoI
+#!/bin/ash
+. /etc/rc.d/f4puppy5
+echo "${*##*-title}"
+ echo "
+$BUTTONS_GUI
+"
+
+while [ selecting ];
+ do
+  echo -e '\033[1;33m'
+  read -t 60 -p "Select one of the above numbers #: " SELECT
+   RV=\$?
+  echo -e '\033[0;39m'
+   if [ ! "\$SELECT" ]; then
+    case \$RV in
+    0) continue;;
+    1) exit 0;;  #timeout reached
+    *) _err "RV=\$RV"; continue;;
+    esac
+   else
+    case \$SELECT in
+     190|191) break;;
+     *) _err "wrong entry '\$SELECT'";;
+    esac
+   fi
+  sleep 1
+ done
+exit \$SELECT
+
+EoI
+
+
+chmod $VERB 0754 /tmp/poweroff_menu.sh
+
+#_switch_to_free_terminal
+
+which fgconsole >>$OUT && { startVT=`fgconsole`; fgconRV=$?; }
+test "$fgconRV" = 0 || unset startVT
+which tty >>$OUT && { TTY=`tty`; ttyRV=$?; }
+test "$ttyRV" = 0 || unset TTY
+
+# REM openvt needs -w to gain input
+openvt -s -w /tmp/poweroff_menu.sh
+menuRV=$?
+case $startVT in
+[0-9]*) chvt $startVT;;
+esac
+sleep 1
+
+return $menuRV
+
+__code__(){
  sleep 1
  echo "${*##*-title}"
  echo "
@@ -396,12 +469,14 @@ $BUTTONS_GUI
 "
  while [ selecting ];
  do
+  echo -e '\033[1;33m'
   read -t 60 -p "Select one of the above numbers #: " SELECT
    RV=$?
+  echo -e '\033[0;39m'
    if [ ! "$SELECT" ]; then
     case $RV in
     0) continue;;
-    1) return 0;;
+    1) return 0;;  #timeout reached
     *) _err "RV=$RV"; continue;;
     esac
    else
@@ -413,6 +488,8 @@ $BUTTONS_GUI
   sleep 1
  done
 return $SELECT
+
+   } ##_code__(){ #END
  }
 
 }  ###_poweroff_menu(){ #END
@@ -464,23 +541,24 @@ _debug "PIN_GRID_STEP=$PIN_GRID_STEP PIN_GRID_STEP2=$PIN_GRID_STEP2"
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
+(
  [ "$AUTOUNMOUNT" = true ] || return
- for oneMNTPT in `grep '^/dev/' /proc/mounts | grep -vE '^/dev/loop|^/dev/ram|^/dev/zram|^/dev/mtd|^/dev/nbd|^/dev/md' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$'`
+ for oneMNTPT in `grep '^/dev/' /proc/mounts | grep -vE '^/dev/loop|^/dev/ram|^/dev/zram|^/dev/mtd|^/dev/nbd|^/dev/md' | cut -f 2 -d ' ' | grep -vE '^/initrd/|^/$' | tac`
  do
-  if [ ! "`fuser -v -m $oneMNTPT`" ];then
-   pidof sync >>$OUT || sync
+  [ "`fuser -m $oneMNTPT`" ] && continue
+   pidof sync || sync
    /bin/umount $oneMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
     ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | grep -v 'grep' | sed 's#^ *##;s/  /|/g' | grep -v '|||' | awk '{print $1}'`
     for oneZOMBIE in $ZOMBIES
     do
-     /bin/ps --no-header -p $oneZOMBIE >>$OUT && kill $oneZOMBIE
+     /bin/ps --no-header -p $oneZOMBIE && kill -9 $oneZOMBIE
     done
     /bin/umount "$oneMNTPT" ; umVAL=$?
    fi
-  fi
  done
+) >>$OUT 2>>$ERR
 }
 
 _format_size() {
@@ -499,6 +577,7 @@ _format_size() {
 
 _create_appinfo() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
    [ "$1" ] && DRV_NAME="$1"
+(
    echo "<?xml version=\"1.0\"?>
 <AppInfo>
   <Summary>${dINFO}</Summary>
@@ -512,6 +591,7 @@ _create_appinfo() { #needs INFO, DRV_CATEGORY, MOREITEMS, oneDRVNAME
    ${MOREITEMS}
   </AppMenu>
 </AppInfo>" > $drive_iconDIR/drive_${DRV_NAME}/AppInfo.xml
+)
 }
 
 
@@ -648,6 +728,7 @@ _add_pinboard() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
 
  _debug "_add_pinboard: X='$COORD_X' Y='$COORD_Y' for rox -R"
 
+(
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
@@ -660,6 +741,7 @@ _add_pinboard() { #needs oneDRVNAME, DRV_CATEGORY, FSTYPE
   </PinboardAdd>
  </env:Body>
 </env:Envelope>"  | rox -R
+)
 }
 
 
@@ -669,12 +751,12 @@ PROBEPART=`probepart $* -k | grep -iE "not inserted|$gFSSUPPORT"`
 }
 
 _create_icon() {
-    DEBUG=
  [ "$1" ] && DEV_NAME="$1"
 
  #create desktop icon, and directory with handler script, icon and help...
  #requires global variables PART_NAME, DRV_CATEGORY, DRV_DESCRIPTION.
  #if a passed param $1, then PROBEPART already known, inefficient to rerun here each time.
+(
 
    if [ "$ICONDESK" = "false" ];then
     DRVINFO="/dev/$DEV_NAME"'|0|0' #we show one icon though for all drives and partitions
@@ -765,10 +847,12 @@ ${DRV_DESCRIPTION}"
 $(echo "$DRVINFO")
 EOI
 
+)
 }
 
 _remove_pinboard() { #needs DEV_NAME (name of entire drive)
  [ "$1" ] && DRV_NAME="$1"
+(
  case $DRV_NAME in
  hd*|mmc*|scd*|sd*)
  DRV_NAME=`echo $DRV_NAME | tr -d '/' | sed 's#dev##g' | sed 's/[0-9]*$//'`;;
@@ -794,13 +878,16 @@ _remove_pinboard() { #needs DEV_NAME (name of entire drive)
   </UnsetIcon>
  </env:Body>
 </env:Envelope>"  | rox -R
+
  done
+)
 }
 
 #note that init script in initrd takes care of restoring modules if enough space.
 _delete_drivers() { #called from _free() and _free_flash(). delete modules to create more free space.
  #passed param: /pup_rw=delete tmpfs top layer only.
  DEL_LAYER=$1
+(
  #find out what modules are loaded, keep those...
  for oneKEEP_MOD in `lsmod | cut -f 1 -d ' ' | grep -v 'Module'`
  do
@@ -819,9 +906,11 @@ _delete_drivers() { #called from _free() and _free_flash(). delete modules to cr
  fi
  cp $VERB -af /tmp/lib/modules /lib/modules
  depmod -a
+)
 }
 
 _free_initrd() { #UniPup, runs entirely in initramfs.
+(
  SIZEFREEK=`free | grep '^Total:' | tr -s ' ' | cut -f 4 -d ' '`
  test "$SIZEFREEK" || {
     SIZEFREEM_=`free -m |  awk '{ if (match($1, "Mem.*")) || (match($1, "Swap.*")) print $4}'`
@@ -839,9 +928,11 @@ _free_initrd() { #UniPup, runs entirely in initramfs.
  [ "$PREVSIZEFREEM" = "$SIZEFREEM" ] && return
  #save to a file, freememapplet can read this...
  echo "$SIZEFREEM" > /tmp/pup_event_sizefreem
+)
 }
 
 _free() { #called every 4 seconds.
+(
  case $PUPMODE in
   6|12)
    SIZEFREEM=`/bin/df -m | grep -m1 ' /initrd/pup_rw$' | tr -s ' ' | cut -f 4 -d ' '`
@@ -876,10 +967,11 @@ _free() { #called every 4 seconds.
   killall yaf-splash
   _yaf_splash -margin 2 -bg red -bw 0 -placement top -font "9x15B" -outline 0 -text "$WARNMSG" &
  fi
+)
 }
 
 _savepuppy(){
-
+(
 case $PUPMODE in 13)
      MESSAGE_SAVE=`gettext "Saving RAM to 'pup_save' file..."`     ;;
 3|7) MESSAGE_SAVE=`gettext "Saving RAM to 'home' partition.."`;;
@@ -895,11 +987,13 @@ fi
   YAFPID=$!
   pidof sync >>$OUT || sync
   nice -n 19 /usr/sbin/snapmergepuppy
-  /bin/ps -p $YAFPID >>$OUT && kill $YAFPID
+  /bin/ps --no-header -p $YAFPID >>$OUT && kill $YAFPID
 WARNMSG=""
+)
 }
 
 _free_flash(){ #PUPMODE 3,7,13. called every 3 seconds.
+(
  WARNMSG=""
  SIZEFREEM=`/bin/df -m | grep ' /initrd/pup_ro1$' | tr -s ' ' | cut -f 4 -d ' '`
   SIZETMPM=`/bin/df -m | grep ' /initrd/pup_rw$'  | tr -s ' ' | cut -f 4 -d ' '`
@@ -937,6 +1031,7 @@ _free_flash(){ #PUPMODE 3,7,13. called every 3 seconds.
   _savepuppy
  fi
 #_savepuppy
+)
 }
 
 ######################################################################
@@ -957,6 +1052,7 @@ $PROBEDISK" || PROBEDISK="$S"
 }
 
 _clear_desk_icons(){
+(
 drives=`grep '/\pup_event/drive_*' "$PUPPY_PIN" | grep -o '/drive_.*<' | cut -f2 -d '_' | tr -d '<' | awk '{print $1}' | tr -d '[[:digit:]]' | sort -u | sort -r`
 
 for item in $drives; do
@@ -967,6 +1063,7 @@ done
 rm $VERB -fr "$drive_iconDIR"/*
 _debugx "Finished _clear_desk_icons
 "
+)
 }
 _clear_desk_icons
 
@@ -1049,16 +1146,18 @@ _debug "_start_pup_event_frontend_d  END "
 
 _start_pup_event_frontend_d
 
+
 if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.
- killall hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
+ killall hotplug2stdout >>$OUT 2>>$ERR #pup_event_backend_d #no module/firmware hotplug support.
  #...kill hotplug2stdout, as that will cause pup_eventd_backend_d to die.
  [ "`pidof udevd`" ] && killall udevd #alternative to pup_event_backend_d.
 fi
 #[ "$FRONTEND_HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
 
-trap "_kill_jobs;exit $?" HUP INT QUIT ABRT TRAP KILL TERM
+trap "_kill_jobs;exit $?" INT
 
 _do_ramsaveinterval(){
+(
 while :; do
  SAVECNT=$((SAVECNT + 60))
  if [ "$SAVECNT" -ge "$RAMSAVEINTERVAL" ];then
@@ -1067,9 +1166,11 @@ while :; do
  fi
 sleep 60
 done
+)
 }
 
 _do_powertimeout(){
+(
 while :; do
 
  CURPOS2="$CURPOS1"
@@ -1090,6 +1191,7 @@ while :; do
 
    if [ "$MOUSECNT" -ge "$POWERTIMEOUT" ] ; then
    _debug MOUSECNT=$MOUSECNT POWERTIMEOUT=$POWERTIMEOUT
+   MOUSECNT=0
    aplay $Q $VERB /usr/share/audio/2barks.au
    sleep 1s
    aplay $Q $VERB /usr/share/audio/2barks.au
@@ -1099,13 +1201,14 @@ while :; do
     REPLY=$?
     _debug "REPLY='$REPLY'"
     if [ "$REPLY" = "190" -o "$REPLY" = "0" ] ; then
-    [ "$DISPLAY" ] && { exec wmpoweroff force & :;} || { exec poweroff force & :; }
+    [ "$DISPLAY" ] && { exec wmpoweroff force & :;} || { exec /sbin/poweroff force & :; }
     fi
    fi
  #CURPOS2="$CURPOS1"
  #sleep 60s
  #MOUSECNT=$((MOUSECNT+60))
 done
+)
 }
 
 CURPOS1=1
@@ -1133,6 +1236,7 @@ _check_hotplug_event(){
 
 if test "$FRONTEND_HOTPLUGON" = true; then
 _check_hotplug_event(){
+
 DEBUG=1
 if [ "$PROBEDISK2_LOOP_NEW" != "$PROBEDISK2_LOOP_OLD" ] ; then #if +- or deleted line, then change
  ######### hotplug detected : #########
@@ -1206,17 +1310,18 @@ $PROBEDISK2_LOOP_NEW
 '"
  _debugx ""
  ####### POLL_INTERVAL second timeout procesing #########
- }
+ }  ##_check_hotplug_event(){ #END
 fi
 }
 
 _which_hotplug
 
 ###################################################################
+(
 #now go into a three-second loop...
 while :;
 do
-# sleep $POLL_INTERVALL
+# sleep $POLL_INTERVAL
 
 #########check hotplug block event##########
 
@@ -1236,14 +1341,14 @@ do
  rm $VERB -f "$FLAGFILE"
  fi #1
 
- [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
- sleep $POLL_INTERVALL
+ #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
+ [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func
+ sleep $POLL_INTERVAL
 
 done
-# POLL_INTERVALL loop
+# POLL_INTERVAL loop
+)
 
 echo
-
 exit $?
-
 ###END###
