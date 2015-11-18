@@ -38,9 +38,10 @@ _debugt 8D $_DATE_
 #      Now possible to set them witout affecting other progs
 [ "$Q" ] || Q=-q
 [ "$QUIET" ] || QUIET=--quiet
-[ "$DEBUG" ] || DEBUG=
-[ "$DEBUGX" ] || DEBUGX=
-test "$DEBUG" && QUIET='';
+[ "$INFO" ]  || INFO=1
+[ "$DEBUG" ] || DEBUG=1
+[ "$DEBUGX" ] || DEBUGX=1
+test "$DEBUG" && unset Q QUIET;
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
 [ "$LANG_ROX" ] || LANG_ROX=C
@@ -61,6 +62,7 @@ _info "using '$LANG_ROX'"
 #      Furthermore /usr/local/bin/mountpoint does not recognize '/mnt/s d b 3 '
 #      but busybox mountpoint does
 mountpoint(){
+#(
  test -f /proc/mounts || return 3
  test "$*" || return 2
  local QUIET_ grepP
@@ -74,38 +76,44 @@ grepP="${grepP//
 
  #grep $QUIET_ " $* " /proc/mounts
  cut -f2 -d' ' /proc/mounts | grep $QUIET_ -w "^${*}$"
- return $?; }
+ return $?;
+#)
+}
 
 # REM: /proc may be not mounted already (boot)
 _check_proc()
 {
+ (
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
   busybox mount $VERB $VERB -o remount,rw /dev/root /
   test -d /proc || mkdir $VERB -p /proc
   busybox mount $VERB $VERB -t proc proc /proc
-  return $?
  }
+ )
 }
 
 # REM: /tmp is needed for shell here-document <<EoI
 _check_tmp()
 {
+(
  test -d /tmp && return $? || {
  busybox mount $VERB $VERB -o remount,rw /dev/root /
  mkdir $VERB -p /tmp
  chmod $VERB 1777 /tmp
  return $?
  }
+)
 }
 
 # REM: /tmp needs to be read-write for here-document
 _check_tmp_rw()
 {
+(
  _check_proc
  _check_tmp
 
-_debug "_check_tmp_rw:mountpoint $Q /tmp"
+_debug "_check_tmp_rw:mountpoint $Q /tmp :"
 mountpoint $Q /tmp && {
 # REM: grep -w /tmp would als grep /tmp/anothermountpoint
 #grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
@@ -114,12 +122,13 @@ awk '{if ($2 == "/tmp") print $4}' /proc/mounts | grep $Q -w 'rw' && return 0 ||
  } || {
 grep -w '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
  }
-
+)
 }
 
 # REM: special chars like :space: are printed as \0octals in /proc/mounts
 _string_to_octal()
 {
+(
 _debug "_string_to_octal:$*"
 unset oSTRING
 if test "$*"; then
@@ -178,12 +187,13 @@ done
 fi
 
 echo "$oSTRING"
-
+)
 }
 
 # REM: format output of _string_to_octal() '\012' '\0' newlines
 _posparams_to_octal()
 {
+(
         _debug "_posparams_to_octal:$@"
         test "$*" || return 0
 #echo -n "$@" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\ !\\0!g;s!:$!!;/^$/d;s!^!\\0!' >/tmp/posPARAMS.od
@@ -201,11 +211,13 @@ posPARAMS=`echo "$posPARAMS" | sed 's!\\\012\\\!\n\\\!g'`
 _debugx "            posPARAMS='$posPARAMS'"
 posPARAMS=`echo "$posPARAMS" | sed 's!\\\\0$!!g'`
 _debug "             posPARAMS='$posPARAMS'"
+)
 }
 
 # REM: getopt the positional parameters for :space: handling
 _get_options()
 {
+#( #creates global variables
 allOPS=AaBbCcDdEeFfGgHhIiJjKkL:lMmNnO:o:Pp:QqRrSsT:t:U:uVvWwXxYyZz-
 
 umount_longOPS=all,all-targets,no-canonicalize,detach-loop,fake,force,internal-only,no-mtab,lazy,test-opts:,recursive,read-only,types:,verbose,help,version
@@ -247,6 +259,7 @@ _debugx "positional parameters='$posPARAMS'"
 
 test "$posPARAMS" && _posparams_to_octal "$posPARAMS"
 _info "  positional parameters='$posPARAMS'"
+#)
 }
 
 # REM:_get_options() wants only "$@" to work correctly
@@ -263,7 +276,7 @@ test -f /proc/mounts && mountBEFORE=`cat /proc/mounts`
 
 _update_partition_icon()
 {
-
+(
 oldDEBUG=$DEBUG
 oldDEBUGX=$DEBUGX
 oldDEBUGT=$DEBUGT
@@ -363,10 +376,12 @@ _debugt 9d $_DATE_
 `echo "$updateWHAT"`
 EoI
 
+)
 }
 
 _parse_fstab()
 {
+(
 test -f /etc/fstab || return 57
 
 while read -r device mountpoint_ fstype mntops dump check
@@ -434,6 +449,7 @@ esac
 
 done</etc/fstab
                 return $STATUS
+)
 }
 
 case $0 in
@@ -663,7 +679,7 @@ _debugt 86 $_DATE_
 case $WHAT in
 mount)
 if test "$deviceORpoint"; then
- _debug "$WHAT:"$@
+ _debug "$WHAT:10:\$@:$@"
  #test -b $deviceORpoint -a ! -d /mnt/${deviceORpoint##*/} && mkdir $VERB -p /mnt/${deviceORpoint##*/}
  if test -b "$deviceORpoint"; then
   grep $Q -w "${deviceORpoint##*/}" /proc/partitions && {
@@ -697,10 +713,11 @@ if test "$deviceORpoint"; then
   mountpoint $Q "$mountPOINT" && { test "`echo "$opMO" | grep 'remount'`" || _exit 31 "'$mountPOINT' already mounted."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
   test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
- } || { test "$*" = "$deviceORpoint" && {
+ } || { test "$*" = "$deviceORpoint" && test -b "$deviceORpoint" && {
          posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
           }
- _debug "$WHAT:"$@
+ _debug "$WHAT:11:\$@:$@"
+
 fi
 c=0
 for posPAR in $*; do  #hope, only file/device AND mountpoint left
@@ -734,27 +751,41 @@ xenix|xfs|xiafs) :;;
 *) test $c = $# || continue
    if test -f /proc/filesystems; then
 o_ocposPAR="$posPAR"
-   _debug "c=$c \$#=$# ""$posPAR"
+   _debug "c=$c \$#=$# ""posPAR=$posPAR"
    posPAR=`echo -e "$posPAR" |sed 's!NEWLINE!\n!g'`
    #posPAR=${posPAR//\\/}
 o_posPAR="$posPAR"
+
+#
+#   grepP=${posPAR// /\\040};grepP=${grepP// /\\011}
+#grepP="${grepP//
+#/\\012}"
+#   _debugx "grepP='$grepP'"
+#
+
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
+
    grepP=${posPAR// /\\040};grepP=${grepP// /\\011}
 grepP="${grepP//
 /\\012}"
    _debugx "grepP='$grepP'"
+
    case $posPAR in /dev|/)
    grep $Q -F " $grepP " /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 33 "$posPAR already mounted."; }
+
    ;;
    *)
    grep $Q -Fw "$grepP"  /proc/mounts && { test "`echo "$opMO" | grep 'remount'`" ||  _exit 34 "$posPAR already mounted."; }
+
    ;;
    esac
-   _debug "c=$c \$#=$# ""$posPAR"
+   _debug "c=$c \$#=$# ""posPAR=$posPAR"
    test -e /etc/fstab || touch /etc/fstab
+
    #grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
    #_debugx "grepPAR='$grepPAR'"
    #mountPOINT=`grep -m1 -w "$posPAR" /etc/fstab | awk '{print $2}'`
+
    grepPAR="$posPAR"
    case $posPAR in /dev|/)
    mountPOINT=`grep -m1 -F " $grepPAR " /etc/fstab | awk '{print $2}'`
@@ -764,10 +795,14 @@ grepP="${grepP//
    ;;
    esac
    _debugx "fstab:mountPOINT='$mountPOINT'"
+
    test "$mountPOINT" && { posPAR="$mountPOINT"
    _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
+
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
+
    test -e "$posPAR" && _debug "`ls -lv "$posPAR"`" || {  _notice "Assuming '$posPAR' being mountpoint.."; LANG=$LANG_ROX mkdir $VERB -p "$posPAR"; }
+
 #ocposPAR=`echo "$posPAR" | od -to1 | sed 's! !:!;s!$!:!' | cut -f2- -d':' | sed 's!\\ !\\\0!g;s!:$!!;/^$/d;s!^!\\\0!'`
    _debugx "posPAR='$posPAR'"
 #ocposPAR=`echo "$posPAR" | _string_to_octal`
@@ -780,6 +815,7 @@ ocposPAR=`echo "$ocposPAR" | sed 's!\\\\0$!!g'`
 _debug "             ocposPAR='$ocposPAR'"
    #test -b $oposPAR && set - $@ "$ocposPAR"
    #_debug "posPAR:$*"
+
    test -b "$o_posPAR" && posPARAMS="$posPARAMS $ocposPAR"
    fi;fi ;;
 esac
@@ -810,11 +846,13 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
+
 #grepP="${deviceORpoint// /\\\\040} "
 grepP=${deviceORpoint// /\\040};grepP=${grepP// /\\011}
 grepP="${grepP//
 /\\012}"
 _debug "grepP='$grepP'"
+
 mountPOINT=`echo "$mountBEFORE" | grep -Fw "$grepP" | cut -f 2 -d' '`
 _debug "umount:mountPOINT='$mountPOINT'"
 mountPOINT=`busybox echo -e "$mountPOINT" | sed 's!NEWLINE!\n!g'`
