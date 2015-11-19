@@ -1,5 +1,5 @@
 #! /bin/bash
-# Based on zip-wrap.sh 2005 Lee Bigelow <ligelowbee@yahoo.com> 
+# Based on zip-wrap.sh 2005 Lee Bigelow <ligelowbee@yahoo.com>
 
 #--------------------------------------------------------------------------------
 # Copyright (C) 2010 Alexander .S.T. Ross
@@ -22,18 +22,18 @@
 # zip-wrap.sh - bash zip,unzip,zipinfo wrapper for xarchive frontend.
 
 #ChangeLog ----------------------------------------------------------------------
-#	2010-06-11  Alexander .S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
-#		* 0.0.1: Added support for ear, war, pak, pk3, pk4, smzip, up3, xpi, ods, ots, odb, odf, odg, otg, odp, otp, odt, ott, oth, odm and oxt files.
+#   2010-06-11  Alexander .S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
+#       * 0.0.1: Added support for ear, war, pak, pk3, pk4, smzip, up3, xpi, ods, ots, odb, odf, odg, otg, odp, otp, odt, ott, oth, odm and oxt files.
 
-#	2010-10-02-Sat 10:03:28  Alexander S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
-#		* 0.0.2: Added support for "pup".
+#   2010-10-02-Sat 10:03:28  Alexander S.T. Ross (abushcrafter) Email: <http://www.google.com/recaptcha/mailhide/d?k=01uNeUuXxeNm9FA3Zciuoqzw==&c=nVfKeb7kjqZVVIQanqJwEC2DP5zrALkSERTopYvj_pU=>
+#       * 0.0.2: Added support for "pup".
 echo >>/tmp/xarchive_errs.log
 
 # set up exit status variables
 E_UNSUPPORTED=65
 
-# Supported file extentions for zip 
-EXTS="zip cbz jar ear war pak pk3 pk4 smzip up3 xpi ods ots odb odf odg otg odp otp odt ott oth odm oxt pup"
+# Supported file extentions for zip
+EXTS="zip cbz jar ear war pak pk3 pk4 smzip up3 xpi ods ots odb odf odg otg odp otp odt ott oth odm oxt pup apk"
 
 # Programs to wrap
 ZIP_PROG="zip"
@@ -98,21 +98,21 @@ case "$opt" in
                 echo warning: $ZIP_PROG not found, extract only >>/tmp/xarchive_errs.log
             fi
         else
-            echo commands $UNZIP_PROG  and $ZIPINFO_PROG not found >>/tmp/xarchive_errs.log 
+            echo commands $UNZIP_PROG  and $ZIPINFO_PROG not found >>/tmp/xarchive_errs.log
             echo extentions $EXTS ignored >>/tmp/xarchive_errs.log
         fi
         printf "\n"
         exit
         ;;
 
-    -o) # open: mangle output of zipinfo cmd for xarchive 
+    -o) # open: mangle output of zipinfo cmd for xarchive
         # format of zipinfo -T -s-h- output:
-        # -rw-r--r--  2.3 unx    11512 tx defN YYYYMMDD.HHMMSS file.txt 
+        # -rw-r--r--  2.3 unx    11512 tx defN YYYYMMDD.HHMMSS file.txt
         # 1           2   3      4     5  6    7               8
         $ZIPINFO_PROG $OPEN_OPTS "$archive" | $AWK_PROG -v uuid=${UID} '
         {
           attr=$1; size=$4
-          
+
           year=substr($7,1,4)
           month=substr($7,5,2)
           day=substr($7,7,2)
@@ -128,7 +128,7 @@ case "$opt" in
           split($0, linesplit, ($7 " "))
           name=linesplit[2]
           printf "%s;%s;%s;%s;%s;%s;%s;%s\n",name,size,attr,uid,gid,date,time,link
-        }'            
+        }'
         exit
         ;;
 
@@ -144,7 +144,7 @@ case "$opt" in
         exit $wrapper_status
         ;;
 
-    -n) # new: create new archive with passed files 
+    -n) # new: create new archive with passed files
         # create will only be passed the first file, the
         # rest will be "added" to the new archive
         cd "$(dirname "$1")"
@@ -152,12 +152,12 @@ case "$opt" in
         exit
         ;;
 
-    -r) # remove: from archive passed files 
+    -r) # remove: from archive passed files
         $ZIP_PROG $REMOVE_OPTS "$archive" "$@"
         exit
         ;;
 
-    -e) # extract: from archive passed files 
+    -e) # extract: from archive passed files
         # xarchive will put is the right extract dir
         # so we just have to extract.
         $UNZIP_PROG $EXTRACT_OPTS "$archive" "$@"
@@ -170,12 +170,12 @@ case "$opt" in
         ;;
 
      *) echo "error, option $opt not supported"
-        echo "use one of these:" 
-        echo "-i                #info" 
-        echo "-o archive        #open" 
-        echo "-a archive files  #add" 
-        echo "-n archive file   #new" 
-        echo "-r archive files  #remove" 
-        echo "-e archive files  #extract" 
+        echo "use one of these:"
+        echo "-i                #info"
+        echo "-o archive        #open"
+        echo "-a archive files  #add"
+        echo "-n archive file   #new"
+        echo "-r archive files  #remove"
+        echo "-e archive files  #extract"
         exit
 esac
