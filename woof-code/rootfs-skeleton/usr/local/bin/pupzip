@@ -34,40 +34,17 @@ _trap
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
 
-__old_header__(){
-#************
-#KRG
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = 2 ] && set -x
-
-Version=1.1-KRG-MacPup_O2
-
-usage(){
-MSG="
-$0 [ help | version ]
-"
-echo "$MSG
-$2"
-exit $1
-}
-[ "`echo "$1" | grep -Ei "help|\-h"`" ] && usage 0
-[ "`echo "$1" | grep -Ei "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
-
-trap "exit" HUP INT QUIT ABRT KILL TERM
-
-#KRG
-#************
-}
-
 PARAM="$@"
 PARAM=`echo "${PARAM}" | sed 's%^ *%%;s% *$%%'`
-echo "PARAM='$PARAM'"
+test -e "$PARAM" && PARAM=`realpath "$PARAM"`
+_debug "PARAM='$PARAM'"
+test "$PARAM" && set - "$PARAM"
+
 CDIR=`pwd`
-echo "CDIR='$CDIR'"
+_debug "CDIR='$CDIR'"
 #note, do not cd to directory this app is located in.
 
+__xdelta_bcrypt__(){
 #w474
 if [ "`echo -n "$1" | grep '\.delta$'`" ];then
  [ "$VERBOSE" ] && echo XDELTA
@@ -76,7 +53,9 @@ elif [ "`echo -n "$1" | grep '\.bfe$'`" ];then
  [ "$VERBOSE" ] && echo BCRYPT
  exec bcrypt_gui "$1"
 fi
+}
 
+__gunzip_bunzip2__(){
 #v2.11 G2 has suggested this...
 if [ "`echo "$1" | grep -i '\.gz$'`" != "" ];then
 [ "$VERBOSE" ] && echo 'GZ'
@@ -113,6 +92,118 @@ $1 ?
       exit
    fi
 fi
+}
+
+_test_done(){
+(
+test "$*" || return 3
+test -e "${*%.*}"
+)
+}
+
+_get_size(){
+#(
+test "$*" || return 3
+{ SIZE=`stat -c %s "$@" | awk '{print $1}'`; } || return 1
+echo $SIZE
+test $SIZE -ge $((50*1024*1024))  # 100MB
+#) 2>>$ERR
+}
+
+_say_wait_msg(){
+test "$*" || return 3
+_get_size "$@" >>$ERR && xmessage "Uncompressing, please wait..." & UPID=$!
+}
+
+_check_free_space(){
+(
+PACK_SIZE=`_get_size "$@"`
+_debug " PACK_SIZE=$PACK_SIZE"
+FREE_SPACE=`df -B 1 "${*%/*}" | tail -n1 | awk '{print $4}'`
+_debug "FREE_SPACE=$FREE_SPACE"
+test $FREE_SPACE -gt $((PACK_SIZE * 7))
+)
+}
+
+_exit_low_space(){
+xmessage -bg red -title "pupzip" "`gettext 'Decompression needs up to 7 times
+the size of the compressed file.
+Refusing to decompress.'`"
+exit 10
+}
+
+_mk_bkup(){
+(
+test "$*" || return 3
+cp $VERB "$@" "${@%/*}"/tmp-"${@##*/}"
+)
+}
+
+_restore_file(){
+(
+test "$*" || return 3
+   _sync
+   /bin/ps -p $UPID --no-header && kill $UPID
+   mv $VERB "${@%/*}"/tmp-"${@##*/}" "$@"
+) >>$OUT 2>>$ERR
+}
+
+_prepare(){
+        test "$*" || return 3
+       _test_done "$@" && { echo Already uncompressed .; exit 0; }
+       _check_free_space "$@";
+case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
+       _say_wait_msg "$@"
+       _mk_bkup "$@"
+}
+
+_unpack(){
+    test "$*" || return 3
+    test "$PACK" || return 4
+  _prepare "$@" || exit $?
+   time $PACK $OPTS "$@"
+  _restore_file "$@"
+exit $?
+}
+
+case $@ in
+*.tar*) :;;
+*.gz)  #_test_done "$@" && exit 0
+       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
+       #_say_wait_msg "$@"
+       #_mk_bkup "$@"
+
+       #_prepare "$@" || exit $?
+       #gzip -d $Q $VERB "$@"
+       #_restore_file "$@"
+       #exit $?
+       PACK=gzip OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+
+*.bz2) #_test_done "$@" && exit 0
+       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
+       #_say_wait_msg "$@"
+       #_mk_bkup "$@"
+
+       #_prepare "$@" || exit $?
+       #bzip2 -d $Q $VERB "$@"
+       #_restore_file "$@"
+       #exit $?
+       PACK=bzip2 OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+
+*.xz)  #_test_done "$@" && exit 0
+       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
+       #_say_wait_msg "$@"
+       #_mk_bkup "$@"
+
+       #_prepare "$@" || exit $?
+       #xz -d $Q $VERB "$@"
+       #_restore_file "$@"
+       #exit $?
+       PACK=xz OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+
+*.delta) exec xdelta_gui "$@";;
+*.bfe)   exec bcrypt_gui "$@";;
+esac
 
 
 #in order of preference...
@@ -172,7 +263,7 @@ by right-clicking on a file or directory."
 fi
 
 
-ARCHIVEFILE=`echo -n "$PARAM" | grep -i -E '\.tar|\.bz|\.gz|\.rpm|\.deb|\.zip|\.tgz|\.tbz' | grep -v '\\\.'`
+ARCHIVEFILE=`echo -n "$PARAM" | grep -i -E '\.tar|\.bz2|\.gz|\.rpm|\.deb|\.zip|\.tgz|\.tbz|\.apk' | grep -v '\\\.'`
 [ "$DEBUG" ] && echo 'ARCHIVEFILE='"$ARCHIVEFILE"
 
 if [ "$ARCHIVEFILE" != "" ]; then
@@ -242,7 +333,7 @@ RPM extraction program, that PupZip will automatically use if present."
    # REM : Above extracted .rpm into directory
    #       Now creating a tar archive of that directory
    tar $VERB -c -f /tmp/"$fileBASE".tar .
-   [ "$DEBUG" ] || rm -rf /tmp/"$fileBASE"
+   [ "$DEBUG" ] || rm $VERB -rf /tmp/"$fileBASE"
 
    cd /
 
@@ -250,9 +341,9 @@ RPM extraction program, that PupZip will automatically use if present."
    #rm -f /tmp/temprpm.tar
 
    $XARCHIVE /tmp/"$fileBASE".tar
-   [ "$DEBUG" ] || rm -f /tmp/"$fileBASE".tar
+   [ "$DEBUG" ] || rm $VERB -f /tmp/"$fileBASE".tar
 
-   cd $CDIR
+   cd "$CDIR"
    exit
    ;;
 
@@ -268,11 +359,11 @@ __unpack_debian__(){
     exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "An error has occurred opening the DEB file."
    fi
    tar $VERB -c -f /tmp/temprpm.tar .
-   [ "$DEBUG" ] || rm -rf /tmp/temprpm
+   [ "$DEBUG" ] || rm $VERB -rf /tmp/temprpm
    cd /
    $XARCHIVE /tmp/temprpm.tar
-   [ "$DEBUG" ] || rm -f /tmp/temprpm.tar
-   cd $CDIR
+   [ "$DEBUG" ] || rm $VERB -f /tmp/temprpm.tar
+   cd "$CDIR"
    exit
    ;;
    esac
@@ -281,7 +372,7 @@ __unpack_debian__(){
 
  esac
 
- set - $PARAM
+ set - "$PARAM"
  echo "NOW ABOUT TO EXEC XARCHIVER '$XARCHIVE' \"$@\""
 
  #LANG=C;LC_ALL=C
@@ -290,8 +381,9 @@ __unpack_debian__(){
  #locale
 
  exec $XARCHIVE "$@"
+
 elif [ "$XARCHIVE" = "xarchive" ]; then
-  set - $PARAM
+  set - "$PARAM"
   echo  "Now about starting xarchive --add=ask \"$@\""
   exec xarchive --add=ask "$@"
 else
