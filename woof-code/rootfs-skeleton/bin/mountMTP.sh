@@ -7,7 +7,7 @@ _pidof $Q go-mtpfs && _exit 3 "go-mtpfs already running"
 # REM: Use other dir than /mnt in case mount troubles,
 #      fuse mounts in /mnt will render whole /mnt directory
 #      inaccessible
-MOUNT_POINT=/mntf/MTPdev
+MOUNT_POINT=/mntf/"MTP dev"
 # REM: exit if already mounted
 mountpoint "$MOUNT_POINT" && _exit 4 "'$MOUNT_POINT' already mounted"
 # REM: create mount point if not already exists
@@ -43,7 +43,7 @@ test $? = 0 || _exit 6 "Failed to link /bin/mount -> mountMTP"
 #     Needs forking to able to re-link original mount wrapper
 #     Otherwise further mounts will fail :D
 GO_MTPFS_OPS=
-go-mtpfs $GO_MTPFS_OPS /mntf/MTPdev &
+go-mtpfs $GO_MTPFS_OPS "$MOUNT_POINT" &
 
 # Give it some time...?
 sleep 5
