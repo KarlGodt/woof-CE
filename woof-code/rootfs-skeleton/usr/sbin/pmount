@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright Nov 2007 Barry Kauler www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 # A complete rewrite for Puppy 'Dingo', Nov 27 2007, Dec 1,5 2007.
@@ -118,10 +118,13 @@ PMOUNTQUIT="false" #"true" v404 change to false
 
 #v3.96 'mount' misreports which partition mounted on '/'...
 ROOTDEV2=""
-[ "$PUPMODE" = "2" ] && ROOTDEV2=`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' '`
+[ "$PUPMODE" = "2" ] && ROOTDEV2=`/bin/df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' '`
 
-DISKINFO=`$PROBEDISK | sort -k 2 --field-separator='|'` #v4.01
+DISKINFO=`$PROBEDISK | sort -k 2 -t '|'` #v4.01
+echo DISKINFO=$DISKINFO
+
 PARTSINFO=`$PROBEPART -k | grep -vEi "none|swap|Extend|Ext'd|drive" | tr ' ' '_' | tr '\t' '_' | cut -f 1-3 -d '|'` #v3.98 fix for mut2.
+echo PARTSINFO=$PARTSINFO
 
 old_floppy_func(){
 #add floppy drive, if any (note, zip detected by probedisk/probepart)...
@@ -195,7 +198,7 @@ echo "$VALIDPARTS
 :"
 for oneDISK in `echo "$DISKINFO" | cut -f 1 -d '|'`
 do
- echo "'$oneDISK'"
+ echo "oneDISK='$oneDISK'"
  #v408 bug fix, a drive with no valid partitions, skip it...
  ##/dev/sda is already filtered out in
  ##VALIDPARTS=`echo "$PARTSINFO" | grep -iE 'vfat|fat16|fat32|msdos|ntfs|minix|ext2|ext3|ext4|reiser|xfs|iso9660|udf'`
@@ -203,23 +206,46 @@ do
  [ "`echo "$VALIDPARTS" | grep "$oneDISK"`" = "" ] && { echo "Not valid" ; continue ; }
 
  oneDISKNAME=`echo "$oneDISK" | cut -f 3 -d '/'`
+ echo "oneDISKNAME=$oneDISKNAME"
  DSKPATTERN="^${oneDISK}|"
+ echo "DSKPATTERN=$DSKPATTERN"
  #oneDISKDESCR=`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '<' '_' | tr '>' '_'`
+
+               echo " DISKINFO=$DISKINFO"
+               echo  1
+               echo "$DISKINFO" | grep "$DSKPATTERN"
+               echo  2
+               echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|'
+               echo  3
+               echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '\-' '@'
+               echo  4
+               echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '\-' '@' | sed -e 's/[^a-zA-Z0-9 @_]//g'
+               echo  5
+               echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '\-' '@' | sed -e 's/[^a-zA-Z0-9 @_]//g' | tr '@' '-'
  oneDISKDESCR=`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 3 -d '|' | tr '\-' '@' | sed -e 's/[^a-zA-Z0-9 @_]//g' | tr '@' '-'`
+ echo "
+ oneDISKDESCR=$oneDISKDESCR
+"
+ test "$oneDISKDESCR" || oneDISKDESCR=DRIVE #or Error . <frame > breaks . Needs content .
+
  xDSKPATTERN="^${oneDISK}"
  cutPARTSINFO=`echo "$PARTSINFO" | grep "$xDSKPATTERN"`
- [ "$cutPARTSINFO" = "" ] && continue #fix for superfloppy-drv with unknown f.s.
+ [ "$cutPARTSINFO" = "" ]  && continue #fix for superfloppy-drv with unknown f.s.
  [ "$cutPARTSINFO" = " " ] && continue #v408 er, there will be a single space.
  #group one or more frames in same tab...
  oneCATEGORY=`echo "$DISKINFO" | grep "$DSKPATTERN" | cut -f 2 -d '|'` #drive,optical,usbdrv,card,floppy
  if [ "$CURRENTTAB" = "" ];then
-  PARTSGUI="${PARTSGUI}<vbox>"
+  PARTSGUI="${PARTSGUI}
+<vbox>"
   TABFLAG="on"
  else
-  [ "$CURRENTTAB" != "$oneCATEGORY" ] && PARTSGUI="${PARTSGUI}</vbox><vbox>"
+  [ "$CURRENTTAB" != "$oneCATEGORY" ] && PARTSGUI="${PARTSGUI}
+</vbox>
+<vbox>"
  fi
  CURRENTTAB="$oneCATEGORY"
- PARTSGUI="${PARTSGUI}<frame ${oneDISKDESCR}>"
+ PARTSGUI="${PARTSGUI}
+<frame ${oneDISKDESCR}>"
 ###############################################################################
 for onePART in $cutPARTSINFO
 do
@@ -253,11 +279,12 @@ do
  if [ "$oneMNTPT" = "" ];then #not mounted.
   #[ "$oneFS" = "iso9660" ] && DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-cd.xpm'
   #<input file>${DRIVEXPM}</input>
-  PARTSGUI="${PARTSGUI}<hbox><text><label>${DEVNAME} ${oneFS} ${oneSIZE}</label></text><button><label>MOUNT</label><action type=\"exit\">DOMOUNT_${oneDEV}_${oneFS}</action></button></hbox>"
+  PARTSGUI="${PARTSGUI}
+<hbox><text><label>${DEVNAME} ${oneFS} ${oneSIZE}</label></text><button><label>MOUNT</label><action type=\"exit\">DOMOUNT_${oneDEV}_${oneFS}</action></button></hbox>"
  else
   #DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-hdisk-green.xpm'
   #[ "$oneFS" = "iso9660" ] && DRIVEXPM='/usr/local/lib/X11/mini-icons/mini-cd-green.xpm'
-  FREEK=`df -k | tr -s ' ' | grep "$DEVPATTERN" | cut -f 4 -d ' '`
+  FREEK=`/bin/df -k | tr -s ' ' | grep "$DEVPATTERN" | cut -f 4 -d ' '`
   if [ $FREEK -gt 1048576 ];then #1024*1024
    oneFREE=`dc $FREEK 1048576 \/ p`
    oneFREE="`printf "%.1f" $oneFREE`G"
@@ -290,17 +317,20 @@ do
   fi
 
   #<input file>${DRIVEXPM}</input>
-  PARTSGUI="${PARTSGUI}<hbox>${FREEINSERT}<button><input file>${MINIFOLDERXPM}</input><action>rox -d ${oneMNTPT} &</action></button><text><label>${DEVNAME} ${oneFS} ${oneSIZE}</label></text><button><label>UNMNT</label>${INVISBUT}<action type=\"exit\">UNMOUNT_${oneDEV}_${oneFS}_${oneMNTPT}</action></button></hbox>"
+  PARTSGUI="${PARTSGUI}
+<hbox>${FREEINSERT}<button><input file>${MINIFOLDERXPM}</input><action>rox -d ${oneMNTPT} &</action></button><text><label>${DEVNAME} ${oneFS} ${oneSIZE}</label></text><button><label>UNMNT</label>${INVISBUT}<action type=\"exit\">UNMOUNT_${oneDEV}_${oneFS}_${oneMNTPT}</action></button></hbox>"
  fi
 done
 ########################################################################
- PARTSGUI="${PARTSGUI}</frame>"
+ PARTSGUI="${PARTSGUI}
+</frame>"
  OLDDISKNAME="$oneDISKNAME"
 done
 
 
 if [ "$TABFLAG" = "on" ];then #v4.01
- PARTSGUI="${PARTSGUI}</vbox>"
+ PARTSGUI="${PARTSGUI}
+</vbox>"
 fi
 
 #if [ "$HAVEMUT2" = "yes" ];then
@@ -352,10 +382,10 @@ if [ -s /tmp/pmounterr ];then
  #w477 running Xvesa: 'Xlib:  extension "Generic Event Extension" missing on display ":0.0".'
  [ "`grep -v -E 'WARNING|Generic Event Extension|no version information available' /tmp/pmounterr`" != "" ] && { echo -e "Error\n`cat /tmp/pmounterr`\nSee /tmp/pmounterr";exit 1; }
 fi
-rm -f /tmp/pmountdlg.txt_${MYPID}
+#rm -f /tmp/pmountdlg.txt_${MYPID}
 #if gui killed by pup_eventd, then file will be empty. restart pmount...
 if [ ! -s /tmp/pmountdlg_${MYPID} ];then
- rm $VERB -f /tmp/pmountdlg_${MYPID}
+# rm $VERB -f /tmp/pmountdlg_${MYPID}
  #exec /usr/sbin/$PMOUNT
  #...no, exit here, restart from pup_eventd as it can pass a param...
  exit
