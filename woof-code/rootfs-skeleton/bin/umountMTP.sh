@@ -2,7 +2,7 @@
 
 . /etc/rc.d/f4puppy5
 
-MOUNT_POINT=/mntf/MTPdev
+MOUNT_POINT=/mntf/"MTP dev"
 
 mountpoint "$MOUNT_POINT" || _exit 4 "'$MOUNT_POINT' not mounted"
 
