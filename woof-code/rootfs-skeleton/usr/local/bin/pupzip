@@ -44,65 +44,16 @@ CDIR=`pwd`
 _debug "CDIR='$CDIR'"
 #note, do not cd to directory this app is located in.
 
-__xdelta_bcrypt__(){
-#w474
-if [ "`echo -n "$1" | grep '\.delta$'`" ];then
- [ "$VERBOSE" ] && echo XDELTA
- exec xdelta_gui "$1"
-elif [ "`echo -n "$1" | grep '\.bfe$'`" ];then
- [ "$VERBOSE" ] && echo BCRYPT
- exec bcrypt_gui "$1"
-fi
-}
-
-__gunzip_bunzip2__(){
-#v2.11 G2 has suggested this...
-if [ "`echo "$1" | grep -i '\.gz$'`" != "" ];then
-[ "$VERBOSE" ] && echo 'GZ'
-   if [ "`echo "$1" | grep -i '\.tar\.gz$'`" = "" ];then
-   echo 'NO TARGZ'
-      ##xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress $1 ?
-        xmessage -buttons "Yes,No" "Do you want to decompress
-$1 ?
-"
-[ $? -eq 101 ] || exit  #first button returns 101, second 102
-      cp $VERB "$1" "${1%/*}"/tmp-"${1##*/}"
-      gunzip $VERB "$1"
-      sync
-      mv $VERB "${1%/*}"/tmp-"${1##*/}" "$1"
-      exit
-   fi
-
-
-#also this...
-elif [ "`echo "$1" | grep -i '\.bz2$'`" != "" ] ;then
-[ "$VERBOSE" ] && echo 'BZ2'
-   if [ "`echo "$1" | grep -i '\.tar\.bz2$'`" = "" ] ;then
-   echo 'NO TARBZ2'
-      xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress
-$1 ?
-"
-[ $? -eq 101 ] || exit  #first button returns 101, second 102
-      cp $VERB "$1" "${1%/*}"/tmp-"${1##*/}"
-      xmessage "Uncompressing, please wait..." & UPID=$!
-      bunzip2 $VERB "$1"
-      sync
-      /bin/ps -p $UPID && kill $UPID
-      mv $VERB "${1%/*}"/tmp-"${1##*/}" "$1"
-      exit
-   fi
-fi
-}
 
 _test_done(){
-(
+( # checks if already uncompressed file exists.
 test "$*" || return 3
 test -e "${*%.*}"
 )
 }
 
 _get_size(){
-#(
+#( # if the size is greater equal return 0
 test "$*" || return 3
 { SIZE=`stat -c %s "$@" | awk '{print $1}'`; } || return 1
 echo $SIZE
@@ -111,12 +62,13 @@ test $SIZE -ge $((50*1024*1024))  # 100MB
 }
 
 _say_wait_msg(){
+    # if size takes some time , give xmessage
 test "$*" || return 3
 _get_size "$@" >>$ERR && xmessage "Uncompressing, please wait..." & UPID=$!
 }
 
 _check_free_space(){
-(
+( # return 0 if free space in mountpoint is larger than 7 times the compressed size
 PACK_SIZE=`_get_size "$@"`
 _debug " PACK_SIZE=$PACK_SIZE"
 FREE_SPACE=`df -B 1 "${*%/*}" | tail -n1 | awk '{print $4}'`
@@ -126,6 +78,7 @@ test $FREE_SPACE -gt $((PACK_SIZE * 7))
 }
 
 _exit_low_space(){
+# exit if little space in save file (mountpoint /initrd/pup_rw)
 xmessage -bg red -title "pupzip" "`gettext 'Decompression needs up to 7 times
 the size of the compressed file.
 Refusing to decompress.'`"
@@ -133,22 +86,23 @@ exit 10
 }
 
 _mk_bkup(){
-(
+( #make a backup named tmp-FILENAME.EXT
 test "$*" || return 3
 cp $VERB "$@" "${@%/*}"/tmp-"${@##*/}"
 )
 }
 
 _restore_file(){
-(
+( #some compressors do not keep the compressed file after decompression
 test "$*" || return 3
    _sync
    /bin/ps -p $UPID --no-header && kill $UPID
-   mv $VERB "${@%/*}"/tmp-"${@##*/}" "$@"
+test -e "$*" || mv $VERB "${@%/*}"/tmp-"${@##*/}" "$@"
 ) >>$OUT 2>>$ERR
 }
 
 _prepare(){
+# bundele of some above functions
         test "$*" || return 3
        _test_done "$@" && { echo Already uncompressed .; exit 0; }
        _check_free_space "$@";
@@ -158,9 +112,10 @@ case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
 }
 
 _unpack(){
+# run all the above functions, uncompress and restore original compressed file
     test "$*" || return 3
     test "$PACK" || return 4
-  _prepare "$@" || exit $?
+  _prepare "$@"  || exit $?
    time $PACK $OPTS "$@"
   _restore_file "$@"
 exit $?
@@ -168,38 +123,10 @@ exit $?
 
 case $@ in
 *.tar*) :;;
-*.gz)  #_test_done "$@" && exit 0
-       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
-       #_say_wait_msg "$@"
-       #_mk_bkup "$@"
 
-       #_prepare "$@" || exit $?
-       #gzip -d $Q $VERB "$@"
-       #_restore_file "$@"
-       #exit $?
-       PACK=gzip OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
-
-*.bz2) #_test_done "$@" && exit 0
-       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
-       #_say_wait_msg "$@"
-       #_mk_bkup "$@"
-
-       #_prepare "$@" || exit $?
-       #bzip2 -d $Q $VERB "$@"
-       #_restore_file "$@"
-       #exit $?
-       PACK=bzip2 OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
-
-*.xz)  #_test_done "$@" && exit 0
-       #_check_free_space "$@"; case $? in 0) :;; 1) _exit_low_space;; *) echo CODE ERROR; exit 2;; esac
-       #_say_wait_msg "$@"
-       #_mk_bkup "$@"
-
-       #_prepare "$@" || exit $?
-       #xz -d $Q $VERB "$@"
-       #_restore_file "$@"
-       #exit $?
-       PACK=xz OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+*.gz)  PACK=gzip  OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+*.bz2) PACK=bzip2 OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
+*.xz)  PACK=xz    OPTS="-d $Q $VERB" _unpack "$@" || exit 5;;
 
 *.delta) exec xdelta_gui "$@";;
 *.bfe)   exec bcrypt_gui "$@";;
