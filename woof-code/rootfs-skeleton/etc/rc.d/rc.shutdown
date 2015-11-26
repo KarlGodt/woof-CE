@@ -76,10 +76,8 @@ esac
 echo
 }
 
-rcsd=/etc/rc.d/rc.shutdown
-get_lineno(){
+_say_lineno(){
     if [ "$1" ]; then
-    #echo `grep -h -n -w -m1 "$1" "$rcsd" |cut -f1 -d':'`
     grep -h -n -w -m1 "$1" "$0" |cut -f1 -d':'
     elif [ "$LINEP" ]; then
     grep -h -n -w -m1 "$LINEP" "$0" |cut -f1 -d':'
@@ -240,7 +238,7 @@ fi
 
 ######## PUPPYVERSION ############################################
 [ -f /etc/puppyversion ] && read PUPPYVERSION </etc/puppyversion  ###KRG added test ###is it needed here?? ##2011_10_27 /etc/puppyversion seems to be a quite old old conf file
-[ "$VERBOSE" ] && { LINEP=D001; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D001; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 ######## PUPPYVERSION ############################################
 
 
@@ -248,11 +246,11 @@ fi
 PUPSFSFILE=`echo "$PUPSFS" | cut -f 3 -d ','`
 PSUBDIR=`dirname "$PUPSFSFILE"`
 [ "$PSUBDIR" = "/" ] && PSUBDIR=""
-[ "$VERBOSE" ] && { LINEP=D002; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D002; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 #for a full hd install, only setting PUPMODE (=2). no /initrd, no initrd.gz.
 
 . /etc/rc.d/functions4puppy #v3.01
-[ "$VERBOSE" ] && { LINEP=D003; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D003; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 
 
 ########### Personal shutdown scripts #########################
@@ -314,7 +312,7 @@ _pidof pup_event_frontend_d && {
 /etc/rc.d/rc.network stop
 # quick hack, maybe shutdown problem if ath_pci left loaded...
 [ "`lsmod | grep '^ath_pci'`" ] && rmmod ath_pci
-[ "$VERBOSE" ] && { LINEP=D004; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D004; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 ##################### NETWORK ######################################
 
 
@@ -330,7 +328,7 @@ killall $Q -9 X >>$OUT 2>>$ERR
 sleep 1
 killall $Q -3 X >>$OUT 2>>$ERR
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
-[ "$VERBOSE" ] && { LINEP=D005; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D005; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 }
 ################### kill X ########
 
@@ -340,7 +338,7 @@ killall $Q -3 X >>$OUT 2>>$ERR
 killall $Q file.dpi      2>>$ERR
 killall $Q bookmarks.dpi 2>>$ERR
 killall $Q dpid          2>>$ERR
-[ "$VERBOSE" ] && { LINEP=D006; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D006; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 ################### dillo ################
 
 
@@ -354,7 +352,7 @@ done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 }
 [ "$FORCE" ]   || /etc/rc.d/rc.services stop
-[ "$VERBOSE" ] && { LINEP=D007; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+[ "$VERBOSE" ] && { LINEP=D007; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 ################# rc.services ######################################
 
 
@@ -393,7 +391,7 @@ _unload_pcmcia
 ##################### PCMCIA ######################################
 
 
-[ "$VERBOSE" ] && { LINEP=D008; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP` 1/3 PART OF RC.SHUTDOWN"; }
+[ "$VERBOSE" ] && { LINEP=D008; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP` 1/3 PART OF RC.SHUTDOWN"; }
 
 
 ######################## choose partition ############################
@@ -438,6 +436,26 @@ Press ENTER key to continue..." 0 0 >/dev/console
  [ $? -eq 0 ] || return 1 #v2.02 abort.
 }
 
+_say_no_filesystem_creation_support(){
+(
+TMSG="WARNING: No mkfs possible"
+GTMSG=`gettext "$TMSG"`
+test "${GTMSG// /}" && TMSG=$GTMSG
+
+BTMSG="WARNING: No mkfs possible"
+GBTMSG=`gettext "$BTMSG"`
+test "${GBTMSG// /}" && BTMSG=$GBTMSG
+
+MSG="Oooops - Your Puppy $DISTRO_NAME $DISTRO_VERSION seems
+missing mkfs.ext2 tool and others to be able to create a
+linux file system. Please report to the developer.
+Will have to cancel saving session :( ."
+GMSG=`gettext "$MSG"`
+test "$GMSG" || MSG="$GMSG"
+dialog --backtitle "$BTMSG" --title "$TMSG" --msgbox "$MSG" 0 0 >/dev/console
+)
+}
+
 _choose_savefile_fs(){
 
 NUM=1
@@ -450,11 +468,21 @@ NUM=$((NUM + 1))
 }
 done
 
+test "$DEBUG" && {
 echo $FS_LIST
-sleep 5
-test "$FS_LIST" || _say_no_filesystem_creation_support
+sleep 5; }
+
+test "${FS_LIST// /}" || { _say_no_filesystem_creation_support; return 4; }
 
 (
+TMSG="Select File System"
+GTMSG=`gettext "$TMSG"`
+test "${GTMSG// /}" && TMSG=$GTMSG
+
+BTMSG="Select File System"
+GBTMSG=`gettext "$BTMSG"`
+test "${GBTMSG// /}" && BTMSG=$GBTMSG
+
 MSG_TEXT='Choose the filesystem your savefile should have.
 The filesytem type will be one of the GNU/Linux actively supported
 file systems.
@@ -477,13 +505,14 @@ versions filesystems ext2, ext3, ext4 currently only.'
 GMSG_TEXT=`gettext "$MSG_TEXT"`
 test "$GMSG_TEXT" && MSG_TEXT=$GMSG_TEXT
 
-dialog --default-item "$DEF_TAG" --backtitle "Select File System" --menu "$MSG_TEXT" 0 0 0 $FS_LIST >/dev/console 2>/tmp/savefile_fs.cho
+dialog --default-item "$DEF_TAG" --backtitle "$BTMSG" --title "$TMSG" --menu "$MSG_TEXT" 0 0 0 $FS_LIST >/dev/console 2>/tmp/savefile_fs.cho
 )
-DRV=$?
-case $DRV in
-0) :;;
-*) return 1;;
-esac
+test $? = 0 || return 6
+#DRV=$?
+#case $DRV in
+#0) :;;
+#*) return 1;;
+#esac
 FS_CHOICE=`head -n1 /tmp/savefile_fs.cho`
 MK_FS=`echo "$FS_LIST" | grep -w "^$FS_CHOICE" | cut -f2- -d' '`
 test "$MK_FS" || MK_FS=mkfs.ext2
@@ -501,6 +530,9 @@ case $MK_FS in
  *xfs)     SFEXT=xfs; SFFS=xfs;;
  *)        SFEXT=2fs; SFFS=ext2;;
  esac
+
+#return 0 if SFEXT and SFFS are set
+test "${SFEXT// /}" -a "${SFFS// /}"
 }
 
 _make_partition_list(){
@@ -528,7 +560,13 @@ _make_partition_list(){
   aSIZE=`echo "$aPART" | cut -f 3 -d '|'`
   [ "$aTAG" -a "$aFS" -a "$aSIZE" ] || continue
   [ -b "/dev/$aTAG" ] || continue
-  aFREE=`/bin/df -m /dev/$aTAG | tail -n1 | tr -s " " | cut -f 4 -d " "`
+
+  # REM: aFREE=`/bin/df -m "/dev/fd0" on unmounted partition shows
+  #Filesystem           1K-blocks      Used Available Use% Mounted on
+  #devramfs                     0         0         0   -  /dev
+  #aFREE=`/bin/df -m /dev/$aTAG | tail -n1 | tr -s " " | cut -f 4 -d " "`
+   aFREE=`/bin/df -m  | grep -w "^/dev/$aTAG" | tail -n1 | tr -s " " | cut -f 4 -d " "`
+
   if [ ! "$aFREE" ]; then
    (
    test "$aFS" && mount $VERB $VERB -t $aFS /dev/$aTAG /mnt/data || mount $VERB $VERB /dev/$aTAG /mnt/data
@@ -623,27 +661,23 @@ _choosepart() {
    SAVEPART="${devnameonly}${PSAVEMARK}" #partition that will-have ${DISTRO_FILE_PREFIX}save.
   spPATTERN='^/dev/'"$SAVEPART"'|'
      SAVEFS=`probepart -m | grep "$spPATTERN" | cut -f 2 -d '|'`
+   SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs"
+    PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
+  SFEXT=2fs; SFFS=ext2;
+
+   case $PDEV1 in fd*) :;;
+   *) #other drives than floppy ask for file system inside the savefile
    if _choose_savefile_fs; then
    SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.$SFEXT"
     PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
-   [ "${SAVEPART}" -a "${SAVEFS}" ] && return 0
    fi
+   ;; esac
+   [ "${SAVEPART}" -a "${SAVEFS}" ] && return 0
  fi
 
  #check prerequisites for dialog to choose what partition to create ${DISTRO_FILE_PREFIX}save.2fs on...
 
  [ "$DEV1FS" = "msdos" ]  && DEV1FS="vfat" #v2.14
-
- #[ ! "$PMEDIA" ]          && PCHOOSE="yes"
- #[ "$PMEDIA" = "cd" ]     && PCHOOSE="yes"
- #[ "$PMEDIA" = "scsicd" ] && PCHOOSE="yes"
- #[ "$PMEDIA" = "satacd" ] && PCHOOSE="yes"
- #[ "$PMEDIA" = "idecd" ]  && PCHOOSE="yes"
- #[ "$PMEDIA" = "atacd" ]  && PCHOOSE="yes" #v3.97
- #[ "$PMEDIA" = "usbcd" ]  && PCHOOSE="yes"
- #
- #[ "$DEV1FS" = "ntfs" ]   && PCHOOSE="yes"
- #[ "$DEV1FS" = "xxx" ]    && PCHOOSE="yes" #v2.16.1
 
  case $PMEDIA  in ''|*cd)   PCHOOSE="yes";;esac
  case $DEV1FS  in ntfs|xxx) PCHOOSE="yes";;esac
@@ -651,12 +685,20 @@ _choosepart() {
  *) #when possible use the partition booted from
         SAVEFS="$DEV1FS"
       SAVEPART="$PDEV1"
+      SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.2fs" #v2.13 was .3fs
+       PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
+     SFEXT=2fs; SFFS=ext2;
+
+      case $PDEV1 in fd*) :;;
+      *) #other drives than floppy ask for file system inside the savefile
       if _choose_savefile_fs; then
       SAVEFILE="$PSUBDIR/${DISTRO_FILE_PREFIX}save.$SFEXT" #v2.13 was .3fs
        PUPSAVE="$PDEV1,$DEV1FS,$SAVEFILE" #v2.13 was .3fs
-      [ "${SAVEFS}" -a "${SAVEPART}" ] && return 0
       fi
- ;; esac
+      ;; esac
+  [ "${SAVEFS}" -a "${SAVEPART}" ] && return 0
+ ;;
+ esac
 
  _say_windows_warning
  _make_partition_list
@@ -711,11 +753,20 @@ _choosesize(){
   fi
   NUM=$(( NUM + 1 ))
  done
- [ "$VERBOSE" ] && _continue
+
+test "${SIZELIST// /}" -a "${CHOICES// /}" || return 5
+[ "$VERBOSE" ] && _continue
+
+(
  dialog --no-collapse --no-cancel --default-item "5" --menu "Please choose the size you would like for the personal save file.\nNote, 512M is good choice, or highest if that not available.\nSelect choice, then press ENTER key..." 0 0 0 $SIZELIST >/dev/console 2>/tmp/sizetag.txt
+)
+test $? = 0 || return 6
+
  NUM=`head -n1 /tmp/sizetag.txt`
  aCHOICE=`echo -n "$CHOICES" | cut -f $NUM -d ' '`
  SIZEPFILE=$aCHOICE #global variable.
+
+test "${SIZEPFILE// /}"
 } # end of _choosesize()
 ####################### choose size func #######################################
 
@@ -738,7 +789,7 @@ _create_pupsave_file() {
  SMNTPT=`grep -w "^/dev/$SAVEPART" /proc/mounts | tail -n1 | cut -f2 -d " "`
  #[ "$SMNTPT" = "" ] && SMNTPT=`mount | grep "/mnt/$SAVEPART" | tr -s " " | cut -f 3 -d " "`
  [ "$SMNTPT" = "" ] && SMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "/dev/$SAVEPART" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
-  [ "$VERBOSE" ]    && { LINEP=D101; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ]    && { LINEP=D101; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
  if [ "$SMNTPT" = "" ]; then
   #v2.02 was mntg on /tmp/savepup, but if error and not unmounted, contents
   #of /tmp gets deleted, wiping entire partition!!!
@@ -748,39 +799,13 @@ _create_pupsave_file() {
   )
   test $? = 0 && SMNTPT="/mnt/$SAVEPART"
  fi
-  [ "$VERBOSE" ] && { LINEP=D102; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ] && { LINEP=D102; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 
- __ext2_only__(){
- #v2.15 after forum discussion, trying this. if SAVEFS is ext3 or reiserfs (journalled f.s.)
- # then make our ${DISTRO_FILE_PREFIX}save also an ext3 f.s...
- #v2.16exp3 now have writable compressed ext2, not work ext3, so always use ext2...
- #v2.16exp4 no, e2compr unreliable. only seems to work for usbflash, so allow ext3...
- #v2.17 quick hack, kirk reported if save-part is ext3 then save-file has ext3 while
- # still named ${DISTRO_FILE_PREFIX}save.2fs. so for now keep it all consistent ext2, comment-out...
- #SFEXT="3fs"
- #if [ "`echo -n "$SAVEFS" | grep --extended-regexp 'ext3|reiserfs'`" = "" ];then
-  SAVEFILE=`echo -n "$SAVEFILE" | sed -e 's/3fs$/2fs/g'`
-  SFEXT="2fs"
-  PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
- #fi
- }
-
- #_choose_savefile_fs
- #case $MK_FS in
- #*ext2)    SFEXT=2fs; SAVEFS=ext2;;
- #*ext3)    SFEXT=3fs; SAVEFS=ext3;;
- #*ext4)    SFEXT=4fs; SAVEFS=ext4;;
- #*btrfs)   SFEXT=btr; SAVEFS=btrfs;;
- #*jfs)     SFEXT=jfs; SAVEFS=jfs;;
- #*reiser)  SFEXT=rfs; SAVEFS=reiser;;
- #*xfs)     SFEXT=xfs; SAVEFS=xfs;;
- #*)        SFEXT=2fs; SAVEFS=ext2;;
- #esac
- #PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
 
  NAMEONLY=`basename "$SAVEFILE"`
- [ "$VERBOSE" ] && { LINEP=D1D2; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+ [ "$VERBOSE" ] && { LINEP=D1D2; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
  [ "$VERBOSE" ] && _continue
+
   #v2.21 customise the name of the ${DISTRO_FILE_PREFIX}save file...
  MYUSERNAME=`dialog --stdout --nocancel --inputbox "Would you like to customise the name
 of the '${DISTRO_FILE_PREFIX}save.${SFEXT}' file?
@@ -793,13 +818,14 @@ at startup. For example, if you enter
 Type any characters you wish,
 then press ENTER key:" 0 0`
 
-if [ "$MYUSERNAME" ]; then
+ if [ "$MYUSERNAME" ]; then
   MYUSERNAME=`echo -n "$MYUSERNAME" | tr ' ' '_' | tr '-' '_' | sed -e 's/[^a-zA-Z0-9_]//g'`
   NAMEONLY="${DISTRO_FILE_PREFIX}save-${MYUSERNAME}.${SFEXT}"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
-  [ "$VERBOSE" ] && { LINEP=D103; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+ [ "$VERBOSE" ] && { LINEP=D103; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
+
  CRYPTO=""
  [ "$VERBOSE" ] && _continue
  dialog --extra-button --ok-label "NORMAL (no encryp.)" --cancel-label "Heavy encrypted" --extra-label "Light encrypted" --yesno "Do you want to encrypt the $NAMEONLY file?
@@ -851,8 +877,9 @@ entered at every bootup." 0 0`"
   SAVEFILE="$PSUBDIR/$NAMEONLY"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
+
  MNAMEONLY=`basename "$SAVEFILE" .${SFEXT}`
-  [ "$VERBOSE" ] && { LINEP=D104; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ] && { LINEP=D104; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
  #fitzhugh found this problem...
  #v2.10 Dougal provided code to save with different name...
  if [ -f "${SMNTPT}${SAVEFILE}" ]; then
@@ -871,20 +898,21 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   NAMEONLY=`basename "$SAVEFILE"`
  fi
-  [ "$VERBOSE" ] && { LINEP=D105; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ] && { LINEP=D105; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
  #we should check to see that there is enough space on the partition...
  PARTFREE=`/bin/df "$SMNTPT" | tail -n1 | tr -s " " | head -n 1 | cut -f 4 -d " "`
- [ ! $PARTFREE ] && PARTFREE=0
- [ $PARTFREE -lt 32768 ] && PARTFREE=$(( PARTFREE - 1024 )) #leave some slack space.
+ [ $PARTFREE ] || PARTFREE=0
+ [ $PARTFREE -le 32768 ] && PARTFREE=$(( PARTFREE - 1024 )) #leave some slack space.
  [ $PARTFREE -gt 32768 ] && PARTFREE=$(( PARTFREE - 8192 )) #leave some slack space.
  SIZEPFILE=524288 #512M = 524288K
  [ $SIZEPFILE -gt  $PARTFREE ] && SIZEPFILE=$PARTFREE
  #v2.02 dougal has code to choose size of save file...
  [ $PARTFREE -gt 32768 ] && _choosesize $PARTFREE #sets SIZEPFILE
- if [ "`echo -n $SAVEFILE | grep '\.3fs'`" ]; then #ext3 f.s. needs minimum size.
+ if [ "`echo -n $SAVEFILE | grep -E '\.3fs|\.4fs'`" ]; then #ext3 f.s. needs minimum size.
   [ $SIZEPFILE -lt 5000 ] && return 1 #precaution. rerwin discovered this.
  fi
-  [ "$VERBOSE" ] && { LINEP=D106; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ] && { LINEP=D106; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
+
  #v2.20
  SAVEPATH=${SAVEFILE%/*}
  if [ ! -d "${SMNTPT}${SAVEPATH}" ]; then
@@ -892,7 +920,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
   SAVEPATH="/"
  fi
-  [ "$VERBOSE" ] && { LINEP=D107; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP`"; }
+  [ "$VERBOSE" ] && { LINEP=D107; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 
 
  #v2.02,v2.13 final sanity check...
@@ -900,9 +928,9 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  #aAAFS="ext3"
  #[ "$SFEXT" = "2fs" ] && aAAFS="ext2"
  aAAFS=$SFFS
-
  aAAMB=$(( SIZEPFILE / 1024 ))
  [ "$VERBOSE" ] && _continue
+
  while [ 1 ]; do
   dialog --colors --no-collapse --extra-button --ok-label "YES, SAVE"  --extra-label "CHANGE FOLDER" --cancel-label "DO NOT SAVE" --yesno "\Z1FINAL SANITY CHECK:
  Partition you are saving to:      $SAVEPART
@@ -976,7 +1004,6 @@ To quit without saving, select <No>..." 0 0 >/dev/console
 ###################### PUPMODE 5 ########################################
 pupmode_5_func() {
 #first time booted puppy, there may not have been any persistent storage.
-#if [ $PUPMODE -eq 5 ]; then #ifpupmode5
  [ $PUPMODE -eq 5 ] || return 0
 
  #v2.16.1 pxe boot, humongous initrd, have PDEV1='' DEV1FS=''...
@@ -1059,9 +1086,7 @@ Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
     ;;
   *) _warn "UNHANDLED filesystem '$xDEVFS'";;
   esac
-#else
-#_debug "NOT PUPMODE 5"
-#fi #end ifpupmode5
+
 }
 pupmode_5_func
 [ "$VERBOSE" ] && echo "END IF PUPMODE 5" #DBG
@@ -1121,7 +1146,7 @@ fi
 ############# Pupsave ###############################################
 
 
-[ "$VERBOSE" ] && { LINEP=D009; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP` HALF PART OF RC.SHUTDOWN"; }  ###DBG
+[ "$VERBOSE" ] && { LINEP=D009; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP` HALF PART OF RC.SHUTDOWN"; }  ###DBG
 #[ "$VERBOSE" ] || clear >/dev/console
 [ "$PUPMODE" = 5 ] && clear >/dev/console
 
@@ -1339,7 +1364,7 @@ esac
 ####################### Save Session part ##################################
 
 
-[ "$VERBOSE" ] && { LINEP=D010; echo "$DBG line `[ $LINENO ] && echo $LINENO || get_lineno $LINEP` 2/3 PART OF RC.SHUTDOWN"; }  ###DBG
+[ "$VERBOSE" ] && { LINEP=D010; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP` 2/3 PART OF RC.SHUTDOWN"; }  ###DBG
 
 
 #################### RM unneded (tmp) files #######################################
