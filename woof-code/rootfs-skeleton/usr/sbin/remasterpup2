@@ -53,7 +53,7 @@ ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
 PPATTERN="/initrd${PUP_LAYER}"
 if [ "`mount | grep "$PPATTERN"`" = "" ];then
  #no ${DISTRO_FILE_PREFIX}-xxx.sfs file mounted on pup_ro2, probably h.d. install...
- Xdialog --wrap --left --title "Puppy simple remaster CD: ERROR" --msgbox "This program requires a ${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs file mounted on /initrd${PUP_LAYER}.
+ Xdialog -wrap -left -title "Puppy simple remaster CD: ERROR" -msgbox "This program requires a ${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs file mounted on /initrd${PUP_LAYER}.
 Which is not the case here, probably because this is a full hard drive
 installation? Whatever, boot Puppy from live-CD and then you will be able to
 use this script.
@@ -71,7 +71,7 @@ SAVEPART="$PDEV1" #from PUPSTATE.
 CDR="/dev/$SAVEPART"
 
 #choose where to create isolinux-builds/ directory...
-Xdialog --wrap --left --title "Puppy simple CD remaster" --msgbox "Welcome! This little program takes a snapshot of your current system and burns it to CD.
+Xdialog -wrap -left -title "Puppy simple CD remaster" -msgbox "Welcome! This little program takes a snapshot of your current system and burns it to CD.
 
 A Puppy live-CD has 4 main files: vmlinuz, isolinux.cfg, initrd.gz and ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs,
 where $DISTRO_VERSION is the current version number (without dots).
@@ -90,7 +90,7 @@ Click OK button to continue (or close window to quit)..." 0 0
 [ $? -eq 0 ] || exit
 
 #calc size needed...
-Xdialog --wrap --title "Puppy simple CD remaster" --msgbox "Calculating needed working space.\nPlease wait, this may take awhile..." 0 0 &
+Xdialog -wrap -title "Puppy simple CD remaster" -msgbox "Calculating needed working space.\nPlease wait, this may take awhile..." 0 0 &
 XPID=$!
 SIZEOPT=0
 
@@ -175,7 +175,7 @@ fi
 
 _info "Select partiton .."
  echo '#!/bin/sh' > /tmp/savedlg
- echo -n "Xdialog --wrap --stdout --left --title \"Puppy simple CD remaster\" --menubox \"A working area is required in which to create the new live-CD iso file.
+ echo -n "Xdialog -wrap -stdout -left -title \"Puppy simple CD remaster\" -menubox \"A working area is required in which to create the new live-CD iso file.
 Here are the available partitions. You must choose one that has at least ${SIZENEEDEDM}M free space on it.
 Also, if you choose to create an ISO file rather than burn direct to CD/DVD,
 then you will need an extra 100 - 300MB space (whatever the size of ISO file is going to be).
@@ -199,6 +199,74 @@ _debug "WKGPART=$WKGPART"
 # TODO : Select ISO file or CD drive, needs CDMNTPT
 # to copy files from mounted ISO
 
+_mount_iso_file(){
+if test "$ISO_FILE"; then
+ freeLOOP=`losetup -f`
+ test -b "$freeLOOP" || return 5
+ losetup $freeLOOP "$ISO_FILE" || return 6
+ BURNERDRV=sr99
+ mount -t iso9660 $freeLOOP /mnt/$BURNERDRV
+ test $? = 0 && CDMNTPT="/mnt/$BURNERDRV"
+else
+ CDPATTERN="^/dev/$BURNERDRV "
+ CDMNTPT=`mount | grep "$CDPATTERN" | tr -s " " | cut -f 3 -d " "`
+ if [ "$CDMNTPT" != "" ];then
+ if [ ! -f $CDMNTPT/initrd.gz ];then
+  _notice "initrd.gz not a regular file"
+  rox -D "$CDMNTPT"
+  fuser -k -m /dev/$BURNERDRV
+  pidof sync || sync
+  umount /dev/$BURNERDRV
+  if [ $? -ne 0 ];then
+   Xdialog -title "ERROR" -msgbox "Mounted CD, could not unmount it!
+   Please unmount it before running this program!" 0 0
+   exit
+  fi
+  CDMNTPT=""
+ fi
+ fi
+
+ if [ "$CDMNTPT" = "" ];then
+  while :;do
+  Xdialog -wrap -title "Puppy simple CD remaster" -msgbox "Please insert the current Puppy live-CD into drive $BURNERDRV.
+Then click OK..." 0 0
+ [ $? = 0 ] || exit
+  #now mount it...
+  CDMNTPT="/mnt/$BURNERDRV"
+  mkdir $VERB -p /mnt/$BURNERDRV
+  mount -t iso9660 /dev/$BURNERDRV /mnt/$BURNERDRV
+  [ $? -eq 0 ] && break
+  done
+ fi
+
+fi
+}
+
+_select_iso_file(){
+Xdialog -title "Puppy simple CD remaster" -fselect "/" 0 0 2>/tmp/iso_file.txt
+case $? in 0) :;; *) exit;; esac
+test -s /tmp/iso_file.txt || exit 3
+ISO_FILE=`tail -n1 /tmp/iso_file.txt`
+[ -f "$ISO_FILE" ] || exit 4
+case $ISO_FILE in *.iso|*.Iso|*.ISO) :;; *) exit 5;;  esac
+}
+
+_ask_for_file(){
+Xdialog -ok-label "FILE" -no-label "CD" -cancel-label "CD" -title "Puppy simple CD remaster"  -yesno "This remaster program needs to read some files off the current live-CD.
+So, you need to choose either a CD/DVD drive, and it should be a burner drive
+(unless you choose only to create a .iso file and defer burning to another time)
+so that the files created by this program can be burnt to a new CD/DVD.
+
+Or, do you want to use an .iso file somewhere on the harddrive?
+" 0 0
+ASK_FILE_RV=$?
+case $ASK_FILE_RV in
+0) _select_iso_file;;
+1) _select_cd_drive;;
+*) exit ;;
+esac
+_mount_iso_file
+}
 
 _select_cd_drive(){
 _info "Selcting CD drive .."
@@ -209,7 +277,7 @@ DRIVESFND=`probedisk2 2>&1`
 zSELECTIONS=`echo "$SELECTIONS" | tr '\n' ' '` #v431 bugfix.
 
 #w018 does this work? change to eval... v423 bugfix...
-XDLG="Xdialog --wrap --left --title \"Puppy simple CD remaster\" --stdout --menubox \"This remaster program needs to read some files off the current live-CD.
+XDLG="Xdialog -wrap -left -title \"Puppy simple CD remaster\" -stdout -menubox \"This remaster program needs to read some files off the current live-CD.
 So, you need to choose a CD/DVD drive, and it must also be a burner drive
 (unless you choose only to create a .iso file and defer burning to another time)
 so that the files created by this program can be burnt to a new CD/DVD.
@@ -220,6 +288,7 @@ BURNERDRV=`eval "$XDLG"` #w018 v423
 BURNERDRV=`echo -n "$BURNERDRV" | cut -f 3 -d '/'`
 _debug "BURNERDRV=$BURNERDRV" #TEST
 
+__mount_cd_drive(){
 CDPATTERN="^/dev/$BURNERDRV "
 CDMNTPT=`mount | grep "$CDPATTERN" | tr -s " " | cut -f 3 -d " "`
 if [ "$CDMNTPT" != "" ];then
@@ -230,7 +299,7 @@ if [ "$CDMNTPT" != "" ];then
   pidof sync || sync
   umount /dev/$BURNERDRV
   if [ $? -ne 0 ];then
-   Xdialog --title "ERROR" --msgbox "Mounted CD, could not unmount it!
+   Xdialog -title "ERROR" -msgbox "Mounted CD, could not unmount it!
    Please unmount it before running this program!" 0 0
    exit
   fi
@@ -240,7 +309,7 @@ fi
 
 if [ "$CDMNTPT" = "" ];then
  while :;do
- Xdialog --wrap --title "Puppy simple CD remaster" --msgbox "Please insert the current Puppy live-CD into drive $BURNERDRV.
+ Xdialog -wrap -title "Puppy simple CD remaster" -msgbox "Please insert the current Puppy live-CD into drive $BURNERDRV.
 Then click OK..." 0 0
 [ $? = 0 ] || exit
  #now mount it...
@@ -251,7 +320,11 @@ Then click OK..." 0 0
  done
 fi
 }
-_select_cd_drive
+}
+#_select_cd_drive
+
+_ask_for_file || exit
+test -d "$CDMNTPT" || exit
 
 #now get the files off it...
 #firstly need working place to write to...
@@ -273,7 +346,7 @@ fi
 rox -D $WKGMNTPT/puppylivecdbuild/
 rox -d $WKGMNTPT/puppylivecdbuild/
 
-Xdialog --wrap --title "Puppy simple CD remaster" --msgbox "Copying files from CD to $WKGMNTPT/puppylivecdbuild/, please wait..." 0 0 &
+Xdialog -wrap -title "Puppy simple CD remaster" -msgbox "Copying files from CD to $WKGMNTPT/puppylivecdbuild/, please wait..." 0 0 &
 XPID=$!
 rm $VERB -rf $WKGMNTPT/puppylivecdbuild #precaution
 mkdir $VERB $WKGMNTPT/puppylivecdbuild
@@ -306,7 +379,7 @@ umount /dev/$BURNERDRV
 kill $XPID
 rox -D ${WKGMNTPT}/puppylivecdbuild
 rox -d ${WKGMNTPT}/puppylivecdbuild
-Xdialog --left --title "Puppy simple CD remaster" --msgbox "Creating the ${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs file in $WKGMNTPT/puppylivecdbuild/.
+Xdialog -left -title "Puppy simple CD remaster" -msgbox "Creating the ${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs file in $WKGMNTPT/puppylivecdbuild/.
 This can take quite a long time, so please wait.... and wait...
 Note, no need to click the OK button, as this window will disappear
 when ${DISTRO_FILE_PREFIX}-$DISTRO_VERSION.sfs is finally created.
@@ -414,7 +487,7 @@ echo -n "" > /tmp/root/.packages/user-installed-packages #v431
 
 rox -D /tmp/root
 rox -d /tmp/root
-Xdialog --left --title "Puppy simple remaster CD" --msgbox "This program has created folder /tmp/root, which has everything that is now
+Xdialog -left -title "Puppy simple remaster CD" -msgbox "This program has created folder /tmp/root, which has everything that is now
 going to be added as /root in the ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs file.
 This is almost 'pristine', as obviously you do not want all your cache files,
 temp files, email files, and other working/temporary files to be burnt onto
@@ -483,7 +556,7 @@ rox -d /tmp/etc
 
 #what about settings for a particular pc?...
 MSG1="Hardware customisation was not chosen."
-Xdialog --left --title "Puppy simple remaster CD" --yesno "Have created the /etc directory for the new ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs file.
+Xdialog -left -title "Puppy simple remaster CD" -yesno "Have created the /etc directory for the new ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs file.
 It is in an almost 'pristine' state, but you can choose to customise it further.
 Currently only these files or dirs are newer : ld.so.conf, init.d/, eventmanager,
 Puppybackgroundpicture, $ETC_NEW_LIST .
@@ -554,7 +627,7 @@ if [ $? -eq 0 ];then
 
 fi #end GUI customize
 
-Xdialog --left --title "Puppy simple remaster CD" --msgbox "$MSG1
+Xdialog -left -title "Puppy simple remaster CD" -msgbox "$MSG1
 
 If you know what you are doing, you can now modify any files in /tmp/etc
 folder. This is just about to be added to /etc in the .sfs file.
@@ -606,7 +679,7 @@ rox -d $WKGMNTPT/puppylivecdbuild
 #edit isolinux.cfg...
 ISOLINUXCFG=`cat $WKGMNTPT/puppylivecdbuild/isolinux.cfg`
 #small tweaks, like acpi=on, ide=nodma...
-Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "Almost ready to burn the CD!
+Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "Almost ready to burn the CD!
 All the files that will be burnt to CD are in $WKGMNTPT/puppylivecdbuild/.
 
 The thing that you may want to do is edit isolinux.cfg. It has this:
@@ -637,7 +710,7 @@ pidof sync || sync
 
 #rox -D $WKGMNTPT/puppylivecdbuild
 #rox -d $WKGMNTPT/puppylivecdbuild
-Xdialog --left --title "Puppy simple remaster CD" --msgbox "Almost ready to burn the CD!
+Xdialog -left -title "Puppy simple remaster CD" -msgbox "Almost ready to burn the CD!
 All the files that will be burnt to CD are in $WKGMNTPT/puppylivecdbuild/.
 
 If you want to add any more files, say extra SFS files, or to edit or modify the
@@ -651,7 +724,7 @@ pidof sync || sync
 
 #build new iso file, or direct burn to cd...
 #to save space, burn direct from $WKGMNTPT/puppylivecdbuild/ to cd...
-Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "All the files that will be burnt to CD/DVD are in $WKGMNTPT/puppylivecdbuild/.
+Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "All the files that will be burnt to CD/DVD are in $WKGMNTPT/puppylivecdbuild/.
 
 As the working partition may have limited space (for example, you are using a USB pen drive),
 these files are burnt direct to CD/DVD, rather than create an intermediary iso file.
@@ -665,7 +738,7 @@ and further option to create an iso file...
 Click 'Yes' button to burn to CD/DVD..." 0 0
 
 if [ $? -ne 0 ];then
- Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "Click 'Yes' button to create a 'custom-puppy-${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.iso'
+ Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "Click 'Yes' button to create a 'custom-puppy-${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.iso'
 in ${WKGMNTPT}/ (assuming that there is 100MB-200MB free space)...
 Click 'No' button (or close-box on window) to quit program at this point (leaving  ${WKGMNTPT}/puppylivecdbuild/ files in existence)..." 0 0
  if [ $? -eq 0 ];then
@@ -673,7 +746,7 @@ Click 'No' button (or close-box on window) to quit program at this point (leavin
   rxvt -bg orange -title "Puppy simple remaster CD" -e mkisofs -D -R -o $WKGMNTPT/custom-puppy-${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.iso -b isolinux.bin -c boot.cat -no-emul-boot -boot-load-size 4 -boot-info-table $WKGMNTPT/puppylivecdbuild/
  fi
  pidof sync || sync
- Xdialog --wrap --left --title "Puppy simple remaster CD" --msgbox "$WKGMNTPT/custom-puppy-${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.iso created.
+ Xdialog -wrap -left -title "Puppy simple remaster CD" -msgbox "$WKGMNTPT/custom-puppy-${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.iso created.
 $WKGMNTPT/puppylivecdbuild/ files left in existence.
 Click 'Ok' button to quit..." 0 0
  exit
@@ -686,7 +759,7 @@ else
 fi
 
 #now for the actual burn...
-CDCHOICE="`Xdialog --wrap --left --stdout --title \"Puppy simple remaster CD\" --menubox \"Please choose the media to burn to.
+CDCHOICE="`Xdialog -wrap -left -stdout -title \"Puppy simple remaster CD\" -menubox \"Please choose the media to burn to.
 The burner drive is /dev/$BURNERDRV, and obviously it must be able to burn a DVD if you want to burn a DVD!
 
 Note, you can later use the 'dd' program to create an iso file:
@@ -716,7 +789,7 @@ pidof sync || sync
 
 rox -D $WKGMNTPT
 rox -d $WKGMNTPT
-Xdialog --wrap --left --title "Puppy simple remaster CD" --msgbox "You should now have a new custom Puppy live-CD!
+Xdialog -wrap -left -title "Puppy simple remaster CD" -msgbox "You should now have a new custom Puppy live-CD!
 
 WARNING:
 There is a tricky situation here, as all the installed packages (plus anything else that you may have installed,
@@ -734,17 +807,17 @@ if the custom CD is going to work properly -- so it is best to bootup in ram onl
 
 rox -D $WKGMNTPT/puppylivecdbuild
 rox -d $WKGMNTPT/puppylivecdbuild
-Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "CLEANUP: Should
+Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "CLEANUP: Should
 content of $WKGMNTPT/puppylivecdbuild be deleted?"
 [ $? = 0 ] && {
 rm $VERB -rf /puppylivecdbuild/*
 rm $VERB -rf $WKGMNTPT/puppylivecdbuild/*
 }
 
-Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "CLEANUP: Eject CD?"
+Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "CLEANUP: Eject CD?"
 [ $? = 0 ] && eject /dev/$BURNERDRV
 
-Xdialog --wrap --left --title "Puppy simple remaster CD" --yesno "CLEANUP: Unmount /dev/$WKGPART ?"
+Xdialog -wrap -left -title "Puppy simple remaster CD" -yesno "CLEANUP: Unmount /dev/$WKGPART ?"
 [ $? = 0 ] && unmount /dev/$WKGPART
 
 ####THE END######
