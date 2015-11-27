@@ -21,7 +21,7 @@
 ########################################################################
 #
 # CHANGES by Karl Reimer Godt
-# 01.0 : added support for rc.shutdown.local[.start|.0|.Zero|.One|Two|.end]
+# 01.0 : added support for rc.shutdown.local
 # 02.0 : force the detection of PUPMODE if /etc/rc.d/PUPSTATE not readable to 2 or 12
 # 03.0 : respect /root/.thumbnails if free space more than 10%
 # 04.0 : added code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823
@@ -134,7 +134,7 @@ esac; done
 
 [ "$DISPLAY" ] && { [ ! "$FORCE" ] && { echo "Please run wmpoweroff|wmreboot. Exiting script."; exit 1; }; } #case accidentially clicking on it
 
-[ -f /etc/rc.d/rc.shutdown.local.startZero -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startZero  ###KRG
+
 ###################### HEADER 0 #################################
 
 ################# SNAPMERGE DIALOG ##############################
@@ -209,11 +209,7 @@ fi
 
 ########### Personal shutdown scripts #########################
 [ "$FORCE" ] || {
-if [ -f /etc/rc.d/rc.shutdown.local.startOne ]; then  ###KRG
-. /etc/rc.d/rc.shutdown.local.startOne
-elif [ -f /etc/rc.d/rc.shutdown.local.start ]; then
-. /etc/rc.d/rc.shutdown.local.start
-elif [ -f /etc/rc.d/rc.shutdown.local ]; then
+if [ -f /etc/rc.d/rc.shutdown.local ]; then
 . /etc/rc.d/rc.shutdown.local
 fi
 }
@@ -251,11 +247,6 @@ PSUBDIR=`dirname "$PUPSFSFILE"`
 
 . /etc/rc.d/functions4puppy #v3.01
 [ "$VERBOSE" ] && { LINEP=D003; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
-
-
-########### Personal shutdown scripts #########################
-[ -f /etc/rc.d/rc.shutdown.local.startTwo -a ! "$FORCE" ] && . /etc/rc.d/rc.shutdown.local.startTwo
-########### Personal shutdown scripts #########################
 
 
 ################## status func ##########################
@@ -456,14 +447,39 @@ dialog --backtitle "$BTMSG" --title "$TMSG" --msgbox "$MSG" 0 0 >/dev/console
 )
 }
 
+_test_fsdriver_available(){
+
+test "$*" || return 4
+
+grep $Q -w "$@$" /proc/filesystems && return 0
+modinfo "$@" >>$OUT && return 0
+
+DOTC=`ls /etc/modules/DOTconfig* | tail -n1`
+
+if test -f "$DOTC"; then
+HAVE_CONFIG=`grep "$@" "$DOTC"`
+else
+_warn "Either no DOTconfig in /etc/modules or not regular file"
+fi
+_err "Filesystem kernel support missing for $@"
+test "$HAVE_CONFIG" _notice "$HAVE_CONFIG
+set in DOTconfig"
+return 1
+}
+
 _choose_savefile_fs(){
 
 NUM=1
-for mk in mkfs.ext2 mkfs.ext3 mkfs.ext4 mkfs.btrfs mkfs.jfs mkfs.reiser mkfs.xfs
+for fs in ext2 ext3 ext4 btrfs jfs reiser xfs
 do
-which $mk >>$OUT && { FS_LIST="$FS_LIST
-$NUM $mk"
-case $mk in *ext*) DEF_TAG=$NUM;;esac
+which mkfs.$fs >>$OUT && {
+ case $fs in reiser) _test_fsdriver_available reiserfs;;
+ *) _test_fsdriver_available $fs;;
+ esac
+ test $? = 0 || continue
+FS_LIST="$FS_LIST
+$NUM $fs"
+case $fs in ext*) DEF_TAG=$NUM;;esac
 NUM=$((NUM + 1))
 }
 done
@@ -514,21 +530,21 @@ test $? = 0 || return 6
 #*) return 1;;
 #esac
 FS_CHOICE=`head -n1 /tmp/savefile_fs.cho`
-MK_FS=`echo "$FS_LIST" | grep -w "^$FS_CHOICE" | cut -f2- -d' '`
-test "$MK_FS" || MK_FS=mkfs.ext2
-which $MK_FS >>$OUT || return 1
+FS=`echo "$FS_LIST" | grep -w "^$FS_CHOICE" | cut -f2- -d' '`
+test "$FS" || FS=ext2
+which mkfs.$FS >>$OUT || return 1
 [ "$DEBUG" ] || rm -f $VERB /tmp/savefile_fs.cho
-unset NUM FS_LIST DEF_TAG DRV FS_CHOICE
+unset fs NUM FS_LIST DEF_TAG DRV FS_CHOICE
 
-case $MK_FS in
- *ext2)    SFEXT=2fs; SFFS=ext2;;
- *ext3)    SFEXT=3fs; SFFS=ext3;;
- *ext4)    SFEXT=4fs; SFFS=ext4;;
- *btrfs)   SFEXT=btr; SFFS=btrfs;;
- *jfs)     SFEXT=jfs; SFFS=jfs;;
- *reiser)  SFEXT=rfs; SFFS=reiser;;
- *xfs)     SFEXT=xfs; SFFS=xfs;;
- *)        SFEXT=2fs; SFFS=ext2;;
+case $FS in
+ ext2)    SFEXT=2fs; SFFS=ext2;;
+ ext3)    SFEXT=3fs; SFFS=ext3;;
+ ext4)    SFEXT=4fs; SFFS=ext4;;
+ btrfs)   SFEXT=btr; SFFS=btrfs;;
+ jfs)     SFEXT=jfs; SFFS=jfs;;
+ reiser)  SFEXT=rfs; SFFS=reiserfs;;
+ xfs)     SFEXT=xfs; SFFS=xfs;;
+ *)       SFEXT=2fs; SFFS=ext2;;
  esac
 
 #return 0 if SFEXT and SFFS are set
@@ -536,8 +552,8 @@ test "${SFEXT// /}" -a "${SFFS// /}"
 }
 
 _make_partition_list(){
-  #v2.14 change msdos to vfat...
- PARTSLIST=`probepart -m 2>/dev/null | grep '^/dev/' | grep -E 'btrfs|f2fs|ext[0-9]|jfs|xfs|reiser|minix|msdos|vfat|ntfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`
+  #v2.14 change msdos to vfat... 2015-11-26 do not grep /dev/loop ram zram
+ PARTSLIST=`probepart -m 2>/dev/null | grep '^/dev/[^lrz]' | grep -E 'btrfs|f2fs|ext[0-9]|jfs|xfs|reiser|minix|msdos|vfat|ntfs' | cut -f 1-3 -d '|' | sed -e 's/msdos/vfat/g'`
 
  #v2.02 nothing to save to...
  if [ "$PARTSLIST" = "" ]; then
@@ -600,7 +616,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
    [ -f /tmp/ntfsmnterr.txt ] && rm $VERB -f /tmp/ntfsmnterr.txt
    if [ $RETMNTVAL -eq 0 ]; then
     if [ "$aTAG" = "fd0" ]; then
-     FFREE=`/bin/df -k /dev/$aTAG | tail -n1 | tr -s " " | cut -f 4 -d " "`
+     FFREE=`/bin/df -k | grep -w '^/dev/$aTAG' | tail -n1 | tr -s " " | cut -f 4 -d " "`
      aFREE=`dc $FFREE 1024 \/ p`
     else
      #v2.02 for ntfs cannot use /dev/$ATAG, use mnt point in grep...
@@ -795,7 +811,7 @@ _create_pupsave_file() {
   #of /tmp gets deleted, wiping entire partition!!!
   (
   mkdir $VERB -p /mnt/$SAVEPART
-  test "$SAVEFS" && mount $VERB $VERB -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART || mount $VERB $VERB /dev/$SAVEPART /mnt/$SAVEPART
+  test "$SAVEFS" && /bin/mount $VERB -t $SAVEFS /dev/$SAVEPART /mnt/$SAVEPART || /bin/mount $VERB /dev/$SAVEPART /mnt/$SAVEPART
   )
   test $? = 0 && SMNTPT="/mnt/$SAVEPART"
  fi
@@ -878,16 +894,18 @@ entered at every bootup." 0 0`"
   PUPSAVE="$SAVEPART,$SAVEFS,$SAVEFILE"
  fi
 
- MNAMEONLY=`basename "$SAVEFILE" .${SFEXT}`
-  [ "$VERBOSE" ] && { LINEP=D104; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
- #fitzhugh found this problem...
+#fitzhugh found this problem...
  #v2.10 Dougal provided code to save with different name...
+  [ "$VERBOSE" ] && { LINEP=D104; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
  if [ -f "${SMNTPT}${SAVEFILE}" ]; then
-  [ "$VERBOSE" ] && _continue
-  dialog --yes-label "SAVE" --yesno "
+  [ "$VERBOSE" ] && _continue "Renaming Savefile"
+  MNAMEONLY=`basename "$SAVEFILE" .${SFEXT}`
+  COUNT=1
+  dialog --yes-label "SAVE" --backtitle "Duplicate Name" --title "Rename file-nr" --yesno "
 There already exists a ${NAMEONLY} file on the partition you
 chose. To create another one, with a slightly different name
-(such as ${MNAMEONLY}-1.${SFEXT}), select <SAVE>...
+with an incremental number added
+(such as ${MNAMEONLY}-$COUNT.${SFEXT}), select <SAVE>...
 To quit without saving, select <No>..." 0 0 >/dev/console
   [ $? -eq 0 ] || return 1
   local BLA=1 #; local SFFIX=`echo "$SAVEFILE" | tail -c 5`
@@ -1185,7 +1203,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
      CDMNTPT=`grep "$aPATTERN" /proc/mnounts | cut -f 2 -d ' '`
      mkdir $VERB -p /mnt/$PDEV1
      if [ "$CDMNTPT" = "" ];then
-      mount $VERB $VERB -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1"
+      /bin/mount $VERB -t iso9660 /dev/$PDEV1 /mnt/"$PDEV1" || /bin/mount $VERB /dev/$PDEV1 /mnt/"$PDEV1"
       CDMNTPT="/mnt/$PDEV1"
      fi
      for oneSFS in `find "$CDMNTPT" -maxdepth 1 -type f -name \*.sfs | grep -v ' '`
@@ -1253,7 +1271,7 @@ case $PUPMODE in
   DEV1MNT=`grep -w "^/dev/$xPDEV" /proc/mounts | tail -n1 | cut -f2 -d " "`
   if [ "$DEV1MNT" = "" ];then
    mkdir $VERB -p /mnt/"$xPDEV"
-   mount $VERB $VERB -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV"
+   test "$xDEVFS" && /bin/mount $VERB -t $xDEVFS /dev/$xPDEV /mnt/"$xPDEV" || /bin/mount $VERB /dev/$xPDEV /mnt/"$xPDEV"
    if [ ! $? -eq 0 ];then
     echo -e "\\033[1;31mERROR: unable to mount '/dev/$xPDEV' , cannot save.\\033[0;39m" >/dev/console
     exit   ##TODO
@@ -1291,7 +1309,7 @@ EOI
 
 
   if [ "$CRYPTO" = "" ];then
-   test "$SFFS" && mount $VERB $VERB -t $SFFS -o noatime,rw,loop "$SMNTPT$SAVEFILE" /tmp/save1stpup || mount $VERB $VERB -o noatime,rw,loop "$SMNTPT$SAVEFILE" /tmp/save1stpup
+   test "$SFFS" && /bin/mount $VERB -t $SFFS -o noatime,rw,loop "$SMNTPT$SAVEFILE" /tmp/save1stpup || /bin/mount $VERB -o noatime,rw,loop "$SMNTPT$SAVEFILE" /tmp/save1stpup
    [ $? = 0 ] || {
        echo -e "\\033[0;31mFailed to mount $SMNTPT$SAVEFILE type $SFFS\\033[0;39m" >/dev/console
        sleep 2
@@ -1314,7 +1332,7 @@ EOI
    fi
    echo "$MYPASSWORD" | losetup-FULL $VERB -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
    [ $? -eq 0 ] || { exit 1; }  ## TODO
-   test "$SFFS" && mount $VERB $VERB -t $SFFS -o noatime,rw $DEVLOOP /tmp/save1stpup || mount $VERB $VERB -o noatime,rw $DEVLOOP /tmp/save1stpup
+   test "$SFFS" && /bin/mount $VERB -t $SFFS -o noatime,rw $DEVLOOP /tmp/save1stpup || /bin/mount $VERB -o noatime,rw $DEVLOOP /tmp/save1stpup
     [ $? = 0 ] || {
        echo -e "\\033[0;31mFailed to mount $DEVLOOP on /tmp/save1stpup type $SFFS\\033[0;39m" >/dev/console
        sleep 2
@@ -1347,7 +1365,7 @@ EOI
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   _make_swapfile "$SMNTPT" "$SAVEPART"
 
-  /bin/umount $VERB $VERB "$SMNTPT" 2>>$ERR
+  /bin/umount "$SMNTPT"
 
   ;;
  69) #save to folder on multisession CD/DVD (including 1st shutdown). (5+64=69) NOT used
@@ -1519,7 +1537,7 @@ _remove_fsckme
 
 ################### Umount everything #############################################################
 # REM: handle umount in /etc/init.d/
-c=0; while pidof umount >$OUT; do sleep 1; c=$((c+1)); [ "$c" = 9 ] && break; done; c=0
+c=0; while pidof umount >>$OUT; do sleep 1; c=$((c+1)); [ "$c" = 9 ] && break; done; c=0
 
 ###+++2015-10-15 try killall5
 [ "`which killall5`" ] && killall5 -9 -o 1 -o $$ -o $PPID && sleep 1 #killall5 errors on -o 1 -9 syntax (signal must be first option)
@@ -1604,10 +1622,10 @@ grep $Q ' /initrd/mnt/tmpfs ' /proc/mounts && {
 esac
 ;;
 
-*) :
+*) #unmount normally
 _debug "_unmount_loop_devices:normal umount of $mntp"
 /bin/umount -lr $VERB "$mntp"
-;; #unmount normally
+;;
 esac
 echo
 done << EoI
@@ -1638,7 +1656,7 @@ do
    status_func $?
    sleep 1
  else
-  /bin/umount $VERB $VERB -r "$oneSTRAY"  ##unmounts MountPoint
+  /bin/umount $VERB -r "$oneSTRAY"  ##unmounts MountPoint
   _status $?
   sleep 1
  fi
@@ -1669,15 +1687,6 @@ done </proc/swaps
 
 
 [ -d /initrd ] && { [ "`ls -1A /initrd`" ] || rmdir $VERB /initrd; }
-
-[ "$FORCE" ] || {
-if [ -f /etc/rc.d/rc.shutdown.local.endOne ]; then
-. /etc/rc.d/rc.shutdown.local.endOne
-elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
- . /etc/rc.d/rc.shutdown.local.end  ###KRG
-fi
-}
-
 
 [ "$DEBUG" -a ! "$FORCE" ] && _ask_exit_script "unmounting /dev/root"
 
@@ -1766,7 +1775,7 @@ _debug "SAVE_LAYER='$SAVE_LAYER'"
  test "$SAVEFS"     || return 2
 
  echo -ne "\\033[1;33mAttempting to remount $SAVEDEV /initrd${SAVE_LAYER} type $SAVEFS read-only...\\033[0;39m" >/dev/console
- busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>>$ERR
+ busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} || busybox mount $VERB $VERB -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
  _status $?
 
  echo -ne "\\033[1;33mAttempting to unmount /initrd${SAVE_LAYER}...\\033[0;39m" >/dev/console
@@ -1865,17 +1874,14 @@ done
 
 ######## Unload all unused modules ... ####################
 
-
-
-
 if [ "$DEBUG" ]; then
 ps | grep -v '\['
 mount
  echo -en '\033[0;36m'"FILESYSTEM STATE : "'\033[0;39m'
  if test "$PUPMODE" = 2; then
- dumpe2fs `rdev` | grep -i 'state'
+ case $DEV1FS in ext[2-4]) dumpe2fs `rdev` | grep -i 'state';; esac
  elif test "$PDEV1"; then
- dumpe2fs /dev/$PDEV1 | grep -i 'state'
+ case $DEV1FS in ext[2-4]) dumpe2fs /dev/$PDEV1 | grep -i 'state';; esac
  fi
  echo
 echo "ENDING NOW"  ###DBG
@@ -1895,13 +1901,11 @@ fi
 if [ "$DEBUG" ]; then
  echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
  if test "$PUPMODE" = 2; then
- dumpe2fs `rdev` | grep -i 'state'
+ case $DEV1FS in ext[2-4]) dumpe2fs `rdev` | grep -i 'state';; esac
  elif test "$PDEV1"; then
- dumpe2fs /dev/$PDEV1 | grep -i 'state'
+ case $DEV1FS in ext[2-4]) dumpe2fs /dev/$PDEV1 | grep -i 'state';; esac
  fi
 fi
-
-[ -f /etc/rc.d/rc.shutdown.local.endZero -a ! "$FORCE" ] && /etc/rc.d/rc.shutdown.local.endZero
 
 [ "$DEBUG" -a ! "$FORCE" ] && _ask_exit_script "exiting at the very end"
 
