@@ -6,7 +6,7 @@
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-Version='2.0.0-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
+Version='2.1.0-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 xmTITLE="PuppyFileMount"
@@ -115,6 +115,39 @@ test -f "$imgFILE" || _exit 4 "Error while testing for existance of '$imgFILE'"
 _debugx "dn_imgFILE='$dn_imgFILE'"  ##DEBUG
 _debugx "bn_imgFILE='$bn_imgFILE'"  ##DEBUG
 
+# REM: 2015-11-27 add sfs_load switch
+_ask_to_run_sfs_load(){
+
+ which sfs_load >>$OUT || return 1
+
+case $PUPMODE in 2) return 1;; esac
+
+ MSG_TEXT="This is a squashfs file.
+Do you want to load it into the current running Puppy
+as merged part of the Operating System ?
+Most .sfs files are made to be loaded this way.
+
+Or, it may be just a normal archive.sfs like any .iso file
+or even a .sfs made for another linux and not for Puppy.
+In that case you may want to mount it just simply
+as any other partition mount.
+"
+
+GMSG_TEXT=`gettext "$MSG_TEXT"`
+test "${GMSG_TEXT// /}" && MSG_TEXT=$GMSG_TEXT
+
+BUTTON_LOD=`gettext 'OS Load'`
+BUTTON_MNT=`gettext 'Just Mount'`
+BUTTON_EXT=`gettext 'Quit'`
+
+xmessage -buttons "$BUTTON_LOD:100,$BUTTON_MNT:101,$BUTTON_EXT:1" -bg "light blue" -title "filmnt" "$MSG_TEXT"
+case $? in
+100) return 0;;
+101) return 1;;
+1)   return 2;;
+*)   return 3;;
+esac
+}
 
 # REM: Try to handle initrd files.
 #      These may be compressed.
@@ -475,9 +508,13 @@ if [ -z "$UNMOUNT" ] ; then
  *.2fs|*.ext2|*.ext2fs.img) Type=ext2;;
  *.3fs|*.ext3|*.ext3fs.img) Type=ext3;;
  *.4fs|*.ext4|*.ext4fs.img) Type=ext4;;
+ *.btr|*.btrfs|*.btrfs.img) Type=btrfs;;
+ *.jfs|*.jfs.img)           Type=jfs;;
  *.mnx|*.minix|*.minix.img) Type=minix;;
+ *.ofs|*.ocfs2|*.ocfs2.img) Type=ocfs2;;
  *.rfs|*.rfs3|*.rfs.img)    Type=reiserfs;;
- *.sfs|*.squashfs|*.sqfs|*.squashfs.img) Type=squashfs;;
+ *.sfs|*.sqfs|*.squashfs|*.squashfs.img) Type=squashfs;;
+ *.xfs|*.xfs.img)           Type=xfs;;
  *.iso|*.ISO|*.Iso)
    #Fatdog fat16 first and iso9660 second  ###+++2013-03-02
    TYPES=`disktype "$imgFILE" |grep 'file system'`
@@ -549,6 +586,12 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
     _err "Wrong squashfs version"
     exit 0
    fi
+
+  _ask_to_run_sfs_load
+  case $? in 0) exec sfs_load "$imgFILE";;
+  1) :;; 2) exit 0;; *) _warn "Unhandled return value from _ask_to_run_sfs_load";;
+  esac
+
   fi
 
   # REM: Older pups need to mknod a /dev/loop
@@ -651,7 +694,7 @@ _encrypted()
      }
 
   case $Type in
-   ext2|ext3|ext4|btrfs|jfs|reiserfs|xfs)
+   ext2|ext3|ext4|btrfs|jfs|ocfs2|reiserfs|xfs)
     case "$bn_imgFILE" in
 
      *_cryptx*) #light encryption.
