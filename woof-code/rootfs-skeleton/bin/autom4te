@@ -1,0 +1,237 @@
+#!/bin/sh
+
+exe=autom4te
+
+# autom4te_exe=/usr/bin/autom4te-2.59      #error: possibly undefined macro: AM_PROG_LIBTOOL
+#autom4te_exe=/usr/bin/autom4te-2.67       #Undefined subroutine &main::open_quote called at /usr/bin/autom4te-2.67 line 262.
+autom4te_exe=/usr/local/bin/autom4te-2.68  #error: possibly undefined macro: AM_PROG_LIBTOOL
+
+echo -e "\\033[1;36m""
+############
+# Wrapper  #
+# Type \"$0 --wrapper=help\" #
+# for info #
+############
+""\\033[0;39m" >&2
+
+usage(){
+MSG="$0:
+Wrapper for '$exe'
+
+Usage :
+$0 [--wrapper=option1,option2,..] [ $exe-options ]
+
+Wrapper options are a comma separated list of
+
+help  :to show this message
+info  :lists installed $exe executables
+menu  :interactively choose the $exe executable
+
+verbose :emit some diagnostic messages
+debug   :set -x
+"
+echo "$MSG"
+#exit $1
+}
+
+EXE_OPTIONS=`echo "$@" |tr ' ' '\n' |grep -v 'wrapper=.*' |tr '\n' ' '`
+WRAPPER_OPTIONS=`echo "$@" |tr ' ' '\n' |grep 'wrapper=.*' |cut -f2 -d= |tr ',' ' '`
+for opt in $WRAPPER_OPTIONS;do
+case $opt in
+help) usage 0;;
+info) sINFO=1;;
+menu) MENU=1;;
+debug) set -x;;
+verbose) ME_VERBOSE=1;;
+*)usage 1;;
+esac
+done
+
+_show_info(){
+if [ "$sINFO" ];then
+echo "$0:
+autom4te_exe='$autom4te_exe'"
+
+file "$autom4te_exe"
+echo
+
+AUTOM4TEs=`type -a $exe`
+AUTOM4TEs=`echo "$AUTOM4TEs" |awk '{print $3}'`
+echo "$AUTOM4TEs"
+echo
+for m in $AUTOM4TEs;do
+dir_name="${m%/*}"
+find $dir_name -iname "$exe*" -exec file {} \;
+echo
+done
+
+echo "
+/usr/local/bin:
+"
+
+find /usr/local/bin -iname "$exe*" -exec file {} \;
+exit $?
+fi
+}
+
+_present_menu(){
+if [ "$MENU" ];then
+
+for dir in `echo $PATH |tr ":" " "`;do
+AUTOM4TE_S="$AUTOM4TE_S
+`find $dir -maxdepth 1 -type f -name "$exe[-_][0-9]*"`"
+done
+AUTOM4TE_S=`echo "$AUTOM4TE_S" |sort`
+echo "Select the $exe executable :"
+select AUTOM4TE_EXE in $AUTOM4TE_S;do echo $AUTOM4TE_EXE;break;done
+[ "$AUTOM4TE_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e $autom4te_exe -a ! -L $autom4te_exe ] && { echo "'$autom4te_exe' is not a link ";exit 1; }
+
+prefix="${AUTOM4TE_EXE//\/bin*/}"
+base_name="${AUTOM4TE_EXE##*/}"
+VERSION="${AUTOM4TE_EXE##*\-}"
+M_VERSION=`echo "$VERSION" |sed -r 's/([0-9]*)\.([0-9]*)\.([0-9]*)/\1\.\2/'`
+echo "prefix='$prefix' 'base_name=$base_name' 'M_VERSION=$M_VERSION' 'VERSION=$VERSION'"
+
+rm $VERB -f $autom4te_exe
+if [ "$VERSION" != "$M_VERSION" ];then
+rm ${autom4te_exe}-$M_VERSION
+ln $VERB -s $AUTOM4TE_EXE ${autom4te_exe}-$M_VERSION
+ln $VERB -s ${exe}-$M_VERSION $autom4te_exe
+else
+ln $VERB -s $AUTOM4TE_EXE $autom4te_exe
+fi
+touch $AUTOM4TE_EXE
+[ "$ME_VERBOSE" ] && ls -l $autom4te_exe && ls -l ${autom4te_exe}-$M_VERSION
+
+__out__(){
+#sync aclocal
+rm $VERB -f /usr/bin/aclocal
+if [ "$VERSION" != "$M_VERSION" ];then
+rm $VERB -f /usr/bin/aclocal-$M_VERSION
+ln $VERB -s $prefix/bin/aclocal-$VERSION /usr/bin/aclocal-$M_VERSION
+ln $VERB -s /usr/bin/aclocal-$M_VERSION /usr/bin/aclocal
+else
+ln $VERB -s $prefix/bin/aclocal-$VERSION /usr/bin/aclocal
+fi
+touch $prefix/bin/aclocal-$VERSION
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/aclocal && ls -l /usr/bin/aclocal-$M_VERSION
+}
+
+rm $prefix/share/$exe
+if [ "$VERSION" != "$M_VERSION" ];then
+rm $prefix/share/${exe}-$M_VERSION
+ln $VERB -s $base_name $prefix/share/${exe}-$M_VERSION
+ln $VERB -s ${exe}-$M_VERSION $prefix/share/$exe
+RETURN_VAL=$?
+else
+ln $VERB -s $base_name $prefix/share/$exe
+RETURN_VAL=$?
+fi
+
+
+[ "$ME_VERBOSE" ] && ls -l $prefix/share/$exe && ls -l $prefix/share/${exe}-$M_VERSION
+
+[ $RETURN_VAL -eq 0 ] || exit $RETURN_VAL
+fi
+}
+
+
+#automake: `configure.ac' or `configure.in' is required
+
+case $* in *version*|*help*) :;;
+*) [ -f configure.ac -o -f configure.in ] || { echo "configure.ac OR configure.in missing"; exit 0; }
+;; esac
+
+[ -s ${exe}-errs.log ] || rm $VERB -f ${exe}-errs.log
+echo >> ${exe}-errs.log
+echo `date` "$@"  >> ${exe}-errs.log
+echo "$0 '$@'"    >> ${exe}-errs.log
+echo "$PWD:`pwd`" >> ${exe}-errs.log
+
+_say_options(){
+cat >&2 <<EoI
+Operation modes:
+  -h, --help               print this help, then exit
+  -V, --version            print version number, then exit
+  -v, --verbose            verbosely report processing
+  -d, --debug              don't remove temporary files
+  -o, --output=FILE        save output in FILE (defaults to `-', stdout)
+  -f, --force              don't rely on cached values
+  -W, --warnings=CATEGORY  report the warnings falling in CATEGORY
+  -l, --language=LANG      specify the set of M4 macros to use
+  -C, --cache=DIRECTORY    preserve results for future runs in DIRECTORY
+      --no-cache           disable the cache
+  -m, --mode=OCTAL         change the non trace output file mode (0666)
+  -M, --melt               don't use M4 frozen files
+
+Languages include:
+  `Autoconf'   create Autoconf configure scripts
+  `Autotest'   create Autotest test suites
+  `M4sh'       create M4sh shell scripts
+  `M4sugar'    create M4sugar output
+
+Warning categories include:
+  `cross'         cross compilation issues
+  `gnu'           GNU coding standards (default in gnu and gnits modes)
+  `obsolete'      obsolete features or constructions
+  `override'      user redefinitions of Automake rules or variables
+  `portability'   portability issues (default in gnu and gnits modes)
+  `syntax'        dubious syntactic constructs (default)
+  `unsupported'   unsupported or incomplete features (default)
+  `all'           all the warnings
+  `no-CATEGORY'   turn off warnings in CATEGORY
+  `none'          turn off all the warnings
+  `error'         treat warnings as errors
+
+The environment variables `M4' and `WARNINGS' are honored.
+
+Library directories:
+  -B, --prepend-include=DIR  prepend directory DIR to search path
+  -I, --include=DIR          append directory DIR to search path
+
+Tracing:
+  -t, --trace=MACRO[:FORMAT]  report the MACRO invocations
+  -p, --preselect=MACRO       prepare to trace MACRO in a future run
+
+Freezing:
+  -F, --freeze   produce an M4 frozen state file for FILES
+
+FORMAT defaults to `$f:$l:$n:$%', and can use the following escapes:
+  $$     literal $
+  $f     file where macro was called
+  $l     line where macro was called
+  $d     nesting depth of macro call
+  $n     name of the macro
+  $NUM   argument NUM, unquoted and with newlines
+  $SEP@  all arguments, with newlines, quoted, and separated by SEP
+  $SEP*  all arguments, with newlines, unquoted, and separated by SEP
+  $SEP%  all arguments, without newlines, unquoted, and separated by SEP
+SEP can be empty for the default (comma for @ and *, colon for %),
+a single character for that character, or {STRING} to use a string.
+EoI
+}
+
+#$autom4te_exe $EXE_OPTIONS 2>>${exe}-errs.log
+#for lang_ in Autoconf Autotest M4sh  M4sugar
+#for lang_ in Autoconf M4sh  M4sugar
+#do
+# echo $lang_
+# $autom4te_exe -v -l $lang_ -o $lang_.cfg -f
+#done
+
+ $autom4te_exe "$@"  2>>${exe}-errs.log
+RET_VAL=$?
+
+if [ "$RET_VAL" -ne '0' ];then
+echo -e "\\033[1;31m""ERROR : '$RET_VAL' for
+$autom4te_exe '$@' '$EXE_OPTIONS' .
+See ${exe}-errs.log for details
+""\\033[0;39m" >&2
+defaulttexteditor ${exe}-errs.log &
+else
+echo -e "\\033[1;32m""OK : $autom4te_exe '$EXE_OPTIONS' finished with '$RET_VAL'""\\033[0;39m" >&2
+[ -s ${exe}-errs.log ] || rm $VERB -f ${exe}-errs.log
+fi
+[ -s ${exe}-errs.log ] || rm $VERB -f ${exe}-errs.log
+exit $RET_VAL

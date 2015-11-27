@@ -1,0 +1,125 @@
+#!/bin/sh
+
+
+ exe=autoheader
+ autoheader_exe=/usr/bin/autoheader-2.59
+#autoheader_exe=/usr/bin/autoheader-2.67
+#autoheader_exe=/usr/local/bin/autoheader-2.68
+
+echo -e "\\033[1;36m""
+############
+# Wrapper  #
+# Type \"$0 --wrapper=help\" #
+# for info #
+############
+""\\033[0;39m" >&2
+
+usage(){
+MSG="$0:
+Wrapper for '$exe'
+
+Usage :
+$0 [--wrapper=option1,option2,..] [ $exe-options ]
+
+Wrapper options are a comma separated list of
+
+help  :to show this message
+info  :lists installed $exe executables
+menu  :interactively choose the $exe executable
+
+verbose :emit some diagnostic messages
+debug   :set -x
+"
+echo "$MSG"
+exit $1
+}
+
+EXE_OPTIONS=`echo "$@" |tr ' ' '\n' |grep -v 'wrapper=.*' |tr '\n' ' '`
+WRAPPER_OPTIONS=`echo "$@" |tr ' ' '\n' |grep 'wrapper=.*' |cut -f2 -d= |tr ',' ' '`
+for opt in $WRAPPER_OPTIONS;do
+case $opt in
+help) usage 0;;
+info) sINFO=1;;
+menu) MENU=1;;
+debug) set -x;;
+verbose) ME_VERBOSE=1;;
+*)usage 1;;
+esac
+done
+
+if [ "$sINFO" ];then
+echo "$0:
+autoheader_exe='$autoheader_exe'"
+
+file "$autoheader_exe"
+echo
+
+AUTOHEADERs=`type -a autoheader`
+AUTOHEADERs=`echo "$AUTOHEADERs" |awk '{print $3}'`
+echo "$AUTOHEADERs"
+echo
+for m in $AUTOHEADERs;do
+dir_name="${m%/*}"
+find $dir_name -iname "autoheader*" -exec file {} \;
+echo
+done
+
+echo "
+/usr/local/bin:
+"
+
+find /usr/local/bin -iname "autoheader*" -exec file {} \;
+exit $?
+fi
+
+
+if [ "$MENU" ];then
+
+for dir in `echo $PATH |tr ":" " "`;do
+AUTOHEADER_S="$AUTOHEADER_S
+`find $dir -maxdepth 1 -type f -name "autoheader[-_][0-9]*"`"
+done
+AUTOHEADER_S=`echo "$AUTOHEADER_S" |sort`
+echo "Select the $exe executable :"
+select AUTOHEADER_EXE in $AUTOHEADER_S;do echo $AUTOHEADER_EXE;break;done
+[ "$AUTOHEADER_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e $autoheader_exe -a ! -L $autoheader_exe ] && { echo "'$autoheader_exe' is not a link ";exit 1; }
+rm -f $autoheader_exe;ln -s $AUTOHEADER_EXE $autoheader_exe;touch $AUTOHEADER_EXE
+[ "$ME_VERBOSE" ] && ls -l $autoheader_exe
+
+prefix="${AUTOHEADER_EXE//\/bin*/}"
+base_name="${AUTOHEADER_EXE##*/}"
+echo "'$prefix' '$base_name'"
+rm $prefix/share/$exe
+ln -s $prefix/share/$base_name $prefix/share/$exe
+RETURN_VAL=$?
+ls -l $prefix/share/$exe
+
+[ $RETURN_VAL -eq 0 ] || exit $RETURN_VAL
+fi
+
+#autoheader: 'configure.ac' or 'configure.in' is required
+[ -f configure.ac -o -f configure.in ] || exit 0
+
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+echo >> ${exe}-errs.log
+echo `date` "$@" >> ${exe}-errs.log
+echo "$0 '$@'" >> ${exe}-errs.log
+echo "$PWD:`pwd`" >> ${exe}-errs.log
+
+#$autoheader_exe $EXE_OPTIONS 2>>${exe}-errs.log
+ $autoheader_exe "$@"         2>>${exe}-errs.log
+RET_VAL=$?
+
+if [ "$RET_VAL" -ne '0' ];then
+echo -e "\\033[1;31m""ERROR : '$RET_VAL' for
+$autoheader_exe '$@' '$EXE_OPTIONS' .
+See ${exe}-errs.log for details
+""\\033[0;39m" >&2
+defaulttexteditor ${exe}-errs.log &
+else
+echo -e "\\033[1;32m""OK : $autoheader_exe '$EXE_OPTIONS' finished with '$RET_VAL'""\\033[0;39m" >&2
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+fi
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+exit $RET_VAL

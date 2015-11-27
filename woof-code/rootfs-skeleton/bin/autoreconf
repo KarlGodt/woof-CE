@@ -1,0 +1,145 @@
+#!/bin/sh
+
+#autoconf_exe=/usr/bin/autoreconf-2.59
+ autoconf_exe=/usr/bin/autoreconf-2.67
+#autoconf_exe=/usr/local/bin/autoreconf-2.68
+
+exe=autoreconf
+
+echo -e "\\033[1;36m""
+############
+# Wrapper  #
+# Type \"$0 --wrapper=help\" #
+# for info #
+############
+""\\033[0;39m" >&2
+
+usage(){
+MSG="$0:
+Wrapper for '$exe'
+
+Usage :
+$0 [--wrapper=option1,option2,..] [ $exe-options ]
+
+Wrapper options are a comma separated list of
+
+help  :to show this message
+info  :lists installed $exe executables
+menu  :interactively choose the $exe executable
+
+verbose :emit some diagnostic messages
+debug   :set -x
+"
+echo "$MSG"
+exit $1
+}
+
+EXE_OPTIONS=`echo "$@" |tr ' ' '\n' |grep -v 'wrapper=.*' |tr '\n' ' '`
+WRAPPER_OPTIONS=`echo "$@" |tr ' ' '\n' |grep 'wrapper=.*' |cut -f2 -d= |tr ',' ' '`
+for opt in $WRAPPER_OPTIONS;do
+case $opt in
+help) usage 0;;
+info) sINFO=1;;
+menu) MENU=1;;
+debug) set -x;;
+verbose) ME_VERBOSE=1;;
+*)usage 1;;
+esac
+done
+
+if [ "$sINFO" ];then
+echo "$0:
+autoconf_exe='$autoconf_exe'"
+
+file "$autoconf_exe"
+echo
+
+AUTOCONFs=`type -a autoconf`
+AUTOCONFs=`echo "$AUTOCONFs" |awk '{print $3}'`
+echo "$AUTOCONFs"
+echo
+for m in $AUTOCONFs;do
+dir_name="${m%/*}"
+find $dir_name -iname "autoconf*" -exec file {} \;
+echo
+done
+
+echo "
+/usr/local/bin:
+"
+
+find /usr/local/bin -iname "autoconf*" -exec file {} \;
+exit $?
+fi
+
+
+if [ "$MENU" ];then
+
+for dir in `echo $PATH |tr ":" " "`;do
+AUTOCONF_S="$AUTOCONF_S
+`find $dir -maxdepth 1 -type f -name "autoconf[-_][0-9]*"`"
+done
+AUTOCONF_S=`echo "$AUTOCONF_S" |sort`
+echo "Select the $exe executable :"
+select AUTOCONF_EXE in $AUTOCONF_S;do echo $AUTOCONF_EXE;break;done
+[ "$AUTOCONF_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e $autoconf_exe -a ! -L $autoconf_exe ] && { echo "'$autoconf_exe' is not a link ";exit 1; }
+
+rm -f $autoconf_exe;ln -s $AUTOCONF_EXE $autoconf_exe;touch $AUTOCONF_EXE
+[ "$ME_VERBOSE" ] && ls -l $autoconf_exe
+
+prefix="${AUTOCONF_EXE%/*}"
+VERSION="${AUTOCONF_EXE##*\-}"
+echo "'$prefix' '$VERSION'"
+
+rm -f /usr/bin/autom4te;ln -s $prefix/autom4te-${VERSION} /usr/bin/autom4te;touch $prefix/autom4te-${VERSION}
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/autom4te
+
+rm -f /usr/bin/autoreconf;ln -s $prefix/autoreconf-$VERSION /usr/bin/autoreconf;touch $prefix/autoreconf-$VERSION
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/autoreconf
+
+rm -f /usr/bin/autoscan;ln -s $prefix/autoscan-$VERSION /usr/bin/autoscan;touch $prefix/autoscan-$VERSION
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/autoscan
+
+rm -f /usr/bin/autoupdate;ln -s $prefix/autoupdate-$VERSION /usr/bin/autoupdate;touch $prefix/autoupdate-$VERSION
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/autoupdate
+
+rm -f /usr/bin/ifnames;ln -s $prefix/ifnames-$VERSION /usr/bin/ifnames;touch $prefix/ifnames-$VERSION
+[ "$ME_VERBOSE" ] && ls -l /usr/bin/ifnames
+
+
+prefix="${AUTOCONF_EXE//\/bin*/}"
+base_name="${AUTOCONF_EXE##*/}"
+echo "'$prefix' '$base_name'"
+rm $prefix/share/$exe
+ln -s $prefix/share/$base_name $prefix/share/$exe
+RETURN_VAL=$?
+ls -l $prefix/share/$exe
+
+[ $RETURN_VAL -eq 0 ] || exit $RETURN_VAL
+fi
+
+#autoconf: error: no input file
+[ "$EXE_OPTIONS" ] || exit 0
+
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+echo >> ${exe}-errs.log
+echo `date` "$@" >> ${exe}-errs.log
+echo "$0 '$@'" >> ${exe}-errs.log
+echo "$PWD:`pwd`" >> ${exe}-errs.log
+
+#$autoconf_exe $EXE_OPTIONS 2>>${exe}-errs.log
+ $autoconf_exe "$@"         2>>${exe}-errs.log
+RET_VAL=$?
+if [ "$RET_VAL" -ne '0' ];then
+echo -e "\\033[1;31m""ERROR : '$RET_VAL' for
+$autoconf_exe '$@' '$EXE_OPTIONS' .
+See ${exe}-errs.log for details
+""\\033[0;39m" >&2
+defaulttexteditor ${exe}-errs.log &
+else
+echo -e "\\033[1;32m""OK : $autoconf_exe '$EXE_OPTIONS' finished with '$RET_VAL'""\\033[0;39m" >&2
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+fi
+[ -s ${exe}-errs.log ] || rm -f ${exe}-errs.log
+exit $RET_VAL
