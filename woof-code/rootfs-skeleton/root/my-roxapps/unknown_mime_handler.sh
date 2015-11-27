@@ -1,6 +1,7 @@
-#!/bin/bash
+#!/bin/ash
 
-EXT=`echo "$@" |rev|cut -f1 -d'.'|rev`
+#EXT=`echo "$@" |rev|cut -f1 -d'.'|rev`
+ EXT="${@##*.}"
 
 case $EXT in
 #here petget special
@@ -9,7 +10,7 @@ exec /usr/local/petget/petget "$@"
 ;;
 
 #here comes the additional handlers
-sqfs|squashfs|mnx|rfs3)
+sqfs|squashfs|mnx|rfs|rfs3|rfs4|xfs|jfs|btrfs)
 filemnt "$@"
 ;;
 *~)
