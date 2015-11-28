@@ -639,11 +639,13 @@ unset UNMOUNT
 #      start mount procedure
 if [ -z "$UNMOUNT" ] ; then #UNMOUNT
 
+  _get_extension(){
   # REM: Probaly a good idea to pass file-system-type to mount
   #      The code now uses extension MIME-Type (noted in /usr/share/mime/globs) .
   #      TODO: Better use disktype first and if that fails fall back using
   #       extension or mount without passing -t option to let mount guess f.s.-type...
   #     TODO2 : Better use case instead if test
+
   Ext=`echo "$imageFILE" |sed 's/^.*\.//'`    # get file type from extention
   if [ "$Ext" = '2fs' ] ;then #Ext
    Type='ext2'
@@ -753,6 +755,56 @@ EoI
     esac
 
   fi #Ext
+  } ##_get_extension(){ #END
+
+  case $imageFILE in
+  *.2fs|*.ext2)  Type=ext2;;
+  *.3fs|*.ext3)  Type=ext3;;
+  *.4fs|*.ext4)  Type=ext4;;
+  *.btr|*.btrfs) Type=btrfs;;
+  *.hfs)         Type=hfs;;
+  *.hfsp|*.hfp|*.hfs+|*.hf+) Type=hfsp;;
+  *.jfs)         Type=jfs;;
+  *.ofs|*.ocfs2) Type=ocfs2;;
+  *.rfs|*.reiser|*.reiserfs) Type=reiserfs;;
+  *.rf4|*.reiser4|*.reiserfs4) Type=reiser4;;
+  *.sfs|*.sqfs|*.squashfs)   Type=squashfs;;
+  *.xfs)         Type=xfs;;
+  *.iso|*.ISO)
+     Type=`disktype "$imageFILE" | grep -m1 -E '^[^[:blank:]]+ file system' |awk '{print $1}' |tr '[[:upper:]]' '[[:lower:]]'`
+     [ "$Type" ] || Type=iso9660
+     ;;
+  *initrd*.gz|*initrd)
+     gunzip "$imageFILE"               # handle gzip image file
+     test $? = 0 && imageFILE=`echo "$imageFILE" |sed 's/.gz$//'`
+     # REM : Do not attempt to mount it if no f.s. inside (cpio archive)
+     Type=`disktype "$imageFILE" | grep -m1 'file system' |awk '{print $1}' |tr '[[:upper:]]' '[[:lower:]]'`
+     if [ ! "$Type" ];then #! TYPE
+      [ "$DISPLAY" ] && xmessage -bg red "Sorry, no file system inside initrd." &
+      echo "Sorry, no file system inside initrd."
+      # REM: For now gzip it back again.
+      #      Todo: Could unpack it ...
+      if [ "$imageFILEBASE" = 'initrd' ];then
+      gzip -9 "$imageFILE"
+      fi
+      exit 1
+     fi #! TYPE
+    ;;
+    *)
+    # REM: No extension nor some initrd*
+    #      Ex: openSUSE-10.3-read-only.i686-2.0
+    #            Regular file, size 659.1 MiB (691138560 bytes)
+    #            Linux squashfs, version 3.0, little-endian
+    #            Compressed size 659.1 MiB (691138172 bytes)
+    #            Block size 64 KiB
+
+   Type=`disktype "$imageFILE" | grep -iE 'file system|Linux squashfs,' |tr '[[:upper:]]' '[[:lower:]]'`
+    case $Type in
+    *squashfs*) Type=squashfs;;
+    *) Type=${Type%% *};;  ## TODO
+    esac
+   ;;
+   esac
 
  # REM: Say something...
  if [ "$Type" ]; then
