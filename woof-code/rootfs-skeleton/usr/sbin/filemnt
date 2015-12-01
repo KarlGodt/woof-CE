@@ -6,7 +6,7 @@
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
-Version='2.1.0-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
+Version='2.2-getopts Macpup_Foxy_3-Puppy-Linux-430/2 KRG'
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 xmTITLE="PuppyFileMount"
@@ -317,32 +317,6 @@ done << EoI
 EoI
 }
 
-_check_already_mounted(){
-
-  #BK check if already mounted elsewhere...
-  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
-  do
-
-   # REM: Now try to get the basename of the file associated with oneLOOP
-   IMG_MTP=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
-   IMGBASE=`basename "$IMG_MTP"`
-    #TODO 64 chars
-    #bash-3.2# losetup-FULL /dev/loop1
-    #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
-                            #1234567890123456789012345678901234567890123456789012345678901234
-
-    _debug "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
-    #not perfect, but paths may be symlinks...
-
-    if [ "$IMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
-
-     # If frugal install check if it is in use
-     case "$IMG_MTP" in
-     */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
-     esac
-
-     if [ -n "$DISPLAY" ] ; then #66
-
 _xmessage_menu(){
 
 xmessage -buttons "
@@ -412,30 +386,83 @@ esac
 
 }
 
+_check_already_mounted(){
+
+  #BK check if already mounted elsewhere...
+  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
+  do
+
+   # REM: Now try to get the basename of the file associated with oneLOOP
+   if test -f /sys/block/${oneLOOP##*/}/loop/backing_file; then
+    read oneIMG_FILE </sys/block/${oneLOOP##*/}/loop/backing_file
+   else
+    oneIMG_FILE=`losetup-FULL "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+    #TODO 64 chars
+    #bash-3.2# losetup-FULL /dev/loop1
+    #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
+                            # 123456789012345678901234567890123456789012345678901234567890123
+    case $oneIMG_FILE in
+    *\*) _warn "truncated output by losetup"
+        length_oneIMG_FILE=`echo "$oneIMG_FILE" | wc -L`
+        _notice "'$oneMNTDIMG' is '$length_oneIMG_FILE' characters or more"
+        :
+        ;;
+    esac
+   fi
+
+   # REM: A loop mount could be loaded into the current frugal OS
+   #       or be just mounted.
+   #      The initrd mounts on /mnt but switch_root
+   #       changes the mountpoint to /initrd/mnt in /proc/mounts,
+   #       but the losetup output stays as it was
+   oneMOUNTPOINT=`grep -w "^$oneLOOP" /proc/mounts | cut -f2 -d' '`
+   oneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
+   case $oneMOUNTPOINT in
+   /initrd/*) oneIMG_FILE="/initrd$oneIMG_FILE";;
+   esac
+
+    IMGBASE=`basename "$oneIMG_FILE"`
+
+    _debug "IMGBASE='$IMGBASE' bn_imgFILE='$bn_imgFILE'" #TEST
+    #not perfect, but paths may be symlinks...
+
+    if [ "$IMGBASE" = "$bn_imgFILE" ];then #if [ "$MNTDIMG" = "$imgFILE" ];then #6
+
+     # If frugal install check if it is in use
+     IN_USE_BY_PUPPY=
+     case "$IMG_MTP" in
+     */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
+     esac
+
+     if [ -n "$DISPLAY" ] ; then #66
+
    if which Xdialog >>$OUT; then _xdialog_menu
  elif which xmessage>>$OUT; then _xmessage_menu
  else UNMOUNT='yes'; RETVAL=193
    fi
 
   if [ "$RETVAL" = "190" ] ; then #666  ## Quit
-     exit
+     exit $?
 
   elif [ "$RETVAL" = "191" ] ; then #666  ## open a ROX-Filer window
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       rox "$mntPT"
-       exit
+       test -d "$mntPT" && rox "$mntPT"
+       exit $?
 
   elif [ "$RETVAL" = "192" ] ; then #666  ## console
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       test -d "$mntPT" && {
        cd "$mntPT"
        _debug "`pwd`"
        rxvt &
-       exit
+       }
+       exit $?
 
   elif [ "$RETVAL" = "193" ] ; then #666  ## umount
        UNMOUNT='yes'
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       return
+       test -d "$mntPT"
+       return $?
 
   elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
        UNMOUNT='yes'
@@ -450,7 +477,7 @@ esac
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
        _debug "194:$LOOPD"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
-       USEapps=`fuser -m "$i"`   ##+++2011-10-27
+       USEapps=`fuser -m "$i"`        ##+++2011-10-27
        _notice "194:fuser:$USEapps"
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
        _debugx "194:fuser:$USEapps"
@@ -470,8 +497,8 @@ esac
        done
 
        mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       [ "$mntPT" ] && return 0
-       return 1
+       [ -d "$mntPT" ]
+       return $?
 
   else   #666
      MOUNT='again'
