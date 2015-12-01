@@ -64,7 +64,7 @@ __check_proc__()
   mountpoint $Q /proc && return $? || {
   busybox mount -o remount,rw /dev/root /
   test -d /proc || mkdir $VERB -p /proc
-  busybox mount $VERB $VERB -t proc none /proc
+  busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
 }
@@ -694,7 +694,7 @@ o_posPAR="$posPAR"
    _debug "c=$c \$#=$# ""$posPAR"
 
    if test ! "`grep 'nodev' /proc/filesystems | grep "$posPAR"`"; then
-   gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//	/\\011}"
+   gPATTERN="${posPAR// /\\040}";gPATTERN="${gPATTERN//	/\\011}" #TAB
    gPATTERN="${gPATTERN//
 /\\012}"
    _debugx "gPATTERN=$gPATTERN"
@@ -766,7 +766,7 @@ _debugt 84 $_DATE_
 case $WHAT in
 umount)
 if test "$deviceORpoint"; then
-grepP=${deviceORpoint// /\\040};grepP=${grepP//	/\\011}
+grepP=${deviceORpoint// /\\040};grepP=${grepP//	/\\011}; #TAB
 grepP="${grepP//
 /\\012}"
 _debug "grepP='$grepP'"
