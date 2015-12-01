@@ -61,8 +61,13 @@ Version='1.4-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## 3 BUGFIXES :
                                                           ##  _fuser : switch to correct fuser usage
 
 Version='1.5-getopts Macpup_Opera_2-Puppy_Linux_431 KRG'  ## Add sfs_load interface
+Version='1.5.1-getopts Macpup_Opera_2-Puppy_Linux_431 KRG' ##code cleanup
+Version='1.5.2-getopts Macpup_Opera_2-Puppy_Linux_431 KRG' ## the check if already mounted was very basic
+                                                           ## due to just using basename of file.
+                                                           ## now use realpath for same filename, since it may be
+                                                           ## in another directory.
 
-usage (){
+usage(){
 MSG="
 $0 [-h -V -l ] FILENAME.EXT
 
@@ -193,16 +198,16 @@ local GREP LOOPD MNTD
 case "$@" in
 /dev/loop*)
         GREP=`echo "$@" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-        _debug "GREP='$GREP'" >&2
+        _debug "GREP='$GREP'"
         MNTD=$(busybox mount | grep "^$GREP" | cut -f 3 -d ' ')
-        _debug "MNTD='$MNTD'" >&2
+        _debug "MNTD='$MNTD'"
         LOOPD="$@"
 ;;
 *)
         GREP=`echo "$@" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-        _debug "GREP='$GREP'" >&2
+        _debug "GREP='$GREP'"
         LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-        _debug "LOOPD='$LOOPD'" >&2
+        _debug "LOOPD='$LOOPD'"
         MNTD="$@"
 ;;
 esac
@@ -413,9 +418,9 @@ return $?
 # REM: mount.sh should take care of removing mountpoint directory
 _remove_mountpoint(){
 sleep 2
-[ -d "$@" ]             || { _return 0 "$@ is not a directory"; return $?; }
+[ -d "$*" ]             || { _return 0 "$@ is not a directory"; return $?; }
 mountpoint $Q "$@"      && { _return 1 "$@ is recognized as mountpoint"; return $?; }
-[ "`ls -A "$@"`" ]      && { _return 1 "$@ has content"; return $?; }
+[ "`ls -A "$*"`" ]      && { _return 1 "$@ has content"; return $?; }
 
 if [ "$UNMOUNT" ]; then
  case $UMOUNT_EXE in
@@ -434,7 +439,7 @@ return $?
 
 # REM: Main parameter to this script is a filename .
 #      Absolute path preferred
- imageFILE="$1"
+ imageFILE="$@"
  _info "imageFILE='$imageFILE'"
  if [ -z "$imageFILE" ];then echo "Need parameter or filename. Try -h for little more info.";exit 1 ;fi
  [ -f "$imageFILE" ] || { echo "'$imageFILE' seems not to exist (in $PWD)";exit 1; }
@@ -443,13 +448,14 @@ return $?
 # REM: But if not absolute /path/to/filename,
 #      add pwd to it to make it absolute
 #      insead could use realpath or readlink -f|-e for this...
- if [ "`dirname "$imageFILE"`" = '\.' ] ;then  #2012-06-02
-  imageFILE=`pwd``echo "$imageFILE" |sed 's/^\.//'` #2012-06-02
- fi
+# if [ "`dirname "$imageFILE"`" = '\.' ] ;then  #2012-06-02
+#  imageFILE=`pwd``echo "$imageFILE" |sed 's/^\.//'` #2012-06-02
+# fi
+ imageFILE=`realpath "$imageFILE"`
 
 # REM: Need a mountpoint directory name
- mountPT='/mnt/'`echo "$imageFILE" |sed "s#^\.##g" |sed "s#/#+#g"`
- _debug "old mountpoint would be: '$mountPT'"
+# mountPT='/mnt/'`echo "$imageFILE" |sed "s#^\.##g" |sed "s#/#+#g"`
+# _debug "old mountpoint would be: '$mountPT'"
  ##NEW##
  mountPT='/mnt/'`basename "$imageFILE"`.$$
  _info "new mountpoint is '$mountPT'"
@@ -472,12 +478,14 @@ check_already_mounted_func(){
 
   #BK check if already mounted elsewhere...
   # REM: Had mount quoting output like lspci -m
-  for oneLOOP in `mount | grep ^[\'\"/]\\\+dev/loop | cut -f 1 -d ' '`
+  #for oneLOOP in `mount | grep ^[\'\"/]\\\+dev/loop | cut -f 1 -d ' '`
+  for oneLOOP in `grep '^/dev/loop' /proc/mounts | cut -f1 -d' '`
   do
 
    _debug "oneLOOP='$oneLOOP'" #DEBUG
 
    # REM: Care for the quoted output and get rid of enclosing quotes
+   # Not needed anymore since mount.sh is new and does not quote output
    oneLOOP=`echo "$oneLOOP" |sed s,^[\"\'],,| sed s,[\"\']$,,`
 
    if test -f /sys/block/${oneLOOP##*/}/loop/backing_file; then
@@ -489,13 +497,15 @@ check_already_mounted_func(){
    oneMNTDIMG=`_losetup "$oneLOOP" | cut -f 2 -d '(' | cut -f 1 -d ')'`
    fi
    _debug "oneMNTDIMG='$oneMNTDIMG'"
+   oneMNTDIMG=`echo -e "$oneMNTDIMG"`
+   _debug "oneMNTDIMG='$oneMNTDIMG'"
 
    # REM: A loop mount could be loaded into the current frugal OS
    #      or be just mounted.
    #     If it is loaded, add some extra message
-   unset ANDINUSEBYPUPPY
+   unset AND_INUSE_BYPUPPY
    case "$oneMNTDIMG" in
-   /initrd/*) ANDINUSEBYPUPPY='and in use by Puppy';;
+   /initrd/*) AND_INUSE_BYPUPPY='and in use by Puppy';;
    esac
 
    # REM: Now compare both base names ...
@@ -520,14 +530,25 @@ check_already_mounted_func(){
    /dev/loop*) :;;
    *) unset ass_imageFILE;;
    esac
+   _debug "ass_imageFILE='$ass_imageFILE'"
 
+    # REM: same filename but in another directory
+    REALPATH1=1
+    REALPATH2=2
+    if test  "$oneIMGBASE" = "$imageFILEBASE"; then
+    REALPATH1=$oneMNTDIMG
+    REALPATH2=$imageFILE
+    #REALPATH1=`stat -L -c %D %i "$oneMNTDIMG"`  #npierce way: %D is partition MAJMIN, %i inode
+    #REALPATH2=`stat -L -c %D %i "$imageFILE"`   #npierce uses %d
+    fi
 
-    if [ "$ass_imageFILE" ] || [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
+    #if [ "$ass_imageFILE" ] || [ "$oneIMGBASE" = "$imageFILEBASE" ];then #MOUNTED ELSEWHERE # if [ "$MNTDIMG" = "$imageFILE" ];then
+    if [ "$ass_imageFILE" ] || [ "$REALPATH1" = "$REALPATH2" ]; then
 
      if [ -n "$DISPLAY" ] ; then #DISPLAY
 #xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $oneIMGBASE:194,Mount another time:199" "$imageFILE
 xmessage -buttons "Quit:190,ROX-Filer:191,console:192,Unmount:193,Unmount all $imageFILEBASE:194,Mount another time:199" "$imageFILE
-is already mounted $ANDINUSEBYPUPPY .
+is already mounted $AND_INUSE_BYPUPPY .
 Do you want to unmount it or mount it to another mount point ?"
 RETVAL=$?
 if [ "$RETVAL" = "190" ] ; then #BUTTONS
@@ -535,14 +556,18 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
 
  elif [ "$RETVAL" = "191" ] ; then #BUTTONS
      #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
-     mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
+     #mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
+      mountPT=`grep "$imageFILEBASE" /proc/mounts | head -n 1 |cut -f2 -d' '`
+      mountPT=`echo -e "$mountPT"`
      _debug "ROX-Filer: mountPT='$mountPT'"
      rox "$mountPT"
      exit $?
 
  elif [ "$RETVAL" = "192" ] ; then #BUTTONS
      #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
-     mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
+     #mountPT=`busybox mount | grep "$imageFILEBASE" | head -n 1 | cut -f 3 -d ' '`
+      mountPT=`grep "$imageFILEBASE" /proc/mounts | head -n 1 |cut -f2 -d' '`
+      mountPT=`echo -e "$mountPT"`
      cd "$mountPT"
      _info "`pwd`"
      rxvt &
@@ -551,25 +576,30 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
  elif [ "$RETVAL" = "193" ] ; then #BUTTONS
        UNMOUNT='yes'
        #mountPT=`busybox mount | grep "$oneIMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       mountPT=`busybox mount | grep "$imageFILEBASE" | tail -n 1 | cut -f 3 -d ' '`
+       #mountPT=`busybox mount | grep "$imageFILEBASE" | tail -n 1 | cut -f 3 -d ' '`
+        mountPT=`grep "$imageFILEBASE" /proc/mounts | head -n 1 |cut -f2 -d' '`
+        mountPT=`echo -e "$mountPT"`
        _debug "mountPT='$mountPT'"
        return 0
 
  elif [ "$RETVAL" = "194" ] ; then #BUTTONS
        UNMOUNT='yes'
        #mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
-       mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
+       #mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
+        mountPT=`grep "$imageFILEBASE" /proc/mounts |cut -f2 -d' '`
+        mountPT=`echo -e "$mountPT"`
        _debug "mountPT='$mountPT'"
        mountPT2=`echo "$mountPT" | sed "1 d" | tac`
        _debug "mountPT2='$mountPT2'"
 
-       for i in $mountPT2 ; do
+       for mntp_ in $mountPT2 ; do
 
+        mntp_=`echo -e "$mntp_"`
        # REM: make killing optional
        if [ "$KILL_FS_USERS" = "YES" ]; then
        # REM: Close ROX-Filer windows before they are detected by fuser
        #       kill window pid would kill ROX-Filer completely (black pinboard)
-       [ "$DISPLAY" ] && rox -D "$i"
+       [ "$DISPLAY" ] && rox -D "$mntp_"
        #_close_rox_window "$i"
        # GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
        # _debug "$GREP"
@@ -577,31 +607,33 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
        # _debug "$LOOPD"
        # USEapps=`_command fuser -c $LOOPD`
        # _debugx "_command fuser -c $LOOPD claims these pids: '$USEapps'"
-       USEapps=`_fuser "$i"`
+       USEapps=`_fuser "$mntp_"`
        _debugx "_fuser \"$i\" claims these pids: '$USEapps'"
         USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g'`
         _debug "USEapps='$USEapps'"
-         for j in $USEapps ; do
-         _debugx "$i: $j"
-         case $j in 1|$$) continue;; esac
-         kill -1 $j
+         for kpid in $USEapps ; do
+         _debugx "$mntp_: $kpid"
+         case $kpid in 1|$$|$PPID) continue;; esac
+         kill -1 $kpid
          #kill -0 $j
          done
         fi
 
-       _debug "'$i'"
+       _debug "'$mntp_'"
        #[ -n "$DISPLAY" ] && rox -D "$i"
-       $UMOUNT_EXE -d "$i"
+       $UMOUNT_EXE -d "$mntp_"
        [ "$?" = 0 ] || continue
        #  REM: Refresh rox
        #[ "$DISPLAY" ] && rox -x "${mountPT%/*}"
        #sleep 2
        #rmdir "$i"
-       _remove_mountpoint "$i"
+       _remove_mountpoint "$mntp_"
        done
 
        #mountPT=`busybox mount | grep "$oneIMGBASE" | cut -f 3 -d ' '`
-       mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
+       #mountPT=`busybox mount | grep "$imageFILEBASE" | cut -f 3 -d ' '`
+        mountPT=`grep "$imageFILEBASE" /proc/mounts |cut -f2 -d' '`
+        mountPT=`echo -e "$mountPT"`
        _debug "mountPT='$mountPT'"
        return 0
 
@@ -877,7 +909,7 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
   case $MOUNT_EXE in
   *mount-FULL*)
   if [ "$Type" ]; then
-   $MOUNT_EXE -t $Type -o loop "$imageFILE" "$mountPT" ##2012-06-02
+   $MOUNT_EXE -t $Type -o loop "$imageFILE" "$mountPT" || $MOUNT_EXE -o loop "$imageFILE" "$mountPT" ##2012-06-02,2015-11-29
   else
    $MOUNT_EXE -o loop "$imageFILE" "$mountPT" ##2014-12-01
   fi
@@ -892,10 +924,10 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
     _losetup $newLOOP "$imageFILE"
     else false
     fi
-    if [ $? = 0 ]; then
+    if [ $? = 0 ]; then  #LOOSETUP RETURN VALUE HANDLER
     _notice "about to $MOUNT_EXE '$newLOOP' on '$mountPT'"
    if [ "$Type" ]; then
-    $MOUNT_EXE -t $Type -o loop "$newLOOP" "$mountPT" ##2012-06-02
+    $MOUNT_EXE -t $Type -o loop "$newLOOP" "$mountPT" || $MOUNT_EXE -o loop "$newLOOP" "$mountPT"  ##2012-06-02,2015-11-29
    else
     $MOUNT_EXE -o loop "$newLOOP" "$mountPT" ##2014-12-01
    fi
@@ -907,13 +939,13 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
     $MOUNT_EXE -o loop "$imageFILE" "$mountPT" ##2014-12-01
    fi
     Err=$?   # if should pass error code of last commands here ..
-    fi
+    fi  #LOOSETUP RETURN VALUE HANDLER
 
   ;;
   esac
 
   # REM: If error code 0 reported or mountPT in mount output, pop up a message
-  if [ "$Err" -eq 0 ] || [ -n "`mount | grep "$mountPT"`" ];then #MOUNT OK
+  if [ "$Err" -eq 0 ] || [ -n "`mount | grep " $mountPT "`" ];then #MOUNT OK
    if [ -n "$DISPLAY" ] ; then #DISPLAY
     #rox -d "$mountPT" # mount good, run rox filer
     _open_rox_window "$mountPT"
@@ -965,10 +997,10 @@ DEBUGX=1
        # REM: Want numbers only ...
        USEapps=`echo "$USEapps" | sed 's/[[:alpha:]]//g;s/[[:punct:]]//g'`
        _debug "f.s users: $USEapps"
-       for j in $USEapps ; do
-       _debugx "$j "
-       case $j in 1|$$) continue;; esac
-       kill -1 $j
+       for kpid in $USEapps ; do
+       _debugx "$kpid "
+       case $kpid in 1|$$|$PPID) continue;; esac
+       kill -1 $kpid
        #kill -0 $j
        done
 
@@ -976,7 +1008,7 @@ DEBUGX=1
       sleep 2s
      fi
 
-  _info "$UMOUNT_EXE: $imageFILE"
+  _info "$UMOUNT_EXE: $mountPT"
   $UMOUNT_EXE -d "$mountPT" ##2012-06-02
   Err=$?
 
