@@ -66,6 +66,10 @@ Version='1.5.2-getopts Macpup_Opera_2-Puppy_Linux_431 KRG' ## the check if alrea
                                                            ## due to just using basename of file.
                                                            ## now use realpath for same filename, since it may be
                                                            ## in another directory.
+Version='1.6.0-getopts Macpup_Opera_2-Puppy_Linux_431 KRG' ## running in frugal mode 5 revealed that losetup data
+                                                           ## does not got updated switch_root in /initrd .
+                                                           ## make check_already_mounted_func return test -d "$mntPT"
+                                                           ## in case of unmount, since an empty value gives error at umount.
 
 usage(){
 MSG="
@@ -501,7 +505,16 @@ check_already_mounted_func(){
    _debug "oneMNTDIMG='$oneMNTDIMG'"
 
    # REM: A loop mount could be loaded into the current frugal OS
-   #      or be just mounted.
+   #       or be just mounted.
+   #      The initrd mounts on /mnt but switch_root
+   #       changes the mountpoint to /initrd/mnt in /proc/mounts,
+   #       but the losetup output stays as it was
+   oneMOUNTPOINT=`grep -w "^$oneLOOP" /proc/mounts | cut -f2 -d' '`
+   oneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
+   case $oneMOUNTPOINT in
+   /initrd/*) oneMNTDIMG="/initrd$oneMNTDIMG";;
+   esac
+
    #     If it is loaded, add some extra message
    unset AND_INUSE_BYPUPPY
    case "$oneMNTDIMG" in
@@ -580,7 +593,8 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
         mountPT=`grep "$imageFILEBASE" /proc/mounts | head -n 1 |cut -f2 -d' '`
         mountPT=`echo -e "$mountPT"`
        _debug "mountPT='$mountPT'"
-       return 0
+       test -d "$mountPT"
+       return $?
 
  elif [ "$RETVAL" = "194" ] ; then #BUTTONS
        UNMOUNT='yes'
@@ -635,7 +649,8 @@ if [ "$RETVAL" = "190" ] ; then #BUTTONS
         mountPT=`grep "$imageFILEBASE" /proc/mounts |cut -f2 -d' '`
         mountPT=`echo -e "$mountPT"`
        _debug "mountPT='$mountPT'"
-       return 0
+       test -d "$mountPT"
+       return $?
 
  else #BUTTONS 199
      # REM: If mount on another mountpoint
@@ -663,7 +678,13 @@ done
 }
 
 unset UNMOUNT
-[ -d "$mountPT" ] || check_already_mounted_func
+[ -d "$mountPT" ] || {
+    check_already_mounted_func
+   RV=$?
+case $RV in 0) :;;
+*) echo "check_already_mounted_func returned $RV"; exit $RV;;
+esac
+}
 
 #fi #! -d mountPT
 
