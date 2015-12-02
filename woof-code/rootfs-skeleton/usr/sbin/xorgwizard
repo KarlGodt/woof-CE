@@ -277,16 +277,18 @@ if [ "`echo -n "$PSFND" | grep "\\.xinitrc"`" != "" ]; then
    echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
    echo "$NEXTWM" > /tmp/wmexitmode.txt
    echo "$NEXTWM" > /tmp/xwin/wmexitmode.txt
-   echo 'ICONWIPE' > /tmp/pup_event_change_icons.flg  ##+++2011_10_30
+   echo 'ICONWIPE' > /tmp/pup_event_change_icons.flg  ##+++2011-10-30
    _sync
    exec killall X
    ;;
   12) #xorgconfig
-   xorgcfg
-   xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to /etc/X11/xorg.conf will only take effect after X is restarted.
+   xorgcfg || rxvt -e xorgcfg -textmode
+   [ $? = 0 ] && {
+    xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to /etc/X11/xorg.conf will only take effect after X is restarted.
 
 Click OK button to restart X..."
-   exec restartwm
+    exec restartwm
+   }
    ;;
   13) #xvidtune
    xmessage -bg violet -title "Xvidtune IMPORTANT HELP" "If you click the 'Show' button, the adjusted settings will be what
@@ -623,11 +625,15 @@ $aLINE
    FBODY=${aLINE%\"*}; FBODY=${FBODY##*\"}
     case "$aLINE" in
         *Driver*) CARD0DRIVER="$FBODY"; aLINE="$aLINE #card0driver" ;;
-        *VendorName*) CARD0VENDOR="$FBODY" ;;
+        *VendorName*) CARD0VENDOR="$FBODY"
+         case "$CARD0VENDOR" in 'Unknown Vendor'|'')
+          CARD0VENDOR="lscpi: `lspci | grep 'Display controller' |rev|cut -f1 -d: |rev`"
+          ;; esac
+        ;;
         *BoardName*) CARD0BOARD="$FBODY"
-        if [ "$CARD0BOARD" = 'Unknown Board' ]; then
-        CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
-        fi
+         case "$CARD0BOARD" in 'Unknown Board'|'')
+          CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
+          ;; esac
         ;;
         *Screen[0-9]*Top?Of*Screen0*) aLINE="#$aLINE" ;;
         *Screen[0-9]*Left?Of*Screen0*) aLINE="#$aLINE" ;;
@@ -674,6 +680,9 @@ done <<_END1
 $(cat $HOME/xorg.conf.new | sed 's!$!__XORGWIZARD__!' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
 ###################################################################
+
+test "$CARD0VENDOR" || CARD0VENDOR="lscpi: `lspci | grep 'Display controller' |rev|cut -f1 -d: |rev`"
+test "$CARD0BOARD"  ||  CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
 
 #v2.21 quick hack...
 sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >"$tmpDir"/xorgconfmousefix
@@ -964,7 +973,8 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
  "R" "h31.5-94v50-90    CRT 1600x1200" \
  "Z" "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS" \
   2>"$tmpDir"/taggen.txt
-  RV1="$?";[ "$RV1" -eq -1 -o "$RV1" -eq 255 ] && exit 1
+  RV1="$?";
+  [ "$RV1" -eq -1 -o "$RV1" -eq 255 ] && exit 1
   CHOICE=`cat "$tmpDir"/taggen.txt 2>>$ERR | tail -n1`
   [ "$CHOICE" ] || continue
   ## Dougal: use case-structure for setting params -- safer than the old way
@@ -1067,9 +1077,11 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
      ;;
    Z) # "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS"
      dialog --title "Xorg Video Wizard" --inputbox "Please enter the horizontal frequency range of the monitor, in KHz. An example is given:" 0 0 "31.5-48.5" 2>"$tmpDir"/taghoriz.txt
-     RV2="$?";[ "$RV2" -eq -1 -o "$RV2" -eq 255 ] && exit 1
+     RV2="$?";
+     [ "$RV2" -eq -1 -o "$RV2" -eq 255 ] && exit 1
      dialog --title "Xorg Video Wizard" --inputbox "Please enter the vertical frequency range of the monitor, in Hz. An example is given:" 0 0 "56-72" 2>"$tmpDir"/tagvert.txt
-     RV3="$?";[ "$RV3" -eq -1 -o "$RV3" -eq 255 ] && exit 1
+     RV3="$?";
+     [ "$RV3" -eq -1 -o "$RV3" -eq 255 ] && exit 1
      HORIZSYNC=`cat $tmpDir/taghoriz.txt 2>>$ERR | tail -n1`
      VERTREFRESH=`cat $tmpDir/tagvert.txt 2>>$ERR | tail -n1`
      [ "$HORIZSYNC" ]   || continue
@@ -1092,7 +1104,7 @@ if [ "$MONCHOICES" = "" ];then
   if [ "$RECMODE" = "$oneCHOICE" ];then
    echo "$oneCHOICE \"Unconfirmed MAXIMUM for monitor, OK for card\" \\" >> "$tmpDir"/finalchoices.txt
   else
-   echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\" >> "$tmpDir"/finalchoices.txt
+   echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\"   >> "$tmpDir"/finalchoices.txt
   fi
  done
  for oneCHOICE in 640x480x16 800x600x16 1024x600x16 1024x768x16 1280x800x16 1280x1024x16 1360x768x16 1400x1050x16 1440x900x16 1600x1200x16 1680x1050x16 1920x1080x16 1920x1200x16 640x480x24 800x600x24 1024x600x24 1024x768x24 1280x800x24 1280x1024x24 1360x768x24 1400x1050x24 1440x900x24 1600x1200x24 1680x1050x24 1920x1080x24 1920x1200x24
@@ -1228,7 +1240,7 @@ _sync
 ## Dougal (v2.16??):
 ## Kirk's code for adding synaptics touchpads (or my version of it...)
 if grep -F $Q 'Alps' /proc/bus/input/devices; then
-echo "Copied /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic 9" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+echo "Copied /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic :Step 9" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
  cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
  modprobe $Q $VERB evdev
  if [ "`grep '^modprobe .*evdev' /etc/rc.d/rc.local`" = "" ]; then #v2.17
@@ -1280,7 +1292,7 @@ Section "Monitor"'
 fi
 
 if grep -F $Q 'Synaptics' /proc/bus/input/devices; then
- echo "Copying etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic 11" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+ echo "Copying etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic :Step 11" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
  cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
  modprobe $Q $VERB evdev
  echo 'modprobe $Q $VERB evdev' >> /etc/rc.d/rc.local
@@ -1405,26 +1417,31 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' $tmpDir/ddcprobe.txt    
 # dtiming: 4095x4095@34
 
 
-
 KERNEL_RELEASE=`uname -r`
 V=`Xorg -version 2>&1|sed '/^$/d'`
 CV=`echo "$V" |sed 's|^|#|'`
-version=`echo "$V" |head -n2 |grep -E -i -o 'date.*|version.*' | tr '\n' ' '`
-echo "#Linux Kernel : $KERNEL_RELEASE" >> /etc/X11/xorg.conf
-echo "#Xorg Server Version :" >> /etc/X11/xorg.conf
-echo "$CV" >> /etc/X11/xorg.conf
-echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> /etc/X11/xorg.conf
+version=`echo "$V" |head -n2 |grep -E -i -o 'date.*|version.*|x server [0-9].*' | tr '\n' ' '`
+(
+echo "#Linux Kernel : $KERNEL_RELEASE"
+echo "#Xorg Server Version :"
+echo "$CV"
+echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}"
+) >> /etc/X11/xorg.conf
 #create a copy of xorg.conf with the profile in the filename...
-echo "Copyied /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR} 12" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+echo "Copyied /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR} :Step 12" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
 cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}
 card0driver=`grep -m1 '#card0driver' /etc/X11/xorg.conf | awk -F '"' '{print $2}'`
 [ "$card0driver" ] || card0driver=NONE
 /bin/cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
+
 #also write profile to the backup (used for tweaking vertrefresh)...
-echo "#Linux Kernel : $KERNVERS" >> "$tmpDir"/xorg.conf.tmp
-echo "#Xorg Server Version :" >> "$tmpDir"/xorg.conf.tmp
-echo "$CV" >> "$tmpDir"/xorg.conf.tmp
-echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$tmpDir"/xorg.conf.tmp
+(
+echo "#Linux Kernel : $KERNVERS"
+echo "#Xorg Server Version :"
+echo "$CV"
+echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}"
+) >> "$tmpDir"/xorg.conf.tmp
+
 
 #v2.12
 #note, this code will have to go into 'xwin' also.
@@ -1496,7 +1513,8 @@ you to press CTRL-ALT-BACKSPACE twice to terminate the test)
 
 Press \Z0ENTER\Z4 now to start test X graphics mode (may take a few secs)
 TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to change the mouse (afterward will return here).\Zn" 0 0
- RV4="$?";[ "$RV4" != '0' -a "$RV4" != '1' ] && break
+ RV4="$?";
+ [ "$RV4" = '0' -o "$RV4" = '1' ] || break
  if [ "$RV4" -eq 1 ];then
   #change the mouse... (then go back up to above dialog)
   choosemousefunc
@@ -1507,7 +1525,13 @@ TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to change the mouse (afterward will return here).\
 
  #w460 test Xorg...
  #xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg :0
-  xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg -logfile $tmpDir/xinitrc_test.$$.log -ignoreABI -config $XORGCONFFILE :0
+  time xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg -logfile $tmpDir/xinitrc_test.$$.log -ignoreABI -config $XORGCONFFILE :0
+  XTEST_ERR=$?
+  if test $XTEST_ERR != 0; then
+  echo "XTEST_ERR=$XTEST_ERR"
+  sleep 5
+  fi
+
 #-modulepath paths      specify the module search path
 #-logfile file          specify a log file name
 #-configure             probe for devices and write an xorg.conf
@@ -1518,8 +1542,13 @@ TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to change the mouse (afterward will return here).\
 #-verbose [n]           verbose startup messages
 #-logverbose [n]        verbose log messages
 
+if test -s $tmpDir/xorgwizard_initrc_test_results; then
  eval "`cat $tmpDir/xorgwizard_initrc_test_results`" #results from xinitrc_test
 #...XTEST, YTEST, HSTEST, VRTEST.
+else
+ _err "xinitrc_test could not create an usable _results file."
+ sleep 5
+fi
 
 test "$XTEST"  || XTEST=ERROR
 test "$YTEST"  || YTEST=ERROR
@@ -1531,8 +1560,8 @@ X=`cat $tmpDir/xinitrc_test.$$.log`
 #X=`cat /var/log/Xorg.0.log`
 #H=`echo "$X" |head -n20`
 T=`echo "$X" | tail -n20`
-W=`echo "$X" | grep '^(WW)'`
-E=`echo "$X" | grep '^(EE)'`
+W=`echo "$X" | grep -E '^(WW)|^\[[[:blank:][:digit:][:punct:]]+\]*(WW)'`
+E=`echo "$X" | grep -E '^(EE)|^\[[[:blank:][:digit:][:punct:]]+\]*(EE)'`
 L=`echo "$X" |wc -l`
 C=`cat /etc/X11/xorg.conf`
 
@@ -1584,10 +1613,10 @@ Press \Z4FINISHED\Z0 if test was \Z4okay\Z0, or to fall back to \Z1Xvesa Xserver
                   Xorg video driver    '${CARD0DRIVER}'
 
 \Z4If you are reporting success, \Z5great\Z4, but if the display was not quite
-right, say \Z3dis\Z0\Zbplaced\ZB or \Z3dist\Z0\Zborted\ZB\Z4, you now have the \Z5option\Z4 to tweak
-various parameters in the X configuration file '/etc/X11/xorg.conf' ,
-\Z3OR\Z4 to choose a \Zb\Z3different\Z0\ZB\Z4 driver like the Xorg driver '\Z3vesa\Zn' .
-Ditto if testing X was an \Z1abysmal\Z0 failure.
+right, say either crashed or \Z3dis\Z0\Zbplaced\ZB or \Z3dist\Z0\Zborted\ZB\Z4,
+you now have the \Z5option\Z4 to tweak various parameters in the
+X configuration file '/etc/X11/xorg.conf' , \Z3OR\Z4 to choose a
+\Zb\Z3different\Z0\ZB\Z4 driver like the Xorg driver '\Z3vesa\Zn' .
 ${TWKMSG}
 or 'TAB' key for \Z1C\Z0\ZbHANGES\ZB
 to alter xorg.conf or to choose driver & retest X\Zn" 0 0
@@ -1622,7 +1651,8 @@ Again, the PPM may offer extra packages to add these capabilities.
 
 For now, keep going with using the Generic driver
 (for general PC use, this is proably all that you need anyway)..." 0 0
-   RV5="$?";[ "$RV5" = '-1' -o "$RV5" = '255' ] && break
+   RV5="$?";
+   [ "$RV5" = '-1' -o "$RV5" = '255' ] && break
   fi
 
  ##### INTEL OR NV #####
@@ -1785,7 +1815,7 @@ generic driver, otherwise press ahead and try tweaking...${ALTERNATIVE_DRV_MSG}\
    aPATTERN="s/.*#card0driver/\tDriver\t\"${CARD0DRIVER}\" #card0driver/g"
    sed -e "$aPATTERN" /etc/X11/xorg.conf > "$tmpDir"/xorg.conf.tmp2
    _sync
-   echo "Copying $tmpDir/xorg.conf.tmp2 /etc/X11/xorg.conf 13" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+   echo "Copying $tmpDir/xorg.conf.tmp2 /etc/X11/xorg.conf :Step 13" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
     if [ "$TRYDRV" ];then
     if [ "INTEL_CARD" ];then
      rm $VERB "$XORG_DRIVER_DIR"/i810_drv.so
@@ -1809,7 +1839,8 @@ to open xorg.conf in a text editor and change whatever you wish.
 
 Press \Z0ENTER\Z4 key for the easy option to tweak refresh frequency...
 Press TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to open xorg.conf in a text editor...\Zn" 0 0
- RV7="$?"; [ "$RV7" != '0' -a "$RV7" != '1' ] && break
+ RV7="$?";
+ [ "$RV7" = '0' -o "$RV7" = '1' ] || break
  if [ "$RV7" -eq 0 ]; then
   if [ "$MONCHOICES" = "" ]; then
    #not plug-n-play.
@@ -1844,7 +1875,8 @@ $MSGPNP" 0 0 0 \
  "$VERT4" "$MSGV4" \
  "$VERT5" "$MSGV5" \
  2>"$tmpDir"/tagvert.txt
- RV8="$?"; [ "$RV8" = '-1' -o "$RV8" = '255' ] && break
+ RV8="$?";
+ [ "$RV8" = '-1' -o "$RV8" = '255' ] && break
   #FUTURE: use xrandr above, to determine alternative lower frequencies.
 
   CHOSENVERT=`cat "$tmpDir"/tagvert.txt 2>>$ERR | tail -n1`
@@ -1860,7 +1892,7 @@ $MSGPNP" 0 0 0 \
   sed -e "$aPATTERN" "$tmpDir"/xorg.conf.tmp > "$tmpDir"/xorg.conf.tmp2
   BPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
   _sync
-  echo "sed $BPATTERN $tmpDir/xorg.conf.tmp2 to /etc/X11/xorg.conf 14" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+  echo "sed $BPATTERN $tmpDir/xorg.conf.tmp2 to /etc/X11/xorg.conf : Step 14" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
   sed -e "$BPATTERN" "$tmpDir"/xorg.conf.tmp2 > /etc/X11/xorg.conf
   _sync
   rm $VERB -f "$tmpDir"/xorg.conf.tmp2
@@ -1894,7 +1926,8 @@ If you cannot get Xorg to work, press TAB then ENTER to choose
 the \"\Z1X\Z0\Zbvesa\ZB\Z4\" button.
 This will start Puppy with the simple driverless \Z1Xvesa graphics server\Z4
 that runs on most (old) video hardware.\Zn" 0 0
- RV9="$?"; [ "$RV9" != '0' -a "$RV9" != '1' ] && exit
+ RV9="$?";
+ [ "$RV9" = '0' -o "$RV9" = '1' ] || exit $RV9
   if [ ! "$RV9" -eq 0 ];then
   echo "Linked 'Xvesa' towards '/usr/bin/X'"
    ln $VERB -sf Xvesa /usr/bin/X
@@ -1915,11 +1948,15 @@ cp $VERB -a $HOME/xorg.conf.new "$tmpDir"/xorg.conf.new
 if [ $XAUTO -ne 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
  #create a copy of xorg.conf with the profile in the filename...
- echo "Copyied /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR} 15" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+ echo "Copyied /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR} :Step 15" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
  cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}
  cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
  ##clear
- echo "Xorg Video Wizard completed. Type 'xwin' to start X..."
+ if test -s /etc/X11/xorg.conf; then
+ echo -e $Gre1"Xorg Video Wizard completed. Type 'xwin' +Enter to start X..."$Res
+ else
+ echo -e $Red1"Xorg Video Wizard completed. You may need to try again."$Res
+ fi
 else
  ##clear
  #user chose the <OK> button, so going directly into X without testing.
@@ -1938,5 +1975,5 @@ fi
 #[ -f "$tmpDir"/ddcprobeoem.txt ] && rm $VERB "$tmpDir"/ddcprobeoem.txt && exec xwin
 #3.99 end
 [ -f "$tmpDir"/ddcprobeoem.txt ] && rm $VERB "$tmpDir"/ddcprobeoem.txt #w478
-echo 'ICONWIPE' > /tmp/pup_event_change_icons.flg  ##+++2011_10_30
+echo 'ICONWIPE' > /tmp/pup_event_change_icons.flg  ##+++2011-10-30
 ###END###
