@@ -40,8 +40,10 @@ LC_NUMERIC=C
 LC_ALL=C
 set -- `xvidtune -show`
 
-echo >>/tmp/xorgwizard/xinitrc.log
-echo "$*" >>/tmp/xorgwizard/xinitrc.log
+(
+echo
+echo "$0:$*"
+) >>/tmp/xorgwizard/xinitrc.log
 
 CLOCKHZ=`dc $2 1000000 \* p`
 if [ "$CLOCKHZ" != "0" ];then
@@ -50,21 +52,23 @@ if [ "$CLOCKHZ" != "0" ];then
  VRTEST=`dc $CLOCKHZ $6 \/ ${10} \/ p`
  HSTEST=`dc $CLOCKHZ $6 \/ 1000 \/ p`
 
-echo "VRTEST='$VRTEST'" >>/tmp/xorgwizard/xinitrc.log
-echo "HSTEST='$HSTEST'" >>/tmp/xorgwizard/xinitrc.log
+(
+ echo "VRTEST='$VRTEST'"
+ echo "HSTEST='$HSTEST'"
+) >>/tmp/xorgwizard/xinitrc.log
 
 else
 
  #some video chips do not work with xvidtune.
  XRANDRINFO=`xrandr -q | grep '\*' | tr -s ' ' | grep '^ [0-9]' | head -n 1`
  echo "XRANDRINFO='$XRANDRINFO'" >>/tmp/xorgwizard/xinitrc.log
- XTEST=`echo -n "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
- YTEST=`echo -n "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
+  XTEST=`echo -n "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
+  YTEST=`echo -n "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
  VRTEST=`echo -n "$XRANDRINFO" | cut -f 3 -d ' ' | cut -f 1 -d '*'`
 
  #xrandr does not always return the vertical frequency...
  if [ ! "$VRTEST" ];then
-  if [ "$MONCHOICES" = "" ];then
+  if [ ! "$MONCHOICES" ];then
    VRTEST=60 #last resort, but not correct.
   else
    VRTEST=`echo "$MONCHOICES" | grep -m1 "${XTEST}x${YTEST}" | cut -f 2 -d '@'`
@@ -75,8 +79,10 @@ else
  # so we calc horiz freq theoretically...
  HSTEST=`gtf $XTEST $YTEST $VRTEST | head -n 2 | tail -n 1 | cut -f 1 -d ';' | cut -f 2 -d ':' | cut -f 2 -d ' '`
 
- echo "VRTEST='$VRTEST'" >>/tmp/xorgwizard/xinitrc.log
- echo "HSTEST='$HSTEST'" >>/tmp/xorgwizard/xinitrc.log
+(
+ echo "VRTEST='$VRTEST'"
+ echo "HSTEST='$HSTEST'"
+) >>/tmp/xorgwizard/xinitrc.log
 
 fi
 
@@ -85,15 +91,20 @@ fi
 HSTEST=`printf "%.2f" $HSTEST`
 VRTEST=`printf "%.2f" $VRTEST`
 
-echo "VRTEST='$VRTEST'" >>/tmp/xorgwizard/xinitrc.log
-echo "HSTEST='$HSTEST'" >>/tmp/xorgwizard/xinitrc.log
+(
+ echo "VRTEST='$VRTEST'"
+ echo "HSTEST='$HSTEST'"
+) >>/tmp/xorgwizard/xinitrc.log
 
+rm $VERB -f /tmp/xorgwizard/xorgwizard_initrc_test_results
 echo "XTEST=$XTEST
 YTEST=$YTEST
 VRTEST=$VRTEST
 HSTEST=$HSTEST" > /tmp/xorgwizard/xorgwizard_initrc_test_results #read by xorgwizard.
 
-
+_make_background_picture(){
+test -f /usr/share/doc/puppylogo96.png || return 1
+(
 #gpicview /usr/share/doc/puppylogo96.png &
 #viewnior /usr/share/doc/puppylogo96.png &
 #pngtopnm /usr/share/doc/puppylogo96.png >/usr/share/doc/puppylogo96.pnm #needs >
@@ -113,17 +124,29 @@ ppmquant 14 /tmp/puppylogo96.ppm >/tmp/puppylogo96d14.ppm
 
 #ppmtogif /usr/share/doc/puppylogo96d14.ppm >/usr/share/doc/puppylogo96d14.gif #needs >
 ppmtogif /tmp/puppylogo96d14.ppm >/tmp/puppylogo96d14.gif
+) || return $?
 
-gifsicle --crop 530,717+720x540 /tmp/puppylogo96d14.gif >/tmp/puppylogo640.gif
+gifsicle --crop 530,717+720x540 /tmp/puppylogo96d14.gif >/tmp/puppylogo640.gif || return $?
 
 gifX=640;gifY=480;gifX=$XTEST;gifY=$YTEST
 
-gifsicle --resize ${gifX}x${gifY} /tmp/puppylogo640.gif >/tmp/puppylogo.gif
+gifsicle --resize ${gifX}x${gifY} /tmp/puppylogo640.gif >/tmp/puppylogo.gif    || return $?
+}
 
+_show_background_picture(){
+which gifview >>$OUT || return 1
 gifview /tmp/puppylogo.gif &
+}
+
+_clean_up(){
 sleep 1s
 rm $VERB -f /tmp/puppylogo*
+}
 
+_make_background_picture && _show_background_picture
+
+
+if test "$DISPLAY"; then
 xmessage -font "8x16" -center -timeout 20 -buttons "OK:10" -default OK "
 Puppy Xorg Video Wizard: testing X
 
@@ -139,6 +162,13 @@ just hit the ENTER key, or the combination CTRL-ALT-BACKSPACE.
 
 If you don't do anything, this test will timeout in 20 seconds."
 
-#rm $VERB -f /tmp/puppylogo*
+else
+
+echo "ERROR in setting DISPLAY variable."
+sleep 5
+fi
+
+exit 0 #force exitcode though in case of crash may not be helpful,
+       #but want to focus on Xorg return value.
 #when xmessage terminates, xinit should kill Xorg.
 ###END###
