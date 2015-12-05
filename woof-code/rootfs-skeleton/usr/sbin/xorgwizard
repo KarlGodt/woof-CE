@@ -103,38 +103,7 @@ MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
-Version='2.0.0-KRG Puppy-linux-4.3.1'
-
-usage (){
-MSG="
-$0
-
-While X is running presents a GUI to
-
-    1)choose Xserver
-    2)Kills X and moves /etc/X11/xorg.conf to xorg.conf.prev
-      to force xorgwizard cli to run
-    3)edit xorg.conf in a text editor
-    4)start xvidtune
-    5)launch input-wizard
-    6)launch tkgamma
-    7)xrandrshell
-    -------------
-
-${0##*/} called from cmdline starts the Xorg -configure
-process to create an useable xorg.conf .
-
-BUGS: Likely .
-"
-echo -e "$MSG"
-[ "$DISPLAY" ] && xmessage "$MSG" &
-
-
-exit $1
-}
-
-if [ "`echo "$@" | grep -wEi '\-h|help'`" ];then usage 0;fi
-if [ "`echo "$@" | grep -wEi '\-V|version'`" ];then echo -e "\n$0: Version '$Version'\n";exit 0;fi
+Version='2.0.1-KRG Puppy-linux-4.3.1'
 
 ##+++2012-01-30, 2015-12-04
 if [ "`whoami`" = 'root' ]; then
@@ -149,14 +118,49 @@ mkdir $VERB -p "$tmpDIR"
 
 XORG_DRIVER_DIR=/usr/X11/lib/xorg/modules/drivers
 XORG_DRIVER_DIR=`realpath "$XORG_DRIVER_DIR"`
-_debug $XORG_DRIVER_DIR && sleep 5
+_debug "XORG_DRIVER_DIR='$XORG_DRIVER_DIR'" && sleep 5
+test -d "$XORG_DRIVER_DIR" || _warn "Could not set XORG_DRIVER_DIR to an existing directory"
 
+usage (){
+MSG="
+$0
+
+While X is running presents a GUI to
+
+    1)choose Xserver
+    2)Kills X and moves $XORGCONFFILE to xorg.conf.prev
+      to force xorgwizard cli to run
+    3)edit xorg.conf in a text editor
+    4)start xvidtune
+    5)launch input-wizard
+    6)launch tkgamma
+    7)xrandrshell
+    -------------
+
+${0##*/} called from cmdline starts the Xorg -configure
+process to try to create an usable $XORGCONFFILE
+configuration file, that is needed for older Xorg.
+
+BUGS: More than likely .
+"
+echo -e "$MSG"
+[ "$DISPLAY" ] && xmessage "$MSG" &
+
+
+exit $1
+}
+
+if [ "`echo "$@" | grep -wEi '\-h|help'`" ];then usage 0;fi
+if [ "`echo "$@" | grep -wEi '\-V|version'`" ];then echo -e "\n$0: Version '$Version'\n";exit 0;fi
+
+__old_parameters__(){
 OUT=/dev/null;ERR=/dev/null
 for p in $@;do
 case $p in
 debug) DEBUG=1;set -x;;
 verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;;
 esac;done
+}
 
 if [ -f /var/log/Xorg.0.log ];then
 #Xorg.0.log:using VT number 7
@@ -177,13 +181,13 @@ fi;fi
 [ "$DISPLAY" ] || exec 2>$tmpDIR/xorgwizard-errors.log
 LANG=C
 
-PSFND=`ps`
+
 CURRENTX=`readlink /usr/bin/X`
 if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
- ln $VERB -snf /usr/bin/Xorg /usr/bin/X
+ ln $VERB -sf /usr/bin/Xorg /usr/bin/X
  CURRENTX='Xorg'
 fi
-echo 'CURRENTX='"$CURRENTX"'_EOS'
+echo "CURRENTX='$CURRENTX'"
 
 _do_xvidtune(){
 
@@ -233,13 +237,13 @@ Note, you will have to restart X for it to take effect. If it messes
 up X, edit from commandline 'mp /etc/X11/xorg.conf' and comment-out
 the 'UseModes' line (do not delete it) in the Monitor section.
 
-To insert this into /etc/X11/xorg.conf, click 'Write' button...
+To insert this into $XORGCONFFILE, click 'Write' button...
 To exit without changing xorg.conf, click 'Quit' button..."
     if [ $? -eq 10 ];then
      aPATTERN="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
-     cat /etc/X11/xorg.conf | sed -e "$aPATTERN" > $tmpDIR/xorg.conf.new
+     cat "$XORGCONFFILE" | sed -e "$aPATTERN" > $tmpDIR/xorg.conf.new
      _sync
-     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > /etc/X11/xorg.conf
+     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > "$XORGCONFFILE"
      _sync
     fi
    fi
@@ -289,17 +293,21 @@ case $CONSKEYMAP in
   ;;
 esac
 
-if [ "`echo -n "$PSFND" | grep '\.xinitrc'`" != "" ];then
+PSFND=`ps`
+if [ "`echo -n "$PSFND" | grep '\.xinitrc'`" ];then
 
-KNOWNXservers="Xati Xchips Xephyr Xepson Xfake Xfbdev Xi810 Xmach64 Xmga Xneomagic Xnest Xnvidia Xorg Xpm2 Xr128 Xsdl Xsmi Xvesa Xvfb Xvia"
 #KNOWNXservers="Xchips Xfake Xephyr Xfbdev Xnest Xorg Xvesa Xvfb"
+KNOWNXservers="Xati Xchips Xephyr Xepson Xfake Xfbdev Xi810 Xmach64 Xmga Xneomagic Xnest Xnvidia Xorg Xpm2 Xr128 Xsdl Xsmi Xvesa Xvfb Xvia"
+_info "Checking for known Xservers '$KNOWNXservers' .."
+
 for content in $KNOWNXservers ; do
-INSTALLED=$(basename `find /usr/bin -name "$content" | tail -n1` 2>>$tmpDIR/xorgwizard-errors.log)
+INSTALLED=$(basename `find /usr/bin -type f -name "$content" | tail -n1` 2>>$tmpDIR/xorgwizard-errors.log)
 [ -n "$INSTALLED" ] && INSTALLEDXservers="$INSTALLEDXservers $INSTALLED"
 done
 INSTALLEDXservers=`echo "$INSTALLEDXservers" | sed '/^$/d'`
-
 echo "$INSTALLEDXservers" | tr ' ' '\n' >$tmpDIR/availableXservers
+_info "These are found installed Xservers : $INSTALLEDXservers"
+
 for content in $INSTALLEDXservers ; do
 #ITEMLIST=`echo -e "$ITEMLIST\n"`"<item>$content</item>"
 ITEMLIST="$ITEMLIST
@@ -307,12 +315,12 @@ ITEMLIST="$ITEMLIST
 done
 ITEMLIST=`echo "$ITEMLIST" | sed '/^$/d'`
 
-echo "$ITEMLIST" |tr '\n' ' '
+_debug $ITEMLIST
 
-only1xserver=''
+only1Xserver=''
 if [ "`echo "$ITEMLIST" | wc -l`" -lt 2 ] ; then
-only1xserver=`echo "$ITEMLIST" | sed 's/.*\>\(.*\)\<.*/\1/'`
-echo 'only1xserver='"$only1Xserver"'_EOS'
+only1Xserver=`echo "$ITEMLIST" | sed 's/.*\>\(.*\)\<.*/\1/'`
+echo 'only1Xserver='"$only1Xserver"
 fi
 
 XserverSwitch="
@@ -332,7 +340,7 @@ XserverSwitch="
 </frame>
 "
 
-[ "$only1xserver" ] && XserverSwitch=""
+[ "$only1Xserver" ] && XserverSwitch=""
 
 echo Step 2 >&2
 export MAIN_DIALOG="
@@ -343,16 +351,16 @@ export MAIN_DIALOG="
 Xorg Graphics Wizard!\"</label></text>
   <text><label>\"The behaviour of Xorg is controlled
 by a configuration file
-'/etc/X11/xorg.conf' .
+'$XORGCONFFILE' .
 You have a choice here,
 either to completely reconstruct
-the /etc/X11/xorg.conf file,
+the $XORGCONFFILE file,
 or to modify the existing file.\"</label></text>
  </vbox>
  <vbox>
   <frame XorgWizard>
   <hbox>
-   <text><label>\"XorgWizard completely reconstructs the /etc/X11/xorg.conf file,
+   <text><label>\"XorgWizard completely reconstructs the $XORGCONFFILE file,
 and X must not be running to do this.
 An exit to the promt is required,
 and the Wizard will run in text mode, before X is launched.
@@ -372,11 +380,11 @@ and the Wizard will run in text mode, before X is launched.
 
   <frame Edit xorg.conf>
    <hbox>
-    <text><label>You can manually edit /etc/X11/xorg.conf, but note that you will need to exit from X afterward then restart X (see Shutdown menu). Click button to edit:</label></text>
+    <text><label>You can manually edit $XORGCONFFILE, but note that you will need to exit from X afterward then restart X (see Shutdown menu). Click button to edit:</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/mini-x.xpm</input>
-      <action>defaulttexteditor /etc/X11/xorg.conf &</action>
+      <action>defaulttexteditor $XORGCONFFILE &</action>
      </button>
     </vbox>
    </hbox>
@@ -396,7 +404,7 @@ and the Wizard will run in text mode, before X is launched.
 
   <frame Mouse/keyboard Wizard>
    <hbox>
-    <text><label>/etc/X11/xorg.conf has generic settings for mouse and keyboard and in most cases it is recommended to leave it as-is. Instead, use the MouseKeyboardWizard:</label></text>
+    <text><label>$XORGCONFFILE has generic settings for mouse and keyboard and in most cases it is recommended to leave it as-is. Instead, use the MouseKeyboardWizard:</label></text>
     <vbox>
      <button>
       <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
@@ -441,21 +449,19 @@ echo Step 3 >&2
 #if [ "`echo -n "$PSFND" | grep '\.xinitrc'`" != "" ];then
 echo Step 4 >&2
  RETSTR=`echo "$MAIN_DIALOG" | gtkdialog2 --stdin`  ##-p "$MAIN_DIALOG"`"  ## | gtkdialog2`"  ## --stdin`
+_debug "RETSTR='$RETSTR'"
  ##gtkdialog2 --program=MAIN_DIALOG
  #gtkdialog3 --print-ir -p MAIN_DIALOG
  RETVAL=`echo "$RETSTR" | grep -o -e 'EXIT:.*' | cut -f 2 -d ':'`
 echo Step 5 >&2
-echo 'RETVAL='"$RETVAL"'_EORETVAL'
+echo 'RETVAL='"$RETVAL"
  case $RETVAL in
 
   10) #Xvesa , Xorg switch
 
-echo 'RETSTR='"$RETSTR"'_EOS'
-echo 'RETSTR='$RETSTR'_EOS'
-
 choosenSERVER=`echo $RETSTR | cut -f 1 -d ' ' | cut -f 2 -d '=' | tr -d '"'`
 
-echo 'choosenSERVER='"$choosenSERVER"'_EOS'
+_debug "choosenSERVER='$choosenSERVER'"
 
 if [ -z "$choosenSERVER" ] ; then
 xmessage -bg red "No Server selected, start new .." &
@@ -486,7 +492,7 @@ _sync
   ;;
   11) #XorgWizard.
    #rm /etc/mousedevice # Dougal: any reason for this?
-   mv $VERB -f /etc/X11/xorg.conf /etc/X11/xorg.conf.prev 2>>$ERR
+   mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE".prev
    [ -e "`which Xvesa`" ] && ln $VERB -sf `which Xvesa` /usr/bin/X
    read NEXTWM </etc/windowmanager
    echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
@@ -499,7 +505,7 @@ _sync
    ;;
   12) #xorgconfig
    xorgcfg
-   xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to /etc/X11/xorg.conf will only take effect after X is restarted.
+   xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to $XORGCONFFILE will only take effect after X is restarted.
 
 Click OK button to restart X..."
    exec restartwm
@@ -522,23 +528,23 @@ that changing the settings will cause no change on the screen." &
 $MODELINE0
 
 Note, you will have to restart X for it to take effect. If it messes
-up X, edit from commandline 'mp /etc/X11/xorg.conf' and comment-out
+up X, edit from commandline 'mp $XORGCONFFILE' and comment-out
 the 'UseModes' line (do not delete it) in the Monitor section.
 
-To insert this into /etc/X11/xorg.conf, click 'Write' button...
+To insert this into $XORGCONFFILE, click 'Write' button...
 To exit without changing xorg.conf, click 'Quit' button..."
     if [ $? -eq 10 ];then
      PATTERNa="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
-     cat /etc/X11/xorg.conf | sed -e "$PATTERNa" > $tmpDIR/xorg.conf.new
+     cat "$XORGCONFFILE" | sed -e "$PATTERNa" > $tmpDIR/xorg.conf.new
      _sync
-     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > /etc/X11/xorg.conf
+     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > "$XORGCONFFILE"
      _sync
     fi
    fi
    exit 0
    ;;
   15) #edit xorg.conf
-   exec defaulttexteditor /etc/X11/xorg.conf
+   exec defaulttexteditor "$XORGCONFFILE"
    ;;
   16) #mouse/keyboard wizard
    exec input-wizard
@@ -561,12 +567,12 @@ fi
 #comes here first time boot puppy, or whenever bootup
 #and xorg.conf has been removed.
 #come here when X is not running, completely rebuild xorg.conf...
-if [ -f /etc/X11/xorg.conf ];then
-  /bin/mv $VERB -f --backup=numbered /etc/X11/xorg.conf /etc/X11/xorg.conf.bak
+if [ -f "$XORGCONFFILE" ];then
+  /bin/mv $VERB -f --backup=numbered "$XORGCONFFILE" "$XORGCONFFILE".bak
 fi
 
 #need to create xorg.conf so that at subsequent boots, xwin will not run xorgwizard...
-[ -f /etc/X11/xorg.conf0 ] && cp $VERB /etc/X11/xorg.conf0 /etc/X11/xorg.conf
+[ -f /etc/X11/xorg.conf0 ] && cp $VERB /etc/X11/xorg.conf0 "$XORGCONFFILE"
 
 #v3.99 begin
 #If video adapter would hang Xvesa, tell user and allow only Xorg.
@@ -609,23 +615,23 @@ Press TAB (or right-arrow) key then ENTER key for Xvesa...\Zn" 0 0
  STATUS=$?  #v3.99
  [ "$STATUS" = "" -o "$STATUS" = '-1' -o "$STATUS" = 255 ] && exit 250  #v3.99 ESC to exit, same as above dialogs
  if [ $STATUS -eq 1 ];then   #v3.99 Xvesa selected
-  ln $VERB -sf /usr/bin/Xvesa /usr/bin/X #Xvesa is now the default X server.
   #when start xorgwizard from commandline, it messes up xorg.conf...
-  if [ -f /etc/X11/xorg.conf ];then
-   if [ -f /etc/X11/xorg.conf.bak ];then
+  if [ -f "$XORGCONFFILE" ];then
+   if [ -f "$XORGCONFFILE".bak ];then
     #basic test to see that file has right stuff in it...
-    if ! grep $Q -F 'VertRefresh' /etc/X11/xorg.conf ;then
+    if ! grep $Q -F 'VertRefresh' "$XORGCONFFILE" ;then
      echo "Xvesa selected,
      testing VertRefresh in xorg.conf failed,
      copying xorg.conf.bak -> xorg.conf ...
      Why ? Dont know ..."
-     cp $VERB -f /etc/X11/xorg.conf.bak /etc/X11/xorg.conf
+     cp $VERB -f "$XORGCONFFILE".bak "$XORGCONFFILE"
     fi
    fi
   fi
   #exec xwin
   #....Xvesa Wizard will run automatically if no /etc/videomode.
-  echo "linked X to Xvesa , type xwin"
+  ln $VERB -sf /usr/bin/Xvesa /usr/bin/X #Xvesa is now the default X server.
+  echo "linked X to Xvesa , type xwin to start graphics mode."
   exit 250 #w478
  fi
 fi   #v3.99
@@ -645,7 +651,7 @@ echo -e "\\033[0;39m"
 echo "Running 'Xorg -configure > "$tmpDIR"/xorgprobe.txt 2>&1' ..."
 echo "Press any Key to go "
 read -t20 -n1 Xorg_configure_KEY
-Xorg -configure -logfile /var/log/Xorg_configure.log > "$tmpDIR"/xorgprobe.txt 2>&1
+Xorg -configure -logfile "$tmpDIR"/Xorg_configure.log > "$tmpDIR"/xorgprobe.txt 2>&1
 #... config in /root/xorg.conf.new
 
 
@@ -671,7 +677,7 @@ do
  # this (outer) loop recieves a line containing **an entire section**
  # filter out entire sections we don't want
  case $aSECTION in
-  *Section?\"Screen\"*)
+  *Section?\"Screen\"*0*)
    break #Screen section is created further down.
   ;;
   #*Section?\"Files\"*|*Section?\"Module\"*|*Section?\"ServerFlags\"*)
@@ -719,6 +725,21 @@ EndSection
     TEMPSECTION="$aLINE"
     continue # just added line -- no need to get to bottom
     ;;
+
+    *Screen*)
+    case $aSECTION in
+    Section*ServerLayout*)
+     case $aLINE in
+     Screen*0*Screen0*) :;;
+     Screen*[1-9]*Screen[1-9]*) aLINE="#$aLINE";;
+     *) :;;
+     esac
+     ;;
+    *) :
+    ;;
+    esac
+    ;;
+
    *Identifier*) IDENTIFIER=${aLINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
     ;;
    *\"ZAxisMapping\"*) continue
@@ -760,22 +781,60 @@ EndSection
     ;;
   esac
 
-  if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
+ #if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
+  if [ "$XSECTION" = "Device" ]; then
+  case $IDENTIFIER in
+    # REM: Only figure out Card0 ...
+  Card0)
    FBODY=${aLINE%\"*} ; FBODY=${FBODY##*\"}
    case "$aLINE" in
-    *Driver*) CARD0DRIVER="$FBODY" ; aLINE="$aLINE #card0driver" ;;
-    *VendorName*) CARD0VENDOR="$FBODY" ;;
-    *BoardName*)   CARD0BOARD="$FBODY" ;;
-    *Screen1*Right?Of*Screen0*) aLINE="#$aLINE" ;;
+    *Driver*)     CARD0DRIVER="$FBODY" ; aLINE="$aLINE #card0driver" ;;
+    *VendorName*) CARD0VENDOR="$FBODY"
+      case "$CARD0VENDOR" in 'Unknown Vendor'|'')
+          CARD0VENDOR="lscpi: `lspci | grep 'Display controller' |rev|cut -f1 -d: |rev`"
+          ;; esac
+     ;;
+    *BoardName*)   CARD0BOARD="$FBODY"
+      case "$CARD0BOARD" in 'Unknown Board'|'')
+         CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
+         ;; esac
+     ;;
+    *Screen[0-9]*Top?Of*Screen0*) aLINE="#$aLINE" ;;
+    *Screen[0-9]*Left?Of*Screen0*) aLINE="#$aLINE" ;;
+    *Screen[0-9]*Right?Of*Screen0*) aLINE="#$aLINE" ;;
+    *Screen[0-9]*Bottom?Of*Screen0*) aLINE="#$aLINE" ;;
    esac
+   ;;
+  # REM: Disable all other cards for now...
+  Card[1-9]*)
+   ADD_TAB=NO
+   #DBGecho -e "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 1;#DBG
+   #TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^[#]*\(.*\)!#\1!;s!^#*$! !;s!^#    \(#.*\)!\1!'`
+    TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^#*\(.*\)!#\1! ; s!^#*$!!'`
+   NR=`echo $IDENTIFIER | tr -d '[[:alpha:][:punct:]]'`
+   test "$NR" || NR=W
+   #FBODY=${aLINE%\"*} ; FBODY=${FBODY##*\"}
+    case "$aLINE" in
+     *Driver*)     aLINE="#\t$aLINE #card${NR}driver" ;;
+     *VendorName*) aLINE="#\t$aLINE" ;;
+     *BoardName*)  aLINE="#\t$aLINE" ;;
+     # '#'*)         aLINE="$aLINE"    ;;
+     *)            aLINE="#\t$aLINE" ;;
+    esac
+    ;;
+  # REM: ??
+  *) :;;
+  esac
   fi
+
+
   # add line to section (if we've come this far...)
   TEMPSECTION="$TEMPSECTION\n\t$aLINE"
  done <<_END2
 $(echo "$aSECTION" | busybox sed 's%_XORGWIZARD_%\n%g')
 _END2
-#echo -e "$TEMPSECTION" | sed '/^$/d' >> /etc/X11/xorg.conf
- echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
+#echo -e "$TEMPSECTION" | sed '/^$/d' >> "$XORGCONFFILE"
+ echo -e "$TEMPSECTION" >> "$XORGCONFFILE"
 _sync
 done <<_END1
 $(cat /root/xorg.conf.new | busybox sed 's%$%_XORGWIZARD_%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
@@ -784,8 +843,8 @@ _END1
 echo "DONE /root/xorg.conf.new"
 #v2.21 quick hack...
 echo "Fixing mouse in xorg.conf .. (1) "
-sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >"$tmpDIR"/xorgconfmousefix
-mv $VERB -f "$tmpDIR"/xorgconfmousefix /etc/X11/xorg.conf
+sed -e 's%/dev/input/mice%/dev/mouse%'  "$XORGCONFFILE" >"$tmpDIR"/xorgconfmousefix
+mv $VERB -f "$tmpDIR"/xorgconfmousefix "$XORGCONFFILE"
 
 echo "Probing the video card and monitor..."
 #code below is not distinguishing multiple cards/monitors...
@@ -1238,23 +1297,23 @@ Section \"Screen\"
     EndSubsection
 EndSection
 "
-echo "$SCRNSECTION" >> /etc/X11/xorg.conf
+echo "$SCRNSECTION" >> "$XORGCONFFILE"
 
 PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
 #horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
-cp $VERB -f /etc/X11/xorg.conf "$tmpDIR"/xorg.conf.tmp
+cp $VERB -f "$XORGCONFFILE" "$tmpDIR"/xorg.conf.tmp
 #APATTERN="s/HORIZSYNC0/$HORIZSYNC/g"
-sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$tmpDIR"/xorg.conf.tmp >/etc/X11/xorg.conf   #v3.98 rerwin - added update of preferredmode.
+sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$tmpDIR"/xorg.conf.tmp >"$XORGCONFFILE"   #v3.98 rerwin - added update of preferredmode.
 #BPATTERN="s/VERTREFRESH0/$VERTREFRESH/g"
 _sync
-#cat $tmpDIR/xorg.conf.tmp2 | sed -e "$BPATTERN" > /etc/X11/xorg.conf
+#cat $tmpDIR/xorg.conf.tmp2 | sed -e "$BPATTERN" > "$XORGCONFFILE"
 #sync
 #rm $VERB -f $tmpDIR/xorg.conf.tmp2
 
 ## Dougal (v2.16??):
 ## Kirk's code for adding synaptics touchpads (or my version of it...)
 if grep $Q -F 'Alps' /proc/bus/input/devices ; then
- cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
+ cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
  modprobe $Q $VERB evdev
  if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
   echo "modprobe evdev" >> /etc/rc.d/rc.local
@@ -1299,11 +1358,11 @@ EndSection\
 Section "Monitor"'
 
  # now replace:
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
 fi
 
 if grep $Q -F 'Synaptics' /proc/bus/input/devices ; then
- cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
+ cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
  modprobe $Q $VERB evdev
  echo "modprobe evdev" >> /etc/rc.d/rc.local
  # Where we want to insert new lines...
@@ -1342,7 +1401,7 @@ EndSection\
 Section "Monitor"'
 
  # now replace:
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
 fi
 ## end Kirk's code
 
@@ -1359,11 +1418,11 @@ PROFILEMONITOR=`grep '^monitorid: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' $tmpDIR/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 
 Xorg_version=`Xorg -version 2>&1 |sed 's|^|#|'`
-echo "$Xorg_version" >> /etc/X11/xorg.conf
-echo "#Kernel:`uname -r`" >> /etc/X11/xorg.conf
-echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> /etc/X11/xorg.conf
+echo "$Xorg_version" >> "$XORGCONFFILE"
+echo "#Kernel:`uname -r`" >> "$XORGCONFFILE"
+echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$XORGCONFFILE"
 #create a copy of xorg.conf with the profile in the filename...
-cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}
+cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
 #also write profile to the backup (used for tweaking vertrefresh)...
 echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$tmpDIR"/xorg.conf.tmp
 
@@ -1610,7 +1669,7 @@ c=$((c+1))
 test -s "$XORGCONFFILE".d/Card$c.conf || rm $VERB -f "$XORGCONFFILE".d/Card$c.conf
 test -s "$tmpDIR"/Card.$c.conf        || rm $VERB -f "$tmpDIR".d/Card$c.conf
 done
-ls -ls "$XORGCONFFILE".d/ 
+ls -ls "$XORGCONFFILE".d/
 test -f "$XORGCONFFILE".d/Card0.conf
 }
 
@@ -1849,7 +1908,7 @@ RV=$?
 echo "_split_sections returned $RV"
 test $RV = 0 || return 3
 
-_split_device_section 
+_split_device_section
 RV=$?
 echo "_split_device_section returned $RV"
 test $RV = 0 || return 4
@@ -1938,21 +1997,25 @@ TAB then ENTER to change the mouse (afterward will return here)..." 0 0
   #change the mouse... (then go back up to above dialog)
   choosemousefunc
   #w480 bugfix, latter used if choose tweak refresh...
-  cp $VERB -f /etc/X11/xorg.conf "$tmpDIR"/xorg.conf.tmp
+  cp $VERB -f "$XORGCONFFILE" "$tmpDIR"/xorg.conf.tmp
   continue
  fi
 
  #w460 test Xorg...
- /usr/bin/Xorg -ignoreABI -config /etc/X11/xorg.conf -logfile /var/log/Xorg_xinitrc_test.log :0 &
+ /usr/bin/Xorg -ignoreABI -config "$XORGCONFFILE" -logfile "$tmpDIR"/Xorg_xinitrc_test.log :0 &
+ cc=0
  sleep 1
  while :; do
- pidof Xorg || break
- c=$((c+1))
- test $c = 5 &&  break
+ pidof Xorg >>$OUT || break
+ cc=$((cc+1))
+ test $cc = 5 &&  break
+ sleep 1
  done
  #pidof Xorg && { killall Xorg; true; } || { echo Xorg server likely crashed; }
  if pidof Xorg; then
- xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg -ignoreABI -config /etc/X11/xorg.conf -logfile /var/log/Xorg_xinitrc_test.log :0
+ killall -9 Xorg
+ sleep 2
+ xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg -ignoreABI -config "$XORGCONFFILE" -logfile /var/log/Xorg_xinitrc_test.log :0
  #[ $? = 0 ] || exit 1
 
 if [ -f "$tmpDIR"/xorgwizard_initrc_test_results ]; then
@@ -1990,7 +2053,7 @@ Press ENTER if test was okay (or to fall back to Xvesa)... "
                   Driver               $CARD0DRIVER
 If you are reporting success, great, but if the display was not quite
 right, say displaced or distorted, you now have the option to tweak
-various parameters in the X configuration file (/etc/X11/xorg.conf).
+various parameters in the X configuration file ($XORGCONFFILE).
 Ditto if testing X was an abysmal failure.
 
 ${TWKMSG}
@@ -2057,9 +2120,9 @@ ${INTELDRVMSG}" 0 0
   if [ $RET2 -ne 0 ];then
    CARD0DRIVER="$SUBSTDRV"
    aPATTERN="s/.*#card0driver/  Driver      \"${SUBSTDRV}\" #card0driver/g"
-   sed -e "$aPATTERN" /etc/X11/xorg.conf > "$tmpDIR"/xorg.conf.tmp2
+   sed -e "$aPATTERN" "$XORGCONFFILE" > "$tmpDIR"/xorg.conf.tmp2
    _sync
-   cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 /etc/X11/xorg.conf
+   cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 "$XORGCONFFILE"
    CURRDRV=`basename $(realpath "$XORG_DRIVER_DIR"/i810_drv.so)`
    rm $VERB -f /usr/lib/xorg/modules/drivers/i810_drv.so
    if [ "$CURRDRV" = 'i810OLD_drv.so' ];then
@@ -2166,7 +2229,7 @@ $MSGPNP" 0 0 0 \
   sed -e "$aPATTERN" "$tmpDIR"/xorg.conf.tmp > "$tmpDIR"/xorg.conf.tmp2
   bPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
   _sync
-  sed -e "$bPATTERN" "$tmpDIR"/xorg.conf.tmp2 > /etc/X11/xorg.conf
+  sed -e "$bPATTERN" "$tmpDIR"/xorg.conf.tmp2 > "$XORGCONFFILE"
   _sync
   rm $VERB -f "$tmpDIR"/xorg.conf.tmp2
 
@@ -2184,8 +2247,8 @@ but xorg.conf has VertRefresh 50-160. -- maybe narrow that to 50-85.
 Press ENTER key to edit xorg.conf..." 0 0
   DQ8=$?;[ "$DQ8" = 0 ] || exit 250
   #edit xorg.conf...
-  test -f /etc/X11/xorg.conf || _exit 99 "No regular /etc/X11/xorg.conf file"
-  mp /etc/X11/xorg.conf
+  test -f "$XORGCONFFILE" || _exit 99 "No regular $XORGCONFFILE file"
+  mp "$XORGCONFFILE"
  fi
 sleep 1
 
@@ -2223,8 +2286,8 @@ cp $VERB -f /root/xorg.conf.new "$tmpDIR"/xorg.conf.new
 if [ "$XTEST" = 3 ];then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
  #create a copy of xorg.conf with the profile in the filename...
- cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}
- cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
+ cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
+ cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
  #clear
  echo "Xorg Graphics Wizard completed. Type 'xwin' to start X..."
 else
