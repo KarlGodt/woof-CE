@@ -93,7 +93,9 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-tmpDir='/tmp/xorgwizard';mkdir -p "$tmpDir"
+tmpDir='/tmp/xorgwizard'
+rm $VERB -rf "$tmpDir"/*.conf
+mkdir $VERB -p "$tmpDir"
 echo "
 `date`" >>"$tmpDir"/xorgwizard.messages
 
@@ -114,6 +116,10 @@ else
 XORGCONFFILE=xorg.conf
 fi
 ##+++2012-01-30
+for f in "$XORGCONFFILE".d/*.conf 
+do
+rm $VERB -f "$f"
+done
 
 alias modprobe='modprobe -b' #+++2012-02-03
 
@@ -186,7 +192,7 @@ to modify the existing file.\"</label></text>
  <vbox>
   <frame XorgWizard>
   <hbox>
-   <text><label>XorgWizard completely reconstructs the $XORGCONFFILE file, and X must not be running to do this. A reboot is required, and the Wizard will run in text mode, before X is launched.</label></text>
+   <text><label>XorgWizard completely reconstructs the $XORGCONFFILE file, and Xorg must not be running to do this. An exit to prompt is required, and the Wizard should be run in text mode, before X is launched.</label></text>
    <vbox>
     <button>
      <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
@@ -194,7 +200,6 @@ to modify the existing file.\"</label></text>
     </button>
    </vbox>
   </hbox>
-  <text><label>NOTE: You can also run XorgWizard manually, without rebooting, by exiting from X to the commandline (see Shutdown menu) then run xorgwizard.</label></text>
   </frame>
 
   <frame Edit xorg.conf>
@@ -269,9 +274,9 @@ if [ "`echo -n "$PSFND" | grep "\\.xinitrc"`" != "" ]; then
  RETVAL=`echo "$RETSTR" | grep 'EXIT:' | cut -f 2 -d ':'`
 
  case $RETVAL in
-  11) #XorgWizard.
+  11) #xorgwizard.
    #rm /etc/mousedevice # Dougal: any reason for this?
-   mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE".prev 2>>$ERR
+   mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE".prev #this should force xwin to run xorgwizard
    [ -e /usr/bin/Xvesa ] && ln $VERB -sf Xvesa /usr/bin/X
    read NEXTWM </etc/windowmanager
    echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
@@ -282,6 +287,7 @@ if [ "`echo -n "$PSFND" | grep "\\.xinitrc"`" != "" ]; then
    exec killall X
    ;;
   12) #xorgconfig
+   which xorgcfg || exit $((12+128))
    xorgcfg || rxvt -e xorgcfg -textmode
    [ $? = 0 ] && {
     xmessage -bg "#ff8080" -center -title "xorgcfg" "Changes to $XORGCONFFILE will only take effect after X is restarted.
@@ -291,6 +297,7 @@ Click OK button to restart X..."
    }
    ;;
   13) #xvidtune
+   which xvidtune || exit $((13+128))
    xmessage -bg violet -title "Xvidtune IMPORTANT HELP" "If you click the 'Show' button, the adjusted settings will be what
 you want permanently. After hitting the 'Quit' button, you will be
 given one last chance not to make the change permanent.
@@ -325,15 +332,19 @@ To exit without changing xorg.conf, click 'Quit' button..."
    exit
    ;;
   15) #edit xorg.conf
+   which defaulttexteditor || exit $((15+128))
    exec defaulttexteditor "$XORGCONFFILE"
    ;;
   16) #mouse/keyboard wizard
+   which input-wizard || exit $((16+128))
    exec input-wizard
    ;;
   17) #tkgamma
+   which tkgamma || exit $((17+128))
    exec tkgamma
    ;;
   18) #resolution changer
+   which xrandrshell || exit $((18+128))
    exec xrandrshell
    ;;
  esac
@@ -386,7 +397,7 @@ Press TAB (or right-arrow) key then ENTER key for \Z5Xvesa\Zn...
 
 (pressing \Z7ESC\Zn key any dialog exits)" 0 0
  STATUS=$?  #v3.99
- [ $STATUS -eq -1 -o $STATUS -eq 255 ] && exit 1   #v3.99 ESC to exit, same as above dialogs
+ [ "$STATUS" -eq '-1' -o "$STATUS" -eq '255' ] && exit 1   #v3.99 ESC to exit, same as above dialogs
  if [ "$STATUS" -eq 1 ];then   #v3.99 Xvesa selected
   ln $VERB -sf Xvesa /usr/bin/X #Xvesa becomming now the default X server ..
   #when start xorgwizard from commandline, it messes up xorg.conf...
@@ -440,16 +451,41 @@ rm $VERB -f /etc/xrandrindex
 
 ln $VERB -sf Xorg /usr/bin/X
 
+_say_dialog_msgbox_error(){
+test "$*" && MSG_TEXT="$*" || MSG_TEXT='Some Error occurred. Press OK to proceed, ESC to exit.'
+GMSG_TEXT=`gettext "$MSG_TEXT"`
+test "${GMSG_TEXT// /}" && MSG_TEXT="$GMSG_TEXT"
+
+TTEXT='ERROR'
+GTTEXT=`gettext "$TTEXT"`
+test "${GTTEXT// /}" && TTEXT=$GTTEXT
+
+BTTEXT='ERROR'
+GBTTEXT=`gettext "$BTTEXT"`
+test "${GBTTEXT// /}" && BTTEXT=$GBTTEXT
+
+dialog --colors --backtitle "$BTTEXT" --title "$TTEXT" --msgbox '\Z1'"$MSG_TEXT"'\Zn' 0 0
+test $? = 0 || exit 253
+}
+
 # Dougal: moved echo to below xorg probing, since loop isn't slow anymore...
 ##clear
 echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
 echo -n "Probing video hardware 'Xorg -configure' and 'ddcprobe', please wait.."
 echo -e "\\033[0;39m"
 #autoprobe...
-Xorg -configure -logfile $HOME/Xorg_configure.log > "$tmpDir"/xorgprobe.txt 2>&1
-#... config in $HOME/xorg.conf.new
-
-
+Xorg -configure -logfile $HOME/Xorg_configure.log > "$tmpDir"/xorgprobe.txt 2>&1 #... config in $HOME/xorg.conf.new
+XorgConfRV=$?
+case $XorgConfRV in
+0) :;; #OK
+*) ERROR_MSG="Xorg -configure likely crashed!
+Will will go on, but if the $XORGCONFFILE is incomplete,
+the following dialogs may confuse you.
+It is likely a problem with the kernel and the Xorg version.
+We will go on now though"
+_say_dialog_msgbox_error "$ERROR_MSG"
+;;
+esac
 ##### Below commented out by Dougal:
 
 #echo '.' #progress indicator completion.
@@ -461,7 +497,7 @@ Xorg -configure -logfile $HOME/Xorg_configure.log > "$tmpDir"/xorgprobe.txt 2>&1
 ##now have an almost-working xorg.conf, missing Screen section.
 ###############################END BIG ITERATION###########################
 
-
+if test -f $HOME/xorg.conf.new && test -s $HOME/xorg.conf.new; then
 ## My (Dougal) alternate code:
 ######################################################################
 #  Rather than pipe data to "while read", I use "here document" (at bottom),
@@ -685,6 +721,11 @@ done <<_END1
 $(cat $HOME/xorg.conf.new | sed 's!$!__XORGWIZARD__!' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
 ###################################################################
+else
+ echo -e $Red1"Xorg -configure failed to create some usable $$HOME/xorg.conf.new file."$Res
+ echo -e $Red0"Please up- or downgrade the kernel or Xorg."$Res
+ exit 252
+fi
 
 test "$CARD0VENDOR" || CARD0VENDOR="lscpi: `lspci | grep 'Display controller' |rev|cut -f1 -d: |rev`"
 test "$CARD0BOARD"  ||  CARD0BOARD="lscpi: `lspci | grep 'VGA compatible controller' |rev|cut -f1 -d: |rev`"
@@ -1434,7 +1475,7 @@ echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}"
 ) >> "$XORGCONFFILE"
 #create a copy of xorg.conf with the profile in the filename...
 echo "Copyied $XORGCONFFILE $XORGCONFFILE.${PROFILECHIP}-${PROFILEMONITOR} :Step 12" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
-cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
+/bin/cp $VERB -a --remove-destination "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
 card0driver=`grep -m1 '#card0driver' "$XORGCONFFILE" | awk -F '"' '{print $2}'`
 [ "$card0driver" ] || card0driver=NONE
 /bin/cp $VERB -a --remove-destination "$XORGCONFFILE" "$XORGCONFFILE".${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
@@ -1565,12 +1606,18 @@ p2=`echo "$p1" | sed -r 's%(^.*)("[^"]*")(.*$)%\(\1\)\(\2\)\(\3\)%'`
 _debug "'$p2'"
 # TODO: Worked OK until now, but may need similar in Device.conf
 sed -i -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE".d/Card0.conf
+test $? = 0 && CARD0DRIVER1="$*"
+p1=`grep -E 'Driver[[:blank:]]+".*"[[:blank:]]+#card0driver' "$XORGCONFFILE"`
+p2=`echo "$p1" | sed -r 's%(^.*)("[^"]*")(.*$)%\(\1\)\(\2\)\(\3\)%'`
+_debug "'$p2'"
+sed -i -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE"
 test $? = 0 && CARD0DRIVER="$*"
+test "$CARD0DRIVER1" = "$CARD0DRIVER"
 }
 
 _show_all_drivers(){
 
-[ "$DEBUG" ] && ls -1 $XORG_DRIVER_DIR && sleep 1
+[ "$DEBUG" ] && ls -1 "$XORG_DRIVER_DIR" && sleep 1
 ALL_DRIVERS=`ls -1 "$XORG_DRIVER_DIR"/*_drv.so`
 unset ALL_DRIVER_LIST
 while read driver
@@ -1590,7 +1637,7 @@ done <<EoI
 `echo "$ALL_DRIVERS"`
 EoI
 
-[ "$DEBUG" ] && echo "$ALL_DRIVER_LIST" && sleep 1
+_debug "$ALL_DRIVER_LIST" && sleep 1
 
 test "$ALL_DRIVER_LIST" || ALL_DRIVER_LIST='WARNING "No drivers detected in '"$XORG_DRIVER_DIR"'"'
 
@@ -1610,7 +1657,7 @@ detected drivers, press TAB key to mark the <\Z1C\Z0\Zbancel\ZB> button
 and then press Enter.'
 
 #since descr contains space, needs workaround using eval..
-rm -f "$tmpDir"/select_driver
+rm $VERB -f "$tmpDir"/select_driver
 set - $ALL_DRIVER_LIST
 eval "dialog --colors --backtitle '$BTTEXT' --title '$TTEXT' --menu '$MENU_TEXT' 0 0 0 $@ 2>$tmpDir/select_driver"
 case $? in
@@ -1636,6 +1683,9 @@ esac
 
 _split_sections(){
 
+test -f "$XORGCONFFILE" || return 3
+
+rm $VERB -rf "$XORGCONFFILE".d
 mkdir $VERB -p "$XORGCONFFILE".d
 
 for dev in "ServerLayout" "InputDevice" "Monitor" "Modes" "Device" "Screen"
@@ -1647,30 +1697,39 @@ for dev in "ServerLayout" "InputDevice" "Monitor" "Modes" "Device" "Screen"
  sed "/./{H;d};x;/Section \"$dev\".*\".*\".*EndSection/!d" "$XORGCONFFILE" >"$XORGCONFFILE".d/"$dev".conf
  }
 
+test -s "$tmpDir"/"$dev".conf && {
 echo "
-#SEDMARKER" >>"$tmpDir"/"$dev".conf
+#SEDMARKER" >>"$tmpDir"/"$dev".conf; } || {
+    rm $VERB -f "$tmpDir"/"$dev".conf; }
 
 done
+
+test -f "$tmpDir"/Device.conf
 }
 
 _split_device_section(){
 # split the device section
+test -f "$tmpDir"/Device.conf || return 3
 c=-1
 while :
 do
 c=$((c+1))
  grep $Q -E "[[:blank:]]+\"Card$c\"[[:blank:]]+" "$tmpDir"/Device.conf || break
 
+  rm $VERB -f "$tmpDir"/Card$c.conf
  #sed "/./{H;d};x;/^Section \"Device\".*\"Card$c\".*EndSection$/!d" "$tmpDir"/Device.conf >"$tmpDir"/Card$c.conf
  #sed -r "/./{H;d};x;/^Section \"Device\".*\"Card$c\".*EndSection/!d" "$tmpDir"/Device.conf >"$tmpDir"/Card$c.conf
   sed "/./{H;$!d};x;/Section \"Device\".*\"Card$c\".*EndSection$/!d" "$tmpDir"/Device.conf >"$tmpDir"/Card$c.conf
  test $? = 0 && {
+  rm $VERB -f "$XORGCONFFILE".d/Card$c.conf
  #sed "/./{H;d};x;/^Section \"Device\".*\"Card$c\".*EndSection$/!d" "$tmpDir"/Device.conf >"$XORGCONFFILE".d/Card$c.conf
  #sed -r "/./{H;d};x;/^Section \"Device\".*\"Card$c\".*EndSection/!d" "$tmpDir"/Device.conf >"$XORGCONFFILE".d/Card$c.conf
   sed "/./{H;$!d};x;/Section \"Device\".*\"Card$c\".*EndSection$/!d" "$tmpDir"/Device.conf >"$XORGCONFFILE".d/Card$c.conf
  }
-
+test -s "$XORGCONFFILE".d/Card$c.conf || rm $VERB -f "$XORGCONFFILE".d/Card$c.conf
+test -s "$tmpDir"/Card.$c.conf        || rm $VERB -f "$tmpDir".d/Card$c.conf
 done
+test -f "$XORGCONFFILE".d/Card0.conf
 }
 
 _make_driver_list(){
@@ -1679,25 +1738,26 @@ unset DRIVERS DRIVERS_LIST0 DRIVERS_LIST
 for n in `seq 0 1 $((c-1))`
 do
 
-[ "$DEBUG" ] && grep "#card${n}driver" "$tmpDir"/Card$n.conf
+test -f "$tmpDir"/Card$n.conf || continue
+grep $Q "#card${n}driver" "$tmpDir"/Card$n.conf
 DRIVERS="$DRIVERS
 `grep \"#card${n}driver\" $tmpDir/Card$n.conf | cut -f2 -d'\"'`"
 
 done
 
-[ "$DEBUG" ] && echo "DRIVERS:$DRIVERS"
+_debug "DRIVERS:$DRIVERS"
 test "$DRIVERS" || DRIVERS_MSG='Error, no Drivers detected.'
-[ "$DEBUG" ] && echo "DRIVERS:$DRIVERS"
+_debug "DRIVERS:$DRIVERS"
 
 BAD_DRIVERS=`echo "$DRIVERS" | grep -E 'fbdev|modesetting|vesa'`
-[ "$DEBUG" ] && echo "BAD_DRIVERS:$BAD_DRIVERS"
+_debugx "BAD_DRIVERS:$BAD_DRIVERS"
 test "$BAD_DRIVERS" && BAD_DRIVERS_MSG='\Z4'`echo $BAD_DRIVERS`'\Zn' || BAD_DRIVERS_MSG='\Z1No simple video drivers detected.\Zn'
-[ "$DEBUG" ] && echo "BAD_DRIVERS:$BAD_DRIVERS"
+_debug "BAD_DRIVERS:$BAD_DRIVERS"
 
 GOOD_DRIVERS=`echo "$DRIVERS" | grep -vE 'fbdev|modesetting|vesa'`
-[ "$DEBUG" ] && echo "GOOD_DRIVERS:$GOOD_DRIVERS"
+_debugx "GOOD_DRIVERS:$GOOD_DRIVERS"
 test "$GOOD_DRIVERS" && GOOD_DRIVERS_MSG='\Z2'`echo $GOOD_DRIVERS`'\Zn' || GOOD_DRIVERS_MSG='\Z1Attention, no sophisticated video drivers detected.\Zn'
-[ "$DEBUG" ] && echo "GOOD_DRIVERS:$GOOD_DRIVERS"
+_debug "GOOD_DRIVERS:$GOOD_DRIVERS"
 
 #DRIVERS_LIST=`grep -h -o 'Card[0-9]\+.*' "$tmpDir"/Card*.conf | cut -f1 -d'#'`
 DRIVERS_LIST0=`grep -h -o 'Driver[[:blank:]]\+".*".*#.*' "$tmpDir"/Card*.conf | cut -f1 -d'#'`
@@ -1750,7 +1810,7 @@ But you can also choose out of all installed drivers for Card0:"
 
 while :;
 do
-dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --menu "$MSG_TEXT" 0 0 2 $DRIVERS_LIST 2>"$tmpDir"/select_card
+dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --menu "$MSG_TEXT" 0 0 5 $DRIVERS_LIST 2>"$tmpDir"/select_card
 case $? in 0) _debug "_select_driver:0:OK"; break;; #OK
 1) echo 1;      #Cancel
   _show_all_drivers
@@ -1796,7 +1856,8 @@ _enable_card_conf(){
 
 #SELECTED_DRIVER=`tail -n1 "$tmpDir"/select_driver`
 #test "$SELECTED_DRIVER" || _some_thing_wrong 'Error reading selected driver'
-
+test -f "$tmpDir"/select_card || return 3
+test -s "$tmpDir"/select_card || return 4
 SELECTED_CARD=`tail -n1 "$tmpDir"/select_card`
 test "$SELECTED_CARD" || _some_thing_wrong 'Error reading selected video card'
 
@@ -1818,14 +1879,16 @@ do
 #sed -i 's%^%#%' "$f"
 sed -i 's%^\([^#].*\)%#\1%' "$f"
 done
-
-sed -i 's%^#*%%' "$CardFILE"
+test -f "$CardFILE" || return 5
+test -s "$CardFILE" || return 6
 #need to reset CARD0DRIVER
 CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"[[:blank:]]+#card[0-9]+driver' "$CardFILE" | cut -f2 -d'"'`
-
+sed -i 's%^#*%%' "$CardFILE"
 }
 
 _comment_all_section_device_in_xorg_conf(){
+
+test -s "$XORGCONFFILE" || return 3
 
 _get_total_line_nr(){
  wc -l "$XORGCONFFILE" | awk '{print $1}'
@@ -1840,18 +1903,22 @@ _get_last_card_nr(){
 }
 
 _get_first_section_decice(){
+test "$fcnr" || return 3
  head -n $fcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'
 }
 
 _get_first_endsection(){
+test "$fes" || return 3
  tail -n $fes "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | cut -f1 -d':'
 }
 
 _get_last_section_decice(){
+test "$lcnr" || return 3
  head -n $lcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'
 }
 
 _get_last_endsection(){
+test "$les" || return 3
  tail -n $les "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | tail -n1 | cut -f1 -d':'
 }
 
@@ -1882,6 +1949,7 @@ _debug " lcnr=$lcnr"
 _debug "lesnr=$lesnr"
 
 _simple_comment_every_line(){
+ test "$fsdnr" -a "$lesnr" || return 3
  sed -i "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"
 }
 _simple_comment_every_line
@@ -1895,8 +1963,14 @@ sed -i 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
 
 _ask_driver(){
 _split_sections       || return 3
+
+
 _split_device_section || return 4
+
+
 _make_driver_list     || return 5
+
+
 _select_driver
  case $? in
  9)
@@ -1905,12 +1979,27 @@ _select_driver
  0) :;;
  *) exit 1;;
  esac
-_enable_card_conf     || return 7
+
+_enable_card_conf; RV=$?
+case $RV in
+0) echo _enable_card_conf returned 0;;
+1) echo _enable_card_conf returned 1;;
+2) echo _enable_card_conf returned 2;;
+3) echo _enable_card_conf returned 3;;
+4) echo _enable_card_conf returned 4;;
+5) echo _enable_card_conf returned 5;;
+6) echo _enable_card_conf returned 6;;
+*) echo _enable_card_conf retuned OTHER;;
+esac
+test $RV = 0 || return 7
+
 _comment_all_section_device_in_xorg_conf || return 8
+
+
 _comment_all_section_device_in_xorg_conf_d_device || return 9
 }
 
-[ "$XAUTO" -ne 0 -a "$XAUTO" -ne 3 ] && { echo "XAUTO='$XAUTO' ,exiting."; exit $?; } #drop out to console.
+[ "$XAUTO" = 0 -o "$XAUTO" = 3 ] || { echo "XAUTO='$XAUTO' ,exiting."; exit $?; } #drop out to console.
 
 #code here to test the video...
 CHOSENVERT=""
@@ -2373,7 +2462,9 @@ Press \Z4ENTER\Z0 key to edit xorg.conf...\Zn" 0 0
   carddriver=`grep '#card[0-9]\+driver' "$XORGCONFFILE" | grep -vE '^[[:blank:]]*#' | head -n1 | awk '{print $2}' | tr -d '"'`
   [ "$carddriver" = "$CARD0DRIVER" ] || CARD0DRIVER=$carddriver
  fi
+sleep 1
 done #testloop
+
 
 if [ "$XAUTO" -ne 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
@@ -2386,7 +2477,7 @@ This will start Puppy with the simple driverless \Z1Xvesa graphics server\Z4
 that runs on most (old) video hardware.\Zn" 0 0
  RV9="$?";
  [ "$RV9" = '0' -o "$RV9" = '1' ] || exit $RV9
-  if [ ! "$RV9" -eq 0 ];then
+  if [ "$RV9" != 0 ];then
   echo "Linked 'Xvesa' towards '/usr/bin/X'"
    ln $VERB -sf Xvesa /usr/bin/X
   else
@@ -2403,12 +2494,12 @@ fi
 #mv $VERB -f $HOME/xorg.conf.new "$tmpDir"/xorg.conf.new
 cp $VERB -a $HOME/xorg.conf.new "$tmpDir"/xorg.conf.new
 
-if [ $XAUTO -ne 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
+if [ "$XAUTO" -ne 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
  #create a copy of xorg.conf with the profile in the filename...
  echo "Copyied $XORGCONFFILE $XORGCONFFILE.${PROFILECHIP}-${PROFILEMONITOR} :Step 15" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
- cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
- cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
+ /bin/cp $VERB -a --remove-destination "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
+ /bin/cp $VERB -a --remove-destination "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
  ##clear
  if test -s "$XORGCONFFILE"; then
  echo -e $Gre1"Xorg Video Wizard completed. Type 'xwin' +Enter to start X..."$Res
@@ -2426,6 +2517,7 @@ else
  echo -n "may be used, with caution, to finetune the display dimensions."
  echo -e "\\033[0;39m"
 fi
+
 
 #v3.99 begin
 [ -z "$tmpDir"/ddcprobeoem.txt ] && rm $VERB "$tmpDir"/ddcprobeoem.txt  #empty
