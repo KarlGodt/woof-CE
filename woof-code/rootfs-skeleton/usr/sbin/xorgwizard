@@ -116,7 +116,7 @@ else
 XORGCONFFILE=xorg.conf
 fi
 ##+++2012-01-30
-for f in "$XORGCONFFILE".d/*.conf 
+for f in "$XORGCONFFILE".d/*.conf
 do
 rm $VERB -f "$f"
 done
@@ -1680,6 +1680,87 @@ esac
 [ "$DEBUG" ] && { cat "$tmpDir"/select_driver; echo; } || true
 
 }
+_split_xorg_conf_file(){
+#replacement for _split_sections()
+test -f "$*" || return 3
+
+#rm $VERB -f "$XORGCONFFILE".d/*.conf
+rm $VERB -f "$tmpDir"/*.conf
+mkdir $VERB -p "$tmpDir"
+
+while read -r aLINE
+do
+
+test "$aLINE" || continue
+
+case $aLINE in
+ Section*|'#Section'*) NEWSEC="$aLINE"; SEC=`echo "$aLINE" | cut -f2 -d'"'`;;
+ EndSection|'#EndSection') NEWSEC="$NEWSEC
+$aLINE\n"
+#echo "$NEWSEC" >"$XORGCONFFILE".d/"$SEC".conf
+echo -e "$NEWSEC" >>"$tmpDir"/"$SEC".conf
+unset SEC NEWSEC
+;;
+ Subsection*|'#Subsection'*)
+  HAVE_SUBSEC=1
+  case $aLINE in
+  '#'*)
+   NEWSEC="$NEWSEC
+$aLINE"
+   ;;
+   *)
+   NEWSEC="$NEWSEC
+\t$aLINE"
+   ;;
+  esac
+ ;;
+ EndSubsection|'#EndSubsection')
+ case $aLINE in
+ '#'*)
+ NEWSEC="$NEWSEC
+$aLINE"
+ ;;
+ *)
+ NEWSEC="$NEWSEC
+\t$aLINE"
+ ;;
+ esac
+ unset HAVE_SUBSEC
+ ;;
+ *)
+   if test "$HAVE_SUBSEC"; then
+   case $aLINE in
+   '#'*)
+   NEWSEC="$NEWSEC
+$aLINE"
+   ;;
+   *)
+   NEWSEC="$NEWSEC
+\t\t$aLINE"
+   ;;
+   esac
+   elif test "$NEWSEC"; then
+   case $NEWSEC in
+   '#'*)
+   NEWSEC="$NEWSEC
+$aLINE"
+   ;;
+   *)
+   NEWSEC="$NEWSEC
+\t$aLINE"
+   ;;
+   esac
+   else
+    #echo "$aLINE" >>"$XORGCONFFILE".d/xorg.conf
+     echo "$aLINE" >>"$tmpDir"/xorg.conf
+   fi
+;;
+esac
+
+done <"$*"
+
+test -f "$tmpDir"/Device.conf
+}
 
 _split_sections(){
 
@@ -1705,6 +1786,47 @@ echo "
 done
 
 test -f "$tmpDir"/Device.conf
+}
+
+_split_cards(){
+
+test -f "$*" || return $?
+
+while read -r aLINE
+do
+test "$aLINE" || continue
+case $aLINE in
+Section*|'#Section'*) NEWSEC="$aLINE"
+;;
+EndSection|'#EndSection') NEWSEC="$NEWSEC
+$aLINE\n"
+echo -e "$NEWSEC" >>"$tmpDir"/"$CARD".conf
+unset NEWSEC CARD DRIVER
+;;
+*) case $aLINE in
+   '#'*Identifier*Card[0-9]*) CARD=`echo "$aLINE" | cut -f2 -d'"'`
+NEWSEC="$NEWSEC
+$aLINE";;
+   '#'*Driver*\"*\"*) DRIVER=`echo "$aLINE" | cut -f2 -d'"'`
+NEWSEC="$NEWSEC
+$aLINE";;
+   '#'*) NEWSEC="$NEWSEC
+$aLINE";;
+    *Identifier*Card[0-9]*) CARD=`echo "$aLINE" | cut -f2 -d'"'`
+NEWSEC="$NEWSEC
+\t$aLINE";;
+    *Driver*\"*\"*) DRIVER=`echo "$aLINE" | cut -f2 -d'"'`
+NEWSEC="$NEWSEC
+\t$aLINE";;
+    *)   NEWSEC="$NEWSEC
+\t$aLINE";;
+   esac
+;;
+esac
+done <"$*"
+
+c=`ls -1 "$tmpDir"/Card*.conf | wc -l`
+test -f "$tmpDir"/Card0.conf
 }
 
 _split_device_section(){
@@ -1780,6 +1902,7 @@ done <<EoI
 EoI
 
 [ "$DEBUG" ] && echo "$DRIVERS_LIST" || true
+test "${DRIVERS_LIST// /}"
 }
 
 _select_driver(){
@@ -1861,14 +1984,17 @@ test -s "$tmpDir"/select_card || return 4
 SELECTED_CARD=`tail -n1 "$tmpDir"/select_card`
 test "$SELECTED_CARD" || _some_thing_wrong 'Error reading selected video card'
 
-CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$XORGCONFFILE".d/Card*.conf | cut -f1 -d':' | sort -u`
+#CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$XORGCONFFILE".d/Card*.conf | cut -f1 -d':' | sort -u`
+CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$tmpDir"/Card*.conf | cut -f1 -d':' | sort -u`
 test "$DEBUG" && {
 echo
 echo "CardFILE='$CardFILE'"
 echo ; }
 
-[ "$DEBUG" ] && ls -1s "$XORGCONFFILE".d/Card*.conf
-OTHER_CARDS_CONF=`ls -1 "$XORGCONFFILE".d/Card*.conf | grep -v "$CardFILE"`
+#[ "$DEBUG" ] && ls -1s "$XORGCONFFILE".d/Card*.conf
+#OTHER_CARDS_CONF=`ls -1 "$XORGCONFFILE".d/Card*.conf | grep -v "$CardFILE"`
+[ "$DEBUG" ] && ls -1s "$tmpDir"/Card*.conf
+OTHER_CARDS_CONF=`ls -1 "$tmpDir"/Card*.conf | grep -v "$CardFILE"`
 
 test "$DEBUG" && {
 echo
@@ -1883,7 +2009,7 @@ test -f "$CardFILE" || return 5
 test -s "$CardFILE" || return 6
 #need to reset CARD0DRIVER
 CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"[[:blank:]]+#card[0-9]+driver' "$CardFILE" | cut -f2 -d'"'`
-sed -i 's%^#*%%' "$CardFILE"
+#sed -i 's%^#*%%' "$CardFILE"
 }
 
 _comment_all_section_device_in_xorg_conf(){
@@ -1956,17 +2082,44 @@ _simple_comment_every_line
 
 }
 
+_rebuild_xorg_conf(){
+
+rm $VERB -f "$tmpDir"/xorg.conf.new
+for sec in Files Module ServerLayout InputDevice Monitor Modes Screen Device
+do
+
+case $sec in Device)
+ for dev in "$tmpDir"/Card*.conf
+ do
+ test -f "$dev" || continue
+ cat "$dev" >>"$tmpDir"/xorg.conf.new
+ done
+ continue
+ ;;
+esac
+
+
+test -f "$tmpDir"/$sec.conf || continue
+cat "$tmpDir"/$sec.conf >> "$tmpDir"/xorg.conf.new
+done
+test -f "$tmpDir"/xorg.conf && cat "$tmpDir"/xorg.conf >>"$tmpDir"/xorg.conf.new
+test -s "$tmpDir"/xorg.conf.new && {
+    cp $VERB "$tmpDir"/xorg.conf.new "$XORGCONFFILE"
+    }
+test -s "$XORGCONFFILE" && rm $VERB -f "$XORGCONFFILE".d/*.conf
+}
+
 _comment_all_section_device_in_xorg_conf_d_device(){
 test -f "$XORGCONFFILE".d/Device.conf || return 0
 sed -i 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
 }
 
 _ask_driver(){
-_split_sections       || return 3
+#_split_sections       || return 3
+_split_xorg_conf_file "$XORGCONFFILE" || return 3
 
-
-_split_device_section || return 4
-
+#_split_device_section || return 4
+_split_cards "$tmpDir"/Device.conf || return 4
 
 _make_driver_list     || return 5
 
