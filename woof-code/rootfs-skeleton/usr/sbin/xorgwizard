@@ -575,10 +575,39 @@ fi
 [ -f /etc/X11/xorg.conf0 ] && cp $VERB /etc/X11/xorg.conf0 "$XORGCONFFILE"
 
 #v3.99 begin
+
+echo -e $Pink0'Lowlevel probing the video card and monitor...'$Reset0
+#code below is not distinguishing multiple cards/monitors...
+
+#want to choose a resolution and color-depth...
+##sometimes get bogus '1x' or '0x' pixel horiz resolution...
+#DDCPROBE=`ddcprobe | grep -v 'timing: [0123456789]x'`
+#DDCPROBE=`ddcprobe`
+touch "$tmpDIR"/ddcprobe.txt  ##+++2013-04-11
+ddcprobe >"$tmpDIR"/ddcprobe.txt
+#weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
+#every alternate run of ddcprobe...
+case "`cat "$tmpDIR"/ddcprobe.txt`" in *edidfail*)
+ sleep 1
+ ddcprobe >"$tmpDIR"/ddcprobe.txt
+ ;;
+esac
+_get_edid(){  ##+++2013-04-11
+      which get-edid    >>$OUT || return 0
+      which edid-decode >>$OUT || return 0
+  if [ ! -s "$tmpDIR"/ddcprobe.txt ]; then
+      get-edid 1>"$tmpDIR"/get-edid.out 2>>$ERR
+      sleep 1s
+      [ -s "$tmpDIR"/get-edid.out ] || return 0
+      edid-decode "$tmpDIR"/get-edid.out >"$tmpDIR"/ddcprobe.txt
+  fi
+}
+_get_edid
+
 #If video adapter would hang Xvesa, tell user and allow only Xorg.
 if [ -s "$tmpDIR"/ddcprobeoem.txt ] || grep $Q -f /etc/xorgoverrides "$tmpDIR"/ddcprobe.txt 2>>$ERR;then   #Xvesa hanger encountered
  dialog --colors --title "Puppy Graphics Wizard" --yes-label "Xorg" --no-label "Commandline" --yesno "Welcome to the Puppy Graphics Wizard!
-' "$tmpDIR"/ddcprobeoem.txt ' exists , dialog -label: Commandline
+
 Puppy has two X servers (to run Puppy in graphics mode):
 Xvesa: A very small and simple \"Kdrive\" X server.
 Xorg:  A very large and sophisticated X server.
@@ -614,7 +643,7 @@ Press ENTER for Xorg \Z1probing will take several seconds\Z0...
 Press TAB (or right-arrow) key then ENTER key for Xvesa...\Zn" 0 0
  STATUS=$?  #v3.99
  [ "$STATUS" = "" -o "$STATUS" = '-1' -o "$STATUS" = 255 ] && exit 250  #v3.99 ESC to exit, same as above dialogs
- if [ $STATUS -eq 1 ];then   #v3.99 Xvesa selected
+ if [ "$STATUS" -eq 1 ];then   #v3.99 Xvesa selected
   #when start xorgwizard from commandline, it messes up xorg.conf...
   if [ -f "$XORGCONFFILE" ];then
    if [ -f "$XORGCONFFILE".bak ];then
@@ -652,6 +681,14 @@ echo "Running 'Xorg -configure > "$tmpDIR"/xorgprobe.txt 2>&1' ..."
 echo "Press any Key to go "
 read -t20 -n1 Xorg_configure_KEY
 Xorg -configure -logfile "$tmpDIR"/Xorg_configure.log > "$tmpDIR"/xorgprobe.txt 2>&1
+case $? in 0) :;;
+*) echo -e $Red1'Xorg -configure -logfile "$tmpDIR"/Xorg_configure.log > "$tmpDIR"/xorgprobe.txt 2>&1
+apparently crashed. We will go on now though ... Good Luck!'$Res
+;;
+esac
+test -e "/root/xorg.conf.new" || _exit 3 'Need /root/xorg.conf.new !'
+test -f "/root/xorg.conf.new" || _exit 3 '/root/xorg.conf.new must be a regular file!'
+test -s "/root/xorg.conf.new" || _exit 3 'Need content in /root/xorg.conf.new !'
 #... config in /root/xorg.conf.new
 
 
@@ -847,10 +884,12 @@ sed -e 's%/dev/input/mice%/dev/mouse%'  "$XORGCONFFILE" >"$tmpDIR"/xorgconfmouse
 mv $VERB -f "$tmpDIR"/xorgconfmousefix "$XORGCONFFILE"
 cp $VERB "$XORGCONFFILE" /root/xorg.conf.new.1
 
-echo "Probing the video card and monitor..."
-#code below is not distinguishing multiple cards/monitors...
 HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
+
+__old_ddcprobe__(){
+echo "Probing the video card and monitor..."
+#code below is not distinguishing multiple cards/monitors...
 
 #want to choose a resolution and color-depth...
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
@@ -876,6 +915,7 @@ esac
   fi
   }
   get_edid_func
+}
 
 #v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
 #v3.96 added trident line...
@@ -936,13 +976,13 @@ else
  BOGUSVAL="no"
  for oneVAL in `echo -n "$HORIZSYNC" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ] && BOGUSVAL="yes"
-  [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -lt 10 ]  && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -gt 200 ] && BOGUSVAL="yes"
  done
  for oneVAL in `echo -n "$VERTREFRESH" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ] && BOGUSVAL="yes"
-  [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -lt 10 ]  && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -gt 200 ] && BOGUSVAL="yes"
  done
  if [ "$BOGUSVAL" = "yes" ];then
   #one or both no good, so set both no good...
@@ -987,13 +1027,13 @@ if [ ! "$MONCHOICES" = "" ];then
    oneX=${oneCH%x*}
    oneY=${oneCH#*x} ; oneY=${oneY%@*}
    oneHORIZ=`gtf $oneX $oneY $oneVERT | grep -o 'hsync:.*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
-   [ $oneVERT -lt $LVERTREFRESH ] && LVERTREFRESH=$oneVERT
-   [ $oneHORIZ -gt $UHORIZSYNC ]  && UHORIZSYNC=$oneHORIZ
+   [ "$oneVERT" -lt $LVERTREFRESH ] && LVERTREFRESH=$oneVERT
+   [ "$oneHORIZ" -gt $UHORIZSYNC ]  && UHORIZSYNC=$oneHORIZ
    #it seems ddcprobe truncates any fractional part off vertrefresh...
    oneVERT=$((oneVERT + 1))
    oneHORIZ=`gtf $oneX $oneY $oneVERT | grep -o 'hsync:.*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
-   [ $oneVERT -gt $UVERTREFRESH ] && UVERTREFRESH=$oneVERT
-   [ $oneHORIZ -lt $LHORIZSYNC ]  && LHORIZSYNC=$oneHORIZ
+   [ "$oneVERT" -gt $UVERTREFRESH ] && UVERTREFRESH=$oneVERT
+   [ "$oneHORIZ" -lt $LHORIZSYNC ]  && LHORIZSYNC=$oneHORIZ
   done
   #v3.93 hmmm, above still can round down too much, add 2...
   UHORIZSYNC=$((UHORIZSYNC + 2))
@@ -1231,7 +1271,7 @@ echo 'exit $?' >> "$tmpDIR"/choosexmodedlg
 chmod $VERB 0755 "$tmpDIR"/choosexmodedlg
 "$tmpDIR"/choosexmodedlg
 XTEST=$? #=0 for automatic.
-[ $XTEST -ne 0 ] && [ $XTEST -ne 3 ] && { echo -e "XTEST='$XTEST' and -ne '0' and -ne '3'\nExiting '$0'.";exit 250; } #drop out to console. w005 uncommented.
+[ "$XTEST" -ne 0 ] && [" $XTEST" -ne 3 ] && { echo -e "XTEST='$XTEST' and -ne '0' and -ne '3'\nExiting '$0'.";exit 250; } #drop out to console. w005 uncommented.
 #if [ $XAUTO -ne 0 ];then
 # if [ $XAUTO -ne 3 ];then
 #  #drop out to console...
@@ -1260,13 +1300,13 @@ FINALXY=${CHOSENRES%x*}
 ##+ seems like the ".0" gave it problems, so ended up with MAXVERT=""
 #MAXVERT=`echo -n "$VERTREFRESH" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
 MAXVERT=${VERTREFRESH#*-} ; MAXVERT=${MAXVERT%.*}
-if [ $MAXVERT -gt 85 ];then
+if [ "$MAXVERT" -gt 85 ];then
  #VPATTERN="s/${MAXVERT}$/85/g"
  #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
  VERTREFRESH=${VERTREFRESH/$MAXVERT/85}
 else
  #want to cut down rating on modern LCD panels also...
- if [ $MAXVERT -gt 74 ] && [ $MAXVERT -lt 86 ];then
+ if [ "$MAXVERT" -gt 74 ] && [ "$MAXVERT" -lt 86 ];then
    #and if manufactured in 2004 or later...
    #(so older CRTs in this range maxvert 75-85 will get rejected)
    if grep '^manufacture:' "$tmpDIR"/ddcprobe.txt | grep -E $Q ' 20[123][0-9]| 200[4-9]' ;then
@@ -1605,16 +1645,16 @@ case $? in
 0) #OK
 echo 0
 DRIVER_SEL=`tail -n1 "$tmpDIR"/select_driver`
-test "$DRIVER_SEL" || false
+test "$DRIVER_SEL" || _some_thing_wrong "Error selecting driver"
 _adjust_card0_driver_entry $DRIVER_SEL
 return $?
 ;;
 1) #Cancel
-echo 1
+_debug "_show_all_drivers: 1"
 return 1
 ;;
 *) #ESC
-echo 255
+_debug "_show_all_drivers: 255 or OTHER"
 exit 1
 ;;
 esac
@@ -1646,9 +1686,9 @@ unset SEC NEWSEC
  Subsection*|'#Subsection'*)
   HAVE_SUBSEC=1
   case $aLINE in
-  '#'*)
+  '# '*|'#	'*)
    NEWSEC="$NEWSEC
-$aLINE"
+$aLINE" #TAB
    ;;
    *)
    NEWSEC="$NEWSEC
@@ -1658,9 +1698,9 @@ $aLINE"
  ;;
  EndSubsection|'#EndSubsection')
  case $aLINE in
- '#'*)
+ '# '*|'#	'*)
  NEWSEC="$NEWSEC
-$aLINE"
+$aLINE" #TAB
  ;;
  *)
  NEWSEC="$NEWSEC
@@ -1672,9 +1712,9 @@ $aLINE"
  *)
    if test "$HAVE_SUBSEC"; then
    case $aLINE in
-   '#'*)
+   '# '*|'#	'*)
    NEWSEC="$NEWSEC
-$aLINE"
+$aLINE" #TAB
    ;;
    *)
    NEWSEC="$NEWSEC
@@ -1682,10 +1722,10 @@ $aLINE"
    ;;
    esac
    elif test "$NEWSEC"; then
-   case $NEWSEC in
-   '#'*)
+   case $aLINE in
+   '# '*|'#	'*)
    NEWSEC="$NEWSEC
-$aLINE"
+$aLINE" #TAB
    ;;
    *)
    NEWSEC="$NEWSEC
@@ -1700,7 +1740,7 @@ $aLINE"
 esac
 
 done <"$*"
-
+test -f "$tmpDIR"/Device.conf
 }
 
 _split_sections(){
@@ -1710,7 +1750,7 @@ test -f "$XORGCONFFILE" || return 3
 rm $VERB -rf "$XORGCONFFILE".d
 mkdir $VERB -p "$XORGCONFFILE".d
 
-for dev in "ServerLayout" "Files" "Module" "InputDevice" "Monitor" "Modes" "Device" "Screen"
+for dev in "ServerLayout" "ServerFlags" "Files" "Module" "InputDevice" "Monitor" "Modes" "Device" "Screen"
  do
  rm $VERB -f "$tmpDIR"/"$dev".conf
  sed "/./{H;d};x;/Section \"$dev\".*\".*\".*EndSection/!d" "$XORGCONFFILE" >"$tmpDIR"/"$dev".conf
@@ -1751,8 +1791,8 @@ $aLINE";;
    '#'*Driver*\"*\"*) DRIVER=`echo "$aLINE" | cut -f2 -d'"'`
 NEWSEC="$NEWSEC
 $aLINE";;
-   '#'*) NEWSEC="$NEWSEC
-$aLINE";;
+   '# '*|'#	'*) NEWSEC="$NEWSEC
+$aLINE";; #TAB
     *Identifier*Card[0-9]*) CARD=`echo "$aLINE" | cut -f2 -d'"'`
 NEWSEC="$NEWSEC
 \t$aLINE";;
@@ -1766,7 +1806,8 @@ NEWSEC="$NEWSEC
 esac
 done <"$*"
 
-c=`ls -1 "$tmpDIR"/Card*.conf | wc -l`
+c=`ls -1 "$tmpDIR"/Card*.conf | wc -l` || c=2
+test -f "$tmpDIR"/Card0.conf
 }
 
 _split_device_section(){
@@ -1930,6 +1971,7 @@ test "$DEBUG" && {
 echo
 echo "CardFILE='$CardFILE'"
 echo ; }
+test -f "$CardFILE" || return 5
 
 #[ "$DEBUG" ] && ls -1s "$XORGCONFFILE".d/Card*.conf
 #OTHER_CARDS_CONF=`ls -1 "$XORGCONFFILE".d/Card*.conf | grep -v "$CardFILE"`
@@ -1945,7 +1987,7 @@ do
 #sed -i 's%^%#%' "$f"
 sed -i 's%^\([^#].*\)%#\1%' "$f"
 done
-test -f "$CardFILE" || return 5
+#test -f "$CardFILE" || return 5
 test -s "$CardFILE" || return 6
 #need to reset CARD0DRIVER
 CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"' "$CardFILE" | grep -vE '^[[:blank:]]*#' | cut -f2 -d'"'`
@@ -2025,7 +2067,7 @@ _simple_comment_every_line
 _rebuild_xorg_conf(){
 
 rm $VERB -f "$tmpDIR"/xorg.conf.new
-for sec in Files Module ServerLayout InputDevice Monitor Modes Screen Device
+for sec in ServerLayout ServerFlags Files Module InputDevice Monitor Modes Screen Device
 do
 
 case $sec in Device)
@@ -2046,7 +2088,7 @@ test -f "$tmpDIR"/xorg.conf && cat "$tmpDIR"/xorg.conf >>"$tmpDIR"/xorg.conf.new
 test -s "$tmpDIR"/xorg.conf.new && {
     cp $VERB "$tmpDIR"/xorg.conf.new "$XORGCONFFILE"
     }
-test -s "$XORGCONFFILE" && rm $VERB -f "$XORGCONFFILE".d/*.conf
+test -s "$XORGCONFFILE" && { rm $VERB -f "$XORGCONFFILE".d/*.conf || true; }
 }
 
 _comment_all_section_device_in_xorg_conf_d_device(){
@@ -2069,14 +2111,15 @@ _split_cards "$tmpDIR"/Device.conf
 
 _make_driver_list
 RV=$?
-echo "_split_device_section returned $RV"
+_debug "_make_driver_list returned $RV"
 test $RV = 0 || return 5
 
 
 _select_driver
  case $? in
  9)
- _comment_all_section_device_in_xorg_conf_d_device
+ #_comment_all_section_device_in_xorg_conf_d_device
+ _rebuild_xorg_conf || return 10
  return $?;;
  0) :;;
  *) exit 1;;
@@ -2085,15 +2128,8 @@ _select_driver
 _enable_card_conf; RV=$?
 case $RV in
 0) echo _enable_card_conf returned 0;;
-1) echo _enable_card_conf returned 1;;
-2) echo _enable_card_conf returned 2;;
-3) echo _enable_card_conf returned 3;;
-4) echo _enable_card_conf returned 4;;
-5) echo _enable_card_conf returned 5;;
-6) echo _enable_card_conf returned 6;;
-*) echo _enable_card_conf retuned OTHER;;
+*) _debug " _enable_card_conf returned $RV"; return 7;;
 esac
-test $RV = 0 || return 7
 
 _rebuild_xorg_conf || return 8
 #_comment_all_section_device_in_xorg_conf || return 8
@@ -2106,7 +2142,7 @@ _rebuild_xorg_conf || return 8
 
 #code here to test the video...
 CHOSENVERT=""
-while [ $XTEST -eq 3 ];do #testloop
+while [ "$XTEST" -eq 3 ];do #testloop
 
 _ask_driver; aRV=$?
 test "$aRV" = 0 || _exit $aRV "_ask_driver returned '$aRV'"
@@ -2208,16 +2244,16 @@ Press ENTER if test was okay (or to fall back to Xvesa)... "
                   Refresh frequency    $VRTEST Hz
                   Driver               $CARD0DRIVER
 If you are reporting success, great, but if the display was not quite
-right, say displaced or distorted, you now have the option to tweak
-various parameters in the X configuration file ($XORGCONFFILE).
-Ditto if testing X was an abysmal failure.
+right, say displaced or distorted,
+you now have the option to tweak various parameters in the
+X configuration file ($XORGCONFFILE).
+Ditto if testing X was an abysmal failure (crash).
 
 ${TWKMSG}
 or TAB then ENTER to tweak parameters in xorg.conf & retest X..." 0 0
  DQ6=$?;[ "$DQ6" = "" -o "$DQ6" = 255 ] && exit 250
- if [ $DQ6 -eq 0 ];then
-  break
- fi
+ [ "$DQ6" -eq 0 ] && break
+
 
  #w482 allow switch between intel_drv.so and i810OLD_drv.so...
  EXTRABUTTON=""
@@ -2271,9 +2307,9 @@ ${INTELDRVMSG}" 0 0
   RET2=$?;
   [ "$RET2" = "" -o "$RET2" = 255 ] && exit 250
   SUBSTDRV='vesa'
-  [ $RET2 -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
+  [ "$RET2" -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
   #CARD0DRIVER="$SUBSTDRV"
-  if [ $RET2 -ne 0 ];then
+  if [ "$RET2" -ne 0 ];then
    CARD0DRIVER="$SUBSTDRV"
    aPATTERN="s/.*#card0driver/  Driver      \"${SUBSTDRV}\" #card0driver/g"
    sed -e "$aPATTERN" "$XORGCONFFILE" > "$tmpDIR"/xorg.conf.tmp2
@@ -2334,7 +2370,7 @@ to open xorg.conf in a text editor and change whatever you wish.
 Press ENTER key for the easy option, tweak refresh frequency...
 Press TAB then ENTER to open xorg.conf in a text editor..." 0 0
  DQ7=$?;[ "$DQ7" = "" -o "$DQ7" = 255 -o "$DQ7" = '-1' ] && exit 250
- if [ $DQ7 -eq 0 ];then
+ if [ "$DQ7" -eq 0 ];then
   if [ "$MONCHOICES" = "" ];then
    #not plug-n-play.
    MSGPNP="WARNING: Your monitor is not plug-and-play so this Wizard cannot
@@ -2376,7 +2412,7 @@ $MSGPNP" 0 0 0 \
   let NEEDHORIZ=NEEDHORIZ+1 #compensate for rounding off error.
 
   aPATTERN="s/HORIZSYNC0/${HORIZSYNC}/g"
-  if [ $NEEDHORIZ -gt ${MAXHORIZ%.*} ];then
+  if [ "$NEEDHORIZ" -gt ${MAXHORIZ%.*} ];then
    if [ "$MONCHOICES" = "" ];then
     #monitor not plug and play.
     aPATTERN="s/HORIZSYNC0/${MINHORIZ}\\-${NEEDHORIZ}/g"
@@ -2412,7 +2448,7 @@ done #testloop
 #########################################################
 
 
-if [ $XTEST -eq 3 ];then #<FIX> (XAUTO=0 is <OK> button)
+if [ "$XTEST" -eq 3 ];then #<FIX> (XAUTO=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
   dialog --title "Xorg Graphics Wizard" --yes-label "DONE" --no-label "Xvesa" --yesno "Just press ENTER key if all is fine and you are ready to run
 Puppy with Xorg.
@@ -2421,7 +2457,7 @@ If you cannot get Xorg to work, press TAB then ENTER to choose
 the \"Xvesa\" button. This will start Puppy with the simple Xvesa
 graphics server that runs on most graphic chips." 0 0
   DQ9=$?;[ "$DQ9" = 0 -o "$DQ9" = 1 ] || exit 250
-  if [ $DQ9 -eq 0 ];then
+  if [ "$DQ9" -eq 0 ];then
    echo "Linked X to Xvesa"
    ln $VERB -sf /usr/bin/Xvesa /usr/bin/X
   else
