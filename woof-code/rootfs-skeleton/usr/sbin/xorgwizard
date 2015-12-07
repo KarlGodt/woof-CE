@@ -88,10 +88,7 @@ _trap
 #XORG_DRIVER_DIR=/usr/lib/xorg/modules/drivers
  XORG_DRIVER_DIR=/usr/X11/lib/xorg/modules/drivers #needed by i810OLD_drv.so, nouveau and nvidia
  XORG_DRIVER_DIR=`realpath "$XORG_DRIVER_DIR"`
-
-OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
-[ "$DEBUG" = "2" ] && set -x
+REC_VIDEO_MODE="800x600x16" #default recommended mode.
 
 tmpDir='/tmp/xorgwizard'
 rm $VERB -rf "$tmpDir"/*.conf
@@ -454,15 +451,15 @@ ln $VERB -sf Xorg /usr/bin/X
 _say_dialog_msgbox_error(){
 test "$*" && MSG_TEXT="$*" || MSG_TEXT='Some Error occurred. Press OK to proceed, ESC to exit.'
 GMSG_TEXT=`gettext "$MSG_TEXT"`
-test "${GMSG_TEXT// /}" && MSG_TEXT="$GMSG_TEXT"
+test "${GMSG_TEXT//[[:blank:]]/}" && MSG_TEXT="$GMSG_TEXT"
 
 TTEXT='ERROR'
 GTTEXT=`gettext "$TTEXT"`
-test "${GTTEXT// /}" && TTEXT=$GTTEXT
+test "${GTTEXT//[[:blank:]]/}" && TTEXT=$GTTEXT
 
 BTTEXT='ERROR'
 GBTTEXT=`gettext "$BTTEXT"`
-test "${GBTTEXT// /}" && BTTEXT=$GBTTEXT
+test "${GBTTEXT//[[:blank:]]/}" && BTTEXT=$GBTTEXT
 
 dialog --colors --backtitle "$BTTEXT" --title "$TTEXT" --msgbox '\Z1'"$MSG_TEXT"'\Zn' 0 0
 test $? = 0 || exit 253
@@ -735,7 +732,9 @@ sed -e 's%/dev/input/mice%/dev/mouse%'  "$XORGCONFFILE" >"$tmpDir"/xorgconfmouse
 echo "Moving $tmpDir/xorgconfmousefix $XORGCONFFILE :Step 6" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
 mv $VERB -f "$tmpDir"/xorgconfmousefix "$XORGCONFFILE"
 
-#echo "Probing the video card and monitor..."
+_video_resolution_choice(){
+echo "Probing the video card and monitor..."
+
 #code below is not distinguishing multiple cards/monitors...
   HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
@@ -743,46 +742,10 @@ VERTREFRESH="$VERTREFRESH0"
 #want to choose a resolution and color-depth...
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
 
-__old__ddcprobe_part__(){
-#DDCPROBE=`ddcprobe | grep -v 'timing: [0123456789]x'`
-#DDCPROBE=`ddcprobe`
-ddcprobe >"$tmpDir"/ddcprobe.txt
-##+++2012-09-16
-[ -s "$tmpDir"/ddcprobe.txt ] || { sleep 2;ddcprobe >"$tmpDir"/ddcprobe.txt; }
-[ "`grep '[[:alnum:]]' "$tmpDir"/ddcprobe.txt`" ] || { sleep 2;ddcprobe >"$tmpDir"/ddcprobe.txt; }
-##+++2012-09-16
-#weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
-#every alternate run of ddcprobe...
-case "`cat "$tmpDir"/ddcprobe.txt`" in *edidfail*)
- sleep 1
- ddcprobe >"$tmpDir"/ddcprobe.txt
- ;;
-esac
-
-[ "`grep '[[:alnum:]]' "$tmpDir"/ddcprobe.txt`" ] || { sleep 2;
- if [ "`which strace`" ]; then
-  strace -o "$tmpDir"/ddcprobe.strace_o2 ddcprobe >"$tmpDir"/ddcprobe.txt
-   else
-  ddcprobe >"$tmpDir"/ddcprobe.txt
- fi
-}
-##+++2012-09-16 2014-11-11
 
 
-get_edid_func(){
-which get-edid || return 0
-which edid-decode || return 0
-if [ ! -s "$tmpDir"/ddcprobe.txt ]; then
-get-edid 1>"$tmpDir"/get-edid.out 2>"$tmpDir"/get-edid-2.txt
-[ "$?" = 0 ] || return 0
-edid-decode "$tmpDir"/get-edid.out >"$tmpDir"/ddcprobe.txt
-fi
-}
-get_edid_func
-}
-
-ddcprobe_func(){
-_edebug "\\033[0;31m""ddcprobe_func";
+_do_ddcprobe(){
+_edebug "\\033[0;31m""_do_ddcprobe";
 
 # +++2014-11-11 strace seems to help segfauting ddcprobe
  if [ "`which strace`" ]; then
@@ -820,16 +783,16 @@ _edebug "\\033[0;31m""ddcprobe_func";
    ;;
   esac
 
-get_edid_func(){
-   which get-edid >>$OUT || return 0
-which edid-decode >>$OUT || return 0
-if [ ! -s "$tmpDir"/ddcprobe.txt ]; then
-get-edid 1>"$tmpDir"/get-edid.out 2>"$tmpDir"/get-edid-2.txt
-[ "$?" = 0 ] || return 0
-edid-decode "$tmpDir"/get-edid.out >"$tmpDir"/ddcprobe.txt
-fi
-}
-get_edid_func
+ _get_edid(){
+    which get-edid >>$OUT || return 0
+ which edid-decode >>$OUT || return 0
+ if [ ! -s "$tmpDir"/ddcprobe.txt ]; then
+ get-edid 1>"$tmpDir"/get-edid.out 2>"$tmpDir"/get-edid-2.txt
+ [ "$?" = 0 ] || return 0
+ edid-decode "$tmpDir"/get-edid.out >"$tmpDir"/ddcprobe.txt
+ fi
+ }
+ _get_edid
 
 if [ -n "`grep -i 'edidfail' "$tmpDir"/ddcprobe.txt`" ]; then
 echo -e "\\033[0;31m""ddcprobe still failed to determine the video.."
@@ -837,8 +800,9 @@ echo -e "\\033[0;39m""Exiting $0 now.""\\033[0;39m"
 exit 20
 fi
 }
-ddcprobe_func
+_do_ddcprobe
 
+_add_to_xorgoverrides(){
 #v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
 #v3.96 added trident line...
 #v3.98 added more CYBER lines & corrected case
@@ -850,6 +814,10 @@ if [ -s "$tmpDir"/ddcprobeoem.txt ]; then   #v3.99 begin
   _sync
  fi
 fi
+}
+_add_to_xorgoverrides
+
+_add_xorgoverrides_to_ddcprobe(){
 if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$tmpDir"/ddcprobe.txt; then   #v3.99 end
  #HORIZSYNC=""
  #VERTREFRESH=""
@@ -862,28 +830,20 @@ if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$tmpDir"/ddcprobe
  [ "`grep 'mode: 1024x768x64k' $tmpDir/ddcprobe.txt`" ] || echo 'mode: 1024x768x64k' >> "$tmpDir"/ddcprobe.txt
  [ "`grep 'mode: 1024x768x16m' $tmpDir/ddcprobe.txt`" ] || echo 'mode: 1024x768x16m' >> "$tmpDir"/ddcprobe.txt
 fi   #v3.93 end
-
-__old_detect_classmate_pc__(){
-#v3.94 detect if a Classmate PC laptop with 800x480 screen...
-if [ "`grep 'edidfail' "$tmpDir"/ddcprobe.txt`" != "" ];then
- if [ "`cat "$tmpDir"/ddcprobe.txt | tr -s ' ' | grep 'oem: Intel(r)915GM/910ML/915MS Graphics'`" != "" ];then
-  if [ "`dmesg | grep 'CPU0: Intel(R) Celeron(R) M processor          900MHz'`" != "" ];then
-   if [ "`dmesg | grep 'uDiskOnChip'`" != "" ];then
-    #yep, looks like this is a Classmate model with 800x480...
-    echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
-   fi
-  fi
- fi
-fi
 }
+_add_xorgoverrides_to_ddcprobe
+
+_special_screens(){
 #v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
 [ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
 #v3.95 recognise more special screens...
 DMIDECODE=`dmidecode`
 #recognise EeePC Asus laptop...
 [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
+}
+_special_screens
 
-
+_do_xvesa_listmodes(){
 #modes supported by card...
 CARDCHOICES=""
 if [ -e /usr/bin/Xvesa -a "$XVESALISTOK" = "yes" ];then #format of each line: 1024x768x16
@@ -897,7 +857,10 @@ else
 fi
 _sync
 CARDCHOICES=`cat "$tmpDir"/Xmodes.txt`
+}
+_do_xvesa_listmodes
 
+_check_xorg_configure(){
 #frequencies supported by monitor...
 #Xorg probe may already have got this information...
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
@@ -923,7 +886,10 @@ else
   VERTREFRESH=""
  fi
 fi
+}
+_check_xorg_configure
 
+_get_horizsync_vertrefresh(){
 MONCHOICES=""
   MONCUTXY=""
 if [ "$TIMINGOK" = "yes" ];then #v3.93
@@ -984,10 +950,10 @@ if [ "$MONCHOICES" != "" ]; then
   VERTREFRESH="${LVERTREFRESH}-${UVERTREFRESH}"
  fi
 fi
+}
+_get_horizsync_vertrefresh
 
-
-RECMODE="800x600x16" #default recommended mode.
-
+_choose_resolution_fallback(){
 #if ddcprobe also failed, have to ask monitor type...
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-play.
  ## Dougal: (v2.16??) removed MONTYPES param, added case-structure below
@@ -1027,97 +993,97 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
   ## (not sure why Barry only uses 16-bit, maybe worth improving?)
   case "$CHOICE" in
    A) # "h31.5v40-70        LCD Panel 640x480"
-     RECMODE="640x480x16"
+     REC_VIDEO_MODE="640x480x16"
      HORIZSYNC="31.5"
      VERTREFRESH="40-70"
      ;;
    B) # "h31.5-37v40-70     LCD Panel 800x600"
-     RECMODE="800x600x16"
+     REC_VIDEO_MODE="800x600x16"
      HORIZSYNC="31.5-37"
      VERTREFRESH="40-70"
      ;;
    B2) # "h31.5-90v60       LCD Panel 1024x600"
-     RECMODE="1024x600x16"
+     REC_VIDEO_MODE="1024x600x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    C) # "h31.5-48.5v40-70   LCD Panel 1024x768"
-     RECMODE="1024x768x16"
+     REC_VIDEO_MODE="1024x768x16"
      HORIZSYNC="31.5-48.5"
      VERTREFRESH="40-70"
      ;;
    D) # "h31.5-90v60        LCD Panel 1280x800"
-     RECMODE="1280x800x16"
+     REC_VIDEO_MODE="1280x800x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    E) # "h31.5-67v50-75     LCD Panel 1280x1024"
-     RECMODE="1280x1024x16"
+     REC_VIDEO_MODE="1280x1024x16"
      HORIZSYNC="31.5-67"
      VERTREFRESH="50-75"
      ;;
    F) # "h31.5-90v60        LCD Panel 1360x768"
-     RECMODE="1360x768x16"
+     REC_VIDEO_MODE="1360x768x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    G) # "h31.5-90v59-75     LCD Panel 1400x1050"
-     RECMODE="1400x1050x16"
+     REC_VIDEO_MODE="1400x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="59-75"
      ;;
    H) # "h31.5-100v59-75    LCD Panel 1440x900"
-     RECMODE="1440x900x16"
+     REC_VIDEO_MODE="1440x900x16"
      HORIZSYNC="31.5-100"
      VERTREFRESH="59-75"
      ;;
    I) # "h31.5-90v60        LCD Panel 1600x1200"
-     RECMODE="1600x1200x16"
+     REC_VIDEO_MODE="1600x1200x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    J) # "h31.5-90v60        LCD Panel 1680x1050"
-     RECMODE="1680x1050x16"
+     REC_VIDEO_MODE="1680x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    K) # "h30-68v67      LCD HDTV  1920x1080"
-     RECMODE="1920x1080x16"
+     REC_VIDEO_MODE="1920x1080x16"
      HORIZSYNC="30-68"
      VERTREFRESH="67"
      ;;
    L) # "h31.5-90v60        LCD Panel 1920x1200"
-     RECMODE="1920x1200x16"
+     REC_VIDEO_MODE="1920x1200x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
    M) # "h31.5v50-61        CRT 640x480"
-     RECMODE="640x480x16"
+     REC_VIDEO_MODE="640x480x16"
      HORIZSYNC="31.5"
      VERTREFRESH="50-61"
      ;;
    N) # "h31.5-35v50-61     CRT 800x600 (old 14inch monitor)"
-     RECMODE="800x600x16"
+     REC_VIDEO_MODE="800x600x16"
      HORIZSYNC="31.5-35"
      VERTREFRESH="50-61"
      ;;
    O) # "h31.5-48.5v56-72   CRT 1024x768 (basic 15inch monitor)"
-     RECMODE="1024x768x16"
+     REC_VIDEO_MODE="1024x768x16"
      HORIZSYNC="31.5-48.5"
      VERTREFRESH="56-72"
      ;;
    P) # "h31.5-79v50-90     CRT 1280x1024 (basic 17inch monitor)"
-     RECMODE="1280x1024x16"
+     REC_VIDEO_MODE="1280x1024x16"
      HORIZSYNC="31.5-79"
      VERTREFRESH="50-90"
      ;;
    Q) # "h31.5-90v50-90     CRT 1400x1050"
-     RECMODE="1400x1050x16"
+     REC_VIDEO_MODE="1400x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="50-90"
      ;;
    R) # "h31.5-94v50-90     CRT 1600x1200"
-     RECMODE="1600x1200x16"
+     REC_VIDEO_MODE="1600x1200x16"
      HORIZSYNC="31.5-94"
      VERTREFRESH="50-90"
      ;;
@@ -1128,26 +1094,28 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
      dialog --title "Xorg Video Wizard" --inputbox "Please enter the vertical frequency range of the monitor, in Hz. An example is given:" 0 0 "56-72" 2>"$tmpDir"/tagvert.txt
      RV3="$?";
      [ "$RV3" -eq -1 -o "$RV3" -eq 255 ] && exit 1
-     HORIZSYNC=`cat "$tmpDir"/taghoriz.txt 2>>$ERR | tail -n1`
+       HORIZSYNC=`cat "$tmpDir"/taghoriz.txt 2>>$ERR | tail -n1`
      VERTREFRESH=`cat "$tmpDir"/tagvert.txt 2>>$ERR | tail -n1`
      [ "$HORIZSYNC" ]   || continue
      [ "$VERTREFRESH" ] || continue
      # comment out -- it's the default from above
-     #RECMODE="800x600x16"
+     #REC_VIDEO_MODE="800x600x16"
      ;;
   esac
   break
  done
 fi
+}
+_choose_resolution_fallback
 
-
+_write_resolution_list(){
 #if have MONCHOICES, that's all i want to display (with warning if not in card list).
 #if no MONCHOICES, then display card list only...
 echo -n "" > "$tmpDir"/finalchoices.txt
 if [ "$MONCHOICES" = "" ];then
  for oneCHOICE in $CARDCHOICES
  do
-  if [ "$RECMODE" = "$oneCHOICE" ];then
+  if [ "$REC_VIDEO_MODE" = "$oneCHOICE" ];then
    echo "$oneCHOICE \"Unconfirmed MAXIMUM for monitor, OK for card\" \\" >> "$tmpDir"/finalchoices.txt
   else
    echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\"   >> "$tmpDir"/finalchoices.txt
@@ -1161,10 +1129,10 @@ if [ "$MONCHOICES" = "" ];then
  done
 else
  #decide on a default... (already 800x600x16 earlier) no, reset...
- RECMODE=""
+ REC_VIDEO_MODE=""
  case "$MONCUTXY" in
-  *1024x768*) RECMODE="1024x768x16" ;;
-  *800x600*)  RECMODE="800x600x16" ;;
+  *1024x768*) REC_VIDEO_MODE="1024x768x16" ;;
+  *800x600*)  REC_VIDEO_MODE="800x600x16" ;;
  esac
  for oneCUTXY in $MONCUTXY #1024x768
  do
@@ -1177,16 +1145,19 @@ else
   done
  done
 fi
+}
+_write_resolution_list
 
+_choose_resolution(){
 FINALCHOICES=`cat "$tmpDir"/finalchoices.txt | sort -t x -n` #v3.93 rerwin
-
+readonly FINALCHOICES
 echo '#!/bin/sh' > "$tmpDir"/choosexmodedlg
-echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >> "$tmpDir"/choosexmodedlg
+echo -n "dialog --colors --extra-button --aspect 11 --default-item $REC_VIDEO_MODE" >> "$tmpDir"/choosexmodedlg
 echo ' --no-collapse --title "Puppy Video Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
 shown in the format WidthxHeightxBits, where Width and Height are
 screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
 ' >> "$tmpDir"/choosexmodedlg
-[ "$RECMODE" != "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >> "$tmpDir"/choosexmodedlg
+[ "$REC_VIDEO_MODE" ] && echo "CANNOT DECIDE? ...${REC_VIDEO_MODE} is suggested as a good choice."  >> "$tmpDir"/choosexmodedlg
 echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >> "$tmpDir"/choosexmodedlg
 echo '
 OK:     Just press ENTER key to immediately use the selected mode...
@@ -1199,61 +1170,17 @@ echo 'exit $?' >> "$tmpDir"/choosexmodedlg
 chmod $VERB 0755 "$tmpDir"/choosexmodedlg
 "$tmpDir"/choosexmodedlg
 XAUTO=$? #=0 for automatic.
-[ "$XAUTO" -ne 0 -a "$XAUTO" -ne 3 ] && exit #drop out to console. w005 uncommented.
-#if [ $XAUTO -ne 0 ];then
-# if [ $XAUTO -ne 3 ];then
-#  #drop out to console...
-#  #the script has created $XORGCONFFILE without Screen section...
-#  [ -f "$XORGCONFFILE".bak ] && cp $VERB -f "$XORGCONFFILE".bak "$XORGCONFFILE"
-#  exit
-# fi
-#fi
+[ "$XAUTO" -ne 0 -a "$XAUTO" -ne 3 ] && exit 0 #drop out to console. w005 uncommented.
+
 CHOSENRES=`cat "$tmpDir"/tag.txt 2>>$ERR | tail -n1`
 [ "$CHOSENRES" ] || CHOSENRES="800x600x16" #default
 FINALDEPTH=${CHOSENRES##*x}
-#CHOSENX=${CHOSENRES%%x*}
-#CHOSENY=${CHOSENRES#*x} ; CHOSENY=${CHOSENY%x*}
-#FINALXY="${CHOSENX}x${CHOSENY}"
 FINALXY=${CHOSENRES%x*}
-
+}
+_choose_resolution
 ##lcd panels usually work at one freq only...
-#if [ ! "$MONCHOICES" = "" ];then #format of each line: 1024x768@75
-# FIXEDFREQS=`echo -n "$MONCHOICES" | grep "$FINALXY" | cut -f 2 -d '@' | tr '\n' ','' | sed -e 's/,$//g'`
-# [ ! "$FIXEDFREQS" = "" ] && VERTREFRESH="$FIXEDFREQS"
-#fi
 
-#some monitors have a very high vertrefresh, and Xorg uses it, but it is too high...
-#v2.13b2 was 95, make it 85...
-##  Dougal: note that old code (line below) didn't work in my case: 50.0-160.0
-##+ seems like the ".0" gave it problems, so ended up with MAXVERT=""
-#MAXVERT=`echo -n "$VERTREFRESH" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
-MAXVERT=${VERTREFRESH#*-}; MAXVERT=${MAXVERT%.*}
-if [ $MAXVERT -gt 85 ]; then
- #VPATTERN="s/${MAXVERT}$/85/g"
- #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
- echo "MAXVERT='$MAXVERT' gt 85 , setting it to 85" >> "$tmpDir"/xorgwizard.messages
- VERTREFRESH=${VERTREFRESH/$MAXVERT/85}
-elif [ $MAXVERT -gt 74 ] && [ $MAXVERT -lt 86 ]; then #want to cut down rating on modern LCD panels also...
-   #and if manufactured in 2004 or later...
-   #(so older CRTs in this range maxvert 75-85 will get rejected)
-   if grep '^manufacture: ' "$tmpDir"/ddcprobe.txt | grep $Q -E ' 20[1-9][0-9]| 200[4-9]'; then
-    let LCDMAXVERT=MAXVERT-4
-    #VPATTERN="s/${MAXVERT}$/${LCDMAXVERT}/g"
-    #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
-    VERTREFRESH=${VERTREFRESH/$MAXVERT/$LCDMAXVERT}
-    echo "MAXVERT='$MAXVERT' in range between 75-85
-monitor manufactured later then year 2003
-lowering it by 4 to '$VERTREFRESH'" >> "$tmpDir"/xorgwizard.messages
-   fi
-fi
-#script also needs these max freqs later on...
-#MAXHORIZ=`echo -n "$HORIZSYNC" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
-#MINVERT=`echo -n "$VERTREFRESH" | grep -o '^[0-9]*'`
-#MINHORIZ=`echo -n "$HORIZSYNC" | grep -o '^[0-9]*'`
-MAXHORIZ=${HORIZSYNC#*-}   #; MAXHORIZ=${MAXHORIZ%.*}
- MINVERT=${VERTREFRESH%-*} #; MINVERT=${MINVERT%.*}
-MINHORIZ=${HORIZSYNC%-*}   #; MINHORIZ=${MINHORIZ%.*}
-
+_write_srceen_section(){
 #now write the Screen section...
 SCRNSECTION="
 Section \"Screen\"
@@ -1269,19 +1196,49 @@ EndSection
 "
 echo -e "$SCRNSECTION" >> "$XORGCONFFILE"
 echo "Echoed $SCRNSECTION to $XORGCONFFILE :Step 7" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+}
+_write_srceen_section
+
+_lower_vert_refresh(){
+#some monitors have a very high vertrefresh, and Xorg uses it, but it is too high...
+#v2.13b2 was 95, make it 85...
+##  Dougal: note that old code (line below) didn't work in my case: 50.0-160.0
+##  + seems like the ".0" gave it problems, so ended up with MAXVERT=""
+#MAXVERT=`echo -n "$VERTREFRESH" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
+MAXVERT=${VERTREFRESH#*-}; MAXVERT=${MAXVERT%.*}
+if [ $MAXVERT -gt 85 ]; then
+ #VPATTERN="s/${MAXVERT}$/85/g"
+ #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
+ echo "MAXVERT='$MAXVERT' gt 85 , setting it to 85" >> "$tmpDir"/xorgwizard.messages
+ VERTREFRESH=${VERTREFRESH/$MAXVERT/85}
+elif [ $MAXVERT -gt 74 ] && [ $MAXVERT -lt 86 ]; then #want to cut down rating on modern LCD panels also...
+   #and if manufactured in 2004 or later...
+   #(so older CRTs in this range maxvert 75-85 will get rejected)
+   if grep '^manufacture: ' "$tmpDir"/ddcprobe.txt | grep $Q -E ' 20[1-9][0-9]| 200[4-9]'; then
+    let LCDMAXVERT=MAXVERT-4
+
+    VERTREFRESH=${VERTREFRESH/$MAXVERT/$LCDMAXVERT}
+    echo "MAXVERT='$MAXVERT' in range between 75-85
+monitor manufactured later then year 2003
+lowering it by 4 to '$VERTREFRESH'" >> "$tmpDir"/xorgwizard.messages
+   fi
+fi
+}
+_lower_vert_refresh
+
+_set_horizsync_vertrefresh(){
 PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
 #horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
 cp $VERB -f "$XORGCONFFILE" "$tmpDir"/xorg.conf.tmp
-#APATTERN="s/HORIZSYNC0/$HORIZSYNC/g"
+
 echo "sed $HORIZSYNC $VERTREFRESH $PREFERREDMODE from
 $tmpDir/xorg.conf.tmp >$XORGCONFFILE :Step 8" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
 sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$tmpDir"/xorg.conf.tmp >"$XORGCONFFILE"   #v3.98 rerwin - added update of preferredmode.
-#BPATTERN="s/VERTREFRESH0/$VERTREFRESH/g"
 _sync
-#cat "$tmpDir"/xorg.conf.tmp2 | sed -e "$BPATTERN" > "$XORGCONFFILE"
-#_sync
-#rm $VERB -f "$tmpDir"/xorg.conf.tmp2
+}
+_set_horizsync_vertrefresh
 
+_add_alps_touchpad(){
 ## Dougal (v2.16??):
 ## Kirk's code for adding synaptics touchpads (or my version of it...)
 if grep -F $Q 'Alps' /proc/bus/input/devices; then
@@ -1333,9 +1290,12 @@ Section "Monitor"'
  # now replace:
  echo "sed $NEW1 $NEW2 $NEW3
  $XORGCONFFILE-without-synaptic >$XORGCONFFILE :Step 10" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
- sed "s%$OLD1%$NEW1%; s%$OLD2%$NEW2%; s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ; s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
 fi
+}
+_add_alps_touchpad
 
+_add_synaptics_touchpad(){
 if grep -F $Q 'Synaptics' /proc/bus/input/devices; then
  echo "Copying etc/X11/xorg.conf $XORGCONFFILE-without-synaptic :Step 11" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
  cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
@@ -1378,10 +1338,50 @@ Section "Monitor"'
 
  # now replace:
 
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ; s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
 fi
 ## end Kirk's code
+}
+_add_synaptics_touchpad
 
+_do_915resolution(){
+#v2.12
+#note, this code will have to go into 'xwin' also.
+#video bios may not offer the chosen resolution if it is widescreen.
+#for intel video there is a way to patch the video bios, but this
+#has to be run at every boot...
+if grep -F 'oem:' "$tmpDir"/ddcprobe.txt | grep $Q -F 'Intel'; then
+ #MYXYRES=`echo -n "$CHOSENRES" | cut -f 1-2 -d 'x'`
+ MYXYRES=${CHOSENRES%x*}
+ if ! grep $Q "$MYXYRES" "$tmpDir"/Xmodes.txt; then
+  #MYXRES=`echo -n "$CHOSENRES" | cut -f 1 -d 'x'`
+  #MYYRES=`echo -n "$CHOSENRES" | cut -f 2 -d 'x'`
+  MYXRES=${CHOSENRES%%x*}
+  MYYRES=${CHOSENRES%x*}; MYYRES=${MYYRES#*x}
+  #this is an app that patches video-bios, but in ram only...
+  915resolution 38 $MYXRES $MYYRES
+  #...replaces mode 38 (1024x768).
+  #create something for xwin to eecute...
+  echo "915resolution 38 $MYXRES $MYYRES" > /etc/resolutionfix
+ fi
+else
+ #in case plug usb or multisession-cd into different pc...
+ [ -f /etc/resolutionfix ] && rm $VERB -f /etc/resolutionfix
+fi
+}
+_do_915resolution
+}
+_video_resolution_choice
+
+_keep_variables(){
+#script also needs these max freqs later on in Tweak_refresh dialog
+MAXHORIZ=${HORIZSYNC#*-}   #; MAXHORIZ=${MAXHORIZ%.*}
+ MINVERT=${VERTREFRESH%-*} #; MINVERT=${MINVERT%.*}
+MINHORIZ=${HORIZSYNC%-*}   #; MINHORIZ=${MINHORIZ%.*}
+}
+_keep_variables
+
+_write_hardware_profile(){
 #v2.13 want a hardware profile so can bootup on different PCs...
    PROFILECHIP=`grep -m1 '^oem: ' "$tmpDir"/ddcprobe.txt     |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
  PROFILEVENDOR=`grep -m1 '^vendor: ' "$tmpDir"/ddcprobe.txt  |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
@@ -1396,71 +1396,6 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$tmpDir"/ddcprobe.txt  
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^dtiming: ' "$tmpDir"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$tmpDir"/ddcprobe.txt     | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' "$tmpDir"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-
-#bash-3.00# ddcprobe
-# vbe: VESA 3.0 detected.
-# oem: Intel(r)Q33/Q35/G33 Graphics Chip Accelerated VGA BIOS
-# vendor: Intel Corporation
-# product: Intel(r)Q33/Q35/G33 Graphics Controller Hardware Version 0.0
-# memory: 8128kb
-# mode: 1280x1024x256
-# mode: 1280x1024x64k
-# mode: 1280x1024x16m
-# mode: 1024x768x256
-# mode: 1024x768x64k
-# mode: 1024x768x16m
-# mode: 640x480x16m
-# mode: 800x600x64k
-# mode: 800x600x16m
-# mode: 640x480x256
-# mode: 800x600x256
-# mode: 640x480x64k
-# edid: ����������������������������������������������������������������
-# edidfail
-
-#bash-3.00# ddcprobe
-# vbe: VESA 3.0 detected.
-# oem: Intel(r)Q33/Q35/G33 Graphics Chip Accelerated VGA BIOS
-# vendor: Intel Corporation
-# product: Intel(r)Q33/Q35/G33 Graphics Controller Hardware Version 0.0
-# memory: 8128kb
-# mode: 1280x1024x256
-# mode: 1280x1024x64k
-# mode: 1280x1024x16m
-# mode: 1024x768x256
-# mode: 1024x768x64k
-# mode: 1024x768x16m
-# mode: 640x480x16m
-# mode: 800x600x64k
-# mode: 800x600x16m
-# mode: 640x480x256
-# mode: 800x600x256
-# mode: 640x480x64k
-# edid: 
-# edid: 48 57
-# id: ff00
-# eisa: @@@ff00
-# serial: 35304600
-# manufacture: 49 2042
-# input: composite sync, digital signal.
-# screensize: 10 32
-# gamma: 1.320000
-# dpms: non-RGB, active off, no suspend, no standby
-# timing: 720x400@88 Hz (XGA2)
-# timing: 640x480@60 Hz (VGA)
-# timing: 640x480@67 Hz (Mac II, Apple)
-# ctiming: 504x504@92
-# ctiming: 504x504@92
-# ctiming: 504x504@92
-# ctiming: 248x155@120
-# ctiming: 248x186@72
-# ctiming: 688x688@114
-# ctiming: 696x696@70
-# dtiming: 544x544@247
-# dtiming: 4095x4095@34
-# dtiming: 4095x4095@34
-# dtiming: 4095x4095@34
-
 
 KERNEL_RELEASE=`uname -r`
 V=`Xorg -version 2>&1|sed '/^$/d'`
@@ -1486,36 +1421,12 @@ echo "#Xorg Server Version :"
 echo "$CV"
 echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}"
 ) >> "$tmpDir"/xorg.conf.tmp
+}
+_write_hardware_profile
 
-
-#v2.12
-#note, this code will have to go into 'xwin' also.
-#video bios may not offer the chosen resolution if it is widescreen.
-#for intel video there is a way to patch the video bios, but this
-#has to be run at every boot...
-if grep -F 'oem:' "$tmpDir"/ddcprobe.txt | grep $Q -F 'Intel'; then
- #MYXYRES=`echo -n "$CHOSENRES" | cut -f 1-2 -d 'x'`
- MYXYRES=${CHOSENRES%x*}
- if ! grep $Q "$MYXYRES" "$tmpDir"/Xmodes.txt; then
-  #MYXRES=`echo -n "$CHOSENRES" | cut -f 1 -d 'x'`
-  #MYYRES=`echo -n "$CHOSENRES" | cut -f 2 -d 'x'`
-  MYXRES=${CHOSENRES%%x*}
-  MYYRES=${CHOSENRES%x*}; MYYRES=${MYYRES#*x}
-  #this is an app that patches video-bios, but in ram only...
-  915resolution 38 $MYXRES $MYYRES
-  #...replaces mode 38 (1024x768).
-  #create something for xwin to eecute...
-  echo "915resolution 38 $MYXRES $MYYRES" > /etc/resolutionfix
- fi
-else
- #in case plug usb or multisession-cd into different pc...
- [ -f /etc/resolutionfix ] && rm $VERB -f /etc/resolutionfix
-fi
-
-
- _get_driver_description(){
+_get_driver_description(){
 unset DESCR
-test "$*" || return 2
+test "$*" || return $?
 case $* in
 apm)           DESCR='Alliance ProMotion video driver';;
 ark)           DESCR='driver for ARK Logic chipset';;
@@ -1536,6 +1447,7 @@ glide)         DESCR='Glide video driver for Voodoo 1 and 2 boards';;
 glint)         DESCR='GLINT/Permedia video driver';;
 i128)          DESCR='Number 9 I128 Xorg video driver';;
 i740)          DESCR='Intel i740 video driver';;
+i810)          DESCR='Older Intel driver. Superseeded by "intel" driver';;
 impact)        DESCR='Impact video driver for SGI Indigo2';;
 imstt)         DESCR='Integrated Micro Solutions Twin Turbo 128 driver';;
 intel)         DESCR='Intel integrated graphics chipsets';;
@@ -1590,7 +1502,7 @@ esac
 }
 
 _adjust_card0_driver_entry(){
-test "$*" || return 3
+test "$*" || return $?
 #test -f "$XORGCONFFILE".d/Card0.conf || return 4
 test -f "$tmpDir"/Card0.conf || return 4
 
@@ -1620,6 +1532,7 @@ test $? = 0 && CARD0DRIVER="$*"
 #sed -i -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE"
 #test $? = 0 && CARD0DRIVER="$*"
 #test "$CARD0DRIVER1" = "$CARD0DRIVER"
+test "${CARD0DRIVER//[[:blank:]]/}"
 }
 
 _show_all_drivers(){
@@ -1675,7 +1588,7 @@ return $?;;
 1) #Cancel
 _debug "_show_all_drivers returned 1"
 return 1;;
-255|*) #ESC
+255|*) #ESC HELP EXTRA
 _debug "_show_all_drivers returned 255 or OTHER"
 exit 1;;
 esac
@@ -1683,11 +1596,9 @@ esac
 
 _split_xorg_conf_file(){
 #replacement for _split_sections()
-test -f "$*" || return 3
+test -f "$*" || return $?
 
-#rm $VERB -f "$XORGCONFFILE".d/*.conf
 rm $VERB -f "$tmpDir"/*.conf
-mkdir $VERB -p "$tmpDir"
 
 while read -r aLINE
 do
@@ -1698,7 +1609,7 @@ case $aLINE in
  Section*|'#Section'*) NEWSEC="$aLINE"; SEC=`echo "$aLINE" | cut -f2 -d'"'`;;
  EndSection|'#EndSection') NEWSEC="$NEWSEC
 $aLINE\n"
-#echo "$NEWSEC" >"$XORGCONFFILE".d/"$SEC".conf
+
 echo -e "$NEWSEC" >>"$tmpDir"/"$SEC".conf
 unset SEC NEWSEC
 ;;
@@ -1706,44 +1617,35 @@ unset SEC NEWSEC
   HAVE_SUBSEC=1
   case $aLINE in
   '# '*|'#	'*) #TAB
-   NEWSEC="$NEWSEC
-$aLINE"   ;;
+   NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
-   NEWSEC="$NEWSEC
-\t$aLINE"   ;;
+   NEWSEC="$NEWSEC\n\t$aLINE"   ;;
   esac
  ;;
  EndSubsection|'#EndSubsection')
  case $aLINE in
  '# '*|'#	'*) #TAB
- NEWSEC="$NEWSEC
-$aLINE" ;;
+ NEWSEC="$NEWSEC\n$aLINE" ;;
  *)
- NEWSEC="$NEWSEC
-\t$aLINE" ;;
+ NEWSEC="$NEWSEC\n\t$aLINE" ;;
  esac
  unset HAVE_SUBSEC ;;
  *)
    if test "$HAVE_SUBSEC"; then
    case $aLINE in
    '# '*|'#	'*) #TAB
-   NEWSEC="$NEWSEC
-$aLINE"   ;;
+   NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
-   NEWSEC="$NEWSEC
-\t\t$aLINE"   ;;
+   NEWSEC="$NEWSEC\n\t\t$aLINE"   ;;
    esac
    elif test "$NEWSEC"; then
    case $aLINE in
    '# '*|'#	'*) #TAB
-   NEWSEC="$NEWSEC
-$aLINE"   ;;
+   NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
-   NEWSEC="$NEWSEC
-\t$aLINE"   ;;
+   NEWSEC="$NEWSEC\n\t$aLINE"   ;;
    esac
    else
-    #echo "$aLINE" >>"$XORGCONFFILE".d/xorg.conf
      echo "$aLINE" >>"$tmpDir"/xorg.conf
    fi
 ;;
@@ -1756,7 +1658,7 @@ test -f "$tmpDir"/Device.conf
 
 _split_sections(){
 
-test -f "$XORGCONFFILE" || return 3
+test -f "$XORGCONFFILE" || return $?
 
 rm $VERB -rf "$XORGCONFFILE".d
 mkdir $VERB -p "$XORGCONFFILE".d
@@ -1823,7 +1725,7 @@ test -f "$tmpDir"/Card0.conf
 
 _split_device_section(){
 # split the device section
-test -f "$tmpDir"/Device.conf || return 3
+test -f "$tmpDir"/Device.conf || return $?
 c=-1
 while :
 do
@@ -1891,7 +1793,7 @@ done <<EoI
 EoI
 
 [ "$DEBUG" ] && echo "$DRIVERS_LIST" || true
-test "${DRIVERS_LIST// /}"
+test "${DRIVERS_LIST//[[:blank:]]/}"
 }
 
 _select_driver(){
@@ -1928,8 +1830,8 @@ case $? in 0) _debug "_select_driver:0:OK"; break;; #OK
   _show_all_drivers
   case $? in 0) return 9;; *) continue;; esac
   ;;
-2) _debug "_select_driver returned 2";;  #PROGRAM SYNTAX ERROR
-3) _debug "_select_driver returned 3";;  #Help
+2) _debug "_select_driver returned 2";;  #Help
+3) _debug "_select_driver returned 3";;  #Extra
 255|*) _notice "_select_driver returned 255 or OTHER"; exit 1;;
 esac
 [ "$DEBBUG" ] && cat "$tmpDir"/select_card && echo
@@ -2006,51 +1908,19 @@ test "$sedRV" = 0 -a "${CARD0DRIVER//[[:blank:]]/}"
 }
 
 _comment_all_section_device_in_xorg_conf(){
-test -s "$XORGCONFFILE" || return 3
+test -s "$XORGCONFFILE" || return $?
 
-#_get_total_line_nr(){
-# wc -l "$XORGCONFFILE" | awk '{print $1}'; }
-
-#_get_first_card_nr(){
-# grep -n -m1 -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | cut -f1 -d':'; }
-
-#_get_last_card_nr(){
-# grep -n -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | tail -n1 | cut -f1 -d':'; }
-
-#_get_first_section_decice(){
-#test "$fcnr" || return 3
-# head -n $fcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'; }
-
-#_get_first_endsection(){
-#test "$fes" || return 3
-# tail -n $fes "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | cut -f1 -d':'; }
-
-#_get_last_section_decice(){
-#test "$lcnr" || return 3
-# head -n $lcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'; }
-
-#_get_last_endsection(){
-#test "$les" || return 3
-# tail -n $les "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | tail -n1 | cut -f1 -d':'; }
-
-#tlnr=`_get_total_line_nr`
  tlnr=`wc -l "$XORGCONFFILE" | awk '{print $1}'`
-#fcnr=`_get_first_card_nr`
  fcnr=`grep -n -m1 -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | cut -f1 -d':'`
-#lcnr=`_get_last_card_nr`
  lcnr=`grep -n -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | tail -n1 | cut -f1 -d':'`
 
-#fsdnr=`_get_first_section_decice`
 test "$fcnr" && fsdnr=`head -n $fcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'`
-#lsdnr=`_get_last_section_decice`
 test "$lcnr" && lsdnr=`head -n $lcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'`
 
 fes=$((tlnr - fcnr))
 les=$((tlnr - lcnr))
 
-#fesnr=`_get_first_endsection`
 test "$fes" && fesnr=`tail -n $fes "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | cut -f1 -d':'`
-#lesnr=`_get_last_endsection`
 test "$les" && lesnr=`tail -n $les "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | tail -n1 | cut -f1 -d':'`
 
 fesnr=$((fcnr + fesnr))
@@ -2064,10 +1934,6 @@ _debug "lsdnr=$lsdnr"
 _debug " lcnr=$lcnr"
 _debug "lesnr=$lesnr"
 
-#_simple_comment_every_line(){
-# test "$fsdnr" -a "$lesnr" || return 3
-# sed -i "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"; }
-#_simple_comment_every_line
 test "$fsdnr" -a "$lesnr" && sed -i "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"
 }
 
@@ -2104,20 +1970,16 @@ sed -i 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
 }
 
 _ask_driver(){
-#_split_sections       || return 3
+
 _split_xorg_conf_file "$XORGCONFFILE" || return 3
 
-#_split_device_section || return 4
 _split_cards "$tmpDir"/Device.conf || return 4
 
 _make_driver_list     || return 5
 
-
 _select_driver
  case $? in
  9)
-    #_comment_all_section_device_in_xorg_conf_d_device
-    #return $?
     _rebuild_xorg_conf || return 10
     return 0;;
  0) :;;
@@ -2130,10 +1992,7 @@ case $RV in
 *) _err "_enable_card_conf returned $RV"; return 7;;
 esac
 
-#_comment_all_section_device_in_xorg_conf || return 8
 _rebuild_xorg_conf || return 8
-
-#_comment_all_section_device_in_xorg_conf_d_device || return 9
 }
 
 [ "$XAUTO" = 0 -o "$XAUTO" = 3 ] || { echo "XAUTO='$XAUTO' ,exiting."; exit $?; } #drop out to console.
@@ -2582,7 +2441,7 @@ $MSGPNP" 0 0 0 \
   #FUTURE: use xrandr above, to determine alternative lower frequencies.
 
   CHOSENVERT=`cat "$tmpDir"/tagvert.txt 2>>$ERR | tail -n1`
-  NEEDHORIZ=`gtf $XTEST $YTEST $CHOSENVERT | grep -o 'hsync: .*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
+   NEEDHORIZ=`gtf $XTEST $YTEST $CHOSENVERT | grep -o 'hsync: .*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
   let NEEDHORIZ=NEEDHORIZ+1 #compensate for rounding off error.
   aPATTERN="s/HORIZSYNC0/${HORIZSYNC}/g"
   if [ "$NEEDHORIZ" -gt ${MAXHORIZ%.*} ];then
@@ -2592,10 +2451,10 @@ $MSGPNP" 0 0 0 \
    fi
   fi
   sed -e "$aPATTERN" "$tmpDir"/xorg.conf.tmp > "$tmpDir"/xorg.conf.tmp2
-  BPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
+  bPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
   _sync
-  echo "sed $BPATTERN $tmpDir/xorg.conf.tmp2 to $XORGCONFFILE : Step 14" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
-  sed -e "$BPATTERN" "$tmpDir"/xorg.conf.tmp2 > "$XORGCONFFILE"
+  echo "sed $bPATTERN $tmpDir/xorg.conf.tmp2 to $XORGCONFFILE : Step 14" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+  sed -e "$bPATTERN" "$tmpDir"/xorg.conf.tmp2 > "$XORGCONFFILE"
   _sync
   rm $VERB -f "$tmpDir"/xorg.conf.tmp2
  else
