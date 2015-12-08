@@ -1,0 +1,2818 @@
+#!/bin/sh
+#(c) Copyright 2007 Barry Kauler, www.puppylinux.com
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#Aug 2007, init script in initramfs, for puppy v2.20, Sept: v3.00, Oct: v3.01
+#Nov 2007, v3.91: bugfix for humongous puppy.
+#dec 2007, v3.93: update for 2.6.24 kernel, no /dev/hd*. v3.94: bugfix.
+#v3.95 28dec07: load scsi_wait_scan.ko to fix sync problem with usb.
+#v3.95 1jan08: fix for renaming of pmedia ide/sata -> ata.
+#v3.96 26jan08: 2.6.24 kernel, remove scsi_wait_scan.ko and the delays.
+#v3.97 31jan2008: restore support for hd* drives.
+#v3.97 25feb2008: removed tmpfs on /tmp.
+#v3.97 5mar2008: handle SAVEMARK file (see universal installer and rc.shutdown).
+#v3.97 6mar2008: fix 'pfix=ram' for multisession cd/dvd.
+#v3.97 6mar2008: multisession, copy saved .sfs files to '/' in ram.
+#v3.98 3apr2008: partial fix, encrypted pup_save losetup failing.
+#v4.00 21apr2008: ntfs-3g upgraded v1.417 to v1.2412.
+#v4.00 26apr2008: slightly lowered threshold for copying pup_xxx.sfs to a tmpfs.
+#v4.00 27apr2008: k2.6.25: strange sync problem. try restore scsi_wait_scan. NO, DO NOT.
+#v4.01 7may2008: new system with all modules builtin to initrd, if ZDRVINIT='yes'
+#v4.02 31may2008: export ZDRVINIT in /etc/rc.d/PUPSTATE
+#v403 21jun08: reintroduce basic pcmcia support.
+#v403 23jun08: fix for humongous initrd.
+#v403 23jun08: fix boot from usb cd drive (classmate laptop).
+#v404 13Jul08: pfix=noram removed, now need pfix=copy to copy .sfs to ram.
+#v404 15jul08: prevent crash in PUPMODE 6,7PCOPY. add pfix=fsck, otherwise never do fsck.
+#v404 16jul08: fix for classmate with internal usb flash, PUPMODE now 13, not 12.
+#v405 18jul08: default is now aufs. maybe won't even have unionfs module.
+#v406 2aug08: restore support for old /dev/hd* ide devices.
+#v406 9aug08: copy pup_xxx.sfs to same place as pup_save if fast media.
+#v407 fix for module name change.
+#v410 fix to allow 3 extra sfs files (a bug only allowed 2).
+#v411 multisession, load saved /dev entries.
+#v412 simplified module loading.
+#v412 slight changes for new busybox v1.12.1.
+#v412 fix usb-storage probe bug.
+#v412 DISTRO_SPECS file. pup_xxx.sfs, zdrv_xxx.sfs renamed.
+#v412 bugfix, /tmp/versioncleanup got overwritten by tmpfs mounted on /tmp.
+#v412 bugfix, pup_ro6 was not created (for 3rd sfs file).
+#w001 DISTRO_FILE_PREFIX, pup files renamed again, to woofsave.2fs, woofr001.sfs.
+#w003 fix for loading yenta-socket module.
+#w003 changed default to copy woofr001.sfs to ram >256MB ram.
+#w003 /usr/sbin/snapmergepuppy now saves whiteout files to save-layer, change 'ro' to 'ro+wh'.
+#w004 LANG=C
+#w007 load nls_utf8.ko
+#w012 bugfix. w014 usb flash can now have iso9660 f.s.
+#w014 BootFlash utility can create 2 partitions in usb drive, one for boot, other for save.
+#w015 allow 6 extra sfs files, up from 3.
+#w019 pmedia=ataflash, PUPMODE=13 to constrain writes to drv.
+#w460 bugfixes for zdrv, new name zu500629.sfs, handling 6 extra sfs files (7 incl. zdrv).
+#w460 bugfix, boot usb, 1st shutdown was not offering to save session sometimes.
+#w464 tidyup, make sure /etc/puppyversion is history.
+#w468 load nls_cp850, now default for fat f.s. (2.6.29.2 kernel).
+#w476 mntfunc() rewritten, support 'pkeys' boot param (work in progress).
+#w478 modify sfs exclusion rules.
+#w479 fix finding optical drive for kernel with old ide drivers.
+#w481 record fast partitions, used by rc.shutdown.
+#w482 lowered limit for copy sfs to ram, so multisession will work in 256mb pc.
+#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid.
+#v423 problem recent kernels: hid-* extra drivers needed as well as usbhid.
+#v423 need to reject wrong squashfs version, 3.x or 4.0.
+#v424 BootManager no longer has checkbox to only load _nnn.sfs files.
+#v424 try again, fix tmpfs overwrites /tmp/versioncleanup
+#v424 whiteout processing for aufs2 fixed.
+#v426 pkeys=de caused failure to boot from vfat partition.
+#v426 record of layers needs to include zdrv.
+#v431 piratesmack: fix boot from ext4.
+#091031 support quirky, kernel with initramfs built-in, maybe also <main f.s.>.sfs.
+#091122 now have /lib/keymaps, /lib/consolefonts, load map if pkeys boot param.
+#091222 first support for recognising mmc/sd cards at bootup.
+#091225 copy executables from initrd to main f.s.
+#100113 TARGETEXES file needed in main f.s., for universal installer.
+#100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin.
+#100222 fix sync problem writing to BOOTCONFIG. technosaurus: consider very big puppies.
+#100318 fix any improper shutdowns. see /etc/rc.d/rc.sysinit, rc.shutdown, /sbin/init.
+#100323 hwclock path was wrong.
+#100401 fix so pupsave can be ext2, ext3 or ext4.
+#100406 latest patched aufs may allow sfs mntd one layer to be resident another layer.
+#100423 try yet again, fix tmpfs overwrites /tmp/versioncleanup
+#100427 despite the help inside the hwclock applet, it doesn't accept long-options.
+# 2010-05 TazOC updates for Lighthouse, changed /fsckme.err to /fsck.err
+#100516 TazOC fix redundant e2fsck if 'fsck' boot parm was used
+#100520 TazOC re-vamped copy sfs to RAM code to prevent kernel panics
+#100520 TazOC added 'pfix=nocopy' boot parm
+#100520 pkeys boot param wasn't working for 'uk', 'dvorak'.
+#100530 TazOC At version update/clean/purge--prompt before proceeding
+#100531 TazOC Refined timing of copy2ram & fsck by using full sleep w/ non-integer values
+#100710 if pupsave file is in a subdirectory, only look for extra sfs's in that subdirectory.
+#100711 modify above, look in top dir and in subdirectory.
+#100814 TazOC When displaying extra SFS adjust spacing by length of first SFS
+#100820 multisession shutdown may now relocate some content of /var to /root/.var_saved.
+#100823 TazOC symlinks may have incorrect modtime, so overwrite all @upgrade
+#100910 TazOC modprobe -q to clean up bootinit.log; @upgrade: rc.update wasn't run, include symlinks, remove '.wh..wh..opq' files, allow filenames with spaces, when displaying updates, erase last one before next one, when done, hit Enter instead of 30 sec pause.
+#100916 TazOC changed fsck.err to fsck.flg to avoid confusion.
+#100921 TazOC Sort extra SFS files by basename so that names that begin with a numeral are layered above others
+#101013 puppy.sfs was copied to tmpfs so can unmount partition.
+#101021 avoid finding vmlinuz on hd when booting from cd.
+#101031 TazOC More steps reported in /initrd/tmp/bootinit.log
+#101101 TazOC Verbose mount of Linux host part with mount-FULL
+#101115 TazOC Resize bug: increase sleeps after resizing pupsave
+#101127: pakt: A precfg area for faster re-mastering, no need to regenerate a .SFS.
+#101127 added some debugging into /tmp. Will end up in /initrd/tmp after bootup.
+#101127 force update of /proc/partitions (slow to update for usb).
+#101203 TazOC updated cp in initrd and added librt, libm, libpthread, support precfg in PSUBDIR, preserve date stamp, copy in one step, display precfg file count. Layer in zWine*_NNN.sfs at /pup_ro3 (if no zdrv)
+#101216 TazOC Check for 'no media found' in optical drive. gcmartin reported that 2nd optical drive w/no disc gave red error 32, removed that o/p. Support pfix=noram (same as nocopy.)
+#101218 if boot from cd with 'pfix=ram', do not search other drives (do not want to load puppy.sfs off hd).
+#101219 TazOC -Layer extra SFS from boot media ex: Mariner & LibreOffice SFS in Mariner ISO
+# 'pfix=sfs' boot parms & brief prompt to configure extra SFS, or default to using all SFS
+# specified in BOOTCONFIG and, if sufficient free mem, copy them to ram, even at first boot.
+#110106 TazOC Added optional fbcon and dependencies to allow 800x600 CL with 'vga=788' on kernel line and 'pfix=fbcon' boot parm to enable. Switched from new free for copy2ram test for zWine and extra SFS, to total RAMSIZE--as with main file, but subtracting for each copy2ram.
+#110111 TazOC SFS boot options override those in BOOTCONFIG set by updated LHP BootManager
+#110113 TazOC If unencrypted savefile <15% free, fsck. <5% free, resize +64MiB
+#110118 TazOC bugfix: encrypted savefile missed return code
+#110122 TazOC PUPMODE 77: only if booting from CD->pmedia boot parm contains 'cd'
+#110122                   ensure files copied from multi-session CD/DVD are writable
+#110124       drblock2 requested accept y/z input for qwertz keyboards
+#110124 TazOC bugfix: booting from usbflash did not offer to create savefile if bootable CD was present
+#110127 TazOC allow relative symlink to an extra SFS
+#110220 TazOC Increased free ram headroom when copying extra SFS to ram
+#110326 TazOC bugfix: Q5sys found encrypted savefile not fully resized if incorrect password entered on first try. Also pfix=fsck now works on encrypted savefiles.
+#110401 At upgrade check for presence of an updated extra SFS and load it instead
+#110521 Incorporated some earlier SWAPFILE updates, /tmp size fix http://bkhome.org/blog/?viewDetailed=02301
+#110706 Keep defaultbrowser, etc. at upgrade. Refined #110401 SFS update check
+#110804 TazOC load lat1-14.psfu fontmap if PKEYS not specified or PKEYS=us
+#110907 TazOC gcmartin reported console cut-off at bottom, so revert #110804
+#  Restrict SFS to squashfs, ver 4. Kernel 3.0.3 updates. Track boot time in seconds.
+#  Try again if savefile losetup fails. Speed up boot with acpi-performance governor.
+#  Wait after losetups, layertest to fix aufs errors. Added /bin/file to initrd.
+#  If no pfix=fsck, check if save file needs recovery with /bin/file.
+#111002 TazOC pfix=pure64 - skip loading of zWine SFS
+#111102 TaZoC Fixed bug in mntfunc ret code and improved load save file error msgs
+#111116 TaZoC precfg copy bugfix. <6% free, fsck & resize +64MiB
+#111127 TaZoC Kernel panic bugfix. Display pfix and pdev1 options with boot title.
+#             Tweaked copy2ram_progress_func. Skip zWine if built in a remaster.
+#111219 TaZoC Fix extra SFS not loading on reboot PUPMODE=77. .wh. fix. Subtract delays
+#  for various prompts, upgrade etc. from from estimated boot time.
+
+#Unionfs layers setup by this script...
+#unionfs layers:            RW (top)      RO1             RO2              PUPMODE
+#full install, flash drive: tmpfs         PDEV1                            3
+#First boot (or pfix=ram):  tmpfs                         pup_xxx.sfs      5
+#pup_save is a partition:   PDEV1                         pup_xxx.sfs      6
+#ditto, but flash drive:    tmpfs         PDEV1           pup_xxx.sfs      7
+#Normal running puppy:      pup_save.3fs                  pup_xxx.sfs      12
+#ditto, but flash drive:    tmpfs         pup_save.3fs    pup_xxx.sfs      13
+#Multisession cd/dvd:       tmpfs         folders(tmpfs2) pup_xxx.sfs      77 (13+64)
+
+#/bin/hotplug2stdout_notimeout > /tmp/pup_event_uevents_initrd &
+
+export LANG=C #w004
+SAVEFILE_PERCENT_FREE_MIN=6 #110113 TazOC % below which automatic resize of unencrypted savefile occurs #111116
+
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+[ ! $DISTRO_MINOR_VERSION ] && DISTRO_MINOR_VERSION=00 #091031
+
+PATH="/bin:/sbin"
+export LD_LIBRARY_PATH="/lib" #100530 TazOC
+
+KERNELVER="`uname -r`"
+KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
+#SFSSTR='squashfs, version 3' #v423
+SFSSTR='squashfs, version 4' #v423 #110907
+#[ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4' #v423
+
+#w020 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+
+#091031 compose name of quirky kernel...
+zDISTRO_FILE_PREFIX="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1-4`"
+zDISTRO_BINARY_COMPAT="`echo -n "$DISTRO_BINARY_COMPAT" | cut -c 1`"
+QUIRKYKERNEL="${zDISTRO_FILE_PREFIX}${DISTRO_VERSION}.${zDISTRO_BINARY_COMPAT}${DISTRO_MINOR_VERSION}"
+
+[ $layerfs ] && LAYERFS=$layerfs
+[ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
+[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+
+[ $loglevel ] && LOGLEVEL=$loglevel #v2.22
+#PUPPYVERSION=`cat /PUPPYVERSION`
+#kernel with /proc/ide...
+#pmedia= usbflash|usbhd|usbcd|ideflash|idehd|idecd|idezip|satahd|satacd|scsihd|scsicd|cd
+#kernel without /proc/ide (libata PATA)...
+#pmedia= usbflash|usbhd|usbcd|ataflash|atahd|atacd|atazip|scsihd|scsicd|cd
+[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: sda3
+[ $psubdir ] && PSUBDIR=$psubdir #boot parameter, directory for puppy files. ex: puppy220
+[ $pkeys ] && PKEYS=$pkeys #boot parameter, keyboard layout w476
+
+#now supporting a boot menu...
+RDSH=""
+if [ "$pfix" ];then
+ for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
+ do
+  case $ONEFIX in
+   ram)          PRAMONLY="yes";; #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
+   rdsh)         RDSH="yes";;     #exit to shell in initial ramdisk.
+   rdsh0)        RDSH="0";;       #drop out early, before loading drivers.
+   rdsh6)        RDSH="6";;       #w091027 drop out just before mount layerfs.
+   fbcon)        FBCON="yes";; #load frame buffer console, req. vga=788 on kernel line #110106 TazOC
+   nox)          PNOX="yes";;     #do not start X.
+   clean)        PCLEAN="yes";;   #force version upgrade and cleanup.
+   purge)        PPURGE="yes";;   #radical cleanup for broken system.
+   copy)         PCOPY="yes";;    #copy .sfs files into ram.
+   nocopy|noram) PCOPY="no";;     #prefer not to copy .sfs files into ram. #101216 TazOC
+   sfsauto)      PSFSAUTO="yes";PSFSCFG="";PNOSFS="";; #no prompt to configure; auto-load .sfs #101219 TazOC  
+   sfscfg)       PSFSAUTO="";PSFSCFG="yes";PNOSFS="";; #configure extra .sfs loading w/o prompting #101219 TazOC 
+   nosfs)        PSFSAUTO="";PSFSCFG="";PNOSFS="yes";; #no prompt to cfg; no extra .sfs loaded #101219 TazOC
+   pure64|Pure64)PNOWINE="yes";; #111002 TazOC don't load zWine SFS and built-in 32-bit libs
+   fsck)         PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
+   [0-9]*)       PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+  esac
+ done
+fi
+
+# TazOC Console color assignments
+gray="\\033[1;30m"    # gray
+red="\\033[1;31m"    # red
+dkgreen="\\033[0;32m" # green
+green="\\033[1;32m"   # bold green
+yellow="\\033[1;33m"  # bold yellow
+blue="\\033[1;34m"    # bold blue
+dkpurple="\\033[0;35m"  # bold purple
+purple="\\033[1;35m"  # bold purple
+cyan="\\033[1;36m"    # bold cyan
+white="\\033[1;37m"   # bold white
+bg_blue="\\033[1;44m" # blue background
+bg_green="\\033[1;42m" # green background
+bg_white="\\033[1;47m" # white background
+NC="\\033[0;39m"       # no color (white)
+
+fsck_progress_func(){ # something to look at while waiting...
+ usleep 165000
+ while [ "`pidof e2fsck`" -o "`pidof resize2fs`" -o "`pidof sleep`" ]; do #110326 added pidof resize2fs
+  PROGRESS='| / - \\ | / - \\ | / - \\ | / - \\ | / - \\'
+  for ONECHAR in `echo "$PROGRESS"`; do
+   [ "`pidof e2fsck`" = "" -a "`pidof sleep`" = "" ] && break
+   echo -en " ${purple}${ONECHAR}${NC} " >/dev/console
+   usleep 200000 # .2 sec
+   echo -en "\b\b \b\b" >/dev/console # backspace & erase
+  done
+ done
+ 
+} # End fsck_progress_func
+
+copy2ram_progress_func(){ # a little more fun...
+ usleep 165000
+ while [ "`pidof cp`" ]; do
+  PROGRESS='. . : : | / - \\ | / - \\ | / - \\ | / - \\ | / - \\ | / - \\ | : : . . c c o o p p y y i i n n g g . 2 2 . . o O o . . R R R A A M M \* ^ \* ^ \* ^ \* ^ \b \b'
+  for ONECHAR in `echo "$PROGRESS"`; do
+   [ "`pidof cp`" = "" ] && break
+   echo -en " ${purple}${ONECHAR}${NC} " >/dev/console
+   usleep 200000 # .2 sec
+   echo -en "\b\b  \b\b\b" >/dev/console # backspace & erase
+  done
+ done
+ 
+} # End copy2ram_progress_func
+
+#100318 perform a f.s. check...
+fsck_func() { #passed params: partition filesystem [pupsavefile]
+ case $2 in
+  ext2|ext3|ext4)
+   sync; sleep .3 #110326 TazOC
+   sh -c "e2fsck -y -f /dev/$1 >>/tmp/check-ext-fs.log 2>&1 &" # TazOC
+   #if [ "${1}" = "loop1" ];then
+   echo -en " ${purple}e2fsck${NC}" >/dev/console
+   #fi
+   fsck_progress_func
+   sync; sleep .5 &
+   fsck_progress_func
+   sh -c "resize2fs -pf /dev/$1 >>/tmp/check-ext-fs.log 2>&1 &" # TazOC
+   sync; sleep .5 &
+   fsck_progress_func
+  ;;
+ esac
+ if [ $3 ];then
+  #rc.shutdown has created /fsck.err with this 3rd parameter.
+  #this is a pupsave file, which has a ext2/3/4 f.s (based on .2fs, .3fs, .4fs ext)
+  #this flag will be set for any prior improper shutdown. if have lots of installations
+  #of puppy on the pc, the flag may not even be for this install of puppy, however, this is
+  #the simplest implementation... #100916 TazOC changed to fsck.flg
+  PFSCK="yes"
+ fi
+} # End fsck_func
+
+mntfunc() {
+ MNT_T="$1"    #ex: vfat
+ MNT_DEV="$2"  #ex: /dev/sda1
+ MNT_DIR="$3"  #ex: /mnt/sda1
+ MNT_O=""
+ [ $4 ] && MNT_O="${4}" #ex: noatime
+ OPT_MNT_RES="" #101216 TazOC Optical mount results
+ case $MNT_T in
+  ntfs)
+   ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw 2>/dev/null #default is rw
+   ntfsRETVAL=$?
+   [ $ntfsRETVAL -eq 0 ] && return 0
+   if [ $ntfsRETVAL -eq 14 ];then
+    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
+    echo -e "\\033[1;31m" >/dev/console #31=red
+    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount" > /dev/console
+    echo -e "\\033[0;39m" >/dev/console
+    return 14
+   else
+    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force 2>/dev/null
+   fi
+  ;;
+  vfat)
+   mount -t $MNT_T -o $VFAT_OUT_PARAM $MNT_DEV $MNT_DIR
+  ;;
+  iso9660) #101216 TazOC check for 'no media found' in optical drive
+   if [ "$MNT_O" = "" ];then
+    OPT_MNT_RES=`mount-FULL -t $MNT_T $MNT_DEV $MNT_DIR 2>&1`
+   else
+    OPT_MNT_RES=`mount-FULL -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR 2>&1`
+   fi
+  ;;
+  *)
+   if [ "$MNT_O" = "" ];then
+    mount-FULL -t $MNT_T $MNT_DEV $MNT_DIR #101101 TazOC mount-FULL
+   else
+    mount-FULL -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR #101101 TazOC mount-FULL
+   fi
+  ;;
+ esac
+ MNT_RET=$? #111102
+ sync
+ return $MNT_RET
+} # End mntfunc
+
+umntfunc() { # warning umntfunc call must have mntpt param, not device name.
+ LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+ if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
+  umount $@ 2>/dev/null
+ else
+  fusermount -z -u $LASTPARAM 2>/dev/null
+  [ $? -ne 0 ] && umount $@ #111127 TaZoC
+ fi
+ MNT_RET=$? #111102
+ sync
+ return $MNT_RET
+}
+
+check_status(){
+
+  /bin/echo -en "\\033[76G" >/dev/console #move to column 72 #110113 TazOC 76
+  if [ $1 -eq 0 ]
+  then
+    /bin/echo -en "\\033[1;32mdone" >/dev/console
+    /bin/echo -e "\\033[0;39m" >/dev/console
+  else
+    /bin/echo -en "\b\b\\033[1;31mfailed $1" >/dev/console #110113 TazOC
+    /bin/echo -e "\\033[0;39m" >/dev/console
+    echo -en "\\033[1;35m" >/dev/console #35=purple
+    echo -n "Dumping last lines of /tmp/bootinit.log..." >/dev/console
+    /bin/echo -e "\\033[0;39m" >/dev/console
+    echo -en "\\033[1;31m" >/dev/console #31=red
+    cat /tmp/bootinit.log | tail -n 4 >/dev/console
+    /bin/echo -en "\\033[0;39m" >/dev/console
+    echo -en "\\033[1;35m" >/dev/console #35=purple
+    echo -n "Dumping last lines of kernel log..." >/dev/console
+    /bin/echo -e "\\033[0;39m" >/dev/console
+    echo -en "\\033[1;31m" >/dev/console #31=red
+    dmesg | tail -n 4 >/dev/console
+    /bin/echo -en "\\033[0;39m" >/dev/console
+    #exit to initial ramdisk shell...
+    [ "$RDSH" != "" ] && exec /bin/sh >/dev/console 2>&1
+    echo "Pausing for 60 seconds..." >/dev/console
+    sleep 60
+  fi
+} # End check_status function
+
+savefile_free_func(){ #110113 TazOC Calculate current savefile %free
+sync; usleep 165000
+SAVEFILETOTAL=`df -h /dev/loop1 | grep loop1 | tr -s ' ' | cut -f2 -d' '`
+SAVEFILEPERCENTUSED=`df -h /dev/loop1 | grep loop1 | tr -s ' ' | cut -f5 -d' ' | tr -d '%'` #110113 TazOC new section to remedy full savefile
+SAVEFILEPERCENTFREE=$((100 - $SAVEFILEPERCENTUSED))
+}
+
+ram_free_func(){ #100814 TazOC Calculate current available free ram
+#RAMFREEK=`free | grep 'Mem:' | tr -s ' ' | cut -f 5 -d ' '` # ex: 10240
+RAMFREEK=`grep MemFree /proc/meminfo | awk '{print $2}'` #110907 ex: 10240
+RAMFREESHOWM="`expr $RAMFREEK \/ 1024`M" # ex: 10M
+}
+
+find_extra_sfs_func() { # 101219 TazOC find all the extra sfs files in boot media, top level or in /PSUBDIRBASE...
+
+if [ "$PNOSFS" != "yes" ]; then # Boot parm--no extra SFS at all
+ [ "$SMNTPT" != "" ] && SFSSDIR="$SMNTPT"
+ [ $PUPMODE -eq 77 ] && SFSSDIR="$CDMNTPT" #111219 TaZoC
+ [ "$SFSSDIR" = "" ] && SFSSDIR="$PUPSFSDEVMNTPT"
+ export SFSSDIR="$SFSSDIR"
+
+ if [ "${PSUBDIRBASE}" != "" ]; then
+  FINDSFS="`ls -A1 ${SFSSDIR}/${PSUBDIRBASE}/*.sfs ${SFSSDIR}/*.sfs 2>/dev/null`"
+ else 
+  FINDSFS="`ls -A1 ${SFSSDIR}/*.sfs 2>/dev/null`"
+ fi
+ [ $PUPMODE -eq 77 ] && FINDSFS="`ls -A1 ${SFSSDIR}/*.sfs ${DESTDIR}/*.sfs 2>/dev/null`" #111219 TaZoC
+ 
+ for ONEEXTRA in `echo "$FINDSFS" | tr ' ' '\n'`
+ do
+  [ ! -e "$ONEEXTRA" ] && continue 
+  ONEBASE="`basename $ONEEXTRA`" # Filter out main files, invalid SFS files
+  exPATTERN="^z|^pup|^spup|^lupu|^lupq|^fd64|^qrky|^wary|^inpu|^LHP|^${DISTRO_FILE_PREFIX}"
+  [ "`echo "$ONEBASE" | grep -E "$exPATTERN"`" ] && continue # excl z*, main file
+  exPATTERN="_[0-9][0-9][0-9].sfs" # if name ends with _nnn.sfs, nnn must be
+  if [ "`echo "$ONEBASE" | grep -E "$exPATTERN"`" ]; then # $DISTRO_VERSION
+   if [ -z "`echo "$ONEBASE" | grep -E "_${DISTRO_VERSION}.sfs"`" ]; then
+    echo "${ONEEXTRA}" >> /tmp/EXTRASFSOTHERVER && continue  #110401 Might need these when upgrading
+   fi
+  fi
+  [ "`grep "$ONEBASE" /tmp/EXTRASFSS`" ] && continue # avoid loading duplicates.
+  # TazOC let's reject wrong squashfs version...
+  [ "`disktype $ONEEXTRA | grep "$SFSSTR"`" = "" ] && continue
+  echo "${ONEEXTRA}" >> /tmp/EXTRASFSS
+ done
+fi
+
+} # End find_extra_sfs_func
+
+sort_extra_sfs_func() { #101219 TazOC Sort sfs files by basename so that names that begin with a numeral are layered above others
+
+if [ -s /tmp/EXTRASFSS ]; then 
+ cat /tmp/EXTRASFSS | while read ONEEXTRA
+ do
+  echo "`basename $ONEEXTRA`" >> /tmp/EXTRASFSSBASE
+ done
+ 
+ echo -en "`cat /tmp/EXTRASFSSBASE | sort -i`\n" > /tmp/EXTRASFSSBASE
+
+ cat /tmp/EXTRASFSSBASE | while read ONEBASE
+ do
+  cat /tmp/EXTRASFSS | grep "$ONEBASE" >> /tmp/EXTRASFSSORTED
+ done
+fi
+} # End sort_extra_sfs_func 100921
+
+configure_sfs_func() { #101219 TazOC Select from available SFS add-ons
+
+PUPMODE=$1; EXTRASFSLIST="$2"; COPYEXTRASFS2RAM="$3"
+[ "$PNOSFS" = "yes" ] && return # pfix=nosfs: no prompt to cfg; no extra .sfs loaded
+[ ! -s /tmp/EXTRASFSSORTED ] && return # none found on boot media
+
+if [ "$COPYEXTRASFS2RAM" = "" ]; then #101219 TazOC
+   [ "$PCOPY" = "yes" -o "$COPY2RAM" = "yes" -o $PUPMODE -eq 77 ] && COPYEXTRASFS2RAM="yes" #101219 TazOC
+   [ "$PCOPY" = "no" ] && [ $PUPMODE -ne 77 ] && COPYEXTRASFS2RAM="no" #101219 TazOC
+fi
+
+[ $PUPMODE -eq 77 ] && COPYEXTRASFS2RAM="yes" #acc. bootmanager, mode 77--SFS must copy2ram
+export COPYEXTRASFS2RAM="$COPYEXTRASFS2RAM"
+
+# EXTRASFSLIST is stored in /etc/rc.d/BOOTCONFIG. A few are pre-selected for first boot in Lighthouse. After pupsave creation, EXTRASFSLIST is configured either by BootManager, or this boot-time configuration.
+if [ "$EXTRASFSLIST" != "" ]; then
+ BOOTTIMEHOLD=`date +%s` #111219
+ # precaution: sort EXTRASFSLIST, removing duplicates and invalid files
+ EXTRASFSLIST="`echo "$EXTRASFSLIST" | tr ' ' '\n' | sort -iu | tr '\n' ' ' | sed 's% $%%'`"
+ SEL_CNT=0
+ for ONEBASE in `echo $EXTRASFSLIST` # ex: 5-Mariner-5G_502.sfs
+ do
+  ONENAME="`basename $ONEBASE .sfs`" #110401 ex: 5-Mariner-5G_502
+  # Filter out any main files and z*
+  exPATTERN="^z|^pup|^spup|^lupu|^lupq|^fd64|^qrky|^wary|^inpu|^LHP|^${DISTRO_FILE_PREFIX}" #w478 101219 TazOC
+  [ "`echo "$ONEBASE" | grep -E "$exPATTERN"`" != "" ] && continue #110401
+  exPATTERN="_[0-9][0-9][0-9].sfs" # if name ends with _nnn.sfs, nnn should be
+  if [ "`echo "$ONEBASE" | grep -E "$exPATTERN"`" ]; then # _$DISTRO_VERSION #110401
+   if [ -z "`echo "$ONEBASE" | grep -E "_${DISTRO_VERSION}.sfs"`" ]; then #110401 ver. mismatch
+   
+    #110401 New section -----------------------------------------------------#
+    # Check for presence of an updated SFS and load it instead
+    OLD_VER_STR="`echo $ONENAME | sed -e "s%.*_\([0-9][0-9][0-9]\)%_\1%"`" # ex: _502
+    NEW_ONEBASE="`echo $ONEBASE | sed -e "s%$exPATTERN%_${DISTRO_VERSION}.sfs%"`" # ex: 5-Mariner-5G_503.sfs
+    ONENAME_WO_VER="`echo $ONEBASE | sed -e "s%$exPATTERN%%"`" # ex: 5-Mariner-5G
+    if [ -n "`grep -E "$NEW_ONEBASE" /tmp/EXTRASFSSORTED`" ]; then
+     # Found new version, use it if not already selected
+     if [ -z "`echo "$EXTRASFSLIST" | grep "$NEW_ONEBASE"`" ]; then #110706
+      ONEBASE="$NEW_ONEBASE"
+     else continue
+     fi
+     #echo -en "\n Using updated ${cyan}$ONEBASE ${NC}instead. ${cyan}Press ${bg_white}${gray} Enter ${NC}${cyan} to continue.${NC}" >/dev/console
+     #read WAIT_FOR_INPUT
+    elif [ -n "`grep -E "$ONEBASE" /tmp/EXTRASFSOTHERVER`" ]; then # Found other version...
+     echo -e "\n ${cyan}Note: The ${red}$OLD_VER_STR ${NC}in ${red}$ONEBASE ${NC}suggests it may be outdated. Please obtain\n   the new version ${white}$ONENAME_WO_VER${cyan}_${DISTRO_VERSION}${NC}.sfs and place it in ${cyan}/mnt/home/${PSUBDIRBASE}${NC}." >/dev/console
+     if [ $DISTRO_VERSION -gt $OLDDISTRO_VERSION ]; then # Distro version upgrade
+      echo -en "   (Will load the old version ${cyan}this session only${NC}.) ${cyan}Press ${bg_white}${gray} Enter ${NC}${cyan} to continue.${NC}" >/dev/console
+      read WAIT_FOR_INPUT
+     else # Not an upgrade, notify and skip old version...
+      echo -en "   ${cyan}Removing ${red}$ONEBASE ${cyan}from the list of selected add-ons.\n   Press ${bg_white}${gray} Enter ${NC}${cyan} to continue.${NC}" >/dev/console
+      read WAIT_FOR_INPUT
+      continue
+     fi
+    else continue # SFS not found, skip
+    fi
+    #110401 End of new section ---------------------------------------------#
+    
+   fi
+  fi
+  if [ "${PSUBDIRBASE}" ] && [ -e "${SFSSDIR}/${PSUBDIRBASE}/$ONEBASE" ]; then
+   echo "${SFSSDIR}/${PSUBDIRBASE}/$ONEBASE" >>/tmp/EXTRASFSCURRENT
+  elif [ -e "${SFSSDIR}/$ONEBASE" ]; then echo "${SFSSDIR}/$ONEBASE" >>/tmp/EXTRASFSCURRENT
+  elif [ -e "${DESTDIR}/$ONEBASE" ]; then echo "${DESTDIR}/$ONEBASE" >>/tmp/EXTRASFSCURRENT #111219 TaZoC
+  else continue
+  fi
+  ONENAME="`basename $ONEBASE .sfs`"
+  SEL_CNT=$(($SEL_CNT + 1)); NEWLINE=""
+  [ $SEL_CNT -eq 3 ] && NEWLINE="\n" && SEL_CNT=0
+  SELECTIONS="${SELECTIONS} ${ONENAME} ${NEWLINE}"
+ done
+ 
+fi
+
+[ "$PSFSAUTO" ] && echo >/dev/console
+RET=0; INPUT=""
+if [ ! "$PSFSAUTO" -a ! "$PSFSCFG" ]; then # prompt if no pfix=sfscfg boot parms
+ echo -en "\n ${cyan}Press ${bg_white}${gray} Enter ${NC}${cyan} within 5 seconds to select and configure SFS add-ons.${NC}" >/dev/console
+ read -t 5 INPUT # -t is timeout in secs
+ RET=$?
+ [ $RET -ne 0 ] && echo >/dev/console
+fi
+
+if [ ! "$PSFSAUTO" ] && [ "$PSFSCFG" -o $RET -eq 0 -o "$INPUT" != "" ]; then # launch full configuration
+ [ "$PSFSCFG" ] && echo >/dev/console
+ DONE_SELECTING=0
+ if [ "${SELECTIONS}" != "" ]; then
+  INPUT=""
+  echo -e " Here is the current SFS list:\n${green}${SELECTIONS}${NC}\n Press ${bg_white}${gray} R ${NC} to re-select and scan for new ones, or ${bg_white}${gray} C ${NC} to continue with these." >/dev/console
+  while [ ! "`echo "$INPUT" | grep -i -E 'c|r'`" ]; do
+   echo -en " ${cyan}Re-select or Continue?${NC} r/c " >/dev/console
+   read INPUT
+  done
+  [ "`echo "$INPUT" | grep -i 'c'`" ] && DONE_SELECTING=1
+ fi
+  
+ while [ $DONE_SELECTING -eq 0 ]; do
+  rm -f /tmp/EXTRASFSCURRENT; SELECTIONS=""; SEL_CNT=0
+  echo -en " For each SFS add-on, press ${bg_white}${gray} Y ${NC} to use it this session, or ${bg_white}${gray} N ${NC} to skip it:" >/dev/console
+  for ONEEXTRA in `cat /tmp/EXTRASFSSORTED | tr '\n' ' '`
+  do
+   INPUT=""
+   ONEBASE="`basename $ONEEXTRA`"
+   echo >/dev/console
+   #110124 drblock2 requested y/z for qwertz keyboards as keybd wiz hasn't run, maybe not pkeys either
+   while [ ! "`echo "$INPUT" | grep -i -E 'y|z|n'`" ]; do # accept only y,n,Y or N #110124 z,Z
+    echo -en " $ONEBASE? y/n " >/dev/console
+    read -n 1 INPUT # -n 1 accepts only 1 character, then returns
+   done
+   echo -en "\b\b\b\b\b\b\b" >/dev/console
+   if [ "`echo "$INPUT" | grep -i -E 'y|z'`" ]; then #110124 y,Y,z,Z
+    echo "$ONEEXTRA" >> /tmp/EXTRASFSCURRENT
+    echo -en " ${green}y${NC}     " >/dev/console # display green 'y'
+    ONENAME="`basename $ONEBASE .sfs`"
+    SEL_CNT=$(($SEL_CNT + 1)); NEWLINE=""
+    [ $SEL_CNT -eq 3 ] && NEWLINE="\n" && SEL_CNT=0
+    SELECTIONS="${SELECTIONS} ${ONENAME} ${NEWLINE}"
+   else echo -n " n     " >/dev/console
+   fi
+  done
+  
+  INPUT=""
+  echo -e " OK, here are the selected add-ons:\n${green}${SELECTIONS}${NC}\n Press ${bg_white}${gray} C ${NC} to continue, or ${bg_white}${gray} R ${NC} to re-select and make changes." >/dev/console
+  while [ ! "`echo "$INPUT" | grep -i -E 'c|r'`" ]; do
+   echo -en " ${cyan}Continue or Redo?${NC} c/r " >/dev/console
+   read INPUT
+  done
+  [ "`echo "$INPUT" | grep -i 'c'`" ] && DONE_SELECTING=1
+ done
+ 
+ if [ $PUPMODE -ne 77 -a -s /tmp/EXTRASFSCURRENT ]; then
+  INPUT=""; echo >/dev/console
+  echo -e " Would you like to copy these to RAM, (slower boot, faster running)?\n
+ Press ${bg_white}${gray} R ${NC} for RAM if you are booting from fast media, such as an internal\n hard drive, or if you might need to unmount the boot media. If you are booting\n from CD or USB Flash, you might prefer ${bg_white}${gray} M ${NC} for a standard SFS mount. Even\n choosing ${bg_white}${gray} R ${NC} will mount instead if there is not enough free RAM to copy. In\n this case it is possible that some files will copy2ram and the rest mount." >/dev/console
+  while [ ! "`echo "$INPUT" | grep -i -E 'r|m'`" ]; do
+   echo -en " ${purple}Copy SFS files to RAM?${NC} r/m " >/dev/console
+   read INPUT
+  done
+  if [ "`echo "$INPUT" | grep -i 'r'`" ]; then
+   COPYEXTRASFS2RAM="yes"
+  else COPYEXTRASFS2RAM="no"
+  fi
+ else [ $PUPMODE -eq 77 ] && COPYEXTRASFS2RAM="yes" # $PUPMODE 77, forced copy
+ fi
+ export COPYEXTRASFS2RAM #110111 TazOC
+
+fi
+#echo >/dev/console
+#111219 Subtract delay in SFS prompt and configuration from estimated boot time...
+[ ! -z $BOOTTIMEHOLD ] && BOOTTIMEHOLD=$((`date +%s` - $BOOTTIMEHOLD))
+[ ! -z $BOOTTIMEHOLD ] && [ $BOOTTIMEHOLD -gt 0 ] && echo -n $((`head -1 /tmp/boottime` + $BOOTTIMEHOLD)) >/tmp/boottime
+} # End configure_sfs_func
+
+layer_extra_sfs_func() { #101219 TazOC Layer SFS from RAM if COPYEXTRASFS2RAM="yes" and sufficient free, else mount in place
+CNTLOOP=$1; ONEBASE="$2"; ONEEXTRA="$3"; COPYEXTRASFS2RAM="$4"
+
+ONEBASELNK="$ONEBASE" #110127 in case ONEEXTRA is a relative link
+if [ -L "$ONEEXTRA" ]; then #110127 can be a symlink, but must be a relative link
+ ONEEXTRADIR="`dirname "$ONEEXTRA"`" #110127
+ [ ! -f "${ONEEXTRADIR}/"`readlink "$ONEEXTRA"`"" ] && return 1 #110127
+ ONEEXTRA="${ONEEXTRADIR}/"`readlink "$ONEEXTRA"`"" #110127 need the target
+ ONEBASE="`basename "$ONEEXTRA"`" #110127
+fi
+
+#precaution: make sure ONEEXTRA exists
+[ -d "$ONEEXTRA" ] || [ ! -e "$ONEEXTRA" ] && echo " not found" && return 1 #110127
+
+SIZEONEBASEK=`du -k "$ONEEXTRA" | cut -f 1`
+SIZEONEBASEK=$(($SIZEONEBASEK * 100 / 99)) #some slack.
+SIZEONEBASEK=$(($SIZEONEBASEK * 16 / 5)) #110220 6/5 -> 21/10 #111127 16/5
+MINRAM2CPY=$SIZEONEBASEK #111127
+if [ "$SWAPPART" = "" ];then
+ MINRAM2CPY=$(($SIZEONEBASEK + 96000)) # TazOC no swap, need more RAM
+fi
+echo -en " min to copy: `expr $MINRAM2CPY \/ 1024`M free: `expr $RAMSIZE \/ 1024`M..." #100520 TazOC
+if [ $RAMSIZE -gt $MINRAM2CPY ] && [ "$COPYEXTRASFS2RAM" = "yes" ]; then #110106
+ echo " copying to RAM."
+ mkdir -p /mnt/tmpfs${CNTLOOP}
+ mount -t tmpfs -o size=${SIZEONEBASEK}k tmpfs /mnt/tmpfs${CNTLOOP}
+ sync; sleep .1
+ cp -af "$ONEEXTRA" /mnt/tmpfs${CNTLOOP} &
+ copy2ram_progress_func
+ export RAMSIZE=$(($RAMSIZE - $SIZEONEBASEK)) #110106
+ echo -en " ${purple}R${NC}" >/dev/console # R=copy2ram
+ sync; sleep .1
+ losetup /dev/loop${CNTLOOP} /mnt/tmpfs${CNTLOOP}/${ONEBASE}
+ LOOP_RET=$? #110127
+ ONEBASE="$ONEBASELNK" #110127 in case ONEEXTRA is a relative link, record it in BOOTCONFIG later
+ return $LOOP_RET #110127
+else # mount in place
+ ONEBASE="$ONEBASELNK" #110127
+ echo -en " M" >/dev/console # M=mounted in place
+ echo " mounting."
+ sync
+ losetup /dev/loop${CNTLOOP} $ONEEXTRA
+ return $?
+fi
+
+} # End layer_extra_sfs_func 
+
+space_sfs_col2_func() { #100814 TazOC when displaying extra SFS, adjust column spacing by length of SFS in col 1
+COLUMN1_LEN=$1 # Length of SFS name in column 1 ex:'5-Voyager-5D.sfs': 16
+
+SPACECNT=`expr 31 - $COLUMN1_LEN` #110127 changed 31 to 30 #110821 31
+echo -n " " >/dev/console
+while [ $SPACECNT -gt 0 ]; do
+ echo -n " " >/dev/console
+ SPACECNT=`expr $SPACECNT - 1`
+done
+
+}
+
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t rootfs -o remount,rw rootfs /
+ln -s /proc/mounts /etc/mtab #resize2fs,e2fsck need this.
+
+#for backwards naming compatibility... ex: idehd becomes atahd 101021: atacd,scsicd,usbcd to become just cd...
+PMEDIA="`echo -n "$PMEDIA" | sed -e 's%ide%ata%' -e 's%sata%ata%' -e 's%.*cd$%cd%'`"
+clear
+
+export TZ='XXX-23' #100318 imaginary place right around the world east of Greenwich.
+#...i think that this will give the most delayed time, so any file operations
+#will not result in a future date after the correct time is set in the main puppy f.s.
+#ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
+#/bin/hwclock --hctosys --localtime #set system time (based on hw clock set to local time).
+#100427 crap, despite the help inside the hwclock applet, it doesn't accept long-options...
+/bin/hwclock -s -l #set system time (based on hw clock set to local time).
+
+date +%s >/tmp/boottime #110907 TazOC track boot time in seconds
+[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootinit.log 2>&1 #remove o/p from console. v2.22 loglevel added.
+touch /tmp/check-ext-fs.log; touch /tmp/bootsecs.log #110907 TazOC
+
+PFIXMSG="" #111127 TaZoC
+[ "$pdev1" ] && PFIXMSG="$PFIXMSG pdev1=$pdev1"
+[ "$pfix" ] && PFIXMSG="$PFIXMSG pfix=$pfix"
+
+# TazOC Nice colors to start off
+echo -e "                     ${bg_white}${blue}  Starting $DISTRO_NAME ${DISTRO_VERSION}  ${NC}${dkpurple}${PFIXMSG}${NC}" >/dev/console #110124 TazOC
+echo "Booting $DISTRO_NAME $DISTRO_VERSION ${PFIXMSG}" #110124 TazOC
+
+#110106 TazOC log boot parms
+cat /proc/cmdline | cut -f -5 -d ' '; cat /proc/cmdline | cut -f 6- -d ' '
+
+#110907 TazOC If kernel has acpi-ondemand built-in, switch to performance during boot...
+if [ -d /sys/devices/system/cpu/cpufreq/ondemand ]; then
+ cd /sys/devices/system/cpu
+ for i in `ls -d1 cpu[0-9]*`; do
+  echo performance > $i/cpufreq/scaling_governor
+ done
+ [ $? -eq 0 ] && echo 'Temporarily enabling cpufreq-performance scaling governor for faster boot.'
+fi
+
+#does this initrd have all the zdrv components inside it?...
+ZDRVINIT='no'
+[ `wc -l /lib/modules/$KERNELVER/modules.dep  | tr -s ' ' | cut -f 2 -d ' '` -gt 200 ] && ZDRVINIT='yes'
+
+#091122 load keyboard layout if PKEYS boot param...
+STATUS=0
+VFAT_OUT_PARAM='shortname=mixed,quiet'
+FONTMAP=""
+CODEPAGE=""
+KMAP=""
+if [ "$PKEYS" ];then
+ if [ ! -f /lib/keymaps/${PKEYS}.gz ];then
+  PKEYS="`ls -1 /lib/keymaps/${PKEYS}*.gz | head -n 1 | rev | cut -f 1 -d '/' | cut -f 2 -d '.' | rev`"
+ fi
+ echo "Loading '${PKEYS}' keyboard layout..." >/dev/console
+ if [ -f /lib/keymaps/${PKEYS}.gz ];then
+  KMAP="$PKEYS"
+  zcat /lib/keymaps/${PKEYS}.gz | loadkmap ; STATUS=$(($STATUS + $?))
+  case $PKEYS in #note, same code in /etc/rc.d/rc.country, /usr/sbin/input-wizard and init.
+   de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|pt*)
+    modprobe nls_cp850
+    FONTMAP="lat1-12.psfu"
+    CODEPAGE="850"
+    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=850'
+   ;;
+   cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
+    modprobe nls_cp852
+    modprobe nls_iso8859-2
+    FONTMAP="lat2-12.psfu"
+    CODEPAGE="852"
+    VFAT_OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
+   ;;
+   us) #110804 TazOC
+    #FONTMAP="lat1-14.psfu"
+    FONTMAP="" #110907 TazOC
+   ;;
+   *) #110804 TazOC
+    FONTMAP="LatArCyrHeb-14.psfu" # The widest coverage console font that I know of
+   ;;
+ 
+  esac
+  if [ -n "$FONTMAP" ];then #100520 fix syntax error...
+   zcat /lib/consolefonts/${FONTMAP}.gz | loadfont
+   STATUS=$(($STATUS + $?))
+  fi
+ else
+  STATUS=1
+ fi
+ check_status $STATUS
+#else
+# [ ! -s /etc/fontmap ] && echo -n "lat1-14.psfu" > /etc/fontmap #110804 TazOC
+# zcat /lib/consolefonts/$(cat /etc/fontmap).gz | loadfont #110804 TazOC
+fi
+
+[ "$RDSH" = "0" ] && exec /bin/sh >/dev/console 2>&1 #w091222
+
+#modprobe fscache #110907
+#modprobe cachefiles #110907
+if [ "$FBCON" = "yes" ]; then #110106 TazOC
+ modprobe fbcon
+ [ $? -eq 0 ] && echo "Frame buffer console modules (fbcon) loaded."
+fi
+
+###################LOAD MODULES TO ACCESS DRIVES#####################
+
+echo -n "Loading drivers needed to access disk drives..." > /dev/console #STEP ONE
+echo -en "\nLoading drivers needed to access disk drives..."
+
+#100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin...
+[ "`modinfo floppy 2>/dev/null`" != "" ] && modprobe -q floppy #101216 TazOC -q to quiet
+[ "`modinfo psmouse 2>/dev/null`" != "" ] && modprobe psmouse
+
+#w462 if present, load it. enables recognition of drives attached to parallel port.
+[ "`modinfo ppa 2>/dev/null`" != "" ] && modprobe ppa #also loads parport.ko
+
+ELSPCI="`elspci -l`" #jesses great little utility.
+#v403 pcmcia drive support. i think this may need extra delay though...
+if [ "`echo "$ELSPCI" | grep '060700'`" != "" ];then
+ #modprobe rsrc_nonstatic #100603 TazOC
+ #modprobe yenta_socket
+ #...may have to add on a couple of seconds, need to test with a pcmcia drive.
+ #v412 yeah, my pccard-usb adaptor needs delay before elspci recognises 0C0310 (ohci-hcd) interface...
+ sleep 2
+fi
+#v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
+# this is contrary to my understanding all these years, but oh well, let's do it...
+if [ "`echo "$ELSPCI" | grep '0C0320'`" != "" ];then
+ modprobe ssb  #100603 TazOC
+ modprobe usbcore  #100603 TazOC
+ modprobe ehci-hcd
+fi
+
+MODALIASES="`cat /sys/bus/pci/devices/*/modalias`" #important, save to variable before loop.
+for ONEMODALIAS in $MODALIASES
+do
+  modprobe -q $ONEMODALIAS #-v means verbose.#100910 TazOC -q to quiet numerous FATAL errors in bootinit.log
+  [ $? -eq 0 ] && echo -n "." > /dev/console
+done
+
+#091222 some mmc/sd interfaces need this...
+#(above code loop may have loaded sdhci/sdhci_pci or tifm_core/tifm_7xx1)
+[ "`lsmod | grep '^sdhci'`" != "" ] && modprobe mmc_core && modprobe mmc_block
+[ "`lsmod | grep '^tifm'`" != "" ] && modprobe mmc_core && modprobe mmc_block && modprobe tifm_sd
+modprobe squashfs
+if [ -e /proc/ide ];then #v3.97
+ modprobe cdrom
+ modprobe ide-cd
+fi
+#modprobe sr_mod > /dev/null 2>&1 #v3.93 now built-in to 2.6.25.x kernel. # TazOC
+
+#ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`"
+ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
+
+echo -n "$ATADRIVES" > /ATADRIVES #w479 for testing purposes if crash to console.
+
+if [ "`lsmod | grep -E '^uhci|^ohci|^ehci'`" != "" ];then
+  modprobe -q usb-storage & #run as separate process #101216 TazOC -q to quiet
+  WAITUSB="yes"
+  mount -t usbfs none /proc/bus/usb
+
+  #v423 problem recent kernels: kernel configured to load hid-* extra drivers when
+  #usbhid loads, but it doesn't work. Most unfortunate. Note, older kernels have the
+  #hid-* (drivers for specific hardware, like Logitech wireless keyboard) builtin to
+  #the usbhid driver. Now that they are separated out, it is a headache. Try this...
+  /bin/hotplug2stdout_notimeout >/tmp/uevents.log &
+  PIDHOT=$!
+  modprobe usbhid #for a usb keyboard.
+fi
+
+#v3.95 driver now builtin to libata pata kernel...
+if [ -e /proc/ide ];then #v3.97
+ #ide zip or ide ls-120 drive?...
+ [ ! "`dmesg | grep "ATAPI FLOPPY"`" = "" ] && modprobe ide-floppy
+fi
+
+#filesystems...
+modprobe nls_cp437     #needed by windows filesystems.
+modprobe nls_iso8859-1 #needed by linux filesystems.
+#modprobe nls_utf8 #w007
+#modprobe nls_cp850 #w468 now default for fat f.s. (2.6.29.2 kernel)
+modprobe exportfs #needed for aufs with nfs fatdog
+modprobe $LAYERFS #unionfs or aufs.
+if [ $? -ne 0 ];then #100531 TazOC
+ echo -en "\n${red}Kernel module $LAYERFS failed to load. Dropping out to initial-ramdisk console...${NC}" >/dev/console
+ exec /bin/sh >/dev/console 2>&1
+fi
+modprobe fuse #for ntfs-3g driver.
+
+if [ "$WAITUSB" = "yes" ];then #wait for device to register.
+ #101127 very troublesome... bump up to 3...
+ #v3.94 Classmate laptop, needs more delay here... no, further down...
+ sleep 3 #2 v403 bumped it up to 3. v412 try 1sec again.
+ USBSTORAGES=0 ; CNTUSB=0
+ while [ $USBSTORAGES -eq 0 ];do
+  echo -n "." > /dev/console
+  sleep 1
+  CNTUSB=`expr $CNTUSB + 1`
+  [ $CNTUSB -gt 20 ] && break
+  #v412 bug, ubuntu kernel, got duplicate 'device found at 2', need 'sort -u'...
+  USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l | sed -e 's/ //g'`
+  #if booting from usb, USBSTORAGES must be non-zero...
+  [ "`echo "$PMEDIA" | grep 'usb'`" != "" ] && [ $USBSTORAGES -eq 0 ] && continue
+  [ $USBSTORAGES -eq 0 ] && break
+  AVAILABLEUSBSTORAGES=`/bin/dmesg | grep "usb-storage: device scan complete" | wc -l | sed -e 's/ //g'`
+  [ $USBSTORAGES -ne $AVAILABLEUSBSTORAGES ] && USBSTORAGES=0
+ done
+ [ $USBSTORAGES -ne 0 ] && sleep 1 #v412 was needed for classmate. was 2, try 1sec.
+
+ #v423 load hid-* driver...
+ for ONEHID in `grep -o 'MODALIAS=hid:[^ ]*' /tmp/uevents.log | cut -f 2 -d '=' | tr '\n' ' '`
+ do
+  modprobe -q $ONEHID #100910 TazOC -q to quiet numerous FATAL errors in bootinit.log
+ done
+ kill $PIDHOT
+
+fi
+
+#101127 note about extra sleeps:
+#testing quirky 1.4, booting from cd, save-file on usb (hd). i found even with initial 'sleep 3'
+#still got CNTUSB=3. it shows up in /sys/block, but the partitions /sys/block/*/ and /proc/partitions
+#take a very long time to show up... kernel: 2.6.31.14. i think more recent kernels have improved timing.
+
+#101127 wait for usb partitions to become available...
+echo -en "${green}usb${NC}" >/dev/console
+echo -en "\nWaiting for usb partitions..."
+CNTUSB2=$CNTUSB
+SDDRVS="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
+for ONEDRV in $SDDRVS
+do
+ #[ "`echo -n "$ATADRIVES" | grep "$ONEDRV"`" != "" ] && continue
+ [ "`readlink /sys/block/${ONEDRV} | grep '/usb[0-9]/'`" = "" ] && continue #not usb.
+ while [ ! -e /sys/block/${ONEDRV}/${ONEDRV}1 ];do
+  echo -en "\\033[1;32m.\\033[0;39m" >/dev/console #red dot #TazOC no, green!
+  sleep 1
+  CNTUSB2=$(($CNTUSB2+1))
+  echo -n " ${CNTUSB2}"
+  [ $CNTUSB2 -gt 5 ] && break
+ done
+ #force update of /proc/partitions...
+ dd if=/dev/${ONEDRV} of=/dev/null bs=512 count=1 >/dev/null 2>&1
+done
+#echo "USBSTORAGES=$USBSTORAGES AVAILABLEUSBSTORAGES=$AVAILABLEUSBSTORAGES CNTUSB=$CNTUSB PROBEDRVS=$PROBEDRVS CNTUSB2=$CNTUSB2" > /tmp/usb-drives-probe #101127 for debugging.
+echo "USBSTORAGES=$USBSTORAGES AVAILABLEUSBSTORAGES=$AVAILABLEUSBSTORAGES CNTUSB=$CNTUSB CNTUSB2=$CNTUSB2" > /tmp/usb-drives-probe #101127 for debugging.
+
+check_status 0 #END STEP ONE
+##############END MODULE LOADING TO ACCESS DRIVES####################
+
+#######################FINDING PUPPY FILES###########################
+echo -n "Locating main file and session files..." > /dev/console #STEP TWO # TazOC
+echo -e "\nLocating main file and session files..."
+#locate all partitions (and superfloppy drives)...
+PCPARTSALL="`probepart_init -k`"
+PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'iso9660|ext2|ext3|ext4|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's%/dev/%%'`" #ex: sda1|vfat
+LESSPARTS0="$PCPARTS0"
+PCPARTS="`echo "$PCPARTS0" | tr "\n" " "`" #note, will have a space char on end.
+
+#want separate lists of all internal (fast) partitions, and slow (usb) partitions...
+FASTPARTS=""
+PCPARTS0_NOCDS="`echo "$PCPARTS0" | grep -v '^sr'`" #w014 removed 'iso9660' test as now usb flash can have it.
+#w479 ...not good enough. extra check for old kernel with ide drivers...
+if [ -e /proc/ide ];then #w479
+ OLDCDDRV="`echo "$PCPARTS0" | grep 'iso9660' | grep '^hd' | cut -f 1 -d '|' | head -n 1`"
+ [ "$OLDCDDRV" != "" ] && PCPARTS0_NOCDS="`echo "$PCPARTS0_NOCDS" | grep -v "$OLDCDDRV"`"
+fi
+SLOWPARTS0="$PCPARTS0_NOCDS" #not right, but will eliminate wrong ones.
+#v3.97 last section superfluous for libata PATA kernel...
+for ONEFAST in $ATADRIVES `cat /proc/partitions | grep "hd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
+do
+ APATTERN="^${ONEFAST}"
+ FASTPARTS="${FASTPARTS}`echo "$PCPARTS0_NOCDS" | grep "$APATTERN" | tr '\n' ' '`"
+ SLOWPARTS0="`echo "$SLOWPARTS0" | grep -v "$APATTERN"`"
+done
+FASTPARTS0="`echo "$FASTPARTS" | tr -s ' ' | tr ' ' '\n'`"
+SLOWPARTS="`echo "$SLOWPARTS0" | tr '\n' ' '`"
+CDPARTS0="`echo "$PCPARTS0" | grep -E '^sr|^hd' | grep 'iso9660'`" #w014 w479
+CDPARTS="`echo "$CDPARTS0" | tr '\n' ' '`"
+
+#need to narrow the search...
+if [ "$PMEDIA" ];then #kernel boot param
+ case $PMEDIA in
+  usbflash|usbhd) #impose restriction to only probe usb drives...
+   for ONEATA in $ATADRIVES
+   do
+    LESSPARTS0="`echo "$LESSPARTS0" | grep -v "$ONEATA"`"
+   done
+  ;;
+  cd) #101021
+   [ "$PRAMONLY" = "yes" ] &&  LESSPARTS0="`echo "$LESSPARTS0" | grep '^sr'`" #101218 do not search other drives.
+  ;;
+  *)
+   #note: a mistake if have PDEV1 on usb booting, as it can change.
+   if [ "$PDEV1" ];then #kernel boot param.
+    LESSPARTS0="`echo "$LESSPARTS0" | grep "${PDEV1}|"`"
+   fi
+  ;;
+ esac
+fi
+LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
+echo "$PCPARTSALL" > /tmp/PCPARTSALL #101127 for debugging.
+echo "$LESSPARTS0" > /tmp/LESSPARTS0 #101127 for debugging.
+echo "$PCPARTS0" > /tmp/PCPARTS0 #110124 TazOC for debugging.
+
+#find puppy files in the pc...
+touch /tmp/PUPPYFILES
+[ "$PFSCK" = "yes" -a "`echo $LESSPARTS | grep 'ext'`" ] && echo -en " ${purple}e2fsck${NC}" >/dev/console # TazOC
+IGNORE=''
+for ONETRY in $LESSPARTS
+do
+ FND_FULLINSTALL=""
+ ONEDEV="`echo -n "$ONETRY" | cut -f 1 -d '|'`"
+ ONEFS="`echo -n "$ONETRY" | cut -f 2 -d '|'`"
+ ONEDRVL="`echo -n "$ONEDEV" | sed -e 's/[0-9]*$//'`" #101021 exs: sda sr
+ [ "$ONEDRVL" = "$IGNORE" ] && continue #ignore optical if boot partition found. 101021
+
+ # 2009-2 TazOC Check ext2/3/4 drives before mounting
+ if [ "$PFSCK" = "yes" -a "`echo $ONEFS | grep 'ext'`" ]; then
+  echo "Performing filesystem check on /dev/$ONEDEV..." >>/tmp/check-ext-fs.log
+  echo "Performing filesystem check on /dev/$ONEDEV..." 
+  echo -en " ${purple}/dev/${ONEDEV}${NC}" >/dev/console
+  sh -c "e2fsck -y /dev/${ONEDEV} >>/tmp/check-ext-fs.log 2>&1 &"
+  fsck_progress_func
+  sync; sleep 1 &
+  fsck_progress_func
+  sh -c "resize2fs -pf /dev/${ONEDEV} >>/tmp/check-ext-fs.log 2>&1 &" # TazOC
+  sync; sleep 1 &
+  fsck_progress_func
+ fi
+
+ #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
+ mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+ RETVAL=$?
+ [ "`echo $OPT_MNT_RES | grep 'no medium found'`" ] && continue #101216 TazOC skip optical drive w/no media
+ if [ $RETVAL -ne 0 ]; then
+  echo "First mount of /dev/$ONEDEV on /mnt/data failed, return code $RETVAL trying again..." #101101 TazOC 
+  sleep 5 & #2 wasn't enough.
+  fsck_progress_func 
+  mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+  RETVAL=$? 
+  [ "`echo $OPT_MNT_RES | grep 'no medium found'`" ] && continue #101216 TazOC skip optical drive w/no media
+  if [ $RETVAL -ne 0 ]; then
+   #echo >/dev/console #101101 TazOC #101216 console warning removed: files might be on another device
+   #echo -e "${red}Mount of /dev/$ONEDEV failed, return code $RETVAL${NC}" >/dev/console #101101 TazOC #101216 
+   echo "RETRY FAILED: mounting /dev/${ONEDEV}, ${ONEFS} f.s., return code $RETVAL"
+   continue 
+  else echo "Second mount of /dev/$ONEDEV successful."
+  fi
+ fi
+ echo "ONEDEV=$ONEDEV ONEFS=$ONEFS ONEDRVL=$ONEDRVL PSUBDIR=$PSUBDIR" >> /tmp/puppy-file-search.log #101127 for debugging.
+  
+ [ -f /mnt/data/etc/puppyversion ] && FND_FULLINSTALL="/etc/puppyversion" #pre-w464 installations.
+ [ -f /mnt/data/etc/DISTRO_SPECS ] && FND_FULLINSTALL="/etc/DISTRO_SPECS"
+ FND_QUIRKYKERNEL="`find /mnt/data -maxdepth 2 -xdev -type f -name ${QUIRKYKERNEL} | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_INITRDGZ="`find /mnt/data -maxdepth 2 -xdev -type f -name initrd.xz | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ #v3.01 '*' means zero or more extra characters. this is for custom naming...
+ FND_PUPXXXSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_ZDRVSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${ZDRVSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_PUPSAVE2FS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}save*.[234]fs | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_SWAPFILEPUP="`find /mnt/data -maxdepth 2 -xdev -type f -name pupswap.swp | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ #v2.22 improved folder name search, avoid false hits...
+ FND_MULTIFOLDER="`find /mnt/data -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ [ "$FND_MULTIFOLDER" != "" ] && echo "$ONEDEV $ONEFS $FND_MULTIFOLDER" >> /tmp/MULTIFOLDERS
+ #all written on one line...
+ echo -n "$ONEDEV $ONEFS " >> /tmp/PUPPYFILES
+ echo "FND_QUIRKYKERNEL $FND_INITRDGZ $FND_PUPXXXSFS $FND_ZDRVSFS $FND_PUPSAVE2FS $FND_MULTIFOLDER $FND_FULLINSTALL $FND_SWAPFILEPUP" >> /tmp/PUPPYFILES
+ [ -f /mnt/data/SAVEMARK ] && PSAVEMARK="`cat /mnt/data/SAVEMARK`" #v3.97 partition# that has or will-have ${DISTRO_FILE_PREFIX}save.
+ #100318 fix any improper shutdowns... fsck.flg format: sda7,ext3,[/pupsave.2fs] (see rc.shutdown)
+ FSCK="" #100916 TazOC changed to fsck.flg
+ [ -f /mnt/data/fsck.flg ] && FSCK="`cat /mnt/data/fsck.flg | tr ',' ' ' | tr '\n' ' '`" && echo "Improper shutdown detected on $FSCK." #101031 TazOC
+ rm -f /mnt/data/fsck.flg # TazOC
+ 
+ umntfunc /mnt/data
+ [ "$FSCK" -a "$PFSCK" != "yes" ] && fsck_func "$FSCK" #100516 TazOC
+done
+
+#in case PSUBDIR boot param (path of puppy files), filter...
+if [ "$PSUBDIR" ];then
+ SPATTERN="/${PSUBDIR}/"
+ PUPPYFILES="`grep "$SPATTERN" /tmp/PUPPYFILES | head -n 1 | tr -s ' '`" #v3.00...
+ if [ "$PUPPYFILES" ];then
+  PDEV1="`echo -n "$PUPPYFILES" | cut -f 1 -d ' '`" #v3.01
+  DEV1FS="`echo -n "$PUPPYFILES" | cut -f 2 -d ' '`" #v3.01
+  xpupfiles="`echo -n "$PUPPYFILES" | cut -f 3-99 -d ' ' | tr ' ' '\n' | grep "$SPATTERN" | tr '\n' ' '`" #v3.01
+  PUPPYFILES="$PDEV1 $DEV1FS $xpupfiles"
+ fi
+else
+ PUPPYFILES="`cat /tmp/PUPPYFILES | tr -s ' '`"
+fi
+echo "$PUPPYFILES" > /tmp/PUPPYFILES
+
+#a humongous initrd has ${DISTRO_FILE_PREFIX}rxxx.sfs inside it...
+if [ -f /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs ];then
+ #and maybe also ${ZDRVSFS}...
+ if [ -f /${ZDRVSFS} ];then
+  echo "rootfs rootfs /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs /${ZDRVSFS}" >> /tmp/PUPPYFILES
+ else
+  echo "rootfs rootfs /${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs" >> /tmp/PUPPYFILES
+ fi
+ PUPPYFILES="`cat /tmp/PUPPYFILES`" #v3.91
+fi
+
+if [ ! "$PDEV1" ];then #091031 quirky
+ QUIRKYPART="`grep "$QUIRKYKERNEL" /tmp/PUPPYFILES | head -n 1`"
+ if [ "$QUIRKYPART" != "" ];then
+  PDEV1="`echo -n "$QUIRKYPART" | cut -f 1 -d ' '`"
+  DEV1FS="`echo -n "$QUIRKYPART" | cut -f 2 -d ' '`"
+ fi
+fi
+
+if [ ! "$PDEV1" ];then
+ #note, if 'psubdir' defined, PDEV1 already found above.
+ #if only one line in /tmp/PUPPYFILES has initrd.xz then that must be the boot partition...
+ #w460 need extra test to avoid other initrd.xz's...
+ SRCH1="`grep '/initrd\\.xz' /tmp/PUPPYFILES`" #111127 TaZoC
+ if [ "`echo "$SRCH1" | wc -l`" = "1" ];then
+  PDEV1="`echo -n "$SRCH1" | cut -f 1 -d ' '`"
+ else
+  uPATTERN='/'"${DISTRO_FILE_PREFIX}\\-${DISTRO_VERSION}\\.sfs"
+  SRCH2="`echo "$SRCH1" | grep "$uPATTERN"`"
+  if [ "`echo "$SRCH2" | wc -l`" = "1" ];then
+   PDEV1="`echo -n "$SRCH2" | cut -f 1 -d ' '`"
+  else
+   #v2.20b or, if boot from cd, look for the iso9660 f.s...
+   ISITACD="`echo -n "$PMEDIA" |  grep 'cd'`"
+   if [ "$ISITACD" != "" ]; then
+    [ "`grep '/initrd\\.xz' /tmp/PUPPYFILES | grep ' iso9660 ' | wc -l`" = "1" ] && PDEV1="`grep '/initrd\\.xz' /tmp/PUPPYFILES | grep ' iso9660 ' | cut -f 1 -d ' '`" #111127 TaZoC
+   else #110124 TazOC or rule out cd...
+    [ "`grep '/initrd\\.xz' /tmp/PUPPYFILES | grep -v ' iso9660 ' | wc -l`" = "1" ] && PDEV1="`grep '/initrd\\.xz' /tmp/PUPPYFILES | grep -v ' iso9660 ' | cut -f 1 -d ' '`" #111127 TaZoC
+   fi
+  fi
+ fi
+fi
+
+if [ "$PDEV1" -a ! "$PSAVEMARK" ];then #w014
+ #new BootFlash utility can create 128MB boot partition, 2nd partition for pupsave...
+ devnameonly="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//'`"
+ pdPATTERN='/dev/'"$PDEV1"'|'
+ pdSIZEK=`echo "$PCPARTSALL" | grep "$pdPATTERN" | cut -f 3 -d '|'`
+ if [ $pdSIZEK -lt 139264 ];then #136MB
+  p1PATTERN='/dev/'"$devnameonly"'1|'
+  p2PATTERN='/dev/'"$devnameonly"'2|'
+  devnumonly="`echo -n "$PDEV1" | sed -e 's/sd[a-z]//'`"
+  [ "$devnumonly" = "1" ] && [ "`echo "$PCPARTSALL" | grep "$p2PATTERN"`" != "" ] && PSAVEMARK="2" #USB-HDD or ISO9660.
+  [ "$devnumonly" = "4" ] && [ "`echo "$PCPARTSALL" | grep "$p1PATTERN"`" != "" ] && PSAVEMARK="1" #USB-ZIP or ComboFormat.
+ fi
+fi
+if [ "$PDEV1" -a "$PSAVEMARK" ];then #v3.97
+ devnameonly="`echo -n "$PDEV1" | sed -e 's/[0-9]*$//'`"
+ PUPSAVEDEV="${devnameonly}${PSAVEMARK}" #partition that has or will-have ${DISTRO_FILE_PREFIX}save.2fs.
+fi
+
+echo "Finding ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs and ${DISTRO_FILE_PREFIX}save files..." #101031 TazOC
+#find ${DISTRO_FILE_PREFIX}-xxx.sfs and ${DISTRO_FILE_PREFIX}save.2fs files...
+touch /tmp/PUPXXXSFSS
+touch /tmp/PUPSAVE2FSS
+NUMPARTS=`wc -l /tmp/PUPPYFILES | tr -s ' ' | cut -f 2 -d ' '`
+case $NUMPARTS in
+ 0) #nothing found.
+  echo -en "\\033[1;31m" >/dev/console #31=red
+  echo -n "No Puppy files found. Dropping out to initial-ramdisk console..." >/dev/console
+  /bin/echo -e "\\033[0;39m" >/dev/console
+  exec /bin/sh >/dev/console 2>&1
+  ;;
+ *) #files in one or more partitions.
+  echo "$PUPPYFILES" |
+  while read ONELINE
+  do
+   #ONELINE has part., f.s., then all puppy files found in that partition, space-delimited.
+   #each line written to file has format: hda7,ext3,path/filename...
+   ONEDEV="`echo -n "$ONELINE" | cut -f 1 -d ' '`" #ex: hda7
+   ONEFS="`echo -n "$ONELINE" | cut -f 2 -d ' '`"  #ex: ext3
+   LINEFILES="`echo -n "$ONELINE" | cut -f 3-99 -d ' '`" #ex: /pup220/${DISTRO_FILE_PREFIX}save.2fs /pup220/${DISTRO_FILE_PREFIX}r220.sfs
+   APATTERN="/${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.*\\.sfs"
+   for ONEPUPXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$APATTERN" | tr '\n' ' '`
+   do
+    echo "$ONEDEV,$ONEFS,$ONEPUPXXXSFS"  >> /tmp/PUPXXXSFSS
+   done
+   BPATTERN="/${DISTRO_FILE_PREFIX}save.*\\.[234]fs"
+   for ONEPUPSAVE2FS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$BPATTERN" | tr '\n' ' '`
+   do
+    [ "$PUPSAVEDEV" ] && [ "$ONEDEV" != "$PUPSAVEDEV" ] && continue #v3.97
+    echo "$ONEDEV,$ONEFS,$ONEPUPSAVE2FS"  >> /tmp/PUPSAVE2FSS
+   done
+   ZPATTERN="/${ZDRVSFS}"
+   for ONEZDRVXXXSFS in `echo "$LINEFILES" | tr ' ' '\n' | grep "$ZPATTERN" | tr '\n' ' '`
+   do
+    echo "$ONEDEV,$ONEFS,$ONEZDRVXXXSFS"  >> /tmp/ZDRVXXXSFSS #v2.22
+   done
+  done
+  ;;
+esac
+
+#echo "  IGNORE=$IGNORE PSUBDIR=$PSUBDIR SAVEPART=$SAVEPART VMLINUZ=$VMLINUZ PDEV1=$PDEV1 PUPSFS=$PUPSFS" >> /tmp/puppy-file-search.log #101127 for debugging.
+
+PUPMODE=0
+#choose which ${DISTRO_FILE_PREFIX}save.2fs to use...
+if [ -f /tmp/MULTIFOLDERS -a "`echo -n "$PMEDIA" |  grep 'cd'`" ];then #multisession cd/dvd. #110124 TazOC PMEDIA
+ if [ "$PRAMONLY" = "yes" ];then #v3.97 fix 'pfix=ram' for multisession dvd.
+  PUPSAVE=""
+ else
+  PUPMODE=72 #77 v3.01 64+8, will become 77.
+  PUPSAVE="`cat /tmp/MULTIFOLDERS | cut -f 1-3 -d ' ' | tr ' ' ','`" #only record 1st folder.
+ fi
+else
+ NUMPUPSAVES=`wc -l /tmp/PUPSAVE2FSS | tr -s ' ' | cut -f 2 -d ' '`
+ [ "$PRAMONLY" = "yes" ] && NUMPUPSAVES=0 #pfix=ram is a boot param.
+ case $NUMPUPSAVES in
+  0)
+   PUPSAVE=""
+   ;;
+  1)
+   PUPMODE=8 #`expr $PUPMODE + 8`  #PUPMODE=12
+   PUPSAVE="`cat /tmp/PUPSAVE2FSS`" #format: hda7,ext3,/pup220/${DISTRO_FILE_PREFIX}save.2fs
+   ;;
+  *)
+   BOOTTIMEHOLD=`date +%s` #111219
+   PUPSAVE=""
+   CNTSAVE=1
+   echo -e "\\033[1;36m" >/dev/console #36=aquablue
+   echo "Type a number to choose which personal file to use:" > /dev/console
+   echo "0  none" > /dev/console
+   for ONECHOICE in `cat /tmp/PUPSAVE2FSS | tr '\n' ' '`
+   do
+    ONEFILE="`echo -n "$ONECHOICE" | cut -f 3 -d ','`"
+    ONEPART="`echo -n "$ONECHOICE" | cut -f 1 -d ','`"
+    echo -e "${CNTSAVE}  ${ONEPART}\\033[10G${ONEFILE}" > /dev/console #10 means move to that column.
+    CNTSAVE=`expr $CNTSAVE + 1`
+   done
+   echo -en "\\033[0;39m" >/dev/console
+   read NUMSAVE
+   #clear
+   if [ $NUMSAVE -ne 0 ];then
+    PUPMODE=8 #`expr $PUPMODE + 8`  #PUPMODE=12
+    PUPSAVE="`cat /tmp/PUPSAVE2FSS | tr '\n' ' ' | cut -f $NUMSAVE -d ' '`"
+   fi
+   #111219 Subtract delay in save file choice from estimated boot time...
+   [ ! -z $BOOTTIMEHOLD ] && BOOTTIMEHOLD=$((`date +%s` - $BOOTTIMEHOLD))
+   [ ! -z $BOOTTIMEHOLD ] && [ $BOOTTIMEHOLD -gt 0 ] && echo -n $((`head -1 /tmp/boottime` + $BOOTTIMEHOLD)) >/tmp/boottime
+   ;;
+ esac
+fi
+#note, PUPSAVE has format: partition,f.s.-of-part.,path/name ex: hda3,ext2,/pup220/${DISTRO_FILE_PREFIX}save.2fs
+
+#choose which ${DISTRO_FILE_PREFIX}-xxx.sfs to use...
+PUPSFS=""
+#if humongous initrd, use internal ${DISTRO_FILE_PREFIX}-xxx.sfs...
+PUPSFS="`cat /tmp/PUPXXXSFSS | grep 'rootfs rootfs'`"
+#if already chose a ${DISTRO_FILE_PREFIX}save prefer a ${DISTRO_FILE_PREFIX}-xxx.sfs in same place...
+if [ "$PUPSFS" = "" -a "$PUPSAVE" != "" ];then
+ PPATTERN='^'"`echo -n "$PUPSAVE" | cut -f 1 -d ','`"','
+ PUPSFS="`grep "$PPATTERN" /tmp/PUPXXXSFSS | head -n 1`" #v3.00
+fi
+
+if [ "$PUPSFS" = "" ];then
+ if [ ! -e /proc/ide ];then #w479
+  PUPSFS="`grep -v '^sr' /tmp/PUPXXXSFSS | head -n 1`" #w014 exclude optical, take top.
+ else
+  #w479 extra check for old kernel with ide drivers, exclude all optical drvs...
+  PUPSFS="`grep -v '^sr' /tmp/PUPXXXSFSS`"
+  OLDCDDRV="`echo "$PCPARTS0" | grep 'iso9660' | grep '^hd' | cut -f 1 -d '|' | head -n 1`"
+  [ "$OLDCDDRV" != "" ] && PUPSFS="`echo "$PUPSFS" | grep -v "$OLDCDDRV" | head -n 1`"
+ fi
+fi
+
+if [ "$PUPSFS" != "" -a "$PDEV1" != "" ];then #v3.01
+ #if booting from cd, make sure chosen has same name as on cd...
+ CDPATTERN="^${PDEV1},iso9660"
+ CDSFSNAME="`grep "$CDPATTERN" /tmp/PUPXXXSFSS | head -n 1 | cut -f 3 -d ','`"
+ if [ "$CDSFSNAME" ];then
+  CDSFSBASE="`basename $CDSFSNAME`"
+  HDSFSNAME="`echo -n "$PUPSFS" | cut -f 3 -d ','`"
+  HDSFSBASE="`basename $HDSFSNAME`"
+  [ "$CDSFSBASE" != "$HDSFSBASE" ] && PUPSFS="`grep "$CDPATTERN" /tmp/PUPXXXSFSS | head -n 1`" #use file on cd.
+ fi
+fi
+
+[ "$PUPSFS" = "" ] && PUPSFS="`cat /tmp/PUPXXXSFSS | head -n 1`"
+if [ "$PUPSFS" = "" ];then
+ echo -en "\\033[1;31m" >/dev/console #31=red
+ echo -n "${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs not found. Dropping out to initial-ramdisk console..." >/dev/console
+ /bin/echo -e "\\033[0;39m" >/dev/console
+ exec /bin/sh >/dev/console 2>&1
+else
+ PUPMODE=`expr $PUPMODE + 4` #${DISTRO_FILE_PREFIX}-xxx.sfs exists.
+fi
+
+#choose which ${ZDRVSFS} to use... v2.22
+if [ -f /tmp/ZDRVXXXSFSS ];then
+ if [ "$PUPSAVE" != "" ];then
+  #use zdrv which should be in same place as the '${DISTRO_FILE_PREFIX}save' ${DISTRO_FILE_PREFIX}-xxx.2fs...
+  ZPATTERN="^`echo -n "$PUPSAVE" | cut -f 1 -d ','`,"
+  ZDRV="`grep "$ZPATTERN" /tmp/ZDRVXXXSFSS | head -n 1`"
+ fi
+ if [ "$ZDRV" = "" ];then
+  #fall back to getting it from same place as ${DISTRO_FILE_PREFIX}-xxx.sfs file...
+  ZPATTERN="^`echo -n "$PUPSFS" | cut -f 1 -d ','`,"
+  ZDRV="`grep "$ZPATTERN" /tmp/ZDRVXXXSFSS | head -n 1`"
+ fi
+fi
+
+#refine the PUPMODE...
+#if a ${DISTRO_FILE_PREFIX}save was not found, perhaps boot partition has a full install of puppy...
+if [ "$PUPSAVE" = "" -a "$PDEV1" != "" ];then
+ APATTERN="^${PDEV1} "
+ [ "`grep "$APATTERN" /tmp/PUPPYFILES | grep '/etc/puppyversion'`" != "" ] && DEV1PUP="yes" #pre-w464 installations.
+ [ "`grep "$APATTERN" /tmp/PUPPYFILES | grep '/etc/DISTRO_SPECS'`" != "" ] && DEV1PUP="yes"
+ [ "$DEV1PUP" = "yes" ] && PUPMODE=`expr $PUPMODE + 2`
+fi
+#do we want a tmpfs top unionfs layer?...
+#only if ${DISTRO_FILE_PREFIX}save (or PDEV1 for DEV1PUP=yes, or first boot) on a flash drive, usb or internal...
+case $PUPMODE in
+ 4) #so far have only got a ${DISTRO_FILE_PREFIX}-xxx.sfs. this is first boot or pfix=ram.
+  PUPMODE=5 #`expr $PUPMODE + 1` #yes, want tmpfs top layer (PUPMODE=5).
+  ;;
+ 12) #4=${DISTRO_FILE_PREFIX}-xxx.sfs found, 8=${DISTRO_FILE_PREFIX}save.2fs found.  total=12
+  DRVSAVE="`echo -n "$PUPSAVE" | cut -c 1-3`" #100710 change -b (bytes) to -c (characters)
+  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
+  [ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=13 #`expr $PUPMODE + 1`
+  [ "$PMEDIA" = "usbflash" ] && PUPMODE=13 #v404 fix classmate, with internal usb flash.
+  [ "$PMEDIA" = "ataflash" -o "$PMEDIA" = "ideflash" ] && PUPMODE=13 #w019 constrain writes to internal flash drv.
+  ;;
+ 6) #4=${DISTRO_FILE_PREFIX}-xxx.sfs found, 2=full install of puppy in boot partition. total=6
+  DRVSAVE="`echo -n "$PDEV1" | cut -c 1-3`" #100710 change -b (bytes) to -c (characters)
+  REMOVABLEDRVSAVE="`cat /sys/block/$DRVSAVE/removable`"
+  [ "$REMOVABLEDRVSAVE" = "1" ] && PUPMODE=7 #`expr $PUPMODE + 1`
+  #v3.96 Classmate laptop has internal usb flash, so really want the tmpfs layer...
+  # puppyinstaller created 'pmedia=usbflash' for the extlinux full hd install...
+  [ "$PMEDIA" = "usbflash" ] && PUPMODE=7
+  ;;
+ 76) #v3.01 64+8+4 multisession cd.
+  PUPMODE=77 #`expr $PUPMODE + 1` #yes, want tmpfs top layer.
+  ;;
+esac
+
+
+if [ $PDEV1 ];then
+ APATTERN="^${PDEV1}|"
+ DEV1FS="`echo "$PCPARTS0" | grep "$APATTERN" | cut -f 2 -d '|'`"
+ #v2.20b if booted with PMEDIA=cd, refine it...
+ if [ "$PMEDIA" = "cd" ];then
+  case $PDEV1 in
+   hd*) PMEDIA="idecd" ;; #v3.97
+   scd*|sr*)
+    PMEDIA="usbcd"
+    if [ "`echo -n "$ATADRIVES" | grep "$PDEV1"`" != "" ];then
+     if [ -e /proc/ide ];then #v3.97
+      PMEDIA="satacd"
+     else
+      PMEDIA="atacd"
+     fi
+    fi
+    ;;
+  esac
+ fi
+fi
+if [ "`echo -n $PUPSFS | cut -f 3 -d '/'`" ]; then #101219 TazOC
+ PSUBDIRBASE="`echo -n $PUPSFS | cut -f 2 -d '/'`" # ex: lhp502
+fi
+
+echo "PSUBDIRBASE=$PSUBDIRBASE PDEV1=$PDEV1 PUPSFS=$PUPSFS" >> /tmp/puppy-file-search.log #101219 for debugging.
+
+check_status 0
+########################END FINDING PUPPY FILES############################
+
+##########################LOADING PUPPY FILES###########################
+echo "Loading main file and session file..."
+RAMSIZE=`free | grep 'Mem:' | tr -s ' ' | cut -f 3 -d ' '` #total physical ram (less shared video).
+CRYPTO=""
+
+#decide the mount-points...
+#unionfs layers:            RW (top)      RO1             RO2              PUPMODE
+#full install, flash drive: tmpfs         PDEV1                            3
+#First boot (or pfix=ram):  tmpfs                         pup_xxx.sfs      5
+#pup_save is a partition:   PDEV1                         pup_xxx.sfs      6
+#ditto, but flash drive:    tmpfs         PDEV1           pup_xxx.sfs      7
+#Normal running puppy:      pup_save.3fs                  pup_xxx.sfs      12
+#ditto, but flash drive:    tmpfs         pup_save.3fs    pup_xxx.sfs      13
+#Multisession cd/dvd:       tmpfs         folders(tmpfs2) pup_xxx.sfs      77
+CREATETMPFS="";CREATEPDEV1="";CREATEPUPXXXSFS="";CREATEPUPSAVE2FS="";CREATEFOLDERS=""
+case $PUPMODE in #w003 changed some save-layer to 'ro+wh' so that whiteouts files are recognised...
+ 3)  CREATETMPFS="/pup_rw";CREATEPDEV1="/pup_ro1"
+     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro1";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh";;
+ 5)  CREATETMPFS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+ 6)  CREATEPDEV1="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_rw";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+ 7)  CREATETMPFS="/pup_rw";CREATEPDEV1="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+ 12) CREATEPUPSAVE2FS="/pup_rw";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_rw";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro2=ro";;
+ 13) CREATETMPFS="/pup_rw";CREATEPUPSAVE2FS="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+ 77) CREATETMPFS="/pup_rw";CREATEFOLDERS="/pup_ro1";CREATEPUPXXXSFS="/pup_ro2"
+     OLDFILESMNTPT="/pup_ro1";NEWFILESMNTPT="/pup_ro2";UMNTMAIN="/pup_rw=rw:/pup_ro1=ro+wh:/pup_ro2=ro";;
+ *)  RDSH="yes";; #precaution.
+esac
+
+if [ "$CREATEPDEV1" != "" ];then
+ [ "`echo "$DEV1FS" | grep 'ext[234]'`" != "" ] && echo "/dev/$PDEV1 $CREATEPDEV1 $DEV1FS defaults  1 1" >> /etc/fstab #v2.21
+ mount -t $DEV1FS /dev/$PDEV1 $CREATEPDEV1
+ #save is not a ${DISTRO_FILE_PREFIX}save file, but a partition on a unionfs layer...
+ if [ "$CREATEPDEV1" = "/pup_rw" -o "$CREATEPDEV1" = "/pup_ro1" ];then #v2.20b
+  SMNTPT="$CREATEPDEV1"
+  PUPSAVE="$PDEV1,$DEV1FS,/" #deliberately left last param as only /.
+ fi
+fi
+
+if [ "$CREATEPUPSAVE2FS" != "" ];then
+ PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
+ PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
+ PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+ #normal ${DISTRO_FILE_PREFIX}save.2fs file. just mount it from where it is...
+ echo -en "Loading savefile ${cyan}${PUPSAVEFILE} (${PUPSAVEDEV})${NC}" > /dev/console
+ echo -e "\nLoading savefile ${PUPSAVEFILE} (${PUPSAVEDEV})..."
+ [ "`echo "$PUPSAVEFS" | grep 'ext[234]'`" != "" ] && echo "/dev/$PUPSAVEDEV /mnt/dev_save $PUPSAVEFS defaults  1 1" >> /etc/fstab #v2.21 
+ LOSET_STAT=0 #111102
+ mntfunc $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_save noatime #-t $PUPSAVEFS -o noatime /dev/$PUPSAVEDEV /mnt/dev_save
+ MNT_STAT=$? #111102
+ if [ $MNT_STAT -eq 0 ];then #111102
+  sync; sleep .5 # TazOC
+  SMNTPT="/mnt/dev_save"
+  #is the ${DISTRO_FILE_PREFIX}save encrypted?...
+  if [ ! "`echo "$PUPSAVEFILE" | grep '_crypt'`" = "" ];then # ***encrypted***
+   case $PUPSAVEFILE in
+    *cryptx*) #see /etc/rc.d/rc.shutdown.
+     CRYPTO='-E 1' #v2.16final '-e xor' --bug, loads xor.ko which is something else.
+     modprobe cryptoloop
+     ;;
+    *)
+     CRYPTO='-e aes'
+     modprobe cryptoloop
+     modprobe aes_generic 2>/dev/null #v407 aes name change.
+     modprobe aes 2>/dev/null #for older kernel <2.6.25
+     modprobe crypto_blkcipher 2>/dev/null #v407 blkcipher name change.
+     modprobe blkcipher 2>/dev/null #old kernel.
+     modprobe cbc
+     ;;
+   esac
+  fi
+  if [ "$CRYPTO" != "" ] ; then
+   echo -en "\nMounting encrypted ${cyan}$PUPSAVEFILE${NC}..." > /dev/console
+   echo -en "Mounting encrypted $PUPSAVEFILE..."
+   BOOTTIMEHOLD=`date +%s` #111219
+
+   sync; NEED_FSCK=0 #110326 TazOC
+   while true; do
+    #note, cryptoloop does not work with jounalled fs, hence have to use ext2 only.
+
+    #v3.01 will take this out as a func later (similar code below)...
+    #about to mount ${DISTRO_FILE_PREFIX}save.2fs, but before that check if need to resize it...
+    if [ -f /mnt/dev_save/pupsaveresize.txt ];then #created by /usr/sbin/resizepfile.sh
+     KILOBIG=`cat /mnt/dev_save/pupsaveresize.txt`
+     rm -f /mnt/dev_save/pupsaveresize.txt
+     echo > /dev/console
+     echo -n " increasing by $KILOBIG KiB, please wait..." >/dev/console
+     echo -n " increasing by $KILOBIG KiB..." #110326 TazOC
+     dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
+     sync; sleep .5 # TazOC
+     NEED_FSCK=1 #110326 TazOC
+     
+     if [ "$CRYPTO" = "-e aes" ];then #v3.98
+      echo -e "\nNOTICE: As you type your password nothing will be displayed on the" >/dev/console #110326 TazOC
+      echo "screen for absolute security. Just type it in then press ENTER key..." >/dev/console
+      echo -e "\\033[1;36m" >/dev/console #aqua-blue
+      echo -n "Password: " >/dev/console
+      echo -en "\\033[0;39m" >/dev/console
+      read -s MYPASS #< /dev/console v403
+      echo "$MYPASS" | losetup -p 0 -e aes /dev/loop1 /mnt/dev_save$PUPSAVEFILE
+     else
+      echo -e "\\033[1;36m" >/dev/console #aqua-blue
+      echo -n "Password: " >/dev/console
+      echo -en "\\033[0;39m" >/dev/console
+      #losetup does not accept -p param for xor encryption... may not work...
+      losetup $CRYPTO /dev/loop1 /mnt/dev_save$PUPSAVEFILE
+     fi
+
+     #110326 TazOC bugfix Q5sys: encrypted savefile not fully resized if password incorrect on first try. losetup status is 0 even if wrong password, so use disktype...
+     if [ -n "`disktype /dev/loop1 | grep 'file system'`" ]; then #110326 TazOC get status of loop1
+      LOSET_STAT=0
+     else
+      LOSET_STAT=1 # wrong password or invalid f.s.
+     fi
+     
+     if [ $LOSET_STAT -eq 0 ]; then #110326 TazOC
+      echo -e "\nPerforming filesystem check on savefile /dev/loop1..."
+      sh -c "e2fsck -y -f /dev/loop1 >>/tmp/check-ext-fs.log 2>&1" # TazOC
+      sync; sleep 1 #101115  TazOC
+      sh -c "resize2fs -pf /dev/loop1 >>/tmp/check-ext-fs.log 2>&1" # TazOC #no size, will fill all of file.
+      #check_status 0 #note, e2fsck gives an error even though it works. v2.21 maybe okay now.
+      NEED_FSCK=0 #110326 TazOC
+      echo " ...continuing with loading $PUPSAVEFILE..." > /dev/console
+     fi #110326 TazOC
+    else # Normal mount (savefile not resized)
+     echo -e "\\033[1;36m" >/dev/console #aqua-blue
+     echo -n "Password: " >/dev/console
+     echo -en "\\033[0;39m" >/dev/console
+     if [ "$CRYPTO" = "-e aes" ];then #v3.98
+      read -s MYPASS #< /dev/console v403
+      echo "$MYPASS" | losetup -p 0 -e aes /dev/loop1 /mnt/dev_save$PUPSAVEFILE
+     else
+      #losetup does not accept -p param for xor encryption... may not work...
+      losetup $CRYPTO /dev/loop1 /mnt/dev_save$PUPSAVEFILE
+     fi
+     
+     if [ -n "`disktype /dev/loop1 | grep 'file system'`" ]; then #110326 TazOC get status of loop1
+      LOSET_STAT=0
+     else
+      LOSET_STAT=1 
+     fi
+    fi
+
+    if [ $LOSET_STAT -eq 0 ]; then #110326 TazOC
+     sync; sleep .3 # TazOC
+     echo "/dev/loop1 $CREATEPUPSAVE2FS ext2 defaults  1 1" >> /etc/fstab #v2.21
+     if [ "$PFSCK" = "yes" -o $NEED_FSCK -eq 1 ]; then #110326 TazOC
+      echo "Performing filesystem check on savefile /dev/loop1..."
+      echo >/dev/console
+      fsck_func loop1 ext2 #100318 however, commented out as there was an old note that f.s. check on an encrypted pupsave is broken. #110326 TazOC fsck_func seems to work
+     fi
+     NEED_FSCK=0 #110326 TazOC
+     mount -t ext2 -o noatime,rw /dev/loop1 $CREATEPUPSAVE2FS #only ext2 allowed.
+     MNT_STAT=$?
+    fi #110326 TazOC
+    
+    if [ $LOSET_STAT -eq 0 -a $MNT_STAT -eq 0 ] ; then #110326 TazOC
+     echo -n " ...successfully mounted" >/dev/console
+     break
+    else
+     echo -en "\\033[1;31m" >/dev/console #31=red
+     echo -e "\nCan't mount file, press ENTER key to try again, or" >/dev/console
+     echo "any other char then ENTER for f.s. check then try again, or " > /dev/console
+     echo -n "for developers type 'quit' to drop out to console: " > /dev/console
+     echo -en "\\033[0;39m" >/dev/console
+     read crypttryagain
+     #echo > /dev/console #110326 TazOC
+     [ "$crypttryagain" = "quit" ] && exec /bin/sh >/dev/console 2>&1 #v3.98
+     if [ "$crypttryagain" != "" ]; then
+      if [ $LOSET_STAT -eq 0 ]; then #110326 TazOC
+       echo >/dev/console
+       e2fsck -y -f /dev/loop1 >/dev/console #110326 TazOC
+       sync; sleep 1 #101115  TazOC
+       sh -c "resize2fs -pf /dev/loop1 >>/tmp/check-ext-fs.log 2>&1"
+       sync; sleep 1 #110326  TazOC
+      else
+       NEED_FSCK=1 #110326 TazOC
+      fi
+     fi
+     losetup -d /dev/loop1
+    fi
+   done
+   #111219 Subtract delay in passwd entry/fsck from estimated boot time...
+   [ ! -z $BOOTTIMEHOLD ] && BOOTTIMEHOLD=$((`date +%s` - $BOOTTIMEHOLD))
+   [ ! -z $BOOTTIMEHOLD ] && [ $BOOTTIMEHOLD -gt 0 ] && echo -n $((`head -1 /tmp/boottime` + $BOOTTIMEHOLD)) >/tmp/boottime
+  else #pupsave ***not encrypted***
+   #about to mount ${DISTRO_FILE_PREFIX}save.2fs, but before that check if need to resize it...
+   RESIZESAVEFILE=0 #110113 TazOC
+   if [ -f /mnt/dev_save/pupsaveresize.txt ];then #created by /usr/sbin/resizepfile.sh
+    RESIZESAVEFILE=1 #110113 TazOC
+    KILOBIG=`cat /mnt/dev_save/pupsaveresize.txt`
+    rm -f /mnt/dev_save/pupsaveresize.txt
+    echo -en "\n Increasing $PUPSAVEFILE by $KILOBIG KiB, please wait..." >/dev/console
+    echo -n "Increasing size by $KILOBIG KiB..."
+    dd if=/dev/zero bs=1024 count=$KILOBIG >> /mnt/dev_save$PUPSAVEFILE
+    sync; sleep 1 #101115  TazOC
+    echo " filesystem check on $PUPSAVEFILE..."
+    sh -c "e2fsck -y -f /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC
+    sync; sleep 1 #101115 TazOC
+    sh -c "resize2fs -pf /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC #no size, will fill all of file.
+    #check_status 0 #note, e2fsck gives an error even though it works. v2.21 maybe okay now.
+    sync; sleep 1
+    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE} #110113 TazOC #111102
+    if [ -n "`disktype /dev/loop1 | grep 'file system'`" ]; then #110907 TazOC get status of loop1
+     LOSET_STAT=0
+    else
+     LOSET_STAT=1 
+    fi
+    if [ $LOSET_STAT -eq 0 ]; then #111102
+     echo "Performing filesystem check on savefile /dev/loop1..."
+     sleep .5 #110113 TazOC #110326 TazOC
+     fsck_func loop1 $SFFS #110113 TazOC
+     #sync; sleep .5 #110113 TazOC #110326 TazOC
+    fi
+    echo -en " \nContinuing with loading $PUPSAVEFILE..." > /dev/console
+   else # *Normal mount* (savefile not resized)
+    if [ "$PFSCK" != "yes" ]; then
+     # As a precaution, let's see if savefile has errors, if so repair them...
+     if [ "`file -b /mnt/dev_save${PUPSAVEFILE} | grep 'errors\|unclean'`" ]; then
+      echo " filesystem check on $PUPSAVEFILE..."
+      echo -en " ${purple}e2fsck${NC}" >/dev/console
+      sleep .5
+      sh -c "e2fsck -yf /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC
+      sync; sleep .8 #101115 TazOC
+      sh -c "resize2fs -pf /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1"
+      sync; sleep .8 #101115 TazOC
+     fi
+    fi    
+    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
+    sync; sleep .3 #111102
+    if [ -n "`disktype /dev/loop1 | grep 'file system'`" ]; then #111102 TazOC get status of loop1
+     LOSET_STAT=0
+    else
+     LOSET_STAT=1 
+    fi
+   fi
+   if [ $LOSET_STAT -eq 0 ]; then #110907 #111102
+    SFFS='ext'`echo -n "$PUPSAVEFILE" | rev | cut -c 3`
+    echo "/dev/loop1 $CREATEPUPSAVE2FS $SFFS defaults  1 1" >> /etc/fstab
+    if [ "$PFSCK" = "yes" -a $RESIZESAVEFILE -eq 0 ]; then #110326 TazOC
+     echo "Performing filesystem check on savefile /dev/loop1..."
+     fsck_func loop1 $SFFS #100318
+    fi
+    sync #110113 TazOC
+    mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+    MNT_STAT=$? #110113 TazOC #111102
+    sync; sleep .3
+    if [ $MNT_STAT -ne 0 ];then #111102
+     sync; sleep .3
+     echo "First mount of $PUPSAVEFILE failed. Doing f.s. check..." #110113 TazOC
+     sh -c "e2fsck -y -f /dev/loop1 >>/tmp/check-ext-fs.log 2>&1" #-y answer yes to all repair questions.
+     sync; sleep 1 # TazOC
+     sh -c "resize2fs -pf /dev/loop1 >>/tmp/check-ext-fs.log 2>&1" #110326 TazOC
+     sync; sleep 1
+     mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+     MNT_STAT=$? #110113 TazOC #111102
+     [ $MNT_STAT -eq 0 ] && echo "Second mount of $PUPSAVEFILE OK..." #110113 TazOC #111102
+    fi
+    #110113 TazOC +--------New section if unencrypted savefile is full--------+
+    savefile_free_func
+    echo "Size=${SAVEFILETOTAL}iB, ${SAVEFILEPERCENTFREE}% free"
+     echo -en " ${cyan}${SAVEFILETOTAL} ${SAVEFILEPERCENTFREE}%free${NC}" >/dev/console
+    if [ $SAVEFILEPERCENTFREE -lt 15 ]; then # <15% display to console & do fsck
+     if [ "$PFSCK" != "yes" ]; then # (haven't done fsck already)
+      echo -en "\n ${cyan}Savefile is ${SAVEFILEPERCENTUSED}% full. Doing f.s. check...${NC}" >/dev/console
+      echo -n "Savefile is ${SAVEFILEPERCENTUSED}% full. Doing f.s. check..."
+      umntfunc $CREATEPUPSAVE2FS
+      losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE} >/dev/console
+      fsck_func loop1 $SFFS
+      mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+      MNT_STAT=$? #111102
+      sync; sleep .5
+      savefile_free_func 
+      echo -en " ${cyan}${SAVEFILEPERCENTFREE}%free${NC}" >/dev/console
+      echo -n " now ${SAVEFILEPERCENTFREE}% free. "
+     fi
+     if [ $SAVEFILEPERCENTFREE -lt $SAVEFILE_PERCENT_FREE_MIN ]; then # ex: <6%
+      umntfunc $CREATEPUPSAVE2FS
+      losetup -d /dev/loop1
+      sync; sleep .5
+      echo -en "\n ${yellow}Savefile is ${SAVEFILEPERCENTUSED}% full. Enlarging 64MiB...${NC}" >/dev/console
+      echo -en "\nEnlarging savefile by 64 MiB..."
+      dd if=/dev/zero bs=1024 count=65536 >> /mnt/dev_save$PUPSAVEFILE
+      sync; sleep 1
+      sh -c "e2fsck -y -f /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC
+      sync; sleep 1
+      sh -c "resize2fs -pf /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC #no size, will fill all of file.
+      sync; sleep 1
+      echo -n " continuing with loading savefile..." > /dev/console
+      losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
+      fsck_func loop1 $SFFS
+      #sync; sleep .5 #110113 TazOC #110326 TazOC
+      mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+      MNT_STAT=$? #111102
+      sync; sleep .5
+      savefile_free_func   
+      echo -en " ${cyan}${SAVEFILEPERCENTFREE}% free ${NC}" >/dev/console #110113 TazOC
+      echo -en " ${SAVEFILEPERCENTFREE}% free"
+     fi
+    fi #110113 TazOC +--------End of new section--------+
+   else # losetup failed #110907
+    echo -en "\\033[1;31m" >/dev/console #31=red
+    echo -e "\nCan't mount file, press ENTER key to try again, or" >/dev/console
+    echo "any other char then ENTER for f.s. check then try again, or " > /dev/console
+    echo -n "for developers type 'quit' to drop out to console: " > /dev/console
+    echo -en "\\033[0;39m" >/dev/console
+    read tryagain
+    echo >/dev/console
+    [ "$tryagain" = "quit" ] && exec /bin/sh >/dev/console 2>&1 #v3.98
+    if [ "$tryagain" != "" ]; then
+     losetup -d /dev/loop1
+     sh -c "e2fsck -y -f /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC
+     sync; sleep 1
+     sh -c "resize2fs -pf /mnt/dev_save${PUPSAVEFILE} >>/tmp/check-ext-fs.log 2>&1" # TazOC
+     sync; sleep 1 #110326  TazOC
+    else
+     losetup -d /dev/loop1
+     sleep .3
+    fi
+    losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE}
+    sync; sleep 1
+    if [ -n "`disktype /dev/loop1 | grep 'file system'`" ]; then #110326 TazOC get status of loop1
+     LOSET_STAT=0
+     SFFS='ext'`echo -n "$PUPSAVEFILE" | rev | cut -c 3`
+     echo "/dev/loop1 $CREATEPUPSAVE2FS $SFFS defaults  1 1" >> /etc/fstab
+     if [ "$PFSCK" = "yes" ]; then #110326 TazOC
+      echo "Performing filesystem check on savefile /dev/loop1..."
+      fsck_func loop1 $SFFS
+     fi
+     sync
+     mount -t $SFFS -o noatime /dev/loop1 $CREATEPUPSAVE2FS
+     MNT_STAT=$? #111102
+     if [ $MNT_STAT -eq 0 ]; then #111102
+      sync; sleep .5
+      savefile_free_func   
+      echo -en " ${cyan}${SAVEFILEPERCENTFREE}% free ${NC}" >/dev/console #110113 TazOC
+      echo -en " ${SAVEFILEPERCENTFREE}% free"
+     else
+      echo "Second mount of $PUPSAVEFILE failed." #111102
+      echo -e "${red}Second mount of $PUPSAVEFILE failed.${NC}" >/dev/console #111102
+     fi
+    else
+     LOSET_STAT=1 
+     echo "losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE} failed." #111102
+     echo -e "${red}losetup /dev/loop1 /mnt/dev_save${PUPSAVEFILE} failed.${NC}" >/dev/console #110113 TazOC
+    fi
+   fi
+  fi
+ fi
+ if [ $LOSET_STAT -eq 0 -a $MNT_STAT -eq 0 ]; then #111102 TazOC
+  RET_CODE=0 #111102 TazOC
+ else
+  RET_CODE=1 #111102 TazOC
+ fi
+ check_status $RET_CODE #110113 TazOC
+ sync #110113 TazOC
+fi
+
+#there are technical problems with loading a swap partition/file before the union
+#is created, so not doing it until rc.sysinit runs. however, if a tmpfs needs to be
+#created here, set it's size in anticipation of a swap being loaded...
+EXTRAALLOCK=0 #; PSWAPFILE=""
+SWAPPART="`echo "$PCPARTSALL" | grep '|swap|' | head -n 1`"
+[ "$SWAPPART" ] && SWAPPARTSIZE=`echo -n "$SWAPPART" | cut -f 3 -d '|'`
+[ $SWAPPARTSIZE ] && EXTRAALLOCK=`expr $SWAPPARTSIZE \/ 2`
+if [ $EXTRAALLOCK -eq 0 ];then
+ [ -f ${SMNTPT}/pupswap.swp ] && SWAPFILESIZEBYTES=`stat -c %s ${SMNTPT}/pupswap.swp`
+ #[ $SWAPFILESIZEBYTES ] && EXTRAALLOCK=`expr $SWAPFILESIZEBYTES \/ 2` #use half.
+ [ $SWAPFILESIZEBYTES ] && EXTRAALLOCK=`expr $SWAPFILESIZEBYTES \/ 2048` #use half. 110521 also convert bytes to kb.
+fi
+
+echo
+if [ "$SWAPPART" != "" ]; then
+ echo -n " Found swap," >/dev/console; echo -n "Found swap," # TazOC
+fi
+#if [ "$PDEV1" != "" -a $EXTRAALLOCK -eq 0 ];then #110521 TazOC section not in Woof anymore
+ #APATTERN="^${PDEV1} "
+ #SWAPFILE="`grep "$APATTERN" /tmp/PUPPYFILES | tr ' ' '\n' | grep 'pupswap.swp' | head -n 1`"
+ #[ "$SWAPFILE" != "" ] && [ -f ${SMNTPT}${SWAPFILE} ] && SWAPFILESIZEBYTES=`stat -c %s ${SMNTPT}${SWAPFILE}`
+ #if [ $SWAPFILESIZEBYTES ];then
+  #SWAPFILESIZE=`expr $SWAPFILESIZEBYTES \/ 2048` #use half.
+  #EXTRAALLOCK=`expr $EXTRAALLOCK + $SWAPFILESIZE`
+  #PSWAPFILE="$PDEV1,$DEV1FS,$SWAPFILE"
+ #fi
+#fi
+
+FREEK=0
+if [ "$CREATETMPFS" != "" ];then
+ FREEK=`expr $RAMSIZE \/ 2` #half of physical.
+ [ $PUPMODE -eq 77 ] && FREEK=`expr $FREEK - 50000` #need some slack.
+ ALLOCK=`expr $FREEK + $EXTRAALLOCK`
+ mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATETMPFS
+fi
+
+#RW (top) layer now has a tmpfs, PDEV1 or ${DISTRO_FILE_PREFIX}save mounted on it. calc free space...
+[ $FREEK -eq 0 ] && FREEK=`df | grep ' /pup_rw' | tr -s ' ' | cut -f 4 -d ' '`
+[ ! $FREEK ] && FREEK=0
+
+if [ "$CREATEFOLDERS" != "" ];then
+ PUPSAVEDEV="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
+ PUPSAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
+ PUPSAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+ mount -o noatime -t $PUPSAVEFS /dev/$PUPSAVEDEV /mnt/dev_ro1 #mnt the cd.
+ #create a tmpfs to load the folders...
+ ALLOCK=`expr $RAMSIZE \/ 2 - 50000` #allocate half of physical ram. + leave 50M slack.
+ mount -t tmpfs -o size=${ALLOCK}k tmpfs $CREATEFOLDERS #/pup_ro1
+ #load the folders from the cd...
+  ####START LOAD FOLDERS####
+  CDMNTPT="/mnt/dev_ro1" #where the multisession cd is mounted.
+  DESTDIR="$CREATEFOLDERS" #dest dir has a tmpfs mntd on it, into which to copy folders.
+  BKFOLDERS="`ls -1 -r $CDMNTPT | grep '^20[0-9][0-9]'`"
+  BKLASTFOLDER="`echo "$BKFOLDERS" | head -n 1`"
+  #a boot option allows ignore last n sessions, also need to create a badlist...
+  if [ "$PIGNORELAST" ];then
+   BKBADLIST="`echo "$BKFOLDERS" | head -n ${PIGNORELAST}`"
+   if [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ];then
+    cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
+    if [ ! $? -eq 0 ];then
+     #fallback, in case last folder badly corrupted...
+     BKPREVFOLDER="`echo "$BKFOLDERS" | head -n 2 | tail -n 1`"
+     [ -f $CDMNTPT/$BKPREVFOLDER/.badfolders ] && cp $CDMNTPT/$BKPREVFOLDER/.badfolders $DESTDIR/
+    fi
+   fi
+   echo "$BKBADLIST" >> $DESTDIR/.badfolders
+   #note, rc.shutdown and savesession-dvd 'touch' this file so it will get saved.
+   sync
+  else
+   [ -f $CDMNTPT/$BKLASTFOLDER/.badfolders ] && cp $CDMNTPT/$BKLASTFOLDER/.badfolders $DESTDIR/
+  fi
+  [ -f $DESTDIR/.badfolders ] && BKBADLIST="`cat $DESTDIR/.badfolders | tr "\n" " "`"
+  BKFOLDERS="`echo -n "$BKFOLDERS" | tr "\n" " "`"
+  for ONEFOLDER in $BKFOLDERS
+  do
+   if [ ! "`echo -n "$BKBADLIST" | grep "$ONEFOLDER"`" = "" ];then
+    echo "Folder $ONEFOLDER marked bad." >/dev/console
+    continue #ignore bad folder.
+   fi
+   if [ "$SWAPPART" != "" ]; then #110124 TazOC 
+    echo -en " loading folder ${cyan}$ONEFOLDER${NC} from CD/DVD..." >/dev/console
+    echo -n " loading folder $ONEFOLDER from CD/DVD..."
+   else
+    echo -en "Loading folder ${cyan}$ONEFOLDER${NC} from CD/DVD..." >/dev/console
+    echo -n "Loading folder $ONEFOLDER from CD/DVD..."
+   fi #End 110122 TazOC 
+   #need to be careful not to overfill the ramdisk...
+   FREERAMDISK=`df 2>/dev/null | grep "$DESTDIR" | head -n 1 | tr -s " " | cut -f 4 -d " "`
+   SIZEFOLDER=`du -k -s ${CDMNTPT}/${ONEFOLDER} | cut -f 1`
+   if [ -d ${CDMNTPT}/${ONEFOLDER}/archive ];then
+    SIZEARCHIVE=`du -k -s ${CDMNTPT}/${ONEFOLDER}/archive | cut -f 1`
+   else
+    SIZEARCHIVE=0
+   fi
+   SIZESOURCE=`expr $SIZEFOLDER - $SIZEARCHIVE`
+   if [ $FREERAMDISK -gt $SIZESOURCE ];then
+    #well, -u will only copy if files newer, so less stuff may get copied than calc'd above.
+    #need to copy everything except archive folder...
+    [ -d $CDMNTPT/$ONEFOLDER/bin ] && cp -a -u $CDMNTPT/$ONEFOLDER/bin $DESTDIR/   > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/sbin ] && cp -a -u $CDMNTPT/$ONEFOLDER/sbin $DESTDIR/ > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/etc ] && cp -a -u $CDMNTPT/$ONEFOLDER/etc $DESTDIR/   > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/lib ] && cp -a -u $CDMNTPT/$ONEFOLDER/lib $DESTDIR/   > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/lib32 ] && cp -a -u $CDMNTPT/$ONEFOLDER/lib32 $DESTDIR/ > /dev/null 2>&1 #111002 TaZoC
+    [ -d $CDMNTPT/$ONEFOLDER/opt ] && cp -a -u $CDMNTPT/$ONEFOLDER/opt $DESTDIR/   > /dev/null 2>&1
+    if [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ];then #100820 see /etc/rc.d/functions4puppy
+     mkdir -p $DESTDIR/var
+     cp -a -u $CDMNTPT/$ONEFOLDER/root/.var_saved/* $DESTDIR/var/ > /dev/null 2>&1
+    fi
+    [ -d $CDMNTPT/$ONEFOLDER/root ] && cp -a -u $CDMNTPT/$ONEFOLDER/root $DESTDIR/ > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/root/.var_saved ] && rm -rf $DESTDIR/root/.var_saved  > /dev/null 2>&1 #100820
+    [ -d $CDMNTPT/$ONEFOLDER/usr ] && cp -a -u $CDMNTPT/$ONEFOLDER/usr $DESTDIR/   > /dev/null 2>&1
+    [ -d $CDMNTPT/$ONEFOLDER/dev ] && cp -a -u $CDMNTPT/$ONEFOLDER/dev $DESTDIR/   > /dev/null 2>&1 #v411
+    cp -a -u $CDMNTPT/$ONEFOLDER/*.sfs $DESTDIR/   > /dev/null 2>&1 #v3.97
+
+    chmod -R u+rw $DESTDIR/ #110122 TazOC ensure read/write permissions
+    [ -f $DESTDIR/etc/sudoers ] && chmod -R u-w $DESTDIR/etc/sudoers #110122 TazOC 
+    #delete deleted files (.wh.filename)...
+    WHITEOUTS="`find $DESTDIR -xdev -type f -name .wh.* | grep -v '__dir_opaque'`"
+    echo "$WHITEOUTS" |
+    while read DELWHITE
+    do
+     DELFILE="`echo -n "$DELWHITE" | sed -e 's/\\.wh\\.//g'`"
+     if [ -e "$DELFILE" -o -L "$DELFILE" ]; then #111219 TaZoC
+      rm -rf "$DELFILE"
+      rm -rf "$DELWHITE"
+     fi
+    done
+    check_status 0 #display 'done' for each folder loaded.
+   else
+    echo -e "\\033[72G\\033[1;31mRAM full\\033[0;39m" >/dev/console #red text on column 70.#110122 TazOC 72
+    break
+   fi
+  done
+  sync
+  ####END LOAD FOLDERS####
+ #umount /mnt/dev_ro1 #unmount the cd. #111219 TaZoC might need extra SFS later
+fi
+
+OLDDISTRO_VERSION=$DISTRO_VERSION
+[ -f $OLDFILESMNTPT/etc/puppyversion ] && OLDDISTRO_VERSION=`cat $OLDFILESMNTPT/etc/puppyversion` #old pre-w464 installation.
+[ -f $OLDFILESMNTPT/etc/DISTRO_SPECS ] && OLDDISTRO_VERSION=`grep '^DISTRO_VERSION' $OLDFILESMNTPT/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '` #w012 w478
+
+#move modules to main f.s...
+#(do this before loading ${DISTRO_FILE_PREFIX}rxxx.sfs, to free up ram space)...
+REASON=''
+if [ "$ZDRVINIT" = "yes" ];then
+ #the entire kitchen sink of modules is in the initrd.
+ ZDRV='' #/sbin/modprobe needs this.
+ [ $DISTRO_VERSION -gt $OLDDISTRO_VERSION ] && REASON='upgrade'
+ [ $PUPMODE -eq 5 ] && REASON='firstboot'
+ #what if deleted modules due to lack space in ${DISTRO_FILE_PREFIX}save, but now more free space?... v4.01...
+ [ ! -d /pup_rw/lib/modules/all-firmware ] && [ ! -d /pup_ro1/lib/modules/all-firmware ] && [ $FREEK -gt 24000 ] && REASON='restore'
+ if [ "$REASON" != "" ];then
+  [ -d /pup_rw/lib/modules ] && rm -rf /pup_rw/lib/modules
+  [ -d /pup_ro1/lib/modules ] && rm -rf /pup_ro1/lib/modules
+  mkdir -p /pup_rw/lib
+  mv /lib/modules /pup_rw/lib/
+  mkdir -p /pup_rw/initrd
+  cp -af /DISTRO_SPECS /pup_rw/initrd/
+  cp -af /init /pup_rw/initrd/
+  sync
+ fi
+else
+ #the initrd does have some modules, move them to the main layered f.s...
+ #v4.02 moved this up. had it down after the the unionfs setup (just want it same place as the above code).
+ [ ! -d /pup_rw/lib/modules/$KERNELVER/initrd ] && [ ! -d /pup_ro1/lib/modules/$KERNELVER/initrd ] && REASON="new"
+ if [ "$REASON" != "" ];then
+  mkdir -p /pup_rw/lib/modules/$KERNELVER #PUPMODE=5, this dir not exist.
+  mv /lib/modules/$KERNELVER /pup_rw/lib/modules/$KERNELVER/initrd
+  rm -f /pup_rw/lib/modules/$KERNELVER/initrd/modules.*
+  sync
+  #note: /etc/rc.d/rc.sysinit will detect them and run depmod.
+ fi
+ #v3.91 a humongous initrd may have zdrv file...
+ [ -f /${ZDRVSFS} ] && [ ! -f /pup_rw/${ZDRVSFS} ] && [ ! -f /pup_ro1/${ZDRVSFS} ] && cp -a /${ZDRVSFS} /pup_rw/
+fi
+
+#v405 decide whether to copy sfs's to ram...
+RET_CODE=0; COPY2RAM="" #111127 TazOC
+COPYMSG='copying to RAM' #purple
+
+#v4.00 lowered rom 230000 to 220000... v403 added PUPSFSDEVMNTPT test... v404 explicit PCOPY needed...
+[ $PUPMODE -eq 5 ] && [ "$PCOPY" != "no" ] && PCOPY="yes" # override on first boot. # TazOC respect nocopy
+[ $PUPMODE -eq 77 ] && PCOPY="yes" #v406 multisession dvd.
+
+#100406 this came about because aufs did not work if an sfs mounted via loop device as one layer
+#was actually resident on another layer. however latest patched aufs may allow this...
+if [ "`echo -n "$KERNELVER" | grep 2.6`" -a $KERNELSUBVER -lt 33 ];then #110907
+ #v404 absolutely must copy to ram, otherwise layerfs conflict...
+ [ $PUPMODE -eq 6 -o $PUPMODE -eq 7 ] && COPY2RAM="yes"
+ [ "$COPY2RAM" = "yes" ] && COPYMSG='forced copying to RAM' #purple
+fi
+
+#w482 lower this again, so multisession will work in 256MB system...
+#[ $RAMSIZE -gt 260000 -a "$PCOPY" = "yes" ] && COPY2RAM="yes" #256MB system. note, only checking physical ram. w003 incr. from 220000.
+#[ $RAMSIZE -gt 220000 -a "$PCOPY" = "yes" ] && COPY2RAM="yes" #note, only checking physical ram. #100520 TazOC this check is now further down
+
+if [ "$CREATEPUPXXXSFS" != "" ];then
+ #load ${DISTRO_FILE_PREFIX}-xxx.sfs...
+ PUPSFSDEV="`echo -n "$PUPSFS" | cut -f 1 -d ','`"
+ PUPSFSFS="`echo -n "$PUPSFS" | cut -f 2 -d ','`"
+ PUPSFSFILE="`echo -n "$PUPSFS" | cut -f 3 -d ','`"
+ basepupsfs="`basename $PUPSFSFILE`"
+ dirpupsfs="`dirname $PUPSFSFILE`" #111127 TaZoC
+
+ #v406 copy ${DISTRO_FILE_PREFIX}rxxx.sfs to same place as ${DISTRO_FILE_PREFIX}save if fast-partition (in case not already)...
+ COPYPUPSFS2DIR=""
+ if [ "$CREATEPUPSAVE2FS" != "" ];then
+  if [ -f /mnt/dev_save$PUPSAVEFILE ];then
+   dirsavefile="`dirname $PUPSAVEFILE`"
+   fPATTERN='^'"$PUPSAVEDEV"'|'
+   if [ "`echo -n "$FASTPARTS0" | grep "$fPATTERN"`" != "" ];then
+    #the ${DISTRO_FILE_PREFIX}save is on a fast media.
+    if [ ! -f /mnt/dev_save${dirsavefile}/${basepupsfs} ];then
+     echo -e "PUPSFSDEVMNTPT=${PUPSFSDEVMNTPT} dirpupsfs=${dirpupsfs} dirsavefile=${dirsavefile}\n PUPSFS=$PUPSFS PUPSAVEFILE=$PUPSAVEFILE" #debug
+     if [ "`echo "$PUPSFSDEV | grep 'sr'"`" != "" ];then
+      BOOTTIMEHOLD=`date +%s` #111219
+      #it is on the cd, so checkout copying it to hd...
+      echo -e "\n ${cyan}The main Puppy file '${basepupsfs}' is being loaded off an optical disc." >/dev/console
+      echo -e " This is slow. Press ${bg_white}${gray} Enter ${NC}${cyan} to copy it to the same place as the save file," >/dev/console
+      echo " then on next boot it will load faster. Type any printable char to not copy it." >/dev/console
+      echo -en " Hit ${bg_white}${gray} Enter ${NC}${cyan} key only to copy:${NC} " >/dev/console
+      read nocopysfs
+      if [ "$nocopysfs" = "" ];then
+       #echo -e "${purple}'${basepupsfs}' now copying to hard drive (but only available next boot)...${NC}" >/dev/console
+       COPYPUPSFS2DIR="/mnt/dev_save${dirsavefile}"
+      fi
+      #111219 Subtract delay in prompt above from estimated boot time...
+      [ ! -z $BOOTTIMEHOLD ] && BOOTTIMEHOLD=$((`date +%s` - $BOOTTIMEHOLD))
+      [ ! -z $BOOTTIMEHOLD ] && [ $BOOTTIMEHOLD -gt 0 ] && echo -n $((`head -1 /tmp/boottime` + $BOOTTIMEHOLD)) >/tmp/boottime
+     fi
+    fi
+   fi
+  fi
+ fi
+
+ if [ "$SWAPPART" != "" ]; then
+  echo -en " loading main file ${blue}${basepupsfs} (${PUPSFSDEV})${NC}" > /dev/console #100520 TazOC
+ else
+  echo -en " Loading main file ${blue}${basepupsfs} (${PUPSFSDEV})${NC}" > /dev/console #100520 TazOC
+ fi
+ echo -n " loading main file ${basepupsfs} (${PUPSFSDEV})"
+ if [ "$PUPSFSDEV" = "rootfs" ];then #humongous initrd.
+  PUPSFSDEVMNTPT="" #actually it's '/'.
+ else
+  PPATTERN="/dev/$PUPSFSDEV "
+  PUPSFSDEVMNTPT="`mount | grep "$PPATTERN" | cut -f 3 -d ' '`"
+  if [ "$PUPSFSDEVMNTPT" = "" ];then
+   mntfunc $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2 #-t $PUPSFSFS /dev/$PUPSFSDEV /mnt/dev_ro2
+   RET_CODE=$(($RET_CODE + $?)) #111127 TazOC
+   sync; sleep .1 #111127 TaZoC
+   PUPSFSDEVMNTPT="/mnt/dev_ro2"
+   UMOUNTME="/mnt/dev_ro2" #mark for unmounting.
+  fi
+
+  if [ "$COPYPUPSFS2DIR" ];then #v406 copy ${DISTRO_FILE_PREFIX}-xxx.sfs to same place as ${DISTRO_FILE_PREFIX}save...
+   echo -e -n " ${purple}copying to ${PUPSAVEDEV}${NC}" > /dev/console
+   #ls -ahl ${PUPSFSDEVMNTPT}${dirpupsfs}/zWine*_${DISTRO_VERSION}.sfs >/dev/console #debug
+   [ -z "$PNOWINE" ] && cp -af ${PUPSFSDEVMNTPT}${dirpupsfs}/zWine*_${DISTRO_VERSION}.sfs ${COPYPUPSFS2DIR}/ #101203 TazOC
+   cp -af ${PUPSFSDEVMNTPT}${PUPSFSFILE} ${COPYPUPSFS2DIR}/
+   RET_CODE=$(($RET_CODE + $?)) #111127 TazOC
+   check_status $RET_CODE
+   if [ $RET_CODE -eq 0 ];then
+    sync; sleep .1 #111127 TaZoC
+    PUPSFSDEVMNTPT="$COPYPUPSFS2DIR"
+    PUPSFSFILE="${dirsavefile}${basepupsfs}" #111127 TaZoC
+    PUPSFS="${PUPSAVEDEV},${PUPSAVEFS},${PUPSFSFILE}"
+    PUPSFSDEV="$PUPSAVEDEV"
+    PUPSFSFS="$PUPSAVEFS"
+    PSUBDIRBASE="`echo -n ${dirsavefile} | cut -f 2 -d '/'`" # ex: lhp502 #111127 TaZoC
+    echo "PUPSFSDEVMNTPT=${PUPSFSDEVMNTPT} PUPSFS=$PUPSFS"
+   fi
+  fi
+
+ fi
+
+ #if there's heaps of ram, copy ${DISTRO_FILE_PREFIX}-xxx.sfs to a tmpfs...
+ [ "$PUPSFSDEVMNTPT" = "" ] && COPY2RAM="yes"
+ #v405 fast media plus more than 256MB ram then definitely worth copying to ram...
+ SIZESFSK=`du -k ${PUPSFSDEVMNTPT}${PUPSFSFILE} | cut -f 1`
+ SIZESFSK=$(($SIZESFSK * 75 / 74)) #some slack. #101219 TazOC
+ #MINRAM2CPY=$(($SIZESFSK * 2)) #100222 technosaurus: in case of very big puppies.
+ #100520 TazOC big puppies should be fine as MINRAM2COPY is raised in
+ # proportion to size of the main file
+ SIZESFSK=$(($SIZESFSK * 9 / 5)) #111127 7/5->9/5
+ MINRAM2CPY=$SIZESFSK #111127
+ if [ "$SWAPPART" = "" ];then
+ #  echo -e "  ${cyan}swap not found${NC}" >/dev/console
+ #  echo -en " ${cyan}Tip: You can create a ${bg_cyan}${white}linux-swap${NC}${cyan} partition with the utility GParted.${NC}" >/dev/console
+ #  sleep 1
+   MINRAM2CPY=$(($MINRAM2CPY + 96000)) # TazOC no swap, need more RAM
+ fi
+ FASTMEDIA="`echo -n "$FASTPARTS0" | grep "$PUPSFSDEV"`" # TazOC
+ [ "$FASTMEDIA" != "" ] && FASTMEDIA="fast media" #100520 TazOC
+
+ [ "$FASTMEDIA" != "" -a "$PCOPY" != "no" ] && PCOPY="yes" #100520 TazOC
+ echo -en " ${blue}$FASTMEDIA${NC}" >/dev/console # TazOC
+ echo " $FASTMEDIA"
+
+ if [ "$PCOPY" = "yes" -o "$COPY2RAM" = "yes" ]; then # TazOC 30 May09 display sizes to compare
+  echo >/dev/console
+  echo -n " Min RAM to copy: `expr $MINRAM2CPY \/ 1024`M" >/dev/console
+  echo -n " free: `expr $RAMSIZE \/ 1024`M..." >/dev/console
+  echo -n "Min RAM to copy: `expr $MINRAM2CPY \/ 1024`M" #100520 TazOC
+  echo -n " free: `expr $RAMSIZE \/ 1024`M..."
+  [ "$PCOPY" = "yes" -o "$COPY2RAM" = "yes" ] && [ $RAMSIZE -gt $MINRAM2CPY ] && COPY2RAM="yes" #100520 TazOC
+ fi
+ if [ "$COPY2RAM" = "yes" ];then
+  echo " copying main file to RAM"
+  #echo -n " copying main file to RAM" >/dev/console
+  #SIZESFSK=`du -k ${PUPSFSDEVMNTPT}${PUPSFSFILE} | cut -f 1`
+  #SIZESFSK=`expr $SIZESFSK + 1000` #some slack.
+  mount -t tmpfs -o size=${SIZESFSK}k tmpfs /mnt/tmpfs
+  #sync
+  sync; sleep .1 #111127 TaZoC
+  if [ "${PUPSFSDEVMNTPT}" = "" ];then #v403 humongous initrd.
+    mv -f ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/
+  else
+   echo -e -n " ${purple}${COPYMSG}${NC}" > /dev/console #purple.
+   cp -af ${PUPSFSDEVMNTPT}${PUPSFSFILE} /mnt/tmpfs/ &
+   copy2ram_progress_func
+   #sleep .2
+   # TazOC 1 June09 progress dots
+   #while [ "`pidof cp`" != "" ]; do sleep 2; echo -n "." >/dev/console; done
+  fi
+  sync; sleep .1 #111127 TaZoC
+  SFSBASENAME="`basename $PUPSFSFILE`"
+  losetup /dev/loop0 /mnt/tmpfs/${SFSBASENAME}
+  RAMSIZE=$(($RAMSIZE - $SIZESFSK)) #110106
+  #101013 moved down  [ "$UMOUNTME" != "" ] && umntfunc $UMOUNTME
+ else
+  echo " mounting."
+  losetup /dev/loop0 ${PUPSFSDEVMNTPT}${PUPSFSFILE}
+ fi
+ sync; sleep .1 #111127 TaZoC
+ mount -r -t squashfs -o noatime /dev/loop0 $CREATEPUPXXXSFS #usually /pup_ro2.
+ RET_CODE=$(($RET_CODE + $?)) #111127 TazOC
+ check_status $RET_CODE #111127 TaZoC
+ sync; sleep .1 #111127 TaZoC
+fi
+
+ZLAYER='' #v4.02
+ZFACTOR='' #v426
+#note, traditionally, loop2 kept free for scripts to use.
+if [ "$ZDRVINIT" != "yes" ];then
+ #v4.02 if ZDRV located, and mounted, put it into the unionfs...
+ if [ "$ZDRV" != "" -a $RET_CODE -eq 0 ];then #101203 TazOC
+  ZDEV="`echo "$ZDRV" | cut -f 1 -d ','`"
+  ZFS="`echo "$ZDRV" | cut -f 2 -d ','`"
+  ZFILE="`echo "$ZDRV" | cut -f 3 -d ','`"
+  MNT_ZFILE=""
+  [ -f /mnt/dev_save${ZFILE} ] && MNT_ZFILE="dev_save"
+  [ "$MNT_ZFILE" = "" ] && [ -f /mnt/dev_ro2${ZFILE} ] && MNT_ZFILE="dev_ro2"
+  ZBASENAME="`basename $ZFILE`" #v426 moved up.
+  if [ "$MNT_ZFILE" != "" ];then
+   #w020 do not ever copy it to ram... w460 restore choice...
+   if [ "$COPY2RAM" = "yes" ];then #256MB system. note, only checking physical ram.
+    SIZEZK=`du -k /mnt/${MNT_ZFILE}${ZFILE} | cut -f 1`
+    SIZEZK=`expr $SIZEZK + 1000` #some slack.
+    mount -t tmpfs -o size=${SIZEZK}k tmpfs /mnt/tmpfs2
+    cp -af /mnt/${MNT_ZFILE}${ZFILE} /mnt/tmpfs2/
+    sync
+    losetup /dev/loop3 /mnt/tmpfs2/${ZBASENAME}
+   else
+    losetup /dev/loop3 /mnt/${MNT_ZFILE}${ZFILE}
+   fi
+   mount -r -t squashfs -o noatime /dev/loop3 /pup_z
+   if [ $? -eq 0 ]; then #101203 TazOC
+    ZLAYER=':/pup_z=ro'
+    ZFACTOR="$ZBASENAME" #v426
+   fi
+  fi
+ fi
+fi
+
+#101203 TazOC Layer in zWine-n.n.n_${DISTRO_VERSION}.sfs at /pup_ro3 (if no zdrv)
+olddir=`pwd`
+MNT_HOME="$PUPSFSDEVMNTPT" #111127 TaZoC
+[ "$MNT_HOME" = "" ] && [ -f /mnt/dev_save${PUPSFSFILE} ] && MNT_HOME="/mnt/dev_save"
+[ "$MNT_HOME" = "" ] && [ -f /mnt/dev_ro2${PUPSFSFILE} ] && MNT_HOME="/mnt/dev_ro2"
+cd "$MNT_HOME"
+
+if [ -z "$PNOWINE" -o -e "${CREATEPUPXXXSFS}/etc/L64-32bit-libs" ]; then #111002 TaZoC skip if pfix=pure64 #111127 or Wine is built in a remaster
+ if [ "${PSUBDIRBASE}" != "" ]; then
+  WINESFS="`ls -A1 ${PSUBDIRBASE}/zWine*_${DISTRO_VERSION}.sfs zWine*_${DISTRO_VERSION}.sfs 2>/dev/null | head -n 1`"
+ else WINESFS="`ls -A1 zWine*_${DISTRO_VERSION}.sfs 2>/dev/null | head -n 1`"
+ fi
+ 
+ if [ "$WINESFS" -a "$ZDRV" = "" -a $RET_CODE -eq 0 ]; then
+  ZWINEBASENAME="`basename "$WINESFS"`"
+  echo -en "Loading ${blue}/${WINESFS}${NC}..." >/dev/console
+  echo -en "Loading /${WINESFS} at /pup_ro3..."
+ 
+  #101218 TazOC copy zWine SFS to ram if enough free
+  SIZEzWineK=`du -k "$WINESFS" | cut -f 1`
+  SIZEzWineK=$(($SIZEzWineK * 75 / 74)) #some slack. #101219 TazOC
+  SIZEzWineK=$(($SIZEzWineK * 9 / 5)) #111127 7/5->9/5
+  MINRAM2CPY=$SIZEzWineK #111127
+  if [ "$SWAPPART" = "" ];then
+    MINRAM2CPY=$(($MINRAM2CPY + 96000)) # TazOC no swap, need more RAM
+  fi
+  #ram_free_func #110106
+  [ "$COPY2RAM" = "yes" ] && echo -en "\nMin RAM to copy: `expr $MINRAM2CPY \/ 1024`M free: `expr $RAMSIZE \/ 1024`M..." #100520 TazOC
+  
+  if [ $RAMSIZE -gt $MINRAM2CPY ] && [ "$COPY2RAM" = "yes" ]; then
+   echo -en " ${purple}copying to RAM${NC}" > /dev/console #purple.
+   echo " copying to RAM."
+   mkdir -p /mnt/tmpfs3 #101219 TazOC
+   mount -t tmpfs -o size=${SIZEzWineK}k tmpfs /mnt/tmpfs3 #101219 TazOC
+   sync; sleep .1 #111127 TaZoC
+   cp -af "$WINESFS" /mnt/tmpfs3/ & #101219 TazOC
+   copy2ram_progress_func
+   export RAMSIZE=$(($RAMSIZE - $SIZEzWineK)) #110106
+   sync; sleep .1 #111127 TaZoC
+   losetup /dev/loop3 /mnt/tmpfs3/${ZWINEBASENAME}
+  else
+   echo " mounting."
+   losetup /dev/loop3 "$WINESFS"
+  fi
+  sync; sleep .1 #111127 TaZoC
+  mount -r -t squashfs -o noatime /dev/loop3 /pup_ro3
+  if [ $? -eq 0 ]; then
+   WINELAYER=":/pup_ro3=ro"
+   zWINESFS="${MNT_HOME}/${WINESFS}"
+   sync
+  fi
+  
+ fi
+ if [ ! "$WINESFS" ]; then
+  echo -en "\n ${red}zWine-n.n.n_${DISTRO_VERSION}.sfs not found (no built-in Wine or 32-bit libs)${NC}" >/dev/console
+  echo " zWine-n.n.n_${DISTRO_VERSION}.sfs not found at /initrd${MNT_HOME}/${PSUBDIRBASE} (no built-in Wine or 32-bit libs)"
+  echo " MNT_HOME=${MNT_HOME} PUPSFSDEVMNTPT=$PUPSFSDEVMNTPT PSUBDIRBASE=$PSUBDIRBASE PUPSFS=$PUPSFS"
+ fi
+fi
+cd $olddir #101203 end of new zWine section
+
+#[ "$UMOUNTME" != "" ] && umntfunc $UMOUNTME #101013 puppy.sfs was copied to tmpfs so can unmount partition. #111127 TaZoC Wait until end of script, might need for finding extra SFS.
+
+check_status $RET_CODE #101203 TazOC
+########################END LOADING PUPPY FILES########################
+
+#/etc/PUPSTATE passes useful variables to the running puppy...
+mkdir -p /pup_rw/etc/rc.d
+echo "PUPMODE=$PUPMODE" > /pup_rw/etc/rc.d/PUPSTATE
+echo "PDEV1='$PDEV1'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "DEV1FS='$DEV1FS'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "PUPSFS='$PUPSFS'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "PUPSAVE='$PUPSAVE'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "PMEDIA='$PMEDIA'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "pfix='$pfix'" >> /pup_rw/etc/rc.d/PUPSTATE #fatdog
+if [ -e /proc/ide ];then
+ echo "SATADRIVES='$ATADRIVES'"  >> /pup_rw/etc/rc.d/PUPSTATE
+else
+ echo '#v3.97: kernel with libata pata has both sata and pata drives in ATADRIVES...' >> /pup_rw/etc/rc.d/PUPSTATE
+ echo "ATADRIVES='$ATADRIVES'"  >> /pup_rw/etc/rc.d/PUPSTATE
+fi
+echo '#these directories are unionfs layers in /initrd...' >> /pup_rw/etc/rc.d/PUPSTATE
+echo "SAVE_LAYER='$OLDFILESMNTPT'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "PUP_LAYER='$NEWFILESMNTPT'" >> /pup_rw/etc/rc.d/PUPSTATE
+#if [ $SMNTPT ];then
+ echo "#The partition that has the ${DISTRO_FILE_PREFIX}save file is mounted here..." >> /pup_rw/etc/rc.d/PUPSTATE
+ echo "PUP_HOME='${SMNTPT}'" >> /pup_rw/etc/rc.d/PUPSTATE
+ echo '#(in /initrd) ...note, /mnt/home is a link to it.' >> /pup_rw/etc/rc.d/PUPSTATE
+#fi
+echo '#this file has extra kernel drivers and firmware...' >> /pup_rw/etc/rc.d/PUPSTATE
+echo "ZDRV='$ZDRV'" >> /pup_rw/etc/rc.d/PUPSTATE #v2.22
+echo '#complete set of modules in the initrd (moved to main f.s.)...' >> /pup_rw/etc/rc.d/PUPSTATE
+echo "ZDRVINIT='$ZDRVINIT'" >> /pup_rw/etc/rc.d/PUPSTATE #v4.02
+echo "ZWINEFILE='$ZWINEBASENAME'" >> /pup_rw/etc/rc.d/PUPSTATE #101203 TazOC
+#echo "PSWAPFILE='$PSWAPFILE'" >> /pup_rw/etc/rc.d/PUPSTATE
+echo "PSAVEMARK='$PSAVEMARK'" >> /pup_rw/etc/rc.d/PUPSTATE
+
+#w481 record fast partititons, used by rc.shutdown...
+if [ "$FASTPARTS" = " " -o "$FASTPARTS" = "" ];then
+ echo "FASTPARTS=''" >> /pup_rw/etc/rc.d/PUPSTATE
+else
+ echo "FASTPARTS='$FASTPARTS'" >> /pup_rw/etc/rc.d/PUPSTATE
+fi
+
+#older ${DISTRO_FILE_PREFIX}save.2fs <v2.16 will not have this file...
+[ ! -f $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG ] && touch $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG
+#note, OLDFILESMNTPT can also be "" so BOOTCONFIG needs to exist in initrd also.
+. $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG #can have EXTRASFSLIST variable.
+
+# 110111 TazOC SFS boot options override those in BOOTCONFIG set by LHP BootManager
+if [ "$PSFSAUTO" = "yes" ]; then
+ SFSAUTO="yes"; SFSCFG=''; NOSFS=''
+elif [ "$PSFSCFG" = "yes" ]; then
+ SFSAUTO=''; SFSCFG="yes"; NOSFS=''
+elif [ "$PNOSFS" = "yes" ]; then
+ SFSAUTO=''; SFSCFG=''; NOSFS="yes"
+elif [ "$SFSAUTO" = "yes" ]; then # no boot options, try those in BOOTCONFIG
+ PSFSAUTO="yes"; SFSCFG=''; NOSFS=''
+elif [ "$SFSCFG" = "yes" ]; then
+ SFSAUTO=''; PSFSCFG="yes"; NOSFS=''
+elif [ "$NOSFS" = "yes" ]; then
+ SFSAUTO=''; SFSCFG=''; PNOSFS="yes"
+else # precaution, if invalid values; reset to defaults (prompt before loading extra SFS)
+ SFSAUTO=''; SFSCFG=''; NOSFS=''
+fi
+
+case x$COPYEXTRASFS2RAM in # from BOOTCONFIG
+ xyes|xno|x) ;; # valid values
+ x*) COPYEXTRASFS2RAM='' ;; # precaution, invalid; reset
+esac
+
+######################SETUP UNIONFS LAYERED FILESYSTEM########################
+echo -n "Setting up the layered filesystem..." > /dev/console #STEP FIVE
+echo -e "\nSetting up the layered filesystem..."
+#are there any other sfs files to load at bottom layers?...
+     
+NEWUNIONRECORD=""; touch /tmp/EXTRASFSS; touch /tmp/EXTRASFSSBASE
+touch /tmp/EXTRASFSCURRENT #110401 #100921 TazOC
+[ "$PNOSFS" != "yes" ] && touch /tmp/EXTRASFSSORTED && touch /tmp/EXTRASFSOTHERVER 
+
+if [ "$PUPSAVE" != "" -a "$PNOSFS" != "yes" ]; then #TazOC pfix=nosfs: don't load extra
+ if [ "$SMNTPT" != "" -o $PUPMODE -eq 77 ]; then #v3.97
+ 
+  find_extra_sfs_func #101219 TazOC
+  sort_extra_sfs_func #101219 TazOC
+ 
+  if [ -s /tmp/EXTRASFSSORTED ]; then #101219 TazOC (if any extra sfs files were found)
+  
+   configure_sfs_func $PUPMODE "$EXTRASFSLIST" "$COPYEXTRASFS2RAM" #101219 TazOC
+   
+   CNTLOOP=4; COL1_LEN=16; UMNTRO=""; EXTRASFSLIST=""
+   echo -en " ${blue}Layering with $LAYERFS up to 40 SFS files...${NC}" >/dev/console #TazOC
+   echo "Layering with $LAYERFS up to 40 SFS files..."
+   for ONEEXTRA in `cat /tmp/EXTRASFSCURRENT | tr '\n' ' '`
+   do
+    #v423 need to reject wrong squashfs version... v424 no, don't bother...
+    ONEBASE="`basename $ONEEXTRA`"
+    # TazOC - Barburo suggested to display when mounting extra SFS
+    # show 2 files per line #100814 adjust spacing by length of first SFS name
+    [ $CNTLOOP -eq 4 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 5 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 6 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 7 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 8 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 9 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 10 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 11 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 12 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 13 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 14 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 15 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 16 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 17 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 18 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 19 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 20 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 21 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 22 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 23 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 24 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 25 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 26 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 27 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 28 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 29 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 30 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 31 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 32 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 33 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 34 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 35 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 36 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 37 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 38 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 39 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 40 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 41 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 42 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 43 ] && space_sfs_col2_func $COL1_LEN
+    echo -en "${blue}`expr $CNTLOOP - 3` ${NC}${bg_white}${blue} ${ONEBASE} ${NC}" >/dev/console
+    echo -n "`expr $CNTLOOP - 3` ${ONEBASE}"
+    
+    layer_extra_sfs_func $CNTLOOP "$ONEBASE" "$ONEEXTRA" "$COPYEXTRASFS2RAM" #101219 TazOC
+    if [ $? -eq 0 ]; then
+     sync; sleep .1
+     mount -r -t squashfs -o noatime /dev/loop${CNTLOOP} /pup_ro${CNTLOOP}
+     if [ $? -eq 0 ]; then
+      UMNTRO="${UMNTRO}:/pup_ro${CNTLOOP}=ro"
+      # CNTLOOP=`expr $CNTLOOP + 1` #110127 moved down 4 lines
+      EXTRASFSLIST="${EXTRASFSLIST}${ONEBASE} " #construct list of actually used.
+     fi
+    fi
+    CNTLOOP=`expr $CNTLOOP + 1` #110127
+    [ $CNTLOOP -eq 44 ] && break # TazOC Supporting up to 40 extra SFS
+   done
+  fi
+  #keep a record of different layer configurations...
+  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+  SAVEFILENAMEONLY="`basename $SAVEFILE`"
+  SFSFILE="`echo -n "$PUPSFS" | cut -f 3 -d ','`"
+  SFSFILENAMEONLY="`basename $SFSFILE`"
+  RECORDLIST="$SAVEFILENAMEONLY $SFSFILENAMEONLY $ZWINEBASENAME $EXTRASFSLIST $ZFACTOR" #v426 #101203 TazOC
+  NEWUNIONRECORD="`echo "$RECORDLIST" | tr -s ' '  | sed -e 's/ $//'`"
+ fi
+else #----------------------------------------------------------------#
+     # New section to layer extra SFS files from 1st boot or pfix=ram #
+     #----------------------------------------------------------------# 101219 TazOC
+ if [ "$PNOSFS" != "yes" ]; then
+  find_extra_sfs_func #101219 TazOC
+  sort_extra_sfs_func #101219 TazOC
+ fi
+ if [ -s /tmp/EXTRASFSSORTED -a "$PNOSFS" != "yes" ]; then #101219 TazOC (if any extra sfs files were found and not pfix=nosfs)
+  
+  configure_sfs_func $PUPMODE "$EXTRASFSLIST" "$COPYEXTRASFS2RAM" #101219 TazOC
+
+  UMNTRO=""; EXTRASFSLIST=""; CNTLOOP=4; COL1_LEN=16
+  if [ -s /tmp/EXTRASFSCURRENT ]; then 
+   echo -en " ${blue}Layering with $LAYERFS up to 40 SFS files...${NC}" >/dev/console #TazOC
+   echo "Layering with $LAYERFS up to 40 SFS files..."
+   for ONEEXTRA in `cat /tmp/EXTRASFSCURRENT | tr '\n' ' '`
+   do
+    #v423 need to reject wrong squashfs version... v424 no, don't bother...
+    # TazOC yes, let's reject wrong squashfs version...
+    [ "`disktype $ONEEXTRA | grep "$SFSSTR"`" = "" ] && continue
+    ONEBASE="`basename $ONEEXTRA`"
+    # TazOC - Barburo suggested to display when mounting extra SFS
+    # show 2 files per line #100814 adjust spacing by length of first SFS name
+    [ $CNTLOOP -eq 4 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 5 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 6 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 7 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 8 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 9 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 10 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 11 ] && echo -en " " >/dev/console && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 12 ] && echo -en "\n " >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 13 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 14 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 15 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 16 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 17 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 18 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 19 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 20 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 21 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 22 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 23 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 24 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 25 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 26 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 27 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 28 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 29 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 30 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 31 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 32 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 33 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 34 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 35 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 36 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 37 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 38 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 39 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 40 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 41 ] && space_sfs_col2_func $COL1_LEN
+    [ $CNTLOOP -eq 42 ] && echo -en "\n" >/dev/console && COL1_LEN=`echo ${ONEBASE} | wc -L`
+    [ $CNTLOOP -eq 43 ] && space_sfs_col2_func $COL1_LEN
+    echo -en "${blue}`expr $CNTLOOP - 3` ${NC}${bg_white}${blue} ${ONEBASE} ${NC}" >/dev/console
+    echo -n "`expr $CNTLOOP - 3` ${ONEBASE}"
+    
+    layer_extra_sfs_func $CNTLOOP "$ONEBASE" "$ONEEXTRA" "$COPYEXTRASFS2RAM" #101219 TazOC
+
+    if [ $? -eq 0 ]; then
+     sync; sleep .1
+     mount -r -t squashfs -o noatime /dev/loop${CNTLOOP} /pup_ro${CNTLOOP}
+     if [ $? -eq 0 ]; then
+      UMNTRO="${UMNTRO}:/pup_ro${CNTLOOP}=ro"
+      EXTRASFSLIST="${EXTRASFSLIST}${ONEBASE} " #construct list of actually used.
+      # CNTLOOP=`expr $CNTLOOP + 1` #110127 moved down 4 lines
+     fi
+    fi
+    CNTLOOP=`expr $CNTLOOP + 1` #110127
+    [ $CNTLOOP -eq 44 ] && break # TazOC Supporting up to 40 extra SFS
+   done
+  fi
+  #keep a record of different layer configurations...
+  SFSFILE="`echo -n "$PUPSFS" | cut -f 3 -d ','`"
+  SFSFILENAMEONLY="`basename $SFSFILE`"
+  RECORDLIST="$SFSFILENAMEONLY $ZWINEBASENAME $EXTRASFSLIST $ZFACTOR" #v426 #101203 TazOC
+  NEWUNIONRECORD="`echo "$RECORDLIST" | tr -s ' '  | sed -e 's/ $//'`"
+  #---------------------------------------------------------------#
+  #   End of new section to layer extra SFS files from 1st boot   #
+  #---------------------------------------------------------------# 101219 TazOC
+ fi
+fi
+
+ram_free_func
+echo "SFSSDIR=$SFSSDIR COPYEXTRASFS2RAM=$COPYEXTRASFS2RAM RAMFREESHOWM=$RAMFREESHOWM" >> /tmp/puppy-file-search.log # for debugging.
+
+#update /etc/rc.d/BOOTCONFIG with latest unionfs layers configuration... #100222 fix...
+
+EXTRASFSLIST="`echo -n $EXTRASFSLIST | sed 's/* $//'`"
+if [ "$PUPSAVE" ]; then
+ xBOOTCONFIG="`grep '^LASTUNIONRECORD' $OLDFILESMNTPT/etc/rc.d/BOOTCONFIG | sed -e 's/^LASTUNIONRECORD/PREVUNIONRECORD/'`"
+ echo "EXTRASFSLIST='$EXTRASFSLIST'" > /pup_rw/etc/rc.d/BOOTCONFIG
+ echo "$xBOOTCONFIG" >> /pup_rw/etc/rc.d/BOOTCONFIG
+else # 101219 TazOC first boot, maybe extra SFS were layered--update BOOTCONFIG
+ xBOOTCONFIG="`grep '^LASTUNIONRECORD' /etc/rc.d/BOOTCONFIG | sed -e 's/^LASTUNIONRECORD/PREVUNIONRECORD/'`"
+ echo "EXTRASFSLIST='$EXTRASFSLIST'" > /pup_rw/etc/rc.d/BOOTCONFIG
+ echo "$xBOOTCONFIG" >> /pup_rw/etc/rc.d/BOOTCONFIG
+fi
+echo "LASTUNIONRECORD='$NEWUNIONRECORD'" >> /pup_rw/etc/rc.d/BOOTCONFIG
+[ "$LASTUNIONRECORD" = "$NEWUNIONRECORD" ] && NEWUNIONRECORD="" #used below.
+echo -e "COPYEXTRASFS2RAM='$COPYEXTRASFS2RAM'\nSFSAUTO='$SFSAUTO'\nSFSCFG='$SFSCFG'\nNOSFS='$NOSFS'" >> /pup_rw/etc/rc.d/BOOTCONFIG # 101219 TazOC 110111 TazOC
+
+#echo "NEWUNIONRECORD=$NEWUNIONRECORD">/dev/console
+
+#...if layers changed since last boot, code further down will do whiteout files purge.
+#.../etc/rc.d/rc.update reads BOOTCONFIG, updates menu (etc) if layers changed.
+
+#after switch_root, rc.sysinit calls rc.update, but need to do pre-cleaning...
+if [ "$OLDFILESMNTPT" != "" ];then
+ #an empty tmp is required for mounting a tmpfs onto later...
+ rm -rf $OLDFILESMNTPT/tmp/*
+ rm -rf $OLDFILESMNTPT/tmp/.[0-9a-zA-Z]*
+ if [ ! -L $OLDFILESMNTPT/usr/X11R6 ];then #test if a symlink.
+  #this is supposed to be a link to X11R7. <2.10 it won't be...
+  if [ -d $OLDFILESMNTPT/usr/X11R6 ];then
+   mkdir -p $OLDFILESMNTPT/usr/X11R7
+   cp -af $OLDFILESMNTPT/usr/X11R6/* $OLDFILESMNTPT/usr/X11R7/
+   rm -rf $OLDFILESMNTPT/usr/X11R6
+  fi
+  ln -s X11R7 $OLDFILESMNTPT/usr/X11R6
+ fi
+ rm -rf $OLDFILESMNTPT/root/tmp 2>/dev/null
+ rm -f $OLDFILESMNTPT/root/.wh.tmp 2>/dev/null
+ NEWPVERSION=$DISTRO_VERSION
+ if [ -f $OLDFILESMNTPT/etc/puppyversion ];then
+  OLDPVERSION=`cat $OLDFILESMNTPT/etc/puppyversion` #old pre-w464 installation.
+  rm -f $OLDFILESMNTPT/etc/puppyversion #no longer used.
+ fi
+ if [ -f $OLDFILESMNTPT/etc/DISTRO_SPECS ]; then
+  OLDPVERSION=`grep '^DISTRO_VERSION' $OLDFILESMNTPT/etc/DISTRO_SPECS | cut -f 2 -d '=' | cut -f 1 -d ' '` #w478
+  cp -f $OLDFILESMNTPT/etc/DISTRO_SPECS /tmp/distro_specs_old #100910 TazOC moved from below
+ fi
+ [ ! $OLDPVERSION ] && OLDPVERSION=$NEWPVERSION
+ [ "$PCLEAN" = "yes" ] && OLDPVERSION="`expr $NEWPVERSION - 1`" && UP_TYPE=" file cleanup"
+ [ "$PPURGE" = "yes" ] && OLDPVERSION="`expr $NEWPVERSION - 1`" && UP_TYPE=" system purge"
+ if [ $NEWPVERSION -gt $OLDPVERSION ];then
+  BOOTTIMEHOLD=`date +%s` #111219
+ #100530 TazOC Confirm the update/upgrade before continuing
+  [ "$UP_TYPE" = "" ] && UP_TYPE="n upgrade" && UP_VER=" from version ${purple}${OLDPVERSION}${NC} ${cyan}to${NC} ${purple}${NEWPVERSION}"
+  [ "$UP_TYPE" = " file cleanup" ] && UP_VER=" (simulating a version update)"
+  [ "$UP_TYPE" = " system purge" ] && UP_VER=" (radical cleanup for broken system)"
+  echo >/dev/console
+  echo >/dev/console
+  echo -e "${cyan}You can do a${UP_TYPE} of ${DISTRO_NAME}${UP_VER}${NC}." >/dev/console
+  echo >/dev/console
+  echo -e "${purple}To cancel${NC} the changes and reboot, keeping the system as is please${NC}" >/dev/console
+  echo -e "   ${purple}type ${bg_white}${gray} C ${NC} then ${bg_white}${gray} Enter ${NC}" >/dev/console
+  echo >/dev/console
+  echo -en "${cyan}To continue with a${UP_TYPE}, just hit ${bg_white}${gray} Enter ${NC} " >/dev/console
+  read CANCEL
+  if [ "$CANCEL" = "c" -o "$CANCEL" = "C" ]; then
+   echo -e "Rebooting in 3 or 4 seconds..." >/dev/console
+   echo >/dev/console
+   echo -e "If necessary, press ${bg_white}${gray} Ctrl ${NC}+${bg_white}${gray} Alt ${NC}+${bg_white}${gray} Delete ${NC}" >/dev/console
+   MNTFUSE="`busybox mount | grep 'fuse' | head -n 1 | cut -f 3 -d ' '`"
+   [ "$MNTFUSE" != "" ] && fusermount -z -u $MNTFUSE
+   case $PMEDIA in
+    *cd)
+     [ "$PDEV1" ] && umount /dev/$PDEV1 2>/dev/null #okay if it fails.
+     ;;
+   esac
+   umount /proc/bus/usb
+   umount /sys
+   umount /proc
+   sync
+   busybox umount -ar > /dev/null 2>&1
+   sleep .1
+   /bin/shutdown -rn now
+  fi
+
+  echo -e "\\033[1;35m"  >/dev/console #35=purple.
+  echo "Version update, restoring 'official' files, please wait..." >/dev/console
+  echo -e "\nA${UP_TYPE} from ${OLDPVERSION} to ${NEWPVERSION}, restoring 'official' files..."
+  echo -en "\\033[0;39m" >/dev/console
+  #echo "(with a slow CPU this may take some time, please be patient)" >/dev/console #100910 TazOC
+  echo -e "${purple}(This may take some time, ${NC}*${purple} indicates 200 files processed.)${NC}" >/dev/console
+  #v2.16 do not overwrite rox desktop setup, as /etc/rc.d/rc.update now handles it...
+  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/PuppyPin
+  [ -f $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons ] && touch $OLDFILESMNTPT/root/Choices/ROX-Filer/globicons
+  
+  #110706 Keep defaultbrowser, etc.
+  for a in $OLDFILESMNTPT/usr/local/bin/default*; do touch "$a"
+  done
+  
+  mkdir -p $OLDFILESMNTPT/tmp/versioncleanup #100910 TazOC -p
+  #make sure that the official boot scripts will be visible at top...
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.country
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.local0
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.modem
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.modules
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.modules2
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.network
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.shutdown
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.sysinit
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.update
+  rm -f $OLDFILESMNTPT/etc/rc.d/rc.services #v405
+  #i think if a file exists both in OLDFILESMNTPT and in NEWFILESMNTPT, remove
+  #it from OLDFILESMNTPT (as OLDFILESMNTPT is upper layer and will hide the
+  #'official' file. But, only do it if 'official' file has a newer modify date...
+  cd $NEWFILESMNTPT
+  #v2.12 this while-loop has become ultra-slow... seems upx compressed execs
+  #responsible, recently upx-ed all the execs, now restore busybox, grep, cp.
+  #100910 TazOC For the following loop, I enclosed all filenames in "" in case of spaces
+  COL=1; LAST_LEN=0 #100910 TazOC Column, LastFile_Length
+  SAVELAST_LEN=0; LAST_COL=1; DOTCNT=0
+  find ./ -noleaf -type f | sed -e 's/^\.//g' |
+  while read ONENEW
+  do
+   DOTCNT=`expr $DOTCNT + 1`
+   [ $DOTCNT -gt 200 ] && DOTCNT=0 #display a dot every time cnts to 100. #100910 TazOC 200
+   [ $DOTCNT -eq 200 ] && echo -n '*' >/dev/console && COL=`expr $COL + 1` && LAST_LEN=0  #v2.12 #100910 TazOC reset last file length so we won't bkspc over a * later
+   #note, screens out spaces also...
+   [ ! "`echo -n "$ONENEW" | grep -E '^/dev|^/tmp|^/proc| '`" = "" ] && continue
+   ONEBASE="`basename "${OLDFILESMNTPT}$ONENEW"`"
+   OLDDIR="`dirname "${OLDFILESMNTPT}$ONENEW"`"
+   #a whiteout file 'on top' will hide the 'official' file...
+   [ -f "$OLDDIR/.wh.$ONEBASE" ] && rm -f "$OLDDIR/.wh.$ONEBASE"
+   [ -f "$OLDDIR/.wh.__dir_opaque" ] && rm -f "$OLDDIR/.wh.__dir_opaque" #v424 not needed for aufs2
+   [ -f "$OLDDIR/.wh..wh..opq" ] && rm -f "$OLDDIR/.wh..wh..opq" #100910 TazOC
+   #let's get paranoid and imagine upper-directories also wiped...
+   while [ ! "$OLDDIR" = "/" ];do
+    OLDDIR="`dirname "$OLDDIR"`"
+    UP1BASE="`basename "$OLDDIR"`"
+    [ -f "$OLDDIR/.wh.$UP1BASE" ] && rm -f "$OLDDIR/.wh.$UP1BASE"
+    [ -f "$OLDDIR/.wh.__dir_opaque" ] && rm -f "$OLDDIR/.wh.__dir_opaque" #v424 not needed for aufs2
+    [ -f "$OLDDIR/.wh..wh..opq" ] && rm -f "$OLDDIR/.wh..wh..opq" #100910 TazOC
+   done
+   #now check for 'old' files on top layer...
+   if [ -f "${OLDFILESMNTPT}$ONENEW" -o -L "${OLDFILESMNTPT}$ONENEW" ];then #100910 TazOC
+    #note, this is inaccurate due to local timezone not yet set...
+    #i got this 'stat' off ibiblio, v3.3. i think older version than in main puppy f.s...
+    MODIFOLD=`$PUPFILESDIR/bin/stat -c %Y "${OLDFILESMNTPT}$ONENEW"`
+    MODIFNEW=`$PUPFILESDIR/bin/stat -c %Y "$NEWFILESMNTPT$ONENEW"`
+    [ "$PPURGE" = "yes" ] && MODIFNEW=`expr $MODIFOLD + 1` #force overwrite all.
+    #100823 TazOC symlinks may have incorrect modtime, so overwrite all.
+    [ -L "${OLDFILESMNTPT}$ONENEW" ] && MODIFNEW=`expr $MODIFOLD + 1` #100823 TazOC
+    if [ $MODIFNEW -ge $MODIFOLD ];then
+     #100910 TazOC Display filename--if it will fit on current line, erasing prev name.
+     NEW_LEN=`echo "$ONENEW" | wc -L`; NEW_LEN=`expr $NEW_LEN + 1` #100910 TazOC
+     if [ $NEW_LEN -lt 79 ]; then #100910 TazOC
+      if [ `expr $COL + $NEW_LEN - $LAST_LEN` -gt 78 ]; then #100910 won't fit
+       echo -en "\\033[1G" >/dev/console; COL=1; LAST_LEN=0 # so move to col 1
+       COL=`expr $NEW_LEN + 1`
+      else #100910 will fit, erasing prev name.
+       [ $LAST_LEN -eq 0 -a $COL -gt 1 ] && echo -en " " >/dev/console && COL=`expr $COL + 1`
+       SAVELAST_LEN=$LAST_LEN
+       while [ $LAST_LEN -gt 0 ]; do
+        echo -en "\b" >/dev/console #100910 TazOC backspace over last name
+        LAST_LEN=`expr $LAST_LEN - 1`
+       done
+       LAST_LEN=$SAVELAST_LEN
+       COL=`expr $COL + $NEW_LEN - $LAST_LEN`
+      fi
+      
+      echo -en "$ONENEW " >/dev/console
+      LAST_COL=$COL
+      if [ $LAST_LEN -eq 0 -o $NEW_LEN -lt $LAST_LEN ]; then
+        while [ $COL -lt 79 ]; do  #100910 TazOC Clear remainder of line
+         echo -en " " >/dev/console; COL=`expr $COL + 1` 
+        done
+        COL=$LAST_COL; echo -en "\\033[${COL}G" >/dev/console # move back to prev col
+      fi
+      LAST_LEN=$NEW_LEN
+     fi
+     ONEDIR="`dirname "$ONENEW"`"
+     mkdir -p "${OLDFILESMNTPT}/tmp/versioncleanup${ONEDIR}"
+     cp -af "${OLDFILESMNTPT}$ONENEW" "$OLDFILESMNTPT/tmp/versioncleanup${ONEDIR}/"
+     rm -f "${OLDFILESMNTPT}$ONENEW"
+    fi
+   fi
+   if [ $COL -gt 79 ]; then
+       echo -en "\\033[1G" >/dev/console; COL=1
+       while [ $COL -lt 80 ]; do #100910 TazOC Clear line
+        echo -en " " >/dev/console; COL=`expr $COL + 1`
+       done
+       LAST_COL=80 && COL=1 && LAST_LEN=0 && echo -en "\\033[${COL}G" >/dev/console #100910 TazOC
+   fi
+  done
+  echo -en "\\033[1G" >/dev/console; COL=1
+  while [ $COL -lt 80 ]; do #100910 TazOC Clear line
+   echo -en " " >/dev/console; COL=`expr $COL + 1`
+  done
+  echo -en "\\033[76G" >/dev/console; echo -en "${green}done${NC}" >/dev/console
+  echo >/dev/console
+  cd /
+ fi
+ #need to cleanup whiteout files if a new .sfs layer has been added...
+ if [ "$NEWUNIONRECORD" != "" -o "$PPURGE" = "yes" ];then
+  #find all .wh.__dir_opaque files at the OLDFILESMNTPT layer... v424 bugfixes...
+  cd $OLDFILESMNTPT
+  find ./ -noleaf -type f -name ".wh.*" | sed -e 's/^\.//g' |
+  while read ONEOPAQUE #examples: /usr/src/.wh.__dir_opaque, /usr/src/.wh.bin
+  do
+   ONEDIR="`dirname "$ONEOPAQUE"`" #ex: /usr/src
+   WHBASE="`basename "$ONEOPAQUE"`" #ex: .wh.bin
+   if [ "$WHBASE" != ".wh.__dir_opaque" ];then #aufs2 always enter this condition...
+    #example, .wh.bin alongside bin directory means it is deleted...
+    ONEDEL="`echo -n "$WHBASE" | sed -e 's/^\\.wh\\.//g'`" #ex: bin
+    ONEDIR="${ONEDIR}/${ONEDEL}" #ex: /usr/src/bin
+    [ ! -e ".${ONEDIR}" ] && continue
+   fi
+   
+   #if same dir exists lower layer, then wipe the opaque file...
+   CNTLAYER=3 #101219 TazOC simplified this section
+   while [ $CNTLAYER -lt 44 ]; do
+    TMPLIST="${TMPLIST}${CNTLAYER} "
+    CNTLAYER=$(expr $CNTLAYER + 1)
+   done 
+   for layernum in `echo $TMPLIST`
+   do
+    [ -d /pup_ro${layernum}${ONEDIR} ] && rm -f "${OLDFILESMNTPT}${ONEOPAQUE}"
+   done  # End of 101219 
+
+  done
+  cd /
+ fi
+ if [ $NEWPVERSION -gt $OLDPVERSION ];then
+  echo "Done. Overwritten old files have been moved to /tmp/versioncleanup/"
+  #echo -n "$OLDPVERSION" > $OLDFILESMNTPT/etc/puppyversion #v2.14 so rc.update will run.
+  vPATTERN="s%^DISTRO_VERSION=.*%DISTRO_VERSION=${OLDPVERSION}%"
+  # sed -e "$vPATTERN" $OLDFILESMNTPT/etc/DISTRO_SPECS > /tmp/distro_specs_old #100910 TazOC upgrade removed $OLDFILESMNTPT/etc/DISTRO_SPECS, so saved to /tmp (see further up)
+  sed -i -e "$vPATTERN" /tmp/distro_specs_old #100910 TazOC
+  cp -f /tmp/distro_specs_old $OLDFILESMNTPT/etc/DISTRO_SPECS #so rc.update will run.
+  sync
+  echo -en "${purple}" >/dev/console 
+  [ "$PCLEAN" = "yes" ] && echo "This is a simulated version upgrade, which performs a file cleanup." >/dev/console
+  [ "$PPURGE" = "yes" ] && echo "This is a radical file cleanup for broken systems, could alter some settings." >/dev/console
+  echo "You have upgraded ${DISTRO_NAME} from version $OLDPVERSION to $NEWPVERSION." >/dev/console
+  echo -e "Overwritten old files have been moved to ${cyan}/tmp/versioncleanup/${NC}" >/dev/console
+  echo -e "${purple}After bootup please examine this directory (before shutdown) for anything" >/dev/console
+  echo -e "that you might like to recover. Pausing so you can read this msg...${NC}" >/dev/console
+  echo -en "\n${cyan}To continue press ${bg_white}${gray} Enter ${NC} " >/dev/console #100910 TazOC
+  read pauseinput #100910 TazOC
+  #sleep 30 #so can see above messages. #100910 TazOC
+  #111219 Subtract delay in upgrade/clean/purge above from estimated boot time...
+  [ ! -z $BOOTTIMEHOLD ] && BOOTTIMEHOLD=$((`date +%s` - $BOOTTIMEHOLD))
+  [ ! -z $BOOTTIMEHOLD ] && [ $BOOTTIMEHOLD -gt 0 ] && echo -n $((`head -1 /tmp/boottime` + $BOOTTIMEHOLD)) >/tmp/boottime
+ fi
+fi
+
+[ "$RDSH" = "6" ] && exec /bin/sh >/dev/console 2>&1 #w091027
+
+#create the unionfs layered f.s.... ***THE BIG EVENT***
+if [ "$LAYERFS" = "aufs" ];then
+ sleep 1 #110907 was getting aufs errors without this delay
+ sync
+ mount -t aufs -o udba=reval,diropq=w,dirs=${UMNTMAIN}${ZLAYER}${WINELAYER}${UMNTRO} unionfs /pup_new #101203 TazOC WINELAYER
+else #unionfs
+ UMNTMAIN="`echo -n "$UMNTMAIN" | sed -e 's/+wh//g'`" #w003 'ro+wh' not accepted by unionfs, change back to 'ro'.
+ mount -t unionfs -o dirs=${UMNTMAIN}${ZLAYER}${WINELAYER}${UMNTRO} unionfs /pup_new #101203 TazOC
+fi
+STATUS=$?
+
+if [ $STATUS -eq 0 ]; then
+ #110907 This also prevents aufs errors...
+ echo "Verifying $LAYERFS tables... "
+ echo -en "\n ${blue}Verifying $LAYERFS tables..." >/dev/console
+ find /pup_new/usr -ls 1>/dev/null 2>/tmp/layertest.log &
+ find /pup_new/root -ls 1>/dev/null 2>>/tmp/layertest.log &
+ sleep .05
+ while [ "`pidof find 2>/dev/null`" ]; do
+  sleep .25; ! pidof find 1>/dev/null && break
+  sleep .25; ! pidof find 1>/dev/null && break
+  sleep .25; ! pidof find 1>/dev/null && break
+  sleep .25; ! pidof find 1>/dev/null && break
+  echo -n "." >/dev/console
+ done
+ [ -s /tmp/layertest.log ] && cat /tmp/layertest.log
+ echo -en "${NC}" >/dev/console
+fi
+check_status $STATUS #END STEP FIVE
+#######################END SETUP UNIONFS LAYERED FILESYSTEM###################
+
+#101127 pakt: code adapted from bchafy's Xin. His description: "A precfg area
+# for faster re-mastering, no need to regenerate an .SFS every time you want to
+# change the core, and no need for a hard drive to store customizations"
+
+#101203 TazOC support precfg in PSUBDIR, preserve date stamp, display file count
+PCFG_PATH="/precfg" #101203
+[ "$PSUBDIRBASE" ] && PCFG_PATH="/${PSUBDIRBASE}/precfg" #101203
+SRC="${MNT_HOME}${PCFG_PATH}" #101203
+echo -n "Checking for preconfig files in $SRC..." #101203
+if [ -d $SRC ];then #101203
+ echo -n "Overlaying preconfig files in $PCFG_PATH..." > /dev/console #101203
+ DEST="/pup_new"
+ olddir=`pwd`
+ cd $SRC
+ PRE_FILE_CNT=0; CP_RET=0 #111116
+ for BASEFILE in `find . -noleaf -not -type d -print | sed 's%.\/%%`; do #101203 -noleaf
+  SRCFILE="$SRC/${BASEFILE}"
+  DESTFILE="$DEST/${BASEFILE}" #101203
+  DESTDIR=`dirname $DESTFILE` #101203
+  #MASK="777"
+  #if test -f "$SRCFILE"; then
+   #MASK=`stat -c %a $DESTFILE`
+  #fi
+  mkdir -p $DESTDIR
+  [ $? -ne 0 ] && continue #111116 symlink in path may fail, so skip
+  #cp -f $SRCFILE $DESTFILE
+  #chmod $MASK $DESTFILE
+  cp -af --remove-destination "$SRCFILE" "$DESTFILE" #111116
+  ONECP_RET=$?
+  CP_RET=$(expr $ONECP_RET + $CP_RET) #111116
+  [ $ONECP_RET -eq 0 ] && PRE_FILE_CNT=$(expr $PRE_FILE_CNT + 1) #101203
+ done
+ if [ $CP_RET -eq 0 ]; then #101203
+  [ $PRE_FILE_CNT -ne 1 ] && PLURAL="s"
+  echo -n " $PRE_FILE_CNT file${PLURAL} overlayed" > /dev/console
+  echo " $PRE_FILE_CNT file${PLURAL} overlayed."
+ else
+  echo -n " overlay cp error $?" > /dev/console
+  echo " overlay cp error $?"
+ fi
+ cd $olddir
+ check_status $CP_RET #END PRECONFIG STEP #101203
+fi
+
+#######################SETUP SWITCH TO MAIN FILESYSTEM#######################
+echo -n "Performing a 'switch_root' to the layered filesystem..." > /dev/console
+echo -e "\nPreparing for a 'switch_root' to the layered filesystem..."
+#prepare everything for doing a switch_root...
+#cpio archive does switch_root, lose the initial-ramfs, so move all mntd...
+mkdir -p /pup_new/initrd
+mkdir -p /pup_new/initrd/pup_ro1
+mkdir -p /pup_new/initrd/pup_ro2
+mkdir -p /pup_new/initrd/pup_ro3
+
+mkdir -p /pup_new/initrd/pup_rw
+mkdir -p /pup_new/initrd/pup_z
+mkdir -p /pup_new/initrd/mnt
+mkdir -p /pup_new/initrd/mnt/data
+mkdir -p /pup_new/initrd/mnt/dev_ro1
+mkdir -p /pup_new/initrd/mnt/dev_ro2
+mkdir -p /pup_new/initrd/mnt/dev_save
+mkdir -p /pup_new/initrd/mnt/swap
+mkdir -p /pup_new/initrd/mnt/tmpfs
+mkdir -p /pup_new/initrd/mnt/tmpfs2
+mkdir -p /pup_new/initrd/mnt/tmpfs3
+mkdir -p /pup_new/initrd/mnt/zdrv
+mkdir -p /pup_new/initrd/tmp
+
+#101219 TazOC Need a pup_ro and, if copy2ram, need a tmpfs for each extra sfs
+if [ "$EXTRASFSLIST" ]; then
+ CNT=4
+ while [ $CNT -lt 44 ]; do
+  TMPLIST="${TMPLIST}${CNT} "
+  CNT=$(($CNT + 1))
+ done 
+ CNTLOOP=$(($CNTLOOP - 1))
+ for ONELOOP in `echo $TMPLIST`
+ do
+  [ $(($ONELOOP)) -gt $CNTLOOP ] && break
+  [ -e /mnt/tmpfs${ONELOOP} ] && mkdir -p /pup_new/initrd/mnt/tmpfs${ONELOOP}
+  [ -e /pup_ro${ONELOOP} ] && mkdir -p /pup_new/initrd/pup_ro${ONELOOP}
+ done
+fi # End 101219 
+
+for ONEMNT in `mount | cut -f 3 -d ' ' | grep -v 'pup_new' | grep '^/pup_' | tr '\n' ' '`
+do
+ mount -o move $ONEMNT /pup_new/initrd${ONEMNT}
+done
+for ONEMNT in `mount | cut -f 3 -d ' ' | grep '^/mnt/' | tr '\n' ' '`
+do
+ mount -o move $ONEMNT /pup_new/initrd${ONEMNT}
+done
+
+#v4.02 bring back, but allocate more space (/4 instead of /8)....
+#v3.97 a problem can run out of /tmp space, remove...
+#to minimise writes to pup_save and to speedup, tmpfs on /tmp...
+if [ "$CREATETMPFS" != "/pup_rw" ];then #test if no tmpfs on unionfs top layer.
+ ALLOCK=`expr $RAMSIZE \/ 4 + $EXTRAALLOCK`
+
+ #v424 don't create tmpfs if have versioncleanup dir... 100423 try again...
+ #mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+ #[ ! -e $OLDFILESMNTPT/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+ [ ! -e /pup_new/tmp/versioncleanup ] && mount -t tmpfs -o size=${ALLOCK}k tmpfs /pup_new/tmp
+
+fi
+
+#PNOX is a boot param. /etc/profile prevents X from starting if this file exists...
+[ "$PNOX" = "yes" ] && touch /pup_new/tmp/bootcnt.txt
+cp -a /DISTRO_SPECS /pup_new/initrd/
+
+cp -af /tmp/* /pup_new/initrd/tmp/ #keep any log files.
+
+#091122
+mkdir -p /pup_new/lib/keymaps
+cp -a -f /lib/keymaps/* /pup_new/lib/keymaps/
+mkdir -p /pup_new/lib/consolefonts
+cp -a -f /lib/consolefonts/* /pup_new/lib/consolefonts/
+if [ "$KMAP" ];then #because PKEYS boot param was defined.
+  echo -n "$KMAP" > /pup_new/etc/keymap
+  echo -n "$FONTMAP" > /pup_new/etc/fontmap
+  echo -n "$CODEPAGE" > /pup_new/etc/codepage
+fi
+
+#091225 copy exes to main f.s.
+if [ -f /bin/TARGETEXES ];then
+ for ONEEXE in `cat /bin/TARGETEXES` #ex: sbin/e2fsck
+ do
+  BASEEXE="`basename $ONEEXE`"
+  [ ! -e /pup_new/$ONEEXE ] && cp -f /bin/$BASEEXE /pup_new/$ONEEXE
+ done
+ cp -f /bin/TARGETEXES /pup_new/bin/ #100113 puppyinstaller needs this.
+fi
+
+#RDSH is a boot param. exit to initial ramdisk shell...
+if [ "$RDSH" = "yes" ];then
+ echo > /dev/console
+ echo "Dropped to initramfs shell. Type 'exec switch' to continue booting Puppy." > /dev/console
+ exec /bin/sh >/dev/console 2>&1
+fi
+
+[ "$UMOUNTME" ] && [ "$COPY2RAM" = 'yes' -a "$COPYEXTRASFS2RAM" != 'no' ] && [ -z "`grep " mounting." /tmp/bootinit.log`" ] && umntfunc $UMOUNTME && echo "unmounted $UMOUNTME" #111127 TaZoC
+
+[ $PUPMODE -eq 77 ] && umount /mnt/dev_ro1 2>/dev/null #unmount the cd. #111219 TaZoC
+
+#v3.01 a bit untidy, but cd may still be mounted when it doesn't have to be...
+case $PMEDIA in
+ *cd)
+  [ "$PDEV1" ] && umount /dev/$PDEV1 2>/dev/null #okay if it fails.
+  ;;
+esac
+
+sync
+#killall -USR1 hotplug2 #v423
+umount /proc/bus/usb
+umount /sys
+umount /proc
+
+#now using cpio archive for initramfs 'initial ramdisk'...
+#exec switch_root -c /dev/console /pup_new /bin/busybox init 3
+exec switch_root /pup_new /sbin/init
+
+###END###
