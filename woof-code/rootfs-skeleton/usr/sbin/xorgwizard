@@ -116,10 +116,18 @@ tmpDIR=/tmp/xorgwizard
 rm $VERB -rf "$tmpDIR"
 mkdir $VERB -p "$tmpDIR"
 
+if test -d      /usr/X11/lib/xorg/modules/drivers; then
 XORG_DRIVER_DIR=/usr/X11/lib/xorg/modules/drivers
+elif test -d    /usr/lib/xorg/modules/drivers; then
+XORG_DRIVER_DIR=/usr/lib/xorg/modules/drivers
+fi
 XORG_DRIVER_DIR=`realpath "$XORG_DRIVER_DIR"`
 _debug "XORG_DRIVER_DIR='$XORG_DRIVER_DIR'" && sleep 5
 test -d "$XORG_DRIVER_DIR" || _warn "Could not set XORG_DRIVER_DIR to an existing directory"
+
+RECMODE="800x600x16" #default recommended video mode.
+
+. /etc/rc.d/functions4puppy4 #v411 has choosemousefunc().
 
 usage (){
 MSG="
@@ -153,15 +161,6 @@ exit $1
 if [ "`echo "$@" | grep -wEi '\-h|help'`" ];then usage 0;fi
 if [ "`echo "$@" | grep -wEi '\-V|version'`" ];then echo -e "\n$0: Version '$Version'\n";exit 0;fi
 
-__old_parameters__(){
-OUT=/dev/null;ERR=/dev/null
-for p in $@;do
-case $p in
-debug) DEBUG=1;set -x;;
-verbose) VERBOSE=1;VERB=-v;L_VERB=--verbose;A_VERB=-verbose;OUT=/dev/stdout;ERR=/dev/stderr;;
-esac;done
-}
-
 if [ -f /var/log/Xorg.0.log ];then
 #Xorg.0.log:using VT number 7
 XorgVTnr=`grep 'using VT number' /var/log/Xorg.0.log |rev|awk '{print $1}' |rev`
@@ -180,7 +179,6 @@ fi;fi
 #exec 2>$tmpDIR/xorgwizard-errors.log  ##doing so the GUI would not show in X
 [ "$DISPLAY" ] || exec 2>$tmpDIR/xorgwizard-errors.log
 LANG=C
-
 
 CURRENTX=`readlink /usr/bin/X`
 if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
@@ -256,13 +254,9 @@ msgPID=`jobs -p _do_message`
 #jobs -l xmessage >&2
 #echo " 4 xmsgPID='$xmsgPID'" >&2
 #[ "$xmsgPID" ] && { ps | grep $QUIET -w $xmsgPID 1>>$OUT 2>>$ERR && kill $xmsgPID 2>>$ERR; }
-
-
 echo "function _do_xvidtune END." >&2
 }
 export -f _do_xvidtune
-
-. /etc/rc.d/functions4puppy4 #v411 has choosemousefunc().
 
 echo Step 1 >&2
 #v2.0.0
@@ -296,19 +290,19 @@ esac
 PSFND=`ps`
 if [ "`echo -n "$PSFND" | grep '\.xinitrc'`" ];then
 
-#KNOWNXservers="Xchips Xfake Xephyr Xfbdev Xnest Xorg Xvesa Xvfb"
-KNOWNXservers="Xati Xchips Xephyr Xepson Xfake Xfbdev Xi810 Xmach64 Xmga Xneomagic Xnest Xnvidia Xorg Xpm2 Xr128 Xsdl Xsmi Xvesa Xvfb Xvia"
-_info "Checking for known Xservers '$KNOWNXservers' .."
+#knownXSERVERS="Xchips Xfake Xephyr Xfbdev Xnest Xorg Xvesa Xvfb"
+knownXSERVERS="Xati Xchips Xephyr Xepson Xfake Xfbdev Xi810 Xmach64 Xmga Xneomagic Xnest Xnvidia Xorg Xpm2 Xr128 Xsdl Xsmi Xvesa Xvfb Xvia"
+_info "Checking for known Xservers '$knownXSERVERS' .."
 
-for content in $KNOWNXservers ; do
+for content in $knownXSERVERS ; do
 INSTALLED=$(basename `find /usr/bin -type f -name "$content" | tail -n1` 2>>$tmpDIR/xorgwizard-errors.log)
-[ -n "$INSTALLED" ] && INSTALLEDXservers="$INSTALLEDXservers $INSTALLED"
+[ -n "$INSTALLED" ] && installedXSERVERS="$installedXSERVERS $INSTALLED"
 done
-INSTALLEDXservers=`echo "$INSTALLEDXservers" | sed '/^$/d'`
-echo "$INSTALLEDXservers" | tr ' ' '\n' >$tmpDIR/availableXservers
-_info "These are found installed Xservers : $INSTALLEDXservers"
+installedXSERVERS=`echo "$installedXSERVERS" | sed '/^$/d'`
+echo "$installedXSERVERS" | tr ' ' '\n' >$tmpDIR/availableXservers
+_info "These are found installed Xservers : $installedXSERVERS"
 
-for content in $INSTALLEDXservers ; do
+for content in $installedXSERVERS ; do
 #ITEMLIST=`echo -e "$ITEMLIST\n"`"<item>$content</item>"
 ITEMLIST="$ITEMLIST
 <item>$content</item>"
@@ -454,7 +448,7 @@ _debug "RETSTR='$RETSTR'"
  #gtkdialog3 --print-ir -p MAIN_DIALOG
  RETVAL=`echo "$RETSTR" | grep -o -e 'EXIT:.*' | cut -f 2 -d ':'`
 echo Step 5 >&2
-echo 'RETVAL='"$RETVAL"
+echo "RETVAL='$RETVAL'"
  case $RETVAL in
 
   10) #Xvesa , Xorg switch
@@ -581,8 +575,6 @@ echo -e $Pink0'Lowlevel probing the video card and monitor...'$Reset0
 
 #want to choose a resolution and color-depth...
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
-#DDCPROBE=`ddcprobe | grep -v 'timing: [0123456789]x'`
-#DDCPROBE=`ddcprobe`
 touch "$tmpDIR"/ddcprobe.txt  ##+++2013-04-11
 ddcprobe >"$tmpDIR"/ddcprobe.txt
 #weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
@@ -603,10 +595,46 @@ _get_edid(){  ##+++2013-04-11
   fi
 }
 _get_edid
+#v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
+#v3.96 added trident line...
+#v3.98 added more CYBER lines & corrected case
+XVESALISTOK="yes"
+TIMINGOK="yes"
+if [ -s "$tmpDIR"/ddcprobeoem.txt ];then   #v3.99 begin
+ if [ ! -f /etc/xorgoverrides ] || ! grep $Q -f "$tmpDIR"/ddcprobeoem.txt /etc/xorgoverrides;then
+  echo "`cat "$tmpDIR"/ddcprobeoem.txt`" >> /etc/xorgoverrides  #append new signature if user canceled out from hung Xvesa
+  _sync
+ fi
+fi
+if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$tmpDIR"/ddcprobe.txt;then   #v3.99 end
+ #HORIZSYNC=""
+ #VERTREFRESH=""
+ XVESALISTOK="no" #'Xvesa -listmodes' hangs.
+ TIMINGOK="no"    #ddcprobe returns incomplete 'timing:' info (res's missing).
+echo '
+mode: 640x480x64k
+mode: 640x480x16m
+mode: 800x600x64k
+mode: 800x600x16m
+mode: 1024x768x64k
+mode: 1024x768x16m' >> "$tmpDIR"/ddcprobe.txt
+fi   #v3.93 end
+
+#v3.94 detect if a Classmate PC laptop with 800x480 screen...
+#v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
+[ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> "$tmpDIR"/ddcprobe.txt
+#v3.95 recognise more special screens...
+DMIDECODE=`dmidecode`
+#recognise EeePC Asus laptop...
+[ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> "$tmpDIR"/ddcprobe.txt
+sort -u "$tmpDIR"/ddcprobe.txt > "$tmpDIR"/ddcprobe.txt1
+mv $VERB "$tmpDIR"/ddcprobe.txt1 "$tmpDIR"/ddcprobe.txt
 
 #If video adapter would hang Xvesa, tell user and allow only Xorg.
-if [ -s "$tmpDIR"/ddcprobeoem.txt ] || grep $Q -f /etc/xorgoverrides "$tmpDIR"/ddcprobe.txt 2>>$ERR;then   #Xvesa hanger encountered
- dialog --colors --title "Puppy Graphics Wizard" --yes-label "Xorg" --no-label "Commandline" --yesno "Welcome to the Puppy Graphics Wizard!
+HAVE_XORG_OVERRIDES=`grep -f /etc/xorgoverrides "$tmpDIR"/ddcprobe.txt`
+if [ -s "$tmpDIR"/ddcprobeoem.txt -o "$HAVE_XORG_OVERRIDES" ]; then #Xvesa hanger encountered
+ dialog --colors --yes-label "Xorg" --no-label "Commandline" \
+ --title "Puppy Graphics Wizard" --yesno "Welcome to the Puppy Graphics Wizard!
 
 Puppy has two X servers (to run Puppy in graphics mode):
 Xvesa: A very small and simple \"Kdrive\" X server.
@@ -615,7 +643,9 @@ Xorg:  A very large and sophisticated X server.
 \Z1Your graphic chip  would cause Xvesa to freeze Puppy, so your options are to use Xorg or exit to the command prompt.\Z0
 
 It is recommended that you choose the <Xorg> button now, but some
-quirky graphic cards do not work with Xorg, in which case you must operate from the command line. Make sure you have at least 96 MB of RAM+swap, for Xorg to function.
+quirky graphic cards do not work with Xorg, in which case you must
+operate from the command line.
+Make sure you have at least 96 MB of RAM+swap, for Xorg to function.
 
 Press ENTER for Xorg...
 Press TAB (or right-arrow) key then ENTER key to use the command line...\Zn" 0 0
@@ -624,7 +654,8 @@ Press TAB (or right-arrow) key then ENTER key to use the command line...\Zn" 0 0
 else   #normal video adapter
 #v3.99 end
  #offer to drop out to Xvesa...
- dialog --colors --title "Puppy Graphics Wizard" --yes-label "Xorg" --no-label "Xvesa" --yesno "Welcome to the Puppy Graphics Wizard!
+ dialog --colors --yes-label "Xorg" --no-label "Xvesa" \
+ --title "Puppy Graphics Wizard" --yesno "Welcome to the Puppy Graphics Wizard!
 
 Puppy has two X servers (to run Puppy in graphics mode):
 Xvesa: A very small and simple \"Kdrive\" X server.
@@ -674,8 +705,8 @@ ln $VERB -sf /usr/bin/Xorg /usr/bin/X
 # Dougal: moved echo to below xorg probing, since loop isn't slow anymore...
 #clear
 echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-echo -n "Probing graphics hardware, please wait..."
-echo -e "\\033[0;39m"
+echo -e  "Probing graphics hardware, please wait...""\\033[0;39m"
+
 #autoprobe...
 echo "Running 'Xorg -configure > "$tmpDIR"/xorgprobe.txt 2>&1' ..."
 echo "Press any Key to go "
@@ -691,18 +722,11 @@ test -f "/root/xorg.conf.new" || _exit 3 '/root/xorg.conf.new must be a regular 
 test -s "/root/xorg.conf.new" || _exit 3 'Need content in /root/xorg.conf.new !'
 #... config in /root/xorg.conf.new
 
+#newer xorg -configure seem to delete xorg.conf
+[ -f /etc/X11/xorg.conf0 ] && cp $VERB /etc/X11/xorg.conf0 "$XORGCONFFILE"
 
-##### Below commented out by Dougal:
-
-#echo '.' #progress indicator completion.
-#CARD0DRIVER=`cat $tmpDIR/CARD0DRIVER`
-#CARD0VENDOR=`cat $tmpDIR/CARD0VENDOR`
-#CARD0BOARD=`cat $tmpDIR/CARD0BOARD`
-#HORIZSYNC0=`cat $tmpDIR/HORIZSYNC0`
-#VERTREFRESH0=`cat $tmpDIR/VERTREFRESH0`
 ##now have an almost-working xorg.conf, missing Screen section.
 ###############################END BIG ITERATION###########################
-
 echo "processing /root/xorg.conf.new ... please wait ..."
 ## My (Dougal) alternate code:
 ######################################################################
@@ -885,72 +909,102 @@ sed -e 's%/dev/input/mice%/dev/mouse%'  "$XORGCONFFILE" >"$tmpDIR"/xorgconfmouse
 mv $VERB -f "$tmpDIR"/xorgconfmousefix "$XORGCONFFILE"
 cp $VERB "$XORGCONFFILE" /root/xorg.conf.new.1
 
+## Dougal (v2.16??):
+## Kirk's code for adding synaptics touchpads (or my version of it...)
+if grep $Q -F 'Alps' /proc/bus/input/devices ; then
+ cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
+ modprobe $Q $VERB evdev
+ if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
+  echo "modprobe evdev" >> /etc/rc.d/rc.local
+ fi
+ # Where we want to insert new lines...
+ OLD1='Section "Module"'
+ OLD2='Section "ServerLayout"'
+ OLD3='Section "Monitor"'
+
+ # ...and the replacements
+ NEW1='Section "Module"\
+    Load "synaptics"'
+
+ NEW2='Section "ServerLayout"\
+    InputDevice "Synaptics Mouse" "AlwaysCore"'
+
+ NEW3='Section "InputDevice"\
+    Identifier "Synaptics Mouse"\
+    Driver "synaptics"\
+   #Option "Device" "/dev/psaux"\
+    Option "Protocol" "auto-dev"\
+    Option "LeftEdge" "120"\
+    Option "RightEdge" "930"\
+    Option "TopEdge" "120"\
+    Option "BottomEdge" "650"\
+    Option "FingerLow" "14"\
+    Option "FingerHigh" "15"\
+    Option "MaxTapTime" "0"\
+    Option "MaxTapMove" "110"\
+    Option "VertScrollDelta" "20"\
+    Option "MinSpeed" "0.3"\
+    Option "MaxSpeed" "0.75"\
+    Option "AccelFactor" "0.030"\
+    Option "EdgeMotionMinSpeed" "200"\
+    Option "EdgeMotionMaxSpeed" "200"\
+    Option "UpDownScrolling" "1"\
+    Option "CircularScrolling" "1"\
+    Option "CircScrollDelta" "0.1"\
+    Option "CircScrollTrigger" "2"\
+EndSection\
+\
+Section "Monitor"'
+
+ # now replace:
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
+fi
+if grep $Q -F 'Synaptics' /proc/bus/input/devices ; then
+ cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
+ modprobe $Q $VERB evdev
+ echo "modprobe evdev" >> /etc/rc.d/rc.local
+ # Where we want to insert new lines...
+ OLD1='Section "Module"'
+ OLD2='Section "ServerLayout"'
+ OLD3='Section "Monitor"'
+
+ # ...and the replacements
+ NEW1='Section "Module"\
+    Load "synaptics"'
+
+ NEW2='Section "ServerLayout"\
+    InputDevice "Synaptics Mouse" "AlwaysCore"'
+
+ NEW3='Section "InputDevice"\
+    Identifier "Synaptics Mouse"\
+    Driver "synaptics"\
+   #Option "Device" "/dev/psaux"\
+    Option "Protocol" "auto-dev"\
+    Option "LeftEdge" "1700"\
+    Option "RightEdge" "5300"\
+    Option "TopEdge" "1700"\
+    Option "BottomEdge" "4200"\
+    Option "FingerLow" "25"\
+    Option "FingerHigh" "30"\
+    Option "MaxTapTime" "0"\
+    Option "MaxTapMove" "220"\
+    Option "VertScrollDelta" "100"\
+    Option "MinSpeed" "0.10"\
+    Option "MaxSpeed" "0.30"\
+    Option "AccelFactor" "0.0030"\
+    Option "SHMConfig" "on"\
+   #Option "Repeater" "/dev/ps2mouse"\
+EndSection\
+\
+Section "Monitor"'
+
+ # now replace:
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
+fi
+## end Kirk's code
+
 HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
-
-__old_ddcprobe__(){
-echo "Probing the video card and monitor..."
-#code below is not distinguishing multiple cards/monitors...
-
-#want to choose a resolution and color-depth...
-##sometimes get bogus '1x' or '0x' pixel horiz resolution...
-#DDCPROBE=`ddcprobe | grep -v 'timing: [0123456789]x'`
-#DDCPROBE=`ddcprobe`
-touch "$tmpDIR"/ddcprobe.txt  ##+++2013-04-11
-ddcprobe >"$tmpDIR"/ddcprobe.txt
-#weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
-#every alternate run of ddcprobe...
-case "`cat "$tmpDIR"/ddcprobe.txt`" in *edidfail*)
- sleep 1
- ddcprobe >"$tmpDIR"/ddcprobe.txt
- ;;
-esac
-  get_edid_func(){  ##+++2013-04-11
-      which get-edid    || return 0
-      which edid-decode || return 0
-  if [ ! -s "$tmpDIR"/ddcprobe.txt ]; then
-      get-edid 1>"$tmpDIR"/get-edid.out 2>>$ERR
-      sleep 1s
-      [ -s "$tmpDIR"/get-edid.out ] || return 0
-      edid-decode "$tmpDIR"/get-edid.out >"$tmpDIR"/ddcprobe.txt
-  fi
-  }
-  get_edid_func
-}
-
-#v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
-#v3.96 added trident line...
-#v3.98 added more CYBER lines & corrected case
-XVESALISTOK="yes"
-TIMINGOK="yes"
-if [ -s "$tmpDIR"/ddcprobeoem.txt ];then   #v3.99 begin
- if [ ! -f /etc/xorgoverrides ] || ! grep $Q -f "$tmpDIR"/ddcprobeoem.txt /etc/xorgoverrides;then
-  echo "`cat "$tmpDIR"/ddcprobeoem.txt`" >> /etc/xorgoverrides  #append new signature if user canceled out from hung Xvesa
-  _sync
- fi
-fi
-if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$tmpDIR"/ddcprobe.txt;then   #v3.99 end
- #HORIZSYNC=""
- #VERTREFRESH=""
- XVESALISTOK="no" #'Xvesa -listmodes' hangs.
- TIMINGOK="no"    #ddcprobe returns incomplete 'timing:' info (res's missing).
- [ "`grep 'mode: 640x480x64k' "$tmpDIR"/ddcprobe.txt`" ]  || echo 'mode: 640x480x64k'  >> "$tmpDIR"/ddcprobe.txt
- [ "`grep 'mode: 640x480x16m' "$tmpDIR"/ddcprobe.txt`" ]  || echo 'mode: 640x480x16m'  >> "$tmpDIR"/ddcprobe.txt
- [ "`grep 'mode: 800x600x64k' "$tmpDIR"/ddcprobe.txt`" ]  || echo 'mode: 800x600x64k'  >> "$tmpDIR"/ddcprobe.txt
- [ "`grep 'mode: 800x600x16m' "$tmpDIR"/ddcprobe.txt`" ]  || echo 'mode: 800x600x16m'  >> "$tmpDIR"/ddcprobe.txt
- [ "`grep 'mode: 1024x768x64k' "$tmpDIR"/ddcprobe.txt`" ] || echo 'mode: 1024x768x64k' >> "$tmpDIR"/ddcprobe.txt
- [ "`grep 'mode: 1024x768x16m' "$tmpDIR"/ddcprobe.txt`" ] || echo 'mode: 1024x768x16m' >> "$tmpDIR"/ddcprobe.txt
-fi   #v3.93 end
-
-#v3.94 detect if a Classmate PC laptop with 800x480 screen...
-
-#v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
-[ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> "$tmpDIR"/ddcprobe.txt
-#v3.95 recognise more special screens...
-DMIDECODE=`dmidecode`
-#recognise EeePC Asus laptop...
-[ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> "$tmpDIR"/ddcprobe.txt
-
 
 #modes supported by card...
 CARDCHOICES=""
@@ -1000,7 +1054,7 @@ if [ "$TIMINGOK" = "yes" ];then #v3.93
  #get too many weird resolutions, maybe better just only allow these...
  MONCHOICES=`grep -F 'timing:' "$tmpDIR"/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 640x480@| 800x480@| 800x600@| 1024x600@| 1024x768@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`
  #no, better if reject known weird resolutions...
- #MONCHOICES=`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v --extended-regexp 'Apple|8514A|XGA2|720x400|832x624|256x256|248x248|632x632|280x280' | sort -u`
+ #MONCHOICES=`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v -E 'Apple|8514A|XGA2|720x400|832x624|256x256|248x248|632x632|280x280' | sort -u`
  #...no, ddcprobe is buggy, returns random resolutions, cannot screen all out!
  MONCUTXY=`echo "$MONCHOICES" | cut -f 1 -d '@' | sort -u` #each line: 1024x768
 fi
@@ -1014,7 +1068,7 @@ fi
 
 #ddcprobe on my laptop returns one 'timing:' line but no 'monitorrange:', so
 #can fall back to calculating freqs...
-if [ ! "$MONCHOICES" = "" ];then
+if [ "$MONCHOICES" != "" ];then
  ##hmmm, maybe always use the freqs of the 'timing:' lines rather than the
  ##'monitorrange:' as it always seems to be too high...
  if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
@@ -1042,9 +1096,6 @@ if [ ! "$MONCHOICES" = "" ];then
   VERTREFRESH="${LVERTREFRESH}-${UVERTREFRESH}"
  fi
 fi
-
-
-RECMODE="800x600x16" #default recommended mode.
 
 #if ddcprobe also failed, have to ask monitor type...
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-play.
@@ -1195,7 +1246,6 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
  done
 fi
 
-
 #if have MONCHOICES, that's all i want to display (with warning if not in card list).
 #if no MONCHOICES, then display card list only...
 echo -n "" > "$tmpDIR"/finalchoices.txt
@@ -1247,12 +1297,12 @@ else
  done
 fi
 
-#FINALCHOICES=`cat $tmpDIR/finalchoices.txt`
 FINALCHOICES=`cat "$tmpDIR"/finalchoices.txt | sort -t x -n` #v3.93 rerwin
-echo -e "\\033[1;32m""FINALCHOICES='$FINALCHOICES'""\\033[0;39m"
+_edebug "\\033[1;32m""FINALCHOICES='$FINALCHOICES'""\\033[0;39m"
 #read -p "Press any key to go on " -n1 -t 20 GO_ON_KEY_1056
 echo "Press any key to go on "
-read -s -n1 -t20 GO_ON_KEY_1060;echo
+read -s -n1 -t20 GO_ON_KEY_1304;echo
+
 echo '#!/bin/sh' > "$tmpDIR"/choosexmodedlg
 echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >> "$tmpDIR"/choosexmodedlg
 echo ' --no-collapse --title "Puppy Graphics Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
@@ -1264,36 +1314,20 @@ echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Zn' >> "$tmpDI
 echo '
 OK:     Just press ENTER key to immediately use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
-EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDIR"/choosexmodedlg #'geanyfix.
-echo "$FINALCHOICES" >> "$tmpDIR"/choosexmodedlg
+EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDIR"/choosexmodedlg #'geany
+echo "$FINALCHOICES"      >> "$tmpDIR"/choosexmodedlg
 echo " 2>$tmpDIR/tag.txt" >> "$tmpDIR"/choosexmodedlg
-echo 'exit $?' >> "$tmpDIR"/choosexmodedlg
+echo 'exit $?'            >> "$tmpDIR"/choosexmodedlg
 
 chmod $VERB 0755 "$tmpDIR"/choosexmodedlg
 "$tmpDIR"/choosexmodedlg
 XORGTEST=$? #=0 for automatic.
 #[ "$XTEST" -ne 0 ] && [" $XTEST" -ne 3 ] && { echo -e "XTEST='$XTEST' and -ne '0' and -ne '3'\nExiting '$0'.";exit 250; } #drop out to console. w005 uncommented.
-#if [ $XAUTO -ne 0 ];then
-# if [ $XAUTO -ne 3 ];then
-#  #drop out to console...
-#  #the script has created /etc/X11/xorg.conf without Screen section...
-#  [ -f /etc/X11/xorg.conf.bak ] && cp $VERB -f /etc/X11/xorg.conf.bak /etc/X11/xorg.conf
-#  exit
-# fi
-#fi
+
 CHOSENRES=`tail -n1 "$tmpDIR"/tag.txt 2>>$ERR`
 [ "$CHOSENRES" ] || CHOSENRES="800x600x16"
 FINALDEPTH=${CHOSENRES##*x}
-#CHOSENX=${CHOSENRES%%x*}
-#CHOSENY=${CHOSENRES#*x} ; CHOSENY=${CHOSENY%x*}
-#FINALXY="${CHOSENX}x${CHOSENY}"
 FINALXY=${CHOSENRES%x*}
-
-##lcd panels usually work at one freq only...
-#if [ ! "$MONCHOICES" = "" ];then #format of each line: 1024x768@75
-# FIXEDFREQS=`echo -n "$MONCHOICES" | grep "$FINALXY" | cut -f 2 -d '@' | tr '\n' ','' | sed -e 's/,$//g'`
-# [ ! "$FIXEDFREQS" = "" ] && VERTREFRESH="$FIXEDFREQS"
-#fi
 
 #some monitors have a very high vertrefresh, and Xorg uses it, but it is too high...
 #v2.13b2 was 95, make it 85...
@@ -1318,10 +1352,8 @@ else
    fi
  fi
 fi
-#script also needs these max freqs later on...
-#MAXHORIZ=`echo -n "$HORIZSYNC" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
-#MINVERT=`echo -n "$VERTREFRESH" | grep -o '^[0-9]*'`
-#MINHORIZ=`echo -n "$HORIZSYNC" | grep -o '^[0-9]*'`
+
+#script also needs these max freqs later on in tweak refresh...
 MAXHORIZ=${HORIZSYNC#*-} #; MAXHORIZ=${MAXHORIZ%.*}
 MINVERT=${VERTREFRESH%-*} #; MINVERT=${MINVERT%.*}
 MINHORIZ=${HORIZSYNC%-*} #; MINHORIZ=${MINHORIZ%.*}
@@ -1344,108 +1376,9 @@ echo "$SCRNSECTION" >> "$XORGCONFFILE"
 PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
 #horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
 cp $VERB -f "$XORGCONFFILE" "$tmpDIR"/xorg.conf.tmp
-#APATTERN="s/HORIZSYNC0/$HORIZSYNC/g"
 sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$tmpDIR"/xorg.conf.tmp >"$XORGCONFFILE"   #v3.98 rerwin - added update of preferredmode.
-#BPATTERN="s/VERTREFRESH0/$VERTREFRESH/g"
 _sync
-#cat $tmpDIR/xorg.conf.tmp2 | sed -e "$BPATTERN" > "$XORGCONFFILE"
-#sync
 #rm $VERB -f $tmpDIR/xorg.conf.tmp2
-
-## Dougal (v2.16??):
-## Kirk's code for adding synaptics touchpads (or my version of it...)
-if grep $Q -F 'Alps' /proc/bus/input/devices ; then
- cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
- modprobe $Q $VERB evdev
- if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
-  echo "modprobe evdev" >> /etc/rc.d/rc.local
- fi
- # Where we want to insert new lines...
- OLD1='Section "Module"'
- OLD2='Section "ServerLayout"'
- OLD3='Section "Monitor"'
-
- # ...and the replacements
- NEW1='Section "Module"\
-    Load "synaptics"'
-
- NEW2='Section "ServerLayout"\
-    InputDevice "Synaptics Mouse" "AlwaysCore"'
-
- NEW3='Section "InputDevice"\
-    Identifier "Synaptics Mouse"\
-    Driver "synaptics"\
-   #Option "Device" "/dev/psaux"\
-    Option "Protocol" "auto-dev"\
-    Option "LeftEdge" "120"\
-    Option "RightEdge" "930"\
-    Option "TopEdge" "120"\
-    Option "BottomEdge" "650"\
-    Option "FingerLow" "14"\
-    Option "FingerHigh" "15"\
-    Option "MaxTapTime" "0"\
-    Option "MaxTapMove" "110"\
-    Option "VertScrollDelta" "20"\
-    Option "MinSpeed" "0.3"\
-    Option "MaxSpeed" "0.75"\
-    Option "AccelFactor" "0.030"\
-    Option "EdgeMotionMinSpeed" "200"\
-    Option "EdgeMotionMaxSpeed" "200"\
-    Option "UpDownScrolling" "1"\
-    Option "CircularScrolling" "1"\
-    Option "CircScrollDelta" "0.1"\
-    Option "CircScrollTrigger" "2"\
-EndSection\
-\
-Section "Monitor"'
-
- # now replace:
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
-fi
-
-if grep $Q -F 'Synaptics' /proc/bus/input/devices ; then
- cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
- modprobe $Q $VERB evdev
- echo "modprobe evdev" >> /etc/rc.d/rc.local
- # Where we want to insert new lines...
- OLD1='Section "Module"'
- OLD2='Section "ServerLayout"'
- OLD3='Section "Monitor"'
-
- # ...and the replacements
- NEW1='Section "Module"\
-    Load "synaptics"'
-
- NEW2='Section "ServerLayout"\
-    InputDevice "Synaptics Mouse" "AlwaysCore"'
-
- NEW3='Section "InputDevice"\
-    Identifier "Synaptics Mouse"\
-    Driver "synaptics"\
-   #Option "Device" "/dev/psaux"\
-    Option "Protocol" "auto-dev"\
-    Option "LeftEdge" "1700"\
-    Option "RightEdge" "5300"\
-    Option "TopEdge" "1700"\
-    Option "BottomEdge" "4200"\
-    Option "FingerLow" "25"\
-    Option "FingerHigh" "30"\
-    Option "MaxTapTime" "0"\
-    Option "MaxTapMove" "220"\
-    Option "VertScrollDelta" "100"\
-    Option "MinSpeed" "0.10"\
-    Option "MaxSpeed" "0.30"\
-    Option "AccelFactor" "0.0030"\
-    Option "SHMConfig" "on"\
-   #Option "Repeater" "/dev/ps2mouse"\
-EndSection\
-\
-Section "Monitor"'
-
- # now replace:
- sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
-fi
-## end Kirk's code
 
 #v2.13 want a hardware profile so can bootup on different PCs...
 PROFILECHIP=`grep -m1 '^oem: ' "$tmpDIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
@@ -1492,8 +1425,7 @@ else
  [ -f /etc/resolutionfix ] && rm $VERB -f /etc/resolutionfix
 fi
 
-[ "$XORGTEST" -ne 0 ] && [" $XORGTEST" -ne 3 ] && { echo -e "XORGTEST='$XORGTEST'\nExiting '$0'.";exit 0; } #drop out to console. w005 uncommented.
-#[ $XAUTO -ne 0 ] && [ $XAUTO -ne 3 ] && { echo -e "XAUTO='$XAUTO' and -ne '0' and -ne '3'\nExiting '$0'";exit 0; } #drop out to console.
+[ "$XORGTEST" = 0 -o "$XORGTEST" = 3 ] || { echo -e "XORGTEST='$XORGTEST'\nExiting '$0'.";exit 0; } #drop out to console. w005 uncommented.
 
 DEBUG=1
 Q=
@@ -1522,6 +1454,7 @@ glide)         DESCR='Glide video driver for Voodoo 1 and 2 boards';;
 glint)         DESCR='GLINT/Permedia video driver';;
 i128)          DESCR='Number 9 I128 Xorg video driver';;
 i740)          DESCR='Intel i740 video driver';;
+i810)          DESCR='Ancestor of the intel driver';;
 impact)        DESCR='Impact video driver for SGI Indigo2';;
 imstt)         DESCR='Integrated Micro Solutions Twin Turbo 128 driver';;
 intel)         DESCR='Intel integrated graphics chipsets';;
@@ -1869,7 +1802,6 @@ _some_thing_wrong(){
 ADD_MSG='No additional message provided.'
 test "$*" && ADD_MSG="$*"
 
-
 TTEXT='Unknown error'
 GTTEXT=`gettext "$TTEXT"`
 test "${GTTEXT//[[:blank:]]/}" && TTEXT=$GTTEXT
@@ -1878,7 +1810,6 @@ BTTEXT='Unknown error'
 GTTEXT=`gettext "$BTTEXT"`
 test "${GBTTEXT//[[:blank:]]/}" && BTTEXT=$GBTTEXT
 
-
 MSG_TEXT='
 \Z1 Some unkonwn error occurred.\Zn
 
@@ -1886,7 +1817,7 @@ Sorry for any inconvenience.
 
 Additionally message given:'"
 
-ADD_MSG
+$ADD_MSG
 "
 GMSG_TEXT=`gettext "$MSG_TEXT"`
 test "${GMSG_TEXT//[[:blank:]]/}" && MSG_TEXT=$GMSG_TEXT
@@ -1898,14 +1829,11 @@ exit 126
 
 _enable_card_conf(){
 
-#SELECTED_DRIVER=`tail -n1 "$tmpDIR"/select_driver`
-#test "$SELECTED_DRIVER" || _some_thing_wrong 'Error reading selected driver'
 test -f "$tmpDIR"/select_card || return 3
 test -s "$tmpDIR"/select_card || return 4
 SELECTED_CARD=`tail -n1 "$tmpDIR"/select_card`
 test "$SELECTED_CARD" || _some_thing_wrong 'Error reading selected video card'
 
-#CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$XORGCONFFILE".d/Card*.conf | cut -f1 -d':' | sort -u`
 CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$tmpDIR"/Card*.conf | cut -f1 -d':' | sort -u`
 test "$DEBUG" && {
 echo
@@ -1913,8 +1841,6 @@ echo "CardFILE='$CardFILE'"
 echo ; }
 test -f "$CardFILE" || return 5
 
-#[ "$DEBUG" ] && ls -1s "$XORGCONFFILE".d/Card*.conf
-#OTHER_CARDS_CONF=`ls -1 "$XORGCONFFILE".d/Card*.conf | grep -v "$CardFILE"`
 [ "$DEBUG" ] && ls -1s "$tmpDIR"/Card*.conf
 OTHER_CARDS_CONF=`ls -1 "$tmpDIR"/Card*.conf | grep -v "${CardFILE}$"`
 
@@ -2042,7 +1968,7 @@ you to press CTRL-ALT-BACKSPACE twice to terminate the test!)
 Press ENTER key now to start X graphics mode (may take a few secs)...
 TAB then ENTER to change the mouse (afterward will return here)..." 0 0
  DQ5=$?;[ "$DQ5" = "" -o "$DQ5" = 255 ] && exit 250
- if [ ! $DQ5 -eq 0 ];then
+ if [ ! "$DQ5" -eq 0 ];then
   #change the mouse... (then go back up to above dialog)
   choosemousefunc
   #w480 bugfix, latter used if choose tweak refresh...
