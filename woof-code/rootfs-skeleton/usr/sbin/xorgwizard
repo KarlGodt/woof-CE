@@ -103,7 +103,7 @@ MY_SELF="$0"
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
-Version='2.0.1-KRG Puppy-linux-4.3.1'
+Version='2.0.2-KRG Puppy-linux-4.3.1'
 
 ##+++2012-01-30, 2015-12-04
 if [ "`whoami`" = 'root' ]; then
@@ -122,8 +122,9 @@ elif test -d    /usr/lib/xorg/modules/drivers; then
 XORG_DRIVER_DIR=/usr/lib/xorg/modules/drivers
 fi
 XORG_DRIVER_DIR=`realpath "$XORG_DRIVER_DIR"`
-_debug "XORG_DRIVER_DIR='$XORG_DRIVER_DIR'" && sleep 5
+_debug "XORG_DRIVER_DIR='$XORG_DRIVER_DIR'"
 test -d "$XORG_DRIVER_DIR" || _warn "Could not set XORG_DRIVER_DIR to an existing directory"
+[ "$DEBUG" ] && sleep 5
 
 RECMODE="800x600x16" #default recommended video mode.
 
@@ -181,11 +182,14 @@ fi;fi
 LANG=C
 
 CURRENTX=`readlink /usr/bin/X`
+CURRENTX=`basename "$CURRENTX"`
 if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
- ln $VERB -sf /usr/bin/Xorg /usr/bin/X
- CURRENTX='Xorg'
+ if test -x /usr/bin/Xorg; then
+  ln $VERB -sf /usr/bin/Xorg /usr/bin/X
+  CURRENTX='Xorg'
+ fi
 fi
-echo "CURRENTX='$CURRENTX'"
+_debug "CURRENTX='$CURRENTX'"
 
 _do_xvidtune(){
 
@@ -461,10 +465,10 @@ if [ -z "$choosenSERVER" ] ; then
 xmessage -bg red "No Server selected, start new .." &
 exit 0
 elif [ "$choosenSERVER" = "`basename $CURRENTX`" ] ; then
-xmessage "The choosen X-Server is the same as the current `basename $CURRENTX` !"
+xmessage "The choosen X-Server is the same as the current '$CURRENTX' !"
 exit 0
 else
-xmessage -bg green -button "OK:248,NO:249" "You have choosen to use the $choosenSERVER X-Server .
+xmessage -bg green -button "OK:248,NO:249" "You have choosen to use the '$choosenSERVER' as X-Server .
 Please close all applications and do all backups you should do
 before hitting the 'OK' button !
 After hitting the 'OK' button , X will be restarted automatically
@@ -702,6 +706,12 @@ rm $VERB -f /etc/xrandrindex
 echo "Linking /usr/bin/Xorg /usr/bin/X ..."
 ln $VERB -sf /usr/bin/Xorg /usr/bin/X
 
+unset KEEP_XORG_CONF
+
+while :
+do
+
+if ! "$KEEP_XORG_CONF"; then
 # Dougal: moved echo to below xorg probing, since loop isn't slow anymore...
 #clear
 echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
@@ -723,6 +733,7 @@ test -s "/root/xorg.conf.new" || _exit 3 'Need content in /root/xorg.conf.new !'
 #... config in /root/xorg.conf.new
 
 #newer xorg -configure seem to delete xorg.conf
+rm $VERB -f "$XORGCONFFILE" #but need to delete because in case of re-run
 [ -f /etc/X11/xorg.conf0 ] && cp $VERB /etc/X11/xorg.conf0 "$XORGCONFFILE"
 
 ##now have an almost-working xorg.conf, missing Screen section.
@@ -904,7 +915,7 @@ _END1
 ###################################################################
 echo "DONE /root/xorg.conf.new"
 #v2.21 quick hack...
-echo "Fixing mouse in xorg.conf .. (1) "
+#echo "Fixing mouse in xorg.conf .. (1) " #DEBUG
 sed -e 's%/dev/input/mice%/dev/mouse%'  "$XORGCONFFILE" >"$tmpDIR"/xorgconfmousefix
 mv $VERB -f "$tmpDIR"/xorgconfmousefix "$XORGCONFFILE"
 cp $VERB "$XORGCONFFILE" /root/xorg.conf.new.1
@@ -1002,8 +1013,10 @@ Section "Monitor"'
  sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
 fi
 ## end Kirk's code
+fi #KEEP_XORG_CONF
 
 _select_video_mode(){
+[ "$KEEP_XORG_CONF" ] && return 0
 HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
 
@@ -1311,16 +1324,21 @@ echo "Press any key to go on "
 read -s -n1 -t20 GO_ON_KEY_1304;echo
 
 echo '#!/bin/sh' > "$tmpDIR"/choosexmodedlg
-echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >> "$tmpDIR"/choosexmodedlg
-echo ' --no-collapse --title "Puppy Graphics Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
+#echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >> "$tmpDIR"/choosexmodedlg
+#echo ' --no-collapse --title "Puppy Graphics Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
+echo -n "dialog --colors --aspect 11 --default-item $RECMODE" >> "$tmpDIR"/choosexmodedlg
+echo ' --no-collapse --title "Puppy Graphics Wizard" --ok-label "OK" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
 shown in the format WidthxHeightxBits, where Width and Height are
 screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
 ' >> "$tmpDIR"/choosexmodedlg
 [ "$RECMODE" != "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >> "$tmpDIR"/choosexmodedlg
 echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Zn' >> "$tmpDIR"/choosexmodedlg
+#echo '
+#OK:     Just press ENTER key to immediately use the selected mode...
+#TEST: TAB key then ENTER to test and debug the mode before using it...
+#EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDIR"/choosexmodedlg #'geany
 echo '
 OK:     Just press ENTER key to immediately use the selected mode...
-TEST: TAB key then ENTER to test and debug the mode before using it...
 EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDIR"/choosexmodedlg #'geany
 echo "$FINALCHOICES"      >> "$tmpDIR"/choosexmodedlg
 echo " 2>$tmpDIR/tag.txt" >> "$tmpDIR"/choosexmodedlg
@@ -1391,6 +1409,7 @@ fi
 _fix_intel_resolution
 
 _write_screen_section(){
+[ "$KEEP_XORG_CONF" ] && return 0
 #now write the Screen section...
 SCRNSECTION="
 Section \"Screen\"
@@ -1415,6 +1434,7 @@ _sync
 _write_screen_section
 
 _write_profile(){
+[ "$KEEP_XORG_CONF" ] && return 0
 #v2.13 want a hardware profile so can bootup on different PCs...
 PROFILECHIP=`grep -m1 '^oem: ' "$tmpDIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 ## Dougal: maybe add "^monitorname: "??
@@ -1937,13 +1957,14 @@ _rebuild_xorg_conf || return 8
 
 #code here to test the video...
 CHOSENVERT=""
-while [ "$XORGTEST" -eq 3 ];do #testloop
+#while [ "$XORGTEST" -eq 3 ];do #testloop
+while :; do #testloop
 
-if test "$HAVE_MOUSE_DIALOG"; then :; else
+if test "$HAVE_MOUSE_DIALOG" -o "$KEEP_XORG_CONF"; then :; else
 _ask_driver; aRV=$?
 test "$aRV" = 0 || _exit $aRV "_ask_driver returned '$aRV'"
 [ "$DEBUG" ] && sleep 10; fi
-unset HAVE_MOUSE_DIALOG
+unset HAVE_MOUSE_DIALOG KEEP_XORG_CONF
 
  case "`cat /etc/mousedevice 2>/dev/null`" in #w468
   #input/mice) MOUSETYPE="usb" ;;
@@ -2039,7 +2060,8 @@ Press ENTER if test was okay (or to fall back to Xvesa)... "
   TWKMSG="Press ENTER key if test was okay..."
  fi
 
- dialog --no-collapse --yes-label "FINISHED" --no-label "Tweak" \
+ dialog --no-collapse --ok-label "FINISHED" --cancel-label "Tweak" \
+ --extra-button --extra-label "Video Mode" \
  --title "Xorg Graphics Wizard" --yesno "Report on X test:
                   Resolution           ${XTEST}x${YTEST} pixels
                   Horizontal frequency $HSTEST KHz
@@ -2047,15 +2069,16 @@ Press ENTER if test was okay (or to fall back to Xvesa)... "
                   Driver               $CARD0DRIVER
 If you are reporting success, great, but if the display was not quite
 right, say displaced or distorted,
-you now have the option to tweak various parameters in the
+you now have the options to select another video mode
+or to tweak various parameters in the
 X configuration file ($XORGCONFFILE).
 Ditto if testing X was an abysmal failure (crash).
 
 ${TWKMSG}
 or TAB then ENTER to tweak parameters in xorg.conf & retest X..." 0 0
  DQ6=$?;[ "$DQ6" = "" -o "$DQ6" = 255 ] && exit 250
- [ "$DQ6" -eq 0 ] && break
-
+ [ "$DQ6" -eq 0 ] && break 2
+ case $DQ6 in 3) break 1;; esac
 
  #w482 allow switch between intel_drv.so and i810OLD_drv.so...
  EXTRABUTTON=""
@@ -2089,7 +2112,7 @@ ATTN: There is an newer Intel video driver that might work better...'
      NO_LBL='--no-label'
   fi
   dialog --no-collapse ${EXTRABUTTON} ${EXTRALABEL} \
-  ${YES_LBL} "Tweak_xorg.conf" ${NO_LBL} "Generic_driver" \
+  ${YES_LBL} "Tweak xorg.conf" ${NO_LBL} "Generic driver" \
   --title "Xorg Graphics Wizard" --yesno "Before continuing to tweaking xorg.conf, one other thing to consider.
 Xorg has a dozen or so drivers for particular graphic chips, which
 optimises performance for the matching hardware, but sometimes a
@@ -2105,7 +2128,7 @@ board info: '${CARD0BOARD}'
 
 So, if you have already tried 'tweaking' or you know that the Xorg
 '${CARD0DRIVER}' driver does not work on your hardware, consider the
-generic driver. Click 'Generic_driver' to change Xorg to using the
+generic driver. Click 'Generic driver' to change Xorg to using the
 generic driver, otherwise press ahead and try tweaking...
 ${INTELDRVMSG}" 0 0
   RET2=$?;
@@ -2126,6 +2149,7 @@ ${INTELDRVMSG}" 0 0
    else
     ln $VERB -s i810OLD_drv.so "$XORG_DRIVER_DIR"/i810_drv.so
    fi
+   KEEP_XORG_CONF=1
    continue
   fi
  else #if [ "$CARD0DRIVER" != "vesa" ];then #v2.11
@@ -2228,8 +2252,8 @@ $MSGPNP" 0 0 0 \
   _sync
   sed -e "$bPATTERN" "$tmpDIR"/xorg.conf.tmp2 > "$XORGCONFFILE"
   _sync
-  rm $VERB -f "$tmpDIR"/xorg.conf.tmp2
-
+  [ "$DEBUG" ] || rm $VERB -f "$tmpDIR"/xorg.conf.tmp2
+  KEEP_XORG_CONF=1
  else
   dialog --no-collapse --title "Xorg Graphics Wizard" \
   --msgbox "Before editing xorg.conf, consider this...
@@ -2247,6 +2271,7 @@ Press ENTER key to edit xorg.conf..." 0 0
   #edit xorg.conf...
   test -f "$XORGCONFFILE" || _exit 99 "No regular $XORGCONFFILE file"
   mp "$XORGCONFFILE"
+  KEEP_XORG_CONF=1
  fi
 sleep 1
 
@@ -2254,7 +2279,8 @@ done #testloop
 #########################################################
 RV=$?
 echo "TESTLOOP returned $RV"
-echo "XTEST is set to '$XTEST'"
+echo "XORGTEST='$XORGTEST'"
+done #
 
 if [ "$XORGTEST" -eq 3 ];then #<FIX> (XTEST=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
