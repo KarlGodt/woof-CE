@@ -238,10 +238,10 @@ the 'UseModes' line (do not delete it) in the Monitor section.
 To insert this into $XORGCONFFILE, click 'Write' button...
 To exit without changing xorg.conf, click 'Quit' button..."
     if [ $? -eq 10 ];then
-     aPATTERN="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
-     cat "$XORGCONFFILE" | sed -e "$aPATTERN" > $tmpDIR/xorg.conf.new
+     aPATTERN="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/"
+     sed -e "$aPATTERN" "$XORGCONFFILE" > $tmpDIR/xorg.conf.new
      _sync
-     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > "$XORGCONFFILE"
+     sed -e 's/#.*UseModes/UseModes/'  $tmpDIR/xorg.conf.new > "$XORGCONFFILE"
      _sync
     fi
    fi
@@ -261,7 +261,7 @@ export -f _do_xvidtune
 echo Step 1 >&2
 #v2.0.0
 #read the console keymap (country layout), apply to xkb...
-CONSKEYMAP=`cat /etc/keymap | cut -b 1-2`
+CONSKEYMAP=`cut -b 1-2 /etc/keymap`
 [ "$CONSKEYMAP" = "" ] && CONSKEYMAP="us"
 case $CONSKEYMAP in
  az) #azerty
@@ -528,10 +528,10 @@ the 'UseModes' line (do not delete it) in the Monitor section.
 To insert this into $XORGCONFFILE, click 'Write' button...
 To exit without changing xorg.conf, click 'Quit' button..."
     if [ $? -eq 10 ];then
-     PATTERNa="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/g"
-     cat "$XORGCONFFILE" | sed -e "$PATTERNa" > $tmpDIR/xorg.conf.new
+     PATTERNa="s/.*#modes0modeline0/ ModeLine $MODELINE0 #modes0modeline0/"
+     sed -e "$PATTERNa" "$XORGCONFFILE" > $tmpDIR/xorg.conf.new
      _sync
-     cat $tmpDIR/xorg.conf.new | sed -e 's/#.*UseModes/UseModes/g' > "$XORGCONFFILE"
+     sed -e 's/#.*UseModes/UseModes/' $tmpDIR/xorg.conf.new  > "$XORGCONFFILE"
      _sync
     fi
    fi
@@ -899,7 +899,7 @@ _END2
  echo -e "$TEMPSECTION" >> "$XORGCONFFILE"
 _sync
 done <<_END1
-$(cat /root/xorg.conf.new | busybox sed 's%$%_XORGWIZARD_%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
+$(busybox sed 's%$%_XORGWIZARD_%' /root/xorg.conf.new | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
 ###################################################################
 echo "DONE /root/xorg.conf.new"
@@ -1003,6 +1003,7 @@ Section "Monitor"'
 fi
 ## end Kirk's code
 
+_select_video_mode(){
 HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
 
@@ -1015,7 +1016,7 @@ if [ -e /usr/bin/Xvesa -a "$XVESALISTOK" = "yes" ];then #format of each line: 10
  rm $VERB "$tmpDIR"/ddcprobeoem.txt  #v3.99 didn't hang in Xvesa, so delete signature
 else
  #the vesa 'mode:' lines returned by ddcprobe are very limited...
- grep '^mode:' "$tmpDIR"/ddcprobe.txt | grep -E 'x64k|x16m'| cut -f 2 -d ' ' | sed -e 's/x64k/x16/g ; s/x16m/x24/g' > "$tmpDIR"/Xmodes.txt
+ grep '^mode:' "$tmpDIR"/ddcprobe.txt | grep -E 'x64k|x16m'| cut -f 2 -d ' ' | sed -e 's/x64k/x16/ ; s/x16m/x24/' > "$tmpDIR"/Xmodes.txt
 fi
 _sync
 CARDCHOICES=`cat "$tmpDIR"/Xmodes.txt`
@@ -1050,20 +1051,18 @@ MONCHOICES=""
 MONCUTXY=""
 if [ "$TIMINGOK" = "yes" ];then #v3.93
  #modes supported by monitor... format of each line: 1024x768@75
- #MONCHOICES=`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v 'Apple' | grep -v '8514A' | grep -v '(XGA2)' | sort -u`
  #get too many weird resolutions, maybe better just only allow these...
  MONCHOICES=`grep -F 'timing:' "$tmpDIR"/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 640x480@| 800x480@| 800x600@| 1024x600@| 1024x768@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`
  #no, better if reject known weird resolutions...
- #MONCHOICES=`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v -E 'Apple|8514A|XGA2|720x400|832x624|256x256|248x248|632x632|280x280' | sort -u`
  #...no, ddcprobe is buggy, returns random resolutions, cannot screen all out!
  MONCUTXY=`echo "$MONCHOICES" | cut -f 1 -d '@' | sort -u` #each line: 1024x768
 fi
 
 #if Xorg probe failed to determine monitor freq, try ddcprobe...
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
- MONFREQ=`grep -F 'monitorrange:' "$tmpDIR"/ddcprobe.txt | cut -f 2-10 -d ' '`
- HORIZSYNC=`echo -n "$MONFREQ" | cut -f 1 -d ','`
- VERTREFRESH=`echo -n "$MONFREQ" | cut -f 2 -d ',' | tr -d ' '`
+     MONFREQ=`grep -F 'monitorrange:' "$tmpDIR"/ddcprobe.txt | cut -f 2-10 -d ' '`
+   HORIZSYNC=`echo "$MONFREQ" | cut -f 1 -d ','`
+ VERTREFRESH=`echo "$MONFREQ" | cut -f 2 -d ',' | tr -d ' '`
 fi
 
 #ddcprobe on my laptop returns one 'timing:' line but no 'monitorrange:', so
@@ -1106,7 +1105,15 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
  MONCUTXY=""
  while :;do
   #need a dialog, ask generic monitor type...
-  dialog --no-collapse --no-cancel --title "Puppy Graphics Wizard" --menu "Automatic probing of your monitor was unsuccessful, so you now need\nto choose from a list of generic monitor types.\nChoose the highest specification that describes your monitor.\nLCD: Liquid Crystal Display.\nCRT: Cathode Ray Tube (normal monitor).\nChoose \"Z\" if you have the monitor user manual, and it has the\nhorizontal and vertical frequency specifications.\nDOWN-ARROW to highlight choice, ENTER key to finish..."  0 0 0 \
+  dialog --no-collapse --no-cancel --title "Puppy Graphics Wizard" \
+  --menu "Automatic probing of your monitor was unsuccessful, so you now need
+to choose from a list of generic monitor types.
+Choose the highest specification that describes your monitor.
+LCD: Liquid Crystal Display.
+CRT: Cathode Ray Tube (normal monitor).
+Choose \"Z\" if you have the monitor user manual, and it has the
+horizontal and vertical frequency specifications.
+DOWN-ARROW to highlight choice, ENTER key to finish..."  0 0 0 \
  "A" "h31.5v40-70       LCD Panel 640x480" \
  "B" "h31.5-37v40-70    LCD Panel 800x600" \
  "B2" "h31.5-90v60       LCD Panel 1024x600" \
@@ -1297,7 +1304,7 @@ else
  done
 fi
 
-FINALCHOICES=`cat "$tmpDIR"/finalchoices.txt | sort -t x -n` #v3.93 rerwin
+FINALCHOICES=`sort -t x -n "$tmpDIR"/finalchoices.txt` #v3.93 rerwin
 _edebug "\\033[1;32m""FINALCHOICES='$FINALCHOICES'""\\033[0;39m"
 #read -p "Press any key to go on " -n1 -t 20 GO_ON_KEY_1056
 echo "Press any key to go on "
@@ -1336,8 +1343,6 @@ FINALXY=${CHOSENRES%x*}
 #MAXVERT=`echo -n "$VERTREFRESH" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
 MAXVERT=${VERTREFRESH#*-} ; MAXVERT=${MAXVERT%.*}
 if [ "$MAXVERT" -gt 85 ];then
- #VPATTERN="s/${MAXVERT}$/85/g"
- #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
  VERTREFRESH=${VERTREFRESH/$MAXVERT/85}
 else
  #want to cut down rating on modern LCD panels also...
@@ -1346,8 +1351,6 @@ else
    #(so older CRTs in this range maxvert 75-85 will get rejected)
    if grep '^manufacture:' "$tmpDIR"/ddcprobe.txt | grep -E $Q ' 20[123][0-9]| 200[4-9]' ;then
     let LCDMAXVERT=MAXVERT-4
-    #VPATTERN="s/${MAXVERT}$/${LCDMAXVERT}/g"
-    #VERTREFRESH=`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`
     VERTREFRESH=${VERTREFRESH/$MAXVERT/$LCDMAXVERT}
    fi
  fi
@@ -1357,50 +1360,10 @@ fi
 MAXHORIZ=${HORIZSYNC#*-} #; MAXHORIZ=${MAXHORIZ%.*}
 MINVERT=${VERTREFRESH%-*} #; MINVERT=${MINVERT%.*}
 MINHORIZ=${HORIZSYNC%-*} #; MINHORIZ=${MINHORIZ%.*}
+}
+_select_video_mode
 
-#now write the Screen section...
-SCRNSECTION="
-Section \"Screen\"
-    Identifier \"Screen0\"
-    Device     \"Card0\"
-    Monitor    \"Monitor0\"
-    DefaultDepth $FINALDEPTH
-    Subsection \"Display\"
-        Depth       $FINALDEPTH
-        Modes       \"${FINALXY}\"
-    EndSubsection
-EndSection
-"
-echo "$SCRNSECTION" >> "$XORGCONFFILE"
-
-PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
-#horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
-cp $VERB -f "$XORGCONFFILE" "$tmpDIR"/xorg.conf.tmp
-sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$tmpDIR"/xorg.conf.tmp >"$XORGCONFFILE"   #v3.98 rerwin - added update of preferredmode.
-_sync
-#rm $VERB -f $tmpDIR/xorg.conf.tmp2
-
-#v2.13 want a hardware profile so can bootup on different PCs...
-PROFILECHIP=`grep -m1 '^oem: ' "$tmpDIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-## Dougal: maybe add "^monitorname: "??
-#PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' $tmpDIR/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
-PROFILEMONITOR=`grep '^monitorid: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^dtiming: ' $tmpDIR/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$tmpDIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' $tmpDIR/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-
-Xorg_version=`Xorg -version 2>&1 |sed 's|^|#|'`
-echo "$Xorg_version" >> "$XORGCONFFILE"
-echo "#Kernel:`uname -r`" >> "$XORGCONFFILE"
-echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$XORGCONFFILE"
-#create a copy of xorg.conf with the profile in the filename...
-cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
-#also write profile to the backup (used for tweaking vertrefresh)...
-echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$tmpDIR"/xorg.conf.tmp
-
+_fix_intel_resolution(){
 #v2.12
 #note, this code will have to go into 'xwin' also.
 #video bios may not offer the chosen resolution if it is widescreen.
@@ -1424,6 +1387,55 @@ else
  #in case plug usb or multisession-cd into different pc...
  [ -f /etc/resolutionfix ] && rm $VERB -f /etc/resolutionfix
 fi
+}
+_fix_intel_resolution
+
+_write_screen_section(){
+#now write the Screen section...
+SCRNSECTION="
+Section \"Screen\"
+    Identifier \"Screen0\"
+    Device     \"Card0\"
+    Monitor    \"Monitor0\"
+    DefaultDepth $FINALDEPTH
+    Subsection \"Display\"
+        Depth       $FINALDEPTH
+        Modes       \"${FINALXY}\"
+    EndSubsection
+EndSection
+"
+echo "$SCRNSECTION" >> "$XORGCONFFILE"
+
+PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
+#horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
+cp $VERB -f "$XORGCONFFILE" "$tmpDIR"/xorg.conf.tmp
+sed -e "s/HORIZSYNC0/$HORIZSYNC/ ; s/VERTREFRESH0/$VERTREFRESH/ ; s/PREFERREDMODE0/$PREFERREDMODE/" "$tmpDIR"/xorg.conf.tmp >"$XORGCONFFILE"   #v3.98 rerwin - added update of preferredmode.
+_sync
+}
+_write_screen_section
+
+_write_profile(){
+#v2.13 want a hardware profile so can bootup on different PCs...
+PROFILECHIP=`grep -m1 '^oem: ' "$tmpDIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+## Dougal: maybe add "^monitorname: "??
+#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+for oneTAG in monitorid monitorname manufacture monitorrange
+do
+PROFILEMONITOR=`grep "^${oneTAG}: " "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] && break
+done
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR='Monitor'
+
+Xorg_version=`Xorg -version 2>&1 |sed 's|^|#|'`
+echo "$Xorg_version" >> "$XORGCONFFILE"
+echo "#Kernel:`uname -r`" >> "$XORGCONFFILE"
+echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$XORGCONFFILE"
+#create a copy of xorg.conf with the profile in the filename...
+cp $VERB -af "$XORGCONFFILE" "$XORGCONFFILE".${PROFILECHIP}-${PROFILEMONITOR}
+#also write profile to the backup (used for tweaking vertrefresh)...
+echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >> "$tmpDIR"/xorg.conf.tmp
+}
+_write_profile
 
 [ "$XORGTEST" = 0 -o "$XORGTEST" = 3 ] || { echo -e "XORGTEST='$XORGTEST'\nExiting '$0'.";exit 0; } #drop out to console. w005 uncommented.
 
@@ -1752,7 +1764,8 @@ test "${DRIVERS_LIST//[[:blank:]]/}"
 _select_driver(){
 
 CTEXT='Show all drivers'
-
+GCTEXT=`gettext "$CTEXT"`
+test "${GCTEXT//[[:blank:]]/}" && CTEXT=$GCTEXT
 
 TTEXT='Select Driver'
 GTTEXT=`gettext "$TTEXT"`
@@ -1778,7 +1791,6 @@ Now choose the one you would like to test.
 But you can also choose out of all installed drivers for Card0:"
 GMENU_TEXT=`gettext "$MENU_TEXT"`
 test "${GMENU_TEXT//[[:blank:]]/}" && MENU_TEXT=$GMENU_TEXT
-
 
 while :;
 do
@@ -1953,7 +1965,8 @@ the 'Change_mouse' button now."
   ;;
  esac
 
- dialog --title "Xorg Graphics Wizard" --yes-label "TEST_X_NOW" --no-label "Change_mouse" --yesno "Okay, just about to take the plunge.
+ dialog --yes-label "TEST X NOW" --no-label "Change mouse" \
+ --title "Xorg Graphics Wizard" --yesno "Okay, just about to take the plunge.
 ${MOUSEMSG}
 
 After choosing 'TEST_X_NOW' button, if the next screen shows a nice
@@ -2026,7 +2039,8 @@ Press ENTER if test was okay (or to fall back to Xvesa)... "
   TWKMSG="Press ENTER key if test was okay..."
  fi
 
- dialog --no-collapse --title "Xorg Graphics Wizard" --yes-label "FINISHED" --no-label "Tweak" --yesno "Report on X test:
+ dialog --no-collapse --yes-label "FINISHED" --no-label "Tweak" \
+ --title "Xorg Graphics Wizard" --yesno "Report on X test:
                   Resolution           ${XTEST}x${YTEST} pixels
                   Horizontal frequency $HSTEST KHz
                   Refresh frequency    $VRTEST Hz
@@ -2074,7 +2088,9 @@ ATTN: There is an newer Intel video driver that might work better...'
     YES_LBL='--yes-label'
      NO_LBL='--no-label'
   fi
-  dialog --no-collapse ${EXTRABUTTON} --title "Xorg Graphics Wizard" ${YES_LBL} "Tweak_xorg.conf" ${NO_LBL} "Generic_driver" ${EXTRALABEL} --yesno "Before continuing to tweaking xorg.conf, one other thing to consider.
+  dialog --no-collapse ${EXTRABUTTON} ${EXTRALABEL} \
+  ${YES_LBL} "Tweak_xorg.conf" ${NO_LBL} "Generic_driver" \
+  --title "Xorg Graphics Wizard" --yesno "Before continuing to tweaking xorg.conf, one other thing to consider.
 Xorg has a dozen or so drivers for particular graphic chips, which
 optimises performance for the matching hardware, but sometimes a
 driver does not work right or there is no exact driver to match the
@@ -2099,7 +2115,7 @@ ${INTELDRVMSG}" 0 0
   #CARD0DRIVER="$SUBSTDRV"
   if [ "$RET2" -ne 0 ];then
    CARD0DRIVER="$SUBSTDRV"
-   aPATTERN="s/.*#card0driver/  Driver      \"${SUBSTDRV}\" #card0driver/g"
+   aPATTERN="s/.*#card0driver/  Driver      \"${SUBSTDRV}\" #card0driver/"
    sed -e "$aPATTERN" "$XORGCONFFILE" > "$tmpDIR"/xorg.conf.tmp2
    _sync
    cp $VERB -f "$tmpDIR"/xorg.conf.tmp2 "$XORGCONFFILE"
@@ -2113,15 +2129,12 @@ ${INTELDRVMSG}" 0 0
    continue
   fi
  else #if [ "$CARD0DRIVER" != "vesa" ];then #v2.11
-  #SPECVESA=`find -L /usr/lib -noleaf -mount -type f -name vesa_drv.so`
   SPECVESA=`find -L /usr/lib -noleaf -xdev -type f -name vesa_drv.so | tail -n1`
   ##+2011-10-30 added tail
-  #DRVRSPATH=`dirname $SPECVESA`
   DRVRSPATH=`dirname "$SPECVESA" 2>>$ERR`
   ##+2011-10-30 added 2>>$ERR , doubblequotes
-  #DRVRSNUM=`ls -1 $DRVRSPATH | wc -l | sed -e 's/ //g'`
   DRVRSNUM=`ls -1 "$DRVRSPATH" 2>/dev/null | wc -l | sed -e 's/ //g'`
-  ##+2011-10-30 added 2>>$ERR , doubblequotes
+  ##+2011-10-30 added 2>>$ERR , doublequotes
   if [ "$DRVRSNUM" = "1" ];then
   dialog --no-collapse --title "Xorg Graphics Wizard" --msgbox "IMPORTANT INFORMATION
 Xorg currently only has the 'Generic driver' installed, called 'vesa'
@@ -2149,7 +2162,8 @@ For now, keep going with using the Generic driver
  fi
 
  #tweak...
- dialog --no-collapse --title "Xorg Graphics Wizard" --yes-label "Tweak_refresh" --no-label "Edit_xorg.conf" --yesno "If the graphics mode display was distorted, displaced, or a complete
+ dialog --no-collapse --yes-label "Tweak refresh" --no-label "Edit xorg.conf" \
+ --title "Xorg Graphics Wizard" --yesno "If the graphics mode display was distorted, displaced, or a complete
 mess, the simplest option now is to adjust the vertical screen refresh
 frequency up or down slightly.
 However, if you are more experienced with Linux and X, you may prefer
@@ -2180,7 +2194,10 @@ Note2: Display displaced to right is often due to frequency too high."
   VERT4=80; MSGV4="Usually no flicker on CRT"
   VERT5=85; MSGV5="No flicker on CRT"
 
-  dialog --no-cancel --title "Xorg Graphics Wizard" --menu "Xorg is currently set to refresh the screen $VRTEST times per second. Taking this up or down may remove distortion etc., but note that the choices here are only suggested upper limits and Xorg may not use exactly the frequency chosen here.
+  dialog --no-cancel --title "Xorg Graphics Wizard" --menu "Xorg is currently set to refresh the screen $VRTEST times per second.
+Taking this up or down may remove distortion etc.,
+but note that the choices here are only suggested upper limits
+and Xorg may not use exactly the frequency chosen here.
 
 $MSGGEN
 
@@ -2199,22 +2216,23 @@ $MSGPNP" 0 0 0 \
    NEEDHORIZ=`gtf $XTEST $YTEST $CHOSENVERT | grep -o 'hsync: .*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
   let NEEDHORIZ=NEEDHORIZ+1 #compensate for rounding off error.
 
-  aPATTERN="s/HORIZSYNC0/${HORIZSYNC}/g"
+  aPATTERN="s/HORIZSYNC0/${HORIZSYNC}/"
   if [ "$NEEDHORIZ" -gt ${MAXHORIZ%.*} ];then
    if [ "$MONCHOICES" = "" ];then
     #monitor not plug and play.
-    aPATTERN="s/HORIZSYNC0/${MINHORIZ}\\-${NEEDHORIZ}/g"
+    aPATTERN="s/HORIZSYNC0/${MINHORIZ}\\-${NEEDHORIZ}/"
    fi
   fi
   sed -e "$aPATTERN" "$tmpDIR"/xorg.conf.tmp > "$tmpDIR"/xorg.conf.tmp2
-  bPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
+  bPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/"
   _sync
   sed -e "$bPATTERN" "$tmpDIR"/xorg.conf.tmp2 > "$XORGCONFFILE"
   _sync
   rm $VERB -f "$tmpDIR"/xorg.conf.tmp2
 
  else
-  dialog --no-collapse --title "Xorg Graphics Wizard" --msgbox "Before editing xorg.conf, consider this...
+  dialog --no-collapse --title "Xorg Graphics Wizard" \
+  --msgbox "Before editing xorg.conf, consider this...
 
 /etx/X11/xorg.conf has these lines in the Monitor section:
   HorizSync    $HORIZSYNC
@@ -2240,7 +2258,8 @@ echo "XTEST is set to '$XTEST'"
 
 if [ "$XORGTEST" -eq 3 ];then #<FIX> (XTEST=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
-  dialog --title "Xorg Graphics Wizard" --yes-label "DONE" --no-label "Xvesa" --yesno "Just press ENTER key if all is fine and you are ready to run
+  dialog --yes-label "DONE" --no-label "Xvesa" \
+  --title "Xorg Graphics Wizard" --yesno "Just press ENTER key if all is fine and you are ready to run
 Puppy with Xorg.
 
 If you cannot get Xorg to work, press TAB then ENTER to choose
