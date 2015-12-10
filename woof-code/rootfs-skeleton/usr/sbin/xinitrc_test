@@ -4,24 +4,30 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
+[ "$XORGTEST_TIMEOUT" ] || XORGTEST_TIMEOUT=20 #seconds
+
 #set -- `xvidtune -show` #'-display :0' not needed.
-Q=`dc 1.1 1.1 \* p`
-if [ "$?" -ne 0 ] ; then
-set -- `xvidtune -show | tr '.' ','`
-else
+#dc 1.1 1.1 \* p || echo DC ERROR 1
+Q=`dc 1.1 1.1 \* p` || echo DC ERROR 1
+if [ "$?" = 0 ] ; then
 set -- `xvidtune -show`
+else
+set -- `xvidtune -show | tr '.' ','`
 fi
-CLOCKHZ=`LC_ALL=C dc $2 1000000 \* p`
+echo "$0:$@"
+#/usr/sbin/xinitrc_test:"1920x1080" 148,50 1920 2008 2052 2200 1080 1084 1089 1125 +hsync +vsync
+
+CLOCKHZ=`LC_ALL=C dc $2 1000000 \* p` || echo DC ERROR 2
 if [ "$CLOCKHZ" != "0" ];then
  XTEST=$3
  YTEST=$7
- VRTEST=`LC_ALL=C dc $CLOCKHZ $6 \/ ${10} \/ p`
- HSTEST=`LC_ALL=C dc $CLOCKHZ $6 \/ 1000 \/ p`
+ VRTEST=`LC_ALL=C dc $CLOCKHZ $6 \/ ${10} \/ p` || echo DC ERROR 3
+ HSTEST=`LC_ALL=C dc $CLOCKHZ $6 \/ 1000 \/ p`  || echo DC ERROR 4
 else
  #some video chips do not work with xvidtune.
  XRANDRINFO=`LC_ALL=C xrandr $Q | grep '\*' | tr -s ' ' | grep '^ [0-9]' | head -n 1`
- XTEST=`echo "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
- YTEST=`echo "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
+  XTEST=`echo "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 1 -d 'x'`
+  YTEST=`echo "$XRANDRINFO" | cut -f 2 -d ' ' | cut -f 2 -d 'x'`
  VRTEST=`echo "$XRANDRINFO" | cut -f 3 -d ' ' | cut -f 1 -d '*'`
 
  #xrandr does not always return the vertical frequency...
@@ -40,17 +46,17 @@ fi
 #round off to two decimal places...
 HSTEST=`echo "$HSTEST" | tr '.' ','`
 VRTEST=`echo "$VRTEST" | tr '.' ','`
-HSTEST=`LC_ALL=C printf "%.2f" $HSTEST`
-VRTEST=`LC_ALL=C printf "%.2f" $VRTEST`
+HSTEST=`LC_ALL=C printf "%.2f" $HSTEST` || echo PRINTF ERROR 1
+VRTEST=`LC_ALL=C printf "%.2f" $VRTEST` || echo PRINTF ERROR 2
 
 echo "XTEST=$XTEST
 YTEST=$YTEST
 VRTEST=$VRTEST
 HSTEST=$HSTEST" >/tmp/xorgwizard/xorgwizard_initrc_test_results #read by xorgwizard.
 
-xmessage -font "8x16" -center -timeout 60 -buttons "OK:10" -default OK "
+xmessage -font "8x16" -center -timeout $XORGTEST_TIMEOUT \
+ -buttons "OK:10" -default OK "
 Puppy Xorg Video Wizard: testing X
-
 
 If you can see this, then X is working!
 
@@ -61,7 +67,8 @@ Vertical refresh frequency: $VRTEST Hz (times per second)
 Please click the 'OK' button, or if your mouse isn't working,
 just hit the ENTER key, or the combination CTRL-ALT-BACKSPACE.
 
-If you don't do anything, this test will timeout in 60 seconds."
+If you don't do anything, this test will timeout in $XORGTEST_TIMEOUT seconds.
+"
 
 #when xmessage terminates, xinit should kill Xorg.
 ###END###
