@@ -152,6 +152,17 @@ PATH="/usr/X11R7/bin:$PATH"
 LD_LIBRARY_PATH="/usr/X11R7/lib:$LD_LIBRARY_PATH"
 fi
 
+if [ "`whoami`" = 'root' ]; then
+XORGCONFFILE=/etc/X11/xorg.conf
+else
+XORGCONFFILE=xorg.conf
+fi
+##+++2012-01-30
+for f in "$XORGCONFFILE".d/*.conf
+do
+rm $VERB -f "$f"
+done
+
 _notice "Starting xwin now,\$0='$0' \$*='$*'"
 
 #sleep 5
@@ -423,7 +434,7 @@ elif [ -f /var/lock/XLOADED ]; then # 9.0
     echo '
 It seems that last time X ran, the computer hung and you had to reboot.
 Have now dropped down to the commandline. If you want to run the Xorg
-Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
+Video Wizard, type "xorgwizard", and after configuring '"$XORGCONFFILE"'
 (hopefully correctly this time!) type "xwin" to start X.'
     echo -e '\033[0;39m'
     rm -f /var/lock/XLOADED #otherwise cannot start X.
@@ -503,7 +514,13 @@ _info "HAVEX='$HAVEX'"
 
 ddcprobe_func(){
 echo -e '\033[0;31m''ddcprobe_func ..'
-DDCPROBE=`ddcprobe`
+# +++2014-11-11 strace seems to help segfauting ddcprobe
+ if [ "`which strace`" ]; then
+  DDCPROBE=`strace -o "$TMP_DIR"/ddcprobe.strace_o ddcprobe`
+ else
+  DDCPROBE=`ddcprobe`
+ fi
+#DDCPROBE=`ddcprobe`
 echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
   sleep 2s
   case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
@@ -515,10 +532,24 @@ echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
    sleep 1s
    ;;
   esac
+
+  _get_edid(){
+    which get-edid >>$OUT || return 0
+ which edid-decode >>$OUT || return 0
+ if [ ! -s "$TMP_DIR"/ddcprobe.txt ]; then
+ get-edid 1>"$TMP_DIR"/get-edid.out 2>"$TMP_DIR"/get-edid-2.txt
+ [ "$?" = 0 ] || return 0
+ edid-decode "$TMP_DIR"/get-edid.out >"$TMP_DIR"/ddcprobe.txt
+ fi
+ }
+ _get_edid
+
 if [ -n "`grep -i 'edidfail' "$TMP_DIR"/ddcprobe.txt`" ] ; then ###KRG
 echo -e '\033[0;31m''ddcprobe still failed to determine the video..'
 echo -e '\033[0;39m''Exiting $0 now.''\033[0;39m'  ##+2011-11-10 added 0;39 back
 exit 6
+else
+DDCPROBE=`cat "$TMP_DIR"/ddcprobe.txt`
 fi
 }
 ddcprobe_func
@@ -548,7 +579,7 @@ _debug "HAVEX=Xvesa"
    #1st dialog offers to use Xvesa...
    _notice "Starting now xorgwizard..." && sleep 1s
    /usr/sbin/xorgwizard
-   test $? = 255 && exit 255
+   test $? = 0 || exit 251
    HAVEX=`readlink -qs /usr/bin/X`
    if [ "$HAVEX" != "Xorg" ] ; then  ##KRG
    echo "To start the Xorg server for Xvesa does not work for your hardware ,"
@@ -642,7 +673,7 @@ if [ "$HAVEX" = "Xvesa" ]; then #0.9.9 # 4.0
   fi  # 4.1.2.0
 
   rm -f "$TMP_DIR"/Xflag #precaution.
-  #...if "$tmpDir"/videomode exists, video-wizard is started in ~/.xinitrc
+  #...if "$TMP_DIR"/videomode exists, video-wizard is started in ~/.xinitrc
   #...note, if /etc/videomode exists instead, normal X startup.
  fi   # 4.1.0
 fi    # 4.0
@@ -654,7 +685,7 @@ echo -e '\033[0;34m''End Xvesa part One.'
 echo -e '\033[0;31m''Begin Xvesa part Two ..'
 if [ "$HAVEX" = "Xvesa" ]; then #0.9.9 # 10.0
 
- #"$tmpDir"/videomode exists if starting X with new video test mode...
+ #"$TMP_DIR"/videomode exists if starting X with new video test mode...
  if [ -e "$TMP_DIR"/videomode ]; then # 10.1.0
 
   cat "$TMP_DIR"/videomode | grep " 800x600"
@@ -683,7 +714,7 @@ It may be helpful to look in $TMP_DIR/xerrs.log for error messages ."
   fi # 10.1.1.0
  fi # 10.1.0
 
- #"$tmpDir"/videomode exists if starting X with new video test mode...
+ #"$TMP_DIR"/videomode exists if starting X with new video test mode...
  if [ -e "$TMP_DIR"/videomode ]; then # 10.2.0
   #stored in format "0x0111 640x480x16"
   VIDMODE=`cat "$TMP_DIR"/videomode | cut -f 1 -d ' '`
@@ -713,22 +744,22 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then # 5.0
 
  if [ "$OLDMOUSEDEV" != "nothing" ]; then #"nothing" on first boot. # 5.1.0
 
-  if [ -f /etc/X11/xorg.conf ]; then # 5.1.1.0
+  if [ -f "$XORGCONFFILE" ]; then # 5.1.1.0
 
    case `cat /etc/mousedevice | cut -c 1-4` in
     "inpu") #"input/mice", usb
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
+     cat "$XORGCONFFILE" | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
     "ttyS") #ttyS0,1,2,3, serial
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
+     cat "$XORGCONFFILE" | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
     *)
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
+     cat "$XORGCONFFILE" | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
    esac
    sync
-   echo "Copying $TMP_DIR/xorg.conf.tmp2 /etc/X11/xorg.conf"
-   cp -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf One
+   echo "Copying $TMP_DIR/xorg.conf.tmp2 $XORGCONFFILE"
+   cp -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf One
    sync
    rm -f "$TMP_DIR"/xorg.conf.tmp2
 
@@ -751,11 +782,11 @@ if [ ! -f /etc/mousebuttons ]; then # 6.0
   echo "5" > /etc/mousebuttons
   echo -e "The file /etc/mousebuttons has been created, with content \"5\"."
 
-  if [ -f /etc/X11/xorg.conf ]; then # 6.1.0
-   cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$TMP_DIR"/xorg.conf.tmp
+  if [ -f "$XORGCONFFILE" ]; then # 6.1.0
+   cat "$XORGCONFFILE" | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$TMP_DIR"/xorg.conf.tmp
    sync
-   echo "Copying $TMP_DIR/xorg.conf.tmp /etc/X11/xorg.conf"
-   cp -f "$TMP_DIR"/xorg.conf.tmp /etc/X11/xorg.conf # CP new xorg.conf Two-1
+   echo "Copying $TMP_DIR/xorg.conf.tmp $XORGCONFFILE"
+   cp -f "$TMP_DIR"/xorg.conf.tmp "$XORGCONFFILE" # CP new xorg.conf Two-1
   fi # 6.1.0
 
 
@@ -794,7 +825,7 @@ echo -e '\033[0;31m''Begin Xorg part One ..'
 #v2.11 find out if xorg video drvr exists, else use xorg vesa...
 if [ -f /usr/bin/Xorg ]; then # 7.0
 
- if [ -f /etc/X11/xorg.conf ]; then # 7.1.0
+ if [ -f "$XORGCONFFILE" ]; then # 7.1.0
 
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then  ###KRG
   #find location of video chip drivers...
@@ -805,7 +836,7 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
    _notice "SPECVESA='$SPECVESA' and NOT empty"
    DRVRSPATH=`dirname $SPECVESA`
    #get current driver...
-   DRVRCURR=`grep '#card0driver' /etc/X11/xorg.conf | cut -f 2 -d '"'` #'
+   DRVRCURR=`grep '#card0driver' "$XORGCONFFILE" | cut -f 2 -d '"'` #'
 
    if [ "$DRVRCURR" ]; then # 7.1.1.1.0
     _info "DRVRCURR='$DRVRCURR' and NOT empty"
@@ -815,10 +846,10 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
     #echo 'ls -1 $DRVRSPATH/* returned:'"$?"':'
     if [ $? -ne 0 ]; then # 7.1.1.1.1.0
      APATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
-     sed -e "$APATTERN" /etc/X11/xorg.conf > "$TMP_DIR"/xorg.conf.tmp2
+     sed -e "$APATTERN" "$XORGCONFFILE" > "$TMP_DIR"/xorg.conf.tmp2
      sync
-     echo "Copying $TMP_DIR/xorg.conf.tmp2 /etc/X11/xorg.conf 2"
-     cp -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf Three
+     echo "Copying $TMP_DIR/xorg.conf.tmp2 $XORGCONFFILE 2"
+     cp -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf Three
     fi # 7.1.1.1.1.0
    fi # 7.1.1.1.0
   fi # 7.1.1.0
@@ -833,15 +864,15 @@ echo -e '\033[0;31m''Begin Xorg part Two ..'
 #Puppy Xorg Video Wizard...
 
 if [ -f /usr/bin/Xorg ]; then # 8.0
- if [ -f /etc/X11/xorg.conf ]; then # 8.1.0
+ if [ -f "$XORGCONFFILE" ]; then # 8.1.0
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then # 8.1.1.0
 
+_get_current_hw_profile(){
    #PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
     PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: ' | cut -f 2-4 -d ' ' | tr '[[:blank:][:punct:]]' '_'`
+    [ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
 
-
-   #PROFILEMONITOR="`echo "$DDCPROBE" | grep --extended-regexp '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-
+   #PROFILEMONITOR="`echo "$DDCPROBE" | grep -E '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
 #PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 PROFILEMONITOR=`echo "$DDCPROBE" | grep -m1 '^monitorid: ' | cut -f 2 -d ':' | tr '[[:blank:][:punct:]]' '_'`
@@ -857,38 +888,43 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -m1 '^monitorid: ' | cut -f 2 -d ':' | t
 
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 
-[ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -i vga | tr -s ' ' | tr '[[:blank:][:punct:]]' '_'`
+#[ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -i vga | tr -s ' ' | tr '[[:blank:][:punct:]]' '_'`
+[ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
 [ "$PROFILECHIP" ] || PROFILECHIP=UnidentifiedChip
 
 [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
-
    HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
+}
+_get_current_hw_profile
    #find out if current xorg.conf matches this profile...
-   CURRENTPROFILE=`grep '^#PuppyHardwareProfile=' /etc/X11/xorg.conf | cut -f 2 -d '=' | cut -f 1 -d ' '`
+   CURRENTPROFILE=`grep '^#PuppyHardwareProfile=' "$XORGCONFFILE" | cut -f 2 -d '=' | cut -f 1 -d ' '`
 
    if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ]; then # 8.1.1.1.0
     echo -e '\033[0;31m''Has hardware profile changed ?'
+    echo "xorg.conf CURRENTPROFILE='$CURRENTPROFILE'"
+    echo "detected HARDWAREPROFILE='$HARDWAREPROFILE'"
+    #exit 255
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
-    echo "Moving now /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE}"
-    mv -f /etc/X11/xorg.conf /etc/X11/"xorg.conf.${CURRENTPROFILE}" #### Rename One
+    echo "Moving now $XORGCONFFILE $XORGCONFFILE.${CURRENTPROFILE}"
+    mv -f "$XORGCONFFILE" "$XORGCONFFILE"."${CURRENTPROFILE}" #### Rename One
     #if a previous profiled filename for new hardware, use that...
-    echo "Copying /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf if exists"
-    [ -f /etc/X11/"xorg.conf.${HARDWAREPROFILE}" ] && cp -af /etc/X11/"xorg.conf.${HARDWAREPROFILE}" /etc/X11/xorg.conf # CP new xorg.conf Four
+    echo "Copying $XORGCONFFILE.${HARDWAREPROFILE} $XORGCONFFILE if exists"
+    [ -f "$XORGCONFFILE.${HARDWAREPROFILE}" ] && cp -af "$XORGCONFFILE"."${HARDWAREPROFILE}" "$XORGCONFFILE" # CP new xorg.conf Four
 
    fi # 8.1.1.1.0
 
   fi # 8.1.1.0
  fi # 8.1.0
 
- if [ ! -f /etc/X11/xorg.conf ]; then # 8.2.0
-  _notice "File /etc/X11/xorg.conf does not exist."
+ if [ ! -f "$XORGCONFFILE" ]; then # 8.2.0
+  _notice "File $XORGCONFFILE does not exist."
   _info "Running xorgwizard ..."
   sleep 1s
   rm -f /var/lock/XLOADED  #not necessary, precaution.
   #1st dialog offers to use Xvesa...
   /usr/sbin/xorgwizard
-  test $? = 255 && exit 255
+  test $? = 0 || exit 252
   HAVEX=`readlink -qs /usr/bin/X`
   if [ "$HAVEX" = "Xvesa" ] ; then  ###KRG
   _debug "HAVEX='$HAVEX' (Xvesa)"
@@ -926,7 +962,7 @@ case $HAVEX in
   fi
   _debug "SPOPTION='$SPOPTION'"
   sleep 4s
-  #startx $VIDMODE $MOUSEDEV > "$tmpDir"/xerrs.txt 2>&1
+  #startx $VIDMODE $MOUSEDEV > "$TMP_DIR"/xerrs.txt 2>&1
   #Puppy 0.8.4 no need for startx script...
   VIDFREQ=`echo -n "$VIDSCRN" | cut -f 4 -d "x"`
   if [ ! "$VIDFREQ" ]; then # 14.2.0
@@ -959,7 +995,7 @@ case $HAVEX in
  ErrLog="$TMP_DIR/Xerrs.$KERNEL.$Date.Xorg.log.$AP"
  Log="$TMP_DIR/Xorg.$KERNEL.$Date.log.$AP"
 
-  _notice "Starting X with Xorg server , specs in /etc/X11/xorg.conf, startup apps $HOME/.xinitrc..." #> /dev/tty2
+  _notice "Starting X with Xorg server , specs in $XORGCONFFILE, startup apps $HOME/.xinitrc..." #> /dev/tty2
   #v2.11 G2 suggested -br for black background instead of checked...
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
   #     if have '-nolisten tcp'. until find out why, this workaround...
@@ -984,7 +1020,7 @@ echo -e '\033[0;34m''End start X part.'
 
 echo "false" > /var/lock/XLOADED
 
-#### Begin of "$tmpDir"/wmexitmode part ####
+#### Begin of "$TMP_DIR"/wmexitmode part ####
 echo -e '\033[0;32m'"Begin of $TMP_DIR/wmexitmode.txt part .."'\033[0;39m'  ##+2011-11-10 added 0;39 back
 #Shutdown menu calls wmreboot, wmpoweroff, wmexit or restartwm, which create this file...
 if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
@@ -993,14 +1029,14 @@ if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
  read WMEXITMODE <"$TMP_DIR"/wmexitmode.txt
  echo "WMEXITMODE='$WMEXITMODE'"
  if [ "$WMEXITMODE" = "exit" ]; then #see /usr/bin/wmexit. # 19.1.0
-  #[ $NUMXWINS -eq 1 ] && rm -f "$tmpDir"/wmexitmode.txt #w477 hack, see above.
+  #[ $NUMXWINS -eq 1 ] && rm -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
   rm -f "$TMP_DIR"/wmexitmode.txt #w478
   rm -f /tmp/wmexitmode.txt
   echo "$0:Found '$WMEXITMODE' in $TMP_DIR/wmexitmode.txt ; exiting to prompt now."
   exit # exit Three
  fi # 19.1.0
 
- #rm -f "$tmpDir"/wmexitmode.txt ...no, removed in rc.shutdown.
+ #rm -f "$TMP_DIR"/wmexitmode.txt ...no, removed in rc.shutdown.
  [ "$WMEXITMODE" = "poweroff" ] && exec /sbin/poweroff #see /usr/bin/wmpoweroff
  [ "$WMEXITMODE" = "reboot" ] && exec /sbin/reboot #see /usr/bin/wmreboot
 
@@ -1038,7 +1074,7 @@ fi # 19.0
 
 
 echo -e '\033[0;34m'"End of $TMP_DIR/wmexitmode.txt part."
-#### End of "$tmpDir"/wmexitmode part ####
+#### End of "$TMP_DIR"/wmexitmode part ####
 
 #### Begin X failed part ####
 echo -e '\033[0;31m''Begin X failed part ..'
