@@ -1683,7 +1683,7 @@ unset SEC NEWSEC
  Subsection*|'#Subsection'*)
   HAVE_SUBSEC=1
   case $aLINE in
-  '# '*|'#      '*) #TAB
+  '# '*|'#	'*) #TAB
    NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
    NEWSEC="$NEWSEC\n\t$aLINE"   ;;
@@ -1691,7 +1691,7 @@ unset SEC NEWSEC
  ;;
  EndSubsection|'#EndSubsection')
  case $aLINE in
- '# '*|'#       '*) #TAB
+ '# '*|'#	'*) #TAB
  NEWSEC="$NEWSEC\n$aLINE" ;;
  *)
  NEWSEC="$NEWSEC\n\t$aLINE" ;;
@@ -1700,14 +1700,14 @@ unset SEC NEWSEC
  *)
    if test "$HAVE_SUBSEC"; then
    case $aLINE in
-   '# '*|'#     '*) #TAB
+   '# '*|'#	'*) #TAB
    NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
    NEWSEC="$NEWSEC\n\t\t$aLINE"   ;;
    esac
    elif test "$NEWSEC"; then
    case $aLINE in
-   '# '*|'#     '*) #TAB
+   '# '*|'#	'*) #TAB
    NEWSEC="$NEWSEC\n$aLINE"   ;;
    *)
    NEWSEC="$NEWSEC\n\t$aLINE"   ;;
@@ -1766,21 +1766,15 @@ unset NEWSEC CARD DRIVER
 ;;
 *) case $aLINE in
    '#'*Identifier*Card[0-9]*) CARD=`echo "$aLINE" | cut -f2 -d'"'`
-NEWSEC="$NEWSEC
-$aLINE";;
+NEWSEC="$NEWSEC\n$aLINE";;
    '#'*Driver*\"*\"*) DRIVER=`echo "$aLINE" | cut -f2 -d'"'`
-NEWSEC="$NEWSEC
-$aLINE";;
-   '# '*|'#     '*) NEWSEC="$NEWSEC
-$aLINE";; #TAB
+NEWSEC="$NEWSEC\n$aLINE";;
+   '# '*|'#	'*) NEWSEC="$NEWSEC\n$aLINE";; #TAB
     *Identifier*Card[0-9]*) CARD=`echo "$aLINE" | cut -f2 -d'"'`
-NEWSEC="$NEWSEC
-\t$aLINE";;
+NEWSEC="$NEWSEC\n\t$aLINE";;
     *Driver*\"*\"*) DRIVER=`echo "$aLINE" | cut -f2 -d'"'`
-NEWSEC="$NEWSEC
-\t$aLINE";;
-    *)   NEWSEC="$NEWSEC
-\t$aLINE";;
+NEWSEC="$NEWSEC\n\t$aLINE";;
+    *)   NEWSEC="$NEWSEC\n\t$aLINE";;
    esac
 ;;
 esac
@@ -1814,6 +1808,177 @@ test -s "$TMP_DIR"/Card.$c.conf        || rm $VERB -f "$TMP_DIR".d/Card$c.conf
 done
 test -f "$XORGCONFFILE".d/Card0.conf
 }
+
+###NEW choose several cards
+
+_make_card_list(){
+
+unset DRIVERS DRIVERS_LIST0 DRIVERS_LIST
+for n in `seq 0 1 $((c-1))`
+do
+
+test -f "$TMP_DIR"/Card$n.conf || continue
+grep $Q "#card${n}driver" "$TMP_DIR"/Card$n.conf
+DRIVERS="$DRIVERS
+`grep \"#card${n}driver\" $TMP_DIR/Card$n.conf | cut -f2 -d'\"'`"
+
+done
+
+_debug "DRIVERS:$DRIVERS"
+test "$DRIVERS" || DRIVERS_MSG='Error, no Drivers detected.'
+_debug "DRIVERS:$DRIVERS"
+
+BAD_DRIVERS=`echo "$DRIVERS" | grep -E 'fbdev|modesetting|vesa'`
+_debugx "BAD_DRIVERS:$BAD_DRIVERS"
+test "$BAD_DRIVERS" && BAD_DRIVERS_MSG='\Z4'`echo $BAD_DRIVERS`'\Zn' || BAD_DRIVERS_MSG='\Z1No simple video drivers detected.\Zn'
+_debug "BAD_DRIVERS:$BAD_DRIVERS"
+
+GOOD_DRIVERS=`echo "$DRIVERS" | grep -vE 'fbdev|modesetting|vesa'`
+_debugx "GOOD_DRIVERS:$GOOD_DRIVERS"
+test "$GOOD_DRIVERS" && GOOD_DRIVERS_MSG='\Z2'`echo $GOOD_DRIVERS`'\Zn' || GOOD_DRIVERS_MSG='\Z1Attention, no sophisticated video drivers detected.\Zn'
+_debug "GOOD_DRIVERS:$GOOD_DRIVERS"
+
+DRIVERS_LIST0=`grep -h -o 'Driver[[:blank:]]\+".*".*#.*' "$TMP_DIR"/Card*.conf | cut -f1 -d'#'`
+test "$DEBUG" && {
+echo
+echo "$DRIVERS_LIST0" ; }
+
+c=0
+while read tag driver
+do
+[ "$tag" -a "$driver" ] || continue
+SET_TAG="on"
+if test "$BAD_DRIVERS"; then
+echo "$driver" | _command grep $Q "$BAD_DRIVERS" && SET_TAG="off"
+fi
+
+CARD_LIST="$CARD_LIST
+Card$c $driver $SET_TAG"
+c=$((c+1))
+done <<EoI
+`echo "$DRIVERS_LIST0"`
+EoI
+
+[ "$DEBUG" ] && echo "$CARD_LIST" || true
+test "${CARD_LIST//[[:blank:]]/}"
+}
+
+_select_card(){
+
+CTEXT='Show all drivers'
+GCTEXT=`gettext "$CTEXT"`
+test "${GCTEXT//[[:blank:]]/}" && CTEXT=$GCTEXT
+
+TTEXT='Select Cards'
+GTTEXT=`gettext "$TTEXT"`
+test "${GTTEXT//[[:blank:]]/}" && TTEXT=$GTTEXT
+
+BTTEXT='Select Cards'
+GBTTEXT=`gettext "$BTTEXT"`
+test "${GBTTEXT//[[:blank:]]/}" && BTTEXT=$GBTTEXT
+
+MENU_TEXT="Xorg -configure found out, that these installed userspace
+video drivers are available.
+
+Xorg -configure since version 1.7 creates more and more probably
+usable Device Sections with drivers, that Xorg thinks, may work.
+
+For recent hardware there should work one of these sophisticated
+drivers : $GOOD_DRIVERS_MSG
+
+There are alternate drivers possible if installed, but they may \Z1not\Zn work
+currently : $BAD_DRIVERS_MSG
+
+Now choose the one you would like to test.
+But you can also choose out of all installed drivers for Card0:"
+GMENU_TEXT=`gettext "$MENU_TEXT"`
+test "${GMENU_TEXT//[[:blank:]]/}" && MENU_TEXT=$GMENU_TEXT
+
+while :;
+do
+#dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --menu "$MENU_TEXT" 0 0 5 $DRIVERS_LIST 2>"$TMP_DIR"/select_card
+dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --checklist "$MENU_TEXT" 0 0 5 $CARD_LIST 2>"$TMP_DIR"/select_cards
+case $? in 0) _debug "_select_card:0:OK"; break;; #OK
+1) _debug "_select_card returned 1";      #Cancel
+  _show_all_drivers
+  case $? in 0) return 9;; *) continue;; esac
+  ;;
+2) _debug "_select_card returned 2";;  #Help
+3) _debug "_select_card returned 3";;  #Extra
+255|*) _notice "_select_card returned 255 or OTHER"; exit 1;;
+esac
+[ "$DEBBUG" ] && cat "$TMP_DIR"/select_cards && echo
+done
+return 0
+}
+
+_enable_cards_conf(){
+
+DEBUG=1
+
+test -f "$TMP_DIR"/select_cards || return 3
+test -s "$TMP_DIR"/select_cards || return 4
+#SELECTED_CARD=`tail -n1 "$TMP_DIR"/select_card`
+#test "$SELECTED_CARD" || _some_thing_wrong 'Error reading selected video card'
+SELECTED_CARDS=`cat "$TMP_DIR"/select_cards`
+test "$SELECTED_CARDS" || _some_thing_wrong 'Error reading selected video card'
+
+#CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$XORGCONFFILE".d/Card*.conf | cut -f1 -d':' | sort -u`
+for card in $SELECTED_CARDS
+do
+CardFILE=`grep -H "Identifier[[:blank:]]\+$card" "$TMP_DIR"/Card*.conf | cut -f1 -d':' | sort -u`
+CardFILES="$CardFILES
+$CardFILE"
+done
+CardFILES=`echo "$CardFILES" | sed '/^$/d'`
+
+test "$DEBUG" && {
+echo
+echo "CardFILES='$CardFILES'"
+echo ; }
+
+for CardFILE in $CardFILES
+do
+test -f "$CardFILE" || return 5
+done
+
+#[ "$DEBUG" ] && ls -1s "$XORGCONFFILE".d/Card*.conf
+#OTHER_CARDS_CONF=`ls -1 "$XORGCONFFILE".d/Card*.conf | grep -v "$CardFILE"`
+
+[ "$DEBUG" ] && ls -1s "$TMP_DIR"/Card*.conf
+OTHER_CARDS_CONF=`ls -1 "$TMP_DIR"/Card*.conf | _command grep -v "$CardFILES"`
+
+test "$DEBUG" && {
+echo
+echo "OTHER_CARDS_CONF=$OTHER_CARDS_CONF" 
+sleep 5; }
+
+for f in $OTHER_CARDS_CONF
+do
+#sed -i 's%^%#%' "$f"
+sed -i 's%^\([^#].*\)%#\1%' "$f"
+done
+
+#test -f "$CardFILE" || return 5
+for CardFILE in $CardFILES
+do
+test -s "$CardFILE" || return 6
+done
+
+#need to reset CARD0DRIVER
+CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"[[:blank:]]+#card[0-9]+driver' "$CardFILE" | cut -f2 -d'"'`
+sedRV=0
+for CardFILE in $CardFILES
+do
+#sed -i 's%^#*%%' "$CardFILE"
+ sed -i 's%^\(#\+\)\([[:blank:]]\+\)\(.*\)%\2\3%' "$CardFILE"
+ sedRV=$((sedRV+$?))
+ sed -i 's%^\(#\+\)\(.*\)%\2%' "$CardFILE"
+ sedRV=$((sedRV+$?))
+done
+test "$sedRV" = 0 -a "${CARD0DRIVER//[[:blank:]]/}"
+}
+###NEW choose several cards
 
 _make_driver_list(){
 
@@ -2051,9 +2216,18 @@ _split_xorg_conf_file "$XORGCONFFILE" || return 3
 
 _split_cards "$TMP_DIR"/Device.conf || return 4
 
-_make_driver_list     || return 5
+#_make_driver_list     || return 5
+_make_card_list     || return 5
 
-_select_driver
+#_select_driver
+# case $? in
+# 9)
+#    _rebuild_xorg_conf || return 10
+#    return 0;;
+# 0) :;;
+# *) exit 1;;
+# esac
+_select_card
  case $? in
  9)
     _rebuild_xorg_conf || return 10
@@ -2062,7 +2236,12 @@ _select_driver
  *) exit 1;;
  esac
 
-_enable_card_conf; RV=$?
+#_enable_card_conf; RV=$?
+#case $RV in
+#0) :;;
+#*) _err "_enable_card_conf returned $RV"; return 7;;
+#esac
+_enable_cards_conf; RV=$?
 case $RV in
 0) :;;
 *) _err "_enable_card_conf returned $RV"; return 7;;
