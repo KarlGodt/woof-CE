@@ -116,7 +116,8 @@ Cya='\033[0;36m'
 CYA='\033[1;36m'
 Res='\033[0;39m'
 
-status_func() {
+status_func(){
+ test "$*" || return 0
  if [ $1 -eq 0 ];then
   /bin/echo -e "\\033[72G$GRE"done"$Res" >/dev/console #green [done] msg.
  else
@@ -126,7 +127,7 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
-[ -f /etc/rc.d/PUPSTATE ] && source /etc/rc.d/PUPSTATE || PUPMODE=2
+[ -f /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE || PUPMODE=2
 #if [ ! -d /initrd -o "`df | grep 'initrd'`" = "" ] ; then #frugal or full
 if [ "$PUPMODE" = 2 ] ; then
 #if [ "`rdev`" ] ; then
@@ -136,27 +137,27 @@ if [ "$PUPMODE" = 2 ] ; then
  #sleep 1s
  #mount
  #DEBUG
- [ -d /proc ] || mkdir /proc
- mountpoint -q /proc || busybox mount -t proc none /proc
- [ "`ls -A /proc/`" ] || busybox mount -t proc none /proc
+ [ -d /proc ] || mkdir $VERB /proc
+ mountpoint $Q /proc || busybox mount -t proc proc /proc
+ [ "`ls -A /proc/`" ] || busybox mount -t proc proc /proc
  #mount -o remount,rw /dev/root /
  #mount #DEBUG 2013-09-29
  sleep 1s
  #mount #DEBUG
- [ -d /proc ] || mkdir /proc
- mountpoint -q /proc || busybox mount -t proc none /proc
+ [ -d /proc ] || mkdir $VERB /proc
+ mountpoint $Q /proc || busybox mount -t proc proc /proc
  ps -o pid,args | grep init | grep busybox | grep -v "$0" | grep -w '1' && usage 1 "Already run."
- [ -d /sys ] || mkdir /sys
- mountpoint -q /sys || mount -t sysfs none /sys
+ [ -d /sys ] || mkdir $VERB /sys
+ mountpoint $Q /sys || mount -t sysfs sysfs /sys
 
 ###+++2011-11-10
   if [ -d /tmp ] ; then
-  rm -rf /var/tmp  ##2012-02-08
-  mkdir -p /var/tmp  ##2012-02-06
-  mv -f /tmp/[[:alnum:]]* /var/tmp/  2>>$ERR ##2012-01-08
-  mv -f /tmp/.[[:alnum:]]* /var/tmp/ 2>>$ERR ##+++2013-10-03
+  rm $VERB -rf /var/tmp  ##2012-02-08
+  mkdir $VERB -p /var/tmp  ##2012-02-06
+  mv $VERB -f /tmp/[[:alnum:]]* /var/tmp/  2>>$ERR ##2012-01-08
+  mv $VERB -f /tmp/.[[:alnum:]]* /var/tmp/ 2>>$ERR ##+++2013-10-03
   else
-  mkdir /tmp
+  mkdir $VERB /tmp
   fi
 
  chmod 1777 /tmp
@@ -165,6 +166,45 @@ else
 STATUS=0
 status_func $STATUS
 fi #frugal or full
+
+test -e /dev || mkdir $VERB /dev
+test -L /dev && rm /dev
+test -d /dev || rm $VERB -rf /dev
+test -d /dev || mkdir $VERB /dev
+mountpoint $Q /dev || {
+mount $VERB $VERB -t ramfs devramfs /dev
+}
+
+test -e /dev/pts || mkdir $VERB -p /dev/pts
+grep $Q ' /dev/pts ' /proc/mounts || mount $VERB $VERB -t devpts devpts /dev/pts
+
+  test -e /dev/fd     || ln $VERB -snf ../proc/self/fd /dev/fd
+  test -e /dev/stdin  || ln $VERB -sf  fd/0 /dev/stdin
+  test -e /dev/stdout || ln $VERB -sf  fd/1 /dev/stdout
+  test -e /dev/stderr || ln $VERB -sf  fd/2 /dev/stderr
+
+  test -c /dev/null || { rm $VERB -rf /dev/null; mknod /dev/null c 1 3; }
+  test -c /dev/console || { rm $VERB -rf /dev/console; mknod /dev/console c 5 1; }
+
+test "`which mdev`" && mdev -s || {
+   _devFILES_=`find /sys -type f -name uevent -perm 644`
+  oldIFS="$IFS"
+  IFS=$'\n'
+  for oneFILE in $_devFILES_
+  do
+  unset MAJOR MINOR DEVNAME DEVTYPE DEVMODE
+  test -r "$oneFILE" || continue
+  source "$oneFILE" 2>/dev/null || continue
+  test "$MAJOR" -a "$MINOR" || continue
+  test "$DEVNAME" && { test -e /dev/$DEVNAME && continue; } || { DEVNAME=${oneFILE%/uevent*}; DEVNAME=${DEVNAME##*/}; test -e /dev/$DEVNAME && continue; }
+  test "$DEVMODE" && DEVMODE="-m $DEVMODE"
+  test "$DEVTYPE" && {
+      mknod $DEVMODE /dev/$DEVNAME b $MAJOR $MINOR; } || {
+      mknod $DEVMODE /dev/$DEVNAME c $MAJOR $MINOR; }
+  sleep 0.01
+  done
+  IFS="$oldIFS"
+ }
 
 BUSYBOX_INIT_FUNC(){  ###KRG
 umount /sys
@@ -453,7 +493,7 @@ nice -n -3 /sbin/pup_event_backend_modprobe_protect --daemon &
 fi
 
 if [ -x /sbin/udevd ];then
- rm -rf /dev/.udev/*/*
+ rm $VERB -rf /dev/.udev/*/*
  HOTPLUGD='udevd'
  #100611 UDEV_LOG=2 to prevent non-critical o/p to screen at bootup and shutdown...
  UDEVVER=`udevd --version`
@@ -574,7 +614,7 @@ STATUS=0
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
 echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
 
-rm -f "$1"/dev/$SDEV
+rm $VERB -f "$1"/dev/$SDEV
 STATUS=$(( $STATUS + $? ))
 mknod "$1"/dev/$SDEV b $MAJ $MIN
 STATUS=$(( $STATUS + $? ))
@@ -886,7 +926,7 @@ modprobe squashfs
 for oneDRV in $DRIVES ; do  ##for 0
 
 SIMPLEDRIVENAME=`basename $oneDRV`
-mkdir -p /mnt/$SIMPLEDRIVENAME
+mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting '"$Res"$oneDRV' on '"$Res"/mnt/$SIMPLEDRIVENAME
 mount -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
 [ $? = 0 ] || {
@@ -909,7 +949,7 @@ else  ##if 99
  [ "$DebugVal" -ge "1" ] && echo -e "$YEL"'Found '"$Pin"$oneSFS"$Res"
  bneSFS=`basename $oneSFS`
  [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting now '"$Res""$oneSFS /mnt/$bneSFS"
- mkdir -p /mnt/$bneSFS
+ mkdir $VERB -p /mnt/$bneSFS
  Err=0  ###+++2013-11-20
  mount-FULL -o loop $oneSFS /mnt/$bneSFS
  Err=$?
@@ -1018,7 +1058,7 @@ CURR_GLIBC_FUNC
 for oneDRV in $DRIVES ; do ##for 0
 
 SIMPLEDRIVENAME=`basename $oneDRV`
-mkdir -p /mnt/$SIMPLEDRIVENAME
+mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Mounting '"$Res""$oneDRV""$Ora"' on '"$Res""/mnt/$SIMPLEDRIVENAME""$Res"
 mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
 DS=
@@ -1177,7 +1217,7 @@ echo 3 > /proc/sys/vm/drop_caches  ###KRG , thanks to Bruce B ;see http://www.mu
 sleep $((SLEEP*4))s  ###KRG
 ###Check for Available Test dev node :
 if [ "`ls -l /dev/ram8 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram8 | cut -f 5,6 -d ' '`" != "1, 8" ] ; then
-rm -f /dev/ram8
+rm $VERB -f /dev/ram8
 mknod /dev/ram8 b 1 8
 fi
 echo -e "$BLU"'Checking for Compiled RamDisk Size using:'"$Res"
@@ -1268,24 +1308,24 @@ CHECK_SPACE_FUNC
 CHECK_RAM0_FUNC(){
   if [ ! -b /dev/ram0 -o "`ls -l /dev/ram0 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram0 | cut -f 5,6 -d ' '`" != "1, 0" ]; then  ###KRG
   echo  -e "$RED"'block /dev/ram0 does not exist'"$Res"
-  rm -f /dev/ram0
+  rm $VERB -f /dev/ram0
   echo -e "$Res"'creating now'"$Res"
   mknod /dev/ram0 b 1 0
   fi
 }
 CHECK_RAM0_FUNC
 
-mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram0
+mkfs.ext2 $Q -m 5 -b 1024 -i 1024 /dev/ram0
 
 MAKE_RAM9_FUNC(){
-  [ ! -b /dev/ram9 -o "`ls -l /dev/ram9 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram9 | cut -f 5,6 -d ' '`" != "1, 9" ] && rm -f /dev/ram9 && mknod /dev/ram9 b 1 9  ###KRG
-  mkfs.ext2 -q -m 5 -b 1024 -i 1024 /dev/ram9
+  [ ! -b /dev/ram9 -o "`ls -l /dev/ram9 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram9 | cut -f 5,6 -d ' '`" != "1, 9" ] && rm $VERB -f /dev/ram9 && mknod /dev/ram9 b 1 9  ###KRG
+  mkfs.ext2 $Q -m 5 -b 1024 -i 1024 /dev/ram9
   sleep $((SLEEP*2))s
 }
 MAKE_RAM9_FUNC
 
-  mkdir -p /mnt/ram0
-  mkdir -p /mnt/ram9  ###KRG
+  mkdir $VERB -p /mnt/ram0
+  mkdir $VERB -p /mnt/ram9  ###KRG
 
   mount -t ext2 /dev/ram0 /mnt/ram0
   mount -t ext2 /dev/ram9 /mnt/ram9  ###KRG
@@ -1293,8 +1333,8 @@ MAKE_RAM9_FUNC
   sleep $((SLEEP*2))s  ###KRG
 
   #populate the ramdisk...
-  mkdir -p /mnt/ram0/old_root
-  mkdir /mnt/ram0/bin
+  mkdir $VERB -p /mnt/ram0/old_root
+  mkdir $VERB /mnt/ram0/bin
 
 BUSYBOX_FUNC(){
   ###KRG BUSYBOX
@@ -1347,26 +1387,26 @@ BUSYBOX_FUNC
    else
     if [ "$ONEBIN" != "busybox" -a "`busybox | grep $ONEBIN`" != "" ] ; then  ###KRG
     [ "$DebugVal" = "2" ] && echo -en 'link '"$ONEBIN ""$Red"', '"$Res"
-    ln -s busybox /mnt/ram0/bin/$ONEBIN
+    ln $VERB -s busybox /mnt/ram0/bin/$ONEBIN
     fi
    fi
   fi
   done
-  ln -snf busybox /mnt/ram0/bin/ps
+  ln $VERB -sf busybox /mnt/ram0/bin/ps
   [ "$DebugVal" = "2" ] && echo -n -e 'link ps '"$Red"', '"$Res"
-  ln -snf busybox /mnt/ram0/bin/rdev
+  ln $VERB -sf busybox /mnt/ram0/bin/rdev
   [ "$DebugVal" = "2" ] && echo -n -e 'link rdev '"$Red"', '"$Res"
-  ln -snf busybox /mnt/ram0/bin/sh
+  ln $VERB -sf busybox /mnt/ram0/bin/sh
   [ "$DebugVal" = "2" ] && echo -n -e 'link sh '"$Red"', '"$Res"
-  ln -snf busybox /mnt/ram0/bin/mount
+  ln $VERB -sf busybox /mnt/ram0/bin/mount
   [ "$DebugVal" = "2" ] && echo -n -e 'link mount '"$Red"', '"$Res"
-  ln -snf busybox /mnt/ram0/bin/umount
+  ln $VERB -sf busybox /mnt/ram0/bin/umount
   [ "$DebugVal" = "2" ] && echo -n 'link umount '
   [ "$DebugVal" -ge "1" ] && echo -e "$Res" && echo
 
   echo -e "$BLU""Populating /mnt/ram0/sbin ...""$Res"
   [ "$DebugVal" = "2" ] && echo -e -n "$Red"'/mnt/ram0/sbin/'"$Res"
-  mkdir /mnt/ram0/sbin
+  mkdir $VERB /mnt/ram0/sbin
   for ONEBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 getty guess_fstype halt hdparm hotplug2stdout hotplug2stdout_notimeout hwclock ifconfig ifplugstatus insmod klogd ldconfig loadkmap losetup lsmod mount.ntfs-3g pivot_root probedisk probedisk2 probepart swapon
   do
 
@@ -1394,7 +1434,7 @@ BUSYBOX_FUNC
     [ "$DebugVal" = "2" ] && [ "$ONEBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
    else
     if test "`busybox | grep $ONEBIN`" != "" ; then  ###KRG
-    ln -s ../bin/busybox /mnt/ram0/sbin/$ONEBIN
+    ln $VERB -s ../bin/busybox /mnt/ram0/sbin/$ONEBIN
     [ "$DebugVal" = "2" ] && echo -e -n 'link '"$ONEBIN "
     [ "$DebugVal" = "2" ] && [ "$ONEBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
     fi
@@ -1412,20 +1452,20 @@ Please restore manually for now"
 }
 PRESERVE_CHROOT_FUNC
 
-  ln -snf ../bin/busybox /sbin/chroot #must match
+  ln $VERB -sf ../bin/busybox /sbin/chroot #must match
   [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"$Red"', '"$Res"
-  ln -snf ../bin/busybox /mnt/ram0/sbin/chroot #must match
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/chroot #must match
   [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"$Red"', '"$Res"
-  ln -snf ../bin/busybox /mnt/ram0/sbin/init
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/init
   [ "$DebugVal" = "2" ] && echo -n -e 'link init '"$Red"', '"$Res"
-  ln -snf ../bin/busybox /mnt/ram0/sbin/poweroff
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/poweroff
   [ "$DebugVal" = "2" ] && echo -n -e 'link poweroff '"$Red"', '"$Res"
-  ln -snf ../bin/busybox /mnt/ram0/sbin/reboot
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/reboot
   [ "$DebugVal" = "2" ] && echo -n 'link reboot '
   [ "$DebugVal" -ge "1" ] && echo -e "$Res" && echo
 
   echo -e "$BLU""Populating /mnt/ram0/etc  ...""$Res"
-  mkdir /mnt/ram0/etc
+  mkdir $VERB /mnt/ram0/etc
   [ "$DebugVal" = "2" ] && echo -n -e "$Red"'/mnt/ram0/etc/'"$Res"
   for ONEFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
   do
@@ -1450,7 +1490,7 @@ export LOGNAME=root
 export TERM=linux' > /mnt/ram0/etc/profile
   cp "$REPO"/etc/fstab /mnt/ram0/etc/ || touch /mnt/ram0/etc/fstab ##+++2013-08-26
 
-  mkdir /mnt/ram0/etc/rc.d
+  mkdir $VERB /mnt/ram0/etc/rc.d
 
   echo '#!/bin/sh
 PDEV1=`cat /etc/fsckme.err | cut -f 1 -d ","`  ###KRG
@@ -1603,9 +1643,9 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   else
   LOCALTDIR="`dirname $LOCALTIME | sed 's#^/## ; s#//#/#g'`"
   fi
-  mkdir -p /mnt/ram0/$LOCALTDIR
+  mkdir $VERB -p /mnt/ram0/$LOCALTDIR
   cp -a $LOCALTIME /mnt/ram0/$LOCALTDIR/
-  mkdir -p /mnt/ram0/usr/share
+  mkdir $VERB -p /mnt/ram0/usr/share
   cp -a "$REPO"/usr/share/terminfo /mnt/ram0/usr/share/
 
   echo -e "$BLU""Populating /mnt/ram0/dev  ...""$Res"
@@ -1615,7 +1655,7 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
 
   ###KRG splitting /lib to second RamDisk :
   echo -e "$BLU""Populating /mnt/ram9/lib  ...""$Res"
-  mkdir /mnt/ram9/lib
+  mkdir $VERB /mnt/ram9/lib
   ##echo -e "\\033[1;34m"'Copying Libs ... '
   for i in $LIBF ; do  ###KRG to sort unneeded libs out , see further up ###KRG
   [ "$DebugVal" -ge "1" ] && echo -n -e "$Res""`basename $i`"
@@ -1633,14 +1673,14 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   fi
   echo -e "$Res"
 
-  ln -s /mnt/ram9/lib /mnt/ram0/lib
-  mkdir /mnt/ram0/mnt
-  mkdir /mnt/ram0/mnt/ram9
+  ln $VERB -s /mnt/ram9/lib /mnt/ram0/lib
+  mkdir $VERB /mnt/ram0/mnt
+  mkdir $VERB /mnt/ram0/mnt/ram9
 
-  mkdir /mnt/ram0/root
-  mkdir /mnt/ram0/tmp
-  mkdir -p /mnt/ram0/var/run
-  mkdir /mnt/ram0/proc
+  mkdir $VERB /mnt/ram0/root
+  mkdir $VERB /mnt/ram0/tmp
+  mkdir $VERB -p /mnt/ram0/var/run
+  mkdir $VERB /mnt/ram0/proc
 
   sleep $((SLEEP*3))s
   sync
@@ -1665,12 +1705,12 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   [ "$DebugVal" = "2" ] && echo  -e "$Red"'ls ./sbin :'"$Res" && ls --color=auto ./sbin && echo  ###DBG
   [ "$DebugVal" = "2" ] && sleep $((SLEEP*2))s  ###DBG
 
-  [ -d ./mnt/ram9 ] || mkdir -p ./mnt/ram9
+  [ -d ./mnt/ram9 ] || mkdir $VERB -p ./mnt/ram9
   mount -o move /mnt/ram9 ./mnt/ram9
   [ -d ./sys ] || mkdir ./sys
   mount -o move /sys ./sys
   mount -o move /proc ./proc
-  ##ln -s ../mnt/ram9/lib ./lib
+  ##ln $VERB -s ../mnt/ram9/lib ./lib
   [ "$DebugVal" = "2" ] && CONTINUE_FUNC
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
@@ -1680,10 +1720,10 @@ fi' > /mnt/ram0/etc/rc.d/rc.sysinit
   pivot_root . old_root
   [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'...        pivoted' && echo  ###DBG
 
-  #[ ! -d /mnt/ram9 ] && mkdir -p /mnt/ram9  ###KRG needs to be immediately after pivot_root  ###KRG
+  #[ ! -d /mnt/ram9 ] && mkdir $VERB -p /mnt/ram9  ###KRG needs to be immediately after pivot_root  ###KRG
   #busybox mount -o move /old_root/mnt/ram9 /mnt/ram9
   #busybox mount -o move /old_root/proc /proc
-  #ln -s ../mnt/ram9/lib ./lib
+  #ln $VERB -s ../mnt/ram9/lib ./lib
   [ "$DebugVal" = "2" ] && CONTINUE_FUNC
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
