@@ -132,6 +132,8 @@ exit $1
 ##+++2012-05-08
 
 file_system_state(){
+test "$DEV1FS" || return 5
+case $DEV1FS in ext[2-4]):;; *) continue;; esac
 echo -n "FILESYSTEM STATE $1: "
 dumpe2fs `rdev` | grep -i 'state'
 echo
@@ -184,6 +186,7 @@ export LANG=C
 
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
+test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 
 file_system_state
 
@@ -201,12 +204,12 @@ loadswap_func() { #w481 made into a function.
  [ "`grep -i 'noswap' /proc/cmdline`" ] && return 0
  echo "LOAD SWAP"
  #load a swap partition...
- for ONESWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
+ for oneSWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
  do
-  [ "`blkid $ONESWAP | grep -i 'Resume'`" ] && continue
+  [ "`blkid $oneSWAP | grep -i 'Resume'`" ] && continue
   #[ "`grep -i 'noswap' /proc/cmdline`" ] && continue
-  echo -n "Loading swap partition $ONESWAP..." >/dev/console
-  swapon $ONESWAP
+  echo -n "Loading swap partition $oneSWAP..." >/dev/console
+  swapon $oneSWAP
   status_func $?
   [ $? -eq 0 ] && SWAPON="yes"
  done
@@ -230,7 +233,7 @@ loadswap_func() { #w481 made into a function.
 }
 
 #if have just done a switch_root, output a 'done' message...
-[ -d /initrd ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
+[ "$PUPMODE" != 2 ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
 
 ###. /etc/rc.d/MODULESCONFIG #modules loading configuration.
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin
@@ -242,16 +245,16 @@ STATUS=0
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount -t proc none /proc ;STATUS=$(($STATUS+$?))
+busybox mount -t proc proc /proc ;STATUS=$(($STATUS+$?))
 
-if [ ! -d /initrd ];then #w468
+if [ "$PUPMODE" = 2 ];then #w468
  busybox mount -o remount,rw /
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
 ##+++2012-01-29
-mkdir -p /dev/vc;rm -f /dev/vc/11;mknod /dev/vc/11 c 4 11
+mkdir $VERB -p /dev/vc;rm $VERB -f /dev/vc/11;mknod /dev/vc/11 c 4 11
 openvt -c 11 autologinroot
 ##+++2012-01-29
 
@@ -259,24 +262,24 @@ alias modprobe='modprobe -b -v -s' ##+++2012-02-03
 
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
-rm -f /etc/mtab
-ln -s /proc/mounts /etc/mtab
+rm $VERB -f /etc/mtab
+ln $VERB -sf ../proc/mounts /etc/mtab
 
 #redirect all output to a log file (must do after remount rw)...
 #[ "$LOGLEVEL" ] ||
 exec 1>/tmp/bootsysinit.log 2>&1  ##+-because udevd to console output ?
 
-[ -d /dev/pts ] || mkdir /dev/pts
+[ -d /dev/pts ] || mkdir $VERB /dev/pts
 busybox mount /dev/pts ;STATUS=$(($STATUS+$?))
-mkdir /sys 2>/dev/null
-busybox mount -t sysfs none /sys ;STATUS=$(($STATUS+$?))
+[ -d /sys ] || mkdir $VERB /sys
+busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$(($STATUS+$?))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 FREERAM=`free | grep 'Mem:' | tr -s ' ' | cut -f 4 -d ' '` #w481
-if [ ! -d /initrd ];then #weird, only full-hd install needs this for xfdiff.
- QTRFREERAM=`expr $FREERAM \/ 4`
- [ -d /dev/shm ] || mkdir /dev/shm
- mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(($STATUS+$?))
+if [ "$PUPMODE" = 2 ];then #weird, only full-hd install needs this for xfdiff.
+ QTRFREERAM=$((FREERAM / 4))
+ [ -d /dev/shm ] || mkdir $VERB /dev/shm
+ mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(($STATUS+$?))
 fi
 #w478 moved this code above call to rc.update...
 KERNVER="`uname -r`"
@@ -295,15 +298,15 @@ PROCESSORS=`grep ^processor /proc/cpuinfo |wc -l`
 mount_none_fs_func(){
 NFS=`cat /proc/filesystems | grep 'nodev' | tr  '\t' ' ' | cut -f 2 -d ' '`
 NODEV=`echo "$NFS" | grep -v -E 'pipe|sock|bdev|anon|inotify|aufs|fuse'`
-[ -d /nodev ] || mkdir /nodev
+[ -d /nodev ] || mkdir $VERB /nodev
 for i in $NODEV ; do
 echo
 echo "$i"
 DIR=`echo "$i" | sed 's#fs$##'`
 if [ -z "`busybox mount | grep "$i"`" ] ; then
 
-[ -d /dev/fs/$DIR ] || mkdir -p /dev/fs/$DIR
-mount-FULL -v -t $i none /dev/fs/$DIR  ##+-2012-01-11 changed nodev to none
+[ -d /dev/fs/$DIR ] || mkdir $VERB -p /dev/fs/$DIR
+mount-FULL $VERB -t $i none /dev/fs/$DIR  ##+-2012-01-11 changed nodev to none
 
 fi
 done
@@ -312,30 +315,30 @@ mount_none_fs_func
 
 mkmissing_tty_func() {
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
-[ -d /dev/vc ] || mkdir /dev/vc
+[ -d /dev/vc ] || mkdir $VERB /dev/vc
 
 VTInittab=`cat /etc/inittab | grep -E 'tty|vc' | grep -v -E '^#|^[[:blank:]]*#|^\t*#' | tr -s ' ' | sort -u | grep -o -w -E 'tty[0-9]*$|vc[0-9].*' | grep -o '[0-9]*$'`
 for i in $VTInittab ; do
-[ -c /dev/vc/$i ] || { rm -f /dev/vc/$i ; mknod /dev/vc/$i c 4 $i ; }
-[ -c /dev/tty$i ] || { rm -f /dev/tty$i ; mknod /dev/tty$i c 4 $i ; }
+[ -c /dev/vc/$i ] || { rm $VERB -f /dev/vc/$i ; mknod /dev/vc/$i c 4 $i ; }
+[ -c /dev/tty$i ] || { rm $VERB -f /dev/tty$i ; mknod /dev/tty$i c 4 $i ; }
 done
 
-[ -c /dev/console ] || { rm -f /dev/console ; mknod /dev/console c 5 1 ; }
-[ -c /dev/zero ] || { rm -f /dev/zero ; mknod /dev/zero c 1 5 ; }
-[ -c /dev/null ] || { rm -f /dev/null ; mknod /dev/null c 1 3 ; }
-[ -c /dev/agpgart ] || { rm -f /dev/agpgart ; mknod /dev/agpgart c 10 175 ; }  ##+++2013-09-11
+[ -c /dev/console ] || { rm $VERB -f /dev/console ; mknod /dev/console c 5 1 ; }
+[ -c /dev/zero ] || { rm $VERB -f /dev/zero ; mknod /dev/zero c 1 5 ; }
+[ -c /dev/null ] || { rm $VERB -f /dev/null ; mknod /dev/null c 1 3 ; }
+[ -c /dev/agpgart ] || { rm $VERB -f /dev/agpgart ; mknod /dev/agpgart c 10 175 ; }  ##+++2013-09-11
 
-[ ! -d /dev/pts ] && rm -f /dev/pts && mkdir /dev/pts
-[ ! -c /dev/ptmx ] && rm -f /dev/ptmx && mknod /dev/ptmx c 5 2
+[ ! -d /dev/pts ] && rm $VERB -f /dev/pts && mkdir $VERB /dev/pts
+[ ! -c /dev/ptmx ] && rm $VERB -f /dev/ptmx && mknod /dev/ptmx c 5 2
 
 for i in $(seq 0 4); do
-[ ! -c /dev/ptyp$i ] && rm -f /dev/ptyp$i && mknod /dev/ptyp$i c 2 $i
+[ ! -c /dev/ptyp$i ] && rm $VERB -f /dev/ptyp$i && mknod /dev/ptyp$i c 2 $i
 done
 
-[ -d /dev/fb ] || mkdir /dev/fb
+[ -d /dev/fb ] || mkdir $VERB /dev/fb
 for i in `seq 0 11` ; do
 [ -c /dev/fb$i ] || mknod /dev/fb$i c 29 $i
-[ -L /dev/fb/$i ] || ln -s ../fb$i /dev/fb/$i
+[ -L /dev/fb/$i ] || ln $VERB -sf ../fb$i /dev/fb/$i
 done
 }
 mkmissing_tty_func
@@ -366,8 +369,8 @@ fi #1
 formerdevroot=`readlink -f /dev/root`
 [ -z "$formerdevroot" ] && formerdevroot='empty'
 if test ! -L /dev/root -o "$formerdevroot" != "/dev/$ROOTDEVICE" ; then #2
-[ -L /dev/root ] && rm -f /dev/root || Err=$?
-ln -s $ROOTDEVICE /dev/root
+[ -L /dev/root ] && rm $VERB -f /dev/root || Err=$?
+ln $VERB -sf $ROOTDEVICE /dev/root
 fi #2
 }
 
@@ -464,7 +467,7 @@ echo $MAJexist
 echo $Minexist
 echo $DEVexist
 if [ "$MAJexist" != "$MAJ" ] && [ "$Minexist" != "$Min" ] ; then
-rm -f /dev/$DEV
+rm $VERB -f /dev/$DEV
 mknod /dev/$DEV b $MAJ $Min
 fi
 done
@@ -487,7 +490,7 @@ device_nodes_fork_func
 mk_missing_var_dev_func() {
 
 if test -d /var/db/$KERNVER/dev ; then
-cp -a /var/db/$KERNVER/dev /
+cp $VERB -a /var/db/$KERNVER/dev /
 
 else
 if test -f /var/db/boot/dev_nodes.lst; then
@@ -496,9 +499,9 @@ cat /var/db/boot/dev_nodes.lst| while read PERM N O G MAY Min M D T DEV; do
 [ -z "$DEV" ] && DEV=$T
 KIND=${PERM:0:1}
 MAJ=`echo $MAY | tr -d ','`
-DN=`dirname $DEV`
-[ -d $DN ] || mkdir $DN
-[ ! -$KIND $DEV ] && { echo "making $DEV";mknod $DEV $KIND $MAJ $Min; }
+DN=`dirname "$DEV"`
+[ -d "$DN" ] || mkdir $VERB "$DN"
+[ ! -$KIND "$DEV" ] && { echo "making $DEV";mknod "$DEV" $KIND $MAJ $Min; }
 done
 fi
 fi
@@ -521,7 +524,7 @@ etc_firmware_dep_func() {
 if test ! -f /etc/modules/firmware.dep.$KERNVER; then
 echo "copying firmware.dep" > /dev/console
 FWF=`find /etc/modules -type f -name "firmware.dep.*" | head -n 1`
-cp "$FWF" /etc/modules/firmware.dep.$KERNVER
+cp $VERB "$FWF" /etc/modules/firmware.dep.$KERNVER
 fi
 }
 etc_firmware_dep_func
@@ -529,12 +532,12 @@ etc_firmware_dep_func
 lib_firmware_func() {
 FWD=`find /lib/modules/$KERNVER/ -maxdepth 2 -type d -name "firmware*" | head -n 1`
 if test "$FWD" != "" ; then
-#[ -d /lib/firmware ] && rm -f -r /lib/firmware
-[ -d /lib/firmware ] && rm -f /lib/firmware/firmware* ##+++2012-04-11
-BN=`basename $FWD`
+#[ -d /lib/firmware ] && rm $VERB -f -r /lib/firmware
+[ -d /lib/firmware ] && rm $VERB -f /lib/firmware/firmware* ##+++2012-04-11
+BN=`basename "$FWD"`
 SN=${BN:0:8}
 
-cp -f -r "$FWD"/* /lib/$SN ##+++2012-04-11 to preserve alredy installed special firmware from all-modules directory #+2012-04-21 added /* to "$FWD" --happened before several times
+cp $VERB -f -r "$FWD"/* /lib/$SN ##+++2012-04-11 to preserve alredy installed special firmware from all-modules directory #+2012-04-21 added /* to "$FWD" --happened before several times
 fi
 
 if test ! -d /lib/firmware ; then
@@ -547,30 +550,30 @@ lib_firmware_func
 
 mondprobe_conf_func() {
 if test ! -d /etc/mult_kernels ; then #0
-mkdir /etc/mult_kernels
+mkdir $VERB /etc/mult_kernels
 fi #0
 
 if test -f /etc/mult_kernels/modprobe.conf.$KERNVER ; then #1
-cp -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
+cp $VERB -f /etc/mult_kernels/modprobe.conf.$KERNVER /etc/modprobe.conf
 else #1
 if test -f /etc/modprobe.conf ; then #1.1
-[ -f /etc/mult_kernels/modprobe.conf.$KERNVER ] || cp /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
+[ -f /etc/mult_kernels/modprobe.conf.$KERNVER ] || cp $VERB /etc/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNVER
 fi #1.1
 fi #1
 if test -d /etc/mult_kernels/modprobe.d.$KERNVER ; then #2
-rm -f -r /etc/modprobe.d
-cp -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
+rm $VERB -f -r /etc/modprobe.d
+cp $VERB -f -r /etc/mult_kernels/modprobe.d.$KERNVER /etc/modprobe.d
 else #2
 if test -d /etc/modprobe.d ; then #2.1
-[ -d /etc/mult_kernels/modprobe.d.$KERNVER ] || cp -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
+[ -d /etc/mult_kernels/modprobe.d.$KERNVER ] || cp $VERB -r /etc/modprobe.d /etc/mult_kernels/modprobe.d.$KERNVER
 fi #2.1
 fi #2
 
-[ -d /etc/mult_kernels/rc.d ] || mkdir /etc/mult_kernels/rc.d
+[ -d /etc/mult_kernels/rc.d ] || mkdir $VERB /etc/mult_kernels/rc.d
 if [ ! -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ] ; then
-cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+cp $VERB /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
 else
-cp -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
+cp $VERB -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER /etc/rc.d/MODULESCONFIG
 fi
 }
 mondprobe_conf_func  ##-2011-11-07 just to be done in /sbin/init ##2012-01-13 not implemented there yet
@@ -608,9 +611,9 @@ elif [ -d /lib/modules/${KERNVER}/initrd ];then
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
- #for ONEMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #for oneMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
- # gunzip $ONEMOD
+ # gunzip $oneMOD
  #done
  gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
 fi
@@ -625,9 +628,9 @@ if [ "$NEEDDEPMOD" = "yes" ];then
  depmod
 fi
 
-[ $layerfs ] && LAYERFS=$layerfs #boot param.
-[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
-[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+#[ "$layerfs" ] && LAYERFS=$layerfs #boot param.
+#[ "$LAYERFS" ] || LAYERFS=aufs #aufs or unionfs
+#[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
 
 status_func $STATUS
 
@@ -661,7 +664,7 @@ fi
 
 #...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
 
-if [ ! -d /initrd ];then #v423 full hd install.
+if [ "$PUPMODE" = 2 ];then #v423 full hd install.
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
   /sbin/modprobe --config /tmp/pup_event_modprobe.conf yenta-socket
@@ -725,12 +728,12 @@ echo 'Running the modaliases add by rc.sysinit '$0 >> /tmp/pup_event_module_devp
 
 MODULECNT=0
 #replay uevents from /sys...
-for ONEMODALIAS in $MODALIASES
+for oneMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
- if [ -e ${ONEPATH}/uevent ];then
-  echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ onePATH="`dirname $oneMODALIAS`"
+ if [ -e ${onePATH}/uevent ];then
+  echo 'added '"${onePATH}" >> /tmp/bootmodules.txt
+  echo add > ${onePATH}/uevent #generates an 'add' uevent.
   sleep 0.02
   #echo -n '.' >/dev/console
   echo -ne "\r\\033[1;35m $MODULECNT \\033[0;39m" >/dev/console
@@ -745,7 +748,7 @@ fi
 fi
 
 
-if [ ! -d /initrd ];then #full hd installation.
+if [ "$PUPMODE" = 2 ];then #full hd installation.
  modprobe nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
  modprobe nls_iso8859-1 # "
  modprobe fuse
@@ -806,11 +809,11 @@ echo "Client node: "`uname -n` >>/etc/issue
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
-rm -f /mnt/home
-if [ ! -d /initrd ];then
+rm $VERB -f /mnt/home
+if [ "$PUPMODE" = 2 ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
- ln -s / /mnt/home
+ ln $VERB -snf / /mnt/home
 elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
    #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
@@ -818,9 +821,9 @@ elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
    #on /initrd/pup_ro1 (tmpfs on pup_rw for restricted writes) or directly on /initrd/pup_rw
    #and we do not really want users to access it as it is a unionfs layer. Instead, they are
    #already accessing it as "/".
-   ln -s / /mnt/home
+   ln $VERB -snf / /mnt/home
   else
-   ln -s /initrd${PUP_HOME} /mnt/home
+   ln $VERB -snf /initrd${PUP_HOME} /mnt/home
   fi
 fi
 
@@ -862,12 +865,12 @@ if [ $KERNMAJ -lt 24 ];then #v431
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
  echo KERNELMAJ=$KERNMAJ >> /tmp/bootmodules.txt
- for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+ for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="`dirname $ONEMODALIAS`"
-  if [ -e ${ONEPATH}/uevent ];then
-   echo 'added '"${ONEPATH}" >> /tmp/bootmodules.txt
-   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  onePATH="`dirname $oneMODALIAS`"
+  if [ -e ${onePATH}/uevent ];then
+   echo 'added '"${onePATH}" >> /tmp/bootmodules.txt
+   echo add > ${onePATH}/uevent #generates an 'add' uevent.
    sleep 0.02
   fi
  done
@@ -877,13 +880,13 @@ echo KERNELMAJ=$KERNMAJ >> /tmp/bootmodules.txt
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/ssb/devices ] && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
- for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
+ for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="`dirname $ONEUEVENT`"
+  onePATH="`dirname $oneUEVENT`"
   #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e ${ONEPATH}/modalias ] && [ "`grep 'MODALIAS' $ONEUEVENT`" = "" ] && continue
-  echo 'added '"${ONEUEVENT}" >> /tmp/bootmodules.txt
-  echo add > $ONEUEVENT
+  [ ! -e ${onePATH}/modalias ] && [ "`grep 'MODALIAS' $oneUEVENT`" = "" ] && continue
+  echo 'added '"${oneUEVENT}" >> /tmp/bootmodules.txt
+  echo add > $oneUEVENT
   sleep 0.02
  done
 fi
@@ -960,12 +963,12 @@ if [ -h /dev/modem ];then
  DEVM="`readlink /dev/modem`"
  case $DEVM in
   modem) #error, circular link.
-   rm -f /dev/modem
+   rm $VERB -f /dev/modem
    DEVM=""
   ;;
   /dev/*) #wrong format.
    DEVM="`echo -n "$DEVM" | cut -f 3,4 -d '/'`"
-   ln -snf $DEVM /dev/modem
+   ln $VERB -sf $DEVM /dev/modem
   ;;
  esac
  case $DEVM in
@@ -976,17 +979,18 @@ if [ -h /dev/modem ];then
 fi
 
 #had hoped to retire this, but HardInfo needs it...
-[ "`lsmod | grep '^usbcore'`" != "" ] && busybox mount -t usbfs none /proc/bus/usb
+#[ "`lsmod | grep '^usbcore'`" != "" ] && busybox mount -t usbfs none /proc/bus/usb
+grep $Q -w 'usbfs' /proc/filesystems && busybox mount -t usbfs usbfs /proc/bus/usb
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
-modprobe battery
+modprobe $Q $VERB battery
 #if [ -d /proc/acpi/battery ]; then
  results="`find /proc/acpi/battery -mindepth 1 -type d`"
 # if [ ! -z "$results" ]; then
-  modprobe ac
+  modprobe $Q $VERB ac
 #  modprobe thermal
-  modprobe fan
+  modprobe $Q $VERB fan
 # else
 #  rmmod battery
 # fi
@@ -1019,17 +1023,17 @@ OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'sr.*|hd.*'
 [ "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ] && CDTYPE="" #no longer exists.
 [ "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
 [ "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
-for ONEOPTICAL in $OPTICALS
+for oneOPTICAL in $OPTICALS
 do
- ONENUM="`echo -n "$ONEOPTICAL" | cut -c 3`"
- [ "$CDTYPE" = "" ] && CDTYPE="$ONEOPTICAL"
- [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$ONEOPTICAL"
- [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL"
- OPTCNT=`expr $OPTCNT + 1`
+ oneNUM="`echo -n "$oneOPTICAL" | cut -c 3`"
+ [ "$CDTYPE" ]  || CDTYPE="$oneOPTICAL"
+ [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
+ [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
+ OPTCNT=$((OPTCNT + 1))
 done
-rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
-[ "$CDTYPE" ] && ln -sf /dev/$CDTYPE /dev/cdrom
-[ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
+rm $VERB -f /dev/cdrom; rm $VERB -f /dev/dvd; rm $VERB -f /etc/cdburnerdevice
+[ "$CDTYPE" ]  && ln $VERB -sf $CDTYPE /dev/cdrom
+[ "$DVDTYPE" ] && ln $VERB -sf $DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
 [ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE >/dev/null 2>&1
 
@@ -1041,9 +1045,10 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 ###[ .. cut .. ]
 #TODO: simplify above, use 'input/mice' for ps2 mouse also, but may need to modify Xorg/Xvesa/Input Wizards.
 #      (may also have to remove builtin psaux driver from kernel).
+test -c /dev/input/mice || { rm $VERB -rf /dev/input/mice; mkdir $VERB -p /dev/input; mknod /dev/input/mice c 13 63; }
 if [ ! -f /etc/mousedevice ];then
  echo -n "input/mice" > /etc/mousedevice
- ln -snf input/mice /dev/mouse
+ ln $VERB -sf input/mice /dev/mouse
 else
  [ "`cat /etc/mousedevice`" = "psaux" ] && echo -n "input/mice" > /etc/mousedevice
 fi
@@ -1061,7 +1066,7 @@ if [ "$PUPMODE" = "77" ];then #77=multisession cd/dvd.
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
   cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
   sync
-  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
@@ -1072,7 +1077,7 @@ if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then #pup_rw is tmpfs
   echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
   cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
   sync
-  cp -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
+  cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
 fi
@@ -1106,23 +1111,24 @@ echo "PDEV1='$RD'" >> /etc/rc.d/PUPSTATE
 fi
 
 [ -c /dev/ppp ] || mknod /dev/ppp c 108 0
-[ -L /dev/mouse ] || ln -s /dev/input/mice /dev/mouse
+[ -L /dev/mouse ] || ln $VERB -sf input/mice /dev/mouse
 [ -c /dev/mem ] || mknod /dev/mem c 1 1
-[ -L /dev/modem ] || ln -s /dev/ttyUSB0 /dev/modem
+[ -L /dev/modem ] || ln $VERB -sf ttyUSB0 /dev/modem
 
 pup_eve_bac_mod_func(){
 FILE='/tmp/pup_eve_bac_mod.log'
 [ -f "$FILE" ] || FILE='/tmp/pup_event_backend_modprobe.log'
+test -f "$FILE" || return 0
 while [ "`pidof rc.services`" -o "`pidof pup_event_backend_modprobe`" ];do sleep 2;done
 sleep 5s  ## 120s ##5s
-echo 'Sorting now this log file by '$0 >> $FILE
-cat $FILE | sort -g -k 1,3 -t ' ' >$FILE.sorted
+echo 'Sorting now this log file by '$0 >> "$FILE"
+cat $FILE | sort -g -k 1,3 -t ' ' >"$FILE".sorted
 PIDS=`cat $FILE.sorted | cut -f 1 -d ' ' | sort -u | sort -g`
 for i in $PIDS ; do
 echo PID  "$i"
-Line=`grep -n -w "^$i" $FILE.sorted | tail -n 1 | cut -f 1 -d ':'`
-echo Line "$Line"
-/bin/sed -i "$Line a\ " $FILE.sorted
+Line=`grep -n -w "^$i" "$FILE".sorted | tail -n 1 | cut -f 1 -d ':'`
+echo Line "$Line" #debug
+/bin/sed -i "$Line a\ " "$FILE".sorted
 done
 }
 pup_eve_bac_mod_func &
@@ -1132,8 +1138,8 @@ cat /dev/vcs1 >/tmp/vcs1.txt
 echo -e "\n\n" >>/tmp/vcs1.txt
 echo -e "`cat /tmp/vcs1.txt |sed -e 's,\(.\{80\}\),\1\\n,g'`" >>/tmp/vcs1.txt
 
-rm -f /etc/rc.d/firstrun*
-rm -f /etc/profile.d/firstrun*
+rm $VERB -f /etc/rc.d/firstrun*
+rm $VERB -f /etc/profile.d/firstrun*
 
-#that's it. next stop is /etc/profile...
+#that's it. next stop is /etc/profile by autologin entry in /etc/inittab...
 ###END###
