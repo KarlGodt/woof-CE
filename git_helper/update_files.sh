@@ -1,6 +1,6 @@
 #!/bin/ash
 
-ME_PROG=`realpath"$0"`
+ME_PROG=`realpath "$0"`
 ME_DIR="${ME_PROG%/*}"
 cd "$ME_DIR" || { echo "cannot change into '$ME_DIR' ."; exit 4; }
 
