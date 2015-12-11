@@ -789,6 +789,7 @@ EndSection"
    #DBGecho -e "TEMPSECTION='$TEMPSECTION'" >/dev/console;sleep 1;#DBG
    ##TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^[#]*\(.*\)!#\1!;s!^#*$! !;s!^#*[[:blank:]]*\(#.*\)!\1!'`
    #TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^.*$!#&!; s!^#*\(.*\)!#\1! ; s!^#*$!!'`
+   TEMPSECTION=`echo -e "$TEMPSECTION" | sed 's!^Section.*$!#&!'`
    NR=`echo $IDENTIFIER | tr -d '[[:alpha:][:punct:]]'`
    test "$NR" || NR=W
    #FBODY=${aLINE%\"*} ; FBODY=${FBODY##*\"}
@@ -1283,7 +1284,7 @@ echo -n "dialog --colors --aspect 11 --default-item $REC_VIDEO_MODE" >> "$TMP_DI
 #shown in the format WidthxHeightxBits, where Width and Height are
 #screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
 #' >> "$TMP_DIR"/choosexmodedlg
-echo ' --no-collapse --ok-label "OK" --cancel-label "EXIT" --title "Puppy Video Wizard" --menu "Please use the UP/DOWN ARROW keys to select a video mode.
+echo ' --no-collapse --ok-label "TEST" --cancel-label "EXIT" --title "Puppy Video Wizard" --menu "Please use the UP/DOWN ARROW keys to select a video mode.
 Choices are shown in the format WidthxHeightxBits,
 where Width and Height are screen resolution in pixels,
 16/24 bits = 65,536/16,777,216 colors.
@@ -1295,7 +1296,7 @@ where Width and Height are screen resolution in pixels,
 #TEST: TAB key then ENTER to test and debug the mode before using it...
 #EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$TMP_DIR"/choosexmodedlg #'geanyfix.
 echo '
-OK:   Just press ENTER key to immediately use the selected mode...
+TEST: Just press ENTER key to immediately test the selected mode...
 EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$TMP_DIR"/choosexmodedlg #'geanyfix.
 
 echo "$FINALCHOICES" >> "$TMP_DIR"/choosexmodedlg
@@ -1306,7 +1307,6 @@ chmod $VERB 0755 "$TMP_DIR"/choosexmodedlg
 "$TMP_DIR"/choosexmodedlg
 XAUTO=$? #=0 for automatic.
 [ "$XAUTO" = 0 ] || exit 3
-#[ "$XAUTO" -ne 0 -a "$XAUTO" -ne 3 ] && exit 0 #drop out to console. w005 uncommented.
 
 CHOSENRES=`cat "$TMP_DIR"/tag.txt 2>>$ERR | tail -n1`
 [ "$CHOSENRES" ] || CHOSENRES="800x600x16" #default
@@ -1318,8 +1318,7 @@ FINALXY=${CHOSENRES%x*}
 
 _write_srceen_section(){
 test "$KEEP_XORG_CONF" && return 0
-#test "$NR_SCREENS" || NR_SCREENS=1
-#for nr in `seq 0 1 $((NR_SCREENS + 2))` #just add some screens more
+
 test "$NR_SCREENS" || NR_SCREENS=0
 for nr in `seq 0 1 $NR_SCREENS`
 do
@@ -1337,7 +1336,7 @@ Section \"Screen\"
 EndSection
 "
 echo -e "$SCRNSECTION" >> "$XORGCONFFILE"
-echo "Echoed $SCRNSECTION to $XORGCONFFILE :Step 7" >> "$TMP_DIR"/xorgwizard.messages #&& sleep 1s #9s
+echo "Echoed $SCRNSECTION to $XORGCONFFILE :Step 7" >> "$TMP_DIR"/xorgwizard.messages
 done
 }
 #_write_srceen_section
@@ -1950,7 +1949,7 @@ OTHER_CARDS_CONF=`ls -1 "$TMP_DIR"/Card*.conf | _command grep -v "$CardFILES"`
 
 test "$DEBUG" && {
 echo
-echo "OTHER_CARDS_CONF=$OTHER_CARDS_CONF" 
+echo "OTHER_CARDS_CONF=$OTHER_CARDS_CONF"
 sleep 5; }
 
 for f in $OTHER_CARDS_CONF
@@ -2148,36 +2147,6 @@ CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"[[:blank:]]+#card[0-9]+driver' "$
 test "$sedRV" = 0 -a "${CARD0DRIVER//[[:blank:]]/}"
 }
 
-_comment_all_section_device_in_xorg_conf(){
-test -s "$XORGCONFFILE" || return $?
-
- tlnr=`wc -l "$XORGCONFFILE" | awk '{print $1}'`
- fcnr=`grep -n -m1 -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | cut -f1 -d':'`
- lcnr=`grep -n -E 'Driver[[:blank:]]+"[^"]*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE" | tail -n1 | cut -f1 -d':'`
-
-test "$fcnr" && fsdnr=`head -n $fcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'`
-test "$lcnr" && lsdnr=`head -n $lcnr "$XORGCONFFILE" | grep -n "^[#'']*Section" | tail -n1 | cut -f1 -d':'`
-
-fes=$((tlnr - fcnr))
-les=$((tlnr - lcnr))
-
-test "$fes" && fesnr=`tail -n $fes "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | cut -f1 -d':'`
-test "$les" && lesnr=`tail -n $les "$XORGCONFFILE" | grep -m1 -n "^[#'']*EndSection" | tail -n1 | cut -f1 -d':'`
-
-fesnr=$((fcnr + fesnr))
-lesnr=$((lcnr + lesnr))
-
-_debug tlnr=$tlnr
-_debug "fsdnr=$fsdnr"
-_debug " fcnr=$fcnr"
-_debug "fesnr=$fesnr"
-_debug "lsdnr=$lsdnr"
-_debug " lcnr=$lcnr"
-_debug "lesnr=$lesnr"
-
-test "$fsdnr" -a "$lesnr" && sed -i "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"
-}
-
 _rebuild_xorg_conf(){
 
 rm $VERB -f "$TMP_DIR"/xorg.conf.new
@@ -2203,11 +2172,6 @@ test -s "$TMP_DIR"/xorg.conf.new && {
     cp $VERB "$TMP_DIR"/xorg.conf.new "$XORGCONFFILE"
     }
 test -s "$XORGCONFFILE" && rm $VERB -f "$XORGCONFFILE".d/*.conf
-}
-
-_comment_all_section_device_in_xorg_conf_d_device(){
-test -f "$XORGCONFFILE".d/Device.conf || return 0
-sed -i 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
 }
 
 _ask_driver(){
@@ -2250,11 +2214,6 @@ esac
 _rebuild_xorg_conf || return 8
 }
 
-#[ "$XAUTO" = 0 -o "$XAUTO" = 3 ] || { echo "XAUTO='$XAUTO' ,exiting."; exit $?; } #drop out to console.
-
-#code here to test the video...
-#CHOSENVERT=""
-#while [ "$XAUTO" -ne 0 ];do #testloop
 while :  #testloop
 do
 
@@ -2746,7 +2705,7 @@ $MSGPNP" 0 0 0 \
 
 /etx/X11/xorg.conf has these lines in the Monitor section :
 
-  \Z5HorizSync    '$HORIZSYNC'\Z0
+  \Z5HorizSync      '$HORIZSYNC'\Z0
   VertRefresh    '$VERTREFRESH'
 
 \Z4For the resolution that you want to run at, you many want to narrow
@@ -2765,16 +2724,16 @@ sleep 1
 done #testloop
 done #whole loop
 
-if [ "$XAUTO" != 0 ];then #<FIX> (XAUTO=0 is <OK> button)
+#if [ "$XAUTO" != 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
   dialog --colors --yes-label "DONE" --no-label "Xvesa" --title "Xorg Video Wizard" \
   --yesno "\Z4Just press \Z0ENTER\Z4 key if all is fine and you are ready to run
 Puppy with Xorg.
 
-If you cannot get Xorg to work, press TAB then ENTER to choose
+If you could not get Xorg to work, press TAB then ENTER to choose
 the \"\Z1X\Z0\Zbvesa\ZB\Z4\" button.
 This will start Puppy with the simple driverless \Z1Xvesa graphics server\Z4
-that runs on most (old) video hardware.\Zn" 0 0
+that runs on most very old pre 2005 video hardware.\Zn" 0 0
  RV9="$?";
  [ "$RV9" = '0' -o "$RV9" = '1' ] || exit $RV9
   if [ "$RV9" != 0 ];then
@@ -2784,17 +2743,25 @@ that runs on most (old) video hardware.\Zn" 0 0
    #prevent Xvesa video wizard from running after X has started...
    rm $VERB -f "$TMP_DIR"/videomode
   fi
+ else
+   echo -en $Red1 #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+   echo "If X did not work, type 'xorgwizard' to run the Video Wizard again."
+   echo "After that, type 'xwin' to run X graphics mode."
+   echo "Note, if X works but needs minor adjustment to the display, run the"
+   echo "Video Wizard from within X 'in the Setup menu' -- module 'Xvidtune'"
+   echo -n "may be used, with caution, to finetune the display dimensions."
+   echo -e "\\033[0;39m"
  fi
-else
+#else
  #prevent Xvesa video wizard from running after X has started...
  rm $VERB -f "$TMP_DIR"/videomode
-fi
+#fi
 
 #move it so people ain't confused seeing it in /root...?
 #mv $VERB -f $HOME/xorg.conf.new "$TMP_DIR"/xorg.conf.new
 cp $VERB -a "$HOME"/xorg.conf.new "$TMP_DIR"/xorg.conf.new
 
-if [ "$XAUTO" != 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
+#if [ "$XAUTO" != 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
  #create a copy of xorg.conf with the profile in the filename...
  echo "Copyied $XORGCONFFILE $XORGCONFFILE.${PROFILECHIP}-${PROFILEMONITOR} :Step 15" >> "$TMP_DIR"/xorgwizard.messages && sleep 1s #9s
@@ -2806,17 +2773,17 @@ if [ "$XAUTO" != 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
  else
  echo -e $Red1"Xorg Video Wizard completed. You may need to try again."$Res
  fi
-else
+#else
  ##clear
  #user chose the <OK> button, so going directly into X without testing.
- echo -en $Red1 #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
- echo "If X did not work, type 'xorgwizard' to run the Video Wizard again."
- echo "After that, type 'xwin' to run X graphics mode."
- echo "Note, if X works but needs minor adjustment to the display, run the"
- echo "Video Wizard from within X 'in the Setup menu' -- module 'Xvidtune'"
- echo -n "may be used, with caution, to finetune the display dimensions."
- echo -e "\\033[0;39m"
-fi
+# echo -en $Red1 #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+# echo "If X did not work, type 'xorgwizard' to run the Video Wizard again."
+# echo "After that, type 'xwin' to run X graphics mode."
+# echo "Note, if X works but needs minor adjustment to the display, run the"
+# echo "Video Wizard from within X 'in the Setup menu' -- module 'Xvidtune'"
+# echo -n "may be used, with caution, to finetune the display dimensions."
+# echo -e "\\033[0;39m"
+#fi
 
 
 #v3.99 begin
