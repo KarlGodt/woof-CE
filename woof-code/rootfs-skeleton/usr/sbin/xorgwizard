@@ -1812,7 +1812,10 @@ test -f "$XORGCONFFILE".d/Card0.conf
 
 _make_card_list(){
 
-unset DRIVERS DRIVERS_LIST0 DRIVERS_LIST
+test "$c" || c=1
+test "$c" -gt 1 || c=1
+
+unset DRIVERS DRIVERS_LIST0 DRIVERS_LIST CARD_LIST
 for n in `seq 0 1 $((c-1))`
 do
 
@@ -1834,7 +1837,7 @@ _debug "BAD_DRIVERS:$BAD_DRIVERS"
 
 GOOD_DRIVERS=`echo "$DRIVERS" | grep -vE 'fbdev|modesetting|vesa'`
 _debugx "GOOD_DRIVERS:$GOOD_DRIVERS"
-test "$GOOD_DRIVERS" && GOOD_DRIVERS_MSG='\Z2'`echo $GOOD_DRIVERS`'\Zn' || GOOD_DRIVERS_MSG='\Z1Attention, no sophisticated video drivers detected.\Zn'
+test "$GOOD_DRIVERS" && GOOD_DRIVERS_MSG='\Zb\Z2'`echo $GOOD_DRIVERS`'\Zn' || GOOD_DRIVERS_MSG='\Z1Attention, no sophisticated video drivers detected.\Zn'
 _debug "GOOD_DRIVERS:$GOOD_DRIVERS"
 
 DRIVERS_LIST0=`grep -h -o 'Driver[[:blank:]]\+".*".*#.*' "$TMP_DIR"/Card*.conf | cut -f1 -d'#'`
@@ -1864,6 +1867,24 @@ test "${CARD_LIST//[[:blank:]]/}"
 
 _select_card(){
 
+MENU_HIGHT=5
+OK_RETURN='break'
+
+if test ! "$CARD_LIST"; then
+CARD_LIST="Card0 NONE off"
+EXTRA_MSG='Sorry, automatical probing seemed to be unsuccessful
+with the current drivers, Xorg version or kernel. Your only choice
+is to select one driver out of the available ones for Card0 .'
+GEXTRA_MSG=`gettext "$EXTRA_MSG"`
+test "${GEXTRA_MSG//[[:blank:]]/}" && EXTRA_MSG=$GEXTRA_MSG
+OPT_OKLABEL='--ok-label'
+OK_LABEL="EXIT"
+GOK_LABEL=`gettext "$OK_LABEL"`
+test "${GOK_LABEL//[[:blank:]]/}" && OK_LABEL=$GOK_LABEL
+OK_RETURN='exit 249'
+MENU_HIGHT=2
+fi
+
 CTEXT='Show all drivers'
 GCTEXT=`gettext "$CTEXT"`
 test "${GCTEXT//[[:blank:]]/}" && CTEXT=$GCTEXT
@@ -1876,31 +1897,40 @@ BTTEXT='Select Cards'
 GBTTEXT=`gettext "$BTTEXT"`
 test "${GBTTEXT//[[:blank:]]/}" && BTTEXT=$GBTTEXT
 
-MENU_TEXT="Xorg -configure found out, that these installed userspace
-video drivers are available.
-
-Xorg -configure since version 1.7 creates more and more probably
-usable Device Sections with drivers, that Xorg thinks, may work.
+MENU_TEXT="Xorg -configure since version 1.7 creates more and more probably
+usable Device Sections with drivers for the only video card,
+that Xorg thinks, may work.
+And Xorg -configure found out,
+that these installed userspace video drivers are available.
 
 For recent hardware there should work one of these sophisticated
 drivers : $GOOD_DRIVERS_MSG
-
 There are alternate drivers possible if installed, but they may \Z1not\Zn work
 currently : $BAD_DRIVERS_MSG
 
-Now choose the one you would like to test.
+Now choose the one(s) you would like to test (up/down, space bar) .
+NOTE: If unsure, you should select only one card/driver entry.
 But you can also choose out of all installed drivers for Card0:"
 GMENU_TEXT=`gettext "$MENU_TEXT"`
 test "${GMENU_TEXT//[[:blank:]]/}" && MENU_TEXT=$GMENU_TEXT
 
+MENU_TEXT="$MENU_TEXT
+\Z1$EXTRA_MSG\Zn
+"
+
 while :;
 do
 #dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --menu "$MENU_TEXT" 0 0 5 $DRIVERS_LIST 2>"$TMP_DIR"/select_card
-dialog --colors --cancel-label "$CTEXT" --backtitle "$BTTEXT" --title "$TTEXT" --checklist "$MENU_TEXT" 0 0 5 $CARD_LIST 2>"$TMP_DIR"/select_cards
-case $? in 0) _debug "_select_card:0:OK"; break;; #OK
-1) _debug "_select_card returned 1";      #Cancel
-  _show_all_drivers
-  case $? in 0) return 9;; *) continue;; esac
+dialog --colors --cancel-label "$CTEXT" $OPT_OKLABEL $OK_LABEL \
+ --backtitle "$BTTEXT" --title "$TTEXT" \
+ --checklist "$MENU_TEXT" 0 0 $MENU_HIGHT $CARD_LIST 2>"$TMP_DIR"/select_cards
+case $? in
+0) _debug "_select_card returned 0";   #OK/EXIT
+   test -s "$TMP_DIR"/select_cards || continue;
+   $OK_RETURN ;;
+1) _debug "_select_card returned 1";   #Cancel
+   _show_all_drivers
+   case $? in 0) return 9;; *) continue;; esac
   ;;
 2) _debug "_select_card returned 2";;  #Help
 3) _debug "_select_card returned 3";;  #Extra
@@ -1929,7 +1959,7 @@ CardFILE=`grep -H "Identifier[[:blank:]]\+$card" "$TMP_DIR"/Card*.conf | cut -f1
 CardFILES="$CardFILES
 $CardFILE"
 done
-CardFILES=`echo "$CardFILES" | sed '/^$/d'`
+CardFILES=`echo "$CardFILES" | sed '/^$/d'` #no empty lines for grep
 
 test "$DEBUG" && {
 echo
