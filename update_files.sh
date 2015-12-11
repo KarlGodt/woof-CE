@@ -1,20 +1,20 @@
 #!/bin/ash
 
-ME_PROG=`readlink -f "$0"`
+ME_PROG=`realpath"$0"`
 ME_DIR="${ME_PROG%/*}"
-cd "$ME_DIR" || exit 4
+cd "$ME_DIR" || { echo "cannot change into '$ME_DIR' ."; exit 4; }
 
 
 # Am I at the right branch ?
 BRANCH=Fox3-Dell745
-git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
+git branch | grep '^\*' | grep -Fw "$BRANCH" || { echo "Wrong branch."; exit 5; }
 
 
-cd ./woof-code/rootfs-skeleton || exit 6
+cd ../woof-code/rootfs-skeleton || { echo "Could not change into ../woof-code/rootfs-skeleton ."; exit 6; }
 pwd
 
 TTY=`tty`
-[ "$TTY" == "not a tty" ] && exit 7
+[ "$TTY" == "not a tty" ] && { echo "Need controlling terminal"; exit 7; }
 
 while read oneGITF
 do
@@ -32,7 +32,7 @@ test -e "$oneOSF" || {
 
     echo "Shall it be added to the OS (y|n) "
     read confirmKEZ0 <$TTY
-    echo confirmKEZ0=$confirmKEZ0
+    #echo confirmKEZ0=$confirmKEZ0
 
     case $confirmKEZ0 in
 
@@ -46,7 +46,7 @@ test -e "$oneOSF" || {
     N|n|No|NO|no)
      echo "Shall it be removed out of the git repository (y|n) "
      read confirmKEZ1 <$TTY
-     echo confirmKEZ1=$confirmKEZ1
+     #echo confirmKEZ1=$confirmKEZ1
 
      case $confirmKEZ1 in
      # run git rm and git commit
@@ -72,12 +72,14 @@ diff -qs "$oneGITF" "$oneOSF" && continue
 
 #break
 
+rm $VERB -f /tmp/diff.diff
 diff -up "$oneGITF" "$oneOSF" >/tmp/diff.diff
+sleep 1
 geany /tmp/diff.diff &
 
 echo "Shall the file in OS be replaced by the git file (y|n) "
 read confirmKEZ2 <$TTY
-echo confirmKEZ2=$confirmKEZ2
+#echo confirmKEZ2=$confirmKEZ2
 
 case $confirmKEZ2 in
 
@@ -92,7 +94,7 @@ case $confirmKEZ2 in
 
     echo "Shall the file in GIT be replaced by the OS file (y|n) "
     read confirmKEZ3 <$TTY
-    echo confirmKEZ3=$confirmKEZ3
+    #echo confirmKEZ3=$confirmKEZ3
 
     case $confirmKEZ3 in
 
@@ -126,7 +128,3 @@ esac
 done <<EoI
 `find . -type f`
 EoI
-
-
-
-
