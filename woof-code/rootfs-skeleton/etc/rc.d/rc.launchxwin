@@ -101,6 +101,114 @@ if [ ! -L /usr/bin/X ];then
 else
 echo "$0 : /usr/bin/X exists"
 
+# REM: Problem now occurs when Xorg is new (1.7.+),
+#      it needs kernel modesetting, otherwise fails to find devices
+#      So if driver is loaded but did not manage the console,
+#       try to reload the driver...
+#      Note: Use bootmanager to enable loading it at boot with modeset=1 parameter
+#       or add it manually to /etc/rc.d/MODULESCONFIG ADDLIST line
+#      TODO: agpgart module handling, mouse nodes in /dev and drivers
+# 2015-12-11 now set here before first xwin in case xwin calls xorgwizard
+_say_xorg_version(){
+_XORG_VERSION_=`Xorg -version 2>&1`
+
+case $_XORG_VERSION_ in
+#X.Org X Server 1.4.0.90
+*X.Org*X*Server*)
+VERSION=`echo "$_XORG_VERSION_" | grep '^X.Org X Server' | awk '{print $NF}'`
+test  "$VERSION" || VERSION=UNKNOWN
+echo "$VERSION"
+;;
+#X Window System Version 7.2.0
+#X Window System Version 1.3.0
+*X*Window*System*Version*)
+VERSION=`echo "$_XORG_VERSION_" | grep '^X Window System Version' | awk '{print $NF}'`
+test  "$VERSION" || VERSION=UNKNOWN
+echo "$VERSION"
+;;
+*)
+echo "Unhandled"
+;;
+esac
+}
+
+_old_or_new_xorg(){
+case $* in
+[0-6].*|7.[0-2].*|1.3.*|1.4.*)  return 1;;
+1.[5-9].*|1.[1-9][0-9].*)       return 0;;
+*) echo "UNHANDLED Xorg version '$*'"; return 2;;
+esac
+}
+
+_do_modeset(){
+    test "$*" || return 1
+    modprobe $VERB -r "$*"
+    sleep 1
+    grep $Q -w "^$*" /proc/modules && return 1
+    /sbin/modprobe $Q $VERB "$*" modeset=1
+    sleep 1
+    grep $Q -w "^$*" /proc/modules
+}
+
+_define_driver(){
+LSPCI_OUT=`/sbin/lspci`
+#00:02.0 VGA compatible controller: Intel Corporation 82Q963/Q965 Integrated Graphics Controller (rev 02)
+#00:02.1 Display controller: Intel Corporation 82Q963/Q965 Integrated Graphics Controller (rev 02)
+case $LSPCI_OUT in
+*VGA*compatible*controller:*Intel*Corporation*)
+DRIVER=i915
+;;
+*)
+echo UNKNOWN chipset
+DRIVER=UNKNOWN
+;;
+esac
+}
+
+_check_if_loaded(){
+    test -f /proc/modules || return 2
+    test "$*" || return 2
+    grep $Q -w "^$*" /proc/modules
+}
+
+_check_if_in_use(){
+    test -f /proc/modules || return 2
+    test "$*" || return 2
+    read drv vms nr_users mod_users live addr <<EoI
+`grep -w "^$*" /proc/modules`
+EoI
+test $nr_users = 0
+}
+
+main_modesetting(){
+XORG_VERSION=`_say_xorg_version`
+_old_or_new_xorg "$XORG_VERSION"
+case $? in
+0) _notice "main_modesetting:NEWer Xorg"
+   _define_driver
+   _check_if_loaded "$DRIVER"
+    test $? = 0 && {
+    _check_if_in_use "$DRIVER"
+    test $? = 0 && { _do_modeset "$DRIVER"; MODESET_FAIL=$?; true; } || echo "$DRIVER already is in use"
+MODESET_FAIL=0
+true
+} || { echo "$DRIVER not loaded"; _do_modeset "$DRIVER"; MODESET_FAIL=$?; true;  }
+
+test "$MODESET_FAIL" && {
+    test "$MODESET_FAIL" = 0 || exit 1
+}
+
+;;
+
+
+1) _notice "main_modesetting:Older Xorg"  ;;
+2) _warn "main_modesetting: UNKNOWN Xorg" ;;
+esac
+}
+main_modesetting
+# REM: End modesetting code
+
+
  #exec xwin &
  #xwin &
  #exec xwin
