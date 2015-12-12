@@ -141,10 +141,70 @@
 #
 ########################################################################
 
+alias modprobe='modprobe -b'  ##+++2012-02-03
+
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
+Version='2.0.0-getopts Puppy-Linux-4.3.0 KRG'
+
+# REM needs to set real HOME
+if [ "`whoami`" = root ]; then
+test "$HOME" = '/' && HOME=/root
+cd "$HOME"
+export HOME
+fi
+
+#if [ "$HOME" != "/" ] ; then
+#cd ~/
+#fi
+
+#if [ "$HOME" = "/" ] ; then
+#export HOME=/root;fi
+
+echo "HOME='$HOME'"
+
 test -f /etc/profile       && . /etc/profile  ##+++2013-09-03
 
-Version='1.1-getopts Puppy-Linux-4.3.0 KRG'
+#variables created at bootup by init script in initrd...
+. /etc/rc.d/PUPSTATE #v2.02
+#PUPMODE=current operating configuration,
+#PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
+#PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
+#PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
+tmpDir='/tmp/xwin'  ##+++2011-11-05
+mkdir -p "$tmpDir"
+
+KERNELVER="`uname -r`" #w479
+Date="`date +%d%b%Y`"
+
+###<KRG 2011_10_27>
+debug(){
+echo "$0: $@"
+}
+
+[ "$DEBUG" ] && echo "$0:line 180"
+#### BEGIN Ex /etc/profile part #######
+#v2.10 MU: rox crashes with DRI modules. solution:
+export XLIB_SKIP_ARGB_VISUALS=1
+#v2.02 rarsa provided this...
+#freedesktop base directory spec: standards.freedesktop.org/basedir-spec/latest/
+export XDG_DATA_HOME="$HOME/.local/share"
+export XDG_CONFIG_HOME="$HOME/.config"
+export XDG_DATA_DIRS=/usr/share:/usr/local/share
+export XDG_CONFIG_DIRS=/etc/xdg #v2.14 changed from /usr/etc
+export XDG_CACHE_HOME="$HOME/.cache"
+
+#w468 'netpbm' utilities need to be told where rgb.txt is...
+[ -f /usr/share/X11/rgb.txt ] && export RGBDEF=/usr/share/X11/rgb.txt
+##### END Ex profile X PART ##############
+
+XinitXorgVars="$HOME/.xinitrc"
+
+#v1.0.7
+HAVEX="`readlink /usr/bin/X`"
+echo "HAVEX='$HAVEX'"
+
+DEBUG=1
 
 usage(){
 echo "
@@ -213,9 +273,6 @@ while [ "$2" ];do shift;done
  echo "$0:PARAMETER 1='$1'"
  [ "$wM" ] || wM="$1"
 
-tmpDir='/tmp/xwin'  ##+++2011_11_05
-mkdir -p "$tmpDir"
-
 ##+++2012-05-02
 [ -f /tmp/X.status ] && {
 NO_X=`cat /tmp/X.status | grep -i 'nox'`
@@ -251,7 +308,6 @@ fi
 }
 ##+++2012-05-02
 
-alias modprobe='modprobe -b'  ##+++2012-02-03
 ##+++2012-04-23
 cat /dev/vcs1 >/tmp/vcs1xwin1.txt
 echo -e "\n\n" >>/tmp/vcs1xwin1.txt
@@ -273,51 +329,11 @@ fi
 
 echo -e "\\033[1;33m""This script will run X windows for you...""\\033[0;39m"
 
-if [ "$HOME" != "/" ] ; then
-cd ~/
-fi
-
-if [ "$HOME" = "/" ] ; then
-export HOME=/root;fi
-
-echo "HOME='$HOME'"
-
-#variables created at bootup by init script in initrd...
-. /etc/rc.d/PUPSTATE #v2.02
-#PUPMODE=current operating configuration,
-#PDEV1=the partition have booted off, DEV1FS=f.s. of PDEV1,
-#PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
-#PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
-
-KERNELVER="`uname -r`" #w479
-Date="`date +%d%b%Y`"
-
-###<KRG 2011_10_27>
-debug(){
-echo "$0: $@"
-}
-
-[ "$DEBUG" ] && echo "$0:line 300"
-
 #0.9.9 enables to start a specific w.m. from commandline...
 if [ "$wM" ];then # 1.0
  echo "$wM" > /etc/windowmanager
  #note, /root/.xinitrc uses this file.
 fi # 1.0
-
-#### BEGIN Ex /etc/profile part #######
-#v2.10 MU: rox crashes with DRI modules. solution:
-export XLIB_SKIP_ARGB_VISUALS=1
-#v2.02 rarsa provided this...
-#freedesktop base directory spec: standards.freedesktop.org/basedir-spec/latest/
-export XDG_DATA_HOME="$HOME/.local/share"
-export XDG_CONFIG_HOME="$HOME/.config"
-export XDG_DATA_DIRS=/usr/share:/usr/local/share
-export XDG_CONFIG_DIRS=/etc/xdg #v2.14 changed from /usr/etc
-export XDG_CACHE_HOME="$HOME/.cache"
-
-#w468 'netpbm' utilities need to be told where rgb.txt is...
-[ -f /usr/share/X11/rgb.txt ] && export RGBDEF=/usr/share/X11/rgb.txt
 
 #v2.12
 #xorgwizard creates this file, run once only...
@@ -341,15 +357,114 @@ if [ ! -f /tmp/bootcnt.txt ];then
    [ "$cMODEsNo" = "$cMODEs" ] && rm /etc/resolutionfix
    }
 fi
-##### END Ex profile X PART ##############
 
-XinitXorgVars="$HOME/.xinitrc"
+# REM: Problem now occurs when Xorg is new (1.7.+),
+#      it needs kernel modesetting, otherwise fails to find devices
+#      So if driver is loaded but did not manage the console,
+#       try to reload the driver...
+#      Note: Use bootmanager to enable loading it at boot with modeset=1 parameter
+#       or add it manually to /etc/rc.d/MODULESCONFIG ADDLIST line
+#      TODO: agpgart module handling, mouse nodes in /dev and drivers
+# 2015-12-11 now set here before first ddcprobe
+_say_xorg_version(){
+_XORG_VERSION_=`Xorg -version 2>&1`
 
-#v1.0.7
-HAVEX="`readlink /usr/bin/X`"
-echo "HAVEX='$HAVEX'"
+case $_XORG_VERSION_ in
+#X.Org X Server 1.4.0.90
+*X.Org*X*Server*)
+VERSION=`echo "$_XORG_VERSION_" | grep '^X.Org X Server' | awk '{print $NF}'`
+test  "$VERSION" || VERSION=UNKNOWN
+echo "$VERSION"
+;;
+#X Window System Version 7.2.0
+#X Window System Version 1.3.0
+*X*Window*System*Version*)
+VERSION=`echo "$_XORG_VERSION_" | grep '^X Window System Version' | awk '{print $NF}'`
+test  "$VERSION" || VERSION=UNKNOWN
+echo "$VERSION"
+;;
+*)
+echo "Unhandled"
+;;
+esac
+}
 
-DEBUG=1
+_old_or_new_xorg(){
+case $* in
+[0-6].*|7.[0-2].*|1.3.*|1.4.*)  return 1;;
+1.[5-9].*|1.[1-9][0-9].*)       return 0;;
+*) echo "UNHANDLED Xorg version '$*'"; return 2;;
+esac
+}
+
+_do_modeset(){
+    test "$*" || return 1
+    modprobe $VERB -r "$*"
+    sleep 1
+    grep $Q -w "^$*" /proc/modules && return 1
+    /sbin/modprobe $Q $VERB "$*" modeset=1
+    sleep 1
+    grep $Q -w "^$*" /proc/modules
+}
+
+_define_driver(){
+LSPCI_OUT=`/sbin/lspci`
+#00:02.0 VGA compatible controller: Intel Corporation 82Q963/Q965 Integrated Graphics Controller (rev 02)
+#00:02.1 Display controller: Intel Corporation 82Q963/Q965 Integrated Graphics Controller (rev 02)
+case $LSPCI_OUT in
+*VGA*compatible*controller:*Intel*Corporation*)
+DRIVER=i915
+;;
+*)
+echo UNKNOWN chipset
+DRIVER=UNKNOWN
+;;
+esac
+}
+
+_check_if_loaded(){
+    test -f /proc/modules || return 2
+    test "$*" || return 2
+    grep $Q -w "^$*" /proc/modules
+}
+
+_check_if_in_use(){
+    test -f /proc/modules || return 2
+    test "$*" || return 2
+    read drv vms nr_users mod_users live addr <<EoI
+`grep -w "^$*" /proc/modules`
+EoI
+test $nr_users = 0
+}
+
+main_modesetting(){
+XORG_VERSION=`_say_xorg_version`
+_old_or_new_xorg "$XORG_VERSION"
+case $? in
+0) _notice "main_modesetting:NEWer Xorg"
+   _define_driver
+   _check_if_loaded "$DRIVER"
+    test $? = 0 && {
+    _check_if_in_use "$DRIVER"
+    test $? = 0 && { _do_modeset "$DRIVER"; MODESET_FAIL=$?; true; } || echo "$DRIVER already is in use"
+MODESET_FAIL=0
+true
+} || { echo "$DRIVER not loaded"; _do_modeset "$DRIVER"; MODESET_FAIL=$?; true;  }
+
+test "$MODESET_FAIL" && {
+    test "$MODESET_FAIL" = 0 || exit 1
+}
+
+;;
+
+
+1) _notice "main_modesetting:Older Xorg"  ;;
+2) _warn "main_modesetting: UNKNOWN Xorg" ;;
+esac
+}
+main_modesetting
+# REM: End modesetting code
+
 
 ddcprobe_func(){
 echo -e "\\033[0;31m""ddcprobe_func"
@@ -879,7 +994,7 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$TMP_DIR"/ddcprobe.txt 
 
    if [ ! "$CURRENTPROFILE" = "$HARDWAREPROFILE" ];then # 8.1.1.1.0
    echo "     detected PROFILE=$HARDWAREPROFILE"
-   echo "old xorg.conf PROFILE=$CURRENTPROFILE"     
+   echo "old xorg.conf PROFILE=$CURRENTPROFILE"
     echo -e "\\033[0;31m"'Has hardware profile changed ?'
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
