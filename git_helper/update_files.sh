@@ -26,7 +26,7 @@ cd "$ME_DIR" || exit 4
 AUTO_UPDATE_GIT=
 
 # Am I at the right branch ?
-BRANCH=Fox3-Dell755
+BRANCH=FOX3-ASUSTeK1005HAG
 git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
 
 
