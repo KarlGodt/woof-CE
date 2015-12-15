@@ -71,41 +71,15 @@
 #
 #
 ########################################################################
-
-
+[ "$*" ] || exec busybox mount
 LANG=C
-
-[ "$1" ] || exec busybox mount
 
 ##################### usage version part ################################
 #Version='1.1-simple Puppy-Linux-4.3.0 KRG'
 Version='1.1-getopts Macpup_Foxy_3-Puppy-Linux-4.3.0 KRG'
 
-#[ ! "$2" -a "$1" = "-q" ] && { busybox mount |sed "s|\(.*\) \(on\) \(.*\) \(type\) \(.*\) \(.*\)|'\1' \2 '\3' \4 '\5' \6|";exit $?; }
-#[ ! "$2" -a "$1" = '-Q' ] && { busybox mount |sed -r 's|(.*)( on )(.*)( type )(.*)( \(.*\))|"\1"\2"\3"\4"\5"\6|'; exit $?; }
 [ ! "$2" ] && { [ "$1" = '-q' ] && { busybox mount |sed "s|\(.*\) \(on\) \(.*\) \(type\) \(.*\) \(.*\)|'\1' \2 '\3' \4 '\5' \6|";exit $?; }; }
 [ ! "$2" ] && { [ "$1" = '-Q' ] && { busybox mount |sed -r 's|(.*)( on )(.*)( type )(.*)( \(.*\))|"\1"\2"\3"\4"\5"\6|'; exit $?; }; }
-
-##mount -q | grep -e "^[/']*dev/"
-##'/dev/root' on '/' type 'ext3' (rw,relatime,errors=continue,data=writeback)
-##mount -Q | grep -e '^[/"]*dev/'
-##"/dev/root" on "/" type "ext3" (rw,relatime,errors=continue,data=writeback)
-
-##mount -Q | grep -e ^[\/\"\']*dev/
-##"/dev/root" on "/" type "ext3" (rw,relatime,errors=continue,data=writeback)
-##mount -q | grep -e ^[\/\"\']*dev/
-##'/dev/root' on '/' type 'ext3' (rw,relatime,errors=continue,data=writeback)
-##mount | grep -e ^[\/\"\']*dev/
-##/dev/root on / type ext3 (rw,relatime,errors=continue,data=writeback)
-
-##mount | grep -e ^[\"\']*/dev/
-##/dev/root on / type ext3 (rw,relatime,errors=continue,data=writeback)
-##mount -q | grep -e ^[\"\']*/dev/
-##'/dev/root' on '/' type 'ext3' (rw,relatime,errors=continue,data=writeback)
-##mount -Q | grep -e ^[\"\']*/dev/
-##"/dev/root" on "/" type "ext3" (rw,relatime,errors=continue,data=writeback)
-
-
 
 usage(){
 MSG="
@@ -154,14 +128,6 @@ esac;done
 
 
 ############# create mountdir part ##################
-#if [ "$DEBUG" -o "$VERBOSE" ];then
-
-#echo 'if #0'
-#FOLDERS=`echo "$@" | grep -w '/.* ' | grep -v /dev/`
-#for i in $FOLDERS; do#
-#[ ! -d $i ] && echo 'Folder '"$i"' does not exists. Creating now ...' && mkdir $i
-#done
-
 j=0
 for i in `seq 1 $#` ; do
 j=$((j+1))
@@ -174,19 +140,7 @@ if [ -n "`echo $PARAM | grep '/' | grep -v /dev/`" ] ; then
 fi
 done
 
-#if [ -n "$DISPLAY" ] ; then #DBG
-#IFS='|'
-#for i in * @ \# ? - $ ! 0 _ ; do
-#echo $*
-#echo "$*"
-#echo $@
-#echo "$@"
-#done
-#unset IFS
-
-#fi
 ############# create mountdir part ##################
-
 
 #i realised this script has to allow reentrancy. So, all temp file now unique,
 #using ${$} which is pid of script.
@@ -272,11 +226,11 @@ FSTYPES=`echo "$FSTAB" | cut -f 3 -d ' '`
 ###second loop attempt###
 for i in $MOUNTDIRS ; do
 DEVICE=`echo "$FSTAB" | grep "$i" | cut -f 1 -d ' '`
-[ ! "$DEVICE" ] && echo -e "\e[31mError , no device specified for $i\e[39m" && continue
+[ "$DEVICE" ] || { echo -e "\e[31mError , no device specified for $i\e[39m"; continue; }
 FSTYPE=`echo "$FSTAB" | grep "$i" | cut -f 3 -d ' '`
-[ ! "$FSTYPE" ] && echo -e "\e[31mError , no file system type  specified for $i\e[39m" && continue
+[ "$FSTYPE" ] || { echo -e "\e[31mError , no file system type  specified for $i\e[39m"; continue; }
 OPTION=`echo "$FSTAB" | grep "$i" | cut -f 4 -d ' '`
-[ ! "$OPTION" ] && echo -e "\e[31mError , no option(s) specified for $i\e[39m" && continue
+[ "$OPTION" ] || { echo -e "\e[31mError , no option(s) specified for $i\e[39m"; continue; }
 
 MOUNTLINE="${PARAMETERLINE} -t ${FSTYPE} -o ${OPTION} ${DEVICE} $i"
 
@@ -480,15 +434,15 @@ fi  ##1
 
 #v409, instead just make sure the symlink stays there...
 if [ ! -L /etc/mtab ];then
- rm -f /etc/mtab
- ln -s /proc/mounts /etc/mtab
+ rm $VERB -f /etc/mtab
+ ln $VERB -s ../proc/mounts /etc/mtab
 fi
 #################### mtab part #################################################
 
 
 ################### tail part ##################################################
 if [ "$DEBUG" -o "$VERBOSE" ];then
-    echo "finishing now '$0' ..."
+  ( echo "finishing now '$0' ..."
     echo "RETVAL='$RETVAL'"
     stamp=`dmesg |tail -n1 |grep -o '\[.*\]' |tr -d '\[\]' |cut -f1 -d'.'`
     if [ "$stamp" ];then
@@ -499,14 +453,10 @@ if [ "$DEBUG" -o "$VERBOSE" ];then
     echo
     dmesg |tail -n1
     fi
-echo "... '$0' finished"
+echo "... '$0' finished" ) >&2
 else
-##dmesg |tail -n1 |grep -iE 'sd|fs|mount|dev'
-#[ "$FS_TYPE" ] || FS_TYPE=NONE
-#[ "$DRVNAME" ] || DRVNAME=NONE
-#dmesg |tail -n1 |grep -iE "${FS_TYPE}|${DRVNAME}"
 IFS='. ' read UPtime restU RUNtime restR </proc/uptime
-dmesg | tail | grep -w "$UPtime"
+dmesg | tail | grep -w "$UPtime" >&2
 fi
 ################### tail part ##################################################
 
