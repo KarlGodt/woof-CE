@@ -11,8 +11,14 @@ fi
   echo $0 03 LINENO $LINENO  `date +"%M %S %N"`
 
 #v4.01 BK daemon to handle kernel uevents...
+(
 /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-/sbin/pup_event_frontend_d & #v403
+if pidof pup_event_frontend_d; then
+exec /sbin/pup_event_frontend_d restart &
+else
+exec /sbin/pup_event_frontend_d & #v403
+fi
+) &
   echo $0 04 LINENO $LINENO  `date +"%M %S %N"`
 
 #w482 reshape background image if widescreen...
