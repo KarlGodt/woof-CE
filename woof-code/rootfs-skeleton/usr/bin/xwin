@@ -787,6 +787,91 @@ fi #-f /usr/bin/Xorg
 if [ -f /usr/bin/Xorg ];then #-f /usr/bin/Xorg
  if [ -f /etc/X11/xorg.conf ];then #-f xorg.conf
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ];then #X->Xorg
+
+_do_modesetting(){
+  XSERVER=`readlink -f $(which X)`
+  logger -t "$0" -p 4 "XSERVER = '$XSERVER'"
+if test "${XSERVER##*/}" = Xorg; then
+      if test -f /etc/X11/xorg.conf; then
+
+XORG_DRIVER=`grep -m1 '#card0driver' /etc/X11/xorg.conf | awk -F'"' '{print $2}'`
+logger -t "$0" -p 4 "XORG_DRIVER = '$XORG_DRIVER'"
+##http://stackoverflow.com/questions/4304917/how-to-print-last-two-columns-using-awk
+XORG_VERSION=`Xorg -version 2>&1 | grep -o 'X\.Org X Server [\.0-9]*' | awk '{print $(NF);}'`
+logger -t "$0" -p 4 "XORG_VERSION = '$XORG_VERSION'"
+
+case $XORG_DRIVER in
+
+intel)
+      case $XORG_VERSION in
+
+        7.0.*|1.0.*)   domodeset=0;;
+        7.1.*|1.1.*)   domodeset=0;;
+        7.2.*|1.2.*)   domodeset=0;;
+        7.3.*|1.3.*)   domodeset=0;;
+        7.4.*|1.4.*)   domodeset=0;;
+        7.5.*|1.5.*)   domodeset=0;;
+        7.6.*|1.6.*)   domodeset=0;;
+        7.7.*|1.7.*)   domodeset=1;;
+        7.8.*|1.8.*)   domodeset=1;;
+        7.9.*|1.9.*)   domodeset=1;;
+        7.10.*|1.10.*) domodeset=1;;
+        7.11.*|1.11.*) domodeset=1;;
+        7.12.*|1.12.*) domodeset=1;;
+        7.13.*|1.13.*) domodeset=1;;
+        7.14.*|1.14.*) domodeset=1;;
+        7.15.*|1.15.*) domodeset=1;;
+        *)   echo "Unhandled case XORG_VERSION '$XORG_VERSION' .";sleep 10s;;
+     esac
+     ;;
+nv) :;;
+nvidia)  :;;
+nouveau) :;;
+rhadeon) :;;
+amd) :;;
+ati) :;;
+*) echo "Unhandled case XORG_DRIVER '$XORG_DRIVER' .";sleep 10s;;
+esac
+
+MODPROBE_EXE=/sbin/modprobe
+
+case $XORG_DRIVER in
+intel)
+        case $domodeset in
+        1) logger -t "$0" -p 4 "domodeset = '$domodeset'"
+        grep ^i915 /proc/modules && {
+        grep ^i915 /proc/modules |
+        while read driver vm nrusers users state address;
+        do
+          logger  -t "$0" -p 4  "driver='$driver' $vm $nrusers $users $state $address"
+          [ "$nrusers" = 0 ] && {
+             $MODPROBE_EXE -vr i915; sleep 1s; $MODPROBE_EXE -v i915 modeset=1; }
+        done && echo "i915 loaded" || echo i915 "i915 already in use"
+        } || {
+         echo "$0:Force loading of i915..."
+         logger -t "$0" -p 4 "$0:Force loading of i915..."
+          $MODPROBE_EXE -v i915 modeset=1
+        }
+        ;;
+        0) logger -t "$0" -p 4 "domodeset = '$domodeset'"
+        modprobe -vr i915; sleep 1s; modprobe -v i915 modeset=0;;
+        *) logger -t "$0" -p 4 "domodeset = '$domodeset'"
+        echo "Unhandled case domodeset '$domodeset' .";sleep 10s;;
+        esac
+        ;;
+nv) :;;
+nvidia) :;;
+nouveau) :;;
+rhadeon) :;;
+amd) :;;
+ati) :;;
+*) echo "Unhandled case XORG_DRIVER '$XORG_DRIVER' .";sleep 10s;;
+esac
+      fi  #test -f /etc/X11/xorg.conf
+fi        #test XSERVER
+}
+_do_modesetting
+
    [ "$DDCPROBE" ] || DDCPROBE=`cat "$tmpDir"/ddcprobe.txt`
    #PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
    PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: ' | cut -f 2 -d ' ' | sed 's/[[:punct:]]/_/g'`
