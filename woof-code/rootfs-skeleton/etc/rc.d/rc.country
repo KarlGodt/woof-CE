@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright 2007 Barry Kauler
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v405 called from rc.sysinit.
@@ -72,18 +72,18 @@ exit $1
 
 usage () {
 echo "
-	$0 [any arg]
+    $0 [any arg]
 
-	starts setting keyboardlayout for console
-	AND localtime for RAM boot, First boot
-	In PUPMODE 5 OR
-	IF the pkeys=[us,uk,be,...] boot parameter
-	does not match the entry in /etc/keymap .
+    starts setting keyboardlayout for console
+    AND localtime for RAM boot, First boot
+    In PUPMODE 5 OR
+    IF the pkeys=[us,uk,be,...] boot parameter
+    does not match the entry in /etc/keymap .
 
-	IF called with any argument reconstruct
-	interactively console keymap AND localtime .
-	"
-#define	EAGAIN		11	/* Try again */
+    IF called with any argument reconstruct
+    interactively console keymap AND localtime .
+    "
+#define EAGAIN      11  /* Try again */
 exit 11
 }
 
@@ -96,7 +96,7 @@ echo "$0: using $TTY"
 if [ "`echo $@ |grep 'help'`" ];then usage;fi
 if [ "$DISPLAY" -a "$TTY" = '/dev/console' ];then
 xmessage "PLEASE run '$0' from terminal console" &
-#define	EWOULDBLOCK	EAGAIN	/* Operation would block */
+#define EWOULDBLOCK EAGAIN  /* Operation would block */
 exit 11;fi
 
 CHANGE=;
@@ -135,7 +135,7 @@ askkbdlayout ()
   echo -n "" >/tmp/keybdlist.txt
   for AFILE in `ls /usr/share/kbd/keymaps/i386/[^i]*/*`
   do
-   AKMAP=`basename $AFILE | sed -e 's/.map$//g'` #us, fr, br, etc.
+   AKMAP=`basename "$AFILE" .map` #us, fr, br, etc.
    #hmmm, very slow way to do this...
    case $AKMAP in
     us) ACNTRY=" (USA)";;
@@ -168,18 +168,42 @@ askkbdlayout ()
     qc) ACNTRY=" (Quebec, Canada)";;
     *)  ACNTRY="";;
    esac
-   APATH=`dirname $AFILE`
-   ATYPE=`basename $APATH` #qwerty, qwertz, etc.
+   #APATH=`dirname $AFILE`
+   #ATYPE=`basename $APATH` #qwerty, qwertz, etc.
+   APATH=${AFILE%/*}
+   ATYPE=${APATH##*/}
+
    echo -e "$AKMAP \"${ATYPE}${ACNTRY}\"" >> /tmp/keybdlist.txt
   done
-  KEYLIST="us \"qwerty (USA)\" `sort /tmp/keybdlist.txt | tr '\n' ' '`"
-  echo '#!/bin/sh' >/tmp/keydlg
-  echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:\n(UP/DOWN arrows then ENTER key)" 0 0 0 \\' >>/tmp/keydlg  #' geany fix
-  echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
+  KEYLIST="us \"qwerty (USA)\"
+`sort /tmp/keybdlist.txt`"
+  KEYLIST=`echo $KEYLIST`
+  test "${KEYLIST//[[:blank:]]/}" || return 3
+
+  __make_dialog__(){
+  echo '#!/bin/ash' >/tmp/keydlg
+  echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:
+ (UP/DOWN arrows then ENTER key)" \
+ 0 0 0 \ ' >>/tmp/keydlg  #' geany fix
+  echo -n " "$KEYLIST" " >>/tmp/keydlg
+  echo ' 2>/tmp/kbdextlayout.txt' >>/tmp/keydlg
   echo 'exit $?' >>/tmp/keydlg
-  chmod 755 /tmp/keydlg
+  }
+
+  cat >/tmp/keydlg <<EoI
+#!/bin/ash
+dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:
+(UP/DOWN arrows then ENTER key)" \\
+ 0 0 0 \\
+ $KEYLIST \\
+ 2>/tmp/kbdextlayout.txt
+exit \$?
+
+EoI
+
+  chmod $VERB 0755 /tmp/keydlg
   /tmp/keydlg >$TTY
-  [ $? != 0 ] && { echo "RETURNED not 0.";return 1; }
+  [ $? = 0 ] || { echo "RETURNED not 0.";return 1; }
   #clear > $TTY 2>&1 #clear screen
   KEYBOARD=`cat /tmp/kbdextlayout.txt`
   case $KEYBOARD in
@@ -210,6 +234,7 @@ if [ ! -e /etc/keymap ];then
     break
    else #cancel, error exit.
     KMAP="us"
+    break
    fi
  done #end while loop.
  echo -n "$KMAP" > /etc/keymap
@@ -255,12 +280,12 @@ fi
 
 
 #need to set Linux system time/date, from hardware clock...
-echo "$0: Setting hwclock" 
+echo "$0: Setting hwclock"
 hwclock --hctosys --localtime
 [ $? = 0 ] || hwclock --hctosys --localtime --directisa
 #...--hctosys reads cmos clock to system.
 #...--localtime means that cmos clock is set to local-time.
-echo "$0: Have set hwclock" 
+echo "$0: Have set hwclock"
 #w001 creates locale files in /usr/lib/locale...
 LANG=`grep '^LANG=' /etc/profile | cut -f 2 -d '='`
 [ ! "$LANG" ] && LANG=empty_string
