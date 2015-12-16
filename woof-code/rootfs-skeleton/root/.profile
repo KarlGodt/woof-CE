@@ -1,3 +1,4 @@
+__start_xwin__(){
 #120221 moved this code here from /etc/profile, also take 'exec' prefix off call to xwin.
 
 if [ ! -f /usr/bin/X ];then
@@ -29,3 +30,4 @@ else
   xwin
  fi
 fi
+}
