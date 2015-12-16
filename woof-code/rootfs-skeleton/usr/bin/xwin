@@ -242,7 +242,7 @@ s) XServer="$OPTARG"
   usage 1 "/usr/bin/X is not a link"
  else
   rm $VERB -f /usr/bin/X
-  ln -s "$XServer" /usr/bin/X
+  ln $VERB -s "$XServer" /usr/bin/X
  fi
 
  XServerOK=`readlink -f /usr/bin/X`
@@ -551,7 +551,7 @@ _do_ddcprobe
 #### Begin XF86_SVGA part One ####
 if [ "$HAVEX" = "XF86_SVGA" ];then # 2.0
  #xf86config v3.3.6 creates config file at /etc, wrong place...
- [ -f /etc/XF86Config ] && mv -f /etc/XF86Config /etc/X11/XF86Config
+ [ -f /etc/XF86Config ] && mv $VERB -f /etc/XF86Config /etc/X11/XF86Config
 fi # 2.0
 
 #### End XF86_sVGA part One ####
@@ -674,6 +674,53 @@ echo "HAVEX=Xvesa"
   if [ -f /etc/xorgoverrides ] && [ -n "`grep -q -f /etc/xorgoverrides $tmpDir/ddcprobe.txt`" ] ;then # 3.1.1.0
    echo "Found to override graphics chips from /etc/xorgoverrides in $tmpDir/ddcprobe.txt"
    #1st dialog offers to use Xvesa...
+
+_leave_xwin(){
+  echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  echo "Need to run 'xorgwizard' to setup X environment."
+  #echo -n 'If X failed to start, type "xorgwizard" to setup X'
+  echo 'Evtl. press Enter..'
+  echo 'Type "xorgwizard" <Enter> to setup X.'
+  echo -e "\\033[0;39m"
+  exit 0
+}
+
+_get_free_console(){
+for oneT in `busybox ps -o tty | sort -u`
+do
+# echo $oneT
+case $oneT in 4,*) :;; *) continue;; esac
+tN=${oneT#*tty}
+ttyUSED=`echo -e "$ttyUSED\n$tN"`
+done
+ttyUSED=`echo "$ttyUSED" | sort -u | sort -n`
+#echo "ttyUSED='$ttyUSED'"
+for t in `seq 1 1 13`; do
+echo "$ttyUSED" | grep $Q -Fw "4,$t" && continue
+CHVT_NR=$t
+break
+done
+echo CHVT_NR=$CHVT_NR
+test "$CHVT_NR"
+}
+
+_do_xorgwizard(){
+  #echo "Running xorgwizard ..."
+  sleep 1s
+  rm $VERB -f /var/lock/XLOADED #not necessary, precaution.
+
+  TTY=`tty` || TTY=/dev/console
+  ttyNR=${TTY#*/dev/tty}
+  _get_free_console || _leave_xwin
+  openvt -sw -c $CHVT_NR /usr/sbin/xorgwizard
+  xorgwRV=$?
+  chvt $ttyNR
+  echo "xorgwRV='$xorgwRV'"
+  sleep 1
+}
+_do_xorgwizard
+
+__launch_xorgwizard(){
    echo "Starting now xorgwizard" && sleep 2s
    /usr/sbin/xorgwizard
    xorgwRV=$?
@@ -682,20 +729,23 @@ echo "HAVEX=Xvesa"
      exit 77
     fi
    fi
-   #HAVEX="`readlink /usr/bin/X`"
-   #if [ "$HAVEX" != "Xorg" ] ; then  ##KRG
-   #echo "To start the Xorg server for Xvesa does not work for your hardware ,"
-   #echo "Not chosen Xorg server."
-   #echo "Please run xorgwizard or type xwin (again)."
-   #echo "Exiting $0 now"
-   #exit   #go to command line if not Xorg
+}
 
+_exit_if_xvesa(){
+   HAVEX="`readlink /usr/bin/X`"
+   if [ "$HAVEX" != "Xorg" ] ; then  ##KRG
+   echo "To start the Xorg server for Xvesa does not work for your hardware ,"
+   echo "Not chosen Xorg server."
+   echo "Please run xorgwizard or type xwin (again)."
+   echo "Exiting $0 now"
+   exit 0  #go to command line if not Xorg
+   fi
+}
    echo -e "\n\n\n"
    read -t 30 -n1 -p "Press Enter to restart xwin. Any other key to quit :" CQKEY
    echo
-   [ "$CQKEY" ] && exit
+   [ "$CQKEY" ] && exit 0
    exec xwin
-   #fi  ###KRG
   fi # 3.1.1.0
 
  fi # 3.1.0
@@ -703,11 +753,11 @@ echo "HAVEX=Xvesa"
  if [ ! -f "$tmpDir"/videomode -a ! -f /etc/videomode ];then  ##fresh boot "$tmpDir"/videomode does not exist#v2.21 # 4.1.0
   echo "Files /etc/videomode and $tmpDir/videomode do not exist"
   #v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
-  [ "`dmidecode -s bios-version | grep '^CM91510'`" != "" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
+  [ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
   #v3.95 recognise more special screens...
   DMIDECODE="`dmidecode`"
   #recognise EeePC Asus laptop...
-  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" != "" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" != "" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
+  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> "$tmpDir"/ddcprobe.txt
 
   echo -e '\nIf initialization freezes here, press ctrl-c and type "xorgwizard",\nselect "Xorg", choose monitor type and choose video mode.'   #v3.99
   grep '^oem:' "$tmpDir"/ddcprobe.txt > "$tmpDir"/ddcprobeoem.txt   #v3.99 current adapter signature
@@ -731,7 +781,7 @@ echo "HAVEX=Xvesa"
      for ONECUTXY in $MONCUTXY #ex: each field 1024x768
      do
       OPATTERN=" ${ONECUTXY}x"
-      [ "`echo "$VESAMODES" | grep "$ONECUTXY"`" = "" ] && MISSINGXY="$ONECUTXY"
+      [ "`echo "$VESAMODES" | grep "$ONECUTXY"`" ] || MISSINGXY="$ONECUTXY"
      done
      if [ "$MISSINGXY" != "" ];then # 4.1.1.1.1.1.0
      echo '$MISSINGXY='"$MISSINGXY"' and not empty'
@@ -855,7 +905,7 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" -a "$OLDMOUSEDEV" != "nothing" ];then # 5.0
    if [ $mRV = 0 ]; then
     sync
     echo "Copying $tmpDir/xorg.conf.tmp2 /etc/X11/xorg.conf"
-    cp -f "$tmpDir"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf One
+    cp $VERB -f "$tmpDir"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf One
     #rm $VERB -f "$tmpDir"/xorg.conf.tmp2
     [ $? = 0 ] && _notice "Succeeded fixing the mouse protocoll"
    else
@@ -881,7 +931,7 @@ if [ ! -f /etc/mousebuttons ];then # 6.0
    cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$tmpDir"/xorg.conf.tmp
    if [ $? = 0 ]; then sync
     echo "Copying $tmpDir/xorg.conf.tmp /etc/X11/xorg.conf"
-    cp -f "$tmpDir"/xorg.conf.tmp /etc/X11/xorg.conf # CP new xorg.conf Two-1
+    cp $VERB -f "$tmpDir"/xorg.conf.tmp /etc/X11/xorg.conf # CP new xorg.conf Two-1
     [ $? = 0 ] && _notice "Have set xorg.conf entry to use 5 buttons, buttons 4+5 being scroll wheel"
    else
     _notice "Could not set xorg.conf entry to use 5 mouse buttons"
@@ -905,7 +955,7 @@ fi # 13.0
 
 test -c /dev/input/mice || { rm $VERB -rf /dev/input/mice; mkdir -p /dev/input; mknod /dev/input/mice c 13 63; }
 #v424 bad hack, i somehow get /dev/mouse pointing to psaux when chose a serial mouse, don't know why...
-[ "`grep 'ttyS' /etc/mousedevice`" ] && ln -snf $MOUSEDEV /dev/mouse
+[ "`grep 'ttyS' /etc/mousedevice`" ] && ln $VERB -snf $MOUSEDEV /dev/mouse
 #### End mouse part Two ####
 
 
@@ -941,7 +991,7 @@ if [ -f /usr/bin/Xorg ];then # 7.0
      aPATTERN="s/.*#card0driver/    Driver      \"vesa\" #card0driver/g"
      cat /etc/X11/xorg.conf | sed -e "$aPATTERN" > "$tmpDir"/xorg.conf.tmp2
      if [ $? = 0 ]; then sync
-      cp -f "$tmpDir"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf Three
+      cp $VERB -f "$tmpDir"/xorg.conf.tmp2 /etc/X11/xorg.conf # CP new xorg.conf Three
       _notice "Now using the vesad driver"
      else
       _warn "Failed to change content of xorg.conf"
@@ -962,11 +1012,11 @@ __old_get_profile__(){
    #PROFILEMONITOR="`echo "$DDCPROBE" | grep --extended-regexp '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
 PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorname: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^dtiming: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorname: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`echo "$DDCPROBE" | grep '^dtiming: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR="`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 }
 
 #v2.13 want a hardware profile so can bootup on different PCs...
@@ -992,17 +1042,17 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$TMP_DIR"/ddcprobe.txt 
    #find out if current xorg.conf matches this profile...
    CURRENTPROFILE="`grep '^#PuppyHardwareProfile' /etc/X11/xorg.conf | cut -f 2 -d '=' | cut -f 1 -d ' '`"
 
-   if [ ! "$CURRENTPROFILE" = "$HARDWAREPROFILE" ];then # 8.1.1.1.0
+   if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ];then # 8.1.1.1.0
    echo "     detected PROFILE=$HARDWAREPROFILE"
    echo "old xorg.conf PROFILE=$CURRENTPROFILE"
     echo -e "\\033[0;31m"'Has hardware profile changed ?'
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
     echo "Moving now /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE}"
-    mv -f /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE} #### Rename One
+    mv $VERB -f /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE} #### Rename One
     #if a previous profiled filename for new hardware, use that...
     echo "Copying /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf if exists"
-    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf # CP new xorg.conf Four
+    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp $VERB -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf # CP new xorg.conf Four
 
    fi # 8.1.1.1.0
   fi # 8.1.1.0
@@ -1012,7 +1062,53 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$TMP_DIR"/ddcprobe.txt 
   echo "File /etc/X11/xorg.conf does not exists."
   echo "Running xorgwizard ..." && sleep 2s
   rm $VERB -f /var/lock/XLOADED #not necessary, precaution.
-  #1st dialog offers to use Xvesa...
+
+_leave_xwin(){
+  echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  echo "Need to run 'xorgwizard' to setup X environment."
+  #echo -n 'If X failed to start, type "xorgwizard" to setup X'
+  echo 'Evtl. press Enter..'
+  echo 'Type "xorgwizard" <Enter> to setup X.'
+  echo -e "\\033[0;39m"
+  exit 0
+}
+
+_get_free_console(){
+for oneT in `busybox ps -o tty | sort -u`
+do
+# echo $oneT
+case $oneT in 4,*) :;; *) continue;; esac
+tN=${oneT#*tty}
+ttyUSED=`echo -e "$ttyUSED\n$tN"`
+done
+ttyUSED=`echo "$ttyUSED" | sort -u | sort -n`
+#echo "ttyUSED='$ttyUSED'"
+for t in `seq 1 1 13`; do
+echo "$ttyUSED" | grep $Q -Fw "4,$t" && continue
+CHVT_NR=$t
+break
+done
+echo CHVT_NR=$CHVT_NR
+test "$CHVT_NR"
+}
+
+_do_xorgwizard(){
+  #echo "Running xorgwizard ..."
+  sleep 1s
+  rm $VERB -f /var/lock/XLOADED #not necessary, precaution.
+
+  TTY=`tty` || TTY=/dev/console
+  ttyNR=${TTY#*/dev/tty}
+  _get_free_console || _leave_xwin
+  openvt -sw -c $CHVT_NR /usr/sbin/xorgwizard
+  xorgwRV=$?
+  chvt $ttyNR
+  echo "xorgwRV=$xorgwRV"
+  sleep 1
+}
+_do_xorgwizard
+
+__do_xorgwizard(){
   /usr/sbin/xorgwizard
   xorgwRV=$?
   if test "$DEBUG"; then
@@ -1020,6 +1116,9 @@ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$TMP_DIR"/ddcprobe.txt 
     exit 78
    fi
   fi
+}
+
+  #1st dialog offers to use Xvesa...
   HAVEX="`readlink /usr/bin/X`"
   if [ "$HAVEX" = "Xvesa" ] ; then  ###KRG
   echo 'HAVEX is Xvesa'
