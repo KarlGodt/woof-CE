@@ -910,14 +910,7 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: ' | hea
  if [ ! -f /etc/X11/xorg.conf ];then #! -f xorg.conf
   echo "File /etc/X11/xorg.conf does not exists."
 
-xorgwizard_func(){
-  echo "Running xorgwizard ..."
-  sleep 1s
-  rm -f /var/lock/XLOADED #not necessary, precaution.
-  #1st dialog offers to use Xvesa...
-  /usr/sbin/xorgwizard
-}
-
+_leave_if_xorgwizard(){
   echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
   echo "Need to run 'xorgwizard' to setup X environment."
   #echo -n 'If X failed to start, type "xorgwizard" to setup X'
@@ -925,7 +918,42 @@ xorgwizard_func(){
   echo 'Type "xorgwizard" <Enter> to setup X.'
   echo -e "\\033[0;39m"
   exit 0
+}
 
+_get_free_console(){
+for oneT in `ps -o tty | sort -u`
+do
+# echo $oneT
+case $oneT in tty*) :;; *) continue;; esac
+tN=${oneT#*tty}
+ttyUSED=`echo -e "$ttyUSED\n$tN"`
+done
+ttyUSED=`echo "$ttyUSED" | sort -u | sort -n`
+echo "$ttyUSED"
+for t in `seq 1 1 13`; do
+echo "$ttyUSED" | grep -Fw "$t" && continue
+CHVT_NR=$t
+break
+done
+echo CHVT_NR=$CHVT_NR
+test "$CHVT_NR"
+}
+
+_do_xorgwizard(){
+  echo "Running xorgwizard ..."
+  sleep 1s
+  rm -f /var/lock/XLOADED #not necessary, precaution.
+
+  TTY=`tty` || TTY=/dev/console
+  ttyNR=${TTY#*/dev/tty}
+  _get_free_console || _leave_if_xorgwizard
+  openvt -sw -c $CHVT_NR /usr/sbin/xorgwizard
+  chvt $ttyNR
+  sleep 1
+}
+_do_xorgwizard
+
+  #1st dialog offers to use Xvesa...
   HAVEX=`readlink -qs /usr/bin/X`
   if [ "$HAVEX" = "Xvesa" ] ; then  ###KRG ##&& exec xwin #w482 need to restart xwin.
   echo "HAVEX='$HAVEX'"
