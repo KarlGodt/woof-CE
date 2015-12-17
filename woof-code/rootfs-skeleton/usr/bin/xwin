@@ -805,7 +805,7 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then  ###KRG
   #find location of video chip drivers...
 
-  SPECVESA=`find -L /usr/X11/lib /usr/lib  -xdev -type f -name vesa_drv.so` #### empty
+  SPECVESA=`find -L /usr/X11/lib /usr/lib  -xdev -type f -name vesa_drv.so | head -n1` #### empty
   #### find /usr/ -noleaf -mount -type f -name vesa_drv.so would not be empty ####
   if [ "$SPECVESA" ]; then # 7.1.1.0
    _notice "SPECVESA='$SPECVESA' and NOT empty"
@@ -820,8 +820,8 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
     ls -1 "$DRVRSPATH"/* | grep "$DRVRCURR" >/dev/null
     #echo 'ls -1 $DRVRSPATH/* returned:'"$?"':'
     if [ $? -ne 0 ]; then # 7.1.1.1.1.0
-     APATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
-     sed -e "$APATTERN" "$XORGCONFFILE" > "$TMP_DIR"/xorg.conf.tmp2
+     aPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
+     sed -e "$aPATTERN" "$XORGCONFFILE" > "$TMP_DIR"/xorg.conf.tmp2
      _sync
      echo "Copying $TMP_DIR/xorg.conf.tmp2 $XORGCONFFILE 2"
      cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf Three
@@ -842,7 +842,7 @@ if [ -f /usr/bin/Xorg ]; then # 8.0
  if [ -f "$XORGCONFFILE" ]; then # 8.1.0
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then # 8.1.1.0
 
-_get_current_hw_profile(){
+__get_current_hw_profile(){
    #PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
     PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: ' | cut -f 2-4 -d ' ' | tr '[[:blank:][:punct:]]' '_'`
     [ "$PROFILECHIP" ] || PROFILECHIP=`lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
@@ -870,21 +870,45 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -m1 '^monitorid: ' | cut -f 2 -d ':' | t
 [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
    HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
 }
-_get_current_hw_profile
-   #find out if current xorg.conf matches this profile...
-   CURRENTPROFILE=`grep '^#PuppyHardwareProfile=' "$XORGCONFFILE" | cut -f 2 -d '=' | cut -f 1 -d ' '`
+#__get_current_hw_profile
 
-   if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ]; then # 8.1.1.1.0
+_get_current_hw_profile(){  #from xorgwizard
+#v2.13 want a hardware profile so can bootup on different PCs...
+   PROFILECHIP=`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt     |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
+ PROFILEVENDOR=`grep -m1 '^vendor: ' "$TMP_DIR"/ddcprobe.txt  |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
+PROFILEPRODUCT=`grep -m1 '^product: ' "$TMP_DIR"/ddcprobe.txt |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
+[ "$PROFILECHIP" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
+## Dougal: maybe add "^monitorname: "??
+#PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$TMP_DIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' "$TMP_DIR"/ddcprobe.txt  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^dtiming: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt     | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+
+#  [ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
+   [ "$PROFILECHIP" ] || PROFILECHIP=UnidentifiedChip
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+}
+_get_current_hw_profile
+
+   HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
+   #find out if current xorg.conf matches this profile...
+   XORGCONFPROFILE=`grep '^#PuppyHardwareProfile=' "$XORGCONFFILE" | cut -f 2 -d '=' | cut -f 1 -d ' '`
+
+   if [ "$XORGCONFPROFILE" != "$HARDWAREPROFILE" ]; then # 8.1.1.1.0
     echo -e '\033[0;31m''Has hardware profile changed ?'
-    echo "xorg.conf CURRENTPROFILE='$CURRENTPROFILE'"
-    echo "detected HARDWAREPROFILE='$HARDWAREPROFILE'"
+    echo "xorg.conf XORGCONFPROFILE='$XORGCONFPROFILE'"
+    echo "detected  HARDWAREPROFILE='$HARDWAREPROFILE'"
     #exit 255
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
-    echo "Moving now $XORGCONFFILE $XORGCONFFILE.${CURRENTPROFILE}"
-    mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE"."${CURRENTPROFILE}" #### Rename One
+    echo "Moving now $XORGCONFFILE $XORGCONFFILE.${XORGCONFPROFILE}"
+    mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE"."${XORGCONFPROFILE}" #### Rename One
     #if a previous profiled filename for new hardware, use that...
-    echo -e "Copying $XORGCONFFILE.${HARDWAREPROFILE} $XORGCONFFILE if exists"'\033[0,39m'
+    echo -e "Copying $XORGCONFFILE.${HARDWAREPROFILE} $XORGCONFFILE if exists"'\033[0;39m'
     [ -f "$XORGCONFFILE.${HARDWAREPROFILE}" ] && cp $VERB -af "$XORGCONFFILE"."${HARDWAREPROFILE}" "$XORGCONFFILE" # CP new xorg.conf Four
 
    fi # 8.1.1.1.0
