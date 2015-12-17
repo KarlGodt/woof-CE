@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 #(c) Copyright Barry Kauler 2003,2004,2005,2006,2007 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #v3.90 rawpup, update for Xvesa.
@@ -139,7 +139,7 @@
 # TODO4: basename was missing var
 ########################################################################
 
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 TMP_DIR=/tmp/xwin  ##+++2011-11-05
@@ -158,6 +158,9 @@ else
 XORGCONFFILE=xorg.conf
 fi
 ##+++2012-01-30
+
+#just want one xorg.conf
+#to be able to edit in the testloop
 for f in "$XORGCONFFILE".d/*.conf
 do
 rm $VERB -f "$f"
@@ -165,7 +168,7 @@ done
 
 _notice "Starting xwin now,\$0='$0' \$*='$*'"
 
-#sleep 5
+[ "$DEBUG" ] && sleep 5
 
 #variables created at bootup by init script in initrd...
 . /etc/rc.d/PUPSTATE #v2.02
@@ -197,6 +200,53 @@ $1
 exit
 }
 
+# XORGWIZARD functions
+# REM: Want to start xorgwizard by openvt in another
+# console screen to be able to launch rc.launchxwin "once"
+_leave_if_xorgwizard_fails(){
+  echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  echo "Need to run 'xorgwizard' to setup X environment."
+  #echo -n 'If X failed to start, type "xorgwizard" to setup X'
+  echo 'Evtl. press Enter..'
+  echo 'Type "xorgwizard" <Enter> to setup X.'
+  echo -e "\\033[0;39m"
+  exit 0
+}
+
+_get_free_console(){
+for oneT in `/bin/ps -A -o tty | sort -u`
+do
+# echo $oneT
+case $oneT in tty*) :;; *) continue;; esac
+tN=${oneT#*tty}
+ttyUSED=`echo -e "$ttyUSED\n$tN"`
+done
+ttyUSED=`echo "$ttyUSED" | sort -u | sort -n`
+echo "$ttyUSED"
+for t in `seq 1 1 13`; do
+echo "$ttyUSED" | grep -Fw "$t" && continue
+CHVT_NR=$t
+break
+done
+echo CHVT_NR=$CHVT_NR
+test "$CHVT_NR"
+}
+
+_do_xorgwizard(){
+  echo "Running xorgwizard ..."
+  sleep 1s
+  rm -f /var/lock/XLOADED #not necessary, precaution.
+
+  TTY=`tty` || TTY=/dev/console
+  ttyNR=${TTY#*/dev/tty}
+  _get_free_console || _leave_if_xorgwizard_fails
+  openvt -sw -c $CHVT_NR /usr/sbin/xorgwizard
+  chvt $ttyNR
+  sleep 1
+}
+#END XORGWIZARD functions
+
+
 _old_parse_commandline()
 {
 pArams="$@"
@@ -226,8 +276,8 @@ echo pArams=$pArams
         elif [ ! -L /usr/bin/X ] ; then
         usage "/usr/bin/X is not a link.";exit
         else
-        rm -f /usr/bin/X
-        ln -s $xServer /usr/bin/X
+        rm $VERB -f /usr/bin/X
+        ln $VERB -s $xServer /usr/bin/X
         fi
 
 xServerOK=`readlink -f /usr/bin/X`
@@ -270,7 +320,7 @@ usage "Unknown windowmanager '$content' .";exit;fi
 esac
 done
 ###</KRG 2011-10-27>
-}
+} #_old_parse_commandline
 
 _check_wm(){
         test "$*" && wM="$*"
@@ -287,8 +337,8 @@ usage "'$xServer' not found in the PATH.";exit
         elif [ ! -L /usr/bin/X ] ; then
 usage "/usr/bin/X is not a link.";exit
         else
-         rm -f /usr/bin/X
-ln -s $xServer /usr/bin/X
+         rm $VERB -f /usr/bin/X
+ln $VERB -s $xServer /usr/bin/X
         fi
 
 xServerOK=`readlink -f /usr/bin/X`
@@ -390,8 +440,6 @@ fi # 1.0
 #       -o PID  Omit given pid
 #               Use %PPID to omit pid of pidof's parent
 
-#PIDOFS=`pidof -o $$ -o $PPID -o %PPID xwin`
-
 PIDOFS=`pidof -o $$ -o %PPID xwin`
 _info "PIDOFS='$PIDOFS'"
 wait || sleep 3s
@@ -437,12 +485,12 @@ Have now dropped down to the commandline. If you want to run the Xorg
 Video Wizard, type "xorgwizard", and after configuring '"$XORGCONFFILE"'
 (hopefully correctly this time!) type "xwin" to start X.'
     echo -e '\033[0;39m'
-    rm -f /var/lock/XLOADED #otherwise cannot start X.
+    rm $VERB -f /var/lock/XLOADED #otherwise cannot start X.
     ##sleep 9s
     ##chvt 1
-    exit # exit One
+    exit 0 # exit One
   else
-  rm /var/lock/XLOADED
+  rm $VERB /var/lock/XLOADED
   fi # 9.1.1.0
  else # 9.1.0
   echo "/var/lock/XLOADED is false"
@@ -558,7 +606,7 @@ ddcprobe_func
 echo -e '\033[0;31m''Begin XF86_SVGA part One ..'
 if [ "$HAVEX" = "XF86_SVGA" ]; then # 2.0
  #xf86config v3.3.6 creates config file at /etc, wrong place...
- [ -f /etc/XF86Config ] && mv -f /etc/XF86Config /etc/X11/XF86Config
+ [ -f /etc/XF86Config ] && mv $VERB -f /etc/XF86Config /etc/X11/XF86Config
 fi # 2.0
 echo -e '\033[0;34m''End XF86_sVGA part One.'
 #### End XF86_sVGA part One ####
@@ -575,17 +623,25 @@ _debug "HAVEX=Xvesa"
 #v3.99 begin
   if [ -f /etc/xorgoverrides ] && [ -n "`grep -q -f /etc/xorgoverrides $TMP_DIR/ddcprobe.txt`" ]; then # 3.1.1.0
    _notice "Found to override graphics chips from /etc/xorgoverrides in $TMP_DIR/ddcprobe.txt"
-   rm -f /var/lock/XLOADED  #not necessary, precaution.
-   #1st dialog offers to use Xvesa...
-   _notice "Starting now xorgwizard..." && sleep 1s
-   /usr/sbin/xorgwizard
-   test $? = 0 || exit 251
+
+   __overrides_start_xorgwizard(){
+    rm $VERB -f /var/lock/XLOADED  #not necessary, precaution.
+    #1st dialog offers to use Xvesa...
+    _notice "Starting now xorgwizard..." && sleep 1s
+    /usr/sbin/xorgwizard
+    test $? = 0 || exit 251
+   }
+
+   # REM: busybox openvt does not return the exitcode of
+   #      the executed command, -s only returns '0', -s -w '1'
+   _do_xorgwizard
+
    HAVEX=`readlink -qs /usr/bin/X`
    if [ "$HAVEX" != "Xorg" ] ; then  ##KRG
    echo "To start the Xorg server for Xvesa does not work for your hardware ,"
    echo "please run xorgwizard or type xwin (again)."
    echo "Exiting $0 now."
-   exit   #go to command line if not Xorg
+   exit 0  #go to command line if not Xorg
    fi  ###KRG
   fi # 3.1.1.0
  fi # 3.1.0
@@ -655,7 +711,7 @@ if [ "$HAVEX" = "Xvesa" ]; then #0.9.9 # 4.0
    if [ "$BASEMODE" ]; then # 4.1.1.3.0
     _warn "002:BASEMODE='$BASEMODE' and not empty"
     echo "$BASEMODE" > /etc/videomode #no need for wizard after startup!
-        rm -f "$TMP_DIR"/videomode  #w460 make sure can exit from X.
+        rm $VERB -f "$TMP_DIR"/videomode  #w460 make sure can exit from X.
    fi # 4.1.1.3.0
   fi  # 4.1.1.0
 
@@ -672,7 +728,7 @@ if [ "$HAVEX" = "Xvesa" ]; then #0.9.9 # 4.0
    fi # 4.1.2.1.0
   fi  # 4.1.2.0
 
-  rm -f "$TMP_DIR"/Xflag #precaution.
+  rm $VERB -f "$TMP_DIR"/Xflag #precaution.
   #...if "$TMP_DIR"/videomode exists, video-wizard is started in ~/.xinitrc
   #...note, if /etc/videomode exists instead, normal X startup.
  fi   # 4.1.0
@@ -700,8 +756,8 @@ not worked (or it did but you did not press the OK button in the
 Video-wizard). It is not feasible to run Puppy at any lower resolution
 or color. If you want to try again, type \"xwin\" at the prompt.
 It may be helpful to look in $TMP_DIR/xerrs.log for error messages ."
-    rm -f "$TMP_DIR"/videomode
-    rm -f "$TMP_DIR"/Xflag
+    rm $VERB -f "$TMP_DIR"/videomode
+    rm $VERB -f "$TMP_DIR"/Xflag
     echo "0x0111 640x480x16" > /etc/videomode #desparate.
     exit 0 # exit Two
    else # 10.1.1.1.0
@@ -759,9 +815,9 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then # 5.0
    esac
    sync
    echo "Copying $TMP_DIR/xorg.conf.tmp2 $XORGCONFFILE"
-   cp -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf One
+   cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf One
    sync
-   rm -f "$TMP_DIR"/xorg.conf.tmp2
+   rm $VERB -f "$TMP_DIR"/xorg.conf.tmp2
 
   fi # 5.1.1.0
  fi # 5.1.0
@@ -786,7 +842,7 @@ if [ ! -f /etc/mousebuttons ]; then # 6.0
    cat "$XORGCONFFILE" | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$TMP_DIR"/xorg.conf.tmp
    sync
    echo "Copying $TMP_DIR/xorg.conf.tmp $XORGCONFFILE"
-   cp -f "$TMP_DIR"/xorg.conf.tmp "$XORGCONFFILE" # CP new xorg.conf Two-1
+   cp $VERB -f "$TMP_DIR"/xorg.conf.tmp "$XORGCONFFILE" # CP new xorg.conf Two-1
   fi # 6.1.0
 
 
@@ -815,7 +871,7 @@ if [ -e /etc/xextraoptions ]; then # 13.0
 fi # 13.0
 
 #v424 bad hack, i somehow get /dev/mouse pointing to psaux when chose a serial mouse, don't know why...
-[ "`grep 'ttyS' /etc/mousedevice`" ] && ln -snf $MOUSEDEV /dev/mouse
+[ "`grep 'ttyS' /etc/mousedevice`" ] && ln $VERB -snf $MOUSEDEV /dev/mouse
 echo -e '\033[0;34m''End mouse part Two.'
 #### End mouse part Two ####
 
@@ -830,7 +886,7 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
   if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then  ###KRG
   #find location of video chip drivers...
 
-  SPECVESA=`find /usr/lib -noleaf -xdev -type f -name vesa_drv.so` #### empty
+  SPECVESA=`find -L /usr/X11/lib /usr/lib  -xdev -type f -name vesa_drv.so` #### empty
   #### find /usr/ -noleaf -mount -type f -name vesa_drv.so would not be empty ####
   if [ "$SPECVESA" ]; then # 7.1.1.0
    _notice "SPECVESA='$SPECVESA' and NOT empty"
@@ -849,7 +905,7 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
      sed -e "$APATTERN" "$XORGCONFFILE" > "$TMP_DIR"/xorg.conf.tmp2
      sync
      echo "Copying $TMP_DIR/xorg.conf.tmp2 $XORGCONFFILE 2"
-     cp -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf Three
+     cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 "$XORGCONFFILE" # CP new xorg.conf Three
     fi # 7.1.1.1.1.0
    fi # 7.1.1.1.0
   fi # 7.1.1.0
@@ -907,10 +963,10 @@ _get_current_hw_profile
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
     echo "Moving now $XORGCONFFILE $XORGCONFFILE.${CURRENTPROFILE}"
-    mv -f "$XORGCONFFILE" "$XORGCONFFILE"."${CURRENTPROFILE}" #### Rename One
+    mv $VERB -f "$XORGCONFFILE" "$XORGCONFFILE"."${CURRENTPROFILE}" #### Rename One
     #if a previous profiled filename for new hardware, use that...
     echo "Copying $XORGCONFFILE.${HARDWAREPROFILE} $XORGCONFFILE if exists"
-    [ -f "$XORGCONFFILE.${HARDWAREPROFILE}" ] && cp -af "$XORGCONFFILE"."${HARDWAREPROFILE}" "$XORGCONFFILE" # CP new xorg.conf Four
+    [ -f "$XORGCONFFILE.${HARDWAREPROFILE}" ] && cp $VERB -af "$XORGCONFFILE"."${HARDWAREPROFILE}" "$XORGCONFFILE" # CP new xorg.conf Four
 
    fi # 8.1.1.1.0
 
@@ -919,18 +975,24 @@ _get_current_hw_profile
 
  if [ ! -f "$XORGCONFFILE" ]; then # 8.2.0
   _notice "File $XORGCONFFILE does not exist."
-  _info "Running xorgwizard ..."
-  sleep 1s
-  rm -f /var/lock/XLOADED  #not necessary, precaution.
-  #1st dialog offers to use Xvesa...
-  /usr/sbin/xorgwizard
-  test $? = 0 || exit 252
+
+  __start_xorgwizard_if_no_xorg_conf(){
+   _info "Running xorgwizard ..."
+   sleep 1s
+   rm $VERB -f /var/lock/XLOADED  #not necessary, precaution.
+   #1st dialog offers to use Xvesa...
+   /usr/sbin/xorgwizard
+   test $? = 0 || exit 252
+  }
+
+  _do_xorgwizard
+
   HAVEX=`readlink -qs /usr/bin/X`
   if [ "$HAVEX" = "Xvesa" ] ; then  ###KRG
   _debug "HAVEX='$HAVEX' (Xvesa)"
   echo "Exiting now . Type 'xwin' to start Xvesa server."
   ##&& exec xwin #w482 need to restart xwin.
-  exit
+  exit 0
   fi  ###KRG
  fi # 8.2.0
 
@@ -945,10 +1007,10 @@ echo -e '\033[0;32m''Begin starting X part ..'
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
 #but if PC hangs, XLOADED will still be true, so will know it is broken.
 echo "true" > /var/lock/XLOADED
-rm -f /tmp/wmexitmode.txt
-rm -f "$TMP_DIR"/wmexitmode.txt
-#rm -f "$TMP_DIR"/videomode
-#rm -f /tmp/videomode
+rm $VERB -f /tmp/wmexitmode.txt
+rm $VERB -f "$TMP_DIR"/wmexitmode.txt
+#rm $VERB -f "$TMP_DIR"/videomode
+#rm $VERB -f /tmp/videomode
 
 case $HAVEX in
  Xvesa) #### Xvesa part Three ###
@@ -1029,21 +1091,20 @@ if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
  read WMEXITMODE <"$TMP_DIR"/wmexitmode.txt
  echo "WMEXITMODE='$WMEXITMODE'"
  if [ "$WMEXITMODE" = "exit" ]; then #see /usr/bin/wmexit. # 19.1.0
-  #[ $NUMXWINS -eq 1 ] && rm -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
-  rm -f "$TMP_DIR"/wmexitmode.txt #w478
-  rm -f /tmp/wmexitmode.txt
+  #[ $NUMXWINS -eq 1 ] && rm $VERB -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
+  rm $VERB -f "$TMP_DIR"/wmexitmode.txt #w478
+  rm $VERB -f /tmp/wmexitmode.txt
   echo "$0:Found '$WMEXITMODE' in $TMP_DIR/wmexitmode.txt ; exiting to prompt now."
-  exit # exit Three
+  exit 0 # exit Three
  fi # 19.1.0
 
- #rm -f "$TMP_DIR"/wmexitmode.txt ...no, removed in rc.shutdown.
- [ "$WMEXITMODE" = "poweroff" ] && exec /sbin/poweroff #see /usr/bin/wmpoweroff
- [ "$WMEXITMODE" = "reboot" ] && exec /sbin/reboot #see /usr/bin/wmreboot
+ [ "$WMEXITMODE" = "poweroff" ] && exec /sbin/poweroff #see also /usr/bin/wmpoweroff
+ [ "$WMEXITMODE" = "reboot" ]   && exec /sbin/reboot   #see also /usr/bin/wmreboot
 
  #restart window manager...
  #make a gross assumption, if wmexitmode.txt exists, haven't already exited this script, then want
  #to restart maybe with different window manager. /etc/windowmanager already has desired w.m.
- rm -f "$TMP_DIR"/wmexitmode.txt #definitely delete it now.
+ rm $VERB -f "$TMP_DIR"/wmexitmode.txt #definitely delete it now.
   #v1.0.5 thanks GuestToo for advice on this, works with chooselocale script...
   #NEWLANG="`cat /etc/profile | grep "LANG=" | cut -f 2 -d '='`"
   NEWLANG=`grep '^[[:blank:]]*LANG=' /etc/profile | tail -n 1| cut -f 2 -d '='` #w482 shinobar bugfix.
@@ -1117,5 +1178,5 @@ fi # 18.0
 echo -e '\033[0;34m''End of X failed.''\033[0;39m'
 #### End of X failed ####
 
-
-exit
+exit 0
+###END###
