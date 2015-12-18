@@ -211,26 +211,26 @@ _leave_if_xorgwizard_fails(){
 _get_free_console(){
 for oneT in `/bin/ps -A -o tty | sort -u`
 do
-# echo $oneT
-case $oneT in tty*) :;; *) continue;; esac
-tN=${oneT#*tty}
-ttyUSED=`echo -e "$ttyUSED\n$tN"`
+ _debugx "oneT='$oneT'"
+ case $oneT in tty*) :;; *) continue;; esac
+ tN=${oneT#*tty}
+ ttyUSED=`echo -e "$ttyUSED\n$tN"`
 done
 ttyUSED=`echo "$ttyUSED" | sort -u | sort -n`
-echo "$ttyUSED"
+_debug "ttyUSED='$ttyUSED'"
 for t in `seq 1 1 13`; do
-echo "$ttyUSED" | grep -Fw "$t" && continue
-CHVT_NR=$t
-break
+ echo "$ttyUSED" | grep $Q -Fw "$t" && continue
+ CHVT_NR=$t
+ break
 done
-echo CHVT_NR=$CHVT_NR
+_debug "CHVT_NR='$CHVT_NR'"
 test "$CHVT_NR"
 }
 
 _do_xorgwizard(){
   echo "Running xorgwizard ..."
   sleep 1s
-  rm -f /var/lock/XLOADED #not necessary, precaution.
+  rm $VERB -f /var/lock/XLOADED #not necessary, precaution.
 
   TTY=`tty` || TTY=/dev/console
   ttyNR=${TTY#*/dev/tty}
@@ -246,7 +246,7 @@ _check_wm(){
         if [ -z `which $wM` ] ; then
 usage "'$wM' not found in the PATH .";exit;
 else
-echo "wM='$wM'"
+_info "wM='$wM'"
 fi
 }
 
@@ -339,13 +339,6 @@ fi
 }
 _parse_commandline "$@"
 
-#0.9.9 enables to start a specific w.m. from commandline...
-if [ "$wM" ]; then # 1.0
- echo "$wM" > /etc/windowmanager
- #note, /root/.xinitrc uses this file.
-fi # 1.0
-
-
 # From Slackware 11
 # Standard functions for launching daemons
 #base=$(/usr/bin/basename $1)
@@ -359,10 +352,25 @@ fi # 1.0
 #       -o PID  Omit given pid
 #               Use %PPID to omit pid of pidof's parent
 
-PIDOFS=`pidof -o $$ -o %PPID xwin`
+PIDOFS=`pidof -o $$ -o %PPID ${MY_SELF##*/}`
 _info "PIDOFS='$PIDOFS'"
-#wait || sleep 3s
 
+DISP=0
+for oneP in $PIDOFS; do DISP=$((DISP+1)); done
+test "$DISP" || DISP=0
+test "$DISP" -ge 0 || DISP=0
+_debug "DISP='$DISP'"
+
+
+#0.9.9 enables to start a specific w.m. from commandline...
+if [ "$wM" ]; then # 1.0
+ echo "$wM" > /etc/windowmanager
+ echo "$wM" > "/etc/windowmanager.:$DISP"
+ #note, /root/.xinitrc uses this file.
+fi # 1.0
+
+
+__early_exit_if_multiple_instances(){
 if [ "$PIDOFS" ]; then
  echo -e '\033[0;31m'"More than one instance of xwin running : $PIDOFS -- exiting with 2"'\033[0;39m'
  PIDOFS="${PIDOFS// |/}"
@@ -423,7 +431,7 @@ _debug 'End XLOADED part.'
 else
 echo -e '\033[1;33m''This script will run X windows for you...''\033[0;39m'
 fi
-
+}
 
 #cd ~/   #v3.98 Ensure current directory is root, in case changed at command prompt,
 #so rox icon and menu item open only at home directory. rerwin
@@ -811,7 +819,7 @@ if [ -f /usr/bin/Xorg ]; then # 7.0
    _notice "SPECVESA='$SPECVESA' and NOT empty"
    DRVRSPATH=`dirname $SPECVESA`
    #get current driver...
-   DRVRCURR=`grep '#card0driver' "$XORGCONFFILE" | cut -f 2 -d '"'` #'
+   DRVRCURR=`grep -E '#card[0-9]+driver' "$XORGCONFFILE" | grep -v '^[[:blank:]]*#' | cut -f 2 -d '"' | head -n1`
 
    if [ "$DRVRCURR" ]; then # 7.1.1.1.0
     _info "DRVRCURR='$DRVRCURR' and NOT empty"
@@ -973,26 +981,26 @@ case $HAVEX in
   if [ ! "$VIDFREQ" ]; then # 14.2.0
    echo "$VIDMODE" > "$TMP_DIR"/currentvideomode
    #w460 added -fp and -sp options...
-   /usr/bin/xinit $HOME/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xvesa.log 2>&1
+   /usr/bin/xinit $HOME/.xinitrc -- :$DISP -mode $VIDMODE $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xvesa.log 2>&1
   else # 14.2.0
    #also, want to have adjustable frequency, VIDSCRN=widthxheightxdepthxfreq...
    echo "$VIDSCRN" > "$TMP_DIR"/currentvideomode
-   /usr/bin/xinit $HOME/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xvesa.log 2>&1
+   /usr/bin/xinit $HOME/.xinitrc -- :$DISP -screen $VIDSCRN $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xvesa.log 2>&1
   fi # 14.2.0
   ;; #### End Xvesa part Three
 
  Xfbdev) #### Begin XFbdev
   _notice "Starting X with Xfbdev Kdrive X server, mouse '$MOUSEDEV' .."
-  /usr/bin/xinit $HOME/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xfbdev.log 2>&1
+  /usr/bin/xinit $HOME/.xinitrc -- :$DISP -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xfbdev.log 2>&1
   ;; #### End XFbdev
  Xi810) #v1.0.7 #### Begin Xi810 part
   _notice "Starting X with Xi810 Kdrive X server, mouse '$MOUSEDEV' .."
   #echo "(experimental, currently fixed to 1024x768x16x72 in /usr/bin/xwin)"
-   /usr/bin/xinit $HOME/.xinitrc -- -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xi810.log 2>&1
+   /usr/bin/xinit $HOME/.xinitrc -- :$DISP -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xi810.log 2>&1
   ;; #### End Xi810
  XF86_SVGA) #### Begin XF86_SVGA
   _notice "Starting X with XF86_SVGA server , specs in /etc/X11/XF86Config, startup apps $HOME/.xinitrc..."
-  /usr/bin/xinit $HOME/.xinitrc -- -bpp 16 > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xf86_svga.log 2>&1
+  /usr/bin/xinit $HOME/.xinitrc -- :$DISP -bpp 16 > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xf86_svga.log 2>&1
   ;;#### End XF86_SVGA
 
  Xorg) #### Begin Xorg
@@ -1006,10 +1014,10 @@ case $HAVEX in
   #     if have '-nolisten tcp'. until find out why, this workaround...
 
   if [ "$KERNEL" = "2.6.18.8" ]; then # 14.3.0
-   /usr/bin/xinit $HOME/.xinitrc -- -br > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xorg.log 2>&1
+   /usr/bin/xinit $HOME/.xinitrc -- :$DISP -br > "$TMP_DIR"/xerrs."$KERNEL"."$Date".Xorg.log 2>&1
 
   else # 14.3.0
-   /usr/bin/xinit $XinitXorgVars -- /usr/bin/X :0 -logfile "$Log" -nolisten tcp > "$ErrLog" 2>&1
+   /usr/bin/xinit $XinitXorgVars -- /usr/bin/X :$DISP -logfile "$Log" -nolisten tcp > "$ErrLog" 2>&1
   fi # 14.3.0
   ;; #### End Xorg
 
@@ -1017,7 +1025,7 @@ case $HAVEX in
  _notice "Starting X with anything else Xserver ..."
  sleep 1s
   #### Begin everything different from Xorg,Xvesa and co.
-  /usr/bin/xinit $HOME/.xinitrc --  > "$TMP_DIR"/xerrs."$KERNEL"."$Date".OtherX.log 2>&1
+  /usr/bin/xinit $HOME/.xinitrc -- :$DISP > "$TMP_DIR"/xerrs."$KERNEL"."$Date".OtherX.log 2>&1
   ;; #### End
 esac
 _debug 'End start X part.'
