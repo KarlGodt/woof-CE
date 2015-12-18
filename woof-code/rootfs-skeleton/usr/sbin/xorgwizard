@@ -93,7 +93,7 @@ _trap
  XORG_DRIVER_DIR=`realpath "$XORG_DRIVER_DIR"`
 test -d "$XORG_DRIVER_DIR" || _warn "Could not set XORG_DRIVER_DIR"
 
-REC_VIDEO_MODE="800x600x16" #default recommended mode.
+REC_VIDEO_MODE="800x600x16" #default recommended video resolution mode.
 
 TMP_DIR='/tmp/xorgwizard'
 rm $VERB -rf "$TMP_DIR"/*.conf
@@ -128,7 +128,6 @@ alias modprobe='modprobe -b' #+++2012-02-03
 # redirect errors to file (to help debug):
 #exec 2>"$TMP_DIR"/xorgwizard-errors.log
 
-PSFND=`ps`
 CURRENTX=`readlink /usr/bin/X`
 if [ "$CURRENTX" = "" ]; then #w007 fix if not a symlink.
  if [ -x /usr/bin/Xorg ]; then
@@ -147,6 +146,8 @@ if [ "$CURRENTX" = "" ]; then #w007 fix if not a symlink.
 fi
 
 . /etc/rc.d/functions4puppy4 #v411 has choosemousefunc().
+
+_pidof -o $$ -o %PPID ${MY_SELF##*/} && _exit 1 "Already running."
 
 #v2.0.0
 #read the console keymap (country layout), apply to xkb...
@@ -185,11 +186,13 @@ MAIN1="
   <text><label>\"Welcome to the Puppy Linux
 Xorg Video Wizard!\"</label></text>
   <text><label>\"The behaviour of Xorg is controlled
-by a configuration file, /etc/X11/
-xorg.conf. You have a choice here,
-either to completely reconstruct
-the $XORGCONFFILE file, or
-to modify the existing file.\"</label></text>
+by a configuration file,
+$XORGCONFFILE .
+You have several choices to modify
+screen settings here,
+or to completely reconstruct
+the $XORGCONFFILE file,
+or to modify the existing file.\"</label></text>
  </vbox>
  <vbox>
   <frame XorgWizard>
@@ -228,18 +231,6 @@ to modify the existing file.\"</label></text>
    </hbox>
   </frame>
 
-  <frame Mouse/keyboard Wizard>
-   <hbox>
-    <text><label>$XORGCONFFILE has generic settings for mouse and keyboard and in most cases it is recommended to leave it as-is. Instead, use the MouseKeyboardWizard:</label></text>
-    <vbox>
-     <button>
-      <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
-      <action>EXIT:16</action>
-     </button>
-    </vbox>
-   </hbox>
-  </frame>
-
   <frame Monitor gamma calibration>
    <hbox>
     <text><label>This will adjust the monitor colors, including brightness. Note, cannot save settings -- a project here for someone -- see /usr/share/doc/tkgamma.txt</label></text>
@@ -264,13 +255,26 @@ to modify the existing file.\"</label></text>
    </hbox>
   </frame>
 
+  <frame Mouse/keyboard Wizard>
+   <hbox>
+    <text><label>$XORGCONFFILE has generic settings for mouse and keyboard and in most cases it is recommended to leave it as-is. Instead, use the MouseKeyboardWizard:</label></text>
+    <vbox>
+     <button>
+      <input file>/usr/local/lib/X11/mini-icons/wizard16.xpm</input>
+      <action>EXIT:16</action>
+     </button>
+    </vbox>
+   </hbox>
+  </frame>
+
  </vbox>
 </hbox>
 "
 
 
 #do this code block if X is running...
-if [ "`echo -n "$PSFND" | grep "\\.xinitrc"`" != "" ]; then
+PSFND=`ps`
+if [ "`echo "$PSFND" | grep '\.xinitrc'`" ]; then
 
  RETSTR=`echo "$MAIN1" | gtkdialog2 --stdin`
  RETVAL=`echo "$RETSTR" | grep 'EXIT:' | cut -f 2 -d ':'`
@@ -349,6 +353,8 @@ To exit without changing xorg.conf, click 'Quit' button..."
    which xrandrshell || exit $((18+128))
    exec xrandrshell
    ;;
+  '') .;; # Closed by window manager title bar: No RETVAL
+  *) _err "Unhandled Exitcode $RETVAL from gtkdialog GUI."
  esac
  exit 0
 fi
