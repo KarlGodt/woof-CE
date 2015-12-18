@@ -45,6 +45,7 @@ fi
 
 #CURRENTWM="`cat /etc/windowmanager`"
 read CURRENTWM </etc/windowmanager  #|| CURRENTWM=jwm #CURRENTWM=none
+test -s "/etc/windowmanager.$DISPLAY" && read CURRENTWM <"/etc/windowmanager.$DISPLAY"
 [ "$CURRENTWM" ] || CURRENTWM=jwm
 echo "CURRENTWM='$CURRENTWM'"
 
