@@ -14,22 +14,21 @@
 
 PROG='/usr/sbin/delayedrun'
 
-
 #variables created at bootup by /initrd/usr/sbin/init...
 . /etc/rc.d/PUPSTATE
 
 KERNVER="`uname -r`" #w481
-
-PCICLASS="`cat /sys/bus/pci/devices/*/class`"
-if [ "`echo $PCICLASS | grep '0x0c0320'`" ] && [ "`lsmod | grep 'ehci_hcd'`" = "" ] ;then modprobe $VERB ehci-hcd
- [ $? -eq 0 ] && sleep 2
-fi
-[ "`echo $PCICLASS | grep '0x0c0310'`" ] && [ "`lsmod | grep 'ohci_hcd'`" == "" ] && modprobe $VERB $Q ohci_hcd
-[ "`echo $PCICLASS | grep '0x0c0300'`" ] && [ "`lsmod | grep 'uhci_hcd'`" == "" ] && modprobe $VERB $Q uhci_hcd
-
-
 BAREVIEW="bareview"
 [ "`which bareview`" ] || BAREVIEW="defaulthtmlviewer"
+
+
+# load usb hid driver last attempt...
+PCICLASS="`cat /sys/bus/pci/devices/*/class`"
+if [ "`echo $PCICLASS | grep '0x0c0320'`" ] && [ "`lsmod | grep 'ehci_hcd'`" = "" ] ;then modprobe $Q $VERB ehci-hcd
+ [ $? -eq 0 ] && sleep 2
+fi
+[ "`echo $PCICLASS | grep '0x0c0310'`" ] && [ "`lsmod | grep 'ohci_hcd'`" == "" ] && modprobe $Q $VERB $Q ohci_hcd
+[ "`echo $PCICLASS | grep '0x0c0300'`" ] && [ "`lsmod | grep 'uhci_hcd'`" == "" ] && modprobe $Q $VERB $Q uhci_hcd
 
 sleep 2 #let the dust settle first.
 
@@ -37,66 +36,113 @@ sleep 2 #let the dust settle first.
 CURRPS="`ps`"
 [ "`echo "$CURRPS" | grep -E 'lxpanel|fbpanel'`" ] && freememappletd
 
+test "`which retrovol`" && {
+ HIDE=`retrovol --help 2>&1 | grep 'hide'`
+ test "$HIDE" && HIDE=-hide
+ _debug "HIDE=$HIDE"
+ BG=`retrovol --help 2>&1 | grep 'bg'`
+ _debug "BG=$BG"
+ test "$BG" && {
+ read CWM </etc/windowmanager
+ DISP=${DISPLAY%.*}
+ test -s "/etc/windowmanager.$DISP" && read CWM <"/etc/windowmanager.$DISP"
+ _debug "CWM=$CWM"
+ case $CWM in
+ *jwm*)  if test -f $HOME/.jwm/jwm_colors; then
+         . $HOME/.jwm/jwm_colors
+         BG=-bg; BG_COLOR="$PAGER_BG"
+         else
+         _notice "$HOME/.jwm/jwm_colors not a file"
+         unset BG
+         fi
+         ;;
+ *) unset BG;;
+ esac
+ }
+(
+_debug "HIDE='$HIDE' BG='$BG' BG_COLOR='$BG_COLOR'"
+if test "$BG" -a "$BG_COLOR"; then
+exec retrovol $HIDE $BG $BG_COLOR &
+else
+exec retrovol $HIDE &
+fi
+)
+}
+
+#v2.17 suggested by andrei...
+if [ -d $HOME/Startup ];then
+ for a in $HOME/Startup/*
+ do
+  [ -f "$a" -a -x "$a" ] && {
+  _info "Starting $a"
+  exec $a &   #### $HOME/Startup/$a
+  #$a &
+  }
+  sleep 1
+ done
+fi
+
 if [ $PUPMODE -eq 5 ];then
 #offer to popup a getting-started html page...
 #the test for /etc/videomode is for when Xvesa has finished choosing a resolution...
  if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
   if [ "`ls -1 /lib/modules/${KERNVER}/modules.* 2>/dev/null`" = "" ];then #w481
    #thistle is a very light purple...
-   yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information. WARNING: all required kernel modules were not loaded due to restricted RAM. You need to reboot to create a save-file on the hard drive and/or you need a swap file/partition to obtain more space. If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." &
+   DISP=${DISPLAY%.*}
+   yaf-splash -display $DISP -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information.
+WARNING: all required kernel modules were not loaded due to restricted RAM.
+You need to reboot to create a save-file on the hard drive
+and/or you need a swap file/partition to obtain more space.
+If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." & YAFPID=$!
   else
    #thistle is a very light purple...
-   yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information" &
+   yaf-splash -display :0 -margin 2 -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Click here for getting-started information" & YAFPID=$!
   fi
-  RETVALs=$?
-  YAFPIDs=$!
+  RETVAL=$?
+
   LOOPCNT=0
   while [ $RETVALs -eq 0 ];do #only do this if X running.
-   usleep 500000 #sleep 1
-   LOOPCNT=`expr $LOOPCNT + 1`
+   usleep 500000 #sleep 0.5
+   LOOPCNT=$((LOOPCNT + 1))
    [ $LOOPCNT -gt 110 ] && break #55 second timeout.
-   [ "`pidof yaf-splash`" ] && continue
+   [ "`ps -o pid | grep -w "$YAFPID"`" ] && continue
    #bark and put up the getting started message...
-   if [ ! "`grep 'alias snd\-card\-0' /etc/modprobe.conf`" = "" ];then
-    aplay /usr/share/audio/2barks.au &
+   if [ "`grep -e 'alias snd-card-0' /etc/modprobe.conf`" ];then
+    aplay /usr/share/audio/2barks.au & PIDAPLAY=$!
     #wavplay /usr/share/audio/2barks.wav &
     RETAPLAY=$?
-    PIDAPLAY=$!
    fi
    $BAREVIEW file:///usr/share/doc/welcome1stboot.htm &
    #[ $RETAPLAY -eq 0 ] && kill $PIDAPLAY 2>$ERR
    [ "`pidof aplay`" ] && killall aplay
    break
   done
-  [ $RETVALs -eq 0 ] && kill $YAFPIDs 2>$ERR
+  [ $RETVAL -eq 0 ] && kill $YAFPID 2>>$ERR
  fi
 fi
 
 #v2.16 popup the BootManager if an extra SFS file added (once only)...
-if [ ! $PUPMODE -eq 5 ] && [ -d /initrd ]; then
-# if [ -d /initrd ];then #test it isn't full hd installation.
+#if [ ! $PUPMODE -eq 5 ] && [ -d /initrd ]; then
+case $PUPMODE in 2|5) :;;
+*)
   . /etc/rc.d/BOOTCONFIG
-  #if EXTRASFSLIST variable not there, then auto-load of SFS files (meaning, user
-  # has probably never run the BootManager)...
-#if [ "`grep '^EXTRASFSLIST' /etc/rc.d/BOOTCONFIG`" = "" ];then
 if test ! "$EXTRASFSLIST"; then
    #see /initrd/init which writes these to BOOTCONFIG..
 if [ "$LASTUNIONRECORD" ] && [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ]; then
-    #if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then
      bootmanager extrasfs quiet
-    #fi
-   fi
-  fi
-# fi
 fi
+fi
+;;
+esac
+#fi
 
 _warn_usb(){
 #v2.16 popup a warning if booting from usb flash...
 #if [ "$PMEDIA" = "usbflash" ];then
  test -b /dev/"$PDEV1" || return 1
  readlink /sys/class/block/$PDEV1 | grep $Q usb || return 2
- yaf-splash -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
- X1PID=$!
+ case $PUPMODE in 5) grep $Q /initrd/mnt/tmpfs /proc/mounts && return 3;; esac
+ yaf-splash -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" & X1PID=$!
  X1RET=$?
  sleep 3
  [ $X1RET -eq 0 ] && kill $X1PID
@@ -104,51 +150,8 @@ _warn_usb(){
 }
 
 case $PUPMODE in
-5|7|13)
- _warn_usb
-;;
+5|7|13) _warn_usb;;
 esac
-
-
-test "`which retrovol`" && {
-HIDE=`retrovol --help 2>&1 | grep 'hide'`
-test "$HIDE" && HIDE=-hide
-echo "HIDE=$HIDE"
-BG=`retrovol --help 2>&1 | grep 'bg'`
-echo "BG=$BG"
-test "$BG" && {
- read CWM </etc/windowmanager
- echo "CWM=$CWM"
- case $CWM in
- *jwm*)  if test -f $HOME/.jwm/jwm_colors; then
-         . $HOME/.jwm/jwm_colors
-         BG=-bg; BG_COLOR="$PAGER_BG"
-         else
-         echo "$HOME/.jwm/jwm_colors not a file"
-         unset BG
-         fi
-         ;;
- *) unset BG;;
- esac
-}
-echo "HIDE=$HIDE BG=$BG BG_COLOR=$BG_COLOR"
-retrovol $HIDE $BG $BG_COLOR &
-}
-
-#v2.17 suggested by andrei...
-
-if [ -d $HOME/Startup ];then
- #EXEF=`ls /root/Startup | grep -v -i 'Readme'`
- # cd $HOME/Startup
- for a in $HOME/Startup/* #### $EXEF
- do
-  [ -f "$a" -a -x "$a" ] && { echo "Starting $a"
-  #exec $a &   #### $HOME/Startup/$a
-  $a &
-}
-  sleep 1
- done
-fi
 
 #cd $HOME
 if [ "$PROG" != "$0" ] ; then
