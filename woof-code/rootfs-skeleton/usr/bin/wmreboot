@@ -38,17 +38,68 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
+DISP=${DISPLAY%.*}
+for i in "" ".$DISP"
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+done
+
+# get session leader pid
+#ps -A -o sid,tty,pid,args | grep -w jwm
+# get list of progs of session leader and tty to get display(s)
+#ps -A -o sid,tty,pid,args | grep -w 5580 | grep -w X | grep ' :[0-9]'
+
+
+
+# REM: first needs to kill any other xinit wm X than the current
+#      one responsible for DISPLAY
+
+DISP=${DISPLAY%.*}
+#ls -1 /etc/windowmanager* |
+while read f
+do
+case $f in *windowmanager|*windowmanager.$DISP) continue;; esac
+read OTHERWM <"$f"
+ #/bin/ps -A -o sid,tty,pid,args | grep -w "$OTHERWM" | grep -vE 'grep|ps' |
+ while read slpid t p A
+ do
+  ALL_OF_SL=`/bin/ps -A -o sid,tty,pid,args | grep -w "$slpid"`
+  SL_PID="$SL_PID`/bin/ps -A -o sid,tty,pid,args | grep -w "$slpid" | grep -w X | grep -vE 'grep|/bin/ps' | awk '{print $3}'`\n"
+  SL_DISP="$SL_DISP`/bin/ps -A -o sid,tty,pid,args | grep -w "$slpid" | grep -w X | grep ' :[0-9]' | grep -E -o 'X :[0-9]+' | grep -vE 'grep|/bin/ps' | awk '{print $2}'`\n"
+  for ad in $SL_DISP; do test "$ad" = "$DISP" || KILL_PID="$KILL_PID$p\n"; done
+ done <<EoI
+`/bin/ps -A -o sid,tty,pid,args | grep -w "$OTHERWM" | grep -vE 'grep|ps'`
+EoI
+done <<EoI
+`ls -1 /etc/windowmanager*`
+EoI
+
+
+SL_PID=`echo -e $SL_PID | sort -u | sed '/^$/d'`
+echo "SL_PID='$SL_PID'"
+/bin/ps -A -o pid,ppid,args 2>$ERR | grep -w "$SL_PID" | grep -vE 'grep|/bin/ps|xinit'
+XPID=`/bin/ps -A -o pid,ppid,args 2>$ERR | grep -w "$SL_PID" | grep -vE 'grep|/bin/ps|xinit' | awk *{print $1}'`
+
+KILL_PID=`echo -e $KILL_PID | sort -u | sed '/^$/d'`
+echo "KILL_PID='$KILL_PID'"
+
+for aP in $KILL_PID; do kill $aP; done
+sleep 1
+#for aP in $SL_PID; do kill $aP; done
+for aP in $XPID; do kill $aP; done
+
+_pidof tempget && killall tempget
+
 #w003
 #CURRENTWM="`cat /etc/windowmanager`"
 DISP=${DISPLAY%.*}
 for i in ".$DISP" ""
 do
 unset CURRENTWM
-test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
 test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
 done
-
-pidof tempget && killall tempget
 
 sleep 1
 _get_current_x(){
