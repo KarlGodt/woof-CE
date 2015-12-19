@@ -3,7 +3,7 @@
 #called from /root/.fvwm95rc, .jwmrc at shutdown.
 
 pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
-test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
@@ -15,6 +15,8 @@ echo "reboot" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
 echo -n "    ...Waiting for pup_event_frontend_d to stop"
 killall pup_event_frontend_d
 sleep 1
+
+_wait_for_frontend_d(){
 KCNT=0
 PSPEFD="`_command ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'ps|defunct|grep'`"
 #while [ "`pidof pup_event_frontend_d`" != "" ];do
@@ -25,8 +27,9 @@ while [ "$PSPEFD" != "" ];do
  PSPEFD="`_command ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'ps|defunct|grep'`"
 done
 sleep 0.2
+}
 
-pidof sync || sync
+_sync
 
 #w003
 if [ "`pidof xfce4-panel`" != "" ];then
@@ -37,11 +40,23 @@ fi
 
 #w003
 #CURRENTWM="`cat /etc/windowmanager`"
-read CURRENTWM </etc/windowmanager
-test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"`
+DISP=${DISPLAY%.*}
+for i in ".$DISP" ""
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager
+test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
+done
+
 pidof tempget && killall tempget
 
-killall X #default is SIGTERM.
+sleep 1
+_get_current_x(){
+ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
+}
+kill -15 `_get_current_x`
+
+#killall X #default is SIGTERM.
 sleep 1           #v1.0.7
 #exec killall -9 X #v1.0.7 make sure X is killed.
 
