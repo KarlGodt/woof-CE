@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/ash
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 PROG='/root/.xinitrc'
-echo "$0"
-echo "$0:HOME='$HOME'"
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+
+. /etc/rc.d/f4puppy5
+_notice "HOME='$HOME'"
+_debug "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 . /etc/rc.d/PUPSTATE
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
@@ -15,45 +16,28 @@ fi
 [ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
 
 # merge in defaults and keymaps ..
-sysresources=/usr/lib/X11/xinit/Xresources
-[ -f $sysresources ] && xrdb -merge -nocpp $sysresources
+sysresources=/usr/X11/lib/X11/xinit/Xresources
+[ -f "$sysresources" ] && xrdb -merge -nocpp "$sysresources"
 userresources=$HOME/.Xresources
-[ -f $userresources ] && xrdb -merge -nocpp $userresources
+[ -f "$userresources" ] && xrdb -merge -nocpp "$userresources"
 
-sysmodmap=/usr/lib/X11/xinit/.Xmodmap
-[ -f $sysmodmap ] && xmodmap $sysmodmap
+sysmodmap=/usr/X11/lib/X11/xinit/.Xmodmap
+[ -f "$sysmodmap" ] && xmodmap "$sysmodmap"
 usermodmap=$HOME/.Xmodmap
-[ -f $usermodmap ] && xmodmap $usermodmap
-
-old_func(){
-if [ -f $sysresources ]; then
-    xrdb -merge -nocpp $sysresources
-fi
-
-if [ -f $sysmodmap ]; then
-    xmodmap $sysmodmap
-fi
-
-if [ -f $userresources ]; then
-    xrdb -merge -nocpp $userresources
-fi
-
-if [ -f $usermodmap ]; then
-    xmodmap $usermodmap
-fi
-}
+[ -f "$usermodmap" ] && xmodmap "$usermodmap"
 
 #CURRENTWM="`cat /etc/windowmanager`"
 read CURRENTWM </etc/windowmanager  #|| CURRENTWM=jwm #CURRENTWM=none
-test -s "/etc/windowmanager.$DISPLAY" && read CURRENTWM <"/etc/windowmanager.$DISPLAY"
+DISP=${DISPLAY%.*} #get rid of ':1.0' .0
+test -s "/etc/windowmanager.$DISP" && read CURRENTWM <"/etc/windowmanager.$DISP"
 [ "$CURRENTWM" ] || CURRENTWM=jwm
-echo "CURRENTWM='$CURRENTWM'"
+_info "CURRENTWM='$CURRENTWM'"
 
 if [ "$CURRENTWM" = "startkde" ];then
  exec startkde
 fi
 
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+_debug "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 #0.9.8 sync selection-buffer and clipboard. only useful for older apps
 #such as rxvt that use the selection-buffer...
 [ -f /usr/bin/autocutsel ] && /usr/bin/autocutsel &
@@ -72,16 +56,16 @@ if [ -f /etc/xrandrindex ];then
   XRANDRINDEX=`cat /etc/xrandrindex` #v3.99 XRANDRINDEX now is XxY resolution.
   #but do not switch if default is already this resolution....
   if [ "$XRANDRINDEX" = "$XYDEFAULT" ];then
-   rm -f /etc/xrandrindex
+   rm $VERB -f /etc/xrandrindex
   else
    xrandr -s $XRANDRINDEX
   fi
 fi
 
-echo "$0:/root/.xset.sh ..."
+_info "/root/.xset.sh ..."
 if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
- echo "$0:Evaluating /root/.xset.sh"
+ _notice "Evaluating /root/.xset.sh"
  eval "/root/.xset.sh"
 else
  ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
@@ -91,17 +75,18 @@ else
  # xset fp+ /usr/share/fonts/default/Type1/
  # xset fp+ /usr/share/fonts/default/TTF/
  #fi
- echo "$0:Setting xset s 600 600 s blank"
+ _notice "Setting xset s 600 600 s blank"
  xset s 600 600 s blank
 fi
 
 #v1.0.7 also see /etc/rc.d/rc.local0
 echo "$0:/root/.fonts/fonts.dir .."
 if [ -f /root/.fonts/fonts.dir ];then
- echo "$0:xset fp+ /root/.fonts/"
+ _info "xset fp+ /root/.fonts/"
  xset fp+ /root/.fonts/
 fi
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+
+_debug "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
 
 if [ "$CURRENTWM" != 'enlightenment_start' ]; then
@@ -119,17 +104,19 @@ if [ "$CURRENTWM" != 'enlightenment_start' ]; then
 #rox -p=
 
 #v2.0.0
+else
+ exec dbus-uuidgen --ensure &
 fi
 
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
-echo "$0:/etc/mousehide ..."
+_info "/etc/mousehide ..."
 if [ -f /etc/mousehide ];then
  IDLETIME=`cat /etc/mousehide | cut -f 1 -d ','`
-  echo "$0:IDLETIME='$IDLETIME' OR unclutter .."
+  _notice "IDLETIME='$IDLETIME' OR unclutter .."
  [ "$IDLETIME" = "0" ] || unclutter -idle $IDLETIME &
 fi
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+_debug "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
 #which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
 #...no, now doing it differently, see /usr/sbin/fixmenus
@@ -149,28 +136,35 @@ if [ -f /usr/bin/absvolume ];then
  fi
 fi
 
-##w468 rox may not start old hardware, try again...
-#PS="`ps`"
-#if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
-# touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
-# sleep 0.2
-# rox -p /root/Choices/ROX-Filer/PuppyPin
-#fi
+__restart_rox__(){
+#w468 rox may not start old hardware, try again...
+PS="`ps`"
+if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
+ touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
+ sleep 0.2
+ rox -p /root/Choices/ROX-Filer/PuppyPin
+fi
+}
 
-if [ "$CURRENTWM" != "enlightenment_start" ] ; then
+case $CURRENTWM in enlightenment_start) :;; *)
+( while :;do pidof ROX-Filer >>$OUT && break; rox -p /root/Choices/ROX-Filer/PuppyPin; sleep 1; done ) &
+;; esac
+
+
 #v4.01 BK daemon to handle kernel uevents...
 #( /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
 ( /sbin/pup_event_frontend_d ) & #v403
-else
-dbus-uuidgen --ensure &
-fi
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
-( if test ! -f $HOME/Startup/fbxkb*; then
-setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
-sleep 2s; which fbxkb && fbxkb &
-fi ) &
 
-echo "$0:/usr/sbin/delayedrun &"
+_debug "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+(
+if test ! -f $HOME/Startup/fbxkb*; then
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+sleep 2s
+which fbxkb >>$OUT && exec fbxkb &
+fi
+) &
+
+_info "/usr/sbin/delayedrun &"
 /usr/sbin/delayedrun &
 
 if [ "$CURRENTWM" = "xfwm4" ];then
@@ -189,16 +183,13 @@ fi
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
-echo "$0:LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
-echo "$0:exec '$CURRENTWM'"
+_notice "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+_notice "exec '$CURRENTWM'"
 exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM && exec $CURRENTWM
-[ -x $CURRENTWM ] && exec $CURRENTWM
+which "$CURRENTWM" >>$OUT && exec $CURRENTWM
+[ -x "$CURRENTWM" ] && exec $CURRENTWM
 exec awesome
-sleep 180
+#sleep 180
 #killall delayedrun
-
-
-
 ###END###
