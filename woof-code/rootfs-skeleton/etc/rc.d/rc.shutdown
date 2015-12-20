@@ -99,7 +99,7 @@ test "$ERR" || ERR=/dev/null
 test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE #v2.02
 Err=$?
 
-echo "PUPMODE='$PUPMODE'"
+_debug "PUPMODE='$PUPMODE'"
 if [ -z "$PUPMODE" ] ; then  ###KRG
 if [ -n "`rdev`"  ]; then
 echo 'rdev='`rdev`
@@ -107,13 +107,16 @@ PUPMODE=2
 else ###KRG assuming 12
 PUPMODE=12
 fi
-echo "PUPMODE='$PUPMODE'"
+_debug "PUPMODE='$PUPMODE'"
 fi
 
 test $PUPMODE = 2 && {
+case "$DEV1FS" in ext[2-4])
 echo "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+;;
+esac
 }
 
 #v2.20b make shutdown less verbose...
@@ -123,7 +126,7 @@ echo
 #w482 use xorriso if it is installed (see also functions4puppy)...
 CDRECORD='cdrecord'
 MKISOFS='mkisofs'
-if [ "`which xorriso`" != "" ];then
+if [ "`which xorriso`" ];then
  CDRECORD='xorrecord'
  MKISOFS='xorrisofs' #growisofs reads this variable.
 fi
@@ -153,7 +156,7 @@ PSUBDIR="`dirname "$PUPSFSFILE"`"
 [ -f /etc/rc.d/rc.shutdown.local.start2 ] && . /etc/rc.d/rc.shutdown.local.start2
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
+while [ "`pidof snapmergepuppy`" ];do
  a=$(( a + 1 ))
  echo 'snapmergepuppy still running :'"$a"
  sleep 1
@@ -183,24 +186,23 @@ done
 /etc/rc.d/rc.network stop
 
 # quick hack, maybe shutdown problem if ath_pci left loaded...
-[ "`lsmod | grep '^ath_pci'`" != "" ] && rmmod ath_pci
+[ "`lsmod | grep '^ath_pci'`" ] && rmmod ath_pci
 
-#echo LINE 573 502  ###DBG
 cd /
-pidof sync || sync
+pidof sync >>$OUT || sync
+(
 #just a precaution...
 echo "Killing X and all X apps..."
 killall -9 X
 sleep 1
 killall -3 X
-pidof sync || sync
-#echo LINE 582 511  ###DBG
+pidof sync >>$OUT || sync
 
 #MU warns may need to do this for dillo...
 killall file.dpi
 killall bookmarks.dpi
 killall dpid
-#echo LINE 587 516  ###DBG
+) 2>>$ERR
 
 _stop_services(){
 #v2.16 some packages have a service script that requires stopping...
@@ -243,7 +245,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
   /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
   echo " done."
-  rm -f /var/lock/subsys/pcmcia
+  rm $VERB -f /var/lock/subsys/pcmcia
  fi
 fi
 }
@@ -257,9 +259,9 @@ _pupmode5
 
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
- SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
-   SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
- SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+ SAVEPART="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+   SAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+ SAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
 
@@ -270,11 +272,11 @@ _save_session
 
 _prepare_freshboot(){
 for i in mousedevice oldmousedevice mousebuttons localtime keymap fontmap
-do rm -f /etc/$i*; done
-rm -f /etc/X11/xorg.conf*
+do rm $VERB -f /etc/$i*; done
+rm $VERB -f /etc/X11/xorg.conf*
 sed -i 's%^LANG=[^[:blank:]].*%LANG=nolang_NOLANG%' /etc/profile
 }
-_prepare_freshboot
+#_prepare_freshboot
 
 #when the working files run in tmpfs in ram, they are saved above and /tmp and /var
 #are screened out. however, some PUPMODES mount ${DISTRO_FILE_PREFIX}save.2fs directly on /initrd/pup_rw,
@@ -282,17 +284,17 @@ _prepare_freshboot
 #files, hence everything is saved directly, ditto for PUPMODE=2 a full h.d. install.
 #hence need to do some explicit wiping here...
 #echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
-#rm -f /var/log/X*
-#rm -rf /tmp/*  ##+--2011-11-10 to be done in /sbin/init
-rm -f /var/lock/LCK*
-rm -f /var/run/*.pid
-rm -rf /root/tmp  #...note, not screening this out in any of above save modes.
+#rm $VERB -f /var/log/X*
+#rm $VERB -rf /tmp/*  ##+--2011-11-10 to be done in /sbin/init
+rm $VERB -f /var/lock/LCK*
+rm $VERB -f /var/run/*.pid
+rm $VERB -rf /root/tmp  #...note, not screening this out in any of above save modes.
 
 if test "$PUPMODE" != "2" ; then  ###KRG
  FP=`_command df | grep '/pup_rw' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
  if [ "$FP" -gt 89 ]; then  ###KRG
  echo "Frugal Install ,free space less than 11%; removing thumbnails" > /dev/console  ###DBG
- rm -rf /root/.thumbnails/*
+ rm $VERB -rf /root/.thumbnails/*
  else  ###KRG
  echo "Frugal Install ,free space more than 10%; leaving thumbnails ok "
  fi  ###KRG
@@ -300,16 +302,16 @@ else  ###KRG
  FP=`_command df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`  ###KRG
  if test "$FP" -lt 5; then  ###KRG
  echo "Full install , free space lesser than 5%; removing thumbnails"  ###KRG
- rm -rf /root/.thumbnails/*  ###KRG
+ rm $VERB -rf /root/.thumbnails/*  ###KRG
  else  ###KRG
  echo "Full install , free space more than 5%; leaving thumbnails ok"  ###KRG
  fi  ###KRG
 fi  ###KRG
-sleep 3
-pidof sync || sync
-echo "RM UNEEDED FILES END"  ###KRG
+sleep 1
+pidof sync >>$OUT || sync
+_debug "RM UNEEDED FILES END"  ###KRG
 
-[ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
+#[ -f /etc/rc.d/MORESFS ] && rm $VERB /etc/rc.d/MORESFS
 
 __retired_umount_straypartitions__(){
 MNTDPARTS="`mount|tac`"
@@ -331,7 +333,7 @@ do
  #fuser -v -k -c -m $ONESTRAYP ##Device  ##Error both mount and mountpoint dont work
  _command fuser -v -k -m  $oneSTRAY  ##+++2011_10_27
  _killzombies #v3.99
- pidof sync || sync
+ pidof sync >>$OUT || sync
  if [ "`busybox mount | grep "$oneSTRAY" | grep -E 'fuse|ntfs'`" != "" ] ; then
  #fusermount version: 2.7.0 [options] mountpoint
  fusermount -u $oneSTRAY ##unmounts MountPoint
@@ -345,14 +347,14 @@ tac /proc/mounts |
 while read -r dev m fs ops n nn
 do
 case $m in /|/initrd|/initrd/*|/dev|/sys|/proc|/tmp|/run)continue;;esac
-case $fs in *rootfs*|*ramfs*|*tmpfs*|*usbfs*|*aufs*|*unionfs*)continue;;esac
+case $fs in *rootfs*|*ramfs*|*tmpfs*|*devpts*|*usbfs*|*aufs*|*unionfs*)continue;;esac
  m=`busybox echo -e "$m"`
  case $m in //*):;;
   *) fsUSERS=`fuser -m "$MOUNT_POINT" 2>/dev/null`
      [ "$fsUSERS" ] && fuser -k -m "$m";;
  esac
  _killzombies
- pidof sync >/dev/null || sync
+ pidof sync >>$OUT || sync
  echo -e "\\033[1;33m""Unmounting '$m' ...""\\033[0;39m" >/dev/console
  umount -lr "$m"
 done
@@ -381,26 +383,27 @@ done <<EoI
 EoI
 fi
 
-pidof sync || sync
+pidof sync >>$OUT || sync
 
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 #
 # Stop udev & loggers
 
+(
 pidof tempget && killall tempget   ## e17 daemon
 #killall pup_event_backend_modprobe_protect  ##+++2011-10-27
 #which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
-pidof udevd && killall udevd
-pidof klogd && killall klogd       ## busybox applet
+pidof udevd   && killall udevd
+pidof klogd   && killall klogd       ## busybox applet
 pidof syslogd && killall syslogd   ## busybox applet
+) >>$OUT
 
 
-
-remove_fsckme_func(){
+_remove_fsckme(){
 find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
 test -d /mnt/home && find /mnt/home -maxdepth 3 -type f -iname "*fsckme*" -delete
 }
-remove_fsckme_func
+_remove_fsckme
 
 if [ -f /etc/rc.d/rc.shutdown.local.end2 ] ; then
  . /etc/rc.d/rc.shutdown.local.end2
@@ -408,61 +411,64 @@ elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
  . /etc/rc.d/rc.shutdown.local.end
 fi
 
-mount | grep -Fw '/'
+[ "$DEBUG" ] && mount | grep -Fw '/'
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
   case $PUPMODE in
    2)   pupFS=$(awk '/\/dev\/root/ {print $3}' /proc/mounts)
       mount -o remount,ro -t $pupFS /dev/root /
-      pidof sync || sync
+      pidof sync >>$OUT || sync
       ;;
    *)   uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts)
       pupFS=$(awk '/pup_rw/ {print $3}' /proc/mounts)
       if [ "$uniFS" -a "$pupFS" != "tmpfs" ]; then
         mkdir $VERB -p /tmp/unrootfs
-        pidof sync || sync
+        pidof sync >>$OUT || sync
         mount $VERB -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
-        pidof sync || sync
+        pidof sync >>$OUT || sync
       fi
       mount $VERB -o remount,ro /initrd${SAVE_LAYER}
-      pidof sync || sync
+      pidof sync >>$OUT || sync
       ;;
   esac
 fi
 #
 #</code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
+test "$DEBUG" && {
 mount | grep -Fw '/'
 sleep 2
+}
 
-#rm -f /tmp/wmexitmode.txt  ##would need to be somewhere at beginning of script
+#rm $VERB -f /tmp/wmexitmode.txt  ##would need to be somewhere at beginning of script
 
 #note, there is a problem with unmounting, especially ntfs as it cannot be remounted
 #ro (?). A ntfs part with ${DISTRO_FILE_PREFIX}save.2fs cannot be unmounted because of the mounted
 #${DISTRO_FILE_PREFIX}save.2fs.
 #at least, attempt to kill anything running in the ntfs partition...
 #(i don't think anything will be, only /dev/loop1 (${DISTRO_FILE_PREFIX}save.2fs), but just in case)
-[ "$PUP_HOME" ] && ABSPUPHOME="/initrd${PUP_HOME}" #v2.16rc
-[ ! "$ABSPUPHOME" ] && ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
-if [ ! "`busybox mount | grep "$ABSPUPHOME"`" = "" ];then
- BADPIDS="`_command fuser -v -m $ABSPUPHOME | _command grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`"
+[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}" #v2.16rc
+[ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
+if [ "`busybox mount | grep "$ABSPUPHOME"`" != "" ];then
+ BADPIDS="`_command fuser -v -m $ABSPUPHOME | _command grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' '`"
  for oneBAD in $BADPIDS
  do
   echo "Killing process $oneBAD..." >/dev/console
   kill $oneBAD
   sleep 1
   kill -9 $oneBAD
-  pidof sync || sync
+  pidof sync >>$OUT || sync
  done
  _killzombies #v3.99
 fi
 
-
+_unmount_savelayer(){
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ];then  ##PupSave ie /pup_rw
-echo '$SAVE_LAYER='"$SAVE_LAYER"
- pidof sync || sync
+echo "SAVE_LAYER='$SAVE_LAYER'"
+ pidof sync >>$OUT || sync
  SAVEDEV=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`
   SAVEFS=`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`
+ test "$SAVEDEV" -a "$SAVEFS" || return 1
  busybox mount $VERB $VERB -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
  umount-FULL $V -i -n -l /initrd/${SAVE_LAYER}  #-l is lazy unmount.
  Err=$?
@@ -471,6 +477,8 @@ echo '$SAVE_LAYER='"$SAVE_LAYER"
  _command umount $VERB -l /initrd/${SAVE_LAYER}
  fi
 fi
+}
+_unmount_savelayer
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
 MNTFUSE=`busybox mount | grep -E ' fuse | fuseblk ' | head -n 1 | cut -f 3 -d ' '`  ##would need a loop I guess
@@ -479,7 +487,7 @@ if [ "$MNTFUSE" != "" ];then
  fusermount -z -u $MNTFUSE  ##MountPoint
 elif [ "$PDEV1" ];then #from PUPSTATE
   dPATTERN="/dev/$PDEV1 "
-  if [ "`busybox mount | grep "$dPATTERN"`" != "" ];then
+  if [ "`busybox mount | grep "$dPATTERN"`" ];then
    #[ "$PUP_HOME" ] && busybox mount -t $DEV1FS -o remount,ro /dev/$PDEV1 /initrd${PUP_HOME}
    #...no, do not attempt ro remount, will prevent ${DISTRO_FILE_PREFIX}save clean shutdown if it didn't above.
    : || umount-FULL $VERB -i -n -l /dev/$PDEV1
@@ -490,25 +498,33 @@ if [ -f /etc/rc.d/rc.shutdown.local.end1 ]; then
  . /etc/rc.d/rc.shutdown.local.end1
 fi
 
-
+test "$DEBUG" && {
 ps | grep -v '\['
 mount  ###DBG
+}
 
 test $PUPMODE = 2 && {
+case "$DEV1FS" in ext[2-4])
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
 echo
+;;
+esac
 }
 
-echo "ENDING NOW"  ###DBG
+_debug "ENDING NOW"  ###DBG
 #KRGbusybox umount $VERB $VERB -ar > /dev/null 2>&1
 busybox umount $VERB $VERB -ar
-echo "unmounted all -r  -- Tried to remount devices as read-only if mount is busy"
-test -f /proc/mounts && mount ###DBG
+echo "unmounted all readonly  -- Tried to remount devices as read-only if mount is busy"
+[ "$DEBUG" ] && test -f /proc/mounts && mount ###DBG
 
 test $PUPMODE = 2 && {
+case "$DEV1FS" in ext[2-4])
 echo -n "FILESYSTEM STATE : "
 dumpe2fs `rdev` | grep -i 'state'
+echo
+;;
+esac
 }
 
 [ -f /etc/rc.d/rc.shutdown.local.end0 ] && . /etc/rc.d/rc.shutdown.local.end0
