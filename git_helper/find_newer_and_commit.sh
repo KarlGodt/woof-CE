@@ -7,7 +7,7 @@ echo "$*"
 exit $retVAL
 }
 
-cd /root/GitHub.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/GitHub.d/KarlGodt_ForkWoof.Push.D"
+cd /root/Github.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/Github.d/KarlGodt_ForkWoof.Push.D"
 
 test -d woof-code || _exit 1 "Directory woof-code missing"
 test -d woof-code/rootfs-skeleton || _exit 1 "Directory woof-code/rootfs-skeleton mising"
@@ -32,6 +32,7 @@ then
  oneFILE_MOD=`stat -c %Y "$oneFILE"`
  oneFILEonOS_MOD=`stat -c %Y "$oneFILEonOS"`
 
+ # REM: PERMISSIONS ..?
  if test $oneFILEonOS_MOD -gt $oneFILE_MOD; then
 
  echo "$oneFILEonOS is newly modificated"
@@ -47,7 +48,6 @@ then
  fi
 
 fi
-
 
 sleep 0.1s
 done<<EoI
