@@ -10,6 +10,7 @@
 #v424 automatic unmounting (see pup_event_frontend_d).
 
 SHOWMODE=$1 #v405 optional to modify gui.
+EVENT_CONF=/etc/eventmanager
 
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
@@ -17,29 +18,32 @@ PUPPYVERSION="$DISTRO_VERSION"
 KERNVER="`uname -r`"
 . /etc/rc.d/MODULESCONFIG
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager
-[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
-[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
-[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ]     && HOTPLUGNOISY="false"
-[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ]         && AUTOTARGET="true"
-[ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
-[ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ]           && HOTPLUGON="true"
-[ "$BACKENDON" != "true" -a "$BACKENDON" != "false" ]           && BACKENDON="true"
-[ "$FD0ICON" != "true" -a "$FD0ICON" != "false" ]               && FD0ICON="true"
-[ ! $POWERTIMEOUT ] && POWERTIMEOUT=0 #w007 0=never.
-[ ! $AUTOUNMOUNT ]  && AUTOUNMOUNT="false" #v424
+while :
+do
+[ -f "$EVENT_CONF" ] && . "$EVENT_CONF"
+
+[ "$ICONDESK" = "true" -o "$ICONDESK" = "false" ] || ICONDESK="true"
+[ "$HOTPLUGNOISY" = "true" -o "$HOTPLUGNOISY" = "false" ]     || HOTPLUGNOISY="false"
+[ "$AUTOTARGET" = "true" -o "$AUTOTARGET" = "false" ]         || AUTOTARGET="true"
+[ "$ICONPARTITIONS" = "true" -o "$ICONPARTITIONS" = "false" ] || ICONPARTITIONS="true"
+[ "$HOTPLUGON" = "true" -o "$HOTPLUGON" = "false" ]           || HOTPLUGON="true"
+[ "$BACKENDON" = "true" -o "$BACKENDON" = "false" ]           || BACKENDON="true"
+[ "$FD0ICON" = "true" -o "$FD0ICON" = "false" ]               || FD0ICON="true"
+[ $AUTOUNMOUNT ]  || AUTOUNMOUNT="false" #v424
+[ $POWERTIMEOUT ] || POWERTIMEOUT=0 #w007 0=never.
+[ $RAMSAVEINTERVAL ] || RAMSAVEINTERVAL=30
 
 #w007 as have a optional cutdown gui, make sure these are all preset...
 NEWICONDESK="$ICONDESK"
-NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
 NEWHOTPLUGNOISY="$HOTPLUGNOISY"
 NEWAUTOTARGET="$AUTOTARGET"
 NEWICONPARTITIONS="$ICONPARTITIONS"
 NEWHOTPLUGON="$HOTPLUGON"
 NEWBACKENDON="$BACKENDON"
 NEWFD0ICON="$FD0ICON"
-NEWPOWERTIMEOUT=$POWERTIMEOUT
 NEWAUTOUNMOUNT="$AUTOUNMOUNT"
+NEWPOWERTIMEOUT=$POWERTIMEOUT
+NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
 
 if [ "$SHOWMODE" = "desktop" ];then
  #cutdown, only show choices for settng the desktop icons...
@@ -164,7 +168,6 @@ else
   </vbox>
   </hbox>
 
-
  </frame>
 
  <frame Periodic save from RAM>
@@ -213,7 +216,6 @@ else
 
  </vbox>
  </frame>
-
 
  <frame Drive 'handler'>
 
@@ -280,29 +282,28 @@ RETSTRING="`gtkdialog3 --program=MAIN_DIALOG --center`"
 eval "$RETSTRING"
 
 #echo "$RETSTRING" #TEST
-
-[ "$EXIT" = "abort" ] && exit
-[ "$EXIT" = "Cancel" ] && exit
-[ "$EXIT" = "" ] && exit
+case $EXIT in abort|Cancel|'') exit 0;; esac
 
 #v405 it is running with 'desktop' param, now rerun with all tabs...
 [ "$EXIT" = "fullem" ] && exec eventmanager
 
+case $PUPMODE in 3|7|13)
 #make sure that RAMSAVEINTERVAL is an integer only...
-[ "$NEWRAMSAVEINTERVAL" = "" ] && NEWRAMSAVEINTERVAL=30 #412
+[ "$NEWRAMSAVEINTERVAL" ] || NEWRAMSAVEINTERVAL=30 #412
 NEWRAMSAVEINTERVAL=`echo "$NEWRAMSAVEINTERVAL" | sed -e 's/[^0-9]//g'`
 #do not allow too-frequent saves...
 [ $NEWRAMSAVEINTERVAL -gt 0 -a $NEWRAMSAVEINTERVAL -lt 5 ] && NEWRAMSAVEINTERVAL=5
-
+;;
+esac
 #w007 make sure that POWERTIMEOUT is integer only...
-[ "$NEWPOWERTIMEOUT" = "" ] && NEWPOWERTIMEOUT=0
+[ "$NEWPOWERTIMEOUT" ] || NEWPOWERTIMEOUT=0
 NEWPOWERTIMEOUT=`echo "$NEWPOWERTIMEOUT" | sed -e 's/[^0-9]//g'`
 #do not allow too-frequent power-down...
 [ $NEWPOWERTIMEOUT -gt 0 -a $NEWPOWERTIMEOUT -lt 5 ] && NEWPOWERTIMEOUT=5
 
 #v403 if major-switch has turned off hotplug support, only show one icon...
-[ "$NEWBACKENDON" = "" ] && NEWBACKENDON="true" #v412
-[ "$NEWHOTPLUGON" = "" ] && NEWHOTPLUGON="true" #v412
+[ "$NEWBACKENDON" ] || NEWBACKENDON="true" #v412
+[ "$NEWHOTPLUGON" ] || NEWHOTPLUGON="true" #v412
 [ "$NEWBACKENDON" = "false" ] && NEWHOTPLUGON="false"
 if [ "$NEWHOTPLUGON" = "false" ];then
  NEWICONDESK="false"
@@ -312,7 +313,7 @@ if [ "$NEWHOTPLUGON" = "false" ];then
  NEWAUTOUNMOUNT="false" #v424
 fi
 
-CONFIG="`cat /etc/eventmanager`"
+CONFIG="`cat "$EVENT_CONF"`"
 
 rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=\"${NEWRAMSAVEINTERVAL}\"/"
 CONFIG="`echo "$CONFIG" | sed -e "$rsPATTERN"`"
@@ -345,11 +346,13 @@ CONFIG="`echo "$CONFIG" | sed -e "$fiPATTERN"`"
 auPATTERN="s/^AUTOUNMOUNT=.*/AUTOUNMOUNT=\"${NEWAUTOUNMOUNT}\"/" #v424
 CONFIG="`echo "$CONFIG" | sed -e "$auPATTERN"`"
 
-echo "$CONFIG" > /etc/eventmanager
-sleep 2s
-#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
-[ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] && echo "ICONPARTITIONS" > /tmp/pup_event_icon_change_flag
-[ "$ICONDESK" != "$NEWICONDESK" ] && echo "ICONDESK" >> /tmp/pup_event_icon_change_flag
-[ "$NEWICONWIPE" = "true" ] && echo "ICONWIPE" >> /tmp/pup_event_icon_change_flag #v411
+echo "$CONFIG" > "$EVENT_CONF"
 
+#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
+[ "$ICONPARTITIONS" = "$NEWICONPARTITIONS" ] || echo "ICONPARTITIONS" > /tmp/pup_event_icon_change_flag
+[ "$ICONDESK" = "$NEWICONDESK" ] || echo "ICONDESK" >> /tmp/pup_event_icon_change_flag
+[ "$NEWICONWIPE" = "true" ] || echo "ICONWIPE" >> /tmp/pup_event_icon_change_flag #v411
+
+sleep 2s
+done
 ###END###

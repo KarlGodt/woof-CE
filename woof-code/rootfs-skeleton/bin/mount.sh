@@ -27,8 +27,8 @@ test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 _debugt 8D $_DATE_
 
 [ "$Q" ] || Q=-q
-[ "$DEBUG" ] || DEBUG=1
-[ "$DEBUGX" ] || DEBUGX=1
+[ "$DEBUG" ] || DEBUG=
+[ "$DEBUGX" ] || DEBUGX=
 test "$DEBUG" && Q='';
 
 LANG_ROX=$LANG
@@ -48,8 +48,8 @@ mountpoint(){
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
  set - ${*//\\/\\\\}
  _debug "mountpoint:$*"
- grep $Q " $* " /proc/mounts
- return $?; }
+ awk '{print $2}' /proc/mounts | grep $Q "^$*$"
+}
 
 _check_proc()
 {
@@ -81,9 +81,9 @@ _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
 grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-ROOTD=`/bin/df | grep -m1 ' /$' | awk '{print $1}'`
+ROOTD=`/bin/df | awk '{if ($NF == "/") print $1}' | tail -n1`
 if [ -b "$ROOTD" ]; then
-grep $Q "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
+grep "^${ROOTD} " /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
 else
 grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
 fi
@@ -93,13 +93,13 @@ fi
 
 _string_to_octal()
 {
-_debug "_string_to_octal:$*" >&2
+_debug "_string_to_octal:$*"
 unset oSTRING
 if test "$*"; then
 STRING_ORIG="$*"
 
 STRING=`echo "$STRING_ORIG" | sed 's!\(.\)!"\1"\n!g'`
-_debug "_string_to_octal:STRING='$STRING'" >&2
+_debug "_string_to_octal:STRING='$STRING'"
 
 
 while read -r oneCHAR
@@ -260,13 +260,13 @@ _debugt 9e $_DATE_
  _debug "_update_partition_icon:'$oneUPDATE' '$oneMOUNTPOINT' '$REST'"
  test "$oneUPDATE" || continue
  eoneMOUNTPOINT=`echo -e "$oneMOUNTPOINT"`
- _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'" >&2
+ _debug "_update_partition_icon:'$oneUPDATE' '$eoneMOUNTPOINT' '$REST'"
 _debugt 9d $_DATE_
  test "$noROX" || { _pidof $Q ROX-Filer && {
       test -d "${eoneMOUNTPOINT%/*}" && rox -x "${eoneMOUNTPOINT%/*}"
          test -d "${eoneMOUNTPOINT}" && rox -x "${eoneMOUNTPOINT}"
          #test -e "${oneMOUNTPOINT}" && rox -d "${oneMOUNTPOINT}" || rox -D "${oneMOUNTPOINT}"
-         mountpoint $Q "${oneMOUNTPOINT}" && { rox -D "${eoneMOUNTPOINT}"; rox -d "${eoneMOUNTPOINT}"; true; } || rox -D "${eoneMOUNTPOINT}"
+         mountpoint $Q "${eoneMOUNTPOINT}" && { rox -D "${eoneMOUNTPOINT}"; rox -d "${eoneMOUNTPOINT}"; true; } || rox -D "${eoneMOUNTPOINT}"
          }
         }
  _debugt 9c $_DATE_
@@ -345,10 +345,10 @@ case $WHAT in
 
 umount)
   case $opT in
-  -t) echo "$opT_ARGS" | grep -q -w "$fstype" || continue ;;
+  -t) echo "$opT_ARGS" | grep $Q -w "$fstype" || continue ;;
   esac
   case $opO in
-  -O) echo "$mntops" | grep -q -E "$opO_ARGS" || continue ;;
+  -O) echo "$mntops" | grep $Q -E "$opO_ARGS" || continue ;;
   esac
 
   _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
@@ -376,7 +376,7 @@ EoI
     }
 
   #echo $device
-  grep -q -w "^$device" /proc/mounts || continue
+  grep $Q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
 *) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
@@ -1339,7 +1339,7 @@ _update()
  _debugt 02 $_DATE_
  while read -r oneDIR
  do
- _debug "oneDIR='$oneDIR'" >&2
+ _debug "oneDIR='$oneDIR'"
  test "$oneDIR" || continue
  #test "`echo "$oneDIR" | grep -E '/proc|/sys'`" && continue
  _umount_rmdir "$oneDIR"
