@@ -4,7 +4,7 @@
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 
-
+VERB=-v
 MV_DIR=../../moved_out
 
 
@@ -19,6 +19,9 @@ test -f "$f" -o -d "$f" || continue
 
 mvdir=${f%/*}
 test "$mvdir" || mvdir=/
+echo $f
+echo $mvdir
+
 mkdir $VERB -p "$MV_DIR"/"$mvdir" || break
 mv $VERB "$f" "$MV_DIR"/"$mvdir"  || break
 
