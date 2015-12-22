@@ -75,6 +75,7 @@ rightsGIT=`stat -c %a  "$gitFILE"`
    echo "modSYS=$modSYS modGIT=$modGIT";echo "modSYS=$modSYS modGIT=$modGIT" >"$TTY"
    diff -qs "$gitFILE" "$sysFILE" && { touch $VERB "$gitFILE" "$sysFILE"; continue; }
    diff -up "$gitFILE" "$sysFILE";diff -up "$gitFILE" "$sysFILE" >"$TTY"
+   diff -up "$gitFILE" "$sysFILE" >>/tmp/diff_all
    echo;echo >"$TTY"
    echo "modSYS=$modSYS modGIT=$modGIT";echo "modSYS=$modSYS modGIT=$modGIT" >"$TTY"
    echo;echo >"$TTY"
@@ -143,4 +144,4 @@ done >>update_git_files.lst <<EoI
 `echo "$FILES"`
 EoI
 
-
+test -s /tmp/diff_all && geany /tmp/diff_all
