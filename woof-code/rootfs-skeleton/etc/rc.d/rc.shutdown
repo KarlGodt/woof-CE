@@ -49,14 +49,14 @@
 #      [ ! "`echo -n "$SAVEFILE" | grep "2fs"`" = "" ] && FILEFS="ext2"
 #
 #
-# 09.0 : added check before rm -rf /root/.thumbnails/* 2> /dev/null ,
+# 09.0 : added check before rm $VERB -rf /root/.thumbnails/* 2> /dev/null ,
 #        if enough space , dont remove
 # 10.0 : rm /dev/.udev
 #        ##/root/my-applications/sbin/MkMissingDev.sh
-#        cp -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev
+#        cp $VERB -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev
 #
 #        ##fsckme_func
-#        #rm -f /tmp/wmexitmode.txt
+#        #rm $VERB -f /tmp/wmexitmode.txt
 #
 # /dev/hda7
 # /dev/hda7:
@@ -90,7 +90,7 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin
 echo "Executing /etc/rc.d/rc.shutdown..."
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-while [ ! "`pidof snapmergepuppy | grep '[0-9]'`" = "" ];do
+while [ "`pidof snapmergepuppy | grep '[0-9]'`" != "" ];do
  sleep 1
 done
 killall savepuppyd
@@ -129,8 +129,8 @@ echo "${DISTRO_NAME} $DISTRO_VERSION is now shutting down..." > /dev/console
 
 fsckme_func(){ ###krg Mar112011:turned into func to call at end of script
 #100315 improper shutdown check. see /etc/rc.d/rc.sysinit, /init in initramfs, and /sbin/init...
-#[ -f /boot/.fsckme.err ] && rm -f /boot/.fsckme.err
-#[ -f /initrd${PUP_HOME}/boot/.fsckme.err ] && rm -f /initrd${PUP_HOME}/boot/.fsckme.err
+#[ -f /boot/.fsckme.err ] && rm $VERB -f /boot/.fsckme.err
+#[ -f /initrd${PUP_HOME}/boot/.fsckme.err ] && rm $VERB -f /initrd${PUP_HOME}/boot/.fsckme.err
 ErrFlag=`/bin/busybox find / -maxdepth 3 -type f -iname '*fsckme*'`
 for i in $ErrFlag ; do
 rm $i
@@ -139,7 +139,7 @@ done
 
 killzombies(){
  #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
- ZOMBIES="`ps -H -A | grep '<defunct>' | sed 's#^ *##' | cut -f 1 -d ' '`"
+ ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed 's#^ *##' | cut -f 1 -d ' '`"
  for ONEZOMBIE in $ZOMBIES
  do
   echo "Killing parentless zombie process $ONEZOMBIE"
@@ -152,12 +152,12 @@ choosesizefunc(){
  local KFREE SIZELIST NUM CHOICES FLABEL SLABEL ACHOICE KSIZE
  KFREE=$1 ; SIZELIST="" ; NUM=1 ; CHOICES=""
  FLABEL="`expr $KFREE \/ 1024`MB"
- [ $KFREE -ge 1048576 ] && FLABEL="`dc $KFREE 1048576 \/ p`GB"
+ [ $KFREE -ge 1048576 ] && LC_NUMERIC=C FLABEL="`dc $KFREE 1048576 \/ p`GB"
  for ACHOICE in 32 64 128 256 512 768 1024 1280
  do
   KSIZE=`expr $ACHOICE \* 1024`
   SLABEL="${ACHOICE}MB"
-  [ $ACHOICE -ge 1024 ] && SLABEL="`dc $ACHOICE 1024 \/ p`GB"
+  [ $ACHOICE -ge 1024 ] && LC_NUMERIC=C SLABEL="`dc $ACHOICE 1024 \/ p`GB"
   if [ $KSIZE -lt $KFREE ];then
    SIZELIST="$SIZELIST$NUM $SLABEL "
    CHOICES="$CHOICES$KSIZE "
@@ -287,17 +287,17 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  fi
 
  #we should check to see that there is enough space on the partition...
- PARTFREE=`df | grep "$SMNTPT" | tr -s " " | head -n 1 | cut -f 4 -d " "`
- [ ! $PARTFREE ] && PARTFREE=0
+ PARTFREE=`/bin/df | grep "$SMNTPT" | tr -s " " | head -n 1 | cut -f 4 -d " "`
+ [ $PARTFREE ] || PARTFREE=0
  [ $PARTFREE -lt 32768 ] && PARTFREE=`expr $PARTFREE - 1024` #leave some slack space.
  [ $PARTFREE -gt 32768 ] && PARTFREE=`expr $PARTFREE - 8192` #leave some slack space.
  SIZEPFILE=524288 #512M = 524288K
  [ $SIZEPFILE -gt  $PARTFREE ] && SIZEPFILE=$PARTFREE
  #v2.02 dougal has code to choose size of save file...
  [ $PARTFREE -gt 32768 ] && choosesizefunc $PARTFREE #sets SIZEPFILE
- if [ "`echo -n $SAVEFILE | grep '\.[34]fs$'`" ]; then #ext3 f.s. needs minimum size.
+ case "$SAVEFILE" in *.[34]fs) #ext3 f.s. needs minimum size.
   [ $SIZEPFILE -lt 5000 ] && return 1 #precaution. rerwin discovered this.
- fi
+ ;; esac
 
  #v2.20
  SAVEPATH="`dirname $SAVEFILE`"
@@ -346,7 +346,7 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  #[ "$SFEXT" = "3fs" ] && JOPT='-j'
  echo "Creating $NAMEONLY in /dev/$SAVEPART, please wait awhile..." >/dev/console
  dd if=/dev/zero of=${SMNTPT}$SAVEFILE bs=1k count=$SIZEPFILE
- sync
+_sync
  if [ "$CRYPTO" ]; then
   #note: loop2 is kept available for scripts to use. but, find which is free...
   DEVLOOP="`losetup-FULL -f`"
@@ -366,10 +366,10 @@ To quit without saving, select <No>..." 0 0 >/dev/console
    ext3) mkfs.ext3 -q -m 0 -F ${SMNTPT}$SAVEFILE ;;
    ext4) mkfs.ext4 -q -m 0 -F ${SMNTPT}$SAVEFILE ;;
   esac
-  sync
+ _sync
   losetup -d $DEVLOOP
 ## fi ##-2011-11-06
- sync
+_sync
  return 0
 } #end pupsavefunc
 
@@ -443,7 +443,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
  fi
 
  SCHOICES=""
- rm -f /tmp/schoices.txt
+ rm $VERB -f /tmp/schoices.txt
  DEFTAG=""
  echo "$PARTSLIST" |
  while read APART
@@ -451,7 +451,7 @@ Press ENTER key to continue..." 0 0 >/dev/console
   ATAG="`echo -n "$APART" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
   ASIZE="`echo -n "$APART" | cut -f 3 -d '|'`"
   AFS="`echo -n "$APART" | cut -f 2 -d '|'`"
-  AFREE="`df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`"
+  AFREE="`/bin/df -m | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`"
   if [ ! "$AFREE" ];then
    mount -t $AFS /dev/$ATAG /mnt/data > /dev/null 2>&1
    #v2.10 need to put in a check that it is not mounted ro. the
@@ -479,14 +479,14 @@ Press ENTER key to continue..." 0 0 >/dev/console
      fi
     fi
    fi
-   [ -f /tmp/ntfsmnterr.txt ] && rm -f /tmp/ntfsmnterr.txt
+   [ -f /tmp/ntfsmnterr.txt ] && rm $VERB -f /tmp/ntfsmnterr.txt
    if [ $RETMNTVAL -eq 0 ];then
     if [ "$ATAG" = "fd0" ];then
-     FFREE=`df -k | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
-     AFREE="`dc $FFREE 1000 \/ p`"
+     FFREE=`/bin/df -k | grep "/dev/$ATAG" | tr -s " " | cut -f 4 -d " "`
+     LC_NUMERIC=C AFREE="`dc $FFREE 1000 \/ p`"
     else
      #v2.02 for ntfs cannot use /dev/$ATAG, use mnt point in grep...
-     AFREE="`df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`"
+     AFREE="`/bin/df -m | grep "/mnt/data" | tr -s " " | cut -f 4 -d " "`"
     fi
     #umount /dev/$ATAG  v2.02 must use mnt point for ntfs...
     umount /mnt/data
@@ -564,37 +564,37 @@ killall dpid
 
 #100814 log the cumulative bytes transmitted on network...
 # (see also /etc/rc.d/rc.sysinit and network_tray)
-mkdir -p /var/local/sns
+mkdir $VERB -p /var/local/sns
 LANG=C UPDATE_MONTH="`date +%b`"
 CURRENT_MONTH="`cat /var/local/sns/current_month`"
 [ ! "$CURRENT_MONTH" ] && CURRENT_MONTH=0
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
  for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
-  mkdir -p /var/local/${ONECOUNT%/*}
+  mkdir $VERB -p /var/local/${ONECOUNT%/*}
   echo -n 0 > /var/local/${ONECOUNT}x_bytes_month
  done
 fi
 
 ACTIVE_INTERFACE="ppp0"
-#mkdir -p /var/local/sns
+#mkdir $VERB -p /var/local/sns
 [ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
 [ ! "$ACTIVE_INTERFACE" ] && ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
 if [ "$ACTIVE_INTERFACE" ];then
- mkdir -p /var/local/$ACTIVE_INTERFACE
+ mkdir $VERB -p /var/local/$ACTIVE_INTERFACE
  if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
   RX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes`"
   TX_BYTES="`cat /sys/class/net/${ACTIVE_INTERFACE}/statistics/tx_bytes`"
-  echo -n "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
-  echo -n "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
+  echo "$RX_BYTES" > /var/local/$ACTIVE_INTERFACE/rx_bytes_session
+  echo "$TX_BYTES" > /var/local/$ACTIVE_INTERFACE/tx_bytes_session
   RX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/rx_bytes_month`
   [ ! "$RX_BYTES_MONTH" ] && RX_BYTES_MONTH=0
   RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
-  echo -n "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
+  echo "$RX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/rx_bytes_month
   TX_BYTES_MONTH=`cat /var/local/$ACTIVE_INTERFACE/tx_bytes_month`
   [ ! "$TX_BYTES_MONTH" ] && TX_BYTES_MONTH=0
   TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
-  echo -n "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
+  echo "$TX_BYTES_MONTH" > /var/local/$ACTIVE_INTERFACE/tx_bytes_month
  fi
 fi
 
@@ -655,7 +655,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
   /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
   echo "done."
-  rm -f /var/lock/subsys/pcmcia
+  rm $VERB -f /var/lock/subsys/pcmcia
  fi
 fi
 
@@ -783,7 +783,7 @@ swapfile_func() {
      spPATTERN="$localSAVEPART"'|'
      if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" ]; then
       smPATTERN=' '"$localSMNTPT"'$'
-      FREESAVEM=`df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
+      FREESAVEM=`/bin/df -m | grep "$smPATTERN" | tr -s ' ' | cut -f 4 -d ' '`
       SWPSIZE=""
       [ $FREESAVEM -gt 100 ] && SWPSIZE="50"
       [ $FREESAVEM -gt 200 ] && SWPSIZE="100"
@@ -795,14 +795,14 @@ swapfile_func() {
        echo "situation of your PC. Creating now..." >/dev/console
        dd if=/dev/zero of=${localSMNTPT}/pupswap.swp bs=1048576 count=$SWPSIZE
        if [ $? -eq 0 ];then
-        sync
+       _sync
         mkswap ${localSMNTPT}/pupswap.swp
        fi
        if [ $? -ne 0 ];then
-        rm -f ${localSMNTPT}/pupswap.swp
+        rm $VERB -f ${localSMNTPT}/pupswap.swp
     echo "...error, unable to create swapfile." >/dev/console
        fi
-       sync
+      _sync
       fi
      fi
     fi
@@ -853,7 +853,7 @@ case $PUPMODE in
  32) #first shutdown, save back to PDEV1. v3.97: xPDEV
   DEV1MNT="`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`"
   if [ "$DEV1MNT" = "" ];then
-   mkdir -p /mnt/$xPDEV
+   mkdir $VERB -p /mnt/$xPDEV
    mount -t $xDEVFS /dev/$xPDEV /mnt/$xPDEV
    if [ ! $? -eq 0 ];then
     echo "ERROR: unable to mount /dev/$xPDEV, cannot save." >/dev/console
@@ -864,12 +864,12 @@ case $PUPMODE in
   RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`"
   for ONEDIR in $RDIRS
   do
-   cp -a $ONEDIR ${DEV1MNT}/
+   cp $VERB -a $ONEDIR ${DEV1MNT}/
   done
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
-  cp -af /etc/DISTRO_SPECS ${DEV1MNT}/etc/
-  sync
+  cp $VERB -af /etc/DISTRO_SPECS ${DEV1MNT}/etc/
+ _sync
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func $DEV1MNT $xPDEV
@@ -882,8 +882,8 @@ case $PUPMODE in
   mkdir /tmp/save1stpup
   echo -n "Mounting ${SAVEFILE}..."
   FILEFS="ext4"
-  [ ! "`echo -n "$SAVEFILE" | grep "3fs"`" = "" ] && FILEFS="ext3"
-  [ ! "`echo -n "$SAVEFILE" | grep "2fs"`" = "" ] && FILEFS="ext2"
+  [ "`echo "$SAVEFILE" | grep "3fs"`" != "" ] && FILEFS="ext3"
+  [ "`echo "$SAVEFILE" | grep "2fs"`" != "" ] && FILEFS="ext2"
 
   if [ "$CRYPTO" = "" ];then
    mount -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
@@ -911,11 +911,11 @@ case $PUPMODE in
   for ONEDIR in $RDIRS
   do
    BASENAME="`basename $ONEDIR`" #v2.16exp3
-   mkdir -p /tmp/save1stpup/${BASENAME} #v2.16exp3 likely already created above.
-   cp -a $ONEDIR/* /tmp/save1stpup/${BASENAME}/ #v2.16exp3
-   [ "$BASENAME" = "root" ] && cp -a $ONEDIR/.[0-9a-zA-Z]* /tmp/save1stpup/${BASENAME}/ #v2.16exp4
+   mkdir $VERB -p /tmp/save1stpup/${BASENAME} #v2.16exp3 likely already created above.
+   cp $VERB -a $ONEDIR/* /tmp/save1stpup/${BASENAME}/ #v2.16exp3
+   [ "$BASENAME" = "root" ] && cp $VERB -a $ONEDIR/.[0-9a-zA-Z]* /tmp/save1stpup/${BASENAME}/ #v2.16exp4
   done
-  sync
+ _sync
   umount /tmp/save1stpup
 
   #v2.20b offer to copy ${DISTRO_FILE_PREFIX}-xxx.sfs and ${ZDRVSFS} off the cd...
@@ -947,7 +947,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
      echo "Please wait, accessing CD drive..." >/dev/console
      APATTERN="/dev/$PDEV1 "
      CDMNTPT="`mount | grep "$APATTERN" | cut -f 3 -d ' '`"
-     mkdir -p /mnt/$PDEV1
+     mkdir $VERB -p /mnt/$PDEV1
      if [ "$CDMNTPT" = "" ];then
       mount -t iso9660 /dev/$PDEV1 /mnt/$PDEV1
       CDMNTPT="/mnt/$PDEV1"
@@ -958,11 +958,11 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       FILESIZEB=`stat --format=%s $ONESFS`
       FILESIZEK=`expr $FILESIZEB \/ 1024 + 2048` #2MB slack.
       BPATTERN=" $SMNTPT"'$'
-      DRVFREEK=`df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
+      DRVFREEK=`/bin/df -k | tr -s ' ' | grep "$BPATTERN" | cut -f 4 -d ' '`
       if [ $DRVFREEK -gt $FILESIZEK ];then
        echo "Copying $BASESFS..." >/dev/console
-       cp -f $ONESFS $SMNTPT/
-       sync
+       cp $VERB -f $ONESFS $SMNTPT/
+      _sync
       else
        echo "Insufficient space! Cannot copy $BASESFS" >/dev/console
        break
@@ -986,7 +986,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
   ;;
  5) #v2.02 first boot.
   echo "Session not saved" >/dev/console
-  sync
+ _sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
   [ ! "$SMNTPT" = "" ] && umount $SMNTPT
@@ -1029,20 +1029,20 @@ remove_various(){
 #files, hence everything is saved directly, ditto for PUPMODE=2 a full h.d. install.
 #hence need to do some explicit wiping here...
 #echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
-rm -f /var/log/X*
-rm -rf /tmp/*
-rm -f /var/lock/LCK*
-rm -f /var/run/*.pid
-rm -rf /root/tmp 2> /dev/null #...note, not screening this out in any of above save modes.
+rm $VERB -f /var/log/X*
+rm $VERB -rf /tmp/*
+rm $VERB -f /var/lock/LCK*
+rm $VERB -f /var/run/*.pid
+rm $VERB -rf /root/tmp  #...note, not screening this out in any of above save modes.
 echo PUPMODE $PUPMODE >/dev/console
 if [ "$PUPMODE" != "2" ]; then
 echo "removing thumbnails" > /dev/console
-rm -rf /root/.thumbnails/* 2> /dev/null
+rm $VERB -rf /root/.thumbnails/*
 else
-FP=`df | grep -w '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
+FP=`/bin/df | grep -Fw '/' | tr -s ' ' | cut -f5 -d ' ' | tr -d '%'`
 if test "$FP" -lt 5; then
 echo "Full install , free space lesser than 5%; removing thumbnails"
-rm -rf /root/.thumbnails/* 2> /dev/null
+rm $VERB -rf /root/.thumbnails/*
 else
 echo "Full install , free space more than 5%; leaving thumbnails ok"
 fi
@@ -1051,7 +1051,7 @@ fi
 
 ##NewKernelStats.sh
 #for i in /dev/.udev/* ; do
-##rm -f -r /dev/.udev
+##rm $VERB -f -r /dev/.udev
 echo "UDEV:"
 UDEV=`find /dev/.udev/ -type f -o -type l`
 echo "$UDEV"
@@ -1062,16 +1062,40 @@ rm $i
 done
 echo "/UDEV"
 
-[ -f /etc/profile.d/firstun ] && rm -f /etc/profile.d/firstun
+[ -f /etc/profile.d/firstun ] && rm $VERB -f /etc/profile.d/firstun
 ##/root/my-applications/sbin/MkMissingDev.sh
-cp -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev
+cp $VERB -f /etc/rc.d/PUPSTATE /etc/rc.d/PUPSTATE.prev
 fsckme_func
 sleep 10
 
-[ -d /var/tmp ] && rm -rf /var/tmp/*  #100820
+[ -d /var/tmp ] && rm $VERB -rf /var/tmp/*  #100820
 [ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
-sync
+_sync
 
+swapoff -a $VERB &>/dev/console #works only if swaps are in mtab or ftab busybox 1.15.0
+_retired_swapoff(){
+#v2.13 menno suggests this improvement...
+STRAYPARTD="`cat /proc/swaps | grep "/dev/" | cut -f 1 -d " "`"
+for ONESTRAY in $STRAYPARTD
+do
+ echo "Swapoff $ONESTRAY" >/dev/console
+ swapoff $ONESTRAY
+done
+}
+
+if test -f /proc/swaps; then
+while read -r f t s u p
+do
+case $f in *deleted*|Filename|'')continue;;esac
+ echo "Swapoff $f" >/dev/console
+ f=`busybox echo -e "$f"`
+ swapoff "$f"
+done <<EoI
+`tac /proc/swaps`
+EoI
+fi
+
+sync
 
 __retired_umount_straypartitions__(){
 MNTDPARTS="`mount|tac`"  ##+++2013-03-29 added tac
@@ -1099,7 +1123,7 @@ do
   done
  fi
  killzombies #v3.99
- sync
+_sync
  umount -r $ONESTRAY
 done
 }
@@ -1120,32 +1144,8 @@ case $fs in *rootfs*|*ramfs*|*tmpfs*|*usbfs*|*aufs*|*unionfs*)continue;;esac
  umount -lr "$m"
 done
 
-swapoff -a $VERB &>/dev/console #works only if swaps are in mtab or ftab busybox 1.15.0
-_retired_swapoff(){
-#v2.13 menno suggests this improvement...
-STRAYPARTD="`cat /proc/swaps | grep "/dev/" | cut -f 1 -d " " | tr "\n" " "`"
-for ONESTRAY in $STRAYPARTD
-do
- echo "Swapoff $ONESTRAY" >/dev/console
- swapoff $ONESTRAY
-done
-}
 
-if test -f /proc/swaps; then
-while read -r f t s u p
-do
-case $f in *deleted*|Filename|'')continue;;esac
- echo "Swapoff $f" >/dev/console
- f=`busybox echo -e "$f"`
- swapoff "$f"
-done <<EoI
-`tac /proc/swaps`
-EoI
-fi
-
-sync
-
-#rm -f /tmp/wmexitmode.txt
+#rm $VERB -f /tmp/wmexitmode.txt
 
 #note, there is a problem with unmounting, especially ntfs as it cannot be remounted
 #ro (?). A ntfs part with ${DISTRO_FILE_PREFIX}save.2fs cannot be unmounted because of the mounted
@@ -1164,7 +1164,7 @@ if [ "`busybox mount | grep "$ABSPUPHOME"`" ]; then
   kill $ONEBAD
   sleep 1
   kill -9 $ONEBAD
-  sync
+ _sync
  done
  killzombies #v3.99
 fi
@@ -1172,7 +1172,7 @@ fi
 
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ];then
- sync
+_sync
  SAVEDEV="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`"
  SAVEFS="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`"
  #100615 Patriot: suggested this code to enable save-layer to remount ro...
@@ -1180,9 +1180,9 @@ if [ "$SAVE_LAYER" ];then
  if [ "$uniFS" == "aufs" -a "$SAVE_LAYER" == "/pup_rw" ]; then
   #i think only work if prepended dir is a separate f.s...
   if [ "`mount | grep '^tmpfs on /tmp '`" ]; then #created in initrd.
-   mkdir -p /tmp/unrootfs
+   mkdir $VERB -p /tmp/unrootfs
    busybox mount -o remount,prepend:/tmp/unrootfs,xino=/tmp/unrootfs/xino -t $uniFS / /
-   sync
+  _sync
   fi
  fi
  busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
