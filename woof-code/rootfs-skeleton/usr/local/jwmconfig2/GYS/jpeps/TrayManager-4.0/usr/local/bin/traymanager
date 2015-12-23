@@ -1,0 +1,285 @@
+#!/bin/bash -a
+
+### TrayManager: for JWM Desktop. Version 4.0 John Peters, 2011
+## Adds, Removes apps to/from tray.  Views TrayButtons in .jwmrc-tray/
+
+### Default Window Geometry
+RIGHT=14 DOWN=36 WIDTH=275 HEIGHT=250 
+
+## Remembers last backup file 
+if [ -f /root/.traymanager ]; then 
+  export BACKUP="$(cat /root/.traymanager)" 
+else
+  export BACKUP="/mnt/home/DOTjwmrc-tray"
+fi
+
+BACKDIR="$(dirname ${BACKUP})"
+
+Copy(){
+
+if [ "$ent3" == "" ]; then 
+  cp /root/.jwmrc-tray  "$BACKUP"  
+else
+   cp /root/.jwmrc-tray "$ent3"
+   echo "$ent3" >/root/.traymanager 
+fi
+}
+export -f Copy
+
+Remove(){
+REMOVE="$(cat /tmp/remove)"
+[ ${REMOVE} ] && sed -i "/$REMOVE/d" /root/.jwmrc-tray
+rm -f /tmp/remove 
+
+}
+export -f Remove
+
+Write2Tmp(){
+
+echo "$ICON" >/tmp/add
+sed -i '/\//d'  /tmp/add  ## remove if path is entered in ICON
+IP="$(cat /tmp/add)"
+
+case "$(cat /tmp/add)" in
+  "" )  export IP="\"" ;;
+  * )  export IP="\"/usr/local/lib/X11" ;;
+esac
+
+echo \<TrayButton "popup="\"${POPUP}\" "icon=""$IP""$ICON"\"">""${EXEC}"\</TrayButton\> >/tmp/add
+echo "&$MI" >>/tmp/add
+}
+export -f Write2Tmp
+
+Copy2Tray(){
+
+## exit if empty 
+[ -n "$(cat /tmp/add | grep -i  'popup=""')" ] && exit  
+
+  ## SET ICON PATH
+
+CHOICE="$(cat /tmp/add | tail -1)"
+
+case ${CHOICE} in
+  "&true" ) export ICONPATH="\/mini-icons\/" ;;
+  "&false" ) export ICONPATH="\/pixmaps\/" ;;
+esac
+
+### If ICONPATH already exists, set ICONPATH to ""
+
+REM1="$(cat /tmp/add  | grep mini-icons\/)"
+REM2="$(cat /tmp/add  | grep pixmaps\/)"
+[ -n "$REM2" ] || [ -n  "$REM1" ] && ICONPATH=""
+
+
+### Add ICON PATH to /tmp/add
+sed -i "s/\/X11/\/X11"$ICONPATH"/" /tmp/add
+
+
+## Add "exec:" to /tmp/add
+sed -i 's/>/>exec:/' /tmp/add 
+
+## Get TrayButton Code 
+VAR="$(cat /tmp/add | head -1)"
+
+### Write to .jwmrc-tray
+
+sed -i  "/$LAST/ a\ $VAR"  /root/.jwmrc-tray
+
+## Cleanup
+
+rm -f /tmp/add
+}
+export -f Copy2Tray
+
+
+export LAST=$(cat /root/.jwmrc-tray | grep -i 'TrayButton' | tail  -1 | awk '{print $2}')
+
+### List Icons with Search Button
+export MiniList='
+<vbox>
+   <text>
+   <label>"Icons:"</label>
+   <variable>MINI_WIN</variable>
+   </text>
+  <tree stock="gtk-file">
+          <label>Mini-Icon Directory</label>
+          <input>ls /usr/local/lib/X11/mini-icons</input>
+           <height>200</height><width>800</width>
+           <variable>MiniChoice</variable>
+   </tree>
+   <button ok>
+     <action type="closewindow">MINI_WIN</action>
+   </button>
+</vbox>
+'
+export PixList='
+<vbox>
+   <text>
+   <label>"Icons:"</label>
+   <variable>PIX_WIN</variable>
+   </text>
+  <tree stock="gtk-file">
+          <label>Pixmaps Directory</label>
+          <input>ls /usr/local/lib/X11/pixmaps</input>
+           <height>200</height><width>800</width>
+           <variable>PixChoice</variable>
+   </tree>
+   <button ok>
+     <action type="closewindow">PIX_WIN</action>
+   </button>
+</vbox>
+'
+
+
+export SHOW='
+<window title="User Defined Listings">
+<vbox>
+   <text>
+   <label>jwmrc-tray</label>
+   <variable>SHOW_WIN</variable>
+   </text>
+  <tree stock="gtk-file">
+          <label>TrayButtons</label>
+          <input>cat /root/.jwmrc-tray | grep TrayButton | grep exec</input>
+           <variable>TREE</variable>
+   </tree>
+   <hbox> 
+         <text>
+           <label>"Backup File"</label>
+          </text>
+          <entry fs-action="file" fs-folder="'$BACKDIR'"
+              fs-filters="DOTjwmrc-tray"
+              fs-title="Select an existing backup">
+              <variable>ent3</variable>
+          </entry>  
+           <button tooltip-text="Load existing or write in new backup file">
+             <input file stock="gtk-new"></input>    
+             <action>fileselect:ent3</action>    
+           </button>
+   </hbox>
+   <button tooltip-text="Default Backup File: '$BACKUP'">
+     <label>Backup</label>
+     <action>Copy</action>
+     <action type="launch">DONE</action>
+   </button>
+   <button cancel>
+     <action type="closewindow">SHOW_WIN</action>
+   </button>
+</vbox>
+</window>
+'
+export DONE='
+<window title="Completed">
+  <vbox>
+        <text use-markup="true">
+           <label>"<b>DONE!</b>"</label>
+           <variable>DONE_WIN</variable>
+        </text>
+          <text>
+              <label>"Push 'OK' to restart JWM"</label>
+          </text>
+        <pixmap><input file>/usr/local/lib/X11/mini-icons/mini-icons.xpm</input></pixmap>
+      <hbox>  
+           <button tooltip-text="restart JWM" can-default="true" has-default="true" use-stock="true">
+                <label>gtk-ok</label>
+            <action>jwm -restart</action>
+           </button>
+           <button cancel>
+                <action type="closewindow">DONE_WIN</action>
+           </button>
+       </hbox>
+      
+   </vbox>
+</window>
+'
+
+export MAIN_DIALOG='
+<window title="TrayManager">
+  <vbox>
+   <hbox>
+      <text>
+        <label>Popup:</label>
+      </text>
+        <entry>
+          <variable>POPUP</variable>
+        </entry>
+    </hbox>
+   <hbox>
+      <text>
+        <label>exec:</label>
+      </text>
+        <entry>
+          <variable>EXEC</variable>
+        </entry>
+    </hbox> 
+      <hbox>
+ 
+           <text>
+           <label>"Select Icon:"</label>
+          </text>
+          <entry fs-action="newfile" fs-folder="/usr/local/lib/X11"
+              fs-filters="*.xpm|*.png"
+              fs-title="Select an Icon"> 
+              <variable>ICON</variable>
+          </entry>  
+           <button tooltip-text="Get Icon">
+             <input file stock="gtk-new"></input>   
+             <action>fileselect:ICON</action>    
+           </button>
+           </hbox>
+           <hbox>
+            <text>
+               <label>"View:"</label>
+             </text> 
+           <button tooltip-text="/usr/local/lib/X11/mini-icons/">
+              <label>mini-icons</label>
+              <action type="launch">MiniList</action>
+            </button>
+           <button tooltip-text="/usr/local/lib/X11/pixmaps/">
+              <label>pixmaps</label>
+              <action type="launch">PixList</action>
+           </button>
+    </hbox>
+      <hbox>
+         <button tooltip-text="Add icon to .jwmrc-tray"> 
+            <label>Add To Tray</label>
+             <action>Write2Tmp</action>
+             <action>Copy2Tray</action>
+             <action type="launch">DONE</action>
+         </button>
+    </hbox>
+     
+     <hbox>
+        <text use-markup="true">
+          <label>"<b>To Remove: Enter Popup Name</b>"</label>
+         
+         </text>
+      </hbox>
+     <hbox>
+        <text>
+          <label>Popup:</label>
+        </text>
+        <entry>
+             <variable>REMOVE</variable>
+        </entry>
+       <button tooltip-text="Delete icon from .jwmrc-tray">
+           <label>Remove</label>
+           <action>echo $REMOVE>/tmp/remove</action>
+           <action>Remove</action>
+           <action type="launch">DONE</action>
+        </button>
+     
+     </hbox>
+     <hbox>
+       <button tooltip-text="View/Backup tray entries in .jwmrc-tray">
+            <label>View/Backup Tray</label>
+         <action type="launch">SHOW</action>
+       </button>
+       <button cancel>
+       </button>
+     </hbox>
+   </vbox>
+</window>
+'
+gtkdialog3 --program=MAIN_DIALOG -G ${1-${WIDTH}x${HEIGHT}+${RIGHT}+${DOWN}}
+
