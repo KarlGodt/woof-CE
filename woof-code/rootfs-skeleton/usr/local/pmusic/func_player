@@ -1,0 +1,231 @@
+#!/bin/bash
+#Pmusic
+#Copyright 2008,2009,2010 GPL
+#Sigmund Berglund
+IFS=$'\n'
+
+#in case external call
+[ ! "$WORKDIR" ]	&& export WORKDIR=$HOME/.pmusic/tmp
+[ ! "$APPDIR" ]		&& export APPDIR=/usr/local/pmusic
+[ ! "$CD_DEVICE" ]	&& export CD_DEVICE=/dev/cdrom
+[ ! "$CD_SPEED" ]	&& export CD_SPEED=2
+#---
+
+[ "$2" = "-next" ] && PLAYLIST=($(<"$WORKDIR/PLAYLIST")) #next has defined a new song
+if [ "$2" != "-playing" ]; then 
+	[ ! "$PLAYLIST" ] && PLAYLIST="`head -n 1 $WORKDIR/playlist | cut -d '|' -f 3`" #define first if no is selected
+	if [ "`echo "$PLAYLIST" | grep -F 'cdda:'`" ]; then
+		echo "$PLAYLIST" | cut -d: -f2 > $WORKDIR/CDDA_TRACK
+		PLAYLIST="xxx `echo "$PLAYLIST" | cut -d: -f5-`"
+	fi
+	echo "$PLAYLIST" | cut -d ' ' -f 2- > $WORKDIR/PLAYLIST #call from buttons, not from playlist
+fi
+
+#reset gtk-theme
+if [ -f "$APPDIR/themes/$THEME/gtkrc" ]; then
+	if [ "`grep THEME_ALL $APPDIR/themes/$THEME/themerc | grep '=true'`" ]; then 
+		echo
+	else
+		if [ -f /etc/gtk-2.0/gtkrc ]; then
+			export GTK2_RC_FILES=':/etc/gtk-2.0/gtkrc' #/etc/gtk-2.0/gtkrc is for < Puppy4
+		else
+			export GTK2_RC_FILES="`grep -m 1 gtkrc $HOME/.gtkrc-2.0 | cut -d'\"' -f2 2> /dev/null`" #get active theme
+		fi
+	fi
+fi
+#---
+
+case $1 in
+-jump_to) #start song with given time
+	cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING > $WORKDIR/PLAYLIST
+	FRAME="$LOC155"; IMG=""; TXT1="$LOC508:"; DEFAULT='0:00'
+	. $APPDIR/box_input
+	if [ $EXIT = "ok" ]; then
+		if [ "`echo $INPUT | grep ':'`" ]; then
+			MIN=`echo $INPUT | cut -d ':' -f 1`
+			SEC=`echo $INPUT | cut -d ':' -f 2`
+			if [ ! $SEC ]; then SEC=0; fi
+		else
+			MIN=0
+			SEC=$INPUT
+		fi
+		echo "$[($MIN*60)+$SEC]" > $WORKDIR/SS
+		$APPDIR/func_kill
+		$APPDIR/func_player -playing -playing &
+	fi
+	;;
+-back)
+	TREE_ITEM=($(<"$WORKDIR/TREE_ITEM"))
+	export PLAYLIST="`grep -wF --before-context=1 "$TREE_ITEM" $WORKDIR/playlist | cut -d '|' -f 3 | head -n 1`"
+	echo "$PLAYLIST" > $WORKDIR/PLAYLIST
+	grep -F "$PLAYLIST" $WORKDIR/playlist > $WORKDIR/TREE_ITEM
+	#start new process
+	$APPDIR/func_kill
+	echo 0 > $WORKDIR/SS
+	echo 0 > $WORKDIR/PERCENT_BAR
+	#---
+	$APPDIR/func_player -playing &
+	;;
+-rewind)
+	TIME=`tail -c 50 $WORKDIR/ffmpeg_output | cut -d '=' -f 3 | cut -d ' ' -f 1 | cut -d . -f 1`
+	SS_OLD=($(<"$WORKDIR/SS"))
+	if [ $SS_OLD -lt 30 ]; then TIME=0; SS_OLD=30; fi #rewind can return negative value
+	[ ! "$(($TIME+1))" ] && TIME=0 #ffmpeg has not got time to return time
+	echo $(($TIME-30+$SS_OLD)) > $WORKDIR/SS
+	#start new process
+	echo true > $WORKDIR/REW_FWD
+	cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING > $WORKDIR/PLAYLIST
+	$APPDIR/func_kill
+	$APPDIR/func_player -playing -playing &
+	;;
+-stop)
+	$APPDIR/func_kill
+	echo "pmusic_stop" > $WORKDIR/ffmpeg_output
+	#if timestamp is set (bookmark or -s switch), SS already has got its value
+	#else set to start (0)
+	[ ! -f $WORKDIR/TIMESTAMP ] && echo 0 > $WORKDIR/SS
+	[ -f $WORKDIR/TIMESTAMP ] && rm $WORKDIR/TIMESTAMP
+	[ -f $WORKDIR/CDDA_TRACK ] && rm $WORKDIR/CDDA_TRACK
+	#---
+	echo true > $WORKDIR/stop #status for progressbar
+	echo -n > $WORKDIR/TREE_ITEM
+	echo false > $WORKDIR/REW_FWD
+	usleep 100000 #wait for func_progressbar to update 
+	echo 0 > $WORKDIR/PERCENT_BAR
+	echo "/»»» Pmusic «««." > $WORKDIR/PLAYLIST
+	;;
+-play)
+	TMP=`ps -eo pid,s,command`
+	if [ "`echo $TMP | grep aplay`" ]; then #playing --> PAUSE
+		if [ "`echo $TMP | grep aplay | grep ' T '`" ]; then #process is paused
+			for I in `ps | grep aplay | awk '{print $1}'`; do kill -18 $I; done #continue
+			cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING > $WORKDIR/PLAYLIST
+		else
+			for I in `ps | grep aplay | awk '{print $1}'`; do kill -19 $I; done #pause
+			cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING > $WORKDIR/PLAYLIST
+		fi
+		echo true > $WORKDIR/stop
+	else #go to 'play song'
+		$APPDIR/func_player -playing &
+	fi
+	;;
+-playing)
+	PLAYLIST=($(<"$WORKDIR/PLAYLIST"))
+	SS=($(<"$WORKDIR/SS"))
+	echo "|$PLAYLIST" > $WORKDIR/ffmpeg_NOW_PLAYING #in case func_progressbar fails
+	grep -F "$PLAYLIST" $WORKDIR/playlist > $WORKDIR/TREE_ITEM #holds all coloums
+	##### add to index #####
+	if [ "$PLAYLIST" ]; then #iso 8859-1 sometimes break $PLAYLIST
+		#add to index_recent
+		if [ ! "`tail -n 1 $HOME/.pmusic/index_recent | grep -F "$PLAYLIST"`" ]; then
+			NAME="`basename "$PLAYLIST"`"
+			#convert underscores and %20
+			[ $CONVERT_UNDERSCORE = true ] && NAME="`echo "$NAME" | tr '_' ' '`"
+			[ $CONVERT_20 = true ] && NAME="`echo "$NAME" | sed 's/%20/ /g'`"
+			#---
+			TMP="`grep -Fm 1 "$PLAYLIST" $WORKDIR/playlist | cut -d'|' -f3 | cut -d' ' -f2-`" #seek $WORKDIR/playlist to detect complete info for CD-tracks
+			echo "  $TMP|$NAME" >> $HOME/.pmusic/index_recent
+		fi
+		#add to index_most_played
+		if [ "`grep -wF -m 1 "$PLAYLIST" $HOME/.pmusic/index_most_played`" ]; then #played before. - Increase status
+			NR="`grep -wF -m 1 "$PLAYLIST" $HOME/.pmusic/index_most_played | cut -d '|' -f 1`"
+			NR_NEW=$(($NR+1))
+			TMP="`grep -w F-m 1 "$PLAYLIST" $HOME/.pmusic/index_most_played | cut -d '|' -f 2-`"
+			#increase by 1
+			#since trouble with sed and '&' in songname - execute through file
+			echo "sed -i 's%$NR|$TMP%$NR_NEW|$TMP%g' $HOME/.pmusic/index_most_played" > $WORKDIR/exec
+			sed -i 's/\&/\\\&/g' $WORKDIR/exec
+			$WORKDIR/exec
+		else
+			NAME="`basename "$PLAYLIST"`"
+			#convert underscores and %20
+			[ $CONVERT_UNDERSCORE = true ] && NAME="`echo "$NAME" | tr '_' ' '`"
+			[ $CONVERT_20 = true ] && NAME="`echo "$NAME" | sed 's/%20/ /g'`"
+			#---
+			TMP="`grep -Fm 1 "$PLAYLIST" $WORKDIR/playlist | cut -d'|' -f3 | cut -d' ' -f2-`" #seek $WORKDIR/playlist to detect complete info for CD-tracks
+			echo "10001|  $TMP|$NAME" >> $HOME/.pmusic/index_most_played
+		fi
+	fi
+	######
+	echo false > $WORKDIR/stop #if stopped it shouldn't start next
+	echo -n > $WORKDIR/ffmpeg_output
+	echo -n > $WORKDIR/ffmpeg_length
+	TMP="`cut -d '|' -f 1 $WORKDIR/TREE_ITEM | awk '{print $1}' | head -n 1`"
+	[ "$TMP" = "N/A," ] && TMP='00:00'
+	#build command --- split echos to ensnure filenames that contaions ' will play
+	echo '#!/bin/sh' > $WORKDIR/exec
+	if [ "$TMP" = "00:00" ] || [ "$TMP" = "00:01" ]; then #if length is under 2 sec --> piping ffmpeg | aplay fails
+		echo -n "ffmpeg -i '" >> $WORKDIR/exec
+		echo -n "${PLAYLIST}" | sed s/\'/\'\"\'\"\'/g >> $WORKDIR/exec #if filename contains ' this won't play else we put it into ""
+		echo "' -f au -y $WORKDIR/pmusic.au 2> /dev/null"  >> $WORKDIR/exec
+		echo "aplay $WORKDIR/pmusic.au 2> /dev/null" >> $WORKDIR/exec
+	else #Normal way
+		#check if cd-audio
+		[ -f $WORKDIR/CDDA_TRACK ] && CDDA_TRACK=($(<"$WORKDIR/CDDA_TRACK"))
+		if [ "$CDDA_TRACK" ]; then
+			rm $WORKDIR/*.wav 2> /dev/null
+			hdparm -E$CD_SPEED /dev/cdrom
+			cdda2wav dev=$CD_DEVICE -t $CDDA_TRACK -Owav $PLAYLIST &
+			while [ ! -f $PLAYLIST ]; do sleep 0.2; done #wait for cdda2wav to start ripping
+			while [ `du $PLAYLIST | awk '{print $1}'` -lt $(((172*$SS)+1000)) ]; do sleep 0.2; done #wait for cdda2wav to rip skipped seconds + a buffer of 1 mb
+		fi
+		#---
+		echo -n "exec ffmpeg -i '" >> $WORKDIR/exec
+		echo -n "${PLAYLIST}" | sed s/\'/\'\"\'\"\'/g >> $WORKDIR/exec #if filename contains ' this won't play else we put it into ""
+		echo "' -ss $SS -f au - 2>> $WORKDIR/ffmpeg_output | aplay -D plughw 2> /dev/null" >> $WORKDIR/exec
+	fi
+	chmod 700 $WORKDIR/exec
+	if [ "$HIGH_CPU" = "true" ]; then
+		nice --18 $WORKDIR/exec 2> /dev/null
+	else
+		$WORKDIR/exec 2> /dev/null
+	fi
+	#run next song in playlist
+	if grep false $WORKDIR/stop > /dev/null; then sleep $GAP; $APPDIR/func_player -next; fi
+	;;
+-forward)
+	TIME="`tail -c 50 $WORKDIR/ffmpeg_output | cut -d '=' -f 3 | cut -d ' ' -f 1 | cut -d . -f 1`"
+	SS_OLD=($(<"$WORKDIR/SS"))
+	if [ ! "$(($TIME+1))" ]; then TIME=0; fi #ffmpeg has not got time to return time
+	echo $(($TIME+30+$SS_OLD)) > $WORKDIR/SS
+	#start new process
+	echo true > $WORKDIR/REW_FWD
+	cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING > $WORKDIR/PLAYLIST
+	$APPDIR/func_kill
+	$APPDIR/func_player -playing -playing &
+	;;
+-next)
+	SHUFFLE=($(<"$WORKDIR/SHUFFLE"))
+	if [ "$SHUFFLE" = "true" ]; then #shuffle
+		#get random line in playlist
+		LINES=($(<"$WORKDIR/playlist"))
+		n=${#LINES[@]}
+		r=$((RANDOM % n))
+		echo "${LINES[r]}" | cut -d '|' -f 3 > $WORKDIR/PLAYLIST
+	else #follow list, item by item
+		TMP=`grep "from '" $WORKDIR/ffmpeg_output | cut -d "'" -f 2- | sed -e "s/'://g"`
+		if grep "$TMP" $WORKDIR/playlist > /dev/null; then
+			TMP="`cut -d'|' -f2 $WORKDIR/ffmpeg_NOW_PLAYING`"
+			TMP2="`tail -n 1 $WORKDIR/playlist | cut -d '|' -f 3`"
+			if [ "`echo "$TMP2" | grep "$TMP"`" ]; then #if last song
+				if grep true $WORKDIR/REPEAT > /dev/null; then #repeat
+					head -n 1 $WORKDIR/playlist | cut -d '|' -f 3 > $WORKDIR/PLAYLIST
+				else
+					$APPDIR/func_player -stop
+					exit
+				fi
+			else #next in list
+				grep -wF --after-context=1 "$TMP" $WORKDIR/playlist | cut -d '|' -f 3 | tail -n 1 > $WORKDIR/PLAYLIST
+			fi
+		else #if played song is not in playlist - play first song
+			head -n 1 $WORKDIR/playlist | cut -d '|' -f 3 > $WORKDIR/PLAYLIST
+		fi
+	fi
+	#start new process
+	$APPDIR/func_kill
+	echo 0 > $WORKDIR/SS
+	echo 0 > $WORKDIR/PERCENT_BAR
+	#---
+	$APPDIR/func_player -playing -next &
+	;;
+esac
