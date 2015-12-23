@@ -1,0 +1,44 @@
+#!/bin/sh
+
+#need to check if pjsua is already running
+#delete buddy-list write \n\n to the input file, pause and see if it gets
+#recreated
+mkdir -p $PJTMP
+rm $PJTMP/buddy-list* 2>/dev/null
+echo -e "\n\n" >> $PJSIGNAL
+sleep 1
+[ -f "$PJTMP/buddy-list" ] && 
+echo -e "0\nPjsua already running." > $PJTMP/status-message && exit
+echo -e "0\nPjsua VOIP application starting." > $PJTMP/status-message
+#should still try and do a cleanup here just in case
+mkdir -p $PJTMP
+echo using $PJSUA > /tmp/psip/std-out
+echo using $PJSUA > /tmp/psip/std-err
+echo using $PJSUA > $PJTMP/app-log
+
+mkdir -p  $HOME/.psip
+[ -f $PJCFG ] || cp $PJAPPDIR/pjsua.cfg.default $PJCFG
+#if the cfg file doesn't have account details then show account dialog 
+[ "$(grep 'Account 0' $PJCFG)" ] || $PJAPPDIR/dialog_addaccount
+
+#setup the input pipe to control pjsua
+echo > $PJSIGNAL
+[ -p $PJTMP/pjsua-input-pipe ] || mkfifo $PJTMP/pjsua-input-pipe
+echo > $PJSIGNAL
+tail -f $PJSIGNAL > $PJTMP/pjsua-input-pipe &
+
+#setup the output pipe and output-reader to react to pjsua messages
+[ -p $PJTMP/pjsua-output-pipe ] || mkfifo $PJTMP/pjsua-output-pipe
+echo > $PJTMP/pjsua-events
+tail -f $PJTMP/pjsua-events > $PJTMP/pjsua-output-pipe &
+$PJAPPDIR/pjsua-output-reader &
+
+#register to receive presence notifications from all buddies
+echo -e "\ns\n-1\n" >> $PJSIGNAL
+
+#start pjsua with named pipe for input 
+$PJAPPDIR/$PJSUA --config-file=$PJCFG > /tmp/psip/std-out 2>/tmp/psip/std-err < $PJTMP/pjsua-input-pipe &
+while [ ! -f "$PJTMP/buddy-list" ]; do
+sleep 1
+done
+echo -e "100\nPjsua logged in, hit refresh to see your buddies." > $PJTMP/status-message
