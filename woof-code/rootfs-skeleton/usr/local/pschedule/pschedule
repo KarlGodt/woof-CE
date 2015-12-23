@@ -1,0 +1,168 @@
+#! /bin/bash
+#Pschedule
+#Copyright 2007
+#Sigmund Berglund
+
+#------------------------------
+#Pschedule is released under the GNU General Public License (GPL). You have the right to use and modify this software in any way you like, so long as any derivative works remain under a GPL license.
+    
+#This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY.
+#See the GNU General Public License homepage for more details. <http://www.gnu.org/licenses/>.
+#------------------------------
+
+#Thanks to
+# jake_take for improvements.
+# HairyWill for advanced bash help.
+# mcewanw for cli options
+
+VERSION="0.8"
+export PROGPATH="/usr/local/pschedule"
+export TASK="$1"; export TASKNAME="$2"
+
+#parameters
+while [ $# != 0 ]; do
+	I=1
+	while [ $I -le `echo $# | wc -c` ]; do #check -xft
+		case $1 in
+			-v|--version) echo Pschedule $VERSION; exit;;
+			-h|--help) echo '
+Usage: pschedule [OPTION]
+       pschedule [Command] [Task Name]
+
+Options
+  -h | --help       Show this help message
+  -v | --version    Show Pschedule version'; exit;;
+		esac
+		shift
+		I=$[$I+1]
+	done
+done
+
+#cron check
+if [ ! -f $HOME/Startup/cron-check ]; then
+	#include a link to crond in ~/Startup for autostart cron daemon at boot
+	mkdir $HOME/Startup  > /dev/null 2>&1
+	echo '
+TMP=`ps -e`
+TMP2=`echo "$TMP" | grep " cron"`
+if [ -z "$TMP2" ]; then #cron is not running
+	crond
+fi' > $HOME/Startup/cron-check
+	chmod 700 $HOME/Startup/cron-check
+	#---
+	killall -q crond; crond #restart cron
+	#Did these really happen. Do user has permission.
+	TMP=`ps -e`; TMP=`echo "$TMP" | grep " cron"`
+	if [ -z "$TMP" ]; then #cron is not running
+		FRAME="Error"; TXT2="Cron deamon is not running. You need root-access to start cron"; IMG="dialog-error"
+		. "$PROGPATH"/box_ok
+	fi
+fi
+#build treeitems for 'Add task' --- better have the delay at startup
+COUNT=0; ITEMS_HOUR="$ITEMS_HOUR<item>any</item>"
+while [ $COUNT -lt 24 ]; do
+	if [ $COUNT -lt 10 ]; then COUNT=0"$COUNT"; fi #always 02 digits
+	export ITEMS_HOUR="$ITEMS_HOUR<item>$COUNT</item>"
+	COUNT=`expr $COUNT + 1`
+done
+COUNT=0; ITEMS_MINUTE="$ITEMS_MINUTE<item>any</item>"
+while [ $COUNT -lt 60 ]; do
+	if [ $COUNT -lt 10 ]; then COUNT=0"$COUNT"; fi #always 02 digits
+	export ITEMS_MINUTE="$ITEMS_MINUTE<item>$COUNT</item>"
+	COUNT=`expr $COUNT + 1`
+done
+COUNT=1; ITEMS_DAY="$ITEMS_DAY<item>any</item>"
+while [ $COUNT -lt 32 ]; do
+	export ITEMS_DAY="$ITEMS_DAY<item>$COUNT.</item>"
+	COUNT=`expr $COUNT + 1`
+done
+export ITEMS_WEEKDAY="$ITEMS_WEEKDAY
+<item>any</item>
+<item>Monday</item>
+<item>Tuesday</item>
+<item>Wedensday</item>
+<item>Thursday</item>
+<item>Friday</item>
+<item>Saturday</item>
+<item>Sunday</item>"
+export ITEMS_MONTH="$ITEMS_MONTH
+<item>any</item>
+<item>January</item>
+<item>February</item>
+<item>March</item>
+<item>April</item>
+<item>May</item>
+<item>June</item>
+<item>July</item>
+<item>August</item>
+<item>September</item>
+<item>October</item>
+<item>November</item>
+<item>December</item>"
+#---
+
+
+. $PROGPATH/func_cron_to_human
+export pschedule="
+<window title=\"Pschedule $VERSION - Task on time\">
+<vbox>
+ <hbox>
+  <tree rules_hint=\"true\" exported_column=\"0\">
+   <width>500</width><height>200</height>
+   <label>\"Task|Schedule|Cron command\"</label>
+   <variable>TREE</variable>
+   <input>cat /tmp/pschedule-treeitems</input>
+   <action signal=\"button-release-event\">enable:BUTTON_DEL</action>
+   <action signal=\"button-release-event\">enable:BUTTON_EDIT</action>
+   <action signal=\"button-release-event\">enable:BUTTON_RUN</action>
+  </tree>
+  <vbox>
+   <button>
+    <variable>BUTTON_ADD</variable>
+    <label>Add task</label>
+    <input file stock=\"gtk-add\"></input>
+    <action>. $PROGPATH/func_new \"$TASK\" \"$TASKNAME\"</action> 
+    <action>. $PROGPATH/func_cron_to_human</action>
+    <action>refresh:TREE</action>
+   </button>
+   <button>
+    <variable>BUTTON_EDIT</variable>
+    <label>\"      Edit\"</label>
+    <input file stock=\"gtk-edit\"></input>
+    <visible>disabled</visible>
+    <action>. $PROGPATH/func_new -edit</action>
+    <action>. $PROGPATH/func_cron_to_human</action>
+    <action>refresh:TREE</action>
+   </button>
+   <button>
+    <variable>BUTTON_DEL</variable>
+    <label>Delete</label>
+    <input file stock=\"gtk-delete\"></input>
+    <visible>disabled</visible>
+    <action>. $PROGPATH/func_delete</action>
+    <action>. $PROGPATH/func_cron_to_human</action>
+    <action>refresh:TREE</action>
+   </button>
+   <button>
+    <variable>BUTTON_RUN</variable>
+    <label>\"     Run\"</label>
+    <input file stock=\"gtk-execute\"></input>
+    <visible>disabled</visible>
+    <action>. $PROGPATH/func_run</action>
+   </button>
+   <text><label>\"\"</label></text>
+   <text><label>\"\"</label></text>
+   <button><input file stock=\"gtk-quit\"></input><label>\"     Quit\"</label><action type=\"exit\">EXIT</action></button>
+  </vbox>
+ </hbox>
+</vbox>
+</window>"
+I=$IFS; IFS=""
+for STATEMENTS in  $(gtkdialog3 --program=pschedule); do
+	eval $STATEMENTS
+done
+IFS=$I
+case $EXIT in
+	*)	rm /tmp/pschedule*
+		exit;;
+esac
