@@ -16,23 +16,61 @@
 #100517 freememapplet_tray moved to /root/Startup.
 #100522 'surfer' is a simple viewer (uses libgtkhtml).
 #100608 if yaf-splash symlink to gtkdialog-splash, use '-fontsize large' parameter.
+#100821 01micko: fixes for background color in tray apps, also launch first-run.sh.
 
 #variables created at bootup by 'init' in initramfs...
 . /etc/rc.d/PUPSTATE
+. /etc/rc.d/f4puppy5
 
 BGOPT=""
+#100821 start...
+read WINDOWMANAGER </etc/windowmanager
+case $WINDOWMANAGER in
+ icewm*) #icewm or icewm-session.
+  #micko for icewm, not sure why it's needed but it doesn't work without killing the ice tray. It's mainly so freememapplet_tray, network_tray and retrovol work.
+  #pidof icewmtray >>$OUT && killall icewmtray
+  #exec icewmtray &
+  pidof icewmtray >>$OUT || exec icewmtray &
+  test -f $HOME/.icewm/theme && . $HOME/.icewm/theme
+  THEMEDIR="/usr/share/icewm/themes"
+  test -f "${THEMEDIR}/${Theme}" && . "${THEMEDIR}"/"${Theme}"
+  NUMCOLOR=`echo $ColorNormalTaskBarApp|grep "rgb:"`
+  if [ "$NUMCOLOR" = "" ];then BG=""
+  else PRE_BG=`echo $ColorNormalTaskBarApp|cut -d ':' -f2|sed 's%/%%g'`
+   BG="#${PRE_BG}"   #this is more generic and works with many themes.
+  fi
+  if [ "$Theme" = "GoldenSand/default.theme" ];then
+   BG="#C6AD73" #this is particular to 5.1, it can be removed for cleanliness
+  fi
+  if [ "$BG" = "" ];then
+   BGOPT=""
+  else
+   BGOPT="-bg ${BG}"
+  fi
+ ;;
+ *)
+  if [ -f /root/.jwm/jwm_colors ];then #100504
+   . /root/.jwm/jwm_colors
+    BGOPT="-bg ${MENU_BG}"
+  fi
+ ;;
+esac
+#10821 end.
+
+__jwm_colors__(){
 if [ -f /root/.jwm/jwm_colors ];then #100504
 . /root/.jwm/jwm_colors
  BGOPT="-bg ${MENU_BG}"
 fi
+}
 
 FONTSIZEPARAM=''
-[ -h /usr/bin/yaf-splash ] && FONTSIZEPARAM='-fontsize large' #100608
+[ -L /usr/bin/yaf-splash ] && FONTSIZEPARAM='-fontsize large' #100608
 
 KERNVER="`uname -r`" #w481
 
 BAREVIEW="bareview"
-[ "`which bareview`" = "" ] && BAREVIEW="defaulthtmlviewer"
+[ "`which bareview`" ] || BAREVIEW="defaulthtmlviewer"
 
 sleep 2 #let the dust settle first.
 
@@ -47,8 +85,8 @@ if [ "$BLINK_TRAY" != "" ];then
  sleep 0.1
 fi
 #fi
-if [ "`which retrovol`" != "" -a "`pidof retrovol`" = "" ];then
- if [ "`retrovol -help 2>&1 | grep '\-show'`" != "" ];then
+if [ "`which retrovol`" -a "`pidof retrovol`" = "" ];then
+ if [ "`retrovol -help 2>&1 | grep '\-show'`" ];then
   retrovol ${BGOPT} & #100119 tray volume control by pizzasgood. 100504
  else
   retrovol -hide ${BGOPT} & #100413 versions after 0.2. 100504
@@ -139,6 +177,5 @@ if [ -d /root/Startup ];then
   sleep 0.2
  done
 fi
-
 
 ###END###
