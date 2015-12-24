@@ -3,51 +3,32 @@
 
 . /etc/rc.d/PUPSTATE
 . /etc/rc.d/BOOTCONFIG
+. /etc/rc.d/f4puppy5
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
 
-[ -x /usr/sbin/fixicons ] && fixicons #icon fix for lupu by 01micko
+DEFAULTWM=jwm
+read CURRENTWM </etc/windowmanager
+DISP=${DISPLAY%.*}
+test -f /etc/windowmanager.$DISP && read CURRENTWM </etc/windowmanager.$DISP
 
-if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then  #sfs fix?
-echo "ICONWIPE" >/tmp/pup_event_icon_change_flag
-fi
 
-##v4.01 BK daemon to handle kernel uevents...
-/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-/sbin/pup_event_frontend_d & #v403
-
-#w482 reshape background image if widescreen...
-[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
-
-userresources=$HOME/.Xresources
-usermodmap=$HOME/.Xmodmap
 sysresources=/usr/lib/X11/xinit/Xresources
+userresources=$HOME/.Xresources
+
 sysmodmap=/usr/lib/X11/xinit/.Xmodmap
+usermodmap=$HOME/.Xmodmap
 
 # merge in defaults and keymaps
 
-if [ -f $sysresources ]; then
-    xrdb -merge -nocpp $sysresources
-fi
+[ -f "$sysresources" ]  && xrdb -merge -nocpp $sysresources
+[ -f "$userresources" ] && xrdb -merge -nocpp $userresources
 
-if [ -f $sysmodmap ]; then
-    xmodmap $sysmodmap
-fi
+[ -f "$sysmodmap" ]  && xmodmap $sysmodmap
+[ -f "$usermodmap" ] && xmodmap $usermodmap
 
-if [ -f $userresources ]; then
-    xrdb -merge -nocpp $userresources
-fi
-
-if [ -f $usermodmap ]; then
-    xmodmap $usermodmap
-fi
-
-CURRENTWM="`cat /etc/windowmanager`"
-if [ "$CURRENTWM" = "startkde" ];then
- exec startkde
-fi
 
 #100501 if full nvidia pkg installed, it has a gui config app...
 [ -f /root/.nvidia-settings-rc ] && nvidia-settings --load-config-only
@@ -100,6 +81,29 @@ fi
 
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
 
+#v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
+if [ -f /etc/mousehide ];then
+ IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
+ [ "$IDLETIME" != "0" ] && unclutter -idle $IDLETIME &
+fi
+
+if [ "$CURRENTWM" = "startkde" ];then
+ exec startkde
+fi
+
+[ -x /usr/sbin/fixicons ] && fixicons #icon fix for lupu by 01micko
+
+if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then  #sfs fix?
+echo "ICONWIPE" >/tmp/pup_event_icon_change_flag
+fi
+
+##v4.01 BK daemon to handle kernel uevents...
+/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
+/sbin/pup_event_frontend_d & #v403
+
+#w482 reshape background image if widescreen...
+[ "$PUPMODE" -eq 5 ] && /usr/sbin/background_reshape
+
 #v555 w003
 #[ -f /usr/bin/xfce-mcs-manager ] && xfce-mcs-manager
 #[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
@@ -118,11 +122,6 @@ fi
 #v2.0.0
 /usr/sbin/delayedrun &
 
-#v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
-if [ -f /etc/mousehide ];then
- IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ ! "$IDLETIME" = "0" ] && unclutter -idle $IDLETIME &
-fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
 #which ${CURRENTWM}_menu_refresh && ${CURRENTWM}_menu_refresh
@@ -152,31 +151,41 @@ fi
 
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
-if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
+case "$CURRENTWM" in "jwm"|"icewm") :;;
+*)
  if [ -f /usr/bin/fbpanel ];then
   #a bit of a hack: when 3builddistro runs fixmenus, which calls variconlinks,
   #which populates /var/local/icons with symlinks, /usr/local/lib/X11/pixmaps
   #is not yet populated (happens at first boot, from default icon theme)...
-  [ ! -e /var/local/icons/home48.png ] && ln -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
-  fbpanel &
+  [ ! -e /var/local/icons/home48.png ] && ln $VERB -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
+  exec fbpanel &
  fi
- [ -f /usr/bin/lxpanel ] && lxpanel &
-fi
+ [ -f /usr/bin/lxpanel ] && exec lxpanel &
+;;
+esac
 
-##w468 rox may not start old hardware, try again...
-#PS="`ps`"
-#if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
-# touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
-# sleep 0.2
-# rox -p /root/Choices/ROX-Filer/PuppyPin
-#fi
+#w468 rox may not start old hardware, try again...
+PSOUT="`ps`"
+if [ "`echo "$PSOUT" | grep 'ROX\-Filer'`" = "" ];then
+ touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
+ sleep 0.2
+ rox -p /root/Choices/ROX-Filer/PuppyPin
+fi
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
-which $CURRENTWM && exec $CURRENTWM
-[ -x $CURRENTWM ] && exec $CURRENTWM
-exec jwm
-exit
+which "$CURRENTWM"  && {
+echo "$CURRENTWM" >/etc/windowmanager.$DISP
+    exec $CURRENTWM
+}
+
+[ -x "$CURRENTWM" ] && {
+echo "$CURRENTWM" >/etc/windowmanager.$DISP
+    exec $CURRENTWM
+}
+echo "$DEFAULTWM" >/etc/windowmanager.$DISP
+exec $DEFAULTWM
+
 ###END###
