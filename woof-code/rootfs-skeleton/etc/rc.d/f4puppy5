@@ -2,13 +2,86 @@
 
 [ "$_HAVE_F4PUPPY5_" ] && return 0
 
-VERSION=0.0.3
+VERSION=0.0.4
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
 unalias -a
 
 test "$OUT" || OUT=/dev/null
 test "$ERR" || ERR=/dev/null
+#=============== LOGLEVEL / DEBUG MESSAGES ==================================
+[ "$EMERGENCY" ] || EMERGENCY=1
+_emerg(){
+test "$EMERGENCY" || return 0
+echo "EMERGENGY:$*" >&2
+}
+
+[ "$ALERT" ] || ALERT=1
+_alert(){
+test "$ALERT" || return 0
+echo "$0:ALERT:$*" >&2
+}
+
+[ "$CRIT" ] || CRIT=1
+_crit(){
+test "$CRIT" || return 0
+echo "$0:CRITICAL:$*" >&2
+}
+
+[ "$ERROR" ] || ERROR=1
+_err(){
+test "$ERROR" || return 0
+echo "$0:ERROR:$*" >&2
+}
+
+[ "$WARN" ] || WARN=1
+_warn(){
+test "$WARN" || return 0
+echo "$0:WARNING:$*" >&2
+}
+
+[ "$NOTICE" ] || NOTICE=1
+_notice(){
+test "$NOTICE" || return 0
+echo "$0:NOTICE:$*" >&2
+}
+
+[ "$INFO" ] || INFO=1
+_info(){
+test "$INFO" || return 0
+echo "$0:INFO:$*" >&2
+}
+
+[ "$DEBUG" ] || DEBUG=
+_debug(){
+test "$DEBUG" || return 0
+echo "$0:DEBUG:$*" >&2
+}
+
+[ "$DEBUGX" ] || DEBUGX=
+_debugx(){
+test "$DEBUGX" || return 0
+echo "$0:DEBUGX:$@" >&2
+}
+
+[ "$DEBUGT" ] || DEBUGT=1
+_debugt(){  #$1 label #$2 time
+
+test "$DEBUGT" || return 0
+#unset LANG LC_ALL
+local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
+_DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
+#_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
+(
+if test "$2"; then
+_TIME_=`dc $_DATE_ $2 \- p`
+echo "$0:TIME:$1:$_TIME_"
+else
+#echo "$0:TIME:$*:`date +%s.%N | sed 's:.*\(..\..*\):\1:'`"
+echo "$0:TIME:$*:$_DATE_"
+fi
+) >&2
+}
 
 # Handle $0 :
 #test "$MY_SELF" || MY_SELF="$0"
@@ -16,7 +89,11 @@ test "$ERR" || ERR=/dev/null
 case "$0" in
 -*) MY_SELF="$0";;
 *)
+if test -e "$0"; then
 MY_SELFR=`realpath "$0"`
+elif which "$0" >>$OUT; then
+MY_SELFR=$(realpath "`which "$0"`")
+fi
 MY_SELF0="$0"
 
 if test "$MY_SELFR" -a "$MY_SELF0"; then
@@ -51,6 +128,25 @@ ash|bash|dash|hush|msh|sh|-sh|-ash|-bash|-dash|-hush|-msh) EXIT=return;;
 esac
 
 [ "$MY_PID" ] || MY_PID=$$
+
+_get_processes_in_current_terminal(){
+unset lQ
+test "$1" = '-q' && { lQ=-q; shift; }
+TTY=`tty` # terminal device node
+ttyMx=`stat -c %t "$TTY"`  # major in hex
+ttymx=`stat -c %T "$TTY"`  # minor in hex
+ttyMd=`printf %d 0x$ttyMx` # need decimals :(
+ttymd=`printf %d 0x$ttymx`
+
+ttyMM="$ttyMd,$ttymd"
+#echo "$ttyMM"
+#busybox ps -o tty,args
+if test "$*"; then
+busybox ps -o tty,pid,args | grep -vE 'grep|busybox ps' | grep "^${ttyMM} " | grep $lQ -E "$*"
+else
+busybox ps -o tty,pid,args | grep -vE 'grep|busybox ps' | grep "^${ttyMM} "
+fi
+}
 
 _test_f()
 {
@@ -538,81 +634,6 @@ _sync()
 {
 pidof sync || sync
 }
-
-#=============== LOGLEVEL / DEBUG MESSAGES ==================================
-[ "$EMERGENCY" ] || EMERGENCY=1
-_emerg(){
-test "$EMERGENCY" || return 0
-echo "EMERGENGY:$*" >&2
-}
-
-[ "$ALERT" ] || ALERT=1
-_alert(){
-test "$ALERT" || return 0
-echo "$0:ALERT:$*" >&2
-}
-
-[ "$CRIT" ] || CRIT=1
-_crit(){
-test "$CRIT" || return 0
-echo "$0:CRITICAL:$*" >&2
-}
-
-[ "$ERROR" ] || ERROR=1
-_err(){
-test "$ERROR" || return 0
-echo "$0:ERROR:$*" >&2
-}
-
-[ "$WARN" ] || WARN=1
-_warn(){
-test "$WARN" || return 0
-echo "$0:WARNING:$*" >&2
-}
-
-[ "$NOTICE" ] || NOTICE=1
-_notice(){
-test "$NOTICE" || return 0
-echo "$0:NOTICE:$*" >&2
-}
-
-[ "$INFO" ] || INFO=1
-_info(){
-test "$INFO" || return 0
-echo "$0:INFO:$*" >&2
-}
-
-[ "$DEBUG" ] || DEBUG=
-_debug(){
-test "$DEBUG" || return 0
-echo "$0:DEBUG:$*" >&2
-}
-
-[ "$DEBUGX" ] || DEBUGX=
-_debugx(){
-test "$DEBUGX" || return 0
-echo "$0:DEBUGX:$@" >&2
-}
-
-[ "$DEBUGT" ] || DEBUGT=1
-_debugt(){  #$1 label #$2 time
-
-test "$DEBUGT" || return 0
-#unset LANG LC_ALL
-local _TIME_ LC_NUMERIC=C LANG= LC_ALL=
-_DATE_=`date +%s.%N | sed 's:.*\(..\..*\):\1:'`
-#_DATE_=`date +%s,%N | sed 's:.*\(..\,.*\):\1:'`
-(
-if test "$2"; then
-_TIME_=`dc $_DATE_ $2 \- p`
-echo "$0:TIME:$1:$_TIME_"
-else
-#echo "$0:TIME:$*:`date +%s.%N | sed 's:.*\(..\..*\):\1:'`"
-echo "$0:TIME:$*:$_DATE_"
-fi
-) >&2
-}
-
 
 #=================== Prefer Busybox applets ==================================
 _use_busybox_applets()
