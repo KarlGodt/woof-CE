@@ -18,6 +18,8 @@ if [ "`pidof xfce4-panel`" ];then
  exit
 fi
 _debug "`date`"
+
+__old__(){
 #w003
 read CURRENTWM </etc/windowmanager
 pidof $CURRENTWM >>$OUT && kill -9 `pidof $CURRENTWM`
@@ -30,3 +32,71 @@ sleep 1
 ##exec killall -9 X #make sure X is killed.
 pidof X >>$OUT killall -9 X
 _debug "`date`"
+}
+
+__kill__all__currentwm__(){
+DISP=${DISPLAY%.*}
+for i in ".$DISP" ""
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
+done
+}
+
+_get_current_wm(){
+DISP=${DISPLAY%.*}
+for i in "" ".$DISP"
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+echo "CURRENTWM='$CURRENTWM'"
+done
+}
+_get_current_wm
+
+
+_get_my_wm_pid(){
+# REM: xinit starts X in a new tty console
+#      but starts the client in the current console :(
+
+TTY=`tty`
+echo TTY=$TTY
+VC=`busybox fgconsole`
+echo VC=$VC
+
+#MY_WM_PIDS=`/bin/ps -A -o sid,tty,pid,args 2>$ERR | grep -w "$CURRENTWM" | grep -vE "grep|/bin/ps|xwin|/$CURRENTWM/|$TTY"`
+#echo "$MY_WM_PIDS"
+
+while read slpid P p t A
+do
+ test "$slpid" || continue
+if test "$DEBUG"; then
+echo slpid=$slpid
+busybox ps -o pid,ppid,args | grep -w "$slpid" | grep -vE 'grep'
+echo P=$P
+busybox ps -o pid,ppid,args | grep -w "$P" | grep -vE 'grep' | grep "$CURRENTWM"
+fi
+LINES=`busybox ps -o pid,ppid,args | grep -w "$P" | grep -vE 'grep' | grep "$CURRENTWM"`
+
+echo $LINES | awk '{print $1}'
+
+done <<EoI
+`/bin/ps -A -H -o sid,ppid,pid,tty,args | grep "X $DISP" | grep -vE 'grep'`
+EoI
+
+}
+MY_WM_PID=`_get_my_wm_pid`
+test "$MY_WM_PID" && kill -15 $MY_WM_PID
+
+sleep 1
+
+_get_current_x(){
+test "$DISP" || return 1
+ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
+}
+
+CURRENTX=`_get_current_x` && {
+echo "CURRENTX='$CURRENTX'"
+#test "${CURRENTX//[[:blank:]]/}" && kill -15 `_get_current_x`
+}

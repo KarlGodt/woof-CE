@@ -19,6 +19,7 @@ if [ "`pidof xfce4-panel`" ];then
  exit
 fi
 
+__old__(){
 #w003
 read CURRENTWM </etc/windowmanager
 pidof $CURRENTWM >>$OUT && kill -9 `pidof $CURRENTWM`
@@ -29,3 +30,85 @@ pidof $CURRENTWM >>$OUT && kill -9 `pidof $CURRENTWM`
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
 #which reads /tmp/wmexitmode.
+}
+
+_get_current_wm(){
+DISP=${DISPLAY%.*}
+for i in "" ".$DISP"
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+echo "CURRENTWM='$CURRENTWM'"
+done
+}
+_get_current_wm
+
+_get_other_wm_pids(){
+# REM: first needs to kill any other xinit wm X than the current
+#      one responsible for DISPLAY
+
+DISP=${DISPLAY%.*}
+while read f
+do
+case $f in *windowmanager|*windowmanager.$DISP|'') continue;; esac
+read OTHERWM <"$f"
+echo OTHERWM=$OTHERWM
+test "$OTHERWM" || continue
+test "$OTHERWM" = "$CURRENTWM" && continue
+case $OTHERWM in enlightenment_start) OTHERWM=enlightenment;; esac
+ while read slpid t p A
+ do
+  test "$slpid" || continue
+  echo slpid=$slpid t=$t p=$p A=$A
+  ALL_OF_SL=`/bin/ps -A -o sid,tty,pid,args 2>$ERR | grep -w "$slpid"`
+    SL_PID="$SL_PID`/bin/ps -A -o sid,tty,pid,args 2>$ERR | grep -w "$slpid" | grep -w X | grep -vE 'grep|/bin/ps' | awk '{print $3}'`\n"
+  SL_DISP="$SL_DISP`/bin/ps -A -o sid,tty,pid,args 2>$ERR | grep -w "$slpid" | grep -w X | grep ' :[0-9]' | grep -E -o 'X :[0-9]+' | grep -vE 'grep|/bin/ps' | awk '{print $2}'`\n"
+  case $A in *xwin*|*tempget*|*dbus*) continue;; esac
+  for ad in $SL_DISP; do test "$ad" = "$DISP" || KILL_PID="$KILL_PID$p\n"; done
+ done <<EoI
+`/bin/ps -A -o sid,tty,pid,args 2>$ERR | grep -w "$OTHERWM" | grep -vE 'grep|ps'`
+EoI
+done <<EoI
+`ls -1 /etc/windowmanager*`
+EoI
+
+}
+_get_other_wm_pids
+
+KILL_PID=`echo -e $KILL_PID | sort -u | sed '/^$/d'`
+echo "KILL_PID='$KILL_PID'"
+
+SL_PID=`echo -e $SL_PID | sort -u | sed '/^$/d'`
+echo "SL_PID='$SL_PID'"
+/bin/ps -A -o pid,ppid,args 2>$ERR | grep -w "$SL_PID" | grep -vE 'grep|/bin/ps|xinit'
+XPID=`/bin/ps -A -o pid,ppid,args 2>$ERR | grep -w "$SL_PID" | grep -vE 'grep|/bin/ps|xinit' | awk '{print $1}'`
+XPID=`echo "$XPID" | sort -u | grep -vw "$KILL_PID"`
+echo "XPID='$XPID'"
+
+_kill_other_wm(){
+for aP in $KILL_PID; do kill -15 $aP; done
+sleep 1
+#for aP in $SL_PID; do kill $aP; done #session leader is xinit and I do not want to kill xinit, but X
+for aP in $XPID; do kill -15 $aP; done
+}
+_kill_other_wm
+
+DISP=${DISPLAY%.*}
+for i in ".$DISP" ""
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+case $CURRENTWM in enlightenment_start) CURRENTWM=enlightenment;; esac
+echo "CURRENTWM='$CURRENTWM'"
+test "$CURRENTWM" && kill -15 `pidof "$CURRENTWM"` && break
+done
+
+sleep 1
+_get_current_x(){
+test "$DISP" || return 1
+ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
+}
+CURRENTX=`_get_current_x` && {
+echo "CURRENTX='$CURRENTX'"
+test "${CURRENTX//[[:blank:]]/}" && kill -15 `_get_current_x`
+}
