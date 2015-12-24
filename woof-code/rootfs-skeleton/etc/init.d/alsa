@@ -76,24 +76,24 @@ case "$1" in
    D=`find /sys -type d -name "*sound*"`
    POOL=''
     for i in $D ; do
-     echo $i ;
+     _debugx $i ;
      DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr '[: ]' '@' -exec echo \;`;
      POOL="$POOL
 $DEV" ;
     done
-   echo "POOL='$POOL'"
+   _debug "POOL='$POOL'"
 
    mkdir $VERB -p /dev/snd
    #POOL=`echo "$POOL" | rev`
     for i in $POOL ; do
-     echo "i=$i"
+     _debugx "i=$i"
 
      #NODE=`echo $i | cut -f 3 -d '@'`
      #NODE=`echo $NODE | rev`
      #NODE=`basename $(dirname $(echo $NODE) )`
      #NODE=`basename $(dirname $NODE)`
       NODE=`echo $i | awk -F'@' '{print $(NF-2)}' | awk -F'/' '{print $(NF-1)}'`
-      echo "NODE='$NODE'"
+      _debug "NODE='$NODE'"
      #NODE=`basename $(dirname $NODE)`
 
      #MAJ=`echo $i | cut -f 2 -d '@'`
@@ -104,12 +104,12 @@ $DEV" ;
      #Min=`echo $Min| rev`
       Min=`echo $i | awk -F'@' '{print $(NF-0)}'`
 
-     echo "NODE=$NODE" "MAJ=$MAJ" "Min=$Min"
+     _debug "NODE=$NODE" "MAJ=$MAJ" "Min=$Min"
      test "$NODE" -a "$MAJ" -a "$Min" || continue
 
-     rm -f /dev/$NODE
+     rm $VERB -f /dev/$NODE
      mknod /dev/$NODE c $MAJ $Min
-     rm -f /dev/snd/$NODE
+     rm $VERB -f /dev/snd/$NODE
      mknod /dev/snd/$NODE c $MAJ $Min
     done
 
@@ -171,10 +171,11 @@ EOF
  echo `lsmod | grep snd`
 
  if [ -n "$DISPLAY" ] ; then
- [ -n "`pidof retrovol`" ] && killall retrovol && rm -f /var/run/retrovol.pid
+ [ -n "`pidof retrovol`" ] && killall retrovol && rm $VERB -f /var/run/retrovol.pid
  fi
 
   alsactl $DBG -f /etc/asound.state store #saves to /etc/asound.state.
+ (
   # Kill processes holding open sound devices...
   fuser -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat
   [ -d /proc/asound/dev ] && fuser -k /proc/asound/dev/*
@@ -184,6 +185,7 @@ EOF
   # mute master to avoid clicks at unload
   amixer $DBG set Master mute  ###KRG loads a bunch of modules###ORIG
   # remove all sound modules
+ ) 2>>$ERR
   CNT=0  ###KRG
   while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
   echo
@@ -192,17 +194,18 @@ EOF
   while read line
   do
      echo "$line "
-     rmmod -f -w "$line"
+     #rmmod -f -w "$line"
+     modprobe $Q $VERB -r $line
      sleep 0.1
   done
   CNT=$(( CNT + 1 ))  ###KRG
   [ "$CNT" = "5" ] && echo -e "\\033[1;34m"'breaking now'"\\033[0;39m" && break
   done
   # remove the 2.2 soundcore module (if possible)
-  rmmod soundcore
-  rmmod gameport
+  rmmod soundcore >>$ERR
+  rmmod gameport  >>$ERR
   # remove lockfile if lockdir exists
-  [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound
+  [ -d /var/lock/subsys ] && rm $VERB -f /var/lock/subsys/alsasound
   echo "... $PROGPAT $@ finished :"
   echo `lsmod | grep snd`
  ;;

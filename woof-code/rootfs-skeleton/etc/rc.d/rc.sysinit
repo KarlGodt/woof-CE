@@ -142,14 +142,14 @@ if [ ! -d /initrd ];then #w468
 fi
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
 
-rm -rf /tmp/*  ##+++2011-11-30 implemented again
+rm $VERB -rf /tmp/*  ##+++2011-11-30 implemented again
 #redirect all output to a log file (must do after remount rw)...
 #[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
 exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
-rm -f /etc/mtab
+rm $VERB -f /etc/mtab
 ln $VERB -s /proc/mounts /etc/mtab
 
 [ ! -d /dev/pts ] && mkdir $VERB /dev/pts ####KRG for DEVTMPFS KERNEL
@@ -160,8 +160,8 @@ busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$((STATUS + $? ))
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
 QTRFREERAM=$((FREERAM / 4))
-[ ! -d /dev/shm ] && mkdir $VERB /dev/shm ####KRG for DEVTMPFS KERNEL
-mount -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS + $? ))
+[ -d /dev/shm ] || mkdir $VERB /dev/shm ####KRG for DEVTMPFS KERNEL
+mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS + $? ))
 status_func $STATUS
 #w478 moved this code above call to rc.update...
 KERNVER="`uname -r`"
@@ -188,32 +188,35 @@ if [ "$NEEDGUNZIP" = "yes" ];then
  #do
  # gunzip $ONEMOD
  #done
- gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
+ /bin/gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
 fi
 
+__run_depmod__(){
 #w481 now building with busybox depmod, in module-init-tools have depmod-FULL, so comment out...
-##w481 workaround for crappy depmod. First boot 64MB ram no swap, only 14660 free ram, due to
-##tmpfs top layer (about 26MB). depmod gives 'out of memory'. so delay until after swap loaded...
-#if [ "$NEEDDEPMOD" = "yes" ];then
-# #have enabled depmod in latest busybox, that may be more efficient...
-# if [ "`busybox | grep 'depmod'`" ]; then
-#  echo ' depmod' >/dev/console
-#  busybox depmod
-# else
-#  if [ $FREERAM -gt 25000 ];then
-#   echo ' depmod' >/dev/console
-#   depmod -a
-#  else
-#   #try and load a swapfile early...
-#   echo >/dev/console
-#   loadswap_func
-#   if [ "$SWAPON" = "yes" ];then
-#    echo 'Running depmod...' >/dev/console
-#    depmod -a
-#   fi
-#  fi
-# fi
-#fi
+#w481 workaround for crappy depmod. First boot 64MB ram no swap, only 14660 free ram, due to
+#tmpfs top layer (about 26MB). depmod gives 'out of memory'. so delay until after swap loaded...
+if [ "$NEEDDEPMOD" = "yes" ];then
+ #have enabled depmod in latest busybox, that may be more efficient...
+ if [ "`busybox | grep 'depmod'`" ]; then
+  echo ' depmod' >/dev/console
+  busybox depmod
+ else
+  if [ $FREERAM -gt 25000 ];then
+   echo ' depmod' >/dev/console
+   depmod -a
+  else
+   #try and load a swapfile early...
+   echo >/dev/console
+   loadswap_func
+   if [ "$SWAPON" = "yes" ];then
+    echo 'Running depmod...' >/dev/console
+    depmod -a
+   fi
+  fi
+ fi
+fi
+}
+
 if [ "$NEEDDEPMOD" = "yes" ];then
  echo -n ' depmod' >/dev/console
  mkdir $VERB -p /lib/modules/$KERNVER
@@ -252,22 +255,22 @@ if [ ! -d /initrd ];then #v423 full hd install.
 #if [ -n "`grep 'KRG version' /sbin/init`" ] ; then
 
  #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin. have this in 'init' also...
- [ "`modinfo floppy 2>/dev/null`" ] && modprobe floppy
- [ "`modinfo psmouse 2>/dev/null`" ] && modprobe psmouse
+ [ "`modinfo floppy 2>/dev/null`" ]  && modprobe $Q $VERB floppy
+ [ "`modinfo psmouse 2>/dev/null`" ] && modprobe $Q $VERB psmouse
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" ]; then
-  modprobe --config /tmp/pup_event_modprobe.conf yenta-socket
+  modprobe $Q $VERB --config /tmp/pup_event_modprobe.conf yenta-socket
   [ $? -eq 0 ] && sleep 2
  fi
  #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  # this is contrary to my understanding all these years, but oh well, let's do it...
  ELSPCI="`elspci -l`" #jesses great little utility.
- [ "`echo "$ELSPCI" | grep '0C0320'`" ] && modprobe --config /tmp/pup_event_modprobe.conf ehci-hcd
- [ "`echo "$ELSPCI" | grep '0C0310'`" ] && modprobe --config /tmp/pup_event_modprobe.conf ohci-hcd ####KRG
- [ "`echo "$ELSPCI" | grep '0C0300'`" ] && modprobe --config /tmp/pup_event_modprobe.conf uhci-hcd ####KRG
+ [ "`echo "$ELSPCI" | grep '0C0320'`" ] && modprobe $Q $VERB --config /tmp/pup_event_modprobe.conf ehci-hcd
+ [ "`echo "$ELSPCI" | grep '0C0310'`" ] && modprobe $Q $VERB --config /tmp/pup_event_modprobe.conf ohci-hcd ####KRG
+ [ "`echo "$ELSPCI" | grep '0C0300'`" ] && modprobe $Q $VERB --config /tmp/pup_event_modprobe.conf uhci-hcd ####KRG
  #...perhaps a udev rule could have done this?
  fi
-[ "`lsmod | grep -E 'uhci|ohci|ehci'`" ] && modprobe usbhid ####KRG
+[ "`lsmod | grep -E 'uhci|ohci|ehci'`" ] && modprobe $Q $VERB usbhid ####KRG
 #091221 rerwin: not required anymore...
 ##v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
 #echo '0' > /tmp/pup_event_alsa_cnt
@@ -325,23 +328,27 @@ do
   ##+++2011-11-08
  fi
 done
-##wait until uevent queue is empty...
-#if [ -f /sbin/udevd ];then
-# /sbin/udevadm settle --timeout=30
-#else
-# while [ "`grep 'twosectimeout' /tmp/pup_event_backend_s`" = "" ];do #wait until uevents processed.
-#  sleep 0.5
-# done
-#fi
+
+__settle_uevents__(){
+#wait until uevent queue is empty...
+if [ -f /sbin/udevd ];then
+ /sbin/udevadm settle --timeout=30
+else
+ while [ "`grep 'twosectimeout' /tmp/pup_event_backend_s`" = "" ];do #wait until uevents processed.
+  sleep 0.5
+ done
+fi
+}
+
 fi
 uptime
 
 if [ ! -d /initrd ];then #full hd installation.
- modprobe nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
- modprobe nls_iso8859-1 # "
- modprobe fuse
- modprobe $LAYERFS #unionfs or aufs.
- modprobe squashfs
+ modprobe $Q $VERB nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
+ modprobe $Q $VERB nls_iso8859-1 # "
+ modprobe $Q $VERB fuse
+ modprobe $Q $VERB $LAYERFS #unionfs or aufs.
+ modprobe $Q $VERB squashfs
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES="`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`"
  ATADRIVES="`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`"
@@ -353,14 +360,14 @@ if [ ! -d /initrd ];then #full hd installation.
 fi
 uptime
 
-[ ! -d /proc/acpi ] && modprobe apm #v406
+[ -d /proc/acpi ] || modprobe $Q $VERB apm #v406
 
 ##modprobe fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
 
 status_func 0
 
 ######################LOAD SWAP#####################
-[ "$SWAPON" != "yes" ] && loadswap_func
+[ "$SWAPON" = "yes" ] || loadswap_func
 
 #################MISC. SYSTEM SETUP#################
 echo "MISC. SYSTEM SETUP"
@@ -372,13 +379,12 @@ echo -e "${DISTRO_NAME} Linux\n`uname -s` `uname -r` [`uname -m` arch]\n\n" > /e
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
-rm -f /mnt/home 2>/dev/null
+rm $VERB -f /mnt/home
 if [ ! -d /initrd ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln $VERB -s / /mnt/home
-else
- if [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
+elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
    #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
    #in the case of the persistent storage being the partition itself, this will be mounted
@@ -389,7 +395,6 @@ else
   else
    ln $VERB -s /initrd${PUP_HOME} /mnt/home
   fi
- fi
 fi
 
 _load_average()
@@ -427,7 +432,7 @@ if [ "$PCIUSB" ]; then #this may be slow to respond.
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ];do
-  [ `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l` -ge $PCIUSBNUM ] && break
+  [ `lsmod | grep -o -E '^[eoux]hci[_-]hcd' | wc -l` -ge $PCIUSBNUM ] && break
   WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >/dev/console
@@ -438,30 +443,32 @@ fi
 #note, this also a workaround for kernel 'bug' where entries appear in /sys but no uevent
 #gets generated (yes it happens in 2.6.25.x kernel!)
 
-#[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
-#[ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
-#for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
-#do
-# ONEPATH="`dirname $ONEMODALIAS`"
-# if [ -e ${ONEPATH}/uevent ];then
-#  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
-#  sleep 0.02
-# fi
-#done
-##if [ -f /sbin/udevd ];then
-## /sbin/udevadm settle --timeout=30
-##else
-## while [ "`grep 'twosectimeout' /tmp/pup_event_backend_s`" = "" ];do #wait until uevents processed.
-##  sleep 0.5
-## done
-##fi
+__replay_uevents__(){
+[ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
+[ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
+for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+do
+ ONEPATH="`dirname $ONEMODALIAS`"
+ if [ -e ${ONEPATH}/uevent ];then
+  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  sleep 0.02
+ fi
+done
+if [ -f /sbin/udevd ];then
+ /sbin/udevadm settle --timeout=30
+else
+ while [ "`grep 'twosectimeout' /tmp/pup_event_backend_s`" = "" ];do #wait until uevents processed.
+  sleep 0.5
+ done
+fi
+}
 
 if [ $KERNMAJ -lt 24 ];then #v431
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
  for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="`dirname $ONEMODALIAS`"
+  ONEPATH="${ONEMODALIAS%/*}"
   if [ -e ${ONEPATH}/uevent ];then
    echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
    sleep 0.02
@@ -474,7 +481,7 @@ else
  [ -e /sys/bus/ssb/devices ] && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="`dirname $ONEUEVENT`"
+  ONEPATH="${ONEUEVENT%&}0"
   #the check for 'modalias' file is maybe needed for old kernel?...
   [ ! -e ${ONEPATH}/modalias ] && [ "`grep 'MODALIAS' $ONEUEVENT`" = "" ] && continue
   echo add > $ONEUEVENT
@@ -549,7 +556,7 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
    prot=$?
    echo "returnvalue of modprobe_protect='$prot'"
   fi
-  modprobe $MODULE $MPARAMS
+  modprobe $Q $VERB $MODULE $MPARAMS
   uptime
   fi
   ###+-+2011-11-06
@@ -557,7 +564,7 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
  status_func 0
 fi
 
-modprobe fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
+modprobe $Q $VERB fbcon #100703 needed by some xorg drivers when exit to console (ex: nouveau).
 uptime
 ###################SETUP SERVICES################
 echo "SETUP SERVICES"
@@ -566,12 +573,12 @@ if [ -h /dev/modem ];then
  DEVM="`readlink /dev/modem`"
  case $DEVM in
   modem) #error, circular link.
-   rm -f /dev/modem
+   rm $VERB -f /dev/modem
    DEVM=""
   ;;
   /dev/*) #wrong format.
    DEVM="`echo "$DEVM" | cut -f 3,4 -d '/'`"
-   ln $VERB -snf $DEVM /dev/modem
+   ln $VERB -sf $DEVM /dev/modem
   ;;
  esac
  case $DEVM in
@@ -591,9 +598,9 @@ modprobe battery
 if [ -d /proc/acpi/battery ]; then
  results="`find /proc/acpi/battery -mindepth 1 -type d`"
  if [ ! -z "$results" ]; then
-  modprobe ac
-  modprobe thermal
-  modprobe fan
+  modprobe $Q $VERB ac
+  modprobe $Q $VERB thermal
+  modprobe $Q $VERB fan
  else
   rmmod battery
  fi
@@ -601,8 +608,8 @@ fi
 
 #100814 100903 record cumulative tx/rx, see also network_tray and rc.shutdown...
 LANG=C UPDATE_MONTH="`date +%b`"
-CURRENT_MONTH="`cat /var/local/sns/current_month`"
-[ ! "$CURRENT_MONTH" ] && CURRENT_MONTH='none'
+read CURRENT_MONTH </var/local/sns/current_month
+[ "$CURRENT_MONTH" ] || CURRENT_MONTH='none'
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
  for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
@@ -656,14 +663,14 @@ Pwireless2|net-setup.sh|net_wiz_classic|sns) NETCHOICE="$DEFAULTCONNECT";;
  ;;
 esac
 
-[ -f /etc/init.d/Pwireless2 ] && chmod $VERB 644 /etc/init.d/Pwireless2 #prevent jemimah's script from running. 100304 100513
+[ -f /etc/init.d/Pwireless2 ] && chmod $VERB 0644 /etc/init.d/Pwireless2 #prevent jemimah's script from running. 100304 100513
 echo "NETCHOICE='$NETCHOICE'"
 case $NETCHOICE in
  Pwireless2)
   #this only sets up interface 'lo'...
   . /etc/rc.d/rc.network_basic
   #jemimah's script is in /etc/init.d/Pwireless2
-  chmod $VERB 755 /etc/init.d/Pwireless2 #make executable so it will run.
+  chmod $VERB 0755 /etc/init.d/Pwireless2 #make executable so it will run.
   #i want to run it right now, as a separate process (rc.services will ignore it)...
   exec /etc/init.d/Pwireless2 start &
  ;;
@@ -683,7 +690,7 @@ case $NETCHOICE in
   test -e /etc/rc.d/rc.network_basic && RCNETWORK=/etc/rc.d/rc.network_basic
   #100628 shinobar: launch rc.network if eth0 is usable
   # eth0 usable?
-  /sbin/ifconfig eth0 >$OUT 2>&1 && [ -x /etc/rc.d/rc.network ] && RCNETWORK=/etc/rc.d/rc.network
+  /sbin/ifconfig eth0 >>$OUT 2>&1 && [ -x /etc/rc.d/rc.network ] && RCNETWORK=/etc/rc.d/rc.network
   exec $RCNETWORK &
  ;;
 esac
@@ -714,7 +721,7 @@ do
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL" #100131
  OPTCNT=$((OPTCNT + 1))
 done
-rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
+rm $VERB -f /dev/cdrom /dev/dvd /etc/cdburnerdevice
 [ "$CDTYPE" ]  && ln $VERB -sf /dev/$CDTYPE /dev/cdrom
 [ "$DVDTYPE" ] && ln $VERB -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo "$CDBURNERTYPE" > /etc/cdburnerdevice
@@ -724,11 +731,11 @@ echo ' input' >/dev/console #100131
 if [ ! -f /etc/mousedevice ]; then
  echo "input/mice" > /etc/mousedevice
  test -c /dev/input/mice || mknod /dev/input/mice c 13 63
- ln $VERB -snf input/mice /dev/mouse
+ ln $VERB -sf input/mice /dev/mouse
 elif [ "`cat /etc/mousedevice`" = "psaux" ]; then
  echo "input/mice" > /etc/mousedevice
  test -c /dev/input/mice || mknod /dev/input/mice c 13 63
- ln $VERB -snf input/mice /dev/mouse
+ ln $VERB -sf input/mice /dev/mouse
 else
  true
 fi
@@ -741,26 +748,26 @@ echo -n ' keyboard' >/dev/console
 uptime
 ############MISC DESKTOP STUFF##################
 echo "MISC. DESKTOP STUFF"
-if [ "$PUPMODE" = "77" ];then #77=multisession cd/dvd.
- if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "savesession"`" = "" ];then
+case "$PUPMODE" in
+"77")#77=multisession cd/dvd.
+ if [ "`grep "savesession" /root/Choices/ROX-Filer/PuppyPin`" = "" ];then
   echo '<icon x="768" y="128" label="save">/usr/sbin/savesession-dvd</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
-  sync
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+  _sync
   cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
-fi
-
-#save button on desktop when booted from flash drive...
-if [ $PUPMODE -eq 3 -o $PUPMODE -eq 7 -o $PUPMODE -eq 13 ];then #pup_rw is tmpfs.
- if [ "`cat /root/Choices/ROX-Filer/PuppyPin | grep "save2flash"`" = "" ];then
+;;
+3|7|13) #save button on desktop when booted from flash drive...
+ if [ "`grep "save2flash" /root/Choices/ROX-Filer/PuppyPin`" = "" ];then
   echo '<icon x="768" y="128" label="save">/usr/sbin/save2flash</icon>' >> /root/Choices/ROX-Filer/PuppyPin
-  cat /root/Choices/ROX-Filer/PuppyPin | grep -v '/pinboard' > /tmp/PuppyPin-CPY
-  sync
+  grep -v '/pinboard' /root/Choices/ROX-Filer/PuppyPin > /tmp/PuppyPin-CPY
+  _sync
   cp $VERB -f /tmp/PuppyPin-CPY /root/Choices/ROX-Filer/PuppyPin
   echo '</pinboard>' >> /root/Choices/ROX-Filer/PuppyPin
  fi
-fi
+;;
+esac
 
 _load_average()
 {
