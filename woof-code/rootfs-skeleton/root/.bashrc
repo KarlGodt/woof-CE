@@ -1,5 +1,5 @@
 
-
+. /etc/rc.d/f4puppy5
 #KRG. /etc/profile
 . /etc/profile
 #v1.0.5 need to override TERM setting in /etc/profile...
@@ -10,7 +10,7 @@
 #export HISTCONTROL=ignoredups
 #...v2.13 removed.
 
-###KRG 
+###KRG
 path_func() {
 PATH="/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/usr/X11R7/bin:/root/my-applications/bin:/root/my-applications/sbin"
 LD_LIBRARY_PATH="/lib:/usr/lib:/usr/X11R7/lib:/root/my-applications/lib"
@@ -72,7 +72,7 @@ echo "$N $D $M $T $P"
 if [ -n "$D" -a -n "$N" -a -n "$M" -a -n "P" ] ; then
 find "$D" -maxdepth "$M" -wholename "/proc" -prune -o -wholename "/sys" -prune -o -wholename "/mnt" -prune -o -type "$T" -perm -"$P" -iname "*$N*"
 fi
-No="$N" ; Do="$D" ; Mo="$M" ; To="$T" ; P="$P" 
+No="$N" ; Do="$D" ; Mo="$M" ; To="$T" ; P="$P"
 }
 
 
