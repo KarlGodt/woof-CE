@@ -34,10 +34,15 @@ return 0
 # CREATE_CHECK_FILE set to anything to write list to CHECK_LIST_FILE
 [ "$CREATE_CHECK_FILE" ] || CREATE_CHECK_FILE=
 CHECK_LIST_FILE="$HOME/git_check.lst"
-rm -f "$CHECK_LIST_FILE"
+rm $VERB -f "$CHECK_LIST_FILE"
 
-cd woof-code/rootfs-skeleton || _exit 1 "Could not cd into woof-code/rootfs-skeleton"
-
+pwd
+_cd_program_dir || _exit 2 "Unable to change into this directory."
+pwd
+cd ../woof-code/rootfs-skeleton || _exit 1 "Could not cd into ../woof-code/rootfs-skeleton"
+pwd
+#exit
+sleep 5
 
 while read oneF
 do
@@ -134,7 +139,7 @@ if test "$modS" -gt "$modF"; then
 
      /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
-      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
+      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ." && sleep 5
      else
       echo "Failed replacing gitfile"
       exit 9
@@ -167,7 +172,7 @@ if test "$FORCE_GIT_REPLACE" ; then
  test -d "$oneF" || _force_replace_files_in_git
  continue
 else
- test -d "$oneF" || _update_gitupdateWHAT
+ test -d "$oneF" || _update_git
 fi
 
 _update_system(){
