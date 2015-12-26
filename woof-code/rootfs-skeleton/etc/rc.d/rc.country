@@ -41,8 +41,10 @@
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 #PUPPYVER="`cat /etc/puppyversion`"
-STATUS=0
 
+TTY=`tty` || TTY=/dev/console
+
+STATUS=0
 [ $pkeys ] && PKEYS=$pkeys #boot parameter
 
 askkbdlayout ()
@@ -54,41 +56,43 @@ askkbdlayout ()
   echo -n "" >/tmp/keybdlist.txt
   for AFILE in `ls /usr/share/kbd/keymaps/i386/[^i]*/*`
   do
-   AKMAP="`basename $AFILE | sed -e 's/.map$//g'`" #us, fr, br, etc.
+   AKMAP="`basename $AFILE .map`" #us, fr, br, etc.
    #hmmm, very slow way to do this...
    case $AKMAP in
-    us) ACNTRY=" (USA)";;
-    fr) ACNTRY=" (France)";;
-    it) ACNTRY=" (Italy)";;
+    us)  ACNTRY=" (USA)";;
+    fr)  ACNTRY=" (France)";;
+    it)  ACNTRY=" (Italy)";;
     be*) ACNTRY=" (Belgium)";;
     br*) ACNTRY=" (Brazil)";;
     croat) ACNTRY=" (Croatia)";;
     cz*) ACNTRY=" (Czech)";;
-    de) ACNTRY=" (Germany)";;
-    dk) ACNTRY=" (Denmark)";;
-    es) ACNTRY=" (Spain)";;
-    fi) ACNTRY=" (Finland)";;
+    de)  ACNTRY=" (Germany)";;
+    dk)  ACNTRY=" (Denmark)";;
+    es)  ACNTRY=" (Spain)";;
+    fi)  ACNTRY=" (Finland)";;
     hu*) ACNTRY=" (Hungary)";;
-    il) ACNTRY=" (Israel)";;
+    il)  ACNTRY=" (Israel)";;
     is*) ACNTRY=" (Iceland)";;
     jp*) ACNTRY=" (Japan)";;
     la*) ACNTRY=" (Latin America)";;
-    nl) ACNTRY=" (Netherlands)";;
-    no) ACNTRY=" (Norway)";;
-    pl) ACNTRY=" (Poland)";;
+    nl)  ACNTRY=" (Netherlands)";;
+    no)  ACNTRY=" (Norway)";;
+    pl)  ACNTRY=" (Poland)";;
     pt*) ACNTRY=" (Portugal)";;
     ro*) ACNTRY=" (Romania)";;
-    ru) ACNTRY=" (Russia)";;
-    se) ACNTRY=" (Sweden)";;
+    ru)  ACNTRY=" (Russia)";;
+    se)  ACNTRY=" (Sweden)";;
     sk*) ACNTRY=" (Slovakia)";;
     sl*) ACNTRY=" (Slovenia)";;
-    uk) ACNTRY=" (UK)";;
+    uk)  ACNTRY=" (UK)";;
     wangbe) ACNTRY=" (Belgium)";;
-    qc) ACNTRY=" (Quebec, Canada)";;
-    *)  ACNTRY="";;
+    qc)  ACNTRY=" (Quebec, Canada)";;
+    *)   ACNTRY="";;
    esac
-   APATH="`dirname $AFILE`"
-   ATYPE="`basename $APATH`" #qwerty, qwertz, etc.
+   #APATH="`dirname $AFILE`"
+    APATH=${AFILE%/*}
+   #ATYPE="`basename $APATH`" #qwerty, qwertz, etc.
+    ATYPE=${APATH##*/}
    echo -e "$AKMAP \"${ATYPE}${ACNTRY}\"" >> /tmp/keybdlist.txt
   done
   KEYLIST="us \"qwerty (USA)\" `sort /tmp/keybdlist.txt | tr '\n' ' '`"
@@ -96,10 +100,10 @@ askkbdlayout ()
   echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:\n(UP/DOWN arrows then ENTER key)" 0 0 0 \' >>/tmp/keydlg #' geany fix
   echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
   echo 'exit $?' >>/tmp/keydlg
-  chmod 755 /tmp/keydlg
-  /tmp/keydlg >/dev/console
-  [ $? != 0 ] && return 1
-  clear > /dev/console 2>&1 #clear screen
+  chmod $VERB 0755 /tmp/keydlg
+  /tmp/keydlg >$TTY
+  [ $? = 0 ] || return 1
+  clear >$TTY 2>&1 #clear screen
   KEYBOARD=`cat /tmp/kbdextlayout.txt`
   case $KEYBOARD in
    cz|hu101|pl|ro_win|sk-qwerty|croat|cz-us-qwertz|hu|slovene)
@@ -118,9 +122,16 @@ askkbdlayout ()
  return 0
 }
 
-[ $PKEYS ] && echo -n "$PKEYS" > /etc/keymap #boot param.
+[ "$PKEYS" ] && echo "$PKEYS" > /etc/keymap #boot param.
 
 if [ ! -e /etc/keymap ];then
+ # REM: Set loglevel low to suppress
+ #      kernel messages interfering with dialog
+ LOGLVL=`sysctl kernel.printk | cut -f2 -d'=' | awk '{print $1}'`
+ #/sbin/sysctl kernel.printk=3
+ sysctl $Q -w kernel.printk=3
+ [ "$DEBUG" ] && sleep 5
+
  while :; do
    askkbdlayout #this is extended menu, func above.
    #...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
@@ -131,32 +142,32 @@ if [ ! -e /etc/keymap ];then
     KMAP="us"
    fi
  done #end while loop.
- echo -n "$KMAP" > /etc/keymap
+ echo "$KMAP" > /etc/keymap
  echo "You have chosen \"$KMAP\" keyboard map."
  echo "Note, this information is saved in file /etc/keymap"
  if [ "$FONTMAP" ];then
-  echo -n "$FONTMAP" > /etc/fontmap
+  echo "$FONTMAP" > /etc/fontmap
  fi
  if [ "$CODEPAGE" ];then
-  echo -n "$CODEPAGE" > /etc/codepage
+  echo "$CODEPAGE" > /etc/codepage
  fi
 fi
 
 if [ -e /etc/keymap ];then
  if [ $PKEYS ];then
-  echo -n "$PKEYS" > /etc/keymap
+  echo "$PKEYS" > /etc/keymap
   echo -n "Loading \"$PKEYS\" keyboard map... "
   gzip -dcf /lib/keymaps/$PKEYS.gz | loadkmap ;STATUS=$?
  else
-  KMAP="`cat /etc/keymap`"
-  cat /etc/keymap | grep "\\.map" > /dev/null 2>&1 #looking for .map
+  read KMAP </etc/keymap
+  grep $Q '\.map' /etc/keymap  #looking for .map
   if [ $? -eq 0 ];then #=0 found.
    #key layout maps are in /usr/share/kbd, using "kbd" package...
    KMAP="`basename $KMAP .map`"
    echo -en "Loading \"$KMAP\" keyboard map... "
    loadkeys ${KMAP}.map ;STATUS=$?
    #xwin also set these...
-   FONTMAP="`cat /etc/fontmap`"
+   read FONTMAP </etc/fontmap
    #echo -e "Loading fontmap \"${FONTMAP}\"..."
    #setfont $FONTMAP   #cat "$FONTMAP" | loadfont
    #...this needs work. messes up font set required by dialog program. see also /usr/X11R7/bin/xwin.
@@ -179,7 +190,9 @@ hwclock --hctosys --localtime
 #...--localtime means that cmos clock is set to local-time.
 
 #w001 creates locale files in /usr/lib/locale...
-LANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
+LANG="`grep '^LANG=' /etc/profile | tail -n 1 | cut -f 2 -d '='`"
+test "$LANG" || LANG="`grep '^LANG=' /etc/bash_completion.d/bashrc | tail -n 1 | cut -f 2 -d '='`"
+test "$LANG" || LANG=not_SET
 if [ "`locale -a | grep "$LANG"`" = "" ];then
  #BASELANG="`basename $LANG .utf8`"
  #if [ -f /usr/share/i18n/locales/$BASELANG ];then
@@ -187,10 +200,11 @@ if [ "`locale -a | grep "$LANG"`" = "" ];then
  #else
  # [ "`locale -a | grep "en_US.utf8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8
  #fi
- /usr/sbin/chooselocale cli > /dev/console
- /usr/sbin/timezone-set cli > /dev/console
+ /usr/sbin/chooselocale cli >$TTY
+ /usr/sbin/timezone-set cli >$TTY
 fi
 
-
+#test "$LOGLVL" && /sbin/sysctl kernel.printk=$LOGLVL
+test "$LOGLVL" && sysctl $Q -w kernel.printk=$LOGLVL
 exit $STATUS
 ###END###
