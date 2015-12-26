@@ -97,6 +97,7 @@
 #
 #
 ########################################################################
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
 ###<KRG 2011-11-02>
 if [ -n "$DISPLAY" ]; then
@@ -125,11 +126,11 @@ loadswap_func() { #w481 made into a function.
  for ONESWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
  do
  test -b "$ONESWAP" || continue
-  echo -en "\rLoading swap partition $SWAPS ${ONESWAP##*}..." >$TTY
+  echo -en "\rLoading swap partition $SWAPS ${ONESWAP##*/}..." >$TTY
   swapon $ONESWAP
   status_func $?
-  SWAPS="${SWAPS}${ONESAWP##*/} "
-  [ $? -eq 0 ] && SWAPON="yes"
+  SWAPS="${SWAPS}${ONESWAP##*/} "
+  [ $? -eq 0 ] && SWAPON="done"
  done
  #if no go, try for a swap file...
  [ "$SWAPON" = "yes" ] && return 0
@@ -139,18 +140,18 @@ loadswap_func() { #w481 made into a function.
    echo -n "Loading swap file ${SWAPFILE}..." >$TTY
    swapon /initrd${PUP_HOME}${SWAPFILE}
    status_func $?
-   [ $? -eq 0 ] && SWAPON="yes"
+   [ $? -eq 0 ] && SWAPON="done"
   fi
   if [ -f "$SWAPFILE" ]; then
    echo -n "Loading swap file ${SWAPFILE}..." >$TTY
    swapon $SWAPFILE
    status_func $?
-   [ $? -eq 0 ] && SWAPON="yes"
+   [ $? -eq 0 ] && SWAPON="done"
   fi
 }
 
 test -f /etc/rc.rd/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
-test "$PUPMODE" = 2 -a -d /initrd && rm $VERB -rf /initrd
+#test "$PUPMODE" = 2 -a -d /initrd && rm $VERB -rf /initrd # rootfs needs to be mounted rw
 
 #if have just done a switch_root, output a 'done' message...
 [ -d /initrd ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
@@ -158,13 +159,6 @@ test "$PUPMODE" = 2 -a -d /initrd && rm $VERB -rf /initrd
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
 . /etc/rc.d/MODULESCONFIG #modules loading configuration.
-
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
-[ "$LOGLEVEL" ] || LOGLEVEL=2  ##+++2011-12-04 for UDEV_LOG
-[ "$loglevel" ] && LOGLEVEL=$loglevel #boot param.
-[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
-[ $pdev1 ]  && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
-
 
 failsafe_func(){
 
@@ -270,7 +264,7 @@ ln $VERB -s /proc/mounts /etc/mtab
 #Ybd=`date +%Y%b%d`
 _DATE_=`date +%F`
 
-chmod 1777 /tmp
+chmod $VERB 1777 /tmp
 
 #exec 1>/tmp/bootsysinit.log."$Ybd" 2>&1
 exec 1>/tmp/bootsysinit.log."$_DATE_" 2>&1
@@ -292,6 +286,15 @@ if [ "$PUPMODE" = 2 ]; then #weird, only full-hd install needs this for xfdiff.
  busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$(( STATUS + $? ))
 fi
 
+[ "$LOGLEVEL" ] || { LOGLEVEL=`grep -o -E ' loglevel=[0-9]+' /proc/cmdline`; eval "$LOGLEVEL"; }
+[ "$LOGLEVEL" ] || LOGLEVEL=2         ##+++2011-12-04 for UDEV_LOG
+[ "$loglevel" ] && LOGLEVEL=$loglevel #boot param.
+[ $pmedia ] && PMEDIA=$pmedia         #boot parameter, broad category of boot media. ex: cd.
+[ $pdev1 ]  && PDEV1=$pdev1           #boot parameter, partition have booted off. ex: hda3
+
+origLOGLVL=`sysctl kernel.printk | cut -f2 -d'=' | awk '{print $1}'`
+test "$LOGLEVEL" || sysctl $Q -w kernel.printk=2
+
 #w478 moved this code above call to rc.update...
 KERNVER=`uname -r`
 KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v431
@@ -302,7 +305,7 @@ echo "`date` KRG part starts ... from $0"
 failsafe_func  ##+++2011-10-31 moved here would have been a BUG echo before everything got mounted
 ##due to typo faisafe_func -> ash: bad number ??
 norcsysinit_func(){
-if [ -n "`cat /proc/cmdline | grep -i 'norcsysinit'`" ]; then
+if [ -n "`grep -i 'norcsysinit' /proc/cmdline`" ]; then
 echo "From rc.sysinit : exit to sh"
 exec chroot . sh
 fi
@@ -312,7 +315,7 @@ norcsysinit_func
 mkmissing_tty_func() {
 [ -c /dev/tty ] || mknod /dev/tty c 5 0
 
-[ ! -d /dev/vc ] && rm $VERB -f -r /dev/vc && mkdir $VERB -p /dev/vc
+[ -d /dev/vc ] || { rm $VERB -f -r /dev/vc && mkdir $VERB -p /dev/vc; }
 INITTAB=`cat /etc/inittab | grep -o -E 'tty[0-9*]|vc/[0-9*]' | grep -v -E '^#|^[[:blank:]*]#' | sort -u`
 INITTABS=`echo "$INITTAB" | grep -o '[0-9*]$'`
 for i in $INITTABS; do
@@ -321,18 +324,19 @@ for i in $INITTABS; do
 [ -c /dev/vcsa$i ] || { rm $VERB -f dev/vcsa$i && mknod /dev/vcsa$i c 7 $((128+i)); }
 [ ! -c /dev/vc/$i ] && rm $VERB -f /dev/vc/$i && mknod /dev/vc/$i c 4 $i
 done
-[ -c /dev/tty0 ] || { rm $VERB -f /dev/tty0 && mknod /dev/tty0 c 4 0; }
+[ -c /dev/tty0 ]    || { rm $VERB -f /dev/tty0 && mknod /dev/tty0 c 4 0; }
+[ -c /dev/tty1 ]    || { rm $VERB -f /dev/tty1 && mknod /dev/tty1 c 4 1; }
 [ -c /dev/console ] || { rm $VERB -f /dev/console;mknod /dev/console c 5 1; }
-[ -c /dev/null ] || { rm $VERB -f /dev/null;mknod /dev/null c 1 3; }
-[ ! -c /dev/zero ] && rm $VERB -f /dev/zero && mknod /dev/zero c 1 5
+[ -c /dev/null ]    || { rm $VERB -f /dev/null;mknod /dev/null c 1 3; }
+[ ! -c /dev/zero ]  && { rm $VERB -f /dev/zero;mknod /dev/zero c 1 5; }
 
 [ -d /dev/fb ] || mkdir $VERB -p /dev/fb  #busybox fbset command needs this
 for i in `seq 0 11`; do
 [ ! -L /dev/fb/$i ] && [ -c /dev/fb$i ] && ln $VERB -s ../fb$i /dev/fb/$i
 done
-[ ! -d /dev/loop ] && mkdir $VERB -p /dev/loop
+[ -d /dev/loop ] || mkdir $VERB -p /dev/loop
 for i in `seq 0 15`; do
-[ -h /dev/loop/$i ] || ln $VERB -s ../loop$i /dev/loop/$i
+[ -L /dev/loop/$i ] || ln $VERB -s ../loop$i /dev/loop/$i
 done
 
 }
@@ -352,7 +356,7 @@ MountFull=`mount | grep -Fw '/' | grep '/dev/' | cut -f 1 -d ' '`
 
 echo "'$RootDiskFreeFrugal' '$MountFrugal' '$RootDiskReadlinkDevRoot' '$RootDiskFreeFull' '$MountFull'"
 }
-check_frugal_full_func
+#check_frugal_full_func
 
 check_full_frugal_dev_func() {
 
@@ -371,7 +375,7 @@ MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
 fi
 echo "'$SimpleDeviceName' '$MainDriveName' '$RootDevice' '$MainDevice'"
 }
-check_full_frugal_dev_func
+#check_full_frugal_dev_func
 
 mkmissing_blockdev_func() {
 rootdrv=`/bin/df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
@@ -401,7 +405,6 @@ fi
 fi
 echo "'$rootdrv' '$simple_drv' '$main_drv'"
 }
-#mkmissing_blockdev_func
 
 dev_maj_259_func() {
 
@@ -416,7 +419,6 @@ mknod /dev/$dev b $maj $min
 done</proc/partitions
 
 }
-#dev_maj_259_func
 
 device_nodes_fork_func() {
 
@@ -432,13 +434,13 @@ device_nodes_fork_func
 mk_missing_var_dev_func() {
 TarGzDevDbF="/var/db/boot/dev.$KERNVER.tar.gz"
 StandardTarGzDevDbFile="/var/db/boot/dev.tar.gz"
-if test -f $TarGzDevDbF -o -f $StandardTarGzDevDbFile; then #1
-if [ ! -f $TarGzDevDbF ]; then #1.1
-if test -f $StandardTarGzDevDbFile; then #1.1.1
+if test -f "$TarGzDevDbF" -o -f "$StandardTarGzDevDbFile"; then #1
+if [ ! -f "$TarGzDevDbF" ]; then #1.1
+if test -f "$StandardTarGzDevDbFile"; then #1.1.1
 tgdbf="$StandardTarGzDevDbFile"
 echo "using tgdbf=$StandardTarGzDevDbFile"
 fi #1.1.1
-elif [ -f $TarGzDevDbF ]; then #1.1
+elif [ -f "$TarGzDevDbF" ]; then #1.1
 tgdbf="$TarGzDevDbF"
 echo "using tgdbf=$TarGzDevDbF"
 else
@@ -477,17 +479,19 @@ echo "nothing to be done ..."
 return
 fi #1.3
     #cat /var/db/boot/dev_nodes.$KERNVER.lst| while read PERM N O G MAY Min M D T DEV; do
-cat $dbf | while read PERM N O G MAY Min M D T DEV; do
+#cat $dbf | while read PERM N O G MAY Min M D T DEV; do
+while read PERM N O G MAY Min M D T DEV; do
 [ -z "$DEV" ] && DEV=$T
 KIND=${PERM:0:1}
 MAJ=`echo $MAY | tr -d ','`
 DN=${DEV%/*}
-[ -d $DN ] || mkdir $VERB -p $DN
-[ ! -$KIND $DEV ] && echo "creating $DEV" && mknod $DEV $KIND $MAJ $Min
-done
+[ -d "$DN" ] || mkdir $VERB -p $DN
+[ -$KIND "$DEV" ] || { echo "creating $DEV";mknod $DEV $KIND $MAJ $Min; }
+done<"$dbf"
 fi #1
 }
-#mk_missing_var_dev_func
+#mk_missing_var_dev_func  # now /sbin/init sjould create dev nodes either by mdev -s
+                          # or reading uvent files in /sys
 
 pupstate_prev_func() {
 if test "`grep -Fw KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER"; then
@@ -512,13 +516,13 @@ fi
 
 fwf=`find /lib/modules/$KERNVER -maxdepth 2 -type d -name "firmware*" | head -n1`
 if test -d "$fwf"; then
-rm /lib/firmware/firmware*
+rm $VERB -r /lib/firmware/*
 cp $VERB -r "$fwf"/* /lib/firmware/
 fi
 
 if test ! -d /lib/firmware; then
 if test -f /lib/firmware.tar.gz; then
-tar -C / -xzf /lib/firmware.tar.gz
+tar $VERB -C / -xzf /lib/firmware.tar.gz
 fi
 fi
 _sync
@@ -768,7 +772,7 @@ fi
 
 ######################LOAD SWAP#####################
 
-[ "$SWAPON" = "yes" ] || loadswap_func
+[ "$SWAPON" = "done" ] || loadswap_func
 
 #################MISC. SYSTEM SETUP#################
 echo "MISC. SYSTEM SETUP"
@@ -1237,5 +1241,6 @@ done
 }
 sort_pup_eve_bac_mod_func &
 
+test "$origLOGLVL" && sysctl $Q -w kernel.printk=$origLOGLVL
 #that's it. next stop is /etc/profile...
 ###END###
