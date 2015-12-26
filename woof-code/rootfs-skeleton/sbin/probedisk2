@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #LGPL 2007 Puppy Linux www.puppyos.com
 #based on probedisk3 written by Dougal.
 #small mods by BK 16 june 2007
@@ -64,8 +64,9 @@ if [ -f /root/.usb-drive-log-probedisk ];then #force /proc upate mechanism
  do
   test -e /dev/$ONEUSBDRV || continue
   test -b /dev/$ONEUSBDRV || continue
-  #disktype /dev/$ONEUSBDRV > /dev/null 2>&1
-  dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >$OUT 2>$ERR #v4.01 faster.
+  #( disktype /dev/$ONEUSBDRV ) >/dev/null 2>&1
+  #( dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 ) >>$OUT 2>>$ERR #v4.01 faster.
+  ( true </dev/$ONEUSBDRV ) 2>>$ERR
  done
 fi
 
@@ -98,27 +99,28 @@ do
 #echo $ONEDRV
   case $ONEDRV in
    hd*) # ide device, look in /proc/ide for info
-     MEDIA="`cat /proc/ide/$ONEDRV/media`"
+     read MEDIA </proc/ide/$ONEDRV/media
      [ "$MEDIA" = "disk" ]  && MEDIA="drive"
      [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
-     [ "$MEDIA" = "" ]      && MEDIA='noInfo@procIde'  ##+++2011_10_28
-     INFO="`cat /proc/ide/$ONEDRV/model`"
+     [ "$MEDIA" = "" ]      && MEDIA='noInfo@procIde'  ##+++2011-10-28
+     read dINFO </proc/ide/$ONEDRV/model
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
      MEDIA="drive"
-     VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
-     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
-     MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
-     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
-     INFO="$VENDOR$MODEL"
-     DRVNAMES="$DRVNAMES `echo -n "$ONEDRV" | cut -b 1-3` "
+     #VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
+     read VENDOR </sys/block/$ONEDRV/device/vendor
+     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011-10-28
+     read MODEL </sys/block/$ONEDRV/device/model
+     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011-10-28
+     dINFO="$VENDOR$MODEL"
+     DRVNAMES="$DRVNAMES `echo "$ONEDRV" | cut -b 1-3` "
 
      #log if usb drive (not a sata drive)... v4.01...
      if [ "`echo "$INTERNAL_SD_DRIVES" | grep "$ONEDRV"`" = "" ];then
       MEDIA="usbdrv" #v4.01
       echo "$ONEDRV" >> /root/.usb-drive-log-probedisk
       sort -u /root/.usb-drive-log-probedisk > /tmp/usb-drive-log-probedisk-tmp
-      mv -f /tmp/usb-drive-log-probedisk-tmp /root/.usb-drive-log-probedisk
+      mv $VERB -f /tmp/usb-drive-log-probedisk-tmp /root/.usb-drive-log-probedisk
       #find out if a usb floppy drive...
       if [ -e /sys/block/${ONEDRV}/size ];then
        [ "`cat /sys/block/${ONEDRV}/size`" = "2880" ] && MEDIA="floppy"
@@ -139,29 +141,27 @@ do
    ;;
    scd*|sr*) #  scsi cdroms
      MEDIA="optical"
-     VENDOR="`cat /sys/block/$ONEDRV/device/vendor | tr -s ' '`"
-     MODEL="`cat /sys/block/$ONEDRV/device/model | tr -s ' '`"
-     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011_10_28
-     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011_10_28
-     INFO="$VENDOR$MODEL"
+     read VENDOR </sys/block/$ONEDRV/device/vendor
+     rean MODEL </sys/block/$ONEDRV/device/model
+     [ -z "$VENDOR" ] && VENDOR='noInfo@sysBlock'  ##+++2011-10-28
+     [ -z "$MODEL" ] && MODEL='-noInfo@sysBlock'   ##+++2011-10-28
+     dINFO="$VENDOR$MODEL"
    ;;
    mmc*) #/dev/mmcblk0
      MEDIA="card"
-     NAME="`cat /sys/block/$ONEDRV/device/name`"
-     [ -z "$NAME" ] && NAME='-noInfo@sysBlock'   ##+++2011_10_28
+     read NAME </sys/block/$ONEDRV/device/name
+     [ -z "$NAME" ] && NAME='-noInfo@sysBlock'   ##+++2011-10-28
      #INFO="MMC/SD: `cat /sys/block/$ONEDRV/device/name`"
-     INFO="MMC/SD: $NAME"
+     dINFO="MMC/SD: $NAME"
    ;;
    fd*)
      MEDIA='floppy'
      NAME='generic'
-     INFO='Attached generic floppy'
-     ;;
-   *)
-     continue
+     dINFO='Attached generic floppy'
    ;;
+   *) continue;;
   esac
-  echo "/dev/$ONEDRV|$MEDIA|$INFO"
+  echo "/dev/$ONEDRV|$MEDIA|$dINFO"
 
 done<<EOI
 $(echo "$ALLDRVS")
@@ -171,7 +171,7 @@ EOI
 #for hotplug drives, remove it and it will disappear from /sys/block, however
 #still shows up in 'mount' if hasn't been unmounted.
 #mounted drives/partitions...
-MNTDDEVS="`mount | cut -f 1 -d ' ' | cut -f 3 -d '/' | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`"
+MNTDDEVS="`cut -f 3 -d '/' /proc/mounts | grep -E '^hd|^sd|^scd|^sr|^mmc|^fd'`"
 #for ONEMNTD in $MNTDDEVS
 while read ONEMNTD
 do
@@ -179,15 +179,15 @@ do
  case $ONEMNTD in
   fd*|hd*|sd*|sr*)
    #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-3` "
-   MNTDDRVs="${ONEMNTD:0:3}"
+   MNTDDRV="${ONEMNTD:0:3}"
    ;;
   scd*)
    #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-4` "
-   MNTDDRVs="${ONEMNTD:0:4}"
+   MNTDDRV="${ONEMNTD:0:4}"
    ;;
   mmc*)
    #MNTDDRVs="`echo -n "$ONEMNTD" | cut -b 1-7` "
-   MNTDDRVs="${ONEMNTD:0:7}"
+   MNTDDRV="${ONEMNTD:0:7}"
    ;;
  esac
  #echo $MAINDRIVE
