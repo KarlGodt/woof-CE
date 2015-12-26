@@ -203,7 +203,9 @@ mv $VERB "$*" "${*}.1"
 
 _cd_program_dir()
 {
-DEBUG=1
+lDEBUG=1
+oDEBUG=$DEBUG
+DEBUG=$lDEBUG
 _debug "$*"
 if test "$*"; then
  test "$*" = '.' && set - "$PWD"
@@ -221,10 +223,15 @@ ME_DIR=${ME_PROG%/*}
 fi
 cd "$ME_DIR"
 _debug "`pwd`"
+DEBUG=$oDEBUG
 }
 
 _check_if_already_running()
 {
+# REM: Logic returns 1 if already running
+#       _check_if_already running || _exit "Another instance detected"
+#      pidof logic would return 0
+#       _check_if_already running && _exit "Another instance detected"
 pidof -o $$ -o %PPID "${0##*/}" >>$OUT && {
         echo "Already running."
         #exit 1
@@ -238,7 +245,8 @@ _check_for_terminal()
 local MSG
 MSG="Need a contolling terminal"
 tty >>$OUT || {
-echo -n "Pid of X server:"
+
+[ "$DEBUG" ] && echo -n "Pid of X server:"
 pidof X >>$OUT && xmessage -br red "$MSG"; exit 2; } || {
 echo "$MSG"; exit 2; }
 return $?
@@ -485,9 +493,9 @@ fi
 _check_proc()
 {
   mountpoint $Q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root /
-  test -d /proc || mkdir -p /proc
-  busybox mount -t proc none /proc
+  busybox mount $VERB $VERB -o remount,rw /dev/root /
+  test -d /proc || mkdir $VERB -p /proc
+  busybox mount $VERB $VERB -t proc proc /proc
   return $?
  }
 }
@@ -495,9 +503,9 @@ _check_proc()
 _check_tmp()
 {
  test -d /tmp && return $? || {
- busybox mount -o remount,rw /dev/root /
- mkdir -p /tmp
- chmod 1777 /tmp
+ busybox mount $VERB $VERB -o remount,rw /dev/root /
+ mkdir $VERB -p /tmp
+ chmod $VERB 1777 /tmp
  return $?
  }
 }
@@ -508,9 +516,9 @@ _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
 mountpoint $Q /tmp && {
-grep -F ' /tmp ' /proc/mounts  | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw tmpfs /tmp; return $?; }
+grep -F ' /tmp ' /proc/mounts   | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount -o remount,rw /dev/root /; return $?; }
+grep '^/dev/root ' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
  }
 }
 
@@ -574,6 +582,18 @@ test "$DEBUG" || DEBUG=
 _debug(){
 test "$DEBUG" || return 0
 echo "$0:DEBUG:$*" >&2
+}
+_edebug(){
+test "$DEBUG" || return 0
+echo -e "$0:DEBUG:$*" >&2
+}
+_ndebug(){
+test "$DEBUG" || return 0
+echo -n "$0:DEBUG:$*" >&2
+}
+_endebug(){
+test "$DEBUG" || return 0
+echo -en "$0:DEBUG:$*" >&2
 }
 
 test "$DEBUGX" || DEBUGX=
@@ -1372,7 +1392,7 @@ _mk_free_loop()
   [ "$FREE_LOOP" ] || {   # for kernel 3.0 and earlier
   LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
   LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
-  LOOP_NEW=$(( $LOOP_LAST + 1 ))
+  LOOP_NEW=$(( LOOP_LAST + 1 ))
   mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
   }
 }
