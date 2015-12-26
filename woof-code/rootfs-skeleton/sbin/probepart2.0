@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
@@ -46,7 +46,8 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] || DEBUG=`sed 's% %\n%g' /proc/cmdline | grep -w -i '^debug'`
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
-Version='2.0'
+Version='2.0'    #sh
+Version='2.0.1'  #ash
 
 usage(){
 USAGE_MSG="
@@ -89,9 +90,9 @@ echo "$USAGE_MSG"
 exit $1
 }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
-[ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-(mount |grep -o "/proc " >$OUT 2>$ERR && mount |grep -o "/sys " >$OUT 2>$ERR) || usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
+[ "`echo "$1" | grep -wiE "[-]*help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "[-]*version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
+(cut -f2 -d' ' /proc/mounts |grep "^/proc$" >>$OUT 2>>$ERR && cut -f2 -d' ' /proc/mounts |grep "^/sys$" >>$OUT 2>>$ERR) || usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
 ##
 SIZE_FACTOR=1
 SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | head -n1`  ##-+edit2
@@ -150,17 +151,20 @@ LANG=C FDISK=`fdisk -l 2>$ERR | grep '^/dev' |tr -s ' ' |sed 's%\(/dev/[[:alpha:
 
 ##MAIN
 while read maj min drive rest; do
+[ "$DEBUGX" ] && echo $maj $min $drive $rest >&2
 [ "$maj" -a " $min" -a "$drive" -a "$rest" ] || continue  ##+++edit4
 #[ "`echo "$line" | grep '^[[:digit:]]'`" ] || continue   ##---edit4
 #drive=`echo $line |awk '{print $3}'`  ##---edit4 out again, thanks to wjaguar
-[ "$drive" ] || continue   ##+++edit3
-[ "$SHOWALL" ] || { [ "`echo $drive | grep -vE 'ram|loop|mtd|md'`" ] || continue; }  ##+++edit3 added --all option
+#[ "$drive" ] || continue   ##+++edit3
+#[ "$SHOWALL" ] || { [ "`echo "$drive" | grep -E 'ram|loop|mtd|md'`" ] && continue; }  ##+++edit3 added --all option
+[ "$SHOWALL" ] || {  case $drive in *ram*|loop*|md*|mtd*|nbd*) continue;; esac; }
 [ -b /dev/$drive ] || {
    #maj="${line%% *}" ; min=`echo $line |awk '{print $2}'`;  ##---edit4 thanks to wjaguar, no need for this anymore
    [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >&2;
-   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
+   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
 [ "$DEVICES" ] && { [ "`echo "$DEVICES" | grep -w "$drive"`" ] || continue; }  ##+++edit2 forgot to implement it
 SIZE='';FSTYPE='';
+[ "$DEBUG" ] && ls /sys/class/block/$drive/size >&2
 [ -f /sys/class/block/$drive/size ] || continue
 SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
 #[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
@@ -169,25 +173,31 @@ SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 FSTYPE=
-if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
+#if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
+case $drive in *[0-9])
  if [ -d /sys/class/block/$drive/device ]; then
- REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ read REMOVEABLE </sys/class/block/$drive/removable
  fi
  [ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
   filesystem_func "$drive"
   echo "/dev/$drive|$FSTYPE|$SIZE"  ##edit1 wrong order for pmount
-else  #whole drive
+;;
+#else  #whole drive
+*)
  if [ -d /sys/class/block/$drive/device ]; then
- REMOVEABLE=`cat /sys/class/block/$drive/removable`
+ read REMOVEABLE </sys/class/block/$drive/removable
  if [ "$REMOVEABLE" = 1 ]; then
  if [ -f /sys/class/block/$drive/device/type ]; then  ##+++edit3
-  if [ "`cat /sys/class/block/$drive/device/type`" = 5 ]; then
-   present_removable
-  fi
+ [ "`cat /sys/class/block/$drive/device/type`" = 5 ] && present_removable
  else  ##+++edit3
    present_removable
  fi
- fi;fi
-fi
+ else [ "$DEBUG" ] && echo removable not 1 >&2
+ fi
+ else [ "$DEBUG" ] && echo no dir /sys/class/block/$drive/device >&2
+ fi
+;;
+esac
+#fi
 #done</proc/partitions
 done</proc/diskstats  ##-+edit3
