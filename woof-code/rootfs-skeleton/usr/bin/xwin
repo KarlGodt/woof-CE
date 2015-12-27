@@ -33,47 +33,16 @@ echo "$0 start...:"
 #PUPSFS=pup_201.sfs versioned name, stored on PDEV1, PUPSAVE=vfat,sda1,/pup_save.3fs
 #PMEDIA is a broad description of the boot media, ex "usbflash" or "idehd".
 
+TMP_DIR=/tmp/xwin
+mkdir $VERB -p "$TMP_DIR"
 KERNELVER=`uname -r` #w479
 
-__parse_parameters(){
-#0.9.9 enables to start a specific w.m. from commandline...
-#if [ "$@" ] && [ "`echo "$@" | tr ' ' '\n' | grep -v '^\-'`" = "" ];then
-params0="$@"
-params=`echo "$params0" | sed 's#-S[[:blank:]]*\(.*\)#-S=\1#g'`
-wm=`echo "$params" | tr ' ' '\n' | grep -v '^\-' | grep -i -E 'jwm|xfce|fvwm|icewm|openbox|twm|blackbox' | tail -n1`
-if [ -n "$wm" ]; then
- if [ -n "`which $wm 2>/dev/null`" ]; then
-  echo "$wm" > /etc/windowmanager
-  #note, /root/.xinitrc uses this file.
- fi
-fi
-serverName0=`echo "$params" | grep -w -E -e '\-S=.*|-*server=.*' | tail -n 1`
-if [ ! -z "$serverName0" ]; then
-serverName=`echo $serverName0 | cut -f 2 -d '=' | cut -f 1 -d ' '`
-if [ ! -z "$serverName" ]; then
-findServer=`find /usr/bin -name "$serverName"`
-
-if [ ! -z "$findServer" ]; then
-rm -f /usr/bin/X
-ln $VERB -i -s "`basename $findServer`" /usr/bin/X
-
-else
-echo -e '\033[0;31m'"$serverName not found in /usr/bin directory ."'\033[0;39m'
-sleep 3s
-if [ -x /usr/bin/Xorg ]; then
-echo "Defaulting to Xorg .."
-rm -f /usr/bin/X
-ln $VERB -s Xorg /usr/bin/X
-sleep 3s
-else
-echo -e '\033[1;31m''WARNING : Xorg not found in the /usr/bin folder !''\033e0;39m'
-echo -e '\033[0;35m''Please sort your Puppy installation''\033[0;39m'
-exit
-fi
-fi
-fi
-fi
-}
+# REM: Need DISPLAY :NR
+DISP=0
+INSTANCES=`pidof -o $$ -o %PPID ${0##*/}`
+for one in $INSTANCES; do
+DISP=$(( DISP + 1 ))
+done
 
 OUT=/dev/null; ERR=/dev/null
 Q=-q;QUIET=--quiet;S=-s;SILENT=--silent
@@ -95,7 +64,12 @@ local WM="$*"
 case $WM in
     *jwm*|*xfce*|*fvwm*|*icewm*|*openbox*|*twm*|*blackbox*|*enlightenment*|*kde*)
     which "$WM" >>$OUT || _exit 3 "'$WM' windowmanager not available in PATH"
+    if test "$DISP"; then
+    echo "$WM" >/etc/windowmanager.":$DISP"
+    rm  $VERB -f /etc/windowmanager
+    else
     echo "$WM" >/etc/windowmanager
+    fi
     [ $? = 0 ] && _info "20 Wrote '$WM' into /etc/windowmanager" || _warn "Unable to write '$WM' to /etc/windowmanager"
     ;;
     *)
@@ -317,6 +291,7 @@ done
 
 echo "`date` 1: passed checking for other instances of xwin running or parameters"
 
+__run_one_instance_only__(){
 #PIDOFS=`pidof -o $$ -o %PPID xwin`
 #PIDOFS="${PIDOFS} "`pidof -o $$ -o %PPID xinit`
 #PIDOFS="${PIDOFS} `pidof -o $$ -o %PPID X`"
@@ -335,6 +310,7 @@ if [ -n "$DISPLAY" ]; then
 else
 echo -e '\033[1;33m'"This script will run X windows for you..."'\033[0;39m'
 fi
+}
 
 #echo '$HOME    : '"$HOME" > /dev/tty3 #DBG
 #echo 'pwd      : '"`pwd`" > /dev/tty3 #DBG
@@ -359,21 +335,33 @@ HAVEXvesa=`echo $HAVEX | grep -v -E 'Xorg|XF86_SVGA|Xfbdev|Xvfb|Xfake|Xnest'`
 #v3.90 expanded to auto run best video mode...
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$HAVEXvesa" ]; then
- if [ ! -f /tmp/videomode -a ! -f /etc/videomode ]; then #v2.21  ##fresh boot /tmp/videomode does not exist
-  ddcprobe >/tmp/ddcprobe.txt
+ if [ ! -f "$TMP_DIR"/videomode -a ! -f /etc/videomode ]; then #v2.21  ##fresh boot "$TMP_DIR"/videomode does not exist
+  ddcprobe >"$TMP_DIR"/ddcprobe.txt
   #weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
   #every alternate run of ddcprobe...
-  case "`cat /tmp/ddcprobe.txt`" in *edidfail*)
+  case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
    sleep 1
-   ddcprobe >/tmp/ddcprobe.txt
+   ddcprobe >"$TMP_DIR"/ddcprobe.txt
    ;;
   esac
 
 #v3.99 begin
-  if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides /tmp/ddcprobe.txt; then
-   rm -f /var/run/XLOADED  #not necessary, precaution.
+  if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides "$TMP_DIR"/ddcprobe.txt; then
+   rm $VERB -f /var/run/XLOADED  #not necessary, precaution.
+   if test "$DEBUG"; then
+   echo xorgoverrides
+   exit
+   fi
+   if pidof xorgwizard >>$OUT; then
+       while :; do
+       sleep 2
+       pidof xorgwizard >>$OUT || break
+       done
+   else
    #1st dialog offers to use Xvesa...
    /usr/sbin/xorgwizard
+   fi
+
    HAVEX=`readlink /usr/bin/X`
     ##if test "`echo $HAVEX | grep '/'`" != ""; then
     HAVEX=`basename $HAVEX`
@@ -387,33 +375,33 @@ fi
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$HAVEXvesa" ]; then
  BASEMODE=""
- if [ ! -f /tmp/videomode -a ! -f /etc/videomode ]; then #v2.21
+ if [ ! -f "$TMP_DIR"/videomode -a ! -f /etc/videomode ]; then #v2.21
 #v3.99 end
 
   #v3.95 note code duplicated in xorgwizard, not efficient...
   #v3.94 detect if a Classmate PC laptop with 800x480 screen...
   #v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
-  [ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
+  [ "`dmidecode -s bios-version | grep '^CM91510'`" ] && echo 'timing: 800x480@60' >> "$TMP_DIR"/ddcprobe.txt
   #v3.95 recognise more special screens...
   DMIDECODE=`dmidecode`
   #recognise EeePC Asus laptop...
-  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" != "" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" != "" ] && echo 'timing: 800x480@60' >> /tmp/ddcprobe.txt
+  [ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" ] && echo 'timing: 800x480@60' >> "$TMP_DIR"/ddcprobe.txt
 
   echo -e '\nIf initialization freezes here, press ctrl-c and type "xorgwizard",\nselect "Xorg", choose monitor type and choose video mode.'   #v3.99
-  grep '^oem:' /tmp/ddcprobe.txt > /tmp/ddcprobeoem.txt   #v3.99 current adapter signature
+  grep '^oem:' "$TMP_DIR"/ddcprobe.txt > "$TMP_DIR"/ddcprobeoem.txt   #v3.99 current adapter signature
 
   #get too many weird resolutions, maybe better just only allow these...
   #want widescreen/non-vesa resolutions only...
   VESAMODES=`$HAVEXvesa -listmodes 2>&1 | grep '^0x' | tr ':' ' ' | tr -s ' ' | cut -f 1,2 -d ' '`
-  rm /tmp/ddcprobeoem.txt  #v3.99 didn't hang in Xvesa, so delete signature
-  MONCHOICES=`grep -F 'timing:' /tmp/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 800x480@| 1024x600@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`
+  rm $VERB "$TMP_DIR"/ddcprobeoem.txt  #v3.99 didn't hang in Xvesa, so delete signature
+  MONCHOICES=`grep -F 'timing:' "$TMP_DIR"/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 800x480@| 1024x600@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`
 
   if [ "$MONCHOICES" ]; then  #1
    MONCUTXY=`echo "$MONCHOICES" | cut -f 1 -d '@' | tr '\n' ' '`
 
    #v2.21 code to handle widescreen with intel video chips...
    if [ ! -f /etc/resolutionfix ]; then ##2
-    if grep -F 'oem:' /tmp/ddcprobe.txt | grep -F $Q 'Intel'; then  #3
+    if grep -F 'oem:' "$TMP_DIR"/ddcprobe.txt | grep -F $Q 'Intel'; then  #3
      MISSINGXY=""
      for ONECUTXY in $MONCUTXY #ex: each field 1024x768
      do
@@ -445,7 +433,7 @@ if [ "$HAVEXvesa" ]; then
 
    if [ "$BASEMODE" ]; then
     echo "$BASEMODE" > /etc/videomode #no need for wizard after startup!
-    rm -f /tmp/videomode  #w460 make sure can exit from X.
+    rm $VERB -f "$TMP_DIR"/videomode        #w460 make sure can exit from X.
    fi
   fi  ##1
   ###end of MONCHOICES !not empty part
@@ -453,15 +441,15 @@ if [ "$HAVEXvesa" ]; then
   if [ ! "$BASEMODE" ]; then
    BASEMODE=`echo "$VESAMODES" | grep ' 800x600x16' | head -n 1`
    if [ "$BASEMODE" ]; then
-    echo "$BASEMODE" > /tmp/videomode
+    echo "$BASEMODE" > "$TMP_DIR"/videomode
    else
-    echo "0x0111 640x480x16" > /tmp/videomode
+    echo "0x0111 640x480x16" > "$TMP_DIR"/videomode
     #...desparate, not a practical mode.
    fi
   fi
   ##End of final fallback
-  rm -f /tmp/Xflag #precaution.
-  #...if /tmp/videomode exists, video-wizard is started in ~/.xinitrc
+  rm $VERB -f "$TMP_DIR"/Xflag #precaution.
+  #...if "$TMP_DIR"/videomode exists, video-wizard is started in ~/.xinitrc
   #...note, if /etc/videomode exists instead, normal X startup.
 
  fi
@@ -483,19 +471,19 @@ if [ "$OLDMOUSEDEV" != "$MOUSEDEV" ]; then
   if [ -f /etc/X11/xorg.conf ]; then
    case `cat /etc/mousedevice | cut -c 1-4` in
     "inpu") #"input/mice", usb
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "IMPS\/2" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
     "ttyS") #ttyS0,1,2,3, serial
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "Microsoft" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
     *)
-     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > /tmp/xorg.conf.tmp2
+     cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/   Option      "Protocol" "auto" #mouse0protocol/g' > "$TMP_DIR"/xorg.conf.tmp2
      ;;
    esac
-   sync
-   cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
-   sync
-   rm -f /tmp/xorg.conf.tmp2
+  _sync
+   cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf
+  _sync
+   rm $VERB -f "$TMP_DIR"/xorg.conf.tmp2
   fi
  fi
  OLDMOUSEDEV="$MOUSEDEV" #v411 old is now current mouse
@@ -512,9 +500,9 @@ if [ ! -f /etc/mousebuttons ]; then
   echo "5" > /etc/mousebuttons
   echo 'The file /etc/mousebuttons has been created, with content "5" .'
   if [ -f /etc/X11/xorg.conf ]; then
-   cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > /tmp/xorg.conf.tmp
-   sync
-   cp $VERB -f /tmp/xorg.conf.tmp /etc/X11/xorg.conf
+   cat /etc/X11/xorg.conf | tr -s '#' | sed -e 's/#Option\W\+"ZAxisMapping"\W\+"4 5"/Option      "ZAxisMapping" "4 5"/g' > "$TMP_DIR"/xorg.conf.tmp
+   _sync
+   cp $VERB -f "$TMP_DIR"/xorg.conf.tmp /etc/X11/xorg.conf
   fi
 fi
 
@@ -546,9 +534,9 @@ if [ -f /usr/bin/Xorg -a -f /etc/X11/xorg.conf ]; then
     ls -1 $DRVRSPATH/* | grep -w "${DRVRCURR}_drv.so" >/dev/null
     if [ $? -ne 0 ]; then
      APATTERN="s/.*#card0driver/    Driver      \"vesa\" #card0driver/g"
-     cat /etc/X11/xorg.conf | sed -e "$APATTERN" > /tmp/xorg.conf.tmp2
-     sync
-     cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
+     cat /etc/X11/xorg.conf | sed -e "$APATTERN" > "$TMP_DIR"/xorg.conf.tmp2
+    _sync
+     cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf
      echo "$0: NOTICE: '$DRVRCURR' not found in '$DRVRSPATH' ."
      echo "$0: NOTICE: Defaulting to use the generic 'vesa' driver."
     fi
@@ -564,6 +552,7 @@ if [ -f /usr/bin/Xorg ]; then
     #fi
   if [ "$RLX" = "Xorg" ]; then
 
+__ddcprobe_func__(){
    #v2.13 video hardware profile (must be same as in xorgwizard)...
    DDCPROBE=`ddcprobe`
    #v2.17 patch from Nightflyer... as in xwin, may have to run ddcprobe twice...
@@ -573,6 +562,68 @@ if [ -f /usr/bin/Xorg ]; then
      DDCPROBE=`ddcprobe`
     ;;
    esac
+}
+
+_do_ddcprobe(){
+_edebug $Red0"_do_ddcprobe";
+
+# +++2014-11-11 strace seems to help segfauting ddcprobe
+ if [ "`which strace`" ]; then
+  DDCPROBE=`strace -o "$TMP_DIR"/ddcprobe.strace_o ddcprobe`
+ else
+  DDCPROBE=`ddcprobe`
+ fi
+ echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
+
+##+++2012-09-16 2014-11-11
+[ -s "$TMP_DIR"/ddcprobe.txt ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$TMP_DIR"/ddcprobe.strace_o2 ddcprobe >"$TMP_DIR"/ddcprobe.txt
+   else
+  ddcprobe >"$TMP_DIR"/ddcprobe.txt;
+ fi
+}
+[ "`grep '[[:alnum:]]' "$TMP_DIR"/ddcprobe.txt`" ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$TMP_DIR"/ddcprobe.strace_o2 ddcprobe >"$TMP_DIR"/ddcprobe.txt
+   else
+  ddcprobe >"$TMP_DIR"/ddcprobe.txt
+ fi
+}
+##+++2012-09-16 2014-11-11
+
+  sleep 2s
+  case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
+   _notice "ddcprobe failed to determine the video";
+   _info "Trying again..";
+   sleep 1
+   DDCPROBE=`ddcprobe`
+   echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
+   sleep 1s
+   ;;
+  esac
+
+ _get_edid(){
+    which get-edid >>$OUT || return 0
+ which edid-decode >>$OUT || return 0
+ if [ ! -s "$TMP_DIR"/ddcprobe.txt ]; then
+ get-edid 1>"$TMP_DIR"/get-edid.out 2>"$TMP_DIR"/get-edid-2.txt
+ [ "$?" = 0 ] || return 0
+ edid-decode "$TMP_DIR"/get-edid.out >"$TMP_DIR"/ddcprobe.txt
+ fi
+ }
+ _get_edid
+
+if [ -n "`grep -i 'edidfail' "$TMP_DIR"/ddcprobe.txt`" ]; then
+echo -e $Red1"ddcprobe still failed to determine the video.."$Res
+echo -e "Exiting $0 now."
+exit 20
+fi
+}
+_do_ddcprobe
+DDCPROBE=`cat "$TMP_DIR"/ddcprobe.txt`
+
+__get_graphics_hw_profile(){
    PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
    #PROFILEMONITOR="`echo "$DDCPROBE" | grep --extended-regexp '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
@@ -582,24 +633,61 @@ PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^dtiming: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+}
 
-   HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
+#v2.13 want a hardware profile so can bootup on different PCs...
+   PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: ' |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
+ PROFILEVENDOR=`echo "$DDCPROBE" | grep -m1 '^vendor: ' |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
+PROFILEPRODUCT=`echo "$DDCPROBE" | grep -m1 '^product: ' |cut -f2 -d ' ' | sed 's/[[:punct:]]/_/g'`
+[ "$PROFILECHIP" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
+## Dougal: maybe add "^monitorname: "??
+#PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorname: '  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^dtiming: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: '  | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR=`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+
+#  [ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
+   [ "$PROFILECHIP" ] || PROFILECHIP=UnidentifiedChip
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+
+   #HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
+   HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
    #find out if current xorg.conf matches this profile...
    CURRENTPROFILE=`grep '^#PuppyHardwareProfile' /etc/X11/xorg.conf | tail -n1 | cut -f 2 -d '=' | cut -f 1 -d ' '`
    #CURRENTPROFILE=`tac /etc/X11/xorg.conf | grep -m1 '^#PuppyHardwareProfile' | cut -f 2 -d '=' | cut -f 1 -d ' '`
    if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ]; then
+   if test "$DEBUG"; then
+   echo "  xorg.conf profie:$CURRENTPROFILE"
+   echo "current hw profile:$HARDWAREPROFILE"
+   exit
+   fi
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
     mv $VERB -f /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE}
     #if a previous profiled filename for new hardware, use that...
-    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
+    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp $VERB -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
    fi
   fi
  fi
  if [ ! -f /etc/X11/xorg.conf ]; then
-  rm -f /var/run/XLOADED  #not necessary, precaution.
+  rm $VERB -f /var/run/XLOADED  #not necessary, precaution.
+  if test "$DEBUG"; then
+  echo no /etc/X11/xorg.conf
+  exit
+  fi
+  if pidof xorgwizard >>$OUT; then
+        while :; do
+        sleep 2
+        pidof xorgwizard >>$OUT || break
+        done
+  else
   #1st dialog offers to use Xvesa...
   /usr/sbin/xorgwizard
+  fi
 
   HAVEX=`readlink /usr/bin/X`
   #if test "`echo $HAVEX | grep '/'`" != ""; then
@@ -623,7 +711,7 @@ If there is a problem, such as X not working, choose <Commandline> to drop out t
 
 If undecided, wait 30 seconds for normal startup of X..." 0 0
   if [ ! $? = 1 ]; then
-    rm /var/run/XLOADED
+    rm $VERB /var/run/XLOADED
   else
     echo -en '\033[1;31m' #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
     echo '
@@ -632,7 +720,7 @@ Have now dropped down to the commandline. If you want to run the Xorg
 Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
 (hopefully correctly this time!) type "xwin" to start X.'
     echo -e '\033[0;39m'
-    rm -f /var/run/XLOADED #otherwise cannot start X.
+    rn $VERB -f /var/run/XLOADED #otherwise cannot start X.
     exit
   fi
  fi
@@ -642,35 +730,35 @@ echo "`date` 5: finished checking for XLOADED"
 
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$HAVEXvesa" ]; then
- #/tmp/videomode exists if starting X with new video test mode...
- if [ -e /tmp/videomode ]; then
-  cat /tmp/videomode | grep " 800x600"
+ #"$TMP_DIR"/videomode exists if starting X with new video test mode...
+ if [ -e "$TMP_DIR"/videomode ]; then
+  grep $Q " 800x600" "$TMP_DIR"/videomode
   if [ $? -eq 0 ]; then #=0 if found.
-   if [ -e /tmp/Xflag ]; then
+   if [ -e "$TMP_DIR"/Xflag ]; then
     #we have just attempted 800x600x16 and aborted with ctrl-alt-backspace
     #so have failed.
     echo "An attempt has just been made to run X at 800x600x16 but it has"
     echo "not worked (or it did but you did not press the OK button in the"
     echo "Video-wizard). It is not feasible to run Puppy at any lower resolution"
     echo "or color. If you want to try again, type \"xwin\" at the prompt."
-    echo "It may be helpful to look in /tmp/xerrs.txt for error messages."
-    rm -f /tmp/videomode
-    rm -f /tmp/Xflag
+    echo "It may be helpful to look in $TMP_DIR/xerrs.txt for error messages."
+    rn $VERB -f "$TMP_DIR"/videomode
+    rn $VERB -f "$TMP_DIR"/Xflag
     echo "0x0111 640x480x16" > /etc/videomode #desparate.
     exit 0
    else
     #flag to prevent endless loop X restarting...
-    touch /tmp/Xflag
+    touch "$TMP_DIR"/Xflag
     #...pressing a button in video-wizard removes this file.
     #...however, aborting X will leave it in existence.
    fi
   fi
  fi
- #/tmp/videomode exists if starting X with new video test mode...
- if [ -e /tmp/videomode ]; then
+ #"$TMP_DIR"/videomode exists if starting X with new video test mode...
+ if [ -e "$TMP_DIR"/videomode ]; then
   #stored in format "0x0111 640x480x16"
-  VIDMODE=`cat /tmp/videomode | cut -f 1 -d ' '`
-  VIDSCRN=`cat /tmp/videomode | tr -s ' ' | cut -f 2 -d ' '`
+  VIDMODE=`cat "$TMP_DIR"/videomode | cut -f 1 -d ' '`
+  VIDSCRN=`cat "$TMP_DIR"/videomode | tr -s ' ' | cut -f 2 -d ' '`
  else
   #stored in format "0x0111 640x480x16"
   VIDMODE=`cat /etc/videomode | cut -f 1 -d ' '`
@@ -720,36 +808,36 @@ case $HAVEX in
   else
    SPOPTION='-sp /usr/lib/xserver/SecurityPolicy'
   fi
-  #startx $VIDMODE $MOUSEDEV > /tmp/xerrs.txt 2>&1
+  #startx $VIDMODE $MOUSEDEV > "$TMP_DIR"/xerrs.txt 2>&1
   #Puppy 0.8.4 no need for startx script...
   VIDFREQ=`echo -n "$VIDSCRN" | cut -f 4 -d "x"`
   if [ ! "$VIDFREQ" ]; then
-   echo "$VIDMODE" > /tmp/currentvideomode
+   echo "$VIDMODE" > "$TMP_DIR"/currentvideomode
    #w460 added -fp and -sp options...
-   /usr/bin/xinit /root/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- :$DISP -mode $VIDMODE $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
    RETval1=$?
   else
    #also, want to have adjustable frequency, VIDSCRN=widthxheightxdepthxfreq...
-   echo "$VIDSCRN" > /tmp/currentvideomode
-   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > /tmp/xerrs.$HAVEX.log 2>&1
+   echo "$VIDSCRN" > "$TMP_DIR"/currentvideomode
+   /usr/bin/xinit /root/.xinitrc -- :$DISP -screen $VIDSCRN $XEXTRAOPTIONS +kb -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
    RETval1=$?
   fi
   ;;
  Xfbdev)  ##no -mode option : Fatal server error:no screens found XIO:  fatal IO error 104 (Connection reset by peer) on X server ":0.0" after 0 requests (0 known processed) with 0 events remaining.
 
   echo "Starting X with Xfbdev Kdrive X server, mouse '$MOUSEDEV' ..."
-  /usr/bin/xinit /root/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS > /tmp/xerrs.$HAVEX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :$DISP -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  Xi810) #v1.0.7
   echo "Starting X with Xi810 Kdrive X server, mouse '$MOUSEDEV' ..."
   #echo "(experimental, currently fixed to 1024x768x16x72 in /usr/bin/xwin)"
-   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- :$DISP -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  XF86_SVGA)
   echo "Starting XF86_SVGA, specs in /etc/X11/XF86Config, startup apps /root/.xinitrc..."
-  /usr/bin/xinit /root/.xinitrc -- -bpp 16 > /tmp/xerrs.$HAVEX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :$DISP -bpp 16 > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  Xorg)
@@ -758,27 +846,27 @@ case $HAVEX in
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
   #     if have '-nolisten tcp'. until find out why, this workaround...
   if [ "$KERNELVER" = "2.6.18.8" ]; then
-   /usr/bin/xinit /root/.xinitrc -- -br > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- :$DISP -br > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   else
-   /usr/bin/xinit /root/.xinitrc -- -br -nolisten tcp > /tmp/xerrs.$HAVEX.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- :$DISP -br -nolisten tcp > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   fi
   ;;
  Xephyr|Xnest) #Xephyr cannot open host display. Is DISPLAY set?
-  /usr/bin/xinit /root/.xinitrc -- :1  > /tmp/xerrs.$HAVEX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :1  > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  Xfake) ##runs OK , .xinitrc gets sourced stopable by C+C|C+A+c|d ; does not create a X window environment
-  /usr/bin/xinit /root/.xinitrc -- :0  > /tmp/xerrs.$HAVEX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :0  > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  Xvfb)  ## kind of ^fake^ driver
-  /usr/bin/xinit /root/.xinitrc -- > /tmp/xerrs.$HAVEX.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- :$DISP > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
  *)
- /usr/bin/xinit /root/.xinitrc -- > /tmp/xerrs.$HAVEX.log 2>&1
+ /usr/bin/xinit /root/.xinitrc -- :$DISP > "$TMP_DIR"/xerrs.$HAVEX.$DISP.log 2>&1
   RETval1=$?
   ;;
 esac
@@ -792,9 +880,9 @@ echo "false" > /var/run/XLOADED #see note above.
 fun_dump_xerrs_log(){
 #echo "\$@='$@'"
 #if [ -n "`echo "$@" | grep -E -e '\-v|\-*verbose'`" ]; then
- echo -e '\033[1;33m'"Dumping first and last 10 lines of /tmp/xerrs.$HAVEX.log:"'\033[0;39m'
- head -n 10 /tmp/xerrs.$HAVEX.log
- tail -n 10 /tmp/xerrs.$HAVEX.log
+ echo -e '\033[1;33m'"Dumping first and last 10 lines of "$TMP_DIR"/xerrs.$HAVEX.log:"'\033[0;39m'
+ head -n 10 "$TMP_DIR"/xerrs.$HAVEX.log
+ tail -n 10 "$TMP_DIR"/xerrs.$HAVEX.log
  echo
 #fi
 }
@@ -827,11 +915,11 @@ fi
 ##because there are two instances of xwin running, but I don't see how.
 
 card_error_func(){
-    #if [ -n "`grep -i -e 'No[[:blank:]]*matching[[:blank:]]*cards[[:blank:]]*found' /tmp/xerrs.log`" ] ; then
-  if [ -n "`grep -i 'No matching cards found' /tmp/xerrs.$HAVEX.log`" ]; then
+    #if [ -n "`grep -i -e 'No[[:blank:]]*matching[[:blank:]]*cards[[:blank:]]*found' "$TMP_DIR"/xerrs.log`" ] ; then
+  if [ -n "`grep -i 'No matching cards found' "$TMP_DIR"/xerrs.$HAVEX.log`" ]; then
     echo -e '\033[0;31m'"'$HAVEX' could not detect the graphics card ."'\033[0;39m'
     fun_dump_xerrs_log
-  elif test "`grep 'Screens found, but none have a usable configuration' /tmp/xerrs.$HAVEX.log`"; then
+  elif test "`grep 'Screens found, but none have a usable configuration' "$TMP_DIR"/xerrs.$HAVEX.log`"; then
     echo -e '\033[0;31m'"'$HAVEX' could not configure the screen ."'\033[0;39m'
     fun_dump_xerrs_log
    if [ "$HAVEX" != "Xorg" ]; then
@@ -852,12 +940,15 @@ card_error_func(){
 }
 
 #Shutdown menu calls wmreboot, wmpoweroff, wmexit or restartwm, which create this file...
-if [ -f /tmp/wmexitmode.txt ]; then
- #WMEXITMODE="`cat /tmp/wmexitmode.txt`"
- read WMEXITMODE </tmp/wmexitmode.txt
+if [ -f "$TMP_DIR"/wmexitmode.txt -o -f "$TMP_DIR"/wmexitmode.":$DISP" ]; then
+             if test -f "$TMP_DIR"/wmexitmode.":$DISP";
+  then read WMEXITMODE <"$TMP_DIR"/wmexitmode.":$DISP"
+  else read WMEXITMODE <"$TMP_DIR"/wmexitmode.txt
+  fi
+
  if [ "$WMEXITMODE" = "exit" ]; then #see /usr/bin/wmexit.
-  #[ $NUMXWINS -eq 1 ] && rm -f /tmp/wmexitmode.txt #w477 hack, see above.
-  rm -f /tmp/wmexitmode.txt #w478
+  #[ $NUMXWINS -eq 1 ] && rn $VERB -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
+  rn $VERB -f "$TMP_DIR"/wmexitmode.txt #w478
  echo 1
  exit_message_func
  exit
@@ -872,20 +963,20 @@ if [ -f /tmp/wmexitmode.txt ]; then
  #make a gross assumption, if wmexitmode.txt exists, haven't already exited this script, then want
  #to restart maybe with different window manager. /etc/windowmanager already has desired w.m.
  elif [ "$WMEXITMODE" = "xorgwizard" ]; then
-  rm -f /tmp/wmexitmode.txt
+  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
   #sleep 3s
   ##exec xorgwizard  ##2011-10-03 later 1 still no go
   xorgwizard
   exit  ##2011-10-03 to fix exit of xorgwizard after first input [ Enter ]
  #echo 2
  elif [ "$WMEXITMODE" = "Xrestart" ]; then
-  rm -f /tmp/wmexitmode.txt
+  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
   sleep 1s
   exec xwin
   exit ##2011-10-03 to fix crash ???
  fi
  #echo 3
-  rm -f /tmp/wmexitmode.txt #definitely delete it now.
+  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP" #definitely delete it now.
 
   card_error_func
 
@@ -904,7 +995,7 @@ echo 5
 
 if [ "$HAVEXvesa" ]; then
 echo 6
- if [ -e /tmp/videomode ]; then
+ if [ -e "$TMP_DIR"/videomode ]; then
   card_error_func
   echo 7
   exec xwin #restart X.
