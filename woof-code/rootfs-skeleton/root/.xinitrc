@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 . /etc/rc.d/f4puppy5
@@ -190,6 +190,7 @@ else echo "$wmPID" >/var/run/windowmanager.pid
 fi
 
 wait $wmPID
+exit
 }
 
 # freememapplet if wm restarted
