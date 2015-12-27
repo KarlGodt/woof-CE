@@ -36,8 +36,9 @@ sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 DEFAULTWM=enlightenment_start
 test -f /etc/windowmanager || { rm $VERB -f /etc/windowmanager; echo $DEFAULTWM >/etc/windowmanager; }
-
 read CURRENTWM </etc/windowmanager
+test -f /etc/windowmanager."$DISP" || { rm $VERB -f /etc/windowmanager."$DISP"; echo $DEFAULTWM >/etc/windowmanager."$DISP"; }
+read CURRENTWM </etc/windowmanager."$DISP"
 
 if [ -e /tmp/videomode ];then #xvesa only: testing a video mode
  exec video-wizard &
