@@ -5,6 +5,8 @@
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 
+DISP=${DISPLAY%.*}
+
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
@@ -14,7 +16,7 @@ fi
 exec /sbin/pup_event_frontend_d & #v403
 
 #w482 reshape background image if widescreen...
-[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
+[ "$PUPMODE" -eq 5 ] && /usr/sbin/background_reshape
 
 userresources=$HOME/.Xresources
 usermodmap=$HOME/.Xmodmap
@@ -33,7 +35,7 @@ sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 
 DEFAULTWM=enlightenment_start
-test -f /etc/windowmanager || { rm -f /etc/windowmanager; echo $DEFAULTWM >/etc/windowmanager; }
+test -f /etc/windowmanager || { rm $VERB -f /etc/windowmanager; echo $DEFAULTWM >/etc/windowmanager; }
 
 read CURRENTWM </etc/windowmanager
 
@@ -108,7 +110,7 @@ exec /usr/sbin/delayedrun &
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
  IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ ! "$IDLETIME" = "0" ] && exec unclutter -idle $IDLETIME &
+ [ "$IDLETIME" = "0" ] || exec unclutter -idle $IDLETIME &
 fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -122,7 +124,7 @@ fi
 #[ -f /root/.glipper_on ] && /usr/local/bin/glipper &
 
 if [ "$CURRENTWM" = "xfwm4" ];then
- if [ "`which xfce4-panel`" != "" ];then
+ if [ "`which xfce4-panel`" ];then
   xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
   exec xfce4-panel
  fi
@@ -139,23 +141,28 @@ fi
 
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
-if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
+case "$CURRENTWM" in "jwm"|"icewm") :;;
+*)
  [ -f /usr/bin/fbpanel ] && exec fbpanel &
  [ -f /usr/bin/lxpanel ] && exec lxpanel &
-fi
+;;
+esac
 
 #setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 _restart_rox(){
+while :; do
 ##w468 rox may not start old hardware, try again...
 PS="`ps`" #reanimated krg Mar2011
-if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
+[ "`echo "$PS" | grep 'ROX\-Filer'`" ] && return 0
  touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
- sleep 0.2
+ sleep 1
  /usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin
-fi #reanimated krg Mar2011
+done
 }
-_restart_rox
+case $CURRENTWM in *enlightenment*) :;;
+*) _restart_rox;;
+esac
 
 _old_start_wm(){
 #exec $CURRENTWM
@@ -169,12 +176,24 @@ _start_wm(){
 test "$*" || return 1
 #echo "${*##*/}" >/etc/windowmanager
 #exec "${*##*/}"
-echo "$*" >/etc/windowmanager
-exec "$@"
+if test "$DISP";
+then echo "$*" >/etc/windowmanager."$DISP"
+else echo "$*" >/etc/windowmanager
+fi
+
+exec "$@" & wmPID=$!
+
+if test "$DISP";
+then echo "$wmPID" >/var/run/windowmanager.pid."$DISP"
+else echo "$wmPID" >/var/run/windowmanager.pid
+fi
+
+wait $wmPID
 }
 
 # freememapplet if wm restarted
-ps | grep inotifywait | grep sizefreem | while read pid rest; do kill $pid; done
+ps | grep inotifywait | grep sizefreem | grep -E 'grep|ps' |
+ while read pid rest; do test "$pid" || continue; kill $pid; done
 
 which $CURRENTWM  && _start_wm $CURRENTWM
 [ -x $CURRENTWM ] && _start_wm $CURRENTWM
