@@ -1,13 +1,36 @@
-#!/bin/sh
+#!/bin/ash
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #Exit from X, will cause return to xwin.
 
-[ ! "$DISPLAY" ] && exit
+[ "$DISPLAY" ] || _exit "Need DISPLAY variable."
+
+DISP=${DISPLAY%.*}
+
+  if test -f /var/run/pup_event_fronted_d.pid."$DISP"; then
+read pupPID </var/run/pup_event_fronted_d.pid."$DISP"
+elif test -f /var/run/pup_event_fronted_d.pid; then
+read pupPID </var/run/pup_event_fronted_d.pid
+fi
+
+if test "$pupPID"; then
+     kill -9 $pupPID && {
+           if test -f /var/run/pup_event_fronted_d.pid."$DISP"; then
+          rm $VERB -f /var/run/pup_event_fronted_d.pid."$DISP"
+         elif test -f /var/run/pup_event_fronted_d.pid; then
+          rm $VERB -f /var/run/pup_event_fronted_d.pid
+         fi
+     }
+else killall pup_event_frontend_d
+fi
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
-echo -n "exit" > /tmp/wmexitmode.txt
+if test "$DISP";
+then echo "exit" > /tmp/wmexitmode.txt."$DISP"
+else echo "exit" > /tmp/wmexitmode.txt
+fi
 
+__wait_for_frontendD__(){
 #give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
@@ -21,21 +44,29 @@ while [ "$PSPEFD" != "" ];do
  PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|ps|grep'`"
 done
 sleep 0.2
+}
 
-pidof sync || sync
+_sync
 
-if [ "`pidof xfce4-panel`" != "" ];then
+if [ "`pidof xfce4-panel`" ];then
  #killall xfce4-panel
  kill `pidof xfce4-panel`
  exit
 fi
 
 
-
 #w003
-CURRENTWM="`cat /etc/windowmanager`"
-kill -9 `pidof $CURRENTWM`
+if test -f /etc/windowmanager."$DISP";
+then read CURRENTWM </etc/windowmanager."$DISP"
+else read CURRENTWM </etc/windowmanager
+fi
 
+if (pidof $CURRENTWM >>$OUT); then
+kill -9 `pidof $CURRENTWM`
+fi
+
+sleep 1
+pidof X >>$OUT || exit 0
 ##exec killall $PREVIOUSWM
 ##exec killall X
 killall X #default is SIGTERM.
