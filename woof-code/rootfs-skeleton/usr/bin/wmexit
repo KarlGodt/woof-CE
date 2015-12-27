@@ -7,6 +7,11 @@
 
 DISP=${DISPLAY%.*}
 
+STARTVT=`busybox ps -o tty,args | grep -w xinit | grep "$DISP" | grep -vE 'grep' | cut -f2 -d',' | awk '{print $1}'`
+test "$STARTVT" || STARTVT=1
+
+echo DISP=$DISP STARTVT=$STARTVT
+
   if test -f /var/run/pup_event_fronted_d.pid."$DISP"; then
 read pupPID </var/run/pup_event_fronted_d.pid."$DISP"
 elif test -f /var/run/pup_event_fronted_d.pid; then
@@ -48,6 +53,9 @@ sleep 0.2
 
 _sync
 
+
+chvt $STARTVT
+
 if [ "`pidof xfce4-panel`" ];then
  #killall xfce4-panel
  kill `pidof xfce4-panel`
@@ -56,6 +64,7 @@ fi
 
 
 #w003
+_kill_all_currentwms(){
 if test -f /etc/windowmanager."$DISP";
 then read CURRENTWM </etc/windowmanager."$DISP"
 else read CURRENTWM </etc/windowmanager
@@ -64,18 +73,38 @@ fi
 if (pidof $CURRENTWM >>$OUT); then
 kill -9 `pidof $CURRENTWM`
 fi
+}
 
-sleep 1
-pidof X >>$OUT || exit 0
-##exec killall $PREVIOUSWM
-##exec killall X
+  if test -f     /var/run/windowmanager.pid."$DISP"
+then read wmPID </var/run/windowmanager.pid."$DISP"
+elif test -f     /var/run/windowmanager.pid
+then read wmPID </var/run/windowmanager.pid
+else :
+fi
+echo wmPID=$wmPID
+
+if test "$wmPID";
+then  kill $wmPID
+else _kill_all_currentwms
+fi
+
+sleep 2
+#pidof X >>$OUT || { chvt $STARTVT; exit 0; }
+#pidof X >>$OUT || exit 0
+
+#echo need to kill X
+#exit
+
+xPID=`busybox ps -o pid,args | grep "X $DISP" | grep -vE 'grep' | awk '{print $1}'`
+if test "$xPID";
+then kill $xPID
+else
 killall X #default is SIGTERM.
 sleep 1
 ##exec killall -9 X #make sure X is killed.
 killall -9 X
-
-if [ -n "`which chvt`" ] ; then
-chvt 1
 fi
 
-exit
+#if [ -n "`which chvt`" ] ; then
+#chvt $STARTVT
+#fi
