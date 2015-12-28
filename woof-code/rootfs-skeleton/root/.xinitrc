@@ -11,10 +11,6 @@ if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
 
-#v4.01 BK daemon to handle kernel uevents...
-/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
-exec /sbin/pup_event_frontend_d & #v403
-
 #w482 reshape background image if widescreen...
 [ "$PUPMODE" -eq 5 ] && /usr/sbin/background_reshape
 
@@ -44,12 +40,6 @@ if [ -e /tmp/videomode ];then #xvesa only: testing a video mode
  exec video-wizard &
 fi
 
-setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
-
-if [ "$CURRENTWM" = "startkde" ];then
- exec startkde
-fi
-
 #0.9.8 sync selection-buffer and clipboard. only useful for older apps
 #such as rxvt that use the selection-buffer...
 [ -f /usr/bin/autocutsel ] && exec /usr/bin/autocutsel &
@@ -69,7 +59,6 @@ if [ -f /etc/xrandrindex ];then
    xrandr -s $XRANDRINDEX
   fi
 fi
-
 
 if [ -f /root/.xset.sh ];then
  #this is created by /usr/bin/pupx...
@@ -92,6 +81,14 @@ fi
 
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
 
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+
+#v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
+if [ -f /etc/mousehide ];then
+ IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
+ [ "$IDLETIME" = "0" ] || exec unclutter -idle $IDLETIME &
+fi
+
 #v555 w003
 #[ -f /usr/bin/xfce-mcs-manager ] && xfce-mcs-manager
 #[ "$CURRENTWM" = "xfwm4" ] && xfce-mcs-manager
@@ -101,17 +98,29 @@ fi
 /usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
 
 #w468 on old PCs this sometimes does not start, see further down...
-#rox -p /root/Choices/ROX-Filer/PuppyPin
+case $CURRENTWM in enlightenment_start|startkde) :;; #/usr/local/bin/rox -p=
+*) rox -p /root/Choices/ROX-Filer/PuppyPin;;
+esac
 
-#/usr/local/bin/rox -p=
+#v4.01 BK daemon to handle kernel uevents...
+/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
+exec /sbin/pup_event_frontend_d & #v403
 
 #v2.0.0
 exec /usr/sbin/delayedrun &
 
-#v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
-if [ -f /etc/mousehide ];then
- IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ "$IDLETIME" = "0" ] || exec unclutter -idle $IDLETIME &
+#v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
+if [ -f /usr/bin/absvolume ];then
+ if [ "$MENU_BG" = "" ];then
+  exec absvolume &
+ else
+  exec absvolume -bg $MENU_BG &
+ fi
+fi
+
+
+if [ "$CURRENTWM" = "startkde" ];then
+ exec startkde
 fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -131,15 +140,6 @@ if [ "$CURRENTWM" = "xfwm4" ];then
  fi
 fi
 
-#v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
-if [ -f /usr/bin/absvolume ];then
- if [ "$MENU_BG" = "" ];then
-  exec absvolume &
- else
-  exec absvolume -bg $MENU_BG &
- fi
-fi
-
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
 case "$CURRENTWM" in "jwm"|"icewm") :;;
@@ -152,17 +152,27 @@ esac
 #setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 _restart_rox(){
+#TTY=`tty` ## not a tty
+#TTY=`busybox ps -o tty,args | grep "xinit.*$DISP " | grep -vE 'grep' | cut -f2 -d',' | awk '{print $1}'`
+TTY=`busybox ps -o tty,args | grep "xinit.*$DISP " | grep -vE 'grep' | awk '{print $1}'`
+test "$TTY" || return $?
+
 while :; do
 ##w468 rox may not start old hardware, try again...
-PS="`ps`" #reanimated krg Mar2011
-[ "`echo "$PS" | grep 'ROX\-Filer'`" ] && return 0
+PSROX=`busybox ps -o tty,args | grep -e 'ROX-Filer.*-p.*PuppyPin' | grep -vE 'grep'` #reanimated krg Mar2011
+ttyROX=`echo "$PSROX" | awk '{print $1}'`
+echo "PSROX=$PSROX"
+echo "ttyROX=$ttyROX TTY=$TTY"
+case $ttyROX in *$TTY*) return 0;; esac
  touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
  sleep 1
  /usr/local/bin/rox -p /root/Choices/ROX-Filer/PuppyPin
+ c=$((c+1))
+ test $c = 9 && break
 done
 }
 case $CURRENTWM in *enlightenment*) :;;
-*) _restart_rox;;
+*) _restart_rox &;;
 esac
 
 _old_start_wm(){
@@ -194,7 +204,7 @@ exit
 }
 
 # freememapplet if wm restarted
-ps | grep inotifywait | grep sizefreem | grep -E 'grep|ps' |
+ps | grep inotifywait | grep sizefreem | grep -vE 'grep|ps' |
  while read pid rest; do test "$pid" || continue; kill $pid; done
 
 which $CURRENTWM  && _start_wm $CURRENTWM
