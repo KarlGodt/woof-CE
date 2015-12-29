@@ -16,6 +16,132 @@ done
 #echo
 
 
+#FUNCTIONS
+_load_driver(){
+# REM: Usual Puppy code in /etc/rc.d/rc.sysinit does not trigger i915
+# because i915 has no entries in /sys/bus/*/devices/*/modalias
+#  find /sys -name "i915"
+#   /sys/bus/pci/drivers/i915
+#   /sys/module/drm/holders/i915
+#   /sys/module/i915
+#   /sys/module/video/holders/i915
+#   /sys/module/drm_kms_helper/holders/i915
+#   /sys/module/i2c_algo_bit/holders/i915
+#   /sys/module/button/holders/i915
+# and directory
+#  realpath /sys/bus/pci/drivers/i915/0000:00:02.0
+#   /sys/devices/pci0000:00/0000:00:02.0
+# has a modalias file
+
+MS=$*
+test "$MS" || MS=1
+
+test -s /etc/X11/xorg.conf || return 1
+
+DRIVERS_TO_LOAD=`grep -E '#card[0-9]+driver' /etc/X11/xorg.conf | grep -v '^[[:blank:]]*#' | cut -f2 -d'"'`
+
+test "$DRIVERS_TO_LOAD" || return 2
+
+for driver in $DRIVERS_TO_LOAD; do
+case $driver in
+intel|Intel|INTEL) modprobe $Q $VERB -b i915 modeset=$MS; sleep 1; modprobe $Q $VERB -b fbcon;;
+'') :;;
+*)  :;; #TODO
+esac
+
+done
+}
+
+_do_modeset(){
+echo _do_modeset
+_debug "_do_modeset";#DBG
+MODE_SETTING_DRIVERS=`grep -m1 -E '^i915|^nvidia|^nouveau|^radeon|^gfglx' /proc/modules`
+echo MODE_SETTING_DRIVERS=$MODE_SETTING_DRIVERS
+case $MODE_SETTING_DRIVERS in
+
+i915*)
+
+if test -s /etc/X11/xorg.conf; then
+    if
+    grep -E '#card[0-9]+driver' /etc/X11/xorg.conf | \
+    grep -v '^[[:blank:]]*#' | grep $Q -E '"vesa"|"modesetting"'
+    then
+    echo "Xorg using it's vesa or modesetting driver.";#DBG
+    return 0
+    fi
+fi
+
+    read driver vmsize nr_users state address <<EOI
+    `echo "$MODE_SETTING_DRIVERS"`
+EOI
+    case $nr_users in
+    0)
+    /sbin/modprobe $Q $VERB -r i915
+    /sbin/modprobe $Q $VERB -r fbcon
+    /sbin/modprobe $Q $VERB -b i915 modeset=1
+    /sbin/modprobe $Q $VERB -b fbcon
+    ;;
+    *) _info "i915 already in use : $MODE_SETTING_DRIVERS"; #DBG
+    esac
+;;
+
+nvidia*)
+echo "TODO : nvidia.ko handling."
+;;
+nouveau*)
+echo "TODO : nouveau.ko handling."
+;;
+fglrx*)
+echo "TODO : fglrx.ko handling."
+;;
+radeon*)
+echo "TODO : radeon.ko handling."
+;;
+'') echo  "'$MODE_SETTING_DRIVERS':  No modesetting driver loaded."
+   _load_driver 1 # 0 or 1 for modeset=0|1
+;;
+*)  echo   "'$MODE_SETTING_DRIVERS':  loaded.";;
+esac
+
+}
+
+_determine_Xorg(){
+echo _determine_Xorg
+if test "`which Xorg`"; then
+ REALPATH_X=`realpath /usr/bin/X`
+ echo REALPATH_X=$REALPATH_X
+
+  case ${REALPATH_X##*/} in
+  Xorg*)
+
+  XORG_XSERVER_VERSION=`Xorg -version 2>&1`
+  test "$XORG_XSERVER_VERSION" || echo ERROR receiving XORG_XSERVER_VERSION
+  XORG_XSERVER_VERSION_NUMBER=`echo "$XORG_XSERVER_VERSION" | grep -m1 -E 'X.Org X Server.*|X Window System Version .*|X Protocol .* Revision .* Release .*' | grep -oE '[.0-9]+$'`
+  test "$XORG_XSERVER_VERSION_NUMBER" || echo ERROR determining XORG_XSERVER_VERSION_NUMBER
+
+  _info "Found Xorg version '$XORG_XSERVER_VERSION_NUMBER'"
+  case $XORG_XSERVER_VERSION_NUMBER in
+  1.10*|1.11*|1.12*) _do_modeset;;
+  1.13*|1.14*|1.15*) _do_modeset;;
+  1.16*|1.17*|1.18*) _do_modeset;;
+  7.0*|1.0*|7.1*|1.1*|7.2*|1.2*) :;;
+  1.3*) :;;
+  1.4*) :;;
+  1.5*) :;;
+  1.6*) :;;
+  1.7*|1.8*|1.9*)    _do_modeset;;
+  *) echo "Unhandled Xorg X Server Version '$XORG_XSERVER_VERSION_NUMBER' .";
+  esac
+  ;;
+  *) echo "Unhandled X ${REALPATH_X##*/}";;
+  esac
+
+  #fi
+else echo NO WHICH XORG
+fi
+}
+#FUNCTIONS
+
 if [ ! -L "$X_SERVER" ];then #00.0
 #v2.00r1 now support a text-mode-only puppy...
  if [ -f /usr/local/bin/elinks ];then
@@ -44,6 +170,18 @@ _debug "$X_SERVER exists"
  test "$HOME" = '/' && export HOME=/root
  #do this if $0 not invoked with --login
  #source /etc/profile
+
+ sleep 1
+ chvt 2
+
+ if grep $Q -E 'nomodeset|vesa' /proc/cmdline; then
+  :
+ echo "FOUND NOMODESET or VESA in PROC CMDLINE"
+ else
+  echo NOW DERMINE XORG
+  _determine_Xorg
+ fi
+
  #sleep 4
  #xwin -w enlightenment_start & ##2014-05-31 no forking to prevent vt switch or multiple instances
  xwin -w enlightenment_start    ##2015-12-18 now forking to run getty at bottom
