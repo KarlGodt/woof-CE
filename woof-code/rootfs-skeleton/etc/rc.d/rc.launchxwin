@@ -15,19 +15,87 @@ sleep 1
 done
 #echo
 
-__leave_if_xloaded__(){
-if [ -f /var/lock/XLOADED ]; then
- _notice "/var/lock/XLOADED exists"
-  if [ "`cat /var/lock/XLOADED`" = "true" ]; then
-   /sbin/getty -n -l /bin/autologinroot 38400 tty1
-   echo "$0 : /var/lock/XLOADED is true -- exiting."
-   rm $VERB -f /tmp/X.status
-   echo -e "\\033[1;35m""Type 'xwin' to go to X Desktop""\\033[0;39m"
-   exit
- fi
-fi
-_debug "/var/lock/XLOADED is not true -- going on.."
+#FUNCTIONS
+_do_modeset(){
+_debug "_do_modeset";#DBG
+MODE_SETTING_DRIVERS=`grep -m1 -E '^i915|^nvidia|^nouveau|^radeon|^gfglx' /proc/modules`
+case $MODE_SETTING_DRIVERS in
+
+i915*)
+    if
+    grep -E '#card[0-9]+driver' /etc/X11/xorg.conf | \
+    grep -v '^[[:blank:]]*#' | grep $Q -E '"vesa"|"modesetting"'
+    then echo "Xorg using it's vesa or modesetting driver.";#DBG
+    return 0
+    fi
+
+    read driver vmsize nr_users state address <<EOI
+    `echo "$MODE_SETTING_DRIVERS"`
+EOI
+    case $nr_users in
+    0)
+    /sbin/modprobe $Q $VERB -r i915
+    /sbin/modprobe $Q $VERB -r fbcon
+    /sbin/modprobe $Q $VERB -b i915 modeset=1
+    /sbin/modprobe $Q $VERB -b fbcon
+    ;;
+    *) _info "i915 already in use : $MODE_SETTING_DRIVERS"; #DBG
+    esac
+;;
+
+nvidia*)
+echo "TODO : nvidia.ko handling."
+;;
+nouveau*)
+echo "TODO : nouveau.ko handling."
+;;
+fglrx*)
+echo "TODO : fglrx.ko handling."
+;;
+radeon*)
+echo "TODO : radeon.ko handling."
+;;
+*)
+echo "'$MODE_SETTING_DRIVERS':  No modesetting driver loaded."
+;;
+esac
+
 }
+
+_determine_Xorg(){
+if test "`which Xorg`"; then
+ REALPATH_X=`realpath /usr/bin/X`
+
+  case ${REALPATH_X##*/} in
+  Xorg*)
+
+  XORG_XSERVER_VERSION=`Xorg -version 2>&1`
+  test "$XORG_XSERVER_VERSION" || echo ERROR receiving XORG_XSERVER_VERSION
+  XORG_XSERVER_VERSION_NUMBER=`echo "$XORG_XSERVER_VERSION" | grep -m1 -E 'X.Org X Server.*|X Window System Version .*|X Protocol .* Revision .* Release .*' | grep -oE '[.0-9]+$'`
+  test "$XORG_XSERVER_VERSION_NUMBER" || echo ERROR determining XORG_XSERVER_VERSION_NUMBER
+
+  _info "Found Xorg version '$XORG_XSERVER_VERSION_NUMBER'"
+  case $XORG_XSERVER_VERSION_NUMBER in
+  1.10*|1.11*|1.12*) _do_modeset;;
+  1.13*|1.14*|1.15*) _do_modeset;;
+  1.16*|1.17*|1.18*) _do_modeset;;
+  7.0*|1.0*|7.1*|1.1*|7.2*|1.2*) :;;
+  1.3*) :;;
+  1.4*) :;;
+  1.5*) :;;
+  1.6*) :;;
+  1.7*|1.8*|1.9*)    _do_modeset;;
+  *) echo "Unhandled Xorg X Server Version '$XORG_XSERVER_VERSION_NUMBER' .";
+  esac
+  ;;
+  *) echo "Unhandled X ${REALPATH_X##*/}";;
+  esac
+
+  #fi
+fi
+}
+#FUNCTIONS
+
 
 if [ ! -L "$X_SERVER" ];then #00.0
 #v2.00r1 now support a text-mode-only puppy...
@@ -58,8 +126,16 @@ _debug "$X_SERVER exists"
  test "$HOME" = '/' && export HOME=/root
  #do this if $0 not invoked with --login
  #source /etc/profile
- sleep 4
 
+ chvt 1
+
+ if grep $Q -E 'nomodeset|vesa' /proc/cmdline; then
+  :
+ else
+  : #_determine_Xorg
+ fi
+
+ sleep 5
  #xwin -w jwm & ##2014-05-31 no forking to prevent vt switch or multiple instances
  # hmmm.. have several overlaying login -sh with ? no controlling terminal
  # thus input problems. Killing their pids until only -sh with tty helps..
