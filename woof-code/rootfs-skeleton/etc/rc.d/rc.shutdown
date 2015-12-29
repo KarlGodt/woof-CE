@@ -243,7 +243,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
    fi
   fi
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
-  /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
+  ( /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092 ) 2>>$ERR
   echo " done."
   rm $VERB -f /var/lock/subsys/pcmcia
  fi
@@ -283,9 +283,7 @@ sed -i 's%^LANG=[^[:blank:]].*%LANG=nolang_NOLANG%' /etc/profile
 #the top unionfs layer, meaning that there is no intermediary tmpfs in ram for working
 #files, hence everything is saved directly, ditto for PUPMODE=2 a full h.d. install.
 #hence need to do some explicit wiping here...
-#echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
-#rm $VERB -f /var/log/X*
-#rm $VERB -rf /tmp/*  ##+--2011-11-10 to be done in /sbin/init
+
 rm $VERB -f /var/lock/LCK*
 rm $VERB -f /var/run/*.pid
 rm $VERB -rf /root/tmp  #...note, not screening this out in any of above save modes.
@@ -307,11 +305,52 @@ else  ###KRG
  echo "Full install , free space more than 5%; leaving thumbnails ok"  ###KRG
  fi  ###KRG
 fi  ###KRG
+#[ -f /etc/rc.d/MORESFS ] && rm $VERB /etc/rc.d/MORESFS
+
+_remove_fsckme(){
+/bin/find / -maxdepth 3 -xdev -type f -iname "*fsckme*" -delete
+/bin/test -d /mnt/home && find /mnt/home -maxdepth 3 -xdev -type f -iname "*fsckme*" -delete
+}
+_remove_fsckme
+
 sleep 1
 pidof sync >>$OUT || sync
 _debug "RM UNEEDED FILES END"  ###KRG
 
-#[ -f /etc/rc.d/MORESFS ] && rm $VERB /etc/rc.d/MORESFS
+# Stop udev & loggers
+(
+pidof tempget && killall tempget   ## e17 daemon
+#killall pup_event_backend_modprobe_protect  ##+++2011-10-27
+#which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
+pidof udevd   && killall udevd
+pidof klogd   && killall klogd       ## busybox applet
+pidof syslogd && killall syslogd   ## busybox applet
+) >>$OUT
+
+
+swapoff -a $VERB #busybox swapoff -a works only if swaps are in mtab or fstab
+_retired_swapoff(){
+#v2.13 menno suggests this improvement...
+STRAYPARTD=`grep "/dev/" /proc/swaps | grep -v 'deleted' | cut -f 1 -d " "`
+for oneSTRAY in $STRAYPARTD
+do
+ echo "Swapoff $oneSTRAY" >/dev/console
+ swapoff $oneSTRAY
+done
+}
+
+if test -f /proc/swaps; then
+while read -r f t s u p
+do
+case $f in *deleted*|Filename|'')continue;;esac
+ echo "Swapoff $f" >/dev/console
+ f=`busybox echo -e "$f"`
+ swapoff "$f"
+done <<EoI
+`tac /proc/swaps`
+EoI
+fi
+
 
 __retired_umount_straypartitions__(){
 MNTDPARTS="`mount|tac`"
@@ -359,51 +398,8 @@ case $fs in *rootfs*|*ramfs*|*tmpfs*|*devpts*|*usbfs*|*aufs*|*unionfs*)continue;
  umount -lr "$m"
 done
 
-
-swapoff -a $VERB #busybox swapoff -a works only if swaps are in mtab or fstab
-_retired_swapoff(){
-#v2.13 menno suggests this improvement...
-STRAYPARTD=`grep "/dev/" /proc/swaps | grep -v 'deleted' | cut -f 1 -d " "`
-for oneSTRAY in $STRAYPARTD
-do
- echo "Swapoff $oneSTRAY" >/dev/console
- swapoff $oneSTRAY
-done
-}
-
-if test -f /proc/swaps; then
-while read -r f t s u p
-do
-case $f in *deleted*|Filename|'')continue;;esac
- echo "Swapoff $f" >/dev/console
- f=`busybox echo -e "$f"`
- swapoff "$f"
-done <<EoI
-`tac /proc/swaps`
-EoI
-fi
-
 pidof sync >>$OUT || sync
 
-#<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
-#
-# Stop udev & loggers
-
-(
-pidof tempget && killall tempget   ## e17 daemon
-#killall pup_event_backend_modprobe_protect  ##+++2011-10-27
-#which pup_event_backend_modprobe_protect && pup_event_backend_modprobe_protect --stop &  ##+++2011-11-10
-pidof udevd   && killall udevd
-pidof klogd   && killall klogd       ## busybox applet
-pidof syslogd && killall syslogd   ## busybox applet
-) >>$OUT
-
-
-_remove_fsckme(){
-find / -maxdepth 3 -type f -iname "*fsckme*" -exec rm {} \;
-test -d /mnt/home && find /mnt/home -maxdepth 3 -type f -iname "*fsckme*" -delete
-}
-_remove_fsckme
 
 if [ -f /etc/rc.d/rc.shutdown.local.end2 ] ; then
  . /etc/rc.d/rc.shutdown.local.end2
@@ -412,6 +408,9 @@ elif [ -f /etc/rc.d/rc.shutdown.local.end ]; then
 fi
 
 [ "$DEBUG" ] && mount | grep -Fw '/'
+
+#<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
+#
 # Patriot's lame "unmount of rootfs"
 if [ $PUPMODE -ne 5 ]; then
   case $PUPMODE in
