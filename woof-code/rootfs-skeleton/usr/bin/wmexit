@@ -13,11 +13,19 @@ echo "exit" > /tmp/wmexitmode.txt
 echo "exit" > /tmp/xwin/wmexitmode.txt     ##+++2011-11-07
 echo "exit" > /tmp/xwin/wmexitmode."$DISP" ##+++2015-12-29
 
+
 #give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
 echo -n "    ...Waiting for pup_event_frontend_d to stop"
-killall pup_event_frontend_d
+if test -f /var/run/pup_event_frontend_d.pid."$DISP"
+then read pupPID </var/run/pup_event_frontend_d.pid."$DISP"
+     rm $VERB -f  /var/run/pup_event_frontend_d.pid."$DISP"
+fi
+  if test "$pupPID"
+  then kill -15 $pupPID
+  else killall pup_event_frontend_d
+  fi
 sleep 1
 
 _wait_for_frontend_d(){
@@ -66,29 +74,29 @@ busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'gr
 pidCW=`busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'grep|ps|xwin|xinit' | awk '{print $2}'`
 
 for oneP in $pidCW; do kill -15 $oneP; sleep 1; done
-##exec killall $PREVIOUSWM
+##exec killall $CURRENTWM
 sleep 1
+wait
 
 #FGC=`fgconsole`
 #FGC=`busybox ps -o tty,args | grep -w "X" | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | head -n1 | awk '{print $1}'`
 
 _get_current_x(){
+test "$DISP" || return 1
 #logfile is /tmp/xwin/Xerrs.Xorg.$DISP.log, so not filtering xwin
-busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}' >&2
+busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' >&2
 busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}'
 }
 
-curX=`_get_current_x`
-wait
-exit
+curX=`_get_current_x` || _exit 1 "_get_current_x returned non-zero"
 
 if test "$curX"; then
 kill -15 `_get_current_x`
 else
-killall X
+#assume xinit has killed X when .xinitrc ends by killing windowmanager
 ##exec killall X
 #killall X #default is SIGTERM.
+sleep 1
+#exec killall -9 X #make sure X is killed.
 fi
 
-#sleep 1
-#exec killall -9 X #make sure X is killed.
