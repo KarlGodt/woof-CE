@@ -230,7 +230,7 @@ test "$CHVT_NR"
 _do_xorgwizard(){
   echo "Running xorgwizard ..."
   sleep 1s
-  rm $VERB -f /var/lock/XLOADED #not necessary, precaution.
+  rm $VERB -f /var/lock/XLOADED.":$DISP" #not necessary, precaution.
 
   TTY=`tty` || TTY=/dev/console
   ttyNR=${TTY#*/dev/tty}
@@ -275,7 +275,7 @@ local OPTIONS oneOPTION
 #IFS=|
 
 _debug "_parse_commandline: '$*'"
-OPTIONS=`/usr/bin/getopt -u -a -l windowmanager::,server::,usage,help,version,verbose -o Vvhw:S:X -- "$*"`
+OPTIONS=`/usr/bin/getopt -u -a -l windowmanager::,server::,usage,help,version,verbose -o Vvhw:S:X -- "$*"` 2>>$ERR
 _debug "'$OPTIONS'"
 OPTIONS=`echo "$OPTIONS" | sed 's/ --$//'`
 _info "'$OPTIONS'"
@@ -308,7 +308,7 @@ set - $OPTIONS
 _debug "\$*='$*'"
 _debug "\$@='$@'"
 _debug "\$#='$#'"
-OPTIONS=`/usr/bin/getopt -u -o Vvhw:S:X -- "$*"`
+OPTIONS=`/usr/bin/getopt -u -o Vvhw:S:X -- "$*"` 2>>$ERR
 _info "'$OPTIONS'"
 #OPTIONS=`echo "$OPTIONS" | sed 's/^[[:blank:]]*\-\-*[[:blank:]]*//'`
 #echo "'$OPTIONS'"
@@ -322,7 +322,8 @@ _debug "\$@='$@'"
 _debug "\$#='$#'"
 
 if test $# -gt 0; then
-while getopts Vvhw:S:X: oneOPTION; do
+while getopts Vvhw:S:X: oneOPTION 2>>$ERR
+do
 _debug "oneOPTION='$oneOPTION'"
 case $oneOPTION in
 h) usage;exit;;
@@ -385,12 +386,12 @@ exit 22
 #### Begin XLOADED part ####
 
 #v1.0.7 J_Reys idea (see note further down)...
-elif [ -f /var/lock/XLOADED ]; then # 9.0
+elif [ -f /var/lock/XLOADED.":$DISP" ]; then # 9.0
 _debug 'Checking /var/lock/XLOADED ...'
 
  #v3.98 improved handling by pizzasgood...
 
- if [ "`cat /var/lock/XLOADED`" = "true" ]; then # 9.1.0
+ if [ "`cat /var/lock/XLOADED.":$DISP"`" = "true" ]; then # 9.1.0
   #last time X ran, PC hung and had to be rebooted...
   ##openvt -c 10 -s -w
   dialog --timeout 30 --title "Warning" --yes-label "Ignore" \
@@ -413,12 +414,12 @@ Have now dropped down to the commandline. If you want to run the Xorg
 Video Wizard, type "xorgwizard", and after configuring '"$XORGCONFFILE"'
 (hopefully correctly this time!) type "xwin" to start X.'
     echo -e '\033[0;39m'
-    rm $VERB -f /var/lock/XLOADED #otherwise cannot start X.
+    rm $VERB -f /var/lock/XLOADED.":$DISP" #otherwise cannot start X.
     ##sleep 9s
     ##chvt 1
     exit 0 # exit One
   else
-  rm $VERB /var/lock/XLOADED
+  rm $VERB /var/lock/XLOADED.":$DISP"
   fi # 9.1.1.0
  else # 9.1.0
   echo "/var/lock/XLOADED is false"
@@ -552,7 +553,7 @@ _debug "HAVEX=Xvesa"
    _notice "Found to override graphics chips from /etc/xorgoverrides in $TMP_DIR/ddcprobe.txt"
 
    __overrides_start_xorgwizard(){
-    rm $VERB -f /var/lock/XLOADED  #not necessary, precaution.
+    rm $VERB -f /var/lock/XLOADED.":$DISP"  #not necessary, precaution.
     #1st dialog offers to use Xvesa...
     _notice "Starting now xorgwizard..." && sleep 1s
     /usr/sbin/xorgwizard
@@ -562,6 +563,7 @@ _debug "HAVEX=Xvesa"
    if pidof xorgwizard >>$OUT; then
    # REM: if launched several times, wait...
     while :; do pidof xorgwizard >>$OUT || break; sleep 2; done
+    sleep 2
    else
    # REM: busybox openvt does not return the exitcode of
    #      the executed command, -s only returns '0', -s -w '1'
@@ -935,7 +937,7 @@ _get_current_hw_profile
   __start_xorgwizard_if_no_xorg_conf(){
    _info "Running xorgwizard ..."
    sleep 1s
-   rm $VERB -f /var/lock/XLOADED  #not necessary, precaution.
+   rm $VERB -f /var/lock/XLOADED.":$DISP"  #not necessary, precaution.
    #1st dialog offers to use Xvesa...
    /usr/sbin/xorgwizard
    test $? = 0 || exit 252
@@ -944,6 +946,7 @@ _get_current_hw_profile
    if pidof xorgwizard >>$OUT; then
    # REM: if launched several times, wait...
     while :; do pidof xorgwizard >>$OUT || break; sleep 2; done
+    sleep 2
    else
    _do_xorgwizard
    fi
@@ -967,13 +970,21 @@ _debug 'Begin starting X part ..'
 #finally, start X...
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
 #but if PC hangs, XLOADED will still be true, so will know it is broken.
-echo "true" > /var/lock/XLOADED
+echo "true" > /var/lock/XLOADED.":$DISP"
 rm $VERB -f /tmp/wmexitmode.txt
 rm $VERB -f "$TMP_DIR"/wmexitmode.txt
+rm $VERB -f "$TMP_DIR"/wmexitmode.":$DISP"
 #rm $VERB -f "$TMP_DIR"/videomode
 #rm $VERB -f /tmp/videomode
 
 Date=`date +%F`
+
+TTY=`tty` || {
+TTY=`busybox ps -o tty,pid,arg | grep -w 'xwin' | grep -w "$$" | head -n1 | awk '{print $1}'`
+}
+
+TTY=${TTY##*,}
+TTY=${TTY##*[[:alpha:]/]}
 
 case $HAVEX in
  Xvesa) #### Xvesa part Three ###
@@ -1040,21 +1051,21 @@ case $HAVEX in
   /usr/bin/xinit $HOME/.xinitrc -- :$DISP > "$TMP_DIR"/xerrs."$KERNEL"."$Date".OtherX.$DISP.log 2>&1
   ;; #### End
 esac
+sleep 2
+chvt $TTY
 _debug 'End start X part.'
 #### End start X part ####
 
-echo "false" > /var/lock/XLOADED
+echo "false" > /var/lock/XLOADED.":$DISP"
 
 #### Begin of "$TMP_DIR"/wmexitmode part ####
 echo -e '\033[0;32m'"Begin of $TMP_DIR/wmexitmode.txt part .."'\033[0;39m'  ##+2011-11-10 added 0;39 back
 #Shutdown menu calls wmreboot, wmpoweroff, wmexit or restartwm, which create this file...
-if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
- _debug "$TMP_DIR/wmexitmode.txt exists .."
 
- read WMEXITMODE <"$TMP_DIR"/wmexitmode.txt
- _info "WMEXITMODE='$WMEXITMODE'"
+_do_wmexitmode(){
  if [ "$WMEXITMODE" = "exit" ]; then #see /usr/bin/wmexit. # 19.1.0
   #[ $NUMXWINS -eq 1 ] && rm $VERB -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
+  rm $VERB -f "$TMP_DIR"/wmexitmode.":$DISP"
   rm $VERB -f "$TMP_DIR"/wmexitmode.txt #w478
   rm $VERB -f /tmp/wmexitmode.txt
   _info "Found '$WMEXITMODE' in $TMP_DIR/wmexitmode.txt ; exiting to prompt now."
@@ -1067,7 +1078,7 @@ if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
  #restart window manager...
  #make a gross assumption, if wmexitmode.txt exists, haven't already exited this script, then want
  #to restart maybe with different window manager. /etc/windowmanager already has desired w.m.
- rm $VERB -f "$TMP_DIR"/wmexitmode.txt #definitely delete it now.
+ rm $VERB -f "$TMP_DIR"/wmexitmode.":$DISP" #definitely delete it now.
   #v1.0.5 thanks GuestToo for advice on this, works with chooselocale script...
   #NEWLANG="`cat /etc/profile | grep "LANG=" | cut -f 2 -d '='`"
   NEWLANG=`grep '^[[:blank:]]*LANG=' /etc/profile | tail -n 1| cut -f 2 -d '='` #w482 shinobar bugfix.
@@ -1077,30 +1088,39 @@ if [ -f "$TMP_DIR"/wmexitmode.txt ]; then # 19.0
    fi # 19.2.1.0
   fi # 19.2.0
  exec xwin
+}
 
+if [ -f "$TMP_DIR"/wmexitmode.":$DISP" ]; then # 19.0
+  _debug "$TMP_DIR/wmexitmode.:$DISP exists .."
+   read WMEXITMODE <"$TMP_DIR"/wmexitmode.":$DISP"
+  _info "WMEXITMODE='$WMEXITMODE'"
+  _do_wmexitmode
+elif [ -f "$TMP_DIR"/wmexitmode.txt ]; then        # 19.0
+  _debug "$TMP_DIR/wmexitmode.txt exists .."
+  read WMEXITMODE <"$TMP_DIR"/wmexitmode.txt
+  _info "WMEXITMODE='$WMEXITMODE'"
+  _do_wmexitmode
 else
 
-if test -f "$ErrLog"; then
- echo "Showing '$ErrLog' in less viewer -
- Press 'q' to quit less viewer (Press key or wait 10 sec).";
- read -t 10 -n1 go_onKEY
- less "$ErrLog"
-fi
-if test -f "$Log"; then
- echo "Showing '$Log' in less viewer -
- Press 'q' to quit less viewer (Press key or wait 10 sec).";
- read -t 10 -n1 go_onKEY
- less "$Log"
-fi
-
+ if test -f "$ErrLog"; then
+  echo "Showing '$ErrLog' in less viewer -
+  Press 'q' to quit less viewer (Press key or wait 10 sec).";
+  read -t 10 -n1 go_onKEY
+  less "$ErrLog"
+ fi
+ if test -f "$Log"; then
+  echo "Showing '$Log' in less viewer -
+  Press 'q' to quit less viewer (Press key or wait 10 sec).";
+  read -t 10 -n1 go_onKEY
+  less "$Log"
+ fi
 
 fi # 19.0
-
 
 _debug "End of $TMP_DIR/wmexitmode.txt part."
 #### End of "$TMP_DIR"/wmexitmode part ####
 
-echo "false" > /var/lock/XLOADED #see note above.
+echo "false" > /var/lock/XLOADED.":$DISP" #see note above.
 #...if PC hung, run xorgwizard at next bootup (see further up).
 _debug "/var/lock/XLOADED has been set to false"
 echo 'Exited from X. Type "xwin [fvwm95|jwm]" to restart X ([ ] mean optional).'
