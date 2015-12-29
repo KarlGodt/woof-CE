@@ -2,6 +2,8 @@
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 PROG='/root/.xinitrc'
+DEFAULTWM=jwm
+DISP=${DISPLAY%.*}
 
 . /etc/rc.d/f4puppy5
 _notice "HOME='$HOME'"
@@ -28,9 +30,9 @@ usermodmap=$HOME/.Xmodmap
 
 #CURRENTWM="`cat /etc/windowmanager`"
 read CURRENTWM </etc/windowmanager  #|| CURRENTWM=jwm #CURRENTWM=none
-DISP=${DISPLAY%.*} #get rid of ':1.0' .0
+#DISP=${DISPLAY%.*} #get rid of ':1.0' .0
 test -s "/etc/windowmanager.$DISP" && read CURRENTWM <"/etc/windowmanager.$DISP"
-[ "$CURRENTWM" ] || CURRENTWM=jwm
+[ "$CURRENTWM" ] || CURRENTWM=$DEFAULTWM
 _info "CURRENTWM='$CURRENTWM'"
 
 if [ "$CURRENTWM" = "startkde" ];then
@@ -184,6 +186,8 @@ fi
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 
 _notice "LD_LIBRARY_PATH='$LD_LIBRARY_PATH'"
+
+__old_exec_currentwm__(){
 _notice "exec '$CURRENTWM'"
 exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
@@ -192,4 +196,22 @@ which "$CURRENTWM" >>$OUT && exec $CURRENTWM
 exec awesome
 #sleep 180
 #killall delayedrun
+}
+
+_start_currentwm(){
+CURRENTWM="$*"
+echo "$CURRENTWM" >/etc/windowmanager."$DISP"
+$CURRENTWM & wmPID=$!
+wait $wmPID
+exit
+}
+
+if which "$CURRENTWM" >>$OUT; then
+ _start_currentwm "$CURRENTWM"
+elif [ -x "$CURRENTWM" ] ; then
+ _start_currentwm "$CURRENTWM"
+else
+ _start_currentwm "$DEFAULTWM"
+fi
+
 ###END###
