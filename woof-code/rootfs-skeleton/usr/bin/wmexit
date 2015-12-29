@@ -5,9 +5,14 @@ pidof -o $$ -o %PPID "${0##*/}" && { echo "$0 already running."; exit 1; }
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
+yaf-splash -timeout 5 -bg green -text "Exiting to prompt now..." &
+
+DISP=${DISPLAY%.*}
 #/sbin/pup_event_frontend_d will quit if this file exists...
 echo "exit" > /tmp/wmexitmode.txt
-echo "exit" > /tmp/xwin/wmexitmode.txt  ##+++2011-11-07
+echo "exit" > /tmp/xwin/wmexitmode.txt     ##+++2011-11-07
+echo "exit" > /tmp/xwin/wmexitmode."$DISP" ##+++2015-12-29
+
 #give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
@@ -39,26 +44,51 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
-pidof tempget && killall tempget
+#pidof tempget && killall tempget
+
+TTY=`busybox ps -o tty,args | grep "xinit" | grep -w "$DISP" | grep -vE 'grep|ps' | awk '{print $1}' | head -n1`
+
 #w003
 #CURRENTWM="`cat /etc/windowmanager`"
-DISP=${DISPLAY%.*}
+#DISP=${DISPLAY%.*}
+
 for i in ".$DISP" ""
 do
 unset CURRENTWM
 test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
-test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
+#test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
+test "$CURRENTWM" && break
 done
 
-sleep 1
+case $CURRENTWM in enlightenment_start) CURRENTWM=enlightenment;; esac
 
+busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'grep|ps|xwin|xinit'
+pidCW=`busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'grep|ps|xwin|xinit' | awk '{print $2}'`
+
+for oneP in $pidCW; do kill -15 $oneP; sleep 1; done
 ##exec killall $PREVIOUSWM
-##exec killall X
-_get_current_x(){
-ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
-}
-kill -15 `_get_current_x`
-
-#killall X #default is SIGTERM.
 sleep 1
+
+#FGC=`fgconsole`
+#FGC=`busybox ps -o tty,args | grep -w "X" | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | head -n1 | awk '{print $1}'`
+
+_get_current_x(){
+#logfile is /tmp/xwin/Xerrs.Xorg.$DISP.log, so not filtering xwin
+busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}' >&2
+busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}'
+}
+
+curX=`_get_current_x`
+wait
+exit
+
+if test "$curX"; then
+kill -15 `_get_current_x`
+else
+killall X
+##exec killall X
+#killall X #default is SIGTERM.
+fi
+
+#sleep 1
 #exec killall -9 X #make sure X is killed.
