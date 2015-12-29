@@ -2,15 +2,45 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
-echo "exit" >/tmp/wmexitmode.txt
-echo "exit" >/tmp/xwin/wmexitmode.txt
-killall tempget
-killall pup_event_frontend_d
+yaf-splash -timeout 5 -bg green -text "Exiting to prompt now..." &
 
 DISP=${DISPLAY%.*}
-_get_current_x(){
-ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
-}
-kill -15 `_get_current_x`
 
-#killall X
+echo "exit" >/tmp/wmexitmode.txt
+echo "exit" >/tmp/xwin/wmexitmode.txt
+echo "exit" > /tmp/xwin/wmexitmode."$DISP" ##+++2015-12-29
+
+#killall tempget
+killall pup_event_frontend_d
+
+TTY=`busybox ps -o tty,args | grep "xinit" | grep -w "$DISP" | grep -vE 'grep|ps' | awk '{print $1}' | head -n1`
+for i in ".$DISP" ""
+do
+unset CURRENTWM
+test -f /etc/windowmanager$i && read CURRENTWM </etc/windowmanager$i
+#test "$CURRENTWM" && kill -9 `pidof "$CURRENTWM"` && break
+test "$CURRENTWM" && break
+done
+
+case $CURRENTWM in enlightenment_start) CURRENTWM=enlightenment;; esac
+
+busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'grep|ps|xwin|xinit'
+pidCW=`busybox ps -o tty,pid,args | grep -w "$CURRENTWM" | grep "^$TTY " | grep -vE 'grep|ps|xwin|xinit' | awk '{print $2}'`
+
+for oneP in $pidCW; do kill -15 $oneP; sleep 1; done
+sleep 1
+wait
+
+_get_current_x(){
+#logfile is /tmp/xwin/Xerrs.Xorg.$DISP.log, so not filtering xwin
+busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}' >&2
+busybox ps -o pid,args | grep -w 'X' | grep -w "$DISP" | grep -vE 'grep|ps|xinit' | awk '{print $1}'
+}
+
+curX=`_get_current_x`
+
+if test "$curX"; then
+kill -15 `_get_current_x`
+else
+killall X
+fi
