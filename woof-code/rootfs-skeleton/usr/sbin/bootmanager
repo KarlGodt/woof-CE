@@ -35,19 +35,18 @@ CURRDIR=`pwd`
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
 
-KERNEL=`uname -r`
-
-
 [ -f /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG #v424
 . /etc/rc.d/BOOTCONFIG #v424
 
-SFSSTR='squashfs, version 4' #v423
-case $KERNEL in
-2.6.*)
-K_SUBLEVEL=`echo "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
-[ $K_SUBLEVEL -le 28 ] && SFSSTR='squashfs, version 3' #v423
-;;
-esac
+#KERNEL=`uname -r`
+#SFSSTR='squashfs, version 4' #v423
+#case $KERNEL in
+#2.6.*)
+#K_SUBLEVEL=`echo "$KERNEL" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
+#[ $K_SUBLEVEL -le 28 ] && SFSSTR='squashfs, version 3' #v423
+#;;
+#esac
+_kernel_version
 
 #v3.02
 . /etc/rc.d/MODULESCONFIG
@@ -94,23 +93,23 @@ extrasfs_func() {
  #need an extra grep filter here... w007 new name woof-007.sfs ... w478 fix for 'pup2' prefix...
  ALLSFSLIST=`ls -1 *.sfs | grep -vE '^z|^pup_' | grep -v "^${DISTRO_FILE_PREFIX}\-[0-9][0-9][0-9]\.sfs$" | grep -v "^${DISTRO_FILE_PREFIX}[rz]" | grep '\.sfs$'`
  cd $CURRDIR
- sync
+ _sync
  [ "$UNMOUNTME" ] && umount $UNMOUNTME
 
  #eliminate other versions from list...
  FIXEDSFSLIST=""
- rm -f /tmp/bootmanager_wrong_sfs_version  #v423
+ rm $VERB -f /tmp/bootmanager_wrong_sfs_version  #v423
  for ONESFS in $ALLSFSLIST
  do
   [ "`echo "$ONESFS" | grep '_[0-9][0-9][0-9]' | grep -v "$DISTRO_VERSION"`" ] && continue
   #w020 other compat-distro sfs need to be eliminated...
   [ "`echo "$ONESFS" | grep '\-[0-9][0-9][0-9]\.sfs' | grep -v "$DISTRO_VERSION"`" ] && continue
   #v423 eliminate wrong squashfs version...
-  echo "SQUASHFS version" >&2
+  _info "SQUASHFS version"
   disktype ${EXTRASFSMNTPT}/${ONESFS} >&2
-  echo "grep $SFSSTR" >&2
+  _info "grep $SFSSTR"
   disktype ${EXTRASFSMNTPT}/${ONESFS} | grep "$SFSSTR" >&2
-  echo "DONE" >&2
+  _info "DONE"
   if [ "`disktype ${EXTRASFSMNTPT}/${ONESFS} | grep "$SFSSTR"`" = "" ]; then
    echo "$ONESFS" >>/tmp/bootmanager_wrong_sfs_version
    continue
@@ -174,7 +173,7 @@ Note4: \n
 In fact, if '_xxx.sfs' is not '_${DISTRO_VERSION}.sfs' then it will not even\n
 be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >/tmp/bmrettags.txt"
 
- while [ 1 ]; do
+ while :; do
   eval $EXECME
   RETVAL=$?
   #if [ $RETVAL -eq 3 ];then #help
@@ -182,13 +181,11 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   # #so, could have detailed help box here.
   # continue
   #fi
-  [ ! $RETVAL -eq 0 ] && return 1
+  [ $RETVAL -eq 0 ] || return 1
   [ $RETVAL -eq 0 ] && break
  done
 
  RETTAGS=`cat /tmp/bmrettags.txt`
-
-
  RETTAGS=`echo "$RETTAGS" | sed -e 's/ $//g'`
 
  [ -e /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG
@@ -219,12 +216,12 @@ Note, if you want to find out further information about any module,\n
 run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  eval $EXECME
  RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
- SKIPLIST=" `cat /tmp/skiprettags.txt | tr '\n' ' '`"
+ [ $RETVAL = 0 ] || return 1
+ SKIPLIST=" `tr '\n' ' ' /tmp/skiprettags.txt`"
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG >/tmp/MODULESCONFIG
  #mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- cp /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
+ cp $VERB /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
  mv $VERB /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
  echo "SKIPLIST='${SKIPLIST}'" >>/etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
@@ -387,7 +384,7 @@ yeslist_func() {
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG >/tmp/MODULESCONFIG
  #mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- cp /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
+ cp $VERB /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
  mv $VERB /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
  echo "ADDLIST='${ADDLIST}'" >>/etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
@@ -405,7 +402,7 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
   NEWPREFLIST="`echo "$xxPREFLIST" | tr '\n' ' ' | sed -e 's/^/ /' | tr -s ' '`"
   grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG >/tmp/MODULESCONFIG
   #mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
-  cp /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
+  cp $VEB /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG  ###+++2011-11-13
   mv $VERB /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
   echo "PREFLIST='${NEWPREFLIST}'" >>/etc/rc.d/MODULESCONFIG
   echo "PREFLIST='${NEWPREFLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL  ###+++2011-11-13
@@ -413,17 +410,13 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
 } #end preflist_func
 
   if [ "$CLPARAM1" = "extrasfs" ];  then
- extrasfs_func
- exit
+ exec extrasfs_func  & exit
 elif [ "$CLPARAM1" = "blacklist" ]; then
- blacklist_func
- exit
+ exec blacklist_func & exit
 elif [ "$CLPARAM1" = "yeslist" ];   then
- yeslist_func
- exit
+ exec yeslist_func   & exit
 elif [ "$CLPARAM1" = "preflist" ];  then
- preflist_func
- exit
+ exec preflist_func  & exit
 fi
 
 #######################################################
@@ -470,8 +463,6 @@ export MAIN_DIALOG="
   </hbox>
  </frame>
 
-
-
  <hbox>
   <button><input file stock=\"gtk-quit\"></input><label>QUIT</label></button>
  </hbox>
@@ -480,11 +471,11 @@ export MAIN_DIALOG="
 "
 
 RETSTRING="`gtkdialog3 --program=MAIN_DIALOG --center`"
-echo "$RETSTRING"
+_debug "$RETSTRING"
 
 eval "$RETSTRING"
 
-[ "$EXIT" = "abort" ] && exit
+[ "$EXIT" = "abort" ] && exit 0
 
 
 ###END###
