@@ -7,7 +7,7 @@ echo "$*"
 exit $retVAL
 }
 
-cd /root/GitHub.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/GitHub.d/KarlGodt_ForkWoof.Push.D"
+cd /root/Github.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/Github.d/KarlGodt_ForkWoof.Push.D"
 
 test -d woof-code || _exit 1 "Directory woof-code missing"
 test -d woof-code/rootfs-skeleton || _exit 1 "Directory woof-code/rootfs-skeleton mising"
@@ -15,6 +15,7 @@ test -d woof-code/rootfs-skeleton || _exit 1 "Directory woof-code/rootfs-skeleto
 BRANCH="Opera2-GreatWallU310-KRGall-2013-11-23"
 git branch | grep '^\*' | grep "$BRANCH" || _exit 1 "Wrong branch '$BRANCH'"
 
+rm $VERB -f /tmp/find_newer.diff
 while read oneFILE
 
 do
@@ -34,11 +35,14 @@ then
 
  echo "$oneFILEonOS is newly modificated"
  diff -qs "$oneFILE" "$oneFILEonOS" && continue
-
+ diff -up "$oneFILE" "$oneFILEonOS" >>/tmp/find_newer.diff
  fi
 
+elif test -d "$oneFILEonOS"; then :
 else
-test -d "${oneFILEonOS%/*}" || mkdir -p "${oneFILEonOS%/*}"
+        DIR="${oneFILEonOS%/*}"
+     test "$DIR" || DIR='/'
+ test -d "$DIR" || mkdir $VERB -p "$DIR"
  /bin/cp -x --verbose -a --remove-destination -T "$oneFILE" "$oneFILEonOS"
 fi
 
@@ -47,3 +51,5 @@ sleep 0.1s
 done<<EoI
 `find woof-code/rootfs-skeleton/ \( -type f -o -type l \)`
 EoI
+
+test -s /tmp/find_newer.diff && exec geany /tmp/find_newer.diff &

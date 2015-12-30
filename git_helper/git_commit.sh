@@ -6,15 +6,15 @@ _cd_program_dir || exit 1
 
 pwd
 
-_DIR_="`pwd`/KarlGodt_ForkWoof.Push.D"
+_DIR_="`pwd`../KarlGodt_ForkWoof.Push.D"
 
 _test_d "$_DIR_" || _exit 1 "$_DIR_ does not seem to be a directory"
 
 cd "$_DIR_"
 
-#git commit | sed -n '/^# Unbeobachtete Dateien:/,/^#	woof-code/ p'
+#git commit | sed -n '/^# Unbeobachtete Dateien:/,/^#   woof-code/ p'
 
-#git commit | grep '^#	woof-code'
+#git commit | grep '^#  woof-code'
 git commit | grep '^#' | grep -o 'woof-code.*'
 
 _FILES_=`git commit | grep '^#' | grep -o 'woof-code.*'`
