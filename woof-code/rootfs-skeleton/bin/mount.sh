@@ -33,9 +33,9 @@ test "$DEBUG"  || DEBUG=
 test "$DEBUGX" || DEBUGX=
 test "$DEBUG" && Q='';
 
-LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
-if test $LANG != C; then
-echo $LANG | grep $Q -i 'utf' || LANG_ROX=$LANG.UTF-8
+LANG_ROX="$LANG"  # ROX-Filer may complain about non-valid UTF-8
+if test "$LANG" != C; then
+echo "$LANG" | grep $Q -i 'utf' || LANG_ROX="$LANG".UTF-8
 fi
 
 #busybox mountpoint does not recognize after
@@ -233,7 +233,7 @@ _update_partition_icon()
 {
 
 test -f /etc/eventmanager && . /etc/eventmanager
-test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
+case "$ICONPARTITIONS" in true|True|TRUE|on|On|ON|yes|Yes|YES|1) :;; *) return 0;; esac
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
 test -f /etc/rc.d/pupMOUNTfunctions && . /etc/rc.d/pupMOUNTfunctions
@@ -280,12 +280,15 @@ _debugt 9d $_DATE_
  *) _notice "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
  esac
  _debugt 9b $_DATE_
+
+_old_icon_mounted_unmounted_switch(){
  case $WHAT in
  umount)
  _debugt 98 $_DATE_
-   if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+   #if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
 
-    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
+    #if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
+    if /bin/df | grep -w "^$oneUPDATE" | awk '{print $NF}' | grep $Q -E '^/initrd/|^/$' ;then
      _info "_update_partition_icon:$oneUPDATE is boot partition"
      #only a partition left mntd that is in use by puppy, change green->yellow...
      icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
@@ -294,7 +297,7 @@ _debugt 9d $_DATE_
      #redraw icon without "MNTD" text...
      icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
     fi
-   fi
+   #fi
  #test "$noROX" || { pidof ROX-Filer && rox -x "${oneMOUNTPOINT%/*}" -x "$oneMOUNTPOINT"; }
  _debugt 97 $_DATE_
  ;;
@@ -307,6 +310,32 @@ _debugt 9d $_DATE_
  ;;
  *) _err "_update_partition_icon:'$WHAT' not handled.";;
  esac
+}
+
+_universal_icon_mounted_unmounted_switch(){
+if /bin/df | grep -w "^$oneUPDATE" | awk '{print $NF}' | grep $Q -E '^/initrd/|^/$' ;then
+ icon_mounted_boot   ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4 # boot partition
+elif grep -w "^$oneUPDATE" /proc/mounts; then
+ icon_mounted_func   ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4
+else
+ icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4
+fi
+}
+
+_icon_mounted_unmounted_switch(){
+case $WHAT in
+ umount) if /bin/df | grep -w "^$oneUPDATE" | awk '{print $NF}' | grep $Q -E '^/initrd/|^/$' ;then
+          icon_mounted_func   ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4
+         else
+          icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4
+         fi  ;;
+ mount) icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY & #see functions4puppy4
+         ;;
+esac
+}
+#_icon_mounted_unmounted_switch
+_universal_icon_mounted_unmounted_switch
+#_old_icon_mounted_unmounted_switch
 
  done<<EoI
 `echo "$updateWHAT"`
