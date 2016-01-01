@@ -740,7 +740,7 @@ Have now dropped down to the commandline. If you want to run the Xorg
 Video Wizard, type "xorgwizard", and after configuring /etc/X11/xorg.conf
 (hopefully correctly this time!) type "xwin" to start X.'
     echo -e '\033[0;39m'
-    rn $VERB -f /var/run/XLOADED.":$DISP" #otherwise cannot start X.
+    rm $VERB -f /var/run/XLOADED.":$DISP" #otherwise cannot start X.
     exit
   fi
  fi
@@ -763,8 +763,8 @@ if [ "$HAVEXvesa" ]; then
     echo "Video-wizard). It is not feasible to run Puppy at any lower resolution"
     echo "or color. If you want to try again, type \"xwin\" at the prompt."
     echo "It may be helpful to look in $TMP_DIR/xerrs.txt for error messages."
-    rn $VERB -f "$TMP_DIR"/videomode
-    rn $VERB -f "$TMP_DIR"/Xflag
+    rm $VERB -f "$TMP_DIR"/videomode
+    rm $VERB -f "$TMP_DIR"/Xflag
     echo "0x0111 640x480x16" > /etc/videomode #desparate.
     exit 0
    else
@@ -900,7 +900,7 @@ _debug "RETval2='$RETval2'"
 echo "false" > /var/run/XLOADED.":$DISP" #see note above.
 #...if PC hung, run xorgwizard at next bootup (see further up).
 
-fun_dump_xerrs_log(){
+_dump_xerrs_log(){
 #echo "\$@='$@'"
 #if [ -n "`echo "$@" | grep -E -e '\-v|\-*verbose'`" ]; then
  echo -e '\033[1;33m'"Dumping first and last 10 lines of "$TMP_DIR"/xerrs.$HAVEX.$DISP.log:"'\033[0;39m'
@@ -909,9 +909,9 @@ fun_dump_xerrs_log(){
  echo
 #fi
 }
-[ -n "`echo "$@" | grep -E -e '-v|-*verbose'`" ] && fun_dump_xerrs_log
+[ -n "`echo "$@" | grep -E -e '-v|-*verbose'`" ] && _dump_xerrs_log
 
-exit_message_func(){
+_exit_message(){
 echo -e '\033[0;36m''Exited from X. Type "xwin [fvwm95|jwm]" to restart X ([ ] mean optional).''\033[0;39m'
 echo '(To shutdown PC type "poweroff", to reboot PC type "reboot")'
 
@@ -937,14 +937,14 @@ fi
 ##w477 weird situation. first boot, xvesa, 'Exit to prompt', X restarts.
 ##because there are two instances of xwin running, but I don't see how.
 
-card_error_func(){
+_card_error(){
     #if [ -n "`grep -i -e 'No[[:blank:]]*matching[[:blank:]]*cards[[:blank:]]*found' "$TMP_DIR"/xerrs.log`" ] ; then
   if [ -n "`grep -i 'No matching cards found' $TMP_DIR/xerrs.$HAVEX.$DISP.log`" ]; then
     echo -e '\033[0;31m'"'$HAVEX' could not detect the graphics card ."'\033[0;39m'
-    fun_dump_xerrs_log
+    _dump_xerrs_log
   elif test "`grep 'Screens found, but none have a usable configuration' $TMP_DIR/xerrs.$HAVEX.$DISP.log`"; then
     echo -e '\033[0;31m'"'$HAVEX' could not configure the screen ."'\033[0;39m'
-    fun_dump_xerrs_log
+    _dump_xerrs_log
    if [ "$HAVEX" != "Xorg" ]; then
     if [ -x /usr/bin/Xorg ]; then
      rm $VERB /usr/bin/X
@@ -970,50 +970,51 @@ if [ -f "$TMP_DIR"/wmexitmode.txt -o -f "$TMP_DIR"/wmexitmode.":$DISP" ]; then
   fi
 
  if [ "$WMEXITMODE" = "exit" ]; then #see /usr/bin/wmexit.
-  #[ $NUMXWINS -eq 1 ] && rn $VERB -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
-  rn $VERB -f "$TMP_DIR"/wmexitmode.txt #w478
- _debugx "STEP 1"
- exit_message_func
- exit
+  #[ $NUMXWINS -eq 1 ] && rm $VERB -f "$TMP_DIR"/wmexitmode.txt #w477 hack, see above.
+  rm $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP" #w478
+  _debugx "STEP 1"
+  _exit_message
+  exit
 
- elif [ "$WMEXITMODE" = "poweroff" ]; then  ## +++ 2011_10_31
- #chvt 1
+ elif [ "$WMEXITMODE" = "poweroff" ]; then  ## +++ 2011-10-31
+  #chvt 1
   chvt $FGC
- exec /sbin/poweroff
+  pidof rc.shutdown poweroff >>$OUT && exit 0 || exec /sbin/poweroff
  elif [ "$WMEXITMODE" = "reboot" ]; then
- #chvt 1
+  #chvt 1
   chvt $FGC
- exec /sbin/reboot
+  pidof rc.shutdown reboot >>$OUT && exit 0 || exec /sbin/reboot
+
  #restart window manager...
  #make a gross assumption, if wmexitmode.txt exists, haven't already exited this script, then want
  #to restart maybe with different window manager. /etc/windowmanager already has desired w.m.
  elif [ "$WMEXITMODE" = "xorgwizard" ]; then
-  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
+  rm $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
   #sleep 3s
   ##exec xorgwizard  ##2011-10-03 later 1 still no go
   xorgwizard
   exit  ##2011-10-03 to fix exit of xorgwizard after first input [ Enter ]
- #echo 2
+  #echo 2
  elif [ "$WMEXITMODE" = "Xrestart" ]; then
-  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
+  rm $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP"
   sleep 1s
   exec xwin
   exit ##2011-10-03 to fix crash ???
  fi
- #echo 3
-  rn $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP" #definitely delete it now.
+ _debugx "Step 3"
+ rm $VERB -f "$TMP_DIR"/wmexitmode.txt "$TMP_DIR"/wmexitmode.":$DISP" #definitely delete it now.
 
-  card_error_func
+ _card_error
 
- #v1.0.5 thanks GuestToo for advice on this, works with chooselocale script...
+  #v1.0.5 thanks GuestToo for advice on this, works with chooselocale script...
   #NEWLANG="`cat /etc/profile | grep "LANG=" | cut -f 2 -d '='`"
-  NEWLANG=`cat /etc/profile | grep '^[[:blank:]]*LANG=' | tail -n 1| cut -f 2 -d '='` #w482 shinobar bugfix.
+  NEWLANG=`grep '^[[:blank:]]*LANG=' /etc/profile | tail -n 1| cut -f 2 -d '='` #w482 shinobar bugfix.
   if [ "$NEWLANG" ]; then #precaution
    if [ "$NEWLANG" != "$LANG" ]; then
     export LANG=$NEWLANG
    fi
   fi
-_debugx "STEP 4"
+ _debugx "STEP 4"
  exec xwin
 fi
 _debugx "STEP 5"
@@ -1021,14 +1022,15 @@ _debugx "STEP 5"
 if [ "$HAVEXvesa" ]; then
 _debugx "STEP 6"
  if [ -e "$TMP_DIR"/videomode ]; then
-  card_error_func
+  _card_error
 _debugx "STEP 7"
   exec xwin #restart X.
  fi
 fi
 
-card_error_func
+_card_error
 
-exit_message_func
+_exit_message
 exit
-#the end#
+
+###END###
