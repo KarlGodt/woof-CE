@@ -1,14 +1,22 @@
 #!/bin/sh
 #introduced v0.9.8
+#called from /root/.fvwm95rc, .jwmrc at shutdown.
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
-#called from /root/.fvwm95rc, .jwmrc at shutdown.
 
-[ ! "$DISPLAY" ] && exit
+[ "$DISPLAY" ] || exit
+DISP=${DISPLAY%.*}
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
-echo -n "poweroff" > /tmp/wmexitmode.txt
+echo "poweroff" > /tmp/wmexitmode.txt
+echo "poweroff" > /tmp/xwin/wmexitmode.txt
+echo "poweroff" > /tmp/xwin/wmexitmode."$DISP"
 
+killall pup_event_frontend_d
+sleep 1
+rm $VERB -f /var/run/pup_event_frontend_d.pid*
+
+_wait_for_pup_event_frontend_d(){
 #v403 give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
@@ -22,8 +30,9 @@ while [ "$PSPEFD" != "" ];do
  PSPEFD="`ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE'defunct|grep|ps'`"
 done
 sleep 0.2
+}
 
-sync
+_sync
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -32,19 +41,38 @@ if [ "`pidof xfce4-panel`" != "" ];then
 fi
 
 #w003
-CURRENTWM="`cat /etc/windowmanager`"
+for ex in ".$DISP" ""
+do
+read CURRENTWM </etc/windowmanager$ex
+test "$CURRENTWM" && break
+done
+
+for f in /etc/windowmanager*
+do
+test -f "$f" || continue
+read WM < "$f"
+test "$WM" = "$CURRENTWM" && continue
+OTHERWM="${OTHERWM}$WM "
+done
+
+test "${OTHERWM//[[:blank:]]/}" && killall $OTHERWM 2>>$ERR
+
 kill -9 `pidof $CURRENTWM`
 
+sleep 2
+
+if pidof X >>$OUT; then
 killall X #default is SIGTERM.
 sleep 1           #v1.0.7
 ##exec killall -9 X #v1.0.7 make sure X is killed.
-killall -9 X
+killall -9 X 2>>$ERR
+fi
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
 #which reads /tmp/wmexitmode.txt.
 
-if [ -n "`which chvt`" ] ; then
-chvt 1
-fi
+#if [ -n "`which chvt`" ] ; then
+#chvt 1
+#fi
 
 exit
