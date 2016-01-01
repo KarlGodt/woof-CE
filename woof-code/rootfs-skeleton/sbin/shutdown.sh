@@ -2,6 +2,7 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
+chvt 1
 
 MY_SELF="$0"
 MY_REAL=`readlink -f "$0"`  # BB readlink does not know the -e option
