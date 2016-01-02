@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright Barry Kauler 2007
 #Now LGPL 2007
 #run like this: # new2dir make install
@@ -10,7 +10,7 @@
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #in it.
 
-ERR=/dev/null
+[ "$ERR" ] || ERR=/dev/null
 
 if [ ! $1 ];then
  echo "This script is used in the last step when installing a source"
@@ -28,6 +28,7 @@ if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  PKGDIR="../../`basename "$UPONE"`"
  xPKGDIR="`basename "$UPONE"`"
 fi
+
 if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  echo "$PKGDIR does not seem to be the package directory with version"
  echo "number. Unfortunately, some source package tarballs expand to a"
@@ -45,13 +46,77 @@ if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  exit
 fi
 
+echo 1
+_tell_version(){
+echo "$0: Version:
+$VERSION"
+exit 0
+}
+echo 2
+_tell_help(){
+RV=0
+test $# -ge 1 && RV=$1
+echo "$0: Help:
+-h) Tell this help message
+-V) Tell version message
+-f) Force, no interactive mode
+"
+exit $RV
+}
+echo 3
+# REM: Process options
+while :; do
+case $1 in ''|make) break;; esac #leave everything behind make ( make -i install )
+N2D_OPS="${N2D_OPS}$1"
+shift
+done
+echo 4 N2D_OPS=$N2D_OPS
+_process_short_opts(){
+echo "'$*'"
+while getopts AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz op
+do
+case $op in
+V) _tell_version;;
+h) _tell_help;;
+f) FORCE=$((FORCE + 1));;
+esac
+done
+SHIFT=$((SHIFT +1))
+}
+echo 5
+_process_long_opts(){
+echo "'$*'"
+while :; do
+case $1 in '') break;;
+--version) _tell_version;;
+--help)    _tell_help;;
+--force)   FORCE=$((FORCE + 1));;
+esac
+SHIFT=$((SHIFT +1))
+shift
+done
+}
+echo 6
+SHIFT=0
+for oneO in $N2D_OPS
+do
+case $oneO in
+--*)  _process_long_opts  $oneO;;
+-*)   _process_short_opts $oneO;;
+esac
+done
+shift $SHIFT
+echo 7
 fixfilelistfunc() {
+test "$*" || return 1
  #$1 is file to remove, as doesn't exist.
  echo " ...${1} has been deleted."
  grep -v "$1" /tmp/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files.tmp
- mv -f /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
+ mv $VERB -f /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
 }
 
+
+if test ! "$FORCE"; then
 echo
 echo -en "\\033[1;31mStep 1" #red
 echo -e "\\033[0;39m"
@@ -69,14 +134,17 @@ echo " If $PKGDIR is incorrect you must now exit with CTRL-C and close this"
 echo " rxvt terminal window then rename the directory."
 echo -n "Type response now: "
 read REPLY1
-[ ! "$REPLY1" = "" ] && PKGDIR="$REPLY1"
-if [ ! -d "$PKGDIR" ];then
+[ "$REPLY1" ] && PKGDIR="$REPLY1"
+ if [ ! -d "$PKGDIR" ];then
  echo
  echo "$PKGDIR does not exist, exiting script."
  exit
+ fi
 fi
+
 echo "Okay, using $PKGDIR"
 
+if test ! "$FORCE"; then
 echo
 echo -en "\\033[1;31mStep 2" #red
 echo -e "\\033[0;39m"
@@ -88,11 +156,13 @@ echo "If you have compiled for a i486, just press ENTER key."
 echo "Otherwise, enter the CPU type, examples: i386 i486 i686 (the i is required)."
 echo -n "Type response here: "
 read CPUTYPE
-[ "$CPUTYPE" = "" ] && CPUTYPE="i486"
-if [ "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" = "" ];then
+[ "$CPUTYPE" ] || CPUTYPE="i486"
+ if [ "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" = "" ];then
  echo "$CPUTYPE is not valid. Exiting."
  exit
+ fi
 fi
+
 echo "Okay, using $CPUTYPE"
 
 #would like to create different targets for exe, doc, dev, nls components...
@@ -120,6 +190,7 @@ NLS_PKGNAME="`basename $NLS_TARGETDIR`"
 #rm -rf "$DEV_TARGETDIR" 2>/dev/null
 #rm -rf "$NLS_TARGETDIR" 2>/dev/null
 
+if test ! "$FORCE"; then
 echo
 echo -en "\\033[1;31mStep 3" #red
 echo -e "\\033[0;39m"
@@ -147,22 +218,25 @@ echo " Example: exe,dev,doc  (in this example, nls component is left in the"
 echo " main package, that is, the exe component)."
 echo -n "Type response (just press ENTER if in doubt): "
 read SPLITPETS
+fi
+
 [ "$SPLITPETS" = "" ] && SPLITPETS="exe"
 [ "$SPLITPETS" = "1" ] && SPLITPETS="exe"
 [ "$SPLITPETS" = "2" ] && SPLITPETS="exe,dev"
 [ "$SPLITPETS" = "3" ] && SPLITPETS="exe,dev,doc,nls"
+
 EXESPLIT="";DOCSPLIT="";DEVSPLIT="";NLSSPLIT=""
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && EXESPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && DOCSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && DEVSPLIT="yes"
-[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && NLSSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'exe'`" ] && EXESPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'doc'`" ] && DOCSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'dev'`" ] && DEVSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep 'nls'`" ] && NLSSPLIT="yes"
 
+[ "`echo "$SPLITPETS" | grep 'exe'`" ] && mkdir "$EXE_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'doc'`" ] && mkdir "$DOC_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'dev'`" ] && mkdir "$DEV_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'nls'`" ] && mkdir "$NLS_TARGETDIR"
 
-[ ! "`echo "$SPLITPETS" | grep 'exe'`" = "" ] && mkdir "$EXE_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'doc'`" = "" ] && mkdir "$DOC_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'dev'`" = "" ] && mkdir "$DEV_TARGETDIR"
-#[ ! "`echo "$SPLITPETS" | grep 'nls'`" = "" ] && mkdir "$NLS_TARGETDIR"
-
+if test ! "$FORCE"; then
 echo
 echo -en "\\033[1;31mStep 4" #red
 echo -e "\\033[0;39m"
@@ -174,29 +248,31 @@ echo "and files and create '$EXE_TARGETDIR' with the new files."
 echo "(and optionally ${DEV_TARGETDIR}, ${DOC_TARGETDIR}, ${NLS_TARGETDIR})"
 echo -n "Press ENTER key to continue: "
 read goforit
+fi
 
-installwatch -o /tmp/pkginstall.list ${@}
 
-sync
+installwatch -o /tmp/pkginstall.list "${@}"
+
+_sync
 #create list of installed files...
 #v2.17 bug, if sometimes logs files in the pkg installing from, have added
 # filter out $UPONE...
 # BUGPATTERN='&'"$UPONE"
 # no, just filter out /mnt and /initrd...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
 #...list will only have created files, not created directories, so an empty
 #   directory won't get recorded.
 
 #bad if we miss out installing an empty directory...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' > /tmp/${EXE_PKGNAME}.dirs
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' > /tmp/${EXE_PKGNAME}.dirs
 
-sync
+_sync
 #pick up created symlinks...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
 
-sync
+_sync
 #problem if there is a post-install script that moves or renames a file...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep --extended-regexp -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' > /tmp/${EXE_PKGNAME}.moved.files
+cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' > /tmp/${EXE_PKGNAME}.moved.files
 #find out if any installed file got moved/renamed...
 if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
  for ONEMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
@@ -205,28 +281,30 @@ if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
   ONENEW="`echo -n "$ONEMOVED" | cut -f 2 -d '&'`"
   grep -v "$ONEORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
   echo "$ONENEW" >> /tmp/${EXE_PKGNAME}.files
-  sync
+  _sync
   mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
  done
 fi
 
 
-sync
+_sync
 echo
 echo -en "\\033[1;31mStep 5" #red
 echo -e "\\033[0;39m"
 #fixfilelistfunc() uses this...
-cp -af ${RELPATH}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
+cp $VERB -af ${RELPATH}/${EXE_PKGNAME}.files /tmp/${EXE_PKGNAME}.files
 #...a post-install script could delete files, which fixfilelistfunc fixes.
 
-TEXT_FILES_EXT='asc|html|txt|xml|h|pc|c|cc|pdf|sh'
+ TEXT_FILES_EXT='asc|html|txt|xml|h|pc|c|cc|pdf|sh'
 COMPR_FILES_EXT='tar|gz|bz2|lz|xz|sfs'
-FS_FILES_EXT='ext2|ext3|ext4|xfs|rfs|jfs'
-IMG_FILES_EXT='gif|jpg|jpeg|tif|tiff|png|pnm|bmp'
-LIB_FILES_EXT='a|la|mo'
+   FS_FILES_EXT='ext2|ext3|ext4|xfs|rfs|jfs'
+  IMG_FILES_EXT='gif|jpg|jpeg|tif|tiff|png|pnm|bmp'
+  LIB_FILES_EXT='a|la|mo'
 NON_STRIP_EXT="$TEXT_FILES_EXT|$COMPR_FILES_EXT|$FS_FILES_EXT|$IMG_FILES_EXT|$LIB_FILES_EXT"
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | sed 's!|!\$|!g;s!|!|\\\.!g'`
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
+
+VERB=-v
 
 cat ${RELPATH}/${EXE_PKGNAME}.files |
 while read oneFILE
@@ -240,17 +318,17 @@ do
   if [ ! "`echo "$oneFILE" | grep -iE "$NON_STRIP_EXT|/man/|/info/"`" ]; then
    echo " ... Checking for stripping .." >&2
    fileFILE=`file "$oneFILE"`
-  [ ! "`echo "$fileFILE" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$oneFILE"
-  [ ! "`echo "$fileFILE" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$oneFILE"
+  [ "`echo "$fileFILE" | grep 'ELF' | grep 'shared object'`" != "" ] && strip --strip-debug "$oneFILE"
+  [ "`echo "$fileFILE" | grep 'ELF' | grep 'executable'`" != "" ] && strip --strip-unneeded "$oneFILE"
   fi
  fi
- sync
+ _sync
 
  if [ "$NLSSPLIT" = "yes" ];then
   #find out if this is an international language file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/locale/|/nls/|/i18n/'`" = "" ];then
-   mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
-   cp -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  if [ "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" != "" ];then
+   mkdir $VERB -p "${NLS_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
@@ -258,9 +336,9 @@ do
 
  if [ "$DOCSPLIT" = "yes" ];then
   #find out if this is a documentation file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
-   mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
-   cp -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  if [ "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
+   mkdir $VERB -p "${DOC_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
@@ -268,32 +346,32 @@ do
 
  if [ "$DEVSPLIT" = "yes" ];then
   #find out if this is development file...
-  if [ ! "`echo -n "$oneFILE" | grep --extended-regexp '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
-   mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-   cp -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  if [ "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
+   mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
   #find *.so symlink files...
   if [ -h "$oneFILE" ];then #-h tests for symlink
-   if [ ! "`echo -n "$oneFILE" | grep '\.so$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+   if [ "`echo -n "$oneFILE" | grep '\.so$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
    fi
   fi
   #find various config files...
-  if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\-config$|config.sh$|Conf.sh$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  if [ "`echo -n "$ONEBASE" | grep -E '\-config$|config.sh$|Conf.sh$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
-  if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    cp -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  if [ "`echo -n "$ONEBASE" | grep -E '\.a$|\.la$|\.m4$'`" != "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
@@ -301,19 +379,19 @@ do
 
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
-  mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
-  cp -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/" 2>/dev/null
+  mkdir $VERB -p "${EXE_TARGETDIR}/${ONEPATH}"
+  /bin/cp $VERB -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
   #fix for empty directories...
   cat /tmp/${EXE_PKGNAME}.dirs |
   while read ANEWDIR
   do
-   [ "`ls -1 $ANEWDIR 2>$ERR`" = "" ] && mkdir -p ${EXE_TARGETDIR}${ANEWDIR}
+   [ "`ls -1 $ANEWDIR 2>$ERR`" = "" ] && mkdir $VERB -p ${EXE_TARGETDIR}${ANEWDIR}
   done
  fi
 done
-sync
-cp -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+_sync
+cp $VERB -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 find -name "*.log" -exec cp {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
 
 echo
