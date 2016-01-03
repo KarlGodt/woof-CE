@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #BK 2007, original idea from sunburnt
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
 
@@ -28,6 +28,8 @@
 #v424 do away with checkbox that overrides user choice and loads _nnn.sfs only.
 #v424 advise of sfs-version-converter.
 
+. /etc/rc.d/f4puppy5
+
 #reentrant.
 #$1='' then run the main window.
 #$1=extrasfs then run the extrasfs_func.
@@ -51,7 +53,7 @@ else
 fi
 }
 
-[ ! -f /etc/rc.d/BOOTCONFIG ] && touch /etc/rc.d/BOOTCONFIG #v424
+[ -f /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG #v424
 . /etc/rc.d/BOOTCONFIG #v424
 
 case $KERNVER in
@@ -61,7 +63,7 @@ SFSSTR='squashfs, version 4'
 2.6.*)
 KERNELSUBVER=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
 SFSSTR='squashfs, version 3' #v423
-[ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4' #v423
+[ "$KERNELSUBVER" -gt 28 ] && SFSSTR='squashfs, version 4' #v423
 ;;
 esac
 
@@ -70,11 +72,11 @@ esac
 DEFAULT_SERIAL="false"
 DEFAULT_FAST="false"
 [ "$BYPASSSERIALPROBING" = "yes" ] && DEFAULT_SERIAL="true"
-[ "$FASTBOOTMODULESLIST" != "" ] && DEFAULT_FAST="true"
+[ "$FASTBOOTMODULESLIST" ]         && DEFAULT_FAST="true"
 
 if [ "$PUPMODE" = "5" ];then
  xmessage "ERROR. Must shutdown and create a personal save file first."
- exit
+ exit 0
 fi
 
 if [ "$PUP_HOME" = "" ];then #defined in PUPSTATE.
@@ -120,22 +122,22 @@ __extrasfs__mntpt__(){
  fi
 }
 
- cd $EXTRASFSMNTPT
+ cd "$EXTRASFSMNTPT"
  #v409 lobster gets some non-sfs files in ALLSFSLIST ...i have no idea how, but
  #need an extra grep filter here... w007 new name woof-007.sfs ... w478 fix for 'pup2' prefix...
  ALLSFSLIST="`ls -1 *.sfs | grep -v '^z' | grep -v "^pup_" | grep -v "^${DISTRO_FILE_PREFIX}\-[0-9][0-9][0-9]\.sfs$" | grep -v "^${DISTRO_FILE_PREFIX}[rz]" | grep '\.sfs$' | tr "\n" " "`"
- cd $CURRDIR
- sync
- [ "$UNMOUNTME" != "" ] && umount $UNMOUNTME
+ cd "$CURRDIR"
+ _sync
+ [ "$UNMOUNTME" ] && umount "$UNMOUNTME"
 
  #eliminate other versions from list...
  FIXEDSFSLIST=""
- rm -f /tmp/bootmanager_wrong_sfs_version 2>/dev/null #v423
+ rm $VERB -f /tmp/bootmanager_wrong_sfs_version #v423
  for ONESFS in $ALLSFSLIST
  do
-  [ "`echo "$ONESFS" | grep '_[0-9][0-9][0-9]' | grep -v "$DISTRO_VERSION"`" != "" ] && continue
+  [ "`echo "$ONESFS" | grep '_[0-9][0-9][0-9]' | grep -v "$DISTRO_VERSION"`" ] && continue
   #w020 other compat-distro sfs need to be eliminated...
-  [ "`echo "$ONESFS" | grep '\\-[0-9][0-9][0-9]\\.sfs' | grep -v "$DISTRO_VERSION"`" != "" ] && continue
+  [ "`echo "$ONESFS" | grep '\\-[0-9][0-9][0-9]\\.sfs' | grep -v "$DISTRO_VERSION"`" ] && continue
   #v423 eliminate wrong squashfs version...
   if [ "`disktype ${EXTRASFSMNTPT}/${ONESFS} | grep "$SFSSTR"`" = "" ];then
    echo "$ONESFS" >> /tmp/bootmanager_wrong_sfs_version
@@ -151,7 +153,7 @@ __extrasfs__mntpt__(){
   if [ "$EXTRASFSLIST" = "" ];then
    DLGLIST="$DLGLIST $ONESFS $ONESFS off"
   else
-   [ "`echo -n "$EXTRASFSLIST" | grep -v "$ONESFS"`" != "" ] && DLGLIST="$DLGLIST $ONESFS $ONESFS off"
+   [ "`echo -n "$EXTRASFSLIST" | grep -v "$ONESFS"`" ] && DLGLIST="$DLGLIST $ONESFS $ONESFS off"
   fi
  done
  for ONESFS in $EXTRASFSLIST
@@ -201,7 +203,7 @@ Note4: \n
 In fact, if '_xxx.sfs' is not '_${DISTRO_VERSION}.sfs' then it will not even\n
 be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >/tmp/bmrettags.txt"
 
- while [ 1 ];do
+ while :;do
   eval $EXECME
   RETVAL=$?
   #if [ $RETVAL -eq 3 ];then #help
@@ -210,8 +212,8 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   # continue
   #fi
 
-  [ ! $RETVAL -eq 0 ] && return 1
-  [ $RETVAL -eq 0 ]   && break
+  [ "$RETVAL" -eq 0 ] || return 1
+  [ "$RETVAL" -eq 0 ] && break
  done
 
  RETTAGS="`cat /tmp/bmrettags.txt`"
@@ -231,7 +233,7 @@ __extrasfs__list__(){
 
  RETTAGS="`echo -n "$RETTAGS" | sed -e 's/ $//g'`"
 
- [ ! -e /etc/rc.d/BOOTCONFIG ] && touch /etc/rc.d/BOOTCONFIG
+ [ -e /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG
  grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
  cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
  echo "EXTRASFSLIST='$RETTAGS'" >> /etc/rc.d/BOOTCONFIG
@@ -265,11 +267,11 @@ Note, if you want to find out further information about any module,\n
 run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  eval $EXECME
  RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
+ [ "$RETVAL" -eq 0 ] || return 1
  SKIPLIST=" `cat /tmp/skiprettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
 } #end blacklist_func
 
@@ -286,9 +288,9 @@ yeslist_func() {
 
  #v403 handles both .ko and .ko.gz modules...
  #ALLMODULES="`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort - | tr '\n' ' '`"
- ALLMODULES=`modprobe -l |rev |cut -f1 -d'/' |rev |sort -d | cut -f1 -d'.'`
+ ALLMODULES=`busybox modprobe -l |rev |cut -f1 -d'/' |rev |sort -d | cut -f1 -d'.'`
 
- addlistMODS=`echo "$ADDLIST" |tr ' ' '\n'|tr '\t' '\n' | sed '/^$/d'`
+  addlistMODS=`echo "$ADDLIST" |tr ' ' '\n'|tr '\t' '\n' | sed '/^$/d'`
  addlistMODS0=`echo "$addlistMODS" | cut -f1 -d':'`
 
  notLOADED=`echo "$ALLMODULES" | grep -v "$addlistMODS0"`
@@ -322,16 +324,43 @@ MODLIST=`echo $MODLIST0`
 
   MODPATTERN=" $NAMEOLY "
   #leave off list if already loaded...
-  [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" != "" ] && continue
+  [ "`echo "$LOADEDMODULES" | grep "$MODPATTERN"`" ] && continue
   MODLIST="$MODLIST $ONEMOD \"$xONEMOD\" on"
  done
 
 
- ( sleep 3;kill $X1PID ) &
+ CPU_MHZ=`grep '^cpu MHz' /proc/cpuinfo | awk '{print $NF}' | awk -F'[[:punct:]]' '{print $1}'`
+ for mhz in $CPU_MHZ; do
+ MHZ=$((MHZ + mhz))
+ done
+   if test $MHZ -lt 1000; then SLEEP=9
+ elif test $MHZ -lt 2000; then SLEEP=8
+ elif test $MHZ -lt 3000; then SLEEP=7
+ elif test $MHZ -lt 4000; then SLEEP=6
+ elif test $MHZ -lt 5000; then SLEEP=5
+ elif test $MHZ -lt 6000; then SLEEP=4
+ elif test $MHZ -lt 7000; then SLEEP=3
+ elif test $MHZ -lt 8000; then SLEEP=2
+ elif test $MHZ -lt 9000; then SLEEP=1
+ else SLEEP=5
+   fi
+ test "$SLEEP" || sleep=5
+
+ #( sleep 9;kill $X1PID ) &
+ (
+ sleeo $SLEEP
+ while :; do
+ xwininfo -name "BootManager: Module add-list manager"
+ test $? = 0 && break
+ sleep $SLEEP
+ done
+ kill $X1PID
+ ) >>$OUT 2>>$ERR &
+
  EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
+ [ "$RETVAL" -eq 0 ] || return 1
  cat /tmp/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > /tmp/modules_addlist_edit #v411
  Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox /tmp/modules_addlist_edit 0 0 > /tmp/modules_addlist_edit_out
  [ $? -ne 0 ] && return 1
@@ -340,11 +369,11 @@ MODLIST=`echo $MODLIST0`
  #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
  grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
- cp /etc/rc.d/MODULESCONFIG /etc/rc.d/MODULESCONFIG-$KERNVER
- mkdir -p /etc/mult_kernels/rc.d
- cp /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ cp $VERB /etc/rc.d/MODULESCONFIG /etc/rc.d/MODULESCONFIG-$KERNVER
+ mkdir $VERB -p /etc/mult_kernels/rc.d
+ cp $VERB /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
 
 
  for add in $ADDLIST; do
@@ -354,10 +383,10 @@ MODLIST=`echo $MODLIST0`
  [ "$params" = "$mod" ] && unset params
  echo "options $mod $params" >/etc/modprobe.d/$mod.conf
  #cp /etc/modprobe.d/$mod.conf /etc/modprobe.d/$mod.conf-$KERNVER
- cp /etc/modprobe.d/$mod.conf /etc/modprobe.d/$KERNVER-$mod.conf
+ cp $VERB /etc/modprobe.d/$mod.conf /etc/modprobe.d/$KERNVER-$mod.conf
  #cp /etc/modprobe.d/$mod.conf /etc/modprobe.d/$mod-$KERNVER.conf
- mkdir -p /etc/mult_kernels/modprobe.d.$KERNVER
- cp /etc/modprobe.d/$mod.conf /etc/mult_kernels/modprobe.d.$KERNVER/
+ mkdir $VERB -p /etc/mult_kernels/modprobe.d.$KERNVER
+ cp $VERB /etc/modprobe.d/$mod.conf /etc/mult_kernels/modprobe.d.$KERNVER/
  done
 
 } #end yeslist_func
@@ -372,7 +401,7 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
  if [ $? -eq 0 ];then
   NEWPREFLIST="`echo "$xxPREFLIST" | tr '\n' ' ' | sed -e 's/^/ /' | tr -s ' '`"
   grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-  mv -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+  mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
   echo "PREFLIST='${NEWPREFLIST}'" >> /etc/rc.d/MODULESCONFIG
  fi
 } #end preflist_func
@@ -380,23 +409,33 @@ and you need to choose one of them. Create a line here,\nof format module1:modul
 if [ "$CLPARAM1" = "extrasfs" ];then
  extrasfs_func
  exit
-fi
-
-if [ "$CLPARAM1" = "blacklist" ];then
+elif [ "$CLPARAM1" = "blacklist" ];then
  blacklist_func
  exit
-fi
-
-if [ "$CLPARAM1" = "yeslist" ];then
+elif [ "$CLPARAM1" = "yeslist" ];then
  yeslist_func
  exit
-fi
-
-if [ "$CLPARAM1" = "preflist" ];then
+elif [ "$CLPARAM1" = "preflist" ];then
  preflist_func
  exit
 fi
 
+case $PUPMODE in 2|3)
+ LOAD_SFS_TEXT=" <text><label>Puppy is running in full install mode,</label></text>
+<text><label> No sfs loading available.</label></text>"
+;;
+*)
+ LOAD_SFS_TEXT=" <text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.</label></text>
+  <hbox>
+   <text><label>Choose which extra SFS files to load at bootup:</label></text>
+    <button>
+     <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
+     <action>bootmanager extrasfs &</action>
+    </button>
+  </hbox>
+"
+;;
+esac
 #######################################################
 
 export MAIN_DIALOG="
@@ -406,14 +445,7 @@ export MAIN_DIALOG="
  <label>\"<b>Puppy Boot Configuration</b>\"</label></text>
 
  <frame Load SFS files>
-  <text><label>Puppy has a file named '${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs' that is always loaded. However, extra SFS files can be loaded at bootup, for example 'kde.sfs' to provide KDE applications, and '${DISTRO_FILE_PREFIX}_devx_${DISTRO_VERSION}.sfs' to provide everything for compiling C/C++ source. These can be thought of as 'combo packs' of many packages in one file.</label></text>
-  <hbox>
-   <text><label>Choose which extra SFS files to load at bootup:</label></text>
-    <button>
-     <input file>/usr/local/lib/X11/pixmaps/module24.xpm</input>
-     <action>bootmanager extrasfs &</action>
-    </button>
-  </hbox>
+  $LOAD_SFS_TEXT
  </frame>
 
  <frame Load kernel modules>
