@@ -77,11 +77,11 @@
 #if an ntfs partition, puppy uses user-mode ntfs-3g driver.
 #the mount and umount scripts allow seamless mounting and unmounting of ntfs f.s.
 
-Version='1.1-simple Macpup_F3-Puppy-Linux-4.3.0/2 KRG'
+. /etc/rc.d/f4puppy5
+
+Version='1.2-simple Macpup_F3-Puppy-Linux-4.3.0/2 KRG'
 
 [ "$1" ] || exec busybox umount
-quoted=`echo "$*" | grep -o '".*"'`
-echo "quoted='$quoted'"
 
 case $1 in
 verbose) VERBOSE=1;shift;;
@@ -89,54 +89,74 @@ codecheck) set -n;shift;;
 *):;;
 esac
 
+quoted=`echo "$*" | grep -o '".*"'`
+echo "quoted='$quoted'"
+
 j=0
-for i in `seq 1 $#` ; do
-j=$((j+1))
-PARAM=`echo "$*" | cut -f $i -d ' '`
+for oneP in `seq 1 1 $#` ; do
+j=$((oneP+1))
+PARAM=`echo "$*" | cut -f $oneP -d ' '`
 [ "$VERBOSE" ] && echo '$'$j'='"$PARAM"
 eval PARAME$j="${PARAM}"
 [ "$VERBOSE" ] && eval echo "\$PARAME$j"
 done
 
-#sync #paranoid precaution. v2.12 kernel call to modprobe, sync hangs.
+_sync #paranoid precaution. v2.12 kernel call to modprobe, sync hangs.
 
 . /etc/rc.d/functions4puppy4 #v4.02
 
-#v406 add /dev/hd* support... v407 add fd*...
-MNTDDEVS1="`busybox mount | grep '^/dev/[smhf]' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"  #v403 sd, sr, mmc
+_do_bb_umount(){
+_info "busybox umount $@"
+busybox umount "$@"
+}
 
-MNTDPTS1="`busybox mount | grep '^/dev/[smhf]' | cut -f 3 -d ' '`"
+_do_full_umount(){
+_info "umount-FULL $@"
+umount-FULL "$@"
+}
+
+#v406 add /dev/hd* support... v407 add fd*...
+MNTDDEVS1="`grep '^/dev/[smhf]' /proc/mounts | cut -f 1 -d ' ' | cut -f 3 -d '/'`"  #v403 sd, sr, mmc
+
+MNTDPTS1="`grep '^/dev/[smhf]' /proc/mounts | cut -f 2 -d ' '`"
 
 
 #extract all the '-' options, on separate lines...
 #v2.12 pathetic bug, need space before $@, see comment /bin/mount... No, use $*...
 
-Longopts="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep '^\-\-'`"
+Longopts="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep -e '^--'`"
 
 if [ -n "$Longopts" ] ; then
 echo "'umount' does not support long options contraty to 'mount'
 The patameterline had been [$*]"
-exit
+exit 1
 fi
 
-DASHOPTS="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep '^\-' | grep -v '^\-\-'`"
+DASHOPTS="`echo "$*" | tr '\t' ' ' | tr ' ' '\n' | grep -e '^-' | grep -v -e '^--'`"
 
 #v2.12 curses, busybox mount accepts the '-n' option (just ignores it) but umount does not...
 if [ "`echo " $DASHOPTS" | grep 'n'`" != "" -o "`echo " $DASHOPTS" | grep 'd'`" != ""  ];then
  #FULLCMD="`echo -n " $*" | sed -e 's/ \-n / /g'`" #unsatisfactory!
  FULLCMD1=`echo " $*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n'`
+ _debugx "FULLCMD1='$FULLCMD1'"
  FULLCMD2=`echo "$FULLCMD1" | sed 's#^\-dn#\-#g ; s#^\-nd#\-#g ; s#^\-d#\-#g ; s#^\-d#\-#g'`
+ _debugx "FULLCMD2='$FULLCMD2'"
  FULLCMD3=`echo "$FULLCMD2" | sed 's#^\-\([[:alpha:]]*\)n\(.*\)#\-\1\2#g'`
+ _debugx "FULLCMD3='$FULLCMD3'"
  FULLCMD4=`echo "$FULLCMD3" | sed 's#^\-\([[:alpha:]]*\)d\(.*\)#\-\1\2#g'`
+ _debugx "FULLCMD4='$FULLCMD4'"
  FULLCMD5=`echo "$FULLCMD4" | sed 's#^\-\([[:alpha:]]*\)n#\-\1#g'`
+ _debugx "FULLCMD5='$FULLCMD5'"
  FULLCMD6=`echo "$FULLCMD5" | sed 's#^\-\([[:alpha:]]*\)d#\-\1#g'`
+ _debugx "FULLCMD6='$FULLCMD6'"
  FULLCMD=`echo "$FULLCMD6" | tr '\n' ' '`
 else
  FULLCMD="$*"
 fi
+_debug "FULLCMD='$FULLCMD'"
 
 FULLCMD=`echo "$FULLCMD" | sed 's/\ -\ /\ /g' | tr -s '[[:blank:]]' | sed 's/^\ //;s/\ $//'`
-echo "FULLCMD='$FULLCMD'"
+_notice "FULLCMD='$FULLCMD'"
 FCDEV=`echo "$FULLCMD" | grep -o '/dev/[fhlmrs].* ' | grep -v '/.*/.*/.*'`
 FCOPT=`echo "$FULLCMD" | grep -o '\-[adflr]* '`
 FCMPT=`echo "$FULLCMD" | grep -o '/.*' | grep -v '/dev/[fhlmrs].* '`
@@ -146,7 +166,7 @@ FCMPT=`echo "$FULLCMD" | grep -o '/.*' | grep -v '/dev/[fhlmrs].* '`
 # -a param means unmount everything...
 #if [ ! "`echo "$@" | grep --extended-regexp '\W-a$|\W-a\W'`" = "" ];then
 
-if [ ! "`echo " $DASHOPTS" | grep 'a'`" = "" ];then #option a given
+if [ "`echo " $DASHOPTS" | grep 'a'`" != "" ];then #option a given
 
  if [ "$DISPLAY" ] ; then
 
@@ -195,14 +215,16 @@ RETVAL=$?
 
  MNTFUSE="`busybox mount | grep 'fuse' | cut -f 3 -d ' '`"
 
- if [ ! "$MNTFUSE" = "" ] ; then
+ if [ "$MNTFUSE" ] ; then
  FUSEDEV=`busybox mount | grep -w "$MNTFUSE" | cut -f 1 -d ' '`
- fusermount -u "$MNTFUSE"
  fuser-FULL -k -c "$FUSEDEV"
+ fusermount -u "$MNTFUSE"
+ #fuser-FULL -k -c "$FUSEDEV"
  fi
 
  #busybox umount -d $FULLCMD #v423 -d fix.
- busybox umount -d $FCOPT "$FCDEV" "$FCMPT"
+ #busybox umount -d $FCOPT "$FCDEV" "$FCMPT" # busybox mount/umount choke on xfs as logfs
+  _do_full_umount -d $FCOPT "$FCDEV" "$FCMPT"
  exit $?
 
 fi  # end of -a
@@ -213,70 +235,75 @@ LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/'`"
 #thanks to jesse for this...
 #for ntfs-3g, find the device and mount point...
 #note, '\' essential to prevent 'ps' from reporting this invocation line...
-NTFSMNTPT=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
-NTFSMNTDV=`/bin/ps -e | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
-echo "NTFSMNTPT='$NTFSMNTP' NTFSMNTDV='$NTFSMNTDV'"
+NTFSMNTPT=`/bin/ps -eF | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/mnt/'`
+NTFSMNTDV=`/bin/ps -eF | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
+_info "NTFSMNTPT='$NTFSMNTP' NTFSMNTDV='$NTFSMNTDV'"
 if [ "$NTFSMNTPT" != "" ];then
  if [[ -n "`echo " $DASHOPTS" | grep 'i'`" ]] ; then #fusermount passes -i option to /bin/mount
+  fuser-FULL -k -c "$NTFSMNTDV"
   echo "busybox umount -d $FULLCMD"
   #busybox umount -d $FULLCMD #v423 -d fix to free loop device.
    busybox umount -d $FCOPT "$FCDEV" "$FCMPT"
   RETVAL=$?
-  fuser-FULL -k -c "$NTFSMNTDV"
+  #fuser-FULL -k -c "$NTFSMNTDV"
  else
+  fuser-FULL -k -c "$NTFSMNTDV"
   echo "else ntfs fusermount -u $NTFSMNTPT"
   #fusermount can only unmount by giving the mount-point...
   fusermount -u "$NTFSMNTPT"
   RETVAL=$?
-  fuser-FULL -k -c "$NTFSMNTDV"
+  #fuser-FULL -k -c "$NTFSMNTDV"
  fi
 else
- echo "else busybox umount -d $FULLCMD"
- echo "else busybox umount -d $FCOPT '$FCDEV' '$FCMPT'"
+ #echo "else busybox umount -d $FULLCMD"
+ #echo "else busybox umount -d $FCOPT '$FCDEV' '$FCMPT'"
  #busybox umount -d "$FULLCMD" #v423 -d fix to free loop device.
  #umount-FULL -d "$FULLCMD"
  if [ "$FCDEV" -a "$FCMPT" ];then
  [ "$VERBOSE" ] && echo "BOTH"
- busybox umount -d $FCOPT "$FCDEV" "$FCMPT"
+ #busybox umount -d $FCOPT "$FCDEV" "$FCMPT"
+ _do_full_umount -d $FCOPT "$FCDEV" "$FCMPT"
  RETVAL=$?
  elif [ "$FCDEV" ];then
  [ "$VERBOSE" ] && echo "FCDEV"
- busybox umount -d $FCOPT "$FCDEV"
+ #busybox umount -d $FCOPT "$FCDEV"
+ _do_full_umount -d $FCOPT "$FCDEV"
  RETVAL=$?
  elif [ "$FCMPT" ];then
  [ "$VERBOSE" ] && echo "FCMPT"
- busybox umount -d $FCOPT "$FCMPT"
+ #busybox umount -d $FCOPT "$FCMPT"
+ _do_full_umount -d $FCOPT "$FCMPT"
  RETVAL=$?
  fi
 fi
 
 #v403 if there is a desktop icon (see pup_eventd), then refresh it...
-if [ $RETVAL -eq 0 ];then
-echo OK 1
+if [ "$RETVAL" -eq 0 ];then
+_debug "OK:RETVAL=$RETVAL"
  #find which device has been unmounted... v406 add hd*... v407 add fd*...
  MNTDDEVS2="`busybox mount | grep '^/dev/[smhf]' | cut -f 1 -d ' ' | cut -f 3 -d '/'`" #v403 sd, sr, mmc
  if [ "$MNTDDEVS2" = "" ];then
-  echo OK 2
+  _debug "No other partitions mounted:MNTDDEVS2='$MNTDDEVS2'"
   DEVNAME="`echo "$MNTDDEVS1" | head -n 1`" #head is a precaution.
 
  else
-  echo OK 2else
+  _debug "Other partitions mounted:MNTDDEVS2="$MNTDDEVS2
   DEVNAME="`echo "${MNTDDEVS1}" | /bin/grep -v -w "${MNTDDEVS2}" | sort | uniq -u | head -n 1`" #head is a precaution.
  fi
- echo "'$DEVNAME'"
+ _notice "DEVNAME='$DEVNAME'"
  #DEVNAME=`echo "${MNTDDEVS1}" | grep -v -w "${MNTDDEVS2}"`
  [ "$VERBOSE" ] && echo "DEVNAME='$DEVNAME'"
  if [ "$DEVNAME" != "" -a "$DISPLAY" != "" ];then
-  echo OK 3
+  _debug "DEVNAME='$DEVNAME' DISPLAY='$DISPLAY'"
   DRVNAME="`echo -n "$DEVNAME" | cut -b 1-3`"
-  echo "'$DRVNAME'"
+  _debug "DRVNAME='$DRVNAME'"
   #special case, SD card /dev/mmcblk0p1...
   [ "$DRVNAME" = "mmc" ] && DRVNAME="`echo -n "$DEVNAME" | sed -e 's/p[0-9]$//'`"
   xDRVNAME="$DRVNAME" #v404
   [[ -d /root/.pup_event/drive_${DEVNAME} ]] && DRVNAME="$DEVNAME" #icon for each partition.
   echo "'$DRVNAME'"
   if [[ -d /root/.pup_event/drive_${DRVNAME} ]];then
-   echo OK 4
+   _debug "directory /root/.pup_event/drive_${DRVNAME exist"
    case $DRVNAME in #v407
     fd*)
      DRV_CATEGORY="floppy"
@@ -289,17 +316,17 @@ echo OK 1
    esac
    #if any partitions still mounted, leave "MNTD" on icon...
    drvPATTERN='^/dev/'"${DRVNAME}" #important, no space on end.
-   echo "'$drvPATTERN'"
+   _debug "drvPATTERN='$drvPATTERN'"
    #"MNTD" text is intended as a reminder to user that drive needs to be unmounted,
    #   but partitions in use by Puppy cannot be unmounted.
    if [ "`/bin/df | tr -s ' ' | cut -f 1,6 -d ' ' | /bin/grep -w "$drvPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
-    echo OK 5
+    _debug "$drvPATTERN Seems to be unmounted"
     if [ "`/bin/df | tr -s ' ' | cut -f 1,6 -d ' ' | /bin/grep -w "$drvPATTERN" | grep -E ' /initrd/| /$'`" != "" ];then
      #only a partition left mntd that is in use by puppy, change green->yellow...
-     echo OK 6
+     _debug "OK, but is boot partition"
      icon_mounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
     else
-     echo OK 6else
+     _debug "OK, and is unmounted"
      #redraw icon without "MNTD" text...
      icon_unmounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
     fi
@@ -309,6 +336,7 @@ echo OK 1
 else #umount returned error
 
 if [ "$DISPLAY" ];then
+
 if [ -n "`/bin/ps -elF | grep 'ROX-Filer'| grep -v 'grep'`" ] ; then
 #MNTED=`echo "$FULLCMD" | grep -o '/mnt/.*' | cut -f 1 -d ' '`
 MNTED=`echo "$FULLCMD" | grep -o '/mnt/.*' | sed 's§ type.*§§'`
@@ -319,19 +347,21 @@ MNTPT=`busybox  mount | grep "$MNTED" | cut -f 3- -d ' ' | sed 's§ type.*§§'`
 [ -n "$MNTPT" ] && [ -n "`busybox mount | /bin/grep -w "$MNTPT"`" ] && rox -D "$MNTPT"
 sleep 0.5
 fi
+
 [ "$VERBOSE" ] && echo "$LINENO DRVNAME='$DRVNAME'"
 [ -n "$MNT" ] && { FUSERS=`fuser-FULL -c /dev/$MNT`; DRVNAME="/dev/$MNT"; }
 [ "$VERBOSE" ] && echo 197 280 "$LINENO DRVNAME='$DRVNAME'"
 [ -n "$DRVNAME" ] && { FUSERS=`fuser-FULL -c /dev/$DRVNAME`; DRVNAME="/dev/$DRVNAME"; }
 [ "$VERBOSE" ] && echo 199 282 "$LINENO DRVNAME='$DRVNAME'"
+
 if [ -z "$FUSERS" ] ; then
-DRVNAME=`echo "$FULLCMD" | grep -o -e '^/dev/.*' | cut -f 1 -d ' '`
+DRVNAME=`echo "$FULLCMD" | grep -o '^/dev/.*' | cut -f 1 -d ' '`
 [ "$VERBOSE" ] && echo "$LINENO DRVNAME='$DRVNAME'"
 if [ -z "$DRVNAME" ] ; then
 #MNTNAME=`echo "$FULLCMD" | grep -o -e '/mnt/.*' | cut -f 1 -d ' '`
-MNTNAME=`echo "$FULLCMD" | grep -o -e '/mnt/.*' | sed 's§ type.*§§'`
+MNTNAME=`echo "$FULLCMD" | grep -o '/mnt/.*' | sed 's§ type.*§§'`
 echo "$LINENO MNTNAME='$MNTNAME'"
-[ ! "$MNTNAME" ] && MNTNAME='NONENONE'
+[ "$MNTNAME" ] || MNTNAME='NONENONE'
 DRVNAME=`busybox mount | /bin/grep -w "$MNTNAME" | cut -f 1 -d ' '`
 fi
 echo "202 290 $LINENO DRVNAME='$DRVNAME' FULLCMD='$FULLCMD' '$*='$*"
@@ -355,7 +385,7 @@ Another likely cause is a mounted file somewhere on the partition ...
 
 $FUSERS" &
 
-MOUNTED=`busybox mount | cut -f 1-3 -d ' ' | grep -v -E "root|^no|initrd|union|aufs|/nodev|shmfs|tmpfs"`  ##|$DRVNAME"`
+MOUNTED=`busybox mount | cut -f 1-3 -d ' ' | grep '^/' | grep -v -E "root|^no|initrd|union|aufs|/nodev|shmfs|tmpfs"`  ##|$DRVNAME"`
 [ "$VERBOSE" ] && echo "$MOUNTED"
 Buttons=`echo "$MOUNTED" | cut -f 1 -d ' '`
 [ "$VERBOSE" ] && echo "$Buttons"
@@ -387,50 +417,50 @@ DRIVE=`echo "$DRIVE" | cut -f 1 -d ':'`
 [ "$VERBOSE" ] && echo DRIVE="$DRIVE"=
 DRIVE="/dev/$DRIVE"
 [ "$VERBOSE" ] && echo DRIVE="$DRIVE"=
+
 if [ -n "$DRIVE" ] && [ "$DRIVE" != "QUIT" ] ; then
 
+MNTPT=`busybox mount | /bin/grep "^$DRIVE " | cut -f 3 -d ' '`
+ if [ -n "`/bin/ps -elF | grep 'ROX-Filer'| grep -v 'grep'`" ] ; then
+ [ "$VERBOSE" ] && echo "ROX='$MNTPT'"
+ rox -D "$MNTPT"
+ sleep 0.5
+ fi
 
-MNTPT=`busybox mount | /bin/grep "$DRIVE" | cut -f 3 -d ' '`
-if [ -n "`/bin/ps -elF | grep 'ROX-Filer'| grep -v 'grep'`" ] ; then
-[ "$VERBOSE" ] && echo "ROX='$MNTPT'"
-rox -D "$MNTPT"
-sleep 0.5
-fi
+ killall xmessage
 
-killall xmessage
+ fuser-FULL -k -m "$MNTPT"
 
-fuser-FULL -k -m "$MNTPT"
+ if [ -n "`echo "$DRIVE" | grep '/loop[/0-9]'`" ] ; then
 
-if [ -n "`echo "$DRIVE" | grep '/loop[/0-9]'`" ] ; then
+  MNTPT=`busybox mount | /bin/grep "^$DRIVE " | cut -f3- -d ' ' | sed 's§ type.*§§'`
 
-MNTPT=`busybox mount | /bin/grep "$DRIVE" | cut -f3- -d ' ' | sed 's§ type.*§§'`
+  [ -d "$MNTPT" ] && rox -D "$MNTPT"
+  busybox umount -d $DRIVE
+  if [ $? = 0 ]; then
+  sleep 2s
 
-[ -d "$MNTPT" ] && rox -D "$MNTPT"
-busybox umount -d $DRIVE
-if [ $? = 0 ]; then
-sleep 2s
+  [ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep " $MNTPT "`" ] && rmdir $VERB "$MNTPT"
 
-[ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep "$MNTPT"`" ] && rmdir "$MNTPT"
+  /bin/umount $FULLCMD
+  RETVAL=$?
+  sleep 2s
 
-/bin/umount $FULLCMD
-RETVAL=$?
-sleep 2s
+  [ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep " $MNTPT "`" ] && rmdir $VERB "$MNTPT"
+  fi
 
-[ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep "$MNTPT"`" ] && rmdir "$MNTPT"
-fi
+ else
 
-else
+  MNTPT=`busybox mount | /bin/grep -w "^$DRIVE" | cut -f3 -d ' '`
 
-MNTPT=`busybox mount | /bin/grep "$DRIVE" | cut -f3 -d ' '`
+  [ -d "$MNTPT" ] && rox -D "$MNTPT"
+  /bin/umount $DRIVE
+  RETVAL=$?
+  sleep 2s
 
-[ -d "$MNTPT" ] && rox -D "$MNTPT"
-/bin/umount $DRIVE
-RETVAL=$?
-sleep 2s
+  [ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep " $MNTPT "`" ] && rmdir $VERB "$MNTPT"
 
-[ -d "$MNTPT" ] && [ -z "`busybox mount | /bin/grep "$MNTPT"`" ] && rmdir "$MNTPT"
-
-fi
+ fi
 
 fi
 
@@ -449,8 +479,8 @@ fi #end of error = 0
 
 #v409, instead just make sure the symlink stays there...
 if [ ! -L /etc/mtab ];then
- rm -f /etc/mtab
- ln -s /proc/mounts /etc/mtab
+ rm $VERB -f /etc/mtab
+ ln $VERB -s /proc/mounts /etc/mtab
 fi
 
 
@@ -462,7 +492,7 @@ RMDIRS=`echo "$MNTDPTS1" | /bin/grep -v "$MNTDPTS2"`
 
 for i in $RMDIRS ; do
 
-[ -d "$i" -a -z "`busybox mount | grep "$i"`" ] && rmdir "$i"
+[ -d "$i" -a -z "`busybox mount | grep "$i"`" ] && rmdir $VERB "$i"
 
 done
 
