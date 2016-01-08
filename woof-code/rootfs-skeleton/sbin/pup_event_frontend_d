@@ -977,8 +977,8 @@ test -d /sys/block || _exit 1 "Directory /sys/block missing."
 
 echo "$$" >/var/run/pup_event_frontend_d.pid."$DISP"
 
-ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2
-[ -f /tmp/pup_event_frontend_block1 ] || cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2."$DISP"
+[ -f /tmp/pup_event_frontend_block1."$DISP" ] || cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1."$DISP"
 cursPOS2=`getcurpos`
 [ "$cursPOS1" ] || cursPOS1="$cursPOS2"
 
@@ -1002,36 +1002,37 @@ do
 
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
- ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2
+ ls -1 /sys/block | grep -vE '^zram|^ram|^loop|^md|^mtd|^nbd' > /tmp/pup_event_frontend_block2."$DISP"
 
  unset REMOVEBLOCK BLOCKS2 BLOCKDIFF BLOCKSPROBE oneTESTDRV BLOCKSADD BLOCKSREM
 
  if [ -f /tmp/pup_event_frontend_block_request ]; then #w015 (see gparted_shell, puppyinstaller, bootflash)
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
-  BLOCKS2=`grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2`
-  echo "$BLOCKS2" > /tmp/pup_event_frontend_block2
+  BLOCKS2=`grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2."$DISP"`
+  echo "$BLOCKS2" > /tmp/pup_event_frontend_block2."$DISP"
   rm $VERB -f /tmp/pup_event_frontend_block_request
  fi
  #[ -f /tmp/pup_event_frontend_block1 ] || cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF=`diff -u /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`
+ BLOCKDIFF=`diff -u /tmp/pup_event_frontend_block1."$DISP" /tmp/pup_event_frontend_block2."$DISP"`
 
  #091223 some interfaces, no change in /sys/block when insert/remove a card...
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- rox will remove an invalid drive icon in right-click menu .
  if [ ! "$BLOCKDIFF" ];then
   BLOCKSPROBE=""
-  for oneTESTDRV in `cat /tmp/pup_event_frontend_block2 | grep '^sd'`
+  for oneTESTDRV in `grep '^sd' /tmp/pup_event_frontend_block2."$DISP"`
   do
    [ "`echo "$ATADRIVES" | grep "$oneTESTDRV"`" ] && continue
    [ "`cat /sys/block/${oneTESTDRV}/removable 2>/dev/null`" = "0" ] && continue
    if [ ! -e /sys/block/${oneTESTDRV}/${oneTESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
     #[ -d $home/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${oneTESTDRV}:"
     [ -d $home/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${oneTESTDRV}:"
-    dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 > /dev/null 2>&1 #try force kernel to update.
+    #dd if=/dev/${oneTESTDRV} of=/dev/null bs=512 count=1 > /dev/null 2>&1 #try force kernel to update.
+    ( true </dev/$oneTESTDRV ) >>$OUT 2>>$ERR
    else
     #[ ! -d $home/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${oneTESTDRV}:"
-     [ ! -d $home/.pup_event/drive_${oneTESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
+     [ -d $home/.pup_event/drive_${oneTESTDRV}1 ] || BLOCKSPROBE="${BLOCKSPROBE}+${oneTESTDRV}:"
    fi
   done
   [ "$BLOCKSPROBE" ] && BLOCKDIFF=`echo -n "$BLOCKSPROBE" | tr ':' '\n'`
@@ -1040,28 +1041,30 @@ do
  #########hotplug block event##########
  if [ "$BLOCKDIFF" ]; then
 
-  cp $VERB -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+  cp $VERB -f /tmp/pup_event_frontend_block2."$DISP" /tmp/pup_event_frontend_block1."$DISP"
 
   #BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
   BLOCKSADD=`echo "$BLOCKDIFF" | grep '^\+[[:alpha:]].*' | tr -d '\+'`
   #BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
   BLOCKSREM=`echo "$BLOCKDIFF" | grep '^\-[[:alpha:]].*' | tr -d '\-'`
   _debug "BLOCKSADD='$BLOCKSADD'"
-  ACTION=add
-  SUBSYSTEM=block
-  DEVTYPE=disk
+  _debug "BLOCKSREM='$BLOCKSREM'"
+
+  #ACTION=add
+  #SUBSYSTEM=block
+  #DEVTYPE=disk
 
   for nameDISK in $BLOCKSADD
   do
    [ -e /sys/block/$nameDISK ] || continue #precaution
    namePARTITION=$nameDISK
-   DEVPATH=/block/$nameDISK
+   #DEVPATH=/block/$nameDISK
    odPATTERN='^/dev/'"$nameDISK"'|'
    PROBEDISK=`probedisk2`
    DRVS_OPTICAL=`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
-   DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
-   categoryDISK=`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`
-   DRV_DESCRIPTION=`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 3 -d '|' | tr -s ' '`
+    DRVS_FLOPPY=`echo "$PROBEDISK" | grep '|floppy|'  | cut -f 1 -d '|' | cut -f 3 -d '/'` #update
+   categoryDISK=`echo "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`
+   DRV_DESCRIPTION=`echo "$PROBEDISK" | grep "$odPATTERN" | cut -f 3 -d '|' | tr -s ' '`
    _debug "blockadd:ICONDESK='$ICONDESK' nameDISK='$nameDISK' categoryDISK='$categoryDISK' DRV_DESCRIPTION='$DRV_DESCRIPTION'"
    [ "$ICONDESK" = "true" ] && _create_icon #uses nameDISK, categoryDISK, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && {
@@ -1075,50 +1078,48 @@ do
   done
 
   _debug "BLOCKSREM='$BLOCKSREM'"
-  ACTION=remove
+  #ACTION=remove
   for nameDISK in $BLOCKSREM
   do
    #[ -e /sys/block/$namePARTITION ] && continue #precaution. w015 must remove.
-   DRVS_OPTICAL=`echo "$DRVS_OPTICAL" | grep -v "$nameDISK"` #update
-   DRVS_FLOPPY=`echo "$DRVS_FLOPPY" | grep -v "$nameDISK"` #update
-   DEVPATH=/block/$nameDISK
+   DRVS_OPTICAL=`echo "$DRVS_OPTICAL" | grep -vw "$nameDISK"` #update
+    DRVS_FLOPPY=`echo "$DRVS_FLOPPY"  | grep -vw "$nameDISK"` #update
+   #DEVPATH=/block/$nameDISK
    if [ "`pidof gtkdialog_pmount`" ]; then #if pmount running, refresh it.
-    killall gtkdialog_pmount 2>/dev/null
+    killall gtkdialog_pmount
     sleep 0.1
     LANG=$OLDLANG pmount & #100613 fix from shinobar.
    fi
    #namePARTITION=$nameDISK
    _debug "blockrem: nameDISK='$nameDISK'"
    _remove_pinboard #needs nameDISK
-   rm $VERB -rf $home/.pup_event/drive_${nameDISK}* 2>/dev/null
+   rm $VERB -rf $home/.pup_event/drive_${nameDISK}*
   done
 
  fi
- unset
- if [ $TOGGLE -eq 0 ];then #slow down to every 4 seconds.
-  TOGGLE=1
-  continue
- else
-  TOGGLE=0
- fi
+ #unset
+
+ [ "$TOGGLE" = 0 ] && { #slow down to every 4 seconds.
+  TOGGLE=1; continue; } || TOGGLE=0
+
 
  #######four second timeout procesing#########
  SAVECNT=$((SAVECNT + 4))
- if [ $RAMSAVEINTERVAL -ne 0 -a $SAVECNT -gt $RAMSAVEINTERVAL ];then
+ if [ "$RAMSAVEINTERVAL" -ne 0 -a "$SAVECNT" -gt $RAMSAVEINTERVAL ];then
   touch /tmp/snapmergepuppyrequest #request to _savepuppy .
   SAVECNT=0
  fi
- if [ $POWERTIMEOUT -ne 0 ];then #w007 power-off computer after inactivity.
+ if [ "$POWERTIMEOUT" -ne 0 ];then #w007 power-off computer after inactivity.
   MOUSECNT=$((MOUSECNT + 4))
   MINUTECNT=$((MINUTECNT + 4))
-  if [ $MINUTECNT -gt 59 ];then #come in here every minute...
+  if [ "$MINUTECNT" -gt 59 ];then #come in here every minute...
    MINUTECNT=0
    cursPOS2=`getcurpos`
    #echo "MOUSECNT=$MOUSECNT CURPOS2=$CURPOS2" >> /tmp/pup_event_frontend_d_curpos.log
    #[ "$CURPOS1" ] || CURPOS1="$CURPOS2"
    [ "$cursPOS1" = "$cursPOS2" ] || MOUSECNT=0
    cursPOS1="$cursPOS2"
-   [ $MOUSECNT -gt $POWERTIMEOUT ] && wmpoweroff &
+   [ "$MOUSECNT" -gt $POWERTIMEOUT ] && wmpoweroff &
   fi
  fi
  #some apps should not be disturbed by this background stuff...
