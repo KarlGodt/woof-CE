@@ -136,12 +136,13 @@ fi
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm -f /etc/mtab
 ln -s /proc/mounts /etc/mtab
-
+mv /tmp/* /var/tmp/
 #redirect all output to a log file (must do after remount rw)...
-[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
+#[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
+exec 1>/tmp/bootsysinit.log 2>&1
 
 busybox mount /dev/pts ;STATUS=$((STATUS+$?))
-mkdir /sys 2>/dev/null
+mkdir -p /sys
 busybox mount -t sysfs none /sys ;STATUS=$((STATUS+$?))
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
@@ -158,14 +159,12 @@ KERNMAJ=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_
 if [ ! -f /lib/modules/${KERNVER}/modules.dep ];then
  NEEDDEPMOD="yes" #w469 files may not be there to save space.
  [ -d /lib/modules/${KERNVER}/initrd ] && NEEDGUNZIP="yes"
-else
- if [ -d /lib/modules/${KERNVER}/initrd ];then
+elif [ -d /lib/modules/${KERNVER}/initrd ];then
   #100127 remove leading '/' from '/initrd/' for comaptibility with depmod-FULL...
   if [ "`cat /lib/modules/${KERNVER}/modules.dep | cut -f 1 -d ':' | grep  'initrd/'`" = "" ];then
    NEEDDEPMOD="yes" #w469 files may not be there to save space.
    NEEDGUNZIP="yes"
   fi
- fi
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
@@ -173,7 +172,7 @@ if [ "$NEEDGUNZIP" = "yes" ];then
  #do
  # gunzip $ONEMOD
  #done
- gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
+ /bin/gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
 fi
 
 #w481 now building with busybox depmod, in module-init-tools have depmod-FULL, so comment out...
@@ -204,10 +203,10 @@ if [ "$NEEDDEPMOD" = "yes" ];then
  echo -n ' depmod' >/dev/console
  #110722 get rid of stray modules.* files, may occur when mix usage of the two depmods...
  mkdir -p /tmp/rc_sysinit_dump
- mv -f /lib/modules/${KERNVER}/modules.* /tmp/rc_sysinit_dump
- [ -f /tmp/rc_sysinit_dump/modules.builtin ] && mv -f /tmp/rc_sysinit_dump/modules.builtin /lib/modules/${KERNVER}/
- [ -f /tmp/rc_sysinit_dump/modules.order ] && mv -f /tmp/rc_sysinit_dump/modules.order /lib/modules/${KERNVER}/
- rm -f /tmp/rc_sysinit_dump/modules.*
+ mv $VERB -f /lib/modules/${KERNVER}/modules.* /tmp/rc_sysinit_dump
+ [ -f /tmp/rc_sysinit_dump/modules.builtin ] && mv $VERB -f /tmp/rc_sysinit_dump/modules.builtin /lib/modules/${KERNVER}/
+ [ -f /tmp/rc_sysinit_dump/modules.order ]   && mv $VERB -f /tmp/rc_sysinit_dump/modules.order   /lib/modules/${KERNVER}/
+ rm $VERB -f /tmp/rc_sysinit_dump/modules.*
  if [ "`busybox | grep 'depmod'`" != "" ];then
   busybox depmod #use busybox depmod if available.
  else
@@ -216,9 +215,9 @@ if [ "$NEEDDEPMOD" = "yes" ];then
 fi
 
 
-[ $layerfs ] && LAYERFS=$layerfs #boot param.
+[ $layerfs ]   && LAYERFS=$layerfs #boot param.
 [ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
-[ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
+[ "`/sbin/modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
 
 #110430 fixups for fido. 110503 removed (fixed in rc.shutdown)
 #HOMEUSER="`grep '^tty1' /etc/inittab | tr -s ' ' | cut -f 3 -d ' '`" #root or fido.
@@ -241,7 +240,7 @@ status_func $STATUS
 
 #110814 01micko: http://www.murga-linux.com/puppy/viewtopic.php?p=550932#550932
 if [ "`cat /etc/hostname`" = "puppypc" ];then
- echo -n "Updating unique hostname..." >/dev/console 
+ echo -n "Updating unique hostname..." >/dev/console
  echo "puppypc${RANDOM}" > /etc/hostname
  PUPHOSTNAME="`cat /etc/hostname`"
  HOSTSFILEFIRST="`grep -w 'puppypc' /etc/hosts|sed 's% puppypc%%'`"
@@ -253,7 +252,7 @@ fi
 
 #Ensure kernel-specific firmware.dep file present.
 [ ! -e /etc/modules/firmware.dep.$KERNVER ] \
- && mv -f /etc/modules/firmware.dep /etc/modules/firmware.dep.$KERNVER
+ && mv $VERB -f /etc/modules/firmware.dep /etc/modules/firmware.dep.$KERNVER
 
 #101202 hack, remove some firmware tarballs, no longer used...
 #dgcmodem: i have removed the /etc/init.d/Dgcmodem script from firmware tarball (so don't delete it).
@@ -261,7 +260,7 @@ fi
 for ONEFIRM in cdcacm hso ipwireless nozomi usbserial
 do
  if [ -f /lib/modules/all-firmware/${ONEFIRM}.tar.gz ];then
-  rm -f /lib/modules/all-firmware/${ONEFIRM}.tar.gz
+  rm $VERB -f /lib/modules/all-firmware/${ONEFIRM}.tar.gz
   ofPATTERN='/^'"${ONEFIRM}"':/d'
   sed -i -e "$ofPATTERN" /etc/modules/firmware.dep.$KERNVER
  fi
@@ -269,29 +268,31 @@ done
 
 #################LOAD KERNEL MODULES################
 echo "LOAD KERNEL MODULES"
-echo -n "Loading kernel modules..." >/dev/console
+echo -n "    Loading kernel modules..." >/dev/console
+
+alias modprobe='/sbin/modprobe -v -b'
 
 MODALIASES="`ls /sys/bus/*/devices/*/modalias`"
 
 #101119 new /sbin/pup_event_backend_modprobe, these must be deleted every boot...
-rm -f /etc/modprobe.d/alsa_card*.conf 2>/dev/null
+rm $VERB -f /etc/modprobe.d/alsa_card*.conf
 touch /etc/modules/firmware.dep.inst.${KERNVER} #make sure exists.
-rm -f /dev/ttyUSB* 2>/dev/null #101210 may have been left there if modem plugged in at shutdown.
-rm -f /dev/mixer 2>/dev/null #110113 make sure removed, see test in /etc/init.d/10alsa.
-rm -f /dev/snd/* #110304 after a reboot, some of these may be wrong.
-mkdir /tmp/rc_sysinit #101210 for logging into.
+rm $VERB -f /dev/ttyUSB*    #101210 may have been left there if modem plugged in at shutdown.
+rm $VERB -f /dev/mixer      #110113 make sure removed, see test in /etc/init.d/10alsa.
+rm $VERB -f /dev/snd/*      #110304 after a reboot, some of these may be wrong.
+mkdir $VERB /tmp/rc_sysinit #101210 for logging into.
 mkdir /tmp/pup_event_backend #101210 for logging into, see /sbin/pup_event_backend_modprobe.
 mkdir /tmp/simple_network_setup #101216
 
 #101119 no longer using /tmp/pup_event_modprobe.conf, put blacklist into /etc/modprobe.d/...
-rm -f /etc/modprobe.d/blacklist*.conf
+rm $VERB -f /etc/modprobe.d/blacklist*.conf
 BLACKLISTVARS="`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/blacklist /' | grep -v ' $'`"
 echo "$BLACKLISTVARS" > /etc/modprobe.d/blacklist.conf
 
 if [ ! -d /initrd ];then #v423 full hd install.
  #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin. have this in 'init' also...
- [ "`modinfo floppy 2>/dev/null`" != "" ] && modprobe floppy > /dev/null 2>&1
- [ "`modinfo psmouse 2>/dev/null`" != "" ] && modprobe psmouse
+ [ "`/sbin/modinfo floppy 2>/dev/null`" != "" ] && modprobe floppy
+ [ "`/sbin/modinfo psmouse 2>/dev/null`" != "" ] && modprobe psmouse
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ];then
   modprobe yenta-socket #101119
@@ -300,7 +301,7 @@ if [ ! -d /initrd ];then #v423 full hd install.
  #v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  # this is contrary to my understanding all these years, but oh well, let's do it...
  ELSPCI="`elspci -l`" #jesses great little utility.
- [ "`echo "$ELSPCI" | grep '0C0320'`" != "" ] && modprobe ehci-hcd > /dev/null 2>&1 #110712 maybe builtin to kernel.
+ [ "`echo "$ELSPCI" | grep '0C0320'`" != "" ] && modprobe ehci-hcd  #110712 maybe builtin to kernel.
  #...perhaps a udev rule could have done this?
 fi
 
@@ -320,16 +321,20 @@ else
  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
 fi
 sleep 0.1
-
+MODULECNT=0
 #replay uevents from /sys...
 for ONEMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
+ #ONEPATH="`dirname $ONEMODALIAS`"
+ ONEPATH=${ONEMODALIAS%/*}
  if [ -e ${ONEPATH}/uevent ];then
   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
   sleep 0.02
+  MODULECNT=$((MODULECNT+1))
+  echo -en "\r$MODULECNT" >/dev/console
  fi
 done
+
 ##wait until uevent queue is empty...
 #if [ -f /sbin/udevd ];then
 # /sbin/udevadm settle --timeout=30
@@ -340,20 +345,29 @@ done
 #fi
 
 if [ ! -d /initrd ];then #full hd installation.
- modprobe nls_cp437 > /dev/null 2>&1 #these needed by vfat/ntfs/ext2 f.s.'s. 110712 maybe builtin.
- modprobe nls_iso8859-1 > /dev/null 2>&1 # "
+ modprobe nls_cp437      #these needed by vfat/ntfs/ext2 f.s.'s. 110712 maybe builtin.
+ modprobe nls_iso8859-1  # "
  modprobe fuse
  modprobe $LAYERFS #unionfs or aufs.
  modprobe squashfs
+
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #110126 define ATADRIVES as all internal ide/pata/sata drives (not usb), except optical...
  #110712 rewritten to handle kernel with usb driver built-in...
- ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' | xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
- ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
+ #ALLDRVS0="`find /sys/block -maxdepth 1 -name 'mmc*' -o -name 'sd*' -o -name 'sr*' | xargs -l readlink 2>/dev/null | grep -v '/usb[0-9]' | rev | cut -f 1 -d '/' | rev`" #all *except* usb!
+ #ALLDRVS0="`ls -1d /sys/block/* | grep -E '^/sys/block/sr*|^/sys/block/sd*|^/sys/block/mmc*'`"
+ ALLDRVS0="`ls -1 /sys/block | grep -E '^sr*|^sd*|^mmc*'`"
+ for drive in $ALLDRVS0 ; do
+ #readlink $drive | grep '/usb' || ALLDRVS="$ALLDRVS ${drive##*/}"
+ readlink /sys/block/$drive | grep '/usb' || ALLDRVS="$ALLDRVS ${drive##*/}"
+ done
+ #ALLDRVS="`echo "$ALLDRVS0" | tr '\n' ' '`" #all *except* usb!
  [ "$ALLDRVS" = " " ] && ALLDRVS=""
- ATADRIVES="`echo "$ALLDRVS0" | grep -v '^sr' | tr '\n' ' '`"
+ #ATADRIVES="`echo "$ALLDRVS0" | grep -v '^sr' | tr '\n' ' '`"
+ ATADRIVES="`echo "$ALLDRVS" | tr '\ ' '\n' | grep -v '^sr' | tr '\n' ' '`"
  [ "$ATADRIVES" = " " ] && ATADRIVES=""
- ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep '^sr' | tr '\n' ' '`"
+ #ATAOPTICALDRIVES="`echo "$ALLDRVS0" | grep '^sr' | tr '\n' ' '`"
+ ATAOPTICALDRIVES="`echo "$ALLDRVS" | tr ' ' '\n' | grep '^sr' | tr '\n' ' '`"
  [ "$ATAOPTICALDRIVES" = " " ] && ATAOPTICALDRIVES=""
  if [ -e /proc/ide ];then #110126
   for ONEIDE in `ls -1 /proc/ide | grep '^hd' | tr '\n' ' '`
@@ -372,14 +386,16 @@ if [ ! -d /initrd ];then #full hd installation.
  echo '#ATAOPTICALDRIVES is list of non-usb optical drives...'  >> /etc/rc.d/PUPSTATE #110206
  echo "ATAOPTICALDRIVES='$ATAOPTICALDRIVES'"  >> /etc/rc.d/PUPSTATE
 fi
+rm -f /root/.usb-drive-log-probedisk
+rm -f /root/.usb-drive-log-probepart
 
 [ ! -d /proc/acpi ] && modprobe apm #v406
 
 #101119 i really only want to load this for a kms-enabled video...
 KMS=no
-[ "`cat /proc/cmdline | grep 'modeset=1'`" != "" ] && KMS=yes
+[ "`grep 'modeset=1' /proc/cmdline`" != "" ] && KMS=yes
 [ "`cat /etc/modprobe.d/* | grep '^options .* modeset=1'`" != "" ] && KMS=yes
-[ "$KMS" = "yes" ] && modprobe fbcon > /dev/null 2>&1 #100703 needed by some xorg drivers when exit to console (ex: nouveau). 110712 maybe builtin.
+[ "$KMS" = "yes" ] && modprobe fbcon  #100703 needed by some xorg drivers when exit to console (ex: nouveau). 110712 maybe builtin.
 
 #110823 mavrothal: Check if it is an OLPC XO and add the devices...
 ISITANXO=`cat /sys/class/dmi/id/product_name`
@@ -403,13 +419,12 @@ echo -e "${DISTRO_NAME} Linux\n`uname -s` `uname -r` [`uname -m` arch]\n\n" > /e
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
-rm -f /mnt/home 2>/dev/null
+rm -f /mnt/home
 if [ ! -d /initrd ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln -s / /mnt/home
-else
- if [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
+elif [ "$PUP_HOME" ];then #see /etc/rc.d/PUPSTATE
   if [ "$PUP_HOME" = "/pup_ro1" -o "$PUP_HOME" = "/pup_rw" ];then
    #note, PUPMODE=6 will have PUP_HOME=/pup_rw.
    #in the case of the persistent storage being the partition itself, this will be mounted
@@ -420,7 +435,6 @@ else
   else
    ln -s /initrd${PUP_HOME} /mnt/home
   fi
- fi
 fi
 
 ################WAIT MODULES LOADED##################
@@ -430,33 +444,34 @@ echo -n "Waiting for modules to complete loading..." >/dev/console
 WAITCNT=0
 PCIPCMCIA="`elspci -l | grep -o '060700'`"
 if [ "$PCIPCMCIA" != "" ];then #this may be slow to respond.
- echo -n " pcmcia"  >/dev/console
+ echo -ne " pcmcia ""\e[s"  >/dev/console
  while [ $WAITCNT -lt 10 ];do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" != "" ] && break
   WAITCNT=`expr $WAITCNT + 1`
   sleep 1
-  echo -n " $WAITCNT" >/dev/console
+  echo -ne "$WAITCNT""\e[u" >/dev/console
  done
 fi
+echo -ne "\t" >/dev/console
 PCIUSB="`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`"
 #note, if initrd then usb-storage will have already loaded...
 USBBUILTIN='no'
-if [ "`modinfo ehci_hcd`" = "" ];then #110712
+if [ "`/sbin/modinfo ehci_hcd`" = "" ];then #110712
  #kernel has usb core drivers (and usb-storage) builtin.
  USBBUILTIN='yes'
 else
  if [ "$PCIUSB" != "" ];then #this may be slow to respond.
-  echo -n " usb"  >/dev/console
+  echo -ne " usb ""\e[s"  >/dev/console
   PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
   while [ $WAITCNT -lt 10 ];do
    [ `lsmod | grep -o -E '^uhci_hcd|^ohci_hcd|^ehci_hcd' | wc -l` -ge $PCIUSBNUM ] && break
    WAITCNT=`expr $WAITCNT + 1`
    sleep 1
-   echo -n " $WAITCNT" >/dev/console
+   echo -ne "$WAITCNT""\e[u" >/dev/console
   done
  fi
 fi
-
+echo -ne "\t" >/dev/console
 #replay uevents from /sys (more interfaces as a consequence of above drivers loaded)...
 #note, this also a workaround for kernel 'bug' where entries appear in /sys but no uevent
 #gets generated (yes it happens in 2.6.25.x kernel!)
@@ -521,13 +536,14 @@ if [ "$USBBUILTIN" = "no" ];then #110712
  # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
  #101119 /tmp/pup_event_backend/pup_event_module_devpath_log* now multiple files (see /sbin/pup_event_backend_modprobe)
  if [ "`cat /tmp/pup_event_backend/pup_event_module_devpath_log* | grep 'usb_storage'`" != "" ];then #see pup_event_backend_modprobe
-  echo -n " usb-storage"  >/dev/console
+  echo -ne " usb-storage ""\e[s"  >/dev/console
   while [ $WAITCNT -lt 15 ];do
    [ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
    sleep 1
    WAITCNT=`expr $WAITCNT + 1`
-   echo -n " $WAITCNT" >/dev/console
+   echo -ne "$WAITCNT""\e[u" >/dev/console
   done
+  echo -ne "\t" >/dev/console
   #precaution, make sure have got them all... v412 need sort -u...
   USBSTORAGES=`/bin/dmesg | grep "usb-storage: device found at" | sort -u | wc -l`
   while [ $WAITCNT -lt 15 ];do
@@ -535,7 +551,7 @@ if [ "$USBBUILTIN" = "no" ];then #110712
    [ $AVAILABLEUSBSTORAGES -ge $USBSTORAGES ] && break
    sleep 1
    WAITCNT=`expr $WAITCNT + 1`
-   echo -n " $WAITCNT" >/dev/console
+   echo -n "$WAITCNT""\e[u" >/dev/console
   done
  fi
 
@@ -608,19 +624,19 @@ fi
 
 #100814 100903 record cumulative tx/rx, see also network_tray and rc.shutdown...
 UPDATE_MONTH="`date +%b`"
-CURRENT_MONTH="`cat /var/local/sns/current_month`" 
-if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then 
- echo "$UPDATE_MONTH" > /var/local/sns/current_month 
- for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t;do 
-  echo -n 0 > /var/local/${ONECOUNT}x_bytes_month 
- done 
-fi 
+CURRENT_MONTH="`cat /var/local/sns/current_month`"
+if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+ echo "$UPDATE_MONTH" > /var/local/sns/current_month
+ for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t;do
+  echo -n 0 > /var/local/${ONECOUNT}x_bytes_month
+ done
+fi
 
 #100227 choose default network tool...
 DEFAULTCONNECT="`cat /usr/local/bin/defaultconnect | tail -n 1 | tr -s " " | cut -f 2 -d " "`"
 [ "`grep 'gprs' /usr/local/bin/defaultconnect`" != "" ] && DEFAULTCONNECT='pgprs-connect'
 [ "$DEFAULTCONNECT" = "gkdial" ] && DEFAULTCONNECT="pupdial" #for older pups.
-NETCHOICE="$DEFAULTCONNECT"	#101007 shinobar
+NETCHOICE="$DEFAULTCONNECT" #101007 shinobar
 case $DEFAULTCONNECT in
  Pwireless2)
   NETCHOICE='Pwireless2'
@@ -679,7 +695,7 @@ case $NETCHOICE in
   #100628 shinobar: launch rc.network if eth0 is usable
   RCNETWORK=/etc/rc.d/rc.network_basic #this only sets up interface 'lo'.
   # eth0 usable?
-  if /sbin/ifconfig eth0 &>/dev/null ;then
+  if /sbin/ifconfig eth0 ;then
     if [ -x /etc/rc.d/rc.network ]; then
       RCNETWORK=/etc/rc.d/rc.network
     elif [ -e /etc/init.d/Pwireless2 ]; then
@@ -723,7 +739,7 @@ rm -f /dev/cdrom; rm -f /dev/dvd; rm -f /etc/cdburnerdevice
 [ "$CDTYPE" ] && ln -sf /dev/$CDTYPE /dev/cdrom
 [ "$DVDTYPE" ] && ln -sf /dev/$DVDTYPE /dev/dvd
 [ "$CDBURNERTYPE" ] && echo -n "$CDBURNERTYPE" > /etc/cdburnerdevice
-[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE >/dev/null 2>&1
+[ "$DVDTYPE" ] && hdparm -d1 /dev/$DVDTYPE
 
 echo -n ' input' >/dev/console #100131
 if [ ! -f /etc/mousedevice ];then
@@ -775,7 +791,8 @@ fi
 
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
 if [ ! -d /initrd ];then #if no /initrd, full hd install.
- [ ! $PDEV1 ] && PDEV1="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+ #[ ! $PDEV1 ] && PDEV1="`df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
+ [ ! $PDEV1 ] && PDEV1="`rdev |cut -f1 -d ' '`"
  [ ! $DEV1FS ] && DEV1FS="`mount | grep ' on / ' | grep '^/dev/' | cut -f 5 -d ' '`"
  if [ "$PDEV1" -a "$DEV1FS" ];then
   [ "`grep '^PDEV1' /etc/rc.d/PUPSTATE`" = "" ] && echo "PDEV1='$PDEV1'" >> /etc/rc.d/PUPSTATE

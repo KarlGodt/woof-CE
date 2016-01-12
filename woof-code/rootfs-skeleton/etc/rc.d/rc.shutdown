@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright bkauler 2006,2007 www.puppylinux.com
 #2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #updated aug 2007 for v2.20, save in a folder.
@@ -34,7 +34,7 @@
 #100911 fsckme.err filename changed to fsckme.flg. see also initNEW, rc.sysinit, init (initramfs).
 #100912 no longer have FASTPARTS variable in /etc/rc.d/PUPSTATE, use ATADRIVES instead.
 #100912 if copy .sfs's from cd to hd, copy into a subdir, DISTRO_IDSTRING truncated to 8 chars.
-#100915 booting cd, put save-file in same subdir (as 100912). 
+#100915 booting cd, put save-file in same subdir (as 100912).
 #100917 booting usb, if drive has more than one partition, allow choice where save session.
 #100920 reverse 100915. Fix SAVEPATH.
 #100926 crap, recent versions of dialog do not work with --ok-label, --cancel-label, if no extra button...
@@ -64,10 +64,10 @@
 export TEXTDOMAIN=rc.shutdown
 export OUTPUT_CHARSET=UTF-8
 
-clear
-exec 1> /dev/null 2>&1
+#clear
+#exec 1> /dev/null 2>&1
 
-which rfkill &>/dev/null && rfkill unblock all #110919 jemimah has this in fluppy. if don't do this, may be locked at next boot.
+#which rfkill &>/dev/null && rfkill unblock all #110919 jemimah has this in fluppy. if don't do this, may be locked at next boot.
 
 #w482 use xorriso if it is installed (see also functions4puppy)...
 CDRECORD='cdrecord'
@@ -81,9 +81,12 @@ export CDRECORD MKISOFS
 #variables created at bootup by init script in initrd...
 . /etc/rc.d/PUPSTATE #v2.02
 . /etc/DISTRO_SPECS #v412
+[ "$PUPMODE" = 5 ] && exec 1> /dev/null 2>&1
 
 #echo "`eval_gettext \"\\\${DISTRO_NAME} is now shutting down...\"`" > /dev/console
-echo "${DISTRO_NAME} is now shutting down..." > /dev/console
+echo "${DISTRO_NAME} ${DISTRO_VERSION} is now shutting down..." > /dev/console
+
+which rfkill && rfkill unblock all #110919 jemimah has this in fluppy. if don't do this, may be locked at next boot.
 
 #100315 improper shutdown check. see /etc/rc.d/rc.sysinit, /init in initramfs, and /sbin/init...
 [ -f /fsckme.flg ] && rm -f /fsckme.flg
@@ -91,7 +94,7 @@ echo "${DISTRO_NAME} is now shutting down..." > /dev/console
 
 ORIGPUPMODE=$PUPMODE #v2.22
 
-#echo $(gettext "Executing /etc/rc.d/rc.shutdown...") 
+#echo $(gettext "Executing /etc/rc.d/rc.shutdown...")
 echo "Executing /etc/rc.d/rc.shutdown..."
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin
@@ -118,13 +121,14 @@ PSUBDIR="`dirname "$PUPSFSFILE"`"
 . /etc/rc.d/functions4puppy #v3.01
 
 killzombies() {
- ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+ ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
  for ONEZOMBIE in $ZOMBIES
  do
   #echo "`eval_gettext \"Killing parentless zombie process \\\${ONEZOMBIE}\"`"
   echo "Killing parentless zombie process $ONEZOMBIE"
   kill $ONEZOMBIE
  done
+ dd if=/dev/vcs1 of=/tmp/vcs1-shutdown.$RANDOM
 }
 
 
@@ -148,15 +152,15 @@ sync
 #just a precaution...
 #echo $(gettext "Killing X and all X apps...")
 echo "Killing X and all X apps..."
-killall -9 X > /dev/null 2>&1
+killall -9 X
 sleep 1
-killall -3 X > /dev/null 2>&1
+killall -3 X
 sync
 
 #MU warns may need to do this for dillo...
-killall file.dpi 2>/dev/null
-killall bookmarks.dpi 2>/dev/null
-killall dpid 2>/dev/null
+killall file.dpi
+killall bookmarks.dpi
+killall dpid
 
 #100902 log the cumulative bytes transmitted on dialup...
 modemdisconnect #(if connected)
@@ -186,7 +190,7 @@ fi
 for MOUNTPOINT in `mount | grep '^//' | cut -d  ' ' -f 3 | tr '\n' ' '`
 do
  umount -f $MOUNTPOINT
-done 
+done
 
 #v2.16 some packages have a service script that requires stopping...
 for service_script in /etc/init.d/*
@@ -201,9 +205,9 @@ done
 if [ "`grep 'net-setup.sh' /usr/local/bin/defaultconnect`" = "" ];then #see connectwizard and connectwizard_2nd.
  for ONENETIF in `ifconfig | grep -E '^wifi[0-9]|^wlan[0-9]|^eth[0-9]' | cut -f 1 -d ' ' | tr '\n' ' '`
  do
-  ifconfig $ONENETIF down 2> /dev/null
+  ifconfig $ONENETIF down
   [ "`iwconfig | grep "^${ONENETIF}" | grep "ESSID"`" != "" ] && iwconfig $ONENETIF essid off #100309
-  dhcpcd --release $ONENETIF 2>/dev/null #100309
+  dhcpcd --release $ONENETIF #100309
  done
 else
  /etc/rc.d/rc.network stop
@@ -215,8 +219,8 @@ fi
 # Unload the Ethernet drivers on shutdown to prevent battery drain.
 for i in `lsmod | cut -d' ' -f1 | tr '\n' ' '`
 do
- if grep -q "^$i " /etc/networkmodules; then
-  modprobe -r "$i"
+ if grep "^$i " /etc/networkmodules; then
+  modprobe -vr "$i"
  fi
 done
 
@@ -230,7 +234,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
    PID=`cat /var/run/cardmgr.pid`
    kill $PID
    for N in 1 2 3 4 ; do
-    kill -0 $PID 2>/dev/null || break #-0 is test only.
+    kill -0 $PID || break #-0 is test only.
     sleep 1
    done
   fi
@@ -238,18 +242,18 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
    PID=`cat /var/lib/pcmcia/cardmgr.pid`
    kill $PID
    for N in 1 2 3 4 ; do
-    kill -0 $PID 2>/dev/null || break #-0 is test only.
+    kill -0 $PID || break #-0 is test only.
     sleep 1
    done
   fi
   killall -3 "CardBus Watcher" #BK bug, changed -q to -3.
-  /sbin/rmmod tcic 2>/dev/null || /sbin/rmmod i82365 2>/dev/null || /sbin/rmmod yenta_socket 2>/dev/null || /sbin/rmmod i82092 2>/dev/null
+  /sbin/rmmod tcic || /sbin/rmmod i82365 || /sbin/rmmod yenta_socket || /sbin/rmmod i82092
   echo "done."
   rm -f /var/lock/subsys/pcmcia
  fi
 fi
 
-killall udevd > /dev/null 2>&1 #100615
+killall udevd  #100615
 
 #first time booted puppy, there may not have been any persistent storage...
 if [ $PUPMODE -eq 5 ];then #ifpupmode5
@@ -264,7 +268,7 @@ if [ $PUPMODE -eq 5 ];then #ifpupmode5
 . /tmp/shutdownconfig_results #supplies variables PUPMODE SAVEFS PUPSAVE SAVEPART SAVEFILE NAMEONLY SAVEPATH MYPASSWORD SFEXT
   rm -f /tmp/shutdownconfig_results #precaution.
  fi
- 
+
 fi #end ifpupmode5
 
 #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
@@ -300,7 +304,7 @@ swapfile_func() {
         mkswap ${localSMNTPT}/pupswap.swp
        fi
        if [ $? -ne 0 ];then
-        rm -f ${localSMNTPT}/pupswap.swp 2>/dev/null
+        rm -f ${localSMNTPT}/pupswap.swp
         echo $(gettext "...error, unable to create swapfile.") >/dev/console
         #echo "...error, unable to create swapfile." >/dev/console
        fi
@@ -320,7 +324,7 @@ if [ "$PUPSAVE" != "" ];then
  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
-clear >/dev/console
+#clear >/dev/console
 
 #save session...
 case $PUPMODE in
@@ -341,7 +345,7 @@ case $PUPMODE in
    fi
    DEV1MNT="/mnt/$xPDEV"
   fi
-  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`"
+  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`"
   for ONEDIR in $RDIRS
   do
    cp -a $ONEDIR ${DEV1MNT}/
@@ -353,8 +357,8 @@ case $PUPMODE in
 
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func $DEV1MNT $xPDEV
-  
-  umount $DEV1MNT 2> /dev/null
+
+  umount $DEV1MNT
   ;;
  7) #PDEV1 and PUPSFS.
    echo "`eval_gettext \"Saving session to \\\${PDEV1}...\"`" >/dev/console
@@ -395,7 +399,7 @@ case $PUPMODE in
    [ ! $? -eq 0 ] && exit 1
    mount -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
   fi
-  
+
   #floppy disk has little space. snapmergepuppy handles this for subsequent saves, but for now,
   #be radical, only save /etc...
   if [ "$SAVEPART" = "fd0" ];then
@@ -403,12 +407,12 @@ case $PUPMODE in
   else
    #RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`"
    #110503 remove /var exclusion...
-   RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v -E '/$|/mnt|/tmp|/proc|/sys|/dev|/lost' | tr "\n" " "`"
+   RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -v -E '/$|/mnt|/tmp|/proc|/sys|/dev|/lost' | tr "\n" " "`"
   fi
   for ONEDIR in $RDIRS
   do
    BASENAME="`basename $ONEDIR`"
-   
+
    if [ ! -d /tmp/save1stpup/${BASENAME} ];then #110503
     mkdir -p /tmp/save1stpup/${BASENAME}
     #110503 got this from /usr/sbin/snapmergepuppy...
@@ -425,12 +429,12 @@ case $PUPMODE in
   done
   sync
   umount /tmp/save1stpup
-  
+
   #w481 if low-ram, save-file is on a fast media, and no swap file/partition, then create one...
   swapfile_func $SMNTPT $SAVEPART
-  
-  umount $SMNTPT 2> /dev/null
-  
+
+  umount $SMNTPT
+
   #100917 booted from usbflash, saved to partition other than boot...
   #101020 also allowing in case of frugal install in a sub-directory...
   if [ "$expBOOTDRV" ];then #see choosepartfunc.
@@ -474,7 +478,7 @@ case $PUPMODE in
   sync
   #ha ha, before had this, if aborted save after choosing save-partition, code
   #further down wiped all of the partition (it was mntd on /tmp/savepup)...
-  [ ! "$SMNTPT" = "" ] && umount $SMNTPT 2>/dev/null
+  [ ! "$SMNTPT" = "" ] && umount $SMNTPT
   #...well, fixed it, changed mntpt so not in /tmp. Leave above line here.
   ;;
  *)
@@ -492,22 +496,22 @@ cp -f /etc/profile /var/local/etc_profile_at_shutdown #110217 bad hack, see /etc
 #the top unionfs layer, meaning that there is no intermediary tmpfs in ram for working
 #files, hence everything is saved directly, ditto for PUPMODE=2 a full h.d. install.
 #hence need to do some explicit wiping here...
-echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
-rm -f /var/log/X*
-rm -rf /tmp/*
+#echo -n "" > /var/log/messages #delete, as it keeps growing.(note choosepartfunc uses this)
+#rm -f /var/log/X*
+#rm -rf /tmp/*
 rm -f /var/lock/LCK*
 rm -f /var/run/*.pid
-rm -rf /root/tmp 2> /dev/null #...note, not screening this out in any of above save modes.
-rm -rf /root/.thumbnails/* 2> /dev/null
-[ -d /var/tmp ] && rm -rf /var/tmp/* 2> /dev/null #100820
+rm -rf /root/tmp  #...note, not screening this out in any of above save modes.
+#rm -rf /root/.thumbnails/* 2> /dev/null
+[ -d /var/tmp ] && rm -rf /var/tmp/*  #100820
 #110808 L18L if geany still running at shutdown, need these...
-rm -f /tmp/geany_socket* 2>/dev/null
-[ -d /root/.config/geany ] && rm -f /root/.config/geany/geany_socket* 2>/dev/null
+rm -f /tmp/geany_socket*
+[ -d /root/.config/geany ] && rm -f /root/.config/geany/geany_socket*
 sync
 
 [ -f /etc/rc.d/MORESFS ] && rm /etc/rc.d/MORESFS
 
-MNTDPARTS="`mount`"
+MNTDPARTS="`mount|tac`"
 
 #echo
 #echo $(gettext "Unmounting stray filesystems:")
@@ -523,23 +527,23 @@ do
  FLAGCIFS="`echo -n ${ONESTRAY} | grep '^//'`"
  ONESTRAYMNT="`echo -n ${ONESTRAY} | cut -f 2 -d '|'`"
  #echo "`eval_gettext \"Unmounting \\\${ONESTRAY}...\"`"
- echo "Unmounting $ONESTRAY..."
+ echo "Unmounting $ONESTRAYMNT..." >/dev/console
  if [ "$FLAGCIFS" = "" ];then
-  xFUSER="`fuser -m $ONESTRAY 2>/dev/null`"
-  [ "$xFUSER" != "" ] && fuser -k -m $ONESTRAYMNT 2>/dev/null
+  xFUSER="`fuser -m $ONESTRAYMNT 2>/dev/null`"
+  [ "$xFUSER" != "" ] && fuser -k -m $ONESTRAYMNT #2>/dev/null
  fi
  killzombies #v3.99
  sync
- umount -r $ONESTRAY
+ umount -r $ONESTRAYMNT
 done
 
-swapoff -a #works only if swaps are in mtab or ftab 
+swapoff -v -a &>/dev/console #works only if swaps are in mtab or ftab
 #v2.13 menno suggests this improvement...
 STRAYPARTD="`cat /proc/swaps | grep "/dev/" | cut -f 1 -d " " | tr "\n" " "`"
 for ONESTRAY in $STRAYPARTD
 do
  #echo "`eval_gettext \"Swapoff \\\${ONESTRAY}\"`"
- echo "Swapoff $ONESTRAY"
+ echo "Swapoff $ONESTRAY" >/dev/console
  swapoff $ONESTRAY
 done
 sync
@@ -563,7 +567,7 @@ if [ "`busybox mount | grep "$ABSPUPHOME"`" != "" ];then
   echo "Killing process $ONEBAD..."
   kill $ONEBAD
   sleep 1
-  kill -9 $ONEBAD 2>/dev/null
+  kill -9 $ONEBAD
   sync
  done
  killzombies #v3.99
@@ -585,8 +589,8 @@ if [ "$SAVE_LAYER" ];then
    sync
   fi
  fi
- busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER} 2>/dev/null
- umount-FULL -i -n -l /initrd${SAVE_LAYER} 2>/dev/null #-l is lazy unmount.
+ busybox mount -t $SAVEFS -o remount,ro $SAVEDEV /initrd${SAVE_LAYER}
+ umount-FULL -i -n -l /initrd${SAVE_LAYER}  #-l is lazy unmount.
 fi
 
 #v2.16 try one more thing for ntfs... lazy unmount, suggested by GuestToo...
@@ -605,7 +609,9 @@ if [ "$MNTFUSE" != "" ];then
 # fi
 fi
 
-
-busybox umount -ar > /dev/null 2>&1
-
+logout
+echo "`mount`" >/dev/console
+sleep 13s
+busybox umount -ar
+exit 0
 #the end#

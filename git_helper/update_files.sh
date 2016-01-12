@@ -6,7 +6,7 @@ cd "$ME_DIR" || { echo "cannot change into '$ME_DIR' ."; exit 4; }
 
 
 # Am I at the right branch ?
-BRANCH=Fox3-Dell745
+BRANCH=Slacko531-Dell745
 git branch | grep '^\*' | grep -Fw "$BRANCH" || { echo "Wrong branch."; exit 5; }
 
 
