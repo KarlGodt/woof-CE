@@ -163,7 +163,7 @@ fi
 # sleep 0.2
 # rox -p /root/Choices/ROX-Filer/PuppyPin
 #fi
-
+setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
 which $CURRENTWM && exec $CURRENTWM
