@@ -19,7 +19,8 @@
 DB_pkgname="$TREE2"
 
 #v424 info box, nothing yet installed...
-if [ "$DB_pkgname" = "" ];then
+#if [ "$DB_pkgname" = "" ];then
+if [ "$DB_pkgname" = "" -a "`cat /root/.packages/user-installed-packages`" = "" ];then #fix for ziggi
  export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
    <pixmap><input file>/usr/local/lib/X11/pixmaps/error.xpm</input></pixmap>
@@ -31,8 +32,11 @@ if [ "$DB_pkgname" = "" ];then
  </window>
 "
  [ "$DISPLAY" != "" ] && gtkdialog3 --program=REM_DIALOG
- exit
+ exit 0
 fi
+if [ "$DB_pkgname" = "" ];then #fix for ziggi moved here problem is  #2011-12-27 KRG
+exit 0                         #clicking an empty line in the gui would have
+fi                             #thrown the above REM_DIALOG even if pkgs are installed
 
 export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about\">
   <vbox>
@@ -48,7 +52,7 @@ export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about
 if [ "$DISPLAY" != "" ];then
  RETPARAMS="`gtkdialog3 --program=REM_DIALOG`"
  eval "$RETPARAMS"
- [ "$EXIT" != "OK" ] && exit
+ [ "$EXIT" != "OK" ] && exit 0
 fi
 
 if [ -f /root/.packages/${DB_pkgname}.files ];then
@@ -74,6 +78,39 @@ if [ -f /root/.packages/${DB_pkgname}.files ];then
    [ "`ls -1 $ONESPEC`" = "" ] && rmdir $ONESPEC 2>/dev/null
   fi
  done
+ ###+++2011-12-27 KRG
+ else
+ firstchar=`echo ${DB_pkgname} | cut -c 1`
+ possiblePKGS=`find /root/.packages -type f -iname "$firstchar*.files"`
+ possible5=`echo "$possiblePKGS" | head -n5`
+ count=`echo "$possiblePKGS" | wc -l`
+ [ ! "$count" ] && count=0
+ [ ! "$possiblePKGS" ] && possiblePKGS="No pkgs beginning with $firstchar found"
+ if [ "$count" -le '5' ];then
+ WARNMSG="$possiblePKGS"
+ else
+ WARNMSG="Found more than 5 pkgs starting with $firstchar .
+The first 5 are
+$possible5"
+ fi
+ xmessage -bg red "WARNING :
+No file named ${DB_pkgname}.files found in
+/root/.packages/ folder .
+  
+$0 
+refusing cowardly to remove the package .
+
+Possible suggestions are
+$WARNMSG
+
+Possible solution :
+Edit /root/.packages/user-installed-packages to match the pkgname 
+and start again .
+"
+ rox /root/.packages
+ geany /root/.packages/user-installed-packages
+ exit 101
+ ###+++2011-12-27 KRG
 fi
 
 #fix menu...
@@ -150,5 +187,10 @@ export REM_DIALOG="<window title=\"Puppy Package Manager\" icon-name=\"gtk-about
 if [ "$DISPLAY" != "" ];then
  gtkdialog3 --program=REM_DIALOG
 fi
-
+###+++2011-12-27 KRG
+#emitting exitcode for some windowmanager depending on dbus
+#popup a message window saying the program stopped unexpectedly
+#ie (old) enlightenment
+exit 0
+###+++2011-12-27 KRG
 ###END###
