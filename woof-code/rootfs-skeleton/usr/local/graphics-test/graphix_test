@@ -1,0 +1,70 @@
+#!/bin/bash
+#simple script to determine what graphics package to use
+set -x
+#revision 2 20101201 (complete rewrite)
+#revision 3 20110523 for spup
+#revision 4 20110927 nouveau rant 
+
+rm -f /tmp/luci_recomend 2>/dev/null
+rm -f /tmp/card_brand 2>/dev/null
+#define working directorys
+APPDIR="/usr/local/graphics-test"
+KERNVER="`uname -r`"
+
+MODEL=`lspci|grep -iw vga|cut -d ':' -f3`
+BRAND=`echo $MODEL|awk '{print $1}'`
+DRIVER="mesa-"
+VIDEODETAILS="`lspci -nn -m | grep 'VGA compatible controller'`"
+MANUFACTURER="`cat /etc/X11/xorg.conf | tr '\n' ' ' | tr '\t' ' ' | tr -s ' ' | grep -o '#card0driver .*' | grep -o 'VendorName "[^"]*' | cut -f 2 -d '"'`" #'geany
+DEVICEID="`echo -n "$VIDEODETAILS" | grep "$MANUFACTURER" | cut -f 6 -d '"' | rev | cut -f 2 -d ']' | cut -f 1 -d '[' | rev`" #'geany
+
+if [ "$BRAND" != "Intel" ];then #20110329 RandSec issue
+ ATI=`grep -i $DEVICEID $APPDIR/ati`
+ NVID_285=`grep -i $DEVICEID $APPDIR/285nvid`
+ #NVID_275=`grep -i $DEVICEID $APPDIR/275nvid`
+ NVID_173=`grep -i $DEVICEID $APPDIR/173nvid`
+ NVID_96=`grep -i $DEVICEID $APPDIR/96nvid`
+ if [[ "$ATI" != "" ]];then MODEL=`echo $ATI|cut -d '|' -f1`
+  #DRIVER="ATI_fglrx-10.10 Catalyst driver"
+  #DRIVER="ati_fglrx-11.7 Catalyst driver"
+  case $KERNVER in
+  2.6.37.6)DRIVER="ati_fglrx-11.8 Catalyst driver";;
+  2.6.39.4)DRIVER="ati_fglrx-11.9 Catalyst driver";;
+  esac
+  
+  
+ fi
+ if [[ "$NVID_285" != "" ]];then #MODEL=`echo $NVID_280|cut -d '|' -f1` #upgraded to 285 111023 
+  case $KERNVER in
+  2.6.37.6)MODEL=`echo $NVID_285|cut -d '|' -f1` ; DRIVER="nvidia-285.05.09 driver";;
+  2.6.39.4)MODEL=`echo $NVID_285|cut -d '|' -f1` ; DRIVER="nvidia-285.05.09 driver";;
+  esac
+ fi
+ #if [[ "$NVID_275" != "" ]];then MODEL=`echo $NVID_275|cut -d '|' -f1` #upgraded to 275 stable 111002
+  #DRIVER="nvidia-275.28 driver"
+ #fi
+ if [[ "$NVID_173" != "" ]];then MODEL=`echo $NVID_173|cut -d '|' -f1`
+  case $KERNVER in
+  2.6.37.6)DRIVER="nvidia-173.14.31 driver";;
+  2.6.39.4)DRIVER="nvidia-173.14.31 driver";;
+  esac
+ fi
+ if [[ "$NVID_96" != "" ]];then MODEL=`echo $NVID_96|cut -d '|' -f1`
+  DRIVER="nvidia-96.43.16 driver"
+ fi
+fi
+if [[ "$DRIVER" = "nvidia-173.14.31 driver" || "$DRIVER" = "nvidia-285.05.09 driver" || "$DRIVER" = "nvidia-96.43.16 driver" ]];then
+ EXTRANVIDIA="Alternatively you could use the 'nouveau video' open source driver, which is much smaller and usually works It's in the Puppy Package Manager. Then you can add the 'mesa' package from PPM too for acceleration."
+fi
+RECO1="For your $BRAND video card, $MODEL we think the best add on driver is ${DRIVER}. It would be required for some programs and games with high graphical content and your desktop might seem a bit more snappy. ${EXTRANVIDIA}"
+#
+RECOMEND=$RECO1
+DRIVERSEL=`echo $DRIVER|awk '{print $1}'`
+echo "$RECOMEND" > /tmp/luci_recomend
+echo "$RECOMEND"
+echo $MODEL
+echo $BRAND
+echo $DEVICEID
+echo $DRIVERSEL > /tmp/graphic_driver_selection
+echo $DRIVERSEL
+###END

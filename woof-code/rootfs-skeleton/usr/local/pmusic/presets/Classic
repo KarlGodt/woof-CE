@@ -1,0 +1,135 @@
+#!/bin/sh
+set -a
+
+####$APPDIR/func -update_playlist & #playlist is refreshed later, so it should be safe to run in background
+. $APPDIR/gui_misc
+. $APPDIR/gui_menu
+. $APPDIR/gui_playlist
+. $APPDIR/gui_navigation
+. $APPDIR/gui_mixer
+
+#####################################    UNIQUE CLASSIC FUNCTIONS    #####################################
+
+add_classic (){
+	SOURCE="`echo "$SOURCE" | cut -c 3-`"
+	[ "$SOURCE" = "file" ] && SOURCE=$HOME
+	[ "`echo "$SEARCH" | grep -F '/'`" ] && echo "$SOURCE" > $WORKDIR/filebrowser_dir #update search field if browsing
+	[ ! -d "$SOURCE" ] && pmusic -a "$SOURCE" &
+}
+
+show_sources_window (){
+	for I in `ps | grep Pmusic_sources | grep gtkdialog | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	for I in `ps | grep end_while_add | awk '{print $1}'`; do kill -9 $I 2> /dev/null; done
+	CLASSIC_SOURCE_WINDOW=true
+	sourcewindow &
+}
+
+sourcewindow (){
+. $APPDIR/gui_add
+
+#the external Music-source window is differently from internal use, so unigue code is required....rather than fething code from $APPDIR/gui_add
+Pmusic_sources='
+<window title="Pmusic_sources" icon-name="gtk-media-stop" default_height="'$CLASSIC_HEIGHT'" default_width="'$CLASSIC_WIDTH'">
+ <vbox spacing="3">
+  <menubar>
+   <menu>
+    '$GUI_MENU_SOURCES_MAIN'
+    <label>'$LOC170'</label>
+   </menu>
+   <menu>
+    '$GUI_MENU_SOURCES_LIST'
+    <label>'$LOC175'</label>
+   </menu>
+  </menubar>
+  '$GUI_ADD_SEARCH2'
+  <table>
+   <variable>SOURCE</variable>
+   <height>100</height><width>300</width>
+   <label>"|'$LOC_TITLE'                                                                 |'$LOC_ARTIST'                        |Kb/s|'$LOC_ALBUM'                     |'$LOC_TRACK'|'$LOC_YEAR'     |'$LOC_GENRE'               "</label>
+   <input>cat '$WORKDIR'/sourcelist</input>
+   <action>add_classic &</action>
+   <action>'$APPDIR'/func -browse</action>
+   <action>refresh:SEARCH</action>
+  </table>
+  '$GUI_ADD_PROGRESS'
+ </vbox>
+ <action signal="hide">echo end > '$WORKDIR'/end_while_add</action>
+ <action signal="hide">'$APPDIR'/func_config -write_config</action>
+</window>'
+
+echo "$Pmusic_sources" | sed 's/##.*//' > $WORKDIR/xml_Pmusic_sources #I use double hash (##) for comments. --> as #FF0000
+if [ $CLASSIC_SOURCE_WINDOW = true ] && [ "$NOGUI" != "true" ]; then
+	$GTKDIALOG -f $WORKDIR/xml_Pmusic_sources -G +"$CLASSIC_X"+"$CLASSIC_Y" &
+	#update browser 
+	export SOURCE="  $HOME"
+	echo "$HOME" > $WORKDIR/filebrowser_dir
+	$APPDIR/func -browse &
+fi
+}
+
+
+###################################   G U I   #######################################
+
+GUI="
+<window title=\"Pmusic\" icon-name=\"gtk-media-stop\" default_height=\"$HEIGHT\" default_width=\"$WIDTH\">
+ <vbox spacing=\"0\">
+  <menubar>
+   $GUI_MENU_FILE
+   $GUI_MENU_PLAYLIST
+   $GUI_MENU_TRACK
+   $GUI_MENU_VIEW
+   $GUI_MENU_HELP"'
+  </menubar>
+
+
+  <hbox height-request="70" spacing="0">
+   <hbox spacing="0">
+    <button relief="2" tooltip-text="'$LOC131'">
+     <variable>ARTWORK</variable>
+     <input file>'$HOME'/.pmusic/nowplaying_albumart.jpg</input>
+     <width>60</width>
+     <action>'$APPDIR'/func_trackinfo -showtab_albumart &</action>
+    </button>
+   </hbox>
+   <vbox scrollable="true" spacing="0" width="230" width-request="10"> ##width-request to avoid scrollbars
+    <hbox spacing="0">
+     <vbox spacing="0">
+      <text height-request="13"><label>""</label></text>
+      '$GUI_NAVIGATION'
+     </vbox>
+     <hbox space-expand="true" space-fill="true">
+      <text><label>" "</label></text>
+     </hbox>
+     <vbox spacing="0">
+      <text height-request="2"><label>""</label></text>
+      <hbox spacing="2">
+       '$GUI_BUTTON_NEW'
+       <button tooltip-text=" '$LOC409' " has-focus="true">
+        <input file stock="gtk-open"></input>
+        <action>show_sources_window</action>
+       </button>
+       <text width-request="5"><label>""</label></text>'"
+       $GUI_BUTTON_PLAYMODE
+       $GUI_BUTTON_ADDMODE
+       <text width-request=\"1\"><label>\"\"</label></text>
+      </hbox>
+      <text height-request=\"4\"><label>\"\"</label></text>
+      $GUI_VOLUME
+     </vbox>
+    </hbox>
+    <text height-request=\"4\"><label>\"\"</label></text>
+    $GUI_PROGRESS
+   </vbox>
+  </hbox>
+  $GUI_PLAYLIST_FIELD
+  $GUI_PROGRESSBAR
+  $GUI_STATUSBAR
+ </vbox>
+ <action signal=\"show\">$APPDIR/func_mixer -get_levels</action>
+ <action signal=\"show\">refresh:VOLUME</action>
+ <action signal=\"show\">refresh:BALANCE</action>
+ <action signal=\"hide\">$APPDIR/func_config -write_config</action>
+ <action signal=\"hide\">exit:Exit</action>
+</window>"
+
+sourcewindow

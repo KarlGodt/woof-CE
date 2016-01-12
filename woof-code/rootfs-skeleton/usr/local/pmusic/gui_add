@@ -1,0 +1,136 @@
+#!/bin/bash
+
+[ ! -s $WORKDIR/filebrowser_dir ] && echo $HOME > $WORKDIR/filebrowser_dir
+export BROWSER_DIR=($(<"$WORKDIR/filebrowser_dir"))
+echo 0 > $WORKDIR/tab_search #default tab in <notebook>
+
+searchfield(){
+	case $1 in
+		show_opt) #show search options
+			ICON='secondary-icon-stock="gtk-find" secondary-icon-tooltip-text="'$LOC407'"'
+			ACTION='<action signal="secondary-icon-release">"if [ $(<'$WORKDIR'/tab_search) -eq 1 ]; then echo 0 > '$WORKDIR'/tab_search; else echo 1 > '$WORKDIR'/tab_search; fi"</action><action signal="secondary-icon-release">refresh:SEARCH_OPTIONS</action>'
+			;;
+	esac
+	echo '
+	<entry height-request="30" activates-default="true" is-focus="true" '$ICON' tooltip-text="'"$LOC406"'" space-expand="true" space-fill="true">
+	 <variable>SEARCH</variable>
+	 <input file>'$WORKDIR'/filebrowser_dir</input>
+	 <action signal="activate">'$APPDIR'/func -search_refresh</action>
+	 <action signal="activate">clear:SOURCE</action>
+	 <action signal="activate">refresh:SOURCE</action>
+	 <action signal="key-press-event">'$APPDIR'/func -search &</action>
+	 '$ACTION'
+	</entry>
+	'
+}
+
+button_overview(){
+	if [ "$1" = "label" ]; then
+		LABEL='<label>'$LOC170'</label>'
+		ATTR='relief="2" height-request="30" image-position="1"'
+	fi
+	echo '
+	<button tooltip-text="'$LOC170'" '$ATTR'>
+	 '$LABEL'
+	 <input file stock="gtk-about"></input>
+	 <action>. '$APPDIR'/func -show_add_window -source</action>
+	 <action>clear:SOURCE</action>
+	 <action>refresh:SOURCE</action>
+	</button>'
+}
+
+S='
+<hbox spacing="5" tooltip-text="'$LOC407'">
+ <vbox spacing="0">
+  <checkbox label="'$LOC228'" height-request="15">
+   <variable>SEARCH_MYMUSIC</variable>
+   <default>'$SEARCH_MYMUSIC'</default>
+   <action>[ -f '$HOME'/.pmusic/index_alphabetic ] && '$APPDIR'/func -search</action>
+  </checkbox>
+  <checkbox label="'$LOC222'" height-request="15">
+   <variable>SEARCH_RADIO</variable>
+   <default>'$SEARCH_RADIO'</default>
+   <action>[ -f '$HOME'/.pmusic/index_radio ] && '$APPDIR'/func -search</action>
+  </checkbox>
+ </vbox>
+ <vbox spacing="0">
+  <hbox spacing="2">
+   <checkbox label="'$LOC221'" height-request="15">
+    <variable>SEARCH_WEBMUSIC</variable>
+    <default>'$SEARCH_WEBMUSIC'</default>
+    <action>[ -f '$HOME'/.pmusic/index_webmusic ] && '$APPDIR'/func -search</action>
+   </checkbox>
+   <vbox>
+    <button label="..." height-request="12" tooltip-text="'$LOC103'"><action>'$APPDIR'/func_config -preferences -source &</action></button>
+   </vbox>
+  </hbox>
+  <hbox spacing="0">
+   <checkbox label="" height-request="15">
+    <variable>SEARCH_FILES</variable>'
+    [ ! `which pfilesearch` ] && S=$S'<sensitive>false</sensitive>'
+    if [ ! -f $HOME/.pmusic/index_alphabetic ] && [ ! -f $HOME/.pmusic/index_webmusic ] && [ ! -f $HOME/.pmusic/index_radio ]; then
+		S=$S'<default>true</default>' #if nothing else to search in, activate filesearch
+	else
+		S=$S'<default>'$SEARCH_FILES'</default>' #by default, this is set false
+	fi
+    S=$S'<action>if true '$APPDIR'/func -search_refresh</action>
+   </checkbox>
+   <entry height-request="15" width-request="10">
+	<variable>SEARCHPATH</variable>
+	<default>"'$SEARCHPATH'"</default>'
+	[ ! `which pfilesearch` ] && S=$S'<sensitive>false</sensitive>'
+   S=$S'</entry>
+  </hbox>
+ </vbox>
+</hbox>'
+GUI_SEARCH_OPTIONS="$S"
+
+GUI_ADD_SEARCH="
+<hbox>
+ $(searchfield)
+ $GUI_SEARCH_OPTIONS
+</hbox>"
+
+GUI_BUTTON_OVERVIEW="$(button_overview)"
+
+#...and an alternative with simpler gui (Classic)
+GUI_ADD_SEARCH2='
+ <vbox>
+<hbox scrollable="true" height="34" spacing="0" space-expand="false" space-fill="false"  height-request="10" width-request="10"> ##width-request to avoid scrollbars
+ '"$(searchfield show_opt)"'
+ <notebook show-tabs="false" show-border="false" labels="1|2" height-request="5" width-request="210">
+  <vbox>
+   <hbox>
+    '"$(button_overview label)"'
+   </hbox>
+  </vbox>
+  <hbox>
+    '$GUI_SEARCH_OPTIONS'
+  </hbox>
+  <variable>SEARCH_OPTIONS</variable>
+  <input file>'$WORKDIR/tab_search'</input>
+ </notebook>
+</hbox>
+</vbox>
+'
+
+GUI_ADD_FIELD='
+<table>
+ <variable>SOURCE</variable>
+ <height>100</height><width>300</width>'"
+ <label>\"|$LOC_TITLE                                                                 |$LOC_ARTIST                        |Kb/s|$LOC_ALBUM                     |$LOC_TRACK|$LOC_YEAR     |$LOC_GENRE               \"</label>
+ <input>cat $WORKDIR/sourcelist</input>
+ <action>$APPDIR/func -browse</action>
+ <action>$APPDIR/func_add -add</action>
+ <action>refresh:SEARCH</action>
+ <action>refresh:PLAYLIST</action>
+</table>"
+
+rm $WORKDIR/end_while_add 2> /dev/null #open for new progressbar loop
+GUI_ADD_PROGRESS="
+<progressbar height-request=\"12\">
+ <input>"'while [ ! -f $WORKDIR/end_while_add ]; do cat '"$WORKDIR"'/load_id3; echo " "; sleep 0.5; done'"</input>
+ <action>echo 0 > $WORKDIR/load_id3</action>
+ <action>clear:SOURCE</action>
+ <action>refresh:SOURCE</action>
+</progressbar>"

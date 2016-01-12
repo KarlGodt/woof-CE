@@ -1,0 +1,146 @@
+#!/bin/bash
+#Pmusic
+#Copyright 2008,2009,2010,2011
+#Sigmund Berglund
+
+. $APPDIR/func -reset_gtk
+$APPDIR/func -kill_browser_id3 #kill ongoing process
+export ID3_GENRES=`awk -F "|" '{print "<item>"$1" - "$2"</item>"}' $APPDIR/txt_id3genre` #build id3 genres
+echo "$LOC251" > $WORKDIR/tmp #info about exe: commands in <edit>
+export pmusic_global_tags='
+<window title="Pmusic - '$LOC116'" icon-name="gtk-media-stop">
+<vbox>
+ <text use-markup="true"><label>"'$LOC259'
+
+'$LOC258'"</label></text>
+  <vbox>
+ <frame>
+   <hbox>
+    <text width-request="100"><label>'$LOC_ARTIST'</label></text>
+    <entry><variable>ID3_ARTIST</variable></entry>
+   </hbox>
+   <hbox>
+    <text width-request="100"><label>'$LOC_TITLE'</label></text>
+    <entry><variable>ID3_TITLE</variable></entry>
+   </hbox>
+   <hbox>
+    <text width-request="100"><label>'$LOC_ALBUM'</label></text>
+    <entry><variable>ID3_ALBUM</variable></entry>
+   </hbox>
+   <hbox>
+    <text width-request="100"><label>'$LOC_YEAR'</label></text>
+    <entry><variable>ID3_YEAR</variable></entry>
+   </hbox>
+   <hbox>
+    <text width-request="100"><label>'$LOC_TRACK'</label></text>
+    <entry><variable>ID3_TRACK</variable></entry>
+   </hbox>
+   <hbox>
+    <text width-request="170"><label>'$LOC_GENRE'</label></text>
+    <comboboxentry><variable>ID3_GENRE</variable>'$ID3_GENRES'</comboboxentry>
+   </hbox>
+  </frame>
+  </vbox>
+   <edit editable="false" left_margin="10"><input file>'$WORKDIR'/tmp</input></edit>
+ <hbox>
+  <button cancel></button>
+  <text><label>"     "</label></text>
+  <button tooltip-text="'$LOC258'">
+   <label>'$LOC252'</label>
+   <input file stock="gtk-clear"></input>
+   <action type="exit">clear_tag</action>
+  </button>
+  <button>
+   <label>'$LOC256'</label>
+   <input file stock="gtk-save"></input>
+   <action type="exit">save</action>
+  </button>
+ </hbox>
+</vbox>
+</window>'
+[ $TOOLTIPS = false ] && pmusic_global_tags="`echo "$pmusic_global_tags" | sed 's%tooltip-text%tooltipXXXtext%g'`" #deactivate tooltips
+I=$IFS; IFS=""
+for STATEMENTS in $($GTKDIALOG -p pmusic_global_tags); do
+	eval $STATEMENTS
+done
+IFS=$I
+if [ "$EXIT" = "Cancel" ] || [ "$EXIT" = "abort" ]; then exit; fi
+
+echo "'$LOC116'..." > $WORKDIR/splashtext
+$APPDIR/box_splash_progress &
+COUNT=0
+TOTAL=`grep -c ^ $LIST`
+while read I; do
+	#update progressbar
+	echo "100 * $COUNT / $TOTAL" | bc > $WORKDIR/splash 
+	COUNT=$(($COUNT+1))
+	#---
+	if [ $LIST = $WORKDIR/playlist ]; then
+		FILE="`echo "$I" | cut -d'|' -f4 | cut -c 5-`"
+	else #sourcelist
+		FILE="`echo "$I" | cut -d'|' -f1 | cut -c 3-`"
+	fi
+	#Variables used in exe: ... COUNT might also be used
+	FILENAME="`basename "$FILE" | sed -e 's/\.[^\.]*$//' -e "s/'/'\\\\\\\\\\\\\''/g" -e 's/&/\\\&/g'`" #'
+	TMP="`dirname "$FILE"`"
+	DIRNAME="`basename "$TMP"`"
+	#---
+	ID3_ARTIST_NEW="$ID3_ARTIST" #acting on source variable would stop dynamic exe: updates
+	ID3_TITLE_NEW="$ID3_TITLE"
+	ID3_ALBUM_NEW="$ID3_ALBUM"
+	ID3_YEAR_NEW="$ID3_YEAR"
+	ID3_TRACK_NEW="$ID3_TRACK"
+	ID3_GENRE_NEW="$ID3_GENRE"
+	[ "`echo "$ID3_GENRE" | grep -F ' '`" ] && ID3_GENRE_NEW="`echo "$ID3_GENRE" | cut -d' ' -f1`"
+	if [ "`echo "$ID3_ARTIST" | grep "^exe:"`" ]; then
+		echo "$ID3_ARTIST" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_ARTIST_NEW="`$WORKDIR/exec_tagging`"
+	fi
+	if [ "`echo "$ID3_TITLE" | grep "^exe:"`" ]; then
+		echo "$ID3_TITLE" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_TITLE_NEW="`$WORKDIR/exec_tagging`"
+	fi
+	if [ "`echo "$ID3_ALBUM" | grep "^exe:"`" ]; then
+		echo "$ID3_ALBUM" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_ALBUM_NEW="`$WORKDIR/exec_tagging`"
+	fi
+	if [ "`echo "$ID3_YEAR" | grep "^exe:"`" ]; then
+		echo "$ID3_YEAR" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_YEAR_NEW="`$WORKDIR/exec_tagging`"
+	fi
+	if [ "`echo "$ID3_TRACK" | grep "^exe:"`" ]; then
+		echo "$ID3_TRACK" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_TRACK_NEW="`$WORKDIR/exec_tagging`"
+	fi
+	if [ "`echo "$ID3_GENRE" | grep "^exe:"`" ]; then
+		echo "$ID3_GENRE" | cut -d: -f2- | sed -e "s%FILENAME%$FILENAME%g" -e "s%COUNT%$COUNT%g" -e "s%DIRNAME%$DIRNAME%g"> $WORKDIR/exec_tagging
+		chmod 722 $WORKDIR/exec_tagging
+		ID3_GENRE_NEW="`$WORKDIR/exec_tagging`"
+	fi
+		
+	case $EXIT in
+		save)
+			[ "`echo "$ID3_GENRE_NEW" | grep '-'`" ] && ID3_GENRE_NEW="`echo "$ID3_GENRE_NEW" | awk -F " - " '{print $1}'`"
+			echo -n 'id3tag ' > $WORKDIR/exec_tagging
+			[ "$ID3_ARTIST_NEW" ] && echo -n "-a \"$ID3_ARTIST_NEW\" " >> $WORKDIR/exec_tagging
+			[ "$ID3_TITLE_NEW" ] && echo -n "-s \"$ID3_TITLE_NEW\" " >> $WORKDIR/exec_tagging
+			[ "$ID3_ALBUM_NEW" ] && echo -n "-A \"$ID3_ALBUM_NEW\" " >> $WORKDIR/exec_tagging
+			[ "$ID3_YEAR_NEW" ] && echo -n "-y \"$ID3_YEAR_NEW\" " >> $WORKDIR/exec_tagging
+			[ "$ID3_GENRE_NEW" ] && echo -n "-g \"$ID3_GENRE_NEW\" " >> $WORKDIR/exec_tagging
+			[ "$ID3_TRACK_NEW" ] && echo -n "-t$ID3_TRACK_NEW " >> $WORKDIR/exec_tagging
+			echo "\"$FILE\"" >> $WORKDIR/exec_tagging
+			chmod 722 $WORKDIR/exec_tagging
+			$WORKDIR/exec_tagging
+			;;
+		clear_tag)
+			id3tag -a ' ' -s ' ' -A ' ' -y ' ' -t99 -g '148' "$FILE" #-c ' '
+			;;
+	esac
+done < $LIST
+$APPDIR/func -browse_id3 & #update tags in sourcelist
+echo 100 > $WORKDIR/splash
