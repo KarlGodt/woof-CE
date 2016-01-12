@@ -1,0 +1,182 @@
+#!/bin/sh
+#(c) Copyright 2007 Barry Kauler
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#v405 called from rc.sysinit.
+#w000 /etc/DISTRO_SPECS, renamed pup_xxx.sfs, pup_save.2fs etc.
+#w001 selection of locale.
+#w019 april2009: selection of timezone.
+#091122 merge kmap mods from ecube, maps now in /lib/keymaps, /lib/consolefonts.
+#100127 added sv.
+#100319 TZ, hwclock fix.
+#100525 hardware clock can be utc or localtime (thanks to pizzasgood).
+#101112, 101115 disabled FONTMAP, see http://bkhome.org/blog/?viewDetailed=01956
+#110409 changed locale names .utf8 to .UTF-8.
+#110509 shinobar: fix, locale -a always prints .utf8 (even if ex en_US.UTF-8)
+
+. /etc/rc.d/PUPSTATE
+. /etc/DISTRO_SPECS
+#STATUS=0
+. /etc/clock #100525
+
+[ $pkeys ] && PKEYS=$pkeys #boot parameter
+
+askkbdlayout ()
+{
+ KEYBOARD=""
+ FONTMAP=""
+ CODEPAGE=""
+ echo -n "" >/tmp/keybdlist.txt
+ for AFILE in `ls /lib/keymaps/*`
+ do
+  AKMAP="`basename $AFILE .gz`" #us, fr, br, etc.
+  #hmmm, very slow way to do this...
+  case $AKMAP in
+   us*) ACNTRY="(USA)";;
+   fr*) ACNTRY="(France)";;
+   it*) ACNTRY="(Italy)";;
+   ba*) ACNTRY="(Bashkir)";;
+   be*) ACNTRY="(Belgium)";;
+   bg*) ACNTRY="(Bulgaria)";;
+   br*) ACNTRY="(Brazil)";;
+   by*) ACNTRY="(Byelorussian)";;
+   cf*) ACNTRY="(French-Canadian)";;
+   croat*) ACNTRY="(Croatia)";;
+   cz*) ACNTRY="(Czech)";;
+   de) ACNTRY="(Germany)";;
+   de_*) ACNTRY="(Germany)";;
+   de-*) ACNTRY="(Germany)";;
+   dk*) ACNTRY="(Denmark)";;
+   es*) ACNTRY="(Spain)";;
+   fi*) ACNTRY="(Finland)";;
+   hu*) ACNTRY="(Hungary)";;
+   ka*) ACNTRY="(Kazakhstan)";;
+   ky*) ACNTRY="(Kyrgyzstan)";;
+   et*) ACNTRY="(Estonia)";;
+   lt*) ACNTRY="(Lithuania)";;
+   mk*) ACNTRY="(Macedonia)";;
+   sr*) ACNTRY="(Serbia)";;
+   tr*) ACNTRY="(Turkey)";;
+   tt*) ACNTRY="(Tatar)";;
+   sg*) ACNTRY="(Sango)";;
+   ua*) ACNTRY="(Ukraine)";;
+   gr*) ACNTRY="(Greece)";;
+   il*) ACNTRY="(Israel)";;
+   is*) ACNTRY="(Iceland)";;
+   jp*) ACNTRY="(Japan)";;
+   pc*) ACNTRY="(Japanese/English)";;
+   la*) ACNTRY="(Latin_America)";;
+   nl*) ACNTRY="(Netherlands)";;
+   no*) ACNTRY="(Norway)";;
+   pl*) ACNTRY="(Poland)";;
+   pt*) ACNTRY="(Portugal)";;
+   ro*) ACNTRY="(Romania)";;
+   ru*) ACNTRY="(Russia)";;
+   se*) ACNTRY="(Sweden)";;
+   sv*) ACNTRY="(Sweden)";;
+   sk*) ACNTRY="(Slovakia)";;
+   sl*) ACNTRY="(Slovenia)";;
+   uk*) ACNTRY="(UK)";;
+   wangbe*) ACNTRY="(Belgium)";;
+   azerty) ACNTRY="(Tandon)";;
+   dvorak-r) ACNTRY="(Right_single-handed)";;
+   dvorak-l) ACNTRY="(Left_single-handed)";;
+   *)  ACNTRY="-";;
+  esac
+  echo -e "$AKMAP \"${ACNTRY}\"" >> /tmp/keybdlist.txt
+ done
+ KEYLIST="us \"(USA)\" `sort /tmp/keybdlist.txt | tr '\n' ' '`"
+
+ echo '#!/bin/sh' >/tmp/keydlg
+ echo 'dialog --aspect 10 --no-cancel --menu "Select the keyboard layout:\n(UP/DOWN arrows then ENTER key)" 0 0 0 \' >>/tmp/keydlg #' geany fix
+ echo "$KEYLIST 2> /tmp/kbdextlayout.txt" >>/tmp/keydlg
+ echo 'exit $?' >>/tmp/keydlg
+ chmod 755 /tmp/keydlg
+ /tmp/keydlg >/dev/console
+ [ $? != 0 ] && return 1
+ clear > /dev/console 2>&1 #clear screen
+ KEYBOARD=`cat /tmp/kbdextlayout.txt`
+ case $KEYBOARD in #note, same code in /usr/sbin/input-wizard and init.
+  de*|be*|br*|dk*|es*|fi*|fr*|it*|no*|se*|sv*|pt*) #100127 added sv.
+   FONTMAP="lat1-12.psfu"
+   modprobe nls_cp850
+   CODEPAGE="850"
+  ;;
+  cz*|hu*|pl*|ro*|sk*|croat*|slovene*)
+   modprobe nls_cp852
+   modprobe nls_iso8859-2
+   FONTMAP="lat2-12.psfu"
+   CODEPAGE="852"
+   ;;
+ esac
+ FONTMAP='' #101112
+ return 0
+}
+
+#if [ ! -e /etc/keymap ];then #removed for boot to desktop 01micko 110522
+ #KMAP="us"
+ #askkbdlayout #this is extended menu, func above.
+ ##...this sets KEYBOARD, FONTMAP, CODEPAGE variables.
+ #[ $? -eq 0 ] && KMAP="$KEYBOARD"
+ #echo -n "$KMAP" > /etc/keymap
+ #echo -n "$FONTMAP" > /etc/fontmap
+ #echo -n "$CODEPAGE" > /etc/codepage
+#fi
+
+NEED2LOADKMAP="yes"
+[ -d /initrd -a "$PKEYS" ] && NEED2LOADKMAP="no" #already done in initrd.
+
+if [ "$NEED2LOADKMAP" = "yes" ];then
+ KMAP="`cat /etc/keymap`"
+ gzip -dcf /lib/keymaps/$KMAP.gz | loadkmap
+ #STATUS=$((STATUS + $?))
+ FONTMAP="`cat /etc/fontmap`"
+ if [ "$FONTMAP" ];then
+  gzip -dcf /lib/consolefonts/${FONTMAP}.gz | loadfont
+  #STATUS=$((STATUS + $?))
+ fi
+fi
+
+#w001 creates locale files in /usr/lib/locale... #removed for boot to desktop 01micko 110522
+#LANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`" 
+#CLANG="`echo "$LANG" | sed -e 's/\.UTF-8/\.utf8/'`" #110509 shinobar fix, locale -a always prints .utf8
+#if [ "`locale -a | grep "$CLANG"`" = "" ];then
+ #BASELANG="`basename $LANG .UTF-8`"
+ #if [ -f /usr/share/i18n/locales/$BASELANG ];then
+ # localedef -f UTF-8 -i $BASELANG --no-archive ${BASELANG}.UTF-8
+ #else
+ # [ "`locale -a | grep "en_US.UTF-8"`" = "" ] && localedef -f UTF-8 -i en_US --no-archive en_US.UTF-8
+ #fi
+ #/usr/sbin/chooselocale cli > /dev/console
+ #/usr/sbin/timezone-set cli > /dev/console
+ #100525 choose hardware clock set to local or UTC...
+ #dialog --title "Set hardware-clock type" --yes-label "Local" --no-label "UTC" --yesno "Is the hardware clock on the computer set to the local time, or to UTC? Note, most PCs with Windows installed have the hardware clock set to the local time, so if in doubt choose that..." 0 0 > /dev/console
+ #if [ $? -eq 1 ];then #UTC
+  #HWCLOCKTIME='utc'
+  #hwPATTERN="s/^HWCLOCKTIME=[^#]*/HWCLOCKTIME='utc'/"
+  #sed -i "$hwPATTERN" /etc/clock #note, it is default 'localtime'.
+ #fi
+#fi
+
+#move us locale to default #01micko 20110522 #boot to desktop
+[ ! -d /usr/lib/locale/en_US ] && localedef -f ISO-8859-1 -i en_US --no-archive en_US >/dev/null
+
+#100319 moved from /etc/profile
+#Ref: http://www.gnu.org/s/libc/manual/html_node/TZ-Variable.html
+#TZ=":`readlink /etc/localtime | sed -e 's%^.*share/zoneinfo/%%'`" #ex: ':Etc/GMT-8'
+#export TZ #same code below using shinobar's method #01micko 110522
+
+#100319 moved down.
+#need to set Linux system time/date, from hardware clock...
+#hwclock --hctosys --localtime
+if [ -f /etc/localtime ]; then
+ TZONE=$(readlink /etc/localtime|sed -e 's,/usr/share/zoneinfo/,,' -e 's,Etc/,,')
+ export TZ=$TZONE
+ HWCLOCKTIME="localtime"
+  [ -s /etc/clock ] && grep -qw '^[^#]*utc' /etc/clock && HWCLOCKTIME="utc"
+  hwclock --hctosys --${HWCLOCKTIME} 
+fi
+#...--hctosys reads cmos clock to system.
+#...--localtime means that cmos clock is set to local-time.
+
+exit $STATUS
+###END###
