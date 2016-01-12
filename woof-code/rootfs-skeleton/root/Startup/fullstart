@@ -1,0 +1,75 @@
+#!/bin/sh
+# first setup dialogs
+# 24dec2010 shinobar
+# 28dec2010 pupsaveconfig, wait video-wizard done
+# 31dec2010 avoid multiple run
+# 19Jan2011 extralang
+#  4feb2011 extralang -f
+#  9feb2011 welcome info
+# 17feb2011 pman 
+
+#avoid multiple run
+PSRESULT=$(ps)
+N=$(echo "$PSRESULT"| grep -w "$0"| grep -w 'sh'| wc -l)
+if [ $N -gt 1 ] ; then
+  echo "$0 seems already running."
+  exit
+fi
+
+# bark
+SOUND=/usr/share/audio/2barks.au
+if [ ! -f /tmp/firstrun -a -s "$SOUND"  ];then
+    aplay "$SOUND" &
+    [ $? -eq 0 ] && touch /tmp/firstrun
+fi
+
+# wait until fc-cache done
+for I in $(seq 10);do
+  [ "$(pidof fc-cache)" ] || break
+  sleep 1
+done
+
+# wait video-wizard done
+while true; do
+  PSRESULT=$(ps)
+  echo "$PSRESULT" | grep -qw 'sh[ ].*video-wizard' || break
+  sleep 1
+done
+
+# personalize settings
+if [ ! -s /tmp/firstrun ] || grep -q 'changed' /tmp/firstrun ; then
+   firstrun
+fi
+
+[ -s /etc/rc.d/PUPSTATE ] && source /etc/rc.d/PUPSTATE
+# pupsaveconfig
+if [ "$PUPMODE" = "5" ]; then
+  if which pupsaveconfig &>/dev/null; then
+    [ -f /etc/rc.d/pupsave.conf ] || pupsaveconfig
+    #touch /etc/rc.d/pupsave.conf  # maybe need not becase pupsavecofig always creats it
+  fi
+fi
+
+#test if connected to internet...
+# script may not be excutable
+NEXTSCRIPT=/root/Startup/test_if_connected
+if [ -s "$NEXTSCRIPT" ]; then
+  [ -x "$NEXTSCRIPT" ] || sh "$NEXTSCRIPT"
+  rm -f "$NEXTSCRIPT"
+fi
+
+# 'extralang -f' allows to install with RAM mode
+which extralang &>/dev/null && extralang -f
+
+# welcome info 
+#INFO=""
+#WELCOME="`which welcome1stboot.sh`"
+#[ -f "$WELCOME" -a ! -x "$WELCOME" ] && chmod +x "$WELCOME" && INFO="$WELCOME"
+#grep -q 'gtkdialog3' /usr/bin/pman && INFO="pman"
+#[ "$INFO" ] && "$INFO" &
+welcome1stboot.sh &
+
+chmod -x $0
+exit 0
+
+ 
