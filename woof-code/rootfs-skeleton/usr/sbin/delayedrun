@@ -1,0 +1,320 @@
+#!/bin/ash
+#(c) copyright 2007 Barry Kauler
+#2007 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#launched from ~/.xinitrc, so X is running.
+#note, see also /usr/sbin/savepuppyd, launched from /etc/rc.d/rc.local0.
+#v3.91 BK oct,nov 2007, upated for Dingo.
+#v3.94 BK 15 dec 2007, updated.
+#v4.01 BK 19may2008: don't think loading usb-storage reqd here anymore.
+#v4.01 BK 19may2008: note the new pup_eventd also launched from .xinitrc.
+#w007 path fix for Xorg.
+#w481 warning if modules cannot be loaded.
+#100404 fix load applets for fbpanel. 100413 think needs some 'sleep 0.1'
+#100504 background color for retrovol.
+#100511 for ram-challenged pc, better to display welcome1stboot.png.
+#100513 jwm tray now uses freememapplet_tray and blinky_tray. NOTE: future, move these to /root/Startup.
+#100517 freememapplet_tray moved to /root/Startup.
+#100522 'surfer' is a simple viewer (uses libgtkhtml).
+#100608 if yaf-splash symlink to gtkdialog-splash, use '-fontsize large' parameter.
+#100821 01micko: fixes for background color in tray apps, also launch first-run.sh.
+#100917 have removed -font parameter from yaf-splash (see /usr/share/doc/yaf-splash-new.htm).
+#101004 jemimah has disabled tray applet in retrovol, now using obmixer_tray.
+#101007 sound alias modprobe info may have moved.
+#101009 problem as tray applets only got launched after welcome msg exited.
+#101017 Alsa modprobe file now /etc/modprobe.d/alsa.conf.
+#101019 welcome1stboot is now a gtkdialog app...
+#101112 alsa info in two different places.
+#101120, 101121 fix sound test, rewritten /sbin/pup_event_backend_modprobe.
+#101210 pup_event_alsa_cnt* are now in /tmp/pup_event_backend.
+#110113 test /dev/mixer for sound ready, see /etc/init.d/10alsa.
+#20110328 if mouse not working, popup dialog.
+#110412 welcome1stboot now written in BaCon, in /usr/sbin.
+#110516 only popup dlg for mouse not working, if DISTRO_XORG_AUTO='yes' (in /etc/DISTRO_SPECS)
+#110807 take out pngoverlay code, doing it in woof 3builddistro.
+
+#variables created at bootup by 'init' in initramfs...
+. /etc/rc.d/PUPSTATE
+
+choosemousefunc() { #based on code in /etc/rc.d/functions4puppy4
+ ALERTMSG1="Your mouse pointer has not moved, so perhaps it is not working? This dialog window may be operated by the keyboard. UP/DOWN arrows to choose mouse-type, then TAB key to <OK> then ENTER -- X will immediately restart. If your mouse is working, choose <Cancel> button."
+ ALERTMSG2="NOTICE: If you want, CTRL-ALT-BACKSPACE will terminate X and you can type 'xorgwizard' to run the full Xorg Wizard, to resolve any other problems (such as screen resolution) as well as fix the mouse."
+ MOUSEINTRO="Only very old PCs may have a serial mouse. These are recognised by the fairly large rectangular plug, technically known as a DB9 or the even larger DB25 (where the 9 or 25 refers to the number of pins in the plug)."
+ DETECTEDMOUSEDEV="`cat /etc/mousedevice`"
+ case $DETECTEDMOUSEDEV in
+  ttyS*)
+   MOUSEMENU1a='serial'; MOUSEMENU1b='(mouse in very old computers)'
+   MOUSEMENU2a='usb/ps-2'; MOUSEMENU2b='(mouse or touchpad in all modern computers)'
+  ;;
+  *)
+   MOUSEMENU1a='usb/ps-2'; MOUSEMENU1b='(mouse or touchpad in all modern computers)'
+   MOUSEMENU2a='serial'; MOUSEMENU2b='(mouse in very old computers)'
+  ;;
+ esac
+ LANG=C Xdialog --wrap --title "Mouse interface" --menu "${ALERTMSG1}\n\n${ALERTMSG2}\n\n${MOUSEINTRO}\n\n
+Please choose mouse type..." 0 100 3 "$MOUSEMENU1a" "$MOUSEMENU1b" "$MOUSEMENU2a" "$MOUSEMENU2b" 2> /tmp/testmsx
+ [ $? -ne 0 ] && return 1
+ [ ! -s /tmp/testmsx ] && return 1
+ CHOSENMOUSETYPE="`cat /tmp/testmsx`"
+ case $CHOSENMOUSETYPE in
+ serial)
+  LANG=C Xdialog --wrap --title "Mouse serial port" --menu "Serial port mouse plugged into...\nUse UP/DOWN ARROW keys, ENTER key to finish" 0 100 5 ttyS0 "COM1 (most likely)" ttyS1 COM2 ttyS2 COM3 ttyS3 COM4 2> /tmp/testmsx
+  [ $? -ne 0 ] && return 1
+  [ ! -s /tmp/testmsx ] && return 1
+  MOUSEDEV="`cat /tmp/testmsx`"
+  modprobe sermouse
+  ln -snf $MOUSEDEV /dev/mouse
+  echo -n "$MOUSEDEV" > /etc/mousedevice
+  sed -i -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/    Option      "Protocol" "Microsoft" #mouse0protocol/' /etc/X11/xorg.conf
+ ;;
+ *)
+  echo -n "input/mice" > /etc/mousedevice
+  ln -snf input/mice /dev/mouse
+  sed -i -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/    Option      "Protocol" "IMPS\/2" #mouse0protocol/' /etc/X11/xorg.conf
+ ;;
+ esac
+ return 0
+} #choosemousefunc()
+
+
+
+BGOPT=""
+#100821 start...
+WINDOWMANAGER="`cat /etc/windowmanager`"
+case $WINDOWMANAGER in
+ icewm*) #icewm or icewm-session.
+  #micko for icewm, not sure why it's needed but it doesn't work without killing the ice tray. It's mainly so freememapplet_tray, network_tray and retrovol work.
+  killall icewmtray
+  icewmtray &
+  . $HOME/.icewm/theme
+  THEMEDIR="/usr/share/icewm/themes"
+  . ${THEMEDIR}/${Theme}
+  NUMCOLOR=`echo $ColorNormalTaskBarApp|grep "rgb:"`
+  if [[ $NUMCOLOR = "" ]];then BG=""
+  else PRE_BG=`echo $ColorNormalTaskBarApp|cut -d ':' -f2|sed 's%/%%g'`
+   BG="#${PRE_BG}"   #this is more generic and works with many themes.
+  fi
+  if [[ $Theme = "GoldenSand/default.theme" ]];then
+   BG="#C6AD73" #this is particular to 5.1, it can be removed for cleanliness
+  fi
+  if [ "$BG" = "" ];then
+   BGOPT=""
+  else
+   BGOPT="-bg ${BG}"
+  fi
+ ;;
+ *)
+  if [ -f /root/.jwm/jwm_colors ];then #100504
+   . /root/.jwm/jwm_colors
+    BGOPT="-bg ${MENU_BG}"
+  fi
+ ;;
+esac
+#10821 end.
+export BGOPT #101013 for use in /root/Startup/retrovol_tray
+
+#FONTSIZEPARAM=''
+#[ -h /usr/bin/yaf-splash ] && FONTSIZEPARAM='-fontsize large' #100608
+
+KERNVER="`uname -r`" #w481
+
+BAREVIEW="bareview"
+[ "`which bareview`" = "" ] && BAREVIEW="defaulthtmlviewer"
+
+sleep 2 #let the dust settle first.
+
+[ "$DISTRO_XORG_AUTO" = "yes" ] && CURPOS1="`getcurpos`" #20110328 110516
+
+#this goes into the tray...
+CURRPS="`ps`"
+if [ "`which blinky_tray`" != "" ];then #100821
+ blinky_tray ${BGOPT} & #created by Lior Tubi and MU.
+ sleep 0.1
+fi
+#101004 jemimah has disabled tray applet in retrovol, now using obmixer_tray...
+if [ ! -f /root/Startup/obmixer_tray ];then
+ if [ ! -f /root/Startup/retrovol_tray ];then #101013
+  if [ "`which retrovol`" != "" ];then
+   if [ "`retrovol -help 2>&1 | grep '\-show'`" != "" ];then
+    retrovol ${BGOPT} & #100119 tray volume control by pizzasgood. 100504
+   else
+    retrovol -hide ${BGOPT} & #100413 versions after 0.2. 100504
+   fi
+  fi
+ fi
+fi
+
+#offer to popup a getting-started html page...
+#the test for /etc/videomode is for when Xvesa has finished choosing a resolution...
+if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
+ if [ $PUPMODE -eq 5 ];then
+  #[ "`which first-run.sh`" != "" ] && first-run.sh & #100821 for lucid puppy.
+  if [ "`ls -1 /lib/modules/${KERNVER}/modules.* `" = "" ];then #w481
+   #thistle is a very light purple...
+   yaf-splash -display :0 -fontsize large -bg thistle -bw 0 -placement top -text "Welcome! Move mouse-pointer here for getting-started information. WARNING: all required kernel modules were not loaded due to restricted RAM. You need to reboot to create a save-file on the hard drive and/or you need a swap file/partition to obtain more space. If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." &
+  else
+   #thistle is a very light purple...
+   yaf-splash -display :0 -fontsize large -bg thistle -bw 0 -placement top -text "Welcome! Move mouse-pointer here for getting-started information." &
+  fi
+  RETVALs=$?
+  YAFPIDs=$!
+  LOOPCNT=0
+  while [ $RETVALs -eq 0 ];do #only do this if X running.
+   usleep 500000 #sleep 1
+   LOOPCNT=`expr $LOOPCNT + 1`
+   #20110328 put up dialog if no mouse movement...
+   if [ $LOOPCNT -eq 14 -a "$DISTRO_XORG_AUTO" = "yes" ];then #5 seconds, change 14=7secs 110516
+    CURPOS2="`getcurpos`"
+    if [ "$CURPOS1" = "$CURPOS2" ];then
+     choosemousefunc
+     if [ $? -eq 0 ];then
+      sync
+      exec restartwm
+     fi
+    fi
+   fi
+   [ $LOOPCNT -gt 110 ] && break #55 second timeout.
+   [ "`pidof yaf-splash`" != "" ] && continue
+   #bark and put up the getting started message... #removed 110925
+   #if [ -c /dev/mixer ];then #110113 test for sound ready, see /etc/init.d/10alsa.
+    ##aplay /usr/share/audio/2barks.au &
+    ##wavplay /usr/share/audio/2barks.wav & Shinobar does the barks
+    ##RETAPLAY=$?
+    ##PIDAPLAY=$!
+   #fi
+   #welcome1stboot & #110412 now in /usr/sbi
+    #welcome1stboot.sh & #gtkdialog 01micko /usr/sbin Removed 110925.. Shinobar has taken care of it, calls bacon script
+
+   #sleep 3 #101009
+   #[ $RETAPLAY -eq 0 ] && kill $PIDAPLAY 2> /dev/null
+   #[ "`pidof aplay`" != "" ] && killall aplay
+   break
+  done
+  [ $RETVALs -eq 0 ] && kill $YAFPIDs
+  #[ "`which first-run.sh`" != "" ] && first-run.sh #01micko for slacko 110921 #no called from ~/Startup 110925
+ fi
+fi
+
+#v2.16 popup the BootManager if an extra SFS file added (once only)...
+if [ ! $PUPMODE -eq 5 ];then
+ if [ -d /initrd ];then #test it isn't full hd installation.
+  . /etc/rc.d/BOOTCONFIG
+  #if EXTRASFSLIST variable not there, then auto-load of SFS files (meaning, user
+  # has probably never run the BootManager)...
+  if [ "`grep '^EXTRASFSLIST' /etc/rc.d/BOOTCONFIG`" = "" ];then
+   #see /initrd/init which writes these to BOOTCONFIG..
+   if [ "$LASTUNIONRECORD" != "" ];then
+    if [ "$LASTUNIONRECORD" != "$PREVUNIONRECORD" ];then
+     bootmanager extrasfs quiet
+    fi
+   fi
+  fi
+ fi
+fi
+
+#101121 handle multiple sound cards...
+if [ $PUPMODE -eq 5 ];then
+ if [ -f /tmp/rc_d_rc_services_alsa_ok ];then #see /etc/rc.d/rc.services
+  if [ `find /tmp/pup_event_backend -maxdepth 1 -type f -name 'pup_event_alsa_cnt*' | wc -l` -gt 1 ];then
+   #run kirk's Multiple Sound Card Wizard...
+   Multiple-Sound-Card-Wizard
+  fi
+ fi
+fi
+
+#v2.16 popup a warning if booting from usb flash...
+if [ "$PMEDIA" = "usbflash" ];then
+# yaf-splash ${FONTSIZEPARAM} -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
+# yaf-splash -fontsize large -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
+# X1PID=$!
+# X1RET=$?
+# sleep 3
+# [ $X1RET -eq 0 ] && kill $X1PID
+ yaf-splash -fontsize large -close never -bg yellow -timeout 3 -text "WARNING! Do not unplug USB Flash drive!" & #101009 #-close never 112110
+fi
+
+#v2.17 suggested by andrei...
+if [ -d /root/Startup ];then
+ for a in /root/Startup/*
+ do
+  [ -f "$a" -a -x "$a" ] && $a &
+  sleep 0.2
+ done
+fi
+
+#101027 install adobe flash player... 110925 fixes, improvements...
+#wait for internet connection, do this only until internet connected 1st time...
+if [ ! -f /var/local/internetsuccess ];then
+ if [ ! -f /usr/lib/mozilla/plugins/libflashplayer.so ];then
+  while [ 1 ];do
+   #test for valid internet connection... #uncommented for Slacko 111114 to restore if browser is running
+   sleep 5
+   ALLPS="`ps`"
+   if [ "`echo "$ALLPS" | grep -E 'seamonkey|firefox|opera'`" != "" ];then
+   sleep 2
+   IFCONFIG="`ifconfig | grep '^[pwe]' | grep -v 'wmaster'`"
+    if [ "$IFCONFIG" ];then
+    sleep 5
+    ping -c 1 8.8.8.8 #64.233.169.103 #google 111110 address no longer responding.
+     if [ $? -eq 0 ];then
+     #sleep 1
+     #ping -c 1 www.google.com
+     #if [ $? -eq 0 ];then
+     #new way to get url 111114
+     DOWNLOADURL="`curl -s 'http://get.adobe.com/flashplayer/completion/?installer=Flash_Player_11_for_other_Linux_(.tar.gz)_32-bit'|tr ' ' '\n'|grep fpdownload|tr -d ';'`"
+      touch /var/local/internetsuccess
+      LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --yesno "The Adobe Flash Player for the web browser is not installed.\\nClick the 'OK' button to download and install it (5.2MB).\\nNote, this dialog box only pops up once, so recommend you answer 'OK' now\\n(it can be installed later via the Puppy Package Manager)..." 0 0
+       if [ $? -eq 0 ];then
+       cd /usr/lib/mozilla/plugins
+       #download_file "$DOWNLOADURL" #http://fpdownload.macromedia.com/get/flashplayer/current/install_flash_player_10_linux.tar.gz #111114
+       echo -e "#!/bin/sh\nwget -O - $DOWNLOADURL | tar -xz" > /tmp/delayedrun_flashdl
+       chmod 777 /tmp/delayedrun_flashdl
+       rxvt -bg orange -geometry 80x4 -title "Download Flash Player" -e /tmp/delayedrun_flashdl
+        #tar -xf *.tar.gz
+         if [ $? -eq 0 ];then
+         #expands with libflashplayer.so at top, 'usr' dir with stuff in it...
+          if [ -d usr ];then
+          cp -a -f usr/* /usr/
+          sync
+          rm -rf usr
+           if [ -f /usr/share/applications/flash-player-properties.desktop ];then
+           #fix it...
+           echo '[Desktop Entry]
+Name=Adobe Flash Player preferences
+Comment=Preferences for Adobe Flash Player
+Exec=flash-player-properties
+Icon=flash-player-properties.png
+Terminal=false
+Type=Application
+StartupNotify=true
+Categories=X-Internet' > /usr/share/applications/flash-player-properties.desktop
+           [ ! -e /usr/share/pixmaps/flash-player-properties.png ] && ln -s ../icons/hicolor/16x16/apps/flash-player-properties.png /usr/share/pixmaps/flash-player-properties.png
+           fi
+          fi
+         fi
+        fi
+        [ -f install_flash_player_10_linux.tar.gz ] && rm -f install_flash_player_10_linux.tar.gz
+        ldd /usr/lib/mozilla/plugins/libflashplayer.so
+        [ $? -ne 0 ] && rm -f /usr/lib/mozilla/plugins/libflashplayer.so
+        if [ -f /usr/lib/mozilla/plugins/libflashplayer.so ];then
+         if [ -f /usr/share/applications/flash-player-properties.desktop ];then
+          LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --msgbox "The Adobe Flash Player has been downloaded to:\n /usr/lib/mozilla/plugins/libflashplayer.so\nYou will need to exit from your web browser and restart it for the player to load\n\nNOTICE: This version of Adobe Flash Player has an executable named\n'flash-player-properties' to set preferences. When you close this window,\nthe menu will be updated -- look in the 'Utility' category." 0 0
+          fixmenus
+          [ "`pidof jwm`" ] && jwm -restart
+         else
+          LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --msgbox "The Adobe Flash Player has been downloaded to:\\n /usr/lib/mozilla/plugins/libflashplayer.so\\nYou will need to exit from your web browser and restart it for the player to load" 0 0
+         fi
+        else
+         LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --msgbox "Sorry, the Player did not download. Try the Puppy Package Manager." 0 0
+        fi
+       fi
+       break
+      #fi
+     fi
+    fi
+   #fi
+  done
+ fi
+fi
+
+touch /tmp/delayedrun_finished_flag #111010
+###END###
