@@ -1,0 +1,74 @@
+#hso-driver mode switch rules derived from hso.udev file in "udev" tarball from www.pharscape.org (replacing 51-hso-udev.rules)
+#To avoid suspected malfunction of "!=" tests, those tests are replaced by equivalent logic using only "==" tests.
+#Updated for devices supported by hso-1.12
+
+#rse debug
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0af0", ACTION=="add", RUN+="/bin/sh -c 'echo HSO_RULES_TRIGGERED_FOR_$env{SUBSYSTEM}_V%s{idVendor}_P%s{idProduct}_DC%s{bDeviceClass}_DEVTYPE_$env{DEVTYPE} >> /tmp/udevtrace-modem.log'"
+SUBSYSTEM=="scsi", ATTRS{idVendor}=="0af0", ACTION=="add", ENV{DEVTYPE}=="scsi_device", RUN+="/bin/sh -c 'echo HSO_RULES_TRIGGERED_FOR_$env{SUBSYSTEM}_V%s{idVendor}_P%s{idProduct}_DC%s{bDeviceClass}_DEVTYPE_$env{DEVTYPE} >> /tmp/udevtrace-modem.log'"
+#rse debug end
+
+# enable Selective suspend in USB core system by a helper script
+#rse debug
+SUBSYSTEM=="usb", ATTR{idVendor}=="0af0", ATTR{bDeviceClass}=="ff", ACTION=="add", RUN+="/bin/sh -c 'echo hso_setsuspend: $env{SUBSYSTEM}_ATTR_V%s{idVendor}_P%s{idProduct}_DC%s{bDeviceClass} >> /tmp/udevtrace-modem.log'"
+#rse debug end
+SUBSYSTEM=="usb", ATTR{idVendor}=="0af0", ATTR{bDeviceClass}=="ff", ACTION=="add", RUN+="/usr/sbin/osetsuspend udev %k"
+
+# usb_device switch need for kernel 2.6.24 and newer, which does no longer support usb_device directly
+# send rezero command via ozerocdoff, which uses usblib for all known ZCOPTION devices, supported by bundled driver
+SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", ATTRS{idVendor}=="0af0", ACTION=="add", GOTO="hso_zerocd_disabler"
+#SUBSYSTEM=="usb", ATTR{bDeviceClass}!="ff", ENV{DEVTYPE}=="usb_device", GOTO="hso_zerocd_disabler"
+#Replacement usb logic to avoid not-equal test and incorrect devtype test
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0af0", ACTION=="add", GOTO="hso_usb_0af0"
+GOTO="hso_device_links"
+LABEL="hso_usb_0af0"
+ATTRS{bDeviceClass}=="ff", GOTO="hso_device_links"
+#GOTO="hso_zerocd_disabler"
+
+LABEL="hso_zerocd_disabler"
+#rse debug
+RUN+="/bin/sh -c 'echo hso_zerocd_disabler:_$env{SUBSYSTEM}_V%s{idVendor}_P%s{idProduct}_DC%s{bDeviceClass}_DEVTYPE_$env{DEVTYPE} >> /tmp/udevtrace-modem.log'"
+#rse debug end
+ATTRS{idProduct}=="67[13579]1", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="6811", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="69[157]1", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="70[1357]1", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="7111", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="72[157]1", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="73[0168]1", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="7[456789]01", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="820[01]", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="c031", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="d013", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="d03[135]", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="d[012]55", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+ATTRS{idProduct}=="d[0123]57", RUN+="/usr/sbin/ozerocdoff -wi 0x%s{idProduct} -l /tmp/ozerocdoff.log"
+GOTO="hso_end"
+
+LABEL="hso_device_links"
+#Replace not-equal test logic.
+#SUBSYSTEM!="tty", GOTO="hso_end"
+#SUBSYSTEMS!="usb", GOTO="hso_end"
+SUBSYSTEM=="tty", GOTO="hso_tty"
+GOTO="hso_end"
+GOTO="hso_tty"
+SUBSYSTEMS=="usb", GOTO="hso_tty_usb"
+GOTO="hso_end"
+LABEL="hso_tty_usb"
+ACTION=="remove", GOTO="hso_end"
+#rse debug
+RUN+="/bin/sh -c 'echo $env{SUBSYSTEM}_$env{SUBSYSTEMS}_Add_device_node_link_for_HSOTYPE_%s{hsotype} >> /tmp/udevtrace-modem.log'"
+#rse debug end
+# add device node links to all possible device
+ATTR{hsotype}=="Control",      SYMLINK+="wctrl0"
+ATTR{hsotype}=="Application",  SYMLINK+="wapp0"
+ATTR{hsotype}=="Application",  SYMLINK+="wappa0"
+ATTR{hsotype}=="Application2", SYMLINK+="wappb0"
+ATTR{hsotype}=="Diagnostic",   SYMLINK+="wdiag0"
+ATTR{hsotype}=="Diagnostic",   SYMLINK+="wdiaga0"
+ATTR{hsotype}=="Diagnostic2",  SYMLINK+="wdiagb0"
+ATTR{hsotype}=="Modem",        SYMLINK+="wmodem0"
+ATTR{hsotype}=="GPS",          SYMLINK+="wgps0"
+ATTR{hsotype}=="GPS_Control",  SYMLINK+="wgpsc0"
+ATTR{hsotype}=="PCSC",         SYMLINK+="wpcsc0"
+
+LABEL="hso_end"
