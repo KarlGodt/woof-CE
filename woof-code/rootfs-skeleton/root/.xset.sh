@@ -1,0 +1,1 @@
+xset m 20/10 4 c off r rate 500 30 s 600 40 s blank s expose
