@@ -29,14 +29,12 @@
 
 #w002 fixes for woof.
 
-. /etc/rc.d/f4puppy5
-
 start_daemon () {
     local force nice pidfile exec i
     force=0
     nice=0
     pidfile=/dev/null
-    echo "$0:start_daemon:$*"
+    echo "$*"
     OPTIND=1
     while getopts fn:p: opt ; do
         case "$opt" in
@@ -45,15 +43,15 @@ start_daemon () {
             p)  pidfile="$OPTARG";;
         esac
     done
-    echo "start_daemon:$*"
+    echo "$*"
     shift $(($OPTIND - 1))
-    echo "start_daemon:$*"
+    echo "$*"
     if [ "$1" = '--' ]; then
         shift
     fi
-    echo "start_daemon:$*"
+    echo "$*"
     exec="$1"; shift
-    echo "start_daemon:$*"
+    echo "$*"
     if [ $force = 1 ]; then
         /sbin/start-stop-daemon --start --nicelevel $nice --startas $exec --pidfile /dev/null --oknodo -- $@ -d
     elif [ $pidfile ]; then
@@ -68,8 +66,6 @@ pidofproc () {
     pidfile=
     specified=
 
-    echo "$0:pidofproc:$*"
-
     OPTIND=1
     while getopts p: opt ; do
         case "$opt" in
@@ -79,22 +75,24 @@ pidofproc () {
     shift $(($OPTIND - 1))
 
     if [ -z "${pidfile:-}" ]; then
-        [ -f /var/run/${1##*/}.pid ] ] && pidfile=/var/run/${1##*/}.pid
+        test -f /var/run/${1##*/}.pid && pidfile=/var/run/${1##*/}.pid
     fi
 
     if [ -f "$pidfile" ]; then
         read pid < "$pidfile"
         if [ -n "${pid:-}" ]; then
-            if $(kill -0 "${pid:-}" 2>>$ERR); then
+            if $(kill -0 "${pid:-}" 2> /dev/null); then
                 echo "$pid"
                 return 0
-            elif ps "${pid:-}" >$OUT 2>$ERR; then
+            elif ps "${pid:-}" >/dev/null 2>&1; then
                 echo "$pid"
                 return 0 # program is running, but not owned by this user
             else
                 return 1 # program is dead and /var/run pid file exists
             fi
         fi
+    else
+     :
     fi
     if [ -x /bin/pidof -a ! "$specified" ]; then
         status="0"
@@ -113,9 +111,7 @@ killproc () {
     pidfile=
     name_param=
     is_term_sig=no
-
-    echo "$0:killproc:$*"
-
+    #echo "$*"
     OPTIND=1
     while getopts p: opt ; do
         case "$opt" in
@@ -123,51 +119,65 @@ killproc () {
         esac
     done
     shift $(($OPTIND - 1))
-
-    echo "killproc:$*"
-
+    #echo "$*"
     base=${1##*/}
     if [ ! "$pidfile" ]; then
-     if test -f /var/run/$base.pid; then
-        pidfile=/var/run/$base.pid
+        test -f /var/run/$base.pid && pidfile=/var/run/$base.pid
         name_param="--name $base"
-     fi
+    fi
+    if test -f "$pidfile"; then
+     PIDFILE_OPT="--pidfile \"$pidfile\""
     fi
 
     sig=$(echo ${2:-} | sed -e 's/^-\(.*\)/\1/')
     #sig=$(echo ${1:-} | sed -e 's/^-\(.*\)/\1/')
-
     sig=$(echo $sig | sed -e 's/^SIG\(.*\)/\1/')
-    echo "sig=$sig"
-
     if [ -z "$sig" -o "$sig" = 15 -o "$sig" = TERM ]; then
         is_term_sig=yes
     fi
     status=0
     if [ ! "$is_term_sig" = yes ]; then
-       echo "is_term_sig=$is_term_sig"
         if [ -n "$sig" ]; then
-       echo "sig=$sig"
-            /sbin/start-stop-daemon --stop --signal "$sig" --pidfile "$pidfile" --quiet $name_param || status="$?"
+            /sbin/start-stop-daemon --stop --signal "$sig" $PIDFILE_OPT --quiet $name_param || status="$?"
         else
-            /sbin/start-stop-daemon --stop --pidfile "$pidfile" --quiet $name_param || status="$?"
+            /sbin/start-stop-daemon --stop $PIDFILE_OPT --quiet $name_param || status="$?"
         fi
     else
-       echo "is_term_sig=$is_term_sig"
-        /sbin/start-stop-daemon --stop --pidfile "$pidfile" --retry 5 --quiet --oknodo $name_param || status="$?"
+        /sbin/start-stop-daemon --stop $PIDFILE_OPT --retry 5 --quiet --oknodo $name_param || status="$?"
     fi
 
-    if [ "$status" = 1 ]; then
-        if [ -n "$sig" ]; then
-            return 0
-        fi
-        return 3 # program is not running
-    fi
+    #echo status=$status sig=$sig
+    #if [ "$status" = 1 ]; then
+    #    if [ -n "$sig" ]; then
+    #        return 0
+    #    fi
+    #    return 3 # program is not running
+    #fi
 
-    if [ "$status" = 0 -a "$is_term_sig" = yes ]; then
-        pidofproc -p $pidfile "$1" >>$OUT || rm $VERB -f "$pidfile"
+    #if [ "$status" = 0 -a "$is_term_sig" = yes ]; then
+    #   if test -f "$pidfile"; then
+    #    pidofproc -p $pidfile "$1" >/dev/null || rm -f "$pidfile"
+    #   else
+    #    pidofproc "$1" >/dev/null
+    #   fi
+    #fi
+
+    if test "$pidfile"; then
+     if test -f "$pidfile"; then
+      pidofproc -p $pidfile "$1"
+      RV=$?
+      test $RV != 0 && rm -f "$pidfile"
+     else
+      pidofproc "$1"
+      RV=$?
+     fi
+    else
+     pidofproc "$1"
+     RV=$?
     fi
-    return 0
+    test $RV != 0 #pidof returns 0 if running, 1 if not running
+                  #pidof should return 1 here in the expected case that program was killed
+                  #so returning test -ne 0 here should return 0
 }
 
 # Return LSB status
@@ -176,9 +186,6 @@ status_of_proc () {
 
     pidfile=
     OPTIND=1
-
-    echo "$0:status_of_proc:$*"
-
     while getopts p: opt ; do
         case "$opt" in
             p)  pidfile="$OPTARG";;
