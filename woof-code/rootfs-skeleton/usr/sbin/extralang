@@ -1,0 +1,427 @@
+#!/bin/sh
+# extralang - loading additional language package
+#v0.1 - 20jan11 shinobar
+#v0.2 -  4feb11: sfs_load, 'extralang -f' asks where and allows to install with RAM mode
+#v0.3 - 10feb11: fix was failed 1st search, offer to search when PUPHOME is set, cancel button on detecting cd, search scpoe
+#c0.4 - 24feb11: remember canceled files, skip 'en'
+MYNAME=$(basename $0)
+VERSION="0.4"
+
+DEBUGFLAG=""
+[ "$(echo $VERSION | cut -b1)" = "0" ] && DEBUGFLAG="y"
+debug() {
+  [ "$DEBUGFLAG" = "" ] && return
+  echo "$MYNAME: $@" >&2
+}
+debug "version-$VERSION $@"
+# NLS
+export TEXTDOMAIN=countrywizard	#$(basename $0)
+export OUTPUT_CHARSET=UTF-8
+LANGORG=$LANG
+for lng in C $(echo $LANGUAGE|cut -d':' -f1) $LC_ALL $LANG;do :;done   # ex.    ja_JP.UTF-8
+lng1=$(echo $lng|cut -d'.' -f1)      # ex.   ja_JP
+lng2=$(echo $lng|cut -d'_' -f1)   # ex.   ja
+#[ "$lng1" = "en_US" ] && lng1="C"
+[ "$lng2" = "en" ] && lng1="C"
+[ "$lng1" = "C" ] && debug "LANG=$LANG" && exit
+case $lng2 in
+  ar|he) lng3="ar_he";;
+  ja|ko|zh) lng3="cjk";;
+  *) lng3="";;
+esac
+lngs="$lng1 $lng2 $lng3 all"
+LANGPACK_ROOT="lang_pack_"
+LANGSUPPORT_ROOT="lang_support_"  # old packages
+LANGPACK_GENERAL="$LANGPACK_ROOT$lng2"
+
+TITLE="$MYNAME v.$VERSION"
+ICONS="/usr/local/lib/X11/mini-icons"
+LOGFILE=/tmp/$MYNAME.log
+COUNTFILE=/tmp/$MYNAME.count
+PROBEDISK=$(which probedisk2) || PROBEDISK=$(which probedisk)
+# how do i called?
+MORESEARCH=""
+[ "$(echo $1| cut -b1)" = "-" ] && MORESEARCH=$1 && shift
+ # where is home
+ PUPSTATE=/etc/rc.d/PUPSTATE  #PUPMODE, PDEV1, DEV1FS, PUPSFS, PUPSAVE, PUP_HOME
+ PUPSAVECONF=/etc/rc.d/pupsave.conf #SAVEPART, SAVEFILE
+ [ -s "$PUPSTATE" ] && source "$PUPSTATE"
+ if [ "$PUPSAVE" = "" -a -s "$PUPSAVECONF" ]; then
+  source "$PUPSAVECONF"
+  PUPSAVE="$SAVEPART,,$SAVEFILE"
+ fi
+ # if PUPMDE=5, pupsaveconf first
+ [ "$PUPMODE" = "5" -a "$PUPSAVE" != "" -a "$PUPSAVE" = "" -a "$OPT" = "" ] && exit
+ 
+ PUPHOME=$PUPSAVE
+ [ "$PUPSAVE" ] || PUPHOME=$PUPSFS
+ debug "PUPHOME=$PUPHOME"
+ PUPPART=$(echo $PUPHOME| cut -d',' -f1)
+ PUPTYPE=$(echo $PUPHOME| cut -s -d',' -f2)
+ PUPFILE=$(echo $PUPHOME| cut -s -d',' -f3)
+ HOMEPART=""
+ SUBDIR=""
+ [ "$PUPHOME" != "" ] && [ "$PUPTYPE" != "iso9660" ] && HOMEPART=$PUPPART && SUB=$(dirname "$PUPFILE")
+ debug "HOMEPART=$HOMEPART; SUB=$SUB;"
+ HOMEPATH=$HOMEPART
+ [ "$SUB" = "/" -o "$SUB" = "." ] && SUB=""
+ [ "$SUB" != "" ] && HOMEPATH=$HOMEPART$SUB
+ # HOMEPATH='sda1/puppy' for example
+ debug "HOMEPATH=$HOMEPATH"
+ #SFSONTHEFLY=sfs_load
+ SFSLOADER=sfs_load
+ #SFSINSTALL=sfs_load   #sfs_installation.sh
+ #SFSLINKER=sfs_linker
+SFS_SUPPORT=""
+for P in $SFSLOADER $SFSLINKER; do
+  which "$P" &>/dev/null && SFS_SUPPORT="$P" && break
+done
+#if [ "$SFS_SUPPORT" = "" ]; then
+#  case "$PUPMODE" in
+#  5) [ "$HOMEPATH" != "" ] && which "$SFSONTHEFLY" &>/dev/null && SFS_SUPPORT="$SFSONTHEFLY";;
+#  12|13) which "$SFSONTHEFLY" &>/dev/null && SFS_SUPPORT="$SFSONTHEFLY"
+#       [ "$SFS_SUPPORT" = "" ] && which "$SFSLOADER" &>/dev/null && SFS_SUPPORT="$SFSLOADER";;
+#  *) which "$SFSINSTALL" &>/dev/null && SFS_SUPPORT="$SFSINSTALL"
+#esac
+#fi
+PETDEPTH=2	# search gepath for PET
+SFSDEPTH=0  # for SFS
+[ "$SFS_SUPPORT" ] && SFSDEPTH=1
+[ "$SFS_SUPPORT" = "sfs_load" ] && SFSDEPTH=2
+CANCELED_FILES=/tmp/$MYNAME-canceled
+
+# global variables
+export DIALOG
+UMOUNTME=""
+CDDEV=""
+INSTALLED=""
+FOUND=""
+XPID=""
+waitsplash() {
+  local myOPT=""
+  local PBAR=""
+  local BUTTONS=""
+  while [ "$(echo $1| cut -b1)" = "-" ]; do
+   case "$1" in
+    -*test) [ "$XPID" ] || return
+     ps | grep -q "^[ ]*$XPID " 
+     return
+     ;;
+    -*stop) myOPT="stop"; shift;;
+    -*progress)
+     if [ -s $COUNTFILE ]; then
+      PBAR="<progressbar>
+      <input>while [ -s $COUNTFILE ]; do tail -n 1 $COUNTFILE; sleep 1; done; echo 100</input>
+     </progressbar>"
+     fi
+     shift
+     ;;
+    -*cancel) BUTTONS="<hbox><button cancel></button></hbox>"; shift;;
+    -*) shift;;
+   esac
+  done
+  [ "$XPID" != "" ] && kill $XPID >/dev/null 2>&1
+  XPID=""
+  [ "$myOPT" = "stop" ] && return
+  [ "$LANGORG" != "" ] && LANG=$LANGORG	# recover lang environment
+  S="$@ $(gettext "Wait a moment ...")"
+  #[ "$S" != "" ] || S=$(gettext "Wait a moment ...")
+  DIALOG="<window title=\"$TITLE\"><vbox>
+  <hbox>
+  <pixmap><input file>$ICONS/mini-clock.xpm</input></pixmap>
+  <text><input>echo -e -n \"$S\"</input></text>
+  </hbox>
+  $PBAR
+  $BUTTONS
+  </vbox></window>"
+  gtkdialog3 -p DIALOG  -c >/dev/null &
+  XPID=$!
+  #debug "XPID=$XPID;"
+}
+umountmine() {
+	[ "$UNMOUNTME" != "" ] && mount |grep -qw "$UNMOUNTME" && umount "$UNMOUNTME" && UNMOUNTME=""
+}
+ismounted() {
+  [ "$1" != "" ] || return
+  MOUNTED=$(LANG=C mount |grep "^/dev/$1 ") || return
+  MP=$(echo "$MOUNTED" | tr -s ' '|cut -d' ' -f 3)
+  #echo $MP
+}
+
+mountpart() {
+  PART="$1"
+  TYPE="$2"
+  #echo "mountpart $@" >&2
+  [ "$PART" != "" ] || return
+  ismounted "$PART" && return
+  [ "$TYPE" != "" ] || TYPE=$(probepart | grep -w "^/dev/$PART"| cut -d'|' -f2)
+  MPART="$PART"
+  OPT=""
+  case "$TYPE" in
+  iso9660)
+	#waitsplash start "Detecting CD." # 2010-03-09
+	waitsplash --cancel $(gettext "Detecting CD.")
+    #eject -t /dev/$PART || return
+    #sleep 4
+    MPART="cdrom"
+    OPT="-t iso9660 -o iocharset=utf8"
+    ;;
+  vfat) NLS_PARAM=""
+    if [ -f /etc/codepage ]; then #100127...
+	  grep -q -i '850' /etc/codepage && [ "$(echo $LANG|cut -d'.' -f1)" != "en_US" ] && NLS_PARAM=",codepage=850"
+	  grep -q -i '852' /etc/codepage && NLS_PARAM=",codepage=852,iocharset=iso8859-2"
+    fi
+    echo $LANG | grep -q -i '\.utf' && NLS_PARAM="$NLS_PARAM,utf8"
+    OPT="-t vfat -o shortname=mixed,quiet${NLS_PARAM}"
+    ;;
+   ntfs)
+    OPT="-t ntfs"
+    ;;
+  esac
+  if LANG=C mount | grep " /mnt/$MPART " >&2; then
+    umount /mnt/$MPART || return
+  fi
+  mkdir -p /mnt/$MPART || return
+  TIMEUP=3
+  UNMOUNTME=""
+  for I in $(seq $TIMEUP); do
+    mount $OPT /dev/$PART /mnt/$MPART && UNMOUNTME=/dev/$PART && break
+    if [ "$TYPE" = "iso9660" ]; then
+      waitsplash --test || break
+      eject -t /dev/$PART
+    fi
+    sleep 1
+  done
+  [ "$TYPE" = "iso9660" ] && waitsplash --stop
+  [ "$UNMOUNTME" != "" ] || return
+  MP=/mnt/$MPART
+  #echo $MP
+}
+
+choice_cdd() {
+  TOOLTIP1=$(printf "$(gettext "Type the path or drag the '%s' file here.")" "$LANGPACK_ROOT$lng2")
+  TOOLTIP2=$(printf "$(gettext "Browse and select the '%s' file.")" "$LANGPACK_ROOT$lng2")
+  FILE1=""
+  SEARCHCD="true"
+  MSG="$(printf "$(gettext "Where is the package '%s'?")" "$LANGPACK_GENERAL")\\n$_Enhance"
+  while [ "$FOUND" = "" ]; do
+    waitsplash --start $(gettext "Probing devices.")
+    OPENFILE="  <hbox>
+	<text><label>$(gettext 'Package')</label></text>
+      <entry tooltip-text=\"$TOOLTIP1\" editable=\"true\" accept=\"filename\">
+        <variable>FILE1</variable>
+        <default>\"$FILE1\"</default>
+      </entry>
+      <button tooltip-text=\"$TOOLTIP2\">
+        <input file stock=\"gtk-open\"></input>
+        <variable>FILE_BROWSE_FILENAME</variable>
+		<action type=\"fileselect\">FILE1</action>
+      </button>
+   </hbox>"
+    CHECKBOX="<checkbox><label>$(gettext 'Search inside CD')</label><variable>SEARCHCD</variable><default>$SEARCHCD</default></checkbox>"
+    SELECTIONS=$($PROBEDISK 2>&1 | grep '^/dev/' | grep -E '\|(cdrom|optical)\|' | cut -f 1,3 -d "|" | tr ' $' '@_')
+    SELECTIONS="$SELECTIONS
+$(mount -t iso9660|grep '^/dev/loop' | sed -e 's/on[ ].*+//' -e 's/[ ]type[ ].*$//'|tr ' ' '|')"
+    ITEMLIST=""
+    for ONEITEM in $SELECTIONS;do
+      ITEMLIST="$ITEMLIST
+      <item>$(echo $ONEITEM| tr '@' ' ')</item>"
+    done
+    HEADER="<text><input>echo -e \\\"$MSG\\\"</input></text>"
+    #[ "$SYMBOL" != "" ] && HEADR="<hbox>$SYMBOL $HEADER</hbox>"
+    CDMSG=$(gettext "NO CD drives found.")
+    if echo "$ITEMLIST"|grep -q 'item'; then
+       CDMSG=$(printf "$(gettext 'Insert %s CD on the selected drive.')" "$DISTRO_NAME")
+    fi
+    S=$(gettext "Or mount (one-click) the '.iso' file and press 'OK'.")
+    DIALOG="<window title=\"$TITLE\"><vbox>
+    <text><input>echo -e \"$MSG\"</input></text>
+    $OPENFILE
+    $CHECKBOX
+    <hbox>
+    <pixmap  icon_size=\"5\"><input file stock=\"gtk-cdrom\"></input></pixmap>
+    <text><input>echo -e \"$CDMSG\"</input></text>
+    </hbox>
+    <text><input>echo -e \"$S\"</input></text>
+    <table><variable>CDDEV</variable>
+    <label>Device      |Description</label>
+    $ITEMLIST</table>
+    <hbox><button ok></button>
+    <button cancel></button></hbox>
+	</vbox></window>"
+    waitsplash --stop
+    RESULT=$(gtkdialog3 -p DIALOG -c || echo "$DIALOG" >&2)
+    #debug "$RESULT"
+    eval $RESULT
+    [ "$EXIT" = "OK" ] || return
+    search_mounted && return
+    FILE1=""
+    [ "$SEARCHCD" = "true" ] || return
+    # search cd
+    CDPART=$(echo $CDDEV|cut -d' ' -f1|cut -d '/' -f3)
+    mountpart "$CDPART" "iso9660"|| continue
+    P="$MP"
+    search_pack "$P" && return
+    MSG=$(printf "$(gettext "'%s' files NOT found.")" $LANGPACK_GENERAL)
+    MSG="$MSG\n$(gettext 'Do you try another disk?')"
+    umountmine
+    eject "$CDDEV"
+  done
+}
+search_pack() {
+  [ "$FOUND" ] && echo $FOUND && return
+  local myEXT="pet"
+  local myDEPTH=$PETDEPTH
+  local myP=$P
+  [ "$1" ] || return
+  [ -d "$1" ] && myP="$1" || return
+  for myEXT in "pet" "sfs"; do
+   [ "$myEXT" = "pet" ] && myDEPTH=$PETDEPTH || myDEPTH=$SFSDEPTH
+   #debug "$myP:$myEXT:$myDEPTH"
+   [ $myDEPTH -gt 0 ] || continue
+   for L in $lngs; do
+    #debug "$myP;${LANGPACK_ROOT}$L*.$myEXT"
+    #FOUND=$(find -L "$myP" -maxdepth $myDEPTH -not -type d -name ${LANGPACK_ROOT}$L*.$myEXT| tail -n 1)
+    FOUNDS=$(find -L "$myP" -maxdepth $myDEPTH -name ${LANGPACK_ROOT}$L*.$myEXT -type f)
+    [ "$FOUNDS" ] || continue
+    # remove canceled before
+    if [ "$CANCELED_LIST" ]; then
+      for F in $FOUNDS; do
+        echo "$CANCELED_LIST" | grep -q "$F" && continue
+        FOUND="$F"
+      done
+    else
+      FOUND=$(echo "$FOUNDS"| tail -n 1)
+    fi
+    [ "$FOUND" ] && echo $FOUND && return
+   done
+  done
+  false  # not found
+}
+search_mounted() {
+  [ "$FOUND" ] && return
+  for L in $lngs; do
+    [ "$FILE1" != "" ] && echo "$FILE1" | grep -qE "${LANGPACK_ROOT}$L.*\.pet$" && FOUND="$FILE1" && return
+    [ $SFSDEPTH -gt 0 ] && echo "$FILE1" | grep -qE "${LANGPACK_ROOT}$L.*\.sfs$" && FOUND="$FILE1" && return
+  done
+  MNTS=$(LANG=C mount | grep -E '^/dev/[hs][dr]|type iso9660 ' | grep -v "/dev/$HOMEPART "| tr -s ' '| cut -s -d' ' -f3)
+  for P in $MNTS; do
+    FOUND=$(search_pack "$P") && return
+  done
+  return 1
+}
+firstsearch() {
+ # /tmp and /root
+ for P in /tmp $HOME; do
+  FOUND=$(search_pack "$P") && break
+ done
+ # on /mnt/home?
+ if  [ "$FOUND" = "" -a "$HOMEPATH" != "" ]; then
+  HOMEPART=$(echo $HOMEPATH| cut -d'/' -f1)
+  MP=""
+  mountpart "$HOMEPART"
+  if [ "$MP" != "" ] ; then
+    SUB=$(echo "$HOMEPATH"| cut -sd'/' -f2)
+    #debug "MP=$MP; SUB=$SUB;"
+    [ "$SUB" != "" ] && SUB="$MP/$SUB"
+   #if [ "$SUB" != "" ] ; then
+    for P in $SUB $MP; do
+      FOUND=$(search_pack "$P") && break
+    done
+  fi
+  [ "$FOUND" = "" ] && umountmine
+ fi
+ # on another partition?
+ [ "$FOUND" ] || search_mounted
+}
+found_dialog() {
+  MSG="$(printf "$(gettext "The package '%s' is found.")" "$FOUND") $_Enhance"
+  DIALOG="<window title=\"$TITLE\"><vbox>
+    <text><input>echo -e \"$MSG\"</input></text>
+    <hbox><button ok></button></hbox>
+	</vbox></window>"
+    waitsplash --stop
+    RESULT=$(gtkdialog3 -p DIALOG -c || echo "$DIALOG" >&2)
+    #debug "$RESULT"
+    eval $RESULT
+    if [ "$EXIT" != "OK" ]; then
+       # canceled
+       echo "$FOUND" >> "$CANCELED_FILES"
+       exit
+    fi
+}
+
+INSTLLED=""
+REGISTERED=""
+for L in $lngs; do
+  LANGPACK=${LANGPACK_ROOT}$L
+  # has in installed package?
+  H=/root
+  for I in woof user;do
+    F="$H/.packages/$I-installed-packages"
+    INSTALLED=$(grep "^$LANGPACK" "$F") && break
+    H="$HOME"
+  done
+  [ "$INSTALLED" != "" ] && INSTALLED=$(echo $INSTALLED| cut -d'|' -f1) && break
+  # sfs?
+  INSTALLED=$(grep "LASTUNIONRECORD=.*$LANGPACK" /etc/rc.d/BOOTCONFIG) && break
+  REGISTERED=$(grep "EXTRASFSLIST=.*$LANGPACK" /etc/rc.d/BOOTCONFIG) && break
+done
+debug "INSTALLED=$INSTALLED;"
+[ "$INSTALLED" != "" ] && exit  ############## comment out for debug
+#[ "$REGISTERED" != "" ] && exit
+
+# canceled before?
+CANCELED_LIST=""
+if [ -f "$CANCELED_FILES" ]; then
+  CANCELED_LIST=$(cat "$CANCELED_FILES")
+  [ "$CANCELED_LIST" = "" ] && exit
+fi
+
+# search langpack
+FOUND=""
+SFSDEPTHSAVE=$SFSDEPTH
+[ "$PUPMODE" = "5" -a "$HOMEPATH" = "" ] && SFSDEPTH=0   # escape sfs with RAM mode for the 1st search
+firstsearch
+debug "1st search FOUND=$FOUND;"
+#FOUND=""  ##### for debug
+_Enhance=$(gettext "It will enhance the localization.")
+[ "$FOUND" != "" ] && found_dialog
+
+# search further if not found yet?
+[ "$FOUND" != "" -o "$HOMEPATH" != "" -o "$MORESEARCH" != "" ] || exit
+
+if [ "$FOUND" = "" -a $SFSDEPTH -le 0 ]; then
+  [ $SFSDEPTHSAVE ] && SFSDEPTH=$SFSDEPTHSAVE # allow sfs even RAM mode
+  PETDEPTHSAVE=$PETDEPTH; PETDEPTH=0
+  firstsearch  # search sfs
+  PETDEPTH=$PETDEPTHSAVE
+  debug "sfs search FOUND=$FOUND;"
+  [ "$FOUND" != "" ] && found_dialog
+fi
+if [ "$FOUND" = "" ]; then
+    if ! choice_cdd; then
+       # canceled
+       cat /dev/null > "$CANCELED_FILES"
+       exit
+    fi
+ debug "2nd search FOUND=$FOUND;"
+ [ "$FOUND" != "" ] && found_dialog
+fi
+#GATEWAY=$(LANG=C route | grep 'default[ ].*[ ]0\.0\.0\.0[ ]'| tr -s ' '| cut -d' ' -f2)
+#debug "GATEWAY=$GATEWAY"
+
+# install
+#if [ "$FOUND" != "" ];then
+  EXT=$(echo "$FOUND"| sed -e 's/^.*\.//')
+  case "$EXT" in
+  pet) petget "$FOUND"
+    #remove the file copied to /root if remained
+    [ "$(dirname "$FOUND")" != "$HOME" -a -f "$HOME/$(basename "$FOUND")" ] && rm -f "$HOME/$(basename "$FOUND")"
+    ;;
+  sfs) [ "$SFS_SUPPORT" != "" ] && "$SFS_SUPPORT" "$FOUND";;
+  esac
+#fi
+[ "$LANGORG" != "" ] && LANG=$LANGORG	# recover lang environment (precaution)
+debug "UNMOUNTME=$UNMOUNTME;"
+umountmine

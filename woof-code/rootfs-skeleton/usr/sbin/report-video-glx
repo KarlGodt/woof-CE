@@ -1,0 +1,108 @@
+#!/bin/bash
+#110415 TazOC lhpup.org
+# Based on http://www.free3d.org/#hardware_benchmarks, report-video by BarryK, pcpufreq by Iguleder
+# Should work on any Woof-based Puppy, if X is running
+#110417 Replaced colrm and improved detection of Xorg driver. GUI if X is running.
+
+APPTITLE="Report Video GLX"
+SCRIPTNAME="report-video-glx"
+APPNAME="report-video" # for Xdialog taskbar icon
+APPVERSION="0.3"
+ABOUT="$SCRIPTNAME-$APPVERSION TazOC lhpup.org license: GPL v3 or any later version"
+REPORT_FILE="/tmp/${USER}/$SCRIPTNAME"
+
+case $@ in
+*-V*|*--version*)
+  echo -e "$ABOUT"; exit 0 ;; ### End script ###
+  
+*-h*|*--help*)
+  echo -e "$ABOUT"
+  echo "This script can display some graphics and processor information."
+  echo "OpenGL status is shown if X is running."
+  echo "The output is also recorded at $REPORT_FILE."
+  echo -e "\nUsage: $SCRIPTNAME [-cl | --nogui ] [-h | --help] [-V | --version]"
+  exit 0 ;; ### End script ###
+  
+*-r*|*-cl*|'') ;;
+
+*) exec $0 -h
+   exit 0 ;; ### End script ###
+esac
+
+if [ -z "`echo "$@" | grep -E '\-r'`" ]; then
+ mkdir -p "/tmp/${USER}"
+ exec $0 -r 1> "$REPORT_FILE" &
+ PID=$!
+ if [ "`ps -eo comm | grep ^X`" -a -z "`echo "$@" | grep -E '\-cl|\-nogui'`" ]; then
+  Xdialog --title "$APPTITLE $APPVERSION" --wmclass $APPNAME \
+          --no-cancel --tailbox "$REPORT_FILE" 32 120 &
+ else 
+  while [ "$(ps | sed -e 's%^ *%%' | grep "$PID" | grep -v 'grep')" ]
+  do
+   sleep .2
+  done
+  cat "$REPORT_FILE"
+ fi
+ exit 0
+fi
+
+. /etc/DISTRO_SPECS
+echo -en "`date +'%a %-e %b %Y'`  Operating System: $DISTRO_NAME-$DISTRO_VERSION  `uname -sr`\n "
+
+lspci | grep VGA | tr '\n' '|' | sed 's%|%  %g' | sed -e 's%0[0-9]:0%%g' #110417
+echo -en "\n "
+if [ -f /tmp/ddcprobe.txt ];then
+ cat /tmp/ddcprobe.txt | grep -E '^oem: |^product: ' | tr '\n' '|' | sed 's%|%  %g'
+else
+ ddcprobe | grep -E '^oem: |^product: ' | tr '\n' '|' | sed 's%|%  %g'
+fi
+
+XSERVER="`readlink /usr/bin/X`"
+[ "$XSERVER" = "Xvesa" ] && VIDEODRIVER="Xvesa" #110417
+[ -z "$VIDEODRIVER" ] && VIDEODRIVER="`grep ' #card0driver' /etc/X11/xorg.conf || cat /var/log/Xorg.0.log | grep vendor= | grep -v X.Org`" #110417
+[ -n "$VIDEODRIVER" ] && VIDEODRIVER="`echo $VIDEODRIVER | sed -e 's% #card0driver%%' -e 's%^\[.*) %%' -e 's%Driver %%' -e 's%Module %%' | tr -d '"'`" #'geany
+
+if [ -z "$VIDEODRIVER" ]; then
+ VIDEODRIVER="`grep 'ScreenInit' /var/log/Xorg.0.log | tr '\n' ' ' | cut -f 2- -d ')' | cut -f 1 -d '(' | tr 'A-Z' 'a-z'`" #110417
+ if [ -z "$VIDEODRIVER" ]; then
+   VIDEODRIVER="`grep 'Total Memory' /var/log/Xorg.0.log | tr '\n' ' ' | cut -f 2- -d ')' | cut -f 1 -d '(' | tr 'A-Z' 'a-z'`"  #110417
+ fi
+fi
+[ "$VIDEODRIVER" = "" ] && VIDEODRIVER="unknown"
+
+echo -e "\n\nX Server: $XSERVER   Driver: $VIDEODRIVER"
+
+if [ "$XSERVER" = "Xorg" ] && [ "`ps -eo comm | grep ^X`" ]; then
+ if [ `which xdpyinfo` ]; then
+  xdpyinfo | grep -E "version:|dimensions|depth of" 
+ else
+  [ `which xrandr` ] && xrandr | grep '*'
+ fi
+ echo
+ [ `which glxinfo` ] && glxinfo 2>/dev/null | grep -E -A2 "direct rendering|OpenGL vendor" | grep -v '\-\-'
+else echo "OpenGL status unavailable (Xorg isn't running.)"
+fi
+
+# get the first cpu
+processor=`cat /proc/cpuinfo | grep "model name" | head -1`
+
+# get rid of "model name:"
+processor=${processor##*:}
+
+#get rid of the frequency at the end
+processor="`echo ${processor%%@*} | sed 's%^ %%'`"
+
+sleep .5
+CORE_PLURAL=""
+CPU_INFO_SPEED="`cat /proc/cpuinfo | grep 'MHz' | awk '{print $4}' | cut -f 1 -d '.'`"
+CORE=0; CPU_CORES=`echo "$CPU_INFO_SPEED" | wc -l`
+[ $CPU_CORES -gt 1 ] && CORE_PLURAL="s"
+CPU_SPEED="Core "
+for ONE_CORE in $CPU_INFO_SPEED; do
+ CPU_SPEED="$CPU_SPEED$CORE: $ONE_CORE  "
+ CORE=$(expr $CORE + 1)
+done
+echo -e "\n$processor\n ${CPU_SPEED}MHz"
+echo -e "\n...the above also recorded at '$REPORT_FILE'."
+
+exit 0

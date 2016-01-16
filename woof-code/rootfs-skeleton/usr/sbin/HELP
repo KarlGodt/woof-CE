@@ -1,0 +1,190 @@
+#!/bin/sh
+#01micko 20101129, GPL, 2010, 2011 (c) M. Amadio, see /usr/share/doc/legal/
+#0.3 20110916
+#0.4 20110918
+#0.5 20110919
+#0.6 20111020 #update drivers
+#check net
+wget -t 0 -4 -o /tmp/testcon --spider www.puppylinux.com
+	 NOCON=`grep -w "failed" /tmp/testcon`
+	 if [ "$NOCON" != "" ]; then #testnet &
+	 echo -en "\033[0;31m""You are not connected to the internet. \nInvoking a connection programme"
+	 echo -e "\033[0m"
+	 sleep 4
+	 pns-tool && exit
+	 fi
+
+#kernel
+KVER="`uname -r`"
+case $KVER im
+2.6.39.4)XVER="9" ; NVER="31" ;;
+2.6.37.6)XVER="8" ; NVER="28" ;;
+esac
+#set wget params	 
+WGET="wget -t0 -c -P /tmp"
+#we check if X is running througout the script
+#set dialog or Xdialog
+[ $DISPLAY ]&& DIALOG="Xdialog"||DIALOG="dialog"
+[ $DISPLAY ]&& OPT1="--ok-label"||OPT1="--yes-label"
+[ $DISPLAY ]&& OPT2="--cancel-label"||OPT2="--no-label"
+[ $DISPLAY ]&& EXEC1="rxvt -bg black -fg white -e links file:///usr/share/doc/home.htm"||EXEC1="links file:///usr/share/doc/home.htm"
+[ $DISPLAY ]&& EXEC2="rxvt -bg black -fg white -e pmirc -h &"||EXEC2="pmirc -h &"
+#get packages function	 
+getpkg(){
+	
+    $WGET $PKGURL1
+    #$WGET $PKGURL2
+}
+export -f getpkg	
+
+#PKGURL
+PKGURL1="http://distro.ibiblio.org/pub/linux/distributions/puppylinux/pet_packages-slacko/links-1.02-i486.pet"
+#PKGURL2="http://www.smokey01.com/01micko/rescue/weechat-0.3.3-i486-lupu.pet"
+PKG1=`basename $PKGURL1`
+#PKG2=`basename $PKGURL2`
+PKNAME1=`basename $PKG1 .pet`
+#PKNAME2=`basename $PKG2 .pet` 
+#Check progs aren't installed
+BROWSERTHERE=`which links`
+#CHATTHERE=`which weechat-curses`
+if [[ "$BROWSERTHERE" = "" ]];then
+ 
+  DLG1="Welcome to help_NOX \nYou can try to recover X by using the xorgwizard. \nJust type \"xorgwizard\" at the prompt when you exit \nthis program. \nYou can also download a text mode browser. A chat client is already installed. \nTo use it type \"pmirc -h\" when you exit this program. \nChoose \"Download\" to get the browser package"
+ #1st gui
+ $DIALOG --title "help_NOX" $OPT1 "Download" $OPT2 "Exit" --yesno "$DLG1" 0 0
+        
+	case $? in 
+	0) getpkg ;;
+	1) exit ;;
+	255) exit ;;
+	esac
+ #install the packages
+ cd /tmp
+ /usr/local/petget/installpkg.sh $PKG1 2>/dev/null
+ #/usr/local/petget/installpkg.sh $PKG2 2>/dev/null
+ sync
+ cd $HOME
+ BROWSEROK=`which links`
+ #CHATOK=`which weechat-curses`
+ if [[ "$BROWSEROK" != "" ]];then echo -en "\033[0;32m""Installation of $PKNAME1 Successfull"
+		echo -e "\033[0m"
+  else echo -en "\033[0;31m""Failed to install ${PKNAME1}. Try again if you like" && exit 2
+		echo -e "\033[0m"
+ fi
+ sleep 2
+ 
+fi
+#2nd gui
+DLG2="You have successfully downloaded and installed \n${PKNAME1} \nChoose \"Browse\" to browse for help in text only mode. \nChoose \"Chat\" to seek help on  \nthe \"#puppylinux\" IRC channel \n or \"Exit\" to try and download a video driver."
+$DIALOG --extra-button --title "Browse or Chat" --ok-label "Browse" --cancel-label "Chat" --extra-label "Exit" --yesno "$DLG2" 0 0
+RETVAL=$?
+    case $RETVAL in 
+	0)$EXEC1 && exit;;
+	1)$EXEC2 ; exit;;
+	255)echo ;;
+	esac
+#clear screen
+clear
+#get video driver
+echo  -en "\033[0;33m""At this stage you can try to download a video driver.";echo -e "\033[0m" #yellow
+echo "Hit [ENTER] to continue or any other char and [ENTER] to quit."
+read GOON
+[ "$GOON" != "" ] && exit 
+. /etc/rc.d/PUPSTATE
+if [ "$PUPMODE" = "5" ];then 
+	echo "It is recommended you make a pupsave file before you install a driver"
+	echo "hit \"[CTRL] + [C]\" to quit"
+fi
+#choose a repo
+. /etc/DISTRO_SPECS
+case $DISTRO_BINARY_COMPAT in
+puppy)REPOOFF="pet_packages-wary5" ; DISTROREPO="quirky" ;;
+ubuntu)REPOOFF="pet_packages-lucid" ; DISTROREPO="puppylinux" ;;
+slackware)REPOOFF="pet_packages-slacko" ; DISTROREPO="puppylinux" ;;
+*)echo unsupported && exit ;;
+esac
+
+echo -en "\033[0;32m""Please choose your closest repository.";echo -e "\033[0m" #green
+echo "1. ibiblio US"
+echo "2. aarnet AU"
+echo "3. nluug NL"
+echo "4. UOC GR"
+read REPOCHOICE
+case $REPOCHOICE in
+1)URL_REP="http://distro.ibiblio.org/pub/linux/distributions" ;;
+2)URL_REP="http://mirror.aarnet.edu.au/pub" ;;
+3)URL_REP="http://ftp.nluug.nl/ftp/pub/os/Linux/distr" ;;
+4)URL_REP="http://ftp.cc.uoc.gr/mirrors/linux" ;;
+esac
+ACTREPO="$URL_REP/$DISTROREPO/$REPOOFF"
+
+#get card details
+APPDIR="/usr/local/graphics-test"
+MESA="$ACTREPO/mesa-7.10.2-s.pet"
+CARD="`lspci -nn|grep -i "vga"`"
+DEVICEID="`echo $CARD|tr ' ' '\n'|grep [0-9]|grep '\['|tail -n1|sed -e 's/\]//'|cut -d ':' -f2`"
+TXTMSGEXT=""
+
+if [ "`echo $CARD|grep -i "nvidia"`" != "" ];then BRAND="nvidia"
+		NVID_280=`grep -i $DEVICEID $APPDIR/280nvid`
+		NVID_173=`grep -i $DEVICEID $APPDIR/173nvid`
+		NVID_96=`grep -i $DEVICEID $APPDIR/96nvid`
+		if [[ "$NVID_280" != "" ]];then MODEL=`echo $NVID_280|cut -d '|' -f1` #upgraded to 280 110905 
+		DLDDRV="$ACTREPO/nvidia-280.13-k${KVER}-s.pet"
+		fi
+		if [[ "$NVID_275" != "" ]];then MODEL=`echo $NVID_275|cut -d '|' -f1` #upgraded to 275 stable 111002
+        DLDDRV="$ACTREPO/nvidia-275.28-k${KVER}-s.pet"
+        fi
+		if [[ "$NVID_173" != "" ]];then MODEL=`echo $NVID_173|cut -d '|' -f1` #new 173 for k2.6.39.4 111021
+		DLDDRV="$ACTREPO/nvidia-173.14.${NVER}-k${KVER}-s.pet"
+		fi
+		if [[ "$NVID_96" != "" ]];then MODEL=`echo $NVID_96|cut -d '|' -f1`
+		DLDDRV="$ACTREPO/nvidia-96.43.19-k${KVER}.6-s.pet"
+		fi
+	TXTMSG="The appropriate nvidia driver will be downloaded."
+	TXTMSGEXT="\"xorgwizard\" will need to be run after the download completes"
+	elif [ "`echo $CARD|grep -iE "ati|amd|radeon"`" != "" ];then BRAND="ATI/AMD"
+		ATI="`grep -i $DEVICEID $APPDIR/ati`"
+		if [[ "$ATI" != "" ]];then MODEL=`echo $ATI|cut -d '|' -f1`
+		DLDDRV="$ACTREPO/ati_fglrx-11.${XVER}-k${KVER}-s.pet"
+		TXTMSG="The radeon driver will be downloaded."	
+		TXTMSGEXT="This driver requires after it is installed to run \n\"ati-config --initial\" \nOnce you do that type \"reboot\""
+			else
+		DLDDRV="$MESA"
+		TXTMSG="The Mesa extension is recommended."
+		fi
+		if [[ "$MODEL" = "" || "$MODEL" = "no description" ]];then MODEL="radeon"
+		fi
+	
+	elif [ "`echo $CARD|grep -iE "intel"`" != "" ];then BRAND="intel"
+	DLDDRV="$MESA"
+	TXTMSG="The Mesa extension is recommended."
+	else BRAND="undetermined"
+	DLDDRV="$MESA"
+	TXTMSG="The Mesa extension is recommended."
+fi
+if [ "$BRAND" = "undetermined" ];then MODEL="undetermined"
+fi
+DRVPKG="`basename $DLDDRV`"
+echo -en "For your $BRAND $MODEL card \n${TXTMSG} \n"
+echo -en "$TXTMSGEXT \n"
+echo "Continue? [ENTER] for yes... [CTRL] + [C] to quit"
+read keepgoing
+$WGET $DLDDRV
+if [ "$?" -ne "0" ];then echo -en "\033[1;31m""ERROR: Failed to download $DRVPKG";echo -e "\033[0m" && exit 2
+fi
+#install the packages
+cd /tmp
+/usr/local/petget/installpkg.sh $DRVPKG 2>/dev/null
+OK="`grep -w "$DRVPKG" $HOME/.packages/user-installed-packages`"
+if [[ "$OK" != "" ]];then echo -en "\033[0;32m""Installation of $DRVPKG Successfull"
+		echo -e "\033[0m" && cd -
+  else echo -en "\033[0;31m""Failed to install ${DRVPKG}. Try again if you like" 
+		echo -e "\033[0m" && cd - && exit 2
+fi
+if [ "`echo $DRVPKG|grep -iE "ati"`" != "" ];then LASTMSG="run \"ati-config --initial\" then \"reboot\""
+	else "\"xorgwizard\" and then \"xwin\""
+fi
+echo -en "All done. If you got a Success mesage then \n${LASTMSG} \n"
+
+#END

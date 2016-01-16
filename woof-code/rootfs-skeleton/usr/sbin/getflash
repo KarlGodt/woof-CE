@@ -1,0 +1,113 @@
+#!/bin/sh
+set -x
+getflashplayer()
+{
+  while [ 1 ];do
+   #test for valid internet connection...
+   gtkdialog-splash -bg yellow -timeout 50 -close never -text "Please wait" &
+   #YAFPIDs=$!
+   sleep 5
+    IFCONFIG="`ifconfig | grep '^[pwe]' | grep -v 'wmaster'`"
+    if [ ! "$IFCONFIG" ];then
+     killall yaf-splash && gtkdialog-splash -bg hotpink -close box -timeout 5 -icon gtk-dialog-error -text "Please check your internet connection"
+     break
+     else
+     #ping -c 1 64.233.169.103 #google
+     #ping -c 1 8.8.8.8 #google 
+     #if [ $? -eq 0 ];then
+     #111113 changed url, scrapped ping
+     DOWNLOADURL="`curl -s 'http://get.adobe.com/flashplayer/completion/?installer=Flash_Player_11_for_other_Linux_(.tar.gz)_32-bit'|tr ' ' '\n'|grep fpdownload|tr -d ';'`"
+     
+     if [ ! "$DOWNLOADURL" ];then 
+      killall yaf-splash && gtkdialog-splash -bg hotpink -close box -timeout 5 -icon gtk-dialog-error -text "Unable to contact the server, please check your internet connection"
+      break
+      else
+      killall yaf-splash #$YAFPIDs
+      LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --yesno "$TEXT" 0 0
+      if [ $? -eq 0 ];then
+       cd /usr/lib/mozilla/plugins
+       #echo -e "#!/bin/sh\nwget -O - http://fpdownload.macromedia.com/get/flashplayer/current/install_flash_player_11_linux.i386.tar.gz | tar -xz" > /tmp/delayedrun_flashdl
+       echo -e "#!/bin/sh\nwget -O - $DOWNLOADURL | tar -xz" > /tmp/delayedrun_flashdl
+       chmod 777 /tmp/delayedrun_flashdl
+       rxvt -bg orange -geometry 80x4 -title "Download Flash Player" -e /tmp/delayedrun_flashdl
+       ldd /usr/lib/mozilla/plugins/libflashplayer.so > /dev/null 2>&1
+       [ $? -ne 0 ] && rm -f /usr/lib/mozilla/plugins/libflashplayer.so 2>/dev/null
+       if [ -f /usr/lib/mozilla/plugins/libflashplayer.so ];then
+        echo /usr/lib/mozilla/plugins/libflashplayer.so > /tmp/flashplayer.files #register
+        if [ -d /usr/lib/mozilla/plugins/usr ];then cp -arf /usr/lib/mozilla/plugins/usr / #new versions have userland stuff
+         if [ $? -eq 0 ];then
+          LINE1="`ls -R /usr/lib/mozilla/plugins/usr|head -n1`"
+          cd /usr/lib/mozilla/plugins
+          ls -R usr|grep -v "$LINE1" >> /tmp/flashplayer.files  #register
+          cd $HOME
+          rm -rf /usr/lib/mozilla/plugins/usr
+          echo "flashplayer" >> $HOME/.packages/user-installed-packages
+          cp -f /tmp/flashplayer.files $HOME/.packages/
+         fi
+         if [ -f /usr/share/applications/flash-player-properties.desktop ];then #fix .desktop for menu
+          OLDCATEGORY="`grep "^Categories" /usr/share/applications/flash-player-properties.desktop`"
+          NEWCATEGORY="Categories=X-Internet;"
+          OLDICON="`grep "^Icon" /usr/share/applications/flash-player-properties.desktop`"
+          NEWICON="Icon=/usr/share/icons/flash-player-properties.png"
+          sed -i -e "s%$OLDCATEGORY%$NEWCATEGORY%" \
+			  -e "s%$OLDICON%$NEWICON%" /usr/share/applications/flash-player-properties.desktop
+         fi
+         fixmenus
+         [ "`pidof jwm`" != "" ]&& jwm -restart
+        fi
+        #http://flashblock.mozdev.org/
+        #LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --msgbox "The Adobe Flash Player has been downloaded to:\\n /usr/lib/mozilla/plugins/libflashplayer.so\\nYou will need to exit from your web browser and restart it for the player to load" 0 0
+        NOFB="`grep -i -E "flashblock" $HOME/.packages/woof-installed-packages`"
+        if [ "$NOFB" = "" ];then
+        FLASHBLOCK='<hbox>
+         <pixmap><input file>/usr/share/icons/flashblock.png</input></pixmap>
+          <text><label>Click the Flashblock button below to open your browser at the mozilla Flashblock page so you can download Flashblock</label></text>
+         </hbox>'
+         FBBTN='<button image-position="right">
+           <label>Flashblock</label>
+           <input file>/usr/share/icons/flashblock.png</input>
+           <action>EXIT:flashblock</action>
+          </button>'
+          else FLASHBLOCK='';FBBTN=''
+        fi 
+          
+        export FDLG='<window title="Flashplayer">
+        <vbox>
+         <hbox>
+          <pixmap><width>32</width><input file>/usr/share/doc/flashlogo.gif</input></pixmap>
+          <text usemarkup="true"><label>"The Adobe Flash Player has been downloaded to 
+	/usr/lib/mozilla/plugins/libflashplayer 
+You will need to exit from your web browser and restart it for the player to load"</label></text>
+         </hbox>
+         <hseparator></hseparator>
+         '"$FLASHBLOCK"'
+         <hbox homogeneous="true">
+         '"$FBBTN"'
+          <button ok></button>
+         </hbox>
+        </vbox>
+       </window>'
+       I=$IFS; IFS="" 
+		for STATEMENTS in  $(gtkdialog4 -p FDLG -c); do 
+		eval $STATEMENTS
+		done
+		IFS=$I
+		case $EXIT in
+		flashblock)$DEFAULTBROWSER http://flashblock.mozdev.org/ ;;
+		*)exit ;;
+		esac
+       else
+        LANG=C Xdialog --center --title "Adobe Flash Player" --icon "/usr/share/doc/flashlogo.gif" --msgbox "Sorry, the Player did not download. Try the Puppy Package Manager." 0 0
+       fi
+      fi
+      break
+       fi
+    fi
+  done
+}
+export -f getflashplayer
+
+if [ ! -f /usr/lib/mozilla/plugins/libflashplayer.so ];then TEXT="The Adobe Flash Player for the web browser is not installed.\\nClick the 'Yes' button to download and install it (6MB)."
+  else TEXT="The Adobe Flash Player for the web browser is already installed.\\nClick the 'Yes' button to download the latest version (6MB)."
+fi
+getflashplayer
