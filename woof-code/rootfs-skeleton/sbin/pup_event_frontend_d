@@ -133,14 +133,14 @@ PREVSIZEFREEM=0
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
- for ONEMNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram' | cut -f 3 -d ' ' | grep -v '^/initrd/' | grep -v '^/$' | tr '\n' ' '`
+ for ONEMNTPT in `grep '^/dev/' /proc/mounts | grep -vE '^/dev/loop|^/dev/ram' | cut -f 2 -d ' ' | grep -vE '^/initrd/|^/$'`
  do
   if [ "`fuser -v -m $ONEMNTPT`" = "" ];then
    sync
    umount $ONEMNTPT ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
    if [ $umVAL -ne 0 ];then
-    ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
+    ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' '`"
     for ONEZOMBIE in $ZOMBIES
     do
      kill $ONEZOMBIE
@@ -356,6 +356,7 @@ add_pinboard_func() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
 }
 
 remove_pinboard_func() { #needs DRV_NAME (name of entire drive)
+#echo "remove_pinboard_func:$*:DRV_NAME=$DRV_NAME"
  ppPATTERN=' label="'"$DRV_NAME"'.*" '
  [ "`grep "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin`" = "" ] && return
  ALLNAMES="`grep -o "$ppPATTERN" /root/Choices/ROX-Filer/PuppyPin | cut -f 2 -d '"' | tr '\n' ' '`" #'geany
@@ -370,6 +371,7 @@ remove_pinboard_func() { #needs DRV_NAME (name of entire drive)
  </env:Body>
 </env:Envelope>"  | rox -R
  done
+#echo "remove_pinboard_func:END"
 }
 
 #note that init script in initrd takes care of restoring modules if enough space.
@@ -584,7 +586,7 @@ create_icon_func() {
   fi
  elif [ "$ICONDESK" = true ] ; then
      local tempPROBEPART=`probepart -k | grep "/dev/${DRV_NAME}" | grep -E '\|ext4\||\|ntfs\||\|msdos\||\|vfat\||\|ext2\||\|ext3\||\|iso9660\||\|xfs\||\|reiser'`
-   echo "tempPROBEPART='$tempPROBEPART'"
+   #echo "tempPROBEPART='$tempPROBEPART'"
    if [ "`echo "$tempPROBEPART" | wc -l`" = 1 ] ; then
      DRVINFO=`echo "$tempPROBEPART" | cut -f 1,2,3 -d '|'`
    fi
@@ -592,7 +594,7 @@ create_icon_func() {
    #unset tempPROBEPART
  fi
 
- echo "$DRVINFO"
+ #echo "create_icon_func:DRVINFO=$DRVINFO"
 
  for ONEDRVINFO in $DRVINFO
  do
@@ -609,21 +611,20 @@ create_icon_func() {
     SIZE=$(($SIZE/2)) #get KB.
     format_size_func #formats SIZE for display.
     INFO="Description: ${DRV_DESCRIPTION} Size: ${SIZE}"
-   else
-    if [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
+   elif [ "$FSTYPE" = "0" -a "$SIZE" = "0" ];then
      INFO="Puppy drive manager"
-    else
+   else
      #pPATTERN=' '"$ONEDRVNAME"'$'
      #SIZE=`grep "$pPATTERN" /proc/partitions | tr -s ' ' | cut -f 4 -d ' '`
      format_size_func #formats SIZE for display.
      INFO="Filesystem: $FSTYPE Size: $SIZE"
-    fi
    fi
    #v424 add item to unmount all partitions...
    MOREITEMS="<Item option=\"unmount\" icon=\"gtk-harddisk\"><Label>Unmount ${ONEDRVNAME} (if currently mounted)</Label></Item><Item option=\"unmountall\" icon=\"gtk-harddisk\"><Label>Unmount ALL mounted partitions</Label></Item>"
    create_appinfo_func #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
   fi
 #
+  #echo CC
   if [ "$ICONDESK" = "true" ];then #see /etc/eventmanager.
    MNTSTATUS="`/bin/df | grep "$drvPATTERN"`"
    if [ "$MNTSTATUS" = "" ];then
@@ -634,6 +635,7 @@ create_icon_func() {
    add_pinboard_func #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE.
 #
   fi
+ #echo DD
  done
  #always create a handler for entire drive, even if no icon displayed...
  if [ ! -d /root/.pup_event/drive_${DRV_NAME} ];then
@@ -658,7 +660,7 @@ clear_desk_icons_func(){
   for DRV_NAME in $BlockDrives ; do
   remove_pinboard_func
   done
- FDRV=`ls /sys/block  | grep -w -e 'fd[0-9]*'`
+ FDRV=`ls /sys/block  | grep -w 'fd[0-9]\+'`
       for DRV_NAME in $FDRV
       do
       remove_pinboard_func
@@ -721,23 +723,24 @@ do
 
  #graceful exit if shutdown X (see /usr/X11R7/bin/restartwm,wmreboot,wmpoweroff)...
  [ -f /tmp/wmexitmode.txt ] && break
-
+ #echo AAA
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
- ls -1 /sys/block | grep -vE 'ram*|loop*|md*|mtd*|nbd*' > /tmp/pup_event_frontend_block2
+ ls -1 /sys/block | grep -vE '*ram*|loop*|md*|mtd*|nbd*' > /tmp/pup_event_frontend_block2
  if [ -f /tmp/pup_event_frontend_block_request ];then #w015 (see gparted_shell, puppyinstaller, bootflash)
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
-  BLOCKS2="`grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2`"
+  BLOCKS2="`/bin/grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2`"
   echo "$BLOCKS2" > /tmp/pup_event_frontend_block2
   rm -f /tmp/pup_event_frontend_block_request
  fi
  [ ! -f /tmp/pup_event_frontend_block1 ] && cp /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF="`diff /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
-
+ BLOCKDIFF="`busybox diff /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
+ #echo BBB
  #091223 some interfaces, no change in /sys/block when insert/remove a card...
  #note, /proc/partitions can be very slow to update, particularly when remove a card.
  #note, /sys/block/sd*/sd* shows card insertion but may not update on removal -- /usr/local/bin/drive_all will remove an invalid drive icon if clicked on.
+ #echo AA
  if [ "$BLOCKDIFF" = "" ];then
   BLOCKSPROBE=""
   for ONETESTDRV in `cat /tmp/pup_event_frontend_block2 | grep '^sd'`
@@ -745,37 +748,42 @@ do
    [ "`echo "$ATADRIVES" | grep "$ONETESTDRV"`" != "" ] && continue
    [ "`cat /sys/block/${ONETESTDRV}/removable `" = "0" ] && continue
    if [ ! -e /sys/block/${ONETESTDRV}/${ONETESTDRV}1 ];then #drive exists, but no partition (no card plugged in).
-    [ -d /root/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}< ${ONETESTDRV}:"
+    [ -d /root/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}-${ONETESTDRV}:"
     #dd if=/dev/${ONETESTDRV} of=/dev/null bs=512 count=1
     ( true </dev/${ONETESTDRV} ) >>/dev/null 2>>/dev/null
    else
-    [ ! -d /root/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}> ${ONETESTDRV}:"
+    [ ! -d /root/.pup_event/drive_${ONETESTDRV}1 ] && BLOCKSPROBE="${BLOCKSPROBE}+${ONETESTDRV}:"
    fi
   done
   [ "$BLOCKSPROBE" != "" ] && BLOCKDIFF="`echo -n "$BLOCKSPROBE" | tr ':' '\n'`"
  fi
-
+ #echo BB
  #########hotplug block event##########
  if [ "$BLOCKDIFF" != "" ];then
-
+  #echo "BLOCKDIFF=$BLOCKDIFF"
   cp -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
 
-  BLOCKSADD="`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
-  BLOCKSREM="`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`"
+  BLOCKSADD="`echo "$BLOCKDIFF" | grep -E '^\+[[:alnum:]]+' | cut -f 2- -d '+'`"
+  BLOCKSREM="`echo "$BLOCKDIFF" | grep -E '^\-[[:alnum:]]+' | cut -f 2- -d '-'`"
 
   ACTION=add
   SUBSYSTEM=block
   DEVTYPE=disk
   for DRV_NAME in $BLOCKSADD
   do
+   #echo DRV_NAME=$DRV_NAME
    [ ! -e /sys/block/$DRV_NAME ] && continue #precaution
+   [ -b /dev/$DRV_NAME ] || { grep -w "$DRV_NAME$" /proc/partitions &&
+    grep -w "$DRV_NAME$" /proc/partitions | while read M m s d; do mknod /dev/$DRV_NAME b $M $m; done; }
    DEVPATH=/block/$DRV_NAME
    odPATTERN='^/dev/'"$DRV_NAME"'|'
    PROBEDISK="`probedisk2`"
+   #echo PROBEDISK="$PROBEDISK"
    DRVS_OPTICAL="`echo "$PROBEDISK" | grep '|optical|' | cut -f 1 -d '|' | cut -f 3 -d '/'`" #update
    DRVS_FLOPPY="`echo "$PROBEDISK" | grep '|floppy|' | cut -f 1 -d '|' | cut -f 3 -d '/'`" #update
    DRV_CATEGORY="`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 2 -d '|'`"
    DRV_DESCRIPTION="`echo -n "$PROBEDISK" | grep "$odPATTERN" | cut -f 3 -d '|' | tr -s ' '`"
+   #echo X
    [ "$ICONDESK" = "true" ] && create_icon_func #uses DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION
    [ "$HOTPLUGNOISY" = "true" ] && /root/.pup_event/drive_${DRV_NAME}/AppRun ${DRV_CATEGORY} & #handler script.
   done
@@ -783,10 +791,12 @@ do
   ACTION=remove
   for DRV_NAME in $BLOCKSREM
   do
+   #echo DRV_NAME=$DRV_NAME
    #[ -e /sys/block/$DRV_NAME ] && continue #precaution. w015 must remove.
    DRVS_OPTICAL="`echo "$DRVS_OPTICAL" | grep -v "$DRV_NAME"`" #update
    DRVS_FLOPPY="`echo "$DRVS_FLOPPY" | grep -v "$DRV_NAME"`" #update
    DEVPATH=/block/$DRV_NAME
+   #echo Y
    if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, refresh it.
     killall gtkdialog_pmount
     sleep 0.1
