@@ -64,11 +64,6 @@
 #
 ########################################################################
 
-
-
-
-
-
 #v4.02 called from rc.modules, rc.modules2, pup_eventd... v403 only rc.modules2
 firmware_module_func() {
  #global $MODULE is name of module, global $KERNVER.
@@ -78,21 +73,22 @@ firmware_module_func() {
     if [ "$FIRMPKG" != "" ];then
      #v4.02 firmware pkg is a tarball...
      if [ -f /lib/modules/all-firmware/${FIRMPKG}.tar.gz ];then
-      cp -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp >/dev/null 2>&1
+      cp $VERB -af /lib/modules/all-firmware/${FIRMPKG}.tar.gz /tmp || return 2 #>/dev/null 2>&1
       cd /tmp
-      tar -zxf ${FIRMPKG}.tar.gz >/dev/null 2>&1
+      tar -zxf ${FIRMPKG}.tar.gz  || return 3 #>/dev/null 2>&1
      fi
      if [ -d /tmp/${FIRMPKG} ];then
-      cp -a --remove-destination /tmp/${FIRMPKG}/* / 2>/dev/null
+      /bin/cp $VERB -a --remove-destination /tmp/${FIRMPKG}/* / || return 4 #2>/dev/null
       #comment-out the firmware pkg entry, so it only installs once...
       R1PATTERN="s/^${FIRMPKG}:/#${FIRMPKG}:/"
       DEPUPDATED="`sed -e "$R1PATTERN" /etc/modules/firmware.dep.$KERNVER`"
+      mv $VERB /etc/modules/firmware.dep.$KERNVER /etc/modules/firmware.dep.$KERNVER.OLD
       echo "$DEPUPDATED" > /etc/modules/firmware.dep.$KERNVER
       #execute any post-install script...
       if [ -f /pinstall.${FIRMPKG}.sh ];then
        cd /
-       /pinstall.${FIRMPKG}.sh >/dev/null 2>&1 #execute script.
-       rm -f /pinstall.${FIRMPKG}.sh >/dev/null 2>&1
+       /pinstall.${FIRMPKG}.sh             #>/dev/null 2>&1 #execute script.
+       rm $VERB -f /pinstall.${FIRMPKG}.sh #>/dev/null 2>&1
       fi
      fi
     fi
@@ -113,15 +109,15 @@ icon_unmounted_func() {
     if test "$2" != "" ; then
  #passed params: drivename category  ex: sda usbdrv
  DRVICON="drive48.png" #default.
- [ "$2" = "usbdrv" ] && DRVICON="usbdrv48.png"
- [ "$2" = "card" ] && DRVICON="card48.png"
- [ "$2" = "floppy" ] && DRVICON="floppy48.png"
+ [ "$2" = "usbdrv" ]  && DRVICON="usbdrv48.png"
+ [ "$2" = "card" ]    && DRVICON="card48.png"
+ [ "$2" = "floppy" ]  && DRVICON="floppy48.png"
  [ "$2" = "optical" ] && DRVICON="optical48.png"
  echo "$DBG line 51 DRVICON $DRVICON"
     fi
 #find out if already done...
-if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
- GLOBLINES=`tr "\n" '|' $home/.config/rox.sourceforge.net/ROX-Filer/globicons | sed -e 's%</rule>|%\n%g'`
+                if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
+ GLOBLINES=`tr "\n" '|' <$home/.config/rox.sourceforge.net/ROX-Filer/globicons | sed -e 's%</rule>|%\n%g'`
 #GLOBLINES=`cat /root/Choices/ROX-Filer/PuppyPin | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
   #DBG echo "$DBG line 57 GLOBLINES :"
   #DBG echo "$GLOBLINES" | head -n 2
@@ -130,7 +126,7 @@ if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
  #DBG GRepGLob="`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`"
  #DBG echo " $DBG line 62 GRepGLob $GRepGLob"
  [ "`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`" != "" ] && echo "already there in '$home/.config/rox.sourceforge.net/ROX-Filer/globicons'" && return
-# fi
+ fi
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
@@ -140,7 +136,7 @@ if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
   </SetIcon>
 </env:Body>
 </env:Envelope>"  | rox -R
-fi
+#fi
 #if test "`ps | grep clean_desk_icons | grep -v grep`" != "" ; then add_pinboard_func4 ; fi
 #DBG echo "Cleandeskicons : $Cleandeskicons"
 #DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
@@ -164,7 +160,7 @@ icon_mounted_func() {
   echo "$DBG line 102 imPATTERN $imPATTERN"
 # if [ "`mount | cut -f 1,3 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
  echo "$DBG line 104 now finding the boot partition"
- if [ "`df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
+ if [ "`/bin/df | tr -s ' ' | cut -f 1,6 -d ' ' | grep "$imPATTERN" | grep -vE ' /initrd/| /$'`" = "" ];then
   #only partitions mntd on /initrd/* then must be mntd at boot. cannot unmount.
   #also, full hd install has partition mntd on '/'.
   DRVICON="drive_mntd_boot48.png" #default.
@@ -176,12 +172,12 @@ icon_mounted_func() {
    echo "$DBG line 113 DRVICON-boot : $DRVICON"
  fi
  #find out if already done...
- if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
+         if [ -f $home/.config/rox.sourceforge.net/ROX-Filer/globicons ];then
   GLOBLINES=`cat $home/.config/rox.sourceforge.net/ROX-Filer/globicons | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
  # GLOBLINES=`cat /root/Choices/ROX-Filer/PuppyPin | tr "\n" '|' | sed -e 's%</rule>|%\n%g'`
   diPATTERN='$home/.pup_event/drive_'"${1}"'"'
   [ "`echo "$GLOBLINES" | grep -w "$diPATTERN" | grep "$DRVICON"`" != "" ] && echo "already there at $home/.config/rox.sourceforge.net/ROX-Filer/globicons" && return
-#   fi
+   fi
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
@@ -191,7 +187,7 @@ icon_mounted_func() {
   </SetIcon>
  </env:Body>
 </env:Envelope>"  | rox -R
-fi
+#fi
 #DBG  echo "$DBG line 122 DRVICON : $DRVICON"
 #DBG echo $Cleandeskicons
 #DBG if test "`echo $Cleandeskicons`" = "1" ; then add_pinboard_func4 ; fi
@@ -242,8 +238,10 @@ add_pinboard_func4() { #needs ONEDRVNAME, DRV_CATEGORY, FSTYPE
  #DBG echo "add_pinboard_func BEGIN"
  #ppPATTERN=' label="'"$ONEDRVNAME"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
+ if test -s $home/Choices/ROX-Filer/PuppyPin; then
  ppPATTERN="$home/.pup_event/drive_${DRV_NAME}<"
  [ "`grep "$ppPATTERN" $home/Choices/ROX-Filer/PuppyPin`" != "" ] && return #precaution.
+ fi
  free_coord4
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
@@ -283,20 +281,20 @@ Please choose mouse type..." 0 0 0 "$MOUSEMENU1a" "$MOUSEMENU1b" "$MOUSEMENU2a" 
   dialog --no-cancel --menu "Serial port mouse plugged into...\nUse UP/DOWN ARROW keys, ENTER key to finish" 0 0 0 ttyS0 "COM1 (most likely)" ttyS1 COM2 ttyS2 COM3 ttyS3 COM4 2> /tmp/testmsx
   [ $? -ne 0 ] && return 1
   MOUSEDEV="`cat /tmp/testmsx`"
-  modprobe sermouse
-  ln -snf $MOUSEDEV /dev/mouse
-  echo -n "$MOUSEDEV" > /etc/mousedevice
+  modprobe $Q $VERB sermouse
+  ln $VERB -sf $MOUSEDEV /dev/mouse
+  echo "$MOUSEDEV" > /etc/mousedevice
   cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/  Option      "Protocol" "Microsoft" #mouse0protocol/' > /tmp/xorg.conf.tmp2
  ;;
  *)
   echo -n "input/mice" > /etc/mousedevice
-  ln -snf input/mice /dev/mouse
+  ln $VERB -sf input/mice /dev/mouse
   cat /etc/X11/xorg.conf | sed -e 's/\W\+Option\W\+"Protocol"\W\+"\(\(\w\+\/\w\+\)\|\(\w\+\)\)\W\+#mouse0protocol/  Option      "Protocol" "IMPS\/2" #mouse0protocol/' > /tmp/xorg.conf.tmp2
  ;;
  esac
  sync
- cp -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
- rm -f /tmp/xorg.conf.tmp2
+ cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
+ rm $VERB -f /tmp/xorg.conf.tmp2
 } #choosemousefunc()
 
 
