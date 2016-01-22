@@ -76,7 +76,7 @@
 #
 ########################################################################
 
-
+. /etc/rc.d/f4puppy5
 . /etc/rc.d/PUPSTATE
 
 SUNITS="$1" #allowed params are '-k' or '-m'.
@@ -89,7 +89,8 @@ if [ -f /root/.usb-drive-log-probepart ];then #force /proc upate mechanism
  for ONEUSBDRV in `cat /root/.usb-drive-log-probepart | tr '\n' ' '`
  do
   #disktype /dev/$ONEUSBDRV > /dev/null 2>&1
-  dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v3.97 faster.
+  #dd if=/dev/$ONEUSBDRV of=/dev/null bs=512 count=1 >/dev/null 2>&1 #v3.97 faster.
+  ( true </dev/$ONEUSBDRV ) >>$OUT 2>>$ERR
  done
 fi
 
@@ -132,18 +133,18 @@ do
   esac
   if [ -e /sys/block/${DEVICE}/size ];then
    SIZE=`cat /sys/block/${DEVICE}/size`
-   SIZE=$(($SIZE/2)) #get KB.
+   SIZE=$((SIZE/2)) #get KB.
   fi
   #for hd* or sd* superfloppy, determine size (avoid probing optical drive)...
   if [ "$FSTYPE" = "unknown" -a $SIZE -eq 0 ];then
    BSIZE=`disktype /dev/$DEVICE 2>/dev/null | grep '^Block device' | cut -f 2 -d '(' | cut -f 1 -d ' '`
-   [ $BSIZE ] && SIZE=$(($BSIZE/1024)) #KB
+   [ $BSIZE ] && SIZE=$((BSIZE/1024)) #KB
   fi
   #v407 improve f.s. probe for optical...
   if [ "$FSTYPE" = "iso9660" ];then
    opticalPATTERN='^/dev/'"$DEVICE"
    if [ "`grep "$opticalPATTERN" /proc/mounts`" = "" ];then
-    cddetect_quick -d/dev/${DEVICE} >/dev/null 2>&1 #very fast.
+    cddetect_quick -d/dev/${DEVICE} >>$OUT 2>>$ERR #very fast.
     #...returns 0 if disc inserted, else 255.
     [ $? -ne 0 ] && FSTYPE="unknown"
    fi
@@ -166,14 +167,14 @@ do
   fsPATTERN='^/dev/'"$DEVICE"' '
   xDEVICE="`echo -n "$DEVICE" | sed -e 's/[0-9]*$//'`" #"${DEVICE/[0-9]/}" #remove partition number.
   xFSTYPE="`fdisk -l /dev/$xDEVICE 2>/dev/null | grep "$fsPATTERN" | head -n 1 | grep -o -E 'FAT12$|FAT16$|FAT32$'`"
-  [ "$xFSTYPE" != "" ] && FSTYPE='vfat'
+  [ "$xFSTYPE" ] && FSTYPE='vfat'
  fi
 
  #for compatibility with old probepart from antonio gallo...
  [ "$FSTYPE" = "unknown" ] && FSTYPE="none"
 
- [ "$SUNITS" = "" ] && SIZE=$(($SIZE*2)) #want 512 byte blocks.
- [ "$SUNITS" = '-m' ] && SIZE=$(($SIZE/1024)) #want MB
+ [ "$SUNITS" = "" ]   && SIZE=$((SIZE*2)) #want 512 byte blocks.
+ [ "$SUNITS" = '-m' ] && SIZE=$((SIZE/1024)) #want MB
 
  echo "/dev/$DEVICE|$FSTYPE|$SIZE"
 
@@ -182,12 +183,12 @@ do
   sd*)
    #log if usb drive (not a sata drive)...
    [ "$SATADRIVES" ] && OTHERSDDRIVES="$SATADRIVES" #old kernel.
-   [ "$ATADRIVES" ] && OTHERSDDRIVES="$ATADRIVES"
+   [ "$ATADRIVES" ]  && OTHERSDDRIVES="$ATADRIVES"
    DEVDRV="`echo -n "$DEVICE" | tr -d '[0-9]'`"
    if [ "`echo "$OTHERSDDRIVES" | grep "$DEVDRV"`" = "" ];then
     echo "$DEVDRV" >> /root/.usb-drive-log-probepart
     sort -u /root/.usb-drive-log-probepart > /tmp/usb-drive-log-probepart-tmp
-    mv -f /tmp/usb-drive-log-probepart-tmp /root/.usb-drive-log-probepart
+    mv $VERB -f /tmp/usb-drive-log-probepart-tmp /root/.usb-drive-log-probepart
    fi
    ;;
  esac
