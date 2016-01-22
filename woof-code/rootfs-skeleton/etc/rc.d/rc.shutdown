@@ -116,7 +116,7 @@ PUPSFSFILE=`echo "$PUPSFS" | cut -f 3 -d ','`
 PSUBDIR=`dirname "$PUPSFSFILE"`
 [ "$PSUBDIR" = "/" ] && PSUBDIR=""
 [ "$PUPMODE" = 5 -a "$DEV1FS" = "iso9660" ] && PSUBDIR="" #100920 booting off cd, always default have savefile at /.
-[ "$PUPMODE" = 5 -a "$DEV1FS" = "udf" ] && PSUBDIR=""     #130128 ditto, for udf f.s.
+[ "$PUPMODE" = 5 -a "$DEV1FS" = "udf" ]     && PSUBDIR="" #130128 ditto, for udf f.s.
 [ "$DEV1FS" = "msdos" ] && DEV1FS="vfat" #110919
 
 __reverse_psubdir__(){
@@ -167,12 +167,12 @@ fi
 killzombies() {
  #ZOMBIES="`ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`"
  #ZOMBIES="`ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g' | grep -v '|||' | cut -f 1 -d ' ' | tr '\n' ' '`" #120103 karl godt: because i was getting a bunch of "killall no such process must be either pid or name" on the screen by the killzombies function.
- ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | sed 's/^[[:blank:]]*//g' | cut -f 1 -d ' ' | sort -gr`" #120129 karl godt: improved, see http://www.murga-linux.com/puppy/viewtopic.php?t=73122
+ ZOMBIES="`/bin/ps -H -A | grep '<defunct>' | grep -vEw 'grep|sed|cut|sort' | sed 's/^[[:blank:]]*//g' | cut -f 1 -d ' ' | sort -gr`" #120129 karl godt: improved, see http://www.murga-linux.com/puppy/viewtopic.php?t=73122
  for oneZOMBIE in $ZOMBIES
  do
   #echo "`eval_gettext \"Killing parentless zombie process \\\${oneZOMBIE}\"`"
   echo "Killing parentless zombie process $oneZOMBIE"
-  /bin/ps -p $oneZOMBIE && kill $oneZOMBIE
+  /bin/ps --no-header -p $oneZOMBIE && kill $oneZOMBIE
  done
 }
 
@@ -199,7 +199,7 @@ fi
 [ -f /initrd${PUP_HOME}/fsckme.flg ] && rm $VERB -f /initrd${PUP_HOME}/fsckme.flg
 
 #v2.0.0 there could be a save tmpfs->persistent-storage running...
-pidof snapmergepuppy && {
+pidof snapmergepuppy >>$OUT && {
 echo -n "`which snapmergepuppy` is copying RAM into ${PUPSAVE##*/} ..."
 while [ "`pidof snapmergepuppy`" ]; do
  sleep 1
@@ -222,7 +222,7 @@ cd /
 _sync
 
 #just a precaution...
-ps h -o pid,args -C X && {
+/bin/ps h -o pid,args -C X && {
 #echo $(gettext "Killing X and all X apps...")
 echo "Killing X and all X apps..."
 killall -9 X
@@ -233,9 +233,9 @@ _sync
 
 #MU warns may need to do this for dillo...
 which dillo && {
-ps h -o pid,args -C file.dpi && killall file.dpi
-ps h -o pid,args -C bookmarks.dpi && killall bookmarks.dpi
-ps h -o pid,args -C dpid && killall dpid
+/bin/ps h -o pid,args -C file.dpi      && killall file.dpi
+/bin/ps h -o pid,args -C bookmarks.dpi && killall bookmarks.dpi
+/bin/ps h -o pid,args -C dpid          && killall dpid
 }
 
 #100902 log the cumulative bytes transmitted on dialup...
@@ -246,7 +246,7 @@ modemdisconnect #(if connected) - currently works if wvdial is still running
 # (see also /etc/rc.d/rc.sysinit and network_tray)
 ACTIVE_INTERFACE=""
 [ -f /tmp/sns_interface_success ] && ACTIVE_INTERFACE="`cat /tmp/sns_interface_success`" #SNS
-[ ! "$ACTIVE_INTERFACE" ] && ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
+[ "$ACTIVE_INTERFACE" ] || ACTIVE_INTERFACE="`ifconfig | grep '^[a-z]' | grep -v '^lo' | grep 'Link encap:Ethernet' | cut -f 1 -d ' ' | head -n 1`"
 if [ "$ACTIVE_INTERFACE" ];then
  if [ -d /sys/class/net/${ACTIVE_INTERFACE}/statistics ];then
   read RX_BYTES </sys/class/net/${ACTIVE_INTERFACE}/statistics/rx_bytes
@@ -254,10 +254,10 @@ if [ "$ACTIVE_INTERFACE" ];then
   echo "$RX_BYTES" > /var/local/sns/rx_bytes_session
   echo "$TX_BYTES" > /var/local/sns/tx_bytes_session
   read RX_BYTES_MONTH </var/local/sns/rx_bytes_month
-  RX_BYTES_MONTH=`expr $RX_BYTES_MONTH + $RX_BYTES`
+  RX_BYTES_MONTH=$((RX_BYTES_MONTH + RX_BYTES))
   echo "$RX_BYTES_MONTH" > /var/local/sns/rx_bytes_month
   read TX_BYTES_MONTH </var/local/sns/tx_bytes_month
-  TX_BYTES_MONTH=`expr $TX_BYTES_MONTH + $TX_BYTES`
+  TX_BYTES_MONTH=$((TX_BYTES_MONTH + TX_BYTES))
   echo "$TX_BYTES_MONTH" > /var/local/sns/tx_bytes_month
  fi
 fi
@@ -283,7 +283,7 @@ done
 }
 
 #v2.16 some packages have a service script that requires stopping...
-for service_script in /etc/init.d/*
+for service_script in `ls -1d /etc/init.d/* | tac`
 do
   [ -f "$service_script" ] || continue
   [ -x "$service_script" ] && "$service_script" stop
@@ -302,7 +302,7 @@ if [ "`grep 'net-setup.sh' /usr/local/bin/defaultconnect`" = "" ];then #see conn
  do
   ifconfig $oneNETIF down
   [ "`iwconfig | grep "^${oneNETIF}" | grep "ESSID"`" != "" ] && iwconfig $oneNETIF essid off #100309
-  dhcpcd --release $oneNETIF #100309
+  dhcpcd $DBG --release $oneNETIF #100309
  done
 else
  /etc/rc.d/rc.network stop
@@ -310,14 +310,16 @@ fi
 ## quick hack, maybe shutdown problem if ath_pci left loaded...
 #[ "`lsmod | grep '^ath_pci'`" != "" ] && rmmod ath_pci
 
+if test -s /etc/networkmodules; then
 #100604 reported by shel: http://murga-linux.com/puppy/viewtopic.php?t=56238
 # Unload the Ethernet drivers on shutdown to prevent battery drain.
 for i in `lsmod | cut -d' ' -f1`
 do
  if grep $Q "^$i " /etc/networkmodules; then
-  modprobe -r "$i"
+  modprobe $Q $VERB -r "$i"
  fi
 done
+fi
 
 #v3.97 deprecated, for pcmcia-cs package...
 if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
@@ -326,7 +328,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
   #echo -n $(gettext "Shutting down PCMCIA services: ")
   echo -n "Shutting down PCMCIA services: "
   if [ -s /var/run/cardmgr.pid ] ; then
-   PID=`cat /var/run/cardmgr.pid`
+   read PID </var/run/cardmgr.pid
    kill $PID
    for N in 1 2 3 4 ; do
     kill -0 $PID 2>/dev/null || break #-0 is test only.
@@ -334,7 +336,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
    done
   fi
   if [ -s /var/lib/pcmcia/cardmgr.pid ] ; then
-   PID=`cat /var/lib/pcmcia/cardmgr.pid`
+   read PID </var/lib/pcmcia/cardmgr.pid
    kill $PID
    for N in 1 2 3 4 ; do
     kill -0 $PID 2>/dev/null || break #-0 is test only.
@@ -348,7 +350,7 @@ if [ -f /sbin/cardmgr ];then #pcmcia-cs package installed.
  fi
 fi
 
-killall udevd > /dev/null 2>&1 #100615
+pidof udevd >>$OUT && killall udevd #100615
 
 #first time booted puppy, there may not have been any persistent storage...
 if [ $PUPMODE -eq 5 ];then #ifpupmode5
@@ -412,7 +414,7 @@ swapfile_func() {
 
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
- SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
+   SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
  SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
  SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
 fi
@@ -499,11 +501,11 @@ case $PUPMODE in
   #echo -n $(gettext "Mounting ${SAVEFILE}...")
   echo -n "Mounting ${SAVEFILE}..."
   FILEFS="ext3"
-  [ "`echo -n "$SAVEFILE" | grep "2fs"`" != "" ] && FILEFS="ext2"
-  [ "`echo -n "$SAVEFILE" | grep "4fs"`" != "" ] && FILEFS="ext4" #120427 01micko
+  [ "`echo -n "$SAVEFILE" | grep "2fs"`" ] && FILEFS="ext2"
+  [ "`echo -n "$SAVEFILE" | grep "4fs"`" ] && FILEFS="ext4" #120427 01micko
 
   if [ "$CRYPTO" = "" ];then
-   mount -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
+   mount $VERB $VERB -t $FILEFS -o noatime,rw,loop $SMNTPT$SAVEFILE /tmp/save1stpup
   else
    #note: loop2 is kept available for scripts to use. but, do this to find free one...
    DEVLOOP="`losetup-FULL -f`"
@@ -516,8 +518,8 @@ case $PUPMODE in
     #echo "the password in the case of light encryption..." >/dev/console
    fi
    echo "$MYPASSWORD" | losetup-FULL -p 0 $CRYPTO $DEVLOOP ${SMNTPT}$SAVEFILE >/dev/console
-   [ ! $? -eq 0 ] && exit 1
-   mount -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
+   [ $? = 0 ] || exit 1
+   mount $VERB $VERB -t $FILEFS -o noatime,rw $DEVLOOP /tmp/save1stpup
   fi
 
   #floppy disk has little space. snapmergepuppy handles this for subsequent saves, but for now,
@@ -528,19 +530,19 @@ case $PUPMODE in
    #RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`"
    #110503 remove /var exclusion...
    #120522 testing precise puppy with aufs, have two dirs here .wh..wh.orph, .wh..wh.plnk, filter out...
-   RDIRS="`find /initrd/pup_rw/ -mindepth 1 -maxdepth 1 -mount -type d | grep -v '/\.wh\.' | grep -v -E '/$|/mnt|/tmp|/proc|/sys|/dev|/lost'`"
+   RDIRS="`find /initrd/pup_rw/ -mindepth 1 -maxdepth 1 -xdev -type d | grep -v '/\.wh\.' | grep -vE '/$|/mnt|/tmp|/proc|/sys|/dev|/lost'`"
   fi
   for oneDIR in $RDIRS
   do
-   BASENAME="`basename $oneDIR`"
+   BASENAME=${oneDIR##*/}
    if [ ! -d /tmp/save1stpup/${BASENAME} ];then #110503
     mkdir $VERB -p /tmp/save1stpup/${BASENAME}
     #110503 got this from /usr/sbin/snapmergepuppy...
     chmod "/tmp/save1stpup/${BASENAME}" --reference="$oneDIR"
-    OWNER="`stat --format=%U "$oneDIR"`"
-    chown $OWNER "/tmp/save1stpup/${BASENAME}"
-    GRP="`stat --format=%G "$oneDIR"`"
-    chgrp $GRP "/tmp/save1stpup/${BASENAME}"
+    OWNER="`stat -c %U "$oneDIR"`"
+    chown $VERB $OWNER "/tmp/save1stpup/${BASENAME}"
+    GRP="`stat -c %G "$oneDIR"`"
+    chgrp $VERB $GRP "/tmp/save1stpup/${BASENAME}"
     touch "/tmp/save1stpup/${BASENAME}" --reference="$oneDIR"
    fi
    cp $VERB -a $oneDIR/* /tmp/save1stpup/${BASENAME}/ #v2.16exp3
@@ -687,10 +689,10 @@ SHID="`echo "$BPS" | grep ' -sh$' | head -n 1 | sed -e 's%^ %%g' | cut -f 1 -d '
 MYPID=$$      #120514
 PARENT=$PPID  #120514 id of parent process. variable provided by system.
 ABSPUPHOME="" #100107
-[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}" #v2.16rc
+[ "$PUP_HOME" ]   && ABSPUPHOME="/initrd${PUP_HOME}"   #v2.16rc
 [ "$ABSPUPHOME" ] || ABSPUPHOME="/initrd/mnt/dev_save" #v2.16rc
 if [ "`busybox mount | grep "$ABSPUPHOME"`" != "" ];then
- #BADPIDS="`fuser -v -m $ABSPUPHOME | grep -v --extended-regexp 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`"
+ #BADPIDS="`fuser -v -m $ABSPUPHOME | grep -v -E 'kernel|COMMAND|^$' | tr -s ' ' | cut -f 3 -d ' ' | tr '\n' ' '`"
  #121104 full 'fuser' outputs pids with "m" on end, ex: 6418m  6632m  9169m  9170m
  #busybox 'fuser' does not. well, could remove the "m"...
  BADPIDS="`fuser -m $ABSPUPHOME 2>/dev/null | tr -d 'm'`" #100107 121104
@@ -712,8 +714,8 @@ fi
 #v2.16rc try this too... SAVE_LAYER defined in /etc/rc.d/PUPSTATE...
 if [ "$SAVE_LAYER" ];then
  _sync
- SAVEDEV="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 1 -d ' '`"
- SAVEFS="`mount | grep "/initrd${SAVE_LAYER}" | cut -f 5 -d ' '`"
+ SAVEDEV="`mount | grep " /initrd${SAVE_LAYER} " | cut -f 1 -d ' '`"
+  SAVEFS="`mount | grep " /initrd${SAVE_LAYER} " | cut -f 5 -d ' '`"
  #100615 Patriot: suggested this code to enable save-layer to remount ro...
  uniFS=$(awk '/unionfs/ {print $3}' /proc/mounts) #ex: aufs
  if [ "$uniFS" == "aufs" -a "$SAVE_LAYER" == "/pup_rw" ]; then
