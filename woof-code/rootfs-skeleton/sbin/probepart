@@ -108,13 +108,14 @@ else
 fi
 #all drives and partitions...
 ALLDEVS="`echo "$PARTITIONS" | cut -f 2 -d '|' | tr '\n' ' '`$ALLDRVS"
-
+#DBG echo NOW LOOP >&2
 for ONEDEV in $ALLDEVS
 do
  FSTYPE="unknown"
  DPATTERN='|'${ONEDEV}'$'
  SIZE=`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 1 -d '|'`
  DEVICE="`echo "$PARTITIONS" | grep "$DPATTERN" | cut -f 2 -d '|'`"
+ #DBG echo SIZE >&2
  if [ ! $SIZE ];then
   [ "`echo "$PARTITIONS" | grep "$ONEDEV"`" != "" ] && continue
   #must be a device without partitions...
@@ -131,13 +132,15 @@ do
     FSTYPE=`guess_fstype $ONEDEV`;[ "$FSTYPE" = 'garage' ] && FSTYPE='iso9660'
    ;;
   esac
+  #DBG echo file size >&2
   if [ -e /sys/block/${DEVICE}/size ];then
-   SIZE=`cat /sys/block/${DEVICE}/size`
+   read SIZE </sys/block/${DEVICE}/size
    SIZE=$((SIZE/2)) #get KB.
   fi
+  #DBG echo DISKTYPE >&2
   #for hd* or sd* superfloppy, determine size (avoid probing optical drive)...
   if [ "$FSTYPE" = "unknown" -a $SIZE -eq 0 ];then
-   BSIZE=`disktype /dev/$DEVICE 2>/dev/null | grep '^Block device' | cut -f 2 -d '(' | cut -f 1 -d ' '`
+   BSIZE=`busybox timeout -t5 -s KILL disktype /dev/$DEVICE 2>/dev/null | grep '^Block device' | cut -f 2 -d '(' | cut -f 1 -d ' '`
    [ $BSIZE ] && SIZE=$((BSIZE/1024)) #KB
   fi
   #v407 improve f.s. probe for optical...
@@ -150,23 +153,26 @@ do
    fi
   fi
  fi
- [ "$FSTYPE" = "unknown" ] && FSTYPE="`$GUESSFSTYPE /dev/$DEVICE 2>/dev/null`"
+ #DBG echo GUESSFSTYPE $GUESSFSTYPE $DEVICE >&2
+ [ "$FSTYPE" = "unknown" ] && FSTYPE="`busybox timeount -t5 -s KILL $GUESSFSTYPE /dev/$DEVICE 2>/dev/null`"
  [ "$FSTYPE" ] || FSTYPE=unknown
  #echo blkid for $DEVICE >&2
  #/sbin/blkid /dev/$DEVICE >&2
  #/sbin/blkid /dev/$DEVICE | /bin/grep -o ' TYPE="[^"]\+"' >&2
  #/sbin/blkid /dev/$DEVICE | /bin/grep -o ' TYPE="[^"]\+"' | cut -f2 -d'"' >&2
  #echo end blkid >&2
- [ "$FSTYPE" = "unknown" ] && FSTYPE=`/sbin/blkid /dev/$DEVICE | /bin/grep -o ' TYPE="[^"]\+"' | cut -f2 -d'"'`
+ #DBG echo BLKID $DEVICE >&2
+ [ "$FSTYPE" = "unknown" ] && FSTYPE=`busybox timeout -t5 -s KILL /sbin/blkid /dev/$DEVICE | /bin/grep -o ' TYPE="[^"]\+"' | cut -f2 -d'"'`
  #echo "FSTYPE='$FSTYPE'" >&2
  [ "$FSTYPE" ] || FSTYPE=unknown
  #v3.97 guess_fstype fails sometimes...
  #(using makebootfat to setup a USB-FLOPPY/-HDD/-ZIP combined bootable FAT drive).
+ #DBG echo FDISK $DEVICE >&2
  xFSTYPE=''
  if [ "$FSTYPE" = "unknown" ];then
   fsPATTERN='^/dev/'"$DEVICE"' '
   xDEVICE="`echo -n "$DEVICE" | sed -e 's/[0-9]*$//'`" #"${DEVICE/[0-9]/}" #remove partition number.
-  xFSTYPE="`fdisk -l /dev/$xDEVICE 2>/dev/null | grep "$fsPATTERN" | head -n 1 | grep -o -E 'FAT12$|FAT16$|FAT32$'`"
+  xFSTYPE="`busybox timeout -t5 -s KILL fdisk -l /dev/$xDEVICE 2>/dev/null | grep "$fsPATTERN" | head -n 1 | grep -o -E 'FAT12$|FAT16$|FAT32$'`"
   [ "$xFSTYPE" ] && FSTYPE='vfat'
  fi
 
