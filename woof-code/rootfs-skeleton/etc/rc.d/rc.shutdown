@@ -267,16 +267,16 @@ which rfkill &>/dev/null && rfkill unblock all #110919 jemimah has this in flupp
 __umount_shares__(){
 #111107 ldolse: unmount network shares before taking down the network
 #(see 111106, need to do it sooner, but 111106 will remount read-only if failed to umount here)
-for MOUNTPOINT in `mount | grep '^//' | cut -d  ' ' -f 3`
+for MOUNTPOINT in `grep '^//' /proc/mounts | cut -d' ' -f2`
 do
  umount -f $MOUNTPOINT
 done
 }
 
-__umount_shares__(){
+__umount_shares2__(){
 #120219 hmmm, zekebaby reports above does not work for him. i looked up an ex: mount -t nfs boffo.clowns.org:/home/bozo /mnt/bozo
 #so this is zekebaby's patch: (see http://murga-linux.com/puppy/viewtopic.php?p=605451#605451)
-for MOUNTPOINT in `mount | grep ':' | cut -d  ' ' -f 3`
+for MOUNTPOINT in `mount | grep ':' | cut -d' ' -f2`
 do
   umount -f $MOUNTPOINT
 done
@@ -417,9 +417,9 @@ swapfile_func() {
 
 if [ "$PUPSAVE" != "" ];then
  #f.s. and partition where ${DISTRO_FILE_PREFIX}save.2fs is located...
-   SAVEFS="`echo -n "$PUPSAVE" | cut -f 2 -d ','`"
- SAVEPART="`echo -n "$PUPSAVE" | cut -f 1 -d ','`"
- SAVEFILE="`echo -n "$PUPSAVE" | cut -f 3 -d ','`"
+ SAVEPART="`echo "$PUPSAVE" | cut -f 1 -d ','`"
+   SAVEFS="`echo "$PUPSAVE" | cut -f 2 -d ','`"
+ SAVEFILE="`echo "$PUPSAVE" | cut -f 3 -d ','`"
 fi
 
 _prepare_freshboot(){
@@ -453,7 +453,13 @@ rm $VERB -rf /root/.thumbnails/*
 rm $VERB -f /tmp/geany_socket*
 [ -d /root/.config/geany ] && rm $VERB -f /root/.config/geany/geany_socket*
 [ -f /etc/rc.d/MORESFS ] && rm $VERB /etc/rc.d/MORESFS
+#rm $VERB -f /tmp/wmexitmode.txt
 _sync
+
+# wait for service scripts..
+while pidof rc.services >>$OUT;
+do sleep 1; done
+sleep 1
 
 #save session...
 case $PUPMODE in
@@ -470,7 +476,7 @@ case $PUPMODE in
   eg_ "Saving session to \${xPDEV}...\n" >/dev/console #121104
   DEV1MNT="`mount | grep "/dev/$xPDEV" | tr -s " " | cut -f 3 -d " "`"
   if [ "$DEV1MNT" = "" ];then
-   mkdir -p /mnt/$xPDEV
+   mkdir $VERB -p /mnt/$xPDEV
    mount -t $xDEVFS /dev/$xPDEV /mnt/$xPDEV
    if [ ! $? -eq 0 ];then
     eg_ "ERROR: unable to mount /dev/\${xPDEV}, cannot save.\n" >/dev/console #121104
@@ -479,12 +485,12 @@ case $PUPMODE in
    fi
    DEV1MNT="/mnt/$xPDEV"
   fi
-  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" |grep -v "/mnt"|grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"|grep -v "/var"|grep -v "/dev" | grep -v "/lost" |tr "\n" " "`"
+  RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -vE "/$|/mnt|/tmp|/proc|/sys|/var|/dev|/lost"`"
   for oneDIR in $RDIRS
   do
    cp $VERB -a $oneDIR ${DEV1MNT}/
   done
-  mkdir -p ${DEV1MNT}/var #121104
+  mkdir $VERB -p ${DEV1MNT}/var #121104
   cp $VERB -a /initrd/pup_rw/var/local ${DEV1MNT}/var/ #121104 puppy data here that must be saved.
   #DISTRO_SPECS must be saved, init script looks for it to determine if
   #there is a saved session...
@@ -530,7 +536,7 @@ case $PUPMODE in
   if [ "$SAVEPART" = "fd0" ];then
    RDIRS="/initrd/pup_rw/etc"
   else
-   #RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -mount -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`"
+   #RDIRS="`find /initrd/pup_rw/ -maxdepth 1 -xdev -type d | grep -v "/$" | grep -v "/mnt"| grep -v "/tmp"|grep -v "/proc"|grep -v "/sys"| grep -v "/var"| grep -v "/dev" | grep -v "/lost" | tr "\n" " "`"
    #110503 remove /var exclusion...
    #120522 testing precise puppy with aufs, have two dirs here .wh..wh.orph, .wh..wh.plnk, filter out...
    RDIRS="`find /initrd/pup_rw/ -mindepth 1 -maxdepth 1 -xdev -type d | grep -v '/\.wh\.' | grep -vE '/$|/mnt|/tmp|/proc|/sys|/dev|/lost'`"
@@ -541,12 +547,12 @@ case $PUPMODE in
    if [ ! -d /tmp/save1stpup/${BASENAME} ];then #110503
     mkdir $VERB -p /tmp/save1stpup/${BASENAME}
     #110503 got this from /usr/sbin/snapmergepuppy...
-    chmod "/tmp/save1stpup/${BASENAME}" --reference="$oneDIR"
+    /bin/chmod $VERB "/tmp/save1stpup/${BASENAME}" --reference="$oneDIR"
     OWNER="`stat -c %U "$oneDIR"`"
     chown $VERB $OWNER "/tmp/save1stpup/${BASENAME}"
     GRP="`stat -c %G "$oneDIR"`"
     chgrp $VERB $GRP "/tmp/save1stpup/${BASENAME}"
-    touch "/tmp/save1stpup/${BASENAME}" --reference="$oneDIR"
+    touch "/tmp/save1stpup/${BASENAME}" -r "$oneDIR"
    fi
    cp $VERB -a $oneDIR/* /tmp/save1stpup/${BASENAME}/ #v2.16exp3
    [ "$BASENAME" = "root" ] && cp $VERB -a $oneDIR/.[0-9a-zA-Z]* /tmp/save1stpup/${BASENAME}/ #v2.16exp4
@@ -564,15 +570,15 @@ case $PUPMODE in
   if [ "$expBOOTDRV" ];then #see choosepartfunc.
    if [ "$SAVEPART" != "$PDEV1" ];then
     SAVEMARK="`echo -n "$SAVEPART" | rev | sed -e 's%[a-z].*%%' | rev`" #ex: sdc2 becomes 2.
-    aPATTERN="/dev/$PDEV1 "
-    aMNTPT="`mount | grep "$aPATTERN" | cut -f 3 -d ' '`"
+    aPATTERN="^/dev/$PDEV1 "
+    aMNTPT="`mount | grep -m1 "$aPATTERN" | cut -f 3 -d ' '`"
     mkdir $VERB -p /mnt/$PDEV1
     if [ "$aMNTPT" = "" ];then
      mount $VERB $VERB -t $DEV1FS /dev/$PDEV1 /mnt/$PDEV1
      aMNTPT="/mnt/$PDEV1"
      fUMNT='yes'
     fi
-    echo -n "$SAVEMARK" > ${aMNTPT}${xPSUBDIR}/SAVEMARK #file in boot partition. 'init' script reads this. 101020
+    echo "$SAVEMARK" > ${aMNTPT}${xPSUBDIR}/SAVEMARK #file in boot partition. 'init' script reads this. 101020
     [ "$fUMNT" = "yes" ] && umount /dev/$PDEV1
    fi
   fi
@@ -593,7 +599,7 @@ case $PUPMODE in
   #echo "$PDEV1 mounted directly top layer, session already saved." >/dev/console
   ;;
  12) #frugal installation with save-file into common harddrive partition
-  TXT=`basename $SAVEFILE`
+  TXT=`basename "$SAVEFILE"`
   eg_ "\${TXT} mounted directly top layer, session already saved.\n" >/dev/console
   #echo "`basename $SAVEFILE` mounted directly top layer, session already saved." >/dev/console
   ;;
@@ -630,6 +636,24 @@ case $PUPMODE in
   ;;
 esac
 
+if swapoff --version 2>&1 | grep $Q 'util\-linux' ; then
+#busybox swapoff -a works only if swaps are in mtab or ftab, has no -v option
+swapoff $VERB -a
+sleep 1 #to update /proc/swaps
+fi
+
+#now for other swapoff like busybox swapoff :
+which swapoff && {
+#v2.13 menno suggests this improvement...
+STRAYPARTD=`grep "^/" /proc/swaps | grep -v 'deleted' | cut -f1 -d" "`
+for oneSTRAY in $STRAYPARTD
+do
+ #echo "`eval_gettext \"Swapoff \\\${oneSTRAY}\"`"
+ echo "Swapoff $oneSTRAY"
+ swapoff $oneSTRAY
+done
+} || echo -e '\033[1;31m'"WARNING : Please install swapoff ."'\033[0;39m'
+_sync
 
 #120129 karl godt: need to rearrange order, refer http://murga-linux.com/puppy/viewtopic.php?t=71767&start=405 ...
 #MNTDPARTS="`mount`"
@@ -660,27 +684,6 @@ do
  _sync
  umount -r "$oneSTRAYMNT" #120103 karl godt.
 done
-
-if [ "`swapoff --version 2>&1 | grep 'util\-linux'`" ] ; then
-#busybox swapoff -a works only if swaps are in mtab or ftab, has no -v option
-swapoff -av
-sleep 1 #to update /proc/swaps
-fi
-
-#now for other swapoff like busybox swapoff :
-which swapoff && {
-#v2.13 menno suggests this improvement...
-STRAYPARTD=`grep "^/" /proc/swaps | cut -f 1 -d " " | grep -v 'deleted'`
-for oneSTRAY in $STRAYPARTD
-do
- #echo "`eval_gettext \"Swapoff \\\${oneSTRAY}\"`"
- echo "Swapoff $oneSTRAY"
- swapoff $oneSTRAY
-done
-} || echo -e '\033[1;31m'"WARNING : Please install swapoff ."'\033[0;39m'
-_sync
-
-#rm $VERB -f /tmp/wmexitmode.txt
 
 #note, there is a problem with unmounting, especially ntfs as it cannot be remounted
 #ro (?). A ntfs part with ${DISTRO_FILE_PREFIX}save.2fs cannot be unmounted because of the mounted
