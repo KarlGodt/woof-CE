@@ -1,10 +1,13 @@
-#!/bin/sh
+#!/bin/ash
 #brilliant replacement for yaf-splash, written by mave, june 2010.
 #gpl license see: /usr/share/doc/legal/gpl-2.0.txt
 #BK added '-placement', '-close'.
 #100604 mave: added '-deco', shows windows decoration, default none. BK: added title.
 #100604 BK: proper handling if killed before timeout.
 #100604 name /tmp/yaf-splash same as original, as some scripts have 'pidof yaf-splash' or 'killall yaf-splash'.
+#100917 if old yaf-splash installed, and '-font' param, execute old yaf-splash.
+#100929 my god, this is clumsy: above did not work, fixed.
+#110926 gtkrc fix.
 
 if pidof X >/dev/null; then
 test "$DISPLAY" || export DISPLAY=:0.0
@@ -13,15 +16,33 @@ else
  exit 3
 fi
 
+FIXEDPARAMS=""
+if [ -f /usr/X11R7/bin/yaf-splash ];then #100917
+ if [ "`echo " ${*} " | grep ' \-font '`" != "" ];then
+  #100929 insert double-quote chars at begin/end of text string...
+  for ONEPARA in "${1}" "${2}" "${3}" "${4}" "${5}" "${6}" "${7}" "${8}" "${9}" "${10}" "${11}" "${12}" "${13}" "${14}" "${15}"
+  do
+   [ "$ONEPARA" = "" ] && continue
+   if [ "`echo "$ONEPARA" | cut -c 1`" = "-" ];then
+    FIXEDPARAMS="$FIXEDPARAMS $ONEPARA"
+   else
+    FIXEDPARAMS="$FIXEDPARAMS"' "'"${ONEPARA}"'"'
+   fi
+  done
+  eval "/usr/X11R7/bin/yaf-splash ${FIXEDPARAMS}"
+  exit $?
+ fi
+fi
+
 #ignore scripts that do 'killall gtkdialog3'...
 GTKDIALOG3="`which gtkdialog3`"
-[ ! "$GTKDIALOG3" ] && GTKDIALOG3="`which gtkdialog`"
-[ ! "$GTKDIALOG3" ] && exit
-[ ! -f /tmp/yaf-splash ] && ln -s $GTKDIALOG3 /tmp/yaf-splash
+[ "$GTKDIALOG3" ] || GTKDIALOG3="`which gtkdialog`"
+[ "$GTKDIALOG3" ] || exit 3
+[ -f /tmp/yaf-splash ] || ln $VERB -s $GTKDIALOG3 /tmp/yaf-splash || exit 4
 
-ROOTGEOM="`xwininfo -root | grep -o -e '-geometry .*' | cut -f 3 -d ' '`" #ex: 1280x800+0+0
-ROOTX=`echo -n "$ROOTGEOM" | cut -f 1 -d 'x'`
-ROOTY=`echo -n "$ROOTGEOM" | cut -f 1 -d '+' | cut -f 2 -d 'x'`
+ROOTGEOM="`xwininfo -root | grep -o ' \\-geometry .*' | cut -f 3 -d ' '`" #ex: 1280x800+0+0
+ROOTX=`echo "$ROOTGEOM" | cut -f 1 -d 'x'`
+ROOTY=`echo "$ROOTGEOM" | cut -f 1 -d '+' | cut -f 2 -d 'x'`
 CENTERX=$((ROOTX / 2))
 
 helptext="\ngtkdialog-splash\n
@@ -35,7 +56,8 @@ usage: gtkdialog-splash [OPTIONS] [-timeout SEC] -text TEXT | -kill PID \n
 \n
     -text EXPRESSION\n
     -timeout COUNT (in seconds)\n
-    -icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none)\n
+    -icon GTK-XXX (for example: gtk-info all gtk-stock-symbols, default: none), OR\n
+    -icon <full path> (full path to an icon, ex: /usr/share/doc/puppylogo48.png)\n
     -bg COLOR (background color red, blue, yellow..., default: grey)\n
     -fg COLOR (font color, default: black)\n
     -placement center|mouse|top|bottom|top-left|bottom-left (default center)\n
@@ -51,7 +73,7 @@ params=$@
 
 if [ ${#params} -eq 0 ]; then   # no options, no text, so print info/help...
     echo -e $helptext
-    exit
+    exit $?
 fi
 
 BasePIDFile="/tmp/GTKDIALOG-SPLASH"
@@ -102,9 +124,11 @@ for arg in "$@";
         optarg=$dummy
     elif [ $optarg == "ICON" ]
     then
-        icon="<pixmap>
-          <input file stock=\"$arg\"></input>
-        </pixmap>"
+        if [ "`echo -n "$arg" | grep '^/'`" = "" ];then #111016
+         icon="<pixmap><input file stock=\"$arg\"></input></pixmap>"
+        else
+         icon="<pixmap><input file>${arg}</input></pixmap>"
+        fi
         optarg=$dummy
     elif [ $optarg == "KILL" ]
     then
@@ -117,14 +141,13 @@ for arg in "$@";
             TmpFile=$BasePIDFile${pid}
             dlgPID="`cat $TmpFile`"
             kill $dlgPID 2>/dev/null
-            rm -f $TmpFile
+            rm $VERB -f $TmpFile
             exit
         fi
     elif [ $optarg == "FONTSIZE" ]
     then
         fontsize=$arg
         optarg=$dummy
-
     elif [ $optarg == "OPT_DISPLAY" ]
     then
         DISPL=$arg
@@ -174,7 +197,6 @@ for arg in "$@";
             ;;
         esac
     fi
-
  done
 
 [ ! "$close" ] && close='mouseover'
@@ -223,16 +245,18 @@ case $close in
  ;;
 esac
 
-gtkrc="style \"gtkdialog-splash\"
+if [ ! -f /tmp/gtkdialog-splash_gtkrc_${bg}_${fg} ];then
+ gtkrc="style \"gtkdialog-splash\"
 {
     bg[NORMAL]      = \"$bg\"
     fg[NORMAL]      = \"$fg\"
 }
 class \"*\" style \"gtkdialog-splash\""
 
-echo $gtkrc > /tmp/gtkdialog-splash_gtkrc
+ echo "$gtkrc" > /tmp/gtkdialog-splash_gtkrc_${bg}_${fg}
+fi
 
-export GTK2_RC_FILES=/tmp/gtkdialog-splash_gtkrc:/root/.gtkrc-2.0
+export GTK2_RC_FILES=/tmp/gtkdialog-splash_gtkrc_${bg}_${fg}:/root/.gtkrc-2.0
 
 #      <action signal=\"button-press-event\" type=\"exit\">Exit on mouse click</action>
 
@@ -247,8 +271,6 @@ export GTKDIALOG_SPLASH="
       </hbox>
       ${CLOSETAG2}
 </window>"
-
-#export DISPLAY=:0.0
 
 case $WINTYPE in
  2) #mouse
@@ -270,7 +292,7 @@ pidPATTERN="^${dlgPID} "
 while [ $timeout -ne 0 ];do #100604
  sleep 1
  ALLPS="`ps`"
- timeout=`expr $timeout - 1`
+ timeout=$((timeout - 1))
  [ "`echo "$ALLPS" | sed -e 's%^ *%%' | grep "$pidPATTERN"`" == "" ] && exit #already killed.
 done
 kill $dlgPID
