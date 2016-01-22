@@ -63,6 +63,8 @@
 
 echo "Starting '$0' rc.launchxwin..."
 
+export PATH=$PATH:/usr/X11/bin
+
 . /etc/rc.d/PUPSTATE
 . /etc/profile
 . /etc/rc.d/f4puppy5
@@ -116,14 +118,15 @@ esac
 
 _old_or_new_xorg(){
 case $* in
-[0-6].*|7.[0-2].*|1.3.*|1.4.*)  return 1;;
 1.[5-9].*|1.[1-9][0-9].*)       return 0;;
+[0-6].*|7.[0-2].*|1.3.*|1.4.*)  return 1;;
 *) echo "UNHANDLED Xorg version '$*'"; return 2;;
 esac
 }
 
 _do_modeset(){
     test "$*" || return 1
+    case $* in UNKNOWN|NOKERNEL) return 0;; esac
     modprobe $VERB -r "$*"
     sleep 1
     grep $Q -w "^$*" /proc/modules && return 1
@@ -140,6 +143,14 @@ case $LSPCI_OUT in
 *VGA*compatible*controller:*Intel*Corporation*)
 DRIVER=i915
 ;;
+*VGA*compatible*controller*Matrox*Graphics,*Inc.*MGA*G400/G450*rev*85*)
+echo MATROX card
+DRIVER=NOKERNEL  #kernel/drivers/video/matrox/g450_pll.ko and a dozen matroxfb* with a huge amount of options, but no modeset option
+;;
+*PCI*bridge*Silicon*Integrated*Systems*SiS*SiS*AGP*Port*virtual*PCI-to-PCI*bridge*)
+echo SiS chipset
+DRIVER=UNKNOWN
+;;
 *)
 echo UNKNOWN chipset
 DRIVER=UNKNOWN
@@ -150,12 +161,14 @@ esac
 _check_if_loaded(){
     test -f /proc/modules || return 2
     test "$*" || return 2
+    case $* in UNKNOWN|NOKERNEL) return 0;; esac
     grep $Q -w "^$*" /proc/modules
 }
 
 _check_if_in_use(){
     test -f /proc/modules || return 2
     test "$*" || return 2
+    case $* in UNKNOWN|NOKERNEL) return 0;; esac
     read drv vms nr_users mod_users live addr <<EoI
 `grep -w "^$*" /proc/modules`
 EoI
