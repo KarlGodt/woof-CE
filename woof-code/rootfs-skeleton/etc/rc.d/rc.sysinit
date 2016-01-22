@@ -702,9 +702,19 @@ fi
 #           devices will be owned by root.
 
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...#my intention is for puppy to work with either of these...
-if [ -x /sbin/udevd ];then  ##2011_10_27 changed -f to -x
+if [ -x /sbin/photplug ]; then
+ echo '/sbin/photplug' >/proc/sys/kernel/hotplug
+elif [ -x /sbin/udevd ];then  ##2011_10_27 changed -f to -x
  [ "$LOGLEVEL" ] || LOGLEVEL=3
-[ -z "`pidof udevd`" ] && UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon
+ if [ -z "`pidof udevd`" ]; then
+ UDEV_VER=`udevd --version`
+  if [ "$UDEV_VER" -gt 150 ];then
+  #100611 v151 is recommended for kernel 2.6.27+.
+   UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon --resolve-names=never ###KRG ; orig LOG=2
+  else
+   UDEV_LOG=$LOGLEVEL /sbin/udevd --daemon ###KRG ; orig LOG=2
+  fi
+ fi
 else
 [ -z "`pidof pup_event_backend_d`" ] &&  pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
 fi
@@ -772,6 +782,9 @@ syslogd -m 0
 klogd
 syslogd -O /var/log/syslog.7 -l 7 -s 1024 -b 99
 
+
+echo "1" > /proc/sys/net/ipv4/ip_dynaddr
+hostname -F /etc/hostname
 #[ -s /etc/issue ] || {
 (
 echo -n "${DISTRO_NAME} ${DISTRO_VERSION} "; uname -o
@@ -786,9 +799,6 @@ echo -n "Client node: ";  uname -n
 #echo "$UNAME" | cut -f 2 -d ' ' >> /etc/issue
 
 #}
-
-echo "1" > /proc/sys/net/ipv4/ip_dynaddr
-hostname -F /etc/hostname
 
 rm $VERB -f /mnt/home
 if [ "$PUPMODE" = 2 ];then
@@ -902,6 +912,7 @@ sleep 1 #v411 a bit extra. rerwin reports usb mouse detection problem some hardw
 if [ -z "`lsmod | grep 'usb_storage'`" ]; then
 modprobe $Q $VERB usb_storage && sleep 5
 fi
+unset USB_SATAD SATADRIVES ATADRIVES
 SATADRIVES="`ls -1 /sys/block | grep '^sd'`"
  for h in $SATADRIVES; do
   LinkTarget=`readlink -f /sys/block/$h`
@@ -1110,7 +1121,8 @@ if [ "$PUPMODE" = 2 ] ; then
 RD=`basename $(rdev | cut -f 1 -d ' ') 2>/dev/null`
 FS=`grep '^/dev/root' /proc/mounts | cut -f 3 -d ' '`
 echo "$RD"','"$FS"',' > /etc/.fsckme.flg
-echo "PDEV1='$RD'"  >> /etc/rc.d/PUPSTATE
+echo "PDEV1='$RD'
+DEV1FS='$FS'"  >> /etc/rc.d/PUPSTATE
 fi
 
 [ -c /dev/mem ]   || mknod /dev/mem c 1 1
@@ -1128,9 +1140,9 @@ echo 'Sorting now this log file by '$0 >> "$FILE"
 cat $FILE | sort -g -k 1,3 -t ' ' >"$FILE".sorted
 PIDS=`cat $FILE.sorted | cut -f 1 -d ' ' | sort -u | sort -g`
 for i in $PIDS ; do
-echo PID  "$i"
+echo -n "PID $i "
 Line=`grep -n -w "^$i" "$FILE".sorted | tail -n 1 | cut -f 1 -d ':'`
-echo Line "$Line" #debug
+echo "Line $Line" #debug
 /bin/sed -i "$Line a\ " "$FILE".sorted
 done
 }
