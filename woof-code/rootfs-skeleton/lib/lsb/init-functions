@@ -29,12 +29,14 @@
 
 #w002 fixes for woof.
 
+. /etc/rc.d/f4puppy5
+
 start_daemon () {
     local force nice pidfile exec i
     force=0
     nice=0
     pidfile=/dev/null
-    echo "$*"
+    _debug "start_daemon:$*"
     OPTIND=1
     while getopts fn:p: opt ; do
         case "$opt" in
@@ -43,15 +45,15 @@ start_daemon () {
             p)  pidfile="$OPTARG";;
         esac
     done
-    echo "$*"
+    _debug "start_daemon:$*"
     shift $(($OPTIND - 1))
-    echo "$*"
+    _debug "start_daemon:$*"
     if [ "$1" = '--' ]; then
         shift
     fi
-    echo "$*"
+    _debug "start_daemon:$*"
     exec="$1"; shift
-    echo "$*"
+    _debug "start_daemon:$*"
     if [ $force = 1 ]; then
         /sbin/start-stop-daemon --start --nicelevel $nice --startas $exec --pidfile /dev/null --oknodo -- $@ -d
     elif [ $pidfile ]; then
@@ -66,6 +68,8 @@ pidofproc () {
     pidfile=
     specified=
 
+    _debug "pidofproc:$*"
+
     OPTIND=1
     while getopts p: opt ; do
         case "$opt" in
@@ -75,24 +79,22 @@ pidofproc () {
     shift $(($OPTIND - 1))
 
     if [ -z "${pidfile:-}" ]; then
-        test -f /var/run/${1##*/}.pid && pidfile=/var/run/${1##*/}.pid
+        [ -f /var/run/${1##*/}.pid ] && pidfile=/var/run/${1##*/}.pid
     fi
 
     if [ -f "$pidfile" ]; then
         read pid < "$pidfile"
         if [ -n "${pid:-}" ]; then
-            if $(kill -0 "${pid:-}" 2> /dev/null); then
+            if $(kill -0 "${pid:-}" 2>>$ERR); then
                 echo "$pid"
                 return 0
-            elif ps "${pid:-}" >/dev/null 2>&1; then
+            elif ps "${pid:-}" >$OUT 2>$ERR; then
                 echo "$pid"
                 return 0 # program is running, but not owned by this user
             else
                 return 1 # program is dead and /var/run pid file exists
             fi
         fi
-    else
-     :
     fi
     if [ -x /bin/pidof -a ! "$specified" ]; then
         status="0"
@@ -107,11 +109,14 @@ pidofproc () {
 
 # start-stop-daemon uses the same algorithm as "pidofproc" above.
 killproc () {
+    DEBUG=1
     local pidfile sig status base i name_param is_term_sig
     pidfile=
     name_param=
     is_term_sig=no
-    #echo "$*"
+
+    _debug "killproc:$*"
+
     OPTIND=1
     while getopts p: opt ; do
         case "$opt" in
@@ -119,58 +124,71 @@ killproc () {
         esac
     done
     shift $(($OPTIND - 1))
-    #echo "$*"
+
+    _debug "killproc:$*"
+
     base=${1##*/}
     if [ ! "$pidfile" ]; then
-        test -f /var/run/$base.pid && pidfile=/var/run/$base.pid
-        name_param="--name $base"
+     if test -f /var/run/$base.pid; then
+        pidfile=/var/run/$base.pid
+     fi
     fi
-    if test -f "$pidfile"; then
-     PIDFILE_OPT="--pidfile \"$pidfile\""
-    fi
+
+   if [ "$pidfile" ]; then
+     PIDFILEOPT='--pidfile '"$pidfile"
+   fi
+
+    name_param="--name $base"
 
     sig=$(echo ${2:-} | sed -e 's/^-\(.*\)/\1/')
     #sig=$(echo ${1:-} | sed -e 's/^-\(.*\)/\1/')
+
     sig=$(echo $sig | sed -e 's/^SIG\(.*\)/\1/')
+    _debug "sig=$sig"
+
     if [ -z "$sig" -o "$sig" = 15 -o "$sig" = TERM ]; then
         is_term_sig=yes
     fi
     status=0
     if [ ! "$is_term_sig" = yes ]; then
+       _debug "is_term_sig=$is_term_sig"
         if [ -n "$sig" ]; then
-            /sbin/start-stop-daemon --stop --signal "$sig" $PIDFILE_OPT --quiet $name_param || status="$?"
+            _debug "sig=$sig"
+            _debug /sbin/start-stop-daemon --stop --signal "$sig" $PIDFILEOPT --quiet $name_param
+                   /sbin/start-stop-daemon --stop --signal "$sig" $PIDFILEOPT --quiet $name_param || status="$?"
         else
-            /sbin/start-stop-daemon --stop $PIDFILE_OPT --quiet $name_param || status="$?"
+             _debug /sbin/start-stop-daemon --stop $PIDFILEOPT --quiet $name_param
+                    /sbin/start-stop-daemon --stop $PIDFILEOPT --quiet $name_param || status="$?"
         fi
     else
-        /sbin/start-stop-daemon --stop $PIDFILE_OPT --retry 5 --quiet --oknodo $name_param || status="$?"
+       _debug "is_term_sig=$is_term_sig"
+       _debug /sbin/start-stop-daemon --stop $PIDFILEOPT --retry 5 --quiet --oknodo $name_param
+              /sbin/start-stop-daemon --stop $PIDFILEOPT --retry 5 --quiet --oknodo $name_param || status="$?"
     fi
 
-    #echo status=$status sig=$sig
-    #if [ "$status" = 1 ]; then
-    #    if [ -n "$sig" ]; then
-    #        return 0
-    #    fi
-    #    return 3 # program is not running
-    #fi
+    _orig_check_status(){
+    if [ "$status" = 1 ]; then
+        if [ -n "$sig" ]; then
+            return 0
+        fi
+        return 3 # program is not running
+    fi
 
-    #if [ "$status" = 0 -a "$is_term_sig" = yes ]; then
-    #   if test -f "$pidfile"; then
-    #    pidofproc -p $pidfile "$1" >/dev/null || rm -f "$pidfile"
-    #   else
-    #    pidofproc "$1" >/dev/null
-    #   fi
-    #fi
+    if [ "$status" = 0 -a "$is_term_sig" = yes ]; then
+        pidofproc -p $pidfile "$1" >>$OUT || rm $VERB -f "$pidfile"
+    fi
+    return 0
+    }
 
     if test "$pidfile"; then
-     if test -f "$pidfile"; then
-      pidofproc -p $pidfile "$1"
-      RV=$?
-      test $RV != 0 && rm -f "$pidfile"
-     else
-      pidofproc "$1"
-      RV=$?
-     fi
+       if test -f "$pidfile"; then
+        pidofproc -p $pidfile "$1"
+        RV=$?
+        test $RV != 0 && rm -f "$pidfile"
+       else
+        pidofproc "$1"
+        RV=$?
+       fi
     else
      pidofproc "$1"
      RV=$?
@@ -186,6 +204,9 @@ status_of_proc () {
 
     pidfile=
     OPTIND=1
+
+    _debug "status_of_proc:$*"
+
     while getopts p: opt ; do
         case "$opt" in
             p)  pidfile="$OPTARG";;
