@@ -61,15 +61,29 @@
 #
 ########################################################################
 
-echo "Starting '$0' rc.launchxwin..."
-
 export PATH=$PATH:/usr/X11/bin
+TMP_DIR=/tmp/xwin
+mkdir $VERB -p /tmp/xwin
 
 . /etc/rc.d/PUPSTATE
 . /etc/profile
 . /etc/rc.d/f4puppy5
 
-[ "`grep -i 'nox' /proc/cmdline`" ] && exit 0
+__exit(){
+test "$1" && { RV=$1; shift; } || RV=1
+test "$*" || set -- "Dropping to commandline."
+echo "$*"
+/sbin/getty -n -l /bin/autologinroot 38400 tty1
+}
+
+while pidof reboot poweroff rc.shutdown >>$OUT;
+do sleep 360; done
+
+echo "Starting '$0' rc.launchxwin..."
+
+[ "`grep -i 'nox' /proc/cmdline`" ] && __exit 0 "NOX specified at the commandline.
+You may need to run xorgwizard to setup the graphical desktop environment.
+Type xorgwizard [Enter] to setup X."
 
 if [ ! -L /usr/bin/X ];then
 #v2.00r1 now support a text-mode-only puppy...
@@ -85,6 +99,91 @@ if [ ! -L /usr/bin/X ];then
 else
 echo "$0 : /usr/bin/X exists"
 
+ddcprobe_func(){
+echo -e "\\033[0;31m""ddcprobe_func"
+DDCPROBE=`ddcprobe`
+echo "$DDCPROBE" > "$tmpDir"/ddcprobe.txt
+  sleep 2s
+  case "`cat "$tmpDir"/ddcprobe.txt`" in *edidfail*)
+   echo "ddcprobe failed to determine the video"
+   echo "Trying again"
+   sleep 1
+   DDCPROBE=`ddcprobe`
+   echo "$DDCPROBE" > "$tmpDir"/ddcprobe.txt
+   sleep 1s
+   ;;
+  esac
+if [ -n "`grep -i 'edidfail' "$tmpDir"/ddcprobe.txt`" ] ; then ###KRG
+echo -e "\\033[0;31m""ddcprobe still failed to determine the video"
+echo -e "\\033[0;39m""exiting $0 now""\\033[0;39m"  ##+2011-11-10 added 0;39 back
+exit
+fi
+}
+#ddcprobe_func
+
+_do_ddcprobe(){
+_edebug $Red0"_do_ddcprobe";
+
+# +++2014-11-11 strace seems to help segfauting ddcprobe
+ if [ "`which strace`" ]; then
+  DDCPROBE=`strace -o "$TMP_DIR"/ddcprobe.strace_o ddcprobe`
+ else
+  DDCPROBE=`ddcprobe`
+ fi
+ echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
+ _debug "`grep -H '.' $TMP_DIR/ddcprobe.txt`"
+
+##+++2012-09-16 2014-11-11
+[ -s "$TMP_DIR"/ddcprobe.txt ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$TMP_DIR"/ddcprobe.strace_o2 ddcprobe >"$TMP_DIR"/ddcprobe.txt
+   else
+  ddcprobe >"$TMP_DIR"/ddcprobe.txt;
+ fi
+}
+[ "`grep '[[:alnum:]]' "$TMP_DIR"/ddcprobe.txt`" ] || { sleep 2;
+ if [ "`which strace`" ]; then
+  strace -o "$TMP_DIR"/ddcprobe.strace_o2 ddcprobe >"$TMP_DIR"/ddcprobe.txt
+   else
+  ddcprobe >"$TMP_DIR"/ddcprobe.txt
+ fi
+}
+##+++2012-09-16 2014-11-11
+
+  sleep 2s
+  case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
+   _notice "ddcprobe failed to determine the video";
+   _info "Trying again..";
+   sleep 1
+   DDCPROBE=`ddcprobe`
+   echo "$DDCPROBE" > "$TMP_DIR"/ddcprobe.txt
+   sleep 1s
+   ;;
+  esac
+
+ _get_edid(){
+    which get-edid >>$OUT || return 0
+ which edid-decode >>$OUT || return 0
+ if [ ! -s "$TMP_DIR"/ddcprobe.txt ]; then
+ get-edid 1> "$TMP_DIR"/get-edid.out 2>"$TMP_DIR"/get-edid-2.txt
+ [ "$?" = 0 ] || return 0
+ edid-decode "$TMP_DIR"/get-edid.out  >"$TMP_DIR"/ddcprobe.txt
+ fi
+ }
+ _get_edid
+
+if [ -n "`grep -i 'edidfail' "$TMP_DIR"/ddcprobe.txt`" ]; then
+echo -e $Red1"ddcprobe still failed to determine the video.."$Res
+echo -e "Exiting $0 now."
+__exit 20 "Failure determining the video hardware.
+You need to run xorgwizard manually.
+
+fi
+}
+_do_ddcprobe
+echo -en '\033[0;39m' #Reset colour if any
+
+#======================= modesetting code ================================#
 # REM: Problem now occurs when Xorg is new (1.7.+),
 #      it needs kernel modesetting, otherwise fails to find devices
 #      So if driver is loaded but did not manage the console,
@@ -202,7 +301,7 @@ esac
 }
 main_modesetting
 # REM: End modesetting code
-
+#_______________________ modesetting code ________________________________#
 
  #exec xwin &
  #xwin &
@@ -213,8 +312,9 @@ main_modesetting
 
 fi #00.0
 
-##+++2013-10-22
-[ "`pidof reboot`" ]   && exit 0
-[ "`pidof poweroff`" ] && exit 0
-/sbin/getty -n -l /bin/autologinroot 38400 tty1
+##+++2013-10-22 -+2016-01-22
+while pidof reboot poweroff rc.shutdown >>$OUT;
+do sleep 360; done
+
+__exit 0 "$0 completed. Dropping to commandline."
 ##+++2013-10-22
