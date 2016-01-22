@@ -15,9 +15,9 @@ fi
 [ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
 
 userresources=$HOME/.Xresources
-usermodmap=$HOME/.Xmodmap
+   usermodmap=$HOME/.Xmodmap
 sysresources=/usr/lib/X11/xinit/Xresources
-sysmodmap=/usr/lib/X11/xinit/.Xmodmap
+   sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 # merge in defaults and keymaps
 
@@ -94,7 +94,7 @@ pidof tempget && killall tempget
 ;;
 *)
 echo 'NOT E17'
-/sbin/clean_desk_icons #v4.02 tidy up drive icons first.
+( /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
 #relocates right-side icons to actual right-side of screen...
 /usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
 rox -p /root/Choices/ROX-Filer/PuppyPin
@@ -105,6 +105,7 @@ rox -p /root/Choices/ROX-Filer/PuppyPin
 # also performs remaining free space checks on installation,
 # :
 exec /sbin/pup_event_frontend_d restart & #v403
+) &
 ;;
 esac
 
