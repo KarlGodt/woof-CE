@@ -599,6 +599,8 @@ if test -f "$HOME"/xorg.conf.new && test -s "$HOME"/xorg.conf.new; then
 test -f "$XORGCONFFILE" || cp $VERB "${XORGCONFFILE}0" "$XORGCONFFILE"
 test -s "$XORGCONFFILE" || cp $VERB "${XORGCONFFILE}0" "$XORGCONFFILE"
 NR_SCREENS=-1
+
+__format_xorg_conf_new(){
 ## My (Dougal) alternate code:
 ######################################################################
 #  Rather than pipe data to "while read", I use "here document" (at bottom),
@@ -825,6 +827,140 @@ _sync
 done <<_END1
 $(cat "$HOME"/xorg.conf.new | sed 's!$!__XORGWIZARD__!' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
+###################################################################
+}  ###__format_xorg_conf_new(){ #END
+
+_format_xorg_conf_new(){
+## My (Dougal) alternate code:
+######################################################################
+#  Rather than pipe data to "while read", I use "here document" (at bottom),
+#+ so that the loop doesn't run in a subshell -- hence variables
+#+ (like HORIZSYNC0) are retained after the loop has ended...
+while read ASECTION
+do
+ # this (outer) loop recieves a line containing **an entire section**
+ # filter out entire sections we don't want
+ case $ASECTION in
+  *Section?\"Screen\"*)
+   break #Screen section is created further down.
+  ;;
+  *Section?\"Files\"*|*Section?\"Module\"*|*Section?\"ServerFlags\"*)
+   continue #these sections pre-created in /etc/X11/xorg.conf0
+  ;;
+ esac
+ #  Params are retained for the entire ASECTION loop.
+ #  I use TEMPSECTION since BASH is slow with file i/o -- so echo
+ #+ only once for each section.
+ #  Tabs at beginning of lines are lost when reading, so I add them
+ #+ where appropriate (i.e. before every line except for Section borders).
+ #+ ("\n"=newline ; "\t"=tab)
+ IDENTIFIER="" ; XSECTION="" ; TEMPSECTION=""
+ while read ALINE
+ do
+  case "$ALINE" in
+   EndSection*)
+    if [ "$XSECTION" = "InputDevice" -a "$IDENTIFIER" = "Keyboard0" ] ; then
+     TEMPSECTION="$TEMPSECTION
+    Option      \"XkbRules\" \"xorg\"
+    Option      \"XkbModel\" \"pc102\"
+    Option      \"XkbLayout\" \"$XKEYMAP\" #xkeymap0"
+    elif [ "$XSECTION" = "Monitor" -a "$IDENTIFIER" = "Monitor0" ] ; then
+     TEMPSECTION="$TEMPSECTION
+    HorizSync    HORIZSYNC0
+    VertRefresh  VERTREFRESH0
+    #UseModes     \"Modes0\" #monitor0usemodes
+    Option      \"PreferredMode\" \"PREFERREDMODE0\"
+$ALINE
+
+Section \"Modes\"
+    Identifier \"Modes0\"
+    #modes0modeline0
+EndSection"
+     #v3.98 rerwin - added preferredmode line, after usemodes line.
+     continue # we added the line before the "Modes" section, so continue
+    fi
+    TEMPSECTION="$TEMPSECTION\n$ALINE"
+    continue # just added line -- no need to get to bottom
+    ;;
+   Section?\"*) XSECTION=${ALINE%\"*} ; XSECTION=${XSECTION##*\"}
+    TEMPSECTION="\n$ALINE"
+    continue # just added line -- no need to get to bottom
+    ;;
+    *Screen*[1-9]*\"Screen[1-9]*\"*RightOf*\"Screen[0-9]*\")TEMPSECTION="$TEMPSECTION\n\t#$ALINE"; continue;;
+    *Screen*[1-9]*\"Screen[1-9]*\"*LeftOf*\"Screen[0-9]*\") TEMPSECTION="$TEMPSECTION\n\t#$ALINE"; continue;;
+    *Screen*[1-9]*\"Screen[1-9]*\"*Above*\"Screen[0-9]*\")  TEMPSECTION="$TEMPSECTION\n\t#$ALINE"; continue;;
+    *Screen*[1-9]*\"Screen[1-9]*\"*Below*\"Screen[0-9]*\")  TEMPSECTION="$TEMPSECTION\n\t#$ALINE"; continue
+    ;;
+   *Identifier*) IDENTIFIER=${ALINE%\"*} ; IDENTIFIER=${IDENTIFIER##*\"}
+    ;;
+   *\"ZAxisMapping\"*) continue
+    ;;
+   *HorizSync*[0-9]*) set -- $ALINE ; HORIZSYNC0="$2$3$4" ; continue
+    ;;
+   *VertRefresh*[0-9]*) set -- $ALINE ; VERTREFRESH0="$2$3$4" ; continue
+    ;;
+   *Option*\"Protocol\"?\"auto\"*)
+    case "`cat /etc/mousedevice 2>/dev/null`" in
+     input/mice) TEMPSECTION="$TEMPSECTION
+    Option      \"Protocol\" \"IMPS/2\" #mouse0protocol"
+      continue
+      ;;
+     *ttyS*) TEMPSECTION="$TEMPSECTION
+    Option      \"Protocol\" \"Microsoft\" #mouse0protocol"
+      continue
+      ;;
+     *) TEMPSECTION="$TEMPSECTION
+    Option      \"Protocol\" \"auto\" #mouse0protocol"
+      continue
+      ;;
+    esac
+    ;;
+   */dev/mouse*|*/dev/input/mice*) #v2.21
+    TEMPSECTION="$TEMPSECTION\n\t$ALINE"
+    case "`cat /etc/xextraoptions`" in
+     *2button*) BLA="" ;;
+     *) BLA="#" ;;
+    esac
+    TEMPSECTION="$TEMPSECTION
+    ${BLA}Option      \"Emulate3Buttons\"
+    ${BLA}Option      \"Emulate3Timeout\" \"50\""
+    if [ "`cat /etc/mousebuttons`" = "5" ] ; then #scrollwheel
+     BLA=""
+    else
+     BLA="#"
+    fi
+    TEMPSECTION="$TEMPSECTION
+    ${BLA}Option      \"ZAxisMapping\" \"4 5\" #scrollwheel"
+    continue # we added the line at the beginning
+    ;;
+  esac
+
+  if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
+   FBODY=${ALINE%\"*} ; FBODY=${FBODY##*\"}
+   case "$ALINE" in
+    *Driver*) CARD0DRIVER="$FBODY" ; ALINE="$ALINE #card0driver" ;;
+    *VendorName*) CARD0VENDOR="$FBODY" ;;
+    *BoardName*)   CARD0BOARD="$FBODY" ;;
+    *Screen[0-9]*Right?Of*Screen[0-9]*) ALINE="#$ALINE" ;;
+    *Screen[0-9]*Left?Of*Screen[0-9]*)  ALINE="#$ALINE" ;;
+    *Screen[0-9]*Above*Screen[0-9]*)    ALINE="#$ALINE" ;;
+    *Screen[0-9]*Below*Screen[0-9]*)    ALINE="#$ALINE" ;;
+   esac
+  fi
+  # add line to section (if we've come this far...)
+  TEMPSECTION="$TEMPSECTION\n\t$ALINE"
+ done <<_END2
+$(echo "$ASECTION" | sed 's%_DEMIL_%\n%g')
+_END2
+echo -e "$TEMPSECTION" >> /etc/X11/xorg.conf
+sync
+done <<_END1
+$(cat /root/xorg.conf.new | sed 's%$%_DEMIL_%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
+_END1
+###################################################################
+} ###_format_xorg_conf_new(){ #END
+_format_xorg_conf_new
+
 ###################################################################
 else
  echo -e $Red1"Xorg -configure failed to create some usable $$HOME/xorg.conf.new file."$Res
@@ -1320,8 +1456,8 @@ FINALXY=${CHOSENRES%x*}
 
 _write_srceen_section(){
 test "$KEEP_XORG_CONF" && return 0
-
-test "$NR_SCREENS" || NR_SCREENS=0
+test "$NR_SCREENS"       || NR_SCREENS=0
+test "$NR_SCREENS" -lt 0 && NR_SCREENS=0
 for nr in `seq 0 1 $NR_SCREENS`
 do
 #now write the Screen section...
