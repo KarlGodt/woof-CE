@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # $Xorg: xinitrc.cpp,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
 
 echo "$PPID:$$:$0:'$LINENO' `date`"
@@ -274,7 +274,7 @@ _manage_jwm_taskbar_width(){
     [ "$WIDTH_ROOT" ]                 || { echo "WIDTH_ROOT has no content ";return 5; }
     [ "${WIDTH_ROOT//[[:digit:]]/}" ] && { echo "WIDTH_ROOT has incorrect content ";return 5; }
 
-    if test $WIDTH_ROOT -lt $widthJWM_TRAY; then
+    if test "$WIDTH_ROOT" -lt $widthJWM_TRAY; then
 
     # need to check x too
     jwmTRAYX=`_say_jwm_taskbar_x`
@@ -295,6 +295,7 @@ _manage_jwm_taskbar_width(){
 }
 #******************************************************************************
 
+_adjust_taskbar(){
 # REM:
 # Monitor could have changed with different resolution ...
 case "$CURRENTWM" in jwm)
@@ -304,6 +305,7 @@ case "$CURRENTWM" in jwm)
     fi
    ;;
 esac
+}
 
 if which ${CURRENTWM##*/}; then
 # REM:
