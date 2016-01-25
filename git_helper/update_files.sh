@@ -16,6 +16,8 @@ pwd
 TTY=`tty`
 [ "$TTY" == "not a tty" ] && { echo "Need controlling terminal"; exit 7; }
 
+touch "$ME_DIR"/update_ignore.lst
+
 while read oneGITF
 do
 
@@ -38,7 +40,7 @@ test -e "$oneOSF" || {
 
     # copy file into OS
     Y|y|Yes|YES|yes)
-     test -d "${oneOSF%/*}" || mkdir -p "${oneOSF%/*}"
+     test -d "${oneOSF%/*}" || mkdir -v -p "${oneOSF%/*}"
      cp -v -a "$oneGITF" "$oneOSF" || break
 ;;
 
@@ -67,6 +69,11 @@ test -e "$oneOSF" || {
     continue
 }
 
+grep $Q "^${oneOSF}$" "$ME_DIR"/update_ignore.lst && {
+	echo "Ignoring $oneOSF due to entry in update_ignore.lst";
+	sleep 2;
+	continue; }
+
 echo OK files are there .. comparing ...
 diff -qs "$oneGITF" "$oneOSF" && continue
 
@@ -75,6 +82,10 @@ diff -qs "$oneGITF" "$oneOSF" && continue
 rm $VERB -f /tmp/diff.diff
 diff -up "$oneGITF" "$oneOSF" >/tmp/diff.diff
 sleep 1
+
+
+geany "$oneGITF" &
+geany "$oneOSF" &
 geany /tmp/diff.diff &
 
 echo "Shall the file in OS be replaced by the git file (y|n) "
@@ -100,7 +111,7 @@ case $confirmKEZ2 in
 
     # copy OS file into git
     Y|y|Yes|YES|yes)
-     rm "$oneGITF" || break
+     rm -v "$oneGITF" || break
      test -d "${oneGITF%/*}" || mkdir -p "${oneGITF%/*}"
      cp -v -a  "$oneOSF" "$oneGITF" || break
 
@@ -115,7 +126,10 @@ case $confirmKEZ2 in
 
     ;;
 
-    N|n|No|NO|no) :;;
+    N|n|No|NO|no) grep $Q "^${oneOSF}$" update_ignore.lst || {
+		echo "{oneOSF}" >> "$ME_DIR"/update_ignore.lst;
+		echo "NOTICE:$oneOSF will be ignored next time";
+		sleep 2; } ;;
     *) echo UNHANDLED $confirmKEZ3;;
     esac
 ;;
@@ -123,8 +137,8 @@ case $confirmKEZ2 in
      ;;
 esac
 
-
-
 done <<EoI
 `find . -type f`
 EoI
+
+test -s  "$ME_DIR"/update_ignore.lst || rm $VERB "$ME_DIR"/update_ignore.lst
