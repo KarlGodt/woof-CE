@@ -28,9 +28,15 @@ oneOSF=${oneGITF#*.}
 echo "$oneOSF"
 
 test -e "$oneOSF" || {
-    # REM: What to do if Files does not exist...
+
+	# REM: What to do if Files does not exist...
     echo "$oneOSF does not exist"
     #sleep 1
+
+	grep $Q "^${oneOSF}$" "$ME_DIR"/update_ignore.lst && {
+	echo "Ignoring $oneOSF due to entry in update_ignore.lst";
+	sleep 2;
+	continue; }
 
     echo "Shall it be added to the OS (y|n) "
     read confirmKEZ0 <$TTY
@@ -58,7 +64,12 @@ test -e "$oneOSF" || {
      ;;
 
      # do nothing ...
-     N|n|No|NO|no) ;;
+     N|n|No|NO|no) grep $Q "^${oneOSF}$" update_ignore.lst || {
+		echo "${oneOSF}" >> "$ME_DIR"/update_ignore.lst;
+		echo "NOTICE:$oneOSF will be ignored next time";
+		sleep 2; } ;;
+
+     ;;
      *) echo UNHANDLED $confirmKEZ1;;
      esac
 ;;
@@ -127,7 +138,7 @@ case $confirmKEZ2 in
     ;;
 
     N|n|No|NO|no) grep $Q "^${oneOSF}$" update_ignore.lst || {
-		echo "{oneOSF}" >> "$ME_DIR"/update_ignore.lst;
+		echo "${oneOSF}" >> "$ME_DIR"/update_ignore.lst;
 		echo "NOTICE:$oneOSF will be ignored next time";
 		sleep 2; } ;;
     *) echo UNHANDLED $confirmKEZ3;;
