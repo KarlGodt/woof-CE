@@ -1,1 +1,275 @@
-quicksetup
+#!/bin/ash
+#(c) Copyright 2009 Barry Kauler
+#2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
+#w001 initial creation.
+#w004 checkbox for utf8. w019 fixup.
+#w470 $1=composeonly option, when call from 3builddistro.
+#w473 disable en_US.utf8 generation, hangs PC if low RAM (64MB system).
+#w478 bugfix, dialog_table was incorrect.
+
+. /etc/rc.d/f4puppy5
+test -f /etc/default/puppy-default.conf && . /etc/default/puppy-default.conf
+#variables
+test "$DEFAULT_LANGUAGE" || DEFAULT_LANGUAGE=de
+
+usage (){
+    MSG="
+    $0 [-options|cli|composeonly]
+    Script to give a menu to select the desired language environment.
+    While X is running uses 'Xdialog', otherwise 'dialog' .
+    Depends on '`which localedef`'
+    to set them, also on '`which locale`' .
+    Files get created in '/usr/lib/locale'
+    from src files in '/usr/share/i18n/locales'.
+
+    Finally writes LANG to '/etc/profile' .
+
+    Options :
+    -d) debug with 'set -x' .
+
+    -f) override some original code ie
+#if the user has chosen something like nl_BE@euro, need to chop...
+LANGCHOICE=\"\`echo -n \"\$LANGCHOICE\" | cut -f 1 -d '@'\`\"
+
+    -v) verbose .
+    -l) logsave to '/tmp/chooselocale.log .
+    -h) help to show this usage message .
+    "
+    #FONT='-*-*-*-*-*-*-*-*-*-*-*-*-*-*'
+    BG=green;[ "$1" = '0' ] || BG='red'
+    if [ "$DISPLAY" ];then
+    xmessage -bg $BG "$MSG"
+    #yaf-splash -timeout 30 -bg $BG -font $FONT -text "$MSG"
+    else
+    echo "$MSG";fi
+    exit $1
+}
+if [ "$1" = '--help' -o "$1" = '-h' ];then usage 0;fi
+CLI_P="$@";CMDL_P="$@"
+OUT='/dev/null';ERR=/dev/null
+
+
+while getopts dvlh opt;do
+case $opt in
+d) DEBUG='on';  set -x;;
+v) VERBOSE='on';VERB='-v';L_VERB='--verbose';A_VERB='-verbose';
+   OUT=/dev/stdout; ERR=/dev/stderr ;;
+f) OVER_RIDE=1;;
+l) :
+   # REM: User input impossible while run in logsave
+   #CLI_P=`echo "$@" | tr ' ' '\n' |grep '^\-' |grep 'l' |tr -d 'l'|tr '\n' ' '|sed 's/- //g'`
+   #logsave -as /tmp/chooselocale.log "$0" $CLI_P
+   #exit $?
+   ;;
+h) usage 0;;
+*) :;; # -cli ##usage 1;;
+esac;done
+while [ "$2" ];do case $2 in *FORCE|*force) FORCE=FORCE;DIALOG_TMOUT='--timeout 5';;esac;shift;done
+
+LANG=C #Xdialog seems to need this.
+export LANG
+
+PARAM1=""
+[ "$1" ] && PARAM1="$1"
+
+. /etc/DISTRO_SPECS
+
+CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
+_debug "CURRLANG='$CURRLANG'"
+
+UTF8=''
+case $CURRLANG in utf8|UTF8|utf-8|UTF-8) UTF8='.utf8';; esac
+
+BASELANG="`basename $CURRLANG .utf8`"
+echo "BASELANG='$BASELANG'"
+basename $CURRLANG
+basename .utf8
+basename $CURRLANG .utf8
+basename "$CURRLANG .utf8"
+basename ${CURRLANG} ${UTF8}
+basename "${CURRLANG}${UTF8}"
+
+#exit
+
+read CURRENTWM </etc/windowmanager #need to restart X if changes
+XSTATUS="cli"
+[ -z $DISPLAY ] || XSTATUS="x"
+[ "$1" ] && XSTATUS="cli"
+
+if [ "$XSTATUS" != "x" ];then
+ echo -ne " \\033[1;35mplease wait...\\033[0;39m" #purple text.
+fi
+
+if [ "$PARAM1" != "composeonly" ];then #w470 w473
+  [ -d /usr/lib/locale/en_US ] || localedef -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
+ #[ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >/dev/null
+fi
+
+LANGUAGEDESCR='aa:Afar ab:Abkhazian af:Africaans sq:Albanian ar:Arabic hy:Armenian az:Azeri eu:Basque be:Belarusian bn:Bengali bs:Bosnian pt:Brazilian bg:Bulgarian ca:Catalan zh:Chinese hr:Croatian el:Cypriotic cs:Czech da:Danish dv:Divehi nl:Dutch en:English et:Estonian fo:Faeroese fa:Farsi fi:Finnish fr:French mk:Fyrom gl:Galician de:German el:Greek gu:Gujarati he:Hebrew hi:Hindi hu:Hungarian is:Icelandic id:Indonesian ga:Irish it:Italian ja:Japanese kn:Kannada kk:Kazakh kok:Konkani ko:Korean ky:Kyrgyz lv:Latvian ms:Malay ml:Malayalam mt:Maltese mi:Maori mr:Marathi es:Mexican mn:Mongolian nb:Norgwegian nn:Norwegian pa:Pashto fa:Persian pl:Polish pt:Portuguese pa:Punjabi quz:Quechua ro:Romania ru:Russian smn:Sami smj:Sami se:Sami sms:Sami sma:Sami sa:Sanskrit rs:Serbian sr:Srpski sl:Slovenian es:Spanish sw:Swahili sv:Swedish syr:Syriac ta:Tamil tt:Tatar te:Telugu tr:Turkish uk:Ukrainian ur:Urdu uz:Uzbek vi:Vietnamese wa:Walloon cy:Welsh xh:Xhosa zu:Zulu'
+REGIONDESCR='AA:ArabicCountries AE:UAE AL:Yugoslavia AR:Argentina AT:Austria AU:Australia BE:Belgium BG:Bularia BH:Bahrain BN:Brunei BO:Bolvia BR:Brazil BZ:Belize CA:Canada CH:Switzerland CL:Chile CN:PeoplesRepublicChina CO:Columbia CR:CostaRica CY:Cyprus CZ:CzechRepublic DE:Germany DK:Denmark DO:DominicanRepublic EC:Ecuador EE:Estonia ES:Spain DO:Dominican DZ:Algeria EC:Ecuador EG:Egypt FI:Finland FR:France GB:GreatBritain GR:Greece GT:Guatemalia HK:HongKong HN:Honduras HR:Croatia HU:Hungary ID:Indonesia IE:Ireland IL:Israel IN:India IQ:Iraq IS:Iceland IT:Italy JM:Jamaica JO:Jordan JP:Japan KR:Korea KW:Kuwait KZ:Kazakhstan LB:Lebanon LI:Liechtenstein LU:Luxembourg LY:Libya MA:Morocco MC:Monaco MK:Macedonia MO:Macau MY:Malasia MX:Mexico NI:Nicaragua NL:Netherlands NO:Norway NZ:NewZealand OM:Oman PA:Panama PE:Peru PH:Philippines PL:Poland PR:PuertoRico PT:Portugal PY:Paraguay QA:Qatar RO:Romania RU:Russia SA:SaudiArabia SE:Sweden SG:Singapore SK:Slovakia SY:Syria TH:Thailand TN:Tunisia TR:Turkey TW:Taiwan ZA:SouthAfrica TT:Trinidad US:USA PE:Peru SV:ElSalvador MX:Mexico NI:Nicaragua UY:Uruguay VE:Venezuela YE:Yemen YU:Yugoslavia ZA:SouthAfrica'
+
+#if [ ! -f /usr/share/i18n/dialog_table ];then
+if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
+ CHOICES=""; ON=""; OFF=""; XPID=""
+ if [ "$XSTATUS" = "x" ];then
+  ON="on"
+  OFF="off"
+  xmessage -bg orange -fg black -center -buttons "" "Please wait, processing..." & XPID=$!
+ fi
+ echo -n "ONELOCALE="
+ for ONELOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
+ do
+ #echo -n "ONELOCALE='$ONELOCALE' "
+ echo -n "'$ONELOCALE' "
+  STATUS="off"
+  [ "$ONELOCALE" = "$BASELANG" ] && STATUS="on"
+  echo "$STATUS"
+  LANGUAGE=${ONELOCALE%_*}          #bash time using cut on LANGUAGE and REGION 0m5.677s
+    REGION=${ONELOCALE#*_}          #bash time using shell string manipulation  0m0.064s
+    REGION=${REGION%[[:punct:]]*}
+  lPATTERN="^${LANGUAGE}:"
+  LANGUAGE="`echo "$LANGUAGEDESCR" | tr ' ' '\n' | grep "$lPATTERN" | head -n 1 | cut -f 2 -d ':'`"
+  rPATTERN="^${REGION}:"
+  REGION="`echo "$REGIONDESCR" | tr ' ' '\n' | grep "$rPATTERN" | head -n 1 | cut -f 2 -d ':'`"
+  [ "$LANGUAGE" ] && [ "$REGION" ] && LANGUAGE="${LANGUAGE}, "
+  DESCR="${LANGUAGE}${REGION}"
+  #[ "$DESCR" != "" ] && DESCR="(${DESCR})"
+  if [ "$STATUS" = "on" ];then
+   FIRSTLINE="$ONELOCALE \"${DESCR}\" ${ON}"
+   echo "FIRSTLINE='$FIRSTLINE'";echo
+  else
+   CHOICES="$CHOICES $ONELOCALE \"${DESCR}\" ${OFF}"
+  fi
+ done
+ CHOICES="${FIRSTLINE} ${CHOICES}"
+ echo -n "$CHOICES" > /usr/share/i18n/dialog_table_${XSTATUS} #w478
+ [ "$XPID" != "" ] && kill $XPID
+else
+ CHOICES="`cat /usr/share/i18n/dialog_table_${XSTATUS}`" #w478
+fi
+
+if [ "$PARAM1" = "composeonly" ];then #w470
+ exit $STATUS
+fi
+
+# REM: If multiple lines, needs backslash escape at the end,
+# but somehow Xdialog things that \\ belongs to $CHOICES and crashes
+#CHOICES=`echo "$CHOICES" | sed 's%$% \\\\ %'`
+CHOICES=`echo $CHOICES` #get rid of multiple lines
+
+CHECKUTF8='off'
+[ "$UTF8" ] && CHECKUTF8='on'
+
+if [ "$XSTATUS" = "x" ];then
+ echo "#!/bin/ash
+Xdialog --left --stdout --wrap --title \"Country setup\" \\
+ --check \"UTF-8 encoding (apps faster without)\" ${CHECKUTF8} \\
+ --radiolist \"The locale setting provides money, date and font localization for your country.
+ The current choice is ${BASELANG}. Make a choice to suit your country...\" \\
+  30 50 40 \\
+   $CHOICES \\
+    >/tmp/chooselocale-choice
+exit \$?" > /tmp/xdialog-chooselocale
+else
+ echo "#!/bin/sh
+dialog $DIALOG_TMOUT --aspect 10 --title \"Country setup\" \\
+ --menu \"The locale setting provides money, date and font localization for your country.
+  The current choice is ${BASELANG}.
+  Make a choice to suit your country...\" \\
+   0 0 0 \\
+    ${CHOICES} \\
+     2>/tmp/chooselocale-choice
+exit \$?" > /tmp/xdialog-chooselocale
+fi
+
+chmod $VERB 0777 /tmp/xdialog-chooselocale
+[ "$VERBOSE" -o "$DEBUG" ] && { read -p -n1 "Press ENTER to continue" CONT_KEY;echo; }
+if test "$FORCE"; then
+LANGCHOICE=${BASELANG}
+else
+
+ oldLOGLEVEL=`_get_loglevel` || oldLOGLEVEL=3
+ _set_loglevel 3
+ /tmp/xdialog-chooselocale || exit 3
+ _set_loglevel $oldLOGLEVEL
+
+ LANGCHOICE="`cat /tmp/chooselocale-choice | head -n 1`"
+
+ UTF8CHOICE="`cat /tmp/chooselocale-choice | tail -n 1`"
+ UTF8=''
+ if [ "$UTF8CHOICE" = "checked" ];then
+  UTF8='.utf8'
+  #if the user has chosen something like nl_BE@euro, need to chop...
+  [ "$OVER_RIDE" ] || LANGCHOICE="`echo -n "$LANGCHOICE" | cut -f 1 -d '@'`"
+ fi
+ echo LANGCHOICE=$LANGCHOICE
+fi
+
+RETVAL=0
+if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
+
+ # creates locale files in /usr/lib/locale...
+ #CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
+ OLDLANG="LANG=$CURRLANG"
+ NEWLANG="LANG=${LANGCHOICE}"
+ [ "$UTF8" != "" ] && NEWLANG="LANG=${LANGCHOICE}"'.utf8'
+ if [ "`locale -a | grep -x "${LANGCHOICE}${UTF8}"`" = "" ];then
+  if [ "$UTF8" = "" ];then
+   lcPATTERN='^'"${LANGCHOICE}"' '
+   CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | head -n 1 | cut -f 2 -d ' '`"
+   if [ "$CHARMAP" != "" ];then #make sure have it...
+    cPATTERN="$CHARMAP"'\.gz'
+    [ "`ls -1 /usr/share/i18n/charmaps | grep "$cPATTERN"`" = "" ] && CHARMAP=""
+   fi
+   if [ "$CHARMAP" != "" ];then
+    localedef $VERB -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} >>$OUT
+    RETVAL=$?
+    NEWLANG="LANG=${LANGCHOICE}"
+   else
+    #no match, i think forced to use utf8...
+    localedef $VERB -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >>$OUT
+    RETVAL=$?
+    NEWLANG="LANG=${LANGCHOICE}.utf8"
+    UTF8='.utf8'
+   fi
+  else
+   #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
+   #CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`"
+   #[ "$CHARMAP" = "" ] && CHARMAP="UTF-8"
+   localedef $VERB -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 >>$OUT
+   RETVAL=$?
+   NEWLANG="LANG=${LANGCHOICE}.utf8"
+  fi
+ fi
+_debug "RETVAL='$RETVAL'"
+if [ "$RETVAL" = "0" ] ; then #+++returnvalue of localedef
+
+ if [ "$OLDLANG" != "$NEWLANG" ];then
+  langPATTERN="s/${OLDLANG}/${NEWLANG}/"
+  sed -e "$langPATTERN" /etc/profile > /tmp/profile
+  test $? = 0 && cp $VERB -f /tmp/profile /etc/profile
+ fi
+
+ [ "$XSTATUS" != "x" ] && exit $RETVAL
+
+ Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in /etc/profile." 0 100
+
+ if [ $? -eq 0 ];then
+  rm $VERB -rf /tmp/.X0-lock
+  pidof sync || sync
+  exec restartwm $CURRENTWM
+ fi
+
+else #+++returnvalue of localedef
+ if [ "$XSTATUS" != 'x' ] ; then
+  echo -e "\n\n\n\e[0;31m""The `which localedef` bianary returned '$RETVAL' .
+   Defaulted to en_US ."
+ else
+   xmessage -bg red "The `which localedef` bianary returned '$RETVAL' .
+   Defaulted to en_US ."
+ fi
+fi #endif returnvalue of localedef
+
+fi # if change
+
+###END###
