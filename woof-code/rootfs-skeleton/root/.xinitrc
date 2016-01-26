@@ -3,19 +3,24 @@
 
 echo "$PPID:$$:$0:'$LINENO' `date`"
 PROG='/root/.xinitrc'
-DEFAULTWM=jwm
-
+. /etc/rc.d/f4puppy5
 . /etc/rc.d/PUPSTATE
+
+test "$DEFAULT_WM" || DEFAULT_WM=jwm
+PINBOARD_FILE="$HOME"/Choices/ROX-Filer/PuppyPin
+test -f "$PINBOARD_FILE" || _warn "$PINBOARD_FILE" is not a regular file
+test -s "$PINBOARD_FILE" || _warn "$PINBOARD_FILE" seems to be an empty file
+
 
 if [ -f /root/.jwm/jwm_colors ];then #v3.96
 . /root/.jwm/jwm_colors
 fi
 
 #w482 reshape background image if widescreen...
-[ $PUPMODE -eq 5 ] && /usr/sbin/background_reshape
+[ "$PUPMODE" -eq 5 ] && /usr/sbin/background_reshape
 
-userresources=$HOME/.Xresources
-   usermodmap=$HOME/.Xmodmap
+userresources="$HOME"/.Xresources
+   usermodmap="$HOME"/.Xmodmap
 sysresources=/usr/lib/X11/xinit/Xresources
    sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
@@ -27,7 +32,7 @@ sysresources=/usr/lib/X11/xinit/Xresources
 [ -f "$usermodmap" ]    && xmodmap $usermodmap
 
 read CURRENTWM </etc/windowmanager
-test "$CURRENTWM" || CURRENTWM=$DEFAULTWM
+test "$CURRENTWM" || CURRENTWM=$DEFAULT_WM
 which $CURRENTWM  || CURRENTWM=jwm
 case "$CURRENTWM" in "startkde")
  exec startkde;;
@@ -52,7 +57,7 @@ if [ -f /etc/xrandrindex ];then
   XRANDRINDEX="`cat /etc/xrandrindex`" #v3.99 XRANDRINDEX now is XxY resolution.
   #but do not switch if default is already this resolution....
   if [ "$XRANDRINDEX" = "$XYDEFAULT" ];then
-   rm -f /etc/xrandrindex
+   rm $VERB -f /etc/xrandrindex
   else
    xrandr -s $XRANDRINDEX
   fi
@@ -78,7 +83,7 @@ if [ -f /root/.fonts/fonts.dir ];then
  xset fp+ /root/.fonts/
 fi
 
-[ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
+[ -f /usr/bin/xsetroot ] && ( xsetroot -cursor_name top_left_arrow )
 
 #v555 w003
 #[ -f /usr/bin/xfce-mcs-manager ] && xfce-mcs-manager
@@ -89,33 +94,37 @@ echo "CURRENTWM='$CURRENTWM'"
 case "$CURRENTWM" in "enlightenment_start")
 echo 'E17'
 #pup_event_frontend_d stop &
-exec pup_event_frontend_d restart &
-pidof tempget && killall tempget
+( exec pup_event_frontend_d restart & : )
+pidof tempget >>$OUT && ( killall tempget )
 ;;
 *)
 echo 'NOT E17'
-( /sbin/clean_desk_icons #v4.02 tidy up drive icons first.
+(
+ #relocates right-side icons to actual right-side of screen...
+ ( /usr/sbin/fixPuppyPin "$PINBOARD_FILE" ) #v1.0.7
+ ( rox -p "$PINBOARD_FILE" )
+ ( /sbin/clean_desk_icons ) #v4.02 tidy up drive icons first.
 #relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
-rox -p /root/Choices/ROX-Filer/PuppyPin
+# ( /usr/sbin/fixPuppyPin "$PINBOARD_FILE" ) #v1.0.7
+# ( rox -p "$PINBOARD_FILE" )
 
 #v4.01 BK daemon to handle kernel uevents...
 # daemon to manage drive icons on desktop
 # (USB,Floppy,CD hotplug/insert events),
 # also performs remaining free space checks on installation,
 # :
-exec /sbin/pup_event_frontend_d restart & #v403
+ ( exec /sbin/pup_event_frontend_d restart & : ) #v403
 ) &
 ;;
 esac
 
 #relocates right-side icons to actual right-side of screen...
-#/usr/sbin/fixPuppyPin $HOME/Choices/ROX-Filer/PuppyPin #v1.0.7
+#/usr/sbin/fixPuppyPin $PINBOARD_FILE #v1.0.7
 
 #case $CURRENTWM in *enlightenment*) :;;
 #*)
 ##w468 on old PCs this sometimes does not start, see further down...
-#rox -p /root/Choices/ROX-Filer/PuppyPin
+#rox -p "$PINBOARD_FILE"
 ##rox -p=
 #;;
 #esac
@@ -125,7 +134,7 @@ esac
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
  IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ "$IDLETIME" = 0 ] || unclutter -idle $IDLETIME &
+ [ "$IDLETIME" = 0 ] || ( unclutter -idle $IDLETIME & : )
 fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -136,11 +145,13 @@ fi
 ##v2.15 disovered by GuestToo...
 #[ "`which glipper`" != "" ] && glipper &
 #v2.17 made it optional...
-[ -f /root/.glipper_on ] && glipper &
+[ -f /root/.glipper_on ] && ( glipper & : )
 
 if [ "$CURRENTWM" = "xfwm4" ];then
  if [ "`which xfce4-panel`" ];then
-  xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
+  (
+   xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
+  )
   exec xfce4-panel
  fi
 fi
@@ -148,33 +159,49 @@ fi
 #v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
 if [ -f /usr/bin/absvolume ];then
  if [ "$MENU_BG" = "" ];then
-  absvolume &
+  ( absvolume & : )
  else
-  absvolume -bg $MENU_BG &
+  ( absvolume -bg $MENU_BG & : )
  fi
 fi
 
-which retrovol && exec retrovol &
+test -s /var/run/retrovol.pid || rm $VERB -f /var/run/retrovol.pid
+which retrovol >>$OUT && ( exec retrovol -hide & : )
 
 #v3.95 support fbpanel tray/taskbar...
 #only launch tray for w.m. without inbuilt tray...
-case "$CURRENTWM" in "jwm"|"icewm") :;;
+case "$CURRENTWM" in *jwm*|*icewm*) :;;
 *)
- [ -f /usr/bin/fbpanel ] && fbpanel &
- [ -f /usr/bin/lxpanel ] && lxpanel &
+ [ -f /usr/bin/fbpanel ] && ( fbpanel ) &
+ [ -f /usr/bin/lxpanel ] && ( lxpanel ) &
 ;;
 esac
 
-case $CURRENTWM in *enlightenment*) :;;
-*)
+_wait_for_rox_filer(){
+(
+sleep 2
+while :; do
 ##w468 rox may not start old hardware, try again...
-PS="`ps`"
-if [ "`echo "$PS" | grep 'ROX\-Filer'`" = "" ];then
- touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
- sleep 0.2
- rox -p /root/Choices/ROX-Filer/PuppyPin
-fi
-;;
+sleep 0.2
+PROC_PS="`busybox ps`"
+echo "$PROC_PS" | grep $Q "$PINBOARD_FILE" && return 0
+ echo c=$c >> /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
+ rox -p "$PINBOARD_FILE"
+c=$((c+1));
+test "$c" -gt 9 && break
+test "$c" -lt 0 && break
+test "$c" || break
+test "${c//[[:digit:]]/}" && break
+done
+echo "$0:WARNING:Could not manage to start ROX-Filer to manage the pinboard."
+echo "$0:NOTICE:If you have a black screen without wallpaper, run
+# /usr/local/bin/rox -p $PINBOARD_FILE
+from the commandline to fix this."
+)
+}
+
+case $CURRENTWM in *enlightenment*) :;;
+*) _wait_for_rox_filer & :;;
 esac
 
 #while [ this ] ; do
@@ -190,10 +217,10 @@ then
 $HOME/.xinitrc.private &
 else
 echo "using default: /usr/sbin/delayedrun"
-/usr/sbin/delayedrun &
+( /usr/sbin/delayedrun & : )
 fi
 
-dbus-uuidgen --ensure &
+( dbus-uuidgen --ensure & : )
 echo "$PPID:$$:$0:'$LINENO' `date`"
 #strace setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch 2>>setxkbmap.strace
 #which fbxkb && (sleep 4s;fbxkb &)&
@@ -307,7 +334,9 @@ case "$CURRENTWM" in jwm)
 esac
 }
 
-if which ${CURRENTWM##*/}; then
+case $CURRENTWM in *jwm*) _adjust_taskbar;; esac
+
+if which ${CURRENTWM##*/} >>$OUT; then
 # REM:
 # Update /etc/windowmanager if CURRENTWM has changed until here ..
 # Otherwise some /usr/bin/wm* scripts would probably not work ..
