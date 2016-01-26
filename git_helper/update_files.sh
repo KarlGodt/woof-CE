@@ -64,11 +64,10 @@ test -e "$oneOSF" || {
      ;;
 
      # do nothing ...
-     N|n|No|NO|no) grep $Q "^${oneOSF}$" update_ignore.lst || {
+     N|n|No|NO|no) grep $Q "^${oneOSF}$" "$ME_DIR"/update_ignore.lst || {
 		echo "${oneOSF}" >> "$ME_DIR"/update_ignore.lst;
 		echo "NOTICE:$oneOSF will be ignored next time";
-		sleep 2; } ;;
-
+		sleep 2; }
      ;;
      *) echo UNHANDLED $confirmKEZ1;;
      esac
