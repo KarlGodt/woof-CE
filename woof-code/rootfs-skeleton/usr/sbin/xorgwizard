@@ -1934,10 +1934,11 @@ exit 126
 }
 
 _enable_card_conf(){
-
+#DEBUG=1; Q=; VERB=-v
 test -f "$tmpDir"/select_card || return 3
 test -s "$tmpDir"/select_card || return 4
 SELECTED_CARD=`tail -n1 "$tmpDir"/select_card`
+_debug "SELECTED_CARD='$SELECTED_CARD'"
 test "$SELECTED_CARD" || _some_thing_wrong 'Error reading selected video card'
 
 #CardFILE=`grep -H "Identifier[[:blank:]]\+\"$SELECTED_CARD\"" "$XORGCONFFILE".d/Card*.conf | cut -f1 -d':' | sort -u`
@@ -2123,10 +2124,10 @@ you to press CTRL-ALT-BACKSPACE twice to terminate the test)
 Press \Z0ENTER\Z4 now to start test X graphics mode (may take a few secs)
 TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to change the mouse (afterward will return here).\Zn" 0 0
  RV4="$?";
- [ "$RV4" = '0' -o "$RV4" = '1' ] || break 2
+ [ "$RV4" = '0' -o "$RV4" = '1' ] || { ERRORCODE=ESC;break 2; }
  if [ "$RV4" -eq 1 ];then
   #change the mouse... (then go back up to above dialog)
-  choosemousefunc || break 2
+  choosemousefunc || { ERRORCODE=ESC;break 2; }
   #w480 bugfix, latter used if choose tweak refresh...
   cp $VERB -f "$XORGCONFFILE" "$tmpDir"/xorg.conf.tmp
   HAVE_MOUSE_DIALOG=1
@@ -2141,6 +2142,7 @@ TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to change the mouse (afterward will return here).\
   less "$XORGCONFFILE"
   for f in "$XORGCONFFILE".d/*
   do
+  test -f "$f" || continue
   less "$f"
   done
   sleep 2
@@ -2264,7 +2266,8 @@ ${TWKMSG}
 or 'TAB TAB' key for \Z1C\Z0\Zbhanges\ZB
 to alter xorg.conf or to choose driver & retest X\Zn" 0 0
  finRV=$?
- case $finRV in 0|-1|255) break 2;;
+ case $finRV in 0) break 2;;
+     -1|255) ERRORCODE=ESC;break 2;;
  3) break;;
  esac
 
@@ -2296,7 +2299,7 @@ Again, the PPM may offer extra packages to add these capabilities.
 For now, keep going with using the Generic driver
 (for general PC use, this is proably all that you need anyway)..." 0 0
    RV5="$?";
-   [ "$RV5" = '-1' -o "$RV5" = '255' ] && break 2
+   [ "$RV5" = '-1' -o "$RV5" = '255' ] && { ERRORCODE=ESC;break 2; }
   fi
 
  ##### INTEL OR NV #####
@@ -2329,7 +2332,7 @@ if [ "`grep -i 'NVIDIA' "$XORGCONFFILE" |grep -E 'Driver|VendorName|BoardName|Pu
    EXTRABUTTON='--extra-button'
    EXTRALABEL='--extra-label nv_drv'
    ALTERNATIVE_DRV_MSG='
-ATTN: There is "nv" nvidia video driver that might work better...'
+ATTN: There is "nv" nvidia video driver for unbound kernel console'
 
  elif [ "${CARD0DRIVER}" = "nv" ];then
 
@@ -2348,11 +2351,11 @@ ATTN: There is "nouveau" nvidia video driver that might work better...'
 ATTN: There is "nvidia" nvidia video driver that might work better...'
 
    else
-    TRYDRV='vesa'
+    TRYDRV='fbdev'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label vesa_drv'
+    EXTRALABEL='--extra-label fbdev_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is generic "vesa" video driver that might work better...'
+ATTN: There is generic "fbdev" video driver for bound kernel console'
    fi
 
  elif [ "${CARD0DRIVER}" = "nvidia" ];then
@@ -2372,11 +2375,11 @@ ATTN: There is "nv" nvidia video driver that might work better...'
 ATTN: There is "nvidia" nvidia video driver that might work better...'
 
    else
-    TRYDRV='vesa'
+    TRYDRV='fbdev'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label vesa_drv'
+    EXTRALABEL='--extra-label fbdev_drv'
     ALTERNATIVE_DRV_MSG='
-ATTN: There is generic "vesa" video driver that might work better...'
+ATTN: There is generic "fbdev" video driver that might work better...'
    fi
  fi
 
@@ -2452,16 +2455,38 @@ So, if you have already tried '\Zbtweaking\ZB' or you know that the Xorg
 \Zbgeneric driver\ZB. Click '\Z1v\Z0\Zbesa\ZB\Z4' to change Xorg to using the
 generic driver, otherwise press ahead and try tweaking...${ALTERNATIVE_DRV_MSG}\Zn" 0 0
   RV6=$?
-  [ "$RV6" = "" -o "$RV6" = '-1' -o "$RV6" = 255 ] && break 2
+  [ "$RV6" = "" -o "$RV6" = '-1' -o "$RV6" = 255 ] && { ERRORCODE=ESC;break 2; }
+  _debug "RV6=$RV6"
   SUBSTDRV="$CARD0DRIVER"
+  _debug "SUBSTDRV='$SUBSTDRV'"
+  _debug "CARD0DRIVER='$CARD0DRIVER'"
   [ "$RV6" = '1' ] && SUBSTDRV='vesa'
   [ "$RV6" -eq 3 ] && SUBSTDRV="$TRYDRV" #w482 intel or i810
   CARD0DRIVER="$SUBSTDRV"
+  _debug "SUBSTDRV='$SUBSTDRV'"
+  _debug "CARD0DRIVER='$CARD0DRIVER'"
+  oldCARD0DRIVER=$CARD0DRIVER
+  [ "$DEBUG" ] && sleep 10
   if [ "$RV6" -ne 0 ];then
-   aPATTERN="s/.*#card0driver/\tDriver\t\"${CARD0DRIVER}\" #card0driver/g"
+
+   #_ask_driver
+   _split_xorg_conf_file "$XORGCONFFILE" || : return 3
+   _split_cards "$tmpDir"/Device.conf || : return 4
+   echo "Card0" > "$tmpDir"/select_card
+   _enable_card_conf; RV=$? #_enable_card_conf (re)sets CARD0DRIVER
+   case $RV in
+   0) :;;
+   *) _err "_enable_card_conf returned $RV"; exit 55;; # return 7;;
+   esac
+   _rebuild_xorg_conf || { echo "Error rebuilding xorg.conf"; exit 255; }
+   [ "$DEBUG" ] && less /etc/X11/xorg.conf
+
+   CARD0DRIVER=$oldCARD0DRIVER
+   aPATTERN="s%.*#card0driver.*%\tDriver\t\t\"${CARD0DRIVER}\" #card0driver #set new%g"
    sed -e "$aPATTERN" "$XORGCONFFILE" > "$tmpDir"/xorg.conf.tmp2
+                   [ "$DEBUG" ] && less "$tmpDir"/xorg.conf.tmp2
    _sync
-   echo "Copying $tmpDir/xorg.conf.tmp2 $XORGCONFFILE :Step 13" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+   #echo "Copying $tmpDir/xorg.conf.tmp2 $XORGCONFFILE :Step 13" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
     if [ "$TRYDRV" ];then
     if [ "INTEL_CARD" ];then
      rm $VERB "$XORG_DRIVER_DIR"/i810_drv.so
@@ -2472,7 +2497,11 @@ generic driver, otherwise press ahead and try tweaking...${ALTERNATIVE_DRV_MSG}\
       fi
     fi #INTEL_CARD
     fi #TRYDRV
-   cp $VERB -f "$tmpDir"/xorg.conf.tmp2 "$XORGCONFFILE"
+  # [ "$DEBUG" ] && less /etc/X11/xorg.conf
+  # [ "$DEBUG" ] && less "$tmpDir"/xorg.conf.tmp2
+   echo "Copying $tmpDir/xorg.conf.tmp2 $XORGCONFFILE :Step 13" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
+    cp $VERB -f "$tmpDir"/xorg.conf.tmp2 "$XORGCONFFILE"
+   [ "$DEBUG" ] && less xorg.conf
    KEEP_XORG_CONF=1
    continue
   fi
@@ -2489,7 +2518,7 @@ to open xorg.conf in a text editor and change whatever you wish.
 Press \Z0ENTER\Z4 key for the easy option to tweak refresh frequency...
 Press TAB then \Z1E\Z0\ZbNTER\ZB\Z4 to open xorg.conf in a text editor...\Zn" 0 0
  RV7="$?";
- [ "$RV7" = '0' -o "$RV7" = '1' ] || break 2
+ [ "$RV7" = '0' -o "$RV7" = '1' ] || { ERRORCODE=ESC;break 2; }
  if [ "$RV7" -eq 0 ]; then
   if [ "$MONCHOICES" = "" ]; then
    #not plug-n-play.
@@ -2529,7 +2558,7 @@ $MSGPNP" 0 0 0 \
  "$VERT5" "$MSGV5" \
  2>"$tmpDir"/tagvert.txt
  RV8="$?";
- [ "$RV8" = '-1' -o "$RV8" = '255' ] && break 2
+ [ "$RV8" = '-1' -o "$RV8" = '255' ] && { ERRORCODE=ESC;break 2; }
   #FUTURE: use xrandr above, to determine alternative lower frequencies.
 
   CHOSENVERT=`cat "$tmpDir"/tagvert.txt 2>>$ERR | tail -n1`
@@ -2564,7 +2593,7 @@ $MSGPNP" 0 0 0 \
 but xorg.conf has a 'VertRefresh 50-160' entry -- maybe narrow that to 50-85...
 
 Press \Z4ENTER\Z0 key to edit xorg.conf...\Zn" 0 0
-  [ "$?" = '-1' -o "$?" = '255' ] && break 2
+  [ "$?" = '-1' -o "$?" = '255' ] && { ERRORCODE=ESC;break 2; }
   #edit xorg.conf...
   mp "$XORGCONFFILE"
   carddriver=`grep '#card[0-9]\+driver' "$XORGCONFFILE" | grep -vE '^[[:blank:]]*#' | head -n1 | awk '{print $2}' | tr -d '"'`
@@ -2573,9 +2602,13 @@ Press \Z4ENTER\Z0 key to edit xorg.conf...\Zn" 0 0
  fi
 sleep 1
 done #testloop
+RVL1=$?
+_debug RVL1=$RVL1
 done #whole loop
+RVL2=$?
+_debug RVL1=$RVL1
+_debug RVL2=$RVL2
 
-#if [ "$XAUTO" != 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  if [ -e /usr/bin/Xvesa ];then
   dialog --colors --yes-label "DONE" --no-label "Xvesa" --title "Xorg Video Wizard" \
   --yesno "\Z4Just press \Z0ENTER\Z4 key if all is fine and you are ready to run
@@ -2584,7 +2617,7 @@ Puppy with Xorg.
 If you cannot get Xorg to work, press TAB then ENTER to choose
 the \"\Z1X\Z0\Zbvesa\ZB\Z4\" button.
 This will start Puppy with the simple driverless \Z1Xvesa graphics server\Z4
-that runs on most (old) video hardware.\Zn" 0 0
+that runs on most kernel driver unbound (old) video hardware.\Zn" 0 0
  RV9="$?";
  [ "$RV9" = '0' -o "$RV9" = '1' ] || exit $RV9
   if [ "$RV9" != 0 ];then
@@ -2595,16 +2628,14 @@ that runs on most (old) video hardware.\Zn" 0 0
    rm $VERB -f "$tmpDir"/videomode
   fi
  fi
-#else
- #prevent Xvesa video wizard from running after X has started...
+#prevent Xvesa video wizard from running after X has started...
  rm $VERB -f "$tmpDir"/videomode
-#fi
 
 #move it so people ain't confused seeing it in /root...?
 #mv $VERB -f $HOME/xorg.conf.new "$tmpDir"/xorg.conf.new
 cp $VERB -a "$HOME"/xorg.conf.new "$tmpDir"/xorg.conf.new
 
-#if [ "$XAUTO" != 0 ]; then #<FIX> (XAUTO=0 is <OK> button)
+if [ "$ERRORCODE" != "ESC" ]; then
  #need to do this here again in case of tweaking made some changes...
  #create a copy of xorg.conf with the profile in the filename...
  echo "Copyied $XORGCONFFILE $XORGCONFFILE.${PROFILECHIP}-${PROFILEMONITOR} :Step 15" >> "$tmpDir"/xorgwizard.messages && sleep 1s #9s
@@ -2616,18 +2647,18 @@ cp $VERB -a "$HOME"/xorg.conf.new "$tmpDir"/xorg.conf.new
  else
  echo -e $Red1"Xorg Video Wizard completed. You may need to try again."$Res
  fi
-#else
- ##clear
+fi
+
+COLOUR=$Green0
+test "$ERRORCODE" = ESC && COLOUR=$Red1
  #user chose the <OK> button, so going directly into X without testing.
- echo -en $Red1 #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+ echo -en $COLOUR #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
  echo "If X did not work, type 'xorgwizard' to run the Video Wizard again."
  echo "After that, type 'xwin' to run X graphics mode."
  echo "Note, if X works but needs minor adjustment to the display, run the"
  echo "Video Wizard from within X 'in the Setup menu' -- module 'Xvidtune'"
  echo -n "may be used, with caution, to finetune the display dimensions."
  echo -e "\\033[0;39m"
-#fi
-
 
 #v3.99 begin
 [ -z "$tmpDir"/ddcprobeoem.txt ] && rm $VERB "$tmpDir"/ddcprobeoem.txt  #empty
