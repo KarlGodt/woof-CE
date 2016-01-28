@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_xwin"
@@ -50,6 +50,8 @@ _trap
 #100608 jemimah: added 1366x768.
 
 
+TMP_DIR=/tmp/xwin
+mkdir $VERB -p "$TMP_DIR"
 
 until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ];do echo -ne "\rWaiting for load average to drop below 3 :`cat /proc/loadavg` ";sleep 2s;done;echo  ###+++2011-11-30
 #exec 2>/tmp/xwin.log.$$
@@ -74,18 +76,18 @@ if [ "$1" ];then
 fi
 
 #v1.0.7
-HAVEX="`basename $(readlink $(which X))`"
+CURRENTX="`basename $(readlink $(which X))`"
 # REM: Strip everything after the simple binary name, ie Xorg-1.10.6 -> Xorg
-HAVEX=`echo "$HAVEX" | sed 's![[:punct:]].*$!!'`
-_debug "HAVEX='$HAVEX'"
+CURRENTX=`echo "$CURRENTX" | sed 's![[:punct:]].*$!!'`
+_debug "CURRENTX='$CURRENTX'"
 
-if [ "$HAVEX" = "XF86_SVGA" ];then
+if [ "$CURRENTX" = "XF86_SVGA" ];then
  #xf86config v3.3.6 creates config file at /etc, wrong place...
  [ -f /etc/XF86Config ] && mv -f $VERB /etc/XF86Config /etc/X11/XF86Config
 fi
 
 #v3.90 expanded to auto run best video mode...
-if [ "$HAVEX" = "Xvesa" ];then #0.9.9
+if [ "$CURRENTX" = "Xvesa" ];then #0.9.9
 
  if [ ! -f /tmp/videomode ] ; then ###-a ! -f /etc/videomode ];then #v2.21
   ddcprobe >/tmp/ddcprobe.txt
@@ -101,20 +103,21 @@ if [ "$HAVEX" = "Xvesa" ];then #0.9.9
   if [ -f /etc/xorgoverrides ] && grep $Q -f /etc/xorgoverrides /tmp/ddcprobe.txt;then
    echo -e "\\033[1;34m""Starting now xorgwizard because of /etc/xorgoverrides"
    sleep 5s
-   rm $VERB -f /var/lock/XLOADED 2>$ERR #not necessary, precaution.
+   rm $VERB -f /var/lock/XLOADED 2>>$ERR #not necessary, precaution.
    #1st dialog offers to use Xvesa...
    /usr/sbin/xorgwizard
    echo -e "\\033[1;34m""Finished xorgwizard because of xorgoverrides""\\033[0;39m"
-   HAVEX="`readlink /usr/bin/X`"
-   [ -f "$HAVEX" ] || _exit 1 "$HAVEX is not a regular file."
-   case $HAVEX in *Xorg*) :;;
+   CURRENTX="`realpath /usr/bin/X`"
+   [ -f "$CURRENTX" ] || _exit 1 "$CURRENTX is not a regular file."
+   CURRENTX=${CURRENTX##*/}
+   case $CURRENTX in *Xorg*) :;;
    *) _exit 1 "Dropping to commandline.";;
    esac  #go to command line if not Xorg
   fi
  fi
 fi
 #Repeat earlier tests in case Xserver now Xorg and to retain indentation levels.
-if [ "$HAVEX" = "Xvesa" ];then #0.9.9
+if [ "$CURRENTX" = "Xvesa" ];then #0.9.9
  BASEMODE=""
  if [ ! -f /tmp/videomode ];then #v2.21
 #v3.99 end
@@ -196,7 +199,7 @@ if [ "$HAVEX" = "Xvesa" ];then #0.9.9
    sleep 9s
    if [ "$BASEMODE" != "" ];then
     echo "$BASEMODE" >/etc/videomode #no need for wizard after startup!
-        ##rm -f /tmp/videomode 2>$ERR #w460 make sure can exit from X.
+        ##rm -f /tmp/videomode 2>>$ERR #w460 make sure can exit from X.
    fi
   fi
 
@@ -296,7 +299,7 @@ __load_agp_driver__(){
 #v2.0.0 load correct -agp driver...
 AGPDRIVER="`findhostbridge`" #in /usr/sbin.
 if [ "$AGPDRIVER" != "" ];then
- [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe $Q $VERB -b "$AGPDRIVER" 2>$ERR
+ [ "`lsmod | grep "${AGPDRIVER}"`" = "" ] && modprobe $Q $VERB -b "$AGPDRIVER" 2>>$ERR
 fi
 #note, could write $AGPDRIVER to /etc/modprobe.preload to load it at kernel boot.
 #note, it also loads agpgart.ko.
@@ -317,14 +320,14 @@ if [ -f /usr/bin/Xorg ];then  #100
    if [ "$DRVRCURR" ];then #130
     #if [ ! -f $DRVRSPATH/${DRVRCURR}_drv.so ];then
     #one driver is mtx_drv.o hmmm, okay do it this way (pakt)...
-    ls -1 $DRVRSPATH/* | grep $DRVRCURR >$OUT
+    ls -1 $DRVRSPATH/* | grep $DRVRCURR >>$OUT
 
     if [ $? -ne 0 ];then #140
      APATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
      echo "defaulting to Xorgs simple vesa driver"
      cat /etc/X11/xorg.conf | sed -e "$APATTERN" >/tmp/xorg.conf.tmp2
      _sync
-     cp -f $VERB /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
+     cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
     fi #140
    fi  #130
   fi   #120
@@ -337,6 +340,7 @@ if [ -f /usr/bin/Xorg ];then
  if [ -f /etc/X11/xorg.conf ];then
 
   if [ "`readlink /usr/bin/X`" = "Xorg" ];then
+   __do_ddc_probe(){
    #v2.13 video hardware profile (must be same as in xorgwizard)...
    DDCPROBE="`ddcprobe`"
    #v2.17 patch from Nightflyer... as in xwin, may have to run ddcprobe twice...
@@ -346,28 +350,70 @@ if [ -f /usr/bin/Xorg ];then
      DDCPROBE="`ddcprobe`"
     ;;
    esac
+   }
+   __get_chip_profile(){
    PROFILECHIP="`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-   #PROFILEMONITOR="`echo "$DDCPROBE" | grep --extended-regexp '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   }
+   __get_monitor_profile(){
+   #PROFILEMONITOR="`echo "$DDCPROBE" | grep -E '^monitorrange: |^monitorid: |^eisa: ' | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+   PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+    [ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorname: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+    [ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^dtiming: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   #100501 remove, gives random data on one of my monitors...
+   #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+   }
+
+_do_ddcprobe(){
+#want to choose a resolution and color-depth...
+##sometimes get bogus '1x' or '0x' pixel horiz resolution...
+#DDCPROBE="`ddcprobe | grep -v 'timing: [0123456789]x'`"
+#DDCPROBE="`ddcprobe`"
+ddcprobe >"$TMP_DIR"/ddcprobe.txt
+#weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
+#every alternate run of ddcprobe...
+case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
+ sleep 1
+ ddcprobe >"$TMP_DIR"/ddcprobe.txt
+ ;;
+esac
+}
+_do_ddcprobe
+_get_chip_profile(){
+#v2.13 want a hardware profile so can bootup on different PCs...
+PROFILECHIP="`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+}
+_get_monitor_profile(){
+## Dougal: maybe add "^monitorname: "??
+#PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
-PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorname: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^dtiming: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+PROFILEMONITOR="`grep '^monitorid: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorname: '  "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorrange: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^dtiming: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #100501 remove, gives random data on one of my monitors...
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^manufacture: ' | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`echo "$DDCPROBE" | grep '^eisa: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-
-   HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+}
+    _get_chip_profile
+    _get_monitor_profile
+    HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
+#   HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
    #find out if current xorg.conf matches this profile...
-   CURRENTPROFILE="`cat /etc/X11/xorg.conf | grep '^#PuppyHardwareProfile' | cut -f 2 -d '=' | cut -f 1 -d ' '`"
+   OLDPROFILE="`cat /etc/X11/xorg.conf | grep '^#PuppyHardwareProfile' | tail -n1 | cut -f 2 -d '=' | cut -f 1 -d ' '`"
 
-   if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ];then
+   if [ "$OLDPROFILE" != "$HARDWAREPROFILE" ];then
+    _notice "Video hardware change detected. If you think this is wron, report."
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
-    mv -f $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENTPROFILE}  ##xorg.conf does not exists anymore
+    mv $VERB -f /etc/X11/xorg.conf /etc/X11/xorg.conf.${OLDPROFILE}  ##xorg.conf does not exists anymore
     #if a previous profiled filename for new hardware, use that...
-    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp -af $VERB /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
-   fi
+    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp $VERB -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
+  else
+   _info "Video hardware unchanged."
+  fi
 
   fi ##readlink=Xorg
 
@@ -376,19 +422,20 @@ PROFILEMONITOR="`echo "$DDCPROBE" | grep '^monitorid: ' | head -n 1 | cut -f 2 -
  if [ ! -f /etc/X11/xorg.conf ];then
   echo "Starting now xorgwizard because /etc/X11/xorg.conf does not exists"
   sleep 5s
-  rm $VERB -f /var/lock/XLOADED 2>$ERR #not necessary, precaution.
+  rm $VERB -f /var/lock/XLOADED  #not necessary, precaution.
   #1st dialog offers to use Xvesa...
   /usr/sbin/xorgwizard
   echo "Finished running xorgwizard through xwin"
   sleep 5s
-  HAVEX="`readlink /usr/bin/X`"
-  [ -f "$HAVEX" ] || _exit 1 "$HAVEX is not a regular file."
-  case "$HAVEX" in *"Xvesa"*) exec xwin ;;esac #w482 need to restart xwin.
+  CURRENTX="`realpath /usr/bin/X`"
+  [ -f "$CURRENTX" ] || _exit 1 "$CURRENTX is not a regular file."
+  CURRENTX=${CURRENTX##*/}
+  case "$CURRENTX" in *"Xvesa"*) exec xwin ;;esac #w482 need to restart xwin.
  fi
 
 fi
 
-if [ "$HAVEX" = "Xvesa" ];then #0.9.9
+if [ "$CURRENTX" = "Xvesa" ];then #0.9.9
  #/tmp/videomode exists if starting X with new video test mode...
  if [ -e /tmp/videomode ];then
   cat /tmp/videomode | grep $Q " 800x600"
@@ -430,11 +477,11 @@ if [ -e /etc/mousebuttons ];then
  read MOUSEBUTTONS </etc/mousebuttons
 fi
 #v2.02 fix bug discovered by Dougal...
-if [ $MOUSEBUTTONS -eq 2 ];then
+if [ "$MOUSEBUTTONS" -eq 2 ];then
  #the problem is, if /etc/xextraoptions has '-2button' which turns on middle-button
  #emulation, if leave MOUSEBUTTONS=2 then the right button does not work.
  #have to pass '3' to Xvesa, meaning effectively 3 buttons available...
- [ "`cat /etc/xextraoptions | grep ' \-2button'`" != "" ] && MOUSEBUTTONS=3
+ [ "`cat /etc/xextraoptions | grep ' \-2button'`" ] && MOUSEBUTTONS=3
 fi
 
 #0.9.8
@@ -458,7 +505,7 @@ if [ "$KEYMAPNOW" != "$KEYMAPPREV" ];then
  #100520 bring this code back again...
  #100215 moved this code to /usr/sbin/input-wizard, avoid automatic overwriting of any user edit of xorg.conf...
  #100127 make sure xorg keyboard layout matches console setting (same code in xorgwizard)...
- if [ "$HAVEX" = "Xorg" ];then
+ if [ "$CURRENTX" = "Xorg" ];then
   xCONSKEYMAP="`cut -c 1-2 /etc/keymap`"
   [ "$xCONSKEYMAP" = "" ] && xCONSKEYMAP="us"
   case $xCONSKEYMAP in
@@ -508,9 +555,9 @@ test -c /dev/dri/card0 || {
 test -c /dev/dri/card0 || {
 _secure_remove "/dev/dri/card0"
 [ $? = 0 ] && {
- test -d /dev/dri || mkdir -p /dev/dri
+ test -d /dev/dri || mkdir $VERB -p /dev/dri
  test "`ls -A /dev/dri`" || _secure_remove "/dev/dri"
- test -d /dev/dri || mkdir -p /dev/dri
+ test -d /dev/dri || mkdir $VERB -p /dev/dri
  mknod /dev/dri/card0 c 226 0;
  } || {
 _warn "Could not secure remove /dev/dri/card0"
@@ -562,7 +609,7 @@ fi
 echo "true" >/var/lock/XLOADED
 
 
-case $HAVEX in
+case $CURRENTX in
  Xvesa*)
   echo "Starting X with video mode $VIDMODE and mouse $MOUSEDEV..."
   #w479 older Xvesa server may not recognise the '-sp' option...
@@ -603,7 +650,7 @@ case $HAVEX in
   /usr/bin/xinit /root/.xinitrc -- -bpp 16 >/tmp/xerrs.log 2>&1
   ;;
  Xorg*)
-  [ -f /tmp/xerrs.log ] && mv -f $VERB --backup=numbered /tmp/xerrs.log /tmp/xerrs.log.prev
+  [ -f /tmp/xerrs.log ] && /bin/mv -f $VERB --backup=numbered /tmp/xerrs.log /tmp/xerrs.log.prev
   echo "Starting X, specs in /etc/X11/xorg.conf, startup apps /root/.xinitrc..."
   #v2.11 G2 suggested -br for black background instead of checked...
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
@@ -642,7 +689,7 @@ echo '(To shutdown PC type "poweroff", to reboot PC type "reboot")'
 if [ -f /usr/X11R7/bin/Xfbdev ];then
  echo '(To run the Xfbdev Framebuffer Wizard, type "framebufferwizard")'
 fi
-if [ "$HAVEX" = "XF86_SVGA" ];then #v1.0.7
+if [ "$CURRENTX" = "XF86_SVGA" ];then #v1.0.7
  echo -en "\\033[1;31m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
  echo 'If X failed to start, type "xf86config" to setup X'
  echo '  -- you will need to know type of mouse, keyboard and video chip'
@@ -652,7 +699,7 @@ if [ "$HAVEX" = "XF86_SVGA" ];then #v1.0.7
  echo -n '  -- LAST RESORT, drop back to Xvesa by typing "ln -sf Xvesa /usr/bin/X"'
  echo -e "\\033[0;39m"
 fi
-if [ "$HAVEX" = "Xorg" ];then #v1.0.7
+if [ "$CURRENTX" = "Xorg" ];then #v1.0.7
  echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
  echo -n 'If X failed to start, type "xorgwizard" to setup X'
  echo -e "\\033[0;39m"
@@ -663,7 +710,7 @@ fi
 ##not the best, but here is a workaround...
 #NUMXWINS=`pidof xwin | wc -w` #see above and below...
 
-##if [ "$HAVEX" = "Xvesa" ];then
+##if [ "$CURRENTX" = "Xvesa" ];then
  ##if [ -e /tmp/videomode ];then
  ##### echo '/tmp/videomode exists'
  #### ##exec xwin #restart X.
@@ -693,7 +740,7 @@ if [ -f /tmp/wmexitmode.txt ];then
     export LANG=$NEWLANG
    fi
   fi
- wmexit
+ wmexit ##???
  sleep 2s
  exec xwin
 fi
