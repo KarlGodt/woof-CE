@@ -97,10 +97,13 @@ for i in `seq 1 1 $DO_SHIFT`; do shift; done; }
 _trap
 } || echo "Warning : No /etc/rc.d/f4puppy5 installed."
 
-# redirect errors to file (to help debug):
-exec 2>/tmp/xorgwizard-errors.log
+TMP_DIR=/tmp/xorgwizard
+mkdir $VERB -p "$TMP_DIR"
 
-mkdir -p /usr/lib/xorg/modules/drivers-backup
+# redirect errors to file (to help debug):
+exec 2>"$TMP_DIR"/xorgwizard-errors.log
+
+mkdir $VERB -p /usr/lib/xorg/modules/drivers-backup
 
 alternate_driver_func() { #100401 100708
  REPLACEDDRV=""
@@ -212,12 +215,12 @@ Press ENTER key to continue..."
 } #end alternate_driver_func
 
 # redirect errors to file (to help debug):
-#exec 2>/tmp/xorgwizard-errors.log
+#exec 2>"$TMP_DIR"/xorgwizard-errors.log
 
 PSFND="`ps`"
 CURRENTX="`readlink /usr/bin/X`"
 if [ "$CURRENTX" = "" ];then #w007 fix if not a symlink.
- ln $VERB -snf Xorg /usr/bin/X
+ ln $VERB -sf Xorg /usr/bin/X
  CURRENTX='Xorg'
 fi
 
@@ -226,8 +229,8 @@ if [ -f /etc/X11/xorg.conf0XORG73 ];then
  XORGBIN="`which Xorg`"
  if [ "$XORGBIN" ];then
   XVERSION=`Xorg -version 2>&1 | grep '^X Window System Version' | rev | cut -f 1 -d ' ' | rev | cut -c 3` #ex: 3 (as in 1.3.0)
-  [ ! $XVERSION ] && XVERSION=`Xorg -version 2>&1 | grep '^X.Org X Server' | rev | cut -f 1 -d ' ' | rev | cut -c 3`
-  if [ $XVERSION -lt 5 ];then
+  [ "$XVERSION" ] && XVERSION=`Xorg -version 2>&1 | grep '^X.Org X Server' | rev | cut -f 1 -d ' ' | rev | cut -c 3`
+  if [ "$XVERSION" -lt 5 ];then
    if [ -f /etc/X11/xorg.conf0XORG73 ];then
     #xorg 7.3 needs a different file...
     mv $VERB -f /etc/X11/xorg.conf0XORG73 /etc/X11/xorg.conf0
@@ -238,7 +241,7 @@ fi
 
 #v2.0.0
 #read the console keymap (country layout), apply to xkb...
-CONSKEYMAP="`cat /etc/keymap | cut -c 1-2`"
+CONSKEYMAP="`cut -c 1-2 /etc/keymap`"
 [ "$CONSKEYMAP" = "" ] && CONSKEYMAP="us"
 case $CONSKEYMAP in
   az) XKEYMAP="fr" ;;     #azerty
@@ -288,8 +291,8 @@ Xvesa_Button(){  ##+++2013-04-12
  if [ "`which Xvesa`" != "" ];then #091125  ##1
   MSGwelcome="" #100820
   #If video adapter would hang Xvesa, tell user and allow only Xorg.
-  #if [ -s /tmp/ddcprobeoem.txt ] || grep -q -f /etc/xorgoverrides /tmp/ddcprobe.txt 2>$ERR;then     #Xvesa hanger encountered  ##2
-  if [ -s /tmp/ddcprobeoem.txt ] || grep -f /etc/xorgoverrides /tmp/ddcprobe.txt ;then
+  #if [ -s "$TMP_DIR"/ddcprobeoem.txt ] || grep -q -f /etc/xorgoverrides "$TMP_DIR"/ddcprobe.txt 2>$ERR;then     #Xvesa hanger encountered  ##2
+  if [ -s "$TMP_DIR"/ddcprobeoem.txt ] || grep -f /etc/xorgoverrides "$TMP_DIR"/ddcprobe.txt ;then
    dialog --colors --title "Puppy Video Wizard" --yes-label "Xorg" --no-label "Commandline" --yesno "Welcome to the Puppy Video Wizard!
 
 Puppy has two X servers (to run Puppy in graphics mode):
@@ -448,7 +451,7 @@ Or, TAB, TAB then ENTER to select the generic vesa driver..." 0 0
 #   dialog --title "Xorg Video Wizard" --inputbox "Here are all the Xorg drivers:
 #${ALLDRVLIST}
 #
-#Type the name of the one you want to use and press ENTER:" 0 0 2>/tmp/tagchosendrv.txt
+#Type the name of the one you want to use and press ENTER:" 0 0 2>"$TMP_DIR"/tagchosendrv.txt
    #ALLDRVLIST="`ls -1 /usr/lib/xorg/modules/drivers /usr/lib/xorg/modules/drivers-alternate /usr/lib/xorg/modules/drivers-backup 2>$ERR | grep -E '^[a-zA-Z0-9].*_drv.so' | cut -f 1 -d '_' | sort -u | tr '\n' ' '`"
    ALLDRVLIST="`ls -1 /usr/lib/xorg/modules/drivers /usr/lib/xorg/modules/drivers-alternate /usr/lib/xorg/modules/drivers-backup | grep -E '^[a-zA-Z0-9].*_drv.so' | cut -f 1 -d '_' | sort -u | tr '\n' ' '`"
 
@@ -596,10 +599,10 @@ ${oneDRV} ${oneDRV}"
    done
    drvLIST="`echo "$drvLIST" | sort -k 2 -t " " | tr '\n' ' '`"
    drvDLG="dialog --title \"Xorg Video Wizard\" --menu \"Choose an Xorg driver (down-arrow or up-arrow then ENTER):\" 0 0 0 ${drvLIST}"
-   eval $drvDLG 2>/tmp/tagchosendrv.txt
+   eval $drvDLG 2>"$TMP_DIR"/tagchosendrv.txt
 
    if [ $? -eq 0 ];then  ##15
-    CHOSENDRV="`cat /tmp/tagchosendrv.txt`"
+    CHOSENDRV="`cat "$TMP_DIR"/tagchosendrv.txt`"
     echo "RESTARTING '$0' CHOSENDRV='$CHOSENDRV'"
     sleep 5s
     alternate_driver_func $CHOSENDRV
@@ -619,9 +622,9 @@ ${oneDRV} ${oneDRV}"
 fi ##0
 
 #resolution changer uses this. it must be removed here...
-rm -f /etc/xrandrindex  #2>$ERR
+rm $VERB -f /etc/xrandrindex  #2>$ERR
 
-ln -sf Xorg /usr/bin/X
+ln $VERB -sf Xorg /usr/bin/X
 
 # Dougal: moved echo to below xorg probing, since loop isn't slow anymore...
 clear
@@ -629,18 +632,35 @@ echo -en "\\033[1;35m" #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aqua
 echo -n "Probing video hardware, please wait..."
 echo -e "\\033[0;39m"
 #autoprobe...
-Xorg -configure >/tmp/xorgprobe.txt 2>&1
+Xorg -configure >"$TMP_DIR"/xorgprobe.txt 2>&1
+test $? = 0 || {
+echo -e '\033[1;31m'"Xorg -configure may have crashed."
+echo -en "Press any key to show logfile in less viewer "'\033[0;39m'
+read -n1 GOON
+less "$TMP_DIR"/xorgprobe.txt
+
+if test -e /root/xorg.conf.new; then
+ echo -en '\033[1;31m'"Press any key to show xorg.conf.new file in less viewer "'\033[0;39m'
+ read -n1 GOON
+ less /root/xorg.conf.new
+else
+echo -e '\033[1;31m'"Xorg -configure failed to create a usable xorg.conf.new file."
+echo -e '\033[1;33m'"We will go on though.."
+echo -en '\033[1;31m'"Press any key to go on "'\033[0;39m'
+read -n1 GOON
+fi
+}
 #... config in /root/xorg.conf.new
 
 
 ##### Below commented out by Dougal:
 
 #echo '.' #progress indicator completion.
-#CARD0DRIVER="`cat /tmp/CARD0DRIVER`"
-#CARD0VENDOR="`cat /tmp/CARD0VENDOR`"
-#CARD0BOARD="`cat /tmp/CARD0BOARD`"
-#HORIZSYNC0="`cat /tmp/HORIZSYNC0`"
-#VERTREFRESH0="`cat /tmp/VERTREFRESH0`"
+#CARD0DRIVER="`cat "$TMP_DIR"/CARD0DRIVER`"
+#CARD0VENDOR="`cat "$TMP_DIR"/CARD0VENDOR`"
+#CARD0BOARD="`cat "$TMP_DIR"/CARD0BOARD`"
+#HORIZSYNC0="`cat "$TMP_DIR"/HORIZSYNC0`"
+#VERTREFRESH0="`cat "$TMP_DIR"/VERTREFRESH0`"
 ##now have an almost-working xorg.conf, missing Screen section.
 ###############################END BIG ITERATION###########################
 
@@ -760,18 +780,18 @@ EndSection"
   # add line to section (if we've come this far...)
   TEMPSECTION="$TEMPSECTION\n\t$aLINE"
  done <<_END2
-$(echo "$aSECTION" | tr '%' '\n')
+$(echo "$aSECTION" | sed 's%_DELIM_%\n%g')
 _END2
 echo -e "$TEMPSECTION" >>/etc/X11/xorg.conf
 sync
 done <<_END1
-$(cat /root/xorg.conf.new | tr '\n' '%' | sed 's/EndSection/EndSection\n/g' )
+$(cat /root/xorg.conf.new | sed 's%$%_DELIM_%' | tr -d '\n' | sed 's/EndSection/EndSection\n/g' )
 _END1
 ###################################################################
 
 #v2.21 quick hack...
-sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >/tmp/xorgconfmousefix
-mv -f /tmp/xorgconfmousefix /etc/X11/xorg.conf
+sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >"$TMP_DIR"/xorgconfmousefix
+mv $VERB -f "$TMP_DIR"/xorgconfmousefix /etc/X11/xorg.conf
 
 #echo "Probing the video card and monitor..."
 #code below is not distinguishing multiple cards/monitors...
@@ -782,12 +802,12 @@ VERTREFRESH="$VERTREFRESH0"
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
 #DDCPROBE="`ddcprobe | grep -v 'timing: [0123456789]x'`"
 #DDCPROBE="`ddcprobe`"
-ddcprobe >/tmp/ddcprobe.txt
+ddcprobe >"$TMP_DIR"/ddcprobe.txt
 #weird (ddcprobe is very weird), on some hardware, edid monitor probe fails
 #every alternate run of ddcprobe...
-case "`cat /tmp/ddcprobe.txt`" in *edidfail*)
+case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
  sleep 1
- ddcprobe >/tmp/ddcprobe.txt
+ ddcprobe >"$TMP_DIR"/ddcprobe.txt
  ;;
 esac
 
@@ -796,57 +816,57 @@ esac
 #v3.98 added more CYBER lines & corrected case
 XVESALISTOK="yes"
 TIMINGOK="yes"
-if [ -s /tmp/ddcprobeoem.txt ];then   #v3.99 begin
- if [ ! -f /etc/xorgoverrides ] || ! grep -f /tmp/ddcprobeoem.txt /etc/xorgoverrides;then
-  echo "`cat /tmp/ddcprobeoem.txt`" >>/etc/xorgoverrides  #append new signature if user canceled out from hung Xvesa
+if [ -s "$TMP_DIR"/ddcprobeoem.txt ];then   #v3.99 begin
+ if [ ! -f /etc/xorgoverrides ] || ! grep -f "$TMP_DIR"/ddcprobeoem.txt /etc/xorgoverrides;then
+  echo "`cat "$TMP_DIR"/ddcprobeoem.txt`" >>/etc/xorgoverrides  #append new signature if user canceled out from hung Xvesa
   sync
  fi
 fi
-if [ -f /etc/xorgoverrides ] && grep -f /etc/xorgoverrides /tmp/ddcprobe.txt;then   #v3.99 end
+if [ -f /etc/xorgoverrides ] && grep -f /etc/xorgoverrides "$TMP_DIR"/ddcprobe.txt;then   #v3.99 end
  #HORIZSYNC=""
  #VERTREFRESH=""
  XVESALISTOK="no" #'Xvesa -listmodes' hangs.
  TIMINGOK="no"    #ddcprobe returns incomplete 'timing:' info (res's missing).
- [ "`grep 'mode: 640x480x64k' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 640x480x64k' >>/tmp/ddcprobe.txt
- [ "`grep 'mode: 640x480x16m' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 640x480x16m' >>/tmp/ddcprobe.txt
- [ "`grep 'mode: 800x600x64k' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 800x600x64k' >>/tmp/ddcprobe.txt
- [ "`grep 'mode: 800x600x16m' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 800x600x16m' >>/tmp/ddcprobe.txt
- [ "`grep 'mode: 1024x768x64k' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 1024x768x64k' >>/tmp/ddcprobe.txt
- [ "`grep 'mode: 1024x768x16m' /tmp/ddcprobe.txt`" = "" ] && echo 'mode: 1024x768x16m' >>/tmp/ddcprobe.txt
+ [ "`grep 'mode: 640x480x64k' "$TMP_DIR"/ddcprobe.txt`" = "" ]  && echo 'mode: 640x480x64k'  >>"$TMP_DIR"/ddcprobe.txt
+ [ "`grep 'mode: 640x480x16m' "$TMP_DIR"/ddcprobe.txt`" = "" ]  && echo 'mode: 640x480x16m'  >>"$TMP_DIR"/ddcprobe.txt
+ [ "`grep 'mode: 800x600x64k' "$TMP_DIR"/ddcprobe.txt`" = "" ]  && echo 'mode: 800x600x64k'  >>"$TMP_DIR"/ddcprobe.txt
+ [ "`grep 'mode: 800x600x16m' "$TMP_DIR"/ddcprobe.txt`" = "" ]  && echo 'mode: 800x600x16m'  >>"$TMP_DIR"/ddcprobe.txt
+ [ "`grep 'mode: 1024x768x64k' "$TMP_DIR"/ddcprobe.txt`" = "" ] && echo 'mode: 1024x768x64k' >>"$TMP_DIR"/ddcprobe.txt
+ [ "`grep 'mode: 1024x768x16m' "$TMP_DIR"/ddcprobe.txt`" = "" ] && echo 'mode: 1024x768x16m' >>"$TMP_DIR"/ddcprobe.txt
 fi   #v3.93 end
 
 #v3.94 detect if a Classmate PC laptop with 800x480 screen...
-#if [ "`grep 'edidfail' /tmp/ddcprobe.txt`" != "" ];then
-# if [ "`cat /tmp/ddcprobe.txt | tr -s ' ' | grep 'oem: Intel(r)915GM/910ML/915MS Graphics'`" != "" ];then
+#if [ "`grep 'edidfail' "$TMP_DIR"/ddcprobe.txt`" != "" ];then
+# if [ "`cat "$TMP_DIR"/ddcprobe.txt | tr -s ' ' | grep 'oem: Intel(r)915GM/910ML/915MS Graphics'`" != "" ];then
 #  if [ "`dmesg | grep 'CPU0: Intel(R) Celeron(R) M processor          900MHz'`" != "" ];then
 #   if [ "`dmesg | grep 'uDiskOnChip'`" != "" ];then
 #    #yep, looks like this is a Classmate model with 800x480...
-#    echo 'timing: 800x480@60' >>/tmp/ddcprobe.txt
+#    echo 'timing: 800x480@60' >>"$TMP_DIR"/ddcprobe.txt
 #   fi
 #  fi
 # fi
 #fi
 #v3.97 improved method: CM=Classmate, 915=chip 10=generation#...
-[ "`dmidecode -s bios-version | grep '^CM91510'`" != "" ] && echo 'timing: 800x480@60' >>/tmp/ddcprobe.txt
+[ "`dmidecode -s bios-version | grep '^CM91510'`" != "" ] && echo 'timing: 800x480@60' >>"$TMP_DIR"/ddcprobe.txt
 #v3.95 recognise more special screens...
 DMIDECODE="`dmidecode`"
 #recognise EeePC Asus laptop...
-[ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" != "" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" != "" ] && echo 'timing: 800x480@60' >>/tmp/ddcprobe.txt
+[ "`echo "$DMIDECODE" | grep 'Product Name: 701'`" != "" ] && [ "`echo "$DMIDECODE" | grep 'Serial Number: EeePC'`" != "" ] && echo 'timing: 800x480@60' >>"$TMP_DIR"/ddcprobe.txt
 
 
 #modes supported by card...
 CARDCHOICES=""
 if [ -e /usr/bin/Xvesa -a "$XVESALISTOK" = "yes" ];then #format of each line: 1024x768x16
  echo -e '\nIf initialization freezes here, press ctrl-c and type "xorgwizard",\nselect "Xorg", choose monitor type and choose video mode.'   #v3.99
- grep '^oem:' /tmp/ddcprobe.txt >/tmp/ddcprobeoem.txt   #v3.99 current adapter signature
- Xvesa -listmodes 2>&1 | cut -f 2 -d ' ' | grep -E 'x16$|x24$' | sort -t x -n >/tmp/Xmodes.txt
- rm $VERB /tmp/ddcprobeoem.txt  #v3.99 didn't hang in Xvesa, so delete signature
+ grep '^oem:' "$TMP_DIR"/ddcprobe.txt >"$TMP_DIR"/ddcprobeoem.txt   #v3.99 current adapter signature
+ Xvesa -listmodes 2>&1 | cut -f 2 -d ' ' | grep -E 'x16$|x24$' | sort -t x -n >"$TMP_DIR"/Xmodes.txt
+ rm $VERB "$TMP_DIR"/ddcprobeoem.txt  #v3.99 didn't hang in Xvesa, so delete signature
 else
  #the vesa 'mode:' lines returned by ddcprobe are very limited...
- grep '^mode:' /tmp/ddcprobe.txt | grep -E 'x64k|x16m'| cut -f 2 -d ' ' | sed -e 's/x64k/x16/g ; s/x16m/x24/g' >/tmp/Xmodes.txt
+ grep '^mode:' "$TMP_DIR"/ddcprobe.txt | grep -E 'x64k|x16m'| cut -f 2 -d ' ' | sed -e 's/x64k/x16/g ; s/x16m/x24/g' >"$TMP_DIR"/Xmodes.txt
 fi
 sync
-CARDCHOICES="`cat /tmp/Xmodes.txt`"
+CARDCHOICES="`cat "$TMP_DIR"/Xmodes.txt`"
 
 #frequencies supported by monitor...
 #Xorg probe may already have got this information...
@@ -859,12 +879,12 @@ else
  BOGUSVAL="no"
  for oneVAL in `echo -n "$HORIZSYNC" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ] && BOGUSVAL="yes"
+  [ ${oneVAL%.*} -lt 10 ]  && BOGUSVAL="yes"
   [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
  done
  for oneVAL in `echo -n "$VERTREFRESH" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ] && BOGUSVAL="yes"
+  [ ${oneVAL%.*} -lt 10 ]  && BOGUSVAL="yes"
   [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
  done
  if [ "$BOGUSVAL" = "yes" ];then
@@ -880,7 +900,7 @@ if [ "$TIMINGOK" = "yes" ];then #v3.93
  #modes supported by monitor... format of each line: 1024x768@75
  #MONCHOICES="`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v 'Apple' | grep -v '8514A' | grep -v '(XGA2)' | sort -u`"
  #get too many weird resolutions, maybe better just only allow these...
- MONCHOICES="`grep -F 'timing:' /tmp/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 640x480@| 800x480@| 800x600@| 1024x600@| 1024x768@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`"
+ MONCHOICES="`grep -F 'timing:' "$TMP_DIR"/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 640x480@| 800x480@| 800x600@| 1024x600@| 1024x768@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`"
  #no, better if reject known weird resolutions...
  #MONCHOICES="`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -v --extended-regexp 'Apple|8514A|XGA2|720x400|832x624|256x256|248x248|632x632|280x280' | sort -u`"
  #...no, ddcprobe is buggy, returns random resolutions, cannot screen all out!
@@ -889,7 +909,7 @@ fi
 
 #if Xorg probe failed to determine monitor freq, try ddcprobe...
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
- MONFREQ="`grep -F 'monitorrange:' /tmp/ddcprobe.txt | cut -f 2-10 -d ' '`"
+ MONFREQ="`grep -F 'monitorrange:' "$TMP_DIR"/ddcprobe.txt | cut -f 2-10 -d ' '`"
  HORIZSYNC="`echo -n "$MONFREQ" | cut -f 1 -d ','`"
  VERTREFRESH="`echo -n "$MONFREQ" | cut -f 2 -d ',' | tr -d ' '`"
 fi
@@ -927,7 +947,7 @@ fi
 
 ##091124 try another fallback...
 #if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
-# MONCHOICES="`grep '^dtiming: ' /tmp/ddcprobe.txt | cut -f 2 -d ' ' | grep '@' | tail -n 1`" #ex: 1280x800@59
+# MONCHOICES="`grep '^dtiming: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ' ' | grep '@' | tail -n 1`" #ex: 1280x800@59
 # if [ "$MONCHOICES" ];then
 #  oneX="`echo -n "$MONCHOICES" | cut -f 1 -d 'x'`"
 #  oneY="`echo -n "$MONCHOICES" | cut -f 2 -d 'x' | cut -f 1 -d '@'`"
@@ -969,9 +989,9 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
  "Q"  "h31.5-90v50-90   CRT 1400x1050" \
  "R"  "h31.5-94v50-90   CRT 1600x1200" \
  "Z" "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS" \
-  2>/tmp/taggen.txt
-  #CHOICE="`cat /tmp/taggen.txt 2>$ERR`"
-  CHOICE="`tail -n1 /tmp/taggen.txt`"
+  2>"$TMP_DIR"/taggen.txt
+  #CHOICE="`cat "$TMP_DIR"/taggen.txt 2>$ERR`"
+  CHOICE="`tail -n1 "$TMP_DIR"/taggen.txt`"
   [ "$CHOICE" = "" ] && continue
   ## Dougal: use case-structure for setting params -- safer than the old way
   ## (not sure why Barry only uses 16-bit, maybe worth improving?)
@@ -1072,13 +1092,13 @@ if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then #"" if monitor not plug-n-p
      VERTREFRESH="50-90"
      ;;
    Z) # "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS"
-     dialog --title "Xorg Video Wizard" --inputbox "Please enter the horizontal frequency range of the monitor, in KHz. An example is given:" 0 0 "31.5-48.5" 2>/tmp/taghoriz.txt
-     dialog --title "Xorg Video Wizard" --inputbox "Please enter the vertical frequency range of the monitor, in Hz. An example is given:" 0 0 "56-72" 2>/tmp/tagvert.txt
-     #HORIZSYNC="`cat /tmp/taghoriz.txt 2>$ERR`"
-     HORIZSYNC="`tail -n1 /tmp/taghoriz.txt`"
-     #VERTREFRESH="`cat /tmp/tagvert.txt 2>$ERR`"
-     VERTREFRESH="`tail -n1 /tmp/tagvert.txt`"
-     [ "$HORIZSYNC" = "" ] && continue
+     dialog --title "Xorg Video Wizard" --inputbox "Please enter the horizontal frequency range of the monitor, in KHz. An example is given:" 0 0 "31.5-48.5" 2>"$TMP_DIR"/taghoriz.txt
+     dialog --title "Xorg Video Wizard" --inputbox "Please enter the vertical frequency range of the monitor, in Hz. An example is given:" 0 0 "56-72" 2>"$TMP_DIR"/tagvert.txt
+     #HORIZSYNC="`cat "$TMP_DIR"/taghoriz.txt 2>$ERR`"
+     HORIZSYNC="`tail -n1 "$TMP_DIR"/taghoriz.txt`"
+     #VERTREFRESH="`cat "$TMP_DIR"/tagvert.txt 2>$ERR`"
+     VERTREFRESH="`tail -n1 "$TMP_DIR"/tagvert.txt`"
+     [ "$HORIZSYNC" = "" ]   && continue
      [ "$VERTREFRESH" = "" ] && continue
      # comment out -- it's the default from above
      #RECMODE="800x600x16"
@@ -1092,20 +1112,20 @@ fi
 while [ 1 ];do #more-monchoices-loop
  #if have MONCHOICES, that's all i want to display (with warning if not in card list).
  #if no MONCHOICES, then display card list only...
- echo -n "" >/tmp/finalchoices.txt
+ echo -n "" >"$TMP_DIR"/finalchoices.txt
  if [ "$MONCHOICES" = "" ];then
   for oneCHOICE in $CARDCHOICES
   do
    if [ "$RECMODE" = "$oneCHOICE" ];then
-    echo "$oneCHOICE \"Unconfirmed MAXIMUM for monitor, OK for card\" \\" >>/tmp/finalchoices.txt
+    echo "$oneCHOICE \"Unconfirmed MAXIMUM for monitor, OK for card\" \\" >>"$TMP_DIR"/finalchoices.txt
    else
-    echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\" >>/tmp/finalchoices.txt
+    echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\" >>"$TMP_DIR"/finalchoices.txt
    fi
   done
   for oneCHOICE in 640x480x16 800x600x16 1024x600x16 1024x768x16 1280x800x16 1280x1024x16 1360x768x16 1400x1050x16 1440x900x16 1600x1200x16 1680x1050x16 1920x1080x16 1920x1200x16 640x480x24 800x600x24 1024x600x24 1024x768x24 1280x800x24 1280x1024x24 1360x768x24 1400x1050x24 1440x900x24 1600x1200x24 1680x1050x24 1920x1080x24 1920x1200x24
   do
    case "$CARDCHOICES" in *$oneCHOICE*) ;; *) # we've done CARDCHOICES above
-    echo "$oneCHOICE \"Unconfirmed for monitor, maybe NOT OK for card\" \\" >>/tmp/finalchoices.txt ;;
+    echo "$oneCHOICE \"Unconfirmed for monitor, maybe NOT OK for card\" \\" >>"$TMP_DIR"/finalchoices.txt ;;
    esac
   done
  else
@@ -1120,57 +1140,57 @@ while [ 1 ];do #more-monchoices-loop
    for oneCHOICE in ${oneCUTXY}x16 ${oneCUTXY}x24
    do
     case "$CARDCHOICES" in
-     *$oneCHOICE*) echo "$oneCHOICE \"OK for monitor, OK for video card\" \\" >>/tmp/finalchoices.txt ;;
-     *) echo "$oneCHOICE \"OK for monitor, maybe NOT OK for card\" \\" >>/tmp/finalchoices.txt ;;
+     *$oneCHOICE*) echo "$oneCHOICE \"OK for monitor, OK for video card\" \\" >>"$TMP_DIR"/finalchoices.txt ;;
+     *) echo "$oneCHOICE \"OK for monitor, maybe NOT OK for card\" \\" >>"$TMP_DIR"/finalchoices.txt ;;
     esac
    done
   done
  fi
 
- #FINALCHOICES="`cat /tmp/finalchoices.txt`"
- FINALCHOICES="`cat /tmp/finalchoices.txt | sort -t x -n`" #v3.93 rerwin
+ #FINALCHOICES="`cat "$TMP_DIR"/finalchoices.txt`"
+ FINALCHOICES="`cat "$TMP_DIR"/finalchoices.txt | sort -t x -n`" #v3.93 rerwin
 
  if [ "$MONCHOICES" = "" ];then #100406
-  echo '#!/bin/sh' >/tmp/choosexmodedlg
-  echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >>/tmp/choosexmodedlg
+  echo '#!/bin/sh' >"$TMP_DIR"/choosexmodedlg
+  echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >>"$TMP_DIR"/choosexmodedlg
   echo ' --no-collapse --title "Puppy Video Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "EXIT" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
 shown in the format WidthxHeightxBits, where Width and Height are
 screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
-' >>/tmp/choosexmodedlg
-  [ ! "$RECMODE" = "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >>/tmp/choosexmodedlg
-  echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >>/tmp/choosexmodedlg
+' >>"$TMP_DIR"/choosexmodedlg
+  [ "$RECMODE" != "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >>"$TMP_DIR"/choosexmodedlg
+  echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >>"$TMP_DIR"/choosexmodedlg
   echo '
 OK:     Just press ENTER key to immediately use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
-EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >>/tmp/choosexmodedlg #'geanyfix.
-  echo "$FINALCHOICES" >>/tmp/choosexmodedlg
-  echo ' 2>/tmp/tag.txt' >>/tmp/choosexmodedlg
-  echo 'exit $?' >>/tmp/choosexmodedlg
-  chmod 755 /tmp/choosexmodedlg
-  /tmp/choosexmodedlg
+EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 '"\\" >>"$TMP_DIR"/choosexmodedlg
+  echo "$FINALCHOICES" >>"$TMP_DIR"/choosexmodedlg
+  echo " 2>$TMP_DIR/tag.txt" >>"$TMP_DIR"/choosexmodedlg
+  echo 'exit $?' >>"$TMP_DIR"/choosexmodedlg
+  chmod $VERB 0755 "$TMP_DIR"/choosexmodedlg
+  "$TMP_DIR"/choosexmodedlg
   XAUTO=$? #=0 for automatic.
   [ $XAUTO -ne 0 ] && [ $XAUTO -ne 3 ] && exit #drop out to console.
  else
   #offer more resolutions if MONCHOICES inadequate...
-  echo '#!/bin/sh' >/tmp/choosexmodedlg
-  echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >>/tmp/choosexmodedlg
+  echo '#!/bin/sh' >"$TMP_DIR"/choosexmodedlg
+  echo -n "dialog --colors --extra-button --aspect 11 --default-item $RECMODE" >>"$TMP_DIR"/choosexmodedlg
   echo ' --no-collapse --title "Puppy Video Wizard" --ok-label "OK" --extra-label "TEST" --cancel-label "MORE" --menu "Please use the UP/DOWN ARROW keys to select a video mode. Choices are
 shown in the format WidthxHeightxBits, where Width and Height are
 screen resolution in pixels, 16/24 bits = 65,536/16,777,216 colors.
-' >>/tmp/choosexmodedlg
-  [ "$RECMODE" != "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >>/tmp/choosexmodedlg
-  echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >>/tmp/choosexmodedlg
+' >>"$TMP_DIR"/choosexmodedlg
+  [ "$RECMODE" != "" ] && echo "CANNOT DECIDE? ...${RECMODE} is suggested as a good choice."  >>"$TMP_DIR"/choosexmodedlg
+  echo '\Z1RECOMMENDATION: Choose <TEST> button to verify it works!\Z0' >>"$TMP_DIR"/choosexmodedlg
   echo '
-NOTICE: If auto-probe has not detected a resolution that you know your monitor supports, click the <MORE> button to display more resolutions to choose from...' >>/tmp/choosexmodedlg
+NOTICE: If auto-probe has not detected a resolution that you know your monitor supports, click the <MORE> button to display more resolutions to choose from...' >>"$TMP_DIR"/choosexmodedlg
   echo '
 OK:     Just press ENTER key to immediately use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
-MORE: Display more monitor resolutions to choose from...\Zn" 0 0 0 \' >>/tmp/choosexmodedlg #'geanyfix.
-  echo "$FINALCHOICES" >>/tmp/choosexmodedlg
-  echo ' 2>/tmp/tag.txt' >>/tmp/choosexmodedlg
-  echo 'exit $?' >>/tmp/choosexmodedlg
-  chmod 755 /tmp/choosexmodedlg
-  /tmp/choosexmodedlg
+MORE: Display more monitor resolutions to choose from...\Zn" 0 0 0 '"\\" >>"$TMP_DIR"/choosexmodedlg
+  echo "$FINALCHOICES" >>"$TMP_DIR"/choosexmodedlg
+  echo " 2>$TMP_DIR/tag.txt" >>"$TMP_DIR"/choosexmodedlg
+  echo 'exit $?' >>"$TMP_DIR"/choosexmodedlg
+  chmod $VERB 0755 "$TMP_DIR"/choosexmodedlg
+  "$TMP_DIR"/choosexmodedlg
   XAUTO=$? #=0 for automatic.
   if [ $XAUTO -eq 1 ];then #MORE
    MONCHOICES=""
@@ -1182,8 +1202,8 @@ MORE: Display more monitor resolutions to choose from...\Zn" 0 0 0 \' >>/tmp/cho
  break
 done  #end more-monchoices-loop
 
-#CHOSENRES="`cat /tmp/tag.txt 2>$ERR`"
-CHOSENRES="`tail -n1 /tmp/tag.txt`"
+#CHOSENRES="`cat "$TMP_DIR"/tag.txt 2>$ERR`"
+CHOSENRES="`tail -n1 "$TMP_DIR"/tag.txt`"
 [ "$CHOSENRES" = "" ] && CHOSENRES="800x600x16"
 FINALDEPTH=${CHOSENRES##*x}
 #CHOSENX=${CHOSENRES%%x*}
@@ -1203,16 +1223,16 @@ FINALXY=${CHOSENRES%x*}
 ##+ seems like the ".0" gave it problems, so ended up with MAXVERT=""
 #MAXVERT=`echo -n "$VERTREFRESH" | grep -o '[ -,][0-9]*$' | sed -e 's/^[ -,]//g'`
 MAXVERT=${VERTREFRESH#*-} ; MAXVERT=${MAXVERT%.*}
-if [ $MAXVERT -gt 85 ];then
+if [ "$MAXVERT" -gt 85 ];then
  #VPATTERN="s/${MAXVERT}$/85/g"
  #VERTREFRESH="`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`"
  VERTREFRESH=${VERTREFRESH/$MAXVERT/85}
 else
  #want to cut down rating on modern LCD panels also...
- if [ $MAXVERT -gt 74 ] && [ $MAXVERT -lt 86 ];then
+ if [ "$MAXVERT" -gt 74 ] && [ "$MAXVERT" -lt 86 ];then
    #and if manufactured in 2004 or later...
    #(so older CRTs in this range maxvert 75-85 will get rejected)
-   if grep '^manufacture:' /tmp/ddcprobe.txt | grep -E -q ' 20[123][0-9]| 200[4-9]' ;then
+   if grep '^manufacture:' "$TMP_DIR"/ddcprobe.txt | grep -E -q ' 20[123][0-9]| 200[4-9]' ;then
     let LCDMAXVERT=MAXVERT-4
     #VPATTERN="s/${MAXVERT}$/${LCDMAXVERT}/g"
     #VERTREFRESH="`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`"
@@ -1251,14 +1271,14 @@ echo "$SCRNSECTION" >>/etc/X11/xorg.conf
 
 PREFERREDMODE=$FINALXY   #v3.98 rerwin - set monitor preferred mode same as screen mode.
 #horiz and vert sync ranges and preferred mode were found earlier but not written... v3.98
-cp -f /etc/X11/xorg.conf /tmp/xorg.conf.tmp
+cp -f /etc/X11/xorg.conf "$TMP_DIR"/xorg.conf.tmp
 #APATTERN="s/HORIZSYNC0/$HORIZSYNC/g"
-sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" /tmp/xorg.conf.tmp >/etc/X11/xorg.conf   #v3.98 rerwin - added update of preferredmode.
+sed -e "s/HORIZSYNC0/$HORIZSYNC/g ; s/VERTREFRESH0/$VERTREFRESH/g ; s/PREFERREDMODE0/$PREFERREDMODE/g" "$TMP_DIR"/xorg.conf.tmp >/etc/X11/xorg.conf   #v3.98 rerwin - added update of preferredmode.
 #BPATTERN="s/VERTREFRESH0/$VERTREFRESH/g"
 sync
-#cat /tmp/xorg.conf.tmp2 | sed -e "$BPATTERN" >/etc/X11/xorg.conf
+#cat "$TMP_DIR"/xorg.conf.tmp2 | sed -e "$BPATTERN" >/etc/X11/xorg.conf
 #sync
-#rm -f /tmp/xorg.conf.tmp2
+#rm -f "$TMP_DIR"/xorg.conf.tmp2
 
 ####100602 start
 #Jemimah:support Elantech touchpads
@@ -1404,7 +1424,7 @@ fi
 ## end Kirk's code
 
 #100820 for intel video, mplayer needs this...
-zVIDEODRVR="`grep '#card0driver' /etc/X11/xorg.conf | cut -f 2 -d '"'`" #'geany
+zVIDEODRVR=`grep '#card0driver' /etc/X11/xorg.conf | cut -f 2 -d '"'`
 case $zVIDEODRVR in
  intel|i810)
   [ "`grep '"LinearAlloc" "6144"' /etc/X11/xorg.conf`" = "" ] && sed -i -e 's%#card0driver%#card0driver\n\tOption "LinearAlloc" "6144"%' /etc/X11/xorg.conf
@@ -1412,33 +1432,33 @@ case $zVIDEODRVR in
 esac
 
 #v2.13 want a hardware profile so can bootup on different PCs...
-PROFILECHIP="`grep -m1 '^oem: ' /tmp/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+PROFILECHIP="`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 ## Dougal: maybe add "^monitorname: "??
-#PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' /tmp/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
-PROFILEMONITOR="`grep '^monitorid: ' /tmp/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^monitorname: ' /tmp/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^monitorrange: ' /tmp/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^dtiming: ' /tmp/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+PROFILEMONITOR="`grep '^monitorid: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorname: '  "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorrange: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^dtiming: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #100501 remove, gives random data on one of my monitors...
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' /tmp/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' /tmp/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 
 echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >>/etc/X11/xorg.conf
 #create a copy of xorg.conf with the profile in the filename...
-cp -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR}
+cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR}
 #also write profile to the backup (used for tweaking vertrefresh)...
-echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >>/tmp/xorg.conf.tmp
+echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >>"$TMP_DIR"/xorg.conf.tmp
 
 #v2.12
 #note, this code will have to go into 'xwin' also.
 #video bios may not offer the chosen resolution if it is widescreen.
 #for intel video there is a way to patch the video bios, but this
 #has to be run at every boot...
-if grep -F 'oem:' /tmp/ddcprobe.txt | grep -F -q 'Intel' ;then
+if grep -F 'oem:' "$TMP_DIR"/ddcprobe.txt | grep -F -q 'Intel' ;then
  #MYXYRES="`echo -n "$CHOSENRES" | cut -f 1-2 -d 'x'`"
  MYXYRES=${CHOSENRES%x*}
- if ! grep "$MYXYRES" /tmp/Xmodes.txt ;then
+ if ! grep "$MYXYRES" "$TMP_DIR"/Xmodes.txt ;then
   #MYXRES="`echo -n "$CHOSENRES" | cut -f 1 -d 'x'`"
   #MYYRES="`echo -n "$CHOSENRES" | cut -f 2 -d 'x'`"
   MYXRES=${CHOSENRES%%x*}
@@ -1498,7 +1518,7 @@ TAB then ENTER to change the mouse (afterward will return here)..." 0 0
   #change the mouse... (then go back up to above dialog)
   choosemousefunc
   #w480 bugfix, latter used if choose tweak refresh...
-  cp $VERB -f /etc/X11/xorg.conf /tmp/xorg.conf.tmp
+  cp $VERB -f /etc/X11/xorg.conf "$TMP_DIR"/xorg.conf.tmp
   continue
  fi
 
@@ -1508,7 +1528,7 @@ TAB then ENTER to change the mouse (afterward will return here)..." 0 0
 
  less /var/log/Xorg.0.log
 
- eval "`cat /tmp/xorgwizard_initrc_test_results`" #results from xinitrc_test
+ eval "`cat "$TMP_DIR"/xorgwizard_initrc_test_results`" #results from xinitrc_test
 #...XTEST, YTEST, HSTEST, VRTEST.
 
  if [ -e /usr/bin/Xvesa ];then
@@ -1673,9 +1693,9 @@ generic driver, otherwise press ahead and try tweaking...${EXTRADRVMSG}" 0 0
    #EndSection
 
    aPATTERN="s/.*#card0driver/  Driver      \"${SUBSTDRV}\" #card0driver/"
-   sed -e "$aPATTERN" /etc/X11/xorg.conf >/tmp/xorg.conf.tmp2
+   sed -e "$aPATTERN" /etc/X11/xorg.conf >"$TMP_DIR"/xorg.conf.tmp2
    sync
-   cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
+   cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf
    CARD0DRIVER="$SUBSTDRV" #100109
    continue
   fi
@@ -1746,14 +1766,14 @@ Choose <Probe> to go back and probe for a hardware-specific driver..." 0 0
      esac
      xALTERNATEDRIVERS="$xALTERNATEDRIVERS $oneALT $xoneALT"
     done
-    rm $VERB -f /tmp/xorgwizard-altdrv #2>$ERR
+    rm $VERB -f "$TMP_DIR"/xorgwizard-altdrv #2>$ERR
     dialog --title "Xorg Video Wizard" --menu "There are some alternative video drivers that Xorg is currently not using. If you think that your video hardware may need one of these, select it, otherwise stay with 'vesa'...
 
 NOTICE: if you choose a driver other than 'vesa', then the Xorg Wizard will restart so that Xorg can probe the hardware with the chosen driver enabled.
 
-TECHNICAL NOTE: Unused drivers are kept at /usr/lib/xorg/modules/drivers-alternate. If you choose one (other than 'vesa'), it will be moved to /usr/lib/xorg/modules/drivers." 0 0 0 vesa Generic_driver $xALTERNATEDRIVERS 2>/tmp/xorgwizard-altdrv
-    if [ -s /tmp/xorgwizard-altdrv ];then
-     ALTDRV="`cat /tmp/xorgwizard-altdrv`"
+TECHNICAL NOTE: Unused drivers are kept at /usr/lib/xorg/modules/drivers-alternate. If you choose one (other than 'vesa'), it will be moved to /usr/lib/xorg/modules/drivers." 0 0 0 vesa Generic_driver $xALTERNATEDRIVERS 2>"$TMP_DIR"/xorgwizard-altdrv
+    if [ -s "$TMP_DIR"/xorgwizard-altdrv ];then
+     ALTDRV="`cat "$TMP_DIR"/xorgwizard-altdrv`"
     echo "RESTARTING xorgwizard ALTDRV=$ALTDRV by $0"
     sleep 5s
 
@@ -1807,25 +1827,25 @@ $MSGPNP" 0 0 0 \
  "$VERT3" "$MSGV3" \
  "$VERT4" "$MSGV4" \
  "$VERT5" "$MSGV5" \
- 2>/tmp/tagvert.txt
+ 2>"$TMP_DIR"/tagvert.txt
 
   #FUTURE: use xrandr above, to determine alternative lower frequencies.
 
-  #CHOSENVERT="`cat /tmp/tagvert.txt 2>$ERR`"
-  CHOSENVERT="`tail -n1 /tmp/tagvert.txt`"
+  #CHOSENVERT="`cat "$TMP_DIR"/tagvert.txt 2>$ERR`"
+  CHOSENVERT=`tail -n1 "$TMP_DIR"/tagvert.txt`
   NEEDHORIZ=`gtf $XTEST $YTEST $CHOSENVERT | grep -o 'hsync: .*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
   let NEEDHORIZ=NEEDHORIZ+1 #compensate for rounding off error.
   aPATTERN="s/HORIZSYNC0/${HORIZSYNC}/g"
-  if [ $NEEDHORIZ -gt ${MAXHORIZ%.*} ];then
+  if [ "$NEEDHORIZ" -gt ${MAXHORIZ%.*} ];then
    if [ "$MONCHOICES" = "" ];then
     #monitor not plug and play.
     aPATTERN="s/HORIZSYNC0/${MINHORIZ}\\-${NEEDHORIZ}/g"
    fi
   fi
-  sed -e "$aPATTERN" /tmp/xorg.conf.tmp >/tmp/xorg.conf.tmp2
+  sed -e "$aPATTERN" "$TMP_DIR"/xorg.conf.tmp >"$TMP_DIR"/xorg.conf.tmp2
   bPATTERN="s/VERTREFRESH0/${MINVERT}\\-${CHOSENVERT}/g"
   sync
-  sed -e "$bPATTERN" /tmp/xorg.conf.tmp2 >/etc/X11/xorg.conf
+  sed -e "$bPATTERN" "$TMP_DIR"/xorg.conf.tmp2 >/etc/X11/xorg.conf
   sync
 
   #100430 nvidia driver needs to set metamodes entry in Screen section...
@@ -1838,7 +1858,7 @@ $MSGPNP" 0 0 0 \
    sed -i -e "$mm2PATTERN" /etc/X11/xorg.conf
   fi
 
-  rm $VERB -f /tmp/xorg.conf.tmp2
+  rm $VERB -f "$TMP_DIR"/xorg.conf.tmp2
  else
   dialog --no-collapse --title "Xorg Video Wizard" --msgbox "Before editing xorg.conf, consider this...
 
@@ -1869,16 +1889,16 @@ graphics server that runs on most video hardware." 0 0
    ln $VERB -sf Xvesa /usr/bin/X
   else
    #prevent Xvesa video wizard from running after X has started...
-   rm $VERB -f /tmp/videomode
+   rm $VERB -f "$TMP_DIR"/videomode
   fi
  fi
 else
  #prevent Xvesa video wizard from running after X has started...
- rm $VERB -f /tmp/videomode
+ rm $VERB -f "$TMP_DIR"/videomode
 fi
 
 #move it so people ain't confused seeing it in /root...
-mv -f /root/xorg.conf.new /tmp/xorg.conf.new
+mv $VERB -f /root/xorg.conf.new "$TMP_DIR"/xorg.conf.new
 
 if [ $XAUTO -ne 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  #need to do this here again in case of tweaking made some changes...
@@ -1886,7 +1906,7 @@ if [ $XAUTO -ne 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR}
  card0driver=`grep -m1 '#card0driver' /etc/X11/xorg.conf |awk -F '"' '{print $2}'`
  [ "$card0driver" ] || card0driver=NONE
- cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
+ /bin/cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
  #clear
  echo "Xorg Video Wizard completed. Type 'xwin' to start X..."
 else
@@ -1902,10 +1922,10 @@ else
 fi
 
 #v3.99 begin
-[ -z /tmp/ddcprobeoem.txt ] && rm $VERB /tmp/ddcprobeoem.txt  #empty
+[ -z "$TMP_DIR"/ddcprobeoem.txt ] && rm $VERB "$TMP_DIR"/ddcprobeoem.txt  #empty
 #If started from command line after hang, delete new Xvesa hanger indication and go to xwin - no need to have user type it in.
-#[ -f /tmp/ddcprobeoem.txt ] && rm $VERB /tmp/ddcprobeoem.txt && exec xwin
+#[ -f "$TMP_DIR"/ddcprobeoem.txt ] && rm $VERB "$TMP_DIR"/ddcprobeoem.txt && exec xwin
 #3.99 end
-[ -f /tmp/ddcprobeoem.txt ] && rm $VERB /tmp/ddcprobeoem.txt #w478
+[ -f "$TMP_DIR"/ddcprobeoem.txt ] && rm $VERB "$TMP_DIR"/ddcprobeoem.txt #w478
 echo 'ICONWIPE' >/tmp/pup_event_icon_change_flag  ##+++2011_10_30
 ###END###
