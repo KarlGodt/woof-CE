@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 ACPID_BIN=`which acpid`
 [ "$ACPID_BIN" ] || ACPID_BIN='busybox acpid'
@@ -55,7 +55,7 @@ Supported kill signals:
 
 [ "$1" ] || usage 1 "no parameter given"
 
-[ "$ACPID_BIN" ] || usage 1 "acpid binary apparently not installed"
+[ "$ACPID_BIN" ]  || usage 1 "acpid binary apparently not installed"
 [ "$ACPID_OPTS" ] || usage 1 "even busybox acpid seems not to work "
 
 case $1 in
@@ -90,7 +90,7 @@ esac
 sleep 3
 ACPID_PID=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
 [ "$ACPID_PID" = 1 ] && ACPID_PID=''
-[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep` 
+[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep`
 if [ "$ACPID_PID" ];then
                                                 echo "$0: STARTED '$ACPID_BIN' with PID '$ACPID_PID'";STATUS=0
 else
@@ -110,7 +110,7 @@ ps |grep $Q 'busybox acpid' |grep -v 'grep' && { echo "$0:Cowardly refusing to k
 
 ACPID_PID=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
 [ "$ACPID_PID" = 1 ] && ACPID_PID=''
-[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep | awk '{print $1}'` 
+[ "$ACPID_PID" ] || ACPID_PID=`ps | grep "$ACPID_BIN" | grep -v grep | awk '{print $1}'`
 [ "$ACPID_PID" ] || { echo "$0:$ACPID_BIN not running.";exit 0; }
 if [ "$1" ];then
                                 if [ "$2" ];then
@@ -124,12 +124,12 @@ else
 kill -1 $ACPID_PID
 sleep 3
 ACPID_PID_2=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
-[ "$ACPID_PID_2" ] || ACPID_PID_2=`ps | grep "$ACPID_BIN" | grep -v grep` 
+[ "$ACPID_PID_2" ] || ACPID_PID_2=`ps | grep "$ACPID_BIN" | grep -v grep`
 [ "$ACPID_PID_2" ] || { echo "$0: STOPPED '$ACPID_PID'";exit 0; }
 kill -2 $ACPID_PID_2
 sleep 3
 ACPID_PID_3=`pidof "${ACPID_BIN##*/}" |sed 's| 1$||;s| 1 | |'`
-[ "$ACPID_PID_3" ] || ACPID_PID_3=`ps | grep "$ACPID_BIN" | grep -v grep` 
+[ "$ACPID_PID_3" ] || ACPID_PID_3=`ps | grep "$ACPID_BIN" | grep -v grep`
 [ "$ACPID_PID_3" ] || { echo "$0: STOPPED '$ACPID_PID'; last PID had been '$ACPID_PID_2'";exit 0; }
 echo "$0: FAILED to stop PID '$ACPID_PID' for '$ACPID_BIN'"
 exit 1
