@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #(c) Copyright Barry Kauler 2006,2007 www.puppylinux.com
 #2007 Lesser GPL licence v2 (/usr/share/doc/legal/lgpl-2.1.txt)
 ## Abused by Dougal, Feb 2007
@@ -276,11 +276,29 @@ fi
 #and xorg.conf has been removed.
 
 #need to create xorg.conf so that at subsequent boots, xwin will not run xorgwizard...
-cp /etc/X11/xorg.conf0 /etc/X11/xorg.conf
+cp $VERB /etc/X11/xorg.conf0 /etc/X11/xorg.conf
 
 if [ ! $1 ];then #100430
  mv $VERB -f /usr/lib/xorg/modules/drivers-backup/* /usr/lib/xorg/modules/drivers/ #2>$ERR
 fi
+
+# REM: Need to set kernel loglevel to 3
+#      to prevent dialogs being screwed up by
+#      kernel messages
+#      Puppy kernels usually have the kernel loglevel patch
+#      that sets it to 3 instead the default 7 but may be
+#      compiled without or loglevel changed at the bootloader line
+_get_kernel_loglevel(){
+sysctl kernel.printk | cut -f2 -d'=' | awk '{print $1}'
+}
+_set_kernel_loglevel(){
+test "$*" || LVL=$*
+[ "$LVL" ] || LVL=3
+sysctl -w kernel.printk=$LVL >>$OUT 2>>$ERR # do not say anything
+}
+
+oldKERNEL_LOGLVL=`_get_kernel_loglevel`
+_set_kernel_loglevel 3 || : # TODO say something if it failed
 
 MSGwelcome="Welcome to the Puppy Video Wizard!
 "
@@ -342,7 +360,7 @@ run this Wizard again and choose the <Xvesa> button.
 Press ENTER for Xorg...
 Press TAB (or right-arrow) key then ENTER key for Xvesa...\Zn" 0 0
    STATUS=$?  #v3.99
-   [ $STATUS -eq -1 -o $STATUS -eq 255 ] && exit   #v3.99 ESC to exit, same as above dialogs  ##+2011-11-22 added 255 test for ESC key ; CRTL+C returns '1' , CNTR+Z clears screen returning '0'
+   [ "$STATUS" -eq '-1' -o "$STATUS" -eq 255 ] && exit   #v3.99 ESC to exit, same as above dialogs  ##+2011-11-22 added 255 test for ESC key ; CRTL+C returns '1' , CNTR+Z clears screen returning '0'
    if [ $STATUS -eq 1 ];then   #v3.99 Xvesa selected  ##3
     echo;echo;echo "linking Xvesa /usr/bin/X ..."  ##+++2011-11-22
     rm $VERB /usr/bin/X
@@ -635,7 +653,8 @@ echo -e "\\033[0;39m"
 Xorg -configure >"$TMP_DIR"/xorgprobe.txt 2>&1
 test $? = 0 || {
 echo -e '\033[1;31m'"Xorg -configure may have crashed."
-echo -en "Press any key to show logfile in less viewer "'\033[0;39m'
+echo "Press any key to show logfile in less viewer "
+echo -en "Press 'Q' to quit the less viewer "'\033[0;39m'
 read -n1 GOON
 less "$TMP_DIR"/xorgprobe.txt
 
@@ -648,6 +667,7 @@ echo -e '\033[1;31m'"Xorg -configure failed to create a usable xorg.conf.new fil
 echo -e '\033[1;33m'"We will go on though.."
 echo -en '\033[1;31m'"Press any key to go on "'\033[0;39m'
 read -n1 GOON
+cp $VERB /etc/X11/xorg.conf0 /root/xorg.conf.new
 fi
 }
 #... config in /root/xorg.conf.new
@@ -767,9 +787,9 @@ EndSection"
   if [ "$XSECTION" = "Device" -a "$IDENTIFIER" = "Card0" ] ; then
    FBODY=${aLINE%\"*} ; FBODY=${FBODY##*\"}
    case "$aLINE" in
-    *Driver*) CARD0DRIVER="$FBODY" ; aLINE="$aLINE #card0driver" ;;
+    *Driver*)     CARD0DRIVER="$FBODY" ; aLINE="$aLINE #card0driver" ;;
     *VendorName*) CARD0VENDOR="$FBODY" ;;
-    *BoardName*) CARD0BOARD="$FBODY" ;;
+    *BoardName*)   CARD0BOARD="$FBODY" ;;
     *Screen1*Right?Of*Screen0*) aLINE="#$aLINE" ;;
    esac
   fi
@@ -790,14 +810,16 @@ _END1
 ###################################################################
 
 #v2.21 quick hack...
-sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >"$TMP_DIR"/xorgconfmousefix
-mv $VERB -f "$TMP_DIR"/xorgconfmousefix /etc/X11/xorg.conf
+sed -e 's%/dev/input/mice%/dev/mouse%'  /etc/X11/xorg.conf >"$TMP_DIR"/xorg.conf.mousefix
+cp $VERB -f "$TMP_DIR"/xorg.conf.mousefix /etc/X11/xorg.conf
 
 #echo "Probing the video card and monitor..."
 #code below is not distinguishing multiple cards/monitors...
 HORIZSYNC="$HORIZSYNC0"
 VERTREFRESH="$VERTREFRESH0"
+test "$CARD0DRIVER" || CARD0DRIVER=UNKNOWN
 
+_do_ddcprobe(){
 #want to choose a resolution and color-depth...
 ##sometimes get bogus '1x' or '0x' pixel horiz resolution...
 #DDCPROBE="`ddcprobe | grep -v 'timing: [0123456789]x'`"
@@ -810,6 +832,8 @@ case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
  ddcprobe >"$TMP_DIR"/ddcprobe.txt
  ;;
 esac
+}
+_do_ddcprobe
 
 #v3.93 rerwin: For some Tecra and Portege laptops, avoid an Xvesa hang by skipping "listmodes"
 #v3.96 added trident line...
@@ -1164,12 +1188,12 @@ OK:     Just press ENTER key to immediately use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
 EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 '"\\" >>"$TMP_DIR"/choosexmodedlg
   echo "$FINALCHOICES" >>"$TMP_DIR"/choosexmodedlg
-  echo " 2>$TMP_DIR/tag.txt" >>"$TMP_DIR"/choosexmodedlg
+  echo " 2>$TMP_DIR/tagres.txt" >>"$TMP_DIR"/choosexmodedlg
   echo 'exit $?' >>"$TMP_DIR"/choosexmodedlg
   chmod $VERB 0755 "$TMP_DIR"/choosexmodedlg
   "$TMP_DIR"/choosexmodedlg
   XAUTO=$? #=0 for automatic.
-  [ $XAUTO -ne 0 ] && [ $XAUTO -ne 3 ] && exit #drop out to console.
+  [ "$XAUTO" -ne 0 ] && [ "$XAUTO" -ne 3 ] && { echo "No MONCHOICES: XAUTO='$XAUTO'"; exit; } #drop out to console.
  else
   #offer more resolutions if MONCHOICES inadequate...
   echo '#!/bin/sh' >"$TMP_DIR"/choosexmodedlg
@@ -1187,23 +1211,23 @@ OK:     Just press ENTER key to immediately use the selected mode...
 TEST: TAB key then ENTER to test and debug the mode before using it...
 MORE: Display more monitor resolutions to choose from...\Zn" 0 0 0 '"\\" >>"$TMP_DIR"/choosexmodedlg
   echo "$FINALCHOICES" >>"$TMP_DIR"/choosexmodedlg
-  echo " 2>$TMP_DIR/tag.txt" >>"$TMP_DIR"/choosexmodedlg
+  echo " 2>$TMP_DIR/tagres.txt" >>"$TMP_DIR"/choosexmodedlg
   echo 'exit $?' >>"$TMP_DIR"/choosexmodedlg
   chmod $VERB 0755 "$TMP_DIR"/choosexmodedlg
   "$TMP_DIR"/choosexmodedlg
   XAUTO=$? #=0 for automatic.
-  if [ $XAUTO -eq 1 ];then #MORE
+  if [ "$XAUTO" -eq 1 ];then #MORE
    MONCHOICES=""
    continue #more-monchoices-loop
   fi
-  [ $XAUTO -ne 0 ] && [ $XAUTO -ne 3 ] && exit #drop out to console. maybe pressed ESC.
+  [ "$XAUTO" -ne 0 ] && [ "$XAUTO" -ne 3 ] && { echo "Have MONCHOICES: XAUTO='$XAUTO'"; exit; } #drop out to console. maybe pressed ESC.
  fi
 
  break
 done  #end more-monchoices-loop
 
-#CHOSENRES="`cat "$TMP_DIR"/tag.txt 2>$ERR`"
-CHOSENRES="`tail -n1 "$TMP_DIR"/tag.txt`"
+#CHOSENRES="`cat "$TMP_DIR"/tagres.txt 2>$ERR`"
+CHOSENRES="`tail -n1 "$TMP_DIR"/tagres.txt`"
 [ "$CHOSENRES" = "" ] && CHOSENRES="800x600x16"
 FINALDEPTH=${CHOSENRES##*x}
 #CHOSENX=${CHOSENRES%%x*}
@@ -1232,7 +1256,7 @@ else
  if [ "$MAXVERT" -gt 74 ] && [ "$MAXVERT" -lt 86 ];then
    #and if manufactured in 2004 or later...
    #(so older CRTs in this range maxvert 75-85 will get rejected)
-   if grep '^manufacture:' "$TMP_DIR"/ddcprobe.txt | grep -E -q ' 20[123][0-9]| 200[4-9]' ;then
+   if grep '^manufacture:' "$TMP_DIR"/ddcprobe.txt | grep $Q -E ' 20[123][0-9]| 200[4-9]' ;then
     let LCDMAXVERT=MAXVERT-4
     #VPATTERN="s/${MAXVERT}$/${LCDMAXVERT}/g"
     #VERTREFRESH="`echo -n "$VERTREFRESH" | sed -e "$VPATTERN"`"
@@ -1282,7 +1306,7 @@ sync
 
 ####100602 start
 #Jemimah:support Elantech touchpads
-if grep -F -q 'Elantech' /proc/bus/input/devices ; then
+if grep $Q -F 'Elantech' /proc/bus/input/devices ; then
  cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
  modprobe $Q $VERB evdev
  if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
@@ -1330,7 +1354,7 @@ fi
 
 ## Dougal (v2.16??):
 ## Kirk's code for adding synaptics touchpads (or my version of it...)
-if grep -F -q 'Alps' /proc/bus/input/devices ; then
+if grep $Q -F 'Alps' /proc/bus/input/devices ; then
  cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
  modprobe $Q $VERB evdev
  if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
@@ -1379,7 +1403,7 @@ Section "Monitor"'
  sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" /etc/X11/xorg.conf-without-synaptic >/etc/X11/xorg.conf
 fi
 
-if grep -F -q 'Synaptics' /proc/bus/input/devices ; then
+if grep $Q -F 'Synaptics' /proc/bus/input/devices ; then
  cp $VERB /etc/X11/xorg.conf /etc/X11/xorg.conf-without-synaptic
  modprobe $Q $VERB evdev
  echo "modprobe evdev" >>/etc/rc.d/rc.local
@@ -1427,12 +1451,15 @@ fi
 zVIDEODRVR=`grep '#card0driver' /etc/X11/xorg.conf | cut -f 2 -d '"'`
 case $zVIDEODRVR in
  intel|i810)
-  [ "`grep '"LinearAlloc" "6144"' /etc/X11/xorg.conf`" = "" ] && sed -i -e 's%#card0driver%#card0driver\n\tOption "LinearAlloc" "6144"%' /etc/X11/xorg.conf
+  [ "`grep '"LinearAlloc" "6144"' /etc/X11/xorg.conf | grep -v '^[[:blank:]]*#'`" ] || sed -i'.sed' -e 's%#card0driver%#card0driver\n\t#100820 mplayer may need this\n\tOption "LinearAlloc" "6144"%' /etc/X11/xorg.conf
  ;;
 esac
 
+_get_chip_profile(){
 #v2.13 want a hardware profile so can bootup on different PCs...
 PROFILECHIP="`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+}
+_get_monitor_profile(){
 ## Dougal: maybe add "^monitorname: "??
 #PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
@@ -1443,12 +1470,23 @@ PROFILEMONITOR="`grep '^monitorid: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -
 #100501 remove, gives random data on one of my monitors...
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
-
-echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >>/etc/X11/xorg.conf
+}
+_get_chip_profile
+_get_monitor_profile
+HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
+echo "#PuppyHardwareProfile=${HARDWAREPROFILE}-${CARD0DRIVER}" >>/etc/X11/xorg.conf
+echo "#PuppyHardwareProfile=${HARDWAREPROFILE}" >>/etc/X11/xorg.conf
+#echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}" >>/etc/X11/xorg.conf
+#echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >>/etc/X11/xorg.conf
 #create a copy of xorg.conf with the profile in the filename...
-cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR}
+cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${HARDWAREPROFILE}-${CARD0DRIVER}
+cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${HARDWAREPROFILE}
+#cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
+#cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}
+
 #also write profile to the backup (used for tweaking vertrefresh)...
-echo "#PuppyHardwareProfile=${PROFILECHIP}${PROFILEMONITOR}" >>"$TMP_DIR"/xorg.conf.tmp
+
+#echo "#PuppyHardwareProfile=${PROFILECHIP}-${PROFILEMONITOR}" >>"$TMP_DIR"/xorg.conf.tmp
 
 #v2.12
 #note, this code will have to go into 'xwin' also.
@@ -1469,16 +1507,16 @@ if grep -F 'oem:' "$TMP_DIR"/ddcprobe.txt | grep -F -q 'Intel' ;then
   #create something for xwin to eecute...
   echo "915resolution 38 $MYXRES $MYYRES" >/etc/resolutionfix
  fi
-else
+elif [ -f /etc/resolutionfix ]; then
  #in case plug usb or multisession-cd into different pc...
- [ -f /etc/resolutionfix ] && rm $VERB -f /etc/resolutionfix
+ rm $VERB -f /etc/resolutionfix
 fi
 
-[ $XAUTO -ne 0 ] && [ $XAUTO -ne 3 ] && exit 0 #drop out to console.
+[ "$XAUTO" -ne 0 ] && [ "$XAUTO" -ne 3 ] && exit 0 #drop out to console.
 
 #code here to test the video...
 CHOSENVERT=""
-while [ $XAUTO -ne 0 ];do #testloop
+while [ "$XAUTO" -ne 0 ];do #testloop
  case "`cat /etc/mousedevice 2>$ERR`" in #w468
   #input/mice) MOUSETYPE="usb" ;;
   #psaux) MOUSETYPE="ps/2" ;;
@@ -1499,10 +1537,10 @@ the <Change_mouse> button now."
   ;;
  esac
 
- dialog --title "Xorg Video Wizard" --yes-label "TEST_X_NOW" --no-label "Change_mouse" --yesno "Okay, just about to take the plunge.
+ dialog --title "Xorg Video Wizard" --yes-label "TEST X NOW" --no-label "Change Mouse" --yesno "Okay, just about to take the plunge.
 ${MOUSEMSG}
 
-After choosing <TEST_X_NOW> button, if the next screen shows a nice
+After choosing <TEST X NOW> button, if the next screen shows a nice
 dialog box, then X started okay. If the screen is blank or garbage,
 then failure (In such a case, just press the ENTER key to terminate
 the test, preferably within the 60 second test timeout).
@@ -1526,10 +1564,14 @@ TAB then ENTER to change the mouse (afterward will return here)..." 0 0
  export MONCHOICES
  xinit /usr/sbin/xinitrc_test -- /usr/bin/Xorg :0
 
- less /var/log/Xorg.0.log
+ [ "$DEBUG" ] && less /var/log/Xorg.0.log
 
  eval "`cat "$TMP_DIR"/xorgwizard_initrc_test_results`" #results from xinitrc_test
 #...XTEST, YTEST, HSTEST, VRTEST.
+ test "$XTEST"  || XTEST=ERROR
+ test "$YTEST"  || YTEST=ERROR
+ test "$VRTEST" || VRTEST=ERROR
+ test "$HSTEST" || HSTEST=ERROR
 
  if [ -e /usr/bin/Xvesa ];then
   TWKMSG="Note: If you have tweaked away, to no avail, choose \"FINISHED\" and you
@@ -1564,7 +1606,7 @@ TAB then ENTER to tweak parameters & retest X..." 0 0
  #in quirky have 'drivers-alternate' folder but other builds may not, so create...
  mkdir $VERB -p /usr/lib/xorg/modules/drivers-alternate
  [ -f /usr/lib/xorg/modules/drivers/i810OLD_drv.so ] && mv $VERB -f /usr/lib/xorg/modules/drivers/i810OLD_drv.so /usr/lib/xorg/modules/drivers-alternate/i810_drv.so #puppy 431 has this.
- [ ! -h /usr/lib/xorg/modules/drivers/i810_drv.so ] && [ -f /usr/lib/xorg/modules/drivers/i810_drv.so ] && [ -f /usr/lib/xorg/modules/drivers/intel_drv.so ] && mv $VERB -f /usr/lib/xorg/modules/drivers/i810_drv.so /usr/lib/xorg/modules/drivers-alternate/
+ [ ! -L /usr/lib/xorg/modules/drivers/i810_drv.so ] && [ -f /usr/lib/xorg/modules/drivers/i810_drv.so ] && [ -f /usr/lib/xorg/modules/drivers/intel_drv.so ] && mv $VERB -f /usr/lib/xorg/modules/drivers/i810_drv.so /usr/lib/xorg/modules/drivers-alternate/
  [ -f /usr/lib/xorg/modules/drivers/nv_drv.so ] && [ -f /usr/lib/xorg/modules/drivers/nouveau_drv.so ] && mv $VERB -f /usr/lib/xorg/modules/drivers/nouveau_drv.so /usr/lib/xorg/modules/drivers-alternate/
  EXTRABUTTON=""
  EXTRALABEL=""
@@ -1574,7 +1616,7 @@ TAB then ENTER to tweak parameters & retest X..." 0 0
    if [ -f /usr/lib/xorg/modules/drivers-alternate/i810_drv.so ];then
     TRYDRV='i810'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label Old_i810_driver'
+    EXTRALABEL='--extra-label Old i810 driver'
     EXTRADRVMSG="
 ATTN: There is an older 'i810' Intel video driver that might work better..."
    fi
@@ -1583,7 +1625,7 @@ ATTN: There is an older 'i810' Intel video driver that might work better..."
    if [ -f /usr/lib/xorg/modules/drivers-alternate/intel_drv.so ];then
     TRYDRV='intel'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label New_intel_driver'
+    EXTRALABEL='--extra-label New intel driver'
     EXTRADRVMSG="
 ATTN: There is an newer 'intel' Intel video driver that might work better..."
    fi
@@ -1592,14 +1634,14 @@ ATTN: There is an newer 'intel' Intel video driver that might work better..."
    if [ -f /usr/lib/xorg/modules/drivers-alternate/nvidia_drv.so ];then
     TRYDRV='nvidia'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label Alt_nvidia_driver'
+    EXTRALABEL='--extra-label Pro nvidia driver'
     EXTRADRVMSG="
 ATTN: There is an alternative 'nvidia' Nvidia video driver that might work better..."
    else
     if [ -f /usr/lib/xorg/modules/drivers-alternate/nouveau_drv.so ];then
      TRYDRV='nouveau'
      EXTRABUTTON='--extra-button'
-     EXTRALABEL='--extra-label Alt_nouveau_driver'
+     EXTRALABEL='--extra-label Alt nouveau driver'
      EXTRADRVMSG="
 ATTN: There is an alternative 'nouveau' Nvidia video driver that might work better..."
     fi
@@ -1609,7 +1651,7 @@ ATTN: There is an alternative 'nouveau' Nvidia video driver that might work bett
    if [ -f /usr/lib/xorg/modules/drivers-alternate/nv_drv.so ];then
     TRYDRV='nv'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label Alternate_nv_driver'
+    EXTRALABEL='--extra-label Stock nv driver'
     EXTRADRVMSG="
 ATTN: There is an alternative 'nv' Nvidia video driver that might work better..."
    fi
@@ -1618,7 +1660,7 @@ ATTN: There is an alternative 'nv' Nvidia video driver that might work better...
    if [ -f /usr/lib/xorg/modules/drivers-alternate/nv_drv.so ];then
     TRYDRV='nv'
     EXTRABUTTON='--extra-button'
-    EXTRALABEL='--extra-label Alternate_nv_driver'
+    EXTRALABEL='--extra-label Stock nv driver'
     EXTRADRVMSG="
 ATTN: There is an alternative 'nv' Nvidia video driver that might work better..."
    fi
@@ -1628,7 +1670,7 @@ ATTN: There is an alternative 'nv' Nvidia video driver that might work better...
  if [ "$CARD0DRIVER" != "vesa" ];then #v2.11 100109 fix yes/no labels...
   #current version of dialog in quirky has very annoying bug, --yes-label/no-label must be changed to --ok-label/cancel-label...
   if [ "$EXTRABUTTON" = "" ];then #100113
-   dialog --no-collapse --title "Xorg Video Wizard" --yes-label "Tweak_xorg.conf" --no-label "Vesa_driver" --yesno "Before continuing to tweaking xorg.conf, one other thing to consider.
+   dialog --no-collapse --title "Xorg Video Wizard" --yes-label "Tweak xorg.conf" --no-label "Stock vesa driver" --yesno "Before continuing to tweaking xorg.conf, one other thing to consider.
 Xorg has a dozen or so drivers for particular video hardware, which
 optimises performance for the matching hardware, but sometimes a
 driver does not work right or there is no exact driver to match the
@@ -1906,7 +1948,10 @@ if [ $XAUTO -ne 0 ];then #<FIX> (XAUTO=0 is <OK> button)
  cp $VERB -af /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}${PROFILEMONITOR}
  card0driver=`grep -m1 '#card0driver' /etc/X11/xorg.conf |awk -F '"' '{print $2}'`
  [ "$card0driver" ] || card0driver=NONE
- /bin/cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
+ if test "$CARD0DRIVER" != "$card0driver"; then
+  /bin/cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${CARD0DRIVER}-${card0driver}-${PROFILECHIP}-${PROFILEMONITOR}
+ fi
+  /bin/cp $VERB -a --remove-destination /etc/X11/xorg.conf /etc/X11/xorg.conf.${PROFILECHIP}-${PROFILEMONITOR}-${CARD0DRIVER}
  #clear
  echo "Xorg Video Wizard completed. Type 'xwin' to start X..."
 else
@@ -1928,4 +1973,6 @@ fi
 #3.99 end
 [ -f "$TMP_DIR"/ddcprobeoem.txt ] && rm $VERB "$TMP_DIR"/ddcprobeoem.txt #w478
 echo 'ICONWIPE' >/tmp/pup_event_icon_change_flag  ##+++2011_10_30
+_set_kernel_loglevel $oldKERNEL_LOGLVL
+
 ###END###
