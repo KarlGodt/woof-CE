@@ -31,20 +31,20 @@ sysmodmap=/usr/lib/X11/xinit/.Xmodmap
 
 # merge in defaults and keymaps
 
-if [ -f $sysresources ]; then
-    xrdb -merge -nocpp $sysresources
+if [ -f "$sysresources" ]; then
+    xrdb -merge -nocpp "$sysresources"
 fi
 
-if [ -f $sysmodmap ]; then
-    xmodmap $sysmodmap
+if [ -f "$sysmodmap" ]; then
+    xmodmap "$sysmodmap"
 fi
 
-if [ -f $userresources ]; then
-    xrdb -merge -nocpp $userresources
+if [ -f "$userresources" ]; then
+    xrdb -merge -nocpp "$userresources"
 fi
 
 if [ -f $usermodmap ]; then
-    xmodmap $usermodmap
+    xmodmap "$usermodmap"
 fi
 
 #CURRENTWM="`cat /etc/windowmanager`"
@@ -122,8 +122,8 @@ fi
 #w468 on old PCs rox sometimes does not start, see further down...
 #120718 raspi sometimes need extra delay otherwise rox fails to start.
 CPUSPEED=`grep -m 1 -i '^cpu MHz' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'` #my laptop: 933.000
-[ ! $CPUSPEED ] && CPUSPEED=`grep -m 1 -i '^bogomips' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'` #120718 raspi: 697.95  my laptop: 4789.47
-[ ! $CPUSPEED ] && CPUSPEED=250
+[ $CPUSPEED ] || CPUSPEED=`grep -m 1 -i '^bogomips' /proc/cpuinfo | tr -d ' ' | cut -f 2 -d ':' | cut -f 1 -d '.'` #120718 raspi: 697.95  my laptop: 4789.47
+[ $CPUSPEED ] || CPUSPEED=250
 [ $CPUSPEED -lt 700 ] && sleep 0.5
 [ $CPUSPEED -lt 400 ] && sleep 0.5
 if [ -f $HOME/Choices/ROX-Filer/PuppyPan1 ];then
@@ -132,15 +132,15 @@ else
  rox -p $HOME/Choices/ROX-Filer/PuppyPin
 fi
 
-exec /sbin/pup_event_frontend_d & #130525 moved down.
+( exec /sbin/pup_event_frontend_d & ) #130525 moved down.
 
 #v2.0.0
-exec /usr/sbin/delayedrun &
+( exec /usr/sbin/delayedrun & )
 
 #v2.01 hide cursor when not moving... (setup in /usr/sbin/input-wizard)
 if [ -f /etc/mousehide ];then
  IDLETIME="`cat /etc/mousehide | cut -f 1 -d ','`"
- [ ! "$IDLETIME" = "0" ] && unclutter -idle $IDLETIME &
+ [ "$IDLETIME" != "0" ] && ( unclutter -idle "$IDLETIME" & )
 fi
 
 ##v2.14 rarsa: update xdg menu for w.m. that do not allow includes...
@@ -149,7 +149,7 @@ fi
 
 if [ "$CURRENTWM" = "xfwm4" ];then
  if [ "`which xfce4-panel`" != "" ];then
-  xfwm4 --daemon #note, starts xfce-mcs-manager daemon also.
+  ( xfwm4 --daemon ) & #note, starts xfce-mcs-manager daemon also.
   exec xfce4-panel
  fi
 fi
@@ -157,9 +157,9 @@ fi
 #v3.91 volume tray applet, thanks to hairywill... v3.96 MENU_BG variable...
 if [ -f /usr/bin/absvolume ];then
  if [ "$MENU_BG" = "" ];then
-  absvolume &
+  ( absvolume & )
  else
-  absvolume -bg $MENU_BG &
+  ( absvolume -bg $MENU_BG & )
  fi
 fi
 
@@ -170,10 +170,10 @@ if [ "$CURRENTWM" != "jwm" -a "$CURRENTWM" != "icewm" ];then
   #a bit of a hack: when 3builddistro runs fixmenus, which calls variconlinks,
   #which populates /var/local/icons with symlinks, /usr/local/lib/X11/pixmaps
   #is not yet populated (happens at first boot, from default icon theme)...
-  [ ! -e /var/local/icons/home48.png ] && ln -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
-  fbpanel &
+  [ ! -e /var/local/icons/home48.png ] && ln $VERB -fs /usr/local/lib/X11/pixmaps/* /var/local/icons/
+  ( fbpanel & )
  fi
- [ -f /usr/bin/lxpanel ] && lxpanel &
+ [ -f /usr/bin/lxpanel ] && ( lxpanel & )
 fi
 
 _rox_problem(){
@@ -189,7 +189,9 @@ if ! busybox pidof ROX-Filer;then
 fi
 }
 
-setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
+( while :; do sleep 1; pidof ROX-Filer && break; rox -p "$HOME"/Choices/ROX-Filer/PuppyPin; done ) &
+
+( setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch )
 
 #exec $CURRENTWM
 #v2.11 GuestToo suggested this improvement...
