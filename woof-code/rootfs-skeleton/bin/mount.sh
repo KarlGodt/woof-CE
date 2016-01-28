@@ -48,10 +48,11 @@ _debugt 8D $_DATE_
 #       without disturbing other scripts that use f4puppy5
 Q=-q
 QUIET=--quiet
-DEBUG=1
-DEBUGX=1
+DEBUG=
+DEBUGX=
+DEBUGT=1
 test "$DEBUG" && QUIET='';
-INFO=1
+INFO=
 
 # REM: Locale ...
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
@@ -305,7 +306,7 @@ oldDEBUGX=$DEBUGX
 oldDEBUGT=$DEBUGT
 
 # REM: /etc/eventmanager has variable ICONPARTITIONS
-test -f /etc/eventmanager && . /etc/eventmanager
+test -f /etc/eventmanager.conf && . /etc/eventmanager.conf
 test "`echo "$ICONPARTITIONS" | grep -i 'true'`" || return 0
 
 test -f /etc/rc.d/functions4puppy4  && . /etc/rc.d/functions4puppy4
@@ -1125,6 +1126,8 @@ _umount_rmdir()
 
 _update()
 {
+ _debug "_update:$*"
+ _debug "DISPLAY='$DISPLAY'"
  test "$DISPLAY" && _update_partition_icon
  test "$WHAT" = umount || return 0
  _debugt 04 $_DATE_
