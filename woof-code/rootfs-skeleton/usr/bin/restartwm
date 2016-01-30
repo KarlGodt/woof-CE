@@ -29,9 +29,12 @@ _trap
 pidof X >>$OUT || _exit 4 "X not running."
 
 NEXTWM="$1"
+NEXTWM=${NEXTWM##*/}
 #PREVIOUSWM="`cat /etc/windowmanager`"
 _test_frs /etc/windowmanager && read PREVIOUSWM </etc/windowmanager
-[ "$NEXTWM" = "" ] && NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
+PREVIOUSWM=${PREVIOUSWM##*/}
+
+[ "$NEXTWM" ] || NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
 
 [ "$DISPLAY" ] && yaf-splash -bg green -text "Restarting into '$NEXTWM' ..." & yPID=$!
 sleep 1
@@ -43,10 +46,11 @@ echo "$NEXTWM" > /tmp/wmexitmode.txt
 
 _sync
 
-if [ "$PREVIOUSWM" = 'enlightenment_start' ];then
-:
+case $PREVIOUSWM in enlightenment*)
+ PREVIOUSWM=enlightenment
 _pidof $Q tempget && killall tempget
-fi
+;;
+esac
 
 if [ "`pidof xfce4-panel`" != "" ];then
  #killall xfce4-panel
@@ -60,9 +64,15 @@ FREEMEMAPPLET=`ps -o pid,args | grep 'freememapplet' | grep -v 'grep' | awk '{pr
 INOPID=`ps -o pid,args | grep 'inotifywait' | grep -v 'grep' | grep '/tmp/pup_event_sizefreem' | awk '{print $1}'`
 [ "$INOPID" ] && kill $INOPID
 
-_pidof $Q "$PREVIOUSWM" && kill -9 `pidof "$PREVIOUSWM"` || kill -9 `pidof $PREVIOUSWM` 2>>$ERR  #w478
+_notice "Killing $PREVIOUSWM .."
+_pidof $Q "$PREVIOUSWM"     && kill -9 `pidof "$PREVIOUSWM"`       #|| kill -9 `pidof $PREVIOUSWM` 2>>$ERR  #w478
+_pidof $Q ${PREVIOUSWM}.bin && kill -9 `pidof ${PREVIOUSWM}.bin`   #jwm script wrapper runs jwm.bin
 sleep 1
 
+[ "$yPID" ] && /bin/ps -p $yPID && kill $yPID
+
+_pidof $Q X && exit 0
+_notice "Need to killall X .."
 _pidof $Q X && killall X     #default is SIGTERM.
 sleep 1                          #v1.0.7
 exec killall -9 X 1>>$OUT 2>>$ERR  #v1.0.7 make sure X is killed.
