@@ -38,9 +38,9 @@ _debugt 8D $_DATE_
 #      Now possible to set them witout affecting other progs
 [ "$Q" ] || Q=-q
 [ "$QUIET" ] || QUIET=--quiet
-[ "$INFO" ]  || INFO=1
-[ "$DEBUG" ] || DEBUG=1
-[ "$DEBUGX" ] || DEBUGX=1
+[ "$INFO" ]  || INFO=
+[ "$DEBUG" ] || DEBUG=
+[ "$DEBUGX" ] || DEBUGX=
 test "$DEBUG" && unset Q QUIET;
 
 LANG_ROX=$LANG  # ROX-Filer may complain about non-valid UTF-8
