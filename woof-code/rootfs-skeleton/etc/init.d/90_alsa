@@ -12,7 +12,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
 
-Version=1.1-KRG-MacPup_O2
+Version=1.2-KRG-MacPup_O2
 
 usage(){
 MSG="
@@ -86,14 +86,14 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #
 ########################################################################
 
-Version='1.1-safeBoot Macpup_O2-Puppy_Linux_431 KRG'
+Version='1.2-safeBoot Macpup_O2-Puppy_Linux_431 KRG'
 
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin"
 
 ###<KRG>
     #### TEST for sourced or executed ####
- PROG='/etc/init.d/alsa'
- [ ! -f "$PROG" ] && PROG='alsa'
+ PROG='/etc/init.d/90_alsa'
+ [ -f "$PROG" ] || PROG='alsa'
   ZERO="$0"
   PROGPID="$$"
   echo "$PROG" "$0" "$PROGPID"
@@ -118,10 +118,10 @@ case $param2 in
 0)   NO=1 ;;  #noalsa #NO DRIVERS at ALL
 128) NO=1 ;;  #noalsa #ADDLIST ONLY
 *)
-  if [ $param2 -lt 16 ];then  YES=1 #alsa
-elif [ $param2 -le 31 ];then   NO=1 #noalsa
-elif [ $param2 -gt 256 and $param2 -lt 272 ];then YES=1 #alsa
-elif [ $param2 -ge 272 ];then                      NO=1 #noalsa
+  if [ "$param2" -lt 16 ];then  YES=1 #alsa
+elif [ "$param2" -le 31 ];then   NO=1 #noalsa
+elif [ "$param2" -gt 256 -a "$param2" -lt 272 ];then YES=1 #alsa
+elif [ "$param2" -ge 272 ];then                      NO=1 #noalsa
 else
 YES=1
 fi
@@ -155,9 +155,9 @@ retrovol_func(){
   [ -z "`lsmod | grep -E -i '^snd|sound'`" ] && {
       echo 0 >/tmp/pup_event_alsa_cnt
       touch /tmp/pup_event_module_devpath.log
-      sed -i '/MODULE=snd.*/d'    /tmp/pup_event_module_devpath.log
-      sed -i '/MODULE=sound.*/d'  /tmp/pup_event_module_devpath.log
-      sed -i '/MODULE=pcspkr.*/d' /tmp/pup_event_module_devpath.log
+      sed -i'.sed' '/MODULE=snd.*/d'    /tmp/pup_event_module_devpath.log
+      sed -i'.sed' '/MODULE=sound.*/d'  /tmp/pup_event_module_devpath.log
+      sed -i'.sed' '/MODULE=pcspkr.*/d' /tmp/pup_event_module_devpath.log
   }
  }
 
@@ -172,7 +172,7 @@ retrovol_func(){
 
       if [ "$bootAlsaCards" ] ; then
        for number in $bootAlsaCards ; do
-        if [ "`echo "$number" | grep -w -e '^[0-9]*$'`" != "" ] ; then  ###+++2011-10-28
+        if [ "`echo "$number" | grep -w '^[0-9]\+$'`" ] ; then  ###+++2011-10-28
                          _notice "Loading snd-card-$number"
          /sbin/pup_event_backend_modprobe snd-card-$number
         else
@@ -207,13 +207,13 @@ retrovol_func(){
         for alsaconffile in $alsaConfFiles; do
          _info "Using entries in '$alsaconffile'"
 
-         soundCards=`grep -i -E -e '^alias\ snd\-card\-[0-9]*|^[[:blank:]]*alias\ snd\-card\-[0-9]*' "$alsaconffile" | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o -e '[0-9]*$'`
+         soundCards=`grep -i -E -e '^alias\ snd-card-[0-9]+|^[[:blank:]]*alias\ snd-card-[0-9]+' "$alsaconffile" | sort -u | sed 's/^[[:blank:]]*//g' | cut -f 2 -d ' ' | grep -o '[0-9]\+$'`
 
           for number in $soundCards ; do
      _debugx $number
 
            #/sbin/pup_event_backend_modprobe snd-card-$number
-           alsaDrivers=`_command modprobe -c | grep "^alias snd-card-$number " | cut -f3 -d ' ' | sort -u`
+           alsaDrivers=`_command modprobe -c | grep -e "^alias snd-card-$number " | cut -f3 -d ' ' | sort -u`
 
             #if [ "$alreadyDRIVERS" ]; then
             # echo "$alreadyDRIVERS" | _command grep "$alsaDrivers" && continue
@@ -245,7 +245,7 @@ $alsaDrivers"
 
    echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
    sleep 3
-   waitCNT=$(( $waitCNT + 1 ))
+   waitCNT=$(( waitCNT + 1 ))
 
     if [ "$waitCNT" = "$WAIT_" ]; then ##&& break
 
@@ -270,18 +270,18 @@ $alsaDrivers"
   echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###KRG
   ###</KRG>
 
-   rm -f /var/lock/subsys/alsasound # or alsa will not start.
+   rm $EVRB -f /var/lock/subsys/alsasound # or alsa will not start.
 
    #sometimes these don't all load...
-   mFT=''; #--first-time
-   modprobe $VERB $mFT snd-mixer-oss
-   modprobe $VERB $mFT snd-seq-oss
-   modprobe $VERB $mFT snd-pcm-oss
+   mFT=''; #--first-time modprobe option, long options not recognized by busybox modprobe
+   modprobe $Q $VERB $mFT snd-mixer-oss
+   modprobe $Q $VERB $mFT snd-seq-oss
+   modprobe $Q $VERB $mFT snd-pcm-oss
    ###+-+2011-10-31
 
    _create_sound_nodes(){
    ###<KRG>
-   [ -d /dev/snd ] || { rm -fr /dev/snd; mkdir -p /dev/snd; }  ##+++2014-07-11
+   [ -d /dev/snd ] || { rm $EVRB -fr /dev/snd; mkdir $VERB -p /dev/snd; }  ##+++2014-07-11
 
    D=`find /sys -type d -name "*sound*"`
    POOL=''
@@ -294,15 +294,15 @@ $alsaDrivers"
     for i in $POOL ; do
      NODE=`echo $i | cut -f 3 -d '@'`
      NODE=`echo $NODE | rev`
-     NODE=`basename $(dirname $(echo $NODE) )` || continue
+     NODE=`basename $(dirname $NODE)` || continue
      MAJ=`echo $i | cut -f 2 -d '@'`
      MAJ=`echo $MAJ | rev`
      Min=`echo $i | cut -f 1 -d '@'`
      Min=`echo $Min| rev`
      _debug "$NODE" "$MAJ" "$Min"
-     rm -f /dev/$NODE
+     rm $EVRB -f /dev/$NODE
      mknod /dev/$NODE c $MAJ $Min
-     rm -f /dev/snd/$NODE
+     rm $VERB -f /dev/snd/$NODE
      mknod /dev/snd/$NODE c $MAJ $Min
     done
    ###</KRG>
@@ -311,13 +311,13 @@ $alsaDrivers"
 
    if [ -f /etc/asound.state ] ; then
 
-    alsactl -f /etc/asound.state restore #from /etc/asound.state.
+    alsactl $DBG -f /etc/asound.state restore #from /etc/asound.state.
 
    else
 
     #try and set all levels workable...
     #set_mixers #in functions4puppy4
-    amixer $Q $DBG -s -q <<EOF
+    amixer $Q $DBG -s <<EOF
 set Master 75% unmute
 set Master -12dB
 set 'Master Mono' 75% unmute
@@ -361,7 +361,7 @@ EOF
 
  if [ -n "$DISPLAY" ] ; then  ###KRG
  [ -n "`pidof retrovol`" ] && killall retrovol
-   rm -f /var/run/retrovol.pid
+   rm $VERB -f /var/run/retrovol.pid
  fi
 
   alsactl $DBG -f /etc/asound.state store #saves to /etc/asound.state.
@@ -370,9 +370,9 @@ EOF
     # _command fuser $VERB -k /dev/admmidi? /dev/adsp? /dev/amidi? \
     #                         /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* \
     #                         /dev/dspW* /dev/midi0? /dev/mixer? /dev/music \
-    #                         /dev/patmgr? /dev/sequencer* /dev/sndstat >$OUT 2>$ERR
+    #                         /dev/patmgr? /dev/sequencer* /dev/sndstat >>$OUT 2>>$ERR
 
-  # soundDEVICES=`ls -1 /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >$OUT 2>$ERR`
+  # soundDEVICES=`ls -1 /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >>$OUT 2>>$ERR`
     soundDEVICES=`for dev in /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* \
                             /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* \
                             /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat*; do
@@ -381,17 +381,17 @@ EOF
 
   _debugx $soundDEVICES
 
-   _command fuser $VERB -k $soundDEVICES >$OUT 2>$ERR
-  #_command fuser $VERB -k /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >$OUT 2>$ERR
+   _command fuser $VERB -k $soundDEVICES >>$OUT 2>>$ERR
+  #_command fuser $VERB -k /dev/admmidi* /dev/adsp* /dev/amidi* /dev/audio* /dev/dmfm* /dev/dmmidi* /dev/dsp* /dev/midi* /dev/mixer* /dev/music* /dev/patmgr* /dev/sequencer* /dev/sndstat* >>$OUT 2>>$ERR
 
-  [ -d /proc/asound/dev ] && _command fuser $VERB -k /proc/asound/dev/* >$OUT 2>$ERR
-  [ -d /dev/snd ] && _command fuser $VERB -k /dev/snd/*                1>$OUT 2>$ERR
+  [ -d /proc/asound/dev ] && _command fuser $VERB -k /proc/asound/dev/* >>$OUT 2>>$ERR
+  [ -d /dev/snd ] && _command fuser $VERB -k /dev/snd/*                1>>$OUT 2>>$ERR
 
   # remove all sequencer connections if any
   [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
 
   # mute master to avoid clicks at unload
-  amixer $Q $DBG set Master mute >$OUT 2>$ERR  ###KRG loads a bunch of modules###ORIG
+  amixer $Q $DBG set Master mute >>$OUT 2>>$ERR  ###KRG loads a bunch of modules###ORIG
 
   # remove all sound modules
   CNT=0  ###KRG
@@ -401,16 +401,19 @@ EOF
   lsmod | grep -E '^snd_|^gameport|^snd |^soundcore|^pcspkr' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
   while read line
   do
-     [ "$line" ] || continue
      if [ "$VERB" ]; then echo -e "\\033[0;35m$line:\\033[0;39m"  ###KRG
      else echo -ne "\\033[0;35m$line\\033[0;39m "; fi
-     # _command rmmod $VERB -f -w "$line"
+     [ "$line" ] || continue
+     #if [ "$VERB" ]; then echo -e "\\033[0;35m$line:\\033[0;39m"  ###KRG
+     #else echo -ne "\\033[0;35m$line\\033[0;39m "; fi
+
+	 # _command rmmod $VERB -f -w "$line"
      # modprobe $VERB -r "$line"
      # modprobe-3.6-orig $VERB -r "$line"
-       /sbin/modprobe $VERB -r "$line"
+       /sbin/modprobe $Q $VERB -r "$line"
      sleep 0.01  ###KRG
   done
-  CNT=$(( $CNT + 1 ))  ###KRG
+  CNT=$(( CNT + 1 ))  ###KRG
   [ "$CNT" = "9" ] && { echo -e "\n\\033[1;31m"'breaking now'"\\033[0;39m";break; }  ###KRG precaution###KRG
   done  ###KRG
   if [ "$VERB" ]; then echo
@@ -420,16 +423,16 @@ EOF
 
   # remove the 2.2 soundcore module (if possible)
   #echo -e "\\033[0;31m"
-  #_command rmmod    $VERB snd       2>$ERR
-  #_command rmmod    $VERB soundcore 2>$ERR
-  #_command rmmod    $VERB gameport  2>$ERR
-  #_command rmmod    $VERB pcspkr    2>$ERR
+  #_command rmmod    $VERB snd       2>>$ERR
+  #_command rmmod    $VERB soundcore 2>>$ERR
+  #_command rmmod    $VERB gameport  2>>$ERR
+  #_command rmmod    $VERB pcspkr    2>>$ERR
   #echo -e "\\033[0;39m"
 
   [ "$VERBOSE" -o "$DEBUG" ] && lsmod | grep -E 'snd|soundcore|gameport|pcspkr'
 
   # remove lockfile if lockdir exists
-  [ -d /var/lock/subsys ] && rm -f /var/lock/subsys/alsasound || mkdir -p /var/lock/subsys
+  [ -d /var/lock/subsys ] && rm $EVRB -f /var/lock/subsys/alsasound || mkdir $VERB -p /var/lock/subsys
   echo 0 >/tmp/pup_event_alsa_cnt
 
   echo "... $PROGPAT $@ finished"  ###KRG
