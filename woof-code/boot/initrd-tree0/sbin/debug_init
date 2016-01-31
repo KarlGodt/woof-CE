@@ -1,0 +1,228 @@
+#!/bin/sh
+#assume have dropped out to console on error.
+
+export LANG=C #w004
+. /DISTRO_SPECS #v412 has DISTRO_VERSION, DISTRO_FILE_PREFIX
+
+ATADRIVES="`cat /ATADRIVES`" #written by 'init'.
+
+PATH="/bin:/sbin"
+KERNELVER="`uname -r`"
+
+#w020 compose name of 'zdrv', to fit 8+3 filename...
+PREFIX1CHAR="`echo -n "$DISTRO_FILE_PREFIX" | cut -c 1`"
+KERNEL3CHARS="`echo -n "$KERNELVER" | tr -d '.' | tr -d '\-' | tr -d '[a-z]' | rev | cut -c 1,2,3 | rev`"
+ZDRVSFS="z${PREFIX1CHAR}${DISTRO_VERSION}${KERNEL3CHARS}.sfs"
+
+mntfunc() {
+ MNT_T="$1"    #ex: vfat
+ MNT_DEV="$2"  #ex: /dev/sda1
+ MNT_DIR="$3"  #ex: /mnt/sda1
+ MNT_O=""
+ [ $4 ] && MNT_O="${4}" #ex: noatime
+ case $MNT_T in
+  ntfs)
+   ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw 2>/dev/null #default is rw
+   ntfsRETVAL=$?
+   [ $ntfsRETVAL -eq 0 ] && return 0
+   if [ $ntfsRETVAL -eq 14 ];then
+    #ntfs-3g $MNTPRMS -o umask=0,no_def_opts,noatime,rw,remove_hiberfile 2>/dev/null
+    echo -e "\\033[1;31m" >/dev/console #31=red
+    echo -n "ERROR: Windows NTFS hibernated partition, cannot mount" > /dev/console
+    echo -e "\\033[0;39m" >/dev/console
+    return 14
+   else
+    ntfs-3g $MNT_DEV $MNT_DIR -o umask=0,no_def_opts,noatime,rw,force 2>/dev/null
+   fi
+  ;;
+  vfat) #w476
+   ####TODO#### need to get rid of the old 2-letter keyboard layout, so PKEYS boot
+   # param works for the main kbd layouts.
+   #would like to introduce codepage and iocharset, maybe as kernel params...
+   #ex: codepage=850 iocharset=iso8859-2 ...no, already have 'pkeys'
+   OUT_PARAM='shortname=mixed,quiet'
+   [ "$MNT_O" ] && OUT_PARAM="${OUT_PARAM},${MNT_O}"
+   if [ "$PKEYS" ];then
+    case $PKEYS in
+     de|be|br|dk|es|fi|fr|it|no|se|pt)
+      OUT_PARAM="$OUT_PARAM"',codepage=850'
+     ;;
+	 slovene|croat|hu101|hu|cz-lat2|pl|ro_win)
+	  OUT_PARAM="$OUT_PARAM"',codepage=852,iocharset=iso8859-2'
+	 ;;
+    esac
+   fi
+   mount -t $MNT_T -o $OUT_PARAM $MNT_DEV $MNT_DIR
+  ;;
+  *)
+   if [ "$MNT_O" = "" ];then
+    mount -t $MNT_T $MNT_DEV $MNT_DIR
+   else
+    mount -t $MNT_T -o $MNT_O $MNT_DEV $MNT_DIR
+   fi
+  ;;
+ esac
+ return $?
+}
+
+umntfunc() {
+ #warning umntfunc call must have mntpt param, not device name.
+ LASTPARAM="`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep '^/mnt/'`"
+ if [ "`mount | grep "$LASTPARAM" | grep -E 'ntfs|fuse'`" = "" ];then
+  umount $@
+ else
+  fusermount -u $LASTPARAM
+ fi
+ return $?
+}
+
+[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
+[ $psubdir ] && PSUBDIR=$psubdir #boot parameter, directory for puppy files. ex: puppy220
+[ $pkeys ] && PKEYS=$pkeys #boot parameter, keyboard layout w476
+
+#now supporting a boot menu...
+if [ "$pfix" ];then
+ for ONEFIX in `echo -n "$pfix" | tr ',' ' '`
+ do
+  case $ONEFIX in
+   ram)     PRAMONLY="yes";;      #run in ram only (do not load ${DISTRO_FILE_PREFIX}save).
+   rdsh)    RDSH="yes";;          #exit to shell in initial ramdisk.
+   nox)     PNOX="yes";;          #do not start X.
+   clean)   PCLEAN="yes";;        #force version upgrade and cleanup.
+   purge)   PPURGE="yes";;        #radical cleanup for broken system.
+   copy)    PCOPY="yes";;         #copy .sfs files into ram.
+   fsck)    PFSCK="yes";;         #do a fsck of ${DISTRO_FILE_PREFIX}save file.
+   [0-9]*)  PIGNORELAST=$ONEFIX;; #blacklist last $ONEFIX folders (multisession).
+  esac
+ done
+fi
+
+#v3.95 for backwards naming compatibility...
+if [ ! -e /proc/ide ];then #v3.97
+ [ "$PMEDIA" = "ideflash" ] && PMEDIA="ataflash"
+ [ "$PMEDIA" = "idezip" ] && PMEDIA="atazip"
+ [ "$PMEDIA" = "idehd" ] && PMEDIA="atahd"
+ [ "$PMEDIA" = "idecd" ] && PMEDIA="atacd"
+ [ "$PMEDIA" = "satahd" ] && PMEDIA="atahd"
+ [ "$PMEDIA" = "satacd" ] && PMEDIA="atacd"
+fi
+
+echo -n "Searching for Puppy files in computer disk drives..."
+#locate all partitions (and superfloppy drives)...
+PCPARTSALL="`probepart_init -k`"
+PCPARTS0="`echo "$PCPARTSALL" | grep '^/dev/' | cut -f 1-2 -d '|'  | grep -E 'iso9660|ext2|ext3|reiserfs|msdos|vfat|minix|ntfs' | sed -e 's/\/dev\///g'`"
+PCPARTS="`echo "$PCPARTS0" | tr "\n" " "`" #note, will have a space char on end.
+
+echo ; echo "PCPARTS0=$PCPARTS0" ; echo -n "ENTER: " ; read GOONWARD #TEST
+
+#want separate lists of all internal (fast) partitions, and slow (usb) partitions...
+FASTPARTS=""
+PCPARTS0_NOCDS="`echo "$PCPARTS0" | grep -v '^sr'`" #w014 removed 'iso9660' test as now usb flash can have it.
+#w479 ...not good enough. extra check for old kernel with ide drivers...
+if [ -e /proc/ide ];then #w479
+ OLDCDDRV="`echo "$PCPARTS0" | grep 'iso9660' | grep '^hd' | cut -f 1 -d '|' | head -n 1`"
+ [ "$OLDCDDRV" != "" ] && PCPARTS0_NOCDS="`echo "$PCPARTS0_NOCDS" | grep -v "$OLDCDDRV"`"
+fi
+SLOWPARTS0="$PCPARTS0_NOCDS" #not right, but will eliminate wrong ones.
+#v3.97 last section superfluous for libata PATA kernel...
+for ONEFAST in $ATADRIVES `cat /proc/partitions | grep "hd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
+do
+ APATTERN="^${ONEFAST}"
+ FASTPARTS="${FASTPARTS}`echo "$PCPARTS0_NOCDS" | grep "$APATTERN" | tr '\n' ' '`"
+ SLOWPARTS0="`echo "$SLOWPARTS0" | grep -v "$APATTERN"`"
+done
+FASTPARTS0="`echo "$FASTPARTS" | tr -s ' ' | tr ' ' '\n'`"
+SLOWPARTS="`echo "$SLOWPARTS0" | tr '\n' ' '`"
+CDPARTS0="`echo "$PCPARTS0" | grep -E '^sr|^hd' | grep 'iso9660'`" #w014 w479
+CDPARTS="`echo "$CDPARTS0" | tr '\n' ' '`"
+
+echo ; echo "FASTPARTS=$FASTPARTS" ; echo -n "ENTER: " ; read GOONWARD #TEST
+echo ; echo "SLOWPARTS=$SLOWPARTS" ; echo -n "ENTER: " ; read GOONWARD #TEST
+echo ; echo "CDPARTS=$CDPARTS" ; echo -n "ENTER: " ; read GOONWARD #TEST
+
+#need to narrow the search...
+case $PMEDIA in
+ *cd) #booting from usb, sata, or ide cd drive.
+  LESSPARTS0="$PCPARTS0" #need to search everywhere.
+  [ "$PRAMONLY" = "yes" ] && LESSPARTS0="$CDPARTS0" #v2.22
+  ;;
+ usb*) #external boot media. exs: usbflash, usbhd
+  LESSPARTS0="$SLOWPARTS0"
+  ;;
+ *hd|*flash|*zip) #internal boot media. ex: idehd, satahd, ideflash, idezip
+  LESSPARTS0="$FASTPARTS0"
+  ;;
+ *)
+  LESSPARTS0="$PCPARTS0" #need to search everywhere.
+  ;;
+esac
+#in case PDEV1 boot param., override...
+if [ "$PDEV1" ];then
+ APATTERN="${PDEV1}|"
+ LESSPARTS0="`echo "$PCPARTS0" | grep "$APATTERN"`"
+fi
+LESSPARTS="`echo "$LESSPARTS0" | tr '\n' ' '`"
+
+echo ; echo "LESSPARTS=$LESSPARTS" ; echo -n "ENTER: " ; read GOONWARD #TEST
+
+echo "find puppy files in the pc..."
+touch /tmp/PUPPYFILES
+for ONETRY in $LESSPARTS
+do
+ FND_FULLINSTALL=""
+ ONEDEV="`echo -n "$ONETRY" | cut -f 1 -d '|'`"
+ ONEFS="`echo -n "$ONETRY" | cut -f 2 -d '|'`"
+
+ echo "Attempting to mount $ONEDEV " #TEST
+ 
+ #v403 nasty bug: usb optical drive showing as /sys/block/sr0, but won't mount, needs more delay...
+ mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+ if [ $? -ne 0 ];then
+  sleep 5 #2 wasn't enough.
+  mntfunc $ONEFS /dev/$ONEDEV /mnt/data #-t $ONEFS /dev/$ONEDEV /mnt/data
+  [ $? -ne 0 ] && continue
+ fi
+ 
+ echo "...success" #TEST
+ 
+ [ -f /mnt/data/etc/puppyversion ] && FND_FULLINSTALL="/etc/puppyversion" #pre-w464 installations.
+ [ -f /mnt/data/etc/DISTRO_SPECS ] && FND_FULLINSTALL="/etc/DISTRO_SPECS"
+ FND_INITRDGZ="`find /mnt/data -maxdepth 2 -xdev -type f -name initrd.gz | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ #v3.01 '*' means zero or more extra characters. this is for custom naming...
+ FND_PUPXXXSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}-${DISTRO_VERSION}.sfs | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_ZDRVSFS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${ZDRVSFS} | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_PUPSAVE2FS="`find /mnt/data -maxdepth 2 -xdev -type f -name ${DISTRO_FILE_PREFIX}save*.[23]fs | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ FND_SWAPFILEPUP="`find /mnt/data -maxdepth 2 -xdev -type f -name pupswap.swp | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ #v2.22 improved folder name search, avoid false hits...
+ FND_MULTIFOLDER="`find /mnt/data -maxdepth 1 -xdev -type d -name 20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9]-[0-9][0-9] | grep -v ' ' | sed -e 's%^/mnt/data%%g' | tr '\n' ' '`"
+ [ "$FND_MULTIFOLDER" != "" ] && echo "$ONEDEV $ONEFS $FND_MULTIFOLDER" >> /tmp/MULTIFOLDERS
+ #all written on one line...
+ echo -n "$ONEDEV $ONEFS " >> /tmp/PUPPYFILES
+ echo "$FND_INITRDGZ $FND_PUPXXXSFS $FND_ZDRVSFS $FND_PUPSAVE2FS $FND_MULTIFOLDER $FND_FULLINSTALL $FND_SWAPFILEPUP" >> /tmp/PUPPYFILES
+ [ -f /mnt/data/SAVEMARK ] && PSAVEMARK="`cat /mnt/data/SAVEMARK`" #v3.97 partition# that has or will-have ${DISTRO_FILE_PREFIX}save.
+ umntfunc /mnt/data
+done
+
+echo "/tmp/PUPPYFILES:"; cat /tmp/PUPPYFILES ; echo -n "ENTER: " ; read GOONWARD #TEST
+
+echo "in case PSUBDIR boot param (path of puppy files), filter..."
+if [ "$PSUBDIR" ];then
+ SPATTERN="/${PSUBDIR}/"
+ PUPPYFILES="`grep "$SPATTERN" /tmp/PUPPYFILES | head -n 1 | tr -s ' '`" #v3.00...
+ if [ "$PUPPYFILES" ];then
+  PDEV1="`echo -n "$PUPPYFILES" | cut -f 1 -d ' '`" #v3.01
+  DEV1FS="`echo -n "$PUPPYFILES" | cut -f 2 -d ' '`" #v3.01
+  xpupfiles="`echo -n "$PUPPYFILES" | cut -f 3-99 -d ' ' | tr ' ' '\n' | grep "$SPATTERN" | tr '\n' ' '`" #v3.01
+  PUPPYFILES="$PDEV1 $DEV1FS $xpupfiles"
+ fi
+else
+ PUPPYFILES="`cat /tmp/PUPPYFILES | tr -s ' '`"
+fi
+echo "$PUPPYFILES" > /tmp/PUPPYFILES
+
+echo "/tmp/PUPPYFILES:"; cat /tmp/PUPPYFILES ; echo -n "ENTER: " ; read GOONWARD #TEST
+
+
+
+
