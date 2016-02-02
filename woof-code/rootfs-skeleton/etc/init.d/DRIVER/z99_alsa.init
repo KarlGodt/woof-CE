@@ -1,8 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 #Barry Kauler april 2009, puppylinux.com
 #called from /etc/rc.d/rc.services at bootup, with 'start' param.
 #called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
 
+. /etc/rc.d/f4puppy5
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
@@ -90,17 +91,17 @@ exit $1
 #
 ########################################################################
 
-OUT=/dev/null;ERR=$OUT;QUIET=-q
+OUT=/dev/null;ERR=$OUT;Q=-q
 VERB='';DEBUG='';FORCE=''; #if ME_PROG constantly sourced
 while [ "$1" = debug -o "$1" = force ];do
-[ "$1" = 'debug' ] && { QUIET='';OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERB='-v'; }  ##shift; }
+[ "$1" = 'debug' ] && { Q='';OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERB='-v'; }  ##shift; }
 [ "$1" = force ] && FORCE=1  ##{ FORCE=1;shift; }
 shift
 done
 
 ###<KRG>
-ME_PROG='/etc/init.d/z99_alsa'
-CA_PROG=`readlink -e $0`
+ME_PROG='/etc/init.d/DRIVER/z99_alsa'
+CA_PROG=`readlink -f $0`
 [ -f "$ME_PROG" ] || { echo "$CA_PROG:WARNING: '$ME_PROG' probably renamed or moved elsewhere."; }
 #if [ ! -f "$CA_PROG" ] ; then
 PROG=''
@@ -133,7 +134,7 @@ EXIT=return
 else
 #PROGPAT="'$ME_PROG' called by '$ZERO'"
 #EXIT='return'
-PROGPAT="`readlink -e $0`"
+PROGPAT="`readlink -f $0`"
 EXIT=exit
 fi  ###</KRG>
 echo "$CALLER" "$PROGPAT" "$EXIT"
@@ -151,17 +152,17 @@ case "$1" in
   echo "Starting now $PROGPAT ..."
   ##wait up to one minute for sound modules are loaded
 if [ "$FORCE" ];then
-  modprobe $VERB snd-card-0
+  modprobe $Q $VERB snd-card-0
 else
-  pidof alsaconf && modprobe $VERB --first-time snd-card-0 || {  ##+-+2012-09-20 fix for alsaconf
+  pidof alsaconf && /sbin/modprobe $Q $VERB --first-time snd-card-0 || {  ##+-+2012-09-20 fix for alsaconf
   CNT=0
   #while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do
   until [ "`grep -Ei '^snd|sound' /proc/modules`" ] ; do
   echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
   sleep 3
-  CNT=$(( $CNT + 1 ))
+  CNT=$(( CNT + 1 ))
   if [ "$CNT" = "3" ] ; then #was20=1min, reduced to 3=9sec
-   modprobe $VERB snd-card-0  ##forcibly load something after one minute
+   modprobe $Q $VERB snd-card-0  ##forcibly load something after one minute
    break
   fi #CNT=20
   done
@@ -170,14 +171,14 @@ else
 fi #FORCE
 
   #if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then
-  if ! grep $QUIET -iE '^snd|sound' /proc/modules ;then
+  if ! grep $Q -iE '^snd|sound' /proc/modules ;then
   echo -e "\\033[0;31m""Still no Sound Modules found `date`""\\033[0;39m"
   $EXIT ##exit if no sound modules could have been loaded
   fi
 
   echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###</KRG>
 
-   rm $VERB -f /var/lock/subsys/alsasound 2>$ERR #or alsa will not start.
+   rm $VERB -f /var/lock/subsys/alsasound #or alsa will not start.
    #sometimes these don't all load...
    #[ "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] || modprobe $VERB snd-mixer-oss
    #[ "`lsmod | grep 'snd[-_]seq[-_]oss'`" ] || modprobe $VERB snd-seq-oss
@@ -216,11 +217,11 @@ fi #FORCE
      MAJ=`echo $i |cut -f2 -d '@'`
      [ "$DEBUG" ] && echo "'$NODE' '$MAJ' '$Min'"
      [ "$NODE" -a "$MAJ" -a "$Min" ] || continue
-     [ -e /dev/$NODE ] && rm /dev/$NODE 2>$ERR
+     [ -e /dev/$NODE ] && rm /dev/$NODE 2>>$ERR
      mknod /dev/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/$NODE
      chmod $VERB ug+rw /dev/$NODE
-     [ -e /dev/$NODE ] && rm /dev/snd/$NODE 2>$ERR
+     [ -e /dev/$NODE ] && rm /dev/snd/$NODE 2>>$ERR
      mknod /dev/snd/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/snd/$NODE
      chmod $VERB ug+rw /dev/snd/$NODE
@@ -273,9 +274,9 @@ EOF
    if [ -n "`which retrovol`" ] ; then
     if [ -z "`pidof retrovol`" ] ; then
     retrovol -hide &
-     if pidof alsaconf >$OUT; then
+     if pidof alsaconf >>$OUT; then
        sleep 4
-       pidof retrovol >$OUT || RETROVOL_RV=1
+       pidof retrovol >>$OUT || RETROVOL_RV=1
      fi
     fi
    fi
@@ -294,11 +295,11 @@ EOF
  fi  ###</KRG>
 
   alsactl $DBG $IGNORE -f /etc/asound.state store #saves to /etc/asound.state.
-  amixer  $Q set Master mute >$OUT 2>&1
+  amixer  $Q set Master mute >>$OUT 2>&1
   # Kill processes holding open sound devices...
-  fuser $VERB -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >$OUT 2>&1
-  [ -d /proc/asound/dev ] && fuser $VERB -k /proc/asound/dev/* >$OUT 2>&1
-  [ -d /dev/snd ] && fuser $VERB -k /dev/snd/* >$OUT 2>&1
+  fuser $VERB -k /dev/admmidi? /dev/adsp? /dev/amidi? /dev/audio* /dev/dmfm* /dev/dmmidi? /dev/dsp* /dev/dspW* /dev/midi0? /dev/mixer? /dev/music /dev/patmgr? /dev/sequencer* /dev/sndstat >>$OUT 2>&1
+  [ -d /proc/asound/dev ] && fuser $VERB -k /proc/asound/dev/* >>$OUT 2>&1
+  [ -d /dev/snd ] && fuser $VERB -k /dev/snd/* >>$OUT 2>&1
   # remove all sequencer connections if any
   [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
   # mute master to avoid clicks at unload
@@ -307,22 +308,25 @@ EOF
   CNT=0  ###KRG
   while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
   echo
-  echo 'still soundmodules loaded'
+  echo 'still soundmodules loaded:'
+  lsmod | grep '^snd[-_].*'
   lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
   while read line
   do
      echo -n "$line "  ###KRG
      ###KRGrmmod -f -w "$line"
-     modprobe $VERB -r $line  ###KRG
+     modprobe $Q $VERB -r $line  ###KRG
      sleep 0.1  ###KRG
   done
-  CNT=$(( $CNT + 1 ))  ###KRG
+  CNT=$(( CNT + 1 ))  ###KRG
   [ "$CNT" = "9" ] && echo -e "\\033[1;34m"'breaking now'"\\033[0;39m" && break  ###KRG precaution###KRG
   done  ###KRG
 
   # remove the 2.2 soundcore module (if possible)
-  rmmod soundcore 2>$ERR
-  rmmod gameport  2>$ERR
+  case $KERNELVER in 2.2*)
+  rmmod soundcore
+  rmmod gameport
+  ;; esac
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm $VERB -f /var/lock/subsys/alsasound
   _info "... $PROGPAT with '$@' finished."  ###KRG
