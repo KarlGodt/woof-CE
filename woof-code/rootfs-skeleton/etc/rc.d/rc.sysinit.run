@@ -101,7 +101,7 @@
 PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin
 
 ##+++2012-05-08
-Version='1.2 Macpup_F3-Puppy-Linux-430/2 KRG'
+Version='1.5 Macpup_F3-Puppy-Linux-430/2 KRG'
 . /etc/rc.d/f4puppy5
 export LANG=C
 
@@ -159,9 +159,9 @@ echo "$1:`uptime`"
 
 _status() {
  if [ $1 -eq 0 ]; then
-  /bin/echo -e "\\033[72G\\033[1;32md$1ne\\033[0;39m"   >/dev/console #green [done] msg.
+  echo -e "\\033[72G\\033[1;32md$1ne\\033[0;39m"   >/dev/console #green [done] msg.
  else
-  /bin/echo -e "\\033[70G\\033[1;31mfaile$1\\033[0;39m" >/dev/console #red [failed].
+  echo -e "\\033[70G\\033[1;31mfaile$1\\033[0;39m" >/dev/console #red [failed].
   STATUS=0
  fi
  return $1 #return with same status as entry param.
@@ -182,7 +182,7 @@ _loadswap() { #w481 made into a function.
   echo -en " \\033[1;33m${oneSWAP##*/}\\033[0;39m" >/dev/console
   swapon $oneSWAP
   SWAP_STATUS=$((SWAP_STATUS+$?))
-  [ $SWAP_STATUS -eq 0 ] && SWAPON="yes"
+  [ "$SWAP_STATUS" -eq 0 ] && SWAPON="yes"
  done
  _status $SWAP_STATUS
  fi
@@ -196,9 +196,9 @@ _loadswap() { #w481 made into a function.
    _status $?
    [ $? -eq 0 ] && SWAPON="yes"
   fi
-  if [ -f $SWAPFILE ]; then
+  if [ -f "$SWAPFILE" ]; then
    echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
-   swapon $SWAPFILE
+   swapon "$SWAPFILE"
    _status $?
    [ $? -eq 0 ] && SWAPON="yes"
   fi
@@ -349,7 +349,7 @@ fi
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 if [ "$PUPMODE" = 2 ]; then
  FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481
- QTRFREERAM=`expr $FREERAM \/ 4`
+ QTRFREERAM=$((FREERAM / 4))
  mkdir $VERB -p /dev/shm
  busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$((STATUS+$?))
 fi
@@ -544,7 +544,7 @@ _load_average '1xff'
 ###+++2013-03-20
 _playbootnoise(){
     [ -e /etc/rc.d/haileyharly.wav ] || return 0
-    bb_modprobe $VERB snd-card-0 && {
+    bb_modprobe $Q $VERB snd-card-0 && {
     alsactl $DBG -f /etc/asound.state restore && {
     #until pidof X; do
     amixer $Q set Master,0 on
@@ -614,35 +614,27 @@ else
 fi
 sleep 0.1
 
-. /etc/rc.d/MODULESCONFIG
-
-#MODALIASES=`ls /sys/bus/*/devices/*/modalias`
-# REM: Use everything in /sys
-#       i915 does not get detected otherwise
-#        Xorg had loaded i915 back then apparently
-#
- MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
-
 if [ "$PUPMODE" = 2 ]; then
  #v423 have this in 'init', probably need here too...
  if [ "`echo "$MODALIASES" | grep 'bc0Csc03i10'`" != "" ]; then
-  modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" yenta-socket
+  modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" yenta-socket
   [ $? -eq 0 ] && sleep 2
  fi
  ELSPCI=`elspci -l` #jesses great little utility.
  ##v423 k2.6.29.6 dmesg has warning that ehci-hcd should load before uhci-hcd and ohci-hid
  ## this is contrary to my understanding all these years, but oh well, let's do it...
- modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ehci-hcd
- modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" uhci-hcd
- modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ohci-hcd
+ modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ehci-hcd
+ modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" uhci-hcd
+ modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" ohci-hcd
 fi
-modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usbhid
+# REM: Since PS/2 Keyboards replaced by USB, make sure usbhid is loaded
+modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usbhid
+. /etc/rc.d/MODULESCONFIG #has ADDLIST, SKIPLIST vars
 
-funcUSER_SELECTED_MODULES(){
+_load_user_selected_modules(){
 ##############USER SELECTED MODULES##################
 #the user can select extra modules to load in the BootManager...
-
-[ "$ADDLIST" != "" ] || return 0 #variable is in the file /etc/rc.d/MODULESCONFIG
+[ "$ADDLIST" ] || return 0 #variable is in the file /etc/rc.d/MODULESCONFIG
  echo "USER SELECTED MODULES"
  echo -n "Loading user-selected modules:" >/dev/console
  for MODULE in $ADDLIST
@@ -676,13 +668,26 @@ funcUSER_SELECTED_MODULES(){
   echo "Loading module $MODULE $MPARAMS"
   firmware_module_func #install firmware tarball. see functions4puppy4.
   #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
-  [ "$MODULE" = "mwave" ] || bb_modprobe $VERB $MODULE $MPARAMS
+  [ "$MODULE" = "mwave" ] || bb_modprobe $Q $VERB $MODULE $MPARAMS
  done
  _status 0
 sleep 2s
 }
-funcUSER_SELECTED_MODULES
+_load_user_selected_modules
 
+
+#MODALIASES=`ls /sys/bus/*/devices/*/modalias`
+# REM: Use everything in /sys
+#       i915 does not get detected otherwise
+#        Xorg had loaded i915 back then apparently
+#
+ MODALIASES=`ls -1v /sys/*/*/*/*/modalias`
+# REM: Graphics drivers are all in /sys/bus/pci/drivers
+#       even framebuffer drivers like nvidiafb
+#       they have uevent file, but no modalias file
+#MODALIASES=`ls -1v /sys/bus/*/devices/*/modalias`
+#MODALIASES="$MODALIASES
+#`ls -1v /sys/bus/*/drivers/*/uevent`"
 
 if [ -z "$MODALIASES" ]; then #1
 
@@ -695,7 +700,7 @@ else #1
 echo `date`
 echo -n "    :Loading kernel modules..." >/dev/console
 
-echo 'Running the modaliases add by rc.sysinit '$0
+echo "Running the modaliases add by $0..."
 
 if [ "`pidof udevd`" ]; then
 echo >> /tmp/puppy_udev_helper_module_devpath.log
@@ -707,34 +712,33 @@ MODULECNT=0
 for oneMODALIAS in $MODALIASES
 do
  onePATH=${oneMODALIAS%/*}
- if [ -e "${onePATH}/uevent" ]; then
-  echo 'added '"${onePATH}/uevent" >> /tmp/bootmodules.txt
+ [ -e "${onePATH}/uevent" ] || continue
+  #DEBUG echo 'added '"${onePATH}/uevent" >> /tmp/bootmodules.txt
   echo add > "${onePATH}/uevent" #generates an 'add' uevent.
   sleep 0.02
   MODULECNT=$((MODULECNT+1))
   echo -ne "\\033[1;35m\r$MODULECNT\\033[0;39m" >/dev/console
- fi
 done
-echo >> /tmp/bootmodules.txt
+#DEBUG echo >> /tmp/bootmodules.txt
 
 fi
 
 _load_average '3x0b'
 
 if [ "$PUPMODE" = 2 ]; then
- bb_modprobe $VERB nls_cp437      #these needed by vfat/ntfs/ext2 f.s.'s.
- bb_modprobe $VERB nls_iso8859-1  # "
- bb_modprobe $VERB fuse
+ bb_modprobe $Q $VERB nls_cp437      #these needed by vfat/ntfs/ext2 f.s.'s.
+ bb_modprobe $Q $VERB nls_iso8859-1  # "
+ bb_modprobe $Q $VERB fuse
 
  #we can determine ide/sata drives at this point (drivers builtin to kernel)...
  #ATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
  #ATADRIVES=`cat /proc/partitions | grep "sd[a-z]$" | tr -s " " | cut -f 5 -d " " | tr "\n" " "`
- modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
+ modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" usb_storage
  unset BLOCK_SATAD USB_SATAD SATADRIVES ATADRIVES
  SATADRIVES=`ls -1 /sys/block | grep '^sd'`
  for _s_ in $SATADRIVES; do
  LinkTarget=`readlink -f /sys/block/$_s_`
-  if test "`echo $LinkTarget | grep 'usb'`" != ""; then
+  if test "`echo $LinkTarget | grep 'usb'`"; then
   USB_SATAD="$USB_SATAD $_s_"
   else
   BLOCK_SATAD="$BLOCK_SATAD $_s_"
@@ -748,7 +752,7 @@ if [ "$PUPMODE" = 2 ]; then
  echo "USB_SATAD='${USB_SATAD}'" >> /etc/rc.d/PUPSTATE
 fi
 
-[ -d /proc/acpi ] || modprobe $VERB --config "$PUPPY_TMP_MODPROBE_CONF" apm #v406
+[ -d /proc/acpi ] || modprobe $Q $VERB --config "$PUPPY_TMP_MODPROBE_CONF" apm #v406
 
 _status 0
 _load_average '3xff'
@@ -797,8 +801,7 @@ bb_modprobe -l | grep -E 'yenta[-_]socket|tcic|i82092|i82365|pd6729' && {
 if [ "$PCIPCMCIA" != "" ]; then #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
  while [ "$WAITCNT" -lt 5 ]; do
-  [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" != "" ] && break
-  #WAITCNT=`expr $WAITCNT + 1`
+  [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" ] && break
   WAITCNT=$((WAITCNT+2))
   sleep 2
   echo -n " $WAITCNT" >/dev/console
@@ -819,7 +822,6 @@ if [ "$PCIUSB" != "" ]; then #this may be slow to respond.
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ "$WAITCNT" -lt 5 ]; do
   [ "`lsmod | grep -o -E '^ehci_hcd|^ohci_hcd|^uhci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
-  #WAITCNT=`expr $WAITCNT + 1`
   WAITCNT=$((WAITCNT+2))
   sleep 2
   echo -n " $WAITCNT" >/dev/console
@@ -852,9 +854,9 @@ for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
   onePATH="${oneUEVENT%/*}"
   # REM: the check for 'modalias' file is maybe needed for old kernel?...
-  #[ ! -e "${onePATH}/modalias" ] && [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
+  #[ ! -e "${onePATH}/modalias" -a "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
   [ -e "${onePATH}/modalias" ] || continue
-  [ "`grep 'MODALIAS' "$oneUEVENT"`" = "" ] && continue
+  [ "`grep 'MODALIAS' "$oneUEVENT"`" ] || continue
   echo 'added '"${oneUEVENT}" >> /tmp/bootmodules.txt
   echo add > "$oneUEVENT"
   sleep 0.02
@@ -874,11 +876,11 @@ esac
 #wait for usb-storage drives to become available...(already done if initrd)
 #note, pup_event_backend_d and udevd both log to this file when load modules
 # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
-if [ "`grep 'usb_storage' /tmp/puppy_udev_helper_module_devpath.log`" != "" ]; then #see pup_event_backend_d
+if [ "`grep 'usb_storage' /tmp/puppy_udev_helper_module_devpath.log`" ]; then #see pup_event_backend_d
  echo -n " usb-storage"  >/dev/console
  while [ "$WAITCNT" -lt 7 ]; do
-  #[ "`dmesg | grep 'usb-storage: device scan complete'`" != "" ] && break
-  [ "`dmesg | grep 'usb-storage.* scan complete'`" != "" ] && break
+  #[ "`dmesg | grep 'usb-storage: device scan complete'`" ] && break
+  [ "`dmesg | grep 'usb-storage.* scan complete'`" ] && break
   sleep 2
   WAITCNT=$((WAITCNT+2))
   echo -n " $WAITCNT" >/dev/console
@@ -904,7 +906,7 @@ _status 0
 _load_average '5xff'
 #_file_system_state 18
 
-funcUSER_SELECTED_MODULES(){
+_load_user_selected_modules(){
 ##############USER SELECTED MODULES##################
 echo "USER SELECTED MODULES"
 #the user can select extra modules to load in the BootManager...
@@ -938,7 +940,7 @@ if [ "$ADDLIST" != "" ]; then #variable is in /etc/rc.d/MODULESCONFIG
   firmware_module_func #install firmware tarball. see functions4puppy4.
   #w463 for mwave.ko (modem), do not load module, just the firmware, which has script that correctly loads mwave.ko.
   #if [ -z "`lsmod | grep "$MODULE"`" ] ; then
-  [ "$MODULE" = "mwave" ] || bb_modprobe $VERB $MODULE $MPARAMS
+  [ "$MODULE" = "mwave" ] || bb_modprobe $Q $VERB $MODULE $MPARAMS
   #fi
  done
  _status 0
@@ -953,7 +955,7 @@ if [ ! "$NO_FBCON" ]; then
 echo >> /dev/console
 modinfo fbcon > /dev/console
 sleep 1
-bb_modprobe $VERB fbcon
+bb_modprobe $Q $VERB fbcon
 fi; fi; fi ##+++2012-01-11 added check for blacklisting above
 fi
 }
@@ -972,7 +974,7 @@ if [ -h /dev/modem ]; then
   ;;
   /dev/*) #wrong format.
    DEVM=`echo -n "$DEVM" | cut -f 3,4 -d '/'`
-   ln $VERB -snf $DEVM /dev/modem
+   ln $VERB -sf $DEVM /dev/modem
   ;;
  esac
  case $DEVM in
@@ -987,6 +989,7 @@ _mount_usbfs(){
 #[ "`lsmod | grep '^usbcore'`" != "" ] && busybox mount -t usbfs none /proc/bus/usb
 case $KERNEL_RELEASE in
 2.6.*|3.0.*|3.1.*|3.2.*|3.3.*|3.4.*)
+grep $Q -w 'usbfs$' /proc/filesystems || return 0 #either not loaded or not configured
 mountpoint $Q /proc/bus/usb && return 0
 mkdir $VERB -p /proc/bus/usb  ##+++2013-03-21
 busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb;;
@@ -996,13 +999,13 @@ _mount_usbfs
 
 #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
 #v408 kirk: Check for laptop battery...
-bb_modprobe $VERB battery
+bb_modprobe $Q $VERB battery
 #if [ -d /proc/acpi/battery ]; then
  results=`find /proc/acpi/battery -mindepth 1 -type d`
 # if [ ! -z "$results" ]; then
-  bb_modprobe $VERB ac
-#  modprobe $VERB thermal
-  bb_modprobe $VERB fan
+  bb_modprobe $Q $VERB ac
+#  modprobe $Q $VERB thermal
+  bb_modprobe $Q $VERB fan
 # else
 #  rmmod battery
 # fi
@@ -1036,9 +1039,9 @@ rm $VERB -f /dev/cdrom /dev/dvd
 [ -L /dev/cdrom ] &&  CDTYPE=`readlink /dev/cdrom | cut -f 3 -d '/'`
 [ -L /dev/dvd ]   && DVDTYPE=`readlink /dev/dvd   | cut -f 3 -d '/'`
 [ -f /etc/cdburnerdevice ] && read CDBURNERTYPE </etc/cdburnerdevice
-#[ "$CDTYPE" -a "`echo "$OPTICALS" | grep "$CDTYPE"`" = "" ]   && CDTYPE=""  #no longer exists.
-#[ "$DVDTYPE" -a "`echo "$OPTICALS" | grep "$DVDTYPE"`" = "" ] && DVDTYPE="" #no longer exists.
-#[ "$CDBURNERTYPE" -a "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" = "" ] && CDBURNERTYPE="" #no longer exists.
+#[ "$CDTYPE" -a "`echo "$OPTICALS" | grep "$CDTYPE"`" ]   || CDTYPE=""  #no longer exists.
+#[ "$DVDTYPE" -a "`echo "$OPTICALS" | grep "$DVDTYPE"`" ] || DVDTYPE="" #no longer exists.
+#[ "$CDBURNERTYPE" -a "`echo "$OPTICALS" | grep "$CDBURNERTYPE"`" ] || CDBURNERTYPE="" #no longer exists.
 
 for oneOPTICAL in $OPTICALS
 do
@@ -1048,7 +1051,6 @@ do
  #[ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
  [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && DVDTYPE="$oneOPTICAL"
  [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01]' | tr -d '\n' | sed -e 's/[^01]//g' | cut -c $opticalCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL"
- #opticalCNT=`expr $opticalCNT + 1`
   opticalCNT=$((opticalCNT+1))
 done
 
@@ -1071,13 +1073,22 @@ esac
 #TODO: simplify above, use 'input/mice' for ps2 mouse also, but may need to modify Xorg/Xvesa/Input Wizards.
 #      (may also have to remove builtin psaux driver from kernel).
 if [ -f /etc/mousedevice ]; then
- [ "`cat /etc/mousedevice`" = "psaux" ] && echo "input/mice" > /etc/mousedevice
+     grep $Q 'psaux' /etc/mousedevice && echo "input/mice" > /etc/mousedevice
 else
- echo "input/mice" > /etc/mousedevice
+ echo "input/mice" > /etc/mousedevice #defaults not to serial mouse
 fi
+#cp -af /etc/mousedevice /etc/oldmousedevice
+read MOUSEDEV </etc/mousedevice
+case $MOUSEDEV in *mice)
  test -d /dev/input      || mkdir $VERB -p /dev/input
  test -c /dev/input/mice || mknod /dev/input/mice c 13 63
- ln $VERB -snf input/mice /dev/mouse
+;; esac
+if test -e $MOUSEDEV -o -e /dev/$MOUSEDEV; then
+ ln $VERB -sf $MOUSEDEV /dev/mouse
+else
+ ln $VERB -sf input/mice /dev/mouse
+fi
+cp -af /etc/mousedevice /etc/oldmousedevice
 
 #recognise keyboard...
 #echo -n ' keyboard' >/dev/console
@@ -1165,7 +1176,7 @@ fi
 
 ### MKNODs ###
 [ -c /dev/ppp ]   || mknod /dev/ppp c 108 0
-[ -L /dev/mouse ] || ln $VERB -s /dev/input/mice /dev/mouse
+[ -L /dev/mouse ] || ln $VERB -s input/mice /dev/mouse
 [ -c /dev/mem ]   || mknod /dev/mem c 1 1
 [ -L /dev/modem ] || { MODEM=`dmesg | grep -i 'MODEM' |grep 'attached' |head -n1 |rev |awk '{print $1}' |rev`; [ "$MODEM" ] && ln $VERB -s $MODEM /dev/modem; }
 ### MKNODs ###
@@ -1183,8 +1194,9 @@ FILE=`grep -m1 -e .*=.*\.lo[g\'\"]\\+$ $(which pup_event_backend_modprobe) | gre
 test "$FILE" && eval $FILE
 FILE1="${FILE%=*}"
 test "$FILE1" && FILE2=`eval echo \\$$FILE1`
-
- if [ -f "$FILE2" ]; then
+test -f "$FILE2" || return
+test -s "$FILE2" || return
+#if [ -f "$FILE2" ]; then
  #while [ "`pidof rc.services pup_event_backend_modprobe photplug`" ]; do sleep 1; done
  while [ "`pidof pup_event_backend_modprobe photplug`" ]; do sleep 1; done
  sleep 0.1s  ## 120s ##5s
@@ -1197,13 +1209,13 @@ test "$FILE1" && FILE2=`eval echo \\$$FILE1`
  # REM: add a blank line after each pid block
  PIDS=`cat "${FILE2}".sorted | cut -f 1 -d ' ' | sort -u | sort -g`
   for i in $PIDS; do
-  #echo PID  "$i" ##DEBUG
+  #echo PID  "$i"    ##DEBUG
   Line=`grep -n -w "^$i" "${FILE2}".sorted | tail -n 1 | cut -f 1 -d ':'`
   #echo Line "$Line" ##DEBUG
   sed -i".$_DATE_" "$Line a\ " "${FILE2}".sorted
   done
 
-fi
+#fi
 }
 funcPUPPY_UDEV_HELPER &
 ### sort logs ###
@@ -1255,6 +1267,7 @@ fi
 }
  _create_fastbootmodules_list &
 
+_capture_bootscreen(){
 ### capture bootscreen ###
 [ -e /dev/vcs1 ] || { mknod /dev/vcs1 c 7 1; sleep 1; }
 cat /dev/vcs1   >/tmp/vcs1.txt
@@ -1271,6 +1284,8 @@ fi
 
 sed -i".$_DATE_" "s,\(.\{$maxChars\}\),\1\\n,g" /tmp/vcs1.txt
 ### capture bootscreen ###
+}
+[ "$DEBUG" ] && _capture_bootscreen
 
 _load_average 'FxFF'
 
