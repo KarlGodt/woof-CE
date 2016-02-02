@@ -2969,3 +2969,1304 @@ geany /etc/X11/xorg.conf0
 
 Tue Dec 8 11:11:17 GMT+1 2015
 
+git pull
+/etc/init.d/runmbbservice.init restart
+./git_helper/update_files3.sh 
+git commit
+git commit -a -m '/etc/X11/: 3 newer xorg.conf templates added:
+xorg.conf.example
+xorg.conf.t2
+xorg.conf0XORG73
+Taken from macpup529.
+Also added Xsession.d/ with two files :
+70gconfd_path-on-session
+90unclutter
+Taken from macpup529.'
+git add woof-code/rootfs-skeleton/etc/X11/Xsession.d/
+git add woof-code/rootfs-skeleton/etc/X11/xorg.conf.example
+git add woof-code/rootfs-skeleton/etc/X11/xorg.conf.t2
+git add woof-code/rootfs-skeleton/etc/X11/xorg.conf0XORG73
+git commit -a -m '/etc/X11/: 3 newer xorg.conf templates added:
+xorg.conf.example
+xorg.conf.t2
+xorg.conf0XORG73
+Taken from macpup529.
+Also added Xsession.d/ with two files :
+70gconfd_path-on-session
+90unclutter
+Taken from macpup529.'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+mkdir /l
+losetup /dev/loop5 /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test2.3fs
+mount -o loop /dev/loop5 /l
+dmesg|tail
+mount-FULL -o loop /dev/loop5 /l
+mkdir /l
+mount-FULL -o loop /dev/loop5 /l
+mount-FULL -o loop -type ext3 /dev/loop5 /l
+mount-FULL -o loop -t ext3 /dev/loop5 /l
+dmesg|tail
+mount-FULL -o loop -t ext4 /dev/loop5 /l
+dmesg|tail
+losetup
+losetup -a
+mount-FULL -o loop -t ext4 /dev/loop5 /l
+mount-FULL -o loop -t ext3 /dev/loop5 /l
+dmesg|tail
+busybox mount -o loop -t ext3 /dev/loop5 /l
+dmesg|tail
+busybox mount -o loop -t ext2 /dev/loop5 /l
+dmesg|tail
+busybox mount -o loop -t ext3  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test2.3fs /l
+mount-FULL -o loop -t ext3  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test2.3fs /l
+dmesg|tail
+mount-FULL -o loop -t ext3  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test2.3fs /l
+dmesg|tail
+mount-FULL -o loop -t ext3  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test3.3fs /l
+mount-FULL -o loop -t ext3  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+dmesg|tail
+mount-FULL -o loop -t ext2  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+mount-FULL -o loop -t ext4  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+mount-FULL -o loop -t reiserfs  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+dmesg|tail
+mount-FULL -o loop -t reiser  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+mount-FULL -o loop -t xfs  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+mount-FULL -o loop -t jfs  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+mount-FULL -o loop -t btrfs  /mnt/sda1/PUPPY_SFS/M529/macpupsave_cryptx-test4.3fs /l
+dmesg|tail
+info cpio
+man cpio
+
+Tue Dec 8 12:18:12 GMT+1 2015
+
+lspci | grep 'Display controller' |rev|cut -f1 -d: |rev
+busybox lspci | grep 'Display controller' |rev|cut -f1 -d: |rev
+busybox lspci
+busybox lspci -v
+which lspci
+type -a lspci
+file /usr/sbin/lspci
+file /usr/local/sbin/lspci
+ash
+geany /etc/rc.d/f4puppy4
+geany /etc/rc.d/functions4puppy4
+geany /etc/rc.d/f4puppy5
+./git_helper/update_files3.sh 
+git tag -m 'xorgwizard now as far as finished and fixed.
+Hope that it will not show too annoying bugs.' "xorgwizard-release01-2015-12-08"
+git push --tags krg Fox3-Dell755
+git push --tags MSkrg Fox3-Dell755
+git pull
+git log --grep xorgwizard
+git tag -l
+man xorg.conf
+Xorg -help
+pdict
+
+Tue Dec 8 16:03:37 GMT+1 2015
+
+stat init
+pwd
+diff -qs /mnt/initrd.ext2.1.2/initrd.txt
+diff -qs /mnt/initrd.ext2.1.2/initrd.txt /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/boot/init_scripts.d/LH443_initrd.txt
+diff -qs /mnt/initrd.ext2.1.2/initrd.txt /mnt/sdb19/SRC/F3p5/WOOF/GitHub.d/KarlGodt_WoofFork.Push.d/woof-code/boot/init_scripts.d/LH64-514_initrd.txt
+git commit
+git add woof-code/boot/init_scripts.d/
+git commit -m 'woof-code/boot/init_scripts.d/: Added.
+contains current status of init scripts of various Pups
+incl. DISTRO_SPECS files.'
+git commit
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+pwd
+pwd /tmp
+for i in *.current; do echo $i; done
+L1=`for i in *.current; do echo $i; done`
+L2=`for i in *.current; do echo $i; done`
+L1=`echo "$L1" | tac | sed '1d'`
+L2=`echo "$L2" | sed '1d'`
+echo "$L1"
+echo "$L2"
+L1=`echo "$L1" | tac`
+echo "$L1"
+echo "$L2"
+for i in $L1; do for j in $L2; do diff -up $i $j >>/tmp/$i.diff; echo >>$i.diff; done; done
+rm -v /tmp/*.diff
+for i in $L1; do for j in $L2; do diff -up $i $j >>/tmp/$i.diff; echo >>/tmp/$i.diff; done; done
+ls -s *.diff
+cat *.diff
+rm -v  *.diff
+echo $((2600 / 5))
+echo $((530 /60))
+pwd
+git pull
+
+Mon Jan 4 12:40:54 GMT+1 2016
+
+for d in .ayttm .cache .mozilla .opera .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+for d in .adobe .ayttm .cache .macromedia .mozilla .opera .PuppyBrowser .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+for d in .adobe .ayttm .cache .dillo .elinks .macromedia .mozilla .opera .PuppyBrowser .pfilesearch .pfind .pburn .pcd .pmusic .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+for d in .adobe .ayttm .cache .dillo .elinks .macromedia .mozilla .notecase .opera .PuppyBrowser .pfilesearch .pfind .pburn .pcd .pmusic .sylpheed-2.0 .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+for d in .adobe .ayttm .cache .dillo .elinks Mail .macromedia .mozilla .notecase .opera .PuppyBrowser .pfilesearch .pfind .pburn .pcd .pmusic .sylpheed-2.0 .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+bootmanager
+for d in .adobe .ayttm .cache .dillo .elinks Mail .macromedia .mozilla .notecase .opera .PuppyBrowser .pfilesearch .pfind .pburn .pcd .pmusic .sylpheed-2.0 .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+/etc/init.d/runmbbservice.init restart
+
+Mon Jan 4 15:20:45 GMT+1 2016
+
+cfclient
+tar -xjf firefox-32.0a1.en-US.linux-i686.tar.bz2 
+mv firefox firefox-32.0a1.en-US
+tar -xjf firefox-24.0a1.en-US.linux-i686.tar.bz2 
+mv firefox firefox-24.0a1.en-US
+tar -xjf firefox-15.0a1.en-US.linux-i686.tar.bz2 
+mv firefox firefox-15.0a1.en-US-ionmonkey
+/firefox -ProfileManager
+./firefox -ProfileManager
+skycommander --help
+skycommander -v
+top
+git pull
+git commit
+git add woof-code/rootfs-skeleton/etc/init.d/DEFAULT/stealth.init
+git commit -m '/etc/init.d/DEFAULT/stealth.init: Added.'
+git branch | grep '\*'
+git remote
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+for d in .adobe .ayttm .cache .dillo .elinks Mail .macromedia .mozilla .notecase .opera .PuppyBrowser .pfilesearch .pfind .pburn .pcd .pmusic .sylpheed-2.0 .thumbnails .Trash; do test -d "$d" || continue; rm -rf "$d"; sleep 1;done
+skycommander 
+ls /
+chattr +i /bin
+chattr +i /sbin
+chattr +i /lib
+chattr +i /usr
+chattr +i /var
+chattr +i /root
+chattr +i /opt
+chattr +i /mnt
+mkdir /mnt/abc
+chattr -i /*
+lsattr /*
+mkdir /mnt/abc
+rmdir /mnt/abc
+rmdir */*
+rmdir *
+ifconfig
+ifconfig eth1
+echo $((147053424/1024))
+echo $((147053424/1024/1024))
+ifconfig
+elinks http://ftp.mozilla.org
+ping -c1 www.murga-linux
+ping -c1 www.murga-linux.com
+cd aurora
+wget -c --limit-rate=5k http://ftp.mozilla.org/pub/firefox/nightly/2015/05/2015-05-17-00-40-04-mozilla-aurora/firefox-40.0a2.en-US.linux-i686.tar.bz2
+ls
+echo 'wget -c --limit-rate=5k http://ftp.mozilla.org/pub/firefox/nightly/2015/05/2015-05-17-00-40-04-mozilla-aurora/firefox-40.0a2.en-US.linux-i686.tar.bz2' >dl.url
+xat dl.url
+cat dl.url
+git remote
+git pull
+beep
+beep --help
+beep -l 2000
+for i in *; do test -L $i && continue; test -f $i || continue; echo $i; done
+for i in *.gz; do test -L $i && continue; test -f $i || continue; echo $i; done
+for i in *.gz; do test -L $i && continue; test -f $i || continue; gunzip $i; done
+for i in *.1; do echo $i; done
+for i in *.1; do echo $i; cat $i | nroff -mandoc >$i.txt;sleep 0.2;done
+for i in *.1; do echo $i; cat $i | nroff -mandoc | less;sleep 0.2;done
+HALLO
+for i in *.1; do cat $i | nroff -mandoc -c >$i.txt; sleep 0.2; done
+for i in *.1; do echo $i; cat $i | nroff -mandoc -C -c >$i.txt; sleep 0.2; done
+for i in *.1; do echo $i; cat $i | tbl | nroff -mandoc -C -c >$i.txt; sleep 0.2; done
+for i in *.1; do echo $i; ( echo ".ll 21.2i"; echo ".nr LL 21.2i"; echo ".pl 1100i"; cat $i; echo ".\\\""; echo ".pl \n(nlu+10") | tbl | nroff -mandoc -C -c >$i.txt; sleep 0.2; done
+source dl.url 
+for i in *.1; do echo $i; groff $i  >$i.html; sleep 0.2; done
+for i in *.1; do echo -T html $i; groff $i  >$i.html; sleep 0.2; done
+for i in *.1; do echo $i; groff -T html$i  >$i.html; sleep 0.2; done
+for i in *.1; do echo $i; groff -T html $i  >$i.html; sleep 0.2; done
+for i in *.1; do echo $i; groff -T html $i  >$i.html; elinks -dump 1 $i.html >$i.txt;sleep 0.2; done
+for i in *.1; do echo $i; groff -T html -m mandoc $i  >$i.html; elinks -dump 1 $i.html >$i.txt;sleep 0.2; done
+grep -n References 411toppm.1.txt
+head -n51 411toppm.1.txt
+head -n50 411toppm.1.txt
+head -n49 411toppm.1.txt
+for i in *.txt; do NR=`grep -n References $i | tail -n1 |cut -f1 -d':'`; head -n $((NR-2)) $i >/tmp/$i; cp -a /tmp/$i $i; sleep 0.2; done
+for i in *.txt; do grep -vE '  \[[0-9]+\][^[:blank:]]+' $i >/tmp/$i; cp -a /tmp/$i $i; sleep 0.2; done
+man elinks
+srtings 411toppm.1.txt
+strings 411toppm.1.txt
+strings 411toppm.1
+ smartctl -t long /dev/sdb
+sleep 112m;date; beep -l 2000
+smartctl -a /dev/sdb
+echo ((112*75/100))
+echo $((112*75/100))
+echo $((112*100/75))
+date
+smartctl -a /dev/sdb
+smartctl -t long /dev/sda
+sleep $((81*60)); echo Finished; date
+smartctl -a /dev/sda
+smartctl -t short /dev/sdb
+sleep 60; echo finished; date
+smartctl -a /dev/sdb
+smartctl -t short /dev/sda
+sleep 60; echo Finished
+date
+smartctl -a /dev/sda
+date
+man smartctl
+smartctl -a /dev/sdb
+smartctl -a /dev/sda
+smartctl -A /dev/sdb
+smartctl -A /dev/sda
+busybof tbl --help
+busybox tbl --help
+busybox nrof --help
+busybox nroff --help
+busybox
+busybox | grep rof
+echo HALLO | script
+script
+man Xorg
+less typescript 
+find /usr -type d -name "man"
+ls /usr/X11R7.7-1.7.7-BIG/man
+ls /usr/X11R7.7-1.7.7-BIG/man/man1
+man /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x 
+ls /usr/X11R7.7-1.7.7-BIG/man/man1
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x | nroff
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x | nroff -c
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x | nroff -mandoc
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x | nroff -mandoc >/root/xsetmode.1x.txt
+geany /root/xsetmode.1x.txt
+cat /usr/X11R7.7-1.7.7-BIG/man/man1/xsetmode.1x | nroff -mandoc | less
+man tbl
+man grotty
+man groff
+ps -o args | grep man
+nroff --help
+man nroff
+ps -o args | grep man
+type -a tbl
+type -a nroff
+./firefox
+top
+/etc/init.d/DEFAULT/stealth.init 
+cfclient
+dict remis
+dict equal
+dict "at par"
+dict -fd-deu-eng Unentschieden
+dict -d fd-deu-eng "Unentschieden"
+
+Tue Jan 5 07:30:49 GMT+1 2016
+
+smartctl -A /dev/sda
+smartctl -A /dev/sdb
+rm -rf Fox3-Dell755/
+mkdir /b
+mount -t squashfs Fox3-Dell755-2016-01-05.gsfs /b
+umount /b
+rmdir /b
+man rsync.conf
+man rsyncd.conf
+man rsync
+which rsync_dirs.sh
+geany /root/my-applications/sbin/rsync_dirs.sh
+rsync_dirs.sh / /mnt/sdb19/Rsync/Fox3-Dell755/
+pwd
+du -s -BM .
+du -s -BK .
+pwd
+cd ..
+mksquashfs Fox3-Dell755/ Fox3-Dell755-2016-01-05.gsfs
+du -s -BM /root
+du -s -BM /usr
+du -s -BM /lib
+df /
+df
+grep __libc_csu_fini *
+./configure --help | grep colo
+grep __libc_csu_fini *
+file gcrt1.o
+file gcrt1.o-F3orig
+file crt1.o-F3orig
+file crt1.o
+ln -sf crt1.o-OPT-2.5.1 crtl.o
+ln -sf gcrt1.o-OPT-2.5.1 gcrtl.o
+geany /usr/include/sys/stat.h
+geany /usr/include/stdio.h
+cfclient
+./configure --help
+./configure --help
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls 
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses
+make
+make -k
+make -i
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6  --with-ssl --enable-nls --with-screen=ncurses
+make
+which lynx
+lynx
+type -a lynx
+/usr/local/bin/lynx --version
+mv /usr/local/bin/lynx /usr/local/bin/lynx-2.8.7dev.9
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses
+make
+./configure --enable-ipv6 --with-ssl --enable-nls --with-screen=ncurses
+make
+wget 0c --limit-rate=5k http://http.debian.net/debian/pool/main/l/lynx-cur/lynx-cur_2.8.8dev.5.orig.tar.gz
+wget 0c --limit-rate=5k http://http.debian.net/debian/pool/main/l/lynx-cur/lynx-cur_2.8.8dev.5-1.diff.gz
+wget -c --limit-rate=5k http://archive.debian.org/debian/pool/main/l/lynx-cur/lynx-cur_2.8.7dev9.orig.tar.gz
+wget -c --limit-rate=5k http://archive.debian.org/debian/pool/main/l/lynx-cur/lynx-cur_2.8.7dev9-2.1.diff.gz
+chroot .
+exit
+elinks --version
+elinks_disabled_without_everything --version
+type -a elinks
+type -a elinks_disabled_without_everything
+mv /usr/local/bin/elinks /usr/local/bin/elinks-0.12pre5
+ln -s elinks-0.12pre5 /usr/local/bin/elinks
+mv /usr/local/bin/elinks_disabled_without_everything /usr/local/bin/elinks_disabled_without_everything-0.12pre5
+./configure --help
+type -a lynx-2.8.7dev.9
+ln -s lynx-2.8.7dev.9 /usr/local/bin/lynx
+lynx
+type -a lynx
+file /usr/local/bin/lynx
+./lynx --version
+ls -s ./lynx
+ls -s /usr/local/bin/lynx-2.8.7dev.9 
+lynx.old --version
+time cp -a Fox3-Dell755-2016-01-05.gsfs /mnt/sdd2/
+make install && new2dir -fr
+lynx --version
+mv /usr/local/bin/lynx /usr/local/bin/lynx-2.8.7dev.9-ssl
+ln -s lynx-2.8.7dev.9-ssl /usr/local/bin/lynx
+lynx
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses --disable-color-style --enable-default-colors --disable-prettysrc
+make
+make -i
+make
+make clean
+make
+make -i
+make
+make clean
+make
+make clean
+make
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses --disable-color-style --enable-default-colors --disable-prettysrc LDFLAGS='-l:libc-2.6.1.a'
+make
+make claen
+make clean
+./configure --enable-syslog --enable-underlines --enable-gzip-help --with-bzlib --with-zlib --enable-charset-choice --enable-cgi-links --enable-local-docs --enable-widec --enable-ipv6 --enable-gnutls-compat --with-gnutls --with-ssl --with-nss-compat --enable-nls --with-screen=ncurses --disable-color-style --enable-default-colors --disable-prettysrc LDFLAGS='-l:libc-2.6.1.a'
+make
+pwd
+./lynx --version
+./lynx
+/etc/init.d/runmbbservice.init restart
+elinks https://facebook.com
+elinks
+rm -t /root/.elinks
+rm -r /root/.elinks
+elinks
+lynx
+elinks https://facebook.com
+elinks
+rm /root/.elinks
+rm -r /root/.elinks
+elinks https://facebook.com
+rm -r /root/.elinks
+elinks https://facebook.com
+ipinfo
+
+Tue Jan 26 10:31:18 GMT+1 2016
+
+for i in *menu*.lst; do echo $i; done
+for i in *menu*.lst; do echo $i; sed -i 's%splashimage (hd1,4)%splashimage (hd1,2)%' $i || break; done
+for i in *menu*.lst; do echo $i; sed -i 's%splashimage (hd1,2)%splashimage (hd1,1)%' $i || break; done
+geany /usr/sbin/xorgwizard
+modprobe asb100
+busybox | head
+./mplayer --version
+head config.log
+make clean 
+./configure --help
+./configure --enable-dynamic-plugins --enable-hardcoded-tables --disable-fastmemcpy --enable-runtime-cpudetection --enable-dhahelper --enable-svgalib_helper --enable-gl --enable-gui --enable-gtk1 --enable-radio --enable-radio-capture --enable-smb --enable-menu --extra-cflags='-I/usr/X11/include -I/usr/multimedia/include -I/usr/SDL/include -I/usr/gtk/include' --extra-libs='-L/usr/X11/lib -L/usr/gtk/lib -L/usr/SDL/lib -L/usr/multimedia/lib'
+./configure --enable-dynamic-plugins --enable-hardcoded-tables --disable-fastmemcpy --enable-runtime-cpudetection --enable-dhahelper --enable-svgalib_helper --enable-gl --enable-gui --enable-gtk1 --enable-radio --enable-radio-capture --enable-menu --extra-cflags='-I/usr/X11/include -I/usr/multimedia/include -I/usr/SDL/include -I/usr/gtk/include' --extra-libs='-L/usr/X11/lib -L/usr/gtk/lib -L/usr/SDL/lib -L/usr/multimedia/lib'
+make
+./configure --enable-dynamic-plugins --enable-hardcoded-tables --disable-fastmemcpy --enable-runtime-cpudetection --enable-dhahelper --enable-gl --enable-gui --enable-gtk1 --enable-radio --enable-radio-capture --enable-menu --extra-cflags='-I/usr/X11/include -I/usr/multimedia/include -I/usr/SDL/include -I/usr/gtk/include' --extra-libs='-L/usr/X11/lib -L/usr/gtk/lib -L/usr/SDL/lib -L/usr/multimedia/lib'
+make
+grep -r -I 'struct dvd_layer' *
+make
+make -i
+make
+grep -m2 -r -I dvd_layer *
+make -k
+make
+grep -r -I ff_cmap_read_palette *
+grep -r ff_cmap_read_palette *
+make
+make -i
+head config.log
+./configure --help
+find /usr -name aacps_tables.h
+grep avcodec_default_release_buffer /usr/multimedia/lib/*
+grep ff_parse_expr /usr/multimedia/lib/*
+grep ff_parse_expr /usr/lib/*
+grep ff_parse_expr /usr/local/lib/*
+grep SDL_WasInit /usr/SDL/lib/*
+ln -s libSDL-1.2.so.0 /usr/SDL/lib/libSDL-1.2.so
+grep SDL_WasInit /usr/SDL/lib/*
+grep ff_parse_expr /usr/lib/*
+grep ff_parse_expr /usr/local/lib/*
+grep ff_parse_expr /usr/SDL/lib/*
+grep ff_parse_expr /usr/multimedia/lib/*
+ls /usr/multimedia/lib/libavcodec.so*
+grep iff_read_packet /usr/multimedia/lib/*
+grep iff_read_packet /usr/local/lib/*
+grep iff_read_packet /usr/lib/*
+find /usr -name "libiff*"
+cp -a MPlayer-1.0rc4/ MPlayer-1.0rc4-SC
+./configure --help
+ldd mplayer | sort
+make clean
+./configure
+ls -l /usr/multimedia/lib/libavcodec.so
+ls -l /usr/multimedia/lib/libavcodec.so.52
+ls -l /usr/multimedia/lib/libavcodec.so.53
+ln -sf libavcodec.so.53 /usr/multimedia/lib/libavcodec.so
+ls -l /usr/multimedia/lib/libavcodec.so
+./configure
+make
+./configure --extra-cflags='-I/usr/SDL/include' --extra-ldflags='-lSDL-1.2' --extra-libs='-L/usr/SDL/lib'
+find /usr -name inttypes.h
+./configure --extra-cflags='-I/usr/SDL/include' --extra-libs='-L/usr/SDL/lib'
+make
+./mplayer --version
+./mplayer -version
+./mplayer -v
+./mplayer -V
+./mplayer -version
+./mplayer --version
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+ls -ls mplayer-1.0rc4-4.2.2-2016-01-26
+file mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer-1.0rc4-4.2.2-2016-01-26 mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer-1.0rc4-4.2.2-2016-01-26*
+./mplayer /mnt/sda2/Flash3WyvQV
+ls -ls /usr/local/bin/mplayer*
+ls -ls mplayer-1.0rc4-4.2.2-2016-01-26*
+cp ai MPlayer-1.0rc4-SC/ MPlayer-1.0rc4-3C
+cp -ai MPlayer-1.0rc4-SC/ MPlayer-1.0rc4-3C
+head config.log
+Xorg -version
+./configure --enable-dynamic-plugins  --extra-cflags=-I/usr/SDL/include --extra-libs=-L/usr/SDL/lib
+make
+ls -ls mplayer
+mplayer -version
+./mplayer -version
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer*
+./mencoder --version
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer* mencoder*
+make clean
+make clean
+./configure --help
+cp -a MPlayer-1.0rc4/ MPlayer-1.0rc4-4C
+mplayer /mnt/sda2/Flash3WyvQV
+mplayer -version
+mplayer --version
+mplayer~ --version
+echo $PATH
+type -a mplayer
+ldd ffplay*
+for i in ffplay*; do ldd $i | sort >$i.ldd; done
+./ffplay-0.93
+./ffplay-0.9.3
+./ffplay-0.8.15
+./ffplay-0.7.16
+./ffplay-0.7.16 /mnt/sda2/Flash3WyvQV
+./ffplay-0.7.16 --help
+type -a gmplayer
+type -a mplayer
+type -a mplayer~
+diff -qs /usr/local/bin/mplayer /usr/local/bin/mplayer~
+file /usr/local/bin/mplayer
+file /usr/local/bin/mplayer~
+strip xosview-asb100-stripped 
+ls -s
+./configure --enable-gui --enable-dynamic-plugins --extra-cflags=-I/usr/SDL/include --extra-libs=-L/usr/SDL/lib
+make
+make -i
+make -k
+grep gtk_type_check_object_cast /usr/lib/*
+make
+grep gtk_type_check_object_cast /usr/lib/*
+grep gtk_type_check_object_cast /usr/local/lib/*
+grep ff_cos_4096 /usr/lib/*
+make
+./mplayer --version
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+./mplayer /mnt/sda2/Flash3WyvQV
+./configure --help
+head config.log
+make clean
+grep -r dvd_layer /usr/include/*
+grep -r dvd_layer /usr/multimedia/include/*
+geany /usr/include/sys/dvdio.h
+cp -a MPlayer-1.0rc4-4C MPlayer-1.0rc4-5C
+git branch
+ifconfig
+git commit
+git config user.email root@puppypc.crash
+git config user.name "Root"
+git commit
+git pull
+echo $HISTSIZE
+echo $HISTFILE
+echo $HISTFILESIZE 
+echo $HISTCONTROL 
+echo $HISTCMD
+git checkout linux-4.3.y
+git pull
+git checkout linux-4.4.y
+git checkout linux-4.3.y
+git checkout linux-4.2.y
+git pull
+git checkout linux-4.1.y
+git pull
+git checkout linux-4.0.y
+git checkout linux-3.21.y
+git checkout linux-3.20.y
+git checkout linux-3.19.y
+git checkout linux-3.18.y
+git pull
+git checkout linux-3.14.y
+git pull
+git checkout linux-3.12.y
+git pull
+git checkout linux-3.10.y
+git pull
+git checkout linux-3.2.y
+git pull
+git checkout linux-3.4.y
+git checkout linux-3.19.y
+git checkout master
+git pull
+git branch
+git checkout Fox3-GreatWallU310-KRGall
+git pull
+git branch
+git checkout Fox3-Dell755
+git pull
+pwd
+git pull
+lspci
+git branch
+./git_helper/update_files.sh 
+git branch
+git commit
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git commit
+git add woof-code/rootfs-skeleton/root/Startup/xosview.startup
+git add woof-code/rootfs-skeleton/root/Startup/bin/
+git commit -m '/root/Startup : Added xosview.startup script
+and bin/xosview -> bin/xosview-asb100 binary.
+That xosview is configured to support either coretemp or asb100
+kernel temperature module.'
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+git branch
+git pull
+git remote -v
+git pull
+./git_pull_all_directories-02.sh 
+git pull
+diff -up git_pull_all_directories-00 git_pull_all_directories-01
+diff -up git_pull_all_directories-00.sh git_pull_all_directories-01.sh
+diff -up git_pull_all_directories-01.sh git_pull_all_directories-02.sh
+diff -up git_pull_all_directories-02.sh git_pull_all_directories-03.sh
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib" 
+make
+ls -sl mplayer
+ls -sl mplayer*
+ls -sl mencoder*
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped 
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -sl mencoder*
+ls -sl mplayer*
+make clean
+head config.log
+./configure --help
+cp MPlayer-1.0rc4-5C MPlayer-1.0rc4-6C
+cp -ai MPlayer-1.0rc4-5C/ MPlayer-1.0rc4-6C
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+ls -ls mplayer*
+ls -ls mencoder*
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped 
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped 
+ls -ls mencoder*
+ls -ls mplayer*
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer*
+ls -ls mencoder*
+./mplayer /mnt/sda2/Flash3WyvQV
+./configure --help
+ldd ./mplayer | sort
+file /usr/local/lib/libSDL-1.0.so.0
+file /usr/local/lib/libSDL-1.2.so.0
+file /usr/local/lib/libSDL-1.2.so
+file /usr/local/lib/libSDL.so
+ls -l /usr/local/lib/libSDL*
+ln -s libSDL-1.0.so.0 /usr/local/lib/libSDL-1.0.so
+ln -s libSDL-1.2.so.0 /usr/local/lib/libSDL-1.2.so
+file /usr/local/lib/libSDL-1.0.so
+file /usr/local/lib/libSDL-1.2.so
+head config.log
+make clean
+cp -ai MPlayer-1.0rc4-6C MPlayer-1.0rc4-7C
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+ls -ls mplayer*
+ls -ls mencoder*
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped 
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped 
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+ls -ls mencoder*
+ls -ls mplayer*
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer*
+ls -ls mencoder*
+./mplayer /mnt/sda2/Flash3WyvQV
+./configure --help
+head config.log
+make clean
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+make clean
+ls -l /usr/local/lib/libSDL.so
+ln -sf libSDL-1.2.so /usr/local/lib/libSDL.so
+ls -l /usr/local/lib/libSDL.so
+realpath /usr/local/lib/libSDL.so
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+make clean
+ldd mplayer-1.0rc4-4.2.2-2016-01-26-stripped | sort
+echo $LD_LIBRARY_PATH 
+ls -l /usr/local/lib/libgtk-1.2.so
+ls -l /usr/local/lib/libgtk*
+file /usr/lib/libgtk.so
+file /usr/lib/libgtk-1.so
+ls -l /usr/lib/libgtk*
+ln -sf libgtk-1.2.so /usr/lib/libgtk-1.so
+ln -sf libgtk-x11-2.0.so /usr/lib/libgtk-2.0.so
+ln -sf libgtk-2.0.so /usr/lib/libgtk-2.so
+ls -l /usr/lib/libgtk*
+ls -l /usr/local/lib/libgtk*
+ln -sf libgtk-1.2.so /usr/local/lib/libgtk-1.so
+ln -sf libgtk-1.so /usr/local/lib/libgtk.so
+ls -l /usr/local/lib/libgtk*
+ln -sf libgtk-1.2.so.0.9.1 /usr/local/lib/libgtk-1.2.so.0
+ls -l /usr/local/lib/libgtk*
+./conifgure --help
+./configure --help
+head config.log
+ls -l /usr/lib/libgth*
+ls -l /usr/lib/libgtk*
+rm /usr/lib/libgtk.so
+rm /usr/lib/libgtk-1.so
+rm /usr/lib/libgtk-1.2.so
+ls -l /usr/local/lib/libgtk*
+rm /usr/local/lib/libgtk.so
+rm /usr/local/lib/libgtk-1.so
+rm /usr/local/lib/libgtk-1.2.so
+ls -l /usr/lib/libSDL*
+ls -l /usr/local/lib/libSDL*
+ls -l /usr/local/lib/libSDL*.so
+rm /usr/local/lib/libSDL-1.0.so
+rm /usr/local/lib/libSDL-1.2.so
+rm /usr/local/lib/libSDL-1.3.so
+rm /usr/local/lib/libSDL.so
+ls -l /usr/local/lib/libSDL*.so
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer*
+ls -ls mencoder*
+make clean
+./configure -help
+git init
+git remote add gio [  6271.445] (II) FBDEV: driver for framebuffer: fbdev
+[  6271.445] (--) using VT number 5
+[  6271.483] (II) Loading sub module "fbdevhw"
+[  6271.483] (II) LoadModule: "fbdevhw"
+[  6271.483] (II) Loading /usr/X11R7.7/lib/xorg/modules/linux/libfbdevhw.so
+[  6271.483] (II) Module fbdevhw: vendor="X.Org Foundation"
+[  6271.483] .git/compiled for 1.8.2, module version = 0.0.2
+[  6271.483] .git/ABI class: X.Org Video Driver, version 7.0
+[  6271.483] (WW) module ABI major version (7) doesn't match the server's version (10)
+[  6271.484] (II) Loading /usr/X11R7.7/lib/xorg/modules/drivers/fbdev_drv.so
+[  6271.484] (II) Loading /usr/X11R7.7/lib/xorg/modules/linux/libfbdevhw.so
+[  6271.484] (**) FBDEV(0): claimed PCI slot 1@0:0:0
+[  6271.484] (II) FBDEV(0): using default device
+[  6271.484] (**) FBDEV(0): Depth 24, (--) framebuffer bpp 32
+[  6271.484] (==) FBDEV(0): RGB weight 888
+[  6271.484] (==) FBDEV(0): Default visual is TrueColor
+[  6271.484] (==) FBDEV(0): Using gamma correction (1.0, 1.0, 1.0)
+[  6271.484] (II) FBDEV(0): hardware: ATI Radeon 5964 (video memory: 131072kB)
+[  6271.484] (II) FBDEV(0): checking modes against framebuffer device...
+[  6271.484] (II) FBDEV(0): .git/mode "1920x1080" not found
+[  6271.484] (II) FBDEV(0): checking modes against monitor...
+[  6271.484] (--) FBDEV(0): Virtual size is 1920x1080 (pitch 1920)
+[  6271.484] (**) FBDEV(0):  Built-in mode "current": 148.5 MHz, 67.5 kHz, 60.0 Hz
+[  6271.484] (II) FBDEV(0): Modeline "current"x0.0  148.50  1920 2008 2052 2200  1080 1084 1089 1125 +hsync +vsync -csync (67.5 kHz)
+[  6271.485] (==) FBDEV(0): DPI set to (96, 96)
+[  6271.485] (II) Loading sub module "fb"
+[  6271.485] (II) LoadModule: "fb"
+[  6271.491] (II) Loading /usr/X11R7.7/lib/xorg/modules/libfb.so
+[  6271.492] (II) Module fb: vendor="X.Org Foundation"
+[  6271.492] .git/compiled for 1.10.6, module version = 1.0.0
+[  6271.492] .git/ABI class: X.Org ANSI C Emulation, version 0.4
+[  6271.492] (**) FBDEV(0): using shadow framebuffer
+[  6271.492] (II) Loading sub module "shadow"
+[  6271.492] (II) LoadModule: "shadow"
+[  6271.499] (II) Loading /usr/X11R7.7/lib/xorg/modules/libshadow.so
+[  6271.499] (II) Module shadow: vendor="X.Org Foundation"
+[  6271.499] .git/compiled for 1.10.6, module version = 1.1.0
+[  6271.499] .git/ABI class: X.Org ANSI C Emulation, version 0.4
+[  6271.499] (==) Depth 24 pixmap format is 32 bpp
+[  6271.506] (==) FBDEV(0): Backing store disabled
+[  6271.507] (==) FBDEV(0): DPMS enabled
+git remote add gio http://ftp.acc.umu.se/pub/gnome/sources/gio-standalone/
+git pull
+git pull gio
+git help remote
+git remote remove gio
+gti remote -v
+git remote -v
+git remote add git://git.gnome.org/glib
+git remote add glib git://git.gnome.org/glib
+git pull glib
+git checkout glib-1-2
+git checkout glib-2-0
+git checkout glib-2-40
+git checkout glib-2-20
+git branch
+git pull
+./configure --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+ls -ls mplayer*
+ls -ls mencoder*
+./mplayer /mnt/sda2/Flash3WyvQV
+make clean
+ln -s mplayer-1.0rc4-4.2.2-2016-01-26-stripped gmplayer
+./gmplayer
+./qmplayer /mnt/sda2/Flash3WyvQV
+./gmplayer /mnt/sda2/Flash3WyvQV
+./configure --help
+head config.log
+find -name "*.conf"
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+ls -sl mplayer*
+ls -sl mencoder*
+ln -s mplayer-1.0rc4-4.2.2-2016-01-26-stripped gmplayer
+./gmplayer
+strace ./gmplayer 2>gmplayer.strace
+./gmplayer /mnt/sda2/Flash3WyvQV
+starce ./gmplayer /mnt/sda2/Flash3WyvQV 2>gmplayer.strace2
+strace ./gmplayer /mnt/sda2/Flash3WyvQV 2>gmplayer.strace2
+./configure --enable-xvmc --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib"
+make
+./mplayer /mnt/sda2/Flash3WyvQV
+./configure --help
+./configure --enable-xvmc --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib" --enable-tdfxvid --enable-bl --enable-zr --enable-wii --enable-s3fb --enable-tdfxfb --enable-3dfx --enable-xmms --enable-tremor-low --enable-radio --enable-radio-capture --enable-apple-ir --enable-joystick 
+make
+find -name "make-errs.log*"
+make
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26
+cp mplayer mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+strip mplayer-1.0rc4-4.2.2-2016-01-26-stripped
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26
+cp mencoder mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+strip mencoder-1.0rc4-4.2.2-2016-01-26-stripped
+ls -sl mencoder*
+ls -sl mplayer*
+./gmplayer /mnt/sda2/Flash3WyvQV
+./mplayer /mnt/sda2/Flash3WyvQV
+./gmplayer /mnt/sda2/Flash3WyvQV
+head config.log
+ldd mplayer |sort >mplayer.ldd
+make clean
+type -a sdl-config
+file /usr/bin/sdl-config
+mv /usr/bin/sdl-config /usr/bin/sdl-config-bin
+mv /usr/local/bin/sdl-config /usr/local/bin/sdl-config-localbin
+type a gtk-config
+type -a gtk-config
+make clean
+find /usr -name svgalib_helper.h
+find /usr -name "svga*.h"
+ls /usr/SDL/lib
+ln -s libSDL-1.2.so.0 /usr/SDL/lib/libSDL.so
+./configure --enable-xvmc --enable-gui --enable-gtk1 --enable-dynamic-plugins --enable-runtime-cpudetection --extra-cflags="-I/usr/SDL/include -I/usr/gtk/include -I/usr/multimedia/include" --extra-libs="-L/usr/SDL/lib -L/usr/gtk/lib -L/usr/multimedia/lib" --cc=/usr/local/musl/bin/musl-gcc 
+./configure --help
+head config.log
+find /usr -name x264.h
+cat /usr/lib/pkgconfig/glib-2.0.pc
+cp -a MPlayer-1.0rc4-7C MPlayer-1.0rc4-8C
+cp -a MPlayer-1.0rc4-8C MPlayer-1.0rc4-9C
+find /usr -name "*glib*.pc"
+cp -a MPlayer-1.0rc4-9C MPlayer-1.0rc4-10C
+cp -a MPlayer-1.0rc4-10C MPlayer-1.0rc4-11C
+cp -a MPlayer-1.0rc4-11C MPlayer-1.0rc4-12C
+cp -a MPlayer-1.0rc4-11C MPlayer-1.0rc4-13C
+crossfire-client-gtk1-1.12.svn 
+elinks
+df
+wmexit
+jwm -reload
+jwm -restart
+
+Wed Jan 27 07:44:05 GMT+1 2016
+
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help | grep '^[[:blank:]]'
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help | grep '^[[:blank:]]*'
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help | grep '^[[:blank:]]\+'
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help 2>/dev/null | grep '^[[:blank:]]\+'
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help 2>/dev/null | grep '^[[:blank:]]\+' | wc -l
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo xv,xvmc,xover,x11,sdl,gl "/mnt/sda2/VID/MSC/Nova/HEATHER NOVA - London Rain - YouTube<_title>.flv"
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo help 2>/dev/null | grep '^[[:blank:]]\+' | wc -l
+man mplayer
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped "/mnt/sda2/VID/MSC/Nova/HEATHER NOVA - London Rain - YouTube<_title>.flv"
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped -vo xv,xvmc,xover,x11,sdl,gl "/mnt/sda2/VID/MSC/Nova/HEATHER NOVA - London Rain - YouTube<_title>.flv"
+
+Wed Jan 27 09:18:52 GMT+1 2016
+
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped /mnt/sda2/VID/MSC/Genesis/FlashU79t7o.mp4
+./mplayer-1.0rc4-4.2.2-2016-01-26-stripped /mnt/sda2/VID/MSC/Flash.d/FlashC0mPIo.flv
+./gmplayer /mnt/sda2/VID/MSC/Flash.d/FlashC0mPIo.flv
+rox
+geany
+lsmod | grep fb
+modinfo radeon
+modinfo radeonfb
+
+Wed Jan 27 10:43:09 GMT+1 2016
+
+llsmod | grep nv
+lsmod | grep nv
+modinfo nvidiafb
+geany /usr/sbin/xorgwizard
+./gmplayer /mnt/sda2/VID/MSC/DeadCatch/FlashNyWQiJ.flv
+modprobe -v asb100
+geany /usr/sbin/xorgwizard
+git pull
+./git_helper/update_files3.sh 
+git push krg Fox3-Dell755
+git push MSkrg Fox3-Dell755
+geany /etc/rc.d/f4puppy5
+
+Wed Jan 27 19:49:46 GMT+1 2016
+
+echo $PKG_CONFIG_PATH 
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find /usr -name xorg-server.h
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find /usr -name xf86CursorPriv.h
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find -name xf86CursorPriv.h
+grep -r 'xf86CursorPriv\.h' *
+grep -r xf86CursorScreenPtr *
+pwd
+grep -r xf86CursorScreenPtr *
+find -name xf86CursorPriv.h
+grep -r xf86CursorScreenPtr *
+pwd
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+file /usr/local/lib/pkgconfig
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find /usr -name xf86Resources.h
+find /usr -name xf86RAC.h
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make clean
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include -I/usr/X11R7.7/include/xorg -I/usr/X11R7.7/include/pixman-1 -I/usr/include_latest/xorg.ati' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find /mnt/sda7/usr -name xf86CursorPriv.h
+grep xf86CursorScreenPtr /usr/X11/include/*
+grep -r xf86CursorScreenPtr /usr/X11/include/*
+grep -r xf86CursorScreenPtr /usr/local/include/*
+grep -r xf86CursorScreenPtr /usr/local/include/* 2>/dev/null
+grep -r xf86CursorScreenPtr /usr/include/* 2>/dev/null
+grep -r xf86CursorScreenPtr /usr/X11/include/* 2>/dev/null
+find -name "make-errs*"
+pkg-config libpciaccess
+pkg-config libpciaccess; echo $?
+find /usr -name pciaccess.pc
+pkg-config --modversion pciaccess
+mv /usr/lib/pkgconfig/pciaccess.pc /usr/lib/pkgconfig/OUTpciaccess.pc
+pkg-config --modversion pciaccess
+diff -up /mnt/sda7/usr/X11R7.7/lib/xorg/compiling/xf86-video-nv-2.1.17/config.log /usr/X11R7.7/lib/xorg/compiling/xf86-video-nv-2.1.17/config.log
+diff -up /mnt/sda7/usr/X11R7.7/lib/xorg/compiling/xf86-video-nv-2.1.17/config.log /usr/X11R7.7/lib/xorg/compiling/xf86-video-nv-2.1.17/config.log >/root/nv_config.diff
+geany /root/nv_config.diff
+chroot .
+./gmplayer "/mnt/sda2/VID/MSC/Crow/Sheryl Crow ' Rock And Roll ' (High Quality).mp4"
+modprobe asb100
+/root/Startup/xosview.startup 
+google-earth 
+
+Sun Jan 31 13:40:33 GMT+1 2016
+
+ln -s ../init init
+ln -s ../bin/busybox reboot
+ln -s ../init init
+ln -s ../bin/busybox reboot
+ln -s busybox id
+ln -s busybox id
+ln -s ../bin/busybox reboot
+ln -s ../init init
+ln -s busybox id
+busybox id
+umask --help
+mask --help
+type -a umask
+type -a id
+
+Tue Feb 2 01:07:20 GMT+1 2016
+
+/root/Startup/xosview.startup
+lsmod | grep nouveau
+lsmod | grep drm
+lsmod | grep i915
+modprobe -vr i915
+find /sys -name "temp*"
+cat /sys/devices/pci0000:00/0000:00:02.1/i2c-0/0-002d/temp1_max
+cat /sys/devices/pci0000:00/0000:00:02.1/i2c-0/0-002d/temp1_alarm
+cat /sys/devices/pci0000:00/0000:00:02.1/i2c-0/0-002d/temp1_hyst
+cat /sys/devices/pci0000:00/0000:00:02.1/i2c-0/0-002d/temp1_max_hyst
+cat /sys/devices/pci0000:00/0000:00:02.1/i2c-0/0-002d/temp1_input
+modprobe -v asb100
+
+Tue Feb 2 01:42:41 GMT+1 2016
+
+geany /etc/rc.d/rc.sysinit
+geany /etc/rc.d/rc.sysinit.run
+MODALIASES=`ls -1v /sys/bus/*/devices/*/modalias`
+MODALIASES="$MODALIASES
+`ls -1v /sys/bus/*/drivers/*/uevent`"
+echo $MODALIASES
+echo $MODALIASES |wc -w
+MODALIASES=`ls -1v /sys/bus/*/devices/*/modalias`
+MODALIASES="$MODALIASES
+`ls -1v /sys/bus/*/drivers/modalias`"
+find /sys/bus/*/drivers -name "modalias"
+find /sys/bus/pci/drivers -name "modalias"
+find /sys/bus/pci/drivers -name "uevent"
+lsmod | grep drm
+lsmod | grep agp
+lsmod | grep nouveau
+lsmod | grep nvidia
+find /sys -name "nouveau*"
+find /sys -name "nvidia*"
+modprobe -v nouveau modeset=0
+find /sys -name "nvidia*"
+find /sys -name "nouveau*"
+modprobe -vr nouveau
+modprobe -v nouveau modeset=1
+find /sys -name "nouveau*"
+ls /sys/bus/pci/drivers/nouveau
+cat /sys/bus/pci/drivers/nouveau/uevent
+ls -F /sys/bus/pci/drivers/nouveau
+ls -F /sys/bus/pci/drivers/nouveau/module
+ls /sys/bus/pci/drivers/nouveau/module
+ls /sys/bus/pci/drivers/nouveau/module/uevent
+cat /sys/bus/pci/drivers/nouveau/module/uevent
+echo add >/sys/bus/pci/drivers/nouveau/module/uevent
+find /sys -name "nvidia*"
+ls /sys/bus/pci/drivers/nvidiafb
+modprobe -v asb100
+/root/Startup/xosview.startup
+ifconfig
+
+Tue Feb 2 04:56:08 GMT+1 2016
+
+modprobe -v asb100
+ifconfig
+ifconfig -a
+ifconfig eth1 up
+dhcpcd eth1
+/root/Startup/xosview.startup
+head -n17 zzzProgs 
+head -n17 zzzProgs >/tmp/z
+mv /tmpz zzzProgs 
+mv /tmp/z zzzProgs 
+uname -r
+history | grep wget
+chroot .
+wget c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.10.tar.bz2
+wget c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.8.tar.bz2
+wget c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.6.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.4.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.2.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.0.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.1.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.3.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.5.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.6.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.7.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.9.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.11.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.12.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.13.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.0.14.tar.bz2
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.1.0
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.1.1
+wget -c --limit-rate=5k http://www.x.org/releases/individual/driver/xf86-video-nouveau-1.1.2
+echo $PKG_CONFIG_PATH 
+echo $PKG_CONFIG_PATH | tr ':' '\n'
+find /usr -name "libdrm*.pc"
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+export PKG_CONFIG_PATH=/usr/X11R7.7/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+export PKG_CONFIG_PATH=/usr/X11R7.7/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+find /usr -name "nouveau*.pc"
+find /usr -name "*nouveau*.pc"
+cat /usr/lib/pkgconfig/libdrm_nouveau.pc
+export PKG_CONFIG_PATH=/usr/X11R7.7/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+cfclient
+export PKG_CONFIG_PATH=/usr/X11R7.7/lib/pkgconfig:$PKG_CONFIG_PATH
+./configure --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+git checkout screen-conv-api
+git checkout randr-1.2
+git checkout nvc0
+git checkout nv50-branch
+git checkout nv-branch-1
+git checkout ng
+git checkout dri3
+git checkout master
+find /usr -name "*nouveau*"
+ping -c1 google.com
+ping -c1 github.com
+git init
+git remote add nouveau git://anongit.freedesktop.org/nouveau/xf86-video-nouveau
+git pull
+git pull nouveau
+git init
+git remote add libdrm http://anongit.freedesktop.org/git/mesa/drm.git
+git pull libdrm
+git init
+git remote add libdrm git://anongit.freedesktop.org/mesa/drm
+git pull libdrm
+git branch -r
+git init
+git remote add ssh://git.freedesktop.org/git/mesa/drm
+git remote add libdrm.ssh ssh://git.freedesktop.org/git/mesa/drm
+git pull libdrm.ssh
+./configure --help
+./configure --enable-vmwgfx-experimental-api --enable-nouveau-experimental-api 
+./configure --enable-vmwgfx-experimental-api --enable-nouveau-experimental-api --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+find /usr -name "libdrm_*"
+wget -c --limit-rate=5k --read-timeout=35 http://http.debian.net/debian/pool/main/libd/libdrm/libdrm_2.4.21.orig.tar.gz
+./configure --help
+./configure --enable-vmwgfx-experimental-api --enable-nouveau-experimental-api --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make check
+make -k check
+make -i check
+grep -r -m2 O_CLOEXEC /usr/include/*
+./configure --help
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make test
+make tests
+make check
+./configure --help
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-freedreno-experimental-api --enable-install-test-programs --enable-cairo-tests --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make -i
+make -i check
+./configure --help
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --enable-tegra-experimental-api --enable-install-test-programs --enable-manpages --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib'
+make
+make -i
+git remote
+git pull libdrm nouveau-1
+wget -c --limit-rate=5k http://www.x.org/releases/individual/lib/libdrm-2.4.25.tar.bz2
+wget -c --limit-rate=5k http://http.debian.net/debian-backports/pool/main/libd/libdrm/libdrm_2.4.26.orig.tar.gz
+wget -c --limit-rate=5k http://http.debian.net/debian/pool/main/libd/libdrm/libdrm_2.4.40.orig.tar.gz
+wget -c --limit-rate=5k http://http.debian.net/debian/pool/main/libd/libdrm/libdrm_2.4.58.orig.tar.gz
+wget -c --limit-rate=5k http://http.debian.net/debian/pool/main/libd/libdrm/libdrm_2.4.66.orig.tar.gz
+find /usr -name "libdrm*.so*"
+strings /usr/X11R7.7-1.10.6-BIG/lib/libdrm.so.2
+type -a autoconf
+geany /usr/bin/autoconf
+git tag -l
+git checkout libdrm-2.4.35
+./autogen.sh 
+chmod +x /usr/bin/autoconf
+./autogen.sh 
+geany /usr/bin/autoheader
+chmod +x chmod +x 
+chmod +x chmod +x +x
+chmod +x /usr/bin/autoheader
+./autogen.sh 
+git log
+git log --grep automake
+cd /
+autoconf --help
+git checkout libdrm-2.4.30
+git checkout libdrm-2.4.29
+git checkout libdrm-2.4.31
+git branch
+git branch -r
+git remote
+git tag -l
+git checkout 2.4.30
+./autogen.sh 
+file /usr/bin/autom4te
+find /usr -name install-sh
+cp -a /usr/share/automake-1.9.6/install-sh build-aux/
+./configure
+git checkout 2.4.27
+./autogen.sh 
+pwd
+git remote add LIBDRM https://github.com/freedreno/libdrm
+git remote
+git pull LIBDRM
+gi config http.sslverify false
+git config http.sslverify false
+git pull LIBDRM
+find /usr -type d -name "automake*"
+type -a find
+file /bin/find
+find --version
+pwd
+cd ..
+chroot .
+pwd
+./configure --help
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --enable-tegra-experimental-api --enable-install-test-programs --enable-manpages --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib' --enable-vmwgfx-experimental-api
+make
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --enable-tegra-experimental-api --enable-install-test-programs --enable-manpages --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib' --enable-vmwgfx-experimental-api
+./configure --help
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --enable-tegra-experimental-api --enable-install-test-programs --enable-manpages --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib' --enable-vmwgfx-experimental-api --enable-nouveau-experimental-api
+make
+./configure --enable-static --enable-omap-experimental-api --enable-exynos-experimental-api --enable-cairo-tests --enable-tegra-experimental-api --enable-install-test-programs --enable-manpages --prefix=/usr/X11R7.7 CFLAGS='-I/usr/X11R7.7/include' LDFLAGS='-L/usr/X11R7.7/lib' --enable-vmwgfx-experimental-api --enable-nouveau-experimental-api
+make
+pwd
+chroot .
+cd ..
+chroot .
+cd ..
+chroot .
+make
+git log
+git log --grep memstream
+grep -m2 -r memstream *
+grep -r -ms -i memstream /usr/include/*
+grep -r -m2 -i memstream /usr/include/*
+geany /usr/include/stdio.h
+
+Tue Feb 2 21:26:22 GMT+1 2016
+
+geany /sbin/init
+mkfs.ext2 --help
+man mkfs.ext2
+/etc/init.d/DRIVER/z99_alsa.init start
