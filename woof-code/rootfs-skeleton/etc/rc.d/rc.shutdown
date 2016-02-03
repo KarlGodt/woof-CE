@@ -138,7 +138,7 @@ esac; done
 ###################### HEADER 0 #################################
 
 ################# SNAPMERGE DIALOG ##############################
-save_session(){
+_save_session(){
 [ "$VERBOSE" ] && _continue
 #http://www.murga-linux.com/puppy/viewtopic.php?p=383738#383738
 dialog --yesno "Save this session?" 0 0 >/dev/console
@@ -220,6 +220,7 @@ ORIGPUPMODE=$PUPMODE #v2.22
 
 
 ##### VERBOSE ############################
+_check_everything(){
 if [ "$VERBOSE" ]; then
   echo -e '\033[0;36m'"Executing /etc/rc.d/rc.shutdown..."'\033[0;39m'
  echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
@@ -230,6 +231,8 @@ if [ "$VERBOSE" ]; then
  fi
  echo
 fi
+}
+ _check_everything
 ##### VERBOSE ############################
 
 ######## PUPPYVERSION ############################################
@@ -315,10 +318,12 @@ cd /
 #just a precaution...
 pidof X >>$OUT && {
 echo -e '\033[0;33m'"Killing X and all X apps..."'\033[0;39m'
-killall $Q -9 X >>$OUT 2>>$ERR
+(
+killall $Q -9 X
 sleep 1
-killall $Q -3 X >>$OUT 2>>$ERR
+killall $Q -3 X
 [ "$FORCE" ] || { pidof sync >>$OUT || sync; }
+) >>$OUT 2>>$ERR
 [ "$VERBOSE" ] && { LINEP=D005; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 }
 ################### kill X ########
@@ -326,9 +331,11 @@ killall $Q -3 X >>$OUT 2>>$ERR
 
 ################### dillo ################
 #MU warns may need to do this for dillo...
-killall $Q file.dpi      2>>$ERR
-killall $Q bookmarks.dpi 2>>$ERR
-killall $Q dpid          2>>$ERR
+(
+killall $Q file.dpi
+killall $Q bookmarks.dpi
+killall $Q dpid
+) 2>>$ERR
 [ "$VERBOSE" ] && { LINEP=D006; echo "$DBG line `[ $LINENO ] && echo $LINENO || _say_lineno $LINEP`"; }
 ################### dillo ################
 
@@ -336,9 +343,9 @@ killall $Q dpid          2>>$ERR
 ################# rc.services ######################################
 old_service_script_function(){
 #v2.16 some packages have a service script that requires stopping...
-for service_script in /etc/init.d/*
+for service_script in `ls -1 /etc/init.d/* | tac`
 do
-  [ -f $service_script -a -x $service_script ] && $service_script stop
+  [ -f "$service_script" -a -x "$service_script" ] && "$service_script" stop & sleep 0.5
 done
 #note, /etc/rc.d/rc.local0 does same, with 'start' parameter.
 }
@@ -963,9 +970,9 @@ To quit without saving, select <No>..." 0 0 >/dev/console
  Looks ok, but you want to change the folder, <CHANGE FOLDER>...
  If anything looks wrong, choose <DO NOT SAVE>...\Zn" 0 0 >/dev/console
   SANITYRET=$?
-  [ $SANITYRET = 0 -o $SANITYRET = 3 ] || return 1
-  [ $SANITYRET -eq 0 ] && break
-  if [ $SANITYRET -eq 3 ]; then #change folder.
+  [ "$SANITYRET" = 0 -o "$SANITYRET" = 3 ] || return 1
+  [ "$SANITYRET" -eq 0 ] && break
+  if [ "$SANITYRET" -eq 3 ]; then #change folder.
    NEWSAVEPATH=`dialog --stdout --no-cancel --inputbox "Edit path. '/' means top-level of partition. You are only allowed to save one-deep, for example: '/puppy300'. If folder does not exist, it will be created. Spaces are not allowed. If uncertain, just press the ENTER key." 0 0 "$SAVEPATH"`
    [ "$NEWSAVEPATH" = "" ] && NEWSAVEPATH="$SAVEPATH"
    [ "`echo -n "$NEWSAVEPATH" | cut -b 1`" = "/" ] || NEWSAVEPATH="/${NEWSAVEPATH}"
@@ -1021,9 +1028,9 @@ To quit without saving, select <No>..." 0 0 >/dev/console
 } #end _create_pupsave_file
 ############################## choose and make pupsave ################################
 ###################### PUPMODE 5 ########################################
-pupmode_5_func() {
+_pupmode_5_main() {
 #first time booted puppy, there may not have been any persistent storage.
- [ $PUPMODE -eq 5 ] || return 0
+ [ "$PUPMODE" -eq 5 ] || return 0
 
  #v2.16.1 pxe boot, humongous initrd, have PDEV1='' DEV1FS=''...
  #3.97...
@@ -1107,7 +1114,7 @@ Select <DO NOT SAVE> to shutdown without saving session..." 0 0 >/dev/console
   esac
 
 }
-pupmode_5_func
+_pupmode_5_main
 [ "$VERBOSE" ] && echo "END IF PUPMODE 5" #DBG
 ###################### PUPMODE 5 ########################################
 
@@ -1121,16 +1128,16 @@ _make_swapfile() {
  localSAVEPART="$2"
  [ -f ${localSMNTPT}/pupswap.swp ] && return 0
    TOTALRAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 3 -d ' '`
-   if [ $TOTALRAM -lt 262145 ]; then #was 128000, bump up <=256MB.
+   if [ "$TOTALRAM" -lt 262145 ]; then #was 128000, bump up <=256MB.
     TOTALSWAP=`free | grep -o 'Swap:.*' | tr -s ' ' | cut -f 3 -d ' '`
-    if [ $TOTALSWAP -eq 0 ]; then
+    if [ "$TOTALSWAP" -eq 0 ]; then
      spPATTERN="$localSAVEPART"'|'
      if [ "`echo "$FASTPARTS" | grep "$spPATTERN"`" ]; then
       #smPATTERN=' '"$localSMNTPT"'$'
       FREESAVEM=`/bin/df -m "$localSMNTPT" | tail -n1 | tr -s ' ' | cut -f 4 -d ' '`
       SWPSIZE="256"
-      [ $FREESAVEM -lt 512 ] && SWPSIZE=$((FREESAVEM / 2))
-      [ $FREESAVEM -gt 128 ] || SWPSIZE=""
+      [ "$FREESAVEM" -lt 512 ] && SWPSIZE=$((FREESAVEM / 2))
+      [ "$FREESAVEM" -gt 128 ] || SWPSIZE=""
        if [ "$SWPSIZE" ]; then
        echo  >/dev/console
        echo "A swapfile named 'pupswap.swp' is being created in partition ${localSAVEPART}," >/dev/console
@@ -1198,7 +1205,7 @@ CD into the $PDEV1 drive (the same one that the CD was in at
 startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/console
     RETVAL=$?
     [ "$VERBOSE" ] || clear >/dev/console
-    if [ $RETVAL -eq 0 ];then
+    if [ "$RETVAL" -eq 0 ];then
      echo "Please wait, accessing CD drive..." >/dev/console
      aPATTERN="^/dev/$PDEV1 "
      CDMNTPT=`grep "$aPATTERN" /proc/mnounts | cut -f 2 -d ' '`
@@ -1214,7 +1221,7 @@ startup), if it isn't already, THEN select the 'Yes' button..." 0 0 >/dev/consol
       FILESIZEK=$(( ( FILESIZEB / 1024 ) + 2048 )) #2MB slack.
       #bPATTERN=" $SMNTPT"'$'
       DRVFREEK=`/bin/df -k "$SMNTPT" | tail -n1 | tr -s ' ' | cut -f 4 -d ' '`
-      if [ $DRVFREEK -gt $FILESIZEK ];then
+      if [ "$DRVFREEK" -gt $FILESIZEK ];then
        if test -e "$SMNTPT"/"$BASESFS"; then
         echo -e '\033[1;32m'"$BASESFS already installed."'\033[0;39m' >/dev/console
        else
@@ -1239,7 +1246,7 @@ case $PUPMODE in
   ;;
 
   3) #PDEV1. full install on internal flash drive: rw=tmpfs ro1=PDEV1
-  save_session 3
+  _save_session 3
   ;;
 
   6) #frugal on HDD complete partiton: rw=PDEV1 ro1=main.sfs
@@ -1247,7 +1254,7 @@ case $PUPMODE in
   ;;
 
   7) #PDEV1 and PUPSFS. frugal on USB partition rw=tmpfs ro1=PDEV1 ro2=main.sfs
-  save_session 7
+  _save_session 7
   ;;
 
   12) #save-file on HDD frugal: rw=pup-save.2fs ro2=main.sfs
@@ -1257,7 +1264,7 @@ case $PUPMODE in
   13) #PDEV1 and PUPSFS and PUPSAVE, save-file on USB: rw=tmpfs ro1=pup-save.2fs ro2=main.sfs
   #/initrd/pup_rw has tmpfs, pup_ro1 has ${DISTRO_FILE_PREFIX}save.2fs file (PUPSAVE), pup_ro2 has PUPSFS file.
   #the above are in unionfs at /.
-  save_session 13
+  _save_session 13
   ;;
 
  5) #v2.02 first boot. Creation of savefile not choosen.
@@ -1497,6 +1504,8 @@ lsmod
 }
 ######## Unload all unused modules ... ####################
 
+c=0; while pidof rc.services; do sleep 2;c=$((c+1));test "$c" = 9 && break; done
+
 pidof mplayer >>$OUT && killall $Q mplayer
 pidof acpid   >>$OUT && killall $Q acpid
 ################### Udev ##################################################
@@ -1635,6 +1644,25 @@ EoI
 }
 _unmount_loop_devices
 
+# REM: busybox swapoff -a works only if swaps are in /etc/mtab or fstab
+swapoff -a && sleep 1
+#v2.13 menno suggests this improvement...
+while read oneSTRAY REST   #Filename Type Size Used Priority
+do
+
+ case $oneSTRAY in
+ /*) :;;
+ *) continue;; #Filename                Type        Size    Used    Priority
+ esac
+
+ case $REST in
+ *deleted*|*Deleted*|*DELETED*) continue;;
+ esac
+
+ echo -e '\033[0;36m'"Swapping off '$oneSTRAY'"'\033[0;39m' >/dev/console
+ swapoff "$oneSTRAY"
+done </proc/swaps
+
 # REM: get mounts in reverse order to unmount nested mounts correctly
 MNTDPARTS=`mount |tac`
 
@@ -1665,25 +1693,6 @@ done <<EoI
 $(echo "$STRAYPARTL" |sed 's#.* on /#/#;s# type [[:alnum:]_]* (.*)$##')
 EoI
 
-# REM: busybox swapoff -a works only if swaps are in /etc/mtab or fstab
-swapoff -a && sleep 1
-#v2.13 menno suggests this improvement...
-while read oneSTRAY REST   #Filename Type Size Used Priority
-do
-
- case $oneSTRAY in
- /*) :;;
- *) continue;; #Filename                Type        Size    Used    Priority
- esac
-
- case $REST in
- *deleted*|*Deleted*|*DELETED*) continue;;
- esac
-
- echo -e '\033[0;36m'"Swapping off '$oneSTRAY'"'\033[0;39m' >/dev/console
- swapoff "$oneSTRAY"
-done </proc/swaps
-
 ################### Umount everything #############################################################
 
 
@@ -1696,7 +1705,7 @@ done </proc/swaps
 _umount_rootfs(){
 #<code from patriot http://www.murga-linux.com/puppy/viewtopic.php?t=55823>
 # Patriot's lame "unmount of rootfs"
-if [ $PUPMODE -ne 5 ]; then
+if [ "$PUPMODE" -ne 5 ]; then
   [ "$FORCE" ] || { pidof sync >>$OUT || { sync; sleep 4; }; }
   case $PUPMODE in
    2)
@@ -1874,7 +1883,7 @@ done
 }
 
 ######## Unload all unused modules ... ####################
-
+_check_everything(){
 if [ "$DEBUG" ]; then
 ps | grep -v '\['
 mount
@@ -1887,6 +1896,8 @@ mount
  echo
 echo "ENDING NOW"  ###DBG
 fi
+}
+_check_everything
 
 __unmount_ar__(){
 # REM: could add -l --lazy option..?
@@ -1899,6 +1910,7 @@ fi
 }
 #__unmount_ar__  ##disable call to help reboot hangs ( probably due to ro devtmpfs )
 
+__check_everything(){
 if [ "$DEBUG" ]; then
  echo -en '\033[0;35m'"FILESYSTEM STATE : "'\033[0;39m'
  if test "$PUPMODE" = 2; then
@@ -1907,6 +1919,7 @@ if [ "$DEBUG" ]; then
  case $DEV1FS in ext[2-4]) dumpe2fs /dev/$PDEV1 | grep -i 'state';; esac
  fi
 fi
+}
 
 [ "$DEBUG" -a ! "$FORCE" ] && _ask_exit_script "exiting at the very end"
 
