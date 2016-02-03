@@ -2,7 +2,7 @@
 #Barry Kauler april 2009, puppylinux.com
 #called from /etc/rc.d/rc.services at bootup, with 'start' param.
 #called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
-
+# bash for caller, since ash does not have that builtin function
 . /etc/rc.d/f4puppy5
 
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
@@ -10,12 +10,12 @@
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
-[ "$DEBUG" ] || DEBUG=`sed 's#[[:punct:]]#_#g;s# #\n#g' /proc/cmdline |grep -iw 'debug'`
+[ "$DEBUG" ] || DEBUG=`sed 's%[[:punct:]]%_%g;s% %\n%g' /proc/cmdline |grep -iw 'debug'`
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 [[ "$1" =~ 'check' ]] && { set -n;shift; }
 
-Version='1.1-Macpup_Foxy_3-KRG'
+Version='1.5-Macpup_Foxy_3-KRG'
 
 usage(){
 USAGE_MSG="
@@ -100,7 +100,7 @@ shift
 done
 
 ###<KRG>
-ME_PROG='/etc/init.d/DRIVER/z99_alsa'
+ME_PROG='/etc/init.d/DRIVER/z99_alsa.init'
 CA_PROG=`readlink -f $0`
 [ -f "$ME_PROG" ] || { echo "$CA_PROG:WARNING: '$ME_PROG' probably renamed or moved elsewhere."; }
 #if [ ! -f "$CA_PROG" ] ; then
@@ -137,11 +137,11 @@ else
 PROGPAT="`readlink -f $0`"
 EXIT=exit
 fi  ###</KRG>
-echo "$CALLER" "$PROGPAT" "$EXIT"
+_debug "CALLER='$CALLER' PROGPAT='$PROGPAT' EXIT='$EXIT'"
 
 #alias modprobe='busybox modprobe -s' #seems not to work for busybox modprobe until v1.17 #works for CONFIG_FEATURE_2_4_MODULES
 
-
+_kernel_version5
 
 case "$1" in
  start)
@@ -217,11 +217,11 @@ fi #FORCE
      MAJ=`echo $i |cut -f2 -d '@'`
      [ "$DEBUG" ] && echo "'$NODE' '$MAJ' '$Min'"
      [ "$NODE" -a "$MAJ" -a "$Min" ] || continue
-     [ -e /dev/$NODE ] && rm /dev/$NODE 2>>$ERR
+     [ -e /dev/$NODE ] && rm $VERB /dev/$NODE
      mknod /dev/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/$NODE
      chmod $VERB ug+rw /dev/$NODE
-     [ -e /dev/$NODE ] && rm /dev/snd/$NODE 2>>$ERR
+     [ -e /dev/snd/$NODE ] && rm $VERB /dev/snd/$NODE
      mknod /dev/snd/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/snd/$NODE
      chmod $VERB ug+rw /dev/snd/$NODE
@@ -307,9 +307,11 @@ EOF
   # remove all sound modules
   CNT=0  ###KRG
   while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
+  if [ "$VERBOSE" -o "$DEBUG" ]; then
   echo
   echo 'still soundmodules loaded:'
   lsmod | grep '^snd[-_].*'
+  fi
   lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
   while read line
   do
@@ -323,9 +325,11 @@ EOF
   done  ###KRG
 
   # remove the 2.2 soundcore module (if possible)
-  case $KERNELVER in 2.2*)
+  case $KERNELVER in 2.2.*)
+  (
   rmmod soundcore
   rmmod gameport
+  ) 2>>$ERR
   ;; esac
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm $VERB -f /var/lock/subsys/alsasound
