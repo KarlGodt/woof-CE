@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/ash
 
-PROG=`readlink -e "$0"`
+PROG=`readlink -f "$0"`
 CURR_DIR="${PROG%/*}"
-cd "$CURR_DIR"
-./bin/xosview 2>/dev/null
+cd "$CURR_DIR"  || exit 3
+( ./bin/xosview || ./bin/xosview -font '-*' ) 2>/dev/null &
