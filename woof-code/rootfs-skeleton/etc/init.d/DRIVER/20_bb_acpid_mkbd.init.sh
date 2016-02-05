@@ -2,7 +2,7 @@
 #* Karl Reimer Godt in June 2012
 #* usual Puppy license
 Version='1.1 Puppy_Linux_Macpup_Foxy3 KRG'
-Version='2.1 Puppy_Linux_Macpup_Foxy3 KRG'
+Version='2.2 Puppy_Linux_Macpup_Foxy3 KRG'
 
 . /etc/rc.d/f4puppy5
 
@@ -31,11 +31,32 @@ echo "$MSG"
 exit $1
 }
 
+_check_cpu_usage(){
+#REM: Busybox acpid sems even on newer versions to occupy a whole CPU core
+#     in some cases. That is slowing down the OS very much and keeps
+#     the load average above 3 on a model name : Intel(R) Celeron(R) CPU 2.40GHz
+test "$*" || return 3 #want the whole set of parameters that acpid got started with
+c=0
+while :; do
+CPU_USAGE0=`/bin/ps -A -o %cpu,args | grep -e "$*" | grep -v grep | awk '{print $1}'`
+test "$CPU_USAGE0" || return 0
+CPU_USAGE=${CPU_USAGE0%.*}
+test "$CPU_USAGE" -gt 9 && {
+ _warn "Closing acpid due to too high cpu usage of '$CPU_USAGE0' per cent."
+ killall acpid && break
+}
+sleep 3
+c=$((c+1))
+test "$c" = 9 && break
+done
+_info "Seems that busybox acpid started OK without CPU stress."
+}
+
 # REM : Sanity checks
  [ "$ACPID_BIN" ] || _usage 1 "No (executable) '$ACPID_BIN' installed?"
  [ "`readlink "$ACPID_BIN" | grep -i 'busybox'`" ] || _usage 1 "$0: Laucher for busybox acpid applet."
 
- BB_BIN=`readlink -f "$ACPID_BIN"`
+ BB_BIN=`realpath "$ACPID_BIN"`
 
 # REM : Parse options
  case $1 in
@@ -188,12 +209,13 @@ test -s "$Log_file" && _log_rotate "$Log_file"
 
  sleep 2
 
- grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
- _debug "grepP='$grepP'"
+ #grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
+ #_debug "grepP='$grepP'"
  echo -n "Starting '$ACPID_BIN' :"
- ps | grep "$ACPID_BIN" | grep "$grepP" || echo FAILED
+ ps | grep "$ACPID_BIN" | grep -e "$*" || echo FAILED
 
  test -s "$Log_file" && cat "$Log_file"
+ _check_cpu_usage $* &
 
  ;;
 
@@ -269,15 +291,15 @@ EoI
    kill $BB_ACPID_PID
    [ $? = 0 ] && {
        _info "killed '$BB_ACPID_PID'"
-       rm -f "$Pid_file"
+       rm $VERB -f "$Pid_file"
        exit 0
    }
   fi
  fi
 
- grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
- _debug "grepP='$grepP'"
- ps | grep "$ACPID_BIN" | grep $Q "$grepP" || { _notice "'$ACPID_BIN' '$*' not running"; exit 20; }
+ #grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
+ #_debug "grepP='$grepP'"
+ ps | grep "$ACPID_BIN" | grep $Q -e "$*" || { _notice "'$ACPID_BIN' '$*' not running"; exit 20; }
 
 while read onePID rest_
 do
@@ -293,7 +315,7 @@ done <<EoI
 `ps | grep "$ACPID_BIN" | grep "$grepP"`
 EoI
 
- ps | grep "$ACPID_BIN" | grep $Q "$grepP" && {
+ ps | grep "$ACPID_BIN" | grep $Q -e "$*" && {
                _warn "FAILED to stop '$ACPID_BIN' '$*'"
   true; } || { _info "Stopped '$ACPID_BIN' '$*'"; }
 
