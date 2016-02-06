@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #BK 2007, original idea from sunburnt
 #Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html). 2007 www.puppylinux.com
 # Written for Puppy 2.16.
@@ -55,6 +55,8 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #KRG
 #************
 
+TTY=`tty`
+TMP_DIR=/tmp/bootmanager; mkdir $VERB -p $TMP_DIR
 
 #reentrant.
 #$1='' then run the main window.
@@ -81,7 +83,7 @@ KERNVER=`uname -r`
 
 KERNELSUBVER=`echo -n "$KERNVER" | cut -f 3 -d '.' | cut -f 1 -d '-'` #v423
 SFSSTR='squashfs, version 3' #v423
-[ $KERNELSUBVER -gt 28 ] && SFSSTR='squashfs, version 4' #v423
+[ "$KERNELSUBVER" -gt 28 ] && SFSSTR='squashfs, version 4' #v423
 
 #v3.02
 . /etc/rc.d/MODULESCONFIG
@@ -135,25 +137,25 @@ extrasfs_func(){
  # fi
  #fi
 
- cd $EXTRASFSMNTPT
+ cd "$EXTRASFSMNTPT"
  #v409 lobster gets some non-sfs files in ALLSFSLIST ...i have no idea how, but
  #need an extra grep filter here... w007 new name woof-007.sfs ... w478 fix for 'pup2' prefix...
- ALLSFSLIST=`ls -1 *.sfs | grep -v '^z' | grep -v "^pup_" | grep -v "^${DISTRO_FILE_PREFIX}\-[0-9][0-9][0-9]\.sfs$" | grep -v "^${DISTRO_FILE_PREFIX}[rz]" | grep '\.sfs$' | tr "\n" " "`
- cd $CURRDIR
+ ALLSFSLIST=`ls -1 *.sfs | grep -vE '^z|^pup[_-]' | grep -v "^${DISTRO_FILE_PREFIX}\-[0-9][0-9][0-9]\.sfs$" | grep -v "^${DISTRO_FILE_PREFIX}[rz]" | grep '\.sfs$'`
+ cd "$CURRDIR"
  sync
- [ "$UNMOUNTME" != "" ] && umount $UNMOUNTME
+ [ "$UNMOUNTME" ] && umount "$UNMOUNTME"
 
  #eliminate other versions from list...
  FIXEDSFSLIST=""
- rm $VERB -f /tmp/bootmanager_wrong_sfs_version 2>$ERR #v423
+ rm $VERB -f "$TMP_DIR"/bootmanager_wrong_sfs_version  #v423
  for oneSFS in $ALLSFSLIST
  do
-  [ "`echo "$oneSFS" | grep '_[0-9][0-9][0-9]' | grep -v "$DISTRO_VERSION"`" != "" ] && continue
+  [ "`echo "$oneSFS" | grep '_[0-9][0-9][0-9]' | grep -v "$DISTRO_VERSION"`" ] && continue
   #w020 other compat-distro sfs need to be eliminated...
-  [ "`echo "$oneSFS" | grep '\\-[0-9][0-9][0-9]\\.sfs' | grep -v "$DISTRO_VERSION"`" != "" ] && continue
+  [ "`echo "$oneSFS" | grep '\-[0-9][0-9][0-9]\.sfs' | grep -v "$DISTRO_VERSION"`" ] && continue
   #v423 eliminate wrong squashfs version...
   if [ "`disktype ${EXTRASFSMNTPT}/${oneSFS} | grep "$SFSSTR"`" = "" ];then
-   echo "$oneSFS" >> /tmp/bootmanager_wrong_sfs_version
+   echo "$oneSFS" >> "$TMP_DIR"/bootmanager_wrong_sfs_version
    continue
   fi
   FIXEDSFSLIST="$FIXEDSFSLIST $oneSFS"
@@ -166,7 +168,7 @@ extrasfs_func(){
   if [ "$EXTRASFSLIST" = "" ];then
    DLGLIST="$DLGLIST $oneSFS $oneSFS off"
   else
-   [ "`echo -n "$EXTRASFSLIST" | grep -v "$oneSFS"`" != "" ] && DLGLIST="$DLGLIST $oneSFS $oneSFS off"
+   [ "`echo -n "$EXTRASFSLIST" | grep -v "$oneSFS"`" ] && DLGLIST="$DLGLIST $oneSFS $oneSFS off"
   fi
  done
  for oneSFS in $EXTRASFSLIST
@@ -175,11 +177,11 @@ extrasfs_func(){
  done
 
  #v423 let user know wrong sfs's...
- if [ -e /tmp/bootmanager_wrong_sfs_version ];then
+ if [ -e "$TMP_DIR"/bootmanager_wrong_sfs_version ];then
   xmessage -bg '#FFC0C0' "NOTICE: The following SFS files located in directory ${MSGz}
 are the wrong version for the current Linux kernel:
 
-`cat /tmp/bootmanager_wrong_sfs_version`
+`cat "$TMP_DIR"/bootmanager_wrong_sfs_version`
 
 The above files will be ignored.
 The kernel requires ${SFSSTR}, SFS files.
@@ -198,7 +200,7 @@ You will need to download and place one there first."
  #note, jwm will use module16.xpm as the window icon...
 #v424 remove checkbox...
 # EXECME="Xdialog --wmclass \"module16\" --backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" --title \"BootManager: SFS files\" --left --stdout --separator \" \" --check \"Ignore above user selection, load all with '_${DISTRO_VERSION}.sfs' in filename\" $EXTRASFSAUTO --help \"
- EXECME="Xdialog --wmclass \"module16\" --backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" --title \"BootManager: SFS files\" --left --stdout --separator \" \" --help \"
+ EXECME="Xdialog -wmclass \"module16\" -backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" -title \"BootManager: SFS files\" -left -stdout -separator \" \" -help \"
 Extra SFS files are available for your Puppy: see announcements on the Forum, or\n
 http://distro.ibiblio.org/pub/linux/distributions/puppylinux/sfs_modules-4/ \n
 \n
@@ -213,9 +215,9 @@ When naming an SFS file, do not name it with '_xxx.sfs' where the xxx is\n
 and will refuse to load it if it is not '_${DISTRO_VERSION}.sfs'.\n
 Note4: \n
 In fact, if '_xxx.sfs' is not '_${DISTRO_VERSION}.sfs' then it will not even\n
-be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >/tmp/bmrettags.txt"
+be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >"$TMP_DIR"/bmrettags.txt"
 
- while [ 1 ];do
+ while :;do
   eval $EXECME
   RETVAL=$?
   #if [ $RETVAL -eq 3 ];then #help
@@ -223,27 +225,27 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   # #so, could have detailed help box here.
   # continue
   #fi
-  [ ! $RETVAL -eq 0 ] && return 1
-  [ $RETVAL -eq 0 ] && break
+  [ "$RETVAL" -eq 0 ] || return 1
+  [ "$RETVAL" -eq 0 ] && break
  done
 
- RETTAGS=`cat /tmp/bmrettags.txt`
+ RETTAGS=`cat "$TMP_DIR"/bmrettags.txt`
 
  #v424 remove...
  #if [ "`echo "$RETTAGS" | grep 'unchecked'`" = "" ];then
  # #auto mode, remove EXTRASFSLIST entry from BOOTCONFIG...
  # if [ -f /etc/rc.d/BOOTCONFIG ];then
- #  grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
- #  cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
+ #  grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > "$TMP_DIR"/BOOTCONFIG
+ #  cat "$TMP_DIR"/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
  # fi
  # return 0
  #fi
  #RETTAGS=`echo -n "$RETTAGS" | sed -e 's/unchecked//g' | sed -e 's/checked//g' | sed -e 's/ $//g'`
  RETTAGS=`echo -n "$RETTAGS" | sed -e 's/ $//g'`
 
- [ ! -e /etc/rc.d/BOOTCONFIG ] && touch /etc/rc.d/BOOTCONFIG
- grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
- cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
+ [ -e /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG
+ grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > "$TMP_DIR"/BOOTCONFIG
+ cat "$TMP_DIR"/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
  echo "EXTRASFSLIST='$RETTAGS'" >> /etc/rc.d/BOOTCONFIG
 
 } #end extrasfs_func
@@ -261,19 +263,19 @@ blacklist_func(){
  do
   MODLIST="$MODLIST $oneMOD $oneMOD on"
  done
- EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module blacklist manager\" --left --stdout --separator \" \" --buildlist \"On the left pane are modules that are currently loaded.\n
+ EXECME="Xdialog -wmclass \"module16\" -title \"BootManager: Module blacklist manager\" -left -stdout -separator \" \" -buildlist \"On the left pane are modules that are currently loaded.\n
 On the right pane is the complete list of blacklisted modules.\n
 If you want to prevent a module from loading, move it to the right\n
 side, click OK, then reboot.\n
 Note, if you want to find out further information about any module,\n
-run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
+run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.txt"
  eval $EXECME
  RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
- SKIPLIST=" `cat /tmp/skiprettags.txt | tr '\n' ' '`"
+ [ "$RETVAL" -ne 0 ] && return 1
+ SKIPLIST=" `cat "$TMP_DIR"/skiprettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
 
 
@@ -326,8 +328,6 @@ Please checkout the file ${KERNEL_RELEASE}-modules@${MACHINE}.lst"
 addlist_func(){
  #choose extra modules to load at bootup.
 
- TTY=`tty`
- TMP_DIR=/tmp/bootmanager;mkdir -p $TMP_DIR
  echo "Create db :`date`" 1>>$TTY
 
  #ALLMODULES=`cat /lib/modules/$KERNVER/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort -u`
@@ -351,7 +351,7 @@ addlist_func(){
  echo "$ADDLIST" |tr ' ' '\n ' |sed '/^$/d;s|\:.*||' |sort > $TMP_DIR/ADDLIST.lst
  grep -v -f $TMP_DIR/ADDLIST.lst $TMP_DIR/FILTERED_MODULES.1.lst > $TMP_DIR/FILTERED_MODULES.2.lst
 
- loop_1(){  #creates "off" list
+ __loop_1__(){  #creates "off" list
  echo "First loop :`date`" 1>>$TTY
  for oneMOD in $ALLMODULES
  do
@@ -374,7 +374,7 @@ addlist_func(){
  cat $TMP_DIR/FILTERED_MODULES.2.lst | sed 's|\(.*\)|\1 \1 off|' > $TMP_DIR/OFFLIST.lst
  cat $TMP_DIR/ADDLIST.lst  | sed 's|\(.*\)|\1 \1 on|' > $TMP_DIR/ONLIST.lst
 
- loop_2(){  ##creates "on" list
+ __loop_2__(){  ##creates "on" list
  echo "Second loop :`date`" 1>>$TTY
  #check for parameters
  for oneMOD in $ADDLIST
@@ -397,28 +397,28 @@ addlist_func(){
  MODLIST="`cat $TMP_DIR/ONLIST.lst |tr '\n' ' '` `cat $TMP_DIR/OFFLIST.lst |tr '\n' ' '`"
  kill $X1PID
  echo "Create db :`date`" 1>>$TTY
- echo "Xdialog: `date`" 1>>$TTY
+ echo "Xdialog: `date`"   1>>$TTY
  #gui
- EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
+ EXECME="Xdialog -wmclass \"module16\" -title \"BootManager: Module add-list manager\" -left -stdout -separator \" \" -buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
  echo "Xdialog: `date`" 1>>$TTY
- [ $RETVAL -eq 0 ] || return 1
+ [ "$RETVAL" -eq 0 ] || return 1
  cat $TMP_DIR/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > $TMP_DIR/modules_addlist_edit #v411
- Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox $TMP_DIR/modules_addlist_edit 0 0 > $TMP_DIR/modules_addlist_edit_out
+ Xdialog -backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button" -wmclass "module16" -title "BootManager: Edit module addlist" -left -stdout -no-cancel -editbox $TMP_DIR/modules_addlist_edit 0 0 > $TMP_DIR/modules_addlist_edit_out
  [ $? -ne 0 ] && return 1
 
  ADDLIST=`cat $TMP_DIR/modules_addlist_edit_out`
  ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
- #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
+ #ADDLIST=" `cat "$TMP_DIR"/yesrettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
 
  if [ -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER ];then
- grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER > /tmp/MODULESCONFIG.$KERNVER
- mv $VERB /tmp/MODULESCONFIG.$KERNVER /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER > "$TMP_DIR"/MODULESCONFIG.$KERNVER
+ mv $VERB "$TMP_DIR"/MODULESCONFIG.$KERNVER /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
  echo "ADDLIST='${ADDLIST}'" >> /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
  fi
 
@@ -458,8 +458,9 @@ MACHINE=`_make_board_id`
   do
 
   _onlyMODULE_=${addMOD%%:*}
+  grep $Q -w "^${_onlyMODULE_}$" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst" && continue
 
-  sed -i"BAC" '1 \\'"$_onlyMODULE_" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+  sed -i"BAC" '1 i\\'"$_onlyMODULE_" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
   [ $? = 0 ] || {
      cp $VERB "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
      SAY_BLACKLIST_ERROR='Adding to FASTBOOTMODULESLIST'
@@ -467,6 +468,24 @@ MACHINE=`_make_board_id`
   }
 
   done
+
+ #+++2016-02-05
+ # REM: Need to delete entries if $TMP_DIR/ONLIST.lst has items removed...
+ if test -s $TMP_DIR/ONLIST.lst; then
+  sADDLIST=`echo "$ADDLIST" | tr ' ' '\n' | cut -f1 -d':'`
+  #echo "sADDLIST='$sADDLIST'" >&2
+  for addMOD in `cut -f1 -d' ' $TMP_DIR/ONLIST.lst`
+  do
+   #echo "$sADDLIST" | grep    "^${addMOD}$" >&2
+   echo "$sADDLIST" | grep $Q "^${addMOD}$" && continue
+   sed -i"BAC" "/^${addMOD}$/ d" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+   [ $? = 0 ] || {
+     cp $VERB "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lstBAK" "/etc/modules/${KERNEL_RELEASE}-modules@${MACHINE}.lst"
+     SAY_BLACKLIST_ERROR='Removing from FASTBOOTMODULESLIST'
+     break
+   }
+  done
+ fi
 
   # REM: Handle sed errors .. does not handle copy errors
   if [ "$SAY_BLACKLIST_ERROR" ]; then
@@ -486,19 +505,37 @@ Please checkout the file ${KERNEL_RELEASE}-modules@${MACHINE}.lst"
  fi
 # REM: END Handle FASTBOOTMODULESLIST
 
+#+++2016-02-05
+# REM: Now load the selected modules ...
+ for addMOD in $ADDLIST
+ do
+  _onlyMODULE_=${addMOD%%:*}
+  _modPARAMS_=${addMOD#*:}
+  _modPARAMS_=${_modPARAMS_//:/ }
+  #echo "'$_onlyMODULE_' '$_modPARAMS_'" >&2
+  test "$_modPARAMS_" = "$_onlyMODULE_" && _modPARAMS_='';
+  #echo "'$_onlyMODULE_' '$_modPARAMS_'" >&2
+  if test "$_modPARAMS_"; then
+   modprobe $Q $VERB $_onlyMODULE_ $_modPARAMS_ >&2
+  else
+   modprobe $Q $VERB $_onlyMODULE_ >&2
+  fi
+
+ done
+
 } #end addlist_func
 
 #  \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\"
 
 preflist_func(){
  xPREFLIST=`echo -n "$PREFLIST" | sed -e 's/^ //' | tr ' ' '\n'`
- echo "$xPREFLIST" > /tmp/bootmanager_preflist
- xxPREFLIST="`Xdialog --backtitle \"Sometimes two modules are eligible for the same hardware,\n
-and you need to choose one of them. Create a line here,\nof format module1:module2, where you want module2 to\nhave preference over module1.\" --wmclass \"module16\" --title \"BootManager: Module preference-list manager\" --left --stdout --help \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\" --editbox /tmp/bootmanager_preflist 0 0`"
+ echo "$xPREFLIST" > "$TMP_DIR"/bootmanager_preflist
+ xxPREFLIST="`Xdialog -backtitle \"Sometimes two modules are eligible for the same hardware,\n
+and you need to choose one of them. Create a line here,\nof format module1:module2, where you want module2 to\nhave preference over module1.\" -wmclass \"module16\" -title \"BootManager: Module preference-list manager\" -left -stdout -help \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\" -editbox "$TMP_DIR"/bootmanager_preflist 0 0`"
  if [ $? -eq 0 ];then
   NEWPREFLIST=`echo "$xxPREFLIST" | tr '\n' ' ' | sed -e 's/^/ /' | tr -s ' '`
-  grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-  mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+  grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
   echo "PREFLIST='${NEWPREFLIST}'" >> /etc/rc.d/MODULESCONFIG
  fi
 } #end preflist_func
@@ -521,6 +558,10 @@ elif [ "$CLPARAM1" = "preflist" ];then
 fi
 
 #######################################################
+#+++2016-02-06
+NDISWRAPPER_MSG='';
+modinfo ndiswrapper >>$OUT 2>>$ERR && NDISWRAPPER_MSG='or want to use Ndiswrapper (to use the Windows driver)'
+
 if [ "$PUPMODE" = 2 -o "$PUPMODE" = 3 ];then
 SFS_DIALOG="<text><label>Puppy is currently running in PUPMODE=$PUPMODE . SFS load not available for full installations.</label></text>"
 else
@@ -545,7 +586,7 @@ export MAIN_DIALOG="
  </frame>
 
  <frame Load kernel modules>
-  <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module or want to use Ndiswrapper (to use the Windows driver).</label></text>
+  <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module $NDISWRAPPER_MSG.</label></text>
   <hbox>
    <text><label>Click here to 'blacklist' a module:</label></text>
     <button>
