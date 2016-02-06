@@ -60,7 +60,9 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-VERSION=1.5
+VERSION=1.5.0
+TTY=`tty`;ERR=/dev/stderr
+TMP_DIR=/tmp/bootmanager; mkdir $VERB -p $TMP_DIR
 
 #reentrant.
 #$1='' then run the main window.
@@ -94,7 +96,7 @@ SFSSTR='squashfs, version 3' #v423
 DEFAULT_SERIAL="false"
 DEFAULT_FAST="false"
 [ "$BYPASSSERIALPROBING" = "yes" ] && DEFAULT_SERIAL="true"
-[ "$FASTBOOTMODULESLIST" != "" ] && DEFAULT_FAST="true"
+[ "$FASTBOOTMODULESLIST" != "" ]   && DEFAULT_FAST="true"
 
 if [ "$PUPMODE" = "5" ];then
  xmessage "ERROR. Must shutdown and create a personal save file first."
@@ -127,16 +129,19 @@ fi
 extrasfs_func() {
 
  UNMOUNTME=""
- #if [ "$PUPMODE" = "77" ];then
- # if [ "$EXTRASFSMNTPT" = "" ];then
- #  xmessage "Make sure Puppy CD inserted in drive /dev/$PDEV1 RIGHT NOW!"
- #  mkdir $VERB -p /mnt/$PDEV1
- #  mount -t $DEV1FS /dev/$PDEV1 /mnt/$PDEV1 #DEV1FS, PDEV1 are in PUPSTATE.
- #  [ ! $? -eq 0 ] && return 1
- #  EXTRASFSMNTPT="/mnt/$PDEV1"
- #  UNMOUNTME="/mnt/$PDEV1"
- # fi
- #fi
+
+ __unused_pupmode77_cdmsg__(){
+ if [ "$PUPMODE" = "77" ];then
+  if [ "$EXTRASFSMNTPT" = "" ];then
+   xmessage "Make sure Puppy CD inserted in drive /dev/$PDEV1 RIGHT NOW!"
+   mkdir $VERB -p /mnt/$PDEV1
+   mount -t $DEV1FS /dev/$PDEV1 /mnt/$PDEV1 #DEV1FS, PDEV1 are in PUPSTATE.
+   [ ! $? -eq 0 ] && return 1
+   EXTRASFSMNTPT="/mnt/$PDEV1"
+   UNMOUNTME="/mnt/$PDEV1"
+  fi
+ fi
+ }
 
  cd "$EXTRASFSMNTPT"
  #v409 lobster gets some non-sfs files in ALLSFSLIST ...i have no idea how, but
@@ -148,7 +153,7 @@ extrasfs_func() {
 
  #eliminate other versions from list...
  FIXEDSFSLIST=""
- rm $VERB -f /tmp/bootmanager_wrong_sfs_version #v423
+ rm $VERB -f "$TMP_DIR"/bootmanager_wrong_sfs_version #v423
  oldIFS="$IFS"
  IFS=$'\n'
  for oneSFS in $ALLSFSLIST
@@ -158,7 +163,7 @@ extrasfs_func() {
   [ "`echo "$oneSFS" | grep '\\-[0-9][0-9][0-9]\\.sfs' | grep -v "$DISTRO_VERSION"`" ] && continue
   #v423 eliminate wrong squashfs version...
   if [ "`disktype ${EXTRASFSMNTPT}/${oneSFS} | grep "$SFSSTR"`" = "" ];then
-   echo "$oneSFS" >> /tmp/bootmanager_wrong_sfs_version
+   echo "$oneSFS" >> "$TMP_DIR"/bootmanager_wrong_sfs_version
    continue
   fi
   FIXEDSFSLIST="$FIXEDSFSLIST
@@ -185,11 +190,11 @@ $oneSFS"
  done
  IFS="$oldIFS"
  #v423 let user know wrong sfs's...
- if [ -e /tmp/bootmanager_wrong_sfs_version ];then
+ if [ -e "$TMP_DIR"/bootmanager_wrong_sfs_version ];then
   xmessage -bg '#FFC0C0' "NOTICE: The following SFS files located in directory ${MSGz}
 are the wrong version for the current Linux kernel:
 
-`cat /tmp/bootmanager_wrong_sfs_version`
+`cat "$TMP_DIR"/bootmanager_wrong_sfs_version`
 
 The above files will be ignored.
 The kernel requires ${SFSSTR}, SFS files.
@@ -208,7 +213,10 @@ You will need to download and place one there first."
  #note, jwm will use module16.xpm as the window icon...
 #v424 remove checkbox...
 # EXECME="Xdialog --wmclass \"module16\" --backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" --title \"BootManager: SFS files\" --left --stdout --separator \" \" --check \"Ignore above user selection, load all with '_${DISTRO_VERSION}.sfs' in filename\" $EXTRASFSAUTO --help \"
- EXECME="Xdialog --wmclass \"module16\" --backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" --title \"BootManager: SFS files\" --left --stdout --separator \" \" --help \"
+ EXECME="Xdialog -wmclass \"module16\" \
+  -backtitle \"Choose which SFS files are to be loaded at bootup.\n(top entry will be on top Unionfs layer)\" \
+  -title \"BootManager: SFS files\" -left -stdout -separator \" \" \
+  -help \"
 Extra SFS files are available for your Puppy: see announcements on the Forum, or\n
 http://distro.ibiblio.org/pub/linux/distributions/puppylinux/sfs_modules-4/ \n
 \n
@@ -223,7 +231,7 @@ When naming an SFS file, do not name it with '_xxx.sfs' where the xxx is\n
 and will refuse to load it if it is not '_${DISTRO_VERSION}.sfs'.\n
 Note4: \n
 In fact, if '_xxx.sfs' is not '_${DISTRO_VERSION}.sfs' then it will not even\n
-be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >/tmp/bmrettags.txt"
+be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files in right-pane!\n${MSGx}\" 0 0 8 $DLGLIST >"$TMP_DIR"/bmrettags.txt"
 
  while :;do
   eval $EXECME
@@ -237,15 +245,15 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
   [ "$RETVAL" -eq 0 ] && break
  done
 
- RETTAGS=`cat /tmp/bmrettags.txt`
+ RETTAGS=`cat "$TMP_DIR"/bmrettags.txt`
 
  __old_exxtrasfslist__(){
  #v424 remove...
  if [ "`echo "$RETTAGS" | grep 'unchecked'`" = "" ];then
   #auto mode, remove EXTRASFSLIST entry from BOOTCONFIG...
   if [ -f /etc/rc.d/BOOTCONFIG ];then
-   grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
-   cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
+   grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > "$TMP_DIR"/BOOTCONFIG
+   cat "$TMP_DIR"/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
   fi
   return 0
  fi
@@ -255,8 +263,8 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
  RETTAGS=`echo -n "$RETTAGS" | sed -e 's/ $//g'`
 
  [ -e /etc/rc.d/BOOTCONFIG ] || touch /etc/rc.d/BOOTCONFIG
- grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > /tmp/BOOTCONFIG
- cat /tmp/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
+ grep -v 'EXTRASFSLIST' /etc/rc.d/BOOTCONFIG > "$TMP_DIR"/BOOTCONFIG
+ cat "$TMP_DIR"/BOOTCONFIG > /etc/rc.d/BOOTCONFIG
  echo "EXTRASFSLIST='$RETTAGS'" >> /etc/rc.d/BOOTCONFIG
 
 } #end extrasfs_func
@@ -302,17 +310,19 @@ $varBLACKLIST2"
 
  echo "MODLIST='$MODLIST'" >&2
 
- EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module blacklist manager\" --left --stdout --separator \" \" --buildlist \"On the left pane are modules that are currently loaded.\n
+ EXECME="Xdialog -wmclass \"module16\" -title \"BootManager: Module blacklist manager\" \
+ -left -stdout -separator \" \" \
+ -buildlist \"On the left pane are modules that are currently loaded.\n
 On the right pane is the complete list of blacklisted modules.\n
 If you want to prevent a module from loading, move it to the right\n
 side, click OK, then reboot.\n
 Note, if you want to find out further information about any module,\n
-run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
+run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.txt"
  eval $EXECME
  RETVAL=$?
  [ "$RETVAL" -eq 0 ] || return 1
 
- SKIPLIST="`cat /tmp/skiprettags.txt | tr ' ' '\n'`"
+ SKIPLIST="`cat "$TMP_DIR"/skiprettags.txt | tr ' ' '\n'`"
  SKIPLIST=`echo "$SKIPLIST" | sort -u`
 
  SKIPLIST_NEW="$SKIPLIST"
@@ -329,13 +339,13 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  mkdir $VERB -p /etc/rc.d /etc/mult_kernels/rc.d
 
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >> /etc/rc.d/MODULESCONFIG
 
  if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
- grep -v '^SKIPLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ grep -v '^SKIPLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  fi
 
@@ -346,15 +356,15 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  echo "one_MODULE='$one_MODULE'" >&2
 
  if test -f /etc/modprobe.d/$one_MODULE.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_MODULE.conf > /tmp/$one_MODULE.conf
- mv $VERB /tmp/$one_MODULE.conf /etc/modprobe.d/$one_MODULE.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_MODULE.conf > "$TMP_DIR"/$one_MODULE.conf
+ mv $VERB "$TMP_DIR"/$one_MODULE.conf /etc/modprobe.d/$one_MODULE.conf
  echo "blacklist $one_MODULE" >> /etc/modprobe.d/$one_MODULE.conf
  fi
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf > /tmp/$one_MODULE.conf
-  mv $VERB /tmp/$one_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf > "$TMP_DIR"/$one_MODULE.conf
+  mv $VERB "$TMP_DIR"/$one_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf
   echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf
   else : #echo "NO /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf .." >&2
   fi
@@ -362,8 +372,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.d/blacklist.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/blacklist.conf > /tmp/blacklist.conf
- mv $VERB /tmp/blacklist.conf /etc/modprobe.d/blacklist.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/blacklist.conf > "$TMP_DIR"/blacklist.conf
+ mv $VERB "$TMP_DIR"/blacklist.conf /etc/modprobe.d/blacklist.conf
  echo "blacklist $one_MODULE" >> /etc/modprobe.d/blacklist.conf
  else
  echo "blacklist $one_MODULE" >> /etc/modprobe.d/blacklist.conf
@@ -371,8 +381,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf > /tmp/blacklist.conf
-  mv $VERB /tmp/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf > "$TMP_DIR"/blacklist.conf
+  mv $VERB "$TMP_DIR"/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf
   echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf
   else
   #echo "CREATING /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf .."
@@ -382,8 +392,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.d/puppy.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/puppy.conf > /tmp/puppy.conf
- mv $VERB /tmp/puppy.conf /etc/modprobe.d/puppy.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/puppy.conf > "$TMP_DIR"/puppy.conf
+ mv $VERB "$TMP_DIR"/puppy.conf /etc/modprobe.d/puppy.conf
  echo "blacklist $one_MODULE" >> /etc/modprobe.d/puppy.conf
  else
  echo "blacklist $one_MODULE" >> /etc/modprobe.d/puppy.conf
@@ -391,8 +401,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf > /tmp/puppy.conf
-  mv $VERB /tmp/puppy.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf > "$TMP_DIR"/puppy.conf
+  mv $VERB "$TMP_DIR"/puppy.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
   echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
   else
   echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
@@ -400,14 +410,14 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.conf > /tmp/modprobe.conf
- mv $VERB /tmp/modprobe.conf /etc/modprobe.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.conf > "$TMP_DIR"/modprobe.conf
+ mv $VERB "$TMP_DIR"/modprobe.conf /etc/modprobe.conf
  echo "blacklist $one_MODULE" >> /etc/modprobe.conf
  fi
 
  if test -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE > /tmp/modprobe.conf
- mv $VERB /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE > "$TMP_DIR"/modprobe.conf
+ mv $VERB "$TMP_DIR"/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
  echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
  fi
 
@@ -418,15 +428,15 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  echo "one_MODULE='$one_MODULE'" >&2
 
  if test -f /etc/modprobe.d/$one_MODULE.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_MODULE.conf > /tmp/$one_MODULE.conf
- mv $VERB /tmp/$one_MODULE.conf /etc/modprobe.d/$one_MODULE.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_MODULE.conf > "$TMP_DIR"/$one_MODULE.conf
+ mv $VERB "$TMP_DIR"/$one_MODULE.conf /etc/modprobe.d/$one_MODULE.conf
  #echo "blacklist $one_MODULE" >> /etc/modprobe.d/$one_MODULE.conf
  fi
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf > /tmp/$one_MODULE.conf
-  mv $VERB /tmp/$one_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf > "$TMP_DIR"/$one_MODULE.conf
+  mv $VERB "$TMP_DIR"/$one_MODULE.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf
   #echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/$one_MODULE.conf
   else echo "NO /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_MODULE.conf .." >&2
   fi
@@ -434,8 +444,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.d/blacklist.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/blacklist.conf > /tmp/blacklist.conf
- mv $VERB /tmp/blacklist.conf /etc/modprobe.d/blacklist.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/blacklist.conf > "$TMP_DIR"/blacklist.conf
+ mv $VERB "$TMP_DIR"/blacklist.conf /etc/modprobe.d/blacklist.conf
  #echo "blacklist $one_MODULE" >> /etc/modprobe.d/blacklist.conf
  else
  :
@@ -444,8 +454,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf > /tmp/blacklist.conf
-  mv $VERB /tmp/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf > "$TMP_DIR"/blacklist.conf
+  mv $VERB "$TMP_DIR"/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/blacklist.conf
   #echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf
   else
   :
@@ -456,8 +466,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.d/puppy.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/puppy.conf > /tmp/puppy.conf
- mv $VERB /tmp/puppy.conf /etc/modprobe.d/puppy.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/puppy.conf > "$TMP_DIR"/puppy.conf
+ mv $VERB "$TMP_DIR"/puppy.conf /etc/modprobe.d/puppy.conf
  #echo "blacklist $one_MODULE" >> /etc/modprobe.d/puppy.conf
  else
  :
@@ -466,8 +476,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 
  if test -d /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE; then
   if test -f /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf; then
-  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf > /tmp/puppy.conf
-  mv $VERB /tmp/puppy.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
+  grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf > "$TMP_DIR"/puppy.conf
+  mv $VERB "$TMP_DIR"/puppy.conf /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
   #echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/puppy.conf
   else
   :
@@ -476,14 +486,14 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
  fi
 
  if test -f /etc/modprobe.conf; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.conf > /tmp/modprobe.conf
- mv $VERB /tmp/modprobe.conf /etc/modprobe.conf
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.conf > "$TMP_DIR"/modprobe.conf
+ mv $VERB "$TMP_DIR"/modprobe.conf /etc/modprobe.conf
  #echo "blacklist $one_MODULE" >> /etc/modprobe.conf
  fi
 
  if test -f /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE; then
- grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE > /tmp/modprobe.conf
- mv $VERB /tmp/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
+ grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE > "$TMP_DIR"/modprobe.conf
+ mv $VERB "$TMP_DIR"/modprobe.conf /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
  #echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.conf.$KERNEL_RELEASE
  fi
 
@@ -503,8 +513,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
     test "$one_FILE" = $one_MODULE.conf && continue
     grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
 
-    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >/tmp/$one_FILE
-    mv $VERB /tmp/$one_FILE /etc/modprobe.d/$one_FILE
+    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >"$TMP_DIR"/$one_FILE
+    mv $VERB "$TMP_DIR"/$one_FILE /etc/modprobe.d/$one_FILE
     echo "blacklist $one_MODULE" >> /etc/modprobe.d/$one_FILE
 
    done
@@ -513,8 +523,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
     test "$one_FILE" = $one_MODULE.conf && continue
     grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
 
-    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >/tmp/$one_FILE
-    mv $VERB /tmp/$one_FILE /etc/modprobe.d/$one_FILE
+    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >"$TMP_DIR"/$one_FILE
+    mv $VERB "$TMP_DIR"/$one_FILE /etc/modprobe.d/$one_FILE
     #echo "blacklist $one_MODULE" >> /etc/modprobe.d/$one_FILE
 
    done
@@ -535,8 +545,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
     test "$one_FILE" = $one_MODULE.conf && continue
     grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
 
-    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >/tmp/$one_FILE
-    mv $VERB /tmp/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
+    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >"$TMP_DIR"/$one_FILE
+    mv $VERB "$TMP_DIR"/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
     echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
 
    done
@@ -545,8 +555,8 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
     test "$one_FILE" = $one_MODULE.conf && continue
     grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
 
-    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >/tmp/$one_FILE
-    mv $VERB /tmp/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
+    grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >"$TMP_DIR"/$one_FILE
+    mv $VERB "$TMP_DIR"/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
     #echo "blacklist $one_MODULE" >> /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
 
    done
@@ -562,19 +572,15 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/skiprettags.txt"
 addlist_func() {
  #choose extra modules to load at bootup.
 
- TTY=`tty`;ERR=/dev/stderr
- TMP_DIR=/tmp/bootmanager; mkdir $VERB -p $TMP_DIR
  echo "Create db :`date`" 1>>$ERR
 
  #ALLMODULES=`cat /lib/modules/$KERNEL_RELEASE/modules.dep | cut -f 1 -d ':' | grep -o '[a-zA-Z0-9_-]*\.ko' | tr '\-' '_' | sort -u`
 
- ALLMODULES=`modprobe -l |rev|cut -f 1 -d '/'|rev |sed 's|\.ko$||;s|\.ko\..*$||;s|-|_|g'|sort`
+ ALLMODULES=`busybox modprobe -l |rev|cut -f 1 -d '/'|rev |sed 's|\.ko$||;s|\.ko\..*$||;s|-|_|g'|sort`
  echo "$ALLMODULES" > $TMP_DIR/ALLMODULES.lst
  HOW_MANY=`echo "$ALLMODULES" |wc -l`
 
- yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing $HOW_MANY modules ..." &
- X1PID=$!
-
+ yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing $HOW_MANY modules ..." & X1PID=$!
 
  . /etc/rc.d/MODULESCONFIG
  MODLIST=""
@@ -637,9 +643,21 @@ addlist_func() {
  MODLIST="`cat $TMP_DIR/ONLIST.lst |tr '\n' ' '` `cat $TMP_DIR/OFFLIST.lst |tr '\n' ' '`"
  (sleep 4s;kill $X1PID) &
  echo "Create db :`date`" 1>>$ERR
- echo "Xdialog: `date`" 1>>$ERR
+ echo "Xdialog: `date`"   1>>$ERR
  #gui
-EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"NOTE: Already loaded modules are listed in the file /proc/modules\nor can be viewed by lsmod command in the console.\nNote too, that if you want to find out further information about any loaded module,\nrun PupDiverAndPciInfo (look in the Menu Section 'System' 'System Status and Config').\n\nOn the left pane is the complete list of modules available to be\nused by $DISTRO_NAME $DISTRO_VERSION kernel $KERNEL_RELEASE.\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup.\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot.\n\" 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
+EXECME="Xdialog -wmclass \"module16\" \
+ -title \"BootManager: Module add-list manager\" \
+ -left -stdout -separator \" \" \
+ -buildlist \"NOTE: Already loaded modules are listed in the file /proc/modules \
+ \nor can be viewed by lsmod command in the console.\nNote too, that if you want \
+ to find out further information about any loaded module, \
+ \nrun PupDiverAndPciInfo (look in the Menu Section 'System' 'System Status and Config'). \
+ \n\nOn the left pane is the complete list of modules available to be \
+ \nused by $DISTRO_NAME $DISTRO_VERSION kernel $KERNEL_RELEASE. \
+ \nOn the right pane are modules that you have explicitly chosen to \
+ \nbe loaded at bootup.\nIf you want to force a module to load, \
+ move it to the right pane,\nclick OK button, then reboot.\n\" \
+ 0 0 8 $MODLIST >$TMP_DIR/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
  echo "Xdialog: `date`" 1>>$ERR
@@ -660,26 +678,26 @@ EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list ma
  done
  test "$EXAMPLE" || EXAMPLE='mmc_block major=179'
 
- Xdialog --left --stdout --no-cancel \
-  --backtitle "If you wish, add required parameters to these modules\nExample: $EXAMPLE\nIf you don't know what this means,
+ Xdialog -left -stdout -no-cancel \
+  -backtitle "If you wish, add required parameters to these modules\nExample: $EXAMPLE\nIf you don't know what this means,
  just click 'OK' button.\nNote: You get supported params of a module\ntyping 'modinfo <driver-name>' in terminal."  \
-  --title "BootManager: Edit module addlist" --wmclass "module16" \
-  --editbox $TMP_DIR/modules_addlist_edit 0 0 > $TMP_DIR/modules_addlist_edit_out
+  -title "BootManager: Edit module addlist" -wmclass "module16" \
+  -editbox $TMP_DIR/modules_addlist_edit 0 0 > $TMP_DIR/modules_addlist_edit_out
  [ $? -ne 0 ] && return 1
 
  ADDLIST=`cat $TMP_DIR/modules_addlist_edit_out`
  ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
- #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
+ #ADDLIST=" `cat "$TMP_DIR"/yesrettags.txt | tr '\n' ' '`"
 
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG >/tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG >"$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >>/etc/rc.d/MODULESCONFIG
 
 __old_mult_kernels__(){
  if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
- grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  echo "ADDLIST='${ADDLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  fi
 }
@@ -742,19 +760,19 @@ yeslist_func() {
   MODLIST="$MODLIST $oneMOD \"$xoneMOD\" on"
  done
  kill $X1PID
- EXECME="Xdialog --wmclass \"module16\" --title \"BootManager: Module add-list manager\" --left --stdout --separator \" \" --buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >/tmp/yesrettags.txt"
+ EXECME="Xdialog -wmclass \"module16\" -title \"BootManager: Module add-list manager\" -left -stdout -separator \" \" -buildlist \"On the left pane is the complete list of modules available to be\nused by Puppy (and not currently loaded).\nOn the right pane are modules that you have explicitly chosen to\nbe loaded at bootup (not auto-loaded by default).\nIf you want to force a module to load, move it to the right pane,\nclick OK button, then reboot Puppy.\nNote, if you want to find out further information about any module,\nrun PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/yesrettags.txt"
  eval $EXECME
  RETVAL=$?
- [ ! $RETVAL -eq 0 ] && return 1
- cat /tmp/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > /tmp/modules_addlist_edit #v411
- Xdialog --backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  --wmclass "module16" --title "BootManager: Edit module addlist" --left --stdout --no-cancel --editbox /tmp/modules_addlist_edit 0 0 > /tmp/modules_addlist_edit_out
+ [ ! "$RETVAL" -eq 0 ] && return 1
+ cat "$TMP_DIR"/yesrettags.txt | tr ' ' '\n' | tr ':' ' ' > "$TMP_DIR"/modules_addlist_edit #v411
+ Xdialog -backtitle "If you wish, add any required parameters to these modules\nExample: mmc_block major=179\nIf you don't know what this means, just click 'OK' button"  -wmclass "module16" -title "BootManager: Edit module addlist" -left -stdout -no-cancel -editbox "$TMP_DIR"/modules_addlist_edit 0 0 > "$TMP_DIR"/modules_addlist_edit_out
  [ $? -ne 0 ] && return 1
- ADDLIST=`cat /tmp/modules_addlist_edit_out`
+ ADDLIST=`cat "$TMP_DIR"/modules_addlist_edit_out`
  ADDLIST=' '"`echo "$ADDLIST" | tr ' ' ':' | tr '\n' ' ' | tr -s ' '`"
- #ADDLIST=" `cat /tmp/yesrettags.txt | tr '\n' ' '`"
+ #ADDLIST=" `cat "$TMP_DIR"/yesrettags.txt | tr '\n' ' '`"
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
- mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
 } #end yeslist_func
 
@@ -762,20 +780,30 @@ yeslist_func() {
 
 preflist_func() {
  xPREFLIST=`echo -n "$PREFLIST" | sed -e 's/^ //' | tr ' ' '\n'`
- echo "$xPREFLIST" > /tmp/bootmanager_preflist
- xxPREFLIST="`Xdialog --backtitle \"Sometimes two modules are eligible for the same hardware,\n
-and you need to choose one of them. Create a line here,\nof format module1:module2, where you want module2 to\nhave preference over module1.\" --wmclass \"module16\" --title \"BootManager: Module preference-list manager\" --left --stdout --help \"Sometimes two modules are eligible for the same hardware, and you need to choose\none of them. An example is the rt2500usb and rt73usb wireless networking modules\n-- with some hardware these are both eligible however our experience has been that\nthe rt73usb works better. For such a situation, create a line here, of format\nmodule1:module2, where you want module2 to have preference over module1.\nNote: an alternative approach is to blacklist the rt2500usb module (see main menu)\nhowever that is gross as it always prevents rt2500usb from loading.\" --editbox /tmp/bootmanager_preflist 0 0`"
+ echo "$xPREFLIST" > "$TMP_DIR"/bootmanager_preflist
+ xxPREFLIST="`Xdialog -backtitle \"Sometimes two modules are eligible for the same hardware,\n
+ and you need to choose one of them. Create a line here,\nof format module1:module2, \
+ where you want module2 to\nhave preference over module1.\" \
+ -wmclass \"module16\" -title \"BootManager: Module preference-list manager\" \
+ -left -stdout -help \"Sometimes two modules are eligible for the same hardware, and you need to choose \
+ \none of them. An example is the rt2500usb and rt73usb wireless networking modules \
+ \n-- with some hardware these are both eligible however our experience has been that \
+ \nthe rt73usb works better. For such a situation, create a line here, of format \
+ \nmodule1:module2, where you want module2 to have preference over module1. \
+ \nNote: an alternative approach is to blacklist the rt2500usb module (see main menu) \
+ \nhowever that is gross as it always prevents rt2500usb from loading.\" \
+ -editbox "$TMP_DIR"/bootmanager_preflist 0 0`"
  if [ $? -eq 0 ];then
   NEWPREFLIST=`echo "$xxPREFLIST" | tr '\n' ' ' | sed -e 's/^/ /' | tr -s ' '`
-  grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG > /tmp/MODULESCONFIG
-  mv $VERB -f /tmp/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+  grep -v '^PREFLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
   echo "PREFLIST='${NEWPREFLIST}'" >> /etc/rc.d/MODULESCONFIG
  fi
 } #end preflist_func
 
 sysdaemons_func() { #100125
  osdcnt=0
- echo -n "" > /tmp/bootmanager_osd
+ echo -n "" > "$TMP_DIR"/bootmanager_osd
  for oneSYSDAEMON in `/bin/find /etc/init.d -maxdepth 2 \( -not -iwholename "*/*BACKUP*/*" -not -iwholename "*/*UNUSED*/*" -not -iwholename "*/*FIRMWARE*/*" \) -type f | grep -v -E 'txt|pcmcia|alsa'`
  do
   osdcnt=$((osdcnt + 1))
@@ -795,21 +823,21 @@ sysdaemons_func() { #100125
    *rc.smbqmsvc*) OSDDESCR='('$(gettext 'only needed for quick mounting Samba shares in lameSMBxplorer')')' ;;
   esac
   OSDBOXES="${OSDBOXES} <checkbox><label>${xOSDNAME} ${OSDDESCR}</label><default>${OSDDEFAULT}</default><variable>OSDCHK_${osdcnt}_</variable></checkbox>"
-  echo "OSDCHK_${osdcnt}_|${OSDDIR}|${OSDNAME}" >> /tmp/bootmanager_osd
+  echo "OSDCHK_${osdcnt}_|${OSDDIR}|${OSDNAME}" >> "$TMP_DIR"/bootmanager_osd
  done
  if [ "`grep '/etc/rc.d/rc.firewall' /etc/rc.d/rc.local`" ];then
   osdcnt=$((osdcnt + 1))
   OSDDEFAULT='false'
   [ -x /etc/rc.d/rc.firewall ] && OSDDEFAULT='true'
   OSDBOXES="${OSDBOXES} <checkbox><label>rc.firewall ($(gettext 'Firewall important security on Internet'))</label><default>${OSDDEFAULT}</default><variable>OSDCHK_${osdcnt}_</variable></checkbox>"
-  echo "OSDCHK_${osdcnt}_|/etc/rc.d|rc.firewall" >> /tmp/bootmanager_osd
+  echo "OSDCHK_${osdcnt}_|/etc/rc.d|rc.firewall" >> "$TMP_DIR"/bootmanager_osd
  fi
  #also offer udev management...
  osdcnt=$((osdcnt + 1))
  OSDDEFAULT='false'
  [ "`grep '^BACKENDON' /etc/eventmanager | grep 'true'`" ] && OSDDEFAULT='true'
  OSDBOXES="${OSDBOXES} <checkbox><label>udev (`gettext \"Hardware hotplug detection -- see 'HELP'\"`)</label><default>${OSDDEFAULT}</default><variable>OSDCHK_${osdcnt}_</variable></checkbox>"
- echo "OSDCHK_${osdcnt}_||udev" >> /tmp/bootmanager_osd
+ echo "OSDCHK_${osdcnt}_||udev" >> "$TMP_DIR"/bootmanager_osd
 
  export MAIN_DIALOG="
 <window title=\"$(gettext 'BootManager: Manage system services')\" icon-name=\"gtk-cdrom\">
@@ -831,8 +859,8 @@ sysdaemons_func() { #100125
  [ "`echo "$RETSTRING" | grep 'EXIT' | grep 'OK'`" ] || return
  while [ "$osdcnt" -gt 0 ];do
   OSDVAR="OSDCHK_${osdcnt}_"
-  OSDDIR="`grep "$OSDVAR" /tmp/bootmanager_osd | cut -f 2 -d '|'`"
-  OSDNAME="`grep "$OSDVAR" /tmp/bootmanager_osd | cut -f 3 -d '|'`"
+  OSDDIR="`grep "$OSDVAR" "$TMP_DIR"/bootmanager_osd | cut -f 2 -d '|'`"
+  OSDNAME="`grep "$OSDVAR" "$TMP_DIR"/bootmanager_osd | cut -f 3 -d '|'`"
   if [ "$OSDNAME" = "udev" ];then
    if [ "`echo "$RETSTRING" | grep "$OSDVAR" | grep 'true'`" != "" ];then
     if [ "`grep '^BACKENDON' /etc/eventmanager | grep 'false'`" != "" ];then
@@ -892,6 +920,9 @@ sysdaemons) sysdaemons_func;exit $?;;
 esac
 
 #######################################################
+NDISWRAPPER_MSG='';
+/sbin/modinfo ndiswrapper >>$OUT 2>>$ERR && NDISWRAPPER_MSG='or want to use Ndiswrapper (to use the Windows driver)'
+
 if [ "$PUPMODE" = 2  -o "$PUPMODE" = 3 ];then
 SFS_DIALOG="<text><label>Puppy Linux is currently running in Full Install Mode. No application.sfs loading available.</label></text>"
 else
@@ -916,7 +947,7 @@ export MAIN_DIALOG="
  </frame>
 
  <frame Load kernel modules>
-  <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module or want to use Ndiswrapper (to use the Windows driver).</label></text>
+  <text><label>If a driver module did not get loaded, or the wrong one got loaded, or you want to 'blacklist' a module, this is the place. A common scenario is a driver got auto-loaded, for say your wireless network card, but you cannot or do not want to use it, and want some other module ${NDISWRAPPER_MSG}.</label></text>
   <hbox>
    <text><label>Click here to 'blacklist' a module:</label></text>
     <button>
