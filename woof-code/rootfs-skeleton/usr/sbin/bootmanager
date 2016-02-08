@@ -254,11 +254,12 @@ blacklist_func(){
  #blacklisting of modules at bootup.
  . /etc/rc.d/MODULESCONFIG
  MODLIST=""
- LOADEDMODULES=`lsmod | grep -v '^Module' | cut -f 1 -d ' '`
+ LOADEDMODULES=`lsmod | grep -v '^Module' | cut -f 1 -d ' ' | sort -d`
  for oneMOD in $LOADEDMODULES
  do
   MODLIST="$MODLIST $oneMOD $oneMOD off"
  done
+ SKIPLIST=`echo "$SKIPLIST" | tr ' ' '\n' | sort -u | sort -d`
  for oneMOD in $SKIPLIST
  do
   MODLIST="$MODLIST $oneMOD $oneMOD on"
@@ -272,11 +273,16 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
  eval $EXECME
  RETVAL=$?
  [ "$RETVAL" -ne 0 ] && return 1
- SKIPLIST=" `cat "$TMP_DIR"/skiprettags.txt | tr '\n' ' '`"
+ SKIPLIST=" `cat "$TMP_DIR"/skiprettags.txt | tr '\n' ' ' | sort -u | sort -d`"
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ grep -v '^SKIPLIST=' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST='${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
+ if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER; then
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ else
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ fi
 
 
 # REM: Handle FASTBOOTMODULESLIST
@@ -323,6 +329,42 @@ Please checkout the file ${KERNEL_RELEASE}-modules@${MACHINE}.lst"
  fi
 # REM: END Handle FASTBOOTMODULESLIST
 
+#+++2016-02-08 REM: Alter ADDLIST
+SKIPLISTN=`echo "$SKIPLIST" | tr ' ' '\n' | sed '/^$/d'`
+ADDLIST=`echo "$ADDLIST" | tr ' ' '\n' | sort -u | sort -d`
+ADDLIST=`echo "$ADDLIST" | /bin/grep -v -w "^$SKIPLISTN"`
+ADDLIST=`echo "$ADDLIST" | tr '\n' ' '`
+ grep -v '^ADDLIST=' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ echo "ADDLIST='${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
+ if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER; then
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ else
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNVER
+ fi
+
+#+++2016-02-08 REM: Unload these modules also...
+for mod in $SKIPLIST;
+do
+modprobe $Q $VERB -r $mod >>$OUT 2>>$ERR
+done
+
+#+++2016-02-08 REM: AND add to /etc/modprobe.d/blacklist.conf
+ BLACKLISTbare=`echo "$SKIPLIST" | tr ' ' '\n' | sed '/^$/d'`
+BLACKLISTBLACK=`echo "$BLACKLISTbare" | sed -r 's%(.*)%blacklist \1%'`
+test -e /etc/modprobe.d/blacklist.conf || echo "$BLACKLISTBLACK" >/etc/modprobe.d/blacklist.conf
+
+for mod in $BLACKLISTbare;
+do
+grep $Q "^blacklist ${mod}$" /etc/modprobe.d/blacklist.conf && continue
+echo "blacklist ${mod}"    >>/etc/modprobe.d/blacklist.conf
+done
+
+if test -f /etc/mult_kernels/modprobe.d.$KERNVER/blacklist.conf; then
+     cp -a /etc/modprobe.d/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNVER/
+else
+ cp -a /etc/modprobe.d/blacklist.conf /etc/mult_kernels/modprobe.d.$KERNVER/
+fi
 } #end blacklist_func
 
 addlist_func(){
