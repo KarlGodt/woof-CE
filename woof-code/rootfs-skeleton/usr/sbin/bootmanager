@@ -60,9 +60,9 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-VERSION=1.5.0
+VERSION=1.5.1
 TTY=`tty`;ERR=/dev/stderr
-TMP_DIR=/tmp/bootmanager; mkdir $VERB -p $TMP_DIR
+TMP_DIR=/tmp/bootmanager; mkdir $VERB -p "$TMP_DIR"
 
 #reentrant.
 #$1='' then run the main window.
@@ -272,31 +272,31 @@ be listed -- please note this!\" --buildlist \"Note1: No more than 6 SFS files i
 blacklist_func() {
  #blacklisting of modules at bootup.
  . /etc/rc.d/MODULESCONFIG
- SKIPLIST=`echo "$SKIPLIST" | tr ' ' '\n' | sort -u`
+ SKIPLIST=`echo "$SKIPLIST" | tr ' ' '\n' | sort -u | sort -d`
 
  echo "SKIPLIST='$SKIPLIST'" >&2
 
  if test -f /etc/modprobe.conf; then
- varBLACKLIST1=`grep -h '^blacklist .*' /etc/modprobe.conf |awk '{print $2}' |sort -u`
+ varBLACKLIST1=`grep -h '^blacklist .*' /etc/modprobe.conf |awk '{print $2}' |sort -u | sort -d`
  SKIPLIST="$SKIPLIST
 $varBLACKLIST1"
- SKIPLIST=`echo "$SKIPLIST" | sort -u`
+ SKIPLIST=`echo "$SKIPLIST" | sort -u | sort -d`
  echo "SKIPLIST='$SKIPLIST'" >&2
  fi
 
  if test -d /etc/modprobe.d/; then
- varBLACKLIST2=`grep -h '^blacklist .*' /etc/modprobe.d/* |awk '{print $2}' |sort -u`
+ varBLACKLIST2=`grep -h '^blacklist .*' /etc/modprobe.d/* |awk '{print $2}' |sort -u | sort -d`
  SKIPLIST="$SKIPLIST
 $varBLACKLIST2"
- SKIPLIST=`echo "$SKIPLIST" | sort -u`
+ SKIPLIST=`echo "$SKIPLIST" | sort -u | sort -d`
   echo "SKIPLIST='$SKIPLIST'" >&2
  fi
 
- SKIPLIST_OLD=`echo "$SKIPLIST" | sed '/^$/d'`
+ SKIPLIST_OLD=`echo "$SKIPLIST" | sed '/^$/d' | sort -u | sort -d`
  #SKIPLIST=`echo $SKIPLIST`
 
  MODLIST=""
- LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules`
+ LOADEDMODULES=`cut -f 1 -d ' ' /proc/modules | sort -u | sort -d`
 
  for oneMOD in $LOADEDMODULES
  do
@@ -323,33 +323,52 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
  [ "$RETVAL" -eq 0 ] || return 1
 
  SKIPLIST="`cat "$TMP_DIR"/skiprettags.txt | tr ' ' '\n'`"
- SKIPLIST=`echo "$SKIPLIST" | sort -u`
+ SKIPLIST=`echo "$SKIPLIST" | sort -u | sort -d`
 
  SKIPLIST_NEW="$SKIPLIST"
 
  echo "SKIPLIST_NEW='$SKIPLIST_NEW" >&2
  echo "SKIPLIST_OLD='$SKIPLIST_OLD" >&2
 
- ADDED_TO_SKIPLIST=`echo "$SKIPLIST_NEW" | /bin/grep -v "$SKIPLIST_OLD"`
+     ADDED_TO_SKIPLIST=`echo "$SKIPLIST_NEW" | /bin/grep -v "$SKIPLIST_OLD"`
  REMOVED_FROM_SKIPLIST=`echo "$SKIPLIST_OLD" | /bin/grep -v "$SKIPLIST_NEW"`
 
  echo "ADDED_TO_SKIPLIST='$ADDED_TO_SKIPLIST'" >&2
  echo "REMOVED_FROM_SKIPLIST='$REMOVED_FROM_SKIPLIST'" >&2
 
+ yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing blacklist files ..." & X1PID=$!
+
  mkdir $VERB -p /etc/rc.d /etc/mult_kernels/rc.d
 
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^SKIPLIST' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ __old_update__(){
+ grep -v '^SKIPLIST=' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
  echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >> /etc/rc.d/MODULESCONFIG
 
  if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
- grep -v '^SKIPLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
+ grep -v '^SKIPLIST=' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  echo "SKIPLIST=' ${SKIPLIST}'" | tr '\n' ' ' >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  fi
+ }
 
+ if grep $Q '^SKIPLIST=' /etc/rc.d/MODULESCONFIG; then
+  sed -i'.sed' "s%^SKIPLIST=.*%SKIPLIST=' ${SKIPLIST}'%" /etc/rc.d/MODULESCONFIG
+ else
+  echo "SKIPLIST=' ${SKIPLIST}'" >> /etc/rc.d/MODULESCONFIG
+ fi
 
+ if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
+  if grep $Q '^SKIPLIST=' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
+   sed -i'.sed' "s%^SKIPLIST=.*%SKIPLIST=' ${SKIPLIST}'%" /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+  else
+   echo "SKIPLIST=' ${SKIPLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+  fi
+ else
+  mkdir $VERB -p /etc/mult_kernels/rc.d
+  cp $VERB -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ fi
 
  for one_MODULE in $SKIPLIST; do
 
@@ -500,8 +519,6 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
  done #for one_MODULE in $REMOVED_FROM_SKIPLIST
 
 
-
-
  if test -d /etc/modprobe.d/; then
 
  for one_FILE in `ls -1 /etc/modprobe.d/`; do
@@ -511,7 +528,7 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
 
    for one_MODULE in $SKIPLIST; do
     test "$one_FILE" = $one_MODULE.conf && continue
-    grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
+    grep $Q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
 
     grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >"$TMP_DIR"/$one_FILE
     mv $VERB "$TMP_DIR"/$one_FILE /etc/modprobe.d/$one_FILE
@@ -521,7 +538,7 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
 
    for one_MODULE in $REMOVED_FROM_SKIPLIST; do
     test "$one_FILE" = $one_MODULE.conf && continue
-    grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
+    grep $Q "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE || continue
 
     grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/modprobe.d/$one_FILE >"$TMP_DIR"/$one_FILE
     mv $VERB "$TMP_DIR"/$one_FILE /etc/modprobe.d/$one_FILE
@@ -543,7 +560,7 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
 
    for one_MODULE in $SKIPLIST; do
     test "$one_FILE" = $one_MODULE.conf && continue
-    grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
+    grep $Q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
 
     grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >"$TMP_DIR"/$one_FILE
     mv $VERB "$TMP_DIR"/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
@@ -553,7 +570,7 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
 
    for one_MODULE in $REMOVED_FROM_SKIPLIST; do
     test "$one_FILE" = $one_MODULE.conf && continue
-    grep -q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
+    grep $Q "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE || continue
 
     grep -v "^blacklist[[:space:]]*$one_MODULE" /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE >"$TMP_DIR"/$one_FILE
     mv $VERB "$TMP_DIR"/$one_FILE /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/$one_FILE
@@ -561,11 +578,38 @@ run PupScan (look in the System menu)\" 0 0 8 $MODLIST >"$TMP_DIR"/skiprettags.t
 
    done
 
-
  done
 
  else echo "NO /etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/ .." >&2
  fi #/etc/mult_kernels/modprobe.d.$KERNEL_RELEASE/
+
+#+++2016-02-08 REM: Alter ADDLIST
+SKIPLISTN=`echo "$SKIPLIST" | tr ' ' '\n' | sed '/^$/d'`
+ADDLIST=`echo "$ADDLIST" | tr ' ' '\n' | sed '/^$/d' | sort -u | sort -d`
+ADDLIST=`echo "$ADDLIST" | /bin/grep -v -w "^$SKIPLISTN"`
+ADDLIST=`echo "$ADDLIST" | tr '\n' ' '`
+ #grep -v '^ADDLIST=' /etc/rc.d/MODULESCONFIG > "$TMP_DIR"/MODULESCONFIG
+ #mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ if grep $Q '^ADDLIST=' /etc/rc.d/MODULESCONFIG; then
+  sed -i'.sed' "s%^ADDLIST=.*%ADDLIST=' ${ADDLIST}'%" /etc/rc.d/MODULESCONFIG
+ else
+  echo "ADDLIST=' ${ADDLIST}'" >> /etc/rc.d/MODULESCONFIG
+ fi
+
+ if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ else
+  mkdir $VERB -p /etc/mult_kernels/rc.d
+  cp -a /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ fi
+
+#+++2016-02-08 REM: Unload these modules also...
+for mod in $SKIPLIST;
+do
+modprobe $Q $VERB -r $mod >>$OUT 2>>$ERR
+done
+
+/bin/ps -p $X1PID && kill $X1PID
 
 } #end blacklist_func
 
@@ -690,15 +734,30 @@ EXECME="Xdialog -wmclass \"module16\" \
  #ADDLIST=" `cat "$TMP_DIR"/yesrettags.txt | tr '\n' ' '`"
 
  #now update /etc/rc.d/MODULESCONFIG...
- grep -v '^ADDLIST' /etc/rc.d/MODULESCONFIG >"$TMP_DIR"/MODULESCONFIG
- mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
- echo "ADDLIST='${ADDLIST}'" >>/etc/rc.d/MODULESCONFIG
+ #grep -v '^ADDLIST=' /etc/rc.d/MODULESCONFIG >"$TMP_DIR"/MODULESCONFIG
+ #mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ #echo "ADDLIST='${ADDLIST}'" >>/etc/rc.d/MODULESCONFIG
+
+
+ #2016-02-08 Need to alter SKIPLIST too
+ ADDLISTN=`echo "$ADDLIST"   | tr ' ' '\n' | sed '/^$/d'`
+ ADDLISTN=`echo "$ADDLISTN"  | cut -f1 -d':'`
+ SKIPLISTN=`echo "$SKIPLIST" | tr ' ' '\n' | sed '/^$/d'`
+ SKIPLIST=`echo "$SKIPLISTN" | /bin/grep -vw "$ADDLISTN"`
+ SKIPLIST=`echo $SKIPLIST`
+ #grep -v '^SKIPLIST=' /etc/rc.d/MODULESCONFIG >"$TMP_DIR"/MODULESCONFIG
+ #mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/rc.d/MODULESCONFIG
+ if grep $Q '^SKIPLIST=' /etc/rc.d/MODULESCONFIG; then
+  sed -i'.sed' "s%^SKIPLIST=.*%SKIPLIST=' ${SKIPLIST}'%" /etc/rc.d/MODULESCONFIG
+ else
+  echo "SKIPLIST=' ${SKIPLIST} '" >>/etc/rc.d/MODULESCONFIG
+ fi
 
 __old_mult_kernels__(){
  if test -f /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE; then
- grep -v '^ADDLIST' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
+ grep -v '^ADDLIST=' /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE > "$TMP_DIR"/MODULESCONFIG
  mv $VERB -f "$TMP_DIR"/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
- echo "ADDLIST='${ADDLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
+ echo "ADDLIST=' ${ADDLIST}'" >>/etc/mult_kernels/rc.d/MODULESCONFIG.$KERNEL_RELEASE
  fi
 }
 
@@ -720,7 +779,6 @@ __old_mult_kernels__(){
  #+++2016-02-05 load the modules then too when we are at it...
  modprobe $Q $VERB $mod $prm
  done
-
 
 } #end addlist_func
 
