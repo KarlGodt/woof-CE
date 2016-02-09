@@ -325,33 +325,20 @@ _debugt 9d $_DATE_
 
  case $oneUPDATE in
  *loop*|*ram*|*md*|*mtd*|*nbd*) _debug "Got loop, ram, md, mtd, nbd -- won't update partition icon"; skipICON=YES ; continue;;
- /dev/fd[0-9]*)      DRV_CATEGORY=floppy ;;
- /dev/sr*|/dev/scd*) DRV_CATEGORY=optical;;
- /dev/mmc*)          DRV_CATEGORY=card   ;;
- /dev/*) DRV_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
-         _debug "DRV_CATEGORY='$DRV_CATEGORY'"
-         test "$DRV_CATEGORY" || continue;;
+ /dev/fd[0-9]*)      DISK_CATEGORY=floppy ;;
+ /dev/sr*|/dev/scd*) DISK_CATEGORY=optical;;
+ /dev/mmc*)          DISK_CATEGORY=card   ;;
+ /dev/*) DISK_CATEGORY=`probedisk2 | grep -w "${oneUPDATE:0:8}" | cut -f2 -d'|'`;
+         _debug "DISK_CATEGORY='$DISK_CATEGORY'"
+         test "$DISK_CATEGORY" || continue;;
  *) _notice "Got '$oneUPDATE' -- won't update partition icon"; skipICON=YES ; continue;;
  esac
  _debugt 9b $_DATE_
 
  case $WHAT in
  umount)
- _debugt 98 $_DATE_
-   __old_icon_unmounted_switch__(){
-   if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "$oneUPDATE" | grep -v ' /initrd/' | grep -v ' /$'`" = "" ];then
-    if [ "`_command df | tr -s ' ' | cut -f 1,6 -d ' ' | grep -w "${oneUPDATE}" | grep -E ' /initrd/| /$'`" != "" ];then
-     _info "_update_partition_icon:$oneUPDATE is boot partition"
-     #only a partition left mntd that is in use by puppy, change green->yellow...
-     icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
-    else
-     _info "_update_partition_icon:$oneUPDATE is not boot partition"
-     #redraw icon without "MNTD" text...
-     icon_unmounted_func ${oneUPDATE##*/} $DRV_CATEGORY #see functions4puppy4
-    fi
-   fi
-   }
 
+ _debugt 98 $_DATE_
   if _command df | grep $Q -w "^$oneUPDATE"; then
    # umount -r re-mounted partiton read-only or is boot partition
    icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
@@ -360,13 +347,13 @@ _debugt 9d $_DATE_
    # redraw icon without "MNTD" text...
    icon_unmounted_func ${oneUPDATE##*/} $DISK_CATEGORY #see functions4puppy4
   fi
-
  _debugt 97 $_DATE_
+
  ;;
  mount)
  _debugt 96 $_DATE_
- _debugx "icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY"
-      icon_mounted_func ${oneUPDATE##*/} $DRV_CATEGORY
+ _debugx "icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY"
+      icon_mounted_func ${oneUPDATE##*/} $DISK_CATEGORY
  _debugt 95 $_DATE_
  ;;
  *) _err "_update_partition_icon:'$WHAT' not handled.";;
