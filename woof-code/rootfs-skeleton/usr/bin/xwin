@@ -380,8 +380,9 @@ fi
 X_SERVER=`readlink -qs /usr/bin/X`
 _debug "X_SERVER='$X_SERVER'";
 
+echo -e $Pink1"Lowlevel probing the video card and monitor..."$Reset0
 _do_ddcprobe(){
-_edebug "\\033[0;31m""_do_ddcprobe";
+_edebug $Red0"_do_ddcprobe";
 
 # +++2014-11-11 strace seems to help segfauting ddcprobe
  if [ "`which strace`" ]; then
@@ -410,7 +411,7 @@ _edebug "\\033[0;31m""_do_ddcprobe";
 
   sleep 2s
   case "`cat "$tmpDIR"/ddcprobe.txt`" in *edidfail*)
-   _notice "ddcprobe failed to determine the video";
+   _notice "ddcprobe failed to determine the monitor's edid";
    _info "Trying again..";
    sleep 1
    DDCPROBE=`ddcprobe`
@@ -431,9 +432,11 @@ fi
 _get_edid
 
 if [ -n "`grep -i 'edidfail' "$tmpDIR"/ddcprobe.txt`" ]; then
-echo -e "\\033[0;31m""ddcprobe still failed to determine the video.."
-echo -e "\\033[0;39m""Exiting $0 now.""\\033[0;39m"
-exit 20
+ if ! grep $Q '^mode:' "$tmpDIR"/ddcprobe.txt; then
+  echo -e $Red1"ddcprobe still failed to determine the video monitor.."$Reset0
+  echo -e "Exiting $0 now."
+  exit 20
+ fi
 fi
 }
 _do_ddcprobe
@@ -821,19 +824,21 @@ if [ -f /usr/bin/Xorg ]; then #-f /usr/bin/Xorg
   case `readlink -qs /usr/bin/X` in Xorg*)
    [ "$DDCPROBE" ] || DDCPROBE=`cat "$tmpDIR"/ddcprobe.txt`
    #PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-      PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: '     |cut -f2  -d ' ' | sed 's/[[:punct:]]/_/g'`
-    PROFILEVENDOR=`echo "$DDCPROBE" | grep -m1 '^vendor: '  |cut -f2- -d ' ' | sed 's/[[:punct:]]/_/g'`
-   PROFILEPRODUCT=`echo "$DDCPROBE" | grep -m1 '^product: ' |cut -f2- -d ' ' | sed 's/[[:punct:]]/_/g'`
+      PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: '     |cut -f2  -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
+    PROFILEVENDOR=`echo "$DDCPROBE" | grep -m1 '^vendor: '  |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
+   PROFILEPRODUCT=`echo "$DDCPROBE" | grep -m1 '^product: ' |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
       PROFILECHIP="${PROFILECHIP} ${PROFILEPRODUCT}"
-   [ "${PROFILECHIP// /}" ] || PROFILECHIP=`lspci | grep -m1 -iE 'graph|vga|display' | cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
+   [ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' | cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
+   [ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
 #PROFILEMONITOR=`echo "$DDCPROBE" | grep -E '^monitorrange: |^monitorid: |^eisa: '  | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
- PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorname: '  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^dtiming: '      | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: '  | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^eisa: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorname: '  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^dtiming: '      | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: '  | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^eisa: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
 
    #HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
    CURRENT_HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
