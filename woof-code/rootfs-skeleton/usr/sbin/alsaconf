@@ -40,8 +40,8 @@
 
 trap "exit 1" HUP INT QUIT KILL TERM
 
-OUT=/dev/null;ERR=$OUT;SILENT=-s;QUIET=-q;
-[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr;VERB=-v;QUIET='';SILENT='';L_VERB=--verbose;A_VERB=-verbose; }
+OUT=/dev/null;ERR=$OUT;SILENT=-s;Q=-q;
+[ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr;VERB=-v;Q='';SILENT='';L_VERB=--verbose;A_VERB=-verbose; }
 [ "$DEBUG" = "2" ] && set -x
 
 Version='1.1-Macpup_Foxy_3-KRG'
@@ -66,7 +66,7 @@ PROCFS="/proc"
 SYSFS="/sys"
 
 # i18n stuff
-if test "$USE_NLS" = "yes" && which gettext > $OUT; then
+if test "$USE_NLS" = "yes" && which gettext >>$OUT; then
   xecho() {
     gettext -s "$*"
   }
@@ -367,10 +367,9 @@ fi
 fi
 
 # Check for dialog, whiptail, gdialog, awk, ... ?
-if which dialog > $OUT; then
+if which dialog >>$OUT; then
     DIALOG=dialog
-else
-  if which whiptail > $OUT; then
+elif which whiptail >>$OUT; then
     whiptail_wrapper() {
       X1="$1"
       X2="$2"
@@ -383,12 +382,11 @@ else
       whiptail "$X1" "$X2" $X3 "$@"
     }
     DIALOG=whiptail_wrapper
-  else
-    xecho "Error, dialog or whiptail not found."
-    exit 1
-  fi
+else
+ xecho "Error, dialog or whiptail not found."
+ exit 1
 fi
-if which awk > $OUT; then :
+if which awk >>$OUT; then :
 else
   xecho "Error, awk not found. Can't continue."
   exit 1
@@ -451,7 +449,7 @@ remove_ac_block() {
 # set default mixer volumes
 #
 set_mixers() {
-    amixer -s $QUIET <<EOF
+    amixer -s $Q <<EOF
 set Master 75% unmute
 set Master -12dB
 set 'Master Mono' 75% unmute
@@ -545,40 +543,42 @@ acex() {
     #w468...
     #rcalsasound="/etc/init.d/alsa"
     #krg FOX3-Dell755:
-     rcalsasound=/etc/init.d/DRIVER/z99_alsa
+     rcalsasound=/etc/init.d/DRIVER/95_alsa_snd.init
 
 # MAIN
 if [ -d $PROCFS/asound ]; then
   $rcalsasound stop >&2
   #$rcalsasound unload >$OUT 2>&1
-  /sbin/rmmod dmasound dmasound_awacs 2>$ERR
+  /sbin/rmmod dmasound dmasound_awacs 2>>$ERR
 fi
 
 
 cleanup () {
-    killall -9 aplay arecord >$OUT 2>&1
-    /sbin/modprobe $VERB -r isapnp >$OUT 2>&1
-    /sbin/modprobe $VERB -r isa-pnp >$OUT 2>&1
+	(
+    killall -9 aplay arecord
+    /sbin/modprobe $VERB -r isapnp
+    /sbin/modprobe $VERB -r isa-pnp
+    ) >>$OUT 2>&1
     #rm -f "$TMP" "$addcfg" "$FOUND" "$DUMP"
 }
 trap cleanup 0
 
-TMP=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
+TMP=`mktemp $Q "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
     xecho "Can't create temp file, exiting..."
         exit 1
 fi
-addcfg=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
+addcfg=`mktemp $Q "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
     xecho "Can't create temp file, exiting..."
         exit 1
 fi
-FOUND=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
+FOUND=`mktemp $Q "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
     xecho "Can't create temp file, exiting..."
         exit 1
 fi
-DUMP=`mktemp $QUIET "$TMP_DIR"/alsaconf.XXXXXX`
+DUMP=`mktemp $Q "$TMP_DIR"/alsaconf.XXXXXX`
 if [ $? -ne 0 ]; then
     xecho "Can't create temp file, exiting..."
         exit 1
@@ -793,7 +793,7 @@ BEGIN {
         echo "$sdev $i" >> $FOUND
         elif test -r $PROCFS/openprom; then
         find $PROCFS/openprom -follow -type d -name "SUNW,${sdev}*" \
-            -exec echo "$sdev $i" \; 2>$ERR >> $FOUND
+            -exec echo "$sdev $i" \; 2>>$ERR >> $FOUND
         else
         echo "$sdev $i" >> $FOUND
         fi
@@ -806,7 +806,7 @@ BEGIN {
 #
 find_device_name () {
     if expr "$1" : '[0-9a-f][0-9a-f][0-9a-f][0-9a-f]:[0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >$OUT; then
-    $lspci -d $1 2>$ERR| sed -e 's/^.*:..\.. [^:]*: //g'
+    $lspci -d $1 2>>$ERR| sed -e 's/^.*:..\.. [^:]*: //g'
     return
     elif expr "$1" : '[A-Z@][A-Z@][A-Z@][0-9a-f][0-9a-f][0-9a-f][0-9a-f]' >$OUT; then
     cardname=`grep '^Card [0-9]\+ .'$1':' $DUMP | head -n 1 | sed -e 's/^Card [0-9]\+ '\''.*:\(.*\)'\'' .*$/\1/'`
@@ -944,7 +944,7 @@ alias sound-slot-0 $CARD_DRIVER" >> $addcfg
         cmp $SILENT "$TMP" "$cfgfile" || cat "$TMP" > "$cfgfile"
     fi
 
-    /sbin/depmod -a 2>$ERR
+    /sbin/depmod -a 2>>$ERR
 
     # remove yast2 entries (- only for suse distro)
     if [ -f /var/lib/YaST/unique.inf ]; then
@@ -968,11 +968,11 @@ BEGIN { in_sound=0; }
 
     farewell #BK
     #clear
-    echo $LINENO
+    echo lineno $LINENO
     #lsmod | sed -n "/${CARD_DRIVER}/ p" || modprobe -v ${CARD_DRIVER}
     gpCARD_DRIVER=${CARD_DRIVER//-/\[-_\]}
     lsmod | grep "$gpCARD_DRIVER" || { echo Loading driver...;modprobe $VERB ${CARD_DRIVER}; }
-    echo $LINENO
+    echo lineno $LINENO
     if [ "$distribution" = "gentoo" ]; then
       xecho "Running modules-update..."
       modules-update
