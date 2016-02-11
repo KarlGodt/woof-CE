@@ -195,7 +195,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 ### INFO ###
-Version='1.5.3-getopts Macpup_F3-Puppy-Linux-430/2 KRG'
+Version='1.5.4-getopts Macpup_F3-Puppy-Linux-430/2 KRG'
 
 usage(){
 echo "
@@ -823,35 +823,62 @@ if [ -f /usr/bin/Xorg ]; then #-f /usr/bin/Xorg
  # if [ "`readlink -qs /usr/bin/X`" = "Xorg" ]; then #X->Xorg
   case `readlink -qs /usr/bin/X` in Xorg*)
    [ "$DDCPROBE" ] || DDCPROBE=`cat "$tmpDIR"/ddcprobe.txt`
+ __get_chip_profile(){
    #PROFILECHIP=`echo "$DDCPROBE" | grep '^oem: ' | head -n 1 | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`
       PROFILECHIP=`echo "$DDCPROBE" | grep -m1 '^oem: '     |cut -f2  -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
     PROFILEVENDOR=`echo "$DDCPROBE" | grep -m1 '^vendor: '  |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
    PROFILEPRODUCT=`echo "$DDCPROBE" | grep -m1 '^product: ' |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
       PROFILECHIP="${PROFILECHIP} ${PROFILEPRODUCT}"
-   [ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' | cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g'`
+   [ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' | cut -f3 -d':' | tr -s '[:blank:]' | sed 's%^[[:blank:]]*%%;s%[[:blank:]]*$%%;s%[^[:alnum:]]%_%g' | tr -s '[:punct:]'`
    [ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
+ }
+ __get_monitor_profile(){
 #PROFILEMONITOR=`echo "$DDCPROBE" | grep -E '^monitorrange: |^monitorid: |^eisa: '  | head -n 1 | cut -f 2 -d ':' | sed -e 's/ //g' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
- PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorname: '  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^dtiming: '      | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: '  | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^eisa: '         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorname: '  | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^monitorrange: ' | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^dtiming: '      | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^manufacture: '  | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`echo "$DDCPROBE" | grep '^eisa: '         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
  [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+ }
+
+_get_chip_profile(){
+   PROFILECHIP=`grep -m1 '^oem: '     "$tmpDIR"/ddcprobe.txt |cut -f2  -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
+ PROFILEVENDOR=`grep -m1 '^vendor: '  "$tmpDIR"/ddcprobe.txt |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
+PROFILEPRODUCT=`grep -m1 '^product: ' "$tmpDIR"/ddcprobe.txt |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
+   PROFILECHIP="${PROFILECHIP} ${PROFILEPRODUCT}"
+[ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[:blank:]' | sed 's%^[[:blank:]]*%%;s%[[:blank:]]*$%%;s%[^[:alnum:]]%_%g' | tr -s '[:punct:]'`
+[ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
+}
+_get_monitor_profile(){
+## Dougal: maybe add "^monitorname: "??
+#PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$tmpDIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
+#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' "$tmpDIR"/ddcprobe.txt  | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^dtiming: ' "$tmpDIR"/ddcprobe.txt      | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$tmpDIR"/ddcprobe.txt  | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^eisa: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+}
+_get_chip_profile
+_get_monitor_profile
 
    #HARDWAREPROFILE="${PROFILECHIP}${PROFILEMONITOR}"
    CURRENT_HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
    #find out if current xorg.conf matches this profile...
    #CURRENT_XORG_PROFILE=`grep '^#PuppyHardwareProfile' /etc/X11/xorg.conf | tail -n1 | cut -f 2 -d '=' | cut -f 1 -d ' '`
-    CURRENT_XORG_PROFILE=`grep '^#PuppyHardwareProfile' /etc/X11/xorg.conf | tail -n1 | cut -f 2 -d '='`
+    CURRENT_XORG_CONF_PROFILE=`grep '^#PuppyHardwareProfile' /etc/X11/xorg.conf | tail -n1 | cut -f 2 -d '='`
 
-   if [ "$CURRENT_XORG_PROFILE" != "$CURRENT_HARDWAREPROFILE" ]; then #CURRENT_XORG_PROFILE
+   if [ "$CURRENT_XORG_CONF_PROFILE" != "$CURRENT_HARDWAREPROFILE" ]; then #CURRENT_XORG_PROFILE
     _notice "\\033[0;31m"'Has hardware profile changed ?'"\\033[0;39m"
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
     _debug "Moving now /etc/X11/xorg.conf /etc/X11/xorg.conf.${CURRENT_XORG_PROFILE}"
-    mv $VERB -f /etc/X11/xorg.conf "/etc/X11/xorg.conf.${CURRENT_XORG_PROFILE}" #### Rename One
+    mv $VERB -f /etc/X11/xorg.conf "/etc/X11/xorg.conf.${CURRENT_XORG_CONF_PROFILE}" #### Rename One
     #if a previous profiled filename for new hardware, use that...
     _info "Copying /etc/X11/xorg.conf.${CURRENT_HARDWAREPROFILE} /etc/X11/xorg.conf if exists"
     [ -f "/etc/X11/xorg.conf.${CURRENT_HARDWAREPROFILE}" ] && cp $VERB -af /etc/X11/xorg.conf."${CURRENT_HARDWAREPROFILE}" /etc/X11/xorg.conf # CP new xorg.conf Four
@@ -1053,12 +1080,12 @@ if [ -f "$tmpDIR"/wmexitmode.txt ]; then # 19.0
 ##+++2012-02-22 NO wmexitmode, assuming crash:
 else
  _notice "NO $tmpDIR/wmexitmode.txt ..?"
- cat "$tmpDIR"/wmexitmode.txt
+ #cat "$tmpDIR"/wmexitmode.txt
  ls "$tmpDIR"
  read -n1 -p "Press any key to proceed" R
  echo
- if [ "$Log" ]; then
- dialog --textbox "$Log" 0 0
+ if [ "$_LOG_" ]; then
+ dialog --textbox "$_LOG_" 0 0
  fi
 ##+++2012-02-22 NO wmexitmode, assuming crash
 
@@ -1130,7 +1157,7 @@ _do_exit
 [ "$RTVAL" ] || RTVAL=0
 _debug "tty='`tty`'"
 #[ "`tty`" = 'not a tty' ] && echo -n 'press [Enter] # '
-tty >$OUT || echo -n 'press [Enter] # '
+tty >>$OUT || echo -n 'press [Enter] # '
 if [ "$RTVAL" != '0' ]; then
     exit 1
 else
