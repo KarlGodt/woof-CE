@@ -32,7 +32,7 @@
 #w480 bugfix, serial mouse choice lost if choose to tweak refresh.
 #w482 allow switch between intel_drv.so and i810OLD_drv.so.
 
-VERSION=1.5.1
+VERSION=1.6.0
 
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
@@ -133,14 +133,11 @@ PSFND=`ps`
 CURRENTX=`readlink /usr/bin/X`
 if [ "$CURRENTX" = "" ]; then #w007 fix if not a symlink.
  if [ -x /usr/bin/Xorg ]; then
-  ln $VERB -sf Xorg /usr/bin/X
-  CURRENTX='Xorg'
+  ln $VERB -sf Xorg /usr/bin/X && CURRENTX='Xorg'
  elif [ -x /usr/bin/Xvesa ]; then
-  ln $VERB -sf Xvesa /usr/bin/X
-  CURRENTX='Xvesa'
+  ln $VERB -sf Xvesa /usr/bin/X && CURRENTX='Xvesa'
  elif [ -x /usr/bin/Xfbdev ]; then
-  ln $VERB -sf Xfbdev /usr/bin/X
-  CURRENTX='Xfbdev'
+  ln $VERB -sf Xfbdev /usr/bin/X && CURRENTX='Xfbdev'
  #TODO more Xerver here
  else
   _exit 4 "No Xorg Xvesa Xfbdev in /usr/bin executable."
@@ -845,7 +842,7 @@ _add_alps_touchpad(){
 test "$KEEP_XORG_CONF" && return 0
 ## Dougal (v2.16??):
 ## Kirk's code for adding synaptics touchpads (or my version of it...)
-if grep -F $Q 'Alps' /proc/bus/input/devices; then
+if grep $Q -F 'Alps' /proc/bus/input/devices; then
 echo "Copied $XORGCONFFILE $XORGCONFFILE-without-synaptic :Step 9" >> "$tmpDIR"/xorgwizard.messages && sleep 1s #9s
  cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
  modprobe $Q $VERB evdev
@@ -901,11 +898,14 @@ _add_alps_touchpad
 
 _add_synaptics_touchpad(){
 test "$KEEP_XORG_CONF" && return 0
-if grep -F $Q 'Synaptics' /proc/bus/input/devices; then
+if grep $Q -F 'Synaptics' /proc/bus/input/devices; then
  echo "Copying etc/X11/xorg.conf $XORGCONFFILE-without-synaptic :Step 11" >> "$tmpDIR"/xorgwizard.messages && sleep 1s #9s
  cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
  modprobe $Q $VERB evdev
+ if [ "`grep '^modprobe .*evdev' /etc/rc.d/rc.local`" = "" ]; then #v2.17
  echo 'modprobe $Q $VERB evdev' >> /etc/rc.d/rc.local
+ fi
+
  # Where we want to insert new lines...
  OLD1='Section "Module"'
  OLD2='Section "ServerLayout"'
@@ -949,6 +949,57 @@ fi
 }
 _add_synaptics_touchpad
 
+_add_elantech_touchpad(){
+####100602 start
+#Jemimah:support Elantech touchpads
+if grep $Q -F 'Elantech' /proc/bus/input/devices ; then
+ cp $VERB "$XORGCONFFILE" "$XORGCONFFILE"-without-synaptic
+ modprobe $Q $VERB evdev
+ if [ "`grep '^modprobe evdev' /etc/rc.d/rc.local`" = "" ];then #v2.17
+  echo 'modprobe $Q $VERB evdev' >>/etc/rc.d/rc.local
+ fi
+ # Where we want to insert new lines...
+ OLD1='Section "Module"'
+ OLD2='Section "ServerLayout"'
+ OLD3='Section "Monitor"'
+
+ # ...and the replacements
+ NEW1='Section "Module"\
+        Load "synaptics"'
+
+ NEW2='Section "ServerLayout"\
+        InputDevice "Synaptics Mouse" "AlwaysCore"'
+
+ NEW3='Section "InputDevice"\
+        Identifier "Synaptics Mouse"\
+        Driver "synaptics"\
+       #Option "Device" "/dev/psaux"\
+        Option "Protocol" "auto-dev"\
+        Option "LeftEdge" "60"\
+        Option "RightEdge" "1070"\
+        Option "TopEdge" "90"\
+        Option "BottomEdge" "680"\
+        Option "Emulate3Buttons" "on"\
+        Option "MaxTapTime" "180"\
+        Option "MaxTapMove" "59"\
+        Option "VertScrollDelta" "20"\
+        Option "MinSpeed" "0.75"\
+        Option "MaxSpeed" "1.00"\
+        Option "AccelFactor" "0.16"\
+        Option "SHMConfig" "on"\
+        Option "VertEdgeScroll" "on"\
+        Option "TapButton1" "1"\
+EndSection\
+\
+Section "Monitor"'
+
+ # now replace:
+ sed "s%$OLD1%$NEW1% ; s%$OLD2%$NEW2% ;s%$OLD3%$NEW3%" "$XORGCONFFILE"-without-synaptic >"$XORGCONFFILE"
+fi
+####100602 end
+}
+_add_elantech_touchpad
+
 _do_xvesa_listmodes(){
 test "$KEEP_XORG_CONF" && return 0
 #modes supported by card...
@@ -987,13 +1038,13 @@ else
  BOGUSVAL="no"
  for oneVAL in `echo -n "$HORIZSYNC" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ]  && BOGUSVAL="yes"
-  [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -lt 10 ]  && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -gt 200 ] && BOGUSVAL="yes"
  done
  for oneVAL in `echo -n "$VERTREFRESH" | tr '\-' ' ' | tr ',' ' ' | tr -s ' '`
  do
-  [ ${oneVAL%.*} -lt 10 ]  && BOGUSVAL="yes"
-  [ ${oneVAL%.*} -gt 200 ] && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -lt 10 ]  && BOGUSVAL="yes"
+  [ "${oneVAL%.*}" -gt 200 ] && BOGUSVAL="yes"
  done
  if [ "$BOGUSVAL" = "yes" ];then
   #one or both no good, so set both no good...
@@ -1014,7 +1065,7 @@ if [ "$TIMINGOK" = "yes" ];then #v3.93
  #get too many weird resolutions, maybe better just only allow these...
 
  #MONCHOICES=`grep -F 'timing:' $tmpDIR/ddcprobe.txt | grep -E -v 'Apple|8514A|Mac II|\(XGA2\)' | grep -E ' 640x480@| 800x480@| 800x600@| 1024x600@| 1024x768@| 1280x768@| 1280x800@| 1280x1024@| 1360x768@| 1400x1050@| 1440x900@| 1600x1200@| 1680x1050@| 1920x1080@| 1920x1200@' | cut -f 2 -d ' ' | sort -u`
- MONCHOICES=`grep -o '[0-9]*x[0-9]*@[0-9]*' "$tmpDIR"/ddcprobe.txt`
+ MONCHOICES=`grep -oE '[0-9]+x[0-9]+@[0-9]+' "$tmpDIR"/ddcprobe.txt`
 
  #no, better if reject known weird resolutions...
  #MONCHOICES=`echo "$DDCPROBE" | grep 'timing:' | cut -f 2 -d ' ' | grep -vE 'Apple|8514A|XGA2|720x400|832x624|256x256|248x248|632x632|280x280' | sort -u`
@@ -1026,12 +1077,12 @@ fi
 if [ "$HORIZSYNC" = "" -o "$VERTREFRESH" = "" ];then
  #MONFREQ=`grep -F 'monitorrange:' $tmpDIR/ddcprobe.txt | cut -f 2-10 -d ' '`
  MONFREQ=`grep -m1 -iE 'monitorrange: |Monitor ranges .*: ' "$tmpDIR"/ddcprobe.txt | cut -f2- -d ':'`
- #HORIZSYNC=`echo "$MONFREQ" | tr ' ' '\n' | while read line; do echo $line | grep -w -e '[0-9]*Hz'| grep -o -e '[0-9]*\-[0-9]*' ;done`
+ #HORIZSYNC=`echo "$MONFREQ" | tr ' ' '\n' | while read line; do echo $line | grep -w '[0-9]*Hz'| grep -o '[0-9]*\-[0-9]*' ;done`
  HORIZSYNC=`echo "$MONFREQ" | tr ' ' '\n' |while read line; do echo $line | grep -w -e '[0-9]*-[0-9]*[[:alpha:]]Hz' | grep -oE -e '[0-9]+-[0-9]+' ;done`
- [ "$HORIZSYNC" ] || HORIZSYNC=`echo -n "$MONFREQ" | cut -f 1 -d ',' | tr -d '[[:space:]][[:alpha:]]'`
- #VERTREFRESH=`echo "$MONFREQ" | tr ' ' '\n' |while read line; do echo $line | grep -w -e '[0-9]*\-[0-9]*[[:alpha:]]Hz' | grep -o -e '[0-9]*\-[0-9]*' ;done`
- VERTREFRESH=`echo "$MONFREQ" | tr ' ' '\n' | while read line; do echo $line | grep -w -e '[0-9]*Hz'| grep -oE -e '[0-9]+-[0-9]+' ;done`
- [ "$VERREFRESH" ] || VERTREFRESH=`echo -n "$MONFREQ" | cut -f 2 -d ',' | tr -d '[[:space:]][[:alpha:]]'`
+ [ "$HORIZSYNC" ] || HORIZSYNC=`echo -n "$MONFREQ" | cut -f 1 -d ',' | tr -d '[:space:][:alpha:]'`
+ #VERTREFRESH=`echo "$MONFREQ" | tr ' ' '\n' |while read line; do echo $line | grep -w '[0-9]*\-[0-9]*[[:alpha:]]Hz' | grep -o '[0-9]*\-[0-9]*' ;done`
+ VERTREFRESH=`echo "$MONFREQ" | tr ' ' '\n' | while read line; do echo $line | grep -w '[0-9]*Hz'| grep -oE -e '[0-9]+-[0-9]+' ;done`
+ [ "$VERREFRESH" ] || VERTREFRESH=`echo -n "$MONFREQ" | cut -f 2 -d ',' | tr -d '[:space:][:alpha:]'`
 fi
 
 #ddcprobe on my laptop returns one 'timing:' line but no 'monitorrange:', so
@@ -1051,14 +1102,14 @@ if [ "$MONCHOICES" != "" ]; then
    oneY=${oneCH#*x}; oneY=${oneY%@*}
    oneHORIZ=`gtf $oneX $oneY $oneVERT | grep -o 'hsync:.*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
    test "$oneVERT" -a "$oneX" -a "$oneY" -a "$oneHORIZ" || continue
-   [ $oneVERT -lt $LVERTREFRESH ] && LVERTREFRESH=$oneVERT
-   [ $oneHORIZ -gt $UHORIZSYNC ]  &&   UHORIZSYNC=$oneHORIZ
+   [ "$oneVERT" -lt $LVERTREFRESH ] && LVERTREFRESH=$oneVERT
+   [ "$oneHORIZ" -gt $UHORIZSYNC ]  &&   UHORIZSYNC=$oneHORIZ
    #it seems ddcprobe truncates any fractional part off vertrefresh...
    oneVERT=$((oneVERT + 1))
    oneHORIZ=`gtf $oneX $oneY $oneVERT | grep -o 'hsync:.*' | cut -f 2 -d ' ' | cut -f 1 -d '.'`
    test "$oneVERT" -a "$UVERTREFRESH" -a "$oneHORIZ" -a "$LHORIZSYNC" || continue
-   [ $oneVERT -gt $UVERTREFRESH ] && UVERTREFRESH=$oneVERT
-   [ $oneHORIZ -lt $LHORIZSYNC ]  &&   LHORIZSYNC=$oneHORIZ
+   [ "$oneVERT" -gt $UVERTREFRESH ] && UVERTREFRESH=$oneVERT
+   [ "$oneHORIZ" -lt $LHORIZSYNC ]  &&   LHORIZSYNC=$oneHORIZ
   done
   #v3.93 hmmm, above still can round down too much, add 2...
   UHORIZSYNC=$((UHORIZSYNC + 2))
@@ -1089,27 +1140,42 @@ CRT: Cathode Ray Tube (normal monitor).
 Choose \"Z\" if you have the monitor user manual, and it has the
 horizontal and vertical frequency specifications.
 DOWN-ARROW to highlight choice, ENTER key to finish..."  0 0 0 \
- "A"  "h31.5v40-70       LCD Panel 640x480" \
- "B"  "h31.5-37v40-70    LCD Panel 800x600" \
- "B2" "h31.5-90v60       LCD Panel 1024x600" \
- "C"  "h31.5-48.5v40-70  LCD Panel 1024x768" \
- "D"  "h31.5-90v60       LCD Panel 1280x800" \
- "E"  "h31.5-67v50-75    LCD Panel 1280x1024" \
- "F"  "h31.5-90v60       LCD Panel 1360x768" \
- "G"  "h31.5-90v59-75    LCD Panel 1400x1050" \
- "H"  "h31.5-100v59-75   LCD Panel 1440x900" \
- "I3" "h31.5-90v60       LCD Panel 1600x900" \
- "I2" "h31.5-90v60       LCD Panel 1600x1050" \
- "I"  "h31.5-90v60       LCD Panel 1600x1200" \
- "J"  "h31.5-90v60       LCD Panel 1680x1050" \
- "K"  "h30-68v67         LCD HDTV  1920x1080" \
- "L"  "h31.5-90v60       LCD Panel 1920x1200" \
- "M"  "h31.5v50-61       CRT 640x480" \
- "N"  "h31.5-35v50-61    CRT 800x600 (old 14inch monitor)" \
- "O"  "h31.5-48.5v56-72  CRT 1024x768 (basic 15inch monitor)" \
- "P"  "h31.5-79v50-90    CRT 1280x1024 (basic 17inch monitor)" \
- "Q"  "h31.5-90v50-90    CRT 1400x1050" \
- "R"  "h31.5-94v50-90    CRT 1600x1200" \
+ "A9"  "h31.5v40-70      LCD Panel 416x312" \
+ "B9"  "h31.5v40-70      LCD Panel 512x384" \
+ "B8"  "h31.5v40-70      LCD Panel 576x432" \
+ "C"   "h31.5v40-70      LCD Panel 640x480" \
+ "C1"  "h31.5v40-70      LCD Panel 640x512" \
+ "D9"  "h31.5-37v40-70   LCD Panel 700x525" \
+ "D8"  "h31.5-37v40-70   LCD Panel 720x400" \
+ "E"   "h31.5-37v40-70   LCD Panel 800x600" \
+ "E1"  "h31.5-37v40-70   LCD Panel 832x624" \
+ "E2"  "h31.5-37v40-70   LCD Panel 896x672" \
+ "F9"  "h31.5-90v60      LCD Panel 928x696" \
+ "F8"  "h31.5-90v60      LCD Panel 960x720" \
+ "G9"  "h31.5-90v60      LCD Panel 1024x600" \
+ "G"   "h31.5-48.5v40-70 LCD Panel 1024x768" \
+ "H"   "h31.5-90v60      LCD Panel 1152x864" \
+ "I9"  "h31.5-90v60      LCD Panel 1280x720" \
+ "I8"  "h31.5-90v60      LCD Panel 1280x800" \
+ "I7"  "h31.5-67v50-75   LCD Panel 1280x960" \
+ "I"   "h31.5-67v50-75   LCD Panel 1280x1024" \
+ "J"   "h31.5-90v60      LCD Panel 1360x768" \
+ "K"   "h31.5-90v59-75   LCD Panel 1400x1050" \
+ "K1"  "h31.5-100v59-75  LCD Panel 1440x900" \
+ "L9"  "h31.5-90v60      LCD Panel 1600x900" \
+ "L8"  "h31.5-90v60      LCD Panel 1600x1050" \
+ "L7"  "h31.5-90v60      LCD Panel 1600x1200" \
+ "L"   "h31.5-90v60      LCD Panel 1680x1050" \
+ "M"   "h30-68v67        LCD HDTV  1920x1080" \
+ "M1"  "h31.5-90v60      LCD Panel 1920x1200" \
+ "M2"  "h31.5-90v60      LCD Panel 1920x1440" \
+ "N"   "h31.5-90v60      LCD Panel 2048x1536" \
+ "T"   "h31.5v50-61      CRT 640x480" \
+ "U"   "h31.5-35v50-61   CRT 800x600 (old 14inch monitor)" \
+ "V"   "h31.5-48.5v56-72 CRT 1024x768 (basic 15inch monitor)" \
+ "W"   "h31.5-79v50-90   CRT 1280x1024 (basic 17inch monitor)" \
+ "X"   "h31.5-90v50-90   CRT 1400x1050" \
+ "Y"   "h31.5-94v50-90   CRT 1600x1200" \
  "Z"  "SELECT THIS IF YOU KNOW MONITOR FREQUENCY SPECS" \
   2>"$tmpDIR"/taggen.txt
   RV1="$?";
@@ -1119,107 +1185,183 @@ DOWN-ARROW to highlight choice, ENTER key to finish..."  0 0 0 \
   ## Dougal: use case-structure for setting params -- safer than the old way
   ## (not sure why Barry only uses 16-bit, maybe worth improving?)
   case "$CHOICE" in
-   A) # "h31.5v40-70        LCD Panel 640x480"
+
+"A9") # "h31.5v40-70      LCD Panel 416x312"
+     REC_VIDEO_MODE=416x312x16
+     HORIZSYNC="31.5"
+     VERTREFRESH="40-70"
+;;
+"B9") # "h31.5v40-70      LCD Panel 512x384"
+     REC_VIDEO_MODE=512x384x16
+     HORIZSYNC="31.5"
+     VERTREFRESH="40-70"
+;;
+"B8") # "h31.5v40-70      LCD Panel 576x432"
+     REC_VIDEO_MODE=576x432x16
+     HORIZSYNC="31.5"
+     VERTREFRESH="40-70"
+;;
+   C) # "h31.5v40-70        LCD Panel 640x480"
      REC_VIDEO_MODE="640x480x16"
      HORIZSYNC="31.5"
      VERTREFRESH="40-70"
      ;;
-   B) # "h31.5-37v40-70     LCD Panel 800x600"
+  C1) # "h31.5v40-70        LCD Panel 640x512"
+     REC_VIDEO_MODE="640x512x16"
+     HORIZSYNC="31.5"
+     VERTREFRESH="40-70"
+     ;;
+  D9) # "h31.5-37v40-70       LCD Panel 700x525"
+     REC_VIDEO_MODE="700x525x16"
+     HORIZSYNC="31.5-37"
+     VERTREFRESH="40-70"
+    ;;
+  D8) # "h31.5-37v40-70       LCD Panel 720x400"
+     REC_VIDEO_MODE="720x400x16"
+     HORIZSYNC="31.5-37"
+     VERTREFRESH="40-70"
+    ;;
+   E) # "h31.5-37v40-70     LCD Panel 800x600"
      REC_VIDEO_MODE="800x600x16"
      HORIZSYNC="31.5-37"
      VERTREFRESH="40-70"
      ;;
-   B2) # "h31.5-90v60       LCD Panel 1024x600"
+  E1) # "h31.5-37v40-70     LCD Panel 832x624"
+     REC_VIDEO_MODE="832x624x16"
+     HORIZSYNC="31.5-37"
+     VERTREFRESH="40-70"
+     ;;
+  E2) # "h31.5-37v40-70     LCD Panel 896x672"
+     REC_VIDEO_MODE="896x672x16"
+     HORIZSYNC="31.5-37"
+     VERTREFRESH="40-70"
+     ;;
+"F9") # "h31.5-90v60      LCD Panel 928x696"
+     REC_VIDEO_MODE=928x696x16
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+"F8") #  "h31.5-90v60      LCD Panel 960x720"
+     REC_VIDEO_MODE=960x720x16
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+  G9) # "h31.5-90v60       LCD Panel 1024x600"
      REC_VIDEO_MODE="1024x600x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   C) # "h31.5-48.5v40-70   LCD Panel 1024x768"
+   G) # "h31.5-48.5v40-70   LCD Panel 1024x768"
      REC_VIDEO_MODE="1024x768x16"
      HORIZSYNC="31.5-48.5"
      VERTREFRESH="40-70"
      ;;
-   D) # "h31.5-90v60        LCD Panel 1280x800"
+"H")  # "h31.5-90v60      LCD Panel 1152x864"
+     REC_VIDEO_MODE=1152x864
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+"I9") # "h31.5-90v60      LCD Panel 1280x720"
+     REC_VIDEO_MODE=1280x720x16
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+  I8) # "h31.5-90v60        LCD Panel 1280x800"
      REC_VIDEO_MODE="1280x800x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   E) # "h31.5-67v50-75     LCD Panel 1280x1024"
+"I7") # "h31.5-67v50-75   LCD Panel 1280x960"
+     REC_VIDEO_MODE=1280x960x16
+     HORIZSYNC="31.5-67"
+     VERTREFRESH="50-75"
+;;
+   I) # "h31.5-67v50-75     LCD Panel 1280x1024"
      REC_VIDEO_MODE="1280x1024x16"
      HORIZSYNC="31.5-67"
      VERTREFRESH="50-75"
      ;;
-   F) # "h31.5-90v60        LCD Panel 1360x768"
+   J) # "h31.5-90v60        LCD Panel 1360x768"
      REC_VIDEO_MODE="1360x768x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   G) # "h31.5-90v59-75     LCD Panel 1400x1050"
+   K) # "h31.5-90v59-75     LCD Panel 1400x1050"
      REC_VIDEO_MODE="1400x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="59-75"
      ;;
-   H) # "h31.5-100v59-75    LCD Panel 1440x900"
+   K1) # "h31.5-100v59-75    LCD Panel 1440x900"
      REC_VIDEO_MODE="1440x900x16"
      HORIZSYNC="31.5-100"
      VERTREFRESH="59-75"
      ;;
-  I3) # "h31.5-90v60       LCD Panel 1600x900"
+  L9) # "h31.5-90v60       LCD Panel 1600x900"
      REC_VIDEO_MODE="1600x900x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="50-76"
     ;;
-  I2) # "h31.5-90v60       LCD Panel 1600x1050"
+  L8) # "h31.5-90v60       LCD Panel 1600x1050"
      REC_VIDEO_MODE="1600x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="50-76"
     ;;
-  I) # "h31.5-90v60        LCD Panel 1600x1200"
+  L7) # "h31.5-90v60        LCD Panel 1600x1200"
      REC_VIDEO_MODE="1600x1200x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   J) # "h31.5-90v60        LCD Panel 1680x1050"
+   L) # "h31.5-90v60        LCD Panel 1680x1050"
      REC_VIDEO_MODE="1680x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   K) # "h30-68v67      LCD HDTV  1920x1080"
+   M) # "h30-68v67      LCD HDTV  1920x1080"
      REC_VIDEO_MODE="1920x1080x16"
      HORIZSYNC="30-68"
      VERTREFRESH="67"
      ;;
-   L) # "h31.5-90v60        LCD Panel 1920x1200"
+   M1) # "h31.5-90v60        LCD Panel 1920x1200"
      REC_VIDEO_MODE="1920x1200x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="60"
      ;;
-   M) # "h31.5v50-61        CRT 640x480"
+"M2") # "h31.5-90v60      LCD Panel 1920x1440"
+     REC_VIDEO_MODE=1920x1440
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+"N")  # "h31.5-90v60      LCD Panel 2048x1536"
+     REC_VIDEO_MODE=2048x1536x16
+     HORIZSYNC="31.5-90"
+     VERTREFRESH="60"
+;;
+   T) # "h31.5v50-61        CRT 640x480"
      REC_VIDEO_MODE="640x480x16"
      HORIZSYNC="31.5"
      VERTREFRESH="50-61"
      ;;
-   N) # "h31.5-35v50-61     CRT 800x600 (old 14inch monitor)"
+   U) # "h31.5-35v50-61     CRT 800x600 (old 14inch monitor)"
      REC_VIDEO_MODE="800x600x16"
      HORIZSYNC="31.5-35"
      VERTREFRESH="50-61"
      ;;
-   O) # "h31.5-48.5v56-72   CRT 1024x768 (basic 15inch monitor)"
+   V) # "h31.5-48.5v56-72   CRT 1024x768 (basic 15inch monitor)"
      REC_VIDEO_MODE="1024x768x16"
      HORIZSYNC="31.5-48.5"
      VERTREFRESH="56-72"
      ;;
-   P) # "h31.5-79v50-90     CRT 1280x1024 (basic 17inch monitor)"
+   W) # "h31.5-79v50-90     CRT 1280x1024 (basic 17inch monitor)"
      REC_VIDEO_MODE="1280x1024x16"
      HORIZSYNC="31.5-79"
      VERTREFRESH="50-90"
      ;;
-   Q) # "h31.5-90v50-90     CRT 1400x1050"
+   X) # "h31.5-90v50-90     CRT 1400x1050"
      REC_VIDEO_MODE="1400x1050x16"
      HORIZSYNC="31.5-90"
      VERTREFRESH="50-90"
      ;;
-   R) # "h31.5-94v50-90     CRT 1600x1200"
+   Y) # "h31.5-94v50-90     CRT 1600x1200"
      REC_VIDEO_MODE="1600x1200x16"
      HORIZSYNC="31.5-94"
      VERTREFRESH="50-90"
@@ -1238,6 +1380,7 @@ DOWN-ARROW to highlight choice, ENTER key to finish..."  0 0 0 \
      # comment out -- it's the default from above
      #REC_VIDEO_MODE="800x600x16"
      ;;
+    *) echo ERROR; exit 250;;
   esac
   break
  done
@@ -1259,16 +1402,39 @@ if [ "$MONCHOICES" = "" ];then
    echo "$oneCHOICE \"Unconfirmed for monitor, OK for video card\" \\"   >> "$tmpDIR"/finalchoices.txt
   fi
  done
- for oneCHOICE in 640x480x16 800x600x16 \
- 1024x600x16  1024x768x16  1280x800x16  1280x1024x16 \
- 1360x768x16  1400x1050x16 1440x900x16 \
+ for oneCHOICE in \
+ 416x312x16 \
+ 512x384x16   576x432x16 \
+ 640x480x16   640x512x16 \
+ 700x525x16   720x400x16 \
+ 800x600x16   832x624x16   896x672x16 \
+ 928x696x16   960x720x16 \
+ 1024x600x16  1024x768x16 \
+ 1152x864x16 \
+ 1280x720x16  1280x800x16  1280x960x16 1280x1024x16 \
+ 1360x768x16 \
+ 1400x1050x16 1440x900x16 \
  1600x900x16  1600x1050x16 1600x1200x16 1680x1050x16 \
- 1920x1080x16 1920x1200x16 \
- 640x480x24   800x600x24 \
- 1024x600x24  1024x768x24  1280x800x24  1280x1024x24 \
- 1360x768x24  1400x1050x24 1440x900x24 \
+ 1792x1344x16 \
+ 1856x1392x16 \
+ 1920x1080x16 1920x1200x16 1920x1440x16 \
+ 2048x1536x16 \
+ 416x312x24 \
+ 512x384x24   576x432x24 \
+ 640x480x24 \
+ 700x525x24   720x400x24 \
+ 800x600x24   832x624x24   896x672x24 \
+ 928x696x16   960x720x24 \
+ 1024x600x24  1024x768x24 \
+ 1152x864x24 \
+ 1280x720x24  1280x800x24  1280x960x16  1280x1024x24 \
+ 1360x768x24 \
+ 1400x1050x24 1440x900x24 \
  1600x900x24  1600x1050x24 1600x1200x24 1680x1050x24 \
- 1920x1080x24 1920x1200x24
+ 1792x1344x24 \
+ 1856x1392x24 \
+ 1920x1080x24 1920x1200x24 1920x1440x24 \
+ 2048x1536x24
  do
   case "$CARDCHOICES" in *$oneCHOICE*) :;; *) # we've done CARDCHOICES above
    echo "$oneCHOICE \"Unconfirmed for monitor, maybe NOT OK for card\" \\" >> "$tmpDIR"/finalchoices.txt ;;
@@ -1320,9 +1486,9 @@ echo '
 OK:   Just press ENTER key to immediately use the selected mode...
 EXIT: Exit to text-mode console, do not start X...\Zn" 0 0 0 \' >> "$tmpDIR"/choosexmodedlg #'geanyfix.
 
-echo "$FINALCHOICES" >> "$tmpDIR"/choosexmodedlg
+echo "$FINALCHOICES"      >> "$tmpDIR"/choosexmodedlg
 echo " 2>$tmpDIR/tag.txt" >> "$tmpDIR"/choosexmodedlg
-echo 'exit $?' >> "$tmpDIR"/choosexmodedlg
+echo 'exit $?'            >> "$tmpDIR"/choosexmodedlg
 
 chmod $VERB 0755 "$tmpDIR"/choosexmodedlg
 "$tmpDIR"/choosexmodedlg
@@ -1436,22 +1602,29 @@ MINHORIZ=${HORIZSYNC%-*}   #; MINHORIZ=${MINHORIZ%.*}
 _write_hardware_profile(){
 test "$KEEP_XORG_CONF" && return 0
 #v2.13 want a hardware profile so can bootup on different PCs...
+_get_chip_profile(){
    PROFILECHIP=`grep -m1 '^oem: '     "$tmpDIR"/ddcprobe.txt |cut -f2  -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`  #was cut -f 2-4 -d ' '| tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'
  PROFILEVENDOR=`grep -m1 '^vendor: '  "$tmpDIR"/ddcprobe.txt |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
 PROFILEPRODUCT=`grep -m1 '^product: ' "$tmpDIR"/ddcprobe.txt |cut -f2- -d ' ' | sed 's/[[:punct:][:space:]]/_/g' | tr -s '[:punct:]'`
    PROFILECHIP="${PROFILECHIP} ${PROFILEPRODUCT}"
-[ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[[:blank:]]' | sed 's%^ *%%;s% *$%%;s%[^[:alnum:]]%_%g' | tr -s '[:punct:]'`
+[ "${PROFILECHIP// /}" ] || PROFILECHIP=`_command lspci | grep -m1 -iE 'graph|vga|display' |cut -f3 -d':' | tr -s '[:blank:]' | sed 's%^[[:blank:]]*%%;s%[[:blank:]]*$%%;s%[^[:alnum:]]%_%g' | tr -s '[:punct:]'`
 [ "$PROFILECHIP" ] || PROFILECHIP=UnknownChip
+}
+_get_monitor_profile(){
 ## Dougal: maybe add "^monitorname: "??
 #PROFILEMONITOR=`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$tmpDIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
- PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' "$tmpDIR"/ddcprobe.txt  | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^dtiming: ' "$tmpDIR"/ddcprobe.txt      | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
- [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$tmpDIR"/ddcprobe.txt  | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
-#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^eisa: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ PROFILEMONITOR=`grep -iE '^monitorid: |^Monitor name: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorname: ' "$tmpDIR"/ddcprobe.txt  | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^monitorrange: ' "$tmpDIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^dtiming: ' "$tmpDIR"/ddcprobe.txt      | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^manufacture: ' "$tmpDIR"/ddcprobe.txt  | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR=`grep '^eisa: ' "$tmpDIR"/ddcprobe.txt         | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`
  [ "$PROFILEMONITOR" ] || PROFILEMONITOR=UnknownMonitor
+}
+_get_chip_profile
+_get_monitor_profile
+
 KERNEL_RELEASE=`uname -r`
 V=`Xorg -version 2>&1|sed '/^$/d'`
 CV=`echo "$V" |sed 's|^|#|'`
@@ -1524,7 +1697,7 @@ exa)           DESCR='new 2D acceleration architecture for X.Org'
 # eration.  It is a module loaded by drivers, and is not intended  to  be
 # loaded  on  its  own.   See your driver's manual page for how to enable EXA.
 ;;
-fbdev)         DESCR='video driver for framebuffer device';;
+fbdev)         DESCR='video driver for framebuffer console';;
 geode)         DESCR='Driver for AMD Geode Chipsets';;
 glide)         DESCR='Glide video driver for Voodoo 1 and 2 boards';;
 glint)         DESCR='GLINT/Permedia video driver';;
@@ -1541,7 +1714,8 @@ nested)        DESCR='Driver for nested servers';;
 neomagic)      DESCR='Neomagic video driver';;
 newport)       DESCR='Newport video driver';;
 nsc)           DESCR='driver for National Semiconductors GEODE';;
-nv)            DESCR='NVIDIA video driver';;
+nouveau)       DESCR='Newer NVIDIA video driver with kernel modesetting';;
+nv)            DESCR='Older NVIDIA video driver';;
 omap)          DESCR='OMAP SoC graphics';;
 openchrome)    DESCR='video driver for VIA Unichromes';;
 qlx)           DESCR='Driver for QXL virtual graphics';;
@@ -1594,25 +1768,25 @@ for f in `ls -1 "$tmpDIR"/Card*.conf`
 do
 test "$f" = "${XORGCONFFILE}.d/Card0.conf" && continue
 test "$f" = "$tmpDIR/Card0.conf" && continue
-#sed -i 's%^[^#]%#%' "$f"
-sed -i 's%^\([^#].*\)%#\1%' "$f"
+#sed -i'.sed' 's%^[^#]%#%' "$f"
+sed -i'.sed' 's%^\([^#].*\)%#\1%' "$f"
 done
-#sed -i 's%^#*%%' "$XORGCONFFILE".d/Card0.conf
-sed -i 's%^#*%%' "$tmpDIR"/Card0.conf
+#sed -i'.sed' 's%^#*%%' "$XORGCONFFILE".d/Card0.conf
+sed -i'.sed' 's%^#*%%' "$tmpDIR"/Card0.conf
 
 #p1=`grep -E 'Driver[[:blank:]]+".*"[[:blank:]]+#card[0-9]+driver' "$XORGCONFFILE".d/Card0.conf`
 p1=`grep -E 'Driver[[:blank:]]+".*"[[:blank:]]+#card[0-9]+driver' "$tmpDIR"/Card0.conf`
 p2=`echo "$p1" | sed -r 's%(^.*)("[^"]*")(.*$)%\(\1\)\(\2\)\(\3\)%'`
 _debug "'$p2'"
 # TODO: Worked OK until now, but may need similar in Device.conf
-#sed -i -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE".d/Card0.conf
-sed -i -r "s%$p2%\1\"$*\"\3%" "$tmpDIR"/Card0.conf
+#sed -i'.sed' -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE".d/Card0.conf
+sed -i'.sed' -r "s%$p2%\1\"$*\"\3%" "$tmpDIR"/Card0.conf
 #test $? = 0 && CARD0DRIVER1="$*"
 test $? = 0 && CARD0DRIVER="$*"
 #p1=`grep -E 'Driver[[:blank:]]+".*"[[:blank:]]+#card0driver' "$XORGCONFFILE"`
 #p2=`echo "$p1" | sed -r 's%(^.*)("[^"]*")(.*$)%\(\1\)\(\2\)\(\3\)%'`
 #_debug "'$p2'"
-#sed -i -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE"
+#sed -i'.sed' -r "s%$p2%\1\"$*\"\3%" "$XORGCONFFILE"
 #test $? = 0 && CARD0DRIVER="$*"
 #test "$CARD0DRIVER1" = "$CARD0DRIVER"
 test "${CARD0DRIVER//[[:blank:]]/}"
@@ -1988,17 +2162,17 @@ echo "$OTHER_CARDS_CONF" ; }
 
 for f in $OTHER_CARDS_CONF
 do
-#sed -i 's%^%#%' "$f"
-sed -i 's%^\([^#].*\)%#\1%' "$f"
+#sed -i'.sed' 's%^%#%' "$f"
+sed -i'.sed' 's%^\([^#].*\)%#\1%' "$f"
 done
 #test -f "$CardFILE" || return 5
 test -s "$CardFILE" || return 6
 #need to reset CARD0DRIVER
 CARD0DRIVER=`grep -E 'Driver[[:blank:]]+"[^"]+"[[:blank:]]+#card[0-9]+driver' "$CardFILE" | cut -f2 -d'"'`
-#sed -i 's%^#*%%' "$CardFILE"
- sed -i 's%^\(#\+\)\([[:blank:]]\+\)\(.*\)%\2\3%' "$CardFILE"
+#sed -i'.sed' 's%^#*%%' "$CardFILE"
+ sed -i'.sed' 's%^\(#\+\)\([[:blank:]]\+\)\(.*\)%\2\3%' "$CardFILE"
  sedRV=$?
- sed -i 's%^\(#\+\)\(.*\)%\2%' "$CardFILE"
+ sed -i'.sed' 's%^\(#\+\)\(.*\)%\2%' "$CardFILE"
  sedRV=$((sedRV+$?))
 test "$sedRV" = 0 -a "${CARD0DRIVER//[[:blank:]]/}"
 }
@@ -2030,7 +2204,7 @@ _debug "lsdnr=$lsdnr"
 _debug " lcnr=$lcnr"
 _debug "lesnr=$lesnr"
 
-test "$fsdnr" -a "$lesnr" && sed -i "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"
+test "$fsdnr" -a "$lesnr" && sed -i'.sed' "$fsdnr,$lesnr s%^\([^#].*\)%#\1%" "$XORGCONFFILE"
 }
 
 _rebuild_xorg_conf(){
@@ -2062,7 +2236,7 @@ test -s "$XORGCONFFILE" && rm $VERB -f "$XORGCONFFILE".d/*.conf
 
 _comment_all_section_device_in_xorg_conf_d_device(){
 test -f "$XORGCONFFILE".d/Device.conf || return 0
-sed -i 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
+sed -i'.sed' 's%^\([^#].*\)%#\1%' "$XORGCONFFILE".d/Device.conf
 }
 
 _ask_driver(){
