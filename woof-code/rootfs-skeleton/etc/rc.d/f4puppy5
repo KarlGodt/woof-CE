@@ -14,10 +14,10 @@ version) _VERSION_=$version; VERSION=$version; Version=$version;;
 esac
 }
 
-test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.0.7
-test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.0.7
-test "$Version"   && _assign_version Version   ||   Version=0.0.7
-test "$version"   && _assign_version version   ||   version=0.0.7
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.1.0
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.1.0
+test "$Version"   && _assign_version Version   ||   Version=0.1.0
+test "$version"   && _assign_version version   ||   version=0.1.0
 
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
@@ -1156,23 +1156,49 @@ _mountpoint()
 {
  test -f /proc/mounts || return 3
  test "$*" || return 2
+ local OUT_=/dev/stdout
  _debug "_mountpoint:$*"
  #[ "$1" = '-q' ] && shift;
  case $1 in
- -h|*-help)      :; shift;;
- -q|*-quiet)     :; shift;;
- -d|*-fs-devno)  :; shift;;
- -x|*-devno)     :; shift;;
+ -h|*-help) echo "_mountpoint: -h --help|-q --quiet"
+            echo "-d <mountpoint_directory>"
+            echo "-x </dev/blockdevice>"
+            return 0;;
+ -q|*-quiet)     local Q_=-q OUT_=/dev/null; shift;;
+ -d|*-fs-devno) shift
+ [ "$*" ]    || { echo "Need mountpoint directory"; return 9; }
+ [ -d "$*" ] || { echo "'$*' is not a directory";   return 8; }
+ gP=${*// /\\040}; gP=${gP//	//\\011} #TAB
+gP="${gP//
+/\\012}"
+ set - ${gP//\\/\\\\}
+ _debug "_mountpoint:$*"
+ DEVICE=`cut -f1,2 -d' ' /proc/mounts | grep " ${*}$" | cut -f1 -d' '`
+ test "$DEVICE" || { return 1; }
+ MAJ=`grep " ${DEVICE#*/dev/}$" /proc/partitions | awk '{print $1}'`
+ Min=`grep " ${DEVICE#*/dev/}$" /proc/partitions | awk '{print $2}'`
+ echo "${MAJ}:${Min}"
+ return 0
+ ;;
+ -x|*-devno)    shift
+ [ "$*" ]    || { echo "Need device node";           return 9; }
+ [ -b "$*" ] || { echo "'$*' is not a block device"; return 8; }
+ MAJ=`grep " ${*#*/dev/}$" /proc/partitions | awk '{print $1}'`
+ Min=`grep " ${*#*/dev/}$" /proc/partitions | awk '{print $2}'`
+ echo "${MAJ}:${Min}"
+ return 0
+ ;;
  esac
+ test -d "$*" || _warn "'$*' is not a directory"
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
  #TAB
- gP=${*// /\\040}; gP=${gP//	//\\011}
+ gP=${*// /\\040}; gP=${gP//	//\\011} #TAB
 gP="${gP//
 /\\012}"
 
  set - ${gP//\\/\\\\}
  _debug "_mountpoint:$*"
- grep $Q " $* " /proc/mounts
+ awk '{print $2}' /proc/mounts | grep $Q_ "^${*}$" && echo "is mountpoint" >>$OUT_ || echo "is not a mountpoint" >>$OUT_
 }
 type -a mountpoint >>$OUT 2>>$ERR || alias mountpoint="_mountpoint"
 
