@@ -6,6 +6,10 @@
 #101014 improve test for older computers, and fix menu --well no probably not the latter.
 #101114 rerwin: refine usage of dmidecode.
 
+VERSION=2.0.0 # < 2016-02-19
+VERSION=2.1.0 #add _detect_cpu_manufacturer() and list of drivers from Opera2-Dell755
+              #code cleanup and typo fixes
+
 _deprecated_early_exit__(){
 #disable freq scaling for older computers...
 #[ ! -d /proc/acpi ] && FLAGEXIT='yes'
@@ -21,6 +25,7 @@ fi
 
 . /etc/rc.d/f4puppy5
 VERBOSE=1
+echo "STATUS='$STATUS'"
 
 # REM: Use modinfo 'driver' ie modinfo p4-clockmod
 #       for info about the driver
@@ -100,9 +105,40 @@ _show_available_cpufreq_governors(){
  modprobe -l | grep cpufreq_  | sort
 }
 
+[ "$AMD" ]    || AMD='powernow-k6 powernow-k7 powernow-k8'
+[ "$CYRIX" ]  || CYRIX='gx-suspmod'
+[ "$INTEL" ]  || INTEL='p4-clockmod speedstep-centrino speedstep-ich'
+[ "$NVIDIA" ] || NVIDIA='cpufreq-nforce2'
+# description:    LongRun driver for Transmeta Crusoe and Efficeon processors.
+[ "$TRANSM" ] || TRANSM='longrun'
+[ "$VIA" ]    || VIA='longhaul e_powersaver'
+
+_detect_cpu_manufacturer(){
+  CPUMAN="`dmidecode -s 'processor-manufacturer' | tr '[A-Z]' '[a-z]' | cut -f 1 -d ' '`"
+  _info "CPUMAN='$CPUMAN'"
+  case $CPUMAN in
+   amd)    mFREQMODS_="${AMD}" ; mFREQMODOPTS_='';;
+   cyrix)   mFREQMODS_="${CYRIX}" ;mFREQMODOPTS_='';;
+   intel)    mFREQMODS_="${INTEL}" ;mFREQMODOPTS_='';;
+   nvidia)    mFREQMODS_="${NVIDIA}" ;mFREQMODOPTS_='';;
+   transmeta) mFREQMODS_="${TRANSM}" ;mFREQMODOPTS_='';;
+   via)       mFREQMODS_="${VIA}" ;mFREQMODOPTS_='';;
+  esac
+  _info "mFREQMODS_='$mFREQMODS_'"
+  _info "mFREQMODOPTS_='$mFREQMODOPTS_'"
+}
+_detect_cpu_manufacturer
+
+[ "$mFREQMODS_" ]    && mFREQMODS="$mFREQMODS_"
+[ "$mFREQMODOPTS_" ] && mFREQMODOPTS="$mFREQMODOPTS_"
+
  FREQMODS="acpi-cpufreq"
+ [ "$FREQMOD_OPS" ]  || FREQMOD_OPS='acpi_pstate_strict=1'
  GOVERNOR='ondemand'
+ [ "$GOVERNOR_OPS" ] || GOVERNOR_OPS=''
  GOVERNORS='conservative ondemand performance powersave userspace'
+
+ FREQMODS="${mFREQMODS} $FREQMODS"
 
 if [ "$DEBUG" ]; then
        ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/   ##DEBUG
@@ -121,6 +157,7 @@ test "$sampling_rate "   || sampling_rate=$SAMPLERATE
 test "$ignore_nice_load" || ignore_nice_load=$IGNORE_NICE_LOAD
 test "$sampling_down_factor" || sampling_down_factor=$SAMPLING_DOWN_FACTOR
 
+echo "STATUS='$STATUS'"
 case "$1" in
  start)
 
@@ -305,30 +342,43 @@ fi
     done
  ;;
   status)
-		echo "FILES:"
-           ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/
-        echo "CONTENTS:"
-		   grep -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/*
-
+        echo "STATUS='$STATUS'"
+        [ "$DEBUG" ] && echo "FILES:"
+           ls -l /sys/devices/system/cpu/cpufreq/${GOVERNOR}/ >>$OUT 2>>$ERR
+           STATUS=$((STATUS+$?))
+        echo "STATUS='$STATUS'"
+        [ "$DEBUG" ] && echo "CONTENTS:"
+           grep $Q -H '.*' /sys/devices/system/cpu/cpufreq/${GOVERNOR}/* 2>>$ERR
+           STATUS=$((STATUS+$?))
+         echo "STATUS='$STATUS'"
+        if test "$STATUS" = 0; then
+          _notice "status:OK for governor '$GOVERNOR'"
+        else
+          _warn "status:FAIL for governor '$GOVERNOR'"
+        fi
  ;;
   help)
+       echo "STATUS='$STATUS'"
        case $2 in
-       modules) echo "EXAMPLE LIST of FREQUENZY DRIVERS:"
-				      _example_list_of_cpufreq_modules
+       modules) echo "EXAMPLE LIST of FREQUENCY DRIVERS:"
+                      _example_list_of_cpufreq_modules
                 echo
-                echo "LIST of available FREQUENZY DRIVERS:"
+                echo "LIST of available FREQUENCY DRIVERS:"
                       _show_available_cpufreq_drivers
                 echo
                 echo "EXAMPLE LIST of  GOVERNOR DRIVERS:"
-					  _example_list_of_cpufreq_governors
-			    echo
-				echo "LIST of available GOVERNOR DRIVERS:"
-				      _show_available_cpufreq_governors
-		 ;;
+                      _example_list_of_cpufreq_governors
+                echo
+                echo "LIST of available GOVERNOR DRIVERS:"
+                      _show_available_cpufreq_governors
+         ;;
          settings)
                 echo "The ondemand driver has these defaults:"
                 _show_hard_compiled_in_settings_ondemand
 
+         ;;
+         '') echo "Need second parameter modules OR settings"
+             STATUS=$((STATUS+1))
          ;;
          *) :
          ;;
@@ -336,6 +386,8 @@ fi
  ;;
 *)
  echo "Usage: $0 start|stop|status|help [modules|settings]"
+ STATUS=$((STATUS+1))
  ;;
 esac
-
+STATUS=$((STATUS+$?))
+exit $STATUS
