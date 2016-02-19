@@ -1,7 +1,8 @@
 #!/bin/ash
 
 IS_MULTICALL=1
-
+FSTAB_FILE=/etc/fstab
+VERSION=2.5.0
 . /etc/rc.d/f4puppy5
 
 __debugt__(){  #$1 label #$2 time
@@ -215,36 +216,36 @@ _debugx "positional parameters='$posPARAMS'"
 
 #util-linux/getopt.c
 #if (*arg == '\'')
-#			*bufptr ++= '\'';
-#			*bufptr ++= '\\';
-#			*bufptr ++= '\'';
-#			*bufptr ++= '\'';
+#           *bufptr ++= '\'';
+#           *bufptr ++= '\\';
+#           *bufptr ++= '\'';
+#           *bufptr ++= '\'';
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\''%\'%g"`    # ' ## tr -s "'"
 
 #else if (shell_TCSH && *arg == '!')
-#			*bufptr ++= '\'';
-#			*bufptr ++= '\\';
-#			*bufptr ++= '!';
-#			*bufptr ++= '\'';
+#           *bufptr ++= '\'';
+#           *bufptr ++= '\\';
+#           *bufptr ++= '!';
+#           *bufptr ++= '\'';
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`    # !
 
 #else if (shell_TCSH && isspace(*arg))
-#			*bufptr ++= '\'';
-#			*bufptr ++= '\\';
-#			*bufptr ++= *arg;
-#			*bufptr ++= '\'';
-posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\	'%\	%g"`   # tab   011
+#           *bufptr ++= '\'';
+#           *bufptr ++= '\\';
+#           *bufptr ++= *arg;
+#           *bufptr ++= '\'';
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\  '%\ %g"`   # tab   011
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`    # space 040
 
 #else if (shell_TCSH && *arg == '\n')
-#			*bufptr ++= '\\';
-#			*bufptr ++= 'n';
+#           *bufptr ++= '\\';
+#           *bufptr ++= 'n';
 # posPARAMS=`echo "$posPARAMS" | sed "s%\\\\\\\n%\n%g"`    # newline 012
 # done in _posparams_to_octal
 
 # else
-#			/* Just copy */
-#			*bufptr ++= *arg;
+#           /* Just copy */
+#           *bufptr ++= *arg;
 
 #posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\\'%\\\\\%g"` # \ #
 
@@ -351,9 +352,9 @@ _debugt 9d $_DATE_
 EoI
 }
 
-_parse_fstab()
+_mount_all_in_fstab()
 {
-test -f /etc/fstab || return 57
+test -f "$FSTAB_FILE" || return 57
 
 while read -r device mountpoint fstype mntops dump check
 do
@@ -363,12 +364,12 @@ test "`echo "$device" | sed 's,[^#]*,,g'`" && continue
 
 case $WHAT in
  mount)
-  _debug "_parse_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
+  _debug "_mount_all_in_fstab:$WHAT:'$device' '$mountpoint' -t '$fstype' -o '$mntops'"
 
   test "$fstype" = swap && continue
   grep $Q -w "${device##*/}" /proc/partitions || continue   # continue if not in /proc/partitions
   test -d "$mountpoint" || LANG=$LANG_ROX mkdir $VERB -p "$mountpoint"
-  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
+  _debug "_mount_all_in_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
   mountpoint $Q "$mountpoint" && continue
 
   mountBEFORE=`cat /proc/mounts`
@@ -387,7 +388,7 @@ umount)
   -O) echo "$mntops" | grep $Q -E "$opO_ARGS" || continue ;;
   esac
 
-  _debug "_parse_fstab:$WHAT:mountpoint='$mountpoint'"
+  _debug "_mount_all_in_fstab:$WHAT:mountpoint='$mountpoint'"
 
                 allSUB_MOUNTS=`losetup -a | grep -w "$mountpoint" | tac`
                 _check_tmp_rw || return 58
@@ -401,7 +402,7 @@ umount)
                 `echo "$allSUB_MOUNTS"`
 EoI
 
-  _debug "_parse_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
+  _debug "_mount_all_in_fstab:$WHAT:mountpoint $Q \"$mountpoint\""
   mountpoint $Q "$mountpoint" && {
      mountBEFORE=`cat /proc/mounts`
      _pidof $Q ROX-Filer && rox -D "$mountpoint"
@@ -415,10 +416,10 @@ EoI
   grep $Q -w "^$device" /proc/mounts || continue
   #umount $device
   ;;
-*) _err "_parse_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
+*) _err "_mount_all_in_fstab:Got unhandled '$WHAT' -- use 'mount' or 'umount'"; break;;
 esac
 
-done </etc/fstab
+done <"$FSTAB_FILE"
 
 return $STATUS
 }
@@ -559,6 +560,7 @@ umount)
    opAF=-T
    opAF_ARGS="$OPTARG"
    opAF="-T $opAF_ARGS"
+   FSTAB_FILE="$opAF_ARGS"
    shift
   ;;
   U) #mount UUID
@@ -598,8 +600,8 @@ _debug "6:$WHAT "$@ $opFL $opNFL $opF $opI $opN $opR $opL $opVERB $opMO $opS $op
 test "$opALL" && _debug "opALL='$opALL'"
 
 if   test "$opALL" == "-a"; then
-        _warn "${WHAT}ing all entries in /etc/fstab..."
-        _parse_fstab
+        _warn "${WHAT}ing all entries in '$FSTAB_FILE'..."
+        _mount_all_in_fstab
 exit $?
 
 elif test "$opVERS" == "-V" -o "$1" == "--version"; then
@@ -650,17 +652,19 @@ if test "$deviceORpoint"; then
    _warn "'${deviceORpoint##*/}' not found in /proc/partitions"; }
  fi
 
- test -e /etc/fstab || touch /etc/fstab
- grep $Q -w "$deviceORpoint" /etc/fstab && {
-  _notice "Found $deviceORpoint in /etc/fstab"
+ test -e "$FSTAB_FILE" || touch "$FSTAB_FILE"
+ grep $Q -w "$deviceORpoint" "$FSTAB_FILE" && {
+  _notice "Found $deviceORpoint in '$FSTAB_FILE'"
 
-  mountPOINT=`grep -m1 -w "$deviceORpoint" /etc/fstab | awk '{print $2}'`
-  _debug "mountPOINT='$mountPOINT'"
+  mountPOINT=`grep -m1 -w "$deviceORpoint" "$FSTAB_FILE" | awk '{print $2}'`
+  deviceNODE=`grep -m1 -w "$deviceORpoint" "$FSTAB_FILE" | awk '{print $1}'`
+  _debug "fstab: mountPOINT='$mountPOINT'"
+  _debug "fstab: deviceNODE='$deviceNODE'"
 
   mountpoint $Q "$mountPOINT" && {
-      test "`echo "$opMO" | grep 'remount'`" || _exit 3 "'$mountPOINT' already mounted. Use -o remount."; }
+      test "`echo "$opMO" | grep 'remount'`" || _exit 3 "fstab: '$mountPOINT' already mounted. Use -o remount."; }
   test "$*" = "$mountPOINT" || set - $@ "$mountPOINT"
-  test -e "$mountPOINT" && { _debug "$mountPOINT exists"; } || { _info "Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
+  test -e "$mountPOINT" && { _debug "fstab: $mountPOINT exists"; } || { _info "fstab: Creating $mountPOINT"; LANG=$LANG_ROX mkdir $VERB -p "$mountPOINT"; }
  } || { test "$*" = "$deviceORpoint" && {
          posPARAMS="$posPARAMS /mnt/${deviceORpoint##*/}"; set - "$deviceORpoint" "/mnt/${deviceORpoint##*/}"; }
           }
@@ -699,15 +703,17 @@ o_posPAR="$posPAR"
 /\\012}"
    _debugx "gPATTERN=$gPATTERN"
    grep -Fw "${gPATTERN}" /proc/mounts | grep $Q -vi fuse && {
-       test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "$posPAR already mounted. Use -o remount."; }
+       test "`echo "$opMO" | grep 'remount'`" ||  _exit 3 "not fuse: $posPAR already mounted. Use -o remount."; }
 
-   test -e /etc/fstab || touch /etc/fstab
+   test -e "$FSTAB_FILE" || touch "$FSTAB_FILE"
    grepPAR=`echo "$posPAR" | sed 'sV\([[:punct:]]\)V\\\\\\1Vg'`
-   mountPOINT=`grep -F -m1 -w "$grepPAR" /etc/fstab | awk '{print $2}'`
-   _debugx "mountPOINT='$mountPOINT'"
+   mountPOINT=`grep -F -m1 -w "$grepPAR" "$FSTAB_FILE" | awk '{print $2}'`
+   deviceNODE=`grep -F -m1 -w "$grepPAR" "$FSTAB_FILE" | awk '{print $1}'`
+   _debugx "fstab: mountPOINT='$mountPOINT'"
+   _debugx "fstab: deviceNODE='$deviceNODE'"
 
    test "$mountPOINT" && { posPAR="$mountPOINT"
-   _debug "Found '$posPAR' in /etc/fstab -- using '$mountPOINT' as mount-point."; }
+   _debug "Found '$posPAR' in '$FSTAB_FILE' -- using '$mountPOINT' as mount-point."; }
 
    _debugx "testing -b $posPAR"
    test -b "$posPAR" && posPAR="/mnt/${posPAR##*/}"
@@ -804,9 +810,9 @@ $fsUSERS"
                 FORMER_XMESSAGE=`ps -o pid,args | grep 'xmessage' | grep -v 'grep' | grep -e "-title $WHAT" | awk '{print $1}'`
                 for x in $FORMER_XMESSAGE; do kill $x; done
 
-					xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
+                    xmessage -bg red -title "$WHAT" "$mountPOINT is in use by these PIDS:
 $fsUSERS" &
-				}
+                }
                 _notice "Use -l or -f option to skip this sanity check."
                 _exit 1 "Refusing to complete $WHAT $@ ."
            fi
@@ -951,7 +957,7 @@ set - $@ "$ePAR"
 done
 
         if test "$opUUID"; then
-         MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" /etc/fstab | awk '{print $2}')
+         MntPoints=$(grep -w "`echo "$opUUID" | cut -f2 -d' '`" "$FSTAB_FILE" | awk '{print $2}')
          for oneMTP in $MntPoints; do
          test -d "$oneMTP" || LANG=$LANG_ROX mkdir $VERB -p "$oneMTP"
          done
@@ -960,7 +966,7 @@ done
          _debug "opLABEL='$opLABEL'"
          lONLY=`echo "$opLABEL" | cut -f2 -d' '`
          _debug "lONLY='$lONLY'"
-         MntPoints=$(grep -w "$lONLY" /etc/fstab | awk '{print $2}')
+         MntPoints=$(grep -w "$lONLY" "$FSTAB_FILE" | awk '{print $2}')
          for oneMTP in $MntPoints; do
          _debug "oneMTP='$oneMTP'"
          test -d "$oneMTP" || LANG=$LANG_ROX mkdir $VERB -p "$oneMTP"
