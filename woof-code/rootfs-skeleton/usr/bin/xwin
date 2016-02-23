@@ -189,9 +189,9 @@ if [ "$CURRENTX" = "Xvesa" ];then #0.9.9
    if [ "$BASEMODE" = "" ];then
     #if [ "`echo "$MONCUTXY" | wc -l`" = "1" ];then
      QPATTERN=`echo "$MONCHOICES" | cut -f 1 -d '@' | sed 's#$#x#g' | tr '\n' '|' | sed 's#|$##'`
-     _debug 'DBG 6 $QPATTERN='"$QPATTERN"
+     _debug 'DBG 6 QPATTERN='"$QPATTERN"
      BASEMODE="`echo "$VESAMODES" | grep -E "$QPATTERN" | grep -E 'x16$|x24$|x32$' | head -n 1`"
-     _debug 'DBG 7 $BASEMODE='"$BASEMODE"
+     _debug 'DBG 7 BASEMODE='"$BASEMODE"
     sleep 9s
     #fi
    fi
@@ -270,16 +270,18 @@ if [ ! -f /etc/mousebuttons ];then
    _sync
    cp -f $VERB /tmp/xorg.conf.tmp /etc/X11/xorg.conf
   fi
- #else
- # echo "3" >/etc/mousebuttons
- # echo -e "...you chose \"no\"."
- # echo -e "The file /etc/mousebuttons has been created, with content \"3\"."
- # if [ -f /etc/X11/xorg.conf ];then
- #  cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' >/tmp/xorg.conf.tmp
- #  sync
- #  cp -f $VERB /tmp/xorg.conf.tmp /etc/X11/xorg.conf
- # fi
- #fi
+ else
+  __set_to_three_buttons__(){
+  echo "3" >/etc/mousebuttons
+  echo -e "...you chose \"no\"."
+  echo -e "The file /etc/mousebuttons has been created, with content \"3\"."
+  if [ -f /etc/X11/xorg.conf ];then
+   cat /etc/X11/xorg.conf | sed -e 's/Option\W\+"ZAxisMapping"\W\+"4 5"/#Option      "ZAxisMapping" "4 5"/g' | tr -s '#' >/tmp/xorg.conf.tmp
+   sync
+   cp -f $VERB /tmp/xorg.conf.tmp /etc/X11/xorg.conf
+  fi
+  }
+#fi
 fi
 
 test -d /dev/input || mkdir -p /dev/input
@@ -292,7 +294,7 @@ elif [ "`cat /etc/mousedevice`" = "psaux" ]; then
 fi
 
 read MOUSEDEVICE_ </etc/mousedevice
-ln -snf $MOUSEDEVICE_ /dev/mouse
+ln -sf $MOUSEDEVICE_ /dev/mouse
 
 __load_agp_driver__(){
 #rc.modules now does this...
@@ -323,9 +325,9 @@ if [ -f /usr/bin/Xorg ];then  #100
     ls -1 $DRVRSPATH/* | grep $DRVRCURR >>$OUT
 
     if [ $? -ne 0 ];then #140
-     APATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
+     aPATTERN="s/.*#card0driver/        Driver      \"vesa\" #card0driver/g"
      echo "defaulting to Xorgs simple vesa driver"
-     cat /etc/X11/xorg.conf | sed -e "$APATTERN" >/tmp/xorg.conf.tmp2
+     cat /etc/X11/xorg.conf | sed -e "$aPATTERN" >/tmp/xorg.conf.tmp2
      _sync
      cp $VERB -f /tmp/xorg.conf.tmp2 /etc/X11/xorg.conf
     fi #140
@@ -381,11 +383,16 @@ case "`cat "$TMP_DIR"/ddcprobe.txt`" in *edidfail*)
 esac
 }
 _do_ddcprobe
-_get_chip_profile(){
+_get_chip_profile_(){
 #v2.13 want a hardware profile so can bootup on different PCs...
 PROFILECHIP="`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2-4 -d ' ' | tr ' ' '_' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 }
-_get_monitor_profile(){
+_get_chip_profile(){
+#v2.13 want a hardware profile so can bootup on different PCs...
+PROFILECHIP="`grep -m1 '^oem: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2- -d ' ' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+[ "$PROFILECHIP" ] || PROFILECHIP='UnknownChip'
+}
+_get_monitor_profile_(){
 ## Dougal: maybe add "^monitorname: "??
 #PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
@@ -397,6 +404,19 @@ PROFILEMONITOR="`grep '^monitorid: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 #[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
 }
+_get_monitor_profile(){
+## Dougal: maybe add "^monitorname: "??
+#PROFILEMONITOR="`grep -E -m1 '^monitorrange: |^monitorid: |^eisa: ' "$TMP_DIR"/ddcprobe.txt | cut -f 2 -d ':' | tr -d ' ' | sed -e 's/[^0-9a-zA-Z]/_/g'`"
+#v3.95 'eisa:' and 'id:' return fluctuating values on some PCs, so search in this order...
+                          PROFILEMONITOR="`grep '^monitorid: '    "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorname: '  "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^monitorrange: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+#[ "$PROFILEMONITOR" ] || PROFILEMONITOR="`grep '^dtiming: '      "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+#100501 remove, gives random data on one of my monitors...
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^manufacture: ' "$TMP_DIR"/ddcprobe.txt | tail -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+#[ "$PROFILEMONITOR" = "" ] && PROFILEMONITOR="`grep '^eisa: '        "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -f 2 -d ':' | tr -d '[:blank:]' | sed 's/[^0-9a-zA-Z]/_/g' | tr -s '_'`"
+ [ "$PROFILEMONITOR" ] || PROFILEMONITOR='UnknownMonitor'
+}
     _get_chip_profile
     _get_monitor_profile
     HARDWAREPROFILE="${PROFILECHIP}-${PROFILEMONITOR}"
@@ -405,12 +425,12 @@ PROFILEMONITOR="`grep '^monitorid: ' "$TMP_DIR"/ddcprobe.txt | head -n 1 | cut -
    OLDPROFILE="`cat /etc/X11/xorg.conf | grep '^#PuppyHardwareProfile' | tail -n1 | cut -f 2 -d '=' | cut -f 1 -d ' '`"
 
    if [ "$OLDPROFILE" != "$HARDWAREPROFILE" ];then
-    _notice "Video hardware change detected. If you think this is wron, report."
+    _notice "Video hardware change detected. If you think this is wrong, report."
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
-    mv $VERB -f /etc/X11/xorg.conf /etc/X11/xorg.conf.${OLDPROFILE}  ##xorg.conf does not exists anymore
+    mv $VERB -f /etc/X11/xorg.conf "/etc/X11/xorg.conf.${OLDPROFILE}"  ##xorg.conf does not exists anymore
     #if a previous profiled filename for new hardware, use that...
-    [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp $VERB -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
+    [ -f "/etc/X11/xorg.conf.${HARDWAREPROFILE}" ] && cp $VERB -af "/etc/X11/xorg.conf.${HARDWAREPROFILE}" /etc/X11/xorg.conf
   else
    _info "Video hardware unchanged."
   fi
@@ -604,10 +624,12 @@ fi
 
 
 #finally, start X...
+
+XINIT_LOG=/tmp/xerrs.log
+#XORG_LOG=  #Xorg -logfile option
 #J_Rey had a good idea, flag XLOADED... and set to false on exit.
 #but if PC hangs, XLOADED will still be true, so will know it is broken.
 echo "true" >/var/lock/XLOADED
-
 
 case $CURRENTX in
  Xvesa*)
@@ -626,46 +648,46 @@ case $CURRENTX in
    sleep 5s
    echo "$VIDMODE" >/tmp/currentvideomode
    #w460 added -fp and -sp options...
-   ##/usr/bin/xinit /root/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >/tmp/xerrs.log 2>&1
-   /usr/bin/xinit /root/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >/tmp/xerrs.log 2>&1
+   ##/usr/bin/xinit /root/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >"$XINIT_LOG" 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -mode $VIDMODE $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >"$XINIT_LOG" 2>&1
   else
    #also, want to have adjustable frequency, VIDSCRN=widthxheightxdepthxfreq...
    echo -e "\\033[0;31m""Xvesa VIDSCRN=$VIDSCRN VIDMODE=$VIDMODE VIDFREQ=$VIDFREQ""\e[0;39m"
    echo "$VIDSCRN" >/tmp/currentvideomode
-   ##/usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >/tmp/xerrs.log 2>&1
-   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >/tmp/xerrs.log 2>&1
+   ##/usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >"$XINIT_LOG" 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN $XEXTRAOPTIONS -mouse /dev/mouse,$MOUSEBUTTONS -fp /usr/share/X11/fonts/misc/,/usr/share/X11/fonts/TTF/,/usr/share/X11/fonts/Type1/ $SPOPTION >"$XINIT_LOG" 2>&1
   fi
   ;;
  Xfbdev*)
   echo "Starting X with Xfbdev Kdrive X server, mouse $MOUSEDEV..."
-  /usr/bin/xinit /root/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS >/tmp/xerrs.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- -mouse /dev/mouse,$MOUSEBUTTONS >"$XINIT_LOG" 2>&1
   ;;
  Xi810*) #v1.0.7
   echo "Starting X with Xi810 Kdrive X server, mouse $MOUSEDEV..."
   #echo "(experimental, currently fixed to 1024x768x16x72 in /usr/bin/xwin)"
-   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS >/tmp/xerrs.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -screen $VIDSCRN -mouse /dev/mouse,$MOUSEBUTTONS >"$XINIT_LOG" 2>&1
   ;;
  XF86_SVGA*)
   echo "Starting X, specs in /etc/X11/XF86Config, startup apps /root/.xinitrc..."
-  /usr/bin/xinit /root/.xinitrc -- -bpp 16 >/tmp/xerrs.log 2>&1
+  /usr/bin/xinit /root/.xinitrc -- -bpp 16 >"$XINIT_LOG" 2>&1
   ;;
  Xorg*)
-  [ -f /tmp/xerrs.log ] && /bin/mv -f $VERB --backup=numbered /tmp/xerrs.log /tmp/xerrs.log.prev
+  [ -f "$XINIT_LOG" ] && /bin/mv -f $VERB --backup=numbered "$XINIT_LOG" "$XINIT_LOG".prev
   echo "Starting X, specs in /etc/X11/xorg.conf, startup apps /root/.xinitrc..."
   #v2.11 G2 suggested -br for black background instead of checked...
   #w479 ***AWFUL HACK*** running pup 218, retro k2.6.18.8, my laptop, Xorg hangs
   #     if have '-nolisten tcp'. until find out why, this workaround...
   if [ "$KERNELVER" = "2.6.18.8" ];then
-   /usr/bin/xinit /root/.xinitrc -- -br >/tmp/xerrs.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -br >"$XINIT_LOG" 2>&1
   else
-   /usr/bin/xinit /root/.xinitrc -- -br -nolisten tcp >/tmp/xerrs.log 2>&1
+   /usr/bin/xinit /root/.xinitrc -- -ignoreABI -br -nolisten tcp >"$XINIT_LOG" 2>&1
   fi
   ;;
  *)
-  /usr/bin/xinit /root/.xinitrc --  >/tmp/xerrs.log 2>&1
+  /usr/bin/xinit /root/.xinitrc --  >"$XINIT_LOG" 2>&1
   ;;
 esac
-
+#...if PC hung, run xorgwizard at next bootup (see further up).
 if [ -z "`pidof X`" ] ; then
 echo "false" >/var/lock/XLOADED #see note above.
 fi
@@ -680,7 +702,11 @@ fi
 done
 }
 
-#...if PC hung, run xorgwizard at next bootup (see further up).
+if test "$DEBUG"; then
+ if test -s "$XINIT_LOG"; then
+  less "$XINIT_LOG"
+ fi
+fi
 
 XWINCOUNT=$((XWINCOUNT-1))
 
