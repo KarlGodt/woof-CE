@@ -39,25 +39,35 @@ read PREVIOUSWM </etc/windowmanager
 PREVIOUSWM=${PREVIOUSWM##*/} #basename
 [ "$NEXTWM" ] || NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
 [ "$NEXTWM" ] || NEXTWM=jwm
+
+case $NEXTWM in *jwm*) NEXTWM=jwm;;
+*enlightenment*) NEXTWM=enlightenment_start;;
+esac
+case $PREVIOUSWM in *jwm*) PREVIOUSWM=jwm.bin;;
+*enlightenment*) PREVIOUSWM=enlightenment;;
+esac
 echo "$NEXTWM" >/etc/windowmanager         #this makes change permanent.
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
 echo "$NEXTWM" >/tmp/wmexitmode.txt
+echo "$NEXTWM" >/tmp/xwin/wmexitmode.txt
 
 #v403 give time for /sbin/pup_event_frontend_d to quit.
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
 pidof pup_event_frontend_d >>$OUT && killall $Q pup_event_frontend_d
 
+__wait_for_frontend_d__(){
 KCNT=0
 PSPEFD="`/bin/ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 #while [ "`pidof pup_event_frontend_d`" != "" ];do
 while [ "$PSPEFD" != "" ];do
  sleep 0.5
  KCNT=$((KCNT + 1))
- [ $KCNT -gt 60 ] && break #30 secs.
+ [ "$KCNT" -gt 60 ] && break #30 secs.
  PSPEFD="`/bin/ps -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 done
+}
 
 sleep 0.2
 _sync
@@ -68,12 +78,28 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
+
+
+for sig in 1 2 6 15 9
+do
+if pidof ${PREVIOUSWM##*/} >>$OUT; then 
+ kill -$sig `pidof ${PREVIOUSWM##*/}` #w478
+else break; fi
+sleep 1
+done
 [ "$yPID" ] && /bin/ps -p $yPID --no-header && kill $yPID
+#e17
+pidof tempget >>$OUT && kill -2 `pidof tempget`
 
-pidof ${PREVIOUSWM##*/} >>$OUT && kill -9 `pidof ${PREVIOUSWM##*/}` #w478
+for _file_ in $HOME/Choices/XINIT/*; do
+test -f $_file_ || continue
+source $_file_ stop
+done
 
-#killall $Q X #default is SIGTERM.
-#sleep 1           #v1.0.7
+sleep 1
+pidof X >>$OUT && : # killall $Q X #default is SIGTERM.
+sleep 1           #v1.0.7
 #exec killall $Q -9 X #v1.0.7 make sure X is killed.
+
 # Very End of this file 'usr/bin/restartwm' #
 ###END###
