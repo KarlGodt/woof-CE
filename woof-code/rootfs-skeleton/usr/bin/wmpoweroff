@@ -29,7 +29,7 @@ _trap
 #introduced v0.9.8
 #called from /root/.fvwm95rc, .jwmrc at shutdown.
 
-Version='1.1 KRG'
+Version='1.2 KRG'
 usage(){
 MSG="
 $0 [help]
@@ -61,7 +61,10 @@ case $p_ in
 esac;done
 
 read CURRRENT_WM </etc/windowmanager
-if [ "$CURRRENT_WM" != 'enlightenment_start' ];then
+case $CURRENT_WM in *jwm*) CURRENT_WM=jwm.bin;;
+*enlightenment*) CURRENT_WM=enlightenment;;
+esac
+if [ "$CURRRENT_WM" != 'enlightenment' ];then
 [ "$1" ] && exit 1
 fi
 
@@ -80,13 +83,13 @@ __wait_for_frontend_d__(){
 #w478 testing 2.6.18.1 kernel, pup_event_frontend_d did not exit when it
 #detected /tmp/wmeximode.txt, but became 'defunct'...
 KCNT=0
-PSPEFD="`/bin/ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+PSPEFD="`/bin/ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 #while [ "`pidof pup_event_frontend_d`" != "" ];do
 while [ "$PSPEFD" != "" ];do
  sleep 0.5
- KCNT=`expr $KCNT + 1`
- [ $KCNT -gt 60 ] && break #30 secs.
- PSPEFD="`/bin/ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -v 'defunct'`"
+ KCNT=$((KCNT + 1))
+ [ "$KCNT" -gt 60 ] && break #30 secs.
+ PSPEFD="`/bin/ps --no-headers -C pup_event_frontend_d | grep 'pup_event_front' | grep -vE 'defunct|grep'`"
 done
 sleep 0.2
 }
@@ -99,12 +102,17 @@ if [ "`pidof xfce4-panel`" != "" ];then
  exit
 fi
 
-[ "$yPID" ] && /bin/ps -p $yPID --no-header && kill $yPID
-
 #w003
-read CURRENTWM < /etc/windowmanager
-CURRENTWM=${CURRENTWM##*/}
-kill -9 `pidof $CURRENTWM`
+#read CURRENTWM < /etc/windowmanager
+CURRENT_WM=${CURRENT_WM##*/}
+for sig in 1 2 6 15 9
+do
+if pidof ${CURRENT_WM} >>$OUT; then
+ kill -$sig `pidof $CURRENT_WM`
+else break; fi
+sleep 1
+done
+
 #e17
 pidof tempget >>$OUT && kill -2 `pidof tempget`
 
@@ -113,9 +121,12 @@ test -f $_file_ || continue
 source $_file_ stop
 done
 
-killall $Q X #default is SIGTERM.
+[ "$yPID" ] && /bin/ps -p $yPID --no-header && kill $yPID
+
+sleep 1
+pidof X >>$OUT && : # killall $Q X #default is SIGTERM.
 sleep 1           #v1.0.7
-exec killall $Q -9 X #v1.0.7 make sure X is killed.
+#exec killall $Q -9 X #v1.0.7 make sure X is killed.
 
 #after exit from X, there is a return to /usr/X11R7/bin/xwin,
 #which reads /tmp/wmexitmode.txt.
