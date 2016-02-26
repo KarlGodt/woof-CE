@@ -1,6 +1,7 @@
-#!/bin/sh
+#!/bin/ash
 #(c) copyright Barry Kauler aug 2009. Licence LGPL.
 
+Version=1.9.1
 
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
@@ -28,22 +29,36 @@ CURLIST=""
 FIRSTITEM=""
 LISTHEIGHT=30
 path=/usr/share/icons/DOTicons
-mkdir -p /tmp/xcur2png /usr/share/icons/DOTicons
+mkdir $VERB -p /tmp/xcur2png /usr/share/icons/DOTicons
 yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Please wait, processing cursor themes database files..." &
 yafPID=$!
-#sleep 4
+[ "$FULL" ] || sleep 2
+
+_create_index_file(){
+cat >"$HOME/.icons/${oneITEM}/index.theme" <<EoI
+[Icon Theme]
+Name=$oneITEM
+Comment=automatically created by $MY_SELF
+Example=left_ptr
+EoI
+}
+
 for oneITEM in `ls -1 $HOME/.icons | grep -vE 'ROX|default'`
 do
 
+ _notice "found cursor theme $oneITEM"
  #precaution that 'cursors' subdir exists...
- [ ! -d $HOME/.icons/${oneITEM}/cursors ] && continue
+ [ -d "$HOME/.icons/${oneITEM}/cursors" ] || continue
+ HAVE_FILES=`ls -A "$HOME/.icons/${oneITEM}/cursors"` || continue
+ test "$HAVE_FILES" || { rm $VERB -rf $HOME/.icons/${oneITEM}; continue; }
 
-cd $HOME/.icons/${oneITEM}/cursors
+cd "$HOME/.icons/${oneITEM}/cursors" || continue
+test -f "$HOME/.icons/${oneITEM}/index.theme" || _create_index_file
 
  if [ ! "$FULL" ];then #full or not full parameter given
      if [ ! -f /usr/share/icons/DOTicons/${oneITEM}.png ];then #not full
                    #DBG ls /usr/share/icons/DOTicons/${oneITEM}/
-                      xcur2png -d /tmp/xcur2png left_ptr
+                      xcur2png $Q -d /tmp/xcur2png left_ptr || continue
  mv $VERB -f /tmp/xcur2png/left_ptr_000.png /usr/share/icons/DOTicons/${oneITEM}.png
                       rm $VERB -f /tmp/xcur2png/left_ptr_*.png
                             rm $VERB -f left_ptr.conf*
@@ -53,46 +68,38 @@ cd $HOME/.icons/${oneITEM}/cursors
       path=/usr/share/icons/DOTicons/${oneITEM}
     mkdir $VERB -p /usr/share/icons/DOTicons/${oneITEM}/
    if [ ! -f /usr/share/icons/DOTicons/${oneITEM}/left_ptr.png ] &&\
-      [ ! -f /usr/share/icons/DOTicons/${oneITEM}/center_ptr.png ];then #full
-  #DBG echo "oneITEM=$oneITEM"
-  #DBG ls /usr/share/icons/DOTicons/${oneITEM}/
-  # cd $HOME/.icons/${oneITEM}/cursors
-   #if [ ! "$FULL" ];then
-                    #xcur2png -d /tmp/xcur2png left_ptr
-                    #mv -f /tmp/xcur2png/${file}_000.png /usr/share/icons/DOTicons/left_ptr.png
-                    #rm -f /tmp/xcur2png/left_ptr_*.png
-                       #rm -f left_ptr.conf
-  #else
+      [ ! -f /usr/share/icons/DOTicons/${oneITEM}/center_ptr.png ];then
+
    ls -1 |grep -v '|\..*$' | while read file
    do
-                    xcur2png -d /tmp/xcur2png $file
-            #cp /tmp/xcur2png/${file}_000.png /usr/share/icons/DOTicons/${oneITEM}/${file}.png
+                    xcur2png $Q -d /tmp/xcur2png $file || continue
+
 [ "$file" = 'left_ptr' ] && cp $VERB /tmp/xcur2png/left_ptr_000.png /usr/share/icons/DOTicons/${oneITEM}/${oneITEM}.png
                  mv $VERB -f /tmp/xcur2png/${file}_*.png /usr/share/icons/DOTicons/${oneITEM}/
 
-  #rm -f /tmp/xcur2png/left_ptr_*.png
                      rm $VERB -f /tmp/xcur2png/*.png
                      rm $VERB -f $file.conf*
 
   done
+
 [ -f /usr/share/icons/DOTicons/${oneITEM}/${oneITEM}.png ] || { cp $VERB /usr/share/icons/DOTicons/${oneITEM}/$(ls -1 /usr/share/icons/DOTicons/${oneITEM}/ |head -n1)  /usr/share/icons/DOTicons/${oneITEM}/${oneITEM}.png; }
    fi #full
    cp $VERB /usr/share/icons/DOTicons/${oneITEM}/${oneITEM}.png /usr/share/icons
  fi #full or nor full parameter given
 
-CLEAN_UP="$CLEAN_UP ${oneITEM}.png"
+CLEAN_UP="${CLEAN_UP}${oneITEM}.png "
 
  if [ "$oneITEM" = "$PREVTHEME" ];then
   FIRSTITEM="<item icon=\"${oneITEM}\">\"${oneITEM} <CURRENT THEME>\"</item>"
  else
   CURLIST="${CURLIST}<item icon=\"${oneITEM}\">${oneITEM}</item>"
  fi
- LISTHEIGHT=`expr $LISTHEIGHT + 25`
+ LISTHEIGHT=$((LISTHEIGHT + 25))
 done
 
-kill $yafPID 1>$OUT 2>$ERR
+/bin/ps -p $yafPID --no-header && kill $yafPID 1>>$OUT 2>>$ERR
 
-[ $LISTHEIGHT -gt 550 ] && LISTHEIGHT=550
+[ "$LISTHEIGHT" -gt 550 ] && LISTHEIGHT=550
 CURITEMS="  <tree>
   <label>Cursor theme</label>
     ${FIRSTITEM}
@@ -107,7 +114,7 @@ if [ "$CURLIST" = "" ];then
     <label>\"<b>You first need to install some cursor themes! For now, quit this program. Run the Puppy Package Manager and look in the 'Desktop' category</b>\"</label></text>"
 fi
 
-clean_up(){ for i in $CLEAN_UP;do rm $VERB /usr/share/icons/$i;done; }
+clean_up(){ for i in $CLEAN_UP;do rm $VERB -f /usr/share/icons/$i;done; }
 
 export MAIN_DIALOG="
 <window title=\"Pcur: select a cursor theme\">
@@ -116,7 +123,6 @@ export MAIN_DIALOG="
       <label>\"<b>You must restart X to use the new theme</b>\"</label>
     </text>
     <text><label>Choose one you like, click 'OK', close down all applications, then choose 'Restart X server' in the 'Shutdown' menu...</label></text>
-
 
     ${CURITEMS}
 
@@ -131,20 +137,71 @@ RETVARS=`gtkdialog3 --program=MAIN_DIALOG`
 
 clean_up
 
-[ "$CURLIST" = "" ] && exit 0
-echo "$RETVARS"
+[ "$CURLIST" ] || exit 0
+_debug "$RETVARS"
 eval "${RETVARS}"
 
-[ "$EXIT" != "OK" ] && exit 0
-
-[ "`echo "$CHOOSECUR" | grep 'CURRENT THEME'`" != "" ] && exit 0 #already current.
-
-if [ "$CHOOSECUR" = "ORIGINAL THEME" ];then
- rm $VERB -f $HOME/.icons/default
+if [ "$EXIT" != "OK" ]; then
+ if test "$PREVTHEME"; then
+  _info "Terminated. Keeping current '$PREVTHEME' as cursor theme."
+ else
+  _info "Terminated. Keeping current ORIGINAL THEME cursor theme."
+ fi
  exit 0
 fi
 
-ln -snf $CHOOSECUR $HOME/.icons/default
-exit $?
+case "$CHOOSECUR" in *'CURRENT THEME'*)
+ _info "'$CHOOSECUR' not changed. Nothing to do."
+ exit 0;; #already current.
+esac
+
+case "$CHOOSECUR" in "ORIGINAL THEME"*)
+ if test -e $HOME/.icons/default; then
+  rm $VERB -f $HOME/.icons/default
+  if test $? = 0; then
+   _notice "X server should now use the '$CHOOSECUR' cursor theme."
+   true
+  else
+   _err "Failure setting the '$CHOOSECUR' as new cursor theme."
+   false
+  fi
+ else
+  _notice "X server should still use the '$CHOOSECUR' cursor theme."
+   true
+ fi
+ exit $?;;
+esac
+
+STATUS=0
+ln $VERB -snf $CHOOSECUR $HOME/.icons/default #-n because directory
+if test $? = 0; then
+ _info "Sucessfully set '$CHOOSECUR' as cursor theme."
+ _info "Restart X to activate '$CHOOSECUR' as new cursor theme."
+elif ln $VERB -snf $PREVTHEME $HOME/.icons/default; then
+ _err "Failure setting '$CHOOSECUR' as cursor theme."
+ _notice "Using '$PREVTHEME' as cursor theme."
+else
+ STATUS=$((STATUS+1))
+ _err "Failure setting either '$CHOOSECUR' or '$PREVTHEME' as cursor theme."
+fi
+
+NEWTHEME=`realpath $HOME/.icons/default`
+if test $? != 0; then
+ STATUS=$((STATUS+1))
+ _err "Failure setting link target $HOME/.icons/default as new cursor theme."
+fi
+
+HAVE_FILES=`ls -A "$NEWTHEME"/cursors`
+if test $? != 0; then
+ STATUS=$((STATUS+1))
+ _err "$NEWTHEME/cursors seems not to contain any files."
+fi
+
+if test "$HAVE_FILES" = ""; then
+ STATUS=$((STATUS+1))
+ _err "$NEWTHEME/cursors does not to contain any files."
+fi
+
+exit $STATUS
 # Very End of this file 'usr/sbin/pcur' #
 ###END###
