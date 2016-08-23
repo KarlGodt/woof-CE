@@ -3,29 +3,58 @@
 
 . /etc/rc.d/f4puppy5
 
-_pidof go-mtpfs && _exit 3 "go-mtpfs already running -- use umountMTP"
+[ "$VERB" ]  || VERB=-v
+[ "$DEBUG" ] || DEBUG=1
+
+#OPTIONS
+[ "$GO_MTPFS_OPS" ] || GO_MTPFS_OPS='-android=true -usb-timeout=100000'
+#bash-3.00# go-mtpfs --help
+#Usage of go-mtpfs:
+#  -allow-other=false: allow other users to access mounted fuse. Default: false.
+#  -android=true: use android extensions if available
+#  -debug="": comma-separated list of debugging options: usb, data, mtp, fuse
+#  -dev="": regular expression to filter devices.
+#  -storage="": regular expression to filter storage areas.
+#  -usb-timeout=5000: timeout in milliseconds
+#  -vfat=true: assume removable RAM media uses VFAT, and rewrite names.
+
+[ "$MOUNT_POINT" ]  || MOUNT_POINT=/mntf/MTPdev
+
+which go-mtpfs >>$OUT || _exit 3 "go-mtpfs not found in PATH"
+_pidof go-mtpfs && _exit 4 "go-mtpfs already running -- use umountMTP"
 
 
-test -L /bin/mount    || _exit 4 "/bin/mount needs to be a link"
+test -L /bin/mount    || _exit 5 "/bin/mount needs to be a link"
 test -e /bin/mountBAK || cp -a /bin/mount /bin/mountBAK
 
 test -e /bin/mountMTP.sh || {
-echo 'exit 0' >/bin/mountMTP.sh || _exit 41 "Could not create /bin/mountMTP.sh wrapper"
-chmod $VERB +x /bin/mountMTP.sh || _exit 42 "Could not set /bin/mountMTP.sh executable"
+(
+echo '#!/bin/sh'
+echo 'echo $0:$* >&2'
+echo 'exit 0'
+) >/bin/mountMTP.sh || _exit 51 "Could not create /bin/mountMTP.sh wrapper"
+chmod $VERB +x /bin/mountMTP.sh || _exit 52 "Could not set /bin/mountMTP.sh executable"
 }
 
 OLD_MOUNT=`realpath /bin/mount`
 # REM: Needs here in case of early exit
 #      link /bin/mount does
-which go-mtpfs >>$OUT || _exit 6 "go-mtpfs not found in PATH"
 
-ln $VERB -sf mountMTP.sh /bin/mount || _exit 5 "Could not create link /bin/mount -> mountMTP.sh"
+ln $VERB -sf mountMTP.sh /bin/mount || _exit 6 "Could not create link /bin/mount -> mountMTP.sh"
 
-MOUNT_POINT=/mntf/MTPdev
 test -e "$MOUNT_POINT" || mkdir -p "$MOUNT_POINT"
 
-GO_MTPFS_OPS=
+if [ "$DEBUG" ]; then
+echo "Strace file /tmp/go-mtpfs.strace for go-mtpfs $GO_MTPFS_OPS \"$MOUNT_POINT\"" >&2
+strace -o /tmp/go-mtpfs.strace go-mtpfs $GO_MTPFS_OPS "$MOUNT_POINT" &
+#go-mtpfs: symbol lookup error: go-mtpfs: undefined symbol: libusb_error_name
+
+#/usr/bin/fusermount: failed to execute /bin/mount: Exec format error
+#2016/08/20 11:02:05 mount failed: fusermount exited with code 256
+
+else
 go-mtpfs $GO_MTPFS_OPS "$MOUNT_POINT" &
+fi
 
 sleep 5
 
