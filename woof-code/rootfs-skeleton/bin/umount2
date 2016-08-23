@@ -1,5 +1,10 @@
-#!/bin/sh
-#
+#!/bin/bash
+# Needs bash ARGV and ARGC , uses (( c-- )), uses array
+# Karl Reimer Godt July 2013 initial script
+# Karl Reimer Godt August 2016 bugfixes fuser -m does not like device (anymore)
+#  function_rox_n_fuser() main overhaul to prevent wrong fuser outputs
+#    and add killing of fs users if provided -l or -f option
+
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_umount2"
 _VERSION_=1.0omega
@@ -9,13 +14,14 @@ MY_SELF="/bin/umount2"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything
+# if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -27,11 +33,10 @@ _trap
 # End new header
 #
 #
-# Karl Reimer Godt July 2013
 
 [ "$*" ] || exec busybox umount
 
-sync
+pidof sync >>$OUT || sync
 
 USE_FULL='';
 
@@ -40,13 +45,33 @@ ARGSV=`echo "$ARGS" | grep -m1 ARGV | grep -o '(.*)$' | sed 's|^(||;s|)$||' `
 ARGSC=`echo "$ARGS" | grep -m1 ARGC | cut -f2 -d'"'`
 c=$ARGSC
 
+
+# here document needs writable /tmp ...
+# but /proc may be umounted ...
+if test -e /proc/mounts; then
+:
+else
+ _warn "/proc not mounted"
+ _notice "Attempting to mount procfs .."
+ busybox mount -t proc none /proc
+fi
+if cut -f2 -d' ' /proc/mounts | grep $Q '^/tmp$'; then
+ _info "Attempting to remount rw /tmp to ensure it is writable .."
+ busybox mount -o remount,rw tmpfs /tmp
+else
+ _info "Attempting to remount rw of '/' to ensure it is writable .."
+ busybox mount -o remount,rw /dev/root /
+fi
+
 while read p
 do
-echo $p
+[ "$DEBUG" ] && echo $p >&2
 p="${p#*=}"
 p="${p/#\"/}"
 p="${p/%\"/}"
-echo $p
+[ "$DEBUG" ] && echo $p >&2
+test "$p" = '-l' && HAVE_LAZY=YES   # used to kill fs users
+test "$P" = '-f' && HAVE_FORCE=YES  # used to kill fs users
 P[$c]="$p"
 (( c-- ))
 done<<EOI
@@ -54,11 +79,36 @@ $(echo "$ARGSV" | sed 's|" \[|"\n\[|g')
 EOI
 
 function_rox_n_fuser(){
+ [ "$DEBUG" ] && echo "'${*}'" >&2
  [ -e "${*}" ] || return 0
- (pidof ROX-Filer || pidof rox) && rox -D "${*}"
- sleep 0.02
- busybox fuser -m "${*}"
- sleep 0.02
+ # early return if not mountpoint since fuser -m would consider same as '/'
+ mountpoint $Q "${*}" || { echo "${*} not mounted" >&2; return 1; } #return value not used
+ (pidof ROX-Filer || pidof rox) >>$OUT && rox -D "${*}"
+ sleep 0.02 #change if req
+ FUSERS=`busybox fuser -m "${*}"`
+ if test "$FUSERS"; then
+ FUSERS_PS=`for fsu in $FUSERS; do ps | grep -w "$fsu"| grep -v grep; echo; done`
+ (
+ echo "Warning: File system has running programs.."
+ echo "$FUSERS_PS"
+ echo
+ ) >&2
+  if test "$HAVE_FORCE" -o "$HAVE_LAZY"; then
+  for fsu in $FUSERS; do kill $fsu; done
+  fi
+ fi
+ #handle submounts like bound /proc in a chroot partition
+ HAVE_SUBMOUNTS=`cut -f2 -d' ' /proc/mounts | grep "^${*}/"`
+ if test "$HAVE_SUBMOUNTS"; then
+  (
+  echo "Notice: ${*} has submounts:"
+  echo "$HAVE_SUBMOUNTS"
+  ) >&2
+  if test "$HAVE_FORCE" -o "$HAVE_LAZY"; then
+  for sub in $HAVE_SUBMOUNTS; do busybox umount -l -f "$sub"; done
+  fi
+ fi
+ sleep 0.02 #change if req
 }
 
 for k in `seq 1 1 $ARGSC`
@@ -73,22 +123,23 @@ if [ -d "${P[$k]}" ] ; then
  DEVNAMEP=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
  DEVNAMEP="${DEVNAMEP%%+++*}"
  MNTPT_M="${P[$k]}"
- function_rox_n_fuser "$DEVNAMEP"
+ #function_rox_n_fuser "$DEVNAMEP"
+ [ -d "$MNTPT_M" ] && function_rox_n_fuser "$MNTPT_M"
 elif [ -b "${P[$k]}" ] ; then
- function_rox_n_fuser "${P[$k]}"
+ #function_rox_n_fuser "${P[$k]}"
  MNTPTS_ALL=`awk '{print $1"+++"$2}' /proc/mounts`
  MNTPTS_ALL=`busybox echo -e "$MNTPTS_ALL"`
  MNTPT_D=`echo "$MNTPTS_ALL" | grep -m1 -w "${P[$k]}"`
  MNTPT_D="${MNTPT_D#*+++}"
  DEVNAMEP="${P[$k]}"
- ##[ -d "$MNTPT_D" ] && function_rox_n_fuser "$MNTPT_D"
+ [ -d "$MNTPT_D" ] && function_rox_n_fuser "$MNTPT_D"
 fi
 ;;
 --version)
 echo "$0 : Puppy Linux Wrapper bash shell script:"
 busybox umount --help
 echo "$0 : defaults using -dr"
-echo "$0 : OR /bin/umount-FULL:"
+echo "$0 : OR switches to /bin/umount-FULL if --long-options:"
 USE_FULL=YES
 ;;
 --*) #exec umount-FULL ${P[@]} ;;
@@ -107,16 +158,19 @@ busybox umount -dr "${P[@]}"
 RETVAL=$?
 }
 
-sleep 0.02s
+sleep 0.02s #change if req
+if test -f /proc/uptime; then
 IFS='. ' read UPtime restU RUNtime restR </proc/uptime
-dmesg | tail | grep -w "$UPtime"
+fi
+[ "$DEBUG" ] && dmesg | tail | grep -w "$UPtime" >&2
 
+[ "$DEBUG" ] && echo RETVAL=$RETVAL >&2
 [ $RETVAL = 0 ] || exit $RETVAL
 
   if [ "$MNTPT_M" ] ; then OLDMOUNTPT="$MNTPT_M"
 elif [ "$MNTPT_D" ] ; then OLDMOUNTPT="$MNTPT_D"
 else
-sleep 0.02s
+sleep 0.02s #change if req
 MOUNTEDSA=`tac /proc/mounts`
 OLDMOUNTS=`echo "$MOUNTEDSB" | grep -v "$MOUNTEDSA"`
 OLDMOUNTPT=`echo "$OLDMOUNTS" | awk '{print $2}'`
@@ -125,11 +179,14 @@ OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
 
 [ "$MNTPT_M" -o "$MNTPT_D" ] || {
 [ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" = "$MOUNTEDSA" ] && {
-echo "NO CHANGES.";exit $RETVAL; } || {
+echo "NO CHANGES in mtab.";exit $RETVAL; } || {
 [ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" != "$MOUNTEDSA" ] || {
-echo "NO CHANGES.";exit $RETVAL; }; }; }
-
-[ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir "$OLDMOUNTPT"
+echo "NO CHANGES in mtab.";exit $RETVAL; }; }; }
+# ls hangs on fuse.gphotofs ... up to 2 minutes ..
+case $OLDMOUNTPT in /dev|/proc|/sys|/tmp) :;; #keep these dirs ...
+*) [ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir $VERB "$OLDMOUNTPT"
+;;
+esac
 
 [ "$DISPLAY" ] || { echo "NO DISPLAY.";exit $RETVAL; }
 
@@ -141,11 +198,11 @@ echo "NO CHANGES.";exit $RETVAL; }; }; }
 DEVNAMEP=`echo "$OLDMOUNT" | awk '{print $1}'`
 DEVNAMEP=`echo -e "$DEVNAMEP"`
 }
-echo "${DEVNAMEP##*/}"
+[ "$DEBUG" ] && echo "${DEVNAMEP##*/}" >&2
 [ -d /root/.pup_event/drive_"${DEVNAMEP##*/}" ] || { echo "NO drive_${DEVNAMEP##*/} Directory.";exit $RETVAL ; }
 
-( pidof ROX-Filer || pidof rox ) || { echo "ROX-Filer or rox not running.";exit $RETVAL ; }
-pidof pup_event_frontend_d || { echo "pup_event_frontend_d not running.";exit $RETVAL ; }
+( pidof ROX-Filer || pidof rox ) >>$OUT || { echo "ROX-Filer or rox not running.";exit $RETVAL ; }
+pidof pup_event_frontend_d >>$OUT || { echo "pup_event_frontend_d not running.";exit $RETVAL ; }
 
 case ${DEVNAMEP##*/} in
 fd*)      CATEGORY=floppy  ;;
