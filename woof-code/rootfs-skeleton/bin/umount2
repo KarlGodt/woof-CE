@@ -13,6 +13,8 @@ _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 MY_SELF="/bin/umount2"
 MY_PID=$$
 
+DEBUG=1
+
 test -f /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
@@ -35,8 +37,9 @@ _trap
 #
 
 [ "$*" ] || exec busybox umount
-
-pidof sync >>$OUT || sync
+# pidof needs proc directory available to suppress error message
+# and better mounted otherwise finds no pid and delivers incorrect result.
+#pidof sync >>$OUT || sync
 
 USE_FULL='';
 
@@ -53,7 +56,13 @@ if test -e /proc/mounts; then
 else
  _warn "/proc not mounted"
  _notice "Attempting to mount procfs .."
- busybox mount -t proc none /proc
+test -e /proc && { busybox mount -t proc none /proc; RETVAL=$?; } || {
+ _info "Attempting to remount rw of '/' to ensure it is writable .."
+ busybox mount -o remount,rw /dev/root /
+ mkdir /proc && { busybox mount -t proc none /proc; RETVAL=$?; } || {
+ _err "Failed to mount procfs"
+ }
+}
 fi
 if cut -f2 -d' ' /proc/mounts | grep $Q '^/tmp$'; then
  _info "Attempting to remount rw /tmp to ensure it is writable .."
@@ -62,6 +71,9 @@ else
  _info "Attempting to remount rw of '/' to ensure it is writable .."
  busybox mount -o remount,rw /dev/root /
 fi
+[ "$RETVAL" = 0 ] && { NEED_PROC_MOUNT=YES; _notice "Had to mount /proc"; }
+[ "$DEBUG" ] && echo RETVAL=$RETVAL
+pidof sync >>$OUT || sync
 
 while read p
 do
@@ -183,7 +195,7 @@ echo "NO CHANGES in mtab.";exit $RETVAL; } || {
 [ "$MOUNTEDSB" -a "$MOUNTEDSA" -a "$MOUNTEDSB" != "$MOUNTEDSA" ] || {
 echo "NO CHANGES in mtab.";exit $RETVAL; }; }; }
 # ls hangs on fuse.gphotofs ... up to 2 minutes ..
-case $OLDMOUNTPT in /dev|/proc|/sys|/tmp) :;; #keep these dirs ...
+case $OLDMOUNTPT in */dev|*/dev/*|*/proc|*/proc/*|*/sys|*/sys/*|*/tmp) :;; #keep these dirs ...
 *) [ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir $VERB "$OLDMOUNTPT"
 ;;
 esac
