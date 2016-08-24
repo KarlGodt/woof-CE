@@ -354,6 +354,39 @@ if [ "$PUPMODE" = 2 ]; then
  busybox mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmtmpfs /dev/shm; STATUS=$((STATUS+$?))
 fi
 
+#+++2016-08-23
+# support zram . zram seems to be lzo compressed virtual ram
+# should be still fast to decompress. for now reserve zram swap space
+# if enough free ram available.
+_swapon_zram(){
+test -e /dev/zram0 || return 1 # maybe no support
+test -e /sys/block/zram0/disksize || return 2 #maybe no support but /dev/zram0 exists anyway manually created
+test -f /proc/meminfo || return 3             #proc not mounted, crit/alert condition
+RAM_FREE=`grep '^MemFree:' /proc/meminfo | awk '{print $2}'` #alert/error condition
+test "$RAM_FREE" || return  4 #error/warn condition
+  if test $RAM_FREE -gt 2097152; then ZRAM_P=80
+elif test $RAM_FREE -gt 1572864; then ZRAM_P=70
+elif test $RAM_FREE -gt 1048576; then ZRAM_P=60
+elif test $RAM_FREE -gt 524288 ; then ZRAM_P=50
+else return 1
+fi
+
+ZRAM_SIZE=$(( ((RAM_FREE*ZRAM_P)/100) *1024))
+test "$ZRAM_SIZE" || return 4 #error condition
+echo $ZRAM_SIZE >/sys/block/zram0/disksize || return 5 #crit/alert
+mkswap /dev/zram0 || return 6 #error condition
+swapon /dev/zram0
+}
+_swapon_zram &
+
+#+++2016-08-22
+_imute_dirs(){
+case "$PUPMODE" in 2|3) :;; *) return 0;; esac
+which chattr >>$OUT || return 4
+chattr +i /usr/X11R7/bin /usr/local/bin /usr/bin /usr/sbin /usr /
+}
+_imute_dirs &
+
 ###+++2013-02-28 Support for mounting a boot partition containing the kernel modules
 LINKTARGET=`readlink /lib/modules/$(uname -r)`
 BOOTPARTITION=`echo "$LINKTARGET" | sed 's#/lib.*##'`
