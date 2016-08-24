@@ -1,15 +1,14 @@
 #!/bin/sh
 
-
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="FILENAME"
 ADD_PARAMETERS="/path/to/filename.ext"
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
-ADD_HELP_MSG="Run lpr binary."
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+ADD_HELP_MSG="Convert files to .gs and run lpr binary."
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
   for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
@@ -17,52 +16,14 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-#note, using a patched version of abiword 2.2.7 with filetype override on commandline.
-# --useextension=.txt
-
-#v1.0.6
-#abiword-2.4.1 has --import-extension, but it doesn't work.
-#so, for now, using nenscript...
-
-PAPERSIZE=`cat /etc/pdq/printrc | grep "driver_args" | head -n 1 | cut -f 2 -d '=' | tr -d '}' | tr -d '"' |tr -d ' '`
-
-#v1.0.3
-#if the nenscript pkg installed, assume no other way to convert text file to postscript...
-NENPAPER="A4"
-if [ "$PAPERSIZE" = "letter" ];then
- NENPAPER="US"
-fi
-if [ -f /usr/sbin/nenscript ];then
- if [ "$1" ];then
-  file -b "$1" | grep -i "postscript"
- else #to handle piped input.
-  false
- fi
- if [ $? -eq 0 ];then
-  lpr "$1"
- else
-  if [ "$1" ];then
-   PSFILE="`basename $1`"
-  else
-   PSFILE="tempprintfile"
-  fi
-  #note, if no $1 then nenscript accepts stdin...
-  /usr/sbin/nenscript -p/tmp/$PSFILE.ps -T${NENPAPER} ${1}
-  sync
-  lpr /tmp/$PSFILE.ps
- fi
- exit
-fi
-
-TEXTFILE="`basename $1`"
-PATHFILE="$1"
 
 PRINFO="INFORMATION:
 This application is using /usr/bin/lprshell to convert
 the file to Postscript prior to sending it to lpr.
+
 In the case of plain text, ABW, DOC and RTF files,
-Abiword is used as the filter. Abiword can be invoked from
-the commandline to convert these formats to Postscript.
+nenscript or abiword are used as the filter. Abiword can be invoked from
+the commandline to convert these formats to Postscript also.
 
 Note that lpr is a symlink to pdq, which will call
 gs (Ghostscript) to print the file.
@@ -70,48 +31,90 @@ After a short delay, your file should print.
 If it does not, did you run the Puppy Printer Wizard?
 Then, did you run XPDQ and choose the printer as the
 default printer?"
-xmessage -timeout 120 -bg "#ff00ff" -title "lprshell information" -buttons "" "$PRINFO" &
+case $1 in *help|-h)
+#xmessage -timeout 120 -bg "#ff00ff" -title "lprshell information" -buttons "" "$PRINFO" &
+xmessage -timeout 120 -bg "#ff00ff" -title "lprshell information" "$PRINFO" &
+exit 0
+;; esac
+
+if [ "$*" ];then
+   PSFILE=`basename "$*"`
+   TEXTFILE=`basename "$*"`
+   PATHFILE="$*"
+   FILEYPE=`file -b "$*" | tr '[A-Z]' '[a-z]'`
+   case $FILETYPE in postscript)
+    cp -a "$PATHFILE" /tmp/ || exit
+    lpr /tmp/"$PSFILE"
+    exit $?;;
+   esac
+else
+   PSFILE="tempprintfile"
+   TEXTFILE=tempprintfile
+   PATHFILE=/tmp/tempprintfile
+fi
 
 EXTRATXT=""
 OVERRIDEOPTION=""
-file -b "$1" | grep -i "postscript"
-if [ $? -eq 0 ];then
- cp -af "$1" /tmp/$TEXTFILE
-else
 
- echo "$TEXTFILE" | grep -i ".txt"
- if [ ! $? -eq 0 ];then
-  echo "$TEXTFILE" | grep -i ".rtf"
-  if [ ! $? -eq 0 ];then
-   echo "$TEXTFILE" | grep -i ".doc"
-   if [ ! $? -eq 0 ];then
-    echo "$TEXTFILE" | grep -i ".abw"
-    if [ ! $? -eq 0 ];then
-     #treat file as plain text...
-     cp -af $1 $1.txt
-     PATHFILE="$1.txt"
-     EXTRATXT="yes"
-     OVERRIDEOPTION='--useextension=.txt'
-    fi
-   fi
+#note, using a patched version of abiword 2.2.7 with filetype override on commandline.
+# --useextension=.txt
+#v1.0.6
+#abiword-2.4.1 has --import-extension, but it doesn't work.
+#so, for now, using nenscript...
+
+[ -e /etc/pdq/printrc ] || { mkdir -p /etc/pdq && touch /etc/pdq/printrc && echo "$0:WARNING:/etc/pdq/printrc does not exist"; }
+
+PAPERSIZE="`cat /etc/pdq/printrc|grep "driver_args"|head -n 1|cut -f 2 -d '='|tr -d '}'|tr -d '"'|tr -d ' '`"
+
+if [ "`which nenscript`" ];then
+  #v1.0.3
+  #if the nenscript pkg installed, assume no other way to convert text file to postscript...
+  NENPAPER="A4"
+  [ "$PAPERSIZE" = "letter" ] && NENPAPER="US"
+
+  #note, if no $* then nenscript accepts stdin...
+  if [ "$*" ] ; then
+   nenscript -p/tmp/$PSFILE.ps -T${NENPAPER} "${*}"
+  else
+   echo "Please type Text You want to Print:"
+   nenscript -p/tmp/$PSFILE.ps -T${NENPAPER}
   fi
- else
-  OVERRIDEOPTION='--useextension=.txt'
- fi
-
- #Ted ++printToFilePaper $PATHFILE /tmp/$TEXTFILE.ps $PAPERSIZE
- abiword --print=/tmp/$TEXTFILE.ps $OVERRIDEOPTION $PATHFILE
- TEXTFILE="$TEXTFILE.ps"
- if [ "$EXTRATXT" = "yes" ];then
-  rm -f "$1".txt
- fi
+  [ $? = 0 ] || exit
+  pidof sync || sync
+  lpr /tmp/$PSFILE.ps
+  exit $?
+elif [ "`which abiword`" ]; then :
+else
+ xmessage -bg red -title "lprshell Error" "Neither nenscript or abiword installed."
+ exit 2
 fi
 
-sync
-sleep 2
-lpr /tmp/$TEXTFILE
+echo "$TEXTFILE" | grep -iE '\.txt|\.rtf|\.doc|\.abw'
+if [ $? -ne 0 ];then
+     #treat file as plain text...
+     cp -af "$*" "$*.maybe.txt"
+     PATHFILE="$*.maybe.txt"
+     EXTRATXT="yes"
+     OVERRIDEOPTION='--useextension=.txt'
+elif echo "$TEXTFILE" | grep $Q -i '\.txt'; then
+     OVERRIDEOPTION='--useextension=.txt'
+fi
 
-#rm -f /tmp/$TEXTFILE
+ #Ted ++printToFilePaper "$PATHFILE" /tmp/"$TEXTFILE".ps $PAPERSIZE
+ abiword --print=/tmp/"$TEXTFILE".ps $OVERRIDEOPTION "$PATHFILE"
+ test $? = 0 || exit
+ TEXTFILE="$TEXTFILE.ps"
+
+ #if [ "$EXTRATXT" = "yes" ];then
+ # [ "$DEBUG" ] || rm -f "$*".maybe.txt
+ #fi
+
+pidof sync || sync
+sleep 2
+lpr /tmp/"$TEXTFILE"
+
+[ "$DEBUG" ] || rm -f /tmp/"$TEXTFILE" "$*".maybe.txt
 #killall xmessage
+
 # Very End of this file 'usr/bin/lprshell' #
 ###END###
