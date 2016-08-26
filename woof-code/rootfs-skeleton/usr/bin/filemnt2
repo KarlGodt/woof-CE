@@ -13,6 +13,19 @@ TWO_HELP=1
 TWO_VERBOSE=1
 #test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
+_exit()
+{
+local RV
+test "$*" || { _err "Usage:_exit EXITCODE MESSAGE"; }
+RV=$1
+[ "${RV//[[:digit:]]/}" ] && { _err "\$1 must be a digit number."; RV=255; } || shift
+echo "$*" >&2
+case ${MY_SELF##*/} in
+ash*|bash*|sh*) return $RV;; #likely sourced. sourced files crash scripts if exit.
+*) exit $RV;;
+esac
+}
+
 _info(){
 test "$INFO" || return 0
 echo -e "$0:INFO:$*"  >&2
@@ -135,6 +148,24 @@ unset c NR
 }
 _ensure_loop_cont
 
+_mk_free_loop()
+{
+    usedLOOPS=`losetup 2>>$ERR || losetup -a 2>>$ERR | wc -l`
+    read NR <<EoI
+`ls /dev/loop[0-9]* | wc -w`
+EoI
+    # REM : /dev/loop0 only would count as word '1', so need to reduce by one ..
+    NR=$((NR-1))
+    _debugx "NR=$NR"
+    if test $usedLOOPS -ge $NR; then
+    test -b /dev/loop$((NR+0)) || mknod /dev/loop$((NR+0)) b 7 $((NR+0))
+    test -b /dev/loop$((NR+1)) || mknod /dev/loop$((NR+1)) b 7 $((NR+1))
+    test -b /dev/loop$((NR+2)) || mknod /dev/loop$((NR+2)) b 7 $((NR+2))
+    test -d /dev/loop && { ln -sf ../loop$((NR+0)) /dev/loop/$((NR+0)); ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
+    fi
+unset NR usedLOOPS
+}
+
 _mount_it(){
 
 # /etc/fstab ...
@@ -149,10 +180,12 @@ test -f "$FILE_MOUNT_LOOP" || _exit 2 "'$ORIG_PARAMS' : No such file or director
    _mk_free_loop
   fi
 
- disktype "$FILE_MOUNT_LOOP" | grep $Q -iE 'file system' || _exit 3 "File seems not to contain a filesystem.
+ disktype "$FILE_MOUNT_LOOP" | grep $Q -iE 'file system|squashfs' || _exit 3 "File seems not to contain a filesystem.
  Is it encrypted ?"
 
- FS_TYPE=`guess_fstype "$FILE_MOUNT_LOOP"`
+ # mount chokes today on missing -t FS_TYPE in case of ext2 fs,
+ # but does not need -t FS_TYPE for squashfs.
+ FS_TYPE=`guess_fstype "$FILE_MOUNT_LOOP"` || unset FS_TYPE
  test "$FS_TYPE" && T_OP="-t $FS_TYPE"
 
  mkdir -p "$FILE_MOUNT_POINT"
@@ -162,20 +195,44 @@ test -f "$FILE_MOUNT_LOOP" || _exit 2 "'$ORIG_PARAMS' : No such file or director
  exit $?
 }
 
-_convert_nl_tab_sp()
+_convert_nl_tab_sp_esc()
 {
 xP=${*// /\\040}
-xQ=${xP//   /\\011}  #TAB
+xQ=${xP//	/\\011}  #TAB
 xR="${xQ//
 /\\012}"
-echo "$xR"
-unset xR xQ xP
+xS=${xR//\\/\\134}   #bsl
+echo "$xS"
+unset xR xQ xP xS
+}
+
+_format_grep_pattern(){
+gP="$*"
+echo "gP='$gP'"
+for c in "\\\\" '$' '^' '*' '[' '.'          # '[' ']' "\\\\"
+      #for c in '$' '^' '*' '[' ']' '.'      # grep -E: '+'   #sed & ( )
+do
+echo "c='$c'"
+case "$c" in
+'*'|'[') echo have wildcard or square
+gP=${gP//"$c"/\\$c};;
+'\\') echo have backslash
+gP=${gP//\\/\\\\};;
+#'['|']') echo have square
+#gP=${gP//"$c"/\\$c};;
+*) #gP=${gP//"$c"/\\\\"$c"};;
+   gP=${gP//"$c"/\\"$c"};;
+esac
+echo "gP='$gP'"
+done
+echo "gP='$gP'"
 }
 
 _check_dir_mounted(){
-gP=`_convert_nl_tab_sp "$FILE_MOUNT_POINT"`
- gP=${gP//\\/\\\\}
- _debug "gP='$gP'"
+
+gP=`_convert_nl_tab_sp_esc "$FILE_MOUNT_POINT"`
+_format_grep_pattern "$gP"
+_debug "gP='$gP'"
 cut -f2 -d' ' /proc/mounts | grep $Q "^${gP}$";
 }
 
@@ -207,3 +264,4 @@ fi
 #squashfs version support
 #squashfs compression
 #xmessages for success/failure
+#dialog to load or mount
