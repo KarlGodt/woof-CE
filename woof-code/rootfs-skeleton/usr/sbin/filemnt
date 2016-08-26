@@ -59,24 +59,37 @@ _notice "pwd='`pwd`'"
 if test -f "$*"; then
    imgFILE="$@"
    _debug "$*:Is file"  ##DEBUG
-
+   set --
 else
    _debug "$*:Is NOT file"  ##DEBUG
 # REM: Filter filename parameter from other possible
 #       parameters (--help,.. etc)
+
 while [ $# != 0 ]; do
  _debugx "\$1='$1'"
- #if test -e "$1"
- if test -f "$1"
- then [ "$imgFILE" ] || imgFILE="$1"
- else
- posPARAMS="${posPARAMS}$1 "
- #shift
- fi
+
+ [ -f "$1" ] && imgFILE="$1"
+
+ #this is for space only
+ maybe_file="${maybe_file}$1 ";
+ [ -f "$maybe_file" ] && imgFILE="$maybe_file"
+
+ #this is for tab only
+  maybe_file2=`echo -e ${maybe_file}${1}\t`;
+ [ -f "$maybe_file2" ] && imgFILE="$maybe_file2"
+
+ #this is for newline only
+  maybe_file3=`echo -e ${maybe_file}${1}\n`;
+ [ -f "$maybe_file3" ] && imgFILE="$maybe_file3"
+
+ #missing combinations of space,tab and newline .. GRR...
  shift
+ [ "$imgFILE" ] && break
+
  sleep 0.1
 done
 
+posPARAMS="$*"
 set - $posPARAMS
 
 fi
@@ -304,30 +317,39 @@ Or do you just want to mount it to look inside ?
 ;;
 esac
 
+_debug "5 mntPT='$mntPT'"  ##DEBUG
 #+++2016-02-16 Add mountpoint parameter support
 _debug "positional parameters:$*"
-case "$1" in  ${imgFILE#*/mnt/home}|$imgFILE|$bn_imgFILE) :;;
+case "$*" in ${imgFILE#*/mnt/home}|${bn_imgFILE#./}|$imgFILE|$bn_imgFILE) :;;
 *)
-test "$2" && mntPT="$2" #always quote it
+_debug "6 mntPT='$mntPT'"  ##DEBUG
+#test "$2" && mntPT="$2" #always quote it
 ##test "$1" && mntPT="$1" #always quote it
 #shift
-#test "$*" && mntPT="$*" #always quote it
+test "$*" && mntPT="$*" #always quote it
 ;;
 esac
 
+_debug "7 mntPT='$mntPT'"  ##DEBUG
 test "$mntPT" || mntPT="${MOUNT_DIR}/$bn_imgFILE"
-_debug "mntPT='$mntPT'"  ##DEBUG
+_debug "7 mntPT='$mntPT'"  ##DEBUG
+test -e "$mntPT" && mntPT="${MOUNT_DIR}/$bn_imgFILE"
+_debug "8 mntPT='$mntPT'"  ##DEBUG
 
 grepPatternMntPt=`echo "$mntPT" | sed 's#\([[:punct:]]\)#\\\1#g'`
 grepPatternImgFile=`echo "$imgFILE" | sed 's#\([[:punct:]]\)#\\\1#g'`
 
 _create_new_folder_name(){
+    _debug "_create_new_folder_name:$*"
+    test "$*" || return 2
+    test -d "$*" || { mkdir -p "$*" && return 0; }
+c=
 while read path_to_folder
 do
 _debug "_create_new_folder_name:$path_to_folder"  ##DEBUG
 c=$((c+1))
-test -e "$path_to_folder".$c && continue
-mntPT="$path_to_folder".$c
+test -e "${path_to_folder%.[0-9]}".$c && continue
+mntPT="${path_to_folder%.[0-9]}".$c
 break
 done << EoI
 `ls -1dv "$*"*`
@@ -379,9 +401,10 @@ Xdialog\
     -menu\
     "$imgFILE
 is already mounted $IN_USE_BY_PUPPY .
+$cmMSG
 Do you want to unmount it
-or mount it to another mount point ?"\
-    350x250 7\
+or mount it on $mpMSG ?"\
+    400x280 6\
     "Quit" "do nothing - just leave"\
     "ROX" "open ROX-Filer window"\
     "Console" "open rxvt console window"\
@@ -408,17 +431,72 @@ _get_real_backing_file(){
   test "$*" || return 3
   oneLOOP_="$*"
   test -b "$oneLOOP_" || return 4
+  _debug "_get_real_backing_file oneLOOP_='$oneLOOP_'"
+
+  #PROBLEM:
+  # kernel 2.6.37.4 writes such after mount into backing_file ..:
+  #/usr/sbin/filemnt:DEBUG:\nmount: 'ext2' '/dev/loop0' '/mnt/test.2fs'\n
+  #FS_TYPE='Ext2'
+  #mount-FULL normal='0'
+  #if #8 else '-t ext2 -o loop /dev/loop0 /mnt/test.2fs' ''
+  #mount-FULL normal='0'
+  #final RETVAL='0'
+
+  #bash-3.2# losetup -a
+  # /dev/loop/0: [c0010300]:2324803 (/tmp/test.2fs)
+  # /dev/loop/1: [0005]:699 (/dev/loop0)
+  # file /dev/loop/0
+  # /dev/loop/0: symbolic link to `../loop0'
+  # file /dev/loop/1
+  # /dev/loop/1: symbolic link to `../loop1'
+  #mount-FULL --version
+  # mount (util-linux 2.13-pre7)
+  #busybox | head -n2
+  # BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) multi-call binary.
+  #grep /dev/loop /proc/mounts
+  #/dev/loop1 /mnt/test.2fs ext2 rw,relatime,errors=continue 0 0
+
+  # mount-FULL works correctly from the cmdline:
+  # mkdir /mnt/test.2fs
+  # mount-FULL -o loop ./test.2fs /mnt/test.2fs
+  # losetup -a
+  #  /dev/loop/0: [c0010300]:2324803 (./test.2fs)
+  # grep /dev/loop /proc/mounts
+  #  /dev/loop0 /mnt/test.2fs ext2 rw,relatime,errors=continue 0 0
+
+  #bash-3.2# umount-FULL /mnt/test.2fs
+  #bash-3.2# grep /dev/loop /proc/mounts
+  #bash-3.2# losetup -a
+  # /dev/loop/0: [c0010300]:2324803 (./test.2fs)
+
+  # found error: -t TYPE -o loop /dev/loopY MNTPT was -o loop too much
+
   # REM: Now try to get the basename of the file associated with oneLOOP
    if test -f /sys/block/${oneLOOP_##*/}/loop/backing_file; then
     read oneIMG_FILE_ </sys/block/${oneLOOP_##*/}/loop/backing_file
+    _debug "_get_real_backing_file oneIMG_FILE_='$oneIMG_FILE_'"
+   fi
+   case $oneIMG_FILE_ in /dev/loop*) unset oneIMG_FILE_;; esac
+
+   if [ -f "$oneIMG_FILE_" ]; then :
    else
     #oneIMG_FILE_=`losetup-FULL "$oneLOOP_" | cut -f 2 -d '(' | cut -f 1 -d ')'`
     LOSETUP_OUT_=`losetup "$oneLOOP_" | tail -n1`
+    _debug "_get_real_backing_file LOSETUP_OUT_='$LOSETUP_OUT_'"
     set - $LOSETUP_OUT_
     shift #$1
     shift #$2
     oneIMG_FILE_="$@"
     oneIMG_FILE_=`echo "$oneIMG_FILE_" | sed 's%^(%%;s%)$%%'`
+    case $oneIMG_FILE_ in
+    /dev/loop*)
+    NR=${oneIMG_FILE_##*/}
+    NR=${NR##*loop}
+    _debug "_get_real_backing_file NR='$NR'"
+    oneIMG_FILE_=`losetup "$oneIMG_FILE_" | grep -Ew "^/dev/loop$NR|^/dev/loop/$NR" | cut -f 2 -d '(' | cut -f 1 -d ')'`
+    ;;
+    esac
+    _debug "_get_real_backing_file oneIMG_FILE_='$oneIMG_FILE_'"
     #TODO 64 chars
     #bash-3.2# losetup-FULL /dev/loop1
     #/dev/loop1: [0700]:2579 (/mnt/xubuntu-11.10-desktop-i386.iso.29782/casper/filesystem.sq*)
@@ -444,13 +522,14 @@ _get_real_backing_file(){
    esac
 
     IMGBASE_=`basename "$oneIMG_FILE_"`
+    _debug "_get_real_backing_file IMGBASE_='$IMGBASE_'"
 test "$IMGBASE_"
 }
 
 _check_already_mounted(){
 
   #BK check if already mounted elsewhere...
-  for oneLOOP in `mount | grep '^/dev/loop' | cut -f 1 -d ' '`
+  for oneLOOP in `grep '^/dev/loop' /proc/mounts | cut -f 1 -d ' '`
   do
 
   __get_real_backing_file(){
@@ -499,6 +578,10 @@ _check_already_mounted(){
      */pup_ro[0-9]*) IN_USE_BY_PUPPY="and in use by Puppy" ;;
      esac
 
+     # REM : Try to tell the current mountpoint
+     test "$curr_mntPT" && cmMSG="on $curr_mntPT"
+     test "$mntPT"      && mpMSG="on $mntPT" || mpMSG="another mount point"
+
      if [ -n "$DISPLAY" ] ; then #66
 
    if which Xdialog >>$OUT; then _xdialog_menu
@@ -513,7 +596,7 @@ _check_already_mounted(){
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        test -d "$mntPT" || {
        #+++2016-02-16 using losetup
-       _LOSETUP_=`losetup || losetup -a`
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
        dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
        test "$dev_node_" && mntPT=`grep -w "^$dev_node_" /proc/mounts | tail -n1 |cut -f2 -d' '`
        }
@@ -525,7 +608,7 @@ _check_already_mounted(){
        mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
        test -d "$mntPT" || {
        #+++2016-02-16 using losetup
-       _LOSETUP_=`losetup || losetup -a`
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
        dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
        test "$dev_node_" && mntPT=`grep -w "^$dev_node_" /proc/mounts | tail -n1 |cut -f2 -d' '`
        }
@@ -540,32 +623,72 @@ _check_already_mounted(){
   elif [ "$RETVAL" = "193" ] ; then #666  ## umount
        UNMOUNT='yes'
        #test "$mntPT" || mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
-       mntPT=`busybox mount | grep "$IMGBASE" | head -n 1 | cut -f 3 -d ' '`
+       mntPT=`busybox mount | grep "$IMGBASE" | tail -n 1 | cut -f 3 -d ' '`
+       _debug "193:$mntPT"
        test -d "$mntPT" || {
        #+++2016-02-16 using losetup
-       _LOSETUP_=`losetup || losetup -a`
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
        dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
        test "$dev_node_" && mntPT=`grep -w "^$dev_node_" /proc/mounts | tail -n1 |cut -f2 -d' '`
        }
+       _debug "193:$mntPT"
+       test -d "$mntPT" || {
+	   _LOSETUP_=`losetup || losetup -a` 2>>$ERR
+	   dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
+	   devNR=${dev_node_##*/} #/dev/loop/0
+       devNR=${devNR##*loop}  #/dev/loop0
+       real_loop=`echo "$_LOSETUP_" | grep -E "[ (]/dev/loop$devNR[)]$|[ (]/dev/loop/$devNR[)]$" | cut -f1 -d':'`
+       _debug "193:real_loop=$real_loop"
+       devNR=${real_loop##*/} #/dev/loop/0
+       devNR=${devNR##*loop}  #/dev/loop0
+       _debug "193:devNR=$devNR"
+       mntpt=`grep -Ew "^/dev/loop$devNR|^/dev/loop/$devNR" /proc/mounts | cut -f2 -d' '`
+       _debug "193:mntpt=$mntpt"
+	   }
        mntPT=`echo -e "$mntPT"`
        test -d "$mntPT"
        return $?
 
   elif [ "$RETVAL" = "194" ] ; then #666  ## umount ALL $IMGBASE
        UNMOUNT='yes'
-       mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
-       _debug "194:$mntPT"
-       MntPt2=`echo "$mntPT" | sed "1 d"` ## only umount all others exect one
-       _debug "194:$MntPt2"
+       _debug "194:IMGBASE=$IMGBASE"
+       #mntPT=`cut -f2 -d' ' /proc/mounts | grep "${IMGBASE}[\.0-9]*$"`
+       #mntPTS=`cut -f2 -d' ' /proc/mounts | grep "${IMGBASE}"`
+       gPATTERN=`_convert_nl_tab_sp "$IMGBASE"`
+       mntPTS=`cut -f2 -d' ' /proc/mounts | grep "$gPATTERN"`
+       _debug "194:mntPTS=$mntPTS"
+       test "$mntPTS" || {
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
+       loops=`echo "$_LOSETUP_" | grep "$IMGBASE" | awk -F'[ :]' '{print $1}'`
+       for l in $loops; do
+       devNR=${l##*/}        #/dev/loop/0
+       devNR=${devNR##*loop} #/dev/loop0
+       real_loop=`echo "$_LOSETUP_" | grep -E "[ (]/dev/loop$devNR[)]$|[ (]/dev/loop/$devNR[)]$" | cut -f1 -d':'`
+       _debug "194:real_loop=$real_loop"
+       devNR=${real_loop##*/} #/dev/loop/0
+       devNR=${devNR##*loop}  #/dev/loop0
+       _debug "194:devNR=$devNR"
+       mntpt=`grep -Ew "^/dev/loop$devNR|^/dev/loop/$devNR" /proc/mounts | cut -f2 -d' '`
+       _debug "194:mntpt=$mntpt"
+       #mntpt=`echo -e "$mntpt"` #not allowed for next for loop needs cons filenames without space
+       mntPTS="$mntpt
+$mntPTS"
+       _debug "194:mntPTS=$mntPTS"
+       done
+       }
 
-       for i in $MntPt2 ; do
+       MntPtS=`echo "$mntPTS" | sed "1 d"` ## only umount all others except one
+       _debug "194:MntPtS=$MntPtS"
+
+       for i in $MntPtS ; do
+       _debug "194:i=$i"
        i=`echo -e "$i"`
        test "$i"    || continue
        test -d "$i" || continue
        GREP=`echo "$i" | sed 's#\.#\\\.#g;s#\+#\\\+#g;s#-#\\\-#g'`
-       _debug "194:$GREP"
+       _debug "194:GREP='$GREP'"
        LOOPD=$(busybox mount | grep "$GREP" | cut -f 1 -d ' ')
-       _debug "194:$LOOPD"
+       _debug "194:LOOPD='$LOOPD'"
        #USEapps=`fuser -c $LOOPD`     ##---2011-10-27
        USEapps=`fuser -m "$i"`        ##+++2011-10-27
        _notice "194:fuser:$USEapps"
@@ -576,7 +699,7 @@ _check_already_mounted(){
        #      Supported signals are listed by 'help trap'
        SIG=2
        for j in $USEapps ; do
-       _debugx "fuser claims PID '$j' is using '$mntPT'"
+       _debugx "fuser claims PID '$j' is using '$i'"
        #kill -$SIG $j
        done
 
@@ -586,14 +709,40 @@ _check_already_mounted(){
        #rmdir "$i"
        done
 
-       mntPT=`busybox mount | grep "$IMGBASE" | cut -f 3 -d ' '`
+       _debug "194:IMGBASE=$IMGBASE"
+       #mntPT=`cut -f2 -d' ' /proc/mounts | grep "${IMGBASE}"`
+       gPATTERN=`_convert_nl_tab_sp "$IMGBASE"`
+       mntPT=`cut -f2 -d' ' /proc/mounts | grep "$gPATTERN"`
+       _debug "194:$mntPT"
        test -d "$mntPT" || {
        #+++2016-02-16 using losetup
-       _LOSETUP_=`losetup || losetup -a`
+       _debug "194:losetup OR losetup -a"
+       _LOSETUP_=`losetup || losetup -a` 2>>$ERR
+       _debug "194:losetup OR losetup -a"
        dev_node_=`echo "$_LOSETUP_" | grep "$IMGBASE" | tail -n1 | awk -F'[ :]' '{print $1}'`
-       test "$dev_node_" && mntPT=`grep -w "^$dev_node_" /proc/mounts | tail -n1 |cut -f2 -d' '`
+       _debug "194:dev_node_=$dev_node_"
+       devNR=${dev_node_##*/}
+       devNR=${devNR##*loop}
+       _debug "194:devNR=$devNR"
+       test "$dev_node_" && {
+           mntPT=`grep -Ew "^/dev/loop$devNR|^/dev/loop/$devNR" /proc/mounts | tail -n1 |cut -f2 -d' '`
+           _debug "194:$mntPT"
        }
        mntPT=`echo -e "$mntPT"`
+       if test "$mntPT" ; then :
+       else
+       real_loop=`echo "$_LOSETUP_" | grep -E "[ (]/dev/loop$devNR[)]$|[ (]/dev/loop/$devNR[)]$" | cut -f1 -d':'`
+       _debug "194:real_loop=$real_loop"
+       devNR=${real_loop##*/}
+       devNR=${devNR##*loop}
+       _debug "194:devNR=$devNR"
+       mntPT=`grep -Ew "^/dev/loop$devNR|^/dev/loop/$devNR" /proc/mounts | tail -n1 |cut -f2 -d' '`
+       _debug "194:$mntPT"
+       fi
+    }
+       _debug "194:$mntPT"
+       mntPT=`echo -e "$mntPT"`
+       _debug "194:$mntPT"
        [ -d "$mntPT" ]
        return $?
 
@@ -720,12 +869,13 @@ Note, there is an SFS-version-converter in the Utility menu, run that first."
 
   # REM: Older pups need to mknod a /dev/loop
   #      Since kernel 3.1 they are automatically created by the kernel
+  _ensure_loop_cont
   _mk_free_loop  # see f4puppy5
 
   # REM: if choosen mount again
   [ "$MOUNT" = 'again' ] && _create_new_folder_name "$mntPT"
   _debug "mntPT='$mntPT'"  ##DEBUG
-  #: mkdir -p "$mntPT"    ## mount.sh should do this
+  mkdir -p "$mntPT"    ## mount.sh should do this
 
 _encrypted()
 {
@@ -862,92 +1012,31 @@ _encrypted()
 #define LO_CRYPT_CRYPTOAPI      18
 #define MAX_LO_CRYPT            20
 
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e aes $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
+
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_cryptblowfish*|*_cryptbf*) CRYPTO=blowfish
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e blowfish $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_crypttwofish*|*_crypttf*) CRYPTO=twofish
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e twofish $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_cryptarc4*|*_cryptarc*) CRYPTO=arc4
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e arc4 $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_cryptanubis*|*_cryptan*) CRYPTO=anubis
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e anubis $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_cryptserpent*|*_crypts*) CRYPTO=serpent
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e serpent $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
      *_cryptcamellia*|*_cryptc*) CRYPTO=camellia
-
-        _init_crypt_save_file_(){
-        MYPASS="`pupdialog --title "$(gettext 'Enter Password')" --stdout --inputbox "$(gettext 'Password required to open') ${bn_imgFILE}:" 0 0`"
-        Err=$?
-        if [ $Err -eq 0 ];then
-        echo "$MYPASS" | losetup-FULL -p 0 -e camellia $freeLOOP "$imgFILE"
-        Err=$?
-        fi
-        }
       _init_crypt_save_file $CRYPTO; Err=$?
      ;;
 
@@ -962,7 +1051,7 @@ _encrypted()
 return $Err
 }
 
-$mkdir $VERB -p "$mntPT" # mount.sh should do this
+mkdir $VERB -p "$mntPT" # mount.sh should do this
 _encrypted && {
   # REM: New problem in case of additional mount 2014-11-27,
   #      mount complains that /dev/loop is in use - don't know why ...
@@ -970,7 +1059,8 @@ _encrypted && {
   #[ -b "$freeLOOP" ] && losetup $freeLOOP "$imgFILE" && {
 
   _debug "\nmount: '$Type' '$freeLOOP' '$mntPT'\n"
-  /bin/mount $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
+   /bin/mount $VERB -t $Type -o loop "$freeLOOP" "$mntPT"
+  # /bin/mount $VERB -t $Type "$freeLOOP" "$mntPT"
    Err=$?
   } || {
 
@@ -1023,6 +1113,37 @@ _encrypted && {
   _debug "\nUnMount: '$mntPT'\n"
   /bin/umount "$mntPT"
   Err=$?
+  # REM: If mount-FULL uses increasing loopdevices on mntPT,
+  #      check if mntPT still mounted, if not,
+  #      free loopdevices assigned to mntPT
+  #if ! cut -f2 -d' ' /proc/mounts | grep $Q "^${mntPT}$"; then
+  gPATTERN=`_convert_nl_tab_sp "${mntPT}"`
+  _debug "gPATTERN='$gPATTERN'"
+  if ! cut -f2 -d' ' /proc/mounts | grep $Q "^${gPTTERN}$"; then
+  _debug freeing unused loop devices
+  _LOSETUP_=`losetup || losetup -a` 2>>$ERR
+  UNUSED_LOOPS=`echo "$_LOSETUP_" | grep " (${imgFILE})$" | cut -f1 -d':'` #losetup-FULL output
+  UNUSED_LOOPSF=$UNUSED_LOOPS
+  for ul in $UNUSED_LOOPS; do _debugx $ul ;
+  devNR=${ul##*/}       #/dev/loop/0
+  devNR=${devNR##*loop} #/dev/loop0
+  _debugx $devNR
+  if echo "$_LOSETUP_" | grep $Q -E "[ (]/dev/loop$devNR[)]$|[ (]/dev/loop/$devNR[)]$"; then
+   UNUSED_LOOPSF=`echo "$UNUSED_LOOPSF" | grep -vw "^/dev/loop$devNR"`
+   UNUSED_LOOPSF=`echo "$UNUSED_LOOPSF" | grep -vw "^/dev/loop/$devNR"`
+  fi
+  done
+
+  for ul in $UNUSED_LOOPSF; do _debugx $ul ;
+  devNR=${ul##*/}       #/dev/loop/0
+  devNR=${devNR##*loop} #/dev/loop0
+  _debugx $devNR
+  grep $Q -w "^/dev/loop$devNR" /proc/mounts && continue
+  grep $Q -w "^$ul" /proc/mounts && continue
+  #fuser -c $ul || continue
+  losetup -d $ul; done
+  fi
+
   #: [ -d "$mntPT" ] && [ -z "`ls -A "$mntPT" 2>/dev/null`" ] && rmdir "$mntPT"
  fi
 

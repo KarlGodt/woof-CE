@@ -2773,16 +2773,102 @@ __mk_free_loop()
   LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
   LOOP_NEW=$(( $LOOP_LAST + 1 ))
   mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+  mknod /dev/loop$((LOOP_NEW+1)) b 7 $((LOOP_NEW+1))
+  test -d /dev/loop && { ln -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
   }
 }
 
-_mk_free_loop(){
+_mk_free_loop()
+{
+  FREE_LOOP=`losetup-FULL -f 2>>$ERR`  # find free and create loop
+  if [ "$FREE_LOOP" ]; then            # for kernel 3.0 and earlier
+  #check if one more in case mount confusing everything
+    NR=${FREE_LOOP##*/}
+    NR=${NR##*loop}
+   case $FREE_LOOP in
+   /dev/loop/[0-9]*) [ -b /dev/loop$NR ] || mknod /dev/loop$NR b 7 $NR; ln -sf ../loop$NR /dev/loop/$NR;;
+   /dev/loop[0-9]*)  [ -d /dev/loop ] && ln -sf ../loop$NR /dev/loop/$NR;;
+   esac
+   test -b /dev/loop$((NR+1)) || { mknod /dev/loop$((NR+1)); [ -d /dev/loop ] && ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); }
+  else
+   LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
+   LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
+   LOOP_NEW=$(( $LOOP_LAST + 1 ))
+   mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
+   mknod /dev/loop$((LOOP_NEW+1)) b 7 $((LOOP_NEW+1))
+   test -d /dev/loop && { ln -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
+  fi
+unset NR
+}
+
+__mk_free_loop(){
     losetup -f >>$OUT 2>>$ERR || {
     read NR <<EoI
 `echo $(ls /dev/loop[0-9]*) | wc -w`
 EoI
     mknod /dev/loop$((NR+1)) b 7 $((NR+1))
+    mknod /dev/loop$((NR+2)) b 7 $((NR+2))
+    test -d /dev/loop && { ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
+unset NR
 }; }
+
+_mk_free_loop()
+{
+    usedLOOPS=`losetup 2>>$ERR || losetup -a 2>>$ERR | wc -l`
+    read NR <<EoI
+`ls /dev/loop[0-9]* | wc -w`
+EoI
+    # REM : /dev/loop0 only would count as word '1', so need to reduce by one ..
+    NR=$((NR-1))
+    echo NR=$NR
+    if test $usedLOOPS -ge $NR; then
+    # REM : /dev/loop0 only would count as word '1', so need to reduce by one ..
+    #NR=$((NR-1))
+    #echo NR=$NR
+    test -b /dev/loop$((NR+0)) || mknod /dev/loop$((NR+0)) b 7 $((NR+0))
+    test -b /dev/loop$((NR+1)) || mknod /dev/loop$((NR+1)) b 7 $((NR+1))
+    test -b /dev/loop$((NR+2)) || mknod /dev/loop$((NR+2)) b 7 $((NR+2))
+    test -d /dev/loop && { ln -sf ../loop$((NR+0)) /dev/loop/$((NR+0)); ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
+    fi
+unset NR usedLOOPS
+}
+
+
+_ensure_loop_cont(){
+    usedLOOPS=`losetup 2>>$ERR || losetup -a 2>>$ERR | wc -l`
+    c=0
+    while read loop; do
+    NR=${loop##*/}
+    NR=${NR##*loop}
+    echo c=$c NR=$NR
+    while :; do
+    test $NR = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln -sf ../loop$c /dev/loop/$c; }
+    c=$((c+1))
+    echo c=$c NR=$NR
+    test $c -le $usedLOOPS || break
+    done
+    c=$((c+1))
+    test $c -le $usedLOOPS || break
+    done << EoI
+`ls -1d /dev/loop[0-9]* | sed 's!.*loop!!;s!/!!' | sort -n`
+EoI
+unset c NR
+}
+
+__convert_nl_tab_sp()
+{
+echo "$*" | sed 's/ /\\040g; s/\t/\\011/g; s/$/\\012/g'  #TAB
+}
+
+_convert_nl_tab_sp()
+{
+P=${*// /\\040}
+Q=${P//	/\\011}  #TAB
+R="${Q//
+/\\012}"
+echo "$R"
+unset R
+}
 
 #================ Check GETTEXT ==============================================
 _check_gettext()
