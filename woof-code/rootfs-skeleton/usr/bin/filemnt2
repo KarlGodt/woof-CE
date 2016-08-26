@@ -1,0 +1,209 @@
+#!/bin/ash
+
+MY_SELF=`realpath "$0"`
+test "$0" = "$MY_SELF" && MY_SELF_MSG="$MY_SELF" || MY_SELF_MSG="$0 -> $MY_SELF"
+ERR=/dev/null # /dev/stderr or errlogfile
+OUT=/dev/null # /dev/stdout
+INFO=
+DEBUG=1
+VERSION=0.0 #2016-08-26
+TWO_DEBUG=1
+TWO_VERSION=1
+TWO_HELP=1
+TWO_VERBOSE=1
+#test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
+_info(){
+test "$INFO" || return 0
+echo -e "$0:INFO:$*"  >&2
+}
+_debug(){
+test "$DEBUG" || return 0
+echo "$0:DEBUG:$*"  >&2
+}
+
+_info "$*"
+MAYBE_FILE=`echo -e "$*"`
+MAYBE_DIR="$MAYBE_FILE"
+_debug "MAYBE_FILE='$MAYBE_FILE'"
+ORIG_PARAMS="$*"
+
+if test -f "$*"; then FILE_MOUNT_LOOP="$*"; set --
+elif test -f "$MAYBE_FILE"; then FILE_MOUNT_LOOP="$MAYBE_FILE"; set --
+elif test -d "$*"; then FILE_MOUNT_POINT="$*"; set --
+elif test -d "$MAYBE_DIR"; then FILE_MOUNT_POINT="$MAYBE_DIR" ; set --
+fi
+
+_check_for_file_and_mountpoint(){
+while :
+do
+if test -f "$FILE_MOUNT_LOOP"; then
+
+[ "$maybe_dir" ]  && maybe_dir="${maybe_dir} ${*}"    || maybe_dir="$*"
+[ "$maybe_dir2" ] && maybe_dir2="${maybe_dir2}  ${*}" || maybe_dir2="$*"
+[ "$maybe_dir3" ] && maybe_dir3="${maybe_dir3}
+${*}" || maybe_dir3="$*"
+
+else
+
+test -f "$*" && { FILE_MOUNT_LOOP="$*"; break; }
+MAYBE_FILE=`echo -e "$*"`
+test -f "$MAYBE_FILE" && { FILE_MOUNT_LOOP="$MAYBE_FILE"; break; }
+
+[ "$maybe_file" ] && maybe_file="${maybe_file} ${*}" || maybe_file="$*"
+test -f "$maybe_file" &&  { FILE_MOUNT_LOOP="$maybe_file"; break; }
+
+[ "$maybe_file2" ] && maybe_file2="${maybe_file2}   ${*}" || maybe_file2="$*"
+test -f "$maybe_file2" && { FILE_MOUNT_LOOP="$maybe_file2"; break; }
+
+[ "$maybe_file3" ] && maybe_file3="${maybe_file3}
+${*}" || maybe_file3="$*"
+test -f "$maybe_file3" && { FILE_MOUNT_LOOP="$maybe_file3"; break; }
+fi
+break
+done
+}
+
+_tell_help(){
+
+MSG_HELP="$MY_SELF_MSG:
+ Usage:
+  filemnt [ -h|-V|-v|-d ] <filename.ext> [ <mountpoint> ]
+ Options:
+ --help|-h)    say this message and exit.
+ --version|-V) say version and exit.
+ --verbose|-v) tell whats going on.
+ --debug|-d)   print a lot of debugging.
+"
+[ "$*" ] && MSG_HELP="$$MSG_HELP
+$*"
+echo "$MSG_HELP"
+}
+
+_tell_version(){
+echo "$MY_SELF_MSG: $VERSION"
+}
+_check_params(){
+PARAMS="$@"
+while :
+do
+case $1 in
+-*help|-*h)     _tell_help; exit $?;;
+-*version|-*V)  _tell_version; exit $?;;
+-*verbose|-*v)  VERB=-v;;
+-*debug|-*d)    VERB=-v;DEBUG=1;;
+*) _check_for_file_and_mountpoint "$1";;
+esac
+shift
+[ "$1" ] || break
+done
+}
+test "$FILE_MOUNT_LOOP"    || _check_params "$@"
+
+if ! test "$FILE_MOUNT_POINT"; then
+test -d "$maybe_dir3" && FILE_MOUNT_POINT="$maybe_dir3" #use this only if exists
+test -d "$maybe_dir2" && FILE_MOUNT_POINT="$maybe_dir2" #use this only if exists
+test "$maybe_dir" && FILE_MOUNT_POINT="$maybe_dir" # this would convert tab and newline to space
+fi
+_debug "FILE_MOUNT_POINT='$FILE_MOUNT_POINT'"
+
+[ "$FILE_MOUNT_LOOP" ]     && FILE_MOUNT_LOOP=`realpath "$FILE_MOUNT_LOOP"`
+_debug "FILE_MOUNT_LOOP='$FILE_MOUNT_LOOP'"
+#
+
+# /mnt/home fix ?
+
+_ensure_loop_cont(){
+    usedLOOPS=`losetup 2>>$ERR || losetup -a 2>>$ERR | wc -l`
+    c=0
+    while read loop; do
+    NR=${loop##*/}
+    NR=${NR##*loop}
+    echo c=$c NR=$NR
+    while :; do
+    test $NR = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln -sf ../loop$c /dev/loop/$c; }
+    c=$((c+1))
+    _debugx c=$c NR=$NR
+    test $c -le $usedLOOPS || break
+    done
+    c=$((c+1))
+    test $c -le $usedLOOPS || break
+    done << EoI
+`ls -1d /dev/loop[0-9]* | sed 's!.*loop!!;s!/!!' | sort -n`
+EoI
+unset c NR
+}
+_ensure_loop_cont
+
+_mount_it(){
+
+# /etc/fstab ...
+test -f "$FILE_MOUNT_LOOP" || _exit 2 "'$ORIG_PARAMS' : No such file or directory"
+
+ HAVE_FREE_LOOP=`losetup -f`
+  if test "$HAVE_FREE_LOOP" ;then
+   NR=${HAVE_FREE_LOOP##*/}
+   NR=${NR##*loop}
+   test -b "$HAVE_FREE_LOOP" || { rm -f $HAVE_FREE_LOOP; mknod "$HAVE_FREE_LOOP" b 7 $NR; }
+  else
+   _mk_free_loop
+  fi
+
+ disktype "$FILE_MOUNT_LOOP" | grep $Q -iE 'file system' || _exit 3 "File seems not to contain a filesystem.
+ Is it encrypted ?"
+
+ FS_TYPE=`guess_fstype "$FILE_MOUNT_LOOP"`
+ test "$FS_TYPE" && T_OP="-t $FS_TYPE"
+
+ mkdir -p "$FILE_MOUNT_POINT"
+ mount $T_OP -o loop "$FILE_MOUNT_LOOP" "$FILE_MOUNT_POINT"
+ #Doing mount-FULL -o loop /mnt/sda3/tmp/test file with spaces.2fs /mnt/123 456
+ #mount: you must specify the filesystem type
+ exit $?
+}
+
+_convert_nl_tab_sp()
+{
+xP=${*// /\\040}
+xQ=${xP//   /\\011}  #TAB
+xR="${xQ//
+/\\012}"
+echo "$xR"
+unset xR xQ xP
+}
+
+_check_dir_mounted(){
+gP=`_convert_nl_tab_sp "$FILE_MOUNT_POINT"`
+ gP=${gP//\\/\\\\}
+ _debug "gP='$gP'"
+cut -f2 -d' ' /proc/mounts | grep $Q "^${gP}$";
+}
+
+if [ "$FILE_MOUNT_POINT" ]; then
+ # toggle if already mounted
+
+ if _check_dir_mounted; then
+  /bin/umount -d "$FILE_MOUNT_POINT"
+  exit $?
+ else
+  _mount_it
+ fi
+
+else
+
+ FILE_MOUNT_POINT=/mnt/"${FILE_MOUNT_LOOP##*/}"
+ if _check_dir_mounted; then
+  /bin/umount -d "$FILE_MOUNT_POINT"
+  exit $?
+ else
+ _mount_it
+ fi
+
+fi
+
+#TODO:
+#/initrd/ support in use by puppy
+#encryption support
+#squashfs version support
+#squashfs compression
+#xmessages for success/failure
