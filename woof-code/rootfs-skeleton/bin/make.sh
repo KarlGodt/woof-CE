@@ -68,8 +68,8 @@ for n in `seq $max -1 0` ; do
  [ -f "${errlog}".$n ] || continue
 [ "$DEBUG" ] && echo 4 $n
 
- #grep -iE 'warning|error|warnung|fehler|mismatch|fatal' "${errlog}".$n >$_TTY_ || { rm $VERB "${errlog}".$n; continue; } >$_TTY_
- cat "${errlog}".$n | grep -iE 'warning|error|warnung|fehler|mismatch|fatal' || { rm $VERB "${errlog}".$n; continue; }
+ #grep -iE 'warning|error|warnung|fehler|mismatch|fatal' "${errlog}".$n >$_TTY_ || { rm ${VERB:+'-v'} "${errlog}".$n; continue; } >$_TTY_
+ cat "${errlog}".$n | grep -iE 'warning|error|warnung|fehler|mismatch|fatal' || { rm ${VERB:+'-v'} "${errlog}".$n; continue; }
 
 [ "$DEBUG" ] && echo 5 $n
  mv $VERB "${errlog}".$n "${errlog}".$((n+1))
@@ -77,14 +77,16 @@ done >$_TTY_
 
 #[ -f "$errlog" ] && mv $VERB "$errlog" "$errlog".0
 [ "$DEBUG" ] && ls "$errlog" >$_TTY_
-( [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0;rm $VERB "$errlog"; } ) >$_TTY_
+( [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0;rm ${VERB:+'-v'} "$errlog"; } ) >$_TTY_
 
 fi
 
 
-echo >> "$errlog"
-echo `date` "$@" >> "$errlog"
-echo "$PWD:`pwd`" >> "$errlog"
+(
+echo
+echo `date` "$@"
+echo "$PWD:`pwd`"
+) >> "$errlog"
 
 _quote_parameters(){
 ##make.bin: *** No rule to make target `/root/Downloads/KERNEL/linux-3.4/arch/"x86_64"/Makefile'.  Stop.
@@ -175,13 +177,13 @@ fi
 if [ -f "$errlog" ]; then
  if  [ "$_TTY_" ]; then
   ( grep -Ei 'warning|error|warnung|fehler|mismatch|fatal' "$errlog" || { echo "Removing $errlog" ;
-  rm $VERB "$errlog" ;
+  rm ${VERB:+'-v'} "$errlog" ;
   } )         | tail -n15 >$_TTY_
 # } ) >$_TTY_ | tail -n15 >$_TTY_
  else
 #( grep -Ei 'warning|error|warnung|fehler' "$errlog" >&2 || { echo "Removing $errlog" >&2 ;rm "$errlog" >&2; } ) |tail -n15 >&2
 ( grep -Ei 'warning|error|warnung|fehler|mismatch|fatal' "$errlog" || { echo "Removing $errlog" ;
-rm $VERB "$errlog" && sleep 0.2;
+rm ${VERB:+'-v'} "$errlog" && sleep 0.2;
   } )     | tail -n15 >&2
 # } ) >&2 | tail -n15 >&2
  fi
