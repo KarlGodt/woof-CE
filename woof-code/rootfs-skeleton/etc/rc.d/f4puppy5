@@ -1,8 +1,12 @@
 #!/bin/ash
 
-[ "$PATH" ] || PATH=/bin:/sbin:/usr/bin:/usr/sbin
+#[ "$PATH" ] || PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
 [ "$HAVE_F4PUPPY5" ] && return 0
+
+PATH=${PATH:='/bin:/sbin:/usr/bin:/usr/sbin'}
+
+SCRIPT_NAME=${SCRIPT_NAME:=f4puppy5} # short for functions for puppy 5
 
 _assign_version()
 {
@@ -19,8 +23,6 @@ test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.1.2
 test "$Version"   && _assign_version Version   ||   Version=0.1.2
 test "$version"   && _assign_version version   ||   version=0.1.2
 
-SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
-
 # Handle $0 :
 #test "$MY_SELF" || MY_SELF="$0"
 # Handle login shell
@@ -30,9 +32,11 @@ case $0 in
 MY_SELFR=`realpath "$0"`
 MY_SELF0="$0"
 
-[ "$WARN" ]    || WARN=1
-[ "$WARN" ]    && WARNING="$WARN"
-[ "$WARNING" ] || WARNING=1
+#[ "$WARN" ]    || WARN=1
+#[ "$WARN" ]    && WARNING="$WARN"
+#[ "$WARNING" ] || WARNING=1
+WARN=${WARN:=1}
+WARNING=${WARNING:-$WARN}
 _warn(){
 test "$WARN" || return 1
 echo -e "$0:WARNING:$*"  >&2
@@ -265,7 +269,7 @@ return $?
 
 _run_status()
 {
-test "$*"  || { _return 2 "_run_status: Usage: _run_status BASENAMEPROGRAM"; return $?; }
+test "$*"  || { _err "_run_status: Usage: _run_status BASENAMEPROGRAM"; return 2; }
 pidof "${*##*/}" >>$OUT && { _info " '$*' running."; return 0; } || { _info " '$*' not running."; return 1; }
 }
 
@@ -281,15 +285,15 @@ return $?
 }
 
 __who_is_X_user__(){
-XUSER=`_who_is_X_user | tail -n1` || { _return 4 "Could not determine XUSER"; return $?; }
+XUSER=`_who_is_X_user | tail -n1` || { _err "Could not determine XUSER"; return 4; }
 _info "XUSER='$XUSER'"
-test -f /etc/passwd || { _return 5 "/etc/passwd not a regular file"; return $?; }
+test -f /etc/passwd || { _err "/etc/passwd not a regular file"; return 5; }
 XUSER_HOME=`awk -F':' "{if (\\$1 == \"$XUSER\") print \\$6}" /etc/passwd`
 _info "XUSER_HOME='$XUSER_HOME'"
 }
 
 _who_is_X_user(){
-mountpoint $Q /proc >&2 || { _return 4 "/proc not mounted."; return $?; }
+mountpoint ${Q:+'-q'} /proc >&2 || { _err "/proc not mounted."; return 4; }
 _X_USER_=`ps -o pid,ppid,user,group,args | awk '{if (match($5, ".*X$") && $6 == ":0") print $3}'`
 echo "$_X_USER_"
 }
@@ -476,7 +480,7 @@ OUT=/dev/null;ERR=$OUT; Q=-q;QUIET=--quiet; DBG='';L_DBG='';A_DBG=''
     #else
     # OUT=/dev/stdout;ERR=/dev/stderr;
     #fi
-    if tty >$OUT; then
+    if tty >>$OUT; then
      OUT=/dev/stdout; ERR=/dev/stderr
     else
      OUT=/tmp/${MY_SELF##*/}_out.log; ERR=/tmp/${MY_SELF##*/}_err.log
@@ -1162,9 +1166,9 @@ shift
 
 #Q=-q
 if test "$gOPT" = '-v'; then
-echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
+echo "`eval echo \\$$*`" | grep ${Q:+'-q'} $gOPT -E "$gPATTERN" && { _warn "$*:Other than '$gPATTERN' content."; return $EWRONGCONTENT; } || return 0
 else
-echo "`eval echo \\$$*`" | grep $Q $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
+echo "`eval echo \\$$*`" | grep ${Q:+'-q'} $gOPT -E "$gPATTERN" && return 0 || { _warn "$*:No '$gPATTERN' content."; return $EWRONGCONTENT; }
 fi
 }
 
@@ -1185,10 +1189,9 @@ _mountpoint()
  -d|*-fs-devno) shift
  [ "$*" ]    || { echo "Need mountpoint directory"; return 9; }
  [ -d "$*" ] || { echo "'$*' is not a directory";   return 8; }
- gP=${*// /\\040}; gP=${gP//	//\\011} #TAB
+ gP=${*// /\\040}; gP=${gP//	/\\011} #TAB
 gP="${gP//
 /\\012}"
-gP=${gP//\\/\\134}   #bsl
  set - ${gP//\\/\\\\}
  _debug "_mountpoint:$*"
  DEVICE=`cut -f1,2 -d' ' /proc/mounts | grep " ${*}$" | cut -f1 -d' '`
@@ -1210,22 +1213,22 @@ gP=${gP//\\/\\134}   #bsl
  test -d "$*" || _warn "'$*' is not a directory"
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
  #TAB
- gP=${*// /\\040}; gP=${gP//	//\\011} #TAB
+ gP=${*// /\\040}; gP=${gP//	/\\011} #TAB
 gP="${gP//
 /\\012}"
-gP=${gP//\\/\\134}   #bsl
+
  set - ${gP//\\/\\\\}
  _debug "_mountpoint:$*"
- awk '{print $2}' /proc/mounts | grep $Q_ "^${*}$" && echo "is mountpoint" >>$OUT_ || echo "is not a mountpoint" >>$OUT_
+ awk '{print $2}' /proc/mounts | grep ${Q_:+'-q'} "^${*}$" && echo "is mountpoint" >>$OUT_ || echo "is not a mountpoint" >>$OUT_
 }
 type -a mountpoint >>$OUT 2>>$ERR || alias mountpoint="_mountpoint"
 
 _check_proc()
 {
-  mountpoint $Q /proc && return $? || {
-  busybox mount $VERB $VERB -o remount,rw /dev/root /
-  test -d /proc || mkdir $VERB -p /proc
-  busybox mount $VERB $VERB -t proc proc /proc
+  mountpoint ${Q:+'-q'} /proc && return $? || {
+  busybox mount ${VERB:+'-v'} ${VERB:+'-v'} -o remount,rw /dev/root /
+  test -d /proc || mkdir ${VERB:+'-v'} -p /proc
+  busybox mount ${VERB:+'-v'} ${VERB:+'-v'} -t proc proc /proc
   return $?
  }
 }
@@ -1234,11 +1237,11 @@ _check_tmp()
 {
  test -d /tmp && return $? || {
  local STATUS_
- busybox mount $VERB $VERB -o remount,rw /dev/root /
+ busybox mount ${VERB:+'-v'} ${VERB:+'-v'} -o remount,rw /dev/root /
  STATUS_=$((STATUS_+$?))
- mkdir $VERB -p /tmp
+ mkdir ${VERB:+'-v'} -p /tmp
  STATUS_=$((STATUS_+$?))
- chmod $VERB 1777 /tmp
+ chmod ${VERB:+'-v'} 1777 /tmp
  STATUS_=$((STATUS_+$?))
  return $STATUS_
  }
@@ -1249,10 +1252,10 @@ _check_tmp_rw()
 _check_proc || _crit "Difficulties with /proc  .."
 _check_tmp  || _crit "Difficulties with /tmp  .."
 
-mountpoint $Q /tmp && {
-grep  ' /tmp ' /proc/mounts    | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp;   return $?; }
+mountpoint ${Q:+'-q'} /tmp && {
+grep  '.* /tmp .*' /proc/mounts    | cut -f4 -d' ' | grep ${Q:+'-q'} -w 'rw' && return 0 || { busybox mount ${VERB:+'-v'} ${VERB:+'-v'} -o remount,rw tmpfs /tmp;   return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
+grep '^/dev/root ' /proc/mounts | cut -f4 -d' ' | grep ${Q:+'-q'} -w 'rw' && return 0 || { busybox mount ${VERB:+'-v'} ${VERB:+'-v'} -o remount,rw /dev/root /; return $?; }
  }
 }
 
@@ -1266,7 +1269,7 @@ pidof sync >>$OUT || sync
 
 #=
 _grep_one_tail(){
-test "$*" || { _return 2 "Usage:_grep_one_tail PATTERN [ FILENAME ]" ; return $?; }
+test "$*" || { _err "Usage:_grep_one_tail PATTERN [ FILENAME ]" ; return 2; }
 if test ! "$2"; then
 #piped
 grep "$*" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | tail -n1
@@ -1286,7 +1289,7 @@ fi
 }
 
 _grep_one_head(){
-test "$*" || { _return 2 "Usage:_grep_one_tail PATTERN [ FILENAME ]" ; return $?; }
+test "$*" || { _err "Usage:_grep_one_tail PATTERN [ FILENAME ]" ; return 3; }
 if test ! "$2"; then
 #piped
 grep "$*" | grep -vE '^[#!;]|^[[:blank:]]*[#!;]' | head -n1
@@ -1466,7 +1469,7 @@ echo ${_ROOT_SCREEN_Y_}
 
 _say_jwm_taskbar_tray_line(){
 
-   test -f "$HOME"/.jwmrc-tray || { _return 4 "$HOME/.jwmrc-tray does not exist"; return $?; }
+   test -f "$HOME"/.jwmrc-tray || { _err "$HOME/.jwmrc-tray does not exist"; return 4; }
 
    jwmtaskbarTRAYLINE=`grep '<Tray .*>' "$HOME"/.jwmrc-tray | grep -vE '^#|^[[:blank:]]*#' | tail -n1`
    echo "$jwmtaskbarTRAYLINE"
@@ -1586,9 +1589,11 @@ DEBUGX=$oDEBUGX
 #echo " DEBUG='$DEBUG'"
 }
 
-[ "$ERMERGENCY" ] || EMERGENCY=1
-[ "$ERMERGENCY" ] && EMERG="$EMERGENCY"
-[ "$ERMERG" ]     || EMERG=1
+#[ "$ERMERGENCY" ] || EMERGENCY=1
+#[ "$ERMERGENCY" ] && EMERG="$EMERGENCY"
+#[ "$ERMERG" ]     || EMERG=1
+EMERG=${EMERG:=1}
+EMERGENCY=${EMERGENCY:-$EMERG}
 _emerg(){
 test "$EMERGENCY" || return 0
 echo -e "$0:EMERGENGY:$*"   >&2
@@ -1598,9 +1603,11 @@ test "$EMERGENCY" || return 0
 echo -e "$0:EMERGENGY:$*"   >&2
 }
 
-[ "$ALERT" ] || ALERT=1
-[ "$ALERT" ] && ALARM="$ALERT"
-[ "$ALARM" ] || ALARM=1
+#[ "$ALERT" ] || ALERT=1
+#[ "$ALERT" ] && ALARM="$ALERT"
+#[ "$ALARM" ] || ALARM=1
+ALERT=${ALERT:=1}
+ALARM=${ALARM:-$ALERT}
 _alert(){
 test "$ALERT" || return 0
 echo -e "$0:ALERT:$*"  >&2
@@ -1610,9 +1617,11 @@ test "$ALERT" || return 0
 echo -e "$0:ALERT:$*"  >&2
 }
 
-[ "$CRIT" ]     || CRIT=1
-[ "$CRIT" ]     && CRITICAL="$CRIT"
-[ "$CRITICAL" ] || CRITICAL=1
+#[ "$CRIT" ]     || CRIT=1
+#[ "$CRIT" ]     && CRITICAL="$CRIT"
+#[ "$CRITICAL" ] || CRITICAL=1
+CRIT=${CRIT:=1}
+CRITICAL=${CRITICAL:-$CRIT}
 _crit(){
 test "$CRIT" || return 0
 echo -e "$0:CRITICAL:$*" >&2
@@ -1622,7 +1631,9 @@ test "$CRIT" || return 0
 echo -e "$0:CRITICAL:$*" >&2
 }
 
-[ "$ERROR" ] || ERROR=1
+#[ "$ERROR" ] || ERROR=1
+ERROR=${ERROR:=1}
+ERR=${ERR:-$ERROR} #ERR var already used as /dev/null OR /dev/stderr
 _err(){
 test "$ERROR" || return 0
 echo -e "$0:ERROR:$*"  >&2
@@ -1632,9 +1643,11 @@ test "$ERROR" || return 0
 echo -e "$0:ERROR:$*"  >&2
 }
 
-[ "$WARN" ]    || WARN=1
-[ "$WARN" ]    && WARNING="$WARN"
-[ "$WARNING" ] || WARNING=1
+#[ "$WARN" ]    || WARN=1
+#[ "$WARN" ]    && WARNING="$WARN"
+#[ "$WARNING" ] || WARNING=1
+WARN=${WARN:=1}
+WARNING=${WARNING:-$WARN}
 _warn(){
 test "$WARN" || return 0
 echo -e "$0:WARNING:$*"  >&2
@@ -1644,9 +1657,11 @@ test "$WARN" || return 0
 echo -e "$0:WARNING:$*"  >&2
 }
 
-[ "$NOTICE" ] || NOTICE=1
-[ "$NOTICE" ] && NOTE="$NOTICE"
-[ "$NOTE" ]   || NOTE=1
+#[ "$NOTICE" ] || NOTICE=1
+#[ "$NOTICE" ] && NOTE="$NOTICE"
+#[ "$NOTE" ]   || NOTE=1
+NOTE=${NOTE:=}
+NOTICE=${NOTICE:-$NOTE}
 _notice(){
 test "$NOTICE" || return 0
 echo -e "$0:NOTICE:$*"   >&2
@@ -1656,9 +1671,11 @@ test "$NOTICE" || return 0
 echo -e "$0:NOTICE:$*"   >&2
 }
 
-[ "$INFO" ]        || INFO=1
-[ "$INFO" ]        && INFORMATION="$INFO"
-[ "$INFORMATION" ] || INFORMATION=1
+#[ "$INFO" ]        || INFO=1
+#[ "$INFO" ]        && INFORMATION="$INFO"
+#[ "$INFORMATION" ] || INFORMATION=1
+INFO=${INFO:=}
+INFORMATION=${INFORMATION:-$INFO}
 _info(){
 test "$INFO" || return 0
 echo -e "$0:INFO:$*"  >&2
@@ -1668,7 +1685,9 @@ test "$INFO" || return 0
 echo -e "$0:INFO:$*"  >&2
 }
 
-[ "$DEBUG" ] || DEBUG=
+#[ "$DEBUG" ] || DEBUG=
+DEBUG=${DEBUG:=}
+DBG=${DBG:-$DEBUG}
 _debug(){
 test "$DEBUG" || return 0
 echo "$0:DEBUG:$*"  >&2
@@ -1687,7 +1706,9 @@ test "$DEBUG" || return 0
 echo -n "$0:DEBUG:$*"  >&2
 }
 
-[ "$DEBUGX" ] || DEBUGX=
+#[ "$DEBUGX" ] || DEBUGX=
+DEBUGX=${DEBUGX:=}
+DBGX=${DBGX:-$DEBUGX}
 _debugx(){
 test "$DEBUGX" || return 0
 echo "$0:DEBUGX:$@"  >&2
@@ -1716,7 +1737,8 @@ _noticedt(){ test "$NOTICE"    || return 1; echo -e "`date +%F-%T`:$0:NOTICE:$*"
  _debugdt(){ test "$DEBUG"     || return 1; echo -e "`date +%F-%T`:$0:DEBUG:$*";     }
 
 
-DEBUGT=
+DEBUGT=${DEBUGT:=}
+DBGT=${DBGT:-$DEBUGT}
 _debugt(){  #$1 label #$2 time
 
 test "$DEBUGT" || return 1
@@ -1780,10 +1802,10 @@ shift
 _debug "_command:$1:$*"
 
 typeCOM=`type -p "$COM"`
-test "$typeCOM" ||  { _return 1 "No such type \"$COM\"" ;return $?; }
+test "$typeCOM" ||  { _err "No such type \"$COM\"" ;return 1; }
 
 whichCOM=`which "$COM"`
-test "$whichCOM" || { _return 1 "No such which \"$COM\"" ;return $?; }
+test "$whichCOM" || { _err "No such which \"$COM\"" ;return 1; }
 
 _debug "_command:$COM:$@"
 
@@ -1801,9 +1823,9 @@ test "$typeCOM" = "$whichCOM" && {
 #========= make nodes in /dev if /dev not mounted ============================
 _mk_block_devices()
 {
-mountpoint $Q /dev && return 0
+mountpoint ${Q:+'-q'} /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
-test -f /proc/partitions || { _return 4 "/proc/partitions does not exist"; return $?; }
+test -f /proc/partitions || { _err "/proc/partitions does not exist"; return 4; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ]     && continue
   [ "$maj" -a "$min" -a "$dev" ] || continue
@@ -1814,124 +1836,124 @@ test -f /proc/partitions || { _return 4 "/proc/partitions does not exist"; retur
 #============ Test to filter out links =======================================
 _test_f()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || { return 2; }
 test -L "$*" && return 3
 test -f "$*"
 }
 
 _test_fr(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -f "$*" -a -r "$*"
 }
 
 _test_fw(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -f "$*" -a -w "$*"
 }
 
 _test_frw(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -f "$*" -a -r "$*" -a -w "$*"
 }
 
 _test_fx(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -f "$*" -a -x "$*"
 }
 
 _test_d()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*"
 }
 
 _test_dr()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -r "$*"
 }
 
 _test_dw()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -w "$*"
 }
 
 _test_dx()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*"  -a -x "$*"
 }
 
 _test_drw()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -r "$*" -a -w "$*"
 }
 
 _test_drx()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -r "$*" -a -x "$*"
 }
 
  _test_dwx()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -w "$*" -a -x "$*"
 }
 
  _test_drwx()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -d "$*" -a -r "$*" -a -w "$*" -a -x "$*"
 }
 
 _test_p()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -p "$*"
 }
 
 _test_S()
 {
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -S "$*"
 }
 
 _test_c(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -c "$*"
 }
 
 _test_b(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*" && return 3
 test -b "$*"
 }
 
 _test_L(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -L "$*"
 }
 
 _test_h(){
-test -e "$*" || { _return 2 "'$*' does not exist"; return $?; }
+test -e "${*:?}" || return 2
 test -h "$*"
 }
 
@@ -1965,17 +1987,17 @@ return 0
 
 _secure_remove()
 {
-test "$*"    || { _err "Usage: _remove /path/to/filename"; return 2; }
+test "$*"    || { _err "Usage: _secure_remove /path/to/filename"; return 2; }
 test -e "$@" || { _info "'$@' does not exist already";     return 0; }
 
-  if test -L "$@"; then rm $VERB "$@"
-elif test -p "$@"; then rm $VERB "$@"
-elif test -S "$@"; then rm $VERB "$@"
-elif test -f "$@"; then rm $VERB "$@"
-elif test -c "$@"; then rm $VERB "$@"
-elif test -b "$@"; then rm $VEBR "$@"
-elif test -d "$@"; then rm $VERB -r "$@"
-else { _warn "Unknown filetype '$@' - neither Link, pipe, Socket, file nor directory"; return 1; }
+  if test -L "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -p "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -S "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -f "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -c "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -b "$@"; then rm ${VERB:+'-v'} "$@"
+elif test -d "$@"; then rm ${VERB:+'-v'} -r "$@"
+else { _warn "Unknown filetype '$@' - neither special c or b, Link, pipe, Socket, file nor directory"; false; }
   fi
   return $?
 }
@@ -1995,7 +2017,7 @@ do
 test -f "$oneLOG" || continue
 
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+mv ${VERB:+'-v'} "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
 nrLOGS=$((nrLOGS-1))
 
 done <<EoI
@@ -2004,7 +2026,7 @@ EoI
 
 test -e "${*}.1" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.1"
-mv $VERB "$*" "${*}.1"
+mv ${VERB:+'-v'} "$*" "${*}.1"
 }
 
 __log_rotate()
@@ -2022,7 +2044,7 @@ test -f "$oneLOG" || continue
 
 nrLOGS=$((nrLOGS-1))
 _debug "oneLOG='$oneLOG' --> ${oneLOG%.[0-9]*}.$((nrLOGS+1))"
-mv $VERB "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
+mv ${VERB:+'-v'} "$oneLOG" "${oneLOG%.[0-9]*}".$((nrLOGS+1))
 #nrLOGS=$((nrLOGS-1))
 
 done <<EoI
@@ -2031,7 +2053,7 @@ EoI
 
 test -e "${*}.0" && { _err "Something went wrong"; return 1 ; }
 _info "moving $* --> ${*}.0"
-mv $VERB "$*" "${*}.0"
+mv ${VERB:+'-v'} "$*" "${*}.0"
 }
 
 _log_rotate()
@@ -2051,14 +2073,14 @@ done
 
 ## start at last number (max) and rotate down
 for n in `seq $max -1 0` ; do
-#[ -e "$*".$n ] && mv $VERB "$*".$n "$*".$((n+1))
+#[ -e "$*".$n ] && mv ${VERB:+'-v'} "$*".$n "$*".$((n+1))
  [ -e "$*".$n ] || continue
 
- mv $VERB "$*".$n "$*".$((n+1))
+ mv ${VERB:+'-v'} "$*".$n "$*".$((n+1))
 done
 
-#[ -f "$*" ] && mv $VERB "$*" "$*".0
- [ -f "$*" ] && { cat "$*" >>"$*".0; rm $VERB "$*"; }
+#[ -f "$*" ] && mv ${VERB:+'-v'} "$*" "$*".0
+ [ -f "$*" ] && { cat "$*" >>"$*".0; rm ${VERB:+'-v'} "$*"; }
 
 }
 
@@ -2066,7 +2088,7 @@ _rotate_err_log(){
  local errlog max rotates r n
 
 errlog=make-errs.log
-test -e "$errlog" || { _return 4 "'$errlog does not exist."; return $?; }
+test -e "$errlog" || { _err 4 "'$errlog does not exist."; return 4; }
 
 ## get max number
 max=0
@@ -2078,19 +2100,19 @@ done
 
 ## start at last number (max) and rotate down
 for n in `seq $max -1 0` ; do
-#[ -e "$errlog".$n ] && mv $VERB "$errlog".$n "$errlog".$((n+1))
+#[ -e "$errlog".$n ] && mv ${VERB:+'-v'} "$errlog".$n "$errlog".$((n+1))
  [ -e "$errlog".$n ] || continue
- grep -q -Ei 'warning|error|warnung|fehler|fatal|rule' "$errlog".$n || { rm $VERB "$errlog".$n; continue; }
- mv $VERB "$errlog".$n "$errlog".$((n+1))
+ grep -q -Ei 'warning|error|warnung|fehler|fatal|rule' "$errlog".$n || { rm ${VERB:+'-v'} "$errlog".$n; continue; }
+ mv ${VERB:+'-v'} "$errlog".$n "$errlog".$((n+1))
 done
 
-#[ -f "$errlog" ] && mv $VERB "$errlog" "$errlog".0
- [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0; rm $VERB "$errlog"; }
+#[ -f "$errlog" ] && mv ${VERB:+'-v'} "$errlog" "$errlog".0
+ [ -f "$errlog" ] && { cat "$errlog" >>"$errlog".0; rm ${VERB:+'-v'} "$errlog"; }
 
 }
 
 __set_bool_right(){
-test "$#" = 3 || { _return 4 "_set_bool_right:Usage:_set_bool_right VARIABLE VAR_VALUE WANTED_VALUE -- got '$*'"; return $?; }
+test "$#" = 3 || { _err "_set_bool_right:Usage:_set_bool_right VARIABLE VAR_VALUE WANTED_VALUE -- got '$*'"; return 4; }
 
 local VARIABLE VAR_VALUE WANTED_VALUE RV
 VARIABLE="$1"
@@ -2122,7 +2144,7 @@ return $RV
 }
 
 _set_bool_right(){
-test "$#" = 3 || { _return 4 "_set_bool_right:Usage:_set_bool_right VARIABLE VAR_VALUE WANTED_VALUE -- got '$*'"; return $?; }
+test "$#" = 3 || { _err "_set_bool_right:Usage:_set_bool_right VARIABLE VAR_VALUE WANTED_VALUE -- got '$*'"; return 4; }
 
 local VARIABLE VAR_VALUE WANTED_VALUE RV
 VARIABLE="$1"
@@ -2391,7 +2413,7 @@ _debug "LOCALVERSION='$LOCALVERSION'"
  KERNELSUBVER=$K_SUBLEVEL
  KERNELSUBSUBVER=0
 
- elif echo "$KERNELVER" | grep $Q '^2\.6'; then
+ elif echo "$KERNELVER" | grep ${Q:+'-q'} '^2\.6'; then
  _info "Kernel 2.6 series"
  KERNELSUBVER=`echo -n "$KERNELVER" | cut -f 3 -d '.' | cut -f 1 -d '-' | cut -f 1 -d '_'` #100831
  KERNELSUBSUBVER=`echo -n "$KERNELVER" | cut -f 4 -d '.' | cut -f 1 -d '-'`
@@ -2643,9 +2665,9 @@ unset SFSSTR SFS_STR SFS_MAJOR SFSMAJOR squashXZ
 
 if test ! "$*"; then
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
-test "$SFS_STR" || { ( busybox modprobe -l | grep $Q '/squashfs.ko' ) && {
+test "$SFS_STR" || { ( busybox modprobe -l | grep ${Q:+'-q'} '/squashfs.ko' ) && {
 [ -f /proc/modules ] &&
-grep $Q 'squashfs' /proc/modules || { modprobe $VERB squashfs; sleep 1; } ; }
+grep ${Q:+'-q'} 'squashfs' /proc/modules || { modprobe ${VERB:+'-v'} squashfs; sleep 1; } ; }
 SFS_STR=`dmesg | grep -i squash | grep -o -i 'version.*' | cut -f1,2 -d' '`
 }
 test "$SFS_STR" || { _warn "Could not determine squashfs in dmesg, assuming \"version 4.0\""; SFS_STR='version 4.0'; }
@@ -2743,20 +2765,20 @@ _notice "_kernel_version5:squashXZ='$squashXZ'"
 }
 
 _ps_p(){
-mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
-ps -A -o pid | grep $Q -w "$*"
+mountpoint ${Q:+'-q'} /proc || { _err "/proc not mounted."; return 4; }
+ps -A -o pid | grep ${Q:+'-q'} -w "$*"
 }
 
 __kill_pid(){
-test "$*" || { _return 4 "_kill_pid: Usage: _kill_pid SIG PID"; return $?; }
+test "$*" || { _err "__kill_pid: Usage: __kill_pid PID [-SIG]"; return 4; }
 test "$2" && kSIG="$2"
 test "$1" && gPID="$1"
-mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
-ps -A -o pid | grep $Q -w "$gPID" && kill $kSIG $gPID
+mountpoint ${Q:+'-q'} /proc || { _err 4 "/proc not mounted."; return 4; }
+ps -A -o pid | grep ${Q:+'-q'} -w "$gPID" && kill $kSIG $gPID
 }
 
 _kill_pid(){
-test "$*" || { _return 4 "_kill_pid: Usage: _kill_pid SIG PID"; return $?; }
+test "$*" || { _err "_kill_pid: Usage: _kill_pid PID [-SIG]"; return 4; }
 test "$2" && kSIG="$2"
 test "$1" && gPID="$1"
 _ps_p "$gPID" && kill $kSIG $gPID
@@ -2773,7 +2795,7 @@ __mk_free_loop()
   LOOP_NEW=$(( $LOOP_LAST + 1 ))
   mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
   mknod /dev/loop$((LOOP_NEW+1)) b 7 $((LOOP_NEW+1))
-  test -d /dev/loop && { ln -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
+  test -d /dev/loop && { ln ${VERB:+'-v'} -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln ${VERB:+'-v'} -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
   }
 }
 
@@ -2785,17 +2807,17 @@ _mk_free_loop()
     NR=${FREE_LOOP##*/}
     NR=${NR##*loop}
    case $FREE_LOOP in
-   /dev/loop/[0-9]*) [ -b /dev/loop$NR ] || mknod /dev/loop$NR b 7 $NR; ln -sf ../loop$NR /dev/loop/$NR;;
-   /dev/loop[0-9]*)  [ -d /dev/loop ] && ln -sf ../loop$NR /dev/loop/$NR;;
+   /dev/loop/[0-9]*) [ -b /dev/loop$NR ] || mknod /dev/loop$NR b 7 $NR; ln ${VERB:+'-v'} -sf ../loop$NR /dev/loop/$NR;;
+   /dev/loop[0-9]*)  [ -d /dev/loop ] && ln ${VERB:+'-v'} -sf ../loop$NR /dev/loop/$NR;;
    esac
-   test -b /dev/loop$((NR+1)) || { mknod /dev/loop$((NR+1)); [ -d /dev/loop ] && ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); }
+   test -b /dev/loop$((NR+1)) || { mknod /dev/loop$((NR+1)); [ -d /dev/loop ] && ln ${VERB:+'-v'} -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); }
   else
    LOOPS_ALL=`ls -1v /dev/loop* |sed 's%[^[:digit:]]%%g'`
    LOOP_LAST=`echo "$LOOPS_ALL" | tail -n1`
    LOOP_NEW=$(( $LOOP_LAST + 1 ))
    mknod /dev/loop${LOOP_NEW} b 7 $LOOP_NEW
    mknod /dev/loop$((LOOP_NEW+1)) b 7 $((LOOP_NEW+1))
-   test -d /dev/loop && { ln -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
+   test -d /dev/loop && { ln ${VERB:+'-v'} -sf ../loop$LOOP_NEW /dev/loop/$LOOP_NEW; ln ${VERB:+'-v'} -sf ../loop$((LOOP_NEW+1)) /dev/loop/$((LOOP_NEW+1)); }
   fi
 unset NR
 }
@@ -2807,7 +2829,7 @@ __mk_free_loop(){
 EoI
     mknod /dev/loop$((NR+1)) b 7 $((NR+1))
     mknod /dev/loop$((NR+2)) b 7 $((NR+2))
-    test -d /dev/loop && { ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
+    test -d /dev/loop && { ln ${VERB:+'-v'} -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln ${VERB:+'-v'} -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
 unset NR
 }; }
 
@@ -2824,7 +2846,7 @@ EoI
     test -b /dev/loop$((NR+0)) || mknod /dev/loop$((NR+0)) b 7 $((NR+0))
     test -b /dev/loop$((NR+1)) || mknod /dev/loop$((NR+1)) b 7 $((NR+1))
     test -b /dev/loop$((NR+2)) || mknod /dev/loop$((NR+2)) b 7 $((NR+2))
-    test -d /dev/loop && { ln -sf ../loop$((NR+0)) /dev/loop/$((NR+0)); ln -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
+    test -d /dev/loop && { ln ${VERB:+'-v'} -sf ../loop$((NR+0)) /dev/loop/$((NR+0)); ln ${VERB:+'-v'} -sf ../loop$((NR+1)) /dev/loop/$((NR+1)); ln ${VERB:+'-v'} -sf ../loop$((NR+2)) /dev/loop/$((NR+2)); }
     fi
 unset NR usedLOOPS
 }
@@ -2852,7 +2874,7 @@ _ensure_loop_cont(){
     NR=${NR##*loop}
     echo c=$c NR=$NR
     while :; do
-    test $NR = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln -sf ../loop$c /dev/loop/$c; }
+    test $NR = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln ${VERB:+'-v'} -sf ../loop$c /dev/loop/$c; }
     c=$((c+1))
     _debugx c=$c NR=$NR
     test $c -le $usedLOOPS || break
@@ -2876,9 +2898,62 @@ xP=${*// /\\040}
 xQ=${xP//	/\\011}  #TAB
 xR="${xQ//
 /\\012}"
-xS=${xR//\\/\\134}   #bsl
-echo "$xS"
-unset xR xQ xP xS
+echo "$xR"
+unset xR xQ xP
+}
+
+#================ LVM =======================================================
+
+__test_if_lv()
+{
+# when mounting a device, it may be mounted already as LVM somewhere
+# probably say a warning then so not to confuse by error message by mount
+# syntax: function <all parameters passed to mount script> ie /dev/sda1 /mnt/sda1
+
+test "$*"            || return 2
+which dmsetup >>$OUT || return 0
+
+dmsetup table |
+grep -o 'snapshot.*[0-9:] ' |
+while read tgttyp srcdev tgtdev; do
+_debugx $srcdev;
+srcma=${srcdev%:*}; srcmi=${srcdev#*:};
+_debugx $srcma $srcmi;
+test "$tgttyp" -a "$srcdev" -a "$tgtdev" || continue
+test "$srcma" -a "$srcmi" || continue
+grep "^[[:blank:]]\+$srcma[[:blank:]]\+$srcmi[[:blank:]]\+" /proc/partitions;
+PART=`grep "^[[:blank:]]\+$srcma[[:blank:]]\+$srcmi[[:blank:]]\+" /proc/partitions | awk '{print $NF}'`
+test "$PART" || continue #_err not listed in /proc/partitions
+REALPART=`find /dev -name "$PART" | head -n1`
+case ${*} in *"${REALPART} "*) _warn "$REALPART seems to be used as Logical Volume";; esac
+done
+return 0 #for now
+}
+
+_test_if_lv()
+{
+# when mounting a device, it may be mounted already as LVM somewhere
+# probably say a warning then so not to confuse by error message by mount
+# syntax: function <all parameters passed to mount script> ie /dev/sda1 /mnt/sda1
+test "$*"            || return 2
+which dmsetup >>$OUT || return 0
+
+while read tgttyp srcdev tgtdev; do
+_debugx $srcdev;
+srcma=${srcdev%:*}; srcmi=${srcdev#*:};
+_debugx $srcma $srcmi;
+test "$tgttyp" -a "$srcdev" -a "$tgtdev" || continue
+test "$srcma" -a "$srcmi" || continue
+grep "^[[:blank:]]\+$srcma[[:blank:]]\+$srcmi[[:blank:]]\+" /proc/partitions;
+PART=`grep "^[[:blank:]]\+$srcma[[:blank:]]\+$srcmi[[:blank:]]\+" /proc/partitions | awk '{print $NF}'`
+test "$PART" || continue #_err not listed in /proc/partitions
+REALPART=`find /dev -name "$PART" | grep -vi udev | head -n1`
+case ${*} in *"${REALPART} "*) _warn "$REALPART seems to be used as Logical Volume";; esac
+_debug $REALPART
+done <<EoI
+`dmsetup table | grep -o 'snapshot.*[0-9:] '`
+EoI
+return 0 #for now
 }
 
 #================ Check GETTEXT ==============================================
@@ -2897,12 +2972,13 @@ fi
   }
  }
 
-test "$_G"   ||   _G=echo
-test "$_eG"  ||  _eG=echo
-test "$_eNG" || _eNG='echo -n'
-#echo "_G='$_G'"
-#echo "_eG='$_eG'"
-#echo "_eNG='$_eNG'"
+#test "$_G"   ||   _G=echo
+#test "$_eG"  ||  _eG=echo
+#test "$_eNG" || _eNG='echo -n'
+_G=${_G:=echo}
+_eG=${_eG:=echo}
+_eNG=${_eNG:='echo -n'}
+_debugx "_G='$_G'" "_eG='$_eG'" "_eNG='$_eNG'"
 alias g_="$_G"
 alias eg_="$_eG"
 alias eng_="$_eNG"
@@ -2911,7 +2987,7 @@ _check_gettext
 
 __killzombies()
 {
- mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
+ mountpoint ${Q:+'-q'} /proc || { _err "/proc not mounted."; return 4; }
  ZOMBIES="`_command ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -vE 'grep|\|\|\|' | awk '{print $1}'`"
  ZOMBIES=`_command ps -H -A | awk '{if ($3 == "Z" || $3 == "Z+" || $3 == "Z<" || $3 == "ZL" || $3 == "Zl" || $3 == "ZN" || $3 == "Zs") print $1}'`
  ZOMBIES=`_command ps -H -A | awk '{if (match($3,"Z[+<LlNs]") || $3 == "Z") print $1}'`
@@ -3083,7 +3159,7 @@ test "$1" && { RV="$1"; shift; } || RV=1
 test "$*" && { MSG="$0:$*"; shift; }
 test "$MSG" || MSG="$0:GTKdialog GUI crashed. Please run with -d option"
 
-if _pidof $Q X; then
+if _pidof ${Q:+'-q'} X; then
 xmessage -bg red "$MSG"
 else
 _err "$MSG"
@@ -3098,7 +3174,7 @@ esac
 _GTKdialog_remove_comments()
 {
 
-test "$*" || { _return 1 "No Input. Usage _GTKdialog_remove_comments DIALOG_GUI_CODE"; return 1; }
+test "$*" || { _err "No Input. Usage: _GTKdialog_remove_comments DIALOG_GUI_CODE"; return 1; }
 local sPATTERN1 sPATTERN2 sPATTERN3 sPATTERN4
 sPATTERN1='s%<!--.*-->%%g'
 sPATTERN2='/<!--/,/-->/d'
@@ -3110,7 +3186,7 @@ echo "$*" | sed -e "$sPATTERN1" -e "$sPATTERN2" -e "$sPATTERN3" -e "$sPATTERN4" 
 
 _GTKdialog_debug_gui()
 {
-test "$*" || { _return 2 "_GTKdialog_debug_gui: Usage: debugGUI=\`_GTKdialog_debug_gui \"$MAIN_DIALOG\"\`"; return $?; }
+test "$*" || { _err 2 "_GTKdialog_debug_gui: Usage: debugGUI=\`_GTKdialog_debug_gui \"$MAIN_DIALOG\"\`"; return 2; }
 
 local lNR
 lNR=0
@@ -3125,7 +3201,7 @@ test "$1" && { RV="$1"; shift; } || RV=1
 test "$*" && { MSG="$0:$*"; shift; }
 test "$MSG" || MSG="$0:eval failed. Probably due to faulty input."
 
-if _pidof $Q X; then
+if _pidof ${Q:+'-q'} X; then
 xmessage -bg red "$MSG"
 else
 _err "$MSG"
@@ -3169,7 +3245,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
- mountpoint $Q /proc >&2 || { _return 4 "/proc not mounted" ; return $?; }
+ mountpoint ${Q:+'-q'} /proc >&2 || { _err "/proc not mounted" ; return 4; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
 # PiDS="$PiDS
 #`_command ps -o pid,ppid,s,args -C ${MY_SELF##*/} --no-headers`"
@@ -3208,7 +3284,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
- mountpoint $Q /proc >&2 || { _return 4 "/proc not mounted." ; return $?; }
+ mountpoint ${Q:+'-q'} /proc >&2 || { _err "/proc not mounted." ; return 4; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
@@ -3247,7 +3323,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
- mountpoint $Q /proc >&2 || { _return 4 "/proc not mounted." ; return $?; }
+ mountpoint ${Q:+'-q'} /proc >&2 || { _err "/proc not mounted." ; return 4; }
  PiDS=`_command ps -o pid,ppid,s,args -C ${COMMANDO##*/},${MY_SELF##*/} --no-headers`
  _debug "PiDS='$PiDS'"
 
@@ -3281,7 +3357,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
- mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
+ mountpoint ${Q:+'-q'} /proc || { _err "/proc not mounted."; return 4; }
  PiDS=`_command ps -o pid,ppid,s,args --no-headers | awk "{ if (\\$2 == $MY_PID) print}"`
  _debug "PiDS='$PiDS'"
 
@@ -3315,7 +3391,7 @@ local COMMANDO PiDS ProcPiD ProcPids pid ppid rest
 [ "$*" ] && COMMANDO="$*" || COMMANDO="$MY_SELF"
 
  _debug "COMMANDO='$COMMANDO'"
- mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
+ mountpoint ${Q:+'-q'} /proc || { _err "/proc not mounted."; return 4; }
  MY_CHILDREN_PIDS=`_command ps -o pid,ppid,s,args --no-headers k -start_time | awk "{ if (\\$2 == $MY_PID) print \\$1}"`
 
  for oCP in $MY_CHILDREN_PIDS; do
@@ -3332,7 +3408,7 @@ _kill_jobs(){
 local KILL_PIDS pid
 KILL_PIDS=`_get_jobs $* 2>>$ERR` || return 3
 
-mountpoint $Q /proc || { _return 4 "/proc not mounted."; return $?; }
+mountpoint ${Q:+'-q'} /proc || { _err "/proc not mounted."; return 4; }
 
 for pid in $KILL_PIDS
 do
@@ -3403,7 +3479,7 @@ do
      test "$oneF1" = "$oneF2" && continue
 
      if test "$SIMPLE"; then
-      diff $Q -s "$oneF1" "$oneF2"
+      diff ${Q:+'-q'} -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
@@ -3481,7 +3557,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$SIMPLE"; then
-      diff $Q -s "$oneF2" "$oneF1"
+      diff ${Q:+'-q'} -s "$oneF2" "$oneF1"
 
      else
       diff -up "$oneF2" "$oneF1"
@@ -3514,7 +3590,7 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$SIMPLE"; then
-      diff $Q -s "$oneF1" "$oneF2"
+      diff ${Q:+'-q'} -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
@@ -3605,10 +3681,10 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff $Q "$oneF2" "$oneF1" && rm $VERB "$oneF2"
+      diff ${Q:+'-q'} "$oneF2" "$oneF1" && rm ${VERB:+'-v'} "$oneF2"
 
      elif test "$SIMPLE"; then
-      diff $Q -s "$oneF2" "$oneF1"
+      diff ${Q:+'-q'} -s "$oneF2" "$oneF1"
 
      else
       diff -up "$oneF2" "$oneF1"
@@ -3642,10 +3718,10 @@ do
     [ "`echo "$oneF2" | _command grep -w "$alreadyDONE"`" ] && continue
 
      if test "$REMOVE"; then
-      diff $Q "$oneF1" "$oneF2" && rm $VERB "$oneF2"
+      diff ${Q:+'-q'} "$oneF1" "$oneF2" && rm ${VERB:+'-v'} "$oneF2"
 
      elif test "$SIMPLE"; then
-      diff $Q -s "$oneF1" "$oneF2"
+      diff ${Q:+'-q'} -s "$oneF1" "$oneF2"
 
      else
       diff -up "$oneF1" "$oneF2"
@@ -3733,9 +3809,9 @@ EoI
    cat "$file" | sed '1d' >>/tmp/${file##*/}
    [ "$?" = 0 ] || continue
    if test ! "$DRY"; then ## DRY RUN
-    rm $VERB "$file"
-    mv $VERB /tmp/${file##*/} "$file"
-    chmod $VERB $PERM "$file"
+    rm ${VERB:+'-v'} "$file"
+    mv ${VERB:+'-v'} /tmp/${file##*/} "$file"
+    chmod ${VERB:+'-v'} $PERM "$file"
    fi
 
 done
@@ -3758,9 +3834,9 @@ for file in bin/* sbin/* usr/bin/* usr/sbin/* usr/local/*/*
 do
    [ -L "$file" ] && continue
    [ -f "$file" ] || continue
-   file "$file" | grep -i text | grep $Q -viE 'perl|python|murgaLua_Dynamic' || continue
+   file "$file" | grep -i text | grep ${Q:+'-q'} -viE 'perl|python|murgaLua_Dynamic' || continue
 
-   grep $Q "# New header by $_AUTHOR_, $_MONTH_ $_YEAR_" "$file" || continue
+   grep ${Q:+'-q'} "# New header by $_AUTHOR_, $_MONTH_ $_YEAR_" "$file" || continue
 
    PERM=`stat -c %a "$file"`
    [ "${PERM//[0-6]/}" ] || continue
@@ -3770,8 +3846,8 @@ do
    sed -i '2,3 d' /tmp/${file##*/}
 
    if test ! "$DRY"; then
-   mv $VERB /tmp/${file##*/} "$file"
-   chmod $VERB $PERM "$file"
+   mv ${VERB:+'-v'} /tmp/${file##*/} "$file"
+   chmod ${VERB:+'-v'} $PERM "$file"
    fi
 
 done
@@ -3836,7 +3912,7 @@ do
     */sr[0-9]*|*/fd[0-9]*|*/scd[0-9]*|*/hd[a-d]) sleep 15;;
     esac
 
-    /bin/umount $VERB -r "$mpart_"
+    /bin/umount ${VERB:+'-v'} -r "$mpart_"
 [ $? -ne 0 ] && { xmessage -bg red2 "Please umount '$mpart_' manually and try again";exit 0; }
 
     ## Solution Nr. 2 Reasonable sleep :
@@ -3856,7 +3932,7 @@ do
     ## Solution Nr. 5 use hdparm and or sdparm to stop the drive
     case $mpart_ in
      */sr[0-9]*|*/scd[0-9]*)
-      hdparm $L_VERB -C /dev/${mpart_##*/} | grep $Q 'active' && {
+      hdparm $L_VERB -C /dev/${mpart_##*/} | grep ${Q:+'-q'} 'active' && {
            MSG="ERROR: Drive '/dev/${mpart_##*/}' still recognized as active.
            Exiting $PWD/$0."
            MSG=`echo "$MSG" | sed 's%^[[:blank:]]*%%'`
@@ -3865,7 +3941,7 @@ do
       }
       yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
-      sdparm $VERB -C stop /dev/${mpart_##*/}
+      sdparm ${VERB:+'-v'} -C stop /dev/${mpart_##*/}
       sleep 17
      ;;
 
@@ -3920,7 +3996,7 @@ do
 
     yaf-splash -bg purple -geometry +${rootCENTER_X}+${rootCENTER_Y} -text "Restoring mount of $part_ ..." & yPID=$!
 
-        grep $Q -w "$part_" /proc/mounts && reMOUNT='remount,'
+        grep ${Q:+'-q'} -w "$part_" /proc/mounts && reMOUNT='remount,'
         mntOPS=`echo "$MOUNTED" | grep -m1 -w "^$part_" | awk '{print $4}'`
             [ "$mntOPS" ] || mntOPS=rw
         FS_TYPE=`guess_fstype $part_`
@@ -3935,7 +4011,7 @@ do
      */sr[0-9]*|*/scd[0-9]*)
       yaf-splash -timeout 25 -bg pink3 -geometry +$((rootCENTER_X-100))+$((rootCENTER_Y-25)) -text "Floppy disk or CD drive, please wait 25 seconds.." &
       sleep 8
-      sdparm $VERB -C start $part_
+      sdparm ${VERB:+'-v'} -C start $part_
       sleep 17
      ;;
 
@@ -3953,12 +4029,12 @@ do
     esac
 
         basn=${part_##*/}
-        mkdir $VERB -p /mnt/$basn
+        mkdir ${VERB:+'-v'} -p /mnt/$basn
 
 [ "$FS_TYPE" = unknown -o "$FS_TYPE" = "" ] && {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
+  /bin/mount ${VERB:+'-v'} -o ${reMOUNT}$mntOPS             $part_ /mnt/$basn || true
 } || {
-  /bin/mount $VERB -o ${reMOUNT}$mntOPS -t $FS_TYPE $part_ /mnt/$basn || false
+  /bin/mount ${VERB:+'-v'} -o ${reMOUNT}$mntOPS -t $FS_TYPE $part_ /mnt/$basn || false
 }
 
     ## Solution Nr. 4 BIG sleep :
@@ -4001,7 +4077,7 @@ while   read module vms users rest
            *) continue;;
           esac
 
-    _command modprobe $VERB -r "$module"
+    _command modprobe ${VERB:+'-v'} -r "$module"
    sleep 1
 
  done </proc/modules
