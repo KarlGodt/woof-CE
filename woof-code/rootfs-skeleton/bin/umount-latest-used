@@ -9,13 +9,13 @@ MY_SELF="/bin/umount-latest-used"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -93,9 +93,9 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = 2 ] && set -x
 
-Version=1.1-KRG-MacPup_O2
+Version=1.2-KRG-MacPup_O2
 
-usage(){
+_usage(){
 MSG="
 $0 [ help | version ]
 "
@@ -103,7 +103,7 @@ echo "$MSG
 $2"
 exit $1
 }
-[ "`echo "$1" | grep -Ewi "help|\-h"`" ] && usage 0
+[ "`echo "$1" | grep -Ewi "help|\-h"`" ] && _usage 0
 [ "`echo "$1" | grep -Ewi "version|\-V"`" ] && { echo "$0: $Version";exit 0; }
 
 trap "exit" HUP INT QUIT ABRT KILL TERM
@@ -111,11 +111,11 @@ trap "exit" HUP INT QUIT ABRT KILL TERM
 #KRG
 #************
 
-Version='1.1-very-simple Puppy-Linux-4.3.1 KRG'
+Version='1.2-very-simple Puppy-Linux-4.3.1 KRG'
 
 [ "$DISPLAY" -a "`pidof pup_event_frontend_d`" ] && exec umount_pup "$@"
 [ "$1" = verbose ] && { VERBOSE=1;shift; }
-echo "$@" | grep $QUIET -e '^\-\-[[:alpha:]]*' && exec umount-FULL "$@"
+echo "$@" | grep $Q -e '^--[[:alpha:]]*' && exec umount-FULL "$@"
 
 ##LANG=C
 PATH=/bin:/sbin/:/usr/bin:/usr/sbin:/usr/local/bin ##case root=/ and shell default path does not inclued /usr/local or /sbin
@@ -125,7 +125,7 @@ case $INTERPRETER in
 /bin/ash) iASH=1;;
 /bin/bash) iBASH=1;;
 /bin/sh)
-RL_IN_PRET=`readlink -e $INTERPRETER`
+RL_IN_PRET=`realpath $INTERPRETER`
 if [ "`echo "$RL_IN_PRET" |grep '/bash'`" ];then iBASH=1
 elif [ "`echo "$RL_IN_PRET" |grep '/busybox'`" ];then iASH=1
 else
@@ -148,21 +148,21 @@ PROGPID=$$
 UMOUNTPIDS=`pidof umount | tr ' ' '\n' | sort -g`
 OTHERUMOUNTS=`echo "$UMOUNTPIDS" | sed "s/$PROGPID//"`
 [ "$VERBOSE" ] && echo "PROGPID='$PROGPID'"
-#echo "UMOUNTPIDS='$UMOUNTPIDS'"
-#echo "OTHERUMOUNTS='$OTHERUMOUNTS'"
+_debugx "UMOUNTPIDS='$UMOUNTPIDS'"
+_debugx "OTHERUMOUNTS='$OTHERUMOUNTS'"
 [ "$VERBOSE" ] && echo "$UMOUNTPIDS"
 while [ ! "`echo "$UMOUNTPIDS" | head -n1`" == $PROGPID ] ; do
 sleep 2s
 UMOUNTPIDS=`pidof umount | tr ' ' '\n' | sort -g`
 OTHERUMOUNTS=`echo "$UMOUNTPIDS" | sed "s/$PROGPID//"`
-#echo "UMOUNTPIDS='$UMOUNTPIDS'"
-#echo "OTHERUMOUNTS='$OTHERUMOUNTS'"
+_debugx "UMOUNTPIDS='$UMOUNTPIDS'"
+_debugx "OTHERUMOUNTS='$OTHERUMOUNTS'"
 [ "$VERBOSE" ] && echo "$UMOUNTPIDS"
 done
 }
 
-echo 'called from '$0
-[ "$1" ] || exec busybox umount
+_info 'called from '$0
+[ "$*" ] || exec busybox umount
 
 iASH_PARAMETER_SPLIT(){
 j=0;NR="$#"  #; echo $NR ; which seq ; sleep 3s
@@ -204,7 +204,7 @@ elif [ "$iBASH" ];then iBASH_PARAMETER_SPLIT;fi
 
 
 #sync #paranoid precaution. v2.12 kernel call to modprobe, sync hangs.
-pidof sync || sync
+( pidof sync || sync ) >>$OUT
 
 . /etc/rc.d/functions4puppy4 #v4.02
 
@@ -256,7 +256,7 @@ FULLCMD=`echo "$FULLCMD" | sed 's/\ -\ /\ /g' | tr '[[:blank:]]' ' ' | tr -s ' '
 # -a param means unmount everything...
 #if [ ! "`echo "$@" | grep --extended-regexp '\W-a$|\W-a\W'`" = "" ];then
 
-if [ ! "`echo " $DASHOPTS" | grep 'a'`" = "" ];then #option a given
+if [ "`echo " $DASHOPTS" | grep 'a'`" != "" ];then #option a given
 
  if [ "$DISPLAY" ] ; then
 
@@ -272,7 +272,7 @@ xmessage -geometry +10+600 -bg '#11986C' "Momentarily mounted :
 font_func(){
 FONT=''
 XDIR="${PREFX}/usr/X11R7/lib/X11"
-[ -L ${PREFX}/usr/share/X11 ] && XDIR=`readlink -f ${PREFX}/usr/share/X11`
+[ -L ${PREFX}/usr/share/X11 ] && XDIR=`realpath ${PREFX}/usr/share/X11`
    if [ -f ${PREFX}$XDIR/fonts/misc/fonts.dir ] ; then
 TOTALXFONTS=`cat ${PREFX}$XDIR/fonts/misc/fonts.dir | cut -f 2 -d ' '`
 FONT=`echo "$TOTALXFONTS" | tail -n 1`
@@ -293,23 +293,27 @@ If your /etc/fstab file contains evalueable System Relevant entries
 
 "
 RETVAL=$?
-  if [ "$RETVAL" = 191 ] ; then
-    for MNT in $MNTDDEVS1 ; do
-    umount -d /dev/$MNT
+  if [ "$RETVAL" = 191 ] ; then # just partitions
+    for MNT in $MNTDPTS1 ; do
+    umount -d "$MNT"
+    STATUS=$((STATUS+1))
     done
-    exit $?
-  elif [ "$RETVAL" != 190 ] ; then
+    exit $STATUS
+  elif [ "$RETVAL" != 190 ] ; then # quit
     exit 0
   fi
  fi ##$DISPLAY=:0
 
  MNTFUSE=`busybox mount | grep 'fuse' | cut -f 3 -d ' '`
 
- if [ ! "$MNTFUSE" = "" ] ; then
+ if [ "$MNTFUSE" != "" ] ; then
  FUSEDEV=`busybox mount | grep -w "$MNTFUSE" | cut -f 1 -d ' '`
- fuser -k -c $FUSEDEV
- fusermount -u "$MNTFUSE"
  #fuser -k -c $FUSEDEV
+ #fusermount -u "$MNTFUSE"
+ ##fuser -k -c $FUSEDEV
+ FUSEMNT=`busybox mount | grep -w "$MNTFUSE" | cut -f 3 -d ' '`
+ fuser -k -m "$FUSEMNT"
+ busybox umount "$FUSEMNT"
  fi
 
  busybox umount -d "$FULLCMD" #v423 -d fix.
@@ -332,21 +336,25 @@ NTFSMNTPT=`ps | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s '
 NTFSMNTDV=`ps | grep -o 'ntfs\-3g.*' | grep "$LASTPARAM" | tr '\t' ' ' | tr -s ' ' | tr ' ' "\n" | grep '^/dev/'`
 FUSERMNTVERS=`fusermount -V | awk '{print $3}'`
 
-[ "$VERBOSE" ] && echo "NTFSMNTDV='$NTFSMNTDV' NTFSMNTPT='$NTFSMNTPT'"
-[ "$VERBOSE" ] && echo "FULLCMD='$FULLCMD'"
-[ "$VERBOSE" ] && echo "FUSERMNTVERS='$FUSERMNTVER'"
-[ "$VERBOSE" ] && echo "FUSERMOUNTU='$FUSERMOUNTU'"
+[ "$VERBOSE" ] && {
+echo "NTFSMNTDV='$NTFSMNTDV' NTFSMNTPT='$NTFSMNTPT'"
+echo "FULLCMD='$FULLCMD'"
+echo "FUSERMNTVERS='$FUSERMNTVER'"
+echo "FUSERMOUNTU='$FUSERMOUNTU'"
+}
 
-if [ "$NTFSMNTPT" != "" ];then
+if [ "$NTFSMNTPT" ];then
  #if [[ -n "`echo " $DASHOPTS" | grep -w '\-i'`" ]] ; then #fusermount passes -i option to /bin/umount
  if [ "$FUSERMOUNTU" ]; then
-  fuser -k -c $NTFSMNTDV
+  #fuser -k -c $NTFSMNTDV
+  fuser -k -m "$NTFSMNTPT"
   busybox umount -d "$FULLCMD" #v423 -d fix to free loop device.
   RETVAL=$?
   #fuser -k -c $NTFSMNTDV
  else
   #fusermount can only unmount by giving the mount-point...
-  fuser -k -c $NTFSMNTDV
+  #fuser -k -c $NTFSMNTDV
+  fuser -k -m "$NTFSMNTDV"
   FUSERMOUNTU=Y fusermount -u "$NTFSMNTPT"
   RETVAL=$?
   #fuser -k -c $NTFSMNTDV
@@ -357,12 +365,12 @@ if [ "$NTFSMNTPT" != "" ];then
  fi
 else
  #busybox umount -d $FULLCMD #v423 -d fix to free loop device.
- echo "P[@]='${P[@]}'"
+ _info Unmounting -d "P[@]='${P[@]}'"
  busybox umount -d "${P[@]}"
  #busybox umount -d "$@"
 RETVAL=$?
 fi
-[ "$RETVAL" != '0' ] && exit $RETVAL
+[ "$RETVAL" = '0' ] || exit $RETVAL
 
 PUP_DRIVE_ICONS(){
 #PUP_DRIVE_ICONS:
@@ -408,13 +416,11 @@ if [ "$DISPLAY" != "" ];then  #X running
      if [[ -d /root/.pup_event/drive_${DRVNAME} ]];then
         [ "$VERBOSE" ] && echo "directory /root/.pup_event/drive_${DRVNAME} exists"
      case $DRVNAME in #v407
-     fd*)
-     DRV_CATEGORY="floppy"
-     ;;
+     fd*) DRV_CATEGORY="floppy";;
      *)
      dnPATTERN='/dev/'"${xDRVNAME}"'|'
      DRV_CATEGORY=`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`
-     echo DRV_CATEGORY=$DRV_CATEGORY
+     _debug DRV_CATEGORY=$DRV_CATEGORY
      ;;
      esac
      #if any partitions still mounted, leave "MNTD" on icon...
@@ -463,7 +469,7 @@ $STILL_MOUNTED
      MNTED=`echo "$FULLCMD" | grep -o '/mnt/.*' | cut -f 1 -d ' '`
      [ -z "$MNTED" ] && MNTED=`echo "$FULLCMD" | grep -o '/dev/.*' | cut -f 1 -d ' '`
      MNTPT=`mount | grep "$MNTED" |awk -F '"' '{print $4}'`
-   echo "ROX=$MNTPT"
+     _debugx "ROX=$MNTPT"
      [ -n "$MNTPT" ] && [ -n "`mount | grep -w "$MNTPT"`" ] && rox -D "$MNTPT"
      sleep 0.5
   fi
@@ -507,7 +513,7 @@ Another likely cause is a mounted file somewhere on the partition ...
 $FUSERS" &
 
  MOUNTED=`busybox mount | cut -f 1-3 -d ' ' | grep -v -E "root|none|nodev|initrd|union|aufs|shmfs|tmpfs"`  ##|$DRVNAME"`
- echo "$MOUNTED"
+ _debugx "$MOUNTED"
  Buttons=`echo "$MOUNTED" | cut -f 1 -d ' '`
  [ "$VERBOSE" ] && echo "$Buttons"
  c=0 ;d=0
@@ -533,11 +539,11 @@ Do you want to unmount any of these ?
   COLLECTION=`echo "$BUTTONS" | tr ',' '\n'`
 
   DRIVE=`echo "$COLLECTION" | grep -o -x ".*\:$DRIVEnr"`
-  [ "$VERBOSE" ] && echo DRIVE="$DRIVE"_EOS
+  [ "$VERBOSE" ] && echo "DRIVE='$DRIVE'"
   DRIVE=`echo "$DRIVE" | cut -f 1 -d ':'`
-  [ "$VERBOSE" ] && echo DRIVE="$DRIVE"_EOS
+  [ "$VERBOSE" ] && echo "DRIVE='$DRIVE'"
   if [ -n "$DRIVE" ] && [ "$DRIVE" != "QUIT" ] ; then
-     MNTPT=`busybox mount | grep "$DRIVE" | cut -f 3 -d ' '`
+     MNTPT=`busybox mount | grep -w "$DRIVE" | cut -f 3 -d ' '`
    if [ "$DISPLAY" ];then  ###+++2012-01-17
     if [ -n "`/bin/ps -elF | grep 'ROX\-Filer'| grep -v 'grep'`" ] ; then
        [ "$VERBOSE" ] && echo "ROX=$MNTPT"
@@ -582,30 +588,30 @@ fi #end of DISPLAY
 
 #v409, instead just make sure the symlink stays there...
 if [ ! -L /etc/mtab ];then
- rm -f /etc/mtab
- ln -s /proc/mounts /etc/mtab
+ #rm -f /etc/mtab
+ ln -sf ../proc/mounts /etc/mtab
 fi
 
- if [ "$VERBOSE" ];then
- echo 'cleanup .. MNTDPTS1 :'
- echo "$MNTDPTS1"
- echo;fi
+ #if [ "$VERBOSE" ];then
+ _debug 'cleanup .. MNTDPTS1 :'
+ _debug "$MNTDPTS1"
+ _debug ""; #fi
 
 if [ -n "$MNTDPTS1" ] ; then
 
 MNTDPTS2=`mount | grep '^[]\"/dev/[smhflr]' |awk -F '"' '{print $4}'`  ##+2011-11-15 added lr ; still have to observe f for floppy
 [ -z "$MNTDPTS2" ] && MNTDPTS2='/root'
-     if [ "$VERBOSE" ];then
-     echo 'cleanup .. MNTDPTS2 :'
-     echo "$MNTDPTS2"
-     echo;fi
+     #if [ "$VERBOSE" ];then
+     _debug 'cleanup .. MNTDPTS2 :'
+     _debug "$MNTDPTS2"
+     _debug ""; #fi
 RMDIRS=`echo "$MNTDPTS1" | grep -v -w "$MNTDPTS2"`
  echo "$MNTDPTS1" | grep -v -w "$MNTDPTS2"
-     if [ "$VERBOSE" ];then
-     echo 'cleanup .. RMDIRS   :'
-     echo "$RMDIRS"
+     #if [ "$VERBOSE" ];then
+     _debug 'cleanup .. RMDIRS   :'
+     _debug "$RMDIRS"
      RMDIRS=`echo "$RMDIRS" |tr ' ' '\`'`
-     echo;fi
+     _debug ""; #fi
 for i in $RMDIRS ; do
 i=`echo "$i" | tr '\`' ' '`
  busybox mount | grep "$i"

@@ -9,13 +9,13 @@ MY_SELF="/bin/mount_pup"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -79,9 +79,9 @@ _trap
 #
 ########################################################################
 
-Version='1.1-simple+getopts Macpup_O2-Puppy-Linux-4.3.1 KRG'
+Version='1.2-simple+getopts Macpup_O2-Puppy-Linux-4.3.1 KRG'
 
-usage(){
+_usage(){
 MSG="
 $0 [version|help|codecheck|debug|verbose] only one PUP_OPTION
 $0 [mount options] [DEVICE] [MOUNT_POINT] [mount options]
@@ -100,18 +100,18 @@ exit $1
 }
 
 case $1 in
-help) usage 0;;
-version) echo -e "\n$0: Version '$Version'\nTry help parameter for little more info\n";exit 0;;
-codecheck) set -n;shift;;
-debug) set -x;shift;;
-verbose) VERBOSE=1;shift;;
+*help) _usage 0;;
+*version) echo -e "\n$0: Version '$Version'\nTry help parameter for little more info\n";exit 0;;
+*codecheck) set -n;shift;;
+*debug) set -x;shift;;
+*verbose) VERBOSE=1;shift;;
 esac
 
 #echo "$0"
 #echo "$@"
 #[ "$1" ] || { exec busybox mount|sed 's|\(.*\)\( on \)\(.*\)\( type \)\(.*\)\( (.*)\)|"\1"\2"\3"\4"\5"\6|';exit $?; }
 #[ "$1" ] || { echo -e "`cat /proc/mounts`";exit $?; }
-[ "$1" ] || { cat /proc/mounts; exit $?; }
+[ "$*" ] || { cat /proc/mounts; exit $?; }
 
 #pidof pup_event_frontend_d
 [ ! "$DISPLAY" -a ! "`pidof pup_event_frontend_d`" ] && exec mount "$@"
@@ -237,7 +237,7 @@ iASH_PARAMETER_SPLIT(){
 #done
 #unset IFS
 
-echo "IFS='$IFS'"
+_debug "IFS='$IFS'"
 
 j=0
 for i in `seq 1 1 $#` ; do
@@ -340,10 +340,10 @@ if [[ -n "`echo $1 | grep -E '/dev/|/mnt/'`" ]] && [[ "`echo "$@"`" = "$1" ]] &&
 GREPPARAM=$(echo "$1" | sed 's/\([[:punct:]]\)/\\\\\1/g ; s/\(\\\\\\\)*$//' | tr -s '\\')
 [ "$VERBOSE" ] && echo 'if #1'
 [ "$VERBOSE" ] && echo "GREPPARAM='$GREPPARAM'"
-if [ ! -f /etc/fstab ] || [ -z "`grep -w "$GREPPARAM" /etc/fstab | grep -v -E -e '^#|^[[:blank:]]*#'`" ] ; then
+if [ ! -f /etc/fstab ] || [ -z "`grep -w "$GREPPARAM" /etc/fstab | grep -vE  '^#|^[[:blank:]]*#'`" ] ; then
 [ "$VERBOSE" ] && echo 'if #2'
 partition=`echo "$1" | sed 's#^/dev/## ; s#^/mnt/##'`
-[ ! -d /mnt/$partition ] && mkdir /mnt/$partition
+[ -d /mnt/$partition ] || mkdir /mnt/$partition
 SIMPLEMOUNT="/dev/$partition /mnt/$partition"
 fi
 fi
@@ -474,7 +474,7 @@ if [ "`echo "$*" | grep ' ntfs '`" = "" ];then #7
   [ "$VERBOSE" ] && echo "if #8 else '${P[@]}' '$CMDL_P_ADD'"
   #mount-FULL -n ${@}
   #mount-FULL -n $CMDL_P $CMDL_P_ADD
-  mount-FULL -n ${P[@]} $CMDL_P_ADD
+  mount-FULL -n "${P[@]}" $CMDL_P_ADD
   RETVAL=$?
   echo "mount-FULL normal='$RETVAL'" #DBG
  #fi
@@ -503,7 +503,7 @@ else
    ERRMSG1=`cat /tmp/ntfsmnterr${MYPID}.txt`
    echo "ntfs-3gretval#4,10,15#$RETVAL='$RETVAL'"
    echo "$ERRMSG1"
-   if [ $RETVAL -eq 0 ];then
+   if [ "$RETVAL" = 0 ];then
     echo "WARNING: NTFS f.s. mounted read/write but corrupted."
     [ "$DISPLAY" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was able to mount the NTFS
 partition but returned this error message:
@@ -526,7 +526,7 @@ boot Windows and fix the filesystem first!!!" &
   echo "ntfs-3g switch to busybox mount$RETVAL='$RETVAL'"
   ERRMSG1=`cat /tmp/ntfsmnterr${MYPID}.txt`
   echo "$ERRMSG1"
-  if [ $RETVAL -eq 0 ];then
+  if [ "$RETVAL" = 0 ];then
    echo "WARNING: NTFS f.s. mounted read-only."
    [ "$DISPLAY" ] && nohup gxmessage -bg red -center -title "NTFS WARNING" "The ntfs-3g driver was unable to mount the NTFS
 partition and returned this error message:
@@ -570,16 +570,13 @@ if [ -n "$DISPLAY" ] ; then  ##1
    if [ -d "$drvDir"/drive_${DRVNAME} ] ; then
    [ "$VERBOSE" ] && echo '/root/.pup_event/drive_'$DRVNAME' exists'
    case $DRVNAME in #v407
-    fd*)
-     DRV_CATEGORY="floppy"
-     [ "$VERBOSE" ] && echo "DRV_CATEGORY='$DRV_CATEGORY'"
-    ;;
+    fd*) DRV_CATEGORY="floppy";;
     *)
      dnPATTERN='/dev/'"${xDRVNAME}"'|'
      DRV_CATEGORY=`probedisk2 | grep "$dnPATTERN" | cut -f 2 -d '|'`
-     [ "$VERBOSE" ] && echo "dnPATTERN='$dnPATTERN' DRV_CATEGORY='$DRV_CATEGORY'"
     ;;
    esac
+   [ "$VERBOSE" ] && echo "dnPATTERN='$dnPATTERN' DRV_CATEGORY='$DRV_CATEGORY'"
    [ "$VERBOSE" ] && echo 'starting icon_mounted_func ...'
    icon_mounted_func $DRVNAME $DRV_CATEGORY #see functions4puppy4
    [ "$VERBOSE" ] && echo '... returned from icon mounted func'
@@ -604,11 +601,11 @@ PUP_DRIVE_ICONS
 
 #v409, instead just make sure the symlink stays there...
 if [ ! -L /etc/mtab ];then
- rm -f /etc/mtab
- ln -s /proc/mounts /etc/mtab
+ #rm -f /etc/mtab
+ ln -sf ../proc/mounts /etc/mtab
 fi
 
-[ "$VERBOSE" ] && echo '$RETVAL='"$RETVAL"
+[ "$VERBOSE" ] && echo "RETVAL='$RETVAL'"
 UPTIME=`awk '{print $1}' /proc/uptime |cut -f 1 -d '.'`
 dmesg |tail -n1 |grep -w $UPTIME
 [ "$VERBOSE" ] && echo '...'"$0"' finished'
