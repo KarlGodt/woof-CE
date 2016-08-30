@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+# wants bash ARGV ARGC
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_umount-simple.sh"
 _VERSION_=1.0omega
@@ -9,7 +9,7 @@ MY_SELF="/bin/umount-simple.sh"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -30,7 +30,9 @@ _trap
 
 [ "$*" ] || exec busybox umount
 
-sync
+_sync
+[ -f /proc/mounts ] || exec mount-FULL "$@"
+
 MOUNTEDSB=`tac /proc/mounts`
 
 ARGS=`set | grep -E 'ARGV|ARGC'`
@@ -40,18 +42,18 @@ c=$ARGSC
 
 while read p
 do
-echo $p
+_debugx $p
 p="${p#*=}"
 p="${p/#\"/}"
 p="${p/%\"/}"
-echo $p
+_debugx $p
 P[$c]="$p"
 (( c-- ))
 done<<EOI
 $(echo "$ARGSV" | sed 's|" \[|"\n\[|g')
 EOI
 
-echo "${P[@]}"
+_debug "${P[@]}"
 
 for k in `seq 1 1 $ARGSC`
 do
@@ -59,14 +61,14 @@ case "${P[$k]}"
 in
 /*)
 if [ -d "${P[$k]}" ] ; then
- (pidof ROX-Filer || pidof rox) && rox -D "${P[$k]}"
+ (pidof ROX-Filer || pidof rox) >>$OUT && rox -D "${P[$k]}"
  sleep 0.02
  fuser -m "${P[$k]}"
  sleep 0.02
  MajMin=`mountpoint -d "${P[$k]}"`
- echo "$MajMin"
+ _debugx "$MajMin"
  LANG=C DEVICE=`ls -l /dev | sed 's| \([[:digit:]]*\),[[:blank:]]*\([[:digit:]]*\) | \1:\2 |g' | grep -m1 -w "$MajMin" | rev | awk '{print $1}' | rev`
- echo "$DEVICE"
+ _debugx "DEVICE='$DEVICE'"
  [ "$DEVICE" ] ||
 {
     MNTPTS_ALL=`awk '{print $1"+++"$2}' /proc/mounts`
@@ -81,7 +83,7 @@ if [ -d "${P[$k]}" ] ; then
 elif [ -b "${P[$k]}" ] ; then
  MNTPT_D=`echo "$MOUNTEDSB" | grep -m1 -w "^${P[$k]}" | awk '{print $2}'`
  MNTPT_D=`echo -e "$MNTPT_D"`
- (pidof ROX-Filer || pidof rox) && rox -D "$MNTPT_D"
+ (pidof ROX-Filer || pidof rox) >>$OUT && rox -D "$MNTPT_D"
  sleep 0.02
  fuser -m "$MNTPT_D"
  sleep 0.02
@@ -99,14 +101,14 @@ esac
 done
 
 [ "$USE_FULL" ] && {
-umount-FULL ${P[@]}
+umount-FULL "${P[@]}"
 RETVAL=$?
 } || {
-busybox umount -dr ${P[@]}
+busybox umount -dr "${P[@]}"
 RETVAL=$?
 }
 
-[ $RETVAL = 0 ] || exit $RETVAL
+[ "$RETVAL" = 0 ] || exit $RETVAL
 
   if [ "$MNTPT_M" ] ; then OLDMOUNTPT="$MNTPT_M"
 elif [ "$MNTPT_D" ] ; then OLDMOUNTPT="$MNTPT_D"
@@ -119,6 +121,7 @@ OLDMOUNTPT=`echo "$OLDMOUNT" | awk '{print $2}'`
 OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
   fi
 
+grep $Q -E " ${OLDMOUNTPT} |${OLDMOUNTPT}/" /proc/mounts && exit $RETVAL # maybe remounted read-only
 [ "$MOUNTEDSB" = "$MOUNTEDSA" ] && { echo "NO CHANGES";exit $RETVAL; }
 [ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir "$OLDMOUNTPT"
 
@@ -130,13 +133,16 @@ OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
 DEVNAMEP=`echo "$OLDMOUNT" | awk '{print $1}'`
 DEVNAMEP=`echo -e "$DEVNAMEP"`
 }
-
+[ "$DEVNAMEP" ]    || exit $RETVAL
+[ -b "$DEVNAMEP" ] || exit $RETVAL
 DEVNAME=`echo "$DEVNAMEP" | sed 's%p[0-9]*$%%;s%[0-9]*$%%'`
+_debugx "DEVNAME='${DEVNAME}'"
+[ "$DEVNAME" ]    || exit $RETVAL
 PROBEDISK2=`probedisk2`
 CATEGORY=`echo "$PROBEDISK2" | grep -m1 -w "$DEVNAME" | cut -f2 -d'|'`
 DISK_FREE=`df`
 
-echo "${DEVNAMEP##*/}"
+_debugx "'${DEVNAMEP##*/}' '$CATEGORY'"
 echo "$DISK_FREE" | grep -w "^$DEVNAMEP" | grep -E ' /initrd/| /$' &&
 {
       icon_mounted_func "${DEVNAMEP##*/}" $CATEGORY; } || {  #see functions4puppy4
