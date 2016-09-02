@@ -1,0 +1,1066 @@
+#!/bin/bash
+# ash has no select buildin
+
+# New header by Karl Reimer Godt, September 2014
+  _TITLE_="Puppy_new2dir"
+_VERSION_=1.98 #2016-09-01 general overhaul
+_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+
+MY_SELF="/usr/bin/new2dir"
+MY_PID=$$
+
+test -f /etc/rc.d/f4puppy5 && {
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
+
+ADD_PARAMETER_LIST=""
+ADD_PARAMETERS=""
+_provide_basic_parameters
+
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
+ADD_HELP_MSG="$_COMMENT_"
+_parse_basic_parameters "$@"
+[ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
+  for oneSHIFT in `seq 1 1 $DO_SHIFT`; do shift; done; }
+
+_trap
+
+}
+# End new header
+#
+#(c) Copyright Barry Kauler 2007
+#Now LGPL 2007
+# Run like this: # new2dir make install
+# Creates a directory one or two levels higher with the name of the package
+# but slightly modified. For example source package has dir 'abiword-0.5.6'
+# inside this you do the usual 'configure', 'make', then 'new2dir make install'
+# and 'abiword-0.5.6-i486' directory gets created, with all installed files
+# in it.
+
+_info "\$0='$0' \$@='$@'"
+TTY=`tty` # in case of interactive needs to read input from controlling terminal.
+
+findTIME=-mmin  #default find option -mmin -amin -cmin to new2dir -r option
+mMIN='-2'       #default value to findTIME option, -2 means last two minutes
+
+whatSTRIP='ALL' #NONE: do not strip files
+                #INSTALLED: strip installed files but do not strip files in the pkg folder(s)
+                #ALL: Puppy default to strip installed files and copy them into the pkg folder(s)
+
+tmpDIR=/tmp
+pkgLIST_FILE=pkginstall.list
+
+[ "$OUT" ] || OUT=/dev/null
+[ "$ERR" ] || ERR=/dev/null
+#BB='busybox ' # enable to use busybox applets
+
+Version='1.5-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
+
+echo "$0 : $Version"
+echo 'This is an alpha snapshot
+and most likely not bugfree
+'
+
+_usage(){
+    echo "
+$0 [-new2dir_option1 -option2 ..] make [make_options] install[-doc|-etc..]
+
+    Script to list installed files by 'make install' using
+    'installwatch/checkinstall pkg' and to copy these files into a
+    seperate directory to easily be packaged further .
+    Also strips binaries automatically and libraries to reduce size .
+
+    Script specific options :
+    -c) forcibly delete already existing destination pkg directory(s);
+        default is to rename to pkgname-date.
+    -d) debug by '' .
+    -f) answer all dialog questions automatically:yes,cpu-type,
+        split-level(-f default = 3); includes -k .
+    -h) show this usage .
+    -V) show version information .
+    -i) interactive modes for binaries used by this script .
+    -I/path/to/bin/installwatch) if installwatch script to use
+        to monitor make install is installed not first in the PATH .
+    -k) keep binaries and libraries unstripped .
+    -K) strip only installed bins and libs .
+    -l) run with logsave -a $tmpDIR/new2dir.log .
+    -u) update already existing _DESTDIR s , do not delete _DESTIR s .
+    -m) Menu for selecting various used executables .
+    -M #) set the mMIN level for the find command in -r mode below;
+        default is -2 (means to look for modified files not
+        older than the last two minutes) .
+    -A #) switch to AMIN instead of mMIN for above
+    -C #) switch to CMIN instead of mMIN for above
+            (cmake source seems to need this if run a second time)
+    -r) rescue mode if installwatch does not work .
+    -v) give verbose output by '2>/dev/stderr' .
+
+    For make specific options, see 'man make|make --help' .
+    "
+    exit $1
+}
+
+if [ ! "$*" ];then
+ echo "This script is used in the last step when installing a source"
+ echo "or binary package. For example:"
+ echo "# new2dir make install"
+ echo "Exiting script."
+ exit 140
+fi
+
+
+MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z]\+'`
+_info "MAKE='$MAKE'"
+[ "$MAKE" ] || MAKE='make install'
+_info "MAKE='$MAKE'"
+NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
+_info "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
+[ "`echo "$NEW2DIRPARAMS" |${BB}grep help`" ] && _usage 1  ##+++2012-07-07
+
+while getopts VcdfhiI:kKlmM:A:C:rvu opt;do
+case $opt in
+c) cleanUP='y';;
+d) set -x; me_DEBUG=1;;
+f) timeOUT='-t 1';forceIT=1;;
+h) _usage 0;;
+i) [ -c "$TTY" ] || _exit 2 "$opt needs controlling terminal"; iNTERACTIVE='-i';lINTERACTIVE='--interactive';;
+I) INSTALL_WATCH_EXE="$OPTARG";;
+k) whatSTRIP='NONE';;
+K) whatSTRIP='INSTALLED';;
+l)
+NEW2DIRPARAMS=`echo "$NEW2DIRPARAMS" | sed 's/l//g'`  ##+++2012 added g global in case accid. more than one 'l'
+exec logsave $VERB -a "$tmpDIR"/new2dir.log "$0" "$NEW2DIRPARAMS" "$MAKE"
+;;
+m) showMENUS=1;;
+M) mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;  ##+++2012-07-07 check ~bug if -A -f
+A) findTIME=-amin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;
+C) findTIME=-cmin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;##+-+2012-07-07 BUG had A)
+r) RESC='YES';;
+v) OUT=/dev/stdout;ERR=/dev/stderr;VERB='-v';lVERBOSE='--verbose';al_VERBOSE='-verbose';me_VERBOSE=1;;
+u) upDATE=1;;
+V) echo -e "\n$0 : Version '$Version'\n";exit 0;;
+*) _usage 1;;
+esac;done
+
+_debug "\$@='$@'"
+MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z]\+'`
+[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
+[ "$MAKE" ] || MAKE='NONE' ##+++2012-04-03
+[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
+NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
+[ "$me_VERBOSE" ] && echo "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
+
+curDIR=`pwd`
+[ "$me_VERBOSE" ] && echo "CURRENTDIR='$curDIR'"
+
+upONE=`${BB}dirname "$curDIR"`
+pkgDIR="../`${BB}basename "$curDIR"`"
+xpkgDIR=`${BB}basename "$curDIR"`
+#if make one level deep >
+if [ ! "`echo "$pkgDIR" | ${BB}grep '[0-9]'`" ];then
+ pkgDIR="../../`${BB}basename "$upONE"`"
+ xpkgDIR=`${BB}basename "$upONE"`
+fi
+
+_do_menu(){
+if [ "$showMENUS" ];then   #busybox ash has no select function
+for dir in `echo $PATH |tr ":" " "`;do
+INS_WS="$INS_WS `${BB}find $dir -maxdepth 1 -type f \( -name "installwatch[-_]*" -o -name "checkinstall[-_]*" \)`"
+done
+echo
+echo "Select the installwatch executable :"  #busybox ash has no select function
+select INSTALL_WATCH_EXE in $INS_WS;do echo $INSTALL_WATCH_EXE;break;done
+[ "$INS_WS" ] || { echo "Nothing available selected ";exit 0; }
+[ -e /bin/installwatch -a ! -L /bin/installwatch ] && { echo "'/bin/installwatch' is not a link ";exit 1; }
+${BB}rm $VERB -f /bin/installwatch;${BB}ln $VERB -s $INSTALL_WATCH_EXE /bin/installwatch
+[ "$me_VERBOSE" ] && ${BB}ls -l /bin/installwatch
+
+for dir in `echo $PATH |tr ":" " "`;do
+LIB_TOOLS="$LIB_TOOLS `${BB}find $dir -maxdepth 1 -type f -name "libtool[-_]*"`"
+done
+echo "Select the libtool executable :"
+select LIBTOOL_EXE in $LIB_TOOLS;do echo $LIBTOOL_EXE;break;done
+[ "$LIBTOOL_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e /bin/libtool -a ! -L /bin/libtool ] && { echo "'/bin/libtool' is not a link ";exit 1; }
+${BB}rm $VERB -f /bin/libtool;${BB}ln $VERB -s $LIBTOOL_EXE /bin/libtool
+[ "$me_VERBOSE" ] && ${BB}ls -l /bin/libtool
+
+for dir in `echo $PATH |tr ":" " "`;do
+MAKE_S="$MAKE_S `${BB}find $dir -maxdepth 1 -type f -name "make[-_][0-9]*"`"
+done
+echo "Select the make executable :"
+select MAKE_EXE in $MAKE_S;do echo $MAKE_EXE;break;done
+[ "$MAKE_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e /usr/bin/make -a ! -L /usr/bin/make ] && { echo "'/usr/bin/make' is not a link ";exit 1; }
+${BB}rm $VERB -f /usr/bin/make;${BB}ln $VERB -s $MAKE_EXE /usr/bin/make
+[ "$me_VERBOSE" ] && ${BB}ls -l /usr/bin/make
+#MAKE=`echo "$MAKE" |sed "s|^make |$MAKE_EXE |"`
+#[ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
+
+for dir in `echo $PATH |tr ":" " "`;do
+INSTALL_S="$INSTALL_S `${BB}find $dir -maxdepth 1 \( -type f -o -type l \) -name "install[-_][bB0-9]*"`"
+done
+echo "Select the install executable :"
+select INSTALL_EXE in $INSTALL_S;do echo $INSTALL_EXE;break;done
+[ "$INSTALL_EXE" ] || { echo "Nothing available selected ";exit 0; }
+[ -e /bin/install -a ! -L /bin/install ] && { echo "'/bin/install' is not a link ";exit 1; }
+if [ -e /bin/install -a "`file /bin/install | ${BB}grep busybox`" ];then
+${BB}mv $VERB    /bin/install /bin/install-busybox;fi
+${BB}rm $VERB -f /bin/install;${BB}ln $VERB -s $INSTALL_EXE /bin/install
+[ "$me_VERBOSE" ] && ${BB}ls -l /bin/install
+
+fi #showMENUS
+}
+_do_menu
+
+_pkg_version_check(){
+case $pkgDIR in *[0-9]*) return 0;; esac
+#if [ "`echo "$pkgDIR" | ${BB}grep '[0-9]'`" = "" ];then
+ echo "$pkgDIR does not seem to be the package directory with version"
+ echo "number. Unfortunately, some source package tarballs expand to a"
+ echo "directory that does not have version number in it's name. SeaMonkey"
+ echo "is an example of this, it expands to a directory named just 'mozilla'."
+ echo "This script will create a package with the same name as the directory"
+ echo "and it absolutely must have the version number in it which must commence"
+ echo "with a numeric digit. So, you must now close this rxvt terminal window"
+ echo "then rename the directory. For example, for SeaMonkey version 1.0.7"
+ echo "rename the directory from 'mozilla' to 'seamonkey-1.0.7'"
+ echo "A dash '-' must be used to separate the package name from version."
+ echo "A directory name like 'seamonkey-alpha1' is NOT allowed as the version"
+ echo "number must start with a numeric digit, example 'seamonkey-1.0.7alpha1'."
+ echo "Exiting script."
+ exit 1
+#fi
+}
+_pkg_version_check
+
+fixfilelistfunc() {
+ #$1 is file to remove, as doesn't exist.
+ echo " ...${1} has been deleted."
+ ${BB}grep -v "$1" "$tmpDIR"/"${exePKGNAME}".files >> "$tmpDIR"/"${exePKGNAME}".files.tmp
+ ${BB}mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files.tmp "$tmpDIR"/"${exePKGNAME}".files
+}
+
+echo
+echo -en "\\033[1;31mStep 1" #red
+echo -e "\\033[0;39m"
+read $timeOUT -n1 -p "Press any key for step 1" STEP_1_KEY
+echo
+if [ ! "$forceIT" ];then
+echo "It seems that the package directory is '$pkgDIR'"
+echo "If this is correct, just press ENTER key."
+echo "Otherwise, type the correct directory with relative address."
+echo " NOTE:"
+echo " This script will create a package with the same name as the directory"
+echo " and it absolutely must have the version number in it which must commence"
+echo " with a numeric digit, and name and version number must be separated by"
+echo " a dash '-', for example, 'seamonkey-1.0.7'."
+echo " A directory name like 'seamonkey-alpha1' is NOT allowed as the version"
+echo " number must start with a numeric digit, example 'seamonkey-1.0.7alpha1'."
+fi
+echo " If $pkgDIR is incorrect you must now exit with CTRL-C and close this"
+echo " rxvt terminal window then rename the directory."
+echo -n "Type response now: "
+read $timeOUT REPLY1
+[ "$REPLY1" ] && pkgDIR="$REPLY1"
+if [ ! -d "$pkgDIR" ];then
+ echo
+ echo "$pkgDIR does not exist, exiting script."
+ exit
+fi
+echo "Okay, using $pkgDIR"
+
+echo
+echo -en "\\033[1;31mStep 2" #red
+echo -e "\\033[0;39m"
+read $timeOUT -n1 -p "Press any key for step 2" STEP_2_KEY
+echo
+if [ ! "$forceIT" ];then
+echo "Puppy is designed to run on a i486 CPU upwards. Normally this means"
+echo "that you have to specify 'build=i486-t2-linux-gnu' (sometimes host=)"
+echo "Some packages do not have that configure option and compile for a"
+echo "specific CPU regardless what is in your PC."
+#echo "If you have compiled for a i486, just press ENTER key."
+fi
+echo "Otherwise, enter the CPU type, examples: i386 i486 i686 (the i is required)."
+echo "If you leave empty the cpu type will be looked for in 'config.log' file."
+echo "If not found defaults to 'i486' ."
+echo "If not found and if run with '-f' option , guessed by 'uname -m' ."
+echo -n "Type response here: "
+read $timeOUT cpuTYPE
+if [ ! "$cpuTYPE" ];then
+if [ -f config.log ];then
+BuildCPU=`${BB}grep '^build_cpu='.*'' config.log |cut -f 2 -d "'"`
+ HostCPU=`${BB}grep '^host_cpu='.*''  config.log |cut -f 2 -d "'"`
+if [ "$HostCPU" != "$BuildCPU" ];then
+echo "WARNING build_cpu='$BuildCPU' NOT host_cpu='$HostCPU'"
+fi
+cpuTYPE="$BuildCPU"
+fi
+if [ ! "$cpuTYPE" ];then
+if [ ! "$timeOUT" ];then
+cpuTYPE="i486"
+else
+cpuTYPE=`${BB}uname -m`
+fi
+else
+echo "Found '$cpuTYPE'";fi;fi
+#config.log >
+#build='i686-pc-linux-gnu'
+#build_alias=''
+#build_cpu='i686'
+#build_os='linux-gnu'
+#build_vendor='pc'
+#datadir='${prefix}/share'
+#exec_prefix='${prefix}'
+#host='i686-pc-linux-gnu'
+#host_alias=''
+#host_cpu='i386'
+#host_os='linux-gnu'
+#host_vendor='pc'
+##bash-3.2# grep 'i[0-9]' Makefile >
+#build_triplet = i686-pc-linux-gnu
+#host_triplet = i686-pc-linux-gnu
+#build = i686-pc-linux-gnu
+#build_cpu = i686
+#host = i686-pc-linux-gnu
+#host_cpu = i386
+
+if [ ! "`echo -n "$cpuTYPE" | ${BB}grep '^[a-zA-Z]'`" ];then
+ echo "$cpuTYPE is not valid. Exiting."
+ exit 3
+fi
+echo "Okay, using $cpuTYPE"
+
+#would like to create different targets for exe, doc, dev, nls components...
+exeTARGETDIR="${pkgDIR}-${cpuTYPE}" #relative path.
+exePKGNAME=`${BB}basename "$exeTARGETDIR"`
+relPATH=`${BB}dirname "$exeTARGETDIR"`
+#difficult task, separate package name from version part...
+#not perfect, some start with non-numeric version info...
+xnameONLY=`echo -n "$xpkgDIR" |${BB}sed -e 's/[\-\_][0-9].*$//g'`
+_debugx "xnameONLY='$xnameONLY'"
+_debugx "  xpkgDIR='$xpkgDIR'"
+#...if that fails, do it the old way...
+#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | cut -f 1 -d "-"`
+
+#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[\-\_].*,,'`
+#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[-_].*,,'`
+#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | rev |cut -f 2- -d '[-_]' |rev`
+[ "$xnameONLY" = "$xpkgDIR" ] && {
+    xnameONLY=`echo "$xpkgDIR" |${BB}rev`;
+    xnameONLY="${xnameONLY#*[-_]}";
+    xnameONLY=`echo "$xnameONLY" |${BB}rev`; }
+_debugx "xnameONLY='$xnameONLY'"
+nameONLY="${relPATH}/${xnameONLY}"
+_debugx "nameONLY='$nameONLY'"
+#abasename=`basename ${pkgDIR}`
+apattern="s/${xnameONLY}[\\-\\_]//g"
+_debugx "apattern='$apattern'"
+verONLY=`echo -n "$xpkgDIR" |${BB}sed -e "$apattern"`
+_debugx "verONLY='$verONLY'"
+
+#if ! [ "$verONLY" ];then
+#apattern=`echo "$xpkgDIR" | sed 's,[[:punct:][:digit:]],,g'`
+#echo "apattern='$apattern'"
+#verONLY=`echo -n "$xpkgDIR" | sed "s/$apattern//"`
+#echo "verONLY='$verONLY'"
+#fi
+
+#if [ "$verONLY" = "$xpkgDIR" ];then
+#apattern=`echo "$xpkgDIR" | sed 's,[^[:alpha:]],,g'`
+#echo "apattern='$apattern'"
+#verONLY=`echo -n "$xpkgDIR" | sed "s/$apattern//"`
+#echo "verONLY='$verONLY'"
+#fi
+
+if [ "$verONLY" = "$xpkgDIR" ];then
+verONLY=`echo -n "$xpkgDIR" |${BB}sed 's,[[:alpha:]],,g;s,^\-*,,'`
+_debug "verONLY='$verONLY'"
+fi
+
+_info "verONLY='$verONLY'"
+
+#xnameONLY='comgt'
+#               xpkgDIR='comgt.0.32'
+#xnameONLY='comgt'
+#nameONLY='../comgt'
+#apattern=''
+#verONLY='comgt.0.32'
+
+
+docTARGETDIR="${nameONLY}_DOC-${verONLY}-${cpuTYPE}"
+docPKGNAME=`${BB}basename $docTARGETDIR`
+devTARGETDIR="${nameONLY}_DEV-${verONLY}-${cpuTYPE}"
+devPKGNAME=`${BB}basename $devTARGETDIR`
+nlsTARGETDIR="${nameONLY}_NLS-${verONLY}-${cpuTYPE}"
+nlsPKGNAME=`${BB}basename $nlsTARGETDIR`
+
+if [ "$cleanUP" -a ! "$upDATE" ];then
+${BB}rm $VERB -rf "$exeTARGETDIR"*
+${BB}rm $VERB -rf "$docTARGETDIR"*
+${BB}rm $VERB -rf "$devTARGETDIR"*
+${BB}rm $VERB -rf "$nlsTARGETDIR"*
+fi
+
+
+echo
+echo -en "\\033[1;31mStep 3" #red
+echo -e "\\033[0;39m"
+read $timeOUT -n1 -p "Press any key for step 3" STEP_3_KEY
+echo
+if [ ! "$forceIT" ];then
+echo "If you wish, you can split the final package up into separate"
+echo "packages for the 'executables', 'documentation', 'development' and"
+echo "'international' components."
+echo "If the package has shared libraries, it is recommended to at least"
+echo "create a seaparate 'development' package."
+echo "The idea here is to 'trim the fat' as much as possible so that you only"
+echo "have what is absolutely needed in the 'executables' PET package, but"
+echo "the extra components can be installed if needed."
+echo "WARNING: The automatic splitting performed by this script may not be"
+echo "         perfect and you may have to modify the contents of the created"
+echo "         separate directories before the final step of converting them"
+echo "         to PET packages."
+echo
+echo "Just press ENTER key only to create one package only."
+fi
+echo "Or, type a number to choose which separate packages to create:"
+echo " 1 Just one package (directory) only"
+echo " 2 Create a separate 'development' package"
+echo " 3 Create separate 'development', 'documentation', 'international' pkgs"
+echo "Or, type a comma-separated list of the separate pkgs that you want to"
+echo " create, using keywords 'exe', 'dev', 'doc', 'nls'."
+echo " Example: exe,dev,doc  (in this example, nls component is left in the"
+echo " main package, that is, the exe component)."
+echo -n "Type response (just press ENTER if in doubt): "
+read $timeOUT splitPETS
+if [ ! "$splitPETS" ];then
+if [ ! "$timeOUT" ];then
+splitPETS="exe"
+else
+splitPETS=3
+fi;fi
+#[ "$splitPETS" = "1" ] && splitPETS="exe"
+#[ "$splitPETS" = "2" ] && splitPETS="exe,dev"
+#[ "$splitPETS" = "3" ] && splitPETS="exe,dev,doc,nls"
+case $splitPETS in 1) splitPETS="exe";;
+2) splitPETS="exe,dev";;
+3) splitPETS="exe,dev,doc,nls";;
+esac
+
+#exeSPLIT="";docSPLIT="";devSPLIT="";nlsSPLIT=""
+#[ "`echo "$splitPETS" | ${BB}grep 'exe'`" ] && exeSPLIT="yes"
+#[ "`echo "$splitPETS" | ${BB}grep 'doc'`" ] && docSPLIT="yes"
+#[ "`echo "$splitPETS" | ${BB}grep 'dev'`" ] && devSPLIT="yes"
+#[ "`echo "$splitPETS" | ${BB}grep 'nls'`" ] && nlsSPLIT="yes"
+unset exeSPLIT docSPLIT devSPLIT nlsSPLIT
+case $splitPETS in *exe*) exeSPLIT="yes";; esac
+case $splitPETS in *doc*) docSPLIT="yes";; esac
+case $splitPETS in *dev*) devSPLIT="yes";; esac
+case $splitPETS in *nls*) nlsSPLIT="yes";; esac
+
+_prepare_pkd_dirs(){
+if [ ! "$cleanUP" -a "$upDATE" = "" ];then  ##+++2012-07-08 added upDATE support 2012-09-29 changed -o to -a
+curDATE=`${BB}date +%F-%T`
+[ -d "$exeTARGETDIR" ] && ${BB}mv $VERB "$exeTARGETDIR" "$exeTARGETDIR"-"$curDATE"
+[ -d "$docTARGETDIR" ] && ${BB}mv $VERB "$docTARGETDIR" "$docTARGETDIR"-"$curDATE"
+[ -d "$devTARGETDIR" ] && ${BB}mv $VERB "$devTARGETDIR" "$devTARGETDIR"-"$curDATE"
+[ -d "$nlsTARGETDIR" ] && ${BB}mv $VERB "$nlsTARGETDIR" "$nlsTARGETDIR"-"$curDATE"
+elif [ "$upDATE" ];then :
+else
+${BB}rm $VERB -rf "$exeTARGETDIR"*
+${BB}rm $VERB -rf "$docTARGETDIR"*
+${BB}rm $VERB -rf "$devTARGETDIR"*
+${BB}rm $VERB -rf "$nlsTARGETDIR"*
+fi
+}
+_prepare_pkd_dirs #probably should be run after installwatch make install
+
+_make_pkg_dirs(){
+#[ ! "`echo "$splitPETS" | grep 'exe'`" = "" ] && if [ ! -d "$exeTARGETDIR" ]; then  mkdir "$exeTARGETDIR" ; fi
+#[ "`echo "$splitPETS" | ${BB}grep 'exe'`" ] && ${BB}mkdir $VERB -p "$exeTARGETDIR"
+#[ "`echo "$splitPETS" | ${BB}grep 'doc'`" ] && ${BB}mkdir $VERB -p "$docTARGETDIR"
+#[ "`echo "$splitPETS" | ${BB}grep 'dev'`" ] && ${BB}mkdir $VERB -p "$devTARGETDIR"
+#[ "`echo "$splitPETS" | ${BB}grep 'nls'`" ] && ${BB}mkdir $VERB -p "$nlsTARGETDIR"
+case $splitPETS in *exe*) mkdir $VERB -p "$exeTARGETDIR";; esac
+case $splitPETS in *doc*) mkdir $VERB -p "$docTARGETDIR";; esac
+case $splitPETS in *dev*) mkdir $VERB -p "$devTARGETDIR";; esac
+case $splitPETS in *nls*) mkdir $VERB -p "$nlsTARGETDIR";; esac
+}
+_make_pkg_dirs #probably should be run after installwatch make install
+
+
+
+if [ "$RESC" = 'YES' ];then
+##rescue mode
+
+echo "
+searching for modified files '$findTIME' '$mMIN' .."
+echo -n "In /usr .. "
+time F=`${BB}find /usr $findTIME $mMIN`
+echo -n " /etc .. "
+if [ ! "`echo "$exeTARGETDIR" | ${BB}grep 'cups'`" ];then
+time E=`${BB}find /etc $findTIME $mMIN | ${BB}grep -vi 'cups'`  #certs file gets updated apparently by cupsd
+else
+time E=`${BB}find /etc $findTIME $mMIN`
+fi
+echo -n " /sbin .. "
+time S=`${BB}find /sbin $findTIME $mMIN`
+echo -n " /bin .. "
+time B=`${BB}find /bin $findTIME $mMIN`
+echo -n " /lib .. "
+time L=`${BB}find /lib $findTIME $mMIN`
+echo " /var .. "
+time V=`${BB}find /var $findTIME $mMIN -iname "*$xnameONLY*"`  ###+2013-03-15 Typo was "*xnameONLY*"
+
+C="$F
+$E
+$S
+$B
+$L
+$V"
+C=`echo "$C" |${BB}sort`
+
+#  whatSTRIP='ALL'
+#k)whatSTRIP='NONE';;
+#K)whatSTRIP='INSTALLED';;
+
+#function
+strip_func(){
+#strip the file...
+ [ -L "$*" ] || return 0
+ #if [ ! -h "$1" ];then #make sure it isn't a symlink
+  elf_FILE=`file "$*" | ${BB}grep -E 'ELF|LSB'`
+  ##[ ! "`file "$1" | grep 'ELF' | grep 'shared object'`" = "" ] && strip --strip-debug "$1"
+  ##[ ! "`file "$1" | grep 'ELF' | grep 'executable'`" = "" ] && strip --strip-unneeded "$1"
+  #[ "`echo "$FILE_FILE" |${BB}grep 'shared object'`" ] && { [ "$me_VERBOSE" ] && echo "Stripping '$1'";strip --strip-debug "$1"; }
+  #[ "`echo "$FILE_FILE" |${BB}grep 'executable'`" ] && { [ "$me_VERBOSE" ] && echo "Stripping '$1'";strip --strip-unneeded "$1"; }
+  case $elf_FILE in
+   *shared*object*) strip --strip-debug    "$*";;
+   *executable*)    strip --strip-unneeded "$*";;
+  esac
+ pidof sync >>$OUT || sync
+ #else [ "$me_VERBOSE" ] && echo "Skipping link '$1'";:
+ #fi
+ #:
+}
+#function
+strip_it(){
+[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
+strip_func "$@"
+}
+#function
+copy_files(){
+if [ -f "$1" ];then
+    if [ "$noSTRIP" ]; then :
+    else
+    [ "$whatSTRIP" = 'ALL' ] && strip_it "$1"
+    fi
+/bin/cp -a $VERB $backUP $iNTERACTIVE "${1}" "${2}${1}" <$TTY
+   if [ "$noSTRIP" ]; then :
+   else
+[ "$whatSTRIP" = 'INSTALLED' ] && strip_it "$1"
+   fi
+   if [ ! -L "$1" ]; then
+   ${BB}md5sum "$1" >>"${2//\.\.\//}".md5
+   ${BB}md5sum "${2}${1}" >>"${2}"/files.md5
+   fi
+elif [ -L "$1" -a ! -d "$1" ];then
+ RL=`${BB}readlink    "$1"`
+RLF=`${BB}readlink -f "$1"`
+RLE=`${BB}readlink -e "$1"`
+RLM=`${BB}readlink -m "$1"`
+RLS="$RL
+$RPF
+$RPE
+$RLM"
+RLS=`echo "$RLS" | ${BB}sort -u`
+#for l in $RLS;do
+while read -r link; do
+[ "$link" ] || continue
+/bin/cp -a $VERB $backUP $iNTERACTIVE "${link}" "${2}${link}" <$TTY
+done <<EoI
+$(echo "$RLS")
+EoI
+
+fi
+unset noSTRIP link
+}
+
+#for i in $C ; do  ###---2013-03-15 for filename with spaces
+while read -r i
+do
+[ "$i" ] || continue
+_info "$i"
+
+dn="${i%/*}"
+
+#if [ "`echo "$i" | ${BB}grep -Ei '\.la$|\.a$|\.h$|\.m4$|\.pc$|\-config$|config.sh$|Conf.sh$|/aclocal/|/cvs/|/svn/'`" ];then
+case $i in
+*.la|*.a|*.h|*.m4|*.pc|*-config|*config.sh|*Conf.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool*/|*/libtool/*)
+${BB}mkdir $VERB -p "${devTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$i" "${devTARGETDIR}"
+;;
+###+++2013-03-15 added noSTRIP FLAG
+#elif [ "`echo "$i" | ${BB}grep -E '/doc/|/man/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" ];then
+*/doc/*|*/man/*|*/docs/*|*/info/*|*/gtk-doc/*|*/faq/*|*/manual/*|*/examples/*|*/help/*|*/htdocs/*)
+${BB}mkdir $VERB -p "${docTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$i" "${docTARGETDIR}"
+;;
+#elif [ "`echo "$i" | ${BB}grep -E '/locale/|/i18n/|/nls/'`" ];then
+*/locale/*|*/i18n/*|*/nls/*)
+${BB}mkdir $VERB -p "${nlsTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$i" "${nlsTARGETDIR}"
+;;
+#else
+*)
+${BB}mkdir $VERB -p "${exeTARGETDIR}${dn}"
+copy_files "$i" "${exeTARGETDIR}"
+;;
+esac
+
+#fi
+done <<EoI
+$(echo "$C")
+EoI
+
+#FORCE "
+#"
+
+###+++2013-03-15 for filename with spaces
+echo "DONE cp files."
+#${BB}find . \( -name "*.log" -o -name "*.err" -o -name "config.h" \) -exec /bin/cp $VERB --backup=numbered {} "${exeTARGETDIR}"/ \;
+
+logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
+while read -r oneFILE
+do
+/bin/cp $VERB $iNTERACTIVE -a --backup=numbered "$oneFILE" "${exeTARGETDIR}"/"${oneFILE##*/}" <$TTY
+done << EoI
+`echo "$logFILES"`
+EoI
+
+
+echo "DONE cp log files."
+#cp -af "$tmpDIR/${exePKGNAME}.files" "${relPATH}"/"${exePKGNAME}".files
+echo "$C" >"${relPATH}"/"${exePKGNAME}".files
+echo "$C" >"$HOME"/.packages/"${exePKGNAME}".files
+${BB}find "${exeTARGETDIR}" -name "*.wh.*" -delete
+${BB}find "${devTARGETDIR}" -name "*.wh.*" -delete
+${BB}find "${docTARGETDIR}" -name "*.wh.*" -delete
+${BB}find "${nlsTARGETDIR}" -name "*.wh.*" -delete
+(
+${BB}rmdir $VERB "${devTARGETDIR}"*
+${BB}rmdir $VERB "${docTARGETDIR}"*
+${BB}rmdir $VERB "${nlsTARGETDIR}"*
+) 2>>$ERR
+exit $?
+##
+
+
+else # Puppy default to use installwatch
+
+
+if [ ! "$INSTALL_WATCH_EXE" ];then
+INSTALL_WATCH_EXE='installwatch'
+[ "`which $INSTALL_WATCH_EXE`" ] || { echo "'$INSTALL_WATCH_EXE' seems not to be installed \(correctly?\)";exit 1; }
+#[ "`which installwatch`" ] && INSTALL_WATCH_EXE=`which installwatch`
+#[ -x /usr/local/bin/installwatch ] && INSTALL_WATCH_EXE='/usr/local/bin/installwatch'
+#[ -x /usr/local/sbin/installwatch ] && INSTALL_WATCH_EXE='/usr/local/sbin/installwatch'
+fi
+
+echo
+echo -en "\\033[1;31mStep 4" #red
+echo -e "\\033[0;39m"
+read $timeOUT -n1 -p "Press any key for step 4" STEP_4_KEY
+echo
+echo "The following line is about to be executed:"
+echo "# $INSTALL_WATCH_EXE -o $tmpDIR/$pkgLIST_FILE $MAKE"
+if [ ! "$forceIT" ];then
+echo "...this logs all file activity to $tmpDIR/$pkgLIST_FILE"
+echo "This script will then determine all newly created directories"
+echo "and files and create '$exeTARGETDIR' with the new files."
+echo "\(and optionally ${devTARGETDIR}, ${docTARGETDIR}, ${nlsTARGETDIR}\)"
+fi
+echo -n "Press ENTER key to continue: "
+read $timeOUT goforit
+echo
+
+
+[ -z "$INSTALL_WATCH_EXE" ] && { echo "installwatch not installed?";${BB}sleep 2s;_usage 1; }
+
+${BB}rm $VERB -f "$tmpDIR"/"$pkgLIST_FILE"
+${BB}sleep 2s;pidof sync >>$OUT || { ${BB}sync; sleep 2; }
+
+set - $MAKE
+[ "$me_DEBUG" ]   && set -x
+unset MAKE    # MAKE seems to be a global variable recognized by make ..
+
+#unset aNEWDIR B backUP C cleanUP cpuTYPE curDIR curDATE devSPLIT devTARGETDIR docSPLIT docTARGETDIR DO_SHIFT
+#unset E ERR exeSPLIT exePKGNAME exeTARGETDIR F FILE_FILE FILE_TYPE forceIT findTIME H HAVE_F HOME
+#unset INSTALL_EXE INSTALL_S INSTALL_WATCH_EXE INS_WS iNTERACTIVE L LIBTOOL_EXE LIB_TOOLS
+#unset MAKE MAKE_EXE MAKE_S showMENUS me_VERBOSE mMIN nameONLY NEW nlsSPLIT nlsTARGETDIR noSTRIP
+#unset oneBASE oneFILE oneMOVED oneNEW oneORIG OPTARG OUT OUTPUT
+#unset PATH pkgDIR REPLY RESC RL RLM RLS RPE RPF S splitPETS timeOUT
+#unset upDATE upONE V VERB VERBOSE verONLY whatSTRIP _COMMENT_ _TITLE_
+
+[ "$me_VERBOSE" ] && echo -e "\nRunning '$INSTALL_WATCH_EXE' ... $@"
+
+$INSTALL_WATCH_EXE \
+ -o "$tmpDIR"/"$pkgLIST_FILE" \
+ "${@}"
+
+#installwatch -o "$tmpDIR"/"$pkgLIST_FILE" ${@}
+#logsave -v "$tmpDIR"/pkginstall.logsave.list ${@}
+
+[ $? = 0 ] || _exit 3 "$@ apparently did not finish correctly."
+
+pidof sync >>$OUT || ${BB}sync
+
+echo -n fixing file lists ...
+${BB}touch $VERB "$tmpDIR"/"$pkgLIST_FILE"
+#create list of installed files...
+#v2.17 bug, if sometimes logs files in the pkg installing from, have added
+# filter out $upONE...
+# BUGPATTERN='&'"$upONE"
+# no, just filter out /mnt and /initrd...
+
+__old_get_installed_files__(){
+cat "$tmpDIR"/"$pkgLIST_FILE" |
+ ${BB}grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' |
+ ${BB}grep '^[345]&open&' |
+ ${BB}grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' |
+ ${BB}grep -E -v '&/initrd|&/mnt/' |
+ cut -f 3 -d '&' >> "${relPATH}"/"${exePKGNAME}".files
+
+pidof sync >>$OUT || sync
+#pick up created symlinks...
+cat "$tmpDIR"/"$pkgLIST_FILE" |
+ ${BB}grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' |
+ ${BB}grep '^0&symlink&' |
+ ${BB}grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' |
+ ${BB}grep -E -v '&/initrd|&/mnt/' |
+ cut -f 4 -d '&' >> "${relPATH}"/"${exePKGNAME}".files
+
+#...list will only have created files, not created directories, so an empty
+#   directory won't get recorded.
+
+#bad if we miss out installing an empty directory...
+cat "$tmpDIR"/"$pkgLIST_FILE" |
+ ${BB}grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' |
+ ${BB}grep '^0&mkdir&' |
+ ${BB}grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' |
+ ${BB}grep -E -v '&/initrd|&/mnt/' |
+ cut -f 3 -d '&' | sed -e 's/^\/\//\//g' >> "$tmpDIR"/"${exePKGNAME}".dirs
+
+pidof sync >>$OUT || sync
+#problem if there is a post-install script that moves or renames a file...
+cat "$tmpDIR"/"$pkgLIST_FILE" |
+ ${BB}grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' |
+ ${BB}grep '^0&rename&' |
+ ${BB}grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' |
+ ${BB}grep -E -v '&/initrd|&/mnt/' |
+ cut -f 3,4 -d '&' | tr '\n' ' ' >> "$tmpDIR"/"${exePKGNAME}".moved.files
+}
+
+grep '#success$' "$tmpDIR"/"$pkgLIST_FILE" | tr -s '\t' | tr '&' ' ' | tr '\t' '&' >"$tmpDIR"/"$pkgLIST_FILE".success
+mv $VERB -f "$tmpDIR"/"$pkgLIST_FILE".success "$tmpDIR"/"$pkgLIST_FILE"
+#echo -n " 1"
+grep -Ev '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc|&/initrd|&/mnt/'  "$tmpDIR"/"$pkgLIST_FILE" >"$tmpDIR"/"$pkgLIST_FILE".success
+mv $VERB -f "$tmpDIR"/"$pkgLIST_FILE".success "$tmpDIR"/"$pkgLIST_FILE"
+#echo -n " 2"
+grep -E '^[345]&open&' "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&'                  > "${relPATH}"/"${exePKGNAME}".files
+#echo -n " 3"
+grep -E '^0&symlink&'  "$tmpDIR"/"$pkgLIST_FILE" | cut -f 4 -d '&'                 >> "${relPATH}"/"${exePKGNAME}".files
+#echo -n " 4"
+grep -E '^0&mkdir&'    "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&' | tr -s '/'      > "$tmpDIR"/"${exePKGNAME}".dirs
+#echo -n " 5"
+grep -E '^0&rename&'   "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3,4 -d '&' | tr '\n' ' '  > "$tmpDIR"/"${exePKGNAME}".moved.files
+#echo -n " 6"
+
+#find out if any installed file got moved/renamed...
+if [ -s "$tmpDIR"/"${exePKGNAME}".moved.files ];then
+#echo -n " 61"
+sort -u     "$tmpDIR"/"${exePKGNAME}".moved.files       >"$tmpDIR"/"${exePKGNAME}".moved.files.sorted
+mv $VERB -f "$tmpDIR"/"${exePKGNAME}".moved.files.sorted "$tmpDIR"/"${exePKGNAME}".moved.files
+#echo -n " 62"
+fi
+#echo -n " 7"
+if [ -s "$tmpDIR"/"${exePKGNAME}".moved.files ];then
+#echo -n " 71"
+ for oneMOVED in `cat "$tmpDIR"/"${exePKGNAME}".moved.files`
+ do
+  oneORIG=`echo "$oneMOVED" | cut -f 1 -d '&'`
+   oneNEW=`echo "$oneMOVED" | cut -f 2 -d '&'`
+  ${BB}grep -v "$oneORIG" "${relPATH}"/"${exePKGNAME}".files > "$tmpDIR"/"${exePKGNAME}".files
+  echo "$oneNEW" >> "$tmpDIR"/"${exePKGNAME}".files
+  pidof sync >>$OUT || sync
+  mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/"${exePKGNAME}".files
+ done
+#echo -n " 72"
+fi
+#echo -n " 8"
+#cat "${relPATH}"/"${exePKGNAME}".files |sort -u >"$tmpDIR"/"${exePKGNAME}".files
+sort -u  "${relPATH}"/"${exePKGNAME}".files >   "$tmpDIR"/"${exePKGNAME}".files
+mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files  "${relPATH}"/"${exePKGNAME}".files
+#echo -n " 9"
+pidof sync >>$OUT || sync
+
+echo
+echo -en "\\033[1;31mStep 5" #red
+echo -e "\\033[0;39m"
+#fixfilelistfunc() uses this...
+cp $VERB -af "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".files
+#...a post-install script could delete files, which fixfilelistfunc fixes.
+
+#function
+strip_func(){
+#strip the file...
+ [ -L "$*" ] && return 0 #make sure it isn't a symlink
+
+  elf_TYPE=`file "$*" | grep -Ew 'ELF|LSB'`
+  case $elf_TYPE in
+  *ELF*shared*object*) strip --strip-debug "$*";;
+  *ELF*executable*)    strip --strip-unneeded "$*";;
+  esac
+
+ pidof sync >>$OUT || sync
+}
+
+##+++2012-04-30
+#cat "${relPATH}"/"${exePKGNAME}".files | sort -u >"$tmpDIR"/"${exePKGNAME}".files
+sort -u  "${relPATH}"/"${exePKGNAME}".files >  "$tmpDIR"/"${exePKGNAME}".files
+pidof sync >>$OUT || sync
+cp $VERB -f "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/"${exePKGNAME}".files
+##+++2012-04-30
+
+#TODOS :
+# correct permissions for created directories
+# put similar code into functions
+touch $VERB "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".dirs
+#cat "${relPATH}"/"${exePKGNAME}".files |
+while read -r oneFILE
+do
+
+ [ "$oneFILE" ] || continue
+ oneBASE="${oneFILE##*/}"
+ onePATH="${oneFILE%/*}"
+ echo "Processing ${oneFILE}"
+
+ [ "$whatSTRIP" = 'ALL' ] && strip_func "$oneFILE"
+
+ if [ "$nlsSPLIT" = "yes" ];then
+  #find out if this is an international language file...
+  if [ "`echo "$oneFILE" | ${BB}grep -E '/locale/|/nls/|/i18n/'`" ];then
+   mkdir -p "${nlsTARGETDIR}"/"${onePATH}"
+   cp $VERB -af "$oneFILE" "${nlsTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+   [ -e "${nlsTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+   ${BB}md5sum "${nlsTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
+   [ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+   [ -e "$oneFILE" ] && \
+   ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+   continue
+  fi
+ fi
+
+ if [ "$docSPLIT" = "yes" ];then
+  #find out if this is a documentation file...
+  if [ "`echo "$oneFILE" | ${BB}grep -E '/man/|/doc/|/docs/|/info/|/gtk\-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" ];then
+   mkdir -p "${docTARGETDIR}"/"${onePATH}"
+   cp $VERB -af "$oneFILE" "${docTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+   [ -e "${docTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+   ${BB}md5sum "${docTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${docTARGETDIR}"/files.md5
+   #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+   [ -e "$oneFILE" ] && \
+   ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+   continue
+  fi
+ fi
+
+ if [ "$devSPLIT" = "yes" ];then
+  #find out if this is development file...
+  if [ "`echo -n "$oneFILE" | ${BB}grep -E '/include/|/pkgconfig/|/aclocal/|/automake/|/cvs/|/svn/|/git/|/intltool/|/libtool/'`" ];then
+   mkdir -p "${devTARGETDIR}"/"${onePATH}"
+   cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+   [ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+   ${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+   #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+   [ -e "$oneFILE" ] && \
+   ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+   continue
+  fi
+
+  #find *.so symlink files...
+  if [ -h "$oneFILE" ];then #-h tests for symlink
+   if [ "`echo -n "$oneFILE" | ${BB}grep '\.so$'`" ];then
+    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+    #[ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+    #${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+    #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+    #[ -e "$oneFILE" ] && \
+    #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+    continue
+   fi
+  fi
+
+  #find various config files...
+  if [ "`echo "$oneBASE" | ${BB}grep -E '\-config$|config\.sh$|Conf\.sh$'`" ];then
+    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+    [ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+    ${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
+    #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+    [ -e "$oneFILE" ] && \
+    ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+    continue
+  fi
+
+  #all .a and .la files... and any stray .m4 files...
+  if [ "`echo "$oneBASE" | ${BB}grep -E '\.a$|\.la$|\.m4$'`" ];then
+    mkdir -p "${devTARGETDIR}"/"${onePATH}"
+    cp $VERB -af "$oneFILE" "${devTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+    [ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+    ${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+    #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+    [ -e "$oneFILE" ] && \
+    ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+    continue
+  fi
+ fi #dev
+
+ #anything left over goes into the main 'executable' package...
+ if [ "$exeSPLIT" = "yes" ];then
+  mkdir -p "${exeTARGETDIR}"/"${onePATH}"
+  cp $VERB -af "$oneFILE" "${exeTARGETDIR}"/"${onePATH}"/ 2>>$OUT
+  [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
+  [ -e "${exeTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
+  ${BB}md5sum "${exeTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+  [ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
+  [ -e "$oneFILE" ] && \
+  ${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+
+  #fix for empty directories - for example /var/lib/pkgname ...
+  #TODO: set correct permissions ..
+  #cat "$tmpDIR"/"${exePKGNAME}".dirs |
+  while read -r aNEWDIR
+  do
+   [ "$aNEWDIR" ] || continue
+   [ -d "${exeTARGETDIR}${aNEWDIR}" ] || mkdir -p "${exeTARGETDIR}${aNEWDIR}"
+  done <"$tmpDIR"/"${exePKGNAME}".dirs
+ fi
+
+done <"${relPATH}"/"${exePKGNAME}".files
+
+pidof sync >>$OUT || sync
+cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/
+cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files /root/.packages/
+cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files "${exeTARGETDIR}"/
+
+fi ##rescue or default mode
+####========================
+
+DEBUG=1
+_debug Adding config log files to pkg...
+#
+#find -type f -name "*.log" -exec mv -iv --backup=numbered {}  "${exeTARGETDIR}"/`basename {}` \;
+#find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" \) \
+# -exec /bin/cp -ia $VERB --backup=numbered {} "${exeTARGETDIR}"/`basename {}` \;
+#
+
+logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
+while read -r oneFILE
+do
+/bin/cp $VERB $iNTERACTIVE -a --backup=numbered "$oneFILE" "${exeTARGETDIR}"/"${oneFILE##*/}" <$TTY
+done << EoI
+`echo "$logFILES"`
+EoI
+_debug DONE
+DEBUG=
+
+##remove any whiteout files
+                            find "${exeTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
+[ -d "${nlsTARGETDIR}" ] && find "${nlsTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
+[ -d "${docTARGETDIR}" ] && find "${docTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
+[ -d "${devTARGETDIR}" ] && find "${devTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
+
+
+echo
+echo -en "\\033[1;31mFinished" #red maybe_green
+echo -e "\\033[0;39m"
+
+                            [ "`find "$exeTARGETDIR" -type f`" ] && echo "$exeTARGETDIR should now be populated."
+[ -d "$devTARGETDIR" ] && { [ "`find "$devTARGETDIR" -type f`" ] && echo "$devTARGETDIR has also been populated." || rm $VERB -rf "$devTARGETDIR"; }
+[ -d "$docTARGETDIR" ] && { [ "`find "$docTARGETDIR" -type f`" ] && echo "$docTARGETDIR has also been populated." || rm $VERB -rf "$docTARGETDIR"; }
+[ -d "$nlsTARGETDIR" ] && { [ "`find "$nlsTARGETDIR" -type f`" ] && echo "$nlsTARGETDIR has also been populated." || rm $VERB -rf "$nlsTARGETDIR"; }
+
+echo "${relPATH}/${exePKGNAME}.files has a list of the installed files."
+
+echo "You might want to go into it and trim the fat or whatever,"
+echo "but basically it is now ready to be converted to a PET"
+echo "package. Just do this:"
+echo "# cd ${relPATH}"
+echo "# dir2pet $exePKGNAME"
+
+echo
+echo "Press ENTER only to exit this script."
+echo "Or, if you want the convenience, the 'dir2pet' script can be launched"
+echo "right now -- press any character on the keyboard then ENTER."
+echo -n "Type response here: "
+read $timeOUT nextphase
+if [ ! "$nextphase" ];then
+echo -e "\n`pwd`"
+#read k
+exit 0
+fi
+
+cd "${relPATH}" || _exit 5 "Could not change into $relPATH"
+
+if  [ -d "${xnameONLY}-${verONLY}-${cpuTYPE}" ];then
+ dir2pet "${xnameONLY}-${verONLY}-${cpuTYPE}"
+ if test $? = 0; then
+  echo -n "${xnameONLY}-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
+  read domore
+ else
+  exit 4
+ fi
+fi
+
+if  [ -d "${xnameONLY}_DEV-${verONLY}-${cpuTYPE}" ];then
+ dir2pet "${xnameONLY}_DEV-${verONLY}-${cpuTYPE}"
+ if test $? = 0; then
+  echo -n "${xnameONLY}_DEV-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
+  read domore
+ else
+  exit 4
+ fi
+fi
+
+if  [ -d "${xnameONLY}_DOC-${verONLY}-${cpuTYPE}" ];then
+ dir2pet "${xnameONLY}_DOC-${verONLY}-${cpuTYPE}"
+ if test $? = 0; then
+  echo -n "${xnameONLY}_DOC-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
+  read domore
+ else
+  exit 4
+ fi
+fi
+
+if  [ -d "${xnameONLY}_NLS-${verONLY}-${cpuTYPE}" ];then
+ dir2pet "${xnameONLY}_NLS-${verONLY}-${cpuTYPE}"
+ if test $? = 0; then
+  echo -n "${xnameONLY}_NLS-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
+  read domore
+ else
+  exit 4
+ fi
+fi
+
+echo "All done."
+
+###END###
