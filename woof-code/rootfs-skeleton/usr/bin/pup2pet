@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 #Convert a .pup file to .pet...
 # Passed param is file to be converted.
 # This works for md5sum returning 8-bit characters!
@@ -12,7 +12,7 @@
 
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST="FILENAME.pup"
 ADD_PARAMETERS="/path/to/filename"
@@ -36,77 +36,84 @@ echo "This conversion script is no longer supported either."
 #exit 1
 ##########
 
-sync
-[ ! "$1" ] && { echo "Need filename.pup"; exit 1; }
-APUP="$1"
-MYPID=${$}
-CURRDIR="`pwd`"
+_sync
+[ "$*" ] || { echo "Need filename.pup"; exit 1; }
+aPUP="$*"
+myPID=${$}
+curDIR="`pwd`"
 
 #only accept .pup files...
-[ "`echo -n "$APUP" | grep '\\.pup$'`" = "" ] && { echo "Not a .pup file."; exit 1; }
-[ ! -f "$APUP" ] && { echo "Not a regular file."; exit 1; }
+case "$aPUP" in *.pup) :;;
+* { echo "Not a .pup file."; exit 1; } ;;
+esac
+[ -f "$aPUP" ] || { echo "Not a regular file."; exit 1; }
 
-chmod +w "$APUP" #make it writable.
+chmod +w "$aPUP" #make it writable.
 
-#split APUP path/filename into components...
-BASEPKG="`basename $APUP .pup`"
-DIRPKG="`dirname $APUP`"
-[ "$DIRPKG" = "/" ] && DIRPKG=""
+#split aPUP path/filename into components...
+pkgBAS="`basename "$aPUP" .pup`"
+pkgDIR="`dirname  "$aPUP"`"
+[ "$pkgDIR" = "/" ] && pkgDIR=""
 
-[ -e "$DIRPKG/$BASEPKG" ] && { echo "$DIRPKG/$BASEPKG already exists. Please delete it, and run again."; exit 1; }
+[ -e "$pkgDIR/$pkgBAS" ] && { echo "$pkgDIR/$pkgBAS already exists. Please delete it, and run again."; exit 1; }
 
-. /etc/xdg/menus/hierarchy #has PUPHIERARCHY variable.
+[ -f /etc/xdg/menus/hierarchy ] && . /etc/xdg/menus/hierarchy #has PUPHIERARCHY variable.
 
+__old_get_desktopfile__(){
 #find out what are official Unleashed packages...
 #cat /root/.packages/
 
 #want to find out if dotpup has a .desktop file inside...
 #awkward, as .tar.bz2 files inside .zip file... have to unzip it...
-#mkdir /tmp/tmp${MYPID}
-#cp -a "$APUP" /tmp/tmp${MYPID}/
-#unzip /tmp/tmp${MYPID}/${BASEPKG}.pup
-#DESKTOPFILE="`find /tmp/tmp${MYPID} -type f -name \*.desktop`"
-#if [ "$DESKTOPFILE" = "" ];then
-# if [ -f FILESYSTEM.tbz ];then
-#  DESKTOPFILE="`tar --list -f FILESYSTEM.tbz | grep '\.desktop$'`"
-# fi
-#fi
-#if [ "$DESKTOPFILE" = "" ];then
-# #see if can find icon,
-#fi
+mkdir /tmp/tmp${myPID}
+cp -a "$aPUP" /tmp/tmp${myPID}/
+unzip /tmp/tmp${myPID}/${pkgBAS}.pup
+DESKTOPFILE="`find /tmp/tmp${myPID} -type f -name \*.desktop`"
+if [ "$DESKTOPFILE" = "" ];then
+ if [ -f FILESYSTEM.tbz ];then
+  DESKTOPFILE="`tar --list -f FILESYSTEM.tbz | grep '\.desktop$'`"
+ fi
+fi
+if [ "$DESKTOPFILE" = "" ];then
+ #see if can find icon,
+ :
+fi
+}
 
 #if dotpup already has .desktop file, use it ...reluctantly, as looking at some,
 #they are wrong: menu icon not 16x16, wrong executable
 DESKTOPFILE=""
-[ ! "`unzip -l "$APUP" | grep 'FILESYSTEM\.tbz'`" = "" ] && DESKTOPFILE="maybe"
-[ ! "`unzip -l "$APUP" | grep '\.desktop$'`" = "" ] && DESKTOPFILE="yes"
+[ "`unzip -l "$aPUP" | grep 'FILESYSTEM\.tbz'`" ] && DESKTOPFILE="maybe"
+[ "`unzip -l "$aPUP" | grep '\.desktop$'`" ]      && DESKTOPFILE="yes"
 
 echo
-echo "This script will convert ${BASEPKG}.pup into ${BASEPKG}.pet"
+echo "This script will convert ${pkgBAS}.pup into ${pkgBAS}.pet"
 echo
-echo "If you know that the ${BASEPKG} application does not require a menu"
+echo "If you know that the ${pkgBAS} application does not require a menu"
 echo "entry, please type 'no' (without the quotes) now. If a menu entry is"
 echo "required, just press ENTER key only."
+
 echo -n "Type 'no' or just ENTER key: "
 read NOMENU
-[ ! "$NOMENU" = "" ] && DESKTOPFILE="ignore"
+[ "$NOMENU" ] && DESKTOPFILE="ignore"
 
 if [ "$DESKTOPFILE" = "maybe" ];then
- echo
- echo "It seems that ${BASEPKG}.pup does probably contain a .desktop"
- echo "file -- this file has the information needed for creating a"
- echo "menu entry when the package is installed. This 'pup2pet' script"
- echo "does not uncompress the ${BASEPKG}.pup file so is unable to"
- echo "verify 100% that the '.desktop' file exists."
- echo "If you are willing to open up the ${BASEPKG}.pup file yourself,"
- echo "you may confirm this and if the file does not exist, then type the"
- echo "letters 'no' followed by ENTER here, otherwise just press ENTER key."
- echo "NOTE: the .desktop file in some DotPups has incorrect entries, so"
- echo "      you can choose 'no' here even if there is one, to create a new"
- echo "      .desktop file, but you must open up the DotPup to determine"
- echo "      some relevent parameters (menu icon and executable) -- this"
- echo "      script will provide some guidance in doing this."
- echo
+cat >&1 <<EoI
+
+It seems that ${pkgBAS}.pup does probably contain a .desktop
+file -- this file has the information needed for creating a
+menu entry when the package is installed. This 'pup2pet' script
+does not uncompress the ${pkgBAS}.pup file so is unable to
+verify 100% that the '.desktop' file exists.
+If you are willing to open up the ${pkgBAS}.pup file yourself,
+you may confirm this and if the file does not exist, then type the
+letters 'no' followed by ENTER here, otherwise just press ENTER key.
+NOTE: the .desktop file in some DotPups has incorrect entries, so
+      you can choose 'no' here even if there is one, to create a new
+      .desktop file, but you must open up the DotPup to determine
+      some relevent parameters (menu icon and executable) -- this
+      script will provide some guidance in doing this.
+EoI
  echo -n "Type 'no' (no .desktop) or just ENTER: "
  read NODESKTOPFILE
  [ "$NODESKTOPFILE" = "no" ] && DESKTOPFILE=""
@@ -116,82 +123,93 @@ PUPAPPLICATION=""
 PUPCATEGORY=""
 PUPEXECUTABLE=""
 PUPICON16=""
-PUPAPPLICATION=""
+
 if [ "$DESKTOPFILE" = "" ];then
- echo
- echo "The .pup package may (or may not) have installation scripts"
- echo "that register the installed files with the PETget package"
- echo "manager and create an entry in the window manager menus."
- echo "However, the information may not be in a format that is"
- echo "compatible with PETget. Therefore, please answer the following"
- echo "questions, that will override whatever the .pup install"
- echo "script wants to create. You will need to know some basic"
- echo "details about the DotPup package if it requires a menu entry"
- echo "such as /path/filenames of the icon and the executable."
- echo "if you are converting a DotPup and you are not familiar"
- echo "with its internal details, if you click on it and install it"
- echo "then you should be able to see what gets installed -- ROX-Filer"
- echo "has a nice feature, highlights recently-changed/created files"
- echo "in bold letters."
- echo
+cat >&1 <<EoI
+
+The .pup package may (or may not) have installation scripts
+that register the installed files with the PETget package
+manager and create an entry in the window manager menus.
+However, the information may not be in a format that is
+compatible with PETget. Therefore, please answer the following
+questions, that will override whatever the .pup install
+script wants to create. You will need to know some basic
+details about the DotPup package if it requires a menu entry
+such as /path/filenames of the icon and the executable.
+if you are converting a DotPup and you are not familiar
+with its internal details, if you click on it and install it
+then you should be able to see what gets installed -- ROX-Filer
+has a nice feature, highlights recently-changed/created files
+in bold letters.
+
+EoI
  echo -n "Press ENTER key to continue: "
  read yeahdoit
 
- echo
- echo "EXTRA NOTES1: You can expand a DotPup file and examine its"
- echo "contents. Create a directory, copy the .pup into it, open a"
- echo "terminal, type 'unzip filename.pup'. Internally it may contain"
- echo ".tbz files which you can expand: 'tar -jxf filename.tbz'"
- echo "EXTRA NOTES2: If you make a mistake while running this script,"
- echo "you could run it again, or alternatively you can open up the"
- echo "created PET package and edit the settings then close it again."
- echo "The steps are:"
- echo "# pet2tgz pkgname.pet      (converts .pet to a .tar.gz)"
- echo "# tar -zxf pkgname.tar.gz  (expands the tarball)"
- echo " ...inside you will find a text-files, edit them."
- echo "# tar -c -f pkgname.tar pkgname/   (create a tar file)"
- echo "# gzip pkgname.tar         (create .tar.gz tarball)"
- echo "# tgz2pet pkgname.tar.gz   (convert .tar.gz to .pet)"
- echo
+cat >&1 <<EoI
+
+EXTRA NOTES1: You can expand a DotPup file and examine its
+contents. Create a directory, copy the .pup into it, open a
+terminal, type 'unzip filename.pup'. Internally it may contain
+.tbz files which you can expand: 'tar -jxf filename.tbz'
+EXTRA NOTES2: If you make a mistake while running this script,
+you could run it again, or alternatively you can open up the
+created PET package and edit the settings then close it again.
+The steps are:
+# pet2tgz pkgname.pet      (converts .pet to a .tar.gz)
+# tar -zxf pkgname.tar.gz  (expands the tarball)
+ ...inside you will find a few text-files, edit them.
+# tar -c -f pkgname.tar pkgname/   (create a tar file)
+# gzip pkgname.tar         (create .tar.gz tarball)
+# tgz2pet pkgname.tar.gz   (convert .tar.gz to .pet)
+
+EoI
  echo -n "Press ENTER key to continue: "
  read yeahdoit
 
- echo
- echo "Please type the category in which you want the application"
- echo "to create a window manager menu entry. The official Puppy"
- echo "has a menu hierarchy as follows:"
- echo "('X-' categories are unofficial, Puppy-specific)"
- echo "$PUPHIERARCHY"
- echo
+cat >&1 <<EoI
+
+Please type the category in which you want the application
+to create a window manager menu entry. The official Puppy
+has a menu hierarchy as follows:
+('X-' categories are unofficial, Puppy-specific)
+$PUPHIERARCHY
+
+EoI
  echo -n "Type one word from the CATEGORIES column: "
  read PUPCATEGORY
 
- echo
- echo "Please enter the name of the executable. If it is in the"
- echo "executable-search-path, namely /bin, /sbin, /usr/bin,"
- echo "/usr/sbin, /root/my-applications/bin or /usr/local/bin,"
- echo "then you only need to enter the name of the executable"
- echo "not the path. Example: mtpaint"
- echo "Many DotPups do install an executable into one of these"
- echo "directories, usually /usr/local/bin. Example: Gfnrename-0.4"
- echo "installs an executable at /usr/local/Gfnrename-0.4/gfnrename"
- echo "but also at /usr/local/bin/gfnrename and it is intended that"
- echo "the latter be used to run the program."
- echo
+cat >&1 <<EoI
+
+Please enter the name of the executable. If it is in the
+executable-search-path, namely /bin, /sbin, /usr/bin,
+/usr/sbin, /root/my-applications/bin or /usr/local/bin,
+then you only need to enter the name of the executable
+not the path. Example: mtpaint
+Many DotPups do install an executable into one of these
+directories, usually /usr/local/bin. Example: Gfnrename-0.4
+installs an executable at /usr/local/Gfnrename-0.4/gfnrename
+but also at /usr/local/bin/gfnrename and it is intended that
+the latter be used to run the program.
+
+EoI
  echo -n "Enter [path]executable: "
  read PUPEXECUTABLE
  echo
 
- echo "Please enter the name of the icon that is to be used in"
- echo "the window manager menu entry. This must be a 16x16 pixel"
- echo ".xpm file (.png okay but not suitable all window managers)."
- echo "If this icon is located at /usr/local/lib/X11/mini-icons"
- echo "then there is no need to specify the path."
- echo "If the icon is located elsewhere then the full path must"
- echo "be provided. An example: the DotPup Gfnrename-0.4 installs"
- echo "a 16x16 icon at /usr/local/Gfnrename-0.4/icon.xpm"
- echo "IT MUST BE A 16x16 PIXEL ICON, NO BIGGER!"
- echo
+cat >&1 <<EoI
+Please enter the name of the icon that is to be used in"
+the window manager menu entry. This must be a 16x16 pixel"
+.xpm file (.png okay but not suitable all window managers)."
+If this icon is located at /usr/local/lib/X11/mini-icons"
+then there is no need to specify the path."
+If the icon is located elsewhere then the full path must"
+be provided. An example: the DotPup Gfnrename-0.4 installs"
+a 16x16 icon at /usr/local/Gfnrename-0.4/icon.xpm"
+IT MUST BE A 16x16 PIXEL ICON, NO BIGGER!"
+
+EoI
+
  echo -n "Please type [path]icon: "
  read PUPICON16
 
@@ -204,112 +222,150 @@ if [ "$DESKTOPFILE" = "" ];then
  read PUPAPPLICATION
 fi
 
-echo
-echo "Please enter a description of 1-3 words. This must be extremely"
-echo "short, as it will appear in the window manager menu entry"
-echo "(if there is one) immediately after the application name."
-echo "This may also be used for other purposes, such as in the"
-echo "/root/.packages/alienpackages.txt file (an entry in this"
-echo "file is used by PETget for package management purposes)."
-echo "Example for Abiword: wordprocessor"
-echo
+cat >&1 <<EoI
+
+Please enter a description of 1-3 words. This must be extremely
+short, as it will appear in the window manager menu entry
+(if there is one) immediately after the application name.
+This may also be used for other purposes, such as in the
+/root/.packages/alienpackages.txt file (an entry in this
+file is used by PETget for package management purposes).
+Example for Abiword: wordprocessor
+
+EoI
 echo -n "Type the VERY SHORT description (without quotes): "
 read PUPMENUDESCR
 
 echo
 echo "List of official packages built-in to Puppy:"
-cat /root/.packages/packages.txt | grep '" on "' | cut -f 2 -d '"' | cut -f 1 -d '-' | tr '\n' ' ' #' Geany fix.
+cat /root/.packages/packages.txt | grep '" on "' | cut -f 2 -d '"' | cut -f 1 -d '-' | tr '\n' ' '
 echo
+
 echo
 echo "Listed above are the packages built-in to Puppy. These are all"
-echo "in the pup_xxx.sfs file (on the CD if you booted from CD)."
+echo "in the pup-xyz.sfs file (on the CD if you booted from CD)."
 echo -n "Press ENTER key to continue: "
 read yabbado
+
 echo
 echo "Here are the extra official packages that are available:"
-cat /root/.packages/packages.txt | grep '" off "' | cut -f 2 -d '"' | cut -f 1 -d '-' | tr '\n' ' ' #' Geany fix.
+cat /root/.packages/packages.txt | grep '" off "' | cut -f 2 -d '"' | cut -f 1 -d '-' | tr '\n' ' '
 echo
+
 echo
-echo "The PET packages listed above are from the Unleashed suite that were"
-echo "not chosen to be built into the pup_xxx.sfs file. However, they may"
-echo "be individually installed at any time."
+echo "The PET packages listed above are from the Unleashed suite that were
+not chosen to be built into the pup_xxx.sfs file. However, they may
+be individually installed at any time."
+
 echo -n "Press ENTER key to continue: "
 read yabbado
-echo
-echo "Please enter a dependency-list for the PET package that is now being"
-echo "created. Packages already built-in to Puppy do not need to be"
-echo "explicitly named as dependencies (except a cut-down barebones version"
-echo "of Puppy may not have all of these built in, so you may have to"
-echo "think of the worst-case situation)."
-echo "How to enter this dependency-list is shown by an example: the package"
-echo "'pupdvdtool-0.5b' has the following dependency list:"
-echo "+vamps,+vobcopy,+ffmpeg,+dvdauthor,+gtkdialog"
-echo "Each package name is preceded by a '+' and delimited by a ','."
-echo "NOTE1: that 'gtkdialog' requires the GTK libraries, but it is not"
-echo "       necessary to specify sub-dependencies, as if 'gtkdialog'"
-echo "       needs to be installed it has its own dependency list."
-echo "NOTE2: You can lookup the dependency-list of each package in"
-echo "       /root/.packages/packages.txt"
-echo "NOTE3: it is not required to specify package version numbers,"
-echo "       unless the package requires a non-official dependency."
-echo "       (any versioned dependency automatically means it is unofficial)"
-echo "NOTE4: If you don't know what to specify, just press ENTER key"
-echo "       (PETget will still do some basic dependency checking)."
-echo
+cat >&1 <<EoI
+
+Please enter a dependency-list for the PET package that is now being"
+created. Packages already built-in to Puppy do not need to be"
+explicitly named as dependencies (except a cut-down barebones version"
+of Puppy may not have all of these built in, so you may have to"
+think of the worst-case situation)."
+How to enter this dependency-list is shown by an example: the package"
+'pupdvdtool-0.5b' has the following dependency list:"
++vamps,+vobcopy,+ffmpeg,+dvdauthor,+gtkdialog"
+Each package name is preceded by a '+' and delimited by a ','."
+NOTE1: that 'gtkdialog' requires the GTK libraries, but it is not"
+       necessary to specify sub-dependencies, as if 'gtkdialog'"
+       needs to be installed it has its own dependency list."
+NOTE2: You can lookup the dependency-list of each package in"
+       /root/.packages/packages.txt"
+NOTE3: it is not required to specify package version numbers,"
+       unless the package requires a non-official dependency."
+       (any versioned dependency automatically means it is unofficial)"
+NOTE4: If you don't know what to specify, just press ENTER key"
+       (PETget will still do some basic dependency checking)."
+
+EoI
 echo -n "Type dependency-list: "
 read PUPOFFICIALDEPS
 
-echo
-echo "A PET package has the option of not registering with PETget, the"
-echo "package manager, when it installs. This is useful for bugfix and"
-echo "patch PETs. The normal response here is just press ENTER key, as"
-echo "you would normally want to register with PETget so that the package"
-echo "can be uninstalled."
-echo "Do you want the PET package to register with PETget?"
+cat >&1 <<EoI
+
+A PET package has the option of not registering with PETget, the
+package manager, when it installs. This is useful for bugfix and
+patch PETs. The normal response here is just press ENTER key, as
+you would normally want to register with PETget so that the package
+can be uninstalled.
+Do you want the PET package to register with PETget?
+EoI
+
 echo -n "Just hit ENTER for 'yes', otherwise type 'no': "
 read PETREGISTER
 [ "$PETREGISTER" = "" ] && PETREGISTER="yes"
 
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
-NAMEONLY="`echo -n "$BASEPKG" | sed -e 's/\-[0-9].*$//g'`"
+nameONLY="`echo "$pkgBAS" | sed -e 's/\-[0-9].*$//g'`"
 #...if that fails, do it the old way...
-[ "$NAMEONLY" = "$BASEPKG" ] && NAMEONLY="`echo "$BASEPKG" | cut -f 1 -d "-"`"
+[ "$nameONLY" = "$pkgBAS" ] && nameONLY="`echo "$pkgBAS" | cut -f 1 -d "-"`"
 
 #embed .pup inside a directory and create tarball...
-rm -f $DIRPKG/${BASEPKG}.tar
-rm -f $DIRPKG/${BASEPKG}.tar.gz
-rm -f $DIRPKG/${BASEPKG}.pet
-mkdir $DIRPKG/$BASEPKG
+rm $VERB -f    "$pkgDIR"/"${pkgBAS}".tar
+rm $VERB -f    "$pkgDIR"/"${pkgBAS}".tar.gz
+rm $VERB -f    "$pkgDIR"/"${pkgBAS}".pet
+mkdir $VERB -p "$pkgDIR"/"${pkgBAS}"
+
 if [ "$DESKTOPFILE" = "" ];then
- echo '[Desktop Entry]' > $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo 'Encoding=UTF-8' >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Name=${PUPAPPLICATION} ${PUPMENUDESCR}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Icon=${PUPICON16}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Comment=${PUPAPPLICATION} ${PUPMENUDESCR}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Exec=${PUPEXECUTABLE}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Terminal=false" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Type=Application" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "Categories=${PUPCATEGORY}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
- echo "GenericName=${PUPAPPLICATION} ${PUPMENUDESCR}" >> $DIRPKG/$BASEPKG/${NAMEONLY}.desktop
+(
+ echo '[Desktop Entry]'
+ echo 'Encoding=UTF-8'
+ echo "Name=${PUPAPPLICATION} ${PUPMENUDESCR}"
+ echo "Icon=${PUPICON16}"
+ echo "Comment=${PUPAPPLICATION} ${PUPMENUDESCR}"
+ echo "Exec=${PUPEXECUTABLE}"
+ echo "Terminal=false"
+ echo "Type=Application"
+ echo "Categories=${PUPCATEGORY}"
+ echo "GenericName=${PUPAPPLICATION} ${PUPMENUDESCR}"
+) > "$pkgDIR"/"$pkgBAS"/"${nameONLY}".desktop
 fi
-#echo "PUPAPPLICATION='${PUPAPPLICATION}'" > $DIRPKG/$BASEPKG/${BASEPKG}.pet.specs
-echo "PETMENUDESCR='${PUPMENUDESCR}'" > $DIRPKG/$BASEPKG/${BASEPKG}.pet.specs
-echo "PETOFFICIALDEPS='${PUPOFFICIALDEPS}'" >> $DIRPKG/$BASEPKG/${BASEPKG}.pet.specs
-echo "PETREGISTER='${PETREGISTER}'" >> $DIRPKG/$BASEPKG/${BASEPKG}.pet.specs
-mv $DIRPKG/${BASEPKG}.pup $DIRPKG/$BASEPKG/
-tar --remove-files -c -f $DIRPKG/${BASEPKG}.tar $DIRPKG/$BASEPKG/
-gzip $DIRPKG/${BASEPKG}.tar
-rmdir $DIRPKG/$BASEPKG
-TARBALL="$DIRPKG/${BASEPKG}.tar.gz"
 
-FULLSIZE="`stat -c %s ${TARBALL}`"
-MD5SUM="`md5sum $TARBALL | cut -f 1 -d ' '`"
-echo -n "$MD5SUM" >> $TARBALL
-sync
-mv -f $TARBALL $DIRPKG/${BASEPKG}.pet
-sync
+(
+#echo "PUPAPPLICATION='${PUPAPPLICATION}'"
+echo "PETMENUDESCR='${PUPMENUDESCR}'"
+echo "PETOFFICIALDEPS='${PUPOFFICIALDEPS}'"
+echo "PETREGISTER='${PETREGISTER}'"
+) > "$pkgDIR"/"$pkgBAS"/"${pkgBAS}".pet.specs
 
-echo "${BASEPKG}.pet has been created. Finished."
+STATUS=0
+mv $VERB "$pkgDIR"/"${pkgBAS}".pup "$pkgDIR"/"$pkgBAS"/
+STATUS=$((STATUS+$?))
 
+tar --remove-files -c -f "$pkgDIR"/"${pkgBAS}".tar "$pkgDIR"/"$pkgBAS"/
+STATUS=$((STATUS+$?))
+
+[ -e "$pkgDIR"/"${pkgBAS}".tar ] || _exit 10 "Could not create $pkgDIR/${pkgBAS}.tar ."
+gzip "$pkgDIR"/"${pkgBAS}".tar
+STATUS=$((STATUS+$?))
+
+rmdir "$pkgDIR"/"$pkgBAS"
+TARBALL="$pkgDIR/${pkgBAS}.tar.gz"
+
+[ -e "$TARBALL}" ] || _exit 11 "Could not create $TARBALL ."
+FULLSIZE="`stat -c %s "${TARBALL}"`"
+STATUS=$((STATUS+$?))
+
+MD5SUM="`md5sum "$TARBALL" | cut -f 1 -d ' '`"
+STATUS=$((STATUS+$?))
+
+echo -n "$MD5SUM" >> "$TARBALL"
+STATUS=$((STATUS+$?))
+
+_sync
+mv $VERB -f "$TARBALL" "$pkgDIR"/"${pkgBAS}".pet
+STATUS=$((STATUS+$?))
+
+_sync
+
+if [ "$STATUS" = 0 ]; then
+echo "${pkgBAS}.pet has been created. Finished."
+else
+echo "Something went wrong..."
+fi
 ###END###

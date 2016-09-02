@@ -9,13 +9,13 @@ MY_SELF="/usr/bin/pet2tgz"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -161,7 +161,7 @@ _trap
 
 ########################################################################
 
-usage (){
+_usage (){
     echo "
 $0 [-g|-b|-l|-h|-s|-S|-X|-x] TARFILE.Cpet
     -g) gzip (default) '`which gzip`'
@@ -184,12 +184,12 @@ $0 [-g|-b|-l|-h|-s|-S|-X|-x] TARFILE.Cpet
     exit $1
 }
 
-OUTPUT=/dev/null;ERR=/dev/null
+OUT=/dev/null;ERR=/dev/null
 while getopts gbhlLsSXxZzdv opt;do
 case $opt in
 g) COMPRESS_BIN='gzip'; OPT='-g';EXT='gz'; PET_EXT='pet';;
 b) COMPRESS_BIN='bzip2';OPT='-b';EXT='bz2';PET_EXT='b2pet';;
-h) usage 0;;
+h) _usage 0;;
 l) COMPRESS_BIN='lzop';OPT='-l';EXT='lzo'; PET_EXT='lopet';;
 L) COMPRESS_BIN='lzma';OPT='-L';EXT='lzma';PET_EXT='lapet';;
 s) COMPRESS_BIN='mksquashfs3';PET_EXT='s3pet';;
@@ -203,16 +203,17 @@ COMPRESS_BIN='tar'
 [ "`$COMPRESS_BIN --help |grep -w '\-Z'`" ] || COMPRESS_BIN='';fi
 ;;
 d) set -x;;
-v) VERBOSE='-v';LONG_VERBOSE='--verbose';OUTPUT=/dev/stdout;ERR=/dev/stderr;;
-*) usage 1;;
+v) VERBOSE='-v';L_VERBOSE='--verbose';OUT=/dev/stdout;ERR=/dev/stderr;;
+*) _usage 1;;
 esac;done
 
 #[ "$2" ] && chmod +w "$2" || chmod +w "$1"
 while [ "$2" ];do shift;done #leave only the last argument
-echo "$1"
-[ -e "$1" ] || { echo "'$1' seems not to exist";exit 1; }
-[ -f "$1" ] || { echo "'$1' not a regular file ?";exit 1; }
+_debug "$1"
+[ -e "$1" ] || { echo "'$1' seems not to exist";   exit 1; }
+[ -f "$1" ] || { echo "'$1' not a regular file ?"; exit 1; }
 [ -s "$1" ] || { echo "'$1' appears to be empty ?";exit 1; }
+
 PET_EXT_AUTO="${1##*\.}"
 case $PET_EXT_AUTO in
 pet)  COMPRESS_BIN='gzip';    OPT='-g';EXT='gz';  PET_EXT='pet';;
@@ -220,51 +221,83 @@ xzpet)COMPRESS_BIN='xz';      OPT='-x';EXT='xz';  PET_EXT='xzpet';;
 lapet)COMPRESS_BIN='lzma';    OPT='-L';EXT='lzma';PET_EXT='lapet';;
 lopet)COMPRESS_BIN='lzop';    OPT='-l';EXT='lzo'; PET_EXT='lopet';;
 b2pet)COMPRESS_BIN='bzip2';   OPT='-b';EXT='bz2'; PET_EXT='b2pet';;
+
 Zpet) COMPRESS_BIN='compress';OPT='-z';EXT='.Z';  PET_EXT='.Zpet'
-if [ ! "`which $COMPRESS_BIN`" ];then
-COMPRESS_BIN='tar'
-["`$COMPRESS_BIN --help |grep -w '\-Z'`" ] || COMPRESS_BIN='';fi
+      if [ ! "`which $COMPRESS_BIN`" ];then
+      COMPRESS_BIN='tar'
+      ["`$COMPRESS_BIN --help |grep -w '\-Z'`" ] || COMPRESS_BIN='';
+      fi
 ;;
 esac
 
-[ ! "$COMPRESS_BIN" ] && { COMPRESS_BIN='gzip';OPT='-g';EXT='gz';PET_EXT='pet'; }
+[ "$COMPRESS_BIN" ]         || { COMPRESS_BIN='gzip';OPT='-g';EXT='gz';PET_EXT='pet'; }
 [ "`which $COMPRESS_BIN`" ] || { echo "'$COMPRESS_BIN' apparenty not installed (in the PATH)";exit 1; }
 
+STATUS=0
 chmod +w "$1" #make it writable.
+STATUS=$((STATUS+$?))
 
 FULLSIZE=`stat -c %s "${1}"`
-echo $FULLSIZE
+STATUS=$((STATUS+$?))
+
+_debug $FULLSIZE
 ORIGSIZE=`expr $FULLSIZE - 32`
-echo $ORIGSIZE
+STATUS=$((STATUS+$?))
+
+_debug $ORIGSIZE
+
 ##doing it this way have to remove dd stdout msg (preceded by a '+')...
 ##um, cut and sed are really intended for working on text files, may have to
 ##do this differently (in case have a corrupted file with non-char bytes on end)...
 #MD5SUM="`dd if="${1}" bs=1 skip=${ORIGSIZE} 2>/dev/null | cut -f 1 -d '+' | sed -e 's/[^0-9a-zA-Z]/0/g'`" #md5sum to stdout.
 #do it this indirect way instead...
-dd if="${1}" of=/tmp/petmd5sum bs=1 skip=${ORIGSIZE} 2>$ERR
-sync
+
+dd if="${1}" of=/tmp/petmd5sum bs=1 skip=${ORIGSIZE} 2>>$ERR
+STATUS=$((STATUS+$?))
+_sync
+
 MD5SUM="`md5sum /tmp/petmd5sum | cut -f 1 -d ' '`"
-echo "MD5SUM='$MD5SUM'"
+STATUS=$((STATUS+$?))
+_debug "MD5SUM='$MD5SUM'"
+
 #truncate is a little app I wrote. format: truncate newsize filename
 truncate $ORIGSIZE "$1"
-[ $? -ne 0 ] && { echo "ERR $?";exit 1; }
-sync
+STATUS=$((STATUS+$?))
+[ $STATUS = 0 ] || { echo "ERR $STATUS";exit 1; }
+_sync
+
 #NEWMD5SUM="`md5sum "$1" | cut -f 1 -d ' '`"
 md5sum "$1" | cut -f 1 -d ' ' > /tmp/newpetmd5sum
-sync
+STATUS=$((STATUS+$?))
+_sync
+
 #get rid of trailing newline char...
 truncate 32 /tmp/newpetmd5sum
+STATUS=$((STATUS+$?))
+
 NEWMD5SUM="`md5sum /tmp/newpetmd5sum | cut -f 1 -d ' '`"
-echo $NEWMD5SUM=NEWMD5SUM
-rm -f /tmp/petmd5sum
-rm -f /tmp/newpetmd5sum
+STATUS=$((STATUS+$?))
+_debug NEWMD5SUM=$NEWMD5SUM
+
+rm $VERB -f /tmp/petmd5sum
+rm $VERB -f /tmp/newpetmd5sum
+
 #NEWNAME="`echo -n "${1}" | sed -e 's/\\.pet$/\\.tar\\.gz/g'`"
-echo "PET_EXT='$PET_EXT' EXT='$EXT'"
-NEWNAME="`echo -n "${1}" | sed -e "s|\.${PET_EXT}|\.tar\.${EXT}|"`"
-echo "NEWNAME='$NEWNAME'"
-mv -f "$1" "$NEWNAME"
+_debug "PET_EXT='$PET_EXT' EXT='$EXT'"
+
+NEWNAME=`echo -n "${1}" | sed -e "s|\.${PET_EXT}|\.tar\.${EXT}|"`
+_debug "NEWNAME='$NEWNAME'"
+
+if [ "$DEBUG" ]; then
+ cp $VERB -f "$1" "$NEWNAME"
+else
+ mv $VERB -f "$1" "$NEWNAME"
+fi
+STATUS=$((STATUS+$?))
+
 [ "$MD5SUM" = "$NEWMD5SUM" ] || { echo 'md5sum not equal';exit 1; }
-exit 0
+
+exit $STATUS
 
 # Very End of this file 'usr/bin/pet2tgz' #
 ###END###
