@@ -6,6 +6,7 @@
 _VERSION_=1.98   #2016-09-01 general overhaul
 _VERSION_=1.99   #2016-09-02 general overhaul
 _VERSION_=1.99.1 #2016-09-02 bugfixe
+_VERSION_=1.99.2 #2016-09-04 speedup moved.files processing, cleanup
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="/usr/bin/new2dir"
@@ -109,8 +110,10 @@ if [ ! "$*" ];then
  exit 140
 fi
 
-
-MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z]\+'`
+INFO=1
+DEBUG=1
+DEBUGX=1
+MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
 _info "MAKE='$MAKE'"
 [ "$MAKE" ] || MAKE='make install'
 _info "MAKE='$MAKE'"
@@ -122,7 +125,7 @@ while getopts VcdfhiI:kKlmM:A:C:rvu opt;do
 case $opt in
 c) cleanUP='y';;
 d) set -x; me_DEBUG=1;;
-f) timeOUT='-t 1';forceIT=1;;
+f) timeOUT='-t 1';forceIT=$((forceIT+1));;
 h) _usage 0;;
 i) [ -c "$TTY" ] || _exit 2 "$opt needs controlling terminal"; iNTERACTIVE='-i';lINTERACTIVE='--interactive';;
 I) INSTALL_WATCH_EXE="$OPTARG";;
@@ -144,7 +147,7 @@ V) echo -e "\n$0 : Version '$Version'\n";exit 0;;
 esac;done
 
 _debug "\$@='$@'"
-MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z]\+'`
+MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
 [ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
 [ "$MAKE" ] || MAKE='NONE' ##+++2012-04-03
 [ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
@@ -237,8 +240,8 @@ _pkg_version_check
 
 fixfilelistfunc() {
  #$1 is file to remove, as doesn't exist.
- echo " ...${1} has been deleted."
- ${BB}grep -v "$1" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
+ echo " ...${*} has been deleted."
+ ${BB}grep -v "$*" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
  ${BB}mv $VERB -f  "$tmpDIR"/"${exePKGNAME}".files.tmp "$tmpDIR"/"${exePKGNAME}".files
 }
 
@@ -368,29 +371,39 @@ echo "Okay, using $cpuTYPE"
 #would like to create different targets for exe, doc, dev, nls components...
 exeTARGETDIR="${pkgDIR}-${cpuTYPE}" #relative path.
 exePKGNAME=`${BB}basename "$exeTARGETDIR"`
-relPATH=`${BB}dirname "$exeTARGETDIR"`
+   relPATH=`${BB}dirname  "$exeTARGETDIR"`
+
+_debug "exeTARGETDIR='$exeTARGETDIR'"
+_debug "exePKGNAME='$exePKGNAME'"
+_debug "relPATH='$relPATH'"
+
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
-xnameONLY=`echo -n "$xpkgDIR" |${BB}sed -e 's/[\-\_][0-9].*$//g'`
+xnameONLY=`echo "$xpkgDIR" |${BB}sed -e 's/[\-\_][0-9].*$//g'`
 _debugx "xnameONLY='$xnameONLY'"
 _debugx "  xpkgDIR='$xpkgDIR'"
+
 #...if that fails, do it the old way...
 #[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | cut -f 1 -d "-"`
-
 #[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[\-\_].*,,'`
 #[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[-_].*,,'`
 #[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | rev |cut -f 2- -d '[-_]' |rev`
+
 [ "$xnameONLY" = "$xpkgDIR" ] && {
     xnameONLY=`echo "$xpkgDIR" |${BB}rev`;
     xnameONLY="${xnameONLY#*[-_]}";
-    xnameONLY=`echo "$xnameONLY" |${BB}rev`; }
+    xnameONLY=`echo "$xnameONLY" |${BB}rev`;
+}
+
 _debugx "xnameONLY='$xnameONLY'"
 nameONLY="${relPATH}/${xnameONLY}"
 _debugx "nameONLY='$nameONLY'"
+
 #abasename=`basename ${pkgDIR}`
-apattern="s/${xnameONLY}[\\-\\_]//g"
-_debugx "apattern='$apattern'"
-verONLY=`echo -n "$xpkgDIR" |${BB}sed -e "$apattern"`
+#apattern="s/${xnameONLY}[\\-\\_]//g" ##does not work today 2016-09-04 bash
+aPattern="s/${xnameONLY}[-_]//g"
+_debugx "aPattern='$aPattern'"
+verONLY=`echo "$xpkgDIR" |${BB}sed -e "$aPattern"`
 _debugx "verONLY='$verONLY'"
 
 if [ "$verONLY" = "$xpkgDIR" ];then
@@ -398,22 +411,40 @@ verONLY=`echo "$xpkgDIR" |${BB}sed 's,[[:alpha:]],,g;s,^\-*,,'`
 _debug "verONLY='$verONLY'"
 fi
 
+_no_orig(){ # debian source
+verONLY="${verONLY//.orig/}"
+}
+
 _info "verONLY='$verONLY'"
 
+exeTARGETDIR="${nameONLY}-${verONLY}-${cpuTYPE}"
+exePKGNAME=`${BB}basename "$exeTARGETDIR"`
 docTARGETDIR="${nameONLY}_DOC-${verONLY}-${cpuTYPE}"
-docPKGNAME=`${BB}basename $docTARGETDIR`
+docPKGNAME=`${BB}basename "$docTARGETDIR"`
 devTARGETDIR="${nameONLY}_DEV-${verONLY}-${cpuTYPE}"
-devPKGNAME=`${BB}basename $devTARGETDIR`
+devPKGNAME=`${BB}basename "$devTARGETDIR"`
 nlsTARGETDIR="${nameONLY}_NLS-${verONLY}-${cpuTYPE}"
-nlsPKGNAME=`${BB}basename $nlsTARGETDIR`
+nlsPKGNAME=`${BB}basename "$nlsTARGETDIR"`
 
+_debug "exeTARGETDIR=$exeTARGETDIR"
+_debug "exePKGNAME=$exePKGNAME"
+_debug "docTARGETDIR=$docTARGETDIR"
+_debug "docPKGNAME=$docPKGNAME"
+_debug "devTARGETDIR=$devTARGETDIR"
+_debug "devPKGNAME=$devPKGNAME"
+_debug "nlsTARGETDIR=$nlsTARGETDIR"
+_debug "nlsPKGNAME=$nlsPKGNAME"
+
+#exit
+
+__cleanup(){
 if [ "$cleanUP" -a ! "$upDATE" ];then
 ${BB}rm $VERB -rf "$exeTARGETDIR"*
 ${BB}rm $VERB -rf "$docTARGETDIR"*
 ${BB}rm $VERB -rf "$devTARGETDIR"*
 ${BB}rm $VERB -rf "$nlsTARGETDIR"*
 fi
-
+}
 
 echo
 echo -e "\\033[1;31mStep 3""\\033[0;39m"  #red
@@ -466,38 +497,32 @@ case $splitPETS in *nls*) nlsSPLIT="yes";; esac
 echo "Will create $splitPETS packages"
 echo
 
-_prepare_pkd_dirs(){
-if [ ! "$cleanUP" -a "$upDATE" = "" ];then  ##+++2012-07-08 added upDATE support 2012-09-29 changed -o to -a
- curDATE=`${BB}date +%F-%T`
+_rm_empty_pkg_dirs(){
+${BB}rmdir $VERB -f "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
+}
+_rm_recursive_pkg_dirs(){
+${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
+}
+_backup_old_pkg_dirs(){
+curDATE=`${BB}date +%F-%T`
  for d in "$exeTARGETDIR" "$docTARGETDIR" "$devTARGETDIR" "$nlsTARGETDIR"
  do
  [ -d "$d" ] && ${BB}mv $VERB "$d" "$d"-"$curDATE"
  done
- #[ -d "$exeTARGETDIR" ] && ${BB}mv $VERB "$exeTARGETDIR" "$exeTARGETDIR"-"$curDATE"
- #[ -d "$docTARGETDIR" ] && ${BB}mv $VERB "$docTARGETDIR" "$docTARGETDIR"-"$curDATE"
- #[ -d "$devTARGETDIR" ] && ${BB}mv $VERB "$devTARGETDIR" "$devTARGETDIR"-"$curDATE"
- #[ -d "$nlsTARGETDIR" ] && ${BB}mv $VERB "$nlsTARGETDIR" "$nlsTARGETDIR"-"$curDATE"
-elif [ "$upDATE" ];then :
+}
+
+_prepare_pkd_dirs(){
+if [ ! "$cleanUP" -a "$upDATE" = "" ];then  ##+++2012-07-08 added upDATE support 2012-09-29 changed -o to -a
+ _backup_old_pkg_dirs
+elif [ "$upDATE" ];then : #true, do nothing
 else
- ${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
- #for d in "$exeTARGETDIR" "$docTARGETDIR" "$devTARGETDIR" "$nlsTARGETDIR"
- #do ${BB}rm $VERB -rf "$d"*; done
- # ${BB}rm $VERB -rf "$exeTARGETDIR"*
- # ${BB}rm $VERB -rf "$docTARGETDIR"*
- # ${BB}rm $VERB -rf "$devTARGETDIR"*
- # ${BB}rm $VERB -rf "$nlsTARGETDIR"*
+ #${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
+ _rm_recursive_pkg_dirs
 fi
 }
 _prepare_pkd_dirs #probably should be run after installwatch make install
 
 _make_pkg_dirs(){
-#for d in `echo $splitPETS | tr '[:punct:]' ' '`
-#do case $d in
-#exe) mkdir $VERB -p "$exeTARGETDIR";;
-#doc) mkdir $VERB -p "$docTARGETDIR";;
-#dev) mkdir $VERB -p "$devTARGETDIR";;
-#nls) mkdir $VERB -p "$nlsTARGETDIR";;
-#esac
 case $splitPETS in *exe*) mkdir $VERB -p "$exeTARGETDIR";; esac
 case $splitPETS in *doc*) mkdir $VERB -p "$docTARGETDIR";; esac
 case $splitPETS in *dev*) mkdir $VERB -p "$devTARGETDIR";; esac
@@ -509,12 +534,12 @@ _make_pkg_dirs #probably should be run after installwatch make install
 strip_func(){
 #strip the file...
  [ -L "$*" ] && return 0
-
+ _debug "$*"
   elf_FILE=`file "$*" | ${BB}grep -E 'ELF|LSB'`
 
   case $elf_FILE in
-   *shared*object*) strip --strip-debug    "$*";;
-   *executable*)    strip --strip-unneeded "$*";;
+   *shared*object*) strip $VERB --strip-debug    "$*";;
+   *executable*)    strip $VERB --strip-unneeded "$*";;
   esac
   RV=$?
  pidof sync >>$OUT || sync
@@ -522,7 +547,12 @@ return $RV
 }
 #function
 strip_it(){
-[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
+#[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
+case $* in */data/*|*.au|*.bmp|*.flv|*.gif|*.gs|*.*htm*|*.map|*.mp[0-9]|*.pbm|*.png|*.pnm|*.jpg|*.jpeg|*.pdf|*.tiff|*.txt|*.wav|*.xbm|*.xpm)
+ [ "$me_VERBOSE" ] && echo "'$*' not considered stripable"
+ return 0;;
+*) :;;
+esac
 strip_func "$@"
 }
 #function
@@ -530,11 +560,11 @@ strip_func "$@"
 strip_func(){ #normal mode
 #strip the file...
  [ -L "$*" ] && return 0 #make sure it isn't a symlink
-
+ _debug "$*"
   elf_TYPE=`file "$*" | grep -Ew 'ELF|LSB'`
   case $elf_TYPE in
-  *ELF*shared*object*) strip --strip-debug "$*";;
-  *ELF*executable*)    strip --strip-unneeded "$*";;
+  *ELF*shared*object*) strip $VERB --strip-debug "$*";;
+  *ELF*executable*)    strip $VERB --strip-unneeded "$*";;
   esac
   RV=$?
  pidof sync >>$OUT || sync
@@ -622,7 +652,7 @@ _info "$i"
 dn="${i%/*}"
 
 case $i in
-*.la|*.a|*.h|*.m4|*.pc|*-config|*config.sh|*Conf.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
+*.la|*.a|*.h|*.hpp|*.h++|*.m4|*.pc|*-config|*config.sh|*Conf*.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
 ${BB}mkdir $VERB -p "${devTARGETDIR}${dn}"
 noSTRIP=Y copy_files "$i" "${devTARGETDIR}"
 ;;
@@ -651,6 +681,7 @@ echo "DONE cp files."
 logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
 while read -r oneFILE
 do
+[ "$oneFILE" ] || continue
 /bin/cp $VERB $iNTERACTIVE -a --backup=numbered "$oneFILE" "${exeTARGETDIR}"/"${oneFILE##*/}" <$TTY
 done << EoI
 `echo "$logFILES"`
@@ -669,14 +700,9 @@ done
 }
 _remove_whiteouts
 
-#${BB}find "${exeTARGETDIR}" -name "*.wh.*" -delete
-#${BB}find "${devTARGETDIR}" -name "*.wh.*" -delete
-#${BB}find "${docTARGETDIR}" -name "*.wh.*" -delete
-#${BB}find "${nlsTARGETDIR}" -name "*.wh.*" -delete
 (
-${BB}rmdir $VERB "${devTARGETDIR}"* "${docTARGETDIR}"* "${nlsTARGETDIR}"*
-#${BB}rmdir $VERB "${docTARGETDIR}"*
-#${BB}rmdir $VERB "${nlsTARGETDIR}"*
+#${BB}rmdir $VERB "${devTARGETDIR}"* "${docTARGETDIR}"* "${nlsTARGETDIR}"*
+_rm_empty_pkg_dirs
 ) 2>>$ERR
 
 return $STATUS
@@ -733,21 +759,24 @@ echo "...this logs all file activity to $tmpDIR/$pkgLIST_FILE"
 echo "This script will then determine all newly created directories"
 echo "and files and create '$exeTARGETDIR' with the new files."
 echo "\(and optionally ${devTARGETDIR}, ${docTARGETDIR}, ${nlsTARGETDIR}\)"
-fi
+#fi
 
 echo -n "Press ENTER key to continue: "
 read $timeOUT goforit
 echo
-
+fi
 
 [ -z "$INSTALL_WATCH_EXE" ] && { echo "installwatch not installed?"; ${BB}sleep 2s;_usage 1; }
 
 ${BB}rm $VERB -f "$tmpDIR"/"$pkgLIST_FILE"
 ${BB}sleep 2s;pidof sync >>$OUT || { ${BB}sync; sleep 2; }
 
+DEBUG=1
+_debug "MAKE='$MAKE'"
 set - $MAKE
 [ "$me_DEBUG" ]   && set -x
 unset MAKE    # MAKE seems to be a global variable recognized by make ..
+_debug "\$*='$*'"
 
 #unset aNEWDIR B backUP C cleanUP cpuTYPE curDIR curDATE devSPLIT devTARGETDIR docSPLIT docTARGETDIR DO_SHIFT
 #unset E ERR exeSPLIT exePKGNAME exeTARGETDIR F FILE_FILE FILE_TYPE forceIT findTIME H HAVE_F HOME
@@ -766,15 +795,14 @@ $INSTALL_WATCH_EXE \
 #installwatch -o "$tmpDIR"/"$pkgLIST_FILE" ${@}
 #logsave -v "$tmpDIR"/pkginstall.logsave.list ${@}
 
-[ $? = 0 ] || _exit 3 "$@ apparently did not finish correctly."
+[ $? = 0 ] || { _rm_empty_pkg_dirs; _exit 3 "
+$@ apparently did not finish correctly.
+"; }
 
 pidof sync >>$OUT || ${BB}sync
 
 echo
-echo -e '\033[1;32m'"$@ done."'\033[0;39m'
-echo
 echo -n fixing file lists ...
-
 ${BB}touch $VERB "$tmpDIR"/"$pkgLIST_FILE"
 #create list of installed files...
 #v2.17 bug, if sometimes logs files in the pkg installing from, have added
@@ -788,13 +816,14 @@ mv $VERB -f "$tmpDIR"/"$pkgLIST_FILE".success "$tmpDIR"/"$pkgLIST_FILE"
 grep -Ev '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc|&/initrd|&/mnt/'  "$tmpDIR"/"$pkgLIST_FILE" >"$tmpDIR"/"$pkgLIST_FILE".success
 mv $VERB -f "$tmpDIR"/"$pkgLIST_FILE".success "$tmpDIR"/"$pkgLIST_FILE"
 #echo -n " 2"
-grep -E '^[345]&open&' "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&'                  > "${relPATH}"/"${exePKGNAME}".files
+grep -E '^[345]&open&' "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&'             > "${relPATH}"/"${exePKGNAME}".files
 #echo -n " 3"
-grep -E '^0&symlink&'  "$tmpDIR"/"$pkgLIST_FILE" | cut -f 4 -d '&'                 >> "${relPATH}"/"${exePKGNAME}".files
+grep -E '^0&symlink&'  "$tmpDIR"/"$pkgLIST_FILE" | cut -f 4 -d '&'            >> "${relPATH}"/"${exePKGNAME}".files
 #echo -n " 4"
-grep -E '^0&mkdir&'    "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&' | tr -s '/'      > "$tmpDIR"/"${exePKGNAME}".dirs
+grep -E '^0&mkdir&'    "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3 -d '&' | tr -s '/' > "$tmpDIR"/"${exePKGNAME}".dirs
 #echo -n " 5"
-grep -E '^0&rename&'   "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3,4 -d '&' | tr '\n' ' '  > "$tmpDIR"/"${exePKGNAME}".moved.files
+#grep -E '^0&rename&'   "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3,4 -d '&' | tr '\n' ' '  > "$tmpDIR"/"${exePKGNAME}".moved.files
+grep -E '^0&rename&'   "$tmpDIR"/"$pkgLIST_FILE" | cut -f 3,4 -d '&'           > "$tmpDIR"/"${exePKGNAME}".moved.files
 #echo -n " 6"
 
 #find out if any installed file got moved/renamed...
@@ -807,16 +836,33 @@ fi
 #echo -n " 7"
 if [ -s "$tmpDIR"/"${exePKGNAME}".moved.files ];then
 #echo -n " 71"
- for oneMOVED in `cat "$tmpDIR"/"${exePKGNAME}".moved.files`
+__fix_moved_files(){
+ #for oneMOVED in `cat "$tmpDIR"/"${exePKGNAME}".moved.files`
+ while read -r oneMOVED
  do
+ [ "$oneMOVED" ] || continue
+ _debugx "$oneMOVED"
   oneORIG=`echo "$oneMOVED" | cut -f 1 -d '&'`
    oneNEW=`echo "$oneMOVED" | cut -f 2 -d '&'`
   ${BB}grep -v "$oneORIG" "${relPATH}"/"${exePKGNAME}".files > "$tmpDIR"/"${exePKGNAME}".files
   echo "$oneNEW" >> "$tmpDIR"/"${exePKGNAME}".files
   pidof sync >>$OUT || sync
   mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/"${exePKGNAME}".files
- done
+ done <"$tmpDIR"/"${exePKGNAME}".moved.files
+}
+
+ oldMOVED=`cut -f1 -d'&'  "$tmpDIR"/"${exePKGNAME}".moved.files`
+ oldMOVED=`echo "$oldMOVED" | sed '/^$/d'`
+ newMOVED=`cut -f2 -d'&'  "$tmpDIR"/"${exePKGNAME}".moved.files`
+ newMOVED=`echo "$newMOVED" | sed '/^$/d'`
+
+ [ "$oldMOVED" ] && /bin/grep -v "$oldMOVED" "${relPATH}"/"${exePKGNAME}".files > "$tmpDIR"/"${exePKGNAME}".files
+ [ "$newMOVED" ] && echo "$newMOVED" >> "$tmpDIR"/"${exePKGNAME}".files
+ cp $VERB -f "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/"${exePKGNAME}".files
+ echo " Done."
 #echo -n " 72"
+else
+ echo " Not needed."
 fi
 #echo -n " 8"
 
@@ -825,14 +871,12 @@ mv $VERB -f "$tmpDIR"/"${exePKGNAME}".files  "${relPATH}"/"${exePKGNAME}".files
 #echo -n " 9"
 pidof sync >>$OUT || sync
 
-echo
-echo -e "\\033[1;31mStep 5""\\033[0;39m"
+#echo
+#echo -e "\\033[1;31mStep 5""\\033[0;39m"
 
 #fixfilelistfunc() uses this...
-cp $VERB -af "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".files
+#cp $VERB -af "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".files
 #...a post-install script could delete files, which fixfilelistfunc fixes.
-
-
 ##+++2012-04-30
 sort -u  "${relPATH}"/"${exePKGNAME}".files >  "$tmpDIR"/"${exePKGNAME}".files
 pidof sync >>$OUT || sync
@@ -848,8 +892,13 @@ _md5sum(){
 ${BB}md5sum "$*"
 }
 
-touch $VERB "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".dirs
+pidof sync >>$OUT || sync
 
+echo
+echo -e "\\033[1;31mStep 5""\\033[0;39m"
+
+touch $VERB "${relPATH}"/"${exePKGNAME}".files "$tmpDIR"/"${exePKGNAME}".dirs
+echo
 while read -r oneFILE
 do
 
@@ -868,7 +917,7 @@ do
    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    #[ -e "${nlsTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
    #${BB}md5sum "${nlsTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
-   _md5sum "${nlsTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
+   _md5sum "${nlsTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${nlsTARGETDIR}"/files.md5
    [ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
    #[ -e "$oneFILE" ] && \
    #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -885,7 +934,7 @@ do
    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    #[ -e "${docTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
    #${BB}md5sum "${docTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${docTARGETDIR}"/files.md5
-   _md5sum "${docTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${docTARGETDIR}"/files.md5
+   _md5sum "${docTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${docTARGETDIR}"/files.md5
    #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
    #[ -e "$oneFILE" ] && \
    #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -902,7 +951,7 @@ do
    [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
    #[ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
    #${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
-   _md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+   _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
    #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
    #[ -e "$oneFILE" ] && \
    #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -918,11 +967,11 @@ do
     [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     #[ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
     #${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
-    _md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+    #_md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
     #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
     #[ -e "$oneFILE" ] && \
     #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
-    _md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
+    #_md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
     continue
    ;; esac
   fi
@@ -934,7 +983,7 @@ do
     [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     #[ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
     #${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
-    _md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+    _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
     #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
     #[ -e "$oneFILE" ] && \
     #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -949,7 +998,7 @@ do
     [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
     #[ -e "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
     #${BB}md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
-    _md5sum "${devTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
+    _md5sum "${devTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${devTARGETDIR}"/files.md5
     #[ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
     #[ -e "$oneFILE" ] && \
     #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -965,7 +1014,7 @@ do
   [ $? -ne 0 ] && fixfilelistfunc "$oneFILE"
   #[ -e "${exeTARGETDIR}"/"${onePATH}"/"${oneBASE}" ] && \
   #${BB}md5sum "${exeTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${exeTARGETDIR}"/files.md5
-  _md5sum "${exeTARGETDIR}"/"${onePATH}"/"${oneBASE}" >>"${exeTARGETDIR}"/files.md5
+  _md5sum "${exeTARGETDIR}""${onePATH}"/"${oneBASE}" >>"${exeTARGETDIR}"/files.md5
   [ "$whatSTRIP" = 'INSTALLED' ] && strip_func "$oneFILE"
   #[ -e "$oneFILE" ] && \
   #${BB}md5sum "$oneFILE" >>"${exePKGNAME//\.\.\//}".md5
@@ -983,6 +1032,8 @@ do
 
 done <"${relPATH}"/"${exePKGNAME}".files
 
+echo
+
 pidof sync >>$OUT || sync
 
 _copy_files_list(){
@@ -990,9 +1041,6 @@ for d in "${relPATH}"  "/root/.packages" "${exeTARGETDIR}"
 do [ -d "$d" ] || continue
 cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files "$d"/
 done
-#cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/
-#cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files /root/.packages/
-#cp $VERB -af "$tmpDIR"/"${exePKGNAME}".files "${exeTARGETDIR}"/
 }
 _copy_files_list
 
@@ -1005,6 +1053,7 @@ _debug Adding config log files to pkg...
 logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
 while read -r oneFILE
 do
+[ "$oneFILE" ] || continue
 /bin/cp $VERB $iNTERACTIVE -a --backup=numbered "$oneFILE" "${exeTARGETDIR}"/ <$TTY
 done << EoI
 `echo "$logFILES"`
@@ -1018,10 +1067,6 @@ for d in "${exeTARGETDIR}" "${nlsTARGETDIR}" "${docTARGETDIR}" "${devTARGETDIR}"
 do [ -d "$d" ] || continue
 find "${d}" -name "*.wh.*" -exec rm $VERB -f {} \;
 done
-#                            find "${exeTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
-#[ -d "${nlsTARGETDIR}" ] && find "${nlsTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
-#[ -d "${docTARGETDIR}" ] && find "${docTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
-#[ -d "${devTARGETDIR}" ] && find "${devTARGETDIR}" -name "*.wh.*" -exec rm $VERB -f {} \;
 }
 _remove_whiteouts
 
@@ -1033,11 +1078,6 @@ for d in "$exeTARGETDIR" "$devTARGETDIR" "$docTARGETDIR" "$nlsTARGETDIR"
 do [ -d "$d" ] || continue
 [ "`find "$d" -type f`" ] && echo "$d should now be populated." || rm $VERB -rf "$d"
 done
-
-#                            [ "`find "$exeTARGETDIR" -type f`" ] && echo "$exeTARGETDIR should now be populated."
-#[ -d "$devTARGETDIR" ] && { [ "`find "$devTARGETDIR" -type f`" ] && echo "$devTARGETDIR has also been populated." || rm $VERB -rf "$devTARGETDIR"; }
-#[ -d "$docTARGETDIR" ] && { [ "`find "$docTARGETDIR" -type f`" ] && echo "$docTARGETDIR has also been populated." || rm $VERB -rf "$docTARGETDIR"; }
-#[ -d "$nlsTARGETDIR" ] && { [ "`find "$nlsTARGETDIR" -type f`" ] && echo "$nlsTARGETDIR has also been populated." || rm $VERB -rf "$nlsTARGETDIR"; }
 }
 _remove_unused_dirs
 
@@ -1057,6 +1097,7 @@ EoI
 
 echo -n "Type response here: "
 read $timeOUT nextphase
+[ "$nextphase" ] || { [ "$forceIT" ] && [ "$forceIT" -ge 2 ] && nextphase=y; }
 if [ ! "$nextphase" ];then
 echo -e "\n\nFinished.\nAll done in `pwd`?"
 exit 0
@@ -1066,8 +1107,8 @@ cd "${relPATH}" || _exit 5 "Could not change into $relPATH"
 
 for pKg in "" _DEV _DOC _NLS
 do
-    [ -d "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}" ] || continue
- dir2pet "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}"   || break
+     [ -d "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}" ] || continue
+ dir2pet2 "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}"   || break
  echo -n "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
 read domore <$TTY
 done
