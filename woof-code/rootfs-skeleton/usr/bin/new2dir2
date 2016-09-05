@@ -7,6 +7,7 @@ _VERSION_=1.98   #2016-09-01 general overhaul
 _VERSION_=1.99   #2016-09-02 general overhaul
 _VERSION_=1.99.1 #2016-09-02 bugfixe
 _VERSION_=1.99.2 #2016-09-04 speedup moved.files processing, cleanup
+_VERSION_=1.99.3 #2016-09-04 add dry run option -n, add confirmation dialog for pkg name and version
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="/usr/bin/new2dir"
@@ -56,7 +57,7 @@ pkgLIST_FILE=pkginstall.list
 [ "$ERR" ] || ERR=/dev/null
 #BB='busybox ' # enable to use busybox applets
 
-Version='1.7-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
+Version='1.8-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
 
 echo "$0 : $Version"
 echo 'This is an alpha snapshot
@@ -64,41 +65,45 @@ and most likely not bugfree
 '
 
 _usage(){
-    echo "
-$0 [-new2dir_option1 -option2 ..] make [make_options] install[-doc|-etc..]
+    msgHELP="
+${0} make install
+${0##*/} [-new2dir_opt1 -option2 ..] make [make_opts] install[-doc|.man]
 
     Script to list installed files by 'make install' using
     'installwatch/checkinstall pkg' and to copy these files into a
-    seperate directory to easily be packaged further .
-    Also strips binaries automatically and libraries to reduce size .
+    seperate directory to easily be packaged further.
+    Also strips binaries automatically and libraries to reduce size.
 
     Script specific options :
     -c) forcibly delete already existing destination pkg directory(s);
         default is to rename to pkgname-date.
-    -d) debug by '' .
+    -d) say other than verbose. given twice 'set -x' .
     -f) answer all dialog questions automatically:yes,cpu-type,
         split-level(-f default = 3); includes -k .
-    -h) show this usage .
-    -V) show version information .
-    -i) interactive modes for binaries used by this script .
+    -h) show this usage.
+    -i) interactive modes for binaries used by this script.
     -I/path/to/bin/installwatch) if installwatch script to use
         to monitor make install is installed not first in the PATH .
-    -k) keep binaries and libraries unstripped .
-    -K) strip only installed bins and libs .
+    -k) keep binaries and libraries unstripped.
+    -K) strip only installed bins and libs.
     -l) run with logsave -a $tmpDIR/new2dir.log .
-    -u) update already existing _DESTDIR s , do not delete _DESTIR s .
-    -m) Menu for selecting various used executables .
+    -m) Menu for selecting various used executables.
+    -n) short dry-run option that for now exits before
+        installwatch make install in non-rescue mode.
     -M #) set the mMIN level for the find command in -r mode below;
         default is -2 (means to look for modified files not
-        older than the last two minutes) .
+        older than the last two minutes).
     -A #) switch to AMIN instead of mMIN for above
     -C #) switch to CMIN instead of mMIN for above
             (cmake source seems to need this if run a second time)
-    -r) rescue mode if installwatch does not work .
-    -v) give verbose output by '2>/dev/stderr' .
+    -r) rescue mode if installwatch does not work.
+    -u) update already existing _DESTDIR s , do not delete _DESTIR s.
+    -v) give verbose output.
+    -V) show version information.
 
     For make specific options, see 'man make|make --help' .
-    "
+"
+gettext "$msgHELP"
     exit $1
 }
 
@@ -121,10 +126,10 @@ NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
 _info "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
 [ "`echo "$NEW2DIRPARAMS" |${BB}grep help`" ] && _usage 1  ##+++2012-07-07
 
-while getopts VcdfhiI:kKlmM:A:C:rvu opt;do
+while getopts VcdfhiI:kKlmnM:A:C:rvu opt;do
 case $opt in
 c) cleanUP='y';;
-d) set -x; me_DEBUG=1;;
+d) me_DEBUG=1; me_DEBUG=$((me_DEBUG+1)); [ "$me_DEBUG" -ge 2 ] && set -x;;
 f) timeOUT='-t 1';forceIT=$((forceIT+1));;
 h) _usage 0;;
 i) [ -c "$TTY" ] || _exit 2 "$opt needs controlling terminal"; iNTERACTIVE='-i';lINTERACTIVE='--interactive';;
@@ -136,6 +141,7 @@ NEW2DIRPARAMS=`echo "$NEW2DIRPARAMS" | sed 's/l//g'`  ##+++2012 added g global i
 exec logsave $VERB -a "$tmpDIR"/new2dir.log "$0" "$NEW2DIRPARAMS" "$MAKE"
 ;;
 m) showMENUS=1;;
+n) dryRUN=1;;
 M) mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;  ##+++2012-07-07 check ~bug if -A -f
 A) findTIME=-amin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;
 C) findTIME=-cmin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;##+-+2012-07-07 BUG had A)
@@ -153,18 +159,6 @@ MAKE=`echo "$@" | ${BB}grep -owe 'make.*instal[-_a-z0-9A-Z\.]\+'`
 [ "$me_VERBOSE" ] && echo "MAKE='$MAKE'"
 NEW2DIRPARAMS=`echo "$@" |${BB}sed "s#$MAKE##"`
 [ "$me_VERBOSE" ] && echo "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
-
-curDIR=`pwd`
-[ "$me_VERBOSE" ] && echo "CURRENTDIR='$curDIR'"
-
-upONE=`${BB}dirname "$curDIR"`
-pkgDIR="../`${BB}basename "$curDIR"`"
-xpkgDIR=`${BB}basename "$curDIR"`
-#if make one level deep >
-if [ ! "`echo "$pkgDIR" | ${BB}grep '[0-9]'`" ];then
- pkgDIR="../../`${BB}basename "$upONE"`"
- xpkgDIR=`${BB}basename "$upONE"`
-fi
 
 _do_menu(){
 if [ "$showMENUS" ];then   #busybox ash has no select function
@@ -217,6 +211,21 @@ fi #showMENUS
 }
 _do_menu
 
+curDIR=`pwd`
+[ "$me_VERBOSE" ] && echo "curDIR='$curDIR'"
+
+#pkgDIR="../`${BB}basename "$curDIR"`"
+bpkgDIR=`${BB}basename "$curDIR"`
+ pkgDIR="../$bpkgDIR"
+
+#if make one level deep >
+if [ ! "`echo "$bpkgDIR" | ${BB}grep '[0-9]'`" ];then
+ upONE=`${BB}dirname "$curDIR"`
+ #pkgDIR="../../`${BB}basename "$upONE"`"
+ bpkgDIR=`${BB}basename "$upONE"`
+  pkgDIR="../../$bpkgDIR"
+fi
+
 _pkg_version_check(){
 case $pkgDIR in *[0-9]*) return 0;; esac
 cat >&1 <<EoI
@@ -238,13 +247,6 @@ EoI
 }
 _pkg_version_check
 
-fixfilelistfunc() {
- #$1 is file to remove, as doesn't exist.
- echo " ...${*} has been deleted."
- ${BB}grep -v "$*" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
- ${BB}mv $VERB -f  "$tmpDIR"/"${exePKGNAME}".files.tmp "$tmpDIR"/"${exePKGNAME}".files
-}
-
 echo
 echo -e "\\033[1;31mStep 1""\\033[0;39m" #red
 read $timeOUT -n1 -p "Press any key for step 1" STEP_1_KEY
@@ -265,7 +267,7 @@ EoI
 fi
 echo " If $pkgDIR is incorrect you must now exit with CTRL-C and close this"
 echo " rxvt terminal window then rename the directory."
-read $timeOUT -p "Type response now: " REPLY1
+read $timeOUT -e -p "Type response now: " REPLY1
 [ "$REPLY1" ] && pkgDIR="$REPLY1"
 if [ ! -d "$pkgDIR" ];then
  echo
@@ -291,7 +293,7 @@ EoI
 fi
 echo "If not found and if run with '-f' option , guessed by 'uname -m' ."
 echo -n "Type response here: "
-read $timeOUT cpuTYPE
+read $timeOUT -e cpuTYPE
 if [ ! "$cpuTYPE" ];then
 if [ -f config.log ];then
 BuildCPU=`${BB}grep '^build_cpu='.*'' config.log | tail -n1 | cut -f 2 -d "'"`
@@ -369,45 +371,40 @@ esac
 echo "Okay, using $cpuTYPE"
 
 #would like to create different targets for exe, doc, dev, nls components...
-exeTARGETDIR="${pkgDIR}-${cpuTYPE}" #relative path.
-exePKGNAME=`${BB}basename "$exeTARGETDIR"`
-   relPATH=`${BB}dirname  "$exeTARGETDIR"`
+#exeTARGETDIR="${pkgDIR}-${cpuTYPE}" #relative path.
+#exePKGNAME=`${BB}basename "$exeTARGETDIR"`
+   relPATH=`${BB}dirname  "$pkgDIR"`
 
-_debug "exeTARGETDIR='$exeTARGETDIR'"
-_debug "exePKGNAME='$exePKGNAME'"
-_debug "relPATH='$relPATH'"
+#_debugx "exeTARGETDIR='$exeTARGETDIR'"
+#_debugx "exePKGNAME='$exePKGNAME'"
+_debugx "relPATH='$relPATH'"
 
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
-xnameONLY=`echo "$xpkgDIR" |${BB}sed -e 's/[\-\_][0-9].*$//g'`
-_debugx "xnameONLY='$xnameONLY'"
-_debugx "  xpkgDIR='$xpkgDIR'"
+nameONLY=`echo "$bpkgDIR" |${BB}sed -e 's/[-_][0-9\.]*$//g'`
+_debugx " bpkgDIR='$bpkgDIR'"
+_debugx "nameONLY='$nameONLY'"
 
-#...if that fails, do it the old way...
-#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | cut -f 1 -d "-"`
-#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[\-\_].*,,'`
-#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | sed 's,[-_].*,,'`
-#[ "$xnameONLY" = "$xpkgDIR" ] && xnameONLY=`echo "$xpkgDIR" | rev |cut -f 2- -d '[-_]' |rev`
-
-[ "$xnameONLY" = "$xpkgDIR" ] && {
-    xnameONLY=`echo "$xpkgDIR" |${BB}rev`;
-    xnameONLY="${xnameONLY#*[-_]}";
-    xnameONLY=`echo "$xnameONLY" |${BB}rev`;
+#...if that fails, try this
+[ "$nameONLY" = "$bpkgDIR" ] && {
+    nameONLY=`echo "$bpkgDIR" |${BB}rev`;
+    nameONLY="${nameONLY#*[-_]}";
+    nameONLY=`echo "$nameONLY" |${BB}rev`;
 }
 
-_debugx "xnameONLY='$xnameONLY'"
-nameONLY="${relPATH}/${xnameONLY}"
+#_debugx "nameONLY='$nameONLY'"
+#nameONLY="${relPATH}/${nameONLY}"
 _debugx "nameONLY='$nameONLY'"
 
 #abasename=`basename ${pkgDIR}`
 #apattern="s/${xnameONLY}[\\-\\_]//g" ##does not work today 2016-09-04 bash
-aPattern="s/${xnameONLY}[-_]//g"
+aPattern="s%${nameONLY}[-_]%%g"
 _debugx "aPattern='$aPattern'"
-verONLY=`echo "$xpkgDIR" |${BB}sed -e "$aPattern"`
+verONLY=`echo "$bpkgDIR" |${BB}sed -e "$aPattern"`
 _debugx "verONLY='$verONLY'"
 
-if [ "$verONLY" = "$xpkgDIR" ];then
-verONLY=`echo "$xpkgDIR" |${BB}sed 's,[[:alpha:]],,g;s,^\-*,,'`
+if [ "$verONLY" = "$bpkgDIR" ];then
+verONLY=`echo "$bpkgDIR" |${BB}sed 's,[[:alpha:]],,g;s,^\-*,,'`
 _debug "verONLY='$verONLY'"
 fi
 
@@ -427,24 +424,58 @@ nlsTARGETDIR="${nameONLY}_NLS-${verONLY}-${cpuTYPE}"
 nlsPKGNAME=`${BB}basename "$nlsTARGETDIR"`
 
 _debug "exeTARGETDIR=$exeTARGETDIR"
-_debug "exePKGNAME=$exePKGNAME"
 _debug "docTARGETDIR=$docTARGETDIR"
-_debug "docPKGNAME=$docPKGNAME"
 _debug "devTARGETDIR=$devTARGETDIR"
-_debug "devPKGNAME=$devPKGNAME"
 _debug "nlsTARGETDIR=$nlsTARGETDIR"
+
+_debug "exePKGNAME=$exePKGNAME"
+_debug "docPKGNAME=$docPKGNAME"
+_debug "devPKGNAME=$devPKGNAME"
 _debug "nlsPKGNAME=$nlsPKGNAME"
 
-#exit
-
-__cleanup(){
-if [ "$cleanUP" -a ! "$upDATE" ];then
-${BB}rm $VERB -rf "$exeTARGETDIR"*
-${BB}rm $VERB -rf "$docTARGETDIR"*
-${BB}rm $VERB -rf "$devTARGETDIR"*
-${BB}rm $VERB -rf "$nlsTARGETDIR"*
-fi
+_confirm_pkgname_version(){
+test "$forceIT" && return 0
+cat >&1 <<EoI
+So, i have split the package name and version into
+nameONLY=$nameONLY
+and
+verONLY=$verONLY
+variables.
+If one or both of these seem to be incorrect, you have now
+the possibillity to change one or both of these.
+Just hit enter if it is OK.
+EoI
+read $timeOUT -e -p "New name    for $nameONLY : " newNAMEONLY
+[ "$newNAMEONLY" ] && nameONLY="$newNAMEONLY"
+read $timeOUT -e -p "New version for $verONLY  : " newVERONLY
+[ "$newVERONLY" ] && verONLY="$newVERONLY"
 }
+_confirm_pkgname_version
+
+_debugx "nameONLY='$nameONLY'"
+rnameONLY="${relPATH}/${nameONLY}"
+_debugx "nameONLY='$nameONLY'"
+
+exeTARGETDIR="${rnameONLY}-${verONLY}-${cpuTYPE}"
+exePKGNAME=`${BB}basename "$exeTARGETDIR"`
+docTARGETDIR="${rnameONLY}_DOC-${verONLY}-${cpuTYPE}"
+docPKGNAME=`${BB}basename "$docTARGETDIR"`
+devTARGETDIR="${rnameONLY}_DEV-${verONLY}-${cpuTYPE}"
+devPKGNAME=`${BB}basename "$devTARGETDIR"`
+nlsTARGETDIR="${rnameONLY}_NLS-${verONLY}-${cpuTYPE}"
+nlsPKGNAME=`${BB}basename "$nlsTARGETDIR"`
+
+_debug "exeTARGETDIR=$exeTARGETDIR"
+_debug "docTARGETDIR=$docTARGETDIR"
+_debug "devTARGETDIR=$devTARGETDIR"
+_debug "nlsTARGETDIR=$nlsTARGETDIR"
+
+_debug "exePKGNAME=$exePKGNAME"
+_debug "docPKGNAME=$docPKGNAME"
+_debug "devPKGNAME=$devPKGNAME"
+_debug "nlsPKGNAME=$nlsPKGNAME"
+
+#[ "$dryRUN" ] && exit # -n option
 
 echo
 echo -e "\\033[1;31mStep 3""\\033[0;39m"  #red
@@ -477,7 +508,7 @@ fi
 echo " Example: exe,dev,doc  (in this example, nls component is left in the"
 echo " main package, that is, the exe component)."
 echo -n "Type response (just press ENTER if in doubt): "
-read $timeOUT splitPETS
+read $timeOUT -e splitPETS
 echo
 
 [ "$timeOUT" ] && splitPETS=3
@@ -498,12 +529,15 @@ echo "Will create $splitPETS packages"
 echo
 
 _rm_empty_pkg_dirs(){
+[ "$dryRUN" ] && return 0
 ${BB}rmdir $VERB -f "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
 }
 _rm_recursive_pkg_dirs(){
+[ "$dryRUN" ] && return 0
 ${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
 }
 _backup_old_pkg_dirs(){
+[ "$dryRUN" ] && return 0
 curDATE=`${BB}date +%F-%T`
  for d in "$exeTARGETDIR" "$docTARGETDIR" "$devTARGETDIR" "$nlsTARGETDIR"
  do
@@ -512,6 +546,7 @@ curDATE=`${BB}date +%F-%T`
 }
 
 _prepare_pkd_dirs(){
+[ "$dryRUN" ] && return 0
 if [ ! "$cleanUP" -a "$upDATE" = "" ];then  ##+++2012-07-08 added upDATE support 2012-09-29 changed -o to -a
  _backup_old_pkg_dirs
 elif [ "$upDATE" ];then : #true, do nothing
@@ -523,6 +558,7 @@ fi
 _prepare_pkd_dirs #probably should be run after installwatch make install
 
 _make_pkg_dirs(){
+[ "$dryRUN" ] && return 0
 case $splitPETS in *exe*) mkdir $VERB -p "$exeTARGETDIR";; esac
 case $splitPETS in *doc*) mkdir $VERB -p "$docTARGETDIR";; esac
 case $splitPETS in *dev*) mkdir $VERB -p "$devTARGETDIR";; esac
@@ -548,7 +584,7 @@ return $RV
 #function
 strip_it(){
 #[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
-case $* in */data/*|*.au|*.bmp|*.flv|*.gif|*.gs|*.*htm*|*.map|*.mp[0-9]|*.pbm|*.png|*.pnm|*.jpg|*.jpeg|*.pdf|*.tiff|*.txt|*.wav|*.xbm|*.xpm)
+case $* in */data/*|*.au|*.bmp|*.flv|*.gif|*.gs|*.*htm*|*.lua|*.map|*.mp[0-9]|*.pbm|*.png|*.pnm|*.jpg|*.jpeg|*.pdf|*.pl|*.py|*.tcl|*.tiff|*.txt|*.wav|*.xbm|*.xpm)
  [ "$me_VERBOSE" ] && echo "'$*' not considered stripable"
  return 0;;
 *) :;;
@@ -563,7 +599,7 @@ strip_func(){ #normal mode
  _debug "$*"
   elf_TYPE=`file "$*" | grep -Ew 'ELF|LSB'`
   case $elf_TYPE in
-  *ELF*shared*object*) strip $VERB --strip-debug "$*";;
+  *ELF*shared*object*) strip $VERB --strip-debug    "$*";;
   *ELF*executable*)    strip $VERB --strip-unneeded "$*";;
   esac
   RV=$?
@@ -575,6 +611,7 @@ return $RV
 copy_files(){
 STATUS=0
 echo "Processing ${1}"
+[ "$dryRUN" ] && return 0
 if [ -f "$1" ];then
     if [ "$noSTRIP" ]; then :
     else
@@ -632,7 +669,7 @@ time B=`${BB}find /bin $findTIME $mMIN`
 echo -n "   /lib .. "
 time L=`${BB}find /lib $findTIME $mMIN`
 echo -n "   /var .. "
-time V=`${BB}find /var $findTIME $mMIN -iname "*$xnameONLY*"`  ###+2013-03-15 Typo was "*xnameONLY*"
+time V=`${BB}find /var $findTIME $mMIN -iname "*$nameONLY*"`  ###+2013-03-15 Typo was "*xnameONLY*"
 echo
 
 C="$F
@@ -678,6 +715,7 @@ EoI
 ###+++2013-03-15 for filename with spaces
 echo "DONE cp files."
 
+if [ ! "$dryRUN" ]; then
 logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
 while read -r oneFILE
 do
@@ -704,6 +742,7 @@ _remove_whiteouts
 #${BB}rmdir $VERB "${devTARGETDIR}"* "${docTARGETDIR}"* "${nlsTARGETDIR}"*
 _rm_empty_pkg_dirs
 ) 2>>$ERR
+fi #dryRUN
 
 return $STATUS
 }
@@ -716,6 +755,12 @@ exit $?
 else
 # Puppy default to use installwatch
 
+fixfilelistfunc() {
+ #$1 is file to remove, as doesn't exist.
+ echo " ...${*} has been deleted."
+ ${BB}grep -v "$*" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
+ ${BB}mv $VERB -f  "$tmpDIR"/"${exePKGNAME}".files.tmp "$tmpDIR"/"${exePKGNAME}".files
+}
 
 __installwatch(){
 export LD_PRELOAD=/usr/lib/installwatch.so
@@ -787,6 +832,7 @@ _debug "\$*='$*'"
 #unset upDATE upONE V VERB VERBOSE verONLY whatSTRIP _COMMENT_ _TITLE_
 
 [ "$me_VERBOSE" ] && echo -e "\nRunning '$INSTALL_WATCH_EXE' ... $@"
+[ "$dryRUN" ] && exit 0  #for now
 
 $INSTALL_WATCH_EXE \
  -o "$tmpDIR"/"$pkgLIST_FILE" \
@@ -1107,9 +1153,9 @@ cd "${relPATH}" || _exit 5 "Could not change into $relPATH"
 
 for pKg in "" _DEV _DOC _NLS
 do
-     [ -d "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}" ] || continue
- dir2pet2 "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}"   || break
- echo -n "${xnameONLY}${pKg}-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
+     [ -d "${nameONLY}${pKg}-${verONLY}-${cpuTYPE}" ] || continue
+ dir2pet2 "${nameONLY}${pKg}-${verONLY}-${cpuTYPE}"   || break
+ echo -n "${nameONLY}${pKg}-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
 read domore <$TTY
 done
 
