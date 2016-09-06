@@ -9,13 +9,13 @@ MY_SELF="/usr/bin/new2dir"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE='1'; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -46,6 +46,8 @@ Exiting script."
 echo $LINENO
 
 usage(){
+    RV=0
+    case $1 in [0-9]*) RV=$1; shift;; esac
     MSG="$0 [h d v V f r [m A C]]] make [opt] install
     f force : timeout reduced from 10 to 1 second
     and answer questions automatically
@@ -69,10 +71,10 @@ NOTE : THIS version does not give the option to split packages in Rescue Mode.
 
 BUGS : Likely .
     "
-[ "$2" ] && MSG="$MSG
-$2"
-echo "$MSG"
-    exit 1
+[ "$*" ] && MSG="$MSG
+$*"
+gettext "$MSG"
+    exit $RV
 }
 #DBGecho $LINENO
 if [ ! $1 ];then
@@ -85,6 +87,8 @@ T=10;RES=OFF;FIND_M=-mmin;MMIN=-5;ERR=/dev/null;OUT=/dev/null
 MAKEOPTS=`echo "$@" |grep -oe 'make.*install[-""a-zA-Z0-9]*'`
 [ "$MAKEOPTS" ] || MAKEOPTS='make install'
 PRIVATEOPTS=`echo "$@" | sed "s|$MAKEOPTS||"`
+PRIVATEOPTS=`echo "$PRIVATEOPTS" | sed 's|\(-\)\([[:alpha:]]\)|\2|g'` #+++2016-09-06 add -option possibility
+PRIVATEOPTS=`echo "$PRIVATEOPTS" | sed -r 's|(.)|\1 |g'`              #+++2016-09-06
 PRIVATEOPTS=`echo "$PRIVATEOPTS" |tr ' ' '\n' | sed -r 's,([^m=-[0-9]*]),\1 ,g;s| m = (- [[0-9] *])| m=\1|'| tr '\n' ' '`
 echo "MAKEOPTS='$MAKEOPTS'"
 echo "PRIVATEOPTS='$PRIVATEOPTS'"
@@ -137,6 +141,7 @@ MCPU='$MCPU'
 "
 
 [ "$ME_VERB" ] && echo $LINENO
+_get_pkg_dir_(){
 CURRDIR="`pwd`";BASE_NAME_PKG1="`basename $CURRDIR`"
 UPONE=`dirname "$CURRDIR"`
 PKGDIR1="../`basename "$CURRDIR"`";PKGDIR="$PKGDIR1"
@@ -148,8 +153,45 @@ if [ "`echo "$PKGDIR1" | grep '[0-9]'`" = "" ];then
  xPKGDIR2=`basename "$UPONE"`;xPKGDIR="$xPKGDIR2"
  BASE_NAME_PKG2="${PKGDIR2//\.\.\/\.\.\//}"
 fi
+}
 
-echo "$PKGDIR"
+_where_am_i(){
+
+curDIR=`pwd`
+#echo $curDIR >&2
+(
+rel='../'
+ while :;
+  do
+
+  curDIR=`pwd`
+  pkgDIR=$curDIR
+  pkgNAME=`basename $pkgDIR`
+
+  #echo $PWD >&2
+  #echo $pkgNAME >&2
+  case $pkgNAME in *-[0-9]*) break;; esac
+   cd ..
+   c=$((c+1))
+   rel="../${rel}"
+  test $c -ge 4 && break  # go 3? or 4? back
+  done
+
+ rpkgDIR="${rel}${pkgNAME}"
+ #echo "rel='$rel'" >&2
+ #test -d "$rpkgDIR" && echo "$rpkgNAME"
+ #ls >&2
+ test -d "$pkgDIR" && echo "$rpkgDIR"
+ )
+
+}
+
+PKGDIR=`_where_am_i`
+pkgNAME=`basename "$PKGDIR"`
+xPKGDIR="$pkgNAME"
+[ "$VEBOSE" ] && echo "Found myself in PKGDIR=$PKGDIR xPKGDIR=$xPKGDIR"
+#exit
+
 if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  Pkg_VERSION=X.Y.Z
  TAR_PKG1=`find ../../ -maxdepth 3 -name "${BASE_NAME_PKG1}*.tar*" |head -n1`
