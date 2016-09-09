@@ -273,13 +273,13 @@ echo " rxvt terminal window then rename the directory."
 fi
 echo -n "Type response now: "
 read -t $T REPLY1
+echo
 [ ! "$REPLY1" = "" ] && PKGDIR="$REPLY1"
 if [ ! -d "$PKGDIR" ];then
- echo
- echo "$PKGDIR does not exist, exiting script."
- exit
+ echo "$PKGDIR seems not to exist, exiting script."
+ exit 1
 fi
-echo "Okay, using $PKGDIR"
+echo "Okay, using PKGDIR='$PKGDIR' variable."
 
 echo
 echo -en "\\033[1;31mStep 2" #red
@@ -293,27 +293,32 @@ echo "Otherwise, enter the CPU type, examples: i386 i486 i686 (the i is required
 echo -n "Type response here "
 read -t $T -p "found $ARCHITECTURE :" CPUTYPE CPUTYPE1
 
-echo "'$CPUTYPE' '$CPUTYPE1'"
+echo
+_debug "CPUTYPE='$CPUTYPE' CPUTYPE1='$CPUTYPE1'"
 
-#[ "$CPUTYPE" = "" ] && CPUTYPE="i486"
 if [ "$CPUTYPE" = "" ];then
 if [ "$ARCHITECTURE" ];then
 CPUTYPE="$ARCHITECTURE"
 else
 CPUTYPE=`uname -m`
 fi;fi
-[ "$CPUTYPE" = "" ] && CPUTYPE="i486"
+[ "$CPUTYPE" ] || CPUTYPE="i486"
 
-if [ "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" = "" ];then
- echo "$CPUTYPE is not valid. Exiting."
- exit
-fi
+case $CPUTYPE in
+i[0-9]86*|x86_64*|ia64*)
+ true
+;;
+*)
+ echo "$CPUTYPE seems not to be valid. Exiting."
+ exit 1
+;;
+esac
 echo "Okay, using $CPUTYPE"
 
 #would like to create different targets for exe, doc, dev, nls components...
-EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
-EXE_PKGNAME=`basename $EXE_TARGETDIR`
-RELPATH=`dirname $EXE_TARGETDIR`
+#EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
+#EXE_PKGNAME=`basename "$EXE_TARGETDIR"`
+#    RELPATH=`dirname  "$EXE_TARGETDIR"`
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
 xNAMEONLY=`echo -n "$xPKGDIR" | sed -e 's/[\-\_][0-9].*$//g'`
@@ -323,18 +328,20 @@ NAMEONLY="${RELPATH}/${xNAMEONLY}"
 #abasename=`basename ${PKGDIR}`
 apattern="s/${xNAMEONLY}\\-//g"
 VERONLY=`echo -n "$xPKGDIR" | sed -e "$apattern"`
-DOC_TARGETDIR="${NAMEONLY}_DOC-${VERONLY}-${CPUTYPE}"
-DOC_PKGNAME=`basename $DOC_TARGETDIR`
-DEV_TARGETDIR="${NAMEONLY}_DEV-${VERONLY}-${CPUTYPE}"
-DEV_PKGNAME=`basename $DEV_TARGETDIR`
-NLS_TARGETDIR="${NAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
-NLS_PKGNAME=`basename $NLS_TARGETDIR`
 
+EXE_TARGETDIR="${NAMEONLY}-${VERONLY}-${CPUTYPE}"
+EXE_PKGNAME=`basename "$EXE_TARGETDIR"`
+    RELPATH=`dirname  "$EXE_TARGETDIR"`
+DOC_TARGETDIR="${NAMEONLY}_DOC-${VERONLY}-${CPUTYPE}"
+DOC_PKGNAME=`basename "$DOC_TARGETDIR"`
+DEV_TARGETDIR="${NAMEONLY}_DEV-${VERONLY}-${CPUTYPE}"
+DEV_PKGNAME=`basename "$DEV_TARGETDIR"`
+NLS_TARGETDIR="${NAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
+NLS_PKGNAME=`basename "$NLS_TARGETDIR"`
+
+# in case of re-run, remove old directories
 if [ "$CLEAN" ];then
-rm -rf "$EXE_TARGETDIR" 2>$ERR
-rm -rf "$DOC_TARGETDIR" 2>$ERR
-rm -rf "$DEV_TARGETDIR" 2>$ERR
-rm -rf "$NLS_TARGETDIR" 2>$ERR
+rm $VERB -rf "$EXE_TARGETDIR" "$DOC_TARGETDIR" "$NLS_TARGETDIR" "$DEV_TARGETDIR"
 fi
 
 echo
@@ -366,17 +373,20 @@ echo " Example: exe,dev,doc  (in this example, nls component is left in the"
 echo " main package, that is, the exe component)."
 echo -n "Type response (just press ENTER if in doubt): "
 read -t $T SPLITPETS
-[ "$SPLITPETS" = "" ] && SPLITPETS="exe"
+
+[ "$SPLITPETS" = "" ]  && SPLITPETS="exe"
 [ "$SPLITPETS" = "1" ] && SPLITPETS="exe"
 [ "$SPLITPETS" = "2" ] && SPLITPETS="exe,dev"
 [ "$SPLITPETS" = "3" ] && SPLITPETS="exe,dev,doc,nls"
 EXESPLIT="";DOCSPLIT="";DEVSPLIT="";NLSSPLIT=""
-[ "`echo "$SPLITPETS" | grep 'exe'`" ] && EXESPLIT="yes"
-[ "`echo "$SPLITPETS" | grep 'doc'`" ] && DOCSPLIT="yes"
-[ "`echo "$SPLITPETS" | grep 'dev'`" ] && DEVSPLIT="yes"
-[ "`echo "$SPLITPETS" | grep 'nls'`" ] && NLSSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep -i 'exe'`" ] && EXESPLIT="yes"
+[ "`echo "$SPLITPETS" | grep -i 'doc'`" ] && DOCSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep -i 'dev'`" ] && DEVSPLIT="yes"
+[ "`echo "$SPLITPETS" | grep -i 'nls'`" ] && NLSSPLIT="yes"
 
-[ "`echo "$SPLITPETS" | grep 'exe'`" ] && mkdir -p "$EXE_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep -i 'exe'`" ] && mkdir $VERB -p "$EXE_TARGETDIR"
+
+# First the rescue part
 if [ "$RES" = "ON" ];then
 echo
 echo -n "Finding '$FIND_M' '$MMIN' files in /usr "
@@ -404,29 +414,30 @@ LIST=`echo "$LIST" |sort -u`
 
 for i in $LIST;do
 if [ -d "$i" ];then
-mkdir -p "$EXE_TARGETDIR/$i"
+mkdir $VERB -p "$EXE_TARGETDIR/$i"
 else
 #dn=`dirname $i`
 dn="${i%/*}"
-mkdir -p "$EXE_TARGETDIR"/"$dn"
-cp -ai "$i" "$EXE_TARGETDIR"/"$dn"/
+mkdir $VERB -p "$EXE_TARGETDIR"/"$dn"
+cp $VERB -ai "$i" "$EXE_TARGETDIR"/"$dn"/
 [ "$?" -eq '0' ] && echo "Found '$i' ."
 fi;done
-#find . -name "*.log" -exec cp -ai --backup=numbered {} "$EXE_TARGETDIR" \;
+
+#find . -name "*.log" -exec cp $VERB -ai --backup=numbered {} "$EXE_TARGETDIR" \;
 echo "$LIST" >> /root/.packages/"${EXE_PKGNAME}".files
-#mkdir -p "$EXE_TARGETDIR"/root/.packages/src/
-#find . -name "*.log" -exec cp -ai {} /root/.packages/src/"${EXE_PKGNAME}"-{} \;
-mkdir -p "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}"
+#mkdir $VERB -p "$EXE_TARGETDIR"/root/.packages/src/
+#find . -name "*.log" -exec cp $VERB -ai {} /root/.packages/src/"${EXE_PKGNAME}"-{} \;
+mkdir $VERB -p "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}"
 echo "$LIST" >> "$EXE_TARGETDIR"/root/.packages/"${EXE_PKGNAME}".files
-find . -type f -name "*.log*" -exec cp -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
-find . -type f -name "config.h" -exec cp -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
+find . -type f -name "*.log*" -exec cp $VERB -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
+find . -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
 find "$EXE_TARGETDIR" -name "*.wh.*" -delete
 exit "$?"
 fi #REScue
 
-[ "`echo "$SPLITPETS" | grep 'doc'`" ] && mkdir -p "$DOC_TARGETDIR"
-[ "`echo "$SPLITPETS" | grep 'dev'`" ] && mkdir -p "$DEV_TARGETDIR"
-[ "`echo "$SPLITPETS" | grep 'nls'`" ] && mkdir -p "$NLS_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'doc'`" ] && mkdir $VERB -p "$DOC_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'dev'`" ] && mkdir $VERB -p "$DEV_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'nls'`" ] && mkdir $VERB -p "$NLS_TARGETDIR"
 
 echo
 echo -en "\\033[1;31mStep 4" #red
@@ -456,13 +467,13 @@ $E"
 
 for i in $LIST;do
 if [ -d "$i" ];then
-mkdir -p $EXE_TARGETDIR/$i
+mkdir $VERB -p $EXE_TARGETDIR/$i
 else
 dn=`dirname $i`
-mkdir -p $EXE_TARGETDIR/"$dn"
-cp -ai "$i" $EXE_TARGETDIR/"$dn"/
+mkdir $VERB -p $EXE_TARGETDIR/"$dn"
+cp $VERB -ai "$i" $EXE_TARGETDIR/"$dn"/
 fi;done
-find . -name "*.log*" -exec cp -a --backup=numbered {} $EXE_TARGETDIR \;
+find . -name "*.log*" -exec cp $VERB -a --backup=numbered {} $EXE_TARGETDIR \;
 exit "$?"
 fi #REScue
 }
@@ -502,7 +513,7 @@ grep_PWD=`echo "$PWD" |sed 's,\([[:punct:]]\),\\\\\1,g'`
 echo -e "\e[1;36m$grep_PWD\e[0;39m"
 cat ${RELPATH}/${EXE_PKGNAME}.files | grep -v "$grep_PWD" >/tmp/${EXE_PKGNAME}.files
 [ "$ME_VERB" ] && mv $VERB ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
-#/bin/cp --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+#/bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 sort -u /tmp/${EXE_PKGNAME}.files        >${RELPATH}/${EXE_PKGNAME}.files
 sort -u /tmp/${EXE_PKGNAME}.dirs         >/tmp/${EXE_PKGNAME}.dirs.s
 sort -u /tmp/${EXE_PKGNAME}.moved.files  >/tmp/${EXE_PKGNAME}.moved.files.s
@@ -538,14 +549,14 @@ echo "$ONEORIG" |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.orig.files
 echo "$ONENEW"  |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.new.files
 grep -v -f /tmp/${EXE_PKGNAME}.orig.files ${RELPATH}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
 cat /tmp/${EXE_PKGNAME}.new.files >> /tmp/${EXE_PKGNAME}.files
-/bin/cp -a --remove-destination      /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+/bin/cp $VERB -a --remove-destination      /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 
 echo "Checking for '$PWD' files ..."
 grep_PWD=`echo "$PWD" |sed 's,\([[:punct:]]\),\\\\\1,g'`
 echo -e "\e[1;36m$grep_PWD\e[0;39m"
 cat ${RELPATH}/${EXE_PKGNAME}.files | grep -v "$grep_PWD" >/tmp/${EXE_PKGNAME}.files
 [ "$ME_VERB" ] && mv $VERB --backup=numbered ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
-/bin/cp --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+/bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 _sync
 
 echo
@@ -554,7 +565,7 @@ echo -e "\\033[0;39m"
 
 #fixfilelistfunc() uses this...
 cat ${RELPATH}/${EXE_PKGNAME}.files |sort -u >/tmp/${EXE_PKGNAME}.files
-/bin/cp --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+/bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 
 fixfilelistfunc() {
  #$1 is file to remove, as doesn't exist.
@@ -565,87 +576,87 @@ fixfilelistfunc() {
 #...a post-install script could delete files, which fixfilelistfunc fixes.
 
 #cat ${RELPATH}/${EXE_PKGNAME}.files |
-while read ONEFILE
+while read oneFILE
 do
- ONEBASE=`basename "$ONEFILE"`
- ONEPATH=`dirname  "$ONEFILE"`
- echo "Processing ${ONEFILE}"
+ ONEBASE=`basename "$oneFILE"`
+ ONEPATH=`dirname  "$oneFILE"`
+ echo "Processing ${oneFILE}"
  #strip the file...
- if [ ! -h "$ONEFILE" ];then #make sure it isn't a symlink
-  if [ ! "`echo "$ONEFILE" |grep -E '\.dvi$|\.gs$|\.html$|\.pdf$|\.ps$|\.txt$|\.xml$|\.cfg$|\.conf$|\.mo$|\.po$|\.h$|\.hpp$|\.c$|\.cc$|\.cpp$|\.bmp$|\.gif$|\.jpg$|\.png$|\.tif$|\.xbm$|\.xpm$|\.a$|\.la$|\.pc$|/man/.*\.[0-9x]+$|\.menu$|\.desktop$|\.pl$|\.py$|\.sh$|\.bz2$|\.gz$|\.lzma$|\.lzo$|\.xz$|\.Z$|\.au$|\.flv$|\.mp[0-9]$|\.ogg$|\.raw$|\.wav$'`" ];then #file is heavy on cpu
-  echo -e '\033[1;35m'"Testing for stripping '$ONEFILE'"'\033[0;39m'
-  [ "`echo "$FILE_ONEFILE" | grep 'LSB' | grep 'shared object'`" ] && strip $VERB --strip-debug "$ONEFILE"
-  [ "`echo "$FILE_ONEFILE" | grep 'ELF' | grep 'executable'`" ] && strip $VERB --strip-unneeded "$ONEFILE"
+ if [ ! -h "$oneFILE" ];then #make sure it isn't a symlink
+  if [ ! "`echo "$oneFILE" |grep -E '\.dvi$|\.gs$|\.html$|\.pdf$|\.ps$|\.txt$|\.xml$|\.cfg$|\.conf$|\.mo$|\.po$|\.h$|\.hpp$|\.c$|\.cc$|\.cpp$|\.bmp$|\.gif$|\.jpg$|\.png$|\.tif$|\.xbm$|\.xpm$|\.a$|\.la$|\.pc$|/man/.*\.[0-9x]+$|\.menu$|\.desktop$|\.pl$|\.py$|\.sh$|\.bz2$|\.gz$|\.lzma$|\.lzo$|\.xz$|\.Z$|\.au$|\.flv$|\.mp[0-9]$|\.ogg$|\.raw$|\.wav$'`" ];then #file is heavy on cpu
+  echo -e '\033[1;35m'"Testing for stripping '$oneFILE'"'\033[0;39m'
+  [ "`echo "$FILE_oneFILE" | grep 'LSB' | grep 'shared object'`" ] && strip $VERB --strip-debug "$oneFILE"
+  [ "`echo "$FILE_oneFILE" | grep 'ELF' | grep 'executable'`" ] && strip $VERB --strip-unneeded "$oneFILE"
   fi
  fi
  _sync
 
  if [ "$NLSSPLIT" = "yes" ];then
   #find out if this is an international language file...
-  if [ ! "`echo -n "$ONEFILE" | grep -E '/locale/|/nls/|/i18n/'`" = "" ];then
-   mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
-   /bin/cp -a --remove-destination "$ONEFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  if [ ! "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" = "" ];then
+   mkdir $VERB -p "${NLS_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
  fi
 
  if [ "$DOCSPLIT" = "yes" ];then
   #find out if this is a documentation file...
-  if [ ! "`echo -n "$ONEFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
-   mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
-   /bin/cp -a --remove-destination "$ONEFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  if [ ! "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
+   mkdir $VERB -p "${DOC_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
  fi
 
  if [ "$DEVSPLIT" = "yes" ];then
   #find out if this is development file...
-  if [ ! "`echo -n "$ONEFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
-   mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-   /bin/cp -a --remove-destination "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-   [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  if [ ! "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
+   mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
   #find *.so symlink files...
-  if [ -h "$ONEFILE" ];then #-h tests for symlink
-   if [ ! "`echo -n "$ONEFILE" | grep '\.so$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp -a --remove-destination "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  if [ -h "$oneFILE" ];then #-h tests for symlink
+   if [ ! "`echo -n "$oneFILE" | grep '\.so$'`" = "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
    fi
   fi
   #find various config files...
   if [ ! "`echo -n "$ONEBASE" | grep -E '\-config$|config.sh$|Conf.sh$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp -a --remove-destination "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
-  if [ ! "`echo -n "$ONEBASE" | grep --extended-regexp '\.a$|\.la$|\.m4$'`" = "" ];then
-    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp -a --remove-destination "$ONEFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
-    [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  if [ ! "`echo -n "$ONEBASE" | grep -E '\.a$|\.la$|\.m4$'`" = "" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
  fi
 
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
-  mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
-  /bin/cp -a --remove-destination "$ONEFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
-  [ $? -ne 0 ] && fixfilelistfunc $ONEFILE
+  mkdir $VERB -p "${EXE_TARGETDIR}/${ONEPATH}"
+  /bin/cp $VERB -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
+  [ $? -ne 0 ] && fixfilelistfunc $oneFILE
   #fix for empty directories...
   cat /tmp/${EXE_PKGNAME}.dirs |
   while read ANEWDIR
   do
-   [ "`ls -A $ANEWDIR`" = "" ] && mkdir -p ${EXE_TARGETDIR}${ANEWDIR}
+   [ "`ls -A $ANEWDIR`" ] || mkdir $VERB -p ${EXE_TARGETDIR}${ANEWDIR}
   done
  fi
-#done #<${RELPATH}/${EXE_PKGNAME}.files
+#done
 done<${RELPATH}/${EXE_PKGNAME}.files
 _sync
 
@@ -653,26 +664,26 @@ _sync
 if [ "$DEBUG" ]; then
 cat /tmp/${EXE_PKGNAME}.files >>${RELPATH}/${EXE_PKGNAME}.files
 else
-cp -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+cp $VERB -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 fi
 
-# cp log files into pkg -- probably into _DEV pkg? ..
-find -type f -name "*.log*"   -exec cp -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
-find -type f -name "config.h" -exec cp -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2012-07-18
+# cp $VERB log files into pkg -- probably into _DEV pkg? ..
+find -type f -name "*.log*"   -exec cp $VERB -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
+find -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2012-07-18
 
 #add a pkgname file to /root/.packages since it is installed now
 if [ "$DEBUG" ]; then
 cat /tmp/${EXE_PKGNAME}.files >>/root/.packages/${EXE_PKGNAME}.files
 else
-cp -af /tmp/${EXE_PKGNAME}.files /root/.packages
+cp $VERB -af /tmp/${EXE_PKGNAME}.files /root/.packages
 fi
 
 # add a source directory to /root/.packages ..
-mkdir -p /root/.packages/src/${EXE_PKGNAME}
+mkdir $VERB -p /root/.packages/src/${EXE_PKGNAME}
 # and copy log files into it
-#find -name "*.log" -exec cp {} /root/.packages/src/${EXE_PKGNAME}-{} \;
-find -type f -name "*.log*"   -exec cp -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
-find -type f -name "config.h" -exec cp -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
+#find -name "*.log" -exec cp $VERB {} /root/.packages/src/${EXE_PKGNAME}-{} \;
+find -type f -name "*.log*"   -exec cp $VERB -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
+find -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
 
 # delete whiteout files by aufs driver
 find "$EXE_TARGETDIR" -name "*.wh.*" -delete
@@ -684,9 +695,9 @@ find "$EXE_TARGETDIR" -name "*.wh.*" -delete
 [ "`ls -1A "$EXE_TARGETDIR"`" ] || { echo "Hmmm... '$EXE_TARGETDIR' is not populated";exit 1; }
 
 # remove unpopulated _DEV _DOC _NLS directories ...
-[ -d "$DEV_TARGETDIR" ] && { [ "`ls -1A "$DEV_TARGETDIR"`" ] || rmdir "$DEV_TARGETDIR"; }
-[ -d "$DOC_TARGETDIR" ] && { [ "`ls -1A "$DOC_TARGETDIR"`" ] || rmdir "$DOC_TARGETDIR"; }
-[ -d "$NLS_TARGETDIR" ] && { [ "`ls -1A "$NLS_TARGETDIR"`" ] || rmdir "$NLS_TARGETDIR"; }
+[ -d "$DEV_TARGETDIR" ] && { [ "`ls -1A "$DEV_TARGETDIR"`" ] || rmdir $VERB "$DEV_TARGETDIR"; }
+[ -d "$DOC_TARGETDIR" ] && { [ "`ls -1A "$DOC_TARGETDIR"`" ] || rmdir $VERB "$DOC_TARGETDIR"; }
+[ -d "$NLS_TARGETDIR" ] && { [ "`ls -1A "$NLS_TARGETDIR"`" ] || rmdir $VERB "$NLS_TARGETDIR"; }
 
 echo
 echo -en "\\033[1;31mFinished" #red
