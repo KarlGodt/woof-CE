@@ -36,7 +36,7 @@ _trap
 #and 'abiword-0.5.6-i486' directory gets created, with all installed files
 #in it.
 
-VERSION='1.2-simple Puppy-4.3.1 KRG'
+VERSION='1.3-simple Puppy-4.3.1 KRG'
 ## TODO : More options , implement strip for rescue mode
 
 ERRMSG="This script is used in the last step when installing a source
@@ -50,28 +50,28 @@ _usage(){
     RV=0
     case $1 in [0-9]*) RV=$1; shift;; esac
     MSG="$0 [h d v V f r [m A C]]] make [opt] install
-    f force : timeout reduced from 10 to 1 second
-    and answer questions automatically
+    f force : Timeout reduced from 10 to 1 second
+              and answer questions automatically.
 
-    h help : to show this usage
-    d debug : with 'set -x'
-    v verbose mode
-    V show : version information
-    c clean up evtl. existing TAGETDIRS-i486, otherwise merge
+    h help   : Shows this usage.
+    d debug  : turn on debug mode. Given twice 'set -x' .
+    v verbose: Verbose mode.
+    V version: Shows Version information.
+    c clean  : Remove evtl. existing TAGETDIRS-i486, otherwise merge.
 
     Rescue Mode Options :
     r rescue : don't run make install but look for files modified less
-      then 5 minutes ago and collect them
-      also usefull to speed up large packages
-    M=# : in rescue mode specify the time (the needed minus needs to be omitted)
-    A   : in rescue mode use access min rather than modify min
-    C   : in rescue mode use change min rather than modify min
+               then $MMIN minutes ago and collect them.
+               Also usefull to speed up large packages.
+    M=# : in rescue mode specify the time (the needed minus needs to be omitted).
+    A   : in rescue mode use access min rather than modify min .
+    C   : in rescue mode use change min rather than modify min .
 
 NOTE : THIS version does not support stripping in Resue Mode.
 NOTE : THIS version does not give the option to split packages in Rescue Mode.
 
-BUGS : Likely .
-    "
+BUGS : Likely.
+"
 [ "$*" ] && MSG="$MSG
 $*"
 gettext "$MSG"
@@ -96,24 +96,38 @@ echo "PRIVATEOPTS='$PRIVATEOPTS'"
 for opt in $PRIVATEOPTS;do
 echo -n "'$opt' "
 case $opt in
-f|F|force)T=1;FORCE=1;;
+f|F|force)T=1;FORCE=$((FORCE+1));;
 r|R|rescue)RES=ON;;
 m=[0-9]*|M=[0-9]*|m=-[0-9]*|M=-[0-9]*)MMIN="-${opt##*=}"; MMIN=`echo "$MMIN" | sed 's|^-*|-|'`
-[ "${MMIN//[[:digit:]]/}" = '-' ] || { echo "Option '$opt' given but time not specified.";usage 1; }
+[ "${MMIN//[[:digit:]]/}" = '-' ] || { echo "Option '$opt' given but time not specified.";_usage 1; }
 ;;
 A)FIND_M=-amin;;
 C)FIND_M=-cmin;;
 c)CLEAN=1;;
-d|D)set -x;;
+d|D) DEBUG=$((DEBUG+1)); [ "$DEBUG" -ge 2 ] && set -x;;
 v)VERB=-v;L_VERB=--verbose;A_VERB=-verbose;ME_VERB=1;OUT=/dev/stdout;ERR=/dev/stderr;;
 V)echo -e "\n$0: Version '$VERSION'
 BUGS : likely
 SPECIALS : options don't require '-' prefix
 NOTE : No otions after make [make option(s)] install";exit 0;;
 h|H)_usage 0;;
-*)echo "opt='$opt'";usage 1;;
+*)echo "opt='$opt'";_usage 1;;
 esac;done
 [ "$ME_VERB" ] && echo $LINENO  ##;exit
+
+_add_verbosity_to_utils(){
+alias cp="cp $VERB"
+alias mv="mv $VERB"
+alias rm="rm $VERB"
+alias chgrp="chgrp $VERB"
+alias chmod="chmod $VERB"
+alias chown="chown $VERB"
+alias mkdir="mkdir $VERB"
+alias rmdir="rmdir $VERB"
+}
+_add_verbosity_to_utils
+
+TTY=`tty` || _exit 2 "Need controlling terminal" # cp -i may need this
 
 if test -f ./configure; then
 #ac_default_prefix=/usr/local in configure shell script
@@ -175,6 +189,7 @@ rel='../'
   do
 
   curDIR=`pwd`
+  test "$curDIR" = '/' && return 2
   pkgDIR=$curDIR
   pkgNAME=`basename $pkgDIR`
 
@@ -227,8 +242,9 @@ if [ "`echo "$PKGDIR" | grep '[0-9]'`" = "" ];then
  #Pkg_VERSION="${Pkg_VERSION1/[-_]/}"
  #fi
 
+echo
 # echo "'$PKGDIR1' '$PKGDIR2' does not seem to be a package directory with version
-echo "'$PKGDIR' for '$xPKGDIR' does not seem to be a package directory
+echo "'$PKGDIR' or '$xPKGDIR' does not seem to be a package directory
 with version number. Unfortunately, some source package tarballs expand
 to a directory that does not have version number in it's name.
 SeaMonkey is an example of this,
@@ -316,18 +332,26 @@ esac
 echo "Okay, using $CPUTYPE"
 
 #would like to create different targets for exe, doc, dev, nls components...
-#EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
-#EXE_PKGNAME=`basename "$EXE_TARGETDIR"`
-#    RELPATH=`dirname  "$EXE_TARGETDIR"`
+EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
+EXE_PKGNAME=`basename "$EXE_TARGETDIR"`
+    RELPATH=`dirname  "$EXE_TARGETDIR"`
+    echo EXE_TARGETDIR=$EXE_TARGETDIR
+echo EXE_PKGNAME=$EXE_PKGNAME
+echo RELPATH=$RELPATH
+
 #difficult task, separate package name from version part...
 #not perfect, some start with non-numeric version info...
-xNAMEONLY=`echo -n "$xPKGDIR" | sed -e 's/[\-\_][0-9].*$//g'`
+#xNAMEONLY=`echo -n "$xPKGDIR" | sed -e 's/[\-\_][0-9].*$//g'`
+xNAMEONLY=`echo -n "$xPKGDIR" | sed -e 's/[-_][0-9].*$//g'`
 #...if that fails, do it the old way...
 [ "$xNAMEONLY" = "$xPKGDIR" ] && xNAMEONLY=`echo "$xPKGDIR" | cut -f 1 -d "-"`
 NAMEONLY="${RELPATH}/${xNAMEONLY}"
 #abasename=`basename ${PKGDIR}`
 apattern="s/${xNAMEONLY}\\-//g"
 VERONLY=`echo -n "$xPKGDIR" | sed -e "$apattern"`
+
+echo NAMEONLY=$NAMEONLY
+echo VERONLY=$VERONLY
 
 EXE_TARGETDIR="${NAMEONLY}-${VERONLY}-${CPUTYPE}"
 EXE_PKGNAME=`basename "$EXE_TARGETDIR"`
@@ -339,9 +363,13 @@ DEV_PKGNAME=`basename "$DEV_TARGETDIR"`
 NLS_TARGETDIR="${NAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
 NLS_PKGNAME=`basename "$NLS_TARGETDIR"`
 
+echo EXE_TARGETDIR=$EXE_TARGETDIR
+echo EXE_PKGNAME=$EXE_PKGNAME
+echo RELPATH=$RELPATH
+
 # in case of re-run, remove old directories
 if [ "$CLEAN" ];then
-rm $VERB -rf "$EXE_TARGETDIR" "$DOC_TARGETDIR" "$NLS_TARGETDIR" "$DEV_TARGETDIR"
+rm -rf "$EXE_TARGETDIR" "$DOC_TARGETDIR" "$NLS_TARGETDIR" "$DEV_TARGETDIR"
 fi
 
 echo
@@ -384,7 +412,7 @@ EXESPLIT="";DOCSPLIT="";DEVSPLIT="";NLSSPLIT=""
 [ "`echo "$SPLITPETS" | grep -i 'dev'`" ] && DEVSPLIT="yes"
 [ "`echo "$SPLITPETS" | grep -i 'nls'`" ] && NLSSPLIT="yes"
 
-[ "`echo "$SPLITPETS" | grep -i 'exe'`" ] && mkdir $VERB -p "$EXE_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep -i 'exe'`" ] && mkdir -p "$EXE_TARGETDIR"
 
 # First the rescue part
 if [ "$RES" = "ON" ];then
@@ -414,75 +442,56 @@ LIST=`echo "$LIST" |sort -u`
 
 for i in $LIST;do
 if [ -d "$i" ];then
-mkdir $VERB -p "$EXE_TARGETDIR/$i"
+mkdir -p "$EXE_TARGETDIR/$i"
 else
 #dn=`dirname $i`
 dn="${i%/*}"
-mkdir $VERB -p "$EXE_TARGETDIR"/"$dn"
-cp $VERB -ai "$i" "$EXE_TARGETDIR"/"$dn"/
+mkdir -p "$EXE_TARGETDIR"/"$dn"
+cp -ai "$i" "$EXE_TARGETDIR"/"$dn"/     <$TTY
 [ "$?" -eq '0' ] && echo "Found '$i' ."
 fi;done
 
-#find . -name "*.log" -exec cp $VERB -ai --backup=numbered {} "$EXE_TARGETDIR" \;
+#find . -name "*.log" -exec cp   -ai --backup=numbered {} "$EXE_TARGETDIR" \;
 echo "$LIST" >> /root/.packages/"${EXE_PKGNAME}".files
-#mkdir $VERB -p "$EXE_TARGETDIR"/root/.packages/src/
-#find . -name "*.log" -exec cp $VERB -ai {} /root/.packages/src/"${EXE_PKGNAME}"-{} \;
-mkdir $VERB -p "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}"
+#mkdir -p "$EXE_TARGETDIR"/root/.packages/src/
+#find . -name "*.log" -exec cp   -ai {} /root/.packages/src/"${EXE_PKGNAME}"-{} \;
+mkdir -p "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}"
 echo "$LIST" >> "$EXE_TARGETDIR"/root/.packages/"${EXE_PKGNAME}".files
-find . -type f -name "*.log*" -exec cp $VERB -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
-find . -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
+find . -type f -name "*.log*"   -exec cp -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
+find . -type f -name "config.h" -exec cp -a --backup=numbered {} "$EXE_TARGETDIR"/root/.packages/src/"${EXE_PKGNAME}" \;
 find "$EXE_TARGETDIR" -name "*.wh.*" -delete
 exit "$?"
 fi #REScue
 
-[ "`echo "$SPLITPETS" | grep 'doc'`" ] && mkdir $VERB -p "$DOC_TARGETDIR"
-[ "`echo "$SPLITPETS" | grep 'dev'`" ] && mkdir $VERB -p "$DEV_TARGETDIR"
-[ "`echo "$SPLITPETS" | grep 'nls'`" ] && mkdir $VERB -p "$NLS_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'doc'`" ] && mkdir -p "$DOC_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'dev'`" ] && mkdir -p "$DEV_TARGETDIR"
+[ "`echo "$SPLITPETS" | grep 'nls'`" ] && mkdir -p "$NLS_TARGETDIR"
 
 echo
 echo -en "\\033[1;31mStep 4" #red
 echo -e "\\033[0;39m"
 echo "The following line is about to be executed:"
-echo "# installwatch -o /tmp/pkginstall.list ${@}"
+echo "# installwatch -o /tmp/pkginstall.list ${MAKEOPTS}"
 echo "...this logs all file activity to /tmp/pkginstall.list"
 echo "This script will then determine all newly created directories"
-echo "and files and create '$EXE_TARGETDIR' with the new files."
-echo "(and optionally ${DEV_TARGETDIR}, ${DOC_TARGETDIR}, ${NLS_TARGETDIR})"
+echo "and files and create
+'$EXE_TARGETDIR' with the new files"
+echo "(and optionally
+${DEV_TARGETDIR},
+${DOC_TARGETDIR},
+${NLS_TARGETDIR})."
 echo -n "Press ENTER key to continue: "
 read -t $T goforit
-
-old_placement(){
-if [ "$RES" = "ON" ];then
-U=`find -L /usr -mmin -5`
-L=`find -L /lib -mmin -5`
-B=`find -L /bin -mmin -5`
-S=`find -L /sbin -mmin -5`
-E=`find -L /etc -mmin -5 |grep -vE 'mtab|cups'`
-
-LIST="$U
-$L
-$B
-$S
-$E"
-
-for i in $LIST;do
-if [ -d "$i" ];then
-mkdir $VERB -p $EXE_TARGETDIR/$i
-else
-dn=`dirname $i`
-mkdir $VERB -p $EXE_TARGETDIR/"$dn"
-cp $VERB -ai "$i" $EXE_TARGETDIR/"$dn"/
-fi;done
-find . -name "*.log*" -exec cp $VERB -a --backup=numbered {} $EXE_TARGETDIR \;
-exit "$?"
-fi #REScue
-}
 
 installwatch -o /tmp/pkginstall.list ${MAKEOPTS}
 
 _sync
 
+echo
+echo -en "\\033[1;31mStep 5" #red
+echo -e "\\033[0;39m"
 echo "Getting and formatting installwatch information .."
+
 #create list of installed files...
 #v2.17 bug, if sometimes logs files in the pkg installing from, have added
 # filter out $UPONE...
@@ -508,36 +517,74 @@ echo "Checking for 'rename' ..."
 cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' > /tmp/${EXE_PKGNAME}.moved.files
 
 _sync
+
+_ignore_home_files(){
 echo "Checking for '$PWD' files ..."
 grep_PWD=`echo "$PWD" |sed 's,\([[:punct:]]\),\\\\\1,g'`
 echo -e "\e[1;36m$grep_PWD\e[0;39m"
 cat ${RELPATH}/${EXE_PKGNAME}.files | grep -v "$grep_PWD" >/tmp/${EXE_PKGNAME}.files
-[ "$ME_VERB" ] && mv $VERB ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
-#/bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+[ "$ME_VERB" ] && mv ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
+#/bin/cp --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+}
+_ignore_home_files
+
+_sort_unique_files(){
 sort -u /tmp/${EXE_PKGNAME}.files        >${RELPATH}/${EXE_PKGNAME}.files
 sort -u /tmp/${EXE_PKGNAME}.dirs         >/tmp/${EXE_PKGNAME}.dirs.s
 sort -u /tmp/${EXE_PKGNAME}.moved.files  >/tmp/${EXE_PKGNAME}.moved.files.s
 _sync
-mv $VERB /tmp/${EXE_PKGNAME}.dirs.s        /tmp/${EXE_PKGNAME}.dirs
-mv $VERB /tmp/${EXE_PKGNAME}.moved.files.s /tmp/${EXE_PKGNAME}.moved.files
+mv /tmp/${EXE_PKGNAME}.dirs.s        /tmp/${EXE_PKGNAME}.dirs
+mv /tmp/${EXE_PKGNAME}.moved.files.s /tmp/${EXE_PKGNAME}.moved.files
 _sync
+}
+_sort_unique_files
 
+_filter_renamed_files(){
 #find out if any installed file got moved/renamed...
+#example:
+#/root/COMPILE/Gpart/gpart-0.1h/_install/sbin/st8ycUJA
+#/root/COMPILE/Gpart/gpart-0.1h/_install/sbin/gpart
+
+ _alter_files_file(){
+  #old BK way, heavy on cpu on large sources, that install a lot of data files
+  grep -v "$oneORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
+  echo "$oneNEW" >> /tmp/${EXE_PKGNAME}.files
+  _sync
+  mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+ }
+
+ _build_list(){
+  oneORIG="$oneORIG
+`echo -n "$oneMOVED" | cut -f 1 -d '&'`"
+  oneNEW="$oneNEW
+`echo -n "$oneMOVED" | cut -f 2 -d '&'`"
+  [ "$ME_VERB" ] && echo "orig:'$oneORIG' new:'$oneNEW'"
+ }
+
+#echo "Fixing 'moved' files ..."
+#if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
+[ -s /tmp/${EXE_PKGNAME}.moved.files ] || return 0
 echo "Fixing 'moved' files ..."
-if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
- for ONEMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
+ for oneMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
  do
-  ONEORIG="$ONEORIG
-`echo -n "$ONEMOVED" | cut -f 1 -d '&'`"
-  ONENEW="$ONENEW
-`echo -n "$ONEMOVED" | cut -f 2 -d '&'`"
-  [ "$ME_VERB" ] && echo "orig:'$ONEORIG' new:'$ONENEW'"
-  #grep -v "$ONEORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
-  #echo "$ONENEW" >> /tmp/${EXE_PKGNAME}.files
-  #_sync
-  #mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+
+#  oneORIG="$oneORIG
+#`echo -n "$oneMOVED" | cut -f 1 -d '&'`"
+#  oneNEW="$oneNEW
+#`echo -n "$oneMOVED" | cut -f 2 -d '&'`"
+#  [ "$ME_VERB" ] && echo "orig:'$oneORIG' new:'$oneNEW'"
+
+##  #oneORIG=`echo -n "$oneMOVED" | cut -f 1 -d '&'`
+##  #oneNEW=`echo -n "$oneMOVED" | cut -f 2 -d '&'`
+##  #grep -v "$oneORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
+##  #echo "$oneNEW" >> /tmp/${EXE_PKGNAME}.files
+##  #_sync
+##  #mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+##  _alter_files_file
+
+  _build_list
  done
-fi
+##fi
 
 [ "$ME_VERB" ] && echo "orig:
 '$ONEORIG'
@@ -545,35 +592,56 @@ fi
 new:
 '$ONENEW'"
 
-echo "$ONEORIG" |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.orig.files
-echo "$ONENEW"  |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.new.files
-grep -v -f /tmp/${EXE_PKGNAME}.orig.files ${RELPATH}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
-cat /tmp/${EXE_PKGNAME}.new.files >> /tmp/${EXE_PKGNAME}.files
-/bin/cp $VERB -a --remove-destination      /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+#fixfilelistfunc() uses ${RELPATH}/${EXE_PKGNAME}.files...
+echo "$oneORIG" |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.orig.files
+echo "$oneNEW"  |sed '/^$/d' >  /tmp/${EXE_PKGNAME}.new.files
 
+grep -v -f /tmp/${EXE_PKGNAME}.orig.files ${RELPATH}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
+
+cat /tmp/${EXE_PKGNAME}.new.files  >> /tmp/${EXE_PKGNAME}.files
+/bin/cp $VERB -a --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+#fi
+}
+_filter_renamed_files
+
+_ignore_home_files(){
+# sometimes files get in as '/root/$pkgname/...'
+# probably because install first moves files to .lib/libxyz.so.0.1.2T
+# do not need them, so filter them out
 echo "Checking for '$PWD' files ..."
 grep_PWD=`echo "$PWD" |sed 's,\([[:punct:]]\),\\\\\1,g'`
 echo -e "\e[1;36m$grep_PWD\e[0;39m"
 cat ${RELPATH}/${EXE_PKGNAME}.files | grep -v "$grep_PWD" >/tmp/${EXE_PKGNAME}.files
-[ "$ME_VERB" ] && mv $VERB --backup=numbered ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
+[ "$ME_VERB" ] && mv --backup=numbered ${RELPATH}/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files.old
 /bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 _sync
+}
+_ignore_home_files
 
-echo
-echo -en "\\033[1;31mStep 5" #red
-echo -e "\\033[0;39m"
+#echo
+#echo -en "\\033[1;31mStep 5" #red
+#echo -e "\\033[0;39m"
 
+_sort_unique_files2(){
 #fixfilelistfunc() uses this...
-cat ${RELPATH}/${EXE_PKGNAME}.files |sort -u >/tmp/${EXE_PKGNAME}.files
+#cat ${RELPATH}/${EXE_PKGNAME}.files |sort -u >/tmp/${EXE_PKGNAME}.files
+sort -u ${RELPATH}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
 /bin/cp $VERB --remove-destination /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+}
+_sort_unique_files2
 
 fixfilelistfunc() {
- #$1 is file to remove, as doesn't exist.
+ #$1 is file to remove, as doesn't exist since cp returned non-zero.
+ [ "$1" ] || return 2
  echo " ...${1} has been deleted."
- grep -v "$1" /tmp/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files.tmp
- mv -f /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
+ grep -v "$1" /tmp/${EXE_PKGNAME}.files   > /tmp/${EXE_PKGNAME}.files.tmp
+ mv -f        /tmp/${EXE_PKGNAME}.files.tmp /tmp/${EXE_PKGNAME}.files
 }
 #...a post-install script could delete files, which fixfilelistfunc fixes.
+
+echo
+echo -en "\\033[1;31mStep 6" #red
+echo -e "\\033[0;39m"
 
 #cat ${RELPATH}/${EXE_PKGNAME}.files |
 while read oneFILE
@@ -594,7 +662,7 @@ do
  if [ "$NLSSPLIT" = "yes" ];then
   #find out if this is an international language file...
   if [ ! "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" = "" ];then
-   mkdir $VERB -p "${NLS_TARGETDIR}/${ONEPATH}"
+   mkdir -p "${NLS_TARGETDIR}/${ONEPATH}"
    /bin/cp $VERB -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
@@ -604,7 +672,7 @@ do
  if [ "$DOCSPLIT" = "yes" ];then
   #find out if this is a documentation file...
   if [ ! "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" = "" ];then
-   mkdir $VERB -p "${DOC_TARGETDIR}/${ONEPATH}"
+   mkdir -p "${DOC_TARGETDIR}/${ONEPATH}"
    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
@@ -614,7 +682,7 @@ do
  if [ "$DEVSPLIT" = "yes" ];then
   #find out if this is development file...
   if [ ! "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" = "" ];then
-   mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+   mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
@@ -622,7 +690,7 @@ do
   #find *.so symlink files...
   if [ -h "$oneFILE" ];then #-h tests for symlink
    if [ ! "`echo -n "$oneFILE" | grep '\.so$'`" = "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
@@ -630,14 +698,14 @@ do
   fi
   #find various config files...
   if [ ! "`echo -n "$ONEBASE" | grep -E '\-config$|config.sh$|Conf.sh$'`" = "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
   if [ ! "`echo -n "$ONEBASE" | grep -E '\.a$|\.la$|\.m4$'`" = "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
+    mkdir -p "${DEV_TARGETDIR}/${ONEPATH}"
     /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
@@ -646,14 +714,14 @@ do
 
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
-  mkdir $VERB -p "${EXE_TARGETDIR}/${ONEPATH}"
+  mkdir -p "${EXE_TARGETDIR}/${ONEPATH}"
   /bin/cp $VERB -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
   #fix for empty directories...
   cat /tmp/${EXE_PKGNAME}.dirs |
   while read ANEWDIR
   do
-   [ "`ls -A $ANEWDIR`" ] || mkdir $VERB -p ${EXE_TARGETDIR}${ANEWDIR}
+   [ "`ls -A $ANEWDIR`" ] || mkdir -p ${EXE_TARGETDIR}${ANEWDIR}
   done
  fi
 #done
@@ -664,26 +732,26 @@ _sync
 if [ "$DEBUG" ]; then
 cat /tmp/${EXE_PKGNAME}.files >>${RELPATH}/${EXE_PKGNAME}.files
 else
-cp $VERB -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+cp   -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
 fi
 
-# cp $VERB log files into pkg -- probably into _DEV pkg? ..
-find -type f -name "*.log*"   -exec cp $VERB -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
-find -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2012-07-18
+# cp   log files into pkg -- probably into _DEV pkg? ..
+find -type f -name "*.log*"   -exec cp -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
+find -type f -name "config.h" -exec cp -a --backup=numbered {} "${EXE_TARGETDIR}/" \;  ##KRG 2012-07-18
 
 #add a pkgname file to /root/.packages since it is installed now
 if [ "$DEBUG" ]; then
 cat /tmp/${EXE_PKGNAME}.files >>/root/.packages/${EXE_PKGNAME}.files
 else
-cp $VERB -af /tmp/${EXE_PKGNAME}.files /root/.packages
+cp -af /tmp/${EXE_PKGNAME}.files /root/.packages
 fi
 
 # add a source directory to /root/.packages ..
-mkdir $VERB -p /root/.packages/src/${EXE_PKGNAME}
+mkdir -p /root/.packages/src/${EXE_PKGNAME}
 # and copy log files into it
-#find -name "*.log" -exec cp $VERB {} /root/.packages/src/${EXE_PKGNAME}-{} \;
-find -type f -name "*.log*"   -exec cp $VERB -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
-find -type f -name "config.h" -exec cp $VERB -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
+#find -name "*.log" -exec cp {} /root/.packages/src/${EXE_PKGNAME}-{} \;
+find -type f -name "*.log*"   -exec cp -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
+find -type f -name "config.h" -exec cp -a --backup=numbered {} /root/.packages/src/${EXE_PKGNAME} \;
 
 # delete whiteout files by aufs driver
 find "$EXE_TARGETDIR" -name "*.wh.*" -delete
@@ -695,9 +763,9 @@ find "$EXE_TARGETDIR" -name "*.wh.*" -delete
 [ "`ls -1A "$EXE_TARGETDIR"`" ] || { echo "Hmmm... '$EXE_TARGETDIR' is not populated";exit 1; }
 
 # remove unpopulated _DEV _DOC _NLS directories ...
-[ -d "$DEV_TARGETDIR" ] && { [ "`ls -1A "$DEV_TARGETDIR"`" ] || rmdir $VERB "$DEV_TARGETDIR"; }
-[ -d "$DOC_TARGETDIR" ] && { [ "`ls -1A "$DOC_TARGETDIR"`" ] || rmdir $VERB "$DOC_TARGETDIR"; }
-[ -d "$NLS_TARGETDIR" ] && { [ "`ls -1A "$NLS_TARGETDIR"`" ] || rmdir $VERB "$NLS_TARGETDIR"; }
+[ -d "$DEV_TARGETDIR" ] && { [ "`ls -1A "$DEV_TARGETDIR"`" ] || rmdir "$DEV_TARGETDIR"; }
+[ -d "$DOC_TARGETDIR" ] && { [ "`ls -1A "$DOC_TARGETDIR"`" ] || rmdir "$DOC_TARGETDIR"; }
+[ -d "$NLS_TARGETDIR" ] && { [ "`ls -1A "$NLS_TARGETDIR"`" ] || rmdir "$NLS_TARGETDIR"; }
 
 echo
 echo -en "\\033[1;31mFinished" #red
