@@ -157,6 +157,7 @@ with setup: $PROC_CMDLINE
 Executing /bin/busybox reboot '$BB_REBOOT'
 :\\033[0;39m"
 
+_reboot_works_not_(){
 # REM: rc.shutdown does umount -a at the very end,
 #      so if /proc is in /etc/fstab (which is the default)
 #      /proc should be unmounted here
@@ -168,5 +169,65 @@ if mountpoint $Q /proc; then
  fi
 else          exec /bin/busybox reboot $BB_REBOOT
 fi
+}
 
+[ "$DEBUG" ] && {
+ps | grep -v '\['
+echo
+cat /proc/mounts
+echo
+}
+
+# reboot hangs probably because /dev remounted ro
+[ -f /proc/mounts ] || mount -t proc proc /proc
+DEVMNT=`cut -f1-2 -d' ' /proc/mounts | grep ' /dev$'`
+if echo "$DEVMNT" | grep $Q ' /dev$'; then
+ DEVFS=`echo "$DEVMNT" | cut -f1 -d' ' | head -n1`
+ mount -o remount,rw $DEVFS /dev || mount -o remount,rw /dev/root /
+  #create links stderr stdout stdin
+ ln -sfn ../proc/self/fd /dev/fd || mkdir -p /dev/fd
+ ln -sf fd/0 /dev/stdin
+ ln -sf fd/1 /dev/stdout
+ ln -sf fd/2 /dev/stderr
+else
+ mount -o remount,rw /dev/root /
+fi
+
+[ "$DEBUG" ] && {
+echo
+cat /proc/mounts
+echo
+sleep 3
+ps | grep -v '\['
+sleep 3
+ps | grep -v '\['
+sleep 3
+ps | grep -v '\['
+}
+
+sleep 3
+
+###use exec###
+_late_exit1(){
+echo "Would now exec /bin/busybox reboot '$BB_REBOOT'"
+echo "But exiting instead."
+exit
+}
+#[ "$DEBUG" ] && [ "$DEBUG" -ge 2 ] &&  _late_exit1
+
+_use_exec(){
+echo "Executing exec /bin/busybox reboot '$BB_REBOOT'"
+exec /bin/busybox reboot $BB_REBOOT
+}
+#_use_exec
+###use exec###
+
+_late_exit2(){
+echo "Would now /bin/busybox reboot '$BB_REBOOT'"
+echo "But exiting instead."
+exit
+}
+[ "$DEBUG" ] && [ "$DEBUG" -ge 2 ] && _late_exit2
+
+echo "Executing /bin/busybox reboot '$BB_REBOOT'"
 /bin/busybox reboot $BB_REBOOT  ##TEST do not use exec
