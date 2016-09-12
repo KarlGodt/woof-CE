@@ -33,6 +33,64 @@ _trap
 _sync
 [ -f /proc/mounts ] || exec mount-FULL "$@"
 
+_exit(){
+[ "$REMNT_ROT_RW" ] && mount -o remount,ro /dev/root /
+[ "$REMNT_TMP_RW" ] && mount -o remount,ro /tmp
+case $1 in
+[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])
+    RV=$1; shift;;
+'') RV=0;;
+*)  rV=`echo "$@" | awk '{print $NF}'`
+    case $rv in [0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])
+    RV=$rV;; # could remove the exit number , but why not print it?
+    esac
+    [ "$RV" ] || RV=0
+;;
+esac
+
+[ "$*" ] && echo "$@"
+exit $RV
+}
+
+__make_writable_tmp(){
+test -f /proc/mounts || mount -t proc porc /proc
+cut -f1-2 -d' ' /proc/mounts | grep $Q ' /tmp$'
+if test $? = 0; then # /tmp is mountpoint
+mount -o remount,rw /tmp
+else
+mount -o remount,rw /
+fi
+echo "$0:$*"
+cat /proc/mounts
+echo
+}
+
+_make_writable_tmp(){
+#unset readONLY REMNT_TMP_RW REMNT_ROT_RW
+# the second call to _make_writable_tmp would tell rw before was always true
+# if unset
+test -f /proc/mounts || mount -t proc porc /proc || return 2
+
+mntLINE=`cut -f1-2 -d' ' /proc/mounts | grep ' /tmp$'`
+if test "$mntLINE"; then # /tmp is mountpoint
+ readONLY=`grep -m1 "^$mntLINE " /proc/mounts | grep -w ro`
+ if test "$readONLY"; then
+  mount -o remount,rw /tmp && REMNT_TMP_RW=1
+ fi
+else
+ readONLY=`grep -m1 '^/dev/root / ' /proc/mounts | grep -w ro`
+ if test "$readONLY"; then
+  mount -o remount,rw / && REMNT_ROT_RW=1
+ fi
+fi
+ (
+ echo "$0:$*"
+ cat /proc/mounts
+ echo
+ ) >&2
+}
+
+_make_writable_tmp #also mounts /proc if needed
 MOUNTEDSB=`tac /proc/mounts`
 
 ARGS=`set | grep -E 'ARGV|ARGC'`
@@ -108,24 +166,27 @@ busybox umount -dr "${P[@]}"
 RETVAL=$?
 }
 
-[ "$RETVAL" = 0 ] || exit $RETVAL
+[ "$RETVAL" = 0 ] || _exit $RETVAL
 
   if [ "$MNTPT_M" ] ; then OLDMOUNTPT="$MNTPT_M"
 elif [ "$MNTPT_D" ] ; then OLDMOUNTPT="$MNTPT_D"
 else
 sleep 0.02s
-[ -f /proc/mounts ] || { echo "No /proc/mounts ."; exit $RETVAL ; }  ##+++2013-08-10 in case umount -a unmounts /proc
+[ -f /proc/mounts ] || { _exit $RETVAL "No /proc/mounts ."; }  ##+++2013-08-10 in case umount -a unmounts /proc
+test -d /tmp        || { _exit $RETVAL "No /tmp"; }
+_make_writable_tmp #could have been umount /proc or /tmp ..
+#but an underlying /tmp directory may still exist..
 MOUNTEDSA=`tac /proc/mounts`
 OLDMOUNT=`echo "$MOUNTEDSB" | grep -v "$MOUNTEDSA"`
 OLDMOUNTPT=`echo "$OLDMOUNT" | awk '{print $2}'`
 OLDMOUNTPT=`echo -e "$OLDMOUNTPT" | head -n1`
   fi
 
-grep $Q -E " ${OLDMOUNTPT} |${OLDMOUNTPT}/" /proc/mounts && exit $RETVAL # maybe remounted read-only
-[ "$MOUNTEDSB" = "$MOUNTEDSA" ] && { echo "NO CHANGES";exit $RETVAL; }
+grep $Q -E " ${OLDMOUNTPT} |${OLDMOUNTPT}/" /proc/mounts && _exit $RETVAL # maybe remounted read-only
+[ "$MOUNTEDSB" = "$MOUNTEDSA" ] && { _exit $RETVAL "NO CHANGES"; }
 [ "$OLDMOUNTPT" -a -d "$OLDMOUNTPT" -a ! "`ls -A "$OLDMOUNTPT"`" ] && rmdir "$OLDMOUNTPT"
 
-[ "$DISPLAY" ] || { echo "NO DISPLAY";exit $RETVAL; }
+[ "$DISPLAY" ] || { _exit $RETVAL "NO DISPLAY"; }
 
 . /etc/rc.d/functions4puppy4
 
@@ -133,11 +194,11 @@ grep $Q -E " ${OLDMOUNTPT} |${OLDMOUNTPT}/" /proc/mounts && exit $RETVAL # maybe
 DEVNAMEP=`echo "$OLDMOUNT" | awk '{print $1}'`
 DEVNAMEP=`echo -e "$DEVNAMEP"`
 }
-[ "$DEVNAMEP" ]    || exit $RETVAL
-[ -b "$DEVNAMEP" ] || exit $RETVAL
+[ "$DEVNAMEP" ]    || _exit $RETVAL
+[ -b "$DEVNAMEP" ] || _exit $RETVAL
 DEVNAME=`echo "$DEVNAMEP" | sed 's%p[0-9]*$%%;s%[0-9]*$%%'`
 _debugx "DEVNAME='${DEVNAME}'"
-[ "$DEVNAME" ]    || exit $RETVAL
+[ "$DEVNAME" ]    || _exit $RETVAL
 PROBEDISK2=`probedisk2`
 CATEGORY=`echo "$PROBEDISK2" | grep -m1 -w "$DEVNAME" | cut -f2 -d'|'`
 DISK_FREE=`df`
@@ -149,4 +210,4 @@ echo "$DISK_FREE" | grep -w "^$DEVNAMEP" | grep -E ' /initrd/| /$' &&
       icon_unmounted_func "${DEVNAMEP##*/}" $CATEGORY;
 }
 
-exit $RETVAL
+_exit $RETVAL

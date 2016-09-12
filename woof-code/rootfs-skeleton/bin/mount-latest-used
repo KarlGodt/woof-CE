@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+# ash does not work on ${BASH_ARGC[0]} bad substitution 
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_mount-latest-used"
 _VERSION_=1.0omega
@@ -218,6 +218,11 @@ fi
 LANG=C
 ### SET LANG ###
 
+### SET LOGFILE ###
+logFILE=/tmp/mount.options.txt
+touch "$logFILE" || logFILE=/dev/stderr
+### SET LOGFILE ###
+
 ### GET PARAMETERS II ###
 iASH_PARAMETER_SPLIT(){
 
@@ -239,14 +244,14 @@ fi
 #PARAM=`echo $@ |gawk -F ' ' '{print $i}'`
 #fi
 
-echo >>/tmp/mount.options.txt
+echo >>"$logFILE"
 #for PARAM in $@;do
 j=$((j+1))
 [ "$VERBOSE" ] && echo '$'$j'='"$PARAM"
 eval PARAME$j="${PARAM}"
-eval echo "\$PARAME$j" >>/tmp/mount.options.txt
-if [ -n "`echo $PARAM | grep '/' | grep -v '/dev/.*'`" ] ; then
-[ ! -e "$PARAM" ] && { echo 'Directory '"$PARAM"' does not exists. Creating now ...'
+eval echo "\$PARAME$j" >>"$logFILE"
+if [ -n "`echo $PARAM | grep '/' | grep -vE '^/dev|^/sys|^/proc|^/tmp|^/initrd|^/mnt'`" ] ; then
+[ ! -e "$PARAM" ] && { echo 'Directory '"$PARAM"' does not exist. Creating now ...'
 MOUNT_POINT_Q="$PARAM"
 mkdir -p "$PARAM"
 }
@@ -259,7 +264,7 @@ _debug "1.. MOUNT_POINT_Q='$MOUNT_POINT_Q'"
 iBASH_PARAMETER_SPLIT(){
 echo "BASH_ARGC='${BASH_ARGC[0]}'"
 echo "BASH_ARGV='${BASH_ARGV[@]}'"
-echo >>/tmp/mount.options.txt
+echo >>"$logFILE"
 for c in `seq $(echo "${BASH_ARGC[0]}") -1 1`;do
 vc=$((c-1));((C++));[ "$VERBOSE" ] && echo $c $vc $C
 #if [ "`echo "${BASH_ARGV[$vc]}" | grep '[[:blank:]]'`" ];then
@@ -268,14 +273,14 @@ vc=$((c-1));((C++));[ "$VERBOSE" ] && echo $c $vc $C
 [ "`echo "${BASH_ARGV[$vc]}" |grep -Ew 'verbose|debug|codecheck' |grep -v '/'`" ] && { ((vc--));((C--));continue; }
 P[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 #fi
-echo "${P[$C]}" >>/tmp/mount.options.txt
-if [ "`echo "${P[$C]}" | grep '/'`" ];then
+echo "${P[$C]}" >>"$logFILE"
+if [ "`echo "${P[$C]}" | grep '/' |grep -vE '^/dev|^/mnt|^/proc|^/sys|^/tmp|^/initrd'`" ];then
 if [ ! -e "/mnt/${P[$C]##*/}" ];then
 echo "2..Folder '/mnt/${P[$C]##*/}' does not exists. Creating now ..."
 MOUNT_POINT_Q="/mnt/${P[$C]##*/}"
 mkdir -p "/mnt/${P[$C]##*/}";fi;fi
 done
-echo "${P[@]}" >>/tmp/mount.options.txt
+echo "${P[@]}" >>"$logFILE"
 _debug "2..MOUNT_POINT_Q='$MOUNT_POINT_Q'"
 }
 
@@ -375,7 +380,7 @@ if [ "$ALL" = 'YES' ];then #3
 
 if [ -n `readlink -e /etc/fstab` ] ; then #4
 [ "$VERBOSE" ] && echo 'if #4'
-FSTAB=`cat $(readlink -e /etc/fstab) | grep -E '^/dev/|^no' | grep -v -E -e 'noauto|^#|^[[:blank:]]*#' | tr '\t' ' ' | tr -s ' ' | sed 's/^[[:blank:]]*//'`
+FSTAB=`cat $(readlink -e /etc/fstab) | grep -E '^/dev/|^no' | grep -v -E 'noauto|^#|^[[:blank:]]+#' | tr '\t' ' ' | tr -s ' ' | sed 's/^[[:blank:]]*//'`
 MOUNTDIRS=`echo "$FSTAB" | cut -f 2 -d ' '`
 for i in $MOUNTDIRS ; do #5
 [ -d $i ] || { [ "$VERBOSE" ] && echo 'test #5';mkdir -p $i; }
