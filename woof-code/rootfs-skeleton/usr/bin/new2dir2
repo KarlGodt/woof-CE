@@ -8,6 +8,9 @@ _VERSION_=1.99   #2016-09-02 general overhaul
 _VERSION_=1.99.1 #2016-09-02 bugfixe
 _VERSION_=1.99.2 #2016-09-04 speedup moved.files processing, cleanup
 _VERSION_=1.99.3 #2016-09-04 add dry run option -n, add confirmation dialog for pkg name and version
+_VERSION_=1.99.4 #2016-09-15 bugfix STATUS not getting returnvalue but +1; simplify some code
+_VERSION_=1.99.5 #2016-09-16 wrap more code into functions
+
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
 MY_SELF="/usr/bin/new2dir"
@@ -57,7 +60,7 @@ pkgLIST_FILE=pkginstall.list
 [ "$ERR" ] || ERR=/dev/null
 #BB='busybox ' # enable to use busybox applets
 
-Version='1.8-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
+Version='1.8.2-getopts Macpup Foxy 3 Puppy-Linux-430/2 KRG'
 
 echo "$0 : $Version"
 echo 'This is an alpha snapshot
@@ -129,7 +132,9 @@ _info "NEW2DIRPARAMS='$NEW2DIRPARAMS'"
 while getopts VcdfhiI:kKlmnM:A:C:rvu opt;do
 case $opt in
 c) cleanUP='y';;
-d) me_DEBUG=1; me_DEBUG=$((me_DEBUG+1)); [ "$me_DEBUG" -ge 2 ] && set -x;;
+d) OUT=/dev/stderr; ERR=/dev/stderr
+   me_DEBUG=1; me_DEBUG=$((me_DEBUG+1)); [ "$me_DEBUG" -ge 2 ] && set -x;
+   ;;
 f) timeOUT='-t 1';forceIT=$((forceIT+1));;
 h) _usage 0;;
 i) [ -c "$TTY" ] || _exit 2 "$opt needs controlling terminal"; iNTERACTIVE='-i';lINTERACTIVE='--interactive';;
@@ -146,8 +151,12 @@ M) mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;  ##+++2012-07-07 
 A) findTIME=-amin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;
 C) findTIME=-cmin;mMIN=$OPTARG;echo "$mMIN" | ${BB}grep '[0-9]' || _usage 1;;##+-+2012-07-07 BUG had A)
 r) RESC='YES';;
-v) OUT=/dev/stdout;ERR=/dev/stderr;VERB='-v';lVERBOSE='--verbose';al_VERBOSE='-verbose';me_VERBOSE=1;;
 u) upDATE=1;;
+v) OUT=/dev/stdout;ERR=/dev/stderr;
+   VERB='-v';lVERBOSE='--verbose';al_VERBOSE='-verbose';
+   me_VERBOSE=1;
+   VERBOSE=$((VERBOSE+1)); [ "$VERBOSE" -ge 2 ] && set -v
+ ;;
 V) echo -e "\n$0 : Version '$Version'\n";exit 0;;
 *) _usage 1;;
 esac;done
@@ -247,6 +256,7 @@ EoI
 }
 _pkg_version_check
 
+_step_one(){
 echo
 echo -e "\\033[1;31mStep 1""\\033[0;39m" #red
 read $timeOUT -n1 -p "Press any key for step 1" STEP_1_KEY
@@ -275,7 +285,10 @@ if [ ! -d "$pkgDIR" ];then
  exit 1
 fi
 echo "Okay, using $pkgDIR"
+}
+_step_one
 
+_step_two(){
 echo
 echo -e "\\033[1;31mStep 2""\\033[0;39m" #red
 read $timeOUT -n1 -p "Press any key for step 2" STEP_2_KEY
@@ -369,7 +382,10 @@ hppa*64* ) ;;
 ;;
 esac
 echo "Okay, using $cpuTYPE"
+}
+_step_two
 
+_get_pkg_version(){
 #would like to create different targets for exe, doc, dev, nls components...
 #exeTARGETDIR="${pkgDIR}-${cpuTYPE}" #relative path.
 #exePKGNAME=`${BB}basename "$exeTARGETDIR"`
@@ -432,6 +448,8 @@ _debug "exePKGNAME=$exePKGNAME"
 _debug "docPKGNAME=$docPKGNAME"
 _debug "devPKGNAME=$devPKGNAME"
 _debug "nlsPKGNAME=$nlsPKGNAME"
+}
+_get_pkg_version
 
 _confirm_pkgname_version(){
 test "$forceIT" && return 0
@@ -452,6 +470,7 @@ read $timeOUT -e -p "New version for $verONLY  : " newVERONLY
 }
 _confirm_pkgname_version
 
+_get_target_dirs(){
 _debugx "nameONLY='$nameONLY'"
 rnameONLY="${relPATH}/${nameONLY}"
 _debugx "nameONLY='$nameONLY'"
@@ -476,7 +495,10 @@ _debug "devPKGNAME=$devPKGNAME"
 _debug "nlsPKGNAME=$nlsPKGNAME"
 
 #[ "$dryRUN" ] && exit # -n option
+}
+_get_target_dirs
 
+_step_three(){
 echo
 echo -e "\\033[1;31mStep 3""\\033[0;39m"  #red
 read $timeOUT -n1 -p "Press any key for step 3" STEP_3_KEY
@@ -512,7 +534,10 @@ read $timeOUT -e splitPETS
 echo
 
 [ "$timeOUT" ] && splitPETS=3
+}
+_step_three
 
+_get_splits(){
 case $splitPETS in
 1|'') splitPETS="exe";;
 2)    splitPETS="exe,dev";;
@@ -527,6 +552,8 @@ case $splitPETS in *nls*) nlsSPLIT="yes";; esac
 
 echo "Will create $splitPETS packages"
 echo
+}
+_get_splits
 
 _rm_empty_pkg_dirs(){
 [ "$dryRUN" ] && return 0
@@ -536,6 +563,7 @@ _rm_recursive_pkg_dirs(){
 [ "$dryRUN" ] && return 0
 ${BB}rm $VERB -rf "$exeTARGETDIR"* "$docTARGETDIR"* "$devTARGETDIR"* "$nlsTARGETDIR"*
 }
+
 _backup_old_pkg_dirs(){
 [ "$dryRUN" ] && return 0
 curDATE=`${BB}date +%F-%T`
@@ -564,40 +592,14 @@ case $splitPETS in *doc*) mkdir $VERB -p "$docTARGETDIR";; esac
 case $splitPETS in *dev*) mkdir $VERB -p "$devTARGETDIR";; esac
 case $splitPETS in *nls*) mkdir $VERB -p "$nlsTARGETDIR";; esac
 }
-_make_pkg_dirs #probably should be run after installwatch make install
+_make_pkg_dirs # TODO: Probably should be run after installwatch make install
 
-#function
-strip_func(){
-#strip the file...
- [ -L "$*" ] && return 0
- _debug "$*"
-  elf_FILE=`file "$*" | ${BB}grep -E 'ELF|LSB'`
-
-  case $elf_FILE in
-   *shared*object*) strip $VERB --strip-debug    "$*";;
-   *executable*)    strip $VERB --strip-unneeded "$*";;
-  esac
-  RV=$?
- pidof sync >>$OUT || sync
-return $RV
-}
-#function
-strip_it(){
-#[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
-case $* in */data/*|*.au|*.bmp|*.flv|*.gif|*.gs|*.*htm*|*.lua|*.map|*.mp[0-9]|*.pbm|*.png|*.pnm|*.jpg|*.jpeg|*.pdf|*.pl|*.py|*.tcl|*.tiff|*.txt|*.wav|*.xbm|*.xpm)
- [ "$me_VERBOSE" ] && echo "'$*' not considered stripable"
- return 0;;
-*) :;;
-esac
-strip_func "$@"
-}
-#function
-
-strip_func(){ #normal mode
+__strip_func(){ #normal mode
 #strip the file...
  [ -L "$*" ] && return 0 #make sure it isn't a symlink
  _debug "$*"
   elf_TYPE=`file "$*" | grep -Ew 'ELF|LSB'`
+
   case $elf_TYPE in
   *ELF*shared*object*) strip $VERB --strip-debug    "$*";;
   *ELF*executable*)    strip $VERB --strip-unneeded "$*";;
@@ -607,25 +609,90 @@ strip_func(){ #normal mode
 return $RV
 }
 
-#function
+strip_func(){
+#strip the file...
+ [ -L "$*" ] && return 0
+ _debug "$*"
+  elf_FILE=`file "$*" | ${BB}grep -Ew 'ELF|LSB'`
+
+  case $elf_FILE in
+   *shared*object*)
+      if [ "$dryRUN" ]; then
+       echo "Would have strip --strip-debug '$*'"
+      else
+       [ "$VERBOSE" ] && ls -ls "$*"
+       strip $VERB --strip-debug    "$*"
+       [ "$VERBOSE" ] && ls -ls "$*"
+      fi
+      ;;
+   *executable*)
+      if [ "$dryRUN" ]; then
+       echo "Would have strip --strip-unneeded '$*'"
+      else
+       [ "$VERBOSE" ] && ls -ls "$*"
+       strip $VERB --strip-unneeded "$*"
+       [ "$VERBOSE" ] && ls -ls "$*"
+      fi
+      ;;
+  esac
+  RV=$?
+ pidof sync >>$OUT || sync
+return $RV
+}
+
+__strip_it(){
+# TODO: implement shopt -s -u nocasematch
+#[ "`echo "$*" | ${BB}grep '\.[[:alnum:]]*$' | ${BB}grep -vE '\.so$|\.so\.[\.0-9]*$'`" ] && { [ "$me_VERBOSE" ] && echo "'$*' not considered stripable";return 0; }
+case $* in */data/*|*.3gp|*.a|*.abw|*.au|*.deb|*.bmp|*.bz2|*.cfg|*.conf|*.config|*.css|*.dat|*.db|*.doc*|*.dtd|*.flv|*.gif|*.gs|*.gz|*.*htm*|*.ini|*.jar|*.js|*.log|*.lua|*.lz*|*.m4|*.map|*.mht|*.mid*|*.mo|*.mod|*.mp[0-9]|*.pbm|*.php|*.png|*.pnm|*.po|*.jp2|*.jpg|*.jpeg|*.odt|*.ogg|*.pdf|*.pl|*.pm|*.ps|*.py|*.raw|*.rdf|*.rpm|*.rtf|*.ru|*.sh|*.sql|*.sqlite|*.svg|*.swf|*.tar|*.tcl|*.tif*|*.txt|*.wav|*.web[mp]|*.xbm|*.xhtm*|*.xml|*.xpm|*.xz|*.Z|*.zip)
+ [ "$me_VERBOSE" ] && echo "'$*' not considered stripable"
+ return 0;;
+*) :;;
+esac
+strip_func "$@"
+}
+
+strip_it(){
+[ "$*" ] || return 2
+bn=${*##*/}
+case $bn in
+*.o|*.so|*.so.[0-9]*|*.bin|*.exe)
+strip_func "$@"; return $?
+;;
+[[:alnum:][:punct:]].*) return 0;;
+esac
+strip_func "$@"
+}
+
 copy_files(){
 STATUS=0
 echo "Processing ${1}"
-[ "$dryRUN" ] && return 0
+#[ "$dryRUN" ] && return 0
 if [ -f "$1" ];then
     if [ "$noSTRIP" ]; then :
     else
-    [ "$whatSTRIP" = 'ALL' ] && { strip_it "$1"; STATUS=$((STATUS+1)); }
+    [ "$whatSTRIP" = 'ALL' ] && { strip_it "$1"; STATUS=$((STATUS+$?)); }
     fi
+if [ "$dryRUN" ]; then
+echo "Would have created directory '${2}${1%/*}'"
+echo "Would have copied file '${1}' as '${2}${1}'"
+STATUS=0
+else
+${BB}mkdir $VERB -p "${2}${1%/*}"
 /bin/cp -a $VERB $backUP $iNTERACTIVE "${1}" "${2}${1}" <$TTY
-STATUS=$((STATUS+1))
+STATUS=$((STATUS+$?))
+fi
    if [ "$noSTRIP" ]; then :
    else
-[ "$whatSTRIP" = 'INSTALLED' ] && { strip_it "$1"; STATUS=$((STATUS+1)); }
+[ "$whatSTRIP" = 'INSTALLED' ] && { strip_it "$1"; STATUS=$((STATUS+$?)); }
    fi
+
    if [ ! -L "$1" ]; then
+   if [ "$dryRUN" ]; then
+   ${BB}md5sum "$1"
+   else
    ${BB}md5sum "$1" >>"${2//\.\.\//}".md5
    ${BB}md5sum "${2}${1}" >>"${2}"/files.md5
+   fi
    fi
 elif [ -L "$1" -a ! -d "$1" ];then
  RL=`${BB}readlink    "$1"`
@@ -640,15 +707,41 @@ RLS=`echo "$RLS" | ${BB}sort -u`
 
 while read -r link; do
 [ "$link" ] || continue
+if [ "$dryRUN" ]; then
+echo "Would have created directory '${2}${1%/*}'"
+echo "Would have copied link '${link}' as '${2}${link}'"
+STATUS=0
+else
+${BB}mkdir $VERB -p "${2}${1%/*}"
 /bin/cp -a $VERB $backUP $iNTERACTIVE "${link}" "${2}${link}" <$TTY
-STATUS=$((STATUS+1))
+STATUS=$((STATUS+$?))
+fi
 done <<EoI
 $(echo "$RLS")
 EoI
-
+elif [ -d "$1" -a ! -L "$1" ]; then
+ if [ "$dryRUN" ]; then
+  echo "Would have created directory '${2}${1}'"
+ else
+  ${BB}mkdir $VERB -p "${2}${1}"
+ fi
 fi
 unset noSTRIP link
 return $STATUS
+}
+
+_remove_whiteouts(){
+#[ "$dryRUN" ] && return 0
+for d in "${exeTARGETDIR}" "${devTARGETDIR}" "${docTARGETDIR}" "${nlsTARGETDIR}"
+do [ -d "$d" ] || continue
+if [ "$dryRUN" ]; then
+foundWH=`find "${d}" -name "*.wh.*"`
+test "$foundWH" && echo "Found these whiteouts:
+$foundWH" || echo "No whiteouts found in $d ."
+else
+find "${d}" -name "*.wh.*" -delete
+fi
+done
 }
 
 _rescue_mode_search(){
@@ -670,86 +763,95 @@ echo -n "   /lib .. "
 time L=`${BB}find /lib $findTIME $mMIN`
 echo -n "   /var .. "
 time V=`${BB}find /var $findTIME $mMIN -iname "*$nameONLY*"`  ###+2013-03-15 Typo was "*xnameONLY*"
+echo -n "   /opt .. "
+time O=`${BB}find /opt $findTIME $mMIN`
 echo
 
-C="$F
+foundFILES="$F
 $E
 $S
 $B
 $L
+$O
 $V"
-C=`echo "$C" |${BB}sort`
+foundFILES=`echo "$foundFILES" |${BB}sort`
+}
 
+_rescue_mode(){
+
+_rescue_mode_search
+
+_rescue_mode_get_files(){
 ###---2013-03-15 for filename with spaces
-while read -r i
+while read -r oneFILE
 do
-[ "$i" ] || continue
-_info "$i"
+[ "$oneFILE" ] || continue
+oneFILE=`realpath "$oneFILE"`
+[ "$oneFILE" ] || continue
+_info "$oneFILE"
 
-dn="${i%/*}"
+#dn="${i%/*}"
 
-case $i in
-*.la|*.a|*.h|*.hpp|*.h++|*.m4|*.pc|*-config|*config.sh|*Conf*.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
-${BB}mkdir $VERB -p "${devTARGETDIR}${dn}"
-noSTRIP=Y copy_files "$i" "${devTARGETDIR}"
+case $oneFILE in
+*.a|*.la|*.h|*.hpp|*.h++|*.m4|*.pc|*-config|*config.sh|*Conf*.sh|*/aclocal/*|*/automake/*|*/cvs/*|*/svn/*|*/git/*|*/intltool/*|*/libtool/*)
+#${BB}mkdir $VERB -p "${devTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$oneFILE" "${devTARGETDIR}"
 ;;
 ###+++2013-03-15 added noSTRIP FLAG
 */doc/*|*/man/*|*/docs/*|*/info/*|*/gtk-doc/*|*/faq/*|*/manual/*|*/examples/*|*/help/*|*/htdocs/*)
-${BB}mkdir $VERB -p "${docTARGETDIR}${dn}"
-noSTRIP=Y copy_files "$i" "${docTARGETDIR}"
+#${BB}mkdir $VERB -p "${docTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$oneFILE" "${docTARGETDIR}"
 ;;
 */locale/*|*/i18n/*|*/nls/*)
-${BB}mkdir $VERB -p "${nlsTARGETDIR}${dn}"
-noSTRIP=Y copy_files "$i" "${nlsTARGETDIR}"
+#${BB}mkdir $VERB -p "${nlsTARGETDIR}${dn}"
+noSTRIP=Y copy_files "$oneFILE" "${nlsTARGETDIR}"
 ;;
 *)
-${BB}mkdir $VERB -p "${exeTARGETDIR}${dn}"
-copy_files "$i" "${exeTARGETDIR}"
+#${BB}mkdir $VERB -p "${exeTARGETDIR}${dn}"
+copy_files "$oneFILE" "${exeTARGETDIR}"
 ;;
 esac
 
 done <<EoI
-$(echo "$C")
+$(echo "$foundFILES")
 EoI
 
 ###+++2013-03-15 for filename with spaces
 echo "DONE cp files."
+}
+_rescue_mode_get_files
 
-if [ ! "$dryRUN" ]; then
+_save_log_files(){
+#[ "$dryRUN" ] && return 0
 logFILES=`find -type f \( -name "*.log" -o -name "*.err" -o -name "config.h" -o -iname "makefile.*" -not -name "*.in" -not -name "*.am" \) | sort | tac`
 while read -r oneFILE
 do
 [ "$oneFILE" ] || continue
+if [ "$dryRUN" ]; then
+echo "Would have copied '$oneFILE' '${exeTARGETDIR}/${oneFILE##*/}'"
+else
 /bin/cp $VERB $iNTERACTIVE -a --backup=numbered "$oneFILE" "${exeTARGETDIR}"/"${oneFILE##*/}" <$TTY
+fi
 done << EoI
 `echo "$logFILES"`
 EoI
 
-
 echo "DONE cp log files."
 echo "$C"      >"${relPATH}"/"${exePKGNAME}".files
 echo "$C" >"$HOME"/.packages/"${exePKGNAME}".files
-
-_remove_whiteouts(){
-for d in "${exeTARGETDIR}" "${devTARGETDIR}" "${docTARGETDIR}" "${nlsTARGETDIR}"
-do [ -d "$d" ] || continue
-find "${d}" -name "*.wh.*" -delete
-done
 }
+_save_log_files
+
 _remove_whiteouts
 
-(
-#${BB}rmdir $VERB "${devTARGETDIR}"* "${docTARGETDIR}"* "${nlsTARGETDIR}"*
-_rm_empty_pkg_dirs
-) 2>>$ERR
-fi #dryRUN
+( _rm_empty_pkg_dirs ) 2>>$ERR
 
 return $STATUS
 }
 
 if [ "$RESC" = 'YES' ];then
 ##rescue mode
-_rescue_mode_search
+_rescue_mode
 exit $?
 
 else
@@ -757,7 +859,7 @@ else
 
 fixfilelistfunc() {
  #$1 is file to remove, as doesn't exist.
- echo " ...${*} has been deleted."
+ echo " NOTICE: ${*} seems to have been deleted."
  ${BB}grep -v "$*" "$tmpDIR"/"${exePKGNAME}".files  >> "$tmpDIR"/"${exePKGNAME}".files.tmp
  ${BB}mv $VERB -f  "$tmpDIR"/"${exePKGNAME}".files.tmp "$tmpDIR"/"${exePKGNAME}".files
 }
@@ -779,7 +881,8 @@ shift
 done
 
 set - "$makePARAMS"
-[ "$me_DEBUG" ]   && set -x
+[ "$me_DEBUG" ] && [ "$me_DEBUG" -ge 2 ] && set -x
+[ "$VERBOSE" ]  && [ "$VERBOSE" -ge 2 ]  && set -v
 unset makePARAMS
 
 export LD_PRELOAD=/usr/lib/installwatch.so
@@ -787,11 +890,15 @@ export INSTALLWATCHFILE
  "$@"
 }
 
+_prepare_installwatch(){
 if [ ! "$INSTALL_WATCH_EXE" ];then
  INSTALL_WATCH_EXE='installwatch'
  [ "`which $INSTALL_WATCH_EXE`" ] || { echo -e "\\033[1;31m'$INSTALL_WATCH_EXE' seems not to be installed \(correctly?\)\\033[0;39m";exit 1; }
 fi
+}
+_prepare_installwatch
 
+_step_four(){
 echo
 echo -e "\\033[1;31mStep 4""\\033[0;39m"
 read $timeOUT -n1 -p "Press any key for step 4" STEP_4_KEY
@@ -810,16 +917,20 @@ echo -n "Press ENTER key to continue: "
 read $timeOUT goforit
 echo
 fi
+}
+_step_four
 
+_run_installwatch_make_install(){
 [ -z "$INSTALL_WATCH_EXE" ] && { echo "installwatch not installed?"; ${BB}sleep 2s;_usage 1; }
 
 ${BB}rm $VERB -f "$tmpDIR"/"$pkgLIST_FILE"
 ${BB}sleep 2s;pidof sync >>$OUT || { ${BB}sync; sleep 2; }
 
-DEBUG=1
+[ "$DEBUG" ] || DEBUG=1 # MAKE variable
 _debug "MAKE='$MAKE'"
 set - $MAKE
-[ "$me_DEBUG" ]   && set -x
+[ "$me_DEBUG" ] && [ "$me_DEBUG" -ge 2 ] && set -x
+[ "$VERBOSE" ]  && [ "$VERBOSE" -ge 2 ]  && set -v
 unset MAKE    # MAKE seems to be a global variable recognized by make ..
 _debug "\$*='$*'"
 
@@ -846,7 +957,10 @@ $@ apparently did not finish correctly.
 "; }
 
 pidof sync >>$OUT || ${BB}sync
+}
+_run_installwatch_make_install
 
+_fix_pkglist_files(){
 echo
 echo -n fixing file lists ...
 ${BB}touch $VERB "$tmpDIR"/"$pkgLIST_FILE"
@@ -932,14 +1046,16 @@ cp $VERB -f "$tmpDIR"/"${exePKGNAME}".files "${relPATH}"/"${exePKGNAME}".files
 #TODOS :
 # correct permissions for created directories
 # put similar code into functions
+pidof sync >>$OUT || sync
+}
+_fix_pkglist_files
 
 _md5sum(){
 [ -e "$*" ]  || return 1
 ${BB}md5sum "$*"
 }
 
-pidof sync >>$OUT || sync
-
+_step_five(){
 echo
 echo -e "\\033[1;31mStep 5""\\033[0;39m"
 
@@ -949,11 +1065,15 @@ while read -r oneFILE
 do
 
  [ "$oneFILE" ] || continue
+ oneFILE=`realpath "$oneFILE"`
+ [ "$oneFILE" ] || continue
+
  oneBASE="${oneFILE##*/}"
  onePATH="${oneFILE%/*}"
  echo "Processing ${oneFILE}"
 
- [ "$whatSTRIP" = 'ALL' ] && strip_func "$oneFILE"
+ #[ "$whatSTRIP" = 'ALL' ] && strip_func "$oneFILE"
+  [ "$whatSTRIP" = 'ALL' ] && strip_it "$oneFILE"
 
  if [ "$nlsSPLIT" = "yes" ];then
   #find out if this is an international language file...
@@ -1081,6 +1201,8 @@ done <"${relPATH}"/"${exePKGNAME}".files
 echo
 
 pidof sync >>$OUT || sync
+}
+_step_five
 
 _copy_files_list(){
 for d in "${relPATH}"  "/root/.packages" "${exeTARGETDIR}"
@@ -1093,6 +1215,8 @@ _copy_files_list
 fi ##rescue or default mode
 ####========================
 
+
+_add_log_files(){
 DEBUG=1
 _debug Adding config log files to pkg...
 
@@ -1106,6 +1230,8 @@ done << EoI
 EoI
 _debug DONE
 DEBUG=
+}
+_add_log_files
 
 _remove_whiteouts(){
 ##remove any whiteout files
@@ -1116,9 +1242,6 @@ done
 }
 _remove_whiteouts
 
-echo
-echo -e "\\033[1;31mFinished""\\033[0;39m"
-
 _remove_unused_dirs(){
 for d in "$exeTARGETDIR" "$devTARGETDIR" "$docTARGETDIR" "$nlsTARGETDIR"
 do [ -d "$d" ] || continue
@@ -1126,6 +1249,13 @@ do [ -d "$d" ] || continue
 done
 }
 _remove_unused_dirs
+
+echo
+echo -e "\\033[1;31mFinished""\\033[0;39m"
+
+_step_six(){
+echo
+echo -e "\\033[1;31mStep 6""\\033[0;39m"
 
 cat >&1 <<EoI
 ${relPATH}/${exePKGNAME}.files has a list of the installed files.
@@ -1148,7 +1278,10 @@ if [ ! "$nextphase" ];then
 echo -e "\n\nFinished.\nAll done in `pwd`?"
 exit 0
 fi
+}
+_step_six
 
+_create_pets(){
 cd "${relPATH}" || _exit 5 "Could not change into $relPATH"
 
 for pKg in "" _DEV _DOC _NLS
@@ -1158,6 +1291,8 @@ do
  echo -n "${nameONLY}${pKg}-${verONLY}-${cpuTYPE}.pet created. Press ENTER to continue: "
 read domore <$TTY
 done
+}
+_create_pets
 
 __make_exe_pet(){
 if  [ -d "${xnameONLY}-${verONLY}-${cpuTYPE}" ];then
@@ -1192,7 +1327,7 @@ if  [ -d "${xnameONLY}_DOC-${verONLY}-${cpuTYPE}" ];then
  fi
 fi
 }
-_make_nls_pet(){
+__make_nls_pet(){
 if  [ -d "${xnameONLY}_NLS-${verONLY}-${cpuTYPE}" ];then
  dir2pet "${xnameONLY}_NLS-${verONLY}-${cpuTYPE}"
  if test $? = 0; then
