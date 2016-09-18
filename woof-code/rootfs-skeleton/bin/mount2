@@ -13,24 +13,24 @@
 
 ARGS=`set | grep 'BASH_ARG'`
 ARGV=`echo "$ARGS" | grep 'ARGV' | grep -o '\[.*"'`
-[ "$DEBUG" ] && echo  "$ARGV"
+[ "$DEBUG" ] && echo  "$ARGV" >&2
 ARGC=`echo "$ARGS" | grep 'ARGC' |cut -f2 -d'"'`
-[ "$DEBUG" ] && echo $ARGC
+[ "$DEBUG" ] && echo $ARGC    >&2
 c=$ARGC
 
 
 # here document needs writable /tmp ...
 # but /proc may be umounted ...
-if test -e /proc/mounts; then
+if test -L /proc/mounts -a -e /proc/mounts; then
 :
 else
- _warn "/proc not mounted"
+ _warn "/proc probably not mounted."
  _notice "Attempting to mount procfs .."
  test -e /proc && { busybox mount -t proc none /proc; RETVAL=$?; } || {
  _info "Attempting to remount rw of '/' to ensure it is writable .."
  busybox mount -o remount,rw /dev/root /
  mkdir /proc && { busybox mount -t proc none /proc; RETVAL=$?; } || {
- _err "Failed to mount procfs"
+ _err "Failed to mount procfs."
  }
 }
 fi
@@ -44,9 +44,9 @@ else
  busybox mount -o remount,rw /dev/root /
 fi
 else
- _warn "/proc/mounts does not exist"
+ _warn "/proc/mounts does not exist."
 fi
-[ "$RETVAL" = 0 ] && { NEED_PROC_MOUNT=YES; _notice "Had to mount /proc"; }
+[ "$RETVAL" = 0 ] && { NEED_PROC_MOUNT=YES; _notice "Had to mount /proc ."; }
 [ "$DEBUG" ] && echo RETVAL=$RETVAL
 
 while read p
@@ -54,8 +54,8 @@ do
 P[$c]="${p#*=}"
 P[$c]="${P[$c]/#\"}"
 P[$c]="${P[$c]/%\"}"
-[ "${P[$c]}" = 'ntfs' ]  && P[$c]='ntfs-3g'
-[ "${P[$c]}" = '/proc' ] && WANT_PROC_MOUNT=YES
+#[ "${P[$c]}" = 'ntfs' ]  && P[$c]='ntfs-3g'
+#[ "${P[$c]}" = '/proc' ] && WANT_PROC_MOUNT=YES
 # try to prevent overlaying mounts since eg a mount of /tmp
 # on top of an older /tmp may prevent users of files in /tmp to work properly
 if cut -f2 -d' ' /proc/mounts | grep $Q "^${P[$c]}$"; then
@@ -65,7 +65,9 @@ fi
 #case ${P[$c]} in *remount*|-R) WANT_REMOUNT=YES;;
 #*move*|-M) WANT_MOVE=Y;; *bind*|-B) WANT_BIND=Y;; esac
 case ${P[$c]} in *remount*) WANT_REMOUNT=YES;;
-*move*) WANT_MOVE=Y;; *bind*) WANT_BIND=Y;; esac
+*move*) WANT_MOVE=Y;; *bind*) WANT_BIND=Y;;
+ntfs) P[$c]='ntfs-3g';; /proc) WANT_PROC_MOUNT=YES;;
+esac
 (( c-- ))
 done<<EOI
 $(echo "$ARGV" | sed 's%" \[%"\n\[%g' )
@@ -113,7 +115,7 @@ fi
     esac
     done
 }
-[ "$DEBUG" ] && echo RETVAL=$RETVAL
+[ "$DEBUG" ] && echo RETVAL=$RETVAL >&2
 [ "$RETVAL" ] ||
 {
 [ "$NTFSMOUNT" ] && {
@@ -126,7 +128,7 @@ fi
                        mount-FULL "${P[@]}" ; RETVAL=$? ; fi; }
 }
 
-[ "$DEBUG" ] && echo RETVAL=$RETVAL
+[ "$DEBUG" ] && echo RETVAL=$RETVAL >&2
 [ "$DISPLAY" ]    || exit $RETVAL
 
 [ "$RETVAL" = 0 ] || exit $RETVAL
@@ -149,24 +151,24 @@ case $device in /dev/*) :;; *) exit $RETVAL;; esac
 mntpt=`echo -e "$mntpt"`
 test -d "$mntpt" && [ "$DISPLAY" ] && rox "$mntpt"
 
-[ "$DEBUG" ] && echo "Checking for desktop icons..."
+[ "$DEBUG" ] && echo "Checking for desktop icons..." >&2
 . /etc/eventmanager
 [ "$ICONDESK" = true ] || exit $RETVAL
 [ "$ICONPARTITIONS" = true ] || exit $RETVAL
 
-[ "$DEBUG" ] && echo "Checking for desktop icons..."
+[ "$DEBUG" ] && echo "Checking for desktop icons..." >&2
 . /etc/rc.d/functions4puppy4
 
 DEVNAME=${device##*/}
  case  $DEVNAME in
  fd*)      DRV_CATEGORY=floppy ;;
- mmc*) DEVNAME=${DEVNAME%p*} ; DRV_CATEGORY=card ;;
- scd*|sr*) DRV_CATEGORY=cdrom;;
+ mmc*)     DRV_CATEGORY=card   ; DEVNAME=${DEVNAME%p*};;
+ scd*|sr*) DRV_CATEGORY=cdrom  ;; #optical
  esac
 [ "$DRV_CATEGORY" ] || DRV_CATEGORY=`probedisk2 | grep -m1 "^${device:0:8}|" |cut -f2 -d'|'`
 
 [ "$DRV_CATEGORY" ] && icon_mounted_func "$DEVNAME" "$DRV_CATEGORY"
 
-[ -L /etc/mtab ] || ln $VERB -sf /proc/mounts /etc/mtab
+[ -L /etc/mtab ] || ln $VERB -sf ../proc/mounts /etc/mtab
 exit $RETVAL
 

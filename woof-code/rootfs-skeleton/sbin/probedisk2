@@ -3,7 +3,7 @@
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_probedisk2"
 _VERSION_=1.0omega
-_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+_COMMENT_="$_TITLE_:Puppy Linux shell script to show recognized drives. Used by pup_event_frontend_d."
 
 MY_SELF="/sbin/probedisk2"
 MY_PID=$$
@@ -49,6 +49,8 @@ _trap
 #v403 fixed excessive spaces in description field.
 #v406 support for old kernel, /proc/ide, /dev/hd*.
 
+mountpoint $Q /sys >>$OUT || _exit 2 "/sys not mounted."
+
 [ "$DEBUGT" ] && date +%N >&2
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 
@@ -80,7 +82,7 @@ function_size(){
 }
 
 function_partitions(){
-  PARTITIONS=`LC_ALL=C ls -1v /sys/class/block/$oneDRV |grep -o -e '[[:digit:]]*' |sort -n |tr '\n' ' '`
+  PARTITIONS=`LC_ALL=C ls -1v /sys/class/block/$oneDRV |grep -o '[[:digit:]]\+' |sort -n |tr '\n' ' '`
 }
 
 ###KRGMon Jul  8 22:35:19 GMT+1 2013
@@ -89,8 +91,8 @@ function_partitions(){
 #ATADRIVES is all ide/sata drives (not usb) (which all have /dev/sd notation).
 #if old kernel supporting /dev/hd* then using SATADRIVES variable...
 INTERNAL_SD_DRIVES="$SATADRIVES"
-[ "$ATADRIVES" != "" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
-_debug "DBG: intSDdrv=$INTERNAL_SD_DRIVES , usb=$USB_SATAD , ATA=$SATADRIVES , SATA=$ATADRIVES" >&2
+[ "$ATADRIVES" ] && INTERNAL_SD_DRIVES="$ATADRIVES"
+_debug "DBG: intSDdrv=$INTERNAL_SD_DRIVES , usb=$USB_SATAD , ATA=$SATADRIVES , SATA=$ATADRIVES"
 
 [ "$DEBUGT" ] && date +%N >&2
 if [ -f "$PUP_EVENT_DIR"/usb-drive-log-probedisk ];then #force /proc upate mechanism
@@ -108,6 +110,7 @@ fi
 if [ ! -e /proc/ide ];then #v3.97
  ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd'`
 else
+ mountpoint $Q /proc >>$OUT || _exit 2 "/proc not mounted."
  ALLDRVS=`ls -1 /sys/block | grep -E '^scd|^sd|^mmc|^sr|^fd'`
 `ls -1 /proc/ide | grep '^hd'`
 fi
@@ -124,7 +127,7 @@ do
    hd*) # ide device, look in /proc/ide for info
      test -f /proc/ide/$oneDRV/media && read MEDIA </proc/ide/$oneDRV/media
      [ "$MEDIA" = "disk" ]  && MEDIA="drive"
-     [ "$MEDIA" = "cdrom" ] && MEDIA="optical"
+     [ "$MEDIA" = "cdrom" ] && MEDIA="optical" #cdrom
      test -f /proc/ide/$oneDRV/model && read dINFO </proc/ide/$oneDRV/model
    ;;
    sd*) # scsi devices, look in /sys/block (all appear as Direct-Access)
@@ -188,7 +191,7 @@ do
   esac
 
   dINFO=`echo "$dINFO" | sed '/^$/d'`
-  [[ -z "$dINFO" ]] && dINFO="SorryDiskWontTell"
+  [ "$dINFO" ] || dINFO="SorryDiskWontTell"
 
      if  test "$SIZES" -a "$PARTITIONS"; then
    echo "/dev/$oneDRV|$MEDIA|$dINFO|$SIZES|$PARTITIONS"
@@ -227,7 +230,7 @@ do
  esac
 
  #prints to system log and to stderr...
-  [ "$ALLDRVS" -a "$MNTDDRV" ] && { [ "`echo "$ALLDRVS" | grep "$MNTDDRV"`" = "" ] && logger -s "$0: WARNING: UNPLUGGED '$oneMNTD' still listed in /proc/mounts"; }
+  [ "$ALLDRVS" -a "$MNTDDRV" ] && { [ "`echo "$ALLDRVS" | grep "$MNTDDRV"`" ] || logger -s "$0: WARNING: UNPLUGGED '$oneMNTD' still listed in /proc/mounts"; }
 done
 [ "$DEBUGT" ] && date +%N  >&2
 ###END###
