@@ -124,6 +124,19 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
+_remount_root(){
+local mode="$1"
+[ "$mode" ] || return 2
+[ -L /proc/mounts -a -e /proc/mounts ] || {
+ #force /proc being mounted
+ mount ${VERB:+'-vv'} -o remount,rw /dev/root / || return 3
+ mkdir $VERB -p /proc                           || return 4
+ mount ${VERB:+'-vv'} -t proc proc /proc        || return 5
+ }
+grep '^/dev/root / ' /proc/mounts | grep $Q -w "$mode" && return 0
+mount ${VERB:+'-vv'} -o remount,$mode /dev/root /
+}
+
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 test -f /etc/DISTRO_SPECS  && . /etc/DISTRO_SPECS  ##+++2013-03-12
@@ -132,40 +145,43 @@ alias modprobe="/sbin/modprobe -b $Q $VERB"  ##+++2012-01-30  ##+2013-07-13 PATH
 #_do_fbsplash
 
 if [ -d /proc ]; then
-[ -f /proc/mounts ] || busybox mount $VERB $VERB -t proc proc /proc
+[ -L /proc/mounts -a -e /proc/mounts ] || busybox mount ${VERB:+'-vv'} -t proc proc /proc
 else
-busybox mount $VERB $VERB -o remount,rw /dev/root /
+#busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
+_remount_root rw
 mkdir $VERB -p /proc
-busybox mount $VERB $VERB -t proc proc /proc
-#busybox mount $VERB $VERB -o -remount,ro /
+busybox mount ${VERB:+'-vv'} -t proc proc /proc
+#busybox mount ${VERB:+'-vv'} -o -remount,ro /dev/root /
 fi
 
 if [ -d /sys ]; then
-grep $Q ' /sys ' /proc/mounts || busybox mount $VERB $VERB  -t sysfs sysfs /sys
+grep $Q ' /sys ' /proc/mounts || busybox mount ${VERB:+'-vv'}  -t sysfs sysfs /sys
 else
-busybox mount $VERB $VERB -o -remount,rw /dev/root /
+#busybox mount ${VERB:+'-vv'} -o -remount,rw /dev/root /
+_remount_root rw
 mkdir $VERB -p /sys
-busybox mount $VERB $VERB -t sysfs none /sys
-#busybox mount $VERB $VERB -o -remount,ro /
+busybox mount ${VERB:+'-vv'} -t sysfs none /sys
+#busybox mount ${VERB:+'-vv'} -o -remount,ro /dev/root /
 fi
 
 #_do_fbsplash
 
 if [ ! -d /dev ]; then
-busybox mount $VERB $VERB -o remount,rw /dev/root /
+#busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
+_remount_root rw
 mkdir $VERB /dev
 fi
 
 #_do_fbsplash
 
 grep $Q ' /dev ' /proc/mounts || {
-  mount $VERB $VERB -t ramfs devramfs /dev
+  mount ${VERB:+'-vv'} -t ramfs devramfs /dev
 }
 
   test -e /dev/pts || mkdir $VERB -p /dev/pts
-  grep $Q ' /dev/pts ' /proc/mounts || mount $VERB $VERB -t devpts devpts /dev/pts
+  grep $Q ' /dev/pts ' /proc/mounts || mount ${VERB:+'-vv'} -t devpts devpts /dev/pts
 
-  test -e /dev/fd || ln $VERB -snf /proc/self/fd /dev/fd
+  test -e /dev/fd || ln $VERB -snf ../proc/self/fd /dev/fd
   test -e /dev/stdin  || ln $VERB -sf fd/0 /dev/stdin
   test -e /dev/stdout || ln $VERB -sf fd/1 /dev/stdout
   test -e /dev/stderr || ln $VERB -sf fd/2 /dev/stderr
@@ -199,8 +215,9 @@ TTY=`tty`
 test "$TTY" = 'not a tty' && TTY=/dev/console
 
 if [ "$PUPMODE" = 2 ]; then
-    #busybox mount $VERB $VERB -o remount,rw /  #can't read /proc/mounts
-     busybox mount $VERB $VERB -o remount,rw /dev/root /
+    #busybox mount ${VERB:+'-vv'} -o remount,rw /  #can't read /proc/mounts
+    #busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
+    _remount_root rw
      [ $? = 0 ] && {
     ###+++2011-11-10
     if [ -d /tmp ]; then
@@ -397,7 +414,8 @@ Key=`echo "$K" | tr '[A-Z]' '[a-z]'`
 if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ]; then
 echo -e "\\033[1;34m"'dropping to console now , partition still mounted !'"\\033[0;39m"
 cd /
-busybox mount $VERB $VERB -o remount,ro /dev/root /
+#busybox mount ${VERB:+'-vv'} -o remount,ro /dev/root /
+_remount_root ro
 sleep $((SLEEP*1))s
 exec chroot . sh
 fi
@@ -849,7 +867,8 @@ FSCK_FUNC(){
 echo -e "\\033[0;39m"
 [ "$1" != "/dev/$PDEV1" ] && { [ -n "`mount | grep -w "^$1"`" ] && busybox umount -lr "$1"; }
 sleep 1s
-[ -n "`grep "^$1" /proc/mounts | cut -f4 -d' ' | grep -w 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro "$1"
+#[ -n "`grep "^$1" /proc/mounts | cut -f4 -d' ' | grep -w 'rw'`" ] && busybox mount ${VERB:+'-vv'} -o remount,ro "$1"
+_remount_root ro
 sleep 2s
 
 Err=''
@@ -899,9 +918,11 @@ echo -e "\\033[0;39m"
 }
 
 FIRST_FSCK_FUNC(){
-[ -n "`grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -w 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /dev/root /
+#[ -n "`grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep -w 'rw'`" ] && busybox mount ${VERB:+'-vv'} -o remount,ro /dev/root /
+_remount_root ro
 FSCK_FUNC "/dev/$PDEV1"
-busybox mount $VERB $VERB -o remount,rw /
+#busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
+_remount_root rw
 
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ]; then
 echo -e "\\033[1;34m""Booting installation ..."
@@ -959,9 +980,9 @@ if [ -z "$CLEAN" ] ; then  #0
 if [ -n "$Err" ] && [ "$Err" -ne 0 ]; then #1
 
 funcFIND_SFS(){
-##busybox mount $VERB $VERB -o remount,ro /
+##busybox mount ${VERB:+'-vv'} -o remount,ro /dev/root /
 funcCHECK_FOR_ALTERNATIVE_PARTITIONS  #TODO simplfy ?
-##busybox mount $VERB $VERB -o remount,rw /
+##busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
 funcCURRENT_GLIBC
 modprobe squashfs
 
@@ -970,7 +991,7 @@ for oneDRV in $DRIVES; do  ##for 0
 SIMPLEDRIVENAME=${oneDRV##*/}
 mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting '"\\033[0;39m"$oneDRV' on '"\\033[0;39m"/mnt/$SIMPLEDRIVENAME
-busybox mount $VERB $VERB -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
+busybox mount ${VERB:+'-vv'} -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
 SFS=`find /mnt/$SIMPLEDRIVENAME -maxdepth 3 -type f -name "*.sfs" | grep -i -E '/luma|/luci|/lupu|/pup|/pu|/lpup|/dpup|/spup|/upup|/L64|/LHP|/macpup/luki|/wary|/racy|/tahr|/slacko' | grep -v -E 'devx|[a-z]drv|\+mnt\+'`
 ###check found sfs part
 if [ -z "$SFS" ] ; then  ##if 99
@@ -1107,7 +1128,7 @@ for oneDRV in $DRIVES; do ##for 0
 SIMPLEDRIVENAME=${oneDRV##*/}
 mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting '"\\033[0;39m""$oneDRV""\\033[0;33m"' on '"\\033[0;39m""/mnt/$SIMPLEDRIVENAME""\\033[0;39m"
-busybox mount $VERB $VERB -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
+busybox mount ${VERB:+'-vv'} -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
 DS=
 [ -d /mnt/$SIMPLEDRIVENAME/etc ] && DS=`find /mnt/$SIMPLEDRIVENAME/etc -maxdepth 2 -name "DISTRO_SPECS"`
 sleep 2s
@@ -1155,7 +1176,7 @@ FSCK_FUNC "$oneDRV" "other_full_installs"
  if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ]; then  ##5
  echo -e "\\033[0;32m"'OK,'"\\033[1;32m"" using REPO /mnt/'$SIMPLEDRIVENAME'""\\033[0;39m"
  echo
- busybox mount $VERB $VERB -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
+ busybox mount ${VERB:+'-vv'} -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
  sleep 1s
  REPO="/mnt/$SIMPLEDRIVENAME"
  break
@@ -1249,8 +1270,8 @@ sleep $((SLEEP*5))s  ###KRG
 funcCHECK_ALTERNATE_REPO
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'$REPO='"\\033[0;39m""$REPO"
 
-[ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount $VERB $VERB -o remount,rw /
-
+#[ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
+_remount_root rw
 
 
 funcCHECK_DEV_NODES(){
@@ -1349,7 +1370,8 @@ echo -e "\\033[0;39m"
 echo
 echo 'dropping to console now , partition still mounted !'
 cd /
-busybox mount $VERB $VERB -o remount,ro /dev/root /
+#busybox mount ${VERB:+'-vv'} -o remount,ro /dev/root /
+_remount_root ro
 sleep $((SLEEP*2))s
 exec chroot . sh
 fi  #1
@@ -1392,11 +1414,11 @@ funcMAKE_RAM9
   mkdir $VERB -p /mnt/ram0
   mkdir $VERB -p /mnt/ram9  ###KRG
 
-  busybox mount $VERB $VERB -t ext2 /dev/ram0 /mnt/ram0
+  busybox mount ${VERB:+'-vv'} -t ext2 /dev/ram0 /mnt/ram0
   [ $? = 0 ] || funcSIMPLE_CONSOLE
-  busybox mount $VERB $VERB -t ext2 /dev/ram9 /mnt/ram9  ###KRG
+  busybox mount ${VERB:+'-vv'} -t ext2 /dev/ram9 /mnt/ram9  ###KRG
   [ $? = 0 ] || funcSIMPLE_CONSOLE
-  ###KRGbusybox mount $VERB $VERB -o remount,rw /  ##KRG just for chroot
+  ###KRGbusybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /  ##KRG just for chroot
   sleep $((SLEEP*2))s  ###KRG
 
   #populate the ramdisk...
@@ -1907,7 +1929,7 @@ fi
   [ "$DebugVal" -ge "1" ] && { echo -e "\\033[0;33m"'1_mounts :'"\\033[0;39m";busybox mount;echo; }  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
-  ##busybox mount $VERB $VERB -o remount,ro /
+  ##busybox mount ${VERB:+'-vv'} -o remount,ro /dev/root /
   #[ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m""2_mounts after remounting ro '/' :""\\033[0;39m" && busybox mount && echo  ###DBG
   #[ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
@@ -1922,12 +1944,12 @@ fi
 
 #MOUNT
   [ -d ./mnt/ram9 ] || mkdir $VERB -p ./mnt/ram9
-  busybox mount $VERB $VERB -o move /mnt/ram9 ./mnt/ram9
+  busybox mount ${VERB:+'-vv'} -o move /mnt/ram9 ./mnt/ram9
   [ -d ./sys ]      || mkdir $VERB ./sys
-  busybox mount $VERB $VERB -o move /sys ./sys
+  busybox mount ${VERB:+'-vv'} -o move /sys ./sys
   [ -d ./proc ]     || mkdir $VERB ./proc
-  busybox mount $VERB $VERB -o move /proc ./proc
-  busybox mountpoint $Q /dev && { mkdir $VERB -p ./dev; busybox mount $VERB $VERB -o move /dev ./dev; }  ##+++2014-01-02
+  busybox mount ${VERB:+'-vv'} -o move /proc ./proc
+  busybox mountpoint $Q /dev && { mkdir $VERB -p ./dev; busybox mount ${VERB:+'-vv'} -o move /dev ./dev; }  ##+++2014-01-02
   ##ln $VERB -sn ../mnt/ram9/lib ./lib
 
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
@@ -1983,7 +2005,7 @@ fi
   [ "$Err" = 0 -a -d "/old_root/mnt/${mntpt##*/}" ] && rmdir $VERB "/old_root/mnt/${mntpt##*/}"
   fi
   done
-  busybox mount $VERB $VERB -o remount,ro /old_root
+  busybox mount ${VERB:+'-vv'} -o remount,ro /old_root
 
   echo -e "\\033[0;39m"
   [ "$DebugVal" -ge "1" ] && { echo -e "\\033[0;33m"'3_mounts :'"\\033[0;39m";busybox mount;echo; }  ###DBG
@@ -2039,7 +2061,8 @@ fi
   echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
   echo -e "\\033[0;39m"
   sleep 5s
-  mount $VERB -o remount,ro /dev/root /  ###KRG
+  #mount $VERB -o remount,ro /dev/root /  ###KRG
+  _remount_root ro
   #exec busybox init  ###should be something like umount -ar ; reboot reboot -f###KRG
   exec busybox reboot -f
  ;;
