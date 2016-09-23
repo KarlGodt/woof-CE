@@ -1,17 +1,79 @@
-#!/bin/sh
+#!/bin/bash
+# bash syntax: for n in {1..4};do
 # Karl Reimer Godt in June 2012
 # usual Puppy license
 
-. /etc/rc.d/f4puppy5
-Version='1.0 Puppy_Linux_Racy_5.3 KRG'
+ Version='1.1 Puppy_Linux_Racy_5.3 KRG'
+ Version='1.2 Puppy_Linux_Macpup_F3 KRG'
+
+ BB_BIN=/bin/busybox
+ #BB_BIN=busybox-1.14.4-ST-99all-1365KB
+ #BB_BIN=busybox-1.15.3-ST-99all-1361KB
+ #BB_BIN=busybox-1.16.2-ST-99all-1375KB
+ #BB_BIN=busybox-1.17.4-ST-98all-1375KB
+ #BB_BIN=busybox-1.18.5-ST-98all-1379KB   #no new message in .log
+ #BB_BIN=busybox-1.19.4-ST-98all-1388KB   # '"'
+ #BB_BIN=busybox-1.20.0-ST                #empty .log file
+ BB_BIN=busybox-1.25git-ST
+
+ BB_BIN=`which "$BB_BIN"`
+ BB_BIN=`realpath "$BB_BIN"`
+
+ ACPID_APP=`which acpid`
+ [ "$ACPID_APP" ] || TELL_USAGE=1 #'usage 1 "No (executable) $ACPID_APP binary installed?"'
+ BB_WHICH=`readlink "$ACPID_APP"`
+ readlink "$ACPID_APP" | grep $Q -i "${BB_BIN##*/}" || TELL_USAGE=2 #'usage 1 "$0: Laucher for '"$BB_WHICH"' busybox acpid applet."'
+
+ BB_UNAME_R=`$BB_BIN | head -n1 | grep -oE 'v[0-9.]+'`
+      BB_VERSION=`echo "$BB_UNAME_R" | cut -f1 -d'.' | tr -d 'v'`
+   BB_PATCHLEVEL=`echo "$BB_UNAME_R" | cut -f2 -d'.'`
+     BB_SUBLEVEL=`echo "$BB_UNAME_R" | cut -f3 -d'.'`
+ BB_EXTRAVERSION=`echo "$BB_UNAME_R" | cut -f4 -d'.'` #if $(objtree)/localversion* $(srctree)/localversion*
+													  #or $(srctree)/scripts/setlocalversion $(srctree)) with localver-full
+													  # Store (new) KERNELRELASE string in .kernelrelease
+													  #kernelrelease = $(KERNELVERSION)$(localver-full)
+case $TELL_USAGE in
+1) TELL_USAGE='usage 1 "`realpath $0`:
+No (executable) $ACPID_APP binary installed?
+Above selected busybox is $BB_BIN ."';;
+2) TELL_USAGE='usage 1 "`realpath $0`:
+Laucher for $BB_WHICH busybox acpid applet.
+Above selected busybox is $BB_BIN ."';;
+esac
+
+echo BB_UNAME_R=$BB_UNAME_R BB_VERSION=$BB_VERSION BB_PATCHLEVEL=$BB_PATCHLEVEL BB_SUBLEVEL=$BB_SUBLEVEL BB_EXTRAVERSION=$BB_EXTRAVERSION
+
+ Config_directory=/etc/acpi       # -c
+
+ #1.19.4 does not work with -e /proc/acpi/event
+ Proc_event_file=/proc/acpi/event # -e
+ Log_file=/var/log/acpid_busybox.log      # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
+
+ if bbconfig 2>/dev/null | grep $Q '^CONFIG_FEATURE_PIDFILE=y$'; then
+ #acpid: invalid option -- 'p'
+ #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
+ #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
+ Pid_file=/var/run/acpid_busybox.pid      # -p #CONFIG_FEATURE_PIDFILE
+ fi
+
+ if test $BB_PATCHLEVEL -ge 18; then
+ Action_file=/etc/acpid_busybox_proc.conf      # -a
+ Map_file=/etc/acpid_busybox_dev.conf          # -M
+ PWR_button_file=$Config_directory/busybox/powerbutton
+ else
+ #PWR_button_file=$Config_directory/PWRF/00000080
+  PWR_button_file=$Config_directory/busybox/powerbutton
+ fi
 
 usage(){
 MSG="
 $0 [start|stop]
 Starts busybox acpid daemon at boot and
 shuts it down at reboot or poweroff event.
-If ./PWRF/00000080 contains gui lines, needs
-to be run from.xintrc or /usr/sbin/delayedrun .
+If $PWR_button_file contains gui lines,
+needs to be run from after X server had started
+like from .xintrc or /usr/sbin/delayedrun
+or an 'export DISPLAY=:0' .
 "
 if [ "$2" ];then
 MSG="$MSG
@@ -19,70 +81,171 @@ MSG="$MSG
 $2
 "
 fi
+MSG=`gettext "$MSG"`
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg blue3 "$MSG"
-exit $1
+[ "$DISPLAY" ] && xmessage -bg lightblue "$MSG" &
+return $1
 }
 
- ACPID_BIN=`which acpid`
- [ "$ACPID_BIN" ] || usage 1 "No (executable) acpid binary installed?"
- [ "`readlink "$ACPID_BIN" | grep -i 'busybox'`" ] || usage 1 "$0: Laucher for busybox acppid applet."
+[ "$TELL_USAGE" ] && { eval "$TELL_USAGE"; RV=$?; return $RV 2>/dev/null || exit $RV; }
+#[ "$TELL_USAGE" ] && $TELL_USAGE
 
- Config_directory=/etc/acpi       # -c
-
- #1.19.4 does not work wit -e /proc/acpi/event
- proc_event_file=/proc/acpi/event # -e
- Log_file=/var/log/acpid.log      # -l  #1.18.3 does not create it, or if exist, does not update mod,acc,ch-times
-
- #acpid: invalid option -- 'p'
- #BusyBox v1.19.3 (2011-11-09 07:34:50 WST)
- #BusyBox v1.18.3 (2011-05-01 19:45:13 CEST) oK, also creates pid file with correct content
- Pid_file=/var/run/acpid.pid      # -p
- Action_file=/etc/acpid.conf      # -a
- Map_file=/etc/acpi.map           # -M
+_pidof(){
+maybePIDS=`ps | grep -v grep | grep "${BB_BIN##*/}" | grep acpid`
+maybePIDS=`echo $maybePIDS` #needs this to get rid of leading space ..
+ echo "maybePIDS='${maybePIDS%% *}'" >&2
+if test "$maybePIDS"; then
+ echo ${maybePIDS%% *}
+ true
+else
+ false
+fi
+}
 
  case $1 in
- help) usage 0;;
- version) echo -e "$0: Version '$Version'\nTry help for more info.\n";exit 0 ;;
+ *help) usage 0; return 0 2>/dev/null || exit 0;;
+ *version) echo -e "$0: Version '$Version'\nTry help for more info.\n";return 0 2>/dev/null || exit 0;;
 
- start)
- if pidof acpid ;then
+ *start)
+ if _pidof "$BB_BIN acpid" ;then
  echo "acpid Already running."
  else
- acpid -c "$Config_directory" \
+
+ modprobe -l | grep $Q button && ! grep $Q button /proc/modules && \
+ { modprobe $Q $VERB button || echo "Warning: could not load button.ko module"; }
+
+     echo BB_PATCHLEVEL=$BB_PATCHLEVEL
+ if test $BB_PATCHLEVEL -ge 20; then
+
+ if test -f "$Action_file" -a ! -L "$Action_file"; then
+ (
+  echo '#acpid.conf disabled to avoid confusion'
+  echo '#busybox would use acpi.map if found'
+  echo '#even invoked without -M option.'
+  echo '#acpid.conf only works with -e option for deprecated /proc/acpi/event .'
+  echo '#It is a bug to prefer acpi.map before acpid.conf without notice,'
+  echo '#thus making acpid.conf useless if acpi.map also available.'
+  echo '#acpi.map   file used with parsing /dev/input/*'
+  echo '#acpid.conf file used with parsing /proc/acpi/event'
+  echo
+  echo '#acpid.conf  syntax needs 2 entries like found in # cat /proc/acpi/event'
+  echo '#<button/power PWRF 00000080 0000002b> <command or script to run>'
+  echo '#examples:'
+  echo '#PWRF busybox/powerbutton'
+  echo '#LID0 lid.sh'
+  echo '#<command to run> is relative to -c config directory, default:/etc/acpi'
+  ) >"$Action_file"-out
+  cat "$Action_file" >>"$Action_file"-out
+  rm $VERB -f "$Action_file"
+
+ elif test -L "$Action_file"; then
+  rm $VERB -f "$Action_file"
+ fi
+
+ if test ! -f "$Map_file"; then
+  (
+   echo '#stub file created due to missing acpi.map file'
+   echo '#acpi.map  syntax needs 6 entries like found in <linux/input.h>:'
+   echo '#<Event types <NAME> <NR>> <Keys and buttons <NAME> <NR>> <Status?> <command to run>'
+   echo '#example:'
+   echo '#EV_KEY 0x01 KEY_POWER       116  1 busybox/powerbutton'
+   echo '#<command to run> is relative to -c config directory, default:/etc/acpi'
+   echo '"EV_KEY" 0x01 "KEY_POWER" 116  1 busybox/powerbutton'
+   echo '"EV_SW"  0x05 "SW_LID"    0    1 lid.sh'
+  ) >"$Map_file"
+ fi
+
+ if test "$Map_file" != '/etc/acpi.map'; then
+  rm $VERB -f /etc/acpi.map
+ fi
+
+ $BB_BIN acpid -c "$Config_directory" \
   -l "$Log_file" \
-  -a "$Action_file" \
   -M "$Map_file"
 
- sleep 2
+ elif test $BB_PATCHLEVEL -ge 18; then #bug when unplug usb drives or return from S3 RAM sleep state
+
+ if test -f "$Map_file" -a ! -L "$Map_file"; then
+  (
+  echo '#acpi.map disabled due to bug in busybox v1.18 and 1.19'
+  echo '#busybox would parse acpi.map if found anyway'
+  echo '#even invoked without -M option.'
+  echo '#It is a bug not emitting at least a warning if file not found.'
+  echo '#And also a bug to prefer acpi.map before acpid.conf without notice,'
+  echo '#thus making acpid.conf useless if acpi.map also available.'
+  echo '#acpi.map   file used with parsing /dev/input/*'
+  echo '#acpid.conf file used with parsing /proc/acpi/event'
+  echo
+  echo '#acpi.map  syntax needs 6 entries, 5 like found in <linux/input.h>:'
+  echo '#<Event types <NAME> <HEXNR>> <Keys and buttons <NAME> <DECNR>> <Status?> <command to run>'
+  echo '#example:'
+  echo '#EV_KEY 0x01 KEY_POWER       116  1 busybox/powerbutton'
+  echo '#<command to run> is relative to -c config directory, default:/etc/acpi'
+  ) >"$Map_file"-out
+  cat "$Map_file" >>"$Map_file"-out
+  rm $VERB -f "$Map_file"
+
+ elif test -L "$Map_file"; then
+  rm $VERB -f "$Map_file"
+ fi
+
+ if test ! -f "$Action_file"; then
+  (
+   echo '#stub file created due to missing acpid.conf file'
+   echo '#acpid.conf  syntax needs 2 entries like found in # cat /proc/acpi/event'
+   echo '#<button/power PWRF 00000080 0000002b> <command or script to run>'
+   echo '#examples:'
+   echo '#PWRF busybox/powerbutton'
+   echo '#LID0 lid.sh'
+   echo '#<command to run> is relative to -c config directory, default:/etc/acpi'
+   echo 'PWRF busybox/powerbutton'
+   echo 'LID0 lid.sh'
+  ) >"$Action_file"
+ fi
+
+ if test "$Action_file" != '/etc/acpid.conf'; then
+  rm $VERB -f /etc/acpid.conf
+ fi
+
+ $BB_BIN acpid -c "$Config_directory" \
+  -l "$Log_file" \
+  -a "$Action_file" \
+  -e "$Proc_event_file"
+
+ else
+ $BB_BIN acpid -c "$Config_directory" \
+  -l "$Log_file" \
+  -e "$Proc_event_file"
+ fi
+ RV=$?
  echo -n "Started acpid:"
- pidof acpid || echo "FAILED."
+ [ "$RV" = 0 ] || { echo "FAILED."; exit $RV; }
+ sleep 2
+ _pidof "$BB_BIN acpid" || echo "FAILED."
  fi
  ;;
 
- stop)
-
- _stop_acpid(){
- if pidof acpid >$OUT;then
-  #for n in {1..4};do
-  for n in `seq 1 1 4`; do
-  kill -$n `pidof acpid`
+ *stop)
+ if _pidof "$BB_BIN acpid";then
+  for n in {1..4};do
+  echo trying signal $n ..
+  kill -$n `_pidof "$BB_BIN acpid"`
   sleep 1
-  pidof acpid >$OUT || break
+  _pidof "$BB_BIN acpid" || break
   done
     if [ -f "$Pid_file" ];then
     pid_file_pid=$(cat "$Pid_file")
     [ "$pid_file_pid" ] || pid_file_pid=999999999999999 #fake, hopefully never used :oops:
-    if ps -o pid | grep $Q -w "$pid_file_pid" ; then
-     #for n in {1..4};do
-       for n in `seq 1 1 4`; do
+    if ps | grep -v 'grep' | grep $Q -w "$pid_file_pid" ;then
+     for n in {1..4};do
+       echo trying signal $n
        kill -$n $pid_file_pid  #MARKER
        sleep 1
-       pidof acpid >$OUT || break
+       pidof "$BB_BIN acpid" || break
       done
     fi
     fi
-   if pidof acpid;then
+   if _pidof "$BB_BIN acpid";then
     echo "FAILED to stop acpid."
    else
     echo "acpid stopped."
@@ -90,10 +253,8 @@ exit $1
  else
  echo "acpid not running."
  fi
- rm -f "$Pid_file"
- }
- :
+ rm $VERB -f "$Pid_file"
  ;;
- "") usage 1 "Need Parameter.";;
+ "") usage 1 "Need Parameter [start|stop] .";;
  *) usage 1 "Unknown Parameter '$1' .";;
  esac
