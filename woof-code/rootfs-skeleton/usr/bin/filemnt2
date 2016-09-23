@@ -14,7 +14,7 @@ TWO_DEBUG=1
 TWO_VERSION=1
 TWO_HELP=1
 TWO_VERBOSE=1
-#test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 _exit()
 {
@@ -50,12 +50,6 @@ MAYBE_FILE=`echo -e "$*"`
 MAYBE_DIR="$MAYBE_FILE"
 _debug "MAYBE_FILE='$MAYBE_FILE'"
 ORIG_PARAMS="$*"
-
-if test -f "$*"; then FILE_MOUNT_LOOP="$*"; set --
-elif test -f "$MAYBE_FILE"; then FILE_MOUNT_LOOP="$MAYBE_FILE"; set --
-elif test -d "$*"; then FILE_MOUNT_POINT="$*"; set --
-elif test -d "$MAYBE_DIR"; then FILE_MOUNT_POINT="$MAYBE_DIR" ; set --
-fi
 
 _check_for_file_and_mountpoint(){
 while :
@@ -98,7 +92,7 @@ MSG_HELP="$MY_SELF_MSG:
  --verbose|-v) tell whats going on.
  --debug|-d)   print a lot of debugging.
 "
-[ "$*" ] && MSG_HELP="$$MSG_HELP
+[ "$*" ] && MSG_HELP="$MSG_HELP
 $*"
 gettext "$MSG_HELP"
 }
@@ -114,13 +108,21 @@ case $1 in
 -*help|-*h)     _tell_help; exit $?;;
 -*version|-*V)  _tell_version; exit $?;;
 -*verbose|-*v)  VERB=-v;;
--*debug|-*d)    VERB=-v;DEBUG=1;;
+-*debug|-*d)    VERB=-v;DEBUG=$((DEBUG+1));;
 *) _check_for_file_and_mountpoint "$1";;
 esac
 shift
 [ "$1" ] || break
 done
 }
+
+if test ! "$*"; then _tell_help; exit $?
+elif test -f "$*"; then FILE_MOUNT_LOOP="$*"; set --
+elif test -f "$MAYBE_FILE"; then FILE_MOUNT_LOOP="$MAYBE_FILE"; set --
+elif test -d "$*"; then FILE_MOUNT_POINT="$*"; set --
+elif test -d "$MAYBE_DIR"; then FILE_MOUNT_POINT="$MAYBE_DIR" ; set --
+fi
+
 test "$FILE_MOUNT_LOOP"    || _check_params "$@"
 
 if ! test "$FILE_MOUNT_POINT"; then
@@ -135,6 +137,20 @@ _debug "FILE_MOUNT_LOOP='$FILE_MOUNT_LOOP'"
 #
 
 # /mnt/home fix ?
+
+_alias_default(){
+alias rm="rm $VERB"
+alias cp="cp $VERB"
+alias mv="mv $VERB"
+alias ln="ln $VERB"
+alias mkdir="mkdir $VERB"
+alias rmdir="rmdir $VERB"
+alias chgrp="chgrp $VERB"
+alias chmod="chmod $VERB"
+alias chown="chown $VERB"
+alias modprobe="modprobe $Q $VERB"
+}
+_alias_default
 
 _losetup_a(){
 # old losetup-FULL has no -a options,
@@ -161,15 +177,15 @@ _ensure_loop_cont(){
     while read loop; do
     NR=${loop##*/}
     NR=${NR##*loop}
-    echo c=$c NR=$NR
+    _debug c=$c NR=$NR
     while :; do
-    test $NR = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln -sf ../loop$c /dev/loop/$c; }
+    test "$NR" = $c && break || { mknod /dev/loop$c b 7 $c; [ -d /dev/loop ] && ln -sf ../loop$c /dev/loop/$c; }
     c=$((c+1))
     _debugx c=$c NR=$NR
-    test $c -le $usedLOOPS || break
+    test "$c" -le $usedLOOPS || break
     done
     c=$((c+1))
-    test $c -le $usedLOOPS || break
+    test "$c" -le $usedLOOPS || break
     done << EoI
 `ls -1d /dev/loop[0-9]* | sed 's!.*loop!!;s!/!!' | sort -n`
 EoI
@@ -188,7 +204,7 @@ EoI
     # REM : /dev/loop0 only would count as word '1', so need to reduce by one ..
     NR=$((NR-1))
     _debugx "NR=$NR"
-    if test $usedLOOPS -ge $NR; then
+    if test "$usedLOOPS" -ge $NR; then
     test -b /dev/loop$((NR+0)) || mknod /dev/loop$((NR+0)) b 7 $((NR+0))
     test -b /dev/loop$((NR+1)) || mknod /dev/loop$((NR+1)) b 7 $((NR+1))
     test -b /dev/loop$((NR+2)) || mknod /dev/loop$((NR+2)) b 7 $((NR+2))
@@ -235,7 +251,7 @@ _encrypted()
 
      *_cryptx*) #light encryption.
       CRYPTO='light'
-      modprobe $Q $VERB cryptoloop
+      modprobe cryptoloop
       rxvt -geometry 25x3 -title "$(gettext 'Enter password')" -bg orange -e losetup-FULL -E 1 $freeLOOP
       #losetup-FULL -E 1 $freeLOOP $imgFile
       Err=$?
@@ -254,8 +270,8 @@ _encrypted()
 
       for mod in cryptoloop aes_generic aes crypto_blkcipher blkcipher cbc
       do
-      modprobe $Q $VERB -l | grep $Q "/${mod}.ko$" || continue
-      modprobe $Q $VERB $mod
+      modprobe -l | grep $Q "/${mod}.ko$" || continue
+      modprobe $mod
       done
 
 # <linux/loop.h>
@@ -389,7 +405,7 @@ _debug Err=$Err
 
  _kernel_fs_support(){
      grep -v nodev /proc/filesystems | grep $Q "$*" && return 0
-     ( modinfo "$*" && modprobe $Q $VERB "$*" ) >>$OUT 2>>$ERR
+     ( modinfo "$*" && modprobe "$*" ) >>$OUT 2>>$ERR
  }
  test "$FS_TYPE" && _kernel_fs_support "$FS_TYPE" && T_OP="-t $FS_TYPE"
 
@@ -401,12 +417,12 @@ _debug Err=$Err
 
  if test $Err = 0; then
  _info "About to mount $T_OP "$freeLOOP" "$FILE_MOUNT_POINT""
- /bin/mount $T_OP "$freeLOOP" "$FILE_MOUNT_POINT"
+            /bin/mount $T_OP "$freeLOOP" "$FILE_MOUNT_POINT"
 
  elif test $Err = 9; then
 
  _info "About to mount $T_OP -o loop "$FILE_MOUNT_LOOP" "$FILE_MOUNT_POINT""
- /bin/mount $T_OP -o loop "$FILE_MOUNT_LOOP" "$FILE_MOUNT_POINT"
+            /bin/mount $T_OP -o loop "$FILE_MOUNT_LOOP" "$FILE_MOUNT_POINT"
 
  elif test $Err = 8; then
  _err "No free loop device available"
@@ -424,13 +440,13 @@ return $?
 
 _convert_nl_tab_sp_esc()
 {
-xP=${*// /\\040}
-xQ=${xP//	/\\011}  #TAB
-xR="${xQ//
+xP=${*//\\/\\134} #bsl
+xQ=${xP// /\\040}
+xR=${xQ//	/\\011}  #TAB
+xS="${xR//
 /\\012}"
-xS=${xR//\\/\\134}   #bsl
 echo "$xS"
-unset xR xQ xP xS
+unset xP xQ xR xS
 }
 
 _format_grep_pattern(){
@@ -501,6 +517,27 @@ _ask_to_run_sfs_load
   1) :;; 2) exit 0;; *) _warn "Unhandled return value from _ask_to_run_sfs_load";;
   esac
 
+__exit(){
+_get_yaf_args
+case $2 in mount)
+case $1 in
+0) #$YAF $yafBG $yafFG $yafPL $yafFONT $yafEXTRA $yafTXT "Success. Click again to unmount.";;
+	$YAF_CMD "Success. Click ${FILE_MOUNT_LOOP##*/} again to unmount." & true;;
+*) #$YAF $yafBG $yafFG $yafPL $yafFONT $yafEXTRA $yafTXT "Failure. Error code $1 . Is it an unsupported .sfs version or compression ?";;
+	$YAF_CMD "Failure. Error code $1 . Is it an unsupported .sfs version or compression ?" & false;;
+esac
+;;
+umount)
+case $1 in
+0) #$YAF $yafBG $yafFG $yafPL $yafFONT $yafEXTRA $yafTXT "Successfully unmounted.";;
+	$YAF_CMD "Successfully unmounted $FILE_MOUNT_POINT ." & true;;
+*) #$YAF $yafBG $yafFG $yafPL $yafFONT $yafEXTRA $yafTXT "Failure unmounting. Error code $1 . Are apps like rxvterminal open therein ?";;
+	$YAF_CMD "Failure unmounting. Error code $1 . Are apps like rxvterminal open therein ?" & false;;
+esac
+;;
+esac
+exit $1
+}
 
 if [ "$FILE_MOUNT_POINT" ]; then
  # toggle if already mounted
@@ -508,7 +545,7 @@ if [ "$FILE_MOUNT_POINT" ]; then
  if _check_dir_mounted; then
   rox -D "$FILE_MOUNT_POINT"
   /bin/umount -d "$FILE_MOUNT_POINT"
-  exit $?
+  __exit $? umount
  else
   _mount_it
  fi
@@ -520,7 +557,7 @@ else
  if _check_dir_mounted; then
   rox -D "$FILE_MOUNT_POINT"
   /bin/umount -d "$FILE_MOUNT_POINT"
-  exit $?
+  __exit $? umount
  else
  _mount_it
  fi
@@ -533,22 +570,25 @@ if test "$RV" = 0; then
  :
  #[ -d "$FILE_MOUNT_POINT" ] && rox "$FILE_MOUNT_POINT"
 else # clean up
- [ -d "$FILE_MOUNT_POINT" ] && rmdir $VERB "$FILE_MOUNT_POINT"
+ [ -d "$FILE_MOUNT_POINT" ] && rmdir "$FILE_MOUNT_POINT"
   if test "$freeLOOP"; then
-   _losetup_a | grep $Q -w "^$freeLOOP" && losetup $VERB -d "$freeLOOP"
+   _losetup_a | grep $Q -w "^$freeLOOP" && losetup -d "$freeLOOP"
   fi
   if test "$FILE_MOUNT_LOOP"; then
    LOOP_ASS=`losetup -j "$FILE_MOUNT_LOOP"`
    for l in $LOOP_ASS; do
+   test -b $l || continue
    losetup -d $l
    done
   fi
 fi
+
+__exit $RV mount
 
 #TODO:
 #/initrd/ support in use by puppy
 #DONE:encryption support
 #squashfs version support
 #squashfs compression
-#xmessages for success/failure
+#DONE:xmessages for success/failure
 #DONE:dialog to load or mount

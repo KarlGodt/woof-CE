@@ -10,8 +10,6 @@
 # In the case of not a full hd install,
 #  this script just passes execution to busybox init.
 
-
-
 ###KRG Fr 31. Aug 23:34:58 GMT+1 2012
 #}  ###__old_header__(){ #END
 
@@ -50,34 +48,43 @@
 #
 ########################################################################
 
-Version='2.5-module_loading-mount_interval_check-use_alternate_repo_sfs Puppy-Linux-4.3.0 KRG'
+Version='2.6-module_loading-mount_interval_check-use_alternate_repo_sfs Puppy-Linux-4.3.0 KRG'
 usage (){
-echo "
+MSG="
 $0
 Sript to check for inproper previous shutdown if
 marker file *fsckme.flg|err* found. The content of the
 fsckme.flg file needs to look like this : 'sda2,ext3,' .
-Former and still it was done by '/usr/bin/xwin' code by
-Pizzasgood.
+
+Former [and still?] it was crudly done
+by '/usr/bin/xwin' code by Pizzasgood.
+
 If fsckme file exists, check the partition read-only,
 and if found clean, boot anyway.
+
 If the mount interval date or mounts have reached their
 specified numbers, do an interval e2fsck .
+
 Obeys the 'pfix=fsck' kernel parameter
 to force file system checking.
-Special feature : FSCK Interactive Mode
+
+Special feature : FSCK Interactive Mode.
 Keyboard is not necessarily needed, any questions have
 a timeout of 20 seconds and would fall back into
 non-interactive mode.
+
 "
-exit $?
+gettext "$MSG"
+exit $1
 }
-[ "`echo "$@" |grep -Ei '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nUse help to show usage\n";exit $?; }
+#[ "`echo "$@" |grep -Ei '\-V|version'`" ] && { echo -e "\n$0: Version '$Version'\nUse help to show usage\n";exit $?; }
 
 case $1 in
-*check*|check) set -n;;
-*debug*|debug) set -x;;
-*verbose*|verbose) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;VERBOSE=1;;
+*h|*help) usage 0;;
+*V|*version)  echo -e "\n$0: Version '$Version'\nUse help to show usage\n"; exit 0;;
+*check*) set -n;;
+*debug*) set -x;;
+*verbose*) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;VERBOSE=1;;
 esac
 while [ "$1" ]; do shift; done
 
@@ -144,6 +151,7 @@ alias modprobe="/sbin/modprobe -b $Q $VERB"  ##+++2012-01-30  ##+2013-07-13 PATH
 
 #_do_fbsplash
 
+__mount_proc(){
 if [ -d /proc ]; then
 [ -L /proc/mounts -a -e /proc/mounts ] || busybox mount ${VERB:+'-vv'} -t proc proc /proc
 else
@@ -153,7 +161,36 @@ mkdir $VERB -p /proc
 busybox mount ${VERB:+'-vv'} -t proc proc /proc
 #busybox mount ${VERB:+'-vv'} -o -remount,ro /dev/root /
 fi
+}
 
+_mount_proc(){
+# STEP 1: unmount any overlay mounts of /proc
+while :
+do
+# /proc/mounts is a link to /proc/self/mounts
+# test -s /proc/self/mounts returns 1 always,
+# file    /proc/self/mounts returns 'empty'
+# file -s /proc/self/mounts returns 'ASCII text'
+##( _test_Lef /proc/mounts && _test_Led /proc/self ) || break
+# now trying stat ..
+stat -f -c %T /proc | grep $Q '^proc$' || break
+# unmount submounts like /proc/bus/usb
+M=`/bin/cat -E /proc/mounts`
+M=`echo $M | rev |sed 's/ $[0-9] [0-9] /\n/g' | rev`
+P=`echo "$M" | cut -f2 -d' ' | grep '/proc/' | cut -f1 -d' '`
+for oneP in $P; do oneP=`echo -e "$oneP"`; umount "$oneP"; done
+cut -f1,2 -d' ' /proc/mounts | grep $Q ' /proc$' && umount /proc && sleep 1 || break
+done
+# STEP 2: remove bottom most /proc directory
+_secure_remove_force /proc 2>/dev/null # printing errors if mounted is far too slow in kernel console
+# STEP 3: get /dev/root rw, create /proc directory and mount /proc
+_mount_root rw
+mkdir $VERB /proc
+busybox mount ${VERB:+'-vv'} -t proc none /proc
+}
+_mount_proc
+
+__mount_sys(){
 if [ -d /sys ]; then
 grep $Q ' /sys ' /proc/mounts || busybox mount ${VERB:+'-vv'}  -t sysfs sysfs /sys
 else
@@ -163,9 +200,46 @@ mkdir $VERB -p /sys
 busybox mount ${VERB:+'-vv'} -t sysfs none /sys
 #busybox mount ${VERB:+'-vv'} -o -remount,ro /dev/root /
 fi
+}
+
+_mount_sys(){
+while :
+do
+# /proc/mounts is a link to /proc/self/mounts
+###echo -n "_test_Lefs /proc/mounts :"
+###_test_Lefs /proc/mounts; echo $?
+###echo -n "_test_Led/proc/self :"
+###_test_Led /proc/self; echo $?
+# test -s /proc/self/mounts returns 1 always,
+# file    /proc/self/mounts returns 'empty'
+# file -s /proc/self/mounts returns 'ASCII text'
+##( _test_Lef /proc/mounts && _test_Led /proc/self ) || return 2
+# now trying stat ..
+stat -f -c %T /proc | grep $Q '^proc$' || return 2
+# unmount submounts like /sys/kernel/debug
+M=`/bin/cat -E /proc/mounts`
+M=`echo $M | rev |sed 's/ $[0-9] [0-9] /\n/g' | rev`
+S=`echo "$M" | cut -f2 -d' ' | grep '/sys/' | cut -f1 -d' '`
+for oneS in $S; do oneS=`echo -e "$oneS"`;
+_debugx $one$
+umount "$oneS"; done
+cut -f1,2 -d' ' /proc/mounts | grep $Q ' /sys$' && umount /sys && sleep 1 || break
+done
+_debug "`mount | grep '/sys'`"
+# STEP 2: remove bottom most /proc directory
+_secure_remove_force /sys 2>/dev/null # printing errors if mounted is far too slow in kernel console
+# STEP 3: get /dev/root rw, create /proc directory and mount /proc
+_mount_root rw
+mkdir $VERB /sys
+busybox mount ${VERB:+'-vv'} -t sysfs none /sys
+}
+_debugx _mount_sys
+_mount_sys; ##echo $?
+_debugx _mount_sys
 
 #_do_fbsplash
 
+_mount_dev(){
 if [ ! -d /dev ]; then
 #busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
 _remount_root rw
@@ -208,6 +282,7 @@ grep $Q ' /dev ' /proc/mounts || {
   done
   IFS="$oldIFS"
  }
+}
 
 _do_fbsplash
 
@@ -225,9 +300,7 @@ if [ "$PUPMODE" = 2 ]; then
     mkdir $VERB -p /var/tmp-last-boot    ##2012-02-06
     mv $VERB -f /tmp /var/tmp-last-boot  ##2012-01-08
     fi
-    #else
     mkdir $VERB -p /tmp
-    #fi
     chmod $VERB 1777 /tmp
     }
 ###+++2011-11-10

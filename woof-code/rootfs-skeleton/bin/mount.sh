@@ -50,7 +50,9 @@ _info "using '$LANG_ROX'"
 #but does for mount --bind / /tmp/SYSFS and bind mount of /proc ..???
 #so using function with grep instead
 __mountpoint__(){
- test -f /proc/mounts || return 3
+ #test -L /proc/mounts -a -f /proc/mounts || return 3
+ #_test_Lef /proc/mounts && _test_Led /proc/self || return 3
+ stat -f -c %T /proc 2>>$ERR | grep $Q '^proc$' || return 3
  test "$*" || return 2
  [ "$1" = '-q' ] && shift;
  #set - `echo "$*" | sed 's!\ !\\\040!g'`
@@ -63,9 +65,9 @@ __check_proc__()
 {
  _debug "_check_proc:mountpoint $Q /proc"
   mountpoint $Q /proc && return $? || {
-  busybox mount -o remount,rw /dev/root /
+  busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
   test -d /proc || mkdir $VERB -p /proc
-  busybox mount $VERB $VERB -t proc proc /proc
+  busybox mount ${VERB:+'-vv'} -t proc proc /proc
   return $?
  }
 }
@@ -73,7 +75,7 @@ __check_proc__()
 __check_tmp__()
 {
  test -d /tmp && return $? || {
- busybox mount $VERB $VERB -o remount,rw /dev/root /
+ busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
  mkdir $VERB -p /tmp
  chmod $VERB 1777 /tmp
  return $?
@@ -87,9 +89,9 @@ __check_tmp_rw__()
 
 _debug "_check_tmp_rw:mountpoint $Q /tmp"
 mountpoint $Q /tmp && {
-grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw tmpfs /tmp; return $?; }
+grep -w '/tmp' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount ${VERB:+'-vv'} -o remount,rw tmpfs /tmp; return $?; }
  } || {
-grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount $VERB $VERB -o remount,rw /dev/root /; return $?; }
+grep '^/dev/root' /proc/mounts | cut -f4 -d' ' | grep $Q -w 'rw' && return 0 || { busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /; return $?; }
  }
 
 }
@@ -234,7 +236,7 @@ posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\!'%\!%g"`    # !
 #           *bufptr ++= '\\';
 #           *bufptr ++= *arg;
 #           *bufptr ++= '\'';
-posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\  '%\ %g"`   # tab   011
+posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\	'%\	%g"`   # tab   011
 posPARAMS=`echo "$posPARAMS" | sed "s%'\\\\\\\ '%\ %g"`    # space 040
 
 #else if (shell_TCSH && *arg == '\n')
