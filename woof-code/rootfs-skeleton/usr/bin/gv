@@ -1,0 +1,57 @@
+#!/bin/ash
+
+[ "`which gv.bin`" ] && exec gv.bin "$@"
+
+echo "\$0=$0 \$*=$*" >&2
+
+_tell_help(){
+MSG="$0 : a wrapper script
+launching 'exec ps2pdf \$@ - | epdfview -'
+
+`ps2pdf -h 2>&1`
+"
+MSG=`gettext "$MSG"`
+echo "$MSG"
+[ "$DISPLAY" ] && xmessage "$MSG" &
+exit $1
+}
+
+case "$1" in
+h|-h|-*help)    _tell_help 0;;
+V|-V|-*version) _tell_help 0;; #TODO
+            '') _tell_help 2;;
+esac
+
+_check_if_more_than_one_file(){
+test "$*" || return 2
+while test "$#" -gt 0
+do
+test -f "$1" -a -f "$2" && { echo "Just one filename allowed."; exit 2; }
+shift
+done
+}
+_check_if_more_than_one_file "$@"
+
+STATUS=0
+
+if test -f "$@"; then
+ case $@ in *.pdf) epdfview "$@";;
+            *.ps)  ps2pdf "$@" - >>$OUT; STATUS=$?
+                   [ "$STATUS" = 0 ] && ps2pdf "$@" - | epdfview -;;
+                *) case `file "$@"` in
+                   *"PDF document"*) epdfview "$@";;
+                   *"PostScript document"*)
+                   ps2pdf "$@" - >>$OUT; STATUS=$?
+                   [ "$STATUS" = 0 ] && ps2pdf "$@" - | epdfview -;;
+                   *) echo "Trying ps2pdf .."; ps2pdf "$@" - | epdfview -;;
+                   esac
+ esac
+ STATUS=$?
+else
+ #ps2pdf "$@" - | epdfview -
+  ps2pdf "$@" -                >/tmp/${@##*/}.pdf; STATUS=$((STATUS+$?))
+  [ "$STATUS" = 0 ] && epdfview /tmp/${@##*/}.pdf &
+  [ "$DEBUG" ] ||         rm -f /tmp/${@##*/}.pdf
+fi
+[ "$DEBUG" ] || { [ "$STATUS" = 0 ] && rm -f /tmp/epdfview[0-9A-Z]*; }
+exit $STATUS

@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/bin/ash
+# bash has problems to process aliased names in _do_loop
+# ./evince: line 87: pdfview: command not found
+# ./evince: line 85: pdfview: command not found
+
 #BK nov 2007
 # It seems built-in to gtk and gnomeprint print-dialogs,
 # if choose print-preview, tries to run 'evince' --
@@ -8,16 +12,15 @@
 # --unlink-tempfile --preview --print-settings /tmp/settings5F8P1T.ini /tmp/previewQ2HM1T.pdf
 # ...interesting, it's a pdf file. so, do this...
 
-
   _TITLE_="pup_evince.sh"
 _VERSION_=1.0omega
-_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+_COMMENT_="$_TITLE_:Puppy Linux shell script wrapper for epdfview"
 
 MY_SELF="$0"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -32,8 +35,68 @@ _parse_basic_parameters "$@"
 _trap
 }
 
-ONLYFILENAMES=`echo -n "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep -v '^-' | grep 'pdf$' | tr '\n' ' '`
+echo PATH=$PATH
+for oneBIN in epdfview evince.bin
+do
+[ "`which $oneBIN`" ] && alias pdfview="$oneBIN" #
+done
+alias pdfview >>$OUT || { echo "No pdfviewer found in PATH ."; exit 2; }
 
-exec epdfview $ONLYFILENAMES
+#onlyFILENAMES=`echo "$*" | tr '\t' ' ' | tr -s ' ' | tr ' ' '\n' | grep -ve '^-' | grep -i '\.pdf$'`
+#onlyFILENAMES=`echo "$*" | tr '[:blank:]' '\n' | grep -ve '^-' | grep -i '\.pdf$'`
+for oneFILE in "$@"
+do
+_debug "oneFILE='$oneFILE'"
+echo "$oneFILE" | grep $Q -i '\.pdf$' || continue
+[ "$onlyFILENAMES" ] && onlyFILENAMES="$onlyFILENAMES
+$oneFILE" || onlyFILENAMES="$oneFILE"
+done
+
+_debug "\$*='$*' \$#=$#"
+set --
+_debug "\$*='$*' \$#=$#"
+
+while read -r oneFILE
+do
+ [ "$oneFILE" ] || continue
+ if test -f "$oneFILE"; then
+##[ "$ONLYFILENAMES" ] && ONLYFILENAMES="$ONLYFILENAMES
+#$oneFILE" || ONLYFILENAMES="$oneFILE"
+ set "$@" "$oneFILE"
+ fi
+done <<EoI
+`echo "$onlyFILENAMES"`
+EoI
+
+#_debug "ONLYFILENAMES='$ONLYFILENAMES'"
+#[ "$ONLYFILENAMES" ] || { echo "No (existing) .pdf filename(s) given."; exit 2; }
+#exec pdfview $ONLYFILENAMES
+#pdfview $ONLYFILENAMES
+#set - $ONLYFILENAMES
+_debug "\$*='$*' \$#=$#"
+#pdfview "$@"
+
+alias
+
+_do_loop(){
+#alias
+#alias pdfview
+#echo loop BEGIN
+for oneFILE in "$@"
+do
+c=$((c+1))
+if test "$c" = "$#"; then
+pdfview "$oneFILE"
+else
+pdfview "$oneFILE" &
+fi
+STATUS=$((STATUS+$?))
+done
+}
+#alias pdfview
+_do_loop "$@"
+
+[ "$DEBUG" ] || { [ "$STATUS" = 0 ] && rm -f /tmp/epdfview[0-9A-Z]*; }
+exit $STATUS
 # Very End of this file 'usr/bin/evince' #
 ###END###
