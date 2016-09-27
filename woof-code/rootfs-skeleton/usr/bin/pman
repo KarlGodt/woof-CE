@@ -3,7 +3,7 @@
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_pman"
 _VERSION_=1.0omega
-_COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
+_COMMENT_="$_TITLE_:Puppy Linux shell script replacement for man binary"
 
 MY_SELF="/usr/bin/pman"
 MY_PID=$$
@@ -144,10 +144,10 @@ TEXTVIEWERS="defaulttextviewer leafpad nicoedit geany gedit"
 MANHANDLERS="groff man2html groff nroff troff"
 
 if [ "$DISPLAY" = "" ]; then
- HTMLVIEWERS="w3m lynx"
+ HTMLVIEWERS="w3m lynx elinks"
  TEXTVIEWERS="more less"
  MANHANDLERS="nroff"
- echo $lng2 | grep -qE 'ja|ko|th|zh' && export LANG=C && LANGS=C
+ echo $lng2 | grep $Q -E 'ja|ko|th|zh' && export LANG=C && LANGS=C
 fi
 
 HTMLVIEWER=""
@@ -166,8 +166,7 @@ for PROG in $MANHANDLERS; do
   which $PROG >/dev/null && MANHANDLER=$PROG && break
 done
 
-_try_manhandler(){
-[ "$MANHANDLER" ] || return 0
+_get_manpath(){
  #[ "$MANPATH" = "" ] && MANPATH="/usr/man:/usr/share/man:/usr/local/man:/usr/local/share/man"
  if [ ! "$MANPATH" ]; then
  for d in "/man" "/opt/man" "/opt/share/man" "/usr/man" "/usr/share/man" "/usr/local/man" "/usr/local/share/man"
@@ -180,20 +179,29 @@ _try_manhandler(){
 
  MANDIRS=$(echo $MANPATH| tr ':' ',')
  MANLANGS="$LANGS"
- [ "$MANHANDLER" != "man2html" ] && { echo $lng2 | grep -qE 'ja|ko|th|zh' && export MANLANGS=C; }
+ [ "$MANHANDLER" != "man2html" ] && { echo $lng2 | grep $Q -E 'ja|ko|th|zh' && export MANLANGS=C; }
  [ "$SECTION" ] && SEC="$SECTION" || SEC='*'
  [ "$MANDIRS" ] && \
  FNDMAN="$(eval find -L {$MANDIRS}/{{$MANLANGS}/man${SEC},man${SEC}} -maxdepth 1 -iname ${NAME}.[0-9]* -not -type d 2>/dev/null)"
+}
 
- if [ "$FNDMAN" != "" ]; then
- [ "$printLOCATIONS" ] && echo "$FNDMAN" # -w option
- FNDMAN=`echo "$FNDMAN" | head -n1` # sort?
+_try_manhandler(){
+[ "$MANHANDLER" ] || return 0
+#_get_manpath
+ if [ "$FNDMAN" ]; then
+ #[ "$printLOCATIONS" ] && { echo "$FNDMAN"; exit 0; } # TODO: -w option
+
+   if test "$showALL"; then # TODO: -a option
+   :
+   else
+    FNDMAN=`echo "$FNDMAN" | head -n1` # sort?
+   fi
 
    case $MANHANDLER in
    nroff)
      which more >/dev/null && MORE="more"
      #MORE="less -FRis"
-     if which less; then
+     if which less >>$OUT; then
       moreHELP=`less --help` && MORE=less
      elif busybox | grep $Q -w less; then
       moreHELP=`busybox less --help` && MORE='busybox less'
@@ -207,18 +215,21 @@ _try_manhandler(){
       moreOPTS=`echo $lessOPTS`
       MORE="$MORE $moreOPTS"
      fi
-     #which more >/dev/null && MORE="more"
      test "${MORE// /}" || return 1
 
-     case "$FNDMAN" in
+     for oneMAN in $FNDMAN; do
+     echo -n "Press any key to show $oneMAN :"
+     read -t 30 -n1 keyMAN
+     case "$oneMAN" in
      *.gz)
-       zcat "$FNDMAN" | $MANHANDLER -mandoc | $MORE;;
+       zcat "$oneMAN"  | $MANHANDLER -mandoc | $MORE;;
      *.bz2)
-       bzcat "$FNDMAN" | $MANHANDLER -mandoc | $MORE;;
+       bzcat "$oneMAN" | $MANHANDLER -mandoc | $MORE;;
      *.[0-9]|*.[0-9][a-z])
-       $MANHANDLER -mandoc "$FNDMAN" | $MORE;;
-     *) echo "Invalid or unhandled filename '$FNDMAN'" >&2; false;;
+       $MANHANDLER -mandoc "$oneMAN" | $MORE;;
+     *) echo "Invalid or unhandled filename '$oneMAN'" >&2; false;;
      esac
+     done
      exit $?
     ;;
 
@@ -226,44 +237,56 @@ _try_manhandler(){
 
      MORE=`which gv`
      test "${MORE// /}" || return 1
-     case "$FNDMAN" in
+
+     for oneMAN in $FNDMAN; do
+     #echo -n "Press any key to show $oneMAN :"
+     #read -t 30 -n1 keyMAN
+     case "$oneMAN" in
      *.gz)
-      TMPFILE=/tmp/$(basename "$FNDMAN" .gz | tr '.' '_').ps
-        [ -s "$TMPFILE" ] || zcat "$FNDMAN" | $MANHANDLER -mandoc >$TMPFILE
+      TMPFILE=/tmp/$(basename "$oneMAN" .gz | tr '.' '_').ps
+        [ -s "$TMPFILE" ] || zcat "$oneMAN" | $MANHANDLER -mandoc >$TMPFILE
         ;;
      *.bz2)
-       TMPFILE=/tmp/$(basename "$FNDMAN" .bz2 | tr '.' '_').ps
-        [ -s "$TMPFILE" ] || bzcat "$FNDMAN" | $MANHANDLER -mandoc >$TMPFILE
+       TMPFILE=/tmp/$(basename "$oneMAN" .bz2 | tr '.' '_').ps
+        [ -s "$TMPFILE" ] || bzcat "$oneMAN" | $MANHANDLER -mandoc >$TMPFILE
         ;;
      *.[0-9]|*.[0-9][a-z])
-       TMPFILE=/tmp/$(basename "$FNDMAN" | tr '.' '_').ps
-        [ -s "$TMPFILE" ] || $MANHANDLER -mandoc "$FNDMAN" >$TMPFILE
+       TMPFILE=/tmp/$(basename "$oneMAN" | tr '.' '_').ps
+        [ -s "$TMPFILE" ] || $MANHANDLER -mandoc "$oneMAN" >$TMPFILE
         ;;
-     *) echo "Invalid or unhandled filename '$FNDMAN'" >&2; false;;
+     *) echo "Invalid or unhandled filename '$oneMAN'" >&2; false;;
      esac
      [ -s "$TMPFILE" ] || echo "Error while creating $TMPFILE" > $TMPFILE
      $MORE $TMPFILE & sleep 6
      [ "$DEBUG" ] || rm -f $TMPFILE
+     done
+
      exit $?
    ;;
 
    man2html)
-     case "$FNDMAN" in
+
+     for oneMAN in $FNDMAN; do
+     #echo -n "Press any key to show $oneMAN :"
+     #read -t 30 -n1 keyMAN
+     case "$oneMAN" in
      *.gz)
-       TMPFILE=/tmp/$(basename "$FNDMAN" .gz | tr '.' '_').html
-       [ -s "$TMPFILE" ] || zcat "$FNDMAN" | $MANHANDLER > $TMPFILE;;
+       TMPFILE=/tmp/$(basename "$oneMAN" .gz | tr '.' '_').html
+       [ -s "$TMPFILE" ] || zcat "$oneMAN" | $MANHANDLER > $TMPFILE;;
      *.bz2)
-       TMPFILE=/tmp/$(basename "$FNDMAN" .bz2 | tr '.' '_').html
-       [ -s "$TMPFILE" ] || bzcat "$FNDMAN" | $MANHANDLER > $TMPFILE;;
+       TMPFILE=/tmp/$(basename "$oneMAN" .bz2 | tr '.' '_').html
+       [ -s "$TMPFILE" ] || bzcat "$oneMAN" | $MANHANDLER > $TMPFILE;;
      *.[0-9]|*.[0-9][a-z])
-       TMPFILE=/tmp/$(basename "$FNDMAN" | tr '.' '_').html
-       [ -s "$TMPFILE" ] || $MANHANDLER "$FNDMAN" > $TMPFILE;;
+       TMPFILE=/tmp/$(basename "$oneMAN" | tr '.' '_').html
+       [ -s "$TMPFILE" ] || $MANHANDLER "$oneMAN" > $TMPFILE;;
      *)
-       echo "Invalid or unhandled filename '$FNDMAN'" >&2; false;;
+       echo "Invalid or unhandled filename '$oneMAN'" >&2; false;;
      esac
      [ -s "$TMPFILE" ] || echo "Error while creating $TMPFILE" > $TMPFILE
      $HTMLVIEWER $TMPFILE & sleep 13
      [ "$DEBUG" ] || rm -f $TMPFILE
+     done
+
      exit $?
     ;;
    esac
@@ -275,11 +298,18 @@ _try_manhandler(){
 }
 
 _do_local(){
-#if [ "$LOCAL" ];then
-#[ "$LOCAL" ] || return 0
+
 #if [ "$MANHANDLER" != "" ]; then
+_get_manpath
+if [ "$FNDMAN" ]; then
+[ "$printLOCATIONS" ] && { echo "$FNDMAN"; exit 0; } # TODO: -w option
 _try_manhandler
+else
+[ "$printLOCATIONS" ] && { echo "No local manpage copy of $NAME in section $SEC found"; exit 1; }
+fi
+#_try_manhandler
 #fi
+
 # look up help file
 HELPDIR=/usr/share/doc/help
 BASE=$(basename $NAME |cut -d'.' -f1)
@@ -295,14 +325,14 @@ if [ "$FNDTXT" = "" -a "$FNDHTM" = "" ];then
  [ -f "$FNDSH" ] && exec "$FNDSH"
  for ONELNK in $SYMLNKS
   do
-   [ "`echo -n "$ONELNK" | grep -i "${NAME}.txt$"`" != "" ] && FNDTXT="$ONELNK"
-   [ "$FNDTXT" != "" ] && break
+   [ "`echo -n "$ONELNK" | grep -i "${NAME}.txt$"`" ] && FNDTXT="$ONELNK"
+   [ "$FNDTXT" ] && break
    FNDTXT="`/bin/find ${ONELNK}/ -xdev -maxdepth 3 -xtype f -iname ${NAME}.txt 2>/dev/null`"
-   [ "$FNDTXT" != "" ] && break
+   [ "$FNDTXT" ] && break
   done
 fi
 
-if [ "$FNDTXT" != "" ];then
+if [ "$FNDTXT" ];then
  FNDTXT="$(echo "$FNDTXT" | head -n 1)"
  exec $TEXTVIEWER "$FNDTXT"
 
@@ -319,14 +349,14 @@ else
  if [ "$FNDHTM" = "" ];then
   for ONELNK in $SYMLNKS
   do
-   [ "`echo -n "$ONELNK" | grep -i "${NAME}.htm"`" != "" ] && FNDHTM="$ONELNK"
-   [ "$FNDHTM" != "" ] && break
+   [ "`echo -n "$ONELNK" | grep -i "${NAME}.htm"`" ] && FNDHTM="$ONELNK"
+   [ "$FNDHTM" ] && break
    FNDHTM="`/bin/find ${ONELNK}/ -xdev -maxdepth 3 -xtype f -iname ${NAME}.htm* 2>/dev/null`"
-   [ "$FNDHTM" != "" ] && break
+   [ "$FNDHTM" ] && break
   done
  fi
 
- if [ "$FNDHTM" != "" ];then
+ if [ "$FNDHTM" ];then
   FNDHTM="$(echo "$FNDHTM"| head -n 1)"
   [ "`echo -n "$FNDHTM"| cut -b 1`" = "/" ] && FNDHTM=file://$FNDHTM
   exec $HTMLVIEWER "$FNDHTM"
@@ -334,6 +364,11 @@ else
 fi
 }
 _do_local
+
+echo "No local page for $NAME found in /usr/share/doc/ ."
+echo "Trying internet ..."
+ifconfig | grep $Q -E '^eth|^ppp' || { echo "No internet up."; exit 1; }
+ping -c1 google.com >>$OUT || { echo "No ping for internet."; exit 1; }
 
 #w464 search pkg homepages db...
 pPATTERN='^'"${NAME}"' '
@@ -344,14 +379,14 @@ fi
 if [ "$lng2" = "ja" ]; then
   # Japanese Puppy Wiki
   url="http://puppylinux.jp/w/index.php?${NAME}"
-  wget -t 1 -T 5 -O - "$url" 2>>$ERR | fgrep -q "<title>${NAME} -" && \
+  wget -t 1 -T 5 -O - "$url" 2>>$ERR | fgrep $Q "<title>${NAME} -" && \
   exec $HTMLVIEWER "$url"
   # JP project
   SECS="Sec$SECTION=on"
   [ "$SECTION" = "" ] && SECS="Sec1=on&Sec2=on&Sec3=on&Sec4=on&Sec5=on&Sec6=on&Sec7=on&Sec8=on"
   url="http://search.linux.or.jp/cgi-bin/JM/man.cgi?Pagename=${NAME}&${SECS}"
   if REPLY=$(LANG=C wget -t 1 -T 5 --spider "$url" 2>&1);then
-    echo "$REPLY" | fgrep -q 'nosuchpage.html' || \
+    echo "$REPLY" | fgrep $Q 'nosuchpage.html' || \
     exec $HTMLVIEWER "$url"
   fi
 fi
