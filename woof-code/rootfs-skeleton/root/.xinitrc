@@ -14,8 +14,9 @@ _info "CURRENTWM='$CURRENTWM'"
 
 
 if [ -d /root/Choices/XINIT ]; then
-for file in /root/Choices/XINIT/*; do
+for file in /root/Choices/XINIT/*.init; do
 #source /root/Choices/XINIT/bb_acpi start &
+case $file in *~|*old|*OLD) continue;;esac # avoid backup files
 [ -f "$file" -a -r "$file" ] && {
 _info  "source ing '$file'"
 . "$file" start &

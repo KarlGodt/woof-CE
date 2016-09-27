@@ -90,7 +90,7 @@ return $1
 [ "$TELL_USAGE" ] && { eval "$TELL_USAGE"; RV=$?; return $RV 2>/dev/null || exit $RV; }
 #[ "$TELL_USAGE" ] && $TELL_USAGE
 
-_pidof(){
+_pidof_acpid(){
 maybePIDS=`ps | grep -v grep | grep "${BB_BIN##*/}" | grep acpid`
 maybePIDS=`echo $maybePIDS` #needs this to get rid of leading space ..
  echo "maybePIDS='${maybePIDS%% *}'" >&2
@@ -107,8 +107,10 @@ fi
  *version) echo -e "$0: Version '$Version'\nTry help for more info.\n";return 0 2>/dev/null || exit 0;;
 
  *start)
- if _pidof "$BB_BIN acpid" ;then
- echo "acpid Already running."
+ if _pidof_acpid "$BB_BIN acpid" ;then #TODO: pidof busybox acpid does not work
+ echo "$BB_BIN acpid: Already running."
+ elif _pidof acpid; then
+ echo "Another acpid already running."
  else
 
  modprobe -l | grep $Q button && ! grep $Q button /proc/modules && \
@@ -221,21 +223,21 @@ fi
  echo -n "Started acpid:"
  [ "$RV" = 0 ] || { echo "FAILED."; exit $RV; }
  sleep 2
- _pidof "$BB_BIN acpid" || echo "FAILED."
+ _pidof_acpid "$BB_BIN acpid" || echo "FAILED."
  fi
  ;;
 
  *stop)
- if _pidof "$BB_BIN acpid";then
+ if _pidof_acpid "$BB_BIN acpid";then
   for n in {1..4};do
   echo trying signal $n ..
-  kill -$n `_pidof "$BB_BIN acpid"`
+  kill -$n `_pidof_acpid "$BB_BIN acpid"`
   sleep 1
-  _pidof "$BB_BIN acpid" || break
+  _pidof_acpid "$BB_BIN acpid" || break
   done
     if [ -f "$Pid_file" ];then
     pid_file_pid=$(cat "$Pid_file")
-    [ "$pid_file_pid" ] || pid_file_pid=999999999999999 #fake, hopefully never used :oops:
+    [ "$pid_file_pid" ] || pid_file_pid=9999999999999999 #fake, hopefully never used :oops:
     if ps | grep -v 'grep' | grep $Q -w "$pid_file_pid" ;then
      for n in {1..4};do
        echo trying signal $n
@@ -245,7 +247,7 @@ fi
       done
     fi
     fi
-   if _pidof "$BB_BIN acpid";then
+   if _pidof_acpid "$BB_BIN acpid";then
     echo "FAILED to stop acpid."
    else
     echo "acpid stopped."
