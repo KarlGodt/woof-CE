@@ -131,13 +131,29 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
+_check_chattr(){
+which chattr lsattr >>$OUT || return 3
+test "$*"    || return 2
+test -e "$*" || return 2
+stat -f -c %T / | grep $Q 'ext[2-5]' || return 1 # no ext2-4 filesystem
+lsattr -d "$*" | awk '{print $1}' | grep $Q 'i'  # 0 if contained, 1 if not
+}
+
+_mkdir(){
+test "$*"    || return 2
+test -e "$*" && return 0
+_check_chattr "${*%/*}" && chattr -i "${*%/*}"
+#_check_chattr "$*"      && chattr -i "$*"
+mkdir $VERB -p "$*"
+}
+
 _remount_root(){
 local mode="$1"
 [ "$mode" ] || return 2
 [ -L /proc/mounts -a -e /proc/mounts ] || {
  #force /proc being mounted
  mount ${VERB:+'-vv'} -o remount,rw /dev/root / || return 3
- mkdir $VERB -p /proc                           || return 4
+ _mkdir /proc                                   || return 4
  mount ${VERB:+'-vv'} -t proc proc /proc        || return 5
  }
 grep '^/dev/root / ' /proc/mounts | grep $Q -w "$mode" && return 0
@@ -179,13 +195,14 @@ M=`/bin/cat -E /proc/mounts`
 M=`echo $M | rev |sed 's/ $[0-9] [0-9] /\n/g' | rev`
 P=`echo "$M" | cut -f2 -d' ' | grep '/proc/' | cut -f1 -d' '`
 for oneP in $P; do oneP=`echo -e "$oneP"`; umount "$oneP"; done
-cut -f1,2 -d' ' /proc/mounts | grep $Q ' /proc$' && umount /proc && sleep 1 || break
+cut -f2 -d' ' /proc/mounts | grep $Q '^/proc$' && umount /proc && sleep 1 || break
 done
 # STEP 2: remove bottom most /proc directory
 _secure_remove_force /proc 2>/dev/null # printing errors if mounted is far too slow in kernel console
 # STEP 3: get /dev/root rw, create /proc directory and mount /proc
-_mount_root rw
-mkdir $VERB /proc
+_remount_root rw
+stat -f -c %T /proc | grep $Q '^proc$' && return 0
+_mkdir /proc
 busybox mount ${VERB:+'-vv'} -t proc none /proc
 }
 _mount_proc
@@ -223,14 +240,14 @@ S=`echo "$M" | cut -f2 -d' ' | grep '/sys/' | cut -f1 -d' '`
 for oneS in $S; do oneS=`echo -e "$oneS"`;
 _debugx $one$
 umount "$oneS"; done
-cut -f1,2 -d' ' /proc/mounts | grep $Q ' /sys$' && umount /sys && sleep 1 || break
+cut -f2 -d' ' /proc/mounts | grep $Q '^/sys$' && umount /sys && sleep 1 || break
 done
 _debug "`mount | grep '/sys'`"
 # STEP 2: remove bottom most /proc directory
 _secure_remove_force /sys 2>/dev/null # printing errors if mounted is far too slow in kernel console
 # STEP 3: get /dev/root rw, create /proc directory and mount /proc
-_mount_root rw
-mkdir $VERB /sys
+_remount_root rw
+_mkdir /sys
 busybox mount ${VERB:+'-vv'} -t sysfs none /sys
 }
 _debugx _mount_sys
@@ -243,12 +260,12 @@ _mount_dev(){
 if [ ! -d /dev ]; then
 #busybox mount ${VERB:+'-vv'} -o remount,rw /dev/root /
 _remount_root rw
-mkdir $VERB /dev
+_mkdir /dev
 fi
 
 #_do_fbsplash
 
-grep $Q ' /dev ' /proc/mounts || {
+cut -f2 -d' ' /proc/mounts | grep $Q '^/dev$' || {
   mount ${VERB:+'-vv'} -t ramfs devramfs /dev
 }
 
@@ -283,7 +300,7 @@ grep $Q ' /dev ' /proc/mounts || {
   IFS="$oldIFS"
  }
 }
-
+_mount_dev
 _do_fbsplash
 
 TTY=`tty`
@@ -298,6 +315,8 @@ if [ "$PUPMODE" = 2 ]; then
     if [ -d /tmp ]; then
     [ -e /var/tmp-last-boot ] && rm $VERB -rf /var/tmp-last-boot ##2012-02-08
     mkdir $VERB -p /var/tmp-last-boot    ##2012-02-06
+    _check_chattr /    && chattr -i /
+    _check_chattr /tmp && chattr -i /tmp
     mv $VERB -f /tmp /var/tmp-last-boot  ##2012-01-08
     fi
     mkdir $VERB -p /tmp
@@ -628,6 +647,8 @@ fi
 
 #if [ -z "$INITSTATE" ] ; then
 if [ "$INITSTATECOUNT" -lt 25 ]; then
+
+_mount_driver_partition
 
 MODALIASES=`ls /sys/*/*/*/*/modalias` ## | sort -R` ##-2013 bb sort no -R option
 echo -n "Loading kernel modules "

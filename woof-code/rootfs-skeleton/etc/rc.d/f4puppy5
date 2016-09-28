@@ -18,10 +18,10 @@ version) _VERSION_=$version; VERSION=$version; Version=$version;;
 esac
 }
 
-test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.1.3
-test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.1.3
-test "$Version"   && _assign_version Version   ||   Version=0.1.3
-test "$version"   && _assign_version version   ||   version=0.1.3
+test "$_VERSION_" && _assign_version _VERSION_ || _VERSION_=0.1.4
+test "$VERSION"   && _assign_version VERSION   ||   VERSION=0.1.4
+test "$Version"   && _assign_version Version   ||   Version=0.1.4
+test "$version"   && _assign_version version   ||   version=0.1.4
 
 # Handle $0 :
 #test "$MY_SELF" || MY_SELF="$0"
@@ -1268,7 +1268,7 @@ _mountpoint()
  -d|*-fs-devno) shift
  [ "$*" ]    || { echo "Need mountpoint directory"; return 9; }
  [ -d "$*" ] || { echo "'$*' is not a directory";   return 8; }
- gP=${*// /\\040}; gP=${gP//	/\\011} #TAB
+ gP=${*// /\\040}; gP=${gP//`	/\\011} #TAB
 gP="${gP//
 /\\012}"
  set - ${gP//\\/\\\\}
@@ -1338,6 +1338,72 @@ grep '^/dev/root ' /proc/mounts | cut -f4 -d' ' | grep ${Q:+'-q'} -w 'rw' && ret
  }
 }
 
+#================ Mount boot partition =======================================
+
+_prepare_boot_partition(){
+test "$*" || return 2
+_test_d "$*" && return 0
+_secure_remove_force "$*"
+}
+
+_try_boot_flags(){
+_debug "_try_boot_flags:$*"
+BOOTS=`fdisk -l | awk '{print $1":"$2}' | grep ':\*$' | cut -f1 -d':'`
+test "$BOOTS" || return 0
+for dev in $BOOTS
+do
+[ "$dev" ]                          || continue
+test -e /sys/block/${dev##*/}       && continue
+test -e /sys/class/block/${dev##*/} || continue
+test -b $dev || continue
+
+test -d "$readLINK" || mkdir -p "$readLINK"
+cut -f2 -d' ' /proc/mounts | grep $Q "^${readLINK}$" && continue
+if test $? = 0 ; then
+ test -e /lib/modules/`uname -r` && return 0
+else
+ mount $dev "$readLINK" || continue
+fi
+test -e /lib/modules/`uname -r` && return 0
+umount "$readLINK" || return 2
+done
+return 1
+}
+
+_try_all_partitions(){
+_debug "_try_all_partitions:$*"
+while read maj min siz dev
+do
+
+[ "$dev" = name -o "$dev" = "" ]    && continue
+test -e /sys/block/${dev##*/}       && continue
+test -e /sys/class/block/${dev##*/} || continue
+test -b /dev/$dev || continue
+
+test -d "$readLINK" || mkdir -p "$readLINK"
+cut -f2 -d' ' /proc/mounts | grep $Q "^${readLINK}$"
+if test $? = 0 ; then
+ test -e /lib/modules/`uname -r` && return 0
+else
+ mount /dev/$dev "$readLINK" || continue
+fi
+test -e /lib/modules/`uname -r` && return 0
+umount "$readLINK" || return 2
+done </proc/partitions
+return 1
+}
+
+_mount_driver_partition(){
+test -L /lib/modules/`uname -r` || return 0
+readLINK=$(readlink /lib/modules/`uname -r`)
+test "$readLINK" || return 2
+readLINK=${readLINK%/lib/modules*}
+test "$readLINK" || return 2
+_prepare_boot_partition "$readLINK" || return 3
+#mkdir -p "$readLINK"
+_try_boot_flags && return 0
+_try_all_partitions
+}
 
 #================ Make free loop device ======================================
 __mk_free_loop()
@@ -1825,9 +1891,6 @@ DEBUGX=$oDEBUGX
 #echo " DEBUG='$DEBUG'"
 }
 
-#[ "$ERMERGENCY" ] || EMERGENCY=1
-#[ "$ERMERGENCY" ] && EMERG="$EMERGENCY"
-#[ "$ERMERG" ]     || EMERG=1
 EMERG=${EMERG:=1}
 EMERGENCY=${EMERGENCY:-$EMERG}
 _emerg(){
@@ -1839,9 +1902,6 @@ test "$EMERGENCY" || return 0
 echo -e "$0:EMERGENGY:$*"   >&2
 }
 
-#[ "$ALERT" ] || ALERT=1
-#[ "$ALERT" ] && ALARM="$ALERT"
-#[ "$ALARM" ] || ALARM=1
 ALERT=${ALERT:=1}
 ALARM=${ALARM:-$ALERT}
 _alert(){
@@ -1853,9 +1913,6 @@ test "$ALERT" || return 0
 echo -e "$0:ALERT:$*"  >&2
 }
 
-#[ "$CRIT" ]     || CRIT=1
-#[ "$CRIT" ]     && CRITICAL="$CRIT"
-#[ "$CRITICAL" ] || CRITICAL=1
 CRIT=${CRIT:=1}
 CRITICAL=${CRITICAL:-$CRIT}
 _crit(){
@@ -1867,7 +1924,6 @@ test "$CRIT" || return 0
 echo -e "$0:CRITICAL:$*" >&2
 }
 
-#[ "$ERROR" ] || ERROR=1
 ERROR=${ERROR:=1}
 ERR=${ERR:-$ERROR} #ERR var already used as /dev/null OR /dev/stderr
 _err(){
@@ -1879,9 +1935,6 @@ test "$ERROR" || return 0
 echo -e "$0:ERROR:$*"  >&2
 }
 
-#[ "$WARN" ]    || WARN=1
-#[ "$WARN" ]    && WARNING="$WARN"
-#[ "$WARNING" ] || WARNING=1
 WARN=${WARN:=1}
 WARNING=${WARNING:-$WARN}
 _warn(){
@@ -1893,9 +1946,6 @@ test "$WARN" || return 0
 echo -e "$0:WARNING:$*"  >&2
 }
 
-#[ "$NOTICE" ] || NOTICE=1
-#[ "$NOTICE" ] && NOTE="$NOTICE"
-#[ "$NOTE" ]   || NOTE=1
 NOTE=${NOTE:=}
 NOTICE=${NOTICE:-$NOTE}
 _notice(){
@@ -1907,9 +1957,6 @@ test "$NOTICE" || return 0
 echo -e "$0:NOTICE:$*"   >&2
 }
 
-#[ "$INFO" ]        || INFO=1
-#[ "$INFO" ]        && INFORMATION="$INFO"
-#[ "$INFORMATION" ] || INFORMATION=1
 INFO=${INFO:=}
 INFORMATION=${INFORMATION:-$INFO}
 _info(){
@@ -1921,7 +1968,6 @@ test "$INFO" || return 0
 echo -e "$0:INFO:$*"  >&2
 }
 
-#[ "$DEBUG" ] || DEBUG=
 DEBUG=${DEBUG:=}
 DBG=${DBG:-$DEBUG}
 _debug(){
@@ -1942,7 +1988,6 @@ test "$DEBUG" || return 0
 echo -n "$0:DEBUG:$*"  >&2
 }
 
-#[ "$DEBUGX" ] || DEBUGX=
 DEBUGX=${DEBUGX:=}
 DBGX=${DBGX:-$DEBUGX}
 _debugx(){
@@ -2061,7 +2106,7 @@ _mk_block_devices()
 {
 mountpoint ${Q:+'-q'} /dev && return 0
 test "`type mdev`" && { mdev -s; return $?; }
-test -f /proc/partitions || { _err "/proc/partitions does not exist"; return 4; }
+test -f /proc/partitions || { _err "/proc/partitions does not exist."; return 4; }
  while read maj min siz dev ; do
   [ "${maj//[[:digit:]]/}" ]     && continue
   [ "$maj" -a "$min" -a "$dev" ] || continue
@@ -2248,6 +2293,13 @@ test -p "$*"     || return 1
 test -L "$*"
 }
 
+_check_is_backup(){
+case "$*" in
+''|*~|*old|*OLD|*bac|*BAC|*bak|*BAK) return 0;;
+*) return 1;;
+esac
+}
+
 _test_h(){
 #test -e "${*:?}" || return 2
 test -h "$*"
@@ -2287,32 +2339,50 @@ test "$*"    || { _err "Usage: _secure_remove /path/to/filename"; return 2; }
 #test -e "$@" || { _info "'$@' does not exist already";     return 0; }
 
   if test   -L "$@"; then rm ${VERB:+'-v'} "$@"
-elif test ! -e "$@"; then _info "'$@' does not exist already"; return 0;
+elif test ! -e "$@"; then _info "'$@' does not exist already."; return 0;
 elif test   -p "$@"; then rm ${VERB:+'-v'} "$@"
 elif test   -S "$@"; then rm ${VERB:+'-v'} "$@"
 elif test   -f "$@"; then rm ${VERB:+'-v'} "$@"
 elif test   -c "$@"; then rm ${VERB:+'-v'} "$@"
 elif test   -b "$@"; then rm ${VERB:+'-v'} "$@"
 elif test   -d "$@"; then rm ${VERB:+'-v'} -r "$@"
-else { _warn "Unknown filetype '$@' - neither special c or b, Link, pipe, Socket, file nor directory"; false; }
+else { _warn "Unknown filetype '$@' - neither special c or b, Link, pipe, Socket, file nor directory."; false; }
   fi
   return $?
 }
 
+_check_chattr(){
+which chattr lsattr >>$OUT || return 3
+test "$*"    || return 2
+test -e "$*" || return 2
+stat -f -c %T / | grep $Q 'ext[2-5]' || return 1 # no ext2-4 filesystem
+lsattr -d "$*" | awk '{print $1}' | grep $Q 'i'  # 0 if contained, 1 if not
+}
+
+_mkdir(){
+test "$*"    || return 2
+test -e "$*" && return 0
+_check_chattr "${*%/*}" && chattr -i "${*%/*}"
+#_check_chattr "$*"      && chattr -i "$*"
+mkdir $VERB -p "$*"
+}
+
 _secure_remove_force()
 {
-test "$*"    || { _err "Usage: _secure_remove /path/to/filename"; return 2; }
+test "$*"    || { _err "Usage: _secure_remove_force /path/to/filename"; return 2; }
 #test -e "$@" || { _info "'$@' does not exist already";     return 0; }
+_check_chattr "${*%/*}" && chattr -i "${*%/*}"
+_check_chattr "$*"      && chattr -i "$*"
 
   if test   -L "$@"; then rm ${VERB:+'-v'} -f "$@"
-elif test ! -e "$@"; then _info "'$@' does not exist already"; return 0;
+elif test ! -e "$@"; then _info "'$@' does not exist already."; return 0;
 elif test   -p "$@"; then rm ${VERB:+'-v'} -f "$@"
 elif test   -S "$@"; then rm ${VERB:+'-v'} -f "$@"
 elif test   -f "$@"; then rm ${VERB:+'-v'} -f "$@"
 elif test   -c "$@"; then rm ${VERB:+'-v'} -f "$@"
 elif test   -b "$@"; then rm ${VERB:+'-v'} -f "$@"
 elif test   -d "$@"; then rm ${VERB:+'-v'} -fr "$@"
-else { _warn "Unknown filetype '$@' - neither special c or b, Link, pipe, Socket, file nor directory"; false; }
+else { _warn "Unknown filetype '$@' - neither special c or b, Link, pipe, Socket, file nor directory."; false; }
   fi
   return $?
 }
