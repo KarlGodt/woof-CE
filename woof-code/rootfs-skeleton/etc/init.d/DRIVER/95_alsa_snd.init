@@ -1,4 +1,5 @@
 #!/bin/bash
+# bash for function caller, [[ =~
 #Barry Kauler april 2009, puppylinux.com
 #called from /etc/rc.d/rc.services at bootup, with 'start' param.
 #called from /etc/rc.d/rc.shutdown at shutdown, with 'stop' param.
@@ -15,7 +16,7 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" = "2" ] && set -x
 [[ "$1" =~ 'check' ]] && { set -n;shift; }
 
-Version='1.5-Macpup_Foxy_3-KRG'
+Version='1.6-Macpup_Foxy_3-KRG'
 
 usage(){
 USAGE_MSG="
@@ -40,6 +41,7 @@ stop  : Default at shutdown to unload sound modules.
 *******  *******  *******  *******  *******  *******  *******  *******  *******
 $2
 "
+USAGE_MSG=`gettext "$USAGE_MSG"`
 echo "$USAGE_MSG"
 exit $1
 }
@@ -94,20 +96,19 @@ exit $1
 OUT=/dev/null;ERR=$OUT;Q=-q
 VERB='';DEBUG='';FORCE=''; #if ME_PROG constantly sourced
 while [ "$1" = debug -o "$1" = force ];do
-[ "$1" = 'debug' ] && { Q='';OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=1;VERB='-v'; }  ##shift; }
-[ "$1" = force ] && FORCE=1  ##{ FORCE=1;shift; }
+[ "$1" = 'debug' ] && { Q='';OUT=/dev/stdout;ERR=/dev/stderr;DEBUG=$((DEBUG+1));DBG=-d;VERB='-v'; }  ##shift; }
+[ "$1" = force ] && FORCE=$((FORCE+1))
 shift
 done
 
-###<KRG>
-ME_PROG='/etc/init.d/DRIVER/z99_alsa.init'
+ME_PROG='/etc/init.d/DRIVER/99_alsa_snd.init'
 CA_PROG=`readlink -f $0`
 [ -f "$ME_PROG" ] || { echo "$CA_PROG:WARNING: '$ME_PROG' probably renamed or moved elsewhere."; }
-#if [ ! -f "$CA_PROG" ] ; then
+
 PROG=''
 [ "`which alsa`" ] || PROG='alsa'
 [ "$PROG" ] || PROG='PuppyAlsaSoundInitalizer'
-#fi
+
 ZERO="$0"
 PROGPID="$$"
 [ "$DEBUG" ] && { echo "
@@ -120,21 +121,19 @@ CA_PROG='$CA_PROG'
 PROGPID='$PROGPID'"
 :; }
 
-#if [ "$ZERO" = "$ME_PROG" ] ; then
+
 jobs
 caller
 CALLER=`caller | grep -vw '^0' |awk '{print $2}'`
-echo "'$CALLER'"
+echo "CALLER='$CALLER'"
 if [ "$CALLER" ]; then   ##+++2013-03-18
-#PROGPAT="$ME_PROG"
-#EXIT='exit'
+
 PROGPAT="$CALLER"
 [ "$PROGPAT" = 'NULL' ] && PROGPAT="$SHELL"
 EXIT=return
 else
-#PROGPAT="'$ME_PROG' called by '$ZERO'"
-#EXIT='return'
-PROGPAT="`readlink -f $0`"
+
+PROGPAT=`readlink -f "$0"`
 EXIT=exit
 fi  ###</KRG>
 _debug "CALLER='$CALLER' PROGPAT='$PROGPAT' EXIT='$EXIT'"
@@ -144,25 +143,24 @@ _debug "CALLER='$CALLER' PROGPAT='$PROGPAT' EXIT='$EXIT'"
 _kernel_version5
 
 case "$1" in
- start)
+ *start)
 
- test -d /dev/snd || mkdir /dev/snd
+ test -d /dev/snd || mkdir $VERB /dev/snd
 
-  ###<KRG>
-  echo "Starting now $PROGPAT ..."
+  _info "Starting now $PROGPAT ..."
   ##wait up to one minute for sound modules are loaded
 if [ "$FORCE" ];then
   modprobe $Q $VERB snd-card-0
 else
-  pidof alsaconf && /sbin/modprobe $Q $VERB --first-time snd-card-0 || {  ##+-+2012-09-20 fix for alsaconf
+  pidof alsaconf >>$OUT && /sbin/modprobe $Q $VERB --first-time snd-card-0 || {  ##+-+2012-09-20 fix for alsaconf
   CNT=0
   #while [ -z "`lsmod | grep -E -i '^snd|sound'`" ] ; do
   until [ "`grep -Ei '^snd|sound' /proc/modules`" ] ; do
   echo -e "\\033[0;31m""No Sound Modules found `date`""\\033[0;39m"
   sleep 3
   CNT=$(( CNT + 1 ))
-  if [ "$CNT" = "3" ] ; then #was20=1min, reduced to 3=9sec
-   modprobe $Q $VERB snd-card-0  ##forcibly load something after one minute
+  if [ "$CNT" = "3" ] ; then     #was20=1min, reduced to 3=9sec
+   modprobe $Q $VERB snd-card-0  ##forcibly load something after one minute/9 sec
    break
   fi #CNT=20
   done
@@ -170,32 +168,27 @@ else
 }
 fi #FORCE
 
-  #if [ "`lsmod | grep -E -i '^snd|sound'`" = "" ];then
   if ! grep $Q -iE '^snd|sound' /proc/modules ;then
   echo -e "\\033[0;31m""Still no Sound Modules found `date`""\\033[0;39m"
-  $EXIT ##exit if no sound modules could have been loaded
+  $EXIT ##exit if no sound modules could be loaded
   fi
 
-  echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"  ###</KRG>
+  echo -e "\\033[0;32m""Sound Modules found : `lsmod | grep -i -E '^snd|sound' | tr -s ' ' | cut -f 1 -d ' ' | tr '\n' ' '`""\\033[0;39m"
 
    rm $VERB -f /var/lock/subsys/alsasound #or alsa will not start.
    #sometimes these don't all load...
-   #[ "`lsmod | grep 'snd[-_]mixer[-_]oss'`" ] || modprobe $VERB snd-mixer-oss
-   #[ "`lsmod | grep 'snd[-_]seq[-_]oss'`" ] || modprobe $VERB snd-seq-oss
-   #[ "`lsmod | grep 'snd[-_]pcm[-_]oss'`" ] || modprobe $VERB snd-pcm-oss
    modprobe $Q $VERB snd-mixer-oss
    modprobe $Q $VERB snd-seq-oss
    modprobe $Q $VERB snd-pcm-oss
 
-   ###<KRG>
-   D=`find /sys -type d -name "*sound*"`
+   D=`/bin/find /sys -type d -name "*sound*"`
    POOL=''
     for i in $D ; do
-     ##echo $i ;
+     _debugx $i ;
      DEV=`find $i -type f -name "dev" -exec echo -n {}@ \; -exec cat {} \; | tr ':' '@' | tr ' ' '@' -exec echo \;` ;
      POOL="$POOL $DEV"
     done
-    [ "$DEBUG" ] && echo "$POOL"
+    _debug "$POOL"
     #echo "$POOL" |sed 's| |\n|g'
     #echo "$POOL" |sed 's| |\n|g;s|/dev@|@|g'
     #echo "$POOL" |sed 's| |\n|g;s|/dev@|@|;s|.*/|/|'
@@ -215,17 +208,17 @@ fi #FORCE
      NODE=${i%%\@*}
      Min=${i##*\@}
      MAJ=`echo $i |cut -f2 -d '@'`
-     [ "$DEBUG" ] && echo "'$NODE' '$MAJ' '$Min'"
+     _debug "'$NODE' '$MAJ' '$Min'"
      [ "$NODE" -a "$MAJ" -a "$Min" ] || continue
-     [ -e /dev/$NODE ] && rm $VERB /dev/$NODE
+     [ -e /dev/$NODE ] && rm $VERB -f /dev/$NODE
      mknod /dev/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/$NODE
      chmod $VERB ug+rw /dev/$NODE
-     [ -e /dev/snd/$NODE ] && rm $VERB /dev/snd/$NODE
+     [ -e /dev/snd/$NODE ] && rm $VERB -f /dev/snd/$NODE
      mknod /dev/snd/$NODE c $MAJ $Min
      chown $VERB root:adm /dev/snd/$NODE
      chmod $VERB ug+rw /dev/snd/$NODE
-    done  ###</KRG>
+    done
 
    if [ -f /etc/asound.state ] ; then
      _notice "Restoring /etc/asound.state."
@@ -269,11 +262,11 @@ set "Audigy Analog/Digital Output Jack" off
 EOF
 
    fi
-  ###<KRG>
+
   if [ -n "$DISPLAY" ] ; then
    if [ -n "`which retrovol`" ] ; then
     if [ -z "`pidof retrovol`" ] ; then
-    retrovol -hide &
+    exec retrovol -hide &
      if pidof alsaconf >>$OUT; then
        sleep 4
        pidof retrovol >>$OUT || RETROVOL_RV=1
@@ -284,15 +277,14 @@ EOF
  _info "... $PROGPAT with '$@' finished."   ###</KRG>
  $EXIT $RETROVOL_RV
   ;;
- stop)
-
- ###<KRG>
+ *stop)
+ RV=1 #RETURN VALUE
  _info "stopping now $PROGPAT ..."
 
  if [ -n "$DISPLAY" ] ; then
  [ -n "`pidof retrovol`" ] && killall retrovol
  rm $VERB -f /var/run/retrovol.pid
- fi  ###</KRG>
+ fi
 
   alsactl $DBG $IGNORE -f /etc/asound.state store #saves to /etc/asound.state.
   amixer  $Q set Master mute >>$OUT 2>&1
@@ -302,27 +294,28 @@ EOF
   [ -d /dev/snd ] && fuser $VERB -k /dev/snd/* >>$OUT 2>&1
   # remove all sequencer connections if any
   [ -f /proc/asound/seq/clients -a -x "`which aconnect`" ] && aconnect --removeall  ###KRG loads a bunch of modules###ORIG
-  # mute master to avoid clicks at unload
+  # mute master to avoid click sounds at unload
   #amixer set Master mute >$OUT 2>&1  ###KRG loads a bunch of modules###ORIG
   # remove all sound modules
   CNT=0  ###KRG
   while [ -n "`lsmod | grep '^snd[-_].*'`" ] ; do
-  if [ "$VERBOSE" -o "$DEBUG" ]; then
-  echo
-  echo 'still soundmodules loaded:'
-  lsmod | grep '^snd[-_].*'
-  fi
-  lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
+   if [ "$VERBOSE" -o "$DEBUG" ]; then
+    echo
+    echo 'still soundmodules loaded:'
+    lsmod | grep '^snd[-_].*'
+   fi
+  #lsmod | grep '^snd_' | grep '\ 0\ $' | tr -s ' ' | cut -f 1 -d ' ' |   ###KRGgrep -Ev "(snd-page-alloc|snd_page_alloc)" |
+  grep ' 0 - Live ' /proc/modules | grep '^snd_' | cut -f 1 -d ' ' |  #busybox lsmod can be configured without "pretty" output
   while read line
   do
-     echo -n "$line "  ###KRG
-     ###KRGrmmod -f -w "$line"
-     modprobe $Q $VERB -r $line  ###KRG
-     sleep 0.1  ###KRG
+     [ "$line" ] || continue
+     _debug "removing module '$line' .."
+     modprobe $Q $VERB -r $line
+     sleep 0.1
   done
-  CNT=$(( CNT + 1 ))  ###KRG
+  CNT=$(( CNT + 1 ))
   [ "$CNT" = "9" ] && echo -e "\\033[1;34m"'breaking now'"\\033[0;39m" && break  ###KRG precaution###KRG
-  done  ###KRG
+  done
 
   # remove the 2.2 soundcore module (if possible)
   case $KERNELVER in 2.2.*)
@@ -334,8 +327,10 @@ EOF
   # remove lockfile if lockdir exists
   [ -d /var/lock/subsys ] && rm $VERB -f /var/lock/subsys/alsasound
   _info "... $PROGPAT with '$@' finished."  ###KRG
-  _debug "`lsmod |grep -E 'snd|sound'`"
-  $EXIT $?
+  SNDMODS=`lsmod |grep -E 'snd|sound'`
+  [ "$SNDMODS" ] || { SNDMODS='snd_ modules unloaded.'; RV=0; }
+  _debug "$SNDMODS"
+  $EXIT $RV
  ;;
  *)
  echo -e "
@@ -362,4 +357,3 @@ killall sound users , mute everything and unload all sound modules .
 $EXIT $?
  ;;
 esac
-
