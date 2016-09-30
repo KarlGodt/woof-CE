@@ -1,7 +1,8 @@
 #!/bin/ash
-. /etc/DISTRO_SPECS
-. /etc/rc.d/PUPSTATE
-. /etc/rc.d/f4puppy5
+
+[ -s /etc/DISTRO_SPECS ]  && . /etc/DISTRO_SPECS  || true
+[ -s /etc/rc.d/PUPSTATE ] && . /etc/rc.d/PUPSTATE || false
+[ -s /etc/rc.d/f4puppy5 ] && . /etc/rc.d/f4puppy5 || true
 
 DEBUG=1
 
@@ -36,10 +37,10 @@ _debug  "rtc_date='$rtc_date'"
 _debug "alrm_date='$alrm_date'"
 
 #cat /proc/driver/rtc
-#rtc_time	: 16:36:59
-#rtc_date	: 2015-11-09
-#alrm_time	: 10:44:36
-#alrm_date	: ****-**-**
+#rtc_time   : 16:36:59
+#rtc_date   : 2015-11-09
+#alrm_time  : 10:44:36
+#alrm_date  : ****-**-**
 
 case $rtc_time  in *[0-9]*):;; *) unset  rtc_time;;esac
 case $rtc_date  in *[0-9]*):;; *) unset  rtc_date;;esac
