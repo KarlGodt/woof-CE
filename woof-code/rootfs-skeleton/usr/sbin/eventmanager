@@ -9,6 +9,8 @@
 #w464 /etc/puppyversion is now history.
 #v424 automatic unmounting (see pup_event_frontend_d).
 
+#USE_DISABLED=yes
+DEBUG=1
 
 test -s /etc/rc.d/f4puppy5 && {
 [ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
@@ -57,17 +59,27 @@ CONFFILEROX="$HOME/.config/rox.sourceforge.net/ROX-Filer/Options"
 
 CONFFILE=${CONFFILE:-/etc/eventmanager.cfg}  #configuration file of this prog
 
+__adjust_config(){
+CONFIG=`echo "$CONFIG" | sed -e "$@"`
+S=$((S+$?))
+}
+
+_adjust_config(){
+VAR="$1"; shift
+VAL="$*"
+sP="s/^${VAR}=.*/${VAR}='${VAL}'/"
+if grep $Q "^${VAR}=" "$CONFFILE"; then
+ CONFIG=`echo "$CONFIG" | sed -e "$sP"`
+else
+ echo "${VAR}='${VAL}'" >>"$CONFFILE"
+fi
+S=$((S+$?))
+}
+
 while :;
 do
 # first (re-)read the config file
 [ -s "$CONFFILE" ] && . "$CONFFILE"
-
-#[ "$BACKENDON" = "true" -o "$BACKENDON" = "false" ]    ||       BACKENDON="true" ##udev
-#[ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] &&       HOTPLUGON="true" #OLD
-#[ "$ZCDPOLL" = "true" -o "$ZCDPOLL" = "false" ]        ||         ZCDPOLL="true" #NEW
-#[ "$AUTOUNMOUNT" ]                                        ||  AUTOUNMOUNT="false" #v424
-#[ "$HOTPLUGNOISY" = "true" -o "$HOTPLUGNOISY" = "false" ] || HOTPLUGNOISY="false"
-#[ "$AUTOTARGET" = "true" -o "$AUTOTARGET" = "false" ]     ||   AUTOTARGET="true"
 
               _set_bool DESKDAEMON "$DESKDAEMON" true
 [ $? = 0 ] || _set_bool DESKDAEMON "$DESKDAEMON" false
@@ -94,13 +106,7 @@ do
  [ "$RAMSAVEINTERVAL" -ge 0 ] || RAMSAVEINTERVAL=0
 
 #w007 as have a optional cutdown gui, make sure these are all preset...
-#     NEWAUTOTARGET="$AUTOTARGET"
-#    NEWAUTOUNMOUNT="$AUTOUNMOUNT"
-#      NEWBACKENDON="$BACKENDON"
         NEWFD0ICON="$FD0ICON"
-#   NEWHOTPLUGNOISY="$HOTPLUGNOISY"
-#      NEWHOTPLUGON="$HOTPLUGON"
-#       NEWZCDPOLL="$ZCDPOLL"
        NEWICONDESK="$ICONDESK"
  NEWICONPARTITIONS="$ICONPARTITIONS"
    NEWPOWERTIMEOUT=$POWERTIMEOUT
@@ -266,6 +272,7 @@ FORCE_POWERTIMEOUT_GUI="<hbox>
   </hbox>
 "
 
+DO_NOT_DISTURB_DL=${DO_NOT_DISTURB_DL:-wget}
 DL_POWERTIMEOUT_GUI="<hbox>
   <checkbox sensitive=\"$CB_DL_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_DL\">
    <label>Do not poweroff if one of the following dl programs are running</label>
@@ -282,6 +289,7 @@ DL_POWERTIMEOUT_GUI="<hbox>
   </hbox>
 "
 
+DO_NOT_DISTURB_VIDEO=${DO_NOT_DISTURB_VIDEO:-'gnome-mplayer'}
 MM_POWERTIMEOUT_GUI="<hbox>
 <checkbox sensitive=\"$CB_MM_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_VIDEO\">
   <label>Do not poweroff if one of the following multi media programs are running</label>
@@ -298,6 +306,7 @@ MM_POWERTIMEOUT_GUI="<hbox>
   </hbox>
 "
 
+DO_NOT_DISTURB_DEV=${DO_NOT_DISTURB_DEV:-make}
 DEV_POWERTIMEOUT_GUI="<hbox>
 <checkbox sensitive=\"$CB_DEV_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_DEV\">
   <label>Do not poweroff if one of the following developer programs are running</label>
@@ -314,34 +323,9 @@ DEV_POWERTIMEOUT_GUI="<hbox>
   </hbox>
 "
 
-#udevd
-UDEV_CHOICE_DISABLED="  <checkbox tooltip-text=\"BACKENDON\">
-   <label>Tick box for hotplug module/firmware loading [ BACKENDON on/off udevd ]</label>
-   <default>${BACKENDON}</default>
-   <variable>NEWBACKENDON</variable>
-  </checkbox>
-"
-
-#iconwipe
-ICONWIPE_CHOICE2_DISABLED="  <checkbox tooltip-text=\"NEWICONWIPE2\">
-   <label>Tick box to erase then redraw and realign existing icons</label>
-   <default>true</default>
-   <variable>NEWICONWIPE2</variable>
-   <action>if false clear:NEWICONWIPE1</action>
-  </checkbox>
-"
-ICONWIPE_CHOICE1_DISABLED="  <checkbox tooltip-text=\"NEWICONWIPE1\">
-   <label>Tick box to erase then redraw and realign existing icons</label>
-    <default>true</default>
-   <variable>NEWICONWIPE1</variable>
-   <action>if false clear:NEWICONWIPE2</action>
-  </checkbox>
-"
-
 ICON_PLACE_START_X_GAP=${ICON_PLACE_START_X_GAP:-32}  #x-alignment
 ICON_PLACE_START_Y_GAP=${ICON_PLACE_START_Y_GAP:-64}  #y-alignment
 ICON_PLACE_ORIENTATION=${ICON_PLACE_ORIENTATION:-'bottom'}
-
 
 PIN_GRID_STEP=`sed -n '/<!--/,/-->/!p' "$CONFFILEROX" | grep -m1 "pinboard_grid_step" | sed -e "s/ *<[^>]*>//g"`
 test "${PIN_GRID_STEP//[0-9]/}" && unset PIN_GRID_STEP
@@ -519,6 +503,70 @@ $IP_SPA_Y_UNUSED
 
 _debugx "$PLACEMENT"
 
+#[ "$BACKENDON" = "true" -o "$BACKENDON" = "false" ]    ||       BACKENDON="true" ##udev
+#[ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] &&       HOTPLUGON="true" #OLD
+#[ "$ZCDPOLL" = "true" -o "$ZCDPOLL" = "false" ]        ||         ZCDPOLL="true" #NEW
+#[ "$AUTOUNMOUNT" ]                                        ||  AUTOUNMOUNT="false" #v424
+#[ "$HOTPLUGNOISY" = "true" -o "$HOTPLUGNOISY" = "false" ] || HOTPLUGNOISY="false"
+#[ "$AUTOTARGET" = "true" -o "$AUTOTARGET" = "false" ]     ||   AUTOTARGET="true"
+if [ "USE_DISABLED" ]; then
+              _set_bool BACKENDON "$BACKENDON" true
+[ $? = 0 ] || _set_bool BACKENDON "$BACKENDON" false
+[ $? = 0 ] || { _notice "defaulting to true";BACKENDON=true; }
+
+              _set_bool HOTPLUGON "$HOTPLUGON" true
+[ $? = 0 ] || _set_bool HOTPLUGON "$HOTPLUGON" false
+[ $? = 0 ] || { _notice "defaulting to true";HOTPLUGON=true; }
+
+              _set_bool ZCDPOLL "$ZCDPOLL" true
+[ $? = 0 ] || _set_bool ZCDPOLL "$ZCDPOLL" false
+[ $? = 0 ] || { _notice "defaulting to true";ZCDPOLL=true; }
+
+              _set_bool AUTOUNMOUNT "$AUTOUNMOUNT" true
+[ $? = 0 ] || _set_bool AUTOUNMOUNT "$AUTOUNMOUNT" false
+[ $? = 0 ] || { _notice "defaulting to true";AUTOUNMOUNT=true; }
+
+              _set_bool HOTPLUGNOISY "$HOTPLUGNOISY" true
+[ $? = 0 ] || _set_bool HOTPLUGNOISY "$HOTPLUGNOISY" false
+[ $? = 0 ] || { _notice "defaulting to true";HOTPLUGNOISY=true; }
+
+              _set_bool AUTOTARGET "$AUTOTARGET" true
+[ $? = 0 ] || _set_bool AUTOTARGET "$AUTOTARGET" false
+[ $? = 0 ] || { _notice "defaulting to true";AUTOTARGET=true; }
+
+   NEWHOTPLUGNOISY="$HOTPLUGNOISY"
+      NEWHOTPLUGON="$HOTPLUGON"
+        NEWZCDPOLL="$ZCDPOLL"
+     NEWAUTOTARGET="$AUTOTARGET"
+    NEWAUTOUNMOUNT="$AUTOUNMOUNT"
+      NEWBACKENDON="$BACKENDON"
+fi
+
+#udevd
+UDEV_CHOICE_DISABLED="  <checkbox tooltip-text=\"BACKENDON\">
+   <label>Tick box for hotplug module/firmware loading [ BACKENDON on/off udevd ]</label>
+   <default>${BACKENDON}</default>
+   <variable>NEWBACKENDON</variable>
+  </checkbox>
+"
+
+#iconwipe
+ICONWIPE_CHOICE2_DISABLED="  <checkbox tooltip-text=\"NEWICONWIPE2\">
+   <label>Tick box to erase then redraw and realign existing icons</label>
+   <default>true</default>
+   <variable>NEWICONWIPE2</variable>
+   <action>if false clear:NEWICONWIPE1</action>
+  </checkbox>
+"
+
+ICONWIPE_CHOICE1_DISABLED="  <checkbox tooltip-text=\"NEWICONWIPE1\">
+   <label>Tick box to erase then redraw and realign existing icons</label>
+    <default>true</default>
+   <variable>NEWICONWIPE1</variable>
+   <action>if false clear:NEWICONWIPE2</action>
+  </checkbox>
+"
+
 AUTOTARGET_CHOICE_DISABLED="  <frame>
   <text><label>This checkbox extends the default behavior, and will launch a more appropriate application. Currently, it adds detection of a video DVD or audio CD and launches the media player:</label></text>
   <checkbox tootip-text=\"AUTOTARGET\">
@@ -544,13 +592,31 @@ HOTPLUGNOISY_CHOICE_DISABLED=" <vbox>
 HANDLER_TAB_DISABLED="<frame Drive 'handler'>
  <vbox>
   <text use-markup=\"true\"><label>\"The <b>'handler'</b> decides what to do when you click on a desktop drive icon. <b>Normally</b>, this just starts <u>Pmount</u> if you click on a drive icon, <b>or</b> mounts it and starts <u>ROX-Filer</u> if a partition icon, but this behavior can be extended by these checkboxes.\"</label></text>
-  $AUTOTARGET_CHOICE
+  $AUTOTARGET_CHOICE_DISABLED
  </vbox>
 
-  $HOTPLUGNOISY_CHOICE
+  $HOTPLUGNOISY_CHOICE_DISABLED
 
 </frame>
 "
+
+#hbox/vbox
+#homogeneous :
+#   %TRUE if all children are to be given equal space allotments.
+#spacing :
+#   the number of pixels to place by default between children.
+
+#>> Align widget. xalign/yalign may hold 0 (left), 1 (right) and 2 (center).
+#xalign/yalign works for most widgets.
+#For button/progressbar they describe placement of label rather than widget itself.
+#<text xalign="0">...</text>
+#(gtkdialog3:28810): GLib-GObject-WARNING **: value "2.000000" of type `gfloat' is invalid or out of range for property `xalign' of type #`gfloat'
+#GTKalignment
+#The "xalign" property
+#"xalign"                   gfloat                : Read / Write
+#Horizontal position of child in available space. 0.0 is left aligned, 1.0 is right aligned.
+#Allowed values: [0,1]
+#Default value: 0.5
 
 AUTO_UNMOUNT_CHOICE_DISABLED="  <checkbox tooltip-text=\"AUTOUNMOUNT\" draw-as-radio=\"true\">
    <label>Tick box for auto unmounting of partitions [ AUTOUNMOUNT ]</label>
@@ -765,7 +831,7 @@ else
 
    </checkbox>
 
-  <text width-chars=\"90\" use-markup=\"true\"><label>\"The 'pup_event' Puppy Event Manager is running in the background and handles hotplugging of drives, including the desktop drive icons. However, turn it off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. <b>pmount</b> can still be run manually to mount and unmount partitions.\"</label></text>
+  <text width-chars=\"90\" use-markup=\"true\"><label>\"The 'pup_event' Puppy Event Manager is running in the background and handles hotplugging of drives like inserting a CD or removing an USB, updating the status of the desktop drive icons. However, turn it off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. The <b>pmount</b> application can still be run from Menu > Filesystem to mount and unmount partitions.\"</label></text>
 
   <!-- <text><label>\" \"</label></text> -->
   <hbox>
@@ -785,11 +851,11 @@ else
  <frame Periodic save from RAM>
  <vbox>
   <text><label>\" \"</label></text>
-  <text width-chars=\"90\" use-markup=\"true\"><label>\"Puppy runs in a particular 'state' that we call the <b>PUPMODE</b>. This depends on the type of installation and the type of hardware. <b>Currently, PUPMODE=${PUPMODE}</b>. If it is an <b>odd</b> number 3,7 13, then Puppy is doing everything in RAM and saving the current session to a drive periodically -- this is done in the case of Flash memory to make it last longer. When Puppy runs in one of these PUPMODES, there will be a <b>save</b> icon on the desktop, <b>also a save occurs at shutdown</b>. You can also specify a periodic save here:\"</label></text>
+  <text width-chars=\"90\" use-markup=\"true\"><label>\"Puppy runs in a particular 'state' that we call the <b>PUPMODE</b>. This depends on the type of installation and the type of hardware. <b>Currently it is PUPMODE=${PUPMODE}</b>. If it is an <b>odd</b> number 3,7, 13, then Puppy is doing everything in RAM and saving the current session to a partition or file periodically -- this is done in the case of Flash memory to make it last longer. When Puppy runs in one of these PUPMODES, there will be a <b>save</b> icon on the desktop, <b>also a save occurs at shutdown</b>. You can also specify a periodic save time interval here:\"</label></text>
   <text><label>\" \"</label></text>
   <frame Enter>
   <hbox homogenous=\"false\">
-   <text><label>\"                                   Save interval (0=never):\"</label></text>
+   <text><label>\"                          Save interval in minutes (0=never):\"</label></text>
    <entry max-length=\"4\" width_chars=\"4\" width-chars=\"4\" width=\"4\" max-width-chars=\"4\" tooltip-text=\"RAMSAVEINTERVAL\" sensitive=\"$ENTRY_RAMSAVEINTERAL_SEN\">
     <width>40</width>
     <default>${RAMSAVEINTERVAL}</default>
@@ -873,8 +939,19 @@ abort|Cancel|'') RV=0; break;;
 showfull)    CMD=eventmanager; break;;
 showdesktop) CMD='eventmanager desktop'; break;;
 esac
-times
+[ "$DEBUG" ] && times
 
+# REM: The "$CONFFILE" file gets altered as variable first,
+#       then the altered variable gets written to "$CONFFILE"
+#       so that "$CONFFILE" gets overwritten ...
+#      TODO : rename /etc/eventmanager to "$CONFFILE"
+#              or /etc/pup_event.conf or pup_event_frontend.conf
+#      TODO : make backup of old conf and create a default conf
+#              to be able restore previous or default settings
+#              and write a GUI for it...
+CONFIG=`cat "$CONFFILE"`
+
+if [ "$SHOWMODE" != 'desktop' ]; then
 #make sure that RAMSAVEINTERVAL is an integer only...
 NEWRAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL:-0} #412
 NEWRAMSAVEINTERVAL=`echo "$NEWRAMSAVEINTERVAL" | sed -e 's/[^0-9]//g'`
@@ -905,7 +982,58 @@ if [ "$NEWDESKDAEMON" = "false" ];then
         NEWZCDPOLL='false'
 fi
 
-[ "$NEWICONDESK" = 'false' ] && NEWICONPARTITIONS='false'
+#rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL}/"
+#grep $Q '^RAMSAVEINTERVAL=' "$CONFFILE" && {
+# __adjust_config "$rsPATTERN"; true; } || echo "RAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL}" >>"$CONFFILE"
+_adjust_config RAMSAVEINTERVAL $NEWRAMSAVEINTERVAL
+#w007...
+_adjust_config POWERTIMEOUT $NEWPOWERTIMEOUT
+_adjust_config HOTPLUGNOISY $NEWHOTPLUGNOISY
+_adjust_config DESKDAEMON $NEWDESKDAEMON
+_adjust_config FORCE_POWERTIMEOUT_ALWAYS $NEWFORCE_POWERTIMEOUT_ALWAYS
+_adjust_config DISTURB_VIDEO $NEWDISTURB_VIDEO
+_adjust_config DISTURB_DL $NEWDISTURB_DL
+_adjust_config DISTURB_DEV $NEWDISTURB_DEV
+_adjust_config DO_NOT_DISTURB_VIDEO $NEWDO_NOT_DISTURB_VIDEO
+_adjust_config DO_NOT_DISTURB_DL $NEWDO_NOT_DISTURB_DL
+_adjust_config DO_NOT_DISTURB_DEV $NEWDO_NOT_DISTURB_DEV
+
+NEWPOLL_PLUG_DEVICE=${NEWPOLL_PLUG_DEVICE:-2}
+test "$NEWPOLL_PLUG_DEVICE" -ge 1 || NEWPOLL_PLUG_DEVICE=1
+test "$NEWPOLL_PLUG_DEVICE" -le 9 || NEWPOLL_PLUG_DEVICE=9
+_adjust_config POLL_PLUG_DEVICE $NEWPOLL_PLUG_DEVICE
+
+#_adjust_config AUTOTARGET $NEWAUTOTARGET
+if [ "$USE_DISABLED" ]; then
+_adjust_config BACKENDON $NEWBACKENDON
+_adjust_config ZCDPOLL $NEWZCDPOLL
+_adjust_config AUTOUNMOUNT $NEWAUTOUNMOUNT
+fi
+
+fi # SHOWMODE != desktop
+
+#desktop gui and full gui
+[ "$NEWICONDESK" = 'false' ] && { NEWICONPARTITIONS='false'; FD0ICON='false'; }
+_adjust_config ICONDESK $NEWICONDESK
+_adjust_config ICONPARTITIONS $NEWICONPARTITIONS
+_adjust_config FD0ICON $NEWFD0ICON
+if [ "$ICONPSITIONB" = "true" ] ; then
+_adjust_config ICON_PLACE_ORIENTATION bottom
+NEWICON_PLACE_ORIENTATION=bottom
+elif [ "$ICONPSITIONR" = "true" ] ; then
+_adjust_config ICON_PLACE_ORIENTATION right
+NEWICON_PLACE_ORIENTATION=right
+elif [ "$ICONPSITIONT" = "true" ] ; then
+_adjust_config ICON_PLACE_ORIENTATION top
+NEWICON_PLACE_ORIENTATION=top
+elif [ "$ICONPSITIONL" = "true" ] ; then
+_adjust_config ICON_PLACE_ORIENTATION left
+NEWICON_PLACE_ORIENTATION=left
+else
+_adjust_config ICON_PLACE_ORIENTATION bottom
+NEWICON_PLACE_ORIENTATION=bottom
+fi
+
 _debug 1 NEWIPSPAC=$NEWIPSPAC
 NEWIPSGAPX=`echo "$NEWIPSGAPX" | sed 's/[^0-9]//g'`   #get rid of non-digits
 NEWIPSGAPY=`echo "$NEWIPSGAPY" | sed 's/[^0-9]//g'`
@@ -930,86 +1058,9 @@ NEWIPSPAC=$(( ((NEWIPSPAC +1) / PIN_GRID_STEP) * PIN_GRID_STEP ))  #round to non
  NEWIPSPAC=$(( ((NEWIPSPAC +1) / PIN_GRID_STEP) * PIN_GRID_STEP ))  #round to non-odd numbers
  _debug 8 NEWIPSPAC=$NEWIPSPAC
 
-# REM: The "$CONFFILE" file gets altered as variable first,
-#       then the altered variable gets written to "$CONFFILE"
-#       so that "$CONFFILE" gets overwritten ...
-#      TODO : rename /etc/eventmanager to "$CONFFILE"
-#              or /etc/pup_event.conf or pup_event_frontend.conf
-#      TODO : make backup of old conf and create a default conf
-#              to be able restore previous or default settings
-#              and write a GUI for it...
-CONFIG=`cat "$CONFFILE"`
-
-__adjust_config(){
-CONFIG=`echo "$CONFIG" | sed -e "$@"`
-S=$((S+$?))
-}
-
-_adjust_config(){
-VAR="$1"; shift
-VAL="$*"
-sP="s/^${VAR}=.*/${VAR}='${VAL}'/"
-if grep $Q "^${VAR}=" "$CONFFILE"; then
- CONFIG=`echo "$CONFIG" | sed -e "$sP"`
-else
- echo "${VAR}='${VAL}'" >>"$CONFFILE"
-fi
-S=$((S+$?))
-}
-
-#rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL}/"
-#grep $Q '^RAMSAVEINTERVAL=' "$CONFFILE" && {
-# __adjust_config "$rsPATTERN"; true; } || echo "RAMSAVEINTERVAL=${NEWRAMSAVEINTERVAL}" >>"$CONFFILE"
-_adjust_config RAMSAVEINTERVAL $NEWRAMSAVEINTERVAL
-
-#w007...
-_adjust_config POWERTIMEOUT $NEWPOWERTIMEOUT
-_adjust_config ICONDESK $NEWICONDESK
-_adjust_config ICONPARTITIONS $NEWICONPARTITIONS
-_adjust_config HOTPLUGNOISY $NEWHOTPLUGNOISY
-_adjust_config DESKDAEMON $NEWDESKDAEMON
-_adjust_config FD0ICON $NEWFD0ICON
-
-#__adjust_config AUTOTARGET $NEWAUTOTARGET
-if [ "$USE_DISABLED" ]; then
-_adjust_config BACKENDON $NEWBACKENDON
-_adjust_config ZCDPOLL $NEWZCDPOLL
-_adjust_config AUTOUNMOUNT $NEWAUTOUNMOUNT
-fi
-
-if [ "$ICONPSITIONB" = "true" ] ; then
-_adjust_config ICON_PLACE_ORIENTATION bottom
-NEWICON_PLACE_ORIENTATION=bottom
-elif [ "$ICONPSITIONR" = "true" ] ; then
-_adjust_config ICON_PLACE_ORIENTATION right
-NEWICON_PLACE_ORIENTATION=right
-elif [ "$ICONPSITIONT" = "true" ] ; then
-_adjust_config ICON_PLACE_ORIENTATION top
-NEWICON_PLACE_ORIENTATION=top
-elif [ "$ICONPSITIONL" = "true" ] ; then
-_adjust_config ICON_PLACE_ORIENTATION left
-NEWICON_PLACE_ORIENTATION=left
-else
-_adjust_config ICON_PLACE_ORIENTATION bottom
-NEWICON_PLACE_ORIENTATION=bottom
-fi
-
 if [ -n "`echo $NEWIPSPAC | grep -w -x '[0-9]\+'`" ] ; then
 _adjust_config ICON_PLACE_SPACING $NEWIPSPAC
 fi
-
-_adjust_config FORCE_POWERTIMEOUT_ALWAYS $NEWFORCE_POWERTIMEOUT_ALWAYS
-_adjust_config DISTURB_VIDEO $NEWDISTURB_VIDEO
-_adjust_config DISTURB_DL $NEWDISTURB_DL
-_adjust_config DISTURB_DEV $NEWDISTURB_DEV
-_adjust_config DO_NOT_DISTURB_VIDEO $NEWDO_NOT_DISTURB_VIDEO
-_adjust_config DO_NOT_DISTURB_DL $NEWDO_NOT_DISTURB_DL
-_adjust_config DO_NOT_DISTURB_DEV $NEWDO_NOT_DISTURB_DEV
-
-NEWPOLL_PLUG_DEVICE=${NEWPOLL_PLUG_DEVICE:-2}
-test "$NEWPOLL_PLUG_DEVICE" -ge 1 || NEWPOLL_PLUG_DEVICE=1
-test "$NEWPOLL_PLUG_DEVICE" -le 9 || NEWPOLL_PLUG_DEVICE=9
-_adjust_config POLL_PLUG_DEVICE $NEWPOLL_PLUG_DEVICE
 
 echo "$CONFIG" > "$CONFFILE"
 S=$((S+$?))
@@ -1024,6 +1075,7 @@ new $CONFFILE
 fi
 sleep 1
 
+NEWDESKDAEMON=${NEWDESKDAEMON:-"$DESKDAEMON"} #desktop gui does not have NEWDESKDAEMON
 if [ "$NEWDESKDAEMON" = "true" ];then
  if [ ! "`pidof pup_event_frontend_d`" ];then
     exec pup_event_frontend_d start &
@@ -1033,7 +1085,6 @@ if [ "$NEWDESKDAEMON" = "true" ];then
  [ "$ICON_PLACE_SPACING" = "$NEWIPSPAC" ]                     || DO_CHANGE_DRIVE_ICONS=1
  [ "$ICONPARTITIONS" = "$NEWICONPARTITIONS" ]                 || DO_CHANGE_DRIVE_ICONS=1
  [ "$ICON_PLACE_ORIENTATION" = "$NEWICON_PLACE_ORIENTATION" ] || DO_CHANGE_DRIVE_ICONS=1
-
 
   echo 'sourceit' > "$MY_TMP"/pup_event_manager.flg
   if test "$DO_CHANGE_DRIVE_ICONS"; then
