@@ -48,9 +48,9 @@ chown $VERB pup_event:pup_event "$MY_HOME"
 chown $VERB pup_event:pup_event "$MY_CFG" "$MY_LOG" "$MY_TMP"
 chmod $VERB 1774 "$MY_CFG" "$MY_LOG"
 chmod $VERB 1770 "$MY_TMP"
-ls -ld "$MY_HOME"
-ls -l  "$MY_HOME"
-cd "$MY_HOME" || exit 2
+[ "$DEBUG" ] && ls -ld "$MY_HOME"
+[ "$DEBUG" ] && ls -l  "$MY_HOME"
+cd "$MY_HOME" || _exit 2 "Unable to change into '$MY_HOME' ."
 
 STATE_DIR=${STATE_DIR:-"$HOME/Choices/Puppy"}
 EXE_DIR=${EXE_DIR:-'pup_event'}
@@ -71,7 +71,11 @@ sP="s/^${VAR}=.*/${VAR}='${VAL}'/"
 if grep $Q "^${VAR}=" "$CONFFILE"; then
  CONFIG=`echo "$CONFIG" | sed -e "$sP"`
 else
- echo "${VAR}='${VAL}'" >>"$CONFFILE"
+ (
+ echo
+ echo '#Automatically added by eventmanager:'
+ echo "${VAR}='${VAL}'"
+ ) >>"$CONFFILE"
 fi
 S=$((S+$?))
 }
@@ -81,6 +85,7 @@ do
 # first (re-)read the config file
 [ -s "$CONFFILE" ] && . "$CONFFILE"
 
+_set_main_variables(){
               _set_bool DESKDAEMON "$DESKDAEMON" true
 [ $? = 0 ] || _set_bool DESKDAEMON "$DESKDAEMON" false
 [ $? = 0 ] || { _notice "defaulting to true";DESKDAEMON=true; }
@@ -109,9 +114,13 @@ do
         NEWFD0ICON="$FD0ICON"
        NEWICONDESK="$ICONDESK"
  NEWICONPARTITIONS="$ICONPARTITIONS"
+     NEWDESKDAEMON="$DESKDAEMON"
    NEWPOWERTIMEOUT=$POWERTIMEOUT
 NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
+}
+_set_main_variables
 
+_create_polling_entry(){
  test "${POLL_PLUG_DEVICE//[0-9]/}" && unset POLL_PLUG_DEVICE
  POLL_PLUG_DEVICE=${POLL_PLUG_DEVICE:-2}
  [ "$POLL_PLUG_DEVICE" -gt 1 ] || POLL_PLUG_DEVICE=1
@@ -194,6 +203,10 @@ POLL_PLUG_DEVICE_GUI_LIST='
 </frame>
 '
 POLL_PLUG_DEVICE_GUI=$POLL_PLUG_DEVICE_GUI_LIST
+}
+_create_polling_entry
+
+_set_shutdown_variables(){
 
 #case "$FORCE_POWERTIMEOUT_ALWAYS" in true|false):;;*) FORCE_POWERTIMEOUT_ALWAYS=true;;esac
               _set_bool FORCE_POWERTIMEOUT_ALWAYS "$FORCE_POWERTIMEOUT_ALWAYS" true
@@ -214,6 +227,15 @@ POLL_PLUG_DEVICE_GUI=$POLL_PLUG_DEVICE_GUI_LIST
               _set_bool DISTURB_VIDEO "$DISTURB_VIDEO" true
 [ $? = 0 ] || _set_bool DISTURB_VIDEO "$DISTURB_VIDEO" false
 [ $? = 0 ] || { _notice "defaulting to true";DISTURB_VIDEO=true; }
+
+NEWFORCE_POWERTIMEOUT_ALWAYS=$FORCE_POWERTIMEOUT_ALWAYS
+               NEWDISTURB_DL=$DISTURB_DL
+            NEWDISTURB_VIDEO=$DISTURB_VIDEO
+              NEWDISTURB_DEV=$DISTURB_DEV
+}
+_set_shutdown_variables
+
+_create_shutdown_gui(){
 
 CB_DL_PT_SEN=true
 EN_DL_PT_SEN=true
@@ -243,12 +265,6 @@ if test "$DISTURB_DEV" = false; then
 EN_DEV_PT_SEN=false
 fi
 
-NEWFORCE_POWERTIMEOUT_ALWAYS=$FORCE_POWERTIMEOUT_ALWAYS
-NEWDISTURB_DL=$DISTURB_DL
-NEWDISTURB_VIDEO=$DISTURB_VIDEO
-NEWDISTURB_DEV=$DISTURB_DEV
-
-
 FORCE_POWERTIMEOUT_GUI="<hbox>
   <checkbox xalign=\"0.0\" yalign=\"0.9\" tooltip-text=\"FORCE_POWERTIMEOUT_ALWAYS\">
   <label>Want to poweroff always regardless of important programs running</label>
@@ -273,6 +289,7 @@ FORCE_POWERTIMEOUT_GUI="<hbox>
 "
 
 DO_NOT_DISTURB_DL=${DO_NOT_DISTURB_DL:-wget}
+DO_NOT_DISTURB_DL=${DO_NOT_DISTURB_DL//[,;:|&\/]/}
 DL_POWERTIMEOUT_GUI="<hbox>
   <checkbox sensitive=\"$CB_DL_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_DL\">
    <label>Do not poweroff if one of the following dl programs are running</label>
@@ -290,6 +307,7 @@ DL_POWERTIMEOUT_GUI="<hbox>
 "
 
 DO_NOT_DISTURB_VIDEO=${DO_NOT_DISTURB_VIDEO:-'gnome-mplayer'}
+DO_NOT_DISTURB_VIDEO=${DO_NOT_DISTURB_VIDEO//[,;:|&\/]/}
 MM_POWERTIMEOUT_GUI="<hbox>
 <checkbox sensitive=\"$CB_MM_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_VIDEO\">
   <label>Do not poweroff if one of the following multi media programs are running</label>
@@ -307,6 +325,7 @@ MM_POWERTIMEOUT_GUI="<hbox>
 "
 
 DO_NOT_DISTURB_DEV=${DO_NOT_DISTURB_DEV:-make}
+DO_NOT_DISTURB_DEV=${DO_NOT_DISTURB_DEV//[,;:|&\/]/}
 DEV_POWERTIMEOUT_GUI="<hbox>
 <checkbox sensitive=\"$CB_DEV_PT_SEN\" xalign=\"0.0\" yalign=\"1.0\" tooltip-text=\"DISTURB_DEV\">
   <label>Do not poweroff if one of the following developer programs are running</label>
@@ -322,6 +341,10 @@ DEV_POWERTIMEOUT_GUI="<hbox>
   </entry>
   </hbox>
 "
+}
+_create_shutdown_gui
+
+_set_icon_placement(){
 
 ICON_PLACE_START_X_GAP=${ICON_PLACE_START_X_GAP:-32}  #x-alignment
 ICON_PLACE_START_Y_GAP=${ICON_PLACE_START_Y_GAP:-64}  #y-alignment
@@ -347,8 +370,15 @@ top)   ICONPOSITIONT="true" ; ICONPOSITIONR="false" ; ICONPOSITIONB="false" ; IC
 left) ICONPOSITIONL="true" ; ICONPOSITIONB="false" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ;;
 *)   ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ; _notice "defaulting to bottom";;
 esac
+fi
+}
+_set_icon_placement
 
-ICON_POS="
+_create_icon_placement_tab(){
+NTAB_ICONPLACEMENT=$"Icon placement"
+PLACEMENTTB="Icon placement"
+
+ICON_POSITION="
   <hbox>
   <text xalign=\"0.0\"><label>Choose Position of the Drive Icon(s) : Tick box for</label></text>
   <radiobutton>
@@ -373,9 +403,6 @@ ICON_POS="
   </radiobutton>
   </hbox>
 "
-fi
-
-PLACEMENTTB="Icon placement"
 
 if [ -n "$ICON_PLACE_START_X_GAP" ] ; then
 IP_E_GAP_X="
@@ -418,7 +445,7 @@ IP_SPA_OLD="
 </hbox>
 "
 
-
+ICON_PLACE_SPACING=${ICON_PLACE_SPACING:-64}
 ITEM_SPACING="<item>$ICON_PLACE_SPACING</item>"
 for i in `seq 64 $PIN_GRID_STEP 160`; do
 test "$i" = $ICON_PLACE_SPACING && continue
@@ -487,14 +514,8 @@ fi
 
 PLACEMENT="
 <vbox>
-$ICON_POS
-$IP_E_GAP_UNUSED
-$IP_E_GAP_X_DISABLED
-$IP_E_GAP_Y_DISABLED
-$IP_S_GAP_UNUSED
-$IP_SPA
-$IP_SPA_X_UNUSED
-$IP_SPA_Y_UNUSED
+  $ICON_POSITION
+  $IP_SPA
 
   <hbox><text><label>\"  \"</label></text></hbox>
   <text use-markup=\"true\"><label>\"<b>NOTE :</b> the values above have to be a <b>power</b> of the <u>current <i>'pinboard_grid_step'</i> value of <b>$PIN_GRID_STEP</b></u> . Otherwise the drive icons would not render properly because the ROX-Filer would not place the icons as expected, but to the nearest value relative to the <i>'pinboard_grid_step'</i> . <b>If the values arent a power, then usually the icons would pile up on one place of the pinboard</b> . To change the PIN_GRID_STEP value : Go to ROX-Filer Options > Pinboard > Behavior\"</label></text>
@@ -502,14 +523,18 @@ $IP_SPA_Y_UNUSED
 "
 
 _debugx "$PLACEMENT"
+}
+_create_icon_placement_tab
 
+_set_disabled(){
+[ "USE_DISABLED" ] || return 0
 #[ "$BACKENDON" = "true" -o "$BACKENDON" = "false" ]    ||       BACKENDON="true" ##udev
 #[ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] &&       HOTPLUGON="true" #OLD
 #[ "$ZCDPOLL" = "true" -o "$ZCDPOLL" = "false" ]        ||         ZCDPOLL="true" #NEW
 #[ "$AUTOUNMOUNT" ]                                        ||  AUTOUNMOUNT="false" #v424
 #[ "$HOTPLUGNOISY" = "true" -o "$HOTPLUGNOISY" = "false" ] || HOTPLUGNOISY="false"
 #[ "$AUTOTARGET" = "true" -o "$AUTOTARGET" = "false" ]     ||   AUTOTARGET="true"
-if [ "USE_DISABLED" ]; then
+
               _set_bool BACKENDON "$BACKENDON" true
 [ $? = 0 ] || _set_bool BACKENDON "$BACKENDON" false
 [ $? = 0 ] || { _notice "defaulting to true";BACKENDON=true; }
@@ -540,8 +565,11 @@ if [ "USE_DISABLED" ]; then
      NEWAUTOTARGET="$AUTOTARGET"
     NEWAUTOUNMOUNT="$AUTOUNMOUNT"
       NEWBACKENDON="$BACKENDON"
-fi
+}
+_set_disabled
 
+_create_gui_disabled(){
+[ "USE_DISABLED" ] || return 0
 #udevd
 UDEV_CHOICE_DISABLED="  <checkbox tooltip-text=\"BACKENDON\">
    <label>Tick box for hotplug module/firmware loading [ BACKENDON on/off udevd ]</label>
@@ -566,7 +594,7 @@ ICONWIPE_CHOICE1_DISABLED="  <checkbox tooltip-text=\"NEWICONWIPE1\">
    <action>if false clear:NEWICONWIPE2</action>
   </checkbox>
 "
-
+# drive_all:
 AUTOTARGET_CHOICE_DISABLED="  <frame>
   <text><label>This checkbox extends the default behavior, and will launch a more appropriate application. Currently, it adds detection of a video DVD or audio CD and launches the media player:</label></text>
   <checkbox tootip-text=\"AUTOTARGET\">
@@ -576,7 +604,7 @@ AUTOTARGET_CHOICE_DISABLED="  <frame>
   </checkbox>
   </frame>
 "
-
+# pup_event-frontend_d
 HOTPLUGNOISY_CHOICE_DISABLED=" <vbox>
   <frame>
   <text><label>Normally you have to click on a partition icon to run the handler 'AppRun' in $PUP_EVENT_DIR, but this checkbox makes the 'handler' run as soon as a media is plugged in if polling every $POLL_PLUG_DEVICE seconds is enabled . For example, plug in a DVD and it will immediately either get automatically mounted, or [if the above checkbox is ticked] the media player will run. This is usefull if using a desktopmanager like enlightenment or when having disabled drive icons on desktop:</label></text>
@@ -594,9 +622,7 @@ HANDLER_TAB_DISABLED="<frame Drive 'handler'>
   <text use-markup=\"true\"><label>\"The <b>'handler'</b> decides what to do when you click on a desktop drive icon. <b>Normally</b>, this just starts <u>Pmount</u> if you click on a drive icon, <b>or</b> mounts it and starts <u>ROX-Filer</u> if a partition icon, but this behavior can be extended by these checkboxes.\"</label></text>
   $AUTOTARGET_CHOICE_DISABLED
  </vbox>
-
   $HOTPLUGNOISY_CHOICE_DISABLED
-
 </frame>
 "
 
@@ -618,6 +644,7 @@ HANDLER_TAB_DISABLED="<frame Drive 'handler'>
 #Allowed values: [0,1]
 #Default value: 0.5
 
+# pup_event_frontend_d
 AUTO_UNMOUNT_CHOICE_DISABLED="  <checkbox tooltip-text=\"AUTOUNMOUNT\" draw-as-radio=\"true\">
    <label>Tick box for auto unmounting of partitions [ AUTOUNMOUNT ]</label>
    <default>${AUTOUNMOUNT}</default>
@@ -625,7 +652,7 @@ AUTO_UNMOUNT_CHOICE_DISABLED="  <checkbox tooltip-text=\"AUTOUNMOUNT\" draw-as-r
   </checkbox>
   <text><label>(WARNING: auto unmounting is highly experimental)</label></text>
 "
-
+# pup_event_frontend_d
 ZCDPOLL_DISABLED="  <checkbox tooltip-text=\"ZCDPOLL\" draw-as-radio=\"true\">
    <label>Tick box for polling Zip or CD devices every $POLL_PLUG_DEVICE seconds [ ZCDPOLL ]</label>
    <default>${ZCDPOLL}</default>
@@ -635,14 +662,10 @@ ZCDPOLL_DISABLED="  <checkbox tooltip-text=\"ZCDPOLL\" draw-as-radio=\"true\">
    <action>if false clear:NEWHOTPLUGNOISY</action>
   </checkbox>
 "
+}
+_create_gui_disabled
 
-# REM: Disable entering anything if not a flash PUPMODE
-#      for the RAMSAVE tab.
-case $PUPMODE in 3|7|13)
-   ENTRY_RAMSAVEINTERAL_SEN=true ;;
-*) ENTRY_RAMSAVEINTERAL_SEN=false;;
-esac
-
+_create_drive_icons_gui(){
 # REM: Disable entering anything if no floppy disk
 #      for the Legacy tab.
 FD0ICON_SEN=true
@@ -698,38 +721,29 @@ DRIVE_ICONS_GUI="
  </frame>
 
 "
+}
+_create_drive_icons_gui
+
+_create_switch_window_button(){
 if [ "$SHOWMODE" = "desktop" ]; then
-SELECT_FULL="   <hbox>
-   <button>
-    <label>Show full Event Manager</label>
-    <action type=\"exit\">showfull</action>
-   </button>
-   </hbox>
-"
+ LABEL="Show full Event Manager"
+ EXIT=showfull
 else
-SELECT_FULL="   <hbox>
-   <button>
-    <label>Show small Event Manager</label>
-    <action type=\"exit\">showdesktop</action>
-   </button>
-   </hbox>
-"
+ LABEL="Show small Event Manager"
+ EXIT=showdesktop
 fi
 
-APPLY_OR_EXIT_XALIGN="
- <hbox homogeneous=\"true\">
-  <text xalign=\"0.0\"><label>\"Click  \"</label></text>
-   <button tooltip-text=\"to save new settings to $CONFFILE configuration file\">
-   <input file icon=\"gtk-apply\"></input>
-   <label>OK:Apply!</label>
+SELECT_MGR="   <hbox>
+   <button>
+    <label>\"$LABEL\"</label>
+    <action type=\"exit\">$EXIT</action>
    </button>
-  <text xalign=\"0.5\" use-markup=\"true\"><label>\"  <b>or</b>  \"</label></text>
-   <button cancel></button>
-  <text xalign=\"1.0\" use-markup=\"true\"><label>\"  <i>to Exit without saving changes</i>\"</label></text>
- </hbox>
-   $SELECT_FULL
+   </hbox>
 "
+}
+_create_switch_window_button
 
+_create_save_or_exit_button(){
 APPLY_OR_EXIT="
  <hbox homogeneous=\"false\" spacing=\"10\">
   <text><label>\"Click  \"</label></text>
@@ -741,11 +755,14 @@ APPLY_OR_EXIT="
    <button cancel></button>
   <text use-markup=\"true\"><label>\"  <i>to Exit without saving changes</i>            \"</label></text>
  </hbox>
-   $SELECT_FULL
+   $SELECT_MGR
 "
+}
+_create_save_or_exit_button
 
+_create_disabled_entry(){
 CHOSE_BELOW=""
-if test "$USE_DISABLED"; then
+test "$USE_DISABLED" || return 0
 CHOSE_BELOW="
   <vbox>
   <text><label>\"  \"</label></text>
@@ -759,8 +776,9 @@ CHOSE_BELOW="
   </hbox>
   </vbox>
 "
-fi
+}
 
+_create_disabled_entry
 
 NOTEBOOK_LABEL2="<notebook labels=\"Desktop Icons|$PLACEMENTTB|Legacy\">"
 NOTEBOOK_LABEL1="<notebook labels=\"Activate|Desktop Icons|$PLACEMENTTB|Legacy|Save Session|Power\">"
@@ -906,12 +924,15 @@ else
 "
 fi
 
+_create_mut2_button(){
 if [ "$HAVEMUT2" = "yes" ];then # <button file icon="top"> | icon-name=\"gtk-execute\"
  PREFSBUTTON="
    <button><label>Use mut2 engine</label>
     <action type=\"exit\">SETPREFS</action>
    </button>"
 fi
+}
+_create_mut2_button
 
 if [ 2 = 1 ]; then #DEBUG
  echo "$MAIN_DIALOG" >/tmp/gtkdialog.tmp
@@ -923,7 +944,7 @@ fi
 
 MAIN_DIALOG=`_GTKdialog_remove_comments "$MAIN_DIALOG"`
 [ "$DEBUG" ] && _GTKdialog_debug_gui "$MAIN_DIALOG"
-times
+[ "$DEBUG" ] && times
 export MAIN_DIALOG
 #gtkdialog3 --debug --program=MAIN_DIALOG --center
 RETSTRING=`gtkdialog3 --program=MAIN_DIALOG --center`
@@ -936,8 +957,8 @@ _debug "RETSTRING='$RETSTRING'" #TEST
 case "$EXIT" in
 abort|Cancel|'') RV=0; break;;
 #v405 it is running with 'desktop' param, now rerun with all tabs...
-showfull)    CMD=eventmanager; break;;
-showdesktop) CMD='eventmanager desktop'; break;;
+showfull)    CMD="$MY_SELF"; break;;
+showdesktop) CMD="$MY_SELF desktop"; break;;
 esac
 [ "$DEBUG" ] && times
 
@@ -1100,7 +1121,7 @@ fi
 unset DO_CHANGE_DRIVE_ICONS S CMD
 
 sleep 1
-times
+[ "$DEBUG" ] && times
 done
 test "$CMD" && exec $CMD
 exit $RV
