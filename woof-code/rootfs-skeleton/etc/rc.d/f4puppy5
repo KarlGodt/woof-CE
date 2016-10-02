@@ -1405,6 +1405,36 @@ _try_boot_flags && return 0
 _try_all_partitions
 }
 
+_find_modules_dir(){
+KR="$*"
+[ "$KR" ] || KR=`uname -r`
+_test_d /lib/modules/"$KR" && return 0
+test -s /proc/partitions || return 2
+mountpoint $Q /sys || return 3
+local RV=1
+
+while read maj min siz dev
+do
+[ "$dev" ] || continue
+[ "$dev" = name ] && continue
+[ -b /dev/$dev ]  || continue
+[ -e /sys/class/block/$dev ] || continue
+mkdir $VERB -p /mnt/$dev
+mount $VERB /dev/$dev /mnt/$dev
+_test_d /mnt/$dev/lib/modules/"$KR"
+if test $? = 0; then
+ _info "Found driver directory for $KR on /mnt/$dev ."
+ ln -sf /mnt/$dev/lib/modules/"$KR" /lib/modules/"$KR"
+ if test $? = 0; then
+ RV=0
+ break
+ fi
+fi
+umount $VERB /mnt/$dev
+done </proc/partitions
+return $RV
+}
+
 #================ Make free loop device ======================================
 __mk_free_loop()
 {
