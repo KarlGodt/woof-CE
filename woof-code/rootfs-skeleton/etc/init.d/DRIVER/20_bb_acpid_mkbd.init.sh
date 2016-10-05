@@ -26,8 +26,10 @@ MSG="$MSG
 $2
 "
 fi
+MSG=`gettext "$MSG"`
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg blue3 "$MSG"
+[ "$DISPLAY" ] && xmessage -bg blue1 "$MSG
+"
 exit $1
 }
 
@@ -38,13 +40,14 @@ _check_cpu_usage(){
 test "$*" || return 3 #want the whole set of parameters that acpid got started with
 c=0
 while :; do
-CPU_USAGE0=`/bin/ps -A -o %cpu,args | grep -e "$*" | grep -v grep | awk '{print $1}'`
-test "$CPU_USAGE0" || return 0
-CPU_USAGE=${CPU_USAGE0%.*}
-test "$CPU_USAGE" -gt 9 && {
+CPU_USAGE_ALL=`/bin/ps -A -o %cpu,args | grep -e "$*" | grep -v grep | awk '{print $1}'`
+test "$CPU_USAGE_ALL" || return 0
+ for CPU_USAGE0 in $CPU_USAGE_ALL; do
+ CPU_USAGE=${CPU_USAGE0%.*}
+ test "$CPU_USAGE" -gt 9 && {
  _warn "Closing acpid due to too high cpu usage of '$CPU_USAGE0' per cent."
- killall acpid && break
-}
+ killall acpid && break 2; }
+ done
 sleep 3
 c=$((c+1))
 test "$c" = 9 && break
@@ -136,6 +139,27 @@ __old__too__(){
 
 case $1 in
 
+ *status)
+ set --
+ [ "$event_file" ]       && set - "$event_file" $*
+ [ "$proc_event_file" ]  && set - -e "$proc_event_file" $*
+ [ "$Config_directory" ] && set - -c "$Config_directory" $*
+ [ "$Log_file" ]         && set - -l "$Log_file" $*
+ [ "$Pid_file" ]         && set - -p "$Pid_file" $*
+ [ "$Map_file" ]         && set - -M "$Map_file" $*
+ [ "$Action_file" ]      && set - -a "$Action_file" $*
+
+ echo "Status of acpid: "
+ if ps | grep -e "$*" | grep -v 'grep'; then
+  true
+ else
+  echo " acpid not running"
+  false
+ fi
+ exit $?
+
+ ;;
+
  *start)
 
 shift
@@ -190,9 +214,9 @@ done <<EoI
 `echo "$devKBD_EVENTS"`
 EoI
 
-}
+} #__old_too__
 
-test -s "$Log_file" && _log_rotate "$Log_file"
+#test -s "$Log_file" && _log_rotate "$Log_file"
 
 # REM : set the supported acpid options
  set --
@@ -204,6 +228,13 @@ test -s "$Log_file" && _log_rotate "$Log_file"
  [ "$Map_file" ]         && set - -M "$Map_file" $*
  [ "$Action_file" ]      && set - -a "$Action_file" $*
 
+ if ps | grep -e "$*" | grep $Q -v 'grep'; then
+  echo "Already running."
+  exit 1
+ fi
+
+ test -s "$Log_file" && _log_rotate "$Log_file"
+
  _notice "$0: '$*'"
  "$ACPID_BIN" $*
 
@@ -211,7 +242,7 @@ test -s "$Log_file" && _log_rotate "$Log_file"
 
  #grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
  #_debug "grepP='$grepP'"
- echo -n "Starting '$ACPID_BIN' :"
+ echo -n "Starting of '$ACPID_BIN' :"
  ps | grep "$ACPID_BIN" | grep -e "$*" || echo FAILED
 
  test -s "$Log_file" && cat "$Log_file"
@@ -273,7 +304,7 @@ fi
 done <<EoI
 `echo "$devKBD_EVENTS"`
 EoI
-}
+} # __old_too__
 
  # REM : set the supported acpid options
  set --
