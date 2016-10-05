@@ -1,5 +1,9 @@
 #!/bin/bash
 #
+# bash syntax: [[ "${drive}" =~ [0-9] ]]
+# uses dumb test for parameters
+# uses dumb grep on parameters
+
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="Puppy_probepart2.04"
 _VERSION_=1.0omega
@@ -9,13 +13,13 @@ MY_SELF="/sbin/probepart2.04"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG='1'; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -71,9 +75,9 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] || DEBUG=`sed 's% %\n%g' /proc/cmdline | grep -w -i '^debug'`
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 
-Version='2.0'
+Version='2.04.01'
 
-usage(){
+_usage(){
 USAGE_MSG="
 $0 [ PARAMETERS ]
 
@@ -110,13 +114,14 @@ Without one of the above parameters it is the value found in
 
 $2
 "
+USAGE_MSG=`gettext "$USAGE_MSG"`
 echo "$USAGE_MSG"
 exit $1
 }
 
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && _usage 0
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
-(mount |grep -o "/proc " >$OUT 2>$ERR && mount |grep -o "/sys " >$OUT 2>$ERR) || usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
+(mount |grep $Q -o "/proc " 2>>$ERR && mount |grep $Q -o "/sys " 2>>$ERR) || _usage 1 '/proc or /sys not mounted!'  ##+++edit4 sanity check
 ##
 SIZE_FACTOR=1
 SIZE_PARAM=`echo "$@" | grep -o -m1 -w -i -E '\-k|\-m|\-b|\-[kmg]b|\-[kmg]ib' | head -n1`  ##-+edit2
@@ -146,13 +151,13 @@ disktype_func(){
 }
 
 filesystem_func(){  ##+++edit1
-    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`
+    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
     [ "$FSTYPE" = 'unknown' ] && FSTYPE=`disktype_func "$1"`   ##-+edit2
     [ "$FSTYPE" ] || FSTYPE='none or unknown'  ##-+edit2 added none to please pmount thanks to Keef
 }
 
 cddetect_func(){  ##+++edit1
-    cddetect_quick -d/dev/"$1" >$OUT && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount thanks to Keef
+    cddetect_quick -d/dev/"$1" >>$OUT && FSTYPE=`disktype_func "$1"` || FSTYPE='none or not inserted'   ##+edit3 none to please pmount thanks to Keef
 }
 
 present_removable(){
@@ -172,13 +177,15 @@ while read maj min drive rest; do
 [ "$SHOWALL" ] || { [ "`echo $drive | grep -vE 'ram|loop|mtd|md'`" ] || continue; }  ##+++edit3 added --all option
 [ -b /dev/$drive ] || {
    #maj="${line%% *}" ; min=`echo $line |awk '{print $2}'`;  ##---edit4 thanks to wjaguar, no need for this anymore
-   [ "$DEBUG" ] && echo "'$maj' '$min' '$drive'" >&2;
-   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
+   _debug "'$maj' '$min' '$drive'";
+   [ "$maj" -a "$min" -a "$drive" ] && mknod /dev/$drive b $maj $min 2>>$ERR || continue; }  ##+++edit2 : create nodes if not exists, older Puppy's static /dev/ directory supported only up to 15 partitions for each drive, newer only for sda up to 23.  ##+edit3 check for maj min not NULL
 [ "$DEVICES" ] && { [ "`echo "$DEVICES" | grep -w "$drive"`" ] || continue; }  ##+++edit2 forgot to implement it
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
 SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
-[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
+[ "$SIZE" = $((2*8*512)) ] && {
+	SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's%[^[:digit:]]%%g'`*2*512*8));
+	FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`'(none)'; }  ##+ edit2 added (none) to please pmount
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 if [[ "${drive}" =~ [0-9] ]]; then  ## was '[0-9]' : bash-3.00 accepts it, bash-3.2 not
@@ -202,6 +209,6 @@ else  #whole drive
  fi;fi
 fi
 #done</proc/partitions
-done</proc/diskstats  ##-+edit3
+done </proc/diskstats  ##-+edit3
 # Very End of this file 'sbin/probepart2.04' #
 ###END###
