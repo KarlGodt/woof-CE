@@ -1,5 +1,8 @@
 #!/bin/ash
-#
+# major switch away from bash syntax
+# since it prints out much more devices, needed speedup
+# added much more debug output
+# checks if /proc and /sys are mounted
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="pup_probepart8"
 _VERSION_=1.0omega
@@ -9,7 +12,7 @@ MY_SELF="/sbin/probepart8"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
@@ -29,24 +32,24 @@ _trap
 
 
 trap "exit 1" HUP INT QUIT KILL TERM
-echo "DEBUG='$DEBUG'" >&2
+_debug "DEBUG='$DEBUG'"
 
 OUT=/dev/null;ERR=$OUT
 
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='8.2'
+Version='1.8.3'
 
-usage(){
+_usage(){
 USAGE_MSG="
 $0 [ PARAMETERS ]
 
-example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+example usage : DEBUG=1 probepart -m
 
 PARAMETERS:
 -V|--version : showing version information
--H|--help : show this usage information
+-H|--help    : show this usage information
 
 -b   : show size in bits
 -B   : Bytes
@@ -70,12 +73,13 @@ Without one of the above parameters it is the value found in
 
 $2
 "
+USAGE_MSG=`gettext "$USAGE_MSG"`
 echo "$USAGE_MSG"
 exit $1
 }
 
 __deprecated_get_options__(){
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && _usage 0
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ##
@@ -102,7 +106,7 @@ SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-k
 SIZE_FACTOR=1
 while [ $# -gt 0 ]; do
 case $1 in
-*help|-H|-h) usage 0;;
+*help|-H|-h) _usage 0;;
 *version|-V) echo "$0 -version $Version";exit 0;;
 -b)SIZE_FACTOR=1;;
 -B)SIZE_FACTOR=8;;
@@ -152,11 +156,11 @@ _get_filesystem(){
      :
     ;;
     esac
-    [ "$FSTYPE" ]  || FSTYPE=unknown
+    [ "$FSTYPE" ] || FSTYPE=unknown
 }
 
 _do_cddetect(){
-    case $1 in fd*) return;; esac  #removable, [[ bash = x* ]]; not ash
+    case $1 in fd*) return 0;; esac  #removable, [[ bash = x* ]]; not ash
     cddetect_quick -d/dev/"$1" &>$OUT && FSTYPE=`_do_disktype "$1"` || FSTYPE='not inserted'
 }
 
@@ -172,7 +176,9 @@ while read maj min drive rest; do
 SIZE='';FSTYPE='';
 [ -f /sys/class/block/$drive/size ] || continue
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
-[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+[ "$SIZE" = $((2*8*512)) ] && {
+	SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));
+	FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 
@@ -206,5 +212,5 @@ esac
 done </proc/diskstats
 
 exit 0
-# Very End of this file 'sbin/probepart7' #
+# Very End of this file 'sbin/probepart8' #
 ###END###

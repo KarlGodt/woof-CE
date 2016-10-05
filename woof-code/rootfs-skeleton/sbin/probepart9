@@ -1,7 +1,16 @@
 #!/bin/ash
 #
+# major switch away from bash syntax
+# since it prints out much more devices, needed speedup
+# added much more debug output
+# added -d/dev/sdx -d/sdy1 parameter
+# added --no-floppy parameter
+# only use fdisk if needed
+# checks if /proc and /sys are mounted
+
+#
 # New header by Karl Reimer Godt, September 2014
-  _TITLE_="pup_probepart8"
+  _TITLE_="pup_probepart9"
 _VERSION_=1.0omega
 _COMMENT_="$_TITLE_:Puppy Linux shell script [to TODO here]"
 
@@ -27,32 +36,29 @@ _trap
 # End new header
 #
 
-
-###
-#
-###
-
 DEBUGX=
 DEBUG=
 trap "exit 1" HUP INT QUIT KILL TERM
-echo "$0:DEBUG='$DEBUG'" >&2
+_debug "$0:DEBUG='$DEBUG'"
 
 OUT=/dev/null;ERR=$OUT
 
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.1'
+Version='1.9.1'
 
-usage(){
+_usage(){
 USAGE_MSG="
 $0 [ PARAMETERS ]
 
-example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+example usage : DEBUG=1 probepart -d/dev/sdc /dev/sdd1 -m
 
 PARAMETERS:
 -V|--version : showing version information
--H|--help : show this usage information
+-H|--help    : show this usage information
+--no-floppy  : do not start floppy engine
+-d : only show partitions of device or only partition
 
 -b   : show size in bits
 -B   : Bytes
@@ -76,12 +82,13 @@ Without one of the above parameters it is the value found in
 
 $2
 "
+USAGE_MSG=`gettext "$USAGE_MSG"`
 echo "$USAGE_MSG"
 exit $1
 }
 
 __deprecated_get_options__(){
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && _usage 0
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ##
@@ -106,8 +113,9 @@ SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-k
 }
 
 _getopts(){
-[ "$DEVICE" ] && { echo "Omitting $*" >&2; return 1; }
-    local OPTION OPTIND OPTARG OPTERR
+[ "$DEVICE" ] && { _debug "Omitting $*"; return 1; }
+    local OPTION OPTARG OPTERR
+    local OPTIND=1
 getopts d:: OPTION
 case $OPTION in
 d) : DEVICE="$DEVICE\\|$OPTARG"
@@ -117,13 +125,14 @@ d) : DEVICE="$DEVICE\\|$OPTARG"
 esac
 : DEVICE=`echo "$DEVICE" | sed 's!/dev/!!g;s!^\\\*!!;s!^|*!!;s!|*$!!'`
 DEVICE=${DEVICE##*/}
-echo "DEVICE='$DEVICE'" >&2
+_debug "DEVICE='$DEVICE'"
+return 0
 }
 
 SIZE_FACTOR=1
 while [ $# -gt 0 ]; do
 case $1 in
-*help|-H|-h) usage 0;;
+*help|-H|-h) _usage 0;;
 *version|-V) echo "$0 -version $Version";exit 0;;
 -?ignore*floppy|-?no*floppy) NO_FLOPPY=1;;
 -b)SIZE_FACTOR=1;;
@@ -149,7 +158,7 @@ done
 
 _do_disktype(){
     if test "$NO_FLOPPY"; then
-    case $1 in fd*) echo "skipped";return 0;;esac
+    case $1 in fd*) _debug "$1 skipped";return 0;;esac
     fi
     disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
 }
@@ -191,7 +200,7 @@ _get_filesystem(){
      :
     ;;
     esac
-    [ "$FSTYPE" ]  || FSTYPE=unknown
+    [ "$FSTYPE" ] || FSTYPE=unknown
 }
 
 _do_cddetect(){
@@ -237,19 +246,33 @@ _get_parted(){ # launches floppy engine
  parted -l
 }
 
+mountpoint $Q /proc >>$OUT || _exit 2 "/proc not mounted."
+mountpoint $Q /sys  >>$OUT || _exit 2 "/sys not mounted."
+
 while read maj min drive rest; do
 [ "$maj" ]   || continue
 [ "$min" ]   || continue
 [ "$drive" ] || continue
 # [ "$DEVICE" ] && { case $drive in ${DEVICE##*/}*) :;;*) continue;; esac; }
-[ "$DEVICE" ] && { case $DEVICE in *[0-9]) case $drive in ${DEVICE}) : echo 1 ok; :;;*) : echo 2 cont; continue;; esac;; *) case $drive in ${DEVICE}*) : echo 3 ok; :;;*) : echo 4 cont; continue;; esac;; esac; }
+[ "$DEVICE" ] && {
+	case $DEVICE in
+	*[0-9])
+		case $drive in
+		${DEVICE}) : echo 1 ok; :;;
+		*) : echo 2 cont; continue;;
+		esac;;
+	*)	case $drive in
+		${DEVICE}*) : echo 3 ok; :;;
+		*) : echo 4 cont; continue;;
+		esac;;
+	esac; }
 [ -f /sys/class/block/$drive/size ] || continue
 _debugx "Step 1"
 SIZE='';FSTYPE='';
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
 [ "$SIZE" = $((2*512*8)) ] && { _get_fdisk
-SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));
-                                      FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+	SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));
+	FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 _debugx "Step 2"
@@ -284,6 +307,6 @@ esac
 
 done </proc/diskstats
 
-echo "$0:END" >&2
-# Very End of this file 'sbin/probepart7' #
+_debug "$0:END"
+# Very End of this file 'sbin/probepart9' #
 ###END###

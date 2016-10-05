@@ -1,5 +1,8 @@
 #!/bin/bash
-#
+# bash for [[ A =~ syntax
+# major switch to use /proc/diskstats instead /proc/partitions
+# prints also unused loop, ram and raid devices
+
 # New header by Karl Reimer Godt, September 2014
   _TITLE_="pup_probepart7"
 _VERSION_=1.0omega
@@ -9,13 +12,13 @@ MY_SELF="/sbin/probepart7"
 MY_PID=$$
 
 test -f /etc/rc.d/f4puppy5 && {
-[ "$HAVE_F4PUPPY5" ] || source /etc/rc.d/f4puppy5
+[ "$HAVE_F4PUPPY5" ] || . /etc/rc.d/f4puppy5
 
 ADD_PARAMETER_LIST=""
 ADD_PARAMETERS=""
 _provide_basic_parameters
 
-TWO_HELP=''; TWO_VERSION=''; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
+TWO_HELP='1'; TWO_VERSION='1'; TWO_VERBOSE=''; TWO_DEBUG=''; ## Set to anything if code requires further down (ie. custom usage or version message)
 ADD_HELP_MSG="$_COMMENT_"
 _parse_basic_parameters "$@"
 [ "$DO_SHIFT" ] && [ ! "${DO_SHIFT//[[:digit:]]/}" ] && {
@@ -27,12 +30,6 @@ _trap
 # End new header
 #
 
-
-###
-#
-###
-
-
 trap "exit 1" HUP INT QUIT KILL TERM
 
 OUT=/dev/null;ERR=$OUT
@@ -40,17 +37,17 @@ OUT=/dev/null;ERR=$OUT
 [ "$DEBUG" ] && { OUT=/dev/stdout;ERR=/dev/stderr; }
 [ "$DEBUG" = "2" ] && set -x
 
-Version='1.1'
+Version='1.7'
 
-usage(){
+_usage(){
 USAGE_MSG="
 $0 [ PARAMETERS ]
 
-example usage : DEBUG=1 probepart -d/dev/sdc1 /dev/sdd1 -m
+example usage : probepart -m
 
 PARAMETERS:
 -V|--version : showing version information
--H|--help : show this usage information
+-H|--help    : show this usage information
 
 -b   : show size in bits
 -B   : Bytes
@@ -74,12 +71,13 @@ Without one of the above parameters it is the value found in
 
 $2
 "
+USAGE_MSG=`gettext "$USAGE_MSG"`
 echo "$USAGE_MSG"
 exit $1
 }
 
-deprecated_getopt(){
-[ "`echo "$1" | grep -wiE "help|\-H"`" ] && usage 0
+__deprecated_getopt__(){
+[ "`echo "$1" | grep -wiE "help|\-H"`" ] && _usage 0
 [ "`echo "$1" | grep -wiE "version|\-V"`" ] && { echo "$0 -version $Version";exit 0; }
 
 ##
@@ -106,7 +104,7 @@ SIZE_PARAM=`echo "$@" | grep -m1 -o -w -i -E '\-k|\-m|\-b|\-B|\-kb|\-mb|\-gb|\-k
 SIZE_FACTOR=1
 while [ $# -gt 0 ]; do
 case $1 in
-*help|-H) usage 0;;
+*help|-H|-h) _usage 0;;
 *version|-V) echo "$0 -version $Version";exit 0;;
 -b)SIZE_FACTOR=1;;
 -B)SIZE_FACTOR=8;;
@@ -128,13 +126,13 @@ shift
 done
 
 disktype_func(){
-    disktype /dev/"$1" 2>$ERR |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
+    disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap' |tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]'
 }
 
 filesystem_func(){
-    #[ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`  #+++2013-12-27 awful fd hack...
-    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>$ERR`
-    [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
+    #[ "$FSTYPE" = 'not inserted' ] && FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`  #+++2013-12-27 awful fd hack...
+    [ "$FSTYPE" ] || FSTYPE=`guess_fstype /dev/"$1" 2>>$ERR`
+    [ "$FSTYPE" = 'unknown' ] && { FSTYPE=`disktype /dev/"$1" 2>>$ERR |grep -iE 'file system|Swap|squashfs' | sed 's/Linux//'|tail -n1 |awk '{print $1}' |tr '[A-Z]' '[a-z]' | tr -d '[[:punct:]]'` || FSTYE='not inserted'; }
     [ "$FSTYPE" ] || FSTYPE=unknown
 }
 
@@ -157,17 +155,17 @@ SIZE='';FSTYPE='';
 #SIZE=$((`cat /sys/class/block/$drive/size`*512*8))  ##want bits
 [ -f /sys/class/block/$drive/size ] || continue
 read SIZE </sys/class/block/$drive/size && SIZE=$((SIZE*512*8)) || continue
-[ "$SIZE" = $((2*8*512)) ] && { SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
+[ "$SIZE" = $((2*8*512)) ] && {
+	SIZE=$((`echo "$FDISK" |grep -w "^/dev/$drive" | awk '{print $5}' |sed 's#[^[:digit:]]##g'`*2*512*8));
+	FSTYPE=`echo "$FDISK" |grep -w "^/dev/$drive" |cut -f7- -d ' '`; }
 SIZE=$((SIZE/SIZE_FACTOR))
 REMOVEABLE=0
 if [[ "${drive}" =~ '[0-9]' ]]; then
  if [ -d /sys/class/block/$drive/device ]; then
- #REMOVEABLE=`cat /sys/class/block/$drive/removable`
  read REMOVEABLE </sys/class/block/$drive/removable
  fi
  [ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
  filesystem_func "$drive"
- #echo "/dev/$drive|$SIZE|$FSTYPE"
   echo "/dev/$drive|$FSTYPE|$SIZE"
 elif [ -d /sys/class/block/$drive/device ]; then
  #REMOVEABLE=`cat /sys/class/block/$drive/removable`
@@ -176,7 +174,6 @@ elif [ -d /sys/class/block/$drive/device ]; then
  if [ "`cat /sys/class/block/$drive/device/type`" = 5 ]; then
  cddetect_func "$drive"
  filesystem_func "$drive"
- #echo "/dev/$drive|$SIZE|$FSTYPE"
  echo "/dev/$drive|$FSTYPE|$SIZE"
  fi;fi
 fi
@@ -187,7 +184,7 @@ __deprecated_sata_cd_drives_func__(){
 SATA_CD_DRIVES=`ls -1 /sys/class/block | grep -E -e '^sr[0-9]*|^scd[0-9]*'`
 while read drive; do
 [ "$drive" ] || continue            ##+++ edit1 if no cd drives attached
-[ -b /dev/$drive ] || continue  ##+++ edit1 further test if node correct
+[ -b /dev/$drive ] || continue      ##+++ edit1 further test if node correct
 SIZE='';FSTYPE='';
 SIZE=$((`cat /sys/class/block/$drive/size`*512*8))
 SIZE=$((SIZE/SIZE_FACTOR))
@@ -197,7 +194,6 @@ if [ -d /sys/class/block/$drive/device ]; then
 fi
 [ "$REMOVEABLE" = 0 ] || cddetect_func "$drive"
 filesystem_func "$drive"
-#echo "/dev/$drive|$SIZE|$FSTYPE"
  echo "/dev/$drive|$FSTYPE|$SIZE"
 done <<EOI
 $(echo "${SATA_CD_DRIVES}")
