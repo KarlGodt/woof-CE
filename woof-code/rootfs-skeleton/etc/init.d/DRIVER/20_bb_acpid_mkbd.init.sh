@@ -2,9 +2,13 @@
 #* Karl Reimer Godt in June 2012
 #* usual Puppy license
 Version='1.1 Puppy_Linux_Macpup_Foxy3 KRG'
-Version='2.2 Puppy_Linux_Macpup_Foxy3 KRG'
+Version='2.3 Puppy_Linux_Macpup_Foxy3 KRG'
 
 . /etc/rc.d/f4puppy5
+
+INFO=1
+NOTICE=1
+WARN=1
 
 #* Variables
  ACPID_BIN=`which acpid`
@@ -13,7 +17,7 @@ Version='2.2 Puppy_Linux_Macpup_Foxy3 KRG'
 # REM : Help message
  _usage(){
 MSG="
-$0 [start|stop]
+$0 [start|stop|status]
 Starts busybox acpid daemon
 and triggers events of keyboard keys
 mapped in  '\$Map_file'
@@ -28,8 +32,8 @@ $2
 fi
 MSG=`gettext "$MSG"`
 echo "$MSG"
-[ "$DISPLAY" ] && xmessage -bg blue1 "$MSG
-"
+[ "$DISPLAY" ] && xmessage -bg lightblue1 "$MSG
+" &
 exit $1
 }
 
@@ -137,6 +141,28 @@ __old__too__(){
  devKBD_EVENTS=`sed -n '/Name=/,/Handlers=/p' /proc/bus/input/devices | sed 's!Handlers=.*!&\n__DELIM__!' | tr -d '\n' | sed 's!__DELIM__!\n!g' | grep -v -i -E 'mouse|pcspkr|beep' | grep -o 'Handlers=kbd.*'`
 }
 
+_check_if_running(){
+set --
+ [ "$event_file" ]       && set - "$event_file" $*
+ [ "$proc_event_file" ]  && set - -e "$proc_event_file" $*
+ [ "$Config_directory" ] && set - -c "$Config_directory" $*
+ [ "$Log_file" ]         && set - -l "$Log_file" $*
+ [ "$Pid_file" ]         && set - -p "$Pid_file" $*
+ [ "$Map_file" ]         && set - -M "$Map_file" $*
+ [ "$Action_file" ]      && set - -a "$Action_file" $*
+ps | grep "$ACPID_BIN" | grep -e "$*" | grep $Q -v 'grep'
+}
+
+_check_button_module(){
+_test_frs /proc/modules || return 2
+modprobe -l | grep $Q -wF 'button.ko'
+if test $? = 0; then
+ grep $Q -w '^button' /proc/modules
+else
+ return 1
+fi
+}
+
 case $1 in
 
  *status)
@@ -150,10 +176,11 @@ case $1 in
  [ "$Action_file" ]      && set - -a "$Action_file" $*
 
  echo "Status of acpid: "
- if ps | grep -e "$*" | grep -v 'grep'; then
+ if ps | grep "$ACPID_BIN" | grep -e "$*" | grep $Q -v 'grep'; then
+  echo " acpid running."
   true
  else
-  echo " acpid not running"
+  echo " acpid not running."
   false
  fi
  exit $?
@@ -228,9 +255,14 @@ EoI
  [ "$Map_file" ]         && set - -M "$Map_file" $*
  [ "$Action_file" ]      && set - -a "$Action_file" $*
 
- if ps | grep -e "$*" | grep $Q -v 'grep'; then
+ if ps | grep "$ACPID_BIN" | grep -e "$*" | grep $Q -v 'grep'; then
   echo "Already running."
   exit 1
+ fi
+ if _check_button_module; then
+  :
+ else
+  _warn "Hardware power button driver not loaded."
  fi
 
  test -s "$Log_file" && _log_rotate "$Log_file"
@@ -243,7 +275,7 @@ EoI
  #grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
  #_debug "grepP='$grepP'"
  echo -n "Starting of '$ACPID_BIN' :"
- ps | grep "$ACPID_BIN" | grep -e "$*" || echo FAILED
+ ps | grep "$ACPID_BIN" | grep -e "$*" | grep -v 'grep' || echo FAILED
 
  test -s "$Log_file" && cat "$Log_file"
  _check_cpu_usage $* &
@@ -330,7 +362,7 @@ EoI
 
  #grepP=`echo "$*" | sed 's/-/\\\\\-/g'`
  #_debug "grepP='$grepP'"
- ps | grep "$ACPID_BIN" | grep $Q -e "$*" || { _notice "'$ACPID_BIN' '$*' not running"; exit 20; }
+ ps | grep "$ACPID_BIN" | grep -e "$*" | grep $Q -v grep || { _notice "'$ACPID_BIN' '$*' not running."; exit 20; }
 
 while read onePID rest_
 do
@@ -343,10 +375,10 @@ do
  done
 
 done <<EoI
-`ps | grep "$ACPID_BIN" | grep "$grepP"`
+`ps | grep "$ACPID_BIN" | grep -e "$*" | grep -v grep`
 EoI
 
- ps | grep "$ACPID_BIN" | grep $Q -e "$*" && {
+ ps | grep "$ACPID_BIN" | grep -e "$*" | grep $Q -v 'grep' && {
                _warn "FAILED to stop '$ACPID_BIN' '$*'"
   true; } || { _info "Stopped '$ACPID_BIN' '$*'"; }
 
@@ -354,7 +386,7 @@ EoI
 
  ;;
 
- "") _usage 1 "Need Parameter start,stop,help,version.";;
+ "") _usage 1 "Need Parameter start,stop,status,help,version.";;
  *) _usage 1 "Unknown Parameter '$1' . Try '$0 help' .";;
  esac
 
