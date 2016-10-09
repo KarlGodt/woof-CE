@@ -178,16 +178,16 @@ echo "$0:'$*'" >&2
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 PROFILES_DIR='/etc/network-wizard/wireless/profiles'
-[ -d $PROFILES_DIR ] || mkdir $VERB -p $PROFILES_DIR
+[ -d "$PROFILES_DIR" ] || mkdir $VERB -p "$PROFILES_DIR"
 # wpa_supplicant.conf files
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 WPA_SUPP_DIR='/etc/network-wizard/wireless/wpa_profiles'
-[ -d $WPA_SUPP_DIR ] || mkdir $VERB -p $WPA_SUPP_DIR
+[ -d "$WPA_SUPP_DIR" ] || mkdir $VERB -p "$WPA_SUPP_DIR"
 # configuration data for wireless interfaces (like if they support wpa)
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'
-[ -d $WLAN_INTERFACES_DIR ] || mkdir $VERB -p $WLAN_INTERFACES_DIR
+[ -d "$WLAN_INTERFACES_DIR" ] || mkdir $VERB -p "$WLAN_INTERFACES_DIR"
 
 # a file where WPA-supporting modules not included in the default list can be added
 Extra_WPA_Modules_File='/etc/network-wizard/wpa_modules'
@@ -199,7 +199,6 @@ BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 ## I get "phy0 -> rt2x00lib_request_firmware: Error - Failed to request Firmware."
 ## from dmesg, both busybox and regular ifconfig
 ## Dropped the relevant rt2860.bin into /lib/firmware/ directory, still same error.
-
 KERNEL=`uname -r`
 #K_VERSION=`echo "$KERNEL" | awk -F '[_.-]' '{print $1}'`
 #K_PATCHLEVEL=`echo "$KERNEL" | awk -F '[_.-]' '{print $2}'`
@@ -209,10 +208,15 @@ KERNEL=`uname -r`
 IFS='.-_' read K_VERSION K_PATCHLEVEL K_SUBLEVEL K_EXTRALEVEL K_EXTRANAME<<EOI
 `echo "$KERNEL"`
 EOI
-[ "${K_EXTRALEVEL//[[:digit:]]/}" ] && K_EXTRALEVEL=0
-
-echo $K_VERSION $K_PATCHLEVEL $K_SUBLEVEL $K_EXTRALEVEL $K_EXTRANAME
-
+[ "${K_EXTRALEVEL//[[:digit:]]/}" ] && { K_EXTRANAME=${K_EXTRALEVEL}${K_EXTRANAME};K_EXTRALEVEL=0; }
+(
+echo KERNEL=$KERNEL
+echo K_VERSION=$K_VERSION
+echo K_PATCHLEVEL=$K_PATCHLEVEL
+echo K_SUBLEVEL=$K_SUBLEVEL
+echo K_EXTRALEVEL=$K_EXTRALEVEL
+echo K_EXTRANAME=$K_EXTRANAME
+) >&2
 #=============================================================================
 # set dhcpcd options
 
@@ -272,7 +276,7 @@ GWAY=       # -G, --nogateway
 setupDHCP()
 {
 
-        echo "'$0':function setupDHCP:'$*' start"
+        _debug "setupDHCP:'$*' start"
 
         # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
         local MAX_TIME='30'
@@ -380,7 +384,7 @@ setupDHCP()
                 killDhcpcd "$INTERFACE"
         fi
 
-echo "'$0':function setupDHCP:'$*' end"
+_debug "setupDHCP:'$*' end"
         return $HAS_ERROR
 } #end of setupDHCP
 
@@ -388,7 +392,7 @@ echo "'$0':function setupDHCP:'$*' end"
 showProfilesWindow()
 {
 
-echo "'$0':function showProfilesWindow:'$*' start"
+_debug "showProfilesWindow:'$*' start"
 
         INTERFACE="$1"
         # Dougal: find driver and set WPA driver from it
@@ -450,7 +454,7 @@ echo "'$0':function showProfilesWindow:'$*' start"
                                 ;;
                         "20" ) # Save
                                 assembleProfileData
-                                saveProfiles
+                                [ $? =  0 ] && saveProfiles
                                 refreshProfilesWindowInfo
                                 loadProfileData "${CURRENT_PROFILE}"
                                 ;;
@@ -479,33 +483,33 @@ echo "'$0':function showProfilesWindow:'$*' start"
                         ##+ only get shaded when loading a profile!
                         "50" ) # No encryption
                                 PROFILE_ENCRYPTION="Open"
-                                #ENABLE_WEP_BUTTON='false'
-                                #ENABLE_WPA_BUTTON='false'
-                                #ENABLE_WPA2_BUTTON='false'
-                                #ENABLE_OPEN_BUTTON='true'
+                                ENABLE_WEP_BUTTON='false'
+                                ENABLE_WPA_BUTTON='false'
+                                ENABLE_WPA2_BUTTON='false'
+                                ENABLE_OPEN_BUTTON='true'
                                 ;;
                         "51" ) # WEP
                                 PROFILE_ENCRYPTION="WEP"
-                                #ENABLE_WEP_BUTTON='true'
-                                #ENABLE_WPA_BUTTON='false'
-                                #ENABLE_WPA2_BUTTON='false'
-                                #ENABLE_OPEN_BUTTON='false'
+                                ENABLE_WEP_BUTTON='true'
+                                ENABLE_WPA_BUTTON='false'
+                                ENABLE_WPA2_BUTTON='false'
+                                ENABLE_OPEN_BUTTON='false'
                                 ;;
                         "52" ) # WPA
                                 PROFILE_ENCRYPTION="WPA"
                                 PROFILE_WPA_TYPE=""
-                                #ENABLE_WEP_BUTTON='false'
-                                #ENABLE_WPA_BUTTON='true'
-                                #ENABLE_WPA2_BUTTON='false'
-                                #ENABLE_OPEN_BUTTON='false'
+                                ENABLE_WEP_BUTTON='false'
+                                ENABLE_WPA_BUTTON='true'
+                                ENABLE_WPA2_BUTTON='false'
+                                ENABLE_OPEN_BUTTON='false'
                                 ;;
                         "53" ) # WPA2
                                 PROFILE_ENCRYPTION="WPA2"
                                 PROFILE_WPA_TYPE="2"
-                                #ENABLE_WEP_BUTTON='false'
-                                #ENABLE_WPA_BUTTON='false'
-                                #ENABLE_WPA2_BUTTON='true'
-                                #ENABLE_OPEN_BUTTON='false'
+                                ENABLE_WEP_BUTTON='false'
+                                ENABLE_WPA_BUTTON='false'
+                                ENABLE_WPA2_BUTTON='true'
+                                ENABLE_OPEN_BUTTON='false'
                                 ;;
                         load) # If it wasn't any other button, it must be a profile button
                                 PROFILE_TITLES="$( echo "$PROFILE_TITLES" | grep -v \"#NEW#\" )"
@@ -516,30 +520,30 @@ echo "'$0':function showProfilesWindow:'$*' start"
                 esac
 
         done
-echo "'$0':function showProfilesWindow:'$*' end"
+_debug "showProfilesWindow:'$*' end"
         return 1
 } # end showProfilesWindow
 
 #=============================================================================
-#giveNoWPADialog(){
-        #export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
- #<vbox>
-  #<pixmap icon_size=\"6\">
-      #<input file stock=\"gtk-dialog-info\"></input>
-    #</pixmap>
-  #<text>
-    #<label>${L_TEXT_No_Wpa_p1}${INTMODULE}${L_TEXT_No_Wpa_p2}</label>
-  #</text>
-  #<hbox>
-    #<button ok></button>
-  #</hbox>
- #</vbox>
-#</window>"
+__giveNoWPADialog(){
+        export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
+ <vbox>
+  <pixmap icon_size=\"6\">
+      <input file stock=\"gtk-dialog-info\"></input>
+    </pixmap>
+  <text>
+    <label>${L_TEXT_No_Wpa_p1}${INTMODULE}${L_TEXT_No_Wpa_p2}</label>
+  </text>
+  <hbox>
+    <button ok></button>
+  </hbox>
+ </vbox>
+</window>"
 
-        #gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
-        #clean_up_gtkdialog NETWIZ_No_WPA_Dialog
-        #unset NETWIZ_No_WPA_Dialog
-#}
+        gtkdialog3 --program NETWIZ_No_WPA_Dialog >$OUT 2>&1
+        clean_up_gtkdialog NETWIZ_No_WPA_Dialog
+        unset NETWIZ_No_WPA_Dialog
+}
 
 giveNoWPADialog(){
         echo "Now NETWIZ_No_WPA_Dialog..."
@@ -616,13 +620,29 @@ giveNoWPADialog(){
         echo "$ENTRY1:$ENTRY2" >> $Extra_WPA_Modules_File
         CARD_WPA_DRV="$ENTRY2"
 
-        echo "'$0':function giveNoWPADialog:'$*' end"
+        _debug "giveNoWPADialog:'$*' end"
 } #END giveNoWPADialog
 
 #=============================================================================
 refreshProfilesWindowInfo()
 {
+	_debug "showProfilesWindow:$*"
+	#called by showProfilesWindow
         PROFILE_TITLES=$(grep -F 'TITLE=' ${PROFILES_DIR}/*.conf | cut -d= -f2 | tr -d '"' | tr " " "_" )
+        # KRG: check duplicate tiltles and emit warning
+        PROFILE_TITLES=`echo "$PROFILE_TITLES" | sed '/^$/d'`
+        for TITLE in $PROFILE_TITLES; do
+        #grep "^TITLE=\"$TITLE\"" ${PROFILES_DIR}/*.conf >&2
+        FILES=`grep -l "^TITLE=\"$TITLE\"" ${PROFILES_DIR}/*.conf`
+        NR=`echo "$FILES" | wc -l`
+         if test "$NR" -gt 1; then
+	(
+         echo "WARNING: $TITLE is same in"
+         echo "$FILES"
+         ) >&2
+         fi
+        done
+        _debug "showProfilesWindow:$*"
 } # end refreshProfilesWindowInfo
 
 #=============================================================================
@@ -684,12 +704,12 @@ buildProfilesWindow()
                 DEFAULT_WPA_AP_SCAN_H="<default>${PROFILE_WPA_AP_SCAN_H}</default>"
         fi
 
-        [ "$PROFILE_TITLE" ] && DEFAULT_TITLE="<default>\"${PROFILE_TITLE}\"</default>"
-        [ "$PROFILE_ESSID" ] && DEFAULT_ESSID="<default>\"${PROFILE_ESSID}\"</default>"
-        [ "$PROFILE_KEY" ] && DEFAULT_KEY="<default>\"${PROFILE_KEY}\"</default>"
-        [ "$PROFILE_FREQ" ] && DEFAULT_FREQ="<default>${PROFILE_FREQ}</default>"
+        [ "$PROFILE_TITLE" ]   &&   DEFAULT_TITLE="<default>\"${PROFILE_TITLE}\"</default>"
+        [ "$PROFILE_ESSID" ]   &&   DEFAULT_ESSID="<default>\"${PROFILE_ESSID}\"</default>"
+        [ "$PROFILE_KEY" ]     &&     DEFAULT_KEY="<default>\"${PROFILE_KEY}\"</default>"
+        [ "$PROFILE_FREQ" ]    &&    DEFAULT_FREQ="<default>${PROFILE_FREQ}</default>"
         [ "$PROFILE_CHANNEL" ] && DEFAULT_CHANNEL="<default>${PROFILE_CHANNEL}</default>"
-        [ "$PROFILE_AP_MAC" ] && DEFAULT_AP_MAC="<default>${PROFILE_AP_MAC}</default>"
+        [ "$PROFILE_AP_MAC" ]  &&  DEFAULT_AP_MAC="<default>${PROFILE_AP_MAC}</default>"
 
         buildProfilesWindowButtons
 
@@ -709,7 +729,7 @@ buildProfilesWindow()
                         setNoEncryptionFields
                         ;;
         esac
-echo "running NETWIZ_Profiles_Window..."
+echo "exporting NETWIZ_Profiles_Window..."
         export NETWIZ_Profiles_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
         <hbox>
@@ -878,21 +898,21 @@ echo "running NETWIZ_Profiles_Window..."
         </hbox>
 </vbox>
 </window>"
-echo "'$0':function buildProfilesWindow:'$*' end"
+_debug "buildProfilesWindow:'$*' end"
 } # end buildProfilesWindow
 
 #=============================================================================
 setNoEncryptionFields()
 {
-        echo "'$0':function setNoEncryptionFields:'$*' start"
+        _debug "setNoEncryptionFields:'$*' start"
         ENCRYPTION_FIELDS="$ADVANCED_FIELDS"
-        echo "'$0':function setNoEncryptionFields:'$*' end"
+        _debug "setNoEncryptionFields:'$*' end"
 }
 
 #=============================================================================
 setWepFields()
 {
-        echo "'$0':function setWepFields:'$*' start"
+        _debug "setWepFields:'$*' start"
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
@@ -906,13 +926,13 @@ setWepFields()
 </hbox>
 ${ADVANCED_FIELDS}
 "
-echo "'$0':function setWepFields:'$*' end"
+_debug "setWepFields:'$*' end"
 } # end setWepFields
 
 #=============================================================================
 setWpaFields()
 {
-        echo "'$0':function setWpaFields:'$*' start"
+        _debug "setWpaFields:'$*' start"
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
@@ -970,7 +990,7 @@ setWpaFields()
         </entry>
 </hbox>
 "
-echo "'$0':function setWpaFields:'$*' end"
+_debug "setWpaFields:'$*' end"
 } # end setWpaFields
 
 #=============================================================================
@@ -988,7 +1008,7 @@ echo "'$0':function setWpaFields:'$*' end"
 
 setAdvancedFields()
 {
-        echo "'$0':function setAdvancedFields:'$*' start"
+        _debug "setAdvancedFields:'$*' start"
         if [ ! "$ADVANCED" ] ; then
                 ADVANCED_LABEL="$L_LABEL_Advanced"
                 ADVANCED_ICON="gtk-add"
@@ -1028,28 +1048,33 @@ setAdvancedFields()
         </entry>
 </hbox>"
         fi
-        echo "'$0':function setAdvancedFields:'$*' end"
+        _debug "setAdvancedFields:'$*' end"
 } #end setAdvancedFields
 
 #=============================================================================
 buildProfilesWindowButtons()
 {
-        echo "'$0':function buildProfilesWindowButtons:'$*' start"
+        _debug "buildProfilesWindowButtons:'$*' start"
         PROFILE_BUTTONS=""
-
+        #echo "PROFILE_FILE='$PROFILE_FILE'"
+        if test -s "$PROFILE_FILE"; then
+         defPROFILE=`grep -F "TITLE=" "$PROFILE_FILE" | cut -d= -f2 | tr -d '"'`
+         test "$defPROFILE" && PROFILE_BUTTONS="<item>${defPROFILE}</item>"
+        fi
         for PROFILE in $PROFILE_TITLES
         do
-    if [ "$PROFILE" != "#NEW#" ] ; then
+    case $PROFILE in '#NEW#') continue;; esac
+    test "$PROFILE" = "$defPROFILE" && continue
                 PROFILE_BUTTONS="${PROFILE_BUTTONS}<item>${PROFILE}</item>"
-        fi
   done
-  echo "'$0':function buildProfilesWindowButtons:'$*' end"
+  #echo "PROFILE_BUTTONS='$PROFILE_BUTTONS'"
+  _debug "buildProfilesWindowButtons:'$*' end"
 } # end buildProfileWindowButtons
 
 #=============================================================================
 setupNewProfile ()
 {
-        echo "'$0':function setupNewProfile:'$*' start"
+        _debug "setupNewProfile:'$*' start"
         PROFILE_TITLE=""
         PROFILE_ESSID=""
         PROFILE_MODE="managed"
@@ -1079,15 +1104,15 @@ setupNewProfile ()
         PROFILE_TITLES="$PROFILE_TITLES
 #NEW#"
         CURRENT_PROFILE="#NEW#"
-        echo "'$0':function setupNewProfile:'$*' end"
 
+_debug "setupNewProfile:'$*' end"
 } # end setupNewProfile
 
 #=============================================================================
 # this is code from loadPrifileData, moved here so can be used at boot...
 # (rather daft all this, should change profiles to contain PROFILE_ names)
 assignProfileData(){
-        echo "'$0':function assignProfileData:'$*' start"
+        _debug "assignProfileData:'$*' start"
         # now assign to PROFILE_ names...
         PROFILE_WPA_DRV="$WPA_DRV"
         PROFILE_WPA_TYPE="$WPA_TYPE"
@@ -1127,31 +1152,58 @@ assignProfileData(){
                 ENABLE_WPA2_BUTTON='false'
                 ENABLE_OPEN_BUTTON='false'
         fi
-        echo "'$0':function assignProfileData:'$*' end"
+        _debug "assignProfileData:'$*' end"
 } # end assignProfileData
 
 #=================================================================n============
 loadProfileData()
 {
-        echo "'$0':function loadProfileData:'$*' start"
+        _debug "loadProfileData:'$*' start"
         # Dougal: added "SECURE" param, increment the "-A" below
         PROFILE_TITLE="$1"
         #PROFILE_DATA=`grep -A 11 -E "TITLE[0-9]+=\"${PROFILE_TITLE}\"" /etc/WAG/profile-conf`
         ## Dougal: I'm not sure about the name -- maybe need to change underscores to spaces?
         PROFILE_FILE=$( grep -l "TITLE=\"${PROFILE_TITLE}\"" ${PROFILES_DIR}/*.conf | head -n1 )
         # add failsafe, in case there is none
-        [ "$PROFILE_FILE" ] || return
+        [ "$PROFILE_FILE" ] || return 2
+        [ -s "$PROFILE_FILE" ] || return 3
         # Dougal: source config file
         . "$PROFILE_FILE"
         # now assign to PROFILE_ names...
         assignProfileData
-        echo "'$0':function loadProfileData:'$*' end"
+        _debug "loadProfileData:'$*' end"
 } # end loadProfileData
+
+
+_check_if_title_in_use()
+{
+ls "${PROFILES_DIR}"/*.conf 1>>$OUT 2>>$ERR
+if test $? = 0; then
+ grep $Q "^TITLE=\"$PROFILE_TITLE\"" "${PROFILES_DIR}"/*.conf
+ if test $? = 0; then
+  xmessage -bg red1 -title "$0" "Profile name '$PROFILE_TITLE' already in use." &
+  true
+ else
+  false
+ fi
+else
+ false
+fi
+RV=$?
+#echo RV=$RV
+return $RV
+}
 
 #=============================================================================
 assembleProfileData()
 {
-        echo "'$0':function assembleProfileData:'$*' start"
+        _debug "assembleProfileData:'$*' start"
+
+        PROFILE_TITLE="$(echo "$PROFILE_TITLE" | tr ' ' '_')"
+        # (BASHISM!)
+        #PROFILE_TITLE=${PROFILE_TITLE// /_}
+	_check_if_title_in_use && return 1
+
         if [ "$PROFILE_MODE_A" = "true" ] ; then
                 PROFILE_MODE="ad-hoc"
         else
@@ -1186,10 +1238,6 @@ assembleProfileData()
                         ;;
         esac
 
-        PROFILE_TITLE="$(echo "$PROFILE_TITLE" | tr ' ' '_')"
-        # (BASHISM!)
-        #PROFILE_TITLE=${PROFILE_TITLE// /_}
-
         NEW_PROFILE_DATA="TITLE=\"${PROFILE_TITLE}\"
         WPA_DRV=\"${PROFILE_WPA_DRV}\"
         WPA_TYPE=\"$PROFILE_WPA_TYPE\"
@@ -1203,25 +1251,31 @@ assembleProfileData()
         CHANNEL=\"${PROFILE_CHANNEL}\"
         AP_MAC=\"${PROFILE_AP_MAC}\"
         "
-        echo "'$0':function assembleProfileData:'$*' end"
+        _debug "assembleProfileData:'$*' end"
+return 0
 } # end assembleProfileData
 
 #=============================================================================
 deleteProfile(){
-        echo "'$0':function deleteProfile:'$*' start"
+        _debug "deleteProfile:'$*' start"
         # skip the templates...
         case $PROFILE_TITLE in autoconnect|template) return ;; esac
-        if [ -s "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf" ] ; then
-                rm "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+        PROFILE_FILE="${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_MODE}.${PROFILE_SECURE}.${PROFILE_ENCRYPTION}.conf"
+        if [ -s "${PROFILE_FILE}" ] ; then
+             rm "${PROFILE_FILE}"
         fi
-        echo "'$0':function deleteProfile:'$*' end"
+        WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_MODE}.${PROFILE_SECURE}.${PROFILE_ENCRYPTION}.conf"
+        if [ -s "${WPA_CONF}" ] ; then
+             rm "${WPA_CONF}"
+        fi
+        _debug "deleteProfile:'$*' end"
 } # end deleteProfile
 
 #=============================================================================
 ## Dougal: we don't need all the mess here if not using one config file...
 saveProfiles ()
 {
-        echo "'$0':function saveProfiles:'$*' start"
+        _debug "saveProfiles:'$*' start"
         CURRENT_PROFILE=$( echo "$NEW_PROFILE_DATA" | grep -F "TITLE=" | cut -d= -f2 | tr -d '"' )
         # Dougal: the templates aren't named after the mac address... (none)
         case $CURRENT_PROFILE in autoconnect|template) return ;; esac
@@ -1229,22 +1283,24 @@ saveProfiles ()
         if [ -z "$PROFILE_AP_MAC" ] ; then
           #giveNoNetworkDialog
           giveErrorDialog "$L_MESSAGE_Bad_Profile"
-          return
+          return 2
         fi
-        echo "$NEW_PROFILE_DATA" > "${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+        PROFILE_FILE="${PROFILES_DIR}/${PROFILE_AP_MAC}.${PROFILE_MODE}.${PROFILE_SECURE}.${PROFILE_ENCRYPTION}.conf"
+        echo "$NEW_PROFILE_DATA" > "${PROFILE_FILE}"
         # create wpa_supplicant config file
         case $PROFILE_ENCRYPTION in WPA|WPA2) saveWpaProfile ;; esac
-        echo "'$0':function saveProfiles:'$*' end"
+        _debug "saveProfiles:'$*' end"
 } # end saveProfiles
 
 #=============================================================================
 # A function to create an appropriate wpa_supplicant config, rather than use wpa_cli
 saveWpaProfile(){
-        echo "'$0':function saveWpaProfile:'$*' start"
+        _debug "saveWpaProfile:'$*' start"
         # first, get the WPA PSK (might have an error)
         getWpaPSK || return 1
 
-        WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+        #WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+        WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_MODE}.${PROFILE_SECURE}.${PROFILE_ENCRYPTION}.conf"
         if [ ! -e "$WPA_CONF" ] ; then
                 # copy template
                 cp $VERB -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
@@ -1255,25 +1311,25 @@ saveWpaProfile(){
 
         # need to change ap_scan, ssid and psk
         sed -i "s/ap_scan=.*/ap_scan=$PROFILE_WPA_AP_SCAN/" "$WPA_CONF"
-        sed -i "s/\Wssid=.*/    ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"
-        sed -i "s/\Wpsk=.*/     #psk=\"$ESCAPED_PHRASE\"\n      psk=$PSK/" "$WPA_CONF"
+        sed -i "s/\Wssid=.*/	ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"
+        sed -i "s/\Wpsk=.*/	#psk=\"$ESCAPED_PHRASE\"\n	psk=$PSK/" "$WPA_CONF"
         #sed -i "s/     psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"
-        echo "'$0':function saveWpaProfile:'$*' end"
+        _debug "saveWpaProfile:'$*' end"
         return 0
 } #end saveWpaProfile
 
 #=============================================================================
 # A function to get the psk from wpa_passphrase (moved out of useWpaSupplicant
 getWpaPSK(){
-        echo "'$0':function getWpaPSK:'$*' start"
+        _debug "getWpaPSK:'$*' start"
         # If key is not hex, then convert to hex
-        echo "$PROFILE_KEY" | grep -Eq "^[0-9a-fA-F]{64}$"
+        echo "$PROFILE_KEY" | grep $Q -E "^[0-9a-fA-F]{64}$"
         if [ $? -eq 0 ] ; then
                 PSK="$PROFILE_KEY"
         else
                 #KEY_SIZE=`echo "${PROFILE_KEY}" | wc -c`
                 KEY_SIZE=${#PROFILE_KEY}
-                if [ $KEY_SIZE -lt 8 ] || [ $KEY_SIZE -gt 64 ] ; then
+                if [ "$KEY_SIZE" -lt 8 ] || [ "$KEY_SIZE" -gt 64 ] ; then
                         giveErrorDialog "Error!
 Shared key must be either
 - ASCII between 8 and 63 characters
@@ -1297,7 +1353,7 @@ Shared key must be either
                         fi
                 fi #if [ $KEY_SIZE -lt 8 ] || [ $KEY_SIZE -gt 64 ] ; then
         fi #if [ $? -eq 0 ] ; then #check for hex
-        echo "'$0':function getWpaPSK:'$*' end"
+        _debug "getWpaPSK:'$*' end"
         return 0
 } # end getWpaPSK
 
@@ -1305,7 +1361,7 @@ Shared key must be either
 # A function that gives an error message using gtkdialog
 # $@: the dialog text
 giveErrorDialog(){
-        echo "'$0':function giveErrorDialog:'$*' start"
+        _debug "giveErrorDialog:'$*' start"
         # always echo it, too, for debug purposes
         echo "$@" >> $DEBUG_OUTPUT
         [ "$HAVEX" = "yes" ] || return
@@ -1327,36 +1383,36 @@ giveErrorDialog(){
         gtkdialog3 --program NETWIZ_ERROR_DIALOG #>/dev/null 2>&1
         clean_up_gtkdialog NETWIZ_ERROR_DIALOG
         unset NETWIZ_ERROR_DIALOG
-        echo "'$0':function giveErrorDialog:'$*' end"
+        _debug "giveErrorDialog:'$*' end"
 } #end giveErrorDialog
 
-#giveNoNetworkDialog(){
-        #export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
- #<vbox>
-  #<pixmap icon_size=\"6\">
-      #<input file stock=\"gtk-dialog-error\"></input>
-    #</pixmap>
-  #<text>
-    #<label>\"Error!
-#The profile had no network associated with it.
-#You must run a wireless scan and select a
-#network, then create a profile for it.\"</label>
-  #</text>
-  #<hbox>
-    #<button ok></button>
-  #</hbox>
- #</vbox>
-#</window>"
+__giveNoNetworkDialog(){
+        export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
+ <vbox>
+  <pixmap icon_size=\"6\">
+      <input file stock=\"gtk-dialog-error\"></input>
+    </pixmap>
+  <text>
+    <label>\"Error!
+The profile had no network associated with it.
+You must run a wireless scan and select a
+network, then create a profile for it.\"</label>
+  </text>
+  <hbox>
+    <button ok></button>
+  </hbox>
+ </vbox>
+</window>"
 
-        #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >$OUT 2>&1
-        #clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
-        #unset NO_NETWORK_ERROR_DIALOG
-#}
+        gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >$OUT 2>&1
+        clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
+        unset NO_NETWORK_ERROR_DIALOG
+}
 
 #=============================================================================
 useProfile ()
 {
-        echo "'$0':function useProfile:'$*' start"
+        _debug "useProfile:'$*' start"
         case $PROFILE_ENCRYPTION in
                 WPA|WPA2)
                         useWpaSupplicant wizard || return 1
@@ -1369,7 +1425,7 @@ useProfile ()
                         fi
                         ;;
         esac
-        echo "'$0':function useProfile:'$*' end"
+        _debug "useProfile:'$*' end"
 } # end useProfile
 
 #=============================================================================
@@ -1503,7 +1559,7 @@ clean_up_gtkdialog(){
 #=============================================================================
 useIwconfig ()
 {
-echo "'$0':function useIwconfig:'$*' start"
+_debug "useIwconfig:'$*' start"
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1524,18 +1580,20 @@ echo "'$0':function useIwconfig:'$*' start"
         #echo "X"
         #RUN_IWCONFIG=""
         # Dougal: re-order these a bit, to match order in wicd
-        [ "$PROFILE_MODE" ] && iwconfig "$INTERFACE" mode $PROFILE_MODE >> $DEBUG_OUTPUT 2>&1
-        [ "$PROFILE_ESSID" ] && iwconfig "$INTERFACE" essid "$PROFILE_ESSID" >> $DEBUG_OUTPUT 2>&1
-        [ "$PROFILE_CHANNEL" ] && iwconfig "$INTERFACE" channel $PROFILE_CHANNEL >> $DEBUG_OUTPUT 2>&1
-        [ "$PROFILE_AP_MAC" ] && iwconfig "$INTERFACE" ap $PROFILE_AP_MAC >> $DEBUG_OUTPUT 2>&1
-        [ "$PROFILE_NWID" ] && iwconfig "$INTERFACE" nwid $PROFILE_NWID >> $DEBUG_OUTPUT 2>&1
-        [ "$PROFILE_FREQ" ] && iwconfig "$INTERFACE" freq $PROFILE_FREQ >> $DEBUG_OUTPUT 2>&1
+        (
+        [ "$PROFILE_MODE" ]    && iwconfig "$INTERFACE" mode    $PROFILE_MODE
+        [ "$PROFILE_ESSID" ]   && iwconfig "$INTERFACE" essid  "$PROFILE_ESSID"
+        [ "$PROFILE_CHANNEL" ] && iwconfig "$INTERFACE" channel $PROFILE_CHANNEL
+        [ "$PROFILE_AP_MAC" ]  && iwconfig "$INTERFACE" ap      $PROFILE_AP_MAC
+        [ "$PROFILE_NWID" ]    && iwconfig "$INTERFACE" nwid    $PROFILE_NWID
+        [ "$PROFILE_FREQ" ]    && iwconfig "$INTERFACE" freq    $PROFILE_FREQ
         if [ "$PROFILE_KEY" ] ; then
-          iwconfig "$INTERFACE" key on >> $DEBUG_OUTPUT 2>&1
-          iwconfig "$INTERFACE" key $PROFILE_SECURE "$PROFILE_KEY" >> $DEBUG_OUTPUT 2>&1
+          iwconfig "$INTERFACE" key on
+          iwconfig "$INTERFACE" key $PROFILE_SECURE "$PROFILE_KEY"
         fi
         # Dougal: add increasing of rate for ath5k
-        case $INTMODULE in ath5k*) iwconfig "$INTERFACE" rate 11M >> $DEBUG_OUTPUT 2>&1 ;; esac
+        case $INTMODULE in ath5k*) iwconfig "$INTERFACE" rate 11M  ;; esac
+        ) >> $DEBUG_OUTPUT 2>&1
 
         #echo "X"
         if [ "$XPID" ] ;then
@@ -1543,7 +1601,7 @@ echo "'$0':function useIwconfig:'$*' start"
           clean_up_gtkdialog NETWIZ_Connecting_DIALOG
         fi
         unset NETWIZ_Connecting_DIALOG
-        echo "'$0':function useIwconfig:'$*' end"
+        _debug "useIwconfig:'$*' end"
         return 0
   #) | Xdialog --title "Puppy Ethernet Wizard" --progress "Saving profile" 0 0 3
 } # end useIwconfig
@@ -1605,7 +1663,7 @@ useWlanctl(){
           clean_up_gtkdialog NETWIZ_Connecting_DIALOG
         fi
         unset NETWIZ_Connecting_DIALOG
-        echo "'$0':function useWlanctl:'$*' end"
+        _debug "useWlanctl:'$*' end"
         return 0
   #) | Xdialog --title "Puppy Ethernet Wizard" --progress "Saving profile" 0 0 3
 } # end useWlanctl
@@ -1617,7 +1675,7 @@ useWlanctl(){
 # (times in wicd were 15, 3, 1 (sleep), +5 (if rescan) )
 validateWpaAuthentication()
 {
-        echo "'$0':function validateWpaAuthentication:'$*' start"
+        _debug "validateWpaAuthentication:'$*' start"
         # Max time we wait for connection to complete (+1 since loop checks at start)
         local MAX_TIME='31'
         # The max time after starting in which we allow the status to be "DISCONNECTED"
@@ -1625,11 +1683,11 @@ validateWpaAuthentication()
         START_TIME=$(date +%s)
         # The elapsed time since starting (calculated at the bottom of the loop)
         ELAPSED=0
-        while [ $ELAPSED -lt $MAX_TIME ] ; do
+        while [ "$ELAPSED" -lt $MAX_TIME ] ; do
                 sleep 1
                 # see if user aborted
                 if [ "$2" ] ; then
-                  pidof gtkdialog3 2>&1 |grep $Q "$2" || return 2
+                  pidof gtkdialog3 2>&1 |grep $Q -w "$2" || return 2
                 fi
                 # change to lower case, to make it more clear when displayed
                 RESULT=$(wpa_cli -i "$1" status 2>>$DEBUG_OUTPUT |grep 'wpa_state=' | tr A-Z a-z |tr '_' ' ')
@@ -1640,7 +1698,7 @@ validateWpaAuthentication()
                 case $RESULT in
                   *completed*) return 0 ;;
                   *disconnected*)
-                    if [ $ELAPSED -gt $MAX_DISCONNECTED_TIME ] ; then
+                    if [ "$ELAPSED" -gt $MAX_DISCONNECTED_TIME ] ; then
                       # Force a rescan to get wpa_supplicant moving again.
                       # Dougal: explanation from wicd:
                       # This works around authentication validation sometimes failing for
@@ -1660,20 +1718,21 @@ validateWpaAuthentication()
                 #sleep 1
                 ELAPSED=$(($(date +%s)-$START_TIME))
         done
-        echo "'$0':function validateWpaAuthentication:'$*' end"
+        _debug "validateWpaAuthentication:'$*' end"
         return 1
 } # end validateWpaAuthentication
 
 #=============================================================================
 useWpaSupplicant ()
 {
-        echo "'$0':function useWpaSupplicant:'$*' start"
+        _debug "useWpaSupplicant:'$*' start"
         # add an option for running some parts only from the wizard
         if [ "$1" = "wizard" ] ; then
                 # Dougal: moved all below code to a function
                 getWpaPSK || return 1
                 # Dougal: make wpa_supplicant config file match mac address
-                WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+                #WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf"
+                WPA_CONF="${WPA_SUPP_DIR}/${PROFILE_AP_MAC}.${PROFILE_MODE}.${PROFILE_SECURE}.${PROFILE_ENCRYPTION}.conf"
                 if [ ! -e "$WPA_CONF" ] ; then
                         # copy template
                         #cp $VERB -a "${WPA_SUPP_DIR}/wpa_supplicant$PROFILE_WPA_TYPE.conf" "$WPA_CONF"
@@ -1736,7 +1795,7 @@ $L_MESSAGE_No_Wpaconfig_p2"
                 case $INTMODULE in ath5k*) iwconfig "$INTERFACE" rate 11M >> $DEBUG_OUTPUT 2>&1;; esac
                 echo "$L_ECHO_Initializing_Wpa"
                 wpa_supplicant -i "$INTERFACE" -D "$PROFILE_WPA_DRV" -c "$WPA_CONF" -B >> $DEBUG_OUTPUT 2>&1
-
+                [ $? = 0 ] || echo end
                 echo "Waiting for connection... " >> $DEBUG_OUTPUT 2>&1
 
                 echo "trying to connect"
@@ -1860,7 +1919,7 @@ $L_MESSAGE_No_Wpaconfig_p2"
         fi #if [ "$1" = "wizard" ] && [ "$HAVEX" = "yes" ] ; then
         # if we're here, connection failed -- kill wpa_supplicant!
         wpa_cli -i "$INTERFACE" terminate >>$DEBUG_OUTPUT
-        echo "'$0':function useWpaSupplicant:'$*' end"
+        _debug "useWpaSupplicant:'$*' end"
         return 1
 } # end useWpaSupplicant
 
@@ -1957,7 +2016,7 @@ showScanWindow()
 # $1 might be "retry", to let us know we've already tried once...
 buildScanWindow()
 {
-        echo "'$0':function buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
+        _debug "buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
         SCANWINDOW_BUTTONS=""
 
         (
@@ -2046,7 +2105,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
         ifconfig "$INTERFACE" down
         echo "$0:buildScanWindow'$*' `date` $LINENO"
         ifconfig "$INTERFACE" up
-        echo "'$0':buildScanWindow:'$*' `date` $LINENO"
+        _debug "buildScanWindow:'$*' `date` $LINENO"
 } #end of buildScanWindow
 
 #=============================================================================
@@ -2171,7 +2230,7 @@ esac
 # (note that it echoes Xs for the progress bar)
 runPrismScan()
 {
-        echo "'$0':runPrismScan:'$*' start" >&2
+        _debug "runPrismScan:'$*' start"
         INTERFACE="$1"
         # enable interface
         wlanctl-ng "$INTERFACE" lnxreq_ifstate ifstate=enable >/tmp/wlan-up 2>&1
@@ -2194,17 +2253,17 @@ runPrismScan()
           done
           echo "X"
         else # let us know it failed
-echo "'$0':runPrismScan:'$*' end 1"
+_debug "runPrismScan:'$*' end 1"
           return 1
         fi
-   echo "'$0':runPrismScan:'$*' end 0" >&2
+   _debug "runPrismScan:'$*' end 0"
         return 0
 } # end runPrismScan
 
 #=============================================================================
 buildPrismScanWindow()
 {
-        echo "'$0':buildPrismScanWindow:'$*' start" >&2
+        _debug "buildPrismScanWindow:'$*' start"
   SCANWINDOW_BUTTONS=""
   (
         # do a cleanup first (raises interface, so need to put it down after)
@@ -2240,13 +2299,13 @@ buildPrismScanWindow()
   )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog #>/dev/null
         # clean up
         clean_up_gtkdialog NETWIZ_Scan_Progress_Dialog
-echo "'$0':buildPrismScanWindow:'$*' end" >&2
+_debug "buildPrismScanWindow:'$*' end"
 } #end of buildPrismScanWindow
 
 #=============================================================================
 setupScannedProfile()
 {
-        echo "'$0':setupScannedProfile:'$*' start"
+        _debug "setupScannedProfile:'$*' start"
         setupNewProfile
         if [ "$USE_WLAN_NG" = "yes" ] ; then
           getPrismCellParameters $CELL
@@ -2278,13 +2337,13 @@ setupScannedProfile()
         else
           PROFILE_WPA_AP_SCAN="2"
         fi
-        echo "'$0':setupScannedProfile:'$*' end"
+        _debug "setupScannedProfile:'$*' end"
 } # end of setupScannedProfile
 
 #=============================================================================
 getCellParameters()
 {
-        echo "'$0':getCellParameters:'$*' start" >&2
+        _debug "getCellParameters:'$*' start"
         CELL=$1
         #SCAN_CELL=`echo "$SCAN_LIST" | grep -F -A5 "Cell ${CELL}"`
         # Dougal: try and get exactly everything matching our cell
@@ -2335,7 +2394,7 @@ getCellParameters()
           #CELL_ENC_TYPE="off"
         #fi
 
-echo "'$0':getCellParameters:'$*' end" >&2
+_debug "getCellParameters:'$*' end"
 } # end of getCellParameters
 
 #=============================================================================
@@ -2343,7 +2402,7 @@ echo "'$0':getCellParameters:'$*' end" >&2
 ## it sexpects the variable ScanListFile to be set (file containing scan output)
 Get_Cell_Parameters()
 {
-        echo "'$0':Get_Cell_Parameters:'$*' start" >&2
+        _debug "Get_Cell_Parameters:'$*' start"
         #CELL=$1
         #SCAN_CELL=`echo "$SCAN_LIST" | grep -F -A5 "Cell ${CELL}"`
         # Dougal: try and get exactly everything matching our cell
@@ -2380,13 +2439,13 @@ Get_Cell_Parameters()
         CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
         CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
-echo "'$0':Get_Cell_Parameters:'$*' end" >&2
+_debug "Get_Cell_Parameters:'$*' end"
 } # end of Get_Cell_Parameters
 
 #=============================================================================
 getPrismCellParameters()
 {
-        echo "'$0':getPrismCellParameters:'$*' start" >&2
+        _debug "getPrismCellParameters:'$*' start"
         CELL=$1
         CELL_ESSID=$(grep -F 'ssid=' /tmp/prism-scan$CELL | grep -v 'bssid=' | cut -d"'" -f2)
         CELL_CHANNEL=$(grep -F 'dschannel=' /tmp/prism-scan$CELL | cut -d= -f2)
@@ -2396,7 +2455,7 @@ getPrismCellParameters()
         CELL_MODE=$(grep -F 'bsstype=' /tmp/prism-scan$CELL | cut -d= -f2)
         ## Dougal: maybe do something with "no_value"
         CELL_ENCRYPTION=$(grep -F 'privacy=' /tmp/prism-scan$CELL | cut -d= -f2)
-        echo "'$0':getPrismCellParameters:'$*' end" >&2
+        _debug "getPrismCellParameters:'$*' end"
 } # end of getPrismCellParameters
 
 #=============================================================================

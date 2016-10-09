@@ -100,7 +100,7 @@ fi
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir $VERB -p $NETWORK_INTERFACES_DIR
+[ -d "$NETWORK_INTERFACES_DIR" ] || mkdir $VERB -p "$NETWORK_INTERFACES_DIR"
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -122,7 +122,7 @@ BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 showMainWindow()
 {
 
-        echo "'$0':function showMainWindow:'$*' start"
+        _debug "showMainWindow:'$*' start"
 
         MAIN_RESPONSE=""
 
@@ -161,7 +161,7 @@ showMainWindow()
                 esac
 
         done
-echo "'$0':function showMainWindow:'$*' end"
+_debug "showMainWindow:'$*' end"
 } # end of showMainWindow
 
 #=============================================================================
@@ -182,7 +182,7 @@ getInterfaceList(){
 #=============================================================================
 refreshMainWindowInfo ()
 {
-        echo "'$0':function refreshMainWindowInfo:'$*' start"
+        _debug "refreshMainWindowInfo:'$*' start"
   # Dougal: comment out and move to the showLoadModuleWindow -- only used there...
   #findLoadedModules
   getInterfaceList
@@ -244,13 +244,13 @@ ${INTERFACEBUTTONS}
 
         #echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
  #${LOADEDETH}" >/tmp/net-setup_MSGMODULES.txt
-echo "'$0':function refreshMainWindowInfo:'$*' end"
+_debug "refreshMainWindowInfo:'$*' end"
 } # end refreshMainWindowInfo
 
 #=============================================================================
 buildMainWindow ()
 {
-        echo "'$0':function buildMainWindow:'$*' start"
+        _debug "buildMainWindow:'$*' start"
         echo "${TOPMSG}" >/tmp/net-setup_TOPMSG.txt
 
 
@@ -284,13 +284,13 @@ buildMainWindow ()
         </hbox>
 </vbox>
 </window>"
-echo "'$0':function buildMainWindow:'$*' end"
+_debug "buildMainWindow:'$*' end"
 } # end buildMainWindow
 
 #=============================================================================
 showLoadModuleWindow()
 {
-        echo "'$0':function showLoadModuleWindow:'$*' start"
+        _debug "showLoadModuleWindow:'$*' start"
   findLoadedModules
   echo "" >/tmp/ethmoduleyesload.txt
   MODULELIST=$(cat /etc/networkmodules | sort | tr "\n" " ")
@@ -543,13 +543,13 @@ showLoadModuleWindow()
     BGCOLOR="#ffc0c0"
     TOPMSG="$L_TOPMSG_Load_Module_None_Loaded"
   fi #if [ "${NEWLOADED}" ];then
-  echo "'$0':function showLoadModuleWindow:'$*' end"
+  _debug "showLoadModuleWindow:'$*' end"
 } # end of showLoadModuleWindow
 
 #=============================================================================
 tryLoadModule ()
 {
-        echo "'$0':function tryLoadModule:'$*' start"
+        _debug "tryLoadModule:'$*' start"
         #  Dougal: this used to be called with the argument quoted, which was
         #+ bad, since if the user specifies parameters, the grep will return
         #+ false, while the driver might already be loaded! Trying to reload
@@ -576,12 +576,12 @@ $L_MESSAGE_Driver_Failed_p3"
                         return 1
                 fi
         fi
-        echo "'$0':function tryLoadModule:'$*' end"
+        _debug "tryLoadModule:'$*' end"
 } # end tryLoadModule
 
 #=============================================================================
 giveAcxDialog(){
-        echo "'$0':function giveAcxDialog:'$*' start"
+        _debug "giveAcxDialog:'$*' start"
         export NETWIZ_Acx_Module_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
  <vbox>
   <pixmap icon_size=\"6\">
@@ -618,14 +618,14 @@ giveAcxDialog(){
      Blacklist) blacklist_module "$1" ; return 1 ;;
      Unload) return 0 ;; # askWhichInterfaceForNdiswrapper will continue to unload it
     esac
-    echo "'$0':function giveAcxDialog:'$*' end"
+    _debug "giveAcxDialog:'$*' end"
     return 1
 } #end giveAcxDialog
 
 #=============================================================================
 askWhichInterfaceForNdiswrapper()
 {
-        echo "'$0':function askWhichInterfaceForNdiswrapper:'$*' start"
+        _debug "askWhichInterfaceForNdiswrapper:'$*' start"
         TEMP=""
         for ONE in $INTERFACES
         do
@@ -692,14 +692,14 @@ $L_MESSAGE_Remove_Module_Failed_p2
 $ERROR"
       return 1
     fi
-    echo "'$0':function askWhichInterfaceForNdiswrapper:'$*' end"
+    _debug "askWhichInterfaceForNdiswrapper:'$*' end"
 } # end askWhichInterfaceForNdiswrapper
 
 #=============================================================================
 loadNdiswrapperModule ()
 {
 
-        echo "'$0':function loadNdiswrapperModule:'$*' start"
+        _debug "loadNdiswrapperModule:'$*' start"
         #  Dougal: ask the user if there's an interface for the HW, so we know
         #+ to remove the driver for it.
         askWhichInterfaceForNdiswrapper || return
@@ -754,22 +754,22 @@ loadNdiswrapperModule ()
                 #fi
           fi
         fi #if [ $ndRETVAL -eq 0 ];then
-        echo "'$0':function loadNdiswrapperModule:'$*' end"
+        _debug "loadNdiswrapperModule:'$*' end"
         return $ndRETVAL
 } # end loadNdiswrapperModule
 
 #=============================================================================
-#loadSpecificModule ()
-#{
-        #RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2>$ERR)
-        #if [ $? -eq 0 ];then
-                #tryLoadModule "${RESPONSE}"
-        #fi
-#} # end loadSpecificModule
+__loadSpecificModule ()
+{
+        RESPONSE=$(Xdialog --stdout --title "$L_TITLE_Puppy_Network_Wizard" --inputbox "Please type the name of a specific module to load\n(extra parameters allowed, but don't type tab chars)." 0 0 "" 2>$ERR)
+        if [ $? -eq 0 ];then
+                tryLoadModule "${RESPONSE}"
+        fi
+} # end __loadSpecificModule
 
 loadSpecificModule ()
 {
-        echo "'$0':function loadSpecificModule:'$*' start"
+        _debug "loadSpecificModule:'$*' start"
   export NETWIZ_Load_Specific_Module_Window="<window title=\"$L_TITLE_Load_A_Module\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
   <text>
@@ -802,13 +802,13 @@ loadSpecificModule ()
       tryLoadModule $SPECIFIED_MODULE 2>&1
     fi
   fi
-  echo "'$0':function loadSpecificModule:'$*' end"
+  _debug "loadSpecificModule:'$*' end"
 } # end loadSpecificModule
 
 #=============================================================================
 autoLoadModule ()
 {
-        echo "'$0':function autoLoadModule:'$*' start"
+        _debug "autoLoadModule:'$*' start"
         #this is the autoloading...
         SOMETHINGWORKED=false
         #clear
@@ -850,7 +850,7 @@ autoLoadModule ()
                 Xdialog --msgbox "${L_MESSAGE_No_Module_Loaded}\n${MALREADY}" 0 0
                 return 1
         fi
-        echo "'$0':function autoLoadModule:'$*' end"
+        _debug "autoLoadModule:'$*' end"
 } # end autoLoadModule
 
 #=============================================================================
@@ -870,7 +870,7 @@ blacklist_module(){
 # $1: the modules
 offerToBlacklistModule()
 {
-        echo "'$0':function offerToBlacklistModule:'$*' start"
+        _debug "offerToBlacklistModule:'$*' start"
         AMODULE="$1"
         # see if not already blacklisted
         . /etc/rc.d/MODULESCONFIG
@@ -912,13 +912,13 @@ offerToBlacklistModule()
         blacklist_module "$AMODULE"
                 ;;
     esac
-    echo "'$0':function offerToBlacklistModule:'$*' end"
+    _debug "offerToBlacklistModule:'$*' end"
 } # end offerToBlacklistModule
 
 #=============================================================================
 unloadSpecificModule()
 {
-        echo "'$0':function unloadSpecificModule:'$*' start"
+        _debug "unloadSpecificModule:'$*' start"
   TOPMSG=""
   LOADED_ITEMS=""
   while read ONE
@@ -983,13 +983,13 @@ $ERROR"
 
     fi #if [ "$COMBOBOX" ] ; then
   fi #if [ "$EXIT" = "Unload" ] ; then
-  echo "'$0':function unloadSpecificModule:'$*' end"
+  _debug "unloadSpecificModule:'$*' end"
 } # end unloadSpecificModule
 
 #=============================================================================
 findLoadedModules ()
 {
-        echo "'$0':function findLoadedModules:'$*' start"
+        _debug "findLoadedModules:'$*' start"
   echo " " >/tmp/loadedeth.txt
 
   LOADED_MODULES="$(lsmod | cut -f1 -d' ' | sort)"
@@ -1018,13 +1018,13 @@ findLoadedModules ()
                         esac
                 done
   ) | Xdialog --title "$L_TITLE_Puppy_Network_Wizard" --progress "$L_PROGRESS_Checking_Loaded_Modules" 0 0 $COUNT_MOD
-echo "'$0':function findLoadedModules:'$*' end"
+_debug "findLoadedModules:'$*' end"
 } # end of findLoadedModules
 #=============================================================================
 testInterface()
 {
 
-        echo "'$0':function testInterface:'$*' start"
+        _debug "testInterface:'$*' start"
   INTERFACE="$1"
 
   (
@@ -1086,14 +1086,14 @@ $L_TOPMSG_Unplugged_Wired"
 $L_TOPMSG_Network_Alive"
                 RETTEST=0
   fi
-echo "'$0':function testInterface:'$*' end"
+_debug "testInterface:'$*' end"
   return $RETTEST
 } # end of testInterface
 
 #=============================================================================
 showConfigureInterfaceWindow()
 {
-        echo "'$0':function showConfigureInterfaceWindow:'$*' start"
+        _debug "showConfigureInterfaceWindow:'$*' start"
   INTERFACE="$1"
 
   initializeConfigureInterfaceWindow
@@ -1179,13 +1179,13 @@ $L_TOPMSG_Configuration_Not_Saved"
     fi
 
   done
-echo "'$0':function showConfigureInterfaceWindow:'$*' end"
+_debug "showConfigureInterfaceWindow:'$*' end"
 } # end showConfigureInterfaceWindow
 
 #=============================================================================
 buildConfigureInterfaceWindow()
 {
-        echo "'$0':function buildConfigureInterfaceWindow:'$*' start"
+        _debug "buildConfigureInterfaceWindow:'$*' start"
         export NETWIZ_Configure_Interface_Window="<window title=\"$(eval echo $L_TITLE_Configure_Interface)\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
         <pixmap><input file>$BLANK_IMAGE</input></pixmap>
@@ -1241,13 +1241,13 @@ buildConfigureInterfaceWindow()
         </hbox>
 </vbox>
 </window>"
-echo "'$0':function buildConfigureInterfaceWindow:'$*' end"
+_debug "buildConfigureInterfaceWindow:'$*' end"
 } # end buildConfigureInterfaceWindow
 
 #=============================================================================
 initializeConfigureInterfaceWindow()
 {
-        echo "'$0':function initializeConfigureInterfaceWindow:'$*' start"
+        _debug "initializeConfigureInterfaceWindow:'$*' start"
         TOPMSG="$L_TOPMSG_Initial_Lets_try $INTERFACE."
 
         TESTMSG="$L_TESTMSG_Initial_p1 $INTERFACE $L_TESTMSG_Initial_p2"
@@ -1274,13 +1274,13 @@ initializeConfigureInterfaceWindow()
                 WIRELESSSECTION=""
         fi
         SAVE_SETUP_BUTTON=""
-        echo "'$0':function initializeConfigureInterfaceWindow:'$*' end"
+        _debug "initializeConfigureInterfaceWindow:'$*' end"
 } # end initializeConfigureInterfaceWindow
 
 #=============================================================================
 checkIfIsWireless()
 {
-        echo "'$0':function checkIfIsWireless:'$*' start"
+        _debug "checkIfIsWireless:'$*' start"
   INTERFACE="$1"
   IS_WIRELESS=""
   INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
@@ -1291,14 +1291,14 @@ checkIfIsWireless()
      grep $Q "$INTERFACE" /proc/net/wireless
   then IS_WIRELESS="yes" ; return 0
   fi
-  echo "'$0':function checkIfIsWireless:'$*' end"
+  _debug "checkIfIsWireless:'$*' end"
   return 1
 }
 
 #=============================================================================
 configureWireless()
 {
-        echo "'$0':function configureWireless:'$*' start"
+        _debug "configureWireless:'$*' start"
         INTERFACE="$1"
         showProfilesWindow "$INTERFACE"
         case $? in
@@ -1312,47 +1312,47 @@ configureWireless()
                 TOPMSG="$L_TOPMSG_Wireless_Config_Cancelled_p1 $INTERFACE $L_TOPMSG_Wireless_Config_Cancelled_p2"
                 ;;
         esac
-        echo "'$0':function configureWireless:'$*' end"
+        _debug "configureWireless:'$*' end"
 } # end configureWireless
 
 #=============================================================================
 # this expanded and moved to wag-profiles.sh, so can be used by rc.network
-#setupDHCP()
-#{
-        #{
-                ## Must kill old dhcpcd first
-                #killDhcpcd "$INTERFACE"
-                #sleep 5
-                #if dhcpcd $DBG -I '' "$INTERFACE"
-                #then
-                        #HAS_ERROR=0
-                #else
-                        #HAS_ERROR=1
-                #fi
-                #echo "${HAS_ERROR}" >/tmp/net-setup_HAS_ERROR.txt
-                #echo "XXXX"
-        #} | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
-#DHCP server to respond. Please wait patiently..." 0 0 0
+__setupDHCP()
+{
+        {
+                # Must kill old dhcpcd first
+                killDhcpcd "$INTERFACE"
+                sleep 5
+                if dhcpcd $DBG -I '' "$INTERFACE"
+                then
+                        HAS_ERROR=0
+                else
+                        HAS_ERROR=1
+                fi
+                echo "${HAS_ERROR}" >/tmp/net-setup_HAS_ERROR.txt
+                echo "XXXX"
+        } | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
+DHCP server to respond. Please wait patiently..." 0 0 0
 
-  #HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
+  HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
 
-  #if [ $HAS_ERROR -eq 0 ]
-  #then
-    ## Dougal: not sure about this -- maybe add something? need to know we've used it
-    #MODECOMMANDS=""
-  #else
-    #MODECOMMANDS=""
-    ## need to kill dhcpcd, since it keeps running even with an error!
-    #killDhcpcd "$INTERFACE"
-  #fi
+  if [ $HAS_ERROR -eq 0 ]
+  then
+    # Dougal: not sure about this -- maybe add something? need to know we've used it
+    MODECOMMANDS=""
+  else
+    MODECOMMANDS=""
+    # need to kill dhcpcd, since it keeps running even with an error!
+    killDhcpcd "$INTERFACE"
+  fi
 
-  #return $HAS_ERROR
-#} #end of setupDHCP
+  return $HAS_ERROR
+} #end of setupDHCP
 
 #=============================================================================
 showStaticIPWindow()
 {
-        echo "'$0':function showStaticIPWindow:'$*' start"
+        _debug "showStaticIPWindow:'$*' start"
         IP_ADDRESS="$(ifconfig $INTERFACE | grep 'inet addr' | sed 's/.*inet addr://' | cut -d" " -f1)"
         NETMASK="$(ifconfig $INTERFACE | grep 'inet addr' | sed 's/.*Mask://')"
         GATEWAY="$(iproute | grep default | cut -d" " -f3)"
@@ -1402,13 +1402,13 @@ EOF
         else
                 return 1
         fi
-        echo "'$0':function showStaticIPWindow:'$*' end"
+        _debug "showStaticIPWindow:'$*' end"
 } # end showStaticIPWindow
 
 #=============================================================================
 buildStaticIPWindow()
 {
-        echo "'$0':function buildStaticIPWindow:'$*' start"
+        _debug "buildStaticIPWindow:'$*' start"
         [ -z "$IP_ADDRESS" ] && IP_ADDRESS="0.0.0.0"
         [ -z "$NETMASK" ] && NETMASK="255.255.255.0"
         [ -z "$GATEWAY" ] && GATEWAY="0.0.0.0"
@@ -1481,13 +1481,13 @@ buildStaticIPWindow()
         </hbox>
 </vbox>
 </window>"
-echo "'$0':function buildStaticIPWindow:'$*' end"
+_debug "buildStaticIPWindow:'$*' end"
 } # end buildStaticIPWindow
 
 #=============================================================================
 validateStaticIP()
 {
-        echo "'$0':function validateStaticIP:'$*' start"
+        _debug "validateStaticIP:'$*' start"
         # Dougal: this was set as default, but obviously not used...
         [ "$GATEWAY" = "0.0.0.0" ] && GATEWAY=""
         # user might have blanked them out...
@@ -1553,7 +1553,7 @@ $ERROR_MSG
                 giveErrorDialog "$L_MESSAGE_Bad_Gateway_p1 $GATEWAY $L_MESSAGE_Bad_Gateway_p2"
                 return 1
         fi
-echo "'$0':function validateStaticIP:'$*' end"
+_debug "validateStaticIP:'$*' end"
         return 0
 } #end of validateStaticIP
 
@@ -1561,7 +1561,7 @@ echo "'$0':function validateStaticIP:'$*' end"
 # Dougal: change MODECOMMANDS entirely -- just include the basic info
 setupStaticIP()
 {
-        echo "'$0':function setupStaticIP:'$*' start"
+        _debug "setupStaticIP:'$*' start"
         ifconfig "$INTERFACE" | grep ' UP ' >> $DEBUG_OUTPUT 2>&1
         if [ ! $? -eq 0 ];then # wired interface (wireless will be up by now)
                 cleanUpInterface "$INTERFACE"
@@ -1627,7 +1627,7 @@ $L_MESSAGE_Ifconfig_Failed_p3"
                 MODECOMMANDS=""
                 return 1
         fi
-        echo "'$0':function setupStaticIP:'$*' end"
+        _debug "setupStaticIP:'$*' end"
 } #end of setupStaticIP
 
 #=============================================================================
@@ -1689,7 +1689,7 @@ setDefaultMODULEBUTTONS ()
 # Dougal: a function to find info about interface:
 findInterfaceInfo()
 {
-        echo "'$0':function findInterfaceInfo:'$*' start"
+        _debug "findInterfaceInfo:'$*' start"
   local INT="$1"
   TYPE=""
   INFO=""
@@ -1802,13 +1802,13 @@ findInterfaceInfo()
      INFO="$L_INFO_Eth_Firewire"
      ;;
   esac
-  echo "'$0':function findInterfaceInfo:'$*' end"
+  _debug "findInterfaceInfo:'$*' end"
 } # end findInterfaceInfo
 
 #=============================================================================
 saveInterfaceSetup()
 {
-        echo "'$0':function saveInterfaceSetup:'$*' start"
+        _debug "saveInterfaceSetup:'$*' start"
   INTERFACE="$1"
   # Dougal: use HWaddress for the config files!
   #HWADDRESS=`cat /sys/class/net/$1/address | tr a-z A-Z`
@@ -1837,7 +1837,7 @@ saveInterfaceSetup()
     # Dougal: maybe append? in case used both for dhcp and static.
     echo -e "${MODECOMMANDS}\nIS_WIRELESS=''" > ${NETWORK_INTERFACES_DIR}/$HWADDRESS.conf
   fi
-echo "'$0':function saveInterfaceSet:'$*' end"
+_debug "saveInterfaceSet:'$*' end"
 } # end saveInterfaceSetup
 
 #=============================================================================
