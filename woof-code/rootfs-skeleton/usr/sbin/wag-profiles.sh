@@ -275,9 +275,9 @@ GWAY=       # -G, --nogateway
 #=============================================================================
 setupDHCP()
 {
-
         _debug "setupDHCP:'$*' start"
-
+        [ "$INTERFACE" ] || INTERFACE=$1
+        [ "$INTERFACE" ] || return 1
         # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
         local MAX_TIME='30'
         # by how much we multiply the time to get percentage (3 for 30 seconds max time)
@@ -394,7 +394,8 @@ showProfilesWindow()
 
 _debug "showProfilesWindow:'$*' start"
 
-        INTERFACE="$1"
+        INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 1
         # Dougal: find driver and set WPA driver from it
         INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
    INTMODULE=${INTMODULE##*/}
@@ -410,6 +411,7 @@ _debug "showProfilesWindow:'$*' start"
          rt61pci|rt73usb|rt2400pci|rt2500*|rt28[67]0*|rtl8180|rtl8187) CARD_WPA_DRV="wext" ;;
          zd1211|zd1211b|zd1211rw) CARD_WPA_DRV="wext" ;;
          ar9170usb|at76c50x-usb|libertas_cs|libertas_sdio|libertas_tf_usb|mwl8k|usb8xxx) CARD_WPA_DRV="wext" ;; #v430
+	'') :;;
          *) # doesn't support WPA encryption
            # add an option to add modules to file
            if [ -f "$Extra_WPA_Modules_File" ] &&\
@@ -444,6 +446,7 @@ _debug "showProfilesWindow:'$*' start"
 
                 case "$EXIT" in
                         "abort" | "19" ) # Back or close window
+				RV=255
                                 break
                                 ;; # Do Nothing, It will exit the while loop
                         "11" ) # Scan
@@ -467,9 +470,17 @@ _debug "showProfilesWindow:'$*' start"
                                 ;;
                         "22" ) # Use This Profile
                                   if useProfile ; then
-                                        return 0
+                                        #return 0
+                                   if test "$CURRENT_CONTEXT" = 'wag-profiles.sh'; then
+					 setupDHCP
+                                         RV=$?
+                                    else RV=0
+                                    fi
+                                        break
                                   else # Dougal: add new message to say it failed
-                                        return 2
+                                        #return 2
+                                        RV=2
+                                        break
                                   fi
                                 ;;
                         "40" ) # Advanced fields
@@ -521,7 +532,7 @@ _debug "showProfilesWindow:'$*' start"
 
         done
 _debug "showProfilesWindow:'$*' end"
-        return 1
+        return ${RV:-1}
 } # end showProfilesWindow
 
 #=============================================================================
@@ -1308,14 +1319,18 @@ saveWpaProfile(){
         # need to escape the original phrase for sed
         ## (need to be escaped twice (extra \\) if we want the result escaped)
         ESCAPED_PHRASE="$( echo "$PROFILE_KEY" | sed 's%\\%\\\\%g ; s%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%\/%\\/%g' )"
-
+        STATUS=$?
         # need to change ap_scan, ssid and psk
         sed -i "s/ap_scan=.*/ap_scan=$PROFILE_WPA_AP_SCAN/" "$WPA_CONF"
-        sed -i "s/\Wssid=.*/	ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"
-        sed -i "s/\Wpsk=.*/	#psk=\"$ESCAPED_PHRASE\"\n	psk=$PSK/" "$WPA_CONF"
-        #sed -i "s/     psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"
+	STATUS=$((STATUS+$?))
+        sed -i "s/\Wssid=.*/	ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"    #TAB
+	STATUS=$((STATUS+$?))
+        sed -i "s/\Wpsk=.*/	#psk=\"$ESCAPED_PHRASE\"\n	psk=$PSK/" "$WPA_CONF" #TAB
+	STATUS=$((STATUS+$?))
+        #sed -i "s/	psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"    #TAB
+        #STATUS=$((STATUS+$?))
         _debug "saveWpaProfile:'$*' end"
-        return 0
+        return $STATUS
 } #end saveWpaProfile
 
 #=============================================================================
@@ -1435,8 +1450,8 @@ killWpaSupplicant ()
         echo "$0:killWpaSupplicant '$*' `date` $LINENO"
         # If there are supplicant processes for the current interface, kill them
         [ -d /var/run/wpa_supplicant ] || return
-        [ "$INTERFACE" ] || INTERFACE="$1"
-
+        INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
         #       rm /var/run/wpa_supplicant/$INTERFACE* >$OUT 2>&1
@@ -1457,8 +1472,8 @@ killWpaSupplicant ()
 killDhcpcd()
 {
         echo "$0:killDhcpcd '$*' `date` $LINENO"
-        [ "$INTERFACE" ] || INTERFACE="$1"
-
+        INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
         # release dhcpcd
         #dhcpcd -k "$INTERFACE" 2>$ERR
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
@@ -1560,6 +1575,8 @@ clean_up_gtkdialog(){
 useIwconfig ()
 {
 _debug "useIwconfig:'$*' start"
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1609,6 +1626,9 @@ _debug "useIwconfig:'$*' start"
 #=============================================================================
 # Dougal: add this for the prism2_usb module
 useWlanctl(){
+	_debug "useWlanctl:'$*' start"
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with wlanctl-ng..."
@@ -1726,6 +1746,7 @@ validateWpaAuthentication()
 useWpaSupplicant ()
 {
         _debug "useWpaSupplicant:'$*' start"
+        [ "$INTERFACE" ] || return 1
         # add an option for running some parts only from the wizard
         if [ "$1" = "wizard" ] ; then
                 # Dougal: moved all below code to a function
@@ -1925,6 +1946,8 @@ $L_MESSAGE_No_Wpaconfig_p2"
 
 #=============================================================================
 checkIsPCMCIA(){
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
   IsPCMCIA=""
   if PciSlot=$(grep -F 'PCI_SLOT_NAME=' /sys/class/net/$INTERFACE/device/uevent) ; then
     if [ -d /sys/class/pcmcia_socket/pcmcia_socket[0-9]/device/${PciSlot#PCI_SLOT_NAME=} ]
@@ -1957,6 +1980,8 @@ waitForPCMCIA(){
 #=============================================================================
 showScanWindow()
 {
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
         # do the cleanup here, so devices have a chance to "settle" before scanning
         cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
         sleep 1
@@ -2017,6 +2042,8 @@ showScanWindow()
 buildScanWindow()
 {
         _debug "buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
         SCANWINDOW_BUTTONS=""
 
         (
@@ -2063,7 +2090,7 @@ buildScanWindow()
 
                 #if [ -z "$SCAN_LIST" ]; then
                 if [ -z "$CELL_LIST" ]; then
-                echo "CELL_LIST zero" >&2
+                echo "CELL_LIST no content" >&2
                         # Dougal: a little awkward... want to give an option to reset pcmcia card
                         FI_DRIVER=$(readlink /sys/class/net/$INTERFACE/device/driver)
                         if [ "$1" = "retry" ] ; then # we're on the second try already
@@ -2103,7 +2130,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
         read ScanListFile < /tmp/net-setup_scanlistfile
         # run ifconfig down/up, as apparently it is needed for actually configuring to work properly...
         ifconfig "$INTERFACE" down
-        echo "$0:buildScanWindow'$*' `date` $LINENO"
+        _debug "buildScanWindow:'$*' `date` $LINENO"
         ifconfig "$INTERFACE" up
         _debug "buildScanWindow:'$*' `date` $LINENO"
 } #end of buildScanWindow
@@ -2111,7 +2138,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
 #=============================================================================
 createNoNetworksDialog()
 {
-echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
+_debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -2141,7 +2168,7 @@ exit 0
 
 #=============================================================================
 createRetryScanDialog(){
-echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
+_debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
     echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -2184,7 +2211,7 @@ esac
 
 #=============================================================================
 createRetryPCMCIAScanDialog(){
-echo "$0:creating NETWIZ_SCAN_ERROR_DIALOG..."
+_debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
  for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
@@ -2231,7 +2258,8 @@ esac
 runPrismScan()
 {
         _debug "runPrismScan:'$*' start"
-        INTERFACE="$1"
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
         # enable interface
         wlanctl-ng "$INTERFACE" lnxreq_ifstate ifstate=enable >/tmp/wlan-up 2>&1
         # scan (first X echoed only afterwards!
@@ -2256,7 +2284,7 @@ runPrismScan()
 _debug "runPrismScan:'$*' end 1"
           return 1
         fi
-   _debug "runPrismScan:'$*' end 0"
+_debug "runPrismScan:'$*' end 0"
         return 0
 } # end runPrismScan
 
@@ -2264,7 +2292,9 @@ _debug "runPrismScan:'$*' end 1"
 buildPrismScanWindow()
 {
         _debug "buildPrismScanWindow:'$*' start"
-  SCANWINDOW_BUTTONS=""
+	INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || return 1
+	SCANWINDOW_BUTTONS=""
   (
         # do a cleanup first (raises interface, so need to put it down after)
         cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
@@ -2357,42 +2387,44 @@ getCellParameters()
         else
           END=$(echo "$SCAN_LIST" | wc -l)
         fi
-        SCAN_CELL=$(echo "$SCAN_LIST" | sed -n "${START},${END}p")
+         SCAN_CELL=$(echo "$SCAN_LIST" | sed -n "${START},${END}p")
         CELL_ESSID=$(echo "$SCAN_CELL" | grep -E -o 'ESSID:".+"' | grep -E -o '".+"' | grep -E -o '[^"]+')
         [ "$CELL_ESSID" = "<hidden>" ] && CELL_ESSID=""
-        CELL_FREQ=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo '[0-9]+\.[0-9]+ +G' | sed -e 's/ G/G/')
+           CELL_FREQ=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo '[0-9]+\.[0-9]+ +G' | sed -e 's/ G/G/')
         CELL_CHANNEL=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo 'Channel [0-9]+' | cut -f2 -d" ")
-        [ ! "$CELL_CHANNEL" ] && CELL_CHANNEL=$(echo "$SCAN_CELL" | grep -F 'Channel:' | grep -Eo [0-9]+)
+        CELL_CHANNEL=${CELL_CHANNEL:-$(echo "$SCAN_CELL" | grep -F 'Channel:' | grep -Eo [0-9]+)}
         # Dougal: below was 'cut -d":" -f2-'
-        CELL_QUALITY=$(echo "$SCAN_CELL" | grep 'Quality=' | cut -d'=' -f2 | cut -d' ' -f1)
-        [ ! "$CELL_QUALITY" ] && CELL_QUALITY=$(echo "$SCAN_CELL" | grep "Quality" | tr -s ' ')
-        CELL_AP_MAC=$(echo "$SCAN_CELL" | grep -E -o '[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}')
-        CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
-        CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
+           CELL_QUALITY=$(echo "$SCAN_CELL" | grep 'Quality=' | cut -d'=' -f2 | cut -d' ' -f1)
+        CELL_QUALITY=${CELL_QUALITY:-$(echo "$SCAN_CELL" | grep "Quality" | tr -s ' ')}
+            CELL_AP_MAC=$(echo "$SCAN_CELL" | grep -E -o '[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}')
+              CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
+        CELL_ENCRYPTION=$(echo "$SCAN_CELL" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
 
-        ## comment out all below code: IE: output isn't reliable (reports WPA as WPA2 at times)
+	__set_enc_type__(){
+        # comment out all below code: IE: output isn't reliable (reports WPA as WPA2 at times)
         # Dougal: add this to let the user know the type of encryption
-        #CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
-        ## Need to also check for wpa_ie/rsn_ie
-        #if [ "$CELL_ENCRYPTION" = "on" ] ;then
-          #if [ "$CELL_ENC_TYPE" ] ; then # IE: might appear twice: with WPA and WPA2...
-            #case "$CELL_ENC_TYPE" in
-              #*WPA2*) CELL_ENC_TYPE="WPA2" ;;
-              #*WPA*) CELL_ENC_TYPE="WPA" ;;
-              #*) CELL_ENC_TYPE="on" ;; # this just in case...
-            #esac
-          #else
-            #CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'Extra:')
-            #case "$CELL_ENC_TYPE" in
-              #*Extra:rsn_ie*) CELL_ENC_TYPE="WPA2" ;;
-              #*Extra:wpa_ie*) CELL_ENC_TYPE="WPA" ;;
-              #*) CELL_ENC_TYPE="WEP" ;; #else it's wep
-            #esac
-          #fi
-        #else
-          #CELL_ENC_TYPE="off"
-        #fi
+        CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'IE: ') # | grep -o 'WPA2\|WPA')
+        # Need to also check for wpa_ie/rsn_ie
+        if [ "$CELL_ENCRYPTION" = "on" ] ;then
+          if [ "$CELL_ENC_TYPE" ] ; then # IE: might appear twice: with WPA and WPA2...
+            case "$CELL_ENC_TYPE" in
+              *WPA2*) CELL_ENC_TYPE="WPA2" ;;
+              *WPA*) CELL_ENC_TYPE="WPA" ;;
+              *) CELL_ENC_TYPE="on" ;; # this just in case...
+            esac
+          else
+            CELL_ENC_TYPE=$(echo "${SCAN_CELL}" | grep -F 'Extra:')
+            case "$CELL_ENC_TYPE" in
+              *Extra:rsn_ie*) CELL_ENC_TYPE="WPA2" ;;
+              *Extra:wpa_ie*) CELL_ENC_TYPE="WPA" ;;
+              *) CELL_ENC_TYPE="WEP" ;; #else it's wep
+            esac
+          fi
+        else
+          CELL_ENC_TYPE="off"
+        fi
+	}
 
 _debug "getCellParameters:'$*' end"
 } # end of getCellParameters
@@ -2426,18 +2458,18 @@ Get_Cell_Parameters()
           END=$(wc -l $ScanListFile | awk '{print $1}')
         fi
         #SCAN_CELL=$(echo "$SCAN_LIST" | sed -n "${START},${END}p")
-        SCAN_CELL=$(sed -n "${START},${END}p" $ScanListFile)
+         SCAN_CELL=$(sed -n "${START},${END}p" $ScanListFile)
         CELL_ESSID=$(echo "$SCAN_CELL" | grep -E -o 'ESSID:".+"' | grep -E -o '".+"' | grep -E -o '[^"]+')
         [ "$CELL_ESSID" = "<hidden>" ] && CELL_ESSID=""
-        CELL_FREQ=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo '[0-9]+\.[0-9]+ +G' | sed -e 's/ G/G/')
+           CELL_FREQ=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo '[0-9]+\.[0-9]+ +G' | sed -e 's/ G/G/')
         CELL_CHANNEL=$(echo "$SCAN_CELL" | grep "Frequency" | grep -Eo 'Channel [0-9]+' | cut -f2 -d" ")
-        [ -z "$CELL_CHANNEL" ] && CELL_CHANNEL=$(echo "$SCAN_CELL" | grep -F 'Channel:' | grep -Eo [0-9]+)
+        CELL_CHANNEL=${CELL_CHANNEL:-$(echo "$SCAN_CELL" | grep -F 'Channel:' | grep -Eo [0-9]+)}
         # Dougal: below was 'cut -d":" -f2-'
-        CELL_QUALITY=$(echo "$SCAN_CELL" | grep 'Quality=' | cut -d'=' -f2 | cut -d' ' -f1)
-        [ -z "$CELL_QUALITY" ] && CELL_QUALITY=$(echo "$SCAN_CELL" | grep "Quality" | tr -s ' ')
-        CELL_AP_MAC=$(echo "$SCAN_CELL" | grep -E -o '[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}')
-        CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
-        CELL_ENCRYPTION=$(echo "${SCAN_CELL}" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
+           CELL_QUALITY=$(echo "$SCAN_CELL" | grep 'Quality=' | cut -d'=' -f2 | cut -d' ' -f1)
+        CELL_QUALITY=${CELL_QUALITY:-$(echo "$SCAN_CELL" | grep "Quality" | tr -s ' ')}
+            CELL_AP_MAC=$(echo "$SCAN_CELL" | grep -E -o '[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}:[0-9A-F]{2}')
+              CELL_MODE=$(echo "$SCAN_CELL" | grep -o 'Mode:Managed\|Mode:Ad-Hoc\|Mode:Master' | cut -d":" -f2)
+        CELL_ENCRYPTION=$(echo "$SCAN_CELL" | grep -F 'Encryption key:' | cut -d: -f2 | tr -d ' ')
         CELL_ENC_TYPE="$CELL_ENCRYPTION"
 _debug "Get_Cell_Parameters:'$*' end"
 } # end of Get_Cell_Parameters
@@ -2447,12 +2479,12 @@ getPrismCellParameters()
 {
         _debug "getPrismCellParameters:'$*' start"
         CELL=$1
-        CELL_ESSID=$(grep -F 'ssid=' /tmp/prism-scan$CELL | grep -v 'bssid=' | cut -d"'" -f2)
+          CELL_ESSID=$(grep -F 'ssid='      /tmp/prism-scan$CELL | grep -v 'bssid=' | cut -d"'" -f2)
         CELL_CHANNEL=$(grep -F 'dschannel=' /tmp/prism-scan$CELL | cut -d= -f2)
         ## Dougal: not sure about this: maybe skip ones without anything?
-        CELL_AP_MAC=$(grep -F 'bssid=' /tmp/prism-scan$CELL | cut -d= -f2 | grep -E  '[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}')
+         CELL_AP_MAC=$(grep -F 'bssid=' /tmp/prism-scan$CELL | cut -d= -f2 | grep -E  '[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}')
         ## Dougal: might need to do something to fit this to checkboxes
-        CELL_MODE=$(grep -F 'bsstype=' /tmp/prism-scan$CELL | cut -d= -f2)
+           CELL_MODE=$(grep -F 'bsstype='    /tmp/prism-scan$CELL | cut -d= -f2)
         ## Dougal: maybe do something with "no_value"
         CELL_ENCRYPTION=$(grep -F 'privacy=' /tmp/prism-scan$CELL | cut -d= -f2)
         _debug "getPrismCellParameters:'$*' end"
@@ -2465,7 +2497,12 @@ getPrismCellParameters()
 # If ran by itself it shows the interface, Otherwise it's only used as a function library
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
-        INTERFACE="$1"
+	#test "$1" || _exit 1 "Need network INTERFACE ( wlan0, ra0, ..) as parameter."
+        INTERFACE=${INTERFACE:-"$1"}
+	[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
+	if test "$DISPLAY" && pidof X >>$OUT; then
+	HAVEX=${HAVEX:-yes}
+	fi
         DEBUG_OUTPUT="/dev/stderr"
         SHORT_LANG="${LANG%%_*}"
         if [ -f /usr/share/locale/$SHORT_LANG/LC_MESSAGES/net-setup.mo ] ; then
@@ -2478,13 +2515,17 @@ if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
         echo "from ftp://ftp.nluug.nl/mirror/ibiblio/distributions/quirky/pet_packages-noarch/ ."
         exit 1
         fi
-        showProfilesWindow "$1"
+while :; do
+        showProfilesWindow "$INTERFACE"
+	case $? in
+	255) break;; #Cancel or back button
+	esac
+done
 fi
 #DEBUG_OUTPUT="/dev/stdout"
 DEBUG_OUTPUT="/dev/stderr"
-[ ! "${DEBUG_OUTPUT}" ] && DEBUG_OUTPUT="/dev/null"
+DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/null"}
 
 #=============================================================================
 #=============== END OF SCRIPT BODY ====================
 #=============================================================================
-
