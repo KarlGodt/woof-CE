@@ -398,19 +398,27 @@ _debug "showProfilesWindow:'$*' start"
         [ "$INTERFACE" ] || return 1
         # Dougal: find driver and set WPA driver from it
         INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
-   INTMODULE=${INTMODULE##*/}
+        INTMODULE=${INTMODULE##*/}
         case "$INTMODULE" in
          hostap*) CARD_WPA_DRV="hostap" ;;
          rt61|rt73) CARD_WPA_DRV="ralink" ;;
          r8180|r8187) CARD_WPA_DRV="ipw" ;;
          # Dougal: all lines below are "wext" (split and alphabetized for readability)
-         ath_pci) modprobe $VERB wlan_tkip ; CARD_WPA_DRV="wext" ;;
-         ath5k*|ath9k*|b43|b43legacy|bcm43xx) CARD_WPA_DRV="wext" ;;
-         ipw2100|ipw2200|ipw3945|iwl3945|iwl4965|iwl5100|iwlagn) CARD_WPA_DRV="wext" ;;
-         ndiswrapper|p54pci|p54usb|rndis_wlan) CARD_WPA_DRV="wext" ;;
-         rt61pci|rt73usb|rt2400pci|rt2500*|rt28[67]0*|rtl8180|rtl8187) CARD_WPA_DRV="wext" ;;
-         zd1211|zd1211b|zd1211rw) CARD_WPA_DRV="wext" ;;
-         ar9170usb|at76c50x-usb|libertas_cs|libertas_sdio|libertas_tf_usb|mwl8k|usb8xxx) CARD_WPA_DRV="wext" ;; #v430
+         ath_pci)  modprobe $Q $VERB wlan_tkip ;    CARD_WPA_DRV="wext" ;;
+         ath5k*|ath9k*|b43|b43legacy|bcm43xx)       CARD_WPA_DRV="wext" ;;
+         ar9170usb|at76c50x-usb)                    CARD_WPA_DRV="wext" ;;
+         ipw2100|ipw2200|ipw3945)                   CARD_WPA_DRV="wext" ;;
+         iwl3945|iwl4965|iwl5100|iwlagn)            CARD_WPA_DRV="wext" ;;
+         libertas_cs|libertas_sdio|libertas_tf_usb) CARD_WPA_DRV="wext" ;;
+         mwl8k)         CARD_WPA_DRV="wext" ;;
+         ndiswrapper)   CARD_WPA_DRV="wext" ;;
+         p54pci|p54usb) CARD_WPA_DRV="wext" ;;
+         rndis_wlan)    CARD_WPA_DRV="wext" ;;
+         rtl8180|rtl8187|rt2400pci|rt2500*|rt28[67]0*|rt61pci|rt73usb) CARD_WPA_DRV="wext" ;;
+         usb8xxx)                                   CARD_WPA_DRV="wext" ;;
+         zd1211|zd1211b|zd1211rw)                   CARD_WPA_DRV="wext" ;;
+         #libertas_cs|libertas_sdio|libertas_tf_usb|mwl8k|usb8xxx) CARD_WPA_DRV="wext" ;; #v430
+         #rt2800pci) CARD_WPA_DRV="wext" ;;  # KRG: Joy-IT GreatWall 310
 	'') :;;
          *) # doesn't support WPA encryption
            # add an option to add modules to file
@@ -740,9 +748,24 @@ buildProfilesWindow()
                         setNoEncryptionFields
                         ;;
         esac
+
+        if test "$MAYBE_WIRELESS"; then
+         dlg_wl_TEXT=`echo "$MAYBE_WIRELESS" | sed 's/^[[:blank:]]*//'` # remove leading tabs formatting by iwconfig
+        else
+         dlg_wl_TEXT="No Wireless device detected."
+        fi
+        _debug "dlg_wl_TEXT='$dlg_wl_TEXT'"
+
+        dlg_WL_FRAME="	<frame Recognized Wireless Device>
+	<text width-chars=\"60\" selectable=\"true\">
+	<label>\"$dlg_wl_TEXT\"</label>
+	</text>
+	</frame>"
+
 echo "exporting NETWIZ_Profiles_Window..."
         export NETWIZ_Profiles_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
+        $dlg_WL_FRAME
         <hbox>
                 <text use-markup=\"true\"><label>\"$L_TEXT_Profiles_Window\"</label></text>
                 <button>
@@ -2499,7 +2522,13 @@ CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
 	#test "$1" || _exit 1 "Need network INTERFACE ( wlan0, ra0, ..) as parameter."
         INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
+	#[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
+
+        MAYBE_WIRELESS=`iwconfig 2>&1| grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d'`
+        INTERFACE=${INTERFACE:-`echo "$MAYBE_WIRELESS" | grep '^[[:alnum:]]\+' | awk '{print $1}' | head -n1`}
+        [ "$INTERFACE" ] || { _notice "No active wireless, defaulting to wlan0"; INTERFACE=wlan0; }
+	_debug "INTERFACE='$INTERFACE'"
+
 	if test "$DISPLAY" && pidof X >>$OUT; then
 	HAVEX=${HAVEX:-yes}
 	fi
