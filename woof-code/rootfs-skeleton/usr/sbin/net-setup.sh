@@ -69,11 +69,12 @@
 # Update: Feb. 8th 2009: Clean up static ip info from profile if changed (PaulBx1 suggested)
 # Update: Feb. 22nd: change the backing up of resolve.conf so it only saves as resolv.conf.old
 # Update: Mar. 19th: add wireless scan files to cleanUpTmp, change shebang to bash
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 # Update: Apr.  1st: improve finding of usb device info from /sys
 
-APPDIR="$(dirname $0)"
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
+APPDIR="$(dirname "$0")"
 [ "$APPDIR" = "." ] && APPDIR="$(pwd)"
 
 _get_locale_strings(){
@@ -81,14 +82,17 @@ _get_locale_strings(){
 mo=net-setup.mo
 #lng=${LANG%.*}
 # always start by sourceing the English version (to fill in gaps)
-test -e "/usr/share/locale/en/LC_MESSAGES/$mo" || return 2
+test -e "/usr/share/locale/en/LC_MESSAGES/$mo" || return 3
 . "/usr/share/locale/en/LC_MESSAGES/$mo"
+local RV=$?
 if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
 elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
-else false
+else true # other locale not installed/found, return 0 then
 fi
+RV=$((RV+$?))
+return $RV
 }
 _get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
 
@@ -99,11 +103,13 @@ else
     DEBUG_OUTPUT=/dev/null
 fi
 
+CONFIG_NET_WIZ_DIR='/etc/network-wizard'
+CONFIG_NET_DIR="${CONFIG_NET_WIZ_DIR}/network"
 # basic configuration info for interface
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
-NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
-[ -d $NETWORK_INTERFACES_DIR ] || mkdir $VERB -p $NETWORK_INTERFACES_DIR
+NETWORK_INTERFACES_DIR=${NETWORK_INTERFACES_DIR:-'/etc/network-wizard/network/interfaces'}
+[ -d "$NETWORK_INTERFACES_DIR" ] || mkdir $VERB -p "$NETWORK_INTERFACES_DIR"
 
 # file used to list blacklisted modules
 #BLACKLIST_FILE="/etc/rc.d/blacklisted-modules.$(uname -r)"
@@ -111,10 +117,11 @@ NETWORK_INTERFACES_DIR='/etc/network-wizard/network/interfaces'
 #  Dougal: need some elegant way to find out if we're running from X
 #+ (pidof X isn't good, since we might be running in the background at boot...)
 # for now, just set it from here (wag-profiles isn't really used alone)
-HAVEX='yes'
+HAVEX=${HAVEX:-'yes'}
 
 ## Dougal: put this into a variable
-BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
+BLANK_IMAGE=${BLANK_IMAGE:=/usr/share/pixmaps/net-setup_btnsize.png}
+test -s "$BLANK_IMAGE" || _warn "BLANK_IMAGE seems to be an empty file."
 
 #=============================================================================
 #============= FUNCTIONS USED IN THE SCRIPT ==============
@@ -124,16 +131,18 @@ BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
 
 showMainWindow()
 {
-    MAIN_RESPONSE=""
+    local MAIN_RESPONSE="" RV=1
 
     while true
     do
 
         buildMainWindow
+        [ $? = 0 ] || { RV=126; break; }
 
         I=$IFS; IFS=""
         for STATEMENT in  $(gtkdialog3 --program NETWIZ_Main_Window); do
-            eval $STATEMENT 2>$ERR
+            _debug "STATEMENT='$STATEMENT'"
+            eval $STATEMENT 2>>$ERR
         done
         IFS=$I
         clean_up_gtkdialog NETWIZ_Main_Window
@@ -151,17 +160,18 @@ showMainWindow()
 
         case $MAIN_RESPONSE in
             10) showLoadModuleWindow ;;
+            13) showConfigureInterfaceWindow "$INTERFACE" ;;
             17) saveNewModule ;;
             18) unloadNewModule ;;
-            19) break ;;
-            13) showConfigureInterfaceWindow "$INTERFACE" ;;
             66) AutoloadUSBmodules ;;
             #21) showHelp  ;;
-            abort) break ;;
+            19)    RV=0;   break ;;  # exit button pressed
+            abort) RV=0;   break ;;  # cancel button in window bar pressed
+            '')    RV=127; break ;;
         esac
 
     done
-
+return ${RV:-0}
 } # end of showMainWindow
 
 #=============================================================================
@@ -182,6 +192,7 @@ getInterfaceList(){
 #=============================================================================
 refreshMainWindowInfo ()
 {
+  local RV=0
   # Dougal: comment out and move to the showLoadModuleWindow -- only used there...
   #findLoadedModules
   getInterfaceList
@@ -243,12 +254,13 @@ ${INTERFACEBUTTONS}
 
     #echo "Puppy has done a quick check to see which network driver modules are currently loaded. Here they are (the relevant interface is in brackets):
  #${LOADEDETH}" >/tmp/net-setup_MSGMODULES.txt
-
+return ${RV:-0}
 } # end refreshMainWindowInfo
 
 #=============================================================================
 buildMainWindow ()
 {
+    local RV=0
     echo "${TOPMSG}" >/tmp/net-setup_TOPMSG.txt
 
 
@@ -282,6 +294,8 @@ buildMainWindow ()
     </hbox>
 </vbox>
 </window>"
+
+return ${RV:-0}
 }
 
 #=============================================================================
@@ -1279,37 +1293,37 @@ configureWireless()
 
 #=============================================================================
 # this expanded and moved to wag-profiles.sh, so can be used by rc.network
-#setupDHCP()
-#{
-    #{
-        ## Must kill old dhcpcd first
-        #killDhcpcd "$INTERFACE"
-        #sleep 5
-        #if dhcpcd -d -I '' "$INTERFACE"
-        #then
-            #HAS_ERROR=0
-        #else
-            #HAS_ERROR=1
-        #fi
-        #echo "${HAS_ERROR}" >/tmp/net-setup_HAS_ERROR.txt
-        #echo "XXXX"
-    #} | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
-#DHCP server to respond. Please wait patiently..." 0 0 0
+__setupDHCP()
+{
+    {
+        # Must kill old dhcpcd first
+        killDhcpcd "$INTERFACE"
+        sleep 5
+        if dhcpcd -d -I '' "$INTERFACE"
+        then
+            HAS_ERROR=0
+        else
+            HAS_ERROR=1
+        fi
+        echo "${HAS_ERROR}" >/tmp/net-setup_HAS_ERROR.txt
+        echo "XXXX"
+    } | Xdialog --no-buttons --title "$L_TITLE_Puppy_Network_Wizard: DHCP" --infobox "There may be a delay of up to 60 seconds while Puppy waits for the
+DHCP server to respond. Please wait patiently..." 0 0 0
 
-  #HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
+  HAS_ERROR=$(cat /tmp/net-setup_HAS_ERROR.txt)
 
-  #if [ $HAS_ERROR -eq 0 ]
-  #then
-    ## Dougal: not sure about this -- maybe add something? need to know we've used it
-    #MODECOMMANDS=""
-  #else
-    #MODECOMMANDS=""
-    ## need to kill dhcpcd, since it keeps running even with an error!
-    #killDhcpcd "$INTERFACE"
-  #fi
+  if [ $HAS_ERROR -eq 0 ]
+  then
+    # Dougal: not sure about this -- maybe add something? need to know we've used it
+    MODECOMMANDS=""
+  else
+    MODECOMMANDS=""
+    # need to kill dhcpcd, since it keeps running even with an error!
+    killDhcpcd "$INTERFACE"
+  fi
 
-  #return $HAS_ERROR
-#} #end of setupDHCP
+  return $HAS_ERROR
+} #end of __setupDHCP
 
 #=============================================================================
 showStaticIPWindow()
@@ -1368,9 +1382,9 @@ EOF
 #=============================================================================
 buildStaticIPWindow()
 {
-    [ -z "$IP_ADDRESS" ] && IP_ADDRESS="0.0.0.0"
-    [ -z "$NETMASK" ] && NETMASK="255.255.255.0"
-    [ -z "$GATEWAY" ] && GATEWAY="0.0.0.0"
+    [ -z "$IP_ADDRESS" ]  && IP_ADDRESS="0.0.0.0"
+    [ -z "$NETMASK" ]     && NETMASK="255.255.255.0"
+    [ -z "$GATEWAY" ]     && GATEWAY="0.0.0.0"
     [ -z "$DNS_SERVER1" ] && DNS_SERVER1="0.0.0.0"
     [ -z "$DNS_SERVER2" ] && DNS_SERVER2="0.0.0.0"
 
@@ -1759,12 +1773,13 @@ findInterfaceInfo()
 #=============================================================================
 saveInterfaceSetup()
 {
-  INTERFACE="$1"
+  INTERFACE=${INTERFACE:-"$1"}
+  test "$INTERFACE" || return 2
   # Dougal: use HWaddress for the config files!
   #HWADDRESS=`cat /sys/class/net/$1/address | tr a-z A-Z`
   # need to address from ifconfig, for firewire (/sys.../address gives 24-bit)
-  HWADDRESS=$(ifconfig "$1" | grep "^$1" | tr -s ' ' | cut -d' ' -f5)
-
+  HWADDRESS=$(ifconfig "$INTERFACE" | grep "^$INTERFACE" | tr -s ' ' | cut -d' ' -f5)
+  HWADDRESS=${HWADDRESS:-"UNKNOWN"}
 # create config file
 
   #if [ -e "/tmp/wireless-config" ] ; then
@@ -1793,12 +1808,15 @@ saveInterfaceSetup()
 #=============================================================================
 # Dougal: a little function to clean up /tmp when we're done...
 cleanUpTmp(){
-    rm -f /tmp/ethmoduleyesload.txt 2>$ERR
-    rm -f /tmp/loadedeth.txt 2>$ERR
-#   rm -f /tmp/wag-profiles_iwconfig.sh 2>$ERR
-    rm -f /tmp/net-setup_* 2>$ERR
-    rm -f /tmp/wpa_status.txt 2>$ERR
-    rm -f /tmp/net-setup_scan*.tmp 2>$ERR
+    test "DEBUG" && return 0
+    (
+    rm -f /tmp/ethmoduleyesload.txt
+    rm -f /tmp/loadedeth.txt
+#   rm -f /tmp/wag-profiles_iwconfig.sh
+    rm -f /tmp/net-setup_*
+    rm -f /tmp/wpa_status.txt
+    rm -f /tmp/net-setup_scan*.tmp
+    ) 2>>$ERR
 }
 
 #=============================================================================
@@ -1815,20 +1833,22 @@ if elspci -l | grep -E $Q '60700|60500' ; then
 fi
 
 setDefaultMODULEBUTTONS
-
+[ $? = 0 ] || RV=100
 refreshMainWindowInfo
+[ $? = 0 ] || RV=101
 
 BGCOLOR="#ffe0e0" #light red.
 TOPMSG="$L_TOPMSG_Initial"
 
 showMainWindow
-
+RV=${RV:-"$?"}
 # Dougal: clean up /tmp
 cleanUpTmp
 
 #v411 BK hack to remove old network wizard configs so rc.sysinit won't use them if old wizard installed...
 [ "`ls -1 /etc/network-wizard/network/interfaces 2>/dev/null`" ] && rm -f /etc/*[0-9]mode
 
+exit ${RV:-0}
 #=============================================================================
 #================ END OF SCRIPT BODY =====================
 #=============================================================================

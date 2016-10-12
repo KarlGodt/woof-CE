@@ -170,30 +170,39 @@
 # ver 0.0.0
 #  basic diagnostic listing
 
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
+CONFIG_NET_WIZ_DIR='/etc/network-wizard'
+CONFIG_WL_DIR="${CONFIG_NET_WIZ_DIR}/wireless"
+
 ## Dougal: dirs where config files go
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
-PROFILES_DIR='/etc/network-wizard/wireless/profiles'
+PROFILES_DIR=${PROFILES_DIR:-'/etc/network-wizard/wireless/profiles'}
 [ -d $PROFILES_DIR ] || mkdir -p $PROFILES_DIR
 # wpa_supplicant.conf files
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
-WPA_SUPP_DIR='/etc/network-wizard/wireless/wpa_profiles'
+WPA_SUPP_DIR=${WPA_SUPP_DIR:-'/etc/network-wizard/wireless/wpa_profiles'}
 [ -d $WPA_SUPP_DIR ] || mkdir -p $WPA_SUPP_DIR
 # configuration data for wireless interfaces (like if they support wpa)
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
-WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'
+WLAN_INTERFACES_DIR=${WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'}
 [ -d $WLAN_INTERFACES_DIR ] || mkdir -p $WLAN_INTERFACES_DIR
 
 # a file where WPA-supporting modules not included in the default list can be added
-Extra_WPA_Modules_File='/etc/network-wizard/wpa_modules'
+Extra_WPA_Modules_File=${Extra_WPA_Modules_File:='/etc/network-wizard/wpa_modules'}
 
 ## Dougal: put this into a variable
 BLANK_IMAGE=/usr/share/pixmaps/net-setup_btnsize.png
+test -s "$BLANK_IMAGE" || _warn "BLANK_IMAGE seems to be an empty file."
 
 #=============================================================================
 setupDHCP()
 {
+    INTERFACE=${INTERFACE:-"$1"}
+    test "$INTERFACE" || return 2
     # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
     local MAX_TIME='30'
     # by how much we multiply the time to get percentage (3 for 30 seconds max time)
@@ -216,7 +225,7 @@ setupDHCP()
    <button>
      <label>$L_BUTTON_Abort</label>
      <input file icon=\"gtk-stop\"></input>
-     <action>kill \$(ps ax | grep \"dhcpcd -d -I  $INTERFACE\" | awk '{print \$1}')</action>
+     <action>kill \$(ps ax | grep \"dhcpcd -d -I $INTERFACE\" | awk '{print \$1}')</action>
      <action>EXIT:Abort</action>
    </button>
   </hbox>
@@ -241,17 +250,17 @@ setupDHCP()
                 sleep 1
                 # see if user aborted
                 if [ "$HAVEX" = "yes" ]; then
-                    pidof gtkdialog3 2>&1 |grep -q "$1" || return
+                    pidof gtkdialog3 2>&1 | grep $Q -w "$1" || return 0
                     # exit the function
                 else
                     if [ -f "$TmpMarker" ] ; then
                         rm "$TmpMarker"
-                        return
+                        return 0
                     fi
                 fi
                 #  i*3 will only get us up to 90% at 30 sec, but still... this
                 #+ could be tweaked and obviously needs to be adjusted to the max time
-                echo $((i*$I_MULTIPLY))
+                echo $((i*I_MULTIPLY))
             done
         }
 
@@ -269,7 +278,7 @@ setupDHCP()
         echo "$HAS_ERROR" > /tmp/net-setup_HAS_ERROR.txt
         # close progressbar
         if [ "$HAVEX" = "yes" ] ; then
-            pidof gtkdialog3 2>&1 | grep -q "$XPID" && echo "100"
+            pidof gtkdialog3 2>&1 | grep $Q -w "$XPID" && echo "100"
         else
             touch "$TmpMarker"
         fi
@@ -282,7 +291,7 @@ setupDHCP()
 
     ## Clean up:
     if [ -n "$XPID" ] ;then
-        kill $XPID >/dev/null 2>&1
+        kill $XPID >>$OUT 2>&1
         # any rogue gtkdialog processes
         clean_up_gtkdialog Dhcpcd_Progress_Dialog
     fi
@@ -305,25 +314,36 @@ setupDHCP()
 #=============================================================================
 showProfilesWindow()
 {
+    local RV=1
     INTERFACE=${INTERFACE:-"$1"}
     test "$INTERFACE" || return 2
     # Dougal: find driver and set WPA driver from it
     INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
     INTMODULE=${INTMODULE##*/}
     case "$INTMODULE" in
-     hostap*) CARD_WPA_DRV="hostap" ;;
-     rt61|rt73) CARD_WPA_DRV="ralink" ;;
+     hostap*)     CARD_WPA_DRV="hostap" ;;
+     rt61|rt73)   CARD_WPA_DRV="ralink" ;;
      r8180|r8187) CARD_WPA_DRV="ipw" ;;
      # Dougal: all lines below are "wext" (split and alphabetized for readability)
-     ath_pci) modprobe wlan_tkip ; CARD_WPA_DRV="wext" ;;
-     ath5k*|ath9k*|b43|b43legacy|bcm43xx) CARD_WPA_DRV="wext" ;;
-     ipw2100|ipw2200|ipw3945|iwl3945|iwl4965|iwl5100|iwlagn) CARD_WPA_DRV="wext" ;;
-     ndiswrapper|p54pci|p54usb|rndis_wlan) CARD_WPA_DRV="wext" ;;
-     rt61pci|rt73usb|rt2400pci|rt2500*|rt28[67]0*|rtl8180|rtl8187) CARD_WPA_DRV="wext" ;;
+     ath_pci) modprobe wlan_tkip ;   CARD_WPA_DRV="wext" ;;
+     ath5k*|ath9k*)                  CARD_WPA_DRV="wext" ;;
+     ar9170usb|at76c50x-usb)         CARD_WPA_DRV="wext" ;; #v430
+     b43|b43legacy|bcm43xx)          CARD_WPA_DRV="wext" ;;
+     ipw2100|ipw2200|ipw3945)        CARD_WPA_DRV="wext" ;;
+     iwl3945|iwl4965|iwl5100|iwlagn) CARD_WPA_DRV="wext" ;;
+     libertas_cs|libertas_sdio|libertas_tf_usb) CARD_WPA_DRV="wext" ;; #v430
+     mwl8k)           CARD_WPA_DRV="wext" ;; #v430
+     ndiswrapper)     CARD_WPA_DRV="wext" ;;
+     p54pci|p54usb)   CARD_WPA_DRV="wext" ;;
+     rndis_wlan)      CARD_WPA_DRV="wext" ;;
+     rt61pci|rt73usb) CARD_WPA_DRV="wext" ;;
+     rt2400pci|rt2500*|rt28[67]0*) CARD_WPA_DRV="wext" ;;
+    #rt2800pci) CARD_WPA_DRV="wext" ;;  # KRG: Joy-IT GreatWall U310
+     rtl8180|rtl8187)         CARD_WPA_DRV="wext" ;;
+     usb8xxx)                 CARD_WPA_DRV="wext" ;; #v430
      zd1211|zd1211b|zd1211rw) CARD_WPA_DRV="wext" ;;
-     ar9170usb|at76c50x-usb|libertas_cs|libertas_sdio|libertas_tf_usb|mwl8k|usb8xxx) CARD_WPA_DRV="wext" ;; #v430
-     *) # doesn't support WPA encryption
-       # add an option to add modules to file
+     *) # doesn't support WPA encryption or is newer/older than known here
+        # add an option to add modules to file
        if [ -f "$Extra_WPA_Modules_File" ] &&\
             CARD_WPA_DRV=$(grep -m1 "^$INTMODULE:" $Extra_WPA_Modules_File) ; then
          CARD_WPA_DRV=${CARD_WPA_DRV#*:}
@@ -346,19 +366,24 @@ showProfilesWindow()
         buildProfilesWindow
         [ $? = 0 ] || { RV=126; break; }
 
-        I=$IFS; IFS=""
+        #I=$IFS; IFS="" # this formats gtkdialog output to one single file, thus for loop below pointless
         ## Add escaping of funny chars before we eval the statement!
-        for STATEMENT in  $(gtkdialog3 --program NETWIZ_Profiles_Window | sed 's%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%=\\"%="%g ; s%\\"$%"%g' ); do
-            eval $STATEMENT
-        done
-        IFS=$I
+        #for STATEMENT in $(gtkdialog3 --program NETWIZ_Profiles_Window | sed 's%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%=\\"%="%g ; s%\\"$%"%g' ); do
+         STATEMENT=$(gtkdialog3 --program NETWIZ_Profiles_Window)
+            _debug "STATEMENT='$STATEMENT'"
+         STATEMENT=$(echo "$STATEMENT" | sed 's%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%=\\"%="%g ; s%\\"$%"%g')
+            _debug "STATEMENT='$STATEMENT'"
+            #eval $STATEMENT  # if $STATEMENT double quoted, no for loop needed
+            eval "$STATEMENT"
+        #done
+        #IFS=$I
         clean_up_gtkdialog NETWIZ_Profiles_Window
         unset NETWIZ_Profiles_Window
 
         case "$EXIT" in
             '') RV=125; break;; # GUI crashed?
             "abort" | "19" ) # Back or close window
-                break
+                RV=0; break
                 ;; # Do Nothing, It will exit the while loop
             "11" ) # Scan
                 showScanWindow
@@ -381,9 +406,17 @@ showProfilesWindow()
                 ;;
             "22" ) # Use This Profile
                   if useProfile ; then
-                    return 0
+                    #return 0
+                    if test "$CURRENT_CONTEXT" = 'wag-profiles.sh'; then
+                     setupDHCP
+                         RV=$?
+                    else RV=0
+                    fi
+                    break
                   else # Dougal: add new message to say it failed
-                    return 2
+                    #return 2
+                    RV=2
+                    break
                   fi
                 ;;
             "40" ) # Advanced fields
@@ -491,7 +524,7 @@ giveNoWPADialog(){
     done
     clean_up_gtkdialog NETWIZ_No_WPA_Dialog
     unset NETWIZ_No_WPA_Dialog
-    [ "$EXIT" = "10" ] || return
+    [ "$EXIT" = "10" ] || return 0
     # give dialog with details we're going to add
     export NETWIZ_WPA_Details_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-info\" window-position=\"1\">
  <vbox>
@@ -527,7 +560,7 @@ giveNoWPADialog(){
     done
     clean_up_gtkdialog NETWIZ_WPA_Details_Dialog
     unset NETWIZ_WPA_Details_Dialog
-    [ "$EXIT" = "OK" ] || return
+    [ "$EXIT" = "OK" ] || return 0
     # add the details
     [ -z "$ENTRY2" ] && ENTRY2=wext
     echo "$ENTRY1:$ENTRY2" >> $Extra_WPA_Modules_File
@@ -543,6 +576,7 @@ refreshProfilesWindowInfo()
 #=============================================================================
 buildProfilesWindow()
 {
+    local RV=0
     DEFAULT_TITLE=""
     DEFAULT_ESSID=""
     DEFAULT_KEY=""
@@ -1143,13 +1177,17 @@ saveWpaProfile(){
     # need to escape the original phrase for sed
     ## (need to be escaped twice (extra \\) if we want the result escaped)
     ESCAPED_PHRASE="$( echo "$PROFILE_KEY" | sed 's%\\%\\\\%g ; s%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%\/%\\/%g' )"
-
+    local RV=$?
     # need to change ap_scan, ssid and psk
     sed -i "s/ap_scan=.*/ap_scan=$PROFILE_WPA_AP_SCAN/" "$WPA_CONF"
-    sed -i "s/\Wssid=.*/    ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"
-    sed -i "s/\Wpsk=.*/ #psk=\"$ESCAPED_PHRASE\"\n  psk=$PSK/" "$WPA_CONF"
-    #sed -i "s/ psk=.*/ psk=\"$PSK\"/" "$WPA_CONF"
-    return 0
+    RV=$((RV+$?))
+    sed -i "s/\Wssid=.*/	ssid=\"$PROFILE_ESSID\"/" "$WPA_CONF"   #TAB 1
+    RV=$((RV+$?))
+    sed -i "s/\Wpsk=.*/	#psk=\"$ESCAPED_PHRASE\"\n	psk=$PSK/" "$WPA_CONF"  #TAB 2
+    RV=$((RV+$?))
+    #sed -i "s/	psk=.*/	psk=\"$PSK\"/" "$WPA_CONF"  #TAB 2
+    #RV=$((RV+$?))
+    return $RV
 }
 
 #=============================================================================
@@ -1215,28 +1253,28 @@ giveErrorDialog(){
     unset NETWIZ_ERROR_DIALOG
 }
 
-#giveNoNetworkDialog(){
-    #export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
- #<vbox>
-  #<pixmap icon_size=\"6\">
-      #<input file stock=\"gtk-dialog-error\"></input>
-    #</pixmap>
-  #<text>
-    #<label>\"Error!
-#The profile had no network associated with it.
-#You must run a wireless scan and select a
-#network, then create a profile for it.\"</label>
-  #</text>
-  #<hbox>
-    #<button ok></button>
-  #</hbox>
- #</vbox>
-#</window>"
+__giveNoNetworkDialog(){
+    export NO_NETWORK_ERROR_DIALOG="<window title=\"Puppy Network Wizard\" icon-name=\"gtk-dialog-error\" window-position=\"1\">
+ <vbox>
+  <pixmap icon_size=\"6\">
+      <input file stock=\"gtk-dialog-error\"></input>
+    </pixmap>
+  <text>
+    <label>\"Error!
+The profile had no network associated with it.
+You must run a wireless scan and select a
+network, then create a profile for it.\"</label>
+  </text>
+  <hbox>
+    <button ok></button>
+  </hbox>
+ </vbox>
+</window>"
 
-    #gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >/dev/null 2>&1
-    #clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
-    #unset NO_NETWORK_ERROR_DIALOG
-#}
+    gtkdialog3 --program NO_NETWORK_ERROR_DIALOG >/dev/null 2>&1
+    clean_up_gtkdialog NO_NETWORK_ERROR_DIALOG
+    unset NO_NETWORK_ERROR_DIALOG
+}
 
 #=============================================================================
 useProfile ()
@@ -1260,7 +1298,7 @@ killWpaSupplicant ()
 {
     # If there are supplicant processes for the current interface, kill them
     [ -d /var/run/wpa_supplicant ] || return
-    [ "$INTERFACE" ] || INTERFACE="$1"
+    INTERFACE=${INTERFACE:-"$1"}
     #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
     #if [ -n "$SUPPLICANT_PIDS" ]; then
     #   rm /var/run/wpa_supplicant/$INTERFACE* > /dev/null 2>&1
@@ -1344,7 +1382,7 @@ $ERROR
 ## dialog variable passed as param
 clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $( ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | cut -d' ' -f1 )
+ for I in $( ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | awk '{print $1}' )
  do kill $I
  done
 }
@@ -1352,6 +1390,8 @@ clean_up_gtkdialog(){
 #=============================================================================
 useIwconfig ()
 {
+    INTERFACE=${INTERFACE:-"$1"}
+    test "$INTERFACE" || return 2
   #(
     # Dougal: give the text message even when using dialog (for debugging)
     echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1365,28 +1405,29 @@ useIwconfig ()
       gtkdialog3 --program NETWIZ_Connecting_DIALOG &
       local XPID=$!
     fi
+    (
     #killWpaSupplicant
     # Dougal: reset the interface
-    cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
+    cleanUpInterface "$INTERFACE"
     #echo "X"
     #RUN_IWCONFIG=""
     # Dougal: re-order these a bit, to match order in wicd
-    [ "$PROFILE_MODE" ] && iwconfig "$INTERFACE" mode $PROFILE_MODE >> $DEBUG_OUTPUT 2>&1
-    [ "$PROFILE_ESSID" ] && iwconfig "$INTERFACE" essid "$PROFILE_ESSID" >> $DEBUG_OUTPUT 2>&1
-    [ "$PROFILE_CHANNEL" ] && iwconfig "$INTERFACE" channel $PROFILE_CHANNEL >> $DEBUG_OUTPUT 2>&1
-    [ "$PROFILE_AP_MAC" ] && iwconfig "$INTERFACE" ap $PROFILE_AP_MAC >> $DEBUG_OUTPUT 2>&1
-    [ "$PROFILE_NWID" ] && iwconfig "$INTERFACE" nwid $PROFILE_NWID >> $DEBUG_OUTPUT 2>&1
-    [ "$PROFILE_FREQ" ] && iwconfig "$INTERFACE" freq $PROFILE_FREQ >> $DEBUG_OUTPUT 2>&1
+    [ "$PROFILE_MODE" ]    && iwconfig "$INTERFACE" mode $PROFILE_MODE
+    [ "$PROFILE_ESSID" ]   && iwconfig "$INTERFACE" essid "$PROFILE_ESSID"
+    [ "$PROFILE_CHANNEL" ] && iwconfig "$INTERFACE" channel $PROFILE_CHANNEL
+    [ "$PROFILE_AP_MAC" ]  && iwconfig "$INTERFACE" ap $PROFILE_AP_MAC
+    [ "$PROFILE_NWID" ]    && iwconfig "$INTERFACE" nwid $PROFILE_NWID
+    [ "$PROFILE_FREQ" ]    && iwconfig "$INTERFACE" freq $PROFILE_FREQ
     if [ "$PROFILE_KEY" ] ; then
-      iwconfig "$INTERFACE" key on >> $DEBUG_OUTPUT 2>&1
-      iwconfig "$INTERFACE" key $PROFILE_SECURE "$PROFILE_KEY" >> $DEBUG_OUTPUT 2>&1
+      iwconfig "$INTERFACE" key on
+      iwconfig "$INTERFACE" key $PROFILE_SECURE "$PROFILE_KEY"
     fi
     # Dougal: add increasing of rate for ath5k
-    case $INTMODULE in ath5k*) iwconfig "$INTERFACE" rate 11M >> $DEBUG_OUTPUT 2>&1 ;; esac
-
+    case $INTMODULE in ath5k*) iwconfig "$INTERFACE" rate 11M ;; esac
+     ) >> $DEBUG_OUTPUT 2>&1
     #echo "X"
     if [ "$XPID" ] ;then
-      kill $XPID >/dev/null 2>&1
+      kill $XPID >>$OUT 2>&1
       clean_up_gtkdialog NETWIZ_Connecting_DIALOG
     fi
     unset NETWIZ_Connecting_DIALOG
@@ -1459,6 +1500,8 @@ useWlanctl(){
 # $2: XPID of gtkdialog progressbar (so we can check if the user clicked "abort")
 # (times in wicd were 15, 3, 1 (sleep), +5 (if rescan) )
 validateWpaAuthentication(){
+    INTERFACE=${INTERFACE:-"$1"}
+    test "$INTERFACE" || return 2
     # Max time we wait for connection to complete (+1 since loop checks at start)
     local MAX_TIME='31'
     # The max time after starting in which we allow the status to be "DISCONNECTED"
@@ -1466,14 +1509,14 @@ validateWpaAuthentication(){
     START_TIME=$(date +%s)
     # The elapsed time since starting (calculated at the bottom of the loop)
     ELAPSED=0
-    while [ $ELAPSED -lt $MAX_TIME ] ; do
+    while [ "$ELAPSED" -lt $MAX_TIME ] ; do
         sleep 1
         # see if user aborted
         if [ "$2" ] ; then
-          pidof gtkdialog3 2>&1 |grep -q "$2" || return 2
+          pidof gtkdialog3 2>&1 |grep -q -w "$2" || return 2
         fi
         # change to lower case, to make it more clear when displayed
-        RESULT=$(wpa_cli -i "$1" status 2>>$DEBUG_OUTPUT |grep 'wpa_state=' | tr A-Z a-z |tr '_' ' ')
+        RESULT=$(wpa_cli -i "$INTERFACE" status 2>>$DEBUG_OUTPUT |grep 'wpa_state=' | tr A-Z a-z |tr '_' ' ')
         [ "$RESULT" ] || return 3
         RESULT=${RESULT#*=}
         #echo "$RESULT"
@@ -1481,7 +1524,7 @@ validateWpaAuthentication(){
         case $RESULT in
           *completed*) return 0 ;;
           *disconnected*)
-            if [ $ELAPSED -gt $MAX_DISCONNECTED_TIME ] ; then
+            if [ "$ELAPSED" -gt $MAX_DISCONNECTED_TIME ] ; then
               # Force a rescan to get wpa_supplicant moving again.
               # Dougal: explanation from wicd:
               # This works around authentication validation sometimes failing for
@@ -1490,7 +1533,7 @@ validateWpaAuthentication(){
               # attempting to authenticate.  This whole process takes a long
               # time, so we manually speed it up if we see it happening.
               echo "forcing wpa_supplicant to rescan:" >>$DEBUG_OUTPUT
-              wpa_cli -i "$1" scan >>$DEBUG_OUTPUT 2>&1
+              wpa_cli -i "$INTERFACE" scan >>$DEBUG_OUTPUT 2>&1
               MAX_TIME=$((MAX_TIME+5))
               MAX_DISCONNECTED_TIME=$((MAX_DISCONNECTED_TIME+4))
             fi
@@ -1789,6 +1832,10 @@ showScanWindow()
 # $1 might be "retry", to let us know we've already tried once...
 buildScanWindow()
 {
+    INTERFACE=${INTERFACE:-"$1"}
+    [ "$INTERFACE" ] || return 1
+    [ "$INTERFACE" = retry ] && INTERFACE=wlan0 #default
+
     SCANWINDOW_BUTTONS=""
     (
         #ifconfig "$INTERFACE" up
@@ -2198,29 +2245,34 @@ getPrismCellParameters()
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
     INTERFACE=${INTERFACE:-"$1"}
-    INTERFACE=${INTERFACE:-"wlan0"}
-    DEBUG_OUTPUT="/dev/stderr"
+    #readonly INTERFACE=${INTERFACE:-"wlan0"} ## showProfilesWindow: INTERFACE=${INTERFACE:-"$1"}  line 315: INTERFACE: read-only variable
+    INTERFACE=${INTERFACE:-"wlan0"}  # use some default
+    DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/stderr"}
 
     _get_locale_strings(){   #2016-10-11 taken from net-setup.sh
 # Dougal: add localization
 mo=net-setup.mo
 #lng=${LANG%.*}
 # always start by sourceing the English version (to fill in gaps)
-test -e "/usr/share/locale/en/LC_MESSAGES/$mo" || return 2
+test -e "/usr/share/locale/en/LC_MESSAGES/$mo" || return 3
 . "/usr/share/locale/en/LC_MESSAGES/$mo"
+local RV=$?
 if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
 elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
-else false
+else true # other locale not installed/found, return 0 then
 fi
+RV=$((RV+$?))
+return $RV
 }
     _get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
 
     showProfilesWindow "$INTERFACE"
+    exit $?
 fi
 #DEBUG_OUTPUT="/dev/stdout"
-[ ! "${DEBUG_OUTPUT}" ] && DEBUG_OUTPUT="/dev/null"
+DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/null"}
 
 #=============================================================================
 #=============== END OF SCRIPT BODY ====================
