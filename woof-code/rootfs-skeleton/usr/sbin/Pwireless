@@ -1,0 +1,710 @@
+#! /bin/bash
+
+#version 0.8.4 2009-01-01 by Jason Pline
+#v0.8.1 patch from HairyWill
+
+rm -f /tmp/Pwireless-profile-connect
+
+###Check for gtkdialog
+
+GTKDIALOG=""
+
+if [ "`which gtkdialog`" != "" ]; then
+GTKDIALOG=gtkdialog
+fi
+if [ "`which gtkdialog3`" != "" ]; then
+GTKDIALOG=gtkdialog3
+fi
+if [ "$GTKDIALOG" = "" ]; then
+echo "you need to install gtkdialog"
+fi
+
+###Make sure the user is root
+
+if [ "`which whoami`" != "" ]; then
+if [ "`whoami`" != root ]; then
+export MAIN_DIALOG='
+ <vbox>
+  <text wrap="true" width-chars="20">
+    <label>You need to be root to run this program</label>
+  </text>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+'
+$GTKDIALOG --program=MAIN_DIALOG --center
+exit 0
+fi
+fi
+
+export MAIN_DIALOG="
+<vbox>
+  <frame Progress>
+    <text>
+      <label>Pwireless is obtaining information to build the gui...</label>
+    </text>
+    <progressbar>
+      <label>getting information...</label>
+      <input>for i in \$(seq 0 10 100); do echo \$i; sleep 4; done</input>
+    </progressbar>
+  </frame>
+ </vbox>
+"
+$GTKDIALOG --program=MAIN_DIALOG --center &
+
+X2PID=$!
+
+###Get the wireless device, i.e. atho, wlan0, ra0, etc...
+
+iwconfig | grep ESSID: > /tmp/Pwireless-device
+DEVICE=`cat /tmp/Pwireless-device | cut -f 1 -d ' '`
+ifconfig "$DEVICE" up
+IP=`ifconfig $DEVICE | grep 'inet addr:' | sed 's/^[ ^t]*//' | sed 's/inet addr://g' | cut -f 1 -d ' '`
+if [ "$IP" = "" ]; then
+IP=127.0.0.1
+fi
+echo $IP > /tmp/Pwireless-IP
+
+###Find a suitable dhcp client, i.e. dhclient, pump, or dhcpcd
+
+DHCP=""
+
+if [ "`which dhclient`" != "" ]; then
+DHCP=dhclient
+fi
+if [ "`which pump`" != "" ]; then
+DHCP="pump -i"
+fi
+if [ "`which dhcpcd`" != "" ]; then
+DHCP=dhcpcd
+fi
+if [ "$DHCP" = "" ]; then
+export MAIN_DIALOG='
+ <vbox>
+  <text wrap="true" width-chars="20">
+    <label>You need to install either dhclient, dhcpcd, or pump</label>
+  </text>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+'
+$GTKDIALOG --program=MAIN_DIALOG --center
+exit 0
+fi
+
+echo "$DHCP" > /tmp/Pwireless-dhcp
+
+###create a temp file to either view all wifi or only open unencrypted wifi
+
+if ! [ -f /tmp/Pwireless-open ]; then
+echo false > /tmp/Pwireless-open
+fi
+rm -f /tmp/Pwireless-cells 2>/dev/null
+
+###Scan for wifi & build the main gui
+
+iwlist $DEVICE scanning > /tmp/Pwireless
+NUMCELLS=`cat /tmp/Pwireless | grep "   Cell " | wc -l | sed 's/ //g'`
+a=1
+b=`expr "$NUMCELLS" + 1`
+
+if [ -d $HOME/.config/Pwireless ]; then
+cd $HOME/.config/Pwireless
+if [ "`ls`" != "" ]; then
+SSIDS=""
+for ONESSID in `ls | sed 's/-GETIP//g' | sed 's/-IWCONFIG//g' | grep -v Pwireless-save.sh | sort -u`
+do
+ SSIDS="$SSIDS<item>$ONESSID</item>"
+done
+fi
+fi
+
+export DIALOG='
+  <vbox>
+    <text>
+      <label>Profile has been saved.</label>
+    </text>
+    <button>
+      <label>Close</label>
+      <action type="closewindow">DIALOG</action>
+    </button>
+  </vbox>
+'
+
+export MAIN_DIALOG="
+<window title=\"Pwireless-0.8.4 \"icon-name=\"gtk-connect\">
+ <vbox>
+<notebook labels=\"Networks|Profiles\">
+<vbox>
+"
+if [ "`cat /tmp/Pwireless-open`" = false ]; then
+MAIN_DIALOG="$MAIN_DIALOG
+ <frame Scan results of all wifi networks - `cat /tmp/Pwireless-device | cut -f 1 -d ' '` IP is `cat /tmp/Pwireless-IP`>"
+else
+MAIN_DIALOG="$MAIN_DIALOG
+ <frame Scan results of only the OPEN wifi networks that broadcast the SSID - `cat /tmp/Pwireless-device | cut -f 1 -d ' '` IP is `cat /tmp/Pwireless-IP`>"
+ fi
+MAIN_DIALOG="$MAIN_DIALOG
+  <table>
+    <width>565</width><height>300</height>
+    <variable>TABLE</variable>
+    <label>Cell |ESSID                 |Mode       |Ch# |Quality  |Signal/Noise     |Encryp |AP MAC Address</label>"
+    
+###adding a zero before all single digit cells that are found by iwlist so grep can find the specified cells in the temp file
+
+while [ "$a" != "$b" ]; do
+if [ "`echo $a | wc -c | sed 's/ //g'`" = 2 ]; then
+NUM=0"$a"
+else
+NUM=$a
+fi
+
+###grep the temp file for the ESSID
+
+ESSID=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep ESSID: | head -n 1 | sed 's/^[ ^t]*//' | sed 's/ESSID://g'`
+
+#v1.8.1 patch from HairyWill...
+#ESSID2=`echo "$ESSID" | sed 's/\"//g'`
+ESSID2=`echo "$ESSID" | sed 's/\"//g;s/</\\\</g;s/>/\\\>/g'`
+
+if [ "$ESSID2" = "" ]; then
+ESSID2=HIDDEN-ESSID
+fi
+if [ "$ESSID2" = " " ]; then
+ESSID2=HIDDEN-ESSID
+fi
+
+###grep the temp file for Mode, Channel, Quality, & Encryption type
+
+if [ "`cat /tmp/Pwireless | grep Quality=`" != "" ]; then
+QTEMP="Quality="
+else
+QTEMP="Quality:"
+fi
+
+MODE=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep Mode: | head -n 1 | sed 's/^[ ^t]*//' | sed 's/Mode://g' | sed -r "s/\<[a-z]+/\L&/g" | sed 's/master/managed/g'`
+CHANNEL=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep Channel | head -n 1 | tail -c 4 | grep -o [0-9][0-9]*`
+QUALITY=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep $QTEMP | head -n 1 | sed 's/^[ ^t]*//' | tr -s ' ' | cut -f 1 -d ' ' | sed "s/$QTEMP//g"`
+ENCRYPTION=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep "Encryption key:" | head -n 1 | sed 's/Encryption key://g' | sed 's/^[ ^t]*//'`
+SIGNAL=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep $QTEMP | head -n 1 | tr -s ' ' | cut -f 4 -d ' ' | sed 's/level//g' | sed 's/=//g' | sed 's/://g'`
+NOISE1=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep $QTEMP | head -n 1 | tr -s ' ' | cut -f 7 -d ' ' | sed 's/level//g' | sed 's/=//g' | sed 's/://g'`
+NOISE2=`cat /tmp/Pwireless | grep "   Cell $NUM" -A 9 | grep $QTEMP | head -n 1 | tr -s ' ' | cut -f 8 -d ' '`
+if [ "$SIGNAL" = "" ]; then
+SIGNAL=?
+fi
+if [ "$NOISE1" = "" ]; then
+NOISE1=?
+fi
+if [ "$QUALITY" = "" ]; then
+QUALITY=?
+fi
+NOISE="$NOISE1 $NOISE2"
+APMAC=`cat /tmp/Pwireless | grep "   Cell $NUM" | sed 's/^[ ^t]*//' | tr -s ' ' | cut -f 5 -d ' '`
+
+if [ "$CHANNEL" = "" ]; then
+CHANNEL=auto
+fi
+if [ "`echo $APMAC | grep : | wc -c | sed 's/ //g'`" != 18 ]; then
+APMAC=auto
+fi
+
+
+echo Cell="$NUM" >> /tmp/Pwireless-cells
+echo ESSID="$ESSID" >> /tmp/Pwireless-cells
+echo Channel="$CHANNEL" >> /tmp/Pwireless-cells
+echo Encryption="$ENCRYPTION" >> /tmp/Pwireless-cells
+echo SIGNAL="$SIGNAL" >> /tmp/Pwireless-cells
+echo NOISE="$NOISE" >> /tmp/Pwireless-cells
+echo APMAC="$APMAC" >> /tmp/Pwireless-cells
+echo MODE="$MODE" >> /tmp/Pwireless-cells
+
+###differentiate between WEP, WPA, & unencrypted wifi signals
+
+if [ "$ENCRYPTION" = off ]; then
+ENCRYPTION2=OPEN
+fi
+if [ "$ENCRYPTION" = on ]; then
+if [ "`cat /tmp/Pwireless | grep "   Cell $NUM" -A 10 | grep 'IE: IEEE 802.11i/WPA'`" != "" ]; then
+ENCRYPTION2=WPA
+else
+ENCRYPTION2=WEP
+fi
+fi
+
+echo Encryption2="$ENCRYPTION2" >> /tmp/Pwireless-cells
+
+###build gui with either All wifi, or just OPEN unencrypted wifi that broadcasts the SSID
+
+if [ "`cat /tmp/Pwireless-open`" = true ]; then
+if [ "$ENCRYPTION" = off ]; then
+if [ "$ESSID2" != HIDDEN-ESSID ]; then
+MAIN_DIALOG="$MAIN_DIALOG
+	<item>$NUM | $ESSID2 | $MODE | $CHANNEL | $QUALITY | $SIGNAL/$NOISE | $ENCRYPTION2 | $APMAC</item>"
+fi
+fi
+else
+MAIN_DIALOG="$MAIN_DIALOG
+	<item>$NUM | $ESSID2 | $MODE | $CHANNEL | $QUALITY | $SIGNAL/$NOISE | $ENCRYPTION2 | $APMAC</item>"
+fi
+a=`expr "$a" + 1`
+done
+
+MAIN_DIALOG="$MAIN_DIALOG
+
+    <action>echo $TABLE</action>
+  </table>
+  <hbox>
+    <button>
+       <input file stock=\"gtk-dialog-authentication\"></input>
+      <label>Refresh All Networks</label>
+      <action type=\"exit\">VIEW-ALL</action>
+    </button>
+    <button>
+       <input file stock=\"gtk-apply\"></input>
+      <label>Refresh Open Networks</label>
+      <action type=\"exit\">VIEW-OPEN</action>
+    </button>
+    <button>
+       <input file stock=\"gtk-connect\"></input>
+      <label>Connect</label>
+      <action type=\"exit\">Connect-NOW</action>
+    </button>
+		<button>
+			<input file stock=\"gtk-add\"></input>
+        <label>Add profile</label>
+        <action type=\"exit\">ADD-PROFILE</action>
+      </button>
+		<button>
+			<input file stock=\"gtk-quit\"></input>
+        <label>QUIT</label>
+        <action type=\"exit\">Exit-NOW</action>
+      </button>
+  </hbox>
+  </frame>
+ </vbox>
+    <vbox>
+	<hbox>
+     <text>
+      <label>Select profile and click the OK button or select the delete button to remove the profile</label>
+    </text>
+    <combobox>
+     <variable>SSID</variable>
+      $SSIDS
+    </combobox>
+    <button>
+       <input file stock=\"gtk-apply\"></input>
+      <label>OK</label>
+      <action>echo \$SSID | tee /tmp/Pwireless-ssid</action>
+      <action>refresh:CHANNEL</action>
+      <action>refresh:ESSID</action>
+      <action>refresh:ENCKEY</action>
+      <action>refresh:APMAC2</action>
+      <action>refresh:MODE2</action>
+      <action>refresh:IWCONFIG</action>
+      <action>refresh:GETIP</action>
+    </button>
+    <button>
+       <input file stock=\"gtk-delete\"></input>
+      <label>delete</label>
+      <action>rm $HOME/.config/Pwireless/\$SSID</action>
+      <action>rm -f $HOME/.config/Pwireless/\$SSID-IWCONFIG</action>
+      <action>rm -f $HOME/.config/Pwireless/\$SSID-GETIP</action>
+        <action type=\"exit\">REFRESH</action>
+    </button>
+    </hbox>
+    <frame Clicking update commands will update the command lines below with any of your edits in this box>
+    <hbox>
+    <text><label>broadcasted ESSID                               :</label></text>
+	<entry>
+	<variable>ESSID</variable>
+	<input>echo</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then cat \$HOME/.config/Pwireless/\$SSID | grep ESSID= | sed 's/ESSID=//g'; fi</input>
+  </entry>
+  </hbox>
+    <hbox>
+    <text><label>broadcasted channel number of ESSID:</label></text>
+	<entry>
+	<variable>CHANNEL</variable>
+	<input>echo</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then cat \$HOME/.config/Pwireless/\$SSID | grep CHANNEL= | sed 's/CHANNEL=//g'; fi</input>
+  </entry>
+  </hbox>
+    <hbox>
+    <text><label>Encryption key                                      :</label></text>
+	<entry>
+	<variable>ENCKEY</variable>
+	<input>echo</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then cat \$HOME/.config/Pwireless/\$SSID | grep ENCRYPTION= | sed 's/ENCRYPTION=//g' | sed 's/on/ENTER-THE-KEY/g'; fi</input>
+  </entry>
+  </hbox>
+    <hbox>
+    <text><label>AP MAC Address                                    :</label></text>
+	<entry>
+	<variable>APMAC2</variable>
+	<input>echo</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then cat \$HOME/.config/Pwireless/\$SSID | grep APMAC= | sed 's/APMAC=//g'; fi</input>
+  </entry>
+  </hbox>
+    <hbox>
+    <text><label>Mode                                                 :</label></text>
+	<entry>
+	<variable>MODE2</variable>
+	<input>echo</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then cat \$HOME/.config/Pwireless/\$SSID | grep MODE= | sed 's/MODE=//g'; fi</input>
+  </entry>
+  </hbox>
+	<hbox>
+  	<button>
+	<input file stock=\"gtk-refresh\"></input>
+        <label>UPDATE commands</label>
+	<action>rm -f $HOME/.config/Pwireless/\$SSID-IWCONFIG</action>
+	<action>rm -f $HOME/.config/Pwireless/\$SSID-GETIP</action>
+      <action>refresh:IWCONFIG</action>
+      <action>refresh:GETIP</action>
+      <action>echo \$IWCONFIG | tee $HOME/.config/Pwireless/\$SSID-IWCONFIG</action>
+      <action>echo \$GETIP | tee $HOME/.config/Pwireless/\$SSID-GETIP</action>
+      <action>echo ESSID=\$ESSID | tee $HOME/.config/Pwireless/\$SSID</action>   
+	<action>echo CHANNEL=\$CHANNEL | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo ENCRYPTION=\$ENCKEY | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo APMAC=\$APMAC2 | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo MODE=\$MODE2 | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+      </button>
+      </hbox>
+      </frame>
+	<frame Edit the following lines if necessary and then click connect or click save profile to save any of your edits.>
+    <hbox>
+	<entry>
+	<variable>IWCONFIG</variable>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then echo iwconfig `cat /tmp/Pwireless-device | cut -f 1 -d ' '` essid \$ESSID channel \$CHANNEL ap \$APMAC2 key \$ENCKEY mode \$MODE2; fi</input>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID-IWCONFIG ]; then cat $HOME/.config/Pwireless/\$SSID-IWCONFIG; fi</input>
+  </entry>
+  </hbox>
+    <hbox>
+	<entry>
+	<variable>GETIP</variable>
+    <input>if [ -f $HOME/.config/Pwireless/\$SSID ]; then echo `cat /tmp/Pwireless-dhcp` `cat /tmp/Pwireless-device | cut -f 1 -d ' '`; fi</input>
+	<input>if [ -f $HOME/.config/Pwireless/\$SSID-GETIP ]; then cat $HOME/.config/Pwireless/\$SSID-GETIP; fi</input>
+	</entry>
+  </hbox>
+  </frame>
+    <hbox>
+    <button>
+       <input file stock=\"gtk-save\"></input>
+      <label>Save Profile</label>
+      <action>echo \$IWCONFIG | tee $HOME/.config/Pwireless/\$SSID-IWCONFIG</action>
+      <action>echo \$GETIP | tee $HOME/.config/Pwireless/\$SSID-GETIP</action>
+      <action>echo ESSID=\$ESSID | tee $HOME/.config/Pwireless/\$SSID</action>   
+	<action>echo CHANNEL=\$CHANNEL | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo ENCRYPTION=\$ENCKEY | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo APMAC=\$APMAC2 | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+	<action>echo MODE=\$MODE2 | tee -a $HOME/.config/Pwireless/\$SSID</action> 
+      <action type=\"launch\">DIALOG</action>
+    </button>
+    <button>
+       <input file stock=\"gtk-connect\"></input>
+      <label>Connect</label>
+      <action>echo \$IWCONFIG | tee $HOME/.config/Pwireless/\$SSID-IWCONFIG</action>
+      <action>echo \$GETIP | tee $HOME/.config/Pwireless/\$SSID-GETIP</action>
+      <action>echo \$SSID | tee /tmp/Pwireless-profile-connect</action>
+      <action type=\"exit\">Connect-NOW</action>
+    </button>
+	<button>
+	<input file stock=\"gtk-quit\"></input>
+        <label>QUIT</label>
+        <action type=\"exit\">Exit-NOW</action>
+      </button>
+      </hbox>
+    </vbox>
+ </notebook>
+ </vbox>
+ </window>
+"
+
+kill $X2PID 2>/dev/null
+
+RESULTS="`$GTKDIALOG --program=MAIN_DIALOG --center`"
+
+###view OPEN wifi
+
+if [ "`echo "$RESULTS" | grep VIEW-OPEN`" != "" ]; then
+echo true > /tmp/Pwireless-open
+Pwireless &
+exit 0
+fi
+
+###view ALL wifi
+
+if [ "`echo "$RESULTS" | grep VIEW-ALL`" != "" ]; then
+echo false > /tmp/Pwireless-open
+Pwireless &
+exit 0
+fi
+
+###exit the program if the Quit button is pushed
+
+if [ "`echo "$RESULTS" | grep Exit-NOW`" != "" ]; then
+exit 0
+fi
+
+###exit the program if the X button is pushed
+
+if [ "`echo "$RESULTS" | grep abort`" != "" ]; then
+exit 0
+fi
+
+###variables for connecting or adding a profile
+
+CELL=`echo "$RESULTS" | grep "TABLE=\"" | sed 's/TABLE=\"//g' | sed 's/ //g' | sed 's/\"//g'`
+ESSID=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 1 | grep ESSID= | sed 's/ESSID=//g' | sed 's/\"//g'`
+CHANNEL=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 2 | grep Channel= | sed 's/Channel=//g'`
+ENCRYPTION=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 3 | grep Encryption= | sed 's/Encryption=//g'`
+ENCRYPTION2=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 4 | grep Encryption2= | sed 's/Encryption2=//g'`
+APMAC=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 6 | grep APMAC= | sed 's/APMAC=//g'`
+MODE=`cat /tmp/Pwireless-cells | grep Cell=$CELL -A 7 | grep MODE= | sed 's/MODE=//g'`
+
+###add a profile
+if [ "`echo "$RESULTS" | grep ADD-PROFILE`" != "" ]; then
+mkdir -p $HOME/.config/Pwireless
+NEWESSID=`echo "$ESSID" | sed 's/ /_/g'`
+export MAIN_DIALOG="
+ <vbox>
+ <frame Enter a name for this profile>
+  <entry>
+    <input>echo $NEWESSID</input>
+    <variable>ENTRY</variable>
+  </entry>
+  <hbox>
+   <button ok></button>
+  </hbox>
+  </frame>
+ </vbox>
+"
+RESULTS5=`$GTKDIALOG --program=MAIN_DIALOG --center`
+NEWESSID=`echo "$RESULTS5" | grep ENTRY= | cut -f 2 -d '=' | sed 's/\"//g' | sed 's/ /_/g'`
+echo ESSID=\""$ESSID"\" > $HOME/.config/Pwireless/$NEWESSID
+echo CHANNEL=$CHANNEL >> $HOME/.config/Pwireless/$NEWESSID
+if [ "$ENCRYPTION" = off ]; then
+echo ENCRYPTION=off >> $HOME/.config/Pwireless/$NEWESSID
+else
+echo ENCRYPTION=on >> $HOME/.config/Pwireless/$NEWESSID
+fi
+echo APMAC=$APMAC >> $HOME/.config/Pwireless/$NEWESSID
+echo MODE=$MODE >> $HOME/.config/Pwireless/$NEWESSID
+Pwireless &
+exit 0
+fi
+
+###connect to the selected wifi network
+
+if [ "`echo "$RESULTS" | grep Connect-NOW`" != "" ]; then
+PROFILE=""
+if [ -f /tmp/Pwireless-profile-connect ]; then
+PROFILE=`cat /tmp/Pwireless-profile-connect`
+rm /tmp/Pwireless-profile-connect
+fi
+
+###if WPA encryption is part of the selected wifi network you will get a popup saying WPA is not yet supported
+
+if [ "$PROFILE" = "" ]; then
+if [ "$ENCRYPTION2" = WPA ]; then
+export MAIN_DIALOG='
+ <vbox>
+  <text wrap="true" width-chars="20">
+    <label>This program does NOT support WPA yet</label>
+  </text>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+'
+$GTKDIALOG --program=MAIN_DIALOG --center
+Pwireless &
+exit 0
+fi
+
+###if selected network has a non-broadcasted SSID you will need to enter it in this gui
+
+if [ "$ESSID" = "" ]; then
+export MAIN_DIALOG='
+ <vbox>
+  <entry>
+    <default>Enter the SSID</default>
+    <variable>ENTRY</variable>
+  </entry>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+'
+RESULTS4=`$GTKDIALOG --program=MAIN_DIALOG --center`
+ESSID=`echo $RESULTS4 | grep ENTRY= | sed 's/ENTRY=//g' | sed 's/\"//g' | sed 's/ EXIT=OK//g'`
+fi
+
+###if WEP encryption is part of the selected network you will need to enter the WEP Key into this gui
+
+if [ "$ENCRYPTION" = on ]; then
+export MAIN_DIALOG='
+ <vbox>
+  <entry>
+    <default>Enter the WEP key</default>
+    <variable>ENTRY</variable>
+  </entry>
+  <hbox>
+   <button ok></button>
+  </hbox>
+ </vbox>
+'
+RESULTS3=`$GTKDIALOG --program=MAIN_DIALOG --center`
+KEY=`echo $RESULTS3 | cut -f 1 -d ' ' | sed 's/ENTRY=//g' | sed 's/\"//g'`
+else 
+KEY=off
+fi
+
+###all information is available to finally use iwconfig to input the variables
+
+iwconfig $DEVICE mode $MODE
+iwconfig $DEVICE essid "$ESSID" 
+iwconfig $DEVICE channel $CHANNEL 
+iwconfig $DEVICE ap $APMAC 
+iwconfig $DEVICE key $KEY 
+i#wconfig $DEVICE nickname default 
+#iwconfig $DEVICE bit auto 
+#iwconfig $DEVICE rate auto 
+#iwconfig $DEVICE txpower auto
+else
+chmod a+x $HOME/.config/Pwireless/$PROFILE-IWCONFIG
+$HOME/.config/Pwireless/$PROFILE-IWCONFIG
+DHCP=`cat $HOME/.config/Pwireless/$PROFILE-GETIP | cut -f 1 -d ' '`
+fi
+
+###this gui is a progress bar to let you know your dhcp client is trying to obtain an IP
+
+export MAIN_DIALOG="
+<vbox>
+  <frame Progress>
+    <text>
+      <label>running $DHCP to try and obtain an IP address.</label>
+    </text>
+    <progressbar>
+      <label>Running $DHCP</label>
+      <input>for i in \$(seq 0 10 100); do echo \$i; sleep 4; done</input>
+    </progressbar>
+  </frame>
+ </vbox>
+"
+$GTKDIALOG --program=MAIN_DIALOG --center &
+
+X1PID=$!
+
+###killall pre-existing dhcp clients
+
+if [ "$DHCP" = "pump -i" ]; then
+killall pump
+fi
+if [ "$DHCP" = dhcpcd ]; then
+killall dhcpcd
+rm -f /etc/dhcpc/dhcpcd-*
+fi
+if [ "$DHCP" = dhclient ]; then
+killall dhclient
+fi
+
+###command to obtain an IP
+
+sleep 3
+
+if [ "$PROFILE" = "" ]; then
+$DHCP $DEVICE
+else
+chmod a+x $HOME/.config/Pwireless/$PROFILE-GETIP
+$HOME/.config/Pwireless/$PROFILE-GETIP
+fi
+
+###gui to display new IP address
+
+x=x
+while [ "$x" != y ]; do
+IP=`ifconfig $DEVICE | grep 'inet addr:' | sed 's/^[ ^t]*//' | sed 's/inet addr://g' | cut -f 1 -d ' '`
+export MAIN_DIALOG="
+ <vbox>
+  <text wrap=\"true\" width-chars=\"20\">
+    <label>IP address: $IP</label>
+  </text>
+  <hbox>
+   <button ok></button>
+	<button>
+	<input file stock=\"gtk-refresh\"></input>
+        <label>Try Again</label>
+        <action type=\"exit\">REDO</action>
+	</button>
+	<button>
+	<input file stock=\"gtk-go-back\"></input>
+        <label>Rescan</label>
+        <action type=\"exit\">RESCAN</action>
+      </button>
+  </hbox>
+ </vbox>
+"
+RESULTS2="`$GTKDIALOG --program=MAIN_DIALOG --center`"
+
+###rescan for new wireless networks if button selected
+
+if [ "`echo "$RESULTS2" | grep RESCAN`" != "" ]; then
+Pwireless &
+kill $X1PID 2>/dev/null
+exit 0
+fi
+
+###if getting an IP is unsuccessful you can click the try again button to run your dhcp client again
+
+if [ "`echo "$RESULTS2" | grep REDO`" != "" ]; then
+kill $X1PID 2>/dev/null
+export MAIN_DIALOG="
+<vbox>
+  <frame Progress>
+    <text>
+      <label>running $DHCP to try and obtain an IP address.</label>
+    </text>
+    <progressbar>
+      <label>Running $DHCP</label>
+      <input>for i in \$(seq 0 10 100); do echo \$i; sleep 4; done</input>
+    </progressbar>
+  </frame>
+ </vbox>
+"
+$GTKDIALOG --program=MAIN_DIALOG --center &
+X1PID=$!
+if [ "$PROFILE" = "" ]; then
+iwconfig $DEVICE channel $CHANNEL
+else
+$HOME/.config/Pwireless/$PROFILE-IWCONFIG
+fi
+if [ "$DHCP" = "pump -i" ]; then
+killall pump
+fi
+if [ "$DHCP" = dhcpcd ]; then
+killall dhcpcd
+rm -f /etc/dhcpc/dhcpcd-*
+fi
+if [ "$DHCP" = dhclient ]; then
+killall dhclient
+fi
+sleep 3
+if [ "$PROFILE" = "" ]; then
+$DHCP $DEVICE
+else
+$HOME/.config/Pwireless/$PROFILE-GETIP
+fi
+else
+x=y
+fi
+done
+kill $X1PID 2>/dev/null
+fi
+
+###all processes done so gui is being re-started
+
+Pwireless &
+exit 0
