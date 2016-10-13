@@ -7,19 +7,16 @@
 #this script is /sbin/init in the main Puppy f.s., which is the very first to run.
 #in the case of not a full hd install, this script just passes execution to busybox init.
 
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
-
 ########################################################################
 #
 # CHANGES by Karl Reimer Godt
 # 01.0 : mounting of /sys and /proc
 #   .1 : adopted status_func
-#   .2 : BUSYBOX_INIT_FUNC
+#   .2 : _do_busybox_init
 #   .3 : check for proper devname using rdev instead of fsckme entry
-#        RDEV_FUNC
+#        _get_pdev1
 #
-# 02.0 : ERRFLG_FUNC : Support for -iname fsckme* file
+# 02.0 : _check_errflg : Support for -iname fsckme* file
 #   .1 : check for fsck intervals
 #
 # 03.0 : failsafe_func
@@ -35,22 +32,22 @@
 # echo 'safeBoot='"$safeBoot"
 #
 # 04.0 : loading of drivers
-#   .1 : UDEVD_FUNC with
+#   .1 : _start_hotplug_program with
 #         modprobe_conf_func(multiple_kernels<-rc.sysinit)
 #         update_modprobe_conf_func
 #   .2 : update device nodes :
-#         UPDATINGDEV_FUNC #MY_FUNC
+#         _create_correct_partition_device_nodes
 #   .3 :
-#   .4 : MODULES_ADD_FUNC
-#   .5 : INPUT_DRIVERS_FUNC
-#   .6 : FBCON_FUNC
+#   .4 : _load_kernel_drivers
+#   .5 : _load_input_drivers
+#   .6 : _load_fb_drivers
 #
-# 05.0 : ASK_DEBUG_FUNC
-#   .1 : SIMPLE_CONSOLE_FUNC
-#   .2 : CONTINUE_FUNC
+# 05.0 : _ask_to_debug
+#   .1 : _leave_to_simple_console
+#   .2 : _ask_to_continue
 #
-# 06.0 : FSCK_FUNC
-#   .1 : FIRST_FSCK_FUNC
+# 06.0 : _do_fsck
+#   .1 : _fsck_root
 # 07.0 : CHECK_FOR_ALT_PART_FUNC
 #
 # 08.0 : CHECK_ALTERNATE_REPO_FUNC
@@ -108,7 +105,7 @@
 #                                       or newly written @rc.sysinit
 #         same with /tmp/pup_event_module_devpath_log  (partition ro ??)
 #         first ro mentioned in COTINUE_FUNC(drop to console)
-#         and after that FSCK_FUNC FIRST_FSCK_FUNC so partition should be rw
+#         and after that _do_fsck _fsck_root so partition should be rw
 #        ~FIXED : was rm -rf /tmp/* in rc.sysinit
 #
 # TODO4 : rm /tmp files , also in rc.sysinit
@@ -121,6 +118,9 @@
 ###particular kernel lowlatencydevtmpfs ??
 ###2.6.37.4-KRG-i486-StagingDrivers-3 seems ok for that , also has sound
 
+test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+test -s /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 
 VERSION=1.7.1
 
@@ -200,8 +200,6 @@ test "$*" || set - 0
  return $1 #return with same status as entry param.
 }
 
-test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
-
 if [ "$PUPMODE" = 2 ]; then
 busybox mount $VERB $VERB -o remount,rw /dev/root /
 #sleep 1s;mkdir $VERB -p /root/my-documents/boot;cp $VERB -r /tmp /root/my-documents/boot/tmp.old  ###+++2011-12-04
@@ -246,7 +244,10 @@ _make_dev_console(){
  return 0
 }
 
-mountpoint $Q /dev && _dev_std || {
+_populate_dev(){
+
+mountpoint $Q /dev && _link_dev_stdfd && return $?
+
  test -d /dev || mkdir $VERB /dev
  mount $VERB $VERB -t ramfs devramfs /dev
  _make_dev_console
@@ -279,12 +280,18 @@ mountpoint $Q /dev && _dev_std || {
     _dev_std
     status_func $STATUS
 
-         } ; } ###+++2014-06-25
+} ###+++2014-06-25
+_populate_dev
 
-UPDATINGDEV_FUNC(){
+_create_correct_partition_device_nodes(){
+# REM: In case of usual static /dev directory
+# when booting a kernel configured with CONFIG_DEBUG_BLOCK_EXT_DEVT=y
+# which would use 259 major numbers instead 8 for sata or 3 for ide
+# things might getting problematic. Also if more partitions
+# made on a hdd than available device nodes.
 local m n s d
 echo -n "Updating Device nodes ..." >/dev/console
-STATUS=0
+local STATUS=0
 while read m n s d
 do
 case $m in [0-9]*):;;*)continue;;esac
@@ -299,19 +306,19 @@ done<proc/partitions
 
 status_func $STATUS
 }
-UPDATINGDEV_FUNC
+_create_correct_partition_device_nodes
 
-BUSYBOX_INIT_FUNC(){  ###KRG
+_do_busybox_init(){  ###KRG
 busybox umount /sys
 busybox umount /proc
 exec busybox init
 }
 
 if [ "$PUPMODE" != 2 ]; then
-BUSYBOX_INIT_FUNC
+_do_busybox_init
 fi  ###KRG
 
-RDEV_FUNC(){
+_get_pdev1(){
 while [ -z "$PDEV1flag" ]; do  ##+++2011-10-28
 DEVPDEV1=`busybox rdev | cut -f 1 -d ' '`  ##+2011-10-28 changed position to top
 DEVROOTDRIVE="$DEVPDEV1" ##+2011-10-28 changed position to second
@@ -321,7 +328,7 @@ ROOTDRIVE="$PDEV1"
 if [ -z "`echo "$PDEV1" | grep '^[shmf]'`" ]; then  ##+++2011-10-28
 PDEV1flag=''
 head -n 5 /proc/partitions
-UPDATINGDEV_FUNC
+_create_correct_partition_device_nodes
 else
 echo -e "$GRE""Root device is /dev/$PDEV1""\\033[0;39m"
 PDEV1flag='yes'
@@ -331,9 +338,9 @@ PDEV1flagCount=$((PDEV1flagCount+1))
 sleep 1s
 done  ##+++2011_10_28
 }
-[ -z "$PDEV1flag" ] && RDEV_FUNC
+[ -z "$PDEV1flag" ] && _get_pdev1
 
-ERRFLG_FUNC() {  ###KRG
+_check_errflg() {  ###KRG
 echo -e "$BLU"'Checking for unpropper previous shutdown  ... '"$Res"
 echo -n -e "$YEL"'Searching for *fsckme* file 3 levels deep ... '"$Res"
 ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
@@ -341,7 +348,7 @@ ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KR
 if [ -n "$ErrFlag" ]; then  ##1
 echo -e "$RED" ' Found : '"$Res""\\033[1;5;31m""$ErrFlag"
 echo -e "$Res"
-return 1
+return 0
 fi
 
 echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"$Res"
@@ -403,12 +410,14 @@ fi #2 "$mntcnt" -ge "$maxmnt"
 if [ -z "$FSCK" ]; then #7
 echo -e "$GRE"'OK , '"$Gre""next check '$nextcM $nextcD' or in '$diffMC' mounts""$Res"
 echo -e "$Res"
-BUSYBOX_INIT_FUNC
+#_do_busybox_init
+false
 else #7
 echo -e "$YEL"'Filesystem check interval reached :'"$Res"
 echo -e "$Ora"'Today : '"$Ora""$montTO $todayD""$Ora"' , next check was or would be : '"$Ora""$nextcM  $nextcD""$Ora"
 echo -e "$Ora"'mount intervals : '"$Ora""$mntcnt""$Ora"' of '"$Ora""$maxmnt"
 echo -e "$Res"
+true
 fi #7
 
 }
@@ -438,10 +447,10 @@ return $RV
 }
 _check_puppy_kernel_parameter fsck  ##+++2012-02-02 2016-10-11
 [ $? = 0 ] && pfixFSCK='yes'
-[ "$pfixFSCK" = 'yes' ] || ERRFLG_FUNC  ###KRG
+[ "$pfixFSCK" = 'yes' ] || _check_errflg || _do_busybox_init ###KRG
 
 
-SIMPLE_CONSOLE_FUNC(){
+_leave_to_simple_console(){
 #[ -n "$ERRMSG" ] && echo -e "$Red""$ERRMSG""$Res"
 [ "$*" ] && echo -e '\033[0;31m'"$*"'\033[0;39m'
 cd /
@@ -462,6 +471,7 @@ case $DEV1FS in
   echo "Performing filesystem check of '${PDEV1}' after improper shutdown."
   elif [ "$pfixFSCK" ]; then
   echo "Performing filesystem check of '${PDEV1}' for given kernel parameter."
+  FSCK='yes'
   else
   echo "Performing scheduled filesystem check of '${PDEV1}' ."
   echo -e "$Gre""Use 'tune2fs -i $todayD[d|w|m] [+-] -C $maxmnt [+-] /dev/$PDEV1' to adjust ."
@@ -469,8 +479,9 @@ case $DEV1FS in
   echo -e "$BLU""NOTE: no progress indication, may take awhile, please wait patiently..."
   echo -e "$Res"
   echo
-TimeOut=60
-CONTINUE_FUNC(){
+
+
+_ask_to_continue(){
 echo -e "$Res"
 echo -e "$Gre""Continue this $0 ?\t [ y ]"
 echo -e "$Red""Dropout into console ?\t\t [ c ]""$Gre"
@@ -480,13 +491,15 @@ read -n 1 -t $TimeOut K
 echo -e "$Res"
 Key=`echo "$K" | tr '[A-Z]' '[a-z]'`
 if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ]; then
-echo -e "$BLU"'dropping to console now , partition still mounted !'"$Res"
-cd /
-busybox mount $VERB $VERB -o remount,ro /
-sleep $((SLEEP*1))s
-exec chroot . sh
+#echo -e "$BLU"'dropping to console now , partition still mounted !'"$Res"
+#cd /
+#busybox mount $VERB $VERB -o remount,ro /
+#sleep $((SLEEP*1))s
+#exec chroot . sh
+_leave_to_simple_console 'dropping to console now, partition still mounted !'
 fi
 }
+
 failsafe_func(){
 #rm -rf /tmp/*  ##+++2011_10_31 moved here
 if [ $nodrivers ]; then
@@ -517,10 +530,10 @@ test -d /etc/mult_kernels/modprobe.d.$KERNVER || mkdir $VERB -p /etc/mult_kernel
 [ -d /etc/modprobe.d ] || mkdir $VERB /etc/modprobe.d
 
 if test -f /etc/modprobe.conf; then #1
-if [ ! -f /etc/mult_kernels/modprobe.conf."$KERNVER" ]; then  ##&&
-cp $VERB -f "/etc/modprobe.conf" "/etc/mult_kernels/modprobe.conf.$KERNVER"
-else
+if     [ -f /etc/mult_kernels/modprobe.conf."$KERNVER" ]; then  ##&&
 cp $VERB -f /etc/mult_kernels/modprobe.conf."$KERNVER" /etc/modprobe.conf
+else
+cp $VERB -f "/etc/modprobe.conf" "/etc/mult_kernels/modprobe.conf.$KERNVER"
 fi
 fi
 
@@ -533,15 +546,15 @@ fi #2
 
 test -d /etc/mult_kernels/rc.d || mkdir $VERB /etc/mult_kernels/rc.d
 
-if test ! -f /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER"; then
-cp $VERB /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER"
-else
+if test -f  /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER"; then
 rm /etc/rc.d/MODULESCONFIG
-cp $VERB /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER" /etc/rc.d/MODULESCONFIG
+cp $VERB -f /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER" /etc/rc.d/MODULESCONFIG
+else
+cp $VERB -f /etc/rc.d/MODULESCONFIG /etc/mult_kernels/rc.d/MODULESCONFIG."$KERNVER"
 fi
 
-test -f /lib/modules/"$KERNVER"/DOTconfig* && cp $VERB /lib/modules/"$KERNVER"/DOTconfig* /etc/modules/
-} #modprobe_conf_func inside update_modprobe_conf_func
+ls /lib/modules/"$KERNVER"/DOTconfig* >>$OUT 2>>$ERR && cp $VERB /lib/modules/"$KERNVER"/DOTconfig* /etc/modules/
+} #modprobe_conf_func
 
 update_modprobe_conf_func(){
 PATCH_EXE=`which patch`
@@ -627,15 +640,16 @@ $PATCH_EXE --verbose -b /etc/mult_kernels/modprobe.d.${KERNVER}/"$basenameCONFFI
 fi
 fi
 fi
-} #update_modprobe_conf_func inside UDEVD_FUNC
+} #update_modprobe_conf_func
 
-UDEVD_FUNC(){
-if [ -z "$HOTPLUGD" ]; then  ##=- BUG? why did i -z "$HOTPLUGD" ??? :S
+_start_hotplug_program(){
+[ -z "$HOTPLUGD" ] || return 0
 [ -f /etc/rc.d/PUPSTATE ] || echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 
 
 if [ -x /sbin/photplug ] ; then
 echo '/sbin/photplug' >/proc/sys/kernel/hotplug
+HOTPLUGD=photplug
 
 elif [ -x /sbin/udevd ]; then
 . /etc/rc.d/MODULESCONFIG
@@ -660,39 +674,47 @@ fi
  else
   UDEV_LOG=1 /sbin/udevd --daemon ###KRG ; orig LOG=2
  fi
+
 else
  /sbin/pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
  HOTPLUGD='pup_event_backend_d'
 fi
-sleep 0.1
-fi
-} #UDEVD_FUNC with update_modprobe_conf_func AND modprobe_conf_func inside
+} #_start_hotplug_program with update_modprobe_conf_func AND modprobe_conf_func inside
 
-MODULES_ADD_FUNC(){
+_load_kernel_drivers(){
 INITSTATE=`find /sys -name "initstate"`
 INITSTATECOUNT=`echo "$INITSTATE" | wc -l`
 [ -n "$INITSTATE" ] && [ "$DebugVal" = "2" ] && for i in $INITSTATE; do echo -n "$i "; cat "$i"; done  ##echo
-if [ "$INITSTATECOUNT" -lt 25 ]; then
+
+if [ "$INITSTATECOUNT" -ge 25 ]; then
+echo "More than 25 initstate files exist ( $INITSTATECOUNT ) :"
+echo "$INITSTATE" | tr '\n' ' '
+sleep $((SLEEP*2))s
+return 0
+fi
+
 MODALIASES="`ls /sys/bus/*/devices/*/modalias | sort -d`"
-[ "$noDriversList" ] && echo "$noDriversList" >>/tmp/pup_event_skiplist.conf
-echo -n "Loading kernel modules "
 if [ -z "$MODALIASES" ]; then
 echo -e "\\033[1;5;31m"'WARNING : '"\\033[0;31m"'No modaliases found !'"\\033[39m"
 echo -e "\\033[39m"'Either the kernel detected no HardWare automatically'"\\033[39m"
 echo -e "\\033[39m"'or something else went wrong'"\\033[39m"
-else
+return 1
+fi
+
+[ "$noDriversList" ] && echo "$noDriversList" >>/tmp/pup_event_skiplist.conf
+echo -n "Loading kernel modules "
 modprobe $VERB nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
 modprobe $VERB nls_iso8859-1 #
 echo 'Running the modaliases add by /sbin/init '$0 >> /tmp/pup_eve_bac_mod.log
 MODULECNT=0
-for ONEMODALIAS in $MODALIASES
+for oneMODALIAS in $MODALIASES
 do
- #ONEPATH="`dirname $ONEMODALIAS`"
- ONEPATH=${ONEMODALIAS%/*}
- [ -e "${ONEPATH}/uevent" ] || continue
- #if [ -e ${ONEPATH}/uevent ];then
-  echo "$ONEMODALIAS" >> /tmp/modaliases.loaded
-  echo 'add' > "${ONEPATH}/uevent" #generates an 'add' uevent.
+ #onePATH="`dirname $oneMODALIAS`"
+ onePATH=${oneMODALIAS%/*}
+ [ -e "${onePATH}/uevent" ] || continue
+ #if [ -e ${onePATH}/uevent ];then
+  echo "$oneMODALIAS" >> /tmp/modaliases.loaded
+  echo 'add' > "${onePATH}/uevent" #generates an 'add' uevent.
   echo -n '.'
   MODULECNT=$((MODULECNT+1))
   sleep 0.2
@@ -704,24 +726,17 @@ echo -e 'Detected '"$BLU""$MODULECNT ""\\033[0;39m"'busses'
 MODULECNT=0
 sleep $((SLEEP*3))s
 LSMODCNT=`lsmod | sed "1 d" | wc -l`
-if [ "$LSMODCNT" = 0 ]; then
-lsmod | cut -f 1 -d ' ' | sort -g | tr '\n' ' '
-else
-echo -e -n 'Loaded   '"\\033[1;35m""$LSMODCNT ""\\033[0;39m"'drivers at least'
-fi
+ if [ "$LSMODCNT" -gt 0 ]; then
+ echo -e -n 'Loaded   '"\\033[1;35m""$LSMODCNT ""\\033[0;39m"'drivers at least'
+ else
+ lsmod | cut -f 1 -d ' ' | sort -g | tr '\n' ' '
+ fi
 status_func 0
 echo
-sleep 1s
-fi
-else
-echo "More than 10 initstate files exist ( $INITSTATECOUNT ) :"
-echo "$INITSTATE" | tr '\n' ' '
-sleep $((SLEEP*2))s
-fi
 }
 
-load_USB_DRIVERS_FUNC(){
-if [ -z "`lsmod | grep 'usb'`" ]; then
+_load_usb_drivers(){
+[ -z "`lsmod | grep 'usb'`" ] || return 0
 echo -e "$BLU""Loading usb drivers ...""$Res"
 DRIVERS=`modprobe -l | grep -E 'ehci[-_]hcd|ohci[-_]hcd|uhci[-_]hcd|usbcore|usb[-_]storage' | sort -k4,8 -t '/'`
 for i in $DRIVERS; do
@@ -737,16 +752,16 @@ done
 echo -e "$BLU"'Waiting 15 sec. for kernel to register usb devices ...'"$Res"
 sleep 15s
 echo
-fi
+
 }
-load_USB_DRIVERS_FUNC
+_load_usb_drivers
 
 #UPDATEdevCOUNT=0
-UDEVD_FUNC
-MODULES_ADD_FUNC
-UPDATINGDEV_FUNC
+_start_hotplug_program
+_load_kernel_drivers
+_create_correct_partition_device_nodes
 
-INPUT_DRIVERS_FUNC(){
+_load_input_drivers(){
 if [ "$safeBoot" = "2" ]; then
 echo -e "$BLU""Loading keyboard and other drivers ...""$Res"
 DRIVERS=`modprobe -l | grep -E 'usbhid|rtc-cmos|libps2|atkbd|xtkbd|evdev' | grep -v -E 'snd|sound' | sort -k4,8 -t '/'`
@@ -761,10 +776,11 @@ done
 echo -e "$Res"
 fi
 }
-INPUT_DRIVERS_FUNC
-FBCON_FUNC() {
-if [ "$safeBoot" -lt "14" ]; then
-if [ "`cat /proc/cmdline | grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=7[0-9][0-9]'`" ]; then
+_load_input_drivers
+
+_load_fb_drivers() {
+[ "$safeBoot" -lt "14" ] || return 0
+[ "`grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=7[0-9][0-9]' /proc/cmdline`" ] || return 0
 echo -e "$BLU""Trying to load i2c and framebuffer drivers ...""$Res"
 I2CS=`modprobe -l | grep -i 'i2c' | grep -v -E 'snd|sound' | while read line; do basename $line | sed 's#\.ko.*$##'; done`
 GRAPHB=`ddcprobe | grep -E 'vbe|oem|vendor|product' | cut -f 2-99 -d ' ' | tr '[A-Z]' '[a-z]' | tr '\n' ' '`
@@ -773,67 +789,67 @@ MBOARD=`dmidecode | grep -i -E 'Family|Manufacturer' | tr -d '\t ' | cut -f 2 -d
 echo -e "$YEL"'board-info : '"$BLU"$MBOARD"$Res"
 POOL="$GRAPHB $MBOARD"
 sleep 4s
-if [ -n "`echo "$MBOARD" | grep -i 'Intel'`" ]; then
-if [ -n "`modprobe -l | grep -E 'i2c\-i801|i801_smbus'`" ]; then
-POOL="$POOL i2c\-i801 i801_smbus"
-fi
-fi
+ if [ -n "`echo "$MBOARD" | grep -i 'Intel'`" ]; then
+ if [ -n "`modprobe -l | grep -E 'i2c\-i801|i801_smbus'`" ]; then
+ POOL="$POOL i2c\-i801 i801_smbus"
+ fi
+ fi
 POOL=`echo "$POOL" | sort -u`
-if [ -z "`elspci -l | grep -i -E '<.*fb>|<agp.*>|<.*agp.*>|<.*agp>|<vga.*>|<.*vga.*>|<.*vga>'`" ]; then
-for i in $POOL; do
-I2C=`echo "$I2CS" | grep -i $i`
-if [ -n "$I2C" ]; then
-echo -e -n "$YEL"'Loading ...'"$Res"
-for j in $I2C; do
-DRIVER="${j##*/}"
-DRVpattern=`echo "$DRIVER" | tr '-' '_'`
-if [ -z "`lsmod | grep "$DRVpattern"`" ]; then
-echo -e -n "$BLU""$DRIVER ""$YEL"'.. '"$Res"
-modprobe $VERB $DRIVER #2>/dev/null
-fi
-done
-echo -e "$Res"
-fi
-done
-echo -e "$Res"
-FBDRIVERS=`modprobe -l | grep 'fb' | while read line; do basename $line | sed 's#\.ko.*$##'; done`
-if [ -n "`echo "$GRAPHB" | grep -i 'Intel'`" ]; then
-if [ -n "`modprobe -l | grep -E 'i810fb'`" ]; then
-POOL="$POOL $FBDRIVERS i810fb"
-fi
-fi
-POOL=`echo "$POOL" | sort -u`
-for i in $POOL; do
-FBS=`echo "$FBDRIVERS" | grep -i $i`
-if [ -n "$FBS" ]; then
-echo -n -e "$YEL"'Loading ... '"$Res"
-for j in $FBS; do
-DRIVER="${j##*/}"
-DRVpattern=`echo "$DRIVER" | tr '-' '_'`
-[[ "$DRIVER" = "nvidiafb" -a "`lsmod | grep 'nouveau'`" ]] && continue
-[[ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" ]] && continue
-if [ -z "`lsmod | grep "$DRVpattern"`" ]; then
-echo -e -n "$BLU""$DRIVER ""$YEL"'.. '"$Res"
-modprobe $VERB $DRIVER #2>/dev/null
-fi
-done
-echo -e "$Res"
-fi
-done
-sleep 4s
-fi
-if [ "$safeBoot" -lt "12" ]; then
-if [ -n "`modprobe -l | grep 'fbcon'`" ] && [ -z "`lsmod | grep 'fbcon'`" ]; then
-modprobe $VERB fbcon
-echo -e "$Res"
-fi
-fi
-fi
-fi
+ if [ -z "`elspci -l | grep -i -E '<.*fb>|<agp.*>|<.*agp.*>|<.*agp>|<vga.*>|<.*vga.*>|<.*vga>'`" ]; then
+ for i in $POOL; do
+ I2C=`echo "$I2CS" | grep -i $i`
+ if [ -n "$I2C" ]; then
+ echo -e -n "$YEL"'Loading ...'"$Res"
+ for j in $I2C; do
+ DRIVER="${j##*/}"
+ DRVpattern=`echo "$DRIVER" | tr '-' '_'`
+ if [ -z "`lsmod | grep "$DRVpattern"`" ]; then
+ echo -e -n "$BLU""$DRIVER ""$YEL"'.. '"$Res"
+ modprobe $VERB $DRIVER #2>/dev/null
+ fi
+ done
+ echo -e "$Res"
+ fi
+ done
+ echo -e "$Res"
+ FBDRIVERS=`modprobe -l | grep 'fb' | while read line; do basename $line | sed 's#\.ko.*$##'; done`
+  if [ -n "`echo "$GRAPHB" | grep -i 'Intel'`" ]; then
+  if [ -n "`modprobe -l | grep -E 'i810fb'`" ]; then
+  POOL="$POOL $FBDRIVERS i810fb"
+  fi
+  fi
+ POOL=`echo "$POOL" | sort -u`
+ for i in $POOL; do
+ FBS=`echo "$FBDRIVERS" | grep -i $i`
+  if [ -n "$FBS" ]; then
+  echo -n -e "$YEL"'Loading ... '"$Res"
+  for j in $FBS; do
+  DRIVER="${j##*/}"
+  DRVpattern=`echo "$DRIVER" | tr '-' '_'`
+  [[ "$DRIVER" = "nvidiafb" -a "`lsmod | grep 'nouveau'`" ]] && continue
+  [[ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" ]] && continue
+  if [ -z "`lsmod | grep "$DRVpattern"`" ]; then
+  echo -e -n "$BLU""$DRIVER ""$YEL"'.. '"$Res"
+  modprobe $VERB $DRIVER #2>/dev/null
+  fi
+  done
+  echo -e "$Res"
+  fi
+ done
+ sleep 4s
+ fi
+
+ if [ "$safeBoot" -lt "12" ]; then
+ if [ -n "`modprobe -l | grep 'fbcon'`" ] && [ -z "`lsmod | grep 'fbcon'`" ]; then
+ modprobe $VERB fbcon
+ echo -e "$Res"
+ fi
+ fi
 }
-FBCON_FUNC  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
+_load_fb_drivers  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
 sleep 5s  ###DBG
-ASK_DEBUG_FUNC(){
+
+_ask_to_debug(){
     OUT=/dev/null;ERR=$OUT
 test -x /etc/rc.d/rc.country && /etc/rc.d/rc.country
 DebugVal=0
@@ -869,17 +885,17 @@ SLEEP=$((DebugVal+1))
 [ "$DebugVal" -ge "1" ] && echo && echo -e "$Ora"'TimeOut='"$Res""$TimeOut""$Ora"' , additional_sleep_value='"$Res""$SLEEP"
 echo -e "$Res"
 }
-ASK_DEBUG_FUNC
+_ask_to_debug
 
 _kill_daemons(){
-    killall udevd 2>$ERR
-    killall pup_event_backend_modprobe_protect 2>$ERR
-    killall pup_event_backend_d 2>$ERR
+    killall udevd
+    killall pup_event_backend_modprobe_protect
+    killall pup_event_backend_d
 }
-_kill_daemons
+_kill_daemons 2>>$ERR
 
-FSCK_FUNC(){
-[ "$DebugVal" -ge "2" ] && echo -e "$Ora"'FSCK_FUNC called with param $1='"$Res""$1""$Ora"' $2='"$Res""$2"
+_do_fsck(){
+[ "$DebugVal" -ge "2" ] && echo -e "$Ora"'_do_fsck called with param $1='"$Res""$1""$Ora"' $2='"$Res""$2"
 echo -e "$Res"
 [ "$1" = "/dev/" ] && sleep 5s && CLEAN='guessing_clean' && return ##2011_10_02
 [ "$1" != "/dev/$PDEV1" ] && [ -n "`mount | grep "^$1"`" ] && busybox umount -lr "$1"
@@ -931,19 +947,21 @@ echo -e "$Blu""Looking for other useable installations ..."
 fi
 echo -e "$Res"
 }
-FIRST_FSCK_FUNC(){
+
+_fsck_root(){
 [ -n "`busybox mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /
-FSCK_FUNC "/dev/$PDEV1"
+_do_fsck "/dev/$PDEV1"
 busybox mount $VERB $VERB -o remount,rw /  ##TODO 2011_10_28 move further down
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ]; then
 echo -e "$BLU""Booting installation ..."
 echo -e "$Res"
 rm $ErrFlag
-[ "$DebugVal" = "2" ] && CONTINUE_FUNC
-BUSYBOX_INIT_FUNC
+[ "$DebugVal" = "2" ] && _ask_to_continue
+_do_busybox_init
 fi
 }
-[ -z "$FSCK" ] && FIRST_FSCK_FUNC
+[ -z "$FSCK" ] && _fsck_root
+
 CHECK_FOR_ALT_PART_FUNC(){
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'$ROOTDRIVE='"$Res""$ROOTDRIVE"
 DRIVES=''
@@ -963,17 +981,18 @@ DRIVES=`echo "$DRIVES" | grep -v "$PDEV1" | sed 's#^#/dev/#g' | tr '\n' ' '`
 fi
 if [ -z "$DRIVES" ]; then
 ERRMSG="Could not find any useable drives in /proc/partitions"
-SIMPLE_CONSOLE_FUNC
+_leave_to_simple_console
 fi
 }
+
 CHECK_ALTERNATE_REPO_FUNC(){
+[ -z "$CLEAN" ] || return 0
+[ -n "$Err" -a "$Err" -ne 0 ] || return 0
 CURR_GLIBC_FUNC(){
 CURRGLIBC=`basename $(find /lib -maxdepth 1 -name "libc-*.so")`
 CURRCLMAJ=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 2 -d '.'`
 CURRCLMin=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 3 -d '.'`
 }
-if [ -z "$CLEAN" ]; then  #0
-if [ -n "$Err" ] && [ "$Err" -ne 0 ]; then #1
 FIND_SFS_FUNC(){
 CHECK_FOR_ALT_PART_FUNC  #TODO simplfy ?
 CURR_GLIBC_FUNC
@@ -1124,7 +1143,7 @@ echo -e "$BLU""Fscking $oneDRV just in case ....""$Res"
 busybox umount -lr $oneDRV
 sleep 2s
 fi ##4.2
-FSCK_FUNC "$oneDRV" "other_full_installs"
+_do_fsck "$oneDRV" "other_full_installs"
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ]; then  ##5
 echo -e "$Gre"'OK ,'"$GRE"" using REPO /mnt/$SIMPLEDRIVENAME""$Res"
 echo
@@ -1191,7 +1210,7 @@ echo "Please do an 'e2fsck $DEVROOTDRIVE' "
 echo "via console/terminal using a LiveCd ."
 echo "You may need to boot it with 'puppy pfix=ram' ."
 echo "Remember , the timeout is 5 sec to press 'F2' ."
-echo "Rebooting now in 25 seconds"
+echo "Rebooting now in approx. 25 seconds."
 sleep 22s
 [ "$DebugVal" = "0" ]   && busybox umount -a -r 2>/dev/null
 [ "$DebugVal" -ge "1" ] && busybox umount -a -r
@@ -1205,14 +1224,13 @@ fi  ##7
 fi  ##6
 }
 NO_REPO_DIALOG_FUNC
-fi  ##1
-fi  #0
-sleep $((SLEEP*5))s  ###KRG
-[ "$DebugVal" = "2" ] && CONTINUE_FUNC
 }
 CHECK_ALTERNATE_REPO_FUNC
+sleep $((SLEEP*5))s  ###KRG
+[ "$DebugVal" = "2" ] && _ask_to_continue
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'$REPO='"$Res""$REPO"
 [ -z "`busybox mount | grep -Fw '/' | grep '(rw)'`" ] && busybox mount $VERB $VERB -o remount,rw /
+
 CHECK_DEV_NODES_FUNC(){
 ROOTDRIVE=`basename $(busybox rdev | cut -f 1 -d ' ')`  ### | cut -f 1 -d ' ' | sed 's#/dev/##'`
 ROOTBLOCKDRIVE=${ROOTDRIVE:0:3}
@@ -1230,14 +1248,15 @@ MinBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 2 -d ' '`
 [ "$DebugVal" -eq "2" ] && echo $CATPP" $DMESG $MAJ $Min "','" $MAJBL $MinBL "',' && echo -e "$Res"
 }
 [ "$DebugVal" -ge "1" ] && CHECK_DEV_NODES_FUNC
-CHECK_SPACE_FUNC(){
+
+_check_available_ram(){
 echo -e "$BLU"'Freeing ram ...'"$Res"
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;36m" && free && echo -e "$Res"
 sleep $((SLEEP*2))s
 echo 3 > /proc/sys/vm/drop_caches  ###KRG , thanks to Bruce B ;see http://www.murga-linux.com/puppy/viewtopic.php?t=33219
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;35m" && free && echo -e "$Res"
 sleep $((SLEEP*4))s  ###KRG
-if [ "`ls -l /dev/ram8 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram8 | cut -f 5,6 -d ' '`" != "1, 8" ]; then
+if [ "`ls -l /dev/ram8 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram8 | awk '{print $5 $6}'`" != "1,8" ]; then
 rm -f /dev/ram8
 mknod /dev/ram8 b 1 8
 fi
@@ -1276,13 +1295,13 @@ if [ "$SPACElib" -gt "$SIZEdevRAMdisk1" -o "$RAMLIMITdevRAM2" -ge "$FREERAM" ]; 
 echo
 echo ";)"
 echo -e "$RED"
-if [ "$RAMLIMITdevRAM2" -ge "$FREERAM" ]; then                         #1.1
-echo "Needed free RAM is $RAMLIMITdevRAM2 , but free RAM is $FREERAM"
-else                                                                    #1.1
-echo "/lib/lib*.so* is $SPACElib in KB and larger than the RamDisk compiled for"
-echo -e "$GRE"
-echo "kernel $KERNV with $SIZEevRAMdisk1 / $MAXSIZEevRAM1 in KB"
-fi  #1.1
+ if [ "$RAMLIMITdevRAM2" -ge "$FREERAM" ]; then                         #1.1
+ echo "Needed free RAM is $RAMLIMITdevRAM2 , but free RAM is $FREERAM"
+ else                                                                    #1.1
+ echo "/lib/lib*.so* is $SPACElib in KB and larger than the RamDisk compiled for"
+ echo -e "$GRE"
+ echo "kernel $KERNV with $SIZEevRAMdisk1 / $MAXSIZEevRAM1 in KB"
+ fi  #1.1
 echo -e "$Res"
 echo -e "$RED"
 echo 'fsck omitted !!!'
@@ -1296,48 +1315,56 @@ echo 'eventually you need to press CTRL+ALT+DELETE to reboot'
 echo 'you may need to check BIOS bootorder also before booting LiveCD'
 echo 'do not forget to unmount everything first !'
 echo -e "$Res"
-echo
-echo 'dropping to console now , partition still mounted !'
-cd /
-busybox mount $VERB $VERB -o remount,ro /
-sleep $((SLEEP*2))s
-exec chroot . sh
+#echo
+#echo 'dropping to console now , partition still mounted !'
+#cd /
+#busybox mount $VERB $VERB -o remount,ro /
+#sleep $((SLEEP*2))s
+#exec chroot . sh
+_leave_to_simple_console 'dropping to console now, partition still mounted !'
 fi  #1
 NRAM=$(( RAM - FREERAM + RAMLIMITdevRAM2 ))
 NEEDRAM=`echo "$NRAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
-FORMRAM=`echo "$RAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
+FORMRAM=`echo "$RAM"  | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
 echo -e "$GRE"
 echo -e "\\033[18G"'... OK : '"$Res"$NEEDRAM"$GRE"' required of '"$Res"$FORMRAM
 echo -e "$Res"
 sleep $((SLEEP*5))s
 }
-CHECK_SPACE_FUNC
-[ "$DebugVal" = "2" ] && CONTINUE_FUNC
+_check_available_ram
+[ "$DebugVal" = "2" ] && _ask_to_continue
+
   echo -e "\\033[0;35m"'Creating a ramdisk and populating with a Linux environment...'"$Res"
-CHECK_RAM0_FUNC(){
-  if [ ! -b /dev/ram0 -o "`ls -l /dev/ram0 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram0 | awk '{print $5" "$6}'`" != "1, 0" ]; then  ###KRG
+
+_check_ram0(){
+  if [ ! -b /dev/ram0 -o "`ls -l /dev/ram0 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram0 | awk '{print $5 $6}'`" != "1,0" ]; then  ###KRG
   echo  -e "$RED"'block /dev/ram0 does not exist'"$Res"
   rm -f /dev/ram0
   echo -e "$Res"'creating now'"$Res"
   mknod /dev/ram0 b 1 0
   fi
 }
-CHECK_RAM0_FUNC
-mkfs.ext2 $Q $VERB -m 5 -b 1024 -i 1024 /dev/ram0 >$OUT 2>$ERR
-MAKE_RAM9_FUNC(){
-  [ ! -b /dev/ram9 -o "`ls -l /dev/ram9 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram9 | awk '{print $5" "$6}'`" != "1, 9" ] && rm -f /dev/ram9 && mknod /dev/ram9 b 1 9  ###KRG
+_check_ram0
+mkfs.ext2 $Q $VERB -m 5 -b 1024 -i 1024 /dev/ram0 >>$OUT 2>>$ERR
+
+_make_ram9(){
+  [ ! -b /dev/ram9 -o "`ls -l /dev/ram9 | cut -b 1-3`" != "brw" -o "`ls -l /dev/ram9 | awk '{print $5 $6}'`" != "1,9" ] && rm -f /dev/ram9 && mknod /dev/ram9 b 1 9  ###KRG
   mkfs.ext2 $Q $VERB -m 5 -b 1024 -i 1024 /dev/ram9 >$OUT 2>$ERR
   sleep $((SLEEP*2))s
 }
-MAKE_RAM9_FUNC
+_make_ram9
+
   mkdir $VERB -p /mnt/ram0
   mkdir $VERB -p /mnt/ram9  ###KRG
   busybox mount $VERB $VERB -t ext2 /dev/ram0 /mnt/ram0
+  test $? = 0 || _leave_to_simple_console "Could not mount ram0 ."
   busybox mount $VERB $VERB -t ext2 /dev/ram9 /mnt/ram9  ###KRG
+  test $? = 0 || _leave_to_simple_console "Could not mount ram9 ."
   sleep $((SLEEP*2))s  ###KRG
   mkdir $VERB -p /mnt/ram0/old_root
   mkdir $VERB /mnt/ram0/bin
-BUSYBOX_FUNC(){
+
+_copy_busybox(){
   echo
   echo -n -e "$BLU""Checking if $REPO/bin/busybox is a link to 'MyBusybox' : ""$Res"
   RLF=`readlink -f "$REPO"/bin/busybox`  ## | sed "s%^$REPO%%"`
@@ -1352,86 +1379,90 @@ BUSYBOX_FUNC(){
   fi
   echo -e "$Res"
 }
-BUSYBOX_FUNC
+_copy_busybox
+
   echo -e "$BLU""Populating /mnt/ram0/bin  ...""$Res"
   [ "$DebugVal" = "2" ] && echo -e -n "$Red"'/mnt/ram0/bin/'"$Res"
-  for ONEBIN in "[" "[[" ash autologinroot basename busybox cat chmod chown clear cp cut date dc dd df dirname dmesg du e3 ed expr false find free grep head kill ln login ls lsmod mkdir mknod more mv nice ntfs-3g pidof pwd readlink rev rm rmdir sed sleep sort stat su sync tail tar touch tr true uname usleep waitmax wc which xargs
+  for oneBIN in "[" "[[" ash autologinroot basename busybox cat chmod chown clear cp cut date dc dd df dirname dmesg du e3 ed expr \
+                 false find free grep head kill ln login ls lsmod mkdir mknod more mv nice ntfs-3g pidof pwd readlink rev rm rmdir \
+                 sed sleep sort stat su sync tail tar touch tr true uname usleep waitmax wc which xargs
   do  ###KRG added e3
-  if [ -x $REPO/bin/$ONEBIN ]; then
+  if [ -x $REPO/bin/$oneBIN ]; then
   BINDIR='/bin'
-  elif [ -x $REPO/usr/bin/$ONEBIN ]; then
+  elif [ -x $REPO/usr/bin/$oneBIN ]; then
   BINDIR='/usr/bin'
   else
   continue
   fi
-  RLF=`readlink -f "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
-  LSLBIN=`ls -l "$REPO""$BINDIR"/"$ONEBIN" | grep -o '\->.*' | grep -v 'busybox'`
+  RLF=`readlink -f "$REPO""$BINDIR"/"$oneBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
+  LSLBIN=`ls -l "$REPO""$BINDIR"/"$oneBIN" | grep -o '\->.*' | grep -v 'busybox'`
   if [ -n "$LSLBIN" ]; then
-  [ "$DebugVal" = "1" ] && echo -n -e "$Ora"" Link $ONEBIN""$Res"
+  [ "$DebugVal" = "1" ] && echo -n -e "$Ora"" Link $oneBIN""$Res"
   NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
-  [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$ONEBIN ""$Red"', '"$Res"
+  [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$oneBIN ""$Red"', '"$Res"
   [ "$DebugVal" = "2" ] && echo -n -e "$Red"' LinkTarget '"$Res""${REPO}${RLF} ""$Red"', '"$Res"
   [ -x /mnt/ram0/${NEWBIN} ]   || cp $VERB -a ${REPO}${RLF}            /mnt/ram0/${NEWBIN}
-  [ -x /mnt/ram0/bin/$ONEBIN ] || cp $VERB -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/bin/$ONEBIN
+  [ -x /mnt/ram0/bin/$oneBIN ] || cp $VERB -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/bin/$oneBIN
   else
-   if [ -x ${REPO}${BINDIR}/$ONEBIN ] && [ ! -x /mnt/ram0/bin/$ONEBIN ]; then  ###KRG for symlink busybox
-    cp $VERB -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/bin/
-    [ "$DebugVal" = "2" ] && echo -e -n "$ONEBIN ""$Red"', '"$Res"
+   if [ -x ${REPO}${BINDIR}/$oneBIN ] && [ ! -x /mnt/ram0/bin/$oneBIN ]; then  ###KRG for symlink busybox
+    cp $VERB -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/bin/
+    [ "$DebugVal" = "2" ] && echo -e -n "$oneBIN ""$Red"', '"$Res"
    else
-    if [ "$ONEBIN" != "busybox" -a "`busybox | grep $ONEBIN`" ]; then  ###KRG
-    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$ONEBIN ""$Red"', '"$Res"
-    ln $VERB -s busybox /mnt/ram0/bin/$ONEBIN
+    if [ "$oneBIN" != "busybox" -a "`busybox | grep $oneBIN`" ]; then  ###KRG
+    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$oneBIN ""$Red"', '"$Res"
+    ln $VERB -s busybox /mnt/ram0/bin/$oneBIN
     fi
    fi
   fi
   done
-  ln $VERB -snf busybox /mnt/ram0/bin/ps
+
+  ln $VERB -sf busybox /mnt/ram0/bin/ps
   [ "$DebugVal" = "2" ] && echo -n -e 'link ps '"$Red"', '"$Res"
-  ln $VERB -snf busybox /mnt/ram0/bin/rdev
+  ln $VERB -sf busybox /mnt/ram0/bin/rdev
   [ "$DebugVal" = "2" ] && echo -n -e 'link rdev '"$Red"', '"$Res"
-  ln $VERB -snf busybox /mnt/ram0/bin/sh
+  ln $VERB -sf busybox /mnt/ram0/bin/sh
   [ "$DebugVal" = "2" ] && echo -n -e 'link sh '"$Red"', '"$Res"
-  ln $VERB -snf busybox /mnt/ram0/bin/mount
+  ln $VERB -sf busybox /mnt/ram0/bin/mount
   [ "$DebugVal" = "2" ] && echo -n -e 'link mount '"$Red"', '"$Res"
-  ln $VERB -snf busybox /mnt/ram0/bin/umount
+  ln $VERB -sf busybox /mnt/ram0/bin/umount
   [ "$DebugVal" = "2" ] && echo -n 'link umount '
   [ "$DebugVal" -ge "1" ] && echo -e "$Res" && echo
+
   echo -e "$BLU""Populating /mnt/ram0/sbin ...""$Res"
   [ "$DebugVal" = "2" ] && echo -e -n "$Red"'/mnt/ram0/sbin/'"$Res"
   mkdir $VERB /mnt/ram0/sbin
-  for ONEBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 getty guess_fstype halt hdparm hotplug2stdout hotplug2stdout_notimeout hwclock ifconfig ifplugstatus insmod klogd ldconfig loadkmap losetup lsmod mount.ntfs-3g pivot_root probedisk probedisk2 probepart swapon
+  for oneBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 getty guess_fstype \
+				halt hdparm hotplug2stdout hotplug2stdout_notimeout hwclock ifconfig ifplugstatus insmod klogd \
+				ldconfig loadkmap losetup lsmod mount.ntfs-3g pivot_root probedisk probedisk2 probepart swapon
   do
-  if [ -x $REPO/sbin/$ONEBIN ]; then
+  if [ -x $REPO/sbin/$oneBIN ]; then
   BINDIR='/sbin'
-  elif [ -x $REPO/usr/sbin/$ONEBIN ]; then
+  elif [ -x $REPO/usr/sbin/$oneBIN ]; then
   BINDIR='/usr/sbin'
   else
   continue
   fi
-  RLF=`readlink -f "$REPO""$BINDIR"/"$ONEBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
-  LSLSBIN=`ls -l "$REPO""$BINDIR"/"$ONEBIN" | grep -o '\->.*' | grep -v 'busybox'`
+  RLF=`readlink -f "$REPO""$BINDIR"/"$oneBIN" | grep -v 'busybox' | sed "s%^$REPO%%"`
+  LSLSBIN=`ls -l "$REPO""$BINDIR"/"$oneBIN" | grep -o '\->.*' | grep -v 'busybox'`
    if [ -n "$LSLSBIN" ]; then
-   [ "$DebugVal" = "1" ] && echo -n -e "$Ora"" Link $ONEBIN ""$Res"
+   [ "$DebugVal" = "1" ] && echo -n -e "$Ora"" Link $oneBIN ""$Res"
    NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
-   [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$ONEBIN ""$Red"', '"$Res"
+   [ "$DebugVal" = "2" ] && echo -n -e "$Red"' Link '"$Res""${REPO}${BINDIR}/$oneBIN ""$Red"', '"$Res"
    [ "$DebugVal" = "2" ] && echo -n -e "$Red"' LinkTarget '"$Res""${REPO}${RLF} ""$Red"', '"$Res"
-   [ -x /mnt/ram0/sbin/$ONEBIN ] || cp $VERB -a ${REPO}${BINDIR}/"$ONEBIN" /mnt/ram0/sbin/"$ONEBIN"
+   [ -x /mnt/ram0/sbin/$oneBIN ] || cp $VERB -a ${REPO}${BINDIR}/"$oneBIN" /mnt/ram0/sbin/"$oneBIN"
    [ -x /mnt/ram0/${NEWBIN} ] || cp $VERB -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
-   else
-   if [ -x ${REPO}${BINDIR}/$ONEBIN ]; then  ###KRG -x for -e
-    cp $VERB -a ${REPO}${BINDIR}/$ONEBIN /mnt/ram0/sbin/
-    [ "$DebugVal" = "2" ] && echo -e -n "$ONEBIN "
-    [ "$DebugVal" = "2" ] && [ "$ONEBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
-   else
-    if test "`busybox | grep $ONEBIN`"; then  ###KRG
-    ln $VERB -s ../bin/busybox /mnt/ram0/sbin/$ONEBIN
-    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$ONEBIN "
-    [ "$DebugVal" = "2" ] && [ "$ONEBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
-    fi
+   elif [ -x ${REPO}${BINDIR}/$oneBIN ]; then  ###KRG -x for -e
+    cp $VERB -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/sbin/
+    [ "$DebugVal" = "2" ] && echo -e -n "$oneBIN "
+    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
+   elif test "`busybox | grep $oneBIN`"; then  ###KRG
+    ln $VERB -s ../bin/busybox /mnt/ram0/sbin/$oneBIN
+    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$oneBIN "
+    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -e -n "$Red"', '"$Res"
    fi
-  fi
   done
-PRESERVE_CHROOT_FUNC(){
+
+_preserve_chroot(){
   CHROOT=`which chroot | grep '^/sbin/`
   if [ -n "$CHROOT" ] && [ ! -L "$CHROOT" ] && [ -x "$CHROOT" ]; then
   echo "$CHROOT is no link but executable ,
@@ -1440,34 +1471,37 @@ Please restore manually for now"
   mv $VERB $CHROOT "$CHROOT.bac"
   fi
 }
-PRESERVE_CHROOT_FUNC
-  ln $VERB -snf ../bin/busybox /sbin/chroot #must match
+_preserve_chroot
+
+  ln $VERB -sf ../bin/busybox /sbin/chroot #must match
   [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"$Red"', '"$Res"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/chroot #must match
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/chroot #must match
   [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"$Red"', '"$Res"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/init
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/init
   [ "$DebugVal" = "2" ] && echo -n -e 'link init '"$Red"', '"$Res"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/poweroff
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/poweroff
   [ "$DebugVal" = "2" ] && echo -n -e 'link poweroff '"$Red"', '"$Res"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/reboot
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/reboot
   [ "$DebugVal" = "2" ] && echo -n 'link reboot '
   [ "$DebugVal" -ge "1" ] && echo -e "$Res" && echo
+
   echo -e "$BLU""Populating /mnt/ram0/etc  ...""$Res"
   mkdir $VERB /mnt/ram0/etc
   [ "$DebugVal" = "2" ] && echo -n -e "$Red"'/mnt/ram0/etc/'"$Res"
-  for ONEFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
+  for oneFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
   do
-   [ "$DebugVal" = "0" ] && cp $VERB -a "$REPO"/etc/$ONEFILE /mnt/ram0/etc/ 2>/dev/null
-   [ "$DebugVal" = "2" ] && echo -e -n "$ONEFILE "
-   [ "$DebugVal" -ge "1" ] && cp $VERB -a "$REPO"/etc/$ONEFILE /mnt/ram0/etc/
-   [ "$DebugVal" = "2" ] && [ "$ONEFILE" != "shadow" ] && echo -e -n "$Red"', '"$Res"
+   [ "$DebugVal" = "0" ] && cp $VERB -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/ 2>/dev/null
+   [ "$DebugVal" = "2" ] && echo -e -n "$oneFILE "
+   [ "$DebugVal" -ge "1" ] && cp $VERB -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/
+   [ "$DebugVal" = "2" ] && [ "$oneFILE" != "shadow" ] && echo -e -n "$Red"', '"$Res"
   done
    [ "$DebugVal" = "2" ] && echo -e "$Res" && echo
   echo "$PDEV1"','"$DEV1FS"',' > /mnt/ram0/etc/fsckme.err  ###KRG
-  echo 'DebugVal='"$DebugVal" > /mnt/ram0/etc/initdebug.in  ###KRG
-  echo 'TimeOut='"$TimeOut" >> /mnt/ram0/etc/initdebug.in  ###KRG
+  echo "DebugVal='$DebugVal'" > /mnt/ram0/etc/initdebug.in  ###KRG
+  echo "TimeOut='$TimeOut'" >> /mnt/ram0/etc/initdebug.in  ###KRG
   [ -f /mnt/ram0/etc/fstab ] || touch /mnt/ram0/etc/fstab
   echo '/lib' > /mnt/ram0/etc/ld.so.conf
+
   echo 'export PATH="/bin:/sbin"
 export LD_LIBRARY_PATH="/mnt/ram9/lib"
 ulimit -c 0
@@ -1476,8 +1510,9 @@ export USER=root
 export LOGNAME=root
 export TERM=linux' > /mnt/ram0/etc/profile
   mkdir $VERB /mnt/ram0/etc/rc.d
+
   echo '#!/bin/sh
-PDEV1=`cat /etc/fsckme.err | cut -f 1 -d ","`  ###KRG
+ PDEV1=`cat /etc/fsckme.err | cut -f 1 -d ","`  ###KRG
 DEV1FS=`cat /etc/fsckme.err | cut -f 2 -d ","`  ###KRG
 . /etc/initdebug.in  ###KRG
 PATH="/bin:/sbin"
@@ -1628,6 +1663,7 @@ reboot
 fi
 ' > /mnt/ram0/etc/rc.d/rc.sysinit
   chmod 0755 /mnt/ram0/etc/rc.d/rc.sysinit
+
   echo -e "$BLU""Populating /mnt/ram0/usr  ...""$Res"
   LOCALTIME="${REPO}/usr/share`readlink $REPO/etc/localtime | sed 's%^.*/zoneinfo%/zoneinfo%'`"
   if [ -n "$REPO" ]; then
@@ -1639,10 +1675,12 @@ fi
   cp $VERB -a $LOCALTIME /mnt/ram0/$LOCALTDIR/
   mkdir $VERB -p /mnt/ram0/usr/share
   cp $VERB -a "$REPO"/usr/share/terminfo /mnt/ram0/usr/share/
+
   echo -e "$BLU""Populating /mnt/ram0/dev  ...""$Res"
   cp $VERB -a "$REPO"/dev /mnt/ram0/
-  UPDATINGDEV_FUNC "/mnt/ram0"
-  [ "$DebugVal" = "2" ] && CONTINUE_FUNC
+  _create_correct_partition_device_nodes "/mnt/ram0"
+  [ "$DebugVal" = "2" ] && _ask_to_continue
+
   echo -e "$BLU""Populating /mnt/ram9/lib  ...""$Res"
   mkdir $VERB /mnt/ram9/lib
   for i in $LIBF; do  ###KRG to sort unneeded libs out , see further up ###KRG
@@ -1659,7 +1697,8 @@ fi
   fi
   fi
   echo -e "$Res"
-  busybox ln $VERB -s /mnt/ram9/lib /mnt/ram0/lib
+  busybox ln $VERB -sn /mnt/ram9/lib /mnt/ram0/lib
+
   mkdir $VERB /mnt/ram0/mnt
   mkdir $VERB /mnt/ram0/mnt/ram9
   mkdir $VERB /mnt/ram0/root
@@ -1668,6 +1707,7 @@ fi
   mkdir $VERB /mnt/ram0/proc
   sleep $((SLEEP*3))s
   sync
+
   echo -e "\\033[0;35m"'Performing a pivot_root to the ramdisk...'
   echo -e "$Res"
   [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'1_mounts :'"$Res" && busybox mount && echo  ###DBG
@@ -1699,14 +1739,14 @@ fi
   fi
 
 
-  [ "$DebugVal" = "2" ]   && CONTINUE_FUNC
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
   [ "$DebugVal" -ge "1" ] && echo && echo -e "$YEL""Now just before pivot_root :""\\033[;39m"
-  [ "$DebugVal" = "2" ]   && CONTINUE_FUNC
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'pivot_root now ...'  ###DBG
   pivot_root . old_root
   [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'...        pivoted' && echo  ###DBG
-  [ "$DebugVal" = "2" ]   && CONTINUE_FUNC
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
   [ "$DebugVal" -ge "1" ] && echo -n -e "$Ora"'pwd now :'"$Res"`pwd` && echo  ###DBG
   [ "$DebugVal" = "2" ]   && echo -e "$Red"'ls :'"$Res" && ls --color=auto  ###DBG
