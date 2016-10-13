@@ -71,7 +71,7 @@ test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 echo "$0:$*:"
 
-VERSION=1.8.2
+VERSION=1.8.3
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
 
@@ -80,6 +80,8 @@ SLEEP=1    # seconds. initial value. gets altered in _ask_debug() .
 
 #alias modprobe='/sbin/modprobe --first-time'
 alias modprobe="modprobe -b $Q $VERB"  ##+++2013-12-07
+alias chmod="chmod $VERB"              ##+++2016-10-13
+alias cp="cp $VERB"
 
 test -f /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 
@@ -91,7 +93,7 @@ marker file *fsckme.flg|err* found. The content of the
 fsckme.flg file needs to look like this : 'sda2,ext3,' .
 
 Former [and still?] it was crudly done
-by '/usr/bin/xwin' code by Pizzasgood.
+by '/usr/bin/xwin' /etc/.XLOADED code by Pizzasgood.
 
 If fsckme file exists, check the partition read-only,
 and if found clean, boot anyway.
@@ -114,10 +116,10 @@ exit $1
 
 case $1 in
 *h|*help|*usage) _usage 0;;
-*V|*version)  echo -e "\n$0: Version '$Version'\nUse help to show usage\n"; exit 0;;
+*V|*version)  echo -e "\n$0: Version '$VERSION'\nUse help to show usage.\n"; exit 0;;
 *check*) set -n;;
 *debug*) set -x;;
-*verbose*) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;VERBOSE=1;;
+*verbose*) VERB=-v;L_VERB=--verbose;A_VERB=-verbose;VERBOSE=$((VERBOSE+1));;
 esac
 #while [ "$1" ]; do shift; done
 
@@ -127,7 +129,7 @@ which chattr lsattr >>$OUT || return 3
 test "$*"    || return 2
 test -e "$*" || return 2
 stat -f -c %T / | grep $Q 'ext[2-5]' || return 1 # no ext2-4 filesystem
-lsattr -d "$*" | awk '{print $1}' | grep $Q 'i'  # 0 if contained, 1 if not
+lsattr -d "$*" | awk '{print $1}' | grep $Q 'i'  # returns 0 if contained, 1 if not
 }
 
 _mkdir(){
@@ -215,7 +217,8 @@ status_func() {
 }
 
 if [ "$PUPMODE" = 2 ]; then
-#busybox mount $VERB $VERB -o remount,rw /dev/root /
+
+_cleanup_tmp(){
 _remount_root rw && {
 ###+++2011-11-10
  if [ -d /tmp ] ; then
@@ -225,7 +228,9 @@ _remount_root rw && {
  fi
  }
  chmod 1777 /tmp
- ###+++2011-11-10
+ ###+++2011-11-10 2016-10-13
+}
+_cleanup_tmp
 
  _link_dev_stdfd(){
  ln $VERB -snf ../proc/self/fd /dev/fd
@@ -243,22 +248,26 @@ _remount_root rw && {
 
 _populate_dev(){
  mountpoint $Q /dev && {
- _link_dev_stdfd
- #_mk_dev_console
- true
+ # REM: Either initrd or kernel has mounted /dev
+ #      but it could be mounted read-only
+ mountDEV=`grep ' /dev ' /proc/mounts | tail -n1`
+ if echo "$mountDEV" | grep $Q -w ro; then
+  deviceDEV=`echo "$mountDEV" | awk '{print $1}'`
+  [ "$deviceDEV" ] && mount -o remount,rw $deviceDEV /dev
+ else true
+ fi
+ [ $? = 0 ] && _link_dev_stdfd
+ true   # TODO: if the above fails, what then ??
          } || {
  test -d /dev || mkdir $VERB /dev
- mount $VERB $VERB -t ramfs devramfs /dev
+ mount $VERB $VERB -t ramfs -o rw devramfs /dev # TEST: ramfs instead tmpfs
  _link_dev_stdfd ; _mk_dev_console ;
 
- test "`which mdev`" && {
- #_link_dev_stdfd ; _mk_dev_console ;
- mdev -s; true
- } || {
+ test "`which mdev`" && { mdev -s; } || {
 
   oldIFS="$IFS"
      IFS=$'\n'
-     find /sys -type f -name uevent -perm 644 |
+     /bin/find /sys -type f -name uevent -perm 644 |
      while read oneFILE
      do
      unset K MAJOR MINOR DEVPATH DEVNAME DEVTYPE DRIVER DEVICE PRODUCT TYPE BUSNUM DEVNUM INTERFACE MODALIAS DEVMODE
@@ -273,7 +282,6 @@ _populate_dev(){
       }
      done
     IFS="$oldIFS"
-    #_link_dev_stdfd
 
           } ###+++2014-06-25 mdev
          }  # +++2015-06-19 manual
@@ -285,6 +293,7 @@ status_func $STATUS
 fi   # "$PUPMODE" = 2
 
 _do_busybox_init(){  ###KRG
+_remount_root ro     ##+++2016-10-13
 busybox umount ${VERB:+} /sys
 busybox umount ${VERB:+} /proc
 exec busybox init
@@ -296,34 +305,39 @@ _do_busybox_init
 fi  ###KRG
 
 _get_rdev(){
-PDEV1=`basename $(rdev | cut -f 1 -d ' ')`
-ROOTDRIVE="$PDEV1"
-DEVPDEV1=`rdev | cut -f 1 -d ' '`
-devROOT="$DEVPDEV1"
-DEV1FS=`mount | grep '^/dev/root' | cut -f 5 -d ' '`
-##FSSTATE=`dumpe2fs /dev/$PDEV1 | grep -i 'state' 2>/dev/null`
-##echo -e "\\033[1;33m""$FSSTATE""\\033[0;39m"
-echo -e "\e[1;35m""PDEV1='$PDEV1'""\e[0;39m"  ##+++2011-11-10
+devPDEV1=$(rdev | cut -f 1 -d ' ')
+PDEV1=${devPDEV1##*/}
+devROOT="$devPDEV1" # used four times in several functions
+DEV1FS=`mount | grep '^/dev/root on / type ' | cut -f 5 -d ' '`
+echo -e "\e[1;35m""PDEV1='$PDEV1' DEV1FS='$DEV1FS'""\e[0;39m"  ##+++2011-11-10 2016-10-13
+if [ "$DEBUG" ]; then
+case $DEV1FS in ext[2-5])
+dumpe2fs /dev/$PDEV1 | grep -i 'state';;
+esac
+fi
+test "$PDEV1" -a "$DEV1FS"  ##+++2016-10-13 create proper return value
 }
 _get_rdev
 
 _get_errflg() {  ###KRG
 echo -e "\\033[1;34m"'Checking for unpropper previous shutdown  ... '"\\033[0;39m"
-echo -n -e "\\033[1;33m"'Searching for *fsckme* file 3 levels deep ... '"\\033[0;39m"
-ErrFlag=`busybox find / -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
+echo -ne "\\033[1;33m"'Searching for *fsckme* file 3 levels deep ... '"\\033[0;39m"
+ErrFlag=`/bin/find / -xdev -maxdepth 3 -type f -iname '*fsckme*' | head -n1`  ###KRG 3 deep for fsckme.file@etc @boot @$HOME ..etc..
 if [ -n "$ErrFlag" ] ; then  ##1
 echo -e "\\033[1;31m" ' Found : '"\\033[0;39m""\\033[1;5;31m""$ErrFlag"
 echo -e "\\033[0;39m"
 return 1
 fi #1
-
 echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"\\033[0;39m"
+case $DEV1FS in ext[2-5]) :;; *) return 126;; esac
+
 echo -e "\\033[1;33m"'Checking for filesystem check intervals using'"\\033[0;39m"
-LANG=C
-VARS=`dumpe2fs $devROOT | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
-###+++2011-11-15 had logically removed this ; woul have been a bug due interN used further down
+#LANG=C ##exported on top of script
+VARS=`dumpe2fs -h /dev/$PDEV1 | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
+test "$VARS" || return 125
+###+++2011-11-15 had logically removed this ; would have been a bug due interN used further down
 interC=`echo "$VARS" | grep 'Check interval' | tr '\n' ' '`
-interN=`echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o -e '[[:digit:]]*'`
+interN=`echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o '[[:digit:]]\+'`
 interN=$((interN/60/60/24))
  ###+++2011-11-15
 nextch=`echo "$VARS" | grep 'Next check after' | tr '\n' ' '`
@@ -337,20 +351,20 @@ todayD=`echo "$todays" | tr -s ' ' | cut -f 3 -d ' ' | tr -d [[:punct:]]`
 mntcnt=`echo "$VARS" | grep 'Mount count'| grep -o '[[:digit:]]' | tr -d '\n'`
 maxmnt=`echo "$VARS" | grep 'Maximum mount count' | grep -o '[[:digit:]]' | tr -d '\n'`
 diffMC=$(( maxmnt - mntcnt ))
-monthN=`for i in $(seq 1 12) ; do cal $i 1 | head -n 1 | grep -o '[[:alpha:]]*' | sed "s/^/$i /"; done`
+monthN=`for i in $(seq 1 12) ; do cal $i 1 | head -n 1 | grep -o '[[:alpha:]]\+' | sed "s/^/$i /"; done`
 monthT=`echo "$monthN" | grep "$todayM"`
 montTN=`echo "$monthT" | cut -f 1 -d ' '`
 monthC=`echo "$monthN" | grep "$nextcM"`
 montCN=`echo "$monthC" | cut -f 1 -d ' '`
-val30C=`cal $montCN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o -e '[[:digit:]]*$'`
+val30C=`cal $montCN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]\+$'`
 ##+++ 2011_11_15 from luci218
 val30B=0
 for i in `seq $((montCN+1)) $((montTN-1))` ; do
-val30i=`cal $i 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o -e '[[:digit:]]*$'`
+val30i=`cal $i 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]\+$'`
 val30B=$((val30B+val30i))
 done
 ##+++ 2011_11_15 from luci218
-val30T=`cal $montTN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o -e '[[:digit:]]*$'`
+val30T=`cal $montTN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]\+$'`
 echo -e "\\033[0;39m"
 
 FSCK=
@@ -418,7 +432,7 @@ if [ "$pkp" ]; then
   *)     RV=$((RV+1));;
   esac; done
 else
- RV=127
+ RV=126
 fi
 
 return $RV
@@ -445,7 +459,7 @@ exec chroot . sh
 #PDEV1="`cat $ErrFlag | cut -f 1 -d ','`" #file format: sda1,ext3,
 #DEV1FS="`cat $ErrFlag | cut -f 2 -d ','`"
 case $DEV1FS in
- ext2|ext3|ext4)
+ ext[2-4])
 
   echo -e "\\033[1;33m"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
 
@@ -468,7 +482,7 @@ echo -e "\\033[0;39m"
 echo -e "\\033[0;32m""Continue this $0 ?\t [ any key ]"
 echo -e "\\033[0;31m""Dropout into console ?\t\t [ c ]""\\033[0;32m"
 echo -e "\\033[0;39m"
-echo -n -e "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
+echo -ne "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
 read -n 1 -t $TimeOut Key
 echo -e "\\033[0;39m"
 
@@ -647,7 +661,7 @@ sleep $((SLEEP*3))s
 
 LSMODCNT=`wc -l /proc/modules | awk '{print $1}'`
 if [ "$LSMODCNT" -gt 0 ] ; then
-echo -e -n 'Loaded   '"\e[1;35m""$LSMODCNT ""\e[0;39m"'drivers at least'
+echo -ne 'Loaded   '"\e[1;35m""$LSMODCNT ""\e[0;39m"'drivers at least'
 else
 cut -f 1 -d ' ' /proc/modules | sort -g | tr '\n' ' '
 fi
@@ -697,7 +711,7 @@ DRIVER=`basename $i | sed 's#\.ko.*$##'`
 DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 
 if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
-echo -e -n "\\033[1;33m""$DRIVER ""\\033[1;34m"'.. '"\\033[0;39m"
+echo -ne "\\033[1;33m""$DRIVER ""\\033[1;34m"'.. '"\\033[0;39m"
 modprobe $DRIVER
 fi
 
@@ -739,14 +753,14 @@ for i in $POOL ; do
 I2C=`echo "$I2CS" | grep -i $i`
 
  if [ -n "$I2C" ] ; then
- echo -e -n "\\033[1;33m"'Loading ...'"\\033[0;39m"
+ echo -ne "\\033[1;33m"'Loading ...'"\\033[0;39m"
 
  for j in $I2C ; do
  DRIVER=`basename $j`
  DRVpattern=`echo "$DRIVER" | tr '-' '_'`
  if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
- echo -e -n "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
- modprobe $DRIVER #2>/dev/null
+ echo -ne "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
+ modprobe $DRIVER
  fi
  done
 
@@ -771,7 +785,7 @@ for i in $POOL ; do
 ##echo -e "\\033[0;39m"
  FBS=`echo "$FBDRIVERS" | grep -i $i`
  if [ -n "$FBS" ] ; then
- echo -n -e "\\033[1;33m"'Loading ... '"\\033[0;39m"
+ echo -ne "\\033[1;33m"'Loading ... '"\\033[0;39m"
 
   for j in $FBS ; do
   DRIVER=`basename $j`
@@ -779,7 +793,7 @@ for i in $POOL ; do
   [[ "$DRIVER" = "nvidiafb" -a "`lsmod | grep 'nouveau'`" ]] && continue
   [[ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" ]] && continue
   if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
-  echo -e -n "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
+  echo -ne "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
   modprobe $DRIVER
   fi
   done
@@ -795,7 +809,7 @@ if [ -n "`modprobe -l | grep 'fbcon'`" ] && [ -z "`lsmod | grep 'fbcon'`" ] ; th
 modprobe fbcon
 echo -e "\\033[0;39m"
 fi
-#lsmod | cut -f 1 -d ' ' | sort | tr '\n' ' '  #DEBUG
+_debug "`lsmod | cut -f 1 -d ' ' | sort | tr '\n' ' '`"  #DEBUG
 }
 _load_framebuffer_drivers  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
 sleep 5s  ###DBG
@@ -932,7 +946,7 @@ echo -e "\\033[0;39m"
 _do_first_fsck(){
 _remount_root ro
 _do_fsck "/dev/$PDEV1"
-_remount_root rw
+#_remount_root rw
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ] ; then
 echo -e "\\033[1;34m""Booting installation ..."
 echo -e "\\033[0;39m"
@@ -940,11 +954,12 @@ rm $VERB "$ErrFlag"
 [ "$DebugVal" = "2" ] && _ask_to_continue
 _do_busybox_init
 fi
+_remount_root rw
 }
 [ -z "$FSCK" ] && _do_first_fsck
 
 _get_partitions(){
-[ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'$ROOTDRIVE='"\\033[0;39m""$ROOTDRIVE"
+[ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'ROOTDRIVE='"\\033[0;39m""$PDEV1"
 DRIVES=''
 DRIV=`cat /proc/partitions | grep '^ ' | grep -v 'loop' | sed 's#^ *##' | tr -s ' ' | cut -f 4 -d ' ' | cut -b 1-3 | uniq`
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Attached drives : '"\\033[0;39m"$DRIV
@@ -1304,8 +1319,8 @@ LIBF=`echo "$LF" | grep -v "$LLS" | grep -v -E 'libuClibc.*|ld\-uClibc.*|libthre
 for i in $LIBF ; do
 SiZElib=`ls -s $i | awk '{print $1}'`  ##+++2013-12-07
 SPACElib=$((SPACElib + SiZElib))
-[ "$DebugVal" = "2" ] && echo -n -e "\\033[0;39m""$i"'='"\\033[0;31m""$SiZElib "  ###DBG
-[ "$DebugVal" = "1" ] && [ "$SiZElib" -ne "0" ] && echo -n -e "\\033[0;39m""$i"'='"\\033[0;33m""$SiZElib "
+[ "$DebugVal" = "2" ] && echo -ne "\\033[0;39m""$i"'='"\\033[0;31m""$SiZElib "  ###DBG
+[ "$DebugVal" = "1" ] && [ "$SiZElib" -ne "0" ] && echo -ne "\\033[0;39m""$i"'='"\\033[0;33m""$SiZElib "
 done
 [ "$DebugVal" = "2" ]   && echo && echo 'total /lib='"$SPACElib"  ###DBG
 [ "$DebugVal" -ge "1" ] && echo && echo -e "\\033[0;39m"
@@ -1351,11 +1366,11 @@ echo
 #_remount_root ro
 #sleep $((SLEEP*2))s
 #exec chroot . sh
-_leave_to_simple_console
+_leave_to_simple_console 'dropping to console now , partition still mounted !'
 fi  #1
 NRAM=$(( RAM - FREERAM + RAMLIMITdevRAM2 ))
 NEEDRAM=`echo "$NRAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
-FORMRAM=`echo "$RAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
+FORMRAM=`echo "$RAM"  | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
 echo -e "\\033[1;32m"
 echo -e "\\033[18G"'... OK : '"\\033[0;39m"$NEEDRAM"\\033[1;32m"' required of '"\\033[0;39m"$FORMRAM
 echo -e "\\033[0;39m"
@@ -1405,7 +1420,7 @@ _make_ram9
 _copy_busybox(){
   ###KRG BUSYBOX
   echo
-  echo -n -e "\\033[1;34m""Checking if $REPO/bin/busybox is a link to 'MyBusybox' : ""\\033[0;39m"
+  echo -ne "\\033[1;34m""Checking if $REPO/bin/busybox is a link to 'MyBusybox' : ""\\033[0;39m"
   RLF=`readlink -f "$REPO"/bin/busybox`  ## | sed "s%^$REPO%%"`
   LSLBB=`ls -l "$REPO"/bin/busybox | grep -o '\->.*'`  ###KRG if busybox is a symlink to busybox-version
 
@@ -1423,7 +1438,7 @@ _copy_busybox(){
 _copy_busybox
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/bin  ...""\\033[0;39m"
-  [ "$DebugVal" = "2" ] && echo -e -n "\\033[0;31m"'/mnt/ram0/bin/'"\\033[0;39m"
+  [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"'/mnt/ram0/bin/'"\\033[0;39m"
   for oneBIN in "[" "[[" ash autologinroot basename busybox cat chmod chown clear cp cut \
   date dc dd df dirname dmesg du e3 ed expr false find free grep head kill ln login ls lsmod \
   mkdir mknod more mv nice ntfs-3g pidof pwd readlink rev rm rmdir sed sleep sort stat su sync \
@@ -1441,19 +1456,19 @@ _copy_busybox
   LSLBIN=`ls -l "$REPO""$BINDIR"/"$oneBIN" | grep -o '\->.*' | grep -v 'busybox'`
 
   if [ -n "$LSLBIN" ] ; then
-  [ "$DebugVal" = "1" ] && echo -n -e "\\033[0;33m"" Link $oneBIN""\\033[0;39m"
+  [ "$DebugVal" = "1" ] && echo -ne "\\033[0;33m"" Link $oneBIN""\\033[0;39m"
   NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
-  [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
-  [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
+  [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
+  [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
   [ -x /mnt/ram0/${NEWBIN} ]   || cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
   [ -x /mnt/ram0/bin/$oneBIN ] || cp -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/bin/$oneBIN
 
   elif [ -x ${REPO}${BINDIR}/$oneBIN ] && [ ! -x /mnt/ram0/bin/$oneBIN ] ;then  ###KRG for symlink busybox
     cp -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/bin/
-    [ "$DebugVal" = "2" ] && echo -e -n "$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
+    [ "$DebugVal" = "2" ] && echo -ne "$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
 
   elif [ "$oneBIN" != "busybox" -a "`busybox | grep $oneBIN`" != "" ] ; then  ###KRG
-    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
+    [ "$DebugVal" = "2" ] && echo -ne 'link '"$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
     ln $VERB -s busybox /mnt/ram0/bin/$oneBIN
   fi
   done
@@ -1471,7 +1486,7 @@ _copy_busybox
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m" && echo
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/sbin ...""\\033[0;39m"
-  [ "$DebugVal" = "2" ] && echo -e -n "\\033[0;31m"'/mnt/ram0/sbin/'"\\033[0;39m"
+  [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"'/mnt/ram0/sbin/'"\\033[0;39m"
   mkdir $VERB /mnt/ram0/sbin
 
   for oneBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 \
@@ -1490,20 +1505,20 @@ _copy_busybox
   LSLSBIN=`ls -l "$REPO""$BINDIR"/"$oneBIN" | grep -o '\->.*' | grep -v 'busybox'`
 
   if [ -n "$LSLSBIN" ] ; then
-   [ "$DebugVal" = "1" ] && echo -n -e "\\033[0;33m"" Link $oneBIN ""\\033[0;39m"
+   [ "$DebugVal" = "1" ] && echo -ne "\\033[0;33m"" Link $oneBIN ""\\033[0;39m"
    NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
-   [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
-   [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
+   [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
+   [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
    [ -x /mnt/ram0/sbin/$oneBIN ] || cp -a ${REPO}${BINDIR}/"$oneBIN" /mnt/ram0/sbin/"$oneBIN"
    [ -x /mnt/ram0/${NEWBIN} ]    || cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
   elif [ -x ${REPO}${BINDIR}/$oneBIN ];then  ###KRG -x for -e
     cp -a ${REPO}${BINDIR}/$oneBIN /mnt/ram0/sbin/
-    [ "$DebugVal" = "2" ] && echo -e -n "$oneBIN "
-    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -e -n "\\033[0;31m"', '"\\033[0;39m"
+    [ "$DebugVal" = "2" ] && echo -ne "$oneBIN "
+    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -ne "\\033[0;31m"', '"\\033[0;39m"
   elif test "`busybox | grep $oneBIN`" != "" ; then  ###KRG
     ln $VERB -s ../bin/busybox /mnt/ram0/sbin/$oneBIN
-    [ "$DebugVal" = "2" ] && echo -e -n 'link '"$oneBIN "
-    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -e -n "\\033[0;31m"', '"\\033[0;39m"
+    [ "$DebugVal" = "2" ] && echo -ne 'link '"$oneBIN "
+    [ "$DebugVal" = "2" ] && [ "$oneBIN" != "swapon" ] && echo -ne "\\033[0;31m"', '"\\033[0;39m"
   fi
   done
 
@@ -1532,16 +1547,16 @@ _preserve_chroot
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/etc  ...""\\033[0;39m"
   mkdir $VERB /mnt/ram0/etc
-  [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"'/mnt/ram0/etc/'"\\033[0;39m"
+  [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"'/mnt/ram0/etc/'"\\033[0;39m"
   for oneFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow \
   host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime \
   mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf \
   passwd printcap protocols services shadow
   do
    [ "$DebugVal" = "0" ]   && cp -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/ 2>/dev/null
-   [ "$DebugVal" = "2" ]   && echo -e -n "$oneFILE "
+   [ "$DebugVal" = "2" ]   && echo -ne "$oneFILE "
    [ "$DebugVal" -ge "1" ] && cp -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/
-   [ "$DebugVal" = "2" ] && [ "$oneFILE" != "shadow" ] && echo -e -n "\\033[0;31m"', '"\\033[0;39m"
+   [ "$DebugVal" = "2" ] && [ "$oneFILE" != "shadow" ] && echo -ne "\\033[0;31m"', '"\\033[0;39m"
   done
    [ "$DebugVal" = "2" ] && echo -e "\\033[0;39m" && echo
 
@@ -1701,7 +1716,7 @@ echo -e "\\033[0;31m"
 echo "or [ r ] for dropout into rdsh :"
 
 echo -e "\\033[0;39m"
-echo -n -e "\\033[4;5;34m""ENTER""\\033[0;39m"" -> ""\\033[1;7;32m"
+echo -ne "\\033[4;5;34m""ENTER""\\033[0;39m"" -> ""\\033[1;7;32m"
 read -n 1 -t $TimeOut K
 if [ "$K" = "r" -o "$K" = "R" ] ; then
  echo
@@ -1782,7 +1797,7 @@ fi
   #[ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
   cd /mnt/ram0
-  [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m"'Have changed into /mnt/ram0 , pwd:'"\\033[0;39m"`pwd` && echo  ###DBG
+  [ "$DebugVal" -ge "1" ] && echo -ne "\\033[0;33m"'Have changed into /mnt/ram0 , pwd:'"\\033[0;39m"`pwd` && echo  ###DBG
   [ "$DebugVal" = "2" ]   && echo  -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
   [ "$DebugVal" = "2" ]   && echo  -e "\\033[0;31m"'ls  ./bin :'"\\033[0;39m" && ls --color=auto ./bin && echo  ###DBG
@@ -1815,13 +1830,13 @@ fi
   [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
-  [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m"'pwd now :'"\\033[0;39m"`pwd` && echo  ###DBG
+  [ "$DebugVal" -ge "1" ] && echo -ne "\\033[0;33m"'pwd now :'"\\033[0;39m"`pwd` && echo  ###DBG
   [ "$DebugVal" = "2" ]   && echo -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto  ###DBG
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m"  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
   cd /  ###KRG
-  [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m""ch'ed dir to / , pwd: ""\\033[0;39m"`pwd` && echo  ###DBG
+  [ "$DebugVal" -ge "1" ] && echo -ne "\\033[0;33m""ch'ed dir to / , pwd: ""\\033[0;39m"`pwd` && echo  ###DBG
   [ "$DebugVal" = "2" ]   && echo -e "\\033[0;31m"'ls /:'"\\033[0;39m" && ls --color=auto /  ###DBG
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m"  ###DBG
 
@@ -1869,7 +1884,7 @@ fi
   echo "or [c] or [k] for drop out into simple console mode"
   echo "or [i] or [b] for drop out into console with busybox init on top ."
   echo -e "\\033[0;39m"
-  echo -n -e "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
+  echo -ne "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
   read -n 1 -t $TimeOut K
   echo -e "\\033[0;39m"
   if [ "$K" = "c" -o "$K" = "C" -o "$K" = "k" -o "$K" = "K" ] ; then
@@ -1903,7 +1918,7 @@ fi
   echo -e "\\033[0;39m"
   sleep 5s
   #mount -o remount,ro /dev/root /  ###KRG
-  _remount_root ro
+  #_remount_root ro
   #exec busybox init  ###should be something like umount -ar ; reboot ###KRG
   _do_busybox_init
  ;;
