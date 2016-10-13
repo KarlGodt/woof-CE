@@ -6,9 +6,7 @@
 #/etc/rc.d/rc.sysinit creates /fsckme.err at bootup, rc.shutdown deletes it.
 #this script is /sbin/init in the main Puppy f.s., which is the very first to run.
 #in the case of not a full hd install, this script just passes execution to busybox init.
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
-echo "$0:$*:"
+
 ########################################################################
 #
 #
@@ -69,7 +67,11 @@ echo "$0:$*:"
 #
 ########################################################################
 
-VERSION=1.8.1
+test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+echo "$0:$*:"
+
+VERSION=1.8.2
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
 
@@ -225,7 +227,7 @@ _remount_root rw && {
  chmod 1777 /tmp
  ###+++2011-11-10
 
- _dev_std(){
+ _link_dev_stdfd(){
  ln $VERB -snf ../proc/self/fd /dev/fd
  ln $VERB -sf fd/0 /dev/stdin
  ln $VERB -sf fd/1 /dev/stdout
@@ -233,23 +235,24 @@ _remount_root rw && {
  return 0
  }
 
- _dev_console(){
+ _mk_dev_console(){
  test -c /dev/console || mknod /dev/console c 5 1
  test -c /dev/null    || mknod /dev/null    c 1 3
  return 0
  }
 
+_populate_dev(){
  mountpoint $Q /dev && {
- _dev_std
- #_dev_console
+ _link_dev_stdfd
+ #_mk_dev_console
  true
          } || {
  test -d /dev || mkdir $VERB /dev
  mount $VERB $VERB -t ramfs devramfs /dev
- _dev_std ; _dev_console ;
+ _link_dev_stdfd ; _mk_dev_console ;
 
  test "`which mdev`" && {
- #_dev_std ; _dev_console ;
+ #_link_dev_stdfd ; _mk_dev_console ;
  mdev -s; true
  } || {
 
@@ -270,12 +273,12 @@ _remount_root rw && {
       }
      done
     IFS="$oldIFS"
-    #_dev_std
+    #_link_dev_stdfd
 
           } ###+++2014-06-25 mdev
          }  # +++2015-06-19 manual
-
-
+}
+_populate_dev
 else
 STATUS=0
 status_func $STATUS
@@ -421,8 +424,8 @@ fi
 return $RV
 }
 _check_puppy_kernel_parameter fsck  ##+++2012-02-02
-[ $? = 0 ] && FSCK='yes'
-[ "$FSCK" = 'yes' ] || _get_errflg  ###KRG
+[ $? = 0 ] && pfixFSCK='yes'
+[ "$pfixFSCK" = 'yes' ] || _get_errflg  ###KRG
 
 _leave_to_simple_console(){
 #[ -n "$ERRMSG" ] && echo -e "\\033[0;31m""$ERRMSG""\\033[0;39m"
@@ -431,8 +434,8 @@ cd /
 _remount_root ro
 sleep $((SLEEP*2))
 case `rdev` in *ram*)
-echo "Now ramdiskshell without busybox init on top.";;
-*) "Now simple init=/bin/sh kernel parameter console.";;
+   echo "Now ramdiskshell without busybox init on top.";;
+*) echo "Now simple init=/bin/sh kernel parameter console.";;
 esac
 echo -e "\\033[0;32m""Type 'busybox reboot -f' or press Cnt+Alt+Del to reboot""\\033[0;39m"
 exec chroot . sh
@@ -448,8 +451,9 @@ case $DEV1FS in
 
   if [ -n "$ErrFlag" ] ; then
   echo "Performing filesystem check of '${PDEV1}' after improper shutdown"
-  elif [ -n "$FSCK" ] ; then
+  elif [ -n "$pfixFSCK" ] ; then
   echo "Performing filesystem check of '${PDEV1}' by kernel cmdline parameter."
+  FSCK='yes'
   else
   echo "Performing scheduled filesystem check of '${PDEV1}' ."
   echo -e "\\033[0;32m""Use 'tune2fs -i $todayD[d|w|m] [+-] -C $maxmnt [+-] /dev/$PDEV1' to adjust ."
@@ -558,6 +562,8 @@ if [ -x /sbin/photplug ] ; then
 grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' > /tmp/hotplug.modules ;
 }
 echo '/sbin/photplug' >/proc/sys/kernel/hotplug
+test $? = 0 && HOTPLUGD='photplug'
+
 elif [ -x /sbin/udevd ];then
 
  echo '0' > /tmp/pup_event_alsa_cnt
@@ -579,7 +585,6 @@ else
  /sbin/pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
  HOTPLUGD='pup_event_backend_d'
 fi
-sleep 0.1
 }
 
 
@@ -653,11 +658,16 @@ sleep 1s
 }
 
 _update_partition_device_nodes(){
+# REM: In case of usual static /dev directory
+# when booting a kernel configured with CONFIG_DEBUG_BLOCK_EXT_DEVT=y
+# which would use 259 major numbers instead 8 for sata or 3 for ide
+# things might getting problematic. Also if more partitions
+# made on a hdd than available device nodes.
 _start_uevent_program
 _load_kernel_drivers  # for usb drivers
 
 echo -n "Updating Device nodes " >/dev/console
-STATUS=0
+local STATUS=0
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
 echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
 rm -f "$1"/dev/$SDEV
@@ -697,7 +707,7 @@ echo -e "\\033[0;39m"
 }
 _load_input_drivers
 ###KRG loading fbcon :
-_load_framebuffer_drivers() {
+_load_framebuffer_drivers(){
 [ "`grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]' /proc/cmdline`" ] || return 0
 
 echo -e "\\033[1;34m""Trying to load i2c and framebuffer drivers ...""\\033[0;39m"
@@ -783,14 +793,12 @@ fi
 
 if [ -n "`modprobe -l | grep 'fbcon'`" ] && [ -z "`lsmod | grep 'fbcon'`" ] ; then
 modprobe fbcon
-##modprobe fbcon
 echo -e "\\033[0;39m"
 fi
-#lsmod | cut -f 1 -d ' ' | sort | tr '\n' ' '
+#lsmod | cut -f 1 -d ' ' | sort | tr '\n' ' '  #DEBUG
 }
 _load_framebuffer_drivers  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
 sleep 5s  ###DBG
-##_ask_to_continue
 
 ###KRG ask for debug mode
 _ask_debug(){
@@ -798,17 +806,17 @@ test -x /etc/rc.d/rc.country && /etc/rc.d/rc.country # set correct keyboard layo
 DebugVal=0
 echo -e "\\033[0;39m"
 echo "Do you think $0 DEBUG MODE is required ?"
-echo -e -n "\\033[1;34m"
+echo -en "\\033[1;34m"
 echo "If so , press [ y ] for normal debug incl. 'fsck -v' ,"
-echo -e -n "\\033[0;39m""\\033[6;7;32m"
+echo -en "\\033[0;39m""\\033[6;7;32m"
 echo "    or  press [ Y ] for extensive output ,            "
-echo -e -n "\\033[0;39m"
-echo -e -n "\\033[1;36m"
+echo -en "\\033[0;39m"
+echo -en "\\033[1;36m"
 echo -e "which may confuse muchly first and second time ..."
 echo -e "\\033[1;35m"
 echo "If not wait 20 sec. or press any other key and or simply [ Enter ]"
 echo -e "\\033[0;39m"
-echo -n -e "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
+echo -ne "\\033[4;5;34m"'ENTER'"\\033[0;39m"' -> '"\\033[1;7;32m"
 read -n 1 -t 20 K
 echo -e "\\033[0;39m" && echo
 if [ "$K" = "y" ] ; then
@@ -857,9 +865,12 @@ _null_or_console
 
 ##+++2013-05-11
 _kill_daemons(){
-pidof udevd >>$OUT && killall udevd >>$OUT 2>>$ERR
-pidof pup_event_backend_modprobe_protect >>$OUT && killall pup_event_backend_modprobe_protect >>$OUT 2>>$ERR
+(
+pidof udevd && killall udevd
+pidof pup_event_backend_modprobe_protect && killall pup_event_backend_modprobe_protect
+pidof pup_event_backend_d && killall pup_event_backend_d
 sleep 1
+) >>$OUT 2>>$ERR
 }
 _kill_daemons
 ##+++2013-05-11
@@ -883,13 +894,13 @@ case $FSTYPE in
 ext2|ext3|ext4)
 if [ -z "$2" ] ; then
 echo -e "\\033[1;34m""Checking Partition $1 in -n mode
-if required binaries are useable . Please wait""\\033[0;39m"
+if required binaries are usable . Please wait""\\033[0;39m"
 [ "$DebugVal" = "0" ]   && { RETFSCK=`e2fsck -n "$1" 2>/dev/null` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -n "$1"` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Fsck returned'="$Err""\\033[0;39m"
 else
 echo -e "\\033[1;34m""Checking Partition $1 in normal mode
-if required binaries are useable . Please wait""\\033[0;39m"
+if required binaries are usable . Please wait""\\033[0;39m"
 [ "$DebugVal" = "0" ] && e2fsck -p "$1"
 [ "$DebugVal" = "0" ] && { RETFSCK=`e2fsck -n "$1" 2>/dev/null` || Err=$?; }
 [ "$DebugVal" -ge "1" ] && e2fsck "$1"
@@ -913,7 +924,7 @@ echo -e "\\033[1;31m"":Ooops: ""\\033[0;31m""Fs not clean.""\\033[0;39m"
 [ "$FSTYPE" = "ext2" ] && echo -e "\\033[1;34m""Note : ext2 fs is getting marked 'unclean' very easily . Better use ext3 or ext4""\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m""$RETFSCK" | head -n 1
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m""$RETFSCK" | tail -n 1
-echo -e "\\033[0;34m""Looking for other useable installations ..."
+echo -e "\\033[0;34m""Looking for other usable installations ..."
 fi
 echo -e "\\033[0;39m"
 }
@@ -941,7 +952,7 @@ DRIV=`cat /proc/partitions | grep '^ ' | grep -v 'loop' | sed 's#^ *##' | tr -s 
 for i in $DRIV ; do
 #FDISK=`fdisk -l /dev/$i | grep -i 'linux' | grep -v -i -E 'swap|Partition'`
 #DRIVES="`echo -e "$DRIVES\n""$FDISK" | cut -f 1 -d ' '`"
-FDISK=`fdisk -l /dev/$i | grep -i 'linux' | grep -v -i -E 'swap|Partition' | cut -f 1 -d ' '`
+FDISK=`fdisk -l /dev/$i | grep -i 'linux' | grep -viE 'swap|Partition' | cut -f 1 -d ' '`
 DRIVES="`echo -e "$DRIVES\n""$FDISK"`"
 done
 DRIVES=`echo "$DRIVES" | sed '/^$/d' | grep -v "$devROOT" | tr '\n' ' '`
@@ -951,7 +962,7 @@ DRIVES=`echo "$DRIVES" | sed '/^$/d' | grep -v "$devROOT" | tr '\n' ' '`
 if [ -z "$DRIVES" ] ; then
 DRIVES=`cat /proc/partitions | grep '^ ' | grep '[0-9]$' | sed 's#^ *##' | tr -s ' ' | cut -f 4 -d ' '`
 
-DRIVES=`echo "$DRIVES" | grep -v "$PDEV1" | sed 's#^#/dev/#g' | tr '\n' ' '`
+DRIVES=`echo "$DRIVES" | grep -vw "$PDEV1" | sed 's#^#/dev/#g' | tr '\n' ' '`
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'DRIVES: '"$DRIVES""\\033[0;39m"
 fi
 
@@ -962,7 +973,7 @@ fi
 }
 
 _check_alternate_repo(){
-# REM: if _first_fsck is not OK, try to find
+# REM: if _do_first_fsck is not OK, try to find
 # first some usable pup-xyz.sfs, and if that fails
 # try to find usable full installs.
 [ -z "$CLEAN" ] || return 0
@@ -1381,7 +1392,9 @@ _make_ram9
   mkdir $VERB -p /mnt/ram9  ###KRG
 
   busybox mount $VERB $VERB -t ext2 /dev/ram0 /mnt/ram0
+  test $? = 0 || _leave_to_simple_console "Could not mount ram0 ."
   busybox mount $VERB $VERB -t ext2 /dev/ram9 /mnt/ram9  ###KRG
+  test $? = 0 || _leave_to_simple_console "Could not mount ram9 ."
   # _remount_root rw
   sleep $((SLEEP*2))s  ###KRG
 
@@ -1411,7 +1424,10 @@ _copy_busybox
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/bin  ...""\\033[0;39m"
   [ "$DebugVal" = "2" ] && echo -e -n "\\033[0;31m"'/mnt/ram0/bin/'"\\033[0;39m"
-  for oneBIN in "[" "[[" ash autologinroot basename busybox cat chmod chown clear cp cut date dc dd df dirname dmesg du e3 ed expr false find free grep head kill ln login ls lsmod mkdir mknod more mv nice ntfs-3g pidof pwd readlink rev rm rmdir sed sleep sort stat su sync tail tar touch tr true uname usleep waitmax wc which xargs
+  for oneBIN in "[" "[[" ash autologinroot basename busybox cat chmod chown clear cp cut \
+  date dc dd df dirname dmesg du e3 ed expr false find free grep head kill ln login ls lsmod \
+  mkdir mknod more mv nice ntfs-3g pidof pwd readlink rev rm rmdir sed sleep sort stat su sync \
+  tail tar touch tr true uname usleep waitmax wc which xargs
   do  ###KRG added e3
 
   if [ -x $REPO/bin/$oneBIN ] ; then
@@ -1442,15 +1458,15 @@ _copy_busybox
   fi
   done
 
-  ln $VERB -snf busybox /mnt/ram0/bin/ps
-  [ "$DebugVal" = "2" ] && echo -n -e 'link ps '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf busybox /mnt/ram0/bin/rdev
-  [ "$DebugVal" = "2" ] && echo -n -e 'link rdev '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf busybox /mnt/ram0/bin/sh
-  [ "$DebugVal" = "2" ] && echo -n -e 'link sh '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf busybox /mnt/ram0/bin/mount
-  [ "$DebugVal" = "2" ] && echo -n -e 'link mount '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf busybox /mnt/ram0/bin/umount
+  ln $VERB -sf busybox /mnt/ram0/bin/ps
+  [ "$DebugVal" = "2" ] && echo -ne 'link ps '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf busybox /mnt/ram0/bin/rdev
+  [ "$DebugVal" = "2" ] && echo -ne 'link rdev '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf busybox /mnt/ram0/bin/sh
+  [ "$DebugVal" = "2" ] && echo -ne 'link sh '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf busybox /mnt/ram0/bin/mount
+  [ "$DebugVal" = "2" ] && echo -ne 'link mount '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf busybox /mnt/ram0/bin/umount
   [ "$DebugVal" = "2" ] && echo -n 'link umount '
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m" && echo
 
@@ -1458,7 +1474,9 @@ _copy_busybox
   [ "$DebugVal" = "2" ] && echo -e -n "\\033[0;31m"'/mnt/ram0/sbin/'"\\033[0;39m"
   mkdir $VERB /mnt/ram0/sbin
 
-  for oneBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 getty guess_fstype halt hdparm hotplug2stdout hotplug2stdout_notimeout hwclock ifconfig ifplugstatus insmod klogd ldconfig loadkmap losetup lsmod mount.ntfs-3g pivot_root probedisk probedisk2 probepart swapon
+  for oneBIN in depmod dumpe2fs e2fsck elspci fdisk freeramdisk fsck.ext2 fsck.ext3 fsck.ext4 \
+  getty guess_fstype halt hdparm hotplug2stdout hotplug2stdout_notimeout hwclock ifconfig ifplugstatus insmod \
+  klogd ldconfig loadkmap losetup lsmod mount.ntfs-3g pivot_root probedisk probedisk2 probepart swapon
   do
 
   if [ -x $REPO/sbin/$oneBIN ] ; then
@@ -1500,33 +1518,36 @@ Please restore manually for now."
 }
 _preserve_chroot
 
-  ln $VERB -snf ../bin/busybox /sbin/chroot #must match
-  [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/chroot #must match
-  [ "$DebugVal" = "2" ] && echo -n -e 'link chroot '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/init
-  [ "$DebugVal" = "2" ] && echo -n -e 'link init '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/poweroff
-  [ "$DebugVal" = "2" ] && echo -n -e 'link poweroff '"\\033[0;31m"', '"\\033[0;39m"
-  ln $VERB -snf ../bin/busybox /mnt/ram0/sbin/reboot
+  ln $VERB -sf ../bin/busybox /sbin/chroot #must match
+  [ "$DebugVal" = "2" ] && echo -ne 'link chroot '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/chroot #must match
+  [ "$DebugVal" = "2" ] && echo -ne 'link chroot '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/init
+  [ "$DebugVal" = "2" ] && echo -ne 'link init '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/poweroff
+  [ "$DebugVal" = "2" ] && echo -ne 'link poweroff '"\\033[0;31m"', '"\\033[0;39m"
+  ln $VERB -sf ../bin/busybox /mnt/ram0/sbin/reboot
   [ "$DebugVal" = "2" ] && echo -n 'link reboot '
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m" && echo
 
   echo -e "\\033[1;34m""Populating /mnt/ram0/etc  ...""\\033[0;39m"
   mkdir $VERB /mnt/ram0/etc
   [ "$DebugVal" = "2" ] && echo -n -e "\\033[0;31m"'/mnt/ram0/etc/'"\\033[0;39m"
-  for oneFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf passwd printcap protocols services shadow
+  for oneFILE in codepage DISTRO_SPECS eventmanager fdprm floppy fontmap group gshadow \
+  host.conf hostname hosts hosts.allow hosts.deny inittab inputrc issue keymap localtime \
+  mailcap mime.types mke2fs.conf modprobe.conf modules.conf mtab networks nscd.conf nsswitch.conf \
+  passwd printcap protocols services shadow
   do
-   [ "$DebugVal" = "0" ] && cp -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/ 2>/dev/null
-   [ "$DebugVal" = "2" ] && echo -e -n "$oneFILE "
+   [ "$DebugVal" = "0" ]   && cp -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/ 2>/dev/null
+   [ "$DebugVal" = "2" ]   && echo -e -n "$oneFILE "
    [ "$DebugVal" -ge "1" ] && cp -a "$REPO"/etc/$oneFILE /mnt/ram0/etc/
    [ "$DebugVal" = "2" ] && [ "$oneFILE" != "shadow" ] && echo -e -n "\\033[0;31m"', '"\\033[0;39m"
   done
    [ "$DebugVal" = "2" ] && echo -e "\\033[0;39m" && echo
 
-  echo "$PDEV1"','"$DEV1FS"',' > /mnt/ram0/etc/fsckme.err  ###KRG
+  echo "$PDEV1"','"$DEV1FS"',' > /mnt/ram0/etc/fsckme.err   ###KRG
   echo "DebugVal='$DebugVal'" > /mnt/ram0/etc/initdebug.in  ###KRG
-  echo "TimeOut='$TimeOut'" >> /mnt/ram0/etc/initdebug.in  ###KRG
+  echo "TimeOut='$TimeOut'" >> /mnt/ram0/etc/initdebug.in   ###KRG
   [ -f /mnt/ram0/etc/fstab ] || touch /mnt/ram0/etc/fstab ##+++2013-12-07
 
   echo '/lib' > /mnt/ram0/etc/ld.so.conf
@@ -1721,8 +1742,8 @@ fi
   mkdir $VERB /mnt/ram9/lib
   ##echo -e "\\033[1;34m"'Copying Libs ... '
   for i in $LIBF ; do  ###KRG to sort unneeded libs out , see further up ###KRG
-  [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;39m""`basename $i`"
-  [ "$DebugVal" -ge "1" ] && [ -z "`echo $i | grep 'libz\.so\..*\..*\..*'`" ] &&  echo -n -e "\\033[0;33m"', '"\\033[0;39m"
+  [ "$DebugVal" -ge "1" ] && echo -ne "\\033[0;39m""`basename $i`"
+  [ "$DebugVal" -ge "1" ] && [ -z "`echo $i | grep 'libz\.so\..*\..*\..*'`" ] &&  echo -ne "\\033[0;33m"', '"\\033[0;39m"
   cp -a $i /mnt/ram9/lib/
   done
 
@@ -1736,7 +1757,7 @@ fi
   fi
   echo -e "\\033[0;39m"
 
-  busybox ln $VERB -s /mnt/ram9/lib /mnt/ram0/lib
+  busybox ln $VERB -sn /mnt/ram9/lib /mnt/ram0/lib
   mkdir $VERB /mnt/ram0/mnt
   mkdir $VERB /mnt/ram0/mnt/ram9
 
@@ -1762,27 +1783,27 @@ fi
 
   cd /mnt/ram0
   [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m"'Have changed into /mnt/ram0 , pwd:'"\\033[0;39m"`pwd` && echo  ###DBG
-  [ "$DebugVal" = "2" ] && echo  -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto && echo  ###DBG
+  [ "$DebugVal" = "2" ]   && echo  -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
-  [ "$DebugVal" = "2" ] && echo  -e "\\033[0;31m"'ls  ./bin :'"\\033[0;39m" && ls --color=auto ./bin && echo  ###DBG
-  [ "$DebugVal" = "2" ] && sleep $((SLEEP*2))s  ###DBG
-  [ "$DebugVal" = "2" ] && echo  -e "\\033[0;31m"'ls ./sbin :'"\\033[0;39m" && ls --color=auto ./sbin && echo  ###DBG
-  [ "$DebugVal" = "2" ] && sleep $((SLEEP*2))s  ###DBG
+  [ "$DebugVal" = "2" ]   && echo  -e "\\033[0;31m"'ls  ./bin :'"\\033[0;39m" && ls --color=auto ./bin && echo  ###DBG
+  [ "$DebugVal" = "2" ]   && sleep $((SLEEP*2))s  ###DBG
+  [ "$DebugVal" = "2" ]   && echo  -e "\\033[0;31m"'ls ./sbin :'"\\033[0;39m" && ls --color=auto ./sbin && echo  ###DBG
+  [ "$DebugVal" = "2" ]   && sleep $((SLEEP*2))s  ###DBG
 
-  [ ! -d ./mnt/ram9 ] && mkdir $VERB -p ./mnt/ram9
+  [ -d ./mnt/ram9 ] || mkdir $VERB -p ./mnt/ram9
   busybox mount $VERB $VERB -o move /mnt/ram9 ./mnt/ram9
-  [ ! -d ./sys ] && mkdir $VERB ./sys
+  [ -d ./sys ]  || mkdir $VERB ./sys
   busybox mount $VERB $VERB -o move /sys ./sys
-  [ ! -d ./proc ] && mkdir $VERB ./proc
+  [ -d ./proc ] || mkdir $VERB ./proc
   busybox mount $VERB $VERB -o move /proc ./proc
-  [ ! -d ./dev ] && mkdir $VERB ./dev
-  mountpoint -q /dev && busybox mount $VERB $VERB -o move /dev ./dev
+  [ -d ./dev ]  || mkdir $VERB ./dev
+  mountpoint $Q /dev && busybox mount $VERB $VERB -o move /dev ./dev
   ##ln $VERB -s ../mnt/ram9/lib ./lib
-  [ "$DebugVal" = "2" ] && _ask_to_continue
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
   [ "$DebugVal" -ge "1" ] && echo && echo -e "\\033[1;33m""Now just before pivot_root :""\\033[;39m"
-  [ "$DebugVal" = "2" ] && _ask_to_continue
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'pivot_root now ...'  ###DBG
   pivot_root . old_root
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'...        pivoted' && echo  ###DBG
@@ -1791,25 +1812,26 @@ fi
   #busybox mount $VERB $VERB -o move /old_root/mnt/ram9 /mnt/ram9
   #busybox mount $VERB $VERB -o move /old_root/proc /proc
   #ln $VERB -s ../mnt/ram9/lib ./lib
-  [ "$DebugVal" = "2" ] && _ask_to_continue
+  [ "$DebugVal" = "2" ]   && _ask_to_continue
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
   [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m"'pwd now :'"\\033[0;39m"`pwd` && echo  ###DBG
-  [ "$DebugVal" = "2" ] && echo -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto  ###DBG
+  [ "$DebugVal" = "2" ]   && echo -e "\\033[0;31m"'ls :'"\\033[0;39m" && ls --color=auto  ###DBG
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m"  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*2))s  ###DBG
 
   cd /  ###KRG
   [ "$DebugVal" -ge "1" ] && echo -n -e "\\033[0;33m""ch'ed dir to / , pwd: ""\\033[0;39m"`pwd` && echo  ###DBG
-  [ "$DebugVal" = "2" ] && echo -e "\\033[0;31m"'ls /:'"\\033[0;39m" && ls --color=auto /  ###DBG
+  [ "$DebugVal" = "2" ]   && echo -e "\\033[0;31m"'ls /:'"\\033[0;39m" && ls --color=auto /  ###DBG
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;39m"  ###DBG
 
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'2_mounts :'"\\033[0;39m" && busybox mount && echo  ###DBG
   [ "$DebugVal" -ge "1" ] && sleep $((SLEEP*4))s  ###DBG
 
-  busybox killall -9 pup_event_backend_d >> $OUT 2>>$ERR
-  busybox killall -9 pup_event_backend_modprobe_protect >> $OUT 2>>$ERR
-  busybox killall -9 udevd >> $OUT 2>>$ERR
+  #busybox killall -9 pup_event_backend_d >> $OUT 2>>$ERR
+  #busybox killall -9 pup_event_backend_modprobe_protect >> $OUT 2>>$ERR
+  #busybox killall -9 udevd >> $OUT 2>>$ERR
+  _kill_daemons
 
   echo -e "\\033[1;34m"'Unmounting everything beneath /old_root/* ...'"\\033[0;39m"
   OR=`mount | grep '/old_root/' | cut -f 3 -d ' ' | tac`
@@ -1882,7 +1904,8 @@ fi
   sleep 5s
   #mount -o remount,ro /dev/root /  ###KRG
   _remount_root ro
-  exec busybox init  ###should be something like umount -ar ; reboot ###KRG
+  #exec busybox init  ###should be something like umount -ar ; reboot ###KRG
+  _do_busybox_init
  ;;
 esac
 
