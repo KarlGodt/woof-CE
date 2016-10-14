@@ -329,6 +329,10 @@ echo -e "\\033[0;39m"
 return 1
 fi #1
 echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"\\033[0;39m"
+
+_get_dump_ext234(){
+ PDEV1=${PDEV1:-"${1##*/}"}
+DEV1FS=${DEV1FS:-"${2}"}
 case $DEV1FS in ext[2-5]) :;; *) return 126;; esac
 
 echo -e "\\033[1;33m"'Checking for filesystem check intervals using'"\\033[0;39m"
@@ -366,7 +370,11 @@ done
 ##+++ 2011_11_15 from luci218
 val30T=`cal $montTN 1 | grep '[[:digit:]]$' | sed '/^$/d' | tail -n 1 | grep -o '[[:digit:]]\+$'`
 echo -e "\\033[0;39m"
+true
+}
+_get_dump_ext234 || return 124
 
+__eval_dump__(){
 FSCK=
 if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##2
 echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
@@ -381,6 +389,7 @@ if [ "$montTN" = "$montCN" ] ; then #3
  if [ "$todayD" -gt "$nextcD" ] ; then  #4
  echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
  FSCK='yes'
+ return 1
  fi #4
 
 else #3
@@ -394,11 +403,91 @@ else #3
   if [ "$SUM" -gt "$interN" ] ; then #6
   echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
   FSCK='yes'
+  return 1
   fi #6
  fi #5
 
 fi #3
 fi #2.1
+true
+}
+
+__eval_dump(){
+FSCK=
+# REM: Two simple conditions create early return:
+#      1) Mount Count is greater-equal Maximum Mount Count
+#      2) This year is lesser than year of Next Check After - can not be possible
+if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##2
+ echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
+ FSCK='yes'
+ return 1
+elif [ "$todayY" -lt "$nextcY" ] ; then
+ return 0
+fi
+
+if [ "$montTN" = "$montCN" ] ; then #3
+
+ if [ "$todayD" -gt "$nextcD" ] ; then  #4
+ echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
+ FSCK='yes'
+ return 1
+ fi #4
+
+elif [ "$montTN" -gt "$montCN" ] ; then #3
+ MinusTD=$todayD
+ PlusCD=$(( val30C - nextcD ))
+ ##+++2011_10_19 month difference missing val30B
+ SUM=$(( MinusTD + val30B + PlusCD ))
+
+  if [ "$SUM" -gt "$interN" ] ; then #6
+  echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
+  FSCK='yes'
+  return 1
+  fi #6
+
+fi #3
+true
+}
+
+_eval_dump(){
+FSCK=
+# REM: Three simple conditions create early return:
+#      1) Mount Count is greater-equal Maximum Mount Count
+#      2) This year is greater than year of Next Check After - must do
+#      3) This year is lesser  than year of Next Check After - can not be possible
+if [ "$mntcnt" -ge "$maxmnt" ] ; then  ##2
+ echo -e "\\033[1;33m"'Maximum mount count reached'"\\033[0;39m"
+ FSCK='yes'
+ return 1
+elif [ "$todayY" -gt "$nextcY" ] ; then
+ echo -e "\\033[1;33m"'Last scheduled check should have been in the past year(s)'"\\033[0;39m"
+ FSCK='yes'
+ return 1
+elif [ "$todayY" -lt "$nextcY" ] ; then
+ return 0
+fi
+
+  if [ "$montTN" -lt "$montCN" ] ; then #3
+ return 0
+
+elif [ "$montTN" -eq "$montCN" ] ; then #3
+
+ if [ "$todayD" -gt "$nextcD" ] ; then  #4
+ echo -e "\\033[1;33m"'Day interval reached'"\\033[0;39m"
+ FSCK='yes'
+ return 1
+ fi #4
+
+elif [ "$montTN" -gt "$montCN" ] ; then #3
+
+  echo -e "\\033[1;33m"'Last scheduled check should have been in the past month(s)'"\\033[0;39m"
+  FSCK='yes'
+  return 1
+
+fi #3
+true
+}
+_eval_dump
 
 if [ -z "$FSCK" ] ; then #7
 echo -e "\\033[1;32m"'OK , '"\\033[0;32m""next check '$nextcM $nextcD' or in '$diffMC' mounts""\\033[0;39m"
@@ -411,7 +500,7 @@ echo -e "\\033[0;33m"'Today : '"\\033[0;33m""$todayM $todayD""\\033[0;33m"' , ne
 echo -e "\\033[0;33m"'mount intervals : '"\\033[0;33m""$mntcnt""\\033[0;33m"' of '"\\033[0;33m""$maxmnt"
 echo -e "\\033[0;39m"
 fi #7
-
+true
 }
 
 _check_puppy_kernel_parameter(){  ##+++2012-02-02 2016-10-09
