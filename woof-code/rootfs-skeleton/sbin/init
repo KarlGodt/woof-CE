@@ -71,7 +71,7 @@ test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 echo "$0:$*:"
 
-VERSION=1.8.6
+VERSION=1.8.7
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
 
@@ -379,7 +379,7 @@ monthC=`echo "$monthN" | grep "$nextcM"`  # echo "1 January\n2 February\n .." | 
 montCN=`echo "$monthC" | cut -f 1 -d ' '`
 
 echo -e "\\033[0;39m"
-true
+test "$mntcnt" -a "$maxmnt" -a "$todayY" -a "$nextcY" -a "$montTN" -a "$montCN" -a "$todayD" -a "$nextcD"
 }
 _get_dump_ext234 || return 124
 
@@ -427,15 +427,15 @@ _eval_dump
 if [ -z "$FSCK" ] ; then #7
 echo -e "\\033[1;32m"'OK , '"\\033[0;32m""next check '$nextcM $nextcD' or in '$diffMC' mounts""\\033[0;39m"
 echo -e "\\033[0;39m"
-_do_busybox_init
+#_do_busybox_init
 
 else #7
 echo -e "\\033[1;33m"'Filesystem check interval reached :'"\\033[0;39m"
 echo -e "\\033[0;33m"'Today : '"\\033[0;33m""$todayM $todayD""\\033[0;33m"' , next check was or would be : '"\\033[0;33m""$nextcM  $nextcD""\\033[0;33m"
 echo -e "\\033[0;33m"'mount intervals : '"\\033[0;33m""$mntcnt""\\033[0;33m"' of '"\\033[0;33m""$maxmnt"
 echo -e "\\033[0;39m"
+false
 fi #7
-true
 }
 
 _check_puppy_kernel_parameter(){  ##+++2012-02-02 2016-10-09
@@ -463,7 +463,7 @@ return $RV
 }
 _check_puppy_kernel_parameter fsck  ##+++2012-02-02
 [ $? = 0 ] && pfixFSCK='yes'
-[ "$pfixFSCK" = 'yes' ] || _get_errflg  ###KRG
+[ "$pfixFSCK" = 'yes' ] || { _get_errflg && _do_busybox_init; } ###KRG
 
 _leave_to_simple_console(){
 #[ -n "$ERRMSG" ] && echo -e "\\033[0;31m""$ERRMSG""\\033[0;39m"
@@ -705,7 +705,7 @@ _start_uevent_program
 _load_kernel_drivers  # for usb drivers
 
 echo -n "Updating Device nodes " >/dev/console
-local STATUS=0
+local STATUS=0 MAJ MIN SIZE SDEV
 CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
 echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
 rm -f "$1"/dev/$SDEV
@@ -989,12 +989,10 @@ DRIV=`cat /proc/partitions | grep '^ ' | grep -v 'loop' | sed 's#^ *##' | tr -s 
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Attached drives : '"\\033[0;39m"$DRIV
 
 for i in $DRIV ; do
-#FDISK=`fdisk -l /dev/$i | grep -i 'linux' | grep -v -i -E 'swap|Partition'`
-#DRIVES="`echo -e "$DRIVES\n""$FDISK" | cut -f 1 -d ' '`"
 FDISK=`fdisk -l /dev/$i | grep -i 'linux' | grep -viE 'swap|Partition' | cut -f 1 -d ' '`
 DRIVES="`echo -e "$DRIVES\n""$FDISK"`"
 done
-DRIVES=`echo "$DRIVES" | sed '/^$/d' | grep -v "$devROOT" | tr '\n' ' '`
+DRIVES=`echo "$DRIVES" | sed '/^$/d' | grep -vw "$devROOT" | tr '\n' ' '`
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Other partitions : '"\\033[0;39m""$DRIVES"
 [ -z "`echo $DRIVES | grep '[[:alpha:]]'`" ] && DRIVES=''
 
@@ -1019,7 +1017,7 @@ _check_alternate_repo(){
 [ "$Err" -a "$Err" -ne 0 ] || return 0
 
 _assign_glibc_version(){
-CURRGLIBC=`basename $(find /lib -maxdepth 1 -name "libc-*.so")`
+CURRGLIBC=`basename $(find /lib -xdev -maxdepth 1 -name "libc-*.so")`
 
 CURRCLMAJ=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 2 -d '.'`
 CURRCLMin=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 3 -d '.'`
@@ -1057,7 +1055,7 @@ mkdir -p /mnt/$SIMPLEDRIVENAME
 
 mount -o ro $oneDRV /mnt/$SIMPLEDRIVENAME
 [ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }  ##+++2013-12-07
-SFS=`find /mnt/$SIMPLEDRIVENAME -maxdepth 3 -type f -name "*.sfs" | grep -iE 'luma|luci|lupu|pup|pu' | grep -vE 'devx|[a-z]drv|[a-z]drive|[a-z]p[0-9]+|\+mnt\+'`
+SFS=`find /mnt/$SIMPLEDRIVENAME -xdev -maxdepth 3 -type f -name "*.sfs" | grep -iE 'luma|luci|lupu|pup|pu' | grep -vE 'devx|[a-z]drv|[a-z]drive|[a-z]p[0-9]+|\+mnt\+'`
 
 ###check found sfs part
 if [ -z "$SFS" ] ; then  ##if 99
@@ -1082,7 +1080,7 @@ sleep 1s
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Mounting returned error value='"\\033[1;34m""$Err""\\033[0;39m"
 
 if [ "$Err" -eq 0 ] ; then ##100
- REPOGLIBC=$(find /mnt/$bneSFS/lib -maxdepth 1 -name "libc-*.so")
+ REPOGLIBC=$(find /mnt/$bneSFS/lib -xdev -maxdepth 1 -name "libc-*.so")
  if [ -z "$REPOGLIBC" ] ; then ##101
  #echo -e "\\033[0;31m"'No libc found in '"\\033[0;39m""$bneSFS"
  _umount_with_msg /mnt/$bneSFS "No libc found in '$bneSFS'"
@@ -1182,7 +1180,7 @@ mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
 
 DS=
 [ -d /mnt/$SIMPLEDRIVENAME/etc ] || { _umount_with_msg /mnt/$SIMPLEDRIVENAME "No /etc folder."; continue; }
-DS=`find /mnt/$SIMPLEDRIVENAME/etc -maxdepth 2 -type f -name "DISTRO_SPECS"`
+DS=`find /mnt/$SIMPLEDRIVENAME/etc -xdev -maxdepth 2 -type f -name "DISTRO_SPECS"`
    [ "$DS" ] || { _umount_with_msg /mnt/$SIMPLEDRIVENAME "No Puppy Linux DISTRO_SPECS file."; continue; }
 [ -f "$DS" ] || { _umount_with_msg /mnt/$SIMPLEDRIVENAME "DISTRO_SPECS is not a file."; continue; }
 [ -s "$DS" ] || { _umount_with_msg /mnt/$SIMPLEDRIVENAME "DISTRO_SPECS is empty file."; continue; }
@@ -1190,7 +1188,7 @@ DS=`find /mnt/$SIMPLEDRIVENAME/etc -maxdepth 2 -type f -name "DISTRO_SPECS"`
 [ -n "$DISTRO_NAME" ] && [ -n "$DISTRO_VERSION" ] || { _umount_with_msg /mnt/$SIMPLEDRIVENAME "DISTRO_NAME DISTRO_VERSION not set in DISTRO_SPECS"; continue; }
 echo -e "\\033[1;32m""Found $DISTRO_NAME $DISTRO_VERSION"
 
-REPOGLIBC=$(find /mnt/$SIMPLEDRIVENAME/lib -maxdepth 1 -name "libc-*.so")
+REPOGLIBC=$(find /mnt/$SIMPLEDRIVENAME/lib -xdev -maxdepth 1 -name "libc-*.so")
 
 if [ -z "$REPOGLIBC" ] ; then #4.1.1
 #echo -e "\\033[0;31m"'No GLIBC found on '"\\033[0;39m"$oneDRV
@@ -1219,24 +1217,24 @@ REPOCLMin=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 3 -d '.'`
  fi ##4.2
 
  _do_fsck "$oneDRV" "other_full_installs"
-	if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ] ; then  ##5
-	echo -e "\\033[0;32m"'OK ,'"\\033[1;32m"" using REPO /mnt/$SIMPLEDRIVENAME""\\033[0;39m"
-	echo
-	mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
-	[ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }
-	sleep 1s
-	REPO="/mnt/$SIMPLEDRIVENAME"
-	break
-	else  ##5
-	echo
-	echo -e "\\033[1;31m""No ,""\\033[0;31m"" $oneDRV seems to be not clean , too""\\033[0;39m"
-	echo "Trying next if possible ...."
-	echo
-	REPO=''
-	[ -n "`mount | grep -Fw "$oneDRV"`" ] && umount -lr $oneDRV
-	sleep 1s
-	rmdir /mnt/$SIMPLEDRIVENAME
-	fi  ##5
+  if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq "0" ] ; then  ##5
+    echo -e "\\033[0;32m"'OK ,'"\\033[1;32m"" using REPO /mnt/$SIMPLEDRIVENAME""\\033[0;39m"
+     echo
+      mount -o rw $oneDRV /mnt/$SIMPLEDRIVENAME
+      [ $? = 0 ] || { rmdir /mnt/$SIMPLEDRIVENAME;continue; }
+     sleep 1s
+     REPO="/mnt/$SIMPLEDRIVENAME"
+    break
+  else  ##5
+    echo
+    echo -e "\\033[1;31m""No ,""\\033[0;31m"" $oneDRV seems to be not clean , too""\\033[0;39m"
+     echo "Trying next if possible ...."
+     echo
+      REPO=''
+      [ -n "`mount | grep -Fw "$oneDRV"`" ] && umount -lr $oneDRV
+     sleep 1s
+    rmdir /mnt/$SIMPLEDRIVENAME
+  fi  ##5
 
 done  ##for 0
 }
@@ -1290,27 +1288,29 @@ _remount_root rw
 
 _check_partitions(){
 #####KRG
-###KRG updating fsckme file case switching kernels sda|hda
+###KRG check devices case switching kernels sda|hda
 ROOTDRIVE=`basename $(busybox rdev | cut -f 1 -d ' ')`  ### | cut -f 1 -d ' ' | sed 's#/dev/##'`
 ROOTBLOCKDRIVE=${ROOTDRIVE:0:3}
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'rootdrive='"\\033[0;39m""$ROOTDRIVE" && echo  ###DBG
 FS=`mount | grep -Fw '/' | grep '^/dev/' | tr -s ' ' | cut -f 5 -d ' '`
 PDEV1="$ROOTDRIVE"
 DEV1FS="$FS"
-[ "$DebugVal" -eq "2" ] && echo -e "\\033[0;33m""$ROOTDRIVE $ROOTBLOCKDRIVE $FS "','" $PDEV1 $DEV1FS"
-DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#[[:alpha:][:punct:]]$##`
-MAJ=`echo $DMESG | cut -f 1 -d ':'`
-Min=`echo $DMESG | cut -f 2 -d ':'`
-CATPP=`cat /proc/partitions | sed 's#^[a-zA-Z].*##g ; s#^[[:blank:]][a-zA-Z]##g ; /^$/d' | tr -s ' ' | sed 's#^ ##'`
-MAJBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 1 -d ' '`
-MinBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 2 -d ' '`
-[ "$DebugVal" -eq "2" ] && echo $CATPP" $DMESG $MAJ $Min "','" $MAJBL $MinBL "',' && echo -e "\\033[0;39m"
+if [ "$DebugVal" -ge "2" ] ; then
+ echo -e "\\033[0;33m""$ROOTDRIVE $ROOTBLOCKDRIVE $FS "','" $PDEV1 $DEV1FS"
+  DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#[[:alpha:][:punct:]]$##`
+  MAJ=`echo $DMESG | cut -f 1 -d ':'`
+  Min=`echo $DMESG | cut -f 2 -d ':'`
+  CATPP=`cat /proc/partitions | sed 's#^[a-zA-Z].*##g ; s#^[[:blank:]][a-zA-Z]##g ; /^$/d' | tr -s ' ' | sed 's#^ ##'`
+  MAJBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 1 -d ' '`
+  MinBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 2 -d ' '`
+ echo $CATPP" $DMESG $MAJ $Min "','" $MAJBL $MinBL "',' && echo -e "\\033[0;39m"
+fi
 }
 [ "$DebugVal" -ge "1" ] && _check_partitions
 
 _check_free_ram(){
 ####
-####KRG check for enough space ...
+####KRG check for enough space in RAM ...
 echo -e "\\033[1;34m"'Freeing ram ...'"\\033[0;39m"
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m" && free && echo -e "\\033[0;39m"
 echo 3 > /proc/sys/vm/drop_caches  ###KRG , thanks to Bruce B ;see http://www.murga-linux.com/puppy/viewtopic.php?t=33219
@@ -1336,7 +1336,7 @@ SPACElib=0
 LLS=`ls -l "$REPO"/lib/* | grep -o '/lib/.*\->.*' | grep 'firefox' | cut -f 1 -d ' ' | grep -v -w '/lib/lib'`
 [ -z "$LLS" ] && LLS="No_firefox_libs_in_lib"
 [ "$DebugVal" -ge "2" ] && echo -e "\\033[0;31m"'firefox-libs: '$LLS && echo
-LF=`find "$REPO"/lib -maxdepth 1 \( -name "lib*.so*" -o -name "ld*.so*" \)`
+LF=`find "$REPO"/lib -xdev -maxdepth 1 \( -name "lib*.so*" -o -name "ld*.so*" \)`
 #Filter not needed files :
 LIBF=`echo "$LF" | grep -v "$LLS" | grep -v -E 'libuClibc.*|ld\-uClibc.*|libthread.*|libm\-0.*|libm\.so\.0' | sort`
 for i in $LIBF ; do
@@ -1685,7 +1685,7 @@ mkdir -p /mnt/${PDEV1}  ###KRG removing fsckme.file  ###KRG
 mount -t ${DEV1FS} /dev/${PDEV1} /mnt/${PDEV1}
 if [ $? = 0 ] ; then ##+++2013-12-07
 
- ErrFlag=`find /mnt/${PDEV1} -maxdepth 3 -type f -iname "*fsckme*"`
+ ErrFlag=`find /mnt/${PDEV1} -xdev -maxdepth 3 -type f -iname "*fsckme*"`
  for i in $ErrFlag ; do
   [ "$DebugVal" -ge "1" ] && echo -e "\\033[1;33m""Removing $i""\\033[0;39m"
   rm $i
