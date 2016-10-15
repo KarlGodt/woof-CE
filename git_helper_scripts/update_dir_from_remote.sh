@@ -1,10 +1,15 @@
 #!/bin/bash
 
-ME_PROG=`readlink -f "$0"`
-ME_DIR=${ME_PROG%/*}
-cd "$ME_DIR"
+# script to update all branches in
+# current git dir on local machine
+# from remote git repository.
+# Variables set further down.
 
-VERSION=0.0.1
+ME_PROG=`realpath "$0"`
+ME_DIR=${ME_PROG%/*}
+cd "$ME_DIR" || exit 3
+
+VERSION=0.0.2
 
 _check_if_already_running()
 {
@@ -113,27 +118,6 @@ done
 return $?
 }
 
-_test()
-{
-#test "$*"
-test $*
-case $? in
-0)
-echo "'$*'" OK
-return 0
-;;
-1)
-echo "! '$*'"
-return 1
-;;
-2)
-echo "'$*'" wrong input
-return 1
-;;
-esac
-return $?
-}
-
 _get_argv()
 {
 local oneARG
@@ -152,43 +136,6 @@ return $?
 _get_argv $*
 _getopts $*
 
-
-_logger()
-{
-local MESSAGE PRIORITY TAG
-case $# in
-1) MESSAGE="$*";;
-2) PRIORITY=$1
-   shift
-   MESSAGE="$*";;
-''|0) echo "$0:_logger [ PRRIORITY ] [[ TAG ]]:Need at least MESSAGE." >&2
-      return 1;;
-*)
-PRIORITY=$1
-shift
-TAG="$1"
-shift
-MESSAGE="$*"
-;;
-esac
-
-_test "\"$PRIORITY\"" != '""' || PRIORITY=7
-_test "\"$TAG\"" != '""'      || TAG=${0##*/}
-
-logger -p $PRIORITY -t "$TAG" "$MESSAGE"
-return $?
-
-#May 29 09:21:57 puppypc user.debug  /bin/sh: TESTING logger 7
-#May 29 09:22:13 puppypc user.info   /bin/sh: TESTING logger 6
-#May 29 09:22:19 puppypc user.notice /bin/sh: TESTING logger 5
-#May 29 09:22:26 puppypc user.warn   /bin/sh: TESTING logger 4
-#May 29 09:22:32 puppypc user.err    /bin/sh: TESTING logger 3
-#May 29 09:22:37 puppypc user.crit   /bin/sh: TESTING logger 2
-#May 29 09:22:43 puppypc user.alert  /bin/sh: TESTING logger 1
-#May 29 09:22:48 puppypc user.emerg  /bin/sh: TESTING logger 0
-#May 29 09:22:06 puppypc user.emerg  /bin/sh: TESTING logger 8
-
-}
 
 remoteNAME=KarlGodt_ForkWoof
 
