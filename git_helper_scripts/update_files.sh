@@ -2,9 +2,12 @@
 
 . /etc/rc.d/PUPSTATE
 . /etc/DISTRO_SPECS
-. /etc/rc.d/f4puppy5
+. /etc/rc.d/f4puppy5  # _warn
+
+AUTO_COMMIT_MSG=${AUTO_COMMIT_MSG:-'Replaced by the one found in the system'}
 
 _help(){
+echo
 echo "$0:"
 echo "find . -type f in cd ./woof-code/rootfs-skeleton in GIT"
 echo "Either adds interactively to   SYSTEM if not there."
@@ -12,18 +15,29 @@ echo " Or removes interactively from GIT    if not added to SYSTEM."
 echo "diff -qs both files AND continues if zero return value."
 echo "Asks to add to GIT or to SYSTEM."
 echo
-echo "TODO: AUTO_UPDATE_GIT variable"
+echo "Options:"
+echo "-a --auto do not launch editor for commit message and use"
+echo "          AUTO_COMMIT_MSG instead:"
+echo "          $AUTO_COMMIT_MSG"
+echo "-n --dry-run do not actually copy any files and do not add to git"
+echo
 exit 0
 }
 
-case $1 in ''):;;*) _help;;esac
+while [ "$1" ]; do
+case $1 in ''):;;
+-a|--auto)     AUTO_UPDATE_GIT=1;;
+-n|--dry-run)  DRY_RUN=1;;
+*) _help;;esac
+shift
+done
 
 ME_PROG=`realpath "$0"`
 ME_DIR="${ME_PROG%/*}"
 cd "$ME_DIR" || exit 4
 
 # global variables:
-AUTO_UPDATE_GIT=
+AUTO_UPDATE_GIT=${AUTO_UPDATE_GIT:-''}
 
 # Am I at the right branch ?
 #BRANCH=Fox3-Dell755
@@ -32,7 +46,7 @@ git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
 
 
 cd .././woof-code/rootfs-skeleton || exit 6
-pwd
+pwd # DEBUG
 
 TTY=`tty`
 [ "$TTY" == "not a tty" ] && exit 7
@@ -104,6 +118,7 @@ test -e "$oneOSF" || {
 # ignore some file types ...
 case $oneGITF in
 *.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splash*)
+_debug "Omitting '$oneGITF' .."
 continue
 ;;
 esac
@@ -114,18 +129,27 @@ geany /tmp/diff.diff &
 #echo "Shall the file in OS be replaced by the git file (y|n) "
 echo "Shall the file in GIT be replaced by the OS file (y|n) "
 read confirmKEZ2 <$TTY
-echo confirmKEZ2=$confirmKEZ2
+echo confirmKEZ2=$confirmKEZ2 #DEBUG
 
 __update_os__(){
     # copy file into OS
     #Y|y|Yes|YES|yes)
+
+    if test "$DRY_RUN"; then
+     :
+    else
      test -d "${oneOSF%/*}" || mkdir -p "${oneOSF%/*}"
      cp -v -a "$oneGITF" "$oneOSF"
+    fi
 }
 
 __update_git__(){
     # copy OS file into git
     #Y|y|Yes|YES|yes)
+
+    if test "$DRY_RUN"; then
+     :
+    else
      rm "$oneGITF" || break
      test -d "${oneGITF%/*}" || mkdir -p "${oneGITF%/*}"
      cp -v -a  "$oneOSF" "$oneGITF" || break
@@ -134,11 +158,11 @@ __update_git__(){
      git add "$oneGITF" || break
 
      if test "$AUTO_UPDATE_GIT"; then
-      git commit -m "$oneOSF: Replaced by the one found in the system" || break
+      git commit -m "$oneOSF: $AUTO_COMMIT_MSG" || break
      else
       GIT_EDITOR='geany -i' git commit
      fi
-
+    fi
 }
 
 case $confirmKEZ2 in
@@ -146,6 +170,10 @@ case $confirmKEZ2 in
 
     # copy OS file into git
     Y|y|Yes|YES|yes)
+
+    if test "$DRY_RUN"; then
+     :
+    else
      rm -v "$oneGITF" || break
      test -d "${oneGITF%/*}" || mkdir -v -p "${oneGITF%/*}"
      cp -v -a  "$oneOSF" "$oneGITF" || break
@@ -154,11 +182,11 @@ case $confirmKEZ2 in
      git add "$oneGITF" || break
 
      if test "$AUTO_UPDATE_GIT"; then
-      git commit -m "$oneOSF: Replaced by the one found in the system" || break
+      git commit -m "$oneOSF: $AUTO_COMMIT_MSG" || break
      else
       GIT_EDITOR='geany -i' git commit
      fi
-
+    fi
 ;;
 
     # else ask to replace file in the OS
@@ -166,13 +194,18 @@ case $confirmKEZ2 in
 
     echo "Shall the file in OS be replaced by the git file (y|n) "
     read confirmKEZ3 <$TTY
-    echo confirmKEZ3=$confirmKEZ3
+    echo confirmKEZ3=$confirmKEZ3 # DEBUG
 
     case $confirmKEZ3 in
 
    Y|y|Yes|YES|yes)
+
+    if test "$DRY_RUN"; then
+     :
+    else
      test -d "${oneOSF%/*}" || mkdir -v -p "${oneOSF%/*}"
      cp -v -a "$oneGITF" "$oneOSF"
+    fi
 
     ;;
 
@@ -184,12 +217,8 @@ case $confirmKEZ2 in
      ;;
 esac
 
-
-
 done <<EoI
 `find . -type f`
 EoI
 
-
-
-
+###END###
