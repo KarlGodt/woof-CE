@@ -2,6 +2,8 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
+VERSION=1.1.1
+
 _check_if_already_running()
 {
 pidof -o $$ -o %PPID "${0##*/}" && {
@@ -16,7 +18,7 @@ _exit()
 RV=$1
 shift
 echo "$*"
-exit $1
+exit $RV
 }
 
 trap "fun_present_rxtx_bytes;exit;" INT KILL TERM
@@ -34,7 +36,7 @@ done
 
 fun_reset_month(){
 LANG=C UPDATE_MONTH=`date +%b`
-read CURRENT_MONTH</var/local/sns/current_month
+test -s /var/local/sns/current_month && read CURRENT_MONTH</var/local/sns/current_month
 [ "$CURRENT_MONTH" ] || CURRENT_MONTH=0
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
@@ -49,7 +51,10 @@ fi
 }
 
 fun_read_month(){
-ACTIVE_INTERFACE="ppp0"
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"$1"}
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"ppp0"}
+test "$ACTIVE_INTERFACE" || return 126
+
 read RX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/rx_bytes_month
 [ "$RX_BYTES_MONTH" ] || RX_BYTES_MONTH=0
 read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
@@ -57,6 +62,10 @@ read TX_BYTES_MONTH </var/local/$ACTIVE_INTERFACE/tx_bytes_month
 }
 
 fun_read_session(){
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"$1"}
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"ppp0"}
+test "$ACTIVE_INTERFACE" || return 126
+
 read RX_BYTES </var/local/$ACTIVE_INTERFACE/rx_bytes_session
 read TX_BYTES </var/local/$ACTIVE_INTERFACE/tx_bytes_session
 }
@@ -74,7 +83,12 @@ fi
 }
 
 fun_present_last_month(){
-if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+#if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
+[ "$UPDATE_MONTH" = "$CURRENT_MONTH" ] && return 0
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"$1"}
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"ppp0"}
+test "$ACTIVE_INTERFACE" || return 126
+
 echo ""
 echo "Last Month :"
  if
@@ -93,10 +107,14 @@ echo "Last Month :"
  else
  echo "No upload count available for '$CURRENT_MONTH' ."
  fi
-fi
+#fi
 }
 
 fun_present_rxtx_bytes(){
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"$1"}
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"ppp0"}
+test "$ACTIVE_INTERFACE" || return 126
+
 if [ "$RX_BYTES" -a "$TX_BYTES" ] ; then
   SESS_END=`date +%s`
 
@@ -153,7 +171,9 @@ fi
 
 
 fun_read_rxtx_bytes(){
-ACTIVE_INTERFACE="ppp0"
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"$1"}
+ACTIVE_INTERFACE=${ACTIVE_INTERFACE:-"ppp0"}
+test "$ACTIVE_INTERFACE" || return 126
 
 mkdir -p /var/local/$ACTIVE_INTERFACE
 while test "`pidof pppd`"; do
@@ -190,16 +210,19 @@ fun_present_rxtx_bytes
 }
 
 fun_kill_pppd(){
-pidof pppd && kill -s HUP `pidof pppd`
+pidof pppd >>$OUT && kill -s HUP `pidof pppd`
 }
 
 fun_kill_jobs(){
-jobs -rp && {
+jobs -rp >>$OUT && {
   for Job in `jobs -pr`; do
   /bin/ps -p $Job && kill $Job
   done
  }
 }
+
+ifconfig -a | grep $Q '^ppp[0-9]*' || _exit 1 "No active ppp interface."
+ifconfig    | grep $Q '^ppp[0-9]*' || _exit 1 "No active ppp interface up."
 
 trap "fun_kill_pppd;sleep 4s;fun_kill_jobs;exit" HUP INT QUIT TRAP KILL TERM
 
@@ -216,13 +239,16 @@ TOTALMONTHM=$( LC_ALL=C dc $TOTALMONTHK 1024 \/ p );     echo -e "  MONTH: '$TOT
 TOTALMONTHG=$( LC_ALL=C dc $TOTALMONTHM 1024 \/ p );     echo -e "  MONTH: '$TOTALMONTHG'\tGiB"
 echo ""
 
+PPPD_EXE=`which pppd`
+test "$PPPD_EXE" || _exit 1 "pppd binary not found in PATH."
+
 n="c"
 
 while  [ "$n" ]
 do
-/usr/sbin/pppd call gprsmm & #disconnect /etc/ppp/pgprs-disconnect.sh &
+"$PPPD_EXE" call gprsmm & #disconnect /etc/ppp/pgprs-disconnect.sh &
 
-jobs -l
+jobs -l # DEBUG
 PPPD_PID=`jobs -p /usr/sbin/pppd | tail -n 1`;
 echo -e '\e[0;36mPPPD_PID='$PPPD_PID'\e[0;39m'
 sleep 5s
@@ -230,12 +256,12 @@ sleep 5s
 until
 [ -f /sys/class/net/${ACTIVE_INTERFACE}/carrier ]
 do sleep 1s
-pidof pppd || break
+pidof pppd >>$OUT || break
 done
 
 echo ""
 
-pidof pppd &&
+pidof pppd >>$OUT &&
 {
 
 while
@@ -248,12 +274,12 @@ read CARRIER </sys/class/net/${ACTIVE_INTERFACE}/carrier 2>/dev/null
 [ "$CARRIER" = 1 ] && break
 
 
-pidof pppd || break
+pidof pppd >>$OUT || break
 done
 
 }
 
-pidof pppd &&
+pidof pppd >>$OUT &&
 {
 unset RX_BYTES TX_BYTES
 fun_read_rxtx_bytes &
@@ -261,7 +287,7 @@ echo -e '\033[1;35m'"Press ENTER to disconnect and quit"'\033[0;39m'
 } || {
 echo -e '\033[1;36m'"Press R+ENTER to reconnect/try again"'\033[0;39m'
 }
-jobs -l
+jobs -l # DEBUG
 jobs -p fun_read_rxtx_bytes
 
 n="n"
@@ -272,5 +298,5 @@ fun_kill_pppd
 sleep 4s
 fun_kill_jobs
 
-read -p "Press any key to quit .. " Q
+read -p "Press any key to quit .. " QuitKey
 exit 0
