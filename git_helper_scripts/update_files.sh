@@ -34,31 +34,41 @@ done
 
 ME_PROG=`realpath "$0"`
 ME_DIR="${ME_PROG%/*}"
-cd "$ME_DIR" || exit 4
+cd "$ME_DIR" || _exit 4 "Could not change into directory '$ME_DIR' ."
 
 # global variables:
 AUTO_UPDATE_GIT=${AUTO_UPDATE_GIT:-''}
+VIEWER=geany  # to view /tmp/diff.diff
+EDITOR=geany  # unused
 
 # Am I at the right branch ?
 #BRANCH=Fox3-Dell755
 BRANCH=Fox3-GreatWallU310-KRGall
-git branch | grep '^\*' | grep -Fw "$BRANCH" || exit 5
+git branch | grep '^\*' | grep -Fw "$BRANCH" || _exit 5 "Branch not '$BRANCH' ."
 
 
-cd .././woof-code/rootfs-skeleton || exit 6
+cd .././woof-code/rootfs-skeleton || _exit 6 "Could not change into directory .././woof-code/rootfs-skeleton ."
 pwd # DEBUG
 
 TTY=`tty`
-[ "$TTY" == "not a tty" ] && exit 7
+[ "$TTY" == "not a tty" ] && _exit 7 "Need controling terminal."
 
 while read oneGITF
 do
 
 test "$oneGITF" || break
-echo "$oneGITF"
+echo -n "$oneGITF"":"
 
 oneOSF=${oneGITF#*.}
 echo "$oneOSF"
+
+# ignore some file types ...
+case $oneGITF in
+*EMPTYDIRMARKER|*.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splash*)
+_debug "Omitting '$oneGITF' .."
+continue
+;;
+esac
 
 test -e "$oneOSF" || {
     # REM: What to do if Files does not exist...
@@ -114,17 +124,18 @@ test -e "$oneOSF" || {
  test -L "$oneOSF"  && _warn "File in OS  is a LINK"
  diff -qs "$oneGITF" "$oneOSF" && { touch "$oneGITF" "$oneOSF"; continue; }
 
-
+__ignore_files__(){
 # ignore some file types ...
 case $oneGITF in
-*.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splash*)
+*EMPTYDIRMARKER|*.gz|*.xpm|*.png|*.jpg|*.svg|*.afm|*.pfb|*.ttf|*.au|*.wav|*.ogg|fonts.*|*.pcf|*.so|*.so.conf|yaf-splash*)
 _debug "Omitting '$oneGITF' .."
 continue
 ;;
 esac
+}
 
 diff -up "$oneGITF" "$oneOSF" >/tmp/diff.diff
-geany /tmp/diff.diff &
+$VIEWER /tmp/diff.diff &
 
 #echo "Shall the file in OS be replaced by the git file (y|n) "
 echo "Shall the file in GIT be replaced by the OS file (y|n) "
@@ -160,7 +171,7 @@ __update_git__(){
      if test "$AUTO_UPDATE_GIT"; then
       git commit -m "$oneOSF: $AUTO_COMMIT_MSG" || break
      else
-      GIT_EDITOR='geany -i' git commit
+      GIT_EDITOR=${GIT_EDITOR:-'geany -i'} git commit
      fi
     fi
 }
@@ -184,7 +195,7 @@ case $confirmKEZ2 in
      if test "$AUTO_UPDATE_GIT"; then
       git commit -m "$oneOSF: $AUTO_COMMIT_MSG" || break
      else
-      GIT_EDITOR='geany -i' git commit
+      GIT_EDITOR=${GIT_DEITOR:-'geany -i'} git commit
      fi
     fi
 ;;
