@@ -355,6 +355,13 @@ echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"$Res"
 echo -e "$YEL"'Checking for filesystem check intervals using'"$Res"
 LANG=C
 VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
+
+###+++2011-11-15 had logically removed this ; would have been a bug due interN used further down ash: bad number
+interC=`echo "$VARS" | grep 'Check interval' | tr '\n' ' '`
+interN=`echo "$interC" | tr -s ' ' | cut -f 3 -d ' ' | grep -o '[[:digit:]]\+'`
+interN=$((interN/60/60/24))
+ ###+++2011-11-15
+
 nextch=`echo "$VARS" | grep 'Next check after' | tr '\n' ' '`;[ "$nextch" ] || nextch="Next check after:         Sun Dec 31 17:51:27 9999"
 nextcY=`echo "$nextch" | tr -s ' ' | cut -f 8 -d ' '`;[ "$nextcY" ] || nextcY=9999
 nextcM=`echo "$nextch" | tr -s ' ' | cut -f 5 -d ' '`;[ "$nextcM" ] || nextcM=Dec
@@ -667,14 +674,13 @@ nice -n -3 /sbin/pup_event_backend_modprobe_protect --daemon &
 fi
 
  rm -rf /dev/.udev/*/*
- HOTPLUGD='udevd'
  UDEVVER=`udevd --version`
  if [ $UDEVVER -gt 150 ]; then
   UDEV_LOG=1 /sbin/udevd --daemon --resolve-names=never ###KRG ; orig LOG=2
  else
   UDEV_LOG=1 /sbin/udevd --daemon ###KRG ; orig LOG=2
  fi
-
+  HOTPLUGD='udevd'
 else
  /sbin/pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
  HOTPLUGD='pup_event_backend_d'
@@ -682,6 +688,7 @@ fi
 } #_start_hotplug_program with update_modprobe_conf_func AND modprobe_conf_func inside
 
 _load_kernel_drivers(){
+
 INITSTATE=`find /sys -name "initstate"`
 INITSTATECOUNT=`echo "$INITSTATE" | wc -l`
 [ -n "$INITSTATE" ] && [ "$DebugVal" = "2" ] && for i in $INITSTATE; do echo -n "$i "; cat "$i"; done  ##echo
@@ -900,7 +907,7 @@ echo -e "$Res"
 [ "$1" = "/dev/" ] && sleep 5s && CLEAN='guessing_clean' && return ##2011_10_02
 [ "$1" != "/dev/$PDEV1" ] && [ -n "`mount | grep "^$1"`" ] && busybox umount -lr "$1"
 sleep 1s
-[ -n "`busybox mount | grep "^$1" | cut -f 6 -d ' ' | grep 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro $1
+[ -n "`busybox mount | grep -w "^$1" | cut -f 6 -d ' ' | grep -w 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro $1
 sleep 2s
 Err=''
 RETFSCK=''
@@ -914,16 +921,16 @@ ext2|ext3|ext4)
 if [ -z "$2" ]; then
 echo -e "$BLU""Checking Partition $1 in -n mode
 if required binaries are useable . Please wait""$Res"
-[ "$DebugVal" = "0" ]   && { RETFSCK=`e2fsck -C0 -n "$1" 2>/dev/null` || Err=$?; }
-[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C0 -n "$1"` || Err=$?; }
+[ "$DebugVal" = "0" ]   && { RETFSCK=`e2fsck -C0 -n "$1" 2>/dev/null`; Err=$?; }
+[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C0 -n "$1"`; Err=$?; }
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Fsck returned'="$Err""$Res"
 else
 echo -e "$BLU""Checking Partition $1 in normal mode
 if required binaries are useable . Please wait""$Res"
-[ "$DebugVal" = "0" ]   && e2fsck -C0 -p "$1"
-[ "$DebugVal" = "0" ]   && { RETFSCK=`e2fsck -C0 -n "$1" 2>/dev/null` || Err=$?; }
-[ "$DebugVal" -ge "1" ] && e2fsck -C0 "$1"
-[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C0 -n "$1"` || Err=$?; }
+[ "$DebugVal" = "0" ]   && { e2fsck -C0 -p "$1"; Err=$?; }
+[ "$DebugVal" = "0" ]   && { RETFSCK=`e2fsck -C0 -n "$1" 2>/dev/null`; Err=$?; }
+[ "$DebugVal" -ge "1" ] && { e2fsck -C0 "$1"; Err=$?; }
+[ "$DebugVal" -ge "1" ] && { RETFSCK=`e2fsck -C0 -n "$1"`; Err=$?; }
 [ "$DebugVal" -ge "1" ] && echo -e "$Ora"'Fsck returned'="$Err""$Res"
 fi
 CLEAN=`echo "$RETFSCK" | tail -n 1 | grep -i -o 'clean'`
@@ -949,7 +956,7 @@ echo -e "$Res"
 }
 
 _fsck_root(){
-[ -n "`busybox mount | grep '^/dev/root' | cut -f 6 -d ' ' | grep 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /
+[ -n "`busybox mount | grep '^/dev/root ' | cut -f 6 -d ' ' | grep -w 'rw'`" ] && busybox mount $VERB $VERB -o remount,ro /
 _do_fsck "/dev/$PDEV1"
 busybox mount $VERB $VERB -o remount,rw /  ##TODO 2011_10_28 move further down
 if [ -n "$CLEAN" ] || [ -z "$Err" ] || [ "$Err" -eq 0 ]; then
@@ -988,15 +995,20 @@ fi
 CHECK_ALTERNATE_REPO_FUNC(){
 [ -z "$CLEAN" ] || return 0
 [ -n "$Err" -a "$Err" -ne 0 ] || return 0
+
 CURR_GLIBC_FUNC(){
 CURRGLIBC=`basename $(find /lib -maxdepth 1 -name "libc-*.so")`
 CURRCLMAJ=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 2 -d '.'`
 CURRCLMin=`echo "$CURRGLIBC" | cut -f 2 -d ' ' | cut -f 3 -d '.'`
+CURRCLMin=${CURRCLMin:-0}
 }
+
 FIND_SFS_FUNC(){
-CHECK_FOR_ALT_PART_FUNC  #TODO simplfy ?
-CURR_GLIBC_FUNC
+
 [ -z "`lsmod | grep 'squashfs'`" ] && modprobe $VERB squashfs
+CURR_GLIBC_FUNC
+CHECK_FOR_ALT_PART_FUNC  #TODO simplfy ?
+
 for oneDRV in $DRIVES; do  ##for 0
 SIMPLEDRIVENAME="${oneDRV##*/}"
 mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
@@ -1031,6 +1043,7 @@ REPOGLIBC=`basename $(find /mnt/$bneSFS/lib -maxdepth 1 -name "libc-*.so")`
 fi
 REPOCLMAJ=`echo "$REPOGLIBC" | cut -f 2 -d '.'`
 REPOCLMin=`echo "$REPOGLIBC" | cut -f 3 -d '.'`
+EPOCLMin=${REPOCLMin:-0}
 if [ -z "$REPOGLIBC" ]; then ##101
 echo -e "$Red"'No libc found in '"$Res""$bneSFS"
 busybox umount -lrd /mnt/$bneSFS
@@ -1104,9 +1117,12 @@ REPO=''
 fi #103
 }
 FIND_SFS_FUNC
+
 FIND_FULLINSTALL_FUNC(){
-CHECK_FOR_ALT_PART_FUNC
+
 CURR_GLIBC_FUNC
+CHECK_FOR_ALT_PART_FUNC
+
 for oneDRV in $DRIVES; do ##for 0
 SIMPLEDRIVENAME="${oneDRV##*/}"
 mkdir $VERB -p /mnt/$SIMPLEDRIVENAME
@@ -1121,9 +1137,10 @@ if [ -f "$DS" ]; then  ##4
 source $DS
 if [ -n "$DISTRO_NAME" ] && [ -n "$DISTRO_VERSION" ]; then  ##4.1
 echo -e "$GRE""Found $DISTRO_NAME $DISTRO_VERSION"
-REPOGLIBC=`basename $(find /mnt/$SIMPLEDRIVENAME/lib -maxdepth 1 -name "libc-*.so")`
+REPOGLIBC=`basename $(find /mnt/$SIMPLEDRIVENAME/lib -xdev -maxdepth 1 -name "libc-*.so")`
 REPOCLMAJ=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 2 -d '.'`
 REPOCLMin=`echo "$REPOGLIBC" | cut -f 2 -d '-' | cut -f 3 -d '.'`
+REPOCLMin=${REPOCLMin:-0}
 if [ -n "$REPOGLIBC" ]; then #4.1.1
 if [ "$REPOCLMAJ" -gt "$CURRCLMAJ" ]; then ##4.2
 echo -e "$Red""LIBC major = '$REPOCLMAJ' larger than '$CURRCLMAJ'""$Res"
