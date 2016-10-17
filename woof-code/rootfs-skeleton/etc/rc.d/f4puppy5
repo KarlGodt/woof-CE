@@ -13,7 +13,8 @@ SILENT=${SILENT:-'--silent'}
 OUT=${OUT:-/dev/null}
 ERR=${ERR:-/dev/null}
 
-VERSION=0.0.1.1.3
+VERSION=${VERSION:-0.0.1.1.3}
+VERSION=0.0.1.2
 SCRIPT_NAME=f4puppy5 # short for functions for puppy 5
 
 # Handle $0 :
@@ -70,8 +71,7 @@ esac
 _test_f()
 {
 test -L "$*" && return 1
-test -f "$*" && return 0
-return 1
+test -f "$*"
 }
 
 _test_fr()
@@ -123,8 +123,7 @@ test -f "$*" -a -r "$*" -a -w "$*" -a -x "$*"
 _test_d()
 {
 test -L "$*" && return 1
-test -d "$*" && return 0
-return 1
+test -d "$*"
 }
 
 _test_dr()
@@ -180,6 +179,26 @@ test -L "$*" && return 1
 test -S "$*"
 }
 
+_test()
+{
+#test "$*"
+test $*
+case $? in
+0)
+echo "'$*'" OK
+return 0
+;;
+1)
+echo "! '$*'"
+return 1
+;;
+2)
+echo "'$*'" wrong input
+return 1
+;;
+esac
+return $?
+}
 
 _log_rotate()
 {
@@ -204,9 +223,10 @@ mv $VERB "$*" "${*}.1"
 
 _cd_program_dir()
 {
-lDEBUG=1
-oDEBUG=$DEBUG
-DEBUG=$lDEBUG
+#lDEBUG=1
+#oDEBUG=$DEBUG
+#DEBUG=$lDEBUG
+local DEBUG=1
 _debug "$*"
 if test "$*"; then
  test "$*" = '.' && set - "$PWD"
@@ -224,7 +244,7 @@ ME_DIR=${ME_PROG%/*}
 fi
 cd "$ME_DIR"
 _debug "`pwd`"
-DEBUG=$oDEBUG
+#DEBUG=$oDEBUG
 }
 
 _check_if_already_running()
@@ -343,27 +363,6 @@ done
 return $?
 }
 
-_test()
-{
-#test "$*"
-test $*
-case $? in
-0)
-echo "'$*'" OK
-return 0
-;;
-1)
-echo "! '$*'"
-return 1
-;;
-2)
-echo "'$*'" wrong input
-return 1
-;;
-esac
-return $?
-}
-
 _get_argv()
 {
 local oneARG
@@ -378,6 +377,262 @@ esac
 done
 return $?
 }
+
+# REM: provide usage stub
+_usage()
+{
+local USAGE_MSG RV
+RV=$1
+shift
+test "$PARAMETER_LIST" || PARAMETER_LIST=PARAMETERS
+test "$PARAMETERS" || PARAMETERS="NONE YET"
+USAGE_MSG="
+$0 [ $PARAMETER_LIST ]
+
+PARAMETERS :
+$PARAMETERS
+--
+$*
+"
+echo "$USAGE_MSG"
+
+if [ "$TWO_HELP" ]; then
+ return 0
+else
+ if test "$RV" != 0; then
+   _exit $RV "Try again. Good Luck!"
+ else
+   $EXIT $RV
+ fi
+fi
+return $?
+}
+
+#=============== OPTIONS ARGUMENTS PARAMETERS ================
+# REM parameter option arguments processing function stubs ...
+_provide_basic_parameters()
+{
+test "$ADD_PARAMETER_LIST" && ADD_PARAMETER_LIST="|$ADD_PARAMETER_LIST"
+PARAMETER_LIST="-help|-version|-verbose|-debug$ADD_PARAMETER_LIST"
+PARAMETERS="
+-h|--help    : Show this message and exit.
+-V|--version : Show version information and exit.
+-v|--verbose : Supress /dev/null and quiet options, verbose options to binaries.
+-d|--debug   : Run program with set -x .
+$ADD_PARAMETERS
+"
+}
+
+#Set defaults
+_set_default_flags(){
+OUT=/dev/null;ERR=$OUT;Q=-q;QUIET=--quiet;DBG='';L_DBG='';A_DBG=''
+export OUT ERR Q QUIET DBG L_DBG A_DBG
+}
+_set_default_flags
+
+_set_verbose_flags(){
+    _parse_cmdline_loglevel
+    VERBOSE=1;
+    EMERGENCY=1;ALERT=1;CRIT=1;ERROR=1;WARN=1;NOTICE=1;
+    NOTICE2=1;INFO=1;
+    VERB=-v;A_VERB=-verbose;L_VERB=--verbose;
+    Q='';   QUIET='';
+    DBG=-d;L_DBG=--debug;  A_DBG=-debug;
+    OUT=/proc/self/fd/1;ERR=/proc/self/fd/2;
+}
+
+_parse_basic_parameters()
+{
+
+OUT=${OUT:-/dev/null}    #/dev/stdout
+ERR=${ERR:-"$OUT"}       #/dev/stderr
+Q=${Q:-'-q'}             #-q
+QUIET=${QUIET='--quiet'} #--quiet
+DBG=${DBG:-''}           #-d
+L_DBG=${L_DBG:-''}       #--debug
+A_DBG=${A_DBG:-''}       #-debug
+
+local OPT_ARG oldOPTIND=$OPTIND oldOPTERR=$OPTERR
+OPTERR=0
+OPTIND=0
+#DEBUG=1
+_debug "_parse_basic_parameters: \$1='$1'"
+case $1 in
+
+-h|-H|-?help)
+
+while getopts h:: option_ 2>>$ERR
+do
+ case $option_ in
+  h) OPT_ARG="$OPTARG";;
+  *) false;;
+ esac
+done
+
+#[ "$OPTIND" ] && [ "$OPTIND" -ge 1 ] && OPTIND=$((OPTIND-1))
+OPTIND=$oldOPTIND;OPTERR=$oldOPTERR
+
+#DEBUG=1
+_debug "OPT_ARG='$OPT_ARG'"
+
+[ "$OPT_ARG" = elp ] && OPT_ARG='';
+[ "$OPT_ARG" ] && return 0
+
+_usage 0 "$ADD_HELP_MSG";;
+#VERSION
+-V|-?version)
+
+while getopts V:: option_ 2>>$ERR
+do
+ case $option_ in
+  V) OPT_ARG="$OPTARG";;
+  *) false;;
+ esac
+done
+#DEBUG=1
+_debug "OPT_ARG='$OPT_ARG'"
+#[ "$OPTIND" ] && [ "$OPTIND" -ge 1 ] && OPTIND=$((OPTIND-1))
+OPTIND=$oldOPTIND;OPTERR=$oldOPTERR
+[ "$OPT_ARG" = ersion ] && OPT_ARG='';
+[ "$OPT_ARG" ] && return 0
+
+_version;;
+
+#VERBOSE
+-v*|-?verbose*)
+_debug "HAVE verbose"
+while getopts v:: option_ 2>>$ERR
+do
+ case $option_ in
+  v) OPT_ARG="$OPTARG";;
+  *) false;;
+ esac
+ sleep 0.1
+done
+#DEBUG=1
+_debug "OPT_ARG='$OPT_ARG'"
+#[ "$OPTIND" ] && [ "$OPTIND" -ge 1 ] && OPTIND=$((OPTIND-1))
+OPTIND=$oldOPTIND;OPTERR=$oldOPTERR
+#[ "$OPT_ARG" = erbose ] && OPT_ARG='';
+case $OPT_ARG in
+erbose|cli|composeonly) OPT_ARG='';;
+[v\-]*) _debug "GOT '$OPT_ARG'";OPT_ARG_="$OPT_ARG";OPT_ARG='';
+esac
+_debug "OPT_ARG='$OPT_ARG' OPT_ARG_='$OPT_ARG_'"
+[ "$OPT_ARG" ] && return 0
+
+#VERBOSE=1;VERB=-v;A_VERB=-verbose;L_VERB=--verbose;Q='';QUIET=$Q;DBG=-d;L_DBG=--debug;A_DBG=-debug
+#INFO=1;OUT=/proc/self/fd/1;ERR=/proc/self/fd/2; [ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1));;
+_set_verbose_flags
+INFO=1
+
+increaseV=0
+for aCHAR in `echo "$OPT_ARG_" |sed -r 's%(.)% \1%g'`; do
+_debug "aCHAR='$aCHAR'"
+case $aCHAR in
+v) :;;
+*) continue;;
+esac
+increaseV=$((increaseV+1));                     done
+
+  if test $increaseV = 1; then
+INFO2=1;DEBUG=1
+elif test $increaseV -ge 2; then
+INFO2=1;DEBUG=1;DEBUG2=1
+fi
+
+[ "$TWO_VERBOSE" ] || DO_SHIFT=$((DO_SHIFT+1))
+;;
+#DEBUG
+-d*|-?debug*)
+
+while getopts d:: option_ 2>>$ERR
+do
+ case $option_ in
+  d) OPT_ARG="$OPTARG";;
+  *) false;;
+ esac
+done
+#DEBUG=1
+_debug "OPT_ARG='$OPT_ARG'"
+#[ "$OPTIND" ] && [ "$OPTIND" -ge 1 ] && OPTIND=$((OPTIND-1))
+OPTIND=$oldOPTIND;OPTERR=$oldOPTERR
+[ "$OPT_ARG" = ebug ] && OPT_ARG='';
+[ "$OPT_ARG" ] && return 0
+
+set -x; [ "$TWO_DEBUG" ] || DO_SHIFT=$((DO_SHIFT+1));;
+esac
+
+OPTERR=$oldOPTERR
+export OUT ERR Q QUIET DBG VERB L_VERB A_VERB
+}
+
+__order_parameters()
+{
+oldIFS="$IFS"
+IFS=$'\n'
+
+while read -r aLINE
+ do
+
+  _debugx "aLINE='$aLINE'"
+
+  case "$aLINE" in
+
+## Example for option having OPTARG :
+#  -X) read anoLINE
+#      echo "anoLINE='$anoLINE'"
+#      OPTIONS_="$OPTIONS_
+#$aLINE $anoLINE";;
+
+  -*)  OPTIONS_="$OPTIONS_
+$aLINE";;
+  *)   PARAMETERS_="$PARAMETERS_
+$aLINE";;
+  esac
+
+ done <<EoI
+`echo "$*"`
+EoI
+
+_debug "OPTIONS_='$OPTIONS_'"
+_debug "PARAMETERS_='$PARAMETERS_'"
+
+set - $OPTIONS_ $PARAMETERS_
+_debug "\$*='$*'"
+_debug "\$@='$@'"
+_debug "\$#='$#' OPT_IND='$OPTIND'"
+IFS="$oldIFS"
+}
+
+_order_parameters()
+{
+    _debug "\$*='$*'"
+    _debug "\$@='$@'"
+    _debug "\$#='$#'"
+__order_parameters $*
+                    if [ "$OPTIONS_" -a "$PARAMETERS_" ]; then
+                        oldIFS="$IFS"
+                        IFS=$'\n'
+                        set - $OPTIONS_ $PARAMETERS_
+                        IFS="$oldIFS"
+                elif [ "$OPTIONS_" ];    then
+                        oldIFS="$IFS"
+                        IFS=$'\n'
+                        set - $OPTIONS_
+                        IFS="$oldIFS"
+                elif [ "$PARAMETERS_" ]; then
+                        oldIFS="$IFS"
+                        IFS=$'\n'
+                        set - $PARAMETERS_
+                        IFS="$oldIFS"
+                     fi
+    _debug "\$*='$*'"
+    _debug "\$@='$@'"
+    _debug "\$#='$#'"
+    unset OPTIONS_ PARAMETERS_
+}
+
 
 _logger()
 {
