@@ -1,5 +1,12 @@
 #!/bin/ash
 
+# this script runs find in
+# /root/Github.d/KarlGodt_ForkWoof.Push.D woof-code/rootfs-skeleton
+# and then stat and then diff and if different
+# appends to /tmp/find_newer.diff
+# it does not add and commit to git
+# but if directory missing on OS, copies into OS
+
 _exit(){
 retVAL=$1
 shift

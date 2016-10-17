@@ -1,5 +1,23 @@
 #!/bin/ash
 
+# this script runs find in
+# _cd_program_dir ../woof-code/rootfs-skeleton
+# and then _test_only_scripts
+#     then test -e "$sysF"
+#     then readlink -f "$oneF"
+#     then case $oneF in *.~*)
+# to filter out files that should not interest us now
+#  then stat
+#  then diff
+# to filter further
+# then  CREATE_CHECK_FILE
+# then if DRY_RUN
+# then  DO_UPDATE_GIT -o DO_UPDATE_SYSTEM
+# finally _force_replace_files_in_git
+#      or _update_git and _update_system
+# NO OPTIONS PROCESSING FOR NOW,
+# VARIABLES NEED TO BE SET MANUALLY HEREIN
+
 . /etc/rc.d/f4puppy5
 
 # DO_UPDATE_SYSTEM set to anything to replace system files with newer git files
@@ -15,6 +33,22 @@
 # ONLY_SCRIPTS set to anything to ommit list of non-sh files
 [ "$ONLY_SCRIPTS" ] || ONLY_SCRIPTS=1
 
+# DRY_RUN set to anything to give usual test output but continue loop before copying anything
+[ "$DRY_RUN" ] || DRY_RUN=
+
+# CREATE_CHECK_FILE set to anything to write list to CHECK_LIST_FILE
+[ "$CREATE_CHECK_FILE" ] || CREATE_CHECK_FILE=
+CHECK_LIST_FILE="$HOME/git_check.lst"
+rm $VERB -f "$CHECK_LIST_FILE"
+
+pwd #DEBUG
+_cd_program_dir || _exit 2 "Unable to change into this directory."
+pwd #DEBUG
+cd ../woof-code/rootfs-skeleton || _exit 1 "Could not cd into ../woof-code/rootfs-skeleton"
+pwd   #DEBUG
+#exit #DEBUG
+sleep 5 #DEBUG
+
 # ONLY_SCRIPTS # returns 1 if fileextension is non-script
 _test_only_scripts(){
 case $oneF in
@@ -28,21 +62,55 @@ esac
 return 0
 }
 
-# DRY_RUN set to anything to give usual test output but continue loop before copying anything
-[ "$DRY_RUN" ] || DRY_RUN=
+_update_git(){
+if test "$modS" -gt "$modF"; then
+ if test "$DO_UPDATE_GIT"; then
 
-# CREATE_CHECK_FILE set to anything to write list to CHECK_LIST_FILE
-[ "$CREATE_CHECK_FILE" ] || CREATE_CHECK_FILE=
-CHECK_LIST_FILE="$HOME/git_check.lst"
-rm $VERB -f "$CHECK_LIST_FILE"
+     dirG=".${sysF%/*}"
+     mkdir $VERB -p "$dirG"
 
-pwd
-_cd_program_dir || _exit 2 "Unable to change into this directory."
-pwd
-cd ../woof-code/rootfs-skeleton || _exit 1 "Could not cd into ../woof-code/rootfs-skeleton"
-pwd
-#exit
-sleep 5
+     /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
+     if test "$?" = 0 ; then
+      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ." && sleep 5
+     else
+      echo "Failed replacing gitfile"
+      exit 9
+     fi
+ fi
+fi
+}
+
+_force_replace_files_in_git(){
+
+ if test "$DO_UPDATE_GIT"; then
+
+     dirG=".${sysF%/*}"
+     mkdir $VERB -p "$dirG"
+
+     /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
+     if test "$?" = 0 ; then
+      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
+     else
+      echo "Failed replacing gitfile"
+      echo "Exiting."
+      exit 9
+     fi
+ fi
+
+}
+
+_update_system(){
+if test "$modS" -lt "$modF"; then
+ if test "$DO_UPDATE_SYSTEM"; then
+
+    dirS=`echo "${oneF%/*}" | sed 's%^\.%%'`
+    mkdir $VERB -p "$dirS"
+
+    /bin/cp $VERB -a --remove-destination --backup=numbered "$oneF" "$dirS"/
+ fi
+
+fi
+}
 
 while read oneF
 do
@@ -130,43 +198,7 @@ else
  continue
 fi
 
-_update_git(){
-if test "$modS" -gt "$modF"; then
- if test "$DO_UPDATE_GIT"; then
-
-     dirG=".${sysF%/*}"
-     mkdir $VERB -p "$dirG"
-
-     /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
-     if test "$?" = 0 ; then
-      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ." && sleep 5
-     else
-      echo "Failed replacing gitfile"
-      exit 9
-     fi
- fi
-fi
-}
 #test -d "$oneF" || _update_git
-
-_force_replace_files_in_git(){
-
- if test "$DO_UPDATE_GIT"; then
-
-     dirG=".${sysF%/*}"
-     mkdir $VERB -p "$dirG"
-
-     /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
-     if test "$?" = 0 ; then
-      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
-     else
-      echo "Failed replacing gitfile"
-      exho "Exiting."
-      exit 9
-     fi
- fi
-
-}
 
 if test "$FORCE_GIT_REPLACE" ; then
  test -d "$oneF" || _force_replace_files_in_git
@@ -175,18 +207,6 @@ else
  test -d "$oneF" || _update_git
 fi
 
-_update_system(){
-if test "$modS" -lt "$modF"; then
- if test "$DO_UPDATE_SYSTEM"; then
-
-    dirS=`echo "${oneF%/*}" | sed 's%^\.%%'`
-    mkdir $VERB -p "$dirS"
-
-    /bin/cp $VERB -a --remove-destination --backup=numbered "$oneF" "$dirS"/
- fi
-
-fi
-}
 test -d "oneF" || _update_system
 
 #case $oneF in

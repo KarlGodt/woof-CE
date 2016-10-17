@@ -1,5 +1,12 @@
 #!/bin/ash
 
+# this script runs find in
+# /root/Github.d/KarlGodt_ForkWoof.Push.D woof-code/rootfs-skeleton
+# and then stat and then diff and if different
+# copies file from OS into GIT, git add and commit with message
+# "filename:Bulk update."
+# it does not copy missing files into OS
+
 _exit(){
 retVAL=$1
 shift
