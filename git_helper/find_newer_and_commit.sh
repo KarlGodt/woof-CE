@@ -7,6 +7,9 @@
 # "filename:Bulk update."
 # it does not copy missing files into OS
 
+COMMIT_MSG=${COMMIT_MSG:-"$*"}
+COMMIT_MSG=${COMMIT_MSG:-"Bulk update"}
+
 _exit(){
 retVAL=$1
 shift
@@ -49,7 +52,7 @@ then
  sleep 1
  git add "$oneFILE" || break
  sleep 1
- git commit -m "${oneFILE}:Bulk update." #|| break
+ git commit -m "${oneFILEonOS}:$COMMIT_MSG." #|| break
  sleep 1
 
  fi
