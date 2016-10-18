@@ -50,6 +50,66 @@ _debug "$X_SERVER exists"
  FGC=`busybox fgconsole`
  #sleep 4
 
+_say_modeset_status(){
+case $1 in
+0) _notice "$2:Successfully reloaded in modeset mode.";;
+1) _warn   "$2:Failed to load in modeset mode. Xorg may not start.";;
+2) _info   "$2:Already loaded in modeset mode.";;
+*) _warn   "FIXME:Unhandled return value '$1' for modeset loading of driver '$2'";;
+esac
+return 0
+}
+
+_get_modeset_status(){
+test "$*" || return 126
+test -e /proc/modules || return 125
+MODESET_STATUS=`grep "^$* " /proc/modules | awk '{print $3}'`
+return $MODESET_STATUS # 0=unused=nomodeset, otherwise used and modeset
+}
+
+_try_to_load_driver(){
+test "$1" || return 126
+local DRIVER="$1"
+local MM=${2:-1} # modesetmode
+local c
+_get_modeset_status $DRIVER || return 2
+while :; do
+c=$((c+1))
+case $c in
+1)   /sbin/modprobe $Q $VERB -r $DRIVER;   /sbin/modprobe $Q $VERB $DRIVER modeset=$MM;;
+2) busybox modprobe $Q $VERB -r $DRIVER; busybox modprobe $Q $VERB $DRIVER modeset=$MM;;
+*) break;;
+esac
+sleep 1
+_get_modeset_status $DRIVER || break
+done
+_get_modeset_status $DRIVER && false || true
+return $?
+}
+
+_force_kernel_modesetting(){
+case $HAVEX in *Xorg*)
+XORG_VERSION_ALL=`Xorg -version 2>&1`
+XORG_VERSION=`echo "$XORG_VERSION_ALL" | grep -m1 'X\.Org X Server [0-9\.]\+' | awk '{print $NF}'`
+ case $XORG_VERSION in 1.[7-9].*|1.[1-9][0-9].*)
+
+  for DRIVER in i915 nouveau nvidia radeon glrfx
+  do
+  if grep $Q "^$DRIVER " /proc/modules; then
+   _try_to_load_driver $DRIVER 1
+   _say_modeset_status $? $DRIVER
+  fi
+  done
+
+  ;;
+  esac
+;;
+esac
+}
+
+HAVEX=`realpath "$X_SERVER"`
+_force_kernel_modesetting
+
  #xwin -w enlightenment_start & ##2014-05-31 no forking to prevent vt switch or multiple instances
  #chvt 2
  #FGC=`busybox fgconsole`
@@ -85,6 +145,7 @@ _debug "END"
 #exit
 pidof reboot poweroff rc.shutdown >>$OUT && sleep 360
 test -s /tmp/xwin/wmexitmode.txt && read WMEXITMODE </tmp/xwin/wmexitmode.txt
+test -s "/tmp/xwin/wmexitmode.:1" && read WMEXITMODE <"/tmp/xwin/wmexitmode.:1"
 case $WMEXITMODE in *reboot*|*poweroff*) sleep 360;; esac
 
 chvt $FGC
