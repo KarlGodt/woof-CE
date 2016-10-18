@@ -122,7 +122,7 @@ test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 test -s /etc/rc.d/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
 
-VERSION=1.7.1
+VERSION=1.8.0
 
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
@@ -200,6 +200,55 @@ test "$*" || set - 0
  return $1 #return with same status as entry param.
 }
 
+Q=-q; QUIET=--quiet
+test "$VERBOSE" && unset Q QUIET
+
+#alias modprobe='/sbin/modprobe --first-time'
+alias modprobe="modprobe -b $Q $VERB"  ##+++2013-12-07
+alias chmod="chmod $VERB"              ##+++2016-10-13
+alias cp="cp $VERB"
+alias mount="busybox mount ${VERB:+'-vv'}"
+alias umount="busybox umount ${VERB:+}"
+alias mkdir="mkdir $VERB"
+alias rmdir="rmdir $VERB"
+alias ln="ln $VERB"
+alias mv="mv $VERB"
+alias rm="rm $VERB"
+alias chattr="chattr ${VERB:+'-V'}"
+
+### +++ 2016-10-08
+_check_chattr(){
+which chattr lsattr >>$OUT || return 3
+test "$*"    || return 2
+test -e "$*" || return 2
+stat -f -c %T / | grep $Q 'ext[2-5]' || return 1 # no ext2-4 filesystem
+lsattr -d "$*" | awk '{print $1}' | grep $Q 'i'  # returns 0 if contained, 1 if not
+}
+
+_mkdir(){
+test "$*"    || return 2
+test -d "$*" && return 0
+test -e "$*" && return 3
+_check_chattr "${*%/*}" && chattr -i "${*%/*}"
+#_check_chattr "$*"      && chattr -i "$*"
+mkdir -p "$*"
+}
+
+_remount_root(){
+local mode="$1"
+[ "$mode" ] || return 2
+#[ -L /proc/mounts -a -e /proc/mounts ] || {
+ stat -f -c %T /proc | grep $Q '^proc$' || {
+ #force /proc being mounted
+ mount -o remount,rw /dev/root / || return 3
+ _mkdir /proc                    || return 4
+ mount -t proc proc /proc        || return 5
+ }
+grep '^/dev/root / ' /proc/mounts | grep $Q -w "$mode" && return 0
+mount -o remount,$mode /dev/root /
+}
+
+_cleanup_tmp(){
 if [ "$PUPMODE" = 2 ]; then
 busybox mount $VERB $VERB -o remount,rw /dev/root /
 #sleep 1s;mkdir $VERB -p /root/my-documents/boot;cp $VERB -r /tmp /root/my-documents/boot/tmp.old  ###+++2011-12-04
@@ -207,8 +256,64 @@ sleep 1s;rm -rf /tmp/*;rm -rf /tmp/.[a-zA-Z0-9]*  ##+++2011-11-08 moved here #+2
  test -d /tmp || mkdir $VERB /tmp
  chmod $VERB 1777 /tmp
 else
+local STATUS=0
 status_func $STATUS
 fi
+}
+
+_mount_proc(){
+# STEP 1: unmount any overlay mounts of /proc
+while :
+do
+# /proc/mounts is a link to /proc/self/mounts
+# test -s /proc/self/mounts returns 1 always,
+# file    /proc/self/mounts returns 'empty'
+# file -s /proc/self/mounts returns 'ASCII text'
+##( _test_Lef /proc/mounts && _test_Led /proc/self ) || break
+# now trying stat ..
+stat -f -c %T /proc | grep $Q '^proc$' || break
+# unmount submounts like /proc/bus/usb
+M=`/bin/cat -E /proc/mounts`
+M=`echo $M | rev |sed 's/ $[0-9] [0-9] /\n/g' | rev`
+P=`echo "$M" | cut -f2 -d' ' | grep '/proc/' | cut -f1 -d' '`
+for oneP in $P; do oneP=`echo -e "$oneP"`; umount "$oneP"; done
+cut -f2 -d' ' /proc/mounts | grep $Q '^/proc$' && umount /proc && sleep 1 || break
+done
+# STEP 2: remove bottom most /proc directory
+_secure_remove_force /proc 2>/dev/null # printing errors if mounted is far too slow in kernel console
+# STEP 3: get /dev/root rw, create /proc directory and mount /proc
+_remount_root rw
+stat -f -c %T /proc | grep $Q '^proc$' && return 0
+_mkdir /proc
+mount -t proc proc /proc
+}
+_mount_proc
+
+_mount_sys(){
+while :
+do
+# /proc/mounts is a link to /proc/self/mounts
+# now trying stat ..
+stat -f -c %T /proc | grep $Q '^proc$' || return 2
+# unmount submounts like /sys/kernel/debug
+M=`/bin/cat -E /proc/mounts`
+M=`echo $M | rev |sed 's/ $[0-9] [0-9] /\n/g' | rev`
+S=`echo "$M" | cut -f2 -d' ' | grep '/sys/' | cut -f1 -d' '`
+for oneS in $S; do oneS=`echo -e "$oneS"`;
+_debugx $one$
+umount "$oneS"; done
+cut -f2 -d' ' /proc/mounts | grep $Q '^/sys$' && umount /sys && sleep 1 || break
+done
+_debug "`mount | grep '/sys'`"
+# STEP 2: remove bottom most /proc directory
+_secure_remove_force /sys 2>/dev/null # printing errors if mounted is far too slow in kernel console
+# STEP 3: get /dev/root rw, create /proc directory and mount /proc
+_remount_root rw
+_mkdir /sys
+mount -t sysfs sysfs /sys
+}
+_mount_sys
+
 
 __mount_proc(){
 if [ -d /proc ]; then
@@ -218,7 +323,7 @@ mkdir $VERB /proc
 busybox mount $VERB $VERB -t proc proc /proc
 fi
 }
-__mount_proc
+#__mount_proc
 
 __mount_sys(){
 if [ -d /sys ]; then
@@ -228,7 +333,9 @@ mkdir $VERB /sys
 busybox mount $VERB $VERB -t sysfs sysfs /sys
 fi
 }
-__mount_sys
+#__mount_sys
+
+_cleanup_tmp
 
 _link_dev_stdfd(){
 ln $VERB -snf ../proc/self/fd /dev/fd
@@ -277,7 +384,7 @@ mountpoint $Q /dev && _link_dev_stdfd && return $?
       }
      done
     IFS="$oldIFS"
-    _dev_std
+   #_link_dev_stdfd
     status_func $STATUS
 
 } ###+++2014-06-25
@@ -353,8 +460,8 @@ fi
 
 echo -e "\\033[56G\\033[1;5;32m"'Hurray , not found !'"$Res"
 echo -e "$YEL"'Checking for filesystem check intervals using'"$Res"
-LANG=C
-VARS=`dumpe2fs $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
+local LANG=C
+VARS=`dumpe2fs -h $DEVROOTDRIVE | grep -E 'Maximum mount count|Mount count|Next check after|Check interval'`
 
 ###+++2011-11-15 had logically removed this ; would have been a bug due interN used further down ash: bad number
 interC=`echo "$VARS" | grep 'Check interval' | tr '\n' ' '`
