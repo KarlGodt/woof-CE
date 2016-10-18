@@ -551,7 +551,7 @@ if [ -f /usr/bin/Xorg -a -f /etc/X11/xorg.conf ]; then
     #one driver is mtx_drv.o hmmm, okay do it this way (pakt)...
     ( ls -1 $DRVRSPATH/* | grep $Q -w "${DRVRCURR}_drv.so" ) 2>>$ERR
     if [ $? -ne 0 ]; then
-     aPATTERN="s/.*#card0driver/    Driver      \"vesa\" #card0driver/g"
+     aPATTERN="s/.*#card0driver/	Driver	\"vesa\" #card0driver/g"  #TAB
      cat /etc/X11/xorg.conf | sed -e "$aPATTERN" > "$TMP_DIR"/xorg.conf.tmp2
     _sync
      cp $VERB -f "$TMP_DIR"/xorg.conf.tmp2 /etc/X11/xorg.conf
@@ -679,9 +679,10 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '      
    #CURRENTPROFILE=`tac /etc/X11/xorg.conf | grep -m1 '^#PuppyHardwareProfile' | cut -f 2 -d '=' | cut -f 1 -d ' '`
    if [ "$CURRENTPROFILE" != "$HARDWAREPROFILE" ]; then
    if test "$DEBUG"; then
-   echo "  xorg.conf profie:$CURRENTPROFILE"
+   echo " xorg.conf profile:$CURRENTPROFILE"
    echo "current hw profile:$HARDWAREPROFILE"
-   exit
+   echo "DEBUG set, exiting now."
+   exit 0
    fi
     #video hardware has changed. either changed monitor or booting different PC.
     #same current xorg.conf as a profiled filename...
@@ -689,8 +690,8 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '      
     #if a previous profiled filename for new hardware, use that...
     [ -f /etc/X11/xorg.conf.${HARDWAREPROFILE} ] && cp $VERB -af /etc/X11/xorg.conf.${HARDWAREPROFILE} /etc/X11/xorg.conf
    fi
-  fi
- fi
+  fi  #[ "$RLX" = "Xorg" ]
+ fi   #[ -f /etc/X11/xorg.conf ]
  if [ ! -f /etc/X11/xorg.conf ]; then
   rm $VERB -f /var/run/XLOADED.":$DISP"  #not necessary, precaution.
   if test "$DEBUG"; then
@@ -712,9 +713,10 @@ PROFILEMONITOR=`echo "$DDCPROBE" | grep -iE '^monitorid: |^Monitor name: '      
     HAVEX=`basename $HAVEX`
     #fi
   ##[ "$HAVEX" = "Xvesa" ] && exec xwin #w482 need to restart xwin.
+  HAVEXvesa=`echo $HAVEX | grep -v -E 'Xorg|XF86_SVGA|Xfbdev|Xvfb|Xfake|Xnest'`
   [ "$HAVEXvesa" ] && exec xwin
- fi
-fi
+ fi  #[ ! -f /etc/X11/xorg.conf ]
+fi   #[ -f /usr/bin/Xorg ]
 _info "`date` 4: finished checking for Xorg"
 
 __deprecated_xloaded__(){
@@ -730,7 +732,7 @@ If it was just something like a power failure, wait for 30 seconds or choose <Ig
 If there is a problem, such as X not working, choose <Commandline> to drop out to a commandline. There will then be further advice how to fix X...
 
 If undecided, wait 30 seconds for normal startup of X..." 0 0
-  if [ ! $? = 1 ]; then
+  if [ $? != 1 ]; then
     rm $VERB /var/run/XLOADED.":$DISP"
   else
     echo -en '\033[1;31m' #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
@@ -752,7 +754,7 @@ _info "`date` 5: finished checking for XLOADED"
 ##if [ "$HAVEX" = "Xvesa" ];then #0.9.9
 if [ "$HAVEXvesa" ]; then
  #"$TMP_DIR"/videomode exists if starting X with new video test mode...
- if [ -e "$TMP_DIR"/videomode ]; then
+ if [ -s "$TMP_DIR"/videomode ]; then
   grep $Q " 800x600" "$TMP_DIR"/videomode
   if [ $? -eq 0 ]; then #=0 if found.
    if [ -e "$TMP_DIR"/Xflag ]; then
@@ -776,35 +778,38 @@ if [ "$HAVEXvesa" ]; then
   fi
  fi
  #"$TMP_DIR"/videomode exists if starting X with new video test mode...
- if [ -e "$TMP_DIR"/videomode ]; then
+ if [ -s "$TMP_DIR"/videomode ]; then
   #stored in format "0x0111 640x480x16"
-  VIDMODE=`cat "$TMP_DIR"/videomode | cut -f 1 -d ' '`
+  VIDMODE=`cut -f 1 -d ' ' "$TMP_DIR"/videomode`
   VIDSCRN=`cat "$TMP_DIR"/videomode | tr -s ' ' | cut -f 2 -d ' '`
- else
+ elif [ -s /etc/videomode ]; then
   #stored in format "0x0111 640x480x16"
-  VIDMODE=`cat /etc/videomode | cut -f 1 -d ' '`
+  VIDMODE=`cut -f 1 -d ' ' /etc/videomode`
   VIDSCRN=`cat /etc/videomode | tr -s ' ' | cut -f 2 -d ' '`
+ else
+  VIDMODE=0x0111
+  VIDSCRN=640x480x16
  fi
 fi
 _info "`date` 6: finished checking for HAVEXvesa"
 
 
 MOUSEBUTTONS=3
-if [ -e /etc/mousebuttons ]; then
+if [ -s /etc/mousebuttons ]; then
  #MOUSEBUTTONS=`cat /etc/mousebuttons`
  read MOUSEBUTTONS </etc/mousebuttons
 fi
 #v2.02 fix bug discovered by Dougal...
-if [ $MOUSEBUTTONS -eq 2 ]; then
+if [ "$MOUSEBUTTONS" -eq 2 ]; then
  #the problem is, if /etc/xextraoptions has '-2button' which turns on middle-button
  #emulation, if leave MOUSEBUTTONS=2 then the right button does not work.
  #have to pass '3' to Xvesa, meaning effectively 3 buttons available...
- [ "`cat /etc/xextraoptions | grep ' \-2button'`" ] && MOUSEBUTTONS=3
+ [ "`grep ' \-2button' /etc/xextraoptions`" ] && MOUSEBUTTONS=3
 fi
 
 #0.9.8
 XEXTRAOPTIONS=""
-if [ -e /etc/xextraoptions ]; then
+if [ -s /etc/xextraoptions ]; then
  #XEXTRAOPTIONS="`cat /etc/xextraoptions`"
  read XEXTRAOPTIONS </etc/xextraoptions
 fi
