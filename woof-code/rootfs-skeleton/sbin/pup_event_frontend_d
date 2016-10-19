@@ -70,9 +70,12 @@
 #
 #
 ########################################################################
+PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
 
-PROG='/sbin/pup_event_frontend_d'
-sleep 2s
+VERSION=1.1.1
+
+PROG='/sbin/pup_event_frontend_d'  # used in POWERTIMEOUT xmessage
+#sleep 2s # done further down
 PIDPROG=$$
 _debug PIDPROG=$PIDPROG
 ##PP1=$(( $PIDPROG + 1 ))
@@ -85,10 +88,36 @@ DISP=${DISPLAY%.*}
 _debug DISPLAY=$DISPLAY
 _debug DISP=$DISP
 
+trap "rm $VERB -f /var/run/pup_event_frontend_d.pid."$DISP"; exit" INT QUIT ABRT KILL TERM
+
 CASEPARAM="$1"
 [ -z "$1" ] && CASEPARAM="start"
-[ "$CASEPARAM" = "start" ] || [ "$CASEPARAM" = "restart" ] || [ "$CASEPARAM" = "stop" ] || exit
+case "$CASEPARAM" in
+*start|*stop|*restart|*help) :;;
+*) exit 1;;
+esac
 _debug "$CASEPARAM"
+
+_usage(){
+MSG="
+$MY_SELF [ start|stop|restart ]
+
+Script that creates drive icons on desktop
+if supported desktop manager is running.
+Currently supported desktop manager(s) : ROX-Filer .
+If enabled as daemon, polls /sys/block for changes
+if hotplug drives are inserted and removed
+like USB Pendrives, ZIP-Floppy drives, CD-ROM drives.
+
+Options:
+start   : starts this program
+stop    : stops this program
+restart : restarts this program if already running
+"
+MSG=`gettext "$MSG"`
+echo "$MSG"
+exit $?
+}
 
 kill_func_stop(){
 _debugx "`ps`"
@@ -116,7 +145,8 @@ done
 }
 
 case "$CASEPARAM" in
-stop)
+*help) _usage 0;;
+*stop)
 
 kill_func(){
 _debugx "`ps`"
@@ -146,7 +176,7 @@ rm $VERB -f /tmp/wmexitmode.txt
 rm $VERB -f /tmp/xwin/wmexitmode."$DISP"
 exit
 ;;
-restart)
+*restart)
 
 kill_func(){
 _debugx "`ps`"
@@ -179,9 +209,17 @@ exec pup_event_frontend_d &
 
 exit
 ;;
-start)
+*start) :;;
+*) _warn "TODO: Unhandled option '$CASEPARAM'"; exit 3;;
+esac
 
-[ "$DISPLAY" ] || exit #X not running.
+if test -s /var/run/pup_event_frontend_d.pid."$DISP"; then
+read PUPPID </var/run/pup_event_frontend_d.pid."$DISP"
+echo "$0: Already running as process nr. '$PUPPID' ."
+exit 2
+fi
+
+[ "$DISPLAY" ] || _exit 2 "Need X running in current vt." #X not running.
 export LANG=C #w004
 
 echo $PIDPROG >/var/run/pup_event_frontend_d.pid."$DISP"
@@ -213,19 +251,20 @@ fi
 
 ZDRV='';ZDRVINIT='no' #these usually set in PUPSTATE.
 . /etc/rc.d/PUPSTATE
-PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin"
-KERNVER=`uname -r`
-. /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
+KERNVER=${KERNVER:-`uname -r`}
 . /etc/rc.d/functions4puppy4
 
-
 eventmanager_func(){
+if test -s /etc/eventmanager."$DISP".conf; then
+. /etc/eventmanager."$DISP".conf
+else
 . /etc/eventmanager #has RAMSAVEINTERVAL, ICONDESK, HOTPLUGNOISY, ICONPARTITIONS, BACKENDON, POWERTIMEOUT
+fi
 
-[ "$RAMSAVEINTERVAL" ] || RAMSAVEINTERVAL=30 #412
+RAMSAVEINTERVAL=${RAMSAVEINTERVAL:-30} #412 minutes
 RAMSAVEINTERVAL=$(( RAMSAVEINTERVAL * 60 )) #convert minutes to seconds.
 
-[ "$POWERTIMEOUT" ] || POWERTIMEOUT=0 #w007
+POWERTIMEOUT=${POWERTIMEOUT:-0} #w007
 POWERTIMEOUT=$(( POWERTIMEOUT * 60 )) #convert minutes to seconds.
 _notice "POWERTIMEOUT='$POWERTIMEOUT'"
 SIZE_MODS_M=0
@@ -255,7 +294,7 @@ pingridstep_func
 case $PIN_GRID_STEP in
 2)
  read CWM </etc/windowmanager."$DISP"
- if [ "$CWM" = "jwm" ]; then
+ case "$CWM" in *jwm*)
   JwmL=`grep -E -i 'Tray | autohide | insert | x | y | insert' /root/.jwmrc-tray`
   Position=`echo $JwmL | grep -o 'y=.*$' | cut -f 1 -d ' ' |  cut -f 2 -d '"'`
   if [ "$Position" = "-1" ] ; then ## -1=BOTTOM ; 0=TOP
@@ -277,7 +316,8 @@ case $PIN_GRID_STEP in
    *)    JPV_Y=0 ;;
    esac
  fi
-fi
+ ;;
+ esac
 ;;
 esac
 [ -z "$JPV_Y" ] && JPV_Y=1
@@ -286,70 +326,62 @@ jwm_taskbar_func #KRG to get variables
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
+local STATUS=0
  for oneMNTPT in `grep '^/dev/' /proc/mounts | grep -vE '/loop|/ram' | cut -f 2 -d ' ' | grep -vE '^/initrd/|^/$'`
  do
   if [ "`fuser -v -m $oneMNTPT`" = "" ];then
    _sync
-   /bin/umount $VERB "$ONEMNTPT" ; umVAL=$?
+   _info "Attempt to unmount '$oneMNTPT' .."
+   /bin/umount $VERB "$oneMNTPT" ; umVAL=$?
    #code from pmount: fix zombie process prevents partition unmount, invisible to fuser...
-   if [ $umVAL -ne 0 ];then
-    ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`
-    for oneZOMBIE in $ZOMBIES
-    do
-     kill $oneZOMBIE
-    done
-    /bin/umount $ONEMNTPT ; umVAL=$?
+   if [ "$umVAL" -ne 0 ];then
+    #ZOMBIES=`/bin/ps -H -A | grep '<defunct>' | sed -e 's/  /|/g' | grep -v '|||' | awk '{print $1}'`
+    #for oneZOMBIE in $ZOMBIES
+    #do
+    # kill $oneZOMBIE
+    #done
+    _killzombies # f4puppy5
+    /bin/umount $VERB "$oneMNTPT"
+   else true
    fi
+   STATUS=$((STATUS+$?))
+  else
+   _info "Mountpoint '$oneMNTPT' in use."
   fi
  done
+return $STATUS
 }
 
 format_size_func() {
-    local sizeLOCAL SIZE1 SIZE2
-#echo "format_size_func Begin" #DBG
-#echo "$diskNAME $partNAME"
+local sizeLOCAL SIZE1 SIZE2
+_debugx "format_size_func Begin" #DBG
     sizeLOCAL=$1
-    test "$sizeLOCAL" || sizeLOCAL=$SIZE
-#echo sizeLOCAL=$sizeLOCAL #DBG
- [ "$sizeLOCAL" ] || sizeLOCAL=0
+    sizeLOCAL=${sizeLOCAL:-"$SIZE"}
+    sizeLOCAL=${sizeLOCAL:-0}
 
  if [ "$sizeLOCAL" -gt 1048576 ];then #1024*1024
- #echo "first if"
   sizeLOCAL=`dc $sizeLOCAL 1048576 \/ p`
-  #echo $SIZE #DBG
   sizeLOCAL=`echo $sizeLOCAL | tr ',' '.'`
-  #echo $SIZE #DBG
   SIZE1=`echo $sizeLOCAL | cut -f 1 -d '.'`
   SIZE2=`echo $sizeLOCAL | cut -f 2 -d '.'`
-  SIZE2=`echo $SIZE2 | sed -r 's/(.)/ \1/g ; s#^ ##'`
-  #echo "$SIZE2"
+  SIZE2=`echo $SIZE2 | sed -r 's/(.)/\1 /g`
   SIZE2=`echo "$SIZE2" | cut -f 1 -d ' '`
   SIZE="`printf "%s"','"%s" $SIZE1 $SIZE2`GB"
   #SIZE=`echo "scale=0; $SIZE * 1" | bc`
-  #echo $SIZE #DBG
-  #echo "fist if end" #DBG
  elif [ "$SIZE" -gt 99 ];then
-  #echo "second if" #DBG
    SIZE="$((sizeLOCAL / 1024))MB"
-   #echo $SIZE #DBG
-   #echo "second if end" #DBG
  else
-  #echo "second else" #DBG
    SIZE1=`dc $sizeLOCAL 1024 \/ p`
-   #echo $SIZE #DBG
    SIZE2=`echo $SIZE1 | tr ',' '.'`
-   #echo $SIZE #DBG
    SIZE1=`echo $SIZE2 | cut -f 1 -d '.'`
    SIZE2=`echo $SIZE1 | cut -f 2 -d '.'`
-   SIZE2=`echo $SIZE2 | sed -r 's/(.)/ \1/g ; s#^ ##'`
-   #echo "$SIZE2"
+   SIZE2=`echo $SIZE2 | sed -r 's/(.)/\1 /g`
    SIZE2=`echo "$SIZE2" | cut -f 1 -d ' '`
    SIZE="`printf "%s"','"%s" $SIZE1 $SIZE2`GB"
    #SIZE="`printf "%.1f" $SIZE`MB"
-  #echo $SIZE #DBG
  fi
  case "$SIZE" in 0.0MB|0,0MB) SIZE="0";; esac
- #echo "format_size_func End" #DBG
+_debugx "format_size_func End" #DBG
 }
 
 screen_start_func() {
@@ -768,18 +800,18 @@ probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
  #...returns 0 if disc inserted, else 255.
  CDSTATUS2="$?"
  [ "$CDSTATUS2" != "0" -a -d /root/.pup_event/drive_${diskNAME} ] && rm $VERB -rf /root/.pup_event/drive_${diskNAME} #v410 ensure no drive directory if drive empty.
- echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${diskNAME}
+ echo "$CDSTATUS2" > /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP"
 
- [ -f /tmp/pup_event_frontend_identify1_${diskNAME} ] || {
-     _debugx "copying pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}"
-     cp $VERB /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+ [ -f /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP" ] || {
+     _debugx "copying pup_event_frontend_identify2_${diskNAME}.$DISP        pup_event_frontend_identify1_${diskNAME}.$DISP"
+        cp $VERB /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP" /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP"
     }
 
- read CDSTATUS1 </tmp/pup_event_frontend_identify1_${diskNAME}
+ read CDSTATUS1 </tmp/pup_event_frontend_identify1_${diskNAME}."$DISP"
  [ "$CDSTATUS1" = "$CDSTATUS2" ] && { echo "probe_optical_func:$CDSTATUS1 = $CDSTATUS2"; return; }
 
- _debug "Updating /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME} ."
- cp $VERB -f /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+ _debug "Updating /tmp/pup_event_frontend_identify2_${diskNAME}.$DISP   /tmp/pup_event_frontend_identify1_${diskNAME}.$DISP ."
+      cp $VERB -f /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP" /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP"
 
  if [ "$CDSTATUS2" = "0" ]; then
    _debugx "CDSTATUS2 is 0"
@@ -808,18 +840,18 @@ probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
  diskMAIN=`echo -n "$DRV_NAME" | cut -c 1,2` #sd or hd.
  diskCATEGORY="floppy"
  floppyPATTERN="^/dev/$diskNAME"
- [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return #mounted.
+ [ "`grep "$floppyPATTERN" /proc/mounts`" ] && return 0 #mounted.
  if [ "$diskMAIN" = "hd" ]; then
-  cat /proc/ide/${diskNAME}/identify > /tmp/pup_event_frontend_identify2_${diskNAME}
+  cat /proc/ide/${diskNAME}/identify > /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP"
  else
   #this method not as good, as only detects disc if it has a partition...
   floppyPATTERN=" ${diskNAME}"
-  grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${diskNAME}
+  grep "$floppyPATTERN" /proc/partitions > /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP"
  fi
- [ -f /tmp/pup_event_frontend_identify1_${diskNAME} ] || cp $VERB /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+ [ -f /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP" ] || cp $VERB /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP" /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP"
  #[ "`diff -s /tmp/pup_event_frontend_identify1_${diskNAME} /tmp/pup_event_frontend_identify2_${diskNAME} | grep ' are identical'`" != "" ] && return
- diff $Q -s /tmp/pup_event_frontend_identify1_${diskNAME} /tmp/pup_event_frontend_identify2_${diskNAME} && return
- cp $VERB -f /tmp/pup_event_frontend_identify2_${diskNAME} /tmp/pup_event_frontend_identify1_${diskNAME}
+  diff $Q -s /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP" /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP" && return
+ cp $VERB -f /tmp/pup_event_frontend_identify2_${diskNAME}."$DISP" /tmp/pup_event_frontend_identify1_${diskNAME}."$DISP"
  FLOPPYSTATUS=1
  [ "`disktype /dev/${diskNAME} 2>&1 | grep 'I/O error'`" ] || FLOPPYSTATUS=0
  if [ "$FLOPPYSTATUS" = "0" ]; then
@@ -866,14 +898,13 @@ legacy_floppies_func() {
 local LEG_FLOPPY oneFD
 LEG_FLOPPY=`ls /sys/block | grep 'fd[0-9]*' | sort -r`
 if [ "$FD0ICON" = "true" ];then #see /etc/eventmanager
-  #if [ -e /sys/block/fd0 ];then
   for oneFD in $LEG_FLOPPY ; do
    PROBEDISK="/dev/$oneFD|floppy|Legacy_floppy_drive
 $PROBEDISK"
    PROBEPART="/dev/$oneFD|vfat|1440
 $PROBEPART"
   done
-#  fi
+else true
 fi
 }
 
@@ -899,20 +930,11 @@ PROBEDISK=`echo "$PROBEDISK" | tr ' ' '\n'`
 
 probepart_func() {
 #PROBEPART="`probepart -k | grep -i -E '\|FAT.*|\|ext4|\|ntfs|\|msdos|\|vfat|\|ext2|\|ext3|\|iso9660|\|xfs|\|reiser'`"
-PROBEPART=`probepart -k | grep -v -i -E "swsuspend|none|unknown|swap|Ext'd|Extended|not inserted|\|0\||\|\|"` #'geany
+PROBEPART=`probepart -k | grep -v -i -E "swsuspend|none|unknown|swap|Ext'd|Extended|not inserted|\|0\||\|\|"`
 }
 
 definition_func() {
-    #PD=`echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr ' ' '_' | tr '\n' ' '`
 
-#for ONEDRV in `echo "$PROBEDISK" | cut -f 1,2,3 -d '|' | tr '\n' ' '`
-# do
-#  DRV_NAME="`echo -n "$ONEDRV" | cut -f 1 -d '|' | cut -f 3 -d '/'`"
-#  DRV_CATEGORY="`echo -n "$ONEDRV" | cut -f 2 -d '|'`"
-#  DRV_DESCRIPTION="`echo -n "$ONEDRV" | cut -f 3 -d '|' | tr '_' ' '`"
-#  [ "`echo "$PROBEPART" | grep "$DRV_NAME"`" = "" ] && continue #precaution (such as CD not inserted).
-#  create_icon_func startup #needs DRV_NAME, DRV_CATEGORY, DRV_DESCRIPTION, PROBEPART.
-# done
 while read diskNAME diskCATEGORY DRV_DESCRIPTION
 do
 [ "$diskNAME" -a "$diskCATEGORY" -a "$DRV_DESCRIPTION" ] || continue
@@ -957,12 +979,14 @@ drive_icon_func
 
 hotplug_prove_func() {
 if [ "$BACKENDON" = "false" ];then #see /etc/eventmanager.
- killall hotplug2stdout #pup_event_backend_d #no module/firmware hotplug support.
+ killall hotplug2stdout 2>>$ERR #pup_event_backend_d #no module/firmware hotplug support.
  #...kill hotplug2stdout, as that will cause pup_eventd_backend_d to die.
- pidof udevd >>$OUT && killall udevd #alternative to pup_event_backend_d.
- exit
+ pidof udevd >>$OUT && killall udevd 2>>$ERR #alternative to pup_event_backend_d.
 fi
-[ "$HOTPLUGON" = "false" ] && exit #turn off all frontend hotplug support. see /etc/eventmanager.
+if [ "$HOTPLUGON" = "false" ]; then
+rm $VERB -f /var/run/pup_event_frontend_d.pid."$DISP"
+exit 0 #turn off all frontend hotplug support. see /etc/eventmanager.
+fi
 }
 hotplug_prove_func
 
@@ -970,9 +994,9 @@ TOGGLE=1
 SAVECNT=0
 MOUSECNT=0  #w007
 MINUTECNT=0 #w007
-CURPOS1=""  #w007
+CURPOS1="-1 -1"  #w007
 [ "$DEBUG" ] && echo -n "" > /tmp/pup_event_frontend_d_curpos.log #w007
-ls -1v /sys/block | grep -vE 'ram|nbd|loop|md|mtd' >/tmp/pup_event_frontend_block1
+ls -1v /sys/block | grep -vE 'loop|md|mtd|nbd|ram' >/tmp/pup_event_frontend_block1."$DISP"
 
 pup_event_frontend_d_main() {
 ###################################################################
@@ -988,25 +1012,22 @@ do
 
  #test for any change in /sys/block...
  #ls -1 --hide=ram* --hide=loop* /sys/block > /tmp/pup_event_frontend_block2
- ls -1v /sys/block | grep -vE 'ram|nbd|loop|md|mtd' >/tmp/pup_event_frontend_block2
+ ls -1v /sys/block | grep -vE 'loop|md|mtd|nbd|ram' >/tmp/pup_event_frontend_block2."$DISP"
  if [ -f /tmp/pup_event_frontend_block_request ];then #w015
   sleep 0.1
   REMOVEBLOCK='^'"`cat /tmp/pup_event_frontend_block_request`"'$'
-  BLOCKS2=`grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2`
-  echo "$BLOCKS2" > /tmp/pup_event_frontend_block2
+  BLOCKS2=`grep -v "$REMOVEBLOCK" /tmp/pup_event_frontend_block2."$DISP"`
+  echo "$BLOCKS2" > /tmp/pup_event_frontend_block2."$DISP"
   rm $VERB -f /tmp/pup_event_frontend_block_request
  fi
- #[ -f /tmp/pup_event_frontend_block1 ] || cp $VERB /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
- BLOCKDIFF="`diff -u /tmp/pup_event_frontend_block1 /tmp/pup_event_frontend_block2`"
 
  #########hotplug block event##########
+ BLOCKDIFF=`diff -u /tmp/pup_event_frontend_block1."$DISP" /tmp/pup_event_frontend_block2."$DISP"`
  if [ "$BLOCKDIFF" ]; then
 
-  cp $VERB -f /tmp/pup_event_frontend_block2 /tmp/pup_event_frontend_block1
+  cp $VERB -f /tmp/pup_event_frontend_block2."$DISP" /tmp/pup_event_frontend_block1."$DISP"
 
-  #BLOCKSADD=`echo "$BLOCKDIFF" | grep '^> ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
   BLOCKSADD=`echo "$BLOCKDIFF" | grep '^\+[[:alpha:]].*' | tr -d '\+'`
-  #BLOCKSREM=`echo "$BLOCKDIFF" | grep '^< ' | cut -f 2-9 -d ' ' | tr '\n' ' '`
   BLOCKSREM=`echo "$BLOCKDIFF" | grep '^\-[[:alpha:]].*' | tr -d '\-'`
 
   ACTION=add
@@ -1062,7 +1083,7 @@ do
    CURPOS2=`getcurpos`
    _debug "CURPOS2=$CURPOS2"
    [ "$DEBUG" ] && echo "MOUSECNT=$MOUSECNT CURPOS2=$CURPOS2" >> /tmp/pup_event_frontend_d_curpos.log
-   [ "$CURPOS1" ] || CURPOS1="$CURPOS2"
+   #[ "$CURPOS1" ] || CURPOS1="$CURPOS2"
    [ "$CURPOS1" = "$CURPOS2" ] || MOUSECNT=0
    CURPOS1="$CURPOS2"
    _debug "MOUSECNT=$MOUSECNT" "POWERTIMEOUT=$POWERTIMEOUT"
@@ -1149,7 +1170,8 @@ $PIDPROG"
 done #2 second loop.
 }
 pup_event_frontend_d_main
-;;
-esac
+#;;  # start
+#esac
+rm $VERB -f /var/run/pup_event_frontend_d.pid."$DISP"
 echo "$0:Stopped."
 ###END###
