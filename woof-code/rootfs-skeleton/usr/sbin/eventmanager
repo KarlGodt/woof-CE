@@ -7,15 +7,13 @@
 #v412 workaround, someone exited with invalid settings.
 #w007 mouse inactivity computer power-down.
 #w464 /etc/puppyversion is now history.
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #v424 automatic unmounting (see pup_event_frontend_d).
 
 ########################################################################
 #
 # CHANGES by Karl Reimer Godt
-# 01.0 : splitted the gui notebook tabs into several single vars 
-#        to reduce duplicate code 
+# 01.0 : splitted the gui notebook tabs into several single vars
+#        to reduce duplicate code
 # 02.0 : added PuppyPin_RoxPinBoard notebook tab
 #
 #
@@ -44,7 +42,11 @@
 #
 ########################################################################
 
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
 PROG='/usr/sbin/eventmanager'
+CONF_FILE=/etc/eventmanager
 PARENT="$0"
 
 SHOWMODE=$1 #v405 optional to modify gui.
@@ -55,40 +57,73 @@ PUPPYVERSION="$DISTRO_VERSION"
 KERNVER="`uname -r`"
 . /etc/rc.d/MODULESCONFIG
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager
+_exit_with_xmessage(){
+RV=$1
+case $1 in
+0) bgCOLOUR=green;;
+*) bgCOLOUR=red;;
+esac
+shift
+
+if test "$*"; then
+ if test "$DISPLAY"; then
+
+ xmessage -title "Puppy Eventmanager" -timeout 10 -nearmouse -bg $bgCOLOUR "Puppy Eventmanager:
+
+ $*" &
+ else
+ echo "$*"
+ fi
+else false
+fi
+
+exit $RV
+}
+
+[ -s $CONF_FILE ] && { . $CONF_FILE || _exit_with_xmessage 2 "Error reading $CONF_FILE ."; }
+
 [ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
-[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
 [ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
 [ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
 [ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
 [ "$HOTPLUGON" != "true" -a "$HOTPLUGON" != "false" ] && HOTPLUGON="true"
 [ "$BACKENDON" != "true" -a "$BACKENDON" != "false" ] && BACKENDON="true"
 [ "$FD0ICON" != "true" -a "$FD0ICON" != "false" ] && FD0ICON="true"
+
+[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
 [ ! $POWERTIMEOUT ] && POWERTIMEOUT=0 #w007 0=never.
 [ ! $AUTOUNMOUNT ] && AUTOUNMOUNT="false" #v424
 
 [ -z "$ICON_PLACE_START_GAP" ] && ICON_PLACE_START_GAP=32 #KRG
 [ -z "$ICON_PLACE_EDGE_GAP" ] && ICON_PLACE_EDGE_GAP=64
 [ -z "$ICON_PLACE_ORIENTATION" ] && ICON_PLACE_ORIENTATION='bottom'
+
 if [ -z "$ICON_PLACE_SPACING" ] ; then
-case "`xwininfo -root | grep '\-geometry' | sed 's#^[[:blank:]]*##' | cut -f2 -d ' ' | sed 's#+.*##' | cut -f 2 -d 'x'`" in
-480) ICON_PLACE_SPACING=8 ;;
-600) ICON_PLACE_SPACING=16 ;;
-768) ICON_PLACE_SPACING=32 ;;
-1024) ICON_PLACE_SPACING=48 ;; 
+GEO_ROOT=`xwininfo -root | grep '\-geometry' | sed 's#^[[:blank:]]*##' | cut -f2 -d ' ' | sed 's#+.*##' | cut -f 2 -d 'x'`
+GEO_ROOT=${GEO_ROOT:-1024}
+test "$GEO_ROOT" -ge 480  || GEO_ROOT=480
+test "$GEO_ROOT" -le 9999 || GEO_ROOT=9999
+case "$GEO_ROOT" in
+480)  ICON_PLACE_SPACING=8  ;;
+600)  ICON_PLACE_SPACING=16 ;;
+768)  ICON_PLACE_SPACING=32 ;;
+1024) ICON_PLACE_SPACING=48 ;;
 1200) ICON_PLACE_SPACING=64 ;;
+*)    ICON_PLACE_SPACING=64 ;;
 esac
 fi
+
 if [ -n "$ICON_PLACE_ORIENTATION" ] ; then
 case $ICON_PLACE_ORIENTATION in
 bottom) ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
-right) ICONPOSITIONR="true" ; ICONPOSITIONB="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;; 
-top) ICONPOSITIONT="true" ; ICONPOSITIONR="false" ; ICONPOSITIONB="false" ; ICONPOSITIONL="false" ;;
-left) ICONPOSITIONL="true" ; ICONPOSITIONB="false" ;  ICONPOSITIONR="false" ; ICONPOSITIONT="false" ;;
-*) ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
+right)  ICONPOSITIONR="true" ; ICONPOSITIONB="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
+top)    ICONPOSITIONT="true" ; ICONPOSITIONR="false" ; ICONPOSITIONB="false" ; ICONPOSITIONL="false" ;;
+left)   ICONPOSITIONL="true" ; ICONPOSITIONB="false" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ;;
+*)      ICONPOSITIONB="true" ; ICONPOSITIONR="false" ; ICONPOSITIONT="false" ; ICONPOSITIONL="false" ;;
 esac
 fi
-ICONPOS="
+
+HBOX_ICONPOS="
   <hbox>
   <text xalign=\"0\"><label>Choose Position of Icons :</label></text>
   <radiobutton>
@@ -117,23 +152,24 @@ ICONPOS="
 ##other vars
 PGS=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
 echo $PGS
-DIS=`grep 'DRVICON=.*' /etc/rc.d/functions4puppy4 | head -n 1 | grep -o '[-0-9]*'`
+DIS=`grep 'DRVICON=.*' /etc/rc.d/functions4puppy4 | head -n 1 | grep -o '[-0-9]\+'`
 [ -z "$DIS" ] && DIS=48
-HDIS=$(( $DIS / 2 ))  ###KRG
+HDIS=$(( DIS / 2 ))  ###KRG
 
 #w007 as have a optional cutdown gui, make sure these are all preset...
 NEWICONDESK="$ICONDESK"
-NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
-NEWHOTPLUGNOISY="$HOTPLUGNOISY"
-NEWAUTOTARGET="$AUTOTARGET"
 NEWICONPARTITIONS="$ICONPARTITIONS"
+NEWFD0ICON="$FD0ICON"
 NEWHOTPLUGON="$HOTPLUGON"
 NEWBACKENDON="$BACKENDON"
-NEWFD0ICON="$FD0ICON"
-NEWPOWERTIMEOUT=$POWERTIMEOUT
+NEWHOTPLUGNOISY="$HOTPLUGNOISY"
+NEWAUTOTARGET="$AUTOTARGET"
 NEWAUTOUNMOUNT="$AUTOUNMOUNT"
+NEWRAMSAVEINTERVAL=$RAMSAVEINTERVAL
+NEWPOWERTIMEOUT=$POWERTIMEOUT
+NEWIPSGAP=$ICON_PLACE_START_GAP
 
-Drive_icons_on_desktop="
+FRAMES_DESKTOP_ICONS="
 <frame Drive icons on desktop>
  <vbox>
   <text><label>When this box is ticked, there will be an icon for each drive. If you plugin a USB pen drive for example, an icon will appear. Unplug and it will disappear. If you don't want these drive icons on the desktop, untick this box (but there will still remain just one icon that will launch Pmount when clicked on). The individual drive icons are purely a convenience and Puppy works fine without them.</label></text>
@@ -144,7 +180,7 @@ Drive_icons_on_desktop="
   </checkbox>
  </vbox>
 
-<frame>
+ <frame>
   <vbox>
   <text><label>If the above is ticked, then you can choose to have an icon for each partition, rather than one icon for the entire drive:</label></text>
   <checkbox>
@@ -154,25 +190,26 @@ Drive_icons_on_desktop="
   </checkbox>
   </vbox>
  </frame>
-<frame>
- ${ICONPOS}
-</frame>
-<frame>
+
+ <frame>
+ ${HBOX_ICONPOS}
+ </frame>
+
+ <frame>
   <checkbox>
    <label>Tick box to erase then redraw and realign existing icons</label>
    <default>false</default>
    <variable>NEWICONWIPE</variable>
   </checkbox>
-</frame>
+ </frame>
 </frame>
 "
 
-Drive_handler="
+FRAME_DRIVE_HANDLER="
 <frame Drive 'handler'>
- 
+
  <vbox>
   <text><label>The 'handler' decides what to do when you click on a desktop drive icon. Normally, this just starts Pmount if you click on a drive icon, or mounts it and starts ROX-Filer if a partition icon, but this behavior can be extended by these checkboxes.</label></text>
-  
   <text><label>This checkbox extends the default behavior, and will launch a more appropriate application. Currently, it adds detection of a video DVD or audio CD and launches the media player:</label></text>
   <checkbox>
    <label>Tick box for auto-detection of target application</label>
@@ -180,7 +217,7 @@ Drive_handler="
    <variable>NEWAUTOTARGET</variable>
   </checkbox>
  </vbox>
-  
+
  <vbox>
   <text><label>Normally you have to click on a drive icon to run the 'handler', but this checkbox makes the 'handler' run as soon as a media is plugged in. For example, plug in a DVD and it will immediately either get mounted, or if the above checkbox is ticked the media player will run:</label></text>
   <checkbox>
@@ -189,10 +226,11 @@ Drive_handler="
    <variable>NEWHOTPLUGNOISY</variable>
   </checkbox>
  </vbox>
- </frame>
+
+</frame>
 "
 
-Legacy="
+FRAME_FLOPPY="
 <frame Legacy>
   <text><label>Linux does not support hotplug detection of when a legacy floppy diskette is inserted or removed. Periodic probing requires starting the drive motor, which is very slow -- and do you want the motor to startup every 4 seconds? Therefore, if your PC has a floppy drive, tick this box to have a permanent icon on desktop (regardless whether a diskette is actually inserted, or even a floppy drive!).</label></text>
   <checkbox>
@@ -200,10 +238,10 @@ Legacy="
    <default>${FD0ICON}</default>
    <variable>NEWFD0ICON</variable>
   </checkbox>
- </frame>
+</frame>
 "
 
-Activate_Puppy_Event_Manager="
+FRAMES_ACTIVATE="
 <frame Activate Puppy Event Manager>
 <text><label>The 'pup_event' Puppy Event Daemon runs in the background and handles hotplugging of drives, including the desktop drive icons. This also includes automatic module and firmware loading if new hardware is detected. However, turn it all off, and Puppy will revert to the same behaviour as versions prior to 4.x, in which there is no hotplug support. This reduces resource usage, so try unticking these on very old slow PCs. Pmount can still be run manually to mount and unmount partitions.</label></text>
   <checkbox>
@@ -211,130 +249,152 @@ Activate_Puppy_Event_Manager="
    <default>${BACKENDON}</default>
    <variable>NEWBACKENDON</variable>
   </checkbox>
-  
-<frame>
-<hbox>
-<text><label>\"  \"</label></text>
-  
-<vbox>
-<text><label>If the above is ticked, then can also turn on these:</label></text>
-<checkbox>
-<label>Tick box for desktop hotplug support</label>
-<default>${HOTPLUGON}</default>
-<variable>NEWHOTPLUGON</variable>
-</checkbox>
-  <checkbox>
-   <label>Tick box for auto unmounting of partitions</label>
-   <default>${AUTOUNMOUNT}</default>
-   <variable>NEWAUTOUNMOUNT</variable>
-  </checkbox>
-<text><label>(WARNING: auto unmounting is highly experimental)</label></text>
-</vbox>
-</hbox>
-</frame>
- 
+
+ <frame>
+  <hbox>
+  <text><label>\"  \"</label></text>
+
+   <vbox>
+   <text><label>If the above is ticked, then can also turn on these:</label></text>
+    <checkbox>
+    <label>Tick box for desktop hotplug support</label>
+    <default>${HOTPLUGON}</default>
+    <variable>NEWHOTPLUGON</variable>
+    </checkbox>
+
+    <checkbox>
+    <label>Tick box for auto unmounting of partitions</label>
+    <default>${AUTOUNMOUNT}</default>
+    <variable>NEWAUTOUNMOUNT</variable>
+    </checkbox>
+
+    <text><label>(WARNING: auto unmounting is highly experimental)</label></text>
+   </vbox>
+  </hbox>
+ </frame>
+
 </frame>
 "
 
-Periodic_save_from_RAM="
+FRAME_RAMSAVE="
 <frame Periodic save from RAM>
-<vbox>
-<text><label>Puppy runs in a particular 'state' that we call the PUPMODE. This depends on the type of installation and the type of hardware. Currently, PUPMODE=${PUPMODE}. If it is an odd number, for example 13, then Puppy is doing everything in RAM and saving the current session to a drive periodically -- this is done in the case of Flash memory to make it last longer. When Puppy runs in an odd PUPMODE, there will be a 'save' icon on the desktop, also a save occurs at shutdown. You can also specify a periodic save here:</label></text>
-<hbox>
-<text><label>Save interval (0=never):</label></text>
-   <entry max_length=\"4\">
+ <vbox>
+ <text><label>Puppy runs in a particular 'state' that we call the PUPMODE. This depends on the type of installation and the type of hardware. Currently, PUPMODE=${PUPMODE}. If it is an odd number, for example 13, then Puppy is doing everything in RAM and saving the current session to a drive periodically -- this is done in the case of Flash memory to make it last longer. When Puppy runs in an odd PUPMODE, there will be a 'save' icon on the desktop, also a save occurs at shutdown. You can also specify a periodic save here:</label></text>
+  <hbox>
+  <text><label>Save interval (0=never):</label></text>
+   <hbox> # needs this hbox to format correctly to width-chars
+   <entry width-chars=\"4\" max-length=\"4\">
     <default>${RAMSAVEINTERVAL}</default>
     <variable>NEWRAMSAVEINTERVAL</variable>
    </entry>
-<text><label>minutes</label></text>
-<text><label>\"       \"</label></text>
-</hbox>
-<text><label>NOTE1: PUPMODE=77 (multisession DVD) excluded, only manual save with desktop icon and at shutdown.</label></text>
-<text><label>NOTE2: PUPMODE=5 (firstboot of LiveCd) there are no saves, above value ignored.</label></text>
-</vbox>
+   </hbox>
+  <text><label>minutes</label></text>
+  <text><label>\"       \"</label></text>
+  </hbox>
+ <text><label>NOTE1: PUPMODE=77 (multisession DVD) excluded, only manual save with desktop icon and at shutdown.</label></text>
+ <text><label>NOTE2: PUPMODE=5 (firstboot of LiveCd) there are no saves, above value ignored.</label></text>
+ </vbox>
 </frame>
 "
 
-PuppyPin_RoxPinBoard="
+FRAMES_PP_ROX="
 <frame PuppyPin RoxPinBoard>
-<vbox>
-<combobox>
-<item>This new tab lets you define some variables for the drive icons :</item>
-<item>Note , that 'Rox-Filer > Options > Pinboard > Icon grid step'</item>
-<item>affects the placement of new created icons on the pinboard :</item>
-<item>Fine=2 Medium=16 Coarse=32 .</item>
-<item>The values you put in here should be whole devideable by it.</item>
-<item>Also note , that in Puppy4 X has to be restarted</item>
-<item>to get changes to the pin grid step working .</item>
-</combobox>
-</vbox>
-<frame Note :>
+#<vbox>
+#<combobox>
+#<item>This new tab lets you define some variables for the drive icons.</item>
+#<item>Note , that 'Rox-Filer > Options > Pinboard > Icon grid step'</item>
+#<item>affects the placement of new created icons on the pinboard :</item>
+#<item>Fine=2 Medium=16 Coarse=32 .</item>
+#<item>The values you put in here should be whole devideable by it.</item>
+#<item>Also note, that in Puppy4 X has to be restarted</item>
+#<item>to get changes to the pin grid step working.</item>
+#</combobox>
+#</vbox>
+
+<text width-chars=\"60\">
+ <label>\"This new tab lets you define some variables for the drive icons.
+Note , that 'Rox-Filer > Options > Pinboard > Icon grid step'
+affects the placement of new created icons on the pinboard :
+Fine=2 Medium=16 Coarse=32 .
+The values you put in here should be whole devideable by it.
+Also note, that in Puppy4 X has to be restarted,
+to get changes to the pin grid step working.\"
+ </label>
+</text>
+
+ <frame Note :>
  <hbox>
-  <text><label>All three variables have to be</label></text> 
- <hbox>
- <text><label>integerally devideable by actual pin_grid_step=$PGS</label></text>
- </hbox> 
+  <text><label>All three variables have to be</label></text>
+   <hbox>
+   <text><label>integerally devideable by actual pin_grid_step=$PGS</label></text>
+   </hbox>
  </hbox>
  <text><label>\"See file $HOME/.config/rox.sourceforge.net/ROX-Filer/Options\"</label></text>
-<frame> 
-<frame ICON_PLACE_EDGE_GAP>
-  <hbox>
-   <text><label>Choose the Spacing to edge of screen:</label></text>
-  <hbox>
-  <entry width_chars=\"3\">
-  <default>${ICON_PLACE_EDGE_GAP}</default>
-  <variable>NEWIPEGAP</variable>
-  </entry>
-  </hbox>
-  </hbox>
-</frame>
-  
-<frame ICON_PLACE_START_GAP>
-  <hbox>
-  <text><label>Choose the Beginning of driveicons:</label></text>
-  <hbox>
-  <entry width_chars=\"3\">
-  <default>${ICON_PLACE_START_GAP}</default>
-  <variable>NEWIPSGAP</variable>
-  </entry>
-  </hbox>
-  </hbox>
-  <hbox>
-  <text><label>Note , minimum Driveicon Size=$DIS / 2 = $HDIS</label></text>
-  <hbox>
-  <text><label>AND devideable by grid_step -> $( dc $ICON_PLACE_START_GAP $PGS \/ p | cut -c 1-3)</label></text>
-  </hbox>
-  </hbox>
-</frame>
 
-<frame ICON_PLACE_SPACING>
+  <frame>
+   <frame ICON_PLACE_EDGE_GAP>
+    <hbox>
+     <text><label>Choose the Spacing to edge of screen:</label></text>
+      <hbox>
+       <entry width-chars=\"3\">
+       <default>${ICON_PLACE_EDGE_GAP}</default>
+       <variable>NEWIPEGAP</variable>
+       </entry>
+      </hbox>
+    </hbox>
+   </frame>
+
+   <frame ICON_PLACE_START_GAP>
+   <hbox>
+    <text><label>Choose the Beginning of driveicons:</label></text>
+     <hbox>
+      <entry width-chars=\"3\">
+      <default>${ICON_PLACE_START_GAP}</default>
+      <variable>NEWIPSGAP</variable>
+      </entry>
+     </hbox>
+   </hbox>
+
+   <hbox>
+    <text><label>Note, minimum Driveicon Size=$DIS / 2 = $HDIS</label></text>
+     <hbox>
+      <text><label>AND devideable by grid_step -> $( dc $ICON_PLACE_START_GAP $PGS \/ p | cut -c 1-3)</label></text>
+     </hbox>
+   </hbox>
+
+   </frame>
+
+  <frame ICON_PLACE_SPACING>
   <hbox>
-  <text><label>Choose the Spacing between driveicons:</label></text>
-  <hbox>
-  <entry width_chars=\"3\">
-  <default>${ICON_PLACE_SPACING}</default>
-  <variable>NEWIPSPAC</variable>
-  </entry>
+   <text><label>Choose the Spacing between driveicons:</label></text>
+    <hbox>
+     <entry width-chars=\"3\">
+     <default>${ICON_PLACE_SPACING}</default>
+     <variable>NEWIPSPAC</variable>
+     </entry>
+    </hbox>
   </hbox>
-  </hbox>
-</frame>
-</frame>
+  </frame>
+
+  </frame>
 </frame>
 </frame>
 "
 
-Power="
+FRAME_POWER="
  <frame Power>
  <vbox>
   <text><label>Puppy is able to power-off your computer after a period of mouse inactivity. This will occur if the mouse cursor has not been moved for the designated interval:</label></text>
-  <hbox>
-   <text><label>Inactivity interval (0=never , minimum=5):</label></text>
-   <entry max_length=\"4\">
+  <hbox homogeneous=\"false\"> # setting homogeneous to true would increase the width of the GUI considerably
+   <text xalign=\"0.0\"><label>Inactivity interval (0=never , minimum=5):</label></text>
+   <hbox> # needs this hbox to format correctly to width-chars
+   <entry xalign=\"1.0\" width-chars=\"4\" max-length=\"4\">
     <default>${POWERTIMEOUT}</default>
     <variable>NEWPOWERTIMEOUT</variable>
    </entry>
-   <text><label>minutes</label></text>
-   <text><label>\"       \"</label></text>
+   </hbox>
+   <text xalign=\"0.0\"><label>minutes</label></text>
+#   <text><label>\"       \"</label></text>
   </hbox>
  </vbox>
  </frame>
@@ -352,20 +412,33 @@ if [ "$SHOWMODE" = "desktop" ];then
 
 <notebook labels=\"Desktop Icons|Icon Handler|Legacy\">
 
- $Drive_icons_on_desktop
- $Drive_handler
- $Legacy
- 
+ $FRAMES_DESKTOP_ICONS
+ $FRAME_DRIVE_HANDLER
+ $FRAME_FLOPPY
+
  </notebook>
+
+# <hbox>
+#   <button>
+#    <label>Show full Event Manager</label>
+#    <action type=\"exit\">fullem</action>
+#   </button>
+#   <button ok></button>
+#   <button cancel></button>
+# </hbox>
+
+ <hbox>
+   <button ok></button>
+   <button cancel></button>
+ </hbox>
 
  <hbox>
    <button>
     <label>Show full Event Manager</label>
     <action type=\"exit\">fullem</action>
    </button>
-   <button ok></button>
-   <button cancel></button>
  </hbox>
+
 </vbox>
 </window>
 "
@@ -377,16 +450,16 @@ else
 <text use-markup=\"true\">
 <label>\"<b>Restart X for changes to take affect</b>\"</label></text>
 
-<notebook labels=\"Activate|Save Session|Desktop Icons|PinBoard|Icon Handler|Legacy|Power\">
+<notebook labels=\"Activate|Desktop Icons|PinBoard|Icon Handler|Legacy Floppy|Power|Save Session\">
 
-$Activate_Puppy_Event_Manager
-$Periodic_save_from_RAM
-$Drive_icons_on_desktop
-$PuppyPin_RoxPinBoard
-$Drive_handler
-$Legacy
-$Power
- 
+$FRAMES_ACTIVATE
+$FRAMES_DESKTOP_ICONS
+$FRAMES_PP_ROX
+$FRAME_DRIVE_HANDLER
+$FRAME_FLOPPY
+$FRAME_POWER
+$FRAME_RAMSAVE
+
 </notebook>
 
  <hbox>
@@ -398,16 +471,44 @@ $Power
 "
 fi
 
+_print_with_line_numbers(){
+test "$*" || return 2
+if test -f "$*"; then
+ /bin/cat -n "$*" >&2
+else
+#echo "$*" | while read line; do
+#c=$((c+1))
+##echo -e "$c:\t$line" >&2
+#echo -en "\t$c  ";echo "$line" >&2
+#done
+echo "$*" | /bin/cat -n
+fi
+}
+_print_with_line_numbers "$MAIN_DIALOG"
+
+_remove_comments(){
+test "$*" || return 2
+sP1='s/<!--.*-->//g'
+sP2='s/#.*//g'
+
+echo "$*" | sed -e "$sP1" -e "$sP2"
+}
+
+MAIN_DIALOG2=`_remove_comments "$MAIN_DIALOG"`
+_print_with_line_numbers "$MAIN_DIALOG2"
+MAIN_DIALOG=${MAIN_DIALOG2:-"$MAIN_DIALOG"}
+_print_with_line_numbers "$MAIN_DIALOG"
+
 RETSTRING="`gtkdialog3 --program=MAIN_DIALOG --center`"
-[ $? -ne 0 ] && exit
+[ $? -ne 0 ] && _exit_with_xmessage 1 "Some unknown error occured."
 
 eval "$RETSTRING"
 
 #echo "$RETSTRING" #TEST
 
-[ "$EXIT" = "abort" ] && exit
-[ "$EXIT" = "Cancel" ] && exit
-[ "$EXIT" ] || exit
+[ "$EXIT" = "abort" ] && _exit_with_xmessage 0 "Aborted"
+[ "$EXIT" = "Cancel" ] && _exit_with_xmessage 0 "Canceled."
+[ "$EXIT" ] || _exit_with_xmessage 1 "Some unknown error occured."
 
 #v405 it is running with 'desktop' param, now rerun with all tabs...
 [ "$EXIT" = "fullem" ] && exec eventmanager
@@ -423,7 +524,7 @@ echo "$NEWPOWERTIMEOUT"
 NEWPOWERTIMEOUT=`echo "$NEWPOWERTIMEOUT" | sed -e 's/[^0-9]//g'`  ##[^0-9] seems to mean none digits
 echo "$NEWPOWERTIMEOUT"
 #do not allow too-frequent power-down...
-#[ "`echo 
+#[ "`echo
 #[ "$NEWPOWERTIMEOUT" -lt 0 ] && NEWPOWERTIMEOUT=0 not necessary
 [ $NEWPOWERTIMEOUT -gt 0 -a $NEWPOWERTIMEOUT -lt 5 ] && NEWPOWERTIMEOUT=5
 
@@ -440,61 +541,70 @@ if [ "$NEWHOTPLUGON" = "false" ];then
 fi
 [ "$NEWIPSGAP" -lt "$(( $DIS /2 ))" ] && NEWIPSGAP=32
 
-CONFIG="`cat /etc/eventmanager`"
+STATUS=0
+CONFIG="`cat $CONF_FILE`"
+
+_adjust_config(){
+if test "$*"; then
+CONFIG=`echo "$CONFIG" | sed -e "$*"`
+fi
+STATUS=$((STATUS+$?))
+}
 
 rsPATTERN="s/^RAMSAVEINTERVAL=.*/RAMSAVEINTERVAL=\"${NEWRAMSAVEINTERVAL}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$rsPATTERN"`"
+#CONFIG="`echo "$CONFIG" | sed -e "$rsPATTERN"`"
+_adjust_config "$rsPATTERN"
 
 #w007...
 ptPATTERN="s/^POWERTIMEOUT=.*/POWERTIMEOUT=\"${NEWPOWERTIMEOUT}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$ptPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$ptPATTERN"`"
+_adjust_config "$ptPATTERN"
 idPATTERN="s/^ICONDESK=.*/ICONDESK=\"${NEWICONDESK}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$idPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$idPATTERN"`"
+_adjust_config "$idPATTERN"
 ipPATTERN="s/^ICONPARTITIONS=.*/ICONPARTITIONS=\"${NEWICONPARTITIONS}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$ipPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$ipPATTERN"`"
+_adjust_config "$ipPATTERN"
 hnPATTERN="s/^HOTPLUGNOISY=.*/HOTPLUGNOISY=\"${NEWHOTPLUGNOISY}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$hnPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$hnPATTERN"`"
+_adjust_config "$hnPATTERN"
 atPATTERN="s/^AUTOTARGET=.*/AUTOTARGET=\"${NEWAUTOTARGET}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$atPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$atPATTERN"`"
+_adjust_config "$atPATTERN"
 hoPATTERN="s/^HOTPLUGON=.*/HOTPLUGON=\"${NEWHOTPLUGON}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$hoPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$hoPATTERN"`"
+_adjust_config "$hoPATTERN"
 boPATTERN="s/^BACKENDON=.*/BACKENDON=\"${NEWBACKENDON}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$boPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$boPATTERN"`"
+_adjust_config "$boPATTERN"
 fiPATTERN="s/^FD0ICON=.*/FD0ICON=\"${NEWFD0ICON}\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$fiPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$fiPATTERN"`"
+_adjust_config "$fiPATTERN"
 auPATTERN="s/^AUTOUNMOUNT=.*/AUTOUNMOUNT=\"${NEWAUTOUNMOUNT}\"/" #v424
-CONFIG="`echo "$CONFIG" | sed -e "$auPATTERN"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$auPATTERN"`"
+_adjust_config "$auPATTERN"
 ##newtabpart
 newipsyP="s/^ICON_PLACE_SPACING_Y=.*/ICON_PLACE_SPACING_Y=\"$NEWIPSPACY\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipsyP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipsyP"`"
+_adjust_config "$newipsyP"
 newipsxP="s/^ICON_PLACE_SPACING_X=.*/ICON_PLACE_SPACING_X=\"$NEWIPSPACX\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipsxP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipsxP"`"
+_adjust_config
 newipspP="s/^ICON_PLACE_SPACING=.*/ICON_PLACE_SPACING=\"$NEWIPSPAC\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipspP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipspP"`"
+_adjust_config "$newipspP"
 newipsgP="s/^ICON_PLACE_START_GAP=.*/ICON_PLACE_START_GAP=\"$NEWIPSGAP\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipsgP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipsgP"`"
+_adjust_config "$newipsgP"
 newipegyP="s/^ICON_PLACE_EDGE_GAP_Y=.*/ICON_PLACE_EDGE_GAP_Y=\"$NEWIPEGAPY\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipegPy"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipegPy"`"
+_adjust_config "$newipegyP"
 newipegxP="s/^ICON_PLACE_EDGE_GAP_X=.*/ICON_PLACE_EDGE_GAP_X=\"$NEWIPEGAPX\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipegxP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipegxP"`"
+_adjust_config "$newipegxP"
 newipegP="s/^ICON_PLACE_EDGE_GAP=.*/ICON_PLACE_EDGE_GAP=\"$NEWIPEGAP\"/"
-CONFIG="`echo "$CONFIG" | sed -e "$newipegP"`"
-
+#CONFIG="`echo "$CONFIG" | sed -e "$newipegP"`"
+_adjust_config "$newipegP"
 ####placementpart
 [ "$ICONPSITIONR" = "true" ] && ICP='right'
 [ "$ICONPSITIONL" = "true" ] && ICP='left'
@@ -502,20 +612,35 @@ CONFIG="`echo "$CONFIG" | sed -e "$newipegP"`"
 [ "$ICONPSITIONB" = "true" ] && ICP='bottom'
 
 newiposP="s/^ICON_PLACE_ORIENTATION=.*/ICON_PLACE_ORIENTATION='$ICP'/"
-CONFIG="`echo "$CONFIG" | sed -e "$newiposP"`"
-echo $newiposP
+#CONFIG="`echo "$CONFIG" | sed -e "$newiposP"`"
+echo newipos="$newiposP"
+_adjust_config "$newiposP"
 
-echo "$CONFIG" >/etc/eventmanager
+if test "$STATUS" = 0; then
+echo "$CONFIG" >$CONF_FILE
+else
+_exit_with_xmessage $STATUS "Error while rewriting config variables."
+fi
+test $? = 0 || _exit_with_xmessage 2 "Error writing $CONF_FILE."
+
 sleep 1s
-#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
-[ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] && echo "ICONPARTITIONS" >/tmp/pup_event_icon_change_flag
-[ "$ICONDESK" != "$NEWICONDESK" ] && echo "ICONDESK" >>/tmp/pup_event_icon_change_flag
-[ "$NEWICONWIPE" = "true" ] && echo "ICONWIPE" >>/tmp/pup_event_icon_change_flag #v411
+( . $CONF_FILE )
+test $? = 0 || _exit_with_xmessage 2 "Error reading $CONF_FILE."
 
+#v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
+if [ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] ; then
+ echo "ICONPARTITIONS" >/tmp/pup_event_icon_change_flag
+elif [ "$ICONDESK" != "$NEWICONDESK" ] ; then
+ echo "ICONDESK" >>/tmp/pup_event_icon_change_flag
+elif [ "$NEWICONWIPE" = "true" ] ; then
+ echo "ICONWIPE" >>/tmp/pup_event_icon_change_flag #v411
+else
+ exec pup_event_frontend_d restart &
+fi
 ##[ -n "`pidof pup_event_frontend_d`" ] && pup_event_frontend_d restart
 
 if [ "$PARENT" = "$PROG" ] ; then
-exit
+_exit_with_xmessage 0 "All done."
 else
 return
 fi
