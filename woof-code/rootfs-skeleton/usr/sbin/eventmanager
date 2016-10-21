@@ -46,6 +46,7 @@ test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
 PROG='/usr/sbin/eventmanager'
+VERSION=1.2.1
 
 DISP=${DISPLAY%.*}
 if test "$DISP"; then
@@ -75,7 +76,11 @@ shift
 
 if test "$*"; then
  if test "$DISPLAY"; then
-
+# 2.6.37.4-KRG-i486-StagingDrivers-2:
+# xmessage
+#Warning: Input Method Open Failed
+#Warning: Unable to load any usable fontset
+# 2.6.37.4-KRG-i486-StagingDrivers-3: normal block device majors, no warnings by xmessage
  xmessage -title "Puppy Eventmanager" -timeout 10 -nearmouse -bg $bgCOLOUR "Puppy Eventmanager:
 
  $*" &
@@ -510,7 +515,7 @@ else
 echo "$*" | /bin/cat -n
 fi
 }
-_print_with_line_numbers "$MAIN_DIALOG"
+#_print_with_line_numbers "$MAIN_DIALOG"
 
 _remove_comments(){
 test "$*" || return 2
@@ -521,9 +526,9 @@ echo "$*" | sed -e "$sP1" -e "$sP2"
 }
 
 MAIN_DIALOG2=`_remove_comments "$MAIN_DIALOG"`
-_print_with_line_numbers "$MAIN_DIALOG2"
+#_print_with_line_numbers "$MAIN_DIALOG2"
 MAIN_DIALOG=${MAIN_DIALOG2:-"$MAIN_DIALOG"}
-_print_with_line_numbers "$MAIN_DIALOG"
+#_print_with_line_numbers "$MAIN_DIALOG"
 
 RETSTRING="`gtkdialog3 --program=MAIN_DIALOG --center`"
 [ $? -eq 0 ] || _exit_with_xmessage 1 "Some unknown error occured."
@@ -557,9 +562,18 @@ echo "NEWPOWERTIMEOUT=$NEWPOWERTIMEOUT"
 [ $NEWPOWERTIMEOUT -gt 0 -a $NEWPOWERTIMEOUT -lt 5 ] && NEWPOWERTIMEOUT=5
 
 #v403 if major-switch has turned off hotplug support, only show one icon...
+# that clicking the single "drives" icon should launch pmount
+# but udevd creates and removes devices nodes in /dev which then
+# in case of a static /dev directory should be pointless until
+# the static /dev/sdXY nodes are not exeeded.
+echo NEWHOTPLUGON=$NEWHOTPLUGON
+echo NEWBACKENDON=$NEWBACKENDON
 NEWBACKENDON=${NEWBACKENDON:-"true"} #v412
 NEWHOTPLUGON=${NEWHOTPLUGON:-"true"} #v412
+echo NEWHOTPLUGON=$NEWHOTPLUGON
+echo NEWBACKENDON=$NEWBACKENDON
 [ "$NEWBACKENDON" = "false" ] && NEWHOTPLUGON="false"
+echo NEWHOTPLUGON=$NEWHOTPLUGON
 if [ "$NEWHOTPLUGON" = "false" ];then
  NEWICONPARTITIONS="false"
  NEWHOTPLUGNOISY="false"
@@ -655,13 +669,45 @@ sleep 1s
 ( . $CONF_FILE )
 test $? = 0 || _exit_with_xmessage 2 "Error reading $CONF_FILE."
 
+echo ICONPARTITIONS=$ICONPARTITIONS NEWICONPARTITIONS=$NEWICONPARTITIONS
+echo ICONDESK=$ICONDESK NEWICONDESK=$NEWICONDESK
 #v403 /sbin/clean_desk_icons can read this, then wipe all current icons...
 if [ "$ICONPARTITIONS" != "$NEWICONPARTITIONS" ] ; then
- echo "ICONPARTITIONS" >/tmp/pup_event_icon_change_flag
+ if test "$DISP"; then
+  if test -s /var/run/pup_event_frontend_d.pid."$DISP"; then
+   echo "ICONPARTITIONS" >/tmp/pup_event_icon_change_flag."$DISP"
+   cat /tmp/pup_event_icon_change_flag."$DISP"
+  else
+   exec pup_event_frontend_d start &
+  fi
+ else
+  echo "ICONPARTITIONS" >/tmp/pup_event_icon_change_flag
+  cat /tmp/pup_event_icon_change_flag
+ fi
 elif [ "$ICONDESK" != "$NEWICONDESK" ] ; then
- echo "ICONDESK" >>/tmp/pup_event_icon_change_flag
+ if test "$DISP"; then
+  if test -s /var/run/pup_event_frontend_d.pid."$DISP"; then
+   echo "ICONDESK" >/tmp/pup_event_icon_change_flag."$DISP"
+   cat /tmp/pup_event_icon_change_flag."$DISP"
+  else
+   exec pup_event_frontend_d start &
+  fi
+ else
+  echo "ICONDESK" >>/tmp/pup_event_icon_change_flag
+  cat /tmp/pup_event_icon_change_flag
+ fi
 elif [ "$NEWICONWIPE" = "true" ] ; then
- echo "ICONWIPE" >>/tmp/pup_event_icon_change_flag #v411
+ if test "$DISP"; then
+  if test -s /var/run/pup_event_frontend_d.pid."$DISP"; then
+   echo "ICONWIPE" >/tmp/pup_event_icon_change_flag."$DISP"
+   cat /tmp/pup_event_icon_change_flag."$DISP"
+  else
+   exec pup_event_frontend_d start &
+  fi
+ else
+  echo "ICONWIPE" >>/tmp/pup_event_icon_change_flag #v411
+  cat /tmp/pup_event_icon_change_flag
+ fi
 else
 # if _pidof $Q pup_event_frontend_d; then
 #  exec pup_event_frontend_d restart &
@@ -677,11 +723,17 @@ else
  fi
 fi
 
+if test "$DISP"; then
+/bin/cat -n /tmp/pup_event_icon_change_flag."$DISP"
+else
+/bin/cat -n /tmp/pup_event_icon_change_flag
+fi
+
 done
 
 if [ "$PARENT" = "$PROG" ] ; then
 _exit_with_xmessage 0 "All done. Good bye."
 else
-return
+return 0 # likely sourced
 fi
 ###END###
