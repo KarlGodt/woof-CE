@@ -838,9 +838,9 @@ return $STATUS
 }
 
 savepuppy_func() { #called every 4 seconds. case PUPMODE 3|7|13
-[ -f /tmp/snapmergepuppyrequest ] || return 0 #by request.
+#[ -f /tmp/snapmergepuppyrequest ] || return 0 #by request.
 local STATUS
-  rm $VERB -f /tmp/snapmergepuppyrequest
+#  rm $VERB -f /tmp/snapmergepuppyrequest
   yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -placement top -text "Saving RAM to 'pup_save' file..." & YAFPID=$!
   _sync
   nice -n 19 /usr/sbin/snapmergepuppy
@@ -848,6 +848,17 @@ local STATUS
   kill $YAFPID 2>>$ERR
 return $STATUS
 }
+
+_check_ramsave_interval(){
+[ "$RAMSAVEINTERVAL" -gt 0 ] || return 0
+[ "$IMPORTANT_PROGS" ] && return 0
+ SAVECNT=$(( SAVECNT + 4 ))
+ [ "$SAVECNT" -gt $RAMSAVEINTERVAL ] || return 0
+  #touch /tmp/snapmergepuppyrequest #request to savepuppy_func.
+  savepuppy_func
+  SAVECNT=0
+}
+
 
 #v407 fixed so works for sr* and hd* optical...
 probe_optical_func() { #passed param is sr<0-9> or hd<a-z>
@@ -928,6 +939,22 @@ probe_floppy_func() { #passed param is drive name (exs: hdc, sdc)
 #KRG  remove_pinboard_func #needs DRV_NAME
   true
  fi
+}
+
+_poll_removable_devices(){
+ [ "$ICONDESK" = "true" ] || return 0 #v405 see /etc/eventmanager
+ #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
+ for oneOPTICAL in $DRVS_OPTICAL
+ do
+  [ "$oneOPTICAL" ] || continue #precaution
+  probe_optical_func $oneOPTICAL
+ done
+ #v407 poll to see if a ls120 or zip floppy diskette inserted...
+ for oneFLOPPY in $DRVS_FLOPPY
+ do
+  [ "$oneFLOPPY" ] || continue #precaution
+  probe_floppy_func $oneFLOPPY
+ done
 }
 
 create_appinfo_func() { #needs INFO, DRV_CATEGORY, MOREITEMS, ONEDRVNAME
@@ -1099,13 +1126,44 @@ _redo_config(){
   _sync
 } #_redo_config
 
+_check_powertimeout_interval(){
+ [ "$POWERTIMEOUT" -gt 0 ] || return 0 #w007 power-off computer after inactivity.
+ [ "$IMPORTANT_PROGS" ] && return 0
+  MOUSECNT=$(( MOUSECNT + 4 ))
+  MINUTECNT=$(( MINUTECNT + 4 ))
+  [ "$MINUTECNT" -gt 59 ] || return 0 #come in here every minute...
+   MINUTECNT=0
+   _debug "CURPOS1=$CURPOS1"
+   CURPOS2=`getcurpos`
+   _debug "CURPOS2=$CURPOS2"
+   [ "$DEBUG" ] && echo "MOUSECNT=$MOUSECNT CURPOS2=$CURPOS2" >> /tmp/pup_event_frontend_d_curpos.log."$DISP"
+   #[ "$CURPOS1" ] || CURPOS1="$CURPOS2"
+   [ "$CURPOS1" = "$CURPOS2" ] || MOUSECNT=0
+   CURPOS1="$CURPOS2"
+   _debug "MOUSECNT=$MOUSECNT" "POWERTIMEOUT=$POWERTIMEOUT"
+   [ "$MOUSECNT" -gt "$POWERTIMEOUT" ] || return 0
+    aplay /usr/share/audio/2barks.au
+    sleep 1s
+    aplay /usr/share/audio/2barks.au
+    xmessage -bg red -timeout 60 -buttons "YES:190,No:191" -fn "-misc-dejavu sans-*-*-*-*-*-*-*-*-*" "Message from
+$PROG
+and `which eventmanager`
+Really powering off now ?
+$PIDPROG"
+     REPLY=$?
+    echo $REPLY
+    if [ "$REPLY" = "190" -o "$REPLY" = "0" ] ; then
+    exec wmpoweroff &
+    else true
+    fi
+}
 
 TOGGLE=1
 SAVECNT=0
 MOUSECNT=0  #w007
 MINUTECNT=0 #w007
 CURPOS1="-1 -1"  #w007
-[ "$DEBUG" ] && echo -n "" > /tmp/pup_event_frontend_d_curpos.log #w007
+[ "$DEBUG" ] && echo -n "" > /tmp/pup_event_frontend_d_curpos.log."$DISP" #w007
 ls -1v /sys/block | grep -vE 'loop|md|mtd|nbd|ram' >/tmp/pup_event_frontend_block1."$DISP"
 
 pup_event_frontend_d_main() {
@@ -1182,10 +1240,15 @@ do
 
  #######four second timeout procesing#########
 
+ #some apps should not be disturbed by background stuff...
+ #w482 add xorriso...
+ IMPORTANT_PROGS=`ps | grep $Q -E 'make|gcc|g\+\+|scons|burniso2cd|cdrecord|growisofs|pburn|pcdripper|pdvdrsab|ripoff|xorrecord|xorriso|gimv|mhwaveedit|mplayer|vlc|xfmedia|xine|xmms|axel|curl|wget|dotpup|petget|installpkg\.sh|downloadpkgs\.sh'` # && continue
+
  #monitor free memory, periodic save of tmpfs top layer...
  case $PUPMODE in
   3|7|13)      free_flash_func
-               savepuppy_func;;
+               #savepuppy_func;;
+               _check_ramsave_interval;;
   16|24|17|25) free_initrd_func;;  #unipup.
   *)           free_func;;
  esac
@@ -1201,6 +1264,7 @@ do
 
  [ "$AUTOUNMOUNT" = "true" ] && auto_unmount_func #v424 automatially unmount a partition if no longer being used (AUTOUNMOUNT set in eventmanager).
 
+__poll_removable_devices__(){
  if [ "$ICONDESK" = "true" ]; then #v405 see /etc/eventmanager
  #unfortunately, we have to poll at regular intervals to see if a cd is inserted...
  for oneOPTICAL in $DRVS_OPTICAL
@@ -1215,18 +1279,20 @@ do
   probe_floppy_func $oneFLOPPY
  done
  fi
+}
+_poll_removable_devices
 
- #some apps should not be disturbed by this background stuff...
- #w482 add xorriso...
- ps | grep $Q -E 'make|gcc|g\+\+|scons|burniso2cd|cdrecord|growisofs|pburn|pcdripper|pdvdrsab|ripoff|xorrecord|xorriso|gimv|mhwaveedit|mplayer|vlc|xfmedia|xine|xmms|axel|curl|wget|dotpup|petget|installpkg\.sh|downloadpkgs\.sh' && continue
-
+__check_ramsave_interval__(){
  SAVECNT=$(( SAVECNT + 4 ))
  if [ "$RAMSAVEINTERVAL" -ne 0 -a "$SAVECNT" -gt $RAMSAVEINTERVAL ];then
   touch /tmp/snapmergepuppyrequest #request to savepuppy_func.
   SAVECNT=0
  else true
  fi
+}
 
+_check_powertimeout_interval
+__check_powertimeout_interval__(){
  [ "$POWERTIMEOUT" -ne 0 ] || continue #w007 power-off computer after inactivity.
   MOUSECNT=$(( MOUSECNT + 4 ))
   MINUTECNT=$(( MINUTECNT + 4 ))
@@ -1235,7 +1301,7 @@ do
    _debug "CURPOS1=$CURPOS1"
    CURPOS2=`getcurpos`
    _debug "CURPOS2=$CURPOS2"
-   [ "$DEBUG" ] && echo "MOUSECNT=$MOUSECNT CURPOS2=$CURPOS2" >> /tmp/pup_event_frontend_d_curpos.log
+   [ "$DEBUG" ] && echo "MOUSECNT=$MOUSECNT CURPOS2=$CURPOS2" >> /tmp/pup_event_frontend_d_curpos.log."$DISP"
    #[ "$CURPOS1" ] || CURPOS1="$CURPOS2"
    [ "$CURPOS1" = "$CURPOS2" ] || MOUSECNT=0
    CURPOS1="$CURPOS2"
@@ -1255,6 +1321,7 @@ $PIDPROG"
     exec wmpoweroff &
     else true
     fi
+}
 
 done #2 second loop.
 }
