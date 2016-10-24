@@ -251,49 +251,6 @@ return 0
 }
 eventmanager_func
 
-pingridstep_func(){
-PIN_GRID_STEP=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
-[ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=16
-[ "$PIN_GRID_STEP" -le 0 ] && PIN_GRID_STEP=16
-PIN_GRID_STEP=$(( ( PIN_GRID_STEP + 1 ) / 2 * 2 )) ##case 1,3,5....
-return $PIN_GRID_STEP
-}
-
-jwm_taskbar_func() {
-pingridstep_func
-case $PIN_GRID_STEP in
-2)
- read CWM </etc/windowmanager."$DISP"
- case "$CWM" in *jwm*)
-  JwmL=`grep -E -i 'Tray | autohide | insert | x | y | insert' "$HOME"/.jwmrc-tray`
-  Position=`echo $JwmL | grep -o 'y=.*$' | cut -f 1 -d ' ' |  cut -f 2 -d '"'`
-  if [ "$Position" = "-1" ] ; then ## -1=BOTTOM ; 0=TOP
-   #Height=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | tr -d '>'`
-   #HEIGHT=`echo $Height | cut -f2 -d '"'`
-   HEIGHT=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
-   case "$HEIGHT" in "20") JPV_Y=-8;;   ## 748
-   "28") JPV_Y=0 ;;   ##                   740 top of bottom panel
-   "34") JPV_Y=8 ;;   ## getcurpos :       724 16
-   "42") JPV_Y=16;;   ##                   716 24
-   *)    JPV_Y=0 ;;
-   esac
-  elif [ "$Position" = "0" ] ; then ## -1=BOTTOM ; 0=TOP
-   HEIGHT=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
-   case "$HEIGHT" in "20") JPV_Y=-8;;   ## 748
-   "28") JPV_Y=0 ;;   ##                   740 top of bottom panel
-   "34") JPV_Y=8 ;;   ## getcurpos :       724 16
-   "42") JPV_Y=16;;   ##                   716 24
-   *)    JPV_Y=0 ;;
-   esac
- else true
- fi
- ;;
- esac
-;;
-esac
-[ -n "$JPV_Y" ] || JPV_Y=1
-}
-jwm_taskbar_func #KRG to get variables
 
 #v424 experiment, automatic unmounting...
 auto_unmount_func() {
@@ -351,6 +308,53 @@ _debugx "format_size_func End" #DBG
 test "$SIZE" # global variable
 }
 
+pingridstep_func(){
+PIN_GRID_STEP=`grep "pinboard_grid_step" $HOME/.config/rox.sourceforge.net/ROX-Filer/Options | sed -e "s/ *<[^>]*>//g"`
+[ -z "$PIN_GRID_STEP" ]    && PIN_GRID_STEP=16
+[ "$PIN_GRID_STEP" -ge 0 ] || PIN_GRID_STEP=16
+PIN_GRID_STEP=$(( ( PIN_GRID_STEP + 1 ) / 2 * 2 )) ##case 1,3,5....
+return $PIN_GRID_STEP
+}
+
+jwm_taskbar_func() {
+local DEBUG=${DEBUG:-1}
+pingridstep_func
+case $PIN_GRID_STEP in
+2)
+ read CWM </etc/windowmanager."$DISP"
+ case "$CWM" in *jwm*)
+  JwmL=`grep -E -i 'Tray | autohide | insert | x | y | insert' "$HOME"/.jwmrc-tray`
+  Position=`echo $JwmL | grep -o 'y=.*$' | cut -f 1 -d ' ' |  cut -f 2 -d '"'`
+  if [ "$Position" = "-1" ] ; then ## -1=BOTTOM ; 0=TOP
+   #Height=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | tr -d '>'`
+   #HEIGHT=`echo $Height | cut -f2 -d '"'`
+   HEIGHT=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
+   case "$HEIGHT" in "20") JPV_Y=-8;;   ## 748
+   "28") JPV_Y=1 ;;   ##                   740 top of bottom panel
+   "34") JPV_Y=8 ;;   ## getcurpos :       724 16
+   "42") JPV_Y=16;;   ##                   716 24
+   *)    JPV_Y=1 ;;
+   esac
+  elif [ "$Position" = "0" ] ; then ## -1=BOTTOM ; 0=TOP
+   HEIGHT=`echo $JwmL | grep -o 'height=.*$' | tr -d ' ' | cut -f 2 -d '"'`
+   case "$HEIGHT" in "20") JPV_Y=-8;;   ## 748
+   "28") JPV_Y=1 ;;   ##                   740 top of bottom panel
+   "34") JPV_Y=8 ;;   ## getcurpos :       724 16
+   "42") JPV_Y=16;;   ##                   716 24
+   *)    JPV_Y=1 ;;
+   esac
+ else true
+ fi
+ ;;
+ esac
+;;
+esac
+[ -n "$JPV_Y" ] || JPV_Y=2
+#JPV_Y=$(( ( (JPV_Y + PIN_GRID_STEP) * PIN_GRID_STEP ) / PIN_GRID_STEP))
+_debug "JPV_Y='$JPV_Y'"
+}
+jwm_taskbar_func #KRG to get variables
+
 screen_start_func() {
 SCRNXY="`xwininfo -root | grep -o '\-geometry .*' | tr -s ' ' | cut -f 2 -d ' ' | cut -f 1 -d '+'`"
 SCRN_X=`echo -n "$SCRNXY" | cut -f 1 -d 'x'` # =${SCRNXY%%x*}
@@ -388,7 +392,7 @@ _debug "grep_panel_func end" #DBG
 #fi
 }
 
-free_coord_Zero() {
+__free_coord__() {
 
  #[ "$Lines" -eq 1 ] && __grep_panel_func__
  #find a free place on desktop. v410 avoid exact overlapping icons...
@@ -427,34 +431,131 @@ free_coord_Zero() {
 }
 #v431 shinobar: fix for overlapping icons at some screen resolutions...
 
-free_coord() {
- #find a free place on desktop. v410 avoid exact overlapping icons...
- COORDSGRID=`grep -o ' x="[0-9]*" y="[0-9]*" ' "$HOME"/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
- COORD_Y=$(( SCRN_Y - 64 ))
- # import from v4.20p1JP 5Jun09, 18aug09 by Masaki Shinomiya : snap on the grid
-
- _debug 'shinos pingrid='$PIN_GRID_STEP
- #if [ "$PIN_GRID_STEP" ] && [ $PIN_GRID_STEP -gt 0 ];then
-   # PIN_GRID_STEP2=$(( $PIN_GRID_STEP / 2 ))
-   #COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*'  $PIN_GRID_STEP`
- #fi
- ##[ -z "$JPV_Y" ] && JPV_Y=1
- COORD_Y=$(( (( SCRN_Y - 64 + PIN_GRID_STEP - JPV_Y ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+_free_coord_x(){
+ COORD_Y=$(( (( COORD_Y $ADD PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
  COORD_X=$ICON_PLACE_START_GAP
  MAX_X=$(( SCRN_X - 96 ))
  xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+ _debug "COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+ _debug "xPATTERN='$xPATTERN'"
+
  while :;do
-  xgPATTERN=`echo -n "$xPATTERN" | sed 's/[0-9]"/"/g'`
-  [ "`echo "$COORDSGRID" | grep "$xgPATTERN"`" ] || break
+  xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"/"/g'`
+  #xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"//g'`
+  _debug "xgPATTERN='$xgPATTERN'"
+  echo "$COORDSGRID" | grep $Q "$xgPATTERN" || break
   COORD_X=$(( COORD_X + ICON_PLACE_SPACING + PIN_GRID_STEP ))
   ##xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
   if [ "$COORD_X" -gt "$MAX_X" ] ; then
-  COORD_Y=$(( COORD_Y - PIN_GRID_STEP - ICON_PLACE_SPACING )) ##64 is devideable 32 16 2
+  COORD_Y=$(( COORD_Y $ADD PIN_GRID_STEP $ADD ICON_PLACE_SPACING )) ##64 is devideable 32 16 2
   COORD_X=$ICON_PLACE_START_GAP
   else true
   fi
   xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  _debug "xPATTERN='$xPATTERN'"
  done
+}
+
+_free_coord_y(){
+ COORD_X=$(( (( COORD_X $ADD PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+ COORD_Y=$ICON_PLACE_START_GAP
+ MAX_Y=$(( SCRN_Y - 96 ))
+ xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+ _debug "COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+ _debug "xPATTERN='$xPATTERN'"
+
+ while :;do
+  xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"/"/g'`
+  #xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"//g'`
+  _debug "xgPATTERN='$xgPATTERN'"
+  echo "$COORDSGRID" | grep $Q "$xgPATTERN" || break
+  COORD_Y=$(( COORD_Y + ICON_PLACE_SPACING + PIN_GRID_STEP ))
+  ##xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  if [ "$COORD_Y" -gt "$MAX_Y" ] ; then
+  COORD_X=$(( COORD_X $ADD PIN_GRID_STEP $ADD ICON_PLACE_SPACING )) ##64 is devideable 32 16 2
+  COORD_Y=$ICON_PLACE_START_GAP
+  else true
+  fi
+  xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+  _debug "xPATTERN='$xPATTERN'"
+ done
+}
+
+_free_coord_bottom(){
+COORD_Y=$(( SCRN_Y - JPV_Y - 64 ))
+#COORD_Y=$(( (( COORD_Y - PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+ADD='-'
+_free_coord_x
+}
+
+_free_coord_top(){
+COORD_Y=$(( 0 + JPV_Y + 32 ))
+#COORD_Y=$(( (( COORD_Y + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+ADD='+'
+_free_coord_x
+}
+
+_free_coord_right(){
+COORD_X=$(( SCRN_X - 32 ))
+#COORD_X=$(( (( COORD_X - PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+ADD='-'
+_free_coord_y
+}
+
+_free_coord_left(){
+COORD_X=$(( 0 + 32 ))
+#COORD_X=$(( (( COORD_X + PIN_GRID_STEP ) / PIN_GRID_STEP) * PIN_GRID_STEP ))
+ADD='+'
+_free_coord_y
+}
+
+free_coord() {
+local DEBUG=${DEBUG:-1}
+#find a free place on desktop. v410 avoid exact overlapping icons...
+ COORDSGRID=`grep -o ' x="[0-9]*" y="[0-9]*" ' "$HOME"/Choices/ROX-Filer/PuppyPin | sed 's/[0-9]"/"/g'`
+_debug "
+$COORDSGRID"
+_debug "shinos pingrid='$PIN_GRID_STEP'"
+
+ case $ICON_PLACE_ORIENTATION in
+ bottom)  _free_coord_bottom;;
+ top)     _free_coord_top;;
+ right)   _free_coord_right;;
+ left)    _free_coord_left;;
+ esac
+ # import from v4.20p1JP 5Jun09, 18aug09 by Masaki Shinomiya : snap on the grid
+
+# _debug "shinos pingrid='$PIN_GRID_STEP'"
+
+# #if [ "$PIN_GRID_STEP" ] && [ $PIN_GRID_STEP -gt 0 ];then
+#   # PIN_GRID_STEP2=$(( $PIN_GRID_STEP / 2 ))
+#   #COORD_Y=`expr \( $COORD_Y + $PIN_GRID_STEP2 \) / $PIN_GRID_STEP '*'  $PIN_GRID_STEP`
+# #fi
+# ##[ -z "$JPV_Y" ] && JPV_Y=1
+
+# #COORD_Y=$(( (( COORD_Y + PIN_GRID_STEP ) * PIN_GRID_STEP) / PIN_GRID_STEP ))
+# COORD_X=$ICON_PLACE_START_GAP
+# MAX_X=$(( SCRN_X - 96 ))
+# xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+# _debug "COORD_X='$COORD_X' COORD_Y='$COORD_Y'"
+# _debug "xPATTERN='$xPATTERN'"
+
+# while :;do
+#  xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"/"/g'`
+#  #xgPATTERN=`echo "$xPATTERN" | sed 's/[0-9]"//g'`
+#  _debug "xgPATTERN='$xgPATTERN'"
+#  echo "$COORDSGRID" | grep $Q "$xgPATTERN" || break
+#  COORD_X=$(( COORD_X + ICON_PLACE_SPACING + PIN_GRID_STEP ))
+#  ##xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+#  if [ "$COORD_X" -gt "$MAX_X" ] ; then
+#  COORD_Y=$(( COORD_Y - PIN_GRID_STEP - ICON_PLACE_SPACING )) ##64 is devideable 32 16 2
+#  COORD_X=$ICON_PLACE_START_GAP
+#  else true
+#  fi
+#  xPATTERN=" x=\"${COORD_X}\" y=\"${COORD_Y}\" "
+#  _debug "xPATTERN='$xPATTERN'"
+# done
+
 }
 
 
@@ -474,14 +575,14 @@ _debug "add_pinboard_func:$*"
  #ppPATTERN=' label="'"$ONEDRVNAME"'"'
  #v411 rerwin: avoid icon getting duplicated if it is renamed...
  _debug "add_pinboard_func begin"
- _debug Lines_Y=$Lines_Y #DBG
+ _debugx Lines_Y=$Lines_Y #DBG
 
  #if [ "$Lines_Y" -eq 1 ]; then
  __grep_panel_func__
  #else
  #V_Y=$V_Y_S
  #fi
- _debug V_Y=$V_Y #DBG
+ _debugx V_Y=$V_Y #DBG
 
  ppPATTERN=""$HOME"/.pup_event/drive_${partNAME}<"
  grep $Q "$ppPATTERN" "$HOME"/Choices/ROX-Filer/PuppyPin && return 1 #precaution already listed
@@ -490,7 +591,8 @@ _debug "add_pinboard_func:$*"
 
  case $CWM in enlightenment*) return 0;; esac
 
- echo "X=${COORD_X} Y=${COORD_Y} for PinBoard for $partNAME"
+ _debug "X=${COORD_X} Y=${COORD_Y} for PinBoard for $partNAME"
+
  echo "<?xml version=\"1.0\"?>
 <env:Envelope xmlns:env=\"http://www.w3.org/2001/12/soap-envelope\">
  <env:Body xmlns=\"http://rox.sourceforge.net/SOAP/ROX-Filer\">
@@ -1045,8 +1147,10 @@ _redo_config(){
   remove_pinboard_func "drives"
 
   sleep 1
-  jwm_taskbar_func
   eventmanager_func # re-reads /etc/eventmanager
+  jwm_taskbar_func
+  screen_start_func
+
    drive_icon_func # at startup called with parameter 'startup'
    # checks variable 'ICONDESK'
    # switches between create_icon_func if ICONDESK false
