@@ -28,10 +28,22 @@ RV=$((RV+$?))
 done
 return ${RV:-2}
 }
-
-case $ACTION in
-add)
-
+_load_fw(){
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || {
+_install_fw_tar || _install_fw_bin
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || exit 1
+}
+test -f "$FIRMWAREBIN" || exit 1
+echo "FIRMWAREBIN='$FIRMWAREBIN'"
+echo 1 > /sys/$DEVPATH/loading
+cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+[ $? = 0 ] || echo "ERROR loading '$FIRMWAREBIN'"
+echo 0 >/sys/$DEVPATH/loading
+}
 _load_module(){
         echo "MODALIAS='$MODALIAS'" #DEBUG
         #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
@@ -40,11 +52,7 @@ _load_module(){
         for m in $LIST ; do
         modprobe -b $Q $VERB "${m##*/}"
         done
-
 }
-#echo $MODALIAS #DEBUG
-[ "$MODALIAS" ] && _load_module
-
 _make_device(){
 
 test "$DEVNAME" || DEVNAME="${SUBSYSTEM}/${DEVPATH##*/}"
@@ -65,25 +73,15 @@ mkdir $VERB -p "/dev/${DEV%/*}"
 mknod /dev/$DEVNAME $NOD $MAJOR $MINOR
 }
 
+case $ACTION in
+add)
+
+#echo $MODALIAS #DEBUG
+[ "$MODALIAS" ] && _load_module
+
 [ "$MAJOR" -a "$MINOR" -a "$SUBSYSTEM" ] && { [ "$DEVNAME" -o "$DEVPATH" ] && _make_device; }
 
-test "$FIRMWARE" && {
-
-FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
-test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
-test "$FIRMWAREBIN" || {
-_install_fw_tar || _install_fw_bin
-FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
-test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
-test "$FIRMWAREBIN" || exit 1
-}
-test -f "$FIRMWAREBIN" || exit 1
-echo "FIRMWAREBIN='$FIRMWAREBIN'"
-echo 1 > /sys/$DEVPATH/loading
-cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
-[ $? = 0 ] || echo "ERROR loading '$FIRMWAREBIN'"
-echo 0 >/sys/$DEVPATH/loading
-}
+test "$FIRMWARE" && _load_fw
 
 ;;
 firmware) #not needed since k-3.7 :
@@ -92,28 +90,7 @@ firmware) #not needed since k-3.7 :
 
 #http://stackoverflow.com/questions/950107/how-does-linux-kernel-know-where-to-look-for-driver-firmware
 test "$FIRMWARE" || exit 1
-
-__install_fw_tar(){
-test -d /lib/modules/all-firmware/ || return 1
-local RV a
-FIRMWARETAR=`find /lib/modules/all-firmware/ -maxdepth 1 -type f -iname "*${FIRMWARE%.*}*.tar.gz"`
-for a in $FIRMWARETAR; do
-/bin/tar $VERB -C / --strip-components=1 -xzf ${a}
-RV=$((RV+$?))
-done
-return ${RV:-2}
-}
-__install_fw_bin(){
-test -d /lib/modules/all-firmware/ || return 1
-local RV a
-FIRMWAREBIN=`find /lib/modules/all-firmware/ -type f -ipath "*/lib/firmware/*${FIRMWARE%.*}*"`
-for a in $FIRMWAREBIN; do
-cp $VERB -a ${a} /lib/firmware/
-RV=$((RV+$?))
-done
-return ${RV:-2}
-}
-
+__load_fw(){
 FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
 test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
 test "$FIRMWAREBIN" || {
@@ -128,6 +105,8 @@ echo 1 > /sys/$DEVPATH/loading
 cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
 [ $? = 0 ] || echo "ERROR loading '$FIRMWAREBIN'"
 echo 0 >/sys/$DEVPATH/loading
+}
+_load_fw
 ;;
 *)
 echo "
