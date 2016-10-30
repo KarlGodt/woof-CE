@@ -1,0 +1,194 @@
+#!/bin/ash
+
+exec 1>>/tmp/photplug.log 2>&1
+
+alias sed='busybox sed'
+alias grep='busybox grep'
+#alias awk='busybox awk' ##awk: applet not found
+
+env
+
+case $ACTION in
+add)
+
+_load_module(){
+        echo "MODALIAS='$MODALIAS'"
+        #eval `modprobe -b -D "$MODALIAS"| grep -vE '^install|^blacklist|^options'`
+        #exit
+        LIST=`modprobe -b -D $Q "$MODALIAS" | grep -vE '^install|^blacklist|^options' | sed 's%.*\(/.*\)\.k.*%\1%'`
+        for m in $LIST ; do
+        modprobe -b $Q $VERB "${m##*/}"
+        done
+
+}
+#echo $MODALIAS
+[ "$MODALIAS" ] && _load_module
+
+_make_device(){
+
+test "$DEVNAME" || DEVNAME="${SUBSYSTEM}/${DEVPATH##*/}"
+test -e /dev/$DEVNAME && return #exit
+
+#sed -n '/Block devices:/,$ p' /proc/devices | grep "$SUBSYSTEM" | awk '{print $1}' | grep -w "$MAJOR" && {
+#        #test -e /dev/$DEVNAME && exit
+#        DEV="/${DEVNAME}"
+#        mkdir $VERB -p "/dev/${DEV%/*}"
+#        mknod /dev/$DEVNAME b $MAJOR $MINOR
+#        exit $? ; }
+
+#[ "$SUBSYSTEM" = sound ] && GPATTERN='alsa|sound' || GPATTERN="$SUBSYSTEM"
+#sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTERN" | awk '{print $1}' | grep -w "$MAJOR" && {
+#        #test -e /dev/$DEVNAME && exit
+#        DEV="/${DEVNAME}"
+#        mkdir $VERB -p "/dev/${DEV%/*}"
+#        mknod /dev/$DEVNAME c $MAJOR $MINOR
+#        exit $? ; }
+# }
+
+case $SUBSYSTEM in
+block|partition) NOD=b;;
+*) NOD=c;;
+esac
+[ "$SUBSYSTEM" = sound ] && GPATTERN='alsa|sound' || GPATTERN="$SUBSYSTEM"
+test "$NOD" || { sed -n '/Block devices:/,$ p' /proc/devices | grep -E "$GPATTERN" | awk '{print $1}' | grep -w "$MAJOR" && NOD=b; }
+test "$NOD" || { sed -n '/Character devices:/,/Block devices:/p' /proc/devices | grep -E "$GPATTERN" | awk '{print $1}' | grep -w "$MAJOR" && NOD=c; }
+
+DEV="/${DEVNAME}"
+mkdir $VERB -p "/dev/${DEV%/*}"
+mknod /dev/$DEVNAME $NOD $MAJOR $MINOR
+#exit $?
+ }
+
+[ "$MAJOR" -a "$MINOR" -a "$SUBSYSTEM" ] && { [ "$DEVNAME" -o "$DEVPATH" ] && _make_device; }
+
+_install_fw_tar(){
+test -d /lib/modules/all-firmware/ || return 1
+local RV a
+FIRMWARETAR=`find /lib/modules/all-firmware/ -maxdepth 1 -type f -iname "*${FIRMWARE%.*}*.tar.gz"`
+for a in $FIRMWARETAR; do
+/bin/tar $VERB -C / --strip-components=1 -xzf ${a}
+RV=$((RV+$?))
+done
+return ${RV:-2}
+}
+_install_fw_bin(){
+test -d /lib/modules/all-firmware/ || return 1
+local RV a
+FIRMWAREBIN=`find /lib/modules/all-firmware/ -type f -ipath "*/lib/firmware/*${FIRMWARE%.*}*"`
+for a in $FIRMWAREBIN; do
+cp $VERB -a ${a} /lib/firmware/
+RV=$((RV+$?))
+done
+return ${RV:-2}
+}
+
+test "$FIRMWARE" && {
+#echo -n 1 > /sys/$DEVPATH/loading
+__install_fw(){
+if test -d /lib/modules/all-firmware/; then
+FIRMWARETAR=`find /lib/modules/all-firmware/ -maxdepth 1 -type f -iname "*${FIRMWARE%.*}*.tar.gz"`
+for a in $FIRMWARETAR; do
+/bin/tar -C / --strip-components=1 -xzf ${a}
+done
+FIRMWAREBIN=`find /lib/modules/all-firmware/ -type f -ipath "*/lib/firmware/*${FIRMWARE%.*}*"`
+for a in $FIRMWAREBIN; do
+cp -a ${a} /lib/firmware/
+done
+fi
+}
+
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || {
+_install_fw_tar || _install_fw_bin
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || exit 1
+}
+test -f "$FIRMWAREBIN" || exit 1
+echo "FIRMWAREBIN='$FIRMWAREBIN'"
+echo 1 > /sys/$DEVPATH/loading
+cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+if [ $? = 0 ]; then
+    #echo -n  1 > /sys/$DEVPATH/loading
+    #echo -n -1 > /sys/$DEVPATH/loading
+    #echo 0 >/sys/$DEVPATH/loading
+    :
+else
+echo "ERROR loading '$FIRMWAREBIN'"
+fi
+echo 0 >/sys/$DEVPATH/loading
+}
+
+;;
+firmware) #not needed since k-3.7 :
+#Teach the kernel to load firmware files directly from the filesystem instead of using udev
+#http://kernelnewbies.org/Linux_3.7
+
+#http://stackoverflow.com/questions/950107/how-does-linux-kernel-know-where-to-look-for-driver-firmware
+#echo -n 1 > /sys/$DEVPATH/loading
+test "$FIRMWARE" || exit 1
+
+_install_fw_tar(){
+test -d /lib/modules/all-firmware/ || return 1
+local RV a
+FIRMWARETAR=`find /lib/modules/all-firmware/ -maxdepth 1 -type f -iname "*${FIRMWARE%.*}*.tar.gz"`
+for a in $FIRMWARETAR; do
+/bin/tar $VERB -C / --strip-components=1 -xzf ${a}
+RV=$((RV+$?))
+done
+return ${RV:-2}
+}
+_install_fw_bin(){
+test -d /lib/modules/all-firmware/ || return 1
+local RV a
+FIRMWAREBIN=`find /lib/modules/all-firmware/ -type f -ipath "*/lib/firmware/*${FIRMWARE%.*}*"`
+for a in $FIRMWAREBIN; do
+cp $VERB -a ${a} /lib/firmware/
+RV=$((RV+$?))
+done
+return ${RV:-2}
+}
+
+__install_fw(){
+if test -d /lib/modules/all-firmware/; then
+FIRMWARETAR=`find /lib/modules/all-firmware/ -maxdepth 1 -type f -iname "*${FIRMWARE%.*}*.tar.gz"`
+for a in $FIRMWARETAR; do
+/bin/tar -C / --strip-components=1 -xzf ${a}
+done
+
+FIRMWAREBIN=`find /lib/modules/all-firmware/ -type f -ipath "*/lib/firmware/*${FIRMWARE%.*}*"`
+for a in $FIRMWAREBIN; do
+cp -a ${a} /lib/firmware/
+done
+fi
+}
+
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || {
+_install_fw_tar || _install_fw_bin
+FIRMWAREBIN=`ls /lib/firmware/$FIRMWARE`
+test "$FIRMWAREBIN" || FIRMWAREBIN=`ls /lib/firmware/*/$FIRMWARE`
+test "$FIRMWAREBIN" || exit 1
+}
+test -f "$FIRMWAREBIN" || exit 1
+echo "FIRMWAREBIN='$FIRMWAREBIN'"
+echo 1 > /sys/$DEVPATH/loading
+cat "$FIRMWAREBIN" > /sys/$DEVPATH/data
+if [ $? = 0 ]; then
+    #echo -n  1 > /sys/$DEVPATH/loading
+    #echo -n -1 > /sys/$DEVPATH/loading
+    #echo 0 >/sys/$DEVPATH/loading
+    :
+else
+echo "ERROR loading '$FIRMWAREBIN'"
+fi
+echo 0 >/sys/$DEVPATH/loading
+;;
+*)
+echo "
+Unhandled ACTION '$ACTION'"
+;;
+esac
+echo
