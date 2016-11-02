@@ -64,7 +64,7 @@ SIZE_FILE=`du -k "$*" | awk '{print $1}'`
 test "$SIZE_FILE" || { _warn "unable to determine size of file $* ."; return 5; }
 test "${SIZE_FILE//[[:digit:]]/}" && { _err "invalid value for size of file $* ."; return 6; }
 
-if test $((SIZE_FILE * (NEED_SPACE+1) )) -ge $FREE_SPACE; then
+if test $((SIZE_FILE * (NEED_SPACE+2) )) -ge $FREE_SPACE; then # +2 files: The original and the temporary.
 xmessage -bg red -title "PupZip: ERROR" "Probably not enough available free space on / to extract $* ."
 exit 255
 else true
@@ -150,25 +150,28 @@ fi
 test -f "$*" && _switch_file_type "$*"
 
 #in order of preference...
-if [ "`which xarchive`" != "" ];then
+if [ "`which xarchive`" ];then
 echo XARCHIVE IS THERE
  XARCHIVE="xarchive"
-elif [ "`which TkZip`" != "" ];then
+elif [ "`which TkZip`" ];then
   XARCHIVE="TkZip"
-elif [ "`which guitar`" != "" ];then
+elif [ "`which guitar`" ];then
    XARCHIVE="guitar"
 else
    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
 Please install XArchive."
 fi
 
-if [ "$PARAMIN" = "" ];then
-echo "$PARAMIN is EMPTY starting now XARCHIVE"
- #just start xarchive...
- exec $XARCHIVE
-fi
+#if [ ! "$PARAMIN" ];then
+#echo "$PARAMIN is EMPTY starting now XARCHIVE"
+# #just start xarchive...
+# exec $XARCHIVE
+#fi
 
-if [ "$XARCHIVE" = "xarchive" ];then
+case $PARAMIN in
+'') exec $XARCHIVE;; # just start xarchive...
+"-h"|*help)
+ if [ "$XARCHIVE" = "xarchive" ];then
  MSGE="Drag and drop invocation of XArchive is achieved by dragging any file or
 directory the \"pupzip\" icon on the desktop. If you drag one of the
 recognised archived files, such as .tar.gz, .rpm, .deb, .zip, .tar.bz2,
@@ -176,13 +179,12 @@ it will open in XArchive and you will be given the opportunity to extract
 it. If you drag an ordinary file to the desktop icon, such as for example
 \"myfile.txt\", a XArchive will popup a dialog asking if you want to add
 it to an existing archive or create a new one."
-else
+ else
  MSGE="There is support for drag-and-drop of archive files to the desktop icon,
 however not for files and directories -- for that you need to have
 XArchiver installed, the preferred archiver program for Puppy."
-fi
+ fi
 
-if [ "$PARAMIN" = "--help" ];then
  xmessage -bg "orange" -center -title "PupZip: help" "
 This is a frontend to $XARCHIVE, which in turn is a frontend to the
 archiver utilities in Puppy (such as gzip, bzip2, dpkg, rpm, zip).
@@ -192,58 +194,65 @@ Note: $XARCHIVE can be started in the conventional way via the menu.
 $MSGE
 
 PupZip can also be invoked from Rox by the \"Open With...\" menu,
-by right-clicking on a file or directory."
+by right-clicking on a file or directory." &
  exit
-fi
+;;
+*.*) :;; # file with extension
+*)       # file has no extension, so treat as ordinary file...
+ if [ "$XARCHIVE" = "xarchive" ];then
+   exec xarchive --add=ask "$PARAMIN"
+ else
+   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file."
+ fi
+;;
+esac
 
+#busybox applets are not adequate for handling rpm, deb...
 #the full alternatives, dotpups by GuestToo...
 DPKGDEB="dpkg-deb"
-[ "`which dpkg-deb2`" != "" ] && DPKGDEB="dpkg-deb2"
+[ "`which dpkg-deb2`" ] && DPKGDEB="dpkg-deb2"
 #RPM2CPIO="rpm2cpio2"  ##BUG
 #1.0.7a: xarchive - gz, rpm, deb by GuestToo Puppy Master Mon 12 Dec 2005, 03:42
 #http://208.109.22.214/puppy/viewtopic.php?t=4577&sid=1a697fb27e2f9301f269eaf64da53d8b
 RPM2CPIO="rpm2cpio"
-[ "`which rpm2cpio2`" != "" ] && RPM2CPIO="rpm2cpio2"
+[ "`which rpm2cpio2`" ] && RPM2CPIO="rpm2cpio2"
 
 
 ARCHIVEFILE="`echo -n "$PARAMIN" | grep -i -E '\.tar|\.bz|\.gz|\.rpm|\.deb|\.zip|\.tgz|\.tbz' | grep -v '\\\.'`"
-##echo 'NORMFILE='"$NORMFILE"
-echo 'ARCHIVEFILE='"$ARCHIVEFILE"
-##if [ "$NORMFILE" != "" ];then  ##`
-if [ "$ARCHIVEFILE" != "" ];then
+echo "ARCHIVEFILE='$ARCHIVEFILE'"
+if [ "$ARCHIVEFILE" != "" ];then #1
  #it is an archive file...
 
  #get absolute path of file...
  if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then  ##11
   FULLSPEC="$PARAMIN"
- else  ##11
   #relative path...
-  if [ "$CDIR" = "/" ];then  ##111
+ elif [ "$CDIR" = "/" ];then  ##111
    FULLSPEC="/$PARAMIN"
-  else  ##111
+ else
    FULLSPEC="$CDIR/$PARAMIN"
-  fi  ##111
  fi ##11
- echo 'FULLSPEC='"$FULLSPEC"
- #busybox applets are not adequate for handling rpm, deb...
- AFILE="`basename "$PARAMIN"`"
- echo 'AFILE='"$AFILE"
- if [ "`echo -n "$AFILE" | grep '\.'`" = "" ];then  ##11
-  #file has no extension, so treat as ordinary file...
-  if [ "$XARCHIVE" = "xarchive" ];then  ##111
-   exec xarchive --add=ask "$PARAMIN"
-  else  ###111
-   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
-  fi  ###111
- else  ##11
-  AEXT="$AFILE"
-  echo 'AEXT='"$AEXT"
-  while [ ! "`echo -n "$AEXT" | grep '\.'`" = "" ];do
-   AEXT="`echo -n "$AEXT" | cut -f 2-6 -d '.'`"
+ echo "FULLSPEC='$FULLSPEC'"
+
+ aFILE="`basename "$PARAMIN"`"
+ echo "aFILE='$aFILE'"
+# if [ "`echo -n "$aFILE" | grep '\.'`" = "" ];then  ##11
+#  #file has no extension, so treat as ordinary file...
+#  if [ "$XARCHIVE" = "xarchive" ];then  ##111
+#   exec xarchive --add=ask "$PARAMIN"
+#  else  ###111
+#   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file."
+#  fi  ###111
+# else  ##11
+  aEXT="$aFILE"
+  echo "aEXT='$aEXT'"
+  while [ "`echo -n "$aEXT" | grep '\.'`" != "" ];do
+   aEXT="`echo -n "$aEXT" | cut -f 2- -d '.'`"
   done
- fi  ##11
- #drops here with AEXT=extension.
- case $AEXT in
+# fi  ##11
+
+ #drops here with aEXT=extension.
+ case $aEXT in
   rpm|RPM)
    mkdir /tmp/temprpm
    cd /tmp/temprpm
@@ -282,12 +291,13 @@ RPM extraction program, that PupZip will automatically use if present."
 
  echo "NOW ABOUT TO EXEC XARCHIVE $XARCHIVE $PARAMIN"
  exec $XARCHIVE "$PARAMIN"
+
 else  ##1
  if [ "$XARCHIVE" = "xarchive" ];then  ##11
- echo  "Now about starting xarchive --add=ask NORMFILE=$NORMFILE"
-  exec xarchive --add=ask "$NORMFILE"
+ echo  "Now about starting xarchive --add=ask $PARAMIN"
+  exec xarchive --add=ask "$PARAMIN"
  else  ##11
-  exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file"
+  exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file."
  fi  ##11
 fi  ##1
 
