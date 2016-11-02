@@ -316,7 +316,7 @@ showProfilesWindow()
 {
     local RV=1
     INTERFACE=${INTERFACE:-"$1"}
-    test "$INTERFACE" || return 2
+    test "$INTERFACE" || return 126
     # Dougal: find driver and set WPA driver from it
     INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
     INTMODULE=${INTMODULE##*/}
@@ -364,7 +364,7 @@ showProfilesWindow()
     do
 
         buildProfilesWindow
-        [ $? = 0 ] || { RV=126; break; }
+        [ $? = 0 ] || { RV=125; break; }
 
         #I=$IFS; IFS="" # this formats gtkdialog output to one single file, thus for loop below pointless
         ## Add escaping of funny chars before we eval the statement!
@@ -383,7 +383,7 @@ showProfilesWindow()
         case "$EXIT" in
             '') RV=125; break;; # GUI crashed?
             "abort" | "19" ) # Back or close window
-                RV=0; break
+                RV=120; break
                 ;; # Do Nothing, It will exit the while loop
             "11" ) # Scan
                 showScanWindow
@@ -1382,7 +1382,7 @@ $ERROR
 ## dialog variable passed as param
 clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $( ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | awk '{print $1}' )
+ for I in $( /bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | awk '{print $1}' )
  do kill $I
  done
 }
@@ -1910,7 +1910,7 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
 createNoNetworksDialog(){
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ for I in $(/bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
  do kill $I
  done
 }
@@ -1939,7 +1939,7 @@ exit 0
 createRetryScanDialog(){
     echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ for I in $(/bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
  do kill $I
  done
 }
@@ -1981,7 +1981,7 @@ esac
 createRetryPCMCIAScanDialog(){
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ for I in $(/bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
  do kill $I
  done
 }
@@ -2248,8 +2248,10 @@ if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
     #readonly INTERFACE=${INTERFACE:-"wlan0"} ## showProfilesWindow: INTERFACE=${INTERFACE:-"$1"}  line 315: INTERFACE: read-only variable
     INTERFACE=${INTERFACE:-"wlan0"}  # use some default
     DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/stderr"}
+	HAVEX=${HAVEX:-"$DISPLAY"}
+    HAVEX=${HAVEX:+'yes'}
 
-    _get_locale_strings(){   #2016-10-11 taken from net-setup.sh
+_get_locale_strings(){   #2016-10-11 taken from net-setup.sh
 # Dougal: add localization
 mo=net-setup.mo
 #lng=${LANG%.*}
@@ -2266,10 +2268,13 @@ fi
 RV=$((RV+$?))
 return $RV
 }
-    _get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
+_get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
 
+while :; do
     showProfilesWindow "$INTERFACE"
-    exit $?
+    #exit $?
+    case $? in ''|12[0-9]) break;; esac
+done
 fi
 #DEBUG_OUTPUT="/dev/stdout"
 DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/null"}
