@@ -5,6 +5,20 @@
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
 
+# this script does:
+#  1. check for filename as parameter
+#  2. if simple compressed file with supported extensions, extract and exit
+#  3. check if an archive program is found in PATH, f.ex. xarchive
+#  4. exit if no archive program found.
+#  5. again check for paramters
+#  6. run archive program if no parameters
+#  7. if --help as parameter, give a help message
+#  8. if no extension, treat as ordinary file and run archive program to create archive file
+#  9. check for further known archive extensions like .tar, .tgz, .rpm
+# 10. prepare the archive for the archive program in case
+# 11. run archive program on archive file
+# 12. else run archive program to create archive file from normal file
+
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
 alias cp="cp $VERB"
@@ -14,19 +28,7 @@ PARAMIN="$@"
 _debug "PARAMIN='$PARAMIN'"
 CDIR="`pwd`"
 _debug "CDIR='$CDIR'"
-#note, do not cd to directory this app is located in.
-
-_old_switch_1(){
-#w474
-if [ "`echo -n "$1" | grep '\.delta$'`" != "" ];then
-echo XDELTA
- exec xdelta_gui "$1"
-fi
-if [ "`echo -n "$1" | grep '\.bfe$'`" != "" ];then
-echo BCRYPT
- exec bcrypt_gui "$1"
-fi
-}
+#note, do not cd to directory this app is located in. Why?
 
 _check_unzip_exe(){
 which "$*" >>$OUT
@@ -110,43 +112,6 @@ _check_unzip_exe "$EXTRACT_BIN" || { err "'$EXTRACT_BIN' not found in PATH."; re
 _extract_file "$*"
 }
 
-
-_old_switch_2(){
-#v2.11 G2 has suggested this...
-if [ "`echo "$1" | grep -i '\.gz$'`" != "" ];then
-echo 'GZ'
-   if [ "`echo "$1" | grep -i '\.tar\.gz$'`" = "" ];then
-   echo 'NO TARGZ'
-      ##xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress $1 ?
-        xmessage -buttons "Yes,No" "Do you want to decompress $1 ?
-(it will decompress in current location
- and the original file will be deleted)"
-      [ $? -eq 101 ] || exit
-      gunzip "$1"
-      sync
-      exit
-   fi
-fi
-
-#also this...
-if [ "`echo "$1" | grep -i '\.bz2$'`" != "" ] ;then
-echo 'BZ2'
-   if [ "`echo "$1" | grep -i '\.tar\.bz2$'`" = "" ] ;then
-   echo 'NO TARBZ2'
-      xmessage -buttons "Yes,No" -nearmouse "Do you want to decompress $1 ?
-(it will decompress in current location
- and the original file will be deleted)"
-      [ $? -eq 101 ] || exit
-      xmessage "Uncompressing, please wait..." &
-      UPID=$!
-      bunzip2 "$1"
-      sync
-      kill $UPID
-      exit
-   fi
-fi
-}
-
 test -f "$*" && _switch_file_type "$*"
 
 #in order of preference...
@@ -161,12 +126,6 @@ else
    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
 Please install XArchive."
 fi
-
-#if [ ! "$PARAMIN" ];then
-#echo "$PARAMIN is EMPTY starting now XARCHIVE"
-# #just start xarchive...
-# exec $XARCHIVE
-#fi
 
 case $PARAMIN in
 '') exec $XARCHIVE;; # just start xarchive...
@@ -236,20 +195,11 @@ if [ "$ARCHIVEFILE" != "" ];then #1
 
  aFILE="`basename "$PARAMIN"`"
  echo "aFILE='$aFILE'"
-# if [ "`echo -n "$aFILE" | grep '\.'`" = "" ];then  ##11
-#  #file has no extension, so treat as ordinary file...
-#  if [ "$XARCHIVE" = "xarchive" ];then  ##111
-#   exec xarchive --add=ask "$PARAMIN"
-#  else  ###111
-#   exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "Not an archive file."
-#  fi  ###111
-# else  ##11
-  aEXT="$aFILE"
-  echo "aEXT='$aEXT'"
-  while [ "`echo -n "$aEXT" | grep '\.'`" != "" ];do
+ aEXT="$aFILE"
+ echo "aEXT='$aEXT'"
+  while [ "`echo -n "$aEXT" | grep '\.'`" ];do
    aEXT="`echo -n "$aEXT" | cut -f 2- -d '.'`"
   done
-# fi  ##11
 
  #drops here with aEXT=extension.
  case $aEXT in
@@ -287,10 +237,11 @@ RPM extraction program, that PupZip will automatically use if present."
 #   cd $CDIR
 #   exit
 #   ;;
- esac
-
+*)
  echo "NOW ABOUT TO EXEC XARCHIVE $XARCHIVE $PARAMIN"
  exec $XARCHIVE "$PARAMIN"
+ ;;
+ esac
 
 else  ##1
  if [ "$XARCHIVE" = "xarchive" ];then  ##11
