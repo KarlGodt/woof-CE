@@ -1,16 +1,22 @@
-#!/bin/sh
+#!/bin/ash
 #Barry Kauler 2005 www.puppylinux.com
 #frontend for XArchive.
 #well, i want this to be a universal archiver frontend for puppy.
 #v4.00 25apr2008 BK: now have full dpkg-deb in Puppy.
 #w474 support .delta, .bfe files.
 
+test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
+
+alias cp="cp $VERB"
+alias mv="mv $VERB"
+
 PARAMIN="$@"
-echo 'PARAMIN='"$PARAMIN"
+_debug "PARAMIN='$PARAMIN'"
 CDIR="`pwd`"
-echo 'CDIR='"$CDIR"
+_debug "CDIR='$CDIR'"
 #note, do not cd to directory this app is located in.
 
+_old_switch_1(){
 #w474
 if [ "`echo -n "$1" | grep '\.delta$'`" != "" ];then
 echo XDELTA
@@ -20,7 +26,92 @@ if [ "`echo -n "$1" | grep '\.bfe$'`" != "" ];then
 echo BCRYPT
  exec bcrypt_gui "$1"
 fi
+}
 
+_check_unzip_exe(){
+which "$*" >>$OUT
+}
+
+_simple_extract_file(){
+test -f "$*"  || return 2
+xmessage -buttons "Yes,No" "Do you want to decompress $* ?
+(it will decompress in current location
+ and the original file will be deleted)"
+      [ $? -eq 101 ] || exit 0
+      $EXTRACT_BIN $EXTRACT_OPTS "$*"
+      RV=$?
+      _sync
+      exit ${RV:-1}
+}
+
+_say_status_xmessage(){
+case $1 in
+0) bgCOLOUR=green; TITLE_STRING=SUCCESS; MSG="Done.";;
+*) bgCOLOUR=red;   TITLE_STRING=ERROR;   MSG="Probably some errors occurred.";;
+esac
+MSG=`gettext "$MSG"`
+xmessage -bg $bgCOLOUR -timeout 10 -title "PUPZIP: $TITLE_STRING" "$MSG" &
+}
+
+_check_free_space(){
+test -f "$*" || return 2
+
+FREE_SPACE=`df -k / | tail -n1 | awk '{print $4}'`
+test "$FREE_SPACE" || { _warn "unable to determine available space on / ."; return 3; }
+test "${FREE_SPACE//[[:digit:]]/}" && { _err "invalid value for available space on / ."; return 4; }
+
+SIZE_FILE=`du -k "$*" | awk '{print $1}'`
+test "$SIZE_FILE" || { _warn "unable to determine size of file $* ."; return 5; }
+test "${SIZE_FILE//[[:digit:]]/}" && { _err "invalid value for size of file $* ."; return 6; }
+
+if test $((SIZE_FILE * (NEED_SPACE+1) )) -ge $FREE_SPACE; then
+xmessage -bg red -title "PupZip: ERROR" "Probably not enough available free space on / to extract $* ."
+exit 255
+else true
+fi
+}
+
+_extract_file(){
+test -f "$*"  || return 2
+_check_free_space "$*"
+
+xmessage -buttons "Yes,No" -title "PupZip: CONFIRM" "Do you want to decompress $* ?
+(it will decompress in current location)"
+      [ $? -eq 101 ] || exit 0
+      cp -a "$*" "$*".tmp
+      $EXTRACT_BIN $EXTRACT_OPTS "$*"
+      RV=$?
+      if test "$RV" = 0; then
+      _sync
+      test -f "$*".tmp && mv "$*".tmp "$*"
+      else false
+      fi
+      RV=$((RV+$?))
+      _say_status_xmessage $RV
+      exit ${RV:-1}
+}
+
+_switch_file_type(){
+test -f "$*" || return 2
+case "$*" in
+*.tar|*.tar.*) return 0;;
+*.delta) exec xdelta_gui "$*";;
+*.bfe)   exec bcrypt_gui "$*";;
+*.gz)    EXTRACT_BIN=gunzip; NEED_SPACE=3;;
+*.bz2)   EXTRACT_BIN=bunzip2; NEED_SPACE=4;;
+*.lzo)   EXTRACT_BIN=lzo; EXTRACT_OPTS=-d; NEED_SPACE=2;;
+*.lz|*.lza|*.lzma)  EXTRACT_BIN=lzma; EXTRACT_OPTS=-d; NEED_SPACE=5;;
+*.xz)    EXTRACT_BIN=xz; EXTRACT_OPTS=-d; NEED_SPACE=5;;
+*.zip)   EXTRACT_BIN=unzip; NEED_SPACE=3;;
+*.Z)     EXTRACT_BIN=uncompress; NEED_SPACE=3;;
+*) return 0;;
+esac
+_check_unzip_exe "$EXTRACT_BIN" || { err "'$EXTRACT_BIN' not found in PATH."; return 3; }
+_extract_file "$*"
+}
+
+
+_old_switch_2(){
 #v2.11 G2 has suggested this...
 if [ "`echo "$1" | grep -i '\.gz$'`" != "" ];then
 echo 'GZ'
@@ -54,33 +145,22 @@ echo 'BZ2'
       exit
    fi
 fi
+}
 
+test -f "$*" && _switch_file_type "$*"
 
 #in order of preference...
-if [ ! "`which xarchive`" = "" ];then
+if [ "`which xarchive`" != "" ];then
 echo XARCHIVE IS THERE
  XARCHIVE="xarchive"
-else
- if [ ! "`which TkZip`" = "" ];then
+elif [ "`which TkZip`" != "" ];then
   XARCHIVE="TkZip"
- else
-  if [ ! "`which guitar`" = "" ];then
+elif [ "`which guitar`" != "" ];then
    XARCHIVE="guitar"
-  else
+else
    exec xmessage -bg "orange red" -center -title "PupZip: ERROR" "No archive GUI program found.
 Please install XArchive."
-  fi
- fi
 fi
-
-#the full alternatives, dotpups by GuestToo...
-DPKGDEB="dpkg-deb"
-[ ! "`which dpkg-deb2`" = "" ] && DPKGDEB="dpkg-deb2"
-#RPM2CPIO="rpm2cpio2"  ##BUG
-#1.0.7a: xarchive - gz, rpm, deb by GuestToo Puppy Master Mon 12 Dec 2005, 03:42 
-#http://208.109.22.214/puppy/viewtopic.php?t=4577&sid=1a697fb27e2f9301f269eaf64da53d8b
-RPM2CPIO="rpm2cpio"
-[ ! "`which rpm2cpio2`" = "" ] && RPM2CPIO="rpm2cpio2"
 
 if [ "$PARAMIN" = "" ];then
 echo "$PARAMIN is EMPTY starting now XARCHIVE"
@@ -98,7 +178,7 @@ it. If you drag an ordinary file to the desktop icon, such as for example
 it to an existing archive or create a new one."
 else
  MSGE="There is support for drag-and-drop of archive files to the desktop icon,
-however not for files and directories -- for that you need to have 
+however not for files and directories -- for that you need to have
 XArchiver installed, the preferred archiver program for Puppy."
 fi
 
@@ -116,14 +196,23 @@ by right-clicking on a file or directory."
  exit
 fi
 
+#the full alternatives, dotpups by GuestToo...
+DPKGDEB="dpkg-deb"
+[ "`which dpkg-deb2`" != "" ] && DPKGDEB="dpkg-deb2"
+#RPM2CPIO="rpm2cpio2"  ##BUG
+#1.0.7a: xarchive - gz, rpm, deb by GuestToo Puppy Master Mon 12 Dec 2005, 03:42
+#http://208.109.22.214/puppy/viewtopic.php?t=4577&sid=1a697fb27e2f9301f269eaf64da53d8b
+RPM2CPIO="rpm2cpio"
+[ "`which rpm2cpio2`" != "" ] && RPM2CPIO="rpm2cpio2"
+
 
 ARCHIVEFILE="`echo -n "$PARAMIN" | grep -i -E '\.tar|\.bz|\.gz|\.rpm|\.deb|\.zip|\.tgz|\.tbz' | grep -v '\\\.'`"
 ##echo 'NORMFILE='"$NORMFILE"
 echo 'ARCHIVEFILE='"$ARCHIVEFILE"
 ##if [ "$NORMFILE" != "" ];then  ##`
-if [ "$ARCHIVEFILE" != "" ];then 
+if [ "$ARCHIVEFILE" != "" ];then
  #it is an archive file...
- 
+
  #get absolute path of file...
  if [ "`echo -n "$PARAMIN" | cut -b 1`" = "/" ];then  ##11
   FULLSPEC="$PARAMIN"
@@ -190,7 +279,7 @@ RPM extraction program, that PupZip will automatically use if present."
 #   exit
 #   ;;
  esac
- 
+
  echo "NOW ABOUT TO EXEC XARCHIVE $XARCHIVE $PARAMIN"
  exec $XARCHIVE "$PARAMIN"
 else  ##1
