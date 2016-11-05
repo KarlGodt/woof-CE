@@ -10,7 +10,7 @@
 . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
-VERSION=1.1.2
+VERSION=1.2.0
 
 ERR=${ERR:-/dev/null}
 
@@ -32,7 +32,7 @@ exit 0
 _debugx 2 "$0:$*"
 _tell_help(){
 RV=0
-test $# -ge 1 && RV=$1
+test $# -ge 1 && { RV=$1; shift; }
 echo "$0: Help:
 -h) Tell this help message
 -V) Tell version message
@@ -177,13 +177,23 @@ echo "Otherwise, enter the CPU type, examples: i386 i486 i686 (the i is required
 echo -n "Type response here: "
 read CPUTYPE
 fi
+
+if test -s config.log; then
+eval "`grep '^build_cpu=' config.log | tail -n1`"
+eval "`grep '^host_cpu='  config.log | tail -n1`"
+fi
+
+CPUTYPE=${CPUTYPE:-"$build_cpu"}
+CPUTYPE=${CPUTYPE:-"$host_cpu"}
+CPUTYPE=${CPUTYPE:-`uname -m`}
 CPUTYPE=${CPUTYPE:-"i486"}
+
  if [ "`echo -n "$CPUTYPE" | grep '^[a-zA-Z]'`" = "" ];then
- echo "$CPUTYPE is not valid. Exiting."
+ echo "CPUTYPE '$CPUTYPE' is not recognized valid. Exiting."
  exit 254
  fi
 
-echo "Okay, using $CPUTYPE"
+echo "Okay, using '$CPUTYPE'"
 
 #would like to create different targets for exe, doc, dev, nls components...
 EXE_TARGETDIR="${PKGDIR}-${CPUTYPE}" #relative path.
@@ -240,7 +250,7 @@ echo -n "Type response (just press ENTER if in doubt): "
 read SPLITPETS
 fi
 
-[ "$SPLITPETS" = "" ] && SPLITPETS="exe"
+[ "$SPLITPETS" ]       || SPLITPETS="exe"
 [ "$SPLITPETS" = "1" ] && SPLITPETS="exe"
 [ "$SPLITPETS" = "2" ] && SPLITPETS="exe,dev"
 [ "$SPLITPETS" = "3" ] && SPLITPETS="exe,dev,doc,nls"
@@ -280,31 +290,61 @@ _sync
 # filter out $UPONE...
 # BUGPATTERN='&'"$UPONE"
 # no, just filter out /mnt and /initrd...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' > ${RELPATH}/${EXE_PKGNAME}.files
+
+grep '#success$' /tmp/pkginstall.list | tr -s '\t' | tr '&' ' ' | tr '\t' '&' >/tmp/pkginstall.list.success
+grep -Ev '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/initrd|&/mnt/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' /tmp/pkginstall.list.success >/tmp/pkginstall.list.filtered
+
+grep '^0&mkdir&'    /tmp/pkginstall.list.filtered | cut -f 3   -d '&' | sed -e 's/^\/\//\//g' >/tmp/${EXE_PKGNAME}.dirs
+grep '^0&rename&'   /tmp/pkginstall.list.filtered | cut -f 3,4 -d '&'                         >/tmp/${EXE_PKGNAME}.moved.files
+grep '^[345]&open&' /tmp/pkginstall.list.filtered | cut -f 3 -d '&' >  ${RELPATH}/${EXE_PKGNAME}.files
+grep '^0&symlink&'  /tmp/pkginstall.list.filtered | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+sort -u ${RELPATH}/${EXE_PKGNAME}.files >/tmp/${EXE_PKGNAME}.files
+mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
+_sync
+
+_format_files_list(){
+grep '#success$' /tmp/pkginstall.list | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^[345]&open&' | \
+ grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | \
+ grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' \
+ > ${RELPATH}/${EXE_PKGNAME}.files
 #...list will only have created files, not created directories, so an empty
 #   directory won't get recorded.
 
 #bad if we miss out installing an empty directory...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' > /tmp/${EXE_PKGNAME}.dirs
+grep '#success$' /tmp/pkginstall.list | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&mkdir&' | \
+ grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | \
+ grep -E -v '&/initrd|&/mnt/' | cut -f 3 -d '&' | sed -e 's/^\/\//\//g' \
+ > /tmp/${EXE_PKGNAME}.dirs
 
 _sync
 #pick up created symlinks...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' >> ${RELPATH}/${EXE_PKGNAME}.files
+grep '#success$' /tmp/pkginstall.list | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&symlink&' | \
+ grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | \
+ grep -E -v '&/initrd|&/mnt/' | cut -f 4 -d '&' \
+ >> ${RELPATH}/${EXE_PKGNAME}.files
 
 _sync
 #problem if there is a post-install script that moves or renames a file...
-cat /tmp/pkginstall.list | grep '#success$' | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' | tr '\n' ' ' > /tmp/${EXE_PKGNAME}.moved.files
+grep '#success$' /tmp/pkginstall.list | tr -s '\t' | tr '&' ' ' | tr '\t' '&' | grep '^0&rename&' | \
+ grep -E -v '&/dev/tty&|&/dev/null&|&/root/\.packages/|&/tmp/|&/root/\.icewm/|&/proc/|&/sys/|DotPupTmpDir|/\.myownmenuerc' | \
+ grep -E -v '&/initrd|&/mnt/' | cut -f 3,4 -d '&' \
+ > /tmp/${EXE_PKGNAME}.moved.files
+}
+
 #find out if any installed file got moved/renamed...
 if [ -s /tmp/${EXE_PKGNAME}.moved.files ];then
- for ONEMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
+ #for oneMOVED in `cat /tmp/${EXE_PKGNAME}.moved.files`
+ while read oneMOVED
  do
-  ONEORIG="`echo -n "$ONEMOVED" | cut -f 1 -d '&'`"
-  ONENEW="`echo -n "$ONEMOVED" | cut -f 2 -d '&'`"
-  grep -v "$ONEORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
-  echo "$ONENEW" >> /tmp/${EXE_PKGNAME}.files
+  #oneORIG="`echo -n "$oneMOVED" | cut -f 1 -d '&'`"
+  # oneNEW="`echo -n "$oneMOVED" | cut -f 2 -d '&'`"
+  oneORIG=${oneMOVED%&*}
+   oneNEW=${oneMOVED#*&}
+  grep -v "$oneORIG" ${RELPATH}/${EXE_PKGNAME}.files > /tmp/${EXE_PKGNAME}.files
+  echo "$oneNEW" >> /tmp/${EXE_PKGNAME}.files
   _sync
   mv -f /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
- done
+ done </tmp/${EXE_PKGNAME}.moved.files
 fi
 
 
@@ -325,13 +365,13 @@ NON_STRIP_EXT="$TEXT_FILES_EXT|$COMPR_FILES_EXT|$FS_FILES_EXT|$IMG_FILES_EXT|$LI
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | sed 's!|!\$|!g;s!|!|\\\.!g'`
 NON_STRIP_EXT=`echo "$NON_STRIP_EXT" | tr -s '|' | sed 's!^|*!!;s!|*$!!'`
 
-VERB=-v
+#VERB=-v
 
-cat ${RELPATH}/${EXE_PKGNAME}.files |
+#cat ${RELPATH}/${EXE_PKGNAME}.files |
 while read oneFILE
 do
- ONEBASE="`basename "$oneFILE"`"
- ONEPATH="`dirname "$oneFILE"`"
+ oneBASE=${oneFILE##*/}
+ onePATH=${oneFILE%/*}
  echo "Processing ${oneFILE}"
 
  #strip the file...
@@ -339,17 +379,21 @@ do
   if [ ! "`echo "$oneFILE" | grep -iE "$NON_STRIP_EXT|/man/|/info/"`" ]; then
    echo " ... Checking for stripping .." >&2
    fileFILE=`file "$oneFILE"`
-  [ "`echo "$fileFILE" | grep 'ELF' | grep 'shared object'`" != "" ] && strip --strip-debug "$oneFILE"
-  [ "`echo "$fileFILE" | grep 'ELF' | grep 'executable'`" != "" ] && strip --strip-unneeded "$oneFILE"
+  #[ "`echo "$fileFILE" | grep 'ELF .* shared object'`" ] && strip $VERB --strip-debug "$oneFILE"
+  #[ "`echo "$fileFILE" | grep 'ELF .* executable'`" ] && strip $VERB --strip-unneeded "$oneFILE"
+  case $oneFILE in
+  *ELF*shared*object*) strip $VERB --strip-debug    "$oneFILE";;
+  *ELF*executable*)    strip $VERB --strip-unneeded "$oneFILE";;
+  esac
   fi
  fi
  _sync
 
  if [ "$NLSSPLIT" = "yes" ];then
   #find out if this is an international language file...
-  if [ "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" != "" ];then
-   mkdir $VERB -p "${NLS_TARGETDIR}/${ONEPATH}"
-   /bin/cp $VERB -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${ONEPATH}/"
+  if [ "`echo -n "$oneFILE" | grep -E '/locale/|/nls/|/i18n/'`" ];then
+   mkdir $VERB -p "${NLS_TARGETDIR}/${onePATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${NLS_TARGETDIR}/${onePATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
@@ -357,9 +401,9 @@ do
 
  if [ "$DOCSPLIT" = "yes" ];then
   #find out if this is a documentation file...
-  if [ "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" != "" ];then
-   mkdir $VERB -p "${DOC_TARGETDIR}/${ONEPATH}"
-   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${ONEPATH}/"
+  if [ "`echo -n "$oneFILE" | grep -E '/man/|/doc/|/docs/|/info/|/gtk-doc/|/faq/|/manual/|/examples/|/help/|/htdocs/'`" ];then
+   mkdir $VERB -p "${DOC_TARGETDIR}/${onePATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DOC_TARGETDIR}/${onePATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
@@ -367,32 +411,32 @@ do
 
  if [ "$DEVSPLIT" = "yes" ];then
   #find out if this is development file...
-  if [ "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" != "" ];then
-   mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
-   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+  if [ "`echo -n "$oneFILE" | grep -E '/include/|/pkgconfig/|/aclocal|/cvs/|/svn/'`" ];then
+   mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+   /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
    [ $? -ne 0 ] && fixfilelistfunc $oneFILE
    continue
   fi
   #find *.so symlink files...
   if [ -h "$oneFILE" ];then #-h tests for symlink
-   if [ "`echo -n "$oneFILE" | grep '\.so$'`" != "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+   if [ "`echo -n "$oneFILE" | grep '\.so$'`" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
    fi
   fi
   #find various config files...
-  if [ "`echo -n "$ONEBASE" | grep -E '\-config$|config.sh$|Conf.sh$'`" != "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+  if [ "`echo -n "$oneBASE" | grep -E '\-config$|config.sh$|Conf.sh$'`" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
   #all .a and .la files... and any stray .m4 files...
-  if [ "`echo -n "$ONEBASE" | grep -E '\.a$|\.la$|\.m4$'`" != "" ];then
-    mkdir $VERB -p "${DEV_TARGETDIR}/${ONEPATH}"
-    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${ONEPATH}/"
+  if [ "`echo -n "$oneBASE" | grep -E '\.a$|\.la$|\.m4$'`" ];then
+    mkdir $VERB -p "${DEV_TARGETDIR}/${onePATH}"
+    /bin/cp $VERB -a --remove-destination "$oneFILE" "${DEV_TARGETDIR}/${onePATH}/"
     [ $? -ne 0 ] && fixfilelistfunc $oneFILE
     continue
   fi
@@ -400,20 +444,25 @@ do
 
  #anything left over goes into the main 'executable' package...
  if [ "$EXESPLIT" = "yes" ];then
-  mkdir $VERB -p "${EXE_TARGETDIR}/${ONEPATH}"
-  /bin/cp $VERB -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${ONEPATH}/"
+  mkdir $VERB -p "${EXE_TARGETDIR}/${onePATH}"
+  /bin/cp $VERB -a --remove-destination "$oneFILE" "${EXE_TARGETDIR}/${onePATH}/"
   [ $? -ne 0 ] && fixfilelistfunc $oneFILE
   #fix for empty directories...
-  cat /tmp/${EXE_PKGNAME}.dirs |
-  while read ANEWDIR
+  #cat /tmp/${EXE_PKGNAME}.dirs |
+  while read aNEWDIR
   do
-   [ "`ls -1 $ANEWDIR 2>$ERR`" = "" ] && mkdir $VERB -p ${EXE_TARGETDIR}${ANEWDIR}
-  done
+   [ "`ls -1 $aNEWDIR 2>$ERR`" = "" ] && mkdir $VERB -p ${EXE_TARGETDIR}${aNEWDIR}
+  done </tmp/${EXE_PKGNAME}.dirs
  fi
-done
+done <${RELPATH}/${EXE_PKGNAME}.files
+
 _sync
+
 cp $VERB -af /tmp/${EXE_PKGNAME}.files ${RELPATH}/${EXE_PKGNAME}.files
-find -name "*.log" -exec cp {} "${EXE_TARGETDIR}/" \;  ##KRG 2011-12-18
+cp $VERB -af ${RELPATH}/${EXE_PKGNAME}.files "${EXE_TARGETDIR}/"              ## 2016-11-05
+find -name "*.log" | while read l; do
+ /bin/cp $VERB --backup=numbered "$l" "${EXE_TARGETDIR}"/${EXE_PKGNAME}-${l##*/}  ##KRG 2011-12-18
+done
 
 echo
 echo -en "\\033[1;31mFinished" #red
@@ -434,10 +483,27 @@ echo "Press ENTER only to exit this script."
 echo "Or, if you want the convenience, the 'dir2pet' script can be launched"
 echo "right now -- press any character on the keyboard then ENTER."
 echo -n "Type response here: "
-read nextphase
-[ "$nextphase" = "" ] && exit
+[ "$FORCE" ] || read nextphase
+[ "$nextphase" = "" ] && exit ${STATUS:-0}
 
 cd ${RELPATH}
+
+for d in "${xNAMEONLY}-${VERONLY}-${CPUTYPE}" \
+         "${xNAMEONLY}_DEV-${VERONLY}-${CPUTYPE}" \
+         "${xNAMEONLY}_DOC-${VERONLY}-${CPUTYPE}" \
+         "${xNAMEONLY}_NLS-${VERONLY}-${CPUTYPE}"
+do
+ [ -d "$d" ] || continue
+ dir2pet "$d"
+ if test $? = 0; then
+  echo -n "${d}.pet created. Press ENTER to continue: "
+ else
+  : #TODO
+ fi
+read domore
+done
+
+_create_pets(){
 if [ -d ${xNAMEONLY}-${VERONLY}-${CPUTYPE} ];then
  dir2pet ${xNAMEONLY}-${VERONLY}-${CPUTYPE}
  echo -n "${xNAMEONLY}-${VERONLY}-${CPUTYPE}.pet created. Press ENTER to continue: "
@@ -461,7 +527,8 @@ if [ -d ${xNAMEONLY}_NLS-${VERONLY}-${CPUTYPE} ];then
  echo -n "${xNAMEONLY}_NLS-${VERONLY}-${CPUTYPE}.pet created. Press ENTER to continue: "
  read domore
 fi
+}
 
 echo "All done."
-
+exit ${STATUS:-0}
 ###END###
