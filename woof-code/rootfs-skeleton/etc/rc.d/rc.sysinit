@@ -41,7 +41,7 @@
 #        TODO : put into /sbin/init
 #
 # 02.0 : mkmissing_tty_func
-#   .1 : check_frugal_full_func
+#   .1 : check_frugal_full_func # removed
 #   .2 : check_full_frugal_dev_func
 #   .3 : mkmissing_blockdev_func
 #   .4 : dev_maj_259_func  #first_func
@@ -153,10 +153,11 @@ loadswap_func() { #w481 made into a function.
 }
 
 test -f /etc/rc.rd/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
-#test "$PUPMODE" = 2 -a -d /initrd && rm $VERB -rf /initrd # rootfs needs to be mounted rw
 
 #if have just done a switch_root, output a 'done' message...
-[ -d /initrd ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
+test -L /sbin/init && {
+[ $PUPMODE = 2 ] || status_func 0 #note, /initrd does not exist when a full-hd installation.
+}
 
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
@@ -239,27 +240,18 @@ echo 'safeBoot='"$safeBoot" >$TTY
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >$TTY #need this redirection!
 
-    #echo "Mounting /proc"
 test -e /proc/mounts || busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$(( STATUS + $? ))
-    #echo 'STATUS='"$STATUS"
-
-#test -f /etc/rc.rd/PUPSTATE && . /etc/rc.d/PUPSTATE || PUPMODE=2
-#test "$PUPMODE" = 2 -a -d /initrd && rm $VERB -rf /initrd
-
 if [ "$PUPMODE" = 2 ]; then #w468
-    #echo ' Mounting rw / and others'
  busybox mount $VERB $VERB -o remount,rw /
  STATUS=$(( STATUS + $? ))
-    #echo 'STATUS='"$STATUS"
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
-fi
-
 . /etc/rc.d/PUPSTATE #variables created at bootup by init script in initrd.
+fi
 
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm $VERB -f /etc/mtab
-ln $VERB -s /proc/mounts /etc/mtab
+ln $VERB -s ../proc/mounts /etc/mtab
 
 #redirect all output to a log file (must do after remount rw)...
 ##[ ! "$LOGLEVEL" ] && exec 1>/tmp/bootsysinit.log 2>&1
@@ -273,14 +265,14 @@ exec 1>/tmp/bootsysinit.log."$_DATE_" 2>&1
 
 [ -d /dev/pts ] || mkdir $VERB -p /dev/pts
 #chgrp tty /dev/pts ## 2015-12-27 rb4linux http://murga-linux.com/puppy/viewtopic.php?p=878804#878804
-    echo "Mounting /dev/pts"
+_debug "Mounting /dev/pts"
 busybox mount $VERB $VERB /dev/pts ;STATUS=$(( STATUS + $? ))
 #mount -t devpts -o rw,nosuid,noexec,gid=2,mode=620,ptmxmode=000 devpts /dev/pts ## 2015-12-27 rb4linux
-    echo 'STATUS='"$STATUS"
+_debug "STATUS='$STATUS'"
 [ -d /sys ] || mkdir $VERB /sys
-    echo "Mounting /sys"
+_debug "Mounting /sys"
 busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$(( STATUS + $? ))
-    echo 'STATUS='"$STATUS"
+_debug "STATUS='$STATUS'"
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481  ##2011-10-20 TODO:-f4 instead of -f5
@@ -346,157 +338,6 @@ done
 }
 mkmissing_tty_func
 
-
-check_frugal_full_func() {
-CatProcPart=`cat /proc/partitions | tr -s ' ' | sed '1,2 d'`
-
-RootDiskFreeFrugal=`/bin/df | grep -Fw '/' | grep -E 'rootfs|uniounfs' | head -n 1`
-MountFrugal=`mount | grep '/initrd/mnt/dev_save' | cut -f 1 -d ' '`
-
-RootDiskReadlinkDevRoot=`readlink /dev/root`
-
-RootDiskFreeFull=`/bin/df | grep -Fw '/' | grep -v -E 'rootfs|uniounfs' | tr -s ' ' | cut -f 1 -d ' '`
-MountFull=`mount | grep -Fw '/' | grep '/dev/' | cut -f 1 -d ' '`
-
-echo "'$RootDiskFreeFrugal' '$MountFrugal' '$RootDiskReadlinkDevRoot' '$RootDiskFreeFull' '$MountFull'"
-}
-#check_frugal_full_func
-
-check_full_frugal_dev_func() {
-
-if test -n "$RootDiskFreeFrugal" -a -n "$MountFrugal"; then ## frugal install
-#SimpleDeviceName=`echo $MountFrugal | sed 's#/dev/##'`
-SimpleDeviceName=${MountFrugal##*/}
-MainDriveName=${SimpleDeviceName:0:3}
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-elif test -n "$RootDiskFreeFull" -a -n "$MountFull"; then ## full install
-##krg this would get root and later roo :SimpleDeviceName=`echo $MountFull | sed 's#/dev/##'`
-SimpleDeviceName=`basename $(rdev | cut -f 1 -d ' ')`
-MainDriveName=${SimpleDeviceName:0:3}
-RootDevice=`echo "$CatProcPart" | grep -w $SimpleDeviceName`
-MainDevice=`echo "$CatProcPart" | grep -w $MainDriveName`
-fi
-echo "'$SimpleDeviceName' '$MainDriveName' '$RootDevice' '$MainDevice'"
-}
-#check_full_frugal_dev_func
-
-mkmissing_blockdev_func() {
-rootdrv=`/bin/df | grep -Fw '/' | grep -v -E 'rootfs|unionfs'`
-if test "$rootdrv"; then
-simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-else
-rootdrv=`mount | grep '/initrd/mnt/dev_save'`
-simple_drv=`echo $rootdrv | cut -f 1 -d ' ' | sed 's#/dev/##'`
-fi
-main_drv=${simple_drv:0:3}
-
-if test ! -b /dev/$main_drv -o ! -b /dev/$simple_drv; then
-if test "`cat /proc/partitions | grep $simple_drv | tr -s ' ' | cut -f 2 -d ' ' | grep -E '8|3|22'`"; then
-
-echo "no blockdevices found, creating now" #> /dev/console
-
-  while read maj min siz dev
-  do
-    test "$maj" || continue
-    test "${maj//[[:digit:]]/}" && continue
-    test "`LC_ALL=C ls -l /dev/$dev | tr -s ' ' | cut -f 5,6 -d ' '`" = "${maj}, $min" && continue
-    rm $VERB -f /dev/$dev
-    mknod /dev/$dev b $maj $min
-    done</proc/partitions
-echo "finished ..." #> /dev/console
-fi
-fi
-echo "'$rootdrv' '$simple_drv' '$main_drv'"
-}
-
-dev_maj_259_func() {
-
-while read maj min siz dev
-do
-test "$maj" || continue
-test "${maj//[[:digit:]]/}" && continue
-#test "`LC_ALL=C ls -l /dev/$dev | tr -s ' ' | cut -f 5 -d ' ' | tr -d ','`" = "$maj" && continue
-test "`LC_ALL=C ls -l /dev/$dev | tr -s ' ' | cut -f 5,6 -d ' '`" = "${maj}, $min" && continue
-rm $VERB -f /dev/$dev
-mknod /dev/$dev b $maj $min
-done</proc/partitions
-
-}
-
-device_nodes_fork_func() {
-
- check_full_frugal_dev_func
-
- dev_maj_259_func
-
- mkmissing_blockdev_func
-
-}
-device_nodes_fork_func
-
-mk_missing_var_dev_func() {
-TarGzDevDbF="/var/db/boot/dev.$KERNVER.tar.gz"
-StandardTarGzDevDbFile="/var/db/boot/dev.tar.gz"
-if test -f "$TarGzDevDbF" -o -f "$StandardTarGzDevDbFile"; then #1
-if [ ! -f "$TarGzDevDbF" ]; then #1.1
-if test -f "$StandardTarGzDevDbFile"; then #1.1.1
-tgdbf="$StandardTarGzDevDbFile"
-echo "using tgdbf=$StandardTarGzDevDbFile"
-fi #1.1.1
-elif [ -f "$TarGzDevDbF" ]; then #1.1
-tgdbf="$TarGzDevDbF"
-echo "using tgdbf=$TarGzDevDbF"
-else
-echo "Nothing to do for mk_missing_var_dev_func"
-return #1.1
-fi #1.1
-shortfilename="${tgdbf##*/}"
-echo "'$shortfilename'"
-if test `ls -l /dev | wc -l` -lt 250; then #1.2
-echo "applying $tgdbf for /dev contains lesser than 250 devices"
-cp $VERB $tgdbf /tmp
-startdir=`pwd`
-cd /tmp
-tar -xzf /tmp/$shortfilename
-TDevF=`find /tmp -name "dev"`
-cp $VERB -ar $TDevF / #2>/dev/null
-_sync
-rm $VERB -f $TDevF
-cd "$startdir"
-return
-fi #1.2
-
-else # 1
-echo "$TarGzDevDbF and $StandardTarGzDevDbFile do not exists"
-kernversdbf="/var/db/boot/dev_nodes.$KERNVER.lst"
-standarddbf="/var/db/boot/dev_nodes.lst"
-if test -f $kernversdbf; then #1.3
-#DDB="`cat /var/db/boot/dev_nodes.$KERNVER.lst`"
-dbf="$kernversdbf"
-echo "using $kernversdbf"
-elif test -f $standarddbf; then #1.3
-dbf="$standarddbf"
-echo "using $standarddbf"
-else #1.3
-echo "nothing to be done ..."
-return
-fi #1.3
-    #cat /var/db/boot/dev_nodes.$KERNVER.lst| while read PERM N O G MAY Min M D T DEV; do
-#cat $dbf | while read PERM N O G MAY Min M D T DEV; do
-while read PERM N O G MAY Min M D T DEV; do
-[ -z "$DEV" ] && DEV=$T
-KIND=${PERM:0:1}
-MAJ=`echo $MAY | tr -d ','`
-DN=${DEV%/*}
-[ -d "$DN" ] || mkdir $VERB -p $DN
-[ -$KIND "$DEV" ] || { echo "creating $DEV";mknod $DEV $KIND $MAJ $Min; }
-done<"$dbf"
-fi #1
-}
-#mk_missing_var_dev_func  # now /sbin/init sjould create dev nodes either by mdev -s
-                          # or reading uvent files in /sys
-
 pupstate_prev_func() {
 if test "`grep -Fw KERNVER /etc/rc.d/PUPSTATE.prev | cut -f2 -d=`" != "$KERNVER"; then
 if test ! -f /lib/modules/$KERNVER/modules.dep -o ! -f /lib/modules/$KERNVER/modules.symbols -o ! -f /lib/modules/$KERNVER/modules.alias; then
@@ -512,6 +353,7 @@ fi
 pupstate_prev_func
 
 firmware_dep_func() {
+
 if test ! -f /etc/modules/firmware.dep.$KERNVER; then
 FWF=`find /etc/modules -type f -name "firmware.*" | head -n 1`
 echo "copying firmware.dep"  #> /dev/console
@@ -681,11 +523,6 @@ if [ "$PUPMODE" = 2 ]; then #v423 full hd install.
 fi
 
 if [ -x /sbin/photplug ]; then
-
-#[ -f /tmp/hotplug.modules ] || { /sbin/modprobe -c | sed 's%\*%\.\*%g' >/tmp/hotplug.modules.sed
-##awk '{print $2}' /tmp/hotplug.modules.sed >/tmp/hotplug.modules ; }
-#grep '^alias' /tmp/hotplug.modules.sed | awk '{print $2}' >/tmp/hotplug.modules ;
-#}
 echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 
 #v405 udevd calls /sbin/pup_event_backend_modprobe, which needs this...
@@ -700,7 +537,7 @@ sleep 0.1
 
 INITSTATE=`find /sys -name "initstate"`
 WC=`echo "$INITSTATE" | wc -l`
-echo 'WC INITSTATE='"$WC"
+echo "WC INITSTATE='$WC'"
 
 if [ -z "$MODALIASES" ]; then #1
 
@@ -738,7 +575,7 @@ echo -e "\n"'Detected '"\e[1;34m""$MODULECNT ""\e[0;39m"'busses' >$TTY
 MODULECNT=0
 
 sleep 3s
-LSMODCNT=`lsmod | sed "1 d" | wc -l`
+LSMODCNT=`wc -l /proc/modules | awk '{print $1}'`
 
 if [ "$LSMODCNT" = 0 ]; then #4
 lsmod | cut -f 1 -d ' ' | sort -g | tr '\n' ' ' >$TTY
@@ -758,17 +595,30 @@ fi #1
 
 [ -d /proc/acpi ] || modprobe $Q $VERB -s apm #v406
 
-[ -z "`lsmod | grep 'usb_storage'`" ] && modprobe $Q $VERB -s usb_storage
+#we can determine ide/sata drives at this point (drivers builtin to kernel)...
+#[ -z "`lsmod | grep 'usb_storage'`" ] && modprobe $Q $VERB -s usb_storage
 
 [ -n "`lsmod | cut -f 1 -d ' ' | grep 'fb$'`" ] && fbcon_func
 
 if [ "$PUPMODE" = 2 ]; then #full hd installation.
+
+_load_var_drivers(){
 [ -z "`lsmod | grep 'nls_cp437'`" ]     && modprobe $Q $VERB -s nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
 [ -z "`lsmod | grep 'nls_iso8859_1'`" ] && modprobe $Q $VERB -s nls_iso8859-1 # "
 [ -z "`lsmod | grep 'fuse'`" ]          && modprobe $Q $VERB -s fuse
 [ -z "`lsmod | grep "$LAYERFS"`" ]      && modprobe $Q $VERB -s $LAYERFS #unionfs or aufs.
 [ -z "`lsmod | grep 'squashfs'`" ]      && modprobe $Q $VERb -s squashfs
- #we can determine ide/sata drives at this point (drivers builtin to kernel)...
+}
+
+MODULES_ALL=`busybox modprobe -l | sed 's%.*/%%'`
+for d in nls-cp437 nls-iso8859-1 usb-storage fuse squashfs $LAYERFS
+do
+[ "$d" ] || continue
+echo "$MODULES_ALL" | grep $Q -w "$d" || continue
+m=${d//-/_}
+grep $Q -w "^$m" /proc/modules && continue
+modprobe $Q $VERb -s $d
+done
 fi
 
 status_func 0
@@ -780,9 +630,6 @@ fi
 
 #################MISC. SYSTEM SETUP#################
 echo "MISC. SYSTEM SETUP"
-##syslogd -m 0
-##klogd
-
 
 echo -e "${DISTRO_NAME} Linux\n`uname -s` `uname -r` [`uname -m` arch]\n\n" > /etc/issue
 echo "1" > /proc/sys/net/ipv4/ip_dynaddr
@@ -821,12 +668,14 @@ for fs in $nodevFS; do
 [ "`grep -w "$fs" /proc/mounts`" ] && continue
 
 case $fs in
-*ramfs|*tmpfs) continue;;
+hugetlbfs|*ramfs|*tmpfs) continue;;
+configfs|efivarfs|proc|sysfs)     continue;;
 bdev|sockfs|pipefs|anon_inodefs) continue;;
-aufs|fuse)               continue;;
-nfs|nfs4|nfsd)           continue;;
+aufs|fuse*|overlayfs|unionfs) continue;;
+autofs*|nfs|nfs4|nfsd)       continue;;
 inotifyfs)               continue;;
-autofs|exofs)            continue;;
+exofs)            continue;;
+# flash
 mtd_inodefs|ubifs|jffs2) continue;;
 esac
 
@@ -882,7 +731,7 @@ if [ "$PCIUSB" ]; then #this may be slow to respond.
  echo -n " usb"
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ]; do
-  [ "`lsmod | grep -w -E '^uhci_hcd|^ohci_hcd|^ehci_hcd|^xhci_hcd' | wc -l`" -ge $PCIUSBNUM ] && break
+  [ "`lsmod | grep -w -E '^[eoux]hci[_-]hcd' | wc -l`" -ge $PCIUSBNUM ] && break
   WAITCNT=$((WAITCNT + 1))
   sleep 1
   echo -n " $WAITCNT" >$TTY
@@ -899,7 +748,7 @@ echo 'Running the pcmcia-usb-ssb modaliases add by rc.sysinit '$0
 echo '##########'  >> /tmp/pup_event_module_devpath_log
 echo 'Running the pcmcia-usb-ssb modaliases add by rc.sysinit '$0 >> /tmp/pup_event_module_devpath_log
 echo safeBoot=$safeBoot 3
-LSMOD=`lsmod | sed "1 d" | cut -f 1 -d ' '`
+LSMOD=`cut -f 1 -d ' ' /proc/modules`
 MODULECNT2=0
 if [ $KERNMAJ -lt 24 ]; then #v431
  echo 'Add loop for KERNMAJ -th 24'
@@ -940,7 +789,7 @@ MODULECNT2=0
 fi
 
 sleep 3s
-LSMOD2=`lsmod | sed "1 d" | cut -f 1 -d ' '`
+LSMOD2=`cut -f 1 -d ' ' /proc/modules`
 
 if [ "$LSMOD2" != "$LSMOD" ]; then
 DIFF=`echo "$LSMOD2" | grep -v "$LSMOD"`
@@ -954,7 +803,7 @@ echo >> /tmp/pup_event_module_devpath_log
 #wait for usb-storage drives to become available...(already done if initrd)
 #note, pup_event_backend_d and udevd both log to this file when load modules
 # (the latter via udev handler script /sbin/pup_event_backend_modprobe)...
-if [ "`grep 'usb_storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_event_backend_d
+if [ "`grep 'usb[_-]storage' /tmp/pup_event_module_devpath_log`" ]; then #see pup_event_backend_d
  echo -n " usb-storage"  >$TTY
  echo -n " usb-storage"
  while [ $WAITCNT -lt 15 ]; do
@@ -983,13 +832,12 @@ sleep 1 #v411 a bit extra. rerwin reports usb mouse detection problem some hardw
 
 fi
 
- SATADRIVES=`ls -1 /sys/block | grep '^sd' | tr '\n' ' '`
+ SATADRIVES=`ls -1 /sys/block | grep '^sd'`
  for i in $SATADRIVES; do
- LinkTarget=`readlink -f /sys/block/$i`
- if test "`echo $LinkTarget | grep 'usb'`"; then
- USB_SATAD="$USB_SATAD $i"
+ if readlink -f /sys/block/$i | grep $Q 'usb'; then
+  USB_SATAD="$USB_SATAD $i"
  else
- BLOCK_SATAD="$BLOCK_SATAD $i"
+  BLOCK_SATAD="$BLOCK_SATAD $i"
  fi
  done
  if [ -e /proc/ide ]; then
@@ -1014,8 +862,8 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
  do
   MPARAMS=""
   if [ "`echo -n "$MODULE" | tr ':' ' ' | wc -w`" -gt 1 ]; then
-   MPARAMS=`echo -n "$MODULE" | cut -f 2-9 -d ':' | tr ':' ' '`
-   MODULE=`echo -n "$MODULE" | cut -f 1 -d ':'`
+   MPARAMS=`echo "$MODULE" | cut -f 2- -d ':' | tr ':' ' '`
+    MODULE=`echo "$MODULE" | cut -f 1  -d ':'`
   fi
   echo -n " $MODULE" >$TTY
   echo "Loading module $MODULE $MPARAMS"
@@ -1027,33 +875,35 @@ if [ "$ADDLIST" ]; then #variable is in /etc/rc.d/MODULESCONFIG
 fi
 fi
 echo safeBoot=$safeBoot 8
+
 if [ "$safeBoot" -ge "4" ]; then
-[ -z "`lsmod | grep 'fbcon'`" ] && fbcon_func
+ [ -z "`lsmod | grep 'fbcon'`" ] && fbcon_func
 
-#had hoped to retire this, but HardInfo needs it...
-#[ "`lsmod | grep '^usbcore'`" ] && busybox mount -t usbfs usbfs /proc/bus/usb
-[ -d /proc/bus/usb ] && busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
+ #had hoped to retire this, but HardInfo needs it...
+ #[ "`lsmod | grep '^usbcore'`" ] && busybox mount -t usbfs usbfs /proc/bus/usb
+ [ -d /proc/bus/usb ] && busybox mount $VERB $VERB -t usbfs usbfs /proc/bus/usb
 
-#v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
-#v408 kirk: Check for laptop battery...
-modprobe $Q $VERB -s battery
-#if [ -d /proc/acpi/battery ]; then
- #results="`find /proc/acpi/battery -mindepth 1 -type d`"
-# if [ ! -z "$results" ]; then
-  modprobe $Q $VERB -s ac
-#  modprobe thermal
-  modprobe $Q $VERB -s fan
-# else
-#  rmmod battery
-# fi
-#fi
+ #v408 only needed for 2.6.21.7, as 2.6.25.x loads these automatically...
+ #v408 kirk: Check for laptop battery...
+ modprobe $Q $VERB -s battery
+ if [ -d /proc/acpi/battery ]; then
+  results="`find /proc/acpi/battery -mindepth 1 -type d`"
+   if [ -n "$results" ]; then
+    modprobe $Q $VERB -s ac
+    modprobe $Q $VERB -s thermal
+    modprobe $Q $VERB -s fan
+   else
+    rmmod battery
+   fi
+  else true
+ fi
 fi
 echo safeBoot=$safeBoot 9
 
 ###################SETUP SERVICES################
 echo "SETUP SERVICES"
 echo -n "Setting up services (network, printing, etc.)..." >$TTY
-if [ -h /dev/modem ]; then
+if [ -L /dev/modem ]; then
  DEVM=`readlink /dev/modem`
  case $DEVM in
   modem) #error, circular link.
@@ -1061,12 +911,12 @@ if [ -h /dev/modem ]; then
    DEVM=""
   ;;
   /dev/*) #wrong format.
-   DEVM=`echo -n "$DEVM" | cut -f 3,4 -d '/'`
+   DEVM=${DEVM#*/dev/}
    ln $VERB -sf $DEVM /dev/modem
   ;;
  esac
  case $DEVM in
-  ttyS[0-9]) #apparently setserial can crash with other modems.
+  ttyS[0-9]*) #apparently setserial can crash with other modems.
    setserial $VERB -b /dev/modem auto_irq skip_test autoconfig
   ;;
  esac
@@ -1085,6 +935,7 @@ fi
 _DATE_="$_DATE_" /etc/rc.d/rc.services $safeBoot &
 
 echo -e "\\033[62G\\033[1;33m[backgrounded]\\033[0;39m" >$TTY #column 62, yellow.
+
 
 ############RECOGNISE MEDIA DEVICES################
 echo "RECOGNISE MEDIA DEVICES"
