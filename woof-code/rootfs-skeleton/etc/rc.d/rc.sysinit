@@ -73,14 +73,23 @@
 #
 #
 ########################################################################
+case $1 in check) shift; set -n;; esac
 
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin
 #...comment-out for now. note, TZ now set in rc.country.
 export LANG=C
 
 . /etc/rc.d/functions4puppy4
 . /etc/DISTRO_SPECS
+test -s /etc/rc.d/PUPSTATE && { . /etc/rc.d/PUPSTATE; true; } || PUPMODE=2
 
 alias modprobe='/sbin/modprobe'
+
+. /etc/rc.d/MODULESCONFIG #modules loading configuration.
+[ $loglevel ] && LOGLEVEL=$loglevel #boot param.
+[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
+[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
+STATUS=0
 
 status_func() {
  if [ $1 -eq 0 ];then
@@ -92,13 +101,16 @@ status_func() {
  return $1 #return with same status as entry param.
 }
 
+#if have just done a switch_root, output a 'done' message...
+[ "$PUPMODE" = 2 ] || status_func $STATUS # 0, note, /initrd should not exist when a full-hd installation.
+
 loadswap_func() { #w481 made into a function.
  echo "LOAD SWAP"
  #load a swap partition...
- for ONESWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' ' | tr '\n' ' '`
+ for oneSWAP in `fdisk -l | grep ' Linux swap' | cut -f 1 -d ' '`
  do
-  echo -n "Loading swap partition $ONESWAP..." >/dev/console
-  swapon $ONESWAP
+  echo -n "Loading swap partition $oneSWAP..." >/dev/console
+  swapon $oneSWAP
   status_func $?
   [ $? -eq 0 ] && SWAPON="yes"
  done
@@ -106,37 +118,28 @@ loadswap_func() { #w481 made into a function.
  if [ "$SWAPON" != "yes" ];then
   SWAPFILE="/pupswap.swp"
   [ "$PSWAPFILE" ] && SWAPFILE="`echo "$PSWAPFILE" | cut -f 3 -d ','`"  #/etc/rc.d/PUPSTATE
-  if [ -f /initrd${PUP_HOME}${SWAPFILE} ];then
+  if [ -f "/initrd${PUP_HOME}${SWAPFILE}" ];then
    echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
-   swapon /initrd${PUP_HOME}${SWAPFILE}
+   swapon "/initrd${PUP_HOME}${SWAPFILE}"
    status_func $?
    [ $? -eq 0 ] && SWAPON="yes"
   fi
-  if [ -f $SWAPFILE ];then
+  if [ -f "$SWAPFILE" ];then
    echo -n "Loading swap file ${SWAPFILE}..." >/dev/console
-   swapon $SWAPFILE
+   swapon "$SWAPFILE"
    status_func $?
    [ $? -eq 0 ] && SWAPON="yes"
   fi
  fi
 }
 
-#if have just done a switch_root, output a 'done' message...
-[ -d /initrd ] && status_func 0 #note, /initrd does not exist when a full-hd installation.
-
-. /etc/rc.d/MODULESCONFIG #modules loading configuration.
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/X11R7/bin
-[ $loglevel ] && LOGLEVEL=$loglevel #boot param.
-[ $pmedia ] && PMEDIA=$pmedia #boot parameter, broad category of boot media. ex: cd.
-[ $pdev1 ] && PDEV1=$pdev1    #boot parameter, partition have booted off. ex: hda3
-STATUS=0
-
 ##############MAKE FILESYSTEM USABLE################
 #echo "MAKE FILESYSTEM USABLE"
 echo -n "Making the filesystem usable..." >/dev/console #need this redirection!
-busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$((STATUS + $? ))
+stat -f -c %T /proc | grep $Q '^proc$'
+test $? = 0 || busybox mount $VERB $VERB -t proc proc /proc ;STATUS=$((STATUS + $? ))
 
-if [ ! -d /initrd ];then #w468
+if [ "$PUPMODE" = 2 ];then #w468
  busybox mount $VERB $VERB -o remount,rw /
  echo 'PUPMODE=2' > /etc/rc.d/PUPSTATE
 fi
@@ -150,18 +153,28 @@ exec 1>/tmp/bootsysinit.log 2>&1 ####KRG
 #v409 mount/umount scripts no longer write to /etc/mtab, as gparted failed to create a
 #ext3 partition -- dunno why. Instead, now have /etc/mtab a symlink to /proc/mounts...
 rm $VERB -f /etc/mtab
-ln $VERB -s /proc/mounts /etc/mtab
+ln $VERB -s ../proc/mounts /etc/mtab
 
-[ ! -d /dev/pts ] && mkdir $VERB /dev/pts ####KRG for DEVTMPFS KERNEL
+[ -d /dev/pts ] || mkdir $VERB /dev/pts ####KRG for DEVTMPFS KERNEL
 busybox mount $VERB $VERB /dev/pts ;STATUS=$((STATUS + $? ))
+stat -f -c %T /sys | grep $Q '^sysfs$' || {
 mkdir $VERB -p /sys
 busybox mount $VERB $VERB -t sysfs sysfs /sys ;STATUS=$((STATUS + $? ))
+}
 
 ##v2.20 some apps need shm (shared memory) (ex: xfdiff)... 100319 do this always...
 FREERAM=`free | grep -o 'Mem:.*' | tr -s ' ' | cut -f 4 -d ' '` #w481 ####KRG changed -f 5 to -f 4
 QTRFREERAM=$((FREERAM / 4))
 [ -d /dev/shm ] || mkdir $VERB /dev/shm ####KRG for DEVTMPFS KERNEL
 mount $VERB $VERB -t tmpfs -o size=${QTRFREERAM}k shmfs /dev/shm ;STATUS=$((STATUS + $? ))
+
+# +++ 2016-11-08 mount debugfs correctly
+test -d /sys/kernel/debug && { mount $VERB -t debugfs debugfs /sys/kernel/debug;STATUS=$((STATUS + $? ));
+if test -f /sys/kernel/debug/dynamic_debug/control; then
+ echo 'module usb_storage +p' >/sys/kernel/debug/dynamic_debug/control;
+fi
+}
+
 status_func $STATUS
 #w478 moved this code above call to rc.update...
 KERNVER="`uname -r`"
@@ -184,9 +197,9 @@ elif [ -d /lib/modules/${KERNVER}/initrd ];then
 fi
 if [ "$NEEDGUNZIP" = "yes" ];then
  #w001 ubuntu module-init-tools not configured to support gzipped modules...
- #for ONEMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
+ #for oneMOD in `find /lib/modules/${KERNVER}/initrd/* -type f -name *.gz | tr '\n' ' '`
  #do
- # gunzip $ONEMOD
+ # gunzip $oneMOD
  #done
  /bin/gunzip -f -r /lib/modules/${KERNVER}/initrd #w482 shinobar.
 fi
@@ -225,10 +238,8 @@ if [ "$NEEDDEPMOD" = "yes" ];then
 fi
 
 [ $layerfs ] && LAYERFS=$layerfs #boot param.
-[ ! $LAYERFS ] && LAYERFS=aufs #aufs or unionfs
+[ $LAYERFS ] || LAYERFS=aufs #aufs or unionfs
 [ "`modinfo aufs 2>/dev/null`" = "" ] && LAYERFS=unionfs #precaution.
-
-
 
 #######################VERSION UPDATE##########################
 echo "VERSION UPDATE"
@@ -236,7 +247,7 @@ echo "VERSION UPDATE"
 echo -n "Updating..." >/dev/console
 
 /etc/rc.d/rc.update $PUPMODE
-sync
+_sync
 status_func $STATUS
 
 #################LOAD KERNEL MODULES################
@@ -251,7 +262,7 @@ BLACKLISTVARS="`echo "$SKIPLIST" | tr '\-' '_' | tr ' ' '\n' | sed -e 's/^/black
 echo "$BLACKLISTVARS" > /tmp/pup_event_modprobe.conf
 #...read in /sbin/pup_event_backend_d, and pup_event_backend_modprobe (for udevd).
 
-if [ ! -d /initrd ];then #v423 full hd install.
+if [ "$PUPMODE" = 2 ];then #v423 full hd install.
 #if [ -n "`grep 'KRG version' /sbin/init`" ] ; then
 
  #100214 one config of 2.6.33 has base floppy and ps/2 mouse support not builtin. have this in 'init' also...
@@ -287,7 +298,7 @@ if [ "$WC" -lt 20 ] ; then  ###Modules not loaded yet ?
 if test -x /sbin/photplug ; then
 echo '/sbin/photplug' >/proc/sys/kernel/hotplug
 #my intention is for puppy to work with either of these...
-elif [ -f /sbin/udevd ];then
+elif [ -x /sbin/udevd ];then
 
 if [ -x "`which pup_event_backend_modprobe_protect`" ] ; then
 rm -f /tmp/pup_event_backend_modprobe_protect_pipe   ##+++2013-04-04
@@ -310,11 +321,11 @@ sleep 0.1
 uptime
 #replay uevents from /sys...
 c=0;d=0;e='module'  ##+++2011-11-08
-for ONEMODALIAS in $MODALIASES
+for oneMODALIAS in $MODALIASES
 do
- ONEPATH="`dirname $ONEMODALIAS`"
- if [ -e ${ONEPATH}/uevent ];then
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ onePATH=${oneMODALIAS%/*}
+ if [ -e "${onePATH}"/uevent ];then
+  echo add > "${onePATH}"/uevent #generates an 'add' uevent.
   sleep 0.02
    ##+++2011-11-08
    c=$((c+1));d=$((d+1));e="$d"
@@ -343,7 +354,7 @@ fi
 fi
 uptime
 
-if [ ! -d /initrd ];then #full hd installation.
+if [ "$PUPMODE" = 2 ];then #full hd installation.
  modprobe $Q $VERB nls_cp437 #these needed by vfat/ntfs/ext2 f.s.'s.
  modprobe $Q $VERB nls_iso8859-1 # "
  modprobe $Q $VERB fuse
@@ -380,7 +391,7 @@ echo "1" > /proc/sys/net/ipv4/ip_dynaddr
 hostname -F /etc/hostname
 
 rm $VERB -f /mnt/home
-if [ ! -d /initrd ];then
+if [ "$PUPMODE" = 2 ];then
  PUP_HOME='/'
  echo "PUP_HOME='/'" >> /etc/rc.d/PUPSTATE
  ln $VERB -s / /mnt/home
@@ -416,9 +427,11 @@ echo "WAIT MODULES LOADED"
 #previous module loading may not have completed...
 echo -n "Waiting for modules to complete loading..." >/dev/console
 WAITCNT=0
+
+_wait_for_pcmcia(){
+busybox modprobe -l | grep $Q -E '^yenta_socket|^tcic|^i82092|^i82365|^pd6729' || return 0
 PCIPCMCIA="`elspci -l | grep -o '060700'`"
-PCIUSB="`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`"
-if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
+[ "$PCIPCMCIA" ] || return 0 #this may be slow to respond.
  echo -n " pcmcia"  >/dev/console
  while [ $WAITCNT -lt 10 ];do
   [ "`lsmod | grep -E '^yenta_socket |^tcic |^i82092 |^i82365 |^pd6729 '`" ] && break
@@ -426,9 +439,14 @@ if [ "$PCIPCMCIA" ]; then #this may be slow to respond.
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
-fi
+}
+_wait_for_pcmcia
+
+_wait_for_usb(){
+busybox modprobe -l | grep $Q -E '^[eoux]hci[_-]hcd' || return 0
 #note, if initrd then usb-storage will have already loaded...
-if [ "$PCIUSB" ]; then #this may be slow to respond.
+PCIUSB="`elspci -l | grep -o -E '0C0300|0C0310|0C0320'`"
+[ "$PCIUSB" ] || return 0 #this may be slow to respond.
  echo -n " usb"  >/dev/console
  PCIUSBNUM=`echo "$PCIUSB" | sort -u | wc -l`
  while [ $WAITCNT -lt 10 ];do
@@ -437,24 +455,25 @@ if [ "$PCIUSB" ]; then #this may be slow to respond.
   sleep 1
   echo -n " $WAITCNT" >/dev/console
  done
-fi
+}
+_wait_for_usb
 
 #replay uevents from /sys (more interfaces as a consequence of above drivers loaded)...
 #note, this also a workaround for kernel 'bug' where entries appear in /sys but no uevent
 #gets generated (yes it happens in 2.6.25.x kernel!)
-
 __replay_uevents__(){
 [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
 [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
-for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
 do
- ONEPATH="`dirname $ONEMODALIAS`"
- if [ -e ${ONEPATH}/uevent ];then
-  echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+ onePATH=${oneMODALIAS%/*}
+ if [ -e "${onePATH}"/uevent ];then
+  echo add > "${onePATH}"/uevent #generates an 'add' uevent.
   sleep 0.02
  fi
 done
-if [ -f /sbin/udevd ];then
+
+if [ "`pidof udevd`" ];then
  /sbin/udevadm settle --timeout=30
 else
  while [ "`grep 'twosectimeout' /tmp/pup_event_backend_s`" = "" ];do #wait until uevents processed.
@@ -466,11 +485,11 @@ fi
 if [ $KERNMAJ -lt 24 ];then #v431
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/modalias | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/modalias | tr '\n' ' '`"
- for ONEMODALIAS in ${NEWPCMCIA}${NEWUSB}
+ for oneMODALIAS in ${NEWPCMCIA}${NEWUSB}
  do
-  ONEPATH="${ONEMODALIAS%/*}"
-  if [ -e ${ONEPATH}/uevent ];then
-   echo add > ${ONEPATH}/uevent #generates an 'add' uevent.
+  onePATH="${oneMODALIAS%/*}"
+  if [ -e "${onePATH}"/uevent ];then
+   echo add > "${onePATH}"/uevent #generates an 'add' uevent.
    sleep 0.02
   fi
  done
@@ -479,12 +498,12 @@ else
  [ -e /sys/bus/pcmcia/devices ] && NEWPCMCIA="`ls /sys/bus/pcmcia/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/usb/devices ] && NEWUSB="`ls /sys/bus/usb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
  [ -e /sys/bus/ssb/devices ] && NEWSSB="`ls /sys/bus/ssb/devices/*/uevent 2>/dev/null | tr '\n' ' '`"
- for ONEUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
+ for oneUEVENT in ${NEWPCMCIA}${NEWUSB}${NEWSSB}
  do
-  ONEPATH="${ONEUEVENT%&}0"
+  onePATH="${oneUEVENT%/*}"
   #the check for 'modalias' file is maybe needed for old kernel?...
-  [ ! -e ${ONEPATH}/modalias ] && [ "`grep 'MODALIAS' $ONEUEVENT`" = "" ] && continue
-  echo add > $ONEUEVENT
+  [ ! -e "${onePATH}"/modalias ] && [ "`grep 'MODALIAS' $oneUEVENT`" = "" ] && continue
+  echo add > "$oneUEVENT"
   sleep 0.02
  done
 fi
@@ -522,7 +541,7 @@ _load_average()
 {
 uptime
 #until [ "`cat /proc/loadavg | cut -f 1 -d '.'`" -lt '3' ] ; do sleep 2s;done  ###+++2011-11-30
-while :;   do
+while :; do
 #LAVG=`cat /proc/loadavg`;
 read LAVG REST </proc/loadavg
 echo -ne "\r\\033[0;36m$LAVG $REST.. waiting loadaverage become less than 3 \\033[0;39m" >/dev/console;
@@ -612,9 +631,9 @@ read CURRENT_MONTH </var/local/sns/current_month
 [ "$CURRENT_MONTH" ] || CURRENT_MONTH='none'
 if [ "$UPDATE_MONTH" != "$CURRENT_MONTH" ];then
  echo "$UPDATE_MONTH" > /var/local/sns/current_month
- for ONECOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
-  mkdir $VERB -p /var/local/${ONECOUNT%/*}
-  echo 0 > /var/local/${ONECOUNT}x_bytes_month
+ for oneCOUNT in sns/r sns/t pupdial/isp1/r pupdial/isp1/t pupdial/isp2/r pupdial/isp2/t ppp0/r ppp0/t;do
+  mkdir $VERB -p /var/local/${oneCOUNT%/*}
+  echo 0 > /var/local/${oneCOUNT}x_bytes_month
  done
 fi
 
@@ -713,12 +732,12 @@ OPTICALS="`grep '^drive name:' /proc/sys/dev/cdrom/info | grep -o -E 'scd.*|sr.*
 echo "$OPTICALS" | grep $Q "$CDTYPE"  ||  CDTYPE="" #no longer exists.
 echo "$OPTICALS" | grep $Q "$DVDTYPE" || DVDTYPE="" #no longer exists.
 echo "$OPTICALS" | grep $Q "$CDBURNERTYPE" || CDBURNERTYPE="" #no longer exists.
-for ONEOPTICAL in $OPTICALS
+for oneOPTICAL in $OPTICALS
 do
- ONENUM="`echo -n "$ONEOPTICAL" | cut -c 3`"
- [ "$CDTYPE" = "" ] && CDTYPE="$ONEOPTICAL"
- [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$ONEOPTICAL" #100131
- [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$ONEOPTICAL" #100131
+ oneNUM="`echo -n "$oneOPTICAL" | cut -c 3`"
+ [ "$CDTYPE" = "" ] && CDTYPE="$oneOPTICAL"
+ [ "$DVDTYPE" = "" ] && [ "`grep '^Can read DVD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && DVDTYPE="$oneOPTICAL" #100131
+ [ "$CDBURNERTYPE" = "" ] && [ "`grep '^Can write CD' /proc/sys/dev/cdrom/info | head -n 1 | grep -o '[01].*' | sed -e 's/[^01]//g' | cut -c $OPTCNT`" = "1" ] && CDBURNERTYPE="$oneOPTICAL" #100131
  OPTCNT=$((OPTCNT + 1))
 done
 rm $VERB -f /dev/cdrom /dev/dvd /etc/cdburnerdevice
@@ -797,7 +816,7 @@ fi
 . /etc/rc.d/rc.local
 
 #100316 improper shutdown check. see above, also rc.shutdown and /sbin/init...
-if [ ! -d /initrd ];then #if no /initrd, full hd install.
+if [ "$PUPMODE" = 2 ];then #if no /initrd, full hd install.
  [ $PDEV1 ] || PDEV1="`/bin/df | grep ' /$' | grep '^/dev/' | cut -f 1 -d ' ' | cut -f 3 -d '/'`"
  [ $DEV1FS ] || DEV1FS="`mount | grep ' on / type ' | grep '^/dev/' | cut -f 5 -d ' '`"
  if [ "$PDEV1" -a "$DEV1FS" ];then
@@ -838,7 +857,6 @@ fi
 
 [ -c /dev/ppp ]   || mknod /dev/ppp c 108 0
 [ -L /dev/mouse ] || ln $VERB -s /dev/input/mice /dev/mouse
-#[ ! -c /dev/mem ] && mknod /dev/mem c 1 1
 [ -c /dev/mem ] || mknod /dev/mem c 1 1
 uptime
 
