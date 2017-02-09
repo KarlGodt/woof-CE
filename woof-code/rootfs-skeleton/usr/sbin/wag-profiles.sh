@@ -172,7 +172,7 @@
 # ver 0.0.0
 #  basic diagnostic listing
 
-echo "$0:'$*'" >&2
+_debug "$0:'$*'"
 
 ## Dougal: dirs where config files go
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
@@ -440,9 +440,10 @@ _debug "showProfilesWindow:'$*' start"
         EXIT=""
         while true
         do
-                echo "building..."
+                _debug "building...buildProfilesWindow..."
                 buildProfilesWindow
-                echo "build."
+                _debug "buildProfilesWindow...build."
+
                 I=$IFS; IFS=""
                 ## Add escaping of funny chars before we eval the statement!
                 for STATEMENT in  $(gtkdialog3 --program NETWIZ_Profiles_Window | sed 's%\$%\\$%g ; s%`%\\`%g ; s%"%\\"%g ; s%=\\"%="%g ; s%\\"$%"%g' ); do
@@ -565,7 +566,7 @@ __giveNoWPADialog(){
 }
 
 giveNoWPADialog(){
-        echo "Now NETWIZ_No_WPA_Dialog..."
+        _debug "NETWIZ_No_WPA_Dialog..."
         export NETWIZ_No_WPA_Dialog="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-dialog-info\" window-position=\"1\">
  <vbox>
   <pixmap icon_size=\"6\">
@@ -667,7 +668,7 @@ refreshProfilesWindowInfo()
 #=============================================================================
 buildProfilesWindow()
 {
-        echo "buildProfilesWindow"
+        _debug "buildProfilesWindow...start"
         DEFAULT_TITLE=""
         DEFAULT_ESSID=""
         DEFAULT_KEY=""
@@ -749,12 +750,14 @@ buildProfilesWindow()
                         ;;
         esac
 
+        MAYBE_WIRELESS=`iwconfig 2>&1 | grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d ; s/"//g'`
+        echo "MAYBE_WIRELESS=$MAYBE_WIRELESS"
         if test "$MAYBE_WIRELESS"; then
          dlg_wl_TEXT=`echo "$MAYBE_WIRELESS" | sed 's/^[[:blank:]]*//'` # remove leading tabs formatting by iwconfig
         else
          dlg_wl_TEXT="No Wireless device detected."
         fi
-        _debug "dlg_wl_TEXT='$dlg_wl_TEXT'"
+        echo "dlg_wl_TEXT='$dlg_wl_TEXT'"
 
         dlg_WL_FRAME="	<frame Recognized Wireless Device>
 	<text width-chars=\"60\" selectable=\"true\">
@@ -762,7 +765,7 @@ buildProfilesWindow()
 	</text>
 	</frame>"
 
-echo "exporting NETWIZ_Profiles_Window..."
+_debug "exporting NETWIZ_Profiles_Window..."
         export NETWIZ_Profiles_Window="<window title=\"$L_TITLE_Puppy_Network_Wizard\" icon-name=\"gtk-network\" window-position=\"1\">
 <vbox>
         $dlg_WL_FRAME
@@ -932,6 +935,7 @@ echo "exporting NETWIZ_Profiles_Window..."
         </hbox>
 </vbox>
 </window>"
+_debug_GTKdialog "$NETWIZ_Profiles_Window"
 _debug "buildProfilesWindow:'$*' end"
 } # end buildProfilesWindow
 
@@ -1088,7 +1092,7 @@ setAdvancedFields()
 #=============================================================================
 buildProfilesWindowButtons()
 {
-        _debug "buildProfilesWindowButtons:'$*' start"
+  _debug "buildProfilesWindowButtons:'$*' start"
         PROFILE_BUTTONS=""
         #echo "PROFILE_FILE='$PROFILE_FILE'"
         if test -s "$PROFILE_FILE"; then
@@ -1470,7 +1474,7 @@ useProfile ()
 killWpaSupplicant ()
 {
 
-        echo "$0:killWpaSupplicant '$*' `date` $LINENO"
+        _debug "killWpaSupplicant '$*'"
         # If there are supplicant processes for the current interface, kill them
         [ -d /var/run/wpa_supplicant ] || return
         INTERFACE=${INTERFACE:-"$1"}
@@ -1487,14 +1491,14 @@ killWpaSupplicant ()
         # Dougal: replace the above with this...
         wpa_cli -i "$INTERFACE" terminate 2>&1 |grep -v 'Failed to connect'
         [ -e /var/run/wpa_supplicant/$INTERFACE ] && rm -rf /var/run/wpa_supplicant/$INTERFACE
-        echo "$0:killWpaSupplicant '$*' `date` $LINENO"
+        _debug "killWpaSupplicant '$*'"
 } # end killWpaSupplicant
 
 ##=============================================================================
 # Dougal: put this into a function, for maintainability and so it can be used in setupDHCP
 killDhcpcd()
 {
-        echo "$0:killDhcpcd '$*' `date` $LINENO"
+        _debug "killDhcpcd '$*'"
         INTERFACE=${INTERFACE:-"$1"}
 	[ "$INTERFACE" ] || return 1
         # release dhcpcd
@@ -1525,7 +1529,7 @@ killDhcpcd()
           #if left over from last session, causes trouble.
         fi
 
-        echo "$0:killDhcpcd '$*' `date` $LINENO"
+        _debug "killDhcpcd '$*'"
 } # end killDhcpcd
 
 #=============================================================================
@@ -1534,7 +1538,7 @@ killDhcpcd()
 # $1: interface name
 cleanUpInterface()
 {
-        echo "$0:cleanUpInterface '$*' `date` $LINENO"
+        _debug "cleanUpInterface '$*'"
         # put interface down
         #ifconfig "$1" down
         killDhcpcd "$1"
@@ -1542,7 +1546,7 @@ cleanUpInterface()
         killWpaSupplicant "$1"
         # clean up some wireless stuff (taken from wifi-radar)
         if [ "$IS_WIRELESS" = "yes" ] ; then
-          echo IS_WIRELESS
+echo IS_WIRELESS
           iwconfig "$1" essid off
 echo "$0:cleanUpInterface '$*' `date` $LINENO"
           iwconfig "$1" key off
@@ -1588,8 +1592,8 @@ fi
 ## Dougal: function to kill stray processes
 ## dialog variable passed as param
 clean_up_gtkdialog(){
- [ "$1" ] || return
- for I in $( ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | cut -d' ' -f1 )
+ [ "$1" ] || return 0
+ for I in $( /bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F 'gtkdialog3' | cut -d' ' -f1 )
  do kill $I
  done
 }
@@ -1984,7 +1988,7 @@ waitForPCMCIA(){
         # see if this is a pcmcia device at all
         #grep $Q "^pcmcia:" /sys/class/net/$INTERFACE/device/modalias || return
         #case $INTMODULE in *_cs) ;; *) return ;; esac
-        echo "running NETWIZ_Wait_For_PCMCIA_Dialog..."
+        _debug "running NETWIZ_Wait_For_PCMCIA_Dialog..."
         export NETWIZ_Wait_For_PCMCIA_Dialog="<window title=\"$L_TITLE_Network_Wizard\" window-position=\"1\">
  <progressbar>
   <label>\"$L_PROGRESS_Waiting_For_PCMCIA\"</label>
@@ -2119,7 +2123,9 @@ buildScanWindow()
                         if [ "$1" = "retry" ] ; then # we're on the second try already
                                 echo "Running createNoNetworksDialog" >&2
                                 createNoNetworksDialog
-                                #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " >/tmp/net-setup_scanwindow
+                        #       echo "Xdialog --left --title \"Puppy Network Wizard:\" \
+                        # --msgbox \"No networks detected\" 0 0 " >/tmp/net-setup_scanwindow
+                        # cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_buildScanWindow
                         elif [ -n "$IsPCMCIA" ] ; then
                                 echo "Running createRetryPCMCIAScanDialog" >&2
                                 createRetryPCMCIAScanDialog
@@ -2128,20 +2134,42 @@ buildScanWindow()
                                 createRetryScanDialog
                         fi
                 else
-                echo "CELL_LIST not zero" >&2
+                _notice "CELL_LIST not zero"
                         # give each Cell its own button
                         #CELL_LIST=$(echo "$SCAN_LIST" | grep -Eo "Cell [0-9]+" | cut -f2 -d " ")
                         for CELL in $CELL_LIST ; do
-                                echo "CELL='$CELL'" >&2
+                                _info "CELL='$CELL'"
                                 #getCellParameters $CELL
                                 Get_Cell_Parameters $CELL
                                 [ -z "$CELL_ESSID" ] && CELL_ESSID="(hidden ESSID)"
-                                SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS \"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC};
-${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
+# build list
+#                                if test "$SCANWINDOW_BUTTONS"; then SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS \\
+#\"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
+#else SCANWINDOW_BUTTONS="\"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
+#				fi
+# build list and sort
+SCANWINDOW_BUTTONS="$SCANWINDOW_BUTTONS
+\"$CELL\" \"$CELL_ESSID (${CELL_MODE}; ${L_SCANWINDOW_Encryption}$CELL_ENC_TYPE)\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_Frequency}${CELL_FREQ}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}; ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
                         done
+echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.0.lst
+#SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | rev`
+#echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.1.lst
+#SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | sort -n -k1 -t':'`
+#echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.2.lst
+#SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | rev`
+#echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.3.lst
+#SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | sort -d -k2,3 -t' '` # sort by NAME
+SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | /bin/sort -d -r -k5,6 -t';'`  # sort by strength
+echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.1.lst
+SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | sed '/^$/d'`
+echo "$SCANWINDOW_BUTTONS" >/tmp/cell_scan_list.lst
+SCANWINDOW_BUTTONS=`echo "$SCANWINDOW_BUTTONS" | sed 's/$/ \\\/'`
 
-                        echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" --radiolist \"$L_TEXT_Scanwindow\"  20 60 4  \
-        ${SCANWINDOW_BUTTONS} 2>$ERR" >/tmp/net-setup_scanwindow
+                        echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" \
+                    --radiolist \"$L_TEXT_Scanwindow\"  20 60 4  \
+        ${SCANWINDOW_BUTTONS}
+        2>$ERR" >/tmp/net-setup_scanwindow
+        cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_buildScanWindow
                 fi
                 echo "X"
         )  | gtkdialog3 --program=NETWIZ_Scan_Progress_Dialog #>/dev/null
@@ -2162,82 +2190,86 @@ ${L_SCANWINDOW_Strength}${CELL_QUALITY}\""
 createNoNetworksDialog()
 {
 _debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
-  echo 'clean_up_gtkdialog(){
- [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
- do kill $I
+cat >/tmp/net-setup_scanwindow <<EoI
+clean_up_gtkdialog(){
+ [ "\$1" ] || return
+ for I in \$(/bin/ps -eo pid,command | grep "\$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ do kill \$I
  done
 }
 
-export NETWIZ_SCAN_ERROR_DIALOG="<window title=\"'"$L_TITLE_Puppy_Network_Wizard"'\" icon-name=\"gtk-dialog-warning\" window-position=\"1\">
+export NETWIZ_SCAN_ERROR_DIALOG='<window title="$L_TITLE_Puppy_Network_Wizard" icon-name="gtk-dialog-warning" window-position="1">
  <vbox>
-  <pixmap icon_size=\"6\">
-      <input file stock=\"gtk-dialog-warning\"></input>
+  <pixmap icon_size="6">
+      <input file stock="gtk-dialog-warning"></input>
     </pixmap>
   <text>
-    <label>\"'"$L_TEXT_No_Networks_Detected"'\"</label>
+    <label>"$L_TEXT_No_Networks_Detected"</label>
   </text>
   <hbox>
     <button ok></button>
   </hbox>
  </vbox>
-</window>"
+</window>'
 
 gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG
 clean_up_gtkdialog NETWIZ_SCAN_ERROR_DIALOG
 exit 0
-' >/tmp/net-setup_scanwindow
+EoI
+cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_createNoNetworksDialog
 }
 
 #=============================================================================
 createRetryScanDialog(){
 _debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
-    echo 'clean_up_gtkdialog(){
- [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
- do kill $I
+cat >/tmp/net-setup_scanwindow <<EoI
+clean_up_gtkdialog(){
+ [ "\$1" ] || return
+ for I in \$(/bin/ps -eo pid,command | grep "\$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ do kill \$I
  done
 }
 
-export NETWIZ_SCAN_ERROR_DIALOG="<window title=\"'"$L_TITLE_Puppy_Network_Wizard"'\" icon-name=\"gtk-dialog-warning\" window-position=\"1\">
+export NETWIZ_SCAN_ERROR_DIALOG='<window title="$L_TITLE_Puppy_Network_Wizard" icon-name="gtk-dialog-warning" window-position="1">
  <vbox>
-  <pixmap icon_size=\"6\">
-      <input file stock=\"gtk-dialog-warning\"></input>
+  <pixmap icon_size="6">
+      <input file stock="gtk-dialog-warning"></input>
     </pixmap>
   <text>
-    <label>\"'"$L_TEXT_No_Networks_Retry"'\"</label>
+    <label>"$L_TEXT_No_Networks_Retry"</label>
   </text>
   <hbox>
     <button>
-      <label>'"$L_BUTTON_Retry"'</label>
-      <input file stock=\"gtk-redo\"></input>
+      <label>"$L_BUTTON_Retry"</label>
+      <input file stock="gtk-redo"></input>
       <action>EXIT:retry</action>
     </button>
     <button cancel></button>
   </hbox>
  </vbox>
-</window>"
+</window>'
 
-I=$IFS; IFS=""
-for STATEMENT in  $(gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG); do
-        eval $STATEMENT
+I=\$IFS; IFS=""
+for STATEMENT in \$(gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG); do
+        eval \$STATEMENT
 done
-IFS=$I
+IFS=\$I
 clean_up_gtkdialog NETWIZ_SCAN_ERROR_DIALOG
 
-case $EXIT in
+case \$EXIT in
 Cancel) exit 0 ;;
 retry) exit 111 ;;
 esac
-' >/tmp/net-setup_scanwindow
+EoI
+cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_createRetryScanDialog
 }
 
 #=============================================================================
-createRetryPCMCIAScanDialog(){
+_createRetryPCMCIAScanDialog(){
 _debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
   echo 'clean_up_gtkdialog(){
  [ "$1" ] || return
- for I in $(ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ for I in $(/bin/ps -eo pid,command | grep "$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
  do kill $I
  done
 }
@@ -2273,6 +2305,51 @@ Cancel) exit 0 ;;
 retry) exit 101 ;;
 esac
 ' >/tmp/net-setup_scanwindow
+cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow__createRetryPCMCIAScanDialog
+}
+
+createRetryPCMCIAScanDialog(){
+_debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
+cat >/tmp/net-setup_scanwindow <<EoI
+clean_up_gtkdialog(){
+ [ "\$1" ] || return
+ for I in $(/bin/ps -eo pid,command | grep "\$1" | grep -v grep | grep -F "gtkdialog3" | cut -d" " -f1)
+ do kill \$I
+ done
+}
+
+export NETWIZ_SCAN_ERROR_DIALOG='<window title="$L_TITLE_Puppy_Network_Wizard" icon-name="gtk-dialog-warning" window-position="1">
+ <vbox>
+  <pixmap icon_size="6">
+      <input file stock="gtk-dialog-warning"></input>
+    </pixmap>
+  <text>
+    <label>"$L_TEXT_No_Networks_Retry_Pcmcia"</label>
+  </text>
+  <hbox>
+    <button>
+      <label>"$L_BUTTON_Retry"</label>
+      <input file stock="gtk-redo"></input>
+      <action>EXIT:retry</action>
+    </button>
+    <button cancel></button>
+  </hbox>
+ </vbox>
+</window>'
+
+I=\$IFS; IFS=""
+for STATEMENT in \$(gtkdialog3 --program NETWIZ_SCAN_ERROR_DIALOG); do
+        eval \$STATEMENT
+done
+IFS=\$I
+clean_up_gtkdialog NETWIZ_SCAN_ERROR_DIALOG
+
+case \$EXIT in
+Cancel) exit 0 ;;
+retry) exit 101 ;;
+esac
+EoI
+cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_createRetryPCMCIAScanDialog
 }
 
 #=============================================================================
@@ -2330,14 +2407,17 @@ buildPrismScanWindow()
             getPrismCellParameters $P
             [ "$CELL_ESSID" ] || CELL_ESSID="$L_SCANWINDOW_Hidden_SSID"
                 # might add test here for some params, then maybe skip
-                SCANWINDOW_BUTTONS="${SCANWINDOW_BUTTONS} \"$P\" \"${CELL_ESSID} (${CELL_MODE}; ${L_SCANWINDOW_Encryption}${CELL_ENCRYPTION})\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}\""
+                SCANWINDOW_BUTTONS="${SCANWINDOW_BUTTONS}
+                \"$P\" \"${CELL_ESSID} (${CELL_MODE}; ${L_SCANWINDOW_Encryption}${CELL_ENCRYPTION})\" off \"${L_SCANWINDOW_Channel}${CELL_CHANNEL}; ${L_SCANWINDOW_AP_MAC}${CELL_AP_MAC}\""
           done
         else
           echo "X"
         fi
         if [ "$SCANWINDOW_BUTTONS" ] ; then
-                echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" --radiolist \"$L_TEXT_Prism_Scan\"  20 60 4  \
+                echo "Xdialog --left --item-help --stdout --title \"$L_TITLE_Puppy_Network_Wizard\" \
+                --radiolist \"$L_TEXT_Prism_Scan\"  20 60 4  \
         ${SCANWINDOW_BUTTONS} 2>$ERR" >/tmp/net-setup_scanwindow
+        cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow_buildPrismScanWindow
         else
           #echo "Xdialog --left --title \"Puppy Network Wizard:\" --msgbox \"No networks detected\" 0 0 " >/tmp/net-setup_scanwindow
           if [ "$1" = "retry" ] ; then # we're on the second try already
@@ -2524,7 +2604,7 @@ if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
         INTERFACE=${INTERFACE:-"$1"}
 	#[ "$INTERFACE" ] || { _notice "No parameter, defaulting to wlan0"; INTERFACE=wlan0; }
 
-        MAYBE_WIRELESS=`iwconfig 2>&1| grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d'`
+        MAYBE_WIRELESS=`iwconfig 2>&1| grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d ; s/"//g'`
         INTERFACE=${INTERFACE:-`echo "$MAYBE_WIRELESS" | grep '^[[:alnum:]]\+' | awk '{print $1}' | head -n1`}
         [ "$INTERFACE" ] || { _notice "No active wireless, defaulting to wlan0"; INTERFACE=wlan0; }
 	_debug "INTERFACE='$INTERFACE'"
