@@ -1827,13 +1827,22 @@ buildScanWindow()
 
         #  Dougal: use files for the scan results, so we can try a few times
         #+ and see which is biggest (sometimes not all networks show)
-        rm /tmp/net-setup_scan*.tmp >/dev/null 2>&1
-        iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
+		(
+		unset IWLIST_SCAN_OUT
+        rm -f /tmp/net-setup_scan*.tmp #>/dev/null 2>&1
+        IWLIST_SCAN_OUT=`iwlist "$INTERFACE" scan`
+        echo -e "$IWLIST_SCAN_OUT" >/tmp/net-setup_scan1.tmp
+        ) 2>>$DEBUG_OUTPUT
+# hamdle escaped output like ESSID:"ZTE BLADE L110\xEF\xBC\x888G\xEF\xBC\x89"
         echo "X"
 
         #SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
         sleep 1
-        iwlist "$INTERFACE" scan >/tmp/net-setup_scan2.tmp 2>>$DEBUG_OUTPUT
+		(
+		unset IWLIST_SCAN_OUT
+        IWLIST_SCAN_OUT=`iwlist "$INTERFACE" scan`
+        echo -e "$IWLIST_SCAN_OUT" >/tmp/net-setup_scan2.tmp
+        ) 2>>$DEBUG_OUTPUT
         echo "X"
 
         ScanListFile=$(du -b /tmp/net-setup_scan*.tmp |sort -n | tail -n1 |cut -f2)
@@ -1851,7 +1860,7 @@ buildScanWindow()
         #SCAN_LIST=$(echo "$SCANALL" | grep 'Cell\|ESSID\|Mode\|Frequency\|Quality\|Encryption\|Channel\|IE:\|Extra:')
         #echo "$SCAN_LIST" > /tmp/net-setup_scanlist
         echo "$ScanListFile" > /tmp/net-setup_scanlistfile
-        CELL_LIST=$(grep -Eo "Cell [0-9]+" $ScanListFile | cut -f2 -d " ")
+        CELL_LIST=$(grep -Eo "Cell [0-9]+" "$ScanListFile" | cut -f2 -d " ")
         #if [ -z "$SCAN_LIST" ]; then
         if [ -z "$CELL_LIST" ]; then
             # Dougal: a little awkward... want to give an option to reset pcmcia card
@@ -2230,20 +2239,30 @@ CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "wag-profiles.sh" ] ; then
     INTERFACE=${INTERFACE:-"$1"}
     INTERFACE=${INTERFACE:-"wlan0"}
-    DEBUG_OUTPUT="/dev/stderr"
+    #DEBUG_OUTPUT="/dev/stderr"
+    DEBUG_OUTPUT=${DEBUG_OUTPUT:-"/dev/stderr"}
     echo "INTERFACE='$INTERFACE'" >>$DEBUG_OUTPUT
+
     HAVEX=${HAVEX:-"$DISPLAY"}
     HAVEX=${HAVEX:+'yes'}
+
+_get_locale_strings(){   #2016-11-01 taken from net-setup.sh
     # Dougal: add localization
 mo=net-setup.mo
 #lng=${LANG%.*}
 # always start by sourceing the English version (to fill in gaps)
 . "/usr/share/locale/en/LC_MESSAGES/$mo"
+local RV=$?
 if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
 elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
   . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
+else true # other locale not installed/found, return 0 then
 fi
+RV=$((RV+$?))
+return $RV
+}
+_get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
 
 while :; do
     showProfilesWindow "$INTERFACE"
