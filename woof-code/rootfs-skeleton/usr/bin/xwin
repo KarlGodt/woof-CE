@@ -274,11 +274,12 @@ local OPTIONS oneOPTION
 #oldIFS="$IFS"
 #IFS=|
 
+local DEBUG=1
 _debug "_parse_commandline: '$*'"
-OPTIONS=`/bin/getopt -u -a -l windowmanager::,server::,usage,help,version,verbose -o Vvhw:S:X -- "$*"`
-_debug "'$OPTIONS'"
-OPTIONS=`echo "$OPTIONS" | sed 's/ --$//'`
-_info "'$OPTIONS'"
+OPTIONS=`/bin/getopt -u -a -l windowmanager::,server::,usage,help,version,verbose -o Vvhw:S:X -- "$*" 2>>$ERR`
+_debug "OPTIONS='$OPTIONS'"
+OPTIONS=`echo "$OPTIONS" | sed 's/ --$//;s/ -- //'`
+_info "OPTIONS='$OPTIONS'"
 
 for oneOPTION in $OPTIONS; do
 _debug "oneOPTION='$oneOPTION'"
@@ -308,20 +309,23 @@ set - $OPTIONS
 _debug "\$*='$*'"
 _debug "\$@='$@'"
 _debug "\$#='$#'"
-OPTIONS=`/bin/getopt -u -o Vvhw:S:X -- "$*"`
-_info "'$OPTIONS'"
+OPTIONS=`/bin/getopt -u -o Vvhw:S:X -- "$*" 2>>$ERR`
+_debug "OPTIONS='$OPTIONS'"
+OPTIONS=`echo "$OPTIONS" | sed 's/ --$//;s/ -- //'`
+_info "OPTIONS='$OPTIONS'"
 #OPTIONS=`echo "$OPTIONS" | sed 's/^[[:blank:]]*\-\-*[[:blank:]]*//'`
 #echo "'$OPTIONS'"
 set --
 _debug "\$*='$*'"
 _debug "\$@='$@'"
 _debug "\$#='$#'"
-set -- $OPTIONS
+set - $OPTIONS
 _debug "\$*='$*'"
 _debug "\$@='$@'"
 _debug "\$#='$#'"
 
 if test $# -gt 0; then
+case "$@" in -*)
 while getopts Vvhw:S:X: oneOPTION; do
 _debug "oneOPTION='$oneOPTION'"
 case $oneOPTION in
@@ -331,9 +335,12 @@ v) VERBOSE=1;QUIET=;VERB=-v;AVERB=-verbose;LVERB=--verbose;ERR=/dev/stderr;OUT=/
 w)      wM="$OPTARG"; _check_wm;;
 S) xServer="$OPTARG"; _check_server;;
 X) xserverOPTIONS="$xserverOPTIONS $OPTARG";;
-*) _check_wm "$oneOPTION";;
+#*) _check_wm "$oneOPTION";;
+*) _notice "Unrecognized option '$oneOPTION'";;
 esac
 done
+;;
+esac
 fi
 #IFS="$oldIFS"
 }
@@ -351,7 +358,7 @@ _parse_commandline "$@"
 #       -s      Show only one PID
 #       -o PID  Omit given pid
 #               Use %PPID to omit pid of pidof's parent
-
+_use_pidof_(){
 PIDOFS=`pidof -o $$ -o %PPID ${MY_SELF##*/}`
 _info "PIDOFS='$PIDOFS'"
 
@@ -361,6 +368,56 @@ test "$DISP" || DISP=0
 test "$DISP" -ge 0 || DISP=0
 _debug "DISP='$DISP'"
 sleep $DISP
+}
+
+
+PIDOFS=$(busybox ps -o pid,ppid,args | grep " `which $0`" | grep -vE 'grep|ps')
+ pids=`echo "$PIDOFS" | awk '{print $1}'`
+ppids=`echo "$PIDOFS" | awk '{print $2}'`
+
+_debug "PIDOFS=
+$PIDOFS
+"
+_debug "  pids=
+$pids
+"
+_debug " ppids=
+$ppids
+"
+
+_f0(){
+DISP=-1
+for one in $pids
+do
+ echo A
+ for two in $ppids
+ do
+  case $two in $one) echo Y;continue;; esac
+  DISP=$((DISP+1))
+  echo X
+ done
+done
+echo DISP=$DISP
+}
+
+newPIDOFS="$PIDOFS"
+for one in $pids
+do
+ c=0
+ while read pid ppid rest
+ do
+ c=$((c+1))
+ case $ppid in $one) newPIDOFS=`echo "$newPIDOFS" | sed "$c d"`;; esac
+ done <<EoI
+`echo "$PIDOFS"`
+EoI
+PIDOFS="$newPIDOFS"
+done
+unset c
+PIDOFS="$newPIDOFS"
+DISP=`echo "$PIDOFS" | wc -l`
+DISP=$((DISP-1))
+_info DISP=$DISP
 
 #0.9.9 enables to start a specific w.m. from commandline...
 if [ "$wM" ]; then # 1.0

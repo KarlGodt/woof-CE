@@ -5,15 +5,19 @@
 . /etc/rc.d/BOOTCONFIG
 . /etc/rc.d/f4puppy5
 
-if [ -f /root/.jwm/jwm_colors ];then #v3.96
-. /root/.jwm/jwm_colors
+#DISP=${DISPLAY%.*}
+#DISP=${DISP:-':0'}
+
+if [ -f $HOME/.jwm/jwm_colors ];then #v3.96
+. $HOME/.jwm/jwm_colors
 fi
 
 DEFAULTWM=jwm
 read CURRENTWM </etc/windowmanager
 DISP=${DISPLAY%.*}
 test -f /etc/windowmanager.$DISP && read CURRENTWM </etc/windowmanager.$DISP
-
+test -e "$HOME/Choices/ROX-Filer/PuppyPin.$DISP" || \
+ cp -a "$HOME/Choices/ROX-Filer/PuppyPin" "$HOME/Choices/ROX-Filer/PuppyPin.$DISP"
 
 sysresources=/usr/lib/X11/xinit/Xresources
 userresources=$HOME/.Xresources
@@ -31,7 +35,7 @@ usermodmap=$HOME/.Xmodmap
 
 
 #100501 if full nvidia pkg installed, it has a gui config app...
-[ -f /root/.nvidia-settings-rc ] && nvidia-settings --load-config-only
+[ -f $HOME/.nvidia-settings-rc ] && nvidia-settings --load-config-only
 
 [ -f $HOME/.xgamma-gamma ] && /bin/sh $HOME/.xgamma-gamma #100215 see /usr/sbin/xgamma-gui.
 
@@ -60,9 +64,9 @@ if [ -f /etc/xrandrindex ];then
 fi
 
 
-if [ -f /root/.xset.sh ];then
+if [ -f $HOME/.xset.sh ];then
  #this is created by /usr/bin/pupx...
- eval "/root/.xset.sh"
+ eval "$HOME/.xset.sh"
 else
  ##Xorg has it's own fontpath settings in /etc/X11/xorg.conf...
  #if [ "`readlink /usr/bin/X`" != "Xorg" ];then
@@ -75,8 +79,8 @@ else
 fi
 
 #v1.0.7 also see /etc/rc.d/rc.local0
-if [ -f /root/.fonts/fonts.dir ];then
- xset fp+ /root/.fonts/
+if [ -f $HOME/.fonts/fonts.dir ];then
+ xset fp+ $HOME/.fonts/
 fi
 
 [ -f /usr/bin/xsetroot ] && xsetroot -cursor_name top_left_arrow
@@ -110,13 +114,13 @@ fi
 #...no need to start it here, fvwm4 below will start it automatically.
 
 #relocates right-side icons to actual right-side of screen...
-/usr/sbin/fixPuppyPin /root/Choices/ROX-Filer/PuppyPin #v1.0.7
+/usr/sbin/fixPuppyPin "$HOME/Choices/ROX-Filer/PuppyPin.$DISP" #v1.0.7
 
 #w468 on old PCs this sometimes does not start, see further down...
-if [ -f /root/Choices/ROX-Filer/PuppyPan1 ];then
- rox -p /root/Choices/ROX-Filer/PuppyPin -r /root/Choices/ROX-Filer/PuppyPan1
+if [ -f $HOME/Choices/ROX-Filer/PuppyPan1 ];then
+ rox -p $HOME/Choices/ROX-Filer/PuppyPin -r $HOME/Choices/ROX-Filer/PuppyPan1
 else
- rox -p /root/Choices/ROX-Filer/PuppyPin
+ rox -p "$HOME/Choices/ROX-Filer/PuppyPin.$DISP"
 fi
 
 #v2.0.0
@@ -131,7 +135,7 @@ fi
 ##v2.15 disovered by GuestToo...
 #[ "`which glipper`" != "" ] && glipper &
 #v2.17 made it optional...
-[ -f /root/.glipper_on ] && glipper &
+[ -f $HOME/.glipper_on ] && glipper &
 
 if [ "$CURRENTWM" = "xfwm4" ];then
  if [ "`which xfce4-panel`" != "" ];then
@@ -169,7 +173,7 @@ PSOUT="`ps`"
 if [ "`echo "$PSOUT" | grep 'ROX\-Filer'`" = "" ];then
  touch /tmp/roxfilerstartupproblem #see /sbin/pup_event_frontend_d
  sleep 0.2
- rox -p /root/Choices/ROX-Filer/PuppyPin
+ rox -p "$HOME/Choices/ROX-Filer/PuppyPin.$DISP"
 fi
 
 setxkbmap -rules xorg -model pc102 -layout us,de -variant "" -option grp:rwin_toggle,lv3:ralt_switch
