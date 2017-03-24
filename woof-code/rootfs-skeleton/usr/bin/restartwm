@@ -4,15 +4,27 @@
 
 . /etc/rc.d/f4puppy5
 
-NEXTWM=
+NEXTWM="$1"
 read PREVIOUSWM </etc/windowmanager
-test -f /etc/windowmanager.$DISPLAY && read PREVIOUSWM </etc/windowmanager.$DISPLAY
+#test -f /etc/windowmanager.$DISPLAY && read PREVIOUSWM </etc/windowmanager.$DISPLAY
 DISP=${DISPLAY%.*}
 test -f /etc/windowmanager.$DISP && read PREVIOUSWM </etc/windowmanager.$DISP
 
-[ "$NEXTWM" ] || NEXTWM="$PREVIOUSWM" #v1.0.7 precaution.
+if [ ! "$NEXTWM" ]; then
+test -f /etc/windowmanager.next       && read NEXTWM </etc/windowmanager.next
+test -f /etc/windowmanager.next.$DISP && read NEXTWM </etc/windowmanager.next.$DISP
+rm $VERB -f /etc/windowmanager.next*
+fi
+
+NEXTWM=${NEXTWM:-"$PREVIOUSWM"} #v1.0.7 precaution.
+
+case $NEXTWM in
+icewm*) NEXTWM=icewm;;  # icewm-session
+enlightenment*) NEXTWM=enlightenment_start;;
+esac
+
 echo "$NEXTWM" > /etc/windowmanager #this makes change permanent.
-echo "$NEXTWM" > /etc/windowmanager.$DISPLAY
+#echo "$NEXTWM" > /etc/windowmanager.$DISPLAY
 echo "$NEXTWM" > /etc/windowmanager.$DISP
 
 #/sbin/pup_event_frontend_d will quit if this file exists...
@@ -29,12 +41,18 @@ if [ "`pidof xfce4-panel`" ];then
  exit
 fi
 
+case $PREVIOUSWM in
+icewm*) PREVIOUSWM=icewm;;
+enlightenment*) PREVIOUSWM=enlightenment;;
+esac
+
 pidof $PREVIOUSWM >>$OUT && kill -9 `pidof $PREVIOUSWM` #w478
 
 _get_current_x(){
 test "$DISP" || return 1
 ps -o pid,args | grep -w 'X' | grep -w $DISP | grep -vE 'grep|xinit' | awk '{print $1}'
 }
+
 CURRENTX=`_get_current_x` && {
 echo "CURRENTX='$CURRENTX'"
 test "${CURRENTX//[[:blank:]]/}" && kill -15 `_get_current_x`
