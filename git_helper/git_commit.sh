@@ -1,4 +1,7 @@
-#!/bin/sh
+#!/bin/ash
+# this script lists all uncommitted changed files
+# in git repo dir _DIR_ in woof-code subdir
+# and interactively asks to commit them
 
 test -f /etc/rc.d/f4puppy5 && source /etc/rc.d/f4puppy5
 
@@ -17,7 +20,8 @@ cd "$_DIR_"
 #git commit | grep '^#	woof-code'
 git commit | grep '^#' | grep -o 'woof-code.*'
 
-_FILES_=`git commit | grep '^#' | grep -o 'woof-code.*'`
+#_FILES_=`git commit | grep '^#' | grep -o 'woof-code.*'`
+_FILES_=`git status | grep '^#' | grep -o 'woof-code.*'`
 
 #echo
 for _oneFILE_ in $_FILES_
@@ -43,4 +47,3 @@ echo "$_oneFILE_"
 
 sleep 0.1
 done
-

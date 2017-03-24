@@ -1,5 +1,6 @@
 #!/bin/ash
-
+# updates the files on system from git repo dir
+# interactive possible, set INTERACTIVE var
 INTERACTIVE=1
 
 DIR=../woof-code/rootfs-skeleton

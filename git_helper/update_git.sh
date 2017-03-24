@@ -1,5 +1,6 @@
 #!/bin/ash
-
+# updates the files in git from system
+# interactive possible, set INTERACTIVE var
 INTERACTIVE=1
 
 . /etc/rc.d/f4puppy5
@@ -33,6 +34,12 @@ test "$gitFILE" || continue
 
 case "$gitFILE" in
 */.gitignore) rm "$gitFILE" && git rm "$gitFILE"; continue;;
+*etc/*)
+ case $gitFILE in
+ *etc/modprobe.d/*) continue;;
+ *etc/*/*) :;;
+ *) continue;;
+ esac
 esac
 
 echo;echo >"$TTY"
