@@ -23,11 +23,34 @@
 . /etc/rc.d/f4puppy5
 
 BGOPT=""
+
+FONTSIZEPARAM=''
+[ -L /usr/bin/yaf-splash ] && FONTSIZEPARAM='-fontsize large' #100608
+
+KERNVER="`uname -r`" #w481
+
+BAREVIEW="bareview"
+[ "`which bareview`" ] || BAREVIEW="defaulthtmlviewer"
+
+sleep 2 #let the dust settle first.
+
 #100821 start...
 read WINDOWMANAGER </etc/windowmanager
+DISP=${DISPLAY%.*}
+tTTY=${DISP#*:}
+tTTY=$((tTTY+1))
+test -f /etc/windowmanager.$DISP && read WINDOWMANAGER </etc/windowmanager.$DISP
+
+case $WINDOWMANAGER in
+icewm*) WINDOWMANAGER=icewm;;
+enlightenment*) WINDOWMANAGER=enlightenment;;
+esac
+
 case $WINDOWMANAGER in
  icewm*) #icewm or icewm-session.
-  #micko for icewm, not sure why it's needed but it doesn't work without killing the ice tray. It's mainly so freememapplet_tray, network_tray and retrovol work.
+  #micko for icewm, not sure why it's needed
+  #but it doesn't work without killing the ice tray.
+  #It's mainly so freememapplet_tray, network_tray and retrovol work.
   #pidof icewmtray >>$OUT && killall icewmtray
   #exec icewmtray &
   pidof icewmtray >>$OUT || exec icewmtray &
@@ -49,8 +72,8 @@ case $WINDOWMANAGER in
   fi
  ;;
  *)
-  if [ -f /root/.jwm/jwm_colors ];then #100504
-   . /root/.jwm/jwm_colors
+  if [ -f "$HOME"/.jwm/jwm_colors ];then #100504
+   . "$HOME"/.jwm/jwm_colors
     BGOPT="-bg ${MENU_BG}"
   fi
  ;;
@@ -58,21 +81,11 @@ esac
 #10821 end.
 
 __jwm_colors__(){
-if [ -f /root/.jwm/jwm_colors ];then #100504
-. /root/.jwm/jwm_colors
+if [ -f "$HOME"/.jwm/jwm_colors ];then #100504
+. "$HOME"/.jwm/jwm_colors
  BGOPT="-bg ${MENU_BG}"
 fi
 }
-
-FONTSIZEPARAM=''
-[ -L /usr/bin/yaf-splash ] && FONTSIZEPARAM='-fontsize large' #100608
-
-KERNVER="`uname -r`" #w481
-
-BAREVIEW="bareview"
-[ "`which bareview`" ] || BAREVIEW="defaulthtmlviewer"
-
-sleep 2 #let the dust settle first.
 
 #this goes into the tray...
 CURRPS="`ps`"
@@ -80,39 +93,45 @@ CURRPS="`ps`"
  #freememapplet_tray & #created by BK. 100517 moved to /root/Startup
  #sleep 0.1
  BLINK_TRAY=`which blinky_tray`
-if [ "$BLINK_TRAY" != "" ];then
+if [ "$BLINK_TRAY" ];then
  blinky_tray -bg ${BGOPT} & #created by Lior Tubi and MU.
  sleep 0.1
 fi
 #fi
-if [ "`which retrovol`" -a "`pidof retrovol`" = "" ];then
+
+#if [ "`which retrovol`" -a "`pidof retrovol`" = "" ];then
+if [ "`which retrovol`" ]; then
+ CHK_RUN=`busybox ps -o tty,args | grep retrovol | grep "^4,$tTTY[[:blank:]]\+" | grep -vw grep`
+ if [ "$CHK_RUN" ]; then  # could grep [0-9] as major but for now use 4
  if [ "`retrovol -help 2>&1 | grep '\-show'`" ];then
   retrovol ${BGOPT} & #100119 tray volume control by pizzasgood. 100504
  else
   retrovol -hide ${BGOPT} & #100413 versions after 0.2. 100504
  fi
+ fi
 fi
 
 #offer to popup a getting-started html page...
 #the test for /etc/videomode is for when Xvesa has finished choosing a resolution...
-if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
- if [ $PUPMODE -eq 5 ];then
+if [ $PUPMODE -eq 5 ];then
+ #if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
+ if [ "$DISPLAY" ]; then
   exec first-run.sh &
   if [ "`ls -1 /lib/modules/${KERNVER}/modules.* 2>/dev/null`" = "" ];then #w481
    #thistle is a very light purple...
-   yaf-splash -display :0 -margin 2 ${FONTSIZEPARAM} -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Move mouse-pointer here for getting-started information. WARNING: all required kernel modules were not loaded due to restricted RAM. You need to reboot to create a save-file on the hard drive and/or you need a swap file/partition to obtain more space. If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." &
+   yaf-splash -display $DISP -margin 2 ${FONTSIZEPARAM} -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Move mouse-pointer here for getting-started information. WARNING: all required kernel modules were not loaded due to restricted RAM. You need to reboot to create a save-file on the hard drive and/or you need a swap file/partition to obtain more space. If you click here, a help file will display, or simply select Shutdown->Reboot from the menu." &
   else
    #thistle is a very light purple...
-   yaf-splash -display :0 -margin 2 ${FONTSIZEPARAM} -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Move mouse-pointer here for getting-started information" &
+   yaf-splash -display $DISP -margin 2 ${FONTSIZEPARAM} -bg thistle -bw 0 -placement top -font "9x15B" -outline 0 -text "Welcome! Move mouse-pointer here for getting-started information" &
   fi
   RETVALs=$?
   YAFPIDs=$!
   LOOPCNT=0
   while [ $RETVALs -eq 0 ];do #only do this if X running.
    usleep 500000 #sleep 1
-   LOOPCNT=`expr $LOOPCNT + 1`
+   LOOPCNT=$((LOOPCNT + 1))
    [ $LOOPCNT -gt 110 ] && break #55 second timeout.
-   [ "`pidof yaf-splash`" != "" ] && continue
+   [ "`pidof yaf-splash`" ] && continue
    #bark and put up the getting started message...
    if [ ! "`grep 'alias snd\-card\-0' /etc/modprobe.conf`" = "" ];then
     aplay /usr/share/audio/2barks.au &
@@ -136,15 +155,24 @@ if [ "`readlink /usr/bin/X`" = "Xorg" -o -e /etc/videomode ];then #w007
     fi
    fi
    #[ $RETAPLAY -eq 0 ] && kill $PIDAPLAY 2> /dev/null
-   [ "`pidof aplay`" != "" ] && killall aplay
+   [ "`pidof aplay`" ] && killall aplay
    break
   done
-  [ $RETVALs -eq 0 ] && kill $YAFPIDs 2>/dev/null
+  [ $RETVALs -eq 0 ] && kill $YAFPIDs 2>>$ERR
  fi
-fi
-
-#v2.16 popup the BootManager if an extra SFS file added (once only)...
-if [ ! $PUPMODE -eq 5 ];then
+else
+ #v2.16 popup a warning if booting from usb flash...
+ if [ "$PMEDIA" = "usbflash" ];then
+ #if [ "$PUPMODE" != 5 ]; then
+ yaf-splash ${FONTSIZEPARAM} -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
+ X1PID=$!
+ X1RET=$?
+ sleep 4
+ [ $X1RET -eq 0 ] && kill $X1PID
+ #fi
+ fi
+ #v2.16 popup the BootManager if an extra SFS file added (once only)...
+ #if [ ! $PUPMODE -eq 5 ];then
  if [ -d /initrd ];then #test it isn't full hd installation.
   . /etc/rc.d/BOOTCONFIG
   #if EXTRASFSLIST variable not there, then auto-load of SFS files (meaning, user
@@ -158,22 +186,22 @@ if [ ! $PUPMODE -eq 5 ];then
    fi
   fi
  fi
-fi
-
-#v2.16 popup a warning if booting from usb flash...
-if [ "$PMEDIA" = "usbflash" ];then
- yaf-splash ${FONTSIZEPARAM} -font "8x16" -outline 0 -margin 4 -bg yellow -text "WARNING! Do not unplug USB Flash drive!" &
- X1PID=$!
- X1RET=$?
- sleep 3
- [ $X1RET -eq 0 ] && kill $X1PID
+ #fi
 fi
 
 #v2.17 suggested by andrei...
-if [ -d /root/Startup ];then
- for a in /root/Startup/*
+if [ -d "$HOME"/Startup ];then
+ for a in "$HOME"/Startup/*
+  do
+  case $a in *.$DISP) continue;; *.:*) continue;; esac
+  test -e $a.$DISP && continue
+  test -f $a       || continue
+  cp $VERB -a $a $a.$DISP # -a option for could be a link
+ done
+
+ for a in "$HOME"/Startup/*.$DISP
  do
-  [ -f "$a" -a -x "$a" ] && echo $a && exec $a &
+  [ -f "$a" -a -x "$a" ] && echo "$0:Starting $a .." && exec $a &
   sleep 0.2
  done
 fi
