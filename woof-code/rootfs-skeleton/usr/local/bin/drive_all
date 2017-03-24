@@ -15,6 +15,24 @@
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
+test "$DISP" || DISP=${DISPLAY%.*}
+DISP=${DISP:-':0'}
+
+_usage(){
+echo "Usage for $0:"
+echo "$0 [command] [fstype]"
+echo "$0 DRV_CATEGORY"
+echo "Supported commands:"
+echo "pmount_\${DRV_CATEGORY} : starts pmount with the DRV_CATEGORY tab first"
+echo "eventmanager : launches the eventmanager GUI to alter /etc/eventmanager config files."
+echo "unmount : unmounts the partition."
+echo "unmountall : unmounts all unused mounted partitions."
+echo "DRV_CATEGORY : either all,card,drive,usbdrv,optical"
+echo "without any parameters should mount.."
+echo "This script usually gets copied into a folder as AppRun"
+echo "The folder needs to be named as the basename of a partition."
+}
+
 #w002 extracted as a func...
 unmount_func() {
  rox -D "$MNTPT"
@@ -82,6 +100,8 @@ oneDRVNAME="`echo "${0}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`"
 oneDRVNAME="`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | rev`"
 }
 test "$oneDRVNAME" || _exit 2 "ERROR -- no oneDRVNAME"
+
+case $1 in -h|*help) _usage; exit 0;; esac
 
 if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
  DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
@@ -160,15 +180,16 @@ fi
 }
 
 DRV_CATEGORY="${1}"
-[ "$DRV_CATEGORY" = "" ]    && DRV_CATEGORY="drive" #precaution.
+DRV_CATEGORY=${DRV_CATEGORY:-"drive"} #precaution.
 [ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
-[ -f /etc/eventmanager ] && . /etc/eventmanager #written by /usr/sbin/eventmanager
-[ "$ICONDESK" != "true" -a "$ICONDESK" != "false" ] && ICONDESK="true"
-[ ! $RAMSAVEINTERVAL ] && RAMSAVEINTERVAL=30
-[ "$HOTPLUGNOISY" != "true" -a "$HOTPLUGNOISY" != "false" ] && HOTPLUGNOISY="false"
-[ "$AUTOTARGET" != "true" -a "$AUTOTARGET" != "false" ] && AUTOTARGET="true"
-[ "$ICONPARTITIONS" != "true" -a "$ICONPARTITIONS" != "false" ] && ICONPARTITIONS="true"
+[ -f /etc/eventmanager ]       && . /etc/eventmanager #written by /usr/sbin/eventmanager
+[ -f /etc/eventmanager.$DISP ] && . /etc/eventmanager.$DISP
+[ "$ICONDESK" = "true" -o "$ICONDESK" = "false" ] || ICONDESK="true"
+RAMSAVEINTERVAL=${RAMSAVEINTERVAL:-30}
+[ "$HOTPLUGNOISY" = "true" -o "$HOTPLUGNOISY" = "false" ] || HOTPLUGNOISY="false"
+[ "$AUTOTARGET" = "true" -o "$AUTOTARGET" = "false" ] || AUTOTARGET="true"
+[ "$ICONPARTITIONS" = "true" -o "$ICONPARTITIONS" = "false" ] || ICONPARTITIONS="true"
 
 #if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
 #be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
@@ -186,7 +207,7 @@ fi
 #for now only have AUTOTARGET=true go direct to most appropriate target app,
 # =false always start Pmount.
 if [ "$AUTOTARGET" = "false" ];then
- if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>$ERR
   sleep 0.1
  fi
@@ -198,24 +219,24 @@ fi
 if [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ];then
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
-  cddetect -q -d/dev/${oneDRVNAME}
+  cddetect $Q -d/dev/${oneDRVNAME}
   RETVAL=$?
   case $RETVAL in
   3) #iso file: normal data cd.
    true
    ;;
   1) #audio
-   ln -snf /dev/${oneDRVNAME} /dev/cdrom
+   ln -sf /dev/${oneDRVNAME} /dev/cdrom
    exec defaultmediaplayer cdda://dev/cdrom
    ;;
   5) #video dvd
-   ln -snf /dev/${oneDRVNAME} /dev/dvd
+   ln -sf /dev/${oneDRVNAME} /dev/dvd
    exec defaultmediaplayer dvd://dev/dvd
    ;;
   0) #failed to detect type.
    #cddetect does not work properly for dvd's, try something else...
    if [ "`dvd+rw-mediainfo /dev/sr0 | grep 'Mounted Media: .* DVD-ROM'`" != "" ];then
-    ln -snf /dev/${oneDRVNAME} /dev/dvd
+    ln -sf /dev/${oneDRVNAME} /dev/dvd
     exec defaultmediaplayer dvd://dev/dvd
    fi
    ;;
@@ -264,7 +285,7 @@ if [ "$FSTYPE" != "" ];then
     ;;
   esac
   #[ $RETVAL1 -eq 0 ] && exec rox -x "/mnt/$oneDRVNAME" -d "/mnt/$oneDRVNAME"
-  [ $RETVAL1 -eq 0 ] && exit $RETVAL1
+  [ $RETVAL1 = 0 ] && exit $RETVAL1
  else
   #mounted...
   MNTPT="`/bin/df | grep "$dPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
@@ -279,7 +300,7 @@ fi
 
 #NOTE: if pmount already running, don't really want to kill then restart,
 # just want to bring the window up if it's minimised ...how?
-
+echo "Last fall trough : pmount"
 if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
  killall gtkdialog_pmount 2>$ERR
  sleep 0.1
