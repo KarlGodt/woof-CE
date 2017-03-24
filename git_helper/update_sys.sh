@@ -1,6 +1,14 @@
 #!/bin/ash
+_say_help_msg(){
+	cat >&1 <<EoI
 # updates the files on system from git repo dir
 # interactive possible, set INTERACTIVE var
+EoI
+}
+
+case $* in -h|*help) _say_help_msg; exit 0;; esac
+
+
 INTERACTIVE=1
 
 DIR=../woof-code/rootfs-skeleton

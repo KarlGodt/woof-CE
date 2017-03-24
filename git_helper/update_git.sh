@@ -1,6 +1,13 @@
 #!/bin/ash
+_say_help_msg(){
+	cat >&1 <<EoI
 # updates the files in git from system
 # interactive possible, set INTERACTIVE var
+EoI
+}
+
+case $* in -h|*help) _say_help_msg; exit 0;; esac
+
 INTERACTIVE=1
 
 . /etc/rc.d/f4puppy5

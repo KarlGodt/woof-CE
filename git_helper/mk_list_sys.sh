@@ -1,4 +1,13 @@
 #!/bin/ash
+_say_help_msg(){
+	cat >&1 <<EoI
+# simple script to add to a missing_sys_files.lst
+# file the files found in DIR and not on the system
+EoI
+}
+
+case $* in -h|*help) _say_help_msg; exit 0;; esac
+
 
 INTERACTIVE=1
 

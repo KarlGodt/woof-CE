@@ -1,4 +1,14 @@
 #!/bin/ash
+_say_help_msg(){
+	cat >&1 <<EoI
+# simple script to move '??' marked files
+# by git commit --short
+# into MV_DIR
+EoI
+}
+
+case $* in -h|*help) _say_help_msg; exit 0;; esac
+
 
 . /etc/rc.d/f4puppy5
 . /etc/rc.d/PUPSTATE
