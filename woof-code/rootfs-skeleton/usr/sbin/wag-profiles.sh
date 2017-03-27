@@ -2082,13 +2082,22 @@ buildScanWindow()
                 #+ and see which is biggest (sometimes not all networks show)
                 rm -f /tmp/net-setup_scan*.tmp >$OUT 2>&1
 
-                iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
+                #iwlist "$INTERFACE" scan >/tmp/net-setup_scan1.tmp 2>>$DEBUG_OUTPUT
+		#iwlist scan might contain escaped hex \xNN0\xNN1
+                IWLIST_SCAN1=`iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT`
+                echo -e "$IWLIST_SCAN1" >/tmp/net-setup_scan1.tmp
+
                 echo "X"
 
                 SCANALL=$(iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT)
+		SCANALL`echo -e "$SCANALL"`
                 sleep 1
 
-                iwlist "$INTERFACE" scan >/tmp/net-setup_scan2.tmp 2>>$DEBUG_OUTPUT
+                #iwlist "$INTERFACE" scan >/tmp/net-setup_scan2.tmp 2>>$DEBUG_OUTPUT
+		#iwlist scan might contain escaped hex \xNN0\xNN1
+                IWLIST_SCAN2=`iwlist "$INTERFACE" scan 2>>$DEBUG_OUTPUT`
+                echo -e "$IWLIST_SCAN2" >/tmp/net-setup_scan2.tmp
+
                 echo "X"
 
                 ScanListFile=$(du -b /tmp/net-setup_scan*.tmp |sort -n | tail -n1 |cut -f2)
