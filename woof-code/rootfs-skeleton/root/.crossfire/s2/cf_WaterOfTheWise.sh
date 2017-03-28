@@ -3,6 +3,20 @@
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
@@ -52,9 +66,10 @@ sleep 0.1s
 #echo "$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
@@ -174,6 +189,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+_beep
 exit $1
 }
 
@@ -183,6 +199,8 @@ echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
 echo "issue 1 1 fire_stop"
+_beep
+_beep
 exit $1
 }
 
@@ -366,3 +384,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

@@ -11,6 +11,15 @@ echo draw 5 " with '$*' parameter."
 # *** Setting defaults *** #
 #set empty default
 C=0 #set zero as default
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -387,3 +396,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

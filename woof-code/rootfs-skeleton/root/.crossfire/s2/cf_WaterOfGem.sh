@@ -37,6 +37,20 @@ echo draw 2 "ARGUMENTS:$*"
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
@@ -113,6 +127,20 @@ __check_on_cauldron(){
 UNDER_ME='';
 echo request items on
 
+
+while :; do
+read UNDER_ME
+sleep 0.1s
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+__old_loop(){
 while [ 1 ]; do
 read UNDER_ME
 sleep 0.1s
@@ -123,9 +151,11 @@ test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
+}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+_beep
 exit 1
  }
 }
@@ -141,6 +171,19 @@ echo draw 4 "Checking if on cauldron..."
 UNDER_ME='';
 echo request items on
 
+while :; do
+read UNDER_ME
+sleep 0.1s
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+__old_loop(){
 while [ 1 ]; do
 read UNDER_ME
 sleep 0.1s
@@ -151,9 +194,11 @@ test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
+}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+_beep
 exit 1
         }
 
@@ -197,6 +242,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+_beep
 exit $1
 }
 
@@ -221,7 +267,20 @@ echo "issue 1 1 drop 1 water of the wise"
 OLD_REPLY="";
 REPLY="";
 
+ while :; do
+ read -t 1 REPLY
+ echo "$REPLY" >>/tmp/cf_script.rpl
+ case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+ *"There are only"*) f_exit 1;;
+ *"There is only"*)  f_exit 1;;
+ esac
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
 
+__old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
@@ -233,6 +292,7 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+}
 
 sleep 1s
 
@@ -242,12 +302,16 @@ echo "issue 1 1 drop 3 $GEM"
 OLD_REPLY="";
 REPLY="";
 
-while [ 1 ]; do
+while :; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
+#test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+ *"There are only"*) f_exit 1;;
+ *"There is only"*)  f_exit 1;;
+ esac
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -277,7 +341,7 @@ OLD_REPLY="";
 REPLY="";
 NOTHING=0
 
-while [ 1 ]; do
+while :; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
@@ -331,3 +395,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

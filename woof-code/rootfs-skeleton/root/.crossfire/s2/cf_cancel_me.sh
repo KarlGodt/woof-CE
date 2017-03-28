@@ -1,7 +1,17 @@
-#!/bin/bash
+#!/bin/ash
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -59,3 +69,4 @@ echo "issue 1 1 fire_stop"
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

@@ -80,3 +80,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+beep -l 500 -f 700

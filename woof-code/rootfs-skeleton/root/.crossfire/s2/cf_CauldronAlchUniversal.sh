@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 exec 2>>/tmp/cf_script.err
 
@@ -9,6 +9,20 @@ echo draw 5 " with '$*' parameter."
 # *** Setting defaults *** #
 #set empty default
 C=0 #set zero as default
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -102,6 +116,19 @@ CAULDRON=stove
 UNDER_ME='';
 echo request items on
 
+while :; do
+read UNDER_ME
+sleep 0.1s
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+__old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
@@ -112,9 +139,11 @@ test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
+}
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
 echo draw 3 "Need to stand upon a $CAULDRON!"
+_beep
 exit 1
 }
 
@@ -124,6 +153,21 @@ rm -f /tmp/cf_script.inv || exit 1
 INVTRY='';
 #echo watch request items inv
 echo request items inv
+
+while :; do
+INVTRY=""
+read -t 1 INVTRY || break
+echo "$INVTRY" >>/tmp/cf_script.inv
+#echo draw 3 "$INVTRY"
+case "$INVTRY" in "") break;;
+"request items inv end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+sleep 0.01s
+done
+
+__old_loop(){
 while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
@@ -135,6 +179,7 @@ test "$INVTRY" = "scripttell break" && break
 test "$INVTRY" = "scripttell exit" && exit 1
 sleep 0.01s
 done
+}
 
 C2=1
 for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
@@ -217,6 +262,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+_beep
 exit $1
 }
 
@@ -269,6 +315,20 @@ esac
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
+ while :; do
+ read -t 1 REPLY
+ echo "$REPLY" >>/tmp/cf_script.rpl
+ case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+ *"There are only"*) f_exit 1;;
+ *"There is only"*)  f_exit 1;;
+ esac
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
+
+ __old_loop(){
  while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
@@ -280,6 +340,7 @@ esac
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
+ }
 
  done
 
@@ -354,3 +415,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

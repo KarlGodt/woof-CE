@@ -71,6 +71,7 @@ NUMBER=$PARAM_1
 f_exit(){
 echo draw 3 "Exiting $0."
 echo unwatch
+beep -l 500 -f 700
 #echo unwatch drawinfo
 exit $1
 }
@@ -89,7 +90,7 @@ OLD_REPLY=
 echo watch drawinfo
 echo "issue 1 1 mark icecube"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
@@ -114,12 +115,18 @@ OLD_REPLY=
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
+ #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ case $REPLY in *fail.) :;;
+ *"Could not find any match to the flint and steel."*) break 3;;
+ *Your*) :;;
+ *) NO_FAIL=1;;
+ esac
+
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -143,7 +150,7 @@ OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 mark icecube"
-while [ 1 ]; do
+while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
@@ -168,12 +175,17 @@ OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
+ #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ case $REPLY in *fail.) :;;
+ *"Could not find any match to the flint and steel."*) break 3;;
+ *Your*) :;;
+ *) NO_FAIL=1;;
+ esac
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -192,3 +204,4 @@ done #true
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+beep -l 500 -f 700

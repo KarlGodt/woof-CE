@@ -1,8 +1,18 @@
 #!/bin/bash
-
+# uses <<<STREAM
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
 
 # *** Check for parameters *** #
 #[ "$*" ] && {
@@ -50,7 +60,7 @@ REPLY="";
 echo watch drawinfo
 echo "issue 1 1 showpets"
 
-while [ 1 ]; do
+while :; do
 
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_pets.rpl
@@ -118,3 +128,4 @@ EoI
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

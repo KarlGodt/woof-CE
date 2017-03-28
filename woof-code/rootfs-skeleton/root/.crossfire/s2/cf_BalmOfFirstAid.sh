@@ -5,6 +5,29 @@ echo draw 2 "$0 is started.."
 
 # *** PARAMETERS *** #
 
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
+# ping if connection is dropping once a while
+URL=crossfire.metalforge.net
+_ping(){
+while :; do
+ping -c1 -w10 -W10 "$URL" && break
+sleep 1
+done >/dev/null
+}
+
 DIRB=west  # direction back to go
 
 case $DIRB in
@@ -62,6 +85,20 @@ echo drawinfo 5 "Checking if on a cauldron..."
 UNDER_ME='';
 echo request items on
 
+while :; do
+_ping
+read UNDER_ME
+sleep 0.1s
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+__old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 #echo "$UNDER_ME" >>/tmp/cf_script.ion
@@ -72,9 +109,11 @@ test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 sleep 0.1s
 done
+}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+_beep
 exit 1
 }
 
@@ -93,6 +132,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+_beep
 exit $1
 }
 
@@ -102,6 +142,8 @@ echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
 echo "issue 1 1 fire_stop"
+_beep
+_beep
 exit $1
 }
 
@@ -109,6 +151,7 @@ f_exit_no_space(){
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
+_beep
 exit $1
 }
 
@@ -122,7 +165,8 @@ echo request map pos
 
 echo watch request
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 test "$REPLY" || break
@@ -166,7 +210,8 @@ echo request map $R_X $R_Y
 
 echo watch request
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 
@@ -204,7 +249,7 @@ echo drawinfo 7 "OK."
 # *** Todo ...            *** #
 f_monitor_malfunction(){
 
-while [ 1 ]; do
+while :; do
 read -t 1 ERRORMSGS
 
 sleep 0.1s
@@ -249,7 +294,8 @@ echo request items actv
 
 echo watch request
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -287,7 +333,8 @@ echo "issue 1 1 get"
 
 echo watch drawinfo
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 REPLY_ALL="$REPLY
@@ -328,7 +375,8 @@ echo request stat cmbt
 
 echo watch request
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 ANSWER
 echo "$ANSWER" >>/tmp/cf_request.log
 test "$ANSWER" || break
@@ -374,6 +422,21 @@ echo watch drawinfo
 OLD_REPLY="";
 REPLY="";
 
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>/tmp/cf_script.rpl
+case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+*"There are only"*) f_exit 1;;
+*"There is only"*)  f_exit 1;;
+esac
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+_old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
@@ -385,6 +448,7 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+}
 
 sleep ${SLEEP}s
 
@@ -393,6 +457,21 @@ echo "issue 1 1 drop 1 mandrake root"
 OLD_REPLY="";
 REPLY="";
 
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>/tmp/cf_script.rpl
+case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+*"There are only"*) f_exit 1;;
+*"There is only"*)  f_exit 1;;
+esac
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+_old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
@@ -404,6 +483,7 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+}
 
 echo unwatch drawinfo
 
@@ -424,7 +504,8 @@ echo watch drawinfo
 OLD_REPLY="";
 REPLY="";
 
-while [ 1 ]; do
+while :; do
+_ping
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -450,6 +531,20 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>/tmp/cf_script.rpl
+case "$REPLY" in *"Nothing to take!") NOTHING=1;;
+*"You pick up the slag.") SLAG=1;;
+esac
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+_old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
@@ -460,6 +555,7 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+}
 
 echo unwatch drawinfo
 
@@ -503,6 +599,20 @@ echo watch request
 UNDER_ME='';
 UNDER_ME_LIST='';
 
+while :; do
+_ping
+read UNDER_ME
+sleep 0.1s
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+_old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 echo "$UNDER_ME" >>/tmp/cf_script.ion
@@ -512,9 +622,9 @@ test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 test "$UNDER_ME" || break
-
 sleep 0.1s
 done
+}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
@@ -532,3 +642,4 @@ done  # *** MAINLOOP *** #
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep

@@ -31,6 +31,16 @@
 # *** Here begins program *** #
 echo draw 2 "$0 is started with '$*' as arg and as pid $$ from ppid $PPID"
 
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
@@ -103,3 +113,4 @@ done
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+_beep
