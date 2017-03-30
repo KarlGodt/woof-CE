@@ -1,4 +1,5 @@
-#!/bin/ash
+#!/bin/bash
+# uses arrays, ((c++))
 
 rm -f /tmp/cf_*
 
@@ -9,8 +10,38 @@ echo draw 2 "$0 is started.."
 echo draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
+# SKILL and CAULDRON now set as passed parameter to script
+#SKILL=woodsman
+#SKILL=alchemy
+
+#CAULDRON=stove
+#CAULDRON=cauldron
+
+DEBUG=
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
+
 #set empty default
 C=0 #set zero as default
+
+#logging
+LOGGING=1
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+ LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+ LOG_TEST_FILE="$TMP_DIR"/cf_script.$$.test
+LOG_TEST2_FILE="$TMP_DIR"/cf_script.$$.test2
+  LOG_INV_FILE="$TMP_DIR"/cf_script.$$.inv
+
+mkdir -p "$TMP_DIR"
 
 # beeping
 BEEP_DO=1
@@ -62,7 +93,7 @@ echo draw 7 "OK using $SKILL on $CAULDRON"
 
 # *** testing parameters for validity *** #
 
-echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
+echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>"$LOG_TEST_FILE"
 #WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
 for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
@@ -99,8 +130,8 @@ case ${NUMBER[$C]} in
 esac
 fi
 
-echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
-echo "NUMBER[$C]='${NUMBER[$C]}'" >>/tmp/cf_script.test
+echo "INGRED[$C]='${INGRED[$C]}'" >>"$LOG_TEST_FILE"
+echo "NUMBER[$C]='${NUMBER[$C]}'" >>"$LOG_TEST_FILE"
 done
 
 GOAL=${INGRED[2]}
@@ -113,7 +144,7 @@ for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 do
 ((C++))
 INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
-echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
+echo "INGRED[$C]='${INGRED[$C]}'" >>"$LOG_TEST_FILE"
 done
 
 
@@ -129,11 +160,6 @@ echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandr
         exit 1
 }
 
-#SKILL=woodsman
-#SKILL=alchemy
-
-#CAULDRON=stove
-#CAULDRON=cauldron
 
 # *** Check if standing on a $CAULDRON *** #
 UNDER_ME='';
@@ -141,10 +167,11 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
+case "$UNDER_ME" in
+"request items on end") break;;
 "scripttell break") break;;
 "scripttell exit") exit 1;;
 esac
@@ -154,7 +181,7 @@ __old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -171,7 +198,7 @@ exit 1
 
 # *** Check if is in inventory *** #
 
-rm -f /tmp/cf_script.inv || exit 1
+rm -f "$LOG_INV_FILE" || exit 1
 INVTRY='';
 #echo watch request items inv
 echo request items inv
@@ -179,7 +206,7 @@ echo request items inv
 while :; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>/tmp/cf_script.inv
+echo "$INVTRY" >>"$LOG_INV_FILE"
 #echo draw 3 "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
@@ -193,7 +220,7 @@ __old_loop(){
 while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>/tmp/cf_script.inv
+echo "$INVTRY" >>"$LOG_INV_FILE"
 #echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
@@ -211,11 +238,11 @@ do
 
 ((C2++))
 GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
-echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
+echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 
-grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
+grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
-grepMANY=`grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv`
+grepMANY=`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
  echo draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
@@ -282,10 +309,10 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -299,14 +326,14 @@ exit $1
 
 #echo "issue 1 1 pickup 0"  # precaution
 
-rm -f /tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 sleep 1s
 
 for one in `seq 1 1 $NUMBER_ALCH`
 do
 
-tBEG=`date +%s`
+tBEG=${tEND:-`date +%s`}
 
 OLD_REPLY="";
 REPLY="";
@@ -348,13 +375,16 @@ esac
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- case "$REPLY" in *"Nothing to drop.") f_exit 1;;
- *"There are only"*) f_exit 1;;
- *"There is only"*)  f_exit 1;;
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ case "$REPLY" in
+ $OLD_REPLY) break;;
+ *"Nothing to drop.") f_exit 1;;
+ *"There are only"*)  f_exit 1;;
+ *"There is only"*)   f_exit 1;;
+ '') break;;
  esac
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -362,12 +392,14 @@ esac
  __old_loop(){
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -378,24 +410,44 @@ esac
 echo unwatch drawinfo
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
+echo watch drawinfo
+
+OLD_REPLY="";
+REPLY="";
+
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch drawinfo
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep 1s
 
 echo "issue 1 1 use_skill sense curse"
@@ -436,10 +488,10 @@ tEND=`date +%s`
 tLAP=$((tEND-tBEG))
 echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 2s         #speed 0.32
 
 done

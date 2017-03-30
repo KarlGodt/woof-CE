@@ -31,6 +31,12 @@
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
+#logging
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+mkdir -p "$TMP_DIR"
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
@@ -42,7 +48,7 @@ echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
 echo draw 5 "script $0 [number]"
 echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
+echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
         }
@@ -92,12 +98,14 @@ echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -117,19 +125,22 @@ echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ #test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  case $REPLY in *fail.) :;;
+ *You*fail*used*up*) break 3;;
  *"Could not find any match to the flint and steel."*) break 3;;
  *Your*) :;;
+ '') break;;
  *) NO_FAIL=1;;
  esac
-
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 
@@ -152,12 +163,14 @@ echo watch drawinfo
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -177,18 +190,23 @@ echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- case $REPLY in *fail.) :;;
+ case $REPLY in
+ *fail.) :;;
+ *You*fail*used*up*) break 3;;
  *"Could not find any match to the flint and steel."*) break 3;;
  *Your*) :;;
+ '') break;;
  *) NO_FAIL=1;;
  esac
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 

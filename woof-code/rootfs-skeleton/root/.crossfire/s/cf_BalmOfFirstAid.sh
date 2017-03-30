@@ -169,12 +169,13 @@ echo watch request
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 echo "$IS_WALL" >>/tmp/cf_script.rpl
 test "$IS_WALL" = 0 || f_exit_no_space 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -252,9 +253,11 @@ echo watch request
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -290,10 +293,12 @@ echo watch drawinfo
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-REPLY_ALL="$REPLY
-$REPLY_ALL"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+REPLY_ALL="$REPLY
+$REPLY_ALL"
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -318,8 +323,8 @@ echo "issue 1 1 $DIRF"
 
 echo drawinfo 5 "Processing Player's speed..."
 
-SLEEP=3           # setting defaults
-DELAY_DRAWINFO=6
+SLEEP=3.0           # setting defaults
+DELAY_DRAWINFO=6.0
 
 ANSWER=
 OLD_ANSWER=
@@ -341,17 +346,18 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo drawinfo 7 "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
 echo drawinfo 7 "Player speed is $PL_SPEED"
 
 if test $PL_SPEED -gt 35; then
-SPEED=1; DELAY_DRAWINFO=2
+SLEEP=1.5; DELAY_DRAWINFO=2.0
 elif $PL_SPEED -gt 25; then
-SPEED=2; DELAY_DRAWINFO=4
+SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
 echo drawinfo 6 "Done."
@@ -377,11 +383,13 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -396,11 +404,13 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -427,9 +437,12 @@ REPLY="";
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -453,10 +466,12 @@ SLAG=0
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -506,12 +521,13 @@ UNDER_ME_LIST='';
 while [ 1 ]; do
 read -t 1 UNDER_ME
 echo "$UNDER_ME" >>/tmp/cf_script.ion
+test "$UNDER_ME" || break
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
-test "$UNDER_ME" || break
+#test "$UNDER_ME" || break
 
 sleep 0.1s
 done

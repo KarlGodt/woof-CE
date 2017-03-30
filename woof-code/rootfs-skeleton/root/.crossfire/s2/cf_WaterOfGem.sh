@@ -34,8 +34,27 @@ echo draw 2 "PID $$ PPID $PPID"
 echo draw 2 "ARGUMENTS:$*"
 
 # *** Setting defaults *** #
+
+DEBUG=
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
+
+#logging
+LOGGING=1
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+mkdir -p "$TMP_DIR"
 
 # beeping
 BEEP_DO=1
@@ -131,7 +150,7 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -144,7 +163,7 @@ __old_loop(){
 while [ 1 ]; do
 read UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -174,7 +193,7 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -187,7 +206,7 @@ __old_loop(){
 while [ 1 ]; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -231,10 +250,10 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -246,14 +265,14 @@ _beep
 exit $1
 }
 
-rm -f /tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 # *** Now LOOPING *** #
 
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+TIMEB=${TIMEE:-`date +%s`}
 
 
 # *** open the cauldron *** #
@@ -269,13 +288,16 @@ REPLY="";
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
- case "$REPLY" in *"Nothing to drop.") f_exit 1;;
- *"There are only"*) f_exit 1;;
- *"There is only"*)  f_exit 1;;
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ case "$REPLY" in
+ $OLD_REPLY) break;;
+ *"Nothing to drop.") f_exit 1;;
+ *"There are only"*)  f_exit 1;;
+ *"There is only"*)   f_exit 1;;
+ '') break;;
  esac
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -283,12 +305,14 @@ REPLY="";
 __old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -304,16 +328,19 @@ REPLY="";
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 #test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- case "$REPLY" in *"Nothing to drop.") f_exit 1;;
- *"There are only"*) f_exit 1;;
- *"There is only"*)  f_exit 1;;
+ case "$REPLY" in
+ $OLD_REPLY) break;;
+ *"Nothing to drop.") f_exit 1;;
+ *"There are only"*)  f_exit 1;;
+ *"There is only"*)   f_exit 1;;
+ '') break;;
  esac
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -322,15 +349,38 @@ echo unwatch drawinfo
 
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 f_check_on_cauldron
 
 echo "issue 1 1 use_skill alchemy"
+
+#TOTO monsters
+echo watch drawinfo
+
+OLD_REPLY="";
+REPLY="";
+
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+
 echo "issue 1 1 apply"
 
 echo watch drawinfo
@@ -343,10 +393,12 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -355,10 +407,10 @@ echo unwatch drawinfo
 
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep 1s
 
 [ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'" #DEBUG
@@ -371,17 +423,17 @@ echo "issue 1 1 use_skill alchemy"
 sleep 1s
 
 echo "issue 1 1 drop water of $GEM"
-echo "issue 0 1 drop slags"
+echo "issue 0 1 drop slag"
 
 fi
 
 DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 f_check_on_cauldron

@@ -5,6 +5,25 @@ echo draw 2 "$0 is started.."
 
 # *** PARAMETERS *** #
 
+DEBUG=
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
+#logging
+LOGGING=1
+TMP_DIR=/tmp/crossfire_client
+  LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+   LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+LOG_REQUEST_FILE="$TMP_DIR"/cf_request.$$.log
+mkdir -p "$TMP_DIR"
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -27,16 +46,6 @@ ping -c1 -w10 -W10 "$URL" && break
 sleep 1
 done >/dev/null
 }
-
-DIRB=west  # direction back to go
-
-case $DIRB in
-west)  DIRF=east;;
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
-esac
-
 
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
@@ -89,7 +98,7 @@ while :; do
 _ping
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -101,7 +110,7 @@ done
 __old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -155,7 +164,7 @@ _beep
 exit $1
 }
 
-rm -f /tmp/cf_script.rpl   # empty old log file
+rm -f "$LOG_REPLY_FILE"   # empty old log file
 
 # *** Check for 4 empty space to DIRB ***#
 
@@ -168,7 +177,7 @@ echo watch request
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -213,10 +222,10 @@ echo watch request
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "$IS_WALL" >>/tmp/cf_script.rpl
+echo "$IS_WALL" >>"$LOG_REPLY_FILE"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -297,10 +306,12 @@ echo watch request
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -336,24 +347,26 @@ echo watch drawinfo
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-REPLY_ALL="$REPLY
-$REPLY_ALL"
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+REPLY_ALL="$REPLY
+$REPLY_ALL"
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo drawinfo 3 "Cauldron NOT empty !!"
-echo drawinfo 3 "Please empty the cauldron and try again."
+echo drawinfo 3 "Cauldron probably NOT empty !!"
+echo drawinfo 3 "Please check/empty the cauldron and try again."
 f_exit 1
 }
 
 echo unwatch drawinfo
 
-echo drawinfo 7 "OK ! Cauldron IS empty."
+echo drawinfo 7 "OK ! Cauldron SEEMS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -378,7 +391,7 @@ echo watch request
 while :; do
 _ping
 read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+echo "$ANSWER" >>"$LOG_REQUEST_FILE"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -389,17 +402,18 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo drawinfo 7 "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo drawinfo 7 "Player speed is $PL_SPEED"
 
 if test $PL_SPEED -gt 35; then
-SPEED=1; DELAY_DRAWINFO=2
+SLEEP=1.5; DELAY_DRAWINFO=2.0
 elif $PL_SPEED -gt 25; then
-SPEED=2; DELAY_DRAWINFO=4
+SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
 echo drawinfo 6 "Done."
@@ -409,6 +423,8 @@ echo drawinfo 6 "Done."
 
 for one in `seq 1 1 $NUMBER`
 do
+
+TimeB=${TimeE:-`date +%s`}
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -425,13 +441,16 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in *"Nothing to drop.") f_exit 1;;
-*"There are only"*) f_exit 1;;
-*"There is only"*)  f_exit 1;;
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+case "$REPLY" in
+$OLD_REPLY) break;;
+*"Nothing to drop.") f_exit 1;;
+*"There are only"*)  f_exit 1;;
+*"There is only"*)   f_exit 1;;
+'') break;;
 esac
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -439,12 +458,14 @@ done
 _old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -460,13 +481,17 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in *"Nothing to drop.") f_exit 1;;
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+#test "$REPLY" = "$OLD_REPLY" && break
+case "$REPLY" in
+$OLD_REPLY) break;;
+*"Nothing to drop.") f_exit 1;;
 *"There are only"*) f_exit 1;;
 *"There is only"*)  f_exit 1;;
+'') break;;
 esac
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -474,12 +499,14 @@ done
 _old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -507,10 +534,13 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -534,12 +564,16 @@ SLAG=0
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-case "$REPLY" in *"Nothing to take!") NOTHING=1;;
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+#test "$REPLY" = "$OLD_REPLY" && break
+case "$REPLY" in
+$OLD_REPLY) break;;
+*"Nothing to take!") NOTHING=1;;
 *"You pick up the slag.") SLAG=1;;
+'') break;;
 esac
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -547,11 +581,13 @@ done
 _old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -603,19 +639,22 @@ while :; do
 _ping
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
+case "$UNDER_ME" in
+"request items on end") break;;
 "scripttell break") break;;
 "scripttell exit") exit 1;;
+'') break;;
 esac
+sleep 0.1s
 done
 
 _old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
-echo "$UNDER_ME" >>/tmp/cf_script.ion
+echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -633,8 +672,19 @@ f_exit 1
 
 echo unwatch request
 
+
+TimeE=`date +%s`
+TimeR=$((TimeE-TimeB))
+TimeR=$((TimeR+1))
+echo drawinfo 4 "Round took '$TimeR' seconds."
+
 TRIES_SILL=$((NUMBER-one))
-echo drawinfo 4 "Still $TRIES_SILL to go..."
+echo drawinfo 4 "Still '$TRIES_SILL' attempts to go .."
+
+#test "TimeALL" || TimeALL=$((NUMBER*TimeR))
+TimeSTILL=$((TRIES_SILL*TimeR))
+TimeSTILL=$((TimeSTILL/60))
+echo drawinfo 5 "Still '$TimeSTILL' minutes to go..."
 
 
 done  # *** MAINLOOP *** #

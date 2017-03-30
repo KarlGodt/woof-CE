@@ -3,6 +3,25 @@
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
+DEBUG=
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
+#logging
+LOGGING=1
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+LOG_REQUEST_FILE="$TMP_DIR"/cf_request.$$.log
+mkdir -p "$TMP_DIR"
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -60,10 +79,10 @@ f_check_on_cauldron(){
 UNDER_ME='';
 echo request items on
 
-while [ 1 ]; do
+while :; do
 read UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -103,7 +122,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-rm -f /tmp/cf_script.rpl # empty old log file
+rm -f "$LOG_REPLY_FILE" # empty old log file
 
 
 # *** Getting Player's Speed *** #
@@ -118,7 +137,7 @@ OLD_ANSWER=
 
 echo request stat cmbt
 
-while [ 1 ]; do
+while :; do
 read -t 1 ANSWER
 echo "$ANSWER" >>/tmp/cf_request.log
 test "$ANSWER" || break
@@ -131,19 +150,20 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo draw 7 "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed is $PL_SPEED"
 
   if test $PL_SPEED -gt 35; then
-SLEEP=1; DELAY_DRAWINFO=2
+SLEEP=1.5; DELAY_DRAWINFO=2.0
 elif test $PL_SPEED -gt 25; then
-SLEEP=2; DELAY_DRAWINFO=4
+SLEEP=2.0; DELAY_DRAWINFO=4.0
 elif test $PL_SPEED -gt 15; then
-SLEEP=3; DELAY_DRAWINFO=6
+SLEEP=3.0; DELAY_DRAWINFO=6.0
 fi
 
 echo draw 7 "Done."
@@ -158,12 +178,14 @@ REPLY="";
 
 echo request items actv
 
-while [ 1 ]; do
+while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -178,10 +200,10 @@ echo draw 7 "Done."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -223,13 +245,15 @@ REPLY="";
 
 echo "issue 1 1 get"
 
-while [ 1 ]; do
+while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-REPLY_ALL="$REPLY
-$REPLY_ALL"
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+REPLY_ALL="$REPLY
+$REPLY_ALL"
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -246,10 +270,10 @@ echo draw 7 "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
@@ -260,7 +284,7 @@ echo draw 4 "OK... Might the Might be with You!"
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+TIMEB=${TIMEE:-`date +%s`}
 
 
 OLD_REPLY="";
@@ -273,25 +297,45 @@ echo watch drawinfo
 
 echo "issue 1 1 drop 7 water"
 
+while :; do
+ read -t 1 REPLY
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ case "$REPLY" in
+ $OLD_REPLY) break;;
+ *"Nothing to drop.") f_exit 1;;
+ *"There are only"*)  f_exit 1;;
+ *"There is only"*)   f_exit 1;;
+ '') break;;
+ esac
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
+
+__old_loop(){
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+}
 
 echo unwatch drawinfo
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 f_check_on_cauldron
@@ -299,6 +343,34 @@ f_check_on_cauldron
 sleep 1
 #echo "issue 1 1 use_skill alchemy"
 echo "issue 0 0 use_skill alchemy"
+
+# TOTO monsters
+echo watch drawinfo
+
+OLD_REPLY="";
+REPLY="";
+
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+# (level < 100) {                /* WHAMMY the CAULDRON */
+#        if (!QUERY_FLAG(cauldron, FLAG_CURSED)) {
+test "`echo "$REPLY" | grep 'Your cauldron .* darker'`" && exit 1
+# (level < 110) {                /* SUMMON EVIL MONSTERS */
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+# /* MANA STORM - watch out!! */
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+
 sleep 0.5s
 echo "issue 1 1 apply"
 sleep 0.5s
@@ -312,12 +384,19 @@ OLD_REPLY="";
 REPLY="";
 NOTHING=0
 
-while [ 1 ]; do
+while :; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+# else if (level < 60) {                 /* CREATE MONSTER */
+#        draw_ext_info_format(NDI_UNIQUE, 0, op, MSG_TYPE_SKILL, MSG_TYPE_SKILL_FAILURE,
+#                             "The %s %s.", cauldron->name, cauldron_sound());
+#        remove_contents(cauldron->inv, NULL);
+#        return;
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -326,10 +405,10 @@ echo unwatch drawinfo
 sleep ${SLEEP}s
 
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
 
@@ -344,6 +423,7 @@ sleep ${SLEEP}s
 #for drop in `seq 1 1 7`; do  # unfortunately does not work without this nasty loop
 echo "issue 0 1 drop water of the wise"    # issue 1 1 drop drops only one water
 echo "issue 0 1 drop waters of the wise"
+# else if (level < 40) {                 /* MAKE TAINTED ITEM */
 echo "issue 0 1 drop water (cursed)"
 echo "issue 0 1 drop waters (cursed)"
 echo "issue 0 1 drop water (magic)"
@@ -354,7 +434,7 @@ echo "issue 0 1 drop water (cursed) (magic)"
 echo "issue 0 1 drop waters (cursed) (magic)"
 #echo "issue 0 1 drop water (unidentified)"
 #echo "issue 0 1 drop waters (unidentified)"
-
+# if (level < 25) {         /* INGREDIENTS USED/SLAGGED */
 echo "issue 0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
 #echo "issue 0 1 drop slags"
 
@@ -364,10 +444,10 @@ sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 

@@ -1,5 +1,6 @@
 #!/bin/bash
 # uses <<<STREAM
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
@@ -11,7 +12,11 @@ BEEP_FREQ=700
 
 _beep(){
 [ "$BEEP_DO" ] || return 0
-beep -l $BEEP_LENGTH -f $BEEP_FREQ
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
@@ -65,11 +70,14 @@ while :; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_pets.rpl
 
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+
 PETS_HAVE="$REPLY
 $PETS_HAVE"
 
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 
 sleep 0.1s
@@ -114,9 +122,11 @@ echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
 while read onePET
 do
+test "$onePET" || continue
 
 echo draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"
+
 sleep 1s
 
 done<<EoI

@@ -38,7 +38,11 @@ BEEP_FREQ=700
 
 _beep(){
 [ "$BEEP_DO" ] || return 0
-beep -l $BEEP_LENGTH -f $BEEP_FREQ
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
@@ -83,7 +87,8 @@ echo request stat cmbt
 read Req Stat Cmbt WC AC DAM SPEED W_SPEED
 echo draw 11 "$WC:$AC:$DAM:$SPEED:$W_SPEED"
 case $SPEED in
-1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
+[1-9][0-9][0-9][0-9][0-9][0-9]) USLEEP=600000;; #six
+1[0-9][0-9][0-9][0-9]) USLEEP=1500000;; #five
 2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
 3[0-9][0-9][0-9][0-9]) USLEEP=1300000;;
 4[0-9][0-9][0-9][0-9]) USLEEP=1200000;;

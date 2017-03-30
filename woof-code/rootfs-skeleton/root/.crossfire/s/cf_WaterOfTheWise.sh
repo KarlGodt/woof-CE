@@ -1,5 +1,14 @@
 #!/bin/bash
 
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -95,8 +104,8 @@ rm -f /tmp/cf_script.rpl # empty old log file
 
 echo draw 4 "Processing Player's Speed..."
 
-SLEEP=4           # setting defaults
-DELAY_draw=8
+SLEEP=4.0           # setting defaults
+DELAY_draw=8.0
 
 ANSWER=
 OLD_ANSWER=
@@ -116,19 +125,21 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-PL_SPEED="0.${PL_SPEED:0:2}"
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`  #prints .99 if below 1
 
 echo draw 7 "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed is $PL_SPEED"
 
   if test $PL_SPEED -gt 35; then
-SLEEP=1; DELAY_DRAWINFO=2
+SLEEP=1.5; DELAY_DRAWINFO=3.0
 elif test $PL_SPEED -gt 25; then
-SLEEP=2; DELAY_DRAWINFO=4
+SLEEP=2.0; DELAY_DRAWINFO=4.0
 elif test $PL_SPEED -gt 15; then
-SLEEP=3; DELAY_DRAWINFO=6
+SLEEP=3.0; DELAY_DRAWINFO=6.0
 fi
 
 echo draw 7 "Done."
@@ -146,9 +157,11 @@ echo request items actv
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -163,10 +176,10 @@ echo draw 7 "Done."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -228,10 +241,10 @@ echo draw 7 "OK ! Cauldron IS empty."
 
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
@@ -258,11 +271,13 @@ echo "issue 1 1 drop 7 water"
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -270,10 +285,10 @@ done
 echo unwatch drawinfo
 sleep ${SLEEP}s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
@@ -283,6 +298,28 @@ f_check_on_cauldron
 sleep 1
 #echo "issue 1 1 use_skill alchemy"
 echo "issue 0 0 use_skill alchemy"
+
+echo watch drawinfo
+
+OLD_REPLY="";
+REPLY="";
+
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch drawinfo
+
 sleep 0.5s
 echo "issue 1 1 apply"
 sleep 0.5s
@@ -299,9 +336,11 @@ NOTHING=0
 while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -310,10 +349,10 @@ echo unwatch drawinfo
 sleep ${SLEEP}s
 
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
 
@@ -348,10 +387,10 @@ sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 

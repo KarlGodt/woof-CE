@@ -11,6 +11,16 @@ echo draw 5 " with '$*' parameter."
 # *** Setting defaults *** #
 #set empty default
 C=0 #set zero as default
+
+DIRB=west  # direction back to go
+
+case $DIRB in
+west)  DIRF=east;;
+east)  DIRF=west;;
+north) DIRF=south;;
+south) DIRF=north;;
+esac
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -248,10 +258,10 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 echo draw 3 "Exiting $0."
 #echo unmonitor
@@ -259,6 +269,15 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch drawinfo
+exit $1
+}
+
+f_emergency_exit(){
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch drawinfo
+echo "issue 1 1 fire_stop"
 exit $1
 }
 
@@ -314,11 +333,13 @@ esac
  while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -328,24 +349,44 @@ esac
 echo unwatch drawinfo
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 1s
 
 echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
+echo watch drawinfo
+
+OLD_REPLY="";
+REPLY="";
+
+while :; do
+_ping
+read -t 1 REPLY
+echo "$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+echo unwatch drawinfo
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
 sleep 1s
 
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
-echo "issue 1 1 west"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep 1s
 
 echo "issue 1 1 use_skill sense curse"
@@ -386,10 +427,10 @@ tEND=`date +%s`
 tLAP=$((tEND-tBEG))
 echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
-echo "issue 1 1 east"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
 sleep 2s         #speed 0.32
 
 done

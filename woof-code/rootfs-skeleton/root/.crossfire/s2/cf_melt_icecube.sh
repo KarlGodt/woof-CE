@@ -26,7 +26,23 @@
 #define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
 #                                 *   errors. Overrides NDI_ALL. */
 
+#logging
+TMP_DIR=/tmp/crossfire_client
+LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
+LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+mkdir -p "$TMP_DIR"
 
+DEBUG=1
+_debug(){
+[ "DEBUG" ] || return 0
+[ "$*" ] || return 0
+while read -r line
+do
+echo draw 3 "Debug:$line"
+done<<EoI
+`echo "$@"`
+EoI
+}
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -42,7 +58,7 @@ echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
 echo draw 5 "script $0 [number]"
 echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
+echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
         }
@@ -74,7 +90,11 @@ BEEP_FREQ=700
 
 _beep(){
 [ "$BEEP_DO" ] || return 0
-beep -l $BEEP_LENGTH -f $BEEP_FREQ
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 _say_end_msg(){
@@ -110,12 +130,13 @@ echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -128,28 +149,32 @@ until [ "$NO_FAIL" ]
 do
 
 REPLY=
-OLD_REPLY=
+#OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ #test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- case $REPLY in *You*fail*used*up*) break 3;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1));NO_FAIL=1;;
+ case $REPLY in
+ *You*fail*used*up*) break 3;;
+ *fail.) FAIL_ALL=$((FAIL_ALL+1));NO_FAIL='';;
  *"Could not find any match to the flint and steel."*) break 3;;
- *You*light*icecube*) SUCCESS=$((SUCESS+1));;
+ *You*light*icecube*) SUCCESS=$((SUCCESS+1)); NO_FAIL='1'; break 1;;
  *You*need*to*mark*a*lightable*object.) break 2;;
  *Your*) :;;
+ '') break;;
  *) NO_FAIL='';;
  esac
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 
@@ -172,12 +197,13 @@ echo watch drawinfo
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -191,27 +217,31 @@ do
 
 
 REPLY=
-OLD_REPLY=
+#OLD_REPLY=
 
 echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
+ #test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- case $REPLY in *You*fail*used*up*) break 3;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1));;
- *You*light*icecube*) SUCCESS=$((SUCCESS+1)); NO_FAIL=1;;
+ case $REPLY in
+ *You*fail*used*up*) break 3;;
+ *fail.) FAIL_ALL=$((FAIL_ALL+1)); NO_FAIL='';;
+ *You*light*icecube*) SUCCESS=$((SUCCESS+1)); NO_FAIL='1'; break 1;;
  *"Could not find any match to the flint and steel."*) break 3;;
  *You*need*to*mark*a*lightable*object.) break 2;;
  *Your*) :;;
+ '') break;;
  *) NO_FAIL='';;
  esac
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 

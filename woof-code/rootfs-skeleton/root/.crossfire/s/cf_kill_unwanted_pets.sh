@@ -55,11 +55,14 @@ while [ 1 ]; do
 read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_pets.rpl
 
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+
 PETS_HAVE="$REPLY
 $PETS_HAVE"
 
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 
 sleep 0.1s
@@ -104,6 +107,7 @@ echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
 while read onePET
 do
+test "$onePET" || continue
 
 echo draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"
