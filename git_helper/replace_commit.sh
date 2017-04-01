@@ -5,7 +5,7 @@
 # and then _test_only_scripts
 #     then test -e "$sysF"
 #     then readlink -f "$oneF"
-#     then case $oneF in *.~*)
+#     then case $oneF in *.~*) # backups
 # to filter out files that should not interest us now
 #  then stat
 #  then diff
@@ -15,10 +15,14 @@
 # then  DO_UPDATE_GIT -o DO_UPDATE_SYSTEM
 # finally _force_replace_files_in_git
 #      or _update_git and _update_system
-# NO OPTIONS PROCESSING FOR NOW,
-# VARIABLES NEED TO BE SET MANUALLY HEREIN
+# ! NO INTERACTIVE copying
+# ! NO OPTIONS PROCESSING FOR NOW,
+# ! VARIABLES NEED TO BE SET MANUALLY HEREIN
 
 . /etc/rc.d/f4puppy5
+
+# git commit message
+GIT_COMMIT_MSG=${GIT_COMMIT_MSG:-"Maintanance update through ${0##*/} ."}
 
 # DO_UPDATE_SYSTEM set to anything to replace system files with newer git files
 [ "$DO_UPDATE_SYSTEM" ] || DO_UPDATE_SYSTEM=1
@@ -30,7 +34,7 @@
 # FORCE_GIT_REPLACE set to anything to replace git files with system files
 [ "$FORCE_GIT_REPLACE" ] || FORCE_GIT_REPLACE=
 
-# ONLY_SCRIPTS set to anything to ommit list of non-sh files
+# ONLY_SCRIPTS set to anything to ommit list of non-sh files like png, wav, gz ..
 [ "$ONLY_SCRIPTS" ] || ONLY_SCRIPTS=1
 
 # DRY_RUN set to anything to give usual test output but continue loop before copying anything
@@ -71,7 +75,7 @@ if test "$modS" -gt "$modF"; then
 
      /bin/cp $VERB -a -u --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
-      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ." && sleep 5
+      git add "$oneF" && git commit -m "$sysF: $GIT_COMMIT_MSG" && sleep 5
      else
       echo "Failed replacing gitfile"
       exit 9
@@ -89,7 +93,7 @@ _force_replace_files_in_git(){
 
      /bin/cp $VERB -a --remove-destination --backup=numbered "$sysF" "$dirG"/
      if test "$?" = 0 ; then
-      git add "$oneF" && git commit -m "$sysF: Maintanance update through ${0##*/} ."
+      git add "$oneF" && git commit -m "$sysF: $GIT_COMMIT_MSG"
      else
       echo "Failed replacing gitfile"
       echo "Exiting."

@@ -6,6 +6,7 @@
 # copies file from OS into GIT, git add and commit with message
 # "filename:Bulk update."
 # it does not copy missing files into OS
+# ! NO INTERACTIVE copying
 
 COMMIT_MSG=${COMMIT_MSG:-"$*"}
 COMMIT_MSG=${COMMIT_MSG:-"Bulk update"}
