@@ -73,20 +73,25 @@ echo request stat cmbt
 read Req Stat Cmbt WC AC DAM SPEED W_SPEED
 echo draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
 case $SPEED in
+                [1-9]) USLEEP=9999999; DIV=1;;
+           [1-9][0-9]) USLEEP=8000000; DIV=10;;
+      [1-9][0-9][0-9]) USLEEP=4000000; DIV=100;;
+ [1-9][0-9][0-9][0-9]) USLEEP=2000000; DIV=1000;;
 1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
 2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
 3[0-9][0-9][0-9][0-9]) USLEEP=1300000;;
 4[0-9][0-9][0-9][0-9]) USLEEP=1200000;;
 5[0-9][0-9][0-9][0-9]) USLEEP=1100000;;
 6[0-9][0-9][0-9][0-9]) USLEEP=1000000;;
-7[0-9][0-9][0-9][0-9]) USLEEP=900000;;
-8[0-9][0-9][0-9][0-9]) USLEEP=800000;;
-9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
-*) USLEEP=600000;;
+7[0-9][0-9][0-9][0-9]) USLEEP=900000 ;;
+8[0-9][0-9][0-9][0-9]) USLEEP=800000 ;;
+9[0-9][0-9][0-9][0-9]) USLEEP=700000 ;;
+*)                     USLEEP=600000 ;;
 esac
 echo draw 10 "USLEEP=$USLEEP:SPEED=$SPEED"
 
-USLEEP=$(( USLEEP- ((SPEED/10000)*1000) ))
+DIV=${DIV:-10000}
+USLEEP=$(( USLEEP - ( (SPEED/DIV)*(DIV/10) ) ))
 echo draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
 
 

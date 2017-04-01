@@ -117,13 +117,15 @@ echo "issue 1 1 apply flint and steel"
  while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
+ test  "`echo "$REPLY" | grep 'You light .*'`" && { NO_FAIL=1; break; }
+ #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
  sleep 0.1s
+ break
  done
 
 echo unwatch drawinfo
@@ -171,13 +173,15 @@ echo "issue 1 1 apply flint and steel"
  while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
+ test  "`echo "$REPLY" | grep 'You light .*'`" && { NO_FAIL=1; break; }
+ #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
  sleep 0.1s
+ break
  done
 
 echo unwatch drawinfo

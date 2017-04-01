@@ -69,10 +69,13 @@ NUMBER=$PARAM_1
 
 
 f_exit(){
+RV=$1
+shift
+echo draw 4 "$*"
 echo draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch drawinfo
-exit $1
+exit $RV
 }
 
 # *** Actual script to pray multiple times *** #
@@ -93,8 +96,6 @@ echo "issue 1 1 mark icecube"
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -112,16 +113,23 @@ REPLY=
 OLD_REPLY=
 
 echo watch drawinfo
-echo "issue 1 1 apply flint and steel"
+#echo "issue 1 1 apply flint and steel"
 
  while [ 1 ]; do
+ echo "issue 1 1 apply flint and steel"
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+
+ case "$REPLY" in
+ *'fail.') :;; # failure
+ *"used up"*) f_exit 2 "Worn off.";;
+ *"match to the"*) f_exit 3 "Not in inventory.";;
+ *Your*) :;;       # x times Your monster hits monster
+ '') :;;           # break;;
+ "$OLD_REPLY") :;; # break;;
+ *) NO_FAIL=1; break;;
+ esac
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -147,8 +155,6 @@ while [ 1 ]; do
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -167,15 +173,25 @@ REPLY=
 OLD_REPLY=
 
 echo watch drawinfo
-echo "issue 1 1 apply flint and steel"
+#echo "issue 1 1 apply flint and steel"
  while [ 1 ]; do
+ echo "issue 1 1 apply flint and steel"
  read -t 1 REPLY
  echo "$REPLY" >>/tmp/cf_script.rpl
- test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
+
+ case "$REPLY" in
+ *'fail.') :;; # failure
+ *"used up"*) f_exit 2 "Worn off.";;
+ *"match to the"*) f_exit 3 "Not in inventory.";;
+ *Your*) :;;   # x times Your monster hits monster
+ '') :;;           # break;;
+ "$OLD_REPLY") :;; # break;;
+ *) NO_FAIL=1; break;;
+ esac
+
+ #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done

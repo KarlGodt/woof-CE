@@ -1,7 +1,6 @@
 #!/bin/ash
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
+
 
 # *** PARAMETERS *** #
 
@@ -14,9 +13,16 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
+PRINT=draw         # print command to msg pane - was using drawextinfo which worked too
+DRAW_INFO=drawinfo # drawextinfo
+
+
+# *** Here begins program *** #
+echo $PRINT 2 "$0 is started.."
+
 
 # *** Check for parameters *** #
-echo drawnifo 5 "Checking the parameters ($*)..."
+echo $PRINT 5 "Checking the parameters ($*)..."
 
 [ "$*" ] && {
 PARAM_1="$1"
@@ -24,40 +30,40 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 test "$PARAM_1" = "help" && {
 
-echo draw 5 "Script to produce water of the wise."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 NUMBER"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Balm of First Aid ."
+echo $PRINT 5 "Script to produce water of the wise."
+echo $PRINT 7 "Syntax:"
+echo $PRINT 7 "$0 NUMBER"
+echo $PRINT 5 "Allowed NUMBER will loop for"
+echo $PRINT 5 "NUMBER times to produce NUMBER of"
+echo $PRINT 5 "Balm of First Aid ."
 
         exit 0
         }
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as option allowed."
+echo $PRINT 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 
 } || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
+echo $PRINT 3 "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
 test "$1" || {
-echo draw 3 "Need <number> ie: script $0 4 ."
+echo $PRINT 3 "Need <number> ie: script $0 4 ."
         exit 1
 }
 
-echo drawinfo 7 "OK."
+echo $PRINT 7 "OK."
 
 
 # *** Check if standing on a cauldron *** #
 
-echo drawinfo 5 "Checking if on a cauldron..."
+echo $PRINT 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
 echo request items on
@@ -74,11 +80,11 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
+echo $PRINT 3 "Need to stand upon cauldron!"
 exit 1
 }
 
-echo drawinfo 7 "OK."
+echo $PRINT 7 "OK."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -87,7 +93,7 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
-echo draw 3 "Exiting $0."
+echo $PRINT 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
@@ -99,16 +105,16 @@ exit $1
 f_emergency_exit(){
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
-echo draw 3 "Emergency Exit $0 !"
+echo $PRINT 3 "Emergency Exit $0 !"
 echo unwatch drawinfo
 echo "issue 1 1 fire_stop"
 exit $1
 }
 
 f_exit_no_space(){
-echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw 3 "Remove that Item and try again."
-echo draw 3 "If this is a Wall, try another place."
+echo $PRINT 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo $PRINT 3 "Remove that Item and try again."
+echo $PRINT 3 "If this is a Wall, try another place."
 exit $1
 }
 
@@ -116,7 +122,7 @@ rm -f /tmp/cf_script.rpl   # empty old log file
 
 # *** Check for 4 empty space to DIRB ***#
 
-echo drawinfo 5 "Checking for space to move..."
+echo $PRINT 5 "Checking for space to move..."
 
 echo request map pos
 
@@ -185,19 +191,19 @@ done
 
 else
 
-echo drawinfo 3 "Received Incorrect X Y parameters from server"
+echo $PRINT 3 "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo drawinfo 3 "Could not get X and Y position of player."
+echo $PRINT 3 "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo drawinfo 7 "OK."
+echo $PRINT 7 "OK."
 
 
 # *** Monitoring function *** #
@@ -239,7 +245,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Readying rod of word of recall - just in case *** #
 
-echo drawinfo 5 "Preparing for recall if monsters come forth..."
+echo $PRINT 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -265,7 +271,7 @@ fi
 
 echo unwatch request
 
-echo drawinfo 6 "Done."
+echo $PRINT 6 "Done."
 
 
 # *** Check if cauldron is empty *** #
@@ -274,7 +280,7 @@ echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
 
 
-echo drawinfo 5 "Checking for empty cauldron..."
+echo $PRINT 5 "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -299,14 +305,14 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo drawinfo 3 "Cauldron NOT empty !!"
-echo drawinfo 3 "Please empty the cauldron and try again."
+echo $PRINT 3 "Cauldron NOT empty !!"
+echo $PRINT 3 "Please empty the cauldron and try again."
 f_exit 1
 }
 
 echo unwatch drawinfo
 
-echo drawinfo 7 "OK ! Cauldron IS empty."
+echo $PRINT 7 "OK ! Cauldron IS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -316,7 +322,7 @@ echo "issue 1 1 $DIRF"
 
 # *** Getting Player's Speed *** #
 
-echo drawinfo 5 "Processing Player's speed..."
+echo $PRINT 5 "Processing Player's speed..."
 
 SLEEP=3           # setting defaults
 DELAY_DRAWINFO=6
@@ -341,12 +347,17 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2; $PL_SPEED / 100000" | bc -l`
 
-echo drawinfo 7 "Player speed is $PL_SPEED"
+echo $PRINT 7 "Player speed is $PL_SPEED"
 
-PL_SPEED="${PL_SPEED:2:2}"
-echo drawinfo 7 "Player speed is $PL_SPEED"
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's/\.//g;s/^0*//'`
+test "${PL_SPEED//[0-9]/}" && PL_SPEED=50
+PL_SPEED=${PL_SPEED:-50}
+
+echo $PRINT 7 "Player speed is $PL_SPEED"
 
 if test $PL_SPEED -gt 35; then
 SPEED=1; DELAY_DRAWINFO=2
@@ -354,7 +365,7 @@ elif $PL_SPEED -gt 25; then
 SPEED=2; DELAY_DRAWINFO=4
 fi
 
-echo drawinfo 6 "Done."
+echo $PRINT 6 "Done."
 
 
 # *** Now LOOPING *** #
@@ -517,18 +528,18 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
+echo $PRINT 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
 }
 
 echo unwatch request
 
 TRIES_SILL=$((NUMBER-one))
-echo drawinfo 4 "Still $TRIES_SILL to go..."
+echo $PRINT 4 "Still $TRIES_SILL to go..."
 
 
 done  # *** MAINLOOP *** #
 
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+echo $PRINT 2 "$0 is finished."

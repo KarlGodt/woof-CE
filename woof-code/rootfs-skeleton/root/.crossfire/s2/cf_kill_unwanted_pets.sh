@@ -104,6 +104,7 @@ echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
 while read onePET
 do
+test "$onePET" || continue
 
 echo draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"

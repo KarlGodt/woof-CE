@@ -34,6 +34,154 @@ echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
 }
 
 
+__say_names(){
+cat >&1 <<EoI
+Object serp_priest
+name Serpentman Priest
+Object serp_man
+name Serpentman
+Object deathtree
+name tree
+Object chess_queen
+name queen
+Object chess_pawn
+name pawn
+Object chess_knight
+name knight
+Object chess_rook
+name rook
+Object chess_bishop
+name bishop
+Object chess_king
+name king
+Object killer_bee
+name killer bee
+Object centipede
+name giant centipede
+Object spectre
+name Spectre
+Object lich
+name Lich
+Object troll
+name troll
+Object gaelotroll
+name troll
+Object small_troll
+name small troll
+Object dwarf_wiz
+name dwarf wizard
+Object greater_dwarven_guard
+name greater dwarven guard
+Object lesser_dwarven_guard
+name lesser dwarven guard
+Object dwarf_priest
+name dwarf priest
+Object pyro_gen
+name a bottleful of bombers
+Object dark_elf
+name dark elf
+Object gnome
+name cunning gnome
+Object northman
+name viking
+Object ninja2
+name ninja
+Object guard
+name castle guard
+Object medium_guard
+name castle guard
+Object knight
+name Royal Guard
+Object light_guard
+name castle guard
+Object pyromaniac
+name wild pyromaniac
+Object charwoman
+name cleaning woman
+Object pirate_lass
+name pirate lass
+Object conjurer2
+name conjurer
+Object fire_serpent
+name fire serpent
+Object giant
+name hill giant
+Object jessyb
+name Jessy
+Object belzebub
+name Belzebub
+Object big_wiz
+name wizard
+Object chinese_dragon
+name chinese dragon
+Object big_dragon
+name dragon
+Object Cwyvern
+name wyvern of chaos
+Object dragonman
+name dragonman
+name dragon man
+Object dragon
+name wyvern
+Object faerie_dragon
+name faerie dragon
+Object big_elec
+name electric dragon
+Object baby_dragon
+name baby dragon
+Object para_ice
+name ice para-elemental
+Object para_mud
+name mud para-elemental
+Object para_lava
+name lava para-elemental
+Object para_fire
+name fire para-elemental
+Object para_air
+name air para-elemental
+Object para_water
+name water para-elemental
+Object para_lightning
+name lightning para-elemental
+Object para_earth
+name earth para-elemental
+Object air_elemental
+name air elemental
+Object water_elemental
+name water elemental
+Object fire_elemental
+name fire elemental
+Object earth_elemental
+name earth elemental
+Object devil
+name demon
+Object liteangel
+name light angel
+Object mesangel
+name messanger
+Object demon_lord
+name Demon Lord
+Object fungus
+name violent fungi
+Object giant_bat
+name giant bat
+Object cobra
+name giant cobra
+Object shadowtiger
+name Shadow Tiger
+Object shadowpup
+name shadowtiger pup
+Object acid_pool
+name acid pool
+Object acid_sphere
+name acid sphere
+Object black_pudding
+name black pudding
+Object green_slime
+name green slime
+EoI
+}
+
 keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"
 keepPETS="`echo "$keepPETS" | tr ' ' '|'`"
 keepPETS="`echo "$keepPETS" | tr '_' ' '`"
@@ -104,7 +252,7 @@ echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
 while read onePET
 do
-
+test "$onePET" || continue
 echo draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"
 sleep 1s
