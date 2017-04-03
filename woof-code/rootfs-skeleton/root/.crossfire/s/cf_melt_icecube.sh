@@ -10,59 +10,78 @@
 #define NDI_DK_ORANGE   6       /**< DarkOrange2 */
 #define NDI_GREEN       7       /**< SeaGreen */
 #define NDI_LT_GREEN    8       /**< DarkSeaGreen, which is actually paler
-#                                 *   than seagreen - also background color. */
+#                                *   than seagreen - also background color. */
 #define NDI_GREY        9
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
 
+DEBUG=1   # unset to disable, set to anything to enable
+LOGGING=1 # unset to disable, set to anything to enable
+
+DRAW_INFO=drawinfo # drawextinfo (older clients)
+
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6
+COL_GREEN=7
+COL_LGREEN=8
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+echo draw $COL_NAVY "$0 is started.."
 
 #logging
+
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
+test "$DEBUG" && echo draw 5 "LOG_REPLY_FILE='$LOG_REPLY_FILE'" #debug
+
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+until test $# = 0;
+do
+
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help)
 
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
+echo draw $COL_BLUE "Script to melt icecube."
+echo draw $COL_BLUE "Syntax:"
+echo draw $COL_BLUE "script $0 [number]"
+echo draw $COL_BLUE "For example: 'script $0 5'"
+echo draw $COL_BLUE "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
-        }
+;;
 
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+echo draw $COL_RED "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
+;;
+esac
+shift
+done
 
 NUMBER=$PARAM_1
 
-}
 #|| {
 #echo draw 3 "Script needs number of praying attempts as argument."
 #        exit 1
@@ -74,16 +93,22 @@ NUMBER=$PARAM_1
 #}
 
 
-f_exit(){
-echo draw 3 "Exiting $0."
+f_exit(){ # unused
+RV="$1"
+RV=${RV:-0}
+shift
+test "$*" && echo draw 4 "$*"
+echo draw $COL_RED "Exiting $0."
 echo unwatch
 beep -l 500 -f 700
 #echo unwatch drawinfo
-exit $1
+exit $RV
 }
 
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+
+TIMEB=`date +%s`
 
     if test "$NUMBER"; then
 
@@ -98,10 +123,10 @@ echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  #test "$REPLY" || break
@@ -125,17 +150,25 @@ echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  #test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- case $REPLY in *fail.) :;;
+ case $REPLY in
+ *fail.) :;;
  *You*fail*used*up*) break 3;;
  *"Could not find any match to the flint and steel."*) break 3;;
- *Your*) :;;
+ *Your*) :;;    # X times Your monster hits monster
  '') break;;
- *) NO_FAIL=1;;
+ *) NO_FAIL=1
+ [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ ;; # assuming success
+ # Problem here is while lots of msgs are printed by fighting monsters,
+ #  the code would assume each msg a success and the one level upper
+ #  until loop would mark icecube again, though not neccessary.
+ # The good thing here is that the msgs would get emptied in other scripts
+ #  to allow more correct msg handling in other watch drawinfo loops ..
  esac
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
@@ -163,10 +196,10 @@ echo watch drawinfo
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  #test "$REPLY" || break
@@ -190,18 +223,25 @@ echo watch drawinfo
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" = "$OLD_REPLY" && break
  #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  case $REPLY in
- *fail.) :;;
+ *fail.) :;; #You attempt to light the icecube with the flint and steel and fail.
  *You*fail*used*up*) break 3;;
  *"Could not find any match to the flint and steel."*) break 3;;
- *Your*) :;;
+ *Your*) :;;     # X times Your monster hits monster
  '') break;;
- *) NO_FAIL=1;;
+ *) NO_FAIL=1
+ [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ ;;  # assuming success
+ # Problem here is while lots of msgs are printed by fighting monsters,
+ #  the code would assume each msg a success and the one level upper
+ #  until loop would mark icecube again, though not neccessary.
+ # The good thing here is that the msgs would get emptied in other scripts
+ #  to allow more correct msg handling in other watch drawinfo loops ..
  esac
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
@@ -219,7 +259,14 @@ done #true
 
     fi #^!PARAM_1
 
+TIMEE=`date +%s`
+TIMEX=$((TIMEE-TIMEB))
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+echo draw $COL_LGREEN "Script loop took $TIMEM:$TIMES minutes."
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+echo draw $COL_NAVY "$0 is finished."
 beep -l 500 -f 700
