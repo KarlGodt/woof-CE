@@ -4,12 +4,44 @@ exec 2>/tmp/cf_script.err
 
 DRAW_INFO=drawinfo # drawextinfo
 
+DEBUG=1   # unset to disable, set to anything to enable
+LOGGING=1 # unset to disable, set to anything to enable
+
 MAX_SEARCH=9
 MAX_DISARM=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 
 rm -f "$LOG_REPLY_FILE"
+
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6
+COL_GREEN=7
+COL_LGREEN=8
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
+
+_draw(){
+test "$*" || return
+COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -107,14 +139,19 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
+  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
 $REPLY"; break;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
+    *'You search the area.'*) :;;
   '') break;;
   esac
+
   sleep 0.1
   unset REPLY
  done
@@ -135,6 +172,12 @@ sleep 1
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 #TRAPS=`echo "$TRAPS" | uniq`
 #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
+
+#echo draw 5 "TRAPS='$TRAPS'"
+#echo draw 6 "`echo "$TRAPS" | uniq`"
+_draw 5 "TRAPS='$TRAPS'"
+_draw 6 "`echo "$TRAPS" | uniq`"
+
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
@@ -146,6 +189,8 @@ _find_traps
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
+
+sleep 1
 
 local NUM c
 
@@ -181,14 +226,16 @@ echo issue 1 1 use_skill "disarm traps"
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
-   *'You successfully disarm '*) break;;
+   *'You successfully disarm '*)
+    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+    break;;
 #   *'Your '*)       :;;  # Your monster beats monster
 #   *'You killed '*) :;;
   '') break;;
   esac
  done
 
-NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+#NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
 
