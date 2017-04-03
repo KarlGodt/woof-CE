@@ -82,16 +82,6 @@ done
 
 NUMBER=$PARAM_1
 
-#|| {
-#echo draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
 
 f_exit(){ # unused
 RV="$1"
@@ -126,11 +116,7 @@ echo "issue 1 1 mark icecube"
  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -151,10 +137,7 @@ echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
- #test "$REPLY" = "$OLD_REPLY" && break
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+
  case $REPLY in
  *fail.) :;;
  *You*fail*used*up*) break 3;;
@@ -170,9 +153,7 @@ echo "issue 1 1 apply flint and steel"
  # The good thing here is that the msgs would get emptied in other scripts
  #  to allow more correct msg handling in other watch drawinfo loops ..
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
+
  unset REPLY
  sleep 0.1s
  done
@@ -199,11 +180,7 @@ while :; do
  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -225,9 +202,7 @@ echo "issue 1 1 apply flint and steel"
  read -t 1 REPLY
  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" = "$OLD_REPLY" && break
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+
  case $REPLY in
  *fail.) :;; #You attempt to light the icecube with the flint and steel and fail.
  *You*fail*used*up*) break 3;;
@@ -243,9 +218,7 @@ echo "issue 1 1 apply flint and steel"
  # The good thing here is that the msgs would get emptied in other scripts
  #  to allow more correct msg handling in other watch drawinfo loops ..
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
+
  unset REPLY
  sleep 0.1s
  done
