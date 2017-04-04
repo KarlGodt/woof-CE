@@ -263,12 +263,21 @@ beep -l 300 -f 1000
 ) & aPID=$!
 fi
 
-if test "$TIMEA"; then
+if test "$TIMEA" -o "$TIMEB"; then
  TIMEE=`date +%s`
- TIME=$((TIMEE-TIMEA))
- TIMEM=$((TIME/60))
- TIMES=$(( TIME - (TIMEM*60) ))
- _draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
+ if test "$TIMEB"; then
+  TIMEC=$TIMEB
+ else
+  TIMEC=$TIMEA
+ fi
+
+ TIMEX=$((TIMEE-TIMEC))
+ TIMEM=$((TIMEX/60))
+ TIMES=$(( TIMEX - (TIMEM*60) ))
+ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+ #_draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
+ _draw 4 "Loop of script had run a total of $TIMEM:$TIMES minutes."
 fi
 
 #+++2017-03-20 Remove *.err file if empty
@@ -1539,7 +1548,7 @@ _is 1 1 fire center ## Todo handle bungling the spell AND low mana
 unset BUNGLE
 sleep 0.1
 read -t 1 BUNGLE
-test "`echo "$BUNGLE" | grep -E -i 'bungle|not enough'`" || break
+test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|not enough'`" || break
 _is 1 1 fire_stop
 sleep 10
 done
@@ -1598,7 +1607,7 @@ _is 1 1 fire center ## Todo handle bungling AND time to charge
 unset BUNGLE
 sleep 0.1
 read -t 1 BUNGLE
-test "`echo "$BUNGLE" | grep -E -i 'bungle|needs more time to charge'`" || break
+test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|needs more time to charge'`" || break
 sleep 0.1
 unset BUNGLE
 sleep 1
@@ -1722,7 +1731,7 @@ echo unwatch $DRAWINFO
 
 #Food
 
-_loop_counter(){
+__loop_counter(){
 test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
@@ -1731,4 +1740,18 @@ TIMEZ=$((TIMEE-TIMEA))
 TIMEAV=$((TIMEZ/one))
 TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
+}
+
+_loop_counter(){
+test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
+TRIES_STILL=$((NUMBER-one))
+TIMEE=`date +%s`
+TIMEX=$((TIMEE-TIMEB))
+TIMEZ=$((TIMEE-TIMEA))
+TIMEAV=$((TIMEZ/one))
+TIMEESTM=$(( (TRIES_STILL*TIMEAV) / 60 ))
+TIMEESTS=$(( (TRIES_STILL*TIMEAV) - (TIMEESTM*60) ))
+case $TIMEESTS in [0-9]) TIMEESTS="0$TIMEESTS";; esac
+_draw 4 "Elapsed '$TIMEX' s, '$success' of '$one' successfull."
+_draw 4 "Still '$TRIES_STILL' ($TIMEESTM:$TIMEESTS m) to go..."
 }

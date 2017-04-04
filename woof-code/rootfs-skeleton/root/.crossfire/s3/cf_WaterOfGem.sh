@@ -1,16 +1,30 @@
-#!/bin/bash
+#!/bin/ash
 
 export PATH=/bin:/usr/bin
+
+_usage(){
+_draw 5 "Script to produce water of GEM."
+_draw 7 "Syntax:"
+_draw 7 "$0 [ -version VERSION ] GEM NUMBER"
+_draw 2 "Allowed GEM are diamond, emerald,"
+_draw 2 "pearl, ruby, sapphire ."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Water of GEM ."
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+        exit 0
+}
+
+# *** Setting defaults *** #
+GEM='';  #set empty default
+NUMBER=0 #set zero as default
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 _set_global_variables "$@"
-# *** PARAMETERS *** #
 
-# *** Setting defaults *** #
-GEM='';  #set empty default
-NUMBER=0 #set zero as default
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
@@ -32,17 +46,15 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
+
+# *** Here begins program *** #
+_say_start_msg "$@"
+_debug "$@"
+
+# *** PARAMETERS *** #
+
+# ** client version ** #
 while :;
 do
 case "$1" in
@@ -50,56 +62,54 @@ case "$1" in
 *.*) shift;;
 *) break;;
 esac
+sleep 0.1
 done
 
-# *** Here begins program *** #
-_say_start_msg "$@"
-_debug "$@"
-[ "$*" ] && {
+until test "$#" = 0;
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*) _usage;;
+*)
 
-_draw 5 "Script to produce water of GEM."
-_draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] GEM NUMBER"
-_draw 2 "Allowed GEM are diamond, emerald,"
-_draw 2 "pearl, ruby, sapphire ."
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce NUMBER of"
-_draw 5 "Water of GEM ."
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
-        exit 0
-;; esac
-
-# *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:alpha:]]/}"
-test "$PARAM_1test" && {
-_draw 3 "Only :alpha: characters as first option allowed."
+ case $PARAM_1 in
+ diamond|emerald|pearl|ruby|sapphire)
+ # *** testing parameters for validity *** #
+ PARAM_1test="${PARAM_1//[[:alpha:]]/}"
+ test "$PARAM_1test" && {
+ _draw 3 "Only :alpha: characters as (TODO:?first?) option allowed."
         exit 1 #exit if other input than letters
         }
-
 GEM="$PARAM_1"
-
-PARAM_2="$2"
-PARAM_2test="${PARAM_2//[[:digit:]]/}"
-test "$PARAM_2test" && {
-_draw 3 "Only :digit: numbers as second options allowed."
+ ;;
+*)
+ PARAM_1test="${PARAM_1//[[:digit:]]/}"
+ test "$PARAM_1test" && {
+ _draw 3 "Only :digit: numbers as (TODO:?second?) option allowed."
         exit 1 #exit if other input than numbers
         }
+NUMBER=$PARAM_1
+ ;;
+ esac
 
-NUMBER=$PARAM_2
-} || {
+
+fi
+;;
+esac
+shift
+sleep 0.1
+done
+
+test "$GEM" -a "$NUMBER" || {
 _draw 3 "Script needs gem and number of alchemy attempts as arguments."
         exit 1
 }
 
-test "$1" -a "$2" || {
-_draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
-        exit 1
-}
+#test "$1" -a "$2" || {
+#_draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
+#        exit 1
+#}
 
 if test ! "$GEM"; then #set fallback
 GEM=diamond
@@ -113,15 +123,15 @@ if test ! "$NUMBER"; then
 _draw 3 "Need a number of items to alch."
 exit 1
 elif test "$NUMBER" = 0; then
-_draw 3 "Number must be notg ZERO."
+_draw 3 "Number must be not ZERO."
 exit 1
 elif test "$NUMBER" -lt 0; then
 _draw 3 "Number must be greater than ZERO."
 exit 1
 fi
 
-test "$GEM" != diamond -a "$GEM" != emerald -a "$GEM" != pearl \
-  -a "$GEM" != ruby -a "$GEM" != sapphire && {
+test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
+  -o "$GEM" = ruby -o "$GEM" = sapphire || {
 _draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
@@ -140,7 +150,7 @@ _check_empty_cauldron
 _prepare_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #

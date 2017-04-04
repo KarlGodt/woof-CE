@@ -40,7 +40,7 @@ readonly TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
 readonly LOG_FILE="$TMP_DIR"/cf_spells.$$
 
-# *** uncommon editable variables
+# *** uncommon editable variables *** #
 readonly DIRECTION_DEFAULT=east
 readonly NUMBER_DEFAULT=10
 readonly SPELL_DEFAULT='create food waybread'
@@ -61,7 +61,7 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 # *** Here begins program *** #
-echo draw 2 "$0 started <$*> with pid $$ $PPID"
+_draw 2 "$0 started <$*> with pid $$ $PPID"
 
 # *** functions list
 
@@ -102,7 +102,8 @@ PARAMS=`echo $* | rev`
 set - $PARAMS
 _debug "_parse_parameters:$*"
 local c=0
-while test $# != 0; do
+
+until test $# = 0; do
 c=$((c+1))
 case $c in
 1) readonly COMMAND_PAUSE=`echo $1 | rev`;;
@@ -131,7 +132,7 @@ echo "$*" >>"$LOG_FILE"
 _verbose(){
 # ***
 test "$VERBOSE" || return
-echo draw 7 "$*"
+_draw 7 "$*"
 sleep 0.5
 }
 
@@ -140,7 +141,7 @@ _debug(){
 # *** print passed parameters to window if DEBUG is set to anything
 
 test "$DEBUG" || return
-echo draw 3 "$*"
+_draw 3 "$*"
 sleep 0.5
 }
 
@@ -148,14 +149,14 @@ sleep 0.5
 _usage(){
 # *** print usage message to client window and exit
 
-echo draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <spell> <dir> <pause>"
-echo draw 5 "For example: 'script $0 firebolt east 10'"
-echo draw 5 "will issue cast firebolt"
-echo draw 5 "and will issue the $COMMAND east command with a pause of 10 seconds in between."
-echo draw 3 "WARNING:"
-echo draw 4 "Loops forever - use scriptkill command to terminate :P ."
+_draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <spell> <dir> <pause>"
+_draw 5 "For example: 'script $0 firebolt east 10'"
+_draw 5 "will issue cast firebolt"
+_draw 5 "and will issue the $COMMAND east command with a pause of 10 seconds in between."
+_draw 3 "WARNING:"
+_draw 4 "Loops forever - use scriptkill command to terminate :P ."
 exit 0
 }
 
@@ -183,7 +184,7 @@ echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo draw 4 "Elapsed $TIME s"
+_draw 4 "Elapsed $TIME s"
 SPELL_LINE=`echo "$PELLS" | grep -i "$PELL"`
 
 read r s ATTYPE LVL SP_NEEDED rest <<EoI
@@ -402,7 +403,7 @@ return $?
 _regenerate_spell_points(){
 # ***
 
-echo draw 4 "Regenerating spell points.."
+_draw 4 "Regenerating spell points.."
 while :;
 do
 
@@ -486,8 +487,9 @@ do
  TIMET=$((TIMEE-TIMES))
  TIMET=$(( (TIMET/60) +1))
 
+
  count=$((count+1))
- echo draw 4 "Elapsed $TIME s, now being the $count lap ($TIMET m total time) ..."
+ _draw 4 "Elapsed $TIME s, now being the $count lap ($TIMET m total time) ..."
 
 done
 _debug "_do_loop:issue 0 0 $COMMAND_STOP"
@@ -499,7 +501,7 @@ _error(){
 # ***
 
 RV=$1;shift
-echo draw 3 "$*"
+_draw 3 "$*"
 exit $RV
 }
 
@@ -523,10 +525,10 @@ _do_loop $COMMAND_PAUSE
 # ***
 
 case $@ in
-*help*) _usage;;
-'') echo draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
+-h|*help*) _usage;;
+'') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
 *) _do_program "$@";;
 esac
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."

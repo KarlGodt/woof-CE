@@ -17,17 +17,16 @@ export PATH=/bin:/usr/bin
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
+_usage(){
+_draw 5 "Script to pray given number times."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <number>"
+_draw 5 "For example: 'script $0 50'"
+_draw 5 "will issue 50 times the use_skill praying command."
+
+        exit 0
+}
 
 # Global variables
 
@@ -45,21 +44,14 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+until test "$#" = 0;
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
-
-_draw 5 "Script to pray given number times."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <number>"
-_draw 5 "For example: 'script $0 50'"
-_draw 5 "will issue 50 times the use_skill praying command."
-
-        exit 0
-;; esac
-
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
+*)
 # *** testing parameters for validity *** #
 #PARAM_1test="${PARAM_1//[[:digit:]]/}" # does not work for ash @ BusyBox v1.21.0 (2014-01-06 20:37:23 EST) multi-call binary.
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -67,18 +59,23 @@ test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
-
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
+
+test "$NUMBER" || {
 _draw 3 "Script needs number of praying attempts as argument."
         exit 1
 }
 
-test "$1" || {
-_draw 3 "Need <number> ie: script $0 50 ."
-        exit 1
-}
+#test "$1" || {
+#_draw 3 "Need <number> ie: script $0 50 ."
+#        exit 1
+#}
 
 _get_player_speed(){
 echo request stat cmbt
@@ -87,7 +84,8 @@ echo request stat cmbt
 read -t 1 Req Stat Cmbt WC AC DAM SPEED W_SPEED
 [ "$DEBUG" ] && _draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
 case $SPEED in
-1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;
+[1-9][0-9][0-9][0-9][0-9][0-9]) USLEEP=600000;; #six
+1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;  #five
 2[0-9][0-9][0-9][0-9]) USLEEP=1400000;;
 3[0-9][0-9][0-9][0-9]) USLEEP=1300000;;
 4[0-9][0-9][0-9][0-9]) USLEEP=1200000;;
@@ -107,7 +105,9 @@ _get_player_speed
 
 
 # *** Actual script to pray multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+
+TIMEB=`date +%s`
 
 c=0
 for one in `seq 1 1 $NUMBER`

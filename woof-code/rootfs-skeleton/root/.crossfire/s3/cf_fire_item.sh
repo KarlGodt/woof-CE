@@ -29,20 +29,20 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 # *** Here begins program *** #
-echo draw 2 "$0 started <$*> with pid $$ $PPID"
+_draw 2 "$0 started <$*> with pid $$ $PPID"
 
 _direction_word_to_number(){
 
 case $* in
-0|center)    DIRECTION_NUMBER=0;;
-1|north)     DIRECTION_NUMBER=1;;
-2|northeast) DIRECTION_NUMBER=2;;
-3|east)      DIRECTION_NUMBER=3;;
-4|southeast) DIRECTION_NUMBER=4;;
-5|south)     DIRECTION_NUMBER=5;;
-6|southwest) DIRECTION_NUMBER=6;;
-7|west)      DIRECTION_NUMBER=7;;
-8|northwest) DIRECTION_NUMBER=8;;
+ 0|c|center)    DIRECTION_NUMBER=0;;
+ 1|n|north)     DIRECTION_NUMBER=1;;
+2|ne|northeast) DIRECTION_NUMBER=2;;
+ 3|e|east)      DIRECTION_NUMBER=3;;
+4|se|southeast) DIRECTION_NUMBER=4;;
+ 5|s|south)     DIRECTION_NUMBER=5;;
+6|sw|southwest) DIRECTION_NUMBER=6;;
+ 7|w|west)      DIRECTION_NUMBER=7;;
+8|nw|northwest) DIRECTION_NUMBER=8;;
 *) _error 2 "Invalid direction $*"
 esac
 
@@ -54,7 +54,7 @@ PARAMS=`echo $* | rev`
 set - $PARAMS
 _debug "_parse_parameters:$*"
 local c=0
-while test $# != 0; do
+until test $# = 0; do
 c=$((c+1))
 case $c in
 1) NUMBER=`echo $1 | rev`;;    #ITEM=`echo $@ | rev`;;
@@ -65,6 +65,7 @@ case $c in
 6) :;;
 esac
 shift
+sleep 0.1
 done
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
@@ -77,17 +78,17 @@ echo "$*" >>"$LOG_FILE"
 
 _debug(){
 test "$DEBUG" || return
-echo draw 3 "$*"
+_draw 3 "$*"
 sleep 0.5
 }
 
 _usage(){
-echo draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <item> <dir> <number>"
-echo draw 5 "For example: 'script $0 rod of firebolt east 10'"
-echo draw 5 "will apply rod of firebolt"
-echo draw 5 "and will issue 10 times the $COMMAND east command."
+_draw 5 "Script to $COMMAND ITEM DIRECTION NUMBER ."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <item> <dir> <number>"
+_draw 5 "For example: 'script $0 rod of firebolt east 10'"
+_draw 5 "will apply rod of firebolt"
+_draw 5 "and will issue 10 times the $COMMAND east command."
 exit 0
 }
 
@@ -112,7 +113,7 @@ echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo draw 4 "Elapsed $TIME s"
+_draw 4 "Elapsed $TIME s"
 
 echo "$ITEMS" | grep -q -i "$ITEM"
 }
@@ -230,7 +231,7 @@ do
  TIME=$((TIMEE-TIMEB))
  MINUTES=$(( ((TRIES_STILL * $TIME ) / 60 ) ))
  SECONDS=$(( (TRIES_STILL * TIME) - (MINUTES*60) ))
- echo draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
+ _draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
 
 done
 _debug "_do_loop:issue 0 0 $COMMAND_STOP"
@@ -239,7 +240,7 @@ _debug "_do_loop:issue 0 0 $COMMAND_STOP"
 
 _error(){
 RV=$1;shift
-echo draw 3 "$*"
+_draw 3 "$*"
 exit $RV
 }
 
@@ -269,9 +270,9 @@ _do_loop $NUMBER
 
 case $@ in
 *help*) _usage;;
-'') echo draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
+'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
 *) _do_program "$@";;
 esac
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."

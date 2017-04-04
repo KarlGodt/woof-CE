@@ -2,6 +2,19 @@
 
 export PATH=/bin:/usr/bin
 
+_usage(){
+_draw 5  "Script to produce water of the wise."
+_draw 7  "Syntax:"
+_draw 7  "$0 [ -version VERSION ] NUMBER"
+_draw 5  "Allowed NUMBER will loop for"
+_draw 5  "NUMBER times to produce NUMBER of"
+_draw 5  "Water of the Wise ."
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+
+        exit 0
+}
+
 # *** PARAMETERS *** #
 
 MY_SELF=`realpath "$0"`
@@ -26,24 +39,13 @@ case "$1" in
 esac
 done
 
-[ "$*" ] && {
+until test "$#" = 0; do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
-
-_draw 5  "Script to produce water of the wise."
-_draw 7  "Syntax:"
-_draw 7  "$0 [ -version VERSION ] NUMBER"
-_draw 5  "Allowed NUMBER will loop for"
-_draw 5  "NUMBER times to produce NUMBER of"
-_draw 5  "Water of the Wise ."
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
-
-        exit 0
-;; esac
-
+case "$PARAM_1" in
+-h|*"help"*) _usage;;
+*)
 #PARAM_1test="${PARAM_1//[[:digit:]]/}"
 PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
@@ -52,20 +54,25 @@ _draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
+test "$NUMBER" || {
 _draw 3  "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
-test "$1" || {
-_draw 3  "Need <number> ie: script $0 3 ."
-        exit 1
-}
+#test "$1" || {
+#_draw 3  "Need <number> ie: script $0 3 ."
+#        exit 1
+#}
 
 
 # *** Actual script to alch the desired water of the wise           *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -95,17 +102,17 @@ rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
 # *** Getting Player's Speed *** #
-_debug 0
+_debug Step 0
 _get_player_speed
-_debug 1
+_debug Step 1
 # *** Check if standing on a cauldron *** #
 #_is 1 1 pickup 0  # precaution
 _check_if_on_cauldron
-_debug 2
+_debug Step 2
 # *** Check if there are 4 walkable tiles in $DIRB *** #
 #_check_for_space
 $FUNCTION_CHECK_FOR_SPACE
-_debug 3
+_debug Step 3
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 

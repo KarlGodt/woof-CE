@@ -1,4 +1,5 @@
 #!/bin/bash
+# uses arrays, BASH_ARGC, BASH_ARGV
 
 export PATH=/bin:/usr/bin
 
@@ -20,6 +21,10 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 # *** Here begins program *** #
 _say_start_msg "$@"
 
+# *** Check for parameters *** #
+#_draw 5 "Checking the parameters ($*)..."
+
+# ** client version ** #
 while :;
 do
 case "$1" in
@@ -27,16 +32,17 @@ case "$1" in
 *.*) shift;;
 *) break;;
 esac
+sleep 0.1
 done
 
-# *** Check for parameters *** #
-#_draw 5 "Checking the parameters ($*)..."
+
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in *"help"*)
 
+_usage(){
 _draw 5 "Script to produce alchemy objects."
 _draw 7 "Syntax:"
 _draw 7 "$0 [ -version VERSION ] ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
@@ -48,6 +54,7 @@ _draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 _draw 4  "Option -version 1.12.0 and lesser"
 _draw 4  "turns on some compatibility switches."
         exit 0
+       }
 ;; esac
 
 

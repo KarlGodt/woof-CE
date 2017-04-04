@@ -1,13 +1,22 @@
-#!/bin/bash
+#!/bin/ash
 
 export PATH=/bin:/usr/bin
+
+_usage(){
+_draw 5 "Script to "
+_draw 5 "apply $ROD"
+_draw 5 "and then to fire center on oneself."
+
+        exit 0
+}
+
+ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
 _set_global_variables
 
-ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
@@ -18,41 +27,40 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+until test "$#" = 0;
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
-
-echo draw 5 "Script to "
-echo draw 5 "apply $ROD"
-echo draw 5 "and then to fire center on oneself."
-
-        exit 0
-;; esac
-
+case "$PARAM_1" in -h|*"help"*) _usage;;
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+_draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
-echo draw 3 "Script needs number of cancellation attempts as argument."
+test "$NUMBER" || {
+_draw 3 "Script needs number of cancellation attempts as argument."
         exit 1
 }
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 50 ."
-        exit 1
-}
+#test "$1" || {
+#_draw 3 "Need <number> ie: script $0 50 ."
+#        exit 1
+#}
 
 
 # *** Actual script to cancel multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 __say_apply_params(){
 cat >&1 <<EoI
@@ -152,7 +160,7 @@ echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-echo draw 4 "Elapsed $TIME s"
+_draw 4 "Elapsed $TIME s"
 
 #echo "$ITEMS" | grep -q -i "$ITEM"
 #}
@@ -235,7 +243,7 @@ sleep 1s
 done
 
 else
-echo draw 3 "$ROD not applied."
+_draw 3 "$ROD not applied."
 fi
 
 echo "issue 1 1 fire_stop"

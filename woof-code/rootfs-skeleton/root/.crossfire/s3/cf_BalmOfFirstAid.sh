@@ -2,7 +2,17 @@
 
 export PATH=/bin:/usr/bin
 
-# *** PARAMETERS *** #
+_usage(){
+_draw 5 "Script to produce water of the wise."
+_draw 7 "Syntax:"
+_draw 7 "$0 [ -version VERSION ] NUMBER"
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Balm of First Aid ."
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+        exit 0
+      }
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -17,6 +27,10 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 # *** Here begins program *** #
 _say_start_msg "$@"
 
+
+# *** PARAMETERS *** #
+
+# ** client version ** #
 while :;
 do
 case "$1" in
@@ -24,25 +38,19 @@ case "$1" in
 *.*) shift;;
 *) break;;
 esac
+sleep 0.1
 done
 
-[ "$*" ] && {
+
+until test "$#" = 0;
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
-_draw 5 "Script to produce water of the wise."
-_draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] NUMBER"
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce NUMBER of"
-_draw 5 "Balm of First Aid ."
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
-        exit 0
-;; esac
-
+;;
+*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as option allowed."
@@ -50,16 +58,21 @@ _draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
+test "$NUMBER" || {
 _draw 3 "Script needs number of alchemy attempts as argument."
         exit 1
 }
 
-test "$1" || {
-_draw 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
+#test "$1" || {
+#_draw 3 "Need <number> ie: script $0 4 ."
+#        exit 1
+#}
 
 _draw 7 "OK."
 

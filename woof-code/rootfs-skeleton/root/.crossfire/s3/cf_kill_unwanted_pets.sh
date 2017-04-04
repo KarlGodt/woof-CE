@@ -1,4 +1,5 @@
 #!/bin/bash
+# uses <<<
 
 export PATH=/bin:/usr/bin
 
@@ -16,19 +17,19 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 _say_start_msg "$@"
 
 _say_help_and_exit(){
-echo draw 5 "Script to kill pets except the ones"
-echo draw 5 "given on parameter line."
-echo draw 2 "Syntax:"
-echo draw 5 "$0 pet1 pet2 .."
-echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
-echo draw 5 "for ex. green slime to green_slime ."
+_draw 5 "Script to kill pets except the ones"
+_draw 5 "given on parameter line."
+_draw 2 "Syntax:"
+_draw 5 "$0 pet1 pet2 .."
+_draw 2 ":space: ( ) needs to be replaced by underscore (_)"
+_draw 5 "for ex. green slime to green_slime ."
 exit 0
 }
 
 # *** Check for parameters *** #
 case $* in
-'')     echo draw 3 "Script needs pets to keep as argument."
-        echo draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
+'')     _draw 3 "Script needs pets to keep as argument."
+        _draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
          _say_help_and_exit;;
 h|*help) _say_help_and_exit;;
 *) :;;
@@ -115,7 +116,7 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
-[ "$DEBUG" ] && echo draw 3 "$PETS_KILL" #DEBUG
+[ "$DEBUG" ] && _draw 3 "$PETS_KILL" #DEBUG
 
 while read onePET
 do
@@ -126,7 +127,7 @@ case $onePET in
 *have*no*pet*) break;; # stop if we have no pets
 esac
 
-echo draw 3 "Killing $onePET .."
+_draw 3 "Killing $onePET .."
 echo "issue 1 1 killpets $onePET"
 sleep 1s
 
