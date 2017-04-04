@@ -15,16 +15,6 @@
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
 #logging
 TMP_DIR=/tmp/crossfire_client
@@ -38,51 +28,12 @@ _debug(){
 [ "$*" ] || return 0
 while read -r line
 do
+test "$line" || continue
 echo draw 3 "Debug:$line"
 done<<EoI
 `echo "$@"`
 EoI
 }
-
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-
-# *** Check for parameters *** #
-[ "$*" ] && {
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
-
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
-
-        exit 0
-        }
-
-# *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
-test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
-        exit 1 #exit if other input than letters
-        }
-
-NUMBER=$PARAM_1
-
-}
-#|| {
-#echo draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -97,6 +48,40 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+
+# *** Check for parameters *** #
+
+until test $# = 0;
+do
+PARAM_1="$1"
+
+# *** implementing 'help' option *** #
+case "$PARAM_1" in -h|*help)
+
+echo draw 5 "Script to melt icecube."
+echo draw 5 "Syntax:"
+echo draw 5 "script $0 [number]"
+echo draw 5 "For example: 'script $0 5'"
+echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
+
+        exit 0
+;;
+*)
+# *** testing parameters for validity *** #
+PARAM_1test="${PARAM_1//[[:digit:]]/}"
+test "$PARAM_1test" && {
+echo draw 3 "Only :digit: numbers as first option allowed."
+        exit 1 #exit if other input than letters
+        }
+
+NUMBER=$PARAM_1
+;;
+esac
+shift
+done
+
 _say_end_msg(){
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
@@ -105,7 +90,7 @@ echo draw 7 "You succeeded '$SUCCESS' times."
 _beep
 }
 
-f_exit(){
+f_exit(){ # unused
 echo draw 3 "Forcing exiting $0."
 _say_end_msg
 echo unwatch
@@ -132,7 +117,7 @@ echo "issue 1 1 mark icecube"
  read -t 1 REPLY
  echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
@@ -199,7 +184,7 @@ while :; do
  read -t 1 REPLY
  echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
  #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
  #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  test "$REPLY" || break
@@ -254,10 +239,27 @@ done #true
 
     fi #^!PARAM_1
 
+__count_time(){
+
+test "$TIMEB" || return 1
+
+TIMEE=`date +%s`
+
+TIMEX=$((TIMEE-TIMEB))
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
+}
+
 __say_end_msg(){
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 echo draw 1 "You failed    '$FAIL_ALL' times."
 echo draw 7 "You succeeded '$SUCCESS' times."
+__count_time && echo draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
+
 }
 _say_end_msg

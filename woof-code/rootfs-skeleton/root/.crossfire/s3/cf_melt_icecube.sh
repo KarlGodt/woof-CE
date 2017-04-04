@@ -15,16 +15,6 @@
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
 
 export PATH=/bin:/usr/bin
 MY_SELF=`realpath "$0"`
@@ -37,41 +27,83 @@ _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
-test "$LOGFILE" || LOGFILE=/tmp/cf_script.rpl
+DEBUG=1   # unset to disable, set to anything to enable
+LOGGING=1 # unset to disable, set to anything to enable
+
+DRAW_INFO=drawinfo # drawextinfo (older clients)
+
+LOGFILE=${LOGFILE:-/tmp/cf_script.rpl}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOGFILE"
+}
+
+_black()  { echo draw 0  "$*"; }
+_bold()   { echo draw 1  "$*"; }
+_blue()   { echo draw 5  "$*"; }
+_navy()   { echo draw 2  "$*"; }
+_lgreen() { echo draw 8  "$*"; }
+_green()  { echo draw 7  "$*"; }
+_red()    { echo draw 3  "$*"; }
+_dorange(){ echo draw 6  "$*"; }
+_orange() { echo draw 4  "$*"; }
+_gold()   { echo draw 11 "$*"; }
+_tan()    { echo draw 12 "$*"; }
+_brown()  { echo draw 10 "$*"; }
+_gray()   { echo draw 9  "$*"; }
+alias _grey=_gray
+
 
 # *** Here begins program *** #
 _say_start_msg "$@"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+until test $# = 0;
+do
+
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
-echo draw 5 "Script to melt icecube."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times mark icecube and apply filint and steel."
-
+_blue "Script to melt icecube."
+_blue "Syntax:"
+_blue "script $0 [number]"
+_blue "For example: 'script $0 5'"
+_blue "will issue 5 times mark icecube and apply filint and steel."
+_navy "Without number breaks infinite loop"
+_navy "if no icecube could be marked anymore."
         exit 0
-;; esac
-
+;;
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+ _red "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
-        }
-
+       }
 NUMBER=$PARAM_1
+;;
+esac
 
+shift
+
+done
+
+
+_watch(){
+echo watch $DRAW_INFO
+}
+
+_unwatch(){
+echo unwatch $DRAW_INFO
 }
 
 __just_exit(){
-echo draw 3 "Exiting $0."
-echo unwatch
+_red "Exiting $0."
+_unwatch
 #echo unwatch drawinfo
 exit $1
 }
@@ -83,9 +115,11 @@ _get_player_speed
 test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
-echo >>"$LOGFILE"
+_log ""
 
-echo watch drawinfo
+_watch
+
+TIMEB=`date +%s`
 
     if test "$NUMBER"; then
 
@@ -97,11 +131,13 @@ OLD_REPLY=
 
 echo "issue 1 1 mark icecube"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOGFILE"
+ _log "$REPLY"
+ _debug "REPLY='$REPLY'"
+
  case $REPLY in
- *Could*not*find*an*object*that*matches*) _just_exit 1;;
+ *Could*not*find*an*object*that*matches*) break 2;;
  '') break;;
  esac
  unset REPLY
@@ -119,16 +155,18 @@ OLD_REPLY=
 
 echo "issue 1 1 apply flint and steel"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOGFILE"
+ _log "$REPLY"
+ _debug "REPLY='$REPLY'"
+
  case $REPLY in
- *used*up*flint*and*steel*) _exit 2;;
- *Could*not*find*any*match*to*the*flint*and*steel*) _just_exit 2;;
+ *used*up*flint*and*steel*) break 3;;
+ *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
  '') break;;
  *fail*) :;;
  *) NO_FAIL=1;;
- *You*light*up*the*icecube*) NO_FAIL=1;;
+ *You*light*up*the*icecube*) NO_FAIL=1; break;;
  *) break;;
  esac
  unset REPLY
@@ -150,11 +188,14 @@ REPLY=
 OLD_REPLY=
 
 echo "issue 1 1 mark icecube"
-while [ 1 ]; do
+
+while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOGFILE"
+ _log "$REPLY"
+ _debug "REPLY='$REPLY'"
+
  case $REPLY in
- *Could*not*find*an*object*that*matches*) _just_exit 1;;
+ *Could*not*find*an*object*that*matches*) break 2;;
  '') break;;
  esac
  unset REPLY
@@ -172,16 +213,19 @@ REPLY=
 OLD_REPLY=
 
 echo "issue 1 1 apply flint and steel"
- while [ 1 ]; do
+
+ while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOGFILE"
+ _log "$REPLY"
+ _debug "REPLY='$REPLY'"
+
  case $REPLY in
- *used*up*flint*and*steel*) _just_exit 2;;
- *Could*not*find*any*match*to*the*flint*and*steel*) _exit 2;;
+ *used*up*flint*and*steel*) break 3;;
+ *Could*not*find*any*match*to*the*flint*and*steel*) break 3;;
  '') break;;
  *fail*) :;;
  *) NO_FAIL=1;;
- *You*light*up*the*icecube*) NO_FAIL=1;;
+ *You*light*up*the*icecube*) NO_FAIL=1; break;;
  *) break;;
  esac
  unset REPLY
@@ -196,6 +240,13 @@ done #true
 
     fi #^!PARAM_1
 
+TIMEE=`date +%s`
+TIMEX=$((TIMEE-TIMEB))
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+_green "Script loop took $TIMEM:$TIMES minutes."
 
 # *** Here ends program *** #
 #echo draw 2 "$0 is finished."
