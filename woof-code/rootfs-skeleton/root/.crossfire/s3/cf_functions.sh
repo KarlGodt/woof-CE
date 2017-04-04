@@ -9,8 +9,11 @@ LOGGING=${LOGGING:-1}  #set to ANYTHING ie "1" to enable, empty to disable
 DEBUG=${DEBUG:-1}      #set to ANYTHING ie "1" to enable, empty to disable
 TMOUT=${TMOUT:-1}      # read -t timeout
 SLEEP=${SLEEP:-1}      #default sleep value, refined in _get_player_speed()
+
 DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default pause to sync, refined in _get_player_speed()
-DRAWINFO=drawinfo #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+DRAWINFO=${DRAWINFO:-drawinfo}   #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
+DRAW_INFO=${DRAW_INFO:-drawinfo}
+
 FUNCTION_CHECK_FOR_SPACE=_check_for_space # request map pos works
 case $* in
 *-version" "*) CLIENT_VERSION="$2"
@@ -43,19 +46,71 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
-SOUND_DIR="$HOME"/.crossfire/sounds
+SOUND_DIR=${SOUND_DIR:-"$HOME"/.crossfire/sounds}
 
 # Log file path in /tmp
 #MY_SELF=`realpath "$0"` ## needs to be in main script
 #MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
+
 TMP_DIR=${TMP_DIR:-/tmp/crossfire_client}
 mkdir -p "$TMP_DIR"
-LOGFILE="$TMP_DIR"/"$MY_BASE".$$.log
-REPLY_LOG="$TMP_DIR"/"$MY_BASE".$$.rpl    # log only replys
-REQUEST_LOG="$TMP_DIR"/"$MY_BASE".$$.req  # log only replys for requests
-ON_LOG="$TMP_DIR"/"$MY_BASE".$$.ion       # log only replys for request items on
+
+LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
+REPLY_LOG=${REPLY_LOG:-"$TMP_DIR"/"$MY_BASE".$$.rpl}    # log only replys
+REQUEST_LOG=${REQUEST_LOG:-"$TMP_DIR"/"$MY_BASE".$$.req}  # log only replys for requests
+ON_LOG=${ON_LOG:-"$TMP_DIR"/"$MY_BASE".$$.ion}       # log only replys for request items on
+
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6  # dark
+COL_GREEN=7
+COL_LGREEN=8   # light
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
+
+# beeping
+BEEP_DO=${BEEP_DO:-1}
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+# ** ping if bad connection ** #
+PING_DO=${PING_DO:-}
+URL=crossfire.metalforge.net
 
 exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+}
+
+_ping(){
+test "$PING_DO" || return 0
+while :;
+do
+ping -c1 -w10 -W10 "$URL" && break
+sleep 1
+done >/dev/null
+}
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
+_watch(){
+echo watch $DRAW_INFO
+}
+
+_unwatch(){
+echo unwatch $DRAW_INFO
 }
 
 _is(){
@@ -73,11 +128,26 @@ __draw(){
 
 _draw(){
     local COLOUR="$1"
-    test "$COLOUR" || COLOUR=1 #set default
+    COLOUR=${COLOUR:-1} #set default
     shift
     local MSG="$@"
     echo draw $COLOUR "$MSG"
 }
+
+_black()  { echo draw 0  "$*"; }
+_bold()   { echo draw 1  "$*"; }
+_blue()   { echo draw 5  "$*"; }
+_navy()   { echo draw 2  "$*"; }
+_lgreen() { echo draw 8  "$*"; }
+_green()  { echo draw 7  "$*"; }
+_red()    { echo draw 3  "$*"; }
+_dorange(){ echo draw 6  "$*"; }
+_orange() { echo draw 4  "$*"; }
+_gold()   { echo draw 11 "$*"; }
+_tan()    { echo draw 12 "$*"; }
+_brown()  { echo draw 10 "$*"; }
+_gray()   { echo draw 9  "$*"; }
+alias _grey=_gray
 
 __debug(){
 test "$DEBUG" || return 0
@@ -88,6 +158,7 @@ _debug(){
 test "$DEBUG" || return 0
 while read -r line
 do
+test "$line" || continue
 echo draw 3 "DEBUG:$line"
 done <<EoI
 `echo "$*"`
@@ -98,10 +169,16 @@ _debugx(){
 test "$DEBUGX" || return 0
 while read -r line
 do
+test "$line" || continue
 echo draw 3 "DEBUG:$line"
 done <<EoI
 `echo "$*"`
 EoI
+}
+
+__log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOGFILE"
 }
 
 _log(){
