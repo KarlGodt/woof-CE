@@ -103,7 +103,12 @@ else
  exit 1
 fi
 
+_cast_dexterity(){
 # ** cast DEXTERITY ** #
+
+local REPLY c
+
+echo watch $DRAW_INFO
 
 echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
@@ -111,6 +116,42 @@ echo issue 1 1 fire ${DIRN:-0}
 sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX CAST_PROBE;;
+ *'This ground is unholy!'*)                     unset CAST_REST;;
+ *'You grow no more agile.'*)                    unset CAST_DEX;;
+ *'You lack the skill '*)                        unset CAST_DEX;;
+ *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+ *'That spell path is denied to you.'*)          unset CAST_DEX;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+#You grow no more agile.
+
+echo unwatch $DRAW_INFO
+
+}
+CAST_REST=_cast_restoration
+CAST_PROBE=_cast_probe
+CAST_DEX=_cast_dexterity
+$CAST_DEX
+#_cast_dexterity
+
+
 
 
 _find_traps(){
@@ -173,10 +214,12 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 #TRAPS=`echo "$TRAPS" | uniq`
 #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
+if test "$DEBUG"; then
 #echo draw 5 "TRAPS='$TRAPS'"
 #echo draw 6 "`echo "$TRAPS" | uniq`"
 _draw 5 "TRAPS='$TRAPS'"
 _draw 6 "`echo "$TRAPS" | uniq`"
+fi
 
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
@@ -223,9 +266,15 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
+   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
+   *'In fact, you set it off!'*)
+    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+    break ;;
    *'You successfully disarm '*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
     break;;

@@ -110,10 +110,18 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
- echo draw 3 "REPLY='$REPLY'"
- case $REPLY in
- *'You are no easier to look at.'*) unset CAST_CHA;;
+ [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
+ *'This ground is unholy!'*)                  unset CAST_REST;;
+ *'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_CHA;;
+ *'You lack the proper attunement to cast '*) unset CAST_CHA;;
+ *'That spell path is denied to you.'*)       unset CAST_CHA;;
  *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
  esac
@@ -123,14 +131,22 @@ done
 echo unwatch $DRAW_INFO
 #You are no easier to look at.
 }
+
+CAST_PROBE=_cast_probe
+CAST_REST=_cast_resoration # prayer
+CAST_PACY=_cast_pacify     # prayer, unused
 CAST_CHA=_cast_charisma
 $CAST_CHA
 #_cast_charisma
 
-__cast_pacify(){
+__cast_pacify(){  # unused
 # ** cast PACIFY ** #
 # pacified monsters do not respond to oratory
 return 0
+
+local REPLY c
+
+echo watch $DRAW_INFO
 
 echo issue 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
@@ -138,13 +154,42 @@ echo issue 1 1 fire ${DIRN:-0}
 sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
-}
 
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ [ "$LOGGING" ] && echo "_cast_pacify:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_PACY CAST_REST;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_PACY CAST_REST;;
+ *'Something blocks your spellcasting.'*)        unset CAST_PACY CAST_REST;;
+ *'This ground is unholy!'*)                     unset CAST_PACY CAST_REST;;
+ #*'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_PACY;;
+ *'You lack the proper attunement to cast '*) unset CAST_PACY;;
+ *'That spell path is denied to you.'*)       unset CAST_PACY;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
+}
+#CAST_PACY
 
 ## ** use_skill singing ** ##
 
 _cast_probe(){
 # ** cast PROBE ** #
+
+local REPLY c
+
+echo watch $DRAW_INFO
 
 echo issue 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
@@ -152,11 +197,41 @@ echo issue 1 1 fire ${DIRN:-0}
 sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
+ *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
+ #*'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_PROBE;;
+ *'You lack the proper attunement to cast '*) unset CAST_PROBE;;
+ *'That spell path is denied to you.'*)       unset CAST_PROBE;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
+
 }
-_cast_probe
+$CAST_PROBE
 
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
+
+local REPLY c
+
+echo watch $DRAW_INFO
 
 echo issue 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
@@ -165,7 +240,32 @@ sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
 
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_REST CAST_PACY;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_REST CAST_PACY;;
+ *'Something blocks your spellcasting.'*)        unset CAST_REST CAST_PACY;;
+ *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
+ #*'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_REST CAST_PACY;;
+ *'You lack the proper attunement to cast '*) unset CAST_REST;;
+ *'That spell path is denied to you.'*)       unset CAST_REST;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
 }
+$CAST_REST
 
 _attack(){
 local one
@@ -207,8 +307,9 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   unset REPLY
   sleep 0.1
   read -t 1
-  echo "sing&orate:$REPLY" >>"$LOG_REPLY_FILE"
-  #echo draw 3 "REPLY='$REPLY'"
+  [ "$LOGGING" ] && echo "sing&orate:$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
   case $REPLY in
   *'Unable to find skill '*)        break 2;;
   *'You sing'*)                :;; # sing
@@ -242,9 +343,13 @@ if test "$FOREVER"; then
   echo draw 4 "You calmed down '$CALMS' ."
   echo draw 5 "You convinced   '$CONVS' ."
   echo draw 2 "Use 'scriptkill $0' to abort.";
- { if test "$TOGGLE" = $INF_TOGGLE; then _cast_restoration; TOGGLE=0; fi; }
+   if test "$TOGGLE" = $INF_TOGGLE; then
+    $CAST_REST
+    TOGGLE=0;
+   fi
   cc=0; TOGGLE=$((TOGGLE+1))
   }
+
 elif test "$NUMBER"; then
  NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else

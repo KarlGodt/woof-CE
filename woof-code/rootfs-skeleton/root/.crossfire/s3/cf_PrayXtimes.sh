@@ -30,6 +30,8 @@ _draw 5 "will issue 50 times the use_skill praying command."
 
 # Global variables
 
+DEBUG=1
+
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
@@ -77,6 +79,50 @@ _draw 3 "Script needs number of praying attempts as argument."
 #        exit 1
 #}
 
+__check_skill_praying(){
+local YES
+echo request skills
+while :; do sleep 0.1
+unset REPLY
+read -t 1 <&0   # <&1 works, <&0 works, in ash
+_debug "$REPLY"
+case $REPLY in *' praying') YES=0;;
+'request skills end') break;;
+'') break;;
+esac
+done
+return ${YES:-1}
+}
+
+_flush(){
+timeout -t 1 cat 1>/dev/null <&0 2>/dev/null
+}
+
+_check_skill_praying(){
+local SKILLS
+
+#rm -f /tmp/stdin.txt
+
+echo request skills
+sleep 1
+
+# these do not work:
+#cat >/tmp/stdin.txt </dev/stdin
+
+# these work:
+#timeout -t 1 cat >/tmp/stdin.txt <&0 2>/dev/null  # timeout sends Terminated to &2
+#grep -q ' praying$' /tmp/stdin.txt
+
+SKILLS=`timeout -t 1 cat >&1 <&0 2>/dev/null`
+echo "$SKILLS" >&2  # debug
+echo "$SKILLS" | grep -q ' praying$'
+}
+
+_check_skill_praying || {
+	echo draw 3 "You do not have the abillity to pray."
+	exit 1
+}
+
 _get_player_speed(){
 echo request stat cmbt
 #read REQ_CMBT
@@ -109,11 +155,93 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 TIMEB=`date +%s`
 
+
+echo watch drawinfo
+
 c=0
 for one in `seq 1 1 $NUMBER`
 do
 
+unset REPLY_OLD
+
 echo "issue 1 1 use_skill praying"
+sleep 0.5
+
+_read_reply_praying(){
+
+CAT_IN=`timeout -t 1 cat >&1 <&0 2>/dev/null`
+#echo "$CAT_IN" >&2
+
+if test "$DEBUG"; then
+while read line
+do
+echo draw 3 "DEBUG:$line"
+done <<EoI
+`echo "$CAT_IN"`
+EoI
+fi
+}
+#_read_reply_praying
+
+__read_reply_praying(){
+# Checking the parameters (100)...
+# without
+# Loop of script had run a total of 1:41 minutes.
+# with REPLY read loop:
+# Loop of script had run a total of 3:30 minutes.
+
+ while :; do sleep 0.1
+  unset REPLY
+  read -t 1 <&0
+  _debug "$REPLY"
+
+  case $REPLY in
+  '') break;;
+  $REPLY_OLD) break;;
+  # server/skills.c
+  *'You pray over the '*) break;;
+  *'You pray.'*) break;;
+  # server/gods.c
+
+  esac
+
+# TODO: server/gods.c
+# Heretic! You are using cloak of Lythander * (worn)!
+# Heretic! You are using %s!
+# Foul Priest! %s punishes you!
+# Foolish heretic! %s is livid!
+# Heretic! %s is angered!
+# A divine force pushes you off the altar.
+# The %s crumble to dust!
+# The %s crumbles to dust!
+# You lose knowledge of %s.
+# Fool! %s detests your kind!
+# %s's blessing is withdrawn from you.
+# You are bathed in %s's aura.
+# You feel like someone is helping you.
+# A phosphorescent glow envelops your weapon!
+# %s considers your %s is not worthy to be enchanted any more.
+# Your %s already belongs to %s !
+# The %s is not yours, and is magically protected against such changes !
+# Your weapon quivers as if struck!
+# Your %s now hungers to slay enemies of your god!
+# Your weapon suddenly glows!
+# You feel a holy presence!
+# Something appears before your eyes.  You catch it before it falls to the ground.
+# You are returned to a state of grace.
+# A white light surrounds and heals you!
+# A blue lightning strikes your head but doesn't hurt you!
+# Shimmering light surrounds and restores you!
+# You hear a voice from behind you, but you don't dare to
+#  turn around:
+# %s grants you use of a special prayer!
+# You feel rapture.
+# %s becomes angry and punishes you!
+## This prayer is useless unless you worship an appropriate god
+ done
+}
+__read_reply_praying
+
 #sleep 1s
 usleep $USLEEP
 

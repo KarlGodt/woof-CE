@@ -1,9 +1,21 @@
-#!/bin/bash
+#!/bin/ash
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
+# Now count the whole script time
+TIMEA=`date +%s`
 
-DEBUG=
+# *** VARIABLES *** #
+
+DEBUG=  # set to anything to enable
+
+DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+SLEEP=4           # sleep seconds after codeblocks
+DELAY_DRAWINFO=8  # sleep seconds to sync msgs from script with msgs from server
+
+# When putting ingredients into cauldron, player needs to leave cauldron
+# to close it. Also needs to pickup and drop the result(s) to not
+# increase carried weight. This version does not adjust player speed after
+# several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -35,6 +47,70 @@ BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
 BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
+
+# ping if connection is dropping once a while
+PING_DO=
+URL=crossfire.metalforge.net
+_ping(){
+test "$PING_DO" || return 0
+while :; do
+ping -c1 -w10 -W10 "$URL" && break
+sleep 1
+done >/dev/null
+}
+
+
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 1
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+echo draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$NUMBER" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+elif test "$((NUMBER/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`date +%s`
+_say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+}
+
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -102,7 +178,7 @@ f_check_on_cauldron
 echo draw 7 "Done."
 
 # *** Actual script to alch the desired water of the wise *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -129,8 +205,6 @@ rm -f "$LOG_REPLY_FILE" # empty old log file
 
 echo draw 4 "Processing Player's Speed..."
 
-SLEEP=4           # setting defaults
-DELAY_draw=8
 
 ANSWER=
 OLD_ANSWER=
@@ -200,30 +274,46 @@ echo draw 7 "Done."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
+
+test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
+
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
+
+NUMBER=$((one-1))
+_say_statistics_end
 _beep
-exit $1
+exit $RV
 }
 
 f_emergency_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
+
+NUMBER=$((one-1))
+_say_statistics_end
+test "$*" && echo draw 5 "$*"
 _beep
 _beep
-exit $1
+exit $RV
 }
 
 
@@ -237,7 +327,7 @@ sleep ${SLEEP}s
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY_ALL='';
@@ -264,9 +354,9 @@ echo draw 3 "Please empty the cauldron and try again."
 f_exit 1
 }
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
-echo draw 7 "OK ! Cauldron IS empty."
+echo draw 7 "OK ! Cauldron SEEMS empty."
 
 sleep ${SLEEP}s
 
@@ -276,10 +366,13 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
-
-echo draw 4 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
+
+echo draw 4 "OK... Might the Might be with You!"
+TIMELB=`date +%s`
+
+FAIL=0
 
 for one in `seq 1 1 $NUMBER`
 do
@@ -293,7 +386,7 @@ REPLY="";
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 echo "issue 1 1 drop 7 water"
 
@@ -329,7 +422,7 @@ sleep 0.1s
 done
 }
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
 
 echo "issue 1 1 $DIRB"
@@ -345,7 +438,7 @@ sleep 1
 echo "issue 0 0 use_skill alchemy"
 
 # TOTO monsters
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -369,14 +462,14 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 sleep 0.5s
 echo "issue 1 1 apply"
 sleep 0.5s
 
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 echo "issue 7 1 get"
 
@@ -394,25 +487,30 @@ test "$REPLY" = "$OLD_REPLY" && break
 #                             "The %s %s.", cauldron->name, cauldron_sound());
 #        remove_contents(cauldron->inv, NULL);
 #        return;
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
+test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
+sleep ${SLEEP}s
+
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-sleep ${SLEEP}s
-
-
-if test $NOTHING = 0; then
+if test "$NOTHING" = 0; then
 
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
@@ -461,6 +559,8 @@ echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..."
 
 
 done
+
+_say_statistics_end
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."

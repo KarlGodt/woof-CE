@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
@@ -15,6 +15,8 @@
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
+
+DRAW_INFO=drawinfo # drawextinfo (older clients)
 
 #logging
 TMP_DIR=/tmp/crossfire_client
@@ -94,13 +96,13 @@ f_exit(){ # unused
 echo draw 3 "Forcing exiting $0."
 _say_end_msg
 echo unwatch
-#echo unwatch drawinfo
+#echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
 
 # *** Actual script to pray multiple times *** #
-test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 
     if test "$NUMBER"; then
 
@@ -110,130 +112,122 @@ do
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "mark:'$REPLY'"
+
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
+
  test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
-NO_FAIL=
-until [ "$NO_FAIL" ]
+while :;
 do
 
 REPLY=
-#OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
- #test "$REPLY" = "$OLD_REPLY" && break
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "apply:'$REPLY'"
+
  case $REPLY in
- *You*fail*used*up*) break 3;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1));NO_FAIL='';;
  *"Could not find any match to the flint and steel."*) break 3;;
- *You*light*icecube*) SUCCESS=$((SUCCESS+1)); NO_FAIL='1'; break 1;;
  *You*need*to*mark*a*lightable*object.) break 2;;
+ *fail.) FAIL_ALL=$((FAIL_ALL+1));;
+ *You*fail*used*up*) break 3;;
+ *You*light*icecube*) SUCCESS=$((SUCCESS+1)); break 2;;
  *Your*) :;;
  '') break;;
- *) NO_FAIL='';;
+ *)  :;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
+
  unset REPLY
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
-done #NO_FAIL
+done
 
 done #NUMBER
 
     else #PARAM_1
 
-until [ "$NO_ICECUBE" ];
+while :;
 do
 
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
+
 while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "mark:'$REPLY'"
+
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2 #f_exit 1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
  test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
-NO_FAIL=
-until [ "$NO_FAIL" ]
+
+while :;
 do
 
 
 REPLY=
-#OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
+
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
- #test "$REPLY" = "$OLD_REPLY" && break
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _debug "apply:'$REPLY'"
+
  case $REPLY in
- *You*fail*used*up*) break 3;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1)); NO_FAIL='';;
- *You*light*icecube*) SUCCESS=$((SUCCESS+1)); NO_FAIL='1'; break 1;;
  *"Could not find any match to the flint and steel."*) break 3;;
  *You*need*to*mark*a*lightable*object.) break 2;;
+ *fail.) FAIL_ALL=$((FAIL_ALL+1)) ;;
+ *You*fail*used*up*) break 3;;
+ *You*light*icecube*) SUCCESS=$((SUCCESS+1)); break 2;;
  *Your*) :;;
  '') break;;
- *) NO_FAIL='';;
+ *)  :;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
+
  unset REPLY
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
-done #NO_FAIL
+done
 
 done #true
 

@@ -420,10 +420,18 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw ${COL_GREEN:-7} "REPLY='$REPLY'" #debug
 
- case $REPLY in
- *'You grow no more agile.'*) unset CAST_DEX;;
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX CAST_PROBE;;
+ *'This ground is unholy!'*)                     unset CAST_REST;;
+ *'You grow no more agile.'*)                    unset CAST_DEX;;
+ *'You lack the skill '*)                        unset CAST_DEX;;
+ *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+ *'That spell path is denied to you.'*)          unset CAST_DEX;;
  *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
  esac
@@ -435,7 +443,8 @@ done
 echo unwatch $DRAW_INFO
 
 }
-
+CAST_REST=_cast_restoration
+CAST_PROBE=_cast_probe
 CAST_DEX=_cast_dexterity
 $CAST_DEX
 #_cast_dexterity
@@ -443,16 +452,52 @@ $CAST_DEX
 _cast_probe(){
 # ** cast PROBE ** #
 
+local REPLY c
+
+echo watch $DRAW_INFO
+
 echo issue 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
 echo issue 1 1 fire ${DIRN:-0}
 sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX CAST_PROBE;;
+ *'This ground is unholy!'*)                  unset CAST_REST;;
+ #*'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_DEX;;
+ *'You lack the proper attunement to cast '*) unset CAST_DEX;;
+ *'That spell path is denied to you.'*)       unset CAST_DEX;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
+
 }
+
+$CAST_PROBE
 
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
+
+local REPLY c
+
+echo watch $DRAW_INFO
 
 echo issue 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
@@ -461,7 +506,34 @@ sleep 0.5
 echo issue 1 1 fire_stop
 sleep 0.5
 
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ echo draw 3 "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX CAST_PROBE;;
+ *'This ground is unholy!'*)                  unset CAST_REST;;
+ #*'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     unset CAST_REST;;
+ *'You lack the proper attunement to cast '*) unset CAST_REST;;
+ *'That spell path is denied to you.'*)       unset CAST_REST;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+echo unwatch $DRAW_INFO
+
 }
+
+$CAST_REST
 
 ___check_have(){
 local REPLY=''
@@ -524,12 +596,17 @@ test "$c" -ge $CHECK_ITEM_THRESH && { _mark_item || break; c=0; }
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
-  { if test "$TOGGLE" = $INF_TOGGLE; then _cast_restoration; TOGGLE=0; else TOGGLE=$((TOGGLE+1)); fi; }
+  if test "$TOGGLE" = $INF_TOGGLE; then
+   $CAST_REST
+       TOGGLE=0
+  else TOGGLE=$((TOGGLE+1));
+  fi
   #_cast_dexterity
   $CAST_DEX
-  _cast_probe
+  $CAST_PROBE
   echo draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
   }
+
 elif test "$NUMBER"; then
  NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else

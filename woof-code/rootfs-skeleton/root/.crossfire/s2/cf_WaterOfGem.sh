@@ -135,8 +135,8 @@ echo draw 3 "Number must be greater than ZERO."
 exit 1
 fi
 
-test "$GEM" != diamond -a "$GEM" != emerald -a "$GEM" != pearl \
-  -a "$GEM" != ruby -a "$GEM" != sapphire && {
+test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
+  -o "$GEM" = ruby -o "$GEM" = sapphire && {
 echo draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
@@ -153,7 +153,8 @@ sleep 0.1s
 [ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
+case "$UNDER_ME" in
+"request items on end") break;;
 "scripttell break") break;;
 "scripttell exit") exit 1;;
 esac
@@ -196,7 +197,8 @@ sleep 0.1s
 [ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
+case "$UNDER_ME" in
+"request items on end") break;;
 "scripttell break") break;;
 "scripttell exit") exit 1;;
 esac

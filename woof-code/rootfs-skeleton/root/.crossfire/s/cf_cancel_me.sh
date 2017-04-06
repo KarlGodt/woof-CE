@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -38,7 +38,7 @@ echo draw 3 "Need <number> ie: script $0 50 ."
 
 
 # *** Actual script to pray multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 echo "issue 1 1 apply heavy rod of cancellation"
 

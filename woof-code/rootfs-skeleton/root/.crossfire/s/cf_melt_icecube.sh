@@ -37,15 +37,16 @@ COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
 
-# *** Here begins program *** #
-echo draw $COL_NAVY "$0 is started.."
-
 #logging
 
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
+
+
+# *** Here begins program *** #
+echo draw $COL_NAVY "$0 is started.."
 
 test "$DEBUG" && echo draw 5 "LOG_REPLY_FILE='$LOG_REPLY_FILE'" #debug
 
@@ -78,6 +79,7 @@ echo draw $COL_RED "Only :digit: numbers as first option allowed."
 ;;
 esac
 shift
+sleep 0.1
 done
 
 NUMBER=$PARAM_1
@@ -91,12 +93,12 @@ test "$*" && echo draw 4 "$*"
 echo draw $COL_RED "Exiting $0."
 echo unwatch
 beep -l 500 -f 700
-#echo unwatch drawinfo
+#echo unwatch $DRAW_INFO
 exit $RV
 }
 
 # *** Actual script to pray multiple times *** #
-test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 
 TIMEB=`date +%s`
 
@@ -108,7 +110,7 @@ do
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
 
  while :; do
@@ -121,7 +123,7 @@ echo "issue 1 1 mark icecube"
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 NO_FAIL=
@@ -131,7 +133,7 @@ do
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
 
  while :; do
@@ -158,7 +160,7 @@ echo "issue 1 1 apply flint and steel"
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 done #NO_FAIL
@@ -173,7 +175,7 @@ do
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
@@ -185,7 +187,7 @@ while :; do
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 NO_FAIL=
@@ -196,7 +198,7 @@ do
 REPLY=
 OLD_REPLY=
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
@@ -223,7 +225,7 @@ echo "issue 1 1 apply flint and steel"
  sleep 0.1s
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 done #NO_FAIL

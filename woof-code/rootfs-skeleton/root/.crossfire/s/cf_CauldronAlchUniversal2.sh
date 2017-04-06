@@ -1,16 +1,22 @@
 #!/bin/bash
+# uses arrays
 
 rm -f /tmp/cf_*
 
 exec 2>>/tmp/cf_script.err
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
+# TODO Player Speed
 
 # *** Setting defaults *** #
+DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
 #set empty default
-C=0 #set zero as default
+C=0 # used in arrays, set zero as default
+
+# When putting ingredients into cauldron, player needs to leave cauldron
+# to close it. Also needs to pickup and drop the result(s) to not
+# increase carried weight. This version does not adjust player speed after
+# several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -30,6 +36,10 @@ _beep(){
 [ "$BEEP_DO" ] || return 0
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+echo draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -134,11 +144,6 @@ echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandr
         exit 1
 }
 
-#SKILL=woodsman
-#SKILL=alchemy
-
-#CAULDRON=stove
-#CAULDRON=cauldron
 
 # *** Check if standing on a $CAULDRON *** #
 UNDER_ME='';
@@ -157,6 +162,7 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
 echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
+_beep
 exit 1
 }
 
@@ -204,7 +210,7 @@ echo draw 3 "No '${INGRED[$C2]}' in inventory."
 exit 1
 fi
 
-# *** Check for suffizient amount of ingredient *** #
+# *** Check for sufficient amount of ingredient *** #
 # *** TODO
 
 done
@@ -233,7 +239,7 @@ nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 *) echo draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
 esac
-test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 
 # *** Actual script to alch the desired water of gem *** #
@@ -258,27 +264,40 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
+
+test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
+
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
-exit $1
+echo watch $DRAW_INFO
+_beep
+exit $RV
 }
 
 f_emergency_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 fire_stop"
-exit $1
+
+test "$*" && echo draw 5 "$*"
+_beep
+exit $RV
 }
 
 #echo "issue 1 1 pickup 0"  # precaution
@@ -297,7 +316,7 @@ REPLY="";
 
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 sleep 1s
 
@@ -346,7 +365,7 @@ esac
 
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -358,7 +377,7 @@ sleep 1s
 echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -377,7 +396,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo watch $DRAW_INFO
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"

@@ -1,19 +1,34 @@
 #!/bin/ash
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
+# Now count the whole script time
+TIMEA=`date +%s`
 
-# *** PARAMETERS *** #
+# *** VARIABLES *** #
+DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+SLEEP=3.0           # sleep seconds after codeblocks
+DELAY_DRAWINFO=6.0  # sleep seconds to sync msgs from script with msgs from server
+
+# When putting ingredients into cauldron, player needs to leave cauldron
+# to close it. Also needs to pickup and drop the result(s) to not
+# increase carried weight. This version does not adjust player speed after
+# several weight losses.
 
 DIRB=west  # direction back to go
 
 case $DIRB in
-west)  DIRF=east;;
+west)  DIRF=east;;   # direction forward
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
 esac
 
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+
+
+# *** PARAMETERS *** #
 
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
@@ -52,12 +67,12 @@ echo draw 3 "Need <number> ie: script $0 4 ."
         exit 1
 }
 
-echo drawinfo 7 "OK."
+echo draw 7 "OK."
 
 
 # *** Check if standing on a cauldron *** #
 
-echo drawinfo 5 "Checking if on a cauldron..."
+echo draw 5 "Checking if on a cauldron..."
 
 UNDER_ME='';
 echo request items on
@@ -75,52 +90,69 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+beep
 exit 1
 }
 
-echo drawinfo 7 "OK."
+echo draw 7 "OK."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
+
+test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+
 echo unwatch
-echo unwatch drawinfo
-exit $1
+echo unwatch $DRAW_INFO
+beep
+exit $RV
 }
 
 f_emergency_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
-exit $1
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
 }
 
 f_exit_no_space(){
+RV=${1:-0}
+shift
+
 echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 echo draw 3 "Remove that Item and try again."
 echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
+beep
 exit $1
 }
 
 rm -f /tmp/cf_script.rpl   # empty old log file
 
-# *** Check for 4 empty space to DIRB ***#
+# *** Check for 4 empty space to DIRB *** #
 
-echo drawinfo 5 "Checking for space to move..."
+echo draw 5 "Checking for space to move..."
 
 echo request map pos
 
-echo watch request
+#echo watch request
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -131,7 +163,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
@@ -164,7 +196,7 @@ esac
 
 echo request map $R_X $R_Y
 
-echo watch request
+#echo watch request
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -180,25 +212,25 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 done
 
 else
 
-echo drawinfo 3 "Received Incorrect X Y parameters from server"
+echo draw 3 "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo drawinfo 3 "Could not get X and Y position of player."
+echo draw 3 "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo drawinfo 7 "OK."
+echo draw 7 "OK."
 
 
 # *** Monitoring function *** #
@@ -215,7 +247,7 @@ done
 
 
 # *** Actual script to alch the desired balm of first aid *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -240,7 +272,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Readying rod of word of recall - just in case *** #
 
-echo drawinfo 5 "Preparing for recall if monsters come forth..."
+echo draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -248,7 +280,7 @@ REPLY="";
 
 echo request items actv
 
-echo watch request
+#echo watch request
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -266,9 +298,9 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo unwatch request
+#echo unwatch request
 
-echo drawinfo 6 "Done."
+echo draw 6 "Done."
 
 
 # *** Check if cauldron is empty *** #
@@ -277,7 +309,7 @@ echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
 
 
-echo drawinfo 5 "Checking for empty cauldron..."
+echo draw 5 "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -288,7 +320,7 @@ REPLY="";
 
 echo "issue 1 1 get"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -304,14 +336,14 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo drawinfo 3 "Cauldron NOT empty !!"
-echo drawinfo 3 "Please empty the cauldron and try again."
+echo draw 3 "Cauldron NOT empty !!"
+echo draw 3 "Please empty the cauldron and try again."
 f_exit 1
 }
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
-echo drawinfo 7 "OK ! Cauldron IS empty."
+echo draw 7 "OK ! Cauldron SEEMS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -321,17 +353,14 @@ echo "issue 1 1 $DIRF"
 
 # *** Getting Player's Speed *** #
 
-echo drawinfo 5 "Processing Player's speed..."
-
-SLEEP=3.0           # setting defaults
-DELAY_DRAWINFO=6.0
+echo draw 5 "Processing Player's speed..."
 
 ANSWER=
 OLD_ANSWER=
 
 echo request stat cmbt
 
-echo watch request
+#echo watch request
 
 while [ 1 ]; do
 read -t 1 ANSWER
@@ -342,17 +371,17 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
+#echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 #PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo drawinfo 7 "Player speed is $PL_SPEED"
+echo draw 7 "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
-echo drawinfo 7 "Player speed is $PL_SPEED"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+echo draw 7 "Player speed is $PL_SPEED"
 
 if test $PL_SPEED -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
@@ -360,22 +389,28 @@ elif $PL_SPEED -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
-echo drawinfo 6 "Done."
+echo draw 6 "Done."
 
 
 # *** Now LOOPING *** #
 
+FAIL=0
+TIMELB=`date +%s`
+echo draw 4 "OK... Might the Might be with You!"
+
 for one in `seq 1 1 $NUMBER`
 do
+
+TIMEB=`date +%s`
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
 
-#echo watch drawinfo
+#echo watch $DRAW_INFO
 
 echo "issue 1 1 drop 1 water of the wise"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -415,7 +450,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 sleep ${SLEEP}s
 
@@ -425,11 +460,11 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
-#echo watch drawinfo
+#echo watch $DRAW_INFO
 
 echo "issue 1 1 use_skill alchemy"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -440,23 +475,23 @@ echo "$REPLY" >>/tmp/cf_script.rpl
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && f_exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
 
-#echo watch drawinfo
+#echo watch $DRAW_INFO
 
 echo "issue 1 1 get"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -468,7 +503,7 @@ read -t 1 REPLY
 echo "$REPLY" >>/tmp/cf_script.rpl
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
+test "`echo "$REPLY" | grep '.*Nothing to take\!'`"      && NOTHING=1
 test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -476,8 +511,12 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
 
 sleep ${SLEEP}s
 
@@ -487,8 +526,8 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
-if test $NOTHING = 0; then
-        if test $SLAG = 0; then
+if test "$NOTHING" = 0; then
+        if test "$SLAG" = 0; then
         echo "issue 1 1 use_skill sense curse"
         echo "issue 1 1 use_skill sense magic"
         echo "issue 1 1 use_skill alchemy"
@@ -509,11 +548,11 @@ echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
-#echo watch request
+##echo watch request
 
 echo request items on
 
-echo watch request
+#echo watch request
 
 UNDER_ME='';
 UNDER_ME_LIST='';
@@ -533,17 +572,48 @@ sleep 0.1s
 done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo drawinfo 3 "LOOP BOTTOM: NOT ON CAULDRON!"
+echo draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
 f_exit 1
 }
 
-echo unwatch request
+#echo unwatch request
 
 TRIES_SILL=$((NUMBER-one))
-echo drawinfo 4 "Still $TRIES_SILL to go..."
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+echo draw 4 "Time $TIME sec., still $TRIES_SILL laps to go..."
 
 
 done  # *** MAINLOOP *** #
+
+# Now count the whole loop time
+TIMELE=`date +%s`
+TIMEL=$((TIMELE-TIMELB))
+TIMELM=$((TIMEL/60))
+TIMELS=$(( TIMEL - (TIMELM*60) ))
+case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac
+echo draw 5 "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
+
+if test "$FAIL" = 0; then
+ echo draw 7 "You succeeded $one times of $NUMBER ." # green
+else
+if test "$((NUMBER/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 7 "You should increase your Int stat."
+else
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+fi
+fi
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+TIMEY=$((TIMEZ-TIMEA))
+TIMEAM=$((TIMEY/60))
+TIMEAS=$(( TIMEY - (TIMEAM*60) ))
+case $TIMEAS in [0-9]) TIMEAS="0$TIMEAS";; esac
+echo draw 6 "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
 
 
 # *** Here ends program *** #

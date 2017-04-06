@@ -1,14 +1,26 @@
 #!/bin/bash
+# uses arrays
 
 exec 2>>/tmp/cf_script.err
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
 #set empty default
-C=0 #set zero as default
+C=0 # used in arrays, set zero as default
+
+# Set here SKILL and CAULDRON you want to use ** #
+SKILL=woodsman
+#SKILL=alchemy
+# etc.
+
+CAULDRON=stove
+#CAULDRON=cauldron
+# etc.
+
+# When putting ingredients into cauldron, player needs to leave cauldron
+# to close it. Also needs to pickup and drop the result(s) to not
+# increase carried weight. This version does not adjust player speed after
+# several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -18,6 +30,10 @@ east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
 esac
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+echo draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -34,7 +50,10 @@ echo draw 5 "NUMBER times to produce"
 echo draw 5 "ARTIFACT alch with"
 echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
-
+echo draw 4 "PLEASE MANUALLY EDIT SKILL and CAULDRON variables"
+echo draw 4 "in header of this script for your needs."
+echo draw 6 "SKILL variable currently set to '$SKILL'"
+echo draw 6 "CAULDRON var currently set to '$CAULDRON'"
         exit 0
         }
 
@@ -101,11 +120,6 @@ echo draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root
         exit 1
 }
 
-SKILL=woodsman
-#SKILL=alchemy
-
-CAULDRON=stove
-#CAULDRON=cauldron
 
 # *** Check if standing on a $CAULDRON *** #
 UNDER_ME='';
@@ -162,7 +176,7 @@ echo draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
 fi
 
-# *** Check for suffizient amount of ingredient *** #
+# *** Check for sufficient amount(s) of ingredient(s) *** #
 # *** TODO
 
 done
@@ -190,7 +204,7 @@ eightteen) NUMBER_ALCH=18;;
 nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 esac
-test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 
 # *** Actual script to alch the desired water of gem *** #
@@ -215,27 +229,40 @@ test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
+
+
 echo draw 3 "Exiting $0."
+
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
-exit $1
+echo unwatch $DRAW_INFO
+beep
+exit $RV
 }
 
 f_emergency_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
-exit $1
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
 }
 
 #echo "issue 1 1 pickup 0"  # precaution
@@ -254,7 +281,7 @@ REPLY="";
 
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 sleep 1s
 
@@ -303,7 +330,7 @@ esac
 
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -315,7 +342,7 @@ sleep 1s
 echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -334,7 +361,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
@@ -372,7 +399,7 @@ done
 #echo "issue 0 1 drop (magic)"
 #echo "issue 0 1 drop (cursed)"
 
-echo draw 7 "drop slag"
+echo draw 7 "drop slag"  # debug
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 

@@ -16,16 +16,6 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 #define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
-
 
 
 # *** Here begins program *** #
@@ -68,7 +58,7 @@ echo draw 3 "Need <number> ie: script $0 50 ."
 
 
 # *** Actual script to pray multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 for one in `seq 1 1 $NUMBER`
 do

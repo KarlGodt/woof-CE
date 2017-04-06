@@ -12,6 +12,35 @@ LOG_REPLY_FILE=/tmp/cf_script.rpl
 
 rm -f "$LOG_REPLY_FILE"
 
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6
+COL_GREEN=7
+COL_LGREEN=8
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
+
+_draw(){
+test "$*" || return
+COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -94,10 +123,18 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
- case $REPLY in
- *'You grow no more agile.'*) unset CAST_DEX;;
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+ '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+ *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
+ *'This ground is unholy!'*)                     unset CAST_REST;;
+ *'You grow no more agile.'*)                    unset CAST_DEX;;
+ *'You lack the skill '*)                        unset CAST_DEX;;
+ *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+ *'That spell path is denied to you.'*)          unset CAST_DEX;;
  *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
  esac
@@ -135,12 +172,16 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
+ [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
 $REPLY"; break;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
+    *'You search the area.'*) :;;
   '') break;;
   esac
   sleep 0.1
@@ -163,6 +204,12 @@ sleep 1
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 #TRAPS=`echo "$TRAPS" | uniq`
 #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
+
+if test "$DEBUG"; then
+_draw 5 "TRAPS='$TRAPS'"
+_draw 6 "`echo "$TRAPS" | uniq`"
+fi
+
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
@@ -206,17 +253,25 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
+   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
-   *'You successfully disarm '*) break;;
+   *'You successfully disarm '*)
+    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+    break;;
+   *'In fact, you set it off!'*)
+    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+    break ;;
 #   *'Your '*)       :;;  # Your monster beats monster
 #   *'You killed '*) :;;
   '') break;;
   esac
  done
 
-NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+#NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
 
@@ -247,7 +302,9 @@ echo issue 1 1 use_skill lockpicking
   sleep 0.1
   unset REPLY
   read -t 1
-  echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+
   case $REPLY in
   *'Unable to find skill '*)   break 2;;
   *'There is no lock there.'*) break 2;;
@@ -267,10 +324,15 @@ echo issue 1 1 use_skill lockpicking
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
-  { if test "$TOGGLE" = $INF_TOGGLE; then _cast_restoration; TOGGLE=0; else TOGGLE=$((TOGGLE+1)); fi; }
+  if test "$TOGGLE" = $INF_TOGGLE; then
+   $CAST_REST
+       TOGGLE=0;
+  else TOGGLE=$((TOGGLE+1));
+  fi
+ }
   #_cast_dexterity
   $CAST_DEX
-  _cast_probe
+  $CAST_PROBE
   echo draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
   }
 

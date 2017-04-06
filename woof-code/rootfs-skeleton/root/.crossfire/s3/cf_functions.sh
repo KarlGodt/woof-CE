@@ -134,24 +134,24 @@ _draw(){
     echo draw $COLOUR "$MSG"
 }
 
-_black()  { echo draw 0  "$*"; }
-_bold()   { echo draw 1  "$*"; }
-_blue()   { echo draw 5  "$*"; }
-_navy()   { echo draw 2  "$*"; }
-_lgreen() { echo draw 8  "$*"; }
-_green()  { echo draw 7  "$*"; }
-_red()    { echo draw 3  "$*"; }
-_dorange(){ echo draw 6  "$*"; }
-_orange() { echo draw 4  "$*"; }
-_gold()   { echo draw 11 "$*"; }
-_tan()    { echo draw 12 "$*"; }
-_brown()  { echo draw 10 "$*"; }
-_gray()   { echo draw 9  "$*"; }
+_black()  { _draw 0  "$*"; }
+_bold()   { _draw 1  "$*"; }
+_blue()   { _draw 5  "$*"; }
+_navy()   { _draw 2  "$*"; }
+_lgreen() { _draw 8  "$*"; }
+_green()  { _draw 7  "$*"; }
+_red()    { _draw 3  "$*"; }
+_dorange(){ _draw 6  "$*"; }
+_orange() { _draw 4  "$*"; }
+_gold()   { _draw 11 "$*"; }
+_tan()    { _draw 12 "$*"; }
+_brown()  { _draw 10 "$*"; }
+_gray()   { _draw 9  "$*"; }
 alias _grey=_gray
 
 __debug(){
 test "$DEBUG" || return 0
-    echo draw 3 "DEBUG:$@"
+    _draw 3 "DEBUG:$@"
 }
 
 _debug(){
@@ -159,7 +159,7 @@ test "$DEBUG" || return 0
 while read -r line
 do
 test "$line" || continue
-echo draw 3 "DEBUG:$line"
+_draw 3 "DEBUG:$line"
 done <<EoI
 `echo "$*"`
 EoI
@@ -170,7 +170,7 @@ test "$DEBUGX" || return 0
 while read -r line
 do
 test "$line" || continue
-echo draw 3 "DEBUG:$line"
+_draw 3 "DEBUG:$line"
 done <<EoI
 `echo "$*"`
 EoI
@@ -197,7 +197,7 @@ test -e "$SOUND_DIR"/${1}.raw && \
            aplay $Q $VERB -d $DUR "$SOUND_DIR"/${1}.raw
 }
 
-__get_player_name(){
+___get_player_name(){
 
 local ANSWER
 
@@ -209,30 +209,68 @@ sleep 0.1
 echo issue 1 1 hug $player_name #case insensitive!
 sleep 0.1
 read -t 1 ANSWER
-echo draw 2 "ANSWER=$ANSWER"
+_draw 2 "ANSWER=$ANSWER"
 case $ANSWER in *You*hug*yourself*) MY_NAME="$player_name"; break 1;; esac
 sleep 0.1
 unset ANSWER
 done
 
 if test "$MY_NAME"; then
- echo draw 2 "Your name found out to be $MY_NAME"
+ _draw 2 "Your name found out to be $MY_NAME"
  test -f "${MY_SELF%/*}"/"${MY_NAME}".conf || echo '#' "${MY_NAME}'s config file" >"${MY_SELF%/*}"/"${MY_NAME}".conf
  true
 else
- echo draw 3 "Error finding your player name."
+ _draw 3 "Error finding your player name."
  false
 fi
 
 echo unwatch drawinfo
 }
 
-_get_player_name(){
+__get_player_name(){
 unset MY_NAME
 #test -s "${MY_SELF%/*}"/player_name.$PPID && read -r MY_NAME <"${MY_SELF%/*}"/player_name.$PPID
 test -s "${TMP_DIR}"/player_name.$PPID && read -r MY_NAME <"${TMP_DIR}"/player_name.$PPID
 test "$MY_NAME"
 }
+
+_get_player_name(){
+
+local r p N P
+
+echo request player
+while :;
+do
+read -t 1
+_draw 10 "REQUEST PLAYER:'$REPLY'" #debug
+c=$((c+1))
+test "$c" = 9 && break
+test "$REPLY" || break
+MY_NAME_ALL="$REPLY"
+unset REPLY
+sleep 0.1
+done
+
+read r p N P MY_NAME_W_TITLE <<EoI
+`echo "$MY_NAME_ALL"`
+EoI
+
+#MY_NAME=`echo "$MY_NAME_W_TITLE" | sed 's% the .*%%'`  #MIKE the Mechanic
+MY_NAME=`echo "$MY_NAME_W_TITLE" | awk '{print $1}'`    #Nico a wonderful terrible
+_debug 7 "Player:'$MY_NAME'"
+
+if test "$MY_NAME"; then
+ _draw 2 "Your name found out to be $MY_NAME"
+ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf || echo '#' "${MY_NAME}'s config file" >"${MY_SELF%/*}"/"${MY_NAME}".conf
+ true
+else
+ _draw 3 "Error finding your player name."
+ false
+fi
+
+#test "$MY_NAME"
+}
+
 
 _say_start_msg(){
 # *** Here begins program *** #
@@ -308,7 +346,7 @@ exit $1
 }
 
 _just_exit(){
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch $DRAWINFO
 exit $1
