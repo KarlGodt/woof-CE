@@ -1,10 +1,11 @@
 #!/bin/ash
 # Karl Reimer Godt in June 2012
 # usual Puppy license
-Version='1.2 Puppy_Macpup-Foxy3 KRG'
+DEBUG=1
+Version='1.3 Puppy_Macpup-Foxy3 KRG'
 echo "$0:$Version:$*:`date`:$$:%PPID:$PPID"
 . /etc/rc.d/f4puppy5
-echo "${0##*/}"
+_info "$0:${0##*/}"
 
 PATH=/usr/X11/bin:/usr/local/bin:$PATH # xmessage in /usr/X11/bin , Xdialog in /usr/local/bin
 LD_LIBRARY_PATH=/usr/X11/lib:/usr/local/lib:$LD_LIBRARY_PATH # Xdialog libpixman-1.0.so
@@ -134,7 +135,58 @@ _check_if_already_running ${0##*/} && {
 # REM : Set DISPLAY variable if event listener ( acpid )
 #       started before xinit started X
 test "$DISPLAY" || { pidof X >>$OUT && export DISPLAY=':0'; }
-echo test DISPLAY
+
+_assign_correct_display(){
+ pidof X >>$OUT || return 3  #
+  # REM : Get and switch to TTY X is currently using
+  #       In case user is on some console
+  HAVE_FGC=`fgconsole`
+  echo "HAVE_FGC=$HAVE_FGC"
+  ttyX_=`busybox ps -o pid,tty,args | awk '{if (match($2, "4,[0-9]?")) print "tty:"$2" "$3" "$4" "$5}' | grep -E 'X :[0-9]+'`
+  if test "HAVE_FGC"; then
+   ttyX_=`echo "$ttyX_" | grep "tty:4,$HAVE_FGC "`
+  fi
+  echo "ttyX_=$ttyX_"
+  ttyX=${ttyX_%% *}
+  ttyX=${ttyX#*:}
+  echo "ttyX=$ttyX"
+
+  case $ttyX in
+  tty[0-9]*)    vtNR=${ttyX##*tty};;
+  [0-9],[0-9]*) maj=${ttyX%,*}; min=${ttyX#*,}
+             #devTTY=`stat -c %t" "%T" "%n /dev/tty* | awk "{if (\$1 == $maj && \$2 == $min) print \$3}"`
+              devTTY=`stat -c %t" "%T" "%n /dev/tty* | awk "{if (\\$1 == $maj && \\$2 == $min) print \\$3}"`
+              vtNR=${devTTY//[^[:digit:]]/}
+              ;;
+  esac
+ # REM : Now switch
+ echo "vtNR=$vtNR"
+ test "$vtNR" && { chvt $vtNR; sleep 1; }
+
+# REM: Assign corrcet DISPLAY variable
+if test "$vtNR"; then
+HAVE_X=`busybox ps -o tty,args | awk '{if (match($1, "4,[0-9]?")) print "tty:"$1" "$2" "$3" "$4}' | grep -E 'X :[0-9]+'`
+echo "HAVE_X=$HAVE_X"
+DISPLAY_NEW=`echo "$HAVE_X" | grep "^tty:4,$vtNR " | awk '{print $3}'`
+echo "DISPLAY_NEW=$DISPLAY_NEW"
+DISPLAY=${DISPLAY:+"$DISPLAY_NEW"}
+echo "DISPLAY=$DISPLAY"
+DISPLAY=${DISPLAY:-":0"}
+echo "DISPLAY=$DISPLAY"
+export DISPLAY
+else true
+fi
+
+# REM : Some XxY values to place messages on screen
+rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
+ rootCENTER_X=$((${rootSCREEN_XY%%x*}/2))
+ _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
+ rootCENTER_Y=$((_Y_ / 2))
+
+}
+_assign_correct_display
+test "$DISPLAY" || { pidof X >>$OUT && export DISPLAY=':0'; }
+echo "test DISPLAY='$DISPLAY'"
 
 # REM : _xmessage() to switch if no DISPLAY
 #       if DISPLAY then run xmessage
@@ -1236,6 +1288,8 @@ aplay $VERB $Q -N /usr/share/audio/2barks.au
 #       or
 #       console_select.sh
 if pidof X >>$OUT ; then
+
+__old_get_tty__(){
   # REM : Get and switch to TTY X is currently using
   #       In case iser is on some console
   ttyX_=`busybox ps -o pid,tty,args | awk '{if (match($2, "4,[0-9]?")) print "tty:"$2" "$3" "$4" "$5}' | grep -w 'X' | tail -n1`
@@ -1259,6 +1313,17 @@ rootSCREEN_XY=`_get_screen_resolution`    || rootSCREEN_XY=800x600+0+0
  _Y_=$(echo "$rootSCREEN_XY" | awk -F'[x+]' '{print $2}')
  rootCENTER_Y=$((_Y_ / 2))
 
+# REM: Assign corrcet DISPLAY variable
+if test "$vtNR"; then
+HAVE_X=`busybox ps -o tty,args | awk '{if (match($1, "4,[0-9]?")) print "tty:"$1" "$2" "$3" "$4}' | grep -F 'X :'`
+DISPLAY_NEW=`echo "$HAVE_X" | grep "^tty:4,$vtNR " | awk '{print $3}'`
+DISPLAY=${DISPLAY:+"$DISPLAY_NEW"}
+DISPLAY=${DISPLAY:-":0"}
+export DISPLAY
+fi
+}
+
+ _assign_correct_display
  #REM : Now do Xdialog
  _do_menu_Xdialog_menubox
 
