@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/ash
 
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
@@ -165,6 +165,8 @@ sleep 1s
 
 done
 
+echo unwatch $DRAW_INFO
+
 done #NUMBER
 
     else #PARAM_1
@@ -228,6 +230,8 @@ echo unwatch $DRAW_INFO
 sleep 1s
 
 done
+
+echo unwatch $DRAW_INFO
 
 done #true
 

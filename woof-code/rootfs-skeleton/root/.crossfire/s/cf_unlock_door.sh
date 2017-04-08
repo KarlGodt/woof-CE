@@ -334,7 +334,6 @@ if test "$FOREVER"; then
   $CAST_DEX
   $CAST_PROBE
   echo draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
-  }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;

@@ -1,4 +1,6 @@
 #!/bin/bash
+# uses <<<
+
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -6,30 +8,35 @@ echo draw 3 "with '$*' as arguments ."
 
 # *** Check for parameters *** #
 #[ "$*" ] && {
-if test "$*"; then
+#if test "$*"; then
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+#test "$PARAM_1" = "help" && {
+case $PARAM_1 in -h|*help)
 
 echo draw 5 "Script to kill pets except the ones"
 echo draw 5 "given on parameter line."
 echo draw 2 "Syntax:"
 echo draw 5 "$0 pet1 pet2 .."
-echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
+echo draw 2 ":space: in petnames need to be replaced"
+echo draw 2 "by underscore '_'"
 echo draw 5 "for ex. green slime to green_slime ."
         exit 0
-        }
-
+#        }
+;;
+'')
 #} || {
-else
+#else
 echo draw 3 "Script needs pets to keep as argument."
         exit 1
+;;
+esac
 #}
-fi
+#fi
 
 test "$1" || {
-echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
+echo draw 3 "Need <pet_name [pet_name2]> ie: script $0 nazgul spectre ."
         exit 1
 }
 
@@ -70,7 +77,9 @@ done
 
 echo unwatch drawinfo
 
-PETS_KILL=`echo "$PETS_HAVE" | grep -v -E "$PETS_KEEP"`
+
+PETS_HAVE=`echo "$PETS_HAVE" | grep -E -e ' - level [0-9]+'`
+PETS_KILL=`echo "$PETS_HAVE" | grep -v -i -E -e "$PETS_KEEP"`
 echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
 
 
@@ -105,6 +114,7 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>/tmp/cf_pets.rpl
 
+if test "$PETS_KILL"; then
 while read onePET
 do
 test "$onePET" || continue
@@ -116,7 +126,9 @@ sleep 1s
 done<<EoI
 `echo "$PETS_KILL"`
 EoI
-
+else
+echo draw 2 "No pets found."
+fi
 
 
 
