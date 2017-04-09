@@ -1,5 +1,5 @@
 #!/bin/ash
-exec 2>/tmp/cf_icecube.err
+#exec 2>/tmp/cf_icecube.err  # DEBUG
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1    # black bold
@@ -26,7 +26,7 @@ LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
-DEBUG=1
+DEBUG=
 _debug(){
 [ "DEBUG" ] || return 0
 [ "$*" ] || return 0
@@ -75,7 +75,7 @@ echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 ;;
 *)
 # *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as first option allowed."
         exit 1 #exit if other input than letters
@@ -88,6 +88,8 @@ shift
 sleep 0.1
 done
 
+
+# ** functions ** #
 _count_time(){
 
 test "$TIMEB" || return 1
@@ -110,18 +112,6 @@ echo draw 1 "You failed    '$FAIL_ALL' times."
 echo draw 7 "You succeeded '$SUCCESS' times."
 _count_time && echo draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
 _beep
-}
-
-f_exit(){ # unused
-RV=${1:-0}
-shift
-test "$*" && echo draw 5 "$*"
-echo draw 3 "Forcing exiting $0."
-_say_end_msg
-echo unwatch
-#echo unwatch $DRAW_INFO
-_beep
-exit $1
 }
 
 # *** Actual script to  melt icecube multiple times *** #
@@ -203,22 +193,9 @@ echo unwatch $DRAW_INFO
 return 0
 }
 
+# *** main *** #
 
 TIMEB=`date +%s`
-
-#    if test "$NUMBER"; then
-
-#for one in `seq 1 1 $NUMBER`
-#do
-
-#sleep 0.5
-#_mark_item icecube || break
-#sleep 0.5s
-#_apply_flint_and_steel || break
-
-#done #NUMBER
-
-#    else #PARAM_1
 
 while :;
 do
@@ -231,10 +208,7 @@ _apply_flint_and_steel || break
 one=$((one+1))
 test "$one" = "$NUMBER" && break
 
-done #true
+done
 
-#    fi #^!PARAM_1
-
-#TIMEE=`date +%s`
-
+# *** END *** #
 _say_end_msg
