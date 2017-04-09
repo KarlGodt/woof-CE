@@ -123,9 +123,9 @@ _mark_item(){
 local ITEM=${*:-icecube}
 local REPLY=
 #local REPLY1=
-local OLD_REPLY=
+#local OLD_REPLY=
 
-echo unwatch
+echo unwatch $DRAW_INFO
 sleep 0.5
 echo watch $DRAW_INFO
 echo "issue 1 1 mark $ITEM"
@@ -135,16 +135,20 @@ echo "issue 1 1 mark $ITEM"
  [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  _debug "mark:'$REPLY'"
 
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && return 2
-
- test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
+ case "$REPLY" in
+ *'Could not find an object that matches'*) return 2;;
+ '') break;;
+ esac
+
+ #test "$REPLY" || break
+ #test "$REPLY" = "$OLD_REPLY" && break
+ #OLD_REPLY="$REPLY"
+ unset REPLY
  sleep 0.1s
  done
 
-echo unwatch $DRAW_INFO
+#echo unwatch $DRAW_INFO
 
 }
 
@@ -158,7 +162,7 @@ do
 
 REPLY=
 
-echo unwatch
+echo unwatch $DRAW_INFO
 sleep 0.5
 echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
@@ -183,12 +187,12 @@ echo "issue 1 1 apply flint and steel"
  sleep 0.1s
  done
 
-echo unwatch $DRAW_INFO
+#echo unwatch $DRAW_INFO
 
-sleep 1s
+sleep 0.5s
 done
 
-echo unwatch $DRAW_INFO
+#echo unwatch $DRAW_INFO
 
 return 0
 }
