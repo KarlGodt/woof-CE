@@ -206,19 +206,19 @@ return 0
 
 TIMEB=`date +%s`
 
-    if test "$NUMBER"; then
+#    if test "$NUMBER"; then
 
-for one in `seq 1 1 $NUMBER`
-do
+#for one in `seq 1 1 $NUMBER`
+#do
 
-sleep 0.5
-_mark_item icecube || break
-sleep 0.5s
-_apply_flint_and_steel || break
+#sleep 0.5
+#_mark_item icecube || break
+#sleep 0.5s
+#_apply_flint_and_steel || break
 
-done #NUMBER
+#done #NUMBER
 
-    else #PARAM_1
+#    else #PARAM_1
 
 while :;
 do
@@ -228,9 +228,12 @@ _mark_item icecube || break
 sleep 0.5s
 _apply_flint_and_steel || break
 
+one=$((one+1))
+test "$one" = "$NUMBER" && break
+
 done #true
 
-    fi #^!PARAM_1
+#    fi #^!PARAM_1
 
 #TIMEE=`date +%s`
 
