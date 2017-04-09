@@ -23,12 +23,12 @@ DRAW_INFO=drawinfo # drawextinfo (older clients)
 #logging
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
-LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+#LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
-DEBUG=
+#DEBUG=
 _debug(){
-[ "DEBUG" ] || return 0
+[ "$DEBUG" ] || return 0
 [ "$*" ] || return 0
 while read -r line
 do
@@ -70,9 +70,14 @@ echo draw 5 "Syntax:"
 echo draw 5 "script $0 [number]"
 echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
 ;;
+-d|*debug)    DEBUG=$((DEBUG+1));;
+-L|--logging) LOGGING=$((LOGGING+1));;
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -122,8 +127,6 @@ _mark_item(){
 
 local ITEM=${*:-icecube}
 local REPLY=
-#local REPLY1=
-#local OLD_REPLY=
 
 echo unwatch $DRAW_INFO
 sleep 0.5
@@ -135,27 +138,20 @@ echo "issue 1 1 mark $ITEM"
  [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
  _debug "mark:'$REPLY'"
 
- #test "$REPLY" = "$OLD_REPLY" && break
  case "$REPLY" in
  *'Could not find an object that matches'*) return 2;;
  '') break;;
  esac
 
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- #OLD_REPLY="$REPLY"
  unset REPLY
  sleep 0.1s
  done
-
-#echo unwatch $DRAW_INFO
 
 }
 
 _apply_flint_and_steel(){
 
 local REPLY
-#local REPLY2
 
 while :;
 do
@@ -187,12 +183,8 @@ echo "issue 1 1 apply flint and steel"
  sleep 0.1s
  done
 
-#echo unwatch $DRAW_INFO
-
 sleep 0.5s
 done
-
-#echo unwatch $DRAW_INFO
 
 return 0
 }
