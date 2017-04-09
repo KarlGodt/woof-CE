@@ -38,6 +38,7 @@ done<<EoI
 `echo "$@"`
 EoI
 }
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -209,74 +210,10 @@ TIMEB=`date +%s`
 
 for one in `seq 1 1 $NUMBER`
 do
-sleep 0.1
 
-__old_mark_icecube__(){
-REPLY=
-OLD_REPLY=
-
-echo watch $DRAW_INFO
-echo "issue 1 1 mark icecube"
-
- while :; do
- read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
- _debug "mark:'$REPLY'"
-
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
-
- test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
-
-echo unwatch $DRAW_INFO
-}
-
+sleep 0.5
 _mark_item icecube || break
-sleep 1s
-
-
-__old_apply_flint_and_steel__(){
-
-while :;
-do
-
-REPLY=
-
-echo watch $DRAW_INFO
-echo "issue 1 1 apply flint and steel"
-
- while :; do
- read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
- _debug "apply:'$REPLY'"
-
- case $REPLY in
- *"Could not find any match to the flint and steel."*) break 3;;
- *You*need*to*mark*a*lightable*object.) break 2;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1));;
- *You*fail*used*up*) break 3;;
- *You*light*icecube*) SUCCESS=$((SUCCESS+1)); break 2;;
- *Your*) :;;
- '') break;;
- *)  :;;
- esac
-
- unset REPLY
- sleep 0.1s
- done
-
-echo unwatch $DRAW_INFO
-
-sleep 1s
-done
-
-echo unwatch $DRAW_INFO
-}
-
+sleep 0.5s
 _apply_flint_and_steel || break
 
 done #NUMBER
@@ -285,73 +222,10 @@ done #NUMBER
 
 while :;
 do
-sleep 0.1
 
-__old_mark_icecube__(){
-REPLY=
-OLD_REPLY=
-
-echo watch $DRAW_INFO
-echo "issue 1 1 mark icecube"
-
-while :; do
- read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
- _debug "mark:'$REPLY'"
-
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
- test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
-
-echo unwatch $DRAW_INFO
-}
-
+sleep 0.5
 _mark_item icecube || break
-sleep 1s
-
-
-__old_apply_flint_and_steel__(){
-while :;
-do
-
-
-REPLY=
-
-echo watch $DRAW_INFO
-echo "issue 1 1 apply flint and steel"
-
- while :; do
- read -t 1 REPLY
- [ "LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
- _debug "apply:'$REPLY'"
-
- case $REPLY in
- *"Could not find any match to the flint and steel."*) break 3;;
- *You*need*to*mark*a*lightable*object.) break 2;;
- *fail.) FAIL_ALL=$((FAIL_ALL+1)) ;;
- *You*fail*used*up*) break 3;;
- *You*light*icecube*) SUCCESS=$((SUCCESS+1)); break 2;;
- *Your*) :;;
- '') break;;
- *)  :;;
- esac
-
- unset REPLY
- sleep 0.1s
- done
-
-echo unwatch $DRAW_INFO
-sleep 1s
-
-done
-
-echo unwatch $DRAW_INFO
-}
-
+sleep 0.5s
 _apply_flint_and_steel || break
 
 done #true
@@ -360,27 +234,4 @@ done #true
 
 #TIMEE=`date +%s`
 
-__count_time(){
-
-test "$TIMEB" || return 1
-
-TIMEE=`date +%s`
-
-TIMEX=$((TIMEE-TIMEB))
-TIMEM=$((TIMEX/60))
-TIMES=$(( TIMEX - (TIMEM*60) ))
-
-case $TIMES in [0-9]) TIMES="0$TIMES";; esac
-
-return 0
-}
-
-__say_end_msg(){
-# *** Here ends program *** #
-echo draw 2 "$0 is finished."
-echo draw 1 "You failed    '$FAIL_ALL' times."
-echo draw 7 "You succeeded '$SUCCESS' times."
-__count_time && echo draw ${COL_LGREEN:-8} "Script loop took $TIMEM:$TIMES minutes."
-
-}
 _say_end_msg
