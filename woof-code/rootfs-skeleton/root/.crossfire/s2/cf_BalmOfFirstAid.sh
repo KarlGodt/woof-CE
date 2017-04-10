@@ -114,11 +114,17 @@ echo draw 2 "$0 is started.."
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
 
-[ "$*" ] && {
+test "$*" || {
+echo draw 3 "Need <number> ie: script $0 4 ."
+        exit 1
+}
+
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
@@ -127,9 +133,22 @@ echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
 
-        exit 0
-        }
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
+        exit 0
+;;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'')
+echo draw 3 "Script needs number of alchemy attempts as argument."
+echo draw 3 "Need <number> ie: script $0 4 ."
+ exit 1
+;;
+
+*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
@@ -137,16 +156,21 @@ echo draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
+#test "$1" || {
+#echo draw 3 "Need <number> ie: script $0 4 ."
+#        exit 1
+#}
 
 echo draw 7 "OK."
 

@@ -20,12 +20,18 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
-#[ "$*" ] && {
-if test "$*"; then
+
+test "$*" || {
+echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
+        exit 1
+}
+
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to kill pets except the ones"
 echo draw 5 "given on parameter line."
@@ -34,19 +40,26 @@ echo draw 5 "$0 pet1 pet2 .."
 echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
 echo draw 5 "for ex. green slime to green_slime ."
         exit 0
-        }
+;;
 
-#} || {
-else
-echo draw 3 "Script needs pets to keep as argument."
-        exit 1
-#}
-fi
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
 
-test "$1" || {
-echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
-        exit 1
-}
+*) :
+;;
+esac
+shift
+sleep 0.1
+done
+
+
+#else
+#echo draw 3 "Script needs pets to keep as argument."
+#        exit 1
+#fi
+
+
 
 
 keepPETS="`echo "$*" | sed 's/killer_bee/killer-bee/;s/dire_wolf_sire/dire-wolf-sire/;s/dire_wolf/dire-wolf/'`"

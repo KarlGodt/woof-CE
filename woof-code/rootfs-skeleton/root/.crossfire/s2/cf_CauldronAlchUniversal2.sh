@@ -58,11 +58,21 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
-[ "$*" ] && {
-PARAM_1="$1"
 
+#test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
+test "$*" || {
+echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+        exit 1
+}
+
+until test "$#" = 0
+do
+PARAM_1="$1"
+case "$PARAM_1" in -h|*"help")
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
@@ -74,9 +84,15 @@ echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
 
-        exit 0
-        }
 
+        exit 0
+;;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
+*)
 SKILL="$PARAM_1"
 case $SKILL in
 alchemy|alchemistry)        CAULDRON=cauldron;;
@@ -147,18 +163,20 @@ INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
 echo "INGRED[$C]='${INGRED[$C]}'" >>"$LOG_TEST_FILE"
 done
 
+;;
 
-} || {
-echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
-        exit 1
-}
+esac
+shift
+sleep 0.1
+done
 
-test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
-echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
-echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
-        exit 1
-}
+
+#} || {
+#echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+#        exit 1
+#}
+
+
 
 
 # *** Check if standing on a $CAULDRON *** #
@@ -284,7 +302,7 @@ nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 *) echo draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
 esac
-test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 
 # *** Actual script to alch the desired water of gem *** #

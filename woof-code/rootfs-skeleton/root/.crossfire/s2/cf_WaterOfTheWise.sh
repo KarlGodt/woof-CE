@@ -113,12 +113,19 @@ _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+test "$*" || {
+echo draw 3 "Need <number> ie: script $0 3 ."
+        exit 1
+}
+
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
 
+case "$PARAM_1" in -h|*"help")
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 NUMBER"
@@ -126,9 +133,18 @@ echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of the Wise ."
 
-        exit 0
-        }
+echo draw 4 "Options:"
+echo draw 4 "-d  to turn on debugging."
+echo draw 4 "-L  to log to $LOG_REPLY_FILE ."
 
+        exit 0
+;;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
+*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
@@ -136,16 +152,17 @@ echo draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 3 ."
-        exit 1
-}
 
 # *** Check if standing on a cauldron *** #
 
@@ -169,6 +186,7 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
+_beep
 exit 1
         }
 
@@ -226,17 +244,17 @@ echo unwatch request
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 #PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"
+echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"
+echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
-  if test $PL_SPEED -gt 35; then
+  if test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif test $PL_SPEED -gt 25; then
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
-elif test $PL_SPEED -gt 15; then
+elif test "$PL_SPEED" -gt 15; then
 SLEEP=3.0; DELAY_DRAWINFO=6.0
 fi
 
@@ -351,6 +369,7 @@ done
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
 echo draw 3 "Cauldron NOT empty !!"
 echo draw 3 "Please empty the cauldron and try again."
+_beep
 f_exit 1
 }
 

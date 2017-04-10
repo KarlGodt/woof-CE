@@ -15,17 +15,6 @@
 #define NDI_BROWN       10      /**< Sienna. */
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
-#define NDI_MAX_COLOR   12      /**< Last value in. */
-#
-#define NDI_COLOR_MASK  0xff    /**< Gives lots of room for expansion - we are
-#                                 *   using an int anyways, so we have the
-#                                 *   space to still do all the flags.
-#                                 */
-#define NDI_UNIQUE      0x100   /**< Print immediately, don't buffer. */
-#define NDI_ALL         0x200   /**< Inform all players of this message. */
-#define NDI_ALL_DMS     0x400   /**< Inform all logged in DMs. Used in case of
-#                                 *   errors. Overrides NDI_ALL. */
-
 
 
 # *** Here begins program *** #
@@ -49,6 +38,8 @@ esac
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
+DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
 #logging
 LOGGING=1
 TMP_DIR=/tmp/crossfire_client
@@ -71,11 +62,19 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
+#test "$1" -a "$2" || {
+test "$*" || {
+echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
+        exit 1
+}
+
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of GEM."
 echo draw 7 "Syntax:"
@@ -87,8 +86,13 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of GEM ."
 
         exit 0
-        }
+;;
 
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
 test "$PARAM_1test" && {
@@ -106,23 +110,25 @@ echo draw 3 "Only :digit: numbers as second options allowed."
         }
 
 NUMBER=$PARAM_2
-} || {
-echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
-        exit 1
-}
+;;
+esac
+shift
+sleep 0.1
+done
 
-test "$1" -a "$2" || {
-echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
+#        exit 1
+#}
 
-if test ! "$GEM"; then #set fallback
-GEM=diamond
+
+#if test ! "$GEM"; then #set fallback
+#GEM=diamond
 #GEM=sapphire
 #GEM=ruby
 #GEM=emerald
 #GEM=pearl
-fi
+#fi
 
 if test ! "$NUMBER"; then
 echo draw 3 "Need a number of items to alch."
@@ -136,7 +142,7 @@ exit 1
 fi
 
 test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
-  -o "$GEM" = ruby -o "$GEM" = sapphire && {
+  -o "$GEM" = ruby -o "$GEM" = sapphire || {
 echo draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
@@ -230,7 +236,7 @@ f_check_on_cauldron
 #echo draw 7 "Done."
 
 # *** Actual script to alch the desired water of gem *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -262,7 +268,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
@@ -280,7 +286,7 @@ TIMEB=${TIMEE:-`date +%s`}
 # *** open the cauldron *** #
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 # *** drop ingredients *** #
 echo "issue 1 1 drop 1 water of the wise"
@@ -347,7 +353,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 sleep 1s
 
@@ -362,7 +368,7 @@ f_check_on_cauldron
 echo "issue 1 1 use_skill alchemy"
 
 #TOTO monsters
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -381,11 +387,11 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 echo "issue 1 1 get"
 
@@ -405,7 +411,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 sleep 1s
 
@@ -417,7 +423,7 @@ sleep 1s
 
 [ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'" #DEBUG
 
-if test $NOTHING = 0; then
+if test "$NOTHING" = 0; then
 
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"

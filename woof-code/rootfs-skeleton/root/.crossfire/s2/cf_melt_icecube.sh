@@ -76,8 +76,11 @@ echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
 ;;
--d|*debug)    DEBUG=$((DEBUG+1));;
--L|--logging) LOGGING=$((LOGGING+1));;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[0-9]/}"

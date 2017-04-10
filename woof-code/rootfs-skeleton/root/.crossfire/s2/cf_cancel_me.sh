@@ -20,19 +20,30 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+test "$*" || {
+echo draw 3 "Need <number> ie: script $0 50 ."
+        exit 1
+}
+
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to"
 echo draw 5 "apply rod of cancellation"
 echo draw 5 "and run fire center"
 
         exit 0
-        }
+;;
 
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+'') :;;
+
+*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -41,22 +52,23 @@ echo draw 3 "Only :digit: numbers as first option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+esac
+shift
+sleep 0.1
+done
 
-} || {
-echo draw 3 "Script needs number of cancellation attempts as argument."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs number of cancellation attempts as argument."
+#        exit 1
+#}
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 50 ."
-        exit 1
-}
 
 # TODO : Check if +items applied and or in inventory.
 
 
 # *** Actual script to pray multiple times *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 echo "issue 1 1 apply $ITEM_CANCEL"
 

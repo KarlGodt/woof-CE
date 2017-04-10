@@ -26,6 +26,10 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
+DELAY_DRAWINFO=4  #seconds 4=speed 0.32
+
+DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
 #set empty default
 C=0 #set zero as default
 
@@ -59,7 +63,8 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+#test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
@@ -71,7 +76,9 @@ echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 
         exit 0
-        }
+#        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 
@@ -251,8 +258,9 @@ eightteen) NUMBER_ALCH=18;;
 nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 esac
-test $NUMBER_ALCH -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
+
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 # *** Actual script to alch the desired water of gem *** #
 
@@ -286,7 +294,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
@@ -307,7 +315,7 @@ REPLY="";
 
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 sleep 1s
 
@@ -374,7 +382,7 @@ esac
 
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -387,7 +395,7 @@ echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -406,7 +414,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
@@ -448,7 +456,7 @@ echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=4  #speed 0.32
+#DELAY_DRAWINFO=4  #speed 0.32
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))

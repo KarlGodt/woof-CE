@@ -60,17 +60,21 @@ sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 -h|*help)       _usage;;
 -I|*infinite)   FOREVER=1;;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+
 '')     :;;
 *)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
-sleep 1
+sleep 0.1
 shift
 #echo draw "'$#'"
 
 done
 
 readonly NUMBER DIR DIRN
-echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
+echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'" # DEBUG
 
 
 # TODO: check for near doors and direct to them
