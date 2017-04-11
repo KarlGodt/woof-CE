@@ -24,7 +24,7 @@
 #w476 fix codepage for vfat f.s.
 #w477 fix pmount crash when running xvesa.
 
-
+DEBUG=    # set to anything to enable, empty to disable
 TIMEA=`date +%s`
 
 #using ${$} which is pid of script...
@@ -53,22 +53,54 @@ else
 fi
 _debug "SPACE='$SPACE'"
 
-yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Puppy Drive Mounter
+_debug "$*"
 
-Please wait, probing hardware..." & X1PID=$!
-
-#v4.01 passed param, choose which tab to be "on top"...
-TOPTAB=''
-if [ "$1" ];then
- TOPTAB="$1" #also allow full tab names usbdrv,optical,drive,card,floppy to be passed.
+#TOPTAB=''
+TOPTAB=${TOPTAB:-"$1"} #also allow full tab names usbdrv,optical,drive,card,floppy to be passed.
+until test $# = 0;
+do sleep 0.1
+#v4.01 passed param from pup_event_frontend_d, choose which tab to be "on top"...
  case "$1" in "any") TOPTAB="drive";; #see pup_eventd
  #pup_eventd calls pmount with just two letters...
  "sd") TOPTAB="usbdrv";;
  "sr") TOPTAB="optical";;
  "mm") TOPTAB="card";;
  "fd") TOPTAB="floppy";;
- esac
-fi
+
+#+++2017-04-10 add nameDISK as parameter
+ # since it might have been "false" alarm by pup_event_frontend_d
+ # because some modeswitching is going on or no card inserted in reader
+ # param 2 send by AppRun / drive_all
+ /dev/fd[0-9])  _notice "'$1'"
+ [ -e /sys/class/block/${1##*/} ] || exit 0
+ ;;
+ /dev/hd[a-z])  _notice "'$1'"
+ [ -e /sys/class/block/${1##*/} ] || exit 0
+ ;;
+ /dev/sr[0-9])  _notice "'$1'"
+ [ -e /sys/class/block/${1##*/} ] || exit 0
+ ;;
+ /dev/scd[0-9]) _notice "'$1'"
+ [ -e /sys/class/block/${1##*/} ] || exit 0
+ ;;
+ /dev/*[0-9])   _notice "'$1'"
+ [ -e /sys/class/block/${1##*/} ] || exit 0
+ ;;
+ /dev/) :;;  # drive_all
+ /dev/*) _notice "'$1'"  # drive without partition
+ ls -1 /sys/block/${1##*/}/${1##*/}* >>$OUT 2>>$ERR || exit 0
+ ;;
+
+ usbdrv|optical|drive|card|floppy) :;;
+ *) _notice "Unrecognized '$1'";;
+esac
+shift
+done
+
+yaf-splash -font "8x16" -outline 0 -margin 4 -bg orange -text "Puppy Drive Mounter
+
+Please wait, probing hardware..." & X1PID=$!
+
 
 #v3.98...
 HAVEMUT2='no'
@@ -161,7 +193,7 @@ done
 #v4.01 find the tabs...
 #old probedisk has: cdrom, disk, floppy, Direct-Access.
 #probedisk2 has: drive, optical, usbdrv, card, floppy
-TABLIST="`echo "$DISKINFO" | cut -f 2 -d '|' | uniq | sed '/^$/d' | tr '\n' '|' | sed -e 's/|$//'`" #KRG : added sed '/^$/d'
+TABLIST="`echo "$DISKINFO" | cut -f 2 -d '|' | uniq | sed '/^$/d' | tr '\n' '|' | sed -e 's/^|*//;s/|*$//'`" #KRG : added sed '/^$/d'
 CURRENTTAB=''
 
 #v408 v410 moved up...
