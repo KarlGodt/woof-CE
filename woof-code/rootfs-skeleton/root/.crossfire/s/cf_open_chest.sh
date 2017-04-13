@@ -2,8 +2,8 @@
 
 exec 2>/tmp/cf_script.err
 
-DEBUG=1   # unset to disable, set to anything to enable
-LOGGING=1 # unset to disable, set to anything to enable
+#DEBUG=1   # unset to disable, set to anything to enable
+#LOGGING=1 # unset to disable, set to anything to enable
 
 DRAW_INFO=drawinfo # drawextinfo
 
@@ -50,6 +50,21 @@ done <<EoI
 EoI
 }
 
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOG_REPLY_FILE"
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -65,6 +80,10 @@ echo draw 5 "Syntax:"
 echo draw 5 "script $0 [number]"
 echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times search, disarm, apply and get."
+echo draw 4 "Options:"
+echo draw 5 "-d set debug"
+echo draw 5 "-L log to $LOG_REPLY_FILE"
+echo draw 5 "-v set verbosity"
 
         exit 0
 }
@@ -87,6 +106,11 @@ case $PARAM_1 in
            [ "$DEBUG" ] && echo draw 2 "NUMBER=$NUMBER"
 	   ;;
 *help)  _usage;;
+
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
 '')     :;;
 *)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
@@ -95,20 +119,24 @@ sleep 1
 shift
 done
 
+# TODO : check if available space to walk in DIRB
 
 # ** set pickup  0 and drop chests
 
+_verbose "Setting pickup 0 .."
 echo issue 0 0 pickup 0
 sleep 1
+_verbose "Dropping chest .."
 echo issue 0 0 drop chest
 sleep 1
+_verbose "Leaving place .. $DIRB"
 echo issue 1 1 $DIRB
 sleep 1
+_verbose "Returning to place .. $DIRF"
 echo issue 1 1 $DIRF
 sleep 1
 
 # TODO : check if on chest
-
 
 
 _cast_dexterity(){
@@ -116,14 +144,18 @@ _cast_dexterity(){
 
 local REPLY c
 
+_debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 echo draw 5 "casting dexterity.."
 
+_verbose "cast dexterity .."
 echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
+_verbose "fire center .."
 echo issue 1 1 fire center   # better 0, 1 (north) ..clockwise.. 8 (northwest)
 sleep 0.5
+_verbose "fire_stop .."
 echo issue 1 1 fire_stop
 sleep 0.5
 
@@ -132,8 +164,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_cast_dexterity:$REPLY"
+ _debug "REPLY='$REPLY'" #debug
 
  case $REPLY in
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
@@ -145,15 +177,18 @@ sleep 0.1
  *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
  *'That spell path is denied to you.'*)          unset CAST_DEX;;
  *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ '') break;;
  *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
  esac
 
 done
 
+_debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 CAST_DEX=_cast_dexterity
 $CAST_DEX
+
 
 _find_traps(){
 # ** search or use_skill find traps ** #
@@ -162,15 +197,15 @@ local NUM=${NUMBER:-$MAX_SEARCH}
 
 echo draw 6 "find traps '$NUM' times.."
 
-
+_debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 local c=0
 
 while :;
 do
-:
 
+_verbose "search .."
 echo issue 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -206,6 +241,7 @@ sleep 1
 
 done
 
+_debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 1
@@ -231,7 +267,8 @@ _find_traps
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-local NUM c
+local NUM c CNT
+unset NUM
 
     touch /tmp/cf_pipe.$$
 read NUM </tmp/cf_pipe.$$
@@ -243,20 +280,21 @@ echo draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
 
-
+_debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-c=0
+c=0; CNT=0
 
 while :;
 do
-:
 
+_verbose "use_skill disarm traps"
 echo issue 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
 #You set off a fireball!
+#You detonate
 
  while :; do
   sleep 0.1
@@ -274,18 +312,22 @@ echo issue 1 1 use_skill "disarm traps"
    *'In fact, you set it off!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break ;;
+   *'You detonate '**)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break;;
 #   *'Your '*)       :;;  # Your monster beats monster
 #   *'You killed '*) :;;
-  '') break;;
+  '') CNT=$((CNT+1)); break;;
   esac
  done
 
 #NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-
+test "$CNT" -gt 9 && break
 sleep 1
 
 done
 
+_debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 1
@@ -306,14 +348,19 @@ do
 
 # TODO : food level, hit points
 
+_verbose "apply"
 echo issue 1 1 apply  # handle trap release, being killed
 sleep 1
 
+_verbose "get all"
 echo issue 1 1 get all
 
 sleep 1
+
+_debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
+_verbose "drop chest"
 echo issue 0 0 drop chest # Nothing to drop.
 
  while :; do
@@ -334,11 +381,15 @@ echo issue 0 0 drop chest # Nothing to drop.
   esac
  done
 
+
+_debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 1
 
+_verbose "$DIRB"
 echo issue 1 1 $DIRB
 sleep 1
+_verbose "$DIRF"
 echo issue 1 1 $DIRF
 sleep 1
 
@@ -346,5 +397,8 @@ done
 
 
 # *** Here ends program *** #
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+
 echo draw 2 "$0 is finished."
 beep

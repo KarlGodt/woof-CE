@@ -40,7 +40,7 @@ echo draw 3 "Need <number> ie: script $0 50 ."
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
-echo "issue 1 1 apply heavy rod of cancellation"
+echo "issue 1 1 apply -a rod of cancellation"
 
 c_loop(){
 for one in `seq 1 1 $NUMBER`
