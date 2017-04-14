@@ -34,7 +34,11 @@ echo draw 5 "script $0 <direction> [number]"
 echo draw 5 "For example: 'script $0 5 west'"
 echo draw 5 "will issue 5 use_skill oratory in west."
 echo draw 6 "Abbr. for north:n, northeast:ne .."
+echo draw 5 "Options:"
 echo draw 6 "Use -I --infinite to run forever."
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+
         exit 0
 }
 
@@ -58,6 +62,7 @@ se|southeast)   DIR=southeast; DIRN=4;; #readonly DIR DIRN;;
 sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
  w|west)        DIR=west;      DIRN=7;; #readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
+
 -h|*help)       _usage;;
 -I|*infinite)   FOREVER=1;;
 
@@ -207,7 +212,7 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_cast_probe:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
@@ -249,7 +254,7 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_cast_restoration:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c

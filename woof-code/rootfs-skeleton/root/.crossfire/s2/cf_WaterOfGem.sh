@@ -84,7 +84,9 @@ echo draw 2 "pearl, ruby, sapphire ."
 echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of GEM ."
-
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
         exit 0
 ;;
 
@@ -149,14 +151,16 @@ exit 1
 
 __check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
+#echo draw 4 "Checking if on cauldron..."
+
 UNDER_ME='';
 echo request items on
 
-
 while :; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
@@ -166,18 +170,6 @@ case "$UNDER_ME" in
 esac
 done
 
-__old_loop(){
-while [ 1 ]; do
-read UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
@@ -188,8 +180,6 @@ exit 1
 
 # *** Check if standing on a cauldron *** #
 
-#echo draw 4 "Checking if on cauldron..."
-
 f_check_on_cauldron(){
 
 echo draw 4 "Checking if on cauldron..."
@@ -198,9 +188,10 @@ UNDER_ME='';
 echo request items on
 
 while :; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
@@ -210,18 +201,6 @@ case "$UNDER_ME" in
 esac
 done
 
-__old_loop(){
-while [ 1 ]; do
-read UNDER_ME
-sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
@@ -258,11 +237,16 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
+RV=${1:-0}
+shift
+
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
+
+test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
@@ -270,8 +254,27 @@ echo draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
-exit $1
+exit $RV
 }
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+NUMBER=$((one-1))
+_say_statistics_end
+test "$*" && echo draw 5 "$*"
+_beep
+_beep
+exit $RV
+}
+
 
 rm -f "$LOG_REPLY_FILE"
 
@@ -310,21 +313,6 @@ REPLY="";
  sleep 0.1s
  done
 
-__old_loop(){
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-}
 
 sleep 1s
 
@@ -376,7 +364,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -401,7 +390,8 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1

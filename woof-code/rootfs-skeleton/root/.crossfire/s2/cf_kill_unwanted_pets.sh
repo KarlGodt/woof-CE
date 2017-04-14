@@ -5,6 +5,10 @@
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
 
+DRAW_INFO=drawinfo # drawextinfo (older clients)
+
+LOG_REPLY_FILE=/tmp/cf_pets.rpl
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -39,6 +43,10 @@ echo draw 2 "Syntax:"
 echo draw 5 "$0 pet1 pet2 .."
 echo draw 2 ":space: ( ) needs to be replaced by underscore (_)"
 echo draw 5 "for ex. green slime to green_slime ."
+echo draw 4 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+
         exit 0
 ;;
 
@@ -68,20 +76,21 @@ keepPETS="`echo "$keepPETS" | tr '_' ' '`"
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
 
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
-echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
+echo "PETS_KEEP='$PETS_KEEP'" >>"$LOG_REPLY_FILE"
 
 # *** Actual script to kill unwanted pets *** #
 
 OLD_REPLY="";
 REPLY="";
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 showpets"
 
 while :; do
 
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_pets.rpl
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -96,10 +105,10 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 PETS_KILL=`echo "$PETS_HAVE" | grep -v -E "$PETS_KEEP"`
-echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
+echo "PETS_KILL='$PETS_KILL'" >>"$LOG_REPLY_FILE"
 
 
 # *** example output :watch drawinfo 0 1  vampire - level 11
@@ -131,7 +140,7 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 # *** Using while read with bash buildin <<< *** #
 
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
-echo "$PETS_KILL" >>/tmp/cf_pets.rpl
+echo "$PETS_KILL" >>"$LOG_REPLY_FILE"
 
 while read onePET
 do

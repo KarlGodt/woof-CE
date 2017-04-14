@@ -52,6 +52,9 @@ echo draw 5 "Syntax:"
 echo draw 5 "script $0 <number>"
 echo draw 5 "For example: 'script $0 50'"
 echo draw 5 "will issue 50 times the use_skill praying command."
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
 ;;

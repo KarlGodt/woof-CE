@@ -37,7 +37,8 @@ echo draw 5 "apply rod of cancellation"
 echo draw 5 "and run fire center"
 echo draw 4 "Options:"
 echo draw 4 "-H to use heavy rod of cancellation"
-
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
         exit 0
 ;;
 

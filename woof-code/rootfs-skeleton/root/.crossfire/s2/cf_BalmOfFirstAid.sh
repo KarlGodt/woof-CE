@@ -184,9 +184,10 @@ echo request items on
 
 while :; do
 _ping
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -201,18 +202,6 @@ scripttell*)
 esac
 done
 
-__old_loop(){
-while [ 1 ]; do
-read -t 1 UNDER_ME
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-sleep 0.1s
-done
-}
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
@@ -291,7 +280,8 @@ echo request map pos
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -336,10 +326,13 @@ echo request map $R_X $R_Y
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
+
 test "$IS_WALL" = 0 || f_exit_no_space 1
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -420,7 +413,8 @@ echo request items actv
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -461,7 +455,8 @@ echo watch $DRAW_INFO
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
@@ -514,11 +509,9 @@ done
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-#PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo draw 7 "Player speed is $PL_SPEED"
 
-#PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed is $PL_SPEED"
 
@@ -558,7 +551,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 case "$REPLY" in
 $OLD_REPLY) break;;
 *"Nothing to drop.") f_exit 1;;
@@ -572,21 +566,6 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-_old_loop(){
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-}
 
 sleep ${SLEEP}s
 
@@ -598,7 +577,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
 $OLD_REPLY) break;;
@@ -613,21 +593,6 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-_old_loop(){
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-}
 
 echo unwatch $DRAW_INFO
 
@@ -651,7 +616,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -681,7 +647,8 @@ SLAG=0
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
 $OLD_REPLY) break;;
@@ -695,20 +662,6 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-_old_loop(){
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-}
 
 echo unwatch $DRAW_INFO
 
@@ -759,9 +712,10 @@ UNDER_ME_LIST='';
 
 while :; do
 _ping
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$DEBUG" ] && echo draw 3 "'UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
@@ -778,19 +732,6 @@ esac
 sleep 0.1s
 done
 
-_old_loop(){
-while [ 1 ]; do
-read -t 1 UNDER_ME
-echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-test "$UNDER_ME" || break
-sleep 0.1s
-done
- }
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"

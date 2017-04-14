@@ -166,9 +166,9 @@ done
 
 # *** Check if standing on a cauldron *** #
 
-echo draw 4 "Checking if on cauldron..."
-
 f_check_on_cauldron(){
+
+echo draw 4 "Checking if on cauldron..."
 UNDER_ME='';
 echo request items on
 
@@ -231,7 +231,8 @@ echo request stat cmbt
 
 while :; do
 read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+[ "$LOGGING" ] && echo "$ANSWER" >>"$LOG_REQUEST_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$ANSWER'"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -242,11 +243,9 @@ echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-#PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
-#PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
 
@@ -355,7 +354,9 @@ echo "issue 1 1 get"
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
@@ -411,7 +412,8 @@ echo "issue 1 1 drop 7 water"
 
 while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] &&  echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -423,23 +425,8 @@ while :; do
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
- done
-
-__old_loop(){
-while [ 1 ]; do
-read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
 done
-}
+
 
 echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
@@ -465,7 +452,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 # (level < 100) {                /* WHAMMY the CAULDRON */
@@ -498,7 +486,9 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 # else if (level < 60) {                 /* CREATE MONSTER */
