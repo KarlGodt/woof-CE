@@ -73,15 +73,15 @@ _direction_word_to_number(){
 # * generates : DIRECTION_NUMBER
 
 case $* in
-0|center)    readonly DIRECTION_NUMBER=0;;
-1|north)     readonly DIRECTION_NUMBER=1;;
-2|northeast) readonly DIRECTION_NUMBER=2;;
-3|east)      readonly DIRECTION_NUMBER=3;;
-4|southeast) readonly DIRECTION_NUMBER=4;;
-5|south)     readonly DIRECTION_NUMBER=5;;
-6|southwest) readonly DIRECTION_NUMBER=6;;
-7|west)      readonly DIRECTION_NUMBER=7;;
-8|northwest) readonly DIRECTION_NUMBER=8;;
+ 0|c|center)    readonly DIRECTION_NUMBER=0;;
+ 1|n|north)     readonly DIRECTION_NUMBER=1;;
+2|ne|northeast) readonly DIRECTION_NUMBER=2;;
+ 3|e|east)      readonly DIRECTION_NUMBER=3;;
+4|se|southeast) readonly DIRECTION_NUMBER=4;;
+ 5|s|south)     readonly DIRECTION_NUMBER=5;;
+6|sw|southwest) readonly DIRECTION_NUMBER=6;;
+ 7|w|west)      readonly DIRECTION_NUMBER=7;;
+8|nw|northwest) readonly DIRECTION_NUMBER=8;;
 *) _error 2 "Invalid direction $*"
 esac
 
@@ -123,7 +123,6 @@ test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o 
 # ***
 _log(){
 # *** echo passed parameters to logfile if LOGGING is set to anything
-
 test "$LOGGING" || return
 echo "$*" >>"$LOG_FILE"
 }
@@ -524,11 +523,17 @@ _do_loop $COMMAND_PAUSE
 
 # ***
 
-case $@ in
+until $# = 0; do
+case $1 in
 -h|*help*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
 '') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
-*) _do_program "$@";;
+*) _do_program "$@"; break;;
 esac
+shift
+sleep 0.1
+done
 
 # *** Here ends program *** #
 _draw 2 "$0 is finished."

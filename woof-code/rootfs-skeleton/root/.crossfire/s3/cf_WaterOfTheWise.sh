@@ -9,9 +9,12 @@ _draw 7  "$0 [ -version VERSION ] NUMBER"
 _draw 5  "Allowed NUMBER will loop for"
 _draw 5  "NUMBER times to produce NUMBER of"
 _draw 5  "Water of the Wise ."
+_draw 5 "Options:"
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
-
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
         exit 0
 }
 
@@ -45,6 +48,9 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 #PARAM_1test="${PARAM_1//[[:digit:]]/}"
 PARAM_1test="${PARAM_1//[0-9]/}"

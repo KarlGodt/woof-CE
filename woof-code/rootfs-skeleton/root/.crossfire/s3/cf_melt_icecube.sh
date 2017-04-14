@@ -26,6 +26,10 @@ _blue "For example: 'script $0 5'"
 _blue "will issue 5 times mark icecube and apply filint and steel."
 _navy "Without number breaks infinite loop"
 _navy "if no icecube could be marked anymore."
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
         exit 0
 }
 
@@ -80,6 +84,9 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"

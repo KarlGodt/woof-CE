@@ -3,7 +3,7 @@
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
-ITEM_CANCEL="heavy rod of cancellation"
+ITEM_CANCEL="rod of cancellation"
 
 # beeping
 BEEP_DO=1
@@ -35,11 +35,14 @@ case "$PARAM_1" in -h|*"help")
 echo draw 5 "Script to"
 echo draw 5 "apply rod of cancellation"
 echo draw 5 "and run fire center"
+echo draw 4 "Options:"
+echo draw 4 "-H to use heavy rod of cancellation"
 
         exit 0
 ;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-H|*heavy)   ITEM_CANCEL="heavy rod of cancellation";;
 -L|*logging) LOGGING=$((LOGGING+1));;
 '') :;;
 
@@ -70,7 +73,7 @@ done
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
-echo "issue 1 1 apply $ITEM_CANCEL"
+echo "issue 1 1 apply -a $ITEM_CANCEL"
 
 c_loop(){
 for one in `seq 1 1 $NUMBER`

@@ -6,7 +6,10 @@ _usage(){
 _draw 5 "Script to "
 _draw 5 "apply $ROD"
 _draw 5 "and then to fire center on oneself."
-
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
         exit 0
 }
 
@@ -33,6 +36,9 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
@@ -116,7 +122,7 @@ __check_if_item_is_active(){
 local ITEM="$*" oR tmpR
 test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
 
-echo watch drawinfo
+echo watch $DRAWINFO
 sleep 0.1
 echo request items actv
 while :; do
@@ -129,7 +135,7 @@ test "$oR" = "$tmpR" && break
 oR="$tmpR"
 sleep 0.1
 done
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 
 }
 
@@ -204,7 +210,7 @@ test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
 
 
 c=0
-echo watch drawinfo
+echo watch $DRAWINFO
 while :;
 do
 test $c = 5 && break
@@ -227,7 +233,7 @@ sleep 0.1
 test "$RANGE_ITEM_APPLIED" || echo issue 1 1 rotateshoottype
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 }
 
 __check_range_attack "$ROD"

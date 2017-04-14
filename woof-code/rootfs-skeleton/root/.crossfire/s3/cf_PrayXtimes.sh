@@ -24,13 +24,16 @@ _draw 5 "Syntax:"
 _draw 5 "script $0 <number>"
 _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
-
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
         exit 0
 }
 
 # Global variables
 
-DEBUG=1
+#DEBUG=1
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -53,6 +56,9 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 # *** testing parameters for validity *** #
 #PARAM_1test="${PARAM_1//[[:digit:]]/}" # does not work for ash @ BusyBox v1.21.0 (2014-01-06 20:37:23 EST) multi-call binary.
@@ -128,7 +134,7 @@ echo request stat cmbt
 #read REQ_CMBT
 #snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read -t 1 Req Stat Cmbt WC AC DAM SPEED W_SPEED
-[ "$DEBUG" ] && _draw 7 "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
+_debug "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
 case $SPEED in
 [1-9][0-9][0-9][0-9][0-9][0-9]) USLEEP=600000;; #six
 1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;  #five
@@ -142,10 +148,10 @@ case $SPEED in
 9[0-9][0-9][0-9][0-9]) USLEEP=700000;;
 *) USLEEP=600000;;
 esac
-[ "$DEBUG" ] && _draw 10 "USLEEP=$USLEEP:SPEED=$SPEED"
+_debug "USLEEP=$USLEEP:SPEED=$SPEED"
 
 USLEEP=$(( USLEEP - ( (SPEED/10000) * 1000 ) ))
-[ "$DEBUG" ] && _draw 7 "Sleeping $USLEEP usleep micro-seconds between praying"
+_debug "Sleeping $USLEEP usleep micro-seconds between praying"
 }
 _get_player_speed
 
@@ -156,7 +162,8 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 TIMEB=`date +%s`
 
 
-echo watch drawinfo
+#echo watch $DRAWINFO
+_watch
 
 c=0
 for one in `seq 1 1 $NUMBER`

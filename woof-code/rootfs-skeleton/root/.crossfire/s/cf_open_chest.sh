@@ -216,7 +216,7 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_find_traps:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -300,7 +300,7 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+   [ "$LOGGING" ] && echo "_disarm_traps:$REPLY" >>"$LOG_REPLY_FILE"
    [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -367,7 +367,7 @@ echo issue 0 0 drop chest # Nothing to drop.
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$LOGGING" ] && echo "drop chest:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in

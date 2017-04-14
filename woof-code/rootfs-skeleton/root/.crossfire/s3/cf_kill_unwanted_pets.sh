@@ -23,6 +23,11 @@ _draw 2 "Syntax:"
 _draw 5 "$0 pet1 pet2 .."
 _draw 2 ":space: ( ) needs to be replaced by underscore (_)"
 _draw 5 "for ex. green slime to green_slime ."
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
+
 exit 0
 }
 
@@ -31,7 +36,10 @@ case $* in
 '')     _draw 3 "Script needs pets to keep as argument."
         _draw 3 "Need <pet_name> ie: script $0 nazgul,spectre ."
          _say_help_and_exit;;
-h|*help) _say_help_and_exit;;
+-h|*help) _say_help_and_exit;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *) :;;
 esac
 
@@ -52,7 +60,7 @@ echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
 OLD_REPLY="";
 REPLY="";
 
-echo watch drawinfo
+echo watch $DRAWINFO
 sleep 1
 echo "issue 1 1 showpets"
 
@@ -77,7 +85,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAWINFO
 
 echo "PETS_HAVE='$PETS_HAVE'" >>/tmp/cf_pets.rpl
 echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl

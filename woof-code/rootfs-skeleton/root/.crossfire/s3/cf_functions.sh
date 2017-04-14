@@ -5,12 +5,12 @@
 
 
 _set_global_variables(){
-LOGGING=${LOGGING:-1}  #set to ANYTHING ie "1" to enable, empty to disable
-DEBUG=${DEBUG:-1}      #set to ANYTHING ie "1" to enable, empty to disable
+LOGGING=${LOGGING:-''}  #set to ANYTHING ie "1" to enable, empty to disable
+DEBUG=${DEBUG:-''}      #set to ANYTHING ie "1" to enable, empty to disable
 TMOUT=${TMOUT:-1}      # read -t timeout
 SLEEP=${SLEEP:-1}      #default sleep value, refined in _get_player_speed()
 
-DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default pause to sync, refined in _get_player_speed()
+DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default seconds pause to sync, refined in _get_player_speed()
 DRAWINFO=${DRAWINFO:-drawinfo}   #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
 DRAW_INFO=${DRAW_INFO:-drawinfo}
 
@@ -105,15 +105,25 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
 _watch(){
-echo watch $DRAW_INFO
+_debug "watch $DRAWINFO"
+echo watch $DRAWINFO
+sleep 0.2
 }
 
 _unwatch(){
-echo unwatch $DRAW_INFO
+_debug "unwatch $DRAWINFO"
+echo unwatch $DRAWINFO
+sleep 0.2
 }
 
 _is(){
+    _verbose "$*"
     echo issue "$@"
     sleep 0.2
 }
@@ -201,7 +211,7 @@ ___get_player_name(){
 
 local ANSWER
 
-echo watch drawinfo
+_watch
 
 for player_name in karl Karl KARL Karl_ Trollo Aelfdoerf kalle kalli
 do
@@ -224,7 +234,7 @@ else
  false
 fi
 
-echo unwatch drawinfo
+_unwatch
 }
 
 __get_player_name(){
@@ -333,16 +343,25 @@ _draw 2  "$0 has finished."
 
 # *** EXIT FUNCTIONS *** #
 _exit(){
+RV=${1:-0}
+shift
+
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 sleep ${SLEEP}s
+
+test "$*" && echo draw 5 "$*"
 _draw 3 "Exiting $0. $@"
 echo unwatch
 echo unwatch $DRAWINFO
-beep -l 1000 -f 700
-exit $1
+_beep
+
+NUMBER=$((one-1))
+_say_statistics_end
+
+exit $RV
 }
 
 _just_exit(){
@@ -353,21 +372,32 @@ exit $1
 }
 
 _emergency_exit(){
+RV=${1:-0}
+shift
+
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAWINFO
 _is 1 1 fire_stop
-beep -l 1000 -f 700
-exit $1
+_beep
+_beep
+
+NUMBER=$((one-1))
+_say_statistics_end
+
+test "$*" && echo draw 5 "$*"
+exit $RV
 }
 
 _exit_no_space(){
+RV=${1:-0}
+shift
 _draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 _draw 3 "Remove that Item and try again."
 _draw 3 "If this is a Wall, try another place."
-beep -l 1000 -f 700
-exit $1
+_beep
+exit $RV
 }
 
 
@@ -405,15 +435,26 @@ test ! "$ANSWER" -a "$OLD_ANSWER" && ANSWER="$OLD_ANSWER"  #+++2017-03-20
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-PL_SPEED="0.${PL_SPEED:0:2}"
-
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 _draw 7 "Player speed is '$PL_SPEED'"
 
 #PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's!^0*!!;s!\.!!g'`
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 _debug "Using player speed '$PL_SPEED'"
 
-  if test "$PL_SPEED" -gt 60; then
+  if test "$PL_SPEED" = "";   then
+    _draw 3 "WARNING: Could not set player speed. Using defaults."
+
+elif test "$PL_SPEED" -gt 80; then
+SLEEP=0.1; DELAY_DRAWINFO=0.6; TMOUT=1
+elif test "$PL_SPEED" -gt 75; then
+SLEEP=0.1; DELAY_DRAWINFO=0.7; TMOUT=1
+elif test "$PL_SPEED" -gt 70; then
+SLEEP=0.2; DELAY_DRAWINFO=0.8; TMOUT=1
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.3; DELAY_DRAWINFO=0.9; TMOUT=1
+elif test "$PL_SPEED" -gt 60; then
 SLEEP=0.4; DELAY_DRAWINFO=1.0; TMOUT=1
 elif test "$PL_SPEED" -gt 55; then
 SLEEP=0.5; DELAY_DRAWINFO=1.1; TMOUT=1
@@ -437,8 +478,6 @@ elif test "$PL_SPEED" -gt 10; then
 SLEEP=4.0; DELAY_DRAWINFO=8.0; TMOUT=2
 elif test "$PL_SPEED" -ge 0;  then
 SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
-elif test "$PL_SPEED" = "";   then
-_draw 3 "WARNING: Could not set player speed. Using defaults."
 else
 _exit 1 "ERROR while processing player speed."
 fi
@@ -447,6 +486,60 @@ _draw 6 "Done."
 return 0
 }
 
+_word_to_number(){
+
+case ${1:-PARAM_1} in
+
+one)      	PARAM_1=1;;
+two)      	PARAM_1=2;;
+three)    	PARAM_1=3;;
+four)		PARAM_1=4;;
+five)		PARAM_1=5;;
+six)		PARAM_1=6;;
+seven)		PARAM_1=7;;
+eight)		PARAM_1=8;;
+nine)		PARAM_1=9;;
+ten)		PARAM_1=10;;
+eleven)		PARAM_1=11;;
+twelve)		PARAM_1=12;;
+thirteen)	PARAM_1=13;;
+fourteen)	PARAM_1=14;;
+fifteen)	PARAM_1=15;;
+sixteen)	PARAM_1=16;;
+seventeen)	PARAM_1=17;;
+eighteen)	PARAM_1=18;;
+nineteen)	PARAM_1=19;;
+twenty)		PARAM_1=20;;
+
+esac
+
+}
+
+_number_to_direction(){
+
+case $1 in
+[0-8]) DIRN=$1;;
+*)    return 1;;
+esac
+
+case $1 in
+
+0) DIR=center;;
+1) DIR=north;;
+2) DIR=northeast;;
+3) DIR=east;;
+4) DIR=southeast;;
+5) DIR=south;;
+6) DIR=southwest;;
+7) DIR=west;;
+8) DIR=northwest;;
+*) return 1;;
+
+esac
+
+readonly DIR DIRN;
+return $?
+}
 
 ### ALCHEMY
 
@@ -543,14 +636,14 @@ _debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron.*cursed'`" && {
 _draw 3 "You stand upon a cursed cauldron!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 _draw 3 "Need to stand upon cauldron!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
@@ -559,7 +652,7 @@ _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 #test "`echo "$UNDER_ME_LIST" | head -n1 | grep 'cauldron$'`" || {
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'cauldron$'`" || {
 _draw 3 "cauldron is not topmost!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
@@ -602,13 +695,13 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
 _draw 3 "You stand upon a cursed ${ITEM}!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
 _draw 3 "Need to stand upon ${ITEM}!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
@@ -651,20 +744,20 @@ done
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
 _draw 3 "You stand upon a cursed ${ITEM}!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
 _draw 3 "Need to stand upon ${ITEM}!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
 #test "`echo "$UNDER_ME_LIST" | head -n1 | grep " ${ITEM}$"`" || {
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep " ${ITEM}$"`" || {
 _draw 3 "${ITEM} is not topmost!"
-beep -l 1000 -f 700
+_beep
 exit 1
 }
 
@@ -1211,7 +1304,7 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo watch $DRAWINFO
+_watch
 #sleep 0.5
 
 #issue <repeat> <must_send> <command>
@@ -1723,7 +1816,7 @@ local REPLY
 
 read -t 1  # empty the stream of messages
 
-echo watch $DRAWINFO
+_watch
 sleep 1
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;

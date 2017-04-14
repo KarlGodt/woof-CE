@@ -2,8 +2,8 @@
 
 export PATH=/bin:/usr/bin
 
-DEBUG=1
-LOGGING=1
+#DEBUG=1
+#LOGGING=1
 
 TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
@@ -13,9 +13,9 @@ DIRECTION_DEFAULT=east
 NUMBER_DEFAULT=10
 ITEM_DEFAULT='horn of plenty'
 COMMAND=fire
-COMMAND_PAUSE=3  # seconds
+COMMAND_PAUSE=7  # seconds
 COMMAND_STOP=fire_stop
-FOOD_STAT_MIN=100
+FOOD_STAT_MIN=300
 FOOD=waybread
 
 MY_SELF=`realpath "$0"`
@@ -72,12 +72,12 @@ test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION
 }
 
 _log(){
-test "$LOGGING" || return
+test "$LOGGING" || return 0
 echo "$*" >>"$LOG_FILE"
 }
 
 _debug(){
-test "$DEBUG" || return
+test "$DEBUG" || return 0
 _draw 3 "$*"
 sleep 0.5
 }
@@ -89,16 +89,27 @@ _draw 5 "script $0 <item> <dir> <number>"
 _draw 5 "For example: 'script $0 rod of firebolt east 10'"
 _draw 5 "will apply rod of firebolt"
 _draw 5 "and will issue 10 times the $COMMAND east command."
+_draw 4 "Run without any parameters will use these defaults:"
+_draw 4 "$ITEM_DEFAULT $DIRECTION_DEFAULT $NUMBER_DEFAULT"
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_FILE ."
+_draw 5 "-v to say what is being issued to server."
 exit 0
 }
 
 _check_have_needed_item_in_inventory(){
 _debug "_check_have_needed_item_in_inventory:$*"
+local oneITEM oldITEM ITEMS
+
+_draw 6 "Checking if in inventory..."
+
 TIMEB=`date +%s`
-echo watch request
+#echo watch request
 echo request items inv
 while :;
 do
+unset oneITEM
 read -t1 oneITEM
  _log "$oneITEM"
  test "$oldITEM" = "$oneITEM" && break
@@ -109,21 +120,25 @@ $oneITEM"
 sleep 0.1
 done
 unset oldITEM oneITEM
-echo unwatch request
+#echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_draw 4 "Elapsed $TIME s"
+_draw 4 "Check took elapsed $TIME s"
 
 echo "$ITEMS" | grep -q -i "$ITEM"
 }
 
 _check_have_needed_item_applied(){
 _debug "_check_have_needed_item_applied:$*"
-echo watch request
+local oneITEM oldITEM ITEMSA
+
+_draw 6 "Checking if '$ITEM' is already applied .."
+#echo watch request
 echo request items actv
 while :;
 do
+unset oneITEM
 read -t1 oneITEM
  test "$oldITEM" = "$oneITEM" && break
  test "$oneITEM" || break
@@ -133,7 +148,7 @@ $oneITEM"
 sleep 0.1
 done
 unset oldITEM oneITEM
-echo unwatch request
+#echo unwatch request
 echo "$ITEMSA" | grep -q -i "$ITEM"
 }
 
@@ -145,11 +160,14 @@ _debug "_apply_needed_item:issue 0 0 apply $ITEM"
 _rotate_range_attack(){
 _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
-echo watch request range
+
+_draw 6 "Rotate shoottype to ready '$ITEM' .."
+#echo watch request range
 while :;
 do
 echo request range
 sleep 1
+unset REPLY_RANGE
 read -t1 REPLY_RANGE
  _log "REPLY_RANGE=$REPLY_RANGE"
  test "`echo "$REPLY_RANGE" | grep -i "$ITEM"`" && break
@@ -160,11 +178,12 @@ read -t1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-echo unwatch request
+#echo unwatch request
 }
 
 __watch_food(){
-echo watch request
+local statHP
+#echo watch request
 echo request stat hp
 read -t1 statHP
  _debug "_watch_food:$statHP"
@@ -175,7 +194,7 @@ read -t1 statHP
      echo issue 0 0 apply $FOOD
    sleep 1
  fi
-echo unwatch request
+#echo unwatch request
 }
 
 _do_emergency_recall(){
@@ -190,20 +209,21 @@ exit 5
 }
 
 _watch_food(){
-echo watch request
+local r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
+#echo watch request
 echo request stat hp
-read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD
- _debug "_watch_food:FOOD=$FOOD HP=$HP"
- if test "$FOOD" -lt $FOOD_STAT_MIN; then
+read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
+ _debug "_watch_food:FOOD_LVL=$FOOD_LVL HP=$HP"
+ if test "$FOOD_LVL" -lt $FOOD_STAT_MIN; then
   _debug "issue 0 0 apply $FOOD"
      echo issue 0 0 apply $FOOD
    sleep 1
  fi
- if test $HP -lt $((HP_MAX/10)); then
+ if test "$HP" -lt $((HP_MAX/10)); then
   _do_emergency_recall
  fi
 
-echo unwatch request
+#echo unwatch request
 }
 
 _do_loop(){
@@ -245,10 +265,12 @@ exit $RV
 }
 
 _do_program(){
+if test "$*"; then
 _parse_parameters "$@"
-test "$ITEM"     || ITEM="$ITEM_DEFAULT"
-test "DIRECTION" || DIRECTION="$DIRECTION_DEFAULT"
-test "$NUMBER"   || NUMBER="$NUMBER_DEFAULT"
+fi
+     ITEM=${ITEM:-"$ITEM_DEFAULT"}
+DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+   NUMBER=${NUMBER:-"$NUMBER_DEFAULT"}
 #_check_have_needed_item_in_inventory || _error 1 "Item $ITEM not in inventory"
 _check_have_needed_item_applied
 case $? in
@@ -268,11 +290,18 @@ _direction_word_to_number $DIRECTION
 _do_loop $NUMBER
 }
 
-case $@ in
-*help*) _usage;;
-'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
-*) _do_program "$@";;
+until $# = 0; do
+case $1 in
+-h|*help*) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+#'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
+*) _do_program "$@"; break;;
 esac
+shift
+sleep 0.1
+done
 
 # *** Here ends program *** #
 _draw 2 "$0 is finished."

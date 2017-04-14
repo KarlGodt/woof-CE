@@ -40,7 +40,7 @@ done
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in *"help"*)
+case "$PARAM_1" in -h|*"help"*)
 
 _usage(){
 _draw 5 "Script to produce alchemy objects."

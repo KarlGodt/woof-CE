@@ -243,7 +243,7 @@ fi
 
 # TODO : find out if turn possible without casting/firing in DIRN
 
-__turn_direction(){
+__turn_direction__(){
 # use brace and DIR -- does not work since attacks in DIR; so
 # either uses key to unlock door or punches against it and triggers traps
 
@@ -315,7 +315,7 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_turn_direction:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_turn_direction_all:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
@@ -474,7 +474,7 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "_find_traps:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -557,7 +557,7 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+   [ "$LOGGING" ] && echo "_disarm_traps:$REPLY" >>"$LOG_REPLY_FILE"
    [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -620,7 +620,7 @@ echo issue 1 1 use_skill lockpicking
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$LOGGING" ] && echo "lockpicking:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
