@@ -1,6 +1,6 @@
 #!/bin/ash
 
-exec 2>/tmp/cf_script.err
+#exec 2>/tmp/cf_script.err
 
 DRAW_INFO=drawinfo # drawextinfo
 
@@ -56,39 +56,44 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
+_is(){
+_verbose "$*"
+echo issue "$@"
+}
+
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
 # *** implementing 'help' option *** #
 _usage() {
 
-echo draw 5 "Script to lockpick doors."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
-echo draw 5 "For example: 'script $0 5 west'"
-echo draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-echo draw 4 "Options:"
-echo draw 4 "-c cast detect curse to turn to DIR"
-echo draw 4 "-C cast constitution"
-echo draw 4 "-t cast disarm"
-echo draw 4 "-D cast dexterity"
-echo draw 4 "-e cast detect evil"
-echo draw 4 "-f cast faery fire"
-echo draw 4 "-i cast show invisible"
-echo draw 4 "-m cast detect magic"
-echo draw 4 "-M cast detect monster"
-echo draw 4 "-p cast probe"
-echo draw 5 "-d set debug"
-echo draw 5 "-L log to $LOG_REPLY_FILE"
-echo draw 5 "-v set verbosity"
+_draw 5 "Script to lockpick doors."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <direction> [number]"
+_draw 5 "For example: 'script $0 5 west'"
+_draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
+_draw 4 "Options:"
+_draw 4 "-c cast detect curse to turn to DIR"
+_draw 4 "-C cast constitution"
+_draw 4 "-t cast disarm"
+_draw 4 "-D cast dexterity"
+_draw 4 "-e cast detect evil"
+_draw 4 "-f cast faery fire"
+_draw 4 "-i cast show invisible"
+_draw 4 "-m cast detect magic"
+_draw 4 "-M cast detect monster"
+_draw 4 "-p cast probe"
+_draw 5 "-d set debug"
+_draw 5 "-L log to $LOG_REPLY_FILE"
+_draw 5 "-v set verbosity"
 
         exit 0
 }
 
-#echo draw 3 "'$#' Parameters: '$*'"
+#_draw 3 "'$#' Parameters: '$*'"
 _debug "'$#' Parameters: '$*'"
 
 _word_to_number(){
@@ -158,6 +163,7 @@ case $PARAM_1 in [0-8])
  _number_to_direction "$PARAM_1"
  shift;;
 esac
+
 fi
 
 
@@ -183,12 +189,9 @@ case $PARAM_1 in
 
 if test "$FOUND_DIR"; then :
 elif test "$DIR"; then
-
 	NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	   readonly NUMBER
-       #echo draw 2 "NUMBER=$NUMBER" #DEBUG
-
+	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+	readonly NUMBER
 fi
 
 ;;
@@ -220,16 +223,11 @@ fi
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 '')     :;;
-*)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+*)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
-#sleep 0.1
-#shift
-#echo draw 3 "'$#'"
 
 done
 
-#readonly NUMBER DIR
-#echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 _debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 
 # TODO: check for near doors and direct to them
@@ -237,26 +235,24 @@ _debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 if test "$DIR"; then
  :
 else
- echo draw 3 "Need direction as parameter."
+ _draw 3 "Need direction as parameter."
  exit 1
 fi
 
 # TODO : find out if turn possible without casting/firing in DIRN
 
-__turn_direction(){
+__turn_direction__(){
 # use brace and DIR -- does not work since attacks in DIR; so
 # either uses key to unlock door or punches against it and triggers traps
 
 local lDIR=${1:-"$DIR"}
 
-echo draw 5 "Bracing .."
-_verbose "brace on"
-echo issue 1 1 brace on
+_draw 5 "Bracing .."
+_is 1 1 brace on
 sleep 1
 
-echo draw 4 "Turning $DIR .."
-_verbose "$lDIR"
-echo issue 1 1 $lDIR
+_draw 4 "Turning $DIR .."
+_is 1 1 $lDIR
 sleep 1
 
 }
@@ -296,18 +292,15 @@ echo watch $DRAW_INFO
 for spell in "probe" "detect monster" "detect evil"
 do
 
-echo draw 2 "Casting $spell to turn to $DIR .."
+_draw 2 "Casting $spell to turn to $DIR .."
 
-_verbose "cast $spell"
-echo issue 1 1 cast $spell
+_is 1 1 cast $spell
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -315,8 +308,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_turn_direction:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_turn_direction_all:$REPLY"
+ _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
@@ -349,18 +342,16 @@ spell="$*"
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
-echo draw 2 "Casting $spell to turn to $DIR .."
 
-_verbose "cast $spell"
-echo issue 1 1 cast $spell
+_draw 2 "Casting $spell to turn to $DIR .."
+
+_is 1 1 cast $spell
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -368,8 +359,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_turn_direction:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_turn_direction:$REPLY"
+ _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
@@ -404,18 +395,15 @@ local REPLY c
 
 echo watch $DRAW_INFO
 
-echo draw 5 "casting dexterity.."
+_draw 5 "casting dexterity.."
 
-_verbose "cast dexterity"
-echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -423,8 +411,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_cast_dexterity:$REPLY"
+ _debug "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
@@ -453,7 +441,7 @@ _find_traps(){
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
-echo draw 6 "find traps '$NUM' times.."
+_draw 6 "find traps '$NUM' times.."
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -463,8 +451,7 @@ local c=0
 while :;
 do
 
-_verbose "search"
-echo issue 1 1 search
+_is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
 #You spot a Rune of Fireball!
@@ -474,8 +461,8 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_find_traps:$REPLY"
+ _debug "REPLY='$REPLY'"
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
@@ -490,10 +477,7 @@ $REPLY"; break;;
   unset REPLY
  done
 
-
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-
 
 sleep 1
 
@@ -534,7 +518,7 @@ read NUM </tmp/cf_pipe.$$
 
 NUM=${NUM:-$MAX_DISARM}
 
-echo draw 6 "disarm traps '$NUM' times.."
+_draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
 
@@ -546,8 +530,7 @@ c=0; CNT=0
 while :;
 do
 
-_verbose "use_skill disarm traps"
-echo issue 1 1 use_skill "disarm traps"
+_is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
@@ -557,8 +540,8 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
-   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+   _log "_disarm_traps:$REPLY"
+   _debug "REPLY='$REPLY'"
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
@@ -586,7 +569,6 @@ echo issue 1 1 use_skill "disarm traps"
   esac
  done
 
-#NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 test "$CNT" -gt 9 && break
 sleep 1
@@ -613,15 +595,14 @@ NUM=$NUMBER
 while :;
 do
 
-_verbose "use_skill lockpicking"
-echo issue 1 1 use_skill lockpicking
+_is 1 1 use_skill lockpicking
 
  while :; do
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+  _log "lockpicking:$REPLY"
+  _debug "REPLY='$REPLY'"
 
   case $REPLY in
   *'Unable to find skill '*)   break 2;;
@@ -639,7 +620,6 @@ echo issue 1 1 use_skill lockpicking
   esac
  done
 
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_LOCKPICK && break; }
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
@@ -649,10 +629,9 @@ if test "$FOREVER"; then
   else TOGGLE=$((TOGGLE+1));
   fi
  }
-  #_cast_dexterity
   $CAST_DEX
   $CAST_PROBE
-  echo draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+  _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
@@ -671,9 +650,5 @@ echo unwatch $DRAW_INFO
 
 # *** Here ends program *** #
 
-#echo draw 4 "Unbracing .."
-#echo issue 1 1 brace off
-#sleep 1
-
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 beep
