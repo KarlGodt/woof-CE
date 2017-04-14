@@ -71,7 +71,7 @@ test -s /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #echo "$0:$*:"
 
-VERSION=1.9.0 # also create /dev if not PUPMODE=2
+VERSION=1.9.1 # also create /dev if not PUPMODE=2
 PATH='/bin:/sbin:/usr/bin:/usr/sbin'
 export LANG=C
 
@@ -111,7 +111,8 @@ gettext "$MSG"
 exit $1
 }
 
-while [ "$1" ]; do
+ while [ "$1" ]; do
+#until [ $# = 0 ]; do
 case $1 in
 *h|*help|*usage) _usage 0;;
 *V|*version)  echo -e "\n$0: Version '$VERSION'\nUse help to show usage.\n"; exit 0;;
@@ -377,7 +378,7 @@ todays=`date`
 todayY=`echo "$todays" | tr -s ' ' | cut -f 6 -d ' ' | tr -d [[:punct:]]`  ##+++ 2011_11_15 from luci218
 todayM=`echo "$todays" | tr -s ' ' | cut -f 2 -d ' ' | tr -d [[:punct:]]`  ##lang dependent pos
 todayD=`echo "$todays" | tr -s ' ' | cut -f 3 -d ' ' | tr -d [[:punct:]]`
-mntcnt=`echo "$VARS" | grep 'Mount count'| grep -o '[[:digit:]]' | tr -d '\n'`
+mntcnt=`echo "$VARS" | grep 'Mount count' | grep -o '[[:digit:]]' | tr -d '\n'`
 maxmnt=`echo "$VARS" | grep 'Maximum mount count' | grep -o '[[:digit:]]' | tr -d '\n'`
 diffMC=$(( maxmnt - mntcnt ))
 monthN=`for i in $(seq 1 12) ; do cal $i 1 | head -n 1 | grep -o '[[:alpha:]]\+' | sed "s/^/$i /"; done`
@@ -387,6 +388,7 @@ monthC=`echo "$monthN" | grep "$nextcM"`  # echo "1 January\n2 February\n .." | 
 montCN=`echo "$monthC" | cut -f 1 -d ' '`
 
 echo -e "\\033[0;39m"
+_debug "_get_dump_ext234:END"
 test "$mntcnt" -a "$maxmnt" -a "$todayY" -a "$nextcY" -a "$montTN" -a "$montCN" -a "$todayD" -a "$nextcD"
 }
 _get_dump_ext234 || return 124
@@ -444,7 +446,7 @@ echo -e "\\033[0;33m"'mount intervals : '"\\033[0;33m""$mntcnt""\\033[0;33m"' of
 echo -e "\\033[0;39m"
 false
 fi #7
-}
+}  #_get_errflg
 
 _check_puppy_kernel_parameter(){  ##+++2012-02-02 2016-10-09
 
@@ -467,11 +469,14 @@ else
  RV=126
 fi
 
+_debug "_check_puppy_kernel_parameter:END"
 return $RV
 }
 _check_puppy_kernel_parameter fsck  ##+++2012-02-02
 [ $? = 0 ] && pfixFSCK='yes'
 [ "$pfixFSCK" = 'yes' ] || { _get_errflg && _do_busybox_init; } ###KRG
+
+
 
 _leave_to_simple_console(){
 #[ -n "$ERRMSG" ] && echo -e "\\033[0;31m""$ERRMSG""\\033[0;39m"
@@ -490,6 +495,7 @@ exec chroot . sh
 #only come here if full hd install, and previous improper shutdown.
 #PDEV1="`cat $ErrFlag | cut -f 1 -d ','`" #file format: sda1,ext3,
 #DEV1FS="`cat $ErrFlag | cut -f 2 -d ','`"
+_debug "case '$DEV1FS'"
 case $DEV1FS in
  ext[2-4])
 
@@ -631,6 +637,8 @@ else
  /sbin/pup_event_backend_d >/tmp/pup_event_backend_errors 2>&1 & #hotplug daemon. my homebrew replacement for udevd.
  HOTPLUGD='pup_event_backend_d'
 fi
+
+_debug "_start_uevent_program:END"
 }
 
 
@@ -698,6 +706,7 @@ else
 cut -f 1 -d ' ' /proc/modules | sort -g | tr '\n' ' '
 fi
 
+_debug "_load_kernel_drivers:END"
 status_func 0
 echo
 sleep 1s
@@ -714,7 +723,7 @@ _load_kernel_drivers  # for usb drivers
 
 echo -n "Updating Device nodes " >/dev/console
 local STATUS=0 MAJ MIN SIZE SDEV
-CATPROCPART=`cat /proc/partitions | sed 's#^\ *[[:alpha:]].*##g' | sed '/^$/d'`
+CATPROCPART=`cat /proc/partitions | sed 's%^\ *[[:alpha:]].*%%g' | sed '/^$/d'`
 echo "$CATPROCPART" | while read MAJ MIN SIZE SDEV ; do
 rm -f "$1"/dev/$SDEV
 STATUS=$(( STATUS + $? ))
@@ -726,6 +735,8 @@ done
 if [ "$PUPMODE" = 2 ]; then
 status_func $STATUS
 fi
+
+_debug "_update_partition_device_nodes:END"
 return $STATUS
 }
 _update_partition_device_nodes
@@ -739,7 +750,7 @@ DRIVERS=`modprobe -l | grep -E 'usbhid|rtc-cmos|libps2|atkbd|xtkbd|evdev' | grep
 
 for i in $DRIVERS ; do
 
-DRIVER=`basename $i | sed 's#\.ko.*$##'`
+DRIVER=`basename $i | sed 's%\.ko.*$%%'`
 DRVpattern=`echo "$DRIVER" | tr '-' '_'`
 
 if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
@@ -757,7 +768,7 @@ _load_framebuffer_drivers(){
 [ "`grep -E 'vga=ask|vga=0x3[0-9a-fA-F][0-9a-fA-F]|vga=[7-8][0-9][0-9]' /proc/cmdline`" ] || return 0
 
 echo -e "\\033[1;34m""Trying to load i2c and framebuffer drivers ...""\\033[0;39m"
-I2CS=`modprobe -l | grep -i 'i2c' | grep -v -E 'snd|sound' | while read line ;do basename $line | sed 's#\.ko.*$##' ;done`
+I2CS=`modprobe -l | grep -i 'i2c' | grep -v -E 'snd|sound' | while read line ;do basename $line | sed 's%\.ko.*$%%' ;done`
 
 GRAPHB=`ddcprobe | grep -E 'vbe|oem|vendor|product' | cut -f 2-99 -d ' ' | tr '[A-Z]' '[a-z]' | tr '\n' ' '`
 echo -e "\\033[1;33m"'video-info : '"\\033[1;34m"$GRAPHB"\\033[0;39m"
@@ -802,7 +813,7 @@ I2C=`echo "$I2CS" | grep -i $i`
 done
 echo -e "\\033[0;39m"
 
-FBDRIVERS=`modprobe -l | grep 'fb' | while read line ;do basename $line | sed 's#\.ko.*$##' ;done`
+FBDRIVERS=`modprobe -l | grep 'fb' | while read line ;do basename $line | sed 's%\.ko.*$%%' ;done`
 
 if [ -n "`echo "$GRAPHB" | grep -i 'Intel'`" ] ; then
 if [ -n "`modprobe -l | grep -E 'i810fb'`" ] ; then
@@ -822,8 +833,8 @@ for i in $POOL ; do
   for j in $FBS ; do
   DRIVER=`basename $j`
   DRVpattern=`echo "$DRIVER" | tr '-' '_'`
-  [[ "$DRIVER" = "nvidiafb" -a "`lsmod | grep 'nouveau'`" ]] && continue
-  [[ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" ]] && continue
+  [ "$DRIVER" = "nvidiafb" -a "`lsmod | grep 'nouveau'`" ] && continue
+  [ "$DRIVER" = "nouveau" -a "`lsmod | grep 'nvidiafb'`" ] && continue
   if [ -z "`lsmod | grep "$DRVpattern"`" ] ; then
   echo -ne "\\033[1;34m""$DRIVER ""\\033[1;33m"'.. '"\\033[0;39m"
   modprobe $DRIVER
@@ -993,7 +1004,7 @@ _remount_root rw
 _get_partitions(){
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'ROOTDRIVE='"\\033[0;39m""$PDEV1"
 DRIVES=''
-DRIV=`cat /proc/partitions | grep '^ ' | grep -v 'loop' | sed 's#^ *##' | tr -s ' ' | cut -f 4 -d ' ' | cut -b 1-3 | uniq`
+DRIV=`cat /proc/partitions | grep '^ ' | grep -v 'loop' | sed 's%^ *%%' | tr -s ' ' | cut -f 4 -d ' ' | cut -b 1-3 | uniq`
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'Attached drives : '"\\033[0;39m"$DRIV
 
 for i in $DRIV ; do
@@ -1005,9 +1016,9 @@ DRIVES=`echo "$DRIVES" | sed '/^$/d' | grep -vw "$devROOT" | tr '\n' ' '`
 [ -z "`echo $DRIVES | grep '[[:alpha:]]'`" ] && DRIVES=''
 
 if [ -z "$DRIVES" ] ; then
-DRIVES=`cat /proc/partitions | grep '^ ' | grep '[0-9]$' | sed 's#^ *##' | tr -s ' ' | cut -f 4 -d ' '`
+DRIVES=`cat /proc/partitions | grep '^ ' | grep '[0-9]$' | sed 's%^ *%%' | tr -s ' ' | cut -f 4 -d ' '`
 
-DRIVES=`echo "$DRIVES" | grep -vw "$PDEV1" | sed 's#^#/dev/#g' | tr '\n' ' '`
+DRIVES=`echo "$DRIVES" | grep -vw "$PDEV1" | sed 's%^%/dev/%g' | tr '\n' ' '`
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'DRIVES: '"$DRIVES""\\033[0;39m"
 fi
 
@@ -1297,7 +1308,7 @@ _remount_root rw
 _check_partitions(){
 #####KRG
 ###KRG check devices case switching kernels sda|hda
-ROOTDRIVE=`basename $(busybox rdev | cut -f 1 -d ' ')`  ### | cut -f 1 -d ' ' | sed 's#/dev/##'`
+ROOTDRIVE=`basename $(busybox rdev | cut -f 1 -d ' ')`  ### | cut -f 1 -d ' ' | sed 's%/dev/%%'`
 ROOTBLOCKDRIVE=${ROOTDRIVE:0:3}
 [ "$DebugVal" -ge "1" ] && echo -e "\\033[0;33m"'rootdrive='"\\033[0;39m""$ROOTDRIVE" && echo  ###DBG
 FS=`mount | grep -Fw '/' | grep '^/dev/' | tr -s ' ' | cut -f 5 -d ' '`
@@ -1305,10 +1316,10 @@ PDEV1="$ROOTDRIVE"
 DEV1FS="$FS"
 if [ "$DebugVal" -ge "2" ] ; then
  echo -e "\\033[0;33m""$ROOTDRIVE $ROOTBLOCKDRIVE $FS "','" $PDEV1 $DEV1FS"
-  DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#[[:alpha:][:punct:]]$##`
+  DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's%[[:alpha:][:punct:]]$%%'` #+-2017-04-14 added missing closing ' to sed
   MAJ=`echo $DMESG | cut -f 1 -d ':'`
   Min=`echo $DMESG | cut -f 2 -d ':'`
-  CATPP=`cat /proc/partitions | sed 's#^[a-zA-Z].*##g ; s#^[[:blank:]][a-zA-Z]##g ; /^$/d' | tr -s ' ' | sed 's#^ ##'`
+  CATPP=`cat /proc/partitions | sed 's%^[a-zA-Z].*%%g ; s%^[[:blank:]][a-zA-Z]%%g ; /^$/d' | tr -s ' ' | sed 's%^ %%'`
   MAJBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 1 -d ' '`
   MinBL=`echo "$CATPP" | grep -w "$ROOTBLOCKDRIVE" | cut -f 2 -d ' '`
  echo $CATPP" $DMESG $MAJ $Min "','" $MAJBL $MinBL "',' && echo -e "\\033[0;39m"
@@ -1359,8 +1370,8 @@ done
 function_size_lib
 echo -e "\\033[1;34m"'Checking for available RAM ...'
 echo -e "\\033[0;39m"
-    RAM=`free | grep -i 'mem' | sed 's#^[[:blank:]]*##' | tr -s ' ' | cut -f 2 -d ' '`
-FREERAM=`free | grep -i 'mem' | sed 's#^[[:blank:]]*##' | tr -s ' ' | cut -f 4 -d ' '`
+    RAM=`free | grep -i 'mem' | sed 's%^[[:blank:]]*%%' | tr -s ' ' | cut -f 2 -d ' '`
+FREERAM=`free | grep -i 'mem' | sed 's%^[[:blank:]]*%%' | tr -s ' ' | cut -f 4 -d ' '`
 RAMLIMITdevRAM2=$((MAXSIZEdevRAM1 * 2))
 echo '                  free counted total RAM:'"$RAM"  ###DBG
 echo 'Available RAM (minus Kernel and modules):'"$FREERAM"  ###DBG
@@ -1395,8 +1406,8 @@ echo
 _leave_to_simple_console 'dropping to console now , partition still mounted !'
 fi  #1
 NRAM=$(( RAM - FREERAM + RAMLIMITdevRAM2 ))
-NEEDRAM=`echo "$NRAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
-FORMRAM=`echo "$RAM"  | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's#^,##'`
+NEEDRAM=`echo "$NRAM" | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's%^,%%'`
+FORMRAM=`echo "$RAM"  | sed -r 's/(.)/ \1/g' | rev | tr ' ' '\n' | sed -r '4 i\,' | sed -r '8 i\,' | tr -d '\n' | rev | sed 's%^,%%'`
 echo -e "\\033[1;32m"
 echo -e "\\033[18G"'... OK : '"\\033[0;39m"$NEEDRAM"\\033[1;32m"' required of '"\\033[0;39m"$FORMRAM
 echo -e "\\033[0;39m"
@@ -1453,7 +1464,7 @@ _copy_busybox(){
   if test "$LSLBB" != "" ; then
   echo -e "\\033[1;32m"'YES'"\\033[0;39m"
   echo -e "\\033[0;39m"'Copying '"$RLF"' into RamDisk'"\\033[0;39m"
-  #RLBB=`echo $RLF | sed 's#/bin/##'`
+  #RLBB=`echo $RLF | sed 's%/bin/%%'`
   RLBB=`basename "$RLF"`
   cp -a "$REPO"/bin/"$RLBB" /mnt/ram0/bin/"$RLBB"
   else
@@ -1483,7 +1494,7 @@ _copy_busybox
 
   if [ -n "$LSLBIN" ] ; then
   [ "$DebugVal" = "1" ] && echo -ne "\\033[0;33m"" Link $oneBIN""\\033[0;39m"
-  NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
+  NEWBIN=`echo "$RLF" | sed 's%/usr%% ; s%/local%%'`
   [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
   [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
   [ -x /mnt/ram0/${NEWBIN} ]   || cp -a ${REPO}${RLF} /mnt/ram0/${NEWBIN}
@@ -1532,7 +1543,7 @@ _copy_busybox
 
   if [ -n "$LSLSBIN" ] ; then
    [ "$DebugVal" = "1" ] && echo -ne "\\033[0;33m"" Link $oneBIN ""\\033[0;39m"
-   NEWBIN=`echo "$RLF" | sed 's#/usr## ; s#/local##'`
+   NEWBIN=`echo "$RLF" | sed 's%/usr%% ; s%/local%%'`
    [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' Link '"\\033[0;39m""${REPO}${BINDIR}/$oneBIN ""\\033[0;31m"', '"\\033[0;39m"
    [ "$DebugVal" = "2" ] && echo -ne "\\033[0;31m"' LinkTarget '"\\033[0;39m""${REPO}${RLF} ""\\033[0;31m"', '"\\033[0;39m"
    [ -x /mnt/ram0/sbin/$oneBIN ] || cp -a ${REPO}${BINDIR}/"$oneBIN" /mnt/ram0/sbin/"$oneBIN"
@@ -1549,7 +1560,7 @@ _copy_busybox
   done
 
 _preserve_chroot(){
-  CHROOT=`which chroot | grep '^/sbin/`
+  CHROOT=`which chroot | grep '^/sbin/'`  #+-2017-04-14 added closing ' to grep
   if [ -n "$CHROOT" ] && [ ! -L "$CHROOT" ] && [ -x "$CHROOT" ] ; then
   echo "$CHROOT is no link but executable,
 creating backup of $CHROOT.bac
@@ -1764,9 +1775,9 @@ fi
   echo -e "\\033[1;34m""Populating /mnt/ram0/usr  ...""\\033[0;39m"
   LOCALTIME="${REPO}/usr/share`readlink $REPO/etc/localtime | sed 's%^.*/zoneinfo%/zoneinfo%'`"
   if [ -n "$REPO" ] ; then
-  LOCALTDIR="`dirname $LOCALTIME | sed "s%$REPO%%g" | sed 's#^/## ; s#//#/#g'`"
+  LOCALTDIR="`dirname $LOCALTIME | sed "s%$REPO%%g" | sed 's%^/%% ; s%//%/%g'`"
   else
-  LOCALTDIR="`dirname $LOCALTIME | sed 's#^/## ; s#//#/#g'`"
+  LOCALTDIR="`dirname $LOCALTIME | sed 's%^/%% ; s%//%/%g'`"
   fi
   mkdir -p /mnt/ram0/$LOCALTDIR
   cp -a $LOCALTIME /mnt/ram0/$LOCALTDIR/
@@ -1926,7 +1937,7 @@ fi
   fi
   #...the ramdisk is setup so that /etc/rc.d/rc.sysinit will run, which does the f.s. check.
  ;;
- *)
+ *)  # not ext2-4
   echo -e "\\033[1;31m"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
   echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
   echo -e "\\033[0;39m"
