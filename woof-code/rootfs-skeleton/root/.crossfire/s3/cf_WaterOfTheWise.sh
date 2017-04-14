@@ -1,22 +1,8 @@
-#!/bin/ash
+#!/bin/bash
 
 export PATH=/bin:/usr/bin
 
-_usage(){
-_draw 5  "Script to produce water of the wise."
-_draw 7  "Syntax:"
-_draw 7  "$0 [ -version VERSION ] NUMBER"
-_draw 5  "Allowed NUMBER will loop for"
-_draw 5  "NUMBER times to produce NUMBER of"
-_draw 5  "Water of the Wise ."
-_draw 5 "Options:"
-_draw 2  "Option -version 1.12.0 and lesser"
-_draw 2  "turns on some compatibility switches."
-_draw 5 "-d  to turn on debugging."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
-_draw 5 "-v to say what is being issued to server."
-        exit 0
-}
+DEBUG=1
 
 # *** PARAMETERS *** #
 
@@ -30,8 +16,28 @@ _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
+_usage(){
+
+_draw 5  "Script to produce water of the wise."
+_draw 7  "Syntax:"
+_draw 7  "$0 [ -version VERSION ] NUMBER"
+_draw 5  "Allowed NUMBER will loop for"
+_draw 5  "NUMBER times to produce NUMBER of"
+_draw 5  "Water of the Wise ."
+_draw 5 "Options:"
+_draw 2  "Option -version 1.12.0 and lesser"
+_draw 2  "turns on some compatibility switches."
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
+
+        exit 0
+}
+
 # *** Here begins program *** #
 _say_start_msg "$@"
+
+_debug "while loop .."
 
 while :;
 do
@@ -40,7 +46,10 @@ case "$1" in
 *.*) shift;;
 *) break;;
 esac
+sleep 0.1
 done
+
+_debug "until loop .."
 
 until test "$#" = 0; do
 PARAM_1="$1"
@@ -66,6 +75,7 @@ shift
 sleep 0.1
 done
 
+_debug "Last check NUMBER.."
 test "$NUMBER" || {
 _draw 3  "Script needs number of alchemy attempts as argument."
         exit 1

@@ -2,6 +2,21 @@
 
 export PATH=/bin:/usr/bin
 
+# *** Setting defaults *** #
+GEM='';  #set empty default
+NUMBER=0 #set zero as default
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+_set_global_variables "$@"
+
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+_get_player_name && {
+test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
 _usage(){
 _draw 5 "Script to produce water of GEM."
 _draw 7 "Syntax:"
@@ -18,21 +33,6 @@ _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v to say what is being issued to server."
         exit 0
-}
-
-# *** Setting defaults *** #
-GEM='';  #set empty default
-NUMBER=0 #set zero as default
-
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables "$@"
-
-# *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-_get_player_name && {
-test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 # *** Color numbers found in common/shared/newclient.h : *** #
@@ -88,20 +88,18 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
  _draw 3 "Only :alpha: characters as (TODO:?first?) option allowed."
         exit 1 #exit if other input than letters
         }
-GEM="$PARAM_1"
+  GEM="$PARAM_1"
  ;;
-*)
+ *)
  PARAM_1test="${PARAM_1//[[:digit:]]/}"
  test "$PARAM_1test" && {
  _draw 3 "Only :digit: numbers as (TODO:?second?) option allowed."
         exit 1 #exit if other input than numbers
         }
-NUMBER=$PARAM_1
+  NUMBER=$PARAM_1
  ;;
  esac
 
-
-fi
 ;;
 esac
 shift

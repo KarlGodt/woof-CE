@@ -2,16 +2,6 @@
 
 export PATH=/bin:/usr/bin
 
-_usage(){
-_draw 5 "Script to "
-_draw 5 "apply $ROD"
-_draw 5 "and then to fire center on oneself."
-_draw 5 "Options:"
-_draw 5 "-d  to turn on debugging."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
-_draw 5 "-v to say what is being issued to server."
-        exit 0
-}
 
 ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 
@@ -24,6 +14,17 @@ _set_global_variables
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
+_usage(){
+_draw 5 "Script to "
+_draw 5 "apply $ROD"
+_draw 5 "and then to fire center on oneself."
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
+        exit 0
 }
 
 # *** Here begins program *** #

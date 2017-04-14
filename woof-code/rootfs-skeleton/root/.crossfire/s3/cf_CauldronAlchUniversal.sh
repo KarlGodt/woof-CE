@@ -18,6 +18,20 @@ _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
+_usage(){
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 [ -version VERSION ] ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
+_draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
+_draw 4  "Option -version 1.12.0 and lesser"
+_draw 4  "turns on some compatibility switches."
+        exit 0
+}
+
 # *** Here begins program *** #
 _say_start_msg "$@"
 
@@ -41,21 +55,8 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*)
-
-_usage(){
-_draw 5 "Script to produce alchemy objects."
-_draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce"
-_draw 2 "ARTIFACT alch ie 'balm_of_first_aid' '10' with"
-_draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
-_draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
-_draw 4  "Option -version 1.12.0 and lesser"
-_draw 4  "turns on some compatibility switches."
-        exit 0
-       }
-;; esac
+_usage;;
+esac
 
 
 # *** testing parameters for validity *** #

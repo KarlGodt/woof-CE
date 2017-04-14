@@ -18,18 +18,7 @@ export PATH=/bin:/usr/bin
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
-_usage(){
-_draw 5 "Script to pray given number times."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <number>"
-_draw 5 "For example: 'script $0 50'"
-_draw 5 "will issue 50 times the use_skill praying command."
-_draw 5 "Options:"
-_draw 5 "-d  to turn on debugging."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
-_draw 5 "-v to say what is being issued to server."
-        exit 0
-}
+
 
 # Global variables
 
@@ -43,6 +32,19 @@ _set_global_variables
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
+_usage(){
+_draw 5 "Script to pray given number times."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <number>"
+_draw 5 "For example: 'script $0 50'"
+_draw 5 "will issue 50 times the use_skill praying command."
+_draw 5 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v to say what is being issued to server."
+        exit 0
 }
 
 # *** Here begins program *** #

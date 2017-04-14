@@ -528,6 +528,7 @@ case $1 in
 -h|*help*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 '') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
 *) _do_program "$@"; break;;
 esac

@@ -18,6 +18,17 @@ export PATH=/bin:/usr/bin
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+_set_global_variables
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+_get_player_name && {
+test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
 _usage(){
 _blue "Script to melt icecube."
 _blue "Syntax:"
@@ -33,15 +44,6 @@ _draw 5 "-v to say what is being issued to server."
         exit 0
 }
 
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables
-# *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-_get_player_name && {
-test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
-}
 
 DEBUG=1   # unset to disable, set to anything to enable
 LOGGING=1 # unset to disable, set to anything to enable
