@@ -42,6 +42,7 @@ _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
 _draw 5 "Options:"
 _draw 5 "-d  to turn on debugging."
+_draw 5 "-f  do not check msgs received from server."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v to say what is being issued to server."
         exit 0
@@ -59,6 +60,7 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-f|*force)     FORCE=$((FORCE+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
@@ -66,7 +68,7 @@ case "$PARAM_1" in
 #PARAM_1test="${PARAM_1//[[:digit:]]/}" # does not work for ash @ BusyBox v1.21.0 (2014-01-06 20:37:23 EST) multi-call binary.
 PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
-_draw 3 "Only :digit: numbers as first option allowed."
+_draw 3 "Only :digit: numbers as further option allowed."
         exit 1 #exit if other input than letters
         }
 NUMBER=$PARAM_1
@@ -94,6 +96,7 @@ while :; do sleep 0.1
 unset REPLY
 read -t 1 <&0   # <&1 works, <&0 works, in ash
 _debug "$REPLY"
+_log "$REPLY"
 case $REPLY in *' praying') YES=0;;
 'request skills end') break;;
 '') break;;
@@ -122,7 +125,7 @@ sleep 1
 #grep -q ' praying$' /tmp/stdin.txt
 
 SKILLS=`timeout -t 1 cat >&1 <&0 2>/dev/null`
-echo "$SKILLS" >&2  # debug
+_log "$SKILLS"  # debug
 echo "$SKILLS" | grep -q ' praying$'
 }
 
@@ -173,10 +176,12 @@ do
 
 unset REPLY_OLD
 
-echo "issue 1 1 use_skill praying"
+#echo "issue 1 1 use_skill praying"
+_is 1 1 use_skill praying
 sleep 0.5
 
 _read_reply_praying(){
+[ "$FORCE" ] && return 0
 
 CAT_IN=`timeout -t 1 cat >&1 <&0 2>/dev/null`
 #echo "$CAT_IN" >&2
@@ -193,6 +198,7 @@ fi
 #_read_reply_praying
 
 __read_reply_praying(){
+[ "$FORCE" ] && return 0
 # Checking the parameters (100)...
 # without
 # Loop of script had run a total of 1:41 minutes.
@@ -203,6 +209,7 @@ __read_reply_praying(){
   unset REPLY
   read -t 1 <&0
   _debug "$REPLY"
+  _log "$REPLY"
 
   case $REPLY in
   '') break;;

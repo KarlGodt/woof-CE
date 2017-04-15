@@ -36,7 +36,7 @@ _blue "script $0 [number]"
 _blue "For example: 'script $0 5'"
 _blue "will issue 5 times mark icecube and apply filint and steel."
 _navy "Without number breaks infinite loop"
-_navy "if no icecube could be marked anymore."
+_navy "until no icecube could be marked anymore."
 _draw 5 "Options:"
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
@@ -45,8 +45,8 @@ _draw 5 "-v to say what is being issued to server."
 }
 
 
-DEBUG=1   # unset to disable, set to anything to enable
-LOGGING=1 # unset to disable, set to anything to enable
+#DEBUG=1   # unset to disable, set to anything to enable
+#LOGGING=1 # unset to disable, set to anything to enable
 
 DRAW_INFO=drawinfo # drawextinfo (older clients)
 
@@ -105,11 +105,11 @@ sleep 0.1
 done
 
 
-_watch(){
+__watch(){
 echo watch $DRAW_INFO
 }
 
-_unwatch(){
+__unwatch(){
 echo unwatch $DRAW_INFO
 }
 
@@ -124,7 +124,7 @@ exit $1
 _get_player_speed
 
 # *** Actual script to pray multiple times *** #
-test "$NUMBER" && { test $NUMBER -ge 1 || NUMBER=1; } #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 
 _debug "NUMBER='$NUMBER'"
 _log ""
@@ -132,6 +132,8 @@ _log ""
 _watch
 
 TIMEB=`date +%s`
+
+__old_if_number(){
 
     if test "$NUMBER"; then
 
@@ -141,7 +143,8 @@ do
 REPLY=
 OLD_REPLY=
 
-echo "issue 1 1 mark icecube"
+#echo "issue 1 1 mark icecube"
+_is 1 1 mark icecube
 
  while :; do
  read -t 1 REPLY
@@ -164,7 +167,8 @@ do
 REPLY=
 OLD_REPLY=
 
-echo "issue 1 1 apply flint and steel"
+#echo "issue 1 1 apply flint and steel"
+_is 1 1 apply flint and steel
 
  while :; do
  read -t 1 REPLY
@@ -191,7 +195,10 @@ done
 
 done #NUMBER
 
-    else #PARAM_1
+fi
+}
+
+#    else #PARAM_1
 
 while :;
 do
@@ -199,7 +206,8 @@ do
 REPLY=
 OLD_REPLY=
 
-echo "issue 1 1 mark icecube"
+#echo "issue 1 1 mark icecube"
+_is 1 1 mark icecube
 
 while :; do
  read -t 1 REPLY
@@ -223,7 +231,8 @@ do
 REPLY=
 OLD_REPLY=
 
-echo "issue 1 1 apply flint and steel"
+#echo "issue 1 1 apply flint and steel"
+_is 1 1 apply flint and steel
 
  while :; do
  read -t 1 REPLY
@@ -248,9 +257,12 @@ sleep 1s
 
 done
 
+one=$((one+1))
+test "$one" = "$NUMBER" && break
+
 done #true
 
-    fi #^!PARAM_1
+#    fi #^!PARAM_1
 
 __get_time_end(){
 test "$TIMEB" || return 0
