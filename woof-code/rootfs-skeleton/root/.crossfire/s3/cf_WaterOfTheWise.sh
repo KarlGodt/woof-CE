@@ -27,8 +27,10 @@ _draw 5  "Water of the Wise ."
 _draw 5 "Options:"
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
+_draw 4 "-F  on fast network connection."
+_draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-L  to log to $REPLY_LOG ."
 _draw 5 "-v to say what is being issued to server."
 
         exit 0
@@ -51,6 +53,9 @@ done
 
 _debug "until loop .."
 
+#SLEEP_MOD='*'
+#SLEEP_MOD_VAL=1
+
 until test "$#" = 0; do
 PARAM_1="$1"
 
@@ -58,9 +63,11 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
-*)
+[0-9]*)
 #PARAM_1test="${PARAM_1//[[:digit:]]/}"
 PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
@@ -70,6 +77,7 @@ _draw 3 "Only :digit: numbers as option allowed."
 
 NUMBER=$PARAM_1
 ;;
+*) _red "Unrecognized option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
@@ -119,7 +127,15 @@ rm -f "$ON_LOG"
 
 # *** Getting Player's Speed *** #
 _debug Step 0
+#_debug "SLEEP='$SLEEP'"
 _get_player_speed
+#_debug "SLEEP='$SLEEP'"
+##test "$MUL" -a "$MUL_VAL" && SLEEP=$(dc "$SLEEP" "$MUL_VAL" "$MUL" p)
+#test "$SLEEP_MOD" -a "$SLEEP_MOD_VAL" && SLEEP=$(echo "$SLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
+#_debug "SLEEP='$SLEEP'"
+#SLEEP=${SLEEP:-1}
+#_debug "SLEEP='$SLEEP'"
+
 _debug Step 1
 # *** Check if standing on a cauldron *** #
 #_is 1 1 pickup 0  # precaution
@@ -152,18 +168,19 @@ TIMEB=`date +%s`
 
 _is 1 1 apply
 sleep 0.5s
-#sleep ${SLEEP}s
+sleep ${SLEEP}s
 
 _drop_in_cauldron 7 water
+sleep ${SLEEP}s
 
 _close_cauldron
-#sleep ${SLEEP}s
+sleep ${SLEEP}s
 
 _alch_and_get
-#sleep ${SLEEP}s
+sleep ${SLEEP}s
 
 _go_cauldron_drop_alch_yeld
-#sleep ${SLEEP}s
+sleep ${SLEEP}s
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then

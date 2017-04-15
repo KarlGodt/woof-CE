@@ -29,8 +29,10 @@ _draw 5 "Water of GEM ."
 _draw 5 "Options:"
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
+_draw 4 "-F  on fast network connection."
+_draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-L  to log to $REPLY_LOG ."
 _draw 5 "-v to say what is being issued to server."
         exit 0
 }
@@ -76,7 +78,9 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 
@@ -90,7 +94,7 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
         }
   GEM="$PARAM_1"
  ;;
- *)
+ [0-9]*)
  PARAM_1test="${PARAM_1//[[:digit:]]/}"
  test "$PARAM_1test" && {
  _draw 3 "Only :digit: numbers as (TODO:?second?) option allowed."
@@ -98,6 +102,7 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
         }
   NUMBER=$PARAM_1
  ;;
+ *) _red "Unrecognized option '$PARAM_1'";;
  esac
 
 ;;

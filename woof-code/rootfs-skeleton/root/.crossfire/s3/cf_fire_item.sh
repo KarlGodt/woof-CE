@@ -71,12 +71,12 @@ _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
 
-_log(){
+__log(){
 test "$LOGGING" || return 0
 echo "$*" >>"$LOG_FILE"
 }
 
-_debug(){
+__debug(){
 test "$DEBUG" || return 0
 _draw 3 "$*"
 sleep 0.5
@@ -92,6 +92,8 @@ _draw 5 "and will issue 10 times the $COMMAND east command."
 _draw 4 "Run without any parameters will use these defaults:"
 _draw 4 "$ITEM_DEFAULT $DIRECTION_DEFAULT $NUMBER_DEFAULT"
 _draw 5 "Options:"
+_draw 4 "-F  on fast network connection."
+_draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_FILE ."
 _draw 5 "-v to say what is being issued to server."
@@ -110,15 +112,19 @@ echo request items inv
 while :;
 do
 unset oneITEM
-read -t1 oneITEM
+read -t 1 oneITEM
  _log "$oneITEM"
+ _debug "$oneITEM"
+
  test "$oldITEM" = "$oneITEM" && break
  test "$oneITEM" || break
+
  ITEMS="$ITEMS
 $oneITEM"
  oldITEM="$oneITEM"
 sleep 0.1
 done
+
 unset oldITEM oneITEM
 #echo unwatch request
 
@@ -139,16 +145,22 @@ echo request items actv
 while :;
 do
 unset oneITEM
-read -t1 oneITEM
+read -t 1 oneITEM
+ _log "$oneITEM"
+ _debug "$oneITEM"
+
  test "$oldITEM" = "$oneITEM" && break
  test "$oneITEM" || break
+
  ITEMSA="$ITEMSA
 $oneITEM"
  oldITEM="$oneITEM"
 sleep 0.1
 done
+
 unset oldITEM oneITEM
 #echo unwatch request
+
 echo "$ITEMSA" | grep -q -i "$ITEM"
 }
 
@@ -168,13 +180,15 @@ do
 echo request range
 sleep 1
 unset REPLY_RANGE
-read -t1 REPLY_RANGE
+read -t 1 REPLY_RANGE
  _log "REPLY_RANGE=$REPLY_RANGE"
+ _debug "$REPLY_RANGE"
+
  test "`echo "$REPLY_RANGE" | grep -i "$ITEM"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
- _debug "issue 1 1 rotateshoottype"
-    echo issue 1 1 rotateshoottype
+ #_debug "issue 1 1 rotateshoottype"
+    _is 1 1 rotateshoottype
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
@@ -190,18 +204,18 @@ read -t1 statHP
  FOOD_STAT=`echo $statHP | awk '{print $NF}'`
  _debug "_watch_food:FOOD_STAT=$FOOD_STAT"
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-  _debug "issue 0 0 apply $FOOD"
-     echo issue 0 0 apply $FOOD
+  #_debug "issue 0 0 apply $FOOD"
+     _is 0 0 apply $FOOD
    sleep 1
  fi
 #echo unwatch request
 }
 
 _do_emergency_recall(){
-_debug "issue 1 1 apply rod of word of recall"
-  echo "issue 1 1 apply rod of word of recall"
-  echo "issue 1 1 fire 0"
-  echo "issue 1 1 fire_stop"
+#_debug "issue 1 1 apply rod of word of recall"
+ _is 1 1 apply rod of word of recall
+ _is 1 1 fire 0
+ _is 1 1 fire_stop
 ## apply bed of reality
 # sleep 10
 # echo issue 1 1 apply
@@ -215,8 +229,8 @@ echo request stat hp
 read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
  _debug "_watch_food:FOOD_LVL=$FOOD_LVL HP=$HP"
  if test "$FOOD_LVL" -lt $FOOD_STAT_MIN; then
-  _debug "issue 0 0 apply $FOOD"
-     echo issue 0 0 apply $FOOD
+  #_debug "issue 0 0 apply $FOOD"
+     _is 0 0 apply $FOOD
    sleep 1
  fi
  if test "$HP" -lt $((HP_MAX/10)); then
@@ -239,9 +253,9 @@ do
 # <repeat> is the number of times to execute command
 # <must_send> tells whether or not the command must sent at all cost (1 or 0).
 # <repeat> and <must_send> are optional parameters.
- _debug "_do_loop:issue 1 1 $COMMAND $DIRECTION_NUMBER"
-             echo issue 1 1 $COMMAND $DIRECTION_NUMBER
-             echo issue 1 1 $COMMAND_STOP
+ #_debug "_do_loop:issue 1 1 $COMMAND $DIRECTION_NUMBER"
+             _is 1 1 $COMMAND $DIRECTION_NUMBER
+             _is 1 1 $COMMAND_STOP
  sleep $COMMAND_PAUSE
 
  _watch_food
@@ -254,8 +268,8 @@ do
  _draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
 
 done
-_debug "_do_loop:issue 0 0 $COMMAND_STOP"
-            echo issue 0 0 $COMMAND_STOP
+#_debug "_do_loop:issue 0 0 $COMMAND_STOP"
+            _is 0 0 $COMMAND_STOP
 }
 
 _error(){
@@ -294,7 +308,9 @@ until test $# = 0; do
 case $1 in
 -h|*help*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 #'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
 *) _do_program "$@"; break;;

@@ -38,6 +38,8 @@ _blue "will issue 5 times mark icecube and apply filint and steel."
 _navy "Without number breaks infinite loop"
 _navy "until no icecube could be marked anymore."
 _draw 5 "Options:"
+_draw 4 "-F  on fast network connection."
+_draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v to say what is being issued to server."
@@ -63,17 +65,21 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
-*)
+[0-9]*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
- _red "Only :digit: numbers as first option allowed."
+ _red "Only :digit: numbers as attempt option allowed."
         exit 1 #exit if other input than letters
        }
 NUMBER=$PARAM_1
 ;;
+*) _red "Unrecognized option '$PARAM_1'";;
+
 esac
 
 shift
@@ -116,7 +122,7 @@ while :; do
  sleep 0.1s
  done
 
-sleep 1s
+sleep ${SLEEP}s
 
 while :;
 do
@@ -146,7 +152,7 @@ _is 1 1 apply flint and steel
  sleep 0.1s
  done
 
-sleep 1s
+sleep ${SLEEP}s
 
 done
 

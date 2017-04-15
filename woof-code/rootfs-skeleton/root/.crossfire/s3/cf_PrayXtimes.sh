@@ -41,9 +41,11 @@ _draw 5 "script $0 <number>"
 _draw 5 "For example: 'script $0 50'"
 _draw 5 "will issue 50 times the use_skill praying command."
 _draw 5 "Options:"
+_draw 4 "-F  on fast network connection."
+_draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-f  do not check msgs received from server."
-_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-L  to log to $REPLY_LOG ."
 _draw 5 "-v to say what is being issued to server."
         exit 0
 }
@@ -60,10 +62,12 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help"*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
+-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -f|*force)     FORCE=$((FORCE+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
-*)
+[0-9]*)
 # *** testing parameters for validity *** #
 #PARAM_1test="${PARAM_1//[[:digit:]]/}" # does not work for ash @ BusyBox v1.21.0 (2014-01-06 20:37:23 EST) multi-call binary.
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -73,6 +77,7 @@ _draw 3 "Only :digit: numbers as further option allowed."
         }
 NUMBER=$PARAM_1
 ;;
+*) _red "Unrecognized option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
@@ -156,6 +161,13 @@ esac
 _debug "USLEEP=$USLEEP:SPEED=$SPEED"
 
 USLEEP=$(( USLEEP - ( (SPEED/10000) * 1000 ) ))
+
+if test "$SLEEP_MOD" -a "$SLEEP_MOD_VAL"; then
+USLEEP=$(echo "$USLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
+_debug "USLEEP='$USLEEP'"
+fi
+USLEEP=${USLEEP:-1000000}
+
 _debug "Sleeping $USLEEP usleep micro-seconds between praying"
 }
 _get_player_speed

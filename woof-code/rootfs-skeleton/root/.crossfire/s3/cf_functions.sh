@@ -7,8 +7,10 @@
 _set_global_variables(){
 LOGGING=${LOGGING:-''}  #set to ANYTHING ie "1" to enable, empty to disable
 DEBUG=${DEBUG:-''}      #set to ANYTHING ie "1" to enable, empty to disable
-TMOUT=${TMOUT:-1}      # read -t timeout
-SLEEP=${SLEEP:-1}      #default sleep value, refined in _get_player_speed()
+TMOUT=${TMOUT:-1}       # read -t timeout
+SLEEP=${SLEEP:-1}       #default sleep value, refined in _get_player_speed()
+SLEEP_MOD=${SLEEP_MOD:-'*'}       # add -F --fast (/) and -S --slow (*) options
+SLEEP_MOD_VAL=${SLEEP_MOD_VAL:-1} # "
 
 DELAY_DRAWINFO=${DELAY_DRAWINFO:-2}  #default seconds pause to sync, refined in _get_player_speed()
 DRAWINFO=${DRAWINFO:-drawinfo}   #older clients <= 1.12.0 use drawextinfo , newer clients drawinfo
@@ -111,6 +113,7 @@ _draw ${COL_VERB:-12} "$*"
 }
 
 _watch(){
+_unwatch
 _debug "watch $DRAWINFO"
 echo watch $DRAWINFO
 sleep 0.2
@@ -208,7 +211,7 @@ test -e "$SOUND_DIR"/${1}.raw && \
 }
 
 ___get_player_name(){
-
+# this does not work correctly since case insensitive
 local ANSWER
 
 _watch
@@ -216,10 +219,11 @@ _watch
 for player_name in karl Karl KARL Karl_ Trollo Aelfdoerf kalle kalli
 do
 sleep 0.1
-echo issue 1 1 hug $player_name #case insensitive!
+_is 1 1 hug $player_name #case insensitive!
 sleep 0.1
-read -t 1 ANSWER
-_draw 2 "ANSWER=$ANSWER"
+read -t $TMOUT ANSWER
+_debug "ANSWER=$ANSWER"
+_log "$ANSWER"
 case $ANSWER in *You*hug*yourself*) MY_NAME="$player_name"; break 1;; esac
 sleep 0.1
 unset ANSWER
@@ -246,16 +250,20 @@ test "$MY_NAME"
 
 _get_player_name(){
 
+local c=0
 local r p N P
 
 echo request player
 while :;
 do
-read -t 1
-_draw 10 "REQUEST PLAYER:'$REPLY'" #debug
+read -t $TMOUT
+_log "REQUEST PLAYER:'$REPLY'"
+_debug "REQUEST PLAYER:'$REPLY'"
+
 c=$((c+1))
 test "$c" = 9 && break
 test "$REPLY" || break
+
 MY_NAME_ALL="$REPLY"
 unset REPLY
 sleep 0.1
@@ -267,7 +275,7 @@ EoI
 
 #MY_NAME=`echo "$MY_NAME_W_TITLE" | sed 's% the .*%%'`  #MIKE the Mechanic
 MY_NAME=`echo "$MY_NAME_W_TITLE" | awk '{print $1}'`    #Nico a wonderful terrible
-_debug 7 "Player:'$MY_NAME'"
+_debug "Player:'$MY_NAME'"
 
 if test "$MY_NAME"; then
  _draw 2 "Your name found out to be $MY_NAME"
@@ -366,6 +374,8 @@ echo draw 5 "$* $TIMEm:$TIMEs minutes."
 
 _say_success_fail(){
 test "$NUMBER" -a "$FAIL" || return 3
+test "${NUMBER//[0-9]/}"  && return 4
+test "${FAIL//[0-9]/}"    && return 5
 
 if test "$FAIL" -le 0; then
  SUCC=$((NUMBER-FAIL))
@@ -478,7 +488,7 @@ echo request stat cmbt
 
 while :; do
 read -t $TMOUT ANSWER
-#echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
+
 _log "$REQUEST_LOG" "request stat cmbt:$ANSWER"
 _debug "$ANSWER"
 test "$ANSWER" || break
@@ -493,13 +503,12 @@ test ! "$ANSWER" -a "$OLD_ANSWER" && ANSWER="$OLD_ANSWER"  #+++2017-03-20
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
-#PL_SPEED="0.${PL_SPEED:0:2}"
-PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-_draw 7 "Player speed is '$PL_SPEED'"
 
-#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+_debug "Player speed is '$PL_SPEED'"
+
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-_debug "Using player speed '$PL_SPEED'"
+_verbose "Using player speed '$PL_SPEED'"
 
   if test "$PL_SPEED" = "";   then
     _draw 3 "WARNING: Could not set player speed. Using defaults."
@@ -539,6 +548,16 @@ SLEEP=5.0; DELAY_DRAWINFO=10.0; TMOUT=2
 else
 _exit 1 "ERROR while processing player speed."
 fi
+
+_debug "SLEEP='$SLEEP' DELAY_DRAWINFO='$DELAY_DRAWINFO' TMOUT='$TMOUT'"
+
+if test "$SLEEP_MOD" -a "$SLEEP_MOD_VAL"; then
+SLEEP=$(echo "$SLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
+_debug "SLEEP='$SLEEP'"
+fi
+
+SLEEP=${SLEEP:-1}
+_verbose "Finally set SLEEP='$SLEEP'"
 
 _draw 6 "Done."
 return 0
@@ -614,6 +633,9 @@ fi
 
 _drop "$@"
 
+#echo sync
+sleep ${SLEEP}s
+
 _check_drop_or_exit "$@"
 
 if test "$DRAWINFO" = drawextinfo; then
@@ -652,8 +674,8 @@ _unknown(){
 _check_if_on_cauldron(){
 _draw 5 "Checking if on a cauldron..."
 
-UNDER_ME='';
-UNDER_ME_LIST='';
+local UNDER_ME='';
+local UNDER_ME_LIST='';
 _debugx A
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
@@ -665,8 +687,8 @@ _debugx C
 _debugx "UNDER_ME='$UNDER_ME'"
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
-#echo "$UNDER_ME" >>"$ON_LOG"
 _log "$ON_LOG" "$UNDER_ME"
+
 _debugx L
 _debugx "UNDER_ME='$UNDER_ME'"
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
@@ -681,7 +703,7 @@ _debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 case $UNDER_ME in
 *request*items*on*end*) break;;
 *scripttell*break*)     break;;
-*scripttell*exit*)    _exit 1;;
+*scripttell*exit*)    _exit 1 "$UNDER_ME";;
 esac
 
 unset UNDER_ME
@@ -713,7 +735,7 @@ exit 1
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 #test "`echo "$UNDER_ME_LIST" | head -n1 | grep 'cauldron$'`" || {
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'cauldron$'`" || {
-_draw 3 "cauldron is not topmost!"
+_draw 3 "Cauldron is not topmost!"
 _beep
 exit 1
 }
@@ -1466,7 +1488,7 @@ _is 1 1 use_skill alchemy
 OLD_REPLY="";
 REPLY="";
 while :; do
-read -t 1
+read -t $TMOUT
 #echo "$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "alchemy:$REPLY"
 _debug "$REPLY"
@@ -1529,9 +1551,9 @@ NOTHING=0
 SLAG=0
 
 while :; do
-read -t 1
+read -t $TMOUT
 #echo "take:$REPLY" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "take:$REPLY"
+_log "$get:REPLY_LOG" "take:$REPLY"
 _debug "$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
@@ -1560,10 +1582,9 @@ local HAVE_PUT=0
 local OLD_REPLY="";
 local REPLY="";
 while :; do
-read -t 1
-#echo "drop:$REPLY" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "drop:$REPLY"
-_debug "$REPLY"
+read -t $TMOUT
+_log "$REPLY_LOG" "_check_drop_or_exit:$REPLY"
+_debug "_check_drop_or_exit:'$REPLY'"
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing '$@' in inventory";;
 *There*are*only*|*There*is*only*) _exit 1 "Not enough '$@' to drop." ;;
@@ -1642,7 +1663,7 @@ _empty_message_stream(){
 local REPLY
 while :;
 do
-read -t 1
+read -t $TMOUT
 _log "$REPLY_LOG" "_empty_message_stream:$REPLY"
 #_debug "$REPLY"
 test "$REPLY" || break
@@ -1697,7 +1718,7 @@ _is 1 0 cast create
 while :;
 do
 
-read -t 1
+read -t $TMOUT
 _log "$REPLY"
 _debug "_check_mana_for_create_food:$REPLY"
 case $REPLY in
@@ -1756,7 +1777,7 @@ _is 1 1 fire center ## Todo handle bungling the spell AND low mana
 
 unset BUNGLE
 sleep 0.1
-read -t 1 BUNGLE
+read -t $TMOUT BUNGLE
 test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|not enough'`" || break
 _is 1 1 fire_stop
 sleep 10
@@ -1787,13 +1808,13 @@ _empty_message_stream
 _apply_horn_of_plenty_and_eat(){
 local REPLY
 
-read -t 1
+read -t $TMOUT
 unset REPLY
 _is 1 1 apply -a Horn of Plenty
 #+++2017-03-20 handle failure applying
 while :;
 do
-read -t 1
+read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
 case $REPLY in
@@ -1806,7 +1827,7 @@ done
 
 sleep 1
 unset REPLY
-read -t 1
+read -t $TMOUT
 
 #+++2017-03-20 check if available
 # check if topmost item has changed afterwards
@@ -1817,7 +1838,7 @@ _is 1 1 fire center ## Todo handle bungling AND time to charge
 
 unset BUNGLE
 sleep 0.1
-read -t 1 BUNGLE
+read -t $TMOUT BUNGLE
 _log "$BUNGLE"
 _debug "$BUNGLE"
 test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|needs more time to charge'`" || break
@@ -1829,7 +1850,7 @@ done
 _is 1 1 fire_stop
 sleep 1
 unset REPLY
-read -t 1
+read -t $TMOUT
 
 #+++2017-03-20 check if available
 # check if topmost item has changed afterwards
@@ -1840,7 +1861,7 @@ echo request items on
 while :;
 do
 unset REPLY
-read -t 1
+read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
 case $REPLY in
@@ -1854,7 +1875,7 @@ done
 
 _is 1 1 apply ## Todo check if food is there on tile AND if not poisoned/cursed
 unset REPLY
-read -t 1
+read -t $TMOUT
 
 #+++2017-03-20 pickup any leftovers
 #_is 1 1 get  ##gets 1 of topmost item
@@ -1880,12 +1901,12 @@ test "$EAT_FOOD" || EAT_FOOD=waybread
 
 #_check_food_inventory ## Todo: check if food is in INV
 
-read -t 1
+read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
 _is 1 1 apply $EAT_FOOD
 unset REPLY
-read -t 1
+read -t $TMOUT
 }
 
 _check_food_level(){
@@ -1901,7 +1922,7 @@ MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-200}
 local FOOD_LVL=''
 local REPLY
 
-read -t 1  # empty the stream of messages
+read -t $TMOUT  # empty the stream of messages
 
 _watch
 sleep 1
