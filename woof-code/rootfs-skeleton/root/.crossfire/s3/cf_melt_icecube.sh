@@ -2,6 +2,8 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -122,7 +124,7 @@ while :; do
  sleep 0.1s
  done
 
-sleep ${SLEEP}s
+_sleep
 
 while :;
 do
@@ -152,7 +154,7 @@ _is 1 1 apply flint and steel
  sleep 0.1s
  done
 
-sleep ${SLEEP}s
+_sleep
 
 done
 
@@ -164,6 +166,8 @@ done #true
 
 # *** Here ends program *** #
 #echo draw 2 "$0 is finished."
-test "$FAIL" && _draw 8 "You failed    '$FAIL' times."
-test "$SUCC" && _draw 7 "You succeeded '$SUCC' times."
+#test "$FAIL" && _draw 8 "You failed    '$FAIL' times."
+#test "$SUCC" && _draw 7 "You succeeded '$SUCC' times."
+success=$SUCC
+NUMBER=$one
 _say_end_msg

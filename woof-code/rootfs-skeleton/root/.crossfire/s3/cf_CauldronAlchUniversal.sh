@@ -3,6 +3,8 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
+
 # *** Setting defaults *** #
 #set empty default
 C=0 # Bash Array Counter - set zero as default
@@ -244,18 +246,18 @@ esac
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 _debug "NUMBER=$NUMBER"
 
-TIMEA=`date +%s`
+TIMEB=`date +%s`
 success=0
 # *** MAIN LOOP *** #
 for one in `seq 1 1 $NUMBER`
 do
 
 #TIMEB=`date +%s`
-TIMEB=${TIMEE:-$TIMEA}
+TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5
-#sleep ${SLEEP}s
+#_sleep
 
  for FOR in `seq 2 1 $C`; do
 
@@ -307,7 +309,7 @@ if test "$NOTHING" = 0; then
  _is 1 1 use_skill sense curse
  _is 1 1 use_skill sense magic
  _is 1 1 use_skill alchemy
- sleep ${SLEEP}s
+ _sleep
 
  _is 0 1 drop $GOAL
  success=$((success+1))

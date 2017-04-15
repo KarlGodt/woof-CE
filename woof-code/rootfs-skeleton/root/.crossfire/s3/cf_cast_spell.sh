@@ -26,6 +26,8 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
+
 # *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
 # *** common editable variables
 VERBOSE=1  # be a bit talkactive

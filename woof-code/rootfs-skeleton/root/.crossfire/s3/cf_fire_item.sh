@@ -2,6 +2,8 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
+
 #DEBUG=1
 #LOGGING=1
 
@@ -102,7 +104,7 @@ exit 0
 
 _check_have_needed_item_in_inventory(){
 _debug "_check_have_needed_item_in_inventory:$*"
-local oneITEM oldITEM ITEMS
+local oneITEM oldITEM ITEMS TIMEB TIMEE TIME
 
 _draw 6 "Checking if in inventory..."
 

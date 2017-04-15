@@ -1,7 +1,7 @@
 #!/bin/ash
-. /etc/DISTRO_SPECS
-. /etc/rc.d/PUPSTATE
-. /etc/rc.d/f4puppy5
+#. /etc/DISTRO_SPECS
+#. /etc/rc.d/PUPSTATE
+#. /etc/rc.d/f4puppy5
 
 
 _set_global_variables(){
@@ -41,8 +41,8 @@ MIN_FOOD_LEVEL_DEF=${MIN_FOOD_LEVEL_DEF:-300} # default minimum. 200 starts to b
 HP_MIN_DEF=${HP_MIN_DEF:-20}  # minimum HP to return home. Lowlevel characters probably need this set.
 
 DIRB=${DIRB:-west}  # direction back to go while alching on a cauldron. depends on the location.
-case $DIRB in
-west)  DIRF=east;;  # direction forward
+case $DIRB in       # should have four tiles free to move to DIRB
+west)  DIRF=east;;  # direction forward to return to cauldron
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
@@ -58,9 +58,9 @@ TMP_DIR=${TMP_DIR:-/tmp/crossfire_client}
 mkdir -p "$TMP_DIR"
 
 LOGFILE=${LOGFILE:-"$TMP_DIR"/"$MY_BASE".$$.log}
-REPLY_LOG=${REPLY_LOG:-"$TMP_DIR"/"$MY_BASE".$$.rpl}    # log only replys
-REQUEST_LOG=${REQUEST_LOG:-"$TMP_DIR"/"$MY_BASE".$$.req}  # log only replys for requests
-ON_LOG=${ON_LOG:-"$TMP_DIR"/"$MY_BASE".$$.ion}       # log only replys for request items on
+REPLY_LOG=${REPLY_LOG:-"$TMP_DIR"/"$MY_BASE".$$.rpl}      # log replys
+REQUEST_LOG=${REQUEST_LOG:-"$TMP_DIR"/"$MY_BASE".$$.req}  # log replys for requests
+ON_LOG=${ON_LOG:-"$TMP_DIR"/"$MY_BASE".$$.ion}            # log replys for request items on
 
 # colours
 COL_BLACK=0
@@ -207,7 +207,7 @@ _log(){
 _sound(){
     local DUR
 test "$2" && { DUR="$1"; shift; }
-test "$DUR" || DUR=0
+DUR=${DUR:-0}
 test -e "$SOUND_DIR"/${1}.raw && \
            aplay $Q $VERB -d $DUR "$SOUND_DIR"/${1}.raw
 }
@@ -225,7 +225,7 @@ _is 1 1 hug $player_name #case insensitive!
 sleep 0.1
 read -t $TMOUT ANSWER
 _debug "ANSWER=$ANSWER"
-_log "$ANSWER"
+_log "___get_player_name:$ANSWER"
 case $ANSWER in *You*hug*yourself*) MY_NAME="$player_name"; break 1;; esac
 sleep 0.1
 unset ANSWER
@@ -259,7 +259,7 @@ echo request player
 while :;
 do
 read -t $TMOUT
-_log "REQUEST PLAYER:'$REPLY'"
+_log "_get_player_name:'$REPLY'"
 _debug "REQUEST PLAYER:'$REPLY'"
 
 c=$((c+1))
@@ -321,19 +321,20 @@ beep -l 300 -f 1000
 ) & aPID=$!
 fi
 
+__former_count_time(){
 if test "$TIMEA" -o "$TIMEB"; then
  TIMEE=`date +%s`
- #if test "$TIMEB"; then
- # TIMEC=$TIMEB
- #else
- # TIMEC=$TIMEA
- #fi
- if test "$TIMEA"; then
-  TIMEC=$TIMEA
+ if test "$TIMEB"; then
+  TIMED=$TIMEB
  else
-  TIMEC=$TIMEB
+  TIMED=$TIMEA
  fi
- TIMEX=$((TIMEE-TIMEC))
+ #if test "$TIMEA"; then
+ # TIMED=$TIMEA
+ #else
+ # TIMED=$TIMEB
+ #fi
+ TIMEX=$((TIMEE-TIMED))
  TIMEM=$((TIMEX/60))
  TIMES=$(( TIMEX - (TIMEM*60) ))
  case $TIMES in [0-9]) TIMES="0$TIMES";; esac
@@ -341,17 +342,26 @@ if test "$TIMEA" -o "$TIMEB"; then
  #_draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
  _draw 4 "Loop of script had run a total of $TIMEM:$TIMES minutes."
 fi
+}
 
-#+++2017-03-20 Remove *.err file if empty
-if test -s "$TMP_DIR"/"$MY_BASE".$$.err; then
-_draw 3 "WARNING:Content reported in $TMP_DIR/$MY_BASE.$$.err ."
-else
-_draw 7 "No content reported in $TMP_DIR/$MY_BASE.$$.err ."
-[ "$DEBUG" ] || rm -f "$TMP_DIR"/"$MY_BASE".$$.err
-fi
+_say_statistics_end
+
+_remove_err_log
 
 test "$aPID" && wait $aPID
 _draw 2  "$0 has finished."
+}
+
+_remove_err_log(){
+#+++2017-03-20 Remove *.err file if empty
+if test -s "$TMP_DIR"/"$MY_BASE".$$.err; then
+_draw 3 "WARNING:Content reported in $TMP_DIR/$MY_BASE.$$.err ."
+false
+else
+_draw 7 "No content reported in $TMP_DIR/$MY_BASE.$$.err ."
+[ "$DEBUG" ] || rm -f "$TMP_DIR"/"$MY_BASE".$$.err
+true
+fi
 }
 
 # times
@@ -371,30 +381,43 @@ TIMEm=$((TIMEy/60))
 TIMEs=$(( TIMEy - (TIMEm*60) ))
 case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
 
-echo draw 5 "$* $TIMEm:$TIMEs minutes."
+_draw 5 "$* $TIMEm:$TIMEs minutes."
 }
 
-_say_success_fail(){
+_say_success_fail(){  # melt icecube
+
+NUMBER=${NUMBER:-$1}
+success=${success:-$2}
+FAIL=${FAIL:-$3}
+
+if test "$NUMBER" -a "$success"; then
+FAIL=${FAIL:-$((NUMBER-success))} # balm of first aid
+fi
+
 test "$NUMBER" -a "$FAIL" || return 3
 test "${NUMBER//[0-9]/}"  && return 4
 test "${FAIL//[0-9]/}"    && return 5
 
 if test "$FAIL" -le 0; then
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded '$SUCC' times of '$NUMBER' ." # green
+ PERCENT=$(( (SUCC*100) / NUMBER ))
+ _draw 7 "You succeeded '$SUCC' times of '$NUMBER' (${PERCENT}%)." # green
 elif test "$((NUMBER/FAIL))" -lt 2;
 then
- echo draw 8 "You failed '$FAIL' times of '$NUMBER' ."    # light green
- echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+ PERCENT=$(( (FAIL*100) / NUMBER ))
+ _draw 8 "You failed '$FAIL' times of '$NUMBER' (${PERCENT}%)."    # light green
+ _draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded '$SUCC' times of '$NUMBER' ." # green
+ PERCENT=$(( (SUCC*100) / NUMBER ))
+ _draw 7 "You succeeded '$SUCC' times of '$NUMBER' (${PERCENT}%)." # green
 fi
 }
 
 _say_statistics_end(){
 # Now count the whole loop time
 TIMELE=`date +%s`
+TIMELB=${TIMELB:-$TIMEB}
 _say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
@@ -402,6 +425,53 @@ _say_success_fail
 # Now count the whole script time
 TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+}
+
+
+__loop_counter(){
+test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
+TRIES_STILL=$((NUMBER-one))
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEB))
+TIMEZ=$((TIMEE-TIMEA))
+TIMEAV=$((TIMEZ/one))
+TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
+_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
+}
+
+_loop_counter(){  # balm of first aid
+#test "$TIMEA" -a "$TIMEB" -a "$TIMEC" -a "$NUMBER" -a "$one" || return 0
+test "$1" -o "$TIMEA" -o "$TIMEB" -o "$TIMEC" || return 0
+test "$NUMBER" -a "$one" || return 0
+
+TIMEC=${TIMEC:-$1}
+TIMEC=${TIMEC:-$TIMEB}
+TIMEC=${TIMEC:-$TIMEA}
+
+test "$TIMEC"           || return 1
+test "${TIMEC//[0-9]/}" && return 2
+
+TIMEB=${TIMEB:-$2}
+TIMEB=${TIMEB:-$TIMEA}
+
+test "$TIMEB"           || return 1
+test "${TIMEB//[0-9]/}" && return 2
+
+TRIES_STILL=$((NUMBER-one))
+TIMEE=`date +%s`
+
+TIMEX=$((TIMEE-TIMEC))
+TIMEY=$((TIMEE-TIMEB))
+TIMEAV=$((TIMEY/one))
+
+#TIMEZ=$((TIMEE-TIMEA))
+#TIMEAV=$((TIMEZ/one))
+
+TIMEESTM=$(( (TRIES_STILL*TIMEAV) / 60 ))
+TIMEESTS=$(( (TRIES_STILL*TIMEAV) - (TIMEESTM*60) ))
+case $TIMEESTS in [0-9]) TIMEESTS="0$TIMEESTS";; esac
+_draw 4 "Elapsed '$TIMEX' s, '$success' of '$one' successfull."
+_draw 4 "Still '$TRIES_STILL' ($TIMEESTM:$TIMEESTS m) to go..."
 }
 
 # *** EXIT FUNCTIONS *** #
@@ -416,7 +486,7 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 _sleep
 
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 _draw 3 "Exiting $0. $@"
 echo unwatch
 #echo unwatch $DRAWINFO
@@ -425,6 +495,7 @@ _beep
 
 NUMBER=$((one-1))
 _say_statistics_end
+_remove_err_log
 
 exit $RV
 }
@@ -453,8 +524,9 @@ _beep
 
 NUMBER=$((one-1))
 _say_statistics_end
+_remove_err_log
 
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 exit $RV
 }
 
@@ -466,6 +538,7 @@ _draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
 _draw 3 "Remove that Item and try again."
 _draw 3 "If this is a Wall, try another place."
 _beep
+_remove_err_log
 exit $RV
 }
 
@@ -555,6 +628,7 @@ _debug "SLEEP='$SLEEP' DELAY_DRAWINFO='$DELAY_DRAWINFO' TMOUT='$TMOUT'"
 
 if test "$SLEEP_MOD" -a "$SLEEP_MOD_VAL"; then
 SLEEP=$(echo "$SLEEP $SLEEP_MOD $SLEEP_MOD_VAL" | bc -l)
+case $SLEEP in .*) SLEEP="0$SLEEP";; esac
 _debug "SLEEP='$SLEEP'"
 fi
 
@@ -656,7 +730,7 @@ fi
 
 _drop(){
  _sound 0 drip &
- echo issue 1 1 drop "$@"
+ _is 1 1 drop "$@"
 }
 
 _success(){
@@ -693,7 +767,7 @@ _debugx C
 _debugx "UNDER_ME='$UNDER_ME'"
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
-_log "$ON_LOG" "$UNDER_ME"
+_log "$ON_LOG" "_check_if_on_cauldron:$UNDER_ME"
 
 _debugx L
 _debugx "UNDER_ME='$UNDER_ME'"
@@ -727,14 +801,14 @@ _debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron.*cursed'`" && {
 _draw 3 "You stand upon a cursed cauldron!"
 _beep
-exit 1
+_exit 1
 }
 
 _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 _draw 3 "Need to stand upon cauldron!"
 _beep
-exit 1
+_exit 1
 }
 
 #+++2017-03-20 make sure cauldron is on top
@@ -743,7 +817,7 @@ _debugx "UNDER_ME_LIST='$UNDER_ME_LIST'"
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep 'cauldron$'`" || {
 _draw 3 "Cauldron is not topmost!"
 _beep
-exit 1
+_exit 1
 }
 
 _draw 7 "OK."
@@ -788,20 +862,20 @@ done
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
 _draw 3 "You stand upon a cursed ${ITEM}!"
 _beep
-exit 1
+_exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
 _draw 3 "Need to stand upon ${ITEM}!"
 _beep
-exit 1
+_exit 1
 }
 
 _draw 7 "OK."
 return 0
 }
 
-_check_if_on_item_topmost(){  ##2017-03-20
+_check_if_on_item_topmost(){  #+++2017-03-20
 local ITEM="$*"
 _draw 5 "Checking if on a topmost '$ITEM' ..."
 
@@ -838,20 +912,20 @@ done
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM} .*cursed"`" && {
 _draw 3 "You stand upon a cursed ${ITEM}!"
 _beep
-exit 1
+_exit 1
 }
 
 test "`echo "$UNDER_ME_LIST" | grep " ${ITEM}$"`" || {
 _draw 3 "Need to stand upon ${ITEM}!"
 _beep
-exit 1
+_exit 1
 }
 
 #test "`echo "$UNDER_ME_LIST" | head -n1 | grep " ${ITEM}$"`" || {
 test "`echo "$UNDER_ME_LIST" | tail -n1 | grep " ${ITEM}$"`" || {
 _draw 3 "${ITEM} is not topmost!"
 _beep
-exit 1
+_exit 1
 }
 
 _draw 7 "OK."
@@ -867,56 +941,8 @@ test "$1" && NUMBERT="$1"
 test "$NUMBERT" || NUMBERT=4
 #test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
 test "${NUMBERT//[0-9]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
-_draw 5 "Checking for space to move..."
+_draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
 
-
-#         if ( strncmp(c,"pos",3)==0 ) { // v.1.10.0
-#            char buf[1024];
-#
-#            sprintf(buf,"request map pos %d %d\n",pl_pos.x,pl_pos.y);
-#            write(scripts[i].out_fd,buf,strlen(buf));
-#         }
-
-#         if ( strncmp(c,"pos",3)==0 ) { // v.1.12.0
-#            char buf[1024];
-#
-#            snprintf(buf, sizeof(buf), "request map pos %d %d\n",pl_pos.x,pl_pos.y);
-#            write(scripts[i].out_fd,buf,strlen(buf));
-#         }
-
-#         if (strncmp(c, "pos", 3) == 0) { // v.1.70.0
-#            char buf[1024];
-#
-#            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
-#            write(scripts[i].out_fd, buf, strlen(buf));
-
-#        if ( strncmp(c,"near",4)==0 ) { // v.1.10.0
-#            for(y=0;y<3;++y)
-#               for(x=0;x<3;++x)
-#                  send_map(i,
-#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                     );
-#         }
-
-#        if ( strncmp(c,"near",4)==0 ) { // v.1.12.0
-#            for(y=0;y<3;++y)
-#               for(x=0;x<3;++x)
-#                  send_map(i,
-#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                     );
-#        }
-
-
-#         if (strncmp(c, "near", 4) == 0) { // v.1.70.0
-#                for (y = 0; y < 3; ++y)
-#                    for (x = 0; x < 3; ++x)
-#                        send_map(i,
-#                            x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                            y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                        );
-#         }
 
 echo request map pos
 
@@ -972,91 +998,6 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
-    _say_map_pos_1_10_0(){
-    cat >&2 <<EoI
-    // client v.1.10.0 common/script.c
-    static void send_map(int i,int x,int y)
-    {
-    char buf[1024];
-
-    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
-    {
-        sprintf(buf,"request map %d %d unknown\n",x,y);
-        write(scripts[i].out_fd,buf,strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    sprintf(buf,"request map %d %d  %d %c %c %c %c"
-            " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-            x,y,the_map.cells[x][y].darkness,
-            'n'+('y'-'n')*the_map.cells[x][y].need_update,
-            'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
-            'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
-            'n'+('y'-'n')*the_map.cells[x][y].cleared,
-            the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
-            the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
-            the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
-        );
-        write(scripts[i].out_fd,buf,strlen(buf));
-    }
-EoI
-    }
-
-    _say_map_pos_1_12_0(){
-    cat >&2 <<EoI
-    // client v.1.12.0 common/script.c
-    static void send_map(int i,int x,int y)
-    {
-    char buf[1024];
-
-    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
-    {
-      snprintf(buf, sizeof(buf), "request map %d %d unknown\n",x,y);
-      write(scripts[i].out_fd,buf,strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
-           " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-           x,y,the_map.cells[x][y].darkness,
-           'n'+('y'-'n')*the_map.cells[x][y].need_update,
-           'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
-           'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
-           'n'+('y'-'n')*the_map.cells[x][y].cleared,
-           the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
-           the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
-           the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
-      );
-      write(scripts[i].out_fd,buf,strlen(buf));
-    }
-EoI
-    }
-
-    _say_map_pos_1_70_0(){
-    cat >&2 <<EoI
-    // client v.1.70.0 common/script.c
-    static void send_map(int i, int x, int y) {
-    char buf[1024];
-
-    if (x < 0 || y < 0 || the_map.x <= x || the_map.y <= y) {
-        snprintf(buf, sizeof(buf), "request map %d %d unknown\n", x, y);
-        write(scripts[i].out_fd, buf, strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
-        " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-        x, y, the_map.cells[x][y].darkness,
-        the_map.cells[x][y].need_update ? 'y' : 'n',
-        the_map.cells[x][y].have_darkness ? 'y' : 'n',
-        the_map.cells[x][y].need_resmooth ? 'y' : 'n',
-        the_map.cells[x][y].cleared ? 'y' : 'n',
-        the_map.cells[x][y].smooth[0], the_map.cells[x][y].smooth[1], the_map.cells[x][y].smooth[2],
-        the_map.cells[x][y].heads[0].face, the_map.cells[x][y].heads[1].face, the_map.cells[x][y].heads[2].face,
-        the_map.cells[x][y].tails[0].face, the_map.cells[x][y].tails[1].face, the_map.cells[x][y].tails[2].face
-    );
-    write(scripts[i].out_fd, buf, strlen(buf));
-    }
-EoI
-    }
-
 
 echo request map $R_X $R_Y
 
@@ -1109,56 +1050,7 @@ test "$NUMBERT" || NUMBERT=4
 #test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
 test "${NUMBERT//[0-9]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
 
-_draw 5 "Checking for space to move..."
-
-
-#         if ( strncmp(c,"pos",3)==0 ) { // v.1.10.0
-#            char buf[1024];
-#
-#            sprintf(buf,"request map pos %d %d\n",pl_pos.x,pl_pos.y);
-#            write(scripts[i].out_fd,buf,strlen(buf));
-#         }
-
-#         if ( strncmp(c,"pos",3)==0 ) { // v.1.12.0
-#            char buf[1024];
-#
-#            snprintf(buf, sizeof(buf), "request map pos %d %d\n",pl_pos.x,pl_pos.y);
-#            write(scripts[i].out_fd,buf,strlen(buf));
-#         }
-
-#         if (strncmp(c, "pos", 3) == 0) { // v.1.70.0
-#            char buf[1024];
-#
-#            snprintf(buf, sizeof(buf), "request map pos %d %d\n", pl_pos.x+use_config[CONFIG_MAPWIDTH]/2, pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2);
-#            write(scripts[i].out_fd, buf, strlen(buf));
-
-#        if ( strncmp(c,"near",4)==0 ) { // v.1.10.0
-#            for(y=0;y<3;++y)
-#               for(x=0;x<3;++x)
-#                  send_map(i,
-#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                     );
-#         }
-
-#        if ( strncmp(c,"near",4)==0 ) { // v.1.12.0
-#            for(y=0;y<3;++y)
-#               for(x=0;x<3;++x)
-#                  send_map(i,
-#                           x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                           y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                     );
-#        }
-
-
-#         if (strncmp(c, "near", 4) == 0) { // v.1.70.0
-#                for (y = 0; y < 3; ++y)
-#                    for (x = 0; x < 3; ++x)
-#                        send_map(i,
-#                            x+pl_pos.x+use_config[CONFIG_MAPWIDTH]/2-1,
-#                            y+pl_pos.y+use_config[CONFIG_MAPHEIGHT]/2-1
-#                        );
-#         }
+_draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
 
 #echo watch request
 
@@ -1221,92 +1113,6 @@ R_X=$PL_POS_X
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
-
-    _say_map_pos_1_10_0(){
-    cat >&2 <<EoI
-    // client v.1.10.0 common/script.c
-    static void send_map(int i,int x,int y)
-    {
-    char buf[1024];
-
-    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
-    {
-        sprintf(buf,"request map %d %d unknown\n",x,y);
-        write(scripts[i].out_fd,buf,strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    sprintf(buf,"request map %d %d  %d %c %c %c %c"
-            " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-            x,y,the_map.cells[x][y].darkness,
-            'n'+('y'-'n')*the_map.cells[x][y].need_update,
-            'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
-            'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
-            'n'+('y'-'n')*the_map.cells[x][y].cleared,
-            the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
-            the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
-            the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
-        );
-        write(scripts[i].out_fd,buf,strlen(buf));
-    }
-EoI
-    }
-
-    _say_map_pos_1_12_0(){
-    cat >&2 <<EoI
-    // client v.1.12.0 common/script.c
-    static void send_map(int i,int x,int y)
-    {
-    char buf[1024];
-
-    if (x<0 || y<0 || the_map.x<=x || the_map.y<=y)
-    {
-      snprintf(buf, sizeof(buf), "request map %d %d unknown\n",x,y);
-      write(scripts[i].out_fd,buf,strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
-           " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-           x,y,the_map.cells[x][y].darkness,
-           'n'+('y'-'n')*the_map.cells[x][y].need_update,
-           'n'+('y'-'n')*the_map.cells[x][y].have_darkness,
-           'n'+('y'-'n')*the_map.cells[x][y].need_resmooth,
-           'n'+('y'-'n')*the_map.cells[x][y].cleared,
-           the_map.cells[x][y].smooth[0],the_map.cells[x][y].smooth[1],the_map.cells[x][y].smooth[2],
-           the_map.cells[x][y].heads[0].face,the_map.cells[x][y].heads[1].face,the_map.cells[x][y].heads[2].face,
-           the_map.cells[x][y].tails[0].face,the_map.cells[x][y].tails[1].face,the_map.cells[x][y].tails[2].face
-      );
-      write(scripts[i].out_fd,buf,strlen(buf));
-    }
-EoI
-    }
-
-    _say_map_pos_1_70_0(){
-    cat >&2 <<EoI
-    // client v.1.70.0 common/script.c
-    static void send_map(int i, int x, int y) {
-    char buf[1024];
-
-    if (x < 0 || y < 0 || the_map.x <= x || the_map.y <= y) {
-        snprintf(buf, sizeof(buf), "request map %d %d unknown\n", x, y);
-        write(scripts[i].out_fd, buf, strlen(buf));
-    }
-    /*** FIXME *** send more relevant data ***/
-    snprintf(buf, sizeof(buf), "request map %d %d  %d %c %c %c %c"
-        " smooth %d %d %d heads %d %d %d tails %d %d %d\n",
-        x, y, the_map.cells[x][y].darkness,
-        the_map.cells[x][y].need_update ? 'y' : 'n',
-        the_map.cells[x][y].have_darkness ? 'y' : 'n',
-        the_map.cells[x][y].need_resmooth ? 'y' : 'n',
-        the_map.cells[x][y].cleared ? 'y' : 'n',
-        the_map.cells[x][y].smooth[0], the_map.cells[x][y].smooth[1], the_map.cells[x][y].smooth[2],
-        the_map.cells[x][y].heads[0].face, the_map.cells[x][y].heads[1].face, the_map.cells[x][y].heads[2].face,
-        the_map.cells[x][y].tails[0].face, the_map.cells[x][y].tails[1].face, the_map.cells[x][y].tails[2].face
-    );
-    write(scripts[i].out_fd, buf, strlen(buf));
-    }
-EoI
-    }
-
 
 echo request map $R_X $R_Y
 
@@ -1651,7 +1457,7 @@ _sleep
 #sleep ${DELAY_DRAWINFO}s
 }
 
-_check_cauldron_cursed(){
+_check_cauldron_cursed(){  #TODO
 #_is 1 1 sense curse
 _is 1 1 cast detect curse
 _is 1 1 fire 0 # 0 is center
@@ -1672,8 +1478,8 @@ _check_if_on_cauldron
 
 ### ALCHEMY
 
-#** the messages in the msgpane may pollute **#
-#** need to catch msg to discard them into an unused variable **#
+# ** the messages in the msgpane may pollute ** #
+# ** need to catch msg to discard them into an unused variable ** #
 _empty_message_stream(){
 local REPLY
 while :;
@@ -1990,28 +1796,3 @@ _unwatch
 }
 
 #Food
-
-__loop_counter(){
-test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
-TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-TIMEZ=$((TIMEE-TIMEA))
-TIMEAV=$((TIMEZ/one))
-TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
-_draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
-}
-
-_loop_counter(){
-test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
-TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIMEX=$((TIMEE-TIMEB))
-TIMEZ=$((TIMEE-TIMEA))
-TIMEAV=$((TIMEZ/one))
-TIMEESTM=$(( (TRIES_STILL*TIMEAV) / 60 ))
-TIMEESTS=$(( (TRIES_STILL*TIMEAV) - (TIMEESTM*60) ))
-case $TIMEESTS in [0-9]) TIMEESTS="0$TIMEESTS";; esac
-_draw 4 "Elapsed '$TIMEX' s, '$success' of '$one' successfull."
-_draw 4 "Still '$TRIES_STILL' ($TIMEESTM:$TIMEESTS m) to go..."
-}

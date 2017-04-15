@@ -2,6 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -143,7 +144,7 @@ test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-TIMEA=`date +%s`
+TIMEB=`date +%s`
 success=0
 # *** Now LOOPING *** #
 
@@ -151,7 +152,7 @@ for one in `seq 1 1 $NUMBER`
 do
 
 #TIMEB=`date +%s`
-TIMEB=${TIMEE:-$TIMEA}
+TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5

@@ -2,6 +2,8 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
+
 # *** Setting defaults *** #
 GEM='';  #set empty default
 NUMBER=0 #set zero as default
@@ -186,14 +188,14 @@ rm -f "$REPLY_LOG"    # empty old log files
 rm -f "$REQUEST_LOG"
 rm -f "$ON_LOG"
 
-TIMEA=`date +%s`
+TIMEB=`date +%s`
 success=0
 # *** NOW LOOPING *** #
 for one in `seq 1 1 $NUMBER`
 do
 
 #TIMEB=`date +%s`
-TIMEB=${TIMEE:-$TIMEA}
+TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5s

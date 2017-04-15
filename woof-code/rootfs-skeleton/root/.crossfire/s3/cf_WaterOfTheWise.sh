@@ -4,6 +4,8 @@ export PATH=/bin:/usr/bin
 
 #DEBUG=1
 
+TIMEA=`date +%s`
+
 # *** PARAMETERS *** #
 
 MY_SELF=`realpath "$0"`
@@ -159,13 +161,13 @@ _prepare_rod_of_recall
 
 _draw 4 "OK... Might the Might be with You!"
 
-TIMEA=`date +%s`
+TIMEB=`date +%s`
 success=0
 for one in `seq 1 1 $NUMBER`
 do
 
 #TIMEB=`date +%s`
-TIMEB=${TIMEE:-$TIMEA}
+TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5s
