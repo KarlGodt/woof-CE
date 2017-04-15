@@ -121,13 +121,13 @@ _draw 3 "Script needs gem and number of alchemy attempts as arguments."
 #        exit 1
 #}
 
-if test ! "$GEM"; then #set fallback
-GEM=diamond
-#GEM=sapphire
-#GEM=ruby
-#GEM=emerald
-#GEM=pearl
-fi
+#if test ! "$GEM"; then #set fallback
+#GEM=diamond
+##GEM=sapphire
+##GEM=ruby
+##GEM=emerald
+##GEM=pearl
+#fi
 
 if test ! "$NUMBER"; then
 _draw 3 "Need a number of items to alch."
@@ -192,24 +192,25 @@ success=0
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+#TIMEB=`date +%s`
+TIMEB=${TIMEE:-$TIMEA}
 
 _is 1 1 apply
 sleep 0.5s
-#sleep ${SLEEP}s
+#_sleep
 
 _drop_in_cauldron 1 water of the wise
 
 _drop_in_cauldron 3 $GEM
 
 _close_cauldron
-#sleep 1s
+#_sleep
 
 _alch_and_get
-#sleep 1s
+#_sleep
 
 _go_cauldron_drop_alch_yeld
-#sleep 1s
+#_sleep
 
 _debug "get:NOTHING is '$NOTHING'"
 
@@ -219,7 +220,7 @@ if test "$NOTHING" = 0; then
   _is 1 1 use_skill sense curse
   _is 1 1 use_skill sense magic
   _is 1 1 use_skill alchemy
-  sleep ${SLEEP}s
+  _sleep
 
  _is 1 1 drop water of $GEM
  _is 1 1 drop water "(cursed)"

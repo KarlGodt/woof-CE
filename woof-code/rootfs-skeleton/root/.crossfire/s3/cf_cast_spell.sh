@@ -121,14 +121,14 @@ test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o 
 }
 
 # ***
-_log(){
+__log(){
 # *** echo passed parameters to logfile if LOGGING is set to anything
 test "$LOGGING" || return
 echo "$*" >>"$LOG_FILE"
 }
 
 # ***
-_verbose(){
+__verbose(){
 # ***
 test "$VERBOSE" || return
 _draw 7 "$*"
@@ -136,7 +136,7 @@ sleep 0.5
 }
 
 # ***
-_debug(){
+__debug(){
 # *** print passed parameters to window if DEBUG is set to anything
 
 test "$DEBUG" || return
@@ -327,7 +327,7 @@ if [ "$SP" -le 0 ]; then
    return 6
  elif [ "$SP" -lt $SP_NEEDED ]; then
    return 6
- elif [ "$SP" -th $SP_MAX ]; then
+ elif [ "$SP" -lt $SP_MAX ]; then
    return 4
  elif [ "$SP" -eq $SP_MAX ]; then
    return 0
@@ -407,7 +407,7 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
  #  return 6
  #elif [ "$SP" -lt $SP_NEEDED ]; then
  #  return 6
- #elif [ "$SP" -th $SP_MAX ]; then
+ #elif [ "$SP" -lt $SP_MAX ]; then
  #  return 4
  #elif [ "$SP" -eq $SP_MAX ]; then
  #  return 0
@@ -479,7 +479,8 @@ TIMES=`date +%s`
 while :;
 do
 
- TIMEB=`date +%s`
+ #TIMEB=`date +%s`
+ TIMEB=${TIMEE:-$TIMES}
 
 # user could change range attack while pausing ...
  _apply_needed_spell

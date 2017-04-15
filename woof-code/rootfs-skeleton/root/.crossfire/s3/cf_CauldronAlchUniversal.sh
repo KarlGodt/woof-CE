@@ -241,7 +241,7 @@ eightteen) NUMBER=18;;
 nineteen)  NUMBER=19;;
 twenty)    NUMBER=20;;
 esac
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 _debug "NUMBER=$NUMBER"
 
 TIMEA=`date +%s`
@@ -250,7 +250,8 @@ success=0
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+#TIMEB=`date +%s`
+TIMEB=${TIMEE:-$TIMEA}
 
 _is 1 1 apply
 sleep 0.5

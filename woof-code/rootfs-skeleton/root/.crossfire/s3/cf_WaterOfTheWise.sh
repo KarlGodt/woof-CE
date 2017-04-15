@@ -148,8 +148,8 @@ _debug Step 3
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron
 
-#sleep ${SLEEP}s
-#sleep ${SLEEP}s
+#_sleep
+#_sleep
 
 # *** Unreadying rod of word of recall - just in case *** #
 _prepare_rod_of_recall
@@ -164,23 +164,24 @@ success=0
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+#TIMEB=`date +%s`
+TIMEB=${TIMEE:-$TIMEA}
 
 _is 1 1 apply
 sleep 0.5s
-sleep ${SLEEP}s
+_sleep
 
 _drop_in_cauldron 7 water
-sleep ${SLEEP}s
+_sleep
 
 _close_cauldron
-sleep ${SLEEP}s
+_sleep
 
 _alch_and_get
-sleep ${SLEEP}s
+_sleep
 
 _go_cauldron_drop_alch_yeld
-sleep ${SLEEP}s
+_sleep
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
@@ -189,7 +190,7 @@ if test "$NOTHING" = 0; then
  _is 1 1 use_skill sense magic
  _is 1 1 use_skill alchemy
 
- sleep ${SLEEP}s
+ _sleep
 
  _is 0 1 drop water of the wise    # _is 1 1 drop drops only one water
  _is 0 1 drop waters of the wise

@@ -76,6 +76,8 @@ COL_GRAY=9
 COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
+COL_VERB=$COL_DORANGE
+COL_DEB=$COL_ORANGE
 
 # beeping
 BEEP_DO=${BEEP_DO:-1}
@@ -109,19 +111,19 @@ beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 
 _verbose(){
 test "$VERBOSE" || return 0
-_draw ${COL_VERB:-12} "$*"
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_unwatch(){
+_debug "unwatch $DRAWINFO"
+echo unwatch $DRAWINFO
+sleep 0.2
 }
 
 _watch(){
 _unwatch
 _debug "watch $DRAWINFO"
 echo watch $DRAWINFO
-sleep 0.2
-}
-
-_unwatch(){
-_debug "unwatch $DRAWINFO"
-echo unwatch $DRAWINFO
 sleep 0.2
 }
 
@@ -164,7 +166,7 @@ alias _grey=_gray
 
 __debug(){
 test "$DEBUG" || return 0
-    _draw 3 "DEBUG:$@"
+    _draw ${COL_DEB:-3} "DEBUG:$@"
 }
 
 _debug(){
@@ -172,7 +174,7 @@ test "$DEBUG" || return 0
 while read -r line
 do
 test "$line" || continue
-_draw 3 "DEBUG:$line"
+_draw ${COL_DEB:-3} "DEBUG:$line"
 done <<EoI
 `echo "$*"`
 EoI
@@ -183,7 +185,7 @@ test "$DEBUGX" || return 0
 while read -r line
 do
 test "$line" || continue
-_draw 3 "DEBUG:$line"
+_draw ${COL_DEB:-11} "DEBUG:$line"
 done <<EoI
 `echo "$*"`
 EoI
@@ -412,7 +414,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
-sleep ${SLEEP}s
+_sleep
 
 test "$*" && echo draw 5 "$*"
 _draw 3 "Exiting $0. $@"
@@ -563,6 +565,10 @@ _draw 6 "Done."
 return 0
 }
 
+_sleep(){
+sleep ${SLEEP}s
+}
+
 _word_to_number(){
 
 case ${1:-PARAM_1} in
@@ -634,7 +640,7 @@ fi
 _drop "$@"
 
 #echo sync
-sleep ${SLEEP}s
+_sleep
 
 _check_drop_or_exit "$@"
 
@@ -744,7 +750,7 @@ _draw 7 "OK."
 return 0
 }
 
-_check_if_on_item(){  ##2017-03-20
+_check_if_on_item(){  #+++2017-03-20
 local ITEM="$*"
 _draw 5 "Checking if on a '$ITEM' ..."
 
@@ -753,14 +759,16 @@ test "$ITEM" || {
  exit 1
  }
 
-UNDER_ME='';
-UNDER_ME_LIST='';
+local UNDER_ME='';
+local UNDER_ME_LIST='';
+
 echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-#echo "$UNDER_ME" >>"$ON_LOG"
-_log "$ON_LOG" "$UNDER_ME"
+
+_log "$ON_LOG" "_check_if_on_item:$UNDER_ME"
+_debug "$UNDER_ME"
 
 #UNDER_ME_LIST="$UNDER_ME
 #$UNDER_ME_LIST"
@@ -802,14 +810,14 @@ test "$ITEM" || {
  exit 1
  }
 
-UNDER_ME='';
-UNDER_ME_LIST='';
+local UNDER_ME='';
+local UNDER_ME_LIST='';
+
 echo request items on
 
 while :; do
 read -t $TMOUT UNDER_ME
-#echo "$UNDER_ME" >>"$ON_LOG"
-_log "$ON_LOG" "$UNDER_ME"
+_log "$ON_LOG" "_check_if_on_item_topmost:$UNDER_ME"
 _debug "$UNDER_ME"
 
 #UNDER_ME_LIST="$UNDER_ME
@@ -851,9 +859,10 @@ return 0
 }
 
 _check_for_space(){
-# *** Check for 4 empty space to DIRB ***#
+# *** Check for 4 empty space to DIRB *** #
 
 local REPLY_MAP OLD_REPLY NUMBERT
+
 test "$1" && NUMBERT="$1"
 test "$NUMBERT" || NUMBERT=4
 #test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
@@ -918,11 +927,12 @@ echo request map pos
 
 while :; do
 read -t $TMOUT REPLY_MAP
-#echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "_check_for_space:$REPLY_MAP"
 _debug "REPLY_MAP='$REPLY_MAP'"
+
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
+
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
@@ -1054,11 +1064,12 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
+
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
 _debug  "$REPLY"
+
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
@@ -1092,6 +1103,7 @@ _check_for_space_old_client(){
 # *** Check for 4 empty space to DIRB ***#
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
+
 test "$1" && NUMBERT="$1"
 test "$NUMBERT" || NUMBERT=4
 #test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
@@ -1159,16 +1171,18 @@ echo request map near
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
 #                request map near:request map     279 231  0 n n n n smooth 30 0 0 heads 4854 825 0 tails 0 0 0
+
 cm=0
 while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
-#echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "_check_for_space_old_client:$REPLY_MAP"
 _debug "$REPLY_MAP"
+
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
+
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
@@ -1300,11 +1314,11 @@ echo request map $R_X $R_Y
 
 while :; do
 read -t $TMOUT
-#echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
 _debug "$REPLY"
+
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-#echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
+
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
 test "$IS_WALL" = 0 || _exit_no_space 1
 
@@ -1351,9 +1365,9 @@ echo request items actv
 
 while :; do
 read -t $TMOUT
-#echo "request items actv:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request items actv:$REPLY"
 _debug "$REPLY"
+
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
@@ -1380,14 +1394,14 @@ _check_empty_cauldron(){
 local REPLY OLD_REPLY REPLY_ALL
 
 _is 1 1 pickup 0  # precaution otherwise might pick up cauldron
-sleep 0.5
-sleep ${SLEEP}s
+#sleep 0.5
+_sleep
 
 _draw 5 "Checking for empty cauldron..."
 
 _is 1 1 apply
-sleep 0.5
-sleep ${SLEEP}s
+#sleep 0.5
+_sleep
 
 OLD_REPLY="";
 REPLY_ALL='';
@@ -1422,18 +1436,19 @@ _is 99 1 get
 while :; do
 #cr=$((cr+1))
 read -t $TMOUT
-#echo "take:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "take:$cr:$REPLY"
 _debug "$REPLY"
 #REPLY_ALL="$REPLY
 #$REPLY_ALL"
 #REPLY_ALL=`echo -e "$REPLY"\\n"$REPLY_ALL"`
+
 REPLY_ALL=`echo -e "$REPLY\\n$REPLY_ALL"`
 
 #if test "$cr" -ge 50; then
 test "$REPLY" || break
 #break
 #fi
+
 unset REPLY
 sleep 0.1s
 done
@@ -1443,23 +1458,24 @@ case $REPLY_ALL in
 *Nothing*to*take*) :;;
 *) _exit 1 "Cauldron NOT empty !!";;
 esac
+
 #test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-#_draw 3 "Cauldron NOT empty !!"
-#_draw 3 "Please empty the cauldron and try again."
-#_exit 1
-#}
+# _draw 3 "Cauldron NOT empty !!"
+# _draw 3 "Please empty the cauldron and try again."
+# _exit 1
+# }
 
 #echo unwatch $DRAWINFO
 _unwatch
 
-sleep ${SLEEP}s
+_sleep
 
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 
-sleep ${SLEEP}s
+_sleep
 
 _draw 7 "OK ! Cauldron SEEMS empty."
 }
@@ -1489,7 +1505,6 @@ OLD_REPLY="";
 REPLY="";
 while :; do
 read -t $TMOUT
-#echo "$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "alchemy:$REPLY"
 _debug "$REPLY"
 case $REPLY in
@@ -1552,8 +1567,8 @@ SLAG=0
 
 while :; do
 read -t $TMOUT
-#echo "take:$REPLY" >>"$REPLY_LOG"
-_log "$get:REPLY_LOG" "take:$REPLY"
+
+_log "$REPLY_LOG" "get/take:$REPLY"
 _debug "$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
@@ -1574,7 +1589,7 @@ echo unwatch $DRAWINFO
 _unwatch
 fi
 
-sleep ${SLEEP}s
+_sleep
 }
 
 _check_drop_or_exit(){
@@ -1603,18 +1618,18 @@ case "$HAVE_PUT" in
 *[[:alpha:][:punct:]]*) _exit 2 "_check_drop_or_exit:ERROR:Got no number.";;
 [2-9]*|1[0-9]*) _exit 1 "More than one stack of '$@' put.";;
 esac
-sleep ${SLEEP}s
+_sleep
 }
 
 _close_cauldron(){
 
 _is 1 1 $DIRB
 _is 1 1 $DIRB
-sleep ${SLEEP}s
+_sleep
 
 _is 1 1 $DIRF
 _is 1 1 $DIRF
-sleep ${SLEEP}s
+_sleep
 }
 
 _go_cauldron_drop_alch_yeld(){
@@ -1623,7 +1638,7 @@ _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 
-sleep ${SLEEP}s
+_sleep
 }
 
 _go_drop_alch_yeld_cauldron(){
@@ -1632,7 +1647,7 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 
-sleep ${SLEEP}s
+_sleep
 #sleep ${DELAY_DRAWINFO}s
 }
 
@@ -1680,7 +1695,7 @@ hpc=$((hpc+1))
 test "$hpc" -lt $COUNT_CHECK_FOOD && return
 hpc=0
 
-local REPLY
+local REPLY=''
 
 test "$1" && local currHP=$1
 test "$2" && local currHPMin=$2
@@ -1712,15 +1727,15 @@ unset HP
 
 _check_mana_for_create_food(){
 
-local REPLY
-_is 1 0 cast create
+local REPLY=''
+_is 1 0 cast create # check if create food is in spell inventory
 
 while :;
 do
 
 read -t $TMOUT
-_log "$REPLY"
-_debug "_check_mana_for_create_food:$REPLY"
+_log "_check_mana_for_create_food:$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
 *create*food*)
@@ -1744,8 +1759,8 @@ local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
 test "$EAT_FOOD" && lEAT_FOOD="$EAT_FOOD"
 test "$*" && lEAT_FOOD="$@"
-test "$lEAT_FOOD" || lEAT_FOOD=$FOOD_DEF
-test "$lEAT_FOOD" || lEAT_FOOD=food
+lEAT_FOOD=${lEAT_FOOD:-$FOOD_DEF}
+lEAT_FOOD=${lEAT_FOOD:-food}
 
 #while :;
 #do
@@ -1778,6 +1793,9 @@ _is 1 1 fire center ## Todo handle bungling the spell AND low mana
 unset BUNGLE
 sleep 0.1
 read -t $TMOUT BUNGLE
+_log "$BUNGLE"
+_debug "$BUNGLE"
+
 test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|not enough'`" || break
 _is 1 1 fire_stop
 sleep 10
@@ -1806,7 +1824,7 @@ _empty_message_stream
 }
 
 _apply_horn_of_plenty_and_eat(){
-local REPLY
+local REPLY BUNGLE
 
 read -t $TMOUT
 unset REPLY
@@ -1865,9 +1883,9 @@ read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
 case $REPLY in
-*cursed*|*poisoned*) exit 1;;
+*cursed*|*poisoned*) _exit 1;;
 *apple*|*food*|*haggis*|*waybread*) :;;
-*) exit 1;;
+*) _exit 1;;
 esac
 break
 
@@ -1897,7 +1915,7 @@ _eat_food(){
 local REPLY
 
 test "$*" && EAT_FOOD="$@"
-test "$EAT_FOOD" || EAT_FOOD=waybread
+EAT_FOOD=${EAT_FOOD:-waybread}
 
 #_check_food_inventory ## Todo: check if food is in INV
 
@@ -1920,7 +1938,9 @@ MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
 MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-200}
 
 local FOOD_LVL=''
-local REPLY
+local REPLY oF
+local Re  Stat  Hp  HP  MHP  SP  MSP  GR  MGR
+local Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
 
 read -t $TMOUT  # empty the stream of messages
 
@@ -1930,7 +1950,7 @@ echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do
 unset FOOD_LVL
-read -t1 Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
+read -t $TMOUT Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
 test "$Re" = request || continue
 
 test "$FOOD_LVL" || break
@@ -1949,7 +1969,7 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  #sleep 0.1
  sleep 1
- read -t1 Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
+ read -t $TMOUT Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
  _debug HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
 
  #return $?

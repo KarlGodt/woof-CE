@@ -155,20 +155,20 @@ TIMEB=${TIMEE:-$TIMEA}
 
 _is 1 1 apply
 sleep 0.5
-#sleep ${SLEEP}s
+#_sleep
 
 _drop_in_cauldron 1 water of the wise
 
 _drop_in_cauldron 1 mandrake root
 
 _close_cauldron
-#sleep ${SLEEP}s
+#_sleep
 
 _alch_and_get
-#sleep ${SLEEP}s
+#_sleep
 
 _go_cauldron_drop_alch_yeld
-#sleep ${SLEEP}s
+#_sleep
 
 if test "$NOTHING" = 0; then
         if test "$SLAG" = 0; then
@@ -176,7 +176,7 @@ if test "$NOTHING" = 0; then
         _is 1 1 use_skill sense curse
         _is 1 1 use_skill sense magic
         _is 1 1 use_skill alchemy
-        sleep ${SLEEP}s
+        _sleep
 
         _is 0 1 drop balm
         success=$((success+1))

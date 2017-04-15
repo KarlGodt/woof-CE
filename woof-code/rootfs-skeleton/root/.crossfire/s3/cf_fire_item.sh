@@ -246,7 +246,7 @@ _debug "_do_loop:$*:NUMBER=$NUMBER"
 for one in `seq 1 1 $NUMBER`
 do
 
- TIMEB=`date +%s`
+ TIMEB=${TIMEE:-`date +%s`}
 
 #issue <repeat> <must_send> <command> - send
 # <command> to server on behalf of client.
