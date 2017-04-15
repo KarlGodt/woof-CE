@@ -334,9 +334,9 @@ fi
 
 #+++2017-03-20 Remove *.err file if empty
 if test -s "$TMP_DIR"/"$MY_BASE".$$.err; then
-_draw 3 "WARNING:Errors reported in $TMP_DIR/$MY_BASE.$$.err ."
+_draw 3 "WARNING:Content reported in $TMP_DIR/$MY_BASE.$$.err ."
 else
-_draw 7 "No errors reported in $TMP_DIR/$MY_BASE.$$.err ."
+_draw 7 "No content reported in $TMP_DIR/$MY_BASE.$$.err ."
 [ "$DEBUG" ] || rm -f "$TMP_DIR"/"$MY_BASE".$$.err
 fi
 
@@ -369,14 +369,14 @@ test "$NUMBER" -a "$FAIL" || return 3
 
 if test "$FAIL" -le 0; then
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ echo draw 7 "You succeeded '$SUCC' times of '$NUMBER' ." # green
 elif test "$((NUMBER/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 8 "You failed '$FAIL' times of '$NUMBER' ."    # light green
  echo draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ echo draw 7 "You succeeded '$SUCC' times of '$NUMBER' ." # green
 fi
 }
 
@@ -480,6 +480,7 @@ while :; do
 read -t $TMOUT ANSWER
 #echo "request stat cmbt:$ANSWER" >>"$REQUEST_LOG"
 _log "$REQUEST_LOG" "request stat cmbt:$ANSWER"
+_debug "$ANSWER"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"

@@ -30,9 +30,9 @@ echo draw 3 "Need <pet_name> ie: script $0 nazgul spectre ."
         exit 1
 }
 
-until test "$#" = 0
+
+for PARAM_1 in "$@"
 do
-PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help")
@@ -57,7 +57,6 @@ echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 *) :
 ;;
 esac
-shift
 sleep 0.1
 done
 
@@ -107,7 +106,7 @@ done
 
 echo unwatch $DRAW_INFO
 
-PETS_KILL=`echo "$PETS_HAVE" | grep -v -E "$PETS_KEEP"`
+PETS_KILL=`echo "$PETS_HAVE" | grep -v -E -i -e "$PETS_KEEP"`
 echo "PETS_KILL='$PETS_KILL'" >>"$LOG_REPLY_FILE"
 
 
@@ -142,6 +141,8 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>"$LOG_REPLY_FILE"
 
+
+if test "$PETS_KILL"; then
 while read onePET
 do
 test "$onePET" || continue
@@ -154,7 +155,9 @@ sleep 1s
 done<<EoI
 `echo "$PETS_KILL"`
 EoI
-
+else
+echo draw 2 "No killable pets found."
+fi
 
 
 

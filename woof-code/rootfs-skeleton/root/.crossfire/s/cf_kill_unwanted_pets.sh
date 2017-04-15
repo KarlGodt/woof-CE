@@ -127,7 +127,7 @@ done<<EoI
 `echo "$PETS_KILL"`
 EoI
 else
-echo draw 2 "No pets found."
+echo draw 2 "No killable pets found."
 fi
 
 
