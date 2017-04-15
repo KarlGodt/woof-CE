@@ -523,7 +523,7 @@ _do_loop $COMMAND_PAUSE
 
 # ***
 
-until $# = 0; do
+until test $# = 0; do
 case $1 in
 -h|*help*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;

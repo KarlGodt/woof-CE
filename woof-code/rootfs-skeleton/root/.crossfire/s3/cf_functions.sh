@@ -313,12 +313,16 @@ fi
 
 if test "$TIMEA" -o "$TIMEB"; then
  TIMEE=`date +%s`
- if test "$TIMEB"; then
-  TIMEC=$TIMEB
- else
+ #if test "$TIMEB"; then
+ # TIMEC=$TIMEB
+ #else
+ # TIMEC=$TIMEA
+ #fi
+ if test "$TIMEA"; then
   TIMEC=$TIMEA
+ else
+  TIMEC=$TIMEB
  fi
-
  TIMEX=$((TIMEE-TIMEC))
  TIMEM=$((TIMEX/60))
  TIMES=$(( TIMEX - (TIMEM*60) ))
@@ -340,9 +344,57 @@ test "$aPID" && wait $aPID
 _draw 2  "$0 has finished."
 }
 
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 1
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+echo draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$NUMBER" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+elif test "$((NUMBER/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`date +%s`
+_say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+}
 
 # *** EXIT FUNCTIONS *** #
 _exit(){
+_debug "_exit:$*"
 RV=${1:-0}
 shift
 
@@ -355,7 +407,8 @@ sleep ${SLEEP}s
 test "$*" && echo draw 5 "$*"
 _draw 3 "Exiting $0. $@"
 echo unwatch
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 _beep
 
 NUMBER=$((one-1))
@@ -365,6 +418,7 @@ exit $RV
 }
 
 _just_exit(){
+_debug "_just_exit:$*"
 _draw 3 "Exiting $0."
 echo unwatch
 #echo unwatch $DRAWINFO
@@ -372,13 +426,15 @@ exit $1
 }
 
 _emergency_exit(){
+_debug "_emergency_exit:$*"
 RV=${1:-0}
 shift
 
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 _is 1 1 fire_stop
 _beep
 _beep
@@ -391,6 +447,7 @@ exit $RV
 }
 
 _exit_no_space(){
+_debug "_exit_no_space:$*"
 RV=${1:-0}
 shift
 _draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
@@ -417,7 +474,7 @@ OLD_ANSWER=
 
 echo request stat cmbt
 
-echo watch request
+#echo watch request
 
 while :; do
 read -t $TMOUT ANSWER
@@ -429,7 +486,7 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
+#echo unwatch request
 
 test ! "$ANSWER" -a "$OLD_ANSWER" && ANSWER="$OLD_ANSWER"  #+++2017-03-20
 
@@ -547,20 +604,24 @@ _drop_in_cauldron(){
 
 if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch
 else
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch
 fi
 
 _drop "$@"
 
-_check_drop_or_exit
+_check_drop_or_exit "$@"
 
 if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 else
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 fi
 }
 
@@ -726,6 +787,7 @@ while :; do
 read -t $TMOUT UNDER_ME
 #echo "$UNDER_ME" >>"$ON_LOG"
 _log "$ON_LOG" "$UNDER_ME"
+_debug "$UNDER_ME"
 
 #UNDER_ME_LIST="$UNDER_ME
 #$UNDER_ME_LIST"
@@ -826,7 +888,7 @@ _draw 5 "Checking for space to move..."
 
 echo request map pos
 
-echo watch request
+#echo watch request
 
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
@@ -834,15 +896,15 @@ echo watch request
 while :; do
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "request map pos:$REPLY_MAP"
-_debug REPLY_MAP=$REPLY_MAP
+_log "$REPLY_LOG" "_check_for_space:$REPLY_MAP"
+_debug "REPLY_MAP='$REPLY_MAP'"
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 test ! "$REPLY_MAP" -a "$OLD_REPLY" && REPLY_MAP="$OLD_REPLY" #+++2017-03-20
 
@@ -965,12 +1027,13 @@ EoI
 
 echo request map $R_X $R_Y
 
-echo watch request
+#echo watch request
 
 while :; do
 read -t $TMOUT
 #echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_debug  "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 #echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
@@ -981,7 +1044,7 @@ unset REPLY
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 done
 
@@ -1002,7 +1065,7 @@ fi
 _draw 7 "OK."
 }
 
- _check_for_space_old_client(){
+_check_for_space_old_client(){
 # *** Check for 4 empty space to DIRB ***#
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
@@ -1062,7 +1125,7 @@ _draw 5 "Checking for space to move..."
 #                        );
 #         }
 
-echo watch request
+#echo watch request
 
 sleep 0.5
 
@@ -1078,7 +1141,8 @@ while :; do
 cm=$((cm+1))
 read -t $TMOUT REPLY_MAP
 #echo "request map pos:$REPLY_MAP" >>"$REPLY_LOG"
-_log "$REPLY_LOG" "request map near:$REPLY_MAP"
+_log "$REPLY_LOG" "_check_for_space_old_client:$REPLY_MAP"
+_debug "$REPLY_MAP"
 test "$cm" = 5 && break
 test "$REPLY_MAP" || break
 test "$REPLY_MAP" = "$OLD_REPLY" && break
@@ -1086,7 +1150,7 @@ OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 _empty_message_stream
 
@@ -1209,12 +1273,13 @@ EoI
 
 echo request map $R_X $R_Y
 
-echo watch request
+#echo watch request
 
 while :; do
 read -t $TMOUT
 #echo "request map '$R_X' '$R_Y':$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+_debug "$REPLY"
 test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 #echo "IS_WALL=$IS_WALL" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
@@ -1225,7 +1290,7 @@ unset REPLY
 sleep 0.1s
 done
 
-echo unwatch request
+#echo unwatch request
 
 done
 
@@ -1259,12 +1324,13 @@ REPLY="";
 
 echo request items actv
 
-echo watch request
+#echo watch request
 
 while :; do
 read -t $TMOUT
 #echo "request items actv:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "request items actv:$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *rod*of*word*of*recall*) RECALL=1;;
 '') break;;
@@ -1278,7 +1344,7 @@ if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
 _is 1 1 apply rod of word of recall
 fi
 
-echo unwatch request
+#echo unwatch request
 
 _draw 6 "Done."
 
@@ -1335,7 +1401,7 @@ while :; do
 read -t $TMOUT
 #echo "take:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "take:$cr:$REPLY"
-
+_debug "$REPLY"
 #REPLY_ALL="$REPLY
 #$REPLY_ALL"
 #REPLY_ALL=`echo -e "$REPLY"\\n"$REPLY_ALL"`
@@ -1360,7 +1426,8 @@ esac
 #_exit 1
 #}
 
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 
 sleep ${SLEEP}s
 
@@ -1371,7 +1438,7 @@ _is 1 1 $DIRF
 
 sleep ${SLEEP}s
 
-_draw 7 "OK ! Cauldron IS empty."
+_draw 7 "OK ! Cauldron SEEMS empty."
 }
 
 _alch_and_get(){
@@ -1384,9 +1451,11 @@ _unknown &
 
 if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch
 else
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+_watch
 fi
 
 sleep 0.5
@@ -1399,6 +1468,7 @@ while :; do
 read -t 1
 #echo "$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "alchemy:$REPLY"
+_debug "$REPLY"
 case $REPLY in
                                                        #(level < 25)  /* INGREDIENTS USED/SLAGGED */
                                                        #(level < 40)  /* MAKE TAINTED ITEM */
@@ -1461,6 +1531,7 @@ while :; do
 read -t 1
 #echo "take:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "take:$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *Nothing*to*take*)   NOTHING=1;;
 *You*pick*up*the*slag*) SLAG=1;;
@@ -1473,9 +1544,11 @@ done
 
 if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 else
 echo unwatch $DRAWINFO
+_unwatch
 fi
 
 sleep ${SLEEP}s
@@ -1489,9 +1562,10 @@ while :; do
 read -t 1
 #echo "drop:$REPLY" >>"$REPLY_LOG"
 _log "$REPLY_LOG" "drop:$REPLY"
+_debug "$REPLY"
 case $REPLY in
-*Nothing*to*drop*)                _exit 1 "Missing in inventory";;
-*There*are*only*|*There*is*only*) _exit 1 "Not enough to drop." ;;
+*Nothing*to*drop*)                _exit 1 "Missing '$@' in inventory";;
+*There*are*only*|*There*is*only*) _exit 1 "Not enough '$@' to drop." ;;
 *You*put*in*cauldron*) HAVE_PUT=$((HAVE_PUT+1));;
 '') break;;
 esac
@@ -1505,7 +1579,7 @@ case "$HAVE_PUT" in
 1)   :;;
 '')  _exit 2 "_check_drop_or_exit:ERROR:Got no content.";;
 *[[:alpha:][:punct:]]*) _exit 2 "_check_drop_or_exit:ERROR:Got no number.";;
-[2-9]*) _exit 1 "More than one stack put.";;
+[2-9]*|1[0-9]*) _exit 1 "More than one stack of '$@' put.";;
 esac
 sleep ${SLEEP}s
 }
@@ -1569,6 +1643,7 @@ while :;
 do
 read -t 1
 _log "$REPLY_LOG" "_empty_message_stream:$REPLY"
+#_debug "$REPLY"
 test "$REPLY" || break
 _debug "_empty_message_stream:$REPLY"
 unset REPLY
@@ -1603,7 +1678,8 @@ _is 1 1 fire center ## Todo check if already applied and in inventory
 _is 1 1 fire_stop
 _empty_message_stream
 
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 exit
 fi
 
@@ -1621,6 +1697,7 @@ while :;
 do
 
 read -t 1
+_log "$REPLY"
 _debug "_check_mana_for_create_food:$REPLY"
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
@@ -1716,6 +1793,8 @@ _is 1 1 apply -a Horn of Plenty
 while :;
 do
 read -t 1
+_log "$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *apply*) break;;
 *) _exit 1;;
@@ -1738,6 +1817,8 @@ _is 1 1 fire center ## Todo handle bungling AND time to charge
 unset BUNGLE
 sleep 0.1
 read -t 1 BUNGLE
+_log "$BUNGLE"
+_debug "$BUNGLE"
 test "`echo "$BUNGLE" | grep -E -i 'bungle|fumble|needs more time to charge'`" || break
 sleep 0.1
 unset BUNGLE
@@ -1759,6 +1840,8 @@ while :;
 do
 unset REPLY
 read -t 1
+_log "$REPLY"
+_debug "$REPLY"
 case $REPLY in
 *cursed*|*poisoned*) exit 1;;
 *apple*|*food*|*haggis*|*waybread*) :;;
@@ -1797,6 +1880,8 @@ test "$EAT_FOOD" || EAT_FOOD=waybread
 #_check_food_inventory ## Todo: check if food is in INV
 
 read -t 1
+_log "$REPLY"
+_debug "$REPLY"
 _is 1 1 apply $EAT_FOOD
 unset REPLY
 read -t 1
@@ -1857,7 +1942,8 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+_unwatch
 }
 
 #Food

@@ -2,6 +2,17 @@
 
 export PATH=/bin:/usr/bin
 
+
+MY_SELF=`realpath "$0"`
+MY_BASE=${MY_SELF##*/}
+test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
+_set_global_variables "$@"
+# *** Override any VARIABLES in cf_functions.sh *** #
+test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
+_get_player_name && {
+test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+}
+
 _usage(){
 _draw 5 "Script to produce water of the wise."
 _draw 7 "Syntax:"
@@ -15,16 +26,6 @@ _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v to say what is being issued to server."
         exit 0
-      }
-
-MY_SELF=`realpath "$0"`
-MY_BASE=${MY_SELF##*/}
-test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables "$@"
-# *** Override any VARIABLES in cf_functions.sh *** #
-test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-_get_player_name && {
-test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 # *** Here begins program *** #
@@ -144,7 +145,8 @@ success=0
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+#TIMEB=`date +%s`
+TIMEB=${TIMEE:-$TIMEA}
 
 _is 1 1 apply
 sleep 0.5

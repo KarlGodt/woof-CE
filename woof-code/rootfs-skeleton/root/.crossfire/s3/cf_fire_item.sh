@@ -290,7 +290,7 @@ _direction_word_to_number $DIRECTION
 _do_loop $NUMBER
 }
 
-until $# = 0; do
+until test $# = 0; do
 case $1 in
 -h|*help*) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;

@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/ash
 
 export PATH=/bin:/usr/bin
 
-DEBUG=1
+#DEBUG=1
 
 # *** PARAMETERS *** #
 

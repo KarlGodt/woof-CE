@@ -205,7 +205,7 @@ fi
  7|w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
 8|nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
 
-*help)  _usage;;
+-h|*help)  _usage;;
 
 -c|*curse)   TURN_SPELL="detect curse";;
 -C|*const*)  TURN_SPELL="constitution";;
