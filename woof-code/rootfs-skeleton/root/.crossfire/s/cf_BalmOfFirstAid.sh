@@ -35,23 +35,25 @@ echo draw 2 "$0 is started.."
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
 
-[ "$*" ] && {
+#[ "$*" ] && {
+until [ "$#" = 0 ]
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help")
 
-echo draw 5 "Script to produce water of the wise."
+echo draw 5 "Script to produce balm of first aid."
 echo draw 7 "Syntax:"
-echo draw 7 "$0 NUMBER"
+echo draw 7 "$0 <NUMBER>"
 echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
-
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
         exit 0
 ;;
-esac
-
+[0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
@@ -59,16 +61,23 @@ echo draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+esac
+sleep 0.1
+shift
+done
 
-} || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
+
+#test "$1" || {
+#echo draw 3 "Need <number> ie: script $0 4 ."
+#        exit 1
+#}
 
 echo draw 7 "OK."
 
@@ -250,7 +259,9 @@ done
 
 
 # *** Actual script to alch the desired balm of first aid *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -401,7 +412,8 @@ FAIL=0
 TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 TIMEC=`date +%s`
@@ -581,12 +593,13 @@ f_exit 1
 
 #echo unwatch request
 
+one=$((one+1))
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still $TRIES_SILL laps to go..."
+echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go..."
 
-
+test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #
 
 # Now count the whole loop time

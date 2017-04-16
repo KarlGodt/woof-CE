@@ -124,7 +124,10 @@ echo draw 2 "PID $$ -- PPID $PPID"
 echo draw 2 "ARGUMENTS:$*"
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+#[ "$*" ] && {
+until [ "$#" = 0 ]
+do
+
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
@@ -132,12 +135,14 @@ case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of GEM."
 echo draw 7 "Syntax:"
-echo draw 7 "$0 GEM NUMBER"
+echo draw 7 "$0 GEM <NUMBER>"
 echo draw 2 "Allowed GEM are diamond, emerald,"
 echo draw 2 "pearl, ruby, sapphire ."
 echo draw 5 "Allowed NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of GEM ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
 echo draw 6 "Defaults:"
 echo draw 4 "GEM is set currently to '$GEM'"
 echo draw 4 "NUMBER is set to '$NUMBER'"
@@ -145,8 +150,7 @@ echo draw 4 "in script header."
 
         f_exit 0
 ;;
-esac
-
+diamond|emerald|pearl|ruby|sapphire)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
 test "$PARAM_1test" && {
@@ -155,24 +159,31 @@ echo draw 3 "Only :alpha: characters as first option allowed."
         }
 
 GEM="$PARAM_1"
-
-PARAM_2="$2"
-PARAM_2test="${PARAM_2//[[:digit:]]/}"
-test "$PARAM_2test" && {
-echo draw 3 "Only :digit: numbers as second options allowed."
+;;
+[0-9]*)
+PARAM_1test="${PARAM_1//[[:digit:]]/}"
+test "$PARAM_1test" && {
+echo draw 3 "Only :digit: numbers as second option allowed."
         f_exit 1 #exit if other input than numbers
         }
 
-NUMBER=$PARAM_2
-} || {
-echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
-        f_exit 1
-}
+NUMBER=$PARAM_1
+;;
+*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+esac
+sleep 0.1
+shift
+done
 
-test "$1" -a "$2" || {
-echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
-        f_exit 1
-}
+#} || {
+#echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
+#        f_exit 1
+#}
+
+#test "$1" -a "$2" || {
+#echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
+#        f_exit 1
+#}
 
 #if test ! "$GEM"; then #set fallback
 #GEM=diamond
@@ -182,16 +193,16 @@ echo draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
 ##GEM=pearl
 #fi
 
-if test ! "$NUMBER"; then
-echo draw 3 "Need a number of items to alch."
-f_exit 1
-elif test "$NUMBER" = 0; then
-echo draw 3 "Number must be not ZERO."
-f_exit 1
-elif test "$NUMBER" -lt 0; then
-echo draw 3 "Number must be greater than ZERO."
-f_exit 1
-fi
+#if test ! "$NUMBER"; then
+#echo draw 3 "Need a number of items to alch."
+#f_exit 1
+#elif test "$NUMBER" = 0; then
+#echo draw 3 "Number must be not ZERO."
+#f_exit 1
+#elif test "$NUMBER" -lt 0; then
+#echo draw 3 "Number must be greater than ZERO."
+#f_exit 1
+#fi
 
 test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
   -o "$GEM" = ruby -o "$GEM" = sapphire || {
@@ -318,7 +329,9 @@ return 0
 
 
 # *** Actual script to alch the desired water of gem *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -343,7 +356,8 @@ FAIL=0
 TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 TIMEC=${TIMEE:-`date +%s`}
@@ -496,11 +510,13 @@ sleep 1s
 
 sleep ${DELAY_DRAWINFO}s
 
+one=$((one+1))
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still $TRIES_SILL laps to go..."
+echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go..."
 
+test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #
 
 

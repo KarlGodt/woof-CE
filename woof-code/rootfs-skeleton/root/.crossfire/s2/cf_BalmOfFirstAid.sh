@@ -107,6 +107,22 @@ TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
+_usage(){
+echo draw 5 "Script to produce balm of first aid."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 <NUMBER>"
+echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Balm of First Aid ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
+echo draw 5 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+
+        exit 0
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -114,41 +130,48 @@ echo draw 2 "$0 is started.."
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
 
-test "$*" || {
-echo draw 3 "Need <number> ie: script $0 4 ."
-        exit 1
-}
+#test "$*" || {
+#echo draw 3 "Need <number> ie: script $0 4 ."
+#        exit 1
+#}
 
 until test "$#" = 0
 do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
-
-echo draw 5 "Script to produce water of the wise."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 NUMBER"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Balm of First Aid ."
-
-echo draw 5 "Options:"
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
-
-        exit 0
-;;
+case "$PARAM_1" in
+-h|*help) _usage;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
-'')
-echo draw 3 "Script needs number of alchemy attempts as argument."
-echo draw 3 "Need <number> ie: script $0 4 ."
- exit 1
+
+--*) case $PARAM_1 in
+      --help)   _usage;;
+      --deb*)    DEBUG=$((DEBUG+1));;
+      --log*)  LOGGING=$((LOGGING+1));;
+      *) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+-*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      h)  _usage;;
+      d)   DEBUG=$((DEBUG+1));;
+      L) LOGGING=$((LOGGING+1));;
+      *) echo draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
 ;;
 
-*)
+'')
+#echo draw 3 "Script needs number of alchemy attempts as argument."
+#echo draw 3 "Need <number> ie: script $0 4 ."
+# exit 1
+:
+;;
+
+[0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
@@ -157,6 +180,7 @@ echo draw 3 "Only :digit: numbers as option allowed."
 
 NUMBER=$PARAM_1
 ;;
+*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
@@ -366,7 +390,9 @@ done
 
 
 # *** Actual script to alch the desired balm of first aid *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -524,7 +550,8 @@ echo draw 4 "OK... Might the Might be with You!"
 
 FAIL=0
 
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 TIMEC=${TIMEE:-$TIMEB}
@@ -695,6 +722,7 @@ sleep ${SLEEP}s
 
 f_check_on_cauldron
 
+one=$((one+1))
 
 TIMEE=`date +%s`
 TIMER=$((TIMEE-TIMEC))
@@ -709,7 +737,7 @@ TIME_STILL=$((TRIES_SILL*TIMER))
 TIME_STILL=$((TIME_STILL/60))
 echo draw 5 "Still '$TIME_STILL' minutes to go..."
 
-
+test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #
 
 _say_statistics_end

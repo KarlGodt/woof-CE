@@ -22,10 +22,12 @@ _usage(){
 
 _draw 5  "Script to produce water of the wise."
 _draw 7  "Syntax:"
-_draw 7  "$0 [ -version VERSION ] NUMBER"
+_draw 7  "$0 < -version VERSION > <NUMBER>"
 _draw 5  "Allowed NUMBER will loop for"
 _draw 5  "NUMBER times to produce NUMBER of"
 _draw 5  "Water of the Wise ."
+_draw 4 "If no number given, loops as long"
+_draw 4 "as ingredient could be dropped."
 _draw 5 "Options:"
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
@@ -69,6 +71,31 @@ case "$PARAM_1" in
 -L|*logging) LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+--*) case $PARAM_1 in
+      --help)   _usage;;
+      --deb*)    DEBUG=$((DEBUG+1));;
+      --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --log*)  LOGGING=$((LOGGING+1));;
+      --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --verb*) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+-*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      h)  _usage;;
+      d)   DEBUG=$((DEBUG+1));;
+      F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      L) LOGGING=$((LOGGING+1));;
+      S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
+;;
+
 [0-9]*)
 #PARAM_1test="${PARAM_1//[[:digit:]]/}"
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -79,17 +106,17 @@ _draw 3 "Only :digit: numbers as option allowed."
 
 NUMBER=$PARAM_1
 ;;
-*) _red "Unrecognized option '$PARAM_1'";;
+*) _red "Ignoring unrecognized option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
 done
 
-_debug "Last check NUMBER.."
-test "$NUMBER" || {
-_draw 3  "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+#_debug "Last check NUMBER.."
+#test "$NUMBER" || {
+#_draw 3  "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
 
 #test "$1" || {
 #_draw 3  "Need <number> ie: script $0 3 ."
@@ -98,7 +125,9 @@ _draw 3  "Script needs number of alchemy attempts as argument."
 
 
 # *** Actual script to alch the desired water of the wise           *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -163,7 +192,8 @@ _draw 4 "OK... Might the Might be with You!"
 
 TIMEB=`date +%s`
 success=0
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 #TIMEB=`date +%s`
@@ -219,10 +249,12 @@ else
  _disaster &
 fi
 
+one=$((one+1))
 _loop_counter        # 3G Quality 0,59 speed SLEEP=0.5: 20s, -S 26s,
 _return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
 #_loop_counter
 
+test "$one" = "$NUMBER" && break
 done
 
 # *** Here ends program *** #

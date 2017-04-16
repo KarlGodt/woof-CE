@@ -22,12 +22,14 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 _usage(){
 _draw 5 "Script to produce water of GEM."
 _draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] GEM NUMBER"
+_draw 7 "$0 < -version VERSION > GEM <NUMBER>"
 _draw 2 "Allowed GEM are diamond, emerald,"
 _draw 2 "pearl, ruby, sapphire ."
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce NUMBER of"
 _draw 5 "Water of GEM ."
+_draw 4 "If no number given, loops as long"
+_draw 4 "as ingredients could be dropped."
 _draw 5 "Options:"
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
@@ -85,6 +87,30 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 
+--*) case $PARAM_1 in
+      --help)   _usage;;
+      --deb*)    DEBUG=$((DEBUG+1));;
+      --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --log*)  LOGGING=$((LOGGING+1));;
+      --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --verb*) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+-*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      h)  _usage;;
+      d)   DEBUG=$((DEBUG+1));;
+      F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      L) LOGGING=$((LOGGING+1));;
+      S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
+;;
+
 diamond|emerald|pearl|ruby|sapphire)
   GEM="$PARAM_1"
  ;;
@@ -96,29 +122,29 @@ diamond|emerald|pearl|ruby|sapphire)
         }
   NUMBER=$PARAM_1
  ;;
-*) _red "Unrecognized option '$PARAM_1'";;
+*) _red "Ignoring unrecognized option '$PARAM_1'";;
 
 esac
 shift
 sleep 0.1
 done
 
-test "$GEM" -a "$NUMBER" || {
-_draw 3 "Script needs gem and number of alchemy attempts as arguments."
-        exit 1
-}
+#test "$GEM" -a "$NUMBER" || {
+#_draw 3 "Script needs gem and number of alchemy attempts as arguments."
+#        exit 1
+#}
 
 
-if test ! "$NUMBER"; then
-_draw 3 "Need a number of items to alch."
-exit 1
-elif test "$NUMBER" = 0; then
-_draw 3 "Number must be not ZERO."
-exit 1
-elif test "$NUMBER" -lt 0; then
-_draw 3 "Number must be greater than ZERO."
-exit 1
-fi
+#if test ! "$NUMBER"; then
+#_draw 3 "Need a number of items to alch."
+#exit 1
+#elif test "$NUMBER" = 0; then
+#_draw 3 "Number must be not ZERO."
+#exit 1
+#elif test "$NUMBER" -lt 0; then
+#_draw 3 "Number must be greater than ZERO."
+#exit 1
+#fi
 
 test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
   -o "$GEM" = ruby -o "$GEM" = sapphire || {
@@ -140,7 +166,9 @@ _check_empty_cauldron
 _prepare_rod_of_recall
 
 # *** Actual script to alch the desired water of gem *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -169,7 +197,8 @@ rm -f "$ON_LOG"
 TIMEB=`date +%s`
 success=0
 # *** NOW LOOPING *** #
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 #TIMEB=`date +%s`
@@ -216,8 +245,10 @@ fi
 
 
 _return_to_cauldron
-_loop_counter         # 3G Quality 0,64 speed SLEEP=0.4: 19s, -S 24s,
 
+one=$((one+1))
+_loop_counter         # 3G Quality 0,64 speed SLEEP=0.4: 19s, -S 24s,
+test "$one" = "$NUMBER" && break
 
 done
 

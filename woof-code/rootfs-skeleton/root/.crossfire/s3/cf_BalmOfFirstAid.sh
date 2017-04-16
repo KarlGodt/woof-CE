@@ -15,12 +15,14 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 _usage(){
-_draw 5 "Script to produce water of the wise."
+_draw 5 "Script to produce balm of first aid."
 _draw 7 "Syntax:"
-_draw 7 "$0 [ -version VERSION ] NUMBER"
+_draw 7 "$0 < -version VERSION > <NUMBER>"
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce NUMBER of"
 _draw 5 "Balm of First Aid ."
+_draw 4 "If no number given, loops as long"
+_draw 4 "as ingredients could be dropped."
 _draw 2  "Option -version 1.12.0 and lesser"
 _draw 2  "turns on some compatibility switches."
 _draw 4 "-F  on fast network connection."
@@ -62,6 +64,31 @@ _usage
 -L|*logging) LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+--*) case $PARAM_1 in
+      --help)   _usage;;
+      --deb*)    DEBUG=$((DEBUG+1));;
+      --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --log*)  LOGGING=$((LOGGING+1));;
+      --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --verb*) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+-*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      h)  _usage;;
+      d)   DEBUG=$((DEBUG+1));;
+      F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      L) LOGGING=$((LOGGING+1));;
+      S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
+;;
+
 [0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -77,10 +104,10 @@ shift
 sleep 0.1
 done
 
-test "$NUMBER" || {
-_draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+#test "$NUMBER" || {
+#_draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
 
 #test "$1" || {
 #_draw 3 "Need <number> ie: script $0 4 ."
@@ -120,7 +147,9 @@ done
 }
 
 # *** Actual script to alch the desired balm of first aid *** #
-test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+#test $NUMBER -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -148,7 +177,8 @@ TIMEB=`date +%s`
 success=0
 # *** Now LOOPING *** #
 
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 #TIMEB=`date +%s`
@@ -188,11 +218,12 @@ else
  _disaster &
 fi
 
-
+one=$((one+1))
 _loop_counter        # 3G Quality 0,60 speed SLEEP=0.5: 20s, -S 26s,
 _return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
 #_loop_counter
 
+test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #
 
 

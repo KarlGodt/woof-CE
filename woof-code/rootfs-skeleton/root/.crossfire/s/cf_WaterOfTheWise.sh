@@ -26,27 +26,31 @@ DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/u
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
+_usage(){
+echo draw 5 "Script to produce water of the wise."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 < NUMBER >"
+echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Water of the Wise ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredient could be dropped."
+
+        exit 0
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+until [ "$#" = 0 ]
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
-
-echo draw 5 "Script to produce water of the wise."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 NUMBER"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Water of the Wise ."
-
-        exit 0
-;;
-esac
-
+case "$PARAM_1" in
+-h|*help) _usage;;
+[0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
@@ -54,16 +58,22 @@ echo draw 3 "Only :digit: numbers as option allowed."
         }
 
 NUMBER=$PARAM_1
+;;
+*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+esac
+sleep 0.1
+shift
+done
 
-} || {
-echo draw 3 "Script needs number of alchemy attempts as argument."
-        exit 1
-}
+#} || {
+#echo draw 3 "Script needs number of alchemy attempts as argument."
+#        exit 1
+#}
 
-test "$1" || {
-echo draw 3 "Need <number> ie: script $0 3 ."
-        exit 1
-}
+#test "$1" || {
+#echo draw 3 "Need <number> ie: script $0 3 ."
+#        exit 1
+#}
 
 # *** Check if standing on a cauldron *** #
 
@@ -98,7 +108,8 @@ f_check_on_cauldron
 echo draw 7 "Done."
 
 # *** Actual script to alch the desired water of the wise *** #
-test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -287,7 +298,8 @@ echo draw 4 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
 
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
 TIMEC=`date +%s`
@@ -439,12 +451,13 @@ sleep ${SLEEP}s
 f_check_on_cauldron
 
 
+one=$((one+1))
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..." # light orange
+echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go..." # light orange
 
-
+test "$one" = "$NUMBER" && break
 done
 
 # Now count the whole loop time
