@@ -171,19 +171,19 @@ TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5s
-_sleep
+#_sleep   ## was needed at 2G Quality connection with -S -S parameters
 
-_drop_in_cauldron 7 water
-_sleep
+_drop_in_cauldron 7 water  ## sleeps in the middle and at the end of _check_drop_or_exit
+#_sleep   ## was needed at 2G Quality connection with -S -S parameters
 
-_close_cauldron
-_sleep
+_close_cauldron    ## _close_cauldron sleeps two times
+#_sleep   ## was needed at 2G Quality connection with -S -S parameters
 
-_alch_and_get
-_sleep
+_alch_and_get      ## _alch_and_get sleeps at the end
+#_sleep   ## was needed at 2G Quality connection with -S -S parameters
 
-_go_cauldron_drop_alch_yeld
-_sleep
+_go_cauldron_drop_alch_yeld  ## sleeps at the end
+#_sleep   ## was needed at 2G Quality connection with -S -S parameters
 
 if test "$NOTHING" = 0; then
  if test "$SLAG" = 0; then
@@ -194,7 +194,7 @@ if test "$NOTHING" = 0; then
 
  _sleep
 
- _is 0 1 drop water of the wise    # _is 1 1 drop drops only one water
+ _is 0 1 drop water of the wise    # _is 1 1 drop water drops only one water
  _is 0 1 drop waters of the wise
 
  _is 0 1 drop water "(cursed)"
@@ -219,8 +219,9 @@ else
  _disaster &
 fi
 
-_return_to_cauldron
-_loop_counter
+_loop_counter        # 3G Quality 0,59 speed : 20s, -S 26s,
+_return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
+#_loop_counter
 
 done
 

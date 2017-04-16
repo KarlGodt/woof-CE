@@ -751,7 +751,8 @@ _unknown(){
 
 
 # *** Check if standing on a cauldron *** #
-_check_if_on_cauldron(){
+_check_if_on_cauldron(){  # called by _alch_and_get(), _return_to_cauldron()
+_sleep
 _draw 5 "Checking if on a cauldron..."
 
 local UNDER_ME='';
@@ -1466,9 +1467,9 @@ _is 1 1 fire_stop
 
 _return_to_cauldron(){
 
-_go_drop_alch_yeld_cauldron
+_go_drop_alch_yeld_cauldron  ## sleeps at the end
 
-_check_food_level
+_check_food_level   ## early return or long code with sleep
 
 _get_player_speed -l || sleep ${DELAY_DRAWINFO}s
 
@@ -1531,9 +1532,11 @@ unset HP
 
 #Food
 
-_check_mana_for_create_food(){
+_check_mana_for_create_food(){  # called from _cast_create_food_and_eat()
 
 local REPLY=''
+
+_watch
 _is 1 0 cast create # check if create food is in spell inventory
 
 while :;
@@ -1556,10 +1559,12 @@ sleep 0.1
 unset REPLY
 done
 
+_unwatch
 return 1
 }
 
-_cast_create_food_and_eat(){
+_cast_create_food_and_eat(){  # called by _check_food_level()
+# problem with nested loops and _watch / _unwatch
 
 local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
@@ -1576,6 +1581,7 @@ lEAT_FOOD=${lEAT_FOOD:-food}
 _is 1 1 pickup 0
 _empty_message_stream
 
+#_watch
 # TODO : Check MANA
 _is 1 1 cast create food $lEAT_FOOD
 _empty_message_stream
@@ -1588,13 +1594,15 @@ do
 #_is 1 1 fire_stop
 #sleep 0.1
 
-while :;
-do
-_check_mana_for_create_food && break || { sleep 10; continue; }
-done
+ while :;
+ do  # needs _watch / _unwatch
+ _check_mana_for_create_food && break || { sleep 10; continue; }
+ done
 
+#_unwatch
+_watch
 sleep 0.1
-_is 1 1 fire center ## Todo handle bungling the spell AND low mana
+_is 1 1 fire 0    ## Todo handle bungling the spell AND low mana
 
 unset BUNGLE
 sleep 0.1
@@ -1608,6 +1616,7 @@ sleep 10
 done
 
 _is 1 1 fire_stop
+_unwatch
 sleep 1
 _empty_message_stream
 
@@ -1616,7 +1625,7 @@ _is 1 1 apply ## Todo check if food is there on tile
 _empty_message_stream
 
 #+++2017-03-20 pickup any leftovers
-#_is 1 1 get  ##gets 1 of topmost item
+#_is 1 1 get  ## gets 1 of topmost item
 _is 0 1 take $lEAT_FOOD
 #_is 0 1 get all
 #_is 0 1 get
@@ -1627,11 +1636,13 @@ _is 0 1 take $lEAT_FOOD
 # 'take 4 water' ignores the number and would get all water from the topmost item containing water
 _empty_message_stream
 
+#_unwatch
 }
 
 _apply_horn_of_plenty_and_eat(){
 local REPLY BUNGLE
 
+_watch
 read -t $TMOUT
 unset REPLY
 _is 1 1 apply -a Horn of Plenty
@@ -1649,8 +1660,10 @@ unset REPLY
 sleep 1
 done
 
+_unwatch
 sleep 1
 unset REPLY
+_watch
 read -t $TMOUT
 
 #+++2017-03-20 check if available
@@ -1658,7 +1671,7 @@ read -t $TMOUT
 
 while :; #+++2017-03-20 handle bungle AND time to charge
 do
-_is 1 1 fire center ## Todo handle bungling AND time to charge
+_is 1 1 fire 0 ## Todo handle bungling AND time to charge
 
 unset BUNGLE
 sleep 0.1
@@ -1712,25 +1725,29 @@ read -t $TMOUT
 # 'get  4 water' would get 4 water of every item containing water
 # 'take 4 water' ignores the number and would get all water from the topmost item containing water
 #_empty_message_stream
-
+_unwatch
 }
 
 
 _eat_food(){
 
-local REPLY
+local REPLY=
 
 test "$*" && EAT_FOOD="$@"
 EAT_FOOD=${EAT_FOOD:-waybread}
 
 #_check_food_inventory ## Todo: check if food is in INV
 
+_watch
 read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
 _is 1 1 apply $EAT_FOOD
+
 unset REPLY
+_unwatch
 read -t $TMOUT
+
 }
 
 _check_food_level(){
@@ -1745,8 +1762,9 @@ MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-200}
 
 local FOOD_LVL=''
 local REPLY oF
-local Re  Stat  Hp  HP  MHP  SP  MSP  GR  MGR
-local Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
+#local Re  Stat  Hp  HP  MHP  SP  MSP  GR  MGR
+ local Re  Stat  Hp      MHP      MSP  GR  MGR  # HP and SP global: cf_prayXtimes.sh, _check_mana_for_create_food()
+ local Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
 
 read -t $TMOUT  # empty the stream of messages
 

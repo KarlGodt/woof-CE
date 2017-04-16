@@ -91,19 +91,15 @@ _draw 3 "Script needs number of praying attempts as argument."
         exit 1
 }
 
-#test "$1" || {
-#_draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
 
-__check_skill_praying(){
+_check_skill_praying(){
 local YES
 echo request skills
 while :; do sleep 0.1
 unset REPLY
 read -t 1 <&0   # <&1 works, <&0 works, in ash
 _debug "$REPLY"
-_log "$REPLY"
+_log "_check_skill_praying:$REPLY"
 case $REPLY in *' praying') YES=0;;
 'request skills end') break;;
 '') break;;
@@ -112,11 +108,11 @@ done
 return ${YES:-1}
 }
 
-_flush(){
+__flush(){
 timeout -t 1 cat 1>/dev/null <&0 2>/dev/null
 }
 
-_check_skill_praying(){
+__check_skill_praying(){
 local SKILLS
 
 #rm -f /tmp/stdin.txt
@@ -142,11 +138,14 @@ _check_skill_praying || {
 }
 
 _get_player_speed(){
+
+local Req Stat Cmbt WC AC DAM SPEED W_SPEED
+
 echo request stat cmbt
-#read REQ_CMBT
 #snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read -t 1 Req Stat Cmbt WC AC DAM SPEED W_SPEED
 _debug "wc=$WC:ac=$AC:dam=$DAM:speed=$SPEED:weaponspeed=$W_SPEED"
+
 case $SPEED in
 [1-9][0-9][0-9][0-9][0-9][0-9]) USLEEP=600000;; #six
 1[0-9][0-9][0-9][0-9]) USLEEP=1500000;;  #five
@@ -180,8 +179,6 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 TIMEB=`date +%s`
 
-
-#echo watch $DRAWINFO
 _watch
 
 c=0
@@ -190,7 +187,6 @@ do
 
 unset REPLY_OLD
 
-#echo "issue 1 1 use_skill praying"
 _is 1 1 use_skill praying
 sleep 0.5
 
@@ -272,24 +268,11 @@ __read_reply_praying(){
 }
 __read_reply_praying
 
-#sleep 1s
 usleep $USLEEP
 
 _check_food_level
 _check_hp_and_return_home $HP
 
-__old_check_health(){
-c=$((c+1))
-test $c -ge $COUNT_CHECK_FOOD && {
-c=0
-_check_food_level
-#_check_hp_and_return_home $HP $HP_MIN_DEF
-_check_hp_and_return_home $HP
-unset Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
-unset Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
-_draw 5 "$((NUMBER-one)) prayings left"
- }
-}
 
 c=$((c+1))
 test $c -ge $COUNT_CHECK_FOOD && {

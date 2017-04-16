@@ -199,20 +199,20 @@ TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply
 sleep 0.5s
-#_sleep
+#_sleep  ## was needed at 2G Quality connection with -S -S parameters
 
 _drop_in_cauldron 1 water of the wise
 
 _drop_in_cauldron 3 $GEM
 
 _close_cauldron
-#_sleep
+#_sleep  ## was needed at 2G Quality connection with -S -S parameters
 
 _alch_and_get
-#_sleep
+#_sleep  ## was needed at 2G Quality connection with -S -S parameters
 
 _go_cauldron_drop_alch_yeld
-#_sleep
+#_sleep  ## was needed at 2G Quality connection with -S -S parameters
 
 _debug "get:NOTHING is '$NOTHING'"
 

@@ -158,18 +158,15 @@ _is 1 1 apply
 sleep 0.5
 #_sleep
 
-_drop_in_cauldron 1 water of the wise
+_drop_in_cauldron 1 water of the wise; ## sleeps in the middle and at the end of _check_drop_or_exit
 
-_drop_in_cauldron 1 mandrake root
+_drop_in_cauldron 1 mandrake root;     ## sleeps in the middle and at the end of _check_drop_or_exit
 
-_close_cauldron
-#_sleep
+_close_cauldron; #_sleep ## _close_cauldron sleeps two times
 
-_alch_and_get
-#_sleep
+_alch_and_get;   #_sleep ## _alch_and_get sleeps at the end
 
-_go_cauldron_drop_alch_yeld
-#_sleep
+_go_cauldron_drop_alch_yeld; #_sleep   ## sleeps at the end
 
 if test "$NOTHING" = 0; then
         if test "$SLAG" = 0; then
@@ -191,8 +188,10 @@ else
  _disaster &
 fi
 
-_return_to_cauldron
+
 _loop_counter
+_return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
+#_loop_counter
 
 done  # *** MAINLOOP *** #
 
