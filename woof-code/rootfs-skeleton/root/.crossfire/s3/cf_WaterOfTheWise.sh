@@ -219,7 +219,7 @@ else
  _disaster &
 fi
 
-_loop_counter        # 3G Quality 0,59 speed : 20s, -S 26s,
+_loop_counter        # 3G Quality 0,59 speed SLEEP=0.5: 20s, -S 26s,
 _return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
 #_loop_counter
 

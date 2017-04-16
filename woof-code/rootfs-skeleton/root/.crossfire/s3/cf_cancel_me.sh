@@ -2,8 +2,9 @@
 
 export PATH=/bin:/usr/bin
 
+TIMEA=`date +%s`
 
-ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
+#ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -123,7 +124,8 @@ __check_if_item_is_active(){
 local ITEM="$*" oR tmpR
 test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
 
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
+#_watch
 sleep 0.1
 echo request items actv
 while :; do
@@ -136,8 +138,8 @@ test "$oR" = "$tmpR" && break
 oR="$tmpR"
 sleep 0.1
 done
-echo unwatch $DRAWINFO
-
+#echo unwatch $DRAWINFO
+#_unwatch
 }
 
 _check_item(){
@@ -146,13 +148,13 @@ _check_item(){
 
 # get item list
 #_check_have_needed_item_in_inventory(){
-_debug "_check_have_needed_item_in_inventory:$*"
+_debug "_check_item:$*"
 TIMEB=`date +%s`
-echo watch request
+#echo watch request
 echo request items inv
 while :;
 do
-read -t1 oneITEM
+read -t 1 oneITEM
  _log "$oneITEM"
  test "$oldITEM" = "$oneITEM" && break
  test "$oneITEM" || break
@@ -163,7 +165,7 @@ read -t1 oneITEM
 sleep 0.1
 done
 unset oldITEM oneITEM
-echo unwatch request
+#echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -189,10 +191,14 @@ staff
 EoI
 
 unset one
+test "$ROD"
 }
 
-_check_item
-__check_if_item_is_active "$ROD"
+if _check_item ;then
+ __check_if_item_is_active "$ROD"
+else
+ _exit 1 "Found no item of cancellation in inventory."
+fi
 
 test "$HAVE_ITEM_APPLIED" || { echo "issue 1 1 apply -a $ROD"; sleep 1s; }
 
@@ -211,7 +217,7 @@ test "$ITEM" || { echo "draw 3  $ITEM missing"; exit 1; }
 
 
 c=0
-echo watch $DRAWINFO
+#echo watch $DRAWINFO
 while :;
 do
 test $c = 5 && break
@@ -234,7 +240,8 @@ sleep 0.1
 test "$RANGE_ITEM_APPLIED" || echo issue 1 1 rotateshoottype
 done
 
-echo unwatch $DRAWINFO
+#echo unwatch $DRAWINFO
+test "$RANGE_ITEM_APPLIED"
 }
 
 __check_range_attack "$ROD"
@@ -250,7 +257,7 @@ sleep 1s
 done
 
 else
-_draw 3 "$ROD not applied."
+_draw 3 "'$ROD' not applied."
 fi
 
 echo "issue 1 1 fire_stop"

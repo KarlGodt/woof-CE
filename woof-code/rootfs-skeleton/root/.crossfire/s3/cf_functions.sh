@@ -42,17 +42,34 @@ HP_MIN_DEF=${HP_MIN_DEF:-20}  # minimum HP to return home. Lowlevel characters p
 
 DIRB=${DIRB:-west}  # direction back to go while alching on a cauldron. depends on the location.
 case $DIRB in       # should have four tiles free to move to DIRB
-west)  DIRF=east;;  # direction forward to return to cauldron
-east)  DIRF=west;;
-north) DIRF=south;;
-south) DIRF=north;;
+1|n)   DIRB=north;;
+2|ne)  DIRB=northeast;;
+3|e)   DIRB=east;;
+4|se)  DIRB=southeast;;
+5|s)   DIRB=south;;
+6|sw)  DIRB=southwest;;
+7|w)   DIRB=west;;
+8|nw)  DIRB=northwest;;
+*)     :;;
+esac
+
+case $DIRB in
+west)      DIRF=east;;  # direction forward to return to cauldron
+east)      DIRF=west;;
+northeast) DIRF=southwest;;
+north)     DIRF=south;;
+northwest) DIRF=southeast;;
+southwest) DIRF=northeast;;
+south)     DIRF=north;;
+southeast) DIRF=northest;;
+*)    _exit 2 "Incorrect move direction '$DIRB' .";;
 esac
 
 SOUND_DIR=${SOUND_DIR:-"$HOME"/.crossfire/sounds}
 
 # Log file path in /tmp
-#MY_SELF=`realpath "$0"` ## needs to be in main script
-#MY_BASE=${MY_SELF##*/}  ## needs to be in main scrip
+#MY_SELF=`realpath "$0"` ## needs to be in main script otherwise does not
+#MY_BASE=${MY_SELF##*/}  ## find this library file located in same dir as script
 
 TMP_DIR=${TMP_DIR:-/tmp/crossfire_client}
 mkdir -p "$TMP_DIR"
@@ -76,8 +93,8 @@ COL_GRAY=9
 COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
-COL_VERB=$COL_DORANGE
-COL_DEB=$COL_ORANGE
+COL_VERB=$COL_DORANGE  # verbose
+COL_DEB=$COL_ORANGE    # debug
 
 # beeping
 BEEP_DO=${BEEP_DO:-1}
@@ -243,8 +260,9 @@ fi
 _unwatch
 }
 
-__get_player_name(){
-unset MY_NAME
+__get_player_name(){ # reads file "${TMP_DIR}"/player_name.$PPID
+unset MY_NAME        # created by cf_set_player_name.sh
+                     # not needed since request player possible
 #test -s "${MY_SELF%/*}"/player_name.$PPID && read -r MY_NAME <"${MY_SELF%/*}"/player_name.$PPID
 test -s "${TMP_DIR}"/player_name.$PPID && read -r MY_NAME <"${TMP_DIR}"/player_name.$PPID
 test "$MY_NAME"
@@ -301,7 +319,7 @@ _draw 2 "has started.."
 else
 _draw 2 "$0 has started.."
 fi
-_draw 2 "PID is $$ - parentPID is $PPID"
+_draw 2 "PID is $$ - parentPID is $PPID" # logfiles
 
 # *** Check for parameters *** #
 _draw 5 "Checking the parameters ($*)..."
@@ -366,7 +384,7 @@ fi
 
 # times
 _say_minutes_seconds(){
-#_say_minutes_seconds "500" "600" "Loop run:"
+# syntax: _say_minutes_seconds "500" "600" "Loop run:"
 test "$1" -a "$2" || return 1
 
 local TIMEa TIMEz TIMEy TIMEm TIMEs
@@ -476,12 +494,14 @@ _draw 4 "Still '$TRIES_STILL' ($TIMEESTM:$TIMEESTS m) to go..."
 
 # *** EXIT FUNCTIONS *** #
 _exit(){
-_debug "_exit:$*"
+_debug "_exit:$*"  # had error message exit:invalid value 'Try'
 RV=${1:-0}
 shift
 
+#_is 2 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+#_is 2 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _sleep
@@ -545,7 +565,7 @@ exit $RV
 
 _get_player_speed(){
 
-if test "$1" = '-l'; then
+if test "$1" = '-l'; then # -l for loop
  spc=$((spc+1))
  test "$spc" -ge $COUNT_CHECK_FOOD || return 1
  spc=0
@@ -559,8 +579,6 @@ OLD_ANSWER=
 
 echo request stat cmbt
 
-#echo watch request
-
 while :; do
 read -t $TMOUT ANSWER
 
@@ -571,8 +589,6 @@ test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
-
-#echo unwatch request
 
 test ! "$ANSWER" -a "$OLD_ANSWER" && ANSWER="$OLD_ANSWER"  #+++2017-03-20
 
@@ -704,10 +720,8 @@ _drop_in_cauldron(){
 
 if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
-#echo watch $DRAWINFO
 _watch
 else
-#echo watch $DRAWINFO
 _watch
 fi
 
@@ -720,10 +734,8 @@ _check_drop_or_exit "$@"
 
 if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
-#echo unwatch $DRAWINFO
 _unwatch
 else
-#echo unwatch $DRAWINFO
 _unwatch
 fi
 }
@@ -947,8 +959,6 @@ _draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
 
 echo request map pos
 
-#echo watch request
-
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
 
@@ -963,8 +973,6 @@ test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
-
-#echo unwatch request
 
 test ! "$REPLY_MAP" -a "$OLD_REPLY" && REPLY_MAP="$OLD_REPLY" #+++2017-03-20
 
@@ -1002,25 +1010,21 @@ esac
 
 echo request map $R_X $R_Y
 
-#echo watch request
+ while :; do
+ read -t $TMOUT
 
-while :; do
-read -t $TMOUT
+ _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+ _debug  "$REPLY"
 
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
-_debug  "$REPLY"
+ test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
-test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+ _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+ test "$IS_WALL" = 0 || _exit_no_space 1
 
-_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
-test "$IS_WALL" = 0 || _exit_no_space 1
-
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-#echo unwatch request
+ test "$REPLY" || break
+ unset REPLY
+ sleep 0.1s
+ done
 
 done
 
@@ -1053,13 +1057,9 @@ test "${NUMBERT//[0-9]/}" && _exit 2 "_check_for_space_old_client: Need a digit.
 
 _draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
 
-#echo watch request
-
 sleep 0.5
 
 echo request map near
-
-#echo watch request
 
 # client v.1.70.0 request map pos:request map pos 280 231 ##cauldron adventurers guild stoneville
 # client v.1.10.0                 request map pos 272 225 ##cauldron adventurers guild stoneville
@@ -1079,8 +1079,6 @@ test "$REPLY_MAP" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY_MAP"
 sleep 0.1s
 done
-
-#echo unwatch request
 
 _empty_message_stream
 
@@ -1115,26 +1113,23 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+
 echo request map $R_X $R_Y
 
-#echo watch request
+ while :; do
+ read -t $TMOUT
+ _log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
+ _debug "$REPLY"
 
-while :; do
-read -t $TMOUT
-_log "$REPLY_LOG" "request map '$R_X' '$R_Y':$REPLY"
-_debug "$REPLY"
+ test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 
-test "$REPLY" && IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+ _log "$REPLY_LOG" "IS_WALL=$IS_WALL"
+ test "$IS_WALL" = 0 || _exit_no_space 1
 
-_log "$REPLY_LOG" "IS_WALL=$IS_WALL"
-test "$IS_WALL" = 0 || _exit_no_space 1
-
-test "$REPLY" || break
-unset REPLY
-sleep 0.1s
-done
-
-#echo unwatch request
+ test "$REPLY" || break
+ unset REPLY
+ sleep 0.1s
+ done
 
 done
 
@@ -1168,8 +1163,6 @@ REPLY="";
 
 echo request items actv
 
-#echo watch request
-
 while :; do
 read -t $TMOUT
 _log "$REPLY_LOG" "request items actv:$REPLY"
@@ -1187,8 +1180,6 @@ done
 if test "$RECALL" = 1; then # unapply it now , _emergency_exit applies again
 _is 1 1 apply rod of word of recall
 fi
-
-#echo unwatch request
 
 _draw 6 "Done."
 
@@ -1272,13 +1263,15 @@ esac
 # _exit 1
 # }
 
-#echo unwatch $DRAWINFO
 _unwatch
 
 _sleep
 
+#_is 2 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
+
+#_is 2 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 
@@ -1297,10 +1290,8 @@ _unknown &
 
 if test "$DRAWINFO" = drawextinfo; then
 echo watch drawinfo
-#echo watch $DRAWINFO
 _watch
 else
-#echo watch $DRAWINFO
 _watch
 fi
 
@@ -1389,10 +1380,8 @@ done
 
 if test "$DRAWINFO" = drawextinfo; then
 echo unwatch drawinfo
-#echo unwatch $DRAWINFO
 _unwatch
 else
-echo unwatch $DRAWINFO
 _unwatch
 fi
 
@@ -1403,10 +1392,12 @@ _check_drop_or_exit(){
 local HAVE_PUT=0
 local OLD_REPLY="";
 local REPLY="";
+
 while :; do
 read -t $TMOUT
 _log "$REPLY_LOG" "_check_drop_or_exit:$REPLY"
 _debug "_check_drop_or_exit:'$REPLY'"
+
 case $REPLY in
 *Nothing*to*drop*)                _exit 1 "Missing '$@' in inventory";;
 *There*are*only*|*There*is*only*) _exit 1 "Not enough '$@' to drop." ;;
@@ -1430,30 +1421,32 @@ _sleep
 
 _close_cauldron(){
 
+#_is 2 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _sleep
 
+#_is 2 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _sleep
 }
 
 _go_cauldron_drop_alch_yeld(){
+#_is 4 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
 _is 1 1 $DIRB
-
 _sleep
 }
 
 _go_drop_alch_yeld_cauldron(){
+#_is 4 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
-
 _sleep
 #sleep ${DELAY_DRAWINFO}s
 }
@@ -1483,6 +1476,7 @@ _check_if_on_cauldron
 # ** need to catch msg to discard them into an unused variable ** #
 _empty_message_stream(){
 local REPLY
+
 while :;
 do
 read -t $TMOUT
@@ -1522,7 +1516,6 @@ _is 1 1 fire center ## Todo check if already applied and in inventory
 _is 1 1 fire_stop
 _empty_message_stream
 
-#echo unwatch $DRAWINFO
 _unwatch
 exit
 fi
@@ -1545,6 +1538,7 @@ do
 read -t $TMOUT
 _log "_check_mana_for_create_food:$REPLY"
 _debug "$REPLY"
+
 case $REPLY in
 *ready*the*spell*create*food*) return 0;;
 *create*food*)
@@ -1809,7 +1803,6 @@ oF="$FOOD_LVL"
 sleep 0.1
 done
 
-#echo unwatch $DRAWINFO
 _unwatch
 }
 

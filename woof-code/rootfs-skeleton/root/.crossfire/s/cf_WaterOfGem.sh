@@ -63,6 +63,7 @@ _ping(){
 test "$PING_DO" || return 0
 
 local FOREVER=''
+local PRV
 
 case $1 in
 -I|--infinite) FOREVER=1;;
@@ -127,7 +128,7 @@ echo draw 2 "ARGUMENTS:$*"
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of GEM."
 echo draw 7 "Syntax:"
@@ -143,7 +144,8 @@ echo draw 4 "NUMBER is set to '$NUMBER'"
 echo draw 4 "in script header."
 
         f_exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
@@ -210,7 +212,7 @@ do
  unset REPLY
  sleep 0.1
  read -t 1
-  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw 6 "$REPLY"
 
  case $REPLY in    '') break;;
@@ -246,9 +248,10 @@ local UNDER_ME_LIST=''
 echo request items on
 
 while [ 1 ]; do
-read UNDER_ME
+#read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+[ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"  # code further down does not care
 		 # if other msgs go into UNDER_ME_LIST variable
@@ -283,7 +286,7 @@ echo "issue 1 1 get"     # empty cauldron
 
 while [ 1 ]; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "_check_if_empty_cauldron:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`" && NOTHING=1
@@ -337,13 +340,13 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 # *** Now LOOPING *** #
 
 FAIL=0
-TIMELB=`date +%s`
+TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=${TIMEE:-`date +%s`}
+TIMEC=${TIMEE:-`date +%s`}
 
 _check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || break
 
@@ -359,7 +362,7 @@ REPLY="";
 
 while [ 1 ]; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -380,7 +383,7 @@ REPLY="";
 
 while [ 1 ]; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
@@ -415,7 +418,7 @@ REPLY="";
 while :; do
 #_ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -441,7 +444,7 @@ SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
@@ -495,7 +498,7 @@ sleep ${DELAY_DRAWINFO}s
 
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
+TIME=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIME sec., still $TRIES_SILL laps to go..."
 
 done  # *** MAINLOOP *** #
@@ -503,7 +506,7 @@ done  # *** MAINLOOP *** #
 
 # Now count the whole loop time
 TIMELE=`date +%s`
-TIMEL=$((TIMELE-TIMELB))
+TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
 case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac

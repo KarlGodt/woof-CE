@@ -28,7 +28,7 @@ export PATH=/bin:/usr/bin
 
 TIMEA=`date +%s`
 
-# *** Variables : Most are set or unset ( set meaning have content ( even " " ) , unset no content
+# *** Variables : Most are set or unset ( set meaning have content ( even " " )) , unset no content
 # *** common editable variables
 VERBOSE=1  # be a bit talkactive
 DEBUG=1    # print gained values
@@ -84,7 +84,7 @@ case $* in
 6|sw|southwest) readonly DIRECTION_NUMBER=6;;
  7|w|west)      readonly DIRECTION_NUMBER=7;;
 8|nw|northwest) readonly DIRECTION_NUMBER=8;;
-*) _error 2 "Invalid direction $*"
+*) _error 2 "Invalid direction '$*'"
 esac
 
 }
@@ -122,29 +122,6 @@ _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAU
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
 }
 
-# ***
-__log(){
-# *** echo passed parameters to logfile if LOGGING is set to anything
-test "$LOGGING" || return
-echo "$*" >>"$LOG_FILE"
-}
-
-# ***
-__verbose(){
-# ***
-test "$VERBOSE" || return
-_draw 7 "$*"
-sleep 0.5
-}
-
-# ***
-__debug(){
-# *** print passed parameters to window if DEBUG is set to anything
-
-test "$DEBUG" || return
-_draw 3 "$*"
-sleep 0.5
-}
 
 # ***
 _usage(){
@@ -174,7 +151,7 @@ echo request spells
 while :;
 do
 read -t 1 oneSPELL
- _log "$oneSPELL"
+ _log "_check_have_needed_spell_in_inventory:$oneSPELL"
  _debug "$oneSPELL"
 
  test "$oldSPELL" = "$oneSPELL" && break
@@ -215,7 +192,7 @@ echo request spells
 while :;
 do
 read -t 1 oneSPELL
-_log "$oneSPELL"
+_log "_check_have_needed_spell_applied:$oneSPELL"
 _debug "$oneSPELL"
 
  test "$oldSPELL" = "$oneSPELL" && break
@@ -237,11 +214,13 @@ echo "$SPELLSA" | grep -q -i "$SPELL"
 _probe_enemy(){
 # ***
 _debug "_probe_enemy:$*"
+
 if test ! "$HAVE_APPLIED_PROBE"; then
 #_debug "issue 1 1 apply rod of probe"
-   _is 1 1 apply rod of probe
+   _is 1 1 apply rod of probe  # should also apply heavy rod
    # TODO: read drawinfo if successfull ..
 fi
+
 _is 1 1 fire $DIRECTION_NUMBER
 _is 1 1 fire_stop
 HAVE_APPLIED_PROBE=1
@@ -263,11 +242,11 @@ __watch_food(){
 #echo watch request
 echo request stat hp
 read -t 1 statHP
- _debug "__watch_food:$statHP"
+ _debug "$statHP"
    _log "__watch_food:$statHP"
 
  FOOD_STAT=`echo $statHP | awk '{print $NF}'`
- _debug "__watch_food:FOOD_STAT=$FOOD_STAT"
+ _debug "FOOD_STAT=$FOOD_STAT"
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
   #_debug "issue 0 0 apply $FOOD"
      _is 0 0 apply $FOOD
@@ -288,7 +267,7 @@ _debug "_rotate_range_attack:request range"
 echo request range
 sleep 1
 read -t 1 REPLY_RANGE
- _log "REPLY_RANGE=$REPLY_RANGE"
+ _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
  _debug "$REPLY_RANGE"
 
  test "`echo "$REPLY_RANGE" | grep -i "$PELL"`" && break
@@ -348,7 +327,7 @@ if [ "$GR" -le 0 ]; then
    return 6
  elif [ "$GR" -lt $GR_NEEDED ]; then
    return 6
- elif [ "$GR" -th $GR_MAX ]; then
+ elif [ "$GR" -lt $GR_MAX ]; then
    return 4
  elif [ "$GR" -eq $GR_MAX ]; then
    return 0
@@ -403,20 +382,6 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
  if test $HP -lt $((HP_MAX/10)); then
   _do_emergency_recall
  fi
-
- ## Now done in _watch_wizard_spellpoints()
- #if [ "$SP" -le 0 ]; then
- #  return 6
- #elif [ "$SP" -lt $SP_NEEDED ]; then
- #  return 6
- #elif [ "$SP" -lt $SP_MAX ]; then
- #  return 4
- #elif [ "$SP" -eq $SP_MAX ]; then
- #  return 0
- #fi
-#echo unwatch request
- #test "$SP" = $SP_MAX || return 3
- #test "$SP" -ge $((SP_MAX/2)) || return 3
 
 _watch_wizard_spellpoints
 return $?
@@ -476,13 +441,13 @@ test $check_c2 -eq $CHECK_COUNT && unset check_c2
 _do_loop(){
 # ***
 
-TIMES=`date +%s`
+TIMEB=`date +%s`
 
 while :;
 do
 
  #TIMEB=`date +%s`
- TIMEB=${TIMEE:-$TIMES}
+ TIMEC=${TIMEE:-$TIMEB}
 
 # user could change range attack while pausing ...
  _apply_needed_spell
@@ -510,8 +475,8 @@ do
 
  TRIES_STILL=$((NUMBER-one))
  TIMEE=`date +%s`
- TIME=$((TIMEE-TIMEB))
- TIMET=$((TIMEE-TIMES))
+ TIME=$((TIMEE-TIMEC))
+ TIMET=$((TIMEE-TIMEB))
  TIMET=$(( (TIMET/60) +1))
 
 

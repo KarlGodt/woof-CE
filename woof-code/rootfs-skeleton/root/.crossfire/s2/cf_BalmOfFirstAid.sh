@@ -98,7 +98,7 @@ fi
 _say_statistics_end(){
 # Now count the whole loop time
 TIMELE=`date +%s`
-_say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
 
@@ -162,15 +162,6 @@ shift
 sleep 0.1
 done
 
-#} || {
-#echo draw 3 "Script needs number of alchemy attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 4 ."
-#        exit 1
-#}
 
 echo draw 7 "OK."
 
@@ -179,14 +170,14 @@ f_check_on_cauldron(){
 
 echo draw 5 "Checking if on a cauldron..."
 
-UNDER_ME='';
+local UNDER_ME='';
 echo request items on
 
 while :; do
 _ping
 read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
 [ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -280,7 +271,7 @@ echo request map pos
 while :; do
 _ping
 read -t 1 REPLY
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -326,7 +317,7 @@ echo request map $R_X $R_Y
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "request map :$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
@@ -413,7 +404,7 @@ echo request items actv
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -455,7 +446,7 @@ echo watch $DRAW_INFO
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -498,7 +489,9 @@ echo request stat cmbt
 while :; do
 _ping
 read -t 1 ANSWER
-echo "$ANSWER" >>"$LOG_REQUEST_FILE"
+[ "$LOGGING" ] && echo "request stat cmbt:$ANSWER" >>"$LOG_REQUEST_FILE"
+[ "$DEBUG" ] && echo draw 3 "$ANSWER"
+
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -513,7 +506,7 @@ PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
 echo draw 7 "Player speed is $PL_SPEED"
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"
+echo draw 7 "Player speed set to $PL_SPEED"
 
   if test $PL_SPEED -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
@@ -526,7 +519,7 @@ echo draw 6 "Done."
 
 # *** Now LOOPING *** #
 
-TIMELB=`date +%s`
+TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 FAIL=0
@@ -534,7 +527,7 @@ FAIL=0
 for one in `seq 1 1 $NUMBER`
 do
 
-TimeB=${TimeE:-`date +%s`}
+TIMEC=${TIMEE:-$TIMEB}
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -551,7 +544,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 case "$REPLY" in
 $OLD_REPLY) break;;
@@ -577,7 +570,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
@@ -616,7 +609,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -647,7 +640,7 @@ SLAG=0
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
@@ -700,77 +693,24 @@ echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
 
 
-__check_on_cauldron(){
-#echo watch request
-
-echo request items on
-
-#echo watch request
-
-UNDER_ME='';
-UNDER_ME_LIST='';
-
-while :; do
-_ping
-read -t 1 UNDER_ME
-sleep 0.1s
-[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-[ "$DEBUG" ] && echo draw 3 "'UNDER_ME'"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-"scripttell break") break;;
-"scripttell break "*) BREAKS=`echo "$UNDER_ME" | awk '{print $NF}'`
- test "${BREAKS//[0-9]/}" && BREAKS=2
- break $BREAKS;;
-"scripttell exit") exit 1;;
-"scripttell quit") exit 1;;
-"scripttell off")  exit 1;;
-'') break;;
-esac
-sleep 0.1s
-done
-
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "LOOP BOTTOM: NOT ON CAULDRON!"
-f_exit 1
- }
-
-#echo unwatch request
-}
-
 f_check_on_cauldron
 
 
-TimeE=`date +%s`
-TimeR=$((TimeE-TimeB))
-TimeR=$((TimeR+1))
-echo draw 4 "Round took '$TimeR' seconds."
+TIMEE=`date +%s`
+TIMER=$((TIMEE-TIMEC))
+TIMER=$((TIMER+1))
+echo draw 4 "Round took '$TIMER' seconds."
 
 TRIES_SILL=$((NUMBER-one))
 echo draw 4 "Still '$TRIES_SILL' attempts to go .."
 
-#test "TimeALL" || TimeALL=$((NUMBER*TimeR))
-TimeSTILL=$((TRIES_SILL*TimeR))
-TimeSTILL=$((TimeSTILL/60))
-echo draw 5 "Still '$TimeSTILL' minutes to go..."
+#test "TimeALL" || TimeALL=$((NUMBER*TIMER))
+TIME_STILL=$((TRIES_SILL*TIMER))
+TIME_STILL=$((TIME_STILL/60))
+echo draw 5 "Still '$TIME_STILL' minutes to go..."
 
 
 done  # *** MAINLOOP *** #
-
-__say_statistics(){
-# Now count the whole loop time
-TIMELE=`date +%s`
-_say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
-
-_say_success_fail
-# Now count the whole script time
-
-TIMEZ=`date +%s`
-_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
-}
 
 _say_statistics_end
 # *** Here ends program *** #

@@ -2,6 +2,8 @@
 
 exec 2>/tmp/cf_script.err
 
+TIMEA=`date +%s`
+
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
@@ -344,7 +346,6 @@ NUM=$NUMBER
 
 while :;
 do
-:
 
 # TODO : food level, hit points
 
@@ -401,4 +402,4 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 echo draw 2 "$0 is finished."
-beep
+beep -f 700 -l 1000

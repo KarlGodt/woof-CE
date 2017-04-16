@@ -2,6 +2,8 @@
 
 exec 2>/tmp/cf_script.err
 
+TIMEA=`date +%s`
+
 DRAW_INFO=drawinfo # drawextinfo
 
 DEBUG=1   # unset to disable, set to anything to enable
@@ -11,7 +13,6 @@ MAX_SEARCH=9
 MAX_DISARM=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
 
 # colours
@@ -168,7 +169,6 @@ local c=0
 
 while :;
 do
-:
 
 echo issue 1 1 search
 #You spot a diseased needle!
@@ -180,7 +180,7 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
-  [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$LOGGING" ] && echo "search:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -254,7 +254,6 @@ c=0
 
 while :;
 do
-:
 
 echo issue 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
@@ -266,7 +265,7 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+   [ "$LOGGING" ] && echo "disarm traps:$REPLY" >>"$LOG_REPLY_FILE"
    [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
@@ -299,4 +298,4 @@ _disarm_traps
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
-beep
+beep -f 700 -l 1000

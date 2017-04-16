@@ -23,6 +23,8 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -37,7 +39,7 @@ echo drawnifo 5 "Checking the parameters ($*)..."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
@@ -47,7 +49,8 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
 
         exit 0
-        }
+;;
+esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -79,7 +82,7 @@ echo request items on
 
 while [ 1 ]; do
 read -t 1 UNDER_ME
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "request items on:$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -141,10 +144,10 @@ echo draw 3 "If this is a Wall, try another place."
 
 test "$*" && echo draw 5 "$*"
 beep
-exit $1
+exit $RV
 }
 
-rm -f /tmp/cf_script.rpl   # empty old log file
+rm -f "$LOG_REPLY_FILE"   # empty old log file
 
 # *** Check for 4 empty space to DIRB *** #
 
@@ -156,7 +159,7 @@ echo request map pos
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -200,11 +203,11 @@ echo request map $R_X $R_Y
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "$IS_WALL" >>/tmp/cf_script.rpl
+echo "$IS_WALL" >>"$LOG_REPLY_FILE"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -284,7 +287,7 @@ echo request items actv
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -324,7 +327,7 @@ echo watch $DRAW_INFO
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
@@ -364,7 +367,7 @@ echo request stat cmbt
 
 while [ 1 ]; do
 read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+echo "request stat cmbt:$ANSWER" >>/tmp/cf_request.log
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -381,11 +384,11 @@ echo draw 7 "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"
+echo draw 7 "Player speed st to $PL_SPEED"
 
 if test $PL_SPEED -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif $PL_SPEED -gt 25; then
+elif test $PL_SPEED -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
@@ -395,13 +398,13 @@ echo draw 6 "Done."
 # *** Now LOOPING *** #
 
 FAIL=0
-TIMELB=`date +%s`
+TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+TIMEC=`date +%s`
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -417,7 +420,7 @@ REPLY="";
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -438,7 +441,7 @@ REPLY="";
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -471,7 +474,7 @@ REPLY="";
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -500,7 +503,7 @@ SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"      && NOTHING=1
@@ -559,7 +562,7 @@ UNDER_ME_LIST='';
 
 while [ 1 ]; do
 read -t 1 UNDER_ME
-echo "$UNDER_ME" >>/tmp/cf_script.ion
+echo "request items on:$UNDER_ME" >>/tmp/cf_script.ion
 test "$UNDER_ME" || break
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -580,7 +583,7 @@ f_exit 1
 
 TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
+TIME=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIME sec., still $TRIES_SILL laps to go..."
 
 
@@ -588,7 +591,7 @@ done  # *** MAINLOOP *** #
 
 # Now count the whole loop time
 TIMELE=`date +%s`
-TIMEL=$((TIMELE-TIMELB))
+TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
 case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac

@@ -8,14 +8,15 @@ echo draw 2 "$0 is started.."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to"
 echo draw 5 "apply rod of cancellation"
 echo draw 5 "and run fire center"
 
         exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"

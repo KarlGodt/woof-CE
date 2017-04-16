@@ -2,6 +2,8 @@
 
 exec 2>/tmp/cf_script.err
 
+TIMEA=`date +%s`
+
 DRAW_INFO=drawinfo # drawextinfo
 
 MAX_SEARCH=9
@@ -9,7 +11,6 @@ MAX_DISARM=9
 MAX_LOCKPICK=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
 
 # colours
@@ -676,4 +677,4 @@ echo unwatch $DRAW_INFO
 #sleep 1
 
 echo draw 2 "$0 is finished."
-beep
+beep -f 700 -l 1000

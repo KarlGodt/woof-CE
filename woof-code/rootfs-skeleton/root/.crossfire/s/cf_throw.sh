@@ -1,6 +1,6 @@
 #!/bin/ash
 
-ME_PROG=`realpath -f "$0"`
+ME_PROG=`realpath "$0"`
 ME_DIR=${ME_PROG%/*}
 cd "$ME_DIR"
 
@@ -22,7 +22,7 @@ _exit()
 RV=$1
 shift
 echo "$*"
-exit $1
+exit $RV
 }
 
 trap "_exit 99 \"Caught Signal\"" INT KILL TERM
@@ -629,4 +629,4 @@ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
 echo draw 4 "You threw '$C' times."
 echo draw 5 "Loop took $TIMEM:$TIMES minutes."
 echo draw 2 "$0 is finished."
-beep
+beep -f 700 -l 1000

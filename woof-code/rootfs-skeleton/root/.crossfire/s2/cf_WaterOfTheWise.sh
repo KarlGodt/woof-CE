@@ -11,11 +11,14 @@ DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/u
 
 SLEEP=4           # sleep seconds after codeblocks
 DELAY_DRAWINFO=8  # sleep seconds to sync msgs from script with msgs from server
+                  # the slower the player's speed, the more sleep delay needed;
+		  # also 2G Quality connections delays up to one second;
+		  # if the connection drops for 1-2 seconds once a while, a high value could buffer it
 
 # When putting ingredients into cauldron, player needs to leave cauldron
-# to close it. Also needs to pickup and drop the result(s) to not
-# increase carried weight. This version does not adjust player speed after
-# several weight losses.
+# to close it. Also needs to pickup to empty the cauldron for next attempt
+# and drop the result(s) to not increase carried weight.
+# This version does not adjust player speed after several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -99,7 +102,7 @@ fi
 _say_statistics_end(){
 # Now count the whole loop time
 TIMELE=`date +%s`
-_say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
 
@@ -239,7 +242,7 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-echo unwatch request
+#echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
@@ -271,7 +274,9 @@ echo request items actv
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -354,7 +359,7 @@ echo "issue 1 1 get"
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 test "$REPLY" || break
@@ -390,14 +395,14 @@ sleep ${SLEEP}s
 # *** Now LOOPING *** #
 
 echo draw 4 "OK... Might the Might be with You!"
-TIMELB=`date +%s`
+TIMEB=`date +%s`
 
 FAIL=0
 
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=${TIMEE:-`date +%s`}
+TIMEC=${TIMEE:-$TIMEB}
 
 
 OLD_REPLY="";
@@ -412,7 +417,7 @@ echo "issue 1 1 drop 7 water"
 
 while :; do
  read -t 1 REPLY
-[ "$LOGGING" ] &&  echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] &&  echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
@@ -452,7 +457,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -486,7 +491,7 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 test "$REPLY" || break
@@ -563,7 +568,7 @@ f_check_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
+TIME=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..."
 
 

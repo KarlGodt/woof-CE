@@ -23,6 +23,9 @@ DELAY_DRAWINFO=8.0 # sleep seconds to sync msgs from script with msgs from serve
 
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
 
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -31,7 +34,7 @@ echo draw 2 "$0 is started.."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
@@ -41,7 +44,8 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of the Wise ."
 
         exit 0
-        }
+;;
+esac
 
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -66,13 +70,13 @@ echo draw 3 "Need <number> ie: script $0 3 ."
 echo draw 4 "Checking if on cauldron..."
 
 f_check_on_cauldron(){
-UNDER_ME='';
+local UNDER_ME='';
 echo request items on
 
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
+#echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -80,7 +84,7 @@ test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
-echo unwatch request
+#echo unwatch request
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
@@ -114,7 +118,7 @@ test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-rm -f /tmp/cf_script.rpl # empty old log file
+rm -f "$LOG_REPLY_FILE" # empty old log file
 
 
 # *** Getting Player's Speed *** #
@@ -129,7 +133,7 @@ echo request stat cmbt
 
 while [ 1 ]; do
 read -t 1 ANSWER
-echo "$ANSWER" >>/tmp/cf_request.log
+echo "request stat cmbt:$ANSWER" >>/tmp/cf_request.log
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -171,7 +175,7 @@ echo request items actv
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_request.log
+echo "request items actv:$REPLY" >>/tmp/cf_request.log
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -249,7 +253,7 @@ echo "issue 1 1 get"
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
@@ -278,7 +282,7 @@ sleep ${SLEEP}s
 
 
 FAIL=0
-TIMELB=`date +%s`
+TIMEB=`date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
@@ -286,7 +290,7 @@ echo draw 4 "OK... Might the Might be with You!"
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=`date +%s`
+TIMEC=`date +%s`
 
 
 OLD_REPLY="";
@@ -301,7 +305,7 @@ echo "issue 1 1 drop 7 water"
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -337,7 +341,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -366,7 +370,7 @@ SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_script.rpl
+echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
@@ -437,7 +441,7 @@ f_check_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
+TIME=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..." # light orange
 
 
@@ -445,7 +449,7 @@ done
 
 # Now count the whole loop time
 TIMELE=`date +%s`
-TIMEL=$((TIMELE-TIMELB))
+TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
 case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac

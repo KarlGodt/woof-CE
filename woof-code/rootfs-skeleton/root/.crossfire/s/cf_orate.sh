@@ -2,6 +2,8 @@
 
 exec 2>/tmp/cf_script.err
 
+TIMEA=`date +%s`
+
 DRAW_INFO=drawinfo # drawextinfo
 
 # FOREVER mode
@@ -12,7 +14,6 @@ BAD_THRESH=3  # threshold to attack in DIR
 MAX_ORATE=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
 
 # ** ping if bad connection ** #
@@ -219,4 +220,4 @@ echo unwatch $DRAW_INFO
 echo draw 7 "You calmed down '$CALMS' ."
 echo draw 7 "You convinced   '$CONVS' ."
 echo draw 2 "$0 is finished."
-beep
+beep -f 700 -l 1000

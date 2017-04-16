@@ -26,7 +26,7 @@ echo draw 2 "$0 is started.."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help")
 
 echo draw 5 "Script to pray given number times."
 echo draw 5 "Syntax:"
@@ -35,7 +35,8 @@ echo draw 5 "For example: 'script $0 50'"
 echo draw 5 "will issue 50 times the use_skill praying command."
 
         exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:digit:]]/}"

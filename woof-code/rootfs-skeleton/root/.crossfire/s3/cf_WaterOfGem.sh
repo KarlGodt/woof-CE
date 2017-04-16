@@ -84,19 +84,11 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
-*)
 
- case $PARAM_1 in
- diamond|emerald|pearl|ruby|sapphire)
- # *** testing parameters for validity *** #
- PARAM_1test="${PARAM_1//[[:alpha:]]/}"
- test "$PARAM_1test" && {
- _draw 3 "Only :alpha: characters as (TODO:?first?) option allowed."
-        exit 1 #exit if other input than letters
-        }
+diamond|emerald|pearl|ruby|sapphire)
   GEM="$PARAM_1"
  ;;
- [0-9]*)
+[0-9]*)
  PARAM_1test="${PARAM_1//[[:digit:]]/}"
  test "$PARAM_1test" && {
  _draw 3 "Only :digit: numbers as (TODO:?second?) option allowed."
@@ -104,10 +96,8 @@ case "$PARAM_1" in -h|*"help"*) _usage;;
         }
   NUMBER=$PARAM_1
  ;;
- *) _red "Unrecognized option '$PARAM_1'";;
- esac
+*) _red "Unrecognized option '$PARAM_1'";;
 
-;;
 esac
 shift
 sleep 0.1
@@ -118,18 +108,6 @@ _draw 3 "Script needs gem and number of alchemy attempts as arguments."
         exit 1
 }
 
-#test "$1" -a "$2" || {
-#_draw 3 "Need <gem> and <number> ie: script $0 ruby 3 ."
-#        exit 1
-#}
-
-#if test ! "$GEM"; then #set fallback
-#GEM=diamond
-##GEM=sapphire
-##GEM=ruby
-##GEM=emerald
-##GEM=pearl
-#fi
 
 if test ! "$NUMBER"; then
 _draw 3 "Need a number of items to alch."
@@ -238,7 +216,7 @@ fi
 
 
 _return_to_cauldron
-_loop_counter
+_loop_counter         # 3G Quality 0,64 speed SLEEP=0.4: 19s, -S 24s,
 
 
 done

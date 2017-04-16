@@ -1,18 +1,22 @@
 #!/bin/bash
 # uses <<<
 
+TIMEA=`date +%s`
+
+DRAW_INFO=drawinfo # drawextinfo
+
+LOG_FILE=/tmp/cf_pets.rpl
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
 
 # *** Check for parameters *** #
-#[ "$*" ] && {
-#if test "$*"; then
+
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-#test "$PARAM_1" = "help" && {
+
 case $PARAM_1 in -h|*help)
 
 echo draw 5 "Script to kill pets except the ones"
@@ -23,17 +27,12 @@ echo draw 2 ":space: in petnames need to be replaced"
 echo draw 2 "by underscore '_'"
 echo draw 5 "for ex. green slime to green_slime ."
         exit 0
-#        }
 ;;
 '')
-#} || {
-#else
 echo draw 3 "Script needs pets to keep as argument."
         exit 1
 ;;
 esac
-#}
-#fi
 
 test "$1" || {
 echo draw 3 "Need <pet_name [pet_name2]> ie: script $0 nazgul spectre ."
@@ -47,20 +46,20 @@ keepPETS="`echo "$keepPETS" | tr '_' ' '`"
 keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dire_wolf_sire/;s/dire-wolf/dire_wolf/'`"
 
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
-echo "PETS_KEEP='$PETS_KEEP'" >>/tmp/cf_pets.rpl
+echo "PETS_KEEP='$PETS_KEEP'" >>"$LOG_FILE"
 
 # *** Actual script to kill unwanted pets *** #
 
 OLD_REPLY="";
 REPLY="";
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 echo "issue 1 1 showpets"
 
 while [ 1 ]; do
 
 read -t 1 REPLY
-echo "$REPLY" >>/tmp/cf_pets.rpl
+echo "showpets:$REPLY" >>"$LOG_FILE"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -75,12 +74,12 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 
 PETS_HAVE=`echo "$PETS_HAVE" | grep -E -e ' - level [0-9]+'`
 PETS_KILL=`echo "$PETS_HAVE" | grep -v -i -E -e "$PETS_KEEP"`
-echo "PETS_KILL='$PETS_KILL'" >>/tmp/cf_pets.rpl
+echo "PETS_KILL='$PETS_KILL'" >>"$LOG_FILE"
 
 
 # *** example output :watch drawinfo 0 1  vampire - level 11
@@ -112,7 +111,7 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 # *** Using while read with bash buildin <<< *** #
 
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
-echo "$PETS_KILL" >>/tmp/cf_pets.rpl
+echo "$PETS_KILL" >>"$LOG_FILE"
 
 if test "$PETS_KILL"; then
 while read onePET

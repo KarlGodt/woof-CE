@@ -33,7 +33,7 @@ _exit()
 RV=$1
 shift
 echo "$*"
-exit $1
+exit $RV
 }
 
 trap "_exit 99 \"Caught Signal\"" INT KILL TERM

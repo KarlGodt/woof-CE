@@ -16,6 +16,7 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
+TIMEA=`date +%s`
 
 DEBUG=1   # unset to disable, set to anything to enable
 LOGGING=1 # unset to disable, set to anything to enable
@@ -115,7 +116,7 @@ echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "mark icecube:$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
@@ -138,7 +139,7 @@ echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "apply flint and steel:$REPLY" >>"$LOG_REPLY_FILE"
 
  case $REPLY in
  *fail.) :;;
@@ -179,7 +180,7 @@ echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "mark icecube:$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
@@ -202,7 +203,7 @@ echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "apply flint and steel:$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" = "$OLD_REPLY" && break
 
  case $REPLY in

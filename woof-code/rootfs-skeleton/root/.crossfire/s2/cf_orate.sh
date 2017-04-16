@@ -2,6 +2,9 @@
 
 exec 2>/tmp/cf_script.err
 
+# Now count the whole script time
+TIMEA=`date +%s`
+
 DRAW_INFO=drawinfo # drawextinfo
 
 # FOREVER mode
@@ -12,13 +15,25 @@ BAD_THRESH=3  # threshold to attack in DIR
 MAX_ORATE=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
 
 # ** ping if bad connection ** #
 PING_DO=1
 URL=crossfire.metalforge.net
 
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -347,7 +362,7 @@ if test "$FOREVER"; then
   #{ if test "$TOGGLE" = $INF_TOGGLE; then _cast_restoration; TOGGLE=1; fi; }
   $CAST_CHA
   #echo watch $DRAW_INFO
-  _cast_probe
+  $CAST_PROBE
   echo draw 3 "Infinite loop $TOGGLE."
   echo draw 4 "You calmed down '$CALMS' ."
   echo draw 5 "You convinced   '$CONVS' ."
@@ -378,4 +393,4 @@ done
 echo draw 7 "You calmed down '$CALMS' ."
 echo draw 7 "You convinced   '$CONVS' ."
 echo draw 2 "$0 is finished."
-beep
+_beep

@@ -2,6 +2,9 @@
 
 #exec 2>/tmp/cf_script.err
 
+# Now count the whole script time
+TIMEA=`date +%s`
+
 DRAW_INFO=drawinfo # drawextinfo
 
 MAX_SEARCH=9
@@ -9,8 +12,21 @@ MAX_DISARM=9
 MAX_LOCKPICK=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
-
 rm -f "$LOG_REPLY_FILE"
+
+# beeping
+BEEP_DO=1
+BEEP_LENGTH=500
+BEEP_FREQ=700
+
+_beep(){
+[ "$BEEP_DO" ] || return 0
+test "$1" && { BEEP_L=$1; shift; }
+test "$1" && { BEEP_F=$1; shift; }
+BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
+BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
+beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
 
 # colours
 COL_BLACK=0
@@ -651,4 +667,4 @@ echo unwatch $DRAW_INFO
 # *** Here ends program *** #
 
 _draw 2 "$0 is finished."
-beep
+_beep

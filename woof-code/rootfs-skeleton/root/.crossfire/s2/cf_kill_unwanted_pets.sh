@@ -1,6 +1,9 @@
 #!/bin/bash
 # uses <<<STREAM
 
+# Now count the whole script time
+TIMEA=`date +%s`
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 3 "with '$*' as arguments ."
@@ -8,6 +11,7 @@ echo draw 3 "with '$*' as arguments ."
 DRAW_INFO=drawinfo # drawextinfo (older clients)
 
 LOG_REPLY_FILE=/tmp/cf_pets.rpl
+rm -f "$LOG_REPLY_FILE"
 
 # beeping
 BEEP_DO=1
@@ -76,6 +80,7 @@ keepPETS="`echo "$keepPETS" | sed 's/killer-bee/killer_bee/;s/dire-wolf-sire/dir
 
 PETS_KEEP=`echo "$keepPETS" | sed 's/^|*//;s/|*$//'`
 echo "PETS_KEEP='$PETS_KEEP'" >>"$LOG_REPLY_FILE"
+
 
 # *** Actual script to kill unwanted pets *** #
 

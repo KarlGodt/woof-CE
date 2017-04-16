@@ -115,7 +115,7 @@ while :;
 do
 unset oneITEM
 read -t 1 oneITEM
- _log "$oneITEM"
+ _log "_check_have_needed_item_in_inventory:$oneITEM"
  _debug "$oneITEM"
 
  test "$oldITEM" = "$oneITEM" && break
@@ -148,7 +148,7 @@ while :;
 do
 unset oneITEM
 read -t 1 oneITEM
- _log "$oneITEM"
+ _log "_check_have_needed_item_applied:$oneITEM"
  _debug "$oneITEM"
 
  test "$oldITEM" = "$oneITEM" && break
@@ -167,8 +167,8 @@ echo "$ITEMSA" | grep -q -i "$ITEM"
 }
 
 _apply_needed_item(){
-_debug "_apply_needed_item:issue 0 0 apply $ITEM"
-                       echo issue 0 0 apply $ITEM
+#_debug "_apply_needed_item:issue 0 0 apply $ITEM"
+                       _is 0 0 apply $ITEM
 }
 
 _rotate_range_attack(){
@@ -183,7 +183,7 @@ echo request range
 sleep 1
 unset REPLY_RANGE
 read -t 1 REPLY_RANGE
- _log "REPLY_RANGE=$REPLY_RANGE"
+ _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
  _debug "$REPLY_RANGE"
 
  test "`echo "$REPLY_RANGE" | grep -i "$ITEM"`" && break
@@ -245,10 +245,12 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
 _do_loop(){
 NUMBER=$1
 _debug "_do_loop:$*:NUMBER=$NUMBER"
+
+TIMEB=`date +%s`
 for one in `seq 1 1 $NUMBER`
 do
 
- TIMEB=${TIMEE:-`date +%s`}
+ TIMEC=${TIMEE:-`date +%s`}
 
 #issue <repeat> <must_send> <command> - send
 # <command> to server on behalf of client.
@@ -264,8 +266,8 @@ do
 
  TRIES_STILL=$((NUMBER-one))
  TIMEE=`date +%s`
- TIME=$((TIMEE-TIMEB))
- MINUTES=$(( ((TRIES_STILL * $TIME ) / 60 ) ))
+ TIME=$((TIMEE-TIMEC))
+ MINUTES=$(( ((TRIES_STILL * TIME ) / 60 ) ))
  SECONDS=$(( (TRIES_STILL * TIME) - (MINUTES*60) ))
  _draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
 

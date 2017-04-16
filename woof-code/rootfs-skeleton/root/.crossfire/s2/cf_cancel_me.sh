@@ -1,9 +1,12 @@
 #!/bin/ash
 
+TIMEA=`date +%s`
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
 ITEM_CANCEL="rod of cancellation"
+#LOG_REPLY_FILE=/tmp/cf_cancel_me.rpl
 
 # beeping
 BEEP_DO=1
@@ -37,14 +40,14 @@ echo draw 5 "apply rod of cancellation"
 echo draw 5 "and run fire center"
 echo draw 4 "Options:"
 echo draw 4 "-H to use heavy rod of cancellation"
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+#echo draw 5 "-d  to turn on debugging."
+#echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
         exit 0
 ;;
 
--d|*debug)     DEBUG=$((DEBUG+1));;
+#-d|*debug)     DEBUG=$((DEBUG+1));;
 -H|*heavy)   ITEM_CANCEL="heavy rod of cancellation";;
--L|*logging) LOGGING=$((LOGGING+1));;
+#-L|*logging) LOGGING=$((LOGGING+1));;
 '') :;;
 
 *)

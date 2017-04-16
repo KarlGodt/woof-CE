@@ -16,6 +16,8 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
+# Now count the whole script time
+TIMEA=`date +%s`
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started:"
@@ -39,6 +41,8 @@ GEM='';  #set empty default
 NUMBER=0 #set zero as default
 
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+DELAY_DRAWINFO=2    # additional sleep value in seconds
 
 #logging
 LOGGING=1
@@ -124,14 +128,6 @@ done
 #}
 
 
-#if test ! "$GEM"; then #set fallback
-#GEM=diamond
-#GEM=sapphire
-#GEM=ruby
-#GEM=emerald
-#GEM=pearl
-#fi
-
 if test ! "$NUMBER"; then
 echo draw 3 "Need a number of items to alch."
 exit 1
@@ -159,7 +155,7 @@ echo request items on
 while :; do
 read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
 [ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -190,7 +186,7 @@ echo request items on
 while :; do
 read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
 [ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -280,10 +276,12 @@ rm -f "$LOG_REPLY_FILE"
 
 # *** Now LOOPING *** #
 
+TIMEB=`date +%s`
+
 for one in `seq 1 1 $NUMBER`
 do
 
-TIMEB=${TIMEE:-`date +%s`}
+TIMEC=${TIMEE:-$TIMEB}
 
 
 # *** open the cauldron *** #
@@ -299,7 +297,9 @@ REPLY="";
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -324,7 +324,8 @@ REPLY="";
 
 while :; do
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 #test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
@@ -364,7 +365,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -390,7 +391,7 @@ NOTHING=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -425,7 +426,6 @@ echo "issue 0 1 drop slag"
 
 fi
 
-DELAY_DRAWINFO=2
 sleep ${DELAY_DRAWINFO}s
 
 echo "issue 1 1 $DIRF"
@@ -438,7 +438,7 @@ f_check_on_cauldron
 
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
+TIME=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..."
 
 done
