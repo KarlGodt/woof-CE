@@ -31,7 +31,7 @@ GEM=diamond
 #GEM=emerald
 #GEM=pearl
 
-NUMBER=1  # of alch attempts
+#NUMBER=1  # of alch attempts
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
@@ -58,6 +58,25 @@ rm -f "$LOG_REPLY_FILE"
 
 PING_DO=1
 URL=crossfire.metalforge.net # localhost if server running on local PC
+
+_usage(){
+echo draw 5 "Script to produce water of GEM."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 GEM <NUMBER>"
+echo draw 2 "Allowed GEM are diamond, emerald,"
+echo draw 2 "pearl, ruby, sapphire ."
+echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Water of GEM ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
+echo draw 6 "Defaults:"
+echo draw 4 "GEM is set currently to '$GEM'"
+echo draw 4 "NUMBER is set to '$NUMBER'"
+echo draw 4 "in script header."
+
+        f_exit 0
+}
 
 _ping(){
 test "$PING_DO" || return 0
@@ -124,32 +143,16 @@ echo draw 2 "PID $$ -- PPID $PPID"
 echo draw 2 "ARGUMENTS:$*"
 
 # *** Check for parameters *** #
-#[ "$*" ] && {
+
 until [ "$#" = 0 ]
 do
 
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
+case "$PARAM_1" in
+-h|*"help") _usage;;
 
-echo draw 5 "Script to produce water of GEM."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 GEM <NUMBER>"
-echo draw 2 "Allowed GEM are diamond, emerald,"
-echo draw 2 "pearl, ruby, sapphire ."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Water of GEM ."
-echo draw 4 "If no number given, loops as long"
-echo draw 4 "as ingredients could be dropped."
-echo draw 6 "Defaults:"
-echo draw 4 "GEM is set currently to '$GEM'"
-echo draw 4 "NUMBER is set to '$NUMBER'"
-echo draw 4 "in script header."
-
-        f_exit 0
-;;
 diamond|emerald|pearl|ruby|sapphire)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[[:alpha:]]/}"
@@ -210,6 +213,14 @@ echo draw 3 "'$GEM' : Not a recognized kind of gem."
 f_exit 1
 }
 
+# *** Do NOT pickup cauldron *** #
+echo "issue 1 1 pickup 0"  # precaution
+
+# *** PREREQUISITES *** #
+# 1.) _check_skill
+# 2.) _check_if_on_cauldron    # first use inside loop
+# 3.) _check_free_move
+# 4.) _check_if_empty_cauldron # first use inside loop
 
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
@@ -242,13 +253,6 @@ done
 test ! "$PARAM" # returns 0 if called without parameter, else 1
 }
 
-_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
-
-
-# *** Do NOT pickup cauldron *** #
-echo "issue 1 1 pickup 0"  # precaution
-
-
 _check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 echo draw 5 "Check if on cauldron..."
@@ -278,6 +282,93 @@ f_exit 1
 
 echo draw 7 "Done."
 return 0
+}
+
+# *** Check for 4 empty space to DIRB *** #
+_check_free_move(){
+echo draw 5 "Checking for space to move..."
+
+echo request map pos
+
+#echo watch request
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+#echo unwatch request
+
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+echo request map $R_X $R_Y
+
+#echo watch request
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "request map $R_X $R_Y:$REPLY" >>"$LOG_REPLY_FILE"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+#echo unwatch request
+
+done
+
+else
+
+echo draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo draw 7 "OK."
 }
 
 _check_if_empty_cauldron(){
@@ -326,7 +417,8 @@ return 0
 }
 
 #_check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || f_exit 1
-
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+_check_free_move
 
 # *** Actual script to alch the desired water of gem *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
@@ -486,17 +578,23 @@ sleep 1s
 
 [ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'"
 
-if test "$NOTHING" = 0; then
+if test "SLAG" = 1; then
+echo "issue 0 1 drop slag"
+
+elif test "$NOTHING" = 0; then
 
 echo "issue 1 1 use_skill sense curse"  # identify water
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
 sleep 1s
 
-echo "issue 1 1 drop water of $GEM"  # drop it
-
-elif test "SLAG" = 1; then
-echo "issue 0 1 drop slag"
+echo "issue 1 1 drop water of $GEM"   # drop it
+echo "issue 1 1 drop waters of $GEM"  # drop it
+echo "issue 1 1 drop water (magic)"
+echo "issue 1 1 drop waters (magic)"
+echo "issue 1 1 drop water (cursed)"
+echo "issue 1 1 drop waters (cursed)"
+else :
 fi
 
 
@@ -510,11 +608,19 @@ sleep 1s
 
 sleep ${DELAY_DRAWINFO}s
 
-one=$((one+1))
-TRIES_SILL=$((NUMBER-one))
+
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go..."
+
+one=$((one+1))
+TRIES_STILL=$((NUMBER-one))
+
+case $TRIES_STILL in -*) # negative
+TRIES_STILL=${TRIES_STILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
+*)
+echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go...";;
+esac
 
 test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #

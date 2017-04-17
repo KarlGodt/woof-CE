@@ -75,134 +75,7 @@ done
 #        exit 1
 #}
 
-# *** Check if standing on a cauldron *** #
-
-echo draw 4 "Checking if on cauldron..."
-
-f_check_on_cauldron(){
-local UNDER_ME='';
-echo request items on
-
-while [ 1 ]; do
-read -t 1 UNDER_ME
-sleep 0.1s
-#echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
-
-#echo unwatch request
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-beep
-exit 1
-        }
-
-}
-f_check_on_cauldron
-
-echo draw 7 "Done."
-
-# *** Actual script to alch the desired water of the wise *** #
-test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
-NUMBER=${NUMBER:-infinite}
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water --                        *** #
-# *** only one inventory line with water(s) allowed !!              *** #
-
-# *** Now get the number of desired water of                        *** #
-# *** seven times the number of the desired water of the wise.      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-rm -f "$LOG_REPLY_FILE" # empty old log file
-
-
-# *** Getting Player's Speed *** #
-
-echo draw 4 "Processing Player's Speed..."
-
-
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
-
-while [ 1 ]; do
-read -t 1 ANSWER
-echo "request stat cmbt:$ANSWER" >>/tmp/cf_request.log
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
-done
-
-#echo unwatch request
-
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-#PL_SPEED="0.${PL_SPEED:0:2}"
-PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`  #prints .99 if below 1
-
-echo draw 7 "Player speed is $PL_SPEED"
-
-#PL_SPEED="${PL_SPEED:2:2}"
-PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"
-
-  if test $PL_SPEED -gt 35; then
-SLEEP=1.5; DELAY_DRAWINFO=3.0
-elif test $PL_SPEED -gt 25; then
-SLEEP=2.0; DELAY_DRAWINFO=4.0
-elif test $PL_SPEED -gt 15; then
-SLEEP=3.0; DELAY_DRAWINFO=6.0
-fi
-
-echo draw 7 "Done."
-
-
-# *** Readying rod of word of recall - just in case *** #
-
-echo draw 4 "Preparing for recall..."
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-while [ 1 ]; do
-read -t 1 REPLY
-echo "request items actv:$REPLY" >>/tmp/cf_request.log
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
-fi
-
-sleep ${SLEEP}s
-echo draw 7 "Done."
-
+# *** Common functions *** #
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -244,8 +117,146 @@ exit $RV
 }
 
 
-# *** Check if cauldron is empty *** #
+# *** PREREQUISITES *** #
+# 1.) _check_skill
+# 2.) f_check_on_cauldron
+# 3.) _get_player_speed
+# 4.) _ready_rod_of_recall
+# 5.) _check_empty_cauldron
 
+# *** Does our player possess the skill alchemy ? *** #
+_check_skill(){
+
+local PARAM="$*"
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+  [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$PARAM"; then
+  case $REPLY in *$PARAM) return 0;; esac
+ else # print skill
+  SKILL=`echo "$REPLY" | cut -f4- -d' '`
+  echo draw 5 "'$SKILL'"
+ fi
+
+done
+
+test ! "$PARAM" # returns 0 if called without parameter, else 1
+}
+
+# *** Check if standing on a cauldron *** #
+f_check_on_cauldron(){
+echo draw 4 "Checking if on cauldron..."
+
+local UNDER_ME='';
+echo request items on
+
+while [ 1 ]; do
+read -t 1 UNDER_ME
+sleep 0.1s
+#echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+test "$UNDER_ME" = "request items on end" && break
+test "$UNDER_ME" = "scripttell break" && break
+test "$UNDER_ME" = "scripttell exit" && exit 1
+done
+
+#echo unwatch request
+
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+echo draw 3 "Need to stand upon cauldron!"
+beep
+exit 1
+        }
+echo draw 7 "Done."
+
+}
+
+# *** Getting Player's Speed *** #
+_get_player_speed(){
+echo draw 4 "Processing Player's Speed..."
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+while [ 1 ]; do
+read -t 1 ANSWER
+echo "request stat cmbt:$ANSWER" >>/tmp/cf_request.log
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+#echo unwatch request
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
+#PL_SPEED="0.${PL_SPEED:0:2}"
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`  #prints .99 if below 1
+
+echo draw 7 "Player speed is $PL_SPEED"
+
+#PL_SPEED="${PL_SPEED:2:2}"
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+echo draw 7 "Player speed is $PL_SPEED"
+
+  if test $PL_SPEED -gt 35; then
+SLEEP=1.5; DELAY_DRAWINFO=3.0
+elif test $PL_SPEED -gt 25; then
+SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test $PL_SPEED -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+fi
+
+echo draw 7 "Done."
+}
+
+# *** Readying rod of word of recall - just in case *** #
+_ready_rod_of_recall(){
+echo draw 4 "Preparing for recall..."
+RECALL=0
+OLD_REPLY="";
+REPLY="";
+
+echo request items actv
+
+while [ 1 ]; do
+read -t 1 REPLY
+echo "request items actv:$REPLY" >>/tmp/cf_request.log
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply rod of word of recall"
+fi
+
+sleep ${SLEEP}s
+echo draw 7 "Done."
+}
+
+# *** Check if cauldron is empty *** #
+_check_empty_cauldron(){
 echo draw 4 "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -290,6 +301,36 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
+}
+
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+f_check_on_cauldron
+_get_player_speed
+_ready_rod_of_recall
+_check_empty_cauldron
+
+
+# *** Actual script to alch the desired water of the wise *** #
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water --                        *** #
+# *** only one inventory line with water(s) allowed !!              *** #
+
+# *** Now get the number of desired water of                        *** #
+# *** seven times the number of the desired water of the wise.      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** west of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
 
 
 FAIL=0
@@ -450,12 +491,18 @@ sleep ${SLEEP}s
 
 f_check_on_cauldron
 
+TIMEE=`date +%s`
+TIME=$((TIMEE-TIMEC))
 
 one=$((one+1))
 TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go..." # light orange
+
+case $TRIES_STILL in -*) # negative
+TRIES_STILL=${TRIES_STILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
+*)
+echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go...";; # light orange
+esac
 
 test "$one" = "$NUMBER" && break
 done

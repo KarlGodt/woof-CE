@@ -32,6 +32,7 @@ TMP_DIR=/tmp/crossfire_client
    LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 LOG_REQUEST_FILE="$TMP_DIR"/cf_request.$$.log
 mkdir -p "$TMP_DIR"
+rm -f "$LOG_REPLY_FILE"   # empty old log file
 
 # beeping
 BEEP_DO=1
@@ -130,10 +131,6 @@ echo draw 2 "$0 is started.."
 # *** Check for parameters *** #
 echo drawnifo 5 "Checking the parameters ($*)..."
 
-#test "$*" || {
-#echo draw 3 "Need <number> ie: script $0 4 ."
-#        exit 1
-#}
 
 until test "$#" = 0
 do
@@ -189,44 +186,6 @@ done
 
 echo draw 7 "OK."
 
-f_check_on_cauldron(){
-# *** Check if standing on a cauldron *** #
-
-echo draw 5 "Checking if on a cauldron..."
-
-local UNDER_ME='';
-echo request items on
-
-while :; do
-_ping
-read -t 1 UNDER_ME
-sleep 0.1s
-[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
-scripttell*)
- case $UNDER_ME in
- *"break") break;;
- *"break "*) BREAKS=`echo "$UNDER_ME" | awk '{print $NF}'`
-  test "${BREAKS//[0-9]/}" && BREAKS=2
-  break $BREAKS;;
- *"exit"|*"quit"|*"off") exit 1;;
- esac
-esac
-done
-
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
-}
-
-echo draw 7 "OK."
-}
-f_check_on_cauldron
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -284,8 +243,64 @@ test "$*" && echo draw 5 "$*"
 exit $RV
 }
 
-rm -f "$LOG_REPLY_FILE"   # empty old log file
+# *** Monitoring function *** #
+# *** Todo ...            *** #
+f_monitor_malfunction(){
 
+while :; do
+read -t 1 ERRORMSGS
+
+sleep 0.1s
+done
+}
+
+# *** PREREQUISITES *** #
+# 1.) f_check_on_cauldron
+# 2.) f_check_free_space
+# 3.) _prepare_recall
+# 4.) _check_empty_cauldron
+# 5.) _get_player_speed
+
+
+f_check_on_cauldron(){
+# *** Check if standing on a cauldron *** #
+
+echo draw 5 "Checking if on a cauldron..."
+
+local UNDER_ME='';
+echo request items on
+
+while :; do
+_ping
+read -t 1 UNDER_ME
+sleep 0.1s
+[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+scripttell*)
+ case $UNDER_ME in
+ *"break") break;;
+ *"break "*) BREAKS=`echo "$UNDER_ME" | awk '{print $NF}'`
+  test "${BREAKS//[0-9]/}" && BREAKS=2
+  break $BREAKS;;
+ *"exit"|*"quit"|*"off") exit 1;;
+ esac
+esac
+done
+
+
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+echo draw 3 "Need to stand upon cauldron!"
+_beep
+exit 1
+}
+
+echo draw 7 "OK."
+}
+
+f_check_free_space(){
 # *** Check for 4 empty space to DIRB *** #
 
 echo draw 5 "Checking for space to move..."
@@ -376,47 +391,9 @@ exit 1
 fi
 
 echo draw 7 "OK."
-
-
-# *** Monitoring function *** #
-# *** Todo ...            *** #
-f_monitor_malfunction(){
-
-while :; do
-read -t 1 ERRORMSGS
-
-sleep 0.1s
-done
 }
 
-
-
-# *** Actual script to alch the desired balm of first aid *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
-NUMBER=${NUMBER:-infinite}
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' and                                      *** #
-# *** drop mandrake root   before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water and mandrake root --      *** #
-# *** only one inventory line with water(s) and                     *** #
-# *** mandrake root are allowed !!                                  *** #
-
-# *** Now get the number of desired water of the wise and           *** #
-# *** same times the number of mandrake root .                      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-
+_prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
 echo draw 5 "Preparing for recall if monsters come forth..."
@@ -450,8 +427,9 @@ fi
 #echo unwatch request
 
 echo draw 6 "Done."
+}
 
-
+_check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -500,8 +478,9 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
+}
 
-
+_get_player_speed(){
 # *** Getting Player's Speed *** #
 
 echo draw 5 "Processing Player's speed..."
@@ -543,6 +522,40 @@ SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
 echo draw 6 "Done."
+}
+
+f_check_on_cauldron
+f_check_free_space
+_prepare_recall
+_check_empty_cauldron
+_get_player_speed
+
+
+# *** Actual script to alch the desired balm of first aid *** #
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' and                                      *** #
+# *** drop mandrake root   before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water and mandrake root --      *** #
+# *** only one inventory line with water(s) and                     *** #
+# *** mandrake root are allowed !!                                  *** #
+
+# *** Now get the number of desired water of the wise and           *** #
+# *** same times the number of mandrake root .                      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** west of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
+
 
 _test_integer(){
 test "$*" || return 3
@@ -736,17 +749,17 @@ TIMER=$((TIMER+1))
 echo draw 4 "Round took '$TIMER' seconds."
 
 if _test_integer $NUMBER; then
- TRIES_SILL=$((NUMBER-one))
- echo draw 4 "Still '$TRIES_SILL' attempts to go .."
+ TRIES_STILL=$((NUMBER-one))
+ echo draw 4 "Still '$TRIES_STILL' attempts to go .."
 
- TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
  echo draw 5 "Still '$TIME_STILL' minutes to go..."
 else
- TRIES_SILL=$one
- echo draw 4 "Completed '$TRIES_SILL' attempts .."
+ TRIES_STILL=$one
+ echo draw 4 "Completed '$TRIES_STILL' attempts .."
 
- TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
  echo draw 5 "Completed '$TIME_STILL' minutes. ..."
 fi

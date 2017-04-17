@@ -50,6 +50,7 @@ TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
+rm -f "$LOG_REPLY_FILE"
 
 # beeping
 BEEP_DO=1
@@ -145,22 +146,7 @@ shift
 sleep 0.1
 done
 
-#} || {
-#echo draw 3 "Script needs gem and number of alchemy attempts as arguments."
-#        exit 1
-#}
 
-
-#if test ! "$NUMBER"; then
-#echo draw 3 "Need a number of items to alch."
-#exit 1
-#elif test "$NUMBER" = 0; then
-#echo draw 3 "Number must be not ZERO."
-#exit 1
-#elif test "$NUMBER" -lt 0; then
-#echo draw 3 "Number must be greater than ZERO."
-#exit 1
-#fi
 
 test "$GEM" || {
 _draw 3 "Need GEM set as parameter."
@@ -172,6 +158,58 @@ test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
 echo draw 3 "'$GEM' : Not a recognized kind of gem."
 exit 1
 }
+
+
+echo "issue 1 1 pickup 0"  # precaution
+
+f_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+echo "issue 1 1 $DIRF"
+sleep 1s
+
+test "$*" && echo draw 5 "$*"
+echo draw 3 "Exiting $0."
+#echo unmonitor
+#echo unwatch monitor
+#echo unwatch monitor issue
+echo unwatch
+echo unwatch $DRAW_INFO
+_beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+NUMBER=$((one-1))
+_say_statistics_end
+test "$*" && echo draw 5 "$*"
+_beep
+_beep
+exit $RV
+}
+
+
+# *** PREREQUISITES *** #
+# 1.) #__check_on_cauldron
+# 1.) f_check_on_cauldron
+# 2.) _check_free_move
+# 3.) _prepare_recall
+# 4.) _check_empty_cauldron
+# 5. ) _get_player_speed
+
 
 __check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
@@ -234,10 +272,8 @@ exit 1
 
 echo draw 7 "Done."
 }
-f_check_on_cauldron
 
-#echo draw 7 "Done."
-
+_check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
 
 echo draw 5 "Checking for space to move..."
@@ -328,7 +364,9 @@ exit 1
 fi
 
 echo draw 7 "OK."
+}
 
+_prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
 echo draw 5 "Preparing for recall if monsters come forth..."
@@ -362,8 +400,9 @@ fi
 #echo unwatch request
 
 echo draw 6 "Done."
+}
 
-
+_check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -412,8 +451,9 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
+}
 
-
+_get_player_speed(){
 # *** Getting Player's Speed *** #
 
 echo draw 5 "Processing Player's speed..."
@@ -455,6 +495,15 @@ SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
 echo draw 6 "Done."
+}
+
+#__check_on_cauldron
+f_check_on_cauldron
+_check_free_move
+_prepare_recall
+_check_empty_cauldron
+_get_player_speed
+
 
 # *** Actual script to alch the desired water of gem *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
@@ -484,49 +533,7 @@ test ! "${*//[0-9]/}"
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-echo "issue 1 1 pickup 0"  # precaution
 
-f_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-sleep 1s
-
-test "$*" && echo draw 5 "$*"
-echo draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
-echo unwatch
-echo unwatch $DRAW_INFO
-_beep
-exit $RV
-}
-
-f_emergency_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw 3 "Emergency Exit $0 !"
-echo unwatch $DRAW_INFO
-echo "issue 1 1 fire_stop"
-
-NUMBER=$((one-1))
-_say_statistics_end
-test "$*" && echo draw 5 "$*"
-_beep
-_beep
-exit $RV
-}
-
-
-rm -f "$LOG_REPLY_FILE"
 
 # *** Now LOOPING *** #
 
@@ -708,16 +715,16 @@ echo draw 4 "Time $TIMER seconds"
 
 if _test_integer $NUMBER; then
  TRIES_STILL=$((NUMBER-one))
- echo draw 4 "Still '$TRIES_SILL' attempts to go .."
+ echo draw 4 "Still '$TRIES_STILL' attempts to go .."
 
- TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
  echo draw 5 "Still '$TIME_STILL' minutes to go..."
 else
- TRIES_SILL=$one
- echo draw 4 "Completed '$TRIES_SILL' attempts .."
+ TRIES_STILL=$one
+ echo draw 4 "Completed '$TRIES_STILL' attempts .."
 
- TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
  echo draw 5 "Completed '$TIME_STILL' minutes. ..."
 fi

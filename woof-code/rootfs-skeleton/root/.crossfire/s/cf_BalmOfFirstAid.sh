@@ -26,6 +26,18 @@ esac
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
+_usage(){
+echo draw 5 "Script to produce balm of first aid."
+echo draw 7 "Syntax:"
+echo draw 7 "$0 <NUMBER>"
+echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "NUMBER times to produce NUMBER of"
+echo draw 5 "Balm of First Aid ."
+echo draw 4 "If no number given, loops as long"
+echo draw 4 "as ingredients could be dropped."
+        exit 0
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -41,18 +53,8 @@ do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
-
-echo draw 5 "Script to produce balm of first aid."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 <NUMBER>"
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Balm of First Aid ."
-echo draw 4 "If no number given, loops as long"
-echo draw 4 "as ingredients could be dropped."
-        exit 0
-;;
+case "$PARAM_1" in
+-h|*"help") _usage;;
 [0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
@@ -81,32 +83,6 @@ done
 
 echo draw 7 "OK."
 
-
-# *** Check if standing on a cauldron *** #
-
-echo draw 5 "Checking if on a cauldron..."
-
-UNDER_ME='';
-echo request items on
-
-while [ 1 ]; do
-read -t 1 UNDER_ME
-#echo "request items on:$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-sleep 0.1s
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-beep
-exit 1
-}
-
-echo draw 7 "OK."
 
 # *** EXIT FUNCTIONS *** #
 f_exit(){
@@ -156,10 +132,85 @@ beep
 exit $RV
 }
 
-rm -f "$LOG_REPLY_FILE"   # empty old log file
+# *** Monitoring function *** #
+# *** Todo ...            *** #
+f_monitor_malfunction(){
 
+while [ 1 ]; do
+read -t 1 ERRORMSGS
+
+sleep 0.1s
+done
+}
+
+# *** PREREQUISITES *** #
+# 1.) _check_skill
+# 2.) _check_if_on_cauldron
+# 3.) _check_free_move
+# 4.) _prepare_recall
+# 5.) _check_empty_cauldron
+# 6.) _get_player_speed
+
+# *** Does our player possess the skill alchemy ? *** #
+_check_skill(){
+
+local PARAM="$*"
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+  [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
+  [ "$DEBUG" ] && echo draw 6 "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$PARAM"; then
+  case $REPLY in *$PARAM) return 0;; esac
+ else # print skill
+  SKILL=`echo "$REPLY" | cut -f4- -d' '`
+  echo draw 5 "'$SKILL'"
+ fi
+
+done
+
+test ! "$PARAM" # returns 0 if called without parameter, else 1
+}
+
+_check_if_on_cauldron(){
+# *** Check if standing on a cauldron *** #
+echo draw 5 "Checking if on a cauldron..."
+
+UNDER_ME='';
+echo request items on
+
+while [ 1 ]; do
+read -t 1 UNDER_ME
+#echo "request items on:$UNDER_ME" >>/tmp/cf_script.ion
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+test "$UNDER_ME" = "request items on end" && break
+test "$UNDER_ME" = "scripttell break" && break
+test "$UNDER_ME" = "scripttell exit" && exit 1
+sleep 0.1s
+done
+
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+echo draw 3 "Need to stand upon cauldron!"
+beep
+exit 1
+}
+
+echo draw 7 "OK."
+}
+
+_check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
-
 echo draw 5 "Checking for space to move..."
 
 echo request map pos
@@ -243,49 +294,10 @@ exit 1
 fi
 
 echo draw 7 "OK."
-
-
-# *** Monitoring function *** #
-# *** Todo ...            *** #
-f_monitor_malfunction(){
-
-while [ 1 ]; do
-read -t 1 ERRORMSGS
-
-sleep 0.1s
-done
 }
 
-
-
-# *** Actual script to alch the desired balm of first aid *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
-NUMBER=${NUMBER:-infinite}
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' and                                      *** #
-# *** drop mandrake root   before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water and mandrake root --      *** #
-# *** only one inventory line with water(s) and                     *** #
-# *** mandrake root are allowed !!                                  *** #
-
-# *** Now get the number of desired water of the wise and           *** #
-# *** same times the number of mandrake root .                      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-
+_prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
-
 echo draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -315,13 +327,12 @@ fi
 #echo unwatch request
 
 echo draw 6 "Done."
+}
 
-
+_check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
-
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP}s
-
 
 echo draw 5 "Checking for empty cauldron..."
 
@@ -363,8 +374,9 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
+}
 
-
+_get_player_speed(){
 # *** Getting Player's Speed *** #
 
 echo draw 5 "Processing Player's speed..."
@@ -404,6 +416,39 @@ SLEEP=2.0; DELAY_DRAWINFO=4.0
 fi
 
 echo draw 6 "Done."
+}
+
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+_check_if_on_cauldron
+_check_free_move
+_prepare_recall
+_check_empty_cauldron
+_get_player_speed
+
+# *** Actual script to alch the desired balm of first aid *** #
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' and                                      *** #
+# *** drop mandrake root   before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water and mandrake root --      *** #
+# *** only one inventory line with water(s) and                     *** #
+# *** mandrake root are allowed !!                                  *** #
+
+# *** Now get the number of desired water of the wise and           *** #
+# *** same times the number of mandrake root .                      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** west of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
 
 
 # *** Now LOOPING *** #
@@ -597,12 +642,12 @@ TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
 
 one=$((one+1))
-TRIES_SILL=$((NUMBER-one))
-case $TRIES_SILL in -*) # negative
-TRIES_SILL=${TRIES_SILL#*-}
-echo draw 4 "Time $TIME sec., completed ${TRIES_SILL:-$NUMBER} laps.";;
+TRIES_STILL=$((NUMBER-one))
+case $TRIES_STILL in -*) # negative
+TRIES_STILL=${TRIES_STILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
 *)
-echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go...";;
+echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go...";;
 esac
 
 test "$one" = "$NUMBER" && break

@@ -36,6 +36,7 @@ LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
 LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 LOG_REQUEST_FILE="$TMP_DIR"/cf_request.$$.log
 mkdir -p "$TMP_DIR"
+rm -f "$LOG_REPLY_FILE" # empty old log file
 
 # beeping
 BEEP_DO=1
@@ -133,10 +134,6 @@ echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
-#test "$*" || {
-#echo draw 3 "Need <number> ie: script $0 3 ."
-#        exit 1
-#}
 
 until test "$#" = 0
 do
@@ -184,141 +181,6 @@ shift
 sleep 0.1
 done
 
-#} || {
-#echo draw 3 "Script needs number of alchemy attempts as argument."
-#        exit 1
-#}
-
-
-# *** Check if standing on a cauldron *** #
-
-f_check_on_cauldron(){
-
-echo draw 4 "Checking if on cauldron..."
-UNDER_ME='';
-echo request items on
-
-while :; do
-read UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
-esac
-done
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
-        }
-
-}
-f_check_on_cauldron
-
-echo draw 7 "Done."
-
-# *** Actual script to alch the desired water of the wise *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
-test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
-NUMBER=${NUMBER:-infinite}
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-# *** So do a 'drop water' before beginning to alch.                *** #
-
-# *** Then if some items are locked, unlock these and drop again.   *** #
-# *** Now get the number of desired water --                        *** #
-# *** only one inventory line with water(s) allowed !!              *** #
-
-# *** Now get the number of desired water of                        *** #
-# *** seven times the number of the desired water of the wise.      *** #
-
-# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
-# *** Do not open the cauldron - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-rm -f "$LOG_REPLY_FILE" # empty old log file
-
-
-# *** Getting Player's Speed *** #
-
-echo draw 4 "Processing Player's Speed..."
-
-
-ANSWER=
-OLD_ANSWER=
-
-echo request stat cmbt
-
-while :; do
-read -t 1 ANSWER
-[ "$LOGGING" ] && echo "$ANSWER" >>"$LOG_REQUEST_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$ANSWER'"
-test "$ANSWER" || break
-test "$ANSWER" = "$OLD_ANSWER" && break
-OLD_ANSWER="$ANSWER"
-sleep 0.1
-done
-
-#echo unwatch request
-
-#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
-PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
-PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
-
-PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
-
-  if test "$PL_SPEED" -gt 35; then
-SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif test "$PL_SPEED" -gt 25; then
-SLEEP=2.0; DELAY_DRAWINFO=4.0
-elif test "$PL_SPEED" -gt 15; then
-SLEEP=3.0; DELAY_DRAWINFO=6.0
-fi
-
-echo draw 7 "Done."
-
-
-# *** Readying rod of word of recall - just in case *** #
-
-echo draw 4 "Preparing for recall..."
-RECALL=0
-OLD_REPLY="";
-REPLY="";
-
-echo request items actv
-
-while :; do
-read -t 1 REPLY
-[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
-
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
-
-if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
-fi
-
-sleep ${SLEEP}s
-echo draw 7 "Done."
-
-
 # *** EXIT FUNCTIONS *** #
 f_exit(){
 RV=${1:-0}
@@ -363,9 +225,115 @@ _beep
 exit $RV
 }
 
+# *** PREREQUISITES *** #
+# 1.) f_check_on_cauldron
+# 2.) _get_player_speed
+# 3.) _ready_recall
+# 4.) _check_empty_cauldron
+
+# *** Check if standing on a cauldron *** #
+
+f_check_on_cauldron(){
+
+echo draw 4 "Checking if on cauldron..."
+UNDER_ME='';
+echo request items on
+
+while :; do
+read UNDER_ME
+sleep 0.1s
+#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+case "$UNDER_ME" in "request items on end") break;;
+"scripttell break") break;;
+"scripttell exit") exit 1;;
+esac
+done
+
+test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+echo draw 3 "Need to stand upon cauldron!"
+_beep
+exit 1
+        }
+
+echo draw 7 "Done."
+}
+
+# *** Getting Player's Speed *** #
+_get_player_speed(){
+echo draw 4 "Processing Player's Speed..."
+
+
+ANSWER=
+OLD_ANSWER=
+
+echo request stat cmbt
+
+while :; do
+read -t 1 ANSWER
+[ "$LOGGING" ] && echo "$ANSWER" >>"$LOG_REQUEST_FILE"
+[ "$DEBUG" ] && echo draw 3 "'$ANSWER'"
+test "$ANSWER" || break
+test "$ANSWER" = "$OLD_ANSWER" && break
+OLD_ANSWER="$ANSWER"
+sleep 0.1
+done
+
+#echo unwatch request
+
+#PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
+PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
+PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
+echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+
+PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
+echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+
+  if test "$PL_SPEED" -gt 35; then
+SLEEP=1.5; DELAY_DRAWINFO=2.0
+elif test "$PL_SPEED" -gt 25; then
+SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+fi
+
+echo draw 7 "Done."
+}
+
+# *** Readying rod of word of recall - just in case *** #
+_ready_recall(){
+echo draw 4 "Preparing for recall..."
+RECALL=0
+OLD_REPLY="";
+REPLY="";
+
+echo request items actv
+
+while :; do
+read -t 1 REPLY
+[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
+echo "issue 1 1 apply rod of word of recall"
+fi
+
+sleep ${SLEEP}s
+echo draw 7 "Done."
+}
 
 # *** Check if cauldron is empty *** #
-
+_check_empty_cauldron(){
 echo draw 4 "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -415,7 +383,35 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
+}
 
+f_check_on_cauldron
+_get_player_speed
+_ready_recall
+_check_empty_cauldron
+
+# *** Actual script to alch the desired water of the wise *** #
+#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
+test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
+NUMBER=${NUMBER:-infinite}
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+# *** So do a 'drop water' before beginning to alch.                *** #
+
+# *** Then if some items are locked, unlock these and drop again.   *** #
+# *** Now get the number of desired water --                        *** #
+# *** only one inventory line with water(s) allowed !!              *** #
+
+# *** Now get the number of desired water of                        *** #
+# *** seven times the number of the desired water of the wise.      *** #
+
+# *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
+# *** west of the cauldron.                                         *** #
+# *** Do not open the cauldron - this script does it.               *** #
+# *** HAPPY ALCHING !!!                                             *** #
 
 # *** Now LOOPING *** #
 
@@ -596,7 +592,13 @@ one=$((one+1))
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go..."
+
+case $TRIES_STILL in -*) # negative
+TRIES_STILL=${TRIES_STILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
+*)
+echo draw 4 "Time $TIME sec., still $TRIES_STILL laps to go...";;
+esac
 
 test "$one" = "$NUMBER" && break
 done
