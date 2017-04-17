@@ -247,7 +247,8 @@ echo draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
-NUMBER=$((one-1))
+#NUMBER=$((one-1))
+NUMBER=$one
 _say_statistics_end
 exit $RV
 }
@@ -263,7 +264,8 @@ echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
 _beep
 _beep
-NUMBER=$((one-1))
+#NUMBER=$((one-1))
+NUMBER=$one
 _say_statistics_end
 test "$*" && echo draw 5 "$*"
 exit $RV
@@ -284,7 +286,7 @@ exit $RV
 
 rm -f "$LOG_REPLY_FILE"   # empty old log file
 
-# *** Check for 4 empty space to DIRB ***#
+# *** Check for 4 empty space to DIRB *** #
 
 echo draw 5 "Checking for space to move..."
 
@@ -341,7 +343,7 @@ echo request map $R_X $R_Y
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "request map :$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "request map '$R_X' '$R_Y':$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
@@ -542,6 +544,10 @@ fi
 
 echo draw 6 "Done."
 
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
 
 # *** Now LOOPING *** #
 
@@ -729,13 +735,21 @@ TIMER=$((TIMEE-TIMEC))
 TIMER=$((TIMER+1))
 echo draw 4 "Round took '$TIMER' seconds."
 
-TRIES_SILL=$((NUMBER-one))
-echo draw 4 "Still '$TRIES_SILL' attempts to go .."
+if _test_integer $NUMBER; then
+ TRIES_SILL=$((NUMBER-one))
+ echo draw 4 "Still '$TRIES_SILL' attempts to go .."
 
-#test "TimeALL" || TimeALL=$((NUMBER*TIMER))
-TIME_STILL=$((TRIES_SILL*TIMER))
-TIME_STILL=$((TIME_STILL/60))
-echo draw 5 "Still '$TIME_STILL' minutes to go..."
+ TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TIME_STILL/60))
+ echo draw 5 "Still '$TIME_STILL' minutes to go..."
+else
+ TRIES_SILL=$one
+ echo draw 4 "Completed '$TRIES_SILL' attempts .."
+
+ TIME_STILL=$((TRIES_SILL*TIMER))
+ TIME_STILL=$((TIME_STILL/60))
+ echo draw 5 "Completed '$TIME_STILL' minutes. ..."
+fi
 
 test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #

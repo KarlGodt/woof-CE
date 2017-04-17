@@ -129,6 +129,14 @@ done
 test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 NUMBER=${NUMBER:-infinite}
 
+if _test_integer $NUMBER; then
+alias _loop_counter=_loop_counter_number  # alias x=function in ash works, bash 3.2 not
+LOOP_COUNTER=_loop_counter_number
+else
+alias _loop_counter=_loop_counter_infinite
+LOOP_COUNTER=_loop_counter_infinite
+fi
+
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
 # *** Make sure similar items are not in the inventory --           *** #
@@ -250,9 +258,11 @@ else
 fi
 
 one=$((one+1))
-_loop_counter        # 3G Quality 0,59 speed SLEEP=0.5: 20s, -S 26s,
+_loop_counter        # ash   ## 3G Quality 0,59 speed SLEEP=0.5: 20s, -S 26s,
+#$LOOP_COUNTER       # bash
 _return_to_cauldron  # calls _go_drop_alch_yeld_cauldron, _check_food_level, _get_player_speed -l, _check_if_on_cauldron
-#_loop_counter
+#_loop_counter       # ash
+#$LOOP_COUNTER       # bash
 
 test "$one" = "$NUMBER" && break
 done

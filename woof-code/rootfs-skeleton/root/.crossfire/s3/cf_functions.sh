@@ -105,7 +105,7 @@ BEEP_FREQ=700
 PING_DO=${PING_DO:-}
 URL=crossfire.metalforge.net
 
-exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err
+exec 2>>"$TMP_DIR"/"$MY_BASE".$$.err  # direct errs to file, otherwise appear in msg pane
 }
 
 _ping(){
@@ -445,8 +445,7 @@ TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
-
-__loop_counter(){
+___loop_counter(){
 test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
 TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
@@ -457,7 +456,12 @@ TIMEEST=$(( (TRIES_STILL*TIMEAV) / 60 ))
 _draw 4 "Elapsed $TIME s, $success of $one successfull, still $TRIES_STILL ($TIMEEST m) to go..."
 }
 
-_loop_counter(){  # balm of first aid
+_test_integer(){
+test "$*" || return 3
+test ! "${*//[0-9]/}"
+}
+
+__loop_counter(){  # balm of first aid
 #test "$TIMEA" -a "$TIMEB" -a "$TIMEC" -a "$NUMBER" -a "$one" || return 0
 test "$1" -o "$TIMEA" -o "$TIMEB" -o "$TIMEC" || return 0
 test "$NUMBER" -a "$one" || return 0
@@ -475,21 +479,90 @@ TIMEB=${TIMEB:-$TIMEA}
 test "$TIMEB"           || return 1
 test "${TIMEB//[0-9]/}" && return 2
 
-TRIES_STILL=$((NUMBER-one))
 TIMEE=`date +%s`
 
 TIMEX=$((TIMEE-TIMEC))
 TIMEY=$((TIMEE-TIMEB))
+
+local MSG
+
+if _test_integer "$NUMBER"; then
+TRIES_STILL=$((NUMBER-one))
 TIMEAV=$((TIMEY/one))
+TIMEAV=$((TRIES_STILL*TIMEAV))
+#TIMEESTM=$(( (TRIES_STILL*TIMEAV) / 60 ))
+#TIMEESTS=$(( (TRIES_STILL*TIMEAV) - (TIMEESTM*60) ))
+MSG="Still '$TRIES_STILL' attempts to go..."
+else
+TRIES_STILL=$one
+TIMEAV=$((TIMEAV+TIMEX))
+#TIMEESTM=$(( TIMEAV / 60 ))
+#TIMEESTS=$(( TIMEAV - (TIMEESTM*60) ))
+MSG="$TRIES_STILL attempts completed..."
+fi
 
-#TIMEZ=$((TIMEE-TIMEA))
-#TIMEAV=$((TIMEZ/one))
-
-TIMEESTM=$(( (TRIES_STILL*TIMEAV) / 60 ))
-TIMEESTS=$(( (TRIES_STILL*TIMEAV) - (TIMEESTM*60) ))
+TIMEESTM=$(( TIMEAV / 60 ))
+TIMEESTS=$(( TIMEAV - (TIMEESTM*60) ))
 case $TIMEESTS in [0-9]) TIMEESTS="0$TIMEESTS";; esac
+
 _draw 4 "Elapsed '$TIMEX' s, '$success' of '$one' successfull."
-_draw 4 "Still '$TRIES_STILL' ($TIMEESTM:$TIMEESTS m) to go..."
+_draw 4 "$MSG ($TIMEESTM:$TIMEESTS m)"
+}
+
+_loop_counter_main(){
+#test "$TIMEA" -a "$TIMEB" -a "$TIMEC" -a "$NUMBER" -a "$one" || return 0
+test "$1" -o "$TIMEA" -o "$TIMEB" -o "$TIMEC" || return 0
+test "$NUMBER" -a "$one" || return 1
+
+TIMEC=${TIMEC:-$1}
+TIMEC=${TIMEC:-$TIMEB}
+TIMEC=${TIMEC:-$TIMEA}
+
+test "$TIMEC"           || return 1
+test "${TIMEC//[0-9]/}" && return 2
+
+TIMEB=${TIMEB:-$2}
+TIMEB=${TIMEB:-$TIMEA}
+
+test "$TIMEB"           || return 1
+test "${TIMEB//[0-9]/}" && return 2
+
+TIMEE=`date +%s`
+
+TIMEX=$((TIMEE-TIMEC))
+TIMEY=$((TIMEE-TIMEB))
+}
+
+_loop_counter_ms(){
+TIMEESTM=$(( TIMEAV / 60 ))
+TIMEESTS=$(( TIMEAV - (TIMEESTM*60) ))
+case $TIMEESTS in [0-9]) TIMEESTS="0$TIMEESTS";; esac
+
+_draw 4 "Elapsed '$TIMEX' s, '$success' of '$one' successfull."
+}
+
+_loop_counter_number(){  # balm of first aid
+
+_loop_counter_main || return 0
+
+TRIES_STILL=$((NUMBER-one))
+TIMEAV=$((TIMEY/one))
+TIMEAV=$((TRIES_STILL*TIMEAV))
+
+_loop_counter_ms
+_draw 4 "Still '$TRIES_STILL' attempts to go... ($TIMEESTM:$TIMEESTS m)"
+}
+
+
+_loop_counter_infinite(){  # balm of first aid
+
+_loop_counter_main || return 0
+
+TRIES_STILL=$one
+TIMEAV=$((TIMEAV+TIMEX))
+
+_loop_counter_ms
+_draw 4 "$TRIES_STILL attempts completed... ($TIMEESTM:$TIMEESTS m)"
 }
 
 # *** EXIT FUNCTIONS *** #
@@ -513,7 +586,8 @@ echo unwatch
 _unwatch
 _beep
 
-NUMBER=$((one-1))
+#NUMBER=$((one-1))
+NUMBER=$one
 _say_statistics_end
 _remove_err_log
 
@@ -542,7 +616,8 @@ _is 1 1 fire_stop
 _beep
 _beep
 
-NUMBER=$((one-1))
+#NUMBER=$((one-1))  # old: for one in $NUMBER
+NUMBER=$one         # new: count one at end of loop
 _say_statistics_end
 _remove_err_log
 
@@ -1005,6 +1080,22 @@ south)
 R_X=$PL_POS_X
 R_Y=$((PL_POS_Y+nr))
 ;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y+nr))
+;;
 esac
 
 
@@ -1109,6 +1200,22 @@ R_Y=$((PL_POS_Y-nr))
 ;;
 south)
 R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+northeast)
+R_X=$((PL_POS_X+nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+northwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y-nr))
+;;
+southwest)
+R_X=$((PL_POS_X-nr))
+R_Y=$((PL_POS_Y+nr))
+;;
+southeast)
+R_X=$((PL_POS_X+nr))
 R_Y=$((PL_POS_Y+nr))
 ;;
 esac
@@ -1466,7 +1573,7 @@ _check_food_level   ## early return or long code with sleep
 
 _get_player_speed -l || sleep ${DELAY_DRAWINFO}s
 
-_check_if_on_cauldron
+_check_if_on_cauldron  ## sleeps at the beginning
 
 }
 

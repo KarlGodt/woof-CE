@@ -5,8 +5,8 @@ export PATH=/bin:/usr/bin
 TIMEA=`date +%s`
 
 # *** Setting defaults *** #
-GEM='';  #set empty default
-NUMBER=0 #set zero as default
+#GEM='';  #set empty default
+#NUMBER=0 #set zero as default
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -63,6 +63,11 @@ _say_start_msg "$@"
 _debug "$@"
 
 # *** PARAMETERS *** #
+
+test "$*" || {
+echo draw 3 "Need <gem> and optinally <number> ie: script $0 ruby 3 ."
+        exit 1
+}
 
 # ** client version ** #
 while :;
@@ -146,6 +151,11 @@ done
 #exit 1
 #fi
 
+test "$GEM" || {
+_draw 3 "Need GEM set as parameter."
+_usage
+}
+
 test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
   -o "$GEM" = ruby -o "$GEM" = sapphire || {
 _draw 3 "'$GEM' : Not a recognized kind of gem."
@@ -169,6 +179,14 @@ _prepare_rod_of_recall
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 NUMBER=${NUMBER:-infinite}
+
+if _test_integer $NUMBER; then
+ alias _loop_counter=_loop_counter_number  # alias x=function in ash works, bash 3.2 not
+ LOOP_COUNTER=_loop_counter_number
+else
+ alias _loop_counter=_loop_counter_infinite
+ LOOP_COUNTER=_loop_counter_infinite
+fi
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
@@ -247,7 +265,9 @@ fi
 _return_to_cauldron
 
 one=$((one+1))
-_loop_counter         # 3G Quality 0,64 speed SLEEP=0.4: 19s, -S 24s,
+_loop_counter        # ash   ## 3G Quality 0,64 speed SLEEP=0.4: 19s, -S 24s,
+#$LOOP_COUNTER       # bash
+
 test "$one" = "$NUMBER" && break
 
 done

@@ -593,11 +593,17 @@ f_exit 1
 
 #echo unwatch request
 
-one=$((one+1))
-TRIES_SILL=$((NUMBER-one))
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEC))
-echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go..."
+
+one=$((one+1))
+TRIES_SILL=$((NUMBER-one))
+case $TRIES_SILL in -*) # negative
+TRIES_SILL=${TRIES_SILL#*-}
+echo draw 4 "Time $TIME sec., completed ${TRIES_SILL:-$NUMBER} laps.";;
+*)
+echo draw 4 "Time $TIME sec., still ${TRIES_SILL:-$NUMBER} laps to go...";;
+esac
 
 test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #

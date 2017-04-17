@@ -133,10 +133,10 @@ echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
 
-test "$*" || {
-echo draw 3 "Need <number> ie: script $0 3 ."
-        exit 1
-}
+#test "$*" || {
+#echo draw 3 "Need <number> ie: script $0 3 ."
+#        exit 1
+#}
 
 until test "$#" = 0
 do
