@@ -1,5 +1,5 @@
 #!/bin/ash
-# *** script to cast wizard spell -  praying spells need -P option passed
+# *** script to cast wizard spell - praying spells need -P option passed
 # *   written May 2015 by Karl Reimer Godt
 # * Uses busybox almquist shell as interpreter - should work with bash
 # * busybox ash can be configured with options - and some internal functions
@@ -116,6 +116,42 @@ esac
 
 }
 
+# ***
+__parse_parameters(){
+# *** parameters to script: "spell_name" "direction_to_cast_to" "pausing_between_casts"
+# *   We do a ^normal^ logic :
+# *   Since the spell could contain endless words ie: "summon pet monster water elemental"
+# *   it needs to use 'rev' to revert the positional parameter line
+# *   and re-set to parameter line using 'set'
+# *   and then 'rev' each parameter again
+# *   TODO : add more parameters
+
+_debug "__parse_parameters:$*"
+PARAMS=`echo $* | rev`
+set - $PARAMS
+_debug "_parse_parameters:$*"
+local c=0
+
+until test $# = 0; do
+c=$((c+1))
+case $c in
+1) #readonly
+COMMAND_PAUSE=`echo $1 | rev`;;
+2) #readonly
+DIRECTION=`echo $1 | rev`;;
+3) #readonly
+SPELL=`echo $@ | rev`;;
+4) :;;
+5) :;;
+6) :;;
+esac
+shift
+done
+
+_debug "__parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
+test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
+}
+
 _parse_parameters(){
 _debug "_parse_parameters:$*"
 
@@ -127,7 +163,6 @@ case $PARAM_1 in
 [0-9]*) #readonly
 COMMAND_PAUSE=$1;;
 
-*help|*usage)   _usage;;
  c|center)      DIR=center;    DIRN=0;; # readonly DIR DIRN;;
  n|north)       DIR=north;     DIRN=1;; # readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2;; # readonly DIR DIRN;;
@@ -145,7 +180,6 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       --log*)  LOGGING=$((LOGGING+1));;
       --pray*) PRAY_DO=$((PRAY_DO+1));;
       --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
-      --usage)  _usage;;
       --verb*) VERBOSE=$((VERBOSE+1));;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
@@ -166,9 +200,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
     done
 ;;
 
-[a-z]|[A-Z]) _red "Ignoring unrecognized option '$PARAM_1'";;
-
-*) SPELL="${SPELL}$PARAM_1 ";;
+*) SPELL="${SPELL}$1 ";;
 
 esac
 sleep 0.1
@@ -198,7 +230,7 @@ _draw 5 "Checking if have '$SPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`date +%s`
-
+#echo watch request
 echo request spells
 while :;
 do
@@ -215,10 +247,14 @@ $oneSPELL"
 sleep 0.1
 done
 
+#unset oldSPELL oneSPELL
+#echo unwatch request
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
 _debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
+
+#SPELL_LINE=`echo "$SPELLS" | grep -i "$SPELL"`
 
 read r s ATTYPE LVL SP_NEEDED rest <<EoI
 `echo "$SPELLS" | grep -i "$SPELL"`
@@ -239,6 +275,7 @@ local oneSPELL oldSPELL SPELLSA
 _draw 5 "Checking if have '$SPELL' applied ..."
 _draw 5 "Please wait...."
 
+#echo watch request
 echo request spells
 while :;
 do
@@ -254,6 +291,9 @@ $oneSPELL"
  oldSPELL="$oneSPELL"
 sleep 0.1
 done
+
+unset oldSPELL oneSPELL
+#echo unwatch request
 
 echo "$SPELLSA" | grep -q -i "$lSPELL"
 }
@@ -286,6 +326,7 @@ __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
 
+#echo watch request
 echo request stat hp
 read -t 1 statHP
  _debug "$statHP"
@@ -297,8 +338,8 @@ read -t 1 statHP
  if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
      _is 0 0 apply $FOOD
    sleep 1
- else true
  fi
+#echo unwatch request
 }
 
 _rotate_range_attack(){
@@ -309,9 +350,10 @@ local REPLY_RANGE oldREPLY_RANGE
 _draw 5 "Checking if have '$SPELL' ready..."
 _draw 5 "Please wait...."
 
+#echo watch request range
 while :;
 do
-
+#_debug "_rotate_range_attack:request range"
 echo request range
 sleep 1
 read -t 1 REPLY_RANGE
@@ -326,7 +368,7 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-
+#echo unwatch request
 }
 
 # ***
@@ -397,6 +439,7 @@ local c=0
 while :;
 do
 c=$((c+1))
+#_debug "issue 1 1 use_skill praying"
    _is 1 1 use_skill praying
 sleep 1
 test $c = $PRAYS && break
@@ -416,6 +459,7 @@ _watch_food(){  # called by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
+#echo watch request
 
 echo request stat hp
 read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
@@ -426,6 +470,8 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
      _is 0 0 apply $FOOD
    sleep 1
  fi
+
+#echo unwatch request
 
  if test $HP -lt $((HP_MAX/5)); then  #
   _do_emergency_recall
@@ -441,8 +487,7 @@ return $?
 }
 
 # ***
-_regenerate_spell_points(){  # called by _do_loop if _watch_food returns 6
-                             # by _watch_cleric_gracepoints/_watch_wizard_spellpoints
+_regenerate_spell_points(){  # called by _do_loop if
 # ***
 
 _draw 4 "Regenerating spell points.."
@@ -470,6 +515,8 @@ test $check_c -eq $CHECK_COUNT && unset check_c
 else false
 fi
 
+#_debug "_counter_for_checks:$*:$PROBE:$STATS:$check_c"
+#test $check_c -eq $CHECK_COUNT && unset check_c
 }
 
 # *** STATS
@@ -526,20 +573,16 @@ do
   test "$sc" -le $COMMAND_PAUSE || break
  done
 
- if _counter_for_checks; then
  if test "$STATS"; then
- #if _counter_for_checks; then
+ if _counter_for_checks; then
  _watch_food  # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
  case $? in 6)
   _regenerate_spell_points;;
  esac
  fi
- if test "$PROBE"; then
-  _probe_enemy; sleep 1.5;
- fi
  fi
 
- #test "$PROBE" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
+ test "$PROBE" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
 
  one=$((one+1))
 
@@ -550,12 +593,12 @@ do
  TIMET=$(( (TIMET/60) +1))
 
 
- #count=$((count+1))
- _draw 4 "Elapsed $TIME s, now being the $one lap ($TIMET m total time) ..."
+ count=$((count+1))
+ _draw 4 "Elapsed $TIME s, now being the $count lap ($TIMET m total time) ..."
 
 done
-
- _is 0 0 $COMMAND_STOP
+#_debug "_do_loop:issue 0 0 $COMMAND_STOP"
+            _is 0 0 $COMMAND_STOP
 }
 
 # ***
@@ -583,6 +626,7 @@ sleep 1
 _direction_word_to_number $DIRECTION
 _do_loop $COMMAND_PAUSE
 }
+
 # ***
 
 

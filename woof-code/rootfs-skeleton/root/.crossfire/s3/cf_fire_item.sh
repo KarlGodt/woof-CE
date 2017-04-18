@@ -50,7 +50,7 @@ esac
 
 }
 
-_parse_parameters(){
+__parse_parameters(){
 _debug "_parse_parameters:$*"
 PARAMS=`echo $* | rev`
 set - $PARAMS
@@ -72,6 +72,65 @@ done
 _debug "_parse_parameters:ITEM=$ITEM DIR=$DIRECTION NUMBER=$NUMBER"
 test "$NUMBER" -a "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION -o NUMBER"
 }
+
+_parse_parameters(){
+
+until [ $# = 0 ];
+do
+case $1 in
+
+[0-9]*) readonly COMMAND_PAUSE=$1;;
+
+ c|center)      DIR=center;    DIRN=0; readonly DIR DIRN;;
+ n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
+ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
+ e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
+se|southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
+ s|south)       DIR=south;     DIRN=5; readonly DIR DIRN;;
+sw|southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
+ w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
+nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
+
+--*) case $PARAM_1 in
+      --help)   _usage;;
+      --deb*)    DEBUG=$((DEBUG+1));;
+      --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --log*)  LOGGING=$((LOGGING+1));;
+      --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --verb*) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+-*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      h)  _usage;;
+      d)   DEBUG=$((DEBUG+1));;
+      F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      L) LOGGING=$((LOGGING+1));;
+      S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+    done
+;;
+
+
+*) SPELL="${SPELL}$1 ";;
+
+esac
+sleep 0.1
+shift
+done
+
+SPELL=`echo -n $SPELL`
+readonly SPELL
+readonly DIRECTION="$DIR"
+
+_debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
+test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
+}
+
 
 __log(){
 test "$LOGGING" || return 0
@@ -247,7 +306,8 @@ NUMBER=$1
 _debug "_do_loop:$*:NUMBER=$NUMBER"
 
 TIMEB=`date +%s`
-for one in `seq 1 1 $NUMBER`
+#for one in `seq 1 1 $NUMBER`
+while :;
 do
 
  TIMEC=${TIMEE:-`date +%s`}
@@ -264,12 +324,15 @@ do
 
  _watch_food
 
+ one=$((one+1))
+
  TRIES_STILL=$((NUMBER-one))
  TIMEE=`date +%s`
  TIME=$((TIMEE-TIMEC))
  MINUTES=$(( ((TRIES_STILL * TIME ) / 60 ) ))
  SECONDS=$(( (TRIES_STILL * TIME) - (MINUTES*60) ))
  _draw 4 "Elapsed $TIME s, still '$TRIES_STILL' to go ($MINUTES:$SECONDS minutes) ..."
+
 
 done
 #_debug "_do_loop:issue 0 0 $COMMAND_STOP"
@@ -311,12 +374,12 @@ _do_loop $NUMBER
 until test $# = 0; do
 case $1 in
 -h|*help*) _usage;;
--d|*debug)     DEBUG=$((DEBUG+1));;
--F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
--S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
--v|*verbose) VERBOSE=$((VERBOSE+1));;
-#'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
+#-d|*debug)     DEBUG=$((DEBUG+1));;
+#-F|*fast)   SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+#-L|*logging) LOGGING=$((LOGGING+1));;
+#-S|*slow)   SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+#-v|*verbose) VERBOSE=$((VERBOSE+1));;
+'') _draw 3 "Script needs <item> <direction> and <number of $COMMAND attempts> as argument.";;
 *) _do_program "$@"; break;;
 esac
 shift
