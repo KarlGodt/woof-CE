@@ -271,13 +271,96 @@ GWAY=       # -G, --nogateway
             # Echo debug and informational messages to the console.  Subsequent
             # debug options stop dhcpcd from daemonising.
 
+#=============================================================================
+_buttonSHUTDOWN_INTERFACE(){
+        _debug "_buttonSHUTDOWN_INTERFACE:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+#unset BUTTON_SD_IF
+#_checkINTERFACEup || return 0 # only create button if wlan0 up
+
+butSEN='sensitive="true"'
+_checkINTERFACEup || butSEN='sensitive="false"'
+
+BUTTON_SD_IF="
+<button $butSEN >
+ <input file icon=\"gtk-stop\"></input>
+ <label>Shutdown $INTERFACE</label>
+ <action>EXIT:23</action>
+</button>
+"
+export BUTTON_SD_IF
+}
+
+#=============================================================================
+_closeCONNECTION(){
+        _debug "_closeCONNECTION:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+_stopDHCPCD "$INTERFACE"
+_checkINTERFACE "$INTERFACE"    || return 0
+_checkINTERFACEup "$INTERFACE"  && _interfaceDOWN "$INTERFACE"
+}
+
+#=============================================================================
+_checkDHCPCD(){
+
+busybox ps | grep dhcpcd | grep $Q -vE 'grep|ps|busybox'
+}
+
+#=============================================================================
+_stopDHCPCD(){
+        _debug "_stopDHCPCD:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+_checkDHCPCD || return 0
+
+dPID=`busybox ps | grep dhcpcd | grep -w "$INTERFACE" | awk '{print $1}'`
+if test "$dPID"; then
+ kill $dPID
+else
+ true
+fi
+}
+
+#=============================================================================
+_checkINTERFACE(){
+        _debug "_checkINTERFACE:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+ifconfig "$INTERFACE" >>$OUT
+}
+
+#=============================================================================
+_checkINTERFACEup(){
+        _debug "_checkINTERFACEup:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+_checkINTERFACE "$INTERFACE" || return 0
+
+ifconfig | grep $Q -w "^$INTERFACE" >>$OUT
+}
+
+#=============================================================================
+_interfaceDOWN(){
+        _debug "_interfaceDOWN:'$*' start"
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
+
+ifconfig "$INTERFACE" down
+}
 
 #=============================================================================
 setupDHCP()
 {
         _debug "setupDHCP:'$*' start"
-        [ "$INTERFACE" ] || INTERFACE=$1
-        [ "$INTERFACE" ] || return 1
+        INTERFACE=${INTERFACE:-$1}
+        [ "$INTERFACE" ] || return 3
         # max time we will wait for (used in dhcpcdProgress and used to decide I_INC)
         local MAX_TIME='30'
         # by how much we multiply the time to get percentage (3 for 30 seconds max time)
@@ -395,7 +478,7 @@ showProfilesWindow()
 _debug "showProfilesWindow:'$*' start"
 
         INTERFACE=${INTERFACE:-"$1"}
-        [ "$INTERFACE" ] || return 1
+        [ "$INTERFACE" ] || return 3
         # Dougal: find driver and set WPA driver from it
         INTMODULE=$(readlink /sys/class/net/$INTERFACE/device/driver)
         INTMODULE=${INTMODULE##*/}
@@ -436,11 +519,12 @@ _debug "showProfilesWindow:'$*' start"
         case "$INTMODULE" in prism2_*) USE_WLAN_NG="yes" ;; esac
 
         refreshProfilesWindowInfo
-        setupNewProfile
+        #setupNewProfile
         EXIT=""
         while true
         do
                 _debug "building...buildProfilesWindow..."
+                _buttonSHUTDOWN_INTERFACE "$INTERFACE"
                 buildProfilesWindow
                 _debug "buildProfilesWindow...build."
 
@@ -467,20 +551,23 @@ _debug "showProfilesWindow:'$*' start"
                         "20" ) # Save
                                 assembleProfileData
                                 [ $? =  0 ] && saveProfiles
-                                refreshProfilesWindowInfo
+                                #refreshProfilesWindowInfo
                                 loadProfileData "${CURRENT_PROFILE}"
                                 ;;
                         "21" ) # Delete
                                 deleteProfile
                                 NEW_PROFILE_DATA=""
                                 #saveProfiles
-                                refreshProfilesWindowInfo
+                                #refreshProfilesWindowInfo
                                 setupNewProfile
                                 ;;
                         "22" ) # Use This Profile
                                   if useProfile ; then
                                         #return 0
-                                   if test "$CURRENT_CONTEXT" = 'wag-profiles.sh'; then
+                                   #refreshProfilesWindowInfo
+                                   loadProfileData "${CURRENT_PROFILE}"
+
+                                    if test "$CURRENT_CONTEXT" = 'wag-profiles.sh'; then
 					 setupDHCP
                                          RV=$?
                                     else RV=0
@@ -492,6 +579,9 @@ _debug "showProfilesWindow:'$*' start"
                                         break
                                   fi
                                 ;;
+                        "23" ) # Stop interface
+                                _closeCONNECTION
+				;;
                         "40" ) # Advanced fields
                                 if [ "$ADVANCED" ] ; then
                                         unset -v ADVANCED
@@ -750,6 +840,8 @@ buildProfilesWindow()
                         ;;
         esac
 
+        #_buttonSHUTDOWN_INTERFACE
+
         MAYBE_WIRELESS=`iwconfig 2>&1 | grep -vi 'no wireless extensions' | sed '/^[[:blank:]]*$/d ; /^$/d ; s/"//g'`
         echo "MAYBE_WIRELESS=$MAYBE_WIRELESS"
         if test "$MAYBE_WIRELESS"; then
@@ -908,8 +1000,10 @@ _debug "exporting NETWIZ_Profiles_Window..."
                                 </button>
                                 <button>
                                         <label>$L_BUTTON_Use_Profile</label>
+                                        <input file stock=\"gtk-apply\"></input>
                                         <action>EXIT:22</action>
                                 </button>
+				$BUTTON_SD_IF
                         </hbox>
                 </vbox>
         </frame>
@@ -948,19 +1042,51 @@ setNoEncryptionFields()
 }
 
 #=============================================================================
+_buttonShowPassword(){
+
+# button returns label if label given and no other exit action
+
+buttonHidePass="
+        <button>
+         <label>Hide password</label>
+
+        </button>
+"
+
+buttonShowPass="
+        <button>
+         <label>Show password</label>
+
+        </button>
+"
+
+case $EXIT in
+"Hide password") buttonPass="$buttonShowPass"
+entryPassVisible='false'
+;;
+*) buttonPass="$buttonHidePass"
+entryPassVisible='true'
+;;
+esac
+
+}
+
+#=============================================================================
 setWepFields()
 {
         _debug "setWepFields:'$*' start"
+        _buttonShowPassword
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
                 <text><label>$L_TEXT_Key</label></text>
                 <pixmap><input file>$BLANK_IMAGE</input></pixmap>
         </vbox>
-        <entry>
+        <entry invisible_char=\"x\" visibility=\"$entryPassVisible\">
                 <variable>PROFILE_KEY</variable>
                 ${DEFAULT_KEY}
         </entry>
+        $buttonPass
 </hbox>
 ${ADVANCED_FIELDS}
 "
@@ -971,6 +1097,7 @@ _debug "setWepFields:'$*' end"
 setWpaFields()
 {
         _debug "setWpaFields:'$*' start"
+        _buttonShowPassword
         ENCRYPTION_FIELDS="
 <hbox>
         <vbox>
@@ -1022,10 +1149,11 @@ setWpaFields()
                 <text><label>$L_TEXT_Shared_Key</label></text>
                 <pixmap><input file>$BLANK_IMAGE</input></pixmap>
         </vbox>
-        <entry>
+        <entry invisible_char=\"x\" visibility=\"$entryPassVisible\">
                 <variable>PROFILE_KEY</variable>
                 ${DEFAULT_KEY}
         </entry>
+        $buttonPass
 </hbox>
 "
 _debug "setWpaFields:'$*' end"
@@ -1197,6 +1325,7 @@ assignProfileData(){
 loadProfileData()
 {
         _debug "loadProfileData:'$*' start"
+        # PARAMETER passed :
         # Dougal: added "SECURE" param, increment the "-A" below
         PROFILE_TITLE="$1"
         #PROFILE_DATA=`grep -A 11 -E "TITLE[0-9]+=\"${PROFILE_TITLE}\"" /etc/WAG/profile-conf`
@@ -1210,6 +1339,7 @@ loadProfileData()
         # now assign to PROFILE_ names...
         assignProfileData
         _debug "loadProfileData:'$*' end"
+
 } # end loadProfileData
 
 
@@ -1468,6 +1598,7 @@ useProfile ()
                         ;;
         esac
         _debug "useProfile:'$*' end"
+return 0
 } # end useProfile
 
 #=============================================================================
@@ -1476,9 +1607,9 @@ killWpaSupplicant ()
 
         _debug "killWpaSupplicant '$*'"
         # If there are supplicant processes for the current interface, kill them
-        [ -d /var/run/wpa_supplicant ] || return
+        [ -d /var/run/wpa_supplicant ] || return 0
         INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
         #SUPPLICANT_PIDS=$( ps -e | grep -v "grep" | grep -E "wpa_supplicant.+${INTERFACE}" | grep -oE "^ *[0-9]+")
         #if [ -n "$SUPPLICANT_PIDS" ]; then
         #       rm /var/run/wpa_supplicant/$INTERFACE* >$OUT 2>&1
@@ -1500,7 +1631,7 @@ killDhcpcd()
 {
         _debug "killDhcpcd '$*'"
         INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
         # release dhcpcd
         #dhcpcd -k "$INTERFACE" 2>$ERR
         # dhcpcd -k caused problems with instances of dhcpcd running on other interfaces...
@@ -1523,9 +1654,9 @@ killDhcpcd()
         elif [ -d /etc/dhcpc ];then
           if [ -s /etc/dhcpc/dhcpcd-${INTERFACE}.pid ] ; then
             kill $( cat /etc/dhcpc/dhcpcd-${INTERFACE}.pid )
-            rm /etc/dhcpc/dhcpcd-${INTERFACE}.pid #2>/dev/null
+            rm -f /etc/dhcpc/dhcpcd-${INTERFACE}.pid #2>/dev/null
           fi
-          rm /etc/dhcpc/dhcpcd-${INTERFACE}.* #2>/dev/null
+          rm -f /etc/dhcpc/dhcpcd-${INTERFACE}.* #2>/dev/null
           #if left over from last session, causes trouble.
         fi
 
@@ -1539,6 +1670,7 @@ killDhcpcd()
 cleanUpInterface()
 {
         _debug "cleanUpInterface '$*'"
+
         # put interface down
         #ifconfig "$1" down
         killDhcpcd "$1"
@@ -1603,7 +1735,7 @@ useIwconfig ()
 {
 _debug "useIwconfig:'$*' start"
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with iwconfig..."
@@ -1655,7 +1787,7 @@ _debug "useIwconfig:'$*' start"
 useWlanctl(){
 	_debug "useWlanctl:'$*' start"
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
   #(
         # Dougal: give the text message even when using dialog (for debugging)
         echo "Configuring interface $INTERFACE to network $PROFILE_ESSID with wlanctl-ng..."
@@ -1773,7 +1905,8 @@ validateWpaAuthentication()
 useWpaSupplicant ()
 {
         _debug "useWpaSupplicant:'$*' start"
-        [ "$INTERFACE" ] || return 1
+        INTERFACE=${INTERFACE:-"$2"}    # wizard ## INTERFACE=${INTERFACE:-"$1"}
+        [ "$INTERFACE" ] || return 3
         # add an option for running some parts only from the wizard
         if [ "$1" = "wizard" ] ; then
                 # Dougal: moved all below code to a function
@@ -1974,7 +2107,7 @@ $L_MESSAGE_No_Wpaconfig_p2"
 #=============================================================================
 checkIsPCMCIA(){
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
   IsPCMCIA=""
   if PciSlot=$(grep -F 'PCI_SLOT_NAME=' /sys/class/net/$INTERFACE/device/uevent) ; then
     if [ -d /sys/class/pcmcia_socket/pcmcia_socket[0-9]/device/${PciSlot#PCI_SLOT_NAME=} ]
@@ -2008,7 +2141,7 @@ waitForPCMCIA(){
 showScanWindow()
 {
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
         # do the cleanup here, so devices have a chance to "settle" before scanning
         cleanUpInterface "$INTERFACE" >> $DEBUG_OUTPUT 2>&1
         sleep 1
@@ -2070,7 +2203,7 @@ buildScanWindow()
 {
         _debug "buildScanWindow:'$*' INTERFACE='$INTERFACE' start"
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
         SCANWINDOW_BUTTONS=""
 
         (
@@ -2283,6 +2416,8 @@ _debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
  done
 }
 
+#' geany
+
 export NETWIZ_SCAN_ERROR_DIALOG="<window title=\"'"$L_TITLE_Puppy_Network_Wizard"'\" icon-name=\"gtk-dialog-warning\" window-position=\"1\">
  <vbox>
   <pixmap icon_size=\"6\">
@@ -2314,8 +2449,11 @@ Cancel) exit 0 ;;
 retry) exit 101 ;;
 esac
 ' >/tmp/net-setup_scanwindow
+#' geany
+
 cp /tmp/net-setup_scanwindow /tmp/net-setup_scanwindow__createRetryPCMCIAScanDialog
 }
+
 
 createRetryPCMCIAScanDialog(){
 _debug "creating NETWIZ_SCAN_ERROR_DIALOG..."
@@ -2368,7 +2506,7 @@ runPrismScan()
 {
         _debug "runPrismScan:'$*' start"
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
         # enable interface
         wlanctl-ng "$INTERFACE" lnxreq_ifstate ifstate=enable >/tmp/wlan-up 2>&1
         # scan (first X echoed only afterwards!
@@ -2402,7 +2540,7 @@ buildPrismScanWindow()
 {
         _debug "buildPrismScanWindow:'$*' start"
 	INTERFACE=${INTERFACE:-"$1"}
-	[ "$INTERFACE" ] || return 1
+	[ "$INTERFACE" ] || return 3
 	SCANWINDOW_BUTTONS=""
   (
         # do a cleanup first (raises interface, so need to put it down after)
