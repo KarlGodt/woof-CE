@@ -1,6 +1,6 @@
 #!/bin/ash
-# *** script to cast wizard spell -  praying spells need -P option passed
-# *   written May 2015 by Karl Reimer Godt
+# *** script to cast wizard spell - praying spells need -P option passed
+# *   written May 2015 by Karl Reimer Godt, overhauled April 2017
 # * Uses busybox almquist shell as interpreter - should work with bash
 # * busybox ash can be configured with options - and some internal functions
 # * may not be implemented by the distribution
@@ -23,6 +23,7 @@
 # * CAUTION : Does not handle "You bungle the spell" events (yet) - so make sure no two-handed weapon applied
 # * Also high armour class and armour resistances may be of some use
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
+# * This script applies PROBE_ITEM if PROBE_DO is set
 
 export PATH=/bin:/usr/bin
 
@@ -33,26 +34,29 @@ TIMEA=`date +%s`
 #VERBOSE=1  # be a bit talkactive
 #DEBUG=1    # print gained values
 #LOGGING=1  # print to a file - especially large requests like inv
-PROBE=1     # apply rod of probe in firing direction after firing
-STATS=1     # check hp, sp and food level
-CHECK_COUNT=10 #only run every yth time a check for food and probe
+PROBE_DO=1     # apply PROBE_ITEM in firing direction after firing
+PROBE_ITEM='rod of probe'
+STATS_DO=1     # check hp, sp and food level
+CHECK_COUNT=1  # only run every yth time a check for food and probe
 
 # *** common variables
 #readonly
 TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
 #readonly
-LOG_FILE="$TMP_DIR"/cf_spells.$$
+LOG_FILE="$TMP_DIR"/cf_spells.$$.log
+
 
 # *** uncommon non-editable variables *** #
-readonly DIRECTION_DEFAULT=east
-readonly NUMBER_DEFAULT=10
-readonly SPELL_DEFAULT='create food waybread'
+readonly DIRECTION_DEFAULT=center  # center: if fighting spell suicide ?
+readonly NUMBER_DEFAULT=10         # unused
+readonly SPELL_DEFAULT='create food'     # casts 'create food'
+readonly SPELL_DEFAULT_PARAM='waybread'  # with 'waybread' as parameter
 readonly COMMAND=fire
-readonly COMMAND_PAUSE_DEFAULT=4  # seconds
 readonly COMMAND_STOP=fire_stop
-readonly FOOD_STAT_MIN=300
-readonly FOOD=waybread
+readonly COMMAND_PAUSE_DEFAULT=4   # seconds between castings
+readonly FOOD_STAT_MIN=300         # at 200 starts to beep
+readonly FOOD=waybread  # make sure to have enough/amulet of Sustenance if leaving PC for several hours
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -79,7 +83,9 @@ _draw 5 "with a pause of 10 seconds in between to regenerate mana/grace."
 _draw 3 "WARNING:"
 _draw 4 "Loops forever - use scriptkill command to terminate :P ."
 _draw 5 "Options:"
-_draw 2 "-P  for praying skill to pray between casts."
+_draw 2 "-P  for praying spell and to pray between casts."
+_draw 2 "-s <OPTION> to pass parameter to spell"
+_draw 2 "   ie 'spider' to summon pet monster"
 _draw 4 "-F  on fast network connection."
 _draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
@@ -90,12 +96,12 @@ exit 0
 }
 
 # *** Here begins program *** #
-_draw 2 "$0 started <$*> with pid $$ $PPID"
+_draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
 
 # *** functions list
 
 # ***
-_direction_word_to_number(){
+_direction_word_to_number(){  # cast by _do_program before _do_loop
 # *** converts direction-word to global program-understandable number
 # * Syntax : _direction_word_to_number WORD
 # * return : not used
@@ -116,7 +122,7 @@ esac
 
 }
 
-_parse_parameters(){
+_parse_parameters(){  # first function run by _do_program
 _debug "_parse_parameters:$*"
 
 until [ $# = 0 ];
@@ -125,7 +131,7 @@ PARAM_1="$1"
 case $PARAM_1 in
 
 [0-9]*) #readonly
-COMMAND_PAUSE=$1;;
+COMMAND_PAUSE=$PARAM_1;;
 
 *help|*usage)   _usage;;
  c|center)      DIR=center;    DIRN=0;; # readonly DIR DIRN;;
@@ -145,6 +151,8 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       --log*)  LOGGING=$((LOGGING+1));;
       --pray*) PRAY_DO=$((PRAY_DO+1));;
       --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --spell*=*) SPELL_PARAM=`echo "$PARAM_1" | cut -f2- -d'='`;;
+      --spell*)   SPELL_PARAM="$2"; shift;;
       --usage)  _usage;;
       --verb*) VERBOSE=$((VERBOSE+1));;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
@@ -159,6 +167,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       L) LOGGING=$((LOGGING+1));;
       P) PRAY_DO=$((PRAY_DO+1));;
+      s) SPELL_PARAM="$2"; shift;;
       S) SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
       v) VERBOSE=$((VERBOSE+1));;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
@@ -186,7 +195,7 @@ test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o 
 
 
 # ***
-_check_have_needed_spell_in_inventory(){
+_check_have_needed_spell_in_inventory(){  # cast by _do_program
 # *** check if spell is applyable - takes some time ( 16 seconds )
 
 _debug "_check_have_needed_spell_in_inventory:$*"
@@ -228,80 +237,30 @@ _debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
 echo "$SPELLS" | grep -q -i "$lSPELL"
 }
 
-# *** unused - leftover from cf_fire_item.sh
-_check_have_needed_spell_applied(){
 # ***
-_debug "_check_have_needed_spell_applied:$*"
-
-local lSPELL=${*:-"$SPELL"}
-local oneSPELL oldSPELL SPELLSA
-
-_draw 5 "Checking if have '$SPELL' applied ..."
-_draw 5 "Please wait...."
-
-echo request spells
-while :;
-do
-read -t 1 oneSPELL
-_log "_check_have_needed_spell_applied:$oneSPELL"
-_debug "$oneSPELL"
-
- test "$oldSPELL" = "$oneSPELL" && break
- test "$oneSPELL" || break
-
- SPELLSA="$SPELLSA
-$oneSPELL"
- oldSPELL="$oneSPELL"
-sleep 0.1
-done
-
-echo "$SPELLSA" | grep -q -i "$lSPELL"
-}
-
-# ***
-_probe_enemy(){
+_probe_enemy(){  # cast by _do_loop
 # ***
 _debug "_probe_enemy:$*"
 
-if test ! "$HAVE_APPLIED_PROBE"; then
-   _is 1 1 apply rod of probe  # should also apply heavy rod
+   _is 1 1 apply -u $PROBE_ITEM
+    sleep 0.2
+   _is 1 1 apply -a $PROBE_ITEM  # 'rod of probe' should also apply heavy rod
    # TODO: read drawinfo if successfull ..
-fi
 
 _is 1 1 fire $DIRECTION_NUMBER
 _is 1 1 fire_stop
-HAVE_APPLIED_PROBE=1 # see TODO above
+
 }
 
 # ***
-_apply_needed_spell(){
+_apply_needed_spell(){  # cast by _do_program AND _do_loop
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
 
-_is 1 1 cast $SPELL
+_is 1 1 cast $SPELL $SPELL_PARAM
 }
 
-# *** unused
-__watch_food(){
-# *** watch food and spellpoint level
-# *   apply FOOD if under threshold FOOD_STAT_MIN
-
-echo request stat hp
-read -t 1 statHP
- _debug "$statHP"
-   _log "__watch_food:$statHP"
-
- FOOD_STAT=`echo $statHP | awk '{print $NF}'`
- _debug "FOOD_STAT=$FOOD_STAT"
-
- if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-     _is 0 0 apply $FOOD
-   sleep 1
- else true
- fi
-}
-
-_rotate_range_attack(){
+_rotate_range_attack(){  # cast by _do_program
 _debug "_rotate_range_attack:$*"
 
 local REPLY_RANGE oldREPLY_RANGE
@@ -318,7 +277,7 @@ read -t 1 REPLY_RANGE
  _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
  _debug "$REPLY_RANGE"
 
- test "`echo "$REPLY_RANGE" | grep -i "$PELL"`" && break
+ test "`echo "$REPLY_RANGE" | grep -i "$SPELL"`" && break
  test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
  test "$REPLY_RANGE" || break
 
@@ -330,7 +289,7 @@ done
 }
 
 # ***
-_do_emergency_recall(){
+_do_emergency_recall(){  # cast by _watch_food
 # *** apply rod of word of recall if hit-points are below HP_MAX /5
 # *   fire and fire_stop it
 # *   alternatively one could apply rod of heal, scroll of restoration
@@ -349,7 +308,7 @@ exit 5
 }
 
 # *** stub to switch wizard-cleric spells in future
-_watch_wizard_spellpoints(){
+_watch_wizard_spellpoints(){  # cast by _watch_food
 # ***
 
 _debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
@@ -368,7 +327,7 @@ test "$SP" -ge $((SP_MAX/2)) || return 3
 }
 
 # *** stub to switch wizard-cleric spells in future
-_watch_cleric_gracepoints(){
+_watch_cleric_gracepoints(){  # cast by _watch_food
 # ***
 
 _debug "_watch_cleric_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
@@ -404,10 +363,9 @@ done
 
 }
 
-
 # ***
-_watch_food(){  # called by _do_loop if _conter_for_checks returns 0
-                # called by _regenerate_spell_points and breaks it if returns 0
+_watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
+                # cast by _regenerate_spell_points and breaks it if returns 0
 # *** controlling function : Probably not needed for high-level characters with
 # *   high armour class , resistances and high sustainance level
 # *   Sends stat hp request
@@ -416,6 +374,7 @@ _watch_food(){  # called by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
+local r s h HP HP_MAX FOOD_STAT
 
 echo request stat hp
 read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
@@ -441,7 +400,7 @@ return $?
 }
 
 # ***
-_regenerate_spell_points(){  # called by _do_loop if _watch_food returns 6
+_regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
                              # by _watch_cleric_gracepoints/_watch_wizard_spellpoints
 # ***
 
@@ -456,41 +415,21 @@ done
 
 }
 
-# *** both STATS and PROBE
-_counter_for_checks(){
+# *** both STATS_DO and PROBE_DO
+_counter_for_checks(){  # cast by _do_loop
 # ***
-_debug "_counter_for_checks:$*:$PROBE:$STATS:$check_c"
+_debug "_counter_for_checks:$*:$PROBE_DO:$STATS_DO:$check_c"
 
 check_c=$((check_c + 1))
 
-if test "$PROBE" -a "$STATS"; then
-test $check_c -eq $(( (CHECK_COUNT*2) - 1)) || { test $check_c -eq $((CHECK_COUNT*2)) && unset check_c; }
-elif test "$PROBE" -o "$STATS"; then
+if test "$PROBE_DO" -o "$STATS_DO"; then
 test $check_c -eq $CHECK_COUNT && unset check_c
 else false
 fi
-
 }
 
-# *** STATS
-__counter_for_checks(){
 # ***
-#test "$check_c" -eq $CHECK_COUNT && unset check_c
-check_c=$((check_c+1))
-test $check_c -eq $CHECK_COUNT && unset check_c
-}
-
-# *** PROBE
-__counter_for_checks2(){
-# ***
-#test "$check_c2" -eq $CHECK_COUNT && unset check_c
-check_c2=$((check_c2+1))
-test $check_c2 -eq $CHECK_COUNT && unset check_c2
-}
-
-
-# ***
-_do_loop(){
+_do_loop(){  # last function call of _do_program
 # ***
 _debug "_do_loop:$*"
 
@@ -527,31 +466,30 @@ do
  done
 
  if _counter_for_checks; then
- if test "$STATS"; then
- #if _counter_for_checks; then
+
+ if test "$STATS_DO"; then
  _watch_food  # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
  case $? in 6)
   _regenerate_spell_points;;
  esac
  fi
- if test "$PROBE"; then
+
+ if test "$PROBE_DO"; then
   _probe_enemy; sleep 1.5;
  fi
+
  fi
 
- #test "$PROBE" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
+ #test "$PROBE_DO" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
 
  one=$((one+1))
 
- #TRIES_STILL=$((NUMBER-one))  # unused
  TIMEE=`date +%s`
  TIME=$((TIMEE-TIMEC))
  TIMET=$((TIMEE-TIMEB))
  TIMET=$(( (TIMET/60) +1))
 
-
- #count=$((count+1))
- _draw 4 "Elapsed $TIME s, now being the $one lap ($TIMET m total time) ..."
+ _draw 4 "Elapsed $TIME s., finished the $one lap ($TIMET m total time) ..."
 
 done
 
@@ -559,7 +497,7 @@ done
 }
 
 # ***
-_error(){
+_error(){ # cast by _do_program, _direction_word_to_number, _parse_parameters
 # ***
 
 RV=$1;shift
@@ -575,6 +513,13 @@ _parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAU
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
 readonly DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
 readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+
+if test ! "$SPELL_PARAM"; then
+ if test "$SPELL" = "$SPELL_DEFAULT"; then
+  SPELL_PARAM="$SPELL_DEFAULT_PARAM"
+ fi
+fi
+readonly SPELL_PARAM
 
 _check_have_needed_spell_in_inventory && { _apply_needed_spell || _error 1 "Could not apply spell."; } || _error 1 "Spell is not in inventory"
 sleep 1
