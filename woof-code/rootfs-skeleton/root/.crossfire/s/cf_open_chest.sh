@@ -314,7 +314,7 @@ echo issue 1 1 use_skill "disarm traps"
    *'In fact, you set it off!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break ;;
-   *'You detonate '**)
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
 #   *'Your '*)       :;;  # Your monster beats monster

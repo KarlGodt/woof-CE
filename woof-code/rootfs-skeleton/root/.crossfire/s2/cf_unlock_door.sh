@@ -75,6 +75,7 @@ echo "$*" >>"$LOG_REPLY_FILE"
 _is(){
 _verbose "$*"
 echo issue "$@"
+sleep 0.2
 }
 
 

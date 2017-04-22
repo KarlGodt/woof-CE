@@ -79,6 +79,12 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -115,9 +121,9 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+	   echo draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
 	   readonly NUMBER
-           [ "$DEBUG" ] && echo draw 2 "NUMBER=$NUMBER"
+           _debug "NUMBER=$NUMBER"
 	   ;;
 -h|*help)  _usage;;
 
@@ -137,17 +143,17 @@ done
 
 # ** set pickup  0 and drop chests
 
-_verbose "Setting pickup 0 .."
-echo issue 0 0 pickup 0
+
+_is 0 0 pickup 0
 sleep 1
-_verbose "Dropping chest .."
-echo issue 0 0 drop chest
+
+_is 0 0 drop chest
 sleep 1
-_verbose "Leaving place .. $DIRB"
-echo issue 1 1 $DIRB
+
+_is 1 1 $DIRB
 sleep 1
-_verbose "Returning to place .. $DIRF"
-echo issue 1 1 $DIRF
+
+_is 1 1 $DIRF
 sleep 1
 
 # TODO : check if on chest
@@ -163,14 +169,14 @@ echo watch $DRAW_INFO
 
 echo draw 5 "casting dexterity.."
 
-_verbose "cast dexterity .."
-echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+
+_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-_verbose "fire center .."
-echo issue 1 1 fire center   # better 0, 1 (north) ..clockwise.. 8 (northwest)
+
+_is 1 1 fire center   # better 0, 1 (north) ..clockwise.. 8 (northwest)
 sleep 0.5
-_verbose "fire_stop .."
-echo issue 1 1 fire_stop
+
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -179,7 +185,7 @@ unset REPLY
 sleep 0.1
  read -t 1
  _log "_cast_dexterity:$REPLY"
- _debug "REPLY='$REPLY'" #debug
+ _debug "REPLY='$REPLY'"
 
  case $REPLY in
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
@@ -203,9 +209,63 @@ echo unwatch $DRAW_INFO
 CAST_DEX=_cast_dexterity
 $CAST_DEX
 
+_disarm_traps(){
+# ** disarm use_skill disarm traps ** #
+[ "$SKILL_DISARM" = no ] && return 1
+echo draw 6 "disarming trap .."
+
+#_debug "watch $DRAW_INFO"
+#echo watch $DRAW_INFO
+
+local c=0 CNT=0
+
+while :;
+do
+
+#_verbose "use_skill disarm traps"
+_is 1 1 use_skill "disarm traps"
+# You successfully disarm the Rune of Paralysis!
+#You fail to disarm the Rune of Fireball.
+#In fact, you set it off!
+#You set off a fireball!
+#You detonate
+
+ while :; do
+  sleep 0.1
+  unset REPLY
+  read -t 1
+  _log "_disarm_traps:$REPLY"
+  _debug "REPLY='$REPLY'"
+
+  case $REPLY in
+   *'Unable to find skill '*)  SKILL_DISARM=no; break 2;;
+#  *'You fail to disarm '*) continue;;
+
+   *'You successfully disarm '*)
+      break ;;
+   *'In fact, you set it off!'*)
+      break ;;
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*)
+      break ;;
+
+  '') CNT=$((CNT+1)); break;;
+  esac
+ done
+
+test "$CNT" -gt 9 && break
+sleep 1
+
+done
+
+#_debug "unwatch $DRAW_INFO"
+#echo unwatch $DRAW_INFO
+
+sleep 1
+}
 
 _find_traps(){
 # ** search or use_skill find traps ** #
+[ "$SKILL_FIND" = no ] && return 1
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -219,8 +279,8 @@ local c=0
 while :;
 do
 
-_verbose "search .."
-echo issue 1 1 search
+
+_is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
 #You spot a Rune of Fireball!
@@ -230,13 +290,16 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "_find_traps:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_find_traps:$REPLY"
+ _debug "REPLY='$REPLY'" #debug
 
   case $REPLY in
-   *'Unable to find skill '*)   break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+   *'Unable to find skill '*) SKILL_FIND=no;  break 2;;
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+    *'You spot a '*) _debug "Found Trap";
+    _disarm_traps;
+    break;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
    *'You search the area.'*) :;;
@@ -260,25 +323,27 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
-TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
+__old_tell_how_many__(){
+ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
+ #TRAPS=`echo "$TRAPS" | uniq`
+ #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
-if test "$DEBUG"; then
-_draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
-fi
+ if test "$DEBUG"; then
+ _draw 5 "TRAPS='$TRAPS'"
+ _draw 6 "`echo "$TRAPS" | uniq`"
+ fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
-TRAPS_NUM=${TRAPS_NUM:-0}
-
-echo $TRAPS_NUM >/tmp/cf_pipe.$$
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ TRAPS_NUM=${TRAPS_NUM:-0}
+ _debug TRAPS_NUM=$TRAPS_NUM
+ echo $TRAPS_NUM >/tmp/cf_pipe.$$
+ }
 }
 
 _find_traps
 
 
-_disarm_traps(){
+__disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
 local NUM c CNT
@@ -287,8 +352,9 @@ unset NUM
     touch /tmp/cf_pipe.$$
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
-
+_debug NUM=$NUM
 NUM=${NUM:-$MAX_DISARM}
+_debug NUM=$NUM
 
 echo draw 6 "disarm traps '$NUM' times.."
 
@@ -302,8 +368,8 @@ c=0; CNT=0
 while :;
 do
 
-_verbose "use_skill disarm traps"
-echo issue 1 1 use_skill "disarm traps"
+
+_is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
@@ -314,20 +380,23 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "_disarm_traps:$REPLY" >>"$LOG_REPLY_FILE"
-   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
-
+   _log "__disarm_traps:$REPLY"
+   _debug "REPLY='$REPLY'"
+  _debug NUM=$NUM
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      NUM=$((NUM-1));
+      test "$NUM" -gt 0 || break 2;
       break;;
    *'In fact, you set it off!'*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      NUM=$((NUM-1));
+      test "$NUM" -gt 0 || break 2;
       break ;;
-   *'You detonate '**)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*)
+      NUM=$((NUM-1));
+      test "$NUM" -gt 0 || break 2;
       break;;
 #   *'Your '*)       :;;  # Your monster beats monster
 #   *'You killed '*) :;;
@@ -336,6 +405,7 @@ echo issue 1 1 use_skill "disarm traps"
  done
 
 #NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
+_debug NUM=$NUM
 test "$CNT" -gt 9 && break
 sleep 1
 
@@ -347,7 +417,7 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-_disarm_traps
+#__disarm_traps
 
 # ** open chest apply and get ** #
 
@@ -358,31 +428,30 @@ NUM=$NUMBER
 
 while :;
 do
-:
 
 # TODO : food level, hit points
 
-_verbose "apply"
-echo issue 1 1 apply  # handle trap release, being killed
+
+_is 1 1 apply  # handle trap release, being killed
 sleep 1
 
-_verbose "get all"
-echo issue 1 1 get all
+
+_is 1 1 get all
 
 sleep 1
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-_verbose "drop chest"
-echo issue 0 0 drop chest # Nothing to drop.
+
+_is 0 0 drop chest # Nothing to drop.
 
  while :; do
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "drop chest:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+  _log "drop chest:$REPLY"
+  _debug "REPLY='$REPLY'"
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
@@ -400,11 +469,11 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 sleep 1
 
-_verbose "$DIRB"
-echo issue 1 1 $DIRB
+
+_is 1 1 $DIRB
 sleep 1
-_verbose "$DIRF"
-echo issue 1 1 $DIRF
+
+_is 1 1 $DIRF
 sleep 1
 
 done
