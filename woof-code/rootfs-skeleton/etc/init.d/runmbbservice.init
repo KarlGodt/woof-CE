@@ -36,7 +36,7 @@ KERNEL_DRIVER=cdc-ether
 KERNEL_DRIVER=`echo "$KERNEL_DRIVER" | tr '-' '_'`
 
 VEND_ID=12d1
-PROD_ID_INACT=157d
+PROD_ID_INACT=157d  #1f01  #157d
 PROD_ID_ACTIV=14dc
 
 # if mbbservice fails to lauch ( 64-bit ) , try usb_modeswitch
@@ -214,6 +214,139 @@ echo "`date +%F`"':DOWN Bytes:'$RX_BYTES
 
 }
 
+_check_mbbbservice_running(){
+        #checkproc ${HWAPP##*/}
+        #echo $?
+        checkproc ${HWAPP}
+        checkRV=$?
+        _debug "checkRV='$checkRV'"
+        if test $checkRV = 0; then
+        #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
+        #pidof ${HWAPP##*/}
+        _pidof ${HWAPP##*/}  # debug
+        echo
+        case $checkRV in 0) echo "Already running.";;3) echo "Not running.";;4) echo "Unknown.";;esac
+        exit $checkRV
+        fi
+}
+
+_check_kernel_driver(){
+        if test -f /proc/modules; then
+        if ! grep $Q "$KERNEL_DRIVER" /proc/modules; then
+         #modprobe $VERB $Q -b $KERNEL_DRIVER
+         $MODPROBE $VERB $Q -b $KERNEL_DRIVER
+        else
+         true
+        fi
+        else
+        _warn "/proc/modules not existent. Is /proc mounted ?"
+        false
+        fi
+}
+
+_usb_modeswitch_fallback(){
+            if test "`which usb_modeswitch`"; then
+            # in case of failure, fall back using usb_modeswitch
+            echo "Falling back using usb_modeswitch .. "
+            usb_modeswitch -W -v $VEND_ID -p $PROD_ID_INACT -V $VEND_ID -P $PROD_ID_ACTIV -M "$USB_MODESWITCH_MsgContent"
+            rc_status -v
+            [ $? = 0 ] || exit 1;
+            else
+            echo "usb_modeswitch as fall-back not installed"
+            return 3
+            fi
+}
+
+_configure_modem(){
+        sleep 1
+        echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
+        # modeswitching needs some time ...
+        #VEND_ID=12d1
+        #PROD_ID_INACT=157d
+        #PROD_ID_ACTIV=14dc
+        lsusb | grep "$VEND_ID" | grep $Q -E "${PROD_ID_INACT}|${PROD_ID_ACTIV}" && echo -n "Waiting for modeswitch " || echo -n "Is the Modem plugged in ?"
+        while
+        [ "`lsusb | grep "$VEND_ID" | grep "$PROD_ID_INACT"`" ]
+        do
+        echo -n "."
+        sleep 1
+        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV" && break
+        c=$((c+1))
+        test $c = 9 && break
+        #echo -n "."
+        done
+        test "$Q" && echo
+        sleep 2
+
+        #lsusb | grep $Q "$VEND_ID"
+        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_INACT"
+        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+
+        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+        rc_status -v
+        test $? = 0 || exit 0 # assume not plugged in
+}
+
+_get_ifconfig_hwaddress(){
+        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+
+}
+
+_ifconfig_up(){
+         # fixed eth address does not work, if mutiple eth drivers load in random order
+##        #$IFCONFIG -a | grep -i ".*HWaddr $HWADDR"
+#        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+#        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+        _get_ifconfig_hwaddress
+
+        if
+        #ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        $IFCONFIG $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+        then
+        echo -n "Bringing ifconfig $ETH_ADDR up .. "
+         if
+         #ifconfig $ETH_ADDR up
+         $IFCONFIG $ETH_ADDR up
+         then
+         rc_status -v
+         sleep 1
+        _start_dhcpcd
+         else
+         #rc_status -v
+         false
+         fi
+        else
+        echo "'$HWADDR' and '$ETH_ADDR' do not match ."
+        false
+        fi
+}
+
+_start_dhcpcd(){
+         echo -n "Starting dhcpcd $DBG $ETH_ADDR .. "
+         #dhcpcd -d $ETH_ADDR
+         pidof dhcpcd >$OUT && $DHCPCD $DBG -n $ETH_ADDR || $DHCPCD $DBG $ETH_ADDR
+         #rc_status -v
+}
+
+_stop_dhcpcd(){
+        if
+        _pidof $Q dhcpcd
+        then
+        echo -n "Terminating $DHCPCD $DBG -x $ETH_ADDR .. "
+        #killall dhcpcd
+        $DHCPCD $DBG -x $ETH_ADDR
+        rc_status -v
+	else true
+        fi
+}
+_ifconfig_down(){
+        echo -n "Bringing ifconfig $ETH_ADDR down .. "
+        #ifconfig $ETH_ADDR down
+        $IFCONFIG $ETH_ADDR down
+        rc_status -v
+}
+
 # Reset status of this service
 rc_reset
 
@@ -252,86 +385,93 @@ case "$1" in
         #$HWAPP
         start_daemon -p "/var/run/${HWAPP##*/}.pid" -n 2 $HWAPP
         rc_status -v
-        [ $? = 0 ] || {
-            if test "`which usb_modeswitch`"; then
-            # in case of failure, fall back using usb_modeswitch
-            echo "Falling back using usb_modeswitch .. "
-            usb_modeswitch -W -v $VEND_ID -p $PROD_ID_INACT -V $VEND_ID -P $PROD_ID_ACTIV -M "$USB_MODESWITCH_MsgContent"
-            rc_status -v
-            [ $? = 0 ] ||exit 1;
-            else
-            echo "usb_modeswitch as fall-back not installed"
-            fi
-            }
+        [ $? = 0 ] || _usb_modeswitch_fallback || exit 3
+         _configure_modem || exit 4
+         _ifconfig_up     || exit 5
+         _start_dhcpcd    || exit 6
 
-        sleep 1
-        echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
-        # modeswitching needs some time ...
-        #VEND_ID=12d1
-        #PROD_ID_INACT=157d
-        #PROD_ID_ACTIV=14dc
-        lsusb | grep "$VEND_ID" | grep $Q -E "${PROD_ID_INACT}|${PROD_ID_ACTIV}" && echo -n "Waiting for modeswitch " || echo -n "Is the Modem plugged in ?"
-        while
-        [ "`lsusb | grep "$VEND_ID" | grep "$PROD_ID_INACT"`" ]
-        do
-        echo -n "."
-        sleep 1
-        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV" && break
-        c=$((c+1))
-        test $c = 9 && break
-        #echo -n "."
-        done
-        test "$Q" && echo
-        sleep 2
 
-        #lsusb | grep $Q "$VEND_ID"
-        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_INACT"
-        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+#        [ $? = 0 ] || {
+#            if test "`which usb_modeswitch`"; then
+#            # in case of failure, fall back using usb_modeswitch
+#            echo "Falling back using usb_modeswitch .. "
+#            usb_modeswitch -W -v $VEND_ID -p $PROD_ID_INACT -V $VEND_ID -P $PROD_ID_ACTIV -M "$USB_MODESWITCH_MsgContent"
+#            rc_status -v
+#            [ $? = 0 ] ||exit 1;
+#            else
+#            echo "usb_modeswitch as fall-back not installed"
+#            fi
+#            }
+#
+#        sleep 1
+#        echo "Configuring the modem $VEND_ID:$PROD_ID_INACT to $VEND_ID:$PROD_ID_ACTIV"
+#        # modeswitching needs some time ...
+#        #VEND_ID=12d1
+#        #PROD_ID_INACT=157d
+#        #PROD_ID_ACTIV=14dc
+#        lsusb | grep "$VEND_ID" | grep $Q -E "${PROD_ID_INACT}|${PROD_ID_ACTIV}" && echo -n "Waiting for modeswitch " || echo -n "Is the Modem plugged in ?"
+#        while
+#        [ "`lsusb | grep "$VEND_ID" | grep "$PROD_ID_INACT"`" ]
+#        do
+#        echo -n "."
+#        sleep 1
+#        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV" && break
+#        c=$((c+1))
+#        test $c = 9 && break
+#        #echo -n "."
+#        done
+#        test "$Q" && echo
+#        sleep 2
+#
+#        #lsusb | grep $Q "$VEND_ID"
+#        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_INACT"
+#        #lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+#
+#        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
+#        rc_status -v
+#        test $? = 0 || exit 0 # assume not plugged in
+#
+#        # fixed eth address does not work, if mutiple eth drivers load in random order
+#        #$IFCONFIG -a | grep -i ".*HWaddr $HWADDR"
+#        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+#        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+#
+#        if
+#        #ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+#        $IFCONFIG $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
+#        then
+#        echo -n "Bringing ifconfig $ETH_ADDR up .. "
+#         if
+#         #ifconfig $ETH_ADDR up
+#         $IFCONFIG $ETH_ADDR up
+#         then
+#         rc_status -v
+#         sleep 1
+#
+#     #-n, --renew
+#     #        Notifies an existing dhcpcd process running on the interface to
+#     #        renew it's lease. If dhcpcd is not running, then it starts up as
+#     #        normal.
+#
+#     #-p, --persistent
+#     #        dhcpcd normally deconfigures the interface and configuration when
+#     #        it exits.  Sometimes, this isn't desirable if for example you
+#     #        have root mounted over NFS.  You can use this option to stop this
+#     #        from happening.
+#
+#         echo -n "Starting dhcpcd $DBG $ETH_ADDR .. "
+#         #dhcpcd -d $ETH_ADDR
+#         pidof dhcpcd >$OUT && $DHCPCD $DBG -n $ETH_ADDR || $DHCPCD $DBG $ETH_ADDR
+#         #rc_status -v
+#         else
+#         #rc_status -v
+#         false
+#         fi
+#        else
+#        echo "'$HWADDR' and '$ETH_ADDR' do not match ."
+#        false
+#        fi
 
-        lsusb | grep "$VEND_ID" | grep $Q "$PROD_ID_ACTIV"
-        rc_status -v
-        test $? = 0 || exit 0 # assume not plugged in
-
-        # fixed eth address does not work, if mutilpe eth drivers load in random order
-        #$IFCONFIG -a | grep -i ".*HWaddr $HWADDR"
-        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
-        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
-
-        if
-        #ifconfig $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
-        $IFCONFIG $ETH_ADDR | grep $Q -i "HWaddr $HWADDR";
-        then
-        echo -n "Bringing ifconfig $ETH_ADDR up .. "
-         if
-         #ifconfig $ETH_ADDR up
-         $IFCONFIG $ETH_ADDR up
-         then
-         rc_status -v
-         sleep 1
-
-     #-n, --renew
-     #        Notifies an existing dhcpcd process running on the interface to
-     #        renew it's lease. If dhcpcd is not running, then it starts up as
-     #        normal.
-
-     #-p, --persistent
-     #        dhcpcd normally deconfigures the interface and configuration when
-     #        it exits.  Sometimes, this isn't desirable if for example you
-     #        have root mounted over NFS.  You can use this option to stop this
-     #        from happening.
-
-         echo -n "Starting dhcpcd $DBG $ETH_ADDR .. "
-         #dhcpcd -d $ETH_ADDR
-         pidof dhcpcd >$OUT && $DHCPCD $DBG -n $ETH_ADDR || $DHCPCD $DBG $ETH_ADDR
-         #rc_status -v
-         else
-         #rc_status -v
-         false
-         fi
-        else
-        echo "'$HWADDR' and '$ETH_ADDR' do not match ."
-        false
-        fi
         rc_status -v
         test $? = 0 || $0 stop
 
@@ -342,7 +482,7 @@ case "$1" in
         #echo $?
         checkproc ${HWAPP}
         checkRV=$?
-        echo "checkRV='$checkRV'"
+        _debug "checkRV='$checkRV'"
         if test $checkRV != 0; then
         #echo -n "DEBUG:checkproc returned non-zero, printing pidof ${HWAPP##*/} :"
         #pidof ${HWAPP##*/}
@@ -352,22 +492,25 @@ case "$1" in
         exit 0
         fi
 
-        ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
-        test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+        #ETH_ADDR=`$IFCONFIG -a | grep -i ".*HWaddr $HWADDR" | awk '{print $1}'`
+        #test "$ETH_ADDR" || { _warn "Could not determine ethernet device. Falling back to default."; ETH_ADDR=$ETH_ADDR_DEFAULT; }
+	_get_ifconfig_hwaddress
 
-        if
-        _pidof $Q dhcpcd
-        then
-        echo -n "Terminating $DHCPCD $DBG -x $ETH_ADDR .. "
-        #killall dhcpcd
-        $DHCPCD $DBG -x $ETH_ADDR
-        rc_status -v
-        fi
+        #if
+        #_pidof $Q dhcpcd
+        #then
+        #echo -n "Terminating $DHCPCD $DBG -x $ETH_ADDR .. "
+        ##killall dhcpcd
+        #$DHCPCD $DBG -x $ETH_ADDR
+        #rc_status -v
+        #fi
+	_stop_dhcpcd
 
-        echo -n "Bringing ifconfig $ETH_ADDR down .. "
-        #ifconfig $ETH_ADDR down
-        $IFCONFIG $ETH_ADDR down
-        rc_status -v
+        #echo -n "Bringing ifconfig $ETH_ADDR down .. "
+        ##ifconfig $ETH_ADDR down
+        #$IFCONFIG $ETH_ADDR down
+        #rc_status -v
+        _ifconfig_down
 
         # override start-stop-daemon
         #killproc()     { /sbin/killall -s${2} ${1##*/}; }
@@ -400,6 +543,17 @@ case "$1" in
         rc_status -v
         ;;
 
+    ifup)
+     _ifconfig_up
+     rc_status -v
+    ;;
+
+    ifdown)
+     _get_ifconfig_hwaddress
+     _stop_dhcpcd
+
+     _ifconfig_down
+    ;;
     status) #rc_status -u
              STATE=`busybox ps -o stat,args | grep "${HWAPP##*/}" | grep -vE "grep|/init\.d/"`
 _print_state_codes(){
@@ -447,7 +601,7 @@ EoI
         ;;
 
     *)  rc_status -u
-        echo "Usage: $0 {start|stop|restart|force-reload|reload|status}"
+        echo "Usage: $0 [start|stop|restart|force-reload|reload|ifup|ifdown|status]"
         exit 1
         ;;
 esac
