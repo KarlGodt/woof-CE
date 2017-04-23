@@ -108,12 +108,6 @@ _draw 5 "-v set verbosity"
         exit 0
 }
 
-# *** testing parameters for validity *** #
-#PARAM_1test="${PARAM_1//[[:digit:]]/}"
-#test "$PARAM_1test" && {
-#_draw 3 "Only :digit: numbers as first option allowed."
-#        exit 1 #exit if other input than letters
-#        }
 
 until test $# = 0;
 do
@@ -126,10 +120,6 @@ case $PARAM_1 in
            _debug "NUMBER=$NUMBER"
 	   ;;
 *help|*usage)  _usage;;
-
-#-d|*debug)     DEBUG=$((DEBUG+1));;
-#-L|*logging) LOGGING=$((LOGGING+1));;
-#-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 --*) case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
@@ -234,20 +224,13 @@ _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 1
 
-#DISARM_TIMES=${1:-$MAX_DISARM}
-#_draw 6 "disarming trap '$DISARM_TIMES' times.."
-
 _draw 6 "disarming trap ..."
-
-#_debug "watch $DRAW_INFO"
-#echo watch $DRAW_INFO
 
 local c=0 CNT=0
 
 while :;
 do
 
-#_verbose "use_skill disarm traps"
 _is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
@@ -271,23 +254,19 @@ _is 1 1 use_skill "disarm traps"
 
    *'In fact, you set it off!'*)
       break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*)
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
       break ;;
    *'A portal opens up, and screaming hordes pour'*)
       break;; # better exit with beep
 
-  '') #CNT=$((CNT+1)); break;;
+  '')
       break 2;;
   esac
  done
 
-#test "$CNT" -lt $DISARM_TIMES || break
 sleep 1
 
 done
-
-#_debug "unwatch $DRAW_INFO"
-#echo unwatch $DRAW_INFO
 
 sleep 1
 }
@@ -308,7 +287,6 @@ local c=0
 while :;
 do
 
-
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -324,13 +302,13 @@ _is 1 1 search
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no;  break 2;;
+
 #   *'You spot a '*) TRAPS="${TRAPS}
 #$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps;
     break;;
-#   *'Your '*)       :;; # Your monster beats monster
-#   *'You killed '*) :;;
+
    *'You search the area.'*) :;;
   '') break;;
   esac
@@ -338,11 +316,7 @@ _is 1 1 search
   unset REPLY
  done
 
-
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-
-
 sleep 1
 
 done
@@ -351,22 +325,6 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 1
-
-__old_tell_how_many__(){
- TRAPS=`echo "$TRAPS" | sed '/^$/d'`
- #TRAPS=`echo "$TRAPS" | uniq`
- #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
-
- if test "$DEBUG"; then
- _draw 5 "TRAPS='$TRAPS'"
- _draw 6 "`echo "$TRAPS" | uniq`"
- fi
-
- test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
- TRAPS_NUM=${TRAPS_NUM:-0}
- _debug TRAPS_NUM=$TRAPS_NUM
- echo $TRAPS_NUM >/tmp/cf_pipe.$$
- }
 }
 
 _find_traps $NUMBER
@@ -375,7 +333,7 @@ _find_traps $NUMBER
 __disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-local NUM c CNT
+local NUM CNT
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -392,11 +350,10 @@ test "$NUM" -gt 0 || return 0
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-c=0; CNT=0
+CNT=0
 
 while :;
 do
-
 
 _is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
@@ -425,7 +382,7 @@ _is 1 1 use_skill "disarm traps"
       NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
       break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*)
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
       NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
       break;;
@@ -434,13 +391,10 @@ _is 1 1 use_skill "disarm traps"
       test "$NUM" -gt 0 || break 2;
       break;; # better exit with beep
 
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
   '') CNT=$((CNT+1)); break;;
   esac
  done
 
-#NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 _debug NUM=$NUM
 test "$CNT" -gt 9 && break
 sleep 1
@@ -453,9 +407,8 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-#__disarm_traps
 
-# ** open chest apply and get ** #
+# ** open chest, apply, get ** #
 
 _draw 6 "apply and get .."
 
@@ -491,11 +444,11 @@ _is 0 0 drop chest # Nothing to drop.
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
-   *'Your '*)       :;;  # Your monster beats monster
-   *'You killed '*) :;;
-   *'You find '*)   :;;
-   *'You pickup '*) :;;
-   *' tasted '*)    :;;  # food tasted good
+   *'Your '*)        :;;  # Your monster beats monster
+   *'You killed '*)  :;;
+   *'You find '*)    :;;
+   *'You pick up '*) :;;
+   *' tasted '*)     :;;  # food tasted good
   *) break;;
   esac
  done

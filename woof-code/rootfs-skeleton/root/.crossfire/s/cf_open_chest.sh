@@ -90,12 +90,7 @@ _draw 5 "-v set verbosity"
         exit 0
 }
 
-# *** testing parameters for validity *** #
-#PARAM_1test="${PARAM_1//[[:digit:]]/}"
-#test "$PARAM_1test" && {
-#_draw 3 "Only :digit: numbers as first option allowed."
-#        exit 1 #exit if other input than letters
-#        }
+
 
 until test $# = 0;
 do
@@ -235,10 +230,7 @@ $REPLY"; break;;
  done
 
 
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-
-
 sleep 1
 
 done
@@ -269,7 +261,7 @@ _find_traps
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-local NUM c CNT
+local NUM CNT
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -285,7 +277,7 @@ test "$NUM" -gt 0 || return 0
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-c=0; CNT=0
+CNT=0
 
 while :;
 do
@@ -316,20 +308,17 @@ echo issue 1 1 use_skill "disarm traps"
    *'In fact, you set it off!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*)
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
    *'A portal opens up, and screaming hordes pour'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;; # better exit with beep
 
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
   '') CNT=$((CNT+1)); break;;
   esac
  done
 
-#NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 test "$CNT" -gt 9 && break
 sleep 1
 
@@ -379,11 +368,11 @@ echo issue 0 0 drop chest # Nothing to drop.
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
-   *'Your '*)       :;;  # Your monster beats monster
-   *'You killed '*) :;;
-   *'You find '*)   :;;
-   *'You pickup '*) :;;
-   *' tasted '*)    :;;  # food tasted good
+   *'Your '*)        :;;  # Your monster beats monster
+   *'You killed '*)  :;;
+   *'You find '*)    :;;
+   *'You pick up '*) :;;
+   *' tasted '*)     :;;  # food tasted good
   *) break;;
   esac
  done
