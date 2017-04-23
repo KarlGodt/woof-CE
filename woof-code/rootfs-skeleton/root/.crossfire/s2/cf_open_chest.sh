@@ -101,6 +101,7 @@ _draw 5 "script $0 [number]"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"
+_draw 4 "-f force running even if bad traps triggered."
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -123,6 +124,7 @@ case $PARAM_1 in
 
 --*) case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
+     *force) FORCE=$((FORCE+1));;
      *help)  _usage;;
      *logging) LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
@@ -134,6 +136,7 @@ case $PARAM_1 in
     for oneOP in $OPTS; do
      case $oneOP in
       d) DEBUG=$((DEBUG+1));;
+      f) FORCE=$((FORCE+1));;
       h) _usage;;
       L) LOGGING=$((LOGGING+1));;
       v) VERBOSE=$((VERBOSE+1));;
@@ -182,7 +185,7 @@ _draw 5 "casting dexterity.."
 
 
 _is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
+sleep 0.5  # TODO: check if avail
 
 _is 1 1 fire center   # better 0, 1 (north) ..clockwise.. 8 (northwest)
 sleep 0.5
@@ -226,7 +229,7 @@ _disarm_traps(){
 
 _draw 6 "disarming trap ..."
 
-local c=0 CNT=0
+#local CNT=0
 
 while :;
 do
@@ -246,19 +249,32 @@ _is 1 1 use_skill "disarm traps"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
-   *'Unable to find skill '*)  SKILL_DISARM=no; break 2;;
-#  *'You fail to disarm '*) continue;;
+   *'Unable to find skill '*)  return 112;;
+                #SKILL_DISARM=no; break 2;;
 
+   *'You fail to disarm '*)
+      break;;  # break 1 tries again to disarm
    *'You successfully disarm '*)
-      break ;;
+      break ;; # break 1 disarms further if more traps already spotted
 
    *'In fact, you set it off!'*)
       break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-      break ;;
-   *'A portal opens up, and screaming hordes pour'*)
-      break;; # better exit with beep
 
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+      break ;; # poisoned / diseased needle, spikes, blades
+   *'You feel depleted of psychic energy!'*)
+      break ;; # ^harmless^
+
+   *'You detonate '*|*"RUN!  The timer's ticking!"*)
+      if [ "$FORCE" ]; then
+      break  # at low level better exit with beep
+      else return 112
+      fi;;
+   *'A portal opens up, and screaming hordes pour'*)
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
   '')
       break 2;;
   esac
@@ -282,8 +298,6 @@ _draw 6 "find traps '$NUM' times.."
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-local c=0
-
 while :;
 do
 
@@ -298,15 +312,17 @@ _is 1 1 search
 
  while :; do read -t 1
  _log "_find_traps:$REPLY"
- _debug "REPLY='$REPLY'" #debug
+ _debug "REPLY='$REPLY'"
 
   case $REPLY in
-   *'Unable to find skill '*) SKILL_FIND=no;  break 2;;
+   *'Unable to find skill '*) return 112;;
+                #SKILL_FIND=no;  break 2;;
 
 #   *'You spot a '*) TRAPS="${TRAPS}
 #$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps;
+    case $? in 112) return 112;; esac
     break;;
 
    *'You search the area.'*) :;;
@@ -326,8 +342,6 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 }
-
-_find_traps $NUMBER
 
 
 __disarm_traps(){
@@ -407,13 +421,13 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-
+_open_chest(){
 # ** open chest, apply, get ** #
 
 _draw 6 "apply and get .."
 
-c=0
-NUM=$NUMBER
+#local c=0
+#NUM=${1:-$NUMBER}
 
 while :;
 do
@@ -466,7 +480,13 @@ _is 1 1 $DIRF
 sleep 1
 
 done
+}
 
+
+_find_traps $NUMBER
+case $? in 112) :;;
+*)    _open_chest;;
+esac
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
