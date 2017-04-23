@@ -15,8 +15,21 @@
 
 test -f /etc/rc.d/f4puppy5 && . /etc/rc.d/f4puppy5
 
+tmpDIR=/tmp/drive_all
+mkdir $VERB -p "$tmpDIR" || _exit 1 "Could not create '$tmpDIR'"
+exec 2>>"$tmpDIR"/err.log
+exec 1>>"$tmpDIR"/log.log
+echo "$0:$*" >&2
+
 #w002 extracted as a func...
 unmount_func() {
+ MNTPT=${MNTPT:-"$*"}
+ test    "$MNTPT" || return 3
+ test -d "$MNTPT" || return 4
+ case $MNTPT in /|/mnt/home) return 5;;
+
+ esac
+
  rox -D "$MNTPT"
  _sync
  while :;do
@@ -58,14 +71,14 @@ PLEASE PRESS THE \"EXIT\" BUTTON!"
     fi
    fi
   else
-   [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ] && eject /dev/$oneDRVNAME
+   case "$oneDRVNAME" in sr[0-9]*|scd[0-9]*|hd[a-z]) eject $VERB /dev/$oneDRVNAME;; esac
   fi
   break
  done
 }
 
 _exec_pmount(){
- if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
+ if [ "`pidof gtkdialog_pmount`" ];then #if pmount running, kill it.
   killall gtkdialog_pmount 2>>$ERR
   sleep 0.1
  fi
@@ -73,22 +86,11 @@ _exec_pmount(){
  exec pmount ${DRV_CATEGORY} /dev/$oneDRVNAME  # for better filter in pmount, add /dev/ prefix
 }
 
-test "$*" || _exec_pmount
+#test "$*" || _exec_pmount
 
-if [ "$1" = "eventmanager" ];then #v403 chosen from drive icon menu.
- #v405 'desktop' param, cutdown tabs for desktop drive icons only...
- exec eventmanager desktop
-fi
-
-#v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
-if [ "$1" = "unmountall" ];then
- for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/nbd|^/dev/md|^/dev/mtd' | cut -f 3 -d ' ' | grep -vE '^/initrd/|^/$' | tac`
- do
-  unmount_func
-  STATUS=$((STATUS+$?))
- done
- exit $STATUS
-fi
+DRV_CATEGORY="${1}"
+DRV_CATEGORY=${DRV_CATEGORY:-"drive"} #precaution.
+[ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
 FSTYPE=${2:-""}
 #[ "$2" ] && FSTYPE="$2" #see pup_eventd
@@ -110,20 +112,49 @@ oneDRVNAME="`echo "${MY_SELF}" | sed -e 's%/AppRun%%' | rev | cut -f 1 -d '_' | 
 test "$oneDRVNAME" || _exit 2 "ERROR -- no oneDRVNAME"
 
 
-if [ "$1" = "unmount" ];then #v403 chose unmount from drive icon menu.
+# ***
+# First: the options '', pmount_*, eventmanager, unmountall, unmount
+case "$1" in
+'')         _exec_pmount;;
+*pmount_*)
+DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
+# if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
+#  killall gtkdialog_pmount 2>>$ERR
+#  sleep 0.1
+# fi
+ LINEPATTERN=0006;_lineno $LINEPATTERN
+# exec pmount ${DRV_CATEGORY} /dev/$oneDRVNAME
+_exec_pmount
+;;
+"eventmanager") #v403 chosen from drive icon menu.
+ #v405 'desktop' param, cutdown tabs for desktop drive icons only...
+ exec eventmanager desktop
+;;
+
+#v424 have added right-click menu item to unmount all partitions (see pup_event_frontend_d)...
+"unmountall")
+ for MNTPT in `mount | grep '^/dev/' | grep -vE '^/dev/loop|^/dev/ram|^/dev/nbd|^/dev/md|^/dev/mtd' | cut -f 3 -d ' ' | grep -vE '^/initrd/|^/$' | tac`
+ do
+  unmount_func "$MNTPT"
+  STATUS=$((STATUS+$?))
+ done
+ exit $STATUS
+;;
+
+"unmount") #v403 chose unmount from drive icon menu.
  mPATTERN='^/dev/'"$oneDRVNAME"' '
- #MNTPT="`mount | grep "$mPATTERN" | cut -f 3 -d ' '`"
  MNTPT="`/bin/df | grep "$mPATTERN" | tr -s ' ' | cut -f 6 -d ' '`"
- [ "$MNTPT" = "" ] && exit #precaution.
- if [ "$MNTPT" = "/" -o "`echo "$MNTPT" | grep '/initrd/'`" != "" ];then
+ [ "$MNTPT" ] || { _info "Device '$oneDRVNAME' not mounted. Exiting."; exit 0; } #precaution.
+ case "$MNTPT" in "/"|*/initrd/*)
   xmessage -bg "#ff8080" -title "Puppy drive manager" -center "/dev/${oneDRVNAME} mounted on ${MNTPT}
 is in use by Puppy. You cannot unmount it."
   exit 1
- fi
- unmount_func
+ ;;
+ esac
+ unmount_func "$MNTPT"
  exit $?
-fi
 
+__unmount_dialog__(){
 #w002 left-mouse-click to unmount...
 #info: params passed to this script:
 # left-click: 0=/root/.pup_event/drive_sda3/AppRun 1=drive 2=ext3
@@ -132,7 +163,7 @@ fi
 # right-menu: 0=/root/.pup_event/drive_sda3/AppRun 1=eventmanager 2=
 #in first ex $1 can be drive,floppy,usbdrv,optical,card.
 
-__unmount_dialog__(){
+
 #v424 have removed this dlg box. maybe make it optional in the future...
 if [ $2 ];then
  #if partition already mounted, offer to unmount it...
@@ -159,11 +190,12 @@ It is currently mounted on ${MNTPT}"
  fi
 fi
 }
+;;
+esac
 
-DRV_CATEGORY="${1}"
-[ "$DRV_CATEGORY" = "" ]    && DRV_CATEGORY="drive" #precaution.
-[ "$DRV_CATEGORY" = "all" ] && DRV_CATEGORY="drive" #precaution.
 
+# ***
+# Second: the Settings of eventmanager
 [ -f /etc/eventmanager ] && . /etc/eventmanager             #written by /usr/sbin/eventmanager
 DISP=${DISPLAY%.*}
 [ -f /etc/eventmanager.$DISP ] && . /etc/eventmanager.$DISP #written by /usr/sbin/eventmanager
@@ -174,17 +206,6 @@ DISP=${DISPLAY%.*}
 [ "$AUTOTARGET"     = "true" -o "$AUTOTARGET"     = "false" ] || AUTOTARGET="true"
 [ "$ICONPARTITIONS" = "true" -o "$ICONPARTITIONS" = "false" ] || ICONPARTITIONS="true"
 
-#if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
-#be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
-if [ "$oneDRVNAME" = "drives" ];then
-# if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
-#  killall gtkdialog_pmount 2>>$ERR
-#  sleep 0.1
-# fi
- LINEPATTERN=000A;_lineno $LINEPATTERN
-# exec pmount $DRV_CATEGORY /dev/$oneDRVNAME
-_exec_pmount
-fi
 
 #decision... we can bring up a "handler" window, that explains things, good for beginners.
 #or jump direct to most appropriate target application, or do nothing.
@@ -200,21 +221,24 @@ if [ "$AUTOTARGET" = "false" ];then
 _exec_pmount
 fi
 
-
-if [ "`echo "${1}" | grep 'pmount_'`" != "" ];then #v403 chose pmount from drive icon menu.
- DRV_CATEGORY="`echo -n "${1}" | cut -f 2 -d '_'`"
+#if ICONDESK=false (see /etc/eventmanager and /sbin/pup_eventd) then there will only
+#be one icon on the desktop, labelled 'drives' and handler script is /usr/local/bin/drive_drives
+if [ "$oneDRVNAME" = "drives" ];then
 # if [ "`pidof gtkdialog_pmount`" != "" ];then #if pmount running, kill it.
 #  killall gtkdialog_pmount 2>>$ERR
 #  sleep 0.1
 # fi
- LINEPATTERN=0006;_lineno $LINEPATTERN
-# exec pmount ${DRV_CATEGORY} /dev/$oneDRVNAME
+ LINEPATTERN=000A;_lineno $LINEPATTERN
+# exec pmount $DRV_CATEGORY /dev/$oneDRVNAME
 _exec_pmount
 fi
 
 
+# ***
+# Third: cd-rom, partition
+
 #oh, now have to analyse the media, decide what app to run...
-if [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ];then
+case "$oneDRVNAME" in sr[0-9]*|scd[0-9]*|hd[a-z])
  srPATTERN='^/dev/'"$oneDRVNAME"' '
  if [ "`busybox mount | grep "$srPATTERN"`" = "" ];then
   cddetect $Q -d/dev/${oneDRVNAME}
@@ -243,7 +267,8 @@ if [ "`echo "$oneDRVNAME" | grep 'sr[0-9]'`" ];then
  FSTYPE=`guess_fstype /dev/$oneDRVNAME`
  test "$FSTYPE" || FSTYPE=iso9660
  test "$FSTYPE" = "unknown" && FSTYPE=iso9660
-fi
+;;
+esac
 
 LINEPATTERN=000C;_lineno $LINEPATTERN
 #if dropped down here, it is likely to be a data partition...
@@ -297,6 +322,8 @@ if [ "$FSTYPE" != "" ];then
  fi
 fi
 
+
+# Fourth: last fallback pmount
 
 #NOTE: if pmount already running, don't really want to kill then restart,
 # just want to bring the window up if it's minimised ...how?
