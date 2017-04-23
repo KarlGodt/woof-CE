@@ -68,7 +68,7 @@ echo "$*" >>"$LOG_REPLY_FILE"
 }
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 
 # *** Check for parameters *** #
@@ -77,15 +77,15 @@ echo draw 2 "$0 is started.."
 # *** implementing 'help' option *** #
 _usage() {
 
-echo draw 5 "Script to open chests."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 [number]"
-echo draw 5 "For example: 'script $0 5'"
-echo draw 5 "will issue 5 times search, disarm, apply and get."
-echo draw 4 "Options:"
-echo draw 5 "-d set debug"
-echo draw 5 "-L log to $LOG_REPLY_FILE"
-echo draw 5 "-v set verbosity"
+_draw 5 "Script to open chests."
+_draw 5 "Syntax:"
+_draw 5 "script $0 [number]"
+_draw 5 "For example: 'script $0 5'"
+_draw 5 "will issue 5 times search, disarm, apply and get."
+_draw 4 "Options:"
+_draw 5 "-d set debug"
+_draw 5 "-L log to $LOG_REPLY_FILE"
+_draw 5 "-v set verbosity"
 
         exit 0
 }
@@ -93,7 +93,7 @@ echo draw 5 "-v set verbosity"
 # *** testing parameters for validity *** #
 #PARAM_1test="${PARAM_1//[[:digit:]]/}"
 #test "$PARAM_1test" && {
-#echo draw 3 "Only :digit: numbers as first option allowed."
+#_draw 3 "Only :digit: numbers as first option allowed."
 #        exit 1 #exit if other input than letters
 #        }
 
@@ -103,9 +103,9 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+	   _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
 	   readonly NUMBER
-           [ "$DEBUG" ] && echo draw 2 "NUMBER=$NUMBER"
+           _debug 2 "NUMBER=$NUMBER"
 	   ;;
 *help)  _usage;;
 
@@ -114,7 +114,7 @@ case $PARAM_1 in
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 '')     :;;
-*)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+*)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
 
 sleep 1
@@ -149,7 +149,7 @@ local REPLY c
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-echo draw 5 "casting dexterity.."
+_draw 5 "casting dexterity.."
 
 _verbose "cast dexterity .."
 echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
@@ -197,7 +197,7 @@ _find_traps(){
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
-echo draw 6 "find traps '$NUM' times.."
+_draw 6 "find traps '$NUM' times.."
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -218,8 +218,8 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "_find_traps:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_find_traps:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
@@ -278,7 +278,7 @@ read NUM </tmp/cf_pipe.$$
 
 NUM=${NUM:-$MAX_DISARM}
 
-echo draw 6 "disarm traps '$NUM' times.."
+_draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
 
@@ -302,21 +302,27 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "_disarm_traps:$REPLY" >>"$LOG_REPLY_FILE"
-   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+   _log "_disarm_traps:$REPLY"
+   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
+
    *'You successfully disarm '*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
+
    *'In fact, you set it off!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*)
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
+   *'A portal opens up, and screaming hordes pour'*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break;; # better exit with beep
+
 #   *'Your '*)       :;;  # Your monster beats monster
 #   *'You killed '*) :;;
   '') CNT=$((CNT+1)); break;;
@@ -339,7 +345,7 @@ _disarm_traps
 
 # ** open chest apply and get ** #
 
-echo draw 6 "apply and get .."
+_draw 6 "apply and get .."
 
 c=0
 NUM=$NUMBER
@@ -368,8 +374,8 @@ echo issue 0 0 drop chest # Nothing to drop.
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "drop chest:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+  _log "drop chest:$REPLY"
+  _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
@@ -401,5 +407,5 @@ done
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 beep -f 700 -l 1000
