@@ -1061,11 +1061,11 @@ buttonShowPass="
 "
 
 case $EXIT in
-"Hide password") buttonPass="$buttonShowPass"
-entryPassVisible='false'
-;;
-*) buttonPass="$buttonHidePass"
+"Show password") buttonPass="$buttonHidePass"
 entryPassVisible='true'
+;;
+*) buttonPass="$buttonShowPass"
+entryPassVisible='false'
 ;;
 esac
 
