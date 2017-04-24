@@ -265,6 +265,13 @@ _is 1 1 use_skill "disarm traps"
    *'You feel depleted of psychic energy!'*)
       break ;; # ^harmless^
 
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion!'*|*'of Paralyzis'*) # these multiplify
+      if [ "$FORCE" ]; then
+      break  # at low level better exit with beep
+      else return 112
+      fi;;
+
    *'You detonate '*|*"RUN!  The timer's ticking!"*)
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
@@ -453,7 +460,7 @@ _is 0 0 drop chest # Nothing to drop.
   sleep 0.1
   unset REPLY
   read -t 1
-  _log "drop chest:$REPLY"
+  _log "_open_chest:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in

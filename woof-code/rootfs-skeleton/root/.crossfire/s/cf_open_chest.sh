@@ -257,6 +257,43 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 
 _find_traps
 
+_handle_trap_event(){
+
+  case $REPLY in
+   *'Unable to find skill '*)   break 2;;
+#  *'You fail to disarm '*) continue;;
+
+   *'You successfully disarm '*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break;;
+
+   *'In fact, you set it off!'*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break ;;
+
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion!'*|*'of Paralyzis'*) # these multiplify
+      if [ "$FORCE" ]; then
+      break  # at low level better exit with beep
+      else return 112
+      fi;;
+
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break;;
+   *'A portal opens up, and screaming hordes pour'*)
+      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      #break;; # better exit with beep
+      if [ "$FORCE" ]; then
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break # always better to exit with beep
+      else return 112
+      fi;;
+
+  '') CNT=$((CNT+1)); break;;
+  esac
+
+}
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -297,26 +334,36 @@ echo issue 1 1 use_skill "disarm traps"
    _log "_disarm_traps:$REPLY"
    _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
-  case $REPLY in
-   *'Unable to find skill '*)   break 2;;
-#  *'You fail to disarm '*) continue;;
+   _handle_trap_event || return 112
+#  case $REPLY in
+#   *'Unable to find skill '*)   break 2;;
+##  *'You fail to disarm '*) continue;;
+#
+#   *'You successfully disarm '*)
+#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+#      break;;
+#
+#   *'In fact, you set it off!'*)
+#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+#      break ;;
+#
+#   #You detonate a Rune of Mass Confusion!
+#   *'of Mass Confusion!'*|*'of Paralyzis'*) # these multiplify
+#      if [ "$FORCE" ]; then
+#      break  # at low level better exit with beep
+#      else return 112
+#      fi;;
+#
+#   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
+#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+#      break;;
+#   *'A portal opens up, and screaming hordes pour'*)
+#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+#      break;; # better exit with beep
+#
+#  '') CNT=$((CNT+1)); break;;
+#  esac
 
-   *'You successfully disarm '*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break;;
-
-   *'In fact, you set it off!'*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break ;;
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break;;
-   *'A portal opens up, and screaming hordes pour'*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break;; # better exit with beep
-
-  '') CNT=$((CNT+1)); break;;
-  esac
  done
 
 test "$CNT" -gt 9 && break
@@ -330,8 +377,7 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-_disarm_traps
-
+_open_chest(){
 # ** open chest apply and get ** #
 
 _draw 6 "apply and get .."
@@ -363,18 +409,24 @@ echo issue 0 0 drop chest # Nothing to drop.
   sleep 0.1
   unset REPLY
   read -t 1
-  _log "drop chest:$REPLY"
+  _log "_open_chest:$REPLY"
   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
+   *'You find Rune '*) _handle_trap_event || return 112;;
    *'You find '*)    :;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
-  *) break;;
+
+   # undetected traps could be triggered ..
+  *) _handle_trap_event || return 112
+      break;;
+#  *) break;;
   esac
+#_handle_trap_event
  done
 
 
@@ -391,6 +443,11 @@ sleep 1
 
 done
 
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+}
+
+_disarm_traps && _open_chest
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
