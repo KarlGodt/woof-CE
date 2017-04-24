@@ -222,8 +222,9 @@ fi
  7|w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
 8|nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
 
--h|*help)  _usage;;
+-h|*help|*usage)  _usage;;
 
+--*) case $PARAM_1 in
 -c|*curse)   TURN_SPELL="detect curse";;
 -C|*const*)  TURN_SPELL="constitution";;
 -t|*disarm)  TURN_SPELL="disarm";;
@@ -238,6 +239,30 @@ fi
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+*)  _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+esac
+;;
+
+-*) OPTS=`printf '%s' $PARAM_1 | sed -r 's/^-*//;s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+     c)  TURN_SPELL="detect curse";;
+     C)  TURN_SPELL="constitution";;
+     t)  TURN_SPELL="disarm";;
+     D)  TURN_SPELL="dexterity";;
+     e)  TURN_SPELL="detect evil";;
+     f)  TURN_SPELL="faery fire";;
+     i)  TURN_SPELL="show invisible";;
+     m)  TURN_SPELL="detect magic";;
+     M)  TURN_SPELL="detect monster";;
+     p)  TURN_SPELL="probe";;
+     d)  DEBUG=$((DEBUG+1));;
+     L)  LOGGING=$((LOGGING+1));;
+     v)  VERBOSE=$((VERBOSE+1));;
+     *)  _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+;;
 
 '')     :;;
 *)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;

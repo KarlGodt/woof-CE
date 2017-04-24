@@ -27,7 +27,7 @@ _is 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- _log "___find_traps:$REPLY"
+ _log "_find_traps_bulk_search:$REPLY"
  _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -96,7 +96,7 @@ _is 1 1 use_skill find traps
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- _log "__find_traps:$REPLY"
+ _log "_find_traps_bulk_use_skill:$REPLY"
  _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -169,7 +169,7 @@ do
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- _log "_find_traps:$REPLY"
+ _log "_find_traps_bulk_ready_skill:$REPLY"
  _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -236,7 +236,7 @@ _is 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- _log "_find_traps:$REPLY"
+ _log "_find_traps_single:$REPLY"
  _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -246,7 +246,7 @@ _is 1 1 search
 #   *'You spot a '*) TRAPS="${TRAPS}
 #$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
-    _disarm_traps;
+    _disarm_traps_single;
     case $? in 112) return 112;; esac
     break;;
 
@@ -304,7 +304,7 @@ _is 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   _log "__disarm_traps:$REPLY"
+   _log "_disarm_traps_bulk_use_skill:$REPLY"
    _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -388,7 +388,7 @@ _is 1 1 fire_stop
   sleep 0.1
   unset REPLY
   read -t 1
-   _log "_disarm_traps:$REPLY"
+   _log "_disarm_traps_bulk_ready_skill:$REPLY"
    _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -451,7 +451,7 @@ _is 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-  _log "_disarm_traps:$REPLY"
+  _log "_disarm_traps_single:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -521,7 +521,7 @@ _is 1 1 use_skill lockpicking
   sleep 0.1
   unset REPLY
   read -t 1
-  _log "__lockpick_door:$REPLY"
+  _log "_lockpick_door_use_skill:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -601,7 +601,7 @@ _is 1 1 ready_skill lockpicking
 
 while :; do unset REPLY
 read -t 1;
-_log "_lockpick_door:pre:$REPLY"
+_log "_lockpick_door_ready_skill:pre:$REPLY"
 _debug "$REPLY"
 case $REPLY in '') break;; esac
 sleep 0.1
@@ -618,7 +618,7 @@ do
   sleep 0.1
   unset REPLY
   read -t 1
-  _log "_lockpick_door:main:$REPLY"
+  _log "_lockpick_door_ready_skill:main:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in

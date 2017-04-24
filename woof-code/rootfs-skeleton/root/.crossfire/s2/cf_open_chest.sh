@@ -85,13 +85,6 @@ echo issue "$*"
 sleep 0.2
 }
 
-# *** Here begins program *** #
-_draw 2 "$0 is started.."
-
-
-# *** Check for parameters *** #
-
-
 # *** implementing 'help' option *** #
 _usage() {
 
@@ -110,12 +103,18 @@ _draw 5 "-v set verbosity"
 }
 
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+
+
+# *** Check for parameters *** #
+
 until test $# = 0;
 do
 
 PARAM_1="$1"
 case $PARAM_1 in
-[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
+[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
 	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
 	   readonly NUMBER
            _debug "NUMBER=$NUMBER"
@@ -128,7 +127,7 @@ case $PARAM_1 in
      *help)  _usage;;
      *logging) LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
-     *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
 
@@ -224,7 +223,7 @@ CAST_DEX=_cast_dexterity
 $CAST_DEX
 
 _disarm_traps(){
-# ** disarm use_skill disarm traps ** #
+# ** disarm by use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 1
 
 _draw 6 "disarming trap ..."
@@ -295,7 +294,7 @@ sleep 1
 }
 
 _find_traps(){
-# ** search or use_skill find traps ** #
+# ** search to find traps ** #
 [ "$SKILL_FIND" = no ] && return 1
 
 local NUM=${1:-$MAX_SEARCH}

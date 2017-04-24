@@ -4,6 +4,8 @@ export PATH=/bin:/usr/bin
 
 TIMEA=`date +%s`
 
+MAX_SEARCH=9  # needs to set, to prevent infinite search for traps if no NUMBER given
+
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh

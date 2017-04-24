@@ -4,6 +4,10 @@ export PATH=/bin:/usr/bin
 
 TIMEA=`date +%s`
 
+MAX_SEARCH=9
+MAX_DISARM=9
+MAX_LOCKPICK=9
+
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh

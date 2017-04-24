@@ -481,3 +481,20 @@ fi
 
 unset HP
 }
+
+_turn_direction_brace(){
+# use brace and DIR -- attacks in to DIR; so
+# either would use key to unlock door
+# or punches against it and trigger traps
+
+local lDIR=${1:-"$DIR"}
+
+_draw 5 "Bracing .."
+_is 1 1 brace on
+sleep 1
+
+_draw 4 "Turning $DIR .."
+_is 1 1 $lDIR
+sleep 1
+
+}
