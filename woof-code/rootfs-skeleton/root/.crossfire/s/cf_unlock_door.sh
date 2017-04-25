@@ -96,26 +96,26 @@ _word_to_number(){
 
 case ${1:-PARAM_1} in
 
-one)      	PARAM_1=1;;
-two)      	PARAM_1=2;;
-three)    	PARAM_1=3;;
-four)		PARAM_1=4;;
-five)		PARAM_1=5;;
-six)		PARAM_1=6;;
-seven)		PARAM_1=7;;
-eight)		PARAM_1=8;;
-nine)		PARAM_1=9;;
-ten)		PARAM_1=10;;
-eleven)		PARAM_1=11;;
-twelve)		PARAM_1=12;;
-thirteen)	PARAM_1=13;;
-fourteen)	PARAM_1=14;;
-fifteen)	PARAM_1=15;;
-sixteen)	PARAM_1=16;;
-seventeen)	PARAM_1=17;;
-eighteen)	PARAM_1=18;;
-nineteen)	PARAM_1=19;;
-twenty)		PARAM_1=20;;
+one)            PARAM_1=1;;
+two)            PARAM_1=2;;
+three)          PARAM_1=3;;
+four)           PARAM_1=4;;
+five)           PARAM_1=5;;
+six)            PARAM_1=6;;
+seven)          PARAM_1=7;;
+eight)          PARAM_1=8;;
+nine)           PARAM_1=9;;
+ten)            PARAM_1=10;;
+eleven)         PARAM_1=11;;
+twelve)         PARAM_1=12;;
+thirteen)       PARAM_1=13;;
+fourteen)       PARAM_1=14;;
+fifteen)        PARAM_1=15;;
+sixteen)        PARAM_1=16;;
+seventeen)      PARAM_1=17;;
+eighteen)       PARAM_1=18;;
+nineteen)       PARAM_1=19;;
+twenty)         PARAM_1=20;;
 
 esac
 
@@ -185,10 +185,10 @@ case $PARAM_1 in
 if test "$FOUND_DIR"; then :
 elif test "$DIR"; then
 
-	NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	   readonly NUMBER
-       #echo draw 2 "NUMBER=$NUMBER" #DEBUG
+        NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
+           echo draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+           readonly NUMBER
+       _debug 2 "NUMBER=$NUMBER" #DEBUG
 
 fi
 
@@ -203,7 +203,7 @@ fi
  7|w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
 8|nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
 
-*help)  _usage;;
+-h|*help|*usage)  _usage;;
 
 -c|*curse)   TURN_SPELL="detect curse";;
 -C|*const*)  TURN_SPELL="constitution";;
@@ -269,16 +269,16 @@ sleep 1
 # non-attack to avoid triggering traps
 # and with some in fantasy/theory usable value
 # faery fire and disarm show something at least
-# detect magic 		- sorcery 	1 1  -m
-# probe 		- sorcery 	1 3  -p
-# detect monster 	- evocation 	2 2  -M
-# detect evil 		- prayer 	3 3  -e
-# dexterity		- sorcery	3 9  -D
-# disarm 		- sorcery 	4 7  -d
-# constitution		- sorcery	4 12 -C
-# faery fire 		- pyromancy 	4 13 -f
-# detect curse 		- prayer 	5 10 -c
-# show invisible 	- prayer 	7 10 -i
+# detect magic          - sorcery       1 1  -m
+# probe                 - sorcery       1 3  -p
+# detect monster        - evocation     2 2  -M
+# detect evil           - prayer        3 3  -e
+# dexterity             - sorcery       3 9  -D
+# disarm                - sorcery       4 7  -d
+# constitution          - sorcery       4 12 -C
+# faery fire            - pyromancy     4 13 -f
+# detect curse          - prayer        5 10 -c
+# show invisible        - prayer        7 10 -i
 
 # Handle errors like spellpath or not learned
 # set VARIABLES <- functions, to unset them if found not allowed/available
@@ -316,8 +316,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_turn_direction_all:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_turn_direction_all:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
@@ -369,8 +369,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_turn_direction:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_turn_direction:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
@@ -424,8 +424,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_cast_dexterity:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
@@ -464,6 +464,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _verbose "search"
 echo issue 1 1 search
 #You spot a diseased needle!
@@ -475,13 +477,19 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
- [ "$LOGGING" ] && echo "_find_traps:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_find_traps:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -511,10 +519,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -558,8 +567,8 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "_disarm_traps:$REPLY" >>"$LOG_REPLY_FILE"
-   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+   _log "_disarm_traps:$REPLY"
+   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
@@ -621,8 +630,8 @@ echo issue 1 1 use_skill lockpicking
   sleep 0.1
   unset REPLY
   read -t 1
-  [ "$LOGGING" ] && echo "lockpicking:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+  _log "lockpicking:$REPLY"
+  _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
   *'Unable to find skill '*)   break 2;;

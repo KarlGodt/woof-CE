@@ -108,26 +108,26 @@ _word_to_number(){
 
 case ${1:-PARAM_1} in
 
-one)      	PARAM_1=1;;
-two)      	PARAM_1=2;;
-three)    	PARAM_1=3;;
-four)		PARAM_1=4;;
-five)		PARAM_1=5;;
-six)		PARAM_1=6;;
-seven)		PARAM_1=7;;
-eight)		PARAM_1=8;;
-nine)		PARAM_1=9;;
-ten)		PARAM_1=10;;
-eleven)		PARAM_1=11;;
-twelve)		PARAM_1=12;;
-thirteen)	PARAM_1=13;;
-fourteen)	PARAM_1=14;;
-fifteen)	PARAM_1=15;;
-sixteen)	PARAM_1=16;;
-seventeen)	PARAM_1=17;;
-eighteen)	PARAM_1=18;;
-nineteen)	PARAM_1=19;;
-twenty)		PARAM_1=20;;
+one)            PARAM_1=1;;
+two)            PARAM_1=2;;
+three)          PARAM_1=3;;
+four)           PARAM_1=4;;
+five)           PARAM_1=5;;
+six)            PARAM_1=6;;
+seven)          PARAM_1=7;;
+eight)          PARAM_1=8;;
+nine)           PARAM_1=9;;
+ten)            PARAM_1=10;;
+eleven)         PARAM_1=11;;
+twelve)         PARAM_1=12;;
+thirteen)       PARAM_1=13;;
+fourteen)       PARAM_1=14;;
+fifteen)        PARAM_1=15;;
+sixteen)        PARAM_1=16;;
+seventeen)      PARAM_1=17;;
+eighteen)       PARAM_1=18;;
+nineteen)       PARAM_1=19;;
+twenty)         PARAM_1=20;;
 
 esac
 
@@ -205,9 +205,9 @@ case $PARAM_1 in
 
 if test "$FOUND_DIR"; then :
 elif test "$DIR"; then
-	NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	readonly NUMBER
+        NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
+           _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+        readonly NUMBER
 fi
 
 ;;
@@ -236,6 +236,7 @@ fi
 -M|*monster) TURN_SPELL="detect monster";;
 -p|*probe)   TURN_SPELL="probe";;
 
+-h|*help|*usage)  _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
@@ -256,6 +257,7 @@ esac
      m)  TURN_SPELL="detect magic";;
      M)  TURN_SPELL="detect monster";;
      p)  TURN_SPELL="probe";;
+     h)  _usage;;
      d)  DEBUG=$((DEBUG+1));;
      L)  LOGGING=$((LOGGING+1));;
      v)  VERBOSE=$((VERBOSE+1));;
@@ -305,16 +307,16 @@ sleep 1
 # non-attack to avoid triggering traps
 # and with some in fantasy/theory usable value
 # faery fire and disarm show something at least
-# detect magic 		- sorcery 	1 1  -m
-# probe 		- sorcery 	1 3  -p
-# detect monster 	- evocation 	2 2  -M
-# detect evil 		- prayer 	3 3  -e
-# dexterity		- sorcery	3 9  -D
-# disarm 		- sorcery 	4 7  -d
-# constitution		- sorcery	4 12 -C
-# faery fire 		- pyromancy 	4 13 -f
-# detect curse 		- prayer 	5 10 -c
-# show invisible 	- prayer 	7 10 -i
+# detect magic          - sorcery       1 1  -m
+# probe                 - sorcery       1 3  -p
+# detect monster        - evocation     2 2  -M
+# detect evil           - prayer        3 3  -e
+# dexterity             - sorcery       3 9  -D
+# disarm                - sorcery       4 7  -d
+# constitution          - sorcery       4 12 -C
+# faery fire            - pyromancy     4 13 -f
+# detect curse          - prayer        5 10 -c
+# show invisible        - prayer        7 10 -i
 
 # Handle errors like spellpath or not learned
 # set VARIABLES <- functions, to unset them if found not allowed/available
@@ -497,6 +499,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -512,8 +516,14 @@ _is 1 1 search
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -540,10 +550,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -566,6 +577,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _is 1 1 use_skill find traps
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -581,8 +594,14 @@ _is 1 1 use_skill find traps
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+    *'You spot a '*) TRAPS="${TRAPS}
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -609,10 +628,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -636,6 +656,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
  _is 1 1 fire ${DIRN:-0}
  _is 1 1 fire_stop
 #_is 1 1 use_skill find traps
@@ -654,8 +676,14 @@ do
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+    *'You spot a '*) TRAPS="${TRAPS}
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -682,10 +710,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$

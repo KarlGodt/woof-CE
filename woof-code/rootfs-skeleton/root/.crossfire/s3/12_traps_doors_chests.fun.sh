@@ -17,6 +17,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -32,8 +34,14 @@ _is 1 1 search
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+*'You spot a '*) TRAPS="${TRAPS}
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -60,10 +68,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -86,6 +95,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _is 1 1 use_skill find traps
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -101,8 +112,14 @@ _is 1 1 use_skill find traps
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+*'You spot a '*) TRAPS="${TRAPS}
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -129,10 +146,12 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
+
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -156,6 +175,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
  _is 1 1 fire ${DIRN:-0}
  _is 1 1 fire_stop
 #_is 1 1 use_skill find traps
@@ -174,8 +195,13 @@ do
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
+*'You spot a '*) TRAPS="${TRAPS}
+$REPLY";
+#break;;
+    ;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -202,10 +228,11 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$

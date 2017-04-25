@@ -98,10 +98,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
+           _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+           readonly NUMBER
            _debug 2 "NUMBER=$NUMBER"
-	   ;;
+           ;;
 *help)  _usage;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
@@ -202,6 +202,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 _verbose "search .."
 echo issue 1 1 search
 #You spot a diseased needle!
@@ -219,7 +221,9 @@ echo issue 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+$REPLY";
+#break;;
+    ;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
    *'You search the area.'*) :;;
@@ -246,16 +250,16 @@ TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
+#mkfifo /tmp/cf_pipe.$$ ## pipe needs to be read before first data send to
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
-
-_find_traps
 
 _handle_trap_event(){
 
@@ -281,9 +285,11 @@ _handle_trap_event(){
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
+
    *'A portal opens up, and screaming hordes pour'*)
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      #break;; # better exit with beep
+      beep -f 800 -l 100
+      beep -f 900 -l 100
+      beep -f 800 -l 100
       if [ "$FORCE" ]; then
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break # always better to exit with beep
@@ -298,7 +304,7 @@ _handle_trap_event(){
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-local NUM CNT
+
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -367,6 +373,9 @@ echo issue 1 1 use_skill "disarm traps"
  done
 
 test "$CNT" -gt 9 && break
+
+_verbose "search .."
+echo issue 1 1 search # add additional search
 sleep 1
 
 done
@@ -382,13 +391,18 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
-c=0
-NUM=$NUMBER
+#c=0
+NUM=${NUMBER:-90} # 90 * 50kg -> 4500@Str 30 should be enough
+CNT=0  # _handle_trap_event uses CNT and NUM
 
 while :;
 do
 
 # TODO : food level, hit points
+
+
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
 
 _verbose "apply"
 echo issue 1 1 apply  # handle trap release, being killed
@@ -399,8 +413,8 @@ echo issue 1 1 get all
 
 sleep 1
 
-_debug "watch $DRAW_INFO"
-echo watch $DRAW_INFO
+#_debug "watch $DRAW_INFO"
+#echo watch $DRAW_INFO
 
 _verbose "drop chest"
 echo issue 0 0 drop chest # Nothing to drop.
@@ -416,12 +430,18 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'Nothing to drop.'*) break 2;;
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
-   *'You find Rune '*) _handle_trap_event || return 112;;
-   *'You find '*)    :;;
+
+   #*'You find '*trap*)   _handle_trap_event || return 112;; #Blades trap
+   #*'You find '*needle*) _handle_trap_event || return 112;;
+   #*'You find '*Spikes*) _handle_trap_event || return 112;;
+   #*'You find Rune '*)   _handle_trap_event || return 112;;
+   #*'You find '*)    :;;
+    *'You find '*)  _handle_trap_event || return 112  ;;
+   *'The chest was empty.'*) :;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
 
-   # undetected traps could be triggered ..
+  # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
       break;;
 #  *) break;;
@@ -447,7 +467,30 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
+
+_find_traps
 _disarm_traps && _open_chest
+
+__identify(){
+echo issue 0 0 use_skill sense curse
+echo issue 0 0 use_skill sense magic
+echo issue 0 0 use_skill smithery
+echo issue 0 0 use_skill bowyer
+echo issue 0 0 use_skill alchemy
+echo issue 0 0 use_skill woodsman
+echo issue 0 0 use_skill literacy
+echo issue 0 0 use_skill jeweler
+echo issue 0 0 use_skill thaumaturgy
+}
+
+_identify(){
+set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman
+for skill in "$@"; do
+echo issue 0 0 use_skill "$skill"
+done
+}
+
+_identify
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"

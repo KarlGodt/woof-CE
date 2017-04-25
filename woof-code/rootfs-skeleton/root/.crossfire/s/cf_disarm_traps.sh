@@ -44,6 +44,21 @@ done <<EoI
 EoI
 }
 
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOG_REPLY_FILE"
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -54,25 +69,25 @@ _usage() {
 
 echo draw 5 "Script to lockpick doors."
 echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
+echo draw 5 "script $0 <direction> <<number>>"
 echo draw 5 "For example: 'script $0 5 west'"
 echo draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 
         exit 0
 }
 
-echo draw 3 "'$#' Parameters: '$*'"
+_debug 3 "'$#' Parameters: '$*'"
 
 until test $# = 0;
 do
 
 PARAM_1="$1"
 case $PARAM_1 in
-[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
-       #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
+           echo draw 3 "Only :digit: numbers as optional option allowed."; exit 1; }
+           readonly NUMBER
+       _debug 2 "NUMBER=$NUMBER"
+           ;;
  n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
@@ -81,13 +96,13 @@ se|southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
 sw|southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
  w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
-*help)  _usage;;
+-h|*help|*usage)  _usage;;
 '')     :;;
 *)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
-sleep 1
+sleep 0.1
 shift
-#echo draw "'$#'"
+_debug "'$#'"
 
 done
 
@@ -123,8 +138,8 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_dexterity:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+ _log "_cast_dexterity:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
@@ -170,6 +185,8 @@ local c=0
 while :;
 do
 
+unset TRAPS
+
 echo issue 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -180,13 +197,19 @@ echo issue 1 1 search
 #You spot a Rune of Magic Draining!
 
  while :; do read -t 1
-  [ "$LOGGING" ] && echo "search:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+  _log "search:$REPLY"
+  _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
+
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"; break;;
+$REPLY";
+#break;;
+    ;;
+
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
     *'You search the area.'*) :;;
@@ -218,10 +241,12 @@ if test "$DEBUG"; then
 #echo draw 5 "TRAPS='$TRAPS'"
 #echo draw 6 "`echo "$TRAPS" | uniq`"
 _draw 5 "TRAPS='$TRAPS'"
-_draw 6 "`echo "$TRAPS" | uniq`"
+#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
+ test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
+
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
@@ -265,8 +290,8 @@ echo issue 1 1 use_skill "disarm traps"
   sleep 0.1
   unset REPLY
   read -t 1
-   [ "$LOGGING" ] && echo "disarm traps:$REPLY" >>"$LOG_REPLY_FILE"
-   [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+   _log "disarm traps:$REPLY"
+   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
