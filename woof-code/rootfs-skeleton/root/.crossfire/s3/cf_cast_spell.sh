@@ -75,17 +75,21 @@ _usage(){
 
 _draw 5 "Script to $COMMAND SPELL DIRECTION COMMAND_PAUSE ."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <spell> <dir> <pause>"
+_draw 5 "script $0 <<spell>> <<dir>> <<pause>>"
 _draw 5 "For example: 'script $0 firebolt east 10'"
 _draw 5 "will issue cast firebolt"
 _draw 5 "and will issue the $COMMAND east command"
 _draw 5 "with a pause of 10 seconds in between to regenerate mana/grace."
+_draw 8 "Defaults:"
+_draw 8 " Without any parameters would use these defaults:"
+_draw 8 " $SPELL_DEFAULT $SPELL_DEFAULT_PARAM $DIRECTION_DEFAULT $COMMAND_PAUSE_DEFAULT"
 _draw 3 "WARNING:"
-_draw 4 "Loops forever - use scriptkill command to terminate :P ."
+_draw 3 "Loops forever - use scriptkill command to terminate :P ."
 _draw 5 "Options:"
 _draw 2 "-P  for praying spell and to pray between casts."
 _draw 2 "-s <OPTION> to pass parameter to spell"
 _draw 2 "   ie 'spider' to summon pet monster"
+_draw 2 "-f  to not check if spell is known (force)"
 _draw 4 "-F  on fast network connection."
 _draw 4 "-S  on slow 2G network connection."
 _draw 5 "-d  to turn on debugging."
@@ -107,7 +111,10 @@ _direction_word_to_number(){  # cast by _do_program before _do_loop
 # * return : not used
 # * generates : DIRECTION_NUMBER
 
-case $* in
+DIRECTION=${1:-$DIRECTION}
+DIRECTION=${DIRECTION:-$DIRECTION_DEFAULT}
+
+case $DIRECTION in
  0|c|center)    readonly DIRECTION_NUMBER=0;;
  1|n|north)     readonly DIRECTION_NUMBER=1;;
 2|ne|northeast) readonly DIRECTION_NUMBER=2;;
@@ -148,6 +155,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       --help)   _usage;;
       --deb*)    DEBUG=$((DEBUG+1));;
       --fast)  SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      --force) FORCE=$((FORCE+1));;
       --log*)  LOGGING=$((LOGGING+1));;
       --pray*) PRAY_DO=$((PRAY_DO+1));;
       --slow)  SLEEP_MOD='*'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
@@ -165,6 +173,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; # readonly DIR DIRN;;
       h)  _usage;;
       d)   DEBUG=$((DEBUG+1));;
       F) SLEEP_MOD='/'; SLEEP_MOD_VAL=$((SLEEP_MOD_VAL+1));;
+      f) FORCE=$((FORCE+1));;
       L) LOGGING=$((LOGGING+1));;
       P) PRAY_DO=$((PRAY_DO+1));;
       s) SPELL_PARAM="$2"; shift;;
@@ -189,14 +198,17 @@ DIRECTION="$DIR"
 #readonly
 SPELL=`echo -n $SPELL`
 
+test "$FORCE" && CHECK_NO=1
 _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
-test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
+#test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
+test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using defaults."
 }
 
 
 # ***
 _check_have_needed_spell_in_inventory(){  # cast by _do_program
 # *** check if spell is applyable - takes some time ( 16 seconds )
+[ "$CHECK_NO" ] && return 0
 
 _debug "_check_have_needed_spell_in_inventory:$*"
 
@@ -247,15 +259,19 @@ _debug "_probe_enemy:$*"
    _is 1 1 apply -a $PROBE_ITEM  # 'rod of probe' should also apply heavy rod
    # TODO: read drawinfo if successfull ..
 
+#TODO : Something blocks your magic.
+
 _is 1 1 fire $DIRECTION_NUMBER
 _is 1 1 fire_stop
 
 }
 
 # ***
-_apply_needed_spell(){  # cast by _do_program AND _do_loop
+_apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
+
+#TODO : Something blocks your magic.
 
 _is 1 1 cast $SPELL $SPELL_PARAM
 }
@@ -295,6 +311,8 @@ _do_emergency_recall(){  # cast by _watch_food
 # *   alternatively one could apply rod of heal, scroll of restoration
 # *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
 # *   - something like that
+
+#TODO : Something blocks your magic.
 
   _is 1 1 apply "rod of word of recall"
   _is 1 1 fire 0
@@ -433,6 +451,9 @@ _do_loop(){  # last function call of _do_program
 # ***
 _debug "_do_loop:$*"
 
+COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+
 local sc=0
 
 TIMEB=`date +%s`
@@ -451,6 +472,8 @@ do
 #  <repeat> is the number of times to execute command
 #  <must_send> tells whether or not the command must sent at all cost (1 or 0).
 #  <repeat> and <must_send> are optional parameters.
+
+#TODO : Something blocks your magic.
 
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
@@ -511,8 +534,10 @@ _do_program(){
 
 _parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAUSE
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
-readonly DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
-readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+#readonly
+DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+#readonly
+COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
 
 if test ! "$SPELL_PARAM"; then
  if test "$SPELL" = "$SPELL_DEFAULT"; then
@@ -532,7 +557,7 @@ _do_loop $COMMAND_PAUSE
 
 
 case $* in
-'') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
+#'') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
 *) _do_program "$@";;
 esac
 

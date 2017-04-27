@@ -64,3 +64,7 @@ done <<EoI
          *   spells       Return a list of known spells, one per line
 EoI
 
+
+
+# *** Here ends program *** #
+echo draw 2 "$0 is finished."
