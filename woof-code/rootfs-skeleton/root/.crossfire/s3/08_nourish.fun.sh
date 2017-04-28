@@ -39,9 +39,11 @@ _cast_create_food_and_eat(){  # called by _check_food_level()
 # problem with nested loops and _watch / _unwatch
 
 local lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
+unset lEAT_FOOD REPLY1 REPLY2 REPLY3 REPLY4 BUNGLE
 
-test "$EAT_FOOD" && lEAT_FOOD="$EAT_FOOD"
-test "$*" && lEAT_FOOD="$@"
+#test "$EAT_FOOD" && lEAT_FOOD="$EAT_FOOD"
+#test "$*" && lEAT_FOOD="$@"
+lEAT_FOOD=${*:-"$EAT_FOOD"}
 lEAT_FOOD=${lEAT_FOOD:-$FOOD_DEF}
 lEAT_FOOD=${lEAT_FOOD:-food}
 
@@ -59,7 +61,6 @@ _is 1 1 cast create food $lEAT_FOOD
 _empty_message_stream
 
 _is 1 1 fire_stop
-#sleep 0.1
 
 while :;
 do
@@ -113,6 +114,7 @@ _empty_message_stream
 
 _apply_horn_of_plenty_and_eat(){
 local REPLY BUNGLE
+unset REPLY BUNGLE
 
 _watch
 read -t $TMOUT
@@ -201,12 +203,14 @@ _unwatch
 }
 
 
-_eat_food(){
+_eat_food(){  # superseded by _cast_create_food_and_eat()
 
-local REPLY=
+local REPLY lEAT_FOOD
+unset REPLY lEAT_FOOD
 
-test "$*" && EAT_FOOD="$@"
-EAT_FOOD=${EAT_FOOD:-waybread}
+#test "$*" && EAT_FOOD="$@"
+lEAT_FOOD=${*:-"$EAT_FOOD"}
+lEAT_FOOD=${lEAT_FOOD:-waybread}
 
 #_check_food_inventory ## Todo: check if food is in INV
 
@@ -214,7 +218,7 @@ _watch
 read -t $TMOUT
 _log "$REPLY"
 _debug "$REPLY"
-_is 1 1 apply $EAT_FOOD
+_is 1 1 apply $lEAT_FOOD
 
 unset REPLY
 _unwatch
@@ -222,20 +226,25 @@ read -t $TMOUT
 
 }
 
-_check_food_level(){
+_check_food_level(){  # cast by cf_PrayXtimes.sh, _return_to_cauldron()
 
-fc=$((fc+1))
-test "$fc" -lt $COUNT_CHECK_FOOD && return
+local lCOUNT_CHECK_FOOD
+lCOUNT_CHECK_FOOD=${1:-$COUNT_CHECK_FOOD}
+lCOUNT_CHECK_FOOD=${lCOUNT_CHECK_FOOD:-300}
+
+fc=$((fc+1)) # GLOBAL !!
+test "$fc" -lt $lCOUNT_CHECK_FOOD && return 0
 fc=0
 
-test "$*" && MIN_FOOD_LEVEL="$@"
-MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-$MIN_FOOD_LEVEL_DEF}
-MIN_FOOD_LEVEL=${MIN_FOOD_LEVEL:-200}
+shift
+#test "$*" && MIN_FOOD_LEVEL="$@"
+lMIN_FOOD_LEVEL=${1:-$MIN_FOOD_LEVEL_DEF}
+lMIN_FOOD_LEVEL=${lMIN_FOOD_LEVEL:-300}
 
-local FOOD_LVL=''
-local REPLY oF
-#local Re  Stat  Hp  HP  MHP  SP  MSP  GR  MGR
- local Re  Stat  Hp      MHP      MSP  GR  MGR  # HP and SP global: cf_prayXtimes.sh, _check_mana_for_create_food()
+local lFOOD_LVL REPLY oF
+unset lFOOD_LVL REPLY oF
+#local Re  Stat  Hp      HP  MHP  SP  MSP  GR  MGR
+ local Re  Stat  Hp    # HP, MHP and SP global: cf_prayXtimes.sh, _check_mana_for_create_food()
  local Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2
 
 read -t $TMOUT  # empty the stream of messages
@@ -245,17 +254,17 @@ sleep 1
 echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
 while :;
 do
-unset FOOD_LVL
-read -t $TMOUT Re Stat Hp HP MHP SP MSP GR MGR FOOD_LVL
+unset lFOOD_LVL
+read -t $TMOUT Re Stat Hp HP MHP SP MSP GR MGR lFOOD_LVL
 test "$Re" = request || continue
 
-test "$FOOD_LVL" || break
-#test "${FOOD_LVL//[[:digit:]]/}" && break
-test "${FOOD_LVL//[0-9]/}" && break
+test "$lFOOD_LVL" || break
 
-_debug HP=$HP $MHP $SP $MSP $GR $MGR FOOD_LVL=$FOOD_LVL #DEBUG
+test "${lFOOD_LVL//[0-9]/}" && break
 
-if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
+_debug HP=$HP $MHP $SP $MSP $GR $MGR lFOOD_LVL=$lFOOD_LVL #DEBUG
+
+if test "$lFOOD_LVL" -lt $lMIN_FOOD_LEVEL; then
  #_eat_food
  _cast_create_food_and_eat $EAT_FOOD
 
@@ -265,19 +274,18 @@ if test "$FOOD_LVL" -lt $MIN_FOOD_LEVEL; then
  echo request stat hp   #hp,maxhp,sp,maxsp,grace,maxgrace,food
  #sleep 0.1
  sleep 1
- read -t $TMOUT Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 FOOD_LVL
- _debug HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 FOOD_LVL=$FOOD_LVL #DEBUG
+ read -t $TMOUT Re2 Stat2 Hp2 HP2 MHP2 SP2 MSP2 GR2 MGR2 lFOOD_LVL
+ _debug HP=$HP2 $MHP2 $SP2 $MSP2 $GR2 $MGR2 lFOOD_LVL=$lFOOD_LVL #DEBUG
 
  #return $?
  break
 fi
 
-#test "${FOOD_LVL//[[:digit:]]/}" || break
-test "${FOOD_LVL//[0-9]/}" || break
-test "$FOOD_LVL" && break
-test "$oF" = "$FOOD_LVL" && break
+test "${lFOOD_LVL//[0-9]/}" || break
+test "$lFOOD_LVL" && break
+test "$oF" = "$lFOOD_LVL" && break
 
-oF="$FOOD_LVL"
+oF="$lFOOD_LVL"
 sleep 0.1
 done
 
@@ -296,20 +304,31 @@ _watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
-local r s h HP HP_MAX FOOD_STAT
+local r s h lFOOD_STAT lFOOD
+unset r s h lFOOD_STAT lFOOD
+
+lFOOD_STAT_MIN=${1:-$FOOD_STAT_MIN}
+lFOOD_STAT_MIN=${lFOOD_STAT_MIN:-300}
+
+shift
+lFOOD=${*:-"$FOOD"}
 
 echo request stat hp
-read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
+read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX lFOOD_STAT
 
- _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
+ _debug "_watch_food:lFOOD_STAT=$lFOOD_STAT HP=$HP SP=$SP"
 
- if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-     _is 0 0 apply $FOOD
+ if test "$lFOOD_STAT" -lt $lFOOD_STAT_MIN; then
+     _is 0 0 apply $lFOOD
    sleep 1
  fi
 
- if test $HP -lt $((HP_MAX/5)); then  #
-  _do_emergency_recall
+ if test "$HP" -a "$HP_MAX"; then
+  if test "$HP" -lt $((HP_MAX/5)); then  #
+   _do_emergency_recall
+  else true
+  fi
+ else false
  fi
 
  if test "$PRAY_DO"; then
@@ -317,6 +336,7 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
  else
   _watch_wizard_spellpoints
  fi
-
-return $?
+local RV=$?
+_debug "_watch_food:RV='$RV'"
+return $RV
 }

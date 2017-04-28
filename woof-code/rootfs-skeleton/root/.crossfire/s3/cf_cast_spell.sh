@@ -48,7 +48,7 @@ LOG_FILE="$TMP_DIR"/cf_spells.$$.log
 
 
 # *** uncommon non-editable variables *** #
-readonly DIRECTION_DEFAULT=center  # center: if fighting spell suicide ?
+readonly DIRECTION_DEFAULT=center  # center: if fighting spell, suicide ?
 readonly NUMBER_DEFAULT=10         # unused
 readonly SPELL_DEFAULT='create food'     # casts 'create food'
 readonly SPELL_DEFAULT_PARAM='waybread'  # with 'waybread' as parameter
@@ -68,6 +68,8 @@ test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
 _get_player_name && {
 test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
+
+#trap "_say_end_msg" 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15  #ash: write error: Broken pipe
 
 # ***
 _usage(){
@@ -205,10 +207,34 @@ _do_loop(){  # last function call of _do_program
 # ***
 _debug "_do_loop:$*"
 
-local lCOMMAND_PAUSE
-lCOMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+local lCOMMAND_PAUSE='' lDIRECTION_NUMBER='' lSPELL='' lSPELL_PARAM=''
+
+until [ "$#" = 0 ]; do
+sleep 0.1
+case $1 in
+[0-9]*) test "$lCOMMAND_PAUSE" && lDIRECTION_NUMBER=$1 || lCOMMAND_PAUSE=$1;;
+--) shift; lSPELL_PARAM="$*"; break;;
+*) lSPELL="${lSPELL}$1 ";;
+esac
+shift
+done
+
+lSPELL=`echo -n $lSPELL`
+
+lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-$COMMAND_PAUSE}
 lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
 lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-10}
+
+lDIRECTION_NUMBER=${lDIRECTION_NUMBER:-$DIRECTION_NUMBER}
+lDIRECTION_NUMBER=${lDIRECTION_NUMBER:-$DIRECTION_NUMBER_DEFAULT}
+lDIRECTION_NUMBER=${lDIRECTION_NUMBER:-0}
+
+lSPELL=${lSPELL:-"$SPELL"}
+lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
+
+lSPELL_PARAM=${lSPELL_PARAM:-"$SPELL_PARAM"}
+lSPELL_PARAM=${lSPELL_PARAM:-"$SPELL_PARAM_DEFAULT"}
+
 
 local sc=0
 
@@ -220,7 +246,7 @@ do
  TIMEC=${TIMEE:-$TIMEB}
 
 # user could change range attack while pausing ...
- _apply_needed_spell
+ _apply_needed_spell $lSPELL -- $lSPELL_PARAM
 
 # issue <repeat> <must_send> <command> - send
 #  <command> to server on behalf of client.
@@ -230,7 +256,7 @@ do
 
 #TODO : Something blocks your magic.
 
- _is 1 1 $COMMAND $DIRECTION_NUMBER
+ _is 1 1 $COMMAND $lDIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
 
  sc=0
@@ -245,8 +271,8 @@ do
  if _counter_for_checks; then
 
  if test "$STATS_DO"; then
- _watch_food  # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
- case $? in 6)
+ _watch_food $FOOD_STAT_MIN $FOOD # calls either _watch_cleric_gracepoints OR _watch_wizard_spellpoints
+ case $? in 6|7)
   _regenerate_spell_points;;
  esac
  fi
@@ -272,7 +298,7 @@ done
 }
 
 # ***
-_error(){ # cast by _do_program, _direction_word_to_number, _parse_parameters
+__error(){ # cast by _do_program, _direction_word_to_number, _parse_parameters
 # ***
 
 RV=$1;shift
@@ -284,7 +310,7 @@ exit $RV
 _do_program(){
 # ***
 
-_parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAUSE
+_parse_parameters "$@"  # should generate global vars SPELL DIRECTION COMMAND_PAUSE
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
 readonly DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
 readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
@@ -301,7 +327,7 @@ sleep 1
 _rotate_range_attack
 sleep 1
 _direction_word_to_number $DIRECTION
-_do_loop $COMMAND_PAUSE
+_do_loop $COMMAND_PAUSE $DIRECTION_NUMBER $SPELL -- $SPELL_PARAM
 }
 
 
@@ -313,4 +339,4 @@ case $* in
 esac
 
 # *** Here ends program *** #
-_say_end_msg
+_say_end_msg  # since loops forever: not reached

@@ -218,6 +218,14 @@ _remove_err_log
 exit $RV
 }
 
+_error(){ # cast by _do_program, _direction_word_to_number, _parse_parameters
+# ***
+
+RV=$1;shift
+_draw 3 "$*"
+exit $RV
+}
+
 
 _word_to_number(){
 

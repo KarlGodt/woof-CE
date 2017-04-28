@@ -178,12 +178,14 @@ _check_for_space(){
 # *** Check for 4 empty space to DIRB *** #
 
 local REPLY_MAP OLD_REPLY NUMBERT
+unset REPLY_MAP OLD_REPLY NUMBERT
 
-test "$1" && NUMBERT="$1"
-test "$NUMBERT" || NUMBERT=4
-#test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
+#test "$1" && NUMBERT="$1"
+#test "$NUMBERT" || NUMBERT=4
+NUMBERT=${1:-4}
+
 test "${NUMBERT//[0-9]/}" && _exit 2 "_check_for_space: Need a digit. Invalid parameter passed:$*"
-_draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
+_draw 5 "Checking for space to move '$NUMBERT' tiles '$DIRB' ..."
 
 
 echo request map pos
@@ -212,7 +214,6 @@ _debug PL_POS_Y=$PL_POS_Y
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
-#if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
 if test ! "${PL_POS_X//[0-9]/}" -a ! "${PL_POS_Y//[0-9]/}"; then
 
 for nr in `seq 1 1 $NUMBERT`; do
@@ -294,13 +295,15 @@ _check_for_space_old_client(){
 # *** Check for 4 empty space to DIRB ***#
 
 local REPLY_MAP OLD_REPLY NUMBERT cm
+unset REPLY_MAP OLD_REPLY NUMBERT cm
 
-test "$1" && NUMBERT="$1"
-test "$NUMBERT" || NUMBERT=4
-#test "${NUMBERT//[[:digit:]]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
+#test "$1" && NUMBERT="$1"
+#test "$NUMBERT" || NUMBERT=4
+NUMBERT=${1:-4}
+
 test "${NUMBERT//[0-9]/}" && _exit 2 "_check_for_space_old_client: Need a digit. Invalid parameter passed:$*"
 
-_draw 5 "Checking for space to move 4 tiles '$DIRB' ..."
+_draw 5 "Checking for space to move '$NUMBERT' tiles '$DIRB' ..."
 
 sleep 0.5
 
@@ -334,7 +337,6 @@ PL_POS_Y=`echo "$REPLY_MAP" | awk '{print $4}'`
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
-#if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
 if test ! "${PL_POS_X//[0-9]/}" -a ! "${PL_POS_Y//[0-9]/}"; then
 
 for nr in `seq 1 1 $NUMBERT`; do
@@ -416,6 +418,7 @@ _prepare_rod_of_recall(){
 # *** Unreadying rod of word of recall - just in case *** #
 
 local RECALL OLD_REPLY REPLY
+unset RECALL OLD_REPLY REPLY
 
 _draw 5 "Preparing for recall if monsters come forth..."
 
@@ -449,20 +452,31 @@ _draw 6 "Done."
 
 
 # *** we may get attacked and die *** #
-_check_hp_and_return_home(){
+_check_hp_and_return_home(){  # cast by cf_PrayXtimes.sh
 
-hpc=$((hpc+1))
-test "$hpc" -lt $COUNT_CHECK_FOOD && return
+local lCOUNT_CHECK_FOOD
+
+lCOUNT_CHECK_FOOD=${1:-$COUNT_CHECK_FOOD}
+lCOUNT_CHECK_FOOD=${lCOUNT_CHECK_FOOD:-10}
+
+hpc=$((hpc+1))  # GLOBAL !!
+test "$hpc" -lt $lCOUNT_CHECK_FOOD && return 0
 hpc=0
+
+shift
 
 local REPLY=''
 
-test "$1" && local currHP=$1
-test "$2" && local currHPMin=$2
+#test "$1" && local currHP=$1
+#test "$2" && local currHPMin=$2
 
-test "$currHP"     || local currHP=$HP
-test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
-test "$currHPMin"  || local currHPMin=$((MHP/10))
+#test "$currHP"     || local currHP=$HP
+#test "$HP_MIN_DEF" && local currHPMin=$HP_MIN_DEF
+#test "$currHPMin"  || local currHPMin=$((MHP/10))
+
+currHP=${1:-$HP}
+currHPMin=${2:-$HP_MIN_DEF}
+#currHPMin=${currHPMin:-$((MHP/10))}  # TODO: look where MHP is created
 
 _debug currHP=$currHP currHPMin=$currHPMin
 if test "$currHP" -le $currHPMin; then
@@ -503,8 +517,9 @@ _rotate_range_attack(){  # cast by _do_program
 _debug "_rotate_range_attack:$*"
 
 local lSPELL REPLY_RANGE oldREPLY_RANGE
+unset lSPELL REPLY_RANGE oldREPLY_RANGE
 
-lSPELL=${SPELL:-"$*"}
+lSPELL=${*:-"$SPELL"}
 lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
 
 test "$lSPELL" || return 3

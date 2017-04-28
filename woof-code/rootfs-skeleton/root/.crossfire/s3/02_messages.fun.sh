@@ -151,29 +151,6 @@ beep -l 300 -f 1000
 ) & aPID=$!
 fi
 
-__former_count_time(){
-if test "$TIMEA" -o "$TIMEB"; then
- TIMEE=`date +%s`
- if test "$TIMEB"; then
-  TIMED=$TIMEB
- else
-  TIMED=$TIMEA
- fi
- #if test "$TIMEA"; then
- # TIMED=$TIMEA
- #else
- # TIMED=$TIMEB
- #fi
- TIMEX=$((TIMEE-TIMED))
- TIMEM=$((TIMEX/60))
- TIMES=$(( TIMEX - (TIMEM*60) ))
- case $TIMES in [0-9]) TIMES="0$TIMES";; esac
-
- #_draw 4 "Loop of script had run a total of $TIMEM minutes and $TIMES seconds."
- _draw 4 "Loop of script had run a total of $TIMEM:$TIMES minutes."
-fi
-}
-
 _say_statistics_end
 
 _remove_err_log

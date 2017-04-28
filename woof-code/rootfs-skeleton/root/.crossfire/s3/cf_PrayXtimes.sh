@@ -79,7 +79,7 @@ _draw 3 "Only :digit: numbers as further option allowed."
         }
 NUMBER=$PARAM_1
 ;;
-*) _red "Unrecognized option '$PARAM_1'";;
+*) _red "Ignoring unrecognized option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
@@ -133,8 +133,8 @@ echo "$SKILLS" | grep -q ' praying$'
 }
 
 _check_skill_praying || {
-	echo draw 3 "You do not have the abillity to pray."
-	exit 1
+        echo draw 3 "You do not have the abillity to pray."
+        exit 1
 }
 
 _get_player_speed(){
@@ -270,8 +270,8 @@ __read_reply_praying
 
 usleep $USLEEP
 
-_check_food_level
-_check_hp_and_return_home $HP
+_check_food_level $COUNT_CHECK_FOOD $MIN_FOOD_LEVEL_DEF  # creates HP
+_check_hp_and_return_home $COUNT_CHECK_FOOD $HP
 
 
 c=$((c+1))

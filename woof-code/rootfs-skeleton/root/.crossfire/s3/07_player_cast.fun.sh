@@ -21,10 +21,10 @@
 # $CAST_SPELL instead _cast_spell
 CAST_DEX=_cast_dexterity
 
-_cast_dexterity(){
+_cast_dexterity(){  # uses global DIRN, otherwise 0
 # ** cast DEXTERITY ** #
 
-local REPLY c
+local REPLY='' c=0
 
 echo watch $DRAW_INFO
 
@@ -68,10 +68,10 @@ echo unwatch $DRAW_INFO
 }
 
 
-
-_turn_direction_all(){
+_turn_direction_all(){  # uses global DIRN, otherwise 0
 
 local REPLY c spell
+unset REPLY c spell
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -81,7 +81,7 @@ echo watch $DRAW_INFO
 for spell in "probe" "detect monster" "detect evil"
 do
 
-_draw 2 "Casting $spell to turn to $DIR .."
+_draw 2 "Casting '$spell' to turn to '$DIRN' .."
 
 _is 1 1 cast $spell
 sleep 0.5
@@ -123,16 +123,19 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
-_turn_direction(){
+_turn_direction(){  # uses global DIRN, otherwise 0
 test "$*" || return 3
+
 local REPLY c spell
+unset REPLY c spell
 
 spell="$*"
+test "$spell" || return 3
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-_draw 2 "Casting $spell to turn to $DIR .."
+_draw 2 "Casting '$spell' to turn to '$DIRN' .."
 
 _is 1 1 cast $spell
 sleep 0.5
@@ -172,7 +175,16 @@ echo unwatch $DRAW_INFO
 }
 
 _turn_direction_using_spell(){
-if test "$TURN_SPELL"; then
+
+local spell=''
+
+if test "$*"; then
+
+ for spell in "$@"; do
+  _turn_direction $spell
+ done
+
+elif test "$TURN_SPELL"; then
  _turn_direction $TURN_SPELL
 else
  _turn_direction_all
@@ -186,10 +198,13 @@ _check_have_needed_spell_in_inventory(){  # cast by _do_program
 
 _debug "_check_have_needed_spell_in_inventory:$*"
 
-local lSPELL=${*:-"$SPELL"}
-local oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest
+local lSPELL oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest TIMEB TIMEE TIME
+unset lSPELL oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest TIMEB TIMEE TIME
 
-_draw 5 "Checking if have '$SPELL' ..."
+lSPELL=${*:-"$SPELL"}
+lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
+
+_draw 5 "Checking if have '$lSPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`date +%s`
@@ -213,10 +228,11 @@ done
 
 TIMEE=`date +%s`
 TIME=$((TIMEE-TIMEB))
-_debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
+_debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' sec."
 
+# TODO: Several matches
 read r s ATTYPE LVL SP_NEEDED rest <<EoI
-`echo "$SPELLS" | grep -i "$SPELL"`
+`echo "$SPELLS" | grep -i "$lSPELL"`
 EoI
 _debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
 
@@ -227,9 +243,28 @@ _apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
 
+local lSPELL='' lSPELL_PARAM=''
+
+until [ "$#" = 0 ]; do
+sleep 0.1
+case $1 in
+--) shift; lSPELL_PARAM="$*"; break;;
+*) lSPELL="${lSPELL}$1 ";;
+esac
+shift
+done
+
+lSPELL=`echo -n $lSPELL`
+
+lSPELL=${lSPELL:-"$SPELL"}
+lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
+
+lSPELL_PARAM=${lSPELL_PARAM:-"$SPELL_PARAM"}
+lSPELL_PARAM=${lSPELL_PARAM:-"$SPELL_PARAM_DEFAULT"}
+
 #TODO : Something blocks your magic.
 
-_is 1 1 cast $SPELL $SPELL_PARAM
+_is 1 1 cast $lSPELL $lSPELL_PARAM
 }
 
 # *** stub to switch wizard-cleric spells in future
@@ -238,21 +273,25 @@ _watch_wizard_spellpoints(){  # cast by _watch_food
 
 _debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
 
-SP_NEEDED=${SP_NEEDED:-$SP_MAX}
-SP_NEEDED=${SP_NEEDED:-10}
-SP_MAX=${SP_MAX:-20}
+local lSP='' lSP_NEEDED='' lSP_MAX=''
 
-if [ "$SP" -le 0 ]; then
+lSP=${1:-$SP}
+lSP_NEEDED=${SP_NEEDED:-$SP_MAX}
+lSP_NEEDED=${lSP_NEEDED:-10}
+lSP_MAX=${SP_MAX:-20}
+
+if [ "$lSP" -le 0 ]; then
+   return 7
+ elif [ "$lSP" -lt $lSP_NEEDED ]; then
    return 6
- elif [ "$SP" -lt $SP_NEEDED ]; then
-   return 6
- elif [ "$SP" -lt $SP_MAX ]; then
+ elif [ "$lSP" -lt $lSP_MAX ]; then
    return 4
- elif [ "$SP" -eq $SP_MAX ]; then
+ elif [ "$lSP" -eq $lSP_MAX ]; then
    return 0
 fi
 
-test "$SP" -ge $((SP_MAX/2)) || return 3
+# unreached:
+test "$lSP" -ge $((lSP_MAX/2)) || return 3
 }
 
 # *** stub to switch wizard-cleric spells in future
@@ -261,23 +300,32 @@ _watch_cleric_gracepoints(){  # cast by _watch_food
 
 _debug "_watch_cleric_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
 
-GR_NEEDED=${GR_NEEDED:-$SP_NEEDED}
-GR_NEEDED=${GR_NEEDED:-$GR_MAX}
-GR_NEEDED=${GR_NEEDED:-10}
-GR_MAX=${GR_MAX:-20}
+local lGR='' lGR_NEEDED='' lGR_MAX=''
 
-if [ "$GR" -le 0 ]; then
+lGR=${1:-$GR}
+lGR_NEEDED=${GR_NEEDED:-$SP_NEEDED}
+lGR_NEEDED=${lGR_NEEDED:-$GR_MAX}
+lGR_NEEDED=${lGR_NEEDED:-10}
+lGR_MAX=${GR_MAX:-20}
+
+if [ "$lGR" -lt 0 ]; then
+   return 8  # god grants prayer, though unworthy
+ elif [ "$lGR" -eq 0 ]; then
+   return 7
+ elif [ "$lGR" -lt $lGR_NEEDED ]; then
    return 6
- elif [ "$GR" -lt $GR_NEEDED ]; then
-   return 6
- elif [ "$GR" -lt $GR_MAX ]; then
+ elif [ "$lGR" -lt $lGR_MAX ]; then
    return 4
- elif [ "$GR" -eq $GR_MAX ]; then
+ elif [ "$lGR" -eq $lGR_MAX ]; then
    return 0
+ elif [ "$lGR" -eq $((lGR_MAX*2)) ]; then
+   return 0  # altar
+ elif [ "$lGR" -gt $lGR_MAX ]; then
+   return 0  # altar
 fi
 
-test "$GR" -ge $((GR_MAX/2)) || return 3
-
+# unreached:
+test "$lGR" -ge $((lGR_MAX/2)) || return 3
 }
 
 # *** stub to issue use_skill praying
@@ -285,8 +333,17 @@ _pray_up_gracepoints(){
 # ***
 
 _debug "_pray_up_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
-PRAYS=$((GR_MAX-GR))
-local c=0
+
+local lGR='' lGR_MAX='' PRAYS=1 local c=0
+
+lGR=${1:-$GR}
+lGR=${lGR:-10}
+
+lGR_MAX=${2:-$GR_MAX}
+lGR_MAX=${lGR_MAX:-15}
+
+PRAYS=$((lGR_MAX-lGR))
+
 while :;
 do
 c=$((c+1))
@@ -295,6 +352,7 @@ sleep 1
 test $c = $PRAYS && break
 done
 
+return 0
 }
 
 _regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
@@ -302,12 +360,17 @@ _regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
 # ***
 
 _draw 4 "Regenerating spell points.."
+_draw 4 "Please wait ..."
 while :;
 do
 
-sleep 20s
-_watch_food && break
-_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
+sleep 20s # TODO: could pray instead
+
+_watch_food $FOOD_STAT_MIN $FOOD && break
+
+#_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
+_verbose "Still regenerating to spellpoints $SP -> $SP_MAX .."
 done
 
+return 0
 }

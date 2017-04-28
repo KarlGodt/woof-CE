@@ -111,23 +111,17 @@ _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 local REPLY OLD_REPLY REPLY_ALL
+unset REPLY OLD_REPLY REPLY_ALL
 
 _is 1 1 pickup 0  # precaution otherwise might pick up cauldron
-#sleep 0.5
 _sleep
 
 _draw 5 "Checking for empty cauldron..."
 
 _is 1 1 apply
-#sleep 0.5
 _sleep
 
-OLD_REPLY="";
-REPLY_ALL='';
-REPLY="";
-
 _watch
-#sleep 0.5
 
 #issue <repeat> <must_send> <command>
 #- send <command> to server on behalf of client.
@@ -177,12 +171,6 @@ case $REPLY_ALL in
 *Nothing*to*take*) :;;
 *) _exit 1 "Cauldron NOT empty !!";;
 esac
-
-#test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-# _draw 3 "Cauldron NOT empty !!"
-# _draw 3 "Please empty the cauldron and try again."
-# _exit 1
-# }
 
 _unwatch
 
@@ -369,21 +357,29 @@ _is 1 1 $DIRF
 _is 1 1 $DIRF
 _is 1 1 $DIRF
 _sleep
-#sleep ${DELAY_DRAWINFO}s
 }
 
-_check_cauldron_cursed(){  #TODO
-#_is 1 1 sense curse
+_check_cauldron_cursed_spell(){  #TODO
 _is 1 1 cast detect curse
 _is 1 1 fire 0 # 0 is center
 _is 1 1 fire_stop
+}
+
+_check_cauldron_cursed_ready_skill(){  #TODO
+_is 1 1 ready_skill sense curse
+_is 1 1 fire 0 # 0 is center
+_is 1 1 fire_stop
+}
+
+_check_cauldron_cursed_use_skill(){  #TODO
+_is 1 1 use_skill sense curse
 }
 
 _return_to_cauldron(){
 
 _go_drop_alch_yeld_cauldron  ## sleeps at the end
 
-_check_food_level   ## early return or long code with sleep
+_check_food_level $COUNT_CHECK_FOOD $MIN_FOOD_LEVEL_DEF ## early return or long code with sleep
 
 _get_player_speed -l || sleep ${DELAY_DRAWINFO}s
 
