@@ -99,11 +99,6 @@ _draw 5 "-v to say what is being issued to server."
 exit 0
 }
 
-# *** Here begins program *** #
-#_draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
-_say_start_msg
-
-
 # *** functions list
 
 # ***
@@ -113,10 +108,11 @@ _direction_word_to_number(){  # cast by _do_program before _do_loop
 # * return : not used
 # * generates : DIRECTION_NUMBER
 
-DIRECTION=${1:-$DIRECTION}
-DIRECTION=${DIRECTION:-$DIRECTION_DEFAULT}
+local lDIRECTION
+lDIRECTION=${1:-$DIRECTION}
+lDIRECTION=${lDIRECTION:-$DIRECTION_DEFAULT}
 
-case $DIRECTION in
+case $lDIRECTION in
  0|c|center)    readonly DIRECTION_NUMBER=0;;
  1|n|north)     readonly DIRECTION_NUMBER=1;;
 2|ne|northeast) readonly DIRECTION_NUMBER=2;;
@@ -129,6 +125,7 @@ case $DIRECTION in
 *) _error 2 "Invalid direction '$*'"
 esac
 
+return 0
 }
 
 _parse_parameters(){  # first function run by _do_program
@@ -195,266 +192,12 @@ sleep 0.1
 shift
 done
 
-#readonly
 DIRECTION="$DIR"
-#readonly
 SPELL=`echo -n $SPELL`
 
 test "$FORCE" && CHECK_NO=1
 _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAUSE"
-#test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _error 1 "Missing SPELL -o DIRECTION -o COMMAND_PAUSE"
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using defaults."
-}
-
-
-# ***
-__check_have_needed_spell_in_inventory(){  # cast by _do_program
-# *** check if spell is applyable - takes some time ( 16 seconds )
-[ "$CHECK_NO" ] && return 0
-
-_debug "_check_have_needed_spell_in_inventory:$*"
-
-local lSPELL=${*:-"$SPELL"}
-local oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest
-
-_draw 5 "Checking if have '$SPELL' ..."
-_draw 5 "Please wait...."
-
-TIMEB=`date +%s`
-
-echo request spells
-while :;
-do
-read -t 1 oneSPELL
- _log "_check_have_needed_spell_in_inventory:$oneSPELL"
- _debug "$oneSPELL"
-
- test "$oldSPELL" = "$oneSPELL" && break
- test "$oneSPELL" || break
-
- SPELLS="$SPELLS
-$oneSPELL"
- oldSPELL="$oneSPELL"
-sleep 0.1
-done
-
-
-TIMEE=`date +%s`
-TIME=$((TIMEE-TIMEB))
-_debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
-
-read r s ATTYPE LVL SP_NEEDED rest <<EoI
-`echo "$SPELLS" | grep -i "$SPELL"`
-EoI
-_debug "_check_have_needed_spell_in_inventory:SP_NEEDED=$SP_NEEDED"
-
-echo "$SPELLS" | grep -q -i "$lSPELL"
-}
-
-# ***
-__probe_enemy(){  # cast by _do_loop
-# ***
-_debug "_probe_enemy:$*"
-
-   _is 1 1 apply -u $PROBE_ITEM
-    sleep 0.2
-   _is 1 1 apply -a $PROBE_ITEM  # 'rod of probe' should also apply heavy rod
-   # TODO: read drawinfo if successfull ..
-
-#TODO : Something blocks your magic.
-
-_is 1 1 fire $DIRECTION_NUMBER
-_is 1 1 fire_stop
-
-}
-
-# ***
-__apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
-# *** apply the spell that was given as parameter
-# *   does not cast - actual casting is done by 'fire'
-
-#TODO : Something blocks your magic.
-
-_is 1 1 cast $SPELL $SPELL_PARAM
-}
-
-__rotate_range_attack(){  # cast by _do_program
-_debug "_rotate_range_attack:$*"
-
-local REPLY_RANGE oldREPLY_RANGE
-
-_draw 5 "Checking if have '$SPELL' ready..."
-_draw 5 "Please wait...."
-
-while :;
-do
-
-echo request range
-sleep 1
-read -t 1 REPLY_RANGE
- _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
- _debug "$REPLY_RANGE"
-
- test "`echo "$REPLY_RANGE" | grep -i "$SPELL"`" && break
- test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
- test "$REPLY_RANGE" || break
-
-    _is 1 1 rotateshoottype
- oldREPLY_RANGE="$REPLY_RANGE"
-sleep 2.1
-done
-
-}
-
-# ***
-__do_emergency_recall(){  # cast by _watch_food
-# *** apply rod of word of recall if hit-points are below HP_MAX /5
-# *   fire and fire_stop it
-# *   alternatively one could apply rod of heal, scroll of restoration
-# *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
-# *   - something like that
-
-#TODO : Something blocks your magic.
-
-  _is 1 1 apply "rod of word of recall"
-  _is 1 1 fire 0
-  _is 1 1 fire_stop
-
-## apply bed of reality
-# sleep 10
-# echo issue 1 1 apply
-
-exit 5
-}
-
-# *** stub to switch wizard-cleric spells in future
-__watch_wizard_spellpoints(){  # cast by _watch_food
-# ***
-
-_debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
-
-SP_NEEDED=${SP_NEEDED:-$SP_MAX}
-SP_NEEDED=${SP_NEEDED:-10}
-SP_MAX=${SP_MAX:-20}
-
-if [ "$SP" -le 0 ]; then
-   return 6
- elif [ "$SP" -lt $SP_NEEDED ]; then
-   return 6
- elif [ "$SP" -lt $SP_MAX ]; then
-   return 4
- elif [ "$SP" -eq $SP_MAX ]; then
-   return 0
-fi
-
-test "$SP" -ge $((SP_MAX/2)) || return 3
-}
-
-# *** stub to switch wizard-cleric spells in future
-__watch_cleric_gracepoints(){  # cast by _watch_food
-# ***
-
-_debug "_watch_cleric_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
-
-GR_NEEDED=${GR_NEEDED:-$SP_NEEDED}
-GR_NEEDED=${GR_NEEDED:-$GR_MAX}
-GR_NEEDED=${GR_NEEDED:-10}
-GR_MAX=${GR_MAX:-20}
-
-if [ "$GR" -le 0 ]; then
-   return 6
- elif [ "$GR" -lt $GR_NEEDED ]; then
-   return 6
- elif [ "$GR" -lt $GR_MAX ]; then
-   return 4
- elif [ "$GR" -eq $GR_MAX ]; then
-   return 0
-fi
-
-test "$GR" -ge $((GR_MAX/2)) || return 3
-
-}
-
-# *** stub to issue use_skill praying
-__pray_up_gracepoints(){
-# ***
-
-_debug "_pray_up_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
-PRAYS=$((GR_MAX-GR))
-local c=0
-while :;
-do
-c=$((c+1))
-   _is 1 1 use_skill praying
-sleep 1
-test $c = $PRAYS && break
-done
-
-}
-
-# ***
-__watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
-                # cast by _regenerate_spell_points and breaks it if returns 0
-# *** controlling function : Probably not needed for high-level characters with
-# *   high armour class , resistances and high sustainance level
-# *   Sends stat hp request
-# *   Applies foood if neccessary
-# *   Does switch to _do_emergency_recall if necessary
-# *   Does switch to _watch_wizard_spellpoints
-# *   TODO : implement a counter to call it every Yth time, not every time
-
-local r s h HP HP_MAX FOOD_STAT
-
-echo request stat hp
-read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
-
- _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
-
- if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
-     _is 0 0 apply $FOOD
-   sleep 1
- fi
-
- if test $HP -lt $((HP_MAX/5)); then  #
-  _do_emergency_recall
- fi
-
- if test "$PRAY_DO"; then
-  _watch_cleric_gracepoints
- else
-  _watch_wizard_spellpoints
- fi
-
-return $?
-}
-
-# ***
-__regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
-                             # by _watch_cleric_gracepoints/_watch_wizard_spellpoints
-# ***
-
-_draw 4 "Regenerating spell points.."
-while :;
-do
-
-sleep 20s
-_watch_food && break
-_verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
-done
-
-}
-
-# *** both STATS_DO and PROBE_DO
-__counter_for_checks(){  # cast by _do_loop
-# ***
-_debug "_counter_for_checks:$*:$PROBE_DO:$STATS_DO:$check_c"
-
-check_c=$((check_c + 1))
-
-if test "$PROBE_DO" -o "$STATS_DO"; then
-test $check_c -eq $CHECK_COUNT && unset check_c
-else false
-fi
 }
 
 # ***
@@ -462,8 +205,10 @@ _do_loop(){  # last function call of _do_program
 # ***
 _debug "_do_loop:$*"
 
-COMMAND_PAUSE=${1:-$COMMAND_PAUSE}
-COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+local lCOMMAND_PAUSE
+lCOMMAND_PAUSE=${1:-$COMMAND_PAUSE}
+lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
+lCOMMAND_PAUSE=${lCOMMAND_PAUSE:-10}
 
 local sc=0
 
@@ -472,7 +217,6 @@ TIMEB=`date +%s`
 while :;
 do
 
- #TIMEB=`date +%s`
  TIMEC=${TIMEE:-$TIMEB}
 
 # user could change range attack while pausing ...
@@ -489,14 +233,13 @@ do
  _is 1 1 $COMMAND $DIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
 
- #sleep $COMMAND_PAUSE
  sc=0
  while :; do
   sleep 1
   _debug "PRAY_DO='$PRAY_DO'"
   test "$PRAY_DO" && _is $PRAY_DO 1 use_skill praying
   sc=$((sc+1))
-  test "$sc" -le $COMMAND_PAUSE || break
+  test "$sc" -le $lCOMMAND_PAUSE || break
  done
 
  if _counter_for_checks; then
@@ -513,8 +256,6 @@ do
  fi
 
  fi
-
- #test "$PROBE_DO" && { _counter_for_checks && { _probe_enemy; sleep 1.5; }; }
 
  one=$((one+1))
 
@@ -545,10 +286,8 @@ _do_program(){
 
 _parse_parameters "$@" # should generate global vars SPELL DIRECTION COMMAND_PAUSE
 readonly SPELL=${SPELL:-"$SPELL_DEFAULT"}
-#readonly
-DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
-#readonly
-COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
+readonly DIRECTION=${DIRECTION:-"$DIRECTION_DEFAULT"}
+readonly COMMAND_PAUSE=${COMMAND_PAUSE:-"$COMMAND_PAUSE_DEFAULT"}
 
 if test ! "$SPELL_PARAM"; then
  if test "$SPELL" = "$SPELL_DEFAULT"; then
@@ -564,14 +303,14 @@ sleep 1
 _direction_word_to_number $DIRECTION
 _do_loop $COMMAND_PAUSE
 }
-# ***
 
+
+# *** Here begins program *** #
+_say_start_msg
 
 case $* in
-#'') _draw 3 "Script needs <spell> <direction> and <number of $COMMAND pausing> as argument.";;
 *) _do_program "$@";;
 esac
 
 # *** Here ends program *** #
-#_draw 2 "$0 is finished."
 _say_end_msg
