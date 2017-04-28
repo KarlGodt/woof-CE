@@ -498,3 +498,82 @@ _is 1 1 $lDIR
 sleep 1
 
 }
+
+_rotate_range_attack(){  # cast by _do_program
+_debug "_rotate_range_attack:$*"
+
+local lSPELL REPLY_RANGE oldREPLY_RANGE
+
+lSPELL=${SPELL:-"$*"}
+lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
+
+test "$lSPELL" || return 3
+
+_draw 5 "Checking if have '$lSPELL' ready..."
+_draw 5 "Please wait...."
+
+while :;
+do
+
+echo request range
+sleep 1
+read -t 1 REPLY_RANGE
+ _log "_rotate_range_attack:REPLY_RANGE=$REPLY_RANGE"
+ _debug "$REPLY_RANGE"
+
+ test "`echo "$REPLY_RANGE" | grep -i "$lSPELL"`" && break
+ test "$oldREPLY_RANGE" = "$REPLY_RANGE" && break
+ test "$REPLY_RANGE" || break
+
+    _is 1 1 rotateshoottype
+ oldREPLY_RANGE="$REPLY_RANGE"
+sleep 2.1
+done
+
+}
+
+_do_emergency_recall(){  # cast by _watch_food
+# *** apply rod of word of recall if hit-points are below HP_MAX /5
+# *   fire and fire_stop it
+# *   alternatively one could apply rod of heal, scroll of restoration
+# *   and ommit exit ( comment 'exit 5' line by setting a '#' before it)
+# *   - something like that
+
+#TODO : Something blocks your magic.
+
+  _is 1 1 apply "rod of word of recall"
+  _is 1 1 fire 0
+  _is 1 1 fire_stop
+
+## apply bed of reality
+# sleep 10
+# echo issue 1 1 apply
+
+exit 5
+}
+
+_probe_enemy(){  # cast by _do_loop
+# ***
+_debug "_probe_enemy:$*"
+
+local lDIRECTION_NUMBER lPROBE_ITEM
+
+lDIRECTION_NUMBER=${DIRECTION_NUMBER:-$1}
+lDIRECTION_NUMBER=${lDIRECTION_NUMBER:-$DIRECTION_NUMBER_DEFAULT}
+shift
+lPROBE_ITEM=${PROBE_ITEM:-"$*"}
+lPROBE_ITEM=${lPROBE_ITEM:-"$PROBE_ITEM_DEFAULT"}
+
+test "$lPROBE_ITEM" -a "$lDIRECTION_NUMBER" || return 3
+
+   _is 1 1 apply -u $lPROBE_ITEM
+    sleep 0.2
+   _is 1 1 apply -a $lPROBE_ITEM  # 'rod of probe' should also apply heavy rod
+   # TODO: read drawinfo if successfull ..
+
+#TODO : Something blocks your magic.
+
+_is 1 1 fire $lDIRECTION_NUMBER
+_is 1 1 fire_stop
+
+}

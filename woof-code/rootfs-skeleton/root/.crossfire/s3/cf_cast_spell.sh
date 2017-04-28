@@ -208,7 +208,7 @@ test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using def
 
 
 # ***
-_check_have_needed_spell_in_inventory(){  # cast by _do_program
+__check_have_needed_spell_in_inventory(){  # cast by _do_program
 # *** check if spell is applyable - takes some time ( 16 seconds )
 [ "$CHECK_NO" ] && return 0
 
@@ -252,7 +252,7 @@ echo "$SPELLS" | grep -q -i "$lSPELL"
 }
 
 # ***
-_probe_enemy(){  # cast by _do_loop
+__probe_enemy(){  # cast by _do_loop
 # ***
 _debug "_probe_enemy:$*"
 
@@ -269,7 +269,7 @@ _is 1 1 fire_stop
 }
 
 # ***
-_apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
+__apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
 # *** apply the spell that was given as parameter
 # *   does not cast - actual casting is done by 'fire'
 
@@ -278,7 +278,7 @@ _apply_needed_spell(){  # cast by _do_program AND _do_loop; has no params
 _is 1 1 cast $SPELL $SPELL_PARAM
 }
 
-_rotate_range_attack(){  # cast by _do_program
+__rotate_range_attack(){  # cast by _do_program
 _debug "_rotate_range_attack:$*"
 
 local REPLY_RANGE oldREPLY_RANGE
@@ -307,7 +307,7 @@ done
 }
 
 # ***
-_do_emergency_recall(){  # cast by _watch_food
+__do_emergency_recall(){  # cast by _watch_food
 # *** apply rod of word of recall if hit-points are below HP_MAX /5
 # *   fire and fire_stop it
 # *   alternatively one could apply rod of heal, scroll of restoration
@@ -328,7 +328,7 @@ exit 5
 }
 
 # *** stub to switch wizard-cleric spells in future
-_watch_wizard_spellpoints(){  # cast by _watch_food
+__watch_wizard_spellpoints(){  # cast by _watch_food
 # ***
 
 _debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
@@ -351,7 +351,7 @@ test "$SP" -ge $((SP_MAX/2)) || return 3
 }
 
 # *** stub to switch wizard-cleric spells in future
-_watch_cleric_gracepoints(){  # cast by _watch_food
+__watch_cleric_gracepoints(){  # cast by _watch_food
 # ***
 
 _debug "_watch_cleric_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
@@ -376,7 +376,7 @@ test "$GR" -ge $((GR_MAX/2)) || return 3
 }
 
 # *** stub to issue use_skill praying
-_pray_up_gracepoints(){
+__pray_up_gracepoints(){
 # ***
 
 _debug "_pray_up_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
@@ -393,7 +393,7 @@ done
 }
 
 # ***
-_watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
+__watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
                 # cast by _regenerate_spell_points and breaks it if returns 0
 # *** controlling function : Probably not needed for high-level characters with
 # *   high armour class , resistances and high sustainance level
@@ -429,7 +429,7 @@ return $?
 }
 
 # ***
-_regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
+__regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
                              # by _watch_cleric_gracepoints/_watch_wizard_spellpoints
 # ***
 
@@ -445,7 +445,7 @@ done
 }
 
 # *** both STATS_DO and PROBE_DO
-_counter_for_checks(){  # cast by _do_loop
+__counter_for_checks(){  # cast by _do_loop
 # ***
 _debug "_counter_for_checks:$*:$PROBE_DO:$STATS_DO:$check_c"
 

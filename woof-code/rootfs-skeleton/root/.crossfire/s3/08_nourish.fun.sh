@@ -285,3 +285,38 @@ _unwatch
 }
 
 #Food
+
+_watch_food(){  # cast by _do_loop if _conter_for_checks returns 0
+                # cast by _regenerate_spell_points and breaks it if returns 0
+# *** controlling function : Probably not needed for high-level characters with
+# *   high armour class , resistances and high sustainance level
+# *   Sends stat hp request
+# *   Applies foood if neccessary
+# *   Does switch to _do_emergency_recall if necessary
+# *   Does switch to _watch_wizard_spellpoints
+# *   TODO : implement a counter to call it every Yth time, not every time
+
+local r s h HP HP_MAX FOOD_STAT
+
+echo request stat hp
+read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
+
+ _debug "_watch_food:FOOD_STAT=$FOOD_STAT HP=$HP SP=$SP"
+
+ if test "$FOOD_STAT" -lt $FOOD_STAT_MIN; then
+     _is 0 0 apply $FOOD
+   sleep 1
+ fi
+
+ if test $HP -lt $((HP_MAX/5)); then  #
+  _do_emergency_recall
+ fi
+
+ if test "$PRAY_DO"; then
+  _watch_cleric_gracepoints
+ else
+  _watch_wizard_spellpoints
+ fi
+
+return $?
+}

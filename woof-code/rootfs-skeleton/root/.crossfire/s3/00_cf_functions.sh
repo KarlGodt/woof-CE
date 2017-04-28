@@ -223,26 +223,26 @@ _word_to_number(){
 
 case ${1:-PARAM_1} in
 
-one)      	PARAM_1=1;;
-two)      	PARAM_1=2;;
-three)    	PARAM_1=3;;
-four)		PARAM_1=4;;
-five)		PARAM_1=5;;
-six)		PARAM_1=6;;
-seven)		PARAM_1=7;;
-eight)		PARAM_1=8;;
-nine)		PARAM_1=9;;
-ten)		PARAM_1=10;;
-eleven)		PARAM_1=11;;
-twelve)		PARAM_1=12;;
-thirteen)	PARAM_1=13;;
-fourteen)	PARAM_1=14;;
-fifteen)	PARAM_1=15;;
-sixteen)	PARAM_1=16;;
-seventeen)	PARAM_1=17;;
-eighteen)	PARAM_1=18;;
-nineteen)	PARAM_1=19;;
-twenty)		PARAM_1=20;;
+one)            PARAM_1=1;;
+two)            PARAM_1=2;;
+three)          PARAM_1=3;;
+four)           PARAM_1=4;;
+five)           PARAM_1=5;;
+six)            PARAM_1=6;;
+seven)          PARAM_1=7;;
+eight)          PARAM_1=8;;
+nine)           PARAM_1=9;;
+ten)            PARAM_1=10;;
+eleven)         PARAM_1=11;;
+twelve)         PARAM_1=12;;
+thirteen)       PARAM_1=13;;
+fourteen)       PARAM_1=14;;
+fifteen)        PARAM_1=15;;
+sixteen)        PARAM_1=16;;
+seventeen)      PARAM_1=17;;
+eighteen)       PARAM_1=18;;
+nineteen)       PARAM_1=19;;
+twenty)         PARAM_1=20;;
 
 esac
 
@@ -383,3 +383,31 @@ _draw 7 "OK."
 return 0
 }
 
+# *** both STATS_DO and PROBE_DO
+_counter_for_checks(){  # cast by _do_loop
+# ***
+_debug "_counter_for_checks:$*:$PROBE_DO:$STATS_DO:$check_c"
+
+check_c=$((check_c + 1))
+
+if test "$PROBE_DO" -o "$STATS_DO"; then
+test $check_c -eq $CHECK_COUNT && unset check_c
+else false
+fi
+}
+
+# *** STATS_DO
+_counter_for_checks1(){
+# ***
+#test "$check_c" -eq $CHECK_COUNT && unset check_c
+check_c1=$((check_c1+1))
+test $check_c1 -eq $CHECK_COUNT_FOOD && unset check_c1
+}
+
+# *** PROBE_DO
+_counter_for_checks2(){
+# ***
+#test "$check_c2" -eq $CHECK_COUNT && unset check_c
+check_c2=$((check_c2+1))
+test $check_c2 -eq $CHECK_COUNT_PROBE && unset check_c2
+}
