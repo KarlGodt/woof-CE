@@ -100,7 +100,9 @@ exit 0
 }
 
 # *** Here begins program *** #
-_draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
+#_draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
+_say_start_msg
+
 
 # *** functions list
 
@@ -331,6 +333,10 @@ _watch_wizard_spellpoints(){  # cast by _watch_food
 
 _debug "_watch_wizard_spellpoints:$*:SP=$SP SP_MAX=$SP_MAX"
 
+SP_NEEDED=${SP_NEEDED:-$SP_MAX}
+SP_NEEDED=${SP_NEEDED:-10}
+SP_MAX=${SP_MAX:-20}
+
 if [ "$SP" -le 0 ]; then
    return 6
  elif [ "$SP" -lt $SP_NEEDED ]; then
@@ -339,7 +345,7 @@ if [ "$SP" -le 0 ]; then
    return 4
  elif [ "$SP" -eq $SP_MAX ]; then
    return 0
- fi
+fi
 
 test "$SP" -ge $((SP_MAX/2)) || return 3
 }
@@ -350,6 +356,11 @@ _watch_cleric_gracepoints(){  # cast by _watch_food
 
 _debug "_watch_cleric_gracepoints:$*:GR=$GR GR_MAX=$GR_MAX"
 
+GR_NEEDED=${GR_NEEDED:-$SP_NEEDED}
+GR_NEEDED=${GR_NEEDED:-$GR_MAX}
+GR_NEEDED=${GR_NEEDED:-10}
+GR_MAX=${GR_MAX:-20}
+
 if [ "$GR" -le 0 ]; then
    return 6
  elif [ "$GR" -lt $GR_NEEDED ]; then
@@ -358,7 +369,7 @@ if [ "$GR" -le 0 ]; then
    return 4
  elif [ "$GR" -eq $GR_MAX ]; then
    return 0
- fi
+fi
 
 test "$GR" -ge $((GR_MAX/2)) || return 3
 
@@ -562,4 +573,5 @@ case $* in
 esac
 
 # *** Here ends program *** #
-_draw 2 "$0 is finished."
+#_draw 2 "$0 is finished."
+_say_end_msg
