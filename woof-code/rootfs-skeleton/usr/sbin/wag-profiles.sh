@@ -180,16 +180,16 @@ CONFIG_WL_DIR="${CONFIG_NET_WIZ_DIR}/wireless"
 # network profiles, like the blocks in /etc/WAG/profile-conf used to be
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 PROFILES_DIR=${PROFILES_DIR:-'/etc/network-wizard/wireless/profiles'}
-[ -d $PROFILES_DIR ] || mkdir -p $PROFILES_DIR
+[ -d "$PROFILES_DIR" ] || mkdir -p "$PROFILES_DIR"
 # wpa_supplicant.conf files
 # named ${PROFILE_AP_MAC}.${PROFILE_ENCRYPTION}.conf
 WPA_SUPP_DIR=${WPA_SUPP_DIR:-'/etc/network-wizard/wireless/wpa_profiles'}
-[ -d $WPA_SUPP_DIR ] || mkdir -p $WPA_SUPP_DIR
+[ -d "$WPA_SUPP_DIR" ] || mkdir -p "$WPA_SUPP_DIR"
 # configuration data for wireless interfaces (like if they support wpa)
 # named $HWADDRESS.conf (assuming the HWaddress is more unique than interface name...)
 # mainly intended to know if interface has been "configured"...
 WLAN_INTERFACES_DIR=${WLAN_INTERFACES_DIR='/etc/network-wizard/wireless/interfaces'}
-[ -d $WLAN_INTERFACES_DIR ] || mkdir -p $WLAN_INTERFACES_DIR
+[ -d "$WLAN_INTERFACES_DIR" ] || mkdir -p "$WLAN_INTERFACES_DIR"
 
 # a file where WPA-supporting modules not included in the default list can be added
 Extra_WPA_Modules_File=${Extra_WPA_Modules_File:='/etc/network-wizard/wpa_modules'}
