@@ -5,7 +5,8 @@
 chvt 1
 
 MY_SELF="$0"
-MY_REAL=`readlink -f "$0"`  # BB readlink does not know the -e option
+#MY_REAL=`readlink -f "$0"`  # BB readlink does not know the -e option
+MY_REAL=`realpath "$0"`
 
 BN_SELF="${MY_SELF##*/}"    #basename ie poweroff, reboot
 BN_REAL="${MY_REAL##*/}"    #basename ie shutdown
@@ -143,7 +144,7 @@ case $? in
 *) :
    #non-zero: an error occured
    #maybe killed by fuser or killzombies
-   echo -e "$COLOR_RED""An Error Occurred." >"$TTY"
+   echo -e "$COLOR_RED""An Error Occurred."        >"$TTY"
    echo -e "$COLOR_red""Will return to X desktop." >"$TTY"
    sleep 5s
    mountpoint $Q /dev/pts || mount -t devpts devpts /dev/pts
