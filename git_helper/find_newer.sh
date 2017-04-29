@@ -14,6 +14,36 @@ echo "$*"
 exit $retVAL
 }
 
+
+_usage(){
+RV=${1:-0}
+shift
+EXTRA_MSG=`gettext "$*"`
+
+MSG="
+$0 :
+
+# this script runs find in
+# /root/Github.d/KarlGodt_ForkWoof.Push.D woof-code/rootfs-skeleton
+# and then stat and then diff and if different
+# appends to /tmp/find_newer.diff
+# it does not add and commit to git
+# but if directory missing on OS, copies into OS
+"
+
+MSG=`gettext "$MSG"`
+test "$EXTRA_MSG" && echo "$EXTRA_MSG
+"
+echo "$MSG
+"
+
+exit $RV
+}
+
+case $* in
+-h|*help|*usage) _usage;;
+esac
+
 cd /root/Github.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/Github.d/KarlGodt_ForkWoof.Push.D"
 
 test -d woof-code || _exit 1 "Directory woof-code missing"

@@ -45,6 +45,56 @@ GIT_COMMIT_MSG=${GIT_COMMIT_MSG:-"Maintanance update through ${0##*/} ."}
 CHECK_LIST_FILE="$HOME/git_check.lst"
 rm $VERB -f "$CHECK_LIST_FILE"
 
+_usage(){
+RV=${1:-0}
+shift
+EXTRA_MSG=`gettext "$*"`
+
+MSG="
+$0 :
+
+Script to check modified files using
+stat and diff .
+Either updates files in OS and or GIT.
+
+VARIABLES:
+# git commit message
+GIT_COMMIT_MSG <$GIT_COMMIT_MSG>
+
+# DRY_RUN set to anything to give usual test output but continue loop before copying anything
+DRY_RUN <$DRY_RUN>
+
+# ONLY_SCRIPTS set to anything to ommit list of non-sh files like png, wav, gz ..
+ONLY_SCRIPTS <$ONLY_SCRIPTS>
+
+# CREATE_CHECK_FILE set to anything to write list to $CHECK_LIST_FILE
+CREATE_CHECK_FILE <$CREATE_CHECK_FILE>
+
+# DO_UPDATE_SYSTEM set to anything to replace system files with newer git files
+DO_UPDATE_SYSTEM <$DO_UPDATE_SYSTEM>
+# FORCE_SYSTEM_REPLACE set to anything to replace system files with the git files
+FORCE_SYSTEM_REPLACE <$FORCE_SYSTEM_REPLACE> ##TODO
+
+# DO_UPDATE_GIT set to anything to replace git files with newer system files
+DO_UPDATE_GIT <$DO_UPDATE_GIT>
+# FORCE_GIT_REPLACE set to anything to replace git files with system files
+FORCE_GIT_REPLACE <$FORCE_GIT_REPLACE>
+"
+
+MSG=`gettext "$MSG"`
+test "$EXTRA_MSG" && echo "$EXTRA_MSG
+"
+echo "$MSG
+"
+
+exit $RV
+}
+
+case $* in
+-h|*help|*usage) _usage;;
+-D|--dry-run) DRY_RUN=$((DRY_RUN+1));;
+esac
+
 pwd #DEBUG
 _cd_program_dir || _exit 2 "Unable to change into this directory."
 pwd #DEBUG

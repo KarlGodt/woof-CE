@@ -7,6 +7,31 @@ echo "$*"
 exit $retVAL
 }
 
+_usage(){
+RV=${1:-0}
+shift
+EXTRA_MSG=`gettext "$*"`
+
+MSG="
+$0 :
+
+# TODO ????
+"
+
+MSG=`gettext "$MSG"`
+test "$EXTRA_MSG" && echo "$EXTRA_MSG
+"
+echo "$MSG
+"
+
+exit $RV
+}
+
+case $* in
+-h|*help|*usage) _usage;;
+esac
+
+
 cd /root/GitHub.d/KarlGodt_ForkWoof.Push.D || _exit 1 "No directory /root/GitHub.d/KarlGodt_ForkWoof.Push.D"
 
 test -d woof-code || _exit 1 "Directory woof-code missing"

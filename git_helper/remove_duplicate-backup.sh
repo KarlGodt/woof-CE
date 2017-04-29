@@ -1,5 +1,31 @@
 #!/bin/ash
 
+
+_usage(){
+RV=${1:-0}
+shift
+EXTRA_MSG=`gettext "$*"`
+
+MSG="
+$0 :
+
+# TODO ????
+"
+
+MSG=`gettext "$MSG"`
+test "$EXTRA_MSG" && echo "$EXTRA_MSG
+"
+echo "$MSG
+"
+
+exit $RV
+}
+
+case $* in
+-h|*help|*usage) _usage;;
+esac
+
+
 TTY=`tty`
 
 rm -f /tmp/duplicates.lst
