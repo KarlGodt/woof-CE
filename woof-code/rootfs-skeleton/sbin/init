@@ -563,7 +563,6 @@ _check_puppy_kernel_parameter fsck  ##+++2012-02-02 2016-10-11
 [ $? = 0 ] && pfixFSCK='yes'
 [ "$pfixFSCK" = 'yes' ] || _check_errflg || _do_busybox_init ###KRG
 
-
 _leave_to_simple_console(){
 #[ -n "$ERRMSG" ] && echo -e "$Red""$ERRMSG""$Res"
 [ "$*" ] && echo -e '\033[0;31m'"$*"'\033[0;39m'
@@ -577,23 +576,6 @@ esac
 echo -e "$Gre""Type 'busybox reboot -f' , 'kill 1' or press Cnt+Alt+Del to reboot.""$Res"
 exec chroot . sh
 }
-
-case $DEV1FS in
- ext2|ext3|ext4)
-  echo -e "$YEL"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-  if [ -n "$ErrFlag" ]; then
-  echo "Performing filesystem check of '${PDEV1}' after improper shutdown."
-  elif [ "$pfixFSCK" ]; then
-  echo "Performing filesystem check of '${PDEV1}' for given kernel parameter."
-  FSCK='yes'
-  else
-  echo "Performing scheduled filesystem check of '${PDEV1}' ."
-  echo -e "$Gre""Use 'tune2fs -i $todayD[d|w|m] [+-] -C $maxmnt [+-] /dev/$PDEV1' to adjust ."
-  fi
-  echo -e "$BLU""NOTE: no progress indication, may take awhile, please wait patiently..."
-  echo -e "$Res"
-  echo
-
 
 _ask_to_continue(){
 echo -e "$Res"
@@ -613,6 +595,10 @@ if [ "$Key" = "n" -o "$Key" = "c" -o "$Key" = "k" ]; then
 _leave_to_simple_console 'dropping to console now, partition still mounted !'
 fi
 }
+
+# REM: Driver funcions.
+#      Until now I could not find any buggy drivers except ub.ko , which is blacklisted.
+#      To load drivers is to get a proper display and input working.
 
 failsafe_func(){
 #rm -rf /tmp/*  ##+++2011_10_31 moved here
@@ -634,7 +620,6 @@ fi
 [ "$safeBoot" = "0" ] && safeboot=9
 echo 'safeBoot='"$safeBoot"
 }
-failsafe_func
 
 modprobe_conf_func() {
 #test -d /etc/mult_kernels || mkdir $VERB /etc/mult_kernels
@@ -794,6 +779,12 @@ else
 fi
 } #_start_hotplug_program with update_modprobe_conf_func AND modprobe_conf_func inside
 
+_kill_daemons(){
+    killall udevd
+    killall pup_event_backend_modprobe_protect
+    killall pup_event_backend_d
+}
+
 _load_kernel_drivers(){
 
 INITSTATE=`find /sys -name "initstate"`
@@ -868,12 +859,6 @@ sleep 15s
 echo
 
 }
-_load_usb_drivers
-
-#UPDATEdevCOUNT=0
-_start_hotplug_program
-_load_kernel_drivers
-_create_correct_partition_device_nodes
 
 _load_input_drivers(){
 if [ "$safeBoot" = "2" ]; then
@@ -890,7 +875,6 @@ done
 echo -e "$Res"
 fi
 }
-_load_input_drivers
 
 _load_fb_drivers() {
 [ "$safeBoot" -lt "14" ] || return 0
@@ -960,8 +944,6 @@ POOL=`echo "$POOL" | sort -u`
  fi
  fi
 }
-_load_fb_drivers  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
-sleep 5s  ###DBG
 
 _ask_to_debug(){
     OUT=/dev/null;ERR=$OUT
@@ -999,13 +981,48 @@ SLEEP=$((DebugVal+1))
 [ "$DebugVal" -ge "1" ] && echo && echo -e "$Ora"'TimeOut='"$Res""$TimeOut""$Ora"' , additional_sleep_value='"$Res""$SLEEP"
 echo -e "$Res"
 }
-_ask_to_debug
 
-_kill_daemons(){
-    killall udevd
-    killall pup_event_backend_modprobe_protect
-    killall pup_event_backend_d
-}
+case $DEV1FS in
+ ext2|ext3|ext4)
+  echo -e "$YEL"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  if [ -n "$ErrFlag" ]; then
+  echo "Performing filesystem check of '${PDEV1}' after improper shutdown."
+  elif [ "$pfixFSCK" ]; then
+  echo "Performing filesystem check of '${PDEV1}' for given kernel parameter."
+  FSCK='yes'
+  else
+  echo "Performing scheduled filesystem check of '${PDEV1}' ."
+  echo -e "$Gre""Use 'tune2fs -i $todayD[d|w|m] [+-] -C $maxmnt [+-] /dev/$PDEV1' to adjust ."
+  fi
+  echo -e "$BLU""NOTE: no progress indication, may take awhile, please wait patiently..."
+  echo -e "$Res"
+  echo
+;;
+ *)
+  echo -e "$RED"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
+  echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
+  echo -e "$Res"
+  sleep 5s
+  #mount $VERB $VERB -o remount,ro /  ###KRG
+  #exec busybox init  ###should be something like umount -ar ; reboot ###KRG
+ _do_busybox_init
+;;
+esac
+
+
+failsafe_func
+
+_load_usb_drivers
+#UPDATEdevCOUNT=0
+_start_hotplug_program
+_load_kernel_drivers
+_create_correct_partition_device_nodes
+
+_load_input_drivers
+_load_fb_drivers  ###COMMENT if required ; fbcon makes colors little greyish  ###KRG
+sleep 5s  ###DBG
+
+_ask_to_debug
 _kill_daemons 2>>$ERR
 
 _do_fsck(){
@@ -1363,7 +1380,7 @@ FS=`mount | grep -Fw '/' | grep '/dev' | tr -s ' ' | cut -f 5 -d ' '`
 PDEV1="$ROOTDRIVE"
 DEV1FS="$FS"
 [ "$DebugVal" -eq "2" ] && echo -e "$Ora""$ROOTDRIVE $ROOTBLOCKDRIVE $FS "','" $PDEV1 $DEV1FS"
-DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#[[:alpha:][:punct:]]$##`
+DMESG=`dmesg | grep 'Mounted root' | grep -o 'device.*' | cut -f 2 -d ' ' | sed 's#[[:alpha:][:punct:]]$##'`  #+-2017-04-29 added missing closing quote to sed
 MAJ=`echo $DMESG | cut -f 1 -d ':'`
 Min=`echo $DMESG | cut -f 2 -d ':'`
 CATPP=`cat /proc/partitions | sed 's#^[a-zA-Z].*##g ; s#^[[:blank:]][a-zA-Z]##g ; /^$/d' | tr -s ' ' | sed 's#^ ##'`
@@ -1587,7 +1604,7 @@ _copy_busybox
   done
 
 _preserve_chroot(){
-  CHROOT=`which chroot | grep '^/sbin/`
+  CHROOT=`which chroot | grep '^/sbin/'`  #+-2017-04-29 added missing closing quote to grep
   if [ -n "$CHROOT" ] && [ ! -L "$CHROOT" ] && [ -x "$CHROOT" ]; then
   echo "$CHROOT is no link but executable ,
 creating backup of $CHROOT.bac
@@ -1959,13 +1976,4 @@ fuser_func(){  ##+-+2011_10_28 commented for now
   else
   exec chroot . sh -c "exec busybox init" <dev/console >dev/console 2>&1
   fi
- ;;
- *)
-  echo -e "$RED"  #34=blue, 33=yellow, 32=green, 31=red, 35=purple, 36=aquablue, 38=black.
-  echo -n "Previous improper shutdown, sorry can only do f.s. check of ext2/3/4."
-  echo -e "$Res"
-  sleep 5s
-  mount $VERB $VERB -o remount,ro /  ###KRG
-  exec busybox init  ###should be something like umount -ar ; reboot ###KRG
- ;;
-esac
+
