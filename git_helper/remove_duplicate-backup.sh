@@ -9,7 +9,10 @@ EXTRA_MSG=`gettext "$*"`
 MSG="
 $0 :
 
-# TODO ????
+# script to create /tmp/duplicates.lst
+# from ls -1dv *.~[0-9]~ output.
+# then non-interactively rm duplicate backups
+# with writing to /tmp/remove_duplicates.log
 "
 
 MSG=`gettext "$MSG"`
@@ -77,7 +80,7 @@ echo
  diff -qs "$x" "$y" || continue
 
  echo "$x $y :Would remove one file" >$TTY
- test -e "$x" && rm "$x"
+ test -e "$x" && rm $VERB "$x"
 
  done
 

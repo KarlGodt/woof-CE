@@ -15,7 +15,8 @@ EXTRA_MSG=`gettext "$*"`
 MSG="
 $0 :
 
-# TODO ????
+# script to find broken links in
+# /root/GitHub.d/KarlGodt_ForkWoof.Push.D
 "
 
 MSG=`gettext "$MSG"`

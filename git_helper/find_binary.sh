@@ -16,7 +16,11 @@ EXTRA_MSG=`gettext "$*"`
 MSG="
 $0 :
 
-# TODO ????
+# script to find non-scripts like
+# .pet or .jpg in
+# /root/GitHub.d/KarlGodt_ForkWoof.Push.D
+# directory.
+# just prints filename if LSB.
 "
 
 MSG=`gettext "$MSG"`
@@ -65,7 +69,7 @@ for file in     \
  $FILE_PIC
 do
 
-echo "$file"
+echo "$file" #DEBUG
 
 case "$file"
 in
@@ -74,15 +78,15 @@ in
 *) : ;;
 esac
 
-echo "$file"
-GREP_LINE="${GREP_LINE}${file}|"
+echo "$file" #DEBUG
+GREP_LINE="${GREP_LINE}${file}|" # for grep -E
 
 done
 
 GREP_LINE=`echo "$GREP_LINE" | sed 's/^|*//;s!|*$!!' | tr -s '|'`
 
-echo "GREP_LINE='$GREP_LINE'"
-#exit
+echo "GREP_LINE='$GREP_LINE'" #DEBUG
+#exit #DEBUG
 
 while read oneFILE
 
@@ -94,9 +98,11 @@ test "`echo "$oneFILE" | grep -E "$GREP_LINE"`" && continue
 
 oneFILEonOS=`echo "${oneFILE}" | sed 's!woof-code/rootfs-skeleton!!'`
 
-echo "$oneFILE"
+echo "$oneFILE"  #DEBUG
+
 #echo "realpath:`realpath $oneFILE`"
 #echo "readlink:`readlink $oneFILE`"
+
 echo -en '\e[1;31m'
 file "$oneLINK" | grep LSB
 echo -e '\e[0;39m'
