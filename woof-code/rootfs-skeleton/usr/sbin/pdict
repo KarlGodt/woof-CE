@@ -1,14 +1,22 @@
 #!/bin/ash
 ##! /usr/sbin/gtkdialog3 -e
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #BK nov 2007 gui frontend for dict.
 
-DICT_BIN=dico #dict
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 
-HAVE_INTERNET=`ifconfig | grep '^[[:alnum:]]\+' | awk '{print $1}'`
+for one in dict dico
+do
+which $one >>$OUT && DICT_BIN=$one #dict
+done
+which $DICT_BIN >>$OUT || _exit 3 "No dictionary program found in PATH ."
 
-for one in $HAVE_INTERNET ; do
+      HAVE_LO=`ifconfig | grep '^[[:alnum:]]\+' | awk '{print $1}' | grep '^lo'`
+HAVE_INTERNET=`ifconfig | grep '^[[:alnum:]]\+' | awk '{print $1}' | grep -v '^lo'`
+
+test "$HAVE_LO" -o "$HAVE_INTERNET" || _exit 4 "Neither local nor external networking available."
+
+for one in $HAVE_LO $HAVE_INTERNET ; do
 case $one in
 lo) HOST="--host 127.0.0.1"
 
@@ -44,26 +52,40 @@ _make_dico_list(){
 #easton ""
 #bouvier "Bouvier's Law Dictionary, Revised 6th Ed (1856)"
 
-DICTLIST="`dico --dbs --host=127.0.0.1`"
-echo "$DICTLIST"
+#DICTLIST="`dico --dbs --host=127.0.0.1`"
+DICTLIST="`dico --dbs`"
+_info "$DICTLIST"
 }
 
 _make_dict_sh(){
-echo '#/bin/sh' >/tmp/pdict-func1
-echo 'dict -d $2 $1  >/tmp/pdict-results.txt 2>&1'  >>/tmp/pdict-func1
+(
+echo '#/bin/sh'
+echo 'set - $MYCHOICE'
+echo 'dict -d $1 "$WORD" >/tmp/pdict-results.txt 2>&1'
+) >/tmp/pdict-func1
 chmod $VERB 755 /tmp/pdict-func1
 }
 
 _make_dico_sh(){
-echo '#/bin/sh' >/tmp/pdict-func1
-#echo 'dico --host=127.0.0.1 -d $2 $1  >/tmp/pdict-results.txt 2>&1'  >>/tmp/pdict-func1
-echo "dico $HOST"' -d $2 $1  >/tmp/pdict-results.txt 2>&1'  >>/tmp/pdict-func1
+(
+echo '#/bin/sh'
+echo 'exec 1>/tmp/pdict-results.txt 2>&1'
+echo 'case $MYCHOICE in all*) :;;'
+echo '*) DB="-d ${MYCHOICE%% *}";;'
+echo 'esac'
+#echo 'set - $MYCHOICE'
+#echo 'echo $*'
+#echo 'echo "WORD='"'"'$WORD'"'"'"'
+echo 'dico $DB "$WORD"'
+#echo "dico $HOST"' -d $1 "$WORD"'
+) >/tmp/pdict-func1
 chmod $VERB 755 /tmp/pdict-func1
 }
 
 case $DICT_BIN in
 
 dict) _make_dict_list
+
 COMBOCONTENT="`echo "$DICTLIST" | tr "'" "_" | grep '^ ' | grep -v '^ \-' | sed -e 's/^ //' | sed -e 's/^/<item>/' | sed -e 's/$/<\/item>/'`" #'geany
 COMBOCONTENT="<item>all        Search all databases</item>
 ${COMBOCONTENT}"
@@ -72,8 +94,12 @@ _make_dict_sh
 ;;
 
 dico) _make_dico_list
+
 COMBOCONTENT=`echo "$DICTLIST" | tr "'" "_" | sed -e 's/^/<item>/' | sed -e 's/$/<\/item>/'`
-echo "$COMBOCONTENT"
+COMBOCONTENT="<item>all        Search all databases</item>
+${COMBOCONTENT}"
+
+_debug "$COMBOCONTENT"
 
 _make_dico_sh
 ;;
@@ -84,7 +110,7 @@ esac
 
 
 export MAIN_DIALOG="
-<window title=\"Pdict dictionary and thesaurus\" icon-name=\"gtk-info\">
+<window title=\"Pdict dictionary and thesaurus : $DICT_BIN\" icon-name=\"gtk-info\">
  <vbox>
   <hbox>
    <text><label>enter a word:</label></text>
@@ -94,7 +120,7 @@ export MAIN_DIALOG="
    <button has-default=\"true\">
     <input file stock=\"gtk-find\"></input>
     <label>dict</label>
-    <action>/tmp/pdict-func1 \$WORD \$MYCHOICE</action>
+    <action>/tmp/pdict-func1</action>
     <action>refresh:INFO</action>
    </button>
   </hbox>
@@ -136,6 +162,6 @@ chmod $VERB 755 /tmp/delaygtkrc.sh
 
 RETSTRING="`gtkdialog3 --program=MAIN_DIALOG`"
 
-rm /tmp/pdict*
+[ "$DEBUG" ] || rm $VERB -f /tmp/pdict*
 
 ###END###
