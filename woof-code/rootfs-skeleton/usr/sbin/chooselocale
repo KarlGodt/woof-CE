@@ -3,14 +3,17 @@
 #2009 Lesser GPL licence v2 (http://www.fsf.org/licensing/licenses/lgpl.html)
 #w001 initial creation.
 #w004 checkbox for utf8. w019 fixup.
-#w470 $1=composeonly option, when call from 3builddistro. 
+#w470 $1=composeonly option, when call from 3builddistro.
 #w473 disable en_US.utf8 generation, hangs PC if low RAM (64MB system).
 #w478 bugfix, dialog_table was incorrect.
-. /etc/rc.d/f4puppy5
-# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #v431 updated LANGUAGEDESCR variable.
 
-startLang="$LANG"
+. /etc/rc.d/f4puppy5
+# BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
+
+echo "$0:$*:START:pid=$$:ppid=$PPID" >>/tmp/${0##*/}.log
+
+startLANG="$LANG"
 LANG=C #Xdialog seems to need this.
 export LANG
 
@@ -19,19 +22,23 @@ PARAM1=""
 
 . /etc/DISTRO_SPECS
 
-mainFile='/etc/profile'
-CURRLANG="`grep '^LANG=' $mainFile | cut -f 2 -d '='`"
+mainFILE='/etc/profile'
+CURRLANG="`grep '^LANG=' $mainFILE | cut -f 2 -d '='`"
 if [ -z "$CURRLANG" ] ; then
-mainFile='/etc/bash_completion.d/bashrc'
-CURRLANG="`grep '^LANG=' $mainFile | cut -f 2 -d '='`"
+mainFILE='/etc/bash_completion.d/bashrc'
+CURRLANG="`grep '^LANG=' $mainFILE | cut -f 2 -d '='`"
 fi
-[ -z "$CURRLANG" ] && CURRLANG="$startLang"
+[ -z "$CURRLANG" ] && CURRLANG="$startLANG"
 
 UTF8=''
 [ "`echo "$CURRLANG" | grep 'utf8'`" ] && UTF8='.utf8'
 
 BASELANG="`basename $CURRLANG .utf8`"
-CURRENTWM="`cat /etc/windowmanager`"
+#CURRENTWM="`cat /etc/windowmanager`"
+DISP=${DISPLAY%.*}
+test -s /etc/windowmanager       && read CURRENTWM < /etc/windowmanager
+test -s /etc/windowmanager.$DISP && read CURRENTWM < /etc/windowmanager.$DISP
+
 XSTATUS="cli"
 [ -z $DISPLAY ] || XSTATUS="x"
 [ $1 ] && XSTATUS="cli"
@@ -41,8 +48,8 @@ if [ "$XSTATUS" != "x" ];then
 fi
 
 if [ "$PARAM1" != "composeonly" ];then #w470 w473
- [ ! -d /usr/lib/locale/en_US ] && localedef -c -f ISO-8859-1 -i en_US --no-archive en_US >$OUT
- [ ! -d /usr/lib/locale/en_US.utf8 ] && localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >$OUT
+ [ -d /usr/lib/locale/en_US ]      || localedef -c -f ISO-8859-1 -i en_US --no-archive en_US >>$OUT
+ [ -d /usr/lib/locale/en_US.utf8 ] || localedef -f UTF-8 -i en_US --no-archive en_US.utf8 >>$OUT
 fi
 
 #v431 fix es:Mexican change to es:Spanish (Spain)...
@@ -58,12 +65,12 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
   xmessage -bg orange -fg black -center -buttons "" "Please wait, processing..." &
   XPID=$!
  fi
- for ONELOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
+ for oneLOCALE in `ls -1 /usr/share/i18n/locales | grep -v -E 'i18n|iso|translit|POSIX'`
  do
   STATUS="off"
-  [ "$ONELOCALE" = "$BASELANG" ] && STATUS="on"
-  LANGUAGE="`echo "$ONELOCALE" | cut -f 1 -d '_'`"
-  REGION="`echo "$ONELOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`"
+  [ "$oneLOCALE" = "$BASELANG" ] && STATUS="on"
+  LANGUAGE="`echo "$oneLOCALE" | cut -f 1 -d '_'`"
+  REGION="`echo "$oneLOCALE" | cut -f 2 -d '_' | cut -f 1 -d '.' | cut -f 1 -d '@'`"
   lPATTERN="^${LANGUAGE}:"
   LANGUAGE="`echo "$LANGUAGEDESCR" | tr ' ' '\n' | grep "$lPATTERN" | head -n 1 | cut -f 2 -d ':'`"
   rPATTERN="^${REGION}:"
@@ -72,9 +79,9 @@ if [ "$PARAM1" = "composeonly" -o "$XSTATUS" = "x" ];then #w478
   DESCR="${LANGUAGE}${REGION}"
   #[ "$DESCR" ] && DESCR="(${DESCR})"
   if [ "$STATUS" = "on" ];then
-   FIRSTLINE="$ONELOCALE \"${DESCR}\" ${ON}"
+   FIRSTLINE="$oneLOCALE \"${DESCR}\" ${ON}"
   else
-   CHOICES="$CHOICES $ONELOCALE \"${DESCR}\" ${OFF}"
+   CHOICES="$CHOICES $oneLOCALE \"${DESCR}\" ${OFF}"
   fi
  done
  CHOICES="${FIRSTLINE} ${CHOICES}"
@@ -115,36 +122,36 @@ if [ "$UTF8CHOICE" = "checked" ];then
 fi
 
 if [ "$LANGCHOICE" != "" -a "${LANGCHOICE}${UTF8}" != "$CURRLANG" ];then
-echo 'if 1'
+_debug 'if 1'
  # creates locale files in /usr/lib/locale...
  #CURRLANG="`grep '^LANG=' /etc/profile | cut -f 2 -d '='`"
  OLDLANG="LANG=$CURRLANG"
  NEWLANG="LANG=${LANGCHOICE}"
  [ "$UTF8" ] && NEWLANG="LANG=${LANGCHOICE}"'.utf8'
  if [ "`locale -a | grep -x "${LANGCHOICE}${UTF8}"`" = "" ];then
-  echo 'if 2'
+  _debug 'if 2'
   if [ "$UTF8" = "" ];then
-  echo 'if 3'
+  _debug 'if 3'
    lcPATTERN='^'"${LANGCHOICE}"' '
    CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | head -n 1 | cut -f 2 -d ' '`"
    if [ "$CHARMAP" ]; then #make sure have it...
-    echo 'if 4'
+    _debug 'if 4'
     cPATTERN="$CHARMAP"'\.gz'
     [ "`ls -1 /usr/share/i18n/charmaps | grep "$cPATTERN"`" ] || CHARMAP=""
    fi
    if [ "$CHARMAP" ]; then
-   echo 'if 5'
+   _debug 'if 5'
     localedef -c -f $CHARMAP -i $LANGCHOICE --no-archive ${LANGCHOICE} #> /dev/null
     NEWLANG="LANG=${LANGCHOICE}"
    else
-   echo 'else 5'
+   _debug 'else 5'
     #no match, i think forced to use utf8...
     localedef -c -f UTF-8 -i $LANGCHOICE --no-archive ${LANGCHOICE}.utf8 #> /dev/null
     NEWLANG="LANG=${LANGCHOICE}.utf8"
 	UTF8='.utf8'
    fi
   else
-  echo 'else 3'
+  _debug 'else 3'
    #lcPATTERN='^'"${LANGCHOICE}"'[. ]'
    #CHARMAP="`grep "$lcPATTERN" /usr/share/i18n/SUPPORTED | grep 'UTF\-8' | head -n 1 | cut -f 2 -d ' '`"
    #[ "$CHARMAP" ] || CHARMAP="UTF-8"
@@ -155,20 +162,20 @@ echo 'if 1'
 
  if [ "$OLDLANG" != "$NEWLANG" ];then
   langPATTERN="s/${OLDLANG}/${NEWLANG}/"
-  sed -e "$langPATTERN" $mainFile >/tmp/profile
-  cp $VERB -f /tmp/profile $mainFile
+  sed -e "$langPATTERN" $mainFILE >/tmp/profile
+  cp $VERB -f /tmp/profile $mainFILE
  fi
 
  [ "$XSTATUS" != "x" ] && exit
- 
- Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in $mainFile." 0 100
- 
+
+ Xdialog --left --wrap --title "Country setup" --ok-label "Restart X now" --cancel-label "Finished"  --yesno "Ok, the change has been made and will take effect at next boot. However, if you click the 'Restart X now' button X will exit then restart and the new locale will immediately take effect -- however make sure that all other applications are closed first as restarting X will rudely kill them! Otherwise, just click 'Finished' for the new locale to take effect at next boot.\n\nTechnical details:\nLocale files have been generated in /usr/lib/locale (if not already) and LANG variable set to ${LANGCHOICE}${UTF8} in $mainFILE." 0 100
+
  if [ $? -eq 0 ];then
-  rm -rf /tmp/.X0-lock
-  sync
+  rm $VERB -rf /tmp/.X0-lock
+  _sync
   exec restartwm $CURRENTWM
  fi
- 
+
 fi
 
 ###END###
