@@ -5,9 +5,14 @@
 # BATCHMARKER01 - Marker for Line-Position to bulk insert code into.
 #read device, example '/dev/hda4' from stdin.
 
-read MYDEVICE
-[ "$MYDEVICE" ] || exit
-MYSTR="`tune2fs -l $MYDEVICE | grep 'Filesystem features:' | grep 'has_journal'`"
+if test "$*"; then
+MYDEVICE="$*"
+else
+read -t 99 MYDEVICE
+fi
+[ -b "$MYDEVICE" ] || exit 2
+
+MYSTR="`_command tune2fs -l $MYDEVICE | grep 'Filesystem features:' | grep 'has_journal'`"
 
 [ "$MYSTR" ] || exit 0 #ext2
 exit 1 #ext3
