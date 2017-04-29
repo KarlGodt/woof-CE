@@ -1,5 +1,5 @@
-#!/bin/sh
-#(c) copyright Raul Suarez 2006 
+#!/bin/ash
+#(c) copyright Raul Suarez 2006
 #Puppy ndiswrapper GUI setup script.
 ## updated by Dougal, November 20th 2007
 # Update: Sep. 16th 2008: replace all `` subshells with $()
@@ -42,60 +42,62 @@ selectDriverFile()
     clean_up_gtkdialog NETWIZ_Ndiswrapper_Chooser
     unset NETWIZ_Ndiswrapper_Chooser
 
-    echo "$EXIT"
-	case $EXIT in 
+    echo "EXIT='$EXIT'"
+	case $EXIT in
 	 Cancel|abort) return 1 ;;
-	 OK) 
+	 OK)
 	   PREV_LOCATION=${INF_FILE_NAME%/*}
        echo "$PREV_LOCATION" > "$CONFIG_DIR/prev_location"
        # an extra protection, in case the dialog can't handle blank...
        [ "$PREV_LOCATION" ] || PREV_LOCATION="$HOME"
-       case "$INF_FILE_NAME" in 
+       case "$INF_FILE_NAME" in
         *.[iI][nN][fF])
           return 0
           ;;
         *) # else
           giveErrorDialog "$L_MESSAGE_Bad_Inf_Name"
-          ;;     
+          ;;
        esac
 	   ;;
 	esac
   done
 }
-#selectDriverFile()
-#{
-  #while true ; do
-    #INF_FILE_NAME="$(Xdialog --left --title \"Select the driver information file \(.INF\)\" \
-     #--stdout --no-buttons --fselect \"${PREV_LOCATION}/*\" 0 0)" 
-    #if [ $? -eq 0 ] ; then
-      ##PREV_LOCATION="`expr "$INF_FILE_NAME" : '\(.*\)/'`"
-      #PREV_LOCATION=${INF_FILE_NAME%/*}
-      #echo "$PREV_LOCATION" > "$CONFIG_DIR/prev_location"
-      ##echo "$INF_FILE_NAME" | grep -Eiq "\.inf$" 
-      ##if [ $? -eq 0 ] ; then
-      #case "$INF_FILE_NAME" in 
-       #*.[iI][nN][fF])
-         #selectDriverFile_RC=0
-         #break
-         #;;
-       #*) # else
-         #Xdialog --screen-center --title "$L_TITLE_Netwiz_Ndiswrapper" \
-            #--msgbox "The file name should end in \".inf\"" 0 0
-         #;;     
-      #esac #fi
-    #else
-      #selectDriverFile_RC=1
-      #break
-    #fi
-  #done
 
-  #return $selectDriverFile_RC
-#} # end of selectDriverFile
+_selectDriverFile()
+{
+  while true ; do
+    INF_FILE_NAME="$(Xdialog --left --title \"Select the driver information file \(.INF\)\" \
+     --stdout --no-buttons --fselect \"${PREV_LOCATION}/*\" 0 0)"
+    if [ $? -eq 0 ] ; then
+      #PREV_LOCATION="`expr "$INF_FILE_NAME" : '\(.*\)/'`"
+      PREV_LOCATION=${INF_FILE_NAME%/*}
+      echo "$PREV_LOCATION" > "$CONFIG_DIR/prev_location"
+      #echo "$INF_FILE_NAME" | grep -Eiq "\.inf$"
+      #if [ $? -eq 0 ] ; then
+      case "$INF_FILE_NAME" in
+       *.[iI][nN][fF])
+         selectDriverFile_RC=0
+         break
+         ;;
+       *) # else
+         Xdialog --screen-center --title "$L_TITLE_Netwiz_Ndiswrapper" \
+            --msgbox "The file name should end in \".inf\"" 0 0
+         ;;
+      esac
+      #fi
+    else
+      selectDriverFile_RC=1
+      break
+    fi
+  done
+
+  return $selectDriverFile_RC
+} # end of _selectDriverFile
 
 #=============================================================================
 showNdiswrapperGUI()
 {
-  CONFIG_DIR=/root/.config/ndiswrapperGUI
+  CONFIG_DIR="$HOME"/.config/ndiswrapperGUI
 
   [ -d "$CONFIG_DIR" ] || mkdir -p "$CONFIG_DIR"
   PREV_LOCATION=$(cat "$CONFIG_DIR/prev_location" 2>/dev/null)
@@ -110,7 +112,7 @@ showNdiswrapperGUI()
     ndiswrapper -i "$INF_FILE_NAME" > /tmp/net-setup_NDISWRAPPER_LOAD.txt
     NDISWRAPPER_RESULT=$?
 		case $NDISWRAPPER_RESULT in
-			0 | 25 | 255) 
+			0 | 25 | 255)
 					Xdialog --left --screen-center --title "$L_TITLE_Netwiz_Ndiswrapper" \
               --msgbox "$(ndiswrapper -l)" 0 0
 		      return 0
@@ -131,8 +133,29 @@ showNdiswrapperGUI()
 # If ran by itself it shows the interface, Otherwise it's only used as a function library
 CURRENT_CONTEXT=$(expr "$0" : '.*/\(.*\)$' )
 if [ "${CURRENT_CONTEXT}" = "ndiswrapperGUI.sh" ] ; then
+    . /usr/sbin/wag-profiles.sh
+
+    _get_locale_strings(){   #2016-10-11 taken from net-setup.sh
+# Dougal: add localization
+mo=net-setup.mo
+#lng=${LANG%.*}
+# always start by sourceing the English version (to fill in gaps)
+test -e "/usr/share/locale/en/LC_MESSAGES/$mo" || return 3
+. "/usr/share/locale/en/LC_MESSAGES/$mo"
+local RV=$?
+if [ -f "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo" ];then
+  . "/usr/share/locale/${LANG%.*}/LC_MESSAGES/$mo"
+elif [ -f "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo" ];then
+  . "/usr/share/locale/${LANG%_*}/LC_MESSAGES/$mo"
+else true # other locale not installed/found, return 0 then
+fi
+RV=$((RV+$?))
+return $RV
+}
+_get_locale_strings || echo -e "$0:$*:\nWARNING: Could not get localisation strings.\nGUI building may not work properly."
+
 	showNdiswrapperGUI
-fi 
+fi
 
 #=============================================================================
 #=============== END OF SCRIPT BODY ====================
