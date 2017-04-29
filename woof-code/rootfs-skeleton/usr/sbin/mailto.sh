@@ -1,3 +1,7 @@
 #!/bin/sh
 
-exec sylpheed --compose "$@"
+if test "`which mozmail`"; then
+ exec mozmail "$@"
+else
+exec sylpheed --compose "$@" &
+fi
