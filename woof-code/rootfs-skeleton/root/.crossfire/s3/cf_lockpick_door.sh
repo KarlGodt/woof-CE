@@ -45,7 +45,7 @@ _draw 5 "-v set verbosity"
 }
 
 
-_say_start_msg
+_say_start_msg "$*"
 
 # *** Check for parameters *** #
 
@@ -86,9 +86,9 @@ case $PARAM_1 in
 
 if test "$FOUND_DIR"; then :
 elif test "$DIR"; then
-	NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	readonly NUMBER
+        NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
+           _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+        readonly NUMBER
 fi
 
 ;;

@@ -34,7 +34,7 @@ _draw 5 "-v set verbosity"
 }
 
 
-_say_start_msg
+_say_start_msg "$*"
 
 # *** Check for parameters *** #
 
@@ -44,10 +44,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-	   readonly NUMBER
+           _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
+           readonly NUMBER
            _debug "NUMBER=$NUMBER"
-	   ;;
+           ;;
 *help|*usage)  _usage;;
 
 --*) case $PARAM_1 in

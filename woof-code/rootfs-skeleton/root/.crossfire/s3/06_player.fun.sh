@@ -571,24 +571,58 @@ _probe_enemy(){  # cast by _do_loop
 # ***
 _debug "_probe_enemy:$*"
 
-local lDIRECTION_NUMBER lPROBE_ITEM
+test "$PROBE_DO" || return 0
 
-lDIRECTION_NUMBER=${DIRECTION_NUMBER:-$1}
+local lDIRECTION_NUMBER lPROBE_ITEM
+unset lDIRECTION_NUMBER lPROBE_ITEM
+
+lDIRECTION_NUMBER=${1:-DIRECTION_NUMBER}
 lDIRECTION_NUMBER=${lDIRECTION_NUMBER:-$DIRECTION_NUMBER_DEFAULT}
 shift
-lPROBE_ITEM=${PROBE_ITEM:-"$*"}
+lPROBE_ITEM=${*:-"$PROBE_ITEM"}
 lPROBE_ITEM=${lPROBE_ITEM:-"$PROBE_ITEM_DEFAULT"}
 
 test "$lPROBE_ITEM" -a "$lDIRECTION_NUMBER" || return 3
+
+_watch
 
    _is 1 1 apply -u $lPROBE_ITEM
     sleep 0.2
    _is 1 1 apply -a $lPROBE_ITEM  # 'rod of probe' should also apply heavy rod
    # TODO: read drawinfo if successfull ..
-
+# Could not find any match to the rod of probe.
 #TODO : Something blocks your magic.
+ while read -t 1; do
+ sleep 0.1
+ _debug "_probe_enemy:$REPLY"
+ _log "_probe_enemy:$REPLY"
+ case $REPLY in
+  *Could*not*find*any*match*to*the*rod*of*probe.*) unset PROBE_DO;;
+  *Something*blocks*) unset PROBE_DO;;
+  '') break;;
+  esac
+  unset REPLY
+ done
+#TODO: whines for a while, but nothing happens
 
+test "$PROBE_DO" || { _unwatch; _draw 3 "Disabled probing."; return 3; }
+# REM: If could not apply, then casts spell
+#      onto center instead lDIRECTION_NUMBER ...
+#      need to return before, in case it is a fighting spell (frostbolt,etc)
 _is 1 1 fire $lDIRECTION_NUMBER
 _is 1 1 fire_stop
 
+ while read -t 1; do
+ sleep 0.1
+ _debug "_probe_enemy:$REPLY"
+ _log "_probe_enemy:$REPLY"
+ case $REPLY in
+  *Could*not*find*any*match*to*the*rod*of*probe.*) unset PROBE_DO;;
+  *Something*blocks*) unset PROBE_DO;;
+  '') break;;
+  esac
+  unset REPLY
+ done
+
+_unwatch
 }

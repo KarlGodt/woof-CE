@@ -359,8 +359,8 @@ _regenerate_spell_points(){  # cast by _do_loop if _watch_food returns 6
                              # by _watch_cleric_gracepoints/_watch_wizard_spellpoints
 # ***
 
-_draw 4 "Regenerating spell points.."
-_draw 4 "Please wait ..."
+_draw 5 "Regenerating spell points.."
+_draw 5 "Please wait ..."
 while :;
 do
 

@@ -256,8 +256,23 @@ do
 
 #TODO : Something blocks your magic.
 
+_watch
+
  _is 1 1 $COMMAND $lDIRECTION_NUMBER
  _is 1 1 $COMMAND_STOP
+ while read -t 1; do
+ sleep 0.1
+ _debug "_do_loop:$REPLY"
+ _log "_do_loop:$REPLY"
+ case $REPLY in
+#  *Could*not*find*any*match*to*the*rod*of*probe.*) unset PROBE_DO;;
+  *Something*blocks*) return 112;;
+  '') break;;
+  esac
+  unset REPLY
+ done
+
+_unwatch
 
  sc=0
  while :; do
@@ -278,7 +293,7 @@ do
  fi
 
  if test "$PROBE_DO"; then
-  _probe_enemy; sleep 1.5;
+  _probe_enemy $lDIRECTION_NUMBER; sleep 1.5;
  fi
 
  fi
@@ -332,7 +347,7 @@ _do_loop $COMMAND_PAUSE $DIRECTION_NUMBER $SPELL -- $SPELL_PARAM
 
 
 # *** Here begins program *** #
-_say_start_msg
+_say_start_msg "$*"
 
 case $* in
 *) _do_program "$@";;

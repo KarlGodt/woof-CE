@@ -1,7 +1,4 @@
 #!/bin/ash
-#. /etc/DISTRO_SPECS
-#. /etc/rc.d/PUPSTATE
-#. /etc/rc.d/f4puppy5
 
 
 _set_global_variables(){
@@ -162,12 +159,10 @@ _sleep
 
 test "$*" && _draw 5 "$*"
 _draw 3 "Exiting $0. $@"
-echo unwatch
-#echo unwatch $DRAWINFO
+
 _unwatch
 _beep
 
-#NUMBER=$((one-1))
 NUMBER=$one
 _say_statistics_end
 _remove_err_log
@@ -178,8 +173,7 @@ exit $RV
 _just_exit(){
 _debug "_just_exit:$*"
 _draw 3 "Exiting $0."
-echo unwatch
-#echo unwatch $DRAWINFO
+_unwatch
 exit $1
 }
 
@@ -191,7 +185,7 @@ shift
 _is 1 1 apply rod of word of recall
 _is 1 1 fire center
 _draw 3 "Emergency Exit $0 !"
-#echo unwatch $DRAWINFO
+
 _unwatch
 _is 1 1 fire_stop
 _beep
@@ -308,11 +302,11 @@ _debug "$UNDER_ME"
 #UNDER_ME_LIST=`echo -e "$UNDER_ME"\\n"$UNDER_ME_LIST"`
 UNDER_ME_LIST=`echo -e "$UNDER_ME\\n$UNDER_ME_LIST"`
 
-case $UNDER_ME in
-*request*items*on*end*) break;;
-*scripttell*break*)     break;;
-*scripttell*exit*)    _exit 1;;
-esac
+ case $UNDER_ME in
+ *request*items*on*end*) break;;
+ *scripttell*break*)     break;;
+ *scripttell*exit*)    _exit 1;;
+ esac
 
 unset UNDER_ME
 sleep 0.1s
@@ -358,11 +352,11 @@ _debug "$UNDER_ME"
 #UNDER_ME_LIST=`echo -e "$UNDER_ME"\\n"$UNDER_ME_LIST"`
 UNDER_ME_LIST=`echo -e "$UNDER_ME\\n$UNDER_ME_LIST"`
 
-case $UNDER_ME in
-*request*items*on*end*) break;;
-*scripttell*break*)     break;;
-*scripttell*exit*)    _exit 1;;
-esac
+ case $UNDER_ME in
+ *request*items*on*end*) break;;
+ *scripttell*break*)     break;;
+ *scripttell*exit*)    _exit 1;;
+ esac
 
 unset UNDER_ME
 sleep 0.1s

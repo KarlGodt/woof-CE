@@ -320,6 +320,7 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX lFOOD_STAT
 
  if test "$lFOOD_STAT" -lt $lFOOD_STAT_MIN; then
      _is 0 0 apply $lFOOD
+ # TODO: Could not find any match to the waybread.
    sleep 1
  fi
 
