@@ -18,10 +18,6 @@ north) DIRF=south;;
 south) DIRF=north;;
 esac
 
-LOG_REPLY_FILE=/tmp/cf_script.rpl
-
-rm -f "$LOG_REPLY_FILE"
-
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -54,17 +50,17 @@ do
 
 PARAM_1="$1"
 case $PARAM_1 in
-[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
+	   echo draw 3 "Only :digit: numbers as option allowed."; exit 1; }
 	   readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
 	   ;;
-*help)  _usage;;
+-h|*help|*usage)  _usage;;
 '')     :;;
 *)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
 
-sleep 1
+sleep 0.1
 shift
 done
 
@@ -125,8 +121,6 @@ unset TRAPS
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
 $REPLY";;
-#   *'Your '*)       :;; # Your monster beats monster
-#   *'You killed '*) :;;
   '') break;;
   esac
   sleep 0.1
@@ -146,15 +140,13 @@ echo unwatch $DRAW_INFO
 sleep 1
 
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l` # at one trap, it would be 0 using echo -n
+# at one trap, it would be 0 using echo -n
+# if TRAPS has no content, echo | wc -l would give 1
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
-
-_find_traps
 
 
 _disarm_traps(){
@@ -194,13 +186,22 @@ echo issue 1 1 use_skill "disarm traps"
 
    *'You successfully disarm '*) NUM=$((NUM-1)); break;;
    *'you set it off'*)   :;;
+
+   *'You set off a large fireball!'*) return 112;;
    *'You set off '*)     NUM=$((NUM-1)); break;;
+
+   # traps that multiply
+   *'You detonate '*Paralysis*)      return 112;; #break 2;;
+   *'You detonate '*Mass*Confusion*) return 112;; #break 2;;
+   # traps that are too dangerous to continue
+   *'You detonate '*Summon*)         return 112;; #break 2;;
+   *'You detonate '*Ball*Lightning*) return 112;; #break 2;;
+   *"RUN!  The timer's ticking!"*)   return 112;;
+
    *'You detonate '*)    NUM=$((NUM-1)); break;;
    *'You are stabbed '*) NUM=$((NUM-1)); break;;
    *'You are pricked '*) NUM=$((NUM-1)); break;;
 
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
   '') break;;
   esac
  done
@@ -216,19 +217,18 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-_disarm_traps
 
+_open_chest(){
 # ** open chest apply and get ** #
 
 echo draw 6 "apply and get .."
 
-c=0
-NUM=$NUMBER
 
 while :;
 do
 
 # TODO : food level, hit points
+echo watch $DRAW_INFO
 
 echo issue 1 1 apply  # handle trap release, being killed
 sleep 1
@@ -236,7 +236,6 @@ sleep 1
 echo issue 1 1 get all
 
 sleep 1
-echo watch $DRAW_INFO
 
 echo issue 0 0 drop chest # Nothing to drop.
 
@@ -247,6 +246,7 @@ echo issue 0 0 drop chest # Nothing to drop.
   echo "$REPLY" >>"$LOG_REPLY_FILE"
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
+   *'unable to take '*)  :;;
    *'Your '*)       :;;  # Your monster beats monster
    *'You killed '*) :;;
    *'You find '*trap*)   :;;
@@ -261,13 +261,25 @@ echo issue 0 0 drop chest # Nothing to drop.
    # traps that are too dangerous to continue
    *'You detonate '*Summon*)         break 2;;
    *'You detonate '*Ball*Lightning*) break 2;;
-
+   *"RUN!  The timer's ticking!"*)   break 2;;
+   *'You detonate '*Poison*Cloud*)
    *'You detonate '*)    :;;
    *'You are stabbed '*) :;;
    *'You are pricked '*) :;;
-   *'You find '*)   :;;
-   *'You pickup '*) :;;
-   *' tasted '*)    :;;  # food tasted good
+
+   *'You suddenly feel'*very*ill*) :;;
+   *'You feel very sick...')       :;;
+   *'Your body feels cleansed'*)   :;;
+   *'You feel '*er.)     :;;
+   *'You feel more '*)   :;;
+   *'You feel healthy.') :;;
+
+   *'You suddenly feel'*ill*) :;;
+   *'You suddenly feel'*) :;;
+
+   *'You find '*)    :;;
+   *'You pick up '*) :;;
+   *' tasted '*)     :;;  # food tasted good
   *) break;;
   esac
  done
@@ -281,7 +293,13 @@ echo issue 1 1 $DIRF
 sleep 1
 
 done
+}
 
+_find_traps && _disarm_traps && _open_chest
+
+# in case early return from _disarm_traps
+# rescue chests in case of Ball Lightning...
+echo issue 1 1 get all
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."

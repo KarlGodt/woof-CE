@@ -32,11 +32,11 @@
 echo draw 2 "$0 is started.."
 
 # *** Check for parameters *** #
-[ "$*" ] && {
+
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*help|*usage)
 
 echo draw 5 "Script to melt icecube."
 echo draw 5 "Syntax:"
@@ -45,27 +45,18 @@ echo draw 5 "For example: 'script $0 5'"
 echo draw 5 "will issue 5 times mark icecube and apply flint and steel."
 
         exit 0
-        }
-
+;;
+*)
 # *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as first option allowed."
+echo draw 3 "Only :digit: numbers as optional option allowed."
         exit 1 #exit if other input than letters
         }
 
 NUMBER=$PARAM_1
-
-}
-#|| {
-#echo draw 3 "Script needs number of praying attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
+;;
+esac
 
 
 f_exit(){
@@ -113,7 +104,6 @@ REPLY=
 OLD_REPLY=
 
 echo watch drawinfo
-#echo "issue 1 1 apply flint and steel"
 
  while [ 1 ]; do
  echo "issue 1 1 apply flint and steel"
@@ -125,8 +115,8 @@ echo watch drawinfo
  *"used up"*) f_exit 2 "Worn off.";;
  *"match to the"*) f_exit 3 "Not in inventory.";;
  *Your*) :;;       # x times Your monster hits monster
- '') :;;           # break;;
- "$OLD_REPLY") :;; # break;;
+ '') :;;
+ "$OLD_REPLY") :;;
  *) NO_FAIL=1; break;;
  esac
 
@@ -173,7 +163,7 @@ REPLY=
 OLD_REPLY=
 
 echo watch drawinfo
-#echo "issue 1 1 apply flint and steel"
+
  while [ 1 ]; do
  echo "issue 1 1 apply flint and steel"
  read -t 1 REPLY
@@ -184,14 +174,12 @@ echo watch drawinfo
  *"used up"*) f_exit 2 "Worn off.";;
  *"match to the"*) f_exit 3 "Not in inventory.";;
  *Your*) :;;   # x times Your monster hits monster
- '') :;;           # break;;
- "$OLD_REPLY") :;; # break;;
+ '') :;;
+ "$OLD_REPLY") :;;
  *) NO_FAIL=1; break;;
  esac
 
- #test "`echo "$REPLY" | grep 'fail'`" || NO_FAIL=1
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done

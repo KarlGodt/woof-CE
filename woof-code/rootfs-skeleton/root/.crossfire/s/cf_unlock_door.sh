@@ -41,15 +41,15 @@ case $PARAM_1 in
 	   readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
 	   ;;
-north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
-norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
-east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
-southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
-south)       DIR=south;     DIRN=5; readonly DIR DIRN;;
-southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
-west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
-northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
-*help)  _usage;;
+n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
+ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
+e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
+se|southeast)   DIR=southeast; DIRN=4; readonly DIR DIRN;;
+s|south)       DIR=south;     DIRN=5; readonly DIR DIRN;;
+sw|southwest)   DIR=southwest; DIRN=6; readonly DIR DIRN;;
+w|west)        DIR=west;      DIRN=7; readonly DIR DIRN;;
+nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
+-h|*help|*usage)  _usage;;
 '')     :;;
 *)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
@@ -114,8 +114,6 @@ echo issue 1 1 search
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
 $REPLY";;
-#   *'Your '*)       :;; # Your monster beats monster
-#   *'You killed '*) :;;
   '') break;;
   esac
   sleep 0.1
@@ -123,9 +121,7 @@ $REPLY";;
  done
 
 
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-
 
 sleep 1
 
