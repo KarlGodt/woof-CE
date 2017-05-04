@@ -18,8 +18,8 @@
 
 TIMEA=`date +%s`
 
-DEBUG=1   # unset to disable, set to anything to enable
-LOGGING=1 # unset to disable, set to anything to enable
+#DEBUG=1   # unset to disable, set to anything to enable
+#LOGGING=1 # unset to disable, set to anything to enable
 
 DRAW_INFO=drawinfo # drawextinfo (older clients)
 
@@ -42,14 +42,55 @@ COL_TAN=12
 
 TMP_DIR=/tmp/crossfire_client
 LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
-LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+#LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
 mkdir -p "$TMP_DIR"
 
+_draw(){
+test "$*" || return
+local COLOUR=${1:-0}
+shift
+while read -r line
+do
+test "$line" || continue
+echo draw $COLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$@"`
+EoI
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"$LOG_REPLY_FILE"
+}
+
+_usage(){
+echo draw $COL_BLUE "Script to melt icecube."
+echo draw $COL_BLUE "Syntax:"
+echo draw $COL_BLUE "script $0 {number}"
+echo draw $COL_BLUE "For example: 'script $0 5'"
+echo draw $COL_BLUE "will issue 5 times mark icecube and apply flint and steel."
+_draw 4 "Options:"
+_draw 5 "-d set debug"
+_draw 5 "-L log to $LOG_REPLY_FILE"
+_draw 5 "-v set verbosity"
+        exit 0
+}
 
 # *** Here begins program *** #
 echo draw $COL_NAVY "$0 is started.."
 
-test "$DEBUG" && echo draw 5 "LOG_REPLY_FILE='$LOG_REPLY_FILE'" #debug
+#test "$DEBUG" && echo draw 5 "LOG_REPLY_FILE='$LOG_REPLY_FILE'" #debug
 
 # *** Check for parameters *** #
 
@@ -59,31 +100,24 @@ do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*help)
-
-echo draw $COL_BLUE "Script to melt icecube."
-echo draw $COL_BLUE "Syntax:"
-echo draw $COL_BLUE "script $0 [number]"
-echo draw $COL_BLUE "For example: 'script $0 5'"
-echo draw $COL_BLUE "will issue 5 times mark icecube and apply flint and steel."
-
-        exit 0
-;;
-
+case "$PARAM_1" in
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 *)
 # *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
-echo draw $COL_RED "Only :digit: numbers as first option allowed."
+echo draw $COL_RED "Only :digit: numbers as optional option allowed."
         exit 1 #exit if other input than letters
         }
+ NUMBER=$PARAM_1
 ;;
 esac
 shift
 sleep 0.1
 done
-
-NUMBER=$PARAM_1
 
 
 f_exit(){ # unused
@@ -101,7 +135,7 @@ exit $RV
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
     if test "$NUMBER"; then
 
@@ -116,7 +150,9 @@ echo "issue 1 1 mark icecube"
 
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "mark icecube:$REPLY" >>"$LOG_REPLY_FILE"
+ _log "mark icecube:$REPLY"
+ _debug "$REPLY"
+
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
@@ -139,16 +175,18 @@ echo "issue 1 1 apply flint and steel"
 
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "apply flint and steel:$REPLY" >>"$LOG_REPLY_FILE"
+ _log "apply flint and steel:$REPLY"
+ _debug "$REPLY"
 
  case $REPLY in
  *fail.) :;;
  *You*fail*used*up*) break 3;;
  *"Could not find any match to the flint and steel."*) break 3;;
+ *"You need to mark a lightable object."*) break 2;;
  *Your*) :;;    # X times Your monster hits monster
  '') break;;
  *) NO_FAIL=1
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+# [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
  ;; # assuming success
  # Problem here is while lots of msgs are printed by fighting monsters,
  #  the code would assume each msg a success and the one level upper
@@ -166,6 +204,8 @@ sleep 1s
 
 done #NO_FAIL
 
+echo unwatch $DRAW_INFO
+
 done #NUMBER
 
     else #PARAM_1
@@ -180,16 +220,20 @@ echo watch $DRAW_INFO
 echo "issue 1 1 mark icecube"
 while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "mark icecube:$REPLY" >>"$LOG_REPLY_FILE"
+ _log "mark icecube:$REPLY"
+ _debug "$REPLY"
+
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
+ #test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && break 2
+  test "`echo "$REPLY" | grep 'Could not find an object that matches'`" && { NO_ICECUBE=1; break; }
  OLD_REPLY="$REPLY"
  sleep 0.1s
- done
+done
 
 echo unwatch $DRAW_INFO
 sleep 1s
+[ "$NO_ICECUBE" ] && continue
 
 NO_FAIL=
 until [ "$NO_FAIL" ]
@@ -203,17 +247,20 @@ echo watch $DRAW_INFO
 echo "issue 1 1 apply flint and steel"
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "apply flint and steel:$REPLY" >>"$LOG_REPLY_FILE"
- test "$REPLY" = "$OLD_REPLY" && break
+ _log "apply flint and steel:$REPLY"
+ _debug "$REPLY"
+
+ #test "$REPLY" = "$OLD_REPLY" && break
 
  case $REPLY in
  *fail.) :;; #You attempt to light the icecube with the flint and steel and fail.
  *You*fail*used*up*) break 3;;
- *"Could not find any match to the flint and steel."*) break 3;;
+ *Could*not*find*any*match*to*the*flint*and*steel.*) break 3;;
+ *You*need*to*mark*a*lightable*object.*) break 2;;
  *Your*) :;;     # X times Your monster hits monster
  '') break;;
  *) NO_FAIL=1
- [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
+# [ "$DEBUG" ] && echo draw $COL_GREEN "REPLY='$REPLY'" #debug
  ;;  # assuming success
  # Problem here is while lots of msgs are printed by fighting monsters,
  #  the code would assume each msg a success and the one level upper
@@ -231,11 +278,13 @@ sleep 1s
 
 done #NO_FAIL
 
-done #true
+echo unwatch $DRAW_INFO
+
+done #NO_ICECUBE
 
     fi #^!PARAM_1
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIMEX=$((TIMEE-TIMEB))
 TIMEM=$((TIMEX/60))
 TIMES=$(( TIMEX - (TIMEM*60) ))

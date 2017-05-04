@@ -294,6 +294,8 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 
 _handle_trap_event(){
 
+local SECONDLINE=''
+
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
@@ -308,16 +310,19 @@ _handle_trap_event(){
 
    #You detonate a Rune of Mass Confusion!
    *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+      read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
       else return 112
       fi;;
 
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
+      read -t 1 SECONDLINE
       #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
 
    *"RUN!  The timer's ticking!"*)
+      read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
       #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break # always better to exit with beep
@@ -326,6 +331,7 @@ _handle_trap_event(){
 
 
    *'A portal opens up, and screaming hordes pour'*)
+      read -t 1 SECONDLINE
       beep -f 800 -l 100
       beep -f 900 -l 100
       beep -f 800 -l 100
