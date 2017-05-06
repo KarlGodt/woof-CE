@@ -28,6 +28,7 @@ _draw 2 "where NUMBER is the desired amount of firings"
 _draw 5 "Options:"
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 4 "-n  do not check inventory."
 _draw 5 "-v to say what is being issued to server."
         exit 0
 }
@@ -42,9 +43,10 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in -h|*"help"*|*usage) _usage;;
--d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
--v|*verbose) VERBOSE=$((VERBOSE+1));;
+-d|*debug)      DEBUG=$((DEBUG+1));;
+-L|*logging)  LOGGING=$((LOGGING+1));;
+-n|*no-check) NOCHECK=$((NOCHECK+1));;
+-v|*verbose)  VERBOSE=$((VERBOSE+1));;
 [0-9]*)
 # *** testing parameters for validity *** #
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -127,7 +129,9 @@ EoI
 __check_if_item_is_active(){
 
 local ITEM="$*" oR tmpR
-test "$ITEM" || { echo "draw 3 ITEM missing"; exit 1; }
+test "$ITEM" || { _draw 3 "__check_if_item_is_active:ITEM missing"; exit 1; }
+
+test "$HAVE_ITEM_APPLIED" && return 0
 
 #echo watch $DRAWINFO
 #_watch
@@ -165,9 +169,10 @@ test "$HAVE_ITEM_APPLIED"
 }
 
 _check_item_of_xxx(){
+[ "$NOCHECK" ] && return 3
 _debug "_check_item_of_xxx:$*"
 
-test "$*" || return 3
+test "$*" || return 4
 ITEM_OF="$*"
 
 _debug "ITEM_OF='$ITEM_OF'"
@@ -289,20 +294,58 @@ _draw 4 "You have '$ITEM_OF_XXX'"
 test "$ITEM_OF_XXX"
 }
 
+unset ITEM_OF_XXX
 if _check_item_of_xxx "of cancellation" ;then
  __check_if_item_is_active "$ITEM_OF_XXX"
 else
- _exit 1 "Found no item of cancellation in inventory."
+ [ "$NOCHECK" ] || _exit 1 "Found no item of cancellation in inventory."
 fi
 
 
-_simple_apply_item(){
-echo "issue 1 1 apply -u $ITEM_OF_XXX"
-sleep 2
-echo "issue 1 1 apply -a $ITEM_OF_XXX"
+_simple_apply_item_of_xxx(){
+_debug "_simple_apply_item_of_xxx:$*"
+local RV=1
+local item OF_XXX
+unset item OF_XXX
+test "$*" || { _draw 3 "_simple_apply_item_of_xxx:Missing argument."; return 3; }
+OF_XXX="$*"
+
+set - "heavy rod" rod staff wand
+for item in "$@"; do
+ _is 1 1 apply -u $item $OF_XXX
+ sleep 1
+ _is 1 1 apply -a $item $OF_XXX
+ sleep 1
+ __check_if_item_is_active "$item $OF_XXX" && { ITEM_OF_XXX="$item $OF_XXX"; RV=0; break; }
+done
+
+return ${RV:-4}
 }
 
-test "$HAVE_ITEM_APPLIED" || _simple_apply_item "$ITEM_OF_XXX"
+_simple_apply_item_of_cancellation(){
+_debug "_simple_apply_item_of_cancellation:$*"
+local RV=1
+if test "$*"; then
+ echo "issue 1 1 apply -u $*"
+ sleep 1
+ echo "issue 1 1 apply -a $*"
+ sleep 1
+ __check_if_item_is_active "$*" && { ITEM_OF_XXX="$*"; RV=0; }
+else
+set - "heavy rod" rod staff wand
+ for item in "$@"; do
+ _is 1 1 apply -u $item of cancellation
+ sleep 1
+ _is 1 1 apply -a $item of cancellation
+ sleep 1
+ __check_if_item_is_active "$item of cancellation" && { ITEM_OF_XXX="$item of cancellation"; RV=0; break; }
+ done
+fi
+return ${RV:-3}
+}
+
+#test "$HAVE_ITEM_APPLIED" || _simple_apply_item_of_cancellation "$ITEM_OF_XXX"
+test "$HAVE_ITEM_APPLIED" || _simple_apply_item_of_xxx "of cancellation"
 
 __check_range_attack(){
 
@@ -349,8 +392,8 @@ test "$RANGE_ITEM_APPLIED"
 }
 
 __check_range_attack "$ITEM_OF_XXX"
-
-if test "$RANGE_ITEM_APPLIED"; then
+if test $? = 0; then
+#if test "$RANGE_ITEM_APPLIED"; then
 
 c=0
 while :;
