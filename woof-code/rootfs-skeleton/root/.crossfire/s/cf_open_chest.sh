@@ -67,13 +67,6 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
-# *** Here begins program *** #
-_draw 2 "$0 is started.."
-
-
-# *** Check for parameters *** #
-
-
 # *** implementing 'help' option *** #
 _usage() {
 
@@ -91,8 +84,11 @@ _draw 5 "-v set verbosity"
         exit 0
 }
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
 
 
+# *** Check for parameters *** #
 until test $# = 0;
 do
 
@@ -167,7 +163,7 @@ local RV=0
  *'You feel clumsy!'*) :;;
  *) RV=1;;
 esac
-return ${RV:-1}
+return ${RV:-3}
 }
 
 _cast_dexterity(){
@@ -313,20 +309,26 @@ local SECONDLINE=''
       read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
-      else return 112
+      else _draw 3 "Quitting - multiplifying trap."
+       return 112
       fi;;
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+      read -t 1 SECONDLINE
+      _draw 3 "Quitting - icecube."
+      return 112;;
 
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
       read -t 1 SECONDLINE
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
 
    *"RUN!  The timer's ticking!"*)
       read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break # always better to exit with beep
-      else return 112
+      break # usually better to exit with beep
+      else _draw 3 "Quitting - Bomb!"
+       return 112
       fi;;
 
 
@@ -336,12 +338,13 @@ local SECONDLINE=''
       beep -f 900 -l 100
       beep -f 800 -l 100
       if [ "$FORCE" ]; then
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break # always better to exit with beep
-      else return 112
+      else _draw "Quitting - surrounded by monsters."
+       return 112
       fi;;
 
   '') CNT=$((CNT+1)); break;;
+  *) _debug "_handle_trap_event:Ignoring REPLY";;
   esac
 
 }
@@ -386,34 +389,6 @@ echo issue 1 1 use_skill "disarm traps"
    _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
    _handle_trap_event || return 112
-#  case $REPLY in
-#   *'Unable to find skill '*)   break 2;;
-##  *'You fail to disarm '*) continue;;
-#
-#   *'You successfully disarm '*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;;
-#
-#   *'In fact, you set it off!'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break ;;
-#
-#   #You detonate a Rune of Mass Confusion!
-#   *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
-#      if [ "$FORCE" ]; then
-#      break  # at low level better exit with beep
-#      else return 112
-#      fi;;
-#
-#   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;;
-#   *'A portal opens up, and screaming hordes pour'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;; # better exit with beep
-#
-#  '') CNT=$((CNT+1)); break;;
-#  esac
 
  done
 
@@ -437,7 +412,7 @@ _open_chest(){
 _draw 6 "apply and get .."
 
 NUM=${NUMBER:-90} # 90 * 50kg -> 4500@Str 30, should be enough
-CNT=0  # _handle_trap_event uses CNT and NUM
+CNT=0  # _handle_trap_event() uses CNT and NUM
 
 while :;
 do
@@ -449,11 +424,11 @@ _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 _verbose "apply"
-echo issue 1 1 apply  # handle trap release, being killed
+echo issue 9 1 apply  # handle trap release, being killed
 sleep 1
 
 _verbose "get all"
-echo issue 1 1 get all
+echo issue 0 0 get all
 
 sleep 1
 
@@ -473,12 +448,8 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
 
-   #*'You find '*trap*)   _handle_trap_event || return 112;; #Blades trap
-   #*'You find '*needle*) _handle_trap_event || return 112;;
-   #*'You find '*Spikes*) _handle_trap_event || return 112;;
-   #*'You find Rune '*)   _handle_trap_event || return 112;;
-   #*'You find '*)    :;;
-    *'You find '*)  _handle_trap_event || return 112  ;;
+   *'You find '*)  _handle_trap_event || return 112  ;;
+
    *'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
@@ -500,9 +471,8 @@ echo issue 0 0 drop chest # Nothing to drop.
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
       break;;
-#  *) break;;
   esac
-#_handle_trap_event
+
  done
 
 
@@ -527,7 +497,7 @@ echo unwatch $DRAW_INFO
 _find_traps
 _disarm_traps && _open_chest
 
-echo issue 1 1 get all #pickup chests if bomb
+echo issue 0 0 get all #pickup chests if bomb
 
 __identify(){
 echo issue 0 0 use_skill sense curse

@@ -654,9 +654,9 @@ _is 1 1 apply  # handle trap release, being killed
 sleep 1
 
 
-_is 1 1 get all
-
+_is 0 0 get all
 sleep 1
+
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO

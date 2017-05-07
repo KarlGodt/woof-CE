@@ -226,14 +226,25 @@ _disarm_traps(){
 # ** disarm by use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 1
 
-_draw 6 "disarming trap ..."
+local SECONDLINE
 
-#local CNT=0
+_draw 6 "disarming traps ..."
 
 while :;
 do
 
-_is 1 1 use_skill "disarm traps"
+#unset REPLY
+#read -t 1
+#   _log "_disarm_traps:$REPLY"
+#  _debug "REPLY='$REPLY'"
+
+#case $REPLY in
+# '') _is 1 1 use_skill "disarm traps";;
+# *'In fact, you set it off!'*) :;;
+#esac
+
+ _is 1 1 use_skill "disarm traps";  # 1 1 is able to disarm more than one trap
+
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
@@ -252,37 +263,107 @@ _is 1 1 use_skill "disarm traps"
                 #SKILL_DISARM=no; break 2;;
 
    *'You fail to disarm '*)
+      read -t 1
+      _log "_disarm_traps:$REPLY"
+      _debug "REPLY='$REPLY'"
+      case $REPLY in
+      *'In fact, you set it off!'*)
+        read -t 1
+        _log "_disarm_traps:$REPLY"
+        _debug "REPLY='$REPLY'"
+        case $REPLY in
+         *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+         read -t 1 SECONDLINE  #
+         break ;; # poisoned / diseased needle, spikes, blades
+         *'You feel depleted of psychic energy!'*)
+         read -t 1 SECONDLINE  #
+         break ;; # ^harmless^
+
+        #You detonate a Rune of Mass Confusion!
+         *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+         break  # at low level better exit with beep
+         else _draw 3 "Quitting - multiplifying trap."
+         return 112
+         fi;;
+
+        #You detonate a Rune of Large Icestorm!
+        #You detonate a Rune of Icestorm
+         *of*Icestorm*)  # wrapps chests in icecube container
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - icecube."
+         return 112;;
+
+         *'You detonate '*|*"RUN!  The timer's ticking!"*)
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+         break  # at low level better exit with beep
+         else _draw 3 "Quitting - triggered trap."
+         return 112
+         fi;;
+
+         *'A portal opens up, and screaming hordes pour'*)
+         read -t 1 SECONDLINE  # through
+         if [ "$FORCE" ]; then
+         break # always better to exit with beep
+         else _draw "Quitting - surrounded by monsters."
+         return 112
+         fi;;
+        esac;;
+      esac
+
       break;;  # break 1 tries again to disarm
    *'You successfully disarm '*)
-      break ;; # break 1 disarms further if more traps already spotted
+        # break   ## break 1 disarms further if more traps already spotted
+     :  # might be able to disarm more than one trap,
+        # so one attempt could give several successes
+    ;;
 
    *'In fact, you set it off!'*)
       break ;;
 
    *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+      read -t 1 SECONDLINE  #
       break ;; # poisoned / diseased needle, spikes, blades
    *'You feel depleted of psychic energy!'*)
+      read -t 1 SECONDLINE  #
       break ;; # ^harmless^
 
    #You detonate a Rune of Mass Confusion!
    *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
+      read -t 1 SECONDLINE  #
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
-      else return 112
+      else _draw 3 "Quitting - multiplifying trap."
+       return 112
       fi;;
 
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+      read -t 1 SECONDLINE  #
+      _draw 3 "Quitting - icecube."
+      return 112;;
+
    *'You detonate '*|*"RUN!  The timer's ticking!"*)
+      read -t 1 SECONDLINE  #
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
-      else return 112
+      else _draw 3 "Quitting - triggered trap."
+       return 112
       fi;;
+
    *'A portal opens up, and screaming hordes pour'*)
+      read -t 1 SECONDLINE  # through
       if [ "$FORCE" ]; then
       break # always better to exit with beep
-      else return 112
+      else _draw "Quitting - surrounded by monsters."
+       return 112
       fi;;
   '')
       break 2;;
+  *) _debug "_disarm_traps:Ignoring REPLY";;
   esac
  done
 
@@ -295,7 +376,7 @@ sleep 1
 
 _find_traps(){
 # ** search to find traps ** #
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${1:-$MAX_SEARCH}
 
@@ -324,8 +405,6 @@ _is 1 1 search
    *'Unable to find skill '*) return 112;;
                 #SKILL_FIND=no;  break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps;
     case $? in 112) return 112;; esac
@@ -445,7 +524,7 @@ _is 1 1 apply  # handle trap release, being killed
 sleep 1
 
 
-_is 1 1 get all
+_is 0 0 get all
 
 sleep 1
 
@@ -493,6 +572,8 @@ _find_traps $NUMBER
 case $? in 112) :;;
 *)    _open_chest;;
 esac
+
+_is 0 0 get all  #pickup chests if bomb, fire storm, dragon breath, etc
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
