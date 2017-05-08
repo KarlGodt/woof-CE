@@ -744,27 +744,49 @@ _is 1 1 use_skill "disarm traps"
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_DISARM=no; break 2;;
+
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
+
    *'In fact, you set it off!'*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+    break;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+    break;;
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+    break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+    break;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)
+    break;;
+
+   *"RUN!  The timer's ticking!"*)
+    break;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+    break;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    break;;
+
 # src/lib/archetypes
-#   *'You detonate '**)
-#    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#    break;;
-#  *'RUN!  The timer's ticking!'*)
-#  *'You feel depleted of psychic energy!'*)
-#  *'You set off '*)
-
-
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
+#   *'You detonate '*)
 
   '') CNT=$((CNT+1)); break;;
+  *) _debug "__disarm_traps:Ignoring REPLY";;
   esac
  done
 
@@ -828,27 +850,49 @@ _is 1 1 fire_stop
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_DISARM=no; break 2;;
+
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
+
    *'In fact, you set it off!'*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+    break;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+    break;;
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+    break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+    break;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)
+    break;;
+
+   *"RUN!  The timer's ticking!"*)
+    break;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+    break;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    break;;
+
 # src/lib/archetypes
 #   *'You detonate '**)
-#    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#    break;;
-#  *'RUN!  The timer's ticking!'*)
-#  *'You feel depleted of psychic energy!'*)
-#  *'You set off '*)
-
-
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
 
   '') CNT=$((CNT+1)); break;;
+  *) _debug "_disarm_traps:Ignoring REPLY";;
   esac
  done
 

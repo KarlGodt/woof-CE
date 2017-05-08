@@ -285,27 +285,49 @@ _is 1 1 use_skill "disarm traps"
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_DISARM=no; break 2;;
+
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
+
    *'In fact, you set it off!'*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+    break;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+    break;;
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+    break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+    break;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)
+    break;;
+
+   *"RUN!  The timer's ticking!"*)
+    break;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+    break;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    break;;
+
 # src/lib/archetypes
 #   *'You detonate '**)
-#    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#    break;;
-#  *'RUN!  The timer's ticking!'*)
-#  *'You feel depleted of psychic energy!'*)
-#  *'You set off '*)
-
-
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
 
   '') CNT=$((CNT+1)); break;;
+  *) _debug "_disarm_traps_bulk_use_skill:Ignoring REPLY";;
   esac
  done
 
@@ -367,27 +389,49 @@ _is 1 1 fire_stop
 
   case $REPLY in
    *'Unable to find skill '*) SKILL_DISARM=no; break 2;;
+
 #  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break;;
+
    *'In fact, you set it off!'*)
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   #You detonate a Rune of Mass Confusion!
+   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+    break;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+    break;;
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+    break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+    break;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)
+    break;;
+
+   *"RUN!  The timer's ticking!"*)
+    break;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+    break;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    break;;
+
 # src/lib/archetypes
 #   *'You detonate '**)
-#    NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#    break;;
-#  *'RUN!  The timer's ticking!'*)
-#  *'You feel depleted of psychic energy!'*)
-#  *'You set off '*)
-
-
-#   *'Your '*)       :;;  # Your monster beats monster
-#   *'You killed '*) :;;
 
   '') CNT=$((CNT+1)); break;;
+  *) _debug "_disarm_traps_bulk_ready_skill:Ignoring REPLY";;
   esac
  done
 
@@ -447,22 +491,63 @@ _is 1 1 use_skill "disarm traps"
    #You detonate a Rune of Mass Confusion!
    *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
       if [ "$FORCE" ]; then
+       break  # at low level better exit with beep
+      else _draw 3 "Quitting - multiplifying trap."
+       _draw 3 "Use -f --force option to go on despite."
+       return 112
+      fi;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - icecube."
+         return 112;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+         read -t 1 SECONDLINE  #
+         _draw 3 "Quitting - Fireball."
+         return 112;;  # enable to pick up chests before they get burned
+
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+         read -t 1 SECONDLINE  #
+         break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+         read -t 1 SECONDLINE
+         _draw 3 "Quitting - Ball Lightning."
+         return 112;;
+
+   *"RUN!  The timer's ticking!"*) # rune_bomb.arc
+         read -t 1 SECONDLINE  #
+         if [ "$FORCE" ]; then
+          break  # at low level better exit with beep
+         else _draw 3 "Quitting - triggered bomb."
+          _draw 3 "Use -f --force option to go on despite."
+          return 112 # save chests from being destroyed
+         fi;;
+
+   *'You detonate '*)
+      if [ "$FORCE" ]; then
       break  # at low level better exit with beep
       else return 112
       fi;;
 
-   *'You detonate '*|*"RUN!  The timer's ticking!"*)
-      if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
-      else return 112
-      fi;;
    *'A portal opens up, and screaming hordes pour'*)
       if [ "$FORCE" ]; then
       break # always better to exit with beep
-      else return 112
+      else _draw "Quitting - surrounded by monsters."
+       _draw 3 "Use -f --force option to go on despite."
+      return 112
       fi;;
-  '')
-      break 2;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    break;;
+
+  '')   break 2;;
+  *) _debug "_disarm_traps_single:Ignoring REPLY";;
   esac
  done
 
@@ -471,6 +556,268 @@ sleep 1
 done
 
 sleep 1
+}
+
+_handle_trap_easy(){
+MSG="$*"
+read -t 1 SECONDLINE
+if [ "$FORCE" ]; then
+  break # always better to exit with beep
+else _draw "Quitting - $MSG."
+  _draw 3 "Use -f --force option to go on despite."
+ return 112
+fi
+
+}
+
+_handle_trap_medium(){
+MSG="$*"
+read -t 1 SECONDLINE
+if [ "$FORCE" \> 1 ]; then
+  break # always better to exit with beep
+else _draw "Quitting - $MSG."
+  _draw 3 "Use -ff 2x --force option to go on despite."
+ return 112
+fi
+
+}
+
+_handle_trap_destroy(){
+MSG="$*"
+read -t 1 SECONDLINE
+if [ "$FORCE" \> 2 ]; then
+  break # always better to exit with beep
+else _draw "Quitting - $MSG."
+  _draw 3 "Use -fff 3x --force option to go on despite."
+ return 112
+fi
+
+}
+
+_handle_trap_needle(){
+ :  # TODO cure disease, cure poison
+}
+
+_handle_trap_event(){
+
+local SECONDLINE=''
+
+  case $REPLY in
+   *'Unable to find skill '*)   break 2;;
+#  *'You fail to disarm '*) continue;;
+
+   *'You successfully disarm '*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break;;
+
+   *'In fact, you set it off!'*)
+      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
+      break ;;
+
+   #You detonate a Rune of Mass Confusion!
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - multiplifying trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+      _handle_trap_medium "Multiplifying trap." || return 112
+      ;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+      #read -t 1 SECONDLINE  #
+      #_draw 3 "Quitting - Fireball."
+      #return 112
+      _handle_trap_destroy "Fireball." || return 112
+      ;;  # enable to pick up chests before they get burned
+
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+      #read -t 1 SECONDLINE  #
+      #break
+      _handle_trap_easy "FIXME" || return 112
+      ;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+      #read -t 1 SECONDLINE
+      #_draw 3 "Quitting - Ball Lightning."
+      #return 112
+      _handle_trap_medium "Ball Lightning." || return 112
+      ;;
+
+   #You detonate a Rune of Large Icestorm!
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+      #read -t 1 SECONDLINE
+      #_draw 3 "Quitting - icecube."
+      #return 112
+      _handle_trap_medium "Icecube." || return 112
+      ;;
+
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
+      #read -t 1 SECONDLINE
+      #break
+      _handle_trap_easy "Triggered trap." || return 112
+      ;;
+
+   *"RUN!  The timer's ticking!"*)
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break # usually better to exit with beep
+    #  else _draw 3 "Quitting - Bomb!"
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+    _handle_trap_destroy "BOMB!" || return 112
+    ;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+    #  read -t 1 SECONDLINE  # trough
+      beep -f 800 -l 100
+      beep -f 900 -l 100
+      beep -f 800 -l 100
+    #  if [ "$FORCE" ]; then
+    #  break # always better to exit with beep
+    #  else _draw "Quitting - surrounded by monsters."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+     _handle_trap_destroy "Surrounded by monsters." || return 112
+    ;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+    #  break
+    _handle_trap_easy "Healing trap." || return 112
+    ;;
+
+  '') CNT=$((CNT+1)); break;;
+  *) _debug "_handle_trap_event:Ignoring REPLY";;
+  esac
+
+}
+
+_handle_trap_trigger_event(){
+ read -t 1
+      _log "_handle_trap_trigger_event:$REPLY"
+      _debug "REPLY='$REPLY'"
+      case $REPLY in
+      *'In fact, you set it off!'*)
+      _handle_trap_detonation_event || return 112;;
+      esac
+return 0
+}
+
+_handle_trap_detonation_event(){
+
+local SECONDLINE=''
+
+read -t 1
+        _log "_handle_trap_detonation_event:$REPLY"
+        _debug "REPLY='$REPLY'"
+
+    case $REPLY in
+
+     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+        # read -t 1 SECONDLINE  #
+        # break
+         _handle_trap_easy "Triggered trap." || return 112
+         ;; # poisoned / diseased needle, spikes, blades
+                  # TODO: You suddenly feel ill.
+
+     *'You feel depleted of psychic energy!'*)
+         #read -t 1 SECONDLINE  #
+         #break
+         _handle_trap_easy "No mana." || return 112
+         ;; # ^harmless^
+
+     *"RUN!  The timer's ticking!"*) # rune_bomb.arc
+        # read -t 1 SECONDLINE  #
+        # if [ "$FORCE" ]; then
+        #  break  # at low level better exit with beep
+        # else _draw 3 "Quitting - triggered bomb."
+        #  _draw 3 "Use -f --force option to go on despite."
+        #  return 112 # save chests from being destroyed
+        # fi
+        _handle_trap_destroy "BOMB!" || return 112
+        ;;
+
+        #You detonate a Rune of Mass Confusion!
+     *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+        # read -t 1 SECONDLINE  #
+        # if [ "$FORCE" ]; then
+        #  break  # at low level better exit with beep
+        # else _draw 3 "Quitting - multiplifying trap."
+        #  _draw 3 "Use -f --force option to go on despite."
+        #  return 112
+        # fi
+        _handle_trap_medium "Multiplifying trap." || return 112
+        ;;
+
+        #You detonate a Rune of Large Icestorm!
+        #You detonate a Rune of Icestorm
+     *of*Icestorm*)  # wrapps chests in icecube container
+        # read -t 1 SECONDLINE  #
+        # _draw 3 "Quitting - icecube."
+        # return 112
+         _handle_trap_medium "Icecube." || return 112
+        ;;
+
+        #You detonate a Rune of Fireball!
+     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+        # read -t 1 SECONDLINE  #
+        # _draw 3 "Quitting - Fireball."
+        # return 112
+        _handle_trap_destroy "Fireball." || return 112
+        ;;  # enable to pick up chests before they get burned
+
+
+        #You set off a fireball!
+     *of*fireball*)  ## rune_fireball.arc
+        # read -t 1 SECONDLINE  #
+        # break
+        _handle_trap_easy "FIXME" || return 112
+        ;;
+
+     *of*Ball*Lightning*) ## rune_blightning.arc
+        # read -t 1 SECONDLINE
+        # _draw 3 "Quitting - Ball Lightning."
+        # return 112
+        _handle_trap_medium "Ball Lightning." || return 112
+        ;;
+
+     *'You detonate '*)
+        # read -t 1 SECONDLINE  #
+        # if [ "$FORCE" ]; then
+        #  break  # at low level better exit with beep
+        # else _draw 3 "Quitting - triggered trap."
+        #  _draw 3 "Use -f --force option to go on despite."
+        #  return 112
+        # fi
+        _handle_trap_easy "Triggered trap." || return 112
+        ;;
+
+     *'A portal opens up, and screaming hordes pour'*)
+        # read -t 1 SECONDLINE  # through
+        # if [ "$FORCE" ]; then
+        #  break # always better to exit with beep
+        # else _draw "Quitting - surrounded by monsters."
+        #  _draw 3 "Use -f --force option to go on despite."
+        #  return 112
+        # fi
+         _handle_trap_destroy "Surrounded by monsters." || return 112
+        ;;
+
+     *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+        # break
+         _handle_trap_easy "Healing trap." || return 112
+        ;;
+
+    esac
+
+return 0
 }
 
 
@@ -638,6 +985,7 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
+
 _open_chest(){
 # ** open chest by apply, get all, drop ** #
 
@@ -650,17 +998,16 @@ do
 # TODO : food level, hit points
 
 
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
+
+
 _is 1 1 apply  # handle trap release, being killed
 sleep 1
 
 
 _is 0 0 get all
 sleep 1
-
-
-_debug "watch $DRAW_INFO"
-echo watch $DRAW_INFO
-
 
 _is 0 0 drop chest # Nothing to drop.
 
@@ -675,10 +1022,11 @@ _is 0 0 drop chest # Nothing to drop.
    *'Nothing to drop.'*) break 2;;
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
+  #*You*find*Rune*)  _handle_trap_event || return 112;;
    *'You find '*)    :;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
-  *) break;;
+  *) _handle_trap_event || return 112; break;;
   esac
  done
 

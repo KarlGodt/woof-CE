@@ -305,13 +305,30 @@ local SECONDLINE=''
       break ;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
       read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
       else _draw 3 "Quitting - multiplifying trap."
        return 112
       fi;;
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+      read -t 1 SECONDLINE  #
+      _draw 3 "Quitting - Fireball."
+      return 112;;  # enable to pick up chests before they get burned
+
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+      read -t 1 SECONDLINE  #
+      break;;
+
+   *of*Ball*Lightning*) ## rune_blightning.arc
+      read -t 1 SECONDLINE
+      _draw 3 "Quitting - Ball Lightning."
+      return 112;;
+
    #You detonate a Rune of Large Icestorm!
    #You detonate a Rune of Icestorm
    *of*Icestorm*)  # wrapps chests in icecube container
@@ -331,7 +348,6 @@ local SECONDLINE=''
        return 112
       fi;;
 
-
    *'A portal opens up, and screaming hordes pour'*)
       read -t 1 SECONDLINE
       beep -f 800 -l 100
@@ -342,6 +358,9 @@ local SECONDLINE=''
       else _draw "Quitting - surrounded by monsters."
        return 112
       fi;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+      break;;
 
   '') CNT=$((CNT+1)); break;;
   *) _debug "_handle_trap_event:Ignoring REPLY";;
