@@ -317,7 +317,7 @@ _is 1 1 use_skill "disarm traps"
    ;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
    # read -t 1 SECONDLINE
    # _draw 3 "Ignored."
    # break
@@ -477,7 +477,7 @@ _is 1 1 fire_stop
     ;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
     #read -t 1 SECONDLINE
     #_draw 3 "Ignored."
     #break
@@ -630,7 +630,7 @@ _is 1 1 use_skill "disarm traps"
     ;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
     #     read -t 1 SECONDLINE  #
     #     _draw 3 "Quitting - Fireball."
     #     return 112
@@ -680,7 +680,7 @@ _is 1 1 use_skill "disarm traps"
     #  read -t 1 SECONDLINE
     #  if [ "$FORCE" ]; then
     #  break # always better to exit with beep
-    #  else _draw "Quitting - surrounded by monsters."
+    #  else _draw 3 "Quitting - surrounded by monsters."
     #   _draw 3 "Use -f --force option to go on despite."
     #  return 112
     #  fi
@@ -711,7 +711,7 @@ MSG="$*"
 read -t 1 SECONDLINE
 if [ "$FORCE" ]; then
   break # always better to exit with beep
-else _draw "Quitting - $MSG."
+else _draw 3 "Quitting - $MSG."
   _draw 3 "Use -f --force option to go on despite."
  return 112
 fi
@@ -723,7 +723,7 @@ MSG="$*"
 read -t 1 SECONDLINE
 if [ "$FORCE" \> 1 ]; then
   break # always better to exit with beep
-else _draw "Quitting - $MSG."
+else _draw 3 "Quitting - $MSG."
   _draw 3 "Use -ff 2x --force option to go on despite."
  return 112
 fi
@@ -735,7 +735,7 @@ MSG="$*"
 read -t 1 SECONDLINE
 if [ "$FORCE" \> 2 ]; then
   break # always better to exit with beep
-else _draw "Quitting - $MSG."
+else _draw 3 "Quitting - $MSG."
   _draw 3 "Use -fff 3x --force option to go on despite."
  return 112
 fi
@@ -775,7 +775,7 @@ local SECONDLINE=''
       ;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
       #read -t 1 SECONDLINE  #
       #_draw 3 "Quitting - Fireball."
       #return 112
@@ -829,7 +829,7 @@ local SECONDLINE=''
       beep -f 800 -l 100
     #  if [ "$FORCE" ]; then
     #  break # always better to exit with beep
-    #  else _draw "Quitting - surrounded by monsters."
+    #  else _draw 3 "Quitting - surrounded by monsters."
     #   _draw 3 "Use -f --force option to go on despite."
     #   return 112
     #  fi
@@ -914,7 +914,7 @@ read -t 1
         ;;
 
         #You detonate a Rune of Fireball!
-     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
         # read -t 1 SECONDLINE  #
         # _draw 3 "Quitting - Fireball."
         # return 112
@@ -951,7 +951,7 @@ read -t 1
         # read -t 1 SECONDLINE  # through
         # if [ "$FORCE" ]; then
         #  break # always better to exit with beep
-        # else _draw "Quitting - surrounded by monsters."
+        # else _draw 3 "Quitting - surrounded by monsters."
         #  _draw 3 "Use -f --force option to go on despite."
         #  return 112
         # fi
@@ -1173,6 +1173,7 @@ _is 0 0 drop chest # Nothing to drop.
   #*You*find*Rune*)  _handle_trap_event || return 112;;
    *'You find '*)    :;;
    *'You pick up '*) :;;
+   *'You were unable to take '*) :;;
    *' tasted '*)     :;;  # food tasted good
   *) _handle_trap_event || return 112; break;;
   esac
