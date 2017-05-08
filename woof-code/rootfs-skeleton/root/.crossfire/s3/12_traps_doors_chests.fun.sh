@@ -295,33 +295,89 @@ _is 1 1 use_skill "disarm traps"
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+      ;; # simple / poisoned / diseased needle, spikes, blades
+   *'You feel depleted of psychic energy!'*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
+
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
-    break;;
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_medium "Multiplifying trap." || return 112
+   ;;
 
    #You detonate a Rune of Fireball!
    *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_destroy "Fireball." || return 112
+   ;;
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_destroy "Fireball." || return 112
+   ;;
 
    *of*Ball*Lightning*) ## rune_blightning.arc
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_medium "Ball Lightning." || return 112
+   ;;
 
    #You detonate a Rune of Large Icestorm!
    #You detonate a Rune of Icestorm
    *of*Icestorm*)
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_medium "Icecube." || return 112
+   ;;
 
    *"RUN!  The timer's ticking!"*)
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_destroy "BOMB!" || return 112
+   ;;
 
    *'A portal opens up, and screaming hordes pour'*)
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_destroy "Surrounded by monsters." || return 112
+   ;;
 
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
-    break;;
+   # read -t 1 SECONDLINE
+   # _draw 3 "Ignored."
+   # break
+   _handle_trap_easy "Healing trap." || return 112
+   ;;
+
+   *'You detonate '*)
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - Other trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+    _handle_trap_easy "Triggered trap." || return 112
+    ;;
 
 # src/lib/archetypes
 #   *'You detonate '**)
@@ -399,33 +455,89 @@ _is 1 1 fire_stop
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+      ;; # simple / poisoned / diseased needle, spikes, blades
+   *'You feel depleted of psychic energy!'*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
+
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
-    break;;
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_medium "Multiplifying trap." || return 112
+    ;;
 
    #You detonate a Rune of Fireball!
    *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_destroy "Fireball." || return 112
+    ;;
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_destroy "Fireball." || return 112
+    ;;
 
    *of*Ball*Lightning*) ## rune_blightning.arc
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_medium "Ball Lightning." || return 112
+    ;;
 
    #You detonate a Rune of Large Icestorm!
    #You detonate a Rune of Icestorm
    *of*Icestorm*)
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_medium "Icecube." || return 112
+    ;;
 
    *"RUN!  The timer's ticking!"*)
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_destroy "BOMB!" || return 112
+    ;;
 
    *'A portal opens up, and screaming hordes pour'*)
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_destroy "Surrounded by monsters." || return 112
+    ;;
 
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
-    break;;
+    #read -t 1 SECONDLINE
+    #_draw 3 "Ignored."
+    #break
+    _handle_trap_easy "Healing trap." || return 112
+    ;;
+
+   *'You detonate '*)
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - Other trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+    _handle_trap_easy "Triggered trap." || return 112
+    ;;
 
 # src/lib/archetypes
 #   *'You detonate '**)
@@ -484,67 +596,103 @@ _is 1 1 use_skill "disarm traps"
       break ;;
 
    *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-      break ;; # poisoned / diseased needle, spikes, blades
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+      ;; # simple / poisoned / diseased needle, spikes, blades
    *'You feel depleted of psychic energy!'*)
-      break ;; # ^harmless^
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
-      if [ "$FORCE" ]; then
-       break  # at low level better exit with beep
-      else _draw 3 "Quitting - multiplifying trap."
-       _draw 3 "Use -f --force option to go on despite."
-       return 112
-      fi;;
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #   break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - multiplifying trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+      _handle_trap_medium "Multiplifying trap." || return 112
+      ;;
 
    #You detonate a Rune of Large Icestorm!
    #You detonate a Rune of Icestorm
    *of*Icestorm*)  # wrapps chests in icecube container
-         read -t 1 SECONDLINE  #
-         _draw 3 "Quitting - icecube."
-         return 112;;
+    #     read -t 1 SECONDLINE  #
+    #     _draw 3 "Quitting - icecube."
+    #     return 112
+    _handle_trap_medium "Icecube." || return 112
+    ;;
 
    #You detonate a Rune of Fireball!
    *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
-         read -t 1 SECONDLINE  #
-         _draw 3 "Quitting - Fireball."
-         return 112;;  # enable to pick up chests before they get burned
+    #     read -t 1 SECONDLINE  #
+    #     _draw 3 "Quitting - Fireball."
+    #     return 112
+    _handle_trap_destroy "Fireball." || return 112
+    ;;  # enable to pick up chests before they get burned
 
+   #You find Rune of Fireball in the chest.
+   #You set off a large fireball!
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
-         read -t 1 SECONDLINE  #
-         break;;
+    #     read -t 1 SECONDLINE  #
+    #     _draw 3 "Ignored."
+    #     break
+    _handle_trap_destroy "Fireball." || return 112
+    ;;
 
    *of*Ball*Lightning*) ## rune_blightning.arc
-         read -t 1 SECONDLINE
-         _draw 3 "Quitting - Ball Lightning."
-         return 112;;
+    #     read -t 1 SECONDLINE
+    #     _draw 3 "Quitting - Ball Lightning."
+    #     return 112
+    _handle_trap_medium "Ball Lightning." || return 112
+    ;;
 
    *"RUN!  The timer's ticking!"*) # rune_bomb.arc
-         read -t 1 SECONDLINE  #
-         if [ "$FORCE" ]; then
-          break  # at low level better exit with beep
-         else _draw 3 "Quitting - triggered bomb."
-          _draw 3 "Use -f --force option to go on despite."
-          return 112 # save chests from being destroyed
-         fi;;
+    #     read -t 1 SECONDLINE  #
+    #     if [ "$FORCE" ]; then
+    #      break  # at low level better exit with beep
+    #     else _draw 3 "Quitting - triggered bomb."
+    #      _draw 3 "Use -f --force option to go on despite."
+    #      return 112 # save chests from being destroyed
+    #     fi
+    _handle_trap_destroy "BOMB!" || return 112
+    ;;
 
    *'You detonate '*)
-      if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
-      else return 112
-      fi;;
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - Other trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+    _handle_trap_easy "Triggered trap." || return 112
+    ;;
 
    *'A portal opens up, and screaming hordes pour'*)
-      if [ "$FORCE" ]; then
-      break # always better to exit with beep
-      else _draw "Quitting - surrounded by monsters."
-       _draw 3 "Use -f --force option to go on despite."
-      return 112
-      fi;;
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break # always better to exit with beep
+    #  else _draw "Quitting - surrounded by monsters."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #  return 112
+    #  fi
+    _handle_trap_destroy "Surrounded by monsters." || return 112
+    ;;
 
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
-    break;;
+    #read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #break
+    _handle_trap_easy "Healing trap." || return 112
+    ;;
 
   '')   break 2;;
   *) _debug "_disarm_traps_single:Ignoring REPLY";;
@@ -638,7 +786,7 @@ local SECONDLINE=''
    *of*fireball*)  ## rune_fireball.arc
       #read -t 1 SECONDLINE  #
       #break
-      _handle_trap_easy "FIXME" || return 112
+      _handle_trap_destroy "Fireball." || return 112
       ;;
 
    *of*Ball*Lightning*) ## rune_blightning.arc
@@ -778,7 +926,7 @@ read -t 1
      *of*fireball*)  ## rune_fireball.arc
         # read -t 1 SECONDLINE  #
         # break
-        _handle_trap_easy "FIXME" || return 112
+        _handle_trap_destroy "Fireball." || return 112
         ;;
 
      *of*Ball*Lightning*) ## rune_blightning.arc
