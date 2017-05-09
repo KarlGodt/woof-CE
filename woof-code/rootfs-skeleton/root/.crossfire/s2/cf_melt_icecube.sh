@@ -16,7 +16,7 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo (older clients)
 
@@ -102,7 +102,7 @@ _count_time(){
 
 test "$TIMEB" || return 1
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 
 TIMEX=$((TIMEE-TIMEB))
 TIMEM=$((TIMEX/60))
@@ -194,7 +194,7 @@ return 0
 
 # *** main *** #
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 while :;
 do

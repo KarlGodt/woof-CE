@@ -2,7 +2,7 @@
 
 exec 2>/tmp/cf_script.err
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 

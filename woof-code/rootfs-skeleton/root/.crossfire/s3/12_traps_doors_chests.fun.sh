@@ -12,8 +12,6 @@ _draw 6 "find traps '$NUM' times.."
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-local c=0
-
 while :;
 do
 
@@ -35,11 +33,8 @@ _is 1 1 search
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
 *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
 
 #   *'Your '*)       :;; # Your monster beats monster
@@ -63,15 +58,11 @@ echo unwatch $DRAW_INFO
 sleep 1
 
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
  test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
@@ -90,21 +81,12 @@ _draw 6 "find traps '$NUM' times.."
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-local c=0
-
 while :;
 do
 
 unset TRAPS
 
 _is 1 1 use_skill find traps
-#You spot a diseased needle!
-#You spot a Rune of Paralysis!
-#You spot a Rune of Fireball!
-#You spot a Rune of Confusion!
-#You spot a diseased needle!
-#You spot a Rune of Blasting!
-#You spot a Rune of Magic Draining!
 
  while :; do read -t 1
  _log "_find_traps_bulk_use_skill:$REPLY"
@@ -113,11 +95,8 @@ _is 1 1 use_skill find traps
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
 *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
 
 #   *'Your '*)       :;; # Your monster beats monster
@@ -141,15 +120,11 @@ echo unwatch $DRAW_INFO
 sleep 1
 
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
  test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 
 TRAPS_NUM=${TRAPS_NUM:-0}
@@ -170,7 +145,6 @@ _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 _is 1 1 ready_skill "find traps"
-local c=0
 
 while :;
 do
@@ -179,15 +153,6 @@ unset TRAPS
 
  _is 1 1 fire ${DIRN:-0}
  _is 1 1 fire_stop
-#_is 1 1 use_skill find traps
-
-#You spot a diseased needle!
-#You spot a Rune of Paralysis!
-#You spot a Rune of Fireball!
-#You spot a Rune of Confusion!
-#You spot a diseased needle!
-#You spot a Rune of Blasting!
-#You spot a Rune of Magic Draining!
 
  while :; do read -t 1
  _log "_find_traps_bulk_ready_skill:$REPLY"
@@ -196,11 +161,8 @@ unset TRAPS
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
 *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
@@ -223,15 +185,11 @@ echo unwatch $DRAW_INFO
 sleep 1
 
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
-#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
  test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
@@ -254,13 +212,6 @@ while :;
 do
 
 _is 1 1 search
-#You spot a diseased needle!
-#You spot a Rune of Paralysis!
-#You spot a Rune of Fireball!
-#You spot a Rune of Confusion!
-#You spot a diseased needle!
-#You spot a Rune of Blasting!
-#You spot a Rune of Magic Draining!
 
  while :; do read -t 1
  _log "_find_traps_single:$REPLY"
@@ -270,8 +221,6 @@ _is 1 1 search
    *'Unable to find skill '*) return 112;;
                 #SKILL_FIND=no;  break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps_single;
     case $? in 112) return 112;; esac
@@ -300,7 +249,7 @@ _disarm_traps_bulk_use_skill(){
 
 [ "$SKILL_DISARM" = no ] && return 1
 
-local NUM c CNT
+local NUM CNT
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -316,7 +265,7 @@ test "$NUM" -gt 0 || return 0
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-c=0; CNT=0
+CNT=0
 
 while :;
 do
@@ -377,7 +326,7 @@ _disarm_traps_bulk_ready_skill(){
 
 [ "$SKILL_DISARM" = no ] && return 1
 
-local NUM c CNT
+local NUM CNT
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -390,19 +339,17 @@ _draw 6 "disarm traps '$NUM' times.."
 
 test "$NUM" -gt 0 || return 0
 
-#_is 1 1 ready_skill "disarm traps"
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
 _is 1 1 ready_skill "disarm traps"
 
-c=0; CNT=0
+CNT=0
 
 while :;
 do
 
-#_is 1 1 use_skill "disarm traps"
 _is 1 1 fire ${DIRN:-0}
 _is 1 1 fire_stop
 
@@ -462,7 +409,6 @@ _disarm_traps_single(){
 
 _draw 6 "disarming trap ..."
 
-#local CNT=0
 
 while :;
 do
@@ -553,6 +499,7 @@ _is 1 1 use_skill lockpicking
 
   case $REPLY in
   *'Unable to find skill '*) SKILL_LOCKPICK=no; break 2;;
+  *"You can't pick that lock!"*) break 2;;  # special key
   *'The door has no lock!'*)   break 2;;
   *'There is no lock there.'*) break 2;;
   *' no door'*)                break 2;;
@@ -637,7 +584,6 @@ done
 while :;
 do
 
-#_is 1 1 use_skill lockpicking
  _is 1 1 fire ${DIRN:-0}
  _is 1 1 fire_stop
 
@@ -650,6 +596,7 @@ do
 
   case $REPLY in
   *'Unable to find skill '*) SKILL_LOCKPICK=no; break 2;;
+  *"You can't pick that lock!"*) break 2;;  # special key
   *'The door has no lock!'*)   break 2;;
   *'There is no lock there.'*) break 2;;
   *' no door'*)                break 2;;
@@ -696,8 +643,6 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
-#local c=0
-#NUM=${1:-$NUMBER}
 
 while :;
 do
@@ -709,8 +654,7 @@ _is 1 1 apply  # handle trap release, being killed
 sleep 1
 
 
-_is 1 1 get all
-
+_is 0 0 get all
 sleep 1
 
 _debug "watch $DRAW_INFO"

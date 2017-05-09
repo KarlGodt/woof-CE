@@ -341,7 +341,7 @@ fi
 
 __former_count_time(){
 if test "$TIMEA" -o "$TIMEB"; then
- TIMEE=`date +%s`
+ TIMEE=`/bin/date +%s`
  if test "$TIMEB"; then
   TIMED=$TIMEB
  else
@@ -434,21 +434,21 @@ fi
 
 _say_statistics_end(){
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 TIMELB=${TIMELB:-$TIMEB}
 _say_minutes_seconds "$TIMELB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
 ___loop_counter(){
 test "$TIMEA" -a "$TIMEB" -a "$NUMBER" -a "$one" || return 0
 TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 TIMEZ=$((TIMEE-TIMEA))
 TIMEAV=$((TIMEZ/one))
@@ -479,7 +479,7 @@ TIMEB=${TIMEB:-$TIMEA}
 test "$TIMEB"           || return 1
 test "${TIMEB//[0-9]/}" && return 2
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 
 TIMEX=$((TIMEE-TIMEC))
 TIMEY=$((TIMEE-TIMEB))
@@ -527,7 +527,7 @@ TIMEB=${TIMEB:-$TIMEA}
 test "$TIMEB"           || return 1
 test "${TIMEB//[0-9]/}" && return 2
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 
 TIMEX=$((TIMEE-TIMEC))
 TIMEY=$((TIMEE-TIMEB))

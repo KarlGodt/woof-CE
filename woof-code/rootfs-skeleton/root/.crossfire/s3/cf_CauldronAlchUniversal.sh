@@ -3,7 +3,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Setting defaults *** #
 #set empty default
@@ -246,13 +246,13 @@ esac
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 _debug "NUMBER=$NUMBER"
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 success=0
 # *** MAIN LOOP *** #
 for one in `seq 1 1 $NUMBER`
 do
 
-#TIMEB=`date +%s`
+#TIMEB=`/bin/date +%s`
 TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply

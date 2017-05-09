@@ -308,7 +308,7 @@ sleep 1s
 for one in `seq 1 1 $NUMBER_ALCH`
 do
 
-tBEG=${tEND:-`date +%s`}
+tBEG=${tEND:-`/bin/date +%s`}
 
 OLD_REPLY="";
 REPLY="";
@@ -460,7 +460,7 @@ echo "issue 0 1 drop slag"
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))
-tEND=`date +%s`
+tEND=`/bin/date +%s`
 tLAP=$((tEND-tBEG))
 echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 

@@ -2,7 +2,7 @@
 # uses <<<STREAM
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."

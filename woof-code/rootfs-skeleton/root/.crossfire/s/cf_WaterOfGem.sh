@@ -20,7 +20,7 @@ exec 2>/tmp/cf_script.err
 #define NDI_MAX_COLOR   12      /**< Last value in. */
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # ***VARIABLES *** #
 # *** Setting defaults *** #
@@ -445,14 +445,14 @@ NUMBER=${NUMBER:-infinite}
 # *** Now LOOPING *** #
 
 FAIL=0
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 #for one in `seq 1 1 $NUMBER`
 while :;
 do
 
-TIMEC=${TIMEE:-`date +%s`}
+TIMEC=${TIMEE:-`/bin/date +%s`}
 
 _check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || break
 
@@ -609,7 +609,7 @@ sleep 1s
 sleep ${DELAY_DRAWINFO}s
 
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEC))
 
 one=$((one+1))
@@ -627,7 +627,7 @@ done  # *** MAINLOOP *** #
 
 
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
@@ -648,7 +648,7 @@ fi
 fi
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 TIMEY=$((TIMEZ-TIMEA))
 TIMEAM=$((TIMEY/60))
 TIMEAS=$(( TIMEY - (TIMEAM*60) ))

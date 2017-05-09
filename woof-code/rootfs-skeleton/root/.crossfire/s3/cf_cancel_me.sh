@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 #ROD='heavy rod of cancellation' # may set to scroll or staff or just rod
 
@@ -149,7 +149,7 @@ _check_item(){
 # get item list
 #_check_have_needed_item_in_inventory(){
 _debug "_check_item:$*"
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 #echo watch request
 echo request items inv
 while :;
@@ -167,7 +167,7 @@ done
 unset oldITEM oneITEM
 #echo unwatch request
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 _draw 4 "Elapsed $TIME s"
 

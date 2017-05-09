@@ -17,7 +17,7 @@
 #define NDI_TAN         12      /**< Khaki. */
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started:"
@@ -537,7 +537,7 @@ test ! "${*//[0-9]/}"
 
 # *** Now LOOPING *** #
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 #for one in `seq 1 1 $NUMBER`
 while :;
@@ -709,7 +709,7 @@ f_check_on_cauldron
 
 one=$((one+1))
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIMER=$((TIMEE-TIMEC))
 echo draw 4 "Time $TIMER seconds"
 

@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 MAX_SEARCH=9  # needs to set, to prevent infinite search for traps if no NUMBER given
 
@@ -102,7 +102,7 @@ sleep 1
 
 
 # *** MAIN *** #
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 _find_traps_single $NUMBER
 case $? in 112) :;;

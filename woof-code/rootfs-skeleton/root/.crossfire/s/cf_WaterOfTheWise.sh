@@ -1,7 +1,7 @@
 #!/bin/ash
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
@@ -334,7 +334,7 @@ NUMBER=${NUMBER:-infinite}
 
 
 FAIL=0
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
@@ -343,7 +343,7 @@ echo draw 4 "OK... Might the Might be with You!"
 while :;
 do
 
-TIMEC=`date +%s`
+TIMEC=`/bin/date +%s`
 
 
 OLD_REPLY="";
@@ -491,7 +491,7 @@ sleep ${SLEEP}s
 
 f_check_on_cauldron
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEC))
 
 one=$((one+1))
@@ -508,7 +508,7 @@ test "$one" = "$NUMBER" && break
 done
 
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
@@ -531,7 +531,7 @@ fi
 
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 TIMEY=$((TIMEZ-TIMEA))
 TIMEAM=$((TIMEY/60))
 TIMEAS=$(( TIMEY - (TIMEAM*60) ))

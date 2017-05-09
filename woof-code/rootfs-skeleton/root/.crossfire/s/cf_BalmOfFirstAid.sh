@@ -1,7 +1,7 @@
 #!/bin/ash
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** VARIABLES *** #
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
@@ -454,14 +454,14 @@ NUMBER=${NUMBER:-infinite}
 # *** Now LOOPING *** #
 
 FAIL=0
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 #for one in `seq 1 1 $NUMBER`
 while :;
 do
 
-TIMEC=`date +%s`
+TIMEC=`/bin/date +%s`
 
 echo "issue 1 1 apply"
 sleep ${SLEEP}s
@@ -638,7 +638,7 @@ f_exit 1
 
 #echo unwatch request
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEC))
 
 one=$((one+1))
@@ -654,7 +654,7 @@ test "$one" = "$NUMBER" && break
 done  # *** MAINLOOP *** #
 
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
@@ -675,7 +675,7 @@ fi
 fi
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 TIMEY=$((TIMEZ-TIMEA))
 TIMEAM=$((TIMEY/60))
 TIMEAS=$(( TIMEY - (TIMEAM*60) ))

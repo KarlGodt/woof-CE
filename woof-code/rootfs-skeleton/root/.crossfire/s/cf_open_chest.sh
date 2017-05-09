@@ -2,7 +2,7 @@
 
 exec 2>/tmp/cf_script.err
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
@@ -453,8 +453,7 @@ echo issue 1 1 apply  # handle trap release, being killed
 sleep 1
 
 _verbose "get all"
-echo issue 1 1 get all
-
+echo issue 0 0 get all
 sleep 1
 
 

@@ -1,7 +1,7 @@
 #!/bin/ash
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** VARIABLES *** #
 DEBUG=  # set to anything to enable
@@ -98,13 +98,13 @@ fi
 
 _say_statistics_end(){
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 _say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
@@ -564,7 +564,7 @@ test ! "${*//[0-9]/}"
 
 # *** Now LOOPING *** #
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
 FAIL=0
@@ -743,7 +743,7 @@ f_check_on_cauldron
 
 one=$((one+1))
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIMER=$((TIMEE-TIMEC))
 TIMER=$((TIMER+1))
 echo draw 4 "Round took '$TIMER' seconds."

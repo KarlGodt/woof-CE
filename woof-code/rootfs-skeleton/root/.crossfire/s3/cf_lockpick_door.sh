@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 MAX_SEARCH=9
 MAX_DISARM=9
@@ -168,7 +168,7 @@ fi
 #$CAST_DEX
 
 # *** MAIN *** #
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 _find_traps_bulk_ready_skill
 _disarm_traps_bulk_ready_skill

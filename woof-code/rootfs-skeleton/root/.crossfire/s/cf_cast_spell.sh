@@ -29,7 +29,7 @@ exec 2>/tmp/script.err
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Variables : Most are set or unset ( set meaning have content ( even " " )) , unset no content
 # *** common editable variables
@@ -290,7 +290,7 @@ local oneSPELL oldSPELL SPELLS r s ATTYPE LVL rest
 _draw 5 "Checking if have '$SPELL' ..."
 _draw 5 "Please wait...."
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 #echo watch request
 echo request spells
 sleep 1
@@ -312,7 +312,7 @@ done
 #unset oldSPELL oneSPELL
 #echo unwatch request
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 _debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' s."
 
@@ -623,12 +623,12 @@ COMMAND_PAUSE=${COMMAND_PAUSE:-$COMMAND_PAUSE_DEFAULT}
 
 local sc=0
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 while :;
 do
 
- #TIMEB=`date +%s`
+ #TIMEB=`/bin/date +%s`
  TIMEC=${TIMEE:-$TIMEB}
 
 # user could change range attack while pausing ...
@@ -667,7 +667,7 @@ do
  one=$((one+1))
 
  #TRIES_STILL=$((NUMBER-one))  # unused
- TIMEE=`date +%s`
+ TIMEE=`/bin/date +%s`
  TIME=$((TIMEE-TIMEC))
  TIMET=$((TIMEE-TIMEB))
  TIMET=$(( (TIMET/60) +1))

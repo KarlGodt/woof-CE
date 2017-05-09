@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}

@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 #DEBUG=1
 #LOGGING=1
@@ -182,7 +182,7 @@ local oneITEM oldITEM ITEMS TIMEB TIMEE TIME
 _draw 6 "Checking if in inventory..."
 _draw 6 "Please wait ...."
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 #echo watch request
 echo request items inv
 while :;
@@ -204,7 +204,7 @@ done
 unset oldITEM oneITEM
 #echo unwatch request
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 _draw 4 "Check took elapsed $TIME sec."
 
@@ -323,7 +323,7 @@ DEBUG=1
 
 _debug "_do_loop:$*:NUMBER=$NUMBER"
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 #for one in `seq 1 1 $NUMBER`
 while :;
 do
@@ -348,7 +348,7 @@ do
  _debug TRIES_STILL=$TRIES_STILL
  case $TRIES_STILL in -*) TRIES_STILL=$(( TRIES_STILL * -1 ));; esac
  _debug TRIES_STILL=$TRIES_STILL
- TIMEE=`date +%s`
+ TIMEE=`/bin/date +%s`
  TIME=$((TIMEE-TIMEC))
  _debug TIME=$TIME
  TIMEALL=$((TIMEALL+TIME))

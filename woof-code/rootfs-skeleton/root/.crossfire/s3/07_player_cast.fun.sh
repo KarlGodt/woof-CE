@@ -207,7 +207,7 @@ lSPELL=${lSPELL:-"$SPELL_DEFAULT"}
 _draw 5 "Checking if have '$lSPELL' ..."
 _draw 5 "Please wait...."
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 echo request spells
 while :;
@@ -226,7 +226,7 @@ sleep 0.1
 done
 
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
 _debug "_check_have_needed_spell_in_inventory:Elapsed '$TIME' sec."
 

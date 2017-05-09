@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
@@ -101,7 +101,7 @@ _log ""
 
 _watch
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 while :;
 do

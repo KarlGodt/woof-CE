@@ -1,7 +1,7 @@
 #!/bin/bash
 # uses <<<
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 

@@ -581,7 +581,7 @@ _mark_item || exit 1
 NUM=$NUMBER
 c=0; cc=0; C=0
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 while :;
 do
@@ -619,7 +619,7 @@ sleep 0.6  # 0.2 had been too fast for catching correct replys, 0.5 almost
 #echo draw 7 "end of throwing loop"
 done
 
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIMEX=$((TIMEE-TIMEB))
 TIMEM=$((TIMEX/60))
 TIMES=$(( TIMEX - (TIMEM*60) ))

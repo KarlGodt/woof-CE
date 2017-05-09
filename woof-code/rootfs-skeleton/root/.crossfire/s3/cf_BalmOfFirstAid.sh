@@ -2,7 +2,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
@@ -181,7 +181,7 @@ fi
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 success=0
 # *** Now LOOPING *** #
 
@@ -189,7 +189,7 @@ success=0
 while :;
 do
 
-#TIMEB=`date +%s`
+#TIMEB=`/bin/date +%s`
 TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply

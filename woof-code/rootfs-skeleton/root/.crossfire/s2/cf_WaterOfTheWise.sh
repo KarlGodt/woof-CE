@@ -1,7 +1,7 @@
 #!/bin/ash
 
 # Now count the whole script time
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** VARIABLES *** #
 
@@ -118,13 +118,13 @@ fi
 
 _say_statistics_end(){
 # Now count the whole loop time
-TIMELE=`date +%s`
+TIMELE=`/bin/date +%s`
 _say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
 
 _say_success_fail
 
 # Now count the whole script time
-TIMEZ=`date +%s`
+TIMEZ=`/bin/date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
@@ -416,7 +416,7 @@ NUMBER=${NUMBER:-infinite}
 # *** Now LOOPING *** #
 
 echo draw 4 "OK... Might the Might be with You!"
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 FAIL=0
 
@@ -590,7 +590,7 @@ f_check_on_cauldron
 one=$((one+1))
 
 TRIES_STILL=$((NUMBER-one))
-TIMEE=`date +%s`
+TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEC))
 
 case $TRIES_STILL in -*) # negative

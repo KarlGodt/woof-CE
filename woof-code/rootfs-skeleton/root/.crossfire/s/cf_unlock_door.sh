@@ -2,7 +2,7 @@
 
 exec 2>/tmp/cf_script.err
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
@@ -665,12 +665,13 @@ echo issue 1 1 use_skill lockpicking
   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
-  *'Unable to find skill '*)   break 2;;
-  *'The door has no lock!'*)   break 2;;
-  *'There is no lock there.'*) break 2;;
-  *' no door'*)                break 2;;
-  *'You unlock'*)              break 2;;
-  *'You pick the lock.'*)      break 2;;
+  *'Unable to find skill '*)     break 2;;
+  *'The door has no lock!'*)     break 2;;
+  *'There is no lock there.'*)   break 2;;
+  *"You can't pick that lock!"*) break 2;;  # special key
+  *' no door'*)                  break 2;;
+  *'You unlock'*)                break 2;;
+  *'You pick the lock.'*)        break 2;;
   *'Your '*)        :;;  # Your monster beats monster
   *'You killed '*)  :;;
   *'You find '*)    :;;

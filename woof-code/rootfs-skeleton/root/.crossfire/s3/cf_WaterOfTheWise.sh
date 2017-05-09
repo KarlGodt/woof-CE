@@ -4,7 +4,7 @@ export PATH=/bin:/usr/bin
 
 #DEBUG=1
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** PARAMETERS *** #
 
@@ -198,13 +198,13 @@ _prepare_rod_of_recall
 
 _draw 4 "OK... Might the Might be with You!"
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 success=0
 #for one in `seq 1 1 $NUMBER`
 while :;
 do
 
-#TIMEB=`date +%s`
+#TIMEB=`/bin/date +%s`
 TIMEC=${TIMEE:-$TIMEB}
 
 _is 1 1 apply

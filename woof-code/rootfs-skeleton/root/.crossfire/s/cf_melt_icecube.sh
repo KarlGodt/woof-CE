@@ -16,7 +16,7 @@
 #define NDI_GOLD        11
 #define NDI_TAN         12      /**< Khaki. */
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable

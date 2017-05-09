@@ -27,7 +27,7 @@
 
 export PATH=/bin:/usr/bin
 
-TIMEA=`date +%s`
+TIMEA=`/bin/date +%s`
 
 # *** Variables : Most are set or unset ( set meaning have content ( even " " )) , unset no content
 # *** common editable variables
@@ -238,7 +238,7 @@ lSPELL_PARAM=${lSPELL_PARAM:-"$SPELL_PARAM_DEFAULT"}
 
 local sc=0
 
-TIMEB=`date +%s`
+TIMEB=`/bin/date +%s`
 
 while :;
 do
@@ -300,7 +300,7 @@ _unwatch
 
  one=$((one+1))
 
- TIMEE=`date +%s`
+ TIMEE=`/bin/date +%s`
  TIME=$((TIMEE-TIMEC))
  TIMET=$((TIMEE-TIMEB))
  TIMET=$(( (TIMET/60) +1))
