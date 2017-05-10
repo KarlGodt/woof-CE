@@ -3,7 +3,7 @@
 _find_traps_bulk_search(){
 # ** search to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -46,6 +46,7 @@ $REPLY"
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -57,6 +58,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -72,7 +74,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 _find_traps_bulk_use_skill(){
 # ** use_skill find traps to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -108,6 +110,7 @@ $REPLY"
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -119,6 +122,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -135,7 +139,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 _find_traps_bulk_ready_skill(){
 # ** ready_skill find traps to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -173,6 +177,7 @@ $REPLY"
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -184,6 +189,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -199,7 +205,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 
 _find_traps_single(){
 # ** search to find traps ** #
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${1:-$MAX_SEARCH}
 
@@ -247,7 +253,7 @@ sleep 1
 _disarm_traps_bulk_use_skill(){
 # ** disarm using use_skill disarm traps ** #
 
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
 
 local NUM CNT
 unset NUM
@@ -402,7 +408,7 @@ sleep 1
 _disarm_traps_bulk_ready_skill(){
 # ** disarm using ready_skill disarm traps ** #
 
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
 
 local NUM CNT
 unset NUM
@@ -561,7 +567,7 @@ sleep 1
 
 _disarm_traps_single(){
 # ** disarm by use_skill disarm traps ** #
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
 
 _draw 6 "disarming trap ..."
 
@@ -868,19 +874,6 @@ read -t 1
 
     case $REPLY in
 
-     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-        # read -t 1 SECONDLINE  #
-        # break
-         _handle_trap_easy "Triggered trap." || return 112
-         ;; # poisoned / diseased needle, spikes, blades
-                  # TODO: You suddenly feel ill.
-
-     *'You feel depleted of psychic energy!'*)
-         #read -t 1 SECONDLINE  #
-         #break
-         _handle_trap_easy "No mana." || return 112
-         ;; # ^harmless^
-
      *"RUN!  The timer's ticking!"*) # rune_bomb.arc
         # read -t 1 SECONDLINE  #
         # if [ "$FORCE" ]; then
@@ -893,7 +886,7 @@ read -t 1
         ;;
 
         #You detonate a Rune of Mass Confusion!
-     *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+     *of*Confusion*|*'of Paralysis'*) # these multiplify
         # read -t 1 SECONDLINE  #
         # if [ "$FORCE" ]; then
         #  break  # at low level better exit with beep
@@ -921,12 +914,11 @@ read -t 1
         _handle_trap_destroy "Fireball." || return 112
         ;;  # enable to pick up chests before they get burned
 
-
         #You set off a fireball!
      *of*fireball*)  ## rune_fireball.arc
         # read -t 1 SECONDLINE  #
         # break
-        _handle_trap_destroy "Fireball." || return 112
+        _handle_trap_destroy "fireball." || return 112
         ;;
 
      *of*Ball*Lightning*) ## rune_blightning.arc
@@ -958,6 +950,19 @@ read -t 1
          _handle_trap_destroy "Surrounded by monsters." || return 112
         ;;
 
+     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+        # read -t 1 SECONDLINE  #
+        # break
+         _handle_trap_easy "Triggered trap." || return 112
+         ;; # poisoned / diseased needle, spikes, blades
+                  # TODO: You suddenly feel ill.
+
+     *'You feel depleted of psychic energy!'*)
+         #read -t 1 SECONDLINE  #
+         #break
+         _handle_trap_easy "No mana." || return 112
+         ;; # ^harmless^
+
      *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
         # break
          _handle_trap_easy "Healing trap." || return 112
@@ -972,7 +977,7 @@ return 0
 _lockpick_door_use_skill(){
 # ** open door with use_skill lockpicking ** #
 
-[ "$SKILL_LOCKPICK" = no ] && return 1
+[ "$SKILL_LOCKPICK" = no ] && return 3
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -1039,7 +1044,7 @@ echo unwatch $DRAW_INFO
 _lockpick_door_ready_skill(){
 # ** open door with ready_skill lockpicking ** #
 
-[ "$SKILL_LOCKPICK" = no ] && return 1
+[ "$SKILL_LOCKPICK" = no ] && return 3
 
 local REPLY=
 

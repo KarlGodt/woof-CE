@@ -252,11 +252,8 @@ echo issue 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
-#   *'Your '*)       :;; # Your monster beats monster
-#   *'You killed '*) :;;
    *'You search the area.'*) :;;
   '') break;;
   esac
@@ -264,7 +261,7 @@ $REPLY";
   unset REPLY
  done
 
-
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 sleep 1
 
@@ -275,6 +272,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -314,7 +312,7 @@ local SECONDLINE=''
       fi;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
       read -t 1 SECONDLINE  #
       _draw 3 "Quitting - Fireball."
       return 112;;  # enable to pick up chests before they get burned

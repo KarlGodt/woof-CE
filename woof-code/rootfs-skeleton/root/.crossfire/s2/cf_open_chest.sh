@@ -243,15 +243,6 @@ read -t 1
 
     case $REPLY in
 
-     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-         read -t 1 SECONDLINE  #
-         break ;; # poisoned / diseased needle, spikes, blades
-                  # TODO: You suddenly feel ill.
-
-     *'You feel depleted of psychic energy!'*)
-         read -t 1 SECONDLINE  #
-         break ;; # ^harmless^
-
      *"RUN!  The timer's ticking!"*) # rune_bomb.arc
          read -t 1 SECONDLINE  #
          if [ "$FORCE" ]; then
@@ -261,7 +252,7 @@ read -t 1
          fi;;
 
         #You detonate a Rune of Mass Confusion!
-     *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+     *of*Confusion*|*'of Paralysis'*) # these multiplify
          read -t 1 SECONDLINE  #
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
@@ -277,7 +268,7 @@ read -t 1
          return 112;;
 
         #You detonate a Rune of Fireball!
-     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+     *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
          read -t 1 SECONDLINE  #
          _draw 3 "Quitting - Fireball."
          return 112;;  # enable to pick up chests before they get burned
@@ -285,7 +276,8 @@ read -t 1
         #You set off a fireball!
      *of*fireball*)  ## rune_fireball.arc
          read -t 1 SECONDLINE  #
-         break;;
+         _draw 3 "Quitting - fireball."
+         return 112;;
 
      *of*Ball*Lightning*) ## rune_blightning.arc
          read -t 1 SECONDLINE
@@ -307,6 +299,15 @@ read -t 1
          else _draw "Quitting - surrounded by monsters."
           return 112
          fi;;
+
+     *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+         read -t 1 SECONDLINE  #
+         break ;; # poisoned / diseased needle, spikes, blades
+                  # TODO: You suddenly feel ill.
+
+     *'You feel depleted of psychic energy!'*)
+         read -t 1 SECONDLINE  #
+         break ;; # ^harmless^
 
      *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
          break;;
@@ -490,7 +491,7 @@ _is 1 1 use_skill "disarm traps"
         fi;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) ## rune_confusion.arc, rune_paralysis.arc
+   *of*Confusion*|*'of Paralysis'*) ## rune_confusion.arc, rune_paralysis.arc
       read -t 1 SECONDLINE  #
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
@@ -506,7 +507,7 @@ _is 1 1 use_skill "disarm traps"
       return 112;;  # wrapps chests in icecube container, no use for --force option
 
    #You detonate a Rune of Fireball!  ## rune_fire.arc
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
       read -t 1 SECONDLINE  #
       _draw 3 "Quitting - Fireball."
       return 112;;  # enable to pick up chests before they get burned
@@ -514,7 +515,8 @@ _is 1 1 use_skill "disarm traps"
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
       read -t 1 SECONDLINE  #
-      break;;
+       _draw 3 "Quitting - fireball."
+      return 112;;
 
    *of*Ball*Lightning*) ## rune_blightning.arc
      read -t 1 SECONDLINE
@@ -523,8 +525,6 @@ _is 1 1 use_skill "disarm traps"
 
    *'You detonate '*)  ## rune_blast.arc, rune_death.arc, rune_pcloud.arc, rune_shock.arc,
                        ## rune_frost.arc, rune_fireball.arc, rune_fire.arc
-      #NUM=$((NUM-1));
-      #test "$NUM" -gt 0 || break 2;
       read -t 1 SECONDLINE  #
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
@@ -533,8 +533,6 @@ _is 1 1 use_skill "disarm traps"
         fi;;
 
    *'A portal opens up, and screaming hordes pour'*)  ## rune_summon.arc
-      #NUM=$((NUM-1));
-      #test "$NUM" -gt 0 || break 2;
       read -t 1 SECONDLINE  # through
         if [ "$FORCE" ]; then
          break # always better to exit with beep

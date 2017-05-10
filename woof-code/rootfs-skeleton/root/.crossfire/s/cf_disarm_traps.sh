@@ -203,11 +203,8 @@ echo issue 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
 
 #   *'Your '*)       :;; # Your monster beats monster
@@ -220,8 +217,7 @@ $REPLY";
   unset REPLY
  done
 
-
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 
@@ -233,18 +229,13 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-#TRAPS=`echo "$TRAPS" | uniq`
-#TRAPS_NUM=`echo -n "$TRAPS" | wc -l`
 
 if test "$DEBUG"; then
-#echo draw 5 "TRAPS='$TRAPS'"
-#echo draw 6 "`echo "$TRAPS" | uniq`"
 _draw 5 "TRAPS='$TRAPS'"
-#_draw 6 "`echo "$TRAPS" | uniq`"
 fi
 
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | uniq | wc -l`
  test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 
 TRAPS_NUM=${TRAPS_NUM:-0}

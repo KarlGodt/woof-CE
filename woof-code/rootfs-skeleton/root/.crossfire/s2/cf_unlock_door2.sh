@@ -485,7 +485,7 @@ echo unwatch $DRAW_INFO
 ___find_traps(){
 # ** search to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -515,10 +515,8 @@ _is 1 1 search
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
+$REPLY"
     ;;
 
 #   *'Your '*)       :;; # Your monster beats monster
@@ -530,6 +528,7 @@ $REPLY";
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -541,6 +540,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -556,7 +556,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 __find_traps(){
 # ** use_skill find traps to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -587,8 +587,6 @@ _is 1 1 use_skill find traps
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
     *'You spot a '*) TRAPS="${TRAPS}
 $REPLY"
     ;;
@@ -602,6 +600,7 @@ $REPLY"
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -613,6 +612,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -628,7 +628,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 _find_traps(){
 # ** ready_skill find traps to find traps ** #
 
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${NUMBER:-$MAX_SEARCH}
 
@@ -662,8 +662,6 @@ unset TRAPS
   case $REPLY in
    *'Unable to find skill '*) SKILL_FIND=no; break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
     *'You spot a '*) TRAPS="${TRAPS}
 $REPLY";
     ;;
@@ -677,6 +675,7 @@ $REPLY";
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -688,6 +687,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -706,7 +706,7 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 __disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
 
 local NUM CNT
 unset NUM
@@ -755,11 +755,11 @@ _is 1 1 use_skill "disarm traps"
     break ;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
     break;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
     break;;
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
@@ -805,7 +805,7 @@ sleep 1
 _disarm_traps(){
 # ** disarm ready_skill disarm traps ** #
 
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
 
 local NUM CNT
 unset NUM
@@ -861,11 +861,11 @@ _is 1 1 fire_stop
     break ;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
     break;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
     break;;
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
@@ -913,7 +913,7 @@ sleep 1
 __lockpick_door(){
 # ** open door with use_skill lockpicking ** #
 
-[ "$SKILL_LOCKPICK" = no ] && return 1
+[ "$SKILL_LOCKPICK" = no ] && return 3
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -980,7 +980,7 @@ echo unwatch $DRAW_INFO
 _lockpick_door(){
 # ** open door with ready_skill lockpicking ** #
 
-[ "$SKILL_LOCKPICK" = no ] && return 1
+[ "$SKILL_LOCKPICK" = no ] && return 3
 
 local REPLY=
 

@@ -513,8 +513,6 @@ _is 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
    *'You spot a '*) TRAPS="${TRAPS}
 $REPLY";
      ;;
@@ -528,6 +526,7 @@ $REPLY";
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 sleep 1
@@ -539,6 +538,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -604,11 +604,11 @@ _is 1 1 use_skill "disarm traps"
     break ;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
     break;;
 
    #You detonate a Rune of Fireball!
-   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*)
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
     break;;
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
