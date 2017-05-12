@@ -222,13 +222,60 @@ echo unwatch $DRAW_INFO
 CAST_DEX=_cast_dexterity
 $CAST_DEX
 
+_handle_trap_event(){
+
+local SECONDLINE=''
+
+  case $REPLY in
+
+   *'Unable to find skill '*)  return 112;;
+                #SKILL_DISARM=no; break 2;;
+
+   *'You fail to disarm '*)
+      break;;  # break 1 tries again to disarm
+   *'You successfully disarm '*)
+      break ;; # break 1 disarms further if more traps already spotted
+
+   *'In fact, you set it off!'*)
+      break ;;
+
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+      break ;; # poisoned / diseased needle, spikes, blades
+   *'You feel depleted of psychic energy!'*)
+      break ;; # ^harmless^
+
+   #You detonate a Rune of Mass Confusion!
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+      if [ "$FORCE" ]; then
+      break  # at low level better exit with beep
+      else return 112
+      fi;;
+
+   *'You detonate '*|*"RUN!  The timer's ticking!"*)
+      if [ "$FORCE" ]; then
+      break  # at low level better exit with beep
+      else return 112
+      fi;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
+  '')
+      break $BREAK_CNT;;
+
+  esac
+return 0
+}
+
 _disarm_traps(){
 # ** disarm by use_skill disarm traps ** #
-[ "$SKILL_DISARM" = no ] && return 1
+[ "$SKILL_DISARM" = no ] && return 3
+
+BREAK_CNT=2
 
 _draw 6 "disarming trap ..."
-
-#local CNT=0
 
 while :;
 do
@@ -247,43 +294,7 @@ _is 1 1 use_skill "disarm traps"
   _log "_disarm_traps:$REPLY"
   _debug "REPLY='$REPLY'"
 
-  case $REPLY in
-   *'Unable to find skill '*)  return 112;;
-                #SKILL_DISARM=no; break 2;;
-
-   *'You fail to disarm '*)
-      break;;  # break 1 tries again to disarm
-   *'You successfully disarm '*)
-      break ;; # break 1 disarms further if more traps already spotted
-
-   *'In fact, you set it off!'*)
-      break ;;
-
-   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-      break ;; # poisoned / diseased needle, spikes, blades
-   *'You feel depleted of psychic energy!'*)
-      break ;; # ^harmless^
-
-   #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
-      if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
-      else return 112
-      fi;;
-
-   *'You detonate '*|*"RUN!  The timer's ticking!"*)
-      if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
-      else return 112
-      fi;;
-   *'A portal opens up, and screaming hordes pour'*)
-      if [ "$FORCE" ]; then
-      break # always better to exit with beep
-      else return 112
-      fi;;
-  '')
-      break 2;;
-  esac
+  _handle_trap_event || return 112
  done
 
 sleep 1
@@ -295,7 +306,7 @@ sleep 1
 
 _find_traps(){
 # ** search to find traps ** #
-[ "$SKILL_FIND" = no ] && return 1
+[ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${1:-$MAX_SEARCH}
 
@@ -324,8 +335,6 @@ _is 1 1 search
    *'Unable to find skill '*) return 112;;
                 #SKILL_FIND=no;  break 2;;
 
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"; break;;
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps;
     case $? in 112) return 112;; esac
@@ -391,8 +400,8 @@ _is 1 1 use_skill "disarm traps"
   _debug NUM=$NUM
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
-#  *'You fail to disarm '*) continue;;
 
+#  *'You fail to disarm '*) continue;;
    *'You successfully disarm '*)
       NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
@@ -402,12 +411,13 @@ _is 1 1 use_skill "disarm traps"
       NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
       break ;;
+
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-      NUM=$((NUM-1));
+      #NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
       break;;
    *'A portal opens up, and screaming hordes pour'*)
-      NUM=$((NUM-1));
+      #NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
       break;; # better exit with beep
 
@@ -432,8 +442,7 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
-#local c=0
-#NUM=${1:-$NUMBER}
+BREAK_CNT=1
 
 while :;
 do
@@ -441,15 +450,15 @@ do
 # TODO : food level, hit points
 
 
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
+
 _is 1 1 apply  # handle trap release, being killed
-sleep 1
+#sleep 1
 
 
 _is 0 0 get all
-sleep 1
-
-_debug "watch $DRAW_INFO"
-echo watch $DRAW_INFO
+#sleep 1
 
 _is 0 0 drop chest # Nothing to drop.
 
@@ -464,10 +473,11 @@ _is 0 0 drop chest # Nothing to drop.
    *'Nothing to drop.'*) break 2;;
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
-   *'You find '*)    :;;
+   #*'You find '*)    :;;
+   *'You find '*) _handle_trap_event || return 112  ;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
-  *) break;;
+  *) _handle_trap_event || return 112 ; break;;
   esac
  done
 
@@ -491,6 +501,8 @@ _find_traps $NUMBER
 case $? in 112) :;;
 *)    _open_chest;;
 esac
+
+_is 0 0 get all
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"

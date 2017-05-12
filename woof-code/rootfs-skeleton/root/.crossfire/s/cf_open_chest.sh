@@ -67,13 +67,6 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
-# *** Here begins program *** #
-_draw 2 "$0 is started.."
-
-
-# *** Check for parameters *** #
-
-
 # *** implementing 'help' option *** #
 _usage() {
 
@@ -92,6 +85,10 @@ _draw 5 "-v set verbosity"
 }
 
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+
+# *** Check for parameters *** #
 
 until test $# = 0;
 do
@@ -199,15 +196,6 @@ sleep 0.1
  _debug "REPLY='$REPLY'" #debug
 
  case $REPLY in
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -256,11 +244,8 @@ echo issue 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
    *'You spot a '*) TRAPS="${TRAPS}
-$REPLY";
-#break;;
+$REPLY"
     ;;
-#   *'Your '*)       :;; # Your monster beats monster
-#   *'You killed '*) :;;
    *'You search the area.'*) :;;
   '') break;;
   esac
@@ -268,7 +253,7 @@ $REPLY";
   unset REPLY
  done
 
-
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 sleep 1
 
@@ -279,6 +264,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
@@ -288,7 +274,6 @@ fi
 test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
 TRAPS_NUM=${TRAPS_NUM:-0}
 
-#mkfifo /tmp/cf_pipe.$$ ## pipe needs to be read before first data send to
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
@@ -309,7 +294,7 @@ local SECONDLINE=''
       break ;;
 
    #You detonate a Rune of Mass Confusion!
-   *'of Mass Confusion'*|*'of Paralysis'*) # these multiplify
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
       read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
@@ -318,17 +303,14 @@ local SECONDLINE=''
 
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
       read -t 1 SECONDLINE
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
 
    *"RUN!  The timer's ticking!"*)
       read -t 1 SECONDLINE
       if [ "$FORCE" ]; then
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break # always better to exit with beep
       else return 112
       fi;;
-
 
    *'A portal opens up, and screaming hordes pour'*)
       read -t 1 SECONDLINE
@@ -336,7 +318,6 @@ local SECONDLINE=''
       beep -f 900 -l 100
       beep -f 800 -l 100
       if [ "$FORCE" ]; then
-      #NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break # always better to exit with beep
       else return 112
       fi;;
@@ -348,7 +329,6 @@ local SECONDLINE=''
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
-
 
 unset NUM
 
@@ -386,34 +366,6 @@ echo issue 1 1 use_skill "disarm traps"
    _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
    _handle_trap_event || return 112
-#  case $REPLY in
-#   *'Unable to find skill '*)   break 2;;
-##  *'You fail to disarm '*) continue;;
-#
-#   *'You successfully disarm '*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;;
-#
-#   *'In fact, you set it off!'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break ;;
-#
-#   #You detonate a Rune of Mass Confusion!
-#   *'of Mass Confusion!'*|*'of Paralysis'*) # these multiplify
-#      if [ "$FORCE" ]; then
-#      break  # at low level better exit with beep
-#      else return 112
-#      fi;;
-#
-#   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;;
-#   *'A portal opens up, and screaming hordes pour'*)
-#      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-#      break;; # better exit with beep
-#
-#  '') CNT=$((CNT+1)); break;;
-#  esac
 
  done
 
@@ -472,12 +424,10 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
 
-   #*'You find '*trap*)   _handle_trap_event || return 112;; #Blades trap
-   #*'You find '*needle*) _handle_trap_event || return 112;;
-   #*'You find '*Spikes*) _handle_trap_event || return 112;;
    #*'You find Rune '*)   _handle_trap_event || return 112;;
    #*'You find '*)    :;;
     *'You find '*)  _handle_trap_event || return 112  ;;
+
    *'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
@@ -499,7 +449,6 @@ echo issue 0 0 drop chest # Nothing to drop.
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
       break;;
-#  *) break;;
   esac
 #_handle_trap_event
  done
@@ -526,19 +475,7 @@ echo unwatch $DRAW_INFO
 _find_traps
 _disarm_traps && _open_chest
 
-echo issue 1 1 get all #pickup chests if bomb
-
-__identify(){
-echo issue 0 0 use_skill sense curse
-echo issue 0 0 use_skill sense magic
-echo issue 0 0 use_skill smithery
-echo issue 0 0 use_skill bowyer
-echo issue 0 0 use_skill alchemy
-echo issue 0 0 use_skill woodsman
-echo issue 0 0 use_skill literacy
-echo issue 0 0 use_skill jeweler
-echo issue 0 0 use_skill thaumaturgy
-}
+echo issue 0 0 get all #pickup chests if bomb
 
 _identify(){
 set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman

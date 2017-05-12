@@ -67,7 +67,7 @@ _usage() {
 
 _draw 5 "Script to lockpick doors."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 5 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 _draw 4 "Options:"
@@ -544,6 +544,7 @@ $REPLY";;
   unset REPLY
  done
 
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 sleep 1
 
@@ -554,6 +555,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then

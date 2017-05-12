@@ -162,7 +162,7 @@ _draw 2  "$0 has finished."
 # times
 _say_minutes_seconds(){
 # syntax: _say_minutes_seconds "500" "600" "Loop run:"
-test "$1" -a "$2" || return 1
+test "$1" -a "$2" || return 3
 
 local TIMEa TIMEz TIMEy TIMEm TIMEs
 
@@ -243,14 +243,14 @@ TIMEC=${TIMEC:-$1}
 TIMEC=${TIMEC:-$TIMEB}
 TIMEC=${TIMEC:-$TIMEA}
 
-test "$TIMEC"           || return 1
-test "${TIMEC//[0-9]/}" && return 2
+test "$TIMEC"           || return 3
+test "${TIMEC//[0-9]/}" && return 4
 
 TIMEB=${TIMEB:-$2}
 TIMEB=${TIMEB:-$TIMEA}
 
-test "$TIMEB"           || return 1
-test "${TIMEB//[0-9]/}" && return 2
+test "$TIMEB"           || return 5
+test "${TIMEB//[0-9]/}" && return 6
 
 TIMEE=`/bin/date +%s`
 
@@ -285,20 +285,20 @@ _draw 4 "$MSG ($TIMEESTM:$TIMEESTS m)"
 _loop_counter_main(){
 #test "$TIMEA" -a "$TIMEB" -a "$TIMEC" -a "$NUMBER" -a "$one" || return 0
 test "$1" -o "$TIMEA" -o "$TIMEB" -o "$TIMEC" || return 0
-test "$NUMBER" -a "$one" || return 1
+test "$NUMBER" -a "$one" || return 4
 
 TIMEC=${TIMEC:-$1}
 TIMEC=${TIMEC:-$TIMEB}
 TIMEC=${TIMEC:-$TIMEA}
 
-test "$TIMEC"           || return 1
-test "${TIMEC//[0-9]/}" && return 2
+test "$TIMEC"           || return 5
+test "${TIMEC//[0-9]/}" && return 6
 
 TIMEB=${TIMEB:-$2}
 TIMEB=${TIMEB:-$TIMEA}
 
-test "$TIMEB"           || return 1
-test "${TIMEB//[0-9]/}" && return 2
+test "$TIMEB"           || return 7
+test "${TIMEB//[0-9]/}" && return 8
 
 TIMEE=`/bin/date +%s`
 

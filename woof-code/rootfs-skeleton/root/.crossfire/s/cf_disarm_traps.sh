@@ -220,7 +220,7 @@ $REPLY";
   unset REPLY
  done
 
-
+test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 #test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
@@ -233,6 +233,7 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
+test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
 TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 #TRAPS=`echo "$TRAPS" | uniq`
 #TRAPS_NUM=`echo -n "$TRAPS" | wc -l`

@@ -109,6 +109,7 @@ case $? in 112) :;;
 *)    _open_chest;;
 esac
 
+_is 0 0 get all  # get all items if triggered bomb, fireball
 
 # *** Here ends program *** #
 _say_end_msg
