@@ -37,6 +37,8 @@ COL_GRAY=9
 COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
+COL_VERB=$COL_TAN  # verbose
+COL_DBG=$COL_GOLD  # debug
 
 _draw(){
 test "$*" || return
@@ -135,6 +137,7 @@ sleep 1
 
 _handle_spell_errors(){
 local RV=0
+_log "_handle_spell_errors:$REPLY"
  case $REPLY in  # server/spell_util.c
  '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
  '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
@@ -152,6 +155,7 @@ return ${RV:-1}
 
 _handle_spell_msgs(){
 local RV=0
+_log "_handle_spell_msgs:$REPLY"
  case $REPLY in
  *'You can no longer use the skill:'*) :;;
  *'You ready talisman '*)              :;;
@@ -239,7 +243,7 @@ echo issue 1 1 search
 
  while :; do read -t 1
  _log "_find_traps:$REPLY"
- _debug $COL_GREEN "REPLY='$REPLY'" #debug
+ _debug "REPLY='$REPLY'"
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
@@ -277,43 +281,190 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
-_handle_trap_event(){
+_handle_trap_trigger_event(){
 
 local SECONDLINE=''
 
+_log "_handle_trap_trigger_event:$REPLY"
+case $REPLY in
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+     : break
+     ;;
+
+   #You detonate a Rune of Mass Confusion!
+   *of*Confusion*|*'of Paralysis'*) # these multiplify
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break  # at low level better exit with beep
+      else return 112
+      fi;;
+
+  #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+   *of*Ball*Lightning*)  ## rune_blightning.arc
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      : break
+      ;;
+
+   *"RUN!  The timer's ticking!"*)
+      read -t 1 SECONDLINE
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+   *'A portal opens up, and screaming hordes pour'*)
+      read -t 1 SECONDLINE #through
+      _debug "SECONDLINE=$SECONDLINE"
+      _log "_handle_trap_trigger_event:$SECONDLINE"
+      beep -f 800 -l 100
+      beep -f 900 -l 100
+      beep -f 800 -l 100
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi;;
+
+esac
+
+}
+
+_handle_trap_event(){
+
+local SECONDLINE=''
+_log "_handle_trap_event:$REPLY"
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
-#  *'You fail to disarm '*) continue;;
+
+   *'You fail to disarm '*) :;;
 
    *'You successfully disarm '*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
 
    *'In fact, you set it off!'*)
+      unset REPLY
+      read -t 1
+      _debug "$REPLY"
+      _log "_handle_trap_event:$REPLY"
+      _handle_trap_trigger_event || return 112
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break ;;
+
+   *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+     break;;
 
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
       read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
       else return 112
       fi;;
 
+  #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
+      read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
+
+   #You set off a fireball!
+   *of*fireball*)  ## rune_fireball.arc
+      read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
+
+   *of*Ball*Lightning*)  ## rune_blightning.arc
+      read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
+
+   #You detonate a Rune of Icestorm
+   *of*Icestorm*)  # wrapps chests in icecube container
+      read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
+      if [ "$FORCE" ]; then
+      break # always better to exit with beep
+      else return 112
+      fi;;
+
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*'You feel depleted of psychic energy!'*)
       read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
       break;;
 
    *"RUN!  The timer's ticking!"*)
       read -t 1 SECONDLINE
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
       if [ "$FORCE" ]; then
       break # always better to exit with beep
       else return 112
       fi;;
 
    *'A portal opens up, and screaming hordes pour'*)
-      read -t 1 SECONDLINE
+      read -t 1 SECONDLINE #through
+      _debug "$SECONDLINE"
+      _log "_handle_trap_event:$SECONDLINE"
       beep -f 800 -l 100
       beep -f 900 -l 100
       beep -f 800 -l 100
@@ -363,9 +514,11 @@ echo issue 1 1 use_skill "disarm traps"
   unset REPLY
   read -t 1
    _log "_disarm_traps:$REPLY"
-   _debug $COL_GREEN "REPLY='$REPLY'" #debug
+   _debug "REPLY='$REPLY'"
 
-   _handle_trap_event || return 112
+   case $REPLY in *You*spot*|*You*search*) :;;
+   *) _handle_trap_event || return 112;;
+   esac
 
  done
 
@@ -417,16 +570,26 @@ echo issue 0 0 drop chest # Nothing to drop.
   unset REPLY
   read -t 1
   _log "_open_chest:$REPLY"
-  _debug $COL_GREEN "REPLY='$REPLY'" #debug
+  _debug "REPLY='$REPLY'"
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
+   *'Nothing to take!'*) break;; # chest could be a permanent container
+
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
+   *'You search'*)   :;;
 
-   #*'You find Rune '*)   _handle_trap_event || return 112;;
-   #*'You find '*)    :;;
-    *'You find '*)  _handle_trap_event || return 112  ;;
+   *'You find Rune '*|*'You find '*trap*|*'You find '*spikes*|*'You find '*needle*)
+      unset REPLY
+      read -t 1
+      _log "_open_chest:$REPLY"
+      _debug "REPLY='$REPLY'"
+      #_handle_trap_event || return 112;;
+      _handle_trap_trigger_event || return 112;;
+
+   *'You find '*)    :;;
+   #*'You find '*)  _handle_trap_event || return 112  ;;
 
    *'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;

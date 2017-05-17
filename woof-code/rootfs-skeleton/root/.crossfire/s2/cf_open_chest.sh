@@ -413,12 +413,9 @@ _is 1 1 use_skill "disarm traps"
       break ;;
 
    *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-      #NUM=$((NUM-1));
-      test "$NUM" -gt 0 || break 2;
       break;;
+
    *'A portal opens up, and screaming hordes pour'*)
-      #NUM=$((NUM-1));
-      test "$NUM" -gt 0 || break 2;
       break;; # better exit with beep
 
   '') CNT=$((CNT+1)); break;;
@@ -477,6 +474,7 @@ _is 0 0 drop chest # Nothing to drop.
    *'You find '*) _handle_trap_event || return 112  ;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
+   '') break;;
   *) _handle_trap_event || return 112 ; break;;
   esac
  done
