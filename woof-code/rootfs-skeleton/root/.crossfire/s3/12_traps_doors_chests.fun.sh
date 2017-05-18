@@ -593,13 +593,16 @@ _is 1 1 use_skill "disarm traps"
    *'Unable to find skill '*)  return 112;;
                 #SKILL_DISARM=no; break 2;;
 
-   *'You fail to disarm '*)
-      break;;  # break 1 tries again to disarm
+   *'You spot '*) :;;  # You spot a Rune of Fireball! You spot a spikes!
+
    *'You successfully disarm '*)
-      break ;; # break 1 disarms further if more traps already spotted
+      break ;;   # break 1 disarms further if more traps already spotted
+
+  *'You fail to disarm '*)
+     : break ;;  # break 1 tries again to disarm, but need to read if triggered
 
    *'In fact, you set it off!'*)
-      break ;;
+     : break ;;  # break 1 tries again to disarm, but need to read trap yeld first
 
    *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
     #  read -t 1 SECONDLINE
