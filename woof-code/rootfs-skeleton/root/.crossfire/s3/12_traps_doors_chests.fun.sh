@@ -88,6 +88,8 @@ do
 
 unset TRAPS
 
+[ "$DEBUG" -o "$VERBOSE" ] && _verbose "${NUM} search ..."
+
 _is 1 1 use_skill find traps
 
  while :; do read -t 1
@@ -155,6 +157,8 @@ do
 
 unset TRAPS
 
+[ "$DEBUG" -o "$VERBOSE" ] && _verbose "${NUM} search ..."
+
  _is 1 1 fire ${DIRN:-0}
  _is 1 1 fire_stop
 
@@ -217,6 +221,7 @@ echo watch $DRAW_INFO
 while :;
 do
 
+[ "$DEBUG" -o "$VERBOSE" ] && _verbose "${NUM} search ..."
 _is 1 1 search
 
  while :; do read -t 1
@@ -230,6 +235,8 @@ _is 1 1 search
     *'You spot a '*) _debug "Found Trap";
     _disarm_traps_single;
     case $? in 112) return 112;; esac
+    #NUM=${1:-$MAX_SEARCH} # reset in case of always failing without setting off
+    #NUM=$((NUM+1))
     break;;
 
    *'You search the area.'*) :;;
@@ -301,19 +308,6 @@ _is 1 1 use_skill "disarm traps"
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
-   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "Triggered trap." || return 112
-      ;; # simple / poisoned / diseased needle, spikes, blades
-   *'You feel depleted of psychic energy!'*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "No mana." || return 112
-    ;; # ^harmless^
-
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
    # read -t 1 SECONDLINE
@@ -384,6 +378,20 @@ _is 1 1 use_skill "disarm traps"
     #  fi
     _handle_trap_easy "Triggered trap." || return 112
     ;;
+
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+    ;; # simple / poisoned / diseased needle, spikes, blades
+
+   *'You feel depleted of psychic energy!'*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
 
 # src/lib/archetypes
 #   *'You detonate '**)
@@ -461,19 +469,6 @@ _is 1 1 fire_stop
     NUM=$((NUM-1)); test "$NUM" -gt 0 && break 1 || break 2;
     break ;;
 
-   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "Triggered trap." || return 112
-      ;; # simple / poisoned / diseased needle, spikes, blades
-   *'You feel depleted of psychic energy!'*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "No mana." || return 112
-    ;; # ^harmless^
-
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
     #read -t 1 SECONDLINE
@@ -545,6 +540,20 @@ _is 1 1 fire_stop
     _handle_trap_easy "Triggered trap." || return 112
     ;;
 
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+      ;; # simple / poisoned / diseased needle, spikes, blades
+
+   *'You feel depleted of psychic energy!'*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
+
 # src/lib/archetypes
 #   *'You detonate '**)
 
@@ -596,26 +605,26 @@ _is 1 1 use_skill "disarm traps"
    *'You spot '*) :;;  # You spot a Rune of Fireball! You spot a spikes!
 
    *'You successfully disarm '*)
-      break ;;   # break 1 disarms further if more traps already spotted
+     #NUM=$((NUM-1))
+     : break ;;   # break 1 should disarm further if more traps already spotted
+                  # no, if several traps were spotted, it would automatically attempt the next one
+                  # one single disarm goes on all spotted traps one by one if one had been successfull
+                  # and stops first if one was not succesfull -- it seems
+# server/server/skills.c :
+# int remove_trap( ... ){
+#  * This skill will disarm any previously discovered trap.
+#  * the algorithm is based (almost totally) on the old command_disarm() - b.t.
+# several big loops
+# /* Can't continue to disarm after failure */
 
   *'You fail to disarm '*)
-     : break ;;  # break 1 tries again to disarm, but need to read if triggered
+     #NUM=$((NUM+1))  # in case of NUM failures without setting off
+     test "$NUM" = 1 && NUM=2
+     : break ;;  # break 1 would try again to disarm, but need to read if triggered
 
    *'In fact, you set it off!'*)
-     : break ;;  # break 1 tries again to disarm, but need to read trap yeld first
-
-   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "Triggered trap." || return 112
-      ;; # simple / poisoned / diseased needle, spikes, blades
-   *'You feel depleted of psychic energy!'*)
-    #  read -t 1 SECONDLINE
-    #  _draw 3 "Ignored."
-    #  break
-    _handle_trap_easy "No mana." || return 112
-    ;; # ^harmless^
+    # NUM=$((NUM-1))
+     : break ;;  # break 1 would try again to disarm, but need to read trap yeld first
 
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
@@ -626,8 +635,8 @@ _is 1 1 use_skill "disarm traps"
     #   _draw 3 "Use -f --force option to go on despite."
     #   return 112
     #  fi
-      _handle_trap_medium "Multiplifying trap." || return 112
-      ;;
+    _handle_trap_medium "Multiplifying trap." || return 112
+    ;;
 
    #You detonate a Rune of Large Icestorm!
    #You detonate a Rune of Icestorm
@@ -674,17 +683,6 @@ _is 1 1 use_skill "disarm traps"
     _handle_trap_destroy "BOMB!" || return 112
     ;;
 
-   *'You detonate '*)
-    #  read -t 1 SECONDLINE
-    #  if [ "$FORCE" ]; then
-    #  break  # at low level better exit with beep
-    #  else _draw 3 "Quitting - Other trap."
-    #   _draw 3 "Use -f --force option to go on despite."
-    #   return 112
-    #  fi
-    _handle_trap_easy "Triggered trap." || return 112
-    ;;
-
    *'A portal opens up, and screaming hordes pour'*)
     #  read -t 1 SECONDLINE
     #  if [ "$FORCE" ]; then
@@ -696,12 +694,37 @@ _is 1 1 use_skill "disarm traps"
     _handle_trap_destroy "Surrounded by monsters." || return 112
     ;;
 
+   *'You detonate '*)
+    #  read -t 1 SECONDLINE
+    #  if [ "$FORCE" ]; then
+    #  break  # at low level better exit with beep
+    #  else _draw 3 "Quitting - Other trap."
+    #   _draw 3 "Use -f --force option to go on despite."
+    #   return 112
+    #  fi
+    _handle_trap_easy "Triggered trap." || return 112
+    ;;
+
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
     #read -t 1 SECONDLINE
     #  _draw 3 "Ignored."
     #break
     _handle_trap_easy "Healing trap." || return 112
     ;;
+
+   *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "Triggered trap." || return 112
+    ;; # simple / poisoned / diseased needle, spikes, blades
+
+   *'You feel depleted of psychic energy!'*)
+    #  read -t 1 SECONDLINE
+    #  _draw 3 "Ignored."
+    #  break
+    _handle_trap_easy "No mana." || return 112
+    ;; # ^harmless^
 
   '')   break 2;;
   *) _debug "_disarm_traps_single:Ignoring REPLY";;
