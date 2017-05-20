@@ -9,8 +9,8 @@ DRAW_INFO=drawinfo # drawextinfo
 DEBUG=1   # unset to disable, set to anything to enable
 LOGGING=1 # unset to disable, set to anything to enable
 
-MAX_SEARCH=9
-MAX_DISARM=9
+DEF_SEARCH=9
+DEF_DISARM=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -173,7 +173,16 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+# This creates the TRAPS variable, which is a list.
+# The server has several loops to find traps on all
+# direct reachable tiles around the player.
+# Each search attempt could possibly find on 9 tiles
+# traps and even several of them on each tile.
+# It is not necessary, to direct the search
+# onto one tile.
+# Same is for disarming these traps.
+
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 echo draw 6 "find traps '$NUM' times.."
 
@@ -221,7 +230,7 @@ $REPLY";
  done
 
 test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
-#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_SEARCH && break; }
+#test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $DEF_SEARCH && break; }
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 
 
@@ -258,6 +267,13 @@ _find_traps
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
+# REM: For now, it ignores handling of triggered traps.
+# Usuallay, there is only one trap each tile or object,
+# but at few occasions, there are more than one in a chest or door.
+# Especially Confusion and Paralyses traps could be handled,
+# since they tend to multiplify and disturbing the correct
+# commit of commands or reading of DRAW_INFO .
+# NOTE: cf_open_chest.sh handles it atm.
 
 sleep 1
 
@@ -267,7 +283,7 @@ local NUM c
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 echo draw 6 "disarm traps '$NUM' times.."
 

@@ -4,7 +4,7 @@
 TIMEA=`/bin/date +%s`
 
 # *** VARIABLES *** #
-DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawextinfo (old clients) OR drawinfo (new clients) # used for catching msgs watch/unwatch $DRAW_INFO
 
 SLEEP=3.0           # sleep seconds after codeblocks
 DELAY_DRAWINFO=6.0  # sleep seconds to sync msgs from script with msgs from server
@@ -21,6 +21,10 @@ west)  DIRF=east;;   # direction forward
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -56,7 +60,7 @@ PARAM_1="$1"
 case "$PARAM_1" in
 -h|*"help") _usage;;
 [0-9]*)
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers

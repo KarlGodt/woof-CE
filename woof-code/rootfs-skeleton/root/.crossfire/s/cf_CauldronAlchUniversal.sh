@@ -5,8 +5,6 @@ exec 2>>/tmp/cf_script.err
 
 
 # *** Setting defaults *** #
-#set empty default
-C=0 # used in arrays, set zero as default
 
 # Set here SKILL and CAULDRON you want to use ** #
 SKILL=woodsman
@@ -29,7 +27,16 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
+
+DRAW_INFO=drawinfo  # drawextinfo (old clients) OR drawinfo (new clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DELAY_DRAWINFO=4  #speed 0.32
+
+C=0 # used in arrays, set zero as default
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -40,7 +47,7 @@ echo draw 5 " with '$*' parameter."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
@@ -55,7 +62,8 @@ echo draw 4 "in header of this script for your needs."
 echo draw 6 "SKILL variable currently set to '$SKILL'"
 echo draw 6 "CAULDRON var currently set to '$CAULDRON'"
         exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 
@@ -403,7 +411,6 @@ echo draw 7 "drop slag"  # debug
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=4  #speed 0.32
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))

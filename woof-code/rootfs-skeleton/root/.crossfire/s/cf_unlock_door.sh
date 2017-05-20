@@ -6,9 +6,9 @@ TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
-MAX_LOCKPICK=9
+DEF_SEARCH=9
+DEF_DISARM=9
+DEF_LOCKPICK=9
 
 # FOREVER mode
 INF_THRESH=30 # threshold to cast dexterity and probe
@@ -502,7 +502,7 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -572,6 +572,14 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
+# REM: For now, it ignores handling of triggered traps.
+# Usuallay, there is only one trap each tile or object,
+# but at few occasions, there are more than one in a chest or door.
+# Especially Confusion and Paralyses traps could be handled,
+# since they tend to multiplify and disturbing the correct
+# commit of commands or reading of DRAW_INFO .
+# NOTE: cf_open_chest.sh handles it atm.
+
 local NUM CNT
 unset NUM
 
@@ -579,7 +587,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -699,7 +707,7 @@ if test "$FOREVER"; then
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
-c=$((c+1)); test "$c" -lt $MAX_LOCKPICK || break;
+c=$((c+1)); test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
 sleep 1

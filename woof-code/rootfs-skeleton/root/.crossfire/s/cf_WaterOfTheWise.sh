@@ -15,13 +15,17 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 
 SLEEP=4.0          # sleep seconds after codeblocks
 DELAY_DRAWINFO=8.0 # sleep seconds to sync msgs from script with msgs from server
 
-DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawextinfo (old clients) OR drawinfo (new clients) # used for catching msgs watch/unwatch $DRAW_INFO
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"

@@ -9,8 +9,8 @@ TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
+DEF_SEARCH=9
+DEF_DISARM=9
 
 DIRB=west # need to leave pile of chests to be able to apply
 case $DIRB in
@@ -18,6 +18,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -217,7 +221,7 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -487,7 +491,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 

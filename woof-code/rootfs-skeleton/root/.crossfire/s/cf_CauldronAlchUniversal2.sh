@@ -8,7 +8,7 @@ exec 2>>/tmp/cf_script.err
 # TODO Player Speed
 
 # *** Setting defaults *** #
-DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawextinfo (old clients) OR drawinfo (new clients) # used for catching msgs watch/unwatch $DRAW_INFO
 
 #set empty default
 C=0 # used in arrays, set zero as default
@@ -25,6 +25,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 # beeping
@@ -46,7 +50,7 @@ echo draw 5 " with '$*' parameter."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
@@ -59,18 +63,19 @@ echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
 
         exit 0
-        }
+;;
+esac
 
 SKILL="$PARAM_1"
 case $SKILL in
 alchemy|alchemistry)        CAULDRON=cauldron;;
 bowyer|bowyery)             CAULDRON=workbench;;
-jewler)                     CAULDRON=jeweler_bench;;
-smithery)                   CAULDRON=forge;;
+jeweler)                    CAULDRON=jeweler_bench;;
+smithery|smithing)          CAULDRON=forge;;
 thaumaturgy)                CAULDRON=thaumaturg_desk;;
-woodsman)                   CAULDRON=stove;;
+woodsman|wood*lore)         CAULDRON=stove;;
 *) echo draw 3 "'$SKILL' not valid!"
-echo draw 3 "Valid skills are alchemy, bowyer, jewler, smithery, thaumaturgy, woodsman"
+echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
 exit 1;;
 esac
 echo draw 7 "OK using $SKILL on $CAULDRON"
