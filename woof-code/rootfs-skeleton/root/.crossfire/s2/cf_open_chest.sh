@@ -7,8 +7,8 @@ exec 2>/tmp/cf_script.err
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
+DEF_SEARCH=9
+DEF_DISARM=9
 
 DIRB=west # need to leave pile of chests to be able to apply
 case $DIRB in
@@ -16,6 +16,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -224,46 +228,60 @@ $CAST_DEX
 
 _handle_trap_event(){
 
-local SECONDLINE=''
-
   case $REPLY in
+   *'You search'*|*'You spot'*) :;;
 
    *'Unable to find skill '*)  return 112;;
                 #SKILL_DISARM=no; break 2;;
 
    *'You fail to disarm '*)
-      break;;  # break 1 tries again to disarm
+     : break # break 1 tries again to disarm
+      ;;
    *'You successfully disarm '*)
-      break ;; # break 1 disarms further if more traps already spotted
+     : break # break 1 disarms further if more traps already spotted
+     ;;
 
    *'In fact, you set it off!'*)
-      break ;;
+     : break
+     ;;
+
+   *off*fireball*)
+      if [ "$FORCE" ]; then
+      : break  # at low level better exit with beep
+      else return 112
+      fi;;
 
    *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
-      break ;; # poisoned / diseased needle, spikes, blades
+     : break
+     ;; # poisoned / diseased needle, spikes, blades
    *'You feel depleted of psychic energy!'*)
-      break ;; # ^harmless^
+     : break
+     ;; # ^harmless^
 
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
       if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
+      : break  # at low level better exit with beep
       else return 112
       fi;;
 
-   *'You detonate '*|*"RUN!  The timer's ticking!"*)
+   *'You detonate '*)
+      : break
+      ;;
+
+   *"RUN!  The timer's ticking!"*)
       if [ "$FORCE" ]; then
-      break  # at low level better exit with beep
+      : break  # at low level better exit with beep
       else return 112
       fi;;
 
    *'A portal opens up, and screaming hordes pour'*)
       if [ "$FORCE" ]; then
-      break # always better to exit with beep
+      : break # always better to exit with beep
       else return 112
       fi;;
   '')
-      break $BREAK_CNT;;
+      break ${BREAK_CNT:-1};;
 
   esac
 return 0
@@ -273,13 +291,18 @@ _disarm_traps(){
 # ** disarm by use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 3
 
-BREAK_CNT=2
+local NUM=${*:-1}
+local CNT=0
 
-_draw 6 "disarming trap ..."
+BREAK_CNT=1  #global for use in _handle_trap_event() empty line break
+
+_draw 6 "disarming '$NUM' traps ..."
 
 while :;
 do
 
+CNT=$((CNT+1))
+_verbose "Attempt '$CNT' ..."
 _is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
@@ -294,21 +317,31 @@ _is 1 1 use_skill "disarm traps"
   _log "_disarm_traps:$REPLY"
   _debug "REPLY='$REPLY'"
 
-  _handle_trap_event || return 112
+  case $REPLY in
+  *'Unable to find skill '*)  return 112;;
+  *'You search'*|*'You spot'*) :;;
+  *'You fail to disarm '*)     :;;
+  *'In fact, you set it off!'*) NUM=$((NUM-1));;
+  *'You successfully disarm '*) NUM=$((NUM-1));;
+  *) _handle_trap_event || return 112;;
+  esac
  done
 
-sleep 1
+test "$NUM" -gt 0 || break
+
+sleep 0.1
 
 done
 
-sleep 1
+sleep 0.1
 }
 
 _find_traps(){
 # ** search to find traps ** #
 [ "$SKILL_FIND" = no ] && return 3
 
-local NUM=${1:-$MAX_SEARCH}
+local NUM=${1:-$DEF_SEARCH}
+local TRAPS=0 CNT=0
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -318,6 +351,9 @@ echo watch $DRAW_INFO
 while :;
 do
 
+TRAPS=0
+CNT=$((CNT+1))
+_verbose "Search '$CNT' ..."
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -335,10 +371,13 @@ _is 1 1 search
    *'Unable to find skill '*) return 112;;
                 #SKILL_FIND=no;  break 2;;
 
-    *'You spot a '*) _debug "Found Trap";
-    _disarm_traps;
-    case $? in 112) return 112;; esac
-    break;;
+    *'You spot a '*)
+    #_debug "Found Trap";
+    #_disarm_traps;
+    #case $? in 112) return 112;; esac
+    #break
+    TRAPS=$((TRAPS+1))
+    ;;
 
    *'You search the area.'*) :;;
   '') break;;
@@ -347,15 +386,21 @@ _is 1 1 search
   unset REPLY
  done
 
+if test "$TRAPS" != 0; then
+ _verbose "Found '$TRAPS' traps"
+ _disarm_traps $TRAPS
+ case $? in 112) return 112;; esac
+fi
+
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
-sleep 1
+sleep 0.1
 
 done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
-sleep 1
+sleep 0.1
 }
 
 
@@ -369,7 +414,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 _debug NUM=$NUM
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 _debug NUM=$NUM
 
 _draw 6 "disarm traps '$NUM' times.."
@@ -401,24 +446,51 @@ _is 1 1 use_skill "disarm traps"
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 
-#  *'You fail to disarm '*) continue;;
+   #  *'You fail to disarm '*) continue;;
+
    *'You successfully disarm '*)
       NUM=$((NUM-1));
       test "$NUM" -gt 0 || break 2;
-      break;;
+    :  break
+    ;;
 
    *'In fact, you set it off!'*)
       NUM=$((NUM-1));
-      test "$NUM" -gt 0 || break 2;
-      break ;;
+    #  test "$NUM" -gt 0 || break 2;
+    :  break
+    ;;
 
-   *'You detonate '*|*'You are pricked '*|*'You are stabbed '*|*'You set off '*|*"RUN!  The timer's ticking!"*|*'You feel depleted of psychic energy!'*)
-      break;;
+   *'You set off'*fireball*)
+     :
+     ;;
+
+   *'You set off '*)
+     :
+     ;;
+
+   *'You are pricked '*|*'You are stabbed '*)
+     :
+     ;;
+
+   *'You feel depleted of psychic energy'*)
+     :
+     ;;
+
+   *"RUN!  The timer's ticking!"*)
+      :
+      ;;
 
    *'A portal opens up, and screaming hordes pour'*)
-      break;; # better exit with beep
+     : break
+     ;; # better exit with beep
+
+   *'You detonate '*)
+     : break
+     ;;
+
 
   '') CNT=$((CNT+1)); break;;
+
   esac
  done
 
@@ -467,12 +539,21 @@ _is 0 0 drop chest # Nothing to drop.
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
-   *'Nothing to drop.'*) break 2;;
+   *'Nothing to drop'*) break 2;;
+   *'Nothing to take'*) break;; # chest could be a permanent container
+
+   *'You search '*)  :;;
+   *'The effects of your dexterity are draining out'*)    :;;
+   *'The effects of your dexterity are about to expire'*) :;;
+
+   *'You find '*)    :;;
+   #*'You find '*) _handle_trap_event || return 112  ;;
+   *'You pick up '*) :;;
+   *'The chest was empty.'*)      :;;
+   *'You were unable to take '*)  :;; #You were unable to take one of the items.
+
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
-   #*'You find '*)    :;;
-   *'You find '*) _handle_trap_event || return 112  ;;
-   *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
    '') break;;
   *) _handle_trap_event || return 112 ; break;;
@@ -486,10 +567,10 @@ sleep 1
 
 
 _is 1 1 $DIRB
-sleep 1
+sleep 0.1
 
 _is 1 1 $DIRF
-sleep 1
+sleep 0.1
 
 done
 }

@@ -7,9 +7,9 @@ TIMEA=`/bin/date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
-MAX_LOCKPICK=9
+DEF_SEARCH=9
+DEF_DISARM=9
+DEF_LOCKPICK=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -487,7 +487,7 @@ ___find_traps(){
 
 [ "$SKILL_FIND" = no ] && return 3
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -560,7 +560,7 @@ __find_traps(){
 
 [ "$SKILL_FIND" = no ] && return 3
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -634,7 +634,7 @@ _find_traps(){
 
 [ "$SKILL_FIND" = no ] && return 3
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -721,7 +721,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -798,7 +798,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -928,7 +928,7 @@ if test "$FOREVER"; then
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
-c=$((c+1)); test "$c" -lt $MAX_LOCKPICK || break;
+c=$((c+1)); test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
 sleep 1
@@ -1026,7 +1026,7 @@ if test "$FOREVER"; then
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
-c=$((c+1)); test "$c" -lt $MAX_LOCKPICK || break;
+c=$((c+1)); test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
 sleep 1
