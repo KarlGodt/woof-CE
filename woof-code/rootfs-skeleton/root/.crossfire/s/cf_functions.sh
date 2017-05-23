@@ -106,8 +106,11 @@ case $REPLY in
 
 ;;
 
+# You spit out a tooth.  Better increase that
+# dietary vitamin C!
 #You spit out a tooth.  Better increase that dietary vitamin C!
 *You*spit*out*a*tooth*|*Better*increase*that*dietary*vitamin*C*)  # scurvy.arc
+*You*spit*out*a*tooth*|*dietary*vitamin*C*)
 
 ;;
 
@@ -142,9 +145,12 @@ case $REPLY in
 
 ;;
 
+# You can't control your bladder.  You have a
+# messy accident.  Yuck!
 #You can't control your sphincter.  You have a messy accident.  Yuck!
 #You can't control your bladder.  You have a messy accident.  Yuck!
 *You*can*control*your*bladder*|*You*have*a*messy*accident*|*Yuck*)  # incontinence.arc
+*You*can*control*your*bladder*|*messy*accident*Yuck*)
 
 ;;
 
@@ -191,9 +197,11 @@ Blood*leaks*out*of*your*eyes*and*your*pores*)  # ebola.arc
 
 ;;
 
+#Your joints are swollen.  You feel weak and
+#less dextrous.
 #Your joints are swollen.  You feel weak and less dextrous.
 *Your*joints*are*swollen*|*You*feel*weak*and*less*dextrous*)  # arthritis.arc
-
+*Your*joints*are*swollen*|*less*dextrous*)
 ;;
 
 

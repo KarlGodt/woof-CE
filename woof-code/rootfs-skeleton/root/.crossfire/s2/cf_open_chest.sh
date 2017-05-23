@@ -245,11 +245,16 @@ _handle_trap_event(){
      : break
      ;;
 
+  *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
+     : break
+    ;;
+
    *off*fireball*)
       if [ "$FORCE" ]; then
       : break  # at low level better exit with beep
       else return 112
-      fi;;
+      fi
+    ;;
 
    *'You are pricked '*|*'You are stabbed '*|*'You set off '*)
      : break
@@ -263,7 +268,27 @@ _handle_trap_event(){
       if [ "$FORCE" ]; then
       : break  # at low level better exit with beep
       else return 112
-      fi;;
+      fi
+    ;;
+
+   *of*Icestorm*)  # here needs exit, since traps will
+    return 112     # not be disarmed anymore and infinite
+    ;;             # attempts to disarm will loop onto icecube
+
+   #You detonate a Rune of Fireball!
+   *of*Fireball*|*of*Burning*Hands*|*of*Dragon*Breath*|*Firebreath*)
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi
+    ;;
+
+   *of*Ball*Lightning*)  ## rune_blightning.arc
+      if [ "$FORCE" ]; then
+      : break # always better to exit with beep
+      else return 112
+      fi
+    ;;
 
    *'You detonate '*)
       : break
@@ -292,7 +317,7 @@ _disarm_traps(){
 [ "$SKILL_DISARM" = no ] && return 3
 
 local NUM=${*:-1}
-local CNT=0
+local CNT=0 SCNT=0 XCNT=0
 
 BREAK_CNT=1  #global for use in _handle_trap_event() empty line break
 
@@ -302,6 +327,11 @@ while :;
 do
 
 CNT=$((CNT+1))
+
+case $CNT in *[0-9]0) _is 1 1 search
+;;
+esac
+
 _verbose "Attempt '$CNT' ..."
 _is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
@@ -319,15 +349,20 @@ _is 1 1 use_skill "disarm traps"
 
   case $REPLY in
   *'Unable to find skill '*)  return 112;;
-  *'You search'*|*'You spot'*) :;;
-  *'You fail to disarm '*)     :;;
-  *'In fact, you set it off!'*) NUM=$((NUM-1));;
-  *'You successfully disarm '*) NUM=$((NUM-1));;
+  *'times You search'*) XCNT=`echo $REPLY | awk '{print $4}'`; SCNT=$((SCNT+XCNT));;
+  *'You search'*)  SCNT=$((SCNT+1));;  # read  next line
+  *'You spot'*)                :;;     # read next line
+  *'You fail to disarm '*)     :;;     # read next line
+  *'In fact, you set it off!'*) NUM=$((NUM-1));; # read next line to _handle_trap_event
+  *'You successfully disarm '*) NUM=$((NUM-1));; # read next line for more disarm messages if more spotted traps to come
+  '') break;;
   *) _handle_trap_event || return 112;;
   esac
  done
 
 test "$NUM" -gt 0 || break
+_debug "SCNT='$SCNT' XCNT='$XCNT'"
+test "$SCNT" -gt $DEF_SEARCH && return 11
 
 sleep 0.1
 
@@ -341,6 +376,8 @@ _find_traps(){
 [ "$SKILL_FIND" = no ] && return 3
 
 local NUM=${1:-$DEF_SEARCH}
+NUM=${NUM:-1}
+
 local TRAPS=0 CNT=0
 
 _draw 6 "find traps '$NUM' times.."
@@ -371,17 +408,12 @@ _is 1 1 search
    *'Unable to find skill '*) return 112;;
                 #SKILL_FIND=no;  break 2;;
 
-    *'You spot a '*)
-    #_debug "Found Trap";
-    #_disarm_traps;
-    #case $? in 112) return 112;; esac
-    #break
-    TRAPS=$((TRAPS+1))
-    ;;
+    *'You spot a '*) TRAPS=$((TRAPS+1));;
 
-   *'You search the area.'*) :;;
+   *'You search the area'*) :;;
   '') break;;
   esac
+
   sleep 0.1
   unset REPLY
  done
@@ -401,109 +433,6 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 
 sleep 0.1
-}
-
-
-__disarm_traps(){
-# ** disarm use_skill disarm traps ** #
-
-local NUM CNT
-unset NUM
-
-    touch /tmp/cf_pipe.$$
-read NUM </tmp/cf_pipe.$$
-    rm -f /tmp/cf_pipe.$$
-_debug NUM=$NUM
-NUM=${NUM:-$DEF_DISARM}
-_debug NUM=$NUM
-
-_draw 6 "disarm traps '$NUM' times.."
-
-test "$NUM" -gt 0 || return 0
-
-_debug "watch $DRAW_INFO"
-echo watch $DRAW_INFO
-
-CNT=0
-
-while :;
-do
-
-_is 1 1 use_skill "disarm traps"
-# You successfully disarm the Rune of Paralysis!
-#You fail to disarm the Rune of Fireball.
-#In fact, you set it off!
-#You set off a fireball!
-#You detonate
-
- while :; do
-  sleep 0.1
-  unset REPLY
-  read -t 1
-   _log "__disarm_traps:$REPLY"
-   _debug "REPLY='$REPLY'"
-  _debug NUM=$NUM
-  case $REPLY in
-   *'Unable to find skill '*)   break 2;;
-
-   #  *'You fail to disarm '*) continue;;
-
-   *'You successfully disarm '*)
-      NUM=$((NUM-1));
-      test "$NUM" -gt 0 || break 2;
-    :  break
-    ;;
-
-   *'In fact, you set it off!'*)
-      NUM=$((NUM-1));
-    #  test "$NUM" -gt 0 || break 2;
-    :  break
-    ;;
-
-   *'You set off'*fireball*)
-     :
-     ;;
-
-   *'You set off '*)
-     :
-     ;;
-
-   *'You are pricked '*|*'You are stabbed '*)
-     :
-     ;;
-
-   *'You feel depleted of psychic energy'*)
-     :
-     ;;
-
-   *"RUN!  The timer's ticking!"*)
-      :
-      ;;
-
-   *'A portal opens up, and screaming hordes pour'*)
-     : break
-     ;; # better exit with beep
-
-   *'You detonate '*)
-     : break
-     ;;
-
-
-  '') CNT=$((CNT+1)); break;;
-
-  esac
- done
-
-_debug NUM=$NUM
-test "$CNT" -gt 9 && break
-sleep 1
-
-done
-
-_debug "unwatch $DRAW_INFO"
-echo unwatch $DRAW_INFO
-
-sleep 1
 }
 
 _open_chest(){
