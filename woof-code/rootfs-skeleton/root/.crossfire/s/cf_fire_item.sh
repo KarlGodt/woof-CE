@@ -11,6 +11,8 @@ TMP_DIR=/tmp/crossfire_client/${0##*/}.dir
 mkdir -p "$TMP_DIR"
 LOG_FILE="$TMP_DIR"/cf_inventory.$$.log
 
+exec 2>>"$TMP_DIR"/cf_errs.err
+
 DIRECTION_DEFAULT=east
 #NUMBER_DEFAULT=10       # unused since possible to loop forever
 ITEM_DEFAULT='horn of plenty'
@@ -23,12 +25,45 @@ FOOD=waybread
 MY_SELF=`realpath "$0"`
 MY_BASE=${MY_SELF##*/}
 test -f "${MY_SELF%/*}"/cf_functions.sh   && . "${MY_SELF%/*}"/cf_functions.sh
-_set_global_variables
+#_set_global_variables
 # *** Override any VARIABLES in cf_functions.sh *** #
 test -f "${MY_SELF%/*}"/"${MY_BASE}".conf && . "${MY_SELF%/*}"/"${MY_BASE}".conf
-_get_player_name && {
-test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+#_get_player_name && {
+#test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
+#}
+
+_draw(){
+    local COLOUR="$1"
+    COLOUR=${COLOUR:-1} #set default
+    shift
+    local MSG="$@"
+    echo draw $COLOUR "$MSG"
 }
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"$lFILE"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+    _draw ${COL_DEB:-3} "DEBUG:$@"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$@"
+    sleep 0.2
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
 
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid $$ $PPID"

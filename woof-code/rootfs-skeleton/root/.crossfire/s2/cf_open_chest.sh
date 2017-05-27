@@ -7,8 +7,8 @@ exec 2>/tmp/cf_script.err
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
+DEF_SEARCH=9
+DEF_DISARM=9
 
 DIRB=west # need to leave pile of chests to be able to apply
 case $DIRB in
@@ -328,16 +328,6 @@ _draw 6 "disarming traps ..."
 while :;
 do
 
-#unset REPLY
-#read -t 1
-#   _log "_disarm_traps:$REPLY"
-#  _debug "REPLY='$REPLY'"
-
-#case $REPLY in
-# '') _is 1 1 use_skill "disarm traps";;
-# *'In fact, you set it off!'*) :;;
-#esac
-
  _is 1 1 use_skill "disarm traps";  # 1 1 is able to disarm more than one trap
 
  while :; do
@@ -379,7 +369,7 @@ _find_traps(){
 # ** search to find traps ** #
 [ "$SKILL_FIND" = no ] && return 3
 
-local NUM=${1:-$MAX_SEARCH}
+local NUM=${1:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -436,7 +426,7 @@ read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
 _debug NUM=$NUM
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 _debug NUM=$NUM
 
 _draw 6 "disarm traps '$NUM' times.."
@@ -575,8 +565,6 @@ _open_chest(){
 
 _draw 6 "apply and get .."
 
-#local c=0
-#NUM=${1:-$NUMBER}
 
 while :;
 do
@@ -587,15 +575,9 @@ do
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 _is 1 1 apply  # handle trap release, being killed
-#sleep 1
-
 
 _is 0 0 get all
-#sleep 1
 
-
-#_debug "watch $DRAW_INFO"
-#echo watch $DRAW_INFO
 _is 0 0 drop chest # Nothing to drop.
 
  while :; do
@@ -606,14 +588,22 @@ _is 0 0 drop chest # Nothing to drop.
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
-   *'Nothing to drop.'*) break 2;;
+   *'Nothing to drop'*)  break 2;;
+   *'Nothing to take'*)  :;;
+   *'was empty'*)        :;;
+   *' your '*)       :;;  # The effects of your dexterity are about to expire. are draining out.
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
-   *'You find '*) _handle_trap_detonation_event || return 112;;
+#  *'You find '*) _handle_trap_detonation_event || return 112;;
    *'You find '*)    :;;
    *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
-  *) break;;
+   *'the game'*)     :;;  # another player entered,leaves,left
+   *'tells you'*)    :;;
+   *'chats'*)        :;;
+#  *) break;;
+   *) _handle_trap_detonation_event || return 112
+      break;;
   esac
  done
 

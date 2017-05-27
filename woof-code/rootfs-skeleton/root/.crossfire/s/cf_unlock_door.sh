@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 exec 2>/tmp/cf_script.err
 
@@ -6,9 +6,9 @@ TIMEA=`date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
-MAX_LOCKPICK=9
+DEF_SEARCH=9
+DEF_DISARM=9
+DEF_LOCKPICK=9
 
 # FOREVER mode
 INF_THRESH=30 # threshold to cast dexterity and probe
@@ -61,6 +61,11 @@ _log(){
 echo "$*" >>"$LOG_REPLY_FILE"
 }
 
+_is(){
+_verbose "$*"
+echo issue "$*"
+sleep 0.2
+}
 
 # *** implementing 'help' option *** #
 _usage() {
@@ -82,11 +87,38 @@ _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
 _draw 5 "-d set debug"
+_draw 5 "--dump dump defaults"
 _draw 4 "-I lockpick forever"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
 
         exit 0
+}
+
+_dump(){
+
+ENV_ALL=`set`
+#_debug "$ENV_ALL"
+
+for var in  DRAW_INFO \
+ DEF_SEARCH DEF_DISARM DEF_LOCKPICK \
+ INF_THRESH INF_TOGGLE \
+ LOG_REPLY_FILE \
+ TEST_VARIABLE
+
+do
+
+unset MAYBE
+#MAYBE=`echo "$ENV_ALL" | grep "^${var}="`
+#_debug "MAYBE=$MAYBE"
+MAYBE=`echo "$ENV_ALL" | grep "^${var}=" | tail -n 1 | cut -f 2- -d '='`
+#test "$MAYBE" || MAYBE='(unset)'
+MAYBE=${MAYBE:-'(unset)'}
+_draw 7 "$var=$MAYBE"
+
+done
+
+exit 0
 }
 
 _word_to_number(){
@@ -208,6 +240,7 @@ fi
 8|nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
 
 -h|*help|*usage)  _usage;;
+*dump)            _dump;;
 
 -c|*curse)   TURN_SPELL="detect curse";;
 -C|*const*)  TURN_SPELL="constitution";;
@@ -252,13 +285,13 @@ __turn_direction__(){
 local lDIR=${1:-"$DIR"}
 
 _draw 5 "Bracing .."
-_verbose "brace on"
-echo issue 1 1 brace on
+#_verbose "brace on"
+_is 1 1 brace on
 sleep 1
 
 _draw 4 "Turning $DIR .."
-_verbose "$lDIR"
-echo issue 1 1 $lDIR
+#_verbose "$lDIR"
+_is 1 1 $lDIR
 sleep 1
 
 }
@@ -290,15 +323,15 @@ CAST_DEX=_cast_dexterity
 _handle_spell_errors(){
 local RV=0
  case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
- *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+ '*Something blocks the magic of your item'*)    unset CAST_DEX CAST_PROBE; break 2;;
+ '*Something blocks the magic of your scroll'*)  unset CAST_DEX CAST_PROBE; break 2;;
+ *'Something blocks your spellcasting'*)         unset CAST_DEX; break 2;;
+ *'This ground is unholy'*)                      unset CAST_REST;break 2;;
  *'You lack the skill '*)                        unset CAST_DEX; break 2;;
  *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
- *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+ *'That spell path is denied to you'*)           unset CAST_DEX; break 2;;
+ *'You recast the spell while in effect'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You grow no more agile'*)                     unset CAST_DEX; break 2;;
  *) RV=1;;
 esac
 return ${RV:-1}
@@ -312,10 +345,10 @@ local RV=0
  *'You ready holy symbol'*)            :;;
  *'You can now use the skill:'*)       :;;
  *'You ready the spell'*)              :;;
- *'You feel more agile.'*)             :;;
- *'The effects of your dexterity are draining out.'*)    :;;
- *'The effects of your dexterity are about to expire.'*) :;;
- *'You feel clumsy!'*) :;;
+ *'You feel more agile'*)              :;;
+ *'The effects of your dexterity are draining out'*)    :;;
+ *'The effects of your dexterity are about to expire'*) :;;
+ *'You feel clumsy'*) :;;
  *) RV=1;;
 esac
 return ${RV:-1}
@@ -335,16 +368,16 @@ do
 
 _draw 2 "Casting $spell to turn to $DIR .."
 
-_verbose "cast $spell"
-echo issue 1 1 cast $spell
+#_verbose "cast $spell"
+_is 1 1 cast $spell
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+#_verbose "fire_stop"
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -356,15 +389,6 @@ sleep 0.1
  _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -389,16 +413,16 @@ _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 _draw 2 "Casting $spell to turn to $DIR .."
 
-_verbose "cast $spell"
-echo issue 1 1 cast $spell
+#_verbose "cast $spell"
+_is 1 1 cast $spell
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+#_verbose "fire_stop"
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -410,15 +434,6 @@ sleep 0.1
  _debug $COL_GREEN "REPLY='$REPLY'"
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
-# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
-# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
-# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -445,16 +460,16 @@ echo watch $DRAW_INFO
 
 _draw 5 "casting dexterity.."
 
-_verbose "cast dexterity"
-echo issue 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+#_verbose "cast dexterity"
+_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
 
-_verbose "fire ${DIRN:-0}"
-echo issue 1 1 fire ${DIRN:-0}
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
 
-_verbose "fire_stop"
-echo issue 1 1 fire_stop
+#_verbose "fire_stop"
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -466,26 +481,6 @@ sleep 0.1
  _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
  case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-
-# *'You can no longer use the skill:'*) :;;
-# *'You ready talisman '*)              :;;
-# *'You ready holy symbol'*)            :;;
-# *'You can now use the skill:'*)       :;;
-# *'You ready the spell'*)              :;;
-# *'You feel more agile.'*)             :;;
-# *'The effects of your dexterity are draining out.'*)    :;;
-# *'The effects of your dexterity are about to expire.'*) :;;
-# *'You feel clumsy!'*) :;;
-
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -502,7 +497,7 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -515,8 +510,8 @@ do
 
 unset TRAPS
 
-_verbose "$NUM:search"
-echo issue 1 1 search
+_verbose "search '$NUM' ..."
+_is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
 #You spot a Rune of Fireball!
@@ -537,7 +532,7 @@ $REPLY";;
 
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
-    *'You search the area.'*) :;;
+    *'You search the area'*) :;;
   '') break;;
   esac
   sleep 0.1
@@ -580,7 +575,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -595,7 +590,7 @@ while :;
 do
 
 _verbose "$NUM:$CNT:use_skill disarm traps"
-echo issue 1 1 use_skill "disarm traps"
+_is 1 1 use_skill "disarm traps"
 # You successfully disarm the Rune of Paralysis!
 #You fail to disarm the Rune of Fireball.
 #In fact, you set it off!
@@ -668,62 +663,100 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
+_turn_dir_ready_skill(){
+
+local lSKILL=${1:-'find traps'}
+local lDIRN=${2:-$DIRN}
+
+_is 1 1 ready_skill $lSKILL
+
+_is 1 1 fire $lDIRN
+
+_is 1 1 fire_stop
+
+}
+
 _lockpick_door(){
 # ** open door with use_skill lockpicking ** #
+
+_draw 6 "Lockpicking door ..."
+
+_turn_dir_ready_skill "lockpicking" $DIRN
+
+local c=0 cc=0
+local NUM=$NUMBER
+
+CNT=0
+TIMEB=`/bin/date +%s`
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-c=0; cc=0
-NUM=$NUMBER
-
 while :;
 do
 
+CNT=$((CNT+1))
+
 _verbose "$NUM:$c:$cc:use_skill lockpicking"
-echo issue 1 1 use_skill lockpicking
+_is 1 1 use_skill lockpicking
 
  while :; do
   sleep 0.1
   unset REPLY
   read -t 1
   _log "lockpicking:$REPLY"
-  _debug $COL_GREEN "REPLY='$REPLY'" #debug
+  _debug $COL_GREEN "REPLY='$REPLY'"
 
   case $REPLY in
   *'Unable to find skill '*)     break 2;;
-  *'The door has no lock!'*)     break 2;;
-  *'There is no lock there.'*)   break 2;;
-  *"You can't pick that lock!"*) break 2;;  # special key
+
+  *'You stop using'*) :;; # You stop using the talisman of sorcery *.
+  *'You ready lockpicks'*) :;;
+  *'You can now use the skill: lockpicking'*) :;;
+  *'You stop using the lockpicks'*) :;;
+  *'Readied skill: lockpicking'*)   :;;
+
+  *'The door has no lock'*)      break 2;;
+  *'There is no lock there'*)    break 2;;
+  *"You can't pick that lock"*)  break 2;;  # special key
   *' no door'*)                  break 2;;
   *'You unlock'*)                break 2;;
-  *'You pick the lock.'*)        break 2;;
+  *'You pick the lock'*)         break 2;;
+
+  *'You search'*)   :;;
+
   *'Your '*)        :;;  # Your monster beats monster
+  *' your '*)       :;;
   *'You killed '*)  :;;
   *'You find '*)    :;;
   *'You pick up '*) :;;
   *' tasted '*)     :;;  # food tasted good
+
   *) break;;
   esac
  done
 
+c=$((c+1)); cc=$((cc+1))
 if test "$FOREVER"; then
- cc=$((cc+1))
+# cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
+  cc=0
   if test "$TOGGLE" = $INF_TOGGLE; then
    $CAST_REST
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
+ # }
   $CAST_DEX
   $CAST_PROBE
-  _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+  _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; #cc=0;
+ }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
-c=$((c+1)); test "$c" -lt $MAX_LOCKPICK || break;
+#c=$((c+1));
+test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
 sleep 1
@@ -741,8 +774,27 @@ _disarm_traps && _lockpick_door
 # *** Here ends program *** #
 
 #_draw 4 "Unbracing .."
-#echo issue 1 1 brace off
+#_is 1 1 brace off
 #sleep 1
+
+TIMEE=`/bin/date +%s`
+
+TIME_L=$((TIMEE-TIMEB))
+TIME_S=$((TIMEE-TIMEA))
+
+TIME_LM=$((TIME_L/60))
+TIME_SM=$((TIME_S/60))
+
+TIME_LS=$(( TIME_L - (TIME_LM*60) ))
+TIME_SS=$(( TIME_S - (TIME_SM*60) ))
+
+case $TIME_LS in [0-9]) TIME_LS="0$TIME_LS";; esac
+case $TIME_SS in [0-9]) TIME_SS="0$TIME_SS";; esac
+
+_draw 7 "Loop   took $TIME_LM:$TIME_LS minutes"
+_draw 7 "Script took $TIME_SM:$TIME_SS minutes"
+
+_draw 6 "For '$CNT' attempts to lockpick."
 
 _draw 2 "$0 is finished."
 beep -f 700 -l 1000
