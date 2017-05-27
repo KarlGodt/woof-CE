@@ -32,9 +32,6 @@ COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
 
-COL_VERB=$COL_TAN
-COL_DBG=$COL_GOLD
-
 _draw(){
 test "$*" || return
 COLOUR=${1:-0}
@@ -73,14 +70,24 @@ sleep 0.2
 # *** implementing 'help' option *** #
 _usage() {
 
-_draw 2 "Script to lockpick doors."
-_draw 4 "Syntax:"
-_draw 7 "script $0 <direction> <<number>>"
-_draw 8 "For example: 'script $0 5 west'"
+_draw 5 "Script to lockpick doors."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <direction> [number]"
+_draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 _draw 4 "Options:"
+_draw 4 "-c cast detect curse to turn to DIR"
+_draw 4 "-C cast constitution"
+_draw 4 "-t cast disarm"
+_draw 4 "-D cast dexterity"
+_draw 4 "-e cast detect evil"
+_draw 4 "-f cast faery fire"
+_draw 4 "-i cast show invisible"
+_draw 4 "-m cast detect magic"
+_draw 4 "-M cast detect monster"
+_draw 4 "-p cast probe"
 _draw 5 "-d set debug"
-_draw 5 "-D dump defaults"
+_draw 5 "--dump dump defaults"
 _draw 4 "-I lockpick forever"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -91,6 +98,7 @@ _draw 5 "-v set verbosity"
 _dump(){
 
 ENV_ALL=`set`
+#_debug "$ENV_ALL"
 
 for var in  DRAW_INFO \
  DEF_SEARCH DEF_DISARM DEF_LOCKPICK \
@@ -101,7 +109,10 @@ for var in  DRAW_INFO \
 do
 
 unset MAYBE
+#MAYBE=`echo "$ENV_ALL" | grep "^${var}="`
+#_debug "MAYBE=$MAYBE"
 MAYBE=`echo "$ENV_ALL" | grep "^${var}=" | tail -n 1 | cut -f 2- -d '='`
+#test "$MAYBE" || MAYBE='(unset)'
 MAYBE=${MAYBE:-'(unset)'}
 _draw 7 "$var=$MAYBE"
 
@@ -173,21 +184,8 @@ _draw 2 "$0 is started.."
 
 _debug "'$#' Parameters: '$*'"
 
-# REM: Parameter Ordering:
-#      1) <search/attempts to lockpick> <direction>
-#      2) <direction> <search/attempts to lockpick>
-#  Since there are usually several doors on one dungeon
-#   it is easier to re-run this script with prevkey
-#   and change the last parameter.
-#   Therefore if there are several numbers as parameters given,
-#   assume the last number parameter is direction of door,
-#   not attempts to search/lockpick .
-
 # If there is only one parameter and it is a number
-# assume it means direction,
-# because the direction is mandatory
-# since a default as 'center' will never work
-
+# assume it means direction
 if test $# = 1; then
 
 PARAM_1="$1"
@@ -198,6 +196,7 @@ case $PARAM_1 in [0-8])
  shift;;
 esac
 fi
+
 
 until test $# = 0;
 do
@@ -210,42 +209,23 @@ shift
 case $PARAM_1 in
 [0-9]*)
 
-# REM: Parameter Ordering:
-#      1) <search/attempts to lockpick> <direction>
-#      2) <direction> <search/attempts to lockpick>
-#  Since there are usually several doors on one dungeon
-#   it is easier to re-run this script with prevkey
-#   and change the last parameter.
-#   Therefore if there are several numbers as parameters given,
-#   assume the last number parameter is direction of door,
-#   not attempts to search/lockpick .
+  # Check if more numbers to come and if so,
+  # assume direction
+  unset p FOUND_DIR
+  for p in "$@"; do
+   case $p in [0-9]*)
+    _number_to_direction $PARAM_1 && FOUND_DIR=1;;
+   esac
+  done
 
-__direction_first__(){
-if test "$DIR"; then
+if test "$FOUND_DIR"; then :
+elif test "$DIR"; then
 
         NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
            _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-        #   readonly NUMBER
-       _debug 2 "NUMBER=$NUMBER"
-else
-  # Check if more numbers to come and if so,
-  # assume direction
-  unset p
-  for p in "$@"; do
-   case $p in [0-9]*)
-    _number_to_direction $PARAM_1;;
-   esac
-  done
-fi
-}
+           readonly NUMBER
+       _debug 2 "NUMBER=$NUMBER" #DEBUG
 
-if test "$NUMBER"; then
-       _number_to_direction $PARAM_1;
-else
-       NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
-           _draw 3 "Only :digit: numbers as number option allowed."; exit 1; }
-        #   readonly NUMBER
-       _debug 2 "NUMBER=$NUMBER"
 fi
 
 ;;
@@ -260,7 +240,18 @@ fi
 8|nw|northwest)   DIR=northwest; DIRN=8; readonly DIR DIRN;;
 
 -h|*help|*usage)  _usage;;
--D|*dump)          _dump;;
+*dump)            _dump;;
+
+-c|*curse)   TURN_SPELL="detect curse";;
+-C|*const*)  TURN_SPELL="constitution";;
+-t|*disarm)  TURN_SPELL="disarm";;
+-D|*dex*)    TURN_SPELL="dexterity";;
+-e|*evil)    TURN_SPELL="detect evil";;
+-f|*faery)   TURN_SPELL="faery fire";;
+-i|*invis*)  TURN_SPELL="show invisible";;
+-m|*magic)   TURN_SPELL="detect magic";;
+-M|*monster) TURN_SPELL="detect monster";;
+-p|*probe)   TURN_SPELL="probe";;
 
 -d|*debug)      DEBUG=$((DEBUG+1));;
 -I|*infinite) FOREVER=$((FOREVER+1));;
@@ -273,6 +264,7 @@ esac
 
 done
 
+#readonly NUMBER DIR
 _debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 
 # TODO: check for near doors and direct to them
@@ -284,11 +276,228 @@ else
  exit 1
 fi
 
+# TODO : find out if turn possible without casting/firing in DIRN
+
+__turn_direction__(){
+# use brace and DIR -- does not work since attacks in DIR; so
+# either uses key to unlock door or punches against it and triggers traps
+
+local lDIR=${1:-"$DIR"}
+
+_draw 5 "Bracing .."
+#_verbose "brace on"
+_is 1 1 brace on
+sleep 1
+
+_draw 4 "Turning $DIR .."
+#_verbose "$lDIR"
+_is 1 1 $lDIR
+sleep 1
+
+}
+
+#__turn_direction
+
+# we could add parameters to cast what spell:
+# should be low level with few mana/grace point need
+# non-attack to avoid triggering traps
+# and with some in fantasy/theory usable value
+# faery fire and disarm show something at least
+# detect magic          - sorcery       1 1  -m
+# probe                 - sorcery       1 3  -p
+# detect monster        - evocation     2 2  -M
+# detect evil           - prayer        3 3  -e
+# dexterity             - sorcery       3 9  -D
+# disarm                - sorcery       4 7  -d
+# constitution          - sorcery       4 12 -C
+# faery fire            - pyromancy     4 13 -f
+# detect curse          - prayer        5 10 -c
+# show invisible        - prayer        7 10 -i
+
+# Handle errors like spellpath or not learned
+# set VARIABLES <- functions, to unset them if found not allowed/available
+# $CAST_SPELL instead _cast_spell
+CAST_DEX=_cast_dexterity
+
+
+_handle_spell_errors(){
+local RV=0
+ case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item'*)    unset CAST_DEX CAST_PROBE; break 2;;
+ '*Something blocks the magic of your scroll'*)  unset CAST_DEX CAST_PROBE; break 2;;
+ *'Something blocks your spellcasting'*)         unset CAST_DEX; break 2;;
+ *'This ground is unholy'*)                      unset CAST_REST;break 2;;
+ *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+ *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+ *'That spell path is denied to you'*)           unset CAST_DEX; break 2;;
+ *'You recast the spell while in effect'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You grow no more agile'*)                     unset CAST_DEX; break 2;;
+ *) RV=1;;
+esac
+return ${RV:-1}
+}
+
+_handle_spell_msgs(){
+local RV=0
+ case $REPLY in
+ *'You can no longer use the skill:'*) :;;
+ *'You ready talisman '*)              :;;
+ *'You ready holy symbol'*)            :;;
+ *'You can now use the skill:'*)       :;;
+ *'You ready the spell'*)              :;;
+ *'You feel more agile'*)              :;;
+ *'The effects of your dexterity are draining out'*)    :;;
+ *'The effects of your dexterity are about to expire'*) :;;
+ *'You feel clumsy'*) :;;
+ *) RV=1;;
+esac
+return ${RV:-1}
+}
+
+_turn_direction_all(){
+
+local REPLY c spell
+
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
+
+# using a bunch of spells to increase availability
+# downside if many doors - much drain of mana/grace
+for spell in "probe" "detect monster" "detect evil"
+do
+
+_draw 2 "Casting $spell to turn to $DIR .."
+
+#_verbose "cast $spell"
+_is 1 1 cast $spell
+sleep 0.5
+
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
+sleep 0.5
+
+#_verbose "fire_stop"
+_is 1 1 fire_stop
+sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_turn_direction_all:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
+
+ case $REPLY in  # server/spell_util.c
+ '') break;;
+ *)  _handle_spell_errors || _handle_spell_msgs || {
+ c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+
+done
+
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+}
+
+_turn_direction(){
+test "$*" || return 3
+local REPLY c spell
+
+spell="$*"
+
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
+_draw 2 "Casting $spell to turn to $DIR .."
+
+#_verbose "cast $spell"
+_is 1 1 cast $spell
+sleep 0.5
+
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
+sleep 0.5
+
+#_verbose "fire_stop"
+_is 1 1 fire_stop
+sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_turn_direction:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'"
+
+ case $REPLY in  # server/spell_util.c
+ '') break;;
+ *)  _handle_spell_errors || _handle_spell_msgs || {
+ c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+}
+
+if test "$TURN_SPELL"; then
+ _turn_direction $TURN_SPELL
+else
+ _turn_direction_all
+fi
+
+_cast_dexterity(){
+# ** cast DEXTERITY ** #
+
+local REPLY c
+
+echo watch $DRAW_INFO
+
+_draw 5 "casting dexterity.."
+
+#_verbose "cast dexterity"
+_is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
+sleep 0.5
+
+#_verbose "fire ${DIRN:-0}"
+_is 1 1 fire ${DIRN:-0}
+sleep 0.5
+
+#_verbose "fire_stop"
+_is 1 1 fire_stop
+sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_cast_dexterity:$REPLY"
+ _debug $COL_GREEN "REPLY='$REPLY'" #debug
+
+ case $REPLY in  # server/spell_util.c
+ '') break;;
+ *)  _handle_spell_errors || _handle_spell_msgs || {
+ c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
+ esac
+
+done
+
+_debug "unwatch $DRAW_INFO"
+echo unwatch $DRAW_INFO
+}
+
+$CAST_DEX
+
 _find_traps(){
 # ** search or use_skill find traps ** #
 
 local NUM=${NUMBER:-$DEF_SEARCH}
-NUM=${NUM:-1}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -299,7 +508,7 @@ echo watch $DRAW_INFO
 while :;
 do
 
-TRAPS=0
+unset TRAPS
 
 _verbose "search '$NUM' ..."
 _is 1 1 search
@@ -318,7 +527,8 @@ _is 1 1 search
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
 
-   *'You spot a '*) TRAPS=$((TRAPS+1));;
+   *'You spot a '*) TRAPS="${TRAPS}
+$REPLY";;
 
 #   *'Your '*)       :;; # Your monster beats monster
 #   *'You killed '*) :;;
@@ -342,17 +552,18 @@ echo unwatch $DRAW_INFO
 sleep 1
 
 test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
-#TRAPS=`echo "$TRAPS" | sed '/^$/d'`
+TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
 if test "$DEBUG"; then
 _draw 5 "TRAPS='$TRAPS'"
 fi
 
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
-TRAPS_NUM=${TRAPS:-0}
+test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
+TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
+
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -452,8 +663,6 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-# TODO : find out if turn possible without casting/firing in DIRN
-
 _turn_dir_ready_skill(){
 
 local lSKILL=${1:-'find traps'}
@@ -467,8 +676,30 @@ _is 1 1 fire_stop
 
 }
 
-__read_and_handle_door_msgs(){
- local REPLY
+_lockpick_door(){
+# ** open door with use_skill lockpicking ** #
+
+_draw 6 "Lockpicking door ..."
+
+_turn_dir_ready_skill "lockpicking" $DIRN
+
+local c=0 cc=0
+local NUM=$NUMBER
+
+CNT=0
+TIMEB=`/bin/date +%s`
+
+_debug "watch $DRAW_INFO"
+echo watch $DRAW_INFO
+
+while :;
+do
+
+CNT=$((CNT+1))
+
+_verbose "$NUM:$c:$cc:use_skill lockpicking"
+_is 1 1 use_skill lockpicking
+
  while :; do
   sleep 0.1
   unset REPLY
@@ -479,13 +710,11 @@ __read_and_handle_door_msgs(){
   case $REPLY in
   *'Unable to find skill '*)     break 2;;
 
-  *'You can no longer use the skill:'*) :;;  # lockpicking.
-  *'You stop using'*) :;;      # You stop using the talisman of sorcery *.
-  *'You ready lockpicks'*) :;; # You ready lockpicks of quality *.
+  *'You stop using'*) :;; # You stop using the talisman of sorcery *.
+  *'You ready lockpicks'*) :;;
   *'You can now use the skill: lockpicking'*) :;;
   *'You stop using the lockpicks'*) :;;
   *'Readied skill: lockpicking'*)   :;;
-  *'You feel'* )      :;; # You feel more agile. You feel clumsy!
 
   *'The door has no lock'*)      break 2;;
   *'There is no lock there'*)    break 2;;
@@ -506,97 +735,27 @@ __read_and_handle_door_msgs(){
   *) break;;
   esac
  done
-}
-
-_read_and_handle_door_msgs(){
- local REPLY
- local RV=0
-
- while :; do
-  sleep 0.1
-  unset REPLY
-  read -t 1
-  _log "lockpicking:$REPLY"
-  _debug $COL_GREEN "REPLY='$REPLY'"
-
-  case $REPLY in
-  *'Unable to find skill '*)   RV=2; break;;
-
-  *'You can no longer use the skill:'*) :;;  # lockpicking.
-  *'You stop using'*) :;;      # You stop using the talisman of sorcery *.
-  *'You ready lockpicks'*) :;; # You ready lockpicks of quality *.
-  *'You can now use the skill: lockpicking'*) :;;
-  *'You stop using the lockpicks'*) :;;
-  *'Readied skill: lockpicking'*)   :;;
-  *'You feel'* )      :;; # You feel more agile. You feel clumsy!
-
-  *'The door has no lock'*)      RV=2; break;;
-  *'There is no lock there'*)    RV=2; break;;
-  *"You can't pick that lock"*)  RV=2; break;;  # special key
-  *' no door'*)                  RV=2; break;;
-  *'You unlock'*)                RV=2; break;;
-  *'You pick the lock'*)         RV=2; break;;
-
-  *'You search'*)   :;;
-
-  *'Your '*)        :;;  # Your monster beats monster
-  *' your '*)       :;;
-  *'You killed '*)  :;;
-  *'You find '*)    :;;
-  *'You pick up '*) :;;
-  *' tasted '*)     :;;  # food tasted good
-
-  *) break;;
-  esac
- done
-
-return ${RV:-1}
-}
-
-
-_lockpick_door(){
-# ** open door with use_skill lockpicking ** #
-
-_draw 6 "Lockpicking door ..."
-
-local c=0 cc=0
-local NUM=$NUMBER
-
-CNT=1
-TIMEB=`/bin/date +%s`
-
-_debug "watch $DRAW_INFO"
-echo watch $DRAW_INFO
-
-_turn_dir_ready_skill "lockpicking" $DIRN
-_read_and_handle_door_msgs || return 0
-
-while :;
-do
-
-CNT=$((CNT+1))
-
-_verbose "$NUM:$c:$cc:use_skill lockpicking"
-_is 1 1 use_skill lockpicking
-_read_and_handle_door_msgs || break
 
 c=$((c+1)); cc=$((cc+1))
 if test "$FOREVER"; then
+# cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
   cc=0
   if test "$TOGGLE" = $INF_TOGGLE; then
-   #$CAST_REST
+   $CAST_REST
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
-  #$CAST_DEX
-  #$CAST_PROBE
-  _draw 3 "Infinite loop. Use 'scriptkill $0' to abort.";
+ # }
+  $CAST_DEX
+  $CAST_PROBE
+  _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; #cc=0;
  }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
+#c=$((c+1));
 test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
@@ -614,20 +773,25 @@ _disarm_traps && _lockpick_door
 
 # *** Here ends program *** #
 
+#_draw 4 "Unbracing .."
+#_is 1 1 brace off
+#sleep 1
+
 TIMEE=`/bin/date +%s`
 
-if test "$TIMEB"; then
 TIME_L=$((TIMEE-TIMEB))
-TIME_LM=$((TIME_L/60))
-TIME_LS=$(( TIME_L - (TIME_LM*60) ))
-case $TIME_LS in [0-9]) TIME_LS="0$TIME_LS";; esac
-_draw 7 "Loop   took $TIME_LM:$TIME_LS minutes"
-fi
-
 TIME_S=$((TIMEE-TIMEA))
+
+TIME_LM=$((TIME_L/60))
 TIME_SM=$((TIME_S/60))
+
+TIME_LS=$(( TIME_L - (TIME_LM*60) ))
 TIME_SS=$(( TIME_S - (TIME_SM*60) ))
+
+case $TIME_LS in [0-9]) TIME_LS="0$TIME_LS";; esac
 case $TIME_SS in [0-9]) TIME_SS="0$TIME_SS";; esac
+
+_draw 7 "Loop   took $TIME_LM:$TIME_LS minutes"
 _draw 7 "Script took $TIME_SM:$TIME_SS minutes"
 
 _draw 6 "For '$CNT' attempts to lockpick."
