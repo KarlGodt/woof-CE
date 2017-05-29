@@ -12,8 +12,8 @@ DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/u
 SLEEP=4           # sleep seconds after codeblocks
 DELAY_DRAWINFO=8  # sleep seconds to sync msgs from script with msgs from server
                   # the slower the player's speed, the more sleep delay needed;
-		  # also 2G Quality connections delays up to one second;
-		  # if the connection drops for 1-2 seconds once a while, a high value could buffer it
+          # also 2G Quality connections delays up to one second;
+          # if the connection drops for 1-2 seconds once a while, a high value could buffer it
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup to empty the cauldron for next attempt
@@ -27,6 +27,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 #logging

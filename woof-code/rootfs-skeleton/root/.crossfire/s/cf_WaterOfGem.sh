@@ -45,6 +45,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 DELAY_DRAWINFO=2    # sleep seconds to sync msgs from script with msgs from server
@@ -85,7 +89,7 @@ local FOREVER=''
 local PRV
 
 case $1 in
--I|--infinite) FOREVER=1;;
+-I|--infinite) FOREVER=$((FOREVER+1));;
 esac
 
 while :; do
@@ -107,8 +111,8 @@ done
 }
 
 #_ping -I &  # when cut off by wonky mobile connection,
-	     # the whole script waits, even forked functions.
-	     # would need an external script, that shows a xmessage ..
+         # the whole script waits, even forked functions.
+         # would need an external script, that shows a xmessage ..
 
 _kill_jobs(){
 for p in `jobs -p`; do kill -9 $p; done
@@ -269,7 +273,7 @@ sleep 0.1s
 [ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"  # code further down does not care
-		 # if other msgs go into UNDER_ME_LIST variable
+         # if other msgs go into UNDER_ME_LIST variable
 test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && f_exit 1

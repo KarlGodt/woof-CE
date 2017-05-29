@@ -9,8 +9,8 @@ TIMEA=`date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
+DEF_SEARCH=9
+DEF_DISARM=9
 
 DIRB=west # need to leave pile of chests to be able to apply
 case $DIRB in
@@ -221,7 +221,7 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -376,7 +376,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -461,7 +461,13 @@ echo issue 0 0 drop chest # Nothing to drop.
   _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
   case $REPLY in
-   *'Nothing to drop.'*) break 2;;
+   *'Nothing to drop'*) break 2;;
+   *'Nothing to take'*)  :;;    # chest as steady container
+   *'You open chest'*)   :;;    #
+   *'You close chest'*)  :;;    # (open) (active).
+   *'was empty'*)        :;;
+
+   *' tasted '*)     :;;  # food tasted good
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
 
@@ -470,20 +476,19 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
-   *' tasted '*)     :;;  # food tasted good
 
   # msgs from cast dexterity
   *'You lack the skill '*) :;;
-  *'You can no longer use the skill: use magic item.'*) :;;
-  *'You ready talisman of sorcery'*)        :;;  #You ready talisman of sorcery *.
-  *'You can now use the skill: sorcery.'*)  :;;
-  *'You ready the spell dexterity'*)        :;;
-  *'You feel more agile.'*)                 :;;
-  *'You grow no more agile.'*)              :;;
-  *'You recast the spell while in effect.') :;;
-  *'The effects of your dexterity are draining out.'*)     :;;
-  *'The effects of your dexterity are about to expire.'*)  :;;
-  *'You feel clumsy!'*)                     :;;
+  *'You can no longer use the skill:'*)     :;;
+  *'You ready talisman'*)                   :;;  #You ready talisman of sorcery *.
+  *'You can now use the skill:'*)           :;;
+  *'You ready the spell'*)                  :;;
+  *'You feel more agile'*)                  :;;
+  *'You grow no more agile'*)               :;;
+  *'You recast the spell while in effect'*) :;;
+  *'The effects'*'are draining out'*)       :;;
+  *'The effects'*'are about to expire'*)    :;;
+  *'You feel clumsy'*)                      :;;
 
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112

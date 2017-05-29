@@ -590,17 +590,36 @@ _is 0 0 drop chest # Nothing to drop.
   case $REPLY in
    *'Nothing to drop'*)  break 2;;
    *'Nothing to take'*)  :;;
+   *'You open chest'*)   :;;    #
+   *'You close chest'*)  :;;    # (open) (active).
    *'was empty'*)        :;;
+
    *' your '*)       :;;  # The effects of your dexterity are about to expire. are draining out.
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
-#  *'You find '*) _handle_trap_detonation_event || return 112;;
-   *'You find '*)    :;;
-   *'You pick up '*) :;;
    *' tasted '*)     :;;  # food tasted good
    *'the game'*)     :;;  # another player entered,leaves,left
    *'tells you'*)    :;;
    *'chats'*)        :;;
+
+#  *'You find '*) _handle_trap_detonation_event || return 112;;
+   *'You find '*)    :;;
+   *'You pick up '*) :;;
+   *'You were unable to take '*)  :;; #You were unable to take one of the items.
+
+  # msgs from cast dexterity
+  *'You lack the skill '*) :;;
+  *'You can no longer use the skill:'*)     :;;
+  *'You ready talisman'*)                   :;;  #You ready talisman of sorcery *.
+  *'You can now use the skill:'*)           :;;
+  *'You ready the spell'*)                  :;;
+  *'You feel more agile'*)                  :;;
+  *'You grow no more agile'*)               :;;
+  *'You recast the spell while in effect'*) :;;
+  *'The effects'*'are draining out'*)       :;;
+  *'The effects'*'are about to expire'*)    :;;
+  *'You feel clumsy'*)                      :;;
+
 #  *) break;;
    *) _handle_trap_detonation_event || return 112
       break;;
