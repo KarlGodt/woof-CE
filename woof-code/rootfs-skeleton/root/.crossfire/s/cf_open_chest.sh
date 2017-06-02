@@ -37,6 +37,8 @@ COL_GRAY=9
 COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
+COL_VERB=$COL_ORANGE
+COL_DBG=$COL_DORANGE
 
 _draw(){
 test "$*" || return
@@ -59,6 +61,7 @@ _draw ${COL_VERB:-12} "$*"
 
 _debug(){
 [ "$DEBUG" ] || return 0
+case $1 in [0-9]|[1[0-4]) local COL_DBG=$1; shift;; esac
 _draw ${COL_DBG:-11} "$*"
 }
 
@@ -222,6 +225,7 @@ _find_traps(){
 # ** search or use_skill find traps ** #
 
 local NUM=${NUMBER:-$DEF_SEARCH}
+local TRAPS=0 TRAPS_BACKUP=0 TRAPS_NUM=0
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -233,7 +237,8 @@ local c=0
 while :;
 do
 
-unset TRAPS
+#unset TRAPS
+TRAPS=0
 
 _verbose "$NUM:search .."
 echo issue 1 1 search
@@ -251,8 +256,9 @@ echo issue 1 1 search
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
-   *'You spot a '*) TRAPS="${TRAPS}
-$REPLY"
+#   *'You spot a '*) TRAPS="${TRAPS}
+#$REPLY"
+   *'You spot a '*) TRAPS=$((TRAPS+1))
     ;;
    *'You search the area.'*) :;;
   '') break;;
@@ -261,7 +267,9 @@ $REPLY"
   unset REPLY
  done
 
-test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
+#test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
+test "$TRAPS" -ge "$TRAPS_BACKUP" && TRAPS_BACKUP=$TRAPS
+
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 sleep 1
 
@@ -272,18 +280,40 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
-test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
-TRAPS=`echo "$TRAPS" | sed '/^$/d'`
+#test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
+#TRAPS=`echo "$TRAPS" | sed '/^$/d'`
 
-if test "$DEBUG"; then
-_draw 5 "TRAPS='$TRAPS'"
-fi
+#if test "$DEBUG"; then
+#_draw 5 "TRAPS='$TRAPS'"
+#fi
 
-test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
-TRAPS_NUM=${TRAPS_NUM:-0}
+#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
+#TRAPS_NUM=${TRAPS_NUM:-0}
+
+TRAPS=${TRAPS:-$TRAPS_BACKUP}
+test "$TRAPS_BACKUP" -ge "$TRAPS" && TRAPS=$TRAPS_BACKUP
+TRAPS_NUM=${TRAPS:-0}
 
 #mkfifo /tmp/cf_pipe.$$ ## pipe needs to be read before first data send to
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
+}
+
+_cure_disease(){
+# echo issue 1 1 apply scroll of cure disease
+echo issue 1 1 invoke "cure disease"
+}
+
+_cure_poison(){
+# echo issue 1 1 apply scroll of cure poison
+echo issue 1 1 invoke "cure poison"
+}
+
+_cure(){
+test "$*" || return 3
+case $2 in
+scroll) echo issue 1 1 apply scroll of cure $1;;
+*)      echo issue 1 1 invoke "cure $1";;
+esac
 }
 
 _handle_trap_event(){
@@ -291,16 +321,26 @@ _handle_trap_event(){
 local SECONDLINE=''
 
   case $REPLY in
+   *'You search'*) :;;
+   *'You spot'*)   :;;
+   *You*feel*very*ill*) _cure poison;;
+   *You*feel*ill*)      _cure disease;;
+   *You*feel*sick*)     :;; # _cure poison;;
+
    *'Unable to find skill '*)   break 2;;
-#  *'You fail to disarm '*) continue;;
+   *'You fail to disarm '*) :;;
 
    *'You successfully disarm '*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break;;
+      NUM=$((NUM-1));
+      #test "$NUM" -gt 0 || break 2;
+      #break
+      ;;
 
    *'In fact, you set it off!'*)
-      NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
-      break ;;
+      NUM=$((NUM-1));
+      #test "$NUM" -gt 0 || break 2;
+      #break
+      ;;
 
    #You detonate a Rune of Mass Confusion!
    *of*Confusion*|*'of Paralysis'*) # these multiplify
@@ -320,7 +360,8 @@ local SECONDLINE=''
    #You set off a fireball!
    *of*fireball*)  ## rune_fireball.arc
       read -t 1 SECONDLINE  #
-      break;;
+      _draw 3 "Quitting - fireball."
+      return 112;; # enable to pick up chests before they get burned
 
    *of*Ball*Lightning*) ## rune_blightning.arc
       read -t 1 SECONDLINE
@@ -360,6 +401,33 @@ local SECONDLINE=''
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
       break;;
 
+  # msgs from cast dexterity
+  *'You lack the skill '*) :;;
+  *'You can no longer use the skill:'*)     :;;
+  *'You ready'*)                            :;;  #You ready talisman of sorcery *.
+  *'You can now use the skill:'*)           :;;
+  #*'You ready the spell'*)                  :;;
+  #*'You feel more agile'*)                  :;;
+  *'You grow no more agile'*)               :;;
+  *'You recast the spell while in effect'*) :;;
+  *'The effects'*'are draining out'*)       :;;
+  *'The effects'*'are about to expire'*)    :;;
+  *'You feel'*)                             :;; # clumsy
+
+  # msgs from cure disease
+  *'You stop using the'*) :;; # talisman of Frost *.
+ #*'You ready'*)          :;; # holy symbol of Probity *.
+ #*'You can now use the skill:'*) :;; # praying.
+  *'You cure'*)           :;; # a disease!
+  *'You no longer feel'*) :;; # diseased.
+
+  #msgs from cure poison
+# You stop using the talisman of Frost *.
+# You ready holy symbol of Probity *.
+# You can now use the skill: praying.
+  *'Your body feels'*) :;; # cleansed
+ #*'You feel'*)        :;; # stronger. more agile. healthy. smarter.
+
   '') CNT=$((CNT+1)); break;;
   *) _debug "_handle_trap_event:Ignoring REPLY";;
   esac
@@ -369,7 +437,7 @@ local SECONDLINE=''
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
-
+local NUM
 unset NUM
 
     touch /tmp/cf_pipe.$$
@@ -385,7 +453,7 @@ test "$NUM" -gt 0 || return 0
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-CNT=0
+local CNT=1
 
 while :;
 do
@@ -410,6 +478,7 @@ echo issue 1 1 use_skill "disarm traps"
  done
 
 test "$CNT" -gt 9 && break
+test "$NUM" -gt 0 || break
 
 _verbose "search .."
 echo issue 1 1 search # add additional search
@@ -442,12 +511,12 @@ echo watch $DRAW_INFO
 
 _verbose "apply"
 echo issue 9 1 apply  # handle trap release, being killed
-sleep 1
+sleep 0.5
 
 _verbose "get all"
 echo issue 0 0 get all
 
-sleep 1
+sleep 0.5
 
 
 _verbose "drop chest"
@@ -471,24 +540,24 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'Your '*)        :;;  # Your monster beats monster
    *'You killed '*)  :;;
 
-   *'You find '*)  _handle_trap_event || return 112  ;;
+   *'You find '*) :;; #_handle_trap_event || return 112  ;;
 
-   *'The chest was empty.'*)      :;;
+  #*'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;
    *'You were unable to take '*)  :;; #You were unable to take one of the items.
 
-  # msgs from cast dexterity
-  *'You lack the skill '*) :;;
-  *'You can no longer use the skill:'*)     :;;
-  *'You ready talisman'*)                   :;;  #You ready talisman of sorcery *.
-  *'You can now use the skill:'*)           :;;
-  *'You ready the spell'*)                  :;;
-  *'You feel more agile'*)                  :;;
-  *'You grow no more agile'*)               :;;
-  *'You recast the spell while in effect'*) :;;
-  *'The effects'*'are draining out'*)       :;;
-  *'The effects'*'are about to expire'*)    :;;
-  *'You feel clumsy'*)                      :;;
+#  # msgs from cast dexterity
+#  *'You lack the skill '*) :;;
+#  *'You can no longer use the skill:'*)     :;;
+#  *'You ready talisman'*)                   :;;  #You ready talisman of sorcery *.
+#  *'You can now use the skill:'*)           :;;
+#  *'You ready the spell'*)                  :;;
+#  *'You feel more agile'*)                  :;;
+#  *'You grow no more agile'*)               :;;
+#  *'You recast the spell while in effect'*) :;;
+#  *'The effects'*'are draining out'*)       :;;
+#  *'The effects'*'are about to expire'*)    :;;
+#  *'You feel clumsy'*)                      :;;
 
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
@@ -504,10 +573,10 @@ sleep 1
 
 _verbose "$DIRB"
 echo issue 1 1 $DIRB
-sleep 1
+sleep 0.1
 _verbose "$DIRF"
 echo issue 1 1 $DIRF
-sleep 1
+sleep 0.1
 
 done
 
