@@ -18,6 +18,10 @@ west)  DIRF=east;;
 east)  DIRF=west;;
 north) DIRF=south;;
 south) DIRF=north;;
+northwest) DIRF=southeast;;
+northeast) DIRF=southwest;;
+southwest) DIRF=northeast;;
+southeast) DIRF=northwest;;
 esac
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
@@ -42,12 +46,12 @@ COL_DBG=$COL_DORANGE
 
 _draw(){
 test "$*" || return
-local COLOUR=${1:-0}
+local lCOLOUR=${1:-0}
 shift
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
 `echo "$@"`
@@ -56,13 +60,16 @@ EoI
 
 _verbose(){
 [ "$VERBOSE" ] || return 0
-_draw ${COL_VERB:-12} "$*"
+local lCOL_VERB=$COL_VERB
+case $1 in [0-9]|[1[0-4]) lCOL_VERB=$1; shift;; esac
+_draw ${lCOL_VERB:-12} "$*"
 }
 
 _debug(){
 [ "$DEBUG" ] || return 0
-case $1 in [0-9]|[1[0-4]) local COL_DBG=$1; shift;; esac
-_draw ${COL_DBG:-11} "$*"
+local lCOL_DBG=$COL_DBG
+case $1 in [0-9]|[1[0-4]) lCOL_DBG=$1; shift;; esac
+_draw ${lCOL_DBG:-11} "$*"
 }
 
 _log(){
@@ -198,15 +205,6 @@ sleep 0.1
  _debug "REPLY='$REPLY'" #debug
 
  case $REPLY in
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
  '') break;;
  *)  _handle_spell_errors || _handle_spell_msgs || {
  c=$((c+1)); test "$c" = 9 && break; } ;; # 9 is just chosen as threshold for spam in msg pane
@@ -232,7 +230,7 @@ _draw 6 "find traps '$NUM' times.."
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 
-local c=0
+#local c=0
 
 while :;
 do
@@ -256,8 +254,6 @@ echo issue 1 1 search
 
   case $REPLY in
    *'Unable to find skill '*)   break 2;;
-#   *'You spot a '*) TRAPS="${TRAPS}
-#$REPLY"
    *'You spot a '*) TRAPS=$((TRAPS+1))
     ;;
    *'You search the area.'*) :;;
@@ -267,7 +263,6 @@ echo issue 1 1 search
   unset REPLY
  done
 
-#test "$TRAPS" && TRAPS_BACKUP="$TRAPS"
 test "$TRAPS" -ge "$TRAPS_BACKUP" && TRAPS_BACKUP=$TRAPS
 
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
@@ -280,21 +275,11 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 
-#test ! "$TRAPS" && test "$TRAPS_BACKUP" && TRAPS="$TRAPS_BACKUP"
-#TRAPS=`echo "$TRAPS" | sed '/^$/d'`
-
-#if test "$DEBUG"; then
-#_draw 5 "TRAPS='$TRAPS'"
-#fi
-
-#test "$TRAPS" && TRAPS_NUM=`echo "$TRAPS" | wc -l`
-#TRAPS_NUM=${TRAPS_NUM:-0}
 
 TRAPS=${TRAPS:-$TRAPS_BACKUP}
 test "$TRAPS_BACKUP" -ge "$TRAPS" && TRAPS=$TRAPS_BACKUP
 TRAPS_NUM=${TRAPS:-0}
 
-#mkfifo /tmp/cf_pipe.$$ ## pipe needs to be read before first data send to
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
@@ -332,14 +317,10 @@ local SECONDLINE=''
 
    *'You successfully disarm '*)
       NUM=$((NUM-1));
-      #test "$NUM" -gt 0 || break 2;
-      #break
       ;;
 
    *'In fact, you set it off!'*)
       NUM=$((NUM-1));
-      #test "$NUM" -gt 0 || break 2;
-      #break
       ;;
 
    #You detonate a Rune of Mass Confusion!
@@ -404,29 +385,30 @@ local SECONDLINE=''
   # msgs from cast dexterity
   *'You lack the skill '*) :;;
   *'You can no longer use the skill:'*)     :;;
-  *'You ready'*)                            :;;  #You ready talisman of sorcery *.
-  *'You can now use the skill:'*)           :;;
-  #*'You ready the spell'*)                  :;;
-  #*'You feel more agile'*)                  :;;
+  *'You ready'*)                            :;;  #You ready talisman of sorcery *. the spell holy symbol of Probity *.
+  *'You can now use the skill:'*)           :;;  # praying.
   *'You grow no more agile'*)               :;;
   *'You recast the spell while in effect'*) :;;
   *'The effects'*'are draining out'*)       :;;
   *'The effects'*'are about to expire'*)    :;;
-  *'You feel'*)                             :;; # clumsy
+  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
 
   # msgs from cure disease
   *'You stop using the'*) :;; # talisman of Frost *.
- #*'You ready'*)          :;; # holy symbol of Probity *.
- #*'You can now use the skill:'*) :;; # praying.
   *'You cure'*)           :;; # a disease!
   *'You no longer feel'*) :;; # diseased.
 
   #msgs from cure poison
-# You stop using the talisman of Frost *.
-# You ready holy symbol of Probity *.
-# You can now use the skill: praying.
   *'Your body feels'*) :;; # cleansed
- #*'You feel'*)        :;; # stronger. more agile. healthy. smarter.
+
+  *' entered '*|*' leaves '*|*' left '*) :;; # the game
+  *' chats:'*|*' tells you:'*)           :;;
+
+   *'You feel full'*) :;;  # , but what a waste of food!
+   *' tasted '*)      :;;  # food tasted good
+   *' your '*)        :;;  #
+   *'Your '*)         :;;  # Your monster beats monster
+   *'You killed '*)   :;;
 
   '') CNT=$((CNT+1)); break;;
   *) _debug "_handle_trap_event:Ignoring REPLY";;
@@ -536,28 +518,39 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'You close chest'*)  :;;    # (open) (active).
    *'was empty'*)        :;;
 
-   *' tasted '*)     :;;  # food tasted good
-   *'Your '*)        :;;  # Your monster beats monster
-   *'You killed '*)  :;;
+   *'You find '*) :;;
 
-   *'You find '*) :;; #_handle_trap_event || return 112  ;;
-
-  #*'The chest was empty.'*)      :;;
    *'You pick up '*)              :;;
-   *'You were unable to take '*)  :;; #You were unable to take one of the items.
+   *'You were unable to take '*)  :;; # one of the items.
+   *'too heavy'*)                 :;;
 
-#  # msgs from cast dexterity
-#  *'You lack the skill '*) :;;
-#  *'You can no longer use the skill:'*)     :;;
-#  *'You ready talisman'*)                   :;;  #You ready talisman of sorcery *.
-#  *'You can now use the skill:'*)           :;;
-#  *'You ready the spell'*)                  :;;
-#  *'You feel more agile'*)                  :;;
-#  *'You grow no more agile'*)               :;;
-#  *'You recast the spell while in effect'*) :;;
-#  *'The effects'*'are draining out'*)       :;;
-#  *'The effects'*'are about to expire'*)    :;;
-#  *'You feel clumsy'*)                      :;;
+  # msgs from cast dexterity
+  *'You lack the skill '*) :;;
+  *'You can no longer use the skill:'*)     :;;
+  *'You ready'*)                            :;;  # talisman of sorcery *. the spell holy symbol of Probity *.
+  *'You can now use the skill:'*)           :;;  # praying.
+  *'You grow no more agile'*)               :;;
+  *'You recast the spell while in effect'*) :;;
+  *'The effects'*'are draining out'*)       :;;
+  *'The effects'*'are about to expire'*)    :;;
+  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
+
+  # msgs from cure disease
+  *'You stop using the'*) :;; # talisman of Frost *.
+  *'You cure'*)           :;; # a disease!
+  *'You no longer feel'*) :;; # diseased.
+
+  #msgs from cure poison
+  *'Your body feels'*) :;; # cleansed
+
+  *' entered '*|*' leaves '*|*' left '*) :;; # the game
+  *' chats:'*|*' tells you:'*)           :;;
+
+   *'You feel full'*) :;;  # , but what a waste of food!
+   *' tasted '*)      :;;  # food tasted good
+   *' your '*)        :;;  #
+   *'Your '*)         :;;  # Your monster beats monster
+   *'You killed '*)   :;;
 
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
@@ -588,19 +581,7 @@ echo unwatch $DRAW_INFO
 _find_traps
 _disarm_traps && _open_chest
 
-echo issue 0 0 get all #pickup chests if bomb
-
-__identify(){
-echo issue 0 0 use_skill sense curse
-echo issue 0 0 use_skill sense magic
-echo issue 0 0 use_skill smithery
-echo issue 0 0 use_skill bowyer
-echo issue 0 0 use_skill alchemy
-echo issue 0 0 use_skill woodsman
-echo issue 0 0 use_skill literacy
-echo issue 0 0 use_skill jeweler
-echo issue 0 0 use_skill thaumaturgy
-}
+echo issue 0 0 get all # pickup chests if bomb
 
 _identify(){
 set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman
