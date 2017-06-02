@@ -301,6 +301,47 @@ scroll) echo issue 1 1 apply scroll of cure $1;;
 esac
 }
 
+_skip_noise(){
+local RV=0
+
+case $REPLY in
+
+  # msgs from cast dexterity
+  *'You lack the skill '*) :;;
+  *'You can no longer use the skill:'*)     :;;
+  *'You ready'*)                            :;;  #You ready talisman of sorcery *. the spell holy symbol of Probity *.
+  *'You can now use the skill:'*)           :;;  # praying.
+  *'You grow no more agile'*)               :;;
+  *'You recast the spell while in effect'*) :;;
+  *'The effects'*'are draining out'*)       :;;
+  *'The effects'*'are about to expire'*)    :;;
+  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
+
+  # msgs from cure disease
+  *'You stop using the'*) :;; # talisman of Frost *.
+  *'You cure'*)           :;; # a disease!
+  *'You no longer feel'*) :;; # diseased.
+
+  #msgs from cure poison
+  *'Your body feels'*) :;; # cleansed
+
+  *' entered '*|*' leaves '*|*' left '*) :;; # the game
+  *' chats:'*|*' tells you:'*)           :;;
+
+   *'You feel full'*) :;;  # , but what a waste of food!
+   *' tasted '*)      :;;  # food tasted good
+   *' your '*)        :;;  #
+   *'Your '*)         :;;  # Your monster beats monster
+   *'You killed '*)   :;;
+
+ #*) _debug "_skip_noise:Ignoring REPLY";;
+  *)  RV=1;;
+
+esac
+
+return ${RV:-4}
+}
+
 _handle_trap_event(){
 
 local SECONDLINE=''
@@ -329,6 +370,7 @@ local SECONDLINE=''
       if [ "$FORCE" ]; then
       break  # at low level better exit with beep
       else _draw 3 "Quitting - multiplifying trap."
+       _draw 2 "Use -f option to ignore."
        return 112
       fi;;
 
@@ -365,6 +407,7 @@ local SECONDLINE=''
       if [ "$FORCE" ]; then
       break # usually better to exit with beep
       else _draw 3 "Quitting - Bomb!"
+       _draw 2 "Use -f option to ignore."
        return 112
       fi;;
 
@@ -376,42 +419,16 @@ local SECONDLINE=''
       if [ "$FORCE" ]; then
       break # always better to exit with beep
       else _draw "Quitting - surrounded by monsters."
+       _draw 2 "Use -f option to ignore."
        return 112
       fi;;
 
    *'transfers power to you'*|*'You feel powerful'*)  ## rune_transfer.arc, rune_sp_restore.arc
       break;;
 
-  # msgs from cast dexterity
-  *'You lack the skill '*) :;;
-  *'You can no longer use the skill:'*)     :;;
-  *'You ready'*)                            :;;  #You ready talisman of sorcery *. the spell holy symbol of Probity *.
-  *'You can now use the skill:'*)           :;;  # praying.
-  *'You grow no more agile'*)               :;;
-  *'You recast the spell while in effect'*) :;;
-  *'The effects'*'are draining out'*)       :;;
-  *'The effects'*'are about to expire'*)    :;;
-  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
-
-  # msgs from cure disease
-  *'You stop using the'*) :;; # talisman of Frost *.
-  *'You cure'*)           :;; # a disease!
-  *'You no longer feel'*) :;; # diseased.
-
-  #msgs from cure poison
-  *'Your body feels'*) :;; # cleansed
-
-  *' entered '*|*' leaves '*|*' left '*) :;; # the game
-  *' chats:'*|*' tells you:'*)           :;;
-
-   *'You feel full'*) :;;  # , but what a waste of food!
-   *' tasted '*)      :;;  # food tasted good
-   *' your '*)        :;;  #
-   *'Your '*)         :;;  # Your monster beats monster
-   *'You killed '*)   :;;
-
   '') CNT=$((CNT+1)); break;;
-  *) _debug "_handle_trap_event:Ignoring REPLY";;
+
+  #*) _skip_noise;;
   esac
 
 }
@@ -455,6 +472,7 @@ echo issue 1 1 use_skill "disarm traps"
    _log "_disarm_traps:$REPLY"
    _debug $COL_GREEN "REPLY='$REPLY'" #debug
 
+   _skip_noise && continue
    _handle_trap_event || return 112
 
  done
@@ -552,9 +570,11 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'Your '*)         :;;  # Your monster beats monster
    *'You killed '*)   :;;
 
+  '') break;;
+
   # undetected traps could be triggered ..
   *) _handle_trap_event || return 112
-      break;;
+     _skip_noise || break;;
   esac
 
  done
