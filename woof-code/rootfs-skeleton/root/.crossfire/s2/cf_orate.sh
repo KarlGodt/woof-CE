@@ -12,7 +12,7 @@ INF_THRESH=30 # threshold to cast charisma and probe
 INF_TOGGLE=4  # threshold to cast restoration (INF_THRESH * INF_TOGGLE)
 BAD_THRESH=3  # threshold to attack in DIR
 
-MAX_ORATE=9
+DEF_ORATE=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -35,40 +35,115 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_ping(){
+test "$PING_DO" || return 0
 
-# *** Check for parameters *** #
+while :;
+do
+
+if test "$URL"; then
+ping -c1 -w10 -W10 "${URL:-bing.com}" && break
+else
+ping -c1 -w10 -W10 bing.com && break
+fi
+
+sleep 1
+done >/dev/null
+}
+
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6
+COL_GREEN=7
+COL_LGREEN=8
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
+
+COL_VERB=$COL_TAN
+COL_DBG=$COL_GOLD
+
+_draw(){
+test "$*" || return
+
+case $1 in [0-9]|1[0-2])
+COLOUR=${1:-0}
+shift
+;;
+esac
+local lCOLOUR=${COLOUR:-0}
+
+while read -r line
+do
+test "$line" || continue
+echo draw $lCOLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$*"`
+EoI
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"${LOG_REPLY_FILE:-/tmp/cf_script.log}"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$@"
+sleep 0.2
+}
+
+
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
 
 # *** implementing 'help' option *** #
 _usage() {
 
-echo draw 5 "Script to use_skill oratory."
-echo draw 5 "Syntax:"
-echo draw 5 "script $0 <direction> [number]"
-echo draw 5 "For example: 'script $0 5 west'"
-echo draw 5 "will issue 5 use_skill oratory in west."
-echo draw 6 "Abbr. for north:n, northeast:ne .."
-echo draw 5 "Options:"
-echo draw 6 "Use -I --infinite to run forever."
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "Script to use_skill oratory."
+_draw 5 "Syntax:"
+_draw 5 "script $0 <direction> [number]"
+_draw 5 "For example: 'script $0 5 west'"
+_draw 5 "will issue 5 use_skill oratory in west."
+_draw 6 "Abbr. for north:n, northeast:ne .."
+_draw 5 "Options:"
+_draw 6 "Use -I --infinite to run forever."
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
 }
 
-echo draw 3 "'$#' Parameters: '$*'"
+# *** Check for parameters *** #
+_debug "'$#' Parameters: '$*'"
 
 until test $# = 0;
 do
 
 PARAM_1="$1"
 case $PARAM_1 in
-[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
-       #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+[0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
+       _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+       readonly NUMBER
+       #_draw 2 "NUMBER=$NUMBER"
+       ;;
  n|north)       DIR=north;     DIRN=1;; #readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2;; #readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3;; #readonly DIR DIRN;;
@@ -78,23 +153,23 @@ sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
  w|west)        DIR=west;      DIRN=7;; #readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 
--h|*help)       _usage;;
--I|*infinite)   FOREVER=1;;
+-h|*help|*usage) _usage;;
+-I|*infinite)    FOREVER=$((FOREVER+1));;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
-
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 '')     :;;
-*)      echo draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
+*)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
 sleep 0.1
 shift
-#echo draw "'$#'"
+#_draw "'$#'"
 
 done
 
 readonly NUMBER DIR DIRN
-echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'" # DEBUG
+_draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'" # DEBUG
 
 
 # TODO: check for near doors and direct to them
@@ -102,31 +177,47 @@ echo draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'" # DEBUG
 if test "$DIR"; then
  :
 else
- echo draw 3 "Need direction as parameter."
+ _draw 3 "Need direction as parameter."
  exit 1
 fi
 
-_ping(){
-test "$PING_DO" || return 0
-while :;
-do
-ping -c1 -w10 -W10 "$URL" && break
-sleep 1
-done >/dev/null
+_handle_spell_errors(){
+local RV=0
+
+UNSET_MAGI=0
+UNSET_PRAY=0
+
+case $REPLY in  # server/spell_util.c
+ '*Something blocks the magic of your item.'*)   UNSET_MAGI=1;;
+ '*Something blocks the magic of your scroll.'*) UNSET_MAGI=1;;
+ *'Something blocks your spellcasting.'*)        UNSET_MAGI=1;;
+ *'This ground is unholy!'*)                  UNSET_PRAY=1;;
+ *'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     RV=2;;
+ *'You lack the proper attunement to cast '*) RV=2;;
+ *'That spell path is denied to you.'*)       RV=2;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) RV=1;;
+esac
+
+test "$UNSET_MAGI" = 1 && unset CAST_CHA CAST_PROBE
+test "$UNSET_PRAY" = 1 && unset CAST_PACY CAST_REST
+
+return ${RV:-4}
 }
 
 _cast_charisma(){
 # ** cast CHARISMA ** #
 
-local REPLY c
+local REPLY c=0
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 cast charisma # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast charisma # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -134,21 +225,27 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_charisma:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "_cast_charisma:$REPLY"
+ _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
- '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
- *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
- *'This ground is unholy!'*)                  unset CAST_REST;;
- *'You are no easier to look at.'*)           unset CAST_CHA;;
- *'You lack the skill '*)                     unset CAST_CHA;;
- *'You lack the proper attunement to cast '*) unset CAST_CHA;;
- *'That spell path is denied to you.'*)       unset CAST_CHA;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
+# *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
+# *'This ground is unholy!'*)                  unset CAST_REST;;
+# *'You are no easier to look at.'*)           unset CAST_CHA;;
+# *'You lack the skill '*)                     unset CAST_CHA;;
+# *'You lack the proper attunement to cast '*) unset CAST_CHA;;
+# *'That spell path is denied to you.'*)       unset CAST_CHA;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_CHA;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
 done
 
@@ -168,15 +265,15 @@ __cast_pacify(){  # unused
 # pacified monsters do not respond to oratory
 return 0
 
-local REPLY c
+local REPLY c=0
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -184,21 +281,27 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_pacify:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "__cast_pacify:$REPLY"
+ _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_PACY CAST_REST;;
- '*Something blocks the magic of your scroll.'*) unset CAST_PACY CAST_REST;;
- *'Something blocks your spellcasting.'*)        unset CAST_PACY CAST_REST;;
- *'This ground is unholy!'*)                     unset CAST_PACY CAST_REST;;
- #*'You are no easier to look at.'*)           unset CAST_CHA;;
- *'You lack the skill '*)                     unset CAST_PACY;;
- *'You lack the proper attunement to cast '*) unset CAST_PACY;;
- *'That spell path is denied to you.'*)       unset CAST_PACY;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# '*Something blocks the magic of your item.'*)   unset CAST_PACY CAST_REST;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_PACY CAST_REST;;
+# *'Something blocks your spellcasting.'*)        unset CAST_PACY CAST_REST;;
+# *'This ground is unholy!'*)                     unset CAST_PACY CAST_REST;;
+# #*'You are no easier to look at.'*)           unset CAST_CHA;;
+# *'You lack the skill '*)                     unset CAST_PACY;;
+# *'You lack the proper attunement to cast '*) unset CAST_PACY;;
+# *'That spell path is denied to you.'*)       unset CAST_PACY;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_PACY;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
 done
 
@@ -211,15 +314,15 @@ echo unwatch $DRAW_INFO
 _cast_probe(){
 # ** cast PROBE ** #
 
-local REPLY c
+local REPLY c=0
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -227,21 +330,27 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_probe:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "_cast_probe:$REPLY"
+ _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
- '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
- *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
- *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
- #*'You are no easier to look at.'*)           unset CAST_CHA;;
- *'You lack the skill '*)                     unset CAST_PROBE;;
- *'You lack the proper attunement to cast '*) unset CAST_PROBE;;
- *'That spell path is denied to you.'*)       unset CAST_PROBE;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
+# *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
+# *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
+# #*'You are no easier to look at.'*)           unset CAST_CHA;;
+# *'You lack the skill '*)                     unset CAST_PROBE;;
+# *'You lack the proper attunement to cast '*) unset CAST_PROBE;;
+# *'That spell path is denied to you.'*)       unset CAST_PROBE;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_PROBE;;
  esac
+ test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
 
 done
 
@@ -253,15 +362,15 @@ $CAST_PROBE
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
 
-local REPLY c
+local REPLY c=0
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
+_is 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
 sleep 0.5
-echo issue 1 1 fire ${DIRN:-0}
+_is 1 1 fire ${DIRN:-0}
 sleep 0.5
-echo issue 1 1 fire_stop
+_is 1 1 fire_stop
 sleep 0.5
 
 while :;
@@ -269,21 +378,27 @@ do
 unset REPLY
 sleep 0.1
  read -t 1
- [ "$LOGGING" ] && echo "_cast_restoration:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "_cast_restoration:$REPLY"
+ _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_REST CAST_PACY;;
- '*Something blocks the magic of your scroll.'*) unset CAST_REST CAST_PACY;;
- *'Something blocks your spellcasting.'*)        unset CAST_REST CAST_PACY;;
- *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
- #*'You are no easier to look at.'*)           unset CAST_CHA;;
- *'You lack the skill '*)                     unset CAST_REST CAST_PACY;;
- *'You lack the proper attunement to cast '*) unset CAST_REST;;
- *'That spell path is denied to you.'*)       unset CAST_REST;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# '*Something blocks the magic of your item.'*)   unset CAST_REST CAST_PACY;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_REST CAST_PACY;;
+# *'Something blocks your spellcasting.'*)        unset CAST_REST CAST_PACY;;
+# *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
+# #*'You are no easier to look at.'*)           unset CAST_CHA;;
+# *'You lack the skill '*)                     unset CAST_REST CAST_PACY;;
+# *'You lack the proper attunement to cast '*) unset CAST_REST;;
+# *'That spell path is denied to you.'*)       unset CAST_REST;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_REST;;
  esac
+ test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
 
 done
 
@@ -291,11 +406,11 @@ echo unwatch $DRAW_INFO
 }
 $CAST_REST
 
-_attack(){
+_attack(){  #unused
 local one
 for one in `seq 1 1 $MAX_ATTACK`;
 do
-echo issue 1 1 $DIR
+_is 1 1 $DIR
 sleep 0.2
 done
 }
@@ -303,10 +418,13 @@ done
 # ** use_skill oratory ** #
 
 sleep 2
-echo draw 7 "Now convincing..."
+
+TIMEB=`/bin/date +%s`
+
+_draw 7 "Now convincing..."
 
 #echo watch $DRAW_INFO
-c=0; cc=0; TOGGLE=1
+c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0
 NUM=$NUMBER
 
 while :;
@@ -316,14 +434,16 @@ _ping
 
 echo watch $DRAW_INFO
 
-echo issue 1 1 use_skill singing
+_verbose "$NUMBER:$NUM:$c:$cc:$TOGGLE:$CALMS:$CONVS"
+
+_is 1 1 use_skill singing
 sleep 0.5
-#echo issue 1 1 use_skill stealing
+
+# cannot steal from pets
+#_is 1 1 use_skill stealing
 #sleep 0.5
 
-#echo watch $DRAW_INFO
-
-echo issue 1 1 use_skill oratory
+_is 1 1 use_skill oratory
 
 sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 
@@ -331,8 +451,8 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   unset REPLY
   sleep 0.1
   read -t 1
-  [ "$LOGGING" ] && echo "sing&orate:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+  _log "sing&orate:$REPLY"
+  _debug "REPLY='$REPLY'"
 
   case $REPLY in
   *'Unable to find skill '*)        break 2;;
@@ -346,8 +466,8 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   *'There is nothing to orate to.'*)   BADS=0; [ "$FOREVER" ] && break || break 2;;
   '')                                          [ "$FOREVER" ] && break || break 2;; # no answer @ NPC with msg or pacyfied / sung
   *'Too bad the '*) if test "$FOREVER"; then # sing + orate
-     BADS=$((BADS+1)); test "$BADS" -gt $BAD_THRESH && { echo issue 0 0 $DIR; BADS=0;
-     echo draw 3 "Attacked in $DIR .."; sleep 1; };
+     BADS=$((BADS+1)); test "$BADS" -gt $BAD_THRESH && { _is 0 0 $DIR; BADS=0;
+     _draw 3 "Attacked in $DIR .."; sleep 1; };
     fi; break;;
   *) :;;
   #*) break;;
@@ -359,14 +479,13 @@ echo unwatch $DRAW_INFO
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
-  #{ if test "$TOGGLE" = $INF_TOGGLE; then _cast_restoration; TOGGLE=1; fi; }
   $CAST_CHA
   #echo watch $DRAW_INFO
   $CAST_PROBE
-  echo draw 3 "Infinite loop $TOGGLE."
-  echo draw 4 "You calmed down '$CALMS' ."
-  echo draw 5 "You convinced   '$CONVS' ."
-  echo draw 2 "Use 'scriptkill $0' to abort.";
+  _draw 3 "Infinite loop $TOGGLE."
+  _draw 4 "You calmed down '$CALMS' ."
+  _draw 5 "You convinced   '$CONVS' ."
+  _draw 2 "Use 'scriptkill $0' to abort.";
    if test "$TOGGLE" = $INF_TOGGLE; then
     $CAST_REST
     TOGGLE=0;
@@ -377,7 +496,7 @@ if test "$FOREVER"; then
 elif test "$NUMBER"; then
  NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
- c=$((c+1)); test "$c" -lt $MAX_ORATE || break;
+ c=$((c+1)); test "$c" -lt $DEF_ORATE || break;
 fi
 
 sleep 0.6
@@ -387,10 +506,35 @@ done
 
 #echo unwatch $DRAW_INFO
 
+TIMEZ=`/bin/date +%s`
 
+
+_compute_minutes_seconds(){
+unset TIMEXM TIMEXS
+test "$1" -a "$2" || return 3
+
+local lTIMEX=$(( $1 - $2 ))
+
+case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
+case $lTIMEX in -*) return 4;; esac
+
+TIMEXM=$((lTIMEX/60))
+TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
+case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
+}
+
+if test "$TIMEZ" -a "$TIMEB"; then
+_compute_minutes_seconds $TIMEZ $TIMEB && \
+ echo draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
+fi
+
+if test "$TIMEZ" -a "$TIMEA"; then
+_compute_minutes_seconds $TIMEZ $TIMEA && \
+ echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
+fi
 
 # *** Here ends program *** #
-echo draw 7 "You calmed down '$CALMS' ."
-echo draw 7 "You convinced   '$CONVS' ."
-echo draw 2 "$0 is finished."
+_draw 7 "You calmed down '$CALMS' ."
+_draw 7 "You convinced   '$CONVS' ."
+_draw 2 "$0 is finished."
 _beep
