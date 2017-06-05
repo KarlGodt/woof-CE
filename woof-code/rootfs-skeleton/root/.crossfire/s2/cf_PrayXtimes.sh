@@ -38,20 +38,7 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
-# *** Check for parameters *** #
-
-#test "$*" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
-until test "$#" = 0
-do
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"|*usage)
-
+_usage(){
 echo draw 5 "Script to pray optional given number times."
 echo draw 5 "Syntax:"
 echo draw 5 "script $0 <<number>>"
@@ -64,7 +51,17 @@ echo draw 5 "-d  to turn on debugging."
 #echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 
         exit 0
-;;
+}
+
+# *** Check for parameters *** #
+
+until test "$#" = 0
+do
+PARAM_1="$1"
+
+# *** implementing 'help' option *** #
+case "$PARAM_1" in
+-h|*"help"|*usage) _usage;;
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
 #-L|*logging) LOGGING=$((LOGGING+1));;
@@ -72,7 +69,7 @@ echo draw 5 "-d  to turn on debugging."
 
 [0-9]*)
 # *** testing parameters for validity *** #
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as optional option allowed."
         exit 1 #exit if other input than letters
@@ -89,8 +86,8 @@ done
 
 # *** Player's Speed *** #
 echo request stat cmbt
-#read REQ_CMBT
-#snprintf(buf, sizeof(buf), "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
+# snprintf(buf, sizeof(buf),
+# "request stat cmbt %d %d %d %d %d\n", cpl.stats.wc, cpl.stats.ac, cpl.stats.dam, cpl.stats.speed, cpl.stats.weapon_sp);
 read Req Stat Cmbt WC AC DAM SPEED W_SPEED
 [ "$DEBUG" ] && echo draw 11 "$WC:$AC:$DAM:$SPEED:$W_SPEED"  # DEBUG
 case $SPEED in
@@ -113,16 +110,13 @@ echo draw 11 "Sleeping $USLEEP usleep micro-seconds between praying"
 
 
 # *** Actual script to pray multiple times *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
 TIMEB=`/bin/date +%s`
 
-#for one in `seq 1 1 $NUMBER`
 while :;
 do
 
 echo "issue 1 1 use_skill praying"
-#sleep 1s
 usleep $USLEEP
 
 c=$((c+1))
@@ -152,21 +146,11 @@ case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
 }
 
 if test "$TIMEZ" -a "$TIMEB"; then
-# TIME_L=$((TIMEZ-TIMEB))
-# TIME_LM=$((TIME_L/60))
-# TIME_LS=$(( TIME_L - (TIME_LM*60) ))
-# case $TIME_LS in [0-9]) TIME_LS="0$TIME_LS";; esac
-
 _compute_minutes_seconds $TIMEZ $TIMEB && \
  echo draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
 fi
 
 if test "$TIMEZ" -a "$TIMEA"; then
-# TIME_S=$((TIMEZ-TIMEA))
-# TIME_SM=$((TIME_S/60))
-# TIME_SS=$(( TIME_S - (TIME_SM*60) ))
-# case $TIME_SS in [0-9]) TIME_SS="0$TIME_SS";; esac
-
 _compute_minutes_seconds $TIMEZ $TIMEA && \
  echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
 fi

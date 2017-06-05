@@ -7,9 +7,9 @@ TIMEA=`date +%s`
 
 DRAW_INFO=drawinfo # drawextinfo
 
-MAX_SEARCH=9
-MAX_DISARM=9
-MAX_LOCKPICK=9
+DEF_SEARCH=9
+DEF_DISARM=9
+DEF_LOCKPICK=9
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -43,14 +43,23 @@ COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
 
+COL_VERB=$COL_TAN
+COL_DBG=$COL_GOLD
+
 _draw(){
 test "$*" || return
+
+case $1 in [0-9]|1[0-2])
 COLOUR=${1:-0}
 shift
+;;
+esac
+local lCOLOUR=${COLOUR:-0}
+
 while read -r line
 do
 test "$line" || continue
-echo draw $COLOUR "$line"
+echo draw $lCOLOUR "$line"
 sleep 0.1
 done <<EoI
 `echo "$@"`
@@ -69,7 +78,7 @@ _draw ${COL_DBG:-11} "$*"
 
 _log(){
 [ "$LOGGING" ] || return 0
-echo "$*" >>"$LOG_REPLY_FILE"
+echo "$*" >>"${LOG_REPLY_FILE:-/tmp/cf_script.log}"
 }
 
 _is(){
@@ -109,9 +118,6 @@ _draw 5 "-v set verbosity"
 
         exit 0
 }
-
-#_draw 3 "'$#' Parameters: '$*'"
-_debug "'$#' Parameters: '$*'"
 
 _word_to_number(){
 
@@ -168,6 +174,7 @@ readonly DIR DIRN;
 return $?
 }
 
+_debug "'$#' Parameters: '$*'"
 
 # If there is only one parameter and it is a number
 # assume it means direction
@@ -286,23 +293,6 @@ fi
 
 # TODO : find out if turn possible without casting/firing in DIRN
 
-__turn_direction__(){
-# use brace and DIR -- does not work since attacks in DIR; so
-# either uses key to unlock door or punches against it and triggers traps
-
-local lDIR=${1:-"$DIR"}
-
-_draw 5 "Bracing .."
-_is 1 1 brace on
-sleep 1
-
-_draw 4 "Turning $DIR .."
-_is 1 1 $lDIR
-sleep 1
-
-}
-
-#__turn_direction
 
 # we could add parameters to cast what spell:
 # should be low level with few mana/grace point need
@@ -484,7 +474,7 @@ $CAST_DEX
 _find_traps(){
 # ** search or use_skill find traps ** #
 
-local NUM=${NUMBER:-$MAX_SEARCH}
+local NUM=${NUMBER:-$DEF_SEARCH}
 
 _draw 6 "find traps '$NUM' times.."
 
@@ -564,7 +554,7 @@ unset NUM
 read NUM </tmp/cf_pipe.$$
     rm -f /tmp/cf_pipe.$$
 
-NUM=${NUM:-$MAX_DISARM}
+NUM=${NUM:-$DEF_DISARM}
 
 _draw 6 "disarm traps '$NUM' times.."
 
@@ -699,15 +689,15 @@ if test "$FOREVER"; then
        TOGGLE=0;
   else TOGGLE=$((TOGGLE+1));
   fi
- }
   $CAST_DEX
   $CAST_PROBE
+  }
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
 else
-c=$((c+1)); test "$c" -lt $MAX_LOCKPICK || break;
+c=$((c+1)); test "$c" -lt $DEF_LOCKPICK || break;
 fi
 
 sleep 1
