@@ -2,6 +2,9 @@
 
 exec 2>/tmp/cf_script.err
 
+# Now count the whole script time
+TIMEA=`date +%s`
+
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
@@ -93,12 +96,12 @@ sleep 0.2
 _usage() {
 
 _draw 5 "Script to open chests."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <<number>>"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
-_draw 4 "Options:"
-_draw 4 "-f force running even if bad traps triggered."
+_draw 2 "Options:"
+_draw 3 "-f force running even if bad traps triggered."
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -128,7 +131,7 @@ case $PARAM_1 in
 --*) case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
      *force) FORCE=$((FORCE+1));;
-     *help)  _usage;;
+     *help|*usage)  _usage;;
      *logging) LOGGING=$((LOGGING+1));;
      *verbose) VERBOSE=$((VERBOSE+1));;
      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
@@ -175,6 +178,31 @@ sleep 1
 
 # TODO : check if on chest
 
+_handle_spell_errors(){
+local RV=0
+
+UNSET_MAGI=0
+UNSET_PRAY=0
+
+case $REPLY in  # server/spell_util.c
+ *'Something blocks your magic.'*)               UNSET_MAGI=1;;
+ '*Something blocks the magic of your item.'*)   UNSET_MAGI=1;;
+ '*Something blocks the magic of your scroll.'*) UNSET_MAGI=1;;
+ *'Something blocks your spellcasting.'*)        UNSET_MAGI=1;;
+ *'This ground is unholy!'*)                  UNSET_PRAY=1;;
+ *'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You lack the skill '*)                     RV=2;;
+ *'You lack the proper attunement to cast '*) RV=2;;
+ *'That spell path is denied to you.'*)       RV=2;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) RV=1;;
+esac
+
+test "$UNSET_MAGI" = 1 && unset CAST_DEX CAST_CHA CAST_PROBE
+test "$UNSET_PRAY" = 1 && unset CAST_PACY CAST_REST
+
+return ${RV:-4}
+}
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
@@ -204,19 +232,28 @@ sleep 0.1
  _log "_cast_dexterity:$REPLY"
  _debug "REPLY='$REPLY'"
 
- case $REPLY in
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
- *'This ground is unholy!'*)                     unset CAST_REST;;
- *'You grow no more agile.'*)                    unset CAST_DEX;;
- *'You lack the skill '*)                        unset CAST_DEX;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
- *'That spell path is denied to you.'*)          unset CAST_DEX;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in
+# *'Something blocks your magic.'*)               unset CAST_DEX CAST_PROBE;;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
+# *'This ground is unholy!'*)                     unset CAST_REST;;
+# *'You grow no more agile.'*)                    unset CAST_DEX;;
+# *'You lack the skill '*)                        unset CAST_DEX;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '') break;;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ case $REPLY in '') break;;
+  *) _handle_spell_errors
+        case $? in 1) c=$((c+1));;
+        2) unset CAST_DEX;;
+        esac;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
 done
 
@@ -252,6 +289,7 @@ read -t 1
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - triggered bomb."
+          _draw 3 "Use -f otion to go on."
           return 112 # save chests from being destroyed
          fi;;
 
@@ -261,6 +299,7 @@ read -t 1
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - multiplifying trap."
+          _draw 3 "Use -f otion to go on."
           return 112
          fi;;
 
@@ -293,6 +332,7 @@ read -t 1
          if [ "$FORCE" ]; then
           break  # at low level better exit with beep
          else _draw 3 "Quitting - triggered trap."
+          _draw 3 "Use -f otion to go on."
           return 112
          fi;;
 
@@ -301,6 +341,7 @@ read -t 1
          if [ "$FORCE" ]; then
           break # always better to exit with beep
          else _draw "Quitting - surrounded by monsters."
+          _draw 3 "Use -f otion to go on."
           return 112
          fi;;
 
@@ -481,6 +522,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - triggered bomb."
+         _draw 3 "Use -f otion to go on."
          return 112 # save chests from being destroyed
         fi;;
 
@@ -490,6 +532,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - multiplifying trap."
+         _draw 3 "Use -f otion to go on."
          return 112  # these multiplify
         fi;;
 
@@ -523,6 +566,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break  # at low level better exit with beep
         else _draw 3 "Quitting - detonated trap."
+         _draw 3 "Use -f otion to go on."
          return 112
         fi;;
 
@@ -531,6 +575,7 @@ _is 1 1 use_skill "disarm traps"
         if [ "$FORCE" ]; then
          break # always better to exit with beep
         else _draw "Quitting - surrounded by monsters."
+          _draw 3 "Use -f otion to go on."
          return 112
         fi;;
 
@@ -567,14 +612,14 @@ sleep 1
 _open_chest(){
 # ** open chest, apply, get ** #
 
-_draw 6 "apply and get .."
+TIMEB=`/bin/date +%s`
 
+_draw 6 "apply and get .."
 
 while :;
 do
 
 # TODO : food level, hit points
-
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -624,7 +669,7 @@ _is 0 0 drop chest # Nothing to drop.
   *'The effects'*'are about to expire'*)    :;;
   *'You feel clumsy'*)                      :;;
 
-#  *) break;;
+  '') break;;
    *) _handle_trap_detonation_event || return 112
       break;;
   esac
@@ -633,14 +678,14 @@ _is 0 0 drop chest # Nothing to drop.
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
-sleep 1
+sleep 0.5
 
 
 _is 1 1 $DIRB
-sleep 1
+sleep 0.1
 
 _is 1 1 $DIRF
-sleep 1
+sleep 0.1
 
 done
 }
@@ -656,6 +701,34 @@ _is 0 0 get all  #pickup chests if bomb, fire storm, dragon breath, etc
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
+
+
+TIMEZ=`/bin/date +%s`
+
+_compute_minutes_seconds(){
+unset TIMEXM TIMEXS
+test "$1" -a "$2" || return 3
+
+local lTIMEX=$(( $1 - $2 ))
+
+case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
+case $lTIMEX in -*) return 4;; esac
+
+TIMEXM=$((lTIMEX/60))
+TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
+case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
+}
+
+if test "$TIMEZ" -a "$TIMEB"; then
+_compute_minutes_seconds $TIMEZ $TIMEB && \
+ echo draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
+fi
+
+if test "$TIMEZ" -a "$TIMEA"; then
+_compute_minutes_seconds $TIMEZ $TIMEA && \
+ echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
+fi
+
 
 _draw 2 "$0 is finished."
 _beep

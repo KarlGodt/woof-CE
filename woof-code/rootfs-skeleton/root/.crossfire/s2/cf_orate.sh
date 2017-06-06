@@ -188,6 +188,7 @@ UNSET_MAGI=0
 UNSET_PRAY=0
 
 case $REPLY in  # server/spell_util.c
+ *'Something blocks your magic.'*)               UNSET_MAGI=1;;
  '*Something blocks the magic of your item.'*)   UNSET_MAGI=1;;
  '*Something blocks the magic of your scroll.'*) UNSET_MAGI=1;;
  *'Something blocks your spellcasting.'*)        UNSET_MAGI=1;;
@@ -415,6 +416,7 @@ sleep 0.2
 done
 }
 
+_sing_and_orate(){
 # ** use_skill oratory ** #
 
 sleep 2
@@ -502,12 +504,13 @@ fi
 sleep 0.6
 
 done
+}
 
-
-#echo unwatch $DRAW_INFO
+_sing_and_orate
+#
+echo unwatch $DRAW_INFO
 
 TIMEZ=`/bin/date +%s`
-
 
 _compute_minutes_seconds(){
 unset TIMEXM TIMEXS

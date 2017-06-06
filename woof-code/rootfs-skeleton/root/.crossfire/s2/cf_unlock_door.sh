@@ -97,11 +97,11 @@ _draw 2 "$0 is started.."
 _usage() {
 
 _draw 5 "Script to lockpick doors."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
-_draw 4 "Options:"
+_draw 2 "Options:"
 _draw 4 "-c cast detect curse to turn to DIR"
 _draw 4 "-C cast constitution"
 _draw 4 "-t cast disarm"
@@ -112,6 +112,8 @@ _draw 4 "-i cast show invisible"
 _draw 4 "-m cast detect magic"
 _draw 4 "-M cast detect monster"
 _draw 4 "-p cast probe"
+_draw 6 "-S do not cast any spells"
+_draw 3 "-I lockpick forever, use 'scriptkill' to terminate"
 _draw 5 "-d set debug"
 _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
@@ -243,10 +245,13 @@ fi
 -M|*monster) TURN_SPELL="detect monster";;
 -p|*probe)   TURN_SPELL="probe";;
 
--h|*help)    _usage;;
--d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
--v|*verbose) VERBOSE=$((VERBOSE+1));;
+-h|*help|*usage) _usage;;
+
+-d|*debug)      DEBUG=$((DEBUG+1));;
+-I|*infinite) FOREVER=$((FOREVER+1));;
+-L|*logging)  LOGGING=$((LOGGING+1));;
+-S|*short)      SHORT=$((SHORT+1));;
+-v|*verbose)  VERBOSE=$((VERBOSE+1));;
 
 *)  _draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
@@ -266,8 +271,10 @@ esac
      M)  TURN_SPELL="detect monster";;
      p)  TURN_SPELL="probe";;
      h)  _usage;;
-     d)  DEBUG=$((DEBUG+1));;
+     d)    DEBUG=$((DEBUG+1));;
+     I)  FOREVER=$((FOREVER+1));;
      L)  LOGGING=$((LOGGING+1));;
+     S)    SHORT=$((SHORT+1));;
      v)  VERBOSE=$((VERBOSE+1));;
      *)  _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
@@ -315,6 +322,33 @@ fi
 # $CAST_SPELL instead _cast_spell
 CAST_DEX=_cast_dexterity
 
+_handle_spell_errors(){
+local RV=0
+
+UNSET_MAGI=0
+UNSET_PRAY=0
+
+case $REPLY in  # server/spell_util.c
+ *'Something blocks your magic.'*)               UNSET_MAGI=1;;
+ '*Something blocks the magic of your item.'*)   UNSET_MAGI=1;;
+ '*Something blocks the magic of your scroll.'*) UNSET_MAGI=1;;
+ *'Something blocks your spellcasting.'*)        UNSET_MAGI=1;;
+ *'This ground is unholy!'*)                  UNSET_PRAY=1;;
+ *'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You grow no more agile.'*)                 unset CAST_DEX;;
+ *'You lack the skill '*)                     RV=2;;
+ *'You lack the proper attunement to cast '*) RV=2;;
+ *'That spell path is denied to you.'*)       RV=2;;
+ *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *) RV=1;;
+esac
+
+test "$UNSET_MAGI" = 1 && unset CAST_DEX CAST_CHA CAST_PROBE
+test "$UNSET_PRAY" = 1 && unset CAST_PACY CAST_REST
+
+return ${RV:-4}
+}
+
 _turn_direction_all(){
 
 local REPLY c spell
@@ -330,13 +364,13 @@ do
 _draw 2 "Casting $spell to turn to $DIR .."
 
 _is 1 1 cast $spell
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire_stop
-sleep 0.5
+#sleep 0.5
 
 while :;
 do
@@ -346,19 +380,29 @@ sleep 0.1
  _log "_turn_direction_all:$REPLY"
  _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
- *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
- *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
- *'You lack the skill '*)                        unset CAST_DEX; break 2;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
- *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# *'Something blocks your magic.'*)               unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
+# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '') break;;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+  case $REPLY in '') break;;
+  *) _handle_spell_errors
+        case $? in 1) c=$((c+1));;
+        2) unset CAST_DEX;;
+        esac;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
+
 
 done
 
@@ -381,13 +425,13 @@ echo watch $DRAW_INFO
 _draw 2 "Casting $spell to turn to $DIR .."
 
 _is 1 1 cast $spell
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire_stop
-sleep 0.5
+#sleep 0.5
 
 while :;
 do
@@ -397,31 +441,34 @@ sleep 0.1
  _log "_turn_direction:$REPLY"
  _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
- *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
- *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
- *'You lack the skill '*)                        unset CAST_DEX; break 2;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
- *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# *'Something blocks your magic.'*)               unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE; break 2;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE; break 2;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX; break 2;;
+# *'This ground is unholy!'*)                     unset CAST_REST;break 2;;
+# *'You grow no more agile.'*)                    unset CAST_DEX; break 2;;
+# *'You lack the skill '*)                        unset CAST_DEX; break 2;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX; break 2;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX; break 2;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '') break;;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ case $REPLY in '') break;;
+  *) _handle_spell_errors
+        case $? in 1) c=$((c+1));;
+        2) unset CAST_DEX;;
+        esac;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
 done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
-
-if test "$TURN_SPELL"; then
- _turn_direction $TURN_SPELL
-else
- _turn_direction_all
-fi
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
@@ -433,13 +480,13 @@ echo watch $DRAW_INFO
 _draw 5 "casting dexterity.."
 
 _is 1 1 cast dexterity # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire ${DIRN:-0}
-sleep 0.5
+#sleep 0.5
 
 _is 1 1 fire_stop
-sleep 0.5
+#sleep 0.5
 
 while :;
 do
@@ -449,27 +496,34 @@ sleep 0.1
  _log "_cast_dexterity:$REPLY"
  _debug "REPLY='$REPLY'"
 
- case $REPLY in  # server/spell_util.c
- '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
- '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
- *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
- *'This ground is unholy!'*)                     unset CAST_REST;;
- *'You grow no more agile.'*)                    unset CAST_DEX;;
- *'You lack the skill '*)                        unset CAST_DEX;;
- *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
- *'That spell path is denied to you.'*)          unset CAST_DEX;;
- *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
- '') break;;
- *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# case $REPLY in  # server/spell_util.c
+# *'Something blocks your magic.'*)               unset CAST_DEX CAST_PROBE;;
+# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
+# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
+# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
+# *'This ground is unholy!'*)                     unset CAST_REST;;
+# *'You grow no more agile.'*)                    unset CAST_DEX;;
+# *'You lack the skill '*)                        unset CAST_DEX;;
+# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
+# *'That spell path is denied to you.'*)          unset CAST_DEX;;
+# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+# '') break;;
+# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
+# esac
+
+ case $REPLY in '') break;;
+  *) _handle_spell_errors
+        case $? in 1) c=$((c+1));;
+        2) unset CAST_DEX;;
+        esac;;
  esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
 done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
-
-$CAST_DEX
 
 _find_traps(){
 # ** search or use_skill find traps ** #
@@ -540,9 +594,6 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
-
-_find_traps
-
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -641,10 +692,23 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-_disarm_traps
+_turn_direction_ready_skill(){
+test "$*" || return 3
 
+_is 1 1 ready_skill "$*"
 
+_is 1 1 fire ${DIRN:-0}
+
+_is 1 1 fire_stop
+
+}
+
+_lockpick_door(){
 # ** open door with use_skill lockpicking ** #
+
+TIMEB=`/bin/date +%s`
+
+_draw 6 "lockpicking ..."
 
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
@@ -652,8 +716,11 @@ echo watch $DRAW_INFO
 c=0; cc=0
 NUM=$NUMBER
 
+_turn_direction_ready_skill lockpicking
+
 while :;
 do
+_verbose "$NUMBER:$NUM:$c:$cc"
 
 _is 1 1 use_skill lockpicking
 
@@ -665,18 +732,29 @@ _is 1 1 use_skill lockpicking
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
-  *'Unable to find skill '*)   break 2;;
-  *'The door has no lock!'*)   break 2;;
-  *'There is no lock there.'*) break 2;;
+  *'You search'*)                       :;;
+
+  *'You can no longer use the skill:'*) :;; # use magic item.
+  *'You ready lockpicks'*)              :;; # *.
+  *'You can now use the skill:'*)       :;; # lockpicking.
+  *'You stop using the'*)               :;; # lockpicks *.
+  *'Readied skill:'*)                   :;; # lockpicking.
+
+  *'Unable to find skill '*)     break 2;;
+  *'The door has no lock!'*)     break 2;;
+  *'There is no lock there.'*)   break 2;;
+  *' no door'*)                  break 2;;
+  *'You unlock'*)                break 2;;
+  *'You pick the lock.'*)        break 2;;
   *"You can't pick that lock!"*) break 2;;  # special key
-  *' no door'*)                break 2;;
-  *'You unlock'*)              break 2;;
-  *'You pick the lock.'*)      break 2;;
+
+  *' your '*)      :;;  #
   *'Your '*)       :;;  # Your monster beats monster
   *'You killed '*) :;;
   *'You find '*)   :;;
-  *'You pickup '*) :;;
+  *'You pick up '*) :;;
   *' tasted '*)    :;;  # food tasted good
+
   *) break;;
   esac
  done
@@ -691,8 +769,8 @@ if test "$FOREVER"; then
   fi
   $CAST_DEX
   $CAST_PROBE
-  }
   _draw 3 "Infinite loop. Use 'scriptkill $0' to abort."; cc=0;
+  }
 
 elif test "$NUMBER"; then
 NUM=$((NUM-1)); test "$NUM" -gt 0 || break;
@@ -706,10 +784,55 @@ done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
+}
 
 
+if test ! "$SHORT"; then
+ if test "$TURN_SPELL"; then
+ _turn_direction $TURN_SPELL
+ else
+ _turn_direction_all
+ fi
+fi
+
+if test ! "$SHORT"; then
+ $CAST_DEX
+ :
+fi
+
+_find_traps
+_disarm_traps
+_lockpick_door
 
 # *** Here ends program *** #
+
+TIMEZ=`/bin/date +%s`
+
+
+_compute_minutes_seconds(){
+unset TIMEXM TIMEXS
+test "$1" -a "$2" || return 3
+
+local lTIMEX=$(( $1 - $2 ))
+
+case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
+case $lTIMEX in -*) return 4;; esac
+
+TIMEXM=$((lTIMEX/60))
+TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
+case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
+}
+
+if test "$TIMEZ" -a "$TIMEB"; then
+_compute_minutes_seconds $TIMEZ $TIMEB && \
+ echo draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
+fi
+
+if test "$TIMEZ" -a "$TIMEA"; then
+_compute_minutes_seconds $TIMEZ $TIMEA && \
+ echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
+fi
+
 
 _draw 2 "$0 is finished."
 _beep
