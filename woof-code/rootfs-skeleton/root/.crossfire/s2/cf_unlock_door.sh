@@ -541,6 +541,7 @@ do
 
 unset TRAPS
 
+_verbose "$NUM searches to go .."
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!

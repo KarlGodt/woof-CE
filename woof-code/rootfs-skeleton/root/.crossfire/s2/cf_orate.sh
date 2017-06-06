@@ -17,6 +17,14 @@ DEF_ORATE=9
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
+# ** to brace or not to brace ** #
+BRACE_DO=1  # brace reduces the AC considerably ( -10 -> -4 too low in a swarm of ogres )
+            # when orate failed BAD_THRESH times,
+            # attacking could move player if not braced
+
+# ** if attacking to have new monster to orate to ** #
+MAX_ATTACK=1   # how many times to attack ( small monster few, bigger monster several )
+
 # ** ping if bad connection ** #
 PING_DO=1
 URL=crossfire.metalforge.net
@@ -118,15 +126,16 @@ _draw 2 "$0 is started.."
 _usage() {
 
 _draw 5 "Script to use_skill oratory."
-_draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 2 "Syntax:"
+_draw 7 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 use_skill oratory in west."
 _draw 6 "Abbr. for north:n, northeast:ne .."
-_draw 5 "Options:"
+_draw 2 "Options:"
 _draw 6 "Use -I --infinite to run forever."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v  set verbosity"
 
         exit 0
 }
@@ -153,12 +162,38 @@ sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
  w|west)        DIR=west;      DIRN=7;; #readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 
--h|*help|*usage) _usage;;
--I|*infinite)    FOREVER=$((FOREVER+1));;
+*help|*usage) _usage;;
+#-I|*infinite)    FOREVER=$((FOREVER+1));;
 
--d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
--v|*verbose) VERBOSE=$((VERBOSE+1));;
+#-d|*debug)     DEBUG=$((DEBUG+1));;
+#-L|*logging) LOGGING=$((LOGGING+1));;
+#-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+--*) case $PARAM_1 in
+     *debug) DEBUG=$((DEBUG+1));;
+#    *force) FORCE=$((FORCE+1));;
+     *help|*usage)  _usage;;
+     *infinite) FOREVER=$((FOREVER+1));;
+     *logging)  LOGGING=$((LOGGING+1));;
+     *verbose)  VERBOSE=$((VERBOSE+1));;
+     *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+     esac
+;;
+
+-*) OPTS=`printf '%s' $PARAM_1 | sed -r 's/^-*//;s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      d) DEBUG=$((DEBUG+1));;
+#     f) FORCE=$((FORCE+1));;
+      h) _usage;;
+      I) FOREVER=$((FOREVER+1));;
+      L) LOGGING=$((LOGGING+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+   done
+;;
+
 '')     :;;
 *)      _draw 3 "Incorrect parameter '$PARAM_1' ."; exit 1;;
 esac
@@ -169,7 +204,7 @@ shift
 done
 
 readonly NUMBER DIR DIRN
-_draw 3 "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'" # DEBUG
+_debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 
 
 # TODO: check for near doors and direct to them
@@ -409,11 +444,59 @@ $CAST_REST
 
 _attack(){  #unused
 local one
-for one in `seq 1 1 $MAX_ATTACK`;
+
+_is 1 1 use_skill one handed weapon
+
+for one in `seq 1 1 ${MAX_ATTACK:-1}`;
 do
 _is 1 1 $DIR
-sleep 0.2
 done
+}
+
+__brace(){
+_is 1 1 brace
+}
+
+_brace(){
+[ "$BRACE_DO" ] || return 0
+echo watch $DRAW_INFO
+while :;
+do
+ _is 1 1 brace
+
+ while :; do
+ unset REPLY
+ read -t 1
+ case $REPLY in *'You are braced'*) break 2;;
+ '') break;;
+ *) :;;
+ esac
+ sleep 0.2
+ done
+
+done
+echo unwatch $DRAW_INFO
+}
+
+_unbrace(){
+[ "$BRACE_DO" ] || return 0
+echo watch $DRAW_INFO
+while :;
+do
+ _is 1 1 brace
+
+ while :; do
+ unset REPLY
+ read -t 1
+ case $REPLY in  *'Not braced'*) break 2;;
+ '') break;;
+ *) :;;
+ esac
+ sleep 0.2
+ done
+
+done
+echo unwatch $DRAW_INFO
 }
 
 _sing_and_orate(){
@@ -426,7 +509,7 @@ TIMEB=`/bin/date +%s`
 _draw 7 "Now convincing..."
 
 #echo watch $DRAW_INFO
-c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0
+c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
 NUM=$NUMBER
 
 while :;
@@ -436,7 +519,12 @@ _ping
 
 echo watch $DRAW_INFO
 
-_verbose "$NUMBER:$NUM:$c:$cc:$TOGGLE:$CALMS:$CONVS"
+#_verbose "NUMBER:NUM :c  :cc  :TOGGLE :BADS :CALMS :CONVS"
+#_verbose "$NUMBER          :$NUM     :$c  :$cc   :$TOGGLE            :$BADS         :$CALMS         :$CONVS"
+
+test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
+test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
+_verbose "BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 
 _is 1 1 use_skill singing
 sleep 0.5
@@ -462,15 +550,25 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   *'You calm down the '*) CALMS=$((CALMS+1)); BADS=0 ;; # sing
   *'You orate to the '*)       :;; # orate
   *'You convince the '*)  CONVS=$((CONVS+1));
-                                       BADS=0  [ "$FOREVER" ] && break || break 2;; #You convince the black dragon to become your follower.
-  *'Your speach angers '*)                     [ "$FOREVER" ] && break || break 2;;
-  *'Your follower loves your speech'*) BADS=0; [ "$FOREVER" ] && break || break 2;;
-  *'There is nothing to orate to.'*)   BADS=0; [ "$FOREVER" ] && break || break 2;;
-  '')                                          [ "$FOREVER" ] && break || break 2;; # no answer @ NPC with msg or pacyfied / sung
-  *'Too bad the '*) if test "$FOREVER"; then # sing + orate
-     BADS=$((BADS+1)); test "$BADS" -gt $BAD_THRESH && { _is 0 0 $DIR; BADS=0;
+                          BADS=0
+       break;; # [ "$FOREVER" ] && break || break 2;; #You convince the black dragon to become your follower.
+  *'Your speach angers '*)
+       break;; # [ "$FOREVER" ] && break || break 2;;
+  *'Your follower loves your speech'*) BADS=0;
+       break;; # [ "$FOREVER" ] && break || break 2;;
+  *'There is nothing to orate to.'*)   BADS=0;
+       break;; # [ "$FOREVER" ] && break || break 2;;
+  '')  break;; # [ "$FOREVER" ] && break || break 2;; # no answer @ NPC with msg or pacyfied / sung
+  *'Too bad the '*)
+    #if test "$FOREVER"; then # sing + orate
+     BADS=$((BADS+1));
+     test "$BADS" -gt $BAD_THRESH && {
+         #_is 0 0 $DIR;
+         _attack
+         BADS=0;
      _draw 3 "Attacked in $DIR .."; sleep 1; };
-    fi; break;;
+    #fi;
+    break;;
   *) :;;
   #*) break;;
   esac
@@ -487,7 +585,8 @@ if test "$FOREVER"; then
   _draw 3 "Infinite loop $TOGGLE."
   _draw 4 "You calmed down '$CALMS' ."
   _draw 5 "You convinced   '$CONVS' ."
-  _draw 2 "Use 'scriptkill $0' to abort.";
+  _draw 2 "Use 'scriptkill $0' to abort."
+  _draw 3 "Do not forget to 'brace' .";
    if test "$TOGGLE" = $INF_TOGGLE; then
     $CAST_REST
     TOGGLE=0;
@@ -506,7 +605,10 @@ sleep 0.6
 done
 }
 
+_brace
 _sing_and_orate
+_unbrace
+
 #
 echo unwatch $DRAW_INFO
 

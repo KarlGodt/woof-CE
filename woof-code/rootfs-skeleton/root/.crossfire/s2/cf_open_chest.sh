@@ -191,6 +191,7 @@ case $REPLY in  # server/spell_util.c
  *'Something blocks your spellcasting.'*)        UNSET_MAGI=1;;
  *'This ground is unholy!'*)                  UNSET_PRAY=1;;
  *'You are no easier to look at.'*)           unset CAST_CHA;;
+ *'You grow no more agile.'*)                 unset CAST_DEX;;
  *'You lack the skill '*)                     RV=2;;
  *'You lack the proper attunement to cast '*) RV=2;;
  *'That spell path is denied to you.'*)       RV=2;;
@@ -232,21 +233,6 @@ sleep 0.1
  _log "_cast_dexterity:$REPLY"
  _debug "REPLY='$REPLY'"
 
-# case $REPLY in
-# *'Something blocks your magic.'*)               unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your item.'*)   unset CAST_DEX CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_DEX CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_DEX;;
-# *'This ground is unholy!'*)                     unset CAST_REST;;
-# *'You grow no more agile.'*)                    unset CAST_DEX;;
-# *'You lack the skill '*)                        unset CAST_DEX;;
-# *'You lack the proper attunement to cast '*)    unset CAST_DEX;;
-# *'That spell path is denied to you.'*)          unset CAST_DEX;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-# '') break;;
-# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
-# esac
-
  case $REPLY in '') break;;
   *) _handle_spell_errors
         case $? in 1) c=$((c+1));;
@@ -263,12 +249,20 @@ echo unwatch $DRAW_INFO
 CAST_DEX=_cast_dexterity
 $CAST_DEX
 
+_cure(){
+test "$*" || return 3
+invoke cure $*
+}
+
 _handle_trap_trigger_event(){
  read -t 1
       _log "_handle_trap_trigger_event:$REPLY"
       _debug "REPLY='$REPLY'"
       case $REPLY in
       *'In fact, you set it off!'*)
+        read -t 1
+        _log "_handle_trap_trigger_event:$REPLY"
+        _debug "REPLY='$REPLY'"
       _handle_trap_detonation_event || return 112;;
       esac
 return 0
@@ -278,11 +272,14 @@ _handle_trap_detonation_event(){
 
 local SECONDLINE=''
 
-read -t 1
-        _log "_handle_trap_detonation_event:$REPLY"
-        _debug "REPLY='$REPLY'"
+#read -t 1
+#        _log "_handle_trap_detonation_event:$REPLY"
+#        _debug "REPLY='$REPLY'"
 
     case $REPLY in
+
+     *feel*very*ill*) _cure poison;;
+     *feel*ill*)      _cure disease;;
 
      *"RUN!  The timer's ticking!"*) # rune_bomb.arc
          read -t 1 SECONDLINE  #
@@ -397,8 +394,10 @@ do
         # so one attempt could give several successes
     ;;
 
-  '')
-      break 2;;
+    *feel*very*ill*) _cure poison;;
+    *feel*ill*)       _cure disease;;
+
+  '') break 2;;
   *) _debug "_disarm_traps:Ignoring REPLY";;
   esac
  done
@@ -424,6 +423,7 @@ echo watch $DRAW_INFO
 while :;
 do
 
+_verbose "$NUM searches to go .."
 _is 1 1 search
 #You spot a diseased needle!
 #You spot a Rune of Paralysis!
@@ -442,6 +442,10 @@ _is 1 1 search
     break;;
 
    *'You search the area.'*) :;;
+
+    *feel*very*ill*) _cure poison;;
+    *feel*ill*)      _cure disease;;
+
   '') break;;
   esac
   sleep 0.1
@@ -501,6 +505,10 @@ _is 1 1 use_skill "disarm traps"
   _debug NUM=$NUM
 
   case $REPLY in
+
+    *feel*very*ill*) _cure poison;;
+    *feel*ill*)      _cure disease;;
+
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
 
@@ -624,6 +632,7 @@ do
 _debug "watch $DRAW_INFO"
 echo watch $DRAW_INFO
 _is 1 1 apply  # handle trap release, being killed
+               # spit out tooth, then eats it ...
 
 _is 0 0 get all
 
