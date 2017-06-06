@@ -151,8 +151,8 @@ case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
        _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
        readonly NUMBER
-       #_draw 2 "NUMBER=$NUMBER"
        ;;
+
  n|north)       DIR=north;     DIRN=1;; #readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2;; #readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3;; #readonly DIR DIRN;;
@@ -163,11 +163,6 @@ sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
 nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 
 *help|*usage) _usage;;
-#-I|*infinite)    FOREVER=$((FOREVER+1));;
-
-#-d|*debug)     DEBUG=$((DEBUG+1));;
-#-L|*logging) LOGGING=$((LOGGING+1));;
-#-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 --*) case $PARAM_1 in
      *debug) DEBUG=$((DEBUG+1));;
@@ -199,7 +194,6 @@ nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 esac
 sleep 0.1
 shift
-#_draw "'$#'"
 
 done
 
@@ -245,6 +239,8 @@ return ${RV:-4}
 _cast_charisma(){
 # ** cast CHARISMA ** #
 
+_draw 5 "Casting charisma .."
+
 local REPLY c=0
 
 echo watch $DRAW_INFO
@@ -264,19 +260,6 @@ sleep 0.1
  _log "_cast_charisma:$REPLY"
  _debug "REPLY='$REPLY'"
 
-# case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
-# *'This ground is unholy!'*)                  unset CAST_REST;;
-# *'You are no easier to look at.'*)           unset CAST_CHA;;
-# *'You lack the skill '*)                     unset CAST_CHA;;
-# *'You lack the proper attunement to cast '*) unset CAST_CHA;;
-# *'That spell path is denied to you.'*)       unset CAST_CHA;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
-# esac
-
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_CHA;;
@@ -289,17 +272,12 @@ echo unwatch $DRAW_INFO
 #You are no easier to look at.
 }
 
-CAST_PROBE=_cast_probe
-CAST_REST=_cast_resoration # prayer
-CAST_PACY=_cast_pacify     # prayer, unused
-CAST_CHA=_cast_charisma
-$CAST_CHA
-#_cast_charisma
-
 __cast_pacify(){  # unused
 # ** cast PACIFY ** #
 # pacified monsters do not respond to oratory
 return 0
+
+_draw 5 "Casting pacify .."
 
 local REPLY c=0
 
@@ -320,19 +298,6 @@ sleep 0.1
  _log "__cast_pacify:$REPLY"
  _debug "REPLY='$REPLY'"
 
-# case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_PACY CAST_REST;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_PACY CAST_REST;;
-# *'Something blocks your spellcasting.'*)        unset CAST_PACY CAST_REST;;
-# *'This ground is unholy!'*)                     unset CAST_PACY CAST_REST;;
-# #*'You are no easier to look at.'*)           unset CAST_CHA;;
-# *'You lack the skill '*)                     unset CAST_PACY;;
-# *'You lack the proper attunement to cast '*) unset CAST_PACY;;
-# *'That spell path is denied to you.'*)       unset CAST_PACY;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
-# esac
-
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_PACY;;
@@ -343,12 +308,10 @@ done
 
 echo unwatch $DRAW_INFO
 }
-#CAST_PACY
-
-## ** use_skill singing ** ##
 
 _cast_probe(){
 # ** cast PROBE ** #
+_draw 5 "Casting probe .."
 
 local REPLY c=0
 
@@ -369,19 +332,6 @@ sleep 0.1
  _log "_cast_probe:$REPLY"
  _debug "REPLY='$REPLY'"
 
-# case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_CHA CAST_PROBE;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_CHA CAST_PROBE;;
-# *'Something blocks your spellcasting.'*)        unset CAST_CHA CAST_PROBE;;
-# *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
-# #*'You are no easier to look at.'*)           unset CAST_CHA;;
-# *'You lack the skill '*)                     unset CAST_PROBE;;
-# *'You lack the proper attunement to cast '*) unset CAST_PROBE;;
-# *'That spell path is denied to you.'*)       unset CAST_PROBE;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
-# esac
-
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_PROBE;;
@@ -393,10 +343,11 @@ done
 echo unwatch $DRAW_INFO
 
 }
-$CAST_PROBE
 
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
+
+_draw 5 "Casting restoration .."
 
 local REPLY c=0
 
@@ -417,19 +368,6 @@ sleep 0.1
  _log "_cast_restoration:$REPLY"
  _debug "REPLY='$REPLY'"
 
-# case $REPLY in  # server/spell_util.c
-# '*Something blocks the magic of your item.'*)   unset CAST_REST CAST_PACY;;
-# '*Something blocks the magic of your scroll.'*) unset CAST_REST CAST_PACY;;
-# *'Something blocks your spellcasting.'*)        unset CAST_REST CAST_PACY;;
-# *'This ground is unholy!'*)                  unset CAST_REST CAST_PACY;;
-# #*'You are no easier to look at.'*)           unset CAST_CHA;;
-# *'You lack the skill '*)                     unset CAST_REST CAST_PACY;;
-# *'You lack the proper attunement to cast '*) unset CAST_REST;;
-# *'That spell path is denied to you.'*)       unset CAST_REST;;
-# *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
-# *) c=$((c+1)); test "$c" = 9 && break;; # 9 is just chosen as threshold for spam in msg pane
-# esac
-
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_REST;;
@@ -440,9 +378,8 @@ done
 
 echo unwatch $DRAW_INFO
 }
-$CAST_REST
 
-_attack(){  #unused
+_attack(){
 local one
 
 _is 1 1 use_skill one handed weapon
@@ -500,6 +437,7 @@ echo unwatch $DRAW_INFO
 }
 
 _sing_and_orate(){
+## ** use_skill singing ** ##
 # ** use_skill oratory ** #
 
 sleep 2
@@ -508,7 +446,6 @@ TIMEB=`/bin/date +%s`
 
 _draw 7 "Now convincing..."
 
-#echo watch $DRAW_INFO
 c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
 NUM=$NUMBER
 
@@ -519,9 +456,6 @@ _ping
 
 echo watch $DRAW_INFO
 
-#_verbose "NUMBER:NUM :c  :cc  :TOGGLE :BADS :CALMS :CONVS"
-#_verbose "$NUMBER          :$NUM     :$c  :$cc   :$TOGGLE            :$BADS         :$CALMS         :$CONVS"
-
 test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
 test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
 _verbose "BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
@@ -529,12 +463,7 @@ _verbose "BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 _is 1 1 use_skill singing
 sleep 0.5
 
-# cannot steal from pets
-#_is 1 1 use_skill stealing
-#sleep 0.5
-
 _is 1 1 use_skill oratory
-
 sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 
  while :; do
@@ -547,32 +476,30 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   case $REPLY in
   *'Unable to find skill '*)        break 2;;
   *'You sing'*)                :;; # sing
-  *'You calm down the '*) CALMS=$((CALMS+1)); BADS=0 ;; # sing
+  *'You calm down the '*) CALMS=$((CALMS+1)); BADS=0 ; NOTHING=0;; # sing
   *'You orate to the '*)       :;; # orate
-  *'You convince the '*)  CONVS=$((CONVS+1));
-                          BADS=0
-       break;; # [ "$FOREVER" ] && break || break 2;; #You convince the black dragon to become your follower.
-  *'Your speach angers '*)
-       break;; # [ "$FOREVER" ] && break || break 2;;
-  *'Your follower loves your speech'*) BADS=0;
-       break;; # [ "$FOREVER" ] && break || break 2;;
-  *'There is nothing to orate to.'*)   BADS=0;
-       break;; # [ "$FOREVER" ] && break || break 2;;
-  '')  break;; # [ "$FOREVER" ] && break || break 2;; # no answer @ NPC with msg or pacyfied / sung
-  *'Too bad the '*)
-    #if test "$FOREVER"; then # sing + orate
+  *'You convince the '*)   CONVS=$((CONVS+1));
+                           BADS=0; NOTHING=0;
+       break;;  #You convince the black dragon to become your follower.
+  *'Your speach angers '*) BADS=$((BADS+1)); NOTHING=0
+       break;;
+  *'Your follower loves your speech'*) BADS=0; NOTHING=0
+       break;;
+  *'There is nothing to orate to.'*)   BADS=0; NOTHING=$((NOTHING+1))
+       break;;
+  '')  NOTHING=$((NOTHING+1))
+       break;; # no answer @ NPC with msg or pacyfied / sung
+  *'Too bad the '*)   # sing + orate
      BADS=$((BADS+1));
      test "$BADS" -gt $BAD_THRESH && {
-         #_is 0 0 $DIR;
          _attack
          BADS=0;
      _draw 3 "Attacked in $DIR .."; sleep 1; };
-    #fi;
     break;;
   *) :;;
-  #*) break;;
+  #You withhold your attack
   esac
- done #>"$LOG_REPLY_FILE"
+ done
 
 echo unwatch $DRAW_INFO
 
@@ -580,13 +507,12 @@ if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
   $CAST_CHA
-  #echo watch $DRAW_INFO
   $CAST_PROBE
   _draw 3 "Infinite loop $TOGGLE."
   _draw 4 "You calmed down '$CALMS' ."
   _draw 5 "You convinced   '$CONVS' ."
   _draw 2 "Use 'scriptkill $0' to abort."
-  _draw 3 "Do not forget to 'brace' .";
+  [ "$BRACE_DO" ] && _draw 3 "Do not forget to 'brace' .";
    if test "$TOGGLE" = $INF_TOGGLE; then
     $CAST_REST
     TOGGLE=0;
@@ -600,10 +526,24 @@ else
  c=$((c+1)); test "$c" -lt $DEF_ORATE || break;
 fi
 
+test "$NOTHING" -gt 9 && break
+test "$CAST_REST" && _is 1 1 use_skill praying
+
 sleep 0.6
 
 done
 }
+
+CAST_PROBE=_cast_probe
+CAST_REST=_cast_restoration # prayer
+CAST_PACY=_cast_pacify      # prayer, unused
+CAST_CHA=_cast_charisma
+
+$CAST_CHA
+#_cast_charisma
+#CAST_PACY
+$CAST_PROBE
+$CAST_REST
 
 _brace
 _sing_and_orate
