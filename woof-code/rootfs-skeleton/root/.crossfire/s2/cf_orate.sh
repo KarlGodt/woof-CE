@@ -74,8 +74,8 @@ COL_BROWN=10
 COL_GOLD=11
 COL_TAN=12
 
-COL_VERB=$COL_TAN
-COL_DBG=$COL_GOLD
+COL_VERB=$COL_TAN  # verbose
+COL_DBG=$COL_GOLD  # debug
 
 _draw(){
 test "$*" || return
@@ -207,7 +207,7 @@ _debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 # TODO: check for near doors and direct to them
 
 if test "$DIR"; then
- test "$DIRN" = 0 && BAD_THRESH=$((BAD_THRESH*3))
+ test "$DIRN" = 0 && { BAD_THRESH=$((BAD_THRESH*3)); INF_THRESH=$((INF_THRESH/2)); INF_TOGGLE=$((INF_TOGGLE/2)); }
 else
  _draw 3 "Need direction as parameter."
  exit 1
@@ -242,21 +242,63 @@ test "$UNSET_PRAY" = 1 && unset CAST_PACY CAST_REST
 return ${RV:-4}
 }
 
+_cast_spell_and_fire(){  # direction number, count, spell
+test "$*" || return 3
+
+local lf=''
+local lD=$1
+shift
+local lN=$1
+shift
+
+_draw 5 "Casting $* ..."
+
+for lf in `seq 1 1 $lN`
+do
+ _verbose "Casting $* $lf .."
+ _is 1 1 cast "$*"
+ sleep 0.5
+ _is 1 1 fire ${lD:-$DIRN}
+ sleep 0.5
+ _is 1 1 fire_stop
+ sleep 0.5
+done
+}
+
+_invoke_spell(){
+test "$*" || return 3
+
+local lf=''
+local lN=$1
+shift
+
+_draw 5 "Invoking $* ..."
+
+for lf in `seq 1 1 $lN`
+do
+ _verbose "Invoking $* $lf .."
+ _is 1 1 invoke "$*"
+ sleep 0.5
+done
+}
+
 _cast_charisma(){
 # ** cast CHARISMA ** #
 
-_draw 5 "Casting charisma .."
+#_draw 5 "Casting charisma .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 cast charisma # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
-_is 1 1 fire ${DIRN:-0}
-sleep 0.5
-_is 1 1 fire_stop
-sleep 0.5
+#_is 1 1 cast charisma # don't mind if mana too low, not capable or bungles for now
+#sleep 0.5
+#_is 1 1 fire ${DIRN:-0}
+#sleep 0.5
+#_is 1 1 fire_stop
+#sleep 0.5
+
+_cast_spell_and_fire ${DIRN:-0} 1 charisma
 
 while :;
 do
@@ -282,13 +324,15 @@ echo unwatch $DRAW_INFO
 _invoke_charisma(){
 # ** invoke CHARISMA ** #
 
-_draw 5 "Invoking charisma .."
+#_draw 5 "Invoking charisma .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 invoke charisma # don't mind if mana too low, not capable or bungles for now
+#_is 1 1 invoke charisma # don't mind if mana too low, not capable or bungles for now
+
+_invoke_spell 1 charisma
 
 while :;
 do
@@ -317,18 +361,20 @@ __cast_pacify(){  # unused
 # pacified monsters do not respond to oratory
 return 0
 
-_draw 5 "Casting pacify .."
+#_draw 5 "Casting pacify .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
-_is 1 1 fire ${DIRN:-0}
-sleep 0.5
-_is 1 1 fire_stop
-sleep 0.5
+#_is 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
+#sleep 0.5
+#_is 1 1 fire ${DIRN:-0}
+#sleep 0.5
+#_is 1 1 fire_stop
+#sleep 0.5
+
+_cast_spell_and_fire ${DIRN:-0} 1 pacify
 
 while :;
 do
@@ -355,14 +401,16 @@ __invoke_pacify(){  # unused
 # pacified monsters do not respond to oratory
 return 0
 
-_draw 5 "Invoking pacify .."
+#_draw 5 "Invoking pacify .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 invoke pacify # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
+#_is 1 1 invoke pacify # don't mind if mana too low, not capable or bungles for now
+#sleep 0.5
+
+_invoke_spell 1 pacify
 
 while :;
 do
@@ -386,18 +434,20 @@ echo unwatch $DRAW_INFO
 
 _cast_probe(){
 # ** cast PROBE ** #
-_draw 5 "Casting probe .."
+#_draw 5 "Casting probe .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
-_is 1 1 fire ${DIRN:-0}
-sleep 0.5
-_is 1 1 fire_stop
-sleep 0.5
+#_is 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
+#sleep 0.5
+#_is 1 1 fire ${DIRN:-0}
+#sleep 0.5
+#_is 1 1 fire_stop
+#sleep 0.5
+
+_cast_spell_and_fire ${DIRN:-0} 1 probe
 
 while :;
 do
@@ -422,13 +472,15 @@ echo unwatch $DRAW_INFO
 
 _invoke_probe(){
 # ** invoke PROBE ** #
-_draw 5 "Invoking probe .."
+#_draw 5 "Invoking probe .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 invoke probe # don't mind if mana too low, not capable or bungles for now
+#_is 1 1 invoke probe # don't mind if mana too low, not capable or bungles for now
+
+_invoke_spell 1 probe
 
 while :;
 do
@@ -454,18 +506,20 @@ echo unwatch $DRAW_INFO
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
 
-_draw 5 "Casting restoration .."
+#_draw 5 "Casting restoration .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
-sleep 0.5
-_is 1 1 fire ${DIRN:-0}
-sleep 0.5
-_is 1 1 fire_stop
-sleep 0.5
+#_is 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
+#sleep 0.5
+#_is 1 1 fire ${DIRN:-0}
+#sleep 0.5
+#_is 1 1 fire_stop
+#sleep 0.5
+
+_cast_spell_and_fire ${DIRN:-0} 1 restoration
 
 while :;
 do
@@ -490,13 +544,15 @@ echo unwatch $DRAW_INFO
 _invoke_restoration(){
 # ** if infinite loop, needs food ** #
 
-_draw 5 "Invoking restoration .."
+#_draw 5 "Invoking restoration .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-_is 1 1 invoke restoration # don't mind if mana too low, not capable or bungles for now
+#_is 1 1 invoke restoration # don't mind if mana too low, not capable or bungles for now
+
+_invoke_spell 1 restoration
 
 while :;
 do
@@ -518,34 +574,42 @@ done
 echo unwatch $DRAW_INFO
 }
 
-_attack_use_skill_ohw(){
-local one
+_attack_use_skill_ohw(){ # number attacks, direction word
+test "$1" || return 3
 
-_is 1 1 use_skill one handed weapon
+local lf
+local lA=$1
+shift
 
-for one in `seq 1 1 ${MAX_ATTACK:-1}`;
+_is 1 1 use_skill ${SKILL_ATTACK:-one handed weapons}
+
+for lf in `seq 1 1 ${lA:-$MAX_ATTACK}`;
 do
-_is 1 1 $DIR
+_is 1 1 ${*:-$DIR}
 done
 }
 
-_attack_ready_skill_ohw(){
-local one
+_attack_ready_skill_ohw(){  # number attacks, direction number
+test "$1" || return 3
 
-_is 1 1 ready_skill one handed weapon
+local lf
+local lA=$1
+shift
 
-for one in `seq 1 1 ${MAX_ATTACK:-1}`;
+_is 1 1 ready_skill ${SKILL_ATTACK:-one handed weapons}
+
+for lf in `seq 1 1 ${lA:-$MAX_ATTACK}`;
 do
-_is 1 1 fire
+_is 1 1 fire ${*:-$((RANDOM%8))}  # 0 hits player self
 _is 1 1 fire_stop
 done
 }
 
 _attack(){
 if test "$DIRN" = 0; then
- _attack_ready_skill_ohw
+ _attack_ready_skill_ohw $MAX_ATTACK
 else
- _attack_use_skill_ohw
+ _attack_use_skill_ohw $MAX_ATTACK
 fi
 }
 
@@ -639,11 +703,22 @@ _is 1 1 use_skill oratory
 sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 }
 
+_hunger(){
+if test "$CAST_REST"; then
+ $CAST_REST
+ :
+else
+ _is 1 1 apply ${FOOD_EAT:-waybread}
+fi
+}
+
 _sing_and_orate_main(){
 ## ** use_skill singing ** ##
 # ** use_skill oratory ** #
 
 sleep 2
+
+local ld=''
 
 TIMEB=`/bin/date +%s`
 
@@ -652,7 +727,7 @@ _draw 7 "Now convincing..."
 c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
 NUM=$NUMBER
 
-_turn_direcction_ready_skill singing
+_turn_direcction_ready_skill ${DIRN:-0} singing
 
 while :;
 do
@@ -672,9 +747,9 @@ _verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 #sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 
 if test "$DIRN" = 0; then
- for d in `seq 1 1 8`; do
-  _turn_direcction_ready_skill $d singing
-  _turn_direcction_ready_skill $d oratory
+ for ld in `seq 1 1 8`; do
+  _turn_direcction_ready_skill $ld singing
+  _turn_direcction_ready_skill $ld oratory
  done
 else
  _sing_and_orate_use_skill
@@ -737,7 +812,8 @@ if test "$FOREVER"; then
   [ "$BRACE" ] && _draw 3 "Do not forget to 'brace' .";
   _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
    if test "$TOGGLE" = $INF_TOGGLE; then
-    $CAST_REST
+    #$CAST_REST
+    _hunger
     TOGGLE=0;
    fi
   cc=0; TOGGLE=$((TOGGLE+1))
