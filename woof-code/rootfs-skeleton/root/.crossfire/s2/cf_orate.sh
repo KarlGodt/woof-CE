@@ -18,9 +18,9 @@ LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
 # ** to brace or not to brace ** #
-BRACE_DO=1  # brace reduces the AC considerably ( -10 -> -4 too low in a swarm of ogres )
-            # when orate failed BAD_THRESH times,
-            # attacking could move player if not braced
+#BRACE=1  # brace reduces the AC considerably ( -10 -> -4 too low in a swarm of ogres )
+#            # when orate failed BAD_THRESH times,
+#            # attacking could move player if not braced
 
 # ** if attacking to have new monster to orate to ** #
 MAX_ATTACK=1   # how many times to attack ( small monster few, bigger monster several )
@@ -133,6 +133,7 @@ _draw 5 "will issue 5 use_skill oratory in west."
 _draw 6 "Abbr. for north:n, northeast:ne .."
 _draw 2 "Options:"
 _draw 6 "Use -I --infinite to run forever."
+_draw 4 "-B  to brace player."
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v  set verbosity"
@@ -165,6 +166,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 *help|*usage) _usage;;
 
 --*) case $PARAM_1 in
+     *brace) BRACE=$((BRACE+1));;
      *debug) DEBUG=$((DEBUG+1));;
 #    *force) FORCE=$((FORCE+1));;
      *help|*usage)  _usage;;
@@ -178,6 +180,7 @@ nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
 -*) OPTS=`printf '%s' $PARAM_1 | sed -r 's/^-*//;s/(.)/\1\n/g'`
     for oneOP in $OPTS; do
      case $oneOP in
+      B) BRACE=$((BRACE+1));;
       d) DEBUG=$((DEBUG+1));;
 #     f) FORCE=$((FORCE+1));;
       h) _usage;;
@@ -227,6 +230,9 @@ case $REPLY in  # server/spell_util.c
  *'You lack the proper attunement to cast '*) RV=2;;
  *'That spell path is denied to you.'*)       RV=2;;
  *'You recast the spell while in effect.'*) INF_THRESH=$((INF_THRESH+1));;
+ *'You bungle the spell'*)  RV=3;;  # because you have too much heavy equipment in use.
+ *'You fumble the spell'*)  RV=3;;
+ *' grants your prayer'*)      :;;  # , though you are unworthy.
  *) RV=1;;
 esac
 
@@ -263,6 +269,7 @@ sleep 0.1
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_CHA;;
+ 3) test "$CAST_CHA" && { echo unwatch $DRAW_INFO; $CAST_CHA ; } ;;
  esac
  test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
@@ -301,6 +308,7 @@ sleep 0.1
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_PACY;;
+ 3) test "$CAST_PACY" && { echo unwatch $DRAW_INFO; $CAST_PACY ; } ;;
  esac
  test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
 
@@ -335,6 +343,7 @@ sleep 0.1
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_PROBE;;
+ 3) test "$CAST_PROBE" && { echo unwatch $DRAW_INFO; $CAST_PROBE ; } ;;
  esac
  test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
 
@@ -371,6 +380,7 @@ sleep 0.1
  _handle_spell_errors
  case $? in 1) c=$((c+1));;
  2) unset CAST_REST;;
+ 3) test "$CAST_REST" && { echo unwatch $DRAW_INFO; $CAST_REST ; } ;;
  esac
  test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
 
@@ -395,7 +405,7 @@ _is 1 1 brace
 }
 
 _brace(){
-[ "$BRACE_DO" ] || return 0
+[ "$BRACE" ] || return 0
 echo watch $DRAW_INFO
 while :;
 do
@@ -416,7 +426,7 @@ echo unwatch $DRAW_INFO
 }
 
 _unbrace(){
-[ "$BRACE_DO" ] || return 0
+[ "$BRACE" ] || return 0
 echo watch $DRAW_INFO
 while :;
 do
@@ -434,6 +444,26 @@ do
 
 done
 echo unwatch $DRAW_INFO
+}
+
+_cure(){
+test "$*" || return 3
+_is 1 1 invoke cure $*
+}
+
+_count_time(){
+
+test "$*" || return 3
+
+TIMEE=`/bin/date +%s`
+
+TIMEX=$((TIMEE - $*)) || return 4
+TIMEM=$((TIMEX/60))
+TIMES=$(( TIMEX - (TIMEM*60) ))
+
+case $TIMES in [0-9]) TIMES="0$TIMES";; esac
+
+return 0
 }
 
 _sing_and_orate(){
@@ -458,7 +488,7 @@ echo watch $DRAW_INFO
 
 test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
 test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
-_verbose "BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
+_verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 
 _is 1 1 use_skill singing
 sleep 0.5
@@ -470,7 +500,7 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   unset REPLY
   sleep 0.1
   read -t 1
-  _log "sing&orate:$REPLY"
+  _log "_sing_and_orate:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -490,14 +520,18 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   '')  NOTHING=$((NOTHING+1))
        break;; # no answer @ NPC with msg or pacyfied / sung
   *'Too bad the '*)   # sing + orate
-     BADS=$((BADS+1));
+     BADS=$((BADS+1)); NOTHING=0
      test "$BADS" -gt $BAD_THRESH && {
          _attack
          BADS=0;
      _draw 3 "Attacked in $DIR .."; sleep 1; };
-    break;;
+    # break  # both singing and oratory can have this response
+    ;;
+  *'You look ugly!'*) $CAST_CHA ;;
+  *feel*very*ill*) _cure poison ;;
+  *feel*ill*)      _cure disease;;
   *) :;;
-  #You withhold your attack
+  # *'You withhold your attack'*)
   esac
  done
 
@@ -506,13 +540,14 @@ echo unwatch $DRAW_INFO
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
-  $CAST_CHA
+  #$CAST_CHA
   $CAST_PROBE
   _draw 3 "Infinite loop $TOGGLE."
   _draw 4 "You calmed down '$CALMS' ."
   _draw 5 "You convinced   '$CONVS' ."
   _draw 2 "Use 'scriptkill $0' to abort."
-  [ "$BRACE_DO" ] && _draw 3 "Do not forget to 'brace' .";
+  [ "$BRACE" ] && _draw 3 "Do not forget to 'brace' .";
+  _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
    if test "$TOGGLE" = $INF_TOGGLE; then
     $CAST_REST
     TOGGLE=0;
@@ -536,12 +571,11 @@ done
 
 CAST_PROBE=_cast_probe
 CAST_REST=_cast_restoration # prayer
-CAST_PACY=_cast_pacify      # prayer, unused
+CAST_PACY=_cast_pacify      # prayer, unused since pacified monsters do not respond
 CAST_CHA=_cast_charisma
 
-$CAST_CHA
 #_cast_charisma
-#CAST_PACY
+$CAST_CHA
 $CAST_PROBE
 $CAST_REST
 

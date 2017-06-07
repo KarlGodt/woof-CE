@@ -735,6 +735,8 @@ _is 1 1 use_skill lockpicking
   case $REPLY in
   *'You search'*)                       :;;
 
+  *'You stop using'*)                   :;; # the talisman of Unified Mind *.
+  *'You feel'*)                         :;; # stupid.
   *'You can no longer use the skill:'*) :;; # use magic item.
   *'You ready lockpicks'*)              :;; # *.
   *'You can now use the skill:'*)       :;; # lockpicking.
