@@ -150,18 +150,19 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[0-9]/}" && {
-       _draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+       _draw 3 "Only :digit: numbers as optional option allowed."; exit 1; }
        readonly NUMBER
        ;;
 
- n|north)       DIR=north;     DIRN=1;; #readonly DIR DIRN;;
-ne|norteast)    DIR=northeast; DIRN=2;; #readonly DIR DIRN;;
- e|east)        DIR=east;      DIRN=3;; #readonly DIR DIRN;;
-se|southeast)   DIR=southeast; DIRN=4;; #readonly DIR DIRN;;
- s|south)       DIR=south;     DIRN=5;; #readonly DIR DIRN;;
-sw|southwest)   DIR=southwest; DIRN=6;; #readonly DIR DIRN;;
- w|west)        DIR=west;      DIRN=7;; #readonly DIR DIRN;;
-nw|northwest)   DIR=northwest; DIRN=8;; #readonly DIR DIRN;;
+ c|center)      DIR=center;    DIRN=0;;
+ n|north)       DIR=north;     DIRN=1;;
+ne|norteast)    DIR=northeast; DIRN=2;;
+ e|east)        DIR=east;      DIRN=3;;
+se|southeast)   DIR=southeast; DIRN=4;;
+ s|south)       DIR=south;     DIRN=5;;
+sw|southwest)   DIR=southwest; DIRN=6;;
+ w|west)        DIR=west;      DIRN=7;;
+nw|northwest)   DIR=northwest; DIRN=8;;
 
 *help|*usage) _usage;;
 
@@ -203,11 +204,10 @@ done
 readonly NUMBER DIR DIRN
 _debug "NUMBER='$NUMBER' DIR='$DIR' DIRN='$DIRN'"
 
-
 # TODO: check for near doors and direct to them
 
 if test "$DIR"; then
- :
+ test "$DIRN" = 0 && BAD_THRESH=$((BAD_THRESH*3))
 else
  _draw 3 "Need direction as parameter."
  exit 1
@@ -279,6 +279,39 @@ echo unwatch $DRAW_INFO
 #You are no easier to look at.
 }
 
+_invoke_charisma(){
+# ** invoke CHARISMA ** #
+
+_draw 5 "Invoking charisma .."
+
+local REPLY c=0
+
+echo watch $DRAW_INFO
+
+_is 1 1 invoke charisma # don't mind if mana too low, not capable or bungles for now
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_invoke_charisma:$REPLY"
+ _debug "REPLY='$REPLY'"
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_CHA;;
+ 3) test "$CAST_CHA" && { echo unwatch $DRAW_INFO; $CAST_CHA ; } ;;
+ esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
+
+done
+
+echo unwatch $DRAW_INFO
+#You are no easier to look at.
+}
+
+
 __cast_pacify(){  # unused
 # ** cast PACIFY ** #
 # pacified monsters do not respond to oratory
@@ -317,6 +350,40 @@ done
 echo unwatch $DRAW_INFO
 }
 
+__invoke_pacify(){  # unused
+# ** invoke PACIFY ** #
+# pacified monsters do not respond to oratory
+return 0
+
+_draw 5 "Invoking pacify .."
+
+local REPLY c=0
+
+echo watch $DRAW_INFO
+
+_is 1 1 invoke pacify # don't mind if mana too low, not capable or bungles for now
+sleep 0.5
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "__invoke_pacify:$REPLY"
+ _debug "REPLY='$REPLY'"
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_PACY;;
+ 3) test "$CAST_PACY" && { echo unwatch $DRAW_INFO; $CAST_PACY ; } ;;
+ esac
+ test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
+
+done
+
+echo unwatch $DRAW_INFO
+}
+
 _cast_probe(){
 # ** cast PROBE ** #
 _draw 5 "Casting probe .."
@@ -338,6 +405,37 @@ unset REPLY
 sleep 0.1
  read -t 1
  _log "_cast_probe:$REPLY"
+ _debug "REPLY='$REPLY'"
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_PROBE;;
+ 3) test "$CAST_PROBE" && { echo unwatch $DRAW_INFO; $CAST_PROBE ; } ;;
+ esac
+ test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
+
+done
+
+echo unwatch $DRAW_INFO
+
+}
+
+_invoke_probe(){
+# ** invoke PROBE ** #
+_draw 5 "Invoking probe .."
+
+local REPLY c=0
+
+echo watch $DRAW_INFO
+
+_is 1 1 invoke probe # don't mind if mana too low, not capable or bungles for now
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_invoke_probe:$REPLY"
  _debug "REPLY='$REPLY'"
 
  _handle_spell_errors
@@ -389,7 +487,38 @@ done
 echo unwatch $DRAW_INFO
 }
 
-_attack(){
+_invoke_restoration(){
+# ** if infinite loop, needs food ** #
+
+_draw 5 "Invoking restoration .."
+
+local REPLY c=0
+
+echo watch $DRAW_INFO
+
+_is 1 1 invoke restoration # don't mind if mana too low, not capable or bungles for now
+
+while :;
+do
+unset REPLY
+sleep 0.1
+ read -t 1
+ _log "_invoke_restoration:$REPLY"
+ _debug "REPLY='$REPLY'"
+
+ _handle_spell_errors
+ case $? in 1) c=$((c+1));;
+ 2) unset CAST_REST;;
+ 3) test "$CAST_REST" && { echo unwatch $DRAW_INFO; $CAST_REST ; } ;;
+ esac
+ test "$c" = 9 && break # 9 is just chosen as threshold for spam in msg pane
+
+done
+
+echo unwatch $DRAW_INFO
+}
+
+_attack_use_skill_ohw(){
 local one
 
 _is 1 1 use_skill one handed weapon
@@ -398,6 +527,26 @@ for one in `seq 1 1 ${MAX_ATTACK:-1}`;
 do
 _is 1 1 $DIR
 done
+}
+
+_attack_ready_skill_ohw(){
+local one
+
+_is 1 1 ready_skill one handed weapon
+
+for one in `seq 1 1 ${MAX_ATTACK:-1}`;
+do
+_is 1 1 fire
+_is 1 1 fire_stop
+done
+}
+
+_attack(){
+if test "$DIRN" = 0; then
+ _attack_ready_skill_ohw
+else
+ _attack_use_skill_ohw
+fi
 }
 
 __brace(){
@@ -466,7 +615,31 @@ case $TIMES in [0-9]) TIMES="0$TIMES";; esac
 return 0
 }
 
-_sing_and_orate(){
+_turn_direcction_ready_skill(){
+test "$*" || return 3
+
+local lDIRN
+
+case $1 in [0-8]) lDIRN=$1; shift;; esac
+
+lDIRN=${lDIRN:-$DIRN}
+
+_is 1 1 ready_skill "$1"
+sleep 0.5
+_is 1 1 fire ${lDIRN:-0}
+sleep 0.5
+_is 1 1 fire_stop
+}
+
+_sing_and_orate_use_skill(){
+_is 1 1 use_skill singing
+sleep 0.5
+
+_is 1 1 use_skill oratory
+sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
+}
+
+_sing_and_orate_main(){
 ## ** use_skill singing ** ##
 # ** use_skill oratory ** #
 
@@ -479,6 +652,8 @@ _draw 7 "Now convincing..."
 c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
 NUM=$NUMBER
 
+_turn_direcction_ready_skill singing
+
 while :;
 do
 
@@ -490,17 +665,26 @@ test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
 test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
 _verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 
-_is 1 1 use_skill singing
-sleep 0.5
+#_is 1 1 use_skill singing
+#sleep 0.5
+#
+#_is 1 1 use_skill oratory
+#sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 
-_is 1 1 use_skill oratory
-sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
+if test "$DIRN" = 0; then
+ for d in `seq 1 1 8`; do
+  _turn_direcction_ready_skill $d singing
+  _turn_direcction_ready_skill $d oratory
+ done
+else
+ _sing_and_orate_use_skill
+fi
 
  while :; do
   unset REPLY
   sleep 0.1
   read -t 1
-  _log "_sing_and_orate:$REPLY"
+  _log "_sing_and_orate_main:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -510,13 +694,17 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   *'You orate to the '*)       :;; # orate
   *'You convince the '*)   CONVS=$((CONVS+1));
                            BADS=0; NOTHING=0;
-       break;;  #You convince the black dragon to become your follower.
+       #break
+       ;;  #You convince the black dragon to become your follower.
   *'Your speach angers '*) BADS=$((BADS+1)); NOTHING=0
-       break;;
+       #break
+       ;;
   *'Your follower loves your speech'*) BADS=0; NOTHING=0
-       break;;
+       #break
+       ;;
   *'There is nothing to orate to.'*)   BADS=0; NOTHING=$((NOTHING+1))
-       break;;
+       #break
+       ;;
   '')  NOTHING=$((NOTHING+1))
        break;; # no answer @ NPC with msg or pacyfied / sung
   *'Too bad the '*)   # sing + orate
@@ -569,23 +757,27 @@ sleep 0.6
 done
 }
 
-CAST_PROBE=_cast_probe
-CAST_REST=_cast_restoration # prayer
-CAST_PACY=_cast_pacify      # prayer, unused since pacified monsters do not respond
-CAST_CHA=_cast_charisma
+#CAST_PROBE=_cast_probe
+ CAST_PROBE=_invoke_probe
+#CAST_REST=_cast_restoration # prayer
+ CAST_REST=_invoke_restoration
+#CAST_PACY=__cast_pacify      # prayer, unused since pacified monsters do not respond
+ CAST_PACY=__invoke_pacify
+#CAST_CHA=_cast_charisma
+ CAST_CHA=_invoke_charisma
 
-#_cast_charisma
 $CAST_CHA
 $CAST_PROBE
 $CAST_REST
 
 _brace
-_sing_and_orate
+_sing_and_orate_main
 _unbrace
 
 #
 echo unwatch $DRAW_INFO
 
+__print_time(){
 TIMEZ=`/bin/date +%s`
 
 _compute_minutes_seconds(){
@@ -611,6 +803,10 @@ if test "$TIMEZ" -a "$TIMEA"; then
 _compute_minutes_seconds $TIMEZ $TIMEA && \
  echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
 fi
+}
+
+_count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
+_count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
 
 # *** Here ends program *** #
 _draw 7 "You calmed down '$CALMS' ."
