@@ -25,6 +25,9 @@ rm -f "$LOG_REPLY_FILE"
 # ** if attacking to have new monster to orate to ** #
 MAX_ATTACK=1   # how many times to attack ( small monster few, bigger monster several )
 
+# ** if CAST_REST fails, fallback apply FOOD_EAT ** #
+FOOD_EAT=waybread
+
 # ** ping if bad connection ** #
 PING_DO=1
 URL=crossfire.metalforge.net
@@ -285,18 +288,9 @@ done
 _cast_charisma(){
 # ** cast CHARISMA ** #
 
-#_draw 5 "Casting charisma .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
-
-#_is 1 1 cast charisma # don't mind if mana too low, not capable or bungles for now
-#sleep 0.5
-#_is 1 1 fire ${DIRN:-0}
-#sleep 0.5
-#_is 1 1 fire_stop
-#sleep 0.5
 
 _cast_spell_and_fire ${DIRN:-0} 1 charisma
 
@@ -324,14 +318,11 @@ echo unwatch $DRAW_INFO
 _invoke_charisma(){
 # ** invoke CHARISMA ** #
 
-#_draw 5 "Invoking charisma .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-#_is 1 1 invoke charisma # don't mind if mana too low, not capable or bungles for now
-
+# don't mind if mana too low, not capable or bungles for now
 _invoke_spell 1 charisma
 
 while :;
@@ -361,18 +352,9 @@ __cast_pacify(){  # unused
 # pacified monsters do not respond to oratory
 return 0
 
-#_draw 5 "Casting pacify .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
-
-#_is 1 1 cast pacify # don't mind if mana too low, not capable or bungles for now
-#sleep 0.5
-#_is 1 1 fire ${DIRN:-0}
-#sleep 0.5
-#_is 1 1 fire_stop
-#sleep 0.5
 
 _cast_spell_and_fire ${DIRN:-0} 1 pacify
 
@@ -401,14 +383,9 @@ __invoke_pacify(){  # unused
 # pacified monsters do not respond to oratory
 return 0
 
-#_draw 5 "Invoking pacify .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
-
-#_is 1 1 invoke pacify # don't mind if mana too low, not capable or bungles for now
-#sleep 0.5
 
 _invoke_spell 1 pacify
 
@@ -434,18 +411,10 @@ echo unwatch $DRAW_INFO
 
 _cast_probe(){
 # ** cast PROBE ** #
-#_draw 5 "Casting probe .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
-
-#_is 1 1 cast probe # don't mind if mana too low, not capable or bungles for now
-#sleep 0.5
-#_is 1 1 fire ${DIRN:-0}
-#sleep 0.5
-#_is 1 1 fire_stop
-#sleep 0.5
 
 _cast_spell_and_fire ${DIRN:-0} 1 probe
 
@@ -472,14 +441,12 @@ echo unwatch $DRAW_INFO
 
 _invoke_probe(){
 # ** invoke PROBE ** #
-#_draw 5 "Invoking probe .."
 
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-#_is 1 1 invoke probe # don't mind if mana too low, not capable or bungles for now
-
+# don't mind if mana too low, not capable or bungles for now
 _invoke_spell 1 probe
 
 while :;
@@ -506,18 +473,9 @@ echo unwatch $DRAW_INFO
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
 
-#_draw 5 "Casting restoration .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
-
-#_is 1 1 cast restoration # don't mind if mana too low, not capable or bungles for now
-#sleep 0.5
-#_is 1 1 fire ${DIRN:-0}
-#sleep 0.5
-#_is 1 1 fire_stop
-#sleep 0.5
 
 _cast_spell_and_fire ${DIRN:-0} 1 restoration
 
@@ -544,14 +502,11 @@ echo unwatch $DRAW_INFO
 _invoke_restoration(){
 # ** if infinite loop, needs food ** #
 
-#_draw 5 "Invoking restoration .."
-
 local REPLY c=0
 
 echo watch $DRAW_INFO
 
-#_is 1 1 invoke restoration # don't mind if mana too low, not capable or bungles for now
-
+# don't mind if mana too low, not capable or bungles for now
 _invoke_spell 1 restoration
 
 while :;
@@ -696,11 +651,17 @@ _is 1 1 fire_stop
 }
 
 _sing_and_orate_use_skill(){
+
+local lf=''
+
+for lf in `seq 1 1 ${1:-1}`
+do
 _is 1 1 use_skill singing
 sleep 0.5
 
 _is 1 1 use_skill oratory
 sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
+done
 }
 
 _hunger(){
@@ -712,54 +673,13 @@ else
 fi
 }
 
-_sing_and_orate_main(){
-## ** use_skill singing ** ##
-# ** use_skill oratory ** #
-
-sleep 2
-
-local ld=''
-
-TIMEB=`/bin/date +%s`
-
-_draw 7 "Now convincing..."
-
-c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
-NUM=$NUMBER
-
-_turn_direcction_ready_skill ${DIRN:-0} singing
-
-while :;
-do
-
-_ping
-
-echo watch $DRAW_INFO
-
-test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
-test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
-_verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
-
-#_is 1 1 use_skill singing
-#sleep 0.5
-#
-#_is 1 1 use_skill oratory
-#sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
-
-if test "$DIRN" = 0; then
- for ld in `seq 1 1 8`; do
-  _turn_direcction_ready_skill $ld singing
-  _turn_direcction_ready_skill $ld oratory
- done
-else
- _sing_and_orate_use_skill
-fi
+_sing_and_orate_read_drawinfo(){
 
  while :; do
   unset REPLY
   sleep 0.1
   read -t 1
-  _log "_sing_and_orate_main:$REPLY"
+  _log "_sing_and_orate_read_drawinfo:$REPLY"
   _debug "REPLY='$REPLY'"
 
   case $REPLY in
@@ -799,11 +719,54 @@ fi
  done
 
 echo unwatch $DRAW_INFO
+}
+
+_sing_and_orate_main(){
+## ** use_skill singing ** ##
+# ** use_skill oratory ** #
+
+sleep 2
+
+local ld=''
+
+TIMEB=`/bin/date +%s`
+
+_draw 7 "Now convincing..."
+
+c=0; cc=0; TOGGLE=1; CONVS=0; CALMS=0; BADS=0
+NUM=$NUMBER
+
+_turn_direcction_ready_skill ${DIRN:-0} singing
+
+while :;
+do
+
+_ping
+
+echo watch $DRAW_INFO
+
+test "$NUMBER"  && _verbose "NUMBER:$NUMBER NUM:$NUM"
+test "$FOREVER" && _verbose "cc:$cc TOGGLE:$TOGGLE"
+_verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
+
+#sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
+
+if test "$DIRN" = 0; then
+ for ld in `seq 1 1 8`; do
+  _turn_direcction_ready_skill $ld singing
+  _turn_direcction_ready_skill $ld oratory
+  _sing_and_orate_read_drawinfo
+ done
+else
+ _sing_and_orate_use_skill
+ _sing_and_orate_read_drawinfo
+fi
+
+#_sing_and_orate_read_drawinfo
 
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
-  #$CAST_CHA
   $CAST_PROBE
   _draw 3 "Infinite loop $TOGGLE."
   _draw 4 "You calmed down '$CALMS' ."
@@ -833,14 +796,9 @@ sleep 0.6
 done
 }
 
-#CAST_PROBE=_cast_probe
- CAST_PROBE=_invoke_probe
-#CAST_REST=_cast_restoration # prayer
- CAST_REST=_invoke_restoration
-#CAST_PACY=__cast_pacify      # prayer, unused since pacified monsters do not respond
- CAST_PACY=__invoke_pacify
-#CAST_CHA=_cast_charisma
- CAST_CHA=_invoke_charisma
+CAST_PROBE=_cast_probe
+ CAST_REST=_invoke_restoration # prayer
+  CAST_CHA=_invoke_charisma
 
 $CAST_CHA
 $CAST_PROBE
@@ -852,34 +810,6 @@ _unbrace
 
 #
 echo unwatch $DRAW_INFO
-
-__print_time(){
-TIMEZ=`/bin/date +%s`
-
-_compute_minutes_seconds(){
-unset TIMEXM TIMEXS
-test "$1" -a "$2" || return 3
-
-local lTIMEX=$(( $1 - $2 ))
-
-case $lTIMEX in -*) lTIMEX=$(( $2 - $1 ));; esac
-case $lTIMEX in -*) return 4;; esac
-
-TIMEXM=$((lTIMEX/60))
-TIMEXS=$(( lTIMEX - (TIMEXM*60) ))
-case $TIMEXS in [0-9]) TIMEXS="0$TIMEXS";; esac
-}
-
-if test "$TIMEZ" -a "$TIMEB"; then
-_compute_minutes_seconds $TIMEZ $TIMEB && \
- echo draw 5 "Whole loop took $TIMEXM:$TIMEXS minutes."
-fi
-
-if test "$TIMEZ" -a "$TIMEA"; then
-_compute_minutes_seconds $TIMEZ $TIMEA && \
- echo draw 4 "Whole script took $TIMEXM:$TIMEXS minutes."
-fi
-}
 
 _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
 _count_time $TIMEA && _draw 7 "Script ran $TIMEM:$TIMES minutes"
