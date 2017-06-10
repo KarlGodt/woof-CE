@@ -346,69 +346,6 @@ echo unwatch $DRAW_INFO
 #You are no easier to look at.
 }
 
-
-__cast_pacify(){  # unused
-# ** cast PACIFY ** #
-# pacified monsters do not respond to oratory
-return 0
-
-local REPLY c=0
-
-echo watch $DRAW_INFO
-
-_cast_spell_and_fire ${DIRN:-0} 1 pacify
-
-while :;
-do
-unset REPLY
-sleep 0.1
- read -t 1
- _log "__cast_pacify:$REPLY"
- _debug "REPLY='$REPLY'"
-
- _handle_spell_errors
- case $? in 1) c=$((c+1));;
- 2) unset CAST_PACY;;
- 3) test "$CAST_PACY" && { echo unwatch $DRAW_INFO; $CAST_PACY ; } ;;
- esac
- test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
-
-done
-
-echo unwatch $DRAW_INFO
-}
-
-__invoke_pacify(){  # unused
-# ** invoke PACIFY ** #
-# pacified monsters do not respond to oratory
-return 0
-
-local REPLY c=0
-
-echo watch $DRAW_INFO
-
-_invoke_spell 1 pacify
-
-while :;
-do
-unset REPLY
-sleep 0.1
- read -t 1
- _log "__invoke_pacify:$REPLY"
- _debug "REPLY='$REPLY'"
-
- _handle_spell_errors
- case $? in 1) c=$((c+1));;
- 2) unset CAST_PACY;;
- 3) test "$CAST_PACY" && { echo unwatch $DRAW_INFO; $CAST_PACY ; } ;;
- esac
- test "$c" = 9 && break  # 9 is just chosen as threshold for spam in msg pane
-
-done
-
-echo unwatch $DRAW_INFO
-}
-
 _cast_probe(){
 # ** cast PROBE ** #
 
@@ -644,10 +581,15 @@ case $1 in [0-8]) lDIRN=$1; shift;; esac
 lDIRN=${lDIRN:-$DIRN}
 
 _is 1 1 ready_skill "$1"
-sleep 0.5
+#sleep 0.5
 _is 1 1 fire ${lDIRN:-0}
-sleep 0.5
+#sleep 0.5
 _is 1 1 fire_stop
+}
+
+_use_skill(){
+test "$*" || return 3
+_is 1 1 use_skill "$*"
 }
 
 _sing_and_orate_use_skill(){
@@ -715,6 +657,8 @@ _sing_and_orate_read_drawinfo(){
   *feel*ill*)      _cure disease;;
   *) :;;
   # *'You withhold your attack'*)
+  #You can no longer use the skill: oratory.
+  #Readied skill: singing.
   esac
  done
 
@@ -753,10 +697,12 @@ _verbose "NOTHING:$NOTHING BADS:$BADS CALMS:$CALMS CONVS:$CONVS"
 
 if test "$DIRN" = 0; then
  for ld in `seq 1 1 8`; do
-  _turn_direcction_ready_skill $ld singing
-  _turn_direcction_ready_skill $ld oratory
-  _sing_and_orate_read_drawinfo
+   _turn_direcction_ready_skill $ld singing
+  #_turn_direcction_ready_skill $ld oratory
+   _use_skill oratory
+ # _sing_and_orate_read_drawinfo
  done
+ _sing_and_orate_read_drawinfo
 else
  _sing_and_orate_use_skill
  _sing_and_orate_read_drawinfo
@@ -775,7 +721,6 @@ if test "$FOREVER"; then
   [ "$BRACE" ] && _draw 3 "Do not forget to 'brace' .";
   _count_time $TIMEB && _draw 7 "Looped for $TIMEM:$TIMES minutes"
    if test "$TOGGLE" = $INF_TOGGLE; then
-    #$CAST_REST
     _hunger
     TOGGLE=0;
    fi

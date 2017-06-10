@@ -663,6 +663,10 @@ local SECONDLINE=''
    *'Unable to find skill '*)   break 2;;
 #  *'You fail to disarm '*) continue;;
 
+     *feel*very*ill*) _cure poison;;
+     *feel*ill*)      _cure disease;;
+     *feel*confused*) _cure confusion;;
+
    *'You successfully disarm '*)
       NUM=$((NUM-1)); test "$NUM" -gt 0 || break 2;
       break;;
@@ -732,6 +736,9 @@ local REPLY=''
       _debug "REPLY='$REPLY'"
       case $REPLY in
       *'In fact, you set it off!'*)
+        read -t 1
+        _log "_handle_trap_trigger_event:$REPLY"
+        _debug "REPLY='$REPLY'"
       _handle_trap_detonation_event || return 112;;
       esac
 return 0
@@ -741,9 +748,9 @@ _handle_trap_detonation_event(){
 
 local SECONDLINE='' REPLY=''
 
-read -t 1
-        _log "_handle_trap_detonation_event:$REPLY"
-        _debug "REPLY='$REPLY'"
+#read -t 1
+#        _log "_handle_trap_detonation_event:$REPLY"
+#        _debug "REPLY='$REPLY'"
 
     case $REPLY in
 
@@ -1002,14 +1009,28 @@ _is 0 0 drop chest # Nothing to drop.
 
   case $REPLY in
    *'Nothing to drop.'*) break 2;;
-   *'Your '*)        :;;  # Your monster beats monster
-   *'You killed '*)  :;;
+   *'Nothing to take'*)  :;;
+   *'You open chest'*)   :;;    #
+   *'You close chest'*)  :;;    # (open) (active).
+   *'was empty'*)        :;;
+
   #*You*find*Rune*)  _handle_trap_event || return 112;;
    *'You find '*)    :;;
    *'You pick up '*) :;;
    *'You were unable to take '*) :;;
+
    *' tasted '*)     :;;  # food tasted good
-  *) _handle_trap_event || return 112; break;;
+   *'Your '*)        :;;  # Your monster beats monster
+   *'You killed '*)  :;;
+
+#     *feel*very*ill*) _cure poison;;
+#     *feel*ill*)      _cure disease;;
+#     *feel*confused*) _cure confusion;;
+
+  '') break;;
+
+  *) _handle_trap_event || return 112;
+     _skip_noise || break;;
   esac
  done
 

@@ -87,16 +87,16 @@ done
 
 
 _is 0 0 pickup 0
-sleep 1
+sleep 0.5
 
 _is 0 0 drop chest
-sleep 1
+sleep 0.5
 
 _is 1 1 $DIRB
-sleep 1
+sleep 0.5
 
 _is 1 1 $DIRF
-sleep 1
+sleep 0.5
 
 # TODO : check if on chest
 
@@ -109,7 +109,8 @@ case $? in 112) :;;
 *)    _open_chest;;
 esac
 
-_is 0 0 get all  #pickup chests if bomb, fire storm, dragon breath, etc
+_is 0 0 get all   #pickup chests if bomb, fire storm, dragon breath, etc
+_is 0 0 drop bomb
 
 # *** Here ends program *** #
 _say_end_msg

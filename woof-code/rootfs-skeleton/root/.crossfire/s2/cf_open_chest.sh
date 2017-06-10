@@ -251,7 +251,7 @@ $CAST_DEX
 
 _cure(){
 test "$*" || return 3
-invoke cure $*
+_is 1 1 invoke cure $*
 }
 
 _handle_trap_trigger_event(){
@@ -280,6 +280,7 @@ local SECONDLINE=''
 
      *feel*very*ill*) _cure poison;;
      *feel*ill*)      _cure disease;;
+     *feel*confused*) _cure confusion;;
 
      *"RUN!  The timer's ticking!"*) # rune_bomb.arc
          read -t 1 SECONDLINE  #
@@ -705,7 +706,8 @@ case $? in 112) :;;
 *)    _open_chest;;
 esac
 
-_is 0 0 get all  #pickup chests if bomb, fire storm, dragon breath, etc
+_is 0 0 get all   #pickup chests if bomb, fire storm, dragon breath, etc
+_is 0 0 drop bomb
 
 # *** Here ends program *** #
 _debug "unwatch $DRAW_INFO"

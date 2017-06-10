@@ -349,8 +349,10 @@ local SECONDLINE=''
   case $REPLY in
    *'You search'*) :;;
    *'You spot'*)   :;;
+
    *You*feel*very*ill*) _cure poison;;
    *You*feel*ill*)      _cure disease;;
+   *You*feel*confused*) _cure confusion;;
    *You*feel*sick*)     :;; # _cure poison;;
 
    *'Unable to find skill '*)   break 2;;
@@ -542,33 +544,33 @@ echo issue 0 0 drop chest # Nothing to drop.
    *'You were unable to take '*)  :;; # one of the items.
    *'too heavy'*)                 :;;
 
-  # msgs from cast dexterity
-  *'You lack the skill '*) :;;
-  *'You can no longer use the skill:'*)     :;;
-  *'You ready'*)                            :;;  # talisman of sorcery *. the spell holy symbol of Probity *.
-  *'You can now use the skill:'*)           :;;  # praying.
-  *'You grow no more agile'*)               :;;
-  *'You recast the spell while in effect'*) :;;
-  *'The effects'*'are draining out'*)       :;;
-  *'The effects'*'are about to expire'*)    :;;
-  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
-
-  # msgs from cure disease
-  *'You stop using the'*) :;; # talisman of Frost *.
-  *'You cure'*)           :;; # a disease!
-  *'You no longer feel'*) :;; # diseased.
-
-  #msgs from cure poison
-  *'Your body feels'*) :;; # cleansed
-
-  *' entered '*|*' leaves '*|*' left '*) :;; # the game
-  *' chats:'*|*' tells you:'*)           :;;
-
-   *'You feel full'*) :;;  # , but what a waste of food!
-   *' tasted '*)      :;;  # food tasted good
-   *' your '*)        :;;  #
-   *'Your '*)         :;;  # Your monster beats monster
-   *'You killed '*)   :;;
+#  # msgs from cast dexterity
+#  *'You lack the skill '*) :;;
+#  *'You can no longer use the skill:'*)     :;;
+#  *'You ready'*)                            :;;  # talisman of sorcery *. the spell holy symbol of Probity *.
+#  *'You can now use the skill:'*)           :;;  # praying.
+#  *'You grow no more agile'*)               :;;
+#  *'You recast the spell while in effect'*) :;;
+#  *'The effects'*'are draining out'*)       :;;
+#  *'The effects'*'are about to expire'*)    :;;
+#  *'You feel'*)                             :;; # clumsy. stronger. more agile. healthy. smarter.
+#
+#  # msgs from cure disease
+#  *'You stop using the'*) :;; # talisman of Frost *.
+#  *'You cure'*)           :;; # a disease!
+#  *'You no longer feel'*) :;; # diseased.
+#
+#  #msgs from cure poison
+#  *'Your body feels'*) :;; # cleansed
+#
+#  *' entered '*|*' leaves '*|*' left '*) :;; # the game
+#  *' chats:'*|*' tells you:'*)           :;;
+#
+#   *'You feel full'*) :;;  # , but what a waste of food!
+#   *' tasted '*)      :;;  # food tasted good
+#   *' your '*)        :;;  #
+#   *'Your '*)         :;;  # Your monster beats monster
+#   *'You killed '*)   :;;
 
   '') break;;
 
@@ -601,7 +603,8 @@ echo unwatch $DRAW_INFO
 _find_traps
 _disarm_traps && _open_chest
 
-echo issue 0 0 get all # pickup chests if bomb
+echo issue 0 0 get all   # pickup chests if bomb, fireball, etc.
+echo issue 0 0 drop bomb # :)
 
 _identify(){
 set - "sense curse" "sense magic" alchemy bowyer jeweler literacy smithery thaumaturgy woodsman

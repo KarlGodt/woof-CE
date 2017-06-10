@@ -374,3 +374,31 @@ done
 
 return 0
 }
+
+_invoke_cure(){
+test "$*" || return 3
+_is 1 1 invoke cure $*
+}
+
+_cure_disease(){
+# echo issue 1 1 apply scroll of cure disease
+echo issue 1 1 invoke "cure disease"
+}
+
+_cure_poison(){
+# echo issue 1 1 apply scroll of cure poison
+echo issue 1 1 invoke "cure poison"
+}
+
+_cure_confusion(){
+# echo issue 1 1 apply scroll of cure confusion
+echo issue 1 1 invoke "cure confusion"
+}
+
+_cure(){
+test "$*" || return 3
+case $2 in
+scroll) echo issue 1 1 apply scroll of cure $1;;
+*)      echo issue 1 1 invoke "cure $1";;
+esac
+}

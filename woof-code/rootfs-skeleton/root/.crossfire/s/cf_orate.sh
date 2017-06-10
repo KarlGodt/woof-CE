@@ -46,10 +46,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
+       echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+       readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+       ;;
  n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
@@ -116,9 +116,6 @@ echo issue 1 1 fire_stop
 sleep 0.5
 }
 
-
-## ** use_skill singing ** ##
-
 _cast_probe(){
 # ** cast PROBE ** #
 
@@ -142,6 +139,8 @@ echo issue 1 1 fire_stop
 sleep 0.5
 
 }
+
+## ** use_skill singing ** ##
 
 # ** use_skill oratory ** #
 
