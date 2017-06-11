@@ -1,11 +1,8 @@
 #!/bin/bash
 # uses arrays, ((c++))
+# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
 
 exec 2>>/tmp/cf_script.err
-
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
 
@@ -112,7 +109,10 @@ _draw ${COL_DBG:-11} "$*"
 
 _log(){
 [ "$LOGGING" ] || return 0
-echo "$*" >>"${LOG_REPLY_FILE:-/tmp/cf_script.log}"
+local lLOG_FILE=${LOG_PREPLY_FILE}
+case $1 in -file=*) lLOG_FILE=${1#*=}; shift;; esac
+lLOG_FILE=${lLOG_FILE:-/tmp/cf_script.log}
+echo "$*" >>"${lLOG_FILE}"
 }
 
 _is(){
@@ -121,6 +121,10 @@ echo issue "$@"
 sleep 0.2
 }
 
+
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+_draw 5 " with '$*' parameter."
 
 # *** Check for parameters *** #
 [ "$*" ] && {
@@ -144,7 +148,7 @@ esac
 
 # *** testing parameters for validity *** #
 
-echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>"$LOG_TEST_FILE"
+_log -file="$LOG_TEST_FILE" "${BASH_ARGC[0]} : ${BASH_ARGV[@]}"
 #WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
 for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
@@ -176,8 +180,8 @@ case ${NUMBER[$C]} in
 20) NUMBER[$C]=twenty;;
 esac
 
-echo "INGRED[$C]='${INGRED[$C]}'" >>"$LOG_TEST_FILE"
-echo "NUMBER[$C]='${NUMBER[$C]}'" >>"$LOG_TEST_FILE"
+_log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
+_log -file="$LOG_TEST_FILE" "NUMBER[$C]='${NUMBER[$C]}'"
 done
 
 GOAL=${INGRED[1]}
@@ -190,7 +194,7 @@ for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 do
 ((C++))
 INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
-echo "INGRED[$C]='${INGRED[$C]}'" >>"$LOG_TEST_FILE"
+_log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
 done
 
 
@@ -213,7 +217,7 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+_log -file="$LOG_ISON_FILE" "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -226,7 +230,7 @@ __old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+_log -file="$LOG_ISON_FILE" "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -245,13 +249,14 @@ exit 1
 
 rm -f "$LOG_INV_FILE" || exit 1
 INVTRY='';
-#echo watch request items inv
+
 echo request items inv
 
 while :; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"
+echo "$INVTRY" >>"$LOG_INV_FILE" # grep ingred further down, not otional
+#_log -file="$LOG_INV_FILE" "$INVTRY"
 #_draw 3 "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
@@ -265,7 +270,8 @@ __old_loop(){
 while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"
+echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
+#_log -file="$LOG_INV_FILE" "$INVTRY"
 #_draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
@@ -281,8 +287,9 @@ do
 
 ((C2++))
 GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
-echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 
+# DEBUG
+echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
 if [[ "`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`" ]]; then
@@ -411,7 +418,7 @@ esac
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -428,7 +435,7 @@ esac
  __old_loop(){
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -464,7 +471,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+_log "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -478,7 +485,9 @@ done
 echo unwatch $DRAW_INFO
 
 _is "1 1 apply"
-_is "7 1 take"
+#_is "7 1 take"  # TODO: cauldron is gone: You can't pick up a wood floor.
+_is "0 0 get all"
+
 sleep 1s
 
 _is "1 1 $DIRB"

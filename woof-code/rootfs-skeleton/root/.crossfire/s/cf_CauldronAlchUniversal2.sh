@@ -1,7 +1,7 @@
 #!/bin/bash
 # uses arrays
 
-# WARNING : NO CHECKS if cauldron empty, monsters ...
+# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
 
 rm -f /tmp/cf_*
 
@@ -412,7 +412,7 @@ echo watch $DRAW_INFO
 
 echo "issue 1 1 apply"
 #echo "issue 7 1 take"
-echo "issue 0 0 get all"
+echo "issue 0 0 get all"  # TODO: cauldron is gone: You can't pick up a [wood]* floor.
 
 sleep 1s
 

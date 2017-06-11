@@ -3,7 +3,7 @@
 
 exec 2>>/tmp/cf_script.err
 
-# WARNING : NO CHECKS if cauldron empty, monsters ...
+# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
 
 # *** Setting defaults *** #
 #set empty default
@@ -379,7 +379,7 @@ echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 #echo "issue 7 1 take"
-echo "issue 0 0 get all"
+echo "issue 0 0 get all" # TODO: cauldron is gone: You can't pick up a [wood]* floor.
 
 sleep 1s
 
