@@ -3,6 +3,7 @@
 
 exec 2>>/tmp/cf_script.err
 
+# WARNING : NO CHECKS if cauldron empty, monsters ...
 
 # *** Setting defaults *** #
 #set empty default
@@ -35,6 +36,14 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+DRAW_INFO=drawinfo  # drawinfo OR drawextinfo
+
+DELAY_DRAWINFO=4  #speed 0.32
+
+_ping(){ # TODO
+    :
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 5 " with '$*' parameter."
@@ -44,22 +53,23 @@ echo draw 5 " with '$*' parameter."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+echo draw 5 "Allowed NUMBER will loop to produce"
+echo draw 2 "ARTIFACT ie 'balm_of_first_aid'"
+echo draw 2 "NUMBER times ie '10' with"
+echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 echo draw 4 "PLEASE MANUALLY EDIT SKILL and CAULDRON variables"
 echo draw 4 "in header of this script for your needs."
 echo draw 6 "SKILL variable currently set to '$SKILL'"
 echo draw 6 "CAULDRON var currently set to '$CAULDRON'"
         exit 0
-        }
+;;
+esac
 
 # *** testing parameters for validity *** #
 
@@ -69,8 +79,8 @@ for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
 do
 vc=$((c-1));ivc=$((vc-1));((C++));
-INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`  # /root/cf/s/AU: line 73: BASH_ARGV: bad array subscript
 
 case ${NUMBER[$C]} in
 1) NUMBER[$C]=one;;
@@ -368,7 +378,9 @@ done
 echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
-echo "issue 7 1 take"
+#echo "issue 7 1 take"
+echo "issue 0 0 get all"
+
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -405,9 +417,8 @@ done
 
 echo draw 7 "drop slag"  # debug
 echo "issue 0 1 drop slag"
-#echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=4  #speed 0.32
+
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))

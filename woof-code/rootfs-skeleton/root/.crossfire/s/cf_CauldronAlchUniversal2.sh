@@ -1,6 +1,8 @@
 #!/bin/bash
 # uses arrays
 
+# WARNING : NO CHECKS if cauldron empty, monsters ...
+
 rm -f /tmp/cf_*
 
 exec 2>>/tmp/cf_script.err
@@ -9,6 +11,7 @@ exec 2>>/tmp/cf_script.err
 
 # *** Setting defaults *** #
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DELAY_DRAWINFO=4  #speed 0.32
 
 #set empty default
 C=0 # used in arrays, set zero as default
@@ -41,6 +44,10 @@ _beep(){
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
 
+_ping(){ # TODO
+    :
+}
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 echo draw 5 " with '$*' parameter."
@@ -50,20 +57,21 @@ echo draw 5 " with '$*' parameter."
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-test "$PARAM_1" = "help" && {
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+echo draw 5 "Allowed NUMBER will loop to produce"
+echo draw 2 "ARTIFACT ie 'balm_of_first_aid'"
+echo draw 2 "NUMBER times ie '10' with"
+echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
 
         exit 0
-        }
+;;
+esac
 
 SKILL="$PARAM_1"
 case $SKILL in
@@ -403,7 +411,9 @@ done
 echo watch $DRAW_INFO
 
 echo "issue 1 1 apply"
-echo "issue 7 1 take"
+#echo "issue 7 1 take"
+echo "issue 0 0 get all"
+
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -440,9 +450,8 @@ done
 
 echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
-#echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=4  #speed 0.32
+
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))

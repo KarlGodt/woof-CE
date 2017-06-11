@@ -32,6 +32,9 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+DRAW_INFO=drawinfo  # drawinfo / drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+
+DELAY_DRAWINFO=4  #speed 0.32
 
 #set empty default
 C=0 #set zero as default
@@ -61,32 +64,92 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+# colours
+COL_BLACK=0
+COL_WHITE=1
+COL_NAVY=2
+COL_RED=3
+COL_ORANGE=4
+COL_BLUE=5
+COL_DORANGE=6
+COL_GREEN=7
+COL_LGREEN=8
+COL_GRAY=9
+COL_BROWN=10
+COL_GOLD=11
+COL_TAN=12
+
+COL_VERB=$COL_TAN  # verbose
+COL_DBG=$COL_GOLD  # debug
+
+_draw(){
+test "$*" || return
+
+case $1 in [0-9]|1[0-2])
+COLOUR=${1:-0}
+shift
+;;
+esac
+local lCOLOUR=${COLOUR:-0}
+
+while read -r line
+do
+test "$line" || continue
+echo draw $lCOLOUR "$line"
+sleep 0.1
+done <<EoI
+`echo "$*"`
+EoI
+}
+
+_verbose(){
+[ "$VERBOSE" ] || return 0
+_draw ${COL_VERB:-12} "$*"
+}
+
+_debug(){
+[ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_log(){
+[ "$LOGGING" ] || return 0
+echo "$*" >>"${LOG_REPLY_FILE:-/tmp/cf_script.log}"
+}
+
+_is(){
+_verbose "$*"
+echo issue "$@"
+sleep 0.2
+}
+
+
 # *** Check for parameters *** #
 
 #test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
 test "$*" || {
-echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
-echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+_draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+_draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+_draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
         exit 1
 }
 
 until test "$#" = 0
 do
 PARAM_1="$1"
-case "$PARAM_1" in -h|*"help")
+case "$PARAM_1" in -h|*"help"|*usage)
 # *** implementing 'help' option *** #
 
 
-echo draw 5 "Script to produce alchemy objects."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
-echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 5 "ARTIFACT with"
+_draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+_draw 5 "by SKILL using cauldron automatically determined by SKILL"
 
 
         exit 0
@@ -105,11 +168,11 @@ jewler)                     CAULDRON=jeweler_bench;;
 smithery)                   CAULDRON=forge;;
 thaumaturgy)                CAULDRON=thaumaturg_desk;;
 woodsman)                   CAULDRON=stove;;
-*) echo draw 3 "'$SKILL' not valid!"
-echo draw 3 "Valid skills are alchemy, bowyer, jewler, smithery, thaumaturgy, woodsman"
+*) _draw 3 "'$SKILL' not valid!"
+_draw 3 "Valid skills are alchemy, bowyer, jewler, smithery, thaumaturgy, woodsman"
 exit 1;;
 esac
-echo draw 7 "OK using $SKILL on $CAULDRON"
+_draw 7 "OK using $SKILL on $CAULDRON"
 
 # *** testing parameters for validity *** #
 
@@ -176,7 +239,7 @@ done
 
 
 #} || {
-#echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+#_draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
 #        exit 1
 #}
 
@@ -213,7 +276,7 @@ done
 }
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
-echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
+_draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
 _beep
 exit 1
 }
@@ -229,7 +292,7 @@ while :; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+#_draw 3 "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
 "scripttell break") break;;
@@ -243,7 +306,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+#_draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -267,13 +330,13 @@ grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 grepMANY=`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
- echo draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
+ _draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
  exit 1
  else
- echo draw 7 "'${INGRED[$C2]}' in inventory."
+ _draw 7 "'${INGRED[$C2]}' in inventory."
  fi
 else
-echo draw 3 "No '${INGRED[$C2]}' in inventory."
+_draw 3 "No '${INGRED[$C2]}' in inventory."
 exit 1
 fi
 
@@ -304,7 +367,7 @@ seventeen) NUMBER_ALCH=17;;
 eightteen) NUMBER_ALCH=18;;
 nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
-*) echo draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
+*) _draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
 esac
 test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
@@ -336,12 +399,12 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 1s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 _beep
 exit $1
 }
@@ -362,7 +425,7 @@ REPLY="";
 
 echo "issue 1 1 apply"
 
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 sleep 1s
 
@@ -391,7 +454,7 @@ sleep 1s
  twenty)    NUMBER[$FOR]=20;;
 esac
 
- echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
@@ -429,7 +492,7 @@ esac
 
  done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 sleep 1s
 
 echo "issue 1 1 $DIRB"
@@ -441,7 +504,7 @@ sleep 1s
 echo "issue 1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
-echo watch drawinfo
+echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -460,7 +523,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch drawinfo
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
@@ -477,19 +540,19 @@ echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill $SKILL"
 sleep 6s
 
-echo draw 7 "drop $GOAL"
+_draw 7 "drop $GOAL"
 echo "issue 0 1 drop $GOAL"
 
 for FOR in `seq 3 1 $C`; do
 
- echo draw 7 "drop ${INGRED[$FOR]} (magic)"
+ _draw 7 "drop ${INGRED[$FOR]} (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
- echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
+ _draw 7 "drop ${INGRED[$FOR]}s (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep 2s
- echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
- echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep 2s
 
@@ -498,17 +561,15 @@ done
 #echo "issue 0 1 drop (magic)"
 #echo "issue 0 1 drop (cursed)"
 
-echo draw 7 "drop slag"
+_draw 7 "drop slag"
 echo "issue 0 1 drop slag"
-#echo "issue 0 1 drop slags"
 
-DELAY_DRAWINFO=4  #speed 0.32
 sleep ${DELAY_DRAWINFO}s
 
 toGO=$((NUMBER_ALCH-one))
 tEND=`date +%s`
 tLAP=$((tEND-tBEG))
-echo draw 5 "time ${tLAP}s used, still $toGO laps.."
+_draw 5 "time ${tLAP}s used, still $toGO laps.."
 
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
@@ -519,5 +580,5 @@ sleep 2s         #speed 0.32
 done
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 _beep
