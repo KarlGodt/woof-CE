@@ -343,13 +343,13 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-echo "issue 1 1 pickup 0"  # precaution
+_is "1 1 pickup 0"  # precaution
 
 f_exit(){
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 _draw 3 "Exiting $0."
 #echo unmonitor
@@ -361,7 +361,6 @@ _beep
 exit $1
 }
 
-#echo "issue 1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 
@@ -375,7 +374,7 @@ tBEG=${tEND:-`date +%s`}
 OLD_REPLY="";
 REPLY="";
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 
 echo watch $DRAW_INFO
 
@@ -408,7 +407,7 @@ esac
 
  _draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _is "1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  while :; do
  read -t 1 REPLY
@@ -447,13 +446,13 @@ esac
 echo unwatch $DRAW_INFO
 sleep 1s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 
-echo "issue 1 1 use_skill $SKILL"
+_is "1 1 use_skill $SKILL"
 
 # *** TODO: The $CAULDRON burps and then pours forth monsters!
 
@@ -478,44 +477,44 @@ done
 
 echo unwatch $DRAW_INFO
 
-echo "issue 1 1 apply"
-echo "issue 7 1 take"
+_is "1 1 apply"
+_is "7 1 take"
 sleep 1s
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 sleep 1s
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill $SKILL"
+_is "1 1 use_skill sense curse"
+_is "1 1 use_skill sense magic"
+_is "1 1 use_skill $SKILL"
 sleep 6s
 
 _draw 7 "drop $GOAL"
-echo "issue 0 1 drop $GOAL"
+_is "0 1 drop $GOAL"
 
 for FOR in `seq 2 1 $C`; do
 
  _draw 7 "drop ${INGRED[$FOR]} (magic)"
- echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
+ _is "0 1 drop ${INGRED[$FOR]} (magic)"
  _draw 7 "drop ${INGRED[$FOR]}s (magic)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
+ _is "0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep 2s
  _draw 7 "drop ${INGRED[$FOR]} (cursed)"
- echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
+ _is "0 1 drop ${INGRED[$FOR]} (cursed)"
  _draw 7 "drop ${INGRED[$FOR]}s (cursed)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
+ _is "0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep 2s
 
 done
 
-#echo "issue 0 1 drop (magic)"
-#echo "issue 0 1 drop (cursed)"
+#_is "0 1 drop (magic)"
+#_is "0 1 drop (cursed)"
 
 _draw 7 "drop slag"
-echo "issue 0 1 drop slag"
+_is "0 1 drop slag"
 
 
 sleep ${DELAY_DRAWINFO}s
@@ -525,10 +524,10 @@ tEND=`date +%s`
 tLAP=$((tEND-tBEG))
 _draw 5 "time ${tLAP}s used, still $toGO laps.."
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 2s         #speed 0.32
 
 done
