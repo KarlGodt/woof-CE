@@ -1,7 +1,10 @@
 #!/bin/bash
 # uses arrays
 
-# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
+# WARNING : NO CHECKS if cauldron still empty, monsters did not work ...
+
+LOGGING=1
+DEBUG=1
 
 rm -f /tmp/cf_*
 
@@ -165,13 +168,14 @@ _check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
 echo draw 2 "Checking if standing on '$CAULDRON' .."
 
-UNDER_ME='';
+unset UNDER_ME UNDER_ME_LIST
 echo request items on
 
  while [ 1 ]; do
  read -t 1 UNDER_ME
  sleep 0.1s
- #echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
  test "$UNDER_ME" = "request items on end" && break
@@ -456,7 +460,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo watch $DRAW_INFO
+echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 #echo "issue 7 1 take"
@@ -502,10 +506,6 @@ echo "issue 0 1 drop slag"
 
 sleep ${DELAY_DRAWINFO}s
 
-toGO=$((NUMBER_ALCH-one))
-tEND=`date +%s`
-tLAP=$((tEND-tBEG))
-echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
@@ -514,6 +514,11 @@ echo "issue 1 1 $DIRF"
 sleep 2s         #speed 0.32
 
 _check_if_on_cauldron || exit 2
+
+toGO=$((NUMBER_ALCH-one))
+tEND=`date +%s`
+tLAP=$((tEND-tBEG))
+echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 
 done
 

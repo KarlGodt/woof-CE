@@ -242,7 +242,7 @@ _check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
 _draw 2 "Checking if standing on '$CAULDRON' .."
 
-UNDER_ME='';
+unset UNDER_ME UNDER_ME_LIST
 echo request items on
 while :; do
 read -t 1 UNDER_ME
