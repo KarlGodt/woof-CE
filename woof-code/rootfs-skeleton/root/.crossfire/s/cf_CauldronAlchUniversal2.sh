@@ -277,7 +277,7 @@ shift
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
-echo watch $DRAW_INFO
+echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
 
 test "$*" && echo draw 5 "$*"
@@ -297,7 +297,7 @@ echo request items on
  while [ 1 ]; do
  read -t 1 UNDER_ME
  sleep 0.1s
- [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
  [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -328,8 +328,8 @@ echo issue 0 0 get all
  unset REPLY
  sleep 0.1
  read -t 1
- #
- #
+ [ "$LOGGING" ] && echo "_probe_empty_cauldron_yes:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  case $REPLY in
  *Nothing*to*take*) lRV=0;;
  '') break;;
@@ -419,12 +419,13 @@ esac
 
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -453,7 +454,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "use_skill $SKILL:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ]   && echo draw 3 "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1

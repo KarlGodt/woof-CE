@@ -3,7 +3,7 @@
 
 exec 2>/tmp/cf_script.err
 
-# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
+# WARNING : NO CHECKS if cauldron still empty, monsters did not work ...
 
 # *** Setting defaults *** #
 #set empty default
@@ -234,7 +234,7 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor issue
 echo unwatch
 echo unwatch $DRAW_INFO
-beep
+beep -l 500 -f 900
 exit $RV
 }
 
@@ -249,7 +249,7 @@ echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
 
 test "$*" && echo draw 5 "$*"
-beep
+beep -l 999 -f 999
 exit $RV
 }
 
@@ -388,9 +388,9 @@ esac
  echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"

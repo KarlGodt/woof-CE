@@ -1,6 +1,6 @@
 #!/bin/bash
 # uses arrays, ((c++))
-# WARNING : NO CHECKS if cauldron still available, empty, monsters did not work ...
+# WARNING : NO CHECKS if cauldron still empty, monsters did not work ...
 
 exec 2>>/tmp/cf_script.err
 
@@ -311,7 +311,7 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 1s
 
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 _draw 3 "Exiting $0."
 #echo unmonitor
 #echo unwatch monitor
@@ -322,6 +322,20 @@ _beep
 exit $RV
 }
 
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+_is "1 1 apply rod of word of recall"
+_is "1 1 fire center"
+_draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+_is "1 1 fire_stop"
+
+test "$*" && _draw 5 "$*"
+_beep
+exit $RV
+}
 
 # *** pre-requisites *** #
 
@@ -403,9 +417,9 @@ _probe_empty_cauldron_yes || f_exit 1
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
-# *** Now walk onto the $CAULDRON and make sure there are 4 tiles    *** #
-# *** west of the $CAULDRON.                                         *** #
-# *** Do not open the $CAULDRON - this script does it.               *** #
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** $DIRB of the $CAULDRON.                                       *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
 
@@ -464,9 +478,9 @@ esac
  _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.") f_exit 1 "No ${INGRED[$FOR]} to drop";;
+ *"There are only"*)  f_exit 1 "Not enough ${INGRED[$FOR]}";;
+ *"There is only"*)   f_exit 1 "Not enough ${INGRED[$FOR]}";;
  '') break;;
  esac
  #test "$REPLY" || break
@@ -482,9 +496,9 @@ esac
  _debug "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -517,10 +531,17 @@ _ping
 read -t 1 REPLY
 _log "$REPLY"
 _debug "$REPLY"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+#test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+#test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+case $REPLY in '') break;;
+$OLD_REPLY)        break;;
+*pours*forth*monsters*)   f_emergency_exit 1;;
+*You*unwisely*release*potent*forces*) exit 1;;
+esac
+
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
