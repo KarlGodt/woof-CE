@@ -118,6 +118,21 @@ echo issue "$@"
 sleep 0.2
 }
 
+_usage(){
+# *** implementing 'help' option *** #
+
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Allowed NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 5 "ARTIFACT with"
+_draw 2 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+_draw 5 "by SKILL using cauldron automatically determined by SKILL"
+
+     exit 0
+}
 
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
@@ -136,24 +151,8 @@ _draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_
 until test "$#" = 0
 do
 PARAM_1="$1"
-case "$PARAM_1" in -h|*"help"|*usage)
-# *** implementing 'help' option *** #
-
-
-_draw 5 "Script to produce alchemy objects."
-_draw 7 "Syntax:"
-_draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-_draw 5 "Allowed NUMBER will loop for"
-_draw 5 "NUMBER times to produce"
-_draw 5 "ARTIFACT with"
-_draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-_draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
-_draw 5 "by SKILL using cauldron automatically determined by SKILL"
-
-
-        exit 0
-;;
-
+case "$PARAM_1" in
+-h|*help|*usage) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
@@ -164,12 +163,18 @@ SKILL="$PARAM_1"
 case $SKILL in
 alchemy|alchemistry)        CAULDRON=cauldron;;
 bowyer|bowyery)             CAULDRON=workbench;;
-jewler)                     CAULDRON=jeweler_bench;;
+jeweler)                     CAULDRON=jeweler_bench;;
 smithery)                   CAULDRON=forge;;
 thaumaturgy)                CAULDRON=thaumaturg_desk;;
 woodsman)                   CAULDRON=stove;;
+cauldron)        CAULDRON=cauldron;        SKILL=alchemy;;
+workbench)       CAULDRON=workbench;       SKILL=bowyer;;
+jeweler_bench)   CAULDRON=jeweler_bench;   SKILL=jeweler;;
+forge)           CAULDRON=forge;           SKILL=smithery;;
+thaumaturg_desk) CAULDRON=thaumaturg_desk; SKILL=thaumaturgy;;
+stove)           CAULDRON=stove;           SKILL=woodsman;;
 *) _draw 3 "'$SKILL' not valid!"
-_draw 3 "Valid skills are alchemy, bowyer, jewler, smithery, thaumaturgy, woodsman"
+_draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
 exit 1;;
 esac
 _draw 7 "OK using $SKILL on $CAULDRON"
@@ -221,7 +226,34 @@ GOAL=${INGRED[2]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
 NUMBER_ALCH=${NUMBER[2]}
 
+# fallback
+case $NUMBER_ALCH in
+one)   NUMBER_ALCH=1;;
+two)   NUMBER_ALCH=2;;
+three) NUMBER_ALCH=3;;
+four)  NUMBER_ALCH=4;;
+five)  NUMBER_ALCH=5;;
+six)   NUMBER_ALCH=6;;
+seven) NUMBER_ALCH=7;;
+eight) NUMBER_ALCH=8;;
+nine)  NUMBER_ALCH=9;;
+ten)   NUMBER_ALCH=10;;
+eleven)    NUMBER_ALCH=11;;
+twelve)    NUMBER_ALCH=12;;
+thirteen)  NUMBER_ALCH=13;;
+fourteen)  NUMBER_ALCH=14;;
+fifteen)   NUMBER_ALCH=15;;
+sixteen)   NUMBER_ALCH=16;;
+seventeen) NUMBER_ALCH=17;;
+eightteen) NUMBER_ALCH=18;;
+nineteen)  NUMBER_ALCH=19;;
+twenty)    NUMBER_ALCH=20;;
+*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
+esac
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
+
+#DEBUG
 C=2
 for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 do
@@ -230,58 +262,7 @@ INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
 _log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
 done
 
-;;
-
-esac
-shift
-sleep 0.1
-done
-
-
-_check_if_on_cauldron(){
-# *** Check if standing on a $CAULDRON *** #
-_draw 2 "Checking if standing on '$CAULDRON' .."
-
-unset UNDER_ME UNDER_ME_LIST
-echo request items on
-while :; do
-read -t 1 UNDER_ME
-sleep 0.1s
-_log -file="$LOG_ISON_FILE" "$UNDER_ME"
-_debug "$UNDER_ME"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
-esac
-done
-
- __old_loop(){
-  while [ 1 ]; do
-  read -t 1 UNDER_ME
-  sleep 0.1s
-  _log -file="$LOG_ISON_FILE" "$UNDER_ME"
-  _debug "$UNDER_ME"
-  UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-  test "$UNDER_ME" = "request items on end" && break
-  test "$UNDER_ME" = "scripttell break" && break
-  test "$UNDER_ME" = "scripttell exit" && exit 1
-  done
- }
-
- test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
- _draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
- _beep
- exit 1
- }
-
-}
-
-_check_if_on_cauldron || exit 2
-
+_probe_inventory(){
 # *** Check if is in inventory *** #
 
 rm -f "$LOG_INV_FILE" || exit 1
@@ -297,11 +278,11 @@ echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
 _debug "$INVTRY"
 
 case "$INVTRY" in "") break;;
-"request items inv end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
-esac
-sleep 0.01s
+ "request items inv end") break;;
+ "scripttell break") break;;
+ "scripttell exit") exit 1;;
+ esac
+ sleep 0.01s
 done
 
 __old_loop(){
@@ -345,36 +326,105 @@ _draw 3 "No '${INGRED[$C2]}' in inventory."
 exit 1
 fi
 
-# *** Check for suffizient amount of ingredient *** #
-# *** TODO
+done
+}
+_probe_inventory
 
+;;
+
+esac
+shift
+sleep 0.1
 done
 
+# ** exit funcs ** #
+f_exit(){
+RV=${1:-0}
+shift
 
-case $NUMBER_ALCH in
-one)   NUMBER_ALCH=1;;
-two)   NUMBER_ALCH=2;;
-three) NUMBER_ALCH=3;;
-four)  NUMBER_ALCH=4;;
-five)  NUMBER_ALCH=5;;
-six)   NUMBER_ALCH=6;;
-seven) NUMBER_ALCH=7;;
-eight) NUMBER_ALCH=8;;
-nine)  NUMBER_ALCH=9;;
-ten)   NUMBER_ALCH=10;;
-eleven)    NUMBER_ALCH=11;;
-twelve)    NUMBER_ALCH=12;;
-thirteen)  NUMBER_ALCH=13;;
-fourteen)  NUMBER_ALCH=14;;
-fifteen)   NUMBER_ALCH=15;;
-sixteen)   NUMBER_ALCH=16;;
-seventeen) NUMBER_ALCH=17;;
-eightteen) NUMBER_ALCH=18;;
-nineteen)  NUMBER_ALCH=19;;
-twenty)    NUMBER_ALCH=20;;
-*) _draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
-esac
-test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+sleep 1s
+
+test "$*" && echo draw 5 "$*"
+_draw 3 "Exiting $0."
+#echo unmonitor
+#echo unwatch monitor
+#echo unwatch monitor issue
+echo unwatch
+echo unwatch $DRAW_INFO
+_beep
+exit $RV
+}
+
+
+# *** pre-requisites *** #
+
+_check_if_on_cauldron(){
+# *** Check if standing on a $CAULDRON *** #
+_draw 2 "Checking if standing on '$CAULDRON' .."
+
+unset UNDER_ME UNDER_ME_LIST
+echo request items on
+while :; do
+ read -t 1 UNDER_ME
+ sleep 0.1s
+ _log -file="$LOG_ISON_FILE" "$UNDER_ME"
+ _debug "$UNDER_ME"
+ UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+ case "$UNDER_ME" in
+ "request items on end") break;;
+ "scripttell break") break;;
+ "scripttell exit") exit 1;;
+ esac
+done
+
+ test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
+ _draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
+ _beep
+ exit 1
+ }
+
+}
+
+_probe_empty_cauldron_yes(){
+
+_draw 2 "Probing for empty $CAULDRON .."
+local lRV=1
+
+echo watch $DRAW_INFO
+
+_is 0 0 apply
+
+_is 0 0 get all
+
+ while :; do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+ _log "$REPLY"
+ _debug "$REPLY"
+ case $REPLY in
+ *Nothing*to*take*) lRV=0;;
+ '') break;;
+ *) :;;
+ esac
+
+ done
+
+echo unwatch $DRAW_INFO
+
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+
+return ${lRV:-4}
+}
+
+_check_if_on_cauldron || exit 2
+_probe_empty_cauldron_yes || f_exit 1 "Cauldron not empty."
 
 
 # *** Actual script to alch the desired water of gem *** #
@@ -397,23 +447,6 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
 
 _is "1 1 pickup 0"  # precaution
-
-f_exit(){
-_is "1 1 $DIRB"
-_is "1 1 $DIRB"
-_is "1 1 $DIRF"
-_is "1 1 $DIRF"
-sleep 1s
-_draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
-echo unwatch
-echo unwatch $DRAW_INFO
-_beep
-exit $1
-}
-
 
 rm -f "$LOG_REPLY_FILE"
 

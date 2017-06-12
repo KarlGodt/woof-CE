@@ -55,17 +55,7 @@ _ping(){ # TODO
     :
 }
 
-# *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
-
-# *** Check for parameters *** #
-[ "$*" ] && {
-PARAM_1="$1"
-
-# *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"|*usage)
-
+_usage(){
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
@@ -77,19 +67,43 @@ echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
 
         exit 0
+}
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
+echo draw 5 " with '$*' parameter."
+
+# *** Check for parameters *** #
+[ "$*" ]  || {
+echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+        exit 1
+}
+
+
+PARAM_1="$1"
+
+# *** implementing 'help' option *** #
+case "$PARAM_1" in -h|*"help"|*usage)
+ _usage
 ;;
 esac
 
 SKILL="$PARAM_1"
 case $SKILL in
-alchemy|alchemistry)        CAULDRON=cauldron;;
-bowyer|bowyery)             CAULDRON=workbench;;
-jewler)                     CAULDRON=jeweler_bench;;
-smithery)                   CAULDRON=forge;;
-thaumaturgy)                CAULDRON=thaumaturg_desk;;
-woodsman)                   CAULDRON=stove;;
+alchemy|alchemistry)  CAULDRON=cauldron;;
+bowyer|bowyery)       CAULDRON=workbench;;
+jeweler)              CAULDRON=jeweler_bench;;
+smithery)             CAULDRON=forge;;
+thaumaturgy)          CAULDRON=thaumaturg_desk;;
+woodsman)             CAULDRON=stove;;
+cauldron)        CAULDRON=cauldron;        SKILL=alchemy;;
+workbench)       CAULDRON=workbench;       SKILL=bowyer;;
+jeweler_bench)   CAULDRON=jeweler_bench;   SKILL=jeweler;;
+forge)           CAULDRON=forge;           SKILL=smithery;;
+thaumaturg_desk) CAULDRON=thaumaturg_desk; SKILL=thaumaturgy;;
+stove)           CAULDRON=stove;           SKILL=woodsman;;
 *) echo draw 3 "'$SKILL' not valid!"
-echo draw 3 "Valid skills are alchemy, bowyer, jewler, smithery, thaumaturgy, woodsman"
+echo draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
 exit 1;;
 esac
 echo draw 7 "OK using $SKILL on $CAULDRON"
@@ -141,7 +155,33 @@ GOAL=${INGRED[2]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
 NUMBER_ALCH=${NUMBER[2]}
 
+# fallback
+case $NUMBER_ALCH in
+one)   NUMBER_ALCH=1;;
+two)   NUMBER_ALCH=2;;
+three) NUMBER_ALCH=3;;
+four)  NUMBER_ALCH=4;;
+five)  NUMBER_ALCH=5;;
+six)   NUMBER_ALCH=6;;
+seven) NUMBER_ALCH=7;;
+eight) NUMBER_ALCH=8;;
+nine)  NUMBER_ALCH=9;;
+ten)   NUMBER_ALCH=10;;
+eleven)    NUMBER_ALCH=11;;
+twelve)    NUMBER_ALCH=12;;
+thirteen)  NUMBER_ALCH=13;;
+fourteen)  NUMBER_ALCH=14;;
+fifteen)   NUMBER_ALCH=15;;
+sixteen)   NUMBER_ALCH=16;;
+seventeen) NUMBER_ALCH=17;;
+eightteen) NUMBER_ALCH=18;;
+nineteen)  NUMBER_ALCH=19;;
+twenty)    NUMBER_ALCH=20;;
+*) echo draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
+esac
+test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 
+#DEBUG
 C=2
 for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 do
@@ -150,85 +190,7 @@ INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
 echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
 done
 
-
-} || {
-echo draw 3 "Script needs skill, goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
-        exit 1
-}
-
-test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
-echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
-echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
-        exit 1
-}
-
-
-_check_if_on_cauldron(){
-# *** Check if standing on a $CAULDRON *** #
-echo draw 2 "Checking if standing on '$CAULDRON' .."
-
-unset UNDER_ME UNDER_ME_LIST
-echo request items on
-
- while [ 1 ]; do
- read -t 1 UNDER_ME
- sleep 0.1s
- [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
- [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
- UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
- test "$UNDER_ME" = "request items on end" && break
- test "$UNDER_ME" = "scripttell break" && break
- test "$UNDER_ME" = "scripttell exit" && exit 1
- done
-
- test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
- echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
- _beep
- exit 1
- }
-}
-
-_check_if_on_cauldron || exit 2
-
-
-_probe_empty_cauldron_yes(){
-
-echo draw 2 "Probing for empty $CAULDRON .."
-local lRV=1
-
-echo watch $DRAW_INFO
-
-echo issue 0 0 apply
-
-echo issue 0 0 get all
-
- while :; do
- unset REPLY
- sleep 0.1
- read -t 1
- #
- #
- case $REPLY in
- *Nothing*to*take*) lRV=0;;
- '') break;;
- *) :;;
- esac
-
- done
-
-echo unwatch $DRAW_INFO
-
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-
-return ${lRV:-4}
-}
-
-_probe_empty_cauldron_yes || f_exit 1 "Cauldron not empty."
-
-
+_probe_inventory(){
 # *** Check if is in inventory *** #
 
 rm -f /tmp/cf_script.inv || exit 1
@@ -274,59 +236,18 @@ echo draw 3 "No '${INGRED[$C2]}' in inventory."
 exit 1
 fi
 
-# *** Check for sufficient amount of ingredient *** #
-# *** TODO
-
 done
+}
+_probe_inventory
 
+test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
+echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+        exit 1
+}
 
-case $NUMBER_ALCH in
-one)   NUMBER_ALCH=1;;
-two)   NUMBER_ALCH=2;;
-three) NUMBER_ALCH=3;;
-four)  NUMBER_ALCH=4;;
-five)  NUMBER_ALCH=5;;
-six)   NUMBER_ALCH=6;;
-seven) NUMBER_ALCH=7;;
-eight) NUMBER_ALCH=8;;
-nine)  NUMBER_ALCH=9;;
-ten)   NUMBER_ALCH=10;;
-eleven)    NUMBER_ALCH=11;;
-twelve)    NUMBER_ALCH=12;;
-thirteen)  NUMBER_ALCH=13;;
-fourteen)  NUMBER_ALCH=14;;
-fifteen)   NUMBER_ALCH=15;;
-sixteen)   NUMBER_ALCH=16;;
-seventeen) NUMBER_ALCH=17;;
-eightteen) NUMBER_ALCH=18;;
-nineteen)  NUMBER_ALCH=19;;
-twenty)    NUMBER_ALCH=20;;
-*) echo draw 3 "'$NUMBER_ALCH' incorrect";exit 1;;
-esac
-test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
-
-
-# *** Actual script to alch the desired water of gem *** #
-
-# *** Lets loop - hope you have the needed amount of ingredients    *** #
-# *** in the inventory of the character and unlocked !              *** #
-# *** Make sure similar items are not in the inventory --           *** #
-# *** eg. staff of summon water elemental and such ...              *** #
-
-# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
-# *** Then if some items are locked, unlock these and drop again.   *** #
-
-# *** Now get the number of desired water of the wise and           *** #
-# *** three times the number of the desired gem.                    *** #
-
-# *** Now walk onto the $CAULDRON and make sure there are 4 tiles    *** #
-# *** west of the $CAULDRON.                                         *** #
-# *** Do not open the $CAULDRON - this script does it.               *** #
-# *** HAPPY ALCHING !!!                                             *** #
-
-
-echo "issue 1 1 pickup 0"  # precaution
-
+# ** exit funcs ** #
 f_exit(){
 RV=${1:-0}
 shift
@@ -364,7 +285,90 @@ _beep
 exit $RV
 }
 
-#echo "issue 1 1 pickup 0"  # precaution
+# *** pre-requisites *** #
+
+_check_if_on_cauldron(){
+# *** Check if standing on a $CAULDRON *** #
+echo draw 2 "Checking if standing on '$CAULDRON' .."
+
+unset UNDER_ME UNDER_ME_LIST
+echo request items on
+
+ while [ 1 ]; do
+ read -t 1 UNDER_ME
+ sleep 0.1s
+ [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
+ UNDER_ME_LIST="$UNDER_ME
+$UNDER_ME_LIST"
+ test "$UNDER_ME" = "request items on end" && break
+ test "$UNDER_ME" = "scripttell break" && break
+ test "$UNDER_ME" = "scripttell exit" && exit 1
+ done
+
+ test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
+ echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
+ _beep
+ exit 1
+ }
+}
+
+_probe_empty_cauldron_yes(){
+
+echo draw 2 "Probing for empty $CAULDRON .."
+local lRV=1
+
+echo watch $DRAW_INFO
+
+echo issue 0 0 apply
+
+echo issue 0 0 get all
+
+ while :; do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+ #
+ #
+ case $REPLY in
+ *Nothing*to*take*) lRV=0;;
+ '') break;;
+ *) :;;
+ esac
+
+ done
+
+echo unwatch $DRAW_INFO
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+
+return ${lRV:-4}
+}
+
+_check_if_on_cauldron || exit 2
+_probe_empty_cauldron_yes || f_exit 1 "Cauldron not empty."
+
+# *** Actual script to alch the desired water of gem *** #
+
+# *** Lets loop - hope you have the needed amount of ingredients    *** #
+# *** in the inventory of the character and unlocked !              *** #
+# *** Make sure similar items are not in the inventory --           *** #
+# *** eg. staff of summon water elemental and such ...              *** #
+
+# *** So do a 'drop water' and 'drop GEM' before beginning to alch. *** #
+# *** Then if some items are locked, unlock these and drop again.   *** #
+
+# *** Now get the number of desired water of the wise and           *** #
+# *** three times the number of the desired gem.                    *** #
+
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** $DIRB of the $CAULDRON.                                       *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
+# *** HAPPY ALCHING !!!                                             *** #
+
+
+echo "issue 1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 
