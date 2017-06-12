@@ -5,7 +5,7 @@
 
 rm -f /tmp/cf_*
 
-exec 2>>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
 # TODO Player Speed
 
@@ -18,8 +18,9 @@ C=0 # used in arrays, set zero as default
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
-# increase carried weight. This version does not adjust player speed after
-# several weight losses.
+# increase carried weight, and to prevent created items being dropped into
+# cauldron, thus failing the recipe.
+# This version does not adjust player speed after several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -33,6 +34,9 @@ northeast) DIRF=southwest;;
 southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
+
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 # beeping
 BEEP_DO=1
@@ -157,32 +161,75 @@ echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandr
 }
 
 
+_check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
+echo draw 2 "Checking if standing on '$CAULDRON' .."
+
 UNDER_ME='';
 echo request items on
 
-while [ 1 ]; do
-read -t 1 UNDER_ME
-sleep 0.1s
-#echo "$UNDER_ME" >>/tmp/cf_script.ion
-UNDER_ME_LIST="$UNDER_ME
+ while [ 1 ]; do
+ read -t 1 UNDER_ME
+ sleep 0.1s
+ #echo "$UNDER_ME" >>/tmp/cf_script.ion
+ UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
+ test "$UNDER_ME" = "request items on end" && break
+ test "$UNDER_ME" = "scripttell break" && break
+ test "$UNDER_ME" = "scripttell exit" && exit 1
+ done
 
-test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
-echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
-_beep
-exit 1
+ test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
+ echo draw 3 "Need to stand upon a '$CAULDRON' to do '$SKILL' !"
+ _beep
+ exit 1
+ }
 }
+
+_check_if_on_cauldron || exit 2
+
+
+_probe_empty_cauldron_yes(){
+
+echo draw 2 "Probing for empty $CAULDRON .."
+local lRV=1
+
+echo watch $DRAW_INFO
+
+echo issue 0 0 apply
+
+echo issue 0 0 get all
+
+ while :; do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+ #
+ #
+ case $REPLY in
+ *Nothing*to*take*) lRV=0;;
+ '') break;;
+ *) :;;
+ esac
+
+ done
+
+echo unwatch $DRAW_INFO
+
+echo "issue 1 1 $DIRB"
+echo "issue 1 1 $DIRF"
+
+return ${lRV:-4}
+}
+
+_probe_empty_cauldron_yes || f_exit 1 "Cauldron not empty."
+
 
 # *** Check if is in inventory *** #
 
 rm -f /tmp/cf_script.inv || exit 1
 INVTRY='';
-#echo watch request items inv
+
 echo request items inv
 while [ 1 ]; do
 INVTRY=""
@@ -205,8 +252,9 @@ do
 
 ((C2++))
 GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
-echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
 
+
+echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
 grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
 
 grepMANY=`grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv`
@@ -314,7 +362,7 @@ exit $RV
 
 #echo "issue 1 1 pickup 0"  # precaution
 
-rm -f /tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 sleep 1s
 
@@ -363,12 +411,12 @@ esac
 
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough"
  #test "$REPLY" || break
  #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
@@ -464,6 +512,8 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 2s         #speed 0.32
+
+_check_if_on_cauldron || exit 2
 
 done
 

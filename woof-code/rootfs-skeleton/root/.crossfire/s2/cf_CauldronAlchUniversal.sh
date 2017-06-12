@@ -210,14 +210,18 @@ _draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 .
 }
 
 
+_check_if_on_cauldron(){
 # *** Check if standing on a $CAULDRON *** #
+_draw 2 "Checking if standing on '$CAULDRON' .."
+
 UNDER_ME='';
 echo request items on
 
 while :; do
-read UNDER_ME
+read -t 1 UNDER_ME
 sleep 0.1s
 _log -file="$LOG_ISON_FILE" "$UNDER_ME"
+_debug "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -226,24 +230,29 @@ case "$UNDER_ME" in "request items on end") break;;
 esac
 done
 
-__old_loop(){
-while [ 1 ]; do
-read -t 1 UNDER_ME
-sleep 0.1s
-_log -file="$LOG_ISON_FILE" "$UNDER_ME"
-UNDER_ME_LIST="$UNDER_ME
+ __old_loop(){
+  while [ 1 ]; do
+  read -t 1 UNDER_ME
+  sleep 0.1s
+  _log -file="$LOG_ISON_FILE" "$UNDER_ME"
+  _debug "$UNDER_ME"
+  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
-test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
-done
+  test "$UNDER_ME" = "request items on end" && break
+  test "$UNDER_ME" = "scripttell break" && break
+  test "$UNDER_ME" = "scripttell exit" && exit 1
+ done
+ }
+
+ test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
+ _draw 3 "Need to stand upon a $CAULDRON!"
+ _beep
+ exit 1
+ }
+
 }
 
-test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
-_draw 3 "Need to stand upon a $CAULDRON!"
-_beep
-exit 1
-}
+_check_if_on_cauldron || exit 2
 
 # *** Check if is in inventory *** #
 
@@ -256,8 +265,7 @@ while :; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE" # grep ingred further down, not otional
-#_log -file="$LOG_INV_FILE" "$INVTRY"
-#_draw 3 "$INVTRY"
+_debug "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
 "scripttell break") break;;
@@ -271,8 +279,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
-#_log -file="$LOG_INV_FILE" "$INVTRY"
-#_draw 3 "$INVTRY"
+_debug "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -292,8 +299,14 @@ GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
 echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
-if [[ "`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`" ]]; then
-_draw 7 "${INGRED[$C2]} in inventory."
+#if [[ "`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`" ]]; then
+grepMANY=`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`
+if [[ "$grepMANY" ]]; then
+ if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
+ echo draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
+ exit 1
+ else
+ _draw 7 "${INGRED[$C2]} in inventory."
 else
 _draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
@@ -419,6 +432,7 @@ esac
  while :; do
  read -t 1 REPLY
  _log "$REPLY"
+ _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.") f_exit 1;;
@@ -436,6 +450,7 @@ esac
  while [ 1 ]; do
  read -t 1 REPLY
  _log "$REPLY"
+ _debug "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -472,6 +487,7 @@ while :; do
 _ping
 read -t 1 REPLY
 _log "$REPLY"
+_debug "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -538,6 +554,8 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 2s         #speed 0.32
+
+_check_if_on_cauldron || exit 2
 
 done
 
