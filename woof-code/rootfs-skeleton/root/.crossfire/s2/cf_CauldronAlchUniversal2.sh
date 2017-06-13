@@ -362,29 +362,6 @@ if test "$C" != 1; then
  NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 #NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
-#case ${NUMBER[$C]} in
-#1) NUMBER[$C]=one;;
-#2) NUMBER[$C]=two;;
-#3) NUMBER[$C]=three;;
-#4) NUMBER[$C]=four;;
-#5) NUMBER[$C]=five;;
-#6) NUMBER[$C]=six;;
-#7) NUMBER[$C]=seven;;
-#8) NUMBER[$C]=eight;;
-#9) NUMBER[$C]=nine;;
-#10) NUMBER[$C]=ten;;
-#11) NUMBER[$C]=eleven;;
-#12) NUMBER[$C]=twelve;;
-#13) NUMBER[$C]=thirteen;;
-#14) NUMBER[$C]=fourteen;;
-#15) NUMBER[$C]=fifteen;;
-#16) NUMBER[$C]=sixteen;;
-#17) NUMBER[$C]=seventeen;;
-#18) NUMBER[$C]=eightteen;;
-#19) NUMBER[$C]=nineteen;;
-#20) NUMBER[$C]=twenty;;
-#esac
-
 _number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
 fi
 
@@ -398,26 +375,6 @@ NUMBER_ALCH=${NUMBER[2]}
 
 # fallback
 case $NUMBER_ALCH in
-#one)   NUMBER_ALCH=1;;
-#two)   NUMBER_ALCH=2;;
-#three) NUMBER_ALCH=3;;
-#four)  NUMBER_ALCH=4;;
-#five)  NUMBER_ALCH=5;;
-#six)   NUMBER_ALCH=6;;
-#seven) NUMBER_ALCH=7;;
-#eight) NUMBER_ALCH=8;;
-#nine)  NUMBER_ALCH=9;;
-#ten)   NUMBER_ALCH=10;;
-#eleven)    NUMBER_ALCH=11;;
-#twelve)    NUMBER_ALCH=12;;
-#thirteen)  NUMBER_ALCH=13;;
-#fourteen)  NUMBER_ALCH=14;;
-#fifteen)   NUMBER_ALCH=15;;
-#sixteen)   NUMBER_ALCH=16;;
-#seventeen) NUMBER_ALCH=17;;
-#eightteen) NUMBER_ALCH=18;;
-#nineteen)  NUMBER_ALCH=19;;
-#twenty)    NUMBER_ALCH=20;;
 
 [0-9]*) :;;
 -I|*infinite) NUMBER_ALCH="I";;
@@ -638,7 +595,7 @@ sleep 1s
 TIMEB=`date +%s`
 one=0
 
-#for one in `seq 1 1 $NUMBER_ALCH`
+
 while :;
 do
 
@@ -656,33 +613,10 @@ sleep 1s
  for FOR in `seq 3 1 $C`; do
 
  case ${NUMBER[$FOR]} in
- #one)   NUMBER[$FOR]=1;;
- #two)   NUMBER[$FOR]=2;;
- #three) NUMBER[$FOR]=3;;
- #four)  NUMBER[$FOR]=4;;
- #five)  NUMBER[$FOR]=5;;
- #six)   NUMBER[$FOR]=6;;
- #seven) NUMBER[$FOR]=7;;
- #eight) NUMBER[$FOR]=8;;
- #nine)  NUMBER[$FOR]=9;;
- #ten)   NUMBER[$FOR]=10;;
- #eleven)    NUMBER[$FOR]=11;;
- #twelve)    NUMBER[$FOR]=12;;
- #thirteen)  NUMBER[$FOR]=13;;
- #fourteen)  NUMBER[$FOR]=14;;
- #fifteen)   NUMBER[$FOR]=15;;
- #sixteen)   NUMBER[$FOR]=16;;
- #seventeen) NUMBER[$FOR]=17;;
- #eightteen) NUMBER[$FOR]=18;;
- #nineteen)  NUMBER[$FOR]=19;;
- #twenty)    NUMBER[$FOR]=20;;
-
  [0-9]*) :;;
  *) _word_to_number ${NUMBER[$FOR]} && NUMBER[$FOR]=$WORD2NUMBER
     ;;
  esac
-
- #_draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  _is "1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
@@ -727,15 +661,11 @@ read -t 1 REPLY
 _log "$REPLY"
 _debug "$REPLY"
 
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
-#test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-#test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
-case $REPLY in '') break;;
-$OLD_REPLY)        break;;
-*pours*forth*monsters*)   f_emergency_exit 1;;
-*You*unwisely*release*potent*forces*) exit 1;;
-esac
+ case $REPLY in '') break;;
+ $OLD_REPLY)        break;;
+ *pours*forth*monsters*)   f_emergency_exit 1;;
+ *You*unwisely*release*potent*forces*) exit 1;;
+ esac
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
@@ -759,25 +689,19 @@ _is "1 1 use_skill sense magic"
 _is "1 1 use_skill $SKILL"
 sleep 6s
 
-_draw 7 "drop $GOAL"
 _is "0 1 drop $GOAL"
 
 for FOR in `seq 3 1 $C`; do
 
- #_draw 7 "drop ${INGRED[$FOR]} (magic)"
  _is "0 1 drop ${INGRED[$FOR]} (magic)"
- #_draw 7 "drop ${INGRED[$FOR]}s (magic)"
  _is "0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep 2s
- #_draw 7 "drop ${INGRED[$FOR]} (cursed)"
  _is "0 1 drop ${INGRED[$FOR]} (cursed)"
- #_draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  _is "0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep 2s
 
 done
 
-_draw 7 "drop slag"
 _is "0 1 drop slag"
 
 sleep ${DELAY_DRAWINFO}s

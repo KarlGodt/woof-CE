@@ -414,7 +414,7 @@ sleep 1s
 TIMEB=`date +%s`
 one=0
 
-#for one in `seq 1 1 $NUMBER_ALCH`
+
 while :;
 do
 
