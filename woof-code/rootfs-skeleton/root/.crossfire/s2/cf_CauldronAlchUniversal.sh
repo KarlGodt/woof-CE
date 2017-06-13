@@ -64,6 +64,17 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
 
+# ping if connection is dropping once a while
+PING_DO=
+URL=crossfire.metalforge.net
+_ping(){
+test "$PING_DO" || return 0
+while :; do
+ping -c1 -w10 -W10 "$URL" && break
+sleep 1
+done >/dev/null
+}
+
 # colours
 COL_BLACK=0
 COL_WHITE=1
@@ -109,6 +120,11 @@ _draw ${COL_VERB:-12} "$*"
 
 _debug(){
 [ "$DEBUG" ] || return 0
+_draw ${COL_DBG:-11} "$*"
+}
+
+_debugx(){
+[ "$DEBUGX" ] || return 0
 _draw ${COL_DBG:-11} "$*"
 }
 
@@ -184,6 +200,54 @@ twenty)    WORD2NUMBER=20;;
 *) :;;
 esac
 test "$WORD2NUMBER"
+}
+
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 3
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+echo draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$one" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+elif test "$((one/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $one ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`date +%s`
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
 _usage(){
@@ -393,11 +457,10 @@ sleep 1s
 
 test "$*" && _draw 5 "$*"
 _draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+
 echo unwatch
 echo unwatch $DRAW_INFO
+
 _beep
 _say_statistics_end
 exit $RV
@@ -554,7 +617,7 @@ sleep 1s
  #twenty)    NUMBER[$FOR]=20;;
 
  [0-9]*) :;;
- *) _word_to_number ${NUMBER[$FOR]} && ${NUMBER[$FOR]}=$WORD2NUMBER
+ *) _word_to_number ${NUMBER[$FOR]} && NUMBER[$FOR]=$WORD2NUMBER
     ;;
  esac
 
@@ -688,54 +751,6 @@ done
 
 
 # *** Here ends program *** #
-
-# times
-_say_minutes_seconds(){
-#_say_minutes_seconds "500" "600" "Loop run:"
-test "$1" -a "$2" || return 3
-
-local TIMEa TIMEz TIMEy TIMEm TIMEs
-
-TIMEa="$1"
-shift
-TIMEz="$1"
-shift
-
-TIMEy=$((TIMEz-TIMEa))
-TIMEm=$((TIMEy/60))
-TIMEs=$(( TIMEy - (TIMEm*60) ))
-case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
-
-echo draw 5 "$* $TIMEm:$TIMEs minutes."
-}
-
-_say_success_fail(){
-test "$NUMBER" -a "$FAIL" || return 3
-
-if test "$FAIL" -le 0; then
- SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
-elif test "$((NUMBER/FAIL))" -lt 2;
-then
- echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
- echo draw 7 "PLEASE increase your INTELLIGENCE !!"
-else
- SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
-fi
-}
-
-_say_statistics_end(){
-# Now count the whole loop time
-TIMELE=`date +%s`
-_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
-
-_say_success_fail
-
-# Now count the whole script time
-TIMEZ=`date +%s`
-_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
-}
 
 _say_statistics_end
 
