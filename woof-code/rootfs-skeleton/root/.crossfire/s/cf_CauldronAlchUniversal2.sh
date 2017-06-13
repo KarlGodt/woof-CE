@@ -3,6 +3,8 @@
 
 # WARNING : NO CHECKS if cauldron still empty, monsters did not work ...
 
+TIMEA=`date +%s`
+
 LOGGING=1
 DEBUG=1
 
@@ -56,6 +58,8 @@ _ping(){ # TODO
 }
 
 _usage(){
+
+echo draw 0 ""
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
@@ -65,6 +69,11 @@ echo draw 2 "NUMBER times ie '10' with"
 echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
+echo draw 4 "NUMBER can be set to '-I' to run infinte."
+echo draw 4 "until one ingredient runs out."
+echo draw 3 "Space in ARTIFACT and INGREDIENT need to be substituted by Underscore"
+echo draw 3 "ie 'balm of first aid' as 'balm_of_first_aid'"
+echo draw 0 ""
 
         exit 0
 }
@@ -111,16 +120,20 @@ echo draw 7 "OK using $SKILL on $CAULDRON"
 # *** testing parameters for validity *** #
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
+
 #WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
+ for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 do
+
 #vc=$((c-1));ivc=$((vc-1));((C++));
-vc=$((c-0));ivc=$((vc-1));((C++));
-INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+ vc=$((c-0));ivc=$((vc-1));((C++));
+
+ INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 #INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+
 if test "$C" != 1; then
-NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+ NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 #NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
 case ${NUMBER[$C]} in
@@ -177,9 +190,15 @@ seventeen) NUMBER_ALCH=17;;
 eightteen) NUMBER_ALCH=18;;
 nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
+-I|*infinite) NUMBER_ALCH="I";;
+*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
 *) echo draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
 esac
-test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+
+if test "$NUMBER_ALCH"; then
+ test "$NUMBER_ALCH" = 'I' || test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+fi
+test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 #DEBUG
 C=2
@@ -265,8 +284,9 @@ echo draw 3 "Exiting $0."
 #echo unwatch monitor
 #echo unwatch monitor issue
 echo unwatch
-echo watch $DRAW_INFO
+echo unwatch $DRAW_INFO
 _beep
+_say_statistics_end
 exit $RV
 }
 
@@ -282,6 +302,7 @@ echo "issue 1 1 fire_stop"
 
 test "$*" && echo draw 5 "$*"
 _beep
+_say_statistics_end
 exit $RV
 }
 
@@ -374,7 +395,11 @@ rm -f "$LOG_REPLY_FILE"
 
 sleep 1s
 
-for one in `seq 1 1 $NUMBER_ALCH`
+TIMEB=`date +%s`
+one=0
+
+#for one in `seq 1 1 $NUMBER_ALCH`
+while :;
 do
 
 tBEG=`date +%s`
@@ -426,8 +451,7 @@ esac
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
  test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
  test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
+
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
@@ -460,8 +484,7 @@ test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
 test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
+
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -469,7 +492,6 @@ done
 echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
-#echo "issue 7 1 take"
 echo "issue 0 0 get all"  # TODO: cauldron is gone: You can't pick up a [wood]* floor.
 
 sleep 1s
@@ -503,8 +525,6 @@ for FOR in `seq 3 1 $C`; do
 
 done
 
-#echo "issue 0 1 drop (magic)"
-#echo "issue 0 1 drop (cursed)"
 
 echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
@@ -519,15 +539,77 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep 2s         #speed 0.32
 
+
 _check_if_on_cauldron || exit 2
 
-toGO=$((NUMBER_ALCH-one))
+
+one=$((one+1))
 tEND=`date +%s`
 tLAP=$((tEND-tBEG))
-echo draw 5 "time ${tLAP}s used, still $toGO laps.."
+
+if test "$NUMBER_ALCH"; then
+ toGO=$((NUMBER_ALCH-one))
+ echo draw 5 "time ${tLAP}s used, still $toGO laps.."
+test "$one" = "$NUMBER_ALCH" && break
+else
+ _draw 5 "time ${tLAP}seconds"
+ _draw "Infinite loop, use scriptkill to abort.."
+fi
 
 done
 
 # *** Here ends program *** #
+
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 3
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+echo draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$NUMBER" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+elif test "$((NUMBER/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`date +%s`
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+}
+
+_say_statistics_end
+
+
 echo draw 2 "$0 is finished."
 _beep

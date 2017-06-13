@@ -3,6 +3,9 @@
 
 # WARNING : NO CHECKS if cauldron still empty, monsters did not work ...
 
+TIMEA=`date +%s`
+
+
 rm -f /tmp/cf_*
 
 exec 2>>/tmp/cf_script.err
@@ -54,6 +57,10 @@ test "$1" && { BEEP_F=$1; shift; }
 BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
 BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
+_ping(){ #TODO
+    :
 }
 
 # colours
@@ -118,18 +125,93 @@ echo issue "$@"
 sleep 0.2
 }
 
+_number_to_word(){
+unset NUMBER2WORD
+test "$1" || return 3
+
+case $1 in
+1)  NUMBER2WORD=one;;
+2)  NUMBER2WORD=two;;
+3)  NUMBER2WORD=three;;
+4)  NUMBER2WORD=four;;
+5)  NUMBER2WORD=five;;
+6)  NUMBER2WORD=six;;
+7)  NUMBER2WORD=seven;;
+8)  NUMBER2WORD=eight;;
+9)  NUMBER2WORD=nine;;
+10) NUMBER2WORD=ten;;
+11) NUMBER2WORD=eleven;;
+12) NUMBER2WORD=twelve;;
+13) NUMBER2WORD=thirteen;;
+14) NUMBER2WORD=fourteen;;
+15) NUMBER2WORD=fifteen;;
+16) NUMBER2WORD=sixteen;;
+17) NUMBER2WORD=seventeen;;
+18) NUMBER2WORD=eightteen;;
+19) NUMBER2WORD=nineteen;;
+20) NUMBER2WORD=twenty;;
+*)  :;;
+esac
+test "$NUMBER2WORD"
+}
+
+_word_to_number(){
+unset WORD2NUMBER
+test "$1" || return 3
+
+case $1 in
+one)   WORD2NUMBER=1;;
+two)   WORD2NUMBER=2;;
+three) WORD2NUMBER=3;;
+four)  WORD2NUMBER=4;;
+five)  WORD2NUMBER=5;;
+six)   WORD2NUMBER=6;;
+seven) WORD2NUMBER=7;;
+eight) WORD2NUMBER=8;;
+nine)  WORD2NUMBER=9;;
+ten)   WORD2NUMBER=10;;
+eleven)    WORD2NUMBER=11;;
+twelve)    WORD2NUMBER=12;;
+thirteen)  WORD2NUMBER=13;;
+fourteen)  WORD2NUMBER=14;;
+fifteen)   WORD2NUMBER=15;;
+sixteen)   WORD2NUMBER=16;;
+seventeen) WORD2NUMBER=17;;
+eightteen) WORD2NUMBER=18;;
+nineteen)  WORD2NUMBER=19;;
+twenty)    WORD2NUMBER=20;;
+*) :;;
+esac
+test "$WORD2NUMBER"
+}
+
 _usage(){
 # *** implementing 'help' option *** #
 
+_draw 0 ""
 _draw 5 "Script to produce alchemy objects."
 _draw 7 "Syntax:"
 _draw 7 "$0 SKILL ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
 _draw 5 "Allowed NUMBER will loop for"
 _draw 5 "NUMBER times to produce"
 _draw 5 "ARTIFACT with"
-_draw 2 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-_draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+_draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 _draw 5 "by SKILL using cauldron automatically determined by SKILL"
+_draw 4 "NUMBER can be set to '-I' to run infinte,"
+_draw 4 "until one ingredient runs out."
+_draw 3 "Space in ARTIFACT and INGREDIENT need to be substituted by Underscore"
+_draw 3 "ie 'balm of first aid' as 'balm_of_first_aid'"
+_draw 7 "Options:"
+_draw 2 "-c CAULDRON ie '-c thaumturg_desk'"
+_draw 2 "-s SKILL    ie '-s jeweler"
+
+_draw 5 "-d : print $DRAW_INFO to message pane"
+_draw 5 "-h : print this usage"
+_draw 5 "-L : log $DRAW_INFO to $TMP_DIR/cf_script files"
+_draw 5 "-v : print verbose messages"
+
+_draw 0 ""
 
      exit 0
 }
@@ -148,6 +230,8 @@ _draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_
         exit 1
 }
 
+unset CAULDRON SKILL
+
 until test "$#" = 0
 do
 PARAM_1="$1"
@@ -156,66 +240,86 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+
+-s|*skill)     SKILL=$2; shift;;
+#-c|*cauldron)  SKILL=$2; shift;;
+-c|*cauldron)  CAULDRON=$2; shift;;
+
 '') :;;
 
 *)
-SKILL="$PARAM_1"
+ SKIP_SKILL=0
+if test "$SKILL"; then
+ SKIP_SKILL=1
+else
+ SKILL=${SKILL:-"$PARAM_1"}
+fi
+
 case $SKILL in
-alchemy|alchemistry)        CAULDRON=cauldron;;
-bowyer|bowyery)             CAULDRON=workbench;;
-jeweler)                     CAULDRON=jeweler_bench;;
-smithery)                   CAULDRON=forge;;
-thaumaturgy)                CAULDRON=thaumaturg_desk;;
-woodsman)                   CAULDRON=stove;;
-cauldron)        CAULDRON=cauldron;        SKILL=alchemy;;
-workbench)       CAULDRON=workbench;       SKILL=bowyer;;
-jeweler_bench)   CAULDRON=jeweler_bench;   SKILL=jeweler;;
-forge)           CAULDRON=forge;           SKILL=smithery;;
-thaumaturg_desk) CAULDRON=thaumaturg_desk; SKILL=thaumaturgy;;
-stove)           CAULDRON=stove;           SKILL=woodsman;;
+alchemy|alchemistry)        CAULDRON=${CAULDRON:-cauldron};;
+bowyer|bowyery)             CAULDRON=${CAULDRON:-workbench};;
+jeweler)                    CAULDRON=${CAULDRON:-jeweler_bench};;
+smithery)                   CAULDRON=${CAULDRON:-forge};;
+thaumaturgy)                CAULDRON=${CAULDRON:-thaumaturg_desk};;
+woodsman)                   CAULDRON=${CAULDRON:-stove};;
+cauldron)        CAULDRON=${CAULDRON:-cauldron};        SKILL=alchemy;;
+workbench)       CAULDRON=${CAULDRON:-workbench};       SKILL=bowyer;;
+jeweler_bench)   CAULDRON=${CAULDRON:-jeweler_bench};   SKILL=jeweler;;
+forge)           CAULDRON=${CAULDRON:-forge};           SKILL=smithery;;
+thaumaturg_desk) CAULDRON=${CAULDRON:-thaumaturg_desk}; SKILL=thaumaturgy;;
+stove)           CAULDRON=${CAULDRON:-stove};           SKILL=woodsman;;
 *) _draw 3 "'$SKILL' not valid!"
-_draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
-exit 1;;
+   _draw 3 "Valid skills are alchemy, bowyer, jeweler, smithery, thaumaturgy, woodsman"
+   exit 1;;
 esac
-_draw 7 "OK using $SKILL on $CAULDRON"
+_draw 7 "OK: using $SKILL on $CAULDRON"
 
 # *** testing parameters for validity *** #
 
 _log -file="$LOG_TEST_FILE" "${BASH_ARGC[0]} : ${BASH_ARGV[@]}"
-#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
-#for c in `seq $WITHOUT_FIRST -2 1`;
-do
-#vc=$((c-1));ivc=$((vc-1));((C++));
-vc=$((c-0));ivc=$((vc-1));((C++));
-INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-if test "$C" != 1; then
-NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
-case ${NUMBER[$C]} in
-1) NUMBER[$C]=one;;
-2) NUMBER[$C]=two;;
-3) NUMBER[$C]=three;;
-4) NUMBER[$C]=four;;
-5) NUMBER[$C]=five;;
-6) NUMBER[$C]=six;;
-7) NUMBER[$C]=seven;;
-8) NUMBER[$C]=eight;;
-9) NUMBER[$C]=nine;;
-10) NUMBER[$C]=ten;;
-11) NUMBER[$C]=eleven;;
-12) NUMBER[$C]=twelve;;
-13) NUMBER[$C]=thirteen;;
-14) NUMBER[$C]=fourteen;;
-15) NUMBER[$C]=fifteen;;
-16) NUMBER[$C]=sixteen;;
-17) NUMBER[$C]=seventeen;;
-18) NUMBER[$C]=eightteen;;
-19) NUMBER[$C]=nineteen;;
-20) NUMBER[$C]=twenty;;
-esac
+#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
+#for c in `seq $WITHOUT_FIRST -2 1`;
+ for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+do
+
+if test "$SKIP_SKILL" = 1; then
+vc=$((c-1));ivc=$((vc-1));((C++));
+else
+vc=$((c-0));ivc=$((vc-1));((C++));
+fi
+
+ INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+#INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+
+if test "$C" != 1; then
+ NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+#NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+
+#case ${NUMBER[$C]} in
+#1) NUMBER[$C]=one;;
+#2) NUMBER[$C]=two;;
+#3) NUMBER[$C]=three;;
+#4) NUMBER[$C]=four;;
+#5) NUMBER[$C]=five;;
+#6) NUMBER[$C]=six;;
+#7) NUMBER[$C]=seven;;
+#8) NUMBER[$C]=eight;;
+#9) NUMBER[$C]=nine;;
+#10) NUMBER[$C]=ten;;
+#11) NUMBER[$C]=eleven;;
+#12) NUMBER[$C]=twelve;;
+#13) NUMBER[$C]=thirteen;;
+#14) NUMBER[$C]=fourteen;;
+#15) NUMBER[$C]=fifteen;;
+#16) NUMBER[$C]=sixteen;;
+#17) NUMBER[$C]=seventeen;;
+#18) NUMBER[$C]=eightteen;;
+#19) NUMBER[$C]=nineteen;;
+#20) NUMBER[$C]=twenty;;
+#esac
+
+_number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
 fi
 
 _log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
@@ -228,30 +332,40 @@ NUMBER_ALCH=${NUMBER[2]}
 
 # fallback
 case $NUMBER_ALCH in
-one)   NUMBER_ALCH=1;;
-two)   NUMBER_ALCH=2;;
-three) NUMBER_ALCH=3;;
-four)  NUMBER_ALCH=4;;
-five)  NUMBER_ALCH=5;;
-six)   NUMBER_ALCH=6;;
-seven) NUMBER_ALCH=7;;
-eight) NUMBER_ALCH=8;;
-nine)  NUMBER_ALCH=9;;
-ten)   NUMBER_ALCH=10;;
-eleven)    NUMBER_ALCH=11;;
-twelve)    NUMBER_ALCH=12;;
-thirteen)  NUMBER_ALCH=13;;
-fourteen)  NUMBER_ALCH=14;;
-fifteen)   NUMBER_ALCH=15;;
-sixteen)   NUMBER_ALCH=16;;
-seventeen) NUMBER_ALCH=17;;
-eightteen) NUMBER_ALCH=18;;
-nineteen)  NUMBER_ALCH=19;;
-twenty)    NUMBER_ALCH=20;;
-*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
-esac
-test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+#one)   NUMBER_ALCH=1;;
+#two)   NUMBER_ALCH=2;;
+#three) NUMBER_ALCH=3;;
+#four)  NUMBER_ALCH=4;;
+#five)  NUMBER_ALCH=5;;
+#six)   NUMBER_ALCH=6;;
+#seven) NUMBER_ALCH=7;;
+#eight) NUMBER_ALCH=8;;
+#nine)  NUMBER_ALCH=9;;
+#ten)   NUMBER_ALCH=10;;
+#eleven)    NUMBER_ALCH=11;;
+#twelve)    NUMBER_ALCH=12;;
+#thirteen)  NUMBER_ALCH=13;;
+#fourteen)  NUMBER_ALCH=14;;
+#fifteen)   NUMBER_ALCH=15;;
+#sixteen)   NUMBER_ALCH=16;;
+#seventeen) NUMBER_ALCH=17;;
+#eightteen) NUMBER_ALCH=18;;
+#nineteen)  NUMBER_ALCH=19;;
+#twenty)    NUMBER_ALCH=20;;
 
+[0-9]*) :;;
+-I|*infinite) NUMBER_ALCH="I";;
+
+*) _word_to_number $NUMBER_ALCH && NUMBER_ALCH=$WORD2NUMBER
+
+   ;;
+#*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
+esac
+
+if test "$NUMBER_ALCH"; then
+ test "$NUMBER_ALCH" = 'I' || test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+fi
+test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 #DEBUG
 C=2
@@ -285,20 +399,6 @@ case "$INVTRY" in "") break;;
  sleep 0.01s
 done
 
-__old_loop(){
-while [ 1 ]; do
-INVTRY=""
-read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
-#_log -file="$LOG_INV_FILE" "$INVTRY"
-_debug "$INVTRY"
-test "$INVTRY" = "" && break
-test "$INVTRY" = "request items inv end" && break
-test "$INVTRY" = "scripttell break" && break
-test "$INVTRY" = "scripttell exit" && exit 1
-sleep 0.01s
-done
-}
 
 rm -f /tmp/cf_script.grep
 
@@ -357,6 +457,7 @@ _draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
+_say_statistics_end
 exit $RV
 }
 
@@ -372,6 +473,7 @@ _is "1 1 fire_stop"
 
 test "$*" && _draw 5 "$*"
 _beep
+_say_statistics_end
 exit $RV
 }
 
@@ -468,7 +570,11 @@ rm -f "$LOG_REPLY_FILE"
 
 sleep 1s
 
-for one in `seq 1 1 $NUMBER_ALCH`
+TIMEB=`date +%s`
+one=0
+
+#for one in `seq 1 1 $NUMBER_ALCH`
+while :;
 do
 
 tBEG=${tEND:-`date +%s`}
@@ -485,29 +591,33 @@ sleep 1s
  for FOR in `seq 3 1 $C`; do
 
  case ${NUMBER[$FOR]} in
- one)   NUMBER[$FOR]=1;;
- two)   NUMBER[$FOR]=2;;
- three) NUMBER[$FOR]=3;;
- four)  NUMBER[$FOR]=4;;
- five)  NUMBER[$FOR]=5;;
- six)   NUMBER[$FOR]=6;;
- seven) NUMBER[$FOR]=7;;
- eight) NUMBER[$FOR]=8;;
- nine)  NUMBER[$FOR]=9;;
- ten)   NUMBER[$FOR]=10;;
- eleven)    NUMBER[$FOR]=11;;
- twelve)    NUMBER[$FOR]=12;;
- thirteen)  NUMBER[$FOR]=13;;
- fourteen)  NUMBER[$FOR]=14;;
- fifteen)   NUMBER[$FOR]=15;;
- sixteen)   NUMBER[$FOR]=16;;
- seventeen) NUMBER[$FOR]=17;;
- eightteen) NUMBER[$FOR]=18;;
- nineteen)  NUMBER[$FOR]=19;;
- twenty)    NUMBER[$FOR]=20;;
-esac
+ #one)   NUMBER[$FOR]=1;;
+ #two)   NUMBER[$FOR]=2;;
+ #three) NUMBER[$FOR]=3;;
+ #four)  NUMBER[$FOR]=4;;
+ #five)  NUMBER[$FOR]=5;;
+ #six)   NUMBER[$FOR]=6;;
+ #seven) NUMBER[$FOR]=7;;
+ #eight) NUMBER[$FOR]=8;;
+ #nine)  NUMBER[$FOR]=9;;
+ #ten)   NUMBER[$FOR]=10;;
+ #eleven)    NUMBER[$FOR]=11;;
+ #twelve)    NUMBER[$FOR]=12;;
+ #thirteen)  NUMBER[$FOR]=13;;
+ #fourteen)  NUMBER[$FOR]=14;;
+ #fifteen)   NUMBER[$FOR]=15;;
+ #sixteen)   NUMBER[$FOR]=16;;
+ #seventeen) NUMBER[$FOR]=17;;
+ #eightteen) NUMBER[$FOR]=18;;
+ #nineteen)  NUMBER[$FOR]=19;;
+ #twenty)    NUMBER[$FOR]=20;;
 
- _draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ [0-9]*) :;;
+ *) _word_to_number ${NUMBER[$FOR]} && ${NUMBER[$FOR]}=$WORD2NUMBER
+    ;;
+ esac
+
+ #_draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  _is "1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
@@ -522,28 +632,10 @@ esac
  *"There is only"*)   f_exit 1 "Not enough ${INGRED[$FOR]}";;
  '') break;;
  esac
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
- OLD_REPLY="$REPLY"
- sleep 0.1s
- done
 
- __old_loop(){
- while [ 1 ]; do
- read -t 1 REPLY
- _log "$REPLY"
- _debug "$REPLY"
- test "$REPLY" || break
- test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
- #test "$REPLY" || break
- #test "$REPLY" = "$OLD_REPLY" && break
  OLD_REPLY="$REPLY"
  sleep 0.1s
  done
- }
 
  done
 
@@ -580,8 +672,6 @@ $OLD_REPLY)        break;;
 *You*unwisely*release*potent*forces*) exit 1;;
 esac
 
-#test "$REPLY" || break
-#test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
@@ -589,7 +679,6 @@ done
 echo unwatch $DRAW_INFO
 
 _is "1 1 apply"
-#_is "7 1 take"
 _is "0 0 get all"  # TODO: cauldron is gone: You can't pick up a [wood]* floor.
 
 sleep 1s
@@ -610,31 +699,24 @@ _is "0 1 drop $GOAL"
 
 for FOR in `seq 3 1 $C`; do
 
- _draw 7 "drop ${INGRED[$FOR]} (magic)"
+ #_draw 7 "drop ${INGRED[$FOR]} (magic)"
  _is "0 1 drop ${INGRED[$FOR]} (magic)"
- _draw 7 "drop ${INGRED[$FOR]}s (magic)"
+ #_draw 7 "drop ${INGRED[$FOR]}s (magic)"
  _is "0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep 2s
- _draw 7 "drop ${INGRED[$FOR]} (cursed)"
+ #_draw 7 "drop ${INGRED[$FOR]} (cursed)"
  _is "0 1 drop ${INGRED[$FOR]} (cursed)"
- _draw 7 "drop ${INGRED[$FOR]}s (cursed)"
+ #_draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  _is "0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep 2s
 
 done
-
-#_is "0 1 drop (magic)"
-#_is "0 1 drop (cursed)"
 
 _draw 7 "drop slag"
 _is "0 1 drop slag"
 
 sleep ${DELAY_DRAWINFO}s
 
-toGO=$((NUMBER_ALCH-one))
-tEND=`date +%s`
-tLAP=$((tEND-tBEG))
-_draw 5 "time ${tLAP}s used, still $toGO laps.."
 
 _is "1 1 $DIRF"
 _is "1 1 $DIRF"
@@ -644,8 +726,75 @@ sleep 2s         #speed 0.32
 
 _check_if_on_cauldron || exit 2
 
+
+one=$((one+1))
+tEND=`date +%s`
+tLAP=$((tEND-tBEG))
+
+if test "$NUMBER_ALCH"; then
+ toGO=$((NUMBER_ALCH-one))
+ _draw 5 "time ${tLAP}s used, still $toGO laps.."
+ test "$one" = "$NUMBER_ALCH" && break
+else
+ _draw 5 "time ${tLAP}seconds"
+ _draw "Infinite loop, use scriptkill to abort.."
+fi
+
 done
 
+
 # *** Here ends program *** #
+
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 3
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+echo draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$NUMBER" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+elif test "$((NUMBER/FAIL))" -lt 2;
+then
+ echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((NUMBER-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`date +%s`
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+}
+
+_say_statistics_end
+
+
 _draw 2 "$0 is finished."
 _beep
