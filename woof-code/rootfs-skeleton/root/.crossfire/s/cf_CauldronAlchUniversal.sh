@@ -43,6 +43,8 @@ DRAW_INFO=drawinfo  # drawinfo OR drawextinfo
 
 DELAY_DRAWINFO=4  #speed 0.32
 
+ITEM_RECALL='rod of word of recall'  # rod / scroll of word of recall
+
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
 
@@ -89,16 +91,24 @@ echo draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient an
         exit 1
 }
 
-
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"|*usage)
- _usage
-;;
-esac
+case "$PARAM_1" in
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
-# *** testing parameters for validity *** #
+#-s|*skill)     SKILL=$2; shift;;
+#-c|*cauldron)  SKILL=$2; shift;;
+#-c|*cauldron)  CAULDRON=$2; shift;;
+
+'') :;;
+
+*) # *** testing parameters for validity *** #
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
 
@@ -231,6 +241,14 @@ fi
 done
 }
 _probe_inventory
+break
+;;
+
+esac
+shift
+sleep 0.1
+done
+
 
 test "$1" -a "$2" -a "$3" -a "$4" || {
 echo draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
@@ -312,7 +330,7 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 apply $ITEM_RECALL"
 echo "issue 1 1 fire center"
 echo draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO

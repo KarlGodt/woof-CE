@@ -36,6 +36,8 @@ DELAY_DRAWINFO=4  #seconds 4=speed 0.32
 
 DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
 
+ITEM_RECALL='rod of word of recall'  # rod / scroll of word of recall
+
 #set empty default
 C=0 #set zero as default
 
@@ -285,16 +287,24 @@ _draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and nu
         exit 1
 }
 
-
+until test "$#" = 0
+do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help"|*usage)
- _usage
-;;
-esac
+case "$PARAM_1" in
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
-# *** testing parameters for validity *** #
+#-s|*skill)     SKILL=$2; shift;;
+#-c|*cauldron)  SKILL=$2; shift;;
+#-c|*cauldron)  CAULDRON=$2; shift;;
+
+'') :;;
+
+*) # *** testing parameters for validity *** #
 
 _log -file="$LOG_TEST_FILE" "${BASH_ARGC[0]} : ${BASH_ARGV[@]}"
 
@@ -308,32 +318,12 @@ vc=$((c-1));ivc=$((vc-1));((C++));
 INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
-#case ${NUMBER[$C]} in
-#1) NUMBER[$C]=one;;
-#2) NUMBER[$C]=two;;
-#3) NUMBER[$C]=three;;
-#4) NUMBER[$C]=four;;
-#5) NUMBER[$C]=five;;
-#6) NUMBER[$C]=six;;
-#7) NUMBER[$C]=seven;;
-#8) NUMBER[$C]=eight;;
-#9) NUMBER[$C]=nine;;
-#10) NUMBER[$C]=ten;;
-#11) NUMBER[$C]=eleven;;
-#12) NUMBER[$C]=twelve;;
-#13) NUMBER[$C]=thirteen;;
-#14) NUMBER[$C]=fourteen;;
-#15) NUMBER[$C]=fifteen;;
-#16) NUMBER[$C]=sixteen;;
-#17) NUMBER[$C]=seventeen;;
-#18) NUMBER[$C]=eightteen;;
-#19) NUMBER[$C]=nineteen;;
-#20) NUMBER[$C]=twenty;;
-#esac
+
 _number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
 
 _log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
 _log -file="$LOG_TEST_FILE" "NUMBER[$C]='${NUMBER[$C]}'"
+
 done
 
 GOAL=${INGRED[1]}
@@ -342,30 +332,8 @@ NUMBER_ALCH=${NUMBER[1]}
 
 # fallback
 case $NUMBER_ALCH in
-#one)   NUMBER_ALCH=1;;
-#two)   NUMBER_ALCH=2;;
-#three) NUMBER_ALCH=3;;
-#four)  NUMBER_ALCH=4;;
-#five)  NUMBER_ALCH=5;;
-#six)   NUMBER_ALCH=6;;
-#seven) NUMBER_ALCH=7;;
-#eight) NUMBER_ALCH=8;;
-#nine)  NUMBER_ALCH=9;;
-#ten)   NUMBER_ALCH=10;;
-#eleven)    NUMBER_ALCH=11;;
-#twelve)    NUMBER_ALCH=12;;
-#thirteen)  NUMBER_ALCH=13;;
-#fourteen)  NUMBER_ALCH=14;;
-#fifteen)   NUMBER_ALCH=15;;
-#sixteen)   NUMBER_ALCH=16;;
-#seventeen) NUMBER_ALCH=17;;
-#eightteen) NUMBER_ALCH=18;;
-#nineteen)  NUMBER_ALCH=19;;
-#twenty)    NUMBER_ALCH=20;;
-
 [0-9]*) :;;
 -I|*infinite) NUMBER_ALCH="I";;
-
 *) _word_to_number $NUMBER_ALCH && NUMBER_ALCH=$WORD2NUMBER
    ;;
 #*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
@@ -438,6 +406,14 @@ done
 }
 _probe_inventory
 
+break
+;;
+
+esac
+shift
+sleep 0.1
+done
+
 test "$1" -a "$2" -a "$3" -a "$4" || {
 _draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
 _draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
@@ -470,7 +446,7 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-_is "1 1 apply rod of word of recall"
+_is "1 1 apply $ITEM_RECALL"
 _is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO

@@ -33,6 +33,8 @@ DRAW_INFO=drawinfo  # drawinfo / drawextinfo (old clients) # used for catching m
 
 DELAY_DRAWINFO=4  #speed 0.32
 
+ITEM_RECALL='rod of word of recall'  # rod / scroll of word of recall
+
 #set empty default
 C=0 #set zero as default
 
@@ -487,7 +489,7 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-_is "1 1 apply rod of word of recall"
+_is "1 1 apply $ITEM_RECALL"
 _is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
