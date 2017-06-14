@@ -8,13 +8,9 @@ TIMEA=`date +%s`
 
 rm -f /tmp/cf_*
 
-exec 2>>/tmp/cf_script.err
+exec 2>/tmp/cf_script.err
 
 # *** Setting defaults *** #
-
-VERBOSE=1
-DEBUG=
-LOGGING=1
 
 DIRB=west  # direction back to go
 
@@ -205,6 +201,21 @@ _debug "WORD2NUMBER='$WORD2NUMBER'"
 test "$WORD2NUMBER"
 }
 
+_probe_err_log(){
+local lERR_FILE=${*:-$ERR_LOG}
+lERR_FILE=${lERR_FILE:-/tmp/cf_script.err}
+
+if test -s "$lERR_FILE"; then
+ _draw 0 ""
+ _draw 3 "WARNING: $lERR_FILE contains :"
+ _draw 2 "`cat $lERR_FILE`"
+ _draw 0 ""
+else
+ _draw 7 "No content detected in $lERR_FILE"
+ [ "$DEBUG" ] || rm -f "$lERR_FILE"
+fi
+}
+
 # times
 _say_minutes_seconds(){
 #_say_minutes_seconds "500" "600" "Loop run:"
@@ -251,6 +262,8 @@ _say_success_fail
 # Now count the whole script time
 TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+
+_probe_err_log
 }
 
 _usage(){
@@ -284,6 +297,94 @@ _draw 0 ""
      exit 0
 }
 
+_log_opts(){
+
+test "$1" || return 3
+
+ case $1 in
+     *debug) DEBUG=$((DEBUG+1));;
+#    *force) FORCE=$((FORCE+1));;
+     *help|*usage)  _usage;;
+     *logging) LOGGING=$((LOGGING+1));;
+     *verbose) VERBOSE=$((VERBOSE+1));;
+     *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
+ esac
+
+}
+
+_short_opts(){
+
+test "$1" || return 3
+
+case $1 in -debug|-help|-usage|-logging|-verbose)
+  case $1 in
+     *debug) DEBUG=$((DEBUG+1));;
+#    *force) FORCE=$((FORCE+1));;
+     *help|*usage)  _usage;;
+     *logging) LOGGING=$((LOGGING+1));;
+     *verbose) VERBOSE=$((VERBOSE+1));;
+     *) _draw 3 "Ignoring unhandled option '$PARAM_1'";; # unreached
+ esac
+return 0;;
+esac
+
+ OPTS=`printf '%s' $1 | sed -r 's/^-*//;s/(.)/\1\n/g'`
+    for oneOP in $OPTS; do
+     case $oneOP in
+      d) DEBUG=$((DEBUG+1));;
+#     f) FORCE=$((FORCE+1));;
+      h) _usage;;
+      L) LOGGING=$((LOGGING+1));;
+      v) VERBOSE=$((VERBOSE+1));;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
+     esac
+   done
+
+}
+
+_ingredient_opts(){
+test "$1" || return 3
+
+tINGRED="${tINGRED}${1//_/ } "
+}
+
+_number_opts(){
+test "$1" || return 3
+
+if test "${NUMBER[$NC]}"; then
+ if test "$tINGRED"; then
+  INGRED[$NC]=`echo -n $tINGRED`
+  unset tINGRED
+ fi
+ NC=$((NC+1))
+ NUMBER[$NC]=$1
+
+else
+ NUMBER[$NC]=$1
+ if test "$tINGRED"; then
+  INGRED[$NC]=`echo -n $tINGRED`
+  unset tINGRED
+  NC=$((NC+1))
+ fi
+fi
+
+}
+
+_ingreds_and_numbers(){
+
+ test "$*" || return 3
+
+ until [ $# = 0 ]; do
+  case $1 in
+    --)    return 5;;
+   [0-9]*) _number_opts $1;;
+    *) _ingredient_opts $1;;
+   esac
+   shift
+   sleep 0.1
+ done
+}
+
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
 _draw 5 " with '$*' parameter."
@@ -304,16 +405,28 @@ until test "$#" = 0
 do
 PARAM_1="$1"
 case "$PARAM_1" in
--h|*help|*usage) _usage;;
--d|*debug)     DEBUG=$((DEBUG+1));;
--L|*logging) LOGGING=$((LOGGING+1));;
--v|*verbose) VERBOSE=$((VERBOSE+1));;
-
--s|*skill)     SKILL=$2; shift;;
-#-c|*cauldron)  SKILL=$2; shift;;
--c|*cauldron)  CAULDRON=$2; shift;;
+help|usage) _usage;;
+debug)     DEBUG=$((DEBUG+1));;
+logging) LOGGING=$((LOGGING+1));;
+verbose) VERBOSE=$((VERBOSE+1));;
 
 '') :;;
+
+--) :;;
+ *skill)     SKILL=$2; shift;;
+#*cauldron)  SKILL=$2; shift;;
+ *cauldron)  CAULDRON=$2; shift;;
+
+--*) _log_opts "$PARAM_1";;
+
+-)  :;;
+ -s)  SKILL=$2; shift;;
+#-c)  SKILL=$2; shift;;
+ -c)  CAULDRON=$2; shift;;
+ *skill)     SKILL=$2; shift;;
+#*cauldron)  SKILL=$2; shift;;
+ *cauldron)  CAULDRON=$2; shift;;
+-*) _short_opts "$PARAM_1";;
 
 *)
  SKIP_SKILL=0
@@ -346,34 +459,50 @@ _draw 7 "OK: using $SKILL on $CAULDRON"
 
 _log -file="$LOG_TEST_FILE" "${BASH_ARGC[0]} : ${BASH_ARGV[@]}"
 
-#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-#for c in `seq $WITHOUT_FIRST -2 1`;
- for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+for c in `seq 0 2 $(( $# - 2 ))`;
 do
 
-if test "$SKIP_SKILL" = 1; then
-vc=$((c-1));ivc=$((vc-1));((C++));
-else
-vc=$((c-0));ivc=$((vc-1));((C++));
-fi
+#if test "$SKIP_SKILL" = 1; then
+#vc=$((c-1));ivc=$((vc-1));((C++));
+#else
+#vc=$((c-0));ivc=$((vc-1));((C++));
+#fi
 
- INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+vc=$c
+ivc=$((vc+1))
+((C++))
 
-if test "$C" != 1; then
- NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+#INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+ INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+_debug $C INGRED ${INGRED[$C]}
+case ${INGRED[$C]} in -*|$SKILL|$CAULDRON)
+ unset INGRED[$C]
+ ((C--))
+ continue;;
+esac
+_debug $C INGRED ${INGRED[$C]}
+
+#if test "$C" != 1; then
+#NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+ NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+_debug $C NUMBER ${NUMBER[$C]}
+case ${NUMBER[$C]} in -*|$SKILL|$CAULDRON)
+ unset NUMBER[$C] INGRED[$C]
+ ((C--))
+ continue;;
+esac
+_debug $C NUMBER ${NUMBER[$C]}
 
 _number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
-fi
+#fi
 
 _log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
 _log -file="$LOG_TEST_FILE" "NUMBER[$C]='${NUMBER[$C]}'"
 done
 
-GOAL=${INGRED[2]}
+GOAL=${INGRED[$C]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
-NUMBER_ALCH=${NUMBER[2]}
+NUMBER_ALCH=${NUMBER[$C]}
 
 # fallback
 case $NUMBER_ALCH in
@@ -392,13 +521,15 @@ if test "$NUMBER_ALCH"; then
 fi
 test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
-#DEBUG
-C=2
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+# get rid of underscores
+CC=0
+#for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+for c in `seq 1 1 $((C-1))`
 do
-((C++))
-INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
-_log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
+((CC++))
+INGRED[$CC]=`echo "${INGRED[$CC]}" | tr '_' ' '`
+_debug "INGRED[$CC]=${INGRED[$CC]}"
+_log -file="$LOG_TEST_FILE" "INGRED[$CC]='${INGRED[$CC]}'"
 done
 
 _probe_inventory(){
@@ -427,27 +558,28 @@ done
 
 rm -f /tmp/cf_script.grep
 
-C2=2
-for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+CC=0
+#for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+for one in `seq 1 1 $((C-1))`
 do
 
-((C2++))
-GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
+((CC++))
+GREP_INGRED[$CC]=`echo "${INGRED[$CC]}" | sed 's/ /\[s \]\*/g'`
 
 # DEBUG:
-echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
-grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
+echo "GREP_INGRED[$CC]='${GREP_INGRED[$CC]}'" >>"$LOG_TEST2_FILE"
+grep "${GREP_INGRED[$CC]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
-grepMANY=`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`
+grepMANY=`grep "${GREP_INGRED[$CC]}" "$LOG_INV_FILE"`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
- _draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
+ _draw 3 "More than 1 of '${INGRED[$CC]}' in inventory."
  exit 1
  else
- _draw 7 "'${INGRED[$C2]}' in inventory."
+ _draw 7 "'${INGRED[$CC]}' in inventory."
  fi
 else
-_draw 3 "No '${INGRED[$C2]}' in inventory."
+_draw 3 "No '${INGRED[$CC]}' in inventory."
 exit 1
 fi
 
@@ -462,6 +594,14 @@ esac
 shift
 sleep 0.1
 done
+
+test "$SKILL" -a "$CAULDRON" -a "$GOAL" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
+ _draw 3 "Missing Parameter(s)"
+ _draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+ _draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+ _draw 3 "or  script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+ exit 1
+}
 
 # ** exit funcs ** #
 f_exit(){
@@ -612,7 +752,8 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- for FOR in `seq 3 1 $C`; do
+ #for FOR in `seq 3 1 $C`; do
+  for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
  [0-9]*) :;;
@@ -649,16 +790,16 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 sleep 1s
 
-_is "1 1 use_skill $SKILL"
 
-# *** TODO: The $CAULDRON burps and then pours forth monsters!
+_ping
 echo watch $DRAW_INFO
+_is "1 1 use_skill $SKILL"
 
 OLD_REPLY="";
 REPLY="";
 
 while :; do
-_ping
+#_ping
 read -t 1 REPLY
 _log "$REPLY"
 _debug "$REPLY"
@@ -693,13 +834,13 @@ sleep 6s
 
 _is "0 1 drop $GOAL"
 
-for FOR in `seq 3 1 $C`; do
+for FOR in `seq 1 1 $((C-1))`; do
 
  _is "0 1 drop ${INGRED[$FOR]} (magic)"
- _is "0 1 drop ${INGRED[$FOR]}s (magic)"
+ _is "0 1 drop ${INGRED[$FOR]}s (magic)"   # TODO: waters of the wise, not water of the wises ...
  sleep 2s
  _is "0 1 drop ${INGRED[$FOR]} (cursed)"
- _is "0 1 drop ${INGRED[$FOR]}s (cursed)"
+ _is "0 1 drop ${INGRED[$FOR]}s (cursed)"  # TODO: waters of the wise, not water of the wises ...
  sleep 2s
 
 done

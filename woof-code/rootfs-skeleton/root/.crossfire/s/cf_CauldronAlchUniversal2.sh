@@ -5,9 +5,6 @@
 
 TIMEA=`date +%s`
 
-LOGGING=1
-DEBUG=1
-
 rm -f /tmp/cf_*
 
 exec 2>/tmp/cf_script.err
@@ -142,18 +139,36 @@ echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
 
 #WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
 #for c in `seq $WITHOUT_FIRST -2 1`;
- for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+#for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+for c in `seq 0 2 $(( $# - 2 ))`;
 do
 
 #vc=$((c-1));ivc=$((vc-1));((C++));
- vc=$((c-0));ivc=$((vc-1));((C++));
+#vc=$((c-0));ivc=$((vc-1));((C++));
+vc=$c
+ivc=$((vc+1))
+((C++))
 
- INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+#INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+[ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
+case ${INGRED[$C]} in -*|$SKILL|$CAULDRON)
+ unset INGRED[$C]
+ ((C--))
+ continue;;
+esac
+[ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
 
-if test "$C" != 1; then
- NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
-#NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+#if test "$C" != 1; then
+#NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+ NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+[ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
+case ${NUMBER[$C]} in -*|$SKILL|$CAULDRON)
+ unset NUMBER[$C] INGRED[$C]
+ ((C--))
+ continue;;
+esac
+[ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
 
 case ${NUMBER[$C]} in
 1) NUMBER[$C]=one;;
@@ -177,15 +192,15 @@ case ${NUMBER[$C]} in
 19) NUMBER[$C]=nineteen;;
 20) NUMBER[$C]=twenty;;
 esac
-fi
+#fi
 
 echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
 echo "NUMBER[$C]='${NUMBER[$C]}'" >>/tmp/cf_script.test
 done
 
-GOAL=${INGRED[2]}
+GOAL=${INGRED[$C]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
-NUMBER_ALCH=${NUMBER[2]}
+NUMBER_ALCH=${NUMBER[$C]}
 
 # fallback
 case $NUMBER_ALCH in
@@ -210,7 +225,6 @@ eightteen) NUMBER_ALCH=18;;
 nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 -I|*infinite) NUMBER_ALCH="I";;
-*) _draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
 *) echo draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
 esac
 
@@ -219,13 +233,15 @@ if test "$NUMBER_ALCH"; then
 fi
 test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
-#DEBUG
-C=2
-for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+# get rid of underscores
+CC=0
+#for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+for c in `seq 1 1 $((C-1))`
 do
-((C++))
-INGRED[$C]=`echo "${INGRED[$C]}" | tr '_' ' '`
-echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
+((CC++))
+INGRED[$CC]=`echo "${INGRED[$CC]}" | tr '_' ' '`
+[ "$DEBUG" ] && echo draw 3 "INGRED[$CC]=${INGRED[$CC]}"
+echo "INGRED[$CC]='${INGRED[$CC]}'" >>/tmp/cf_script.test
 done
 
 _probe_inventory(){
@@ -239,7 +255,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
-#echo draw 3 "$INVTRY"
+#[ "$DEBUG" ] && echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -250,27 +266,27 @@ done
 
 rm -f /tmp/cf_script.grep
 
-C2=2
-for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+CC=0
+#for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+for one in `seq 1 1 $((C-1))`
 do
 
-((C2++))
-GREP_INGRED[$C2]=`echo "${INGRED[$C2]}" | sed 's/ /\[s \]\*/g'`
+((CC++))
+GREP_INGRED[$CC]=`echo "${INGRED[$CC]}" | sed 's/ /\[s \]\*/g'`
 
+echo "GREP_INGRED[$CC]='${GREP_INGRED[$CC]}'" >>/tmp/cf_script.test2
+grep "${GREP_INGRED[$CC]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
 
-echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>/tmp/cf_script.test2
-grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
-
-grepMANY=`grep "${GREP_INGRED[$C2]}" /tmp/cf_script.inv`
+grepMANY=`grep "${GREP_INGRED[$CC]}" /tmp/cf_script.inv`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
- echo draw 3 "More than 1 of '${INGRED[$C2]}' in inventory."
+ echo draw 3 "More than 1 of '${INGRED[$CC]}' in inventory."
  exit 1
  else
- echo draw 7 "'${INGRED[$C2]}' in inventory."
+ echo draw 7 "'${INGRED[$CC]}' in inventory."
  fi
 else
-echo draw 3 "No '${INGRED[$C2]}' in inventory."
+echo draw 3 "No '${INGRED[$CC]}' in inventory."
 exit 1
 fi
 
@@ -287,11 +303,19 @@ sleep 0.1
 done
 
 
-test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
-echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
-echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
-        exit 1
+#test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
+#echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+#echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+#echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+#        exit 1
+#}
+
+test "$SKILL" -a "$CAULDRON" -a "$GOAL" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
+ echo draw 3 "Missing Parameter(s)"
+ echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
+ echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
+ echo draw 3 "or  script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+ exit 1
 }
 
 # times
@@ -340,6 +364,14 @@ _say_success_fail
 # Now count the whole script time
 TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+
+if test -s /tmp/cf_script.err; then
+ _draw 3 "WARNING: /tmp/cf_script.err contains :"
+ _draw 2 "`cat /tmp/cf_script.err`"
+ _draw 0 ""
+else
+ _draw 7 "No content detected in /tmp/cf_script.err"
+fi
 }
 
 # ** exit funcs ** #
@@ -487,7 +519,8 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- for FOR in `seq 3 1 $C`; do
+ #for FOR in `seq 3 1 $C`; do
+  for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
  one)   NUMBER[$FOR]=1;;
@@ -512,7 +545,7 @@ sleep 1s
  twenty)    NUMBER[$FOR]=20;;
  esac
 
- echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ [ "$VERBOSE" ] && echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
@@ -581,26 +614,26 @@ echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill $SKILL"
 sleep 6s
 
-echo draw 7 "drop $GOAL"
+[ "$VERBOSE" ] && echo draw 7 "drop $GOAL"
 echo "issue 0 1 drop $GOAL"
 
-for FOR in `seq 3 1 $C`; do
+for FOR in `seq 1 1 $((C-1))`; do
 
- echo draw 7 "drop ${INGRED[$FOR]} (magic)"
+ [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]} (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
- echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
+ [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
+ echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"  # TODO: waters of the wise, not water of the wises ...
  sleep 2s
- echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
+ [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
- echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
- echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
+ [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
+ echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)" # TODO: waters of the wise, not water of the wises ...
  sleep 2s
 
 done
 
 
-echo draw 7 "drop slag"
+[ "$VERBOSE" ] && echo draw 7 "drop slag"
 echo "issue 0 1 drop slag"
 
 
