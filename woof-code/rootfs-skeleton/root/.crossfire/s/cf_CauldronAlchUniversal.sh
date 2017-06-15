@@ -112,13 +112,10 @@ case "$PARAM_1" in
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
 
-#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-#for c in `seq $WITHOUT_FIRST -2 1`;
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
- for c in `seq 0 2 $(( $# - 1 ))`;
+
+for c in `seq 0 2 $(( $# - 1 ))`;
 do
 
-#vc=$((c-1));ivc=$((vc-1));((C++));
 vc=$c
 ivc=$((vc+1))
 ((C++))
@@ -133,7 +130,7 @@ case ${INGRED[$C]} in -I|*infinite) :;;
 esac
 [ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
 
-NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`  # /root/cf/s/AU: line 73: BASH_ARGV: bad array subscript
+NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
 case ${NUMBER[$C]} in -I|*infinite) :;;
  -*|$SKILL|$CAULDRON)
@@ -218,7 +215,6 @@ test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 # get rid of underscores
 CC=0
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 for c in `seq 1 1 $((C-1))`
 do
 ((CC++))
@@ -238,7 +234,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
-#[ "$DEBUG" ] && echo draw 3 "$INVTRY"
+[ "$DEBUG" ] && echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -247,7 +243,6 @@ sleep 0.01s
 done
 
 CC=0
-#for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 for one in `seq 1 1 $((C-1))`
 do
 
@@ -258,7 +253,6 @@ GREP_INGRED[$CC]=`echo "${INGRED[$CC]}" | sed 's/ /\[s \]\*/g'`
 echo "GREP_INGRED[$CC]='${GREP_INGRED[$CC]}'" >>/tmp/cf_script.test2
 grep "${GREP_INGRED[$CC]}" /tmp/cf_script.inv >>/tmp/cf_script.grep
 
-#if [[ "`grep "${GREP_INGRED[$CC]}" /tmp/cf_script.inv`" ]]; then
 grepMANY=`grep "${GREP_INGRED[$CC]}" /tmp/cf_script.inv`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
@@ -398,7 +392,7 @@ echo request items on
  while [ 1 ]; do
  read -t 1 UNDER_ME
  sleep 0.1s
- [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
  [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -428,8 +422,8 @@ echo issue 0 0 get all
  unset REPLY
  sleep 0.1
  read -t 1
- #
- #
+ [ "$LOGGING" ] && echo "_probe_empty_cauldron_yes:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  case $REPLY in
  *Nothing*to*take*) lRV=0;;
  '') break;;
@@ -492,8 +486,8 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- #for FOR in `seq 2 1 $C`; do
-  for FOR in `seq 1 1 $((C-1))`; do
+
+ for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
  one)   NUMBER[$FOR]=1;;
@@ -522,14 +516,15 @@ sleep 1s
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+ [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 #&& f_exit 1 "No ${INGRED[$FOR]} to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 # f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 # f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 # f_exit 1 "Not enough ${INGRED[$FOR]}"
 
  OLD_REPLY="$REPLY"
  sleep 0.1s
@@ -557,7 +552,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "use_skill $SKILL:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ]   && echo draw 3 "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1

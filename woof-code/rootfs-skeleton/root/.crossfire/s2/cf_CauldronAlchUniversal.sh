@@ -337,15 +337,9 @@ _debug 5 ${BASH_ARGV[5]}
 _debug 6 ${BASH_ARGV[6]}
 _debug 7 ${BASH_ARGV[7]}
 
-###WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-###for c in `seq $WITHOUT_FIRST -2 1`;
-#  for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
-   for c in `seq 0 2 $(( $# - 1 ))`;
-#for c in `seq "$#" -2 1`
-#for param in $*
+for c in `seq 0 2 $(( $# - 1 ))`;
 do
 
-#vc=$((c-1));ivc=$((vc-1));((C++));
 vc=$c
 ivc=$((vc+1))
 ((C++))
@@ -388,9 +382,6 @@ done
 
 _debug 1  ${INGRED[1]}  ${NUMBER[1]}
 _debug $C ${INGRED[$C]} ${NUMBER[$C]}
-#GOAL=${INGRED[1]}
-#GOAL=`echo "${GOAL}" | tr '_' ' '`
-#NUMBER_ALCH=${NUMBER[1]}
 GOAL=${INGRED[$C]}
 GOAL=`echo "${GOAL}" | tr '_' ' '`
 NUMBER_ALCH=${NUMBER[$C]}
@@ -411,7 +402,6 @@ test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 # get rid of underscores
 CC=0
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 for c in `seq 1 1 $((C-1))`
 do
 ((CC++))
@@ -433,10 +423,10 @@ while :; do
  read -t 1 INVTRY || break
  echo "$INVTRY" >>"$LOG_INV_FILE" # grep ingred further down, not otional
  _debugx "$INVTRY"
- case "$INVTRY" in "") break;;
+ case "$INVTRY" in "")    break;;
  "request items inv end") break;;
- "scripttell break") break;;
- "scripttell exit") exit 1;;
+ "scripttell break")      break;;
+ "scripttell exit")      exit 1;;
  esac
  sleep 0.01s
 done
@@ -445,7 +435,6 @@ done
 rm -f /tmp/cf_script.grep
 
 CC=0
-#for one in `seq $(echo "${BASH_ARGC[0]}") -2 3`;
 for one in `seq 1 1 $((C-1))`
 do
 
@@ -456,7 +445,6 @@ GREP_INGRED[$CC]=`echo "${INGRED[$CC]}" | sed 's/ /\[s \]\*/g'`
 echo "GREP_INGRED[$CC]='${GREP_INGRED[$CC]}'" >>"$LOG_TEST2_FILE"
 grep "${GREP_INGRED[$CC]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
-#if [[ "`grep "${GREP_INGRED[$CC]}" "$LOG_INV_FILE"`" ]]; then
 grepMANY=`grep "${GREP_INGRED[$CC]}" "$LOG_INV_FILE"`
 if [[ "$grepMANY" ]]; then
  if [ "`echo "$grepMANY" | wc -l`" -gt 1 ]; then
@@ -541,7 +529,7 @@ echo request items on
 while :; do
  read -t 1 UNDER_ME
  sleep 0.1s
- _log -file="$LOG_ISON_FILE" "$UNDER_ME"
+ _log -file="$LOG_ISON_FILE" "_check_if_on_cauldron:$UNDER_ME"
  _debug "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -574,7 +562,7 @@ _is 0 0 get all
  unset REPLY
  sleep 0.1
  read -t 1
- _log "$REPLY"
+ _log "_probe_empty_cauldron_yes:$REPLY"
  _debug "$REPLY"
  case $REPLY in
  *Nothing*to*take*) lRV=0;;
@@ -639,7 +627,7 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- #for FOR in `seq 2 1 $C`; do
+
  for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
@@ -652,7 +640,7 @@ sleep 1s
 
  while :; do
  read -t 1 REPLY
- _log "$REPLY"
+ _log "drop:$REPLY"
  _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
@@ -689,7 +677,7 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-_log "$REPLY"
+_log "use_skill $SKILL:$REPLY"
 _debug "$REPLY"
 
  case $REPLY in '') break;;

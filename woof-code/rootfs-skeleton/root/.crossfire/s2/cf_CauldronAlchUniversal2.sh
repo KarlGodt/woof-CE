@@ -472,7 +472,6 @@ vc=$c
 ivc=$((vc+1))
 ((C++))
 
-#INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 _debug $C INGRED ${INGRED[$C]}
 case ${INGRED[$C]} in -I|*infinite) :;;
@@ -483,8 +482,6 @@ case ${INGRED[$C]} in -I|*infinite) :;;
 esac
 _debug $C INGRED ${INGRED[$C]}
 
-#if test "$C" != 1; then
-#NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 _debug $C NUMBER ${NUMBER[$C]}
 case ${NUMBER[$C]} in -I|*infinite) :;;
@@ -505,7 +502,6 @@ case ${INGRED[$C]} in [0-9]*|-I|*infinite)
 esac
 
 _number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
-#fi
 
 _log -file="$LOG_TEST_FILE" "INGRED[$C]='${INGRED[$C]}'"
 _log -file="$LOG_TEST_FILE" "NUMBER[$C]='${NUMBER[$C]}'"
@@ -534,7 +530,6 @@ test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 # get rid of underscores
 CC=0
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 for c in `seq 1 1 $((C-1))`
 do
 ((CC++))
@@ -558,10 +553,10 @@ echo "$INVTRY" >>"$LOG_INV_FILE"  # grep ingred further down, not otional
 #_log -file="$LOG_INV_FILE" "$INVTRY"
 _debugx "$INVTRY"
 
-case "$INVTRY" in "") break;;
+case "$INVTRY" in "")     break;;
  "request items inv end") break;;
- "scripttell break") break;;
- "scripttell exit") exit 1;;
+ "scripttell break")      break;;
+ "scripttell exit")      exit 1;;
  esac
  sleep 0.01s
 done
@@ -570,7 +565,6 @@ done
 rm -f /tmp/cf_script.grep
 
 CC=0
-#for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 for one in `seq 1 1 $((C-1))`
 do
 
@@ -665,7 +659,7 @@ echo request items on
 while :; do
  read -t 1 UNDER_ME
  sleep 0.1s
- _log -file="$LOG_ISON_FILE" "$UNDER_ME"
+ _log -file="$LOG_ISON_FILE" "_check_if_on_cauldron:$UNDER_ME"
  _debug "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
@@ -699,7 +693,7 @@ _is 0 0 get all
  unset REPLY
  sleep 0.1
  read -t 1
- _log "$REPLY"
+ _log "_probe_empty_cauldron_yes:$REPLY"
  _debug "$REPLY"
  case $REPLY in
  *Nothing*to*take*) lRV=0;;
@@ -764,8 +758,7 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- #for FOR in `seq 3 1 $C`; do
-  for FOR in `seq 1 1 $((C-1))`; do
+ for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
  [0-9]*) :;;
@@ -777,7 +770,7 @@ sleep 1s
 
  while :; do
  read -t 1 REPLY
- _log "$REPLY"
+ _log "drop:$REPLY"
  _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
@@ -813,7 +806,7 @@ REPLY="";
 while :; do
 #_ping
 read -t 1 REPLY
-_log "$REPLY"
+_log "use_skill $SKILL:$REPLY"
 _debug "$REPLY"
 
  case $REPLY in '') break;;

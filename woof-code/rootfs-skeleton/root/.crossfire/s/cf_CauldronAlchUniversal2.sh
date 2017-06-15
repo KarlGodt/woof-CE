@@ -137,19 +137,14 @@ echo draw 7 "OK using $SKILL on $CAULDRON"
 
 echo "${BASH_ARGC[0]} : ${BASH_ARGV[@]}" >>/tmp/cf_script.test
 
-#WITHOUT_FIRST=$(( ${BASH_ARGC[0]} - 1 ))
-#for c in `seq $WITHOUT_FIRST -2 1`;
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
+
 for c in `seq 0 2 $(( $# - 2 ))`;
 do
 
-#vc=$((c-1));ivc=$((vc-1));((C++));
-#vc=$((c-0));ivc=$((vc-1));((C++));
 vc=$c
 ivc=$((vc+1))
 ((C++))
 
-#INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
 case ${INGRED[$C]} in -I|*infinite) :;;
@@ -160,8 +155,6 @@ case ${INGRED[$C]} in -I|*infinite) :;;
 esac
 [ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
 
-#if test "$C" != 1; then
-#NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
 case ${NUMBER[$C]} in -I|*infinite) :;;
@@ -203,7 +196,6 @@ case ${NUMBER[$C]} in
 19) NUMBER[$C]=nineteen;;
 20) NUMBER[$C]=twenty;;
 esac
-#fi
 
 echo "INGRED[$C]='${INGRED[$C]}'" >>/tmp/cf_script.test
 echo "NUMBER[$C]='${NUMBER[$C]}'" >>/tmp/cf_script.test
@@ -246,7 +238,6 @@ test "$NUMBER_ALCH" = 'I' && unset NUMBER_ALCH
 
 # get rid of underscores
 CC=0
-#for c in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
 for c in `seq 1 1 $((C-1))`
 do
 ((CC++))
@@ -266,7 +257,7 @@ while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
 echo "$INVTRY" >>/tmp/cf_script.inv
-#[ "$DEBUG" ] && echo draw 3 "$INVTRY"
+[ "$DEBUG" ] && echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -278,7 +269,7 @@ done
 rm -f /tmp/cf_script.grep
 
 CC=0
-#for one in `seq $(echo "${BASH_ARGC[0]}") -2 4`;
+
 for one in `seq 1 1 $((C-1))`
 do
 
@@ -523,8 +514,7 @@ echo watch $DRAW_INFO
 
 sleep 1s
 
- #for FOR in `seq 3 1 $C`; do
-  for FOR in `seq 1 1 $((C-1))`; do
+ for FOR in `seq 1 1 $((C-1))`; do
 
  case ${NUMBER[$FOR]} in
  one)   NUMBER[$FOR]=1;;
@@ -553,15 +543,15 @@ sleep 1s
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
- while [ 1 ]; do
+ while :; do
  read -t 1 REPLY
  [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
  [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 #&& f_exit 1 "No ${INGRED[$FOR]} to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 # f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 # f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 # f_exit 1 "Not enough ${INGRED[$FOR]}"
 
  OLD_REPLY="$REPLY"
  sleep 0.1s
@@ -594,7 +584,7 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2;; #&& exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
