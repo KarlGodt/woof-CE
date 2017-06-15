@@ -75,7 +75,7 @@ echo draw 2 "NUMBER times ie '10' with"
 echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 echo draw 5 "by SKILL using cauldron automatically determined by SKILL"
-echo draw 4 "NUMBER can be set to '-I' to run infinte."
+echo draw 4 "NUMBER can be set to '-I' to run infinite."
 echo draw 4 "until one ingredient runs out."
 echo draw 3 "Space in ARTIFACT and INGREDIENT need to be substituted by Underscore"
 echo draw 3 "ie 'balm of first aid' as 'balm_of_first_aid'"
@@ -152,7 +152,8 @@ ivc=$((vc+1))
 #INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
-case ${INGRED[$C]} in -*|$SKILL|$CAULDRON)
+case ${INGRED[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset INGRED[$C]
  ((C--))
  continue;;
@@ -163,12 +164,22 @@ esac
 #NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  NUMBER[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
-case ${NUMBER[$C]} in -*|$SKILL|$CAULDRON)
+case ${NUMBER[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset NUMBER[$C] INGRED[$C]
  ((C--))
  continue;;
 esac
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
+
+# here we could shift syntax 3 water_of_the_wise 7 water
+case ${INGRED[$C]} in [0-9]*|-I|*infinite)
+ tVAR1=${INGRED[$C]}
+ tVAR2=${NUMBER[$C]}
+ INGRED[$C]=$tVAR2
+ NUMBER[$C]=$tVAR1
+ ;;
+esac
 
 case ${NUMBER[$C]} in
 1) NUMBER[$C]=one;;
@@ -303,13 +314,6 @@ sleep 0.1
 done
 
 
-#test "$1" -a "$2" -a "$3" -a "$4" -a "$5" || {
-#echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
-#echo draw 3 "ie: script $0 alchemy water_of_the_wise 10 water 7 ."
-#echo draw 3 "or script $0 alchemy balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
-#        exit 1
-#}
-
 test "$SKILL" -a "$CAULDRON" -a "$GOAL" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
  echo draw 3 "Missing Parameter(s)"
  echo draw 3 "Need <skill> <artifact> <number> <ingredient> <numberof>"
@@ -366,11 +370,11 @@ TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 
 if test -s /tmp/cf_script.err; then
- _draw 3 "WARNING: /tmp/cf_script.err contains :"
- _draw 2 "`cat /tmp/cf_script.err`"
- _draw 0 ""
+ echo draw 3 "WARNING: /tmp/cf_script.err contains :"
+ echo draw 2 "`cat /tmp/cf_script.err`"
+ echo draw 0 ""
 else
- _draw 7 "No content detected in /tmp/cf_script.err"
+ echo draw 7 "No content detected in /tmp/cf_script.err"
 fi
 }
 
@@ -555,9 +559,9 @@ sleep 1s
  [ "$DEBUG" ]   && echo draw 3 "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 #&& f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
 
  OLD_REPLY="$REPLY"
  sleep 0.1s
@@ -590,7 +594,7 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2;; #&& exit 1
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
@@ -659,8 +663,8 @@ if test "$NUMBER_ALCH"; then
  echo draw 5 "time ${tLAP}s used, still $toGO laps.."
 test "$one" = "$NUMBER_ALCH" && break
 else
- _draw 5 "time ${tLAP}seconds"
- _draw "Infinite loop, use scriptkill to abort.."
+ echo draw 5 "time ${tLAP}seconds"
+ echo draw 5 "Infinite loop $one, use scriptkill to abort.."
 fi
 
 done

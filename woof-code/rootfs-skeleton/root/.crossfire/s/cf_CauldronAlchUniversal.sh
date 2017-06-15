@@ -12,12 +12,12 @@ exec 2>/tmp/cf_script.err
 C=0 # used in arrays, set zero as default
 
 # Set here SKILL and CAULDRON you want to use ** #
-SKILL=woodsman
-#SKILL=alchemy
+#SKILL=woodsman
+SKILL=alchemy
 # etc.
 
-CAULDRON=stove
-#CAULDRON=cauldron
+#CAULDRON=stove
+CAULDRON=cauldron
 # etc.
 
 # When putting ingredients into cauldron, player needs to leave cauldron
@@ -69,7 +69,7 @@ echo draw 2 "ARTIFACT ie 'balm_of_first_aid'"
 echo draw 2 "NUMBER times ie '10' with"
 echo draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
-echo draw 5 "NUMBER can be set to '-I' to run infinte."
+echo draw 5 "NUMBER can be set to '-I' to run infinite."
 echo draw 4 "PLEASE MANUALLY EDIT SKILL and CAULDRON variables"
 echo draw 4 "in header of this script for your needs."
 echo draw 6 "SKILL variable currently set to '$SKILL'"
@@ -125,7 +125,8 @@ ivc=$((vc+1))
 
 INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 [ "$DEBUG" ] && echo draw 3 $C INGRED ${INGRED[$C]}
-case ${INGRED[$C]} in -*|$SKILL|$CAULDRON)
+case ${INGRED[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset INGRED[$C]
  ((C--))
  continue;;
@@ -134,12 +135,22 @@ esac
 
 NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`  # /root/cf/s/AU: line 73: BASH_ARGV: bad array subscript
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
-case ${NUMBER[$C]} in -*|$SKILL|$CAULDRON)
+case ${NUMBER[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset NUMBER[$C] INGRED[$C]
  ((C--))
  continue;;
 esac
 [ "$DEBUG" ] && echo draw 3 $C NUMBER ${NUMBER[$C]}
+
+# here we could shift syntax 3 water_of_the_wise 7 water
+case ${INGRED[$C]} in [0-9]*|-I|*infinite)
+ tVAR1=${INGRED[$C]}
+ tVAR2=${NUMBER[$C]}
+ INGRED[$C]=$tVAR2
+ NUMBER[$C]=$tVAR1
+ ;;
+esac
 
 case ${NUMBER[$C]} in
 1) NUMBER[$C]=one;;
@@ -197,6 +208,7 @@ twenty)    NUMBER_ALCH=20;;
 -I|*infinite) NUMBER_ALCH="I";;
 *) echo draw 3 "NUMBER_ALCH '$NUMBER_ALCH' incorrect";exit 1;;
 esac
+
 
 if test "$NUMBER_ALCH"; then
  test "$NUMBER_ALCH" = 'I' || test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
@@ -272,12 +284,6 @@ sleep 0.1
 done
 
 
-#test "$1" -a "$2" -a "$3" -a "$4" || {
-#echo draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
-#echo draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
-#        exit 1
-#}
-
 test "$GOAL" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
  echo draw 3 "Missing Parameter(s)"
  echo draw 3 "Need <artifact> <number> <ingredient> <numberof>"
@@ -334,11 +340,11 @@ TIMEZ=`date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 
 if test -s /tmp/cf_script.err; then
- _draw 3 "WARNING: /tmp/cf_script.err contains :"
- _draw 2 "`cat /tmp/cf_script.err`"
- _draw 0 ""
+ echo draw 3 "WARNING: /tmp/cf_script.err contains :"
+ echo draw 2 "`cat /tmp/cf_script.err`"
+ echo draw 0 ""
 else
- _draw 7 "No content detected in /tmp/cf_script.err"
+ echo draw 7 "No content detected in /tmp/cf_script.err"
 fi
 }
 
@@ -393,6 +399,7 @@ echo request items on
  read -t 1 UNDER_ME
  sleep 0.1s
  [ "$LOGGING" ] && echo "$UNDER_ME" >>/tmp/cf_script.ion
+ [ "$DEBUG" ]   && echo draw 3 "$UNDER_ME"
  UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
  test "$UNDER_ME" = "request items on end" && break
@@ -520,9 +527,9 @@ sleep 1s
  echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "No ${INGRED[$FOR]} to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 #&& f_exit 1 "No ${INGRED[$FOR]} to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 #&& f_exit 1 "Not enough ${INGRED[$FOR]}"
 
  OLD_REPLY="$REPLY"
  sleep 0.1s
@@ -554,7 +561,7 @@ echo "$REPLY" >>"$LOG_REPLY_FILE"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 #&& exit 1
 
 OLD_REPLY="$REPLY"
 sleep 0.1s
@@ -587,12 +594,12 @@ for FOR in `seq 1 1 $((C-1))`; do
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
  [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"  # TODO: waters of the wise, not water of the wises ...
- sleep 2s
+ sleep 2s  # bottles (magic)
  [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
  [ "$VERBOSE" ] && echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)" # TODO: waters of the wise, not water of the wises ...
- sleep 2s
+ sleep 2s # bottles (cursed)
 
 done
 
@@ -623,8 +630,8 @@ if test "$NUMBER_ALCH"; then
  echo draw 5 "time ${tLAP}s used, still $toGO laps.."
  test "$one" = "$NUMBER_ALCH" && break
 else
- _draw 5 "time ${tLAP}seconds"
- _draw "Infinite loop, use scriptkill to abort.."
+ echo draw 5 "time ${tLAP}seconds"
+ echo draw 5 "Infinite loop $one, use scriptkill to abort.."
 fi
 
 done

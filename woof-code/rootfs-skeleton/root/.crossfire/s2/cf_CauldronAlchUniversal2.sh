@@ -279,7 +279,7 @@ _draw 5 "ARTIFACT with"
 _draw 2 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 _draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
 _draw 5 "by SKILL using cauldron automatically determined by SKILL"
-_draw 4 "NUMBER can be set to '-I' to run infinte,"
+_draw 4 "NUMBER can be set to '-I' to run infinite,"
 _draw 4 "until one ingredient runs out."
 _draw 3 "Space in ARTIFACT and INGREDIENT need to be substituted by Underscore"
 _draw 3 "ie 'balm of first aid' as 'balm_of_first_aid'"
@@ -475,7 +475,8 @@ ivc=$((vc+1))
 #INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  INGRED[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 _debug $C INGRED ${INGRED[$C]}
-case ${INGRED[$C]} in -*|$SKILL|$CAULDRON)
+case ${INGRED[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset INGRED[$C]
  ((C--))
  continue;;
@@ -486,12 +487,22 @@ _debug $C INGRED ${INGRED[$C]}
 #NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
  NUMBER[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 _debug $C NUMBER ${NUMBER[$C]}
-case ${NUMBER[$C]} in -*|$SKILL|$CAULDRON)
+case ${NUMBER[$C]} in -I|*infinite) :;;
+ -*|$SKILL|$CAULDRON)
  unset NUMBER[$C] INGRED[$C]
  ((C--))
  continue;;
 esac
 _debug $C NUMBER ${NUMBER[$C]}
+
+# here we could shift syntax 3 water_of_the_wise 7 water
+case ${INGRED[$C]} in [0-9]*|-I|*infinite)
+ tVAR1=${INGRED[$C]}
+ tVAR2=${NUMBER[$C]}
+ INGRED[$C]=$tVAR2
+ NUMBER[$C]=$tVAR1
+ ;;
+esac
 
 _number_to_word ${NUMBER[$C]} && NUMBER[$C]=$NUMBER2WORD
 #fi
@@ -594,6 +605,7 @@ esac
 shift
 sleep 0.1
 done
+
 
 test "$SKILL" -a "$CAULDRON" -a "$GOAL" -a "${INGRED[1]}" -a "${NUMBER[1]}" || {
  _draw 3 "Missing Parameter(s)"
@@ -769,9 +781,9 @@ sleep 1s
  _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1 "No ${INGRED[$FOR]} to drop";;
- *"There are only"*)  f_exit 1 "Not enough ${INGRED[$FOR]}";;
- *"There is only"*)   f_exit 1 "Not enough ${INGRED[$FOR]}";;
+ *"Nothing to drop.") break 3 ;; #f_exit 1 "No ${INGRED[$FOR]} to drop";;
+ *"There are only"*)  break 3 ;; #f_exit 1 "Not enough ${INGRED[$FOR]}";;
+ *"There is only"*)   break 3 ;; #f_exit 1 "Not enough ${INGRED[$FOR]}";;
  '') break;;
  esac
 
@@ -806,8 +818,8 @@ _debug "$REPLY"
 
  case $REPLY in '') break;;
  $OLD_REPLY)        break;;
- *pours*forth*monsters*)   f_emergency_exit 1;;
- *You*unwisely*release*potent*forces*) exit 1;;
+ *pours*forth*monsters*)    f_emergency_exit 1;;
+ *You*unwisely*release*potent*forces*) break 2;; #exit 1;;
  esac
 
 OLD_REPLY="$REPLY"
@@ -869,7 +881,7 @@ if test "$NUMBER_ALCH"; then
  test "$one" = "$NUMBER_ALCH" && break
 else
  _draw 5 "time ${tLAP}seconds"
- _draw "Infinite loop, use scriptkill to abort.."
+ _draw "Infinite loop $one, use scriptkill to abort.."
 fi
 
 done
