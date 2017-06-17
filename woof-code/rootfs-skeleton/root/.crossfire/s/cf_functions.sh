@@ -197,9 +197,9 @@ Blood*leaks*out*of*your*eyes*and*your*pores*)  # ebola.arc
 
 ;;
 
-#Your joints are swollen.  You feel weak and
-#less dextrous.
-#Your joints are swollen.  You feel weak and less dextrous.
+# Your joints are swollen.  You feel weak and
+# less dextrous.
+# Your joints are swollen.  You feel weak and less dextrous.
 *Your*joints*are*swollen*|*You*feel*weak*and*less*dextrous*)  # arthritis.arc
 *Your*joints*are*swollen*|*less*dextrous*)
 ;;

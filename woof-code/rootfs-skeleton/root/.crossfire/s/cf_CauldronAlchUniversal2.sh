@@ -31,6 +31,8 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
+LOG_REPLY_FILE=/tmp/cf_script.rpl
+
 # beeping
 BEEP_DO=1
 BEEP_LENGTH=500
@@ -39,6 +41,10 @@ BEEP_FREQ=700
 _beep(){
 [ "$BEEP_DO" ] || return 0
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
+}
+
+_ping(){
+    :
 }
 
 # *** Here begins program *** #
@@ -307,7 +313,7 @@ exit $RV
 
 #echo "issue 1 1 pickup 0"  # precaution
 
-rm -f /tmp/cf_script.rpl
+rm -f "$LOG_REPLY_FILE"
 
 sleep 1s
 
@@ -356,7 +362,7 @@ esac
 
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>/tmp/cf_script.rpl
+ echo "$REPLY" >>"$LOG_REPLY_FILE"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
