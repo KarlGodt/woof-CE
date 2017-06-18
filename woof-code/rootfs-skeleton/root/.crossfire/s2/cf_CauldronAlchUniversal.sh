@@ -1,7 +1,11 @@
 #!/bin/bash
 # uses arrays, ((c++))
 
-exec 2>>/tmp/cf_script.err
+# *** diff marker 1
+# ***
+# ***
+
+exec 2>/tmp/cf_script.err
 
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
@@ -9,11 +13,11 @@ echo draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
 
-SKILL=woodsman
-#SKILL=alchemy
+#SKILL=woodsman
+SKILL=alchemy
 
-CAULDRON=stove
-#CAULDRON=cauldron
+#CAULDRON=stove
+CAULDRON=cauldron
 
 DEBUG=
 
@@ -32,7 +36,9 @@ esac
 
 DELAY_DRAWINFO=4  #seconds 4=speed 0.32
 
-DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 #set empty default
 C=0 #set zero as default
@@ -62,27 +68,84 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ
 }
 
+_ping(){
+    :
+}
+
+_sleepSLEEP(){
+[ "$FAST" ] && return 0
+sleep ${SLEEP:-1}s
+}
+
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local lMSG="$@"
+    echo draw $lCOLOUR "$lMSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"$lFILE"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+_draw ${COL_DEB:-3} "DEBUG:$@"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$@"
+    sleep 0.2
+}
+
 # *** Check for parameters *** #
 [ "$*" ] && {
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-#test "$PARAM_1" = "help" && {
-case "$PARAM_1" in -h|*"help")
+
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to produce alchemy objects."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "Mandatory NUMBER will loop for"
 echo draw 5 "NUMBER times to produce"
 echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water of the wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake root' '1'"
+echo draw 5 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
+echo draw 3 "Since the client does split space in words"
+echo draw 3 "even if quoted, the ingredients with space"
+echo draw 3 "need space replaced. Replacement is '_' underscore."
+echo draw 4 "PLEASE MANUALLY EDIT"
+echo draw 4 "SKILL and CAULDRON variables"
+echo draw 4 "in header of this script for your needs."
+echo draw 6 "SKILL variable currently set to '$SKILL'"
+echo draw 6 "CAULDRON var currently set to '$CAULDRON'"
 
         exit 0
-#        }
 ;;
 esac
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 # *** testing parameters for validity *** #
 
@@ -92,7 +155,7 @@ for c in `seq $(echo "${BASH_ARGC[0]}") -2 1`;
 #for c in `seq $WITHOUT_FIRST -2 1`;
 do
 vc=$((c-1));ivc=$((vc-1));((C++));
-INGRED[$C]=`echo "${BASH_ARGV[$vc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
+INGRED[$C]=`echo "${BASH_ARGV[$vc]}"  |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 NUMBER[$C]=`echo "${BASH_ARGV[$ivc]}" |sed 's|^"||;s|"$||' |sed "s|^'||;s|'$||"`
 
 case ${NUMBER[$C]} in
@@ -183,11 +246,20 @@ _beep
 exit 1
 }
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 # *** Check if is in inventory *** #
 
 rm -f "$LOG_INV_FILE" || exit 1
 INVTRY='';
-#echo watch request items inv
+
 echo request items inv
 
 while :; do
@@ -263,8 +335,16 @@ nineteen)  NUMBER_ALCH=19;;
 twenty)    NUMBER_ALCH=20;;
 esac
 
-
 test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
+
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
 
 # *** Actual script to alch the desired water of gem *** #
 
@@ -279,13 +359,11 @@ test "$NUMBER_ALCH" -ge 1 || NUMBER_ALCH=1 #paranoid precaution
 # *** Now get the number of desired water of the wise and           *** #
 # *** three times the number of the desired gem.                    *** #
 
-# *** Now walk onto the $CAULDRON and make sure there are 4 tiles    *** #
-# *** west of the $CAULDRON.                                         *** #
-# *** Do not open the $CAULDRON - this script does it.               *** #
+# *** Now walk onto the $CAULDRON and make sure there are 4 tiles   *** #
+# *** DIRB of the $CAULDRON.                                        *** #
+# *** Do not open the $CAULDRON - this script does it.              *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-
-echo "issue 1 1 pickup 0"  # precaution
 
 f_exit(){
 echo "issue 1 1 $DIRB"
@@ -303,7 +381,7 @@ _beep
 exit $1
 }
 
-#echo "issue 1 1 pickup 0"  # precaution
+echo "issue 1 1 pickup 0"  # precaution
 
 rm -f "$LOG_REPLY_FILE"
 

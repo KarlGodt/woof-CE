@@ -7,6 +7,9 @@
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
+DEBUG=1    # empty, 1, 2
+LOGGING=1  # empty, anything
+
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
 # increase carried weight. This version does not adjust player speed after
@@ -108,6 +111,19 @@ echo draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 
+beep
+exit $RV
+}
+
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
 beep
 exit $RV
 }
@@ -228,22 +244,33 @@ done
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 #PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`  #prints .99 if below 1
-
-echo draw 7 "Player speed is $PL_SPEED"
+[ "$DEBUG" ] && echo draw 7 "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"
+[ "$DEBUG" ] && echo draw 7 "Player speed is $PL_SPEED"
 
-  if test $PL_SPEED -gt 35; then
+if test ! "$PL_SPEED"; then
+ echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.2; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
+elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=3.0
-elif test $PL_SPEED -gt 25; then
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
-elif test $PL_SPEED -gt 15; then
+elif test "$PL_SPEED" -gt 15; then
 SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
-echo draw 7 "Done."
+echo draw 7 "Done: Set SLEEP='$SLEEP'"
 }
 
 # *** Readying rod of word of recall - just in case *** #
@@ -272,7 +299,7 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 echo draw 7 "Done."
 }
 
@@ -281,6 +308,98 @@ echo draw 7 "Done."
 # ***
 # *** diff marker 6
 # *** diff marker 7
+# ***
+# ***
+
+# *** Check for 4 empty space to DIRB *** #
+_check_free_move(){
+echo draw 5 "Checking for space to move..."
+
+echo request map pos
+
+while [ 1 ]; do
+read -t 1 REPLY
+[ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+
+[ "$DEBUG" ] && echo draw 3 "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+[ "$DEBUG" ] && echo draw 3 "R_X='$R_X' R_Y='$R_Y'"
+echo request map $R_X $R_Y
+
+while [ 1 ]; do
+read -t 1 REPLY
+[ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
+test "$IS_WALL" = 0 || f_exit_no_space 1
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+echo draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+echo draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+echo draw 7 "OK."
+}
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
 # ***
 # ***
 
@@ -293,7 +412,7 @@ echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP:-1}s
 
 echo "issue 1 1 apply"
-sleep 0.5s
+sleep ${SLEEP:-1}s  #0.5
 
 echo watch $DRAW_INFO
 
@@ -301,7 +420,7 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "issue 1 1 get"
+echo "issue 1 1 get all"
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -374,6 +493,15 @@ echo draw 4 "OK... Might the Might be with You!"
 
 _debug_two && echo monitor; #DEBUG
 
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+
 while :;
 do
 
@@ -385,7 +513,7 @@ REPLY="";
 
 echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"
-sleep 0.5s
+sleep ${SLEEP:-1}  #0.5
 
 _debug_two || echo watch $DRAW_INFO
 
@@ -399,9 +527,9 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop ..?"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough water .."
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Only one water ."
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -409,23 +537,16 @@ sleep 0.1s
 done
 
 _debug_two || echo unwatch $DRAW_INFO
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
-
-# ***
-# ***
-# *** diff marker 8
-# *** diff marker 9
-# ***
-# ***
 
 echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 0.5
+sleep ${SLEEP:-1}s
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 
 f_check_on_cauldron
@@ -459,10 +580,10 @@ done
 
 _debug_two || echo unwatch $DRAW_INFO
 
-sleep 0.5s
+sleep ${SLEEP:-1}s  #0.5
 echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"
-sleep 0.5s
+sleep ${SLEEP:-1}s  #0.5
 
 
 _debug_two || echo watch $DRAW_INFO
@@ -498,23 +619,22 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep ${SLEEP}s
 
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
+
+sleep ${SLEEP:-1}s
 echo draw 2 "Dropping water(s) ...."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep ${SLEEP}s
-
-
-# ***
-# ***
-# *** diff marker 10
-# *** diff marker 11
-# ***
-# ***
-
+sleep ${SLEEP:-1}s
 
 if test "$NOTHING" = 0; then
 
@@ -522,38 +642,42 @@ echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 #if test $NOTHING = 0; then
 #for drop in `seq 1 1 7`; do  # unfortunately does not work without this nasty loop
 echo "issue 0 1 drop water of the wise"    # issue 1 1 drop drops only one water
 echo "issue 0 1 drop waters of the wise"
+sleep ${SLEEP:-1}s
 echo "issue 0 1 drop water (cursed)"
 echo "issue 0 1 drop waters (cursed)"
+sleep ${SLEEP:-1}s
 echo "issue 0 1 drop water (magic)"
 echo "issue 0 1 drop waters (magic)"
+sleep ${SLEEP:-1}s
 #echo "issue 0 1 drop water (magic) (cursed)"
 #echo "issue 0 1 drop waters (magic) (cursed)"
 echo "issue 0 1 drop water (cursed) (magic)"
 echo "issue 0 1 drop waters (cursed) (magic)"
+sleep ${SLEEP:-1}s
 #echo "issue 0 1 drop water (unidentified)"
 #echo "issue 0 1 drop waters (unidentified)"
 
 echo "issue 0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
 #echo "issue 0 1 drop slags"
-
+sleep ${SLEEP:-1}s
 fi
 
-sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
+sleep ${DELAY_DRAWINFO:-1}s
 
 echo draw 2 "Returning to cauldron ...."
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 
 f_check_on_cauldron
@@ -592,8 +716,8 @@ done
 
 # ***
 # ***
-# *** diff marker 12
-# *** diff marker 13
+# *** diff marker 14
+# *** diff marker 15
 # ***
 # ***
 
@@ -635,4 +759,4 @@ beep -l 500 -f 700
 
 # ***
 # ***
-# *** diff marker 14
+# *** diff marker 16

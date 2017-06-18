@@ -25,6 +25,10 @@
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
 # * This script applies PROBE_ITEM if PROBE_DO is set
 
+# *** diff marker 1
+# ***
+# ***
+
 export PATH=/bin:/usr/bin
 
 TIMEA=`/bin/date +%s`
@@ -70,13 +74,12 @@ test -f "${MY_SELF%/*}"/"${MY_NAME}".conf && . "${MY_SELF%/*}"/"${MY_NAME}".conf
 }
 
 
-
 _draw(){
-    local COLOUR="$1"
-    COLOUR=${COLOUR:-1} #set default
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
     shift
-    local MSG="$@"
-    echo draw $COLOUR "$MSG"
+    local lMSG="$@"
+    echo draw $lCOLOUR "$lMSG"
 }
 
 _log(){
@@ -87,9 +90,14 @@ _log(){
    echo "$*" >>"$lFILE"
 }
 
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
 _debug(){
 test "$DEBUG" || return 0
-    _draw ${COL_DEB:-3} "DEBUG:$@"
+_draw ${COL_DEB:-3} "DEBUG:$@"
 }
 
 _is(){
@@ -98,13 +106,16 @@ _is(){
     sleep 0.2
 }
 
-_verbose(){
-test "$VERBOSE" || return 0
-_draw ${COL_VERB:-12} "VERBOSE:$*"
-}
-
 
 # ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+# ***
+
+
 _usage(){
 # *** print usage message to client window and exit
 
@@ -201,6 +212,15 @@ _debug "__parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PA
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using defaults."
 }
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 _parse_parameters(){
 _debug "_parse_parameters:$*"
 
@@ -278,6 +298,14 @@ test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using def
 
 
 # ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
+# ***
 _check_have_needed_spell_in_inventory(){
 # *** check if spell is applyable - takes some time ( 16 seconds )
 [ "$CHECK_NO" ] && return 0
@@ -291,7 +319,7 @@ _draw 5 "Checking if have '$SPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`/bin/date +%s`
-#echo watch request
+
 echo request spells
 while :;
 do
@@ -309,7 +337,6 @@ sleep 0.1
 done
 
 #unset oldSPELL oneSPELL
-#echo unwatch request
 
 TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -336,7 +363,6 @@ local oneSPELL oldSPELL SPELLSA
 _draw 5 "Checking if have '$SPELL' applied ..."
 _draw 5 "Please wait...."
 
-#echo watch request
 echo request spells
 while :;
 do
@@ -354,7 +380,6 @@ sleep 0.1
 done
 
 unset oldSPELL oneSPELL
-#echo unwatch request
 
 echo "$SPELLSA" | grep -q -i "$lSPELL"
 }
@@ -378,6 +403,15 @@ _is 1 1 fire_stop
 #HAVE_APPLIED_PROBE=1 # see TODO above
 }
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+
 # ***
 _apply_needed_spell(){  # has no params
 # *** apply the spell that was given as parameter
@@ -393,7 +427,6 @@ __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
 
-#echo watch request
 echo request stat hp
 read -t 1 statHP
  _debug "$statHP"
@@ -406,7 +439,7 @@ read -t 1 statHP
      _is 0 0 apply $FOOD
    sleep 1
  fi
-#echo unwatch request
+
 }
 
 _rotate_range_attack(){
@@ -417,7 +450,6 @@ local REPLY_RANGE oldREPLY_RANGE
 _draw 5 "Checking if have '$SPELL' ready..."
 _draw 5 "Please wait...."
 
-#echo watch request range
 while :;
 do
 #_debug "_rotate_range_attack:request range"
@@ -435,7 +467,7 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-#echo unwatch request
+
 }
 
 # ***
@@ -456,6 +488,15 @@ _do_emergency_recall(){
 
 exit 5
 }
+
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 
 # *** stub to switch wizard-cleric spells in future
 _watch_wizard_spellpoints(){
@@ -503,8 +544,6 @@ _watch_food(){  # called by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
-#echo watch request
-
 local r s h HP HP_MAX FOOD_STAT
 
 echo request stat hp
@@ -516,8 +555,6 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
      _is 0 0 apply $FOOD
    sleep 1
  fi
-
-#echo unwatch request
 
  if test $HP -lt $((HP_MAX/5)); then  #
   _do_emergency_recall
@@ -546,6 +583,15 @@ _verbose "Still regenerating to spellpoints $SP -> $((SP_MAX/2)) .."
 done
 
 }
+
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
 
 # *** both STATS_DO and PROBE_DO
 _counter_for_checks(){
@@ -652,7 +698,16 @@ done
             _is 0 0 $COMMAND_STOP
 }
 
+
 # ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+# ***
+
+
 _error(){
 # ***
 
@@ -697,3 +752,8 @@ esac
 
 # *** Here ends program *** #
 _draw 2 "$0 is finished."
+
+
+# ***
+# ***
+# *** diff marker 16

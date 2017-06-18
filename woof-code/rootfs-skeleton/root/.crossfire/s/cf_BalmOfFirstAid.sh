@@ -17,8 +17,9 @@ DELAY_DRAWINFO=6.0  # sleep seconds to sync msgs from script with msgs from serv
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
-# increase carried weight. This version does not adjust player speed after
-# several weight losses.
+# increase carried weight and to prevent similar named ingredient
+# being dropped into cauldron another time.
+# This version does not adjust player speed after several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -104,7 +105,7 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
@@ -250,6 +251,7 @@ done
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+[ "$DEBUG" ] && echo draw 3 "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -276,6 +278,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+[ "$DEBUG" ] && echo draw 3 "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
@@ -285,7 +288,8 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -439,10 +443,24 @@ echo draw 7 "Player speed is $PL_SPEED"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed set to $PL_SPEED"
 
-if test $PL_SPEED -gt 35; then
+if test ! "$PL_SPEED"; then
+ echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.2; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
+elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif test $PL_SPEED -gt 25; then
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
 echo draw 6 "Done."
@@ -504,7 +522,7 @@ TIMEC=`/bin/date +%s`
 
 echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 #_debug_two || echo watch $DRAW_INFO
 echo draw 4 "Dropping water of the wise ..."
@@ -531,7 +549,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 echo draw 4 "Dropping mandrake root ..."
 echo "issue 1 1 drop 1 mandrake root"
@@ -557,15 +575,15 @@ done
 
 _debug_two || echo unwatch $DRAW_INFO
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 0.5
+sleep ${SLEEP:-1}s
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 _check_if_on_cauldron
 
@@ -595,10 +613,10 @@ done
 
 _debug_two || echo unwatch $DRAW_INFO
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 
 # ***
@@ -644,14 +662,14 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 echo draw 2 "Dropping balm ...."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 if test "$NOTHING" = 0; then
         if test "$SLAG" = 0; then
@@ -659,15 +677,16 @@ if test "$NOTHING" = 0; then
         echo "issue 1 1 use_skill sense curse"
         echo "issue 1 1 use_skill sense magic"
         echo "issue 1 1 use_skill alchemy"
-        sleep ${SLEEP}s
+        sleep ${SLEEP:-1}s
 
         echo "issue 0 1 drop balm"
         else
         echo "issue 0 1 drop slag"
         fi
+sleep ${SLEEP:-1}s
 fi
 
-sleep ${DELAY_DRAWINFO}s
+sleep ${DELAY_DRAWINFO:-1}s
 
 
 echo draw 2 "Returning to cauldron ...."
@@ -675,7 +694,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 _check_if_on_cauldron
 
@@ -706,6 +725,7 @@ done
  }
 
 }
+
 
 # ***
 # ***

@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 #exec 2>/tmp/cf_script.err
 
 # Now count the whole script time
@@ -78,18 +82,12 @@ echo issue "$@"
 sleep 0.2
 }
 
-
-# *** Here begins program *** #
-_draw 2 "$0 is started.."
-
-# *** Check for parameters *** #
-
 # *** implementing 'help' option *** #
 _usage() {
 
 _draw 5 "Script to lockpick doors."
 _draw 5 "Syntax:"
-_draw 5 "script $0 <direction> [number]"
+_draw 5 "script $0 <direction> <<number>>"
 _draw 5 "For example: 'script $0 5 west'"
 _draw 5 "will issue 5 times search, disarm and use_skill lockpicking in west."
 _draw 4 "Options:"
@@ -110,8 +108,14 @@ _draw 5 "-v set verbosity"
         exit 0
 }
 
-#_draw 3 "'$#' Parameters: '$*'"
-_debug "'$#' Parameters: '$*'"
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 _word_to_number(){
 
@@ -168,6 +172,12 @@ readonly DIR DIRN;
 return $?
 }
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+
+# *** Check for parameters *** #
+#_draw 3 "'$#' Parameters: '$*'"
+_debug "'$#' Parameters: '$*'"
 
 # If there is only one parameter and it is a number
 # assume it means direction
@@ -182,6 +192,14 @@ case $PARAM_1 in [0-8])
 esac
 
 fi
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 
 until test $# = 0;
@@ -283,6 +301,15 @@ else
  exit 1
 fi
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 # TODO : find out if turn possible without casting/firing in DIRN
 
 __turn_direction__(){
@@ -377,6 +404,15 @@ done
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 _turn_direction(){
 test "$*" || return 3
@@ -480,6 +516,15 @@ echo unwatch $DRAW_INFO
 
 $CAST_DEX
 
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+
 _find_traps(){
 # ** search or use_skill find traps ** #
 
@@ -552,7 +597,13 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
-_find_traps
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
 
 
 _disarm_traps(){
@@ -630,9 +681,15 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
-_disarm_traps
 
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
 
+_lockpick_door(){
 # ** open door with use_skill lockpicking ** #
 
 _debug "watch $DRAW_INFO"
@@ -695,10 +752,18 @@ done
 
 _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
+}
 
-
+_find_traps
+_disarm_traps
+_lockpick_door
 
 # *** Here ends program *** #
 
 _draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 16

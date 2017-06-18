@@ -77,7 +77,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-1} ""
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Script to produce alchemy objects."
 echo draw ${g_edit_nulldigit_COLOURED:-7} "Syntax:"
 echo draw ${g_edit_nulldigit_COLOURED:-7} "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw ${g_edit_nulldigit_COLOURED:-5} "Allowed NUMBER will loop for"
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Mandatory NUMBER will loop for"
 echo draw ${g_edit_nulldigit_COLOURED:-5} "NUMBER times to produce"
 echo draw ${g_edit_nulldigit_COLOURED:-5} "ARTIFACT alch with"
 echo draw ${g_edit_nulldigit_COLOURED:-2} "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
@@ -95,6 +95,15 @@ echo draw ${g_edit_nulldigit_COLOURED:-1} ""
         exit 0
 ;;
 esac
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 # *** testing parameters for validity *** #
 g_noedit_digit_C=0 # used in ingredients arrays, set zero as default here,
@@ -143,14 +152,6 @@ done
 g_auto_string_GOAL=${g_auto_string_INGRED[1]}
 g_auto_string_GOAL=`echo "${g_auto_string_GOAL}" | tr '_' ' '`
 g_auto_digit_NUMBER_ALCH=${g_auto_digit_NUMBER[1]}
-
-
-# ***
-# ***
-# *** diff marker 2
-# *** diff marker 3
-# ***
-# ***
 
 
 g_noedit_digit_C=1
@@ -260,6 +261,19 @@ twenty)    g_auto_digit_NUMBER_ALCH=20;;
 esac
 test "$g_auto_digit_NUMBER_ALCH" -ge 1 || g_auto_digit_NUMBER_ALCH=1 #paranoid precaution
 
+
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
+}
 
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
@@ -389,6 +403,7 @@ test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
 [ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw  ${g_edit_nulldigit_COLOURED:-3} "IS_WALL='$IS_WALL'"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -544,10 +559,22 @@ echo draw 7 "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
  echo draw ${g_edit_nulldigit_COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.2; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
 elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
 echo draw 6 "Done."

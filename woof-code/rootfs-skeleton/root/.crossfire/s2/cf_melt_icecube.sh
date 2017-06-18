@@ -1,5 +1,11 @@
 #!/bin/ash
+
+# *** diff marker 1
+# ***
+# ***
+
 #exec 2>/tmp/cf_icecube.err  # DEBUG
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1    # black bold
@@ -18,7 +24,9 @@
 
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo (older clients)
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 #logging
 TMP_DIR=/tmp/crossfire_client
@@ -95,6 +103,14 @@ esac
 shift
 sleep 0.1
 done
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
 
 
 # ** functions ** #
@@ -192,6 +208,15 @@ done
 return 0
 }
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 # *** main *** #
 
 TIMEB=`/bin/date +%s`
@@ -211,3 +236,8 @@ done
 
 # *** END *** #
 _say_end_msg
+
+
+# ***
+# ***
+# *** diff marker 6

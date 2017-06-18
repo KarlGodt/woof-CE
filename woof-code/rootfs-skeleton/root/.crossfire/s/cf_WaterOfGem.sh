@@ -153,6 +153,34 @@ _kill_jobs
 exit $RV
 }
 
+f_exit_no_space(){
+RV=${1:-0}
+shift
+
+echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw 3 "Remove that Item and try again."
+echo draw 3 "If this is a Wall, try another place."
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw 3 "Emergency Exit $0 !"
+echo unwatch $DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw 5 "$*"
+beep
+exit $RV
+}
+
 _debug_two(){
 [ "$DEBUG" ]       || return 3
 [ "$DEBUG" -ge 2 ] || return 4
@@ -162,6 +190,15 @@ _debug_two(){
 echo draw 2 "$0 is started:"
 echo draw 2 "PID $$ -- PPID $PPID"
 echo draw 2 "ARGUMENTS:$*"
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 # *** Check for parameters *** #
 
@@ -199,33 +236,6 @@ sleep 0.1
 shift
 done
 
-
-# ***
-# ***
-# *** diff marker 4
-# *** diff marker 5
-# ***
-# ***
-
-
-#if test ! "$GEM"; then #set fallback
-#GEM=diamond
-##GEM=sapphire
-##GEM=ruby
-##GEM=emerald
-##GEM=pearl
-#fi
-
-#if test ! "$NUMBER"; then
-#echo draw 3 "Need a number of items to alch."
-#f_exit 1
-#elif test "$NUMBER" = 0; then
-#echo draw 3 "Number must be not ZERO."
-#f_exit 1
-#elif test "$NUMBER" -lt 0; then
-#echo draw 3 "Number must be greater than ZERO."
-#f_exit 1
-#fi
 
 test "$GEM" = diamond -o "$GEM" = emerald -o "$GEM" = pearl \
   -o "$GEM" = ruby -o "$GEM" = sapphire || {
@@ -334,6 +344,7 @@ done
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+[ "$DEBUG" ] && echo draw 3 "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -360,6 +371,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+[ "$DEBUG" ] && echo draw 3 "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
@@ -369,7 +381,8 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-[ "$LOGGING" ] && echo "$IS_WALL" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
 test "$IS_WALL" = 0 || f_exit_no_space 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -414,7 +427,7 @@ local REPLY="";
 local NOTHING=0
 
 echo "issue 1 1 apply"   # open cauldron
-sleep 0.5
+sleep ${SLEEP:-1}s  # 0.5
 
 echo watch $DRAW_INFO
 
@@ -438,14 +451,14 @@ then
  f_exit 1 "Cauldron NOT empty."
 fi
 
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"  # close cauldron
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
-sleep $DELAY_DRAWINFO
+sleep ${SLEEP:-1}s
+sleep ${DELAY_DRAWINFO:-1}
 
 echo draw 7 "Done. Cauldron SEEMS empty."
 return 0
@@ -482,10 +495,24 @@ echo draw 7 "Player speed is $PL_SPEED"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed set to $PL_SPEED"
 
-if test $PL_SPEED -gt 35; then
+if test ! "$PL_SPEED"; then
+ echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.6; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.8; DELAY_DRAWINFO=1.3
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
+elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif test $PL_SPEED -gt 25; then
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
 echo draw 6 "Done."
@@ -568,6 +595,15 @@ TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 _debug_two && echo monitor; #DEBUG
 
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
+
 while :;
 do
 
@@ -578,6 +614,7 @@ _check_if_on_cauldron && _check_if_empty_cauldron && _check_if_on_cauldron || br
 
 echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"  # open cauldron
+sleep ${SLEEP:-1}  #0.5
 
 _debug_two || echo watch $DRAW_INFO
 
@@ -586,7 +623,6 @@ echo "issue 1 1 drop 1 water of the wise"
 
 OLD_REPLY="";
 REPLY="";
-
 
 while [ 1 ]; do
 read -t 1 REPLY
@@ -604,15 +640,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-sleep 1s
-
-
-# ***
-# ***
-# *** diff marker 12
-# *** diff marker 13
-# ***
-# ***
+sleep ${SLEEP:-1}s
 
 
 echo draw 4 "Dropping '$GEM' ..."
@@ -638,18 +666,17 @@ sleep 0.1s
 done
 
 _debug_two || echo unwatch $DRAW_INFO
-
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"  # close cauldron
 echo "issue 1 1 $DIRB"
-sleep 0.5
+sleep ${SLEEP:-1}s  #0.5
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
-
+sleep ${DELAY_DRAWINFO:-1}s
 _check_if_on_cauldron
 
 echo draw 4 "using skill alchemy ..."
@@ -678,10 +705,10 @@ done
 
 _debug_two || echo unwatch $DRAW_INFO
 
-sleep 0.5s
+sleep ${SLEEP:-1}s  #0.5
 echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"   # open cauldron
-sleep 0.5s
+sleep ${SLEEP:-1}s  #0.5
 
 _debug_two || echo watch $DRAW_INFO
 
@@ -710,7 +737,7 @@ sleep 0.1s
 done
 
 _debug_two || echo unwatch $DRAW_INFO
-
+sleep ${SLEEP:-1}s
 
 # ***
 # ***
@@ -725,48 +752,50 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep 1s
-
+sleep ${SLEEP:-1}s
 echo draw 2 "Dropping water of $GEM ...."
 echo "issue 1 1 $DIRB"   # drop slag/water four tiles back
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 [ "$DEBUG" ] && echo draw 5 "NOTHING is '$NOTHING'"
 
 if test "$SLAG" = 1; then
 echo "issue 0 1 drop slag"
-
+sleep ${SLEEP:-1}s
 elif test "$NOTHING" = 0; then
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
 echo "issue 1 1 use_skill sense curse"  # identify water
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 drop water of $GEM"   # drop it
 echo "issue 1 1 drop waters of $GEM"  # drop it
+sleep ${SLEEP:-1}s
 echo "issue 1 1 drop water (magic)"
 echo "issue 1 1 drop waters (magic)"
+sleep ${SLEEP:-1}s
 echo "issue 1 1 drop water (cursed)"
 echo "issue 1 1 drop waters (cursed)"
-else :
+sleep ${SLEEP:-1}s
+else sleep ${SLEEP:-1}s
 fi
 
 
-sleep ${DELAY_DRAWINFO}s
+sleep ${DELAY_DRAWINFO:-2}s
 
 echo draw 2 "Returning to cauldron ...."
 echo "issue 1 1 $DIRF"  # go back onto cauldron
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 
-sleep ${DELAY_DRAWINFO}s
+sleep ${DELAY_DRAWINFO:-1}s
 
 
 TIMEE=`/bin/date +%s`

@@ -1,11 +1,17 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 DEF_SEARCH=9
 DEF_DISARM=9
@@ -89,12 +95,21 @@ echo issue "$*"
 sleep 0.2
 }
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 # *** implementing 'help' option *** #
 _usage() {
 
 _draw 5 "Script to open chests."
 _draw 5 "Syntax:"
-_draw 5 "script $0 [number]"
+_draw 5 "script $0 <<number>>"
 _draw 5 "For example: 'script $0 5'"
 _draw 5 "will issue 5 times search, disarm, apply and get."
 _draw 4 "Options:"
@@ -174,6 +189,14 @@ _is 1 1 $DIRF
 sleep 1
 
 # TODO : check if on chest
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 
 _cast_dexterity(){
@@ -312,6 +335,15 @@ _handle_trap_event(){
 return 0
 }
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 _disarm_traps(){
 # ** disarm by use_skill disarm traps ** #
 [ "$SKILL_DISARM" = no ] && return 3
@@ -370,6 +402,15 @@ done
 
 sleep 0.1
 }
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 _find_traps(){
 # ** search to find traps ** #
@@ -434,6 +475,15 @@ echo unwatch $DRAW_INFO
 
 sleep 0.1
 }
+
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 
 _open_chest(){
 # ** open chest, apply, get ** #
@@ -518,3 +568,8 @@ echo unwatch $DRAW_INFO
 
 _draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 12

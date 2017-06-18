@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 TIMEA=`/bin/date +%s`
 
 # *** Here begins program *** #
@@ -74,6 +78,14 @@ done
 # TODO : Check if +items applied and or in inventory.
 
 
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 # *** Actual script to pray multiple times *** #
 test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 
@@ -99,3 +111,8 @@ echo "issue 1 1 fire_stop"
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 4

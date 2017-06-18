@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -45,7 +49,7 @@ do
 PARAM_1="$1"
 
 # *** implementing 'help' option *** #
-case "$PARAM_1" in -h|*"help")
+case "$PARAM_1" in -h|*"help"|*usage)
 
 echo draw 5 "Script to pray given number times."
 echo draw 5 "Syntax:"
@@ -82,6 +86,14 @@ done
 #echo draw 3 "Script needs number of praying attempts as argument."
 #        exit 1
 #}
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
 
 
 # *** Player's Speed *** #
@@ -123,3 +135,8 @@ done
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 4

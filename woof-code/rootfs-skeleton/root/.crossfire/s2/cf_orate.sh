@@ -1,11 +1,17 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 # FOREVER mode
 INF_THRESH=30 # threshold to cast charisma and probe
@@ -65,10 +71,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
+       echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+       readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+       ;;
  n|north)       DIR=north;     DIRN=1;; #readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2;; #readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3;; #readonly DIR DIRN;;
@@ -106,6 +112,15 @@ else
  exit 1
 fi
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 _ping(){
 test "$PING_DO" || return 0
 while :;
@@ -114,6 +129,11 @@ ping -c1 -w10 -W10 "$URL" && break
 sleep 1
 done >/dev/null
 }
+
+CAST_PROBE=_cast_probe
+CAST_REST=_cast_resoration # prayer
+CAST_PACY=_cast_pacify     # prayer, unused
+CAST_CHA=_cast_charisma
 
 _cast_charisma(){
 # ** cast CHARISMA ** #
@@ -156,12 +176,17 @@ echo unwatch $DRAW_INFO
 #You are no easier to look at.
 }
 
-CAST_PROBE=_cast_probe
-CAST_REST=_cast_resoration # prayer
-CAST_PACY=_cast_pacify     # prayer, unused
-CAST_CHA=_cast_charisma
 $CAST_CHA
 #_cast_charisma
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 __cast_pacify(){  # unused
 # ** cast PACIFY ** #
@@ -291,6 +316,15 @@ echo unwatch $DRAW_INFO
 }
 $CAST_REST
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 _attack(){
 local one
 for one in `seq 1 1 $MAX_ATTACK`;
@@ -356,6 +390,15 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
 
 echo unwatch $DRAW_INFO
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+
 if test "$FOREVER"; then
  cc=$((cc+1))
  test "$cc" = $INF_THRESH && {
@@ -394,3 +437,8 @@ echo draw 7 "You calmed down '$CALMS' ."
 echo draw 7 "You convinced   '$CONVS' ."
 echo draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 10

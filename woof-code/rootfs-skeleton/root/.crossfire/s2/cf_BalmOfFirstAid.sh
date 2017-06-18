@@ -1,20 +1,27 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
 # *** VARIABLES *** #
 DEBUG=  # set to anything to enable
 
-DRAW_INFO=drawinfo  # drawextinfo (old clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
-SLEEP=3           # sleep seconds after codeblocks
-DELAY_DRAWINFO=6  # sleep seconds to sync msgs from script with msgs from server
+SLEEP=3.0           # sleep seconds after codeblocks
+DELAY_DRAWINFO=6.0  # sleep seconds to sync msgs from script with msgs from server
 
 # When putting ingredients into cauldron, player needs to leave cauldron
 # to close it. Also needs to pickup and drop the result(s) to not
-# increase carried weight. This version does not adjust player speed after
-# several weight losses.
+# increase carried weight and to prevent similar named ingredient being dropped
+# into cauldron another time.
+# This version does not adjust player speed after several weight losses.
 
 DIRB=west  # direction back to go
 
@@ -63,6 +70,42 @@ sleep 1
 done >/dev/null
 }
 
+_sleepSLEEP(){
+[ "$FAST" ] && return 0
+sleep ${SLEEP:-1}s
+}
+
+_draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local lMSG="$@"
+    echo draw $lCOLOUR "$lMSG"
+}
+
+_log(){
+    test "$LOGGING" || return 0
+    local lFILE
+    test "$2" && {
+    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+   echo "$*" >>"$lFILE"
+}
+
+_verbose(){
+test "$VERBOSE" || return 0
+_draw ${COL_VERB:-12} "VERBOSE:$*"
+}
+
+_debug(){
+test "$DEBUG" || return 0
+_draw ${COL_DEB:-3} "DEBUG:$@"
+}
+
+_is(){
+    _verbose "$*"
+    echo issue "$@"
+    sleep 0.2
+}
 
 # times
 _say_minutes_seconds(){
@@ -83,6 +126,15 @@ case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
 
 echo draw 5 "$* $TIMEm:$TIMEs minutes."
 }
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 _say_success_fail(){
 test "$NUMBER" -a "$FAIL" || return 3
@@ -115,16 +167,16 @@ _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 _usage(){
 echo draw 5 "Script to produce balm of first aid."
 echo draw 7 "Syntax:"
-echo draw 7 "$0 <NUMBER>"
-echo draw 5 "Allowed NUMBER will loop for"
+echo draw 7 "$0 < NUMBER >"
+echo draw 5 "Optional NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
 echo draw 4 "If no number given, loops as long"
 echo draw 4 "as ingredients could be dropped."
-echo draw 5 "Options:"
+echo draw 2 "Options:"
 echo draw 5 "-d  to turn on debugging."
 echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
-
+echo draw 5 "-v  to be more talkaktive."
         exit 0
 }
 
@@ -146,11 +198,13 @@ case "$PARAM_1" in
 
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 --*) case $PARAM_1 in
       --help)   _usage;;
-      --deb*)    DEBUG=$((DEBUG+1));;
-      --log*)  LOGGING=$((LOGGING+1));;
+      --deb*)      DEBUG=$((DEBUG+1));;
+      --log*)    LOGGING=$((LOGGING+1));;
+      --verbose) VERBOSE=$((VERBOSE+1));;
       *) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
@@ -160,6 +214,7 @@ case "$PARAM_1" in
       h)  _usage;;
       d)   DEBUG=$((DEBUG+1));;
       L) LOGGING=$((LOGGING+1));;
+      v) VERBOSE=$((VERBOSE+1));;
       *) echo draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
@@ -191,6 +246,14 @@ done
 echo draw 7 "OK."
 
 
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 # *** EXIT FUNCTIONS *** #
 f_exit(){
 RV=${1:-0}
@@ -200,13 +263,11 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
+
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
@@ -266,6 +327,14 @@ done
 # 5.) _get_player_speed
 
 
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 f_check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
@@ -311,8 +380,6 @@ echo draw 5 "Checking for space to move..."
 
 echo request map pos
 
-#echo watch request
-
 while :; do
 _ping
 read -t 1 REPLY
@@ -323,9 +390,6 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
-
-#echo unwatch request
-
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
@@ -357,8 +421,6 @@ esac
 
 echo request map $R_X $R_Y
 
-#echo watch request
-
 while :; do
 _ping
 read -t 1 REPLY
@@ -375,8 +437,6 @@ test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
-
-#echo unwatch request
 
 done
 
@@ -397,6 +457,15 @@ fi
 echo draw 7 "OK."
 }
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
@@ -407,8 +476,6 @@ OLD_REPLY="";
 REPLY="";
 
 echo request items actv
-
-#echo watch request
 
 while :; do
 _ping
@@ -428,8 +495,6 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-#echo unwatch request
-
 echo draw 6 "Done."
 }
 
@@ -437,13 +502,13 @@ _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
-sleep ${SLEEP}s
+_sleepSLEEP
 
 
 echo draw 5 "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 OLD_REPLY="";
 REPLY_ALL='';
@@ -484,6 +549,15 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 }
 
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+
 _get_player_speed(){
 # *** Getting Player's Speed *** #
 
@@ -494,8 +568,6 @@ ANSWER=
 OLD_ANSWER=
 
 echo request stat cmbt
-
-#echo watch request
 
 while :; do
 _ping
@@ -509,8 +581,6 @@ OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-#echo unwatch request
-
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
@@ -519,10 +589,24 @@ echo draw 7 "Player speed is $PL_SPEED"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed set to $PL_SPEED"
 
-  if test $PL_SPEED -gt 35; then
+if test ! "$PL_SPEED"; then
+ echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+elif test "$PL_SPEED" -gt 65; then
+SLEEP=0.2; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 55; then
+SLEEP=0.5; DELAY_DRAWINFO=1.2
+elif test "$PL_SPEED" -gt 45; then
+SLEEP=1.0; DELAY_DRAWINFO=1.5
+elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
-elif test $PL_SPEED -gt 25; then
+elif test "$PL_SPEED" -gt 25; then
 SLEEP=2.0; DELAY_DRAWINFO=4.0
+elif test "$PL_SPEED" -gt 15; then
+SLEEP=3.0; DELAY_DRAWINFO=6.0
+elif test "$PL_SPEED" -ge  0; then
+SLEEP=4.0; DELAY_DRAWINFO=9.0
+else
+ echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
 echo draw 6 "Done."
@@ -540,6 +624,15 @@ _get_player_speed
 test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 NUMBER=${NUMBER:-infinite}
 
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
+
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #
 # *** Make sure similar items are not in the inventory --           *** #
@@ -556,7 +649,7 @@ NUMBER=${NUMBER:-infinite}
 # *** same times the number of mandrake root .                      *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** DIRB of the cauldron.                                         *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
@@ -573,18 +666,19 @@ echo draw 4 "OK... Might the Might be with You!"
 
 FAIL=0
 
-#for one in `seq 1 1 $NUMBER`
+
 while :;
 do
 
 TIMEC=${TIMEE:-$TIMEB}
 
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 #echo watch $DRAW_INFO
 
 echo "issue 1 1 drop 1 water of the wise"
+_sleepSLEEP
 
 echo watch $DRAW_INFO
 
@@ -609,10 +703,10 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-
-sleep ${SLEEP}s
+_sleepSLEEP
 
 echo "issue 1 1 drop 1 mandrake root"
+_sleepSLEEP
 
 OLD_REPLY="";
 REPLY="";
@@ -639,13 +733,12 @@ done
 
 echo unwatch $DRAW_INFO
 
-sleep ${SLEEP}s
-
+_sleepSLEEP
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 #echo watch $DRAW_INFO
 
@@ -674,11 +767,12 @@ done
 echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 #echo watch $DRAW_INFO
 
-echo "issue 1 1 get"
+echo "issue 0 0 get all"
+_sleepSLEEP
 
 echo watch $DRAW_INFO
 
@@ -713,20 +807,19 @@ then
  FAIL=$((FAIL+1))
 fi
 
-sleep ${SLEEP}s
-
+_sleepSLEEP
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 if test $NOTHING = 0; then
         if test $SLAG = 0; then
         echo "issue 1 1 use_skill sense curse"
         echo "issue 1 1 use_skill sense magic"
         echo "issue 1 1 use_skill alchemy"
-        sleep ${SLEEP}s
+        _sleepSLEEP
 
         echo "issue 0 1 drop balm"
         else
@@ -740,7 +833,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+_sleepSLEEP
 
 
 f_check_on_cauldron
@@ -775,3 +868,8 @@ _say_statistics_end
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 _beep
+
+
+# ***
+# ***
+# *** diff marker 18
