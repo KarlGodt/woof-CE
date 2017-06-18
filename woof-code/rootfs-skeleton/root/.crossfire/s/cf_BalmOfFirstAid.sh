@@ -532,7 +532,7 @@ _debug_two || echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
-
+DW=0
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
@@ -540,15 +540,17 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*You put the water.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inventory."
 sleep ${SLEEP:-1}s
 
 echo draw 4 "Dropping mandrake root ..."
@@ -556,7 +558,7 @@ echo "issue 1 1 drop 1 mandrake root"
 
 OLD_REPLY="";
 REPLY="";
-
+DW=0
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
@@ -564,17 +566,19 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep '.*You put the mandrake.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-_debug_two || echo unwatch $DRAW_INFO
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing mandrake root in inventory."
 
+_debug_two || echo unwatch $DRAW_INFO
 sleep ${SLEEP:-1}s
 
 echo draw 2 "Closing cauldron .."

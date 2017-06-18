@@ -89,7 +89,7 @@ _log(){
     test "$LOGGING" || return 0
     local lFILE
     test "$2" && {
-    lFILE="$1"; shift; } || lFILE="$LOG_FILE"
+    lFILE="$1"; shift; } || lFILE="$LOG_REPLY_FILE"
    echo "$*" >>"$lFILE"
 }
 
@@ -99,6 +99,11 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 }
 
 _debug(){
+test "$DEBUG" || return 0
+_draw ${COL_DEB:-3} "DEBUG:$@"
+}
+
+_debugx(){
 test "$DEBUG" || return 0
 _draw ${COL_DEB:-3} "DEBUG:$@"
 }
@@ -218,7 +223,8 @@ echo request items on
 while :; do
 read UNDER_ME
 sleep 0.1s
-[ "$DEBUG" -o "$LOGGING" ] && echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+_log "$LOG_ISON_FILE" "$UNDER_ME"
+_debug "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in "request items on end") break;;
@@ -231,7 +237,8 @@ __old_loop(){
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
+_log "$LOG_ISON_FILE" "$UNDER_ME"
+_debug "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
@@ -265,8 +272,8 @@ echo request items inv
 while :; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+_log "$LOG_INV_FILE" "$INVTRY"
+_debugx "$INVTRY"
 case "$INVTRY" in "") break;;
 "request items inv end") break;;
 "scripttell break") break;;
@@ -279,8 +286,8 @@ __old_loop(){
 while [ 1 ]; do
 INVTRY=""
 read -t 1 INVTRY || break
-echo "$INVTRY" >>"$LOG_INV_FILE"
-#echo draw 3 "$INVTRY"
+_log "$LOG_INV_FILE" "$INVTRY"
+_debugx "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
 test "$INVTRY" = "scripttell break" && break
@@ -370,11 +377,8 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 1s
+sleep ${SLEEP:-1}s
 echo draw 3 "Exiting $0."
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
@@ -424,20 +428,23 @@ sleep 1s
  eightteen) NUMBER[$FOR]=18;;
  nineteen)  NUMBER[$FOR]=19;;
  twenty)    NUMBER[$FOR]=20;;
-esac
+ esac
 
+ DW=0
  echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  while :; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$LOG_REPLY_FILE" "$REPLY"
+ _debug "$REPLY"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.")                 f_exit 1 "Nothing to drop";;
+ *"There are only"*)                  f_exit 1 "Not enough ${INGRED[$FOR]}";;
+ *"There is only"*)                   f_exit 1 "Not enough ${INGRED[$FOR]}";;
+ *"You put the"*${INGRED[$FOR]%% *}*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
  #test "$REPLY" || break
@@ -449,7 +456,8 @@ esac
  __old_loop(){
  while [ 1 ]; do
  read -t 1 REPLY
- echo "$REPLY" >>"$LOG_REPLY_FILE"
+ _log "$LOG_REPLY_FILE" "$REPLY"
+ _debug "$REPLY"
  test "$REPLY" || break
  test "$REPLY" = "$OLD_REPLY" && break
  test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
@@ -462,6 +470,7 @@ esac
  done
  }
 
+ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing ${INGRED[$FOR]%% *} in inventory."
  done
 
 echo unwatch $DRAW_INFO
@@ -485,11 +494,18 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "$REPLY" >>"$LOG_REPLY_FILE"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+_log "$LOG_REPLY_FILE" "$REPLY"
+_debug "$REPLY"
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+#test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
+#test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+case $REPLY in
+'')         break;;
+$OLD_REPLY) break;;
+*"pours forth monsters"*)   f_emergency_exit 1;;
+*"You unwisely release potent forces"*) exit 1;;
+esac
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -500,18 +516,18 @@ echo unwatch $DRAW_INFO
 
 echo "issue 1 1 apply"
 echo "issue 7 1 take"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep 1s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill $SKILL"
-sleep 6s
+sleep ${SLEEP:-6}s
 
 echo draw 7 "drop $GOAL"
 echo "issue 0 1 drop $GOAL"
@@ -522,12 +538,12 @@ for FOR in `seq 2 1 $C`; do
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
  echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
- sleep 2s
+ sleep ${SLEEP:-2}s
  echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
  echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
- sleep 2s
+ sleep ${SLEEP:-2}s
 
 done
 
@@ -539,7 +555,7 @@ echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 
 #DELAY_DRAWINFO=4  #speed 0.32
-sleep ${DELAY_DRAWINFO}s
+sleep ${DELAY_DRAWINFO:-2}s
 
 toGO=$((NUMBER_ALCH-one))
 tEND=`/bin/date +%s`
@@ -550,7 +566,7 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep 2s         #speed 0.32
+sleep ${SLEEP:-2}s         #speed 0.32
 
 done
 

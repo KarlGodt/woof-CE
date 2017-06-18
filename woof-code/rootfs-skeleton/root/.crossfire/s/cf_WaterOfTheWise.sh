@@ -4,6 +4,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
@@ -51,6 +53,41 @@ echo draw 4 "as ingredient could be dropped."
 
         exit 0
 }
+
+PING_DO=1
+URL=crossfire.metalforge.net # localhost if server running on local PC
+
+_ping(){
+test "$PING_DO" || return 0
+
+local FOREVER=''
+local PRV
+
+case $1 in
+-I|--infinite) FOREVER=1;;
+esac
+
+while :; do
+ping -c 1 -w10 -W10 "$URL" >/dev/null 2>&1
+PRV=$?
+ if test "$FOREVER"; then
+  case $PRV in 0) :;;
+  *) echo draw 3 "WARNING: Client seems disconnected.." >&1;;
+  esac
+  sleep 2
+ else
+  case $PRV in 0) return 0;;
+  *) :;;
+  esac
+ fi
+
+ sleep 1
+done
+}
+
+#_ping -I &  # when cut off by wonky mobile connection,
+         # the whole script waits, even forked functions.
+         # would need an external script, that shows a xmessage ..
 
 _debug_two(){
 [ "$DEBUG" ]       || return 3
@@ -253,9 +290,9 @@ PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 if test ! "$PL_SPEED"; then
  echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.5; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=0.8; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 45; then
 SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
@@ -519,7 +556,7 @@ _debug_two || echo watch $DRAW_INFO
 
 echo draw 4 "Dropping water ..."
 echo "issue 1 1 drop 7 water"
-
+DW=0
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
@@ -527,14 +564,17 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop ..?"
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough water .."
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Only one water ."
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"   && f_exit 1 "Nothing to drop ..?"
+test "`echo "$REPLY" | grep '.*There are only.*'`"    && f_exit 1 "Not enough water .."
+test "`echo "$REPLY" | grep '.*There is only.*'`"     && f_exit 1 "Only one water ."
+test "`echo "$REPLY" | grep '.*You put the water.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inventory."
 
 _debug_two || echo unwatch $DRAW_INFO
 sleep ${SLEEP:-1}s

@@ -684,7 +684,7 @@ echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
-
+DW=0
 while :; do
 _ping
 read -t 1 REPLY
@@ -692,9 +692,10 @@ read -t 1 REPLY
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
 case "$REPLY" in
 $OLD_REPLY) break;;
-*"Nothing to drop.") f_exit 1;;
-*"There are only"*)  f_exit 1;;
-*"There is only"*)   f_exit 1;;
+*"Nothing to drop.")   f_exit 1 "Nothing to drop";;
+*"There are only"*)    f_exit 1 "Not enough water of the wise";;
+*"There is only"*)     f_exit 1 "Not enough water of the wise";;
+*"You put the water"*) DW=$((DW+1)); unset REPLY;;
 '') break;;
 esac
 #test "$REPLY" || break
@@ -703,6 +704,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the wise in inventory."
 _sleepSLEEP
 
 echo "issue 1 1 drop 1 mandrake root"
@@ -719,9 +721,10 @@ read -t 1 REPLY
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
 $OLD_REPLY) break;;
-*"Nothing to drop.") f_exit 1;;
-*"There are only"*) f_exit 1;;
-*"There is only"*)  f_exit 1;;
+*"Nothing to drop.")      f_exit 1 "Nothing to drop";;
+*"There are only"*)       f_exit 1 "Not enough mandrake root";;
+*"There is only"*)        f_exit 1 "Not enough mandrake root";;
+*"You put the mandrake"*) DW=$((DW+1)); unset REPLY;;
 '') break;;
 esac
 #test "$REPLY" || break
@@ -730,7 +733,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing mandrake root in inventory."
 echo unwatch $DRAW_INFO
 
 _sleepSLEEP

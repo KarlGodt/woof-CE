@@ -623,7 +623,7 @@ echo "issue 1 1 drop 1 water of the wise"
 
 OLD_REPLY="";
 REPLY="";
-
+DW=0
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
@@ -631,24 +631,25 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*You put the water.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the wise in inventory."
 sleep ${SLEEP:-1}s
-
 
 echo draw 4 "Dropping '$GEM' ..."
 echo "issue 1 1 drop 3 $GEM"
 
 OLD_REPLY="";
 REPLY="";
-
+DW=0
 while [ 1 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
@@ -656,14 +657,17 @@ read -t 1 REPLY
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
+test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1 "Not enough $GEM"
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+test "`echo "$REPLY" | grep ".*You put the $GEM.*"`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inventory."
 
 _debug_two || echo unwatch $DRAW_INFO
 sleep ${SLEEP:-1}s

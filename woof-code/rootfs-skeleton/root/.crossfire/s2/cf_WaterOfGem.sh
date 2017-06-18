@@ -649,6 +649,7 @@ _sleepSLEEP
 
 OLD_REPLY="";
 REPLY="";
+DW=0
 
  while :; do
  read -t 1 REPLY
@@ -657,9 +658,10 @@ REPLY="";
 
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.")   f_exit 1 "Nothing to drop";;
+ *"There are only"*)    f_exit 1 "Not enough water of the wise";;
+ *"There is only"*)     f_exit 1 "Not enough water of the wise";;
+ *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
  #test "$REPLY" || break
@@ -668,6 +670,7 @@ REPLY="";
  sleep 0.1s
  done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the wise in inventory."
 _sleepSLEEP
 
 # *** drop ingredients *** #
@@ -676,6 +679,7 @@ _sleepSLEEP
 
 OLD_REPLY="";
 REPLY="";
+DW=0
 
 while :; do
 read -t 1 REPLY
@@ -686,9 +690,10 @@ read -t 1 REPLY
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.")  f_exit 1 "Not enough $GEM";;
+ *"There are only"*)   f_exit 1 "Not enough $GEM";;
+ *"There is only"*)    f_exit 1 "Not enough $GEM";;
+ *"You put the $GEM"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
 #test "$REPLY" || break
@@ -696,6 +701,8 @@ read -t 1 REPLY
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
+
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inventory."
 
 echo unwatch $DRAW_INFO
 _sleepSLEEP

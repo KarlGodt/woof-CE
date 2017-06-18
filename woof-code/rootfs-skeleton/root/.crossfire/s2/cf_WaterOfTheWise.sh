@@ -4,6 +4,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
@@ -357,17 +359,17 @@ done
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+_debug "Player speed is $PL_SPEED"  #DEBUG
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed is $PL_SPEED"  #DEBUG
+_debug "Player speed is $PL_SPEED"  #DEBUG
 
 if test ! "$PL_SPEED"; then
  echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.6; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=0.8; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 45; then
 SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
@@ -530,6 +532,7 @@ TIMEC=${TIMEE:-$TIMEB}
 
 OLD_REPLY="";
 REPLY="";
+DW=0
 
 echo "issue 1 1 apply"
 _sleepSLEEP
@@ -545,9 +548,10 @@ while :; do
 [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.") f_exit 1;;
- *"There are only"*)  f_exit 1;;
- *"There is only"*)   f_exit 1;;
+ *"Nothing to drop.")   f_exit 1 "Nothing to drop ..?";;
+ *"There are only"*)    f_exit 1 "Not enough water ..";;
+ *"There is only"*)     f_exit 1 "Only one water .";;
+ *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
  #test "$REPLY" || break
@@ -556,6 +560,7 @@ while :; do
  sleep 0.1s
 done
 
+test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inventory."
 
 echo unwatch $DRAW_INFO
 _sleepSLEEP
@@ -615,11 +620,12 @@ _sleepSLEEP
 OLD_REPLY="";
 REPLY="";
 NOTHING=0
+SLAG=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "$LOG_REPLY_FILE" "get:$REPLY"
+ _debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
