@@ -1,10 +1,17 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
+
 
 # FOREVER mode
 INF_THRESH=30 # threshold to cast charisma and probe
@@ -46,10 +53,10 @@ do
 PARAM_1="$1"
 case $PARAM_1 in
 [0-9]*) NUMBER=$PARAM_1; test "${NUMBER//[[:digit:]]/}" && {
-	   echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
-	   readonly NUMBER
+       echo draw 3 "Only :digit: numbers as first option allowed."; exit 1; }
+       readonly NUMBER
        #echo draw 2 "NUMBER=$NUMBER"
-	   ;;
+       ;;
  n|north)       DIR=north;     DIRN=1; readonly DIR DIRN;;
 ne|norteast)    DIR=northeast; DIRN=2; readonly DIR DIRN;;
  e|east)        DIR=east;      DIRN=3; readonly DIR DIRN;;
@@ -81,6 +88,15 @@ else
  echo draw 3 "Need direction as parameter."
  exit 1
 fi
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 _ping(){
 test "$PING_DO" || return 0
@@ -192,6 +208,15 @@ sleep 0.5 # delay answer from server since '' reply cased; 0.5 was too short
   esac
  done #>"$LOG_REPLY_FILE"
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 #test "$NUMBER" && { NUM=$((NUM-1)); test "$NUM" -le 0 && break; } || { c=$((c+1)); test "$c" = $MAX_LOCKPICK && break; }
 if test "$FOREVER"; then
  cc=$((cc+1))
@@ -221,3 +246,8 @@ echo draw 7 "You calmed down '$CALMS' ."
 echo draw 7 "You convinced   '$CONVS' ."
 echo draw 2 "$0 is finished."
 beep -f 700 -l 1000
+
+
+# ***
+# ***
+# *** diff marker 6

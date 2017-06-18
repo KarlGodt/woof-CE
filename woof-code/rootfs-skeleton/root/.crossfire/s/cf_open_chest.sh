@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
@@ -7,7 +11,9 @@ TIMEA=`/bin/date +%s`
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawextinfo # drawinfo (old servers or clients compiled by confused compiler)
+                      # OR drawextinfo (new servers)
+                      # used for catching msgs watch/unwatch $DRAW_INFO
 
 DEF_SEARCH=9
 DEF_DISARM=9
@@ -89,6 +95,14 @@ _draw 5 "-v set verbosity"
 
         exit 0
 }
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
 
 
 # *** Here begins program *** #
@@ -174,6 +188,15 @@ _log "_handle_spell_msgs:$REPLY"
 esac
 return ${RV:-1}
 }
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
@@ -285,6 +308,15 @@ TRAPS_NUM=${TRAPS_NUM:-0}
 echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 _handle_trap_trigger_event(){
 
 local SECONDLINE=''
@@ -375,6 +407,15 @@ case $REPLY in
 esac
 
 }
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 _handle_trap_event(){
 
@@ -482,6 +523,15 @@ _log "_handle_trap_event:$REPLY"
 
 }
 
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
@@ -539,6 +589,15 @@ echo unwatch $DRAW_INFO
 
 sleep 1
 }
+
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
 
 _open_chest(){
 # ** open chest apply and get ** #
@@ -639,6 +698,14 @@ echo unwatch $DRAW_INFO
 }
 
 
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+
+
 _find_traps
 _disarm_traps && _open_chest
 
@@ -659,3 +726,8 @@ echo unwatch $DRAW_INFO
 
 _draw 2 "$0 is finished."
 beep -f 700 -l 1000
+
+
+# ***
+# ***
+# *** diff marker 16

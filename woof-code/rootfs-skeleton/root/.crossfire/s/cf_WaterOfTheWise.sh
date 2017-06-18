@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
@@ -25,7 +29,9 @@ esac
 SLEEP=4.0          # sleep seconds after codeblocks
 DELAY_DRAWINFO=8.0 # sleep seconds to sync msgs from script with msgs from server
 
-DRAW_INFO=drawinfo  # drawextinfo (old clients) OR drawinfo (new clients) # used for catching msgs watch/unwatch $DRAW_INFO
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 LOG_REPLY_FILE=/tmp/cf_script.rpl
 rm -f "$LOG_REPLY_FILE"
@@ -34,13 +40,18 @@ _usage(){
 echo draw 5 "Script to produce water of the wise."
 echo draw 7 "Syntax:"
 echo draw 7 "$0 < NUMBER >"
-echo draw 5 "Allowed NUMBER will loop for"
+echo draw 5 "Optional NUMBER will loop for"
 echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of the Wise ."
 echo draw 4 "If no number given, loops as long"
 echo draw 4 "as ingredient could be dropped."
 
         exit 0
+}
+
+_debug_two(){
+[ "$DEBUG" ]       || return 3
+[ "$DEBUG" -ge 2 ] || return 4
 }
 
 # *** Here begins program *** #
@@ -69,15 +80,14 @@ sleep 0.1
 shift
 done
 
-#} || {
-#echo draw 3 "Script needs number of alchemy attempts as argument."
-#        exit 1
-#}
 
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 3 ."
-#        exit 1
-#}
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 # *** Common functions *** #
 
@@ -95,9 +105,6 @@ sleep 1s
 test "$*" && echo draw 5 "$*"
 echo draw 3 "Exiting $0."
 
-#echo unmonitor
-#echo unwatch monitor
-#echo unwatch monitor issue
 echo unwatch
 echo unwatch $DRAW_INFO
 
@@ -131,7 +138,8 @@ exit $RV
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
-local PARAM="$*"
+local lPARAM="$*"
+local lSKILL
 
 echo request skills
 
@@ -147,16 +155,16 @@ do
  'request skills end') break;;
  esac
 
- if test "$PARAM"; then
-  case $REPLY in *$PARAM) return 0;; esac
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
  else # print skill
-  SKILL=`echo "$REPLY" | cut -f4- -d' '`
-  echo draw 5 "'$SKILL'"
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  echo draw 5 "'$lSKILL'"
  fi
 
 done
 
-test ! "$PARAM" # returns 0 if called without parameter, else 1
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
 }
 
 # *** Check if standing on a cauldron *** #
@@ -169,15 +177,14 @@ echo request items on
 while [ 1 ]; do
 read -t 1 UNDER_ME
 sleep 0.1s
-#echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
+[ "$LOGGING" ] && echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
+[ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
-
-#echo unwatch request
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
 echo draw 3 "Need to stand upon cauldron!"
@@ -187,6 +194,15 @@ exit 1
 echo draw 7 "Done."
 
 }
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 # *** Getting Player's Speed *** #
 _get_player_speed(){
@@ -199,14 +215,14 @@ echo request stat cmbt
 
 while [ 1 ]; do
 read -t 1 ANSWER
-echo "request stat cmbt:$ANSWER" >>/tmp/cf_request.log
+[ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
 sleep 0.1
 done
 
-#echo unwatch request
 
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash
@@ -241,7 +257,8 @@ echo request items actv
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "request items actv:$REPLY" >>/tmp/cf_request.log
+[ "$LOGGING" ] && echo "_ready_rod_of_recall:$REPLY" >>/tmp/cf_request.log
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -259,12 +276,21 @@ sleep ${SLEEP}s
 echo draw 7 "Done."
 }
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron(){
 echo draw 4 "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 apply"
 sleep 0.5s
@@ -279,7 +305,8 @@ echo "issue 1 1 get"
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "_check_empty_cauldron:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 REPLY_ALL="$REPLY
 $REPLY_ALL"
 test "$REPLY" || break
@@ -298,20 +325,22 @@ echo unwatch $DRAW_INFO
 
 echo draw 7 "OK ! Cauldron SEEMS empty."
 
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP}s
+sleep ${SLEEP:-1}s
 }
+
 
 _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 f_check_on_cauldron
+_check_free_move
+_check_empty_cauldron
 _get_player_speed
 _ready_rod_of_recall
-_check_empty_cauldron
 
 
 # *** Actual script to alch the desired water of the wise *** #
@@ -332,7 +361,7 @@ NUMBER=${NUMBER:-infinite}
 # *** seven times the number of the desired water of the wise.      *** #
 
 # *** Now walk onto the cauldron and make sure there are 4 tiles    *** #
-# *** west of the cauldron.                                         *** #
+# *** DIRB of the cauldron.                                         *** #
 # *** Do not open the cauldron - this script does it.               *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
@@ -343,7 +372,8 @@ echo draw 4 "OK... Might the Might be with You!"
 
 # *** Now LOOPING *** #
 
-#for one in `seq 1 1 $NUMBER`
+_debug_two && echo monitor; #DEBUG
+
 while :;
 do
 
@@ -353,17 +383,21 @@ TIMEC=`/bin/date +%s`
 OLD_REPLY="";
 REPLY="";
 
+echo draw 2 "Opening cauldron ..."
 echo "issue 1 1 apply"
 sleep 0.5s
 
-echo watch $DRAW_INFO
+_debug_two || echo watch $DRAW_INFO
 
+echo draw 4 "Dropping water ..."
 echo "issue 1 1 drop 7 water"
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1
 test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
@@ -374,11 +408,21 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch $DRAW_INFO
+_debug_two || echo unwatch $DRAW_INFO
 sleep ${SLEEP}s
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
+sleep 0.5
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP}s
@@ -387,10 +431,12 @@ sleep ${SLEEP}s
 f_check_on_cauldron
 
 sleep 1
+
+echo draw 4 "using skill alchemy ..."
 #echo "issue 1 1 use_skill alchemy"
 echo "issue 0 0 use_skill alchemy"
 
-echo watch $DRAW_INFO
+_debug_two || echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -398,8 +444,10 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "use_skill alchemy:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
 test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
@@ -409,16 +457,19 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch $DRAW_INFO
+_debug_two || echo unwatch $DRAW_INFO
 
 sleep 0.5s
+echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"
 sleep 0.5s
 
 
-echo watch $DRAW_INFO
+_debug_two || echo watch $DRAW_INFO
 
-echo "issue 7 1 get"
+echo draw 5 "Getting content .."
+#echo "issue 7 1 get"
+echo issue 0 0 "get all"
 
 OLD_REPLY="";
 REPLY="";
@@ -427,8 +478,10 @@ SLAG=0
 
 while [ 1 ]; do
 read -t 1 REPLY
-echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
+[ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
+test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
 test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
@@ -438,7 +491,7 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-echo unwatch $DRAW_INFO
+_debug_two || echo unwatch $DRAW_INFO
 
 if test "$SLAG" = 1 -o "$NOTHING" = 1;
 then
@@ -447,7 +500,7 @@ fi
 
 sleep ${SLEEP}s
 
-
+echo draw 2 "Dropping water(s) ...."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -455,8 +508,17 @@ echo "issue 1 1 $DIRB"
 sleep ${SLEEP}s
 
 
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
+
 if test "$NOTHING" = 0; then
 
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Identifying .."
 echo "issue 1 1 use_skill sense curse"
 echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill alchemy"
@@ -486,6 +548,7 @@ sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
 
+echo draw 2 "Returning to cauldron ...."
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
@@ -508,8 +571,31 @@ echo draw 4 "Time $TIME sec., completed ${TRIES_STILL:-$NUMBER} laps.";;
 echo draw 4 "Time $TIME sec., still ${TRIES_STILL:-$NUMBER} laps to go...";; # light orange
 esac
 
+
+ _debug_two && {
+ # log monitor msgs
+  while [ 2 ]
+  do
+  unset REPLY
+  read -t 1
+  echo "$REPLY" >>"$LOG_REPLY_FILE"
+  test "$REPLY" || break
+  done
+
+ echo unwatch $DRAW_INFO
+ sleep 1
+ }
+
 test "$one" = "$NUMBER" && break
 done
+
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
 
 # Now count the whole loop time
 TIMELE=`/bin/date +%s`
@@ -545,3 +631,8 @@ echo draw 6 "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
 # *** Here ends program *** #
 echo draw 2 "$0 is finished." # blue
 beep -l 500 -f 700
+
+
+# ***
+# ***
+# *** diff marker 14

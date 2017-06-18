@@ -1,10 +1,14 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 ME_PROG=`realpath "$0"`
 ME_DIR=${ME_PROG%/*}
 cd "$ME_DIR"
 
-VERSION=0.0.1
+VERSION=0.1.0
 
 _check_if_already_running()
 {
@@ -304,9 +308,21 @@ test "$_eNG" || _eNG=echo
 _check_gettext
 
 
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
+# *** Here begins program *** #
+
 exec 2>/tmp/cf_script.err
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 # FOREVER mode
 INF_THRESH=30 # threshold to cast dexterity and probe
@@ -389,6 +405,15 @@ else
  echo draw 3 "Need direction as parameter."
  exit 1
 fi
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 _ping(){
 test "$PING_DO" || return 0
@@ -492,6 +517,15 @@ echo unwatch $DRAW_INFO
 
 $CAST_PROBE
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 _cast_restoration(){
 # ** if infinite loop, needs food ** #
 
@@ -551,7 +585,14 @@ done
 return 1
 }
 
-#echo watch $DRAW_INFO
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 _mark_item(){
 echo watch $DRAW_INFO
@@ -630,3 +671,8 @@ echo draw 4 "You threw '$C' times."
 echo draw 5 "Loop took $TIMEM:$TIMES minutes."
 echo draw 2 "$0 is finished."
 beep -f 700 -l 1000
+
+
+# ***
+# ***
+# *** diff marker 10

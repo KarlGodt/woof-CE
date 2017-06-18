@@ -25,6 +25,10 @@
 # * While the script is running, the character can level up, while you are multi-tasking or taking a shower :)
 # * This script applies PROBE_ITEM if PROBE_DO is set
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/script.err
 
 export PATH=/bin:/usr/bin
@@ -134,6 +138,15 @@ _draw 5 "-v to say what is being issued to server."
 exit 0
 }
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 # *** Here begins program *** #
 _draw 2 "$0 started <$*> with pid:$$ (parentpid:$PPID)"
 
@@ -163,6 +176,15 @@ case $DIRECTION in
 esac
 
 }
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
 
 # ***
 __parse_parameters(){
@@ -276,6 +298,15 @@ _debug "_parse_parameters:SPELL=$SPELL DIR=$DIRECTION COMMAND_PAUSE=$COMMAND_PAU
 test "$COMMAND_PAUSE" -a "$DIRECTION" -a "$SPELL" || _draw 3 "Warning: Using defaults."
 }
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 # ***
 _check_have_needed_spell_in_inventory(){
 # *** check if spell is applyable - takes some time ( 16 seconds )
@@ -291,7 +322,7 @@ _draw 5 "Checking if have '$SPELL' ..."
 _draw 5 "Please wait...."
 
 TIMEB=`/bin/date +%s`
-#echo watch request
+
 echo request spells
 sleep 1
 while :;
@@ -310,7 +341,6 @@ sleep 0.1
 done
 
 #unset oldSPELL oneSPELL
-#echo unwatch request
 
 TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -337,7 +367,6 @@ local oneSPELL oldSPELL SPELLSA
 _draw 5 "Checking if have '$SPELL' applied ..."
 _draw 5 "Please wait...."
 
-#echo watch request
 echo request spells
 while :;
 do
@@ -355,10 +384,18 @@ sleep 0.1
 done
 
 unset oldSPELL oneSPELL
-#echo unwatch request
 
 echo "$SPELLSA" | grep -q -i "$lSPELL"
 }
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 # ***
 _probe_enemy(){
@@ -391,7 +428,6 @@ __watch_food(){
 # *** watch food and spellpoint level
 # *   apply FOOD if under threshold FOOD_STAT_MIN
 
-#echo watch request
 echo request stat hp
 read -t 1 statHP
  _debug "$statHP"
@@ -404,7 +440,7 @@ read -t 1 statHP
      _is 0 0 apply $FOOD
    sleep 1
  fi
-#echo unwatch request
+
 }
 
 _rotate_range_attack(){
@@ -415,7 +451,6 @@ local REPLY_RANGE oldREPLY_RANGE
 _draw 5 "Checking if have '$SPELL' ready..."
 _draw 5 "Please wait...."
 
-#echo watch request range
 while :;
 do
 #_debug "_rotate_range_attack:request range"
@@ -433,7 +468,7 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-#echo unwatch request
+
 }
 
 # ***
@@ -454,6 +489,15 @@ _do_emergency_recall(){
 
 exit 5
 }
+
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 
 # *** stub to switch wizard-cleric spells in future
 _watch_wizard_spellpoints(){
@@ -534,7 +578,6 @@ _watch_food(){  # called by _do_loop if _conter_for_checks returns 0
 # *   Does switch to _watch_wizard_spellpoints
 # *   TODO : implement a counter to call it every Yth time, not every time
 
-#echo watch request
 
 local r s h HP HP_MAX FOOD_STAT
 
@@ -548,8 +591,6 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
    sleep 1
  fi
 
-#echo unwatch request
-
  if test $HP -lt $((HP_MAX/5)); then  #
   _do_emergency_recall
  fi
@@ -562,6 +603,15 @@ read -t 1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_STAT
 
 return $?
 }
+
+
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
 
 # ***
 _regenerate_spell_points(){  # called by _do_loop if
@@ -611,6 +661,14 @@ _counter_for_checks2(){
 check_c2=$((check_c2+1))
 test $check_c2 -eq $CHECK_COUNT_PROBE && unset check_c2
 }
+
+
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
 
 
 # ***
@@ -726,3 +784,8 @@ esac
 
 # *** Here ends program *** #
 _draw 2 "$0 is finished."
+
+
+# ***
+# ***
+# *** diff marker 16

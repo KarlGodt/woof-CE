@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
@@ -50,16 +54,6 @@ sleep 0.1
 shift
 done
 
-#} || {
-#echo draw 3 "Script needs number of cancellation attempts as argument."
-#        exit 1
-#}
-
-#test "$1" || {
-#echo draw 3 "Need <number> ie: script $0 50 ."
-#        exit 1
-#}
-
 
 # *** Actual script to pray multiple times *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
@@ -90,3 +84,8 @@ echo "issue 1 1 fire_stop"
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 beep -l 500 -f 700
+
+
+# ***
+# ***
+# *** diff marker 14

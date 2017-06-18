@@ -1,10 +1,16 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 DEBUG=1   # unset to disable, set to anything to enable
 LOGGING=1 # unset to disable, set to anything to enable
@@ -119,6 +125,15 @@ else
  exit 1
 fi
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
 
@@ -168,6 +183,12 @@ $CAST_DEX
 #_cast_dexterity
 
 
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 
 _find_traps(){
@@ -264,6 +285,13 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 
 _find_traps
 
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
 
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
@@ -341,3 +369,8 @@ _disarm_traps
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 beep -f 700 -l 1000
+
+
+# ***
+# ***
+# *** diff marker 8

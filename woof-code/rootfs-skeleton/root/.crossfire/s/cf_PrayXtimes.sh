@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -72,3 +76,8 @@ done
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 beep -l 500 -f 700
+
+
+# ***
+# ***
+# *** diff marker 2

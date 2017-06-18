@@ -357,6 +357,7 @@ test "$_eNG" || _eNG=echo
 }
 _check_gettext
 
+# *** Here begins program *** #
 
 # *** VARIABLES *** #
 

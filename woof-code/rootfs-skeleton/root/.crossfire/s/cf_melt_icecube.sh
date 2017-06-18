@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -21,7 +25,10 @@ TIMEA=`/bin/date +%s`
 #DEBUG=1   # unset to disable, set to anything to enable
 #LOGGING=1 # unset to disable, set to anything to enable
 
-DRAW_INFO=drawinfo # drawextinfo (older clients)
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
+
 
 # colours
 COL_BLACK=0
@@ -86,6 +93,15 @@ _draw 5 "-L log to $LOG_REPLY_FILE"
 _draw 5 "-v set verbosity"
         exit 0
 }
+
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
 
 # *** Here begins program *** #
 echo draw $COL_NAVY "$0 is started.."
@@ -208,6 +224,15 @@ echo unwatch $DRAW_INFO
 
 done #NUMBER
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
     else #PARAM_1
 
 until [ "$NO_ICECUBE" ];
@@ -284,6 +309,15 @@ done #NO_ICECUBE
 
     fi #^!PARAM_1
 
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 TIMEE=`/bin/date +%s`
 TIMEX=$((TIMEE-TIMEB))
 TIMEM=$((TIMEX/60))
@@ -295,3 +329,8 @@ echo draw $COL_LGREEN "Script loop took $TIMEM:$TIMES minutes."
 # *** Here ends program *** #
 echo draw $COL_NAVY "$0 is finished."
 beep -l 500 -f 700
+
+
+# ***
+# ***
+# *** diff marker 8

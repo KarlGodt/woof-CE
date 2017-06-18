@@ -1,10 +1,16 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 exec 2>/tmp/cf_script.err
 
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 DEF_SEARCH=9
 DEF_DISARM=9
@@ -89,6 +95,15 @@ _draw 5 "-v set verbosity"
         exit 0
 }
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 _word_to_number(){
 
 case ${1:-PARAM_1} in
@@ -164,6 +179,14 @@ case $PARAM_1 in [0-8])
  shift;;
 esac
 fi
+
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
 
 
 until test $# = 0;
@@ -287,6 +310,14 @@ sleep 1
 CAST_DEX=_cast_dexterity
 
 
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 _handle_spell_errors(){
 local RV=0
  case $REPLY in  # server/spell_util.c
@@ -379,6 +410,15 @@ _debug "unwatch $DRAW_INFO"
 echo unwatch $DRAW_INFO
 }
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+
 _turn_direction(){
 test "$*" || return 3
 local REPLY c spell
@@ -435,6 +475,15 @@ if test "$TURN_SPELL"; then
 else
  _turn_direction_all
 fi
+
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 
 _cast_dexterity(){
 # ** cast DEXTERITY ** #
@@ -569,6 +618,14 @@ echo $TRAPS_NUM >/tmp/cf_pipe.$$
 }
 
 
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
+
 _disarm_traps(){
 # ** disarm use_skill disarm traps ** #
 
@@ -652,6 +709,15 @@ echo unwatch $DRAW_INFO
 sleep 1
 }
 
+
+# ***
+# ***
+# *** diff marker 14
+# *** diff marker 15
+# ***
+# ***
+
+
 _lockpick_door(){
 # ** open door with use_skill lockpicking ** #
 
@@ -730,3 +796,8 @@ _disarm_traps && _lockpick_door
 
 _draw 2 "$0 is finished."
 beep -f 700 -l 1000
+
+
+# ***
+# ***
+# *** diff marker 16

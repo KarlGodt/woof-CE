@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# *** diff marker 1
+# ***
+# ***
+
 TIMEA=`/bin/date +%s`
 
 DIRB=west  # direction back to go
@@ -16,7 +20,10 @@ southwest) DIRF=northeast;;
 southeast) DIRF=northwest;;
 esac
 
-DRAWINFO=drawinfo  # depends on client: drawextinfo OR drawinfo
+DRAWINFO=drawinfo   # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
+
 
 LOG_FILE=/tmp/cf_script.log
 
@@ -118,6 +125,15 @@ sleep 0.1
 done
 }
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -154,3 +170,8 @@ do
 
 sleep 1
 done
+
+
+# ***
+# ***
+# *** diff marker 4

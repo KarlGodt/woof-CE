@@ -1,9 +1,15 @@
 #!/bin/bash
 # uses <<<
 
+# *** diff marker 1
+# ***
+# ***
+
 TIMEA=`/bin/date +%s`
 
-DRAW_INFO=drawinfo # drawextinfo
+DRAW_INFO=drawinfo  # drawinfo (old servers or clients compiled by confused compiler)
+                    # OR drawextinfo (new servers)
+                    # used for catching msgs watch/unwatch $DRAW_INFO
 
 LOG_FILE=/tmp/cf_pets.rpl
 
@@ -113,6 +119,15 @@ PETS_KILL=`sed '/^$/d'          <<<"$PETS_KILL"`
 PETS_KILL=`echo "$PETS_KILL" | sort -u`
 echo "$PETS_KILL" >>"$LOG_FILE"
 
+
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 if test "$PETS_KILL"; then
 while read onePET
 do
@@ -134,3 +149,8 @@ fi
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
 beep -l 500 -f 700
+
+
+# ***
+# ***
+# *** diff marker 4

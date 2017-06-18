@@ -1,13 +1,21 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 ME_PROG=`realpath "$0"`
 ME_DIR=${ME_PROG%/*}
 cd "$ME_DIR"
 
-VERSION=0.0.1
+VERSION=0.1.0
 
 
 rm -f /tmp/cf_req_*.reply
+
+
+# *** Here begins program *** #
+echo draw 2 "$0 is started.."
 
 while read AST line
 do
@@ -68,3 +76,7 @@ EoI
 
 # *** Here ends program *** #
 echo draw 2 "$0 is finished."
+
+# ***
+# ***
+# *** diff marker 2

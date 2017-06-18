@@ -33,14 +33,14 @@ echo "$MAPPOS" >>/tmp/cf_script.map_pos
 
 UNDER_ME='';
 echo request items on
-#while test "$UNDER_ME" = ""; do
+
 while [ 1 ]; do
 read UNDER_ME || break
 sleep 0.1s
 echo "$UNDER_ME" >>/tmp/cf_script.map_pos
 test "$UNDER_ME" = "request items on end" && break
-test "$UNDER_ME" = "scripttell break" && break
-test "$UNDER_ME" = "scripttell exit" && exit 1
+test "$UNDER_ME" = "scripttell break"     && break
+test "$UNDER_ME" = "scripttell exit"      && exit 1
 done
 
 #func(){
@@ -55,8 +55,8 @@ echo "$INVTRY" >>/tmp/cf_script.items_inv
 #echo draw 3 "$INVTRY"
 test "$INVTRY" = "" && break
 test "$INVTRY" = "request items inv end" && break
-test "$INVTRY" = "scripttell break" && break
-test "$INVTRY" = "scripttell exit" && exit 1
+test "$INVTRY" = "scripttell break"      && break
+test "$INVTRY" = "scripttell exit"       && exit 1
 sleep 0.01s
 done
 #}

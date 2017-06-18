@@ -1,5 +1,9 @@
 #!/bin/ash
 
+# *** diff marker 1
+# ***
+# ***
+
 export PATH=/bin:/usr/bin
 
 TIMEA=`/bin/date +%s`
@@ -145,6 +149,14 @@ test  "$DIRECTION" -a "$ITEM" || _error 1 "Missing ITEM -o DIRECTION"
 }
 
 
+# ***
+# ***
+# *** diff marker 2
+# *** diff marker 3
+# ***
+# ***
+
+
 __log(){
 test "$LOGGING" || return 0
 echo "$*" >>"$LOG_FILE"
@@ -175,6 +187,15 @@ _draw 5 "-v to say what is being issued to server."
 exit 0
 }
 
+
+# ***
+# ***
+# *** diff marker 4
+# *** diff marker 5
+# ***
+# ***
+
+
 _check_have_needed_item_in_inventory(){
 _debug "_check_have_needed_item_in_inventory:$*"
 local oneITEM oldITEM ITEMS TIMEB TIMEE TIME
@@ -183,7 +204,7 @@ _draw 6 "Checking if in inventory..."
 _draw 6 "Please wait ...."
 
 TIMEB=`/bin/date +%s`
-#echo watch request
+
 echo request items inv
 while :;
 do
@@ -202,7 +223,6 @@ sleep 0.1
 done
 
 unset oldITEM oneITEM
-#echo unwatch request
 
 TIMEE=`/bin/date +%s`
 TIME=$((TIMEE-TIMEB))
@@ -216,7 +236,7 @@ _debug "_check_have_needed_item_applied:$*"
 local oneITEM oldITEM ITEMSA
 
 _draw 6 "Checking if '$ITEM' is already applied .."
-#echo watch request
+
 echo request items actv
 while :;
 do
@@ -235,7 +255,6 @@ sleep 0.1
 done
 
 unset oldITEM oneITEM
-#echo unwatch request
 
 echo "$ITEMSA" | grep -q -i "$ITEM"
 }
@@ -250,7 +269,7 @@ _debug "_rotate_range_attack:$*"
 local REPLY_RANGE oldREPLY_RANGE
 
 _draw 6 "Rotate shoottype to ready '$ITEM' .."
-#echo watch request range
+
 while :;
 do
 echo request range
@@ -268,12 +287,21 @@ read -t 1 REPLY_RANGE
  oldREPLY_RANGE="$REPLY_RANGE"
 sleep 2.1
 done
-#echo unwatch request
+
 }
+
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
 
 __watch_food(){
 local statHP
-#echo watch request
+
 echo request stat hp
 read -t1 statHP
  _debug "_watch_food:$statHP"
@@ -284,7 +312,7 @@ read -t1 statHP
      _is 0 0 apply $FOOD
    sleep 1
  fi
-#echo unwatch request
+
 }
 
 _do_emergency_recall(){
@@ -300,7 +328,7 @@ exit 5
 
 _watch_food(){
 local r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
-#echo watch request
+
 echo request stat hp
 read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
  _debug "_watch_food:FOOD_LVL=$FOOD_LVL HP=$HP"
@@ -313,7 +341,6 @@ read -t1 r s h HP HP_MAX SP SP_MAX GR GR_MAX FOOD_LVL
   _do_emergency_recall
  fi
 
-#echo unwatch request
 }
 
 _do_loop(){
@@ -368,6 +395,15 @@ done
             _is 0 0 $COMMAND_STOP
 }
 
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
+
 _error(){
 RV=$1;shift
 _draw 3 "$*"
@@ -415,3 +451,8 @@ esac
 
 # *** Here ends program *** #
 _draw 2 "$0 is finished."
+
+
+# ***
+# ***
+# *** diff marker 10
