@@ -4,6 +4,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
@@ -39,9 +41,9 @@ esac
 #logging
 LOGGING=1
 TMP_DIR=/tmp/crossfire_client
-  LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
-   LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
-LOG_REQUEST_FILE="$TMP_DIR"/cf_request.$$.log
+  LOG_REPLY_FILE="$TMP_DIR"/cf_bofa.$$.rpl
+   LOG_ISON_FILE="$TMP_DIR"/cf_bofa.$$.ion
+LOG_REQUEST_FILE="$TMP_DIR"/cf_bofa.$$.req
 mkdir -p "$TMP_DIR"
 rm -f "$LOG_REPLY_FILE"   # empty old log file
 
@@ -137,18 +139,34 @@ _draw 5 "$* $TIMEm:$TIMEs minutes."
 
 
 _say_success_fail(){
-test "$NUMBER" -a "$FAIL" || return 3
+test "$one" -a "$FAIL" || return 3
 
 if test "$FAIL" -le 0; then
- SUCC=$((NUMBER-FAIL))
- _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
-elif test "$((NUMBER/FAIL))" -lt 2;
+ SUCC=$((one-FAIL))
+ _draw 7 "You succeeded $SUCC times of $one ." # green
+elif test "$((one/FAIL))" -lt 2;
 then
- _draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ _draw 8 "You failed $FAIL times of $one ."    # light green
  _draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
- SUCC=$((NUMBER-FAIL))
- _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ SUCC=$((one-FAIL))
+ _draw 7 "You succeeded $SUCC times of $one ." # green
+fi
+}
+
+_remove_err_log(){
+local lFILE="$1"
+lFILE=${lFILE:-/tmp/cf_script.err}
+
+if  test -e "$lFILE"; then
+ if test -s "$lFILE"; then
+  _draw 3 "Content in '$lFILE'"
+ else
+  _draw 7 "No content in '$lFILE'"
+  [ "$DEBUG" ] || rm -f "$lFILE"
+ fi
+else
+ _draw 5 "Does not exist: '$lFILE'"
 fi
 }
 
@@ -162,6 +180,8 @@ _say_success_fail
 # Now count the whole script time
 TIMEZ=`/bin/date +%s`
 _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+
+_remove_err_log
 }
 
 _usage(){

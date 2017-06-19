@@ -4,6 +4,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script.err
+
 # *** Color numbers found in common/shared/newclient.h : *** #
 #define NDI_BLACK       0
 #define NDI_WHITE       1
@@ -50,8 +52,9 @@ DELAY_DRAWINFO=2    # additional sleep value in seconds
 #logging
 LOGGING=1
 TMP_DIR=/tmp/crossfire_client
-LOG_REPLY_FILE="$TMP_DIR"/cf_script.$$.rpl
-LOG_ISON_FILE="$TMP_DIR"/cf_script.$$.ion
+  LOG_REPLY_FILE="$TMP_DIR"/cf_wog.$$.rpl
+LOG_REQUEST_FILE="$TMP_DIR"/cf_wog.$$.req
+   LOG_ISON_FILE="$TMP_DIR"/cf_wog.$$.ion
 mkdir -p "$TMP_DIR"
 rm -f "$LOG_REPLY_FILE"
 
@@ -67,6 +70,10 @@ test "$1" && { BEEP_F=$1; shift; }
 BEEP_LENGTH=${BEEP_L:-$BEEP_LENGTH}
 BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
+}
+
+_ping(){
+    :
 }
 
 _usage(){
@@ -95,6 +102,71 @@ _draw 5 "-v  to be more talkaktive."
 # ***
 # ***
 
+# times
+_say_minutes_seconds(){
+#_say_minutes_seconds "500" "600" "Loop run:"
+test "$1" -a "$2" || return 1
+
+local TIMEa TIMEz TIMEy TIMEm TIMEs
+
+TIMEa="$1"
+shift
+TIMEz="$1"
+shift
+
+TIMEy=$((TIMEz-TIMEa))
+TIMEm=$((TIMEy/60))
+TIMEs=$(( TIMEy - (TIMEm*60) ))
+case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
+
+_draw 5 "$* $TIMEm:$TIMEs minutes."
+}
+
+_say_success_fail(){
+test "$one" -a "$FAIL" || return 3
+
+if test "$FAIL" -le 0; then
+ SUCC=$((one-FAIL))
+ _draw 7 "You succeeded $SUCC times of $one ." # green
+elif test "$((one/FAIL))" -lt 2;
+then
+ _draw 8 "You failed $FAIL times of $one ."    # light green
+ _draw 7 "PLEASE increase your INTELLIGENCE !!"
+else
+ SUCC=$((one-FAIL))
+ _draw 7 "You succeeded $SUCC times of $one ." # green
+fi
+}
+
+_remove_err_log(){
+local lFILE="$1"
+lFILE=${lFILE:-/tmp/cf_script.err}
+
+if  test -e "$lFILE"; then
+ if test -s "$lFILE"; then
+  _draw 3 "Content in '$lFILE'"
+ else
+  _draw 7 "No content in '$lFILE'"
+  [ "$DEBUG" ] || rm -f "$lFILE"
+ fi
+else
+ _draw 5 "Does not exist: '$lFILE'"
+fi
+}
+
+_say_statistics_end(){
+# Now count the whole loop time
+TIMELE=`/bin/date +%s`
+_say_minutes_seconds "$TIMEB" "$TIMELE" "Whole  loop  time :"
+
+_say_success_fail
+
+# Now count the whole script time
+TIMEZ=`/bin/date +%s`
+_say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
+
+_remove_err_log
+}
 
 _sleepSLEEP(){
 [ "$FAST" ] && return 0
@@ -506,11 +578,11 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-_draw 3 "Cauldron probably NOT empty !!"
-_draw 3 "Please check/empty the cauldron and try again."
-f_exit 1
-}
+ test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+ _draw 3 "Cauldron probably NOT empty !!"
+ _draw 3 "Please check/empty the cauldron and try again."
+ exit 1
+ }
 
 echo unwatch $DRAW_INFO
 
@@ -557,10 +629,10 @@ done
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"
+_debug "Player speed is $PL_SPEED"
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed set to $PL_SPEED"
+_debug "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
  _draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
@@ -659,9 +731,9 @@ DW=0
 
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.")   f_exit 1 "Nothing to drop";;
- *"There are only"*)    f_exit 1 "Not enough water of the wise";;
- *"There is only"*)     f_exit 1 "Not enough water of the wise";;
+ *"Nothing to drop.")   break 2;; # f_exit 1 "Nothing to drop";;
+ *"There are only"*)    break 2;; # f_exit 1 "Not enough water of the wise";;
+ *"There is only"*)     break 2;; # f_exit 1 "Not enough water of the wise";;
  *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
@@ -682,26 +754,24 @@ OLD_REPLY="";
 REPLY="";
 DW=0
 
-while :; do
-read -t 1 REPLY
-_log "$LOG_REPLY_FILE" "drop:$REPLY"
-_debug "REPLY='$REPLY'"
-#test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
-#test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
-#test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
+ while :; do
+ read -t 1 REPLY
+ _log "$LOG_REPLY_FILE" "drop:$REPLY"
+ _debug "REPLY='$REPLY'"
+
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.")  f_exit 1 "Not enough $GEM";;
- *"There are only"*)   f_exit 1 "Not enough $GEM";;
- *"There is only"*)    f_exit 1 "Not enough $GEM";;
+ *"Nothing to drop.")  break 2;; #f_exit 1 "Not enough $GEM";;
+ *"There are only"*)   break 2;; #f_exit 1 "Not enough $GEM";;
+ *"There is only"*)    break 2;; #f_exit 1 "Not enough $GEM";;
  *"You put the $GEM"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
 
 test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inventory."
 
@@ -725,20 +795,20 @@ echo watch $DRAW_INFO
 OLD_REPLY="";
 REPLY="";
 
-while :; do
-_ping
-read -t 1 REPLY
-_log "$LOG_REPLY_FILE" "alchemy:$REPLY"
-_debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+ while :; do
+ _ping
+ read -t 1 REPLY
+ _log "$LOG_REPLY_FILE" "alchemy:$REPLY"
+ _debug "REPLY='$REPLY'"
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
+ test "`echo "$REPLY" | grep '.*pours forth monsters\!'`"    && f_emergency_exit 1
+ test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
 
 echo unwatch $DRAW_INFO
 
@@ -764,19 +834,24 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
-while :; do
-read -t 1 REPLY
-_log "$LOG_REPLY_FILE" "get:$REPLY"
+ while :; do
+ read -t 1 REPLY
+ _log "$LOG_REPLY_FILE" "get:$REPLY"
   _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
-test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
+ test "$REPLY" || break
+ test "$REPLY" = "$OLD_REPLY" && break
+ test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
+ test "`echo "$REPLY" | grep '.*You pick up the slag\.'`" && SLAG=1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
-OLD_REPLY="$REPLY"
-sleep 0.1s
-done
+ OLD_REPLY="$REPLY"
+ sleep 0.1s
+ done
+
+if test "$SLAG" = 1 -o "$NOTHING" = 1;
+then
+ FAIL=$((FAIL+1))
+fi
 
 echo unwatch $DRAW_INFO
 _sleepSLEEP
@@ -804,9 +879,11 @@ _is "1 1 drop water (magic)"
  else
 _is "0 1 drop slag"
  fi
-else
-_sleepSLEEP
+#_sleepSLEEP
+#else
+#_sleepSLEEP
 fi
+_sleepSLEEP
 
 sleep ${DELAY_DRAWINFO}s
 
@@ -852,6 +929,7 @@ done
 # ***
 
 # *** Here ends program *** #
+_say_statistics_end
 _draw 2 "$0 is finished."
 _beep
 
