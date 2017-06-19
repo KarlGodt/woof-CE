@@ -8,8 +8,8 @@
 exec 2>/tmp/cf_script.err
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
-echo draw 5 " with '$*' parameter."
+_draw 2 "$0 is started.."
+_draw 5 " with '$*' parameter."
 
 # *** Setting defaults *** #
 
@@ -122,22 +122,22 @@ PARAM_1="$1"
 
 case "$PARAM_1" in -h|*"help"|*usage)
 
-echo draw 5 "Script to produce alchemy objects."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
-echo draw 5 "Mandatory NUMBER will loop for"
-echo draw 5 "NUMBER times to produce"
-echo draw 5 "ARTIFACT alch with"
-echo draw 5 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
-echo draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
-echo draw 3 "Since the client does split space in words"
-echo draw 3 "even if quoted, the ingredients with space"
-echo draw 3 "need space replaced. Replacement is '_' underscore."
-echo draw 4 "PLEASE MANUALLY EDIT"
-echo draw 4 "SKILL and CAULDRON variables"
-echo draw 4 "in header of this script for your needs."
-echo draw 6 "SKILL variable currently set to '$SKILL'"
-echo draw 6 "CAULDRON var currently set to '$CAULDRON'"
+_draw 5 "Script to produce alchemy objects."
+_draw 7 "Syntax:"
+_draw 7 "$0 ARTIFACT NUMBER INGREDIENTX NUMBERX INGREDIENTY NUMBERY ..."
+_draw 5 "Mandatory NUMBER will loop for"
+_draw 5 "NUMBER times to produce"
+_draw 5 "ARTIFACT alch with"
+_draw 5 "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
+_draw 2 "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
+_draw 3 "Since the client does split space in words"
+_draw 3 "even if quoted, the ingredients with space"
+_draw 3 "need space replaced. Replacement is '_' underscore."
+_draw 4 "PLEASE MANUALLY EDIT"
+_draw 4 "SKILL and CAULDRON variables"
+_draw 4 "in header of this script for your needs."
+_draw 6 "SKILL variable currently set to '$SKILL'"
+_draw 6 "CAULDRON var currently set to '$CAULDRON'"
 
         exit 0
 ;;
@@ -205,13 +205,13 @@ done
 
 
 } || {
-echo draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
+_draw 3 "Script needs goal_item_name, numberofalchemyattempts, ingredient and numberofingredient as arguments."
         exit 1
 }
 
 test "$1" -a "$2" -a "$3" -a "$4" || {
-echo draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
-echo draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
+_draw 3 "Need <artifact> <number> <ingredient> <numberof> ie: script $0 water_of_the_wise 10 water 7 ."
+_draw 3 "or script $0 balm_of_first_aid 20 water_of_the_wise 1 mandrake_root 1 ."
         exit 1
 }
 
@@ -248,7 +248,7 @@ done
 }
 
 test "`echo "$UNDER_ME_LIST" | grep "${CAULDRON}$"`" || {
-echo draw 3 "Need to stand upon a $CAULDRON!"
+_draw 3 "Need to stand upon a $CAULDRON!"
 _beep
 exit 1
 }
@@ -307,9 +307,9 @@ echo "GREP_INGRED[$C2]='${GREP_INGRED[$C2]}'" >>"$LOG_TEST2_FILE"
 grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE" >>/tmp/cf_script.grep
 
 if [[ "`grep "${GREP_INGRED[$C2]}" "$LOG_INV_FILE"`" ]]; then
-echo draw 7 "${INGRED[$C2]} in inventory."
+_draw 7 "${INGRED[$C2]} in inventory."
 else
-echo draw 3 "No ${INGRED[$C2]} in inventory."
+_draw 3 "No ${INGRED[$C2]} in inventory."
 exit 1
 fi
 
@@ -378,7 +378,7 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
-echo draw 3 "Exiting $0."
+_draw 3 "Exiting $0."
 echo unwatch
 echo unwatch $DRAW_INFO
 _beep
@@ -431,7 +431,7 @@ sleep 1s
  esac
 
  DW=0
- echo draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
+ _draw 5 "drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
  echo "issue 1 1 drop ${NUMBER[$FOR]} ${INGRED[$FOR]}"
 
@@ -529,19 +529,19 @@ echo "issue 1 1 use_skill sense magic"
 echo "issue 1 1 use_skill $SKILL"
 sleep ${SLEEP:-6}s
 
-echo draw 7 "drop $GOAL"
+_draw 7 "drop $GOAL"
 echo "issue 0 1 drop $GOAL"
 
 for FOR in `seq 2 1 $C`; do
 
- echo draw 7 "drop ${INGRED[$FOR]} (magic)"
+ _draw 7 "drop ${INGRED[$FOR]} (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (magic)"
- echo draw 7 "drop ${INGRED[$FOR]}s (magic)"
+ _draw 7 "drop ${INGRED[$FOR]}s (magic)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (magic)"
  sleep ${SLEEP:-2}s
- echo draw 7 "drop ${INGRED[$FOR]} (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]} (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]} (cursed)"
- echo draw 7 "drop ${INGRED[$FOR]}s (cursed)"
+ _draw 7 "drop ${INGRED[$FOR]}s (cursed)"
  echo "issue 0 1 drop ${INGRED[$FOR]}s (cursed)"
  sleep ${SLEEP:-2}s
 
@@ -550,7 +550,7 @@ done
 #echo "issue 0 1 drop (magic)"
 #echo "issue 0 1 drop (cursed)"
 
-echo draw 7 "drop slag"
+_draw 7 "drop slag"
 echo "issue 0 1 drop slag"
 #echo "issue 0 1 drop slags"
 
@@ -560,7 +560,7 @@ sleep ${DELAY_DRAWINFO:-2}s
 toGO=$((NUMBER_ALCH-one))
 tEND=`/bin/date +%s`
 tLAP=$((tEND-tBEG))
-echo draw 5 "time ${tLAP}s used, still $toGO laps.."
+_draw 5 "time ${tLAP}s used, still $toGO laps.."
 
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
@@ -571,5 +571,5 @@ sleep ${SLEEP:-2}s         #speed 0.32
 done
 
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 _beep

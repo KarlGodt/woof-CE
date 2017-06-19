@@ -124,7 +124,7 @@ TIMEm=$((TIMEy/60))
 TIMEs=$(( TIMEy - (TIMEm*60) ))
 case $TIMEs in [0-9]) TIMEs="0$TIMEs";; esac
 
-echo draw 5 "$* $TIMEm:$TIMEs minutes."
+_draw 5 "$* $TIMEm:$TIMEs minutes."
 }
 
 
@@ -141,14 +141,14 @@ test "$NUMBER" -a "$FAIL" || return 3
 
 if test "$FAIL" -le 0; then
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
 elif test "$((NUMBER/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
- echo draw 7 "PLEASE increase your INTELLIGENCE !!"
+ _draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ _draw 7 "PLEASE increase your INTELLIGENCE !!"
 else
  SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ _draw 7 "You succeeded $SUCC times of $NUMBER ." # green
 fi
 }
 
@@ -165,27 +165,27 @@ _say_minutes_seconds "$TIMEA" "$TIMEZ" "Whole script time :"
 }
 
 _usage(){
-echo draw 5 "Script to produce balm of first aid."
-echo draw 7 "Syntax:"
-echo draw 7 "$0 < NUMBER >"
-echo draw 5 "Optional NUMBER will loop for"
-echo draw 5 "NUMBER times to produce NUMBER of"
-echo draw 5 "Balm of First Aid ."
-echo draw 4 "If no number given, loops as long"
-echo draw 4 "as ingredients could be dropped."
-echo draw 2 "Options:"
-echo draw 5 "-d  to turn on debugging."
-echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
-echo draw 5 "-v  to be more talkaktive."
+_draw 5 "Script to produce balm of first aid."
+_draw 7 "Syntax:"
+_draw 7 "$0 < NUMBER >"
+_draw 5 "Optional NUMBER will loop for"
+_draw 5 "NUMBER times to produce NUMBER of"
+_draw 5 "Balm of First Aid ."
+_draw 4 "If no number given, loops as long"
+_draw 4 "as ingredients could be dropped."
+_draw 2 "Options:"
+_draw 5 "-d  to turn on debugging."
+_draw 5 "-L  to log to $LOG_REPLY_FILE ."
+_draw 5 "-v  to be more talkaktive."
         exit 0
 }
 
 # *** Here begins program *** #
-echo draw 2 "$0 is started.."
+_draw 2 "$0 is started.."
 
 # *** PARAMETERS *** #
 # *** Check for parameters *** #
-echo drawnifo 5 "Checking the parameters ($*)..."
+_draw 5 "Checking the parameters ($*)..."
 
 
 until test "$#" = 0
@@ -205,7 +205,7 @@ case "$PARAM_1" in
       --deb*)      DEBUG=$((DEBUG+1));;
       --log*)    LOGGING=$((LOGGING+1));;
       --verbose) VERBOSE=$((VERBOSE+1));;
-      *) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+      *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
 -*) OPTS=`echo "$PARAM_1" | sed -r 's/^-*//; s/(.)/\1\n/g'`
@@ -215,14 +215,14 @@ case "$PARAM_1" in
       d)   DEBUG=$((DEBUG+1));;
       L) LOGGING=$((LOGGING+1));;
       v) VERBOSE=$((VERBOSE+1));;
-      *) echo draw 3 "Ignoring unhandled option '$oneOP'";;
+      *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
 ;;
 
 '')
-#echo draw 3 "Script needs number of alchemy attempts as argument."
-#echo draw 3 "Need <number> ie: script $0 4 ."
+#_draw 3 "Script needs number of alchemy attempts as argument."
+#_draw 3 "Need <number> ie: script $0 4 ."
 # exit 1
 :
 ;;
@@ -230,20 +230,20 @@ case "$PARAM_1" in
 [0-9]*)
 PARAM_1test="${PARAM_1//[[:digit:]]/}"
 test "$PARAM_1test" && {
-echo draw 3 "Only :digit: numbers as option allowed."
+_draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
         }
 
 NUMBER=$PARAM_1
 ;;
-*) echo draw 3 "Ignoring unhandled option '$PARAM_1'";;
+*) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
 esac
 shift
 sleep 0.1
 done
 
 
-echo draw 7 "OK."
+_draw 7 "OK."
 
 
 # ***
@@ -265,8 +265,8 @@ echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 _sleepSLEEP
 
-test "$*" && echo draw 5 "$*"
-echo draw 3 "Exiting $0."
+test "$*" && _draw 5 "$*"
+_draw 3 "Exiting $0."
 
 echo unwatch
 echo unwatch $DRAW_INFO
@@ -283,7 +283,7 @@ shift
 
 echo "issue 1 1 apply rod of word of recall"
 echo "issue 1 1 fire center"
-echo draw 3 "Emergency Exit $0 !"
+_draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
 echo "issue 1 1 fire_stop"
 _beep
@@ -291,7 +291,7 @@ _beep
 #NUMBER=$((one-1))
 NUMBER=$one
 _say_statistics_end
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 exit $RV
 }
 
@@ -300,11 +300,11 @@ RV=${1:-0}
 shift
 
 #_say_statistics_end
-echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw 3 "Remove that Item and try again."
-echo draw 3 "If this is a Wall, try another place."
+_draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
+_draw 3 "Remove that Item and try again."
+_draw 3 "If this is a Wall, try another place."
 _beep
-test "$*" && echo draw 5 "$*"
+test "$*" && _draw 5 "$*"
 exit $RV
 }
 
@@ -338,7 +338,7 @@ done
 f_check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 
-echo draw 5 "Checking if on a cauldron..."
+_draw 5 "Checking if on a cauldron..."
 
 local UNDER_ME='';
 echo request items on
@@ -365,18 +365,18 @@ done
 
 
 test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
+_draw 3 "Need to stand upon cauldron!"
 _beep
 exit 1
 }
 
-echo draw 7 "OK."
+_draw 7 "OK."
 }
 
 f_check_free_space(){
 # *** Check for 4 empty space to DIRB *** #
 
-echo draw 5 "Checking for space to move..."
+_draw 5 "Checking for space to move..."
 
 echo request map pos
 
@@ -442,19 +442,19 @@ done
 
 else
 
-echo draw 3 "Received Incorrect X Y parameters from server"
+_draw 3 "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo draw 3 "Could not get X and Y position of player."
+_draw 3 "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo draw 7 "OK."
+_draw 7 "OK."
 }
 
 
@@ -469,7 +469,7 @@ echo draw 7 "OK."
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
-echo draw 5 "Preparing for recall if monsters come forth..."
+_draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -495,7 +495,7 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo draw 6 "Done."
+_draw 6 "Done."
 }
 
 _check_empty_cauldron(){
@@ -505,7 +505,7 @@ echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
 
 
-echo draw 5 "Checking for empty cauldron..."
+_draw 5 "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
 _sleepSLEEP
@@ -534,14 +534,14 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo draw 3 "Cauldron probably NOT empty !!"
-echo draw 3 "Please check/empty the cauldron and try again."
+_draw 3 "Cauldron probably NOT empty !!"
+_draw 3 "Please check/empty the cauldron and try again."
 f_exit 1
 }
 
 echo unwatch $DRAW_INFO
 
-echo draw 7 "OK ! Cauldron SEEMS empty."
+_draw 7 "OK ! Cauldron SEEMS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -561,7 +561,7 @@ echo "issue 1 1 $DIRF"
 _get_player_speed(){
 # *** Getting Player's Speed *** #
 
-echo draw 5 "Processing Player's speed..."
+_draw 5 "Processing Player's speed..."
 
 
 ANSWER=
@@ -590,7 +590,7 @@ PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
 echo draw 7 "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
- echo draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ _draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
 SLEEP=0.2; DELAY_DRAWINFO=1.0
 elif test "$PL_SPEED" -gt 55; then
@@ -606,10 +606,10 @@ SLEEP=3.0; DELAY_DRAWINFO=6.0
 elif test "$PL_SPEED" -ge  0; then
 SLEEP=4.0; DELAY_DRAWINFO=9.0
 else
- echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ _draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
-echo draw 6 "Done."
+_draw 6 "Done."
 }
 
 f_check_on_cauldron
@@ -662,7 +662,7 @@ test ! "${*//[0-9]/}"
 # *** Now LOOPING *** #
 
 TIMEB=`/bin/date +%s`
-echo draw 4 "OK... Might the Might be with You!"
+_draw 4 "OK... Might the Might be with You!"
 
 FAIL=0
 
@@ -846,22 +846,22 @@ one=$((one+1))
 TIMEE=`/bin/date +%s`
 TIMER=$((TIMEE-TIMEC))
 TIMER=$((TIMER+1))
-echo draw 4 "Round took '$TIMER' seconds."
+_draw 4 "Round took '$TIMER' seconds."
 
 if _test_integer $NUMBER; then
  TRIES_STILL=$((NUMBER-one))
- echo draw 4 "Still '$TRIES_STILL' attempts to go .."
+ _draw 4 "Still '$TRIES_STILL' attempts to go .."
 
  TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
- echo draw 5 "Still '$TIME_STILL' minutes to go..."
+ _draw 5 "Still '$TIME_STILL' minutes to go..."
 else
  TRIES_STILL=$one
- echo draw 4 "Completed '$TRIES_STILL' attempts .."
+ _draw 4 "Completed '$TRIES_STILL' attempts .."
 
  TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
- echo draw 5 "Completed '$TIME_STILL' minutes. ..."
+ _draw 5 "Completed '$TIME_STILL' minutes. ..."
 fi
 
 test "$one" = "$NUMBER" && break
@@ -869,7 +869,7 @@ done  # *** MAINLOOP *** #
 
 _say_statistics_end
 # *** Here ends program *** #
-echo draw 2 "$0 is finished."
+_draw 2 "$0 is finished."
 _beep
 
 
