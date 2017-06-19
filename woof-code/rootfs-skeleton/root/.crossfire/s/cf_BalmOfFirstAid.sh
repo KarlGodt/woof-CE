@@ -510,7 +510,7 @@ NUMBER=${NUMBER:-infinite}
 
 # *** Now LOOPING *** #
 
-FAIL=0
+FAIL=0; one=0
 TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 _debug_two && echo monitor; #DEBUG
@@ -533,16 +533,16 @@ _debug_two || echo watch $DRAW_INFO
 OLD_REPLY="";
 REPLY="";
 DW=0
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough water of the wise"
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 2 # f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 2 # f_exit 1 "Not enough water of the wise"
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 2 # f_exit 1 "Not enough water of the wise"
 test "`echo "$REPLY" | grep '.*You put the water.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -559,16 +559,16 @@ echo "issue 1 1 drop 1 mandrake root"
 OLD_REPLY="";
 REPLY="";
 DW=0
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
-test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough mandrake root"
-test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 2 # f_exit 1 "Nothing to drop"
+test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 2 # f_exit 1 "Not enough mandrake root"
+test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 2 # f_exit 1 "Not enough mandrake root"
 test "`echo "$REPLY" | grep '.*You put the mandrake.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -579,15 +579,15 @@ done
 test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing mandrake root in inventory."
 
 _debug_two || echo unwatch $DRAW_INFO
-sleep ${SLEEP:-1}s
+sleep ${SLEEP:+1}s
 
 echo draw 2 "Closing cauldron .."
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
-sleep ${SLEEP:-1}s
+sleep ${SLEEP:+1}s
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
-sleep ${SLEEP:-1}s
+sleep ${SLEEP:+1}s
 
 _check_if_on_cauldron
 
@@ -600,7 +600,7 @@ _debug_two || echo watch $DRAW_INFO
 OLD_REPLY="";
 REPLY="";
 
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "use_skill alchemy:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
@@ -608,7 +608,7 @@ test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && f_exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # f_exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -617,10 +617,10 @@ done
 
 _debug_two || echo unwatch $DRAW_INFO
 
-sleep ${SLEEP:-1}s
+sleep ${SLEEP:+1}s
 echo draw 2 "Opening cauldron .."
 echo "issue 1 1 apply"
-sleep ${SLEEP:-1}s
+sleep ${SLEEP:+1}s
 
 
 # ***
@@ -644,7 +644,7 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
@@ -708,7 +708,7 @@ echo request items on
 UNDER_ME='';
 UNDER_ME_LIST='';
 
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 UNDER_ME
 [ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
@@ -778,15 +778,15 @@ case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac
 echo draw 5 "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
 
 if test "$FAIL" = 0; then
- echo draw 7 "You succeeded $one times of $NUMBER ." # green
+ echo draw 7 "You succeeded $one times of $one ." # green
 else
-if test "$((NUMBER/FAIL))" -lt 2;
+if test "$((one/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $NUMBER ."    # light green
+ echo draw 8 "You failed $FAIL times of $one ."    # light green
  echo draw 7 "You should increase your Int stat."
 else
- SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
 fi
 fi
 

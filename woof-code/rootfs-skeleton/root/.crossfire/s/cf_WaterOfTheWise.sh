@@ -522,7 +522,7 @@ NUMBER=${NUMBER:-infinite}
 # *** HAPPY ALCHING !!!                                             *** #
 
 
-FAIL=0
+FAIL=0; one=0
 TIMEB=`/bin/date +%s`
 echo draw 4 "OK... Might the Might be with You!"
 
@@ -557,16 +557,16 @@ _debug_two || echo watch $DRAW_INFO
 echo draw 4 "Dropping water ..."
 echo "issue 1 1 drop 7 water"
 DW=0
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
-test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"   && f_exit 1 "Nothing to drop ..?"
-test "`echo "$REPLY" | grep '.*There are only.*'`"    && f_exit 1 "Not enough water .."
-test "`echo "$REPLY" | grep '.*There is only.*'`"     && f_exit 1 "Only one water ."
+test "`echo "$REPLY" | grep '.*Nothing to drop\.'`"   && break 2 # f_exit 1 "Nothing to drop ..?"
+test "`echo "$REPLY" | grep '.*There are only.*'`"    && break 2 # f_exit 1 "Not enough water .."
+test "`echo "$REPLY" | grep '.*There is only.*'`"     && break 2 # f_exit 1 "Only one water ."
 test "`echo "$REPLY" | grep '.*You put the water.*'`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
@@ -611,7 +611,7 @@ test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -637,7 +637,7 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
@@ -771,15 +771,15 @@ echo draw 5 "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
 
 
 if test "$FAIL" = 0; then
- echo draw 7 "You succeeded $one times of $NUMBER ." # green
+ echo draw 7 "You succeeded $one times of $one ." # green
 else      # NUMBER/FAIL: division by 0 (error token is "L")
-if test "$((NUMBER/FAIL))" -lt 2;
+if test "$((one/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $NUMBER ."  # light green
+ echo draw 8 "You failed $FAIL times of $one ."  # light green
  echo draw 7 "You should increase your Int stat."
 else
- SUCC=$((NUMBER-FAIL))
- echo draw 7 "You succeeded $SUCC times of $NUMBER ." # green
+ SUCC=$((one-FAIL))
+ echo draw 7 "You succeeded $SUCC times of $one ." # green
 fi
 fi
 

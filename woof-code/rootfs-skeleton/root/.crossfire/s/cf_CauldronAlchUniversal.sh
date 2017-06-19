@@ -266,11 +266,11 @@ f_exit_no_space(){
 RV=${1:-0}
 shift
 
-echo draw 3 "On position $nr $DIRB there is Something ($IS_WALL)!"
-echo draw 3 "Remove that Item and try again."
-echo draw 3 "If this is a Wall, try another place."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "On position $nr $DIRB there is Something ($IS_WALL)!"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Remove that Item and try again."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "If this is a Wall, try another place."
 
-test "$*" && echo draw 5 "$*"
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
 beep
 exit $RV
 }
@@ -299,7 +299,7 @@ do
   case $REPLY in *"$l_auto_string_PARAM") return 0;; esac
  else # print skill
   l_SKILL=`echo "$REPLY" | cut -f4- -d' '`
-  echo draw 5 "'$l_SKILL'"
+  echo draw ${g_edit_nulldigit_COLOURED:-5} "'$l_SKILL'"
  fi
 
 done
@@ -320,7 +320,7 @@ _probe_if_on_cauldron(){
 # *** Check if standing on a $g_edit_string_CAULDRON *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if standing on a '$g_edit_string_CAULDRON' .."
 
-echo draw ${g_edit_nulldigit_COLOURED:-5} "Creating UNDER_ME_LIST .."
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-5} "Creating UNDER_ME_LIST .."
 UNDER_ME='';
 echo request items on
 
@@ -335,7 +335,7 @@ test "$UNDER_ME" = "request items on end" && break
 test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
-echo draw ${g_edit_nulldigit_COLOURED:-7} "Done."
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-7} "Done."
 
  test "`echo "$UNDER_ME_LIST" | grep "${g_edit_string_CAULDRON}$"`" || {
   echo draw ${g_edit_nulldigit_COLOURED:-3} "Need to stand upon a $g_edit_string_CAULDRON!"
@@ -347,7 +347,7 @@ echo draw ${g_edit_nulldigit_COLOURED:-7} "OK, am on '$g_edit_string_CAULDRON' .
 
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
-echo draw 5 "Checking for space to move..."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for space to move..."
 
 echo request map pos
 
@@ -415,19 +415,19 @@ done
 
 else
 
-echo draw 3 "Received Incorrect X Y parameters from server"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Received Incorrect X Y parameters from server"
 exit 1
 
 fi
 
 else
 
-echo draw 3 "Could not get X and Y position of player."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Could not get X and Y position of player."
 exit 1
 
 fi
 
-echo draw 7 "OK."
+echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
 }
 
 
@@ -441,7 +441,7 @@ echo draw 7 "OK."
 
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
-echo draw 5 "Preparing for recall if monsters come forth..."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Preparing for recall if monsters come forth..."
 
 RECALL=0
 OLD_REPLY="";
@@ -466,7 +466,7 @@ if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
 echo "issue 1 1 apply rod of word of recall"
 fi
 
-echo draw 6 "Done."
+echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
 
 _check_empty_cauldron(){
@@ -474,7 +474,7 @@ _check_empty_cauldron(){
 echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
 sleep ${SLEEP:-1}s
 
-echo draw 5 "Checking for empty cauldron..."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Checking for empty cauldron..."
 
 echo "issue 1 1 apply"
 sleep ${SLEEP:-1}s
@@ -502,14 +502,14 @@ sleep 0.1s
 done
 
 test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo draw 3 "Cauldron NOT empty !!"
-echo draw 3 "Please empty the cauldron and try again."
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Cauldron NOT empty !!"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Please empty the cauldron and try again."
 f_exit 1
 }
 
 echo unwatch $g_edit_string_DRAW_INFO
 
-echo draw 7 "OK ! Cauldron SEEMS empty."
+echo draw ${g_edit_nulldigit_COLOURED:-7} "OK ! Cauldron SEEMS empty."
 
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
@@ -529,7 +529,7 @@ echo "issue 1 1 $DIRF"
 _get_player_speed(){
 # *** Getting Player's Speed *** #
 
-echo draw 5 "Processing Player's speed..."
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Processing Player's speed..."
 
 ANSWER=
 OLD_ANSWER=
@@ -551,11 +551,11 @@ done
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 #PL_SPEED="0.${PL_SPEED:0:2}"
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-7} "Player speed is $PL_SPEED"
 
 #PL_SPEED="${PL_SPEED:2:2}"
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed set to $PL_SPEED"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-7} "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
  echo draw ${g_edit_nulldigit_COLOURED:-3} "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
@@ -574,10 +574,10 @@ SLEEP=3.0; DELAY_DRAWINFO=6.0
 elif test "$PL_SPEED" -ge  0; then
 SLEEP=4.0; DELAY_DRAWINFO=9.0
 else
- echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+ echo draw ${g_edit_nulldigit_COLOURED:-3} "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
-echo draw 6 "Done."
+echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
 
 
@@ -665,6 +665,7 @@ _debug_two && echo monitor; #DEBUG
 TIMEB=`/bin/date +%s`
 FAIL=0
 SUCC=0
+one=0
 
 for one in `seq 1 1 $g_auto_digit_NUMBER_ALCH`
 do
@@ -716,16 +717,16 @@ sleep 1s
 
  echo issue 1 1 drop ${g_auto_digit_NUMBER[$FOR]} "${g_auto_string_INGRED[$FOR]}"
  DW=0
- while [ 1 ]; do
+ while [ 3 ]; do
  read -t 1 REPLY
  [ "$LOGGING" ] && echo "drop:$REPLY" >>"$g_edit_string_LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 6 "$REPLY"
+ [ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
  test "$REPLY" || break
  test "`echo "$REPLY" | grep 'monitor'`" && continue  #TODO
  test "$REPLY" = "$OLD_REPLY" && break
- test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && f_exit 1 "Nothing to drop"
- test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1 "Not enough ${g_auto_string_INGRED[$FOR]}"
- test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1 "Not enough ${g_auto_string_INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*Nothing to drop\.'`" && break 3 # f_exit 1 "Nothing to drop"
+ test "`echo "$REPLY" | grep '.*There are only.*'`"  && break 3 # f_exit 1 "Not enough ${g_auto_string_INGRED[$FOR]}"
+ test "`echo "$REPLY" | grep '.*There is only.*'`"   && break 3 # f_exit 1 "Not enough ${g_auto_string_INGRED[$FOR]}"
  test "`echo "$REPLY" | grep ".*You put the .* ${g_auto_string_INGRED[$FOR]%% *}.*"`" && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
  test "`echo "$REPLY" | grep ".*You put the ${g_auto_string_INGRED[$FOR]%% *}.*"`"    && { DW=$((DW+1)); unset REPLY; } #s in cauldron (open) (active).
  #test "$REPLY" || break
@@ -773,12 +774,12 @@ while :; do
 _ping
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "use_skill $SKILL:$REPLY" >>"$g_edit_string_LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 6 "$REPLY"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -875,10 +876,10 @@ REPLY="";
 NOTHING=0
 SLAG=0
 
-while [ 1 ]; do
+while [ 2 ]; do
 read -t 1 REPLY
 [ "$LOGGING" ] && echo "get:$REPLY" >>"$g_edit_string_LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 6 "$REPLY"
+[ "$DEBUG" ] && echo draw ${g_edit_nulldigit_COLOURED:-6} "$REPLY"
 test "$REPLY" || break
 test "`echo "$REPLY" | grep 'monitor'`" && continue  # TODO
 test "$REPLY" = "$OLD_REPLY" && break
@@ -988,18 +989,18 @@ TIMEL=$((TIMELE-TIMEB))
 TIMELM=$((TIMEL/60))
 TIMELS=$(( TIMEL - (TIMELM*60) ))
 case $TIMELS in [0-9]) TIMELS="0$TIMELS";; esac
-echo draw 5 "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
+echo draw ${g_edit_nulldigit_COLOURED:-5} "Whole  loop  time : $TIMELM:$TIMELS minutes." # light blue
 
 if test "$FAIL" = 0; then
- echo draw 7 "You succeeded $one times of $g_auto_digit_NUMBER_ALCH ." # green
+ echo draw ${g_edit_nulldigit_COLOURED:-7} "You succeeded $one times of $one ." # green
 else
-if test "$((g_auto_digit_NUMBER_ALCH/FAIL))" -lt 2;
+if test "$((one/FAIL))" -lt 2;
 then
- echo draw 8 "You failed $FAIL times of $g_auto_digit_NUMBER_ALCH ."    # light green
- echo draw 7 "You should increase your Int stat."
+ echo draw ${g_edit_nulldigit_COLOURED:-8} "You failed $FAIL times of $one ."    # light green
+ echo draw ${g_edit_nulldigit_COLOURED:-7} "You should increase your Int stat."
 else
- SUCC=$((g_auto_digit_NUMBER_ALCH-FAIL))
- echo draw 7 "You succeeded $SUCC times of $g_auto_digit_NUMBER_ALCH ." # green
+ SUCC=$((one-FAIL))
+ echo draw ${g_edit_nulldigit_COLOURED:-7} "You succeeded $SUCC times of $one ." # green
 fi
 fi
 
@@ -1009,7 +1010,7 @@ TIMEY=$((TIMEZ-TIMEA))
 TIMEAM=$((TIMEY/60))
 TIMEAS=$(( TIMEY - (TIMEAM*60) ))
 case $TIMEAS in [0-9]) TIMEAS="0$TIMEAS";; esac
-echo draw 6 "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
+echo draw ${g_edit_nulldigit_COLOURED:-6} "Whole script time : $TIMEAM:$TIMEAS minutes." # dark orange
 
 
 echo draw ${g_edit_nulldigit_COLOURED:-2} "$0 is finished."
