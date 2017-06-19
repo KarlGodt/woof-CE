@@ -23,11 +23,6 @@
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
-# *** Here begins program *** #
-_draw 2 "$0 is started:"
-_draw 2 "PID $$ PPID $PPID"
-_draw 2 "ARGUMENTS:$*"
-
 # *** Setting defaults *** #
 
 DEBUG=
@@ -138,6 +133,12 @@ _is(){
     sleep 0.2
 }
 
+
+# *** Here begins program *** #
+_draw 2 "$0 is started:"
+_draw 2 "PID $$ PPID $PPID"
+_draw 2 "ARGUMENTS:$*"
+
 # *** Check for parameters *** #
 
 test "$*" || {
@@ -152,7 +153,7 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*help) _usage;;
+-h|*help|*usage) _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
@@ -284,8 +285,8 @@ echo request items on
 while :; do
 read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
+_log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
+_debug "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
@@ -324,8 +325,8 @@ echo request items on
 while :; do
 read -t 1 UNDER_ME
 sleep 0.1s
-[ "$LOGGING" ] && echo "request items on:$UNDER_ME" >>"$LOG_ISON_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$UNDER_ME'"
+_log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
+_debug "'$UNDER_ME'"
 UNDER_ME_LIST="$UNDER_ME
 $UNDER_ME_LIST"
 case "$UNDER_ME" in
@@ -355,8 +356,8 @@ echo request map pos
 while :; do
 _ping
 read -t 1 REPLY
- [ "$LOGGING" ] && echo "request map pos:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
+ _debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -396,12 +397,12 @@ echo request map $R_X $R_Y
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "request map '$R_X' '$R_Y':$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "request map '$R_X' '$R_Y':$REPLY"
+_debug "REPLY='$REPLY'"
 
 IS_WALL=`echo "$REPLY" | awk '{print $16}'`
-[ "$LOGGING" ] && echo "IS_WALL='$IS_WALL'" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "IS_WALL='$IS_WALL'"
+_log "$LOG_REPLY_FILE" "IS_WALL='$IS_WALL'"
+_debug "IS_WALL='$IS_WALL'"
 
 test "$IS_WALL" = 0 || f_exit_no_space 1
 test "$REPLY" || break
@@ -452,8 +453,8 @@ echo request items actv
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "request items actv:$REPLY"
+_debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.* rod of word of recall'`" && RECALL=1
@@ -493,8 +494,8 @@ echo watch $DRAW_INFO
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "get:$REPLY"
+_debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 REPLY_ALL="$REPLY
@@ -544,8 +545,8 @@ echo request stat cmbt
 while :; do
 _ping
 read -t 1 ANSWER
-[ "$LOGGING" ] && echo "request stat cmbt:$ANSWER" >>"$LOG_REQUEST_FILE"
-[ "$DEBUG" ] && echo draw 3 "$ANSWER"
+_log "$LOG_REQUEST_FILE" "request stat cmbt:$ANSWER"
+_debug "$ANSWER"
 
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
@@ -653,8 +654,8 @@ DW=0
 
  while :; do
  read -t 1 REPLY
- [ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
- [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+ _log "$LOG_REPLY_FILE" "drop:$REPLY"
+ _debug "REPLY='$REPLY'"
 
  case "$REPLY" in
  $OLD_REPLY) break;;
@@ -683,8 +684,8 @@ DW=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "drop:$REPLY"
+_debug "REPLY='$REPLY'"
 #test "`echo "$REPLY" | busybox grep -E '.*Nothing to drop\.|.*There are only.*|.*There is only.*'`" && f_exit 1
 #test "`echo "$REPLY" | grep '.*There are only.*'`"  && f_exit 1
 #test "`echo "$REPLY" | grep '.*There is only.*'`"   && f_exit 1
@@ -727,8 +728,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "alchemy:$REPLY"
+_debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
@@ -765,8 +766,8 @@ SLAG=0
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-  [ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "get:$REPLY"
+  _debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*Nothing to take\!'`"   && NOTHING=1
@@ -786,7 +787,7 @@ _is "1 1 $DIRB"
 _is "1 1 $DIRB"
 _sleepSLEEP
 
-[ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'" #DEBUG
+_debug "NOTHING is '$NOTHING'" #DEBUG
 
 if test "$NOTHING" = 0; then
  if test $SLAG = 0; then

@@ -7,10 +7,6 @@
 
 exec 2>/tmp/cf_script.err
 
-# *** Here begins program *** #
-_draw 2 "$0 is started.."
-_draw 5 " with '$*' parameter."
-
 # *** Setting defaults *** #
 
 #SKILL=woodsman
@@ -151,6 +147,9 @@ esac
 # ***
 # ***
 
+# *** Here begins program *** #
+_draw 2 "$0 is started.."
+_draw 5 " with '$*' parameter."
 
 # *** testing parameters for validity *** #
 

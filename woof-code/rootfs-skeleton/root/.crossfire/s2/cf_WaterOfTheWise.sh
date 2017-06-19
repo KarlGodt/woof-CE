@@ -200,7 +200,7 @@ PARAM_1="$1"
 # *** implementing 'help' option *** #
 
 case "$PARAM_1" in
--h|*help)     _usage;;
+-h|*help|*usage)     _usage;;
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
@@ -348,8 +348,8 @@ echo request stat cmbt
 
 while :; do
 read -t 1 ANSWER
-[ "$LOGGING" ] && echo "$ANSWER" >>"$LOG_REQUEST_FILE"
-[ "$DEBUG" ] && echo draw 3 "'$ANSWER'"
+_log "$LOG_REQUEST_FILE" "$ANSWER"
+_debug "'$ANSWER'"
 test "$ANSWER" || break
 test "$ANSWER" = "$OLD_ANSWER" && break
 OLD_ANSWER="$ANSWER"
@@ -398,8 +398,8 @@ echo request items actv
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "request items actv:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "request items actv:$REPLY"
+_debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -447,8 +447,8 @@ _is "1 1 get"
 
 while :; do
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "get:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "get:$REPLY"
+_debug "REPLY='$REPLY'"
 
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
@@ -545,7 +545,7 @@ _sleepSLEEP
 while :; do
  read -t 1 REPLY
 [ "$LOGGING" ] &&  echo "drop:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_debug "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
  *"Nothing to drop.")   f_exit 1 "Nothing to drop ..?";;
@@ -587,8 +587,8 @@ REPLY="";
 while :; do
 _ping
 read -t 1 REPLY
-[ "$LOGGING" ] && echo "alchemy:$REPLY" >>"$LOG_REPLY_FILE"
-[ "$DEBUG" ] && echo draw 3 "REPLY='$REPLY'"
+_log "$LOG_REPLY_FILE" "alchemy:$REPLY"
+_debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 # (level < 100) {                /* WHAMMY the CAULDRON */
