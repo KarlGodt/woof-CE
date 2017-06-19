@@ -85,8 +85,21 @@ _draw(){
     local lCOLOUR="$1"
     lCOLOUR=${lCOLOUR:-1} #set default
     shift
-    local lMSG="$@"
+    local lMSG="$*"
     echo draw $lCOLOUR "$lMSG"
+}
+
+__draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local lMSG="$*"
+while read -r line
+do
+   _draw $lCOLOUR "$line"
+    done <<EoI
+`echo "$lMSG"`
+EoI
 }
 
 _log(){
@@ -104,7 +117,8 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 
 _debug(){
 test "$DEBUG" || return 0
-_draw ${COL_DEB:-3} "DEBUG:$@"
+#_draw ${COL_DEB:-3} "DEBUG:$*"
+__draw ${COL_DEB:-3} "DEBUG:$*"
 }
 
 _is(){
@@ -246,7 +260,7 @@ case "$PARAM_1" in
 '') :;;
 
 [0-9]*)
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
@@ -311,36 +325,76 @@ exit $RV
 }
 
 # *** PREREQUISITES *** #
-# 1.) f_check_on_cauldron
-# 2.) _get_player_speed
-# 3.) _ready_recall
-# 4.) _check_empty_cauldron
+# 1.) _get_player_speed
+# 2.) _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+# 3.) f_check_on_cauldron
+# 4.) _check_free_move
+# 5.) _check_empty_cauldron
+# 6.) _ready_recall
+
+# *** Does our player possess the skill alchemy ? *** #
+_check_skill(){
+
+local lPARAM="$*"
+local lSKILL
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+  _log "$LOG_REPLY_FILE" "_check_skill:$REPLY"
+  _debug "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
+ else # print skill
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  _draw 5 "'$lSKILL'"
+ fi
+
+done
+
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
+}
 
 # *** Check if standing on a cauldron *** #
 
 f_check_on_cauldron(){
 
 _draw 4 "Checking if on cauldron..."
-UNDER_ME='';
+
+local UNDER_ME_LIST='';
+local UNDER_ME='';
+
 echo request items on
 
 while :; do
-read UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
-#echo "$UNDER_ME" >>"$LOG_ISON_FILE"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in "request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
+_log "$LOG_ISON_FILE" "$UNDER_ME"
+_debug "$UNDER_ME"
+UNDER_ME_LIST="$UNDER_ME_LIST
+$UNDER_ME"
+case "$UNDER_ME" in
+"request items on end") break;;
+"scripttell break")     break;;
+"scripttell exit")     exit 1;;
 esac
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
-        }
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  _draw 3 "Need to stand upon cauldron!"
+  _beep
+  exit 1
+ }
 
 _draw 7 "Done."
 }
@@ -353,6 +407,91 @@ _draw 7 "Done."
 # ***
 # ***
 
+_check_free_move(){
+# *** Check for 4 empty space to DIRB *** #
+
+_draw 5 "Checking for space to move..."
+
+echo request map pos
+
+while :; do
+_ping
+read -t 1 REPLY
+ _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
+ _debug "REPLY='$REPLY'"
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
+PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+_debug "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
+
+if test "$PL_POS_X" -a "$PL_POS_Y"; then
+
+if test ! "${PL_POS_X//[0-9]/}" -a ! "${PL_POS_Y//[0-9]/}"; then
+
+for nr in `seq 1 1 4`; do
+
+case $DIRB in
+west)
+R_X=$((PL_POS_X-nr))
+R_Y=$PL_POS_Y
+;;
+east)
+R_X=$((PL_POS_X+nr))
+R_Y=$PL_POS_Y
+;;
+north)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y-nr))
+;;
+south)
+R_X=$PL_POS_X
+R_Y=$((PL_POS_Y+nr))
+;;
+esac
+
+_debug "R_X='$R_X' R_Y='$R_Y'"
+echo request map $R_X $R_Y
+
+while :; do
+_ping
+read -t 1 REPLY
+_log "$LOG_REPLY_FILE" "request map '$R_X' '$R_Y':$REPLY"
+_debug "REPLY='$REPLY'"
+
+IS_WALL=`echo "$REPLY" | awk '{print $16}'`
+_log "$LOG_REPLY_FILE" "IS_WALL='$IS_WALL'"
+_debug "IS_WALL='$IS_WALL'"
+
+test "$IS_WALL" = 0 || f_exit_no_space 1
+test "$REPLY" || break
+test "$REPLY" = "$OLD_REPLY" && break
+OLD_REPLY="$REPLY"
+sleep 0.1s
+done
+
+done
+
+else
+
+_draw 3 "Received Incorrect X Y parameters from server"
+exit 1
+
+fi
+
+else
+
+_draw 3 "Could not get X and Y position of player."
+exit 1
+
+fi
+
+_draw 7 "OK."
+}
 
 # *** Getting Player's Speed *** #
 _get_player_speed(){
@@ -478,19 +617,18 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-_draw 3 "Cauldron NOT empty !!"
-_draw 3 "Please empty the cauldron and try again."
-_beep
-f_exit 1
-}
+ test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+ _draw 3 "Cauldron NOT empty !!"
+ _draw 3 "Please empty the cauldron and try again."
+ _beep
+ exit 1
+ }
 
 echo unwatch $DRAW_INFO
 
 _draw 7 "OK ! Cauldron SEEMS empty."
 
 _sleepSLEEP
-
 _is "1 1 $DIRB"
 _is "1 1 $DIRB"
 _is "1 1 $DIRF"
@@ -498,10 +636,14 @@ _is "1 1 $DIRF"
 _sleepSLEEP
 }
 
-f_check_on_cauldron
 _get_player_speed
-_ready_recall
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+f_check_on_cauldron
+_check_free_move
+#_get_player_speed
 _check_empty_cauldron
+_ready_recall
+
 
 # *** Actual script to alch the desired water of the wise *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution

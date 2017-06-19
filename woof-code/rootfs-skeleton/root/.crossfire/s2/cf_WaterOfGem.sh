@@ -102,6 +102,7 @@ _draw 5 "-v  to be more talkaktive."
 # ***
 # ***
 
+
 # times
 _say_minutes_seconds(){
 #_say_minutes_seconds "500" "600" "Loop run:"
@@ -177,8 +178,21 @@ _draw(){
     local lCOLOUR="$1"
     lCOLOUR=${lCOLOUR:-1} #set default
     shift
-    local lMSG="$@"
+    local lMSG="$*"
     echo draw $lCOLOUR "$lMSG"
+}
+
+__draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local lMSG="$*"
+while read -r line
+do
+   _draw $lCOLOUR "$line"
+    done <<EoI
+`echo "$lMSG"`
+EoI
 }
 
 _log(){
@@ -196,7 +210,8 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 
 _debug(){
 test "$DEBUG" || return 0
-_draw ${COL_DEB:-3} "DEBUG:$@"
+#_draw ${COL_DEB:-3} "DEBUG:$*"
+__draw ${COL_DEB:-3} "DEBUG:$*"
 }
 
 _is(){
@@ -339,40 +354,84 @@ exit $RV
 
 
 # *** PREREQUISITES *** #
-# 1.) #__check_on_cauldron
-# 1.) f_check_on_cauldron
-# 2.) _check_free_move
-# 3.) _prepare_recall
-# 4.) _check_empty_cauldron
-# 5. ) _get_player_speed
+# 1.) _get_player_speed
+# 2.) _check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
+# 3.) #__check_on_cauldron
+# 3.) f_check_on_cauldron
+# 4.) _check_free_move
+# 5.) _check_empty_cauldron
+# 6.) _prepare_recall
 
+# *** Does our player possess the skill alchemy ? *** #
+_check_skill(){
+
+local lPARAM="$*"
+local lSKILL
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+  _log "$LOG_REPLY_FILE" "_check_skill:$REPLY"
+  _debug "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
+ else # print skill
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  _draw 5 "'$lSKILL'"
+ fi
+
+done
+
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
+}
 
 __check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
-#_draw 4 "Checking if on cauldron..."
+_draw 4 "Checking if on cauldron..."
 
-UNDER_ME='';
+local UNDER_ME_LIST='';
+local UNDER_ME='';
+
 echo request items on
 
 while :; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 _log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
 _debug "'$UNDER_ME'"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
-esac
+
+#UNDER_ME_LIST="$UNDER_ME
+#$UNDER_ME_LIST"
+
+UNDER_ME_LIST="$UNDER_ME_LIST
+$UNDER_ME"
+
+#UNDER_ME_LIST="${UNDER_ME}\\n${UNDER_ME_LIST}"
+#UNDER_ME_LIST="${UNDER_ME_LIST}\\n${UNDER_ME}"
+
+ case "$UNDER_ME" in
+ "request items on end") break;;
+ "scripttell break")     break;;
+ "scripttell exit")     exit 1;;
+ esac
 done
 
+#UNDER_ME_LIST=`echo -e "$UNDER_ME_LIST"`
+_debug "$UNDER_ME_LIST"
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  _draw 3 "Need to stand upon cauldron!"
+  _beep
+  exit 1
  }
 }
 
@@ -391,29 +450,37 @@ f_check_on_cauldron(){
 
 _draw 4 "Checking if on cauldron..."
 
-UNDER_ME='';
+local UNDER_ME_LIST='';
+local UNDER_ME='';
+
 echo request items on
 
 while :; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 _log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
 _debug "'$UNDER_ME'"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
-case "$UNDER_ME" in
-"request items on end") break;;
-"scripttell break") break;;
-"scripttell exit") exit 1;;
-esac
+
+#   UNDER_ME_LIST=" $UNDER_ME
+# ${UNDER_ME_LIST}"
+
+ UNDER_ME_LIST="${UNDER_ME}\\n${UNDER_ME_LIST}"
+
+ case "$UNDER_ME" in
+ "request items on end") break;;
+ "scripttell break")     break;;
+ "scripttell exit")     exit 1;;
+ esac
 done
 
+UNDER_ME_LIST=`echo -e "$UNDER_ME_LIST"`
+_debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
-        }
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  _draw 3 "Need to stand upon cauldron!"
+  _beep
+  exit 1
+ }
 
 _draw 7 "Done."
 }
@@ -423,25 +490,34 @@ _check_free_move(){
 
 _draw 5 "Checking for space to move..."
 
+local REPLY
+unset REPLY
+
 echo request map pos
 
 while :; do
 _ping
 read -t 1 REPLY
  _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
- _debug "REPLY='$REPLY'"
-test "$REPLY" || break
-test "$REPLY" = "$OLD_REPLY" && break
+ _debug "map pos:'$REPLY'"
+#test "$REPLY" || break
+#test "$REPLY" = "$OLD_REPLY" && break
+ case $REPLY in
+ '')         break;;
+ $OLD_REPLY) break;;
+ *"request map pos end"*) break;;
+ esac
 OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+_debug "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
-if test ! "${PL_POS_X//[[:digit:]]/}" -a ! "${PL_POS_Y//[[:digit:]]/}"; then
+if test ! "${PL_POS_X//[0-9]/}" -a ! "${PL_POS_Y//[0-9]/}"; then
 
 for nr in `seq 1 1 4`; do
 
@@ -464,6 +540,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+_debug "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
 while :; do
@@ -559,13 +636,15 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
+echo watch $DRAW_INFO
+
 _is "1 1 get"
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 while :; do
 _ping
-read -t 1 REPLY
+read -t 2 REPLY
 _log "$LOG_REPLY_FILE" "get:$REPLY"
 _debug "REPLY='$REPLY'"
 test "$REPLY" || break
@@ -636,12 +715,19 @@ _debug "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
  _draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
+
+elif test "$PL_SPEED" -gt 95; then
+SLEEP=0.6; DELAY_DRAWINFO=0.9
+elif test "$PL_SPEED" -gt 85; then
+SLEEP=0.7; DELAY_DRAWINFO=1.0
+elif test "$PL_SPEED" -gt 75; then
+SLEEP=0.8; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.9; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=1.1; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 45; then
-SLEEP=1.0; DELAY_DRAWINFO=1.5
+SLEEP=1.3; DELAY_DRAWINFO=1.7
 elif test "$PL_SPEED" -gt 35; then
 SLEEP=1.5; DELAY_DRAWINFO=2.0
 elif test "$PL_SPEED" -gt 25; then
@@ -657,13 +743,15 @@ fi
 _draw 6 "Done."
 }
 
+
+_get_player_speed
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 #__check_on_cauldron
 f_check_on_cauldron
 _check_free_move
-_prepare_recall
 _check_empty_cauldron
-_get_player_speed
-
+#_get_player_speed
+_prepare_recall
 
 # *** Actual script to alch the desired water of gem *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution

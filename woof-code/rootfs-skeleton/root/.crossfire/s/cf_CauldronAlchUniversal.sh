@@ -82,6 +82,8 @@ echo draw ${g_edit_nulldigit_COLOURED:-5} "NUMBER times to produce"
 echo draw ${g_edit_nulldigit_COLOURED:-5} "ARTIFACT alch with"
 echo draw ${g_edit_nulldigit_COLOURED:-2} "INGREDIENTX NUMBERX ie 'water_of_the_wise' '1'"
 echo draw ${g_edit_nulldigit_COLOURED:-2} "INGREDIENTY NUMBERY ie 'mandrake_root' '1'"
+echo draw ${g_edit_nulldigit_COLOURED:-5} "If NUMBER is not a digit integer ie 'X'"
+echo draw ${g_edit_nulldigit_COLOURED:-5} "loops forever until ingredient runs out."
 echo draw ${g_edit_nulldigit_COLOURED:-3} "Since the client does split space in words"
 echo draw ${g_edit_nulldigit_COLOURED:-3} "even if quoted, the ingredients with space"
 echo draw ${g_edit_nulldigit_COLOURED:-3} "need space replaced. Replacement is '_' underscore."
@@ -262,6 +264,49 @@ esac
 test "$g_auto_digit_NUMBER_ALCH" -ge 1 || g_auto_digit_NUMBER_ALCH=1 #paranoid precaution
 
 
+f_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_edit_string_DIRB"
+echo "issue 1 1 $g_auto_string_DIRF"
+echo "issue 1 1 $g_auto_string_DIRF"
+sleep 1s
+
+
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
+
+echo unwatch
+echo unwatch $g_edit_string_DRAW_INFO
+beep
+exit $RV
+}
+
+f_emergency_exit(){
+RV=${1:-0}
+shift
+
+echo "issue 1 1 apply rod of word of recall"
+echo "issue 1 1 fire center"
+echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
+echo unwatch $g_edit_string_DRAW_INFO
+echo "issue 1 1 fire_stop"
+
+test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
+beep
+exit $RV
+}
+
+
+# ***
+# ***
+# *** diff marker 6
+# *** diff marker 7
+# ***
+# ***
+
+
 f_exit_no_space(){
 RV=${1:-0}
 shift
@@ -307,15 +352,6 @@ done
 test ! "$l_auto_string_PARAM" # returns 0 if called without parameter, else 1
 }
 
-
-# ***
-# ***
-# *** diff marker 6
-# *** diff marker 7
-# ***
-# ***
-
-
 _probe_if_on_cauldron(){
 # *** Check if standing on a $g_edit_string_CAULDRON *** #
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Checking if standing on a '$g_edit_string_CAULDRON' .."
@@ -344,6 +380,15 @@ done
 
 echo draw ${g_edit_nulldigit_COLOURED:-7} "OK, am on '$g_edit_string_CAULDRON' ."
 }
+
+
+# ***
+# ***
+# *** diff marker 8
+# *** diff marker 9
+# ***
+# ***
+
 
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
@@ -430,15 +475,6 @@ fi
 echo draw ${g_edit_nulldigit_COLOURED:-7} "OK."
 }
 
-
-# ***
-# ***
-# *** diff marker 8
-# *** diff marker 9
-# ***
-# ***
-
-
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Preparing for recall if monsters come forth..."
@@ -468,6 +504,15 @@ fi
 
 echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
+
+
+# ***
+# ***
+# *** diff marker 10
+# *** diff marker 11
+# ***
+# ***
+
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
@@ -516,15 +561,6 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 }
-
-
-# ***
-# ***
-# *** diff marker 10
-# *** diff marker 11
-# ***
-# ***
-
 
 _get_player_speed(){
 # *** Getting Player's Speed *** #
@@ -581,6 +617,14 @@ echo draw ${g_edit_nulldigit_COLOURED:-6} "Done."
 }
 
 
+# ***
+# ***
+# *** diff marker 12
+# *** diff marker 13
+# ***
+# ***
+
+
 _check_skill $g_edit_string_SKILL || f_exit 1 "You do not have the skill '$SKILL'."
 _probe_if_on_cauldron
 _check_free_move
@@ -608,52 +652,6 @@ _prepare_recall
 # *** Do not open the $g_edit_string_CAULDRON, this script does it. *** #
 # *** HAPPY ALCHING !!!                                             *** #
 
-
-echo "issue 1 1 pickup 0"  # precaution
-
-f_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_edit_string_DIRB"
-echo "issue 1 1 $g_auto_string_DIRF"
-echo "issue 1 1 $g_auto_string_DIRF"
-sleep 1s
-
-
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Exiting $0."
-
-echo unwatch
-echo unwatch $g_edit_string_DRAW_INFO
-beep
-exit $RV
-}
-
-f_emergency_exit(){
-RV=${1:-0}
-shift
-
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
-echo draw ${g_edit_nulldigit_COLOURED:-3} "Emergency Exit $0 !"
-echo unwatch $g_edit_string_DRAW_INFO
-echo "issue 1 1 fire_stop"
-
-test "$*" && echo draw ${g_edit_nulldigit_COLOURED:-5} "$*"
-beep
-exit $RV
-}
-
-
-# ***
-# ***
-# *** diff marker 12
-# *** diff marker 13
-# ***
-# ***
-
-
 echo "issue 1 1 pickup 0"  # precaution
 
 rm -f "$g_edit_string_LOG_REPLY_FILE"
@@ -667,7 +665,13 @@ FAIL=0
 SUCC=0
 one=0
 
-for one in `seq 1 1 $g_auto_digit_NUMBER_ALCH`
+case $g_auto_digit_NUMBER_ALCH in
+[0-9]*) :;;
+*) g_auto_digit_NUMBER_ALCH=infinite;;
+esac
+
+#for one in `seq 1 1 $g_auto_digit_NUMBER_ALCH`
+while :;
 do
 
 tBEG=`/bin/date +%s`
@@ -788,6 +792,15 @@ done
 
 _debug_two || echo unwatch $g_edit_string_DRAW_INFO;
 
+
+# ***
+# ***
+# *** diff marker 16
+# *** diff marker 17
+# ***
+# ***
+
+
 #TODO: gtk2 client the code works.
 # Today in the gtk1 1.12 client "nothing" works:
 # 1) When apply on cauldron after use_skill alchemy on it,
@@ -848,15 +861,6 @@ sleep 1s
 
 #request items inv 135756062 1 80.000000 0 51 cauldron
 
-
-# ***
-# ***
-# *** diff marker 16
-# *** diff marker 17
-# ***
-# ***
-
-
 _probe_if_on_cauldron
 
 echo draw ${g_edit_nulldigit_COLOURED:-5} "Opening cauldron ..."
@@ -901,6 +905,14 @@ fi
 sleep 1s
 
 
+# ***
+# ***
+# *** diff marker 18
+# *** diff marker 19
+# ***
+# ***
+
+
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Going to storage tile .."
 echo issue 1 1 "$g_edit_string_DIRB"
 echo issue 1 1 "$g_edit_string_DIRB"
@@ -942,20 +954,6 @@ echo issue 0 1 drop "slag"
 
 sleep ${g_edit_float_DELAY_DRAWINFO}s
 
-
-# ***
-# ***
-# *** diff marker 18
-# *** diff marker 19
-# ***
-# ***
-
-
-toGO=$((g_auto_digit_NUMBER_ALCH-one))
-tEND=`/bin/date +%s`
-tLAP=$((tEND-tBEG))
-echo draw ${g_edit_nulldigit_COLOURED:-8} "time ${tLAP}s used, still $toGO laps.."
-
 echo draw ${g_edit_nulldigit_COLOURED:-2} "Returning to cauldron ...."
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
@@ -963,7 +961,6 @@ sleep 1
 echo issue 1 1 "$g_auto_string_DIRF"
 echo issue 1 1 "$g_auto_string_DIRF"
 sleep 2s         #speed 0.32
-
 
 _debug_two && {
  # log monitor msgs
@@ -979,7 +976,30 @@ _debug_two && {
  sleep 1
  }
 
+one=$((one+1))
+tEND=`/bin/date +%s`
+tLAP=$((tEND-tBEG))
+
+case $g_auto_digit_NUMBER_ALCH in
+infinite)
+echo draw ${g_edit_nulldigit_COLOURED:-8} "time ${tLAP}s used, $one lap(s) run."
+;;
+*) toGO=$((g_auto_digit_NUMBER_ALCH-one))
+echo draw ${g_edit_nulldigit_COLOURED:-8} "time ${tLAP}s used, still $toGO lap(s).."
+test "$one" = "$g_auto_digit_NUMBER_ALCH" && break
+;;
+esac
+
 done
+
+
+# ***
+# ***
+# *** diff marker 20
+# *** diff marker 21
+# ***
+# ***
+
 
 # *** Here ends program *** #
 
@@ -1019,4 +1039,4 @@ beep -l 500 -f 700
 
 # ***
 # ***
-# *** diff marker 20
+# *** diff marker 22

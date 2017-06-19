@@ -84,7 +84,10 @@ echo draw 6 "Defaults:"
 echo draw 4 "GEM is set currently to '$GEM'"
 echo draw 4 "NUMBER is set to '$NUMBER'"
 echo draw 4 "in script header."
-
+echo draw 2 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+echo draw 5 "-v  to be more talkaktive."
         exit 0
 }
 
@@ -209,7 +212,11 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*"help") _usage;;
+
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
 
 diamond|emerald|pearl|ruby|sapphire)
 # *** testing parameters for validity *** #
@@ -295,7 +302,7 @@ echo request items on
 
 while [ 1 ]; do
 #read UNDER_ME
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 [ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
@@ -307,10 +314,11 @@ test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && f_exit 1
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-f_exit 1
-}
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  echo draw 3 "Need to stand upon cauldron!"
+  f_exit 1
+ }
 
 echo draw 7 "Done."
 return 0

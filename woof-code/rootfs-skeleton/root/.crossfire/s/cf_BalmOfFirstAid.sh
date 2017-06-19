@@ -4,6 +4,8 @@
 # ***
 # ***
 
+exec 2>/tmp/cf_script.err
+
 # Now count the whole script time
 TIMEA=`/bin/date +%s`
 
@@ -46,6 +48,10 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Balm of First Aid ."
 echo draw 4 "If no number given, loops as long"
 echo draw 4 "as ingredients could be dropped."
+echo draw 2 "Options:"
+echo draw 5 "-d  to turn on debugging."
+echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
+echo draw 5 "-v  to be more talkaktive."
         exit 0
 }
 
@@ -69,7 +75,12 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*"help"|*usage) _usage;;
+
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*logging) LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
 [0-9]*)
 PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
@@ -208,11 +219,12 @@ _check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
 echo draw 5 "Checking if on a cauldron..."
 
-UNDER_ME='';
+local UNDER_ME_LIST='';
+local UNDER_ME='';
 echo request items on
 
 while [ 1 ]; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 [ "$LOGGING" ] && echo "_check_if_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
 UNDER_ME_LIST="$UNDER_ME
@@ -223,11 +235,12 @@ test "$UNDER_ME" = "scripttell exit" && exit 1
 sleep 0.1s
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-beep
-exit 1
-}
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  echo draw 3 "Need to stand upon cauldron!"
+  beep
+  exit 1
+ }
 
 echo draw 7 "OK."
 }

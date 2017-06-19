@@ -69,7 +69,7 @@ test "$PING_DO" || return 0
 while :; do
 ping -c1 -w10 -W10 "$URL" && break
 sleep 1
-done >/dev/null
+done >/dev/null 2>&1
 }
 
 _sleepSLEEP(){
@@ -81,8 +81,21 @@ _draw(){
     local lCOLOUR="$1"
     lCOLOUR=${lCOLOUR:-1} #set default
     shift
-    local lMSG="$@"
+    local lMSG="$*"
     echo draw $lCOLOUR "$lMSG"
+}
+
+__draw(){
+    local lCOLOUR="$1"
+    lCOLOUR=${lCOLOUR:-1} #set default
+    shift
+    local lMSG="$*"
+while read -r line
+do
+   _draw $lCOLOUR "$line"
+    done <<EoI
+`echo "$lMSG"`
+EoI
 }
 
 _log(){
@@ -100,7 +113,8 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 
 _debug(){
 test "$DEBUG" || return 0
-_draw ${COL_DEB:-3} "DEBUG:$@"
+#_draw ${COL_DEB:-3} "DEBUG:$*"
+__draw ${COL_DEB:-3} "DEBUG:$*"
 }
 
 _is(){
@@ -249,7 +263,7 @@ case "$PARAM_1" in
 ;;
 
 [0-9]*)
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 _draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
@@ -341,12 +355,12 @@ done
 }
 
 # *** PREREQUISITES *** #
-# 1.) f_check_on_cauldron
-# 2.) f_check_free_space
-# 3.) _prepare_recall
-# 4.) _check_empty_cauldron
-# 5.) _get_player_speed
-
+# 1.) _get_player_speed : for the SLEEP value
+# 2.) _check_skill : Do i have the skill ?
+# 3.) f_check_on_cauldron : Is there a cauldron beneath my character
+# 4.) f_check_free_space  : Can I move ?
+# 5.) _check_empty_cauldron : Is the cauldron empty ?
+# 6.) _prepare_recall : unready rod of word of recall - done before I knew about the apply -u, apply -a options
 
 # ***
 # ***
@@ -355,6 +369,37 @@ done
 # ***
 # ***
 
+# *** Does our player possess the skill alchemy ? *** #
+_check_skill(){
+
+local lPARAM="$*"
+local lSKILL
+
+echo request skills
+
+while :;
+do
+ unset REPLY
+ sleep 0.1
+ read -t 1
+  _log "$LOG_REPLY_FILE" "_check_skill:$REPLY"
+  _debug "$REPLY"
+
+ case $REPLY in    '') break;;
+ 'request skills end') break;;
+ esac
+
+ if test "$lPARAM"; then
+  case $REPLY in *$lPARAM) return 0;; esac
+ else # print skill
+  lSKILL=`echo "$REPLY" | cut -f4- -d' '`
+  _draw 5 "'$lSKILL'"
+ fi
+
+done
+
+test ! "$lPARAM" # returns 0 if called without parameter, else 1
+}
 
 f_check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
@@ -362,16 +407,18 @@ f_check_on_cauldron(){
 _draw 5 "Checking if on a cauldron..."
 
 local UNDER_ME='';
+local UNDER_ME_LIST='';
+
 echo request items on
 
 while :; do
 _ping
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 _log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
 _debug "'$UNDER_ME'"
-UNDER_ME_LIST="$UNDER_ME
-$UNDER_ME_LIST"
+UNDER_ME_LIST="$UNDER_ME_LIST
+$UNDER_ME"
 case "$UNDER_ME" in "request items on end") break;;
 scripttell*)
  case $UNDER_ME in
@@ -384,12 +431,12 @@ scripttell*)
 esac
 done
 
-
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-_draw 3 "Need to stand upon cauldron!"
-_beep
-exit 1
-}
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  _draw 3 "Need to stand upon cauldron!"
+  _beep
+  exit 1
+ }
 
 _draw 7 "OK."
 }
@@ -414,6 +461,7 @@ done
 
 PL_POS_X=`echo "$REPLY" | awk '{print $4}'`
 PL_POS_Y=`echo "$REPLY" | awk '{print $5}'`
+_debug "PL_POS_X='$PL_POS_X' PL_POS_Y='$PL_POS_Y'"
 
 if test "$PL_POS_X" -a "$PL_POS_Y"; then
 
@@ -440,6 +488,7 @@ R_Y=$((PL_POS_Y+nr))
 ;;
 esac
 
+_debug "R_X='$R_X' R_Y='$R_Y'"
 echo request map $R_X $R_Y
 
 while :; do
@@ -535,9 +584,13 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-_is "1 1 get"
-
 echo watch $DRAW_INFO
+_sleepSLEEP
+
+_is "1 1 get"
+_sleepSLEEP
+
+#echo watch $DRAW_INFO
 
 while :; do
 _ping
@@ -554,11 +607,13 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-_draw 3 "Cauldron probably NOT empty !!"
-_draw 3 "Please check/empty the cauldron and try again."
-f_exit 1
-}
+_debug "$REPLY_ALL"
+
+ test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+  _draw 3 "Cauldron probably NOT empty !!"
+  _draw 3 "Please check/empty the cauldron and try again."
+  exit 1 # using f_exit would close the cauldron
+ }
 
 echo unwatch $DRAW_INFO
 
@@ -605,17 +660,17 @@ done
 #PL_SPEED=`awk '{print $7}' <<<"$ANSWER"`    # *** bash
 PL_SPEED=`echo "$ANSWER" | awk '{print $7}'` # *** ash + bash
 PL_SPEED=`echo "scale=2;$PL_SPEED / 100000" | bc -l`
-echo draw 7 "Player speed is $PL_SPEED"
+_debug "Player speed is $PL_SPEED"
 
 PL_SPEED=`echo "$PL_SPEED" | sed 's!\.!!g;s!^0*!!'`
-echo draw 7 "Player speed set to $PL_SPEED"
+_debug "Player speed set to $PL_SPEED"
 
 if test ! "$PL_SPEED"; then
  _draw 3 "Unable to receive player speed. Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 elif test "$PL_SPEED" -gt 65; then
-SLEEP=0.2; DELAY_DRAWINFO=1.0
+SLEEP=0.6; DELAY_DRAWINFO=1.1
 elif test "$PL_SPEED" -gt 55; then
-SLEEP=0.5; DELAY_DRAWINFO=1.2
+SLEEP=0.8; DELAY_DRAWINFO=1.3
 elif test "$PL_SPEED" -gt 45; then
 SLEEP=1.0; DELAY_DRAWINFO=1.5
 elif test "$PL_SPEED" -gt 35; then
@@ -633,12 +688,12 @@ fi
 _draw 6 "Done."
 }
 
+_get_player_speed
+_check_skill alchemy || f_exit 1 "You do not have the skill alchemy."
 f_check_on_cauldron
 f_check_free_space
-_prepare_recall
 _check_empty_cauldron
-_get_player_speed
-
+_prepare_recall
 
 # *** Actual script to alch the desired balm of first aid *** #
 #test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
@@ -696,12 +751,12 @@ TIMEC=${TIMEE:-$TIMEB}
 _is "1 1 apply"
 _sleepSLEEP
 
-#echo watch $DRAW_INFO
+echo watch $DRAW_INFO
 
 _is "1 1 drop 1 water of the wise"
 _sleepSLEEP
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -713,9 +768,9 @@ _log "$LOG_REPLY_FILE" "drop:$REPLY"
 _debug "REPLY='$REPLY'"
 case "$REPLY" in
 $OLD_REPLY) break;;
-*"Nothing to drop.")   f_exit 1 "Nothing to drop";;
-*"There are only"*)    f_exit 1 "Not enough water of the wise";;
-*"There is only"*)     f_exit 1 "Not enough water of the wise";;
+*"Nothing to drop.")   break 2;; # f_exit 1 "Nothing to drop";;
+*"There are only"*)    break 2;; # f_exit 1 "Not enough water of the wise";;
+*"There is only"*)     break 2;; # f_exit 1 "Not enough water of the wise";;
 *"You put the water"*) DW=$((DW+1)); unset REPLY;;
 '') break;;
 esac
@@ -742,9 +797,9 @@ _debug "REPLY='$REPLY'"
 #test "$REPLY" = "$OLD_REPLY" && break
 case "$REPLY" in
 $OLD_REPLY) break;;
-*"Nothing to drop.")      f_exit 1 "Nothing to drop";;
-*"There are only"*)       f_exit 1 "Not enough mandrake root";;
-*"There is only"*)        f_exit 1 "Not enough mandrake root";;
+*"Nothing to drop.")      break 2;; # f_exit 1 "Nothing to drop";;
+*"There are only"*)       break 2;; # f_exit 1 "Not enough mandrake root";;
+*"There is only"*)        break 2;; # f_exit 1 "Not enough mandrake root";;
 *"You put the mandrake"*) DW=$((DW+1)); unset REPLY;;
 '') break;;
 esac
@@ -764,11 +819,11 @@ _is "1 1 $DIRF"
 _is "1 1 $DIRF"
 _sleepSLEEP
 
-#echo watch $DRAW_INFO
+echo watch $DRAW_INFO
 
 _is "1 1 use_skill alchemy"
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -781,7 +836,7 @@ _debug "REPLY='$REPLY'"
 test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -793,12 +848,12 @@ echo unwatch $DRAW_INFO
 _is "1 1 apply"
 _sleepSLEEP
 
-#echo watch $DRAW_INFO
+echo watch $DRAW_INFO
 
 _is "0 0 get all"
 _sleepSLEEP
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -850,6 +905,7 @@ if test $NOTHING = 0; then
         _is "0 1 drop slag"
         fi
 fi
+_sleepSLEEP
 
 sleep ${DELAY_DRAWINFO}s
 

@@ -50,7 +50,10 @@ echo draw 5 "NUMBER times to produce NUMBER of"
 echo draw 5 "Water of the Wise ."
 echo draw 4 "If no number given, loops as long"
 echo draw 4 "as ingredient could be dropped."
-
+echo draw 2 "Options:"
+echo draw 4 "-d  to turn on debugging."
+echo draw 4 "-L  to log to $LOG_REPLY_FILE ."
+echo draw 4 "-v  to be more talkaktive."
         exit 0
 }
 
@@ -104,9 +107,14 @@ PARAM_1="$1"
 
 # *** implementing 'help' option *** #
 case "$PARAM_1" in
--h|*help) _usage;;
+
+-h|*help|*usage) _usage;;
+-d|*debug)     DEBUG=$((DEBUG+1));;
+-L|*log*)    LOGGING=$((LOGGING+1));;
+-v|*verbose) VERBOSE=$((VERBOSE+1));;
+
 [0-9]*)
-PARAM_1test="${PARAM_1//[[:digit:]]/}"
+PARAM_1test="${PARAM_1//[0-9]/}"
 test "$PARAM_1test" && {
 echo draw 3 "Only :digit: numbers as option allowed."
         exit 1 #exit if other input than numbers
@@ -225,10 +233,12 @@ f_check_on_cauldron(){
 echo draw 4 "Checking if on cauldron..."
 
 local UNDER_ME='';
+local UNDER_ME_LIST='';
+
 echo request items on
 
 while [ 1 ]; do
-read -t 1 UNDER_ME
+read -t 2 UNDER_ME
 sleep 0.1s
 [ "$LOGGING" ] && echo "f_check_on_cauldron:$UNDER_ME" >>/tmp/cf_script.ion
 [ "$DEBUG" ] && echo draw 6 "$UNDER_ME"
@@ -239,13 +249,14 @@ test "$UNDER_ME" = "scripttell break" && break
 test "$UNDER_ME" = "scripttell exit" && exit 1
 done
 
-test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
-echo draw 3 "Need to stand upon cauldron!"
-beep
-exit 1
-        }
-echo draw 7 "Done."
+_debug "$UNDER_ME_LIST"
+ test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
+  echo draw 3 "Need to stand upon cauldron!"
+  beep
+  exit 1
+ }
 
+echo draw 7 "Done."
 }
 
 
