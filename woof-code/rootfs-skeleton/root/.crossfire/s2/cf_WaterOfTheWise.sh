@@ -256,10 +256,10 @@ f_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 
 test "$*" && _draw 5 "$*"
@@ -278,11 +278,11 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
+_is "1 1 apply rod of word of recall"
+_is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
-echo "issue 1 1 fire_stop"
+_is "1 1 fire_stop"
 
 NUMBER=$((one-1))
 _say_statistics_end
@@ -411,7 +411,7 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+_is "1 1 apply rod of word of recall"
 fi
 
 _sleepSLEEP
@@ -431,10 +431,10 @@ _draw 7 "Done."
 _check_empty_cauldron(){
 _draw 4 "Checking if cauldron is empty..."
 
-echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
+_is "1 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 sleep 0.5s
 
 echo watch $DRAW_INFO
@@ -443,7 +443,7 @@ OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "issue 1 1 get"
+_is "1 1 get"
 
 while :; do
 read -t 1 REPLY
@@ -473,10 +473,10 @@ _draw 7 "OK ! Cauldron SEEMS empty."
 
 _sleepSLEEP
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 }
 
@@ -534,12 +534,12 @@ OLD_REPLY="";
 REPLY="";
 DW=0
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 echo watch $DRAW_INFO
 
-echo "issue 1 1 drop 7 water"
+_is "1 1 drop 7 water"
 _sleepSLEEP
 
 while :; do
@@ -565,17 +565,17 @@ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water in inve
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 f_check_on_cauldron
 _sleepSLEEP
 
-#echo "issue 1 1 use_skill alchemy"
-echo "issue 0 0 use_skill alchemy"
+#_is "1 1 use_skill alchemy"
+_is "0 0 use_skill alchemy"
 
 # TOTO monsters
 echo watch $DRAW_INFO
@@ -607,13 +607,13 @@ done
 echo unwatch $DRAW_INFO
 
 _sleepSLEEP
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 
 echo watch $DRAW_INFO
 
-#echo "issue 7 1 get"
+#_is "7 1 get"
 echo issue 0 0 "get all"
 _sleepSLEEP
 
@@ -659,43 +659,43 @@ fi
 # ***
 
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 _sleepSLEEP
 
 
 if test "$NOTHING" = 0; then
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill alchemy"
+_is "1 1 use_skill sense curse"
+_is "1 1 use_skill sense magic"
+_is "1 1 use_skill alchemy"
 _sleepSLEEP
 
 #if test $NOTHING = 0; then
 #for drop in `seq 1 1 7`; do  # unfortunately does not work without this nasty loop
-echo "issue 0 1 drop water of the wise"    # issue 1 1 drop drops only one water
-echo "issue 0 1 drop waters of the wise"
+_is "0 1 drop water of the wise"    # issue 1 1 drop drops only one water
+_is "0 1 drop waters of the wise"
 _sleepSLEEP
 # else if (level < 40) {                 /* MAKE TAINTED ITEM */
-echo "issue 0 1 drop water (cursed)"
-echo "issue 0 1 drop waters (cursed)"
+_is "0 1 drop water (cursed)"
+_is "0 1 drop waters (cursed)"
 _sleepSLEEP
-echo "issue 0 1 drop water (magic)"
-echo "issue 0 1 drop waters (magic)"
+_is "0 1 drop water (magic)"
+_is "0 1 drop waters (magic)"
 _sleepSLEEP
-#echo "issue 0 1 drop water (magic) (cursed)"
-#echo "issue 0 1 drop waters (magic) (cursed)"
-echo "issue 0 1 drop water (cursed) (magic)"
-echo "issue 0 1 drop waters (cursed) (magic)"
+#_is "0 1 drop water (magic) (cursed)"
+#_is "0 1 drop waters (magic) (cursed)"
+_is "0 1 drop water (cursed) (magic)"
+_is "0 1 drop waters (cursed) (magic)"
 _sleepSLEEP
-#echo "issue 0 1 drop water (unidentified)"
-#echo "issue 0 1 drop waters (unidentified)"
+#_is "0 1 drop water (unidentified)"
+#_is "0 1 drop waters (unidentified)"
 
 # if (level < 25) {         /* INGREDIENTS USED/SLAGGED */
-echo "issue 0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
-#echo "issue 0 1 drop slags"
+_is "0 1 drop slag"               # many times draws 'But there is only 1 slags' ...
+#_is "0 1 drop slags"
 _sleepSLEEP
 fi
 
@@ -703,10 +703,10 @@ sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
 
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 

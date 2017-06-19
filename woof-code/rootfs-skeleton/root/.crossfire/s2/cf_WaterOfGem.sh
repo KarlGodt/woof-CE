@@ -225,16 +225,16 @@ exit 1
 }
 
 
-echo "issue 1 1 pickup 0"  # precaution
+_is "1 1 pickup 0"  # precaution
 
 f_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 sleep 1s
 
 test "$*" && _draw 5 "$*"
@@ -250,11 +250,11 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
+_is "1 1 apply rod of word of recall"
+_is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
-echo "issue 1 1 fire_stop"
+_is "1 1 fire_stop"
 
 NUMBER=$((one-1))
 _say_statistics_end
@@ -464,7 +464,7 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+_is "1 1 apply rod of word of recall"
 fi
 
 _draw 6 "Done."
@@ -473,20 +473,20 @@ _draw 6 "Done."
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
-echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
+_is "0 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
 
 
 _draw 5 "Checking for empty cauldron..."
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "issue 1 1 get"
+_is "1 1 get"
 
 echo watch $DRAW_INFO
 
@@ -515,10 +515,10 @@ echo unwatch $DRAW_INFO
 
 _draw 7 "OK ! Cauldron SEEMS empty."
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 }
 
 
@@ -639,12 +639,12 @@ TIMEC=${TIMEE:-$TIMEB}
 
 
 # *** open the cauldron *** #
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 echo watch $DRAW_INFO
 
 # *** drop ingredients *** #
-echo "issue 1 1 drop 1 water of the wise"
+_is "1 1 drop 1 water of the wise"
 _sleepSLEEP
 
 OLD_REPLY="";
@@ -674,7 +674,7 @@ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the 
 _sleepSLEEP
 
 # *** drop ingredients *** #
-echo "issue 1 1 drop 3 $GEM"
+_is "1 1 drop 3 $GEM"
 _sleepSLEEP
 
 OLD_REPLY="";
@@ -707,15 +707,15 @@ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing $GEM in inven
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 f_check_on_cauldron
 
-echo "issue 1 1 use_skill alchemy"
+_is "1 1 use_skill alchemy"
 _sleepSLEEP
 
 #TODO: monsters
@@ -750,12 +750,12 @@ echo unwatch $DRAW_INFO
 # ***
 
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 echo watch $DRAW_INFO
 
-echo "issue 0 0 get all"
+_is "0 0 get all"
 _sleepSLEEP
 
 OLD_REPLY="";
@@ -780,10 +780,10 @@ done
 echo unwatch $DRAW_INFO
 _sleepSLEEP
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 _sleepSLEEP
 
 [ "$DEBUG" ] && echo draw 2 "NOTHING is '$NOTHING'" #DEBUG
@@ -791,17 +791,17 @@ _sleepSLEEP
 if test "$NOTHING" = 0; then
  if test $SLAG = 0; then
 
-echo "issue 1 1 use_skill sense curse"
-echo "issue 1 1 use_skill sense magic"
-echo "issue 1 1 use_skill alchemy"
+_is "1 1 use_skill sense curse"
+_is "1 1 use_skill sense magic"
+_is "1 1 use_skill alchemy"
 _sleepSLEEP
 
-echo "issue 1 1 drop water of $GEM"
-echo "issue 1 1 drop water (cursed)"
-echo "issue 1 1 drop water (magic)"
+_is "1 1 drop water of $GEM"
+_is "1 1 drop water (cursed)"
+_is "1 1 drop water (magic)"
 
  else
-echo "issue 0 1 drop slag"
+_is "0 1 drop slag"
  fi
 else
 _sleepSLEEP
@@ -809,10 +809,10 @@ fi
 
 sleep ${DELAY_DRAWINFO}s
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 f_check_on_cauldron

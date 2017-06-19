@@ -259,10 +259,10 @@ f_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 test "$*" && _draw 5 "$*"
@@ -281,11 +281,11 @@ f_emergency_exit(){
 RV=${1:-0}
 shift
 
-echo "issue 1 1 apply rod of word of recall"
-echo "issue 1 1 fire center"
+_is "1 1 apply rod of word of recall"
+_is "1 1 fire center"
 _draw 3 "Emergency Exit $0 !"
 echo unwatch $DRAW_INFO
-echo "issue 1 1 fire_stop"
+_is "1 1 fire_stop"
 _beep
 _beep
 #NUMBER=$((one-1))
@@ -492,7 +492,7 @@ sleep 0.1s
 done
 
 if test "$RECALL" = 1; then # unapply it now , f_emergency_exit applies again
-echo "issue 1 1 apply rod of word of recall"
+_is "1 1 apply rod of word of recall"
 fi
 
 _draw 6 "Done."
@@ -501,20 +501,20 @@ _draw 6 "Done."
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
 
-echo "issue 0 1 pickup 0"  # precaution otherwise might pick up cauldron
+_is "0 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
 
 
 _draw 5 "Checking for empty cauldron..."
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 OLD_REPLY="";
 REPLY_ALL='';
 REPLY="";
 
-echo "issue 1 1 get"
+_is "1 1 get"
 
 echo watch $DRAW_INFO
 
@@ -543,10 +543,10 @@ echo unwatch $DRAW_INFO
 
 _draw 7 "OK ! Cauldron SEEMS empty."
 
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 }
 
 
@@ -672,12 +672,12 @@ do
 
 TIMEC=${TIMEE:-$TIMEB}
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 #echo watch $DRAW_INFO
 
-echo "issue 1 1 drop 1 water of the wise"
+_is "1 1 drop 1 water of the wise"
 _sleepSLEEP
 
 echo watch $DRAW_INFO
@@ -707,7 +707,7 @@ done
 test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing water of the wise in inventory."
 _sleepSLEEP
 
-echo "issue 1 1 drop 1 mandrake root"
+_is "1 1 drop 1 mandrake root"
 _sleepSLEEP
 
 OLD_REPLY="";
@@ -737,15 +737,15 @@ test "$DW" -ge 2 && f_exit 3 "Too many different stacks containing mandrake root
 echo unwatch $DRAW_INFO
 
 _sleepSLEEP
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 #echo watch $DRAW_INFO
 
-echo "issue 1 1 use_skill alchemy"
+_is "1 1 use_skill alchemy"
 
 echo watch $DRAW_INFO
 
@@ -769,12 +769,12 @@ done
 
 echo unwatch $DRAW_INFO
 
-echo "issue 1 1 apply"
+_is "1 1 apply"
 _sleepSLEEP
 
 #echo watch $DRAW_INFO
 
-echo "issue 0 0 get all"
+_is "0 0 get all"
 _sleepSLEEP
 
 echo watch $DRAW_INFO
@@ -811,31 +811,31 @@ then
 fi
 
 _sleepSLEEP
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
-echo "issue 1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
+_is "1 1 $DIRB"
 _sleepSLEEP
 
 if test $NOTHING = 0; then
         if test $SLAG = 0; then
-        echo "issue 1 1 use_skill sense curse"
-        echo "issue 1 1 use_skill sense magic"
-        echo "issue 1 1 use_skill alchemy"
+        _is "1 1 use_skill sense curse"
+        _is "1 1 use_skill sense magic"
+        _is "1 1 use_skill alchemy"
         _sleepSLEEP
 
-        echo "issue 0 1 drop balm"
+        _is "0 1 drop balm"
         else
-        echo "issue 0 1 drop slag"
+        _is "0 1 drop slag"
         fi
 fi
 
 sleep ${DELAY_DRAWINFO}s
 
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
-echo "issue 1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
+_is "1 1 $DIRF"
 _sleepSLEEP
 
 
