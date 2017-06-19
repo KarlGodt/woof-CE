@@ -72,8 +72,15 @@ BEEP_FREQ=${BEEP_F:-$BEEP_FREQ}
 beep -l $BEEP_LENGTH -f $BEEP_FREQ "$@"
 }
 
+# ping if connection is dropping once a while
+PING_DO=
+URL=crossfire.metalforge.net
 _ping(){
-    :
+test "$PING_DO" || return 0
+while :; do
+ping -c1 -w10 -W10 "$URL" && break
+sleep $(( (RANDOM%7) + 1 ))
+done >/dev/null
 }
 
 _usage(){
@@ -210,6 +217,12 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 
 _debug(){
 test "$DEBUG" || return 0
+_draw ${COL_DEB:-3} "DEBUG:$*"
+#__draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+__debug(){
+test "$DEBUG" || return 0
 #_draw ${COL_DEB:-3} "DEBUG:$*"
 __draw ${COL_DEB:-3} "DEBUG:$*"
 }
@@ -221,6 +234,7 @@ _is(){
 }
 
 
+CHECK_DO=1
 # *** Here begins program *** #
 _draw 2 "$0 is started:"
 _draw 2 "PID $$ PPID $PPID"
@@ -244,12 +258,18 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*logging) LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
 --*) case $PARAM_1 in
       --help)   _usage;;
       --deb*)      DEBUG=$((DEBUG+1));;
       --log*)    LOGGING=$((LOGGING+1));;
       --verbose) VERBOSE=$((VERBOSE+1));;
+      --fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+      --slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+      --nocheck) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
@@ -260,6 +280,9 @@ case "$PARAM_1" in
       d)   DEBUG=$((DEBUG+1));;
       L) LOGGING=$((LOGGING+1));;
       v) VERBOSE=$((VERBOSE+1));;
+      F) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+      S) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+      X) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
@@ -365,6 +388,8 @@ exit $RV
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
+[ "$CHECK_DO" ] || return 0
+
 local lPARAM="$*"
 local lSKILL
 
@@ -396,6 +421,9 @@ test ! "$lPARAM" # returns 0 if called without parameter, else 1
 
 __check_on_cauldron(){
 # *** Check if standing on a cauldron *** #
+
+[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Checking if on cauldron..."
 
 local UNDER_ME_LIST='';
@@ -426,7 +454,7 @@ $UNDER_ME"
 done
 
 #UNDER_ME_LIST=`echo -e "$UNDER_ME_LIST"`
-_debug "$UNDER_ME_LIST"
+__debug "$UNDER_ME_LIST"
 
  test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
   _draw 3 "Need to stand upon cauldron!"
@@ -448,6 +476,8 @@ _debug "$UNDER_ME_LIST"
 
 f_check_on_cauldron(){
 
+[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Checking if on cauldron..."
 
 local UNDER_ME_LIST='';
@@ -461,10 +491,13 @@ sleep 0.1s
 _log "$LOG_ISON_FILE" "request items on:$UNDER_ME"
 _debug "'$UNDER_ME'"
 
-#   UNDER_ME_LIST=" $UNDER_ME
-# ${UNDER_ME_LIST}"
+#   UNDER_ME_LIST="$UNDER_ME
+#${UNDER_ME_LIST}"
 
- UNDER_ME_LIST="${UNDER_ME}\\n${UNDER_ME_LIST}"
+UNDER_ME_LIST="$UNDER_ME_LIST
+${UNDER_ME"
+
+# UNDER_ME_LIST="${UNDER_ME}\\n${UNDER_ME_LIST}"
 
  case "$UNDER_ME" in
  "request items on end") break;;
@@ -473,8 +506,8 @@ _debug "'$UNDER_ME'"
  esac
 done
 
-UNDER_ME_LIST=`echo -e "$UNDER_ME_LIST"`
-_debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
+#UNDER_ME_LIST=`echo -e "$UNDER_ME_LIST"`
+__debug "UNDER_ME_LIST='$UNDER_ME_LIST'"
 
  test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
   _draw 3 "Need to stand upon cauldron!"
@@ -487,6 +520,8 @@ _draw 7 "Done."
 
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
+
+[ "$CHECK_DO" ] || return 0
 
 _draw 5 "Checking for space to move..."
 
@@ -591,6 +626,8 @@ _draw 7 "OK."
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
 
+[ "$CHECK_DO" ] || return 0
+
 _draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -622,6 +659,7 @@ _draw 6 "Done."
 
 _check_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+[ "$CHECK_DO" ] || return 0
 
 _is "0 1 pickup 0"  # precaution otherwise might pick up cauldron
 _sleepSLEEP
@@ -684,7 +722,7 @@ _is "1 1 $DIRF"
 
 _get_player_speed(){
 # *** Getting Player's Speed *** #
-
+#[ "$CHECK_DO" ] || return 0
 _draw 5 "Processing Player's speed..."
 
 
@@ -739,6 +777,10 @@ SLEEP=4.0; DELAY_DRAWINFO=9.0
 else
  _draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
+
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP ${SLEEP_ADJ} \+ p`
+ _debug "SLEEP now set to '$SLEEP'" ; }
 
 _draw 6 "Done."
 }
@@ -802,6 +844,7 @@ TIMEC=${TIMEE:-$TIMEB}
 # *** open the cauldron *** #
 _is "1 1 apply"
 _sleepSLEEP
+
 echo watch $DRAW_INFO
 
 # *** drop ingredients *** #
@@ -874,11 +917,13 @@ _sleepSLEEP
 
 f_check_on_cauldron
 
+#echo watch $DRAW_INFO
+
 _is "1 1 use_skill alchemy"
 _sleepSLEEP
 
 #TODO: monsters
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 OLD_REPLY="";
 REPLY="";
@@ -991,14 +1036,14 @@ _draw 4 "Time $TIMER seconds"
 
 if _test_integer $NUMBER; then
  TRIES_STILL=$((NUMBER-one))
- _draw 4 "Still '$TRIES_STILL' attempts to go .."
+ _draw 5 "Still '$TRIES_STILL' attempts to go .."
 
  TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))
  _draw 5 "Still '$TIME_STILL' minutes to go..."
 else
  TRIES_STILL=$one
- _draw 4 "Completed '$TRIES_STILL' attempts .."
+ _draw 5 "Completed '$TRIES_STILL' attempts .."
 
  TIME_STILL=$((TRIES_STILL*TIMER))
  TIME_STILL=$((TIME_STILL/60))

@@ -117,6 +117,12 @@ _draw ${COL_VERB:-12} "VERBOSE:$*"
 
 _debug(){
 test "$DEBUG" || return 0
+_draw ${COL_DEB:-3} "DEBUG:$*"
+#__draw ${COL_DEB:-3} "DEBUG:$*"
+}
+
+__debug(){
+test "$DEBUG" || return 0
 #_draw ${COL_DEB:-3} "DEBUG:$*"
 __draw ${COL_DEB:-3} "DEBUG:$*"
 }
@@ -219,6 +225,7 @@ _remove_err_log
 }
 
 
+CHECK_DO=1
 # *** Here begins program *** #
 _draw 2 "$0 is started.."
 
@@ -236,12 +243,18 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
 --*) case $PARAM_1 in
       --help)   _usage;;
       --deb*)      DEBUG=$((DEBUG+1));;
       --log*)    LOGGING=$((LOGGING+1));;
       --verbose) VERBOSE=$((VERBOSE+1));;
+      --fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+      --slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+      --nocheck) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$PARAM_1'";;
      esac
 ;;
@@ -252,6 +265,9 @@ case "$PARAM_1" in
       d)   DEBUG=$((DEBUG+1));;
       L) LOGGING=$((LOGGING+1));;
       v) VERBOSE=$((VERBOSE+1));;
+      F) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+      S) SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+      X) unset CHECK_DO;;
       *) _draw 3 "Ignoring unhandled option '$oneOP'";;
      esac
     done
@@ -335,6 +351,8 @@ exit $RV
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
+[ "$CHECK_DO" ] || return 0
+
 local lPARAM="$*"
 local lSKILL
 
@@ -368,6 +386,8 @@ test ! "$lPARAM" # returns 0 if called without parameter, else 1
 
 f_check_on_cauldron(){
 
+[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Checking if on cauldron..."
 
 local UNDER_ME_LIST='';
@@ -389,7 +409,7 @@ case "$UNDER_ME" in
 esac
 done
 
-_debug "$UNDER_ME_LIST"
+__debug "$UNDER_ME_LIST"
  test "`echo "$UNDER_ME_LIST" | grep 'cauldron$'`" || {
   _draw 3 "Need to stand upon cauldron!"
   _beep
@@ -409,6 +429,8 @@ _draw 7 "Done."
 
 _check_free_move(){
 # *** Check for 4 empty space to DIRB *** #
+
+[ "$CHECK_DO" ] || return 0
 
 _draw 5 "Checking for space to move..."
 
@@ -495,6 +517,9 @@ _draw 7 "OK."
 
 # *** Getting Player's Speed *** #
 _get_player_speed(){
+
+#[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Processing Player's Speed..."
 
 
@@ -541,11 +566,18 @@ else
  _draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
 _draw 7 "Done."
 }
 
 # *** Readying rod of word of recall - just in case *** #
 _ready_recall(){
+
+[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
@@ -586,6 +618,9 @@ _draw 7 "Done."
 
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron(){
+
+[ "$CHECK_DO" ] || return 0
+
 _draw 4 "Checking if cauldron is empty..."
 
 _is "1 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -708,9 +743,9 @@ while :; do
 _debug "REPLY='$REPLY'"
  case "$REPLY" in
  $OLD_REPLY) break;;
- *"Nothing to drop.")   f_exit 1 "Nothing to drop ..?";;
- *"There are only"*)    f_exit 1 "Not enough water ..";;
- *"There is only"*)     f_exit 1 "Only one water .";;
+ *"Nothing to drop.")   break 2;; # f_exit 1 "Nothing to drop ..?";;
+ *"There are only"*)    break 2;; # f_exit 1 "Not enough water ..";;
+ *"There is only"*)     break 2;; # f_exit 1 "Only one water .";;
  *"You put the water"*) DW=$((DW+1)); unset REPLY;;
  '') break;;
  esac
@@ -734,12 +769,16 @@ _sleepSLEEP
 f_check_on_cauldron
 _sleepSLEEP
 
+# TOTO monsters
+echo watch $DRAW_INFO
+_sleepSLEEP
+
 #_is "1 1 use_skill alchemy"
 _is "0 0 use_skill alchemy"
 
 # TOTO monsters
-echo watch $DRAW_INFO
-_sleepSLEEP
+#echo watch $DRAW_INFO
+#_sleepSLEEP
 
 OLD_REPLY="";
 REPLY="";
@@ -753,11 +792,11 @@ test "$REPLY" || break
 test "$REPLY" = "$OLD_REPLY" && break
 # (level < 100) {                /* WHAMMY the CAULDRON */
 #        if (!QUERY_FLAG(cauldron, FLAG_CURSED)) {
-test "`echo "$REPLY" | grep 'Your cauldron .* darker'`" && exit 1
+test "`echo "$REPLY" | grep 'Your cauldron .* darker'`" && break 2 # exit 1
 # (level < 110) {                /* SUMMON EVIL MONSTERS */
 test "`echo "$REPLY" | grep '.*pours forth monsters\!'`" && f_emergency_exit 1
 # /* MANA STORM - watch out!! */
-test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && exit 1
+test "`echo "$REPLY" | grep '.*You unwisely release potent forces\!'`" && break 2 # exit 1
 #test "$REPLY" || break
 #test "$REPLY" = "$OLD_REPLY" && break
 OLD_REPLY="$REPLY"
@@ -858,6 +897,7 @@ _is "0 1 drop slag"               # many times draws 'But there is only 1 slags'
 #_is "0 1 drop slags"
 _sleepSLEEP
 fi
+_sleepSLEEP
 
 sleep ${DELAY_DRAWINFO}s
 #done                         # to drop all water of the wise at once ...
