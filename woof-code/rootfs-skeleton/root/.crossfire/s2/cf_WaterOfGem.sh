@@ -98,6 +98,9 @@ _draw 2 "Options:"
 _draw 5 "-d  to turn on debugging."
 _draw 5 "-L  to log to $LOG_REPLY_FILE ."
 _draw 5 "-v  to be more talkaktive."
+_draw 7 "-F each --fast sleeps 0.2 s less"
+_draw 8 "-S each --slow sleeps 0.2 s more"
+_draw 3 "-X --nocheck do not check cauldron (faster)"
         exit 0
 }
 
@@ -399,7 +402,7 @@ while :;
 do
  unset REPLY
  sleep 0.1
- read -t 1
+ read -t 2
   _log "$LOG_REPLY_FILE" "_check_skill:$REPLY"
   _debug "$REPLY"
 
@@ -532,7 +535,7 @@ echo request map pos
 
 while :; do
 _ping
-read -t 1 REPLY
+read -t 2 REPLY
  _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
  _debug "map pos:'$REPLY'"
 #test "$REPLY" || break
@@ -580,7 +583,7 @@ echo request map $R_X $R_Y
 
 while :; do
 _ping
-read -t 1 REPLY
+read -t 2 REPLY
 _log "$LOG_REPLY_FILE" "request map '$R_X' '$R_Y':$REPLY"
 _debug "REPLY='$REPLY'"
 
@@ -638,7 +641,7 @@ echo request items actv
 
 while :; do
 _ping
-read -t 1 REPLY
+read -t 2 REPLY
 _log "$LOG_REPLY_FILE" "request items actv:$REPLY"
 _debug "REPLY='$REPLY'"
 test "$REPLY" || break
@@ -733,7 +736,7 @@ echo request stat cmbt
 
 while :; do
 _ping
-read -t 1 ANSWER
+read -t 2 ANSWER
 _log "$LOG_REQUEST_FILE" "request stat cmbt:$ANSWER"
 _debug "$ANSWER"
 

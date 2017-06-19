@@ -146,6 +146,9 @@ _draw 2 "Options:"
 _draw 4 "-d  to turn on debugging."
 _draw 4 "-L  to log to $LOG_REPLY_FILE ."
 _draw 4 "-v  to be more talkaktive."
+_draw 7 "-F each --fast sleeps 0.2 s less"
+_draw 8 "-S each --slow sleeps 0.2 s more"
+_draw 3 "-X --nocheck do not check cauldron (faster)"
         exit 0
 }
 
@@ -438,7 +441,7 @@ echo request map pos
 
 while :; do
 _ping
-read -t 1 REPLY
+read -t 2 REPLY
  _log "$LOG_REPLY_FILE" "request map pos:$REPLY"
  _debug "REPLY='$REPLY'"
 test "$REPLY" || break
@@ -566,9 +569,14 @@ else
  _draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
+SLEEP=${SLEEP:-1}
+
 _debug "SLEEP='$SLEEP'"
 test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
  _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
 
 _draw 7 "Done."
 }

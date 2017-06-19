@@ -88,6 +88,9 @@ echo draw 2 "Options:"
 echo draw 5 "-d  to turn on debugging."
 echo draw 5 "-L  to log to $LOG_REPLY_FILE ."
 echo draw 5 "-v  to be more talkaktive."
+echo draw 7 "-F each --fast sleeps 0.2 s less"
+echo draw 8 "-S each --slow sleeps 0.2 s more"
+echo draw 3 "-X --nocheck do not check cauldron (faster)"
         exit 0
 }
 
@@ -184,11 +187,18 @@ beep
 exit $RV
 }
 
+_debug(){
+[ "$DEBUG" ]       || return 0
+echo "$*" | while read line; do echo draw 3 "$line"; done
+}
+
 _debug_two(){
 [ "$DEBUG" ]       || return 3
 [ "$DEBUG" -ge 2 ] || return 4
 }
 
+
+CHECK_DO=1
 # *** Here begins program *** #
 echo draw 2 "$0 is started:"
 echo draw 2 "PID $$ -- PPID $PPID"
@@ -217,6 +227,9 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
 diamond|emerald|pearl|ruby|sapphire)
 # *** testing parameters for validity *** #
@@ -262,6 +275,8 @@ echo "issue 1 1 pickup 0"  # precaution
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
+[ "$CHECK_DO" ] || return 0
+
 local lPARAM="$*"
 local lSKILL
 
@@ -271,7 +286,7 @@ while :;
 do
  unset REPLY
  sleep 0.1
- read -t 1
+ read -t 2
   [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw 6 "$REPLY"
 
@@ -293,6 +308,8 @@ test ! "$lPARAM" # returns 0 if called without parameter, else 1
 
 _check_if_on_cauldron(){
 # *** Check if standing on a cauldron *** #
+[ "$CHECK_DO" ] || return 0
+
 echo draw 5 "Check if on cauldron..."
 
 local UNDER_ME=''
@@ -335,12 +352,14 @@ return 0
 
 # *** Check for 4 empty space to DIRB *** #
 _check_free_move(){
+[ "$CHECK_DO" ] || return 0
+
 echo draw 5 "Checking for space to move..."
 
 echo request map pos
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -383,7 +402,7 @@ esac
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -428,16 +447,20 @@ echo draw 7 "OK."
 
 _check_if_empty_cauldron(){
 # *** Check if cauldron is empty *** #
+[ "$CHECK_DO" ] || return 0
+
 echo draw 5 "Check if on cauldron..."
 
 local OLD_REPLY="";
 local REPLY="";
 local NOTHING=0
 
+echo watch $DRAW_INFO
+
 echo "issue 1 1 apply"   # open cauldron
 sleep ${SLEEP:-1}s  # 0.5
 
-echo watch $DRAW_INFO
+#echo watch $DRAW_INFO
 
 echo "issue 1 1 get"     # empty cauldron
 
@@ -466,7 +489,7 @@ echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
 echo "issue 1 1 $DIRF"
 sleep ${SLEEP:-1}s
-sleep ${DELAY_DRAWINFO:-1}
+#sleep ${DELAY_DRAWINFO:-1}
 
 echo draw 7 "Done. Cauldron SEEMS empty."
 return 0
@@ -474,6 +497,7 @@ return 0
 
 _get_player_speed(){
 # *** Getting Player's Speed *** #
+#[ "$CHECK_DO" ] || return 0
 
 echo draw 5 "Processing Player's speed..."
 
@@ -483,7 +507,7 @@ OLD_ANSWER=
 echo request stat cmbt
 
 while [ 1 ]; do
-read -t 1 ANSWER
+read -t 2 ANSWER
 [ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
 [ "$DEBUG" ] && echo draw 6 "$ANSWER"
 test "$ANSWER" || break
@@ -523,6 +547,15 @@ else
  echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
+SLEEP=${SLEEP:-1}
+
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
+
 echo draw 6 "Done."
 }
 
@@ -537,6 +570,8 @@ echo draw 6 "Done."
 
 _prepare_recall(){
 # *** Readying rod of word of recall - just in case *** #
+[ "$CHECK_DO" ] || return 0
+
 echo draw 5 "Preparing for recall if monsters come forth..."
 
 RECALL=0
@@ -546,7 +581,7 @@ REPLY="";
 echo request items actv
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_prepare_recall:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -574,10 +609,10 @@ _get_player_speed
 _prepare_recall
 
 
-# *** Actual script to alch the desired water of gem *** #
-#test "$NUMBER" -ge 1 || NUMBER=1 #paranoid precaution
 test "$NUMBER" && { test "$NUMBER" -ge 1 || NUMBER=1; } #paranoid precaution
 NUMBER=${NUMBER:-infinite}
+
+# *** Actual script to alch the desired water of gem                *** #
 
 # *** Lets loop - hope you have the needed amount of ingredients    *** #
 # *** in the inventory of the character and unlocked !              *** #

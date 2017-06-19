@@ -54,6 +54,9 @@ echo draw 2 "Options:"
 echo draw 4 "-d  to turn on debugging."
 echo draw 4 "-L  to log to $LOG_REPLY_FILE ."
 echo draw 4 "-v  to be more talkaktive."
+echo draw 7 "-F each --fast sleeps 0.2 s less"
+echo draw 8 "-S each --slow sleeps 0.2 s more"
+echo draw 3 "-X --nocheck do not check cauldron (faster)"
         exit 0
 }
 
@@ -92,11 +95,18 @@ done
          # the whole script waits, even forked functions.
          # would need an external script, that shows a xmessage ..
 
+_debug(){
+[ "$DEBUG" ]       || return 0
+echo "$*" | while read line; do echo draw 3 "$line"; done
+}
+
 _debug_two(){
 [ "$DEBUG" ]       || return 3
 [ "$DEBUG" -ge 2 ] || return 4
 }
 
+
+CHECK_DO=1
 # *** Here begins program *** #
 echo draw 2 "$0 is started.."
 
@@ -112,6 +122,9 @@ case "$PARAM_1" in
 -d|*debug)     DEBUG=$((DEBUG+1));;
 -L|*log*)    LOGGING=$((LOGGING+1));;
 -v|*verbose) VERBOSE=$((VERBOSE+1));;
+-F|*fast)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \- p`;;
+-S|*slow)    SLEEP_ADJ=`dc ${SLEEP_ADJ:-0} 0.2 \+ p`;;
+-X|*nocheck) unset CHECK_DO;;
 
 [0-9]*)
 PARAM_1test="${PARAM_1//[0-9]/}"
@@ -199,6 +212,8 @@ exit $RV
 # *** Does our player possess the skill alchemy ? *** #
 _check_skill(){
 
+[ "$CHECK_DO" ] || return 0
+
 local lPARAM="$*"
 local lSKILL
 
@@ -208,7 +223,7 @@ while :;
 do
  unset REPLY
  sleep 0.1
- read -t 1
+ read -t 2
   [ "$LOGGING" ] && echo "_check_skill:$REPLY" >>"$LOG_REPLY_FILE"
   [ "$DEBUG" ] && echo draw 6 "$REPLY"
 
@@ -230,6 +245,9 @@ test ! "$lPARAM" # returns 0 if called without parameter, else 1
 
 # *** Check if standing on a cauldron *** #
 f_check_on_cauldron(){
+
+[ "$CHECK_DO" ] || return 0
+
 echo draw 4 "Checking if on cauldron..."
 
 local UNDER_ME='';
@@ -270,6 +288,9 @@ echo draw 7 "Done."
 
 # *** Getting Player's Speed *** #
 _get_player_speed(){
+
+#[ "$CHECK_DO" ] || return 0
+
 echo draw 4 "Processing Player's Speed..."
 
 ANSWER=
@@ -278,7 +299,7 @@ OLD_ANSWER=
 echo request stat cmbt
 
 while [ 1 ]; do
-read -t 1 ANSWER
+read -t 2 ANSWER
 [ "$LOGGING" ] && echo "_get_player_speed:$ANSWER" >>/tmp/cf_request.log
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$ANSWER" || break
@@ -318,11 +339,23 @@ else
  echo draw 3 "PL_SPEED not a number ? Using defaults '$SLEEP' and '$DELAY_DRAWINFO'"
 fi
 
+SLEEP=${SLEEP:-1}
+
+_debug "SLEEP='$SLEEP'"
+test "$SLEEP_ADJ" && { SLEEP=`dc $SLEEP $SLEEP_ADJ \+ p`
+ case $SLEEP in -[0-9]*) SLEEP=0.1;; esac
+ _debug "SLEEP now set to '$SLEEP'" ; }
+
+SLEEP=${SLEEP:-1}
+
 echo draw 7 "Done: Set SLEEP='$SLEEP'"
 }
 
 # *** Readying rod of word of recall - just in case *** #
 _ready_rod_of_recall(){
+
+[ "$CHECK_DO" ] || return 0
+
 echo draw 4 "Preparing for recall..."
 RECALL=0
 OLD_REPLY="";
@@ -331,7 +364,7 @@ REPLY="";
 echo request items actv
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_ready_rod_of_recall:$REPLY" >>/tmp/cf_request.log
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -361,12 +394,15 @@ echo draw 7 "Done."
 
 # *** Check for 4 empty space to DIRB *** #
 _check_free_move(){
+
+[ "$CHECK_DO" ] || return 0
+
 echo draw 5 "Checking for space to move..."
 
 echo request map pos
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -409,7 +445,7 @@ esac
 echo request map $R_X $R_Y
 
 while [ 1 ]; do
-read -t 1 REPLY
+read -t 2 REPLY
 [ "$LOGGING" ] && echo "_check_free_move:$REPLY" >>"$LOG_REPLY_FILE"
 [ "$DEBUG" ] && echo draw 6 "$REPLY"
 test "$REPLY" || break
@@ -454,6 +490,9 @@ echo draw 7 "OK."
 
 # *** Check if cauldron is empty *** #
 _check_empty_cauldron(){
+
+[ "$CHECK_DO" ] || return 0
+
 echo draw 4 "Checking if cauldron is empty..."
 
 echo "issue 1 1 pickup 0"  # precaution otherwise might pick up cauldron
@@ -482,18 +521,17 @@ OLD_REPLY="$REPLY"
 sleep 0.1s
 done
 
-test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
-echo draw 3 "Cauldron NOT empty !!"
-echo draw 3 "Please empty the cauldron and try again."
-f_exit 1
-}
+ test "`echo "$REPLY_ALL" | grep '.*Nothing to take!'`" || {
+  echo draw 3 "Cauldron NOT empty !!"
+  echo draw 3 "Please empty the cauldron and try again."
+  f_exit 1
+ }
 
 echo unwatch $DRAW_INFO
 
 echo draw 7 "OK ! Cauldron SEEMS empty."
 
 sleep ${SLEEP:-1}s
-
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRB"
 echo "issue 1 1 $DIRF"
